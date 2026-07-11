@@ -176,7 +176,7 @@ stable; uniform can't sidestep it, because changing the structure *is* the op.)
 > apply to mask logic.** Masks are host structure and MUST be numpy. Do **not** "fix" mask `np.*` to
 > `xnp`/jax for consistency — it silently breaks jit (tracer-leak into `aux_data`, `int()`
 > concretization errors). The rule across the uniform layer is: **supercores (data) → `xnp`; masks
-> (structure) → `np`.** (`make_uniform_masks` and the other mask builders therefore always emit numpy,
+> (structure) → `np`.** (`ut3_make_masks` and the other mask builders therefore always emit numpy,
 > with no `use_jax` flag; `to_jax`/`to_numpy` convert the supercores only, never the masks.)
 
 ## Honest costs

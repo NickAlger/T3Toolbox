@@ -73,7 +73,7 @@ updated to this version by the time the package is released.
 > any piece of nontrivial logic ask: *would such a user rather find and call a backend function, or
 > just rewrite it themselves?* If rewriting is easier (the logic is trivial), leaving it inline in the
 > frontend is fine — don't bloat the backend. If the logic takes real thought to get right and is easy
-> to get **wrong** (e.g. the base-inner stack-axis bookkeeping, a depth-aware tree zip), it belongs in
+> to get **wrong** (e.g. the frame-inner stack-axis bookkeeping, a depth-aware tree zip), it belongs in
 > the backend so they can find and reuse it. **Exception:** logic *inseparable* from the frontend —
 > constructing/validating the `T3*` OO classes (the `.validate()` contracts), the same-frame guard (it
 > needs the two `T3Frame` objects) — stays in the frontend regardless, since the backend cannot depend on
@@ -85,7 +85,8 @@ updated to this version by the time the package is released.
 > backend when it encodes a non-obvious **capability** — its value is the name + docstring + test, not
 > the code. A trivial-*and*-obvious one-liner (`return a + b`) stays inline; a trivial-*but*-non-obvious
 > one belongs in the backend, because a user who doesn't know the trick can't "just rewrite it." Example:
-> `probing.{apply,entries,probe}_corewise_transpose` are each a one-line substitution into the *tangent*
+> the `t3_{apply,entries,probe}_corewise_transpose` trio (in `apply`/`entries`/`probing`) are each a
+> one-line substitution into the *tangent*
 > transpose (`P,Q,O → G`, paper §6.3), but that substitution is the non-obvious part — inlining it in
 > the frontend would hide the corewise capability from backend users entirely.
 - `TuckerTensorTrain` (`tucker_tensor_train.py`) — the keystone; `.data = (tucker_cores, tt_cores)`.
@@ -128,14 +129,14 @@ updated to this version by the time the package is released.
 > **Batching/stacking is the most error-prone part of the library. Before touching anything with
 > batch/stack axes, read [`docs/batching_and_stacking.md`](docs/batching_and_stacking.md)** — start with
 > its **"Start here"** section (one-screen mental model + a concrete shape table + the shape-notation
-> legend), then the numbered sections for the full reference (three meanings of "stack", the base-inner
+> legend), then the numbered sections for the full reference (three meanings of "stack", the frame-inner
 > convention and *why*, the `'...'`-vs-grouped-contraction machineries, heterogeneous-stack tuples,
 > `vmap`/`jit` with the frame as a pytree leaf). The notes below are the terse version.
 >
 > The three batch **blocks** (mnemonic-and-collision-free letters): **`C`** = frame/core stack (base
 > points, on *every* core; `= stack_shape`), **`W`** = probe stack (the `w` vectors, on `ww` only),
 > **`K`** = tangent stack (the `k` tangent vectors at *one* frame, on the *variations* only). Order is
-> base-inner **`W + K + C`**. **The most common slip is conflating `C` (base points) with `K` (tangent
+> frame-inner **`W + K + C`**. **The most common slip is conflating `C` (base points) with `K` (tangent
 > vectors at a frame)** — they live on different operands and mean different things. (These were `F`/`V`/`G`
 > before a rename that made them disjoint from the core/variation symbols `U`/`P`/`Q`/`O`/`G`/`H`/`V`.)
 
@@ -152,10 +153,10 @@ prefix → a leading `'...'` einsum, which rides `stack_shape` for free; (2) **t
 on *different* operand subsets (canonical case: core/frame stack `C` on the cores vs probe stack `W` on
 `ww` only — a single `'...'` can't express it) → the named grouped-block contractions in
 `backend/contractions.py` (`WCa_Caib_WCi_to_WCb` etc.; each capital block reshaped to one flat axis,
-= 1 when empty). **Convention (library-wide, base-inner): core stack `C` innermost, extra stacks
+= 1 when empty). **Convention (library-wide, frame-inner): core stack `C` innermost, extra stacks
 `W`/`K` outermost** (`W+C`, `K+C`, `W+K+C`) — because `'...'`-broadcast replicates a frame over the
 extras for free only when `C` is innermost. (`apply`/`entries` were the last `C+W` holdout — flipped
-in 5b; the whole library is now base-inner.)
+in 5b; the whole library is now frame-inner.)
 
 **The three sampling operations** (`entries`, `apply`, `probe`) — evaluate the dense tensor without
 forming it, differing in how many modes stay free (`probe`: one → `d` vectors; `apply`/`entries`:
@@ -168,8 +169,9 @@ exemplar; `apply`/`entries` are the general-purpose all-modes special cases.
 - **Canonical core-tuple orderings (frontend takes precedence).** `TuckerTensorTrain.data =
   (tucker_cores, tt_cores)`; `T3Frame.data = (up, down, left, right) = (U, O, P, Q)` (the `O`/down core
   is called **`down_tt_cores`**, not "outer"); `T3Variations.data = (tucker_variations, tt_variations)`;
-  `(frame, variations)` pairs are frame-first. All verified backends (`tangent_operations`,
-  `fv_conversions`, `orthogonal_representations`, **and now `probing`**) take these tuples in this
+  `(frame, variations)` pairs are frame-first. All verified backends (`tv_operations`,
+  `fv_conversions` (incl. `t3_orthogonal_representations`), **and the sampling modules
+  `probing`/`apply`/`entries`**) take these tuples in this
   exact order — pass `.data` straight through, no reorder. (Only the parked `fv_operations.py`
   `absorb_weights` still uses the old `(up, left, right, outer)` probing order.)
 - **`corewise_dot`/`corewise_norm` collapse EVERY axis** (stacks included) to a scalar. To keep the
@@ -183,7 +185,7 @@ thread `use_jax` params around.** Each operation computes `use_jax = tree_contai
 (or `is_jax_ndarray(...)`) and the jax-ness propagates through the computed intermediates (so a
 delegating function needn't infer at all — its callees do, from the arrays passed down). Applied
 across the verified code: `probing`, `manifold`, `frame_variations_format`, `corewise`, and their
-backend deps (`tangent_operations`, `fv_conversions`, `t3_operations`, `t3_linalg`,
+backend deps (`tv_operations`, `fv_conversions`, `t3_operations`, `t3_linalg`,
 `t3_orthogonalization`, `linalg`) — **operations carry no `use_jax`**.
 **The exception: pure constructors with NO array inputs** — `TuckerTensorTrain.randn/zeros/ones` and
 `load`, `t3_corewise_randn`/`t3_zeros`/`t3_ones`, `common.randn`, and the rank-spec helpers in
@@ -204,6 +206,12 @@ to `xnp`.** Rule: **supercores → `xnp`; masks → `np`.** Full reasoning + the
 [`docs/uniform_masks_vs_ranks.md`](docs/uniform_masks_vs_ranks.md).
 
 ## Code style (deliberate and nonstandard — do NOT normalize)
+
+- **Naming:** the family prefix grammar, module map, semantic markers ("corewise",
+  "numerically_"), and the cataloged deliberate exceptions live in
+  **[`docs/naming_conventions.md`](docs/naming_conventions.md)** — read it before naming anything
+  new. Governing principle: names exist to help the user; when convention and clarity conflict,
+  clarity wins.
 
 - **Signature shape comments — the trailing comment IS the type the language can't express** (Python's
   `NDArray` says nothing; the *shape* is the real contract). One argument per line, one return element
@@ -330,7 +338,7 @@ project engineering practices below are shared.)*
   relevant files (leave unrelated stray edits alone).
 - **Changing a backend convention has a wide blast radius — grep ALL consumers.** An axis-ordering or
   signature change ripples through the OO wrappers that delegate to it (e.g. `TuckerTensorTrain.probe`
-  → `probe_t3`) and *their* tests/doctests, not just the file you edited. After such a change, run the
+  → `t3_probe`) and *their* tests/doctests, not just the file you edited. After such a change, run the
   full suite (`test_tucker_tensor_train` + `test_manifold` + `test_frame_variations_format` +
   `backend/test_contractions`), not only the directly-touched tests.
 - Don't ship a possibly-wrong result with a weak test — if something looks off, dig in or flag it.
@@ -352,8 +360,8 @@ of every path. Full suite ~50s, green.
   apply/entries/probe **and their derivatives**; the **plain** `UniformTuckerTensorTrain` + `ut3_*`
   backend (through slice 8); **the uniform `UT3Frame`/`UT3Variations` foundation (increment 2c) and the
   uniform *tangent + manifold layer* (increment 3b) — the *tangent backend* (`UT3Tangent` +
-  `backend/ufv_tangent_operations`: doubled-rank `to_ut3`/`to_dense`, `retract`, gauge,
-  `project_ut3_onto_tangent_space`, cross-layer converters, stack/unstack), the *two geometries*
+  `backend/utv_operations`: doubled-rank `to_ut3`/`to_dense`, `retract`, gauge,
+  `utv_project_ut3_onto_tangent_space`, cross-layer converters, stack/unstack), the *two geometries*
   (`UNIFORM_MANIFOLD`/`UNIFORM_COREWISE`, 3b-5), *tangent + corewise probing* (3b-6: the `d`-prefixed
   `WKC` contractions, `UT3Tangent.{probe,apply,entries}` + their `𝒥ᵀ` transposes, and the corewise
   `UniformTuckerTensorTrain.*_corewise_transpose`), and now the *derivative (jet) probing* (**3b-6′**: the
@@ -380,8 +388,9 @@ of every path. Full suite ~50s, green.
   Worked examples: `examples/fit_hilbert_uniform_{newton_cg,probe_derivatives_newton_cg}.py`. History:
   `dev/archive/uniform_optimizers_plan.md`. Live status: `dev/HANDOFF.md`.
 - **Deferred / broken:** the **weighted layer** (parked `absorb_weights`) — deferred past 1.0. Remaining
-  `OLD_*.py` / `OLD_test_*.py` stray files (`OLD_orthogonalization.py`, the OLD test files) are dead/superseded
-  and slated for the **R6** cleanup (delete only after confirming functionality is preserved elsewhere).
+  `OLD_test_*.py` stray files are dead/superseded and slated for the **R6** cleanup (delete only after
+  confirming functionality is preserved elsewhere; `OLD_orthogonalization.py` was deleted 2026-07-11
+  after Nick confirmed supersession).
 
 ## Open questions / TODO
 
@@ -391,14 +400,18 @@ Live roadmap + next steps: **`dev/HANDOFF.md`**. The durable open items:
   (increment 3b), the optimizers/fitting on it (U1–U6 + U5.6), and the **frontend surface (U7)** are built and
   tested: `optimizers.*` / `fitting.*_model` infer ragged-vs-uniform from `x0`, `fitting.UniformGaussNewtonModel`
   is the roll-your-own surface, and worked examples exist. Slicing history: `dev/archive/uniform_optimizers_plan.md`.
-  **The uniform layer is closed; next is the naming pass then the doc pass** (below).
+  **The uniform layer is closed; the naming pass is DONE; next is the doc pass** (below).
 - **Redesign the weighted tensor-network** code structure (deferred past 1.0).
 - **Doc pass (Track B / release):** fold the design rationale from `docs/` into user-facing Sphinx
   docs; fix the docs build (`conf.py` autoapi excludes core modules; committed `_build`; `modules.rst`
   still titled "TuckerTensorTrainTools").
-- **Public API + naming review** — the `basis`/`base` → `frame` rename is **DONE** (`dev/naming_review.md`
-  §2); remaining: curate `t3toolbox/__init__.py`, the cross-class method-name sweep + small auto-fixes, and
-  the **deferred** backend module reorg (§4).
+- **Public API + naming review — DONE (2026-07-11).** The `basis`/`base` → `frame` rename
+  (`dev/naming_review.md` §2), the full naming pass + backend module reorg (plan + inventory:
+  `dev/naming_pass_plan.md`; the sampling modules are grouped **by type** — Nick's call — with the
+  family carried by function prefixes), and the curated `t3toolbox/__init__.py` public surface.
+  **The user-facing conventions catalog (grammar, module map, semantic markers, deliberate
+  exceptions) is [`docs/naming_conventions.md`](docs/naming_conventions.md)** — read it before
+  naming anything new.
 - **Goal-1 `fit(...)` facade** — auto geometry/optimizer/ranks/`x0` + rank-continuation/validation
   ("standard user, no fiddling"). **Deferred to 1.1**; 1.0 ships as an honest mid-level toolkit.
 - **Cleanup backlog:** `OLD_*.py` (delete only once functionality is confirmed preserved elsewhere);

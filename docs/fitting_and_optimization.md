@@ -125,7 +125,7 @@ geometry object. Mixing them silently corrupts the result, so they cannot be mix
         backend/optimizers.py     (algorithms; Problem/LocalModel oracle; GeometryOps; flat_draw)
         backend/fitting.py        (SamplingKind: APPLY/ENTRIES/PROBE + *_derivatives_kind; sumsq helpers)
         backend/probing.py        (the bare 𝒥/𝒥ᵀ for apply/entries/probe + frame-sweep reuse hooks)
-        backend/probe_derivatives.py  (the derivative 𝒥/𝒥ᵀ + frame-sweep-jets reuse hooks)
+        backend/sampling_derivatives.py  (the derivative 𝒥/𝒥ᵀ + frame-sweep-jets reuse hooks)
         manifold.py               (MANIFOLD/COREWISE geometries; T3Tangent; retract/project/frame)
 ```
 

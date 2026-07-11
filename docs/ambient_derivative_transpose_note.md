@@ -10,9 +10,9 @@ if a use case arises. It is **not** scheduled work.
 Companion docs: `docs/transposes.md` (the ambient/corewise/tangent taxonomy),
 `docs/symmetric_probe_derivatives.tex` (the forward + tangent-transpose math),
 `dev/archive/derivatives_mirror_plan.md` (the overall plan/handoff). Backend home if built:
-`backend/probe_derivatives.py`; the non-derivative versions to mirror are
-`probing.probe_ambient_transpose`, `apply.tucker_tensor_train_apply_ambient_transpose`,
-`entries.tucker_tensor_train_entries_ambient_transpose`.
+`backend/sampling_derivatives.py`; the non-derivative versions to mirror are
+`probing.t3_probe_ambient_transpose`, `apply.t3_apply_ambient_transpose`,
+`entries.t3_entries_ambient_transpose`.
 
 ## 1. Recap: the non-derivative ambient transposes
 
@@ -109,7 +109,7 @@ built from it, whose ranks track the CP rank) is intrinsically large.
 
 ## 6. Implementation sketch if picked up (option A)
 
-Mirror `probing.probe_ambient_transpose` (which builds the rank-`d` CP with the residual on a diagonal
+Mirror `probing.t3_probe_ambient_transpose` (which builds the rank-`d` CP with the residual on a diagonal
 slot), but enumerate subsets:
 
 - `apply_ambient_derivatives_transpose(c, ww, pp, order, sum_over_probes=False)` →

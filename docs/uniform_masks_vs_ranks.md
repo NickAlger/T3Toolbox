@@ -53,7 +53,7 @@ continuously renormalize positions — i.e. pay for data movement, or secretly r
 
 Exactly one operation needs a prefix: **SVD truncation** keeps the top-`k` singular values, which come
 out in prefix order, so the truncation mask must be `[0, k)`. But the T3-SVD *re-bases* everything — it
-orthogonalizes, runs fresh SVDs, and applies a freshly built prefix mask (`make_uniform_masks` of the
+orthogonalizes, runs fresh SVDs, and applies a freshly built prefix mask (`ut3_make_masks` of the
 minimal ranks); it ignores whatever pattern the input mask had. So:
 
 - between SVDs, `+` / `×` / `apply` / `entries` carry whatever (possibly gappy) masks the algebra

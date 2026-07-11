@@ -95,7 +95,7 @@ over a packed array) are correct because the padding is inert zeros.
 ## Honest scope and limits
 
 - **Only user-facing ops with ragged twins are bound by the contract.** The masking/padding plumbing
-  (`make_uniform_masks`, `apply_masks_to_cores`, pack/unpack) is uniform-only — it is the machinery that
+  (`ut3_make_masks`, `ut3_apply_masks`, pack/unpack) is uniform-only — it is the machinery that
   *makes* the contract hold, not something the contract constrains.
 - **The uniform layer mirrors only the shape-stable subset of ragged ops.** `rtol`/`atol` truncation has
   no uniform counterpart (data-dependent shapes would break uniformity/`jit`); uniform truncates via

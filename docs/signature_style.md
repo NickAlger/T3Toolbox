@@ -52,7 +52,7 @@ type; the comment carries the rest.)
 ## The mechanics
 
 ```python
-def compute_mus(
+def compute_mu(
         left_tt_cores:  typ.Union[typ.Sequence[NDArray], NDArray],  # len=d-1, elm_shape=C+(rLi,nUi,rL(i+1))
         xis:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nUi,)
 ) -> typ.Union[
@@ -127,7 +127,7 @@ the exceptions case by case. Reasonable deviations:
 - **Self-evident or non-array types** (a callable, a plain Python `int` count, an enum-like string)
   need only a short note, or none.
 - **Pathologically long types/contracts** (a deep nested `Union` of two full representations, as in
-  `probe_t3`'s `x`) may wrap across several lines; perfect single-line alignment is impossible there,
+  `t3_probe`'s `x`) may wrap across several lines; perfect single-line alignment is impossible there,
   so keep it readable rather than rigidly tabular.
 - **One-off / throwaway internal closures** (`_func` inside an `xmap`) don't need the full treatment.
 

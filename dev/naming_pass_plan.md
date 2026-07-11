@@ -1,8 +1,13 @@
 # Naming pass + backend module reorg — execution plan (Slice 0 artifact)
 
-_Written 2026-07-10. Status: **for review** — nothing below is executed yet except the
-`OLD_orthogonalization.py` deletion (committed separately). This is the plan Nick reviews before
-Slices 1–4 run. Companion decisions log: `dev/naming_review.md`._
+_Written 2026-07-10. Status: **EXECUTED 2026-07-11** (all slices, suite-gated per sub-slice, full
+suite green throughout: 593 tests / 40,215 subtests). Execution deltas vs the tables below:
+sampling landed as **option C** (by-type files `apply`/`entries`/`probing` + one
+`sampling_derivatives.py`; the c1–c4 *function* renames applied as written); F1 landed as Nick's
+**tt/utt** family (`tt_operations.py` + `tt_orthogonalization.py`, with the polymorphic merges
+`tt_reverse` and `tt_squash_tails`; `utt_` reserved, no members); F7 became moot under option C
+(uniform sampling keeps plain+derivatives together); everything weighted untouched. The user-facing
+catalog is **`docs/naming_conventions.md`**. Companion decisions log: `dev/naming_review.md`._
 
 ## 0. Scope decisions (settled with Nick, 2026-07-10; amended 2026-07-11)
 

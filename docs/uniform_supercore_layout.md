@@ -19,7 +19,7 @@ tt_supercore     : (d,) + stack_shape + (r, n, r)
 
 So axis `0` is the **core/mode index**, the batch (`stack_shape`) sits at axes `1 .. len(stack_shape)`,
 and the per-core tensor axes come last. This is a deliberate departure from the rest of T3Toolbox,
-where `stack_shape` is the *leading* prefix of every core (the "base-inner" convention in
+where `stack_shape` is the *leading* prefix of every core (the "frame-inner" convention in
 `docs/batching_and_stacking.md`). Inside a uniform object the stack is *not* leading; `d` is.
 
 ## Why `d` leads

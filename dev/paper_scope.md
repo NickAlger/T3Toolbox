@@ -100,9 +100,9 @@ derivatives**; the four optimizers; the probing-fit recipe.*
   `*_derivatives_model`; optimizers `gradient_descent`/`mc_sgd`/`adam`/`newton_cg`.
 
 ### Group 8 — The stacking layer (batching)
-*Mostly design exposition: three meanings of "stack", the `C`/`W`/`K` blocks, the base-inner `W+K+C`
+*Mostly design exposition: three meanings of "stack", the `C`/`W`/`K` blocks, the frame-inner `W+K+C`
 convention and **why**, heterogeneous stacks, the two batch machineries (leading-`'...'` vs
-grouped-block contractions). The base-inner convention + grouped-block contractions are the
+grouped-block contractions). The frame-inner convention + grouped-block contractions are the
 contribution.*
 - **Dedicated methods:** `stack`/`unstack` (every class), `stack_tangents`/`unstack_tangents`,
   `stack_frame`/`unstack_frame`, `sum_stack`/`sum_tangents`, `{,frame_,tangent_}stack_shape`;
@@ -229,7 +229,7 @@ conventions / jax plumbing — exclude, implementation footnote at most).
 | `uniform_equivalence_contract.md` | RATIONALE | 9/11 | Define the vectorized layer by a **round-trip equivalence** to the reference layer (real parts only) — simultaneously correctness spec + test oracle (ragged twin, not dense). |
 | `t3svd_design_rationale.md` | RATIONALE | 4/3 | **Gauge-parity:** truncation and lossless minimization each flip the orthogonality gauge → can't fuse into one gauge-predictable sweep; hence separate ops. |
 | `fitting_and_optimization.md` | RATIONALE | 7 | **Geometry-generic Gauss–Newton:** `J=𝒥∘Π`, `grad=Π𝒥ᵀr`; swap the single gauge `Π` → Riemannian (PD H) or raw-core Euclidean (gauge-singular H). Rest is plumbing. |
-| `batching_and_stacking.md` | RATIONALE | 8 | Batch taxonomy (`C`/`K`/`W` on different parts); **broadcast (aligned) vs multi-index contraction (independent on disjoint operands)**; transpose-of-a-broadcast-is-a-sum. **Reframe base-inner** as "frame is outer-shared over its fiber" (right-aligned-broadcast is a 1-line artifact). ~30–40% paper-worthy. |
+| `batching_and_stacking.md` | RATIONALE | 8 | Batch taxonomy (`C`/`K`/`W` on different parts); **broadcast (aligned) vs multi-index contraction (independent on disjoint operands)**; transpose-of-a-broadcast-is-a-sum. **Reframe frame-inner** as "frame is outer-shared over its fiber" (right-aligned-broadcast is a 1-line artifact). ~30–40% paper-worthy. |
 | `testing_strategy.md` | METHODOLOGY | 11 | **Phantom-rank blind spot** (dense tests can't see too-permissive masks), the **tautology trap**, cured by exact-mask assertions + garbage-padding (clean==dirty). |
 | `ambient_derivative_transpose_note.md` | METH. (appendix) | 6 | Derivative ambient adjoint has **intrinsically exponential CP rank** (`2^d` apply, `d·2^{d-1}` probe) — a property of the tensor, not the encoding; why derivative-fitting routes through tangent/corewise. |
 
@@ -302,7 +302,7 @@ references still say `docs/<name>` for files the reorg moved to `dev/archive/`. 
   Gauss–Newton-Hessian derivation** (`𝒥(gauge)=0 ⟹ gauge∈ker(𝒥ᵀ𝒥)`, `Π` the cure), Manopt/Pymanopt/
   Geomstats vs TensorLy/t3f positioning, the metric-on-tangent argument → Group 5/7 "why".
 - The **contraction dense-tangent-projection formal proof** (`t3m-swap-planning_2026-06-13.md` L942–1000;
-  results are in the `tangent_operations.py` docstring, the cross-term-cancellation proof is not) → Group 5.
+  results are in the `tv_operations.py` docstring, the cross-term-cancellation proof is not) → Group 5.
 - The **bidiagonal-`trs` perf optimization + 32×/78× benchmarks** (`derivatives_mirror_plan.md:205–212`)
   → dev perf-tracking, not `docs/`.
 

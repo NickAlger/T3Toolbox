@@ -142,7 +142,7 @@ frames). Naming convention: bare `minimal_ranks` = structural; `numerically_mini
   if any input is a jax array, else `rtol_numpy`); under a trace it skips (returns pass). Mechanism in
   `t3toolbox/safety.py` (S1, done).
 - **Where checks live (razor):** to serve raw-`.data` users, the ORTH/GAUGE checks belong at the **backend**
-  functions that consume raw data (`tangent_operations.*`, which already have `is_orthogonal`-style
+  functions that consume raw data (`tv_operations.*`, which already have `is_orthogonal`-style
   residual helpers), with the frontend methods inheriting them. `same_frame` is a frontend concept (it
   needs the two `T3Frame` objects); the backend's analogue is "the caller passed one shared frame", so the
   same-frame check is naturally frontend-only.
@@ -163,6 +163,6 @@ frames). Naming convention: bare `minimal_ranks` = structural; `numerically_mini
    safe mode (mitigated by caching), or check only SF + GAUGE and treat ORTH as a frame-construction
    invariant (since `MANIFOLD.frame` guarantees it)? Leaning: check all three for honesty, cache the frame
    ones.
-3. **Backend-level enforcement** for raw-`.data` users (ORTH/GAUGE checks in `tangent_operations`), or
+3. **Backend-level enforcement** for raw-`.data` users (ORTH/GAUGE checks in `tv_operations`), or
    frontend-only for now? Leaning: frontend-first (S3–S5), backend mirror later.
 4. Any op above you'd reclassify (precondition ⇄ caveat)?

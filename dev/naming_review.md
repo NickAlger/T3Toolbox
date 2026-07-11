@@ -13,8 +13,12 @@ _Started 2026-06-21._
 > (d) the C stack is structurally a batch of *frames* → "frame stack". **Still open:** the cross-class
 > method-name sweep (§3, verify-before-merge), the §1 auto-fixes (`probe_t3→t3_probe` etc.), and §4's backend
 > module reorg (**un-deferred 2026-07-10** — file-level reorg only, polymorphism triage dropped).
-> **Execution plan + full token inventory: `dev/naming_pass_plan.md`** (Slice 0 artifact, under review).
-> See `dev/HANDOFF.md`.
+>
+> **§1/§3/§4 EXECUTED 2026-07-11** — the full naming pass + backend module reorg shipped (plan,
+> token inventory, and execution deltas: `dev/naming_pass_plan.md`; user-facing conventions catalog:
+> `docs/naming_conventions.md`). Sampling grouped **by type** (Nick's call — option C); chains got
+> the **`tt`** family with the polymorphic `tt_reverse`/`tt_squash_tails` merges; `has_jax` →
+> `jax_available`; `t3toolbox/__init__.py` curated (R2). See `dev/HANDOFF.md`.
 
 _The log below records the agreed conventions + open concerns (planning notes; some now executed per the
 banner above)._

@@ -55,7 +55,7 @@ The backend optimization functions (MC-SGD, Newton-CG, …) should be **designed
 correct and rare), while the per-step jitted kernel is pure supercore work with masks as fixed constants.
 The frontend's value-hashed mask holders (`uniform_pytree_composition.md`) give the OO path this
 cache-stability automatically; the backend gets it by **object reuse**. (If the finest separation is ever
-wanted, `backend/orthogonal_representations.orthogonal_representations` already returns *just the cores*,
+wanted, `backend/fv_conversions.t3_orthogonal_representations` already returns *just the cores*,
 mask-free, so a kernel could orthogonalize supercores inside and attach held masks outside -- but the
 bundled `ut3_orthogonal_representations` inside a close-over kernel is already recompile-free, so this is
 optional.)

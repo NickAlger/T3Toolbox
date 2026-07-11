@@ -36,7 +36,7 @@ completely silent. This is the single most dangerous bug class here, because the
 downstream op that *trusts* the mask (SVD truncation in `retract`, sub-block extraction in `to_t3`,
 rank-controlled optimization) silently does the wrong thing.
 
-**This is not hypothetical.** `tangent_to_ut3` once built the doubled-rank tensor with `ones` boundary
+**This is not hypothetical.** `utv_to_ut3` once built the doubled-rank tensor with `ones` boundary
 masks (claiming `rR+rL` rank at a boundary whose supercore is rank-1-and-zeros). Every dense test passed at
 ~1e-16. Only re-deriving the construction from the paper (Appendix A.3.1, eqs 50–53) caught it; the fix is
 the honest `zeros` boundaries that respect the block structure.
@@ -65,7 +65,7 @@ garbage-padded input as on a clean one** (`tests/test_uniform_manifold.py`'s `_c
 large garbage into the masked-out region). This catches two things at once:
 
 - ops that read raw padding instead of **masking-once** on entry;
-- for ops that build from raw supercores (`tangent_to_ut3` does **not** mask its inputs — it relies on the
+- for ops that build from raw supercores (`utv_to_ut3` does **not** mask its inputs — it relies on the
   honest output mask), the garbage flows into the output's input-derived padding, so a too-permissive output
   mask there **leaks** it → the dirty dense differs from the clean one → caught.
 

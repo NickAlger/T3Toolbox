@@ -49,7 +49,7 @@ Shapes use the library's standard symbols (see [`batching_and_stacking.md`](batc
   test vectors `ww` / the `index` array **only**, never on the cores.
 - `C` — the **frame/core stack** (`= stack_shape`; a batch of whole T3s). Lives on every core.
 - `K` — the **tangent stack** (a batch of tangent directions at one frame; tangent operations only).
-- Output stacking is always **base-inner**: `W + K + C` (probe stack outer, frame stack inner).
+- Output stacking is always **frame-inner**: `W + K + C` (probe stack outer, frame stack inner).
 
 ---
 
@@ -84,7 +84,7 @@ result: list of d arrays, result[m].shape = W + C + (Nm,)
 ```
 The general operation: `d` separate contractions, each leaving one mode free. Needs left + right +
 central sweeps plus a per-mode assembly back to the ambient index (`zᵢ = Uᵢ ηᵢ`). Frontend:
-`TuckerTensorTrain.probe`. (Algorithm 5; backend `probing.probe_t3`.)
+`TuckerTensorTrain.probe`. (Algorithm 5; backend `probing.t3_probe`.)
 
 ---
 
