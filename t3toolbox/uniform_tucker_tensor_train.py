@@ -195,7 +195,7 @@ class UniformTuckerTensorTrain:
     # ----------------------------------------------------------------- operations
     def apply_masks(self) -> 'UniformTuckerTensorTrain':
         """Zero the padded ("garbage") regions of the supercores (the masks are unchanged)."""
-        mtk, mtt = ut3_masking.apply_masks_to_cores(self.data)
+        mtk, mtt = ut3_masking.ut3_apply_masks(self.data)
         return UniformTuckerTensorTrain(mtk, mtt, self.shape, self.masks)
 
     def to_dense(self) -> NDArray:
@@ -272,17 +272,17 @@ class UniformTuckerTensorTrain:
                              % (self.shape, other.shape))
         xd, yd = self.data, other.data
         if use_orthogonalization:
-            xd = ut3_orthogonalization.left_orthogonalize_tt_cores(
-                ut3_orthogonalization.down_orthogonalize_tucker_cores(xd))
-            yd = ut3_orthogonalization.left_orthogonalize_tt_cores(
-                ut3_orthogonalization.down_orthogonalize_tucker_cores(yd))
+            xd = ut3_orthogonalization.ut3_left_orthogonalize_tt_cores(
+                ut3_orthogonalization.ut3_down_orthogonalize_tucker_cores(xd))
+            yd = ut3_orthogonalization.ut3_left_orthogonalize_tt_cores(
+                ut3_orthogonalization.ut3_down_orthogonalize_tucker_cores(yd))
         return ut3_linalg.ut3_inner_product(xd, yd)
 
     def norm(self, use_orthogonalization: bool = True):
         """Hilbert-Schmidt (Frobenius) norm of the represented tensor (shape=stack_shape)."""
         if use_orthogonalization:
-            xd = ut3_orthogonalization.left_orthogonalize_tt_cores(
-                ut3_orthogonalization.down_orthogonalize_tucker_cores(self.data))
+            xd = ut3_orthogonalization.ut3_left_orthogonalize_tt_cores(
+                ut3_orthogonalization.ut3_down_orthogonalize_tucker_cores(self.data))
             return ut3_linalg.ut3_norm_orthogonalized(xd)
         xnp, _, _ = common.get_backend(True, self.contains_jax)
         return xnp.sqrt(xnp.abs(ut3_linalg.ut3_inner_product(self.data, self.data)))
@@ -616,19 +616,19 @@ class UniformTuckerTensorTrain:
 
     def down_orthogonalize_tucker_cores(self) -> 'UniformTuckerTensorTrain':
         """Orthogonalize the Tucker cores, pushing the remainder up into the TT cores."""
-        return _from_data(ut3_orthogonalization.down_orthogonalize_tucker_cores(self.data))
+        return _from_data(ut3_orthogonalization.ut3_down_orthogonalize_tucker_cores(self.data))
 
     def up_orthogonalize_tt_cores(self) -> 'UniformTuckerTensorTrain':
         """Up-orthogonalize the TT cores, pushing the remainder down into the Tucker cores."""
-        return _from_data(ut3_orthogonalization.up_orthogonalize_tt_cores(self.data))
+        return _from_data(ut3_orthogonalization.ut3_up_orthogonalize_tt_cores(self.data))
 
     def left_orthogonalize_tt_cores(self) -> 'UniformTuckerTensorTrain':
         """Left-orthogonalize the TT cores."""
-        return _from_data(ut3_orthogonalization.left_orthogonalize_tt_cores(self.data))
+        return _from_data(ut3_orthogonalization.ut3_left_orthogonalize_tt_cores(self.data))
 
     def right_orthogonalize_tt_cores(self) -> 'UniformTuckerTensorTrain':
         """Right-orthogonalize the TT cores."""
-        return _from_data(ut3_orthogonalization.right_orthogonalize_tt_cores(self.data))
+        return _from_data(ut3_orthogonalization.ut3_right_orthogonalize_tt_cores(self.data))
 
     def is_left_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
         """True (per stack element) if in left-orthogonal form (Tucker supercores down-orthogonal AND TT
@@ -831,7 +831,7 @@ class UniformTuckerTensorTrain:
         >>> print(xv.n, xv.r)                                        # one padded shape: n=max, r=max
         5 4
         """
-        return _from_data(ut3_constructors.ut3_randn(
+        return _from_data(ut3_constructors.ut3_corewise_randn(
             shape, tucker_ranks, tt_ranks, tuple(stack_shape), use_jax=use_jax))
 
     # Note: there are deliberately NO ``from_canonical`` / ``from_tensor_train`` / ``to_tensor_train``

@@ -27,8 +27,8 @@ __all__ = [
     'ufv_unstack_axes',
     'ufv_stack_axes',
     'ufv_variations_sum_stack',
-    'ufv_reverse_frame',
-    'ufv_reverse_variations',
+    'ufv_frame_reverse',
+    'ufv_variations_reverse',
     'ufv_save',
     'ufv_load',
     'ufv_frame_orthogonality_residual',
@@ -156,7 +156,7 @@ def ufv_variations_sum_stack(
     return new_tkv, new_ttv, shape, new_masks
 
 
-def ufv_reverse_frame(data):  # UT3Frame .data -> reversed UT3Frame .data
+def ufv_frame_reverse(data):  # UT3Frame .data -> reversed UT3Frame .data
     """Reverse the mode order of a UT3Frame ``.data``. The left/right supercores **and** their masks
     **swap roles** (reversing a left-orthogonal chain yields a right-orthogonal one) and reverse; up/down
     reverse (down with a bond swap, via :py:func:`tt_operations.tt_reverse`). The redundant L/R store
@@ -173,7 +173,7 @@ def ufv_reverse_frame(data):  # UT3Frame .data -> reversed UT3Frame .data
     )
 
 
-def ufv_reverse_variations(data):  # UT3Variations .data -> reversed UT3Variations .data
+def ufv_variations_reverse(data):  # UT3Variations .data -> reversed UT3Variations .data
     """Reverse the mode order of a UT3Variations ``.data``: the tucker-variation supercore reverses; the
     tt-variation supercore reverses with a bond swap (:py:func:`tt_operations.tt_reverse`). The per-slot
     left/right masks swap + reverse (a variation occupies one TT slot). Inverse of itself."""
@@ -216,7 +216,7 @@ def ufv_frame_orthogonality_residual(data):  # UT3Frame .data -> max orthogonali
     one via ``to_t3frame``. The boundary left/right cores are remainders and are not checked (so left
     checks cores ``0..d-2``, right checks ``1..d-1``)."""
     up_sc, down_sc, left_sc, right_sc, shape, (um, dm, lm, rm) = data
-    mup, mdown, mleft, mright = ufv_masking.apply_frame_masks(data)   # zero the padding (mask-once)
+    mup, mdown, mleft, mright = ufv_masking.ufv_apply_frame_masks(data)   # zero the padding (mask-once)
     use_jax = tree_contains_jax((up_sc, down_sc, left_sc, right_sc))
     xnp, _, _ = get_backend(True, use_jax)
     d = up_sc.shape[0]

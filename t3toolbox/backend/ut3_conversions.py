@@ -69,7 +69,7 @@ def t3_to_ut3(
     tucker_supercore = xnp.stack(padded_tucker_cores)
     tt_supercore     = xnp.stack(padded_tt_cores)
 
-    masks = ut3_masking.make_uniform_masks(tucker_ranks, tt_ranks, n, r)
+    masks = ut3_masking.ut3_make_masks(tucker_ranks, tt_ranks, n, r)
     return tucker_supercore, tt_supercore, shape, masks
 
 
@@ -104,7 +104,7 @@ def ut3_to_dense(
     Traceback (most recent call last):
     ValueError: uniform masks must be concrete host (numpy) arrays, ...
     """
-    masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores(x)
+    masked_tucker, masked_tt = ut3_masking.ut3_apply_masks(x)
     T = t3_conversions.t3_to_dense_chain(masked_tucker, masked_tt)   # stack + (N,)*d (padded)
     shape = x[2]                                             # static int tuple (N0,...,N(d-1))
     sl = (Ellipsis,) + tuple(slice(0, Ni) for Ni in shape)

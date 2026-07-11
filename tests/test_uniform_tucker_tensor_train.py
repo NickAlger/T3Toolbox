@@ -575,12 +575,12 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
         # to_dense, orthogonalize, add+squash, inner -- all via backend functions on .data
         self.assertLessEqual(relerr(conv.ut3_to_dense(ux.data), ux.to_dense()), TOL)
         self.assertLessEqual(relerr(
-            conv.ut3_to_dense(bo.down_orthogonalize_tucker_cores(ux.data)),
+            conv.ut3_to_dense(bo.ut3_down_orthogonalize_tucker_cores(ux.data)),
             ux.down_orthogonalize_tucker_cores().to_dense()), TOL)
         self.assertLessEqual(relerr(
             conv.ut3_to_dense(bops.ut3_squash_tails(bl.ut3_add(ux.data, uy.data))),
             (ux + uy).to_dense()), TOL)
-        orth_data = lambda d: bo.left_orthogonalize_tt_cores(bo.down_orthogonalize_tucker_cores(d))
+        orth_data = lambda d: bo.ut3_left_orthogonalize_tt_cores(bo.ut3_down_orthogonalize_tucker_cores(d))
         self.assertLessEqual(relerr(
             bl.ut3_inner_product(orth_data(ux.data), orth_data(uy.data)),
             ux.inner(uy)), TOL)

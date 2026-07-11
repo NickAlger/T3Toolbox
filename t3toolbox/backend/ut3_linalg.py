@@ -109,8 +109,8 @@ def ut3_inner_product(x: UT3Data, y: UT3Data) -> NDArray:  # HS inner product, s
     use_jax = tree_contains_jax((x[:2], y[:2]))
     xnp, _, xscan = get_backend(True, use_jax)
 
-    mtk_x, mtt_x = ut3_masking.apply_masks_to_cores(x)
-    mtk_y, mtt_y = ut3_masking.apply_masks_to_cores(y)
+    mtk_x, mtt_x = ut3_masking.ut3_apply_masks(x)
+    mtk_y, mtt_y = ut3_masking.ut3_apply_masks(y)
     mtt_x = tt_operations.tt_squash_tails(mtt_x)
     mtt_y = tt_operations.tt_squash_tails(mtt_y)
 
@@ -139,7 +139,7 @@ def ut3_norm_orthogonalized(x: UT3Data) -> NDArray:  # HS norm, shape=stack_shap
     use_jax = tree_contains_jax(x[:2])
     xnp, _, _ = get_backend(True, use_jax)
 
-    _, mtt = ut3_masking.apply_masks_to_cores(x)
+    _, mtt = ut3_masking.ut3_apply_masks(x)
     mtt = tt_operations.tt_squash_tails(mtt)
 
     Gf = mtt[-1].sum(axis=-1)                 # last TT core, trailing bond summed -> stack+(r,n)

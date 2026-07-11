@@ -43,7 +43,7 @@ def _broadcast_ranks_over_stack(
         stack_shape: typ.Tuple[int, ...],    # C
 ) -> NDArray:                                # HOST int, (len,)+stack_shape
     """Broadcast a per-edge rank sequence (one ragged object -> ranks shared across its ``C`` stack) to the
-    ``(edge,)+stack_shape`` array ``make_frame_masks`` expects. HOST numpy -- masks are static structure."""
+    ``(edge,)+stack_shape`` array ``ufv_make_frame_masks`` expects. HOST numpy -- masks are static structure."""
     ones_stack = np.ones(stack_shape, dtype=int)
     return np.stack([r * ones_stack for r in ranks_seq])
 
@@ -76,7 +76,7 @@ def ut3_orthogonal_representations(
     **frame** and **variation** ``.data`` tuples (supercores + ``shape`` + the rank masks).
 
     WHY THIS IS A BACKEND FUNCTION (and not something to open-code): the output frame masks are **prefix**
-    masks built from the orthogonal-representation *ranks* (``make_frame_masks`` = ``arange < rank``) --
+    masks built from the orthogonal-representation *ranks* (``ufv_make_frame_masks`` = ``arange < rank``) --
     they assert the real orthonormal content sits in the **upper-left** ``[0, rank)`` slots of each
     supercore. That is correct ONLY because the orthogonalization is **SVD-based**: the SVD sorts content
     by singular value into the leading slots, with zeros / orthonormal completion trailing. A QR-based
@@ -89,7 +89,7 @@ def ut3_orthogonal_representations(
     edge -- hence ``left[:-1]`` / ``right[1:]``).
     '''
     tk_sc, tt_sc, shape, (tkm, ttm) = data
-    masked_tk, masked_tt = ut3_masking.apply_masks_to_cores(data)   # zero the garbage before the SVD sweep
+    masked_tk, masked_tt = ut3_masking.ut3_apply_masks(data)   # zero the garbage before the SVD sweep
 
     # fv_conversions.t3_orthogonal_representations is polymorphic (accepts uniform supercores) and SVD-based.
     (uc, dc, lc, rc), (tkv, ttv) = fv_conversions.t3_orthogonal_representations(
@@ -99,7 +99,7 @@ def ut3_orthogonal_representations(
         shape, tkm.sum(axis=-1), ttm.sum(axis=-1))
 
     nU, nD, rL, rR = uc.shape[-2], dc.shape[-2], lc.shape[-1], rc.shape[-1]
-    um, dm, lm, rm = ufv_masking.make_frame_masks(up_ranks, down_ranks, left_ranks, right_ranks, nU, nD, rL, rR)
+    um, dm, lm, rm = ufv_masking.ufv_make_frame_masks(up_ranks, down_ranks, left_ranks, right_ranks, nU, nD, rL, rR)
 
     frame_data     = (uc, dc, lc, rc, shape, (um, dm, lm, rm))
     variation_data = (tkv, ttv, shape, (um, dm, lm[:-1], rm[1:]))
@@ -187,7 +187,7 @@ def t3frame_to_ut3frame(
     stack, so the masks come out **uniform across the stack** (varying-rank uniform batches arise only by
     ``stack``-ing a heterogeneous tree). Pads each family to common dims (default: max over modes; pass
     ``N``/``nU``/``nD``/``rL``/``rR`` to force larger) and records the real extents as prefix masks
-    (``make_frame_masks``; the real content lands in the upper-left, so the prefix masks are correct).
+    (``ufv_make_frame_masks``; the real content lands in the upper-left, so the prefix masks are correct).
     '''
     up_cores, down_cores, left_cores, right_cores = frame_data
     d = len(up_cores)
@@ -211,7 +211,7 @@ def t3frame_to_ut3frame(
     left_sc  = _pad_stack(left_cores,  (rL, nU, rL), use_jax)
     right_sc = _pad_stack(right_cores, (rR, nU, rR), use_jax)
 
-    masks = ufv_masking.make_frame_masks(
+    masks = ufv_masking.ufv_make_frame_masks(
         _broadcast_ranks_over_stack(up_ranks,    stack_shape),
         _broadcast_ranks_over_stack(down_ranks,  stack_shape),
         _broadcast_ranks_over_stack(left_ranks,  stack_shape),
@@ -289,7 +289,7 @@ def t3variations_to_ut3variations(
 
     Inverse of :py:func:`ut3variations_to_t3variations`. The variation masks are all ``(d,)``-leading (a
     variation occupies one TT slot, not a boundary edge), so the left/right ranks are the per-slot bonds
-    ``rLi`` / ``rR(i+1)`` -- NOT a ``(d+1,)`` edge sequence. ``make_frame_masks`` builds the prefix masks
+    ``rLi`` / ``rR(i+1)`` -- NOT a ``(d+1,)`` edge sequence. ``ufv_make_frame_masks`` builds the prefix masks
     from whatever leading shape its rank args carry, so it serves here too.
     '''
     tucker_cores, tt_cores = variations_data
@@ -311,7 +311,7 @@ def t3variations_to_ut3variations(
     tkv = _pad_stack(tucker_cores, (nD, N),     use_jax)
     ttv = _pad_stack(tt_cores,     (rL, nU, rR), use_jax)
 
-    masks = ufv_masking.make_frame_masks(
+    masks = ufv_masking.ufv_make_frame_masks(
         _broadcast_ranks_over_stack(up_ranks,    stack_shape),
         _broadcast_ranks_over_stack(down_ranks,  stack_shape),
         _broadcast_ranks_over_stack(left_ranks,  stack_shape),

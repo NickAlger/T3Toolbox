@@ -15,7 +15,7 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'ut3svd',
-    'uniform_t3_svd',
+    'ut3svd_supercores',
     'ut3_rank_adjustment_sweep',
 ]
 
@@ -57,7 +57,7 @@ def ut3svd(
     variety / rank sweep). ``assume_orthogonal=True`` skips the orthogonalization, asserting the input is
     already right-orthogonal (not enforced). See ``docs/t3svd_minimal_ranks.md``.
     """
-    masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores(data)   # guards: masks must be host
+    masked_tucker, masked_tt = ut3_masking.ut3_apply_masks(data)   # guards: masks must be host
     shape = data[2]                                                     # static int tuple
     tucker_mask, tt_mask = data[3]                                      # HOST bool rank masks
 
@@ -69,8 +69,8 @@ def ut3svd(
     capped_tucker = _cap_ranks(tucker_mask.sum(axis=-1), max_tucker_ranks, d)
     capped_tt = _cap_ranks(tt_mask.sum(axis=-1), max_tt_ranks, d + 1)
 
-    cap_masks = ut3_masking.make_uniform_masks(capped_tucker, capped_tt, n, r)
-    (out_tucker, out_tt), ss_tucker, ss_tt = uniform_t3_svd(
+    cap_masks = ut3_masking.ut3_make_masks(capped_tucker, capped_tt, n, r)
+    (out_tucker, out_tt), ss_tucker, ss_tt = ut3svd_supercores(
         (masked_tucker, masked_tt), cap_masks, skip_orthogonalization=assume_orthogonal)
 
     # Shrink the (left-orthogonal) result to the raw-sweep content ranks -- the actual ranks the SVDs
@@ -81,7 +81,7 @@ def ut3svd(
     r2 = int(np.max(raw_tt))
     out_tucker = out_tucker[..., :n2, :]
     out_tt = out_tt[..., :r2, :n2, :r2]
-    raw_masks = ut3_masking.make_uniform_masks(raw_tucker, raw_tt, n, r)
+    raw_masks = ut3_masking.ut3_make_masks(raw_tucker, raw_tt, n, r)
     new_masks = (raw_masks[0][..., :n2], raw_masks[1][..., :r2])
     return (out_tucker, out_tt, shape, new_masks), ss_tucker[..., :n2], ss_tt[..., :r2]
 
@@ -110,15 +110,15 @@ def ut3_rank_adjustment_sweep(
 def _reduce_left_to_right(data: UT3Data) -> UT3Data:
     """Single left-to-right reduction to minimal ranks, skipping orthogonalization (assumes the input is
     right-orthogonal). Lossless when that precondition holds. Shrinks the padded supercore to minimal."""
-    masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores(data)   # guards: masks must be host
+    masked_tucker, masked_tt = ut3_masking.ut3_apply_masks(data)   # guards: masks must be host
     shape = data[2]                                                     # static int tuple
     tucker_mask, tt_mask = data[3]                                      # HOST bool rank masks
     n, r = masked_tucker.shape[-2], masked_tt.shape[-1]
 
     # ranks/masks on the host (np); compute_minimal_ranks defaults to numpy. See docs/uniform_pytree_composition.md.
     min_tucker, min_tt = ranks.compute_minimal_ranks(shape, tucker_mask.sum(axis=-1), tt_mask.sum(axis=-1))
-    min_masks = ut3_masking.make_uniform_masks(min_tucker, min_tt, n, r)
-    (out_tucker, out_tt), _, _ = uniform_t3_svd(
+    min_masks = ut3_masking.ut3_make_masks(min_tucker, min_tt, n, r)
+    (out_tucker, out_tt), _, _ = ut3svd_supercores(
         (masked_tucker, masked_tt), min_masks, skip_orthogonalization=True)
 
     n2 = int(np.max(min_tucker))
@@ -129,7 +129,7 @@ def _reduce_left_to_right(data: UT3Data) -> UT3Data:
     return (out_tucker, out_tt, shape, new_masks)
 
 
-def uniform_t3_svd(
+def ut3svd_supercores(
         cores: typ.Tuple[
             NDArray,  # tucker_supercore (assumed masked)
             NDArray,  # tt_supercore

@@ -12,9 +12,9 @@ if common.jax_available:
     import jax  # only for the tracer-detection guard below (gated by common.jax_available)
 
 __all__ = [
-    'make_uniform_masks',
+    'ut3_make_masks',
     'require_concrete_masks',
-    'apply_masks_to_cores',
+    'ut3_apply_masks',
 ]
 
 
@@ -41,7 +41,7 @@ def require_concrete_masks(
                 'See docs/uniform_pytree_composition.md.')
 
 
-def make_uniform_masks(
+def ut3_make_masks(
         tucker_ranks:   NDArray,            # HOST int, shape=(d,)   + stack_shape
         tt_ranks:       NDArray,            # HOST int, shape=(d+1,) + stack_shape
         n:              int,                # padded Tucker rank,     n >= max(tucker_ranks)
@@ -71,7 +71,7 @@ def make_uniform_masks(
     return tucker_edge_mask, tt_edge_mask
 
 
-def apply_masks_to_cores(
+def ut3_apply_masks(
         x: typ.Tuple[
             NDArray,             # tucker_supercore, shape=(d,)+stack_shape+(n,N)
             NDArray,             # tt_supercore,     shape=(d,)+stack_shape+(r,n,r)

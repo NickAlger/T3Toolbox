@@ -203,7 +203,7 @@ class TestUT3Variations(unittest.TestCase):
 
     def test_apply_masks_zeros_padding(self):
         # ones tucker_variations -> after masking, exactly (variations_down AND shape_mask) survives.
-        # (this also pins the apply_variations_masks tucker-axis fix -- the old reshape was a bug.)
+        # (this also pins the ufv_apply_variations_masks tucker-axis fix -- the old reshape was a bug.)
         tkv = np.ones((_D, _ND, _N))
         ttv = np.random.randn(_D, _RL, _NU, _RR)
         masks = ubv.UT3VariationsMasks(_prefix_mask(_UP_R, _NU), _prefix_mask(_DOWN_R, _ND),

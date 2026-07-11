@@ -34,8 +34,8 @@ import t3toolbox.safety as safety
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ufv_operations as ufv_operations
-import t3toolbox.backend.ufv_tangent_operations as ufv_tangent_operations
-import t3toolbox.backend.ufv_sampling as ufv_sampling
+import t3toolbox.backend.utv_operations as utv_operations
+import t3toolbox.backend.utv_sampling as utv_sampling
 import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 from t3toolbox.backend.common import *
 
@@ -252,7 +252,7 @@ class UT3Tangent:
         gauged frame; for that semantic use the (forthcoming) manifold geometry's ``inner``.
         """
         self._check_same_tangent_space(other)
-        return ufv_tangent_operations.ufv_corewise_inner(
+        return utv_operations.utv_corewise_inner(
             self.variations.data, other.variations.data, len(self.stack_shape))
 
     def corewise_norm(self) -> NDArray:  # shape = stack_shape (K+C); scalar unstacked
@@ -348,8 +348,8 @@ class UT3Tangent:
         """Max absolute gauge-condition violation, **per stack element** (shape = variation stack ``K+C``;
         atol-independent; **cached**). The expensive part of :py:meth:`is_gauged` -- a fixed tangent reused
         across an inner loop (e.g. the safe-mode GAUGE precondition of the manifold inner product) is
-        contracted once. See :py:func:`~t3toolbox.backend.ufv_tangent_operations.gauge_residual`."""
-        return ufv_tangent_operations.gauge_residual(self.frame.data, self.variations.data)
+        contracted once. See :py:func:`~t3toolbox.backend.utv_operations.utv_gauge_residual`."""
+        return utv_operations.utv_gauge_residual(self.frame.data, self.variations.data)
 
     def is_gauged(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = variation stack K+C (scalar unstacked)
         """True (per stack element) if the variations are gauged w.r.t. the frame.
@@ -370,8 +370,8 @@ class UT3Tangent:
         The Tucker and TT ranks are (roughly) doubled (masks double via concatenation). With
         ``include_shift=True`` the result represents ``base point + v`` (used by retraction). The uniform
         mirror of :py:meth:`T3Tangent.to_t3`; see
-        :py:func:`~t3toolbox.backend.ufv_tangent_operations.tangent_to_ut3` (Appendix A.3.1)."""
-        tk, tt, shape, (tucker_mask, tt_mask) = ufv_tangent_operations.tangent_to_ut3(
+        :py:func:`~t3toolbox.backend.utv_operations.utv_to_ut3` (Appendix A.3.1)."""
+        tk, tt, shape, (tucker_mask, tt_mask) = utv_operations.utv_to_ut3(
             self.frame.data, self.variations.data, include_shift=include_shift)
         return ut3.UniformTuckerTensorTrain(tk, tt, shape, ut3.UT3Masks(tucker_mask, tt_mask))
 
@@ -455,7 +455,7 @@ class UT3Tangent:
         ...                for a, b in zip(zz, t3p.dense_probe(ww, v.to_dense()))) < 1e-9))   # dense reference
         True
         """
-        return ufv_sampling.ut3tangent_probe(ww, self.frame.data, self.variations.data)
+        return utv_sampling.utv_probe(ww, self.frame.data, self.variations.data)
 
     def apply(
             self,
@@ -478,7 +478,7 @@ class UT3Tangent:
         >>> print(bool(abs(float(v.apply(ww)) - float(np.einsum('ijk,i,j,k->', v.to_dense(), *ww))) < 1e-9))
         True
         """
-        return ufv_sampling.ut3tangent_apply(ww, self.frame.data, self.variations.data)
+        return utv_sampling.utv_apply(ww, self.frame.data, self.variations.data)
 
     def entries(
             self,
@@ -499,7 +499,7 @@ class UT3Tangent:
         >>> print(bool(abs(float(v.entries((3, 5, 7))) - float(v.to_dense()[3, 5, 7])) < 1e-9))
         True
         """
-        return ufv_sampling.ut3tangent_entries(index, self.frame.data, self.variations.data)
+        return utv_sampling.utv_entries(index, self.frame.data, self.variations.data)
 
     # --------------------------------------------------------------- derivative sampling (jets 𝒥; 3b-6'b)
     def probe_derivatives(
@@ -549,7 +549,7 @@ class UT3Tangent:
         ValueError
         """
         sampling_derivatives.check_perturbation_vectors(ww, pp)
-        return ufv_sampling.ut3tangent_probe_derivatives(ww, pp, self.frame.data, self.variations.data, order)
+        return utv_sampling.utv_probe_derivatives(ww, pp, self.frame.data, self.variations.data, order)
 
     def apply_derivatives(
             self,
@@ -577,7 +577,7 @@ class UT3Tangent:
         (4,) True
         """
         sampling_derivatives.check_perturbation_vectors(ww, pp)
-        return ufv_sampling.ut3tangent_apply_derivatives(ww, pp, self.frame.data, self.variations.data, order)
+        return utv_sampling.utv_apply_derivatives(ww, pp, self.frame.data, self.variations.data, order)
 
     def entries_derivatives(
             self,
@@ -604,7 +604,7 @@ class UT3Tangent:
         (4,) True
         """
         sampling_derivatives.check_perturbation_index(index, pp, self.shape)
-        return ufv_sampling.ut3tangent_entries_derivatives(index, pp, self.frame.data, self.variations.data, order)
+        return utv_sampling.utv_entries_derivatives(index, pp, self.frame.data, self.variations.data, order)
 
     @staticmethod
     def probe_transpose(
@@ -648,7 +648,7 @@ class UT3Tangent:
         >>> print(keep.tangent_stack_shape, JTr.tangent_stack_shape)        # keep W (=W+K) vs sum W (=K)
         (2,) ()
         """
-        vd = ufv_sampling.ut3tangent_probe_transpose(
+        vd = utv_sampling.utv_probe_transpose(
             ztildes, ww, frame.data, sum_over_probes=sum_over_probes)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
@@ -663,7 +663,7 @@ class UT3Tangent:
         at ``frame``. The adjoint of :py:meth:`apply`. Uniform mirror of
         :py:meth:`~t3toolbox.manifold.T3Tangent.apply_transpose`; ``sum_over_probes`` as in
         :py:meth:`probe_transpose`. The bare ``𝒥ᵀ`` (no gauge projector ``Π``)."""
-        vd = ufv_sampling.ut3tangent_apply_transpose(
+        vd = utv_sampling.utv_apply_transpose(
             c, ww, frame.data, sum_over_probes=sum_over_probes)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
@@ -677,7 +677,7 @@ class UT3Tangent:
         """Apply the transpose ``𝒥ᵀ`` of :py:meth:`entries` -- scatter ``c`` at ``index`` into a tangent at
         ``frame``. The adjoint of :py:meth:`entries` (= :py:meth:`apply_transpose` with one-hot vectors).
         Uniform mirror of :py:meth:`~t3toolbox.manifold.T3Tangent.entries_transpose`. The bare ``𝒥ᵀ``."""
-        vd = ufv_sampling.ut3tangent_entries_transpose(
+        vd = utv_sampling.utv_entries_transpose(
             c, index, frame.data, sum_over_probes=sum_over_probes)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
@@ -725,7 +725,7 @@ class UT3Tangent:
         True
         """
         sampling_derivatives.check_perturbation_vectors(ww, pp)
-        vd = ufv_sampling.ut3tangent_probe_derivatives_transpose(
+        vd = utv_sampling.utv_probe_derivatives_transpose(
             ztildes, ww, pp, frame.data, order, sum_over_probes=sum_over_probes)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
@@ -742,7 +742,7 @@ class UT3Tangent:
         ``sum_over_probes`` as in :py:meth:`probe_derivatives_transpose`. Uniform mirror of
         :py:meth:`~t3toolbox.manifold.T3Tangent.apply_derivatives_transpose`."""
         sampling_derivatives.check_perturbation_vectors(ww, pp)
-        vd = ufv_sampling.ut3tangent_apply_derivatives_transpose(
+        vd = utv_sampling.utv_apply_derivatives_transpose(
             c, ww, pp, frame.data, order, sum_over_probes=sum_over_probes)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
@@ -759,7 +759,7 @@ class UT3Tangent:
         tangent (= :py:meth:`apply_derivatives_transpose` with one-hot vectors). Uniform mirror of
         :py:meth:`~t3toolbox.manifold.T3Tangent.entries_derivatives_transpose`."""
         sampling_derivatives.check_perturbation_index(index, pp, frame.shape)
-        vd = ufv_sampling.ut3tangent_entries_derivatives_transpose(
+        vd = utv_sampling.utv_entries_derivatives_transpose(
             c, index, pp, frame.data, order, sum_over_probes=sum_over_probes)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
@@ -769,7 +769,7 @@ class UT3Tangent:
         Corewise (= the tensor sum, by linearity); the frame stack ``C`` is preserved. ``axis`` indexes
         within ``K`` (default: the whole tangent stack). The masks OR over the summed axes -- a no-op for
         a single-frame ``K`` stack (constant masks), but the correct reduction in general."""
-        vd = ufv_tangent_operations.sum_tangent_stack(
+        vd = utv_operations.utv_sum_tangent_stack(
             self.variations.data, len(self.tangent_stack_shape), axis)
         return UT3Tangent(self.frame, _ut3variations_from_data(vd))
 
@@ -821,7 +821,7 @@ class UT3Tangent:
         ``tangent_stack_shape == ()`` and this tangent's ``frame_stack_shape`` -- and, because the frame is
         shared across ``K``, every leaf holds the **same** :py:class:`UT3Frame` object, so the leaves live
         in one tangent space. Inverse of :py:meth:`stack_tangents`."""
-        variations_tree = ufv_tangent_operations.unstack_tangent_stack(self.frame.data, self.variations.data)
+        variations_tree = utv_operations.utv_unstack_tangent_stack(self.frame.data, self.variations.data)
         return stacking.apply_func_to_leaf_subtrees(
             variations_tree,
             lambda vd: UT3Tangent(self.frame, _ut3variations_from_data(vd)),   # SAME frame object (shared)
@@ -834,7 +834,7 @@ class UT3Tangent:
         and this tangent's ``tangent_stack_shape``; the leaves sit at **different** base points (different
         tangent spaces, not mutually linear-algebra compatible) and may have **different ranks** (the
         varying-``C`` rank-sweep case). Inverse of :py:meth:`stack_frame`."""
-        paired_tree = ufv_tangent_operations.unstack_frame_stack(self.frame.data, self.variations.data)
+        paired_tree = utv_operations.utv_unstack_frame_stack(self.frame.data, self.variations.data)
         leaf_structure = (ufv_operations.ufv_leaf_structure(self.d, 4),    # a frame_data leaf
                           ufv_operations.ufv_leaf_structure(self.d, 2))    # a variations_data leaf
         return stacking.apply_func_to_leaf_subtrees(
@@ -859,7 +859,7 @@ class UT3Tangent:
                     'same tangent space. To stack tangents at *different* base points, use stack_frame. '
                     '(Run inside safety.unsafe() to skip this numerical check.)')
         variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
-        vd = ufv_tangent_operations.stack_tangent_stack(variations_tree)
+        vd = utv_operations.utv_stack_tangent_stack(variations_tree)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
     @staticmethod
@@ -882,7 +882,7 @@ class UT3Tangent:
                     'differ across the frame stack C).')
         paired_tree = stacking.apply_func_to_leaf_subtrees(
             tree, lambda t: (t.frame.data, t.variations.data), None)
-        frame_data, variations_data = ufv_tangent_operations.stack_frame_stack(paired_tree)
+        frame_data, variations_data = utv_operations.utv_stack_frame_stack(paired_tree)
         return UT3Tangent(_ut3frame_from_data(frame_data), _ut3variations_from_data(variations_data))
 
 
@@ -905,7 +905,7 @@ if jax_available:
 # ============================================================================================== geometries
 # The uniform mirror of t3m.ManifoldGeometry / CorewiseGeometry (manifold.py). Stateless bundles of the
 # chart-level choices (frame / gauge projection / retraction + metric); the point lives in the caller. Each
-# method delegates to the 3b backend (ufv_tangent_operations) and the 2c UT3Frame / UT3Variations, behind
+# method delegates to the 3b backend (utv_operations) and the 2c UT3Frame / UT3Variations, behind
 # the per-element safe-mode preconditions (.all() over the per-stack-element checkers, from 2c-G). See the
 # ragged docstrings for the math (Section 6 + Appendix A.3 of Alger et al. 2026, arXiv:2603.21141).
 
@@ -1033,7 +1033,7 @@ class UniformManifoldGeometry:
         **Safe mode** requires ``v``'s frame orthogonal (raises otherwise; skipped under ``safety.unsafe()`` /
         a jax trace)."""
         _require_orthogonal_frame(v.frame, 'UniformManifoldGeometry.project')
-        vd = ufv_tangent_operations.orthogonal_gauge_projection(v.frame.data, v.variations.data)
+        vd = utv_operations.utv_orthogonal_gauge_projection(v.frame.data, v.variations.data)
         return UT3Tangent(v.frame, _ut3variations_from_data(vd))
 
     def project_oblique(
@@ -1047,7 +1047,7 @@ class UniformManifoldGeometry:
         **Safe mode** requires ``v``'s frame orthogonal (raises otherwise); skipped under ``safety.unsafe()``
         / a jax trace."""
         _require_orthogonal_frame(v.frame, 'UniformManifoldGeometry.project_oblique')
-        vd = ufv_tangent_operations.oblique_gauge_projection(v.frame.data, v.variations.data)
+        vd = utv_operations.utv_oblique_gauge_projection(v.frame.data, v.variations.data)
         return UT3Tangent(v.frame, _ut3variations_from_data(vd))
 
     def inner(
@@ -1105,7 +1105,7 @@ class UniformManifoldGeometry:
         **Safe mode** requires ``p``'s frame orthogonal (raises otherwise; skipped under ``safety.unsafe()`` /
         a jax trace). ORTH only -- retract is gauge-invariant; minimal rank is a documented caveat."""
         _require_orthogonal_frame(p.frame, 'UniformManifoldGeometry.retract')
-        return _ut3_from_data(ufv_tangent_operations.retract(p.frame.data, p.variations.data))
+        return _ut3_from_data(utv_operations.utv_retract(p.frame.data, p.variations.data))
 
     def project_ambient(
             self,
@@ -1130,7 +1130,7 @@ class UniformManifoldGeometry:
                 'the ragged ManifoldGeometry.project_ambient and the cross-layer converters '
                 '(UT3Frame.to_t3frame / UT3Tangent.from_t3tangent). Got %r.' % (type(grad).__name__,))
         _require_orthogonal_frame(frame, 'UniformManifoldGeometry.project_ambient')
-        vd = ufv_tangent_operations.project_ut3_onto_tangent_space(frame.data, grad.data)
+        vd = utv_operations.utv_project_ut3_onto_tangent_space(frame.data, grad.data)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
     def transport(
@@ -1241,8 +1241,8 @@ class UniformCorewiseGeometry:
 
         Recovers the point ``(U, G)`` from ``p.frame`` (which :py:meth:`frame` built as ``(U, G, G, G)``) and
         adds the variations. ``p`` must be a corewise tangent (a frame from :py:meth:`frame`). See
-        :py:func:`~t3toolbox.backend.ufv_tangent_operations.corewise_retract`."""
-        return _ut3_from_data(ufv_tangent_operations.corewise_retract(p.frame.data, p.variations.data))
+        :py:func:`~t3toolbox.backend.utv_operations.utv_corewise_retract`."""
+        return _ut3_from_data(utv_operations.utv_corewise_retract(p.frame.data, p.variations.data))
 
 
 UNIFORM_MANIFOLD = UniformManifoldGeometry()   # the uniform fixed-rank Riemannian geometry (gauge Pi, manifold retraction)

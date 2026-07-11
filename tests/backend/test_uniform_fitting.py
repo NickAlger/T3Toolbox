@@ -2,7 +2,7 @@
 
 Correctness gold standard: the backend uniform ``GeometryOps`` factories (raw supercore pairs, masks
 closed over) must reproduce the already-verified frontend ``UNIFORM_MANIFOLD`` / ``UNIFORM_COREWISE``
-geometry ``.data`` path exactly (same math through the same ``ufv_tangent_operations`` primitives). The
+geometry ``.data`` path exactly (same math through the same ``utv_operations`` primitives). The
 factory captures the loop-invariant masks at ``x0``'s fixed rank; a second test evaluates the ops at a
 DIFFERENT same-rank point to confirm the masks are correctly reused (the property the optimizer loop
 relies on). numpy-only (jit dispatch is covered in test_dispatch)."""
@@ -19,7 +19,7 @@ import t3toolbox.backend.optimizers as bopt
 import t3toolbox.backend.apply as bapply
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
-import t3toolbox.backend.ufv_tangent_operations as ubto
+import t3toolbox.backend.utv_operations as utv_operations
 import t3toolbox.backend.ut3_operations as uops
 
 _STRUCT = ((10, 11, 12), (2, 4, 2), (1, 2, 2, 1))   # (shape, tucker, tt); MINIMAL ranks (tucker capped by
@@ -144,7 +144,7 @@ class TestUniformSamplingKind(unittest.TestCase):
                 r = np.random.randn(*np.asarray(fwd).shape)
                 lhs = float(np.sum(r * np.asarray(fwd)))
                 jt = kind_u.transpose(r, sample, self.frame.data, sw)     # bare (dU, dG)
-                rhs = float(ubto.ufv_corewise_inner(
+                rhs = float(utv_operations.utv_corewise_inner(
                     (jt[0], jt[1], _STRUCT[0], self.vmask), self.var.data, 0))
                 self.assertTrue(np.isclose(lhs, rhs), f"{name}: {lhs} != {rhs}")
 
@@ -282,7 +282,7 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
                     r = np.random.randn(*np.asarray(fwd).shape)
                     lhs = float(np.sum(np.asarray(self.aw(r, 2)) * np.asarray(fwd)))
                 jt = kind_u.transpose(r, sample, self.frame.data, sw)
-                rhs = float(ubto.ufv_corewise_inner((jt[0], jt[1], _STRUCT[0], self.vmask), self.var.data, 0))
+                rhs = float(utv_operations.utv_corewise_inner((jt[0], jt[1], _STRUCT[0], self.vmask), self.var.data, 0))
                 self.assertTrue(np.isclose(lhs, rhs), f"{name}: {lhs} != {rhs}")
 
     def test_forward_garbage_robust(self):

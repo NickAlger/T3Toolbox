@@ -188,7 +188,7 @@ class UT3Frame:
     def apply_masks(self) -> 'UT3Frame':
         """Apply masks to the frame supercores, zeroing out unmasked entries.
         """
-        up_sc, down_sc, left_sc, right_sc = masking.apply_frame_masks(self.data)
+        up_sc, down_sc, left_sc, right_sc = masking.ufv_apply_frame_masks(self.data)
         return UT3Frame(
             up_sc, down_sc, left_sc, right_sc,
             self.shape, self.masks,
@@ -304,7 +304,7 @@ class UT3Frame:
         left-orthogonal chain yields a right-orthogonal one -- so the redundant L/R store makes this exact
         with no re-orthogonalization. Commutes with conversion: ``B.reverse().to_t3frame() ==
         B.to_t3frame().reverse()``."""
-        up, down, left, right, shape, masks = ufv_operations.ufv_reverse_frame(self.data)
+        up, down, left, right, shape, masks = ufv_operations.ufv_frame_reverse(self.data)
         return UT3Frame(up, down, left, right, shape, UT3FrameMasks(*masks))
 
     def orthogonalize(self) -> 'UT3Frame':
@@ -581,7 +581,7 @@ class UT3Variations:
 
     def apply_masks(self) -> 'UT3Variations':
         """Apply masks to the variation supercores, zeroing out unmasked entries."""
-        masked_tk_supercore, masked_tt_supercore = masking.apply_variations_masks(self.data)
+        masked_tk_supercore, masked_tt_supercore = masking.ufv_apply_variations_masks(self.data)
         return UT3Variations(masked_tk_supercore, masked_tt_supercore, self.shape, self.masks)
 
     # ------------------------------------------------------------- ragged <-> uniform conversions
@@ -728,7 +728,7 @@ class UT3Variations:
         """Reverse the mode order (corewise): the tucker-variation supercore reverses; the tt-variation
         supercore reverses with a bond swap; the per-slot left/right masks swap. Matches
         :py:meth:`UT3Frame.reverse` so a tangent reverses by reversing both components."""
-        tkv, ttv, shape, masks = ufv_operations.ufv_reverse_variations(self.data)
+        tkv, ttv, shape, masks = ufv_operations.ufv_variations_reverse(self.data)
         return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
 
     def save(self, file) -> None:

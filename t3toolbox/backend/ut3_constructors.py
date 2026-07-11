@@ -4,7 +4,7 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """Constructors and file IO for uniform Tucker tensor trains (UT3), on the raw ``.data`` tuple.
 
-``ut3_zeros`` / ``ut3_ones`` / ``ut3_randn`` build the padded supercores + masks **directly** (the
+``ut3_zeros`` / ``ut3_ones`` / ``ut3_corewise_randn`` build the padded supercores + masks **directly** (the
 uniform feature ragged round-tripping cannot express: ranks may vary per stack element -- the
 determinantal variety, ``docs/uniform_ranks_and_varieties.md``). ``ut3_save`` / ``ut3_load`` share
 ``common.save_core_families`` (2 supercores + 2 rank masks + the shape ints).
@@ -29,7 +29,7 @@ import t3toolbox.backend.common as common
 __all__ = [
     'ut3_zeros',
     'ut3_ones',
-    'ut3_randn',
+    'ut3_corewise_randn',
     'ut3_save',
     'ut3_load',
 ]
@@ -101,9 +101,9 @@ def _ut3_constant(
         raise ValueError('unknown fill %r' % (fill,))
 
     shape = tuple(int(Ni) for Ni in shape)  # static int tuple (N0,...,N(d-1))
-    masks = ut3_masking.make_uniform_masks(tucker_ranks, tt_ranks, n, r)  # HOST bool rank masks, static
+    masks = ut3_masking.ut3_make_masks(tucker_ranks, tt_ranks, n, r)  # HOST bool rank masks, static
     # Mask the padded ("garbage") regions to zero so the represented tensor is exactly the fill value.
-    masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores((tucker_supercore, tt_supercore, shape, masks))
+    masked_tucker, masked_tt = ut3_masking.ut3_apply_masks((tucker_supercore, tt_supercore, shape, masks))
     return masked_tucker, masked_tt, shape, masks
 
 
@@ -130,7 +130,7 @@ def ut3_ones(
     return _ut3_constant('ones', shape, 1, 1, stack_shape, use_jax=use_jax)
 
 
-def ut3_randn(
+def ut3_corewise_randn(
         shape:        typ.Sequence[int],               # (N0,...,N(d-1))
         tucker_ranks,                                  # int | len-d seq | (d,)+stack array
         tt_ranks,                                      # int | len-(d+1) seq | (d+1,)+stack array

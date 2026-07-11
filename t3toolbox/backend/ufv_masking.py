@@ -8,13 +8,13 @@ import typing as typ
 from t3toolbox.backend.common import *
 
 __all__ = [
-    'make_frame_masks',
-    'apply_frame_masks',
-    'apply_variations_masks',
+    'ufv_make_frame_masks',
+    'ufv_apply_frame_masks',
+    'ufv_apply_variations_masks',
 ]
 
 
-def make_frame_masks(
+def ufv_make_frame_masks(
         up_ranks:    NDArray,   # HOST int, (d,)   + stack_shape
         down_ranks:  NDArray,   # HOST int, (d,)   + stack_shape
         left_ranks:  NDArray,   # HOST int, (d+1,) + stack_shape
@@ -39,7 +39,7 @@ def make_frame_masks(
     return up_mask, down_mask, left_mask, right_mask
 
 
-def apply_frame_masks(
+def ufv_apply_frame_masks(
         data: typ.Tuple[
             NDArray,             # up_tucker_supercore,  (d,)+stack_shape+(nU, N)
             NDArray,             # down_tt_supercore,    (d,)+stack_shape+(rL, nD, rR)
@@ -95,7 +95,7 @@ def apply_frame_masks(
     )
 
 
-def apply_variations_masks(
+def ufv_apply_variations_masks(
         data: typ.Tuple[
             NDArray,             # tucker_variations_supercore, (d,)+stack_shape+(nD, N)
             NDArray,             # tt_variations_supercore,     (d,)+stack_shape+(rL, nU, rR)

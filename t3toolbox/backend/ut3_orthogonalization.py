@@ -12,10 +12,10 @@ from t3toolbox.backend.common import *
 __all__ = [
     'down_orthogonalize_tucker_supercores',
     'up_orthogonalize_tt_supercores',
-    'down_orthogonalize_tucker_cores',
-    'up_orthogonalize_tt_cores',
-    'left_orthogonalize_tt_cores',
-    'right_orthogonalize_tt_cores',
+    'ut3_down_orthogonalize_tucker_cores',
+    'ut3_up_orthogonalize_tt_cores',
+    'ut3_left_orthogonalize_tt_cores',
+    'ut3_right_orthogonalize_tt_cores',
     'ut3_orthogonality_residual',
 ]
 
@@ -41,7 +41,7 @@ def ut3_orthogonality_residual(
     use_jax = tree_contains_jax(data[:2])
     xnp, _, _ = get_backend(True, use_jax)
 
-    tucker_sc, tt_sc = ut3_masking.apply_masks_to_cores(data)  # guards: masks must be host (not traced)
+    tucker_sc, tt_sc = ut3_masking.ut3_apply_masks(data)  # guards: masks must be host (not traced)
     tucker_mask, tt_mask = data[3]                             # HOST bool rank masks (constant operands below)
     n, r = tucker_sc.shape[-2], tt_sc.shape[-1]
 
@@ -95,7 +95,7 @@ def down_orthogonalize_tucker_supercores(
         tt_supercore:     NDArray,  # shape=(d,)+stack+(r,n,r)
 ) -> typ.Tuple[NDArray, NDArray]:   # (new_tucker, new_tt) with n-axis -> min(N,n)
     """Bare batched Tucker SVD on supercores (assumes masked input): rows orthonormal over the mode
-    index, remainder pushed into the TT cores. The SVD core of :py:func:`down_orthogonalize_tucker_cores`;
+    index, remainder pushed into the TT cores. The SVD core of :py:func:`ut3_down_orthogonalize_tucker_cores`;
     also reused by the T3-SVD sweep (which manages its own truncation masks)."""
     use_jax = tree_contains_jax((tucker_supercore, tt_supercore))
     xnp, _, _ = get_backend(True, use_jax)
@@ -106,13 +106,13 @@ def down_orthogonalize_tucker_supercores(
     return new_tk, new_tt
 
 
-def down_orthogonalize_tucker_cores(data: UT3Data) -> UT3Data:
+def ut3_down_orthogonalize_tucker_cores(data: UT3Data) -> UT3Data:
     """Orthogonalize the Tucker cores (rows orthonormal over the mode index), pushing the remainder up
     into the TT cores. Core-local -> one batched SVD over ``(d,)+stack``. Tucker rank -> min(shape, rank)."""
     use_jax = tree_contains_jax(data[:2])
     xnp, _, _ = get_backend(True, use_jax)
 
-    mtk, mtt = ut3_masking.apply_masks_to_cores(data)
+    mtk, mtt = ut3_masking.ut3_apply_masks(data)
     shape = data[2]                                 # static int tuple
     tkm, ttm = data[3]                              # HOST bool rank masks
 
@@ -132,7 +132,7 @@ def up_orthogonalize_tt_supercores(
 ) -> typ.Tuple[NDArray, NDArray]:   # (new_tucker = variations V, new_tt = down-orthogonal O)
     """Bare batched TT-up SVD on supercores (assumes masked input): the TT mode index becomes orthonormal
     over the bonds, the remainder pushed down into the Tucker core. The SVD core of
-    :py:func:`up_orthogonalize_tt_cores`; also reused by the orthogonal-representation sweep
+    :py:func:`ut3_up_orthogonalize_tt_cores`; also reused by the orthogonal-representation sweep
     (``backend/orthogonal_representations.py``), which manages its own ranks/masks afterward."""
     use_jax = tree_contains_jax((tucker_supercore, tt_supercore))
     xnp, _, _ = get_backend(True, use_jax)
@@ -148,10 +148,10 @@ def up_orthogonalize_tt_supercores(
     return new_tk, new_tt
 
 
-def up_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
+def ut3_up_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
     """Up-orthogonalize the TT cores (mode index orthonormal over the bonds), pushing the remainder down
     into the Tucker cores. Core-local -> one batched SVD. Tucker rank -> min(rank, rL*rR)."""
-    mtk, mtt = ut3_masking.apply_masks_to_cores(data)
+    mtk, mtt = ut3_masking.ut3_apply_masks(data)
     shape = data[2]                                 # static int tuple
     tkm, ttm = data[3]                              # HOST bool rank masks
 
@@ -163,12 +163,12 @@ def up_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
     return new_tk, new_tt, shape, (new_tkm, ttm)
 
 
-def left_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
+def ut3_left_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
     """Left-orthogonalize the TT cores (shared polymorphic sweep). Bond ranks: L->R recurrence."""
     use_jax = tree_contains_jax(data[:2])
     xnp, _, _ = get_backend(True, use_jax)
 
-    _, mtt = ut3_masking.apply_masks_to_cores(data)
+    _, mtt = ut3_masking.ut3_apply_masks(data)
     tkm, ttm = data[3]                              # HOST bool rank masks
     new_tt = orth.tt_left_orthogonalize(mtt)
     new_tt_ranks = _left_orthogonalized_tt_ranks(ttm.sum(axis=-1), tkm.sum(axis=-1))
@@ -176,12 +176,12 @@ def left_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
     return data[0], new_tt, data[2], (tkm, new_ttm)
 
 
-def right_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
+def ut3_right_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
     """Right-orthogonalize the TT cores (shared polymorphic sweep). Bond ranks: R->L recurrence."""
     use_jax = tree_contains_jax(data[:2])
     xnp, _, _ = get_backend(True, use_jax)
 
-    _, mtt = ut3_masking.apply_masks_to_cores(data)
+    _, mtt = ut3_masking.ut3_apply_masks(data)
     tkm, ttm = data[3]                              # HOST bool rank masks
     new_tt = orth.tt_right_orthogonalize(mtt)
     new_tt_ranks = _right_orthogonalized_tt_ranks(ttm.sum(axis=-1), tkm.sum(axis=-1))
