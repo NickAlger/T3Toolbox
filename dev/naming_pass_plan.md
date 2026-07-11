@@ -4,8 +4,14 @@ _Written 2026-07-10. Status: **for review** — nothing below is executed yet ex
 `OLD_orthogonalization.py` deletion (committed separately). This is the plan Nick reviews before
 Slices 1–4 run. Companion decisions log: `dev/naming_review.md`._
 
-## 0. Scope decisions (settled with Nick, 2026-07-10)
+## 0. Scope decisions (settled with Nick, 2026-07-10; amended 2026-07-11)
 
+0. **Governing principle (Nick, 2026-07-11): the renaming exists to help the user** — orient in the
+   codebase, find the function they want, and understand what it takes and returns. **When helping
+   the user conflicts with a convention, the user wins, every time.** Apply judgment, not dogma.
+   Corollary: parameter names may deliberately encode representation (`xx` = ragged collection,
+   `uxx` = uniform collection; `x` = t3 data, `data` = ut3 data) — this is information for the
+   user, not drift; keep it.
 1. **File-level backend reorg: YES** (the §4 family×op-kind matrix). **Polymorphism triage: DROPPED**
    — the uniform layer shipped closed with explicit `ut3_`/`ufv_` twins, all verified;
    `ut3_sampling` is repaired and load-bearing (the §4 note calling it a buggy stopgap to eliminate
@@ -17,10 +23,11 @@ Slices 1–4 run. Companion decisions log: `dev/naming_review.md`._
    *predicate* `has_jax` is already gone — `contains_jax`/`tree_contains_jax` are the survivors).
 4. **`base-inner` → `frame-inner`** (docs-only): fold into Slice 4.
 5. `Sequence`→`Union` hint relaxation: **deferred** (out of scope).
-6. **Weighted layer: untouched** (`wt3_operations.py`, `weighted_tucker_tensor_train.py`, and the
-   parked `absorb_weights_into_tangent_cores` stay exactly where they are). Exception: the **dead
-   duplicate** `wt3_squash_tails` inside `t3_operations.py` (unused — the weighted frontend calls the
-   `wt3_operations` copy) is deleted as t3-module hygiene, not weighted-layer work.
+6. **Weighted layer: FULLY untouched — no exceptions** (Nick, 2026-07-11: it may be revived in a
+   later version). `wt3_operations.py`, `weighted_tucker_tensor_train.py`, the parked
+   `absorb_weights_into_tangent_cores`, **and** the apparently-dead `wt3_squash_tails` copy inside
+   `t3_operations.py` all stay exactly as they are. All `w*`-prefixed names are out of scope for
+   every rename in this pass.
 7. `OLD_orthogonalization.py`: **deleted** (Nick confirmed superseded). Remaining `OLD_test_*.py`
    files stay for R6.
 8. **No deprecation shims/aliases** — pre-release ("DO NOT USE" banner is still up), clean breaks.
@@ -39,8 +46,11 @@ execution). Geometries (`ManifoldGeometry`↔`UniformManifoldGeometry`,
 | Where | Old → New | Why |
 |---|---|---|
 | `TuckerTensorTrain` | `.squash()` → `.squash_tails()` | Locked §3. Uniform + weighted twins already say `squash_tails`; ragged is the lone holdout — and ragged's own `to_dense(squash_tails=...)` kwarg already uses the full name. |
-| `UniformTuckerTensorTrain` | `stack(uxx)` → `stack(xx)` | Parameter-name alignment with the ragged twin (kwarg-callers see it). |
 | `backend/common.py` (+31 refs) | `has_jax` → `jax_available` | Kills the "environment has jax" vs "object contains jax arrays" confusability. |
+
+~~`stack(uxx)` → `stack(xx)`~~ **withdrawn** (2026-07-11): `uxx` deliberately tells the user the
+stacked objects are uniform — representation-encoding parameter names are a feature (§0.0), kept
+library-wide.
 
 ### A2. Same-op-different-name pairs that are OK BY DESIGN (do NOT merge)
 
@@ -52,7 +62,10 @@ converters, `*ut3*` = same-layer. So `T3Frame.from_t3/to_t3` ↔ `UT3Frame.from_
 doc pass instead. Likewise `UniformGaussNewtonModel.kind` (lazy value-hashed rebuild) is deliberate
 U7b design, not drift.
 
-### A3. Gaps registry (recorded, NOT filled — feature work, post-1.0 or docs-only)
+### A3. Gaps registry — INTENDED behavior (Nick, 2026-07-11)
+
+These asymmetries are **intended for this version — several intended generally** (design, not
+TODOs). Recorded so the doc pass documents them as deliberate; nothing here is filled or "fixed".
 
 - `UT3Tangent` lacks `save`/`load`, `to_vector`/`from_vector`, `size`/`data_size` (ragged has them).
 - `T3Variations` lacks `structure`; `UT3Frame` lacks `size`/`data_size`.
@@ -65,6 +78,34 @@ U7b design, not drift.
 - Backend cross-layer mirror asymmetries recorded: `t3_sum(x, axis)` ↔ `ut3_full_sum(data)`
   (uniform supports all-modes only — name is capability-honest, keep); `t3_norm(use_orthogonalization=)`
   ↔ `ut3_norm_orthogonalized` (same reason, keep).
+
+### A4. Same-looking, different-math watchlist (verify-before-merge, and markers that must survive)
+
+Near-twin names whose *math* differs — the rename pass treats these as guarded: never unify, never
+drop the distinguishing marker, and any future "align these two" proposal starts by reading both
+bodies + docstrings.
+
+- **`sum_stack` vs `sum_stack_corewise`** (and backend `t3_sum_stack` vs `corewise_sum`): genuine
+  tensor sum of the represented stack (**rank-growing** — the S-fold `t3_add`) vs elementwise sum of
+  the core arrays (**rank-preserving**, NOT the tensor sum in general — valid where cores carry
+  additive structure, e.g. stacked variations). The docstrings already cross-warn; keep it that way.
+- **`t3_sum(x, axis)` vs `t3_sum_stack(x, axis)`**: near-identical names, different objects summed —
+  modes of the *represented tensor* vs *stack elements*.
+- **`retract` vs `corewise_retract`** (uniform tv module): manifold retraction vs additive core
+  update — different geometry, both legitimately "retract". Ragged `tangent_operations` has only the
+  manifold one (the corewise retraction is served by the frontend geometry) — an asymmetry to keep.
+- **The inner-product family**: `t3_inner_product_t3`/`ut3_inner_product` (Hilbert–Schmidt, of the
+  *represented tensors*) vs `corewise_dot`/`ufv_corewise_inner` (Euclidean *coordinate* metric) vs
+  `MANIFOLD.inner` (HS via gauged variations, precondition-checked). "corewise" is a **semantic
+  marker** (coordinate-space math, never HS) — it is never added or dropped by any rename.
+- **`fv_to_t3` vs `tangent_to_t3`** (→ `tv_to_t3`): indexed *single term* vs efficient *sum of all
+  terms* — the locked grammar's own founding example (§1).
+- **`t3_norm(use_orthogonalization=)` vs `ut3_norm_orthogonalized`**: same math, different
+  capability surface; kept unmerged (A3).
+- **`has_minimal_ranks` vs `has_numerically_minimal_ranks`**: structural integer arithmetic vs an
+  SVD — the catalog's own naming split; preserved everywhere.
+- **`t3_corewise_randn` (and `ut3_randn` → `ut3_corewise_randn`)** vs `MANIFOLD.randn`: iid core
+  entries vs a genuine tangent-space Gaussian — "corewise" is load-bearing here too (F15).
 
 ---
 
@@ -82,7 +123,21 @@ stays unprefixed outside the matrix.
 
 ### Ragged side
 
-| Current | Target | Notes |
+> **⛔ SAMPLING GROUPING ON HOLD (Nick, 2026-07-11): no sampling file moves without sign-off.**
+> Nick prefers grouping by **sampling type** (entries / apply / probing / derivatives) over the
+> by-family cut below — the t3 and tv algorithms per type are closely connected and presented
+> together in the paper. Leading candidate ("option C", matching his phrasing): keep
+> **`apply.py` / `entries.py` / `probing.py`** (each holding its type's t3 + tv + dense ops,
+> transposes, sweeps — i.e. tangent-apply/entries + their sweeps move OUT of `probing.py` into
+> their type files) **+ `sampling_derivatives.py`** (`probe_derivatives.py` renamed honestly — all
+> jets stay together since the jet machinery is shared across types). The **function renames in
+> §C.c1–c4 stand regardless of grouping** (the `t3_`/`tv_`/`dense_` prefixes carry the family axis
+> within whatever file layout wins — under by-type they become *more* load-bearing, not less).
+> Uniform sampling files (`ut3_sampling`, `ufv_sampling`→`utv_sampling`): default is keep the
+> family cut (small files) and document the asymmetry; open to by-type mirroring. The four
+> by-family rows below are retained as the alternative until the discussion settles:
+
+| Current | Target (by-family alternative — on hold) | Notes |
 |---|---|---|
 | `apply.py`, `entries.py`, `probing.py` (t3 part) | **`t3_sampling.py`** (new) | The §4 sampling cut. `apply.py`/`entries.py` dissolve (2 functions each). |
 | `probing.py` (tangent part — the bulk) | **`tv_sampling.py`** (new) | |
@@ -123,6 +178,10 @@ untouched. Frontend method names unchanged except A1.
 “✓” = already conforming, unchanged. Names not listed anywhere = unchanged. Internal helpers not in
 `__all__` keep their names unless listed. Every rename is a whole-word scripted substitution over
 `t3toolbox/ tests/ examples/ docs/ dev/*.py CLAUDE.md` (excluding `OLD_*`, `dev/archive/`).
+
+> **Note on c1–c4:** the *file* groupings shown are the on-hold by-family alternative (§B banner);
+> the **function renames themselves stand under either grouping** — review them as rename tables,
+> not as file assignments.
 
 ### c1. `t3_sampling.py` (← `apply.py` + `entries.py` + `probing.py` t3-part)
 
@@ -206,10 +265,12 @@ untouched. Frontend method names unchanged except A1.
 | `t3_to_dense_chain`, `t3_to_vector`, `t3_from_vector`, `t3_to_tensor_train` (add to `__all__`), `t3_from_tensor_train`, `t3_from_canonical` | ✓ | `t3_conversions.py` |
 | `absorb_tucker_into_tt` | `t3_absorb_tucker_into_tt` | `t3_operations.py` |
 | `broadcast_t3_to_common_stack` | `t3_broadcast_to_common_stack` | `t3_operations.py` |
-| `squash_tt_tails`, `reverse_tt`, `change_tucker_core_shapes`, `change_tt_core_shapes` | ✓ (chain-level, ⚑F1) | `t3_operations.py` |
+| `squash_tt_tails` (+ uniform twin) | **`tt_squash_tails`** (merged polymorphic — F1) | `t3_operations.py` (or the chain module — settle at execution) |
+| `reverse_tt` (+ `reverse_utt`) | **`tt_reverse`** (merged polymorphic — F1) | ditto |
+| `change_tucker_core_shapes` / `change_tt_core_shapes` | `tucker_change_core_shapes` / `tt_change_core_shapes` (F1) | `t3_operations.py` |
 | — | **add `t3_squash_tails(data)`** (t3-level wrapper mirroring `ut3_squash_tails`; the razor — verify at execution what the frontend `.squash` body needs) | `t3_operations.py` |
 | `t3_segment`, `t3_concatenate`, `t3_unstack`, `t3_stack` (add to `__all__`), `t3_core_shapes`, `t3_sum` | ✓ | `t3_operations.py` |
-| `wt3_squash_tails` (dead duplicate, not exported) | **delete** | — |
+| `wt3_squash_tails` (unexported copy) | **untouched** (weighted = fully out of scope, §0.6) | stays in `t3_operations.py` |
 
 ### c8. `t3_linalg.py`, `t3_orthogonalization.py`, `t3_svd.py`, `orthogonalization.py`
 
@@ -223,7 +284,7 @@ untouched. Frontend method names unchanged except A1.
 | `t3_orthogonality_residual`, `t3svd` (brand) | ✓ |
 | `rank_adjustment_sweep` | `t3_rank_adjustment_sweep` (mirror `ut3_rank_adjustment_sweep`) |
 | `tucker_svd_dense` / `ttsvd_dense` / `t3svd_dense` (← `dense_t3svd.py`) | `dense_tucker_svd` / `dense_ttsvd` / `dense_t3svd` (⚑F4/F5) → `t3_svd.py` |
-| `orthogonalization.left_orthogonalize_tt_cores` / `right_orthogonalize_tt_cores` (polymorphic chain) | `left_orthogonalize_tt_chain` / `right_orthogonalize_tt_chain` (⚑F1 — kills the 3-way collision with the t3-level and ut3-level same-named ops) |
+| `orthogonalization.left_orthogonalize_tt_cores` / `right_orthogonalize_tt_cores` (polymorphic chain) | `tt_left_orthogonalize` / `tt_right_orthogonalize` (F1 — kills the 3-way collision with the t3-level and ut3-level same-named ops; placement prefix-vs-suffix pending Nick) |
 
 ### c9. Uniform modules
 
@@ -236,8 +297,9 @@ untouched. Frontend method names unchanged except A1.
 | `project_ut3_onto_tangent_space` | `utv_project_ut3_onto_tangent_space` |
 | `{stack,unstack}_{tangent,frame}_stack` (uniform), `sum_tangent_stack` | `utv_`-prefixed |
 | `ufv_corewise_inner` | `utv_corewise_inner` (⚑F11 — it’s the tangent coordinate metric; the `GeometryOps.inner` seam consumer updates with it) |
-| `reverse_utt` | `uniform_reverse_tt` (chain-level uniform = `uniform_<ragged chain name>`, matching the existing `uniform_squash_tt_tails` — ⚑F1) |
-| `uniform_squash_tt_tails`, `ut3_squash_tails`, `ut3_reverse` | ✓ (chain-level + data-level pairs, NOT duplicates) |
+| `reverse_utt` | **merged into polymorphic `tt_reverse`** (F1 — one-line same-math twin) |
+| `uniform_squash_tt_tails` | **merged into polymorphic `tt_squash_tails`** (F1) |
+| `ut3_squash_tails`, `ut3_reverse` | ✓ (data-level, stay — they wrap the chain ops with mask/shape handling; NOT duplicates of them) |
 | `pack_vectors`, `unpack_vectors`, `is_packed`, `pack_if_ragged` | ✓ (packedness infra) |
 | `make_uniform_masks` / `apply_masks_to_cores` | `ut3_make_masks` / `ut3_apply_masks` (⚑F12); `require_concrete_masks` ✓ (guard) |
 | `make_frame_masks` / `apply_frame_masks` / `apply_variations_masks` | `ufv_make_frame_masks` / `ufv_apply_frame_masks` / `ufv_apply_variations_masks` (⚑F12) |
@@ -267,9 +329,10 @@ follows. Doctest outputs re-run, never hand-edited. Scope of rewrites: `t3toolbo
 
 - **Slice 1 — frontend + flag** (small): A1 renames (`squash`→`squash_tails` incl. doctests;
   `uxx`→`xx`; `has_jax`→`jax_available`). 1–2 commits.
-- **Slice 2a — the sampling cut** (biggest): `probing.py`/`probe_derivatives.py`/`apply.py`/`entries.py`
-  → the four sampling modules (c1–c4); consumers: `tucker_tensor_train.py`, `manifold.py`,
-  `frame_variations_format.py`, `backend/fitting.py`, tests, examples.
+- **Slice 2a — the sampling cut** (biggest): **ON HOLD pending the grouping decision (§B banner)**.
+  Function renames per c1–c4 + whichever file grouping Nick picks; consumers:
+  `tucker_tensor_train.py`, `manifold.py`, `frame_variations_format.py`, `backend/fitting.py`,
+  tests, examples.
 - **Slice 2b — t3 family** (c7–c8): the 3-way split, dense merge, orthogonalization renames, chain
   collision fix, dead-duplicate deletion.
 - **Slice 2c — ragged tv/fv** (c5–c6): `tv_operations.py`, dissolve `orthogonal_representations.py`.
@@ -299,11 +362,25 @@ word-level semantic review reserved for Slice 4’s prose renames.
 
 ## E. Flagged decisions for Nick (⚑) — each with a recommendation
 
-- **F1 — chain-level naming convention.** Ops on bare core *chains* (not full family data) stay
-  **descriptive and unprefixed** (`squash_tt_tails`, `reverse_tt`, `tt_zipper_*`,
-  `change_*_core_shapes`, new `*_tt_chain` for the polymorphic pair, `*_supercores` +
-  `uniform_*` for uniform chains); family prefixes are reserved for data-level ops. *Recommend yes* —
-  the alternative (`t3_squash_tt_tails`) misstates the operand.
+- **F1 — REVISED (Nick's tt/utt proposal, 2026-07-11): chains get a proper family, `tt`** (bare
+  tensor-train chain), analogous to `t3`/`ut3`. Ragged-and-polymorphic share the `tt` name (the
+  general plan: with polymorphism you don't need both); `utt` is reserved for uniform-*only* chain
+  ops. Investigation result: the chain sweeps are already merged — ONE polymorphic SVD-based
+  implementation in `orthogonalization.py`; the t3/ut3-level same-named functions are thin wrappers
+  adding Tucker handling resp. mask bookkeeping (no duplicate math anywhere). Concretely:
+  `left/right_orthogonalize_tt_cores` (polymorphic chain) → **`tt_left_orthogonalize` /
+  `tt_right_orthogonalize`**; **merge the two remaining one-line same-math chain twins**
+  polymorphically: `reverse_tt`+`reverse_utt` → **`tt_reverse`**, `squash_tt_tails`+
+  `uniform_squash_tt_tails` → **`tt_squash_tails`** (the sweep already dispatches reverse
+  internally — this simplifies it; the ONE sanctioned twin-merge, chain-level and trivial). `utt_`
+  then has no members (kept in the grammar, unused). `tt_zipper_*` ✓ already conforms;
+  `change_{tucker,tt}_core_shapes` → `tucker_change_core_shapes`/`tt_change_core_shapes`; the
+  uniform supercore-PAIR workers (`up_orthogonalize_tt_supercores`,
+  `down_orthogonalize_tucker_supercores` — they take BOTH supercores, so not `tt` ops) keep their
+  descriptive `*_supercores` names inside `ut3_orthogonalization`. **Open sub-question — placement:**
+  prefix (`tt_left_orthogonalize`) vs Nick's written form (`left_orthogonalize_tt`). *Recommend
+  prefix*: one rule everywhere ("leading token = operand type") and `tt_`-autocomplete surfaces all
+  chain ops together — but this is a user-help judgment, Nick decides.
 - **F2 — projection names.** `tv_project_t3_onto_tangent_space` / `tv_project_dense_onto_tangent_space`
   / `utv_project_ut3_onto_tangent_space` — long but regular (locked: accept long morphemes).
   *Recommend yes.*
