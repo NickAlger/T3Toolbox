@@ -1,0 +1,7 @@
+UniformGaussNewtonModel.jacobian
+================================
+
+.. py:method:: t3toolbox.UniformGaussNewtonModel.jacobian(p)
+
+   The linearized forward ``J p = 𝒥(Π p)`` -- ONE forward sweep (the predicted residual ``r + J p``).
+

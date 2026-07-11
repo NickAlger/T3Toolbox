@@ -1,0 +1,40 @@
+TuckerTensorTrain.entries_ambient_transpose
+===========================================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.entries_ambient_transpose(c, index, shape, sum_over_probes = False)
+   :staticmethod:
+
+
+   Ambient transpose of :py:meth:`entries`: scatter ``c`` at ``index`` into canonical (CP) factors.
+
+   The ``entries`` counterpart of :py:meth:`apply_ambient_transpose` -- identical, with the apply
+   vectors replaced by the unit vectors ``e_{index_k}``, so the CP factors are one-hots and the
+   back-projection is ``c * e_{idx_0} (x) ... (x) e_{idx_{d-1}}``. See that method (and
+   ``docs/transposes.md``) for the **ambient vs corewise vs tangent** distinction -- this is the
+   *ambient* one (the frame-free adjoint on the full tensor space); the gradient-for-optimizers
+   versions are ``entries_corewise_transpose`` and ``T3Tangent.entries_transpose``.
+
+   ``sum_over_probes=True`` makes ``W`` the CP rank (scatter-adding colliding indices -- the
+   ``J^T r`` for entry sampling); ``False`` keeps ``W`` as a stacking axis. ``shape`` supplies the
+   ambient dims ``(N0, ..., N(d-1))``, which (unlike :py:meth:`apply_ambient_transpose`, where
+   ``ww`` carries them) ``c`` and ``index`` alone do not determine. Returns CP ``factors`` for
+   :py:meth:`from_canonical`.
+
+   .. seealso:: :py:obj:`entries`, :py:obj:`entries_corewise_transpose`, :py:obj:`apply_ambient_transpose`, :py:obj:`from_canonical`
+
+   .. rubric:: Examples
+
+   Back-projecting a residual scatters it at the index (realize the CP factors with
+   :py:meth:`from_canonical`):
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+   >>> factors = t3.TuckerTensorTrain.entries_ambient_transpose(2.0, (3, 5, 7), x.shape)
+   >>> ETc = t3.TuckerTensorTrain.from_canonical(factors)
+   >>> print(bool(abs(float(ETc.to_dense()[3, 5, 7]) - 2.0) < 1e-9))     # c lands at the index
+   True
+   >>> rest = ETc.to_dense().copy(); rest[3, 5, 7] = 0.0
+   >>> print(bool(np.linalg.norm(rest) < 1e-9))                          # zero elsewhere
+   True
+

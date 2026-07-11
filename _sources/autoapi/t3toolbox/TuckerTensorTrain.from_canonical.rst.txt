@@ -1,0 +1,42 @@
+TuckerTensorTrain.from_canonical
+================================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.from_canonical(factors)
+   :staticmethod:
+
+
+   Constructs TuckerTensorTrain from Canonical decomposition.
+
+   Canonical decomposition represents a tensor X as a sum of rank-1 tensors of the form
+
+       X[i1, ..., id] = sum_j F0[j,i1] * ... * F(d-1)[j,id],
+
+   where F0,...,F(d-1) are the canonical factor matrices.
+
+   :param factors: Canonical factors. ``len(factors)=d``, ``factors[ii].shape=stack_shape+(canonical_rank, Ni)``.
+   :type factors: Sequence[NDArray]
+
+   :returns: **T** -- TuckerTensorTrain representation of dense tensor which is represented by provided canonical decomposition.
+             ``T.to_dense()[S,i1,...,id] = sum(factors[S,:,i1]*...*factors[S,:,id])``. Here ``S`` is a stack index.
+   :rtype: TuckerTensorTrain
+
+   :raises ValueError: If factor matrices in factors have inconsistent shapes.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> rank = 3
+   >>> shape = (5,6,7)
+   >>> stack_shape = (2,3)
+   >>> FF = [np.random.randn(*(stack_shape+(rank, N))) for N in shape]
+   >>> x = t3.TuckerTensorTrain.from_canonical(FF)
+   >>> x_dense = x.to_dense()
+   >>> x_dense2 = np.einsum('abri,abrj,abrk->abijk', FF[0], FF[1], FF[2])
+   >>> print(np.linalg.norm(x_dense - x_dense2))
+   0.0
+   >>> print(x.tucker_ranks)
+   (3, 3, 3)
+   >>> print(x.tt_ranks)
+   (3, 3, 3, 3)
+

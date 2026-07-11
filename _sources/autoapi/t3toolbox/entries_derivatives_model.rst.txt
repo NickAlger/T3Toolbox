@@ -1,0 +1,8 @@
+entries_derivatives_model
+=========================
+
+.. py:function:: t3toolbox.entries_derivatives_model(geometry, x, index, pp, order, residual, weight = None)
+
+   The ``entries``-derivatives Gauss-Newton model -- like :py:func:`apply_derivatives_model` at integer
+   grid points ``index``.
+

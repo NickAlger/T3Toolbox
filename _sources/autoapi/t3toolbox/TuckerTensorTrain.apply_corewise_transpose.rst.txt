@@ -1,0 +1,44 @@
+TuckerTensorTrain.apply_corewise_transpose
+==========================================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.apply_corewise_transpose(c, ww, sum_over_probes = False)
+
+   Corewise (non-manifold) transpose of :py:meth:`apply`: gradient w.r.t. *this tensor's cores*.
+
+   One of **three** transposes of ``apply`` -- pick the one you want (full taxonomy and costs in
+   ``docs/transposes.md``):
+
+   - **corewise** (this method): the gradient of ``self.apply(ww)`` with respect to ``self``'s
+     cores, treated as independent optimization variables -- what a **core-wise optimizer** (Adam,
+     L-BFGS, SGD) needs. Returns a **raw tuple** ``(tucker_grads, tt_grads)`` whose arrays have the
+     exact shapes of ``self.data``. It is a *gradient, not a tensor* -- do not do T3 arithmetic
+     with it. No ``|W|`` blow-up: the probe stack collapses into the fixed-size cores.
+   - **ambient** (:py:meth:`apply_ambient_transpose`): the frame-free adjoint, returned as the CP
+     factors of ``c * (w0 (x) ... (x) w_{d-1})``.
+   - **tangent** (``T3Tangent.apply_transpose``): the Riemannian gradient, a tangent vector.
+
+   Computed by the Section 6.3 corewise simplification -- the tangent transpose with this tensor's
+   own cores substituted for the orthogonal frames (orthogonality is not required).
+   ``sum_over_probes=True`` is the summed gradient ``J^T r``; ``False`` keeps the probe stack ``W``
+   (one gradient set per probe, e.g. to assemble ``J^T J``).
+
+   Note: a corewise gradient is meaningful only at the base point where it is taken (the cores are
+   a representation, not intrinsic), so combining them across base points (as L-BFGS history does)
+   is a heuristic; for the principled version use the tangent transpose.
+
+   .. seealso:: :py:obj:`apply`, :py:obj:`apply_ambient_transpose`, :py:obj:`entries_corewise_transpose`
+
+   .. rubric:: Examples
+
+   The gradient has the same structure as the cores (not a tensor):
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+   >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+   >>> gU, gG = x.apply_corewise_transpose(np.asarray(2.0), ww, sum_over_probes=True)
+   >>> print([g.shape for g in gU] == [u.shape for u in x.tucker_cores])   # matches Tucker cores
+   True
+   >>> print([g.shape for g in gG] == [g.shape for g in x.tt_cores])       # matches TT cores
+   True
+

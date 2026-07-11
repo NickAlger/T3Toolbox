@@ -1,0 +1,93 @@
+TuckerTensorTrain.entries
+=========================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.entries(index)
+
+   Compute an entry (or multiple entries) of a Tucker tensor train.
+
+   This is the entry of the ``N0 x ... x N(d-1)`` tensor *represented* by the
+   Tucker tensor train, even though this dense tensor is never formed.
+
+   :param self: Tucker tensor train with ``shape=(N0,...,N(d-1))``
+   :type self: TuckerTensorTrain
+   :param index: Index array or convertible to ``NDArray`` with ``dtype=int`` and
+                 ``shape=(d,)+idx_stack_shape``
+   :type index: NDArray
+
+   :returns: Array of selected entries with ``shape=idx_stack_shape+t3_stack_shape`` (base-inner: the
+             index stack is outer, the T3 stack inner). A scalar for an unstacked T3 and a single index.
+   :rtype: :py:class:`.NDArray`
+
+   :raises ValueError: If ``len(index)`` is not equal to Tucker tensor train dimension
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.apply`, :py:meth:`.TuckerTensorTrain.probe`
+
+   .. rubric:: Examples
+
+   Compute one entry:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
+   >>> index = [9, 4, 7]
+   >>> result = x.entries(index)
+   >>> result2 = x.to_dense()[9, 4, 7]
+   >>> print(np.allclose(result, result2))
+   True
+
+   With stacked index and stacked T3s -- output is base-inner ``idx_stack_shape + t3_stack_shape``:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> choice = np.random.choice
+   >>> t3_stack_shape = (2,3)
+   >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,2), t3_stack_shape)
+   >>> idx_stack_shape = (4,5,1)
+   >>> index = [choice(14, size=idx_stack_shape), choice(15, size=idx_stack_shape), choice(16, size=idx_stack_shape)]
+   >>> entries = x.entries(index)
+   >>> print(entries.shape)               # base-inner: idx stack (4,5,1) outer, T3 stack (2,3) inner
+   (4, 5, 1, 2, 3)
+   >>> ii, jj = 1, 2          # T3 stack index (inner)
+   >>> ll, mm, nn =  3, 2, 0  # index stack (outer)
+   >>> entry_ij_lmn = entries[ll,mm,nn, ii,jj]
+   >>> x_ij_dense = x.to_dense()[ii,jj]
+   >>> index_lmk = (index[0][ll,mm,nn], index[1][ll,mm,nn], index[2][ll,mm,nn])
+   >>> entry_ij_lmn_true = x_ij_dense[index_lmk]
+   >>> print(np.allclose(entry_ij_lmn, entry_ij_lmn_true))
+   True
+
+   Differentiable / jit-able under jax -- jit gives the same value as the eager call:
+
+   >>> import numpy as np
+   >>> import jax
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> get_entry_123 = lambda x: x.entries((1,2,3))
+   >>> A = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1)).to_jax()
+   >>> a123 = get_entry_123(A)
+   >>> a123_jit = jax.jit(get_entry_123)(A)        # jit compile, then call
+   >>> print(np.allclose(a123, a123_jit))
+   True
+
+   ``jax.grad`` differentiates through the cores; the directional derivative matches a finite difference:
+
+   >>> import numpy as np
+   >>> import jax
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.corewise as cw
+   >>> jax.config.update("jax_enable_x64", True)   # double precision for the finite difference
+   >>> np.random.seed(0)
+   >>> get_entry_123 = lambda x: x.entries((1,2,3))
+   >>> A0 = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1), use_jax=True)
+   >>> f0 = get_entry_123(A0)
+   >>> G0 = jax.grad(get_entry_123)(A0)            # gradient w.r.t. the cores
+   >>> dA = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1), use_jax=True)
+   >>> df = cw.corewise_dot(dA.data, G0.data)      # sensitivity in direction dA
+   >>> s = 1e-7
+   >>> A1 = cw.corewise_add(A0.data, cw.corewise_scale(dA.data, s)) # A1 = A0 + s*dA
+   >>> df_diff = (get_entry_123(t3.TuckerTensorTrain(*A1)) - f0) / s # finite difference
+   >>> print(bool(np.allclose(df, df_diff, rtol=1e-5)))
+   True
+

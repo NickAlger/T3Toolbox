@@ -1,0 +1,78 @@
+TuckerTensorTrain.t3svd_dense
+=============================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.t3svd_dense(T, stack_shape = (), max_tucker_ranks = None, max_tt_ranks = None, rtol = None, atol = None)
+   :staticmethod:
+
+
+   Compute :py:class:`.TuckerTensorTrain` representation or approximation of a dense tensor.
+
+   :param T: The dense tensor. ``shape = stack_shape + (N0, ..., N(d-1))``
+   :type T: NDArray
+   :param stack_shape: The stack shape. Default: no stacking (``stack_shape=()``)
+   :type stack_shape: Sequence[int], optional
+   :param max_tucker_ranks: Maximum Tucker ranks ``ni``. A scalar caps every mode; a sequence is per-mode,
+                            e.g., ``(5,5,5)`` with ``len(max_tucker_ranks)=d``.
+                            Default: no max Tucker rank truncation (``None``).
+   :type max_tucker_ranks: int or Sequence[int], optional
+   :param max_tt_ranks: Maximum TT-ranks ``ri``. A scalar caps every bond; a sequence is per-bond,
+                        e.g., ``(1,5,5,5,1)`` with ``len(max_tt_ranks)=d+1``.
+                        Default: no max TT rank truncation (``None``).
+   :type max_tt_ranks: int or Sequence[int], optional
+   :param rtol: Relative tolerance for truncation (in the Frobenius norm), applied **per truncation step**
+                (see Notes -- the overall error can be larger). Default: no ``rtol`` truncation (``None``).
+                Requires ``stack_shape=()``.
+   :type rtol: float, optional
+   :param atol: Absolute tolerance for truncation (in the Frobenius norm), applied **per truncation step**
+                (see Notes). Default: no ``atol`` truncation (``None``).
+                Requires ``stack_shape=()``.
+   :type atol: float, optional
+
+   :returns: * *TuckerTensorTrain* -- Tucker tensor train approximation of ``T``
+             * *Tuple[NDArray,...]* -- Singular values of matricizations. ``len=d``. ``elm_shape=(ni,)``
+             * *Tuple[NDArray,...]* -- Singular values of unfoldings. ``len=d+1``. ``elm_shape=(ri,)``
+
+   :raises ValueError: If ``stack_shape`` is not empty and ``rtol`` or ``atol`` are supplied.
+       (Cannot use tolerances with stacking)
+
+   .. rubric:: Notes
+
+   ``rtol``/``atol`` bound the truncation error at **each step** (each unfolding/matricization SVD
+   truncation), **not** the overall error. The per-step errors accumulate in quadrature over the
+   ``2d-1`` steps (``d-1`` TT unfoldings + ``d`` Tucker matricizations), so the realized error can
+   exceed the requested tolerance by up to a factor ``sqrt(2d-1)`` (the generalized Oseledets bound).
+   See ``docs/t3svd_verification.md`` for the bound and its proof.
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.t3svd`, :py:meth:`.TuckerTensorTrain.get_minimal_ranks`
+
+   .. rubric:: Notes
+
+   See the dense T3-SVD (Algorithm 9) in Appendix A of [1]_.
+
+   .. rubric:: References
+
+   .. [1] Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+      Tucker Tensor Train Taylor Series.
+      arXiv preprint arXiv:2603.21141.
+      .. __: https://arxiv.org/abs/2603.21141
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import math
+   >>> np.random.seed(0)
+   >>> T0 = np.random.randn(40, 50, 60)
+   >>> c0 = 1.0 / np.arange(1, 41)**2
+   >>> c1 = 1.0 / np.arange(1, 51)**2
+   >>> c2 = 1.0 / np.arange(1, 61)**2
+   >>> T = np.einsum('ijk,i,j,k->ijk', T0, c0, c1, c2) # graded-spectrum (preconditioned) tensor
+   >>> x, ss_tucker, ss_tt = t3.TuckerTensorTrain.t3svd_dense(T, rtol=1e-3) # truncated T3-SVD
+   >>> print(x.tucker_ranks, x.tt_ranks)          # rtol reduces the ranks below full (40,50,60)
+   (11, 11, 10) (1, 10, 11, 1)
+   >>> T2 = x.to_dense()
+   >>> rel_err = np.linalg.norm(T - T2) / np.linalg.norm(T)
+   >>> # per-step rtol accumulates over 2d-1 steps -> realized error within sqrt(2d-1)*rtol (d=3)
+   >>> print(bool(rel_err <= math.sqrt(2 * 3 - 1) * 1e-3))
+   True
+

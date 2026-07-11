@@ -1,0 +1,10 @@
+TuckerTensorTrain.entries_corewise_derivatives_transpose
+========================================================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.entries_corewise_derivatives_transpose(c, index, pp, order, sum_over_probes = False)
+
+   Corewise transpose of :py:meth:`entries_derivatives`: gradient of the entry-derivative jets
+   w.r.t. *this tensor's cores* (the Section 6.3 substitution). Returns raw core gradients.
+
+   .. seealso:: :py:obj:`entries_derivatives`, :py:obj:`apply_corewise_derivatives_transpose`
+

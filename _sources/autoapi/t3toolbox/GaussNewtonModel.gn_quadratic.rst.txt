@@ -1,0 +1,12 @@
+GaussNewtonModel.gn_quadratic
+=============================
+
+.. py:method:: t3toolbox.GaussNewtonModel.gn_quadratic(p)
+
+   The Gauss-Newton quadratic form ``pᵀ H p = ‖J p‖²`` -- ONE forward sweep, NOT a Hessian apply.
+
+   The cheap denominator for Cauchy / line-search step lengths: ``alpha = g.corewise_inner(g) /
+   model.gn_quadratic(g)``. Because ``H = JᵀJ``, ``pᵀHp = (Jp)ᵀ(Jp) = ‖Jp‖²``, so this needs only the
+   forward :py:meth:`jacobian` -- it avoids the transpose ``𝒥ᵀ`` and the ``H p`` tangent
+   materialization that the equivalent ``p.corewise_inner(self.gn_hessian(p))`` would incur.
+

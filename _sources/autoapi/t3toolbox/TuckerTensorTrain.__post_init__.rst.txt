@@ -1,0 +1,4 @@
+TuckerTensorTrain.__post_init__
+===============================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.__post_init__()

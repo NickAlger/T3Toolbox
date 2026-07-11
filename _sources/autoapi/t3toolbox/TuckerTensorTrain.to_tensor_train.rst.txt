@@ -1,0 +1,24 @@
+TuckerTensorTrain.to_tensor_train
+=================================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.to_tensor_train()
+
+   Convert this TuckerTensorTrain to a tensor train by contracting Tucker bases with TT cores.
+
+   :returns: **tt_cores** -- Tensor train cores. ``len(tt_cores)=d``, ``tt_cores[ii].shape=stack_shape+(ri, Ni, r(i+1))``.
+   :rtype: Sequence[NDArray]
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.from_tensor_train`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14,15,16), (5,6,7), (2,3,4,1), (2,3))
+   >>> big_tt_cores = x.to_tensor_train()
+   >>> x_dense = np.einsum('...aib,...bjc,...ckd->...ijk', *big_tt_cores)
+   >>> x_dense2 = x.to_dense()
+   >>> print(np.allclose(x_dense, x_dense2))
+   True
+

@@ -1,0 +1,13 @@
+GaussNewtonModel.jacobian
+=========================
+
+.. py:method:: t3toolbox.GaussNewtonModel.jacobian(p)
+
+   The linearized forward ``J p = 𝒥(Π p)`` (the Gauss-Newton Jacobian-vector product).
+
+   ONE forward sweep -- no transpose ``𝒥ᵀ``, no gauge re-projection of the output, no tangent
+   assembly. The general forward primitive: it gives the predicted residual ``r + J p`` (for
+   trust-region / line-search predicted reduction) and, via :py:meth:`gn_quadratic`, the Gauss-Newton
+   quadratic form. The result lives in the sample space (a scalar per sample for apply / entries; one
+   vector per mode for probe).
+

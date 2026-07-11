@@ -1,0 +1,7 @@
+UniformGaussNewtonModel.evaluate
+================================
+
+.. py:method:: t3toolbox.UniformGaussNewtonModel.evaluate(p)
+
+   The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀHp``, reusing ``c`` / ``g`` and ONE forward apply.
+

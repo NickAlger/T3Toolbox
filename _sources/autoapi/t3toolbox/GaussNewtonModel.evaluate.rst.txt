@@ -1,0 +1,10 @@
+GaussNewtonModel.evaluate
+=========================
+
+.. py:method:: t3toolbox.GaussNewtonModel.evaluate(p)
+
+   The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` with ``H = JᵀJ``, reusing the cached
+   ``c`` and ``g`` and one **forward** apply: the quadratic term needs only ``½ pᵀ H p = ½‖𝒥 Π p‖²``,
+   not a Hessian apply. ``p`` is projected here, shared by the linear term ``⟨g, Πp⟩`` and the
+   quadratic. Equals ``½‖r + 𝒥 Π p‖²`` exactly (the objective is quadratic in the ambient tensor).
+

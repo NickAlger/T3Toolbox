@@ -1,0 +1,24 @@
+TuckerTensorTrain.__neg__
+=========================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.__neg__()
+
+   Scale a TuckerTensorTrain by -1. ``result=-self``.
+
+   Negation is defined with respect to the dense ``N0 x ... x N(d-1)`` tensor that
+   is *represented* by the TuckerTensorTrains.
+
+   :returns: **result** -- Negative of this TuckerTensorTrain satisfying ``result.to_dense() = -self.to_dense()``.
+   :rtype: TuckerTensorTrain or NDArray
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.__add__`, :py:meth:`.TuckerTensorTrain.__sub__`, :py:meth:`.TuckerTensorTrain.__mul__`, :py:meth:`.TuckerTensorTrain.inner`, :py:meth:`.TuckerTensorTrain.norm`, :py:meth:`.TuckerTensorTrain.sum`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+   >>> neg_x = -x
+   >>> print(np.linalg.norm(x.to_dense() + neg_x.to_dense()))
+   0.0
+

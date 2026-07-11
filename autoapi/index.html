@@ -353,7 +353,7 @@
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.to_dense.html">TuckerTensorTrain.to_dense</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.segment.html">TuckerTensorTrain.segment</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.concatenate.html">TuckerTensorTrain.concatenate</a></li>
-<li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.squash.html">TuckerTensorTrain.squash</a></li>
+<li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.squash_tails.html">TuckerTensorTrain.squash_tails</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.reverse.html">TuckerTensorTrain.reverse</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.resize.html">TuckerTensorTrain.resize</a></li>
 <li class="toctree-l4"><a class="reference internal" href="t3toolbox/tucker_tensor_train/TuckerTensorTrain.to_jax.html">TuckerTensorTrain.to_jax</a></li>
@@ -414,6 +414,111 @@
 </details></li>
 </ul>
 </details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.html">TuckerTensorTrain</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.__repr__.html">TuckerTensorTrain.__repr__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.get_core_shapes.html">TuckerTensorTrain.get_core_shapes</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.get_minimal_ranks.html">TuckerTensorTrain.get_minimal_ranks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.has_numerically_minimal_ranks.html">TuckerTensorTrain.has_numerically_minimal_ranks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.is_left_orthogonal.html">TuckerTensorTrain.is_left_orthogonal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.is_right_orthogonal.html">TuckerTensorTrain.is_right_orthogonal</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.validate.html">TuckerTensorTrain.validate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.__post_init__.html">TuckerTensorTrain.__post_init__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.to_dense.html">TuckerTensorTrain.to_dense</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.segment.html">TuckerTensorTrain.segment</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.concatenate.html">TuckerTensorTrain.concatenate</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.squash_tails.html">TuckerTensorTrain.squash_tails</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.reverse.html">TuckerTensorTrain.reverse</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.resize.html">TuckerTensorTrain.resize</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.to_jax.html">TuckerTensorTrain.to_jax</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.to_numpy.html">TuckerTensorTrain.to_numpy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.copy.html">TuckerTensorTrain.copy</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.unstack.html">TuckerTensorTrain.unstack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.stack.html">TuckerTensorTrain.stack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.zeros.html">TuckerTensorTrain.zeros</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.ones.html">TuckerTensorTrain.ones</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.randn.html">TuckerTensorTrain.randn</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.from_canonical.html">TuckerTensorTrain.from_canonical</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.from_tensor_train.html">TuckerTensorTrain.from_tensor_train</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.to_tensor_train.html">TuckerTensorTrain.to_tensor_train</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.to_vector.html">TuckerTensorTrain.to_vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.from_vector.html">TuckerTensorTrain.from_vector</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.save.html">TuckerTensorTrain.save</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.load.html">TuckerTensorTrain.load</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.__add__.html">TuckerTensorTrain.__add__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.__mul__.html">TuckerTensorTrain.__mul__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.t3m.html">TuckerTensorTrain.t3m</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.__neg__.html">TuckerTensorTrain.__neg__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.__sub__.html">TuckerTensorTrain.__sub__</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.inner.html">TuckerTensorTrain.inner</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.norm.html">TuckerTensorTrain.norm</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.sum.html">TuckerTensorTrain.sum</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.sum_stack.html">TuckerTensorTrain.sum_stack</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.sum_stack_corewise.html">TuckerTensorTrain.sum_stack_corewise</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.down_svd_tucker_core.html">TuckerTensorTrain.down_svd_tucker_core</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.left_svd_tt_core.html">TuckerTensorTrain.left_svd_tt_core</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.right_svd_tt_core.html">TuckerTensorTrain.right_svd_tt_core</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.up_svd_tt_core.html">TuckerTensorTrain.up_svd_tt_core</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.orthogonalize_relative_to_tucker_core.html">TuckerTensorTrain.orthogonalize_relative_to_tucker_core</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.orthogonalize_relative_to_tt_core.html">TuckerTensorTrain.orthogonalize_relative_to_tt_core</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.down_orthogonalize_tucker_cores.html">TuckerTensorTrain.down_orthogonalize_tucker_cores</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.up_orthogonalize_tt_cores.html">TuckerTensorTrain.up_orthogonalize_tt_cores</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.left_orthogonalize_tt_cores.html">TuckerTensorTrain.left_orthogonalize_tt_cores</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.right_orthogonalize_tt_cores.html">TuckerTensorTrain.right_orthogonalize_tt_cores</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.entries.html">TuckerTensorTrain.entries</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.apply.html">TuckerTensorTrain.apply</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.probe.html">TuckerTensorTrain.probe</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.probe_ambient_transpose.html">TuckerTensorTrain.probe_ambient_transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.probe_corewise_transpose.html">TuckerTensorTrain.probe_corewise_transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.apply_ambient_transpose.html">TuckerTensorTrain.apply_ambient_transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.entries_ambient_transpose.html">TuckerTensorTrain.entries_ambient_transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.apply_corewise_transpose.html">TuckerTensorTrain.apply_corewise_transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.entries_corewise_transpose.html">TuckerTensorTrain.entries_corewise_transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.probe_derivatives.html">TuckerTensorTrain.probe_derivatives</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.apply_derivatives.html">TuckerTensorTrain.apply_derivatives</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.entries_derivatives.html">TuckerTensorTrain.entries_derivatives</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.probe_corewise_derivatives_transpose.html">TuckerTensorTrain.probe_corewise_derivatives_transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.apply_corewise_derivatives_transpose.html">TuckerTensorTrain.apply_corewise_derivatives_transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.entries_corewise_derivatives_transpose.html">TuckerTensorTrain.entries_corewise_derivatives_transpose</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.t3svd.html">TuckerTensorTrain.t3svd</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.continuation_ranks.html">TuckerTensorTrain.continuation_ranks</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.rank_adjustment_sweep.html">TuckerTensorTrain.rank_adjustment_sweep</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/TuckerTensorTrain.t3svd_dense.html">TuckerTensorTrain.t3svd_dense</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="t3toolbox/GaussNewtonModel.html">GaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/GaussNewtonModel._n_w.html">GaussNewtonModel._n_w</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/GaussNewtonModel.objective_value.html">GaussNewtonModel.objective_value</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/GaussNewtonModel.gradient.html">GaussNewtonModel.gradient</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/GaussNewtonModel.jacobian.html">GaussNewtonModel.jacobian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/GaussNewtonModel.gn_quadratic.html">GaussNewtonModel.gn_quadratic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/GaussNewtonModel.gn_hessian.html">GaussNewtonModel.gn_hessian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/GaussNewtonModel.evaluate.html">GaussNewtonModel.evaluate</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="t3toolbox/UniformGaussNewtonModel.html">UniformGaussNewtonModel</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/UniformGaussNewtonModel.kind.html">UniformGaussNewtonModel.kind</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/UniformGaussNewtonModel._n_w.html">UniformGaussNewtonModel._n_w</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/UniformGaussNewtonModel.objective_value.html">UniformGaussNewtonModel.objective_value</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/UniformGaussNewtonModel._wrap.html">UniformGaussNewtonModel._wrap</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/UniformGaussNewtonModel.gradient.html">UniformGaussNewtonModel.gradient</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/UniformGaussNewtonModel.jacobian.html">UniformGaussNewtonModel.jacobian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/UniformGaussNewtonModel.gn_quadratic.html">UniformGaussNewtonModel.gn_quadratic</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/UniformGaussNewtonModel.gn_hessian.html">UniformGaussNewtonModel.gn_hessian</a></li>
+<li class="toctree-l3"><a class="reference internal" href="t3toolbox/UniformGaussNewtonModel.evaluate.html">UniformGaussNewtonModel.evaluate</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/apply_model.html">apply_model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/entries_model.html">entries_model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/probe_model.html">probe_model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/apply_derivatives_model.html">apply_derivatives_model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/entries_derivatives_model.html">entries_derivatives_model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/probe_derivatives_model.html">probe_derivatives_model</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/gradient_descent.html">gradient_descent</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/mc_sgd.html">mc_sgd</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/adam.html">adam</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/newton_cg.html">newton_cg</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/safe.html">safe</a></li>
+<li class="toctree-l2"><a class="reference internal" href="t3toolbox/unsafe.html">unsafe</a></li>
 </ul>
 </details></li>
 </ul>

@@ -1,0 +1,47 @@
+TuckerTensorTrain.right_svd_tt_core
+===================================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.right_svd_tt_core(ii, min_rank = None, max_rank = None, rtol = None, atol = None)
+
+   Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor into the TT-core to the left.
+
+   :param ii: index of TT core to SVD
+   :type ii: int
+   :param min_rank: Minimum rank for truncation. Default (``None``): no minimum rank.
+   :type min_rank: int, optional
+   :param max_rank: Maximum rank for truncation. Default (``None``): no maximum rank.
+   :type max_rank: int, optional
+   :param rtol: Relative tolerance for truncation (in Hilbert-Schmidt/Frobenius norm).
+                Default (``None``): no ``rtol`` truncation.
+                If this TuckerTensorTrain is stacked, requires ``rtol=None``.
+   :type rtol: float, optional
+   :param atol: Absolute tolerance for truncation (in Hilbert-Schmidt/Frobenius norm).
+                Default (``None``): no ``atol`` truncation.
+                If this TuckerTensorTrain is stacked, requires ``atol=None``.
+   :type atol: float, optional
+
+   :returns: * **new_x** (*TuckerTensorTrain*) -- New TuckerTensorTrain representing the same tensor, but with ith TT-core orthogonal.
+               I.e., ``einsum('...iaj,...kaj->...ik', G, G) = (stacked) identity matrix``, where ``G=new_tt_cores[ii]``.
+               May have different ith TT rank.
+             * **ss** (*NDArray*) -- Singular values of prior ith TT-core right unfolding.
+               ``ss.shape = new_x.stack_shape + (new_x.tt_ranks[ii],)``.
+
+   :raises ValueError: If this TuckerTensorTrain is stacked and ``rtol`` or ``atol`` are not ``None.
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.down_svd_tucker_core`, :py:meth:`.TuckerTensorTrain.left_svd_tt_core`, :py:meth:`.TuckerTensorTrain.up_svd_tt_core`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
+   >>> ind = 1
+   >>> x2, ss = x.right_svd_tt_core(ind)
+   >>> print(np.allclose(x.to_dense(), x2.to_dense())) # Tensor unchanged
+   True
+   >>> tucker_cores2, tt_cores2 = x2.data
+   >>> G = tt_cores2[ind]
+   >>> print(bool(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0])) < 1e-12)) # TT-core is right orthogonal
+   True
+

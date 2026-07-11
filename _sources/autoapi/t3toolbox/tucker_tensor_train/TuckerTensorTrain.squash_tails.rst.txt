@@ -1,0 +1,29 @@
+TuckerTensorTrain.squash_tails
+==============================
+
+.. py:method:: t3toolbox.tucker_tensor_train.TuckerTensorTrain.squash_tails()
+
+   Make leading and trailing TT ranks equal to 1 (``r0=rd=1``), without changing represented dense tensor.
+
+   :returns: * *TuckerTensorTrain* -- Tucker tensor train with ``tt_ranks=(1,r1,...,r(d-1),1)``.
+             * *See Also*
+             * *---------*
+             * :py:attr:`.TuckerTensorTrain.tt_ranks`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> randn = np.random.randn
+   >>> tucker_cores = (randn(2,3, 4,10), randn(2,3, 5,11), randn(2,3, 6,12))
+   >>> tt_cores = (randn(2,3, 2,4,3), randn(2,3, 3,5,2), randn(2,3, 2,6,5))
+   >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
+   >>> print(x.tt_ranks)
+   (2, 3, 2, 5)
+   >>> x2 = x.squash_tails()
+   >>> print(x2.tt_ranks)                  # leading/trailing bonds forced to 1
+   (1, 3, 2, 1)
+   >>> print(np.allclose(x.to_dense(), x2.to_dense()))   # same dense tensor
+   True
+

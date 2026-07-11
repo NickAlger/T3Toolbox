@@ -15,7 +15,7 @@ TuckerTensorTrain
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.to_dense
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.segment
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.concatenate
-   /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.squash
+   /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.squash_tails
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.reverse
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.resize
    /autoapi/t3toolbox/tucker_tensor_train/TuckerTensorTrain.to_jax
@@ -125,7 +125,7 @@ TuckerTensorTrain
 
    Often, the first and last TT-ranks satisfy ``r0=rd=1``, and "1" in the diagram
    is the number 1. However, it is allowed for these ranks to not be 1, in which case
-   the "1"s in the diagram are vectors of ones. You can make ``r0=rd=1`` using :py:meth:`~squash`.
+   the "1"s in the diagram are vectors of ones. You can make ``r0=rd=1`` using :py:meth:`~squash_tails`.
 
    Example:
 
@@ -666,7 +666,7 @@ Methods
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.to_dense
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.segment
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.concatenate
-   t3toolbox.tucker_tensor_train.TuckerTensorTrain.squash
+   t3toolbox.tucker_tensor_train.TuckerTensorTrain.squash_tails
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.reverse
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.resize
    t3toolbox.tucker_tensor_train.TuckerTensorTrain.to_jax

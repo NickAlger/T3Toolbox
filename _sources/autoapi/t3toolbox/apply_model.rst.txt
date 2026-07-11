@@ -1,0 +1,11 @@
+apply_model
+===========
+
+.. py:function:: t3toolbox.apply_model(geometry, x, ww, residual)
+
+   The Gauss-Newton model of an all-modes ``apply`` least-squares objective at ``x``, on ``geometry``.
+
+   Accepts a ragged ``TuckerTensorTrain`` (-> :py:class:`GaussNewtonModel`) or a uniform
+   ``UniformTuckerTensorTrain`` (-> :py:class:`UniformGaussNewtonModel`); the representation is inferred
+   from ``x`` and the geometry must match.
+

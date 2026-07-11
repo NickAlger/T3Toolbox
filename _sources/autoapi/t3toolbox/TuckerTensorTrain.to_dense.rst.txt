@@ -1,0 +1,64 @@
+TuckerTensorTrain.to_dense
+==========================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.to_dense(squash_tails = True)
+
+   Form dense tensor from this TuckerTensorTrain.
+
+   :param squash_tails: Whether to contract the leading and trailing 1s with the first and last TT indices. (Default: True)
+   :type squash_tails: bool, optional
+
+   :returns: Dense tensor represented by this TuckerTensorTrain,
+             which has ``shape=stack_shape+(N0, ..., N(d-1))`` if ``squash_tails=True``,
+             or ``shape=stack_shape+(r0,N0,...,N(d-1),rd)`` if ``squash_tails=False``.
+   :rtype: NDArray
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> randn = np.random.randn
+   >>> tucker_cores = (randn(4,14),randn(5,15),randn(6,16))
+   >>> tt_cores = (randn(2,4,3), randn(3,5,2), randn(2,6,5))
+   >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
+   >>> x_dense = x.to_dense() # Convert TuckerTensorTrain to dense tensor
+   >>> ((B0,B1,B2), (G0,G1,G2)) = tucker_cores, tt_cores
+   >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->ijk', B0, B1, B2, G0, G1, G2)
+   >>> print(np.allclose(x_dense, x_dense2))
+   True
+
+   Example where leading and trailing ones are not contracted
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> randn = np.random.randn
+   >>> tucker_cores = (randn(4,14),randn(5,15),randn(6,16))
+   >>> tt_cores = (randn(2,4,3), randn(3,5,2), randn(2,6,2))
+   >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
+   >>> x_dense = x.to_dense(squash_tails=False) # Convert TuckerTensorTrain to dense tensor
+   >>> print(x_dense.shape)                    # keeps the outer TT bonds r0=rd=2
+   (2, 14, 15, 16, 2)
+   >>> ((B0,B1,B2), (G0,G1,G2)) = tucker_cores, tt_cores
+   >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->aijkd', B0, B1, B2, G0, G1, G2)
+   >>> print(np.allclose(x_dense, x_dense2))
+   True
+
+   Example with stacking
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> randn = np.random.randn
+   >>> tucker_cores = (randn(2,3, 4,10), randn(2,3, 5,11), randn(2,3, 6,12))
+   >>> tt_cores = (randn(2,3, 2,4,3), randn(2,3, 3,5,2), randn(2,3, 2,6,5))
+   >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
+   >>> x_dense = x.to_dense() # Convert TuckerTensorTrain to dense tensor
+   >>> print(x_dense.shape)                    # leading (2,3) is the stack_shape
+   (2, 3, 10, 11, 12)
+   >>> ((B0,B1,B2), (G0,G1,G2)) = tucker_cores, tt_cores
+   >>> x_dense2 = np.einsum('uvxi,uvyj,uvzk,uvaxb,uvbyc,uvczd->uvijk', B0, B1, B2, G0, G1, G2)
+   >>> print(np.allclose(x_dense, x_dense2))
+   True
+

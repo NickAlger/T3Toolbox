@@ -4,6 +4,18 @@ t3toolbox
 
 .. py:module:: t3toolbox
 
+.. autoapi-nested-parse::
+
+   T3Toolbox: Tucker tensor trains (T3) -- a Tucker decomposition whose central core is
+   stored as a tensor train.
+
+   This package root re-exports the **frontend** surface: the tensor classes (ragged and
+   uniform), the frame/variations/tangent classes, the geometry singletons, the Gauss-Newton
+   fitting models, and the optimizers. **Backend users import submodules explicitly** (e.g.
+   ``from t3toolbox.backend import probing``) -- the backend is namespaced by module and
+   deliberately not re-exported here. Naming conventions: ``docs/naming_conventions.md``.
+
+
 
 Submodules
 ----------
@@ -16,5 +28,57 @@ Submodules
    /autoapi/t3toolbox/optimizers/index
    /autoapi/t3toolbox/safety/index
    /autoapi/t3toolbox/tucker_tensor_train/index
+
+
+Classes
+-------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/TuckerTensorTrain
+   /autoapi/t3toolbox/GaussNewtonModel
+   /autoapi/t3toolbox/UniformGaussNewtonModel
+
+.. autoapisummary::
+
+   t3toolbox.TuckerTensorTrain
+   t3toolbox.GaussNewtonModel
+   t3toolbox.UniformGaussNewtonModel
+
+
+Functions
+---------
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/apply_model
+   /autoapi/t3toolbox/entries_model
+   /autoapi/t3toolbox/probe_model
+   /autoapi/t3toolbox/apply_derivatives_model
+   /autoapi/t3toolbox/entries_derivatives_model
+   /autoapi/t3toolbox/probe_derivatives_model
+   /autoapi/t3toolbox/gradient_descent
+   /autoapi/t3toolbox/mc_sgd
+   /autoapi/t3toolbox/adam
+   /autoapi/t3toolbox/newton_cg
+   /autoapi/t3toolbox/safe
+   /autoapi/t3toolbox/unsafe
+
+.. autoapisummary::
+
+   t3toolbox.apply_model
+   t3toolbox.entries_model
+   t3toolbox.probe_model
+   t3toolbox.apply_derivatives_model
+   t3toolbox.entries_derivatives_model
+   t3toolbox.probe_derivatives_model
+   t3toolbox.gradient_descent
+   t3toolbox.mc_sgd
+   t3toolbox.adam
+   t3toolbox.newton_cg
+   t3toolbox.safe
+   t3toolbox.unsafe
 
 

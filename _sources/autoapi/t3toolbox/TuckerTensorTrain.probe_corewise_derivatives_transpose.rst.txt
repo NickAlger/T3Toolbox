@@ -1,0 +1,13 @@
+TuckerTensorTrain.probe_corewise_derivatives_transpose
+======================================================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.probe_corewise_derivatives_transpose(ztildes, ww, pp, order, sum_over_probes = False)
+
+   Corewise (non-manifold) transpose of :py:meth:`probe_derivatives`: gradient w.r.t. *this
+   tensor's cores*, treated as independent optimization variables (Adam / L-BFGS). Returns a raw
+   ``(tucker_grads, tt_grads)`` tuple shaped like ``self.data`` -- a gradient, not a tensor. The
+   Section 6.3 substitution ``P,Q,O -> G`` into ``T3Tangent.probe_derivatives_transpose`` (no
+   orthogonality required). ``sum_over_probes=True`` is the summed gradient ``J^T r``.
+
+   .. seealso:: :py:obj:`probe_derivatives`, :py:obj:`probe_corewise_transpose`, :py:obj:`apply_corewise_derivatives_transpose`
+

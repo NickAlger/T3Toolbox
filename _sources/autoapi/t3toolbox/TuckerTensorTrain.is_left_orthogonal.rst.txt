@@ -1,0 +1,36 @@
+TuckerTensorTrain.is_left_orthogonal
+====================================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.is_left_orthogonal(atol = 1e-09)
+
+   True (per stack element) if this T3 is in **left-orthogonal form**: every Tucker core
+   down-orthogonal and every TT core except the last left-orthogonal (the last TT core is the center
+   remainder).
+
+   Non-enforcing convenience checker (max-abs deviation from the identities ``<= atol``; see
+   :py:func:`~t3toolbox.backend.t3_orthogonalization.t3_orthogonality_residual`). A
+   :py:meth:`t3svd` result is left-orthogonal, as is the result of
+   ``rank_adjustment_sweep('left_to_right')``. **Per-stack-element bool array** (scalar when
+   unstacked); reduce with ``.all()`` for a single verdict.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (5, 6, 7), (1, 4, 3, 1))
+   >>> print(x.is_left_orthogonal())     # a random T3 is not in any orthogonal form
+   False
+   >>> x2, _, _ = x.t3svd()              # a t3svd result is left-orthogonal
+   >>> print(x2.is_left_orthogonal())
+   True
+   >>> print(x2.is_right_orthogonal())   # ...but not right-orthogonal
+   False
+
+   Stacked: a per-element bool array. Stack a left-orthogonal element with a non-orthogonal one:
+
+   >>> m = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))  # minimal -> t3svd keeps ranks
+   >>> stacked = t3.TuckerTensorTrain.stack([m.t3svd()[0], m])
+   >>> print(stacked.is_left_orthogonal().shape, stacked.is_left_orthogonal())
+   (2,) [ True False]
+

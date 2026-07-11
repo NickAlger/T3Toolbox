@@ -1,0 +1,44 @@
+TuckerTensorTrain.right_orthogonalize_tt_cores
+==============================================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.right_orthogonalize_tt_cores(return_variation_cores = False)
+
+   Right orthogonalize the TT cores, possibly returning variation cores as well.
+
+   :param return_variation_cores: If True, also return each TT core just before it is orthogonalized. Default: ``return_variation_cores=False``.
+                                  Used to construct variation cores when converting a TuckerTensorTrain to frame-variation format.
+   :type return_variation_cores: bool, optional
+
+   :returns: * **new_x** (*TuckerTensorTrain*) -- New TuckerTensorTrain representing the same tensor, but with all TT cores right orthogonal.
+             * **var_cores** (*Tuple[NDArray,...], optional*) -- TT cores just before they are orthogonalized. Only returned if ``return_variation_cores=True``.
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.down_orthogonalize_tucker_cores`, :py:meth:`.TuckerTensorTrain.up_orthogonalize_tt_cores`, :py:meth:`.TuckerTensorTrain.left_orthogonalize_tt_cores`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
+   >>> x_orth = x.right_orthogonalize_tt_cores()
+   >>> print(bool((x - x_orth).norm() < 1e-11)) # represents the same tensor
+   True
+   >>> ind = 1
+   >>> G = x_orth.data[1][ind]
+   >>> print(bool(np.linalg.norm(np.einsum('iaj,kaj->ik',G,G)-np.eye(G.shape[0])) < 1e-12)) # TT core is right orthogonal
+   True
+
+   Stacked -- ``norm()`` returns a per-stack array; orthogonality holds on every slice:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1), stack_shape=(2,3))
+   >>> x_orth = x.right_orthogonalize_tt_cores()
+   >>> print(bool(np.max((x - x_orth).norm()) < 1e-11)) # same tensor on every stack slice
+   True
+   >>> ind = 1
+   >>> G = x_orth.data[1][ind]
+   >>> print(bool(np.linalg.norm(np.einsum('xyiaj,xykaj->xyik',G,G)-np.eye(G.shape[2])) < 1e-12))
+   True
+

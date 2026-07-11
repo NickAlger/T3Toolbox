@@ -1,0 +1,10 @@
+TuckerTensorTrain.copy
+======================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.copy()
+
+   Copy TuckerTensorTrain.
+
+   :returns: Deep copy.
+   :rtype: TuckerTensorTrain
+

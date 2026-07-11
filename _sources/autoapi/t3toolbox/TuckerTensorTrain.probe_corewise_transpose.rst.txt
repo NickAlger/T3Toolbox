@@ -1,0 +1,18 @@
+TuckerTensorTrain.probe_corewise_transpose
+==========================================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.probe_corewise_transpose(ztildes, ww, sum_over_probes = False)
+
+   Corewise (non-manifold) transpose of :py:meth:`probe`: gradient w.r.t. *this tensor's cores*.
+
+   The probe counterpart of :py:meth:`apply_corewise_transpose` -- the gradient of
+   ``self.probe(ww)`` w.r.t. ``self``'s cores (for core-wise optimizers, Adam / L-BFGS, fitting
+   from probes), returned as a raw ``(tucker_grads, tt_grads)`` tuple shaped like ``self.data`` (a
+   gradient, not a tensor; no ``|W|`` blow-up). Computed by the Section 6.3 corewise simplification
+   -- the tangent probe transpose with this tensor's own cores substituted for the orthogonal
+   frames. See ``docs/transposes.md`` for the ambient/corewise/tangent distinction; the ambient and
+   Riemannian probe transposes are :py:meth:`probe_ambient_transpose` and ``T3Tangent.probe_transpose``.
+   ``sum_over_probes=True`` is the summed gradient ``J^T r``; ``False`` keeps the probe stack ``W``.
+
+   .. seealso:: :py:obj:`probe`, :py:obj:`probe_ambient_transpose`, :py:obj:`apply_corewise_transpose`
+

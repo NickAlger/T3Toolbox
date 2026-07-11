@@ -1,0 +1,12 @@
+GaussNewtonModel.gn_hessian
+===========================
+
+.. py:method:: t3toolbox.GaussNewtonModel.gn_hessian(p)
+
+   The Gauss-Newton Hessian action ``H p = Π 𝒥ᵀ 𝒥 Π p`` (``H = JᵀJ``, *not* the full Hessian).
+
+   Projects ``p`` (so the caller need not), applies the bare forward then transpose, and projects the
+   result -- a tangent at frame. Symmetric. (Corewise: ``Π`` is the identity, so ``H p = 𝒥ᵀ 𝒥 p``,
+   which is gauge-singular -- fine for first-order methods, needs regularization for Newton.) For the
+   *scalar* quadratic form ``pᵀHp`` alone, prefer the cheaper :py:meth:`gn_quadratic`.
+

@@ -1,0 +1,109 @@
+UniformGaussNewtonModel
+=======================
+
+.. toctree::
+   :hidden:
+
+   /autoapi/t3toolbox/UniformGaussNewtonModel.kind
+   /autoapi/t3toolbox/UniformGaussNewtonModel._n_w
+   /autoapi/t3toolbox/UniformGaussNewtonModel.objective_value
+   /autoapi/t3toolbox/UniformGaussNewtonModel._wrap
+   /autoapi/t3toolbox/UniformGaussNewtonModel.gradient
+   /autoapi/t3toolbox/UniformGaussNewtonModel.jacobian
+   /autoapi/t3toolbox/UniformGaussNewtonModel.gn_quadratic
+   /autoapi/t3toolbox/UniformGaussNewtonModel.gn_hessian
+   /autoapi/t3toolbox/UniformGaussNewtonModel.evaluate
+
+.. py:class:: t3toolbox.UniformGaussNewtonModel
+
+   The uniform-layer twin of :py:class:`GaussNewtonModel`: the local Gauss-Newton model at ``frame``,
+   surfacing :py:class:`~t3toolbox.uniform_manifold.UT3Tangent` gradients / Hessian actions so a frontend
+   user can **roll their own uniform optimizer** (e.g. manifold L-BFGS) with the same ergonomics as the
+   ragged model -- ``UNIFORM_MANIFOLD.inner`` / ``.retract`` / ``.transport`` supply the rest. Built by the
+   same factories (:py:func:`apply_model` &c.), which dispatch on ``x``'s type; not directly.
+
+   Internally the sampling ``kind`` runs on the **packed** supercore pair (the speed path); the
+   ``UT3Tangent`` boundary conversion (bare variation pair ⟷ gauged tangent) is the only frontend work.
+
+   **Jit (compile-once).** The packed kind is a per-problem closure over ``x``'s rank masks, so -- unlike
+   the ragged model's stateless singleton kind -- it cannot go in the jax ``aux_data`` directly (a fresh
+   closure each rebuild would recompile). Instead the aux is the **value-hashed** ``(kind_name, x0_masks,
+   order, weight)`` and the kind is **rebuilt lazily** from it (the kind builders use only ``(shape,
+   masks)``, not the supercores). So a model crossing a jit boundary keeps a stable, value-based aux and
+   ``jit(lambda m, p: m.gn_hessian(p))`` compiles **once** across rebuilt models of the same rank (frame /
+   sweep / sample / residual flow as leaves). See ``docs/uniform_backend_jit_recipe.md``.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+   >>> import t3toolbox.uniform_manifold as ut3m
+   >>> import t3toolbox.fitting as fitting
+   >>> np.random.seed(0)
+   >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1)))
+   >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]
+   >>> r = np.random.randn(15)                            # residual r = apply(x) − y
+
+   The gradient is a gauged ``UT3Tangent`` and the Gauss-Newton quadratic form ``pᵀHp = ‖J p‖²`` agrees
+   with the Hessian action:
+
+   >>> model = fitting.apply_model(ut3m.UNIFORM_MANIFOLD, x, ww, r)
+   >>> print(bool(model.gradient.is_gauged().all()))
+   True
+   >>> p = ut3m.UNIFORM_MANIFOLD.randn(model.frame)
+   >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.corewise_inner(model.gn_hessian(p)))))
+   True
+
+
+   .. py:attribute:: geometry
+      :type:  Any
+
+
+   .. py:attribute:: frame
+      :type:  t3toolbox.uniform_frame_variations_format.UT3Frame
+
+
+   .. py:attribute:: kind_name
+      :type:  str
+
+
+   .. py:attribute:: x0_masks
+      :type:  t3toolbox.uniform_tucker_tensor_train.UT3Masks
+
+
+   .. py:attribute:: order
+      :type:  Optional[int]
+
+
+   .. py:attribute:: weight
+      :type:  Optional[Tuple[float, Ellipsis]]
+
+
+   .. py:attribute:: sample
+      :type:  Any
+
+
+   .. py:attribute:: residual
+      :type:  Any
+
+
+   .. py:attribute:: sweep
+      :type:  Any
+
+Methods
+-------
+
+.. autoapisummary::
+
+   t3toolbox.UniformGaussNewtonModel.kind
+   t3toolbox.UniformGaussNewtonModel._n_w
+   t3toolbox.UniformGaussNewtonModel.objective_value
+   t3toolbox.UniformGaussNewtonModel._wrap
+   t3toolbox.UniformGaussNewtonModel.gradient
+   t3toolbox.UniformGaussNewtonModel.jacobian
+   t3toolbox.UniformGaussNewtonModel.gn_quadratic
+   t3toolbox.UniformGaussNewtonModel.gn_hessian
+   t3toolbox.UniformGaussNewtonModel.evaluate
+
+

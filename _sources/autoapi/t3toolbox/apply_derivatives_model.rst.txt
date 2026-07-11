@@ -1,0 +1,31 @@
+apply_derivatives_model
+=======================
+
+.. py:function:: t3toolbox.apply_derivatives_model(geometry, x, ww, pp, order, residual, weight = None)
+
+   The Gauss-Newton model of an ``apply``-**derivatives** least-squares objective at ``x``: the
+   symmetric directional derivatives (orders ``0..order``) of the all-modes apply, in direction ``P``.
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.manifold as t3m
+   >>> import t3toolbox.fitting as fitting
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
+   >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]    # 15 samples
+   >>> pp = [np.random.randn(15, N) for N in (6, 7, 8)]    # one direction P per sample
+   >>> r = np.random.randn(4, 15)                          # RAW residual jet, (order+1, W) for order 3
+
+   A per-order weight ``ω`` balances the wildly-different-magnitude orders -- it weights the objective
+   ``½‖ω⊙r‖²`` inside the kind; the gradient stays a gauged Riemannian tangent, and the Gauss-Newton
+   quadratic form ``pᵀHp = ‖J p‖²`` agrees with the Hessian action:
+
+   >>> model = fitting.apply_derivatives_model(t3m.MANIFOLD, x, ww, pp, 3, r, weight=[1.0, 0.5, 0.3, 0.2])
+   >>> print(model.gradient.is_gauged())
+   True
+   >>> p = t3m.MANIFOLD.randn(model.frame)
+   >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.corewise_inner(model.gn_hessian(p)))))
+   True
+

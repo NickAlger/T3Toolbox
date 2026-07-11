@@ -1,0 +1,4 @@
+UniformGaussNewtonModel.kind
+============================
+
+.. py:method:: t3toolbox.UniformGaussNewtonModel.kind()

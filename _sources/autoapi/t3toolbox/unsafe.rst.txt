@@ -1,0 +1,7 @@
+unsafe
+======
+
+.. py:function:: t3toolbox.unsafe()
+
+   Context manager: skip numerical precondition checks within the block (performance / jit).
+

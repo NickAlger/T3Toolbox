@@ -1,0 +1,89 @@
+TuckerTensorTrain.inner
+=======================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.inner(other, use_orthogonalization = True)
+
+   Compute Hilbert-Schmidt inner product of this TuckerTensorTrain with other tensor, ``result=(self, other)_HS``.
+
+   The Hilbert-Schmidt inner product is defined with respect to the dense ``N0 x ... x N(d-1)``
+   tensor *represented* by the TuckerTensorTrain.
+
+   For corewise dot product, see :func:`t3toolbox.corewise.corewise_dot`
+
+   Allowed types are as follows:
+
+   - ``other: TuckerTensorTrain``
+       ``self.inner(other) = np.sum(self.to_dense() * other.to_dense())``
+
+   - ``other: NDArray``
+       ``self.inner(other) = np.sum(self.to_dense() * other)``
+
+   :param other: Other tensor to take the inner product with. Requires ``other.shape=(N0,...,N(d-1))``.
+   :type other: TuckerTensorTrain
+   :param use_orthogonalization: If True, orthogonalize tensors before computing inner product (more stable).
+                                 If False, use simple zippering without orthogonalization (faster, better for automatic differentiation).
+                                 Default: ``use_orthogonalization=True``.
+   :type use_orthogonalization: bool, optional
+
+   :returns: Hilbert-Schmidt inner product of Tucker tensor trains, (self, other)_HS.
+             If stacked, ``result.shape=self.stack_shape``. Otherwise, result is scalar.
+   :rtype: scalar or NDArray
+
+   :raises ValueError: - Error raised if the TuckerTensorTrains have different shapes and/or stack shapes.
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.__add__`, :py:meth:`.TuckerTensorTrain.__sub__`, :py:meth:`.TuckerTensorTrain.__neg__`, :py:meth:`.TuckerTensorTrain.__mul__`, :py:meth:`.TuckerTensorTrain.norm`, :py:meth:`.TuckerTensorTrain.sum`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (2, 3, 2, 2))
+   >>> y = t3.TuckerTensorTrain.randn((14, 15, 16), (3, 7, 2), (3, 5, 6, 3))
+   >>> hs = x.inner(y)                               # Hilbert-Schmidt inner product (a scalar)
+   >>> print(np.allclose(hs, np.sum(x.to_dense() * y.to_dense())))
+   True
+
+   (T3, T3) with stacking -- one inner product per stack element:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (2, 3, 2, 2), stack_shape=(2, 3))
+   >>> y = t3.TuckerTensorTrain.randn((14, 15, 16), (3, 7, 2), (3, 5, 6, 3), stack_shape=(2, 3))
+   >>> hs = x.inner(y)
+   >>> print(hs.shape)                               # result carries the stack shape
+   (2, 3)
+   >>> print(np.allclose(hs, np.sum(x.to_dense() * y.to_dense(), axis=(2, 3, 4))))
+   True
+
+   Inner product of a T3 with a dense tensor:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (3, 7, 2), (3, 5, 6, 3))
+   >>> y = np.random.randn(14, 15, 16)
+   >>> print(np.allclose(x.inner(y), np.sum(x.to_dense() * y)))
+   True
+
+   ...with stacking (the dense array carries the stack axes):
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (3, 7, 2), (3, 5, 6, 3), stack_shape=(2, 3))
+   >>> y = np.random.randn(2, 3, 14, 15, 16)         # shape = stack_shape + shape
+   >>> print(np.allclose(x.inner(y), np.einsum('ijxyz,ijxyz->ij', x.to_dense(), y)))
+   True
+
+   Gotcha -- the two tensors must have the same shape (raises otherwise):
+
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> x = t3.TuckerTensorTrain.randn((4, 5), (2, 2), (1, 2, 1))
+   >>> y = t3.TuckerTensorTrain.randn((4, 6), (2, 2), (1, 2, 1))   # different shape!
+   >>> x.inner(y)                                    # doctest: +IGNORE_EXCEPTION_DETAIL
+   Traceback (most recent call last):
+       ...
+   ValueError
+

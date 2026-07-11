@@ -1,0 +1,78 @@
+TuckerTensorTrain.apply
+=======================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.apply(vecs)
+
+   Contract a Tucker tensor train with vectors in all indices.
+
+   :param self: Tucker tensor train with ``shape=(N0,...,N(d-1))``
+   :type self: TuckerTensorTrain
+   :param vecs: Vectors to contract with indices of ``self``. ``len=d``, ``elm_shape=vec_stack_shape+(Ni,)``
+   :type vecs: Sequence[NDArray]
+
+   :returns: Result of contracting ``self`` with the vectors in all indices. Scalar if ``vecs``
+             elements are vectors; ``NDArray`` with ``shape=vec_stack_shape+t3_stack_shape`` (base-inner:
+             vec stack outer, T3 stack inner) if ``vecs`` elements are matrices and/or the T3 is stacked.
+   :rtype: NDArray or scalar
+
+   :raises ValueError: Error raised if the provided vectors in ``vecs`` are inconsistent with each other or the Tucker tensor train.
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.entries`, :py:meth:`.TuckerTensorTrain.probe`
+
+   .. rubric:: Examples
+
+   Apply to one set of vectors:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,1))
+   >>> vecs = [np.random.randn(14), np.random.randn(15), np.random.randn(16)]
+   >>> result = x.apply(vecs) # Contract x with vecs in all indices
+   >>> result2 = np.einsum('ijk,i,j,k', x.to_dense(), vecs[0], vecs[1], vecs[2])
+   >>> print(np.allclose(result, result2))
+   True
+
+   Apply to stacked vectors and stacked T3s (vectorized) -- output is base-inner
+   ``vec_stack_shape + t3_stack_shape``:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> randn = np.random.randn
+   >>> stack_shape = (2,3)
+   >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,1), stack_shape)
+   >>> vec_stack_shape = (4,5,1)
+   >>> vecs = [randn(*(vec_stack_shape+(14,))), randn(*(vec_stack_shape+(15,))), randn(*(vec_stack_shape+(16,)))]
+   >>> result = x.apply(vecs)
+   >>> print(result.shape)                # base-inner: vec stack (4,5,1) outer, T3 stack (2,3) inner
+   (4, 5, 1, 2, 3)
+   >>> ii, jj = 1, 2 # T3 stack index (inner)
+   >>> ll, mm, nn =  3, 2, 0 # vectors stack index (outer)
+   >>> result_ij_lmn = result[ll,mm,nn, ii,jj]
+   >>> x_ij_dense = x.to_dense()[ii,jj]
+   >>> vecs_lmn = [vecs[0][ll,mm,nn], vecs[1][ll,mm,nn], vecs[2][ll,mm,nn]]
+   >>> result_ij_lmn_true = np.einsum('abc,a,b,c', x_ij_dense, *vecs_lmn)
+   >>> print(np.allclose(result_ij_lmn, result_ij_lmn_true))
+   True
+
+   ``apply`` is differentiable under jax -- the directional derivative of the symmetric
+   contraction ``u -> A(u,u,u)`` matches a finite difference:
+
+   >>> import numpy as np
+   >>> import jax
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> jax.config.update("jax_enable_x64", True)
+   >>> np.random.seed(0)
+   >>> A = t3.TuckerTensorTrain.randn((10,10,10),(5,5,5),(1,4,4,1)).to_jax()
+   >>> apply_A_sym = lambda u: A.apply((u,u,u)) # symmetric apply (jax dispatch inferred from A)
+   >>> u0 = np.random.randn(10)
+   >>> Auuu0 = apply_A_sym(u0)
+   >>> g0 = jax.grad(apply_A_sym)(u0) # gradient by automatic differentiation
+   >>> du = np.random.randn(10)
+   >>> dAuuu = np.dot(g0, du) # derivative in direction du
+   >>> s = 1e-7
+   >>> dAuuu_diff = (apply_A_sym(u0 + s*du) - Auuu0) / s # finite difference
+   >>> print(bool(np.allclose(dAuuu, dAuuu_diff, rtol=1e-5)))
+   True
+

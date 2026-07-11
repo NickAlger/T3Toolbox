@@ -1,0 +1,32 @@
+TuckerTensorTrain.stack
+=======================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.stack(xx)
+   :staticmethod:
+
+
+   Stacks an array-like tree of TuckerTensorTrains into one stacked TuckerTensorTrain.
+
+   :param xx: TuckerTensorTrains to be stacked. All TuckerTensorTrains must have the same shape and ranks.
+   :type xx: Array-like tree of nested tuples with TuckerTensorTrain leafs
+
+   :returns: Stacked TuckerTensorTrain.
+   :rtype: TuckerTensorTrain
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.unstack`, :py:attr:`.TuckerTensorTrain.stack_shape`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> import t3toolbox.corewise as cw
+   >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,6,2), (1,4,2,1), stack_shape=(3,5))
+   >>> xx = x.unstack()
+   >>> print(len(xx))
+   3
+   >>> print(len(xx[0]))
+   5
+   >>> x2 = t3.TuckerTensorTrain.stack(xx)
+   >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
+   0.0
+

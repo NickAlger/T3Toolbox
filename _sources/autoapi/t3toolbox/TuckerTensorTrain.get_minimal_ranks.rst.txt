@@ -1,0 +1,30 @@
+TuckerTensorTrain.get_minimal_ranks
+===================================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.get_minimal_ranks(shape, tucker_ranks, tt_ranks)
+   :staticmethod:
+
+
+   Find minimal ranks for a hypothetical TuckerTensorTrain with given shape and ranks.
+
+   Minimal ranks satisfy:
+       - Left TT core unfoldings are full rank: ``r(i+1) <= (ri*ni)``
+       - Right TT core unfoldings are full rank: ``ri <= (ni*r(i+1))``
+       - Down TT core unfoldings are full rank: ``ni <= (ri*r(i+1))``
+       - Tucker ranks do not exceed shape: ``ni <= Ni``
+
+   In this function, minimal ranks are defined with respect to a
+   generic Tucker tensor train of the given form based on its structure.
+   We do not account for possible additional rank deficiency due to
+   the numerical values within the cores.
+
+   Minimal ranks always exist and are unique.
+       - Minimal TT ranks are equal to the ranks of ``(N*...*Ni) x (N(i+1)*...*N(d-1))`` matrix unfoldings.
+       - Minimal Tucker ranks are equal to the ranks of ``Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1))`` matricizations.
+
+   .. rubric:: Examples
+
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> print(t3.TuckerTensorTrain.get_minimal_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
+   ((10, 11, 12, 13), (1, 10, 100, 13, 1))
+

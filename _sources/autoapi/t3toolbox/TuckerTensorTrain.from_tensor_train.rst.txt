@@ -1,0 +1,30 @@
+TuckerTensorTrain.from_tensor_train
+===================================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.from_tensor_train(tt_cores)
+   :staticmethod:
+
+
+   Convert tensor train into Tucker tensor train by using identity matrices for Tucker bases.
+
+   :param tt_cores: Tensor train cores. ``len(tt_cores)=d``, ``tt_cores[ii].shape=stack_shape+(ri, Ni, r(i+1))``.
+   :type tt_cores: Sequence[NDArray]
+
+   :returns: **T** -- Input tensor train, converted to TuckerTensorTrain format.
+   :rtype: TuckerTensorTrain
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.to_tensor_train`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> randn = np.random.randn
+   >>> tt_cores = [randn(4,14,5), randn(5,15,3), randn(3,16,2)]
+   >>> x = t3.TuckerTensorTrain.from_tensor_train(tt_cores)
+   >>> x_dense = x.to_dense()
+   >>> x_dense2 = np.einsum('...aib,...bjc,...ckd->...ijk', *tt_cores)
+   >>> print(np.allclose(x_dense, x_dense2))
+   True
+

@@ -1,0 +1,7 @@
+UniformGaussNewtonModel.objective_value
+=======================================
+
+.. py:method:: t3toolbox.UniformGaussNewtonModel.objective_value()
+
+   The least-squares objective at the frame, ``c = ½‖r‖²``.
+

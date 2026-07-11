@@ -1,0 +1,10 @@
+probe_model
+===========
+
+.. py:function:: t3toolbox.probe_model(geometry, x, ww, residual)
+
+   The Gauss-Newton model of a ``probe`` least-squares objective at ``x``, on ``geometry``.
+
+   Like :py:func:`apply_model` but the measurements are **probes** -- vector-valued (one free mode each),
+   so ``residual`` is a sequence of ``d`` arrays (``elm_shape = W+C+(Ni,)``).
+

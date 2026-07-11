@@ -1,0 +1,8 @@
+mc_sgd
+======
+
+.. py:function:: t3toolbox.mc_sgd(geometry, kind, sample, data, x0, rng, batch, order = None, weight = None, draw = None, **kwargs)
+
+   Manifold Cauchy SGD -- minibatched, tuning-free Cauchy step. Ragged or uniform ``x0`` (see
+   :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.mc_sgd`.
+

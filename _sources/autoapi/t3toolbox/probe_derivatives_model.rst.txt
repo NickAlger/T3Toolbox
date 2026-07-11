@@ -1,0 +1,8 @@
+probe_derivatives_model
+=======================
+
+.. py:function:: t3toolbox.probe_derivatives_model(geometry, x, ww, pp, order, residual, weight = None)
+
+   The ``probe``-derivatives Gauss-Newton model -- vector-valued (one free mode per probe), so
+   ``residual`` is a sequence of ``d`` jets.
+

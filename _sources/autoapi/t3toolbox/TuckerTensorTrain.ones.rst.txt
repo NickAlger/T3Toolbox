@@ -1,0 +1,36 @@
+TuckerTensorTrain.ones
+======================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.ones(shape, stack_shape = (), use_jax = False)
+   :staticmethod:
+
+
+   Construct TuckerTensorTrain representation of dense tensor filled with ones.
+   Has Tucker and TT ranks equal to 1.
+
+   :param shape: Shape of the TuckerTensorTrain. ``len(shape)=d``.
+   :type shape: Sequence[int]
+   :param stack_shape: Stack shape. Default (``stack_shape=()``): No stacking.
+   :type stack_shape: Sequence[int], optional
+   :param use_jax: Cores are jax arrays if True, and numpy arrays if False. (default: ``use_jax=False``)
+   :type use_jax: bool, optional
+
+   :returns: Ones TuckerTensorTrain with the desired shape. ``tucker_ranks=(1,...,1)`` and ``tt_ranks=(1,...,1)``
+   :rtype: TuckerTensorTrain
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.zeros`, :py:meth:`.TuckerTensorTrain.randn`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> shape = (14, 15, 16)
+   >>> stack_shape = (2,3)
+   >>> x = t3.TuckerTensorTrain.ones(shape, stack_shape=stack_shape)
+   >>> print(np.linalg.norm(x.to_dense() - np.ones(stack_shape+shape)))
+   0.0
+   >>> print(x.tucker_ranks)
+   (1, 1, 1)
+   >>> print(x.tt_ranks)
+   (1, 1, 1, 1)
+

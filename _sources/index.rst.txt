@@ -176,7 +176,7 @@ Examples
 	>>> import t3toolbox.tucker_tensor_train as t3
 	>>> import t3toolbox.manifold as t3m
 	>>> p = t3.t3_corewise_randn(((14,15,16), (4,5,6), (1,3,2,1))) # tangent space base point
-	>>> frame, _ = t3m.orthogonal_representations(p)
+	>>> frame, _ = t3m.t3_orthogonal_representations(p)
 	>>> v = t3m.tangent_randn(frame) # Random tangent vector.
 	>>> ret_v = t3m.retract(v, frame) # Retract tangent vector to manifold.
 	>>> v_as_t3 = t3m.tangent_to_t3(v, frame) # Convert tangent vector to rank-2r T3
@@ -194,7 +194,7 @@ Examples
 	>>> w1 = np.random.randn(10) # random probing vectors
 	>>> w2 = np.random.randn(11)
 	>>> w3 = np.random.randn(12)
-	>>> zz = t3p.probe_t3(x, (w1, w2, w3)) # Probe T3-tensor
+	>>> zz = t3p.t3_probe(x, (w1, w2, w3)) # Probe T3-tensor
 	>>> x_dense = t3.t3_to_dense(x) # Convert to dense to check error
 	>>> z1 = np.einsum('ijk,j,k->i', x_dense, w2, w3) # Probe dense tensor (brute force)
 	>>> z2 = np.einsum('ijk,i,k->j', x_dense, w1, w3)
@@ -482,7 +482,7 @@ There are **three kinds of batch** ("blocks"), which batch different things on d
 - ``W`` -- the **probe stack**: a batch of probe-vector sets, on the probe vectors ``ww`` only.
 - ``K`` -- the **tangent stack**: a batch of tangent vectors at one base point, on the variation cores only.
 
-Axes are ordered **base-inner**: ``W + K + C + (tensor axes)``. For example, with 2 base points
+Axes are ordered **frame-inner**: ``W + K + C + (tensor axes)``. For example, with 2 base points
 (``C``), 3 tangent vectors at each (``K``), probed by 4 probe-sets (``W``), every array's shape is::
 
     frame Tucker core  U_i   (T3Frame)        C            (2,)      + (n_i, N_i)
@@ -490,7 +490,7 @@ Axes are ordered **base-inner**: ``W + K + C + (tensor axes)``. For example, wit
     probe vector      w_i   (ww)             W            (4,)      + (N_i,)
     forward probe     z_i   (tangent.probe)  W + K + C     (4, 3, 2) + (N_i,)
 
-The frame frame ``C`` is *shared* across the ``K`` tangent vectors at it (never copied -- base-inner
+The frame stack ``C`` is *shared* across the ``K`` tangent vectors at it (never copied -- frame-inner
 broadcasting handles that for free).
 
 The **transposes** (``probe_transpose``, ``apply_transpose``, ``entries_transpose``) take a
@@ -498,7 +498,7 @@ The **transposes** (``probe_transpose``, ``apply_transpose``, ``entries_transpos
 probe -- while ``True`` sums ``W`` to give the Gauss-Newton back-projection ``Jᵀr`` used in
 optimization. The two agree up to that sum (``True`` is ``Σ_W`` of ``False``).
 
-For the full design -- why base-inner, the two contraction machineries, how the ``K``/``C`` split is
+For the full design -- why frame-inner, the two contraction machineries, how the ``K``/``C`` split is
 recovered, ``vmap``/``jit`` -- see the reference
 `docs/batching_and_stacking.md <https://github.com/NickAlger/T3Toolbox/blob/main/docs/batching_and_stacking.md>`_
 (start with its "Start here" on-ramp).

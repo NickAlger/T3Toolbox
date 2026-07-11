@@ -1,0 +1,12 @@
+gradient_descent
+================
+
+.. py:function:: t3toolbox.gradient_descent(geometry, kind, sample, data, x0, order = None, weight = None, **kwargs)
+
+   Fit ``x`` to ``data`` by steepest descent (Cauchy step + Armijo line search) on ``geometry``.
+
+   Accepts a ragged ``TuckerTensorTrain`` (with ``manifold.MANIFOLD`` / ``COREWISE``) or a uniform
+   ``UniformTuckerTensorTrain`` (with ``uniform_manifold.UNIFORM_MANIFOLD`` / ``UNIFORM_COREWISE``); the
+   representation is inferred from ``x0`` and returned in kind. See
+   :py:func:`t3toolbox.backend.optimizers.gradient_descent`.
+

@@ -1,0 +1,65 @@
+TuckerTensorTrain.probe
+=======================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.probe(ww)
+
+   Probe a TuckerTensorTrain.
+
+   :param self: Tucker tensor train with ``shape=(N0,...,N(d-1))``
+   :type self: TuckerTensorTrain
+   :param ww: Vectors to probe ``self`` with ``len=d``, ``elm_shape=W+(Ni,)``
+   :type ww: Sequence[NDArray]
+
+   :returns: Results of contracting ``self`` with the vectors in all but one index for all indices.
+             Sequence of vectors if ``ww`` elements are vectors, and sequence of ``NDArray``s each
+             with ``elm_shape=W+(Ni,)`` if ``ww`` elements are matrices.
+   :rtype: Sequence[:py:class:`NDArray`]
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.entries`, :py:meth:`.TuckerTensorTrain.apply`
+
+   .. rubric:: Examples
+
+   Basic probing example:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((10,11,12),(5,6,4),(2,3,4,2))
+   >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
+   >>> zz = x.probe(ww)                    # contract all-but-one index, for each index
+   >>> x_dense = x.to_dense()
+   >>> zz0_true = np.einsum('abc,b,c', x_dense, ww[1], ww[2])
+   >>> zz1_true = np.einsum('abc,a,c', x_dense, ww[0], ww[2])
+   >>> zz2_true = np.einsum('abc,a,b', x_dense, ww[0], ww[1])
+   >>> print(np.allclose(zz[0], zz0_true), np.allclose(zz[1], zz1_true), np.allclose(zz[2], zz2_true))
+   True True True
+
+   Probe with stacked vectors and stacked T3s -- each probe is base-inner ``W + C + (Ni,)``:
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> randn = np.random.randn
+   >>> stack_shape = (2,3)
+   >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (2,3,2,1), stack_shape)
+   >>> vstack_shape = (4,5,1)
+   >>> ww = [randn(*(vstack_shape+(14,))), randn(*(vstack_shape+(15,))), randn(*(vstack_shape+(16,)))]
+   >>> result = x.probe(ww)
+   >>> print(result[0].shape)             # probe stack (4,5,1) outer, T3 stack (2,3) inner, then N0=14
+   (4, 5, 1, 2, 3, 14)
+   >>> ii, jj = 1, 2          # T3 (frame) stack index
+   >>> ll, mm, nn =  3, 2, 0  # vector (probe) stack index
+   >>> result_ij_lmn_0 = result[0][ll,mm,nn, ii,jj]
+   >>> result_ij_lmn_1 = result[1][ll,mm,nn, ii,jj]
+   >>> result_ij_lmn_2 = result[2][ll,mm,nn, ii,jj]
+   >>> x_ij_dense = x.to_dense()[ii,jj]
+   >>> result_ij_lmn_0_true = np.einsum('abc,b,c', x_ij_dense, ww[1][ll,mm,nn], ww[2][ll,mm,nn])
+   >>> result_ij_lmn_1_true = np.einsum('abc,a,c', x_ij_dense, ww[0][ll,mm,nn], ww[2][ll,mm,nn])
+   >>> result_ij_lmn_2_true = np.einsum('abc,a,b', x_ij_dense, ww[0][ll,mm,nn], ww[1][ll,mm,nn])
+   >>> print(np.allclose(result_ij_lmn_0, result_ij_lmn_0_true))
+   True
+   >>> print(np.allclose(result_ij_lmn_1, result_ij_lmn_1_true))
+   True
+   >>> print(np.allclose(result_ij_lmn_2, result_ij_lmn_2_true))
+   True
+

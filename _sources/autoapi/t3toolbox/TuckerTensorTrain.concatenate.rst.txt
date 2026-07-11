@@ -1,0 +1,36 @@
+TuckerTensorTrain.concatenate
+=============================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.concatenate(xx)
+   :staticmethod:
+
+
+   Concatenates TuckerTensorTrain segments.
+
+   :param xx: TuckerTensorTrain segments to be concatenated
+   :type xx: Sequence[TuckerTensorTrain]
+
+   :returns: Concatenated TuckerTensorTrain.
+   :rtype: TuckerTensorTrain
+
+   :raises ValueError: If segments have incompatible leading and trailing TT ranks.
+       I.e., if ``x[ii].tt_ranks[-1] != x[ii+1].tt_ranks[0]``.
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.segment`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> randn = np.random.randn
+   >>> tk = (randn(4,14), randn(5,15), randn(6,16), randn(7,17), randn(8,18), randn(9,19))
+   >>> tt = (randn(2,4,3), randn(3,5,2), randn(2,6,2), randn(2,7,3), (randn(3,8,4)), (randn(4,9,1)))
+   >>> x = t3.TuckerTensorTrain(tk[:3], tt[:3])
+   >>> y = t3.TuckerTensorTrain(tk[3:4], tt[3:4])
+   >>> z = t3.TuckerTensorTrain(tk[4:], tt[4:])
+   >>> xyz = t3.TuckerTensorTrain.concatenate([x, y, z])
+   >>> xyz2 = t3.TuckerTensorTrain(tk, tt)              # the same train, built in one piece
+   >>> print(np.allclose(xyz.to_dense(), xyz2.to_dense()))
+   True
+

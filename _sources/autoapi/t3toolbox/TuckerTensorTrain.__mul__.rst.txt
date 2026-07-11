@@ -1,0 +1,71 @@
+TuckerTensorTrain.__mul__
+=========================
+
+.. py:method:: t3toolbox.TuckerTensorTrain.__mul__(other, use_jax = None)
+
+   Elementwise multiplication of a Tucker tensor train by another tensor, ``result = self * other``.
+
+   Multiplication is defined with respect to the dense ``N0 x ... x N(d-1)`` tensor that
+   is *represented* by the TuckerTensorTrain.
+
+   For corewise scaling, see :func:`t3toolbox.corewise.corewise_scale`
+
+   Allowed types are as follows:
+
+   - ``TuckerTensorTrain * TuckerTensorTrain -> TuckerTensorTrain``
+       (self * other).to_dense() = self.to_dense() * other.to_dense()
+
+   - ``TuckerTensorTrain * NDArray -> NDArray``
+       self * other = self.to_dense() * other
+
+   - ``TuckerTensorTrain * scalar -> TuckerTensorTrain``
+       (self * other).to_dense() = self.to_dense() * other
+
+   :param other: Other tensor or scalar to be multiplied this TuckerTensorTrain with.
+                 If ``other`` is TuckerTensorTrain, requires ``other.shape=self.shape`` and ``other.stack_shape=self.stack_shape``.
+                 If ``other`` is NDArray, requires ``other.shape=self.stack_shape+self.shape``.
+   :type other: TuckerTensorTrain or NDArray or scalar
+
+   :returns: **result** -- Elementwise multiplication of tensors ``self`` and ``other``.
+             If ``other`` is TuckerTensorTrain or scalar, ``result.shape=self.shape``, ``result.stack_shape=self.stack_shape``.
+             If ``other`` is NDArray, ``result.shape=self.stack_shape+self.shape``.
+   :rtype: TuckerTensorTrain or NDArray
+
+   :raises ValueError: If shapes and/or stack shapes of self and other are inconsistent.
+
+   .. seealso:: :py:meth:`.TuckerTensorTrain.__add__`, :py:meth:`.TuckerTensorTrain.__sub__`, :py:meth:`.TuckerTensorTrain.__neg__`, :py:meth:`.TuckerTensorTrain.inner`, :py:meth:`.TuckerTensorTrain.norm`, :py:meth:`.TuckerTensorTrain.sum`
+
+   .. rubric:: Examples
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1), stack_shape=(2, 3))
+   >>> sx = x * 3.2                                  # scale a T3 by a scalar -> T3
+   >>> print(np.allclose(3.2 * x.to_dense(), sx.to_dense()))
+   True
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1), stack_shape=(2, 3))
+   >>> y = np.random.randn(*(x.stack_shape + x.shape))
+   >>> xy = x * y                                    # T3 * ndarray -> dense ndarray (elementwise product)
+   >>> print(xy.shape)
+   (2, 3, 14, 15, 16)
+   >>> print(np.allclose(x.to_dense() * y, xy))
+   True
+
+   >>> import numpy as np
+   >>> import t3toolbox.tucker_tensor_train as t3
+   >>> np.random.seed(0)
+   >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (1, 3, 2, 1), stack_shape=(2, 3))
+   >>> y = t3.TuckerTensorTrain.randn((14, 15, 16), (2, 3, 4), (3, 2, 3, 2), stack_shape=(2, 3))
+   >>> xy = x * y                                    # elementwise product of two T3s -> T3
+   >>> print(np.allclose(x.to_dense() * y.to_dense(), xy.to_dense()))
+   True
+   >>> print(xy.tucker_ranks)                        # Tucker ranks MULTIPLY: 4*2, 5*3, 6*4
+   (8, 15, 24)
+   >>> print(xy.tt_ranks)                            # and the TT bonds: 1*3, 3*2, 2*3, 1*2
+   (3, 6, 6, 2)
+

@@ -1,0 +1,7 @@
+UniformGaussNewtonModel.gn_hessian
+==================================
+
+.. py:method:: t3toolbox.UniformGaussNewtonModel.gn_hessian(p)
+
+   The Gauss-Newton Hessian action ``H p = Π 𝒥ᵀ 𝒥 Π p`` (``H = JᵀJ``), a UT3Tangent at frame.
+
