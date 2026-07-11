@@ -67,7 +67,7 @@ import typing as typ
 
 import numpy as np
 
-from t3toolbox.backend.common import has_jax, tree_contains_jax
+from t3toolbox.backend.common import jax_available, tree_contains_jax
 
 __all__ = [
     'SafetyTolerances',
@@ -150,7 +150,7 @@ def _inside_jax_trace():
     still fails. Inspecting only the passed arrays (``is_tracing``'s fast path) misses this. Uses jax's
     ``trace_state_clean`` when available, falling back to the version-stable probe: a committed-array op is
     a tracer iff we are tracing.'''
-    if not has_jax:
+    if not jax_available:
         return False
     import jax
     try:
@@ -168,7 +168,7 @@ def _inside_jax_trace():
 def is_tracing(*arrays):
     '''True if we are inside a jax transform (jit / grad / vmap): any argument is a tracer, **or** we are
     globally under a trace (the closed-over-concrete-operand case -- see :py:func:`_inside_jax_trace`).'''
-    if not has_jax:
+    if not jax_available:
         return False
     import jax
     if any(isinstance(a, jax.core.Tracer) for a in arrays):

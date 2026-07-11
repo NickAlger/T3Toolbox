@@ -7,7 +7,7 @@ import typing as typ
 import functools as ft
 
 __all__ = [
-    'has_jax',
+    'jax_available',
     #
     'NDArray',
     'is_ndarray',
@@ -41,25 +41,25 @@ __all__ = [
     'load_core_families',
 ]
 
-has_jax = False
+jax_available = False
 try:
     import jax.numpy as jnp
     import jax
-    has_jax = True
+    jax_available = True
 except ImportError:
     print('Unable to import Jax. Using numpy instead.')
 
 NDArray = np.ndarray
-if has_jax:
+if jax_available:
     NDArray = typ.Union[np.ndarray, jnp.ndarray]
 
 is_ndarray = lambda x: isinstance(x, np.ndarray)
-if has_jax:
+if jax_available:
     is_ndarray = lambda x: (isinstance(x, np.ndarray) or isinstance(x, jnp.ndarray))
 
 
 is_jax_ndarray = lambda x: False
-if has_jax:
+if jax_available:
     is_jax_ndarray = lambda x: isinstance(x, jnp.ndarray)
 
 
@@ -72,7 +72,7 @@ def is_boolean_ndarray(x):
     else:
         return False
 
-if has_jax:
+if jax_available:
     def is_boolean_ndarray(x):
         if isinstance(x, jnp.ndarray):
             return jnp.issubdtype(x.dtype, jnp.bool_)
@@ -82,7 +82,7 @@ if has_jax:
             return False
 
 to_jax = lambda x: np.array(x)
-if has_jax:
+if jax_available:
     to_jax = lambda x: jnp.array(x)
 
 to_numpy = lambda x: np.array(x)
@@ -233,7 +233,7 @@ def numpy_map(
 
 jax_scan = numpy_scan
 jax_map = numpy_map
-if has_jax:
+if jax_available:
     jax_scan = jax.lax.scan
     jax_map = jax.lax.map
 
@@ -273,7 +273,7 @@ def xwhile(
     on every backend and **silently falls back to eager** when jit is unavailable. Write ``cond``/``body``
     backend-agnostically (``cond`` returns a 0-d boolean; ``body`` uses ``xnp.where``, not Python branches)
     so the SAME pair drives both paths."""
-    if use_jit and has_jax and tree_contains_jax(init_state):
+    if use_jit and jax_available and tree_contains_jax(init_state):
         import jax
         return jax.lax.while_loop(cond, body, init_state)
     state = init_state

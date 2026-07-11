@@ -191,7 +191,7 @@ def _maybe_jit(fn, use_jit, x0, problem):
     """jit ``fn`` iff ``use_jit`` AND jax is available AND the inputs (x0, sample, data) are **all** jax
     (so the minibatch gather + kernel run on device). Otherwise return ``fn`` unchanged -- the silent
     eager fallback (numpy, eager-jax, or no jax). Compiles once and is reused across the fixed-shape steps."""
-    if (use_jit and has_jax and tree_contains_jax(x0)
+    if (use_jit and jax_available and tree_contains_jax(x0)
             and tree_contains_jax(problem.sample) and tree_contains_jax(problem.data)):
         import jax
         return jax.jit(fn)

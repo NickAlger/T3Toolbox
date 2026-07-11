@@ -947,7 +947,7 @@ def check_ufv_pair(frame: UT3Frame, variations: UT3Variations) -> None:
 def ut3_orthogonal_representations(
         x: ut3.UniformTuckerTensorTrain,
         already_left_orthogonal: bool = False,
-        squash: bool = True,
+        squash_tails: bool = True,
 ) -> typ.Tuple[
     UT3Frame,  # orthogonal frame
     UT3Variations,  # variations
@@ -1025,7 +1025,7 @@ def ut3_orthogonal_representations(
     # Thin wrapper: the backend twin carries the logic (orthogonalize + build the SVD-justified prefix
     # masks); this only wraps the raw frame/variation .data into the OO classes.
     frame_data, variation_data = ufv_conversions.ut3_orthogonal_representations(
-        x.data, already_left_orthogonal=already_left_orthogonal, squash=squash)
+        x.data, already_left_orthogonal=already_left_orthogonal, squash_tails=squash_tails)
     uc, dc, lc, rc, shape, frame_masks = frame_data
     tkv, ttv, _, variation_masks = variation_data
     return (UT3Frame(uc, dc, lc, rc, shape, UT3FrameMasks(*frame_masks)),
@@ -1038,7 +1038,7 @@ def ut3_orthogonal_representations(
 
 
 
-if common.has_jax:
+if common.jax_available:
     # UT3Frame as a jax pytree: the four supercores are the (traced) children; the static aux_data is
     # (shape, UT3FrameMasks). `shape` is a value-hashable int tuple (same shape -> same jit cache key);
     # UT3FrameMasks is eq=False (identity hash/eq), valid hashable aux even though it holds bool arrays.

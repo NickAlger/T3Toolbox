@@ -31,7 +31,7 @@ from collections.abc import Sequence
 from typing import Tuple
 
 jax = None
-if common.has_jax:
+if common.jax_available:
     import jax
 
 __all__ = [
@@ -97,7 +97,7 @@ class TuckerTensorTrain:
 
     Often, the first and last TT-ranks satisfy ``r0=rd=1``, and "1" in the diagram
     is the number 1. However, it is allowed for these ranks to not be 1, in which case
-    the "1"s in the diagram are vectors of ones. You can make ``r0=rd=1`` using :py:meth:`~squash`.
+    the "1"s in the diagram are vectors of ones. You can make ``r0=rd=1`` using :py:meth:`~squash_tails`.
 
     Example:
 
@@ -989,7 +989,7 @@ class TuckerTensorTrain:
         """
         return TuckerTensorTrain(*ragged_operations.t3_concatenate([x.data for x in xx]))
 
-    def squash(
+    def squash_tails(
             self,
     ) -> 'TuckerTensorTrain':
         """Make leading and trailing TT ranks equal to 1 (``r0=rd=1``), without changing represented dense tensor.
@@ -1014,7 +1014,7 @@ class TuckerTensorTrain:
         >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
         >>> print(x.tt_ranks)
         (2, 3, 2, 5)
-        >>> x2 = x.squash()
+        >>> x2 = x.squash_tails()
         >>> print(x2.tt_ranks)                  # leading/trailing bonds forced to 1
         (1, 3, 2, 1)
         >>> print(np.allclose(x.to_dense(), x2.to_dense()))   # same dense tensor
@@ -4369,7 +4369,7 @@ class TuckerTensorTrain:
         return TuckerTensorTrain(*result[0]), result[1], result[2]
 
 
-if common.has_jax:
+if common.jax_available:
     jax.tree_util.register_pytree_node(
         TuckerTensorTrain,
         lambda x: (x.data, None),

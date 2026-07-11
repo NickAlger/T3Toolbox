@@ -31,7 +31,7 @@ def orthogonal_representations(
             ], # uniform
         ],
         already_left_orthogonal: bool = False,
-        squash: bool = True,
+        squash_tails: bool = True,
 ) -> typ.Union[
     typ.Tuple[
         typ.Tuple[
@@ -77,7 +77,7 @@ def orthogonal_representations(
         up_orthogonalize_tucker_cores = ragged_orth.down_orthogonalize_tucker_cores
         down_orthogonalize_tt_cores = ragged_orth.up_orthogonalize_tt_cores
 
-    if squash:
+    if squash_tails:
         x = squash_tails(*x)
 
     if not already_left_orthogonal:

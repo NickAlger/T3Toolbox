@@ -8,8 +8,8 @@ import typing as typ
 from t3toolbox.backend.common import *
 import t3toolbox.backend.common as common
 
-if common.has_jax:
-    import jax  # only for the tracer-detection guard below (gated by common.has_jax)
+if common.jax_available:
+    import jax  # only for the tracer-detection guard below (gated by common.jax_available)
 
 __all__ = [
     'make_uniform_masks',
@@ -30,7 +30,7 @@ def require_concrete_masks(
     not numerical (raise, per the structural-vs-numerical philosophy). See
     ``docs/uniform_pytree_composition.md``.
     """
-    if not common.has_jax:
+    if not common.jax_available:
         return
     for m in masks:
         if isinstance(m, jax.core.Tracer):

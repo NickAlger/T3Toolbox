@@ -518,7 +518,7 @@ def probe_derivatives_model(
     return GaussNewtonModel(geometry, frame, kind, (ww, pp), residual, kind.precompute(frame.data, (ww, pp)))
 
 
-if has_jax:
+if jax_available:
     import jax
 
     # Register GaussNewtonModel as a jax pytree: the data (frame, sweep, sample, residual) are LEAVES, the

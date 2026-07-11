@@ -250,7 +250,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
 
                     x_dense = x.to_dense(squash_tails=SQUASH_TAILS)
-                    if common.has_jax:
+                    if common.jax_available:
                         self.assertEqual(False, common.is_jax_ndarray(x_dense))
 
                     ((B0, B1, B2), (G0, G1, G2)) = tucker_cores, tt_cores
@@ -344,7 +344,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 tucker_cores, tt_cores = _structure_to_cores(STRUCTURE)
                 x = t3.TuckerTensorTrain(tucker_cores, tt_cores)  # random TuckerTensorTrain
 
-                x2 = x.squash()
+                x2 = x.squash_tails()
 
                 squashed_tt_ranks = (1,) + tt_ranks[1:-1] + (1,)
                 squashed_structure = (shape, tucker_ranks, squashed_tt_ranks, stack_shape)
@@ -552,7 +552,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                     tol * cw.corewise_norm(x.data)
                 )
 
-                if common.has_jax:
+                if common.jax_available:
                     for B in x_jax.tucker_cores:
                         self.assertTrue(common.is_jax_ndarray(B))
                     for G in x_jax.tt_cores:
@@ -614,7 +614,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
                     x = t3.TuckerTensorTrain(tuple(tucker_cores), tuple(tt_cores))
 
-                    if common.has_jax:
+                    if common.jax_available:
                         true_contains_jax = any(TUCKER_JAX_INDS) or any(TT_JAX_INDS)
                         self.assertEqual(true_contains_jax, x.contains_jax)
                     else:
@@ -2499,7 +2499,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
             for STACK_SHAPE in stack_shapes:
                 x = _random_preconditioned_t3(shape, tucker_ranks, tt_ranks, STACK_SHAPE)
 
-                xs = x.squash().to_dense()
+                xs = x.squash_tails().to_dense()
 
                 num_stack_dims = len(STACK_SHAPE)
 

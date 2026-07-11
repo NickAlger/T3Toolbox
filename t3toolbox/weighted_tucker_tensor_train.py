@@ -16,7 +16,7 @@ import t3toolbox.backend.weighted_tucker_tensor_train.wt3_operations as ragged_w
 from t3toolbox.backend.common import *
 
 jax = None
-if has_jax:
+if jax_available:
     import jax
 
 __all__ = [
@@ -421,7 +421,7 @@ class WeightedTuckerTensorTrain:
         return WeightedTuckerTensorTrain(stacked_x0, stacked_ewt)
 
 
-if has_jax:
+if jax_available:
     jax.tree_util.register_pytree_node(
         EdgeVectors,
         lambda x: (x.data, None),

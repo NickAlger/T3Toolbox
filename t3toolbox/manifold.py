@@ -1418,7 +1418,7 @@ def _flatten_tangents(tree) -> typ.List['T3Tangent']:
     return out
 
 
-if has_jax:
+if jax_available:
     import jax
 
     # Register T3Tangent as a jax pytree with the frame as a LEAF: both the frame and the variations are

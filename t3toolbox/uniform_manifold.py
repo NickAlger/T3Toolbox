@@ -886,7 +886,7 @@ class UT3Tangent:
         return UT3Tangent(_ut3frame_from_data(frame_data), _ut3variations_from_data(variations_data))
 
 
-if has_jax:
+if jax_available:
     import jax
 
     # Register UT3Tangent as a jax pytree with the frame as a LEAF: both the frame and the variations are

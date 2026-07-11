@@ -1198,7 +1198,7 @@ def fv_to_t3(
 def t3_orthogonal_representations(
         x: t3.TuckerTensorTrain,
         already_left_orthogonal: bool = False,
-        squash: bool = True,
+        squash_tails: bool = True,
 ) -> typ.Tuple[
     T3Frame,  # orthogonal frame
     T3Variations,  # variations
@@ -1287,12 +1287,12 @@ def t3_orthogonal_representations(
     (14, 15, 16) (2, 3)
     '''
     result = orth_reps.orthogonal_representations(
-        x.data, already_left_orthogonal=already_left_orthogonal, squash=squash,
+        x.data, already_left_orthogonal=already_left_orthogonal, squash_tails=squash_tails,
     )
     return T3Frame(*result[0]), T3Variations(*result[1])
 
 
-if has_jax:
+if jax_available:
     import jax
 
     # Register as jax pytrees so they can be jit/vmap/grad-ed. Leaves = the cores (x.data); no aux.

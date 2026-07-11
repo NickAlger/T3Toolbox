@@ -35,7 +35,7 @@ import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.common as common
 from t3toolbox.backend.common import NDArray
 
-if common.has_jax:
+if common.jax_available:
     import jax
 
 __all__ = [
@@ -892,7 +892,7 @@ def _from_data(
 # (ragged <-> uniform conversions are methods on UniformTuckerTensorTrain: `.from_t3` / `.to_t3`.)
 
 
-if common.has_jax:
+if common.jax_available:
     # UniformTuckerTensorTrain as a jax pytree: the two supercores are the (traced) children; the static
     # aux_data is ``(shape, UT3Masks)``. Both are STRUCTURE (the real mode dims + which rank slots are
     # real), not data, so they belong in aux, not the traced leaves. BOTH are value-keyed: ``shape`` is a

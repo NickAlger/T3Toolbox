@@ -56,7 +56,7 @@ def ut3_orthogonal_representations(
             typ.Tuple[NDArray, NDArray],      # (tucker_edge_mask, tt_edge_mask) -- the plain-UT3 rank masks
         ],
         already_left_orthogonal: bool = False,
-        squash:                  bool = True,
+        squash_tails:                  bool = True,
 ) -> typ.Tuple[
     typ.Tuple[                                # frame .data:
         NDArray, NDArray, NDArray, NDArray,   #   up_sc, down_sc, left_sc, right_sc
@@ -93,7 +93,7 @@ def ut3_orthogonal_representations(
 
     # orth_reps.orthogonal_representations is polymorphic (accepts uniform supercores) and SVD-based.
     (uc, dc, lc, rc), (tkv, ttv) = orth_reps.orthogonal_representations(
-        (masked_tk, masked_tt), already_left_orthogonal=already_left_orthogonal, squash=squash)
+        (masked_tk, masked_tt), already_left_orthogonal=already_left_orthogonal, squash_tails=squash_tails)
 
     up_ranks, down_ranks, left_ranks, right_ranks = ranks.compute_orthogonal_representation_ranks(
         shape, tkm.sum(axis=-1), ttm.sum(axis=-1))
