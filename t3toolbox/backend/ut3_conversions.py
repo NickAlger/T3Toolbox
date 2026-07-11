@@ -5,6 +5,7 @@
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.t3_conversions as t3_conversions
 import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.t3_operations as t3_ops
 import t3toolbox.backend.ut3_masking as ut3_masking
@@ -62,7 +63,7 @@ def t3_to_ut3(
     padded_tucker_ranks = (n,) * d
     padded_tt_ranks     = (r,) * (d + 1)
 
-    padded_tucker_cores = t3_ops.change_tucker_core_shapes(tucker_cores, padded_shape, padded_tucker_ranks)
+    padded_tucker_cores = t3_ops.tucker_change_core_shapes(tucker_cores, padded_shape, padded_tucker_ranks)
     padded_tt_cores     = tt_operations.tt_change_core_shapes(tt_cores, padded_tucker_ranks, padded_tt_ranks)
 
     tucker_supercore = xnp.stack(padded_tucker_cores)
@@ -104,7 +105,7 @@ def ut3_to_dense(
     ValueError: uniform masks must be concrete host (numpy) arrays, ...
     """
     masked_tucker, masked_tt = ut3_masking.apply_masks_to_cores(x)
-    T = t3_ops.t3_to_dense_chain(masked_tucker, masked_tt)   # stack + (N,)*d (padded)
+    T = t3_conversions.t3_to_dense_chain(masked_tucker, masked_tt)   # stack + (N,)*d (padded)
     shape = x[2]                                             # static int tuple (N0,...,N(d-1))
     sl = (Ellipsis,) + tuple(slice(0, Ni) for Ni in shape)
     return T[sl]

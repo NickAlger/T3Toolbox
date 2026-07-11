@@ -5,6 +5,7 @@
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.t3_conversions as t3_conversions
 import t3toolbox.backend.contractions as contractions
 from t3toolbox.backend.common import *
 import math
@@ -80,10 +81,10 @@ def t3_apply_ambient_transpose(
     - ``sum_over_probes=True``: ``W`` becomes the CP **rank** -- one rank-``|W|`` CP tensor
       ``sum_W c_W * (w0^W (x) ...)`` (the ambient ``J^T r``). Cheap as CP (``O(d |W| N)``, the shared
       rank index stays implicit); the ``|W|^2`` cost of a *dense* Tucker tensor train is incurred only
-      if you convert with ``t3_operations.t3_from_canonical``.
+      if you convert with ``t3_conversions.t3_from_canonical``.
 
     Returns the CP ``factors`` (``c`` folded into the first), in the layout
-    ``t3_operations.t3_from_canonical`` consumes.
+    ``t3_conversions.t3_from_canonical`` consumes.
     '''
     use_jax = tree_contains_jax((c, ww))
     xnp, _, _ = get_backend(False, use_jax)

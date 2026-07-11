@@ -12,13 +12,14 @@ import functools as ft
 from dataclasses import dataclass
 from functools import cached_property
 
+import t3toolbox.backend.t3_conversions as t3_conversions
+import t3toolbox.backend.t3_constructors as t3_constructors
 import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.probing as probing
 import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
 import t3toolbox.backend.ranks as ranks
-import t3toolbox.backend.dense_t3svd as dense_t3svd
 import t3toolbox.backend.tt_orthogonalization as orth
 import t3toolbox.backend.t3_operations as ragged_operations
 import t3toolbox.backend.t3_orthogonalization as ragged_orthogonalization
@@ -900,7 +901,7 @@ class TuckerTensorTrain:
         >>> print(np.allclose(x_dense, x_dense2))
         True
         """
-        return ragged_operations.to_dense(
+        return t3_conversions.t3_to_dense(
             self.data, squash_tails=squash_tails,
         )
 
@@ -1094,7 +1095,7 @@ class TuckerTensorTrain:
         '''
         tucker_cores, tt_cores = self.data
 
-        new_tucker_cores = ragged_operations.change_tucker_core_shapes(tucker_cores, new_shape, new_tucker_ranks)
+        new_tucker_cores = ragged_operations.tucker_change_core_shapes(tucker_cores, new_shape, new_tucker_ranks)
         new_tt_cores = tt_operations.tt_change_core_shapes(tt_cores, new_tucker_ranks, new_tt_ranks)
 
         return TuckerTensorTrain(tuple(new_tucker_cores), tuple(new_tt_cores))
@@ -1308,7 +1309,7 @@ class TuckerTensorTrain:
                 str(len(tt_ranks)) + ' = len(tt_ranks) != len(shape)+1 = ' + str(len(shape)+1)
             )
 
-        return TuckerTensorTrain(*ragged_operations.t3_zeros(
+        return TuckerTensorTrain(*t3_constructors.t3_zeros(
             shape, tucker_ranks, tt_ranks, stack_shape, use_jax=use_jax,
         ))
 
@@ -1354,7 +1355,7 @@ class TuckerTensorTrain:
         >>> print(x.tt_ranks)
         (1, 1, 1, 1)
         """
-        return TuckerTensorTrain(*ragged_operations.t3_ones(
+        return TuckerTensorTrain(*t3_constructors.t3_ones(
             shape, stack_shape, use_jax=use_jax,
         ))
 
@@ -1406,7 +1407,7 @@ class TuckerTensorTrain:
         >>> print(np.any(x.tucker_cores[0] != 0.0))  # cores are filled with N(0,1) draws, not zeros
         True
         """
-        return TuckerTensorTrain(*ragged_operations.t3_corewise_randn(
+        return TuckerTensorTrain(*t3_constructors.t3_corewise_randn(
             shape, tucker_ranks, tt_ranks, stack_shape, use_jax=use_jax,
         ))
 
@@ -1479,7 +1480,7 @@ class TuckerTensorTrain:
                 + 'stack_shapes = ' + str(stack_shapes)
             )
 
-        return TuckerTensorTrain(*ragged_operations.t3_from_canonical(factors))
+        return TuckerTensorTrain(*t3_conversions.t3_from_canonical(factors))
 
     @staticmethod
     def from_tensor_train(
@@ -1514,7 +1515,7 @@ class TuckerTensorTrain:
         >>> print(np.allclose(x_dense, x_dense2))
         True
         """
-        return TuckerTensorTrain(*ragged_operations.t3_from_tensor_train(tt_cores))
+        return TuckerTensorTrain(*t3_conversions.t3_from_tensor_train(tt_cores))
 
     def to_tensor_train(
             self,
@@ -1542,7 +1543,7 @@ class TuckerTensorTrain:
         >>> print(np.allclose(x_dense, x_dense2))
         True
         """
-        return ragged_operations.t3_to_tensor_train(self.data)
+        return t3_conversions.t3_to_tensor_train(self.data)
 
     #############################################################
     ##########    Converting data to/from 1D vector    ##########
@@ -1573,7 +1574,7 @@ class TuckerTensorTrain:
         >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
         0.0
         """
-        return ragged_operations.t3_to_vector(self.data)
+        return t3_conversions.t3_to_vector(self.data)
 
     @staticmethod
     def from_vector(
@@ -1621,7 +1622,7 @@ class TuckerTensorTrain:
         >>> print(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)))
         0.0
         """
-        return TuckerTensorTrain(*ragged_operations.t3_from_vector(
+        return TuckerTensorTrain(*t3_conversions.t3_from_vector(
             x_flat, shape, tucker_ranks, tt_ranks, stack_shape=stack_shape,
         ))
 
@@ -2254,7 +2255,7 @@ class TuckerTensorTrain:
                     + str(other.stack_shape)
                 )
 
-            return ragged_linalg.t3_inner_product_t3(
+            return ragged_linalg.t3_inner_product(
                 self.data, other.data, use_orthogonalization=use_orthogonalization,
             )
 
@@ -2625,7 +2626,7 @@ class TuckerTensorTrain:
         >>> print(bool(np.linalg.norm(B @ B.T - np.eye(rank)) < 1e-12)) # Tucker core is (down) orthogonal
         True
         '''
-        result = ragged_orthogonalization.down_svd_tucker_core(
+        result = ragged_orthogonalization.t3_down_svd_tucker_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
         return TuckerTensorTrain(*result[0]), result[1]
@@ -2696,7 +2697,7 @@ class TuckerTensorTrain:
         >>> print(bool(np.linalg.norm(np.einsum('iaj,iak->jk', G, G) - np.eye(G.shape[2])) < 1e-12)) # TT-core is left-orthogonal
         True
         '''
-        result = ragged_orthogonalization.left_svd_tt_core(
+        result = ragged_orthogonalization.t3_left_svd_tt_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
         return TuckerTensorTrain(*result[0]), result[1]
@@ -2767,7 +2768,7 @@ class TuckerTensorTrain:
         >>> print(bool(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0])) < 1e-12)) # TT-core is right orthogonal
         True
         '''
-        result = ragged_orthogonalization.right_svd_tt_core(
+        result = ragged_orthogonalization.t3_right_svd_tt_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
         return TuckerTensorTrain(*result[0]), result[1]
@@ -2832,7 +2833,7 @@ class TuckerTensorTrain:
         >>> print(bool(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1])) < 1e-12)) # TT-core is down orthogonal
         True
         '''
-        result = ragged_orthogonalization.up_svd_tt_core(
+        result = ragged_orthogonalization.t3_up_svd_tt_core(
             self.data, ii, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
         )
         return TuckerTensorTrain(*result[0]), result[1]
@@ -2893,7 +2894,7 @@ class TuckerTensorTrain:
         >>> print(bool(np.linalg.norm(np.einsum('axjkd,ayjkd->xy', X, X) - np.eye(B0.shape[0])) < 1e-12)) # Complement of B0 is orthogonal
         True
         '''
-        return TuckerTensorTrain(*ragged_orthogonalization.orthogonalize_relative_to_tucker_core(
+        return TuckerTensorTrain(*ragged_orthogonalization.t3_orthogonalize_relative_to_tucker_core(
             self.data, ii,
         ))
 
@@ -2955,7 +2956,7 @@ class TuckerTensorTrain:
         >>> print(bool(np.linalg.norm(np.einsum('bijd,cijd->bc', XR, XR) - np.eye(G0.shape[2])) < 1e-12)) # Right subtree is right orthogonal
         True
         '''
-        return TuckerTensorTrain(*ragged_orthogonalization.orthogonalize_relative_to_tt_core(
+        return TuckerTensorTrain(*ragged_orthogonalization.t3_orthogonalize_relative_to_tt_core(
             self.data, ii,
         ))
 
@@ -3005,7 +3006,7 @@ class TuckerTensorTrain:
         >>> print(bool(np.max(errs) < 1e-12))
         True
         """
-        return TuckerTensorTrain(*ragged_orthogonalization.down_orthogonalize_tucker_cores(self.data))
+        return TuckerTensorTrain(*ragged_orthogonalization.t3_down_orthogonalize_tucker_cores(self.data))
 
     def up_orthogonalize_tt_cores(
         self,
@@ -3054,7 +3055,7 @@ class TuckerTensorTrain:
         True
         """
         return TuckerTensorTrain(
-            *ragged_orthogonalization.up_orthogonalize_tt_cores(self.data),
+            *ragged_orthogonalization.t3_up_orthogonalize_tt_cores(self.data),
         )
 
     def left_orthogonalize_tt_cores(
@@ -4254,7 +4255,7 @@ class TuckerTensorTrain:
         >>> print(y2.rank_adjustment_sweep('right_to_left').has_minimal_ranks)   # correct direction
         True
         """
-        return TuckerTensorTrain(*ragged_t3svd.rank_adjustment_sweep(self.data, direction))
+        return TuckerTensorTrain(*ragged_t3svd.t3_rank_adjustment_sweep(self.data, direction))
 
     @staticmethod
     def t3svd_dense(
@@ -4361,7 +4362,7 @@ class TuckerTensorTrain:
                 'stack_shape = ' + str(stack_shape)
             )
 
-        result = dense_t3svd.t3svd_dense(
+        result = ragged_t3svd.dense_t3svd(
             T,
             stack_shape=stack_shape,
             max_tucker_ranks=max_tucker_ranks, max_tt_ranks=max_tt_ranks,

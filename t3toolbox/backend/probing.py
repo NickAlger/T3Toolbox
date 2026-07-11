@@ -6,6 +6,7 @@ import math
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.t3_conversions as t3_conversions
 import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.t3_operations as ragged_ops
@@ -1261,7 +1262,7 @@ def t3_probe_ambient_transpose(
       ``sum_W sum_i (...)``. Cheap as CP (``O(d |W| N)``).
 
     Returns CP ``factors`` (factor ``k`` has the diagonal structure: rank slot ``k`` = ``ztildes_k``,
-    the others = ``ww_k``), in the layout :py:func:`t3_operations.t3_from_canonical` consumes.
+    the others = ``ww_k``), in the layout :py:func:`t3_conversions.t3_from_canonical` consumes.
     '''
     use_jax = tree_contains_jax((ztildes, ww))
     xnp, _, _ = get_backend(False, use_jax)

@@ -8,6 +8,7 @@ import math
 import typing as typ
 import numpy as np
 
+import t3toolbox.backend.t3_conversions as t3_conversions
 import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.fv_conversions as fv_conversions
 import t3toolbox.backend.t3_operations as ragged_operations
@@ -60,12 +61,12 @@ def tangent_to_dense(
     terms = [fv_conversions.fv_to_t3((False, ii), frame, variations) for ii in range(num_cores)]
     terms += [fv_conversions.fv_to_t3((True, ii), frame, variations) for ii in range(num_cores)]
 
-    V = ragged_operations.to_dense(terms[0])
+    V = t3_conversions.t3_to_dense(terms[0])
     for term in terms[1:]:
-        V = V + ragged_operations.to_dense(term)
+        V = V + t3_conversions.t3_to_dense(term)
 
     if include_shift:
-        P = ragged_operations.to_dense((up_tucker_cores, left_tt_cores))
+        P = t3_conversions.t3_to_dense((up_tucker_cores, left_tt_cores))
         V = P + V
 
     return V

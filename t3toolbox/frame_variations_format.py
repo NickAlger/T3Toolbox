@@ -8,6 +8,7 @@ import typing as typ
 import functools as ft
 from dataclasses import dataclass
 
+import t3toolbox.backend.t3_conversions as t3_conversions
 import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.fv_conversions as fv_conversions
@@ -957,7 +958,7 @@ class T3Variations:
 
     def to_vector(self) -> NDArray:
         """Flatten the variation cores to a 1D vector (the tangent's degrees of freedom)."""
-        return t3_operations.t3_to_vector(self.data)
+        return t3_conversions.t3_to_vector(self.data)
 
     @staticmethod
     def from_vector(
@@ -1190,7 +1191,7 @@ def fv_to_t3(
     # The term mixes a V+G-stacked variation core with G-stacked frame cores (when the variation
     # carries an extra tangent stack K); broadcast all cores to the common K+C stack so the result is
     # a valid (uniform-stack) TuckerTensorTrain. A no-op when there is no tangent stack (K=()).
-    cores = t3_operations.broadcast_t3_to_common_stack(
+    cores = t3_operations.t3_broadcast_to_common_stack(
         *fv_conversions.fv_to_t3(index, frame.data, variations.data)
     )
     return t3.TuckerTensorTrain(*cores)

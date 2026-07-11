@@ -10,13 +10,13 @@ import t3toolbox.backend.tt_orthogonalization as orth
 from t3toolbox.backend.common import *
 
 __all__ = [
-    'left_orthogonalize_t3',
-    'right_orthogonalize_t3',
-    'up_orthogonalize_tt_cores',
-    'down_orthogonalize_tucker_cores',
-    'down_svd_tucker_core',
-    'left_svd_tt_core',
-    'right_svd_tt_core',
+    't3_left_orthogonalize',
+    't3_right_orthogonalize',
+    't3_up_orthogonalize_tt_cores',
+    't3_down_orthogonalize_tucker_cores',
+    't3_down_svd_tucker_core',
+    't3_left_svd_tt_core',
+    't3_right_svd_tt_core',
     't3_orthogonality_residual',
 ]
 
@@ -34,7 +34,7 @@ def t3_orthogonality_residual(
         - TT G_i, left  (i = 0..d-2):        ``einsum('...aib,...aic->...bc', G, G) = I``
         - TT G_i, right (i = 1..d-1):        ``einsum('...aib,...cib->...ac', G, G) = I``
     The boundary TT core (last for left, first for right) is the center remainder and is not checked.
-    This is the form :py:func:`left_orthogonalize_t3` / :py:func:`right_orthogonalize_t3` produce and
+    This is the form :py:func:`t3_left_orthogonalize` / :py:func:`t3_right_orthogonalize` produce and
     the form ``t3svd(..., assume_orthogonal=...)`` may assume.
     '''
     side = side.lower()
@@ -61,7 +61,7 @@ def t3_orthogonality_residual(
     return xnp.max(xnp.stack(devs), axis=0)   # max over the checks, keep stack_shape
 
 
-def left_orthogonalize_t3(
+def t3_left_orthogonalize(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # up_tucker_cores
@@ -69,12 +69,12 @@ def left_orthogonalize_t3(
 ]:
     """Left orthogonalize T3.
     """
-    up_tucker_cores, tt_cores = down_orthogonalize_tucker_cores(x)
+    up_tucker_cores, tt_cores = t3_down_orthogonalize_tucker_cores(x)
     left_tt_cores = orth.tt_left_orthogonalize(tt_cores)
     return (up_tucker_cores, left_tt_cores)
 
 
-def right_orthogonalize_t3(
+def t3_right_orthogonalize(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # up_tucker_cores
@@ -82,12 +82,12 @@ def right_orthogonalize_t3(
 ]:
     """Right orthogonalize T3.
     """
-    up_tucker_cores, tt_cores = down_orthogonalize_tucker_cores(x)
+    up_tucker_cores, tt_cores = t3_down_orthogonalize_tucker_cores(x)
     right_tt_cores = orth.tt_right_orthogonalize(tt_cores)
     return (up_tucker_cores, right_tt_cores)
 
 
-def up_orthogonalize_tt_cores(
+def t3_up_orthogonalize_tt_cores(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # tucker_variations
@@ -121,7 +121,7 @@ def up_orthogonalize_tt_cores(
     return (tucker_variations, outer_tt_cores)
 
 
-def down_orthogonalize_tucker_cores(
+def t3_down_orthogonalize_tucker_cores(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # up_tucker_cores
@@ -149,7 +149,7 @@ def down_orthogonalize_tucker_cores(
     return (up_tucker_cores, new_tt_cores)
 
 
-def down_svd_tucker_core(
+def t3_down_svd_tucker_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
         ii: int,  # which frame backend to orthogonalize
         min_rank: int = None,
@@ -182,7 +182,7 @@ def down_svd_tucker_core(
     return new_x, ss_x
 
 
-def left_svd_tt_core(
+def t3_left_svd_tt_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
         ii: int,  # which tt core to orthogonalize
         min_rank: int = None,
@@ -224,7 +224,7 @@ def left_svd_tt_core(
     return (tuple(tucker_cores), tuple(new_tt_cores)), ss_x
 
 
-def right_svd_tt_core(
+def t3_right_svd_tt_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
         ii: int,  # which tt core to orthogonalize
         min_rank: int = None,
@@ -267,7 +267,7 @@ def right_svd_tt_core(
     return (tuple(tucker_cores), tuple(new_tt_cores)), ss_x
 
 
-def down_svd_tt_core(
+def t3_down_svd_tt_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
         ii: int,  # which tt core to orthogonalize
         min_rank: int = None,
@@ -304,7 +304,7 @@ def down_svd_tt_core(
     return (tuple(new_tucker_cores), tuple(new_tt_cores)), ss_x
 
 
-def up_svd_tt_core(
+def t3_up_svd_tt_core(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
         ii: int,  # which tt core to orthogonalize
         min_rank: int = None,
@@ -335,7 +335,7 @@ def up_svd_tt_core(
     return (tuple(new_tucker_cores), tuple(new_tt_cores)), ss_x
 
 
-def orthogonalize_relative_to_tucker_core(
+def t3_orthogonalize_relative_to_tucker_core(
         x:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
         ii: int,  # index of the tucker core kept non-orthogonal
 ) -> typ.Tuple[
@@ -349,13 +349,13 @@ def orthogonalize_relative_to_tucker_core(
     left_tk = tucker_cores[:ii+1]
     left_tt = tt_cores[:ii+1]
     if len(left_tk) > 0:
-        left_tk, left_tt = down_orthogonalize_tucker_cores((left_tk, left_tt))
+        left_tk, left_tt = t3_down_orthogonalize_tucker_cores((left_tk, left_tt))
         left_tt = orth.tt_left_orthogonalize(left_tt)
 
     right_tk = xprepend(left_tk[ii], tucker_cores[ii+1:])
     right_tt = xprepend(left_tt[ii], tt_cores[ii+1:])
     if len(right_tk) > 0:
-        right_tk, right_tt = down_orthogonalize_tucker_cores((right_tk, right_tt))
+        right_tk, right_tt = t3_down_orthogonalize_tucker_cores((right_tk, right_tt))
         right_tt = orth.tt_right_orthogonalize(right_tt)
 
     B = right_tk[0]
@@ -367,7 +367,7 @@ def orthogonalize_relative_to_tucker_core(
     return new_tk, new_tt
 
 
-def orthogonalize_relative_to_tt_core(
+def t3_orthogonalize_relative_to_tt_core(
         x:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
         ii: int,  # index of the TT-core kept non-orthogonal
 ) -> typ.Tuple[
@@ -376,7 +376,7 @@ def orthogonalize_relative_to_tt_core(
 ]:
     '''Orthogonalize all cores in the TuckerTensorTrain except for the ith TT-core.
     '''
-    tucker_cores, tt_cores = down_orthogonalize_tucker_cores(x)
+    tucker_cores, tt_cores = t3_down_orthogonalize_tucker_cores(x)
 
     left_tk = tucker_cores[:ii+1]
     left_tt = tt_cores[:ii+1]

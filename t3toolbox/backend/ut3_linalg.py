@@ -114,8 +114,8 @@ def ut3_inner_product(x: UT3Data, y: UT3Data) -> NDArray:  # HS inner product, s
     mtt_x = tt_operations.tt_squash_tails(mtt_x)
     mtt_y = tt_operations.tt_squash_tails(mtt_y)
 
-    big_x = t3_operations.absorb_tucker_into_tt(mtk_x, mtt_x)   # (d,)+stack+(rL, N, rR)
-    big_y = t3_operations.absorb_tucker_into_tt(mtk_y, mtt_y)
+    big_x = t3_operations.t3_absorb_tucker_into_tt(mtk_x, mtt_x)   # (d,)+stack+(rL, N, rR)
+    big_y = t3_operations.t3_absorb_tucker_into_tt(mtk_y, mtt_y)
 
     stack_shape = mtk_x.shape[1:-2]
     rx = mtt_x.shape[-1]

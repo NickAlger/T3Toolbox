@@ -5,6 +5,7 @@
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.t3_conversions as t3_conversions
 import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.t3_operations as ragged_operations
 import t3toolbox.backend.ut3_operations as uniform_operations
@@ -75,8 +76,8 @@ def orthogonal_representations(
         down_orthogonalize_tt_cores = lambda x: uniform_orth.up_orthogonalize_tt_supercores(*x)
     else:
         squash_tails = lambda tk, tt: (tk, tt_operations.tt_squash_tails(tt))
-        up_orthogonalize_tucker_cores = ragged_orth.down_orthogonalize_tucker_cores
-        down_orthogonalize_tt_cores = ragged_orth.up_orthogonalize_tt_cores
+        up_orthogonalize_tucker_cores = ragged_orth.t3_down_orthogonalize_tucker_cores
+        down_orthogonalize_tt_cores = ragged_orth.t3_up_orthogonalize_tt_cores
 
     if squash_tails:
         x = squash_tails(*x)
@@ -162,8 +163,8 @@ def frame_consistency_residual(
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
     xnp, _, _ = get_backend(False, tree_contains_jax(frame))
     d = len(up_tucker_cores)
-    left = ragged_operations.to_dense((up_tucker_cores, left_tt_cores))
-    right = ragged_operations.to_dense((up_tucker_cores, right_tt_cores))
+    left = t3_conversions.t3_to_dense((up_tucker_cores, left_tt_cores))
+    right = t3_conversions.t3_to_dense((up_tucker_cores, right_tt_cores))
     mode_axes = tuple(range(left.ndim - d, left.ndim))   # the d physical-mode axes; stack axes lead
     num = xnp.sqrt(xnp.sum((left - right) ** 2, axis=mode_axes))   # Frobenius over modes -> stack_shape
     den = xnp.sqrt(xnp.sum(right ** 2, axis=mode_axes))

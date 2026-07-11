@@ -7,6 +7,7 @@ import typing as typ
 import math
 
 from t3toolbox.backend.t3_operations import tt_squash_tails
+import t3toolbox.backend.t3_constructors as t3_constructors
 import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.t3_orthogonalization as ragged_orth
 import t3toolbox.backend.t3_operations as t3_ops
@@ -20,7 +21,7 @@ __all__ = [
     't3_add',
     't3_sum_stack',
     't3_scale',
-    't3_inner_product_t3',
+    't3_inner_product',
     't3_norm',
     't3_mult',
     't3m_form_then_round',
@@ -159,7 +160,7 @@ def t3_scale(
     return tuple(scaled_tucker_cores), tuple(copied_tt_cores)
 
 
-def t3_inner_product_t3(
+def t3_inner_product(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores_x, tt_cores_x)
         y: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores_y, tt_cores_y)
         use_orthogonalization: bool = True,  # for numerical stability
@@ -174,8 +175,8 @@ def t3_inner_product_t3(
     y = (y[0], tt_squash_tails(y[1]))
 
     if use_orthogonalization:
-        x = ragged_orth.left_orthogonalize_t3(x)
-        y = ragged_orth.left_orthogonalize_t3(y)
+        x = ragged_orth.t3_left_orthogonalize(x)
+        y = ragged_orth.t3_left_orthogonalize(y)
 
     tucker_cores_x, tt_cores_x = x
     tucker_cores_y, tt_cores_y = y
@@ -215,11 +216,11 @@ def t3_norm(
     #
     x = (x[0], tt_squash_tails(x[1]))
     if use_orthogonalization:
-        x = ragged_orth.left_orthogonalize_t3(x)
+        x = ragged_orth.t3_left_orthogonalize(x)
         Gf = x[1][-1].sum(axis=-1)
         norm_sq = (Gf*Gf).sum(axis=(-2,-1)) # Don't sum over stacked axes
     else:
-        norm_sq = t3_inner_product_t3(x, x)
+        norm_sq = t3_inner_product(x, x)
 
     return xnp.sqrt(xnp.abs(norm_sq))
 
@@ -535,8 +536,8 @@ def t3m_swap(
     atol_in = None if atol is None else atol / oversample
 
     # Leaves -> root (fold Tucker weight into the central TTs), then build/gauge the chain.
-    Ux, Gx = ragged_orth.down_orthogonalize_tucker_cores((Ux, Gx))
-    Uy, Gy = ragged_orth.down_orthogonalize_tucker_cores((Uy, Gy))
+    Ux, Gx = ragged_orth.t3_down_orthogonalize_tucker_cores((Ux, Gx))
+    Uy, Gy = ragged_orth.t3_down_orthogonalize_tucker_cores((Uy, Gy))
     Gx_o = orth.tt_left_orthogonalize(list(Gx))
     Gy_o = orth.tt_right_orthogonalize(tt_operations.tt_reverse(list(Gy)))
     Uy_rev = list(Uy[::-1])
@@ -581,7 +582,7 @@ def t3_plus_scalar(
     x_shape = tuple(B.shape[-1] for B in x[0])
     x_stack_shape = x[0][0].shape[:-2]
 
-    y0 = t3_ops.t3_ones(x_shape, x_stack_shape, use_jax=use_jax)
+    y0 = t3_constructors.t3_ones(x_shape, x_stack_shape, use_jax=use_jax)
     y = t3_scale(y0, s)
     xs = t3_add(x, y)
     return xs

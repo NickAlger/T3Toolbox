@@ -2725,7 +2725,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 self.assertFalse(x.is_left_orthogonal().all())
                 self.assertFalse(x.is_right_orthogonal().all())
                 # build the two forms via the backend orthogonalizers
-                tk, tt = orthx.down_orthogonalize_tucker_cores(x.data)
+                tk, tt = orthx.t3_down_orthogonalize_tucker_cores(x.data)
                 xL = t3.TuckerTensorTrain(tk, orth.tt_left_orthogonalize(tt))
                 xR = t3.TuckerTensorTrain(tk, orth.tt_right_orthogonalize(tt))
                 self.assertTrue(xL.is_left_orthogonal().all())
