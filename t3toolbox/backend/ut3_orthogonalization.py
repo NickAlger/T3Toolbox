@@ -6,7 +6,7 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.ut3_masking as ut3_masking
-import t3toolbox.backend.orthogonalization as orth
+import t3toolbox.backend.tt_orthogonalization as orth
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -170,7 +170,7 @@ def left_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
 
     _, mtt = ut3_masking.apply_masks_to_cores(data)
     tkm, ttm = data[3]                              # HOST bool rank masks
-    new_tt = orth.left_orthogonalize_tt_cores(mtt)
+    new_tt = orth.tt_left_orthogonalize(mtt)
     new_tt_ranks = _left_orthogonalized_tt_ranks(ttm.sum(axis=-1), tkm.sum(axis=-1))
     new_ttm = _prefix_mask(new_tt_ranks, new_tt.shape[-1])
     return data[0], new_tt, data[2], (tkm, new_ttm)
@@ -183,7 +183,7 @@ def right_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
 
     _, mtt = ut3_masking.apply_masks_to_cores(data)
     tkm, ttm = data[3]                              # HOST bool rank masks
-    new_tt = orth.right_orthogonalize_tt_cores(mtt)
+    new_tt = orth.tt_right_orthogonalize(mtt)
     new_tt_ranks = _right_orthogonalized_tt_ranks(ttm.sum(axis=-1), tkm.sum(axis=-1))
     new_ttm = _prefix_mask(new_tt_ranks, new_tt.shape[-1])
     return data[0], new_tt, data[2], (tkm, new_ttm)

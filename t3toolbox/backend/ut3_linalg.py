@@ -6,6 +6,7 @@ import numpy as np
 import typing as typ
 import math
 
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.t3_operations as t3_operations
@@ -110,8 +111,8 @@ def ut3_inner_product(x: UT3Data, y: UT3Data) -> NDArray:  # HS inner product, s
 
     mtk_x, mtt_x = ut3_masking.apply_masks_to_cores(x)
     mtk_y, mtt_y = ut3_masking.apply_masks_to_cores(y)
-    mtt_x = ut3_operations.uniform_squash_tt_tails(mtt_x)
-    mtt_y = ut3_operations.uniform_squash_tt_tails(mtt_y)
+    mtt_x = tt_operations.tt_squash_tails(mtt_x)
+    mtt_y = tt_operations.tt_squash_tails(mtt_y)
 
     big_x = t3_operations.absorb_tucker_into_tt(mtk_x, mtt_x)   # (d,)+stack+(rL, N, rR)
     big_y = t3_operations.absorb_tucker_into_tt(mtk_y, mtt_y)
@@ -139,7 +140,7 @@ def ut3_norm_orthogonalized(x: UT3Data) -> NDArray:  # HS norm, shape=stack_shap
     xnp, _, _ = get_backend(True, use_jax)
 
     _, mtt = ut3_masking.apply_masks_to_cores(x)
-    mtt = ut3_operations.uniform_squash_tt_tails(mtt)
+    mtt = tt_operations.tt_squash_tails(mtt)
 
     Gf = mtt[-1].sum(axis=-1)                 # last TT core, trailing bond summed -> stack+(r,n)
     norm_sq = (Gf * Gf).sum(axis=(-2, -1))    # over (r, n); keep the stack

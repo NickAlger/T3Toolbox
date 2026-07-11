@@ -9,18 +9,17 @@ import math
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.stacking as stacking
 from t3toolbox.backend.common import *
+from t3toolbox.backend.tt_operations import tt_reverse, tt_squash_tails, tt_change_core_shapes
 
 __all__ = [
     'to_dense',
     't3_to_dense_chain',
     'absorb_tucker_into_tt',
     'broadcast_t3_to_common_stack',
-    'squash_tt_tails',
-    'reverse_tt',
+    't3_squash_tails',
     't3_segment',
     't3_concatenate',
     'change_tucker_core_shapes',
-    'change_tt_core_shapes',
     't3_unstack',
     't3_core_shapes',
     't3_to_vector',
@@ -150,36 +149,23 @@ def to_dense(
     return t3_to_dense_chain(tucker_cores, tt_cores, squash_tails)
 
 
-def squash_tt_tails(
-        tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rLi,ni,rR(i+1))
-) -> typ.Tuple[NDArray, ...]:  # tt_cores with r0=rd=1. len=d, elm_shape=stack_shape+(1,n0,r1),...,(r(d-1),n(d-1),1)
-    """Make leading and trailing TT ranks equal to 1 (r0=rd=1), without changing tensor being represented.
+def t3_squash_tails(
+        data: typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores. len=d, elm_shape=stack_shape+(ni,Ni)
+            typ.Sequence[NDArray],  # tt_cores.     len=d, elm_shape=stack_shape+(rLi,ni,rR(i+1))
+        ],
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker_cores, unchanged
+    typ.Tuple[NDArray, ...],  # tt_cores with r0=rd=1
+]:
+    """Collapse the leading/trailing TT bonds of a T3 to one, without changing the represented tensor.
+
+    The T3-data-level twin of :py:func:`~t3toolbox.backend.ut3_operations.ut3_squash_tails`
+    (the Tucker cores are untouched; the TT chain goes through
+    :py:func:`~t3toolbox.backend.tt_operations.tt_squash_tails`).
     """
-    use_jax = any([is_jax_ndarray(G) for G in tt_cores])
-    xnp, _, _ = get_backend(False, use_jax)
-
-    #
-    tt_cores = tuple(tt_cores)
-
-    G0 = tt_cores[0]
-    G0 = xnp.einsum('az,...aib->...zib', xnp.ones((G0.shape[-3],1)), G0)
-
-    tt_cores = (G0,) + tt_cores[1:]
-
-    Gf = tt_cores[-1]
-    Gf = xnp.einsum('...aib,bz->...aiz', Gf, xnp.ones((Gf.shape[-1],1)))
-
-    tt_cores = tt_cores[:-1] + (Gf,)
-
-    return tt_cores
-
-
-def reverse_tt(
-        tt_cores: typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rLi,ni,rR(i+1))
-) -> typ.Tuple[NDArray, ...]:  # reversed cores. len=d, elm_shape=stack_shape+(rR(i+1),ni,rLi)
-    """Reverse a tensor train (no Tucker).
-    """
-    return tuple(G.swapaxes(-3, -1) for G in tt_cores[::-1])
+    tucker_cores, tt_cores = data
+    return tuple(tucker_cores), tt_squash_tails(tt_cores)
 
 
 def t3_segment(
@@ -282,41 +268,6 @@ def change_tucker_core_shapes(
         new_tucker_cores.append(new_B)
 
     return tuple(new_tucker_cores)
-
-
-def change_tt_core_shapes(
-        tt_cores:         typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rLi,ni,rR(i+1))
-        new_tucker_ranks: typ.Sequence[int],      # len=d
-        new_tt_ranks:     typ.Sequence[int],      # len=d+1
-) -> typ.Tuple[NDArray, ...]:  # resized tt_cores. len=d, elm_shape=stack_shape+(new_rLi,new_ni,new_rR(i+1))
-    """Increase/decrease Tucker and/or TT ranks for TT cores using zero padding/truncation.
-    """
-    use_jax = tree_contains_jax(tt_cores)
-    xnp, xmap, _ = get_backend(False, use_jax)
-
-    #
-    old_tucker_ranks = [G.shape[-2] for G in tt_cores]
-    old_tt_ranks = [G.shape[-3] for G in tt_cores] + [tt_cores[-1].shape[-1]]
-
-    num_cores = len(tt_cores)
-    stack_shape = tt_cores[0].shape[:-3]
-
-    delta_tucker_ranks  = [n_new - n_old for n_new, n_old in zip(new_tucker_ranks, old_tucker_ranks)]
-    delta_tt_ranks      = [r_new - r_old for r_new, r_old in zip(new_tt_ranks, old_tt_ranks)]
-
-    new_tt_cores = []
-    for ii in range(num_cores):
-        stack_pad = ((0,0),)*len(stack_shape)
-        pad = stack_pad + (
-            (0,delta_tt_ranks[ii]),
-            (0,delta_tucker_ranks[ii]),
-            (0,delta_tt_ranks[ii+1]),
-        )
-        # new_G = xnp.pad(tt_cores[ii], pad)
-        new_G = linalg.pad_or_truncate(tt_cores[ii], pad)
-        new_tt_cores.append(new_G)
-
-    return tuple(new_tt_cores)
 
 
 def t3_stack(

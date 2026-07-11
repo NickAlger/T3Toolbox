@@ -7,6 +7,7 @@ import itertools
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.t3_operations as ragged_ops
 import t3toolbox.backend.ut3_operations as uniform_ops
@@ -30,7 +31,7 @@ from t3toolbox.backend.common import *
 # The pushthrough recursion and the combine are then the SAME operation -- a binomial jet-product --
 # and reduce to single einsums (the t-contractions in contractions.py):
 #   - compute_mu_jets : left  jets mu_i^(t)  via trs_rWCa_Caib_sWCi_to_tWCb (input jet on the mode).
-#   - compute_nu_jets : right jets nu_i^(t)  -- the mirror image (reverse_tt).
+#   - compute_nu_jets : right jets nu_i^(t)  -- the mirror image (tt_reverse).
 #   - compute_eta_jets: combine at each free mode via trs_rWCa_Caib_sWCb_to_tWCi (nu jet on the bond).
 #   - assemble_z_jets : lift each order through the Tucker cores via tWCi_Cio_to_tWCo (t broadcast).
 #
@@ -303,13 +304,13 @@ def compute_nu_jets(
 ) -> typ.Tuple[NDArray, ...]:               # nu_jets. len=d, elm_shape=(order+1,)+W+C+(rR(i+1),). nu_jets[i][t]=nu_i^(t)
     '''Right derivative-pushthrough jets.
 
-    The mirror image of :py:func:`compute_mu_jets`: reverse the tensor train (``reverse_tt`` swaps
+    The mirror image of :py:func:`compute_mu_jets`: reverse the tensor train (``tt_reverse`` swaps
     bonds and core order), run the left sweep, reverse the result. ``nu_jets[i]`` is the right edge
     variable entering core ``i`` (``nu_i``), stacked over derivative orders.
     '''
-    # Polymorphic reverse: the uniform reverse_utt keeps the supercore (ragged_ops.reverse_tt would iterate
+    # Polymorphic reverse: the uniform tt_reverse keeps the supercore (tt_operations.tt_reverse would iterate
     # the supercore's d axis -- the unroll trap). The jet slices [::-1] just reverse the leading d axis.
-    reverse = uniform_ops.reverse_utt if is_ndarray(tt_cores) else ragged_ops.reverse_tt
+    reverse = tt_operations.tt_reverse if is_ndarray(tt_cores) else tt_operations.tt_reverse
     rev_nu_jets = compute_mu_jets(reverse(tt_cores), xi_jets[::-1], trs)
     return rev_nu_jets[::-1]
 
@@ -587,7 +588,7 @@ def compute_tau_jets(
 
     Reverse the train (P in the Q-slot, O and dG reversed), run the sigma sweep, reverse the result.
     '''
-    reverse = uniform_ops.reverse_utt if is_ndarray(var_tt_cores) else ragged_ops.reverse_tt
+    reverse = tt_operations.tt_reverse if is_ndarray(var_tt_cores) else tt_operations.tt_reverse
     rev = compute_sigma_jets(
         reverse(var_tt_cores), reverse(left_tt_cores),
         reverse(down_tt_cores), xi_jets[::-1], dxi_jets[::-1], nu_jets[::-1], trs,
@@ -1058,7 +1059,7 @@ def compute_sigma_tilde_jets(
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:                   # sigma_tildes. len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
     '''Adjoint-var-leftward edge-variable jets -- the mirror (reverse) of compute_tau_tilde_jets.'''
-    reverse = uniform_ops.reverse_utt if is_ndarray(right_tt_cores) else ragged_ops.reverse_tt
+    reverse = tt_operations.tt_reverse if is_ndarray(right_tt_cores) else tt_operations.tt_reverse
     rev = _adj_sweep(reverse(right_tt_cores), xi_jets[::-1],
                      deta_tildes[::-1], nu_jets[::-1], trs)
     return rev[::-1]
@@ -1283,15 +1284,15 @@ def compute_sigma_hat_jets(
     The apply-transpose analog of :py:func:`compute_sigma_tilde_jets`: no ``deta_tilde`` per-core source,
     and the init carry is the ``c``-seed on the terminal bond (``rR_d = 1``) rather than zeros.
     ``sigma_hats[i]`` is the adjoint of the after-core-``i`` perturbation carry; it carries the tangent
-    stack ``K`` (from ``c``). Right-to-left via ``reverse_tt`` (mirroring the ``Q``-sweep there).
+    stack ``K`` (from ``c``). Right-to-left via ``tt_reverse`` (mirroring the ``Q``-sweep there).
     '''
     use_jax = tree_contains_jax((right_tt_cores, xi_jets, c, trs))
     xnp, xmap, xscan = get_backend(is_ndarray(right_tt_cores), use_jax)  # scan-style: xscan strips d, per-slice
     s_size = min(2, trs.shape[0])
     trs_xi = trs[:, :s_size, :]                # input jet (xi) carries orders {0, 1}
 
-    # Polymorphic reverse (uniform reverse_utt keeps the supercore; ragged_ops.reverse_tt would iterate d).
-    reverse = uniform_ops.reverse_utt if is_ndarray(right_tt_cores) else ragged_ops.reverse_tt
+    # Polymorphic reverse (uniform tt_reverse keeps the supercore; tt_operations.tt_reverse would iterate d).
+    reverse = tt_operations.tt_reverse if is_ndarray(right_tt_cores) else tt_operations.tt_reverse
     rev_Q = reverse(right_tt_cores)
     rev_xi = xi_jets[::-1]
     # The forward sums the terminal bond (rR_d, not necessarily 1 -- e.g. the corewise frame's own

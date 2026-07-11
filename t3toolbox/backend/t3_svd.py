@@ -5,9 +5,10 @@
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.t3_operations as ragged_ops
 import t3toolbox.backend.t3_orthogonalization as ragged_orth
-import t3toolbox.backend.orthogonalization as orth
+import t3toolbox.backend.tt_orthogonalization as orth
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.ranks as ranks
 from t3toolbox.backend.common import *
@@ -60,12 +61,12 @@ def t3svd(
     max_tt_ranks = ranks.normalize_max_ranks(max_tt_ranks, num_cores + 1)
 
     # make leading and trailing TT-ranks equal to 1 (no-op when already 1, i.e. for orthogonal input)
-    x = (x[0], ragged_ops.squash_tt_tails(x[1]))
+    x = (x[0], tt_operations.tt_squash_tails(x[1]))
 
     # Orthogonalize (Tucker down-orthogonal, TT right-orthogonal) -- skipped if asserted right-orthogonal
     if not assume_orthogonal:
         x = ragged_orth.down_orthogonalize_tucker_cores(x)
-        x = (x[0], orth.right_orthogonalize_tt_cores(x[1]))
+        x = (x[0], orth.tt_right_orthogonalize(x[1]))
 
     G0 = x[1][0]
     _, ss_first, _ = linalg.right_svd(G0)
@@ -108,7 +109,7 @@ def rank_adjustment_sweep(
     ``rank_adjustment_sweep(result, 'right_to_left')`` minimizes it (verify with ``has_minimal_ranks``).
     On a general input it is a partial reduction; compose both directions for guaranteed minimal ranks.
     '''
-    x = (x[0], ragged_ops.squash_tt_tails(x[1]))
+    x = (x[0], tt_operations.tt_squash_tails(x[1]))
     num_cores = len(x[0])
     if direction == 'right_to_left':
         for ii in range(num_cores - 1, -1, -1):

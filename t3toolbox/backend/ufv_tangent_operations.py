@@ -21,6 +21,7 @@ ride along). Uniform rank is required only across ``K`` (one shared frame = one 
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ufv_operations as ufv_operations
 import t3toolbox.backend.ufv_masking as ufv_masking
@@ -490,8 +491,8 @@ def project_ut3_onto_tangent_space(
     other_tt2 = xnp.einsum('d...aib,d...ix->d...axb', other_tt, BU1)           # (d,)+stack+(rA, nU, rB)
 
     # Accumulate the left/right TT environments (polymorphic zippers -> tuples; stack into supercores).
-    zl = xnp.stack(tangent_operations.tt_zipper_left_to_right(other_tt2[:-1], left_sc[:-1]), axis=0)
-    zr = xnp.stack(tangent_operations.tt_zipper_right_to_left(other_tt2[1:], right_sc[1:]), axis=0)
+    zl = xnp.stack(tt_operations.tt_zipper_left_to_right(other_tt2[:-1], left_sc[:-1]), axis=0)
+    zr = xnp.stack(tt_operations.tt_zipper_right_to_left(other_tt2[1:], right_sc[1:]), axis=0)
 
     # Contract the environments into the ungauged variations (vectorized over d).
     env = xnp.einsum('d...ax,d...aib,d...by->d...xiy', zl, other_tt, zr)       # (d,)+stack+(rL, n_x, rR)

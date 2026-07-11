@@ -6,11 +6,12 @@ import numpy as np
 import typing as typ
 import math
 
-from t3toolbox.backend.t3_operations import squash_tt_tails
+from t3toolbox.backend.t3_operations import tt_squash_tails
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.t3_orthogonalization as ragged_orth
 import t3toolbox.backend.t3_operations as t3_ops
 import t3toolbox.backend.t3_svd as ragged_t3svd
-import t3toolbox.backend.orthogonalization as orth
+import t3toolbox.backend.tt_orthogonalization as orth
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.ranks as ranks
 from t3toolbox.backend.common import *
@@ -135,7 +136,7 @@ def t3_sum_stack(
         G_new = G_block.reshape(KS + (S * rLi, S * ni, S * rRi))
         summed_tt_cores.append(G_new)
 
-    summed_tt_cores = squash_tt_tails(tuple(summed_tt_cores)) # ones-contraction at the tails performs the sum
+    summed_tt_cores = tt_squash_tails(tuple(summed_tt_cores)) # ones-contraction at the tails performs the sum
     return tuple(summed_tucker_cores), summed_tt_cores
 
 
@@ -169,8 +170,8 @@ def t3_inner_product_t3(
     xnp, _, _ = get_backend(False, use_jax)
 
     #
-    x = (x[0], squash_tt_tails(x[1]))
-    y = (y[0], squash_tt_tails(y[1]))
+    x = (x[0], tt_squash_tails(x[1]))
+    y = (y[0], tt_squash_tails(y[1]))
 
     if use_orthogonalization:
         x = ragged_orth.left_orthogonalize_t3(x)
@@ -212,7 +213,7 @@ def t3_norm(
     xnp, _, _ = get_backend(False, use_jax)
 
     #
-    x = (x[0], squash_tt_tails(x[1]))
+    x = (x[0], tt_squash_tails(x[1]))
     if use_orthogonalization:
         x = ragged_orth.left_orthogonalize_t3(x)
         Gf = x[1][-1].sum(axis=-1)
@@ -332,8 +333,8 @@ def t3m_inplace_fused(
     mrr = ranks.normalize_max_ranks(max_tt_ranks, d + 1)
 
     # Right-orthogonalize each central TT (the product's central TT is then implicitly right-canonical).
-    Gx = orth.right_orthogonalize_tt_cores(Gx)
-    Gy = orth.right_orthogonalize_tt_cores(Gy)
+    Gx = orth.tt_right_orthogonalize(Gx)
+    Gy = orth.tt_right_orthogonalize(Gy)
 
     stack = tuple(Ux[0].shape[:-2])
     out_tucker = []
@@ -536,8 +537,8 @@ def t3m_swap(
     # Leaves -> root (fold Tucker weight into the central TTs), then build/gauge the chain.
     Ux, Gx = ragged_orth.down_orthogonalize_tucker_cores((Ux, Gx))
     Uy, Gy = ragged_orth.down_orthogonalize_tucker_cores((Uy, Gy))
-    Gx_o = orth.left_orthogonalize_tt_cores(list(Gx))
-    Gy_o = orth.right_orthogonalize_tt_cores(t3_ops.reverse_tt(list(Gy)))
+    Gx_o = orth.tt_left_orthogonalize(list(Gx))
+    Gy_o = orth.tt_right_orthogonalize(tt_operations.tt_reverse(list(Gy)))
     Uy_rev = list(Uy[::-1])
     chain = [[Gx_o[i], Ux[i], i] for i in range(d)] \
           + [[Gy_o[j], Uy_rev[j], d - 1 - j] for j in range(d)]

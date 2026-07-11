@@ -5,7 +5,8 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.backend.orthogonalization as orth
+import t3toolbox.backend.tt_operations as tt_operations
+import t3toolbox.backend.tt_orthogonalization as orth
 import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
 import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.ut3_masking as ut3_masking
@@ -160,7 +161,7 @@ def uniform_t3_svd(
     ut3_masking.require_concrete_masks(frame_masks, tt_masks)  # masks (constant operands) are host
 
     if squash_tails_first:
-        tt_supercore = ut3_operations.uniform_squash_tt_tails(tt_supercore)
+        tt_supercore = tt_operations.tt_squash_tails(tt_supercore)
 
     d = frame_supercore.shape[0]
     stack_shape = frame_supercore.shape[1:-2]
@@ -170,7 +171,7 @@ def uniform_t3_svd(
     if not skip_orthogonalization:
         frame_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
             frame_supercore, tt_supercore)
-        tt_supercore = orth.right_orthogonalize_tt_cores(tt_supercore)
+        tt_supercore = orth.tt_right_orthogonalize(tt_supercore)
 
     # keep everything the same shape, for consistency with masks
     n2 = frame_supercore.shape[-2]

@@ -14,6 +14,7 @@ int-tuple ``shape`` is shared and woven onto every leaf. The masks' differing le
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.ufv_masking as ufv_masking
@@ -158,10 +159,10 @@ def ufv_variations_sum_stack(
 def ufv_reverse_frame(data):  # UT3Frame .data -> reversed UT3Frame .data
     """Reverse the mode order of a UT3Frame ``.data``. The left/right supercores **and** their masks
     **swap roles** (reversing a left-orthogonal chain yields a right-orthogonal one) and reverse; up/down
-    reverse (down with a bond swap, via :py:func:`ut3_operations.reverse_utt`). The redundant L/R store
+    reverse (down with a bond swap, via :py:func:`tt_operations.tt_reverse`). The redundant L/R store
     makes this exact -- no re-orthogonalization. Inverse of itself."""
     up_sc, down_sc, left_sc, right_sc, shape, (um, dm, lm, rm) = data
-    rev = ut3_operations.reverse_utt
+    rev = tt_operations.tt_reverse
     return (
         up_sc[::-1],
         rev(down_sc),
@@ -174,12 +175,12 @@ def ufv_reverse_frame(data):  # UT3Frame .data -> reversed UT3Frame .data
 
 def ufv_reverse_variations(data):  # UT3Variations .data -> reversed UT3Variations .data
     """Reverse the mode order of a UT3Variations ``.data``: the tucker-variation supercore reverses; the
-    tt-variation supercore reverses with a bond swap (:py:func:`ut3_operations.reverse_utt`). The per-slot
+    tt-variation supercore reverses with a bond swap (:py:func:`tt_operations.tt_reverse`). The per-slot
     left/right masks swap + reverse (a variation occupies one TT slot). Inverse of itself."""
     tkv, ttv, shape, (vup, vdown, vleft, vright) = data
     return (
         tkv[::-1],
-        ut3_operations.reverse_utt(ttv),
+        tt_operations.tt_reverse(ttv),
         tuple(shape[::-1]),
         (vup[::-1], vdown[::-1], vright[::-1], vleft[::-1]),   # up/down reverse; left/right swap + reverse
     )

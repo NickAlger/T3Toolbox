@@ -2716,7 +2716,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
     def test_is_left_right_orthogonal_checkers(self):
         import t3toolbox.backend.t3_orthogonalization as orthx
-        import t3toolbox.backend.orthogonalization as orth
+        import t3toolbox.backend.tt_orthogonalization as orth
         for shape, tr, ttr in [((6, 7, 8), (5, 6, 7), (1, 4, 3, 1)),
                                ((5, 6, 7, 4), (4, 5, 6, 3), (1, 3, 4, 2, 1))]:
             x = t3.TuckerTensorTrain.randn(shape, tr, ttr)
@@ -2726,8 +2726,8 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 self.assertFalse(x.is_right_orthogonal().all())
                 # build the two forms via the backend orthogonalizers
                 tk, tt = orthx.down_orthogonalize_tucker_cores(x.data)
-                xL = t3.TuckerTensorTrain(tk, orth.left_orthogonalize_tt_cores(tt))
-                xR = t3.TuckerTensorTrain(tk, orth.right_orthogonalize_tt_cores(tt))
+                xL = t3.TuckerTensorTrain(tk, orth.tt_left_orthogonalize(tt))
+                xR = t3.TuckerTensorTrain(tk, orth.tt_right_orthogonalize(tt))
                 self.assertTrue(xL.is_left_orthogonal().all())
                 self.assertFalse(xL.is_right_orthogonal().all())
                 self.assertTrue(xR.is_right_orthogonal().all())

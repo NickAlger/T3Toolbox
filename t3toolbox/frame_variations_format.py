@@ -8,6 +8,7 @@ import typing as typ
 import functools as ft
 from dataclasses import dataclass
 
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.fv_conversions as fv_conversions
 import t3toolbox.backend.t3_operations as t3_operations
@@ -989,7 +990,7 @@ class T3Variations:
         """Reverse the mode order (corewise): reverse the tucker-variation order and reverse+transpose
         the tt-variations (bond swap), matching :py:meth:`T3Frame.reverse`."""
         return T3Variations(tuple(V.copy() for V in self.tucker_variations[::-1]),
-                            t3_operations.reverse_tt(self.tt_variations))
+                            tt_operations.tt_reverse(self.tt_variations))
 
     def sum_stack(self, axis=None) -> 'T3Variations':
         """Corewise sum over stack axes (a batch of variations -> their sum). ``axis`` indexes the stack

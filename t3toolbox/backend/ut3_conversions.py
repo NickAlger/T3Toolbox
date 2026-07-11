@@ -5,6 +5,7 @@
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.t3_operations as t3_ops
 import t3toolbox.backend.ut3_masking as ut3_masking
 from t3toolbox.backend.common import *
@@ -41,7 +42,7 @@ def t3_to_ut3(
     xnp, _, _ = get_backend(False, use_jax)
 
     if squash_tails:
-        x = (x[0], t3_ops.squash_tt_tails(x[1]))
+        x = (x[0], tt_operations.tt_squash_tails(x[1]))
 
     tucker_cores, tt_cores = x
     stack_shape = tucker_cores[0].shape[:-2]
@@ -62,7 +63,7 @@ def t3_to_ut3(
     padded_tt_ranks     = (r,) * (d + 1)
 
     padded_tucker_cores = t3_ops.change_tucker_core_shapes(tucker_cores, padded_shape, padded_tucker_ranks)
-    padded_tt_cores     = t3_ops.change_tt_core_shapes(tt_cores, padded_tucker_ranks, padded_tt_ranks)
+    padded_tt_cores     = tt_operations.tt_change_core_shapes(tt_cores, padded_tucker_ranks, padded_tt_ranks)
 
     tucker_supercore = xnp.stack(padded_tucker_cores)
     tt_supercore     = xnp.stack(padded_tt_cores)

@@ -12,13 +12,14 @@ import functools as ft
 from dataclasses import dataclass
 from functools import cached_property
 
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.probing as probing
 import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.dense_t3svd as dense_t3svd
-import t3toolbox.backend.orthogonalization as orth
+import t3toolbox.backend.tt_orthogonalization as orth
 import t3toolbox.backend.t3_operations as ragged_operations
 import t3toolbox.backend.t3_orthogonalization as ragged_orthogonalization
 import t3toolbox.backend.t3_linalg as ragged_linalg
@@ -1020,7 +1021,7 @@ class TuckerTensorTrain:
         >>> print(np.allclose(x.to_dense(), x2.to_dense()))   # same dense tensor
         True
         """
-        return TuckerTensorTrain(self.tucker_cores, ragged_operations.squash_tt_tails(self.tt_cores))
+        return TuckerTensorTrain(*ragged_operations.t3_squash_tails(self.data))
 
     def reverse(self) -> 'TuckerTensorTrain':
         """Reverse Tucker tensor train.
@@ -1054,7 +1055,7 @@ class TuckerTensorTrain:
         True
         """
         reversed_tucker_cores = tuple([B.copy() for B in self.tucker_cores[::-1]])
-        reversed_tt_cores = ragged_operations.reverse_tt(self.tt_cores)
+        reversed_tt_cores = tt_operations.tt_reverse(self.tt_cores)
         return TuckerTensorTrain(reversed_tucker_cores, reversed_tt_cores)
 
     def resize(
@@ -1094,7 +1095,7 @@ class TuckerTensorTrain:
         tucker_cores, tt_cores = self.data
 
         new_tucker_cores = ragged_operations.change_tucker_core_shapes(tucker_cores, new_shape, new_tucker_ranks)
-        new_tt_cores = ragged_operations.change_tt_core_shapes(tt_cores, new_tucker_ranks, new_tt_ranks)
+        new_tt_cores = tt_operations.tt_change_core_shapes(tt_cores, new_tucker_ranks, new_tt_ranks)
 
         return TuckerTensorTrain(tuple(new_tucker_cores), tuple(new_tt_cores))
 
@@ -3110,7 +3111,7 @@ class TuckerTensorTrain:
         >>> print(bool(np.linalg.norm(np.einsum('xyiaj,xyiak->xyjk',G,G)-np.eye(G.shape[-1])) < 1e-12))
         True
         """
-        result = orth.left_orthogonalize_tt_cores(
+        result = orth.tt_left_orthogonalize(
             self.tt_cores, return_variation_cores=return_variation_cores,
         )
         if return_variation_cores:
@@ -3171,7 +3172,7 @@ class TuckerTensorTrain:
         >>> print(bool(np.linalg.norm(np.einsum('xyiaj,xykaj->xyik',G,G)-np.eye(G.shape[2])) < 1e-12))
         True
         """
-        result = orth.right_orthogonalize_tt_cores(
+        result = orth.tt_right_orthogonalize(
             self.tt_cores, return_variation_cores=return_variation_cores,
         )
         if return_variation_cores:

@@ -5,18 +5,19 @@
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.t3_operations as ragged_operations
 import t3toolbox.backend.ut3_operations as uniform_operations
 from t3toolbox.backend.common import *
 
 __all__ = [
-    'left_orthogonalize_tt_cores',
-    'right_orthogonalize_tt_cores',
+    'tt_left_orthogonalize',
+    'tt_right_orthogonalize',
 ]
 
 
-def left_orthogonalize_tt_cores(
+def tt_left_orthogonalize(
         tt_cores: typ.Union[
             typ.Sequence[NDArray], # ragged. len=d, elm_shape=stack_shape+(ri,ni,r(i+1))
             NDArray, # uniform. shape=(d,)+stack_shape+(r,n,r)
@@ -60,7 +61,7 @@ def left_orthogonalize_tt_cores(
         return left_tt_cores
 
 
-def right_orthogonalize_tt_cores(
+def tt_right_orthogonalize(
         tt_cores: typ.Union[
             typ.Sequence[NDArray],  # ragged. len=d, elm_shape=stack_shape+(ri,ni,r(i+1))
             NDArray,  # uniform. shape=(d,)+stack_shape+(r,n,r)
@@ -70,12 +71,9 @@ def right_orthogonalize_tt_cores(
     typ.Tuple[NDArray,...], # right_tt_cores
     typ.Tuple[typ.Tuple[NDArray,...], typ.Tuple[NDArray,...]], # right_tt_cores, var_tt_cores
 ]:
-    if is_ndarray(tt_cores):
-        reverse = uniform_operations.reverse_utt
-    else:
-        reverse = ragged_operations.reverse_tt
+    reverse = tt_operations.tt_reverse   # polymorphic (ragged core tuple or uniform supercore)
 
-    result = left_orthogonalize_tt_cores(
+    result = tt_left_orthogonalize(
         reverse(tt_cores), return_variation_cores=return_variation_cores,
     )
     if return_variation_cores:

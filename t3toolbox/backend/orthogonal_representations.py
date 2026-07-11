@@ -5,9 +5,10 @@
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.t3_operations as ragged_operations
 import t3toolbox.backend.ut3_operations as uniform_operations
-import t3toolbox.backend.orthogonalization as orth
+import t3toolbox.backend.tt_orthogonalization as orth
 import t3toolbox.backend.t3_orthogonalization as ragged_orth
 import t3toolbox.backend.ut3_orthogonalization as uniform_orth
 from t3toolbox.backend.common import *
@@ -69,11 +70,11 @@ def orthogonal_representations(
 
     if is_uniform:
         # uniform path operates on bare (masked) supercores -- the (n,N)/(rL,n,rR) arrays, not .data.
-        squash_tails = lambda tk, tt: (tk, uniform_operations.uniform_squash_tt_tails(tt))
+        squash_tails = lambda tk, tt: (tk, tt_operations.tt_squash_tails(tt))
         up_orthogonalize_tucker_cores = lambda x: uniform_orth.down_orthogonalize_tucker_supercores(*x)
         down_orthogonalize_tt_cores = lambda x: uniform_orth.up_orthogonalize_tt_supercores(*x)
     else:
-        squash_tails = lambda tk, tt: (tk, ragged_operations.squash_tt_tails(tt))
+        squash_tails = lambda tk, tt: (tk, tt_operations.tt_squash_tails(tt))
         up_orthogonalize_tucker_cores = ragged_orth.down_orthogonalize_tucker_cores
         down_orthogonalize_tt_cores = ragged_orth.up_orthogonalize_tt_cores
 
@@ -85,12 +86,12 @@ def orthogonal_representations(
         up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(x)
 
         # Sweep left-to-right, generating left orthogonal tt_cores L
-        left_tt_cores = orth.left_orthogonalize_tt_cores(tt_cores)
+        left_tt_cores = orth.tt_left_orthogonalize(tt_cores)
     else:
         up_tucker_cores, left_tt_cores = x
 
     # Sweep right-to-left, generating tt_variations H, and right orthogonal tt_cores R
-    right_tt_cores, tt_variations = orth.right_orthogonalize_tt_cores(
+    right_tt_cores, tt_variations = orth.tt_right_orthogonalize(
         left_tt_cores, return_variation_cores=True,
     )
 

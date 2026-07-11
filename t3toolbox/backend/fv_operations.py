@@ -8,6 +8,7 @@ import math
 import typing as typ
 import numpy as np
 
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.t3_operations as t3_operations
 from t3toolbox.backend.common import *
 
@@ -127,11 +128,11 @@ def reverse_frame(
 
     The left and right TT families **swap roles**: reversing a left-orthogonal chain yields a
     right-orthogonal one, so the new left family is the reversed old *right* family and vice versa
-    (the up-tucker family is reversed; the down family is reversed per :py:func:`reverse_tt`). The
+    (the up-tucker family is reversed; the down family is reversed per :py:func:`tt_reverse`). The
     redundant left/right store makes this exact with no re-orthogonalization. Inverse of itself.
     '''
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
-    rev = t3_operations.reverse_tt
+    rev = tt_operations.tt_reverse
     return (tuple(U.copy() for U in up_tucker_cores[::-1]),
             rev(down_tt_cores),
             rev(right_tt_cores),   # old right -> new left

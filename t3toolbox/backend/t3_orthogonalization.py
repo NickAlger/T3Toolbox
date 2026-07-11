@@ -6,7 +6,7 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.linalg as linalg
-import t3toolbox.backend.orthogonalization as orth
+import t3toolbox.backend.tt_orthogonalization as orth
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -70,7 +70,7 @@ def left_orthogonalize_t3(
     """Left orthogonalize T3.
     """
     up_tucker_cores, tt_cores = down_orthogonalize_tucker_cores(x)
-    left_tt_cores = orth.left_orthogonalize_tt_cores(tt_cores)
+    left_tt_cores = orth.tt_left_orthogonalize(tt_cores)
     return (up_tucker_cores, left_tt_cores)
 
 
@@ -83,7 +83,7 @@ def right_orthogonalize_t3(
     """Right orthogonalize T3.
     """
     up_tucker_cores, tt_cores = down_orthogonalize_tucker_cores(x)
-    right_tt_cores = orth.right_orthogonalize_tt_cores(tt_cores)
+    right_tt_cores = orth.tt_right_orthogonalize(tt_cores)
     return (up_tucker_cores, right_tt_cores)
 
 
@@ -350,13 +350,13 @@ def orthogonalize_relative_to_tucker_core(
     left_tt = tt_cores[:ii+1]
     if len(left_tk) > 0:
         left_tk, left_tt = down_orthogonalize_tucker_cores((left_tk, left_tt))
-        left_tt = orth.left_orthogonalize_tt_cores(left_tt)
+        left_tt = orth.tt_left_orthogonalize(left_tt)
 
     right_tk = xprepend(left_tk[ii], tucker_cores[ii+1:])
     right_tt = xprepend(left_tt[ii], tt_cores[ii+1:])
     if len(right_tk) > 0:
         right_tk, right_tt = down_orthogonalize_tucker_cores((right_tk, right_tt))
-        right_tt = orth.right_orthogonalize_tt_cores(right_tt)
+        right_tt = orth.tt_right_orthogonalize(right_tt)
 
     B = right_tk[0]
     G = right_tt[0]
@@ -381,12 +381,12 @@ def orthogonalize_relative_to_tt_core(
     left_tk = tucker_cores[:ii+1]
     left_tt = tt_cores[:ii+1]
     if len(left_tk) > 0:
-        left_tt = orth.left_orthogonalize_tt_cores(left_tt)
+        left_tt = orth.tt_left_orthogonalize(left_tt)
 
     right_tk = xprepend(left_tk[ii], tucker_cores[ii+1:])
     right_tt = xprepend(left_tt[ii], tt_cores[ii+1:])
     if len(right_tk) > 0:
-        right_tt = orth.right_orthogonalize_tt_cores(right_tt)
+        right_tt = orth.tt_right_orthogonalize(right_tt)
 
     new_tk = xcat(left_tk[:ii], right_tk)
     new_tt = xcat(left_tt[:ii], right_tt)

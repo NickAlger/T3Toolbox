@@ -6,6 +6,7 @@ import math
 import numpy as np
 import typing as typ
 
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.t3_operations as ragged_ops
 import t3toolbox.backend.ut3_operations as uniform_ops
@@ -233,7 +234,7 @@ def compute_nu(
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
     is_uniform = is_ndarray(right_tt_cores)
-    reverse = uniform_ops.reverse_utt if is_uniform else ragged_ops.reverse_tt
+    reverse = tt_operations.tt_reverse if is_uniform else tt_operations.tt_reverse
 
     rev_nus = compute_mu(reverse(right_tt_cores), xis[::-1])
     return rev_nus[::-1]
@@ -412,7 +413,7 @@ def compute_tau(
     tv_probe
     '''
     is_uniform = is_ndarray(var_tt_cores)
-    reverse = uniform_ops.reverse_utt if is_uniform else ragged_ops.reverse_tt
+    reverse = tt_operations.tt_reverse if is_uniform else tt_operations.tt_reverse
 
     rev_taus = compute_sigma(
         reverse(var_tt_cores), reverse(left_tt_cores), reverse(down_tt_cores),
@@ -761,10 +762,10 @@ def compute_sigma_hat(
     The right context the apply/entries transpose needs, **recomputed** from ``c`` rather than stored:
     this is the low-memory half of the adjoint-state method (no ``nu``/``eta`` precomputed). ``sigma_hats[i]``
     is the adjoint of the after-core-``i`` carry; it carries the tangent stack ``K`` (from ``c``).
-    Right-to-left via ``reverse_tt`` (mirroring the forward ``nu`` sweep's reversal).'''
+    Right-to-left via ``tt_reverse`` (mirroring the forward ``nu`` sweep's reversal).'''
     use_jax = tree_contains_jax((right_tt_cores, xis, c))
     is_uniform = is_ndarray(right_tt_cores)
-    reverse = uniform_ops.reverse_utt if is_uniform else ragged_ops.reverse_tt
+    reverse = tt_operations.tt_reverse if is_uniform else tt_operations.tt_reverse
     xnp, _, xscan = get_backend(is_uniform, use_jax)
 
     rev_Q = reverse(right_tt_cores)
@@ -873,7 +874,7 @@ def compute_sigma_tilde(
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
     is_uniform = is_ndarray(deta_tildes)
-    reverse = uniform_ops.reverse_utt if is_uniform else ragged_ops.reverse_tt
+    reverse = tt_operations.tt_reverse if is_uniform else tt_operations.tt_reverse
 
     return compute_tau_tilde(
         deta_tildes[::-1], reverse(right_tt_cores), xis[::-1], nus[::-1],

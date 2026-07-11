@@ -8,10 +8,9 @@ import typing as typ
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ut3_masking as ut3_masking
 from t3toolbox.backend.common import *
+from t3toolbox.backend.tt_operations import tt_reverse, tt_squash_tails
 
 __all__ = [
-    'reverse_utt',
-    'uniform_squash_tt_tails',
     'ut3_squash_tails',
     'ut3_reverse',
     'pack_vectors',
@@ -45,44 +44,6 @@ def _first_data_leaf(xx):  # drill to the first .data leaf without recursing int
     return xx
 
 
-def reverse_utt(
-        tt_supercore: NDArray,  # shape=(d,)+stack_shape+(r,n,r)
-) -> NDArray:                   # reversed,  shape=(d,)+stack_shape+(r,n,r)
-    """Reverse a uniform tensor train: reverse the mode order and swap the two bond axes of each core.
-    """
-    return tt_supercore[::-1].swapaxes(-3, -1)
-
-
-def uniform_squash_tt_tails(
-        tt_supercore: NDArray,  # shape=(d,)+stack_shape+(r,n,r)
-) -> NDArray:                   # shape=(d,)+stack_shape+(r,n,r), leading/trailing bond summed into slot 0
-    """Make the leading bond of the first TT core and the trailing bond of the last collapse to one,
-    by summing them into slot 0 (and zeroing the rest), so the represented tensor is unchanged.
-    """
-    use_jax = is_jax_ndarray(tt_supercore)
-    xnp, _, _ = get_backend(True, use_jax)
-
-    stack_shape = tt_supercore.shape[1:-3]
-    n = tt_supercore.shape[-2]
-    r = tt_supercore.shape[-1]
-
-    G0 = tt_supercore[:1]                                              # (1,)+stack+(r,n,r)
-    new_G0 = xnp.concatenate([
-        xnp.sum(G0, axis=-3, keepdims=True),                          # (1,)+stack+(1,n,r)
-        xnp.zeros((1,) + stack_shape + (r - 1, n, r)),
-    ], axis=-3)
-
-    GG_mid = tt_supercore[1:-1]
-
-    Gf = tt_supercore[-1:]                                            # (1,)+stack+(r,n,r)
-    new_Gf = xnp.concatenate([
-        xnp.sum(Gf, axis=-1, keepdims=True),                          # (1,)+stack+(r,n,1)
-        xnp.zeros((1,) + stack_shape + (r, n, r - 1)),
-    ], axis=-1)
-
-    return xnp.concatenate([new_G0, GG_mid, new_Gf], axis=0)
-
-
 def ut3_squash_tails(data: UT3Data) -> UT3Data:
     """Sum the leading/trailing TT bonds down to rank 1 (preserves the tensor), updating those edge
     masks to rank 1. Operates on the full .data tuple."""
@@ -91,7 +52,7 @@ def ut3_squash_tails(data: UT3Data) -> UT3Data:
 
     tk, tt, shape, (tkm, ttm) = data
     ut3_masking.require_concrete_masks(tkm, ttm)  # masks are host, not traced
-    new_tt = uniform_squash_tt_tails(tt)
+    new_tt = tt_squash_tails(tt)
     r = tt.shape[-1]
     stack = tt.shape[1:-3]
     # np (host): the rank-1 boundary masks are static structure, not supercore data. Intentional.
@@ -103,7 +64,7 @@ def ut3_squash_tails(data: UT3Data) -> UT3Data:
 def ut3_reverse(data: UT3Data) -> UT3Data:
     """Reverse the mode order (supercores, shape, and masks). Operates on the full .data tuple."""
     tk, tt, shape, (tkm, ttm) = data
-    return tk[::-1], reverse_utt(tt), shape[::-1], (tkm[::-1], ttm[::-1])
+    return tk[::-1], tt_reverse(tt), shape[::-1], (tkm[::-1], ttm[::-1])
 
 
 def pack_vectors(
