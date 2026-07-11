@@ -684,7 +684,7 @@ class TestContractions(unittest.TestCase):
         self._check_3group_d(contractions.dWCi_dKCio_to_dWKCo,
                              [('WC', 'i'), ('KC', 'io')], ('WKC', 'o'), needs_n_frame=True)
 
-    def test_dWCo_dCio_to_dWCi(self):  # shared-C (compute_deta_tildes); a two-group, K unused
+    def test_dWCo_dCio_to_dWCi(self):  # shared-C (compute_deta_tilde); a two-group, K unused
         self._check_3group_d(contractions.dWCo_dCio_to_dWCi,
                              [('WC', 'o'), ('C', 'io')], ('WC', 'i'))
 
@@ -749,7 +749,7 @@ class TestContractions(unittest.TestCase):
         the order axis (the order-less gradient assembly). needs_n_frame passes len(C) (variation-core
         terms); needs_n_probe passes len(W) (assembly terms with no pure W/C operand).
         """
-        from t3toolbox.backend.probe_derivatives import binomial_combine_tensor
+        from t3toolbox.backend.sampling_derivatives import binomial_combine_tensor
         ORD = 3                                       # order axis length (order=2); exercises the convolution
         OSIZE = {'t': ORD, 'r': ORD, 's': ORD, 'u': ORD}
         for RANDN in [numpy_randn, jax_randn]:
@@ -900,7 +900,7 @@ class TestContractions(unittest.TestCase):
         d-vectorized ``np.einsum`` reference. Uniform jet layout is ``d + order + W + K + C + (...)``, so the
         order letters sit AFTER ``d``. Since a d-batched einsum equals the ragged jet applied per d-slice,
         this IS the "per d-index == ragged trs_*" oracle (the ragged twins share op_specs, checked above)."""
-        from t3toolbox.backend.probe_derivatives import binomial_combine_tensor
+        from t3toolbox.backend.sampling_derivatives import binomial_combine_tensor
         D = 3
         ORD = 3                                       # order axis length (order=2); exercises the convolution
         OSIZE = {'t': ORD, 'r': ORD, 's': ORD, 'u': ORD}
@@ -1033,7 +1033,7 @@ class TestContractions(unittest.TestCase):
         plain dWKC contraction verified in 3b-6a. A free cross-check on top of the np.einsum oracle above:
         it catches order-axis bookkeeping slips (a stray order slot in the wrong place). Slice all order
         axes to index 0 and compare against the plain d-prefixed twin on the order-0 operand slices."""
-        from t3toolbox.backend.probe_derivatives import binomial_combine_tensor
+        from t3toolbox.backend.sampling_derivatives import binomial_combine_tensor
         D, W, K, C = 3, (2,), (4,), (5,)
         a, i, b, o = 6, 7, 8, 9
         trs = binomial_combine_tensor(2)              # (t,r,s) = (3,3,3)

@@ -54,7 +54,7 @@ def entries_dense(T, index, n_c):
     return np.moveaxis(T[sel], tuple(range(n_c, n_c + n_w)), tuple(range(n_w)))
 
 
-def probe_dense(T, ww, n_c):
+def dense_probe(T, ww, n_c):
     '''Probes of a dense tensor: leave mode ``i`` free, contract the rest. Returns ``d`` arrays ``W+C+(Ni,)``.'''
     d = len(ww)
     c_axes, mode_axes, w_axis = list(range(n_c)), [n_c + i for i in range(d)], n_c + d
@@ -92,7 +92,7 @@ def _setup(kind, geom_name, C):
         rand_like = lambda v: np.random.randn(*v.shape)
     else:  # probe -- vector-valued (one free mode each)
         sample = [np.random.randn(m, N) for N in SHAPE]
-        dense_fwd = lambda T: probe_dense(T, sample, n_c)
+        dense_fwd = lambda T: dense_probe(T, sample, n_c)
         r = [np.random.randn(*((m,) + C + (N,))) for N in SHAPE]
         samp_dot = lambda a, b: sum(np.sum(ai * bi, axis=tuple(range(n_w)) + (ai.ndim - 1,))
                                     for ai, bi in zip(a, b))
@@ -266,7 +266,7 @@ class TestGaussNewtonModel(unittest.TestCase):
         frontend, both geometries. (RAW residual r = S(x); backend data = 0, so the residuals match.)'''
         import t3toolbox.backend.optimizers as bopt
         import t3toolbox.backend.fitting as bfit
-        import t3toolbox.backend.probe_derivatives as pd
+        import t3toolbox.backend.sampling_derivatives as pd
         rng = np.random.default_rng(0)
         shape, order, NW = (5, 6, 7), 2, 15
         omega = np.array([1.0, 0.5, 0.3])
@@ -277,13 +277,13 @@ class TestGaussNewtonModel(unittest.TestCase):
         cases = [
             ('apply', fitting.apply_derivatives_model, (X, ww, pp, order),
              bfit.apply_derivatives_kind(order, omega), (ww, pp),
-             np.asarray(pd.apply_derivatives_t3(ww, pp, X.data, order))),
+             np.asarray(pd.t3_apply_derivatives(ww, pp, X.data, order))),
             ('entries', fitting.entries_derivatives_model, (X, index, pp, order),
              bfit.entries_derivatives_kind(order, omega), (index, pp),
-             np.asarray(pd.entries_derivatives_t3(index, pp, X.data, order))),
+             np.asarray(pd.t3_entries_derivatives(index, pp, X.data, order))),
             ('probe', fitting.probe_derivatives_model, (X, ww, pp, order),
              bfit.probe_derivatives_kind(order, omega), (ww, pp),
-             [np.asarray(z) for z in pd.probe_derivatives_t3(ww, pp, X.data, order)]),
+             [np.asarray(z) for z in pd.t3_probe_derivatives(ww, pp, X.data, order)]),
         ]
         relerr = lambda a, b: float(cw.corewise_norm(cw.corewise_sub(a, b)) / cw.corewise_norm(b))
         for geom_f, geom_b in [(t3m.MANIFOLD, bopt.MANIFOLD), (t3m.COREWISE, bopt.COREWISE)]:

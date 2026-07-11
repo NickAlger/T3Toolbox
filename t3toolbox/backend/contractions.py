@@ -82,7 +82,7 @@ __all__ = [
     'dWCa_dWCi_dWKCb_to_dWKCaib',
     'dWCa_dWCi_dWKCb_to_dKCaib',
     # d-prefixed uniform JET contractions (3b-6'a): each binomial-jet trs_* twin with the core index d
-    # prepended (d leads, then the order axis, then W/K/C). The map-style jet branches of probe_derivatives.
+    # prepended (d leads, then the order axis, then W/K/C). The map-style jet branches of sampling_derivatives.
     'trs_drWCa_dCaib_dsWCb_to_dtWCi',
     'dtWCi_dCio_to_dtWCo',
     'dtWKCi_dCio_to_dtWKCo',
@@ -1409,7 +1409,7 @@ def WCi_WKCa_WCj_to_KCiaj(
 # t + W + K + C. The split self-infers (C-only core pins len(C), a W+C jet pins
 # len(W), K is the remainder); a variation-core-only term takes n_frame. Each
 # reduces to its 2-group trs_... when K=(). Used by the K-aware perturbation
-# sweep + assembly of the derivative-probe forward (probe_derivatives.py).
+# sweep + assembly of the derivative-probe forward (sampling_derivatives.py).
 ###############################################################################
 
 
@@ -1924,7 +1924,7 @@ def WCa_WCi_WKCb_to_KCaib(
 # as a leading batch axis (it appears in every operand and the output, never contracted), so the only change
 # from the ragged twin is: a leading ``d_shape`` on every reshape, and the W/K/C front-counted slices shift
 # by +1 to skip ``d``. These are the uniform-tangent map-style probing branches' contractions (the
-# is_ndarray-dispatched path of compute_detas / assemble_tangent_zs / compute_*_tildes / assemble_*).
+# is_ndarray-dispatched path of compute_deta / assemble_tangent_z / compute_*_tildes / assemble_*).
 #
 # Order-0 note for 3b-6' (the jet/derivative slice): the binomial-jet ``trs_*`` analogs add the order axis
 # ``t`` on top of this same ``d`` batch, and at order 0 reduce to exactly these contractions.
@@ -1936,7 +1936,7 @@ def dWKCa_dCaib_dWCb_to_dWKCi(
         dCaib: NDArray,  # d + C + (a, i, b)   -- C-only core, pins len(C)
         dWCb:  NDArray,  # d + W + C + (b,)    -- W+C, pins len(W)
 ) -> NDArray:            # d + W + K + C + (i,)
-    """d-prefixed uniform twin of :py:func:`WKCa_Caib_WCb_to_WKCi` (compute_detas term1)."""
+    """d-prefixed uniform twin of :py:func:`WKCa_Caib_WCb_to_WKCi` (compute_deta term1)."""
     use_jax = tree_contains_jax((dWKCa, dCaib, dWCb))
     xnp, _, _ = get_backend(True, use_jax)
 
@@ -1968,7 +1968,7 @@ def dWCa_dCaib_dWKCb_to_dWKCi(
         dCaib: NDArray,  # d + C + (a, i, b)       -- C-only core, pins len(C)
         dWKCb: NDArray,  # d + W + K + C + (b,)
 ) -> NDArray:            # d + W + K + C + (i,)
-    """d-prefixed uniform twin of :py:func:`WCa_Caib_WKCb_to_WKCi` (compute_detas term3, compute_dxi_tildes)."""
+    """d-prefixed uniform twin of :py:func:`WCa_Caib_WKCb_to_WKCi` (compute_deta term3, compute_dxi_tilde)."""
     use_jax = tree_contains_jax((dWCa, dCaib, dWKCb))
     xnp, _, _ = get_backend(True, use_jax)
 
@@ -2001,7 +2001,7 @@ def dWCa_dKCaib_dWCb_to_dWKCi(
         dWCb:   NDArray,  # d + W + C + (b,)        -- W+C
         n_frame: int,      # len(C) (supplied; dKCaib is K+C with no C-only operand to pin it)
 ) -> NDArray:             # d + W + K + C + (i,)
-    """d-prefixed uniform twin of :py:func:`WCa_KCaib_WCb_to_WKCi` (compute_detas term2)."""
+    """d-prefixed uniform twin of :py:func:`WCa_KCaib_WCb_to_WKCi` (compute_deta term2)."""
     use_jax = tree_contains_jax((dWCa, dKCaib, dWCb))
     xnp, _, _ = get_backend(True, use_jax)
 
@@ -2033,7 +2033,7 @@ def dWKCi_dCio_to_dWKCo(
         dWKCi: NDArray,  # d + W + K + C + (i,)
         dCio:  NDArray,  # d + C + (i, o)   -- C-only core
 ) -> NDArray:            # d + W + K + C + (o,)
-    """d-prefixed uniform twin of :py:func:`WKCi_Cio_to_WKCo` (assemble_tangent_zs term1). W and K fuse
+    """d-prefixed uniform twin of :py:func:`WKCi_Cio_to_WKCo` (assemble_tangent_z term1). W and K fuse
     into one outer block and dCio is C-only, so this is exactly :py:func:`dWCi_dCio_to_dWCo` (W+K outer)."""
     return dWCi_dCio_to_dWCo(dWKCi, dCio)
 
@@ -2043,7 +2043,7 @@ def dWCi_dKCio_to_dWKCo(
         dKCio:  NDArray,  # d + K + C + (i, o)     -- variation core (K+C)
         n_frame: int,      # len(C) (supplied; dKCio is K+C with no C-only operand to pin it)
 ) -> NDArray:             # d + W + K + C + (o,)
-    """d-prefixed uniform twin of :py:func:`WCi_KCio_to_WKCo` (assemble_tangent_zs term2)."""
+    """d-prefixed uniform twin of :py:func:`WCi_KCio_to_WKCo` (assemble_tangent_z term2)."""
     use_jax = tree_contains_jax((dWCi, dKCio))
     xnp, _, _ = get_backend(True, use_jax)
 
@@ -2073,7 +2073,7 @@ def dWCo_dCio_to_dWCi(
         dWCo: NDArray,  # d + W + C + (o,)   -- W+C
         dCio: NDArray,  # d + C + (i, o)     -- C-only core (shared C batch on both operands)
 ) -> NDArray:           # d + W + C + (i,)
-    """d-prefixed uniform twin of :py:func:`WCo_Cio_to_WCi` (compute_deta_tildes). C is a SHARED batch on
+    """d-prefixed uniform twin of :py:func:`WCo_Cio_to_WCi` (compute_deta_tilde). C is a SHARED batch on
     both operands (the shared-C contraction, NOT the outer-product :py:func:`dCio_dWo_to_dWCi`)."""
     use_jax = tree_contains_jax((dWCo, dCio))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2475,7 +2475,7 @@ def dWCa_dWCi_dWKCb_to_dKCaib(
 # assembly), so -- unlike the passive-broadcast Tucker LIFTS below -- they cannot fold into the W block.
 #
 # Order-0 anchor: at order 0 every one reduces to the plain ``dWKC`` contraction verified in 3b-6a.
-# These back the is_ndarray-dispatched uniform branches of the map-style jet fns in probe_derivatives.py.
+# These back the is_ndarray-dispatched uniform branches of the map-style jet fns in sampling_derivatives.py.
 ###############################################################################
 
 

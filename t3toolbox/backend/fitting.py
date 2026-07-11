@@ -29,7 +29,7 @@ from dataclasses import dataclass
 import numpy as np
 
 import t3toolbox.backend.probing as probing
-import t3toolbox.backend.probe_derivatives as pd
+import t3toolbox.backend.sampling_derivatives as pd
 from t3toolbox.backend import apply as bapply
 from t3toolbox.backend import entries as bentries
 from t3toolbox.backend.common import *
@@ -183,36 +183,36 @@ class SamplingKind:
 
 APPLY = SamplingKind(
     name='apply',
-    precompute=lambda frame, ww: probing.precompute_apply_frame_sweep(frame, ww),
-    forward=lambda v, ww, frame, bs: probing.apply_jacobian_from_sweep(v, ww, frame, bs),
-    transpose=lambda r, ww, frame, bs: probing.apply_transpose_from_sweep(r, ww, frame, bs, sum_over_probes=True),
+    precompute=lambda frame, ww: bapply.tv_precompute_apply_frame_sweep(frame, ww),
+    forward=lambda v, ww, frame, bs: bapply.tv_apply_jacobian_from_sweep(v, ww, frame, bs),
+    transpose=lambda r, ww, frame, bs: bapply.tv_apply_transpose_from_sweep(r, ww, frame, bs, sum_over_probes=True),
     sumsq=sumsq_over_samples,
     w_axes=lambda ww: ww[0].ndim - 1,
-    point_forward=lambda x_cores, ww: bapply.tucker_tensor_train_apply(x_cores, ww),
+    point_forward=lambda x_cores, ww: bapply.t3_apply(x_cores, ww),
     n_measurements=lambda ww: _prod_w(ww[0], 0, ww[0].ndim - 1),
     take=_take_apply,
 )
 
 ENTRIES = SamplingKind(
     name='entries',
-    precompute=lambda frame, index: probing.precompute_entries_frame_sweep(frame, index),
-    forward=lambda v, index, frame, bs: probing.entries_jacobian_from_sweep(v, index, frame, bs),
-    transpose=lambda r, index, frame, bs: probing.entries_transpose_from_sweep(r, index, frame, bs, sum_over_probes=True),
+    precompute=lambda frame, index: bentries.tv_precompute_entries_frame_sweep(frame, index),
+    forward=lambda v, index, frame, bs: bentries.tv_entries_jacobian_from_sweep(v, index, frame, bs),
+    transpose=lambda r, index, frame, bs: bentries.tv_entries_transpose_from_sweep(r, index, frame, bs, sum_over_probes=True),
     sumsq=sumsq_over_samples,
     w_axes=lambda index: index.ndim - 1,
-    point_forward=lambda x_cores, index: bentries.tucker_tensor_train_entries(x_cores, index),
+    point_forward=lambda x_cores, index: bentries.t3_entries(x_cores, index),
     n_measurements=lambda index: _prod_w(index, 1, index.ndim - 1),
     take=_take_entries,
 )
 
 PROBE = SamplingKind(
     name='probe',
-    precompute=lambda frame, ww: probing.precompute_probe_frame_sweep(frame, ww),
-    forward=lambda v, ww, frame, bs: probing.probe_jacobian_from_sweep(v, ww, frame, bs),
-    transpose=lambda r, ww, frame, bs: probing.probe_transpose_from_sweep(r, ww, frame, bs, sum_over_probes=True),
+    precompute=lambda frame, ww: probing.tv_precompute_probe_frame_sweep(frame, ww),
+    forward=lambda v, ww, frame, bs: probing.tv_probe_jacobian_from_sweep(v, ww, frame, bs),
+    transpose=lambda r, ww, frame, bs: probing.tv_probe_transpose_from_sweep(r, ww, frame, bs, sum_over_probes=True),
     sumsq=sumsq_over_probes,
     w_axes=lambda ww: ww[0].ndim - 1,
-    point_forward=lambda x_cores, ww: probing.probe_t3(ww, x_cores),
+    point_forward=lambda x_cores, ww: probing.t3_probe(ww, x_cores),
     n_measurements=lambda ww: _prod_w(ww[0], 0, ww[0].ndim - 1),
     take=_take_probe,
 )
@@ -235,13 +235,13 @@ def apply_derivatives_kind(
     aw = _make_order_weight(weight, order)
     return SamplingKind(
         name='apply_derivatives',
-        precompute=lambda frame, s: pd.precompute_apply_frame_sweep_jets(frame, s[0], s[1], order),
-        forward=lambda v, s, frame, bs: pd.apply_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, bs, order),
-        transpose=lambda r, s, frame, bs: pd.apply_transpose_derivatives_from_sweep(
+        precompute=lambda frame, s: pd.tv_precompute_apply_frame_sweep_jets(frame, s[0], s[1], order),
+        forward=lambda v, s, frame, bs: pd.tv_apply_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, bs, order),
+        transpose=lambda r, s, frame, bs: pd.tv_apply_transpose_derivatives_from_sweep(
             aw(r, 2), s[0], s[1], frame, bs, order, sum_over_probes=True),
         sumsq=lambda out, n_w: sumsq_over_samples(aw(out, 1), n_w + 1),
         w_axes=lambda s: s[0][0].ndim - 1,
-        point_forward=lambda x_cores, s: pd.apply_derivatives_t3(s[0], s[1], x_cores, order),
+        point_forward=lambda x_cores, s: pd.t3_apply_derivatives(s[0], s[1], x_cores, order),
         n_measurements=lambda s: _prod_w(s[0][0], 0, s[0][0].ndim - 1),
         take=_take_deriv_apply,
     )
@@ -256,13 +256,13 @@ def entries_derivatives_kind(
     aw = _make_order_weight(weight, order)
     return SamplingKind(
         name='entries_derivatives',
-        precompute=lambda frame, s: pd.precompute_entries_frame_sweep_jets(frame, s[0], s[1], order),
-        forward=lambda v, s, frame, bs: pd.entries_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, bs, order),
-        transpose=lambda r, s, frame, bs: pd.entries_transpose_derivatives_from_sweep(
+        precompute=lambda frame, s: pd.tv_precompute_entries_frame_sweep_jets(frame, s[0], s[1], order),
+        forward=lambda v, s, frame, bs: pd.tv_entries_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, bs, order),
+        transpose=lambda r, s, frame, bs: pd.tv_entries_transpose_derivatives_from_sweep(
             aw(r, 2), s[0], s[1], frame, bs, order, sum_over_probes=True),
         sumsq=lambda out, n_w: sumsq_over_samples(aw(out, 1), n_w + 1),
         w_axes=lambda s: s[0].ndim - 1,
-        point_forward=lambda x_cores, s: pd.entries_derivatives_t3(s[0], s[1], x_cores, order),
+        point_forward=lambda x_cores, s: pd.t3_entries_derivatives(s[0], s[1], x_cores, order),
         n_measurements=lambda s: _prod_w(s[0], 1, s[0].ndim - 1),
         take=_take_deriv_entries,
     )
@@ -277,13 +277,13 @@ def probe_derivatives_kind(
     aw = _make_order_weight(weight, order)
     return SamplingKind(
         name='probe_derivatives',
-        precompute=lambda frame, s: pd.precompute_probe_frame_sweep_jets(frame, s[0], s[1], order),
-        forward=lambda v, s, frame, bs: pd.probe_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, bs, order),
-        transpose=lambda r, s, frame, bs: pd.probe_transpose_derivatives_from_sweep(
+        precompute=lambda frame, s: pd.tv_precompute_probe_frame_sweep_jets(frame, s[0], s[1], order),
+        forward=lambda v, s, frame, bs: pd.tv_probe_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, bs, order),
+        transpose=lambda r, s, frame, bs: pd.tv_probe_transpose_derivatives_from_sweep(
             aw(r, 2), s[0], s[1], frame, bs, order, sum_over_probes=True),
         sumsq=lambda out, n_w: sumsq_over_probes(aw(out, 1), n_w + 1),
         w_axes=lambda s: s[0][0].ndim - 1,
-        point_forward=lambda x_cores, s: pd.probe_derivatives_t3(s[0], s[1], x_cores, order),
+        point_forward=lambda x_cores, s: pd.t3_probe_derivatives(s[0], s[1], x_cores, order),
         n_measurements=lambda s: _prod_w(s[0][0], 0, s[0][0].ndim - 1),
         take=_take_deriv_probe,
     )

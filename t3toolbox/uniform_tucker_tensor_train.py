@@ -28,7 +28,7 @@ import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
 import t3toolbox.backend.ut3_linalg as ut3_linalg
 import t3toolbox.backend.ut3_sampling as ut3_sampling
-import t3toolbox.backend.probe_derivatives as probe_derivatives
+import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 import t3toolbox.backend.ut3_svd as ut3_svd
 import t3toolbox.backend.ut3_constructors as ut3_constructors
 import t3toolbox.backend.stacking as stacking
@@ -410,7 +410,7 @@ class UniformTuckerTensorTrain:
             ...
         ValueError
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
         return ut3_sampling.ut3_probe_derivatives(ww, pp, self.data, order)
 
     def apply_derivatives(
@@ -437,7 +437,7 @@ class UniformTuckerTensorTrain:
         >>> print(yj.shape, bool(np.allclose(yj[0], x.apply(ww))))          # (order+1,); order 0 == apply
         (4,) True
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
         return ut3_sampling.ut3_apply_derivatives(ww, pp, self.data, order)
 
     def entries_derivatives(
@@ -464,7 +464,7 @@ class UniformTuckerTensorTrain:
         >>> print(yj.shape, bool(np.allclose(yj[0], x.entries((3, 5, 7)))))  # (order+1,); order 0 == entries
         (4,) True
         """
-        probe_derivatives.check_perturbation_index(index, pp, self.shape)
+        sampling_derivatives.check_perturbation_index(index, pp, self.shape)
         return ut3_sampling.ut3_entries_derivatives(index, pp, self.data, order)
 
     # --------------------------------------------------------- corewise (non-manifold) sampling transposes (3b-6c)
@@ -567,7 +567,7 @@ class UniformTuckerTensorTrain:
         >>> print(gU.shape == x.tucker_supercore.shape, gG.shape == x.tt_supercore.shape)
         True True
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
         return ut3_sampling.ut3_apply_corewise_derivatives_transpose(
             c, ww, pp, self.data, order, sum_over_probes=sum_over_probes)
 
@@ -582,7 +582,7 @@ class UniformTuckerTensorTrain:
         """Corewise transpose of :py:meth:`entries_derivatives`: gradient w.r.t. the supercores (= the
         one-hot :py:meth:`apply_corewise_derivatives_transpose`). See
         :py:meth:`apply_corewise_derivatives_transpose`."""
-        probe_derivatives.check_perturbation_index(index, pp, self.shape)
+        sampling_derivatives.check_perturbation_index(index, pp, self.shape)
         return ut3_sampling.ut3_entries_corewise_derivatives_transpose(
             c, index, pp, self.data, order, sum_over_probes=sum_over_probes)
 
@@ -596,7 +596,7 @@ class UniformTuckerTensorTrain:
     ) -> Tuple[NDArray, NDArray]:        # (tucker_grad, tt_grad) supercores
         """Corewise transpose of :py:meth:`probe_derivatives`: gradient w.r.t. the supercores. See
         :py:meth:`apply_corewise_derivatives_transpose`."""
-        probe_derivatives.check_perturbation_vectors(ww, pp)
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
         return ut3_sampling.ut3_probe_corewise_derivatives_transpose(
             ztildes, ww, pp, self.data, order, sum_over_probes=sum_over_probes)
 

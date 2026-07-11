@@ -10,7 +10,7 @@ import math
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.corewise as cw
 import t3toolbox.backend.common as common
-import t3toolbox.backend.probe_derivatives as probe_derivatives
+import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 
 try:
     import jax
@@ -3027,7 +3027,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         inner = (sum(np.sum(np.asarray(gU[i]) * dU[i]) for i in range(d))
                  + sum(np.sum(np.asarray(gG[i]) * dG[i]) for i in range(d)))
         eps = 1e-6
-        dot = lambda data: sum(np.sum(r[i] * np.asarray(probe_derivatives.probe_derivatives_t3(ww, pp, data, ORDER)[i]))
+        dot = lambda data: sum(np.sum(r[i] * np.asarray(sampling_derivatives.t3_probe_derivatives(ww, pp, data, ORDER)[i]))
                                for i in range(d))
         plus = ([B + eps * du for B, du in zip(x.tucker_cores, dU)], [G + eps * dg for G, dg in zip(x.tt_cores, dG)])
         minus = ([B - eps * du for B, du in zip(x.tucker_cores, dU)], [G - eps * dg for G, dg in zip(x.tt_cores, dG)])
@@ -3053,9 +3053,9 @@ class TestTuckerTensorTrain(unittest.TestCase):
         index = np.stack([np.random.randint(0, N, size=W) for N in shapes], axis=0)
         cases = [
             ('apply', lambda rr: x.apply_corewise_derivatives_transpose(rr, ww, pp, ORDER, sum_over_probes=True),
-                      lambda data: probe_derivatives.apply_derivatives_t3(ww, pp, data, ORDER)),
+                      lambda data: sampling_derivatives.t3_apply_derivatives(ww, pp, data, ORDER)),
             ('entries', lambda rr: x.entries_corewise_derivatives_transpose(rr, index, pp, ORDER, sum_over_probes=True),
-                        lambda data: probe_derivatives.entries_derivatives_t3(index, pp, data, ORDER)),
+                        lambda data: sampling_derivatives.t3_entries_derivatives(index, pp, data, ORDER)),
         ]
         for name, transpose, forward in cases:
             with self.subTest(op=name):

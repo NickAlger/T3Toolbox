@@ -385,7 +385,7 @@ class TestUniformOptimizers(unittest.TestCase):
         W = 25
         x_true = t3.TuckerTensorTrain.randn(SH, TK, TT)
         self.ww = [np.random.randn(W, n) for n in SH]
-        self.data = bapply.tucker_tensor_train_apply(x_true.data, self.ww)
+        self.data = bapply.t3_apply(x_true.data, self.ww)
         self.x0 = t3.TuckerTensorTrain.randn(SH, TK, TT)
         self.ux0 = ut3.UniformTuckerTensorTrain.from_t3(self.x0)
         self._x0u = (self.ux0.data[0], self.ux0.data[1])

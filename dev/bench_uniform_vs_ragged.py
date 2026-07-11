@@ -51,7 +51,7 @@ def main():
     np.random.seed(0)
     x_true = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
     ww = [np.random.randn(W, n) for n in SHAPE]
-    data = bapply.tucker_tensor_train_apply(x_true.data, ww)
+    data = bapply.t3_apply(x_true.data, ww)
     x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
     ux0 = ut3.UniformTuckerTensorTrain.from_t3(x0)
 

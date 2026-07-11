@@ -51,7 +51,7 @@ import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.manifold as t3m                     # for manifold_dim (the tangent-space DOF)
 import t3toolbox.uniform_manifold as ut3m            # UNIFORM_MANIFOLD
 import t3toolbox.optimizers as optimizers
-import t3toolbox.backend.probe_derivatives as pd     # dense ground-truth jets (data generation only)
+import t3toolbox.backend.sampling_derivatives as pd     # dense ground-truth jets (data generation only)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -85,11 +85,11 @@ def unit_vectors(M, shape, rng):
 def dense_probe_derivative_jets(A, ww, pp, order):
     """Ground-truth probe-derivative jets of the dense tensor A, as the fitting-layer ``data``.
 
-    Loops the exact per-sample dense jet (``backend.probe_derivatives.probe_derivatives_dense``) over the
+    Loops the exact per-sample dense jet (``backend.sampling_derivatives.dense_probe_derivatives``) over the
     W=(M,) sample stack and stacks it: returns ``len=d``, each ``(order+1, M, N_i)`` -- the probe-derivative
     residual layout ``(order+1) + W + (N_i,)``. (Data generation only; the fit never forms A.)"""
     M, d = ww[0].shape[0], len(ww)
-    per = [pd.probe_derivatives_dense([w[s] for w in ww], [p[s] for p in pp], A, order) for s in range(M)]
+    per = [pd.dense_probe_derivatives([w[s] for w in ww], [p[s] for p in pp], A, order) for s in range(M)]
     return [np.stack([per[s][i] for s in range(M)], axis=1) for i in range(d)]
 
 

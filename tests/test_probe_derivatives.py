@@ -9,7 +9,9 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.probing as t3p
-import t3toolbox.backend.probe_derivatives as pd
+import t3toolbox.backend.apply as apply
+import t3toolbox.backend.entries as entries
+import t3toolbox.backend.sampling_derivatives as pd
 
 np.random.seed(0)
 tol = 1e-9
@@ -45,7 +47,7 @@ class TestProbeDerivatives(unittest.TestCase):
                         ww = [np.random.randn(*(W + (N,))) for N in shapes]
                         pp = [np.random.randn(*(W + (N,))) for N in shapes]
 
-                        z_jets = pd.probe_derivatives_t3(ww, pp, x.data, ORDER)
+                        z_jets = pd.t3_probe_derivatives(ww, pp, x.data, ORDER)
 
                         self.assertEqual(len(z_jets), d)
                         for i in range(d):
@@ -56,7 +58,7 @@ class TestProbeDerivatives(unittest.TestCase):
                             sel = (slice(None),) + sample   # (order, *sample) index into a z_jet
                             ww_s = [w[sample] for w in ww]
                             pp_s = [p[sample] for p in pp]
-                            z_dense = pd.probe_derivatives_dense(ww_s, pp_s, T, ORDER)
+                            z_dense = pd.dense_probe_derivatives(ww_s, pp_s, T, ORDER)
                             for i in range(d):
                                 for k in range(ORDER + 1):
                                     self.check_relerr(z_dense[i][k], np.asarray(z_jets[i])[sel][k])
@@ -75,7 +77,7 @@ class TestProbeDerivatives(unittest.TestCase):
                 ww = [np.random.randn(*(S + (N,))) for N in shapes]
                 pp = [np.random.randn(*(S + (N,))) for N in shapes]
 
-                z_jets = pd.probe_derivatives_t3(ww, pp, x.data, ORDER)
+                z_jets = pd.t3_probe_derivatives(ww, pp, x.data, ORDER)
                 for i in range(d):
                     self.assertEqual(np.asarray(z_jets[i]).shape, (ORDER + 1,) + S + C + (shapes[i],))
 
@@ -83,7 +85,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     ww_s = [w[s_idx] for w in ww]
                     pp_s = [p[s_idx] for p in pp]
                     for c_idx in itertools.product(*[range(n) for n in C]):
-                        z_dense = pd.probe_derivatives_dense(ww_s, pp_s, T[c_idx], ORDER)
+                        z_dense = pd.dense_probe_derivatives(ww_s, pp_s, T[c_idx], ORDER)
                         sel = (slice(None),) + s_idx + c_idx       # (order, *S, *C)
                         for i in range(d):
                             for k in range(ORDER + 1):
@@ -105,7 +107,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     ww = [np.random.randn(*(S + (N,))) for N in shapes]
                     pp = [np.random.randn(*(S + (N,))) for N in shapes]
 
-                    z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
+                    z_jets = pd.tv_probe_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
                     for i in range(d):
                         self.assertEqual(np.asarray(z_jets[i]).shape, (ORDER + 1,) + S + C + (shapes[i],))
 
@@ -113,7 +115,7 @@ class TestProbeDerivatives(unittest.TestCase):
                         ww_s = [w[s_idx] for w in ww]
                         pp_s = [p[s_idx] for p in pp]
                         for c_idx in itertools.product(*[range(n) for n in C]):
-                            z_dense = pd.probe_derivatives_dense(ww_s, pp_s, Vd[c_idx], ORDER)
+                            z_dense = pd.dense_probe_derivatives(ww_s, pp_s, Vd[c_idx], ORDER)
                             sel = (slice(None),) + s_idx + c_idx
                             for i in range(d):
                                 for k in range(ORDER + 1):
@@ -135,10 +137,10 @@ class TestProbeDerivatives(unittest.TestCase):
                     ww = [np.random.randn(*(S + (N,))) for N in shapes]
                     pp = [np.random.randn(*(S + (N,))) for N in shapes]
 
-                    z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, K)
+                    z_jets = pd.tv_probe_derivatives(ww, pp, v.variations.data, v.frame.data, K)
                     r = [np.random.randn(*np.asarray(zi).shape) for zi in z_jets]
 
-                    dU, dG = pd.probe_tangent_derivatives_transpose(
+                    dU, dG = pd.tv_probe_derivatives_transpose(
                         r, ww, pp, v.frame.data, K, sum_over_probes=True)
                     lhs = sum(np.sum(r[i] * np.asarray(z_jets[i])) for i in range(d))
                     rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
@@ -147,7 +149,7 @@ class TestProbeDerivatives(unittest.TestCase):
 
                     # sum_over_probes=False keeps S; summing those axes recovers the True result
                     if S:
-                        dU0, dG0 = pd.probe_tangent_derivatives_transpose(
+                        dU0, dG0 = pd.tv_probe_derivatives_transpose(
                             r, ww, pp, v.frame.data, K, sum_over_probes=False)
                         ax = tuple(range(len(S)))
                         for a, b in zip(dU0, dU):
@@ -156,7 +158,7 @@ class TestProbeDerivatives(unittest.TestCase):
                             self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
 
     def test_tangent_order_zero_is_plain_tangent_probe(self):
-        # The 0-th derivative jet of the Riemannian map is exactly probe_tangent.
+        # The 0-th derivative jet of the Riemannian map is exactly tv_probe.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
         x = t3.TuckerTensorTrain.randn(*STRUCT)
         frame, _ = bvf.t3_orthogonal_representations(x)
@@ -164,8 +166,8 @@ class TestProbeDerivatives(unittest.TestCase):
         ww = [np.random.randn(N) for N in STRUCT[0]]
         pp = [np.random.randn(N) for N in STRUCT[0]]
 
-        z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, 3)
-        z_probe = t3p.probe_tangent(ww, v.variations.data, v.frame.data)
+        z_jets = pd.tv_probe_derivatives(ww, pp, v.variations.data, v.frame.data, 3)
+        z_probe = t3p.tv_probe(ww, v.variations.data, v.frame.data)
         for zj, zp in zip(z_jets, z_probe):
             self.check_relerr(zp, np.asarray(zj)[0])
 
@@ -176,8 +178,8 @@ class TestProbeDerivatives(unittest.TestCase):
         ww = [np.random.randn(N) for N in STRUCT[0]]
         pp = [np.random.randn(N) for N in STRUCT[0]]
 
-        z_jets = pd.probe_derivatives_t3(ww, pp, x.data, 3)
-        z_probe = t3p.probe_t3(ww, x.data)
+        z_jets = pd.t3_probe_derivatives(ww, pp, x.data, 3)
+        z_probe = t3p.t3_probe(ww, x.data)
         for zj, zp in zip(z_jets, z_probe):
             self.check_relerr(zp, zj[0])
 
@@ -188,10 +190,10 @@ class TestProbeDerivatives(unittest.TestCase):
         ww = [np.random.randn(N) for N in STRUCT[0]]
         pp = [np.random.randn(N) for N in STRUCT[0]]
 
-        z_jets = pd.probe_derivatives_t3(ww, pp, x.data, 1)
+        z_jets = pd.t3_probe_derivatives(ww, pp, x.data, 1)
         s = 1e-6
-        z_plus  = t3p.probe_t3([w + s * p for w, p in zip(ww, pp)], x.data)
-        z_minus = t3p.probe_t3([w - s * p for w, p in zip(ww, pp)], x.data)
+        z_plus  = t3p.t3_probe([w + s * p for w, p in zip(ww, pp)], x.data)
+        z_minus = t3p.t3_probe([w - s * p for w, p in zip(ww, pp)], x.data)
         for i in range(len(STRUCT[0])):
             fd = (np.asarray(z_plus[i]) - np.asarray(z_minus[i])) / (2 * s)
             self.assertLessEqual(norm(fd - np.asarray(z_jets[i][1])) / norm(fd), 1e-6)
@@ -205,7 +207,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     self.check_relerr(oracle(w_idx, k_idx, c_idx), got)
 
     def test_tangent_derivatives_K_stacked(self):
-        # probe_tangent_derivatives with a tangent stack K (a batch of tangents sharing one frame):
+        # tv_probe_derivatives with a tangent stack K (a batch of tangents sharing one frame):
         # full W + K + C, base-inner, matching the dense oracle on each (W,K,C) element.
         STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
         shapes = STRUCT[0]
@@ -219,7 +221,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     Vd = v.to_dense()                              # K + C + (N...)
                     ww = [np.random.randn(*(W + (N,))) for N in shapes]
                     pp = [np.random.randn(*(W + (N,))) for N in shapes]
-                    z_jets = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
+                    z_jets = pd.tv_probe_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
                     for i in range(d):
                         self.assertEqual(np.asarray(z_jets[i]).shape, (ORDER + 1,) + W + K + C + (shapes[i],))
                     for w_idx in itertools.product(*[range(n) for n in W]):
@@ -227,7 +229,7 @@ class TestProbeDerivatives(unittest.TestCase):
                         pp_s = [a[w_idx] for a in pp]
                         for k_idx in itertools.product(*[range(n) for n in K]):
                             for c_idx in itertools.product(*[range(n) for n in C]):
-                                z_dense = pd.probe_derivatives_dense(ww_s, pp_s, Vd[k_idx + c_idx], ORDER)
+                                z_dense = pd.dense_probe_derivatives(ww_s, pp_s, Vd[k_idx + c_idx], ORDER)
                                 sel = (slice(None),) + w_idx + k_idx + c_idx
                                 for i in range(d):
                                     for k in range(ORDER + 1):
@@ -249,10 +251,10 @@ class TestProbeDerivatives(unittest.TestCase):
                     ww = [np.random.randn(*(W + (N,))) for N in shapes]
                     pp = [np.random.randn(*(W + (N,))) for N in shapes]
 
-                    Jv = pd.probe_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
+                    Jv = pd.tv_probe_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
                     r = [np.random.randn(*np.asarray(z).shape) for z in Jv]
 
-                    dU, dG = pd.probe_tangent_derivatives_transpose(
+                    dU, dG = pd.tv_probe_derivatives_transpose(
                         r, ww, pp, v.frame.data, ORDER, sum_over_probes=True)
                     lhs = sum(np.sum(r[i] * np.asarray(Jv[i])) for i in range(d))
                     rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
@@ -260,7 +262,7 @@ class TestProbeDerivatives(unittest.TestCase):
                     self.assertLessEqual(abs(lhs - rhs) / abs(lhs), tol)
 
                     if W:                                  # summing the kept-W result recovers the summed one
-                        dU0, dG0 = pd.probe_tangent_derivatives_transpose(
+                        dU0, dG0 = pd.tv_probe_derivatives_transpose(
                             r, ww, pp, v.frame.data, ORDER, sum_over_probes=False)
                         ax = tuple(range(len(W)))
                         for a, b in zip(dU0, dU):
@@ -282,21 +284,21 @@ class TestProbeDerivatives(unittest.TestCase):
 
                     if not K:                                      # Euclidean plain-T3 apply
                         T = x.to_dense()
-                        y = pd.apply_derivatives_t3(ww, pp, x.data, ORDER)
+                        y = pd.t3_apply_derivatives(ww, pp, x.data, ORDER)
                         self.assertEqual(y.shape, (ORDER + 1,) + W + C)
                         self._all_modes_check(
-                            y, lambda w, k, c: pd.apply_derivatives_dense([a[w] for a in ww], [a[w] for a in pp], T[c], ORDER),
+                            y, lambda w, k, c: pd.dense_apply_derivatives([a[w] for a in ww], [a[w] for a in pp], T[c], ORDER),
                             W, K, C, ORDER)
 
                     frame, _ = bvf.t3_orthogonal_representations(x)  # Riemannian tangent apply
                     v = t3m.COREWISE.randn(frame, stack_shape=K)
                     Vd = v.to_dense()
-                    yv = pd.apply_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
+                    yv = pd.tv_apply_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
                     self.assertEqual(yv.shape, (ORDER + 1,) + W + K + C)
                     self._all_modes_check(
-                        yv, lambda w, k, c: pd.apply_derivatives_dense([a[w] for a in ww], [a[w] for a in pp], Vd[k + c], ORDER),
+                        yv, lambda w, k, c: pd.dense_apply_derivatives([a[w] for a in ww], [a[w] for a in pp], Vd[k + c], ORDER),
                         W, K, C, ORDER)
-                    self.check_relerr(t3p.apply_tangent(ww, v.variations.data, v.frame.data), yv[0])
+                    self.check_relerr(apply.tv_apply(ww, v.variations.data, v.frame.data), yv[0])
 
     def test_entries_derivatives_match_dense(self):
         # entries derivatives (all modes, one-hot frame + general P): Euclidean and Riemannian vs oracle.
@@ -313,21 +315,21 @@ class TestProbeDerivatives(unittest.TestCase):
 
                     if not K:                                      # Euclidean
                         T = x.to_dense()
-                        y = pd.entries_derivatives_t3(index, pp, x.data, ORDER)
+                        y = pd.t3_entries_derivatives(index, pp, x.data, ORDER)
                         self.assertEqual(y.shape, (ORDER + 1,) + W + C)
                         self._all_modes_check(
-                            y, lambda w, k, c: pd.entries_derivatives_dense(idx_s(w), [a[w] for a in pp], T[c], ORDER),
+                            y, lambda w, k, c: pd.dense_entries_derivatives(idx_s(w), [a[w] for a in pp], T[c], ORDER),
                             W, K, C, ORDER)
 
                     frame, _ = bvf.t3_orthogonal_representations(x)  # Riemannian
                     v = t3m.COREWISE.randn(frame, stack_shape=K)
                     Vd = v.to_dense()
-                    yv = pd.entries_tangent_derivatives(index, pp, v.variations.data, v.frame.data, ORDER)
+                    yv = pd.tv_entries_derivatives(index, pp, v.variations.data, v.frame.data, ORDER)
                     self.assertEqual(yv.shape, (ORDER + 1,) + W + K + C)
                     self._all_modes_check(
-                        yv, lambda w, k, c: pd.entries_derivatives_dense(idx_s(w), [a[w] for a in pp], Vd[k + c], ORDER),
+                        yv, lambda w, k, c: pd.dense_entries_derivatives(idx_s(w), [a[w] for a in pp], Vd[k + c], ORDER),
                         W, K, C, ORDER)
-                    self.check_relerr(t3p.entries_tangent(index, v.variations.data, v.frame.data), yv[0])
+                    self.check_relerr(entries.tv_entries(index, v.variations.data, v.frame.data), yv[0])
 
     def test_apply_entries_transpose_adjoint_identity(self):
         # adjoint identity <c, J v> = <J^T c, v> for the all-modes apply/entries derivative transposes
@@ -346,13 +348,13 @@ class TestProbeDerivatives(unittest.TestCase):
                         pp = [np.random.randn(*(W + (N,))) for N in shapes]
                         if kind == 'apply':
                             ww = [np.random.randn(*(W + (N,))) for N in shapes]
-                            Jv = pd.apply_tangent_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
-                            T = lambda cc, sop: pd.apply_tangent_derivatives_transpose(
+                            Jv = pd.tv_apply_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
+                            T = lambda cc, sop: pd.tv_apply_derivatives_transpose(
                                 cc, ww, pp, v.frame.data, ORDER, sum_over_probes=sop)
                         else:
                             index = np.stack([np.random.randint(0, N, size=W) for N in shapes], axis=0)
-                            Jv = pd.entries_tangent_derivatives(index, pp, v.variations.data, v.frame.data, ORDER)
-                            T = lambda cc, sop: pd.entries_tangent_derivatives_transpose(
+                            Jv = pd.tv_entries_derivatives(index, pp, v.variations.data, v.frame.data, ORDER)
+                            T = lambda cc, sop: pd.tv_entries_derivatives_transpose(
                                 cc, index, pp, v.frame.data, ORDER, sum_over_probes=sop)
                         c = np.random.randn(*np.asarray(Jv).shape)
 
@@ -386,23 +388,23 @@ class TestProbeDerivatives(unittest.TestCase):
                     pp = [rng.randn(*(W + (N,))) for N in shapes]
                     if kind == 'probe':
                         ww = [rng.randn(*(W + (N,))) for N in shapes]
-                        fwd = lambda data: pd.probe_derivatives_t3(ww, pp, data, ORDER)
+                        fwd = lambda data: pd.t3_probe_derivatives(ww, pp, data, ORDER)
                         z = fwd(x.data)
                         r = [rng.randn(*np.asarray(zi).shape) for zi in z]
                         dot = lambda data: sum(np.sum(r[i] * np.asarray(fwd(data)[i])) for i in range(d))
-                        g = pd.probe_corewise_derivatives_transpose(r, ww, pp, x.data, ORDER, sum_over_probes=True)
+                        g = pd.t3_probe_corewise_derivatives_transpose(r, ww, pp, x.data, ORDER, sum_over_probes=True)
                     elif kind == 'apply':
                         ww = [rng.randn(*(W + (N,))) for N in shapes]
-                        fwd = lambda data: pd.apply_derivatives_t3(ww, pp, data, ORDER)
+                        fwd = lambda data: pd.t3_apply_derivatives(ww, pp, data, ORDER)
                         c = rng.randn(*np.asarray(fwd(x.data)).shape)
                         dot = lambda data: float(np.sum(c * np.asarray(fwd(data))))
-                        g = pd.apply_corewise_derivatives_transpose(c, ww, pp, x.data, ORDER, sum_over_probes=True)
+                        g = pd.t3_apply_corewise_derivatives_transpose(c, ww, pp, x.data, ORDER, sum_over_probes=True)
                     else:
                         index = np.stack([rng.randint(0, N, size=W) for N in shapes], axis=0)
-                        fwd = lambda data: pd.entries_derivatives_t3(index, pp, data, ORDER)
+                        fwd = lambda data: pd.t3_entries_derivatives(index, pp, data, ORDER)
                         c = rng.randn(*np.asarray(fwd(x.data)).shape)
                         dot = lambda data: float(np.sum(c * np.asarray(fwd(data))))
-                        g = pd.entries_corewise_derivatives_transpose(c, index, pp, x.data, ORDER, sum_over_probes=True)
+                        g = pd.t3_entries_corewise_derivatives_transpose(c, index, pp, x.data, ORDER, sum_over_probes=True)
 
                     gU, gG = g
                     dU = [rng.randn(*u.shape) for u in tucker_cores]
@@ -425,7 +427,7 @@ class TestProbeDerivatives(unittest.TestCase):
         ww = [np.random.randn(N) for N in STRUCT[0]]
         pp = [np.random.randn(N) for N in STRUCT[0]]
 
-        z_jets = pd.probe_derivatives_t3(ww, pp, x.data, d + 1)
+        z_jets = pd.t3_probe_derivatives(ww, pp, x.data, d + 1)
         for i in range(d):
             for k in range(d, d + 2):
                 self.assertLessEqual(norm(np.asarray(z_jets[i][k])), tol)

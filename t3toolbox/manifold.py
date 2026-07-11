@@ -17,7 +17,9 @@ import t3toolbox.safety as safety
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.tangent_operations as tangent_operations
 import t3toolbox.backend.probing as probing
-import t3toolbox.backend.probe_derivatives as probe_derivatives
+import t3toolbox.backend.apply as apply
+import t3toolbox.backend.entries as entries
+import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 import t3toolbox.backend.ranks as ranks
 from t3toolbox.backend.common import *
 
@@ -510,7 +512,7 @@ class T3Tangent:
         >>> zz = v.probe(ww)
         >>> print(zz[0].shape)             # W + C + (N0,) = (2,) + () + (10,)
         (2, 10)
-        >>> zz2 = t3p.probe_dense(ww, v.to_dense())   # dense reference
+        >>> zz2 = t3p.dense_probe(ww, v.to_dense())   # dense reference
         >>> print(bool(max(float(np.linalg.norm(a - b)) for a, b in zip(zz, zz2)) < 1e-9))
         True
 
@@ -523,7 +525,7 @@ class T3Tangent:
         """
         # probing's frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
-        return probing.probe_tangent(ww, self.variations.data, self.frame.data)
+        return probing.tv_probe(ww, self.variations.data, self.frame.data)
 
     @staticmethod
     def probe_transpose(
@@ -600,7 +602,7 @@ class T3Tangent:
         """
         # probing's frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
-        dU_tildes, dG_tildes = probing.probe_tangent_transpose(
+        dU_tildes, dG_tildes = probing.tv_probe_transpose(
             ztildes, ww, frame.data, sum_over_probes=sum_over_probes,
         )
         return T3Tangent(frame, bvf.T3Variations(dU_tildes, dG_tildes))
@@ -642,7 +644,7 @@ class T3Tangent:
         """
         # frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
-        return probing.apply_tangent(ww, self.variations.data, self.frame.data)
+        return apply.tv_apply(ww, self.variations.data, self.frame.data)
 
     def entries(
             self,
@@ -674,7 +676,7 @@ class T3Tangent:
         >>> print(bool(abs(float(v.entries(idx)) - float(v.to_dense()[idx])) < 1e-9))
         True
         """
-        return probing.entries_tangent(index, self.variations.data, self.frame.data)
+        return entries.tv_entries(index, self.variations.data, self.frame.data)
 
     @staticmethod
     def apply_transpose(
@@ -713,7 +715,7 @@ class T3Tangent:
         True
         """
         # frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
-        dU, dG = probing.apply_tangent_transpose(c, ww, frame.data, sum_over_probes=sum_over_probes)
+        dU, dG = apply.tv_apply_transpose(c, ww, frame.data, sum_over_probes=sum_over_probes)
         return T3Tangent(frame, bvf.T3Variations(dU, dG))
 
     @staticmethod
@@ -734,7 +736,7 @@ class T3Tangent:
         entries
         apply_transpose
         """
-        dU, dG = probing.entries_tangent_transpose(c, index, frame.data, sum_over_probes=sum_over_probes)
+        dU, dG = entries.tv_entries_transpose(c, index, frame.data, sum_over_probes=sum_over_probes)
         return T3Tangent(frame, bvf.T3Variations(dU, dG))
 
     ###############################################
@@ -781,8 +783,8 @@ class T3Tangent:
         >>> print([bool(np.allclose(z[0], z0)) for z, z0 in zip(zj, v.probe(ww))])  # order 0 == probe
         [True, True, True]
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
-        return probe_derivatives.probe_tangent_derivatives(ww, pp, self.variations.data, self.frame.data, order)
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
+        return sampling_derivatives.tv_probe_derivatives(ww, pp, self.variations.data, self.frame.data, order)
 
     def apply_derivatives(
             self,
@@ -820,8 +822,8 @@ class T3Tangent:
         >>> print(bool(np.allclose(yj[0], v.apply(ww))))     # order 0 == apply
         True
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
-        return probe_derivatives.apply_tangent_derivatives(ww, pp, self.variations.data, self.frame.data, order)
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
+        return sampling_derivatives.tv_apply_derivatives(ww, pp, self.variations.data, self.frame.data, order)
 
     def entries_derivatives(
             self,
@@ -859,8 +861,8 @@ class T3Tangent:
         >>> print(bool(np.allclose(yj[0], v.entries(index))))   # order 0 == entries
         True
         """
-        probe_derivatives.check_perturbation_index(index, pp, self.shape)
-        return probe_derivatives.entries_tangent_derivatives(index, pp, self.variations.data, self.frame.data, order)
+        sampling_derivatives.check_perturbation_index(index, pp, self.shape)
+        return sampling_derivatives.tv_entries_derivatives(index, pp, self.variations.data, self.frame.data, order)
 
     @staticmethod
     def probe_derivatives_transpose(
@@ -904,8 +906,8 @@ class T3Tangent:
         >>> print(bool(abs(lhs - float(JTr.corewise_inner(v))) < 1e-9))
         True
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
-        dU, dG = probe_derivatives.probe_tangent_derivatives_transpose(
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
+        dU, dG = sampling_derivatives.tv_probe_derivatives_transpose(
             ztildes, ww, pp, frame.data, order, sum_over_probes=sum_over_probes)
         return T3Tangent(frame, bvf.T3Variations(dU, dG))
 
@@ -928,8 +930,8 @@ class T3Tangent:
         apply_derivatives
         apply_transpose
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
-        dU, dG = probe_derivatives.apply_tangent_derivatives_transpose(
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
+        dU, dG = sampling_derivatives.tv_apply_derivatives_transpose(
             c, ww, pp, frame.data, order, sum_over_probes=sum_over_probes)
         return T3Tangent(frame, bvf.T3Variations(dU, dG))
 
@@ -953,8 +955,8 @@ class T3Tangent:
         entries_derivatives
         apply_derivatives_transpose
         """
-        probe_derivatives.check_perturbation_index(index, pp, frame.shape)
-        dU, dG = probe_derivatives.entries_tangent_derivatives_transpose(
+        sampling_derivatives.check_perturbation_index(index, pp, frame.shape)
+        dU, dG = sampling_derivatives.tv_entries_derivatives_transpose(
             c, index, pp, frame.data, order, sum_over_probes=sum_over_probes)
         return T3Tangent(frame, bvf.T3Variations(dU, dG))
 

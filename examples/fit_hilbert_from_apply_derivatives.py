@@ -63,7 +63,7 @@ import numpy as np
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
-import t3toolbox.backend.probe_derivatives as pd
+import t3toolbox.backend.sampling_derivatives as pd
 
 
 # --------------------------------------------------------------------------------------------------
@@ -116,13 +116,13 @@ def unit_pairs_many_p(n_x, n_p, shape, rng):
 
 def dense_apply_derivatives(A, ww, pp, order):
     """Ground-truth apply-derivative jets of the dense tensor ``A``: shape ``(order+1,) + W`` (``W`` the
-    sample stack). Each ``W``-element is ``apply_derivatives_dense`` (the exact subset expansion)."""
+    sample stack). Each ``W``-element is ``dense_apply_derivatives`` (the exact subset expansion)."""
     W = ww[0].shape[:-1]
     b = np.zeros((order + 1,) + W)
     for idx in np.ndindex(*W):
         ww_m = [w[idx] for w in ww]
         pp_m = [p[idx] for p in pp]
-        b[(slice(None),) + idx] = pd.apply_derivatives_dense(ww_m, pp_m, A, order)
+        b[(slice(None),) + idx] = pd.dense_apply_derivatives(ww_m, pp_m, A, order)
     return b
 
 

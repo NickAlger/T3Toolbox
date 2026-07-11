@@ -22,7 +22,7 @@ import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.common as common
 import t3toolbox.backend.contractions as contractions
-import t3toolbox.backend.probe_derivatives as pd
+import t3toolbox.backend.sampling_derivatives as pd
 import t3toolbox.backend.tangent_operations as tops
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.orthogonal_representations as orth_reps
@@ -196,12 +196,12 @@ class TestDispatch(unittest.TestCase):
     def test_jit_probe_derivatives(self):
         # paired (X, P) sample stack W=(2,); order static; all-orders jet output must be all-jax.
         self.assert_jit_jax(
-            lambda cc, w, p: pd.probe_derivatives_t3(w, p, cc, 3),
+            lambda cc, w, p: pd.t3_probe_derivatives(w, p, cc, 3),
             self.x.data, list(self.ww), list(self.zz))
         # with a frame/core stack C=(2,) too: output (K+1) + W + C + (N,)
         xc = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=(2,)).to_jax()
         self.assert_jit_jax(
-            lambda cc, w, p: pd.probe_derivatives_t3(w, p, cc, 3),
+            lambda cc, w, p: pd.t3_probe_derivatives(w, p, cc, 3),
             xc.data, list(self.ww), list(self.zz))
         # the new t-contractions directly (order axis t=3 leading; W=(2,), C=())
         trs = pd.binomial_combine_tensor(3)
@@ -214,12 +214,12 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a, b: contractions.tWCi_Cio_to_tWCo(a, b), eta, U)
         # Riemannian (tangent) forward derivatives: jit, frame + variation sweeps, all-orders
         self.assert_jit_jax(
-            lambda var, b, w, p: pd.probe_tangent_derivatives(w, p, var, b, 3),
+            lambda var, b, w, p: pd.tv_probe_derivatives(w, p, var, b, 3),
             self.var.data, self.frame.data, list(self.ww), list(self.zz))
         # Riemannian (tangent) transpose: jit, residual jets (K+1)+W+(N,) -> variation gradient
         rt = tuple(jnp.asarray(np.random.randn(4, 2, N)) for N in STRUCT[0])  # K+1=4, W=(2,)
         self.assert_jit_jax(
-            lambda rr, w, p, b: pd.probe_tangent_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=True),
+            lambda rr, w, p, b: pd.tv_probe_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=True),
             rt, list(self.ww), list(self.zz), self.frame.data)
         # transpose with a frame/core stack C=(2,): residual jets (K+1)+W+C+(N,), both sum_over_probes
         frameC = bvf.t3_orthogonal_representations(
@@ -227,35 +227,35 @@ class TestDispatch(unittest.TestCase):
         rtC = tuple(jnp.asarray(np.random.randn(4, 2, 2, N)) for N in STRUCT[0])  # K+1=4, W=(2,), C=(2,)
         for sop in (True, False):
             self.assert_jit_jax(
-                lambda rr, w, p, b: pd.probe_tangent_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=sop),
+                lambda rr, w, p, b: pd.tv_probe_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=sop),
                 rtC, list(self.ww), list(self.zz), frameC)
         # K-stacked Riemannian forward (exercises the order-threaded 3-block W/K/C contractions under jit)
         self.assert_jit_jax(
-            lambda var, b, w, p: pd.probe_tangent_derivatives(w, p, var, b, 3),
+            lambda var, b, w, p: pd.tv_probe_derivatives(w, p, var, b, 3),
             self.v_vstack.variations.data, self.frame.data, list(self.ww), list(self.zz))
         # K-stacked transpose (the order-threaded 3-block ADJOINT contractions): residual (order+1)+W+K+C
         rtK = tuple(jnp.asarray(np.random.randn(4, 2, 3, N)) for N in STRUCT[0])  # order+1=4, W=(2,), K=(3,)
         for sop in (True, False):
             self.assert_jit_jax(
-                lambda rr, w, p, b: pd.probe_tangent_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=sop),
+                lambda rr, w, p, b: pd.tv_probe_derivatives_transpose(rr, w, p, b, 3, sum_over_probes=sop),
                 rtK, list(self.ww), list(self.zz), self.frame.data)
         # apply derivatives: Euclidean (W+C), Riemannian single, Riemannian K-stacked
         self.assert_jit_jax(
-            lambda cc, w, p: pd.apply_derivatives_t3(w, p, cc, 3),
+            lambda cc, w, p: pd.t3_apply_derivatives(w, p, cc, 3),
             self.x.data, list(self.ww), list(self.zz))
         self.assert_jit_jax(
-            lambda var, b, w, p: pd.apply_tangent_derivatives(w, p, var, b, 3),
+            lambda var, b, w, p: pd.tv_apply_derivatives(w, p, var, b, 3),
             self.var.data, self.frame.data, list(self.ww), list(self.zz))
         self.assert_jit_jax(
-            lambda var, b, w, p: pd.apply_tangent_derivatives(w, p, var, b, 3),
+            lambda var, b, w, p: pd.tv_apply_derivatives(w, p, var, b, 3),
             self.v_vstack.variations.data, self.frame.data, list(self.ww), list(self.zz))
         # entries derivatives: Euclidean and Riemannian (index a dynamic gather; general perturbation P)
         idx = jnp.array([[1, 2], [2, 3], [3, 4]])              # (d,) + W, W=(2,)
         self.assert_jit_jax(
-            lambda cc, ix, p: pd.entries_derivatives_t3(ix, p, cc, 3),
+            lambda cc, ix, p: pd.t3_entries_derivatives(ix, p, cc, 3),
             self.x.data, idx, list(self.zz))
         self.assert_jit_jax(
-            lambda var, b, ix, p: pd.entries_tangent_derivatives(ix, p, var, b, 3),
+            lambda var, b, ix, p: pd.tv_entries_derivatives(ix, p, var, b, 3),
             self.var.data, self.frame.data, idx, list(self.zz))
         # the new order-threaded 3-block contractions directly (K=(3,), C=())
         sig = jnp.ones((4, 2, 3, 5)); Qc = jnp.ones((5, 4, 6)); xij2 = jnp.ones((2, 2, 4))
@@ -270,23 +270,23 @@ class TestDispatch(unittest.TestCase):
         caK = jnp.asarray(np.random.randn(4, 2, 3))    # K=(3,)
         for sop in (True, False):
             self.assert_jit_jax(
-                lambda cc, w, p, b: pd.apply_tangent_derivatives_transpose(cc, w, p, b, 3, sum_over_probes=sop),
+                lambda cc, w, p, b: pd.tv_apply_derivatives_transpose(cc, w, p, b, 3, sum_over_probes=sop),
                 ca, list(self.ww), list(self.zz), self.frame.data)
             self.assert_jit_jax(
-                lambda cc, w, p, b: pd.apply_tangent_derivatives_transpose(cc, w, p, b, 3, sum_over_probes=sop),
+                lambda cc, w, p, b: pd.tv_apply_derivatives_transpose(cc, w, p, b, 3, sum_over_probes=sop),
                 caK, list(self.ww), list(self.zz), self.frame.data)
             self.assert_jit_jax(
-                lambda cc, ix, p, b: pd.entries_tangent_derivatives_transpose(cc, ix, p, b, 3, sum_over_probes=sop),
+                lambda cc, ix, p, b: pd.tv_entries_derivatives_transpose(cc, ix, p, b, 3, sum_over_probes=sop),
                 ca, idx, list(self.zz), self.frame.data)
         # corewise derivative transposes (P,Q,O->G substitution): gradient w.r.t. the frame's own cores
         self.assert_jit_jax(
-            lambda rr, w, p, cp: pd.probe_corewise_derivatives_transpose(rr, w, p, cp, 3, sum_over_probes=True),
+            lambda rr, w, p, cp: pd.t3_probe_corewise_derivatives_transpose(rr, w, p, cp, 3, sum_over_probes=True),
             rt, list(self.ww), list(self.zz), self.x.data)
         self.assert_jit_jax(
-            lambda cc, w, p, cp: pd.apply_corewise_derivatives_transpose(cc, w, p, cp, 3, sum_over_probes=True),
+            lambda cc, w, p, cp: pd.t3_apply_corewise_derivatives_transpose(cc, w, p, cp, 3, sum_over_probes=True),
             ca, list(self.ww), list(self.zz), self.x.data)
         self.assert_jit_jax(
-            lambda cc, ix, p, cp: pd.entries_corewise_derivatives_transpose(cc, ix, p, cp, 3, sum_over_probes=True),
+            lambda cc, ix, p, cp: pd.t3_entries_corewise_derivatives_transpose(cc, ix, p, cp, 3, sum_over_probes=True),
             ca, idx, list(self.zz), self.x.data)
 
     # ---------------------------------------------------- jit bucket: backend functions
@@ -363,7 +363,7 @@ class TestDispatch(unittest.TestCase):
         W = 12
         x_true = t3.TuckerTensorTrain.randn(SH, TK, TT)
         ww = [jnp.asarray(np.random.randn(W, n)) for n in SH]
-        data = jnp.asarray(bapply.tucker_tensor_train_apply(x_true.data, [np.asarray(w) for w in ww]))
+        data = jnp.asarray(bapply.t3_apply(x_true.data, [np.asarray(w) for w in ww]))
         ux0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SH, TK, TT)).to_jax()
         sc = (ux0.data[0], ux0.data[1])                     # jax supercores; masks stay host numpy
         prob = uf.uniform_least_squares_problem('manifold', 'apply', ux0, ww, data)

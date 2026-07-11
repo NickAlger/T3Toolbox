@@ -29,7 +29,7 @@ import numpy as np
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.manifold as t3m
 import t3toolbox.optimizers as topt
-import t3toolbox.backend.probe_derivatives as pd   # only for the dense ground-truth derivative oracle
+import t3toolbox.backend.sampling_derivatives as pd   # only for the dense ground-truth derivative oracle
 
 
 # --------------------------------------------------------------------------------------------------
@@ -76,7 +76,7 @@ def dense_apply_derivatives(A, ww, pp, order):
     W = ww[0].shape[:-1]
     b = np.zeros((order + 1,) + W)
     for idx in np.ndindex(*W):
-        b[(slice(None),) + idx] = pd.apply_derivatives_dense([w[idx] for w in ww], [p[idx] for p in pp], A, order)
+        b[(slice(None),) + idx] = pd.dense_apply_derivatives([w[idx] for w in ww], [p[idx] for p in pp], A, order)
     return b
 
 

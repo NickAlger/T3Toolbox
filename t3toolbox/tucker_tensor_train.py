@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from functools import cached_property
 
 import t3toolbox.backend.probing as probing
-import t3toolbox.backend.probe_derivatives as probe_derivatives
+import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
 import t3toolbox.backend.ranks as ranks
@@ -3292,7 +3292,7 @@ class TuckerTensorTrain:
                 + str(self.d) + ' = num tensor indices != num provided indices = ' + str(index.shape[0])
             )
 
-        return entries.tucker_tensor_train_entries(self.data, index)
+        return entries.t3_entries(self.data, index)
 
     def apply(
         self,                     # shape=(N0,...,N(d-1))
@@ -3387,7 +3387,7 @@ class TuckerTensorTrain:
                 'Attempted to apply TuckerTensorTrain to wrong number of vectors.'
                 + str(str(len(self.shape)) + ' = num_indices != len(vecs) = ' + str(len(vecs)))
             )
-        return apply.tucker_tensor_train_apply(self.data, vecs)
+        return apply.t3_apply(self.data, vecs)
 
     def probe(
         self,
@@ -3461,7 +3461,7 @@ class TuckerTensorTrain:
         >>> print(np.allclose(result_ij_lmn_2, result_ij_lmn_2_true))
         True
         """
-        return probing.probe_t3(ww, self.data)
+        return probing.t3_probe(ww, self.data)
 
     @staticmethod
     def probe_ambient_transpose(
@@ -3508,7 +3508,7 @@ class TuckerTensorTrain:
         >>> print(bool(abs(lhs - rhs) < 1e-9))
         True
         """
-        return probing.probe_ambient_transpose(ztildes, ww, sum_over_probes=sum_over_probes)
+        return probing.t3_probe_ambient_transpose(ztildes, ww, sum_over_probes=sum_over_probes)
 
     def probe_corewise_transpose(
             self:    'TuckerTensorTrain',
@@ -3536,7 +3536,7 @@ class TuckerTensorTrain:
         probe_ambient_transpose
         apply_corewise_transpose
         """
-        return probing.probe_corewise_transpose(ztildes, ww, self.data, sum_over_probes=sum_over_probes)
+        return probing.t3_probe_corewise_transpose(ztildes, ww, self.data, sum_over_probes=sum_over_probes)
 
     @staticmethod
     def apply_ambient_transpose(
@@ -3594,7 +3594,7 @@ class TuckerTensorTrain:
         >>> print(bool(abs(lhs - 1.7 * float(x.apply(ww))) < 1e-9))
         True
         """
-        return apply.tucker_tensor_train_apply_ambient_transpose(
+        return apply.t3_apply_ambient_transpose(
             c, ww, sum_over_probes=sum_over_probes,
         )
 
@@ -3643,7 +3643,7 @@ class TuckerTensorTrain:
         >>> print(bool(np.linalg.norm(rest) < 1e-9))                          # zero elsewhere
         True
         """
-        return entries.tucker_tensor_train_entries_ambient_transpose(
+        return entries.t3_entries_ambient_transpose(
             c, index, shape, sum_over_probes=sum_over_probes,
         )
 
@@ -3699,7 +3699,7 @@ class TuckerTensorTrain:
         >>> print([g.shape for g in gG] == [g.shape for g in x.tt_cores])       # matches TT cores
         True
         """
-        return probing.apply_corewise_transpose(c, ww, self.data, sum_over_probes=sum_over_probes)
+        return apply.t3_apply_corewise_transpose(c, ww, self.data, sum_over_probes=sum_over_probes)
 
     def entries_corewise_transpose(
             self:   'TuckerTensorTrain',
@@ -3725,7 +3725,7 @@ class TuckerTensorTrain:
         entries_ambient_transpose
         apply_corewise_transpose
         """
-        return probing.entries_corewise_transpose(c, index, self.data, sum_over_probes=sum_over_probes)
+        return entries.t3_entries_corewise_transpose(c, index, self.data, sum_over_probes=sum_over_probes)
 
     ##############################################################
     ###############    Symmetric derivatives    ##################
@@ -3767,8 +3767,8 @@ class TuckerTensorTrain:
         >>> print([bool(np.allclose(z[0], z0)) for z, z0 in zip(zj, x.probe(ww))])  # order 0 == probe
         [True, True, True]
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
-        return probe_derivatives.probe_derivatives_t3(ww, pp, self.data, order)
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
+        return sampling_derivatives.t3_probe_derivatives(ww, pp, self.data, order)
 
     def apply_derivatives(
             self,
@@ -3802,8 +3802,8 @@ class TuckerTensorTrain:
         >>> print(bool(np.allclose(yj[0], x.apply(ww))))     # order 0 == apply
         True
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
-        return probe_derivatives.apply_derivatives_t3(ww, pp, self.data, order)
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
+        return sampling_derivatives.t3_apply_derivatives(ww, pp, self.data, order)
 
     def entries_derivatives(
             self,
@@ -3837,8 +3837,8 @@ class TuckerTensorTrain:
         >>> print(bool(np.allclose(yj[0], x.entries(index))))   # order 0 == entries
         True
         """
-        probe_derivatives.check_perturbation_index(index, pp, self.shape)
-        return probe_derivatives.entries_derivatives_t3(index, pp, self.data, order)
+        sampling_derivatives.check_perturbation_index(index, pp, self.shape)
+        return sampling_derivatives.t3_entries_derivatives(index, pp, self.data, order)
 
     def probe_corewise_derivatives_transpose(
             self:    'TuckerTensorTrain',
@@ -3863,8 +3863,8 @@ class TuckerTensorTrain:
         probe_corewise_transpose
         apply_corewise_derivatives_transpose
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
-        return probe_derivatives.probe_corewise_derivatives_transpose(
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
+        return sampling_derivatives.t3_probe_corewise_derivatives_transpose(
             ztildes, ww, pp, self.data, order, sum_over_probes=sum_over_probes)
 
     def apply_corewise_derivatives_transpose(
@@ -3898,8 +3898,8 @@ class TuckerTensorTrain:
         >>> print([g.shape for g in gG] == [g.shape for g in x.tt_cores])
         True
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
-        return probe_derivatives.apply_corewise_derivatives_transpose(
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
+        return sampling_derivatives.t3_apply_corewise_derivatives_transpose(
             c, ww, pp, self.data, order, sum_over_probes=sum_over_probes)
 
     def entries_corewise_derivatives_transpose(
@@ -3918,8 +3918,8 @@ class TuckerTensorTrain:
         entries_derivatives
         apply_corewise_derivatives_transpose
         """
-        probe_derivatives.check_perturbation_index(index, pp, self.shape)
-        return probe_derivatives.entries_corewise_derivatives_transpose(
+        sampling_derivatives.check_perturbation_index(index, pp, self.shape)
+        return sampling_derivatives.t3_entries_corewise_derivatives_transpose(
             c, index, pp, self.data, order, sum_over_probes=sum_over_probes)
 
     ##############################################################

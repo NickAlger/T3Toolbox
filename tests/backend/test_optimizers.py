@@ -12,7 +12,7 @@ import t3toolbox.manifold as t3m
 import t3toolbox.fitting as fitting
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.optimizers as opt
-import t3toolbox.backend.probe_derivatives as pd
+import t3toolbox.backend.sampling_derivatives as pd
 import t3toolbox.corewise as cw
 
 SHAPE, TUCKER, TT = (8, 8, 8), (3, 3, 3), (1, 3, 3, 1)
@@ -145,11 +145,11 @@ class TestBackendOptimizers(unittest.TestCase):
         index = np.stack([rng.integers(0, N, size=(NP, NX)) for N in SHAPE], axis=0)
         cases = {
             'apply':   (bfit.apply_derivatives_kind(order, omega), (ww, pp),
-                        np.asarray(pd.apply_derivatives_t3(ww, pp, Xtrue.data, order))),
+                        np.asarray(pd.t3_apply_derivatives(ww, pp, Xtrue.data, order))),
             'entries': (bfit.entries_derivatives_kind(order, omega), (index, pp),
-                        np.asarray(pd.entries_derivatives_t3(index, pp, Xtrue.data, order))),
+                        np.asarray(pd.t3_entries_derivatives(index, pp, Xtrue.data, order))),
             'probe':   (bfit.probe_derivatives_kind(order, omega), (ww, pp),
-                        [np.asarray(z) for z in pd.probe_derivatives_t3(ww, pp, Xtrue.data, order)]),
+                        [np.asarray(z) for z in pd.t3_probe_derivatives(ww, pp, Xtrue.data, order)]),
         }
         for name, (kind, sample, data) in cases.items():
             with self.subTest(kind=name):
@@ -172,7 +172,7 @@ class TestBackendOptimizers(unittest.TestCase):
                 self.assertTrue(np.isfinite(float(prob.local_model(X0.data, sB, dB).objective)))
         # recovery: mc_sgd (manifold) from a zero start, with the apply-derivatives kind + flat default
         prob_m = opt.least_squares_problem(opt.MANIFOLD, bfit.apply_derivatives_kind(order, omega), (ww, pp),
-                                           np.asarray(pd.apply_derivatives_t3(ww, pp, Xtrue.data, order)))
+                                           np.asarray(pd.t3_apply_derivatives(ww, pp, Xtrue.data, order)))
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
         _, stats = opt.mc_sgd(prob_m, x0, np.random.default_rng(1), batch=6, max_iter=400)
         self.assertLess(stats['losses'][-1], 0.1 * stats['losses'][0])
@@ -228,7 +228,7 @@ class TestBackendOptimizers(unittest.TestCase):
             order, NW = 2, 80
             wwa = [jnp.asarray(np.asarray(w)[:NW]) for w in ww]            # (NW, Ni) -- a subset of the W stack
             ppa = [jnp.asarray(rng.standard_normal((NW, N))) for N in SHAPE]
-            da = jnp.asarray(pd.apply_derivatives_t3(wwa, ppa, t3.TuckerTensorTrain(*x0z).data, order)) * 0.0 + 1.0
+            da = jnp.asarray(pd.t3_apply_derivatives(wwa, ppa, t3.TuckerTensorTrain(*x0z).data, order)) * 0.0 + 1.0
             prob_d = opt.least_squares_problem(opt.MANIFOLD, bfit.apply_derivatives_kind(order, [1.0, .5, .3]),
                                                (wwa, ppa), da)
             xd, _ = opt.mc_sgd(prob_d, x0z, np.random.default_rng(7), batch=20, max_iter=120, use_jit=True)

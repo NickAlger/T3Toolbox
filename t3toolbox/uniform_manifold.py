@@ -36,7 +36,7 @@ import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ufv_operations as ufv_operations
 import t3toolbox.backend.ufv_tangent_operations as ufv_tangent_operations
 import t3toolbox.backend.ufv_sampling as ufv_sampling
-import t3toolbox.backend.probe_derivatives as probe_derivatives
+import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -452,7 +452,7 @@ class UT3Tangent:
         >>> print(zz[0].shape)                                     # W + K + C + (N0,) = (2,) + () + () + (10,)
         (2, 10)
         >>> print(bool(max(float(np.linalg.norm(a - b))
-        ...                for a, b in zip(zz, t3p.probe_dense(ww, v.to_dense()))) < 1e-9))   # dense reference
+        ...                for a, b in zip(zz, t3p.dense_probe(ww, v.to_dense()))) < 1e-9))   # dense reference
         True
         """
         return ufv_sampling.ut3tangent_probe(ww, self.frame.data, self.variations.data)
@@ -548,7 +548,7 @@ class UT3Tangent:
             ...
         ValueError
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
         return ufv_sampling.ut3tangent_probe_derivatives(ww, pp, self.frame.data, self.variations.data, order)
 
     def apply_derivatives(
@@ -576,7 +576,7 @@ class UT3Tangent:
         >>> print(yj.shape, bool(np.allclose(yj[0], v.apply(ww))))          # (order+1,); order 0 == apply
         (4,) True
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
         return ufv_sampling.ut3tangent_apply_derivatives(ww, pp, self.frame.data, self.variations.data, order)
 
     def entries_derivatives(
@@ -603,7 +603,7 @@ class UT3Tangent:
         >>> print(yj.shape, bool(np.allclose(yj[0], v.entries((3, 5, 7)))))  # (order+1,); order 0 == entries
         (4,) True
         """
-        probe_derivatives.check_perturbation_index(index, pp, self.shape)
+        sampling_derivatives.check_perturbation_index(index, pp, self.shape)
         return ufv_sampling.ut3tangent_entries_derivatives(index, pp, self.frame.data, self.variations.data, order)
 
     @staticmethod
@@ -724,7 +724,7 @@ class UT3Tangent:
         >>> print(bool(abs(lhs - float(JTr.corewise_inner(v))) < 1e-9))
         True
         """
-        probe_derivatives.check_perturbation_vectors(ww, pp)
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
         vd = ufv_sampling.ut3tangent_probe_derivatives_transpose(
             ztildes, ww, pp, frame.data, order, sum_over_probes=sum_over_probes)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
@@ -741,7 +741,7 @@ class UT3Tangent:
         """Transpose ``𝒥ᵀ`` of :py:meth:`apply_derivatives` (the adjoint-state apply-derivative transpose).
         ``sum_over_probes`` as in :py:meth:`probe_derivatives_transpose`. Uniform mirror of
         :py:meth:`~t3toolbox.manifold.T3Tangent.apply_derivatives_transpose`."""
-        probe_derivatives.check_perturbation_vectors(ww, pp)
+        sampling_derivatives.check_perturbation_vectors(ww, pp)
         vd = ufv_sampling.ut3tangent_apply_derivatives_transpose(
             c, ww, pp, frame.data, order, sum_over_probes=sum_over_probes)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
@@ -758,7 +758,7 @@ class UT3Tangent:
         """Transpose ``𝒥ᵀ`` of :py:meth:`entries_derivatives`: scatter residual jets ``c`` at ``index`` into a
         tangent (= :py:meth:`apply_derivatives_transpose` with one-hot vectors). Uniform mirror of
         :py:meth:`~t3toolbox.manifold.T3Tangent.entries_derivatives_transpose`."""
-        probe_derivatives.check_perturbation_index(index, pp, frame.shape)
+        sampling_derivatives.check_perturbation_index(index, pp, frame.shape)
         vd = ufv_sampling.ut3tangent_entries_derivatives_transpose(
             c, index, pp, frame.data, order, sum_over_probes=sum_over_probes)
         return UT3Tangent(frame, _ut3variations_from_data(vd))

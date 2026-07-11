@@ -10,6 +10,8 @@ import t3toolbox.manifold as t3m
 import t3toolbox.corewise as cw
 import t3toolbox.safety as safety
 import t3toolbox.backend.probing as t3p
+import t3toolbox.backend.apply as apply
+import t3toolbox.backend.entries as entries
 
 np.random.seed(0)
 tol = 1e-9
@@ -502,7 +504,7 @@ class TestManifold(unittest.TestCase):
                 self.assertLessEqual(norm(np.asarray(u.corewise_norm()) - np.sqrt(np.abs(np.asarray(u.corewise_inner(u))))), tol)
 
     def test_tangent_probe(self):
-        # forward J^(s): v.probe(ww) == probe_dense(ww, v.to_dense()); probes are stacked W + K + C + (N,)
+        # forward J^(s): v.probe(ww) == dense_probe(ww, v.to_dense()); probes are stacked W + K + C + (N,)
         STRUCT = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         for FRAME_STACK in [(), (2,)]:
             for PROBE_STACK in [(), (2,)]:
@@ -515,7 +517,7 @@ class TestManifold(unittest.TestCase):
                         ww = tuple(rnd(*(PROBE_STACK + (N,))) for N in STRUCT[0])
 
                         zz = v.probe(ww)  # numpy/jax inferred from inputs
-                        zz2 = t3p.probe_dense(ww, v.to_dense())  # dense ground truth, also W + K + C
+                        zz2 = t3p.dense_probe(ww, v.to_dense())  # dense ground truth, also W + K + C
                         self.assertEqual(
                             PROBE_STACK + TANGENT_STACK + FRAME_STACK + (STRUCT[0][0],),
                             tuple(np.asarray(zz[0]).shape),
@@ -667,10 +669,10 @@ class TestManifold(unittest.TestCase):
         ww = tuple(np.random.randn(NW, N) for N in STRUCT[0])
         idx = np.array(tuple(np.random.randint(0, N, size=NW) for N in STRUCT[0]))
         vs = [t3m.MANIFOLD.randn(frame) for _ in range(K)]
-        for op, fwd, tr in [('apply', lambda v: pr.apply_tangent(ww, v.variations.data, frame.data),
-                                      lambda c: pr.apply_tangent_transpose(c, ww, frame.data, sum_over_probes=True)),
-                            ('entries', lambda v: pr.entries_tangent(idx, v.variations.data, frame.data),
-                                        lambda c: pr.entries_tangent_transpose(c, idx, frame.data, sum_over_probes=True))]:
+        for op, fwd, tr in [('apply', lambda v: apply.tv_apply(ww, v.variations.data, frame.data),
+                                      lambda c: apply.tv_apply_transpose(c, ww, frame.data, sum_over_probes=True)),
+                            ('entries', lambda v: entries.tv_entries(idx, v.variations.data, frame.data),
+                                        lambda c: entries.tv_entries_transpose(c, idx, frame.data, sum_over_probes=True))]:
             with self.subTest(op=op):
                 JvK = np.stack([np.asarray(fwd(v)) for v in vs], axis=1)     # base-inner W + K
                 c = np.random.randn(NW, K)

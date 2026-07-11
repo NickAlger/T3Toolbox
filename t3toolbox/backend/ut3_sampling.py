@@ -8,7 +8,7 @@ import typing as typ
 import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
 import t3toolbox.backend.probing as probing
-import t3toolbox.backend.probe_derivatives as probe_derivatives
+import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_operations as ut3_operations
 from t3toolbox.backend.common import *
@@ -43,9 +43,9 @@ def ut3_entries(
         data:  UT3Data,
         index: NDArray,  # dtype=int, shape=(d,)+idx_stack
 ) -> NDArray:            # shape=idx_stack+stack_shape
-    """Compute entries of a uniform Tucker tensor train (shares ``entries.tucker_tensor_train_entries``)."""
+    """Compute entries of a uniform Tucker tensor train (shares ``entries.t3_entries``)."""
     masked = ut3_masking.apply_masks_to_cores(data)
-    return entries.tucker_tensor_train_entries(masked, index)
+    return entries.t3_entries(masked, index)
 
 
 def ut3_apply(
@@ -53,10 +53,10 @@ def ut3_apply(
         vecs: typ.Sequence[NDArray],  # len=d, ith elm_shape=vec_stack+(Ni,)
 ) -> NDArray:                         # shape=vec_stack+stack_shape
     """Contract a uniform Tucker tensor train with vectors in all modes (shares
-    ``apply.tucker_tensor_train_apply``). Vectors are zero-padded to ``N``."""
+    ``apply.t3_apply``). Vectors are zero-padded to ``N``."""
     masked = ut3_masking.apply_masks_to_cores(data)
     packed = ut3_operations.pack_if_ragged(vecs, masked[0].shape[-1])
-    return apply.tucker_tensor_train_apply(masked, packed)
+    return apply.t3_apply(masked, packed)
 
 
 def ut3_probe(
@@ -64,12 +64,12 @@ def ut3_probe(
         data: UT3Data,
 ) -> typ.Union[typ.Tuple[NDArray, ...], NDArray]:  # MIRRORS ww: ragged -> len=d tuple; packed -> (d,)+W+(N,)
     """Probe a uniform Tucker tensor train (contract all-but-one mode, for each mode; shares
-    ``probing.probe_t3``). **Mirrors** ``ww``'s packedness: a ragged ``ww`` returns a ``len=d`` tuple sliced
+    ``probing.t3_probe``). **Mirrors** ``ww``'s packedness: a ragged ``ww`` returns a ``len=d`` tuple sliced
     back to real widths; a packed ``ww`` returns the packed ``(d,)+W+(N,)`` array (zero-padded prefix)."""
     masked = ut3_masking.apply_masks_to_cores(data)            # guards: masks must be host
     ragged_in = not ut3_operations.is_packed(ww)
     packed = ut3_operations.pack_if_ragged(ww, masked[0].shape[-1])
-    zz = probing.probe_t3(packed, masked)                       # packed (TRACED under jit), shape=(d,)+W+(N)
+    zz = probing.t3_probe(packed, masked)                       # packed (TRACED under jit), shape=(d,)+W+(N)
     # MIRROR: ragged ww -> slice to real widths (a static bound from data[2], jit-safe); packed ww ->
     # return the packed array unchanged.
     return ut3_operations.unpack_vectors(zz, data[2]) if ragged_in else zz
@@ -84,7 +84,7 @@ def ut3_full_sum(
     xnp, _, _ = get_backend(True, use_jax)
     masked = ut3_masking.apply_masks_to_cores(data)
     d, N = masked[0].shape[0], masked[0].shape[-1]
-    return apply.tucker_tensor_train_apply(masked, xnp.ones((d, N)))
+    return apply.t3_apply(masked, xnp.ones((d, N)))
 
 
 # ----------------------------------------------------------------- corewise (non-manifold) transposes (3b-6c)
@@ -103,7 +103,7 @@ def ut3_apply_corewise_transpose(
     """Corewise transpose of :py:func:`ut3_apply`: gradient w.r.t. the frame supercores. ``ww`` packed to N."""
     masked = ut3_masking.apply_masks_to_cores(data)
     packed = ut3_operations.pack_if_ragged(ww, masked[0].shape[-1])
-    return probing.apply_corewise_transpose(c, packed, masked, sum_over_probes=sum_over_probes)
+    return apply.t3_apply_corewise_transpose(c, packed, masked, sum_over_probes=sum_over_probes)
 
 
 def ut3_entries_corewise_transpose(
@@ -113,9 +113,9 @@ def ut3_entries_corewise_transpose(
         sum_over_probes: bool = False,
 ) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
     """Corewise transpose of :py:func:`ut3_entries`: gradient w.r.t. the frame supercores (index unpacked --
-    the one-hot vectors are built packed inside ``probing._onehot_vectors``)."""
+    the one-hot vectors are built packed inside ``entries._onehot_vectors``)."""
     masked = ut3_masking.apply_masks_to_cores(data)
-    return probing.entries_corewise_transpose(c, index, masked, sum_over_probes=sum_over_probes)
+    return entries.t3_entries_corewise_transpose(c, index, masked, sum_over_probes=sum_over_probes)
 
 
 def ut3_probe_corewise_transpose(
@@ -130,13 +130,13 @@ def ut3_probe_corewise_transpose(
     N = masked[0].shape[-1]
     packed_z = ut3_operations.pack_if_ragged(ztildes, N)
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
-    return probing.probe_corewise_transpose(packed_z, packed_ww, masked, sum_over_probes=sum_over_probes)
+    return probing.t3_probe_corewise_transpose(packed_z, packed_ww, masked, sum_over_probes=sum_over_probes)
 
 
 # ----------------------------------------------------------------- derivative sampling (jets; 3b-6'b)
 # The symmetric-directional-derivative twins of ut3_probe / ut3_apply / ut3_entries: mask-once, pack the
 # probe vectors ww AND the perturbation direction pp (entries slices fibers, so only pp is packed), share
-# the polymorphic probe_derivatives.*_derivatives_t3, and unpack the probe output (which now carries a
+# the polymorphic sampling_derivatives.t3_*_derivatives, and unpack the probe output (which now carries a
 # leading derivative-order axis -- the middle axis rides through unpack_vectors' `...`). Output order 0 is
 # the ordinary (non-derivative) sample.
 
@@ -147,14 +147,14 @@ def ut3_probe_derivatives(
         order: int,                    # highest derivative order
 ) -> typ.Union[typ.Tuple[NDArray, ...], NDArray]:  # MIRRORS ww: ragged -> len=d tuple; packed -> (d,)+(order+1,)+W+(N,)
     """Symmetric probe derivatives of a uniform Tucker tensor train (shares
-    ``probe_derivatives.probe_derivatives_t3``). **Mirrors** ``ww``'s packedness (ragged -> ``len=d`` tuple of
+    ``sampling_derivatives.t3_probe_derivatives``). **Mirrors** ``ww``'s packedness (ragged -> ``len=d`` tuple of
     real widths; packed -> the packed ``(d,)+(order+1,)+W+(N,)`` array)."""
     masked = ut3_masking.apply_masks_to_cores(data)
     N = masked[0].shape[-1]
     ragged_in = not ut3_operations.is_packed(ww)
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
-    zz = probe_derivatives.probe_derivatives_t3(packed_ww, packed_pp, masked, order)  # (d,)+(order+1,)+W+(N,)
+    zz = sampling_derivatives.t3_probe_derivatives(packed_ww, packed_pp, masked, order)  # (d,)+(order+1,)+W+(N,)
     return ut3_operations.unpack_vectors(zz, data[2]) if ragged_in else zz
 
 
@@ -165,12 +165,12 @@ def ut3_apply_derivatives(
         order: int,                    # highest derivative order
 ) -> NDArray:                          # shape=(order+1,)+W+stack_shape
     """Symmetric all-modes apply derivatives of a uniform Tucker tensor train (shares
-    ``probe_derivatives.apply_derivatives_t3``; a scalar jet per stack element). ``ww``/``pp`` packed to ``N``."""
+    ``sampling_derivatives.t3_apply_derivatives``; a scalar jet per stack element). ``ww``/``pp`` packed to ``N``."""
     masked = ut3_masking.apply_masks_to_cores(data)
     N = masked[0].shape[-1]
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
-    return probe_derivatives.apply_derivatives_t3(packed_ww, packed_pp, masked, order)
+    return sampling_derivatives.t3_apply_derivatives(packed_ww, packed_pp, masked, order)
 
 
 def ut3_entries_derivatives(
@@ -180,17 +180,17 @@ def ut3_entries_derivatives(
         order: int,                    # highest derivative order
 ) -> NDArray:                          # shape=(order+1,)+W+stack_shape
     """Symmetric entry derivatives of a uniform Tucker tensor train at ``index`` (shares
-    ``probe_derivatives.entries_derivatives_t3``; the up-index jet slices Tucker fibers, so only ``pp`` is
+    ``sampling_derivatives.t3_entries_derivatives``; the up-index jet slices Tucker fibers, so only ``pp`` is
     packed -- ``index`` in ``[0,Ni)`` hits the real prefix)."""
     masked = ut3_masking.apply_masks_to_cores(data)
     packed_pp = ut3_operations.pack_if_ragged(pp, masked[0].shape[-1])
-    return probe_derivatives.entries_derivatives_t3(index, packed_pp, masked, order)
+    return sampling_derivatives.t3_entries_derivatives(index, packed_pp, masked, order)
 
 
 # ----------------------------------------------------------- corewise derivative transposes (jets; 3b-6'c)
 # The jet-ified twins of the corewise transposes above: gradient of a plain-T3 derivative sampling op w.r.t.
 # the frame's own supercores (the §6.3 (P,Q,O)->G substitution, via the now-polymorphic
-# probe_derivatives.*_corewise_derivatives_transpose). Mask-once + pack ww/pp (entries: pp only) at the
+# sampling_derivatives.*_corewise_derivatives_transpose). Mask-once + pack ww/pp (entries: pp only) at the
 # boundary; return the RAW gradient supercores (dU, dG), clean-padded. For a uniform core-wise optimizer.
 
 def ut3_apply_corewise_derivatives_transpose(
@@ -206,7 +206,7 @@ def ut3_apply_corewise_derivatives_transpose(
     N = masked[0].shape[-1]
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
-    return probe_derivatives.apply_corewise_derivatives_transpose(
+    return sampling_derivatives.t3_apply_corewise_derivatives_transpose(
         c, packed_ww, packed_pp, masked, order, sum_over_probes=sum_over_probes)
 
 
@@ -222,7 +222,7 @@ def ut3_entries_corewise_derivatives_transpose(
     (``pp`` packed, ``index`` unpacked)."""
     masked = ut3_masking.apply_masks_to_cores(data)
     packed_pp = ut3_operations.pack_if_ragged(pp, masked[0].shape[-1])
-    return probe_derivatives.entries_corewise_derivatives_transpose(
+    return sampling_derivatives.t3_entries_corewise_derivatives_transpose(
         c, index, packed_pp, masked, order, sum_over_probes=sum_over_probes)
 
 
@@ -241,5 +241,5 @@ def ut3_probe_corewise_derivatives_transpose(
     packed_z = ut3_operations.pack_if_ragged(ztildes, N)
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
-    return probe_derivatives.probe_corewise_derivatives_transpose(
+    return sampling_derivatives.t3_probe_corewise_derivatives_transpose(
         packed_z, packed_ww, packed_pp, masked, order, sum_over_probes=sum_over_probes)
