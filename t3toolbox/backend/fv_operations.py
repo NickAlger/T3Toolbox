@@ -11,14 +11,17 @@ import numpy as np
 import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.t3_operations as t3_operations
 from t3toolbox.backend.common import *
+import t3toolbox.backend.t3_conversions as t3_conversions
 
 __all__ = [
     'absorb_weights_into_tangent_cores',
-    'variations_from_vector',
-    'zeros_variations',
-    'randn_variations',
-    'unit_variations',
-    'reverse_frame',
+    'fv_variations_from_vector',
+    'fv_variations_zeros',
+    'fv_variations_randn',
+    'fv_variations_unit',
+    'fv_frame_reverse',
+    'fv_frame_orthogonality_residual',
+    'fv_frame_consistency_residual',
 ]
 
 
@@ -40,7 +43,7 @@ Variations = typ.Tuple[
 ]
 
 
-def variations_from_vector(
+def fv_variations_from_vector(
         flat:               NDArray,            # shape=(size,)
         variation_shapes:   VariationShapes,
         stack_shape:        typ.Sequence[int] = (),
@@ -64,7 +67,7 @@ def variations_from_vector(
     return tuple(cores[:nt]), tuple(cores[nt:])
 
 
-def zeros_variations(
+def fv_variations_zeros(
         variation_shapes:   VariationShapes,
         stack_shape:        typ.Sequence[int] = (),
         use_jax:            bool = False,
@@ -77,7 +80,7 @@ def zeros_variations(
     return tucker, tt
 
 
-def randn_variations(
+def fv_variations_randn(
         variation_shapes:   VariationShapes,
         stack_shape:        typ.Sequence[int] = (),
         use_jax:            bool = False,
@@ -89,7 +92,7 @@ def randn_variations(
     return tucker, tt
 
 
-def unit_variations(
+def fv_variations_unit(
         variation_shapes:   VariationShapes,
         index:              typ.Tuple[bool, int, typ.Sequence[int]],  # (use_tt_coordinate, i, within_index)
         stack_shape:        typ.Sequence[int] = (),
@@ -111,7 +114,7 @@ def unit_variations(
     return tuple(tucker), tuple(tt)
 
 
-def reverse_frame(
+def fv_frame_reverse(
         frame: typ.Tuple[
             typ.Sequence[NDArray],  # up_tucker_cores
             typ.Sequence[NDArray],  # down_tt_cores
@@ -239,3 +242,68 @@ def absorb_weights_into_tangent_cores(
     weighted_frame = (up_tucker_cores, left_tt_cores, right_tt_cores, outer_tt_cores)
     weighted_variation = (var_tucker_cores, var_tt_cores)
     return weighted_variation, weighted_frame
+
+
+def fv_frame_orthogonality_residual(
+        frame: typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores
+            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # left_tt_cores
+            typ.Sequence[NDArray],  # right_tt_cores
+        ],
+) -> NDArray:  # shape = stack_shape (per stack element; scalar/0-d when unstacked)
+    '''Max deviation from orthogonality of the four frame core families, **per stack element**.
+
+    Checks each stacked block's gram against the identity:
+        - up_tucker U_i (all i), outer/down D_i (all i),
+        - left L_i (i=0..d-2), right R_i (i=1..d-1).
+    The last left core and first right core are boundary remainders and are not checked. Returns the max
+    absolute deviation reduced over the **non-stack** axes (shape ``stack_shape``); a caller thresholds it
+    (``<= atol``) for a per-element boolean orthogonality test.
+    '''
+    UU, DD, LL, RR = frame
+    d = len(UU)
+    xnp, _, _ = get_backend(False, tree_contains_jax(frame))
+
+    def _dev(gram, n):  # max over the two gram axes only -> keep stack (the leading '...')
+        return xnp.max(xnp.abs(gram - xnp.eye(n)), axis=(-2, -1))
+
+    devs = []
+    for ii in range(d):
+        U = UU[ii]
+        D = DD[ii]
+        devs.append(_dev(xnp.einsum('...io,...jo->...ij', U, U), U.shape[-2]))
+        devs.append(_dev(xnp.einsum('...iaj,...ibj->...ab', D, D), D.shape[-2]))
+    for ii in range(d - 1):
+        L = LL[ii]
+        devs.append(_dev(xnp.einsum('...iaj,...iak->...jk', L, L), L.shape[-1]))
+    for ii in range(1, d):
+        R = RR[ii]
+        devs.append(_dev(xnp.einsum('...iaj,...kaj->...ik', R, R), R.shape[-3]))
+    return xnp.max(xnp.stack(devs), axis=0)   # max over the checks, keep stack_shape
+
+
+def fv_frame_consistency_residual(
+        frame: typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores
+            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # left_tt_cores
+            typ.Sequence[NDArray],  # right_tt_cores
+        ],
+) -> NDArray:  # shape = stack_shape (per stack element; scalar/0-d when unstacked)
+    '''Relative Frobenius mismatch between the left- and right-canonical reconstructions of the base
+    point (``up`` over ``left`` vs ``up`` over ``right``), **per stack element**.
+
+    Returns ``||left - right|| / max(1, ||right||)`` over the dense **mode** axes (the norm is reduced over
+    the non-stack axes, so the result has shape ``stack_shape``); a caller thresholds it (``<= rtol``) for a
+    per-element boolean consistency test. EXPENSIVE -- densifies both reconstructions.
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    xnp, _, _ = get_backend(False, tree_contains_jax(frame))
+    d = len(up_tucker_cores)
+    left = t3_conversions.t3_to_dense((up_tucker_cores, left_tt_cores))
+    right = t3_conversions.t3_to_dense((up_tucker_cores, right_tt_cores))
+    mode_axes = tuple(range(left.ndim - d, left.ndim))   # the d physical-mode axes; stack axes lead
+    num = xnp.sqrt(xnp.sum((left - right) ** 2, axis=mode_axes))   # Frobenius over modes -> stack_shape
+    den = xnp.sqrt(xnp.sum(right ** 2, axis=mode_axes))
+    return num / xnp.maximum(1.0, den)

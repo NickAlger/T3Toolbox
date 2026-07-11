@@ -19,22 +19,22 @@ from t3toolbox.backend.common import *
 from t3toolbox.backend.tt_operations import tt_reverse, tt_zipper_left_to_right, tt_zipper_right_to_left
 
 __all__ = [
-    'tangent_to_dense',
-    'tangent_to_t3',
-    'orthogonal_gauge_projection',
-    'oblique_gauge_projection',
-    'project_t3_onto_tangent_space',
-    'project_dense_onto_tangent_space',
-    'unstack_tangent_stack',
-    'stack_tangent_stack',
-    'unstack_frame_stack',
-    'stack_frame_stack',
-    'gauge_residual',
-    'retract',
+    'tv_to_dense',
+    'tv_to_t3',
+    'tv_orthogonal_gauge_projection',
+    'tv_oblique_gauge_projection',
+    'tv_project_t3_onto_tangent_space',
+    'tv_project_dense_onto_tangent_space',
+    'tv_unstack_tangent_stack',
+    'tv_stack_tangent_stack',
+    'tv_unstack_frame_stack',
+    'tv_stack_frame_stack',
+    'tv_gauge_residual',
+    'tv_retract',
 ]
 
 
-def tangent_to_dense(
+def tv_to_dense(
         frame:      typ.Tuple[
             typ.Sequence[NDArray],  # up_tucker_cores
             typ.Sequence[NDArray],  # down_tt_cores
@@ -72,7 +72,7 @@ def tangent_to_dense(
     return V
 
 
-def orthogonal_gauge_projection(
+def tv_orthogonal_gauge_projection(
         frame:      typ.Tuple[
             typ.Sequence[NDArray],  # up_tucker_cores
             typ.Sequence[NDArray],  # down_tt_cores
@@ -118,7 +118,7 @@ def orthogonal_gauge_projection(
     return tuple(new_tucker_variations), tuple(new_tt_variations)
 
 
-def oblique_gauge_projection(
+def tv_oblique_gauge_projection(
         frame:      typ.Tuple[
             typ.Sequence[NDArray],  # up_tucker_cores
             typ.Sequence[NDArray],  # down_tt_cores
@@ -177,7 +177,7 @@ def oblique_gauge_projection(
     return tuple(tucker_vars), tuple(tt_vars)
 
 
-def tangent_to_t3(
+def tv_to_t3(
         frame:      typ.Tuple[
             typ.Sequence[NDArray],  # up_tucker_cores
             typ.Sequence[NDArray],  # down_tt_cores
@@ -283,7 +283,7 @@ def tangent_to_t3(
     return tuple(x_tucker_cores), tuple(x_tt_cores)
 
 
-def project_t3_onto_tangent_space(
+def tv_project_t3_onto_tangent_space(
         frame:      typ.Tuple[
             typ.Sequence[NDArray],  # up_tucker_cores
             typ.Sequence[NDArray],  # down_tt_cores
@@ -340,12 +340,12 @@ def project_t3_onto_tangent_space(
         (zipper_left2right, zipper_right2left, other_tt_cores, other_tucker_cores, outer_tt_cores, up_tucker_cores),
     )
 
-    return orthogonal_gauge_projection(
+    return tv_orthogonal_gauge_projection(
         frame, (ungauged_tucker_variations, ungauged_tt_variations),
     )
 
 
-def project_dense_onto_tangent_space(
+def tv_project_dense_onto_tangent_space(
         frame:  typ.Tuple[
             typ.Sequence[NDArray],  # up_tucker_cores
             typ.Sequence[NDArray],  # down_tt_cores
@@ -376,7 +376,7 @@ def project_dense_onto_tangent_space(
     ``(r_i, N_i, r_{i+1})``. Both variations at ``i`` read off it: ``dG_i = <U_i, core_env_i>`` (the TT
     variation) and ``dU_i = <O_i, core_env_i>`` (the Tucker variation; ``O`` = the outer/down cores). A
     single left sweep builds the left-reduced environments; each slot finishes with a right reduction.
-    Finally :py:func:`orthogonal_gauge_projection` orthogonalizes the ``2d`` directions so the sum of
+    Finally :py:func:`tv_orthogonal_gauge_projection` orthogonalizes the ``2d`` directions so the sum of
     their per-direction projections equals the projection onto the tangent space.
     """
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
@@ -419,7 +419,7 @@ def project_dense_onto_tangent_space(
         ungauged_tt_variations.append(xnp.einsum('...axb,...nx->...anb', core_env, up_tucker_cores[ii]))
         ungauged_tucker_variations.append(xnp.einsum('...axb,...anb->...nx', core_env, down_tt_cores[ii]))
 
-    return orthogonal_gauge_projection(
+    return tv_orthogonal_gauge_projection(
         frame, (tuple(ungauged_tucker_variations), tuple(ungauged_tt_variations)),
     )
 
@@ -468,30 +468,30 @@ def _unpair_frame_leaves(
     return tuple(s[0] for s in split), tuple(s[1] for s in split)
 
 
-def unstack_tangent_stack(
+def tv_unstack_tangent_stack(
         frame,       # (UU, DD, LL, RR), each core stack = G
         variations,  # (VV, HH), each core stack = V + G
 ):  # -> array-like tree (shape V) of variations-data tuples (each stack = G)
     """Peel the tangent stack V off the variations, returning a V-shaped tree of variation-data.
 
     The base point is shared across V, so the frame cores are untouched (the caller pairs the same
-    frame with every leaf). Inverse of :py:func:`stack_tangent_stack`.
+    frame with every leaf). Inverse of :py:func:`tv_stack_tangent_stack`.
     """
     n_tangent, _ = _tangent_stack_split(frame, variations)
     return stacking.unstack(variations, axes=tuple(range(n_tangent)))
 
 
-def stack_tangent_stack(
+def tv_stack_tangent_stack(
         variations_tree,  # array-like tree (shape V) of variations-data tuples (each stack = G)
 ):  # -> variations-data tuple (stack = V + G)
     """Stack a V-shaped tree of variation-data over the tangent stack V (outermost).
 
-    Inverse of :py:func:`unstack_tangent_stack`.
+    Inverse of :py:func:`tv_unstack_tangent_stack`.
     """
     return stacking.basic_ragged_stack(variations_tree)
 
 
-def unstack_frame_stack(
+def tv_unstack_frame_stack(
         frame,       # (UU, DD, LL, RR), each core stack = G
         variations,  # (VV, HH), each core stack = V + G
 ):  # -> array-like tree (shape G) of (frame_data, variations_data) pairs
@@ -503,7 +503,7 @@ def unstack_frame_stack(
     interior axes of the variation cores. The frame and variation leaves are paired for you (a plain
     :py:func:`stacking.tree_zip` cannot do it -- it would recurse into the data-tuple leaves -- so a
     backend user would otherwise have to hand-roll a depth-aware zip). Inverse of
-    :py:func:`stack_frame_stack`.
+    :py:func:`tv_stack_frame_stack`.
     """
     n_tangent, n_frame = _tangent_stack_split(frame, variations)
     frame_tree = stacking.unstack(frame, axes=tuple(range(n_frame)))
@@ -511,7 +511,7 @@ def unstack_frame_stack(
     return _pair_frame_leaves(frame_tree, variations_tree, n_frame)
 
 
-def stack_frame_stack(
+def tv_stack_frame_stack(
         paired_tree,  # array-like tree (shape G) of (frame_data, variations_data) pairs
 ):  # -> (
     #        frame-data,       # stack = G
@@ -520,7 +520,7 @@ def stack_frame_stack(
     """Stack a G-shaped tree of ``(frame_data, variations_data)`` pairs over the frame stack G.
 
     The frame stack is placed *innermost* (the variation stack becomes V + G), matching the base-inner
-    convention. Takes exactly the paired-tree layout that :py:func:`unstack_frame_stack` produces (its
+    convention. Takes exactly the paired-tree layout that :py:func:`tv_unstack_frame_stack` produces (its
     inverse), so a backend user round-trips without splitting the pairs by hand.
     """
     n_frame = stacking.tree_depth(paired_tree) - 3   # |G|; a (frame_data, variations_data) leaf is 3 levels deep
@@ -531,7 +531,7 @@ def stack_frame_stack(
     return frame, variations
 
 
-def gauge_residual(
+def tv_gauge_residual(
         frame: typ.Tuple[
             typ.Sequence[NDArray],  # up_tucker_cores
             typ.Sequence[NDArray],  # down_tt_cores
@@ -546,7 +546,7 @@ def gauge_residual(
     '''Max violation of the gauge conditions for a tangent vector, **per stack element**.
 
     The gauged tangent space requires each tucker variation orthogonal to its up-core, and each
-    left-interior tt variation orthogonal to its left-core (see :py:func:`orthogonal_gauge_projection`).
+    left-interior tt variation orthogonal to its left-core (see :py:func:`tv_orthogonal_gauge_projection`).
     Returns the max absolute gauge inner product reduced over the **non-stack** axes (shape = the variation
     stack ``K+C``); a caller thresholds it (``<= atol``).
     '''
@@ -563,7 +563,7 @@ def gauge_residual(
     return xnp.max(xnp.stack(devs), axis=0)   # max over the checks, keep stack_shape
 
 
-def retract(
+def tv_retract(
         frame: typ.Tuple[
             typ.Sequence[NDArray],  # up_tucker_cores
             typ.Sequence[NDArray],  # down_tt_cores
@@ -580,7 +580,7 @@ def retract(
 ]:
     '''Retract a frame-variations tangent vector onto the fixed-rank manifold.
 
-    Forms the shifted doubled-rank embedding (base point + v) via :py:func:`tangent_to_t3`
+    Forms the shifted doubled-rank embedding (base point + v) via :py:func:`tv_to_t3`
     (``include_shift=True``) and truncates it back to the **base point's own ranks** -- the Tucker
     ``up`` ranks and ``left`` TT ranks read off the frame cores -- with the implicit T3-SVD, yielding
     a point on the manifold of the base point's ranks.
@@ -589,7 +589,7 @@ def retract(
     Train Taylor Series" (arXiv:2603.21141).
     '''
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
-    shifted = tangent_to_t3(frame, variations, include_shift=True)
+    shifted = tv_to_t3(frame, variations, include_shift=True)
     up_ranks = tuple(U.shape[-2] for U in up_tucker_cores)
     left_ranks = tuple(L.shape[-3] for L in left_tt_cores) + (left_tt_cores[-1].shape[-1],)
     retracted, _, _ = ragged_t3svd.t3svd(shifted, max_tucker_ranks=up_ranks, max_tt_ranks=left_ranks)

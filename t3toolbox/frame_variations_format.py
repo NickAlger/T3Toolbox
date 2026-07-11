@@ -14,7 +14,6 @@ import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.fv_conversions as fv_conversions
 import t3toolbox.backend.t3_operations as t3_operations
 import t3toolbox.tucker_tensor_train as t3
-import t3toolbox.backend.orthogonal_representations as orth_reps
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.fv_operations as fv_operations
 import t3toolbox.corewise as cw
@@ -111,7 +110,7 @@ class T3Frame:                     # jax aux_data (it holds arrays; value hash/e
     --------
     T3Variations
     check_t3_frame
-    orthogonal_representations
+    t3_orthogonal_representations
     oblique_gauge_projection
 
     Examples
@@ -272,7 +271,7 @@ class T3Frame:                     # jax aux_data (it holds arrays; value hash/e
         The expensive part of :py:meth:`is_orthogonal` -- a fixed frame reused across an inner loop (e.g.
         the safe-mode ORTH precondition of :py:meth:`~t3toolbox.manifold.ManifoldGeometry.project` on the
         same frame every matvec) is contracted **once**, not per call.'''
-        return orth_reps.frame_orthogonality_residual(self.data)
+        return fv_operations.fv_frame_orthogonality_residual(self.data)
 
     def is_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
         '''True (per stack element) if the frame cores are orthogonal in their respective senses.
@@ -615,7 +614,7 @@ class T3Frame:                     # jax aux_data (it holds arrays; value hash/e
         """Reverse the mode order. Left/right cores **swap roles** (reversing a left-orthogonal chain
         yields a right-orthogonal one), so ``new_left = reverse(old_right)`` and vice versa; the
         redundant L/R store makes this exact with no re-orthogonalization."""
-        return T3Frame(*fv_operations.reverse_frame(self.data))
+        return T3Frame(*fv_operations.fv_frame_reverse(self.data))
 
     def to_t3(self) -> 't3.TuckerTensorTrain':
         """The base point this frame represents, as a :py:class:`TuckerTensorTrain` (natural ranks).
@@ -655,7 +654,7 @@ class T3Frame:                     # jax aux_data (it holds arrays; value hash/e
         :py:meth:`from_t3`/:py:meth:`orthogonalize`) consistency holds by construction; this is for
         sanity-checking hand-built bases.
         """
-        return orth_reps.frame_consistency_residual(self.data) <= rtol
+        return fv_operations.fv_frame_consistency_residual(self.data) <= rtol
 
     def allclose(self, other: 'T3Frame', rtol: float = 1e-9, atol: float = 0.0) -> NDArray:  # bool array, stack_shape
         """``True`` (per stack element) if ``other`` represents the same base point as ``self`` (gauge-invariant).
@@ -919,7 +918,7 @@ class T3Variations:
         ``variation_shapes = (tucker_variation_shapes, tt_variation_shapes)`` -- e.g. a frame's
         :py:attr:`T3Frame.variation_shapes`. (See :py:meth:`zeros_like` to take the structure from an object.)
         """
-        return T3Variations(*fv_operations.zeros_variations(variation_shapes, stack_shape, use_jax))
+        return T3Variations(*fv_operations.fv_variations_zeros(variation_shapes, stack_shape, use_jax))
 
     @staticmethod
     def randn(
@@ -928,7 +927,7 @@ class T3Variations:
             use_jax:        bool = False,
     ) -> 'T3Variations':
         """Variations with i.i.d. N(0,1) core entries (corewise, ungauged). See :py:meth:`randn_like`."""
-        return T3Variations(*fv_operations.randn_variations(variation_shapes, stack_shape, use_jax))
+        return T3Variations(*fv_operations.fv_variations_randn(variation_shapes, stack_shape, use_jax))
 
     @staticmethod
     def unit(
@@ -944,7 +943,7 @@ class T3Variations:
         These units are the standard basis of the variation cores -- an **overcomplete, non-ambient-
         orthogonal** generating set of the tangent space, not an orthonormal basis.
         """
-        return T3Variations(*fv_operations.unit_variations(variation_shapes, index, stack_shape, use_jax))
+        return T3Variations(*fv_operations.fv_variations_unit(variation_shapes, index, stack_shape, use_jax))
 
     @staticmethod
     def zeros_like(x) -> 'T3Variations':
@@ -971,7 +970,7 @@ class T3Variations:
         ``variation_shapes = (tucker_variation_shapes, tt_variation_shapes)`` (e.g. a frame's
         :py:attr:`T3Frame.variation_shapes`); ``stack_shape`` is the full leading stack ``K + C``.
         """
-        return T3Variations(*fv_operations.variations_from_vector(flat, variation_shapes, stack_shape))
+        return T3Variations(*fv_operations.fv_variations_from_vector(flat, variation_shapes, stack_shape))
 
     def save(self, file) -> None:
         """Save the variation cores to a ``.npz`` file (load with :py:meth:`load`)."""
@@ -1288,7 +1287,7 @@ def t3_orthogonal_representations(
     >>> print(frame.shape, frame.stack_shape)                 # shape and stack are preserved
     (14, 15, 16) (2, 3)
     '''
-    result = orth_reps.orthogonal_representations(
+    result = fv_conversions.t3_orthogonal_representations(
         x.data, already_left_orthogonal=already_left_orthogonal, squash_tails=squash_tails,
     )
     return T3Frame(*result[0]), T3Variations(*result[1])

@@ -4,7 +4,7 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """Stateless tangent-stack reshuffles for the uniform tangent layer (UT3Tangent), uniform-fix 3b-1b.
 
-The uniform mirror of the ragged ``tangent_operations`` stack/unstack helpers, for the ``.data`` layout
+The uniform mirror of the ragged ``tv_operations`` stack/unstack helpers, for the ``.data`` layout
 ``(*supercores, shape, masks)`` with a leading mode index ``d`` and the stack at axes ``1 ..``. A uniform
 tangent's variations carry the full ``K + C`` stack (tangent stack ``K`` outermost, frame stack ``C``
 inner); the frame carries only ``C``. These functions split that stack into a Python tree of per-element
@@ -27,7 +27,7 @@ import t3toolbox.backend.ufv_operations as ufv_operations
 import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_svd as ut3_svd
-import t3toolbox.backend.tangent_operations as tangent_operations
+import t3toolbox.backend.tv_operations as tv_operations
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -62,7 +62,7 @@ def _tangent_stack_split(
     return n_full - n_frame, n_frame
 
 
-def _pair_leaves(frame_tree, variations_tree, n_frame):  # mirror tangent_operations._pair_frame_leaves
+def _pair_leaves(frame_tree, variations_tree, n_frame):  # mirror tv_operations._pair_frame_leaves
     """Pair a frame-data tree and a variations-data tree (same ``C``-shaped outer structure, ``n_frame``
     levels deep) leaf-by-leaf into one tree of ``(frame_data, variations_data)`` pairs. NOT a
     :py:func:`stacking.tree_zip`: the data-tuple leaves are themselves sequences (and carry the int-tuple
@@ -177,7 +177,7 @@ def tangent_to_ut3(
 ):  # -> doubled-rank UniformTuckerTensorTrain .data: (tucker_supercore, tt_supercore, shape, (tucker_mask, tt_mask))
     """Doubled-rank uniform Tucker tensor train representing a uniform frame-variations tangent vector.
 
-    The uniform mirror of :py:func:`tangent_operations.tangent_to_t3` (equations (50)-(53) / Figure 20,
+    The uniform mirror of :py:func:`tv_operations.tv_to_t3` (equations (50)-(53) / Figure 20,
     Appendix A.3.1 of Alger et al. 2026). The Tucker supercore becomes ``[U ; V]`` (concat along the
     Tucker-rank axis); the TT supercore is the block-bidiagonal embedding, uniform-padded to bonds
     ``rL+rR`` for every core with the **base-inner ``[R, L]`` bond order** (mirroring the ragged build).
@@ -279,7 +279,7 @@ def retract(
     ranks and ``left`` TT ranks read off the frame masks -- via the mask-truncated uniform T3-SVD. The output
     is a UT3 at the frame padded dims (``ut3svd`` truncates by max rank to a fixed shape, so no extra slice
     is needed), one retracted point per stack element. The uniform mirror of
-    :py:func:`tangent_operations.retract` (the implicit T3-SVD / Algorithm 10, Alger et al. 2026).
+    :py:func:`tv_operations.tv_retract` (the implicit T3-SVD / Algorithm 10, Alger et al. 2026).
 
     **Varying ranks across ``C``** work for free: the per-``C`` frame ranks are the per-element truncation
     targets. **The ``K`` (tangent) stack:** the frame ranks have stack ``C`` while the shifted UT3 has stack
@@ -374,7 +374,7 @@ def orthogonal_gauge_projection(
         variations_data,  # UT3Variations .data
 ):  # -> gauged variations .data (same masks; the tangent VECTOR changes)
     """Orthogonally project the variations onto the gauge-satisfying subspace (the uniform mirror of
-    :py:func:`tangent_operations.orthogonal_gauge_projection`). Removes the component of each Tucker
+    :py:func:`tv_operations.tv_orthogonal_gauge_projection`). Removes the component of each Tucker
     variation parallel to its up-core ``U`` and of each left-interior TT variation parallel to its
     left-core ``P`` -- the gauge conditions (48)-(49), Appendix A.3 of Alger et al. (2026). The
     represented tangent vector CHANGES (orthogonal, not oblique).
@@ -404,7 +404,7 @@ def oblique_gauge_projection(
         variations_data,  # UT3Variations .data
 ):  # -> gauged variations .data (same masks; the tangent VECTOR is PRESERVED)
     """Project the variations onto the gauge-satisfying subspace while PRESERVING the tangent vector (the
-    uniform mirror of :py:func:`tangent_operations.oblique_gauge_projection`). The Tucker perturbation is
+    uniform mirror of :py:func:`tv_operations.tv_oblique_gauge_projection`). The Tucker perturbation is
     made perpendicular to ``U`` (compensating through the down core ``O``), then the TT variations are made
     left-perpendicular (compensating through the right core ``Q``).
 
@@ -448,7 +448,7 @@ def gauge_residual(
         variations_data,  # UT3Variations .data
 ) -> NDArray:  # shape = variation stack (K+C); per stack element (scalar/0-d when unstacked)
     """Max violation of the gauge conditions for a uniform tangent vector, **per stack element** (the
-    uniform mirror of :py:func:`tangent_operations.gauge_residual`).
+    uniform mirror of :py:func:`tv_operations.tv_gauge_residual`).
 
     Each Tucker variation must be orthogonal to its up-core (``U^T dU = 0``) and each left-interior TT
     variation orthogonal to its left-core (``(P^L)^T dG^L = 0``). Mask-once, then the gauge grams vectorized
@@ -472,13 +472,13 @@ def project_ut3_onto_tangent_space(
         x_data,      # UniformTuckerTensorTrain .data to project, supercore stack = C
 ):  # -> gauged variations .data (the orthogonal projection of x onto the tangent space at the frame)
     """Orthogonal projection of a uniform Tucker tensor train onto the tangent space at an orthogonal frame
-    (the uniform mirror of :py:func:`tangent_operations.project_t3_onto_tangent_space`). Returns gauged
+    (the uniform mirror of :py:func:`tv_operations.tv_project_t3_onto_tangent_space`). Returns gauged
     variations representing the projection of ``x`` *directly* onto the tangent space (the linear subspace;
     it does NOT subtract the base point). The frame must be orthogonal (minimal rank not required).
 
     Mask-once up front, then: re-express ``x``'s TT cores in the frame's up-Tucker basis (a per-core map
     vectorized over ``d``); accumulate the left/right TT environments with the polymorphic
-    :py:func:`tangent_operations.tt_zipper_*` (uniform ``xscan``, mask-free since the operands are masked);
+    :py:func:`tv_operations.tt_zipper_*` (uniform ``xscan``, mask-free since the operands are masked);
     contract each environment into the ungauged Tucker/TT variations (a ``d``-axis map); then gauge."""
     up_sc, down_sc, left_sc, right_sc = ufv_masking.apply_frame_masks(frame_data)
     other_tk, other_tt = ut3_masking.apply_masks_to_cores(x_data)

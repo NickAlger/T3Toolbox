@@ -20,12 +20,12 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
+import t3toolbox.backend.fv_operations as fv_operations
 import t3toolbox.backend.common as common
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.sampling_derivatives as pd
-import t3toolbox.backend.tangent_operations as tops
+import t3toolbox.backend.tv_operations as tops
 import t3toolbox.backend.linalg as linalg
-import t3toolbox.backend.orthogonal_representations as orth_reps
 import t3toolbox.backend.probing as probing
 import t3toolbox.fitting as fitting
 
@@ -294,17 +294,17 @@ class TestDispatch(unittest.TestCase):
         # one custom contraction (contractions.py)
         FGa = jnp.ones((2, 3)); Gaib = jnp.ones((3, 4, 5)); FGi = jnp.ones((2, 4))
         self.assert_jit_jax(lambda a, b, c: contractions.WCa_Caib_WCi_to_WCb(a, b, c), FGa, Gaib, FGi)
-        # orthogonal_representations (orthogonal_representations.py) -> returns (T3Frame, T3Variations)
+        # t3_orthogonal_representations (fv_conversions.py) -> returns (T3Frame, T3Variations)
         self.assert_jit_jax(lambda a: bvf.t3_orthogonal_representations(a), self.x)
-        # tangent backend (tangent_operations.py)
-        self.assert_jit_jax(lambda b, v: tops.tangent_to_dense(b, v), self.frame.data, self.var.data)
+        # tangent backend (tv_operations.py)
+        self.assert_jit_jax(lambda b, v: tops.tv_to_dense(b, v), self.frame.data, self.var.data)
         # contraction-only dense projection (no SVD -> static shapes -> jit-able)
         dense = jnp.asarray(np.random.randn(*STRUCT[0]))
-        self.assert_jit_jax(lambda b, z: tops.project_dense_onto_tangent_space(b, z), self.frame.data, dense)
+        self.assert_jit_jax(lambda b, z: tops.tv_project_dense_onto_tangent_space(b, z), self.frame.data, dense)
         # residual / checker backends -> jax scalar (raw-np dispatch fix)
-        self.assert_jit_jax(lambda b: orth_reps.frame_orthogonality_residual(b), self.frame.data)
-        self.assert_jit_jax(lambda b: orth_reps.frame_consistency_residual(b), self.frame.data)
-        self.assert_jit_jax(lambda b, v: tops.gauge_residual(b, v), self.frame.data, self.var.data)
+        self.assert_jit_jax(lambda b: fv_operations.fv_frame_orthogonality_residual(b), self.frame.data)
+        self.assert_jit_jax(lambda b: fv_operations.fv_frame_consistency_residual(b), self.frame.data)
+        self.assert_jit_jax(lambda b, v: tops.tv_gauge_residual(b, v), self.frame.data, self.var.data)
 
     # ---------------------------------------------------- jit bucket: Gauss-Newton fitting (fitting.py)
     def test_jit_fitting(self):

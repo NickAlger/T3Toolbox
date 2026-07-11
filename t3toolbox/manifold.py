@@ -15,7 +15,7 @@ import t3toolbox.frame_variations_format as bvf
 import t3toolbox.corewise as cw
 import t3toolbox.safety as safety
 import t3toolbox.backend.stacking as stacking
-import t3toolbox.backend.tangent_operations as tangent_operations
+import t3toolbox.backend.tv_operations as tv_operations
 import t3toolbox.backend.probing as probing
 import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
@@ -215,7 +215,7 @@ class T3Tangent:
         The tangent vector is the sum of the 2d single-core-replacement terms (one per Tucker hole
         and one per TT hole). With ``include_shift=True``, the base point is added (base point + v).
         """
-        return tangent_operations.tangent_to_dense(
+        return tv_operations.tv_to_dense(
             self.frame.data, self.variations.data, include_shift=include_shift,
         )
 
@@ -231,7 +231,7 @@ class T3Tangent:
         This is the doubled-rank representation of Appendix A.3.1 (equations (50)-(53) and Figure 20)
         in Alger et al. (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
-        cores = tangent_operations.tangent_to_t3(
+        cores = tv_operations.tv_to_t3(
             self.frame.data, self.variations.data, include_shift=include_shift,
         )
         return t3.TuckerTensorTrain(*cores)
@@ -456,7 +456,7 @@ class T3Tangent:
         The expensive part of :py:meth:`is_gauged` -- a fixed tangent reused across an inner loop (e.g.
         the safe-mode GAUGE precondition of :py:meth:`ManifoldGeometry.inner`) is contracted **once**.
         """
-        return tangent_operations.gauge_residual(self.frame.data, self.variations.data)
+        return tv_operations.tv_gauge_residual(self.frame.data, self.variations.data)
 
     def is_gauged(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = variation stack K+C (scalar unstacked)
         """True (per stack element) if the variations are gauged with respect to the frame.
@@ -973,7 +973,7 @@ class T3Tangent:
         **same** :py:class:`T3Frame` object, so the leaves live in one tangent space (linear algebra
         between them is defined). Inverse of :py:meth:`stack_tangents`.
         """
-        variations_tree = tangent_operations.unstack_tangent_stack(self.frame.data, self.variations.data)
+        variations_tree = tv_operations.tv_unstack_tangent_stack(self.frame.data, self.variations.data)
         leaf_structure = ((None,) * self.d, (None,) * self.d)  # a single T3Variations.data
         return stacking.apply_func_to_leaf_subtrees(
             variations_tree,
@@ -989,7 +989,7 @@ class T3Tangent:
         sit at **different** base points (different tangent spaces, so they are not mutually
         linear-algebra compatible). Inverse of :py:meth:`stack_frame`.
         """
-        paired_tree = tangent_operations.unstack_frame_stack(self.frame.data, self.variations.data)
+        paired_tree = tv_operations.tv_unstack_frame_stack(self.frame.data, self.variations.data)
         leaf_structure = (((None,) * self.d,) * 4,            # one (frame_data,
                           ((None,) * self.d, (None,) * self.d))  #      variations_data) pair
         return stacking.apply_func_to_leaf_subtrees(
@@ -1017,7 +1017,7 @@ class T3Tangent:
                     'stack_frame. (Run inside safety.unsafe() to skip this numerical check.)'
                 )
         variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
-        variations_data = tangent_operations.stack_tangent_stack(variations_tree)
+        variations_data = tv_operations.tv_stack_tangent_stack(variations_tree)
         return T3Tangent(frame, bvf.T3Variations(*variations_data))
 
     @staticmethod
@@ -1039,7 +1039,7 @@ class T3Tangent:
                 )
         paired_tree = stacking.apply_func_to_leaf_subtrees(
             tree, lambda t: (t.frame.data, t.variations.data), None)
-        frame_data, variations_data = tangent_operations.stack_frame_stack(paired_tree)
+        frame_data, variations_data = tv_operations.tv_stack_frame_stack(paired_tree)
         return T3Tangent(bvf.T3Frame(*frame_data), bvf.T3Variations(*variations_data))
 
 
@@ -1167,7 +1167,7 @@ class ManifoldGeometry:
         jax trace.
         """
         _require_orthogonal_frame(v.frame, 'ManifoldGeometry.project')
-        new_variations = tangent_operations.orthogonal_gauge_projection(v.frame.data, v.variations.data)
+        new_variations = tv_operations.tv_orthogonal_gauge_projection(v.frame.data, v.variations.data)
         return T3Tangent(v.frame, bvf.T3Variations(*new_variations))
 
     def project_oblique(
@@ -1184,7 +1184,7 @@ class ManifoldGeometry:
         ``safety.unsafe()`` / a jax trace.
         """
         _require_orthogonal_frame(v.frame, 'ManifoldGeometry.project_oblique')
-        new_variations = tangent_operations.oblique_gauge_projection(v.frame.data, v.variations.data)
+        new_variations = tv_operations.tv_oblique_gauge_projection(v.frame.data, v.variations.data)
         return T3Tangent(v.frame, bvf.T3Variations(*new_variations))
 
     def inner(
@@ -1248,7 +1248,7 @@ class ManifoldGeometry:
         strictly (``docs/numerical_contract_catalog.md``).
         """
         _require_orthogonal_frame(p.frame, 'ManifoldGeometry.retract')
-        cores = tangent_operations.retract(p.frame.data, p.variations.data)
+        cores = tv_operations.tv_retract(p.frame.data, p.variations.data)
         return t3.TuckerTensorTrain(*cores)
 
     def project_ambient(
@@ -1270,10 +1270,10 @@ class ManifoldGeometry:
         """
         _require_orthogonal_frame(frame, 'ManifoldGeometry.project_ambient')
         if isinstance(grad, t3.TuckerTensorTrain):
-            variations = tangent_operations.project_t3_onto_tangent_space(frame.data, grad.data)
+            variations = tv_operations.tv_project_t3_onto_tangent_space(frame.data, grad.data)
             return T3Tangent(frame, bvf.T3Variations(*variations))
         if method == 'contraction':
-            variations = tangent_operations.project_dense_onto_tangent_space(frame.data, grad)
+            variations = tv_operations.tv_project_dense_onto_tangent_space(frame.data, grad)
             return T3Tangent(frame, bvf.T3Variations(*variations))
         elif method == 't3svd':
             d = len(frame.shape)

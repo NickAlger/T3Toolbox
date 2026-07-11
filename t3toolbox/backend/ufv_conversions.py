@@ -5,7 +5,7 @@
 import numpy as np
 import typing as typ
 
-import t3toolbox.backend.orthogonal_representations as orth_reps
+import t3toolbox.backend.fv_conversions as fv_conversions
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.backend.ut3_masking as ut3_masking
@@ -91,8 +91,8 @@ def ut3_orthogonal_representations(
     tk_sc, tt_sc, shape, (tkm, ttm) = data
     masked_tk, masked_tt = ut3_masking.apply_masks_to_cores(data)   # zero the garbage before the SVD sweep
 
-    # orth_reps.orthogonal_representations is polymorphic (accepts uniform supercores) and SVD-based.
-    (uc, dc, lc, rc), (tkv, ttv) = orth_reps.orthogonal_representations(
+    # fv_conversions.t3_orthogonal_representations is polymorphic (accepts uniform supercores) and SVD-based.
+    (uc, dc, lc, rc), (tkv, ttv) = fv_conversions.t3_orthogonal_representations(
         (masked_tk, masked_tt), already_left_orthogonal=already_left_orthogonal, squash_tails=squash_tails)
 
     up_ranks, down_ranks, left_ranks, right_ranks = ranks.compute_orthogonal_representation_ranks(

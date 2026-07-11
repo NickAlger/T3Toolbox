@@ -26,8 +26,8 @@ import math
 import typing as typ
 
 from t3toolbox.backend.common import *
-from t3toolbox.backend import tangent_operations as tops
-from t3toolbox.backend.orthogonal_representations import orthogonal_representations
+from t3toolbox.backend import tv_operations as tops
+from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
 import t3toolbox.corewise as cw
 
 __all__ = [
@@ -76,14 +76,14 @@ COREWISE = GeometryOps(
 def _manifold_frame(
         x_cores: Tangent,    # (tucker_cores, tt_cores)
 ) -> typ.Tuple:              # (U, O, P, Q) orthonormal frame (Algorithm 11)
-    frame, _ = orthogonal_representations(x_cores)
+    frame, _ = t3_orthogonal_representations(x_cores)
     return frame
 
 
 MANIFOLD = GeometryOps(
     frame=_manifold_frame,
-    project=lambda frame, var: tops.orthogonal_gauge_projection(frame, var),   # Π  (gauge-fix the tangent)
-    retract=lambda frame, var: tops.retract(frame, var),                       # implicit truncated T3-SVD
+    project=lambda frame, var: tops.tv_orthogonal_gauge_projection(frame, var),   # Π  (gauge-fix the tangent)
+    retract=lambda frame, var: tops.tv_retract(frame, var),                       # implicit truncated T3-SVD
     inner=cw.corewise_dot,                                                    # ragged coordinate dot
 )
 

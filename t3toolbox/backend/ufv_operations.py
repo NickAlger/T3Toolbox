@@ -212,7 +212,7 @@ def ufv_frame_orthogonality_residual(data):  # UT3Frame .data -> max orthogonali
     require its Gram == ``diag(outgoing_mask)`` -- the masked-Gram pattern, over the four senses (up ``U``,
     down/outer ``O``, left ``L``, right ``R``), with the correct outgoing mask per sense (left core ``i`` ->
     ``frame_left_mask[i+1]``). The uniform analog of
-    :py:func:`orthogonal_representations.frame_orthogonality_residual`; the per-element oracle is the ragged
+    :py:func:`fv_operations.fv_frame_orthogonality_residual`; the per-element oracle is the ragged
     one via ``to_t3frame``. The boundary left/right cores are remainders and are not checked (so left
     checks cores ``0..d-2``, right checks ``1..d-1``)."""
     up_sc, down_sc, left_sc, right_sc, shape, (um, dm, lm, rm) = data

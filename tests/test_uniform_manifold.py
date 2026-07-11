@@ -788,11 +788,11 @@ class TestGarbageInputRobustness(unittest.TestCase):
 
 class TestRetract(unittest.TestCase):
     """3b-2: backend retract (shifted doubled-rank -> mask-truncated T3-SVD back to the frame ranks),
-    verified per stack element against the ragged tangent_operations.retract."""
+    verified per stack element against the ragged tv_operations.tv_retract."""
     def setUp(self):
         np.random.seed(0)
         import t3toolbox.backend.ufv_tangent_operations as ubvt
-        import t3toolbox.backend.tangent_operations as tops
+        import t3toolbox.backend.tv_operations as tops
         self.ubvt, self.tops = ubvt, tops
 
     def _check(self, v):
@@ -808,7 +808,7 @@ class TestRetract(unittest.TestCase):
         utk = np.asarray(ru.tucker_ranks).reshape(ru.d, -1)
         utt = np.asarray(ru.tt_ranks).reshape(ru.d + 1, -1)
         for i, leaf in enumerate(flat):
-            rT = t3.TuckerTensorTrain(*self.tops.retract(leaf.frame.to_t3frame().data,
+            rT = t3.TuckerTensorTrain(*self.tops.tv_retract(leaf.frame.to_t3frame().data,
                                                          leaf.variations.to_t3variations().data))
             rd = rT.to_dense()
             self.assertLess(float(np.linalg.norm(dflat[i] - rd)) / (float(np.linalg.norm(rd)) + 1e-30), 1e-9)
@@ -849,11 +849,11 @@ def _wrap_var(vd):
 
 class TestGauge(unittest.TestCase):
     """3b-3: the gauge layer -- orthogonal / oblique gauge projection + gauge_residual / is_gauged,
-    verified against the ragged tangent_operations (conditions (48)-(49), Appendix A.3)."""
+    verified against the ragged tv_operations (conditions (48)-(49), Appendix A.3)."""
     def setUp(self):
         np.random.seed(0)
         import t3toolbox.backend.ufv_tangent_operations as ubvt
-        import t3toolbox.backend.tangent_operations as tops
+        import t3toolbox.backend.tv_operations as tops
         self.ubvt, self.tops = ubvt, tops
 
     def _gauged_tangent(self, v, which):  # apply a backend gauge projection -> a new UT3Tangent
@@ -888,7 +888,7 @@ class TestGauge(unittest.TestCase):
             dense = np.asarray(ug.to_dense()); dflat = dense.reshape((-1,) + dense.shape[len(v.stack_shape):])
             for i, leaf in enumerate(_full_unstack(v)):
                 rt = self._ragged(leaf)
-                rg = t3m.T3Tangent(rt.frame, bvf.T3Variations(*self.tops.orthogonal_gauge_projection(rt.frame.data, rt.variations.data)))
+                rg = t3m.T3Tangent(rt.frame, bvf.T3Variations(*self.tops.tv_orthogonal_gauge_projection(rt.frame.data, rt.variations.data)))
                 with self.subTest(ss=ss, K=K, fp=fp, i=i):
                     self.assertLess(float(np.linalg.norm(dflat[i] - rg.to_dense())) / (float(np.linalg.norm(rg.to_dense())) + 1e-30), 1e-10)
 
@@ -942,11 +942,11 @@ class TestGauge(unittest.TestCase):
 
 class TestProjectOntoTangent(unittest.TestCase):
     """3b-4: backend project_ut3_onto_tangent_space (orthogonal projection of a UT3 onto the tangent space
-    at an orthogonal frame), verified per element against ragged project_t3_onto_tangent_space."""
+    at an orthogonal frame), verified per element against ragged tv_project_t3_onto_tangent_space."""
     def setUp(self):
         np.random.seed(0)
         import t3toolbox.backend.ufv_tangent_operations as ubvt
-        import t3toolbox.backend.tangent_operations as tops
+        import t3toolbox.backend.tv_operations as tops
         self.ubvt, self.tops = ubvt, tops
 
     def _check_pair(self, p, x):  # p, x: ragged TuckerTensorTrains (same shape); project x onto tangent at p's frame
@@ -954,7 +954,7 @@ class TestProjectOntoTangent(unittest.TestCase):
         xu = ut3.UniformTuckerTensorTrain.from_t3(x)
         uv = ut3m.UT3Tangent(B, _wrap_var(self.ubvt.project_ut3_onto_tangent_space(B.data, xu.data)))
         rb = B.to_t3frame()
-        rvar = self.tops.project_t3_onto_tangent_space(rb.data, x.data)
+        rvar = self.tops.tv_project_t3_onto_tangent_space(rb.data, x.data)
         rd = t3m.T3Tangent(rb, bvf.T3Variations(*rvar)).to_dense()
         self.assertLess(float(np.linalg.norm(np.asarray(uv.to_dense()) - np.asarray(rd))) / (float(np.linalg.norm(rd)) + 1e-30), 1e-10)
         self.assertTrue(bool(uv.is_gauged().all()))
@@ -978,7 +978,7 @@ class TestProjectOntoTangent(unittest.TestCase):
         ud = np.asarray(uv.to_dense())
         rb_tree, x_tree = B.to_t3frame(), xs.unstack()
         for i in range(2):
-            rvar = self.tops.project_t3_onto_tangent_space(rb_tree[i].data, x_tree[i].data)
+            rvar = self.tops.tv_project_t3_onto_tangent_space(rb_tree[i].data, x_tree[i].data)
             rd = t3m.T3Tangent(rb_tree[i], bvf.T3Variations(*rvar)).to_dense()
             self.assertLess(float(np.linalg.norm(ud[i] - rd)) / (float(np.linalg.norm(rd)) + 1e-30), 1e-10)
         self.assertTrue(bool(uv.is_gauged().all()))
@@ -997,7 +997,7 @@ class TestProjectOntoTangent(unittest.TestCase):
         uv = ut3m.UT3Tangent(B, _wrap_var(self.ubvt.project_ut3_onto_tangent_space(B.data, xu.data)))
         ud = np.asarray(uv.to_dense())
         for i in range(2):
-            rvar = self.tops.project_t3_onto_tangent_space(bases[i].to_t3frame().data, xs[i][1].data)
+            rvar = self.tops.tv_project_t3_onto_tangent_space(bases[i].to_t3frame().data, xs[i][1].data)
             rd = t3m.T3Tangent(bases[i].to_t3frame(), bvf.T3Variations(*rvar)).to_dense()
             self.assertLess(float(np.linalg.norm(ud[i] - rd)) / (float(np.linalg.norm(rd)) + 1e-30), 1e-10)
         self.assertTrue(bool(uv.is_gauged().all()))
