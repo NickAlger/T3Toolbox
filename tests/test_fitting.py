@@ -286,7 +286,7 @@ class TestGaussNewtonModel(unittest.TestCase):
              [np.asarray(z) for z in pd.t3_probe_derivatives(ww, pp, X.data, order)]),
         ]
         relerr = lambda a, b: float(cw.corewise_norm(cw.corewise_sub(a, b)) / cw.corewise_norm(b))
-        for geom_f, geom_b in [(t3m.MANIFOLD, bopt.MANIFOLD), (t3m.COREWISE, bopt.COREWISE)]:
+        for geom_f, geom_b in [(t3m.MANIFOLD, bopt.MANIFOLD_OPS), (t3m.COREWISE, bopt.COREWISE_OPS)]:
             for name, factory, fargs, bkind, sample, Sx in cases:
                 with self.subTest(geom=geom_f, kind=name):
                     r = [np.asarray(z) for z in Sx] if isinstance(Sx, list) else Sx

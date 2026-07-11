@@ -50,7 +50,7 @@ class TestBackendOptimizers(unittest.TestCase):
         self.X = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
 
     # (geometry name, backend GeometryOps, frontend geometry singleton)
-    GEOMS = [('corewise', opt.COREWISE, t3m.COREWISE), ('manifold', opt.MANIFOLD, t3m.MANIFOLD)]
+    GEOMS = [('corewise', opt.COREWISE_OPS, t3m.COREWISE), ('manifold', opt.MANIFOLD_OPS, t3m.MANIFOLD)]
     _FMODEL = {'apply': fitting.apply_model, 'entries': fitting.entries_model, 'probe': fitting.probe_model}
     _BKIND = {'apply': bfit.APPLY, 'entries': bfit.ENTRIES, 'probe': bfit.PROBE}
 
@@ -122,11 +122,11 @@ class TestBackendOptimizers(unittest.TestCase):
         e0 = true_err(x0)
 
         with self.subTest(optimizer='mc_sgd', geometry='manifold'):
-            pm = opt.least_squares_problem(opt.MANIFOLD, bfit.PROBE, ww, data)
+            pm = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
             xm, _ = opt.mc_sgd(pm, x0, np.random.default_rng(3), batch=40, max_iter=500)
             self.assertLess(true_err(xm), 0.3 * e0)
         with self.subTest(optimizer='adam', geometry='corewise'):
-            pc = opt.least_squares_problem(opt.COREWISE, bfit.PROBE, ww, data)
+            pc = opt.least_squares_problem(opt.COREWISE_OPS, bfit.PROBE, ww, data)
             xc, _ = opt.adam(pc, x0, np.random.default_rng(3), batch=40, lr=2e-2, max_iter=600)
             self.assertLess(true_err(xc), 0.3 * e0)
 
@@ -153,7 +153,7 @@ class TestBackendOptimizers(unittest.TestCase):
         }
         for name, (kind, sample, data) in cases.items():
             with self.subTest(kind=name):
-                prob = opt.least_squares_problem(opt.COREWISE, kind, sample, data)
+                prob = opt.least_squares_problem(opt.COREWISE_OPS, kind, sample, data)
                 gU, gG = prob.local_model(X0.data).gradient
                 dU = [rng.standard_normal(u.shape) for u in X0.tucker_cores]
                 dG = [rng.standard_normal(g.shape) for g in X0.tt_cores]
@@ -171,7 +171,7 @@ class TestBackendOptimizers(unittest.TestCase):
                 sB, dB = opt.flat_draw(prob, batch=5)(rng)
                 self.assertTrue(np.isfinite(float(prob.local_model(X0.data, sB, dB).objective)))
         # recovery: mc_sgd (manifold) from a zero start, with the apply-derivatives kind + flat default
-        prob_m = opt.least_squares_problem(opt.MANIFOLD, bfit.apply_derivatives_kind(order, omega), (ww, pp),
+        prob_m = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.apply_derivatives_kind(order, omega), (ww, pp),
                                            np.asarray(pd.t3_apply_derivatives(ww, pp, Xtrue.data, order)))
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
         _, stats = opt.mc_sgd(prob_m, x0, np.random.default_rng(1), batch=6, max_iter=400)
@@ -182,7 +182,7 @@ class TestBackendOptimizers(unittest.TestCase):
         start (the orthonormal frame completion makes the zero tensor a valid start). Eager + use_jit."""
         rng = np.random.default_rng(4)
         ww = unit_vecs(300, SHAPE, rng); data = dense_probe(self.A, ww)
-        problem = opt.least_squares_problem(opt.MANIFOLD, bfit.PROBE, ww, data)
+        problem = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
         A_norm = float(np.linalg.norm(self.A))
         for use_jit in (False, True):                       # eager and (silent-fallback / jax) jit paths agree
@@ -207,8 +207,8 @@ class TestBackendOptimizers(unittest.TestCase):
         x0_j = jax.tree_util.tree_map(jnp.asarray, (tuple(sc * C for C in self.X.data[0]),
                                                     tuple(sc * C for C in self.X.data[1])))
         e0 = true_err(x0_j)
-        pm = opt.least_squares_problem(opt.MANIFOLD, bfit.PROBE, ww_j, data_j)
-        pc = opt.least_squares_problem(opt.COREWISE, bfit.PROBE, ww_j, data_j)
+        pm = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww_j, data_j)
+        pc = opt.least_squares_problem(opt.COREWISE_OPS, bfit.PROBE, ww_j, data_j)
 
         with self.subTest(optimizer='newton_cg'):
             x0z = jax.tree_util.tree_map(jnp.asarray, t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data)
@@ -229,7 +229,7 @@ class TestBackendOptimizers(unittest.TestCase):
             wwa = [jnp.asarray(np.asarray(w)[:NW]) for w in ww]            # (NW, Ni) -- a subset of the W stack
             ppa = [jnp.asarray(rng.standard_normal((NW, N))) for N in SHAPE]
             da = jnp.asarray(pd.t3_apply_derivatives(wwa, ppa, t3.TuckerTensorTrain(*x0z).data, order)) * 0.0 + 1.0
-            prob_d = opt.least_squares_problem(opt.MANIFOLD, bfit.apply_derivatives_kind(order, [1.0, .5, .3]),
+            prob_d = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.apply_derivatives_kind(order, [1.0, .5, .3]),
                                                (wwa, ppa), da)
             xd, _ = opt.mc_sgd(prob_d, x0z, np.random.default_rng(7), batch=20, max_iter=120, use_jit=True)
             self.assertIsInstance(xd[0][0], jnp.ndarray)        # jit-compiled (a stray np.* on a tracer raises)

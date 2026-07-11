@@ -18,7 +18,7 @@ The oracle:
   * ``Problem``      -- (geometry ops, sampling kind, sample, data); builds ``LocalModel``s and retracts.
   * ``LocalModel``   -- the GN model linearized at a point (``.gradient`` / ``.objective`` / ``.hvp`` /
                         ``.gn_quadratic`` / ``.retract``), the backend twin of ``fitting.GaussNewtonModel``.
-  * ``GeometryOps``  -- (frame, project, retract) on raw data; ``MANIFOLD`` / ``COREWISE`` singletons.
+  * ``GeometryOps``  -- (frame, project, retract) on raw data; ``MANIFOLD_OPS`` / ``COREWISE_OPS`` singletons.
 Tangent vectors are raw ``(tucker_var, tt_var)`` tuples; vector arithmetic is the ``corewise`` ops.
 """
 import dataclasses as dc
@@ -32,8 +32,8 @@ import t3toolbox.corewise as cw
 
 __all__ = [
     'GeometryOps',
-    'COREWISE',
-    'MANIFOLD',
+    'COREWISE_OPS',
+    'MANIFOLD_OPS',
     'Problem',
     'LocalModel',
     'least_squares_problem',
@@ -65,7 +65,7 @@ def _corewise_frame(
     return (tucker_cores, tt_cores, tt_cores, tt_cores)
 
 
-COREWISE = GeometryOps(
+COREWISE_OPS = GeometryOps(
     frame=_corewise_frame,
     project=lambda frame, var: var,                                   # Euclidean cores: no gauge projection
     retract=lambda frame, var: cw.corewise_add((frame[0], frame[2]), var),   # additive: (U,P)=(U,G) += var
@@ -80,7 +80,7 @@ def _manifold_frame(
     return frame
 
 
-MANIFOLD = GeometryOps(
+MANIFOLD_OPS = GeometryOps(
     frame=_manifold_frame,
     project=lambda frame, var: tops.tv_orthogonal_gauge_projection(frame, var),   # Π  (gauge-fix the tangent)
     retract=lambda frame, var: tops.tv_retract(frame, var),                       # implicit truncated T3-SVD
@@ -157,7 +157,7 @@ class Problem:
 
 
 def least_squares_problem(
-        geom:   GeometryOps,   # COREWISE / MANIFOLD
+        geom:   GeometryOps,   # COREWISE_OPS / MANIFOLD_OPS
         kind:   typ.Any,       # backend fitting.{APPLY,ENTRIES,PROBE} or a derivative kind
         sample: typ.Any,       # ww / index / (ww,pp) / (index,pp)
         data:   typ.Any,       # observed values

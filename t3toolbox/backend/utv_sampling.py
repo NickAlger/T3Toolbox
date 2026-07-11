@@ -5,7 +5,7 @@
 """Uniform tangent sampling (UT3Tangent probe / apply / entries), uniform-fix 3b-6b.
 
 The uniform mirror of the ragged ``T3Tangent`` sampling frontend, sharing the polymorphic
-``probing.{probe,apply,entries}_tangent``. The boundary work is the same as the plain layer's
+``{probing.tv_probe, apply.tv_apply, entries.tv_entries}``. The boundary work is the same as the plain layer's
 ``ut3_sampling`` (the precedent), lifted to the frame-variations pair:
 
 1. **mask-once** the frame (4) and variation (2) supercores -- so the padded rank slots are zero and the
@@ -110,7 +110,7 @@ def utv_entries(
 
 # ----------------------------------------------------------------- the split precompute -> from_sweep seam
 # The SamplingKind hooks for the uniform Gauss-Newton fitting model (optimizers-on-uniform U3), the uniform
-# twins of probing.{precompute_*_frame_sweep, *_jacobian_from_sweep, *_transpose_from_sweep}. The frame sweep
+# twins of the ragged tv sweep machinery (tv_precompute_*_frame_sweep, tv_*_jacobian_from_sweep, tv_*_transpose_from_sweep in probing/apply/entries). The frame sweep
 # is the expensive, W-scaled part (the environment tensors); precomputed ONCE per frame and reused across
 # every J / Jᵀ of an inner solve (e.g. Newton-CG). Here the uniform sweep additionally carries the
 # boundary-processed operands -- the mask-once frame (a bare-supercore 4-tuple) + the packed probe vectors
@@ -225,8 +225,8 @@ def utv_entries_transpose_from_sweep(
 
 # ----------------------------------------------------------------- the split seam, DERIVATIVE (jet) twins
 # The jet-ified split-seam hooks for the uniform derivative Gauss-Newton fitting model (optimizers-on-
-# uniform U3'), the uniform twins of sampling_derivatives.{precompute_*_frame_sweep_jets,
-# *_jacobian_derivatives_from_sweep, *_transpose_derivatives_from_sweep}. Same recipe as the plain seam:
+# uniform U3'), the uniform twins of the ragged jet sweep machinery (sampling_derivatives: tv_precompute_*_frame_sweep_jets,
+# *_jacobian_derivatives_from_sweep, *_transpose_derivatives_from_sweep). Same recipe as the plain seam:
 # the uniform sweep carries the mask-once frame + the packed X (`ww`) AND perturbation (`pp`) vectors +
 # the static shape + the jet frame sweep, so from_sweep re-masks/re-packs nothing per matvec:
 #

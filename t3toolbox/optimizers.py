@@ -54,9 +54,9 @@ Point = typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain]
 def _geometry_ops(geometry) -> bopt.GeometryOps:
     """Map a **ragged** frontend geometry singleton to its backend ``GeometryOps`` (check-free)."""
     if geometry is t3m.MANIFOLD:
-        return bopt.MANIFOLD
+        return bopt.MANIFOLD_OPS
     if geometry is t3m.COREWISE:
-        return bopt.COREWISE
+        return bopt.COREWISE_OPS
     raise ValueError(f"unknown geometry {geometry!r}; expected manifold.MANIFOLD / manifold.COREWISE "
                      f"(or the uniform singletons uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE, "
                      f"with a UniformTuckerTensorTrain x0)")

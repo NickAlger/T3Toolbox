@@ -19,6 +19,7 @@ __all__ = [
     't3_concatenate',
     'tucker_change_core_shapes',
     't3_unstack',
+    't3_stack',
     't3_core_shapes',
     't3_sum',
 ]

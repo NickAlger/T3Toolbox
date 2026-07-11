@@ -1478,7 +1478,7 @@ def tv_entries_derivatives_transpose(
 # The gradient of a plain-T3 derivative sampling op w.r.t. the cores of the frame (treated as
 # independent variables) -- the Section 6.3 "corewise simplification": the tangent derivative
 # transpose with the frame's OWN cores in place of the orthogonal frames (P, Q, O -> G_i), U no longer
-# required orthogonal. Trivial substitution wrappers (cf. probing.{probe,apply,entries}_corewise_transpose);
+# required orthogonal. Trivial substitution wrappers (cf. the t3_*_corewise_transpose trio in probing/apply/entries);
 # return raw (tucker_grads, tt_grads) shaped like the cores. Verified vs jax.grad of the forward.
 
 

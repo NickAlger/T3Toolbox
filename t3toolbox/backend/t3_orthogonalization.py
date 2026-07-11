@@ -17,6 +17,10 @@ __all__ = [
     't3_down_svd_tucker_core',
     't3_left_svd_tt_core',
     't3_right_svd_tt_core',
+    't3_down_svd_tt_core',
+    't3_up_svd_tt_core',
+    't3_orthogonalize_relative_to_tucker_core',
+    't3_orthogonalize_relative_to_tt_core',
     't3_orthogonality_residual',
 ]
 

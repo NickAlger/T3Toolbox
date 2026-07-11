@@ -307,7 +307,7 @@ class TestUniformProblem(unittest.TestCase):
     LocalModel -- objective, gradient (via <g, p>), and gn_quadratic(p) -- on the equivalent frame, for
     every sampling kind and both geometries. This certifies the Problem factory's sample/data packing and
     the reused LocalModel wiring."""
-    _GEOMS = [('manifold', bopt.MANIFOLD, t3m.MANIFOLD), ('corewise', bopt.COREWISE, t3m.COREWISE)]
+    _GEOMS = [('manifold', bopt.MANIFOLD_OPS, t3m.MANIFOLD), ('corewise', bopt.COREWISE_OPS, t3m.COREWISE)]
 
     def setUp(self):
         import t3toolbox.corewise as cw
@@ -391,7 +391,7 @@ class TestUniformOptimizers(unittest.TestCase):
         self._x0u = (self.ux0.data[0], self.ux0.data[1])
 
     def _problems(self, geom):
-        bg = {'manifold': bopt.MANIFOLD, 'corewise': bopt.COREWISE}[geom]
+        bg = {'manifold': bopt.MANIFOLD_OPS, 'corewise': bopt.COREWISE_OPS}[geom]
         return (bopt.least_squares_problem(bg, bfit.APPLY, self.ww, self.data),
                 uf.uniform_least_squares_problem(geom, 'apply', self.ux0, self.ww, self.data))
 
