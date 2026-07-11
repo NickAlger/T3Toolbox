@@ -12,7 +12,9 @@ _Started 2026-06-21._
 > for frame/variation-only ops; (b) singular alignment (`compute_mus→compute_mu`); (c) accept long morphemes;
 > (d) the C stack is structurally a batch of *frames* → "frame stack". **Still open:** the cross-class
 > method-name sweep (§3, verify-before-merge), the §1 auto-fixes (`probe_t3→t3_probe` etc.), and §4's backend
-> module reorg (**DEFERRED**). See `dev/HANDOFF.md`.
+> module reorg (**un-deferred 2026-07-10** — file-level reorg only, polymorphism triage dropped).
+> **Execution plan + full token inventory: `dev/naming_pass_plan.md`** (Slice 0 artifact, under review).
+> See `dev/HANDOFF.md`.
 
 _The log below records the agreed conventions + open concerns (planning notes; some now executed per the
 banner above)._
