@@ -21,7 +21,7 @@ from t3toolbox.backend.common import *
 import t3toolbox.backend.t3_conversions as t3_conversions
 
 __all__ = [
-    'absorb_weights_into_tangent_cores',
+    # (absorb_weights_into_tangent_cores is deliberately unexported: PARKED weighted-layer code)
     'fv_variations_from_vector',
     'fv_variations_zeros',
     'fv_variations_randn',
@@ -163,7 +163,9 @@ def absorb_weights_into_tangent_cores(
 
     .. note::
         PARKED weighted-layer code (kept importable; pending the post-1.0 weighted
-        tensor-network redesign). Do not extend or "fix".
+        tensor-network redesign). Do not extend or "fix". Unexported from ``__all__``;
+        calling it emits a UserWarning. NOTE the frame order below is the OLD convention,
+        not the current ``(up, down, left, right)``.
 
     Tensor network diagrams illustrating groupings::
 
@@ -192,6 +194,12 @@ def absorb_weights_into_tangent_cores(
                 |        |        |
 
     """
+    import warnings
+    warnings.warn(
+        "absorb_weights_into_tangent_cores is PARKED weighted-layer code: untested, uses the OLD "
+        "(up, left, right, outer) frame order, and is scheduled for redesign. Results may be wrong.",
+        UserWarning, stacklevel=2,
+    )
     is_uniform = not isinstance(frame[0], typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 

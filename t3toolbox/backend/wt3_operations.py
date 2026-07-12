@@ -5,8 +5,15 @@
 """PARKED: the weighted (edge-weight) layer -- deferred past 1.0, excluded from the rendered docs.
 
 Cores + edge-weight vectors, with weights absorbable into cores. Kept importable; do not extend,
-rename, or "fix" until the weighted tensor-network redesign.
+rename, or "fix" until the weighted tensor-network redesign. Importing emits a UserWarning.
 """
+import warnings as _warnings
+_warnings.warn(
+    "t3toolbox's weighted layer (backend.wt3_operations) is PARKED for this release: untested, "
+    "not updated to current library conventions, and scheduled for redesign. Results may be wrong.",
+    UserWarning, stacklevel=2,
+)
+
 import numpy as np
 import typing as typ
 

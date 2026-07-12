@@ -4,7 +4,17 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """
 Edge vectors.
+
+PARKED: the weighted layer is unmaintained in this release (untested, not updated to current
+library conventions, scheduled for redesign) -- importing it emits a UserWarning.
 """
+import warnings as _warnings
+_warnings.warn(
+    "t3toolbox's weighted layer is PARKED for this release: untested, not updated to current "
+    "library conventions, and scheduled for redesign. Results may be wrong.",
+    UserWarning, stacklevel=2,
+)
+
 import numpy as np
 import typing as typ
 import functools as ft

@@ -269,7 +269,14 @@ def wt3_squash_tails(
     """Reduce the first and last dimensions of the first and last tt cores to 1.
 
     PARKED weighted-layer copy (unexported; kept pending the post-1.0 weighted redesign).
+    Calling it emits a UserWarning.
     """
+    import warnings
+    warnings.warn(
+        "wt3_squash_tails is PARKED weighted-layer code: untested and scheduled for redesign. "
+        "Results may be wrong.",
+        UserWarning, stacklevel=2,
+    )
     xnp, _, _ = get_backend(False)
 
     x0, w = x
