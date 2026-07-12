@@ -10,7 +10,7 @@ code into a standalone package: cleaning up, documenting, restructuring for usab
 features. **The goal is a general-purpose library for other people and other use cases** — not to
 reproduce or serve any particular application. The research it came from (the T4S paper, below) is
 **essentially done** (an arXiv preprint, with only minor revisions still in flight); treat it as
-historical reference for the algorithms, never as the design target. The README still says "WORK IN PROGRESS DO NOT USE."
+historical reference for the algorithms, never as the design target. (The "WORK IN PROGRESS" banner came off 2026-07-12; 2026.0.0 ships to PyPI per dev/release_plan.md.)
 
 - Repo: `github.com/NickAlger/T3Toolbox` (renamed from `TuckerTensorTrainTools`; that rename left
   stale references we've mostly fixed). Branch `main`, direct commits.
@@ -433,8 +433,7 @@ Live roadmap + next steps: **`dev/HANDOFF.md`**. The durable open items:
   ("standard user, no fiddling"). **Deferred to 1.1**; 1.0 ships as an honest mid-level toolkit.
 - **Cleanup backlog:** `OLD_*.py` (delete only once functionality is confirmed preserved elsewhere);
   wire doctests into CI; add a test CI workflow (pytest + numpy 1.x/2.x matrix); README + `CHANGELOG`
-  + `pyproject` fixes (`readme = "README.md"`). Remove the "WORK IN PROGRESS DO NOT USE" banner **only
-  at the moment of shipping**. **No auto-formatter near the deliberately-nonstandard code style.**
+  + `pyproject` fixes (`readme = "README.md"`). The "WORK IN PROGRESS DO NOT USE" banner was removed 2026-07-12 (Nick's call, release imminent). **No auto-formatter near the deliberately-nonstandard code style.**
 - **Minimal-rank audit — RESOLVED** (the settled verdict, per the catalog and the enforced check
   sites): minimal rank is a correctness precondition for **nothing** — gauge projections +
   `project`/`project_dense_onto_tangent` need orthogonality only; `inner`/`norm` HS-faithfulness

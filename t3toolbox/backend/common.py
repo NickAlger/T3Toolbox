@@ -55,7 +55,8 @@ try:
     import jax
     jax_available = True
 except ImportError:
-    print('Unable to import Jax. Using numpy instead.')
+    pass  # jax is optional: numpy-only operation is a fully supported configuration
+          # (probe `jax_available` or install the `t3toolbox[jax]` extra)
 
 NDArray = np.ndarray
 if jax_available:

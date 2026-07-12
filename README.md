@@ -1,6 +1,7 @@
-WORK IN PROGRESS DO NOT USE
-
 # T3Toolbox
+
+[![tests](https://github.com/NickAlger/T3Toolbox/actions/workflows/tests.yaml/badge.svg)](https://github.com/NickAlger/T3Toolbox/actions/workflows/tests.yaml)
+[![docs](https://github.com/NickAlger/T3Toolbox/actions/workflows/build-sphinx-docs.yaml/badge.svg)](https://github.com/NickAlger/T3Toolbox/actions/workflows/build-sphinx-docs.yaml)
 
 A pure-Python (NumPy + optional JAX) library for **Tucker tensor trains (T3)** — a Tucker
 decomposition whose central core is stored as a tensor train. When the ranks are moderate, a T3
@@ -119,7 +120,8 @@ https://nickalger.github.io/T3Toolbox/ — [getting started](https://nickalger.g
 [design notes](https://nickalger.github.io/T3Toolbox/design_notes.html), and the full
 [API reference](https://nickalger.github.io/T3Toolbox/api_reference.html) (frontend **and**
 backend — the backend is a first-class, fully documented surface). Worked end-to-end fitting
-examples live in [`examples/`](examples/).
+examples live in [`examples/`](examples/). Contributing? Start with the
+[Contributor guide](https://nickalger.github.io/T3Toolbox/contributor_guide.html).
 
 ## Authors
 

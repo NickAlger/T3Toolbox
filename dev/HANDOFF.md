@@ -76,7 +76,7 @@ directly covered by the `*_svd_*_core(_tols)` + t3svd-tolerance tests — detail
 (t4s.pdf = the deliberately-untracked local preprint — flip if you'd rather track it).
 
 **→ The 1.0 roadmap is now COMPLETE except the literal shipping rituals**: remove the README
-"DO NOT USE" banner at ship time, finalize the CHANGELOG's Unreleased section into `2026.0.0`,
+"DO NOT USE" banner (DONE 2026-07-12) at ship time, finalize the CHANGELOG's Unreleased section into `2026.0.0`,
 tag, and publish. Post-1.0 threads: the Goal-1 `fit(...)` facade (1.1), the weighted-layer
 revival, and the toolbox reference paper (`dev/paper_scope.md`).
 
@@ -184,7 +184,7 @@ is nearly a drop-in chapter).
   (`docs/contributor/testing_strategy.md`). Masks are host numpy (`np`), supercores `xnp`.
 - Numerical test assertions use a **tolerance**; exact comparison only for structure.
 - Never delete an `OLD_*` (or anything) until functionality is **confirmed preserved**.
-- "DO NOT USE" banner stays until the literal moment of shipping (README only; the docs site
+- "DO NOT USE" banner REMOVED 2026-07-12 (Nick; release imminent — see dev/release_plan.md) (the docs site
   carries no banner — Nick's call).
 - **No automated tool rewrites the code style** (esp. the shape comments). No `manifold.py` rename.
 - **Weighted layer is out of scope** until its post-1.0 revival — no renames, no deletions, only

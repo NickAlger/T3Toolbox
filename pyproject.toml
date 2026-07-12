@@ -12,11 +12,11 @@ include = ["t3toolbox*"]
 [project]
 name = "t3toolbox"
 version = "2026.0.0"
-description = "Library for working with Tucker tensor trains"
-requires-python = ">=3.8"
-# List project dependencies here
+description = "Library for working with Tucker tensor trains (extended tensor trains)"
+requires-python = ">=3.9"
+# Floors = the tested compatibility floor (CI: numpy 1.x + jax 0.4.30 on py3.9; numpy 2.x + latest jax on py3.11)
 dependencies = [
-    "numpy",
+    "numpy>=1.22",
 ]
 
 authors = [
@@ -31,11 +31,20 @@ license = "MIT"
 license-files = ["LICENSE"]
 keywords = ["Tucker tensor train", "extended tensor train", "ETT", "Tucker decomposition", "tensor train", "tensor"]
 classifiers = [
-  "Programming Language :: Python"
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Mathematics",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
 ]
 
 [project.optional-dependencies]
-jax = ["jax"]
+jax = ["jax>=0.4.30"]
 
 [project.urls]
 Homepage = "https://github.com/NickAlger/T3Toolbox"
