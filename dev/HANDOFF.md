@@ -1,194 +1,50 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-07-12 (day)._
+_Updated 2026-07-12 (evening). Prior history: `dev/archive/handoff_2026-07-12_1.0_complete.md`
+(the 1.0 completion: R1–R7, the R4 doc pass, the docs user/dev split S1–S5, the cordon/ETT/
+literature morning)._
 
-## Where we are — the docs user/dev split is COMPLETE (S1–S5)
+## Where we are — RELEASE IN FLIGHT
 
-**All five slices executed and pushed**; the plan is archived at
-`dev/archive/docs_split_plan.md` (dispositions, promotions P0–P11, the stale-fix inventory).
-S4 (`f19ccc09`) added the **`docs/t3m_methods.md` user doc** (the headline feature that had no
-rendered note — every claim re-verified against current code) + three contributor notes
-(`uniform_polymorphism`, `refactoring_methodology` — recovered from git history after the live
-handoff had washed the lessons out — and the `deferred_and_rejected` ledger). S5 updated
-CLAUDE.md's routing rule to the durable-vs-ephemeral split and fixed the last stale
-cross-references.
+**2026.0.0 is one tag away from PyPI.** Plan: `dev/release_plan.md` (all decisions settled).
+REL-1 (metadata, banner off, CITATION.cff, badges) ✅, REL-2 (wheel smoke test — also fixed the
+jax-less import print) ✅, REL-3 (release workflow, trusted publishing, Nick's PyPI setup) ✅,
+and the **TestPyPI dry run is VERIFIED end-to-end** (`v2026.0.0-rc1` → workflow → fresh-venv
+`pip install` from TestPyPI → silent import, correct math).
 
-**Also this morning (2026-07-12):** the **weighted-layer cordon** (`372aba47` — import/call-time
-UserWarnings, no parked function in the rendered reference; Nick's option-1 decision); the
-**"extended tensor train" synonym** in README/landing/guide/keywords (`77384ee0`); the
-**literature expansion 8 → 36 references** + the Related-software section (htucker included,
-URLs fetch-verified, positioning claim softened per Nick) (`6d327585`, `95d00de5`).
+**→ Next: REL-4, the ship** — held until after tonight's (2026-07-12, 11:59pm) arXiv
+announcement of the updated T4S preprint, so the docstring citations resolve publicly.
+Sequence: CHANGELOG `[Unreleased]` → `[2026.0.0]`; install recipe flips to
+`pip install t3toolbox` (+ document the `[jax]` extra); final gates; tag `v2026.0.0`; verify
+from real PyPI; GitHub release; then refresh this file + CLAUDE.md to "1.0 SHIPPED".
 
-## Prior state — the docs split S1–S3 (2026-07-11/12)
+## Active threads
 
-**The docs are now split into a user tier + a rendered Contributor guide** (Nick's decision:
-durable knowledge lives in `docs/`, tagged by audience; `/dev` is ephemeral working state only).
-Plan of record + full dispositions: **`dev/docs_split_plan.md`** (S1 `094762c8`, S2 `c430bc55`,
-S3 committed tonight). Executed so far: the 7 dev-wholesale docs + `uniform_pytree_composition` +
-`uniform_rank_masks_rationale` + the full `numerical_contract_catalog` record moved to
-`docs/contributor/`; the braided docs rewrite-split (batching, fitting, masks, contracts — each
-now a user page + a `contributor/*_internals.md`); NEW user pages `reading_signatures.md` and
-`numerical_contracts.md`; archive promotions P1–P8 landed (corewise-vs-autodiff, exact-GN,
-L-BFGS story → fitting; frame-vs-basis + the intended-asymmetries registry → naming; finite-fill
-+ why-no-`to_vector` → uniform); `probing_section6_notes` salvaged (paper↔code map →
-`entries_apply_probe` §8) and archived; ~15 stale-content fixes incl. the minimal-rank
-correction (CLAUDE.md + `t3svd_minimal_ranks`) and the settled **`use_jit` is BUILT and tested**
-(the optimizers module docstring was the stale artifact).
+- **The toolbox reference paper** (independent): scope + curation in `dev/paper_scope.md`.
+  Next: walk the groups starting at Group 6 (`docs/symmetric_probe_derivatives.tex` is nearly a
+  drop-in chapter). Paper-grade material queued there from the archive sweep: the two-spaces
+  geometry picture; the apply/entries sweep-level scatter derivations.
 
-**→ Remaining: S4** (new content: the `t3m_methods.md` user doc — P0, the one headline feature
-with no rendered design note, distill from `dev/archive/t3m_plan.md` + the two `t3m_swap_plan`
-nuggets incl. the `~d·rtol` docstring caveat; `contributor/uniform_polymorphism` — P9, the triage
-lenses + exactness argument from `uniform_fix_plan.md`; `contributor/refactoring_methodology.md`
-— P10, rescue the rename lessons from this file + `naming_pass_plan.md` §D before they wash out;
-the P11 deferred/rejected ledger incl. the structured-`K` open idea from the archived probing
-note) **and S5** (CLAUDE.md routing-rule update to the durable-vs-ephemeral split; final sweep;
-archive the plan). Backlog items rescued from the archive sweep: the **default-path doctest pass**
-for undocumented public functions (Nick wants this), and the **`core_shapes` (property, strips
-stack) vs `get_core_shapes` (static, includes stack) inconsistency** — re-verified still live;
-a code decision for Nick.
+## Backlog (not scheduled)
 
-## Prior: the 1.0 roadmap (all DONE except shipping rituals)
+- **Default-path doctest pass** for undocumented public functions (Nick wants this).
+- **`core_shapes` (property, strips stack) vs `get_core_shapes` (static, includes stack)**
+  inconsistency — verified live 2026-07-12; a code decision for Nick.
+- **Zenodo DOI** — Nick, at a later date.
+- Delete the dead `gh-pages` branch (optional; Pages deploys from artifacts now).
+- Per-test seeding → `pytest -n auto`; trimming `test_dispatch` jit time (deferred niceties).
 
-**The doc pass (R4) is DONE (2026-07-11)** — on top of the naming pass + backend module reorg
-(earlier today) and the uniform frontend U7 + frame rename (2026-07-10). Branch `main`, direct
-commits. Full suite green (593 tests / 40,215 subtests, exit-code checked); **the docs build is at
-ZERO warnings and CI now enforces `-W`**.
+## Post-1.0 (1.1) threads
 
-**R3 (README) is DONE too** (same session): README rewritten against the current library —
-banner kept (off only at shipping), pitch + diagram, quickstart seeded from `getting_started.rst`
-(snippets re-verified end-to-end; the claimed ranks/outputs are real), refreshed functionality
-list (fitting/optimizers/uniform/safety included), docs + examples links.
+- The Goal-1 **`fit(...)` facade** (auto geometry/optimizer/ranks/`x0` + rank continuation —
+  "standard user, no fiddling").
+- **Weighted-layer revival/redesign** (currently parked + cordoned with warnings).
 
-**R5 (test CI) is DONE too** (same session): `.github/workflows/tests.yaml` — the full suite +
-the 167 module doctests + the quickstart doctest, on both supported generations (py3.9 /
-numpy 1.x / jax 0.4.30 and py3.11 / numpy 2.x / latest jax), everything verified green locally
-on both before wiring. Doctests are now CI-enforced (closes the old "green module-by-module but
-not in CI" gap). Two finds along the way: the parked weighted frontend had been **unimportable
-since the naming pass** (stale backend import path; fixed — the sanctioned keep-it-importable
-touch), and one doctest printed a naked numpy bool scalar (numpy-1/2 repr difference; fixed per
-doctest style). The Pages toggle is FLIPPED (Nick) and the docs deploy is green — the rebuilt
-site is live; the old `gh-pages` branch is dead weight (delete whenever, optional).
+## Standing constraints
 
-**R6 (cleanup) is DONE too** (same session): the seven `OLD_test_*.py` deleted after per-file
-coverage confirmation (the `OLD_test_linalg` audit found the file API-dead AND every contract
-directly covered by the `*_svd_*_core(_tols)` + t3svd-tolerance tests — details in commit
-`67a58492`); `CHANGELOG.md` created (the R1 leftover); `.idea/` and `/t4s.pdf` gitignored
-(t4s.pdf = the deliberately-untracked local preprint — flip if you'd rather track it).
-
-**→ The 1.0 roadmap is now COMPLETE except the literal shipping rituals**: remove the README
-"DO NOT USE" banner (DONE 2026-07-12) at ship time, finalize the CHANGELOG's Unreleased section into `2026.0.0`,
-tag, and publish. Post-1.0 threads: the Goal-1 `fit(...)` facade (1.1), the weighted-layer
-revival, and the toolbox reference paper (`dev/paper_scope.md`).
-
-## Done this session (R4, the doc pass) — slices D1–D5
-
-Plan of record (approved, all decisions settled, executed): **`dev/archive/docs_pass_plan.md`**.
-Warning burn-down: 394 (baseline, fraction of the surface) → 62 (D1) → 40 (D2) → 7 (D3) → **0** (D4).
-
-- **D1 — conf.py + toolchain (`9cce8503`):** autoapi now covers the **full validated surface**
-  (10 frontend + 37 backend module pages; excluded: `OLD_*` + the parked weighted modules only —
-  backend users are first-class, Nick's decision). **Verbatim source signatures**: a
-  `verbatim_signature` jinja filter in `conf.py` (ast-based) + the custom autoapi templates render
-  each function/method's signature exactly as written — **the trailing shape-contract comments
-  included** (autoapi's regenerated signatures drop comments; this was the settled option-(i)
-  spike). Version single-sourced from `pyproject.toml` via `tomllib` (2026.0.0 — docs builds are
-  py3.11-only; zero constraint on the library). myst-parser enabled. Dropped
-  `imported-members`/`private-members` (each object documented once; curated `__all__` publics).
-  Template gotcha for posterity: the stock templates' **double blank lines are load-bearing**
-  (trim_blocks eats one newline after an inline `{% endif %}` on the directive line).
-- **D2 — docstrings (`a507823b`), the one code-touching slice:** module docstrings seeded into the
-  **31 modules that had none** (content from `docs/naming_conventions.md`'s module map); the 14
-  docstring RST breakages fixed (the ``None. typo ×3, a missing backtick in `t3svd` Returns,
-  blank-line structure around lists/formulas, five first lines that wrapped mid-markup —
-  autosummary truncates at the line break); the ambiguous `.sum_stack` xref qualified; PARKED
-  notes on the two weighted stragglers; a `conf.py` `autoapi-skip-member` dedup for the deliberate
-  `if jax_available:` rebindings in `backend/common.py`. Suite-gated.
-- **D3a — information architecture (`f5edfa5a`):** `index.rst` rewritten as a compact landing;
-  **`user_guide.rst`** (salvaged accurate background + fresh current-state sections: the real
-  numpy/jax dispatch story, safe/unsafe, fitting, frontend-vs-backend, the CURRENT uniform
-  minimal-rank contract); **`design_notes.rst`** (all 23 `docs/*.md` rendered, grouped);
-  **`api_reference.rst`** (hand-written landing mirroring `__init__.__all__` + backend map by
-  area). `modules.rst` deleted. The dead `t3toolbox.jax` namespace story is gone.
-- **D3b — quickstart (`387eba0f`):** `getting_started.rst`, five run-verified examples (create/
-  arithmetic/t3svd, sampling vs dense, tangent+retract at a minimal-rank point, a real Newton-CG
-  fit to <1e-6, jax dispatch + jit); **passes `python -m doctest` clean** — outputs are real.
-- **D4 — link audit (`9ddb6d23`):** out-of-tree links (dev/archive ×5, examples ×1, .tex ×1) →
-  GitHub blob URLs; the dangling "why fit from derivatives" link removed by rewording (Nick:
-  research-side rationale, not library docs). **Zero-warning build**; render sweep over all 23
-  design-note pages clean.
-- **D5 — docs CI:** `.github/workflows/build-sphinx-docs.yaml` replaced — pinned actions
-  (checkout@v4 / setup-python@v5 / py3.11 / `docs/requirements.txt`), **`sphinx -W`** (warnings
-  are errors), PRs build-only, pushes to `main` deploy via the official Pages artifact actions
-  (`upload-pages-artifact@v3` + `deploy-pages@v4`; no more gh-pages branch commits, no more
-  `@master` third-party actions). Needs Nick's Pages-source toggle (above); the old `gh-pages`
-  branch can be deleted afterward (optional).
-- Local docs build (recorded in the plan): install `docs/requirements.txt` into the `t3toolbox`
-  env with `--only-binary=:all:`; then
-  `python -m sphinx -W --keep-going -b html docs docs/_build/html` from the repo root.
-
-**Decisions settled with Nick this session** (full statements in the archived plan): backend is a
-first-class documented surface; all `docs/*.md` render as user pages; `2026.0.0` everywhere;
-verbatim-signature spike approved (and it worked); reproducible-output rule is docstring/docs-page
-scoped — `examples/` keep raw convergence floats; no "why fit from derivatives" note (research-
-side); tomllib in conf.py confirmed harmless to library compat; no WIP banner on the docs site.
-
-## Prior sessions (2026-07-10 .. 11) — naming pass, U7 frontend, frame rename
-
-Summarized; details in the git log, `dev/archive/naming_pass_plan.md`,
-`dev/archive/uniform_optimizers_plan.md`.
-1. **Naming pass + backend module reorg DONE** — the family-prefix grammar, module map, curated
-   `t3toolbox/__init__.py` (R2); catalog: `docs/naming_conventions.md`.
-2. **Uniform layer CLOSED (R7)** — backend, optimizers, U7 frontend (ragged-vs-uniform inferred
-   from `x0`), jit-compile-once.
-3. **`basis`/`base` → `frame` rename DONE**; packaging fix (`pip install -e .`).
-
-## Active thread: the T3Toolbox software reference paper (independent)
-
-Scope + curation: **`dev/paper_scope.md`** (11 operation groups; two settled findings: the
-canonical-Gaussian-tangent result, and minimal rank is a correctness precondition for nothing).
-**Not the T4S paper** (that is the existing arXiv preprint, a historical algorithm reference).
-Next on this thread: walk the groups starting at Group 6 (`docs/symmetric_probe_derivatives.tex`
-is nearly a drop-in chapter).
-
-## Next steps
-
-1. **Ship 1.0 (when Nick decides):** remove the README banner (the literal moment of shipping),
-   finalize CHANGELOG `[Unreleased]` → `[2026.0.0]`, tag, publish. Everything else on the 1.0
-   checklist is done and CI-enforced.
-2. **→ 1.1:** the Goal-1 `fit(...)` facade; revive/redesign the weighted layer.
-
-## The 1.0 roadmap — summary
-
-- **R1** packaging correctness — mostly done; `CHANGELOG.md` still to create.
-- **R2 — DONE (2026-07-11):** public API surface + naming/organization review.
-- **R3 — DONE (2026-07-11):** README + quickstart (banner off only at shipping).
-- **R4 — DONE (2026-07-11):** docs build + design rationale rendered as user docs; zero warnings,
-  `-W` in CI; full frontend+backend API reference with verbatim source signatures.
-- **R5 — DONE (2026-07-11):** test CI (numpy 1.x/2.x matrix + doctests CI-enforced). No
-  auto-formatter near the curated style.
-- **R6 — DONE (2026-07-11):** cleanup — the seven `OLD_test_*` deleted (coverage confirmed
-  per-file), `CHANGELOG.md`, gitignore hygiene.
-- **R7 — DONE** (uniform layer + optimizers + U7 frontend).
-
-## Don't-trip constraints (the maintainer's standing rules)
-
-- **The docs build must stay at zero warnings** — CI runs `sphinx -W`; a new doc/docstring that
-  warns fails the build. Run the local build before pushing doc-touching changes.
-- **Naming: read [`docs/naming_conventions.md`](../docs/naming_conventions.md) before naming
-  anything new**; user-over-convention; the semantic markers ("corewise", "numerically_") and the
-  representation-encoding parameter names are load-bearing.
-- **The uniform optimizer requires a minimal-rank base** (`uniform_minimal`; frontend calls it
-  transparently; `uniform_least_squares_problem` rejects non-minimal x0).
-- **The packedness-mirror convention** (U3.5) — don't "normalize" it to a flag.
-- **A uniform op needs more than dense-vs-ragged** — exact output masks + garbage-robustness
-  (`docs/contributor/testing_strategy.md`). Masks are host numpy (`np`), supercores `xnp`.
-- Numerical test assertions use a **tolerance**; exact comparison only for structure.
-- Never delete an `OLD_*` (or anything) until functionality is **confirmed preserved**.
-- "DO NOT USE" banner REMOVED 2026-07-12 (Nick; release imminent — see dev/release_plan.md) (the docs site
-  carries no banner — Nick's call).
-- **No automated tool rewrites the code style** (esp. the shape comments). No `manifold.py` rename.
-- **Weighted layer is out of scope** until its post-1.0 revival — no renames, no deletions, only
-  reference-fixes required to keep it importable.
-- Research caveats are not user-facing. Notes are preserved/relocated, never lost.
-- Doctest outputs in docstrings/docs pages are **run-and-pasted, never hand-written**
-  (`docs/contributor/doctest_style.md`); `examples/` scripts are exempt (raw convergence floats are the point).
+The durable rules live where they belong: project-wide conventions and gotchas in **CLAUDE.md**;
+contributor-facing conventions and decision records in the rendered **Contributor guide**
+(`docs/contributor/` — naming rules, refactoring methodology, testing strategy, the
+deferred/rejected ledger). Two operational ones worth repeating here: the docs build must stay
+at **zero warnings** (`sphinx -W` in CI), and doctest outputs are **run-and-pasted, never
+hand-written**.

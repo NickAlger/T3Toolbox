@@ -355,90 +355,47 @@ project engineering practices below are shared.)*
 
 ## Current state
 
-**The core library runs and is tested; some advanced layers are deferred.** Live status + the 1.0
-roadmap live in **`dev/HANDOFF.md`** — read it for where-we-are and next steps. "Tested" = *numerical
-correctness in numpy* (vs dense ground truth) **plus** *jax dispatch* covered by `tests/test_dispatch.py`
-(jit each op; a stray `np.*` on a tracer raises) — not a duplicate numerical sweep, and not a guarantee
-of every path. Full suite ~50s, green.
+**The library is complete for 2026.0.0 and shipping to PyPI** (release state:
+`dev/release_plan.md`; live status: `dev/HANDOFF.md`). "Tested" = *numerical correctness in
+numpy* (vs dense ground truth) **plus** *jax dispatch* covered by `tests/test_dispatch.py` (jit
+each op; a stray `np.*` on a tracer raises) — not a duplicate numerical sweep. Full suite green
+(593 tests / 40,215 subtests; ~6 min in the current env); docs at zero warnings with `-W` in CI;
+doctests CI-enforced on both numpy generations.
 
-- **Solid / tested:** `TuckerTensorTrain` + backend (arithmetic, `to_dense`, `t3svd`, `t3m`, save/load;
-  the three sampling ops `apply`/`entries`/`probe` + their symmetric derivatives + the three transpose
-  families ambient/corewise/tangent); `frame_variations_format`; `manifold` (`T3Tangent`, the
-  `MANIFOLD`/`COREWISE` geometries) + safe/unsafe mode (`safety.py`); the geometry-generic
-  `GaussNewtonModel` (`fitting.py`) + the four optimizers
-  (`gradient_descent`/`mc_sgd`/`adam`/`newton_cg`, in `optimizers.py`) + least-squares fitting from
-  apply/entries/probe **and their derivatives**; the **plain** `UniformTuckerTensorTrain` + `ut3_*`
-  backend (through slice 8); **the uniform `UT3Frame`/`UT3Variations` foundation (increment 2c) and the
-  uniform *tangent + manifold layer* (increment 3b) — the *tangent backend* (`UT3Tangent` +
-  `backend/utv_operations`: doubled-rank `to_ut3`/`to_dense`, `retract`, gauge,
-  `utv_project_ut3_onto_tangent_space`, cross-layer converters, stack/unstack), the *two geometries*
-  (`UNIFORM_MANIFOLD`/`UNIFORM_COREWISE`, 3b-5), *tangent + corewise probing* (3b-6: the `d`-prefixed
-  `WKC` contractions, `UT3Tangent.{probe,apply,entries}` + their `𝒥ᵀ` transposes, and the corewise
-  `UniformTuckerTensorTrain.*_corewise_transpose`), and now the *derivative (jet) probing* (**3b-6′**: the
-  `d`-prefixed JET `trs_*` contractions, `{UniformTuckerTensorTrain,UT3Tangent}.{probe,apply,entries}_derivatives`
-  + their `𝒥ᵀ` transposes + the corewise `*_corewise_derivatives_transpose`) — all per-element verified vs
-  ragged + adjoint-identity + mask-strict + garbage-robust + jit-clean** (see `docs/contributor/testing_strategy.md`).
-  Worked examples in `examples/fit_hilbert_*`.
-- **Design references** (the durable *why*, to be folded into user docs in the doc pass):
-  `docs/fitting_and_optimization.md`, `docs/batching_and_stacking.md`, `docs/entries_apply_probe.md`
-  (whose §8 carries the probing paper↔code map), `docs/transposes.md`,
-  `docs/numerical_contracts.md`, `docs/contributor/signature_style.md`,
-  `docs/contributor/doctest_style.md`, the `docs/uniform_*` notes, the `docs/t3svd_*`
-  notes. (Historical plans/handoffs are archived under `dev/archive/`.)
-- **Uniform tangent layer + optimizers — DONE, INCLUDING the frontend (the 1.0 centerpiece).** The *backend*,
-  *geometries*, *tangent + corewise probing*, and the *derivative (jet) probing* (increment 3b), the
-  **optimizers/fitting on the uniform layer** (increments U1–U6 + U5.6), AND now the **frontend surface (U7)**:
-  all four optimizers run on uniform, **fully packed**, **jit-compile-once**, verified vs the ragged optimizer,
-  robust to non-minimal input (`uniform_minimal`). Backend pieces: `backend/uniform_fitting.py`
-  (`uniform_{manifold,corewise}_ops`, the `uniform_*_kind` `SamplingKind` builders, `uniform_least_squares_problem`,
-  `pack_sample`/`pack_data`), the packedness-mirror convention (`ut3_operations.{is_packed,pack_if_ragged}`), a
-  GPU benchmark (`dev/bench_uniform_vs_ragged.py`). **Frontend (U7):** the four `optimizers.*` and the six
-  `fitting.*_model` factories **infer** ragged-vs-uniform from `x0`'s type (a uniform `x0` requires a uniform
-  geometry singleton; the optimizer path calls `uniform_minimal` transparently). The roll-your-own surface is
-  `fitting.UniformGaussNewtonModel` (UT3Tangent-valued gradient/Hessian; value-hashed jit aux → compile-once).
-  Worked examples: `examples/fit_hilbert_uniform_{newton_cg,probe_derivatives_newton_cg}.py`. History:
-  `dev/archive/uniform_optimizers_plan.md`. Live status: `dev/HANDOFF.md`.
-- **Deferred / broken:** the **weighted layer** (parked `absorb_weights`) — deferred past 1.0. Remaining
-  `OLD_test_*.py` stray files are dead/superseded and slated for the **R6** cleanup (delete only after
-  confirming functionality is preserved elsewhere; `OLD_orthogonalization.py` was deleted 2026-07-11
-  after Nick confirmed supersession).
+- **The shipped surface (all solid/tested):** `TuckerTensorTrain` + backend (arithmetic,
+  `to_dense`, `t3svd`, `t3m`, save/load; the three sampling ops + their symmetric derivatives +
+  the ambient/corewise/tangent transposes); `frame_variations_format`; `manifold` (`T3Tangent`,
+  `MANIFOLD`/`COREWISE`) + safe/unsafe mode; the geometry-generic `GaussNewtonModel` + the four
+  optimizers + fitting from all sampling kinds and their derivatives; **the full uniform mirror
+  of all of it** — `UniformTuckerTensorTrain`, `UT3Frame`/`UT3Variations`/`UT3Tangent`, the
+  uniform geometries, uniform sampling + jets, and the optimizers running fully packed,
+  jit-compile-once, ragged-vs-uniform inferred from `x0` (per-element verified vs ragged +
+  adjoint-identity + mask-strict + garbage-robust + jit-clean; `docs/contributor/testing_strategy.md`).
+  Worked examples in `examples/fit_hilbert_*`. (Build history: the archived plans in
+  `dev/archive/` — `uniform_fix_plan`, `uniform_optimizers_plan`, `naming_pass_plan`,
+  `docs_pass_plan`, `docs_split_plan`.)
+- **Design references:** the rendered docs are the reference — user tier (`docs/*.md` +
+  the user guide) and the Contributor guide (`docs/contributor/`); `entries_apply_probe.md` §8
+  carries the probing paper↔code map.
+- **Parked:** the **weighted layer** — deferred past 1.0, cordoned with import/call-time
+  UserWarnings (untested, pre-rename conventions inside; revive via redesign, 1.1+).
 
 ## Open questions / TODO
 
-Live roadmap + next steps: **`dev/HANDOFF.md`**. The durable open items:
+Live status + backlog: **`dev/HANDOFF.md`**. The durable open items:
 
-- **Uniform layer + optimizers — DONE (the 1.0 centerpiece), frontend included.** The tangent/manifold layer
-  (increment 3b), the optimizers/fitting on it (U1–U6 + U5.6), and the **frontend surface (U7)** are built and
-  tested: `optimizers.*` / `fitting.*_model` infer ragged-vs-uniform from `x0`, `fitting.UniformGaussNewtonModel`
-  is the roll-your-own surface, and worked examples exist. Slicing history: `dev/archive/uniform_optimizers_plan.md`.
-  **The uniform layer is closed; the naming pass is DONE; next is the doc pass** (below).
-- **Redesign the weighted tensor-network** code structure (deferred past 1.0).
-- **Doc pass (R4) — DONE (2026-07-11).** The Sphinx build is fixed and at **zero warnings with `-W`
-  enforced in CI**: the API reference covers the full validated frontend **and backend** surface
-  (backend users are first-class; only `OLD_*` + the parked weighted modules are excluded); every
-  function/method page shows the **verbatim source signature** (shape comments included — a custom
-  autoapi template + `conf.py` filter, since autoapi's regenerated signatures drop comments); all 23
-  `docs/*.md` design notes render as user pages (myst); new landing/user-guide/getting-started/API
-  pages (`getting_started.rst` is doctest-verified); version single-sourced from `pyproject.toml`
-  (2026.0.0); Pages deploys via the official artifact actions (no `gh-pages` branch). Plan + slice
-  log: `dev/archive/docs_pass_plan.md`. **Next: R3 README, then R5 test CI, R6 cleanup.**
-- **Public API + naming review — DONE (2026-07-11).** The `basis`/`base` → `frame` rename
-  (`dev/archive/naming_review.md` §2), the full naming pass + backend module reorg (plan + inventory:
-  `dev/archive/naming_pass_plan.md`; the sampling modules are grouped **by type** — Nick's call — with the
-  family carried by function prefixes), and the curated `t3toolbox/__init__.py` public surface.
-  **The user-facing conventions catalog (grammar, module map, semantic markers, deliberate
-  exceptions) is [`docs/naming_conventions.md`](docs/naming_conventions.md)** — read it before
-  naming anything new.
 - **Goal-1 `fit(...)` facade** — auto geometry/optimizer/ranks/`x0` + rank-continuation/validation
   ("standard user, no fiddling"). **Deferred to 1.1**; 1.0 ships as an honest mid-level toolkit.
-- **Cleanup backlog:** `OLD_*.py` (delete only once functionality is confirmed preserved elsewhere);
-  wire doctests into CI; add a test CI workflow (pytest + numpy 1.x/2.x matrix); README + `CHANGELOG`
-  + `pyproject` fixes (`readme = "README.md"`). The "WORK IN PROGRESS DO NOT USE" banner was removed 2026-07-12 (Nick's call, release imminent). **No auto-formatter near the deliberately-nonstandard code style.**
+- **Redesign the weighted tensor-network** code structure (deferred past 1.0; the layer is parked
+  + cordoned until then).
 - **Minimal-rank audit — RESOLVED** (the settled verdict, per the catalog and the enforced check
   sites): minimal rank is a correctness precondition for **nothing** — gauge projections +
   `project`/`project_dense_onto_tangent` need orthogonality only; `inner`/`norm` HS-faithfulness
   needs orthogonal + gauged (NOT minimal); `retract` preserves frame ranks only on a minimal frame
   (a caveat, not a precondition). User statement: `docs/numerical_contracts.md`; decision record:
   `docs/contributor/numerical_contract_catalog.md`.
-- **Deferred niceties:** the ambient derivative transpose (exponential-rank, no use case); per-test
-  seeding → `pytest -n auto` parallelism; trimming `test_dispatch` jit time + the SVD-truncation grids.
+- **Deferred/rejected design items** are cataloged in the rendered ledger
+  (`docs/contributor/deferred_and_rejected.md`) — incl. the ambient derivative transpose and the
+  structured-`K` open idea. Smaller niceties (per-test seeding → `pytest -n auto`; trimming
+  `test_dispatch` jit time) live in the HANDOFF backlog. **No auto-formatter near the
+  deliberately-nonstandard code style.**
