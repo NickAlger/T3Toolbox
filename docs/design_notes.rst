@@ -14,6 +14,7 @@ Core design
    batching_and_stacking
    entries_apply_probe
    transposes
+   t3m_methods
    fitting_and_optimization
    numerical_contracts
    rank_continuation

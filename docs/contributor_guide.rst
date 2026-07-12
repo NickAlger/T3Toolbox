@@ -17,6 +17,7 @@ Conventions for new code
    contributor/doctest_style
    contributor/testing_strategy
    contributor/naming_rules
+   contributor/refactoring_methodology
 
 Design-decision records
 -----------------------
@@ -34,4 +35,6 @@ Design-decision records
    contributor/uniform_pytree_composition
    contributor/uniform_rank_masks_rationale
    contributor/uniform_internals
+   contributor/uniform_polymorphism
+   contributor/deferred_and_rejected
    contributor/verification_records

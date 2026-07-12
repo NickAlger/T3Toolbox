@@ -22,7 +22,7 @@ constraints rather than user information.
   user doc is the registry of record.
 - **Parameter names encode representation** (`x` ragged vs `data` uniform; `xx` vs `uxx`) — keep
   them; they are documentation, not style drift.
-- Renames have a wide blast radius — follow `refactoring_methodology.md` *(lands with the S4 slice
-  of the docs split; until then see the methodology lessons in `dev/HANDOFF.md` /
-  `dev/archive/naming_pass_plan.md` §D)* for the mechanics (inventory both import forms, `getattr`
-  string refs, substring module names, frontend-method collisions, gate discipline).
+- Renames have a wide blast radius — follow
+  [`refactoring_methodology.md`](refactoring_methodology.md) for the mechanics (inventory both
+  import forms, `getattr` string refs, substring module names, frontend-method collisions, gate
+  discipline).

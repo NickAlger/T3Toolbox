@@ -519,7 +519,9 @@ def t3m_swap(
     truncation is only quasi-optimal. ``oversample = k`` resolves this: intermediate ranks are
     capped at ``k×`` the target (tolerances at ``/k``) purely to bound memory, and a single
     ``t3svd`` cleanup at the exact targets does the decisive truncation. ``k=1`` (default) skips
-    the cleanup (aggressive corner); ``k≈3`` recovers ``t3svd`` quality; a per-position
+    the cleanup (aggressive corner; with ``rtol`` the uncleaned per-step tolerances accumulate to
+    ~``d·rtol`` overall -- use ``oversample>1`` for tighter tolerance-based quality); ``k≈3``
+    recovers ``t3svd`` quality; a per-position
     ``max_tt_ranks`` sequence also triggers the cleanup (the swaps cannot honor per-position
     bonds). Stack-aware with max-rank truncation; ``rtol``/``atol`` require unstacked. No
     truncation requested -> the exact full product.
