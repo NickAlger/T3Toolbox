@@ -7,6 +7,10 @@ decomposition whose central core is stored as a tensor train. When the ranks are
 breaks the curse of dimensionality: storing a dense tensor costs O(N^d) memory, while the T3
 representing it costs O(dnr^2 + dnN).
 
+Tucker tensor trains are also known as **extended tensor trains (ETT)** — the two names refer to
+the same format. This library uses "Tucker tensor train" (and the abbreviation T3) throughout, but
+everything here applies equally if you know these objects as extended tensor trains.
+
 Tensor network diagram for a Tucker tensor train:
 
         r0        r1        r2       r(d-1)          rd

@@ -6,7 +6,7 @@ Tucker tensor trains
 
 Tucker tensor trains are the composition of a `Tucker decomposition <https://en.wikipedia.org/wiki/Tucker_decomposition>`_
 with a `tensor train <https://en.wikipedia.org/wiki/Matrix_product_state>`_ (also called matrix product states)
-representation of the central Tucker core.
+representation of the central Tucker core. (They are also known as **extended tensor trains**, ETT.)
 
 Tensor network diagram for a Tucker tensor train::
 

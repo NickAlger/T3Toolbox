@@ -29,7 +29,7 @@ maintainers = [
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
-keywords = ["Tucker tensor train", "Tucker decomposition", "tensor train", "tensor"]
+keywords = ["Tucker tensor train", "extended tensor train", "ETT", "Tucker decomposition", "tensor train", "tensor"]
 classifiers = [
   "Programming Language :: Python"
 ]
