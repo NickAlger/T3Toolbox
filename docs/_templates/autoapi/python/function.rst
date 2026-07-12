@@ -13,6 +13,14 @@
 
    :{{ property }}:
    {% endfor %}
+   {% set vsig = obj|verbatim_signature %}
+   {% if vsig %}
+
+
+   .. code-block:: python
+
+      {{ vsig|indent(6) }}
+   {% endif %}
 
    {% if obj.docstring %}
 

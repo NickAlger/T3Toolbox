@@ -1,2 +1,6 @@
-sphinx-autoapi
-pydata-sphinx-theme
+# Docs-build toolchain (NOT library dependencies). Builds run on Python >= 3.11
+# (maintainer machine + CI); the library itself stays >= 3.8 -- see pyproject.toml.
+sphinx>=7
+sphinx-autoapi>=3.6
+pydata-sphinx-theme>=0.16
+myst-parser>=3
