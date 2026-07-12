@@ -35,7 +35,7 @@ def require_concrete_masks(
     leak as tracers into the (identity-hashed, never-inspected) output ``aux_data`` -- silently invalid.
     So a traced mask here means the masks were passed *among* the traced jit args; the fix is functional,
     not numerical (raise, per the structural-vs-numerical philosophy). See
-    ``docs/uniform_pytree_composition.md``.
+    ``docs/contributor/uniform_pytree_composition.md``.
     """
     if not common.jax_available:
         return
@@ -45,7 +45,7 @@ def require_concrete_masks(
                 'uniform masks must be concrete host (numpy) arrays, but a traced mask was seen -- you '
                 'likely jitted a backend function with the masks among the traced args. Close over the '
                 'masks as constants and trace only the supercores (the masks are static structure). '
-                'See docs/uniform_pytree_composition.md.')
+                'See docs/contributor/uniform_pytree_composition.md.')
 
 
 def ut3_make_masks(
@@ -66,7 +66,7 @@ def ut3_make_masks(
 
     Masks are STRUCTURE, so this builder emits **numpy (host)** arrays via ``np`` regardless of whether
     the supercores are jax -- the ``np.*`` here is intentional and jit-required (a jax mask becomes a
-    tracer under jit and breaks the layer). See ``docs/uniform_pytree_composition.md``.
+    tracer under jit and breaks the layer). See ``docs/contributor/uniform_pytree_composition.md``.
     """
     # np (host), not xnp: masks are static structure -- a jax mask is a tracer under jit. Intentional.
     tucker_ranks = np.asarray(tucker_ranks) # (d,)   + stack_shape
@@ -97,7 +97,7 @@ def ut3_apply_masks(
     The mask chokepoint: every mask-using op masks on entry, so the guard here covers the whole layer.
     ``xnp.einsum`` on the supercore with the numpy mask as a constant operand is fine (jax promotes it).
     The physical ``shape_mask`` is reconstructed on the host from the static ``shape`` ints (``np``, never
-    ``jnp`` -- a traced mask breaks the layer; see ``docs/uniform_pytree_composition.md``).
+    ``jnp`` -- a traced mask breaks the layer; see ``docs/contributor/uniform_pytree_composition.md``).
     """
     tucker_supercore, tt_supercore, shape, (tucker_edge_mask, tt_edge_mask) = x
     require_concrete_masks(tucker_edge_mask, tt_edge_mask)  # masks must be host, not traced

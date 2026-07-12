@@ -142,6 +142,8 @@ pay it on purpose.
   `Parameters`/`Returns` docstring is the **rendered-docs** surface. They may both carry shapes today;
   if so, keep them consistent. (Whether docstrings should stop repeating shapes is a separate,
   undecided question — don't conflate it with signature cleanup.)
-- Applies to the **frontend** (`TuckerTensorTrain` & friends) too, not only the backend.
-- The deferred uniform/weighted layers (`ut3_*`, `ufv_*`, `wt3_*`, `OLD_*`) are not held to this until
-  they're repaired.
+- Applies to the **frontend** (`TuckerTensorTrain` & friends) too, not only the backend — and to the
+  uniform layer (whose `HOST bool, static` mask tags are the motivating case above).
+- The parked weighted layer (`wt3_*`) is not held to this until its post-1.0 revival.
+- The reader-side half of this convention (the decode table users need) is
+  [`../reading_signatures.md`](../reading_signatures.md).

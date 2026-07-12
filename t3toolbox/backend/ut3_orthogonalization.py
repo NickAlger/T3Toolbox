@@ -69,7 +69,7 @@ def ut3_orthogonality_residual(
 #
 # All rank recurrences / mask builders below use np (host), NOT xnp: masks are static structure (a jax
 # mask is a tracer under jit -> leaks into aux_data). The mask `np.*` is intentional; see
-# docs/uniform_pytree_composition.md. Only the supercore SVDs go through xnp.
+# docs/contributor/uniform_pytree_composition.md. Only the supercore SVDs go through xnp.
 
 
 def _prefix_mask(ranks: NDArray, pad: int) -> NDArray:  # ranks (HOST int) -> HOST bool prefix mask of width pad

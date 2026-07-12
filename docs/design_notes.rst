@@ -18,6 +18,7 @@ Core design
    numerical_contract_catalog
    rank_continuation
    naming_conventions
+   reading_signatures
 
 T3-SVD
 ------
@@ -38,7 +39,6 @@ The uniform layer
    uniform_supercore_layout
    uniform_masks_vs_ranks
    uniform_rank_masks_rationale
-   uniform_pytree_composition
    uniform_backend_jit_recipe
 
 .. note::

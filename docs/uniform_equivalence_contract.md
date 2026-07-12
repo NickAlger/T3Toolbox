@@ -1,10 +1,11 @@
 # The uniform equivalence contract
 
 > The governing correctness principle for the uniform T3 layer, and the most important of the uniform
-> design notes. It says what `UniformTuckerTensorTrain` *is* (a faster representation of ragged T3s,
-> nothing more), what "correct" means for every uniform operation, and — as a direct consequence — how
-> the layer is tested and how the masking is scheduled. As with the other notes, this is the reasoning
-> and its honest limits, not a rulebook.
+> design notes: what `UniformTuckerTensorTrain` *is* (a faster representation of ragged T3s, nothing
+> more), and what "correct" means for every uniform operation. (How the contract drives the test
+> strategy and the masking schedule is contributor material:
+> [`contributor/testing_strategy.md`](contributor/testing_strategy.md),
+> [`contributor/uniform_internals.md`](contributor/uniform_internals.md).)
 
 ---
 
@@ -29,42 +30,8 @@ equals the tree of per-element ragged results. So the contract and the determina
 fully compatible — "faster ragged" is exactly "a batch of points moved the same way the ragged op would
 move each one."
 
-## Consequence 1 — it *is* the test strategy
-
-The verified layers check correctness against **dense** ground truth. The uniform layer checks against
-**ragged** ground truth, via the round trip:
-
-- convert a ragged T3 (or a stack/tree of them) to uniform, run the uniform op, convert back, and
-  compare to the ragged op on the same input — comparing **real parts only**. The cleanest comparisons
-  discard the padding automatically: compare `to_dense()`s, or convert back with `ut3_to_t3` and compare
-  cores. Property checks (orthonormality, etc.) are made on the real blocks.
-
-Every uniform op — `+`, `·`, `inner`, `norm`, orthogonalizations, `ut3svd`, `entries`/`apply`/`probe`,
-`to_dense` — gets the same one-line test against its ragged twin. This is exhaustive and uniform across
-the layer.
-
-## Consequence 2 — it resolves the masking schedule
-
-A recurring stuck-point is "apply masks once up front, or re-mask along the way?" The contract dissolves
-it: **it prescribes a result, not a schedule.** Any masking schedule whose real parts match ragged is
-correct, and the round-trip test certifies it — there is no need to prove the schedule correct a priori.
-
-The schedule we adopt, as the simplest one that satisfies the contract:
-
-- **mask on entry** — zero the garbage so it cannot flow into a real result through a contraction; and
-- **re-mask after any step that writes garbage back into the padding** — chiefly an SVD, whose padded
-  columns get filled with arbitrary orthonormal completions.
-
-Between those points the data stays put (no compaction — see `docs/uniform_masks_vs_ranks.md`). Whether
-this schedule is exactly right in a given op is decided by the round-trip test, not by hand.
-
-## The not-minimal-ranks case
-
-The one genuinely subtle spot. Orthogonalizing a non-minimal core can change the realized rank (an `n×N`
-Tucker core with `n>N` has only `N` nonzero singular values). The contract pins the answer down without
-guesswork: **do whatever the ragged op does** — keep the rank with an arbitrary orthonormal completion,
-or reduce it and update the mask — determined by reading/running the ragged path, then verified by the
-round trip. (This is the behavior that was mid-refactor in the copied-in code.)
+The contract holds on **non-minimal-rank input too**: a uniform op does whatever the ragged op does
+there (see the contributor notes for how that case is pinned down and tested).
 
 ## The vector I/O boundary — packedness mirror
 
@@ -92,6 +59,11 @@ the mode/shape padding is a prefix): real data sits in `[0:Ni]`, zeros in `[Ni:N
 ints — no mask needed. `pack`/`unpack` encode exactly this, so packed reductions (e.g. `sumsq_over_probes`
 over a packed array) are correct because the padding is inert zeros.
 
+**The fill must be finite.** "Garbage don't-care" implicitly assumes finite garbage: masking works by
+multiplication, and `0 × NaN = NaN` — padding filled with `NaN`/`inf` ("to be safe") poisons masked
+reductions and breaks correctness. Zeros are the robust fill, and packed vectors always travel with
+their shape information (the fill is never used to infer shape).
+
 ## Honest scope and limits
 
 - **Only user-facing ops with ragged twins are bound by the contract.** The masking/padding plumbing
@@ -104,9 +76,11 @@ over a packed array) are correct because the padding is inert zeros.
   Relatedly, rank-changing ops (e.g. `ut3svd`) move to the **minimal *structural* ranks** (computable
   from shape + rank structure → static, jit-safe; they only ever shrink), never the **numerical** rank
   (value-dependent, would break `jit` — it is the forbidden `rtol=0`).
-- **The contract says nothing about the garbage.** Tests must compare real parts only (via `to_dense` or
-  convert-back); a test that compared raw padded supercores would fail for no real reason.
+- **The contract says nothing about the garbage** — only the masked real parts are meaningful.
+- **Orthogonalization at reduced numerical rank completes the prefix with *arbitrary* orthonormal
+  vectors.** When a slot's structural rank exceeds its numerical rank, the extra prefix columns are
+  legitimate-but-arbitrary orthonormal directions (deterministic per run, not meaningful data) —
+  visible in outputs, and expected.
 
 See also `docs/uniform_ranks_and_varieties.md`, `docs/uniform_supercore_layout.md`,
-`docs/uniform_masks_vs_ranks.md`, `docs/uniform_pytree_composition.md`, and the running
-`dev/archive/uniform_port_plan.md`.
+`docs/uniform_masks_vs_ranks.md`, `docs/contributor/uniform_pytree_composition.md`.

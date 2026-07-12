@@ -99,7 +99,7 @@ re-canonicalize via `ut3svd` first. (The integer-rank alternative would pay that
 Beyond integer ranks (b), several encodings were weighed and rejected. They each fail one of the two
 properties the uniform layer requires — **closure under ⊕/⊗** (so `+`/`×` move no data) and **uniform
 shape across the stack** (so `lax.scan` sees one fixed shape) — and, for jit, **host-static**
-(resolvable on the host without tracing; see `uniform_pytree_composition.md`).
+(resolvable on the host without tracing; see `contributor/uniform_pytree_composition.md`).
 
 | representation | closed under +/× | uniform shape across stack | notes |
 |---|---|---|---|
@@ -113,7 +113,7 @@ The bool mask is the unique fixed point: **closed ∧ uniform-shaped ∧ host-st
 closure; positions/tuples give up uniformity (or contiguity); float-weights conflate two objects with
 opposite autodiff semantics. The one attractive property of the integer/tuple forms — value-based
 hashing for jit-cache hits — is real but *separable*: get it on the bool mask via a byte/rank hash
-(`uniform_pytree_composition.md`), without surrendering closure or uniformity. (Caveat: a rank *count*
+(`contributor/uniform_pytree_composition.md`), without surrendering closure or uniformity. (Caveat: a rank *count*
 is an insufficient cache key off canonical form — two gappy masks with equal counts but different
 positions are different computations — so a general value hash keys on the mask bytes; in canonical
 form the count suffices.)
@@ -121,7 +121,7 @@ form the count suffices.)
 > **Host vs device & jit.** Whichever encoding, the structure must live as **numpy (host)** static
 > `aux_data`: any jax op on it inside a trace becomes a tracer. Under jit the host masks fold into the
 > compiled program as device constants (no per-call transfer); the eager cost and the deferred
-> `jax.device_put` option are in `uniform_pytree_composition.md`. **The `np.*` in mask code is
+> `jax.device_put` option are in `contributor/uniform_pytree_composition.md`. **The `np.*` in mask code is
 > intentional — do not "fix" it to `xnp`.**
 
 ## A different algebra: tangent (variation) vector-space ops
@@ -151,7 +151,7 @@ change the mask**, they create no new static structure: no fresh jit cache key, 
 result still pairs with its frame (`check_ufv_pair`) since two tangents at one frame share that frame's
 mask. Mask *changes* are confined to the tensor layer — where a rank change is a real new structure, and
 `ValueHashedMasks` keeps a rebuilt-but-identical mask from recompiling anyway (see
-`uniform_pytree_composition.md`).
+`contributor/uniform_pytree_composition.md`).
 
 **One thing uniform must enforce that ragged gets for free.** In ragged, adding mismatched variations
 fails loudly (a numpy shape error). In uniform the supercores are *padded to a common shape*, so two

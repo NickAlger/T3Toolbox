@@ -435,7 +435,7 @@ class ValueHashedMasks:
     identity hashing would recompile every step, dwarfing the actual compute -- the opposite of the
     uniform layer's whole point. Value-based hash/eq makes the cache key reflect the rank STRUCTURE:
     identical structure -> cache hit (no recompile); genuinely different structure -> recompile (correct).
-    See ``docs/uniform_pytree_composition.md``.
+    See ``docs/contributor/uniform_pytree_composition.md``.
 
     Subclasses must be ``@dataclass(frozen=True, eq=False)`` and expose ``.data`` as a tuple of the
     (HOST numpy, concrete) mask arrays. The content hash is cached (the holder is frozen/immutable); eq

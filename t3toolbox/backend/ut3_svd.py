@@ -33,7 +33,7 @@ def _cap_ranks(current, spec, length):  # current: HOST int (length,)+stack ; sp
     """Cap current real ranks by a max-rank spec (None = no cap; per-position None entries allowed).
 
     np (host): ranks are mask (structure) metadata, computed on the host (a jax rank under jit is a
-    tracer -> shape-extraction / mask leaks). See docs/uniform_pytree_composition.md.
+    tracer -> shape-extraction / mask leaks). See docs/contributor/uniform_pytree_composition.md.
     """
     if spec is None:
         return current
@@ -70,7 +70,7 @@ def ut3svd(
     n, r = masked_tucker.shape[-2], masked_tt.shape[-1]
 
     # All rank/mask computation is np (host) -- masks are static structure (a jax rank/mask is a tracer
-    # under jit); only the SVD sweep below touches the supercores via xnp. See docs/uniform_pytree_composition.md.
+    # under jit); only the SVD sweep below touches the supercores via xnp. See docs/contributor/uniform_pytree_composition.md.
     capped_tucker = _cap_ranks(tucker_mask.sum(axis=-1), max_tucker_ranks, d)
     capped_tt = _cap_ranks(tt_mask.sum(axis=-1), max_tt_ranks, d + 1)
 
@@ -120,7 +120,7 @@ def _reduce_left_to_right(data: UT3Data) -> UT3Data:
     tucker_mask, tt_mask = data[3]                                      # HOST bool rank masks
     n, r = masked_tucker.shape[-2], masked_tt.shape[-1]
 
-    # ranks/masks on the host (np); compute_minimal_ranks defaults to numpy. See docs/uniform_pytree_composition.md.
+    # ranks/masks on the host (np); compute_minimal_ranks defaults to numpy. See docs/contributor/uniform_pytree_composition.md.
     min_tucker, min_tt = ranks.compute_minimal_ranks(shape, tucker_mask.sum(axis=-1), tt_mask.sum(axis=-1))
     min_masks = ut3_masking.ut3_make_masks(min_tucker, min_tt, n, r)
     (out_tucker, out_tt), _, _ = ut3svd_supercores(

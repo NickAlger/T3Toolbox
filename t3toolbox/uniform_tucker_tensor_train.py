@@ -51,7 +51,7 @@ class UT3Masks(common.ValueHashedMasks):  # eq=True would fail on arrays). See V
     separate object so it can ride as jax ``aux_data``. Hash/eq are **value-based** (the
     :py:class:`~t3toolbox.backend.common.ValueHashedMasks` mixin), so a rebuilt-but-identical holder is the
     *same* jit cache key -- no per-iteration recompile in optimization loops; see
-    ``docs/uniform_pytree_composition.md``. (The physical ``shape`` is a separate static int tuple on
+    ``docs/contributor/uniform_pytree_composition.md``. (The physical ``shape`` is a separate static int tuple on
     :py:class:`UniformTuckerTensorTrain` -- not a mask, and already value-hashable.)
     """
     tucker_edge_mask: NDArray  # HOST bool, static, shape=(d,)   + stack_shape + (n,)
@@ -727,7 +727,7 @@ class UniformTuckerTensorTrain:
 
     def to_jax(self) -> 'UniformTuckerTensorTrain':
         # Convert the SUPERCORES (data) to jax; the masks stay numpy (host structure -- a jax mask is a
-        # tracer under jit and breaks the layer). See docs/uniform_pytree_composition.md.
+        # tracer under jit and breaks the layer). See docs/contributor/uniform_pytree_composition.md.
         return UniformTuckerTensorTrain(
             common.to_jax(self.tucker_supercore), common.to_jax(self.tt_supercore), self.shape, self.masks)
 
@@ -744,7 +744,7 @@ class UniformTuckerTensorTrain:
 
     # ----------------------------------------------------------------- constructors
     # Pure constructors keep a `use_jax` flag for the SUPERCORES (no array input to infer from); the
-    # masks are always numpy (host) structure (docs/uniform_pytree_composition.md). The ranks may vary
+    # masks are always numpy (host) structure (docs/contributor/uniform_pytree_composition.md). The ranks may vary
     # per stack element (the variety) -- a backend feature a ragged round-trip cannot express.
 
     @staticmethod
@@ -872,7 +872,7 @@ class UniformTuckerTensorTrain:
         """Load from a ``.npz`` file written by :py:meth:`save`.
 
         The supercores follow ``use_jax``; the masks stay **numpy (host) bool** (a jax mask is a tracer
-        under jit and breaks the layer; ``docs/uniform_pytree_composition.md``). See :py:meth:`save` for
+        under jit and breaks the layer; ``docs/contributor/uniform_pytree_composition.md``). See :py:meth:`save` for
         an example.
         """
         return _from_data(ut3_constructors.ut3_load(file, use_jax=use_jax))
@@ -901,7 +901,7 @@ if common.jax_available:
     # same key (no per-iteration recompile when frames are re-orthogonalized in an optimization loop); a
     # genuinely different structure recompiles (correct). Because uniform output ranks are STATICALLY
     # determined (no rtol; shrink-to-structural-minimum), a jitted op's output masks stay compile-time
-    # constants -- safe as aux. See docs/uniform_pytree_composition.md.
+    # constants -- safe as aux. See docs/contributor/uniform_pytree_composition.md.
     jax.tree_util.register_pytree_node(
         UniformTuckerTensorTrain,
         lambda x: ((x.tucker_supercore, x.tt_supercore), (x.shape, x.masks)),

@@ -5,7 +5,7 @@
 """Mask construction/application for uniform (frame, variations) data.
 
 Masks are static structure and ALWAYS host numpy (``np``, never ``xnp``) -- intentional, required
-for jit; do not "fix" it (``docs/uniform_masks_vs_ranks.md``, ``docs/uniform_pytree_composition.md``).
+for jit; do not "fix" it (``docs/uniform_masks_vs_ranks.md``, ``docs/contributor/uniform_pytree_composition.md``).
 """
 import numpy as np
 import typing as typ
@@ -36,7 +36,7 @@ def ufv_make_frame_masks(
 ]:
     """Build the prefix RANK edge masks for a uniform frame. The physical ``shape`` is a separate
     int tuple (not a mask), so this returns only the four rank masks. HOST numpy (masks are static
-    structure -- ``np``, not ``xnp``; see ``docs/uniform_pytree_composition.md``)."""
+    structure -- ``np``, not ``xnp``; see ``docs/contributor/uniform_pytree_composition.md``)."""
     up_mask    = np.arange(nU) < np.asarray(up_ranks)[..., None]
     down_mask  = np.arange(nD) < np.asarray(down_ranks)[..., None]
     left_mask  = np.arange(rL) < np.asarray(left_ranks)[..., None]
@@ -66,7 +66,7 @@ def ufv_apply_frame_masks(
 ]:
     """Zero the padded ("garbage") regions of the frame supercores via the edge masks. The physical
     ``shape_mask`` is reconstructed on the host from the static ``shape`` ints (``np``, never ``jnp`` --
-    a traced mask breaks the layer; see ``docs/uniform_pytree_composition.md``)."""
+    a traced mask breaks the layer; see ``docs/contributor/uniform_pytree_composition.md``)."""
     (up_tucker_supercore, down_tt_supercore, left_tt_supercore, right_tt_supercore,
      shape, (up_mask, down_mask, frame_left_mask, frame_right_mask)) = data
 

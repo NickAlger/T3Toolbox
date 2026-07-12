@@ -7,7 +7,7 @@
 > note records that decision and the reasoning. Pairs with `uniform_ranks_and_varieties.md` (what the
 > object represents), `uniform_masks_vs_ranks.md` (why boolean masks rather than integer ranks),
 > `numerical_contract_catalog.md` (the minimal-rank audit), `contributor/uniform_svd_prefix_orthogonalization.md`, and
-> `uniform_pytree_composition.md`.
+> `contributor/uniform_pytree_composition.md`.
 
 ## What the masks do
 
@@ -62,7 +62,7 @@ remove that cost:
   **deterministic prefix** — bit-identical every step at fixed rank
   (`contributor/uniform_svd_prefix_orthogonalization.md`).
 - **Value-hashed mask holders** key the `jit` cache on mask *content*, so a rebuilt-but-identical holder
-  is a cache hit (`uniform_pytree_composition.md`).
+  is a cache hit (`contributor/uniform_pytree_composition.md`).
 
 Together: **no recompile within a fixed-rank stage; a recompile only when the ranks genuinely change**
 (e.g. a rank-continuation step) — which is correct, and rare.

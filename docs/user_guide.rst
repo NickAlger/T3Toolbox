@@ -259,7 +259,7 @@ layer -- ``to_uniform -> op -> to_ragged`` equals the ragged op on the real (mas
 the padding is don't-care garbage (:doc:`uniform_equivalence_contract`). The masks are boolean
 prefix vectors rather than integer ranks so that rank metadata stays closed under addition and
 multiplication (:doc:`uniform_masks_vs_ranks`), and they are deliberately **host numpy** (static
-pytree structure) while the supercores flow through numpy or jax (:doc:`uniform_pytree_composition`).
+pytree structure) while the supercores flow through numpy or jax (:doc:`contributor/uniform_pytree_composition`).
 
 .. note::
 	The manifold, orthogonalization, and T3-SVD operations on the uniform layer assume a

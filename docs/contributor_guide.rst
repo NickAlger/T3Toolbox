@@ -16,6 +16,7 @@ Conventions for new code
    contributor/signature_style
    contributor/doctest_style
    contributor/testing_strategy
+   contributor/naming_rules
 
 Design-decision records
 -----------------------
@@ -27,5 +28,6 @@ Design-decision records
    contributor/t3svd_verification
    contributor/ambient_derivative_transpose_note
    contributor/uniform_svd_prefix_orthogonalization
+   contributor/uniform_pytree_composition
    contributor/uniform_internals
    contributor/verification_records

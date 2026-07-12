@@ -43,7 +43,7 @@ def t3_to_ut3(
 
     Pads each core to common sizes ``(n, N)`` / ``(r, n, r)``, stacks the ``d`` cores onto a leading
     axis, and records the real extent as prefix masks. ``use_jax`` is inferred from the input cores for
-    the SUPERCORES; the masks are always numpy (host) structure (``docs/uniform_pytree_composition.md``).
+    the SUPERCORES; the masks are always numpy (host) structure (``docs/contributor/uniform_pytree_composition.md``).
     """
     use_jax = tree_contains_jax(x)
     xnp, _, _ = get_backend(False, use_jax)
@@ -94,7 +94,7 @@ def ut3_to_dense(
 
     Jitting this functionally (no frontend): close over the host masks as constants and trace only the
     supercores. Tracing the whole ``.data`` instead would put the masks among the traced args, which the
-    guard rejects (``docs/uniform_pytree_composition.md``):
+    guard rejects (``docs/contributor/uniform_pytree_composition.md``):
 
     >>> import numpy as np, jax
     >>> import t3toolbox.tucker_tensor_train as t3

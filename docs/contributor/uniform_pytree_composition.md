@@ -22,8 +22,8 @@ variety stratum plus ambient dimensions (`docs/uniform_ranks_and_varieties.md`) 
   key**, so `aux_data` must be **hashable**, and treedef equality compares it with `==`.
 
 So masks belong in `aux_data`. But a raw array — numpy *or* jax — cannot be `aux_data`: it is
-unhashable, and `array == array` returns an *array*, not a single bool. (The current broken UT3 code
-puts a bare tuple of three mask arrays in `aux_data`; that does not survive `jit`.) Something has to
+unhashable, and `array == array` returns an *array*, not a single bool. (An early UT3 draft put a
+bare tuple of three mask arrays in `aux_data`; it did not survive `jit`.) Something has to
 make the static masks hashable.
 
 ## The decision: a small structure holder, value-hashed by mask content
@@ -64,7 +64,7 @@ flattened into children, so they cannot be traced or differentiated — precisel
 is also genuinely meaningful, not just a hashability wrapper: it *is* the rank-structure descriptor
 (`tucker_ranks`, `tt_ranks`, … derive from it), so the dataclass stays minimal (two rank masks; `shape`
 and the sizes are not stored redundantly). The same mixin is reused by the frame/variation holders
-(`UT3FrameMasks`, and the upcoming `UT3VariationsMasks`).
+(`UT3FrameMasks` and `UT3VariationsMasks`, in `uniform_frame_variations_format.py`).
 
 ## Consequences worth knowing
 
@@ -197,6 +197,7 @@ stable; uniform can't sidestep it, because changing the structure *is* the op.)
 
 ## Scope note
 
-The pytree registration and hashing are *jax-wiring*, implemented later. This note fixes the **class
-shape** now — `supercores + structure holder` — because that decision sets the constructor signature,
-the `.data` layout, and every derived property, all of which the rest of the build depends on.
+The pytree registration and value hashing described here are implemented and pinned by regression
+test (`tests/test_dispatch.py::test_mask_rebuild_does_not_recompile`). This note remains the record
+of *why* the class shape is `supercores + structure holder` — the decision that set the constructor
+signature, the `.data` layout, and every derived property.

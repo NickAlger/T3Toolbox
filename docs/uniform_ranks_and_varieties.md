@@ -114,10 +114,17 @@ each element applying its own mask — `tangent_space_dimension`, `inner`/`norm`
 per-element. The one subtle spot is a batched Riemannian solve (Gauss-Newton / CG) over a varying-rank `C`
 stack: the masked-out directions must sit in `ker(J)` so they contribute zero to the CG reductions
 (`rᵀr`, `pᵀAp`) and never pollute the active per-element solve — which holds as long as the gauge
-projection and `J`/`Jᵀ` respect the masks. If some specific op ever turns out to *genuinely* need uniform
-`C` rank, add a **narrow non-enforced precondition there** (the orthogonal / gauged pattern), never a
-blanket construction-time restriction; shape consistency stays the only structural hard error.
+projection and `J`/`Jᵀ` respect the masks. Varying-`C` is a first-class case in the uniform-tangent
+equivalence-contract tests.
 
-*(Decided 2026-06-30, after the earlier draft of this note over-restricted tangents to uniform `C`.
-Varying-`C` is a first-class case in the
-uniform-tangent equivalence-contract tests.)*
+## Why there is no `to_vector`/`from_vector` on the uniform tangent
+
+`T3Tangent` offers a flat-vector interface (`to_vector`/`from_vector`, plus `save`/`load`);
+`UT3Tangent` deliberately does not, and this section is why (it is a consequence of the variety
+view above, not an unfinished port). A varying-rank stack has **no single flat-vector
+reconstruction signature**: `from_vector(vec, shape, ranks)` cannot encode per-element ranks in
+one signature. And both interop paths bypass the need: jax-native optimization works on the
+**pytree directly** (the padding has zero gradient, so nothing is gained by flattening), while
+flat-vector interop with e.g. scipy routes through the **ragged layer**
+(`ut3_to_t3` → `to_vector`), which is clean for the uniform-rank stacks scipy-style optimizers
+handle anyway.

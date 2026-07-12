@@ -113,7 +113,7 @@ updated to this version by the time the package is released.
   grow rank — a maskless "inflate to uniform rank" layer is operation-equivalent but loses rank control;
   considered & rejected) and [`docs/contributor/uniform_svd_prefix_orthogonalization.md`](docs/contributor/uniform_svd_prefix_orthogonalization.md)
   (orthogonalization must be **SVD-based** so the masks are a deterministic prefix), and
-  [`docs/uniform_pytree_composition.md`](docs/uniform_pytree_composition.md) (`UT3 = tucker_supercore +
+  [`docs/contributor/uniform_pytree_composition.md`](docs/contributor/uniform_pytree_composition.md) (`UT3 = tucker_supercore +
   tt_supercore + masks`-holder; the holder is a static `aux_data` with **value-based** hash/eq over mask
   **content** — the `common.ValueHashedMasks` mixin — so a rebuilt-but-identical holder is the *same* jit
   cache key and re-orthogonalizing the frame each optimization step does **not** recompile; the
@@ -202,7 +202,7 @@ shape/rank extraction — runs on the **host with `np`**, while only the superco
 program as device constants (zero per-call transfer). **Historically a bare `np.` was a tell that code
 wasn't backend-agnostic — that heuristic does NOT apply to uniform mask code; do not "fix" mask `np.*`
 to `xnp`.** Rule: **supercores → `xnp`; masks → `np`.** Full reasoning + the deferred eager
-`jax.device_put` option: [`docs/uniform_pytree_composition.md`](docs/uniform_pytree_composition.md),
+`jax.device_put` option: [`docs/contributor/uniform_pytree_composition.md`](docs/contributor/uniform_pytree_composition.md),
 [`docs/uniform_masks_vs_ranks.md`](docs/uniform_masks_vs_ranks.md).
 
 ## Code style (deliberate and nonstandard — do NOT normalize)

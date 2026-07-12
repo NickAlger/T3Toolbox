@@ -3,8 +3,9 @@
 How things are named in T3Toolbox, so you can predict a name you have never seen — and find the
 function you want from the name alone. The conventions exist to help the reader; where a
 convention would have hurt more than helped, we broke it deliberately, and the exceptions are
-cataloged at the end. (Prefix grammar and module map settled in the 2026-07 naming pass;
-decisions log: `dev/archive/naming_review.md`.)
+cataloged at the end. (The rules contributors must follow when *naming new things* — including
+which of these conventions are rename-invariant — are in
+[`contributor/naming_rules.md`](contributor/naming_rules.md).)
 
 ## The two layers
 
@@ -87,7 +88,7 @@ Within the **uniform** classes, `t3`-flavored names mean "the ragged layer":
 `UniformTuckerTensorTrain.from_t3(x, ...)` converts a *ragged* T3 to uniform, and
 `UT3Frame.from_t3frame` / `UT3Tangent.to_t3tangent` are the cross-layer converters, while
 `from_ut3`/`to_ut3` are same-layer. On the ragged classes there is no such ambiguity, so
-`T3Frame.from_t3`/`to_t3` are same-layer. Do not "unify" these — the names carry the types.
+`T3Frame.from_t3`/`to_t3` are same-layer. The names carry the types.
 
 Some frontend modules also export a **same-named function pair** with the backend: e.g.
 `frame_variations_format.t3_orthogonal_representations` (returns `T3Frame`/`T3Variations`
@@ -105,7 +106,7 @@ which layer you are holding.
   stack), frame-inner order `W+K+C` — and body locals encode their axis layout as a name suffix
   (`mu_WCa`, `C_aib`); see `docs/batching_and_stacking.md` and `docs/contributor/signature_style.md`.
 
-## Semantic markers (never added or dropped by renames)
+## Semantic markers (load-bearing — you can trust them)
 
 - **`corewise`** — coordinate-space math on the core arrays, never Hilbert–Schmidt / tensor
   space. `sum_stack` (true tensor sum; rank-growing) vs `sum_stack_corewise`
@@ -117,6 +118,16 @@ which layer you are holding.
 - **Capability-honest tails** — `ut3_full_sum` (all modes only, vs ragged `t3_sum(axis=...)`),
   `ut3_norm_orthogonalized` (always orthogonalizes). The uniform twin is not renamed to match
   the ragged name when it genuinely supports less.
+
+## Why "frame", not "basis"
+
+The orthogonal representation of a tangent space (`T3Frame`, the `fv_`/`ufv_` families) is
+deliberately **not** called a basis. "Basis" implies minimality — a linearly independent spanning
+set — and the orthogonal representation does **not** require minimal ranks: at a non-minimal-rank
+point it is *overcomplete*, and the library supports that on purpose (see the numerical-contracts
+material: minimal rank is a precondition for essentially nothing). "Frame" is the idiomatic term in
+manifold optimization for exactly this kind of possibly-redundant orthogonal spanning system. (The
+T4S paper names the object neither way, so there is no paper conflict to worry about.)
 
 ## Cataloged exceptions (deliberate)
 
@@ -136,3 +147,21 @@ which layer you are holding.
   different level (e.g. the method `x.rank_adjustment_sweep()` vs backend
   `t3_rank_adjustment_sweep`); the class namespace disambiguates.
 - **`require_concrete_masks`** is a jit guard (infrastructure), unprefixed by design.
+
+## Intended asymmetries (uniform vs ragged)
+
+Where a uniform class or method offers **less surface** than its ragged twin, the gap is a design
+decision, not an unfinished port — do not read these as TODOs:
+
+- **`UT3Tangent` has no `save`/`load`/`to_vector`/`from_vector`** (all four exist on `T3Tangent`).
+  A varying-rank uniform stack has no single flat-vector signature to reconstruct from; jax-native
+  optimization works on the pytree directly, and flat-vector interop (e.g. scipy) routes through
+  the ragged layer.
+- **`UniformTuckerTensorTrain.sum_stack()` takes no `axis`** (ragged: `sum_stack(axis=None)`).
+- **`UniformTuckerTensorTrain.to_dense()` takes no `squash_tails`** (ragged has it).
+- **`UniformTuckerTensorTrain.t3svd(...)` has no `rtol`/`atol`** — uniform truncation is
+  structural (max-rank masks), never numerical; per-element numerical truncation could give
+  different ranks per stack element, which the uniform shape cannot represent (see
+  [`uniform_equivalence_contract.md`](uniform_equivalence_contract.md)).
+
+The capability-honest-tails rule (above) is the same principle at the function level.

@@ -1,9 +1,9 @@
-# Uniform backend jit recipe: hold masks fixed, trace only supercores
+# Jitting uniform T3s: hold masks fixed, trace only supercores
 
 > A backend-usage note for the uniform layer. A backend user who bypasses the OO frontend and works on raw
 > `.data` tuples needs to jit an optimization loop **without recompiling every step** — which matters
 > because accelerating this kind of fitting is the whole point of the uniform layer. This records the recipe
-> and why it works. Pairs with `uniform_pytree_composition.md` (the frontend value-hashing story),
+> and why it works. Pairs with `contributor/uniform_pytree_composition.md` (the frontend value-hashing story),
 > `contributor/uniform_svd_prefix_orthogonalization.md`, and `uniform_rank_masks_rationale.md`.
 
 ## The constraint
@@ -51,3 +51,26 @@ fixed and reuse them, or jit the whole step so the frame masks stay internal con
 The library's own uniform optimizers follow this same recipe internally (masks as loop-invariant
 state, recomputed only at rank-continuation boundaries); the design record is
 [`contributor/uniform_internals.md`](contributor/uniform_internals.md).
+
+## The frontend path, the raw `.data` layout, and what the mask design costs you
+
+- **Via the frontend, there is nothing to think about**: `jax.jit` over a
+  `UniformTuckerTensorTrain` (or a function taking one) just works — the masks ride as static
+  pytree `aux_data`, the supercores are traced children. Because the mask holders hash by
+  **value**, rebuilding the frame each optimization step does *not* recompile: identical rank
+  structure → same cache key.
+- **On raw data**, the backend layout mirrors the class fields:
+  ``.data = (tucker_supercore, tt_supercore, shape, (tucker_edge_mask, tt_edge_mask))`` —
+  supercores first, then the static `shape` int tuple, then the two rank masks as a sub-tuple
+  (supercore-only ops take `.data[:2]`; mask-using ops unpack `.data[3]`).
+- **Misuse is guarded, and the error explains the fix**: passing the masks among the *traced*
+  arguments (e.g. `jax.jit(ut3_to_dense)(data)`, which traces every leaf) raises a clear
+  "uniform masks must be concrete host arrays … close over the masks and trace only the
+  supercores" instead of jax's cryptic `ConcretizationTypeError`.
+- **The performance story**: under jit the host-numpy masks fold into the compiled program as
+  device constants — zero per-call transfer, structure resolved at compile time. Run *eagerly* on
+  GPU, the masking multiply moves the KB-scale masks host→device per op (~µs, dominated by eager
+  dispatch overhead anyway) — if you care about that, jit, at which point the masks are free.
+
+Why the composition works this way (aux-data vs children, value hashing, why host numpy is
+load-bearing): [`contributor/uniform_pytree_composition.md`](contributor/uniform_pytree_composition.md).

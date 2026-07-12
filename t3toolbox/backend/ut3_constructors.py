@@ -14,7 +14,7 @@ round-trips: they would take *ragged* CP/TT data and round-trip through ``Tucker
 ambiguous (ragged vs uniform input) and trivially composable from the existing ragged ops +
 ``UniformTuckerTensorTrain.from_t3`` / ``.to_t3``. Be explicit at the boundary instead.
 
-Following the layer-wide rule (``docs/uniform_pytree_composition.md``): **supercores (data) ->
+Following the layer-wide rule (``docs/contributor/uniform_pytree_composition.md``): **supercores (data) ->
 ``xnp``/``use_jax``; masks (structure) -> ``np`` (host)**. The pure constructors keep a ``use_jax``
 flag for the supercores (there is no array input to infer from). ``ut3_load`` keeps ``use_jax`` for the
 supercores but always returns numpy (host) bool masks.
@@ -171,7 +171,7 @@ def ut3_load(
     """Load a uniform Tucker tensor train from a ``.npz`` file written by :py:func:`ut3_save`.
 
     The supercores follow ``use_jax``; the masks stay **numpy (host) bool** regardless -- a jax mask is a
-    tracer under jit and breaks the layer (``docs/uniform_pytree_composition.md``). ``np.load`` returns
+    tracer under jit and breaks the layer (``docs/contributor/uniform_pytree_composition.md``). ``np.load`` returns
     the masks with their saved bool dtype; we only convert the supercores.
     """
     (supercores, masks, shape_family) = common.load_core_families(file)

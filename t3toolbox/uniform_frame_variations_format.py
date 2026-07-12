@@ -42,7 +42,7 @@ class UT3FrameMasks(common.ValueHashedMasks):
     :py:class:`~t3toolbox.backend.common.ValueHashedMasks` mixin) so a rebuilt-but-identical frame is the
     *same* jit cache key (no per-iteration recompile when the orthogonal frame is rebuilt in an
     optimization loop). The plain-layer :py:class:`~t3toolbox.uniform_tucker_tensor_train.UT3Masks`
-    pattern; see ``docs/uniform_pytree_composition.md``. (The physical ``shape`` is a separate static int
+    pattern; see ``docs/contributor/uniform_pytree_composition.md``. (The physical ``shape`` is a separate static int
     tuple on :py:class:`UT3Frame` -- not a mask, and value-hashable.)
     """
     up_mask:          NDArray  # dtype=bool, (d,)  +stack_shape+(nU,)
@@ -1051,7 +1051,7 @@ if common.jax_available:
     # UT3Frame as a jax pytree: the four supercores are the (traced) children; the static aux_data is
     # (shape, UT3FrameMasks). `shape` is a value-hashable int tuple (same shape -> same jit cache key);
     # UT3FrameMasks is eq=False (identity hash/eq), valid hashable aux even though it holds bool arrays.
-    # Mirrors UniformTuckerTensorTrain. See docs/uniform_pytree_composition.md.
+    # Mirrors UniformTuckerTensorTrain. See docs/contributor/uniform_pytree_composition.md.
     import jax
     jax.tree_util.register_pytree_node(
         UT3Frame,

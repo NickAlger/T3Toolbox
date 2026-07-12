@@ -80,6 +80,11 @@ def pack_vectors(
         N: int = None,                            # padded length (default max(Ni))
 ) -> NDArray:                                     # packed, shape=(d,)+stack_shape+(N,)
     """Zero-pad and stack a sequence of (ragged-length) vectors into one supercore-shaped tensor.
+
+    The pad fill is zeros, and must stay FINITE: masking works by multiplication, and
+    ``0 * nan = nan`` -- a ``nan``/``inf`` fill would poison masked reductions downstream
+    (``docs/uniform_equivalence_contract.md``). Shape information always travels alongside the
+    packed array; the fill is never used to infer shape.
     """
     if not unpacked_vectors:
         return np.array(())

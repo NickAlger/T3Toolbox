@@ -1,10 +1,9 @@
 # Why the core index leads the supercore (outside the stack)
 
-> A design-philosophy note for `UniformTuckerTensorTrain` and the `ut3_*` backend. It records *why* a
-> uniform supercore is laid out as `(d,) + stack_shape + (per-core axes)` — the mode/core index `d`
-> first, the stack *after* it — even though that departs from the stack-leading convention used
-> everywhere else in the library. As with the other notes, the goal is the reasoning and an honest
-> accounting of what the choice costs, not a rule to follow on faith.
+> Why a uniform supercore is laid out as `(d,) + stack_shape + (per-core axes)` — the mode/core
+> index `d` first, the stack *after* it — even though that departs from the stack-leading
+> convention used everywhere else in the library. If you index supercores directly, this is the
+> axis order you are working with.
 
 ---
 
@@ -46,26 +45,18 @@ just another index (the vectorization win that motivates the uniform layer — e
 cores at once). For those, `d`'s *position* is irrelevant to correctness; keeping it as a named leading
 axis simply keeps the einsum ops and the scan ops on the same convention.
 
-## What it costs (the honest part)
+## The cost to keep in mind
 
-- **Two conventions in one library.** Ragged objects are stack-leading; uniform objects are
-  `d`-leading. Anyone reasoning across both must remember that, inside a uniform object, the stack axes
-  are offset by one (they start at axis 1, not 0). This is a real cognitive load and a plausible source
-  of axis bugs — the same family of mistakes catalogued in `docs/batching_and_stacking.md`. The
-  stacking helpers already bake in the offset (`ut3_stack`/`unstack` use `axes = range(1, 1+len(stack))`),
-  which contains the damage but does not erase the asymmetry.
-- **The polymorphic backends straddle it.** Functions meant to accept both a ragged tuple and a uniform
-  supercore (e.g. the shared TT-orthogonalization sweeps) rely on `supercore[ii]` and `cores[ii]` both
-  yielding "core `ii`." That works precisely *because* `d` leads in the uniform case — but it means the
-  two input shapes differ by the inserted leading axis, and the function must not assume stack-leading.
+**Two conventions in one library.** Ragged objects are stack-leading; uniform objects are
+`d`-leading. Anyone reasoning across both must remember that, inside a uniform object, the stack axes
+are offset by one (they start at axis 1, not 0). This is a real cognitive load and a plausible source
+of axis bugs — the same family of mistakes catalogued in `docs/batching_and_stacking.md`. The
+stacking helpers already bake in the offset (`ut3_stack`/`unstack` use `axes = range(1, 1+len(stack))`),
+which contains the damage but does not erase the asymmetry.
 
-## The alternative we rejected
-
-Lay uniform objects out stack-leading, `stack_shape + (d,) + (per-core axes)`, to match the rest of the
-library. This reads more consistently, but `lax.scan` only scans axis 0, so every sweep would either
-`moveaxis` `d` to the front (data movement, on every pass) or forgo scanning. Since sweeps are central
-and the uniform layer exists for GPU/JIT efficiency, paying a `moveaxis` per sweep defeats the purpose.
-The consistency win was not worth the performance and compilation cost.
+(The implementation-side consequences — the polymorphic-backend straddle, and the rejected
+stack-leading alternative — are recorded in
+[`contributor/uniform_internals.md`](contributor/uniform_internals.md).)
 
 See also `docs/uniform_masks_vs_ranks.md` (why the rank metadata is stored as boolean masks) and
 `docs/uniform_ranks_and_varieties.md` (what a stacked uniform T3 represents).
