@@ -9,10 +9,14 @@ _Updated 2026-07-11 (second session of the day)._
 commits. Full suite green (593 tests / 40,215 subtests, exit-code checked); **the docs build is at
 ZERO warnings and CI now enforces `-W`**.
 
-**→ Next: R3 (README + quickstart)**, then R5 (test CI), R6 (cleanup). One manual action pending
-(Nick): flip **GitHub → Settings → Pages → Build and deployment → Source = "GitHub Actions"** so
-the new deploy flow takes over from the old `gh-pages` branch (the first `docs` workflow deploy
-job will fail until the toggle is flipped; builds are unaffected).
+**R3 (README) is DONE too** (same session): README rewritten against the current library —
+banner kept (off only at shipping), pitch + diagram, quickstart seeded from `getting_started.rst`
+(snippets re-verified end-to-end; the claimed ranks/outputs are real), refreshed functionality
+list (fitting/optimizers/uniform/safety included), docs + examples links.
+
+**→ Next: R5 (test CI), then R6 (cleanup).** The Pages toggle is FLIPPED (Nick, 2026-07-11) and
+the R4 commits are pushed — the new `docs` workflow deploys from `main`; the old `gh-pages`
+branch is now dead weight (delete whenever, optional).
 
 ## Done this session (R4, the doc pass) — slices D1–D5
 
@@ -86,23 +90,20 @@ is nearly a drop-in chapter).
 
 ## Next steps
 
-1. **R3 README + quickstart:** rewrite the README against the now-current docs (the
-   `getting_started.rst` quickstart is the natural seed); refresh the "Included functionality"
-   list (it predates fitting/optimizers/safety/uniform); "DO NOT USE" banner stays until shipping.
-2. **R5 test CI** (pytest + numpy 1.x/2.x matrix; wire doctests in — `getting_started.rst` and the
+1. **R5 test CI** (pytest + numpy 1.x/2.x matrix; wire doctests in — `getting_started.rst` and the
    module doctests are ready for it; the docs CI is done and separate).
-3. **R6 cleanup:** the remaining `OLD_test_*.py` files (**`OLD_test_linalg.py` needs a real
+2. **R6 cleanup:** the remaining `OLD_test_*.py` files (**`OLD_test_linalg.py` needs a real
    coverage audit** — there is no current `test_linalg.py`; the other six have modern
    counterparts), `.idea/` (uncomment the ready line in `.gitignore`), `t4s.pdf` untracked-status
    decision. `docs/make.bat` was committed in D1. `CHANGELOG.md` still to create (R1 leftover;
    pyproject links to it).
-4. **→ 1.1:** the Goal-1 `fit(...)` facade; revive/redesign the weighted layer.
+3. **→ 1.1:** the Goal-1 `fit(...)` facade; revive/redesign the weighted layer.
 
 ## The 1.0 roadmap — summary
 
 - **R1** packaging correctness — mostly done; `CHANGELOG.md` still to create.
 - **R2 — DONE (2026-07-11):** public API surface + naming/organization review.
-- **R3** README + quickstart (banner off only at shipping).
+- **R3 — DONE (2026-07-11):** README + quickstart (banner off only at shipping).
 - **R4 — DONE (2026-07-11):** docs build + design rationale rendered as user docs; zero warnings,
   `-W` in CI; full frontend+backend API reference with verbatim source signatures.
 - **R5** test CI (numpy matrix + doctests). No auto-formatter near the curated style.
