@@ -14,6 +14,7 @@ optimizers, and a mask-based **uniform** (padded, GPU/`jit`-friendly) mirror of 
 .. toctree::
    :maxdepth: 1
 
+   getting_started
    user_guide
    design_notes
    api_reference
