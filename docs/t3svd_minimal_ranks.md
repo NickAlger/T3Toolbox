@@ -76,8 +76,11 @@ minimal ranks — e.g. to get a **minimal, left-orthogonal** result. This is why
 "sweep", not "minimize": a single sweep only fully minimizes given the matching precondition.
 
 Cost: it is one extra sweep, paid only when you ask for it. Keep in mind the cost of *not* minimizing —
-non-minimal ranks make every later operation more expensive (storage, contraction) and violate the
-minimal-rank precondition of `inner`/`norm` Hilbert–Schmidt faithfulness and some manifold operations.
+non-minimal ranks make every later operation more expensive (storage, contraction), and retraction on a
+non-minimal frame drops the redundant rank rather than preserving ranks strictly. (Minimal rank is **not**
+a correctness precondition for any operation — `inner`/`norm` Hilbert–Schmidt faithfulness needs only an
+orthogonal frame and gauged variations; the settled audit is
+[`numerical_contracts.md`](numerical_contracts.md).)
 
 ## This is not specific to the Tucker extension
 

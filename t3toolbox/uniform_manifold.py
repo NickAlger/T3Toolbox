@@ -923,7 +923,7 @@ def _require_orthogonal_frame(frame: ubv.UT3Frame, who: str) -> None:
     tuple and mask holder carry no float content -- and the orthogonality check itself is mask-aware (it
     tests the real, masked content; the contract is ``to_t3frame(frame).is_orthogonal()``). ORTH (not
     minimal rank) is the only numerical precondition for the manifold projections / retraction (see
-    ``docs/numerical_contract_catalog.md``)."""
+    ``docs/numerical_contracts.md``)."""
     if safety.checks_active(frame.data[:4]):
         atol = safety.effective_rtol(frame.data[:4])
         safety.require(
@@ -1062,7 +1062,7 @@ class UniformManifoldGeometry:
         (vectorized over the stack -> shape ``K + C``). In **safe mode** it checks the preconditions for that
         equality: the two tangents share a frame, the frame is orthogonal, and **both** variations are gauged
         (per stack element, reduced with ``.all()``; minimal rank is a documented caveat -- see
-        ``docs/numerical_contract_catalog.md``). For the raw coordinate dot with no HS claim and no
+        ``docs/numerical_contracts.md``). For the raw coordinate dot with no HS claim and no
         orthogonal/gauge check, use :py:meth:`UT3Tangent.corewise_inner`."""
         t1._check_same_tangent_space(t2)
         if safety.checks_active(t1.frame.data[:4], t1.variations.data[:2], t2.variations.data[:2]):

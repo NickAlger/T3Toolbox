@@ -15,7 +15,7 @@ Core design
    entries_apply_probe
    transposes
    fitting_and_optimization
-   numerical_contract_catalog
+   numerical_contracts
    rank_continuation
    naming_conventions
    reading_signatures
@@ -38,7 +38,6 @@ The uniform layer
    uniform_ranks_and_varieties
    uniform_supercore_layout
    uniform_masks_vs_ranks
-   uniform_rank_masks_rationale
    uniform_backend_jit_recipe
 
 .. note::

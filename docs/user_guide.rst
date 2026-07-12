@@ -324,7 +324,7 @@ numerical frames-equal test, for tangent arithmetic), **orthogonal frame** (proj
 transport), and **gauged variations** (the Hilbert-Schmidt ``MANIFOLD.inner``/``norm``). Plain
 ``TuckerTensorTrain`` arithmetic and the sampling operations are precondition-free (exact for any
 cores). A property that only governs what a result *means* -- a caveat, not a precondition -- is
-never enforced. The full catalog of which operation requires what: :doc:`numerical_contract_catalog`.
+never enforced. The full statement of which operation requires what: :doc:`numerical_contracts`.
 
 
 Fitting and optimization

@@ -4,7 +4,7 @@
 > `.data` tuples needs to jit an optimization loop **without recompiling every step** — which matters
 > because accelerating this kind of fitting is the whole point of the uniform layer. This records the recipe
 > and why it works. Pairs with `contributor/uniform_pytree_composition.md` (the frontend value-hashing story),
-> `contributor/uniform_svd_prefix_orthogonalization.md`, and `uniform_rank_masks_rationale.md`.
+> `contributor/uniform_svd_prefix_orthogonalization.md`, and `contributor/uniform_rank_masks_rationale.md`.
 
 ## The constraint
 

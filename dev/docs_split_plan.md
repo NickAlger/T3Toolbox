@@ -1,6 +1,9 @@
 # Docs user/dev split plan — audience tiers, archive promotions, stale-content sweep
 
-_Drafted 2026-07-12. **DRAFT — for Nick's review; nothing executed yet.**_
+_Drafted 2026-07-12; approved by Nick the same day. **S1 (`094762c8`), S2 (`c430bc55`), S3
+(committed 2026-07-12 late) EXECUTED — S4 (new content: P0 t3m doc, P9–P11 contributor notes)
+and S5 (routing-rule CLAUDE.md update, final sweep, archive this plan) REMAIN.** The S3
+rewrite-splits were executed by four parallel forks; V1 settled (use_jit is built+tested)._
 _Inputs: the 23-doc section-level audience classification (4 readers) + the 27-file `dev/archive`
 durability sweep (4 readers), both 2026-07-11/12. Precedent: `dev/archive/docs_pass_plan.md`._
 _Standing instruction (Nick): on any point of confusion, stop and ask — don't guess._

@@ -225,7 +225,7 @@ class UT3Frame:
     def has_minimal_ranks(self) -> NDArray:  # bool array, shape = stack_shape (per element; uniform ranks vary)
         """True (per stack element) if the frame has structurally minimal ranks: ``left==right``,
         ``up==down``, and up/left equal the minimal ranks for the shape (reduced over the mode axis).
-        Non-enforcing; not a correctness precondition (``docs/numerical_contract_catalog.md``)."""
+        Non-enforcing; not a correctness precondition (``docs/numerical_contracts.md``)."""
         up, down = np.asarray(self.up_ranks), np.asarray(self.down_ranks)        # (d,)+stack
         left, right = np.asarray(self.left_ranks), np.asarray(self.right_ranks)  # (d+1,)+stack
         mn_tk, mn_tt = self.minimal_ranks

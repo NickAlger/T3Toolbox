@@ -88,7 +88,7 @@ A striking outcome of the hardening pass: once the tests were strict enough to *
 implementation had none** — exact masks, garbage robustness, multi-axis, varying-`C`, all green, confirmed
 independently by an adversarial cold-read audit. This is a point in favor of the **masks-not-integer-ranks**
 design ([`uniform_masks_vs_ranks.md`](../uniform_masks_vs_ranks.md),
-[`uniform_rank_masks_rationale.md`](../uniform_rank_masks_rationale.md)). Boolean masks compose with the
+[`uniform_rank_masks_rationale.md`](uniform_rank_masks_rationale.md)). Boolean masks compose with the
 operations *algebraically* and locally: add = concat, multiply = Kronecker, the doubled-rank embedding =
 concat, gauge/projection *preserve* the mask, retraction's SVD *re-derives* it. There is little integer
 rank-arithmetic to get wrong, and the few non-obvious spots (the `[Q | P]` doubled-bond order, the honest

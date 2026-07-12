@@ -1,17 +1,17 @@
 # Batching and stacking in T3Toolbox — the complete reference
 
-> **If you (human or AI) are about to touch anything with batch/stack axes — `stack_shape`,
-> `contractions.py`, probing, `K`-stacked (tangent-stacked) tangents, `to_dense`, `vmap`/`jit` over
-> these objects — read this first.** It is the single most error-prone part of the library, and the
-> subtleties below were learned the hard way. This file is the source of truth for *why* the
-> conventions are what they are; `CLAUDE.md` has the terse version and points here.
+> Batch/stack axes — `stack_shape`, the `C`/`W`/`K` blocks, `K`-stacked (tangent-stacked)
+> tangents, `vmap`/`jit` over these objects — are the most subtle part of the library. This file
+> is the source of truth for *what the conventions are* and *why*; the "Start here" section is
+> enough for most use. (Rules for *extending* the batching machinery, and the decision history,
+> live in [`contributor/batching_internals.md`](contributor/batching_internals.md).)
 
 ---
 
 ## Start here — the mental model in one screen
 
-*New to stacking here? Read this section; it is enough to **use** the library. The numbered sections
-below are the full reference for people **editing** it.*
+*New to stacking here? Read this section; it is enough to **use** the library. The numbered
+sections below are the full reference.*
 
 **Stacking = leading batch axes on the cores, so one object holds many.** Every `TuckerTensorTrain` /
 `T3Frame` / `T3Variations` stores its cores as `core.shape == stack_shape + (tensor/rank axes)`. With
@@ -46,12 +46,12 @@ Take `d = 3` modes, a batch of **2 base points** (`C = (2,)`), with **3 tangent 
 | forward probe `zᵢ` (`tangent.probe(ww)`) | `W + K + C` | `(4, 3, 2) + (Nᵢ,)` |
 
 Read it as: *2 base points, each with its own frame; 3 tangent vectors attached at each; probe every
-one against 4 probe-sets → `4 × 3 × 2` probe results per mode.* The frame frame (`C`) is **shared**
+one against 4 probe-sets → `4 × 3 × 2` probe results per mode.* The frame (`C`) is **shared**
 across the `K` tangents at it — never copied; frame-inner broadcasting (§3) handles that for free.
 
 > ⚠️ The word **"stack" itself means three different things** in this codebase (`stack_shape`; the
-> tree↔object machinery in `stacking.py`; the deferred uniform supercore). When confused, first decide
-> *which*. See §1.
+> tree↔object machinery in `stacking.py`; the uniform supercore representation). When confused, first
+> decide *which*. See §1.
 
 ### Shape-notation legend (how to read the shapes in the code)
 
@@ -68,28 +68,26 @@ The codebase annotates shapes in trailing comments and encodes them in names. Th
 - **Contraction functions are `inputs_to_output`:** `WCa_Caib_WCi_to_WCb` reads as a per-operand
   block+leg signature (operand 1 = `W+C+(a,)`; operand 2 = a `C`-only core with legs `a,i,b`; operand
   3 = `W+C+(i,)`; output frame-inner `W+C+(b,)`).
-- A leading **`d`** on a contraction name (`dWCa_…`) is the deferred uniform layer's supercore/derivative
-  axis (ignore unless repairing the uniform layer).
+- A leading **`d`** on a contraction name (`dWCa_…`) is the uniform layer's supercore/derivative axis
+  (see `docs/uniform_supercore_layout.md`).
 
 ### Glossary
 
 | Term | Meaning |
 |---|---|
 | **`stack_shape`** | the leading batch axes shared by all of an object's cores; *is* the frame/core stack `C`. |
-| **frame / core stack `C`** | a batch of T3s / base points, on every core (`= stack_shape`). (Was `G` before the W/K/C rename.) |
-| **probe stack `W`** | a batch of probe-vector sets, on `ww` only. (Was `F`.) |
-| **tangent stack `K`** | a batch of tangent vectors at one frame, on the variation cores only; `T3Tangent.tangent_stack_shape`. (Was `V`.) |
+| **frame / core stack `C`** | a batch of T3s / base points, on every core (`= stack_shape`). |
+| **probe stack `W`** | a batch of probe-vector sets, on `ww` only. |
+| **tangent stack `K`** | a batch of tangent vectors at one frame, on the variation cores only; `T3Tangent.tangent_stack_shape`. |
 | **frame-inner** | the ordering rule: `C` innermost, `W`/`K` outermost (`W + K + C`). |
 | **`frame_stack_shape` / `tangent_stack_shape`** | a `T3Tangent`'s `C` and `K` parts, *derived* from the (frame, variations) pairing (§6), not stored. |
 | **heterogeneous stack** | one T3 whose cores have different-but-broadcastable stacks (frame `C`, variation `K+C`). First-class in the backend (§5). |
 | **"the split is recovered"** | `C`/`K`/`W` lengths are read off operand shapes, never threaded as parameters (§4, §6). |
 | **`sum_over_probes`** | transpose flag (§11): `False` (default, **primary**) keeps the probe stack `W` as an output stack — one tangent/tensor per probe; `True` sums `W` (`= Σ_W` of `False`) for the optimization `Jᵀr`. |
-| **ragged / uniform / weighted** | the three representations. Only **ragged** (tuples of arrays) is fully working; uniform (supercore) and weighted are deferred. |
+| **ragged / uniform / weighted** | the three representations. **ragged** (tuples of arrays) is the default; **uniform** (supercores + masks) is the jit/GPU mirror of the whole stack (`docs/uniform_equivalence_contract.md`); **weighted** is parked pending a redesign. |
 
-> **Why these letters?** `W`/`K`/`C` are deliberately disjoint from the core/variation symbols
+> The block letters `W`/`K`/`C` are deliberately disjoint from the core/variation symbols
 > (`U`,`P`,`Q`,`O`,`G`,`H`,`B`) and from `Jᵀ`/tensor/`T3`, so a shape comment is never ambiguous.
-> (Before this rename they were `F`/`V`/`G`, which clashed with the TT-core `G` and the
-> Tucker-variation `V`; `apply`/`entries`/`dense_probe` additionally drifted to `X`/`V`/`I`/`K`/`Z`.)
 
 ---
 
@@ -129,9 +127,10 @@ The codebase annotates shapes in trailing comments and encodes them in names. Th
    own tree machinery — **not** jax pytrees, and not the same as meaning (1). It is what
    `T3Tangent.unstack_*` / `stack_*`, `T3Frame.stack`, etc. are built on.
 
-3. **The uniform supercore (`ut3_*`, `ufv_*`, `uniform_*`) — a separate representation, currently
-   deferred/broken.** One stacked supercore array + masks for `jax.lax.scan`. Ignore unless you are
-   specifically repairing the uniform layer.
+3. **The uniform supercore (`ut3_*`, `ufv_*`, `uniform_*`) — a separate representation.** One stacked
+   supercore array + boolean rank masks, built for `jax.lax.scan` vectorization, GPU efficiency, and
+   compile-once `jit` — a faster mirror of the ragged layer, optimizers included. See
+   `docs/uniform_equivalence_contract.md` and the other `uniform_*` notes.
 
 When something is confusing, first ask **which of these three** you are dealing with.
 
@@ -236,7 +235,7 @@ So probing is built on the **named grouped-block contraction toolkit** in `backe
 
 When you need a *third* private block (e.g. forward-probing a `K`-stacked tangent — `W` probes, `K`
 tangents, `C` frame, all independent), you need a **3-block** contraction (`W`, `K`, `C`). These exist
-as of slice 5c (the bottom of `contractions.py`, frame-inner output `W + K + C`), used by both the
+(the bottom of `contractions.py`, frame-inner output `W + K + C`), used by both the
 forward tangent probe's perturbation sweep and the transpose (`probe_transpose` accepting `K`-stacked
 residuals: the adjoint sweep reuses the forward's contractions, the assembly adds 10 outer-product
 builders in keep-`W`/sum-`W` forms). **The split is recovered from operand shapes, never passed in:**
@@ -247,23 +246,13 @@ Only a contraction with *no* pure operand for the needed split takes an int coun
 `n_frame`; the transpose's `tt`-assemble takes `n_probe`. Each is recomputed at the lowest level that
 holds a suitable operand (the sweep `_func`, or `tv_probe_transpose` for `tt`-assemble, which has
 no pure operand of its own), the same precedent as the original `n_probe`. Each reduces to the
-corresponding 2-block contraction when `K` is empty. (The earlier plan to defer this in favour of
-map-over-`K` was reversed — see §7.)
+corresponding 2-block contraction when `K` is empty.
 
 **Decision rule:** if your two batches are on the *same* operands → `'...'`. If they are on *different*
 operand subsets and must remain independent → a grouped-block contraction.
 
-**Naming as documentation — delegate, don't silently reuse.** The contraction's *name* is its
-batch-group type signature: a reader at the call site sees exactly which blocks (`W`/`C`/`K`/`d`…) are
-live, the same role the shape-comments play for arrays. So even when a fewer-group contraction would
-*silently* handle a case — because the extra group is a **shared, aligned prefix on all operands** that
-just flattens into an existing flat block (e.g. `Xi_Xj_to_Xij` already computes `XYi_XYj_to_XYij`, with
-`Y` riding along) — add the full-group name (`XYi_XYj_to_XYij`) and have it **delegate** (reshape the
-extra group into the block, call the simpler function, reshape back), then call the full-group name. A
-group that lives on only *some* operands (e.g. the mode index `d` on the cores but not the shared probe
-vectors) **cannot** ride free → it is a genuine new contraction, not a delegating wrapper. Both get a
-name; only the implementation differs. (Delegating wrappers are covered by the frame's oracle test plus a
-thin smoke test; genuine ones get their own dense/loop-oracle test.)
+(Rules for *adding* contractions — when a new name must delegate vs be a genuine new implementation —
+are contributor material: [`contributor/batching_internals.md`](contributor/batching_internals.md).)
 
 ---
 
@@ -274,11 +263,10 @@ The archetype is a **tangent term**: the frame cores carry `C`, but one variatio
 Per §3 this is a *deliberate, valid* layout — frame-inner makes `C` the suffix of `K + C`, so the
 operation broadcasts the frame over `K`.
 
-- **The `'...'`-einsum ops already handle this for free** (gauge, `project_*`). They never materialize
+- **The `'...'`-einsum ops handle this for free** (gauge, `project_*`). They never materialize
   the broadcast — they keep the frame at `C` and let `'...'` replicate it. This is the *efficient*
   pattern (no `|K|` copies of the frame).
-- **The one reshape-based primitive, `to_dense`, did NOT** (it read a single `vs` from the first core
-  and hard-reshaped every core to it). It is now made broadcast-aware via
+- **The one reshape-based primitive, `to_dense`, is broadcast-aware** via
   **`t3_broadcast_to_common_stack`** (`backend/t3_operations.py`): compute `np.broadcast_shapes` of all
   core stacks, `broadcast_to` each core up, then contract. No-op for a uniform-stack T3.
 
@@ -326,7 +314,7 @@ a bare tree). So `T3Tangent` has **two explicit pairs**, each peeling **one name
 - `unstack_tangents` / `stack_tangents` — peel the **tangent stack `K`**. Yields a `K`-shaped tree of
   tangents that **share the frame** (same `T3Frame` *object* → same tangent space → mutually
   linalg-compatible). "For each vector within the frame." `stack_tangents` **guards** that all leaves
-  share the same frame object (structural identity, as in `inner`/`+`).
+  share the same frame (the same-frame check, as in `inner`/`+`).
 - `unstack_frame` / `stack_frame` — peel the **frame stack `C`**. Yields a `C`-shaped tree of
   single-base-point tangents at **distinct** bases (distinct tangent spaces). "For each frame."
   `stack_frame` places `C` **innermost** (variation stack → `K + C`), which needs *interior-axis*
@@ -349,26 +337,22 @@ can be `jit`/`vmap`/`grad`-ed:
   tangent vector flow as traced data. Consequences:
   - **`vmap` over a `T3Tangent` maps over *both* the frame and variation leaves.** For the
     batch-of-tangents-sharing-one-frame picture (`vmap`-over-`K`, frame fixed), close the frame over and map
-    a function of the variations: `vmap(lambda v: f(T3Tangent(frame, v)))`. For 5c (forward-probe a
-    `K`-stacked tangent) we deliberately did **not** use `vmap`: the probe instead grew genuine 3-block
-    (`W`,`K`,`C`) contractions (§4). Rationale — consistency with the `contractions.py` toolkit (the
-    blessed mechanism for independent blocks), no Python `K` loop on the numpy path, and low-level
-    einsums fold into XLA at least as well as a `vmap` (which can add layout/transpose churn over a long
-    function).
+    a function of the variations: `vmap(lambda v: f(T3Tangent(frame, v)))`. The `K`-stacked forward
+    probe does not use `vmap` internally — it uses the genuine 3-block (`W`,`K`,`C`) contractions (§4):
+    consistent with the `contractions.py` toolkit (the blessed mechanism for independent blocks), no
+    Python `K` loop on the numpy path, and low-level einsums fold into XLA at least as well as a `vmap`
+    (which can add layout/transpose churn over a long function).
   - **The same-frame guard is NUMERICAL (`safety.frames_equal`), not object identity.** Two tangents
     share a tangent space iff their frame cores are *value-equal* (with an `is`-identity fast path); the
     check is safe-mode + eager-only (skips under `safety.unsafe()` / any trace). So it survives a jit
     round-trip (a reconstructed, value-equal frame passes instead of false-failing) and `inner`/`+` jit
-    cleanly. (This replaced the old `self.frame is other.frame` identity guard, which forced the frame to
-    be `aux_data` — see below.)
+    cleanly.
   - **Payoff: NO per-frame recompile.** Because the frame is a leaf (traced data, not a compile-time aux
     constant), a tangent or `GaussNewtonModel` crossing a `jit` boundary compiles **once across all
-    bases** (`traces=1`) — you jit the frontend matvec directly. The old frame-as-aux design recompiled
-    on every frame change (a Newton step), which is exactly what the numericalized guard fixed. Full
-    story: `dev/archive/safe_unsafe_mode_plan.md`. To grad *w.r.t. the variations only*, close the frame over;
-    grad-w.r.t.-the-frame is now also available (the frame is a leaf).
+    bases** (`traces=1`) — you jit the frontend matvec directly. To grad *w.r.t. the variations only*,
+    close the frame over; grad-w.r.t.-the-frame is also available (the frame is a leaf).
   - `T3Frame` / `T3Tangent` are `@dataclass(frozen=True, eq=False)`: value hash/eq on ndarray fields is
-    ambiguous, so they stay identity-hashed — but the frame is now a **leaf-bearing pytree node**, not
+    ambiguous, so they stay identity-hashed — but the frame is a **leaf-bearing pytree node**, not
     `aux_data`.
 
 `vmap`/`jit` invocation across the ops is checked cheaply in `tests/test_dispatch.py` (a `jit`-compile
@@ -382,16 +366,14 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
 
 - **Body locals** suffix the axis layout: `C_aib`, `mu_WCa`, `B0_b_j_c`, `xi_WCp`. Capitals = grouped
   index blocks (`C`/`W`/`K`), lowercase = single axes, a leading `d` = a stacked/derivative (uniform
-  supercore) axis. `apply`/`entries` now use the same `W` (vec/index stack) and `C` (core stack) as
-  everywhere else — they previously used a private `X`/`V`/`I` scheme (so `mu_VXa` is now `mu_WCa`).
+  supercore) axis. `apply`/`entries` use the same `W` (vec/index stack) and `C` (core stack) as
+  everywhere else.
 - **Contraction functions** are `inputs_to_output`, e.g. `WCa_Caib_WCi_to_WCb`: read each token as a
   grouped-block einsum signature; output is frame-inner (`W` outer, `C` inner).
 - **Paper ↔ code** (Appendix A of the T4S paper): `U`=up_tucker, `P`=left_tt, `Q`=right_tt,
   `O`=down_tt (called `down_tt_cores`, not "outer"); `δU`=tucker_variations (`V`), `δG`=tt_variations
   (`H`). The block letters `W`/`K`/`C` are **deliberately disjoint** from these core/variation symbols,
-  so `V` here means only the Tucker variation and `G` only the TT core — **no overload**. (Removing that
-  overload — old block letters `F`/`V`/`G` clashing with TT-core `G` and Tucker-variation `V` — was the
-  motivation for the rename.)
+  so `V` here means only the Tucker variation and `G` only the TT core — **no overload**.
 
 ---
 
@@ -404,24 +386,18 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
   and return an array of shape `stack_shape` — **a scalar when unstacked, an array when stacked** (stack
   elements can differ: e.g. `frame.is_orthogonal()` on a `(2,)` stack → `[ True False]`). Reduce with
   `.all()` for one verdict; the safe-mode preconditions do exactly this at the call site, so they require
-  **all** stack elements to pass (see `docs/numerical_contract_catalog.md`). **One asymmetry worth knowing:**
+  **all** stack elements to pass (see `docs/numerical_contracts.md`). **One asymmetry worth knowing:**
   the *structural* `has_minimal_ranks` is a **scalar in the ragged layer** (one core shape ⇒ ranks are
   shared across the stack, so there is nothing per-element to report) but **per-element in the uniform
   layer** (ranks vary per stack element — the determinantal variety, `docs/uniform_ranks_and_varieties.md`);
   the *numerical* checkers are per-element in both layers.
 - **`to_dense` and the doubled-rank `to_t3` are not symmetric about broadcasting** — `to_dense`
   broadcasts lazily (bare array out), `to_t3` materializes (validated class out). See §5.
-- **`apply`/`entries` are now `W+C`** (vec/index stack OUTER, T3 stack INNER) as of slice 5b — older
-  code/notes may say `G+F` or `F+G`.
+- **`apply`/`entries` are `W+C`** (vec/index stack OUTER, T3 stack INNER), like everything else.
 - **Canonical core-tuple orderings (frontend takes precedence):** `TuckerTensorTrain.data =
   (tucker_cores, tt_cores)`; `T3Frame.data = (up, down, left, right)`; `T3Variations.data =
   (tucker_variations, tt_variations)`; `(frame, variations)` pairs are frame-first. Pass `.data`
   straight through; do not reorder.
-- **Tests are RNG-order sensitive** (one global seed at import) — a bug we hit. New numerical tests are
-  numpy-only (jax is covered by `test_dispatch`); see `CLAUDE.md`.
-- **Stacked arrays blow up fast.** In tests keep stack dims 1–2 and core dims small.
-- The **deferred uniform/weighted layers** still thread `use_jax` (old pattern) and use meaning (3)
-  stacking — don't take them as a model.
 
 ---
 
@@ -489,12 +465,6 @@ an output stack; `True` sums `W` away; `K` and `C` always pass through.
 | `TuckerTensorTrain.apply_transpose` / `entries_transpose` | `c`: `W + C` | T3 `stack_shape = W + C` | T3 `stack_shape = C` |
 
 The `apply`/`entries` adjoints currently take a residual with no `K` block (`K`-stacked residuals are a
-deferred `probe_transpose`-style extension; see `dev/archive/apply_entries_handoff.md`). Their forward outputs
+deliberately deferred `probe_transpose`-style extension). Their forward outputs
 are `W + K + C` (tangent) and `W + C` (plain), so the residual-in column is just "the forward output,
 adjoint-mapped back."
-
----
-
-*Maintenance note: when you change a stacking convention, this file and `CLAUDE.md` are part of the
-blast radius — update both. The conventions here are deliberate; if you find yourself wanting to break
-frame-inner, re-read §3 first.*

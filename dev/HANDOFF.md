@@ -1,8 +1,36 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-07-11 (second session of the day)._
+_Updated 2026-07-12 (late night)._
 
-## Where we are
+## Where we are — the docs user/dev split (S1–S3 DONE, S4–S5 remain)
+
+**The docs are now split into a user tier + a rendered Contributor guide** (Nick's decision:
+durable knowledge lives in `docs/`, tagged by audience; `/dev` is ephemeral working state only).
+Plan of record + full dispositions: **`dev/docs_split_plan.md`** (S1 `094762c8`, S2 `c430bc55`,
+S3 committed tonight). Executed so far: the 7 dev-wholesale docs + `uniform_pytree_composition` +
+`uniform_rank_masks_rationale` + the full `numerical_contract_catalog` record moved to
+`docs/contributor/`; the braided docs rewrite-split (batching, fitting, masks, contracts — each
+now a user page + a `contributor/*_internals.md`); NEW user pages `reading_signatures.md` and
+`numerical_contracts.md`; archive promotions P1–P8 landed (corewise-vs-autodiff, exact-GN,
+L-BFGS story → fitting; frame-vs-basis + the intended-asymmetries registry → naming; finite-fill
++ why-no-`to_vector` → uniform); `probing_section6_notes` salvaged (paper↔code map →
+`entries_apply_probe` §8) and archived; ~15 stale-content fixes incl. the minimal-rank
+correction (CLAUDE.md + `t3svd_minimal_ranks`) and the settled **`use_jit` is BUILT and tested**
+(the optimizers module docstring was the stale artifact).
+
+**→ Remaining: S4** (new content: the `t3m_methods.md` user doc — P0, the one headline feature
+with no rendered design note, distill from `dev/archive/t3m_plan.md` + the two `t3m_swap_plan`
+nuggets incl. the `~d·rtol` docstring caveat; `contributor/uniform_polymorphism` — P9, the triage
+lenses + exactness argument from `uniform_fix_plan.md`; `contributor/refactoring_methodology.md`
+— P10, rescue the rename lessons from this file + `naming_pass_plan.md` §D before they wash out;
+the P11 deferred/rejected ledger incl. the structured-`K` open idea from the archived probing
+note) **and S5** (CLAUDE.md routing-rule update to the durable-vs-ephemeral split; final sweep;
+archive the plan). Backlog items rescued from the archive sweep: the **default-path doctest pass**
+for undocumented public functions (Nick wants this), and the **`core_shapes` (property, strips
+stack) vs `get_core_shapes` (static, includes stack) inconsistency** — re-verified still live;
+a code decision for Nick.
+
+## Prior: the 1.0 roadmap (all DONE except shipping rituals)
 
 **The doc pass (R4) is DONE (2026-07-11)** — on top of the naming pass + backend module reorg
 (earlier today) and the uniform frontend U7 + frame rename (2026-07-10). Branch `main`, direct

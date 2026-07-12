@@ -1065,7 +1065,7 @@ def _require_orthogonal_frame(frame: bvf.T3Frame, who: str) -> None:
     detection) and under ``safety.unsafe()``. The orthogonality residual is a ``@cached_property`` on
     :py:class:`~...T3Frame`, so a fixed frame reused across an inner loop is contracted once. ORTH (not
     minimal) is the only numerical precondition for the manifold projections/retraction -- see
-    ``docs/numerical_contract_catalog.md``.
+    ``docs/numerical_contracts.md``.
     """
     if safety.checks_active(frame.data):
         atol = safety.effective_rtol(frame.data)
@@ -1206,7 +1206,7 @@ class ManifoldGeometry:
         Computes the corewise (coordinate) dot, which equals HS on this geometry's orthonormal, gauged
         frame. In **safe mode** it checks the preconditions for that equality: the two tangents share a
         frame, the frame is orthogonal, and **both** variations are gauged (minimal rank is a documented
-        caveat -- see ``docs/numerical_contract_catalog.md``). For the raw coordinate dot with no HS claim
+        caveat -- see ``docs/numerical_contracts.md``). For the raw coordinate dot with no HS claim
         and no orthogonal/gauge check, use :py:meth:`T3Tangent.corewise_inner`.
         """
         t1._check_same_tangent_space(t2)
@@ -1254,7 +1254,7 @@ class ManifoldGeometry:
         ``safety.unsafe()`` / a jax trace. ORTH only -- retract is gauge-invariant. Minimal rank is a
         documented *caveat*, not a precondition: on a non-minimal frame retract stays a valid
         first-order retraction but drops the numerically-redundant rank rather than preserving it
-        strictly (``docs/numerical_contract_catalog.md``).
+        strictly (``docs/numerical_contracts.md``).
         """
         _require_orthogonal_frame(p.frame, 'ManifoldGeometry.retract')
         cores = tv_operations.tv_retract(p.frame.data, p.variations.data)

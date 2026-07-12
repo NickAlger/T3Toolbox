@@ -11,8 +11,9 @@ once and assembles the ``Problem`` oracle from the same backend functions (desig
 
 Because the numerical safety preconditions live only in the frontend, this layer is **check-free** of
 them (structural shape guards inside the backend functions remain, and are jit-safe). So ``jit`` needs no
-``unsafe()`` wrapping; the ``use_jit`` machinery (deferred) is a thin jax-only layer on top of the
-ordinary numpy/jax dispatch.
+``unsafe()`` wrapping; the ``use_jit`` machinery is a thin jax-only layer on top of the ordinary
+numpy/jax dispatch (the per-step kernels jit via ``_maybe_jit``; the inner CG runs as a
+``lax.while_loop`` -- eager-vs-jit agreement is covered in ``tests/backend/test_optimizers.py``).
 
 The oracle:
 
@@ -256,7 +257,7 @@ def mc_sgd(
     retraction makes the raw Cauchy step stable; on the additive corewise chart use ``adam``). Stops on an
     exponentially-smoothed **full-batch** loss with an **absolute-iteration window** (``plateau_lag *
     check_every`` iterations) -- decoupled from batch size (the epoch-based window made small batches
-    fragile; see docs/mcsgd_apply_derivatives.md). ``use_jit`` jits the per-step kernel (the host loop
+    fragile; findings in a separate research repo, maintainer-local). ``use_jit`` jits the per-step kernel (the host loop
     draws minibatches; the full-batch stop check stays on the host)."""
     draw = draw if draw is not None else flat_draw(problem, batch)
     a_smooth = 1.0 - math.exp(-1.0 / smooth_tau)

@@ -108,7 +108,7 @@ updated to this version by the time the package is released.
   (core index `d` **leads**: `(d,)+stack_shape+(...)`, for `lax.scan` + locality),
   [`docs/uniform_masks_vs_ranks.md`](docs/uniform_masks_vs_ranks.md) (rank metadata is **boolean
   masks**, not integer ranks — closed under add=concat / multiply=Kronecker with no data movement),
-  [`docs/uniform_rank_masks_rationale.md`](docs/uniform_rank_masks_rationale.md) (**why the masks exist at
+  [`docs/contributor/uniform_rank_masks_rationale.md`](docs/contributor/uniform_rank_masks_rationale.md) (**why the masks exist at
   all**: they enforce the variable-rank feature by zeroing the variation padding, so the gradient can't
   grow rank — a maskless "inflate to uniform rank" layer is operation-equivalent but loses rank control;
   considered & rejected) and [`docs/contributor/uniform_svd_prefix_orthogonalization.md`](docs/contributor/uniform_svd_prefix_orthogonalization.md)
@@ -251,7 +251,7 @@ The dividing line is **structural vs numerical**:
   precedent): the *numbers* are identical, only error-catching differs. The non-enforcing checkers
   (`is_orthogonal`, `is_gauged`, `has_minimal_ranks`, `safety.frames_equal`) still exist and *are* the
   checks. Master plan: [`dev/archive/safe_unsafe_mode_plan.md`](dev/archive/safe_unsafe_mode_plan.md); the full
-  precondition-vs-caveat sweep: [`docs/numerical_contract_catalog.md`](docs/numerical_contract_catalog.md).
+  precondition-vs-caveat sweep: [`docs/contributor/numerical_contract_catalog.md`](docs/contributor/numerical_contract_catalog.md).
 
   - **Precondition vs caveat (only preconditions are enforced).** A **caveat** — the op is valid and
     correct *as computed*, the property only governs what the result *means* (e.g. "this coordinate dot
@@ -372,7 +372,7 @@ of every path. Full suite ~50s, green.
 - **Design references** (the durable *why*, to be folded into user docs in the doc pass):
   `docs/fitting_and_optimization.md`, `docs/batching_and_stacking.md`, `docs/entries_apply_probe.md`
   (whose §8 carries the probing paper↔code map), `docs/transposes.md`,
-  `docs/numerical_contract_catalog.md`, `docs/contributor/signature_style.md`,
+  `docs/numerical_contracts.md`, `docs/contributor/signature_style.md`,
   `docs/contributor/doctest_style.md`, the `docs/uniform_*` notes, the `docs/t3svd_*`
   notes. (Historical plans/handoffs are archived under `dev/archive/`.)
 - **Uniform tangent layer + optimizers — DONE, INCLUDING the frontend (the 1.0 centerpiece).** The *backend*,
@@ -425,8 +425,11 @@ Live roadmap + next steps: **`dev/HANDOFF.md`**. The durable open items:
   wire doctests into CI; add a test CI workflow (pytest + numpy 1.x/2.x matrix); README + `CHANGELOG`
   + `pyproject` fixes (`readme = "README.md"`). Remove the "WORK IN PROGRESS DO NOT USE" banner **only
   at the moment of shipping**. **No auto-formatter near the deliberately-nonstandard code style.**
-- **Minimal-rank audit** (mostly resolved): gauge projections + `project`/`project_dense_onto_tangent`
-  need orthogonality only (minimal rank NOT required — confirmed); `inner`/`norm` HS-faithfulness needs
-  orthogonal + minimal + gauged; `retract` preserves frame ranks only on a minimal frame.
+- **Minimal-rank audit — RESOLVED** (the settled verdict, per the catalog and the enforced check
+  sites): minimal rank is a correctness precondition for **nothing** — gauge projections +
+  `project`/`project_dense_onto_tangent` need orthogonality only; `inner`/`norm` HS-faithfulness
+  needs orthogonal + gauged (NOT minimal); `retract` preserves frame ranks only on a minimal frame
+  (a caveat, not a precondition). User statement: `docs/numerical_contracts.md`; decision record:
+  `docs/contributor/numerical_contract_catalog.md`.
 - **Deferred niceties:** the ambient derivative transpose (exponential-rank, no use case); per-test
   seeding → `pytest -n auto` parallelism; trimming `test_dispatch` jit time + the SVD-truncation grids.

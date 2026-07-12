@@ -24,10 +24,14 @@ Design-decision records
 .. toctree::
    :maxdepth: 1
 
+   contributor/batching_internals
+   contributor/fitting_internals
+   contributor/numerical_contract_catalog
    contributor/t3svd_design_rationale
    contributor/t3svd_verification
    contributor/ambient_derivative_transpose_note
    contributor/uniform_svd_prefix_orthogonalization
    contributor/uniform_pytree_composition
+   contributor/uniform_rank_masks_rationale
    contributor/uniform_internals
    contributor/verification_records

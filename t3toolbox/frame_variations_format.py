@@ -342,7 +342,7 @@ class T3Frame:                     # jax aux_data (it holds arrays; value hash/e
 
         This is the **structural** minimal-rank check (cheap integer arithmetic on the ranks); for the
         **numerical** one (no stored rank numerically redundant) see :py:meth:`has_numerically_minimal_ranks`.
-        Empirically (``docs/numerical_contract_catalog.md``) minimal rank is **not** a correctness
+        Empirically (``docs/numerical_contracts.md``) minimal rank is **not** a correctness
         precondition for any verified operation -- ``inner``/``norm``-as-HS and ``manifold_dim`` are exact
         on a non-minimal orthonormal frame, and ``retract`` only loses *strict* rank preservation (it
         drops the redundant rank, staying a valid retraction). So this is a non-enforcing checker;

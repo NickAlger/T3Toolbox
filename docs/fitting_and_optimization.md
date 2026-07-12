@@ -1,11 +1,10 @@
-# Fitting & optimization — architecture, usage, and design rationale
+# Fitting & optimization
 
-How T3Toolbox fits a fixed-rank Tucker tensor train to **sampled** data — applies, entries, probes, and
-their symmetric directional derivatives — by minimizing the least-squares misfit `½‖S(x) − y‖²`. This is
-the reference for the *structure* (what the pieces are), the *usage* (how to drive it), and the *design
-decisions* (what we chose and **why**). It complements the per-feature plans
-([`dev/archive/optimizers_plan.md`](https://github.com/NickAlger/T3Toolbox/blob/main/dev/archive/optimizers_plan.md), [`dev/archive/derivative_fitting_plan.md`](https://github.com/NickAlger/T3Toolbox/blob/main/dev/archive/derivative_fitting_plan.md),
-[`dev/archive/geometry_refactor_plan.md`](https://github.com/NickAlger/T3Toolbox/blob/main/dev/archive/geometry_refactor_plan.md)) — read this first for the whole picture.
+How T3Toolbox fits a fixed-rank Tucker tensor train to **sampled** data — applies, entries, probes,
+and their symmetric directional derivatives — by minimizing the least-squares misfit `½‖S(x) − y‖²`.
+This is the user reference: the structure (what the pieces are), the usage (how to drive it), and
+the design properties you can rely on. (The implementation-side rationale — memory tradeoffs,
+einsum paths, deferred work — is [`contributor/fitting_internals.md`](contributor/fitting_internals.md).)
 
 ---
 
@@ -146,107 +145,106 @@ geometry object. Mixing them silently corrupts the result, so they cannot be mix
 
 ---
 
-## 4. Design decisions — and why
+## 4. Design properties you can rely on
 
-### 4.1 Backend-first (the razor)
+### 4.1 Geometry is a bundle, not a flag
 
-The **algorithms live in the backend** (`backend/optimizers.py`), operating on raw cores / tangent tuples
-via backend functions only, **free of the numerical safety preconditions** (which live in the frontend).
-The frontend `optimizers.py` is a thin validate-once adapter. **Why:** an important minority of users
-bypass the OO frontend and work on raw `.data` tuples — they must be able to run the *same* optimizer code.
-It also means `jit` just works (no `unsafe()` wrapping — the backend has no checks to skip).
+`MANIFOLD ⟺ gauge Π`, `COREWISE ⟺ no Π` is **structural** — bundled in the geometry object, never a
+boolean. The gauge projection is not an option you toggle; it *defines* whether you're optimizing on
+the manifold or the raw cores. A flag would invite mixing the gauged gradient with the ungauged
+Hessian, which silently corrupts the result; bundling makes that unrepresentable. One
+geometry-generic model serves both, so every optimizer works with either geometry.
 
-### 4.2 Geometry as a bundle, not a flag
+### 4.2 The Gauss-Newton model is *exact*, not an approximation
 
-`MANIFOLD ⟺ gauge Π`, `COREWISE ⟺ no Π` is **structural** — bundled in the geometry object, never a boolean.
-**Why:** the gauge projection is not an option you toggle; it *defines* whether you're optimizing on the
-manifold or the raw cores. A flag invites mixing the gauged gradient with the ungauged Hessian, which
-silently corrupts the result. Bundling makes that unrepresentable. (This is the geometry refactor's core
-move: one geometry-generic `GaussNewtonModel`/`Problem`, so optimizers are written *once, not per
-geometry*.)
+The sampling forwards (`apply`/`entries`/`probe` and their jets) are **linear in the ambient
+tensor**, so the least-squares objective `φ(T) = ½‖A·T − y‖²` is *exactly quadratic*, and its
+Gauss-Newton Hessian **is** the true ambient Hessian — the second-order term Gauss-Newton normally
+drops is identically zero. The model `m(p)` is therefore the **exact** restriction of the objective
+to the affine tangent space `x + T_xM`, not a second-order approximation. Two practical
+consequences: the only approximation in a Newton-CG fit is the manifold linearization itself (the
+model is trustworthy at any step size the retraction tolerates), and dense ground-truth oracles can
+check the model to machine precision (~1e-13) — which is how the fitting layer is verified.
 
-### 4.3 Frame-sweep reuse (the `precompute` / `*_from_sweep` split)
+### 4.3 Frame-sweep reuse: inner iterations are cheap
 
-The Jacobian's expensive, `W`-scaling part — the **frame edge variables** (`xi`/`mu`/`nu`/`eta`, and their
-order-jets for derivatives) — depends only on the frame frame + the sample vectors, **not** on the tangent
-direction or the residual. So it is computed **once per frame** (`SamplingKind.precompute`) and reused by
-every `J` / `Jᵀ`. **Why:** an inner CG solve fixes the frame across many matvecs; recomputing the sweep each
-matvec would dominate. Per-kind it is **lean or full**: apply/entries need only `(xi, mu)`, probe needs all
-four (§4.7).
+The Jacobian's expensive, `W`-scaling part — the **frame edge variables** (`xi`/`mu`/`nu`/`eta`, and
+their order-jets for derivatives) — depends only on the frame + the sample vectors, **not** on the
+tangent direction or the residual. So it is computed **once per frame** (`SamplingKind.precompute`)
+and reused by every `J`/`Jᵀ` (the `*_from_sweep` backend hooks). An inner CG solve fixes the frame
+across many matvecs, so it pays for the sweep once, not per matvec. Per kind the stored sweep is
+lean (apply/entries) or full (probe) — a deliberate memory tradeoff; the reasoning is in
+[`contributor/fitting_internals.md`](contributor/fitting_internals.md).
 
-### 4.4 Minibatching as a user-supplied `draw` (not baked in)
+### 4.4 Minibatching is your function, not library policy
 
-Minibatching is *not* a library policy — it's a function the user hands the optimizer. **Why:** a
-stochastic step needs, each iteration, a random *sub-problem* (a subset of the measurements + their data),
-and the most flexible way to produce one is to let the user index their own arrays. Slice-on-X,
-slice-on-P, flat random pairs — all are one-line index expressions the user controls; the library needs
-**zero** knowledge of their data layout. The `Problem` is correspondingly **layout-agnostic** (no
-`kind.name` dispatch). The kind retains only the *minimal* layout (`n_measurements`/`take`) needed to build
-the **default** flat draw; a custom draw bypasses it. (Order-slicing is the one exception — order is an
-*output-only* axis, the forward computes the whole jet jointly, so subsetting orders is output-*masking*
-not input-*slicing*; deferred, and most naturally an outer continuation loop anyway.)
+A stochastic step needs, each iteration, a random *sub-problem* (a subset of the measurements +
+their data), and the most flexible way to produce one is to let you index your own arrays.
+Slice-on-X, slice-on-P, flat random pairs — all are one-line index expressions you control; the
+library needs **zero** knowledge of your data layout. The `Problem` is correspondingly
+layout-agnostic, and the kind retains only the minimal layout needed to build the **default** flat
+draw; a custom draw bypasses it entirely.
 
-### 4.5 jit composes for free; the draw stays on the host (or device, your choice)
+### 4.5 jit composes for free; the draw stays outside the compiled kernel
 
-The numpy/jax dispatch is inferred from the input array types at the lowest level (no `use_jax` threading),
-so a single dispatch-written kernel runs numpy-eager, jax-eager, or jit-compiled. **`use_jit`** is a thin
-jax-only layer on top: it jits the per-step kernel (gradient → step → retract; or the inner CG loop as one
-`lax.while_loop` via `common.xwhile`). **The draw runs *outside* the compiled kernel** — its fixed-size
-minibatch arrays flow in as the kernel's inputs, so the kernel compiles **once** (constant shapes) and is
-reused. **Why this split:** it keeps the user's draw unconstrained (any numpy/jax indexing, never compiled)
-while the heavy kernel is jitted. For GPU scale: keep the data resident on device, write the draw in jax →
-the minibatch is produced on-device and the kernel consumes it on-device, with no per-step host↔device
-transfer (only a random key crosses).
+The numpy/jax dispatch is inferred from the input array types at the lowest level (no `use_jax`
+threading), so a single kernel runs numpy-eager, jax-eager, or jit-compiled. **`use_jit`** (on
+`mc_sgd`/`adam`/`newton_cg`) jits the per-step kernel — gradient → step → retract, or the inner CG
+loop as one `lax.while_loop` — when the inputs are jax arrays; eager and jitted paths are verified
+to agree. **The draw runs *outside* the compiled kernel** — its fixed-size minibatch arrays flow in
+as the kernel's inputs, so the kernel compiles **once** (constant shapes) and is reused. This keeps
+your draw unconstrained (any numpy/jax indexing, never compiled) while the heavy kernel is jitted.
+For GPU scale: keep the data resident on device and write the draw in jax → the minibatch is
+produced on-device and consumed on-device, with no per-step host↔device transfer (only a random key
+crosses).
 
-### 4.6 Normalization is a per-order residual *weight* `ω`, owned by the kind
+### 4.6 Derivative normalization is a per-order residual *weight* `ω`, owned by the kind
 
-Fitting from derivatives, the orders span many decades (the order-`t` term carries a `t!`/binomial weight),
-which wrecks the Gauss-Newton conditioning. The fix is a **per-order residual weight** `ω`: the objective is
-`½‖ω ⊙ (S(x) − y)‖²`, so `ω` enters **only** `sumsq` (×ω) and `transpose` (×ω², the gradient `𝒥ᵀ(ω²r)`),
-while `forward` / `point_forward` / `data` stay **raw**. **Why not fold `1/ω` into the forward + pre-
-normalize the data?** Because then a user who writes a custom `draw` returning *raw* `data_B` (the natural
-thing) would silently break the residual — a nasty footgun for exactly the power-user audience. Centralizing
-`ω` in the kind means the user passes **raw data + a weight vector** and a custom draw has nothing to
-remember. `ω` is *created outside the optimization* (the user's choice — per-order RMS, a physical length
-scale, …; default `ω=1`).
+Fitting from derivatives, the orders span many decades (the order-`t` term carries a
+`t!`/binomial weight), which wrecks the Gauss-Newton conditioning. The fix is a **per-order residual
+weight** `ω`: the objective is `½‖ω ⊙ (S(x) − y)‖²`, so `ω` enters **only** the reduction and the
+gradient, while `forward` / `point_forward` / `data` stay **raw**. You pass **raw data + a weight
+vector**, and a custom `draw` returning raw `data_B` (the natural thing) can never silently break
+the residual — the alternative (fold `1/ω` into the forward and pre-normalize the data) would be a
+footgun for exactly the power-user audience. `ω` is created outside the optimization (your choice —
+per-order RMS, a physical length scale, …; default `ω=1`).
 
-### 4.7 Low-memory transpose: adjoint-state over scatter (store-vs-recompute)
+### 4.7 The corewise gradient is hand-rolled — and outperforms autodiff
 
-The gradient `𝒥ᵀr` for apply/entries needs a **right context** beyond the forward's left sweep. Two ways:
-the **scatter** *stores* the full frame sweep `(xi,mu,nu,eta)` (cheap matvec, more memory), or the
-**adjoint-state** method *recomputes* the right context as a seeded `sigma_hat` reverse sweep (stores only
-`(xi,mu)`, costs a sweep per matvec). T3Toolbox uses **adjoint-state** — **exactly 2× less `W`-scaling
-memory**. **Why:** at real scale the `W`-batched edge variables get large; memory is the binding constraint
-on a 40GB GPU, *worst* for minibatched Newton-CG (smaller batches → more ill-conditioned `H` → wants more
-data → larger `W`). It is the classic **checkpointing** tradeoff, and the project prefers low memory (see
-the `prefer-low-memory-over-compute` memory). *Probe can't use it* — its residual is a vector (one free
-mode), which must be propagated by the full adjoint sweeps + `nu`/`eta`; the scalar-seed shortcut is
-apply/entries-only. This is why probe's precompute is full and apply/entries' is lean.
+A natural question: why does the library hand-code the corewise (Euclidean) gradient instead of
+just using `jax.grad`? Because the hand-rolled sweeping/probing contractions, jit-compiled,
+**outperformed `jax.grad` for the corewise gradient in the maintainer's benchmarks — sometimes
+substantially** (frame-sweep reuse plus no autodiff-graph overhead). As with all performance
+statements in this library, treat it as regime-dependent rather than absolute — but corewise is not
+a "just use autodiff" stand-in. It also gives you a matrix-free Gauss-Newton operator
+(`JᵀJ`-vector products, awkward for autodiff via double-backprop) and an autodiff-free numpy path,
+inside the same geometry framework as the manifold.
 
-### 4.8 numpy einsum: force BLAS-eligible pairwise paths; jax: one big einsum
+### 4.8 Where's L-BFGS?
 
-The grouped contractions (`backend/contractions.py`) route through `_grouped_einsum`. **numpy:** a forced
-greedy-pairwise path — because numpy's `optimize=True` minimizes FLOP *count*, and on a FLOP-tie runs a
-single multi-operand contraction as one `c_einsum` loop **with no BLAS** (10–55× slower for the high-
-dimensional order-combines). **jax:** one big einsum — XLA's opt_einsum + fusion is BLAS-aware and *beats*
-any path we force. **Why it matters here:** the derivative forward/transpose are dominated by those
-order-combines; the fix is 11–19× on them, numerically identical.
+Deliberately not a library optimizer. For a *Euclidean* (corewise) L-BFGS, the value is scipy's
+battle-tested Wolfe line search — so the intended pattern is the **scipy bridge**
+(`examples/fit_hilbert_from_entries_lbfgs.py`: the corewise gradient feeds
+`scipy.optimize.minimize(method='L-BFGS-B')` directly). A *Riemannian* L-BFGS (with vector
+transport — the quasi-Newton method only this library could provide) is deferred.
 
 ---
 
-## 5. What's deferred (not built)
+## 5. Practical guidance from the field
 
-- **The Goal-1 `fit(...)` facade** — a "just fit my tensor" entry point that picks a sensible geometry +
-  optimizer, supplies the geometry-correct `x0`, and runs **rank continuation** with validation. The
-  current layer is a clean *mid-level toolkit*; the facade is what delivers "standard user, no fiddling".
-  Rank continuation + validation currently live in the examples (the right defaults: manifold → zero start
-  + warm continuation; corewise → nonzero start + cold per level — see `dev/archive/optimizers_plan.md` §7).
-- **Order-slicing minibatches** (output-masking) and order/polynomial-degree continuation — research,
-  likely outer loops.
-- **The example pass** — deciding which `examples/fit_hilbert_*` use the library optimizers vs keep inline
-  to illustrate the hidden hooks (`gn_hessian`, `gn_quadratic`, `corewise_map`); `dev/archive/optimizers_plan.md` §10.
-- **Per-sample gradients / multi-source fits** (SVRG-style; fitting from applies *and* entries together) —
-  reachable at the backend level (`sum_over_probes=False`; sum two local models), not packaged.
+Distilled from fitting studies with the library (the studies themselves live in a separate research
+repo, maintainer-local):
+
+- **On ill-conditioned, high-rank fits, prefer `newton_cg`.** The SGD-family's first-order
+  convergence is slow there, and an under-converged iterate is *tilted toward the function-space
+  metric* — good function error, poor Frobenius error / poor tensor recovery — whereas Newton-CG
+  recovers the true tensor, balanced across norms.
+- **Rank continuation alone suffices** (constant seed, rank-1-first, warm-started by zero-padding —
+  see [`rank_continuation.md`](rank_continuation.md)); order continuation added nothing in the
+  studies.
+- **When the data only constrains a structured subspace** (e.g. symmetric tensors), the fit fills
+  the unconstrained null space with a large "halo" — **project/symmetrize the fitted tensor** to
+  read off the meaningful part.
 
 ---
 
@@ -256,19 +254,11 @@ order-combines; the fix is 11–19× on them, numerically identical.
   `gn_hessian`); `fit_hilbert_from_probes_adam.py` / `_optax.py` (probes, corewise, hand-Adam / optax);
   `fit_hilbert_from_entries_lbfgs.py` (entries, corewise, scipy bridge); `fit_hilbert_from_apply_
   derivatives.py` / `_flat.py` (apply-derivatives, *inline* MC-SGD); `fit_hilbert_from_apply_derivatives_
-  topt.py` (the **library** apply-derivatives pilot).
-- **Research study (branch `polynomial_fitting_experiments`):** `experiments/` recovers a polynomial from
-  function + derivative samples via the `apply_derivatives` fit (`symmetric_polynomial_fitting.tex` is the
-  writeup). **Practical takeaways:** on ill-conditioned high-rank symmetric fits, **prefer `newton_cg`** —
-  MC-SGD's first-order convergence is too slow and its under-converged iterate is *tilted toward the
-  function-space metric* (good function error, poor Frobenius / poor tensor recovery), whereas Newton-CG
-  recovers the true tensor (balanced across norms). **Rank continuation alone** (constant seed +
-  rank-1-first) suffices; order continuation adds nothing. When the data only constrains a *symmetric*
-  (or otherwise structured) subspace, the fit fills the unconstrained null space with a large "halo" —
-  **project/symmetrize the fit** to read off the meaningful part.
-- **Plans:** `dev/archive/optimizers_plan.md` (the optimizers + example two-track plan), `dev/archive/derivative_fitting_plan.md`
-  (the D1–D4 derivative-fitting build), `dev/archive/geometry_refactor_plan.md` (the geometry abstraction).
-- **Adjacent:** `entries_apply_probe.md` (the three sampling ops + their transposes), `transposes.md`
-  (ambient/corewise/tangent taxonomy), `batching_and_stacking.md` (the `W`/`K`/`C` stack design — read
-  before touching anything with stack axes), `mcsgd_apply_derivatives.md` (the Cauchy step + minibatch
-  findings), `dev/archive/safe_unsafe_mode_plan.md` (the safe-mode preconditions the frontend enforces).
+  topt.py` (the **library** apply-derivatives pilot); `fit_hilbert_uniform_newton_cg.py` /
+  `_probe_derivatives_newton_cg.py` (the uniform layer end-to-end).
+- **Adjacent:** [`entries_apply_probe.md`](entries_apply_probe.md) (the three sampling ops + their
+  transposes), [`transposes.md`](transposes.md) (ambient/corewise/tangent taxonomy),
+  [`batching_and_stacking.md`](batching_and_stacking.md) (the `W`/`K`/`C` stack design),
+  [`rank_continuation.md`](rank_continuation.md) (growing ranks during a fit).
+- **Implementation rationale** (memory tradeoffs, einsum paths, deferred work):
+  [`contributor/fitting_internals.md`](contributor/fitting_internals.md).

@@ -222,7 +222,7 @@ conventions / jax plumbing — exclude, implementation footnote at most).
 | `t3svd_minimal_ranks.md` | CORE | 4 | Minimal-rank inequalities = single-edge matricization ranks (T3 is a **tree** ⇒ clean bipartition); a hard rank cap in a sweep orphans upstream ranks. Paper-ready. |
 | `rank_continuation.md` | CORE | 4/7 | Edge-condition-number growth: equalize `κᵢ=σ₁/σ_last` across edges vs grow uniformly (~3.3× DOF savings). |
 | `uniform_ranks_and_varieties.md` | CORE | 9/4/5 | **Standout / near-theorem:** variable-rank stacked T3 = batch in the bounded-rank **determinantal variety** (closure of fixed-rank manifolds, stratified by them); mask = stratum label; rank varies across a frame stack, shape locked. |
-| `numerical_contract_catalog.md` | RATIONALE | 10 | **Precondition-vs-caveat** line + per-op requirement table (SF/ORTH/GAUGE/minimal). Headline: minimal rank is a precondition for *nothing*. De-tangle from safe-mode machinery. |
+| `contributor/numerical_contract_catalog.md` | RATIONALE | 10 | **Precondition-vs-caveat** line + per-op requirement table (SF/ORTH/GAUGE/minimal). Headline: minimal rank is a precondition for *nothing*. De-tangle from safe-mode machinery. |
 | `uniform_masks_vs_ranks.md` | RATIONALE | 9/2/4 | Store rank as **boolean projector masks**, not integer prefixes — the unique form closed under ⊕=concat / ⊗=Kronecker with no data movement. |
 | `uniform_rank_masks_rationale.md` | RATIONALE | 9/5/7 | Masks are a **functional rank constraint**: inflate-equivalence holds for a *fixed* tangent, but a fresh gradient at a rank-deficient frame points into rank-growing directions — masks zero exactly those. |
 | `uniform_svd_prefix_orthogonalization.md` | RATIONALE | 3 | Prefix-rank contract is correct **only under SVD** orthogonalization; QR's Q is ordered by input columns not importance → a fixed prefix can drop real content. |
@@ -283,7 +283,7 @@ references still say `docs/<name>` for files the reorg moved to `dev/archive/`. 
   → **repoint to `docs/ttm_t3m_ht_note.tex`** (theory + cost-table home).
 - `symmetric_probe_derivatives.tex`'s own dead ref to `derivatives_mirror_plan.md` → **drop**.
 - all others (history/plan pointers) → **repoint `docs/<name>` → `dev/archive/<name>`**:
-  `safe_unsafe_mode_plan` (`numerical_contract_catalog.md:3`, `batching_and_stacking.md:368`,
+  `safe_unsafe_mode_plan` (`contributor/numerical_contract_catalog.md:3`, `batching_and_stacking.md:368`,
   `fitting_and_optimization.md:274`, `safety.py:6`, `manifold.py:1433`); `apply_entries_handoff`
   (`entries_apply_probe.md:231`, `batching_and_stacking.md:492`); `optimizers_plan`
   (`optimizers.py:12`, `backend/optimizers.py:10`, `tests/backend/test_optimizers.py:1`,
