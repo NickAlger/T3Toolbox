@@ -402,9 +402,15 @@ Live roadmap + next steps: **`dev/HANDOFF.md`**. The durable open items:
   is the roll-your-own surface, and worked examples exist. Slicing history: `dev/archive/uniform_optimizers_plan.md`.
   **The uniform layer is closed; the naming pass is DONE; next is the doc pass** (below).
 - **Redesign the weighted tensor-network** code structure (deferred past 1.0).
-- **Doc pass (Track B / release):** fold the design rationale from `docs/` into user-facing Sphinx
-  docs; fix the docs build (`conf.py` autoapi excludes core modules; committed `_build`; `modules.rst`
-  still titled "TuckerTensorTrainTools").
+- **Doc pass (R4) — DONE (2026-07-11).** The Sphinx build is fixed and at **zero warnings with `-W`
+  enforced in CI**: the API reference covers the full validated frontend **and backend** surface
+  (backend users are first-class; only `OLD_*` + the parked weighted modules are excluded); every
+  function/method page shows the **verbatim source signature** (shape comments included — a custom
+  autoapi template + `conf.py` filter, since autoapi's regenerated signatures drop comments); all 23
+  `docs/*.md` design notes render as user pages (myst); new landing/user-guide/getting-started/API
+  pages (`getting_started.rst` is doctest-verified); version single-sourced from `pyproject.toml`
+  (2026.0.0); Pages deploys via the official artifact actions (no `gh-pages` branch). Plan + slice
+  log: `dev/archive/docs_pass_plan.md`. **Next: R3 README, then R5 test CI, R6 cleanup.**
 - **Public API + naming review — DONE (2026-07-11).** The `basis`/`base` → `frame` rename
   (`dev/archive/naming_review.md` §2), the full naming pass + backend module reorg (plan + inventory:
   `dev/archive/naming_pass_plan.md`; the sampling modules are grouped **by type** — Nick's call — with the
