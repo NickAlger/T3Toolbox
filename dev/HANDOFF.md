@@ -24,7 +24,16 @@ touch), and one doctest printed a naked numpy bool scalar (numpy-1/2 repr differ
 doctest style). The Pages toggle is FLIPPED (Nick) and the docs deploy is green — the rebuilt
 site is live; the old `gh-pages` branch is dead weight (delete whenever, optional).
 
-**→ Next: R6 (cleanup)** — see Next steps.
+**R6 (cleanup) is DONE too** (same session): the seven `OLD_test_*.py` deleted after per-file
+coverage confirmation (the `OLD_test_linalg` audit found the file API-dead AND every contract
+directly covered by the `*_svd_*_core(_tols)` + t3svd-tolerance tests — details in commit
+`67a58492`); `CHANGELOG.md` created (the R1 leftover); `.idea/` and `/t4s.pdf` gitignored
+(t4s.pdf = the deliberately-untracked local preprint — flip if you'd rather track it).
+
+**→ The 1.0 roadmap is now COMPLETE except the literal shipping rituals**: remove the README
+"DO NOT USE" banner at ship time, finalize the CHANGELOG's Unreleased section into `2026.0.0`,
+tag, and publish. Post-1.0 threads: the Goal-1 `fit(...)` facade (1.1), the weighted-layer
+revival, and the toolbox reference paper (`dev/paper_scope.md`).
 
 ## Done this session (R4, the doc pass) — slices D1–D5
 
@@ -98,11 +107,9 @@ is nearly a drop-in chapter).
 
 ## Next steps
 
-1. **R6 cleanup:** the remaining `OLD_test_*.py` files (**`OLD_test_linalg.py` needs a real
-   coverage audit** — there is no current `test_linalg.py`; the other six have modern
-   counterparts), `.idea/` (uncomment the ready line in `.gitignore`), `t4s.pdf` untracked-status
-   decision. `docs/make.bat` was committed in D1. `CHANGELOG.md` still to create (R1 leftover;
-   pyproject links to it).
+1. **Ship 1.0 (when Nick decides):** remove the README banner (the literal moment of shipping),
+   finalize CHANGELOG `[Unreleased]` → `[2026.0.0]`, tag, publish. Everything else on the 1.0
+   checklist is done and CI-enforced.
 2. **→ 1.1:** the Goal-1 `fit(...)` facade; revive/redesign the weighted layer.
 
 ## The 1.0 roadmap — summary
@@ -114,7 +121,8 @@ is nearly a drop-in chapter).
   `-W` in CI; full frontend+backend API reference with verbatim source signatures.
 - **R5 — DONE (2026-07-11):** test CI (numpy 1.x/2.x matrix + doctests CI-enforced). No
   auto-formatter near the curated style.
-- **R6** cleanup — `OLD_test_*` etc., delete only after confirming preserved.
+- **R6 — DONE (2026-07-11):** cleanup — the seven `OLD_test_*` deleted (coverage confirmed
+  per-file), `CHANGELOG.md`, gitignore hygiene.
 - **R7 — DONE** (uniform layer + optimizers + U7 frontend).
 
 ## Don't-trip constraints (the maintainer's standing rules)
