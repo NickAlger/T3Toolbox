@@ -2,6 +2,12 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""The ``entries`` sampling type: evaluate individual T3 entries (one-hot probes) -> scalars.
+
+Holds the t3 + tv ops, the ambient/tangent/corewise transposes, and the frame sweeps for entry
+sampling. The most-special case of probe ⊃ apply ⊃ entries; imports the general machinery from
+``probing``, never the reverse. See ``docs/entries_apply_probe.md``.
+"""
 import numpy as np
 import typing as typ
 

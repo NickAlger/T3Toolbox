@@ -15,10 +15,14 @@ them (structural shape guards inside the backend functions remain, and are jit-s
 ordinary numpy/jax dispatch.
 
 The oracle:
-  * ``Problem``      -- (geometry ops, sampling kind, sample, data); builds ``LocalModel``s and retracts.
-  * ``LocalModel``   -- the GN model linearized at a point (``.gradient`` / ``.objective`` / ``.hvp`` /
-                        ``.gn_quadratic`` / ``.retract``), the backend twin of ``fitting.GaussNewtonModel``.
-  * ``GeometryOps``  -- (frame, project, retract) on raw data; ``MANIFOLD_OPS`` / ``COREWISE_OPS`` singletons.
+
+* ``Problem``     -- (geometry ops, sampling kind, sample, data); builds per-point ``LocalModel``
+  objects and retracts.
+* ``LocalModel``  -- the GN model linearized at a point (``.gradient`` / ``.objective`` /
+  ``.hvp`` / ``.gn_quadratic`` / ``.retract``), the backend twin of ``fitting.GaussNewtonModel``.
+* ``GeometryOps`` -- (frame, project, retract) on raw data; ``MANIFOLD_OPS`` / ``COREWISE_OPS``
+  singletons.
+
 Tangent vectors are raw ``(tucker_var, tt_var)`` tuples; vector arithmetic is the ``corewise`` ops.
 """
 import dataclasses as dc

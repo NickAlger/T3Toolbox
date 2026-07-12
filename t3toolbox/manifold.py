@@ -2,6 +2,14 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""The tangent bundle and geometries: ``T3Tangent``, ``MANIFOLD`` (Hilbert-Schmidt), ``COREWISE``.
+
+``T3Tangent`` bundles ``(T3Frame, T3Variations)``. The metric lives on the geometry, not the
+tangent: ``MANIFOLD.inner``/``norm`` is the Hilbert-Schmidt metric (safe mode checks same-frame +
+orthogonal + gauged); ``COREWISE.inner``/``norm`` is the Euclidean coordinate metric (same-frame
+only). The frame flows as a jax pytree *leaf* -- the same-frame guard is numerical
+(``safety.frames_equal``), so jit does not recompile per frame.
+"""
 from __future__ import annotations
 
 import math

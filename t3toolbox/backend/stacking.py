@@ -2,6 +2,13 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Convert a Python tree of separate objects <-> one stacked object.
+
+``stack``/``unstack``, ``tree_zip``, ``apply_func_to_leaf_subtrees``, and the basic
+ragged/uniform twins. This is one of three distinct meanings of "stacking" in the library --
+distinct from leading ``stack_shape`` batch axes on one object's cores, and from the uniform
+supercore representation (``docs/batching_and_stacking.md``).
+"""
 import numpy as np
 import typing as typ
 # from dataclasses import dataclass

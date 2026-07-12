@@ -2,6 +2,13 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""The plain-ut3 mask layer: build, validate, apply.
+
+``ut3_make_masks``, ``require_concrete_masks`` (the jit tracer guard), ``ut3_apply_masks``.
+Masks are boolean prefix vectors, static structure, and ALWAYS host numpy (``np``, never
+``xnp``) -- do not "fix" that (``docs/uniform_masks_vs_ranks.md``,
+``docs/uniform_rank_masks_rationale.md``).
+"""
 import numpy as np
 import typing as typ
 

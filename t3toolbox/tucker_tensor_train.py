@@ -2443,7 +2443,9 @@ class TuckerTensorTrain:
 
         This is the genuine *tensor* sum: the result represents the sum of the dense tensors over
         the chosen stack axes,
+
             ``result.to_dense() = self.to_dense().sum(axis=stack axes)``.
+
         The summed-over stack axes are removed; any remaining stack axes are kept.
         For a corewise sum of the core arrays instead, see :py:meth:`.sum_stack_corewise`.
 
@@ -2516,7 +2518,7 @@ class TuckerTensorTrain:
         This is a corewise sum: the Tucker and TT core arrays are summed directly along the chosen
         stack axes (see :py:func:`t3toolbox.corewise.corewise_sum`). Because a Tucker tensor train
         is multilinear in its cores, this is generally **not** the tensor sum of the represented
-        tensors (for that, use :py:meth:`.sum_stack`). It is useful when the cores carry an additive
+        tensors (for that, use :py:meth:`.TuckerTensorTrain.sum_stack`). It is useful when the cores carry an additive
         structure of their own (e.g. stacked tangent-vector variations), and it leaves ranks unchanged.
 
         Parameters
@@ -2602,7 +2604,7 @@ class TuckerTensorTrain:
         Raises
         ------
         ValueError
-            If this TuckerTensorTrain is stacked and ``rtol`` or ``atol`` are not ``None.
+            If this TuckerTensorTrain is stacked and ``rtol`` or ``atol`` are not ``None``.
 
         See Also
         --------
@@ -2674,7 +2676,7 @@ class TuckerTensorTrain:
         Raises
         ------
         ValueError
-            If this TuckerTensorTrain is stacked and ``rtol`` or ``atol`` are not ``None.
+            If this TuckerTensorTrain is stacked and ``rtol`` or ``atol`` are not ``None``.
 
         See Also
         --------
@@ -2745,7 +2747,7 @@ class TuckerTensorTrain:
         Raises
         ------
         ValueError
-            If this TuckerTensorTrain is stacked and ``rtol`` or ``atol`` are not ``None.
+            If this TuckerTensorTrain is stacked and ``rtol`` or ``atol`` are not ``None``.
 
         See Also
         --------
@@ -3853,11 +3855,13 @@ class TuckerTensorTrain:
         Tuple[NDArray, ...],  # tucker-core gradients, same shapes as self.tucker_cores
         Tuple[NDArray, ...],  # tt-core gradients,     same shapes as self.tt_cores
     ]:
-        """Corewise (non-manifold) transpose of :py:meth:`probe_derivatives`: gradient w.r.t. *this
-        tensor's cores*, treated as independent optimization variables (Adam / L-BFGS). Returns a raw
-        ``(tucker_grads, tt_grads)`` tuple shaped like ``self.data`` -- a gradient, not a tensor. The
-        Section 6.3 substitution ``P,Q,O -> G`` into ``T3Tangent.probe_derivatives_transpose`` (no
-        orthogonality required). ``sum_over_probes=True`` is the summed gradient ``J^T r``.
+        """Corewise (non-manifold) transpose of :py:meth:`probe_derivatives`: the core-space gradient.
+
+        Gradient w.r.t. *this tensor's cores*, treated as independent optimization variables
+        (Adam / L-BFGS). Returns a raw ``(tucker_grads, tt_grads)`` tuple shaped like ``self.data``
+        -- a gradient, not a tensor. The Section 6.3 substitution ``P,Q,O -> G`` into
+        ``T3Tangent.probe_derivatives_transpose`` (no orthogonality required).
+        ``sum_over_probes=True`` is the summed gradient ``J^T r``.
 
         See Also
         --------
@@ -3977,7 +3981,7 @@ class TuckerTensorTrain:
             New Tucker tensor train representing the same tensor (or a truncated version), but with modified cores
         Tuple[:py:class:`NDArray`,...]
             Singular values associated with edges between Tucker cores and TT cores
-        Tuple[:py:class:`NDArray,...]
+        Tuple[:py:class:`NDArray`,...]
             Singular values associated with edges between adjacent TT cores
 
         Notes

@@ -2,6 +2,12 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Rank bookkeeping: minimal/continuation ranks, manifold dimension, rank-spec normalization.
+
+Mostly cheap structural integer arithmetic -- bare ``minimal_ranks`` means the structural notion,
+per the naming convention; the SVD-based ``numerically_minimal`` checkers live with their
+operations -- plus edge condition-number diagnostics.
+"""
 import numpy as np
 import typing as typ
 

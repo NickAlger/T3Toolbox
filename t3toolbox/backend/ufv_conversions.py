@@ -2,6 +2,12 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Uniform frame/variations conversions (raw supercore + mask data).
+
+Data-level ``ut3_orthogonal_representations`` plus the cross-layer converters
+(``t3frame_to_ut3frame``, ``ut3variations_to_t3variations``, ...) between the ragged and uniform
+frame/variations representations.
+"""
 import numpy as np
 import typing as typ
 

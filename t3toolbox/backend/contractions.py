@@ -2,6 +2,14 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Named grouped-block einsum contractions (``inputs_to_output``, e.g. ``WCa_Caib_WCi_to_WCb``).
+
+The machinery for TWO independent batch blocks on different operand subsets -- what a single
+leading ``'...'`` einsum cannot express. Capital letters are index BLOCKS, each reshaped to one
+flat axis (``W`` probe stack, ``K`` tangent stack, ``C`` frame stack; = 1 when empty); lowercase
+letters are single axes; a leading ``d`` is the stacked jet/derivative axis. Full design:
+``docs/batching_and_stacking.md``.
+"""
 import functools
 import math
 import typing as typ

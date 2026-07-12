@@ -2,6 +2,11 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Mask construction/application for uniform (frame, variations) data.
+
+Masks are static structure and ALWAYS host numpy (``np``, never ``xnp``) -- intentional, required
+for jit; do not "fix" it (``docs/uniform_masks_vs_ranks.md``, ``docs/uniform_pytree_composition.md``).
+"""
 import numpy as np
 import typing as typ
 

@@ -2,6 +2,11 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""PARKED: the weighted (edge-weight) layer -- deferred past 1.0, excluded from the rendered docs.
+
+Cores + edge-weight vectors, with weights absorbable into cores. Kept importable; do not extend,
+rename, or "fix" until the weighted tensor-network redesign.
+"""
 import numpy as np
 import typing as typ
 

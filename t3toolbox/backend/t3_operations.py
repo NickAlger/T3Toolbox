@@ -2,6 +2,12 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Structural operations on ragged t3 data.
+
+Squash tails, segment/concatenate, stack/unstack, broadcast-to-common-stack, core-shape
+utilities. ``wt3_squash_tails`` is an unexported PARKED weighted-layer copy (pending the
+post-1.0 weighted redesign) -- leave it alone.
+"""
 import numpy as np
 import typing as typ
 import math
@@ -261,6 +267,8 @@ def wt3_squash_tails(
         x, # weighted Tucker tensor train
 ):
     """Reduce the first and last dimensions of the first and last tt cores to 1.
+
+    PARKED weighted-layer copy (unexported; kept pending the post-1.0 weighted redesign).
     """
     xnp, _, _ = get_backend(False)
 

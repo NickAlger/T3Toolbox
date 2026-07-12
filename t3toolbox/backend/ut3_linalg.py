@@ -2,6 +2,12 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Linear algebra on uniform supercores (dense-tensor semantics) with mask bookkeeping.
+
+``ut3_scale``/``ut3_add``/``ut3_sum_stack``/``ut3_inner_product``/``ut3_norm_orthogonalized``.
+Output masks follow the rank recurrences (add = mask concatenation) on the host (``np``), while
+the supercores flow through ``xnp`` (``docs/uniform_masks_vs_ranks.md``).
+"""
 import numpy as np
 import typing as typ
 import math

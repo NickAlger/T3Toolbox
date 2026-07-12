@@ -2,6 +2,14 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""The ``probe`` sampling type AND the shared sampling machinery it exemplifies.
+
+Probing contracts a T3 with vectors in all but one mode, giving ``d`` vectors (T4S §6). This
+module holds the general machinery -- the ``xi/mu/nu/eta`` helper chain, ``assemble_z``, the tv
+probe + frame sweeps + transposes -- which ``apply``/``entries`` specialize (probe ⊃ apply ⊃
+entries; they import from here, never the reverse). Reference module for the signature style
+(``docs/signature_style.md``).
+"""
 import math
 import numpy as np
 import typing as typ

@@ -2,6 +2,13 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""The frontend frame/variations classes: ``T3Frame`` (orthogonal frame) + ``T3Variations``.
+
+A (frame, variations) pair is the orthogonal representation of a tangent direction to the
+fixed-rank T3 manifold (T4S Appendix A). ``T3Frame.data = (up, down, left, right) = (U, O, P, Q)``;
+structural validation runs in ``__post_init__``. ``t3_orthogonal_representations`` here returns
+the frontend objects; the same-named backend function (``backend.fv_conversions``) returns raw data.
+"""
 import math
 import numpy as np
 import typing as typ

@@ -2,6 +2,12 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Structural operations on uniform supercore data.
+
+``ut3_squash_tails``/``ut3_reverse``, stack/unstack + leaf structure, and the packing seam
+(``pack_vectors``/``unpack_vectors``/``is_packed``/``pack_if_ragged``) behind the
+packedness-mirror convention (user-facing ops mirror the input's packedness).
+"""
 import numpy as np
 import typing as typ
 
@@ -29,10 +35,12 @@ UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDArray, ND
 
 
 def ut3_leaf_structure(d: int):  # leaf-structure template for stacking.apply_func_to_leaf_subtrees
-    """Template marking one uniform-T3 ``.data`` leaf ``(tucker_supercore, tt_supercore, shape,
-    (tucker_mask, tt_mask))`` for the tree machinery in ``stacking.py``. The ``shape`` int tuple has
-    ``d`` int leaves, so the template must encode its length: a bare ``None`` there fails to match (an
-    int tuple is a ``Sequence``, unlike the ndarray leaves, so the walker would recurse into it)."""
+    """Template marking one uniform-T3 ``.data`` leaf for the tree machinery in ``stacking.py``.
+
+    The leaf is ``(tucker_supercore, tt_supercore, shape, (tucker_mask, tt_mask))``. The ``shape``
+    int tuple has ``d`` int leaves, so the template must encode its length: a bare ``None`` there
+    fails to match (an int tuple is a ``Sequence``, unlike the ndarray leaves, so the walker would
+    recurse into it)."""
     return (None, None, (None,) * d, (None, None))
 
 

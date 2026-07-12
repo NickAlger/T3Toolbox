@@ -2,6 +2,13 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Tangent-variations operations on raw (frame, variations) data.
+
+``tv_to_t3`` (the tangent SUM over variation terms -- vs ``fv_conversions.fv_to_t3``'s single
+term), ``tv_to_dense``, the orthogonal/oblique gauge projections, the tangent-space projections
+of t3/dense operands, ``tv_retract``, ``tv_gauge_residual``, and the tangent/frame stack
+converters.
+"""
 from __future__ import annotations
 
 import math

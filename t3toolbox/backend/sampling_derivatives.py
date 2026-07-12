@@ -2,6 +2,14 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Jet machinery: symmetric directional derivatives of probe/apply/entries, all in one place.
+
+The ``*_derivatives`` ops strictly generalize the plain sampling ops with a leading order axis
+(order 0 == the plain op). The jets of the helper chain (``compute_*_jets``,
+``binomial_combine_tensor``) are shared across the three sampling types, which is why the
+derivative layer is one module rather than three. Math: ``docs/symmetric_probe_derivatives.tex``;
+costs/usage: ``docs/entries_apply_probe.md``.
+"""
 import math
 import itertools
 import numpy as np

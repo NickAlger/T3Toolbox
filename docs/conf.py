@@ -122,6 +122,29 @@ def verbatim_signature(obj):
         return ''
 
 
+# -- Duplicate-binding dedup -------------------------------------------------
+# backend/common.py deliberately rebinds several names under ``if jax_available:`` (numpy
+# fallback first, jax-aware rebinding second). astroid records every top-level binding, so
+# autoapi would document such names twice on the module page (duplicate object descriptions +
+# duplicated toctree entries). Keep the first binding, skip the rest -- the twins are
+# undocumented stubs with identical signatures, so nothing is lost. A global seen-set is safe
+# here: ``display`` is cached per object, so the skip event fires exactly once per object.
+_seen_member_ids = set()
+
+
+def _skip_duplicate_bindings(app, what, name, obj, skip, options):
+    if skip:
+        return skip
+    if name in _seen_member_ids:
+        return True
+    _seen_member_ids.add(name)
+    return None
+
+
+def setup(app):
+    app.connect('autoapi-skip-member', _skip_duplicate_bindings)
+
+
 def autoapi_prepare_jinja_env(jinja_env):
     def get_class_and_method(obj_id):
         parts = obj_id.split('.')

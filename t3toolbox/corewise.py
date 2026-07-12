@@ -2,6 +2,13 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Corewise (per-core) coordinate operations on trees of arrays.
+
+The Euclidean coordinate layer: add/sub/scale/map/sum/dot/norm applied leaf-by-leaf to nested
+tuples of cores (``NDArrayTree``), with no dense-tensor semantics -- "corewise" is the semantic
+marker for exactly this. Gotcha: ``corewise_dot``/``corewise_norm`` collapse EVERY axis (stacks
+included) to a scalar; the ``corewise_stack_*`` variants keep a leading stack.
+"""
 import typing as typ
 import numpy as np
 

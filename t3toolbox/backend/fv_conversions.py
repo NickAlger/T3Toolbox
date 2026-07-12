@@ -2,6 +2,13 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Raw-data (frame, variations) conversions for the ragged layer.
+
+``t3_orthogonal_representations`` factors t3 data into the orthogonal frame + gauged variations
+(data-level twin of the frontend function); ``fv_to_t3`` reconstructs the SINGLE term selected
+by a frame/variations pairing -- not the tangent sum (that is ``tv_operations.tv_to_t3``;
+same-looking near-twins, different math).
+"""
 import numpy as np
 import typing as typ
 

@@ -2,6 +2,12 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Ragged <-> uniform <-> dense conversions of plain T3 data.
+
+``t3_to_ut3``/``ut3_to_t3``/``ut3_to_dense`` -- the seam the uniform equivalence contract is
+stated through: ``to_uniform -> op -> to_ragged == op_ragged`` on real parts, garbage
+don't-care (``docs/uniform_equivalence_contract.md``).
+"""
 import numpy as np
 import typing as typ
 

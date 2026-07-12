@@ -2,6 +2,14 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Backend infrastructure: numpy/jax dispatch, array predicates, scans/maps, shared mixins.
+
+``get_backend(is_uniform, use_jax) -> (xnp, xmap, xscan)`` selects the array module and loop
+machinery; ``is_ndarray``/``is_jax_ndarray``/``tree_contains_jax`` are the type-inference
+predicates behind the no-``use_jax``-parameter convention (dispatch is inferred from the input
+arrays at the lowest level); ``ValueHashedMasks`` is the value-based hash/eq mixin that keeps a
+rebuilt-but-identical mask holder on the same jit cache key.
+"""
 import numpy as np
 import typing as typ
 import functools as ft

@@ -2,6 +2,12 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Dense linear-algebra primitives shared by the orthogonalization and SVD sweeps.
+
+``truncated_svd``, the directional ``left/right/up_svd`` and ``*_svd_pair`` factorizations
+(directions match the core-unfolding conventions), and ``pad_or_truncate``. Pure array-in,
+array-out helpers with no T3 semantics.
+"""
 import typing as typ
 import numpy as np
 

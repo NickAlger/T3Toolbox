@@ -2,6 +2,13 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Linear algebra on ragged t3 data, defined w.r.t. the REPRESENTED dense tensor.
+
+``t3_add``/``t3_scale``/``t3_inner_product``/``t3_norm``/``t3_mult`` and the ``t3m_*`` forms
+simulate operations on the dense tensor, using the cores only as a computational device (add
+concatenates ranks; nothing here is corewise). ``t3_sum_stack`` is the rank-growing tensor sum
+over a stack -- not the rank-preserving corewise core sum.
+"""
 import numpy as np
 import typing as typ
 import math

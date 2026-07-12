@@ -2,6 +2,12 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""T3-SVD: minimal-rank reduction / rank truncation of ragged t3 data.
+
+``t3svd`` (the production sweep), ``t3_rank_adjustment_sweep``, and the dense reference
+implementations (``dense_tucker_svd``/``dense_ttsvd``/``dense_t3svd``) used for verification.
+Design + minimal-rank discussion: the ``docs/t3svd_*`` notes.
+"""
 import math
 import numpy as np
 import typing as typ

@@ -2,6 +2,11 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Left/right orthogonalization of bare tt chains -- polymorphic over ragged and uniform.
+
+The ragged name is the polymorphic name (no ``utt_`` twins); dispatch is inferred from the input
+arrays.
+"""
 import numpy as np
 import typing as typ
 

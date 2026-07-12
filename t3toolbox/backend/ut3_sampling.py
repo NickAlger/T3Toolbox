@@ -2,6 +2,13 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Uniform plain-layer sampling wrappers: probe/apply/entries on ut3 data (+ transposes, jets).
+
+Grouped by OBJECT type, deliberately asymmetric with the ragged by-sampling-type modules: each
+function here is a thin wrapper -- mask once, pack, delegate to the shared polymorphic ragged
+machinery -- so it lives with the object it wraps. The algorithm story is in
+``probing``/``apply``/``entries``/``sampling_derivatives`` (``docs/naming_conventions.md``).
+"""
 import numpy as np
 import typing as typ
 

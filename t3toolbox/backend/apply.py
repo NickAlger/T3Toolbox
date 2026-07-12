@@ -2,6 +2,13 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""The ``apply`` sampling type: contract a T3 with vectors in ALL modes -> one scalar per sample.
+
+Holds the t3 + tv ops, the ambient/tangent/corewise transposes, and the frame sweeps for applies.
+Specializes the general probing machinery (containment probe ⊃ apply ⊃ entries; this module
+imports from ``probing``, never the reverse). Costs and the role in Riemannian least-squares:
+``docs/entries_apply_probe.md``.
+"""
 import numpy as np
 import typing as typ
 

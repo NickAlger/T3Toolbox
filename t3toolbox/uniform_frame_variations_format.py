@@ -2,6 +2,12 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Uniform mirror of ``frame_variations_format``: ``UT3Frame`` + ``UT3Variations``.
+
+Supercores + host-numpy masks instead of ragged core tuples. ``ut3_orthogonal_representations``
+returns the frontend objects (the backend ``ufv_conversions`` twin returns raw data). Class
+asymmetries vs the ragged classes (e.g. no ``save``/``to_vector``) are deliberate design, not gaps.
+"""
 import numpy as np
 import typing as typ
 import functools as ft
@@ -227,9 +233,11 @@ class UT3Frame:
                 & np.all(up == np.asarray(mn_tk), axis=0) & np.all(left == np.asarray(mn_tt), axis=0))
 
     def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape
-        """True (per stack element) if the frame is **numerically** minimal -- ``is_orthogonal(atol) &
-        has_minimal_ranks`` (orthonormal cores are full-rank, so orthogonal + structurally minimal =>
-        numerically minimal; no SVD). Mirrors ``T3Frame.has_numerically_minimal_ranks``."""
+        """True (per stack element) if the frame is **numerically** minimal.
+
+        Equals ``is_orthogonal(atol) & has_minimal_ranks`` (orthonormal cores are full-rank, so
+        orthogonal + structurally minimal => numerically minimal; no SVD). Mirrors
+        ``T3Frame.has_numerically_minimal_ranks``."""
         return self.is_orthogonal(atol=atol) & self.has_minimal_ranks
 
     def is_consistent(self, rtol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape
@@ -749,10 +757,11 @@ class UT3Variations:
         return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
 
     def allclose(self, other: 'UT3Variations', rtol: float = 1e-9, atol: float = 0.0) -> NDArray:  # bool array, stack
-        """``True`` (per stack element) if ``other`` holds the same variations as ``self`` on the **real
-        (masked)** content: ``||self - other|| <= atol + rtol * ||other||``, the corewise (Euclidean) norm
-        reduced over the **non-stack** axes -- the leading mode index ``d`` and the core axes -- keeping the
-        stack (reduce with ``.all()`` for a single verdict)."""
+        """``True`` (per stack element) if ``other`` matches ``self`` on the **real (masked)** content.
+
+        The comparison is ``||self - other|| <= atol + rtol * ||other||``, the corewise (Euclidean)
+        norm reduced over the **non-stack** axes -- the leading mode index ``d`` and the core axes --
+        keeping the stack (reduce with ``.all()`` for a single verdict)."""
         n_stack = len(self.stack_shape)
         use_jax = self.contains_jax or other.contains_jax
         xnp, _, _ = get_backend(True, use_jax)

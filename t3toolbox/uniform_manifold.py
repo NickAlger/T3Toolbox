@@ -175,8 +175,9 @@ class UT3Tangent:
 
     @ft.cached_property
     def structure(self):
-        """The frame's per-element structure ``(shape, up_ranks, down_ranks, left_ranks, right_ranks,
-        stack_shape)`` (ranks are arrays over the frame stack ``C``)."""
+        """The frame's per-element structure tuple (ranks are arrays over the frame stack ``C``).
+
+        ``(shape, up_ranks, down_ranks, left_ranks, right_ranks, stack_shape)``."""
         return self.frame.structure
 
     @ft.cached_property

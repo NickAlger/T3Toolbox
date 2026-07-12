@@ -2,6 +2,13 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Operations on raw (frame, variations) data: variation constructors, frame ops, residuals.
+
+``fv_variations_{zeros,randn,unit,from_vector}`` build variation tuples for a given frame;
+``fv_frame_reverse`` and the ``fv_frame_*_residual`` checkers operate on the frame alone.
+``absorb_weights_into_tangent_cores`` is PARKED weighted-layer code (kept importable, pending
+the post-1.0 weighted redesign).
+"""
 from __future__ import annotations
 
 import math
@@ -154,6 +161,10 @@ def absorb_weights_into_tangent_cores(
 ):
     """Contract edge weights with neighboring cores in frame-variation representation.
 
+    .. note::
+        PARKED weighted-layer code (kept importable; pending the post-1.0 weighted
+        tensor-network redesign). Do not extend or "fix".
+
     Tensor network diagrams illustrating groupings::
 
              ____     ________     ____
@@ -255,8 +266,10 @@ def fv_frame_orthogonality_residual(
     '''Max deviation from orthogonality of the four frame core families, **per stack element**.
 
     Checks each stacked block's gram against the identity:
-        - up_tucker U_i (all i), outer/down D_i (all i),
-        - left L_i (i=0..d-2), right R_i (i=1..d-1).
+
+    - up_tucker U_i (all i), outer/down D_i (all i),
+    - left L_i (i=0..d-2), right R_i (i=1..d-1).
+
     The last left core and first right core are boundary remainders and are not checked. Returns the max
     absolute deviation reduced over the **non-stack** axes (shape ``stack_shape``); a caller thresholds it
     (``<= atol``) for a per-element boolean orthogonality test.

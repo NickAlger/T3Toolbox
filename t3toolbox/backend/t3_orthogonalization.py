@@ -2,6 +2,12 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
+"""Directional orthogonalization sweeps for ragged t3 data.
+
+``t3_left/right_orthogonalize``, the up/down core sweeps, the single-core SVD steps they are
+built from, the relative-orthogonalization helpers, and ``t3_orthogonality_residual`` (the
+non-enforcing checker behind the safe-mode orthogonal-frame precondition).
+"""
 import numpy as np
 import typing as typ
 
@@ -34,9 +40,11 @@ def t3_orthogonality_residual(
 
     Returns the max-abs deviation from the identity over (each stacked block of), reduced over the
     **non-stack** axes (shape ``stack_shape``):
-        - Tucker B_i, all i:                 ``einsum('...io,...jo->...ij', B, B) = I``
-        - TT G_i, left  (i = 0..d-2):        ``einsum('...aib,...aic->...bc', G, G) = I``
-        - TT G_i, right (i = 1..d-1):        ``einsum('...aib,...cib->...ac', G, G) = I``
+
+    - Tucker B_i, all i:                 ``einsum('...io,...jo->...ij', B, B) = I``
+    - TT G_i, left  (i = 0..d-2):        ``einsum('...aib,...aic->...bc', G, G) = I``
+    - TT G_i, right (i = 1..d-1):        ``einsum('...aib,...cib->...ac', G, G) = I``
+
     The boundary TT core (last for left, first for right) is the center remainder and is not checked.
     This is the form :py:func:`t3_left_orthogonalize` / :py:func:`t3_right_orthogonalize` produce and
     the form ``t3svd(..., assume_orthogonal=...)`` may assume.
