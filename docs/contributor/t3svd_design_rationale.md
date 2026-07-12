@@ -4,7 +4,7 @@ Why T3-SVD and rank minimization are **two separate operations**, why `t3svd` ma
 guarantee, and why the minimizer is a directional *sweep* rather than a `minimize()` method. This is the
 reasoning behind the current API — read it before "fixing" `t3svd` to return minimal ranks again.
 
-(Companion: [`t3svd_minimal_ranks.md`](t3svd_minimal_ranks.md) is the user-facing "what `t3svd` returns
+(Companion: [`t3svd_minimal_ranks.md`](../t3svd_minimal_ranks.md) is the user-facing "what `t3svd` returns
 and how to minimize"; this note is the *why*.)
 
 ## The starting point: `t3svd` was doing too much
@@ -92,7 +92,7 @@ failure modes documented (and doctested) on both methods.
 
 ## See also
 
-- [`t3svd_minimal_ranks.md`](t3svd_minimal_ranks.md) — user-facing: why ranks may be non-minimal, how to
+- [`t3svd_minimal_ranks.md`](../t3svd_minimal_ranks.md) — user-facing: why ranks may be non-minimal, how to
   minimize, the matricization/TT background.
 - `backend/t3_svd.py` (`t3svd`, `rank_adjustment_sweep`), `backend/ut3_svd.py` (`ut3svd`,
   `ut3_rank_adjustment_sweep`).

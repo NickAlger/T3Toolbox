@@ -3994,7 +3994,7 @@ class TuckerTensorTrain:
 
             ||x - x2||  <=  sqrt( sum of per-step truncation errors^2 )  <=  sqrt(2d-1) * (per-step tol).
 
-        See ``docs/t3svd_verification.md`` for the bound and its proof.
+        See ``docs/contributor/t3svd_verification.md`` for the bound and its proof.
 
         This is the basic algorithm: it does **not** guarantee minimal ranks. The result is always
         **left-orthogonal**, but under a hard rank cap it can leave a Tucker rank / bond above its
@@ -4321,7 +4321,7 @@ class TuckerTensorTrain:
         truncation), **not** the overall error. The per-step errors accumulate in quadrature over the
         ``2d-1`` steps (``d-1`` TT unfoldings + ``d`` Tucker matricizations), so the realized error can
         exceed the requested tolerance by up to a factor ``sqrt(2d-1)`` (the generalized Oseledets bound).
-        See ``docs/t3svd_verification.md`` for the bound and its proof.
+        See ``docs/contributor/t3svd_verification.md`` for the bound and its proof.
 
         See Also
         --------

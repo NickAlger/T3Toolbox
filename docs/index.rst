@@ -17,6 +17,7 @@ optimizers, and a mask-based **uniform** (padded, GPU/`jit`-friendly) mirror of 
    getting_started
    user_guide
    design_notes
+   contributor_guide
    api_reference
 
 

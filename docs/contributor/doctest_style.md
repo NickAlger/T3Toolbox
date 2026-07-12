@@ -2,15 +2,16 @@
 
 A house convention for doctests in T3Toolbox. Read this once; apply the **principles**, the mechanics
 **within reason**. Reference exemplar: `t3toolbox/manifold.py` (and the reworked `TuckerTensorTrain.__mul__`
-/ `inner`). Companion to `docs/signature_style.md`.
+/ `inner`). Companion to `docs/contributor/signature_style.md`.
 
 ## The principle (this is the part that matters)
 
 **Doctests are examples first — their job is to help a user learn the API — held to a
 reproducible-and-correct bar so they don't mislead.** They are *not* a test suite: coverage of
-branches and edge cases belongs in `tests/`. The payoff of making them reproducible is that they can
-be wired into CI, where the doctest run **guards the docs against rot** (it checks that the examples
-still produce what they claim) — it does *not* test the code (that's `tests/`' job). So:
+branches and edge cases belongs in `tests/`. The payoff of making them reproducible is that they are
+**wired into CI** (the `tests` workflow runs the module doctests and the quickstart page on both
+numpy generations), where the doctest run **guards the docs against rot** (it checks that the
+examples still produce what they claim) — it does *not* test the code (that's `tests/`' job). So:
 
 - optimize each example for **teaching one thing clearly**, not for coverage;
 - but every shown output must **actually reproduce** — a captured `1.04e-13` a reader can't reproduce
@@ -72,7 +73,7 @@ input)` value-match **inverts** — the result is *supposed* to differ. Instead:
 
 - show the **controlled observable** — the reduced/capped ranks (`print(x.tt_ranks, '->', xt.tt_ranks)`);
 - assert the **documented error bound**, not equality. For T3-SVD truncation there are *two* (see
-  `docs/t3svd_verification.md`): **accuracy** — `||x - xt|| <= sqrt(dropped singular-value energy)` at the
+  `docs/contributor/t3svd_verification.md`): **accuracy** — `||x - xt|| <= sqrt(dropped singular-value energy)` at the
   *chosen* ranks (generalized Oseledets); and **parsimony** — each chosen rank `<= #{ original singular
   values >= tau }`, `tau = max(rtol*||xt||, atol)`;
 - to make a **tolerance** (`rtol`/`atol`) example truncate at all, feed a **graded-spectrum** input (a
@@ -153,6 +154,6 @@ This is a convention, not a contract. Apply it where it earns its keep:
 - a **foundational, math-rich function** (e.g. `t3svd`) earns a richer doctest — the ~2–5-block cap
   bends when the properties themselves (a key correspondence, the error/rank bounds) are the value.
 
-The two accepted costs: doctests are **not yet wired into CI** (so a stale one can still slip in until
-that lands — run them when you touch a docstring), and reproducibility occasionally trades a little
-informativeness (mitigated by the magnitude-in-comment habit). Both are paid on purpose.
+The accepted cost: reproducibility occasionally trades a little informativeness (mitigated by the
+magnitude-in-comment habit) — paid on purpose. (Doctests are CI-enforced on both numpy generations,
+so run them locally when you touch a docstring: a stale output fails the build, not just the reader.)

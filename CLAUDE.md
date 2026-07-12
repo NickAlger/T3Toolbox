@@ -111,7 +111,7 @@ updated to this version by the time the package is released.
   [`docs/uniform_rank_masks_rationale.md`](docs/uniform_rank_masks_rationale.md) (**why the masks exist at
   all**: they enforce the variable-rank feature by zeroing the variation padding, so the gradient can't
   grow rank — a maskless "inflate to uniform rank" layer is operation-equivalent but loses rank control;
-  considered & rejected) and [`docs/uniform_svd_prefix_orthogonalization.md`](docs/uniform_svd_prefix_orthogonalization.md)
+  considered & rejected) and [`docs/contributor/uniform_svd_prefix_orthogonalization.md`](docs/contributor/uniform_svd_prefix_orthogonalization.md)
   (orthogonalization must be **SVD-based** so the masks are a deterministic prefix), and
   [`docs/uniform_pytree_composition.md`](docs/uniform_pytree_composition.md) (`UT3 = tucker_supercore +
   tt_supercore + masks`-holder; the holder is a static `aux_data` with **value-based** hash/eq over mask
@@ -223,7 +223,7 @@ to `xnp`.** Rule: **supercores → `xnp`; masks → `np`.** Full reasoning + the
   type-length spread is small, else split into blank-line-delimited groups of similar types and align
   within each group** (never the unpredictable staircase). A **principle, applied within reason**
   (trivial scalars may need no comment). Full rationale + rules + exemplar:
-  **[`docs/signature_style.md`](docs/signature_style.md)** (reference module: `backend/probing.py`).
+  **[`docs/contributor/signature_style.md`](docs/contributor/signature_style.md)** (reference module: `backend/probing.py`).
 - Body locals encode axis layout in the **name suffix** (`C_aib`, `mu_WCa`, `B0_b_j_c`), matching the
   contraction-naming scheme (`C`/`W`/`K` = grouped index blocks, lowercase = single axes, leading `d` =
   stacked/derivative axis; functions named `inputs_to_output`, e.g. `WCa_Caib_WCi_to_WCb`).
@@ -292,7 +292,7 @@ The dividing line is **structural vs numerical**:
 - Correctness is checked against **dense ground truth**: rebuild via `.to_dense()` + a hand-written
   `np.einsum`, compare residual norms (~1e-12..1e-16). Verify a math property empirically with a
   quick script before asserting it in a test.
-- **The deeper rationale — and a real trap — is [`docs/testing_strategy.md`](docs/testing_strategy.md):**
+- **The deeper rationale — and a real trap — is [`docs/contributor/testing_strategy.md`](docs/contributor/testing_strategy.md):**
   dense/numerical tests on clean-padding inputs are **blind to too-permissive masks** (phantom rank — the
   doubled-boundary bug class). For any uniform op, dense-vs-ragged is **not enough**; also assert **exact
   output masks** (derived non-circularly) and **garbage-padded-input robustness**. Read it before adding
@@ -309,12 +309,12 @@ The dividing line is **structural vs numerical**:
   jit round-trip, so the frame flows as traced data with no per-frame recompile — see `manifold.py`.)
   A few tests still build explicit jax operands where that *is* the thing under test (e.g.
   `test_contains_jax`); those keep the `jnp` import.
-- **Doctests = reproducible examples** (not yet wired into CI, but written so they can be): **examples
-  first** (teach the API), not coverage. Seed (`np.random.seed(0)`) or fixed inputs; value-match via
+- **Doctests = reproducible examples**, CI-enforced (the `tests` workflow runs module doctests + the
+  quickstart page on both numpy generations): **examples first** (teach the API), not coverage. Seed (`np.random.seed(0)`) or fixed inputs; value-match via
   `np.allclose`; print **structure** (shapes/ranks) not raw values; show **gotchas** (structural →
   traceback `+IGNORE_EXCEPTION_DETAIL`; numerical → wrong-vs-right). One distinct behavior per option
   (no cross-product); long tail → prose. **Run the example and paste the real output — never hand-write
-  it.** Full convention + exemplar (`manifold.py`): **[`docs/doctest_style.md`](docs/doctest_style.md)**.
+  it.** Full convention + exemplar (`manifold.py`): **[`docs/contributor/doctest_style.md`](docs/contributor/doctest_style.md)**.
   (Supersedes the old "illustrative captured values" convention.)
 - **Running tests/scripts**: use the project's env Python with `PYTHONPATH=$PWD`, e.g.
   `PYTHONPATH=$PWD <env-python> -m pytest tests/ -q`. The optax example needs `jax`+`optax` installed.
@@ -367,12 +367,13 @@ of every path. Full suite ~50s, green.
   `UniformTuckerTensorTrain.*_corewise_transpose`), and now the *derivative (jet) probing* (**3b-6′**: the
   `d`-prefixed JET `trs_*` contractions, `{UniformTuckerTensorTrain,UT3Tangent}.{probe,apply,entries}_derivatives`
   + their `𝒥ᵀ` transposes + the corewise `*_corewise_derivatives_transpose`) — all per-element verified vs
-  ragged + adjoint-identity + mask-strict + garbage-robust + jit-clean** (see `docs/testing_strategy.md`).
+  ragged + adjoint-identity + mask-strict + garbage-robust + jit-clean** (see `docs/contributor/testing_strategy.md`).
   Worked examples in `examples/fit_hilbert_*`.
 - **Design references** (the durable *why*, to be folded into user docs in the doc pass):
-  `docs/fitting_and_optimization.md`, `docs/batching_and_stacking.md`, `docs/entries_apply_probe.md`,
-  `docs/transposes.md`, `docs/numerical_contract_catalog.md`, `docs/probing_section6_notes.md`,
-  `docs/signature_style.md`, `docs/doctest_style.md`, the `docs/uniform_*` notes, the `docs/t3svd_*`
+  `docs/fitting_and_optimization.md`, `docs/batching_and_stacking.md`, `docs/entries_apply_probe.md`
+  (whose §8 carries the probing paper↔code map), `docs/transposes.md`,
+  `docs/numerical_contract_catalog.md`, `docs/contributor/signature_style.md`,
+  `docs/contributor/doctest_style.md`, the `docs/uniform_*` notes, the `docs/t3svd_*`
   notes. (Historical plans/handoffs are archived under `dev/archive/`.)
 - **Uniform tangent layer + optimizers — DONE, INCLUDING the frontend (the 1.0 centerpiece).** The *backend*,
   *geometries*, *tangent + corewise probing*, and the *derivative (jet) probing* (increment 3b), the

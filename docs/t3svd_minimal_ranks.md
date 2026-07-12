@@ -90,11 +90,11 @@ one more flavor (a bond cap orphaning a Tucker rank).
 
 ## See also
 
-- [`t3svd_design_rationale.md`](t3svd_design_rationale.md) — *why* T3-SVD and minimization are split, and
+- [`contributor/t3svd_design_rationale.md`](contributor/t3svd_design_rationale.md) — *why* T3-SVD and minimization are split, and
   why `rank_adjustment_sweep` is a directional sweep rather than a `minimize()` method.
 - `backend/t3_svd.py` — `t3svd` (basic algorithm) and `rank_adjustment_sweep` (the minimization).
 - `backend/ranks.py` — `compute_minimal_ranks` (the structural minimal ranks), `compute_raw_sweep_ranks`
   (the ranks the sweep produces under caps).
 - Tests: `test_t3svd_is_left_orthogonal_not_necessarily_minimal`, `test_rank_adjustment_sweep`,
   `test_compute_minimal_ranks_matches_matricization`, `test_compute_minimal_ranks_inequalities`.
-- `docs/t3svd_verification.md` — the accuracy + rank-parsimony test method for the truncation itself.
+- `docs/contributor/t3svd_verification.md` — the accuracy + rank-parsimony test method for the truncation itself.

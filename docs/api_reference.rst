@@ -95,7 +95,7 @@ Backend modules follow the family-prefix grammar (``t3_`` ragged tensor, ``ut3_`
 .. note::
 	The rendered signatures on the module pages are regenerated from the parsed source, so each
 	function page also shows the **verbatim source signature** -- including the trailing
-	shape-contract comments, which are the real type contract (:doc:`signature_style`).
+	shape-contract comments, which are the real type contract (:doc:`contributor/signature_style`).
 
 Complete module pages
 ---------------------

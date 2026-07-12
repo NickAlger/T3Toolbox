@@ -103,7 +103,7 @@ which layer you are holding.
 - `ww` — probe/apply vectors; `pp` — perturbation vectors; `index` — entry indices.
 - Batch blocks are single capital letters — `C` (frame stack), `W` (probe stack), `K` (tangent
   stack), frame-inner order `W+K+C` — and body locals encode their axis layout as a name suffix
-  (`mu_WCa`, `C_aib`); see `docs/batching_and_stacking.md` and `docs/signature_style.md`.
+  (`mu_WCa`, `C_aib`); see `docs/batching_and_stacking.md` and `docs/contributor/signature_style.md`.
 
 ## Semantic markers (never added or dropped by renames)
 

@@ -70,7 +70,7 @@ html_theme = 'pydata_sphinx_theme'
 
 # -- Verbatim source signatures ----------------------------------------------
 # The trailing `#` shape comments in signatures ARE the type contract in this codebase
-# (docs/signature_style.md) -- but autoapi regenerates signatures from the parsed AST, where
+# (docs/contributor/signature_style.md) -- but autoapi regenerates signatures from the parsed AST, where
 # comments no longer exist. So the function/method templates (docs/_templates/autoapi/) call the
 # `verbatim_signature` filter below to pull each object's signature -- comments, alignment and
 # all -- straight out of the source file, and render it as a literal code block on the page.

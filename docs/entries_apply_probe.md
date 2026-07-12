@@ -151,8 +151,7 @@ Notes:
 - **The three transpose flavors** (see `docs/transposes.md`): **tangent** = Riemannian gradient (a
   `T3Tangent`); **corewise** = gradient w.r.t. a frame's cores (raw core-grad tuple, for Adam/L-BFGS);
   **ambient** = the frame-free adjoint on the full tensor space (CP factors, via `from_canonical`). All
-  three exist for all three ops (the earlier "probe has no ambient transpose" was true only before the
-  transpose-grid redesign).
+  three exist for all three ops.
 - **Bare `𝒥` / `𝒥ᵀ`, no gauge projector.** The tangent methods are the bare single-sample Jacobian and
   its adjoint. The full Riemannian operators factor as **`J = 𝒥 ∘ Π`** and **`Jᵀ = Π ∘ 𝒥ᵀ`**, where
   `Π = orthogonal_gauge_projection` projects onto gauged variations. Compose `Π` yourself: take the
@@ -166,13 +165,10 @@ Notes:
 For the least-squares objective `f(X) = ½‖S(X) − b‖²` on the fixed-rank manifold, with `S` any of the
 three operations, the matrix-free Riemannian gradient
 `g = op_transpose(r, …, sum_over_probes=True).orthogonal_gauge_projection()` and the Gauss-Newton
-Hessian `H V = (𝒥ᵀ 𝒥 V)` gauged were checked end-to-end at an orthogonal, minimal-rank frame:
-
-| operator | adjoint `⟨r, 𝒥V⟩ = ⟨𝒥ᵀr, V⟩` | gradient vs finite-diff *along the retraction* | Gauss-Newton Hessian   |
-|----------|-------------------------------|-----------------------------------------------|------------------------|
-| entries  | exact                         | rel. err ~5e-8                                | symmetric ~5e-17, PSD  |
-| apply    | exact                         | rel. err ~3e-7                                | symmetric ~1e-12, PSD  |
-| probe    | exact                         | rel. err ~5e-7                                | symmetric ~3e-13, PSD  |
+Hessian `H V = (𝒥ᵀ 𝒥 V)` gauged were checked end-to-end at an orthogonal, minimal-rank frame: the
+adjoint identity holds exactly, gradients match finite differences along the retraction, and the
+Gauss-Newton Hessian is symmetric PSD, for all three operators (the recorded verification numbers:
+[`contributor/verification_records.md`](contributor/verification_records.md)).
 
 So any of the three can drive a Riemannian fit (gradient descent, inexact Newton-CG, …); the choice is
 about what measurements your problem provides, not about what the manifold code supports.
@@ -188,9 +184,9 @@ They **strictly generalize** the plain op (`order 0` == the plain op) by adding 
 order)` on both `TuckerTensorTrain` and `T3Tangent` (the points `X` and directions `P` share the sample
 stack `W`), with the same transpose flavors — **tangent** (`*_derivatives_transpose`) and **corewise**
 (`*_corewise_derivatives_transpose`); the **ambient** derivative transpose is deferred
-([`docs/ambient_derivative_transpose_note.md`](ambient_derivative_transpose_note.md)). Full `W+K+C`
-stacking. Math + plan: [`docs/symmetric_probe_derivatives.tex`](https://github.com/NickAlger/T3Toolbox/blob/main/docs/symmetric_probe_derivatives.tex),
-[`dev/archive/derivatives_mirror_plan.md`](https://github.com/NickAlger/T3Toolbox/blob/main/dev/archive/derivatives_mirror_plan.md).
+([`contributor/ambient_derivative_transpose_note.md`](contributor/ambient_derivative_transpose_note.md)).
+Full `W+K+C` stacking. Math:
+[`docs/symmetric_probe_derivatives.tex`](https://github.com/NickAlger/T3Toolbox/blob/main/docs/symmetric_probe_derivatives.tex).
 
 ## 5. Measurement spaces (for fitting)
 
@@ -226,5 +222,52 @@ sum-of-products: `Σ aᵢbᵢ` for the scalar cases, `Σ_modes Σ a[m]·b[m]` fo
   `{entries,apply,probe}_transpose` (`t3toolbox/manifold.py`).
 - Backend: `backend/entries.py`, `backend/apply.py`, `backend/probing.py`.
 - Stacking semantics: [`batching_and_stacking.md`](batching_and_stacking.md) (§11 for the transpose /
-  `sum_over_probes` modes). Algorithm ↔ code map: [`probing_section6_notes.md`](probing_section6_notes.md).
-  Apply/entries build history: [`dev/archive/apply_entries_handoff.md`](https://github.com/NickAlger/T3Toolbox/blob/main/dev/archive/apply_entries_handoff.md).
+  `sum_over_probes` modes). Paper ↔ code map: §8 below.
+
+---
+
+## 8. Paper ↔ code map (probing, T4S §6)
+
+How `backend/probing.py` maps to Section 6 of the paper (page/algorithm numbers per the local
+`t4s.pdf`). The Riemannian least-squares operators factor as **`J = 𝒥 ∘ Π`** and **`Jᵀ = Π ∘ 𝒥ᵀ`**:
+`Π` is the orthogonal gauge projector (`orthogonal_gauge_projection`, enforcing gauge conditions
+(48)–(49)), and `𝒥` is the bare tangent sampling op below. Notation: hat `^` = base-point
+quantities, `δ` = perturbation, tilde `~` = adjoint (transpose sweep).
+
+**A probe (§6.2.1, Algorithm 5)** — the `i`-th probe contracts with all probing vectors except the
+`i`-th, leaving index `i` free. Edge variables ↔ code:
+
+| Paper | code | meaning |
+|---|---|---|
+| `ξᵢ = Uᵢᵀwᵢ` (contract up) | `compute_xi` | probe vec through the Tucker frame |
+| `μᵢᵀ = μᵢ₋₁ᵀ Gᵢ(ξᵢ)` (left sweep) | `compute_mu` | left partial product |
+| `νᵢ = Gᵢ(ξᵢ) νᵢ₊₁` (right sweep) | `compute_nu` | right partial product |
+| `ηᵢ = μᵢ₋₁ᵀ Gᵢ νᵢ` (central) | `compute_eta` | leaves the Tucker middle free |
+| `zᵢ = Uᵢ ηᵢ` (contract down) | `assemble_z` | back to the ambient index |
+
+`t3_probe` = Algorithm 5 (wrapped by `TuckerTensorTrain.probe`).
+
+**Tangent probing `𝒥⁽ˢ⁾` (§6.2.2, Algorithms 6 + 7)** — a tangent vector is a doubled-rank T3
+(A.3.1), so each edge variable splits into frame + perturbation: `ξ→(ξ̂,δξ)`, `μ→(σ,μ̂)`,
+`ν→(τ,ν̂)`, `η→(δη,η̂)`. Algorithm 6 is Algorithm 5 on the base point with the gauge-appropriate
+cores `P` (left), `Q` (right), `O` (central) in place of `G`; Algorithm 7 is the perturbation
+sweep:
+
+| Paper (Algorithm 7) | code |
+|---|---|
+| `δξᵢ = δUᵢᵀwᵢ` | `compute_dxi` |
+| `σᵢᵀ = σᵢ₋₁ᵀQᵢ(ξ̂) + μ̂ᵢ₋₁ᵀδGᵢ(ξ̂) + μ̂ᵢ₋₁ᵀOᵢ(δξ)` | `compute_sigma` |
+| `τᵢ = δGᵢ₊₁(ξ̂)ν̂ + Oᵢ₊₁(δξ)ν̂ + Pᵢ₊₁(ξ̂)τ` | `compute_tau` |
+| `δηᵢ = σᵢ₋₁ᵀQᵢν̂ + μ̂Pᵢτ + μ̂δGᵢν̂` | `compute_deta` |
+| `δzᵢ = Uᵢδηᵢ + δUᵢη̂ᵢ` | `assemble_tangent_z` |
+
+`tv_probe` = Algorithms 6 + 7 = `𝒥⁽ˢ⁾`.
+
+**The transpose `(𝒥⁽ˢ⁾)ᵀ` (§6.2.3, Algorithm 8)** — given a residual-like `z̃`, the adjoint sweep
+over the same edge variables (`compute_deta_tilde` / `tau_tilde` / `sigma_tilde` / `dxi_tilde` +
+`assemble_tucker_variations` / `assemble_tt_variations`) returns `((δŨᵢ), (δG̃ᵢ))`:
+`δŨᵢ = z̃ᵢη̂ᵢᵀ + wᵢδξ̃ᵢᵀ` and `δG̃ᵢ = τ̃⊗ξ̂⊗ν̂ + μ̂⊗ξ̂⊗σ̃ + μ̂⊗δη̃⊗ν̂`. This is `tv_probe_transpose`.
+
+**The corewise substitution (§6.3)** — the same Algorithms 7/8 with the plain cores `Gᵢ`
+substituted for `(Pᵢ, Qᵢ, Oᵢ)` give the corewise (non-manifold) Jacobian; the probing code is
+dual-use by substitution (see [`transposes.md`](transposes.md)).

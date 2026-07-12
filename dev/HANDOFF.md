@@ -136,7 +136,7 @@ is nearly a drop-in chapter).
   transparently; `uniform_least_squares_problem` rejects non-minimal x0).
 - **The packedness-mirror convention** (U3.5) — don't "normalize" it to a flag.
 - **A uniform op needs more than dense-vs-ragged** — exact output masks + garbage-robustness
-  (`docs/testing_strategy.md`). Masks are host numpy (`np`), supercores `xnp`.
+  (`docs/contributor/testing_strategy.md`). Masks are host numpy (`np`), supercores `xnp`.
 - Numerical test assertions use a **tolerance**; exact comparison only for structure.
 - Never delete an `OLD_*` (or anything) until functionality is **confirmed preserved**.
 - "DO NOT USE" banner stays until the literal moment of shipping (README only; the docs site
@@ -146,4 +146,4 @@ is nearly a drop-in chapter).
   reference-fixes required to keep it importable.
 - Research caveats are not user-facing. Notes are preserved/relocated, never lost.
 - Doctest outputs in docstrings/docs pages are **run-and-pasted, never hand-written**
-  (`docs/doctest_style.md`); `examples/` scripts are exempt (raw convergence floats are the point).
+  (`docs/contributor/doctest_style.md`); `examples/` scripts are exempt (raw convergence floats are the point).

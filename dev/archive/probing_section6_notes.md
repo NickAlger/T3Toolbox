@@ -1,5 +1,11 @@
 # Probing — Section 6 (Riemannian Jacobian) notes ↔ code
 
+_ARCHIVED 2026-07-12 (docs user/dev split, S1): a working note that had been living in `docs/`.
+Its durable half — the paper↔code algorithm tables and the `J = 𝒥∘Π` picture — was promoted to
+`docs/entries_apply_probe.md` §8; the work-items/build-targets below describe a long-superseded
+repo state (all executed). The dated open idea on structured tangent stacks (`K`) is queued for
+the contributor deferred ledger (docs-split plan, P11)._
+
 Working notes from reading **Section 6 (pp. 30–34)** of `t4s.pdf` (Tucker Tensor Train Taylor
 Series, arXiv:2603.21141) and mapping it to `t3toolbox/backend/probing.py`. For resuming the
 probing work.

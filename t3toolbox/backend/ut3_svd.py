@@ -5,7 +5,7 @@
 """Uniform T3-SVD: minimal-rank reduction of ut3 data with prefix-mask output.
 
 ``ut3svd`` / ``ut3svd_supercores`` / ``ut3_rank_adjustment_sweep`` -- SVD-based so the output
-masks are a deterministic prefix (``docs/uniform_svd_prefix_orthogonalization.md``).
+masks are a deterministic prefix (``docs/contributor/uniform_svd_prefix_orthogonalization.md``).
 """
 import numpy as np
 import typing as typ

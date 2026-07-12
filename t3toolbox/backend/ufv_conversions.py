@@ -87,7 +87,7 @@ def ut3_orthogonal_representations(
     supercore. That is correct ONLY because the orthogonalization is **SVD-based**: the SVD sorts content
     by singular value into the leading slots, with zeros / orthonormal completion trailing. A QR-based
     orthogonalization would scatter the real content across non-prefix positions and these masks would be
-    WRONG -- see ``docs/uniform_svd_prefix_orthogonalization.md``. Building the masks any other way (e.g.
+    WRONG -- see ``docs/contributor/uniform_svd_prefix_orthogonalization.md``. Building the masks any other way (e.g.
     from raw supercore magnitudes) is the easy mistake this function exists to prevent.
 
     The frame masks come from the orthogonal-representation ranks; the variation masks reuse the up/down

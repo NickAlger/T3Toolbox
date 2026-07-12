@@ -4,7 +4,7 @@
 > `.data` tuples needs to jit an optimization loop **without recompiling every step** — which matters
 > because accelerating this kind of fitting is the whole point of the uniform layer. This records the recipe
 > and why it works. Pairs with `uniform_pytree_composition.md` (the frontend value-hashing story),
-> `uniform_svd_prefix_orthogonalization.md`, and `uniform_rank_masks_rationale.md`.
+> `contributor/uniform_svd_prefix_orthogonalization.md`, and `uniform_rank_masks_rationale.md`.
 
 ## The constraint
 
@@ -38,7 +38,7 @@ for it: supercores = step(supercores, draw())
 ## Why the masks are safe to hold fixed
 
 At fixed rank the masks **never change**: SVD-based orthogonalization yields a *deterministic prefix*
-(`uniform_svd_prefix_orthogonalization.md`), and the uniform retraction (max-rank-only, no numerical
+(`contributor/uniform_svd_prefix_orthogonalization.md`), and the uniform retraction (max-rank-only, no numerical
 truncation) preserves the padded ranks. So the mask objects are genuinely loop-invariant -- reuse them.
 
 ## The anti-pattern (what NOT to do)
@@ -48,14 +48,6 @@ Running `ut3_orthogonal_representations` **outside** a jit and passing its (fres
 closure each iteration** (a new cache key → recompile *every* step). The fix is this recipe: hold the masks
 fixed and reuse them, or jit the whole step so the frame masks stay internal constants.
 
-## Optimizer design rule (for the uniform manifold / optimizer -- 3b and beyond)
-
-The backend optimization functions (MC-SGD, Newton-CG, …) should be **designed** so the masks are
-**loop-invariant state, recomputed only at rank-continuation stage boundaries** (where a recompile is
-correct and rare), while the per-step jitted kernel is pure supercore work with masks as fixed constants.
-The frontend's value-hashed mask holders (`uniform_pytree_composition.md`) give the OO path this
-cache-stability automatically; the backend gets it by **object reuse**. (If the finest separation is ever
-wanted, `backend/fv_conversions.t3_orthogonal_representations` already returns *just the cores*,
-mask-free, so a kernel could orthogonalize supercores inside and attach held masks outside -- but the
-bundled `ut3_orthogonal_representations` inside a close-over kernel is already recompile-free, so this is
-optional.)
+The library's own uniform optimizers follow this same recipe internally (masks as loop-invariant
+state, recomputed only at rank-continuation boundaries); the design record is
+[`contributor/uniform_internals.md`](contributor/uniform_internals.md).

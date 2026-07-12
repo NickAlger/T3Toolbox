@@ -119,5 +119,5 @@ projection and `J`/`Jᵀ` respect the masks. If some specific op ever turns out 
 blanket construction-time restriction; shape consistency stays the only structural hard error.
 
 *(Decided 2026-06-30, after the earlier draft of this note over-restricted tangents to uniform `C`.
-Varying-`C` is verified to work through the `UT3Tangent` skeleton and is a first-class case in the
+Varying-`C` is a first-class case in the
 uniform-tangent equivalence-contract tests.)*

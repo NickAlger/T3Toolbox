@@ -17,7 +17,7 @@ Correctness is **equivalence**, checked two ways that reinforce each other:
 2. **The cross-representation equivalence contract.** The uniform layer is *a faster ragged layer*:
    `to_ragged(uniform_op(to_uniform(x))) == ragged_op(x)` on the **real (masked)** content, per stack
    element (garbage in the padding is don't-care). The ragged layer is the trusted reference; every uniform
-   op is verified against it. See [`uniform_equivalence_contract.md`](uniform_equivalence_contract.md).
+   op is verified against it. See [`uniform_equivalence_contract.md`](../uniform_equivalence_contract.md).
 
 These two together are necessary. They are **not sufficient.**
 
@@ -87,8 +87,8 @@ stacking, masking, and TT-boundary handling.
 A striking outcome of the hardening pass: once the tests were strict enough to *see* mask bugs, **the
 implementation had none** — exact masks, garbage robustness, multi-axis, varying-`C`, all green, confirmed
 independently by an adversarial cold-read audit. This is a point in favor of the **masks-not-integer-ranks**
-design ([`uniform_masks_vs_ranks.md`](uniform_masks_vs_ranks.md),
-[`uniform_rank_masks_rationale.md`](uniform_rank_masks_rationale.md)). Boolean masks compose with the
+design ([`uniform_masks_vs_ranks.md`](../uniform_masks_vs_ranks.md),
+[`uniform_rank_masks_rationale.md`](../uniform_rank_masks_rationale.md)). Boolean masks compose with the
 operations *algebraically* and locally: add = concat, multiply = Kronecker, the doubled-rank embedding =
 concat, gauge/projection *preserve* the mask, retraction's SVD *re-derives* it. There is little integer
 rank-arithmetic to get wrong, and the few non-obvious spots (the `[Q | P]` doubled-bond order, the honest

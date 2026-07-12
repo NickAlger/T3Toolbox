@@ -5,7 +5,7 @@
 """Orthogonalization for uniform supercores -- SVD-based so the masks stay a deterministic prefix.
 
 Supercore-level sweeps, their core-level mirrors, and ``ut3_orthogonality_residual``. Why SVD
-rather than QR is load-bearing: ``docs/uniform_svd_prefix_orthogonalization.md``.
+rather than QR is load-bearing: ``docs/contributor/uniform_svd_prefix_orthogonalization.md``.
 """
 import numpy as np
 import typing as typ

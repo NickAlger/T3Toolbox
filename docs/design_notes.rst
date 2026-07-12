@@ -1,20 +1,9 @@
 Design notes
 ============
 
-The durable design rationale behind the library -- why each format, convention, and algorithm is
-the way it is. These are working design documents: they are the authoritative reference for
-contributors and for users who want the *why*, written during development and kept current.
-
-Conventions and style
----------------------
-
-.. toctree::
-   :maxdepth: 1
-
-   naming_conventions
-   signature_style
-   doctest_style
-   testing_strategy
+The design rationale behind the library, written for **users**: why each format and convention is
+the way it is, what each operation guarantees, and how to choose between alternatives. (Notes for
+people *modifying* the library live in the :doc:`contributor_guide`.)
 
 Core design
 -----------
@@ -28,8 +17,7 @@ Core design
    fitting_and_optimization
    numerical_contract_catalog
    rank_continuation
-   probing_section6_notes
-   ambient_derivative_transpose_note
+   naming_conventions
 
 T3-SVD
 ------
@@ -37,9 +25,7 @@ T3-SVD
 .. toctree::
    :maxdepth: 1
 
-   t3svd_design_rationale
    t3svd_minimal_ranks
-   t3svd_verification
 
 The uniform layer
 -----------------
@@ -52,6 +38,10 @@ The uniform layer
    uniform_supercore_layout
    uniform_masks_vs_ranks
    uniform_rank_masks_rationale
-   uniform_svd_prefix_orthogonalization
    uniform_pytree_composition
    uniform_backend_jit_recipe
+
+.. note::
+	The user/developer split of these notes is in progress: the pages above marked for
+	rewrite-splits (batching, fitting, the contract catalog, the mask notes) still carry some
+	contributor-facing material until their split lands.

@@ -557,7 +557,7 @@ class TestUT3CorewiseTransposeDerivatives(unittest.TestCase):
 
 class TestUT3ProbingHardening(unittest.TestCase):
     """3b-6d: mask-strict + garbage-robust hardening of the uniform probing path (per
-    docs/testing_strategy.md). Dense/numerical tests on clean padding are blind to too-permissive masks;
+    docs/contributor/testing_strategy.md). Dense/numerical tests on clean padding are blind to too-permissive masks;
     these close that with (A) garbage-padded inputs -- mask-once must make every op's output UNCHANGED
     (clean == dirty, since the garbage contracts to zero) -- and (B) exact transpose output masks derived
     independently from the frame ranks. Forced padding (E) exercises masking on every core."""
@@ -638,7 +638,7 @@ class TestUT3ProbingHardening(unittest.TestCase):
 
 class TestUT3DerivativeHardening(unittest.TestCase):
     """3b-6'd: mask-strict + garbage-robust hardening of the uniform DERIVATIVE probing path (per
-    docs/testing_strategy.md), the jet twin of TestUT3ProbingHardening. Same three guards -- (A)
+    docs/contributor/testing_strategy.md), the jet twin of TestUT3ProbingHardening. Same three guards -- (A)
     garbage-padded inputs leave every derivative op UNCHANGED, (B) exact transpose output masks (the
     derivative gradient carries no order axis, so its masks are the plain gauge masks over K_new), (C)
     forced padding on every core. The perturbation pp is a second garbage-robustness surface."""

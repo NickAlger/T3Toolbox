@@ -6,7 +6,7 @@
 > whole point of the layer: **the masks are how variable ranks are controlled during optimization.** This
 > note records that decision and the reasoning. Pairs with `uniform_ranks_and_varieties.md` (what the
 > object represents), `uniform_masks_vs_ranks.md` (why boolean masks rather than integer ranks),
-> `numerical_contract_catalog.md` (the minimal-rank audit), `uniform_svd_prefix_orthogonalization.md`, and
+> `numerical_contract_catalog.md` (the minimal-rank audit), `contributor/uniform_svd_prefix_orthogonalization.md`, and
 > `uniform_pytree_composition.md`.
 
 ## What the masks do
@@ -60,7 +60,7 @@ remove that cost:
 
 - **SVD-based orthogonalization** places the real content in the leading slots, so the masks come out a
   **deterministic prefix** — bit-identical every step at fixed rank
-  (`uniform_svd_prefix_orthogonalization.md`).
+  (`contributor/uniform_svd_prefix_orthogonalization.md`).
 - **Value-hashed mask holders** key the `jit` cache on mask *content*, so a rebuilt-but-identical holder
   is a cache hit (`uniform_pytree_composition.md`).
 
