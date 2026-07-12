@@ -1,0 +1,62 @@
+# Release: build sdist+wheel and publish to PyPI via trusted publishing (OIDC -- no tokens).
+#
+#   - tag `v2026.0.0-rc1` (any `-rc`)  -> builds + publishes to TestPyPI (the dry run)
+#   - tag `v2026.0.0`   (no `-rc`)     -> builds + publishes to PyPI
+#
+# One-time setup (Nick): pending publishers on pypi.org and test.pypi.org
+# (project `t3toolbox`, owner NickAlger, repo T3Toolbox, workflow release.yaml,
+# environments `pypi` / `testpypi`), and the two GitHub environments.
+# Full walkthrough: dev/release_plan.md REL-3.
+name: release
+
+on:
+  push:
+    tags: ['v20*']
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Build sdist + wheel
+        run: |
+          pip install build twine
+          python -m build
+          twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish-testpypi:
+    if: contains(github.ref_name, '-rc')
+    needs: build
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-pypi:
+    if: ${{ !contains(github.ref_name, '-rc') }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
