@@ -1,28 +1,47 @@
-
-name: Sphinx to GitHub Pages
+# Docs CI: build the Sphinx site (fail on ANY warning) on pushes to main and on PRs;
+# deploy to GitHub Pages (via the official Pages actions -- no gh-pages branch) on main only.
+#
+# Requires the repo setting: Settings -> Pages -> Build and deployment -> Source = "GitHub Actions".
+name: docs
 
 on:
-  # Trigger the workflow on push or pull request,
-  # but only for the main branch
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
-      uses: actions/checkout@master
-      with:
-        fetch-depth: 0 # otherwise, you will failed to push refs to dest repo
-    - name: Build and Commit
-      uses: sphinx-notes/pages@master
-      with:
-        documentation_path: docs
-    - name: Push changes
-      uses: ad-m/github-push-action@master
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        branch: gh-pages
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install docs toolchain
+        run: pip install -r docs/requirements.txt
+      - name: Build docs (warnings are errors)
+        run: python -m sphinx -W --keep-going -b html docs docs/_build/html
+      - name: Upload Pages artifact
+        if: github.event_name == 'push'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_build/html
+
+  deploy:
+    if: github.event_name == 'push'
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

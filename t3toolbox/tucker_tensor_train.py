@@ -122,8 +122,9 @@ class TuckerTensorTrain:
     ---------
     Many stacked Tucker tensor trains with the same shape and ranks may be stored in this object for vectorized operations.
     In this case,
-        - ``tucker_cores[ii].shape=stack_shape+(ni,Ni)``
-        - ``tt_cores[ii].shape=stack_shape+(ri, ni, r(i+1))``
+
+    - ``tucker_cores[ii].shape=stack_shape+(ni,Ni)``
+    - ``tt_cores[ii].shape=stack_shape+(ri, ni, r(i+1))``
 
     If no stacking is used, then ``stack_shape=()``.
 

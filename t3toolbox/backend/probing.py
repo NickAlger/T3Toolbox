@@ -1261,7 +1261,7 @@ def t3_probe_ambient_transpose(
     (term ``i`` has the residual ``ztildes_i`` in slot ``i`` and the probe vectors elsewhere), whose
     natural representation is a **canonical (CP) decomposition** of rank ``d``. Frame-free. Distinct from
     the *corewise* transpose (gradient w.r.t. a frame's cores) and the *tangent* transpose (Riemannian
-    gradient); see ``docs/transposes.md``. The ``apply``/``entries`` analog is the rank-1 (or rank-|W|)
+    gradient); see ``docs/transposes.md``. The ``apply``/``entries`` analog is the rank-1 (or rank-``|W|``)
     :py:func:`t3_apply_ambient_transpose`.
 
     - ``sum_over_probes=False`` (primary): ``W`` is a passthrough stacking axis -- a ``W (+ C)`` stack

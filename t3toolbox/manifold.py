@@ -471,8 +471,9 @@ class T3Tangent:
 
         Gauge conditions (needed for :py:meth:`ManifoldGeometry.inner` / :py:meth:`ManifoldGeometry.norm`
         to equal the Hilbert-Schmidt values; not enforced at construction):
-            - ``einsum('...ia,...ja->...ij', U_i, V_i) = 0`` for all i (Tucker variations ⟂ U).
-            - ``einsum('...abi,...abj->...ij', L_i, H_i) = 0`` for i = 0..d-2 (TT variations ⟂ L).
+
+        - ``einsum('...ia,...ja->...ij', U_i, V_i) = 0`` for all i (Tucker variations ⟂ U).
+        - ``einsum('...abi,...abj->...ij', L_i, H_i) = 0`` for i = 0..d-2 (TT variations ⟂ L).
 
         These are the gauge conditions (48)-(49), Appendix A.3, of Alger et al. (2026),
         "Tucker Tensor Train Taylor Series" (arXiv:2603.21141). **Per-stack-element bool array** (shape =
