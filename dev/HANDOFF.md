@@ -14,9 +14,17 @@ banner kept (off only at shipping), pitch + diagram, quickstart seeded from `get
 (snippets re-verified end-to-end; the claimed ranks/outputs are real), refreshed functionality
 list (fitting/optimizers/uniform/safety included), docs + examples links.
 
-**→ Next: R5 (test CI), then R6 (cleanup).** The Pages toggle is FLIPPED (Nick, 2026-07-11) and
-the R4 commits are pushed — the new `docs` workflow deploys from `main`; the old `gh-pages`
-branch is now dead weight (delete whenever, optional).
+**R5 (test CI) is DONE too** (same session): `.github/workflows/tests.yaml` — the full suite +
+the 167 module doctests + the quickstart doctest, on both supported generations (py3.9 /
+numpy 1.x / jax 0.4.30 and py3.11 / numpy 2.x / latest jax), everything verified green locally
+on both before wiring. Doctests are now CI-enforced (closes the old "green module-by-module but
+not in CI" gap). Two finds along the way: the parked weighted frontend had been **unimportable
+since the naming pass** (stale backend import path; fixed — the sanctioned keep-it-importable
+touch), and one doctest printed a naked numpy bool scalar (numpy-1/2 repr difference; fixed per
+doctest style). The Pages toggle is FLIPPED (Nick) and the docs deploy is green — the rebuilt
+site is live; the old `gh-pages` branch is dead weight (delete whenever, optional).
+
+**→ Next: R6 (cleanup)** — see Next steps.
 
 ## Done this session (R4, the doc pass) — slices D1–D5
 
@@ -90,14 +98,12 @@ is nearly a drop-in chapter).
 
 ## Next steps
 
-1. **R5 test CI** (pytest + numpy 1.x/2.x matrix; wire doctests in — `getting_started.rst` and the
-   module doctests are ready for it; the docs CI is done and separate).
-2. **R6 cleanup:** the remaining `OLD_test_*.py` files (**`OLD_test_linalg.py` needs a real
+1. **R6 cleanup:** the remaining `OLD_test_*.py` files (**`OLD_test_linalg.py` needs a real
    coverage audit** — there is no current `test_linalg.py`; the other six have modern
    counterparts), `.idea/` (uncomment the ready line in `.gitignore`), `t4s.pdf` untracked-status
    decision. `docs/make.bat` was committed in D1. `CHANGELOG.md` still to create (R1 leftover;
    pyproject links to it).
-3. **→ 1.1:** the Goal-1 `fit(...)` facade; revive/redesign the weighted layer.
+2. **→ 1.1:** the Goal-1 `fit(...)` facade; revive/redesign the weighted layer.
 
 ## The 1.0 roadmap — summary
 
@@ -106,7 +112,8 @@ is nearly a drop-in chapter).
 - **R3 — DONE (2026-07-11):** README + quickstart (banner off only at shipping).
 - **R4 — DONE (2026-07-11):** docs build + design rationale rendered as user docs; zero warnings,
   `-W` in CI; full frontend+backend API reference with verbatim source signatures.
-- **R5** test CI (numpy matrix + doctests). No auto-formatter near the curated style.
+- **R5 — DONE (2026-07-11):** test CI (numpy 1.x/2.x matrix + doctests CI-enforced). No
+  auto-formatter near the curated style.
 - **R6** cleanup — `OLD_test_*` etc., delete only after confirming preserved.
 - **R7 — DONE** (uniform layer + optimizers + U7 frontend).
 
