@@ -46,6 +46,7 @@ autoapi_template_dir = '_templates/autoapi'
 autoapi_type = 'python'
 
 autoapi_own_page_level = 'method'
+autoapi_add_toctree_entry = False  # placed explicitly by api_reference.rst
 
 # The rendered reference covers the whole validated surface (frontend AND backend; backend users
 # are first-class). Excluded: only the unvalidated surface -- OLD_* strays and the parked
