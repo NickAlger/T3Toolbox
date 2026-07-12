@@ -22,11 +22,19 @@ historical reference for the algorithms, never as the design target. The README 
 
 ## Where things live (routing rule)
 
-Keep knowledge sorted by **audience × lifetime**, so it doesn't re-jumble:
+Keep knowledge sorted by **audience × lifetime**, so it doesn't re-jumble. **Durable knowledge
+always lands in `docs/`, tagged by audience; `/dev` holds only what is alive while a thread is
+open** (Nick's rule, 2026-07-12):
 
-- **User-facing design docs** (the *why*: architecture, conventions, rationale) → `docs/` (rendered Sphinx).
-- **Internal working notes** (handoffs, status, plans) → `dev/`; dated superseded ones → `dev/archive/`.
-  The living current-state/handoff is **`dev/HANDOFF.md`** — read it for where-we-are + next steps.
+- **User-facing design docs** (the *why*: architecture, conventions, rationale) → `docs/`
+  (rendered Sphinx, the "Design notes" section).
+- **Durable contributor references** (test strategy, style/authoring conventions,
+  design-decision records, rejected alternatives, refactoring methodology) → `docs/contributor/`
+  (rendered as the "Contributor guide" — dev-facing but public and permanent).
+- **Ephemeral working notes** (handoffs, status, plans) → `dev/`; dated superseded ones →
+  `dev/archive/`. The living current-state/handoff is **`dev/HANDOFF.md`** — read it for
+  where-we-are + next steps. If something in a handoff turns out to be durable (a lesson, a
+  settled decision), promote it to `docs/contributor/` before it washes out.
 - **Research experiments + findings** → a separate research repo (maintainer-local; it *imports*
   the library — research never accretes here).
 - **Maintainer-personal** prefs (work style, commit signature, local env) → personal `~/.claude/`, not the repo.
@@ -106,8 +114,10 @@ updated to this version by the time the package is released.
   stacked uniform T3 is a batch in the bounded-rank **determinantal variety** — ranks may vary per
   stack element, shape is fixed), [`docs/uniform_supercore_layout.md`](docs/uniform_supercore_layout.md)
   (core index `d` **leads**: `(d,)+stack_shape+(...)`, for `lax.scan` + locality),
-  [`docs/uniform_masks_vs_ranks.md`](docs/uniform_masks_vs_ranks.md) (rank metadata is **boolean
-  masks**, not integer ranks — closed under add=concat / multiply=Kronecker with no data movement),
+  [`docs/uniform_masks_vs_ranks.md`](docs/uniform_masks_vs_ranks.md) (**how the rank masks
+  behave** — gappy under add/multiply, canonical vs working form, the tangent mask algebra; the
+  *why-boolean-masks* decision record is
+  [`docs/contributor/uniform_rank_masks_rationale.md`](docs/contributor/uniform_rank_masks_rationale.md)),
   [`docs/contributor/uniform_rank_masks_rationale.md`](docs/contributor/uniform_rank_masks_rationale.md) (**why the masks exist at
   all**: they enforce the variable-rank feature by zeroing the variation padding, so the gradient can't
   grow rank — a maskless "inflate to uniform rank" layer is operation-equivalent but loses rank control;

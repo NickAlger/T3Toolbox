@@ -1,8 +1,25 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-07-12 (late night)._
+_Updated 2026-07-12 (day)._
 
-## Where we are — the docs user/dev split (S1–S3 DONE, S4–S5 remain)
+## Where we are — the docs user/dev split is COMPLETE (S1–S5)
+
+**All five slices executed and pushed**; the plan is archived at
+`dev/archive/docs_split_plan.md` (dispositions, promotions P0–P11, the stale-fix inventory).
+S4 (`f19ccc09`) added the **`docs/t3m_methods.md` user doc** (the headline feature that had no
+rendered note — every claim re-verified against current code) + three contributor notes
+(`uniform_polymorphism`, `refactoring_methodology` — recovered from git history after the live
+handoff had washed the lessons out — and the `deferred_and_rejected` ledger). S5 updated
+CLAUDE.md's routing rule to the durable-vs-ephemeral split and fixed the last stale
+cross-references.
+
+**Also this morning (2026-07-12):** the **weighted-layer cordon** (`372aba47` — import/call-time
+UserWarnings, no parked function in the rendered reference; Nick's option-1 decision); the
+**"extended tensor train" synonym** in README/landing/guide/keywords (`77384ee0`); the
+**literature expansion 8 → 36 references** + the Related-software section (htucker included,
+URLs fetch-verified, positioning claim softened per Nick) (`6d327585`, `95d00de5`).
+
+## Prior state — the docs split S1–S3 (2026-07-11/12)
 
 **The docs are now split into a user tier + a rendered Contributor guide** (Nick's decision:
 durable knowledge lives in `docs/`, tagged by audience; `/dev` is ephemeral working state only).

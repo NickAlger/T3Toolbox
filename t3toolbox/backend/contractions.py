@@ -1078,7 +1078,8 @@ def WKCi_Cio_to_WKCo(
 # WCo_WCa_to_Cao / Wo_WCa_to_Cao / WCi_WCa_WCj_to_Ciaj (their K=() case).
 #
 # len(W) (n_probe) is supplied where no operand pins it; the w-bearing ones self-infer W from the
-# W-only probe vector. See docs/batching_and_stacking.md and docs/probing_section6_notes.md.
+# W-only probe vector. See docs/batching_and_stacking.md and docs/entries_apply_probe.md section 8
+# (the probing paper<->code map).
 ###############################################################################
 
 
