@@ -1,8 +1,11 @@
 # R4 docs-pass plan — Sphinx build, rendered design docs, full API reference
 
-_Drafted 2026-07-11. **APPROVED by Nick 2026-07-11 (all decisions settled) — execution started with D1.**_
-_Precedent: `dev/archive/naming_pass_plan.md` (slices, one commit each, gated). Archive this file when executed._
-_Standing instruction (Nick): on any point of confusion, stop and ask — don't guess._
+_Drafted 2026-07-11. Approved by Nick the same day (all decisions settled)._
+_**EXECUTED 2026-07-11** — slices D1 (`9cce8503`), D2 (`a507823b`), D3a (`f5edfa5a`),
+D3b (`387eba0f`), D4 (`9ddb6d23`), D5+D6 (docs CI + wrap-up). Warning burn-down:
+394 → 62 → 40 → 7 → **0**, with `-W` now enforced in CI. Archived per the handoff ritual;
+current state lives in `dev/HANDOFF.md`._
+_Precedent: `dev/archive/naming_pass_plan.md` (slices, one commit each, gated)._
 
 ## Scope
 
