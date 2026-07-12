@@ -497,8 +497,9 @@ Relevant literature
 Related software
 ----------------
 
-Neighboring tensor libraries. None of these implements the Tucker tensor train / extended tensor
-train format — they cover the adjacent formats (TT, Tucker, hierarchical Tucker, CP):
+Neighboring tensor libraries, covering the adjacent formats (TT, Tucker, hierarchical Tucker,
+CP). None of them centers on the Tucker tensor train / extended tensor train format, though some
+may offer partial functionality for it alongside their core format:
 
 * `TT-Toolbox <https://github.com/oseledets/TT-Toolbox>`_ — the classic MATLAB tensor-train
   toolbox (Oseledets et al.): TT arithmetic, rounding, and cross approximation.
