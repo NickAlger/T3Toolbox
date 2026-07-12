@@ -374,6 +374,10 @@ Relevant literature
 
 * The probing algorithms are described in Section 5 of our paper [1].
 
+* Under the name **extended tensor train**, the smooth manifold structure of this format is
+  studied by Molozhavenko and Rakhuba [9] — the most direct published treatment of the Tucker
+  tensor train manifold (there with shared Tucker factors).
+
 * The algorithms here are extensions of standard tensor train algorithms (no Tucker):
 
   * For an introduction to tensor train methods, we highly recommend two extremely well written
@@ -387,11 +391,35 @@ Relevant literature
       used left-orthogonal representations for tangent vector bases.
     * Using both left- and right-orthogonal representations was proposed in Khoromskij, Oseledets,
       and Schneider [6].
-    * The modern manifold methods are given in Steinlechner [7].
-    * Some of these methods may have been known to the physics community earlier, where tensor
-      trains are known as "matrix product states."
+    * The modern manifold methods are given in Steinlechner [7] (developed at length in his
+      Ph.D. thesis [10]).
+    * Some of these methods were known earlier in the physics community, where tensor trains are
+      known as "matrix product states" [11]; for introductions from that side see Orús [12] and
+      Bridgeman and Chubb [13].
 
-* The basics of the Tucker decomposition are described well in Kolda's review paper [8].
+* The basics of the Tucker decomposition are described well in Kolda's review paper [8]; the
+  original three-mode analysis is Tucker [14], and the higher-order SVD (the Tucker analog of
+  TT-SVD) is De Lathauwer, De Moor, and Vandewalle [15].
+
+* Riemannian optimization background: the standard text is Absil, Mahony, and Sepulchre [16],
+  the modern one Boumal [17]; Uschmajew and Vandereycken [18] survey geometric methods on
+  low-rank matrix and tensor manifolds — the setting of this library's manifold layer.
+
+* Closely related formats and constructions: the two-level QTT-Tucker format (Dolgov and
+  Khoromskij [19]); the hierarchical Tucker format (Hackbusch and Kühn [20]; Grasedyck [21]) and
+  its geometry (Uschmajew and Vandereycken [22]); cross/sampling-based tensor train construction
+  (Oseledets and Tyrtyshnikov [23]); and tensor train construction from tensor *actions* (our
+  earlier work [24]) — the direct ancestor of the probing approach used here.
+
+* Surveys of low-rank tensor methods: Bachmayr [25] (recent), Grasedyck, Kressner, and Tobler
+  [26], and Cichocki et al. [27].
+
+* Riemannian methods on low-rank manifolds, more specifically: the matrix case [28]; Riemannian
+  tensor completion [29] and preconditioned Riemannian solvers [30]; automatic differentiation
+  for Riemannian tensor-train optimization [31]; convergence theory for Riemannian Gauss-Newton
+  [32]; second-order tensor-train optimization [33]; dynamical low-rank approximation [34], [35];
+  and the alternating linear scheme [36], the classic core-by-core alternative to the
+  whole-tensor Riemannian steps used here.
 
 [1] Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026). "Tucker Tensor Train Taylor Series." arXiv preprint arXiv:2603.21141. `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
 
@@ -408,3 +436,80 @@ Relevant literature
 [7] Steinlechner, Michael. "Riemannian optimization for high-dimensional tensor completion." SIAM Journal on Scientific Computing 38.5 (2016): S461-S484. `https://epubs.siam.org/doi/10.1137/15M1010506 <https://epubs.siam.org/doi/10.1137/15M1010506>`_
 
 [8] Kolda, Tamara G., and Brett W. Bader. "Tensor decompositions and applications." SIAM Review 51.3 (2009): 455-500. `https://epubs.siam.org/doi/10.1137/07070111X <https://epubs.siam.org/doi/10.1137/07070111X>`_
+
+[9] Molozhavenko, A. and Rakhuba, M. "Optimization on the extended tensor-train manifold with shared factors." Computational and Applied Mathematics 45(6):221, 2026.
+
+[10] Steinlechner, M. M. "Riemannian Optimization for Solving High-Dimensional Problems with Low-Rank Tensor Structure." PhD thesis, École polytechnique fédérale de Lausanne, 2016.
+
+[11] Fannes, M., Nachtergaele, B., and Werner, R. F. "Finitely correlated states on quantum spin chains." Communications in Mathematical Physics 144(3):443-490, 1992.
+
+[12] Orús, R. "A practical introduction to tensor networks: Matrix product states and projected entangled pair states." Annals of Physics 349:117-158, 2014.
+
+[13] Bridgeman, J. C. and Chubb, C. T. "Hand-waving and interpretive dance: an introductory course on tensor networks." Journal of Physics A: Mathematical and Theoretical 50(22):223001, 2017.
+
+[14] Tucker, L. R. "Some mathematical notes on three-mode factor analysis." Psychometrika 31(3):279-311, 1966.
+
+[15] De Lathauwer, L., De Moor, B., and Vandewalle, J. "A multilinear singular value decomposition." SIAM Journal on Matrix Analysis and Applications 21(4):1253-1278, 2000.
+
+[16] Absil, P.-A., Mahony, R., and Sepulchre, R. "Optimization Algorithms on Matrix Manifolds." Princeton University Press, 2008.
+
+[17] Boumal, N. "An Introduction to Optimization on Smooth Manifolds." Cambridge University Press, 2023.
+
+[18] Uschmajew, A. and Vandereycken, B. "Geometric methods on low-rank matrix and tensor manifolds." In Handbook of Variational Methods for Nonlinear Geometric Data, pages 261-313. Springer, 2020.
+
+[19] Dolgov, S. and Khoromskij, B. "Two-level QTT-Tucker format for optimized tensor calculus." SIAM Journal on Matrix Analysis and Applications 34(2):593-623, 2013.
+
+[20] Hackbusch, W. and Kühn, S. "A new scheme for the tensor representation." Journal of Fourier Analysis and Applications 15(5):706-722, 2009.
+
+[21] Grasedyck, L. "Hierarchical singular value decomposition of tensors." SIAM Journal on Matrix Analysis and Applications 31(4):2029-2054, 2010.
+
+[22] Uschmajew, A. and Vandereycken, B. "The geometry of algorithms using hierarchical tensors." Linear Algebra and its Applications 439(1):133-166, 2013.
+
+[23] Oseledets, I. V. and Tyrtyshnikov, E. E. "Breaking the curse of dimensionality, or how to use SVD in many dimensions." SIAM Journal on Scientific Computing 31(5):3744-3759, 2009.
+
+[24] Alger, N., Chen, P., and Ghattas, O. "Tensor Train Construction From Tensor Actions, With Application to Compression of Large High Order Derivative Tensors." SIAM Journal on Scientific Computing 42(5):A3516-A3539, 2020. `https://doi.org/10.1137/20M131936X <https://doi.org/10.1137/20M131936X>`_
+
+[25] Bachmayr, M. "Low-rank tensor methods for partial differential equations." Acta Numerica 32:1-121, 2023.
+
+[26] Grasedyck, L., Kressner, D., and Tobler, C. "A literature survey of low-rank tensor approximation techniques." GAMM-Mitteilungen 36(1):53-78, 2013.
+
+[27] Cichocki, A., Lee, N., Oseledets, I., Phan, A.-H., Zhao, Q., Mandic, D. P., et al. "Tensor networks for dimensionality reduction and large-scale optimization: Part 1 low-rank tensor decompositions." Foundations and Trends in Machine Learning 9(4-5):249-429, 2016.
+
+[28] Vandereycken, B. "Low-rank matrix completion by Riemannian optimization." SIAM Journal on Optimization 23(2):1214-1236, 2013.
+
+[29] Kressner, D., Steinlechner, M., and Vandereycken, B. "Low-rank tensor completion by Riemannian optimization." BIT Numerical Mathematics 54(2):447-468, 2014.
+
+[30] Kressner, D., Steinlechner, M., and Vandereycken, B. "Preconditioned low-rank Riemannian optimization for linear systems with tensor product structure." SIAM Journal on Scientific Computing 38(4):A2018-A2044, 2016.
+
+[31] Novikov, A., Rakhuba, M., and Oseledets, I. "Automatic differentiation for Riemannian optimization on low-rank matrix and tensor-train manifolds." SIAM Journal on Scientific Computing 44(2):A843-A869, 2022.
+
+[32] Luo, Y. and Zhang, A. R. "Low-rank tensor estimation via Riemannian Gauss-Newton: Statistical optimality and second-order convergence." Journal of Machine Learning Research 24(381):1-48, 2023.
+
+[33] Psenka, M. and Boumal, N. "Second-order optimization for tensors with fixed tensor-train rank." arXiv preprint arXiv:2011.13395, 2020.
+
+[34] Koch, O. and Lubich, C. "Dynamical tensor approximation." SIAM Journal on Matrix Analysis and Applications 31(5):2360-2375, 2010.
+
+[35] Lubich, C., Rohwedder, T., Schneider, R., and Vandereycken, B. "Dynamical approximation by hierarchical Tucker and tensor-train tensors." SIAM Journal on Matrix Analysis and Applications 34(2):470-494, 2013.
+
+[36] Holtz, S., Rohwedder, T., and Schneider, R. "The alternating linear scheme for tensor optimization in the tensor train format." SIAM Journal on Scientific Computing 34(2):A683-A713, 2012.
+
+
+Related software
+----------------
+
+Neighboring tensor libraries. None of these implements the Tucker tensor train / extended tensor
+train format — they cover the adjacent formats (TT, Tucker, hierarchical Tucker, CP):
+
+* `TT-Toolbox <https://github.com/oseledets/TT-Toolbox>`_ — the classic MATLAB tensor-train
+  toolbox (Oseledets et al.): TT arithmetic, rounding, and cross approximation.
+* `ttpy <https://github.com/oseledets/ttpy>`_ — its Python counterpart: the TT format with
+  interpolation, linear solvers, and eigenproblems.
+* `t3f <https://github.com/Bihaqo/t3f>`_ — tensor trains on TensorFlow, with extensive support
+  for Riemannian optimization, GPU execution, and automatic differentiation.
+* `tntorch <https://github.com/rballester/tntorch>`_ — PyTorch tensor-network learning: CP,
+  Tucker, and TT decompositions behind one shared interface.
+* `TensorLy <https://tensorly.org/stable/index.html>`_ — pure-Python tensor methods (CP, Tucker,
+  TT, and more) with a swappable backend (NumPy, PyTorch, JAX, ...).
+* `htucker <https://www.epfl.ch/labs/anchp/index-html/software/htucker/>`_ — the MATLAB toolbox
+  for construction and manipulation of tensors in the hierarchical Tucker format (Kressner and
+  Tobler).
