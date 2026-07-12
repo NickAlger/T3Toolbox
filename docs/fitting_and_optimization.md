@@ -4,8 +4,8 @@ How T3Toolbox fits a fixed-rank Tucker tensor train to **sampled** data — appl
 their symmetric directional derivatives — by minimizing the least-squares misfit `½‖S(x) − y‖²`. This is
 the reference for the *structure* (what the pieces are), the *usage* (how to drive it), and the *design
 decisions* (what we chose and **why**). It complements the per-feature plans
-([`dev/archive/optimizers_plan.md`](../dev/archive/optimizers_plan.md), [`dev/archive/derivative_fitting_plan.md`](../dev/archive/derivative_fitting_plan.md),
-[`dev/archive/geometry_refactor_plan.md`](../dev/archive/geometry_refactor_plan.md)) — read this first for the whole picture.
+([`dev/archive/optimizers_plan.md`](https://github.com/NickAlger/T3Toolbox/blob/main/dev/archive/optimizers_plan.md), [`dev/archive/derivative_fitting_plan.md`](https://github.com/NickAlger/T3Toolbox/blob/main/dev/archive/derivative_fitting_plan.md),
+[`dev/archive/geometry_refactor_plan.md`](https://github.com/NickAlger/T3Toolbox/blob/main/dev/archive/geometry_refactor_plan.md)) — read this first for the whole picture.
 
 ---
 

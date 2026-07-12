@@ -189,9 +189,8 @@ order)` on both `TuckerTensorTrain` and `T3Tangent` (the points `X` and directio
 stack `W`), with the same transpose flavors — **tangent** (`*_derivatives_transpose`) and **corewise**
 (`*_corewise_derivatives_transpose`); the **ambient** derivative transpose is deferred
 ([`docs/ambient_derivative_transpose_note.md`](ambient_derivative_transpose_note.md)). Full `W+K+C`
-stacking. Math + plan: [`docs/symmetric_probe_derivatives.tex`](symmetric_probe_derivatives.tex),
-[`dev/archive/derivatives_mirror_plan.md`](../dev/archive/derivatives_mirror_plan.md). Why fit from derivatives:
-[`docs/derivative_order_information_and_conditioning.md`](derivative_order_information_and_conditioning.md).
+stacking. Math + plan: [`docs/symmetric_probe_derivatives.tex`](https://github.com/NickAlger/T3Toolbox/blob/main/docs/symmetric_probe_derivatives.tex),
+[`dev/archive/derivatives_mirror_plan.md`](https://github.com/NickAlger/T3Toolbox/blob/main/dev/archive/derivatives_mirror_plan.md).
 
 ## 5. Measurement spaces (for fitting)
 
@@ -228,4 +227,4 @@ sum-of-products: `Σ aᵢbᵢ` for the scalar cases, `Σ_modes Σ a[m]·b[m]` fo
 - Backend: `backend/entries.py`, `backend/apply.py`, `backend/probing.py`.
 - Stacking semantics: [`batching_and_stacking.md`](batching_and_stacking.md) (§11 for the transpose /
   `sum_over_probes` modes). Algorithm ↔ code map: [`probing_section6_notes.md`](probing_section6_notes.md).
-  Apply/entries build history: [`dev/archive/apply_entries_handoff.md`](../dev/archive/apply_entries_handoff.md).
+  Apply/entries build history: [`dev/archive/apply_entries_handoff.md`](https://github.com/NickAlger/T3Toolbox/blob/main/dev/archive/apply_entries_handoff.md).

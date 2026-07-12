@@ -10,7 +10,7 @@ Math reference: **Section 5.4** ("Rank continuation") of Alger, Christierson, Ch
 *"Tucker Tensor Train Taylor Series"* (arXiv:2603.21141) — §5.4.1 chooses the new ranks, §5.4.2 is the
 warm start. (As elsewhere, the local `t4s.pdf` numbering is newer than the public arXiv.)
 
-Worked, runnable example: [`examples/fit_varied_rank_tensor_newton_cg.py`](../examples/fit_varied_rank_tensor_newton_cg.py).
+Worked, runnable example: [`examples/fit_varied_rank_tensor_newton_cg.py`](https://github.com/NickAlger/T3Toolbox/blob/main/examples/fit_varied_rank_tensor_newton_cg.py).
 
 ---
 

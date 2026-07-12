@@ -1,6 +1,6 @@
 # S2 — Numerical-contract catalog (precondition vs caveat sweep)
 
-*The make-or-break input to [`dev/archive/safe_unsafe_mode_plan.md`](../dev/archive/safe_unsafe_mode_plan.md) §5. Sweep of the
+*The make-or-break input to [`dev/archive/safe_unsafe_mode_plan.md`](https://github.com/NickAlger/T3Toolbox/blob/main/dev/archive/safe_unsafe_mode_plan.md) §5. Sweep of the
 **verified** modules (`tucker_tensor_train`, `frame_variations_format`, `manifold`, `corewise`, `fitting` +
 backend, `probing`) classifying each op's numerical assumptions as an enforceable **precondition** or a
 non-enforced **caveat**.*
