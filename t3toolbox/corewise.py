@@ -373,8 +373,9 @@ def corewise_logical_not(X: NDArrayTree) -> NDArrayTree:
     >>> import numpy as np
     >>> import t3toolbox.corewise as cw
     >>> X = (np.array([True, False, False]), (True, (), np.array([False, True, False])))
-    >>> print(cw.corewise_logical_not(X))
-    (array([False,  True,  True]), (np.False_, (), array([ True, False,  True])))
+    >>> Y = cw.corewise_logical_not(X)
+    >>> print(Y[0], bool(Y[1][0]), Y[1][1], Y[1][2])   # scalar via bool(): numpy-1/2-stable repr
+    [False  True  True] False () [ True False  True]
     '''
     use_jax = tree_contains_jax(X)
     xnp, _, _ = get_backend(False, use_jax)

@@ -1,0 +1,52 @@
+# Test CI: the full suite + the doctests, on the two supported environment generations
+# (CLAUDE.md: forward-compatible across numpy 1.22<->2.x and jax 0.4.30<->0.10):
+#   - py3.9  + numpy 1.x + jax 0.4.30   (the compatibility-floor generation)
+#   - py3.11 + numpy 2.x + latest jax   (the current generation)
+#
+# Runs mirror the documented dev flow (PYTHONPATH=repo root; no install step).
+# pytest-subtests guarantees unittest subTest failures surface on every pytest generation.
+# The parked weighted module is excluded from the doctest sweep (its docstring examples
+# deliberately keep pre-rename names until the post-1.0 weighted revival).
+name: tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: py${{ matrix.python }} / ${{ matrix.numpy }} / ${{ matrix.jax }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: '3.9'
+            numpy: 'numpy<2'
+            jax: 'jax==0.4.30'
+          - python: '3.11'
+            numpy: 'numpy>=2'
+            jax: 'jax'
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install
+        run: pip install "${{ matrix.numpy }}" "${{ matrix.jax }}" pytest pytest-subtests
+      - name: Versions
+        run: python -c "import sys, numpy, jax; print(sys.version.split()[0], 'numpy', numpy.__version__, 'jax', jax.__version__)"
+      - name: Test suite
+        run: pytest tests/ -q
+      - name: Module doctests
+        run: pytest --doctest-modules t3toolbox --ignore=t3toolbox/weighted_tucker_tensor_train.py -q
+      - name: Quickstart doctest
+        run: python -m doctest docs/getting_started.rst
