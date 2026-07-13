@@ -223,8 +223,9 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
         self.frame_r = self.frame.to_t3frame()
         self.var_r = self.var.to_t3variations()
         self.vmask = uf._var_masks_from_frame(self.frame.data)
-        self.aw = bfit._make_order_weight(self._WEIGHT, self._ORDER)                    # order-leading (apply/entries)
-        self.aw_packed = bfit._make_order_weight(self._WEIGHT, self._ORDER, order_axis=1)  # packed probe: order at axis 1
+        _wmat = bfit._weight_matrix(self._WEIGHT, self._ORDER, 'order')
+        self.aw = bfit._make_weight(_wmat, order_axis=0, mode_axis=None)          # order-leading (apply/entries)
+        self.aw_packed = bfit._make_weight(_wmat, order_axis=1, mode_axis=0)      # packed probe: order at axis 1
 
     def _sample(self, is_index, W=15):
         shape = _STRUCT[0]

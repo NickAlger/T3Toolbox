@@ -39,6 +39,7 @@ __all__ = [
     'APPLY',
     'ENTRIES',
     'PROBE',
+    'probe_kind',
     'apply_derivatives_kind',
     'entries_derivatives_kind',
     'probe_derivatives_kind',
@@ -137,25 +138,72 @@ def _take_deriv_probe(sample, data, idx):
         [_flat_gather(d, 1, n_w, idx) for d in data]
 
 
-def _make_order_weight(weight, order, order_axis=0):
-    '''The per-order residual weight ``ω``: returns ``apply(x, power) = x · ω**power`` broadcast over the
-    order axis (``x`` an array for apply/entries, a list of ``d`` arrays for probe). ``weight=None`` is
-    ``ω=1`` (identity). ``ω`` enters the objective ``½‖ω⊙r‖²`` only -- so ``sumsq`` scales by ``ω`` and
-    ``transpose`` (the gradient ``𝒥ᵀ ω²r``) by ``ω²``; ``forward`` / ``point_forward`` stay raw.
+def _weight_matrix(
+        weight:  typ.Optional[typ.Any],   # None, or array / (nested) sequence -- the raw ω input
+        order:   int,                      # highest derivative order (0 for the plain kinds)
+        bare:    str,                      # a 1-D input binds to -- 'order' (row) or 'mode' (column)
+) -> typ.Optional[NDArray]:                # None, or the canonical 2-D ω[m,o], m in {1,d}, o in {1,order+1}
+    '''Normalize a raw residual-weight input to the canonical 2-D matrix ``ω[mode, order]`` (host numpy).
 
-    ``order_axis`` is the position of the order axis in an *array* ``x`` (default 0 -- order leads, as for
-    apply/entries and the per-element ragged-probe arrays). The **packed** probe-derivative output is
-    ``(d,)+(order+1,)+…`` -- order at axis 1 after the mode index ``d`` -- so its kind builds this with
-    ``order_axis=1``. (The ``list`` branch is always the ragged probe, order-leading per element.)'''
+    The residual weight enters the objective ``½‖ω ⊙ r‖²`` only (``sumsq`` scales by ``ω``, ``transpose`` --
+    the gradient ``𝒥ᵀ ω²r`` -- by ``ω²``; ``forward`` / ``point_forward`` / ``data`` stay raw). ``ω`` is a
+    ``(mode, order)`` matrix: numpy right-alignment makes **order the innermost/most-important axis**, so a
+    bare 1-D input binds to each model's innermost axis -- ``bare='order'`` for the derivative kinds (a
+    vector is per-order, broadcast over modes -- the backward-compatible rule) and ``bare='mode'`` for plain
+    probe (a vector is per-mode; plain probe has no order axis). A 2-D array passes through idempotently (so
+    the uniform layer can re-feed a normalized matrix). Validates the order dim ``o in {1, order+1}`` here
+    (``order`` is known); the mode dim ``m in {1, d}`` is validated in the frontend (which knows ``d``). The
+    frontend also enforces the plain-probe **1-D** contract (rejecting a 2-D ``(d, 1)``); this helper stays
+    lenient so the internal re-feed works. Weights are host numpy (static structure, like the uniform masks
+    and ``ω`` before it) -- they fold into the compiled program as device constants on the jax path.'''
     if weight is None:
+        return None
+    w = np.asarray(weight, dtype=float)
+    if w.ndim == 1:
+        w = w[None, :] if bare == 'order' else w[:, None]
+    elif w.ndim != 2:
+        raise ValueError("residual weight must be 1-D or 2-D (ω[mode, order]); got %d-D of shape %s"
+                         % (w.ndim, w.shape))
+    o = w.shape[1]
+    if o not in (1, order + 1):
+        raise ValueError("residual weight's order dimension must be 1 or order+1=%d; got %d (shape %s)"
+                         % (order + 1, o, w.shape))
+    return w
+
+
+def _make_weight(
+        w2d:         typ.Optional[NDArray],  # canonical 2-D ω[m,o] from _weight_matrix, or None (ω = 1)
+        order_axis:  typ.Optional[int] = 0,  # order axis in an ARRAY x (None => no order axis; o must be 1)
+        mode_axis:   typ.Optional[int] = None,  # mode axis in an ARRAY x (None => no mode axis; m must be 1)
+) -> typ.Callable:                           # apply_w(x, power) = x · ω**power, broadcast over its axes
+    '''Return ``apply_w(x, power) = x · ω**power`` for the canonical weight matrix ``ω = w2d`` (or identity
+    if ``None``), covering the three residual/output layouts:
+
+      * **ragged probe** (``x`` a list of ``d`` order-leading arrays): element ``i`` is scaled by the
+        order-vector ``ω[i if m>1 else 0]`` along its order axis (axis 0 per element). Plain probe has
+        ``o = 1`` (a per-mode scalar); the derivative probe has ``o = order+1``. ``order_axis`` / ``mode_axis``
+        are ignored here (order is always axis 0 per element, mode is the list index).
+      * **apply / entries array** (no mode axis): ``mode_axis=None`` -> ``m`` must be 1 (else the structural
+        "no mode axis" error -- mode weighting is probe-only); the order-vector is placed at ``order_axis``.
+      * **packed uniform probe array** (``(d,)+…`` for plain, ``(d,)+(order+1,)+…`` for derivatives):
+        ``ω``'s mode axis at ``mode_axis`` (axis 0), order axis at ``order_axis`` (axis 1, or ``None`` for
+        the order-free plain probe), 1s elsewhere.'''
+    if w2d is None:
         return lambda x, power: x
-    w = np.asarray(weight, dtype=float)                  # (order+1,)
+    m, o = w2d.shape
     def apply_w(x, power):
-        wp = w ** power
+        wp = w2d ** power
         if isinstance(x, (list, tuple)):                 # ragged probe: a list of d order-leading arrays
-            return [xi * wp.reshape((order + 1,) + (1,) * (xi.ndim - 1)) for xi in x]
-        shp = [1] * x.ndim                               # broadcast ω over the order axis of the array
-        shp[order_axis] = order + 1
+            return [xi * wp[i if m > 1 else 0].reshape((o,) + (1,) * (xi.ndim - 1))
+                    for i, xi in enumerate(x)]
+        if mode_axis is None and m > 1:                  # apply/entries have no mode axis (probe-only)
+            raise ValueError("this sampling kind has no mode axis (apply / entries); a per-mode residual "
+                             "weight (mode dim %d > 1) is only defined for probe" % m)
+        shp = [1] * x.ndim                               # place ω's non-unit axes; 1s broadcast elsewhere
+        if mode_axis is not None:
+            shp[mode_axis] = m
+        if order_axis is not None:
+            shp[order_axis] = o
         return x * wp.reshape(tuple(shp))
     return apply_w
 
@@ -205,34 +253,51 @@ ENTRIES = SamplingKind(
     take=_take_entries,
 )
 
-PROBE = SamplingKind(
-    name='probe',
-    precompute=lambda frame, ww: probing.tv_precompute_probe_frame_sweep(frame, ww),
-    forward=lambda v, ww, frame, bs: probing.tv_probe_jacobian_from_sweep(v, ww, frame, bs),
-    transpose=lambda r, ww, frame, bs: probing.tv_probe_transpose_from_sweep(r, ww, frame, bs, sum_over_probes=True),
-    sumsq=sumsq_over_probes,
-    w_axes=lambda ww: ww[0].ndim - 1,
-    point_forward=lambda x_cores, ww: probing.t3_probe(ww, x_cores),
-    n_measurements=lambda ww: _prod_w(ww[0], 0, ww[0].ndim - 1),
-    take=_take_probe,
-)
+def probe_kind(
+        weight: typ.Optional[typ.Any] = None,  # per-mode residual weight ω, (d,) / (d,1); None = 1 (unweighted)
+) -> SamplingKind:                             # the vector-valued `probe` kind (optionally per-mode weighted)
+    '''The **probe** sampling kind (vector-valued: one free mode per probe), optionally **per-mode**
+    weighted. Mode weighting is the order-0 special case of the same residual-weight machinery as the
+    derivative kinds: the objective is ``½ Σ_i ‖ω_i z_i‖²`` over the ``d`` per-mode probe residuals ``z_i``,
+    so ``ω`` (a per-mode scalar) enters ``sumsq`` (×ω) and ``transpose`` (×ω²) only. ``weight=None`` is the
+    plain unweighted probe (``PROBE``). Plain probe has no order axis, so the weight is a 1-D ``(d,)``
+    per-mode vector -- the frontend enforces that (rejecting a 2-D ``(d, 1)``; see
+    :py:func:`t3toolbox.fitting.probe_model`).'''
+    aw = _make_weight(_weight_matrix(weight, 0, 'mode'))   # ragged probe list; per-mode scalar (o = 1)
+    return SamplingKind(
+        name='probe',
+        precompute=lambda frame, ww: probing.tv_precompute_probe_frame_sweep(frame, ww),
+        forward=lambda v, ww, frame, bs: probing.tv_probe_jacobian_from_sweep(v, ww, frame, bs),
+        transpose=lambda r, ww, frame, bs: probing.tv_probe_transpose_from_sweep(aw(r, 2), ww, frame, bs, sum_over_probes=True),
+        sumsq=lambda out, n_w: sumsq_over_probes(aw(out, 1), n_w),
+        w_axes=lambda ww: ww[0].ndim - 1,
+        point_forward=lambda x_cores, ww: probing.t3_probe(ww, x_cores),
+        n_measurements=lambda ww: _prod_w(ww[0], 0, ww[0].ndim - 1),
+        take=_take_probe,
+    )
+
+
+PROBE = probe_kind()   # the plain unweighted probe kind (a module singleton, as APPLY / ENTRIES)
 
 
 # --------------------------------------------------------------------------------------------------
 # Derivative sampling kinds (the symmetric directional-derivative jets of apply/entries/probe). The
-# operator is parameterized by `order` (highest derivative order) + an optional per-order residual
-# weight `weight` (ω). `sample` is the paired `(ww, pp)` / `(index, pp)`; the data + outputs gain a
-# leading order axis, so `sumsq`/`w_axes` count it via `n_w + 1`. ω enters only `sumsq` (×ω) and
-# `transpose` (×ω²); `forward`/`point_forward` are raw (the user passes RAW data + ω). See
-# dev/archive/derivative_fitting_plan.md §5.
+# operator is parameterized by `order` (highest derivative order) + an optional residual weight `weight`
+# (ω[mode, order], a matrix -- `_weight_matrix`/`_make_weight`). `sample` is the paired `(ww, pp)` /
+# `(index, pp)`; the data + outputs gain a leading order axis, so `sumsq`/`w_axes` count it via `n_w + 1`.
+# ω enters only `sumsq` (×ω) and `transpose` (×ω²); `forward`/`point_forward` are raw (the user passes RAW
+# data + ω). apply/entries contract every mode into a scalar -- no mode axis -- so they take an ORDER-ONLY
+# weight (a per-mode weight is a structural error, caught in `_make_weight`); only probe is mode-weightable
+# (`(d, order+1)`). See dev/archive/derivative_fitting_plan.md §5 and dev/per_mode_weighting_plan.md.
 # --------------------------------------------------------------------------------------------------
 def apply_derivatives_kind(
         order:  int,                                # highest derivative order
-        weight: typ.Optional[typ.Sequence[float]] = None,  # per-order residual weight ω, (order+1,); None = 1
+        weight: typ.Optional[typ.Any] = None,       # ORDER-only residual weight ω, (order+1,); None = 1
 ) -> SamplingKind:                                  # sample = (ww, pp); data = (order+1)+W
     '''The **apply-derivatives** sampling kind (operator only): symmetric directional derivatives of the
-    all-modes apply, orders ``0..order``, in direction ``P``. ``sample = (ww, pp)``.'''
-    aw = _make_order_weight(weight, order)
+    all-modes apply, orders ``0..order``, in direction ``P``. ``sample = (ww, pp)``. All-modes apply has no
+    mode axis, so ``weight`` is **order-only** (a per-mode weight raises -- mode weighting is probe-only).'''
+    aw = _make_weight(_weight_matrix(weight, order, 'order'))
     return SamplingKind(
         name='apply_derivatives',
         precompute=lambda frame, s: pd.tv_precompute_apply_frame_sweep_jets(frame, s[0], s[1], order),
@@ -249,11 +314,12 @@ def apply_derivatives_kind(
 
 def entries_derivatives_kind(
         order:  int,
-        weight: typ.Optional[typ.Sequence[float]] = None,
+        weight: typ.Optional[typ.Any] = None,       # ORDER-only residual weight ω, (order+1,); None = 1
 ) -> SamplingKind:                                  # sample = (index, pp); data = (order+1)+W
     '''The **entries-derivatives** sampling kind: like :py:func:`apply_derivatives_kind` but at integer
-    grid points. ``sample = (index, pp)``.'''
-    aw = _make_order_weight(weight, order)
+    grid points. ``sample = (index, pp)``. Order-only ``weight`` (no mode axis -- mode weighting is
+    probe-only).'''
+    aw = _make_weight(_weight_matrix(weight, order, 'order'))
     return SamplingKind(
         name='entries_derivatives',
         precompute=lambda frame, s: pd.tv_precompute_entries_frame_sweep_jets(frame, s[0], s[1], order),
@@ -270,11 +336,13 @@ def entries_derivatives_kind(
 
 def probe_derivatives_kind(
         order:  int,
-        weight: typ.Optional[typ.Sequence[float]] = None,
+        weight: typ.Optional[typ.Any] = None,       # residual weight ω[mode,order], (d,order+1) broadcast; None = 1
 ) -> SamplingKind:                                  # sample = (ww, pp); data = list of d, (order+1)+W+(Ni,)
     '''The **probe-derivatives** sampling kind: vector-valued (one free mode per probe), so the residual
-    / output is a list of ``d`` arrays. ``sample = (ww, pp)``.'''
-    aw = _make_order_weight(weight, order)
+    / output is a list of ``d`` arrays. ``sample = (ww, pp)``. Probe has both a mode and an order axis, so
+    ``weight`` is the full ``ω[mode, order]`` matrix ``(d, order+1)`` (a row ``(order+1,)`` = per-order, a
+    column ``(d, 1)`` = per-mode, a matrix = both).'''
+    aw = _make_weight(_weight_matrix(weight, order, 'order'))
     return SamplingKind(
         name='probe_derivatives',
         precompute=lambda frame, s: pd.tv_precompute_probe_frame_sweep_jets(frame, s[0], s[1], order),

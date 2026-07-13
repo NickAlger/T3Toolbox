@@ -300,6 +300,136 @@ class TestGaussNewtonModel(unittest.TestCase):
                     self.assertLess(relerr(fmodel.gn_hessian(pt).variations.data, lm.hvp(p)), 1e-10)
 
 
+class TestResidualWeighting(unittest.TestCase):
+    '''The ``ω[mode, order]`` residual weight matrix (``½‖ω⊙r‖²``). Mode weighting is **probe-only**;
+    apply/entries take an ORDER-only weight (a per-mode weight is a structural error). Oracles place
+    ``ω[i, t]`` by **explicit numpy indexing** (NOT via ``_make_weight``, so the axis-placement check is
+    non-circular): the objective is a hand-summed ``½ Σ (ω⊙r)²``, and the weighted gradient ``𝒥ᵀ(ω²r)``
+    equals the *unweighted* gradient fed the explicitly-scaled residual ``ω²⊙r``. Also: the ``(mode,order)``
+    broadcasting (row = order, column = mode, matrix = both), the backward-compatible bare-vector rule, and
+    the ``pᵀHp == ‖ω⊙Jp‖²`` / hand-rolled ``𝒥ᵀ(ω²𝒥p)`` Hessian consistency under the matrix weight.'''
+
+    def _setup(self, order=2, C=(), NW=15):
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS, stack_shape=C)
+        ww = [np.random.randn(NW, N) for N in SHAPE]
+        pp = [np.random.randn(NW, N) for N in SHAPE]
+        d = len(SHAPE)
+        # RAW residual jets: probe -> list of d, (order+1)+W+C+(Ni,); apply/entries -> (order+1)+W+C
+        r_probe = [np.random.randn(*((order + 1, NW) + C + (N,))) for N in SHAPE]
+        r_scalar = np.random.randn(*((order + 1, NW) + C))
+        return dict(x=x, ww=ww, pp=pp, d=d, order=order, C=C, r_probe=r_probe, r_scalar=r_scalar)
+
+    def _probe_obj_oracle(self, r, W, order):
+        '''½ Σ_{i,t} ‖W[i,t] r_i[t]‖² with W[i,t] placed by explicit indexing (r a list of d arrays).'''
+        tot = 0.0
+        for i, ri in enumerate(r):
+            wi = np.asarray(W)[i, :].reshape((order + 1,) + (1,) * (ri.ndim - 1))
+            tot += np.sum((wi * ri) ** 2)
+        return 0.5 * tot
+
+    def _probe_scale(self, r, W, order, power):
+        '''ω**power ⊙ r, W[i,t] placed by explicit indexing (the non-circular scaled residual).'''
+        out = []
+        for i, ri in enumerate(r):
+            wi = np.asarray(W)[i, :].reshape((order + 1,) + (1,) * (ri.ndim - 1))
+            out.append((wi ** power) * ri)
+        return out
+
+    def test_probe_derivatives_full_matrix(self):
+        '''probe_derivatives with a full ω[mode, order] matrix: hand-summed objective + the ω²r-scaled
+        gradient identity, both geometries. Non-circular (ω placed by explicit indexing).'''
+        s = self._setup()
+        d, order = s['d'], s['order']
+        rng = np.random.default_rng(1)
+        W = rng.uniform(0.2, 2.0, size=(d, order + 1))           # a genuine full matrix
+        for geom in (t3m.MANIFOLD, t3m.COREWISE):
+            with self.subTest(geom=geom):
+                w = fitting.probe_derivatives_model(geom, s['x'], s['ww'], s['pp'], order, s['r_probe'], weight=W)
+                self.assertTrue(np.allclose(float(w.objective_value),
+                                            self._probe_obj_oracle(s['r_probe'], W, order)))
+                # weighted gradient 𝒥ᵀ(ω²r) == unweighted gradient on the explicitly-scaled ω²⊙r
+                u2 = fitting.probe_derivatives_model(geom, s['x'], s['ww'], s['pp'], order,
+                                                     self._probe_scale(s['r_probe'], W, order, 2), weight=None)
+                self.assertTrue(w.gradient.allclose(u2.gradient, rtol=1e-9, atol=1e-11).all())
+                # Hessian consistency: pᵀHp == ‖ω⊙Jp‖², and H p == 𝒥ᵀ(ω²⊙𝒥Πp) (hand-rolled, ω explicit)
+                p = t3m.COREWISE.randn(w.frame)
+                Jp = w.jacobian(p)                                # raw 𝒥Πp (a list of d arrays)
+                q_oracle = sum(np.sum((np.asarray(W)[i, :].reshape((order + 1,) + (1,) * (Jp[i].ndim - 1)) * Jp[i]) ** 2)
+                               for i in range(d))
+                self.assertTrue(np.allclose(float(w.gn_quadratic(p)), q_oracle))
+                self.assertTrue(np.allclose(float(w.gn_quadratic(p)), float(p.corewise_inner(w.gn_hessian(p)))))
+
+    def test_probe_derivatives_row_col_broadcast(self):
+        '''Row (order+1,) = per-order (broadcast over modes); column (d,1) = per-mode (broadcast over
+        orders); both are the matching full matrix by np.broadcast_to. Bare (order+1,) == its (1,order+1)
+        row (the backward-compatible rule).'''
+        s = self._setup()
+        d, order, geom = s['d'], s['order'], t3m.MANIFOLD
+        rng = np.random.default_rng(2)
+        row = rng.uniform(0.3, 1.5, size=order + 1)              # per-order
+        col = rng.uniform(0.3, 1.5, size=(d, 1))                 # per-mode
+        for w_in, full in [(row, np.broadcast_to(row, (d, order + 1))),
+                           (col, np.broadcast_to(col, (d, order + 1)))]:
+            with self.subTest(shape=np.shape(w_in)):
+                a = fitting.probe_derivatives_model(geom, s['x'], s['ww'], s['pp'], order, s['r_probe'], weight=w_in)
+                b = fitting.probe_derivatives_model(geom, s['x'], s['ww'], s['pp'], order, s['r_probe'], weight=full)
+                self.assertTrue(np.allclose(float(a.objective_value), float(b.objective_value)))
+                self.assertTrue(a.gradient.allclose(b.gradient, rtol=1e-10, atol=1e-12).all())
+        # bare 1-D order vector == explicit (1, order+1) row (backward compat)
+        bare = fitting.probe_derivatives_model(geom, s['x'], s['ww'], s['pp'], order, s['r_probe'], weight=row)
+        rowm = fitting.probe_derivatives_model(geom, s['x'], s['ww'], s['pp'], order, s['r_probe'],
+                                               weight=row.reshape(1, -1))
+        self.assertTrue(np.allclose(float(bare.objective_value), float(rowm.objective_value)))
+
+    def test_apply_entries_order_only(self):
+        '''apply/entries derivatives take an ORDER-only weight (hand-summed ½Σ_t (ω_t r_t)²); a genuine
+        per-mode weight (mode dim > 1) is a structural error (no mode axis).'''
+        s = self._setup()
+        order, geom = s['order'], t3m.MANIFOLD
+        rng = np.random.default_rng(3)
+        omega = rng.uniform(0.3, 1.5, size=order + 1)
+        index = np.stack([np.random.randint(0, N, size=s['r_scalar'].shape[1]) for N in SHAPE], axis=0)
+        for name, model in [('apply', fitting.apply_derivatives_model(geom, s['x'], s['ww'], s['pp'], order, s['r_scalar'], weight=omega)),
+                            ('entries', fitting.entries_derivatives_model(geom, s['x'], index, s['pp'], order, s['r_scalar'], weight=omega))]:
+            with self.subTest(kind=name):
+                oracle = 0.5 * np.sum((omega.reshape((order + 1,) + (1,) * (s['r_scalar'].ndim - 1)) * s['r_scalar']) ** 2)
+                self.assertTrue(np.allclose(float(model.objective_value), oracle))
+        # a per-mode weight (d, order+1) with d>1 rows -> structural error (backend raises when applied)
+        bad = np.ones((s['d'], order + 1))
+        with self.assertRaises(ValueError):
+            fitting.apply_derivatives_model(geom, s['x'], s['ww'], s['pp'], order, s['r_scalar'], weight=bad).objective_value
+
+    def test_plain_probe_per_mode(self):
+        '''Plain probe (order 0) per-mode weight (d,): hand-summed ½Σ_i ω_i²‖r_i‖² + the ω²r-scaled gradient
+        identity. Backend probe_kind is lenient on (d,1); the frontend 1-D contract is S2's concern.'''
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS)
+        ww = [np.random.randn(N_SAMPLES, N) for N in SHAPE]
+        r = [np.random.randn(N_SAMPLES, N) for N in SHAPE]       # plain probe residual: list of d, W+(Ni,)
+        d = len(SHAPE)
+        omega = np.array([0.5, 2.0, 1.3])[:d]
+        for geom in (t3m.MANIFOLD, t3m.COREWISE):
+            with self.subTest(geom=geom):
+                frame = geom.frame(x)
+                kind = fb.probe_kind(omega)
+                w = fitting.GaussNewtonModel(geom, frame, kind, ww, r, kind.precompute(frame.data, ww))
+                obj_oracle = 0.5 * sum((omega[i] ** 2) * np.sum(r[i] ** 2) for i in range(d))
+                self.assertTrue(np.allclose(float(w.objective_value), obj_oracle))
+                r2 = [(omega[i] ** 2) * r[i] for i in range(d)]  # explicit ω²⊙r
+                u = fitting.GaussNewtonModel(geom, frame, fb.PROBE, ww, r2, fb.PROBE.precompute(frame.data, ww))
+                self.assertTrue(w.gradient.allclose(u.gradient, rtol=1e-9, atol=1e-11).all())
+                p = t3m.COREWISE.randn(frame)
+                self.assertTrue(np.allclose(float(w.gn_quadratic(p)), float(p.corewise_inner(w.gn_hessian(p)))))
+        # backend probe_kind is lenient: (d,) and (d,1) give the same weighted kind
+        k1 = fb.probe_kind(omega)
+        k2 = fb.probe_kind(omega.reshape(d, 1))
+        fr = t3m.MANIFOLD.frame(x); sw = k1.precompute(fr.data, ww)
+        m1 = fitting.GaussNewtonModel(t3m.MANIFOLD, fr, k1, ww, r, sw)
+        m2 = fitting.GaussNewtonModel(t3m.MANIFOLD, fr, k2, ww, r, sw)
+        self.assertTrue(np.allclose(float(m1.objective_value), float(m2.objective_value)))
+
+
 class TestUniformGaussNewtonModel(unittest.TestCase):
     '''U7b: the uniform roll-your-own surface. ``fitting.apply_model`` &c. dispatch a
     ``UniformTuckerTensorTrain`` x to a ``UniformGaussNewtonModel`` (UT3Tangent-valued gradient / Hessian).

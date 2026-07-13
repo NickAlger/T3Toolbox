@@ -233,7 +233,7 @@ def uniform_apply_derivatives_kind(
     """The uniform **apply-derivatives** ``SamplingKind`` -- the twin of
     :py:func:`t3toolbox.backend.fitting.apply_derivatives_kind`."""
     _tk, _tt, shape, base_masks = x0_data
-    aw = bfit._make_order_weight(weight, order)
+    aw = bfit._make_weight(bfit._weight_matrix(weight, order, 'order'), order_axis=0, mode_axis=None)
     return dc.replace(
         bfit.apply_derivatives_kind(order, weight),
         precompute=lambda frame_data, s: utv_sampling.utv_precompute_apply_frame_sweep_jets(
@@ -256,7 +256,7 @@ def uniform_entries_derivatives_kind(
     """The uniform **entries-derivatives** ``SamplingKind`` -- the twin of
     :py:func:`t3toolbox.backend.fitting.entries_derivatives_kind`."""
     _tk, _tt, shape, base_masks = x0_data
-    aw = bfit._make_order_weight(weight, order)
+    aw = bfit._make_weight(bfit._weight_matrix(weight, order, 'order'), order_axis=0, mode_axis=None)
     return dc.replace(
         bfit.entries_derivatives_kind(order, weight),
         precompute=lambda frame_data, s: utv_sampling.utv_precompute_entries_frame_sweep_jets(
@@ -284,7 +284,7 @@ def uniform_probe_derivatives_kind(
     ``sumsq`` / ``transpose`` are overridden to weight the correct axis (the inherited order-leading ``aw``
     would broadcast ``ω`` over ``d``)."""
     _tk, _tt, shape, base_masks = x0_data
-    aw = bfit._make_order_weight(weight, order, order_axis=1)   # packed probe: order axis is 1 (after d)
+    aw = bfit._make_weight(bfit._weight_matrix(weight, order, 'order'), order_axis=1, mode_axis=0)  # packed probe: mode axis 0, order axis 1
     return dc.replace(
         bfit.probe_derivatives_kind(order, weight),
         precompute=lambda frame_data, s: utv_sampling.utv_precompute_probe_frame_sweep_jets(
