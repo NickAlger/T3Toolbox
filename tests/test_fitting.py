@@ -444,7 +444,10 @@ class TestUniformGaussNewtonModel(unittest.TestCase):
         import t3toolbox.uniform_tucker_tensor_train as ut3
         rng = np.random.default_rng(0)
         shape, order, NW = (5, 6, 7), 2, 15
-        omega = [1.0, 0.5, 0.3]
+        d = len(shape)
+        omega = [1.0, 0.5, 0.3]                                         # per-order (order+1,)
+        omega_mode = rng.uniform(0.3, 2.0, size=d)                      # per-mode (d,), for plain probe
+        wmat = rng.uniform(0.3, 2.0, size=(d, order + 1))              # full ω[mode,order], for probe-derivs
         x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1)))
         ww = [rng.standard_normal((NW, N)) for N in shape]
         pp = [rng.standard_normal((NW, N)) for N in shape]
@@ -458,9 +461,11 @@ class TestUniformGaussNewtonModel(unittest.TestCase):
             ('apply',   fitting.apply_model,   (ww,),        ww,           scal,  None,  None),
             ('entries', fitting.entries_model, (index,),     index,        scal,  None,  None),
             ('probe',   fitting.probe_model,   (ww,),        ww,           vecs,  None,  None),
+            ('probe',   fitting.probe_model,   (ww,),        ww,           vecs,  None,  omega_mode),   # per-mode
             ('apply_derivatives',   fitting.apply_derivatives_model,   (ww, pp, order),    (ww, pp),    jet_s, order, omega),
             ('entries_derivatives', fitting.entries_derivatives_model, (index, pp, order), (index, pp), jet_s, order, omega),
             ('probe_derivatives',   fitting.probe_derivatives_model,   (ww, pp, order),    (ww, pp),    jet_v, order, omega),
+            ('probe_derivatives',   fitting.probe_derivatives_model,   (ww, pp, order),    (ww, pp),    jet_v, order, wmat),  # matrix
         ]
 
     def test_matches_backend_local_model(self):
@@ -470,7 +475,7 @@ class TestUniformGaussNewtonModel(unittest.TestCase):
         geoms = [('manifold', ut3m.UNIFORM_MANIFOLD), ('corewise', ut3m.UNIFORM_COREWISE)]
         for gname, geom in geoms:
             for kind, factory, fargs, bsample, bdata, o, w in cases:
-                with self.subTest(geom=gname, kind=kind):
+                with self.subTest(geom=gname, kind=kind, wshape=None if w is None else np.shape(w)):
                     prob = uf.uniform_least_squares_problem(gname, kind, x, bsample, bdata, o, w)
                     lm = prob.local_model((x.data[0], x.data[1]))
                     kw = {'weight': w} if w is not None else {}
@@ -492,7 +497,7 @@ class TestUniformGaussNewtonModel(unittest.TestCase):
         for kind, factory, fargs, bsample, bdata, o, w in cases:
             for gname, geom, want_gauged in [('manifold', ut3m.UNIFORM_MANIFOLD, True),
                                              ('corewise', ut3m.UNIFORM_COREWISE, False)]:
-                with self.subTest(kind=kind, geom=gname):
+                with self.subTest(kind=kind, geom=gname, wshape=None if w is None else np.shape(w)):
                     prob = uf.uniform_least_squares_problem(gname, kind, x, bsample, bdata, o, w)
                     lm = prob.local_model((x.data[0], x.data[1]))
                     kw = {'weight': w} if w is not None else {}

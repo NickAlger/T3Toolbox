@@ -190,16 +190,23 @@ def uniform_entries_kind(
 
 def uniform_probe_kind(
         x0_data:  typ.Tuple,
-) -> bfit.SamplingKind:        # the uniform vector-valued `probe` sampling kind
-    """The uniform **probe** ``SamplingKind`` -- the twin of :py:data:`t3toolbox.backend.fitting.PROBE`."""
+        weight:   typ.Optional[typ.Any] = None,  # per-mode residual weight ω, (d,) / (d,1); None = 1
+) -> bfit.SamplingKind:        # the uniform vector-valued `probe` sampling kind (optionally per-mode weighted)
+    """The uniform **probe** ``SamplingKind`` -- the twin of :py:func:`t3toolbox.backend.fitting.probe_kind`.
+
+    The forward / residual are the **packed** probe output ``(d,)+W+C+(N,)`` (mode index ``d`` at axis 0, no
+    order axis), so the per-mode weight ``ω`` is built with ``mode_axis=0`` (no order axis) and ``sumsq`` /
+    ``transpose`` are overridden to weight it (``ω`` enters ``sumsq`` ×ω, ``transpose`` ×ω²)."""
     _tk, _tt, shape, base_masks = x0_data
+    aw = bfit._make_weight(bfit._weight_matrix(weight, 0, 'mode'), order_axis=None, mode_axis=0)
     return dc.replace(
         bfit.PROBE,
         precompute=lambda frame_data, ww: utv_sampling.utv_precompute_probe_frame_sweep(frame_data, ww),
         forward=lambda v_sc, ww, frame_data, sweep: utv_sampling.utv_probe_jacobian_from_sweep(
             (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep),
         transpose=lambda r, ww, frame_data, sweep: utv_sampling.utv_probe_transpose_from_sweep(
-            r, sweep, sum_over_probes=True),
+            aw(r, 2), sweep, sum_over_probes=True),
+        sumsq=lambda out, n_w: bfit.sumsq_over_probes(aw(out, 1), n_w),
         point_forward=lambda x_sc, ww: ut3_sampling.ut3_probe(ww, (x_sc[0], x_sc[1], shape, base_masks)),
         take=_ptake_probe,
     )
@@ -211,11 +218,19 @@ _SAMPLING_KIND = {'apply': uniform_apply_kind, 'entries': uniform_entries_kind, 
 def uniform_sampling_kind(
         name:     str,        # 'apply' / 'entries' / 'probe'
         x0_data:  typ.Tuple,  # UniformTuckerTensorTrain.data at the fixed rank
+        weight:   typ.Optional[typ.Any] = None,  # per-mode weight ω (probe only); apply/entries take none
 ) -> bfit.SamplingKind:
-    """Dispatch to the uniform :py:func:`uniform_apply_kind` / ``entries`` / ``probe`` by name."""
-    if name not in _SAMPLING_KIND:
-        raise ValueError(f"unknown uniform sampling kind {name!r}; expected one of {sorted(_SAMPLING_KIND)}")
-    return _SAMPLING_KIND[name](x0_data)
+    """Dispatch to the uniform :py:func:`uniform_apply_kind` / ``entries`` / ``probe`` by name. Only the
+    vector-valued **probe** kind is weightable (per-mode ``ω``); plain apply/entries have no mode axis and
+    take no weight (a non-``None`` ``weight`` for them is a structural error)."""
+    if name == 'probe':
+        return uniform_probe_kind(x0_data, weight)
+    if name in ('apply', 'entries'):
+        if weight is not None:
+            raise ValueError(f"the plain '{name}' kind takes no residual weight (no mode or order axis); "
+                             "per-mode weighting is defined for probe, per-order for the derivative kinds.")
+        return _SAMPLING_KIND[name](x0_data)
+    raise ValueError(f"unknown uniform sampling kind {name!r}; expected one of {sorted(_SAMPLING_KIND)}")
 
 
 # --------------------------------------------------------------------------------------------------
@@ -415,8 +430,8 @@ def uniform_least_squares_problem(
         x0:        typ.Any,    # UniformTuckerTensorTrain -- MINIMAL-rank frame (see uniform_minimal); masks captured
         sample:    typ.Any,    # ww / index / (ww, pp) / (index, pp) -- ragged or packed (packed once here)
         data:      typ.Any,    # observed S(x_true): scalar array (apply/entries) or a d-list/packed (probe)
-        order:     typ.Optional[int]                 = None,  # derivative kinds only (required)
-        weight:    typ.Optional[typ.Sequence[float]] = None,  # derivative kinds only: per-order weight ω
+        order:     typ.Optional[int] = None,  # derivative kinds only (required)
+        weight:    typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) or ω[mode,order] (derivatives)
 ) -> bopt.Problem:
     """Assemble a fully-packed uniform least-squares :py:class:`~t3toolbox.backend.optimizers.Problem`.
 
@@ -469,6 +484,6 @@ def uniform_least_squares_problem(
     x0_data = x0.data
     N = x0_data[0].shape[-1]
     geom = uniform_geometry_ops(geometry, x0_data)
-    kind = (uniform_sampling_kind(kind_name, x0_data) if kind_name in ('apply', 'entries', 'probe')
+    kind = (uniform_sampling_kind(kind_name, x0_data, weight) if kind_name in ('apply', 'entries', 'probe')
             else uniform_derivatives_kind(kind_name, x0_data, order, weight))
     return bopt.least_squares_problem(geom, kind, pack_sample(kind_name, sample, N), pack_data(kind_name, data, N))

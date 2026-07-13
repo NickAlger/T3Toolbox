@@ -324,6 +324,20 @@ class TestDispatch(unittest.TestCase):
                 self.assert_jit_jax(lambda pp: model.jacobian(pp), p)      # J p (forward), sample-space
                 self.assert_jit_jax(lambda pp: model.gn_quadratic(pp), p)  # pᵀHp = ‖Jp‖², a jax scalar
                 self.assert_jit_jax(lambda pp: model.evaluate(pp), p)      # m(p), returns a jax scalar
+        # weighted probe kinds jit-clean: a per-mode probe weight (d,) and a full ω[mode,order] matrix are
+        # host-numpy static -> fold in as device constants (no tracer leak through the weighted sumsq/transpose).
+        d, order = len(STRUCT[0]), 2
+        pp = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])
+        jet_r = tuple(jnp.ones((order + 1, 2, N)) for N in STRUCT[0])
+        wmodels = [fitting.probe_model(t3m.MANIFOLD, self.x, self.ww, probe_r,
+                                       weight=np.linspace(0.4, 1.8, d)),
+                   fitting.probe_derivatives_model(t3m.MANIFOLD, self.x, self.ww, pp, order, jet_r,
+                                                   weight=np.linspace(0.3, 2.0, d * (order + 1)).reshape(d, order + 1))]
+        for model in wmodels:
+            _ = model.gradient; _ = model.objective_value
+            p = t3m.MANIFOLD.randn(model.frame)
+            self.assert_jit_jax(lambda pp_: model.gn_hessian(pp_), p)
+            self.assert_jit_jax(lambda pp_: model.gn_quadratic(pp_), p)
 
     def test_jit_geometry_as_arg(self):
         # the stateless geometry singletons are zero-leaf pytrees -> pass as ordinary traced args
@@ -412,6 +426,45 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(traces[0], 1, "UniformGaussNewtonModel matvec recompiled -- aux must be value-hashed "
                                        "(kind rebuilt lazily, not stored as a fresh closure)")
         self._leaves_all_jax(hp)
+
+    def test_jit_uniform_weighted_gn_model(self):
+        # A WEIGHTED UniformGaussNewtonModel (per-mode plain probe + full ω[mode,order] probe_derivatives)
+        # must keep compile-once across rebuilds: the ω matrix rides in the value-hashed aux as a nested
+        # tuple (a numpy-array aux would be unhashable / a fresh object each rebuild -> a recompile).
+        import t3toolbox.uniform_manifold as ut3m
+        SH, TK, TT = STRUCT
+        W, d, order = 12, len(STRUCT[0]), 2
+        ww = [np.random.randn(W, n) for n in SH]
+        pp = [np.random.randn(W, n) for n in SH]
+        omega_mode = np.linspace(0.4, 1.8, d)                        # per-mode (d,)
+        wmat = np.linspace(0.3, 2.0, d * (order + 1)).reshape(d, order + 1)   # full ω[mode,order]
+
+        def build_probe(seed):
+            np.random.seed(seed)
+            x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SH, TK, TT)).to_jax()
+            r = [jnp.asarray(np.random.randn(W, n)) for n in SH]
+            return fitting.probe_model(ut3m.UNIFORM_MANIFOLD, x, ww, r, weight=omega_mode)
+
+        def build_deriv(seed):
+            np.random.seed(seed)
+            x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SH, TK, TT)).to_jax()
+            r = [jnp.asarray(np.random.randn(order + 1, W, n)) for n in SH]
+            return fitting.probe_derivatives_model(ut3m.UNIFORM_MANIFOLD, x, ww, pp, order, r, weight=wmat)
+
+        for build in (build_probe, build_deriv):
+            traces = [0]
+            @jax.jit
+            def Hmatvec(m, p):
+                traces[0] += 1
+                return m.gn_hessian(p)
+            for seed in (1, 2, 3):
+                m = build(seed)
+                p = ut3m.UNIFORM_MANIFOLD.randn(m.frame)
+                hp = Hmatvec(m, p)
+                jax.block_until_ready(hp.variations.supercores)
+            self.assertEqual(traces[0], 1, "weighted UniformGaussNewtonModel recompiled -- the ω matrix aux "
+                                           "must be a hashable nested tuple, value-hashed like the unweighted model")
+            self._leaves_all_jax(hp)
 
     # ---------------------------------------------------- jit bucket: UniformTuckerTensorTrain
     def test_jit_uniform(self):

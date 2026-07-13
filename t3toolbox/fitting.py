@@ -67,6 +67,8 @@ import functools as ft
 import typing as typ
 from dataclasses import dataclass
 
+import numpy as np
+
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.frame_variations_format as bvf
@@ -99,6 +101,57 @@ def _require_at_frame_uniform(frame: ubv.UT3Frame, p: ut3m.UT3Tangent) -> None:
     if not (p.frame is frame or safety.frames_equal_or_skip(frame.data[:4], p.frame.data[:4])):
         raise ValueError("trial tangent must live at the model's frame (it is at a different frame); "
                          "run inside safety.unsafe() to skip this numerical check")
+
+
+def _canonical_weight(
+        weight:    typ.Optional[typ.Any],  # None, or array / (nested) sequence -- the raw ω input
+        kind_name: str,                    # 'probe' / 'probe_derivatives' / 'apply_derivatives' / ...
+        d:         int,                    # number of modes
+        order:     int,                    # highest derivative order (0 for a plain kind)
+) -> typ.Optional[NDArray]:                # None, or the canonical 2-D ω[m,o], m in {1,d}, o in {1,order+1}
+    '''Validate + canonicalize a residual weight to the 2-D matrix ``ω[mode, order]`` (structural errors,
+    both modes -- shape is not a numerical property). Enforces the frontend contracts the backend leaves
+    lenient: **plain probe** takes a 1-D per-mode weight ``(d,)`` (a 2-D ``(d, 1)`` is rejected -- it has no
+    order axis, and accepting it would break forward compat if a less-important axis is ever added);
+    **apply/entries** have no mode axis, so their weight is **order-only** (mode dim must be 1 -- mode
+    weighting is probe-only). A bare 1-D vector binds to each model's innermost/most-important axis: order
+    for the derivative kinds (the backward-compatible rule), mode for plain probe.'''
+    if weight is None:
+        return None
+    w = np.asarray(weight, dtype=float)
+    plain_probe = (kind_name == 'probe')            # plain probe: 1-D per-mode, no order axis
+    if plain_probe:
+        if w.ndim != 1:
+            raise ValueError("plain probe takes a 1-D per-mode residual weight of shape (d,); it has no "
+                             "order axis (got shape %s). For per-(mode, order) weighting use "
+                             "probe_derivatives." % (w.shape,))
+        wm = w[:, None]                             # (d, 1) -- per-mode
+    elif w.ndim == 1:
+        wm = w[None, :]                             # bare vector -> per-order row (1, order+1)
+    elif w.ndim == 2:
+        wm = w
+    else:
+        raise ValueError("residual weight must be 1-D or 2-D (ω[mode, order]); got shape %s" % (w.shape,))
+    m, o = wm.shape
+    if o not in (1, order + 1):
+        raise ValueError("residual weight's order dimension must be 1 or order+1=%d; got %d (shape %s)"
+                         % (order + 1, o, wm.shape))
+    if m not in (1, d):
+        raise ValueError("residual weight's mode dimension must be 1 or d=%d; got %d (shape %s)"
+                         % (d, m, wm.shape))
+    if 'probe' not in kind_name and m > 1:          # apply/entries: no mode axis (mode weighting is probe-only)
+        raise ValueError("apply / entries contract every mode into a scalar -- they have no mode axis, so a "
+                         "per-mode weight (mode dim %d > 1) is undefined. Use an order-only weight "
+                         "(order+1,); per-mode weighting is defined only for probe." % m)
+    return wm
+
+
+def _hashable_weight(
+        wm:  typ.Optional[NDArray],   # canonical 2-D ω[m,o] from _canonical_weight, or None
+) -> typ.Optional[typ.Tuple[typ.Tuple[float, ...], ...]]:  # a nested tuple (a stable, hashable jit-aux key)
+    '''The value-hashed aux form of a weight matrix (a tuple of row tuples), so a rebuilt
+    :py:class:`UniformGaussNewtonModel` of the same weight is the SAME jit cache key.'''
+    return None if wm is None else tuple(tuple(float(v) for v in row) for row in wm)
 
 
 @dataclass(frozen=True)
@@ -291,7 +344,7 @@ class UniformGaussNewtonModel:
     kind_name: str                   # 'apply'/'entries'/'probe' (+'_derivatives') -- rebuilds the packed kind
     x0_masks:  ut3.UT3Masks          # x0's plain rank masks (value-hashed aux) -> rebuilds the kind
     order:     typ.Optional[int]                          # derivative kinds only (None for a plain kind)
-    weight:    typ.Optional[typ.Tuple[float, ...]]        # derivative kinds only: per-order weight ω (hashable)
+    weight:    typ.Optional[typ.Tuple[typ.Tuple[float, ...], ...]]  # residual weight ω[mode,order], nested tuple (hashable)
     sample:    typ.Any               # PACKED ww (apply/probe) / index (entries) / (ww, pp) (derivatives)
     residual:  typ.Any               # PACKED r = S(x) − y
     sweep:     typ.Any               # = kind.precompute(frame.data, sample); a leaf (carried across a jit boundary)
@@ -299,8 +352,8 @@ class UniformGaussNewtonModel:
     @ft.cached_property
     def kind(self) -> fb.SamplingKind:  # the packed uniform sampling kind, rebuilt from the value-hashed aux
         x0_data = (None, None, self.frame.shape, self.x0_masks.data)   # the kind uses only (shape, masks)
-        if self.order is None:
-            return ufit.uniform_sampling_kind(self.kind_name, x0_data)
+        if self.order is None:                                        # plain kinds: only probe is weightable
+            return ufit.uniform_sampling_kind(self.kind_name, x0_data, self.weight)
         return ufit.uniform_derivatives_kind(self.kind_name, x0_data, self.order, self.weight)
 
     @ft.cached_property
@@ -363,22 +416,23 @@ def _uniform_model(
         kind_name:  str,                     # 'apply'/'entries'/'probe' (+'_derivatives')
         sample:     typ.Any,                 # ragged or packed (packed once here, mirror-tolerant)
         residual:   typ.Any,                 # ragged or packed r = S(x) − y
-        order:      typ.Optional[int]                 = None,
-        weight:     typ.Optional[typ.Sequence[float]] = None,
+        order:      typ.Optional[int] = None,
+        weight:     typ.Optional[NDArray] = None,   # canonical 2-D ω[m,o] (from _canonical_weight), or None
 ) -> UniformGaussNewtonModel:
     '''Assemble a :py:class:`UniformGaussNewtonModel`: build the frame, pack the loop-invariant sample +
     residual once (:py:func:`~t3toolbox.backend.uniform_fitting.pack_sample` / ``pack_data``), precompute
-    the frame sweep, and store the value-hashed aux to rebuild the packed kind under jit.'''
+    the frame sweep, and store the value-hashed aux (the ``ω`` matrix as a nested tuple) to rebuild the
+    packed kind under jit.'''
     if geometry is not ut3m.UNIFORM_MANIFOLD and geometry is not ut3m.UNIFORM_COREWISE:
         raise ValueError("a UniformTuckerTensorTrain requires a uniform geometry "
                          "(uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE).")
     N = x.N
     frame = geometry.frame(x)                              # UT3Frame
-    weight_t = tuple(weight) if weight is not None else None   # hashable aux (jit)
+    weight_t = _hashable_weight(weight)                   # nested-tuple ω[m,o] (hashable jit aux)
     packed_sample = ufit.pack_sample(kind_name, sample, N)
     packed_residual = ufit.pack_data(kind_name, residual, N)
     x0_data = (None, None, x.shape, x.masks.data)        # the kind builders use only (shape, masks)
-    kind = (ufit.uniform_sampling_kind(kind_name, x0_data) if order is None
+    kind = (ufit.uniform_sampling_kind(kind_name, x0_data, weight_t) if order is None
             else ufit.uniform_derivatives_kind(kind_name, x0_data, order, weight_t))
     sweep = kind.precompute(frame.data, packed_sample)
     return UniformGaussNewtonModel(geometry, frame, kind_name, x.masks, order, weight_t,
@@ -423,15 +477,49 @@ def probe_model(
         x:          typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],   # the current point
         ww:         typ.Sequence[NDArray],   # probe vectors, len=d, elm_shape=W+(Ni,)
         residual:   typ.Sequence[NDArray],   # r = probe(x) − y, len=d, elm_shape=W+C+(Ni,)
+        weight:     typ.Optional[typ.Any] = None,   # per-mode residual weight ω, 1-D (d,); None = 1 (unweighted)
 ) -> typ.Union[GaussNewtonModel, UniformGaussNewtonModel]:
     '''The Gauss-Newton model of a ``probe`` least-squares objective at ``x``, on ``geometry``.
 
     Like :py:func:`apply_model` but the measurements are **probes** -- vector-valued (one free mode each),
-    so ``residual`` is a sequence of ``d`` arrays (``elm_shape = W+C+(Ni,)``).'''
+    so ``residual`` is a sequence of ``d`` arrays (``elm_shape = W+C+(Ni,)``). Optionally **per-mode**
+    weighted: the objective is ``½ Σ_i ‖ω_i r_i‖²`` over the ``d`` per-mode probe residuals, so a 1-D
+    weight ``ω`` of shape ``(d,)`` up- or down-weights each mode's data (e.g. inverse-scale / inverse-noise
+    balancing). Plain probe has no order axis, so ``weight`` is a **1-D** per-mode vector (a 2-D ``(d, 1)``
+    is rejected); for per-order weighting use :py:func:`probe_derivatives_model`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.fitting as fitting
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))
+    >>> ww = [np.random.randn(15, N) for N in (6, 7, 8)]
+    >>> r = [np.random.randn(15, N) for N in (6, 7, 8)]     # per-mode probe residual (a list of d)
+
+    A per-mode weight down-weights mode 0 and up-weights mode 2 in the objective ``½ Σ_i ‖ω_i r_i‖²``:
+
+    >>> model = fitting.probe_model(t3m.MANIFOLD, x, ww, r, weight=[0.5, 1.0, 2.0])
+    >>> print(model.gradient.is_gauged())
+    True
+    >>> p = t3m.MANIFOLD.randn(model.frame)
+    >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.corewise_inner(model.gn_hessian(p)))))
+    True
+
+    A 2-D weight is rejected -- plain probe has no order axis:
+
+    >>> fitting.probe_model(t3m.MANIFOLD, x, ww, r, weight=[[0.5], [1.0], [2.0]])   # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+    ValueError: plain probe takes a 1-D per-mode residual weight of shape (d,)
+    '''
+    wm = _canonical_weight(weight, 'probe', len(ww), 0)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
-        return _uniform_model(geometry, x, 'probe', ww, residual)
+        return _uniform_model(geometry, x, 'probe', ww, residual, weight=wm)
     frame = _ragged_frame(geometry, x)
-    return GaussNewtonModel(geometry, frame, fb.PROBE, ww, residual, fb.PROBE.precompute(frame.data, ww))
+    kind = fb.probe_kind(wm)
+    return GaussNewtonModel(geometry, frame, kind, ww, residual, kind.precompute(frame.data, ww))
 
 
 # --------------------------------------------------------------------------------------------------
@@ -447,10 +535,14 @@ def apply_derivatives_model(
         pp:         typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
         order:      int,                     # highest derivative order
         residual:   NDArray,                 # RAW r = apply_derivatives(x) − y, shape (order+1)+W+C
-        weight:     typ.Optional[typ.Sequence[float]] = None,  # per-order residual weight ω, (order+1,); None=1
+        weight:     typ.Optional[typ.Any] = None,  # ORDER-only residual weight ω, (order+1,); None = 1
 ) -> typ.Union[GaussNewtonModel, UniformGaussNewtonModel]:
     '''The Gauss-Newton model of an ``apply``-**derivatives** least-squares objective at ``x``: the
     symmetric directional derivatives (orders ``0..order``) of the all-modes apply, in direction ``P``.
+
+    The all-modes apply contracts every mode into a scalar, so ``weight`` is **order-only** (a per-mode
+    weight is a structural error -- mode weighting is defined only for probe; see
+    :py:func:`probe_derivatives_model`).
 
     Examples
     --------
@@ -475,9 +567,10 @@ def apply_derivatives_model(
     >>> bool(np.allclose(float(model.gn_quadratic(p)), float(p.corewise_inner(model.gn_hessian(p)))))
     True
     '''
+    wm = _canonical_weight(weight, 'apply_derivatives', len(ww), order)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
-        return _uniform_model(geometry, x, 'apply_derivatives', (ww, pp), residual, order, weight)
-    kind = fb.apply_derivatives_kind(order, weight)
+        return _uniform_model(geometry, x, 'apply_derivatives', (ww, pp), residual, order, wm)
+    kind = fb.apply_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
     return GaussNewtonModel(geometry, frame, kind, (ww, pp), residual, kind.precompute(frame.data, (ww, pp)))
 
@@ -489,13 +582,14 @@ def entries_derivatives_model(
         pp:         typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
         order:      int,
         residual:   NDArray,                 # RAW r = entries_derivatives(x) − y, shape (order+1)+W+C
-        weight:     typ.Optional[typ.Sequence[float]] = None,
+        weight:     typ.Optional[typ.Any] = None,  # ORDER-only residual weight ω, (order+1,); None = 1
 ) -> typ.Union[GaussNewtonModel, UniformGaussNewtonModel]:
     '''The ``entries``-derivatives Gauss-Newton model -- like :py:func:`apply_derivatives_model` at integer
-    grid points ``index``.'''
+    grid points ``index``. Order-only ``weight`` (no mode axis -- mode weighting is probe-only).'''
+    wm = _canonical_weight(weight, 'entries_derivatives', index.shape[0], order)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
-        return _uniform_model(geometry, x, 'entries_derivatives', (index, pp), residual, order, weight)
-    kind = fb.entries_derivatives_kind(order, weight)
+        return _uniform_model(geometry, x, 'entries_derivatives', (index, pp), residual, order, wm)
+    kind = fb.entries_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
     return GaussNewtonModel(geometry, frame, kind, (index, pp), residual, kind.precompute(frame.data, (index, pp)))
 
@@ -507,13 +601,17 @@ def probe_derivatives_model(
         pp:         typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
         order:      int,
         residual:   typ.Sequence[NDArray],   # RAW r = probe_derivatives(x) − y, len=d, elm_shape=(order+1)+W+C+(Ni,)
-        weight:     typ.Optional[typ.Sequence[float]] = None,
+        weight:     typ.Optional[typ.Any] = None,  # residual weight ω[mode,order], (d,order+1) broadcast; None = 1
 ) -> typ.Union[GaussNewtonModel, UniformGaussNewtonModel]:
     '''The ``probe``-derivatives Gauss-Newton model -- vector-valued (one free mode per probe), so
-    ``residual`` is a sequence of ``d`` jets.'''
+    ``residual`` is a sequence of ``d`` jets. Probe has both a mode and an order axis, so ``weight`` is the
+    full ``ω[mode, order]`` matrix ``(d, order+1)``: a bare row ``(order+1,)`` = per-order (broadcast over
+    modes), a column ``(d, 1)`` = per-mode (broadcast over orders), a matrix = both. The objective is
+    ``½ Σ_i ‖ω_i ⊙ r_i‖²`` over the ``d`` per-mode residual jets.'''
+    wm = _canonical_weight(weight, 'probe_derivatives', len(ww), order)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
-        return _uniform_model(geometry, x, 'probe_derivatives', (ww, pp), residual, order, weight)
-    kind = fb.probe_derivatives_kind(order, weight)
+        return _uniform_model(geometry, x, 'probe_derivatives', (ww, pp), residual, order, wm)
+    kind = fb.probe_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
     return GaussNewtonModel(geometry, frame, kind, (ww, pp), residual, kind.precompute(frame.data, (ww, pp)))
 
