@@ -10,7 +10,7 @@ code into a standalone package: cleaning up, documenting, restructuring for usab
 features. **The goal is a general-purpose library for other people and other use cases** — not to
 reproduce or serve any particular application. The research it came from (the T4S paper, below) is
 **essentially done** (an arXiv preprint, with only minor revisions still in flight); treat it as
-historical reference for the algorithms, never as the design target. (The "WORK IN PROGRESS" banner came off 2026-07-12; 2026.0.0 ships to PyPI per dev/release_plan.md.)
+historical reference for the algorithms, never as the design target. (The "WORK IN PROGRESS" banner came off 2026-07-12; 2026.0.0 shipped to PyPI 2026-07-13 — `pip install t3toolbox`.)
 
 - Repo: `github.com/NickAlger/T3Toolbox` (renamed from `TuckerTensorTrainTools`; that rename left
   stale references we've mostly fixed). Branch `main`, direct commits.
@@ -355,8 +355,8 @@ project engineering practices below are shared.)*
 
 ## Current state
 
-**The library is complete for 2026.0.0 and shipping to PyPI** (release state:
-`dev/release_plan.md`; live status: `dev/HANDOFF.md`). "Tested" = *numerical correctness in
+**2026.0.0 is SHIPPED to PyPI (2026-07-13) — `pip install t3toolbox`** (release history:
+`dev/archive/release_plan_2026-07-13.md`; live status: `dev/HANDOFF.md`). "Tested" = *numerical correctness in
 numpy* (vs dense ground truth) **plus** *jax dispatch* covered by `tests/test_dispatch.py` (jit
 each op; a stray `np.*` on a tracer raises) — not a duplicate numerical sweep. Full suite green
 (593 tests / 40,215 subtests; ~6 min in the current env); docs at zero warnings with `-W` in CI;

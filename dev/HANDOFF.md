@@ -4,19 +4,20 @@ _Updated 2026-07-12 (evening). Prior history: `dev/archive/handoff_2026-07-12_1.
 (the 1.0 completion: R1–R7, the R4 doc pass, the docs user/dev split S1–S5, the cordon/ETT/
 literature morning)._
 
-## Where we are — RELEASE IN FLIGHT
+## Where we are — 2026.0.0 SHIPPED ✅
 
-**2026.0.0 is one tag away from PyPI.** Plan: `dev/release_plan.md` (all decisions settled).
-REL-1 (metadata, banner off, CITATION.cff, badges) ✅, REL-2 (wheel smoke test — also fixed the
-jax-less import print) ✅, REL-3 (release workflow, trusted publishing, Nick's PyPI setup) ✅,
-and the **TestPyPI dry run is VERIFIED end-to-end** (`v2026.0.0-rc1` → workflow → fresh-venv
-`pip install` from TestPyPI → silent import, correct math).
+**2026.0.0 is live on PyPI (2026-07-13) — `pip install t3toolbox`** (+ the `[jax]` extra).
+REL-1 → REL-4 all done; the full release history is archived at
+`dev/archive/release_plan_2026-07-13.md`. The ship (REL-4): CHANGELOG `[Unreleased]` →
+`[2026.0.0]`; install recipe flipped to `pip install t3toolbox`; gates green (593 tests /
+40,215 subtests, docs `-W`, doctests, wheel + `twine check` + fresh-venv numpy-only smoke); commit
+`21f7b6fb`, tag `v2026.0.0` → the trusted-publishing workflow (approved on the `pypi` environment)
+→ published. **Verified against real PyPI**: numpy-only and `[jax]` fresh-venv installs, quickstart
+smoke, and the full `getting_started.rst` doctest (64/64) against the installed package.
 
-**→ Next: REL-4, the ship** — held until after tonight's (2026-07-12, 11:59pm) arXiv
-announcement of the updated T4S preprint, so the docstring citations resolve publicly.
-Sequence: CHANGELOG `[Unreleased]` → `[2026.0.0]`; install recipe flips to
-`pip install t3toolbox` (+ document the `[jax]` extra); final gates; tag `v2026.0.0`; verify
-from real PyPI; GitHub release; then refresh this file + CLAUDE.md to "1.0 SHIPPED".
+Loose ends: the **GitHub Release** for `v2026.0.0` — Nick to create via the web UI (notes = the
+CHANGELOG `[2026.0.0]` section); **Zenodo DOI** still deferred (Nick, later); the dead `gh-pages`
+branch can be deleted (optional).
 
 ## Active threads
 
