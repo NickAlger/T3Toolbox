@@ -21,14 +21,14 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Per-mode residual weighting — DONE (2026-07-13, branch `feat/per-mode-weighting`, unmerged).**
+- **Per-mode residual weighting — DONE + MERGED to `main` (2026-07-13).**
   The fitting layer's residual weight `ω` generalized from a per-order vector to an `ω[mode, order]`
   matrix; **per-mode weighting** added to the probe models (probe is the only kind with a per-mode
   axis — apply/entries stay order-only). `probe_model(weight=(d,))`,
   `probe_derivatives_model(weight=(d,order+1))`, topt threads it, uniform mirror is compile-once
   (nested-tuple aux). New example `examples/fit_per_mode_weight_probes.py`; docs §4.6 rewritten.
-  Design record + the full slice list: `dev/per_mode_weighting_plan.md`. **Next: merge to `main`**
-  (Nick to review the branch), then this thread closes.
+  Design record + the full slice list: `dev/per_mode_weighting_plan.md`. Full suite green, docs `-W`
+  clean; merged fast-forward (commits `02972a86`..`1dcd84ce`). Thread closed.
 
 - **The toolbox reference paper** (independent): scope + curation in `dev/paper_scope.md`.
   Next: walk the groups starting at Group 6 (`docs/symmetric_probe_derivatives.tex` is nearly a
