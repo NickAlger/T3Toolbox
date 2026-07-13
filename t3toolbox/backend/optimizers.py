@@ -390,6 +390,7 @@ class NewtonInfo:
     forcing_eta:  typ.Optional[float] = None           # inexact-Newton forcing term η
     cg_tol:       typ.Optional[float] = None           # CG stop tolerance = η·‖g‖
     cg_iters:     typ.Optional[int]   = None           # CG iterations run
+    cg_maxiter:   typ.Optional[int]   = None           # CG iteration cap (for the "iters/maxiter" display)
     cg_resid:     typ.Optional[float] = None           # achieved ‖H p + g‖ (CG residual)
     cg_converged: typ.Optional[bool]  = None           # CG hit its tolerance (not maxiter / not truncated)
     cg_truncated: typ.Optional[bool]  = None           # CG stopped on nonpositive curvature (gauge-singular H)
@@ -483,6 +484,7 @@ def newton_cg(
         t_now = time.perf_counter()
         info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=g0norm, converged=False,
                           x_cores=x, lm=lm, forcing_eta=eta, cg_tol=cg_tol, cg_iters=cg_iters,
+                          cg_maxiter=cg_maxiter,
                           cg_resid=cg_rs ** 0.5, cg_converged=cg_converged, cg_truncated=cg_truncated,
                           ls_steps=ls_steps, alpha=alpha, slope=slope, pHp=pHp, delta_f=delta_f,
                           rho=rho, step_rel=step_rel, wall_time=t_now - t_prev)
