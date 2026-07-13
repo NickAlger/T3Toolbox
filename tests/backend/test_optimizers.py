@@ -191,6 +191,60 @@ class TestBackendOptimizers(unittest.TestCase):
                 true_e = float(np.linalg.norm(t3.TuckerTensorTrain(*x).to_dense() - self.A)) / A_norm
                 self.assertLess(true_e, 1e-4)
 
+    def test_cg_solve_reports_state(self):
+        """D1: `_cg_solve` returns `(p, iters, resid², ok)` -- converges to the exact solution on a PD
+        operator (`ok` True, `resid ≤ tol`), and truncates on a nonpositive-curvature direction (`ok`
+        False). A toy diagonal operator wrapped as a `(tucker, tt)` tree exercises the branch deterministically."""
+        rhs = ([np.array([1.0, 1.0, 1.0])], [])                     # a (tucker=[vec], tt=[]) tangent tree
+        make_hvp = lambda D: (lambda t: ([D * t[0][0]], []))        # diagonal H
+        inner = cw.corewise_dot
+        # PD: CG converges to D^-1 rhs, ok stays True, residual under tol
+        p, i, rs, ok = opt._cg_solve(make_hvp(np.array([2.0, 3.0, 5.0])), rhs,
+                                     tol=1e-10, maxiter=50, use_jit=False, inner=inner)
+        self.assertTrue(bool(ok))
+        self.assertLessEqual(float(rs) ** 0.5, 1e-10)
+        self.assertTrue(np.allclose(p[0][0], 1.0 / np.array([2.0, 3.0, 5.0])))
+        # indefinite (negative-definite here): dᵀHd < 0 on the first direction -> immediate truncation
+        p2, i2, rs2, ok2 = opt._cg_solve(make_hvp(np.array([-1.0, -2.0, -3.0])), rhs,
+                                         tol=1e-10, maxiter=50, use_jit=False, inner=inner)
+        self.assertFalse(bool(ok2))                                 # truncated on nonpositive curvature
+        self.assertGreater(float(rs2) ** 0.5, 1e-10)               # did NOT reach the tolerance
+
+    def test_newton_cg_diagnostics(self):
+        """D1: newton_cg returns a per-iteration `history`, fires `callback(NewtonInfo)` each iteration
+        (carrying the LocalModel + point for per-block errors), and reports CG / line-search / ρ. The
+        manifold Hessian is PD, so CG converges (not truncated); the final line is the converged one."""
+        rng = np.random.default_rng(4)
+        ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
+        pm = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
+        seen = []
+        x, stats = opt.newton_cg(pm, x0, max_newton=15, callback=seen.append)
+
+        self.assertIn('losses', stats); self.assertIn('newton', stats)         # backward compat
+        self.assertEqual(len(stats['history']), len(seen))                     # one record per callback
+        self.assertGreater(len(seen), 1)
+        for info in seen:
+            self.assertIsInstance(info, opt.NewtonInfo)
+            self.assertIsNotNone(info.lm)                                      # the model, for per-block errors
+            self.assertIsNotNone(info.x_cores)
+        self.assertTrue(seen[-1].converged)                                    # last line is the converged one
+        self.assertIsNone(seen[-1].cg_iters)                                   # ... with no step info
+
+        stepped = [i for i in seen if not i.converged]
+        self.assertTrue(stepped)
+        for info in stepped:
+            self.assertLessEqual(info.cg_iters, 200)
+            self.assertTrue(info.cg_converged and not info.cg_truncated)       # PD manifold H -> CG hits tol
+            self.assertTrue(0.0 < info.alpha <= 1.0)
+            self.assertTrue(np.isfinite(info.rho))
+            self.assertGreaterEqual(info.wall_time, 0.0)
+            self.assertLess(info.delta_f, 1e-9)                                # objective decreased (≤ 0)
+
+        row = stats['history'][0]                                              # history rows are scalar-only
+        self.assertNotIn('lm', row); self.assertNotIn('x_cores', row)
+        self.assertEqual(set(row), set(opt._NEWTON_SCALAR_FIELDS))
+
     def test_jit_paths_recover(self):
         """With jax inputs + use_jit=True, newton_cg (jit CG), mc_sgd, and adam jit-compile their kernels
         (a stray np.* on a tracer would raise) and recover -- the jit dispatch check for the optimizers."""

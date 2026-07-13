@@ -28,6 +28,7 @@ Tangent vectors are raw ``(tucker_var, tt_var)`` tuples; vector arithmetic is th
 """
 import dataclasses as dc
 import math
+import time
 import typing as typ
 
 from t3toolbox.backend.common import *
@@ -41,6 +42,7 @@ __all__ = [
     'MANIFOLD_OPS',
     'Problem',
     'LocalModel',
+    'NewtonInfo',
     'least_squares_problem',
     'flat_draw',
     'gradient_descent',
@@ -337,7 +339,12 @@ def _cg_solve(hvp, rhs, tol, maxiter, use_jit, inner):
     padding is never summed). The body is **backend-agnostic and branch-free** (an ``xnp.where`` curvature
     guard: a nonpositive ``dᵀHd`` -- a gauge direction of the singular corewise ``H`` -- takes a zero step
     and the ``ok`` flag stops CG, i.e. truncated CG), so the SAME body runs eager (numpy/jax) or jit
-    (``lax.while_loop``) through :py:func:`common.xwhile`."""
+    (``lax.while_loop``) through :py:func:`common.xwhile`.
+
+    Returns the solution ``p`` plus the final loop state needed for diagnostics: the iteration count
+    ``i``, the residual² ``rs = ‖H p − rhs‖² = ‖H p + g‖²`` (``rhs = −g``), and the positive-curvature
+    flag ``ok`` (``False`` == the loop stopped on a truncation). The caller derives converged / truncated /
+    maxiter from ``(rs, i, ok)``."""
     xnp, _, _ = get_backend(False, tree_contains_jax(rhs))
     tol2 = tol * tol
     rs0 = inner(rhs, rhs)
@@ -360,7 +367,48 @@ def _cg_solve(hvp, rhs, tol, maxiter, use_jit, inner):
         d = cw.corewise_add(r, cw.corewise_scale(d, beta))
         return (p, r, d, rs_new, i + 1, pos)
 
-    return xwhile(cond, body, state0, use_jit)[0]
+    p, r, d, rs, i, ok = xwhile(cond, body, state0, use_jit)
+    return p, i, rs, ok
+
+
+@dc.dataclass(frozen=True)
+class NewtonInfo:
+    """Per-iteration diagnostics passed to a ``newton_cg`` ``callback`` -- everything one Newton step
+    produces, so a custom callback (or the display in :py:mod:`t3toolbox.backend.optimizer_display`) can
+    report anything without the loop anticipating it. ``x_cores`` (the point *before* the step) and ``lm``
+    (its :py:class:`LocalModel` -- residual / sample / frame) are carried so a callback can compute
+    per-block errors or evaluate a validation forward. The step-related fields are ``None`` on the final
+    **converged** line (no CG / line search ran). The scalar subset (all but ``x_cores`` / ``lm``) is what
+    lands in ``stats['history']``."""
+    iteration:    int              # Newton iteration index (0-based)
+    objective:    float            # weighted ½‖ω⊙r‖² at x (= lm.objective)
+    gnorm:        float            # ‖g‖ (Riemannian gradient norm, geom.inner)
+    g0norm:       float            # ‖g₀‖ (first iterate's gradient norm; the gtol_rel reference)
+    converged:    bool             # gnorm <= gtol_rel*g0norm -- this is the final line (step fields None)
+    x_cores:      typ.Any = None                       # the point BEFORE the step (for a val forward)
+    lm:           typ.Any = None                       # the LocalModel at x (residual/sample/frame)
+    forcing_eta:  typ.Optional[float] = None           # inexact-Newton forcing term η
+    cg_tol:       typ.Optional[float] = None           # CG stop tolerance = η·‖g‖
+    cg_iters:     typ.Optional[int]   = None           # CG iterations run
+    cg_resid:     typ.Optional[float] = None           # achieved ‖H p + g‖ (CG residual)
+    cg_converged: typ.Optional[bool]  = None           # CG hit its tolerance (not maxiter / not truncated)
+    cg_truncated: typ.Optional[bool]  = None           # CG stopped on nonpositive curvature (gauge-singular H)
+    ls_steps:     typ.Optional[int]   = None           # Armijo backtracks (0 = full step; α = 2^-ls_steps)
+    alpha:        typ.Optional[float] = None           # accepted step length
+    slope:        typ.Optional[float] = None           # gᵀp (the directional derivative along the step)
+    pHp:          typ.Optional[float] = None           # pᵀHp = ‖𝒥p‖² (for the predicted reduction)
+    delta_f:      typ.Optional[float] = None           # actual objective change f_new − f
+    rho:          typ.Optional[float] = None           # actual / predicted reduction (GN-model trust)
+    step_rel:     typ.Optional[float] = None           # ‖αp‖ / ‖x‖ (coordinate norms; relative step size)
+    wall_time:    typ.Optional[float] = None           # seconds spent in this iteration (host clock)
+
+
+_NEWTON_SCALAR_FIELDS = tuple(f.name for f in dc.fields(NewtonInfo) if f.name not in ('x_cores', 'lm'))
+
+
+def _newton_scalar_record(info: NewtonInfo) -> dict:
+    """The scalar subset of a :py:class:`NewtonInfo` (drops ``x_cores`` / ``lm``) -- one ``history`` row."""
+    return {k: getattr(info, k) for k in _NEWTON_SCALAR_FIELDS}
 
 
 def newton_cg(
@@ -371,17 +419,25 @@ def newton_cg(
         cg_maxiter: int   = 200,
         c_armijo:   float = 1e-4,
         use_jit:    bool  = False,  # jit the inner CG (lax.while_loop) when the inputs are jax; else eager
+        callback:   typ.Optional[typ.Callable] = None,  # callback(NewtonInfo) each iteration (host-side; e.g. a display)
 ) -> typ.Tuple[Tangent, dict]:      # (x_cores, stats)
     """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse (the gauged ``H``
     is positive-definite there). Each Newton step builds the local GN model once, solves ``H p = −g`` by
     CG to an inexact forcing-term tolerance (the inner loop -- jit-able via :py:func:`_cg_solve`), then
     backtracks along ``retract(α p)``. The CG truncates on the gauge-singular corewise ``H``; the outer
     line search keeps it robust regardless. ``use_jit`` jits only the inner CG (the outer loop, line
-    search, and convergence test stay on the host)."""
+    search, and convergence test stay on the host).
+
+    ``callback``, if given, is called with a :py:class:`NewtonInfo` each iteration (including the final
+    converged line) -- the hook for a live diagnostic display; it runs **host-side** (it reads the concrete
+    residual), so it composes with ``use_jit`` (only the inner CG jits) but not with a hypothetical
+    fully-jitted outer loop. Ready-made displays: :py:func:`t3toolbox.backend.optimizer_display.make_newton_display`.
+    ``stats`` always carries ``'history'`` -- one :py:func:`_newton_scalar_record` per iteration."""
     x = x0
     g0norm = None
-    losses, newton_iters = [], 0
-    for _ in range(max_newton):
+    losses, newton_iters, history = [], 0, []
+    t_prev = time.perf_counter()
+    for it in range(max_newton):
         lm = problem.local_model(x)
         f = float(lm.objective)
         losses.append(f)
@@ -389,21 +445,50 @@ def newton_cg(
         gnorm = float(problem.geom.inner(g, g)) ** 0.5
         if g0norm is None:
             g0norm = gnorm if gnorm > 0 else 1.0
-        if gnorm <= gtol_rel * g0norm:
+        if gnorm <= gtol_rel * g0norm:                                   # converged -- final line, no step
+            info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=g0norm, converged=True,
+                              x_cores=x, lm=lm)
+            if callback is not None:
+                callback(info)
+            history.append(_newton_scalar_record(info))
             break
         newton_iters += 1
         eta = min(0.5, (gnorm / g0norm) ** 0.5)                          # inexact-Newton forcing term
+        cg_tol = eta * gnorm
         neg_g = cw.corewise_scale(g, -1.0)
-        p = _cg_solve(lm.hvp, neg_g, tol=eta * gnorm, maxiter=cg_maxiter, use_jit=use_jit,
-                      inner=problem.geom.inner)
+        p, cg_i, cg_rs, cg_ok = _cg_solve(lm.hvp, neg_g, tol=cg_tol, maxiter=cg_maxiter,
+                                          use_jit=use_jit, inner=problem.geom.inner)
+        cg_iters, cg_rs, cg_ok = int(cg_i), float(cg_rs), bool(cg_ok)
+        cg_converged = cg_rs <= cg_tol * cg_tol
+        cg_truncated = (not cg_converged) and (not cg_ok)
         slope = float(problem.geom.inner(g, p))
         if (not math.isfinite(slope)) or slope >= 0.0:                   # ensure a descent direction
             p, slope = neg_g, -gnorm * gnorm
-        alpha, x_trial = 1.0, x
-        for _bt in range(40):                                            # Armijo backtracking
+        pHp = float(lm.gn_quadratic(p))                                  # pᵀHp = ‖𝒥p‖² (for ρ)
+        alpha, ls_steps, f_new = 1.0, 40, f
+        x_trial = x
+        for bt in range(40):                                             # Armijo backtracking
             x_trial = lm.retract(cw.corewise_scale(p, alpha))
-            if float(problem.objective(x_trial)) <= f + c_armijo * alpha * slope:
+            f_new = float(problem.objective(x_trial))
+            if f_new <= f + c_armijo * alpha * slope:
+                ls_steps = bt
                 break
             alpha *= 0.5
+        delta_f = f_new - f
+        predicted = alpha * slope + 0.5 * alpha * alpha * pHp            # GN-model change along αp
+        rho = (delta_f / predicted) if predicted != 0.0 else float('nan')
+        p_norm = float(problem.geom.inner(p, p)) ** 0.5
+        x_norm = float(cw.corewise_norm(x))                             # coordinate norm (ragged-exact; uniform: D6)
+        step_rel = (alpha * p_norm / x_norm) if x_norm > 0 else float('nan')
+        t_now = time.perf_counter()
+        info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=g0norm, converged=False,
+                          x_cores=x, lm=lm, forcing_eta=eta, cg_tol=cg_tol, cg_iters=cg_iters,
+                          cg_resid=cg_rs ** 0.5, cg_converged=cg_converged, cg_truncated=cg_truncated,
+                          ls_steps=ls_steps, alpha=alpha, slope=slope, pHp=pHp, delta_f=delta_f,
+                          rho=rho, step_rel=step_rel, wall_time=t_now - t_prev)
+        t_prev = t_now
+        if callback is not None:
+            callback(info)
+        history.append(_newton_scalar_record(info))
         x = x_trial
-    return x, {'losses': losses, 'newton': newton_iters}
+    return x, {'losses': losses, 'newton': newton_iters, 'history': history}
