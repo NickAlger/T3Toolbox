@@ -46,6 +46,9 @@ x_opt, stats = topt.adam(t3m.COREWISE, 'probe', ww, data, x0, rng, batch)
 # fit from apply-DERIVATIVE jets, by Manifold Cauchy SGD, with a per-order weight and a custom minibatch:
 x_opt, stats = topt.mc_sgd(t3m.MANIFOLD, 'apply_derivatives', (ww, pp), data, x0,
                            rng, batch, order=K, weight=ω, draw=my_draw)
+
+# fit from probes with a PER-MODE weight (discount a noisier mode; probe-only, see §4.6):
+x_opt, stats = topt.newton_cg(t3m.MANIFOLD, 'probe', ww, data, x0, weight=ω_mode)   # ω_mode shape (d,)
 ```
 
 - **Optimizers:** `gradient_descent` (Cauchy + Armijo), `mc_sgd` (Manifold Cauchy SGD — tuning-free
@@ -57,8 +60,12 @@ x_opt, stats = topt.mc_sgd(t3m.MANIFOLD, 'apply_derivatives', (ww, pp), data, x0
   (entries — `(d,)+W` integer grid), or the paired `(ww, pp)` / `(index, pp)` for derivatives (`pp` = the
   perturbation directions).
 - **`data`** is the observed `y` — **raw** (the kind applies any weighting internally).
-- **Derivative kinds** take keyword `order` (highest derivative order) and optional `weight` (the per-order
-  residual weight `ω`, length `order+1`; see §4.6). `mc_sgd`/`adam` also take `draw` (§2.3).
+- **`weight`** (optional residual weight `ω`, see §4.6) is an `ω[mode, order]` matrix with broadcasting:
+  **derivative** kinds take a per-order vector `(order+1,)`; **probe** additionally takes a per-**mode**
+  weight — `probe` (plain) a 1-D `(d,)`, `probe_derivatives` the full `(d, order+1)` matrix. apply/entries
+  contract every mode into a scalar, so they have no mode axis (mode weighting is probe-only).
+- **Derivative kinds** take keyword `order` (highest derivative order). `mc_sgd`/`adam` also take `draw`
+  (§2.3).
 
 ### 2.2 Build the Gauss-Newton model (roll your own optimizer)
 
@@ -75,9 +82,10 @@ q  = model.gn_quadratic(v)                # ‖Jv‖²   (ONE forward — the ch
 x_new = t3m.MANIFOLD.retract(-α * g)
 ```
 
-Factories: `apply_model` / `entries_model` / `probe_model`, and `apply_derivatives_model` /
-`entries_derivatives_model` / `probe_derivatives_model` (which additionally take `order` + optional
-`weight`). The model is generic over the geometry — pass `t3m.MANIFOLD` or `t3m.COREWISE`. Everything in
+Factories: `apply_model` / `entries_model` / `probe_model` (the last takes an optional per-mode
+`weight`), and `apply_derivatives_model` / `entries_derivatives_model` / `probe_derivatives_model` (which
+additionally take `order` + optional `weight`; see §4.6). The model is generic over the geometry — pass
+`t3m.MANIFOLD` or `t3m.COREWISE`. Everything in
 and out is a `T3Tangent` at `model.frame`. The frame sweep is computed once and reused across every
 `gradient`/`gn_hessian`/`evaluate` (so an inner CG pays for it once, not per matvec).
 
@@ -198,16 +206,51 @@ For GPU scale: keep the data resident on device and write the draw in jax → th
 produced on-device and consumed on-device, with no per-step host↔device transfer (only a random key
 crosses).
 
-### 4.6 Derivative normalization is a per-order residual *weight* `ω`, owned by the kind
+### 4.6 The residual weight `ω` is a per-order / per-mode matrix, owned by the kind
 
-Fitting from derivatives, the orders span many decades (the order-`t` term carries a
-`t!`/binomial weight), which wrecks the Gauss-Newton conditioning. The fix is a **per-order residual
-weight** `ω`: the objective is `½‖ω ⊙ (S(x) − y)‖²`, so `ω` enters **only** the reduction and the
-gradient, while `forward` / `point_forward` / `data` stay **raw**. You pass **raw data + a weight
-vector**, and a custom `draw` returning raw `data_B` (the natural thing) can never silently break
-the residual — the alternative (fold `1/ω` into the forward and pre-normalize the data) would be a
-footgun for exactly the power-user audience. `ω` is created outside the optimization (your choice —
-per-order RMS, a physical length scale, …; default `ω=1`).
+The objective carries an optional **residual weight** `ω`: `½‖ω ⊙ (S(x) − y)‖²`, so `ω` enters **only**
+the `‖·‖²` reduction and the gradient (`𝒥ᵀ ω²r`), while `forward` / `point_forward` / `data` stay
+**raw**. You pass **raw data + a weight**, and a custom `draw` returning raw `data_B` (the natural thing)
+can never silently break the residual — the alternative (fold `1/ω` into the forward and pre-normalize the
+data) would be a footgun for exactly the power-user audience. `ω` is created outside the optimization
+(your choice; default `ω = 1`). It is host-numpy static structure (like the uniform masks), so it folds
+into the compiled program as a device constant.
+
+`ω` is a matrix over two axes — **`ω[mode, order]`**, conceptual shape `(d, order+1)` — applied with
+plain NumPy right-aligned broadcasting, so **order is the innermost (rightmost) axis**:
+
+| you pass | shape | means |
+|---|---|---|
+| a bare vector | `(order+1,)` → `(1, order+1)` | **per-order** (broadcast over modes) |
+| a column | `(d, 1)` | **per-mode** (broadcast over orders) |
+| a matrix | `(d, order+1)` | an independent weight per `(mode, order)` |
+
+**Per-order weighting** is the derivative-kind use case: the symmetric-derivative orders span many
+decades (the order-`t` term carries a `t!`/binomial weight), which wrecks the Gauss-Newton conditioning;
+a per-order `ω` (e.g. per-order RMS, a physical length scale) rebalances them. A bare vector always means
+per-order — this is the backward-compatible reading.
+
+**Per-mode weighting** is a **probe** feature: only probing produces a per-mode output (one vector per
+mode), so only `probe_model` / `probe_derivatives_model` (and `topt` with `'probe'` /
+`'probe_derivatives'`) accept a mode weight. It up- or down-weights each mode's data — invaluable when the
+modes are measured at very different scales/precisions (e.g. the "forward"/"reverse" modes of a PDE
+operator), where inverse-noise weighting `ω_i = 1/σ_i` is the Gauss–Markov/GLS estimate. See
+[`examples/fit_per_mode_weight_probes.py`](https://github.com/NickAlger/T3Toolbox/blob/main/examples/fit_per_mode_weight_probes.py),
+where it turns an order-`1e-3` recovery into `1e-4` from the same data.
+
+apply/entries contract every mode into a scalar — they have **no mode axis**, so their weight is
+order-only (a per-mode weight is a structural error). Plain `probe_model` has **no order axis**, so its
+weight is a 1-D `(d,)` per-mode vector (a 2-D `(d, 1)` is rejected — this keeps `(d,)` the single,
+forward-stable spelling if a less-important weighting axis is ever added).
+
+```python
+# probe_derivatives: down-weight the noisy high orders AND discount a coarse mode, independently:
+mode_w, order_w = [1.0, 0.6, 0.3], [1.0, 0.5, 0.3, 0.2]                    # (d=3,) and (order+1=4,)
+model = fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, order=3, residual=r,
+                                        weight=np.outer(mode_w, order_w))   # ω[mode,order], (3, 4)
+# plain probe: a per-mode vector is 1-D (d,):
+model = fitting.probe_model(t3m.MANIFOLD, x, ww, r, weight=[0.5, 1.0, 2.0])
+```
 
 ### 4.7 The corewise gradient is hand-rolled — and outperforms autodiff
 
@@ -255,7 +298,8 @@ repo, maintainer-local):
   `fit_hilbert_from_entries_lbfgs.py` (entries, corewise, scipy bridge); `fit_hilbert_from_apply_
   derivatives.py` / `_flat.py` (apply-derivatives, *inline* MC-SGD); `fit_hilbert_from_apply_derivatives_
   topt.py` (the **library** apply-derivatives pilot); `fit_hilbert_uniform_newton_cg.py` /
-  `_probe_derivatives_newton_cg.py` (the uniform layer end-to-end).
+  `_probe_derivatives_newton_cg.py` (the uniform layer end-to-end); `fit_per_mode_weight_probes.py`
+  (**per-mode residual weighting** — inverse-noise probe fit, §4.6).
 - **Adjacent:** [`entries_apply_probe.md`](entries_apply_probe.md) (the three sampling ops + their
   transposes), [`transposes.md`](transposes.md) (ambient/corewise/tangent taxonomy),
   [`batching_and_stacking.md`](batching_and_stacking.md) (the `W`/`K`/`C` stack design),

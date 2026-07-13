@@ -1,5 +1,13 @@
 # Per-mode residual weighting — plan
 
+> **STATUS: DONE (2026-07-13), branch `feat/per-mode-weighting`.** All six slices shipped +
+> green (S1 backend ragged, S2 frontend ragged, S3 uniform mirror, S4 topt adapter, S5 example,
+> S6 docs). The `ω[mode, order]` matrix is live end-to-end: `probe_model(weight=(d,))`,
+> `probe_derivatives_model(weight=(d,order+1))`, apply/entries order-only, plain-probe rejects `(d,1)`,
+> uniform mirror compile-once (nested-tuple aux), topt threads it. Example
+> `examples/fit_per_mode_weight_probes.py` (inverse-noise probe fit, ~30× Frobenius recovery, 12/12
+> seeds). Docs §4.6 rewritten. Kept below as the design record.
+
 *Design settled with Nick (2026-07-13), branch `main`. Adds **per-mode** residual weighting to the
 probe fitting models, generalizing the existing **per-order** weight `ω` on the derivative models from a
 vector to a `(mode, order)` **matrix**. Fully backward compatible. Covers backend + frontend + uniform
