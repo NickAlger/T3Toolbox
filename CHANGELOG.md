@@ -5,7 +5,11 @@ All notable changes to T3Toolbox are documented here. The format follows
 
 ## [Unreleased]
 
-Nothing released yet. The first release (`2026.0.0`) will ship the initial public surface:
+Nothing yet.
+
+## [2026.0.0] — 2026-07-13
+
+The first public release — the initial public surface:
 
 - The **Tucker tensor train (T3) format** — arithmetic with dense-tensor semantics,
   orthogonalization, minimal ranks, T3-SVD, save/load, batching on every operation.

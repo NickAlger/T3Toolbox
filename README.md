@@ -34,11 +34,17 @@ is never formed.
 The package is pure Python. Dependencies: [`numpy`](https://numpy.org/install/) (required),
 [`jax`](https://docs.jax.dev/en/latest/installation.html) (optional).
 
-Install from source:
+	pip install t3toolbox
+
+To include the optional JAX backend:
+
+	pip install "t3toolbox[jax]"
+
+From source (development install):
 
 	git clone https://github.com/NickAlger/T3Toolbox.git
 	cd T3Toolbox
-	pip install .
+	pip install -e .
 
 ## Quickstart
 

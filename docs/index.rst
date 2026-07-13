@@ -33,11 +33,19 @@ The package is pure Python. Dependencies:
 * `NumPy <https://numpy.org/install/>`_ (required)
 * `JAX <https://docs.jax.dev/en/latest/installation.html>`_ (optional)
 
-Install from source::
+::
+
+	pip install t3toolbox
+
+To include the optional JAX backend::
+
+	pip install "t3toolbox[jax]"
+
+From source (development install)::
 
 	git clone https://github.com/NickAlger/T3Toolbox.git
 	cd T3Toolbox
-	pip install .
+	pip install -e .
 
 
 Websites
