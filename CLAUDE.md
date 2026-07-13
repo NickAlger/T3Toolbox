@@ -366,12 +366,17 @@ doctests CI-enforced on both numpy generations.
   `to_dense`, `t3svd`, `t3m`, save/load; the three sampling ops + their symmetric derivatives +
   the ambient/corewise/tangent transposes); `frame_variations_format`; `manifold` (`T3Tangent`,
   `MANIFOLD`/`COREWISE`) + safe/unsafe mode; the geometry-generic `GaussNewtonModel` + the four
-  optimizers + fitting from all sampling kinds and their derivatives; **the full uniform mirror
+  optimizers + fitting from all sampling kinds and their derivatives, with an optional **`ω[mode,order]`
+  residual-weight matrix** in the objective `½‖ω⊙r‖²` (per-**order** for the derivative kinds — the
+  Gauss-Newton conditioner; per-**mode** for probe — probe is the only kind with a per-mode axis, so
+  apply/entries stay order-only; a bare vector = per-order, backward compatible; **not** the parked
+  weighted *layer* — this is a fitting-objective weight; `docs/fitting_and_optimization.md` §4.6); **the full uniform mirror
   of all of it** — `UniformTuckerTensorTrain`, `UT3Frame`/`UT3Variations`/`UT3Tangent`, the
   uniform geometries, uniform sampling + jets, and the optimizers running fully packed,
   jit-compile-once, ragged-vs-uniform inferred from `x0` (per-element verified vs ragged +
   adjoint-identity + mask-strict + garbage-robust + jit-clean; `docs/contributor/testing_strategy.md`).
-  Worked examples in `examples/fit_hilbert_*`. (Build history: the archived plans in
+  Worked examples in `examples/fit_hilbert_*` (+ `examples/fit_per_mode_weight_probes.py` for the
+  per-mode residual weight). (Build history: the archived plans in
   `dev/archive/` — `uniform_fix_plan`, `uniform_optimizers_plan`, `naming_pass_plan`,
   `docs_pass_plan`, `docs_split_plan`.)
 - **Design references:** the rendered docs are the reference — user tier (`docs/*.md` +
