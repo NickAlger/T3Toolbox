@@ -45,6 +45,8 @@ __all__ = [
     'probe_derivatives_kind',
     'sumsq_over_samples',
     'sumsq_over_probes',
+    'block_sumsq_over_samples',
+    'block_sumsq_over_probes',
 ]
 
 
@@ -82,6 +84,44 @@ def sumsq_over_probes(
         s = xnp.sum(z ** 2, axis=axes)
         total = s if total is None else total + s
     return total
+
+
+# --------------------------------------------------------------------------------------------------
+# Per-(mode, order) block reductions -- the `sumsq_*` siblings that KEEP the mode/order axes instead of
+# collapsing them, for the Newton-CG diagnostic error table (docs/fitting..§?, dev/newton_display_plan.md).
+# They return a 2-D (n_mode, n_order) matrix mirroring the kind's ω[mode, order] shape, and are
+# **UNWEIGHTED** (raw ‖r_ij‖², so the table is the honest data-norm relative error and ½·Σ block == the
+# unweighted objective). apply/entries have no mode axis (n_mode = 1); plain kinds have no order (n_order = 1).
+# --------------------------------------------------------------------------------------------------
+def block_sumsq_over_samples(
+        out:        NDArray,    # scalar-output residual: (order+1)+W+C (has_order) or W+C
+        n_w:        int,        # number of leading W axes (unused -- W + C are summed wholesale)
+        has_order:  bool,       # True for the derivative kinds (a leading order axis at axis 0)
+) -> NDArray:                   # (1, n_order) -- per-order sum of squares (no mode axis: apply/entries)
+    '''Per-``(mode, order)`` sum-of-squares for the scalar-output apply/entries kinds -> a 2-D
+    ``(1, n_order)`` matrix (no mode axis -- they contract every mode). Keeps only a leading order axis,
+    sums the rest (``W`` + ``C``); **UNWEIGHTED** (raw ``‖r_·j‖²``).'''
+    use_jax = is_jax_ndarray(out)
+    xnp, _, _ = get_backend(False, use_jax)
+    if has_order:
+        return xnp.sum(out ** 2, axis=tuple(range(1, out.ndim))).reshape(1, -1)   # keep order (axis 0)
+    return xnp.sum(out ** 2).reshape(1, 1)
+
+
+def block_sumsq_over_probes(
+        zz:         typ.Sequence[NDArray],  # vector-output residual, len=d, elm (order+1)+W+C+(Ni,) or W+C+(Ni,)
+        n_w:        int,                    # number of leading W axes (unused; see block_sumsq_over_samples)
+        has_order:  bool,
+) -> NDArray:                               # (d, n_order) -- per-(mode, order) sum of squares
+    '''Per-``(mode, order)`` sum-of-squares for the vector-output probe kinds -> a 2-D ``(d, n_order)``
+    matrix (``d`` probe modes). Keeps only a leading order axis per list element, sums the rest (``W`` +
+    ``C`` + the free mode); **UNWEIGHTED**. (The packed uniform probe -- a ``(d,)+…`` array, not a list --
+    gets its own override; D6 of dev/newton_display_plan.md.)'''
+    use_jax = is_jax_ndarray(zz[0])
+    xnp, _, _ = get_backend(False, use_jax)
+    rows = [xnp.sum(z ** 2, axis=tuple(range(1, z.ndim))) if has_order else xnp.sum(z ** 2).reshape(1)
+            for z in zz]
+    return xnp.stack(rows, axis=0)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -227,6 +267,7 @@ class SamplingKind:
     point_forward:  typ.Callable   # (x_cores, sample)                          -> S(x) (the POINT op, for the residual)
     n_measurements: typ.Callable   # (sample)                                   -> int (flat |W|, for the default draw)
     take:           typ.Callable   # (sample, data, idx)                        -> (sample_B, data_B) (flat W subset)
+    block_sumsq:    typ.Optional[typ.Callable] = None   # (out, n_w) -> (n_mode, n_order) per-block ‖·‖² (UNWEIGHTED; for the diagnostic table)
 
 
 APPLY = SamplingKind(
@@ -239,6 +280,7 @@ APPLY = SamplingKind(
     point_forward=lambda x_cores, ww: bapply.t3_apply(x_cores, ww),
     n_measurements=lambda ww: _prod_w(ww[0], 0, ww[0].ndim - 1),
     take=_take_apply,
+    block_sumsq=lambda out, n_w: block_sumsq_over_samples(out, n_w, has_order=False),
 )
 
 ENTRIES = SamplingKind(
@@ -251,6 +293,7 @@ ENTRIES = SamplingKind(
     point_forward=lambda x_cores, index: bentries.t3_entries(x_cores, index),
     n_measurements=lambda index: _prod_w(index, 1, index.ndim - 1),
     take=_take_entries,
+    block_sumsq=lambda out, n_w: block_sumsq_over_samples(out, n_w, has_order=False),
 )
 
 def probe_kind(
@@ -274,6 +317,7 @@ def probe_kind(
         point_forward=lambda x_cores, ww: probing.t3_probe(ww, x_cores),
         n_measurements=lambda ww: _prod_w(ww[0], 0, ww[0].ndim - 1),
         take=_take_probe,
+        block_sumsq=lambda out, n_w: block_sumsq_over_probes(out, n_w, has_order=False),
     )
 
 
@@ -309,6 +353,7 @@ def apply_derivatives_kind(
         point_forward=lambda x_cores, s: pd.t3_apply_derivatives(s[0], s[1], x_cores, order),
         n_measurements=lambda s: _prod_w(s[0][0], 0, s[0][0].ndim - 1),
         take=_take_deriv_apply,
+        block_sumsq=lambda out, n_w: block_sumsq_over_samples(out, n_w, has_order=True),
     )
 
 
@@ -331,6 +376,7 @@ def entries_derivatives_kind(
         point_forward=lambda x_cores, s: pd.t3_entries_derivatives(s[0], s[1], x_cores, order),
         n_measurements=lambda s: _prod_w(s[0], 1, s[0].ndim - 1),
         take=_take_deriv_entries,
+        block_sumsq=lambda out, n_w: block_sumsq_over_samples(out, n_w, has_order=True),
     )
 
 
@@ -354,4 +400,5 @@ def probe_derivatives_kind(
         point_forward=lambda x_cores, s: pd.t3_probe_derivatives(s[0], s[1], x_cores, order),
         n_measurements=lambda s: _prod_w(s[0][0], 0, s[0][0].ndim - 1),
         take=_take_deriv_probe,
+        block_sumsq=lambda out, n_w: block_sumsq_over_probes(out, n_w, has_order=True),
     )

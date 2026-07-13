@@ -300,6 +300,50 @@ class TestGaussNewtonModel(unittest.TestCase):
                     self.assertLess(relerr(fmodel.gn_hessian(pt).variations.data, lm.hvp(p)), 1e-10)
 
 
+class TestBlockSumsq(unittest.TestCase):
+    '''``SamplingKind.block_sumsq`` (D2): the per-`(mode, order)` sum-of-squares that keeps the mode/order
+    axes (for the Newton-CG diagnostic error table). Oracle: each block equals a hand ``np.sum(r_ij**2)``
+    (non-circular); the matrix shape mirrors the kind's ``ω`` shape; and ``block_sumsq(r).sum()`` equals
+    the UNWEIGHTED ``‖r‖²`` (ω never enters, even on a weighted kind).'''
+
+    def test_block_sumsq_all_kinds(self):
+        rng = np.random.default_rng(0)
+        d, order, NW = 3, 2, 7
+        Ns = [4, 5, 6]
+        r_probe = [rng.standard_normal((NW, N)) for N in Ns]                    # plain probe: W+(Ni,)
+        r_pd = [rng.standard_normal((order + 1, NW, N)) for N in Ns]            # probe-deriv: (order+1)+W+(Ni,)
+        r_scal = rng.standard_normal((NW,))                                     # plain apply/entries: W
+        r_ad = rng.standard_normal((order + 1, NW))                            # apply/entries-deriv: (order+1)+W
+        # (kind, residual, expected (n_mode, n_order), oracle block[i,t])
+        cases = [
+            (fb.PROBE, r_probe, (d, 1), lambda i, t: np.sum(r_probe[i] ** 2)),
+            (fb.probe_derivatives_kind(order), r_pd, (d, order + 1), lambda i, t: np.sum(r_pd[i][t] ** 2)),
+            (fb.APPLY, r_scal, (1, 1), lambda i, t: np.sum(r_scal ** 2)),
+            (fb.apply_derivatives_kind(order), r_ad, (1, order + 1), lambda i, t: np.sum(r_ad[t] ** 2)),
+        ]
+        for kind, r, shape, oracle in cases:
+            with self.subTest(kind=kind.name):
+                bs = kind.block_sumsq(r, 1)
+                self.assertEqual(bs.shape, shape)                               # mirrors the ω shape
+                for i in range(shape[0]):
+                    for t in range(shape[1]):
+                        self.assertTrue(np.allclose(bs[i, t], oracle(i, t)))    # per-block dense oracle
+                total = sum(np.sum(z ** 2) for z in r) if isinstance(r, list) else np.sum(r ** 2)
+                self.assertTrue(np.allclose(float(bs.sum()), float(total)))     # sum == unweighted ‖r‖²
+
+    def test_block_sumsq_ignores_weight(self):
+        '''A weighted probe_derivatives kind's block_sumsq is still the RAW ‖r_ij‖² (the table is the honest
+        data-norm error, not the weighted residual the objective sees).'''
+        rng = np.random.default_rng(1)
+        d, order, NW = 3, 2, 6
+        Ns = [4, 5, 6]
+        r = [rng.standard_normal((order + 1, NW, N)) for N in Ns]
+        W = rng.uniform(0.2, 3.0, size=(d, order + 1))
+        weighted = fb.probe_derivatives_kind(order, W)
+        bs = weighted.block_sumsq(r, 1)
+        self.assertTrue(np.allclose(bs[1, 2], np.sum(r[1][2] ** 2)))            # raw, ω[1,2] not applied
+
+
 class TestResidualWeighting(unittest.TestCase):
     '''The ``ω[mode, order]`` residual weight matrix (``½‖ω⊙r‖²``). Mode weighting is **probe-only**;
     apply/entries take an ORDER-only weight (a per-mode weight is a structural error). Oracles place
