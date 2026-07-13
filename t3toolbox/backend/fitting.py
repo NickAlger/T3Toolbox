@@ -109,14 +109,23 @@ def block_sumsq_over_samples(
 
 
 def block_sumsq_over_probes(
-        zz:         typ.Sequence[NDArray],  # vector-output residual, len=d, elm (order+1)+W+C+(Ni,) or W+C+(Ni,)
+        zz:         typ.Union[typ.Sequence[NDArray], NDArray],  # ragged len=d (elm [order]+W+C+(Ni,)) OR packed (d,)+[order]+W+C+(N,)
         n_w:        int,                    # number of leading W axes (unused; see block_sumsq_over_samples)
         has_order:  bool,
 ) -> NDArray:                               # (d, n_order) -- per-(mode, order) sum of squares
     '''Per-``(mode, order)`` sum-of-squares for the vector-output probe kinds -> a 2-D ``(d, n_order)``
-    matrix (``d`` probe modes). Keeps only a leading order axis per list element, sums the rest (``W`` +
-    ``C`` + the free mode); **UNWEIGHTED**. (The packed uniform probe -- a ``(d,)+…`` array, not a list --
-    gets its own override; D6 of dev/newton_display_plan.md.)'''
+    matrix (``d`` probe modes). Keeps the mode axis (and a leading order axis, if any) and sums the rest
+    (``W`` + ``C`` + the free mode); **UNWEIGHTED**. **Mirrors** ``zz``'s packedness (like
+    :py:func:`sumsq_over_probes`): a ragged ``len=d`` list stacks per-mode reductions; a **packed uniform**
+    ``(d,)+[order]+W+C+(N,)`` array keeps the leading ``d`` (and order) axes and sums the rest -- the padded
+    free mode ``N`` is a zeroed prefix (like ``sumsq``), so it contributes nothing. So the uniform probe
+    kinds inherit this verbatim via ``dc.replace`` (no override needed).'''
+    if not isinstance(zz, (list, tuple)):               # packed (d,)+[order]+W+C+(N,)
+        use_jax = is_jax_ndarray(zz)
+        xnp, _, _ = get_backend(False, use_jax)
+        if has_order:                                   # keep axis 0 (d) + axis 1 (order); sum the rest
+            return xnp.sum(zz ** 2, axis=tuple(range(2, zz.ndim)))
+        return xnp.sum(zz ** 2, axis=tuple(range(1, zz.ndim))).reshape(-1, 1)   # keep d only
     use_jax = is_jax_ndarray(zz[0])
     xnp, _, _ = get_backend(False, use_jax)
     rows = [xnp.sum(z ** 2, axis=tuple(range(1, z.ndim))) if has_order else xnp.sum(z ** 2).reshape(1)

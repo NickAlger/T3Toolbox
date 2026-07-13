@@ -1,5 +1,12 @@
 # Newton-CG fitting diagnostics / display — plan
 
+> **STATUS: DONE (2026-07-13), branch `feat/newton-cg-display`.** All six slices shipped + green
+> (D1 loop plumbing + NewtonInfo/callback/history; D2 `block_sumsq`; D3 backend `optimizer_display`;
+> D4 frontend `verbose=`/`callback=`; D5 `examples/fit_probe_display.py` + doctest; D6 uniform mirror —
+> `block_sumsq_over_probes` made dual-path so the uniform kinds inherit it, validation auto-packed).
+> `newton_cg(..., verbose=True, val_sample=, val_data=)` on both ragged and uniform layers; backend users
+> get the identical display via `optimizer_display.make_newton_display`. Kept below as the design record.
+
 *Design settled with Nick (2026-07-13), branch off `main`. Adds an optional per-iteration **diagnostic
 display** to the Newton-CG fitting loop (objective/gradient, CG stats, line-search, and a per-`(mode,
 order)` relative-error table), plus a **stored per-iteration history** in the returned `stats`. The whole

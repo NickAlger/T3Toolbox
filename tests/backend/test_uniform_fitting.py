@@ -166,6 +166,34 @@ class TestUniformSamplingKind(unittest.TestCase):
                 self.assertTrue(np.allclose(np.asarray(clean), np.asarray(dirty)))   # scalar / packed array
 
 
+class TestUniformBlockSumsq(unittest.TestCase):
+    """D6: the uniform probe kinds' `block_sumsq` (the per-(mode,order) reduction for the diagnostic error
+    table) reduces the PACKED residual directly and matches the ragged reduction on the real parts -- the
+    uniform-equivalence contract. The uniform kinds inherit the dual-path `block_sumsq_over_probes` via
+    `dc.replace` (no override); the packed free-mode padding is a zeroed prefix (like `sumsq`)."""
+    def test_probe_block_sumsq_matches_ragged(self):
+        rng = np.random.default_rng(0)
+        shape, order, W = _STRUCT[0], 2, 9
+        x = _uniform_x(0)
+        N = x.data[0].shape[-1]
+        # plain probe: ragged residual = list of d (W+(Ni,)); packed = (d,)+W+(N,)
+        r_probe = [rng.standard_normal((W, n)) for n in shape]
+        bs_ragged = np.asarray(bfit.PROBE.block_sumsq(r_probe, 1))
+        bs_uniform = np.asarray(uf.uniform_probe_kind(x.data).block_sumsq(uops.pack_if_ragged(r_probe, N), 1))
+        self.assertEqual(bs_ragged.shape, (len(shape), 1))
+        self.assertTrue(np.allclose(bs_ragged, bs_uniform))
+        # probe derivatives: ragged = list of d ((order+1)+W+(Ni,)); packed = (d,)+(order+1)+W+(N,)
+        r_jet = [rng.standard_normal((order + 1, W, n)) for n in shape]
+        bd_ragged = np.asarray(bfit.probe_derivatives_kind(order).block_sumsq(r_jet, 1))
+        bd_uniform = np.asarray(uf.uniform_probe_derivatives_kind(x.data, order)
+                                .block_sumsq(uops.pack_if_ragged(r_jet, N), 1))
+        self.assertEqual(bd_ragged.shape, (len(shape), order + 1))
+        self.assertTrue(np.allclose(bd_ragged, bd_uniform))
+        # apply/entries kinds have no mode axis -> they INHERIT the ragged (scalar-output) block_sumsq
+        self.assertEqual(np.asarray(uf.uniform_apply_kind(x.data).block_sumsq(rng.standard_normal((W,)), 1)).shape,
+                         (1, 1))
+
+
 class TestUniformSamplingMirror(unittest.TestCase):
     """U3.5: the user-facing uniform sampling ops MIRROR their vector input's packedness -- ragged in ->
     ragged (len=d tuple) out, packed in -> packed (d,)+... out -- and the two agree via pack/unpack. The

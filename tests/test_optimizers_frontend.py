@@ -106,11 +106,6 @@ class TestFrontendOptimizers(unittest.TestCase):
                        callback=seen.append, verbose=True, max_newton=3)
         self.assertTrue(seen and hasattr(seen[0], 'gnorm'))
 
-    def test_verbose_uniform_not_yet_supported(self):
-        """The built-in verbose display is ragged-only for now (uniform is D6): a clear NotImplementedError."""
-        ux0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT))
-        with self.assertRaises(NotImplementedError):
-            topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe', self.ww, self.data, ux0, verbose=True, max_newton=1)
 
     def test_per_mode_weight_recovers(self):
         """A per-mode-weighted plain-probe Newton-CG through the adapter still recovers the exact target
@@ -176,6 +171,28 @@ class TestFrontendUniformOptimizers(unittest.TestCase):
         xu, _ = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe', self.ww, self.data, ux0, weight=omega, max_newton=30)
         self.assertIsInstance(xu, ut3.UniformTuckerTensorTrain)
         self.assertLess(self._true_err(xu), 1e-3)
+
+    def test_verbose_display_matches_ragged(self):
+        """D6: verbose Newton-CG works on the uniform layer (packed block_sumsq, auto-packed validation)
+        and its diagnostic error matrices match the ragged run (the equivalence contract)."""
+        import io, contextlib
+        rng = np.random.default_rng(9)
+        wwv = [w / np.linalg.norm(w, axis=1, keepdims=True)
+               for w in (rng.standard_normal((40, N)) for N in SHAPE)]
+        datav = dense_probe(self.A, wwv)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            xu, su = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe', self.ww, self.data, self.uX0,
+                                    verbose=True, val_sample=wwv, val_data=datav, max_newton=6)
+            _, sr = topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, self.X0,
+                                   verbose=True, val_sample=wwv, val_data=datav, max_newton=6)
+        self.assertIsInstance(xu, ut3.UniformTuckerTensorTrain)
+        self.assertIn('cols=mode', buf.getvalue())                     # the plain-probe table printed
+        self.assertEqual(np.asarray(su['diagnostics'][0]['train_err']).shape, (len(SHAPE), 1))
+        # uniform diagnostics match the ragged run's, block for block (same fit, packed == ragged)
+        for du, dr in zip(su['diagnostics'], sr['diagnostics']):
+            self.assertTrue(np.allclose(du['train_err'], dr['train_err'], atol=1e-7))
+            self.assertTrue(np.allclose(du['val_err'], dr['val_err'], atol=1e-7))
 
     def test_mc_sgd_and_adam_adapters(self):
         """The stochastic adapters (mc_sgd on the uniform manifold, adam on uniform corewise) run

@@ -223,8 +223,9 @@ def newton_cg(
     validation column. The per-iteration records are also returned in ``stats['diagnostics']``. This is a
     thin convenience over the **backend** display -- a raw-``.data`` user builds the same callback with
     :py:func:`t3toolbox.backend.optimizer_display.make_newton_display` and passes it as ``callback=`` to
-    :py:func:`t3toolbox.backend.optimizers.newton_cg`. A custom ``callback`` overrides ``verbose``. (The
-    built-in display is ragged-only for now; the uniform mirror is D6 of ``dev/newton_display_plan.md``.)
+    :py:func:`t3toolbox.backend.optimizers.newton_cg`. A custom ``callback`` overrides ``verbose``. Works on
+    both the ragged and uniform layers (the uniform ``block_sumsq`` reduces the packed residual directly;
+    validation data is packed automatically).
 
     Examples
     --------
@@ -255,12 +256,11 @@ def newton_cg(
     problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight)
     records = None
     if callback is None and verbose:
-        if isinstance(x0, ut3.UniformTuckerTensorTrain):
-            raise NotImplementedError(
-                "verbose Newton-CG display is not yet wired for the uniform layer (block_sumsq needs a "
-                "packed mirror -- D6 of dev/newton_display_plan.md); run on the ragged TuckerTensorTrain "
-                "layer, or pass your own callback=.")
-        callback, records = bdisp.make_newton_display(problem, val_sample=val_sample, val_data=val_data)
+        vs, vd = val_sample, val_data
+        if isinstance(x0, ut3.UniformTuckerTensorTrain) and val_data is not None:
+            vs = uf.pack_sample(kind, val_sample, x0.N)   # pack validation to the packed kind's width
+            vd = uf.pack_data(kind, val_data, x0.N)
+        callback, records = bdisp.make_newton_display(problem, val_sample=vs, val_data=vd)
     x_cores, stats = bopt.newton_cg(problem, init, callback=callback, **kwargs)
     if records is not None:
         stats['diagnostics'] = records
