@@ -370,7 +370,11 @@ doctests CI-enforced on both numpy generations.
   residual-weight matrix** in the objective `½‖ω⊙r‖²` (per-**order** for the derivative kinds — the
   Gauss-Newton conditioner; per-**mode** for probe — probe is the only kind with a per-mode axis, so
   apply/entries stay order-only; a bare vector = per-order, backward compatible; **not** the parked
-  weighted *layer* — this is a fitting-objective weight; `docs/fitting_and_optimization.md` §4.6); **the full uniform mirror
+  weighted *layer* — this is a fitting-objective weight; `docs/fitting_and_optimization.md` §4.6); plus an optional
+  **`verbose=` per-iteration diagnostic display** for `newton_cg` (CG/line-search stats + a
+  per-`(mode,order)` relative-error table, train/validation) — backend-owned in
+  `backend/optimizer_display.py` (`make_newton_display` + a `callback=` hook), so a raw-`.data` user gets
+  the identical display; **the full uniform mirror
   of all of it** — `UniformTuckerTensorTrain`, `UT3Frame`/`UT3Variations`/`UT3Tangent`, the
   uniform geometries, uniform sampling + jets, and the optimizers running fully packed,
   jit-compile-once, ragged-vs-uniform inferred from `x0` (per-element verified vs ragged +
