@@ -80,6 +80,38 @@ class TestFrontendOptimizers(unittest.TestCase):
         with self.assertRaises(ValueError):
             topt.gradient_descent(t3m.MANIFOLD, 'nope', self.ww, self.data, self.X0, n_iter=1)
 
+    def test_verbose_display_and_diagnostics(self):
+        """D4: verbose=True prints a per-iteration block (captured) and returns stats['diagnostics'] with
+        the per-mode error matrices + validation column; a custom callback= overrides verbose."""
+        import io, contextlib
+        rng = np.random.default_rng(9)
+        wwv = [w / np.linalg.norm(w, axis=1, keepdims=True)
+               for w in (rng.standard_normal((40, N)) for N in SHAPE)]
+        datav = dense_probe(self.A, wwv)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            x, stats = topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, t3.TuckerTensorTrain(*x0),
+                                      verbose=True, val_sample=wwv, val_data=datav, max_newton=6)
+        out = buf.getvalue()
+        self.assertIn('rel err', out); self.assertIn('cols=mode', out)      # the plain-probe table printed
+        self.assertIn('diagnostics', stats)
+        self.assertEqual(len(stats['diagnostics']), len(stats['history']))
+        self.assertEqual(np.asarray(stats['diagnostics'][0]['train_err']).shape, (len(SHAPE), 1))
+        self.assertIn('val_err', stats['diagnostics'][0])
+
+        # a custom callback overrides verbose and receives NewtonInfo
+        seen = []
+        topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, t3.TuckerTensorTrain(*x0),
+                       callback=seen.append, verbose=True, max_newton=3)
+        self.assertTrue(seen and hasattr(seen[0], 'gnorm'))
+
+    def test_verbose_uniform_not_yet_supported(self):
+        """The built-in verbose display is ragged-only for now (uniform is D6): a clear NotImplementedError."""
+        ux0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT))
+        with self.assertRaises(NotImplementedError):
+            topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe', self.ww, self.data, ux0, verbose=True, max_newton=1)
+
     def test_per_mode_weight_recovers(self):
         """A per-mode-weighted plain-probe Newton-CG through the adapter still recovers the exact target
         (the noiseless minimizer is weight-independent) -- exercises the topt weight plumbing."""

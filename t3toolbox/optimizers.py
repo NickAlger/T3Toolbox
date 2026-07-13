@@ -32,6 +32,7 @@ import t3toolbox.manifold as t3m
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.fitting as _fitting   # for _canonical_weight (the shared frontend weight contract; no cycle)
 import t3toolbox.backend.optimizers as bopt
+import t3toolbox.backend.optimizer_display as bdisp
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
 
@@ -208,10 +209,22 @@ def newton_cg(
         x0:       Point,                # initial point (zero is fine on the manifold)
         order:    typ.Optional[int] = None,
         weight:   typ.Optional[typ.Any] = None,   # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
+        verbose:  bool = False,                   # print per-iteration diagnostics (a relative-error table + more)
+        val_sample: typ.Any = None,               # optional validation sample (same layout as `sample`) -> a train|val table
+        val_data:   typ.Any = None,               # optional validation data (both given adds the val column)
+        callback:   typ.Optional[typ.Callable] = None,  # custom callback(NewtonInfo) each iter (overrides `verbose`)
         **kwargs,                       # forwarded to backend.optimizers.newton_cg (max_newton, use_jit, ...)
 ) -> typ.Tuple[Point, dict]:
     """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse. Ragged or uniform
     ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
+
+    ``verbose=True`` prints a per-iteration diagnostic block (objective / gradient, CG stats, line search,
+    and the per-``(mode, order)`` relative-error table); pass ``val_sample`` / ``val_data`` to add a
+    validation column. The per-iteration records are also returned in ``stats['diagnostics']``. This is a
+    thin convenience over the **backend** display -- a raw-``.data`` user builds the same callback with
+    :py:func:`t3toolbox.backend.optimizer_display.make_newton_display` and passes it as ``callback=`` to
+    :py:func:`t3toolbox.backend.optimizers.newton_cg`. A custom ``callback`` overrides ``verbose``. (The
+    built-in display is ragged-only for now; the uniform mirror is D6 of ``dev/newton_display_plan.md``.)
 
     Examples
     --------
@@ -240,5 +253,15 @@ def newton_cg(
     otherwise identical.
     """
     problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight)
-    x_cores, stats = bopt.newton_cg(problem, init, **kwargs)
+    records = None
+    if callback is None and verbose:
+        if isinstance(x0, ut3.UniformTuckerTensorTrain):
+            raise NotImplementedError(
+                "verbose Newton-CG display is not yet wired for the uniform layer (block_sumsq needs a "
+                "packed mirror -- D6 of dev/newton_display_plan.md); run on the ragged TuckerTensorTrain "
+                "layer, or pass your own callback=.")
+        callback, records = bdisp.make_newton_display(problem, val_sample=val_sample, val_data=val_data)
+    x_cores, stats = bopt.newton_cg(problem, init, callback=callback, **kwargs)
+    if records is not None:
+        stats['diagnostics'] = records
     return rewrap(x_cores), stats
