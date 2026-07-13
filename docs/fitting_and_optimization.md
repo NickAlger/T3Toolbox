@@ -54,6 +54,14 @@ x_opt, stats = topt.newton_cg(t3m.MANIFOLD, 'probe', ww, data, x0, weight=ω_mod
 - **Optimizers:** `gradient_descent` (Cauchy + Armijo), `mc_sgd` (Manifold Cauchy SGD — tuning-free
   stochastic), `adam` (corewise first-order), `newton_cg` (inexact Riemannian, 2nd-order). All return
   `(x_opt: TuckerTensorTrain, stats: dict)`.
+- **Live diagnostics (`newton_cg`):** `newton_cg(..., verbose=True)` prints a per-iteration block —
+  objective / gradient norm, CG iterations / tolerance / status, line search, the actual-vs-predicted
+  reduction `ρ`, and a per-`(mode, order)` **relative-error table** (`‖S(x)_ij − y_ij‖/‖y_ij‖`); pass
+  `val_sample`/`val_data` to add a validation column. The records are also returned in
+  `stats['diagnostics']`. The table layout follows the kind's axes — plain probe has modes in columns,
+  `probe_derivatives` has modes × orders. Worked demo (both layouts): `examples/fit_probe_display.py`.
+  Backend users get the identical display via `backend.optimizer_display.make_newton_display` +
+  `backend.optimizers.newton_cg(..., callback=...)`.
 - **Kind** is a string: `'apply'` / `'entries'` / `'probe'`, or `'apply_derivatives'` /
   `'entries_derivatives'` / `'probe_derivatives'`.
 - **`sample`** is the measurement spec: `ww` (apply/probe — a `len=d` list of `W+(Nᵢ,)` vectors), `index`
@@ -299,7 +307,8 @@ repo, maintainer-local):
   derivatives.py` / `_flat.py` (apply-derivatives, *inline* MC-SGD); `fit_hilbert_from_apply_derivatives_
   topt.py` (the **library** apply-derivatives pilot); `fit_hilbert_uniform_newton_cg.py` /
   `_probe_derivatives_newton_cg.py` (the uniform layer end-to-end); `fit_per_mode_weight_probes.py`
-  (**per-mode residual weighting** — inverse-noise probe fit, §4.6).
+  (**per-mode residual weighting** — inverse-noise probe fit, §4.6); `fit_probe_display.py`
+  (**`verbose=True` Newton-CG diagnostics** — both relative-error table layouts).
 - **Adjacent:** [`entries_apply_probe.md`](entries_apply_probe.md) (the three sampling ops + their
   transposes), [`transposes.md`](transposes.md) (ambient/corewise/tangent taxonomy),
   [`batching_and_stacking.md`](batching_and_stacking.md) (the `W`/`K`/`C` stack design),

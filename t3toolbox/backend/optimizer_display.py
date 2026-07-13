@@ -147,7 +147,25 @@ def format_newton_iter(
 ) -> str:                                         # the formatted header line + relative-error table
     """Format one Newton iteration as a header line + the relative-error table (pure -- returns a string).
     The layout of the table follows ``train_err``'s shape (Decision 2a). ``obj_unweighted`` is shown next
-    to the (weighted) objective only when it differs (a nontrivial residual weight ``ω``)."""
+    to the (weighted) objective only when it differs (a nontrivial residual weight ``ω``).
+
+    Examples
+    --------
+    A converged final iteration (short header) with a 2-mode x 2-order error matrix; note ``1.0e+00`` and
+    ``5.2e-04`` line up -- ``%.1e`` is fixed 7-char width, so columns align with no padding logic:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.optimizers as bopt
+    >>> import t3toolbox.backend.optimizer_display as disp
+    >>> info = bopt.NewtonInfo(iteration=5, objective=3.78e-4, gnorm=4.8e-6, g0norm=6.5e-2, converged=True)
+    >>> train = np.array([[1.9e-2, 1.3e-2], [1.0e+00, 5.2e-4]])   # (2 modes, 2 orders)
+    >>> print(disp.format_newton_iter(info, train))
+    iter  5 | obj 3.780e-04  ‖g‖ 4.80e-06 (7.4e-05·g₀) | converged (‖g‖ ≤ gtol·‖g₀‖)
+      rel err  rows=mode  cols=order
+               ord0     ord1
+        m0  1.9e-02  1.3e-02
+        m1  1.0e+00  5.2e-04
+    """
     return _format_header(info, obj_unweighted) + "\n" + _format_table(train_err, val_err, fmt)
 
 
