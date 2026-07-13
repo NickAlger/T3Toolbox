@@ -21,7 +21,7 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Newton-CG diagnostic display — DONE (2026-07-13, branch `feat/newton-cg-display`, unmerged).**
+- **Newton-CG diagnostic display — DONE + MERGED to `main` (2026-07-13).**
   `optimizers.newton_cg(..., verbose=True)` prints a per-iteration block (objective/gradient, CG stats,
   line search, ρ, wall time) + a per-`(mode, order)` relative-error table (`‖r_ij‖/‖y_ij‖`), with an
   optional `val_sample`/`val_data` validation column; records also returned in `stats['diagnostics']`.
@@ -29,8 +29,9 @@ branch can be deleted (optional).
   `backend.optimizer_display.make_newton_display` + `newton_cg(callback=...)`. Works on ragged **and**
   uniform (the `block_sumsq` reduction is dual-path; validation auto-packed). Table layout follows the
   kind's axes (plain probe: mode cols; probe_derivatives: mode rows × order cols, train|val cells).
-  Example `examples/fit_probe_display.py` shows both layouts. Design record + slice list:
-  `dev/newton_display_plan.md`. **Next: merge to `main`** (Nick to review the branch).
+  Example `examples/fit_probe_display.py` shows both layouts. Full suite green (619 tests). Design record
+  + slice list: `dev/newton_display_plan.md`; merged fast-forward (commits `53aab004`..`545653ce`).
+  Thread closed.
 
 - **Per-mode residual weighting — DONE + MERGED to `main` (2026-07-13).**
   The fitting layer's residual weight `ω` generalized from a per-order vector to an `ω[mode, order]`
