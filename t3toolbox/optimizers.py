@@ -30,6 +30,7 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.manifold as t3m
 import t3toolbox.uniform_manifold as ut3m
+import t3toolbox.fitting as _fitting   # for _canonical_weight (the shared frontend weight contract; no cycle)
 import t3toolbox.backend.optimizers as bopt
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
@@ -81,14 +82,21 @@ def _check_kind(kind: str, order: typ.Optional[int]) -> None:
         raise ValueError(f"derivative kind {kind!r} requires order=")
 
 
+def _n_modes(kind: str, sample: typ.Any) -> int:
+    """Number of tensor modes ``d`` from the kind's sample (``ww`` list / ``index`` array; a derivative
+    sample is the pair ``(ww/index, pp)``) -- needed to validate a residual weight's mode dimension."""
+    s = sample[0] if kind.endswith('_derivatives') else sample
+    return s.shape[0] if kind.startswith('entries') else len(s)
+
+
 def _setup(
         geometry,           # ragged (t3m.MANIFOLD/COREWISE) or uniform (ut3m.UNIFORM_MANIFOLD/COREWISE) singleton
         kind:   str,        # 'apply' / 'entries' / 'probe' (+ '_derivatives')
         sample,             # ww / index (regular) or (ww, pp) / (index, pp) (derivatives)
         data,               # observed S(x_true) (+ noise)
         x0,                 # TuckerTensorTrain (ragged) or UniformTuckerTensorTrain (uniform)
-        order:  typ.Optional[int]                 = None,  # derivative kinds only: highest order (required)
-        weight: typ.Optional[typ.Sequence[float]] = None,  # derivative kinds only: per-order residual weight ω
+        order:  typ.Optional[int] = None,  # derivative kinds only: highest order (required)
+        weight: typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
 ) -> typ.Tuple[
         bopt.Problem,       # the fixed-rank least-squares problem
         typ.Any,            # initial optimizer state: x0.data (ragged) or the bare supercore pair (uniform)
@@ -104,33 +112,41 @@ def _setup(
     with the frame's held ``shape`` + ``masks``.
     """
     _check_kind(kind, order)
+    if weight is not None and kind in ('apply', 'entries'):      # plain apply/entries: no axis to weight
+        raise ValueError(f"the plain '{kind}' kind takes no residual weight (no mode or order axis); "
+                         "per-mode weighting is defined for probe, per-order for the derivative kinds.")
+    wm = _fitting._canonical_weight(weight, kind, _n_modes(kind, sample), order or 0)   # 2-D ω[m,o] or None
 
     if isinstance(x0, ut3.UniformTuckerTensorTrain):
         geom_name = _uniform_geometry_name(geometry)
         x0m = uf.uniform_minimal(x0)                     # transparent minimal-rank reduction (no-op if minimal)
-        problem = uf.uniform_least_squares_problem(geom_name, kind, x0m, sample, data, order, weight)
+        problem = uf.uniform_least_squares_problem(geom_name, kind, x0m, sample, data, order, wm)
         init = (x0m.tucker_supercore, x0m.tt_supercore)  # optimizer state = the bare supercore pair
         return problem, init, lambda sc: ut3.UniformTuckerTensorTrain(sc[0], sc[1], x0m.shape, x0m.masks)
 
     if isinstance(x0, t3.TuckerTensorTrain):
-        bk = _KIND[kind] if kind in _KIND else _DERIV_KIND[kind](order, weight)
+        if kind in _KIND:                                # plain kinds: only probe is weightable (per-mode)
+            bk = bfit.probe_kind(wm) if kind == 'probe' and wm is not None else _KIND[kind]
+        else:
+            bk = _DERIV_KIND[kind](order, wm)
         problem = bopt.least_squares_problem(_geometry_ops(geometry), bk, sample, data)
         return problem, x0.data, lambda cores: t3.TuckerTensorTrain(*cores)
 
     raise TypeError(f"x0 must be a TuckerTensorTrain or UniformTuckerTensorTrain, got {type(x0).__name__}")
 
 
-# Derivative kinds (kind='*_derivatives') need `order` (+ optional per-order weight ω) and a paired
-# `(ww, pp)` / `(index, pp)` sample; everything else is identical. `order`/`weight` build the kind;
-# `draw` (mc_sgd / adam) is the custom minibatch draw (None = the flat default).
+# Derivative kinds (kind='*_derivatives') need `order` and a paired `(ww, pp)` / `(index, pp)` sample;
+# everything else is identical. `order`/`weight` build the kind (`weight` = a residual weight ω:
+# per-mode for probe, per-order for derivatives, the full ω[mode,order] matrix for probe_derivatives;
+# apply/entries take none). `draw` (mc_sgd / adam) is the custom minibatch draw (None = the flat default).
 def gradient_descent(
         geometry,                       # ragged or uniform geometry singleton (must match x0's representation)
         kind:     str,                  # 'apply' / 'entries' / 'probe' (+ '_derivatives')
         sample:   typ.Any,              # ww / index, or (ww, pp) / (index, pp) for derivatives
         data:     typ.Any,             # observed values to fit
         x0:       Point,                # initial point (any cores; the geometry orthogonalizes internally)
-        order:    typ.Optional[int]                 = None,  # derivative kinds: highest order (required)
-        weight:   typ.Optional[typ.Sequence[float]] = None,  # derivative kinds: per-order residual weight ω
+        order:    typ.Optional[int] = None,  # derivative kinds: highest order (required)
+        weight:   typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         **kwargs,                       # forwarded to backend.optimizers.gradient_descent (n_iter, gtol_rel, ...)
 ) -> typ.Tuple[Point, dict]:            # (x_opt, stats)
     """Fit ``x`` to ``data`` by steepest descent (Cauchy step + Armijo line search) on ``geometry``.
@@ -152,8 +168,8 @@ def mc_sgd(
         x0:       Point,                # initial point
         rng,                            # np.random.Generator -- passed to the draw each step
         batch:    int,                  # measurements per minibatch (default flat draw; ignored if draw given)
-        order:    typ.Optional[int]                 = None,
-        weight:   typ.Optional[typ.Sequence[float]] = None,
+        order:    typ.Optional[int] = None,
+        weight:   typ.Optional[typ.Any] = None,   # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         draw:     typ.Optional[typ.Callable]        = None,  # custom draw(rng)->(sample_B,data_B); None = flat
         **kwargs,                       # forwarded to backend.optimizers.mc_sgd
 ) -> typ.Tuple[Point, dict]:
@@ -172,8 +188,8 @@ def adam(
         x0:       Point,                # initial point
         rng,                            # np.random.Generator -- passed to the draw each step
         batch:    int,                  # measurements per minibatch (default flat draw; ignored if draw given)
-        order:    typ.Optional[int]                 = None,
-        weight:   typ.Optional[typ.Sequence[float]] = None,
+        order:    typ.Optional[int] = None,
+        weight:   typ.Optional[typ.Any] = None,   # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         draw:     typ.Optional[typ.Callable]        = None,
         **kwargs,                       # forwarded to backend.optimizers.adam (lr, max_iter, ...)
 ) -> typ.Tuple[Point, dict]:
@@ -190,8 +206,8 @@ def newton_cg(
         sample:   typ.Any,              # ww / index, or (ww, pp) / (index, pp) for derivatives
         data:     typ.Any,             # observed values to fit
         x0:       Point,                # initial point (zero is fine on the manifold)
-        order:    typ.Optional[int]                 = None,
-        weight:   typ.Optional[typ.Sequence[float]] = None,
+        order:    typ.Optional[int] = None,
+        weight:   typ.Optional[typ.Any] = None,   # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         **kwargs,                       # forwarded to backend.optimizers.newton_cg (max_newton, use_jit, ...)
 ) -> typ.Tuple[Point, dict]:
     """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse. Ragged or uniform

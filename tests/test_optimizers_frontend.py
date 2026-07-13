@@ -80,6 +80,27 @@ class TestFrontendOptimizers(unittest.TestCase):
         with self.assertRaises(ValueError):
             topt.gradient_descent(t3m.MANIFOLD, 'nope', self.ww, self.data, self.X0, n_iter=1)
 
+    def test_per_mode_weight_recovers(self):
+        """A per-mode-weighted plain-probe Newton-CG through the adapter still recovers the exact target
+        (the noiseless minimizer is weight-independent) -- exercises the topt weight plumbing."""
+        d = len(SHAPE)
+        omega = np.linspace(0.5, 2.0, d)                      # per-mode (d,)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)
+        x, _ = topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, x0, weight=omega, max_newton=30)
+        self.assertIsInstance(x, t3.TuckerTensorTrain)
+        self.assertLess(self._true_err(x), 1e-3)
+
+    def test_weight_contracts_rejected(self):
+        """Plain apply/entries take no residual weight (no mode/order axis); a per-mode weight to plain
+        probe must be 1-D (a 2-D (d,1) is rejected)."""
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)
+        with self.assertRaises(ValueError):    # plain apply: no axis to weight (raised early in _setup)
+            topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, np.ones(len(self.data[0])), x0,
+                           weight=[1.0], max_newton=1)
+        with self.assertRaises(ValueError):    # plain probe: a 2-D (d,1) is rejected (no order axis)
+            topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, x0,
+                           weight=np.ones((len(SHAPE), 1)), max_newton=1)
+
 
 class TestFrontendUniformOptimizers(unittest.TestCase):
     """U7a: the same four frontend optimizers accept a UniformTuckerTensorTrain x0 + the uniform geometry
@@ -112,6 +133,15 @@ class TestFrontendUniformOptimizers(unittest.TestCase):
         zero start (returned in kind)."""
         ux0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT))
         xu, _ = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe', self.ww, self.data, ux0, max_newton=30)
+        self.assertIsInstance(xu, ut3.UniformTuckerTensorTrain)
+        self.assertLess(self._true_err(xu), 1e-3)
+
+    def test_per_mode_weight_recovers(self):
+        """A per-mode-weighted uniform plain-probe Newton-CG recovers the exact target (the uniform twin of
+        the ragged weight plumbing)."""
+        omega = np.linspace(0.5, 2.0, len(SHAPE))
+        ux0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT))
+        xu, _ = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe', self.ww, self.data, ux0, weight=omega, max_newton=30)
         self.assertIsInstance(xu, ut3.UniformTuckerTensorTrain)
         self.assertLess(self._true_err(xu), 1e-3)
 
