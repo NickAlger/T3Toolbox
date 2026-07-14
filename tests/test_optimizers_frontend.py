@@ -76,6 +76,19 @@ class TestFrontendOptimizers(unittest.TestCase):
         self.assertIsInstance(x, t3.TuckerTensorTrain)
         self.assertLess(self._true_err(x), 1e-3)
 
+    def test_newton_cg_g0norm_kwargs_forward(self):
+        """The warm-start reference overrides (g0norm_newton / g0norm_cg / cg_forcing_power) forward through
+        the adapter's **kwargs to the backend loop -- verified via the reported reference + η in NewtonInfo."""
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)
+        seen = []
+        topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, x0,
+                       callback=seen.append, g0norm_newton=7.0, g0norm_cg=3.0,
+                       cg_forcing_power=1.0, max_newton=3)
+        self.assertTrue(seen and not seen[0].converged)
+        s = seen[0]
+        self.assertAlmostEqual(s.g0norm, 7.0, places=9)                             # Newton reference forwarded
+        self.assertAlmostEqual(s.forcing_eta, min(0.5, (s.gnorm / 3.0) ** 1.0), places=9)   # CG ref + power forwarded
+
     def test_bad_kind_errors(self):
         with self.assertRaises(ValueError):
             topt.gradient_descent(t3m.MANIFOLD, 'nope', self.ww, self.data, self.X0, n_iter=1)

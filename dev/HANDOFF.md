@@ -21,6 +21,21 @@ branch can be deleted (optional).
 
 ## Active threads
 
+- **Newton-CG warm-start reference overrides — DONE, on `main` (2026-07-14), uncommitted.**
+  `newton_cg` now takes three optional kwargs so a warm-start continuation loop isn't hurt by a
+  misleadingly-small initial `‖g0‖`: `g0norm_newton` / `g0norm_cg` override the reference norm the
+  Newton stop (`‖g‖ ≤ gtol_rel·‖g0‖`) and the CG forcing term (`η = min(0.5, (‖g‖/‖g0‖)**power)`) are
+  relative to (chained fallback: `g0norm_newton` also feeds CG unless `g0norm_cg` is given; `g0norm_cg`
+  alone touches only CG; neither → the computed initial norm as before), and `cg_forcing_power`
+  (default `0.5`) trades CG iters per Newton step for fewer Newton steps (raise it when the manifold
+  retraction is expensive vs a Hessian-apply). **Backend-only change** (`backend/optimizers.py`); the
+  frontend forwards via `**kwargs`, uniform inherits it for free. `NewtonInfo.g0norm` now reports the
+  effective Newton reference. Tests: `test_optimizers.py::test_newton_cg_g0norm_and_forcing_overrides`
+  (four fallback cases + power direction, reconstructing each ref from the reported η) +
+  `test_optimizers_frontend.py::test_newton_cg_g0norm_kwargs_forward`. Docs: `fitting_and_optimization.md`
+  §5, cross-ref in `rank_continuation.md`, CLAUDE.md shipped-surface. Suites green (57 opt/display/dispatch
+  + doctests). **Next: commit** (message per §Workflow); nothing else open on this thread.
+
 - **Newton-CG diagnostic display — DONE + MERGED to `main` (2026-07-13).**
   `optimizers.newton_cg(..., verbose=True)` prints a per-iteration block (objective/gradient, CG stats,
   line search, ρ, wall time) + a per-`(mode, order)` relative-error table (`‖r_ij‖/‖y_ij‖`), with an

@@ -245,6 +245,57 @@ class TestBackendOptimizers(unittest.TestCase):
         self.assertNotIn('lm', row); self.assertNotIn('x_cores', row)
         self.assertEqual(set(row), set(opt._NEWTON_SCALAR_FIELDS))
 
+    def test_newton_cg_g0norm_and_forcing_overrides(self):
+        """The reference ‖g0‖ can be overridden per stopping test, with the chained fallback: `g0norm_newton`
+        sets the Newton reference AND is inherited by CG unless `g0norm_cg` also given; `g0norm_cg` alone
+        touches only CG. `cg_forcing_power` sets the exponent in η = min(0.5, (‖g‖/‖g0‖)**power). Checked by
+        capturing NewtonInfo and reconstructing the reference each test used (uncapped regime, BIG >> g0)."""
+        rng = np.random.default_rng(4)
+        ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
+        pm = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
+
+        def run(**kw):
+            seen = []; kw.setdefault('max_newton', 8)
+            opt.newton_cg(pm, x0, callback=seen.append, **kw)
+            return seen
+
+        # --- baseline: the reference is the computed initial gradient norm (== the first iterate's ‖g‖) ---
+        base = run()
+        g0 = base[0].gnorm
+        self.assertGreater(g0, 0.0)
+        for info in base:
+            self.assertAlmostEqual(info.g0norm, g0, places=12)              # reported reference == computed norm
+        BIG = 1.0e3 * g0                                                    # a much larger (warm-start-scale) reference
+
+        # --- g0norm_newton only: BOTH tests use BIG (CG inherits the Newton reference) ---
+        n_only = run(g0norm_newton=BIG)
+        for info in n_only:
+            self.assertAlmostEqual(info.g0norm, BIG, places=6)             # Newton reference is BIG
+        s = n_only[0]
+        self.assertFalse(s.converged)
+        self.assertLess(s.forcing_eta, 0.5)                                # uncapped (gnorm/BIG tiny)
+        self.assertAlmostEqual(s.forcing_eta, (s.gnorm / BIG) ** 0.5, places=10)   # CG inherited BIG
+
+        # --- g0norm_cg only: CG uses BIG, the Newton reference is UNCHANGED ---
+        c_only = run(g0norm_cg=BIG)
+        for info in c_only:
+            self.assertAlmostEqual(info.g0norm, g0, places=12)             # Newton reference still the computed norm
+        s = c_only[0]                                                       # iter 0: ‖g‖ == g0 (same start)
+        self.assertAlmostEqual(s.forcing_eta, (g0 / BIG) ** 0.5, places=10)
+
+        # --- both supplied: each test uses its own reference ---
+        b = run(g0norm_newton=BIG, g0norm_cg=2.0 * BIG)[0]
+        self.assertAlmostEqual(b.g0norm, BIG, places=6)                    # Newton reference
+        self.assertAlmostEqual(b.forcing_eta, (b.gnorm / (2.0 * BIG)) ** 0.5, places=10)   # CG reference
+
+        # --- cg_forcing_power: near the solution ‖g‖/‖g0‖ < 1, so a larger power tightens CG (smaller η) ---
+        half = run(g0norm_cg=BIG, cg_forcing_power=0.5)[0]
+        one  = run(g0norm_cg=BIG, cg_forcing_power=1.0)[0]
+        self.assertAlmostEqual(half.forcing_eta, (g0 / BIG) ** 0.5, places=10)
+        self.assertAlmostEqual(one.forcing_eta,  (g0 / BIG) ** 1.0, places=10)
+        self.assertLess(one.forcing_eta, half.forcing_eta)                 # power 1.0 => tighter CG than 0.5
+
     def test_jit_paths_recover(self):
         """With jax inputs + use_jit=True, newton_cg (jit CG), mc_sgd, and adam jit-compile their kernels
         (a stray np.* on a tracer would raise) and recover -- the jit dispatch check for the optimizers."""

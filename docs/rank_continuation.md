@@ -84,6 +84,14 @@ Two standard outer-loop choices live in *your* loop, not the library: **terminat
 would become underdetermined (training data over manifold dimension falls below a threshold, `tau_data`
 above), and **select** the rank level that minimized a held-out validation error.
 
+> **Warm-start gotcha for the inner `newton_cg` fit.** Because each `fixed_rank_fit` after the first is
+> warm-started (zero-padded from the converged lower-rank iterate), its **initial** gradient norm is
+> already small — and `newton_cg`'s stopping tests are *relative* to it, so the Newton stop over-tightens
+> and CG slackens. Pin the reference to the problem's true gradient scale via `g0norm_newton` /
+> `g0norm_cg` (e.g. reuse the initial `‖g‖` from the first continuation stage), and optionally raise
+> `cg_forcing_power` above `0.5` to spend more CG per Newton step when the retraction is expensive. See
+> [`fitting_and_optimization.md`](fitting_and_optimization.md) §5.
+
 `continuation_ranks` returns the **current** ranks unchanged when continuation should stop — either the
 structure is already maximal, or every edge is too ill conditioned to grow safely (see `kappa_guard`
 below). Test for that as the loop does above.

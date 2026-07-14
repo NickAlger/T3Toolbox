@@ -218,6 +218,12 @@ def newton_cg(
     """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse. Ragged or uniform
     ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
 
+    In a **warm-start continuation loop** the initial gradient norm ‖g0‖ is misleadingly small, which
+    over-tightens the Newton stop and slackens CG; pass ``g0norm_newton`` / ``g0norm_cg`` (forwarded via
+    ``**kwargs``) to override the reference norm the two relative stopping tests use, and
+    ``cg_forcing_power`` to trade more CG iterations per Newton step for fewer Newton steps (all detailed
+    on the backend).
+
     ``verbose=True`` prints a per-iteration diagnostic block (objective / gradient, CG stats, line search,
     and the per-``(mode, order)`` relative-error table); pass ``val_sample`` / ``val_data`` to add a
     validation column. The per-iteration records are also returned in ``stats['diagnostics']``. This is a

@@ -374,7 +374,11 @@ doctests CI-enforced on both numpy generations.
   **`verbose=` per-iteration diagnostic display** for `newton_cg` (CG/line-search stats + a
   per-`(mode,order)` relative-error table, train/validation) — backend-owned in
   `backend/optimizer_display.py` (`make_newton_display` + a `callback=` hook), so a raw-`.data` user gets
-  the identical display; **the full uniform mirror
+  the identical display; plus `newton_cg` **warm-start reference overrides** — `g0norm_newton` /
+  `g0norm_cg` pin the reference `‖g0‖` the Newton stop / CG forcing term are relative to (default = the
+  initial `‖g‖`, misleadingly small after a continuation warm start; `g0norm_newton` also feeds CG unless
+  `g0norm_cg` is given), and `cg_forcing_power` (default `0.5`) tunes CG effort per Newton step
+  (`docs/fitting_and_optimization.md` §5); **the full uniform mirror
   of all of it** — `UniformTuckerTensorTrain`, `UT3Frame`/`UT3Variations`/`UT3Tangent`, the
   uniform geometries, uniform sampling + jets, and the optimizers running fully packed,
   jit-compile-once, ragged-vs-uniform inferred from `x0` (per-element verified vs ragged +

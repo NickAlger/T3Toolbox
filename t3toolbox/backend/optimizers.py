@@ -383,7 +383,7 @@ class NewtonInfo:
     iteration:    int              # Newton iteration index (0-based)
     objective:    float            # weighted ½‖ω⊙r‖² at x (= lm.objective)
     gnorm:        float            # ‖g‖ (Riemannian gradient norm, geom.inner)
-    g0norm:       float            # ‖g₀‖ (first iterate's gradient norm; the gtol_rel reference)
+    g0norm:       float            # ‖g₀‖ Newton-stop reference (the initial ‖g‖, or the g0norm_newton override)
     converged:    bool             # gnorm <= gtol_rel*g0norm -- this is the final line (step fields None)
     x_cores:      typ.Any = None                       # the point BEFORE the step (for a val forward)
     lm:           typ.Any = None                       # the LocalModel at x (residual/sample/frame)
@@ -413,14 +413,17 @@ def _newton_scalar_record(info: NewtonInfo) -> dict:
 
 
 def newton_cg(
-        problem:    Problem,    # the fixed-rank least-squares problem
-        x0:         Tangent,    # initial cores (U, G)
-        max_newton: int   = 30,
-        gtol_rel:   float = 1e-8,   # stop when ‖g‖ <= gtol_rel * ‖g_0‖
-        cg_maxiter: int   = 200,
-        c_armijo:   float = 1e-4,
-        use_jit:    bool  = False,  # jit the inner CG (lax.while_loop) when the inputs are jax; else eager
-        callback:   typ.Optional[typ.Callable] = None,  # callback(NewtonInfo) each iteration (host-side; e.g. a display)
+        problem:          Problem,    # the fixed-rank least-squares problem
+        x0:               Tangent,    # initial cores (U, G)
+        max_newton:       int   = 30,
+        gtol_rel:         float = 1e-8,   # stop when ‖g‖ <= gtol_rel * ‖g0‖  (‖g0‖ = g0norm_newton or the initial ‖g‖)
+        cg_maxiter:       int   = 200,
+        c_armijo:         float = 1e-4,
+        g0norm_newton:    typ.Optional[float] = None,  # ‖g0‖ for the Newton stop; default = initial ‖g‖. Also feeds CG unless g0norm_cg set.
+        g0norm_cg:        typ.Optional[float] = None,  # ‖g0‖ for the CG forcing term; default = g0norm_newton (else initial ‖g‖)
+        cg_forcing_power: float = 0.5,                 # η = min(0.5, (‖g‖/‖g0‖)**power); larger => tighter CG, fewer Newton steps
+        use_jit:          bool  = False,  # jit the inner CG (lax.while_loop) when the inputs are jax; else eager
+        callback:         typ.Optional[typ.Callable] = None,  # callback(NewtonInfo) each iteration (host-side; e.g. a display)
 ) -> typ.Tuple[Tangent, dict]:      # (x_cores, stats)
     """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse (the gauged ``H``
     is positive-definite there). Each Newton step builds the local GN model once, solves ``H p = −g`` by
@@ -429,13 +432,27 @@ def newton_cg(
     line search keeps it robust regardless. ``use_jit`` jits only the inner CG (the outer loop, line
     search, and convergence test stay on the host).
 
+    **Overriding the reference gradient norm ‖g0‖** (``g0norm_newton`` / ``g0norm_cg`` /
+    ``cg_forcing_power``). Both stopping tests are *relative* to a reference ‖g0‖: the Newton stop is
+    ``‖g‖ ≤ gtol_rel·‖g0‖`` and the CG forcing term is ``η = min(0.5, (‖g‖/‖g0‖)**cg_forcing_power)``. By
+    default ‖g0‖ is the initial gradient norm -- but in a **warm-start continuation loop** that norm is
+    misleadingly small (the guess is already near the solution), which over-tightens the Newton stop and
+    slackens CG. Pass a reference reflecting the problem's true gradient scale (e.g. the initial ‖g‖ from
+    the first continuation stage) to restore the intended behavior. Resolution is a chained fallback:
+    ``g0norm_newton`` sets the Newton reference (and CG inherits it unless ``g0norm_cg`` is also given);
+    ``g0norm_cg`` alone sets only the CG reference. ``cg_forcing_power`` (default ``0.5``, the conventional
+    Eisenstat-Walker value) tunes CG effort per Newton step: since ``‖g‖/‖g0‖ < 1`` near the solution, a
+    **larger** power (``0.75``, ``1.0``) tightens CG -> more CG iterations but fewer Newton steps -- worth
+    it on the manifold when the retraction is expensive relative to a Hessian-apply. The ``min(0.5, …)``
+    cap on ``η`` is retained regardless.
+
     ``callback``, if given, is called with a :py:class:`NewtonInfo` each iteration (including the final
     converged line) -- the hook for a live diagnostic display; it runs **host-side** (it reads the concrete
     residual), so it composes with ``use_jit`` (only the inner CG jits) but not with a hypothetical
     fully-jitted outer loop. Ready-made displays: :py:func:`t3toolbox.backend.optimizer_display.make_newton_display`.
     ``stats`` always carries ``'history'`` -- one :py:func:`_newton_scalar_record` per iteration."""
     x = x0
-    g0norm = None
+    computed_g0norm = None                                              # the initial ‖g‖ -- the default reference
     losses, newton_iters, history = [], 0, []
     t_prev = time.perf_counter()
     for it in range(max_newton):
@@ -444,17 +461,19 @@ def newton_cg(
         losses.append(f)
         g = lm.gradient
         gnorm = float(problem.geom.inner(g, g)) ** 0.5
-        if g0norm is None:
-            g0norm = gnorm if gnorm > 0 else 1.0
-        if gnorm <= gtol_rel * g0norm:                                   # converged -- final line, no step
-            info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=g0norm, converged=True,
+        if computed_g0norm is None:
+            computed_g0norm = gnorm if gnorm > 0 else 1.0
+        newton_ref = g0norm_newton if g0norm_newton is not None else computed_g0norm   # Newton-stop ‖g0‖
+        cg_ref     = g0norm_cg     if g0norm_cg     is not None else newton_ref         # CG-forcing ‖g0‖ (inherits Newton's)
+        if gnorm <= gtol_rel * newton_ref:                               # converged -- final line, no step
+            info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=newton_ref, converged=True,
                               x_cores=x, lm=lm)
             if callback is not None:
                 callback(info)
             history.append(_newton_scalar_record(info))
             break
         newton_iters += 1
-        eta = min(0.5, (gnorm / g0norm) ** 0.5)                          # inexact-Newton forcing term
+        eta = min(0.5, (gnorm / cg_ref) ** cg_forcing_power)             # inexact-Newton (Eisenstat-Walker) forcing term
         cg_tol = eta * gnorm
         neg_g = cw.corewise_scale(g, -1.0)
         p, cg_i, cg_rs, cg_ok = _cg_solve(lm.hvp, neg_g, tol=cg_tol, maxiter=cg_maxiter,
@@ -482,7 +501,7 @@ def newton_cg(
         x_norm = float(cw.corewise_norm(x))                             # coordinate norm (ragged-exact; uniform: D6)
         step_rel = (alpha * p_norm / x_norm) if x_norm > 0 else float('nan')
         t_now = time.perf_counter()
-        info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=g0norm, converged=False,
+        info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=newton_ref, converged=False,
                           x_cores=x, lm=lm, forcing_eta=eta, cg_tol=cg_tol, cg_iters=cg_iters,
                           cg_maxiter=cg_maxiter,
                           cg_resid=cg_rs ** 0.5, cg_converged=cg_converged, cg_truncated=cg_truncated,

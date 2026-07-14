@@ -293,6 +293,15 @@ repo, maintainer-local):
 - **Rank continuation alone suffices** (constant seed, rank-1-first, warm-started by zero-padding —
   see [`rank_continuation.md`](rank_continuation.md)); order continuation added nothing in the
   studies.
+- **In a warm-start continuation loop, pin the reference gradient norm.** `newton_cg`'s Newton stop
+  (`‖g‖ ≤ gtol_rel·‖g0‖`) and CG forcing term (`η = min(0.5, (‖g‖/‖g0‖)**cg_forcing_power)`) are both
+  *relative* to a reference `‖g0‖` that defaults to the **initial** gradient norm. After a warm start
+  that norm is already small, so the Newton stop over-tightens and CG slackens. Pass `g0norm_newton` /
+  `g0norm_cg` a reference reflecting the problem's true gradient scale (e.g. the initial `‖g‖` from the
+  first continuation stage) — `g0norm_newton` also feeds CG unless `g0norm_cg` is given; `g0norm_cg`
+  alone touches only CG. Separately, `cg_forcing_power` (default `0.5`) trades CG effort for Newton
+  steps: a **larger** power (`0.75`, `1.0`) tightens CG per step — worth it on the manifold when the
+  retraction is expensive relative to a Hessian-apply.
 - **When the data only constrains a structured subspace** (e.g. symmetric tensors), the fit fills
   the unconstrained null space with a large "halo" — **project/symmetrize the fitted tensor** to
   read off the meaningful part.
