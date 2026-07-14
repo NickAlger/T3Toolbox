@@ -41,6 +41,7 @@ __all__ = [
     'xappend',
     'xprepend',
     'tree_contains_jax',
+    'tree_to_jax',
     'items_are_uniform',
     #
     'randn',
@@ -368,6 +369,16 @@ def tree_contains_jax(T):
     if isinstance(T, typ.Sequence):
         return any([tree_contains_jax(t) for t in T])
     return is_jax_ndarray(T)
+
+
+def tree_to_jax(T):
+    """Move every array leaf of a pytree (nested tuples/lists of arrays) onto jax, preserving the tree
+    structure; leaves already jax are a no-op (``jnp.asarray``). Numpy ``float64`` leaves become jax
+    ``float32`` unless jax x64 is enabled -- the caller opts into jax precision. **Requires jax** -- guard
+    on :py:data:`jax_available` at the call site (``jnp`` is only bound when jax is importable)."""
+    if isinstance(T, typ.Sequence):
+        return type(T)(tree_to_jax(t) for t in T)   # preserve list-vs-tuple
+    return jnp.asarray(T)
 
 
 def items_are_uniform(

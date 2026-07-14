@@ -204,10 +204,14 @@ draw; a custom draw bypasses it entirely.
 ### 4.5 jit composes for free; the draw stays outside the compiled kernel
 
 The numpy/jax dispatch is inferred from the input array types at the lowest level (no `use_jax`
-threading), so a single kernel runs numpy-eager, jax-eager, or jit-compiled. **`use_jit`** (on
+threading), so a single kernel runs numpy-eager, jax-eager, or jit-compiled. **`use_jit=True`** (on
 `mc_sgd`/`adam`/`newton_cg`) jits the per-step kernel — gradient → step → retract, or the inner CG
-loop as one `lax.while_loop` — when the inputs are jax arrays; eager and jitted paths are verified
-to agree. **The draw runs *outside* the compiled kernel** — its fixed-size minibatch arrays flow in
+loop as one `lax.while_loop`. Asking for jit is opting into "jax world": the optimizer
+**auto-converts** the inputs (`x0`, `sample`, `data`) onto jax, so a `use_jit=True` call on numpy
+data **returns a jax-backed result** in jax's default **float32** (enable `jax.config.update(
+"jax_enable_x64", True)` first if you need float64), and **raises** if jax is not installed — the
+request is honored or explained, never silently dropped. (Passing jax inputs yourself is equivalent;
+the convert is a no-op.) **The draw runs *outside* the compiled kernel** — its fixed-size minibatch arrays flow in
 as the kernel's inputs, so the kernel compiles **once** (constant shapes) and is reused. This keeps
 your draw unconstrained (any numpy/jax indexing, never compiled) while the heavy kernel is jitted.
 For GPU scale: keep the data resident on device and write the draw in jax → the minibatch is

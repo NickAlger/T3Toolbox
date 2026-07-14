@@ -89,6 +89,15 @@ class TestFrontendOptimizers(unittest.TestCase):
         self.assertAlmostEqual(s.g0norm, 7.0, places=9)                             # Newton reference forwarded
         self.assertAlmostEqual(s.forcing_eta, min(0.5, (s.gnorm / 3.0) ** 1.0), places=9)   # CG ref + power forwarded
 
+    def test_newton_cg_use_jit_returns_jax(self):
+        """use_jit=True auto-converts the numpy inputs to jax through the adapter and returns a jax-backed
+        TuckerTensorTrain (the 'opting into jit = opting into jax world' contract)."""
+        from t3toolbox.backend.common import is_jax_ndarray
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)
+        x, _ = topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, x0, use_jit=True, max_newton=3)
+        self.assertIsInstance(x, t3.TuckerTensorTrain)
+        self.assertTrue(is_jax_ndarray(x.data[0][0]))         # jax-backed result
+
     def test_bad_kind_errors(self):
         with self.assertRaises(ValueError):
             topt.gradient_descent(t3m.MANIFOLD, 'nope', self.ww, self.data, self.X0, n_iter=1)

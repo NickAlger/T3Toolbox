@@ -21,6 +21,11 @@ raw cores, and (3) re-wraps the result. Design: ``dev/archive/optimizers_plan.md
 The geometry must match ``x0``'s representation (a uniform x0 with a ragged geometry, or vice versa, is a
 structural error). The result is returned in the same representation as ``x0``.
 
+**``use_jit=True``** (an explicit kwarg on ``mc_sgd`` / ``adam`` / ``newton_cg``) opts into jax: the
+optimizer **auto-converts** ``x0`` / ``sample`` / ``data`` onto jax and jit-compiles, so the result comes
+back **jax-backed** in jax's default float32 (enable jax x64 for float64); it **raises** if jax is not
+installed rather than silently running eager. See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
+
     >>> # x_opt, stats = optimizers.gradient_descent(MANIFOLD, 'probe', ww, data, x0)           # ragged
     >>> # x_opt, stats = optimizers.newton_cg(UNIFORM_MANIFOLD, 'probe', ww, data, ux0)         # uniform
 """
@@ -172,12 +177,13 @@ def mc_sgd(
         order:    typ.Optional[int] = None,
         weight:   typ.Optional[typ.Any] = None,   # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         draw:     typ.Optional[typ.Callable]        = None,  # custom draw(rng)->(sample_B,data_B); None = flat
-        **kwargs,                       # forwarded to backend.optimizers.mc_sgd
+        use_jit:  bool = False,         # jit the per-step kernel: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
+        **kwargs,                       # forwarded to backend.optimizers.mc_sgd (max_iter, check_every, ...)
 ) -> typ.Tuple[Point, dict]:
     """Manifold Cauchy SGD -- minibatched, tuning-free Cauchy step. Ragged or uniform ``x0`` (see
     :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.mc_sgd`."""
     problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight)
-    x_cores, stats = bopt.mc_sgd(problem, init, rng, batch, draw=draw, **kwargs)
+    x_cores, stats = bopt.mc_sgd(problem, init, rng, batch, draw=draw, use_jit=use_jit, **kwargs)
     return rewrap(x_cores), stats
 
 
@@ -192,12 +198,13 @@ def adam(
         order:    typ.Optional[int] = None,
         weight:   typ.Optional[typ.Any] = None,   # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         draw:     typ.Optional[typ.Callable]        = None,
+        use_jit:  bool = False,         # jit the per-step kernel: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
         **kwargs,                       # forwarded to backend.optimizers.adam (lr, max_iter, ...)
 ) -> typ.Tuple[Point, dict]:
     """Adam over the cores -- the dependency-free first-order method for the corewise geometry. Ragged or
     uniform ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.adam`."""
     problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight)
-    x_cores, stats = bopt.adam(problem, init, rng, batch, draw=draw, **kwargs)
+    x_cores, stats = bopt.adam(problem, init, rng, batch, draw=draw, use_jit=use_jit, **kwargs)
     return rewrap(x_cores), stats
 
 
@@ -213,7 +220,8 @@ def newton_cg(
         val_sample: typ.Any = None,               # optional validation sample (same layout as `sample`) -> a train|val table
         val_data:   typ.Any = None,               # optional validation data (both given adds the val column)
         callback:   typ.Optional[typ.Callable] = None,  # custom callback(NewtonInfo) each iter (overrides `verbose`)
-        **kwargs,                       # forwarded to backend.optimizers.newton_cg (max_newton, use_jit, ...)
+        use_jit:    bool = False,               # jit the inner CG: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
+        **kwargs,                       # forwarded to backend.optimizers.newton_cg (max_newton, gtol_rel, g0norm_newton, ...)
 ) -> typ.Tuple[Point, dict]:
     """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse. Ragged or uniform
     ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
@@ -258,6 +266,43 @@ def newton_cg(
 
     For a **ragged** fit pass ``t3m.MANIFOLD`` and a ``TuckerTensorTrain`` ``x0`` instead; the call is
     otherwise identical.
+
+    **Precision — jit runs in jax's default float32.** ``use_jit=True`` opts into jax world, whose default
+    dtype is float32. Fit a small exact-rank tensor three ways; the giveaway throughout is the returned
+    core's dtype. First set up the problem:
+
+    >>> import t3toolbox.manifold as t3m
+    >>> np.random.seed(0)
+    >>> A = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
+    >>> ww = [np.random.randn(60, N) for N in (4, 5, 6)]
+    >>> ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
+    >>> b = A.probe(ww)
+    >>> x0 = t3.TuckerTensorTrain.zeros((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
+    >>> def rel_err(x): return float(np.linalg.norm(np.asarray(x.to_dense()) - A.to_dense()) / np.linalg.norm(A.to_dense()))
+
+    (1) The numpy path is float64 and recovers to near machine precision (~1e-10):
+
+    >>> x_np, _ = optimizers.newton_cg(t3m.MANIFOLD, 'probe', ww, b, x0, max_newton=20)
+    >>> str(x_np.data[0][0].dtype), bool(rel_err(x_np) < 1e-8)
+    ('float64', True)
+
+    (2) ``use_jit=True`` runs the SAME code in jax's default float32 and stalls ~1000x coarser (~1e-7):
+
+    >>> x_jit, _ = optimizers.newton_cg(t3m.MANIFOLD, 'probe', ww, b, x0, max_newton=20, use_jit=True)
+    >>> str(x_jit.data[0][0].dtype), bool(rel_err(x_jit) > 1e-8)
+    ('float32', True)
+
+    (3) Enabling jax x64 restores float64 under jit -- full accuracy again (~1e-10). ``jax_enable_x64`` is
+    a **global, process-wide** flag, so restore it right after the fit; the check reads values captured
+    while it was on:
+
+    >>> import jax
+    >>> jax.config.update("jax_enable_x64", True)
+    >>> x_x64, _ = optimizers.newton_cg(t3m.MANIFOLD, 'probe', ww, b, x0, max_newton=20, use_jit=True)
+    >>> dtype_x64, ok_x64 = str(x_x64.data[0][0].dtype), bool(rel_err(x_x64) < 1e-8)
+    >>> jax.config.update("jax_enable_x64", False)          # restore the default before asserting (no leak)
+    >>> dtype_x64, ok_x64
+    ('float64', True)
     """
     problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight)
     records = None
@@ -267,7 +312,7 @@ def newton_cg(
             vs = uf.pack_sample(kind, val_sample, x0.N)   # pack validation to the packed kind's width
             vd = uf.pack_data(kind, val_data, x0.N)
         callback, records = bdisp.make_newton_display(problem, val_sample=vs, val_data=vd)
-    x_cores, stats = bopt.newton_cg(problem, init, callback=callback, **kwargs)
+    x_cores, stats = bopt.newton_cg(problem, init, callback=callback, use_jit=use_jit, **kwargs)
     if records is not None:
         stats['diagnostics'] = records
     return rewrap(x_cores), stats

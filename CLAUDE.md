@@ -378,7 +378,10 @@ doctests CI-enforced on both numpy generations.
   `g0norm_cg` pin the reference `‖g0‖` the Newton stop / CG forcing term are relative to (default = the
   initial `‖g‖`, misleadingly small after a continuation warm start; `g0norm_newton` also feeds CG unless
   `g0norm_cg` is given), and `cg_forcing_power` (default `0.5`) tunes CG effort per Newton step
-  (`docs/fitting_and_optimization.md` §5); **the full uniform mirror
+  (`docs/fitting_and_optimization.md` §5); plus **`use_jit=True` auto-converts** (`mc_sgd`/`adam`/`newton_cg`):
+  requesting jit moves `x0`/`sample`/`data` onto jax and compiles, so it returns a **jax-backed** result
+  (jax float32 unless x64) and **raises** if jax is absent — never the old silent eager drop
+  (`_prepare_jit_inputs`; `docs/fitting_and_optimization.md` §4.5); **the full uniform mirror
   of all of it** — `UniformTuckerTensorTrain`, `UT3Frame`/`UT3Variations`/`UT3Tangent`, the
   uniform geometries, uniform sampling + jets, and the optimizers running fully packed,
   jit-compile-once, ragged-vs-uniform inferred from `x0` (per-element verified vs ragged +

@@ -21,6 +21,30 @@ branch can be deleted (optional).
 
 ## Active threads
 
+- **`use_jit=True` auto-convert (silent-drop bug) — DONE, on `main` (2026-07-14), uncommitted.**
+  Fixes: `use_jit=True` with numpy inputs used to silently run eager (the flag looked accepted but did
+  nothing — meaningless "jit" benchmarks). Root cause was the `_maybe_jit` / `xwhile` guard requiring all
+  inputs to already be jax. **Key technical finding:** it's *not* a jax limitation — a jit tracer *is* a
+  `jnp.ndarray`, so our type-inference dispatch routes to `jnp` during tracing; forcing jit on numpy
+  inputs runs correctly and (with x64) matches eager bit-for-bit. The guard's real job was preventing a
+  silent **float32** downgrade (jax's default), not a crash. Nick's call: **auto-convert** — requesting
+  jit is opting into jax-world precision. Fix (`_prepare_jit_inputs` in `backend/optimizers.py`): when
+  `use_jit=True`, `jnp.asarray` `x0` + `problem.sample`/`data` (masks/weight left alone), so both jit
+  mechanisms engage; returns a **jax-backed** result (float32 unless x64); **raises** if jax absent
+  (the one un-honorable case). New `common.tree_to_jax`. Verified end-to-end ragged + uniform (masks stay
+  numpy) + no-jax raise. Tests: backend `test_use_jit_requires_jax` + jax-backed assertions in
+  `test_newton_cg_recovers_to_high_accuracy`; frontend `test_newton_cg_use_jit_returns_jax`. Docs:
+  `fitting_and_optimization.md` §4.5, frontend module docstring, CLAUDE.md shipped-surface. Two refinements
+  (Nick, same session): (a) **`use_jit` promoted to an explicit frontend kwarg** on `newton_cg`/`mc_sgd`/
+  `adam` (was implicit via `**kwargs` — justified singling-out: it's the only kwarg that changes the
+  return type/precision); (b) a **3-part precision doctest** in `optimizers.newton_cg` — numpy float64
+  (~1e-10) vs jit float32 (~1e-7) vs jit + `jax_enable_x64` (float64 restored, ~1e-10). Verifiable via the
+  dtype contrast + straddle-1e-8 booleans (raw floats aren't bit-reproducible). **x64 leak avoided**:
+  `jax.experimental.enable_x64` is gone in jax 0.10, so the doctest uses the global `jax.config.update`
+  but captures dtype/err as plain Python values *while x64 is on*, then restores `x64=False` BEFORE
+  asserting — a green run guarantees no leak into the single-process `--doctest-modules` sweep (verified:
+  full sweep 169 passed; also green on the jax 0.4.30 compat-floor env). **Next: commit.**
+
 - **Newton-CG warm-start reference overrides — DONE, on `main` (2026-07-14), uncommitted.**
   `newton_cg` now takes three optional kwargs so a warm-start continuation loop isn't hurt by a
   misleadingly-small initial `‖g0‖`: `g0norm_newton` / `g0norm_cg` override the reference norm the

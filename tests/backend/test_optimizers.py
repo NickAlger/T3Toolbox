@@ -14,6 +14,7 @@ import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.optimizers as opt
 import t3toolbox.backend.sampling_derivatives as pd
 import t3toolbox.corewise as cw
+from t3toolbox.backend.common import is_jax_ndarray
 
 SHAPE, TUCKER, TT = (8, 8, 8), (3, 3, 3), (1, 3, 3, 1)
 
@@ -179,17 +180,20 @@ class TestBackendOptimizers(unittest.TestCase):
 
     def test_newton_cg_recovers_to_high_accuracy(self):
         """Manifold Newton-CG (2nd-order) recovers an exact low-rank target to high accuracy from a zero
-        start (the orthonormal frame completion makes the zero tensor a valid start). Eager + use_jit."""
+        start (the orthonormal frame completion makes the zero tensor a valid start). Eager numpy (float64)
+        and use_jit=True (which auto-converts the numpy inputs to jax -> float32 -> jits) both recover; the
+        jit path returns a jax-backed result."""
         rng = np.random.default_rng(4)
         ww = unit_vecs(300, SHAPE, rng); data = dense_probe(self.A, ww)
         problem = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
         A_norm = float(np.linalg.norm(self.A))
-        for use_jit in (False, True):                       # eager and (silent-fallback / jax) jit paths agree
+        for use_jit in (False, True):
             with self.subTest(use_jit=use_jit):
                 x, stats = opt.newton_cg(problem, x0, max_newton=30, use_jit=use_jit)
-                true_e = float(np.linalg.norm(t3.TuckerTensorTrain(*x).to_dense() - self.A)) / A_norm
+                true_e = float(np.linalg.norm(np.asarray(t3.TuckerTensorTrain(*x).to_dense()) - self.A)) / A_norm
                 self.assertLess(true_e, 1e-4)
+                self.assertEqual(is_jax_ndarray(x[0][0]), use_jit)   # use_jit auto-converts numpy -> jax-backed
 
     def test_cg_solve_reports_state(self):
         """D1: `_cg_solve` returns `(p, iters, resid², ok)` -- converges to the exact solution on a PD
@@ -338,6 +342,30 @@ class TestBackendOptimizers(unittest.TestCase):
                                                (wwa, ppa), da)
             xd, _ = opt.mc_sgd(prob_d, x0z, np.random.default_rng(7), batch=20, max_iter=120, use_jit=True)
             self.assertIsInstance(xd[0][0], jnp.ndarray)        # jit-compiled (a stray np.* on a tracer raises)
+
+    def test_use_jit_requires_jax(self):
+        """use_jit=True with jax unavailable raises (not the old silent eager fallback) for all three
+        optimizers. No compilation: the guard fires at entry before any kernel is built (jax_available
+        patched off to simulate a jax-less install)."""
+        rng = np.random.default_rng(4)
+        ww = unit_vecs(40, SHAPE, rng); data = dense_probe(self.A, ww)
+        pm = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
+        pc = opt.least_squares_problem(opt.COREWISE_OPS, bfit.PROBE, ww, data)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
+        saved = opt.jax_available
+        opt.jax_available = False
+        try:
+            with self.assertRaises(ValueError):
+                opt.newton_cg(pm, x0, max_newton=1, use_jit=True)
+            with self.assertRaises(ValueError):
+                opt.mc_sgd(pm, x0, rng, batch=20, max_iter=1, use_jit=True)
+            with self.assertRaises(ValueError):
+                opt.adam(pc, x0, rng, batch=20, max_iter=1, use_jit=True)
+            # use_jit=False is unaffected -- still runs eager on numpy
+            xf, _ = opt.newton_cg(pm, x0, max_newton=1, use_jit=False)
+            self.assertFalse(is_jax_ndarray(xf[0][0]))
+        finally:
+            opt.jax_available = saved
 
 
 if __name__ == "__main__":

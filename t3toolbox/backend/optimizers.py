@@ -194,10 +194,30 @@ def flat_draw(
 # --------------------------------------------------------------------------------------------------
 # Optimizers
 # --------------------------------------------------------------------------------------------------
+def _prepare_jit_inputs(use_jit, x0, problem):
+    """When ``use_jit``, move the optimizer inputs onto jax so the jit path actually engages -- the
+    **auto-convert** contract: asking for jit is opting into "jax world" (device residency + jax's default
+    float32), so we ``jnp.asarray`` ``x0`` and the problem's ``sample`` / ``data`` rather than silently
+    dropping the request. ``geom`` / ``kind`` (and any uniform masks / residual weight they hold) are left
+    untouched -- masks stay host-numpy per the uniform jit recipe, and a numpy weight folds in as a
+    constant. Returns ``(x0, problem)`` unchanged when ``use_jit`` is False.
+
+    Raises when ``use_jit`` but jax is unavailable -- the one case with nothing to convert and no compiler;
+    silently degrading to eager is exactly the bug this replaces."""
+    if not use_jit:
+        return x0, problem
+    if not jax_available:
+        raise ValueError("use_jit=True requires jax (install the t3toolbox[jax] extra); without jax there "
+                         "is nothing to compile. Drop use_jit to run eager on numpy.")
+    return (tree_to_jax(x0),
+            dc.replace(problem, sample=tree_to_jax(problem.sample), data=tree_to_jax(problem.data)))
+
+
 def _maybe_jit(fn, use_jit, x0, problem):
     """jit ``fn`` iff ``use_jit`` AND jax is available AND the inputs (x0, sample, data) are **all** jax
-    (so the minibatch gather + kernel run on device). Otherwise return ``fn`` unchanged -- the silent
-    eager fallback (numpy, eager-jax, or no jax). Compiles once and is reused across the fixed-shape steps."""
+    (so the minibatch gather + kernel run on device). Otherwise return ``fn`` unchanged -- the eager path
+    (``use_jit=False``; inputs are guaranteed jax under ``use_jit`` via :py:func:`_prepare_jit_inputs`).
+    Compiles once and is reused across the fixed-shape steps."""
     if (use_jit and jax_available and tree_contains_jax(x0)
             and tree_contains_jax(problem.sample) and tree_contains_jax(problem.data)):
         import jax
@@ -260,7 +280,10 @@ def mc_sgd(
     exponentially-smoothed **full-batch** loss with an **absolute-iteration window** (``plateau_lag *
     check_every`` iterations) -- decoupled from batch size (the epoch-based window made small batches
     fragile; findings in a separate research repo, maintainer-local). ``use_jit`` jits the per-step kernel (the host loop
-    draws minibatches; the full-batch stop check stays on the host)."""
+    draws minibatches; the full-batch stop check stays on the host), auto-converting numpy inputs to jax
+    first (:py:func:`_prepare_jit_inputs`) -- so the **default** ``flat_draw`` then slices the on-device
+    ``sample`` / ``data`` (a custom ``draw`` should return jax minibatches to stay on device)."""
+    x0, problem = _prepare_jit_inputs(use_jit, x0, problem)
     draw = draw if draw is not None else flat_draw(problem, batch)
     a_smooth = 1.0 - math.exp(-1.0 / smooth_tau)
 
@@ -305,7 +328,9 @@ def adam(
     moments ``m`` / ``v`` are trees matching the cores (a ``corewise_map`` per step); elementwise, so this
     is exactly per-core Adam. (``lr`` is a real hyperparameter -- Adam is not tuning-free, unlike the Cauchy
     step.) On corewise the step is additive (``lm.retract`` = ``cores += step``). ``use_jit`` jits the
-    per-step kernel (``lr_t``/``t`` flow in as traced args, so the schedule does not force a recompile)."""
+    per-step kernel (``lr_t``/``t`` flow in as traced args, so the schedule does not force a recompile),
+    auto-converting numpy inputs to jax first (:py:func:`_prepare_jit_inputs`)."""
+    x0, problem = _prepare_jit_inputs(use_jit, x0, problem)
     b1, b2 = betas
 
     def step(cores, m, v, sample_B, data_B, lr_t, t):      # the jit-able per-step kernel
@@ -430,7 +455,9 @@ def newton_cg(
     CG to an inexact forcing-term tolerance (the inner loop -- jit-able via :py:func:`_cg_solve`), then
     backtracks along ``retract(α p)``. The CG truncates on the gauge-singular corewise ``H``; the outer
     line search keeps it robust regardless. ``use_jit`` jits only the inner CG (the outer loop, line
-    search, and convergence test stay on the host).
+    search, and convergence test stay on the host), auto-converting numpy inputs to jax first
+    (:py:func:`_prepare_jit_inputs`) -- so a ``use_jit=True`` call on numpy data returns a jax-backed
+    result (jax's default float32 unless x64 is enabled) and raises if jax is not installed.
 
     **Overriding the reference gradient norm ‖g0‖** (``g0norm_newton`` / ``g0norm_cg`` /
     ``cg_forcing_power``). Both stopping tests are *relative* to a reference ‖g0‖: the Newton stop is
@@ -451,6 +478,7 @@ def newton_cg(
     residual), so it composes with ``use_jit`` (only the inner CG jits) but not with a hypothetical
     fully-jitted outer loop. Ready-made displays: :py:func:`t3toolbox.backend.optimizer_display.make_newton_display`.
     ``stats`` always carries ``'history'`` -- one :py:func:`_newton_scalar_record` per iteration."""
+    x0, problem = _prepare_jit_inputs(use_jit, x0, problem)             # auto-convert to jax when jitting
     x = x0
     computed_g0norm = None                                              # the initial ‖g‖ -- the default reference
     losses, newton_iters, history = [], 0, []
