@@ -4,9 +4,9 @@
 [![docs](https://github.com/NickAlger/T3Toolbox/actions/workflows/build-sphinx-docs.yaml/badge.svg)](https://github.com/NickAlger/T3Toolbox/actions/workflows/build-sphinx-docs.yaml)
 
 A pure-Python (NumPy + optional JAX) library for **Tucker tensor trains (T3)**. A Tucker tensor train 
-is the composition of a Tucker decomposition with a tensor train decomposition of the central core.
-When the ranks are moderate, a T3 breaks the curse of dimensionality: storing a dense tensor costs 
-O(N^d) memory, while the T3 representing it costs O(dnr^2 + dnN). 
+is a tensor network which consists of a Tucker decomposition composed with a tensor train 
+decomposition of the central core. When the ranks are moderate, a T3 breaks the curse of dimensionality: 
+storing a dense tensor costs O(N^d) memory, while the T3 representing it costs O(dnr^2 + dnN). 
 Tucker tensor trains are also known as **extended tensor trains (ETT)**.
 
 Tensor network diagram for a Tucker tensor train:
