@@ -53,8 +53,18 @@ branch can be deleted (optional).
   on all six model factories (`_reject_uniform_regularizer` guard removed); folded into
   `objective_value`/`gradient`/`gn_quadratic`/`gn_hessian`/`evaluate` via `_ubgeom` (backend uniform
   `GeometryOps` at rank) + `_reg_tangent`; pytree carries reg. `test_fitting.py::test_uniform_regularizer`
-  (identities + uniform==ragged objective, both geometries). Full suite green (633). **Next: S4**
-  (`examples/` demo — the runnable regularization example Nick wants), then S5 (docs). Also noted:
+  (identities + uniform==ragged objective, both geometries). Full suite green (633).
+  **S4 DONE (uncommitted):** `examples/fit_hilbert_regularized.py` (**Option A** — chosen after regime
+  exploration; rationale block in `regularization_design.md` §10 S4). Fit a Hilbert tensor 16³ (spectral
+  decay) at rank (3,3,3) from 400 noisy applies + 400 validation; unreg overfits slightly (recovery ~0.356,
+  above the t3svd floor 0.0077), reg traces the U-curve (‖X‖ 4.12→3.13), λ from held-out validation → mean
+  0.306 (~1.16×, val picks optimum 3/6, near-optimal rest). Showcases the `obj = misfit + reg` split. Pointer
+  in `docs/fitting_and_optimization.md` §6. (Superseded an ill-posed exact-rank-2 draft — dramatic 2.9× but
+  poor final fit ~0.6; Nick chose the good-fit/modest-gain framing.)
+  **Misfit/reg display split DONE + COMMITTED (`d9700056`, unpushed):** `LocalModel.misfit`/`.regularization`
+  props; `NewtonInfo` carries both → `stats['history']`/`['diagnostics']`; `verbose=` shows `obj = misfit +
+  reg` (Format A); fixed a latent `(unwt …)` mislabel bug (compared vs total, now vs misfit). Tests + doctest.
+  **Next: S5** (docs — a new § in `fitting_and_optimization.md` + CLAUDE.md shipped-surface). Also noted:
   masked-last-core `point_norm_sq` optimization.
   Design note + full slice plan: **`dev/regularization_design.md`**.
   Framework: a `Regularizer` is an objective term folded into the local GN model

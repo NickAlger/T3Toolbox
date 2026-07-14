@@ -328,11 +328,26 @@ bug. **Interface consequence:** the regularizer is handed tangents + the geometr
    matches the ragged model's; pytree round-trip preserves the reg. (Uses minimal ranks — the model factory,
    unlike the optimizer, does not call `uniform_minimal`.) Full suite green (633).
 
-4. **S4 — user-facing example** in `examples/` (Nick wants this): a runnable demo of identity
-   regularization stabilizing an ill-posed fit — e.g. recover a low-rank tensor from *too few* / noisy
-   probes where the unregularized Newton-CG fit is unstable, and `regularizer=IdentityRegularizer(λ)`
-   recovers a sensible solution; show the λ-vs-error tradeoff. Follows the examples-first doctest
-   convention; wire into the existing `examples/fit_*` family.
+4. **S4 — user-facing example. ✅ DONE (2026-07-14, uncommitted).** `examples/fit_hilbert_regularized.py`
+   (**Option A**, chosen 2026-07-14 after exploring regimes — see the note below). Fit a **Hilbert tensor**
+   16³ (smooth spectral decay) at fixed rank (3,3,3) from `M=400` noisy scalar **applies** + a 400-apply
+   validation split; noise σ=0.015. Unregularized Newton-CG overfits the noise slightly (recovery ~0.356,
+   above the t3svd floor 0.0077); `regularizer=IdentityRegularizer(λ)` traces the bias-variance **U-curve**
+   (‖X‖ shrinks 4.12→3.13), and **λ is chosen by held-out validation** (no peeking at A) → mean 0.306
+   (~1.16× better, val picks the optimum 3/6 seeds, near-optimal in the rest). The example also **showcases
+   the `obj = misfit + reg` split** (from `stats['history']`). Pointer in `docs/fitting_and_optimization.md`
+   §6. (Examples aren't in CI; ran it + confirmed the output.)
+
+   > **Why Option A (the regime exploration, 2026-07-14).** An earlier draft used an *ill-posed rescue*
+   > regime (exactly-rank-2 tensor, M=55 ≈ manifold dim → unreg recovery **> 1**, reg 2.9× to ~0.62). It
+   > showed reg's value dramatically but the final fit stayed poor (~0.6) — because the regime where identity
+   > reg helps *most* (severely ill-posed) is intrinsically the regime with the *worst* achievable fit.
+   > Confirmed the tension is fundamental (bias-variance + the rank constraint already being the primary
+   > regularizer): mapped a Hilbert-tensor frontier where good fit ⟺ weak reg gain (M=400: 0.34→0.29, 1.2×)
+   > and strong gain ⟺ poor fit (M=200: 1.05→0.69, 1.5×); higher-rank+reg never beat picking the right rank.
+   > Nick chose the **good-fit, modest-honest-denoising** framing (fit ~0.30 ≪ 0.66, gain ~1.2×) over the
+   > dramatic-but-poor rescue. The sharper "improve a *good* fit" story needs the selective **Grasedyck–Kramer**
+   > prior (§11), not identity reg — noted in the example's docstring.
 5. **S5 — docs.** `docs/fitting_and_optimization.md` new § (+ link the example); CLAUDE.md shipped-surface.
 
 ## 11. Grasedyck–Kramer seam (future, not now)

@@ -321,7 +321,9 @@ repo, maintainer-local):
   topt.py` (the **library** apply-derivatives pilot); `fit_hilbert_uniform_newton_cg.py` /
   `_probe_derivatives_newton_cg.py` (the uniform layer end-to-end); `fit_per_mode_weight_probes.py`
   (**per-mode residual weighting** — inverse-noise probe fit, §4.6); `fit_probe_display.py`
-  (**`verbose=True` Newton-CG diagnostics** — both relative-error table layouts).
+  (**`verbose=True` Newton-CG diagnostics** — both relative-error table layouts);
+  `fit_hilbert_regularized.py` (**identity/Tikhonov regularization** — denoising a noisy Hilbert-tensor
+  fit, with λ chosen by held-out validation; shows the `obj = misfit + reg` split).
 - **Adjacent:** [`entries_apply_probe.md`](entries_apply_probe.md) (the three sampling ops + their
   transposes), [`transposes.md`](transposes.md) (ambient/corewise/tangent taxonomy),
   [`batching_and_stacking.md`](batching_and_stacking.md) (the `W`/`K`/`C` stack design),
