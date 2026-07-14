@@ -366,6 +366,23 @@ class TestBackendOptimizers(unittest.TestCase):
         self.assertGreater(res[0.0][1], res[1e-3][1])                   # ridge shrinks ‖x‖ ...
         self.assertGreater(res[1e-3][1], res[1e-1][1])                  # ... monotonically toward 0
 
+    def test_uniform_point_norm_sq_garbage_robust(self):
+        """S3/§7: the uniform manifold point_norm_sq equals ‖X‖²_HS and is robust to garbage in the input
+        padding (1e6 into the masked-out region must not change the reduction -- the phantom-rank tripwire)."""
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.backend.uniform_fitting as uf
+        import t3toolbox.backend.ut3_masking as ut3mask
+        Xr = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        Xn2 = float(np.linalg.norm(Xr.to_dense())) ** 2
+        Xum = uf.uniform_minimal(ut3.UniformTuckerTensorTrain.from_t3(Xr))
+        tk, tt, shape, masks = Xum.data
+        gops = uf.uniform_manifold_ops(Xum.data)
+        self.assertAlmostEqual(float(gops.point_norm_sq((tk, tt))) / Xn2, 1.0, places=5)     # == ‖X‖²_HS
+        onem = ut3mask.ut3_apply_masks((np.ones_like(tk), np.ones_like(tt), shape, masks))   # 1 in-mask, 0 padding
+        g = (np.asarray(tk) + 1e6 * (1.0 - np.asarray(onem[0])),
+             np.asarray(tt) + 1e6 * (1.0 - np.asarray(onem[1])))
+        self.assertAlmostEqual(float(gops.point_norm_sq(g)) / Xn2, 1.0, places=5)            # garbage-robust
+
     def test_stochastic_regularizer_scaling(self):
         """The stochastic optimizers scale the (deterministic) regularizer by batch/n per step (so λ matches
         the full-batch optimizers) while the full-batch stop keeps the full-strength reg; mc_sgd + reg

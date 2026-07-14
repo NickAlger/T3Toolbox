@@ -108,14 +108,33 @@ def _manifold_point_norm_sq(
     return xnp.sum(last * last)
 
 
+def _manifold_point_tangent(
+        frame:  typ.Tuple,    # (U, O, P, Q) -- an orthogonal frame
+) -> Tangent:                 # v_X: the attachment point X as a gauged tangent (tucker_var, tt_var)
+    """The attachment point ``X = (U, P)`` as a gauged tangent ``v_X`` -- **the DIRECT construction**: all
+    variations zero except the last TT variation, set to the frame's last left core ``P_last``. This is
+    already gauged (the last TT variation is the one slot with no gauge condition), so it needs neither an
+    ambient projection nor a gauge projection: ``dense(v_X) = X`` and ``‖v_X‖_coord = ‖X‖_HS`` exactly.
+    (It equals ``tv_project_t3_onto_tangent_space(frame, (U, P))`` -- verified -- but avoids that roundabout
+    computation, whose environment contractions all collapse since the projected T3 IS the frame's own
+    cores. See ``dev/regularization_design.md`` §12 and the base-point-as-tangent backlog item.)"""
+    up, down, left, right = frame
+    xnp, _, _ = get_backend(False, tree_contains_jax(frame))
+    d = len(up)
+    stack = up[0].shape[:-2]                                         # the frame stack C
+    tucker_var = tuple(xnp.zeros(stack + (down[i].shape[-2], up[i].shape[-1])) for i in range(d))
+    tt_var = tuple(xnp.zeros(stack + (left[i].shape[-3], up[i].shape[-2], right[i].shape[-1]))
+                   for i in range(d - 1)) + (left[-1],)              # last TT variation = P_last
+    return (tucker_var, tt_var)
+
+
 MANIFOLD_OPS = GeometryOps(
     frame=_manifold_frame,
     project=lambda frame, var: tops.tv_orthogonal_gauge_projection(frame, var),   # Π  (gauge-fix the tangent)
     retract=lambda frame, var: tops.tv_retract(frame, var),                       # implicit truncated T3-SVD
     inner=cw.corewise_dot,                                                    # ragged coordinate dot
     point_norm_sq=_manifold_point_norm_sq,
-    # v_X: project the base point X=(U,P) onto the tangent (= X, since X is tangent) -> a gauged tangent
-    point_tangent=lambda frame: tops.tv_project_t3_onto_tangent_space(frame, (frame[0], frame[2])),
+    point_tangent=_manifold_point_tangent,
 )
 
 

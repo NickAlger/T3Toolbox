@@ -90,7 +90,23 @@ def uniform_manifold_ops(
         return utv_ops.utv_corewise_inner(
             (a_sc[0], a_sc[1], shape, var_masks), (b_sc[0], b_sc[1], shape, var_masks), n_stack)
 
-    return bopt.GeometryOps(frame=frame, project=project, retract=retract, inner=inner)
+    def point_tangent(frame_data):                          # v_X: the attachment point X as a gauged tangent
+        # DIRECT construction (the uniform twin of _manifold_point_tangent): all variations zero except the
+        # last TT variation supercore slice = the frame's last left core P_last -- already gauged (no
+        # projection). var_masks/var_data give the loop-invariant variation supercore shapes.
+        xnp, _, _ = get_backend(True, tree_contains_jax(frame_data))
+        d = np.shape(var_data[0])[0]
+        tkv = xnp.zeros(tuple(np.shape(var_data[0])))                                 # tucker variations: all zero
+        ttv = xnp.concatenate([xnp.zeros((d - 1,) + tuple(np.shape(var_data[1])[1:])),
+                               frame_data[2][-1:]], axis=0)                           # tt: zero except last = P_last
+        return (tkv, ttv)
+
+    def point_norm_sq(x_sc):                                # ‖X‖² = ‖v_X‖²_coord (masked)
+        vX = point_tangent(frame(x_sc))                     # orthogonalize -> v_X (direct) -> masked inner
+        return inner(vX, vX)
+
+    return bopt.GeometryOps(frame=frame, project=project, retract=retract, inner=inner,
+                            point_norm_sq=point_norm_sq, point_tangent=point_tangent)
 
 
 def uniform_corewise_ops(
@@ -123,7 +139,14 @@ def uniform_corewise_ops(
         return utv_ops.utv_corewise_inner(
             (a_sc[0], a_sc[1], shape, var_masks), (b_sc[0], b_sc[1], shape, var_masks), n_stack)
 
-    return bopt.GeometryOps(frame=frame, project=project, retract=retract, inner=inner)
+    def point_tangent(frame_data):                         # the cores (U,G) as a tangent (project = identity here)
+        return (frame_data[0], frame_data[2])
+
+    def point_norm_sq(x_sc):                               # Σ‖core_i‖² (masked coordinate norm; weight-decay)
+        return inner(x_sc, x_sc)
+
+    return bopt.GeometryOps(frame=frame, project=project, retract=retract, inner=inner,
+                            point_norm_sq=point_norm_sq, point_tangent=point_tangent)
 
 
 def uniform_geometry_ops(
@@ -432,6 +455,7 @@ def uniform_least_squares_problem(
         data:      typ.Any,    # observed S(x_true): scalar array (apply/entries) or a d-list/packed (probe)
         order:     typ.Optional[int] = None,  # derivative kinds only (required)
         weight:    typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) or ω[mode,order] (derivatives)
+        regularizer: typ.Any = None,          # optional backend.regularization.Regularizer (e.g. IdentityRegularizer(λ))
 ) -> bopt.Problem:
     """Assemble a fully-packed uniform least-squares :py:class:`~t3toolbox.backend.optimizers.Problem`.
 
@@ -486,4 +510,5 @@ def uniform_least_squares_problem(
     geom = uniform_geometry_ops(geometry, x0_data)
     kind = (uniform_sampling_kind(kind_name, x0_data, weight) if kind_name in ('apply', 'entries', 'probe')
             else uniform_derivatives_kind(kind_name, x0_data, order, weight))
-    return bopt.least_squares_problem(geom, kind, pack_sample(kind_name, sample, N), pack_data(kind_name, data, N))
+    return bopt.least_squares_problem(geom, kind, pack_sample(kind_name, sample, N), pack_data(kind_name, data, N),
+                                      regularizer=regularizer)

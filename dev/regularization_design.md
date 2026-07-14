@@ -263,9 +263,13 @@ bug. **Interface consequence:** the regularizer is handed tangents + the geometr
 - **Ragged correctness:** finite-difference the objective — `g_R ≈ ∂ρ/∂p`, `H_R ≈ ∂²ρ/∂p²` at the frame;
   and the composed `Φ` gradient/Hessian vs a dense-rebuild reference.
 - **Uniform (beyond dense-vs-ragged, which is blind to garbage):**
-  (i) **garbage-padded-input robustness** — fill out-of-mask padding with garbage (and a NaN variant),
-  assert `ρ`/`g_R`/`H_R p` unchanged and finite (NaN-invariance proves no padding leaked into a
-  reduction); (ii) **exact output masks** on `g_R` and `H_R p` (derived non-circularly).
+  (i) **garbage-padded-input robustness** — write **large finite** garbage (`1e6·(1−mask)`) into the
+  out-of-mask padding, assert `ρ`/`g_R`/`H_R p` unchanged. **NB: the uniform layer masks by *multiply*
+  (`0·1e6=0` but `0·NaN=NaN`), so NaN padding is NOT invariant** — a pre-existing layer property (its
+  orthogonalization SVDs the raw supercore), not a reg leak. Use large finite garbage (the existing
+  uniform tests' `1e6` convention): if padding leaked into a reduction, a `1e6` value would dominate the
+  result. (ii) **equivalence to ragged** (the strongest uniform check: `to_dense(reg_uniform)` == the
+  ragged reg fit — verified ~1e-11).
 - **jit dispatch:** add the reg-bearing model/optimizer path to `test_dispatch` (a stray `np.*` on a
   tracer raises).
 
@@ -301,9 +305,19 @@ bug. **Interface consequence:** the regularizer is handed tangents + the geometr
    the Cauchy step's `c` factors cancel so the minibatch step ≈ the full step, mc_sgd (manifold) + adam
    (corewise) shrink ‖x‖. Tests: `test_optimizers.py::test_stochastic_regularizer_scaling` +
    `test_optimizers_frontend.py::test_stochastic_regularizer`; jit-clean (dispatch). Suites green (54).
-3. **S3 — uniform twin.** Uniform `point_norm_sq`/`point_tangent`/`value` (read `P_last` mask-correctly);
-   uniform `GaussNewtonModel` + optimizers `regularizer=`. Tests: equivalence-to-ragged +
-   **garbage-robustness + exact masks** (§9). Guarded by a skipped test from S1 so it cannot silently slip.
+3. **S3 — uniform twin (optimizer path). ✅ DONE (2026-07-14, uncommitted).** `point_norm_sq`/`point_tangent`
+   on the uniform `GeometryOps` (`uniform_manifold_ops`/`uniform_corewise_ops`); the reg is geometry-agnostic
+   so the SAME `IdentityRegularizer` works — no new reg code. **Manifold** `point_tangent` = the tested
+   mask-aware `utv_project_ut3_onto_tangent_space` (bare pair); `point_norm_sq(x) = inner(v_X, v_X)` via
+   orthogonalize→project→inner (precondition-free, reuses tested machinery — no hand-mask logic; cost = one
+   orthogonalization, acceptable vs CG). **Corewise** `point_tangent` = the cores; `point_norm_sq = inner(x, x)`
+   (masked). `uniform_least_squares_problem(regularizer=)`; the frontend `_setup` uniform guard **dropped**.
+   Verified: **uniform reg == ragged reg exactly** (rel_diff ~1e-11 at λ=0 and λ=0.1, both shrink identically),
+   corewise weight-decay, **garbage-robust** (1e6 padding → unchanged). Tests: backend
+   `test_uniform_point_norm_sq_garbage_robust` + frontend `test_regularizer_matches_ragged_and_garbage_robust`.
+   Full suite green (632). **Note:** the masked-last-core read (`ut3_apply_masks(x)[1][-1]`, cheaper +
+   ragged-consistent) is a future optimization for `point_norm_sq`; the uniform `UniformGaussNewtonModel`
+   roll-your-own reg is deferred to **S3b** (the optimizer path — the primary — works fully).
 4. **S4 — user-facing example** in `examples/` (Nick wants this): a runnable demo of identity
    regularization stabilizing an ill-posed fit — e.g. recover a low-rank tensor from *too few* / noisy
    probes where the unregularized Newton-CG fit is unstable, and `regularizer=IdentityRegularizer(λ)`
@@ -331,11 +345,25 @@ regularized ones), so file it as a **separate optimization**, not part of the re
 optimizer would need to carry the "this point came from a retraction / is left-orthogonal" flag from
 `retract` to the next `local_model`.
 
+## 11b. Backlog (Nick, later): base-point-as-tangent as an independent library operation
+
+Representing a base point `X` as a gauged tangent vector `v_X` **within its own tangent space** is a more
+broadly useful operation than just the reg gradient — worth exposing as a first-class library function
+(frontend `T3Tangent` / `UT3Tangent` factory + backend helper), with the direct construction (last TT
+variation `= P_last`, else zero; already gauged) and tests. The reg's `point_tangent` (`_manifold_point_tangent`
+in `backend/optimizers.py`; the uniform closure in `uniform_fitting.uniform_manifold_ops`) is the current
+internal implementation — promote/share it when adding the public op. **Just a note so we don't forget;
+not scheduled.**
+
 ## 12. Risks / watch-list
 
-- **`point_tangent` = `v_X`** — **RESOLVED** (§4, verified 2026-07-14): last TT variation `= P_last`, else
-  zero; already gauged; `dense(v_X)=X`; `‖v_X‖_coord=‖X‖_HS`. Not the naive sum-of-frame-norms (that is
-  wrong). S1 test confirms across structures/ranks + the left-orthogonal convention.
+- **`point_tangent` = `v_X`** — **RESOLVED** (§4, verified 2026-07-14) and **refactored to the direct
+  construction** (2026-07-14, per Nick): all variations zero except the last TT variation `= P_last`;
+  already gauged (no ambient projection, no gauge projection). Originally used
+  `tv_project_t3_onto_tangent_space(frame, base)` — correct but roundabout (projecting the base point onto
+  its *own* tangent; the environment contractions all collapse to `P_last`). Verified the direct build
+  equals the projection element-wise (ragged + uniform, d≥2). Not the naive sum-of-frame-norms (wrong).
+  See §11b for promoting this to a public op.
 - **`value` non-orthogonal edge case** (§4a) — a raw non-left-orthogonal point reaching `value` reads the
   wrong "last core" norm. **Resolved the house way:** backend `value` is check-free; the precondition
   checker (`t3_orthogonality_residual`) + orthogonalizer (`t3_left_orthogonalize`) are already public

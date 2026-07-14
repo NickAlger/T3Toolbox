@@ -131,12 +131,9 @@ def _setup(
     wm = _fitting._canonical_weight(weight, kind, _n_modes(kind, sample), order or 0)   # 2-D ω[m,o] or None
 
     if isinstance(x0, ut3.UniformTuckerTensorTrain):
-        if regularizer is not None:                      # uniform reg is a later slice (S3); ragged only for now
-            raise NotImplementedError("regularization is not yet supported on the uniform layer; use a "
-                                      "ragged TuckerTensorTrain x0 (uniform support is planned).")
         geom_name = _uniform_geometry_name(geometry)
         x0m = uf.uniform_minimal(x0)                     # transparent minimal-rank reduction (no-op if minimal)
-        problem = uf.uniform_least_squares_problem(geom_name, kind, x0m, sample, data, order, wm)
+        problem = uf.uniform_least_squares_problem(geom_name, kind, x0m, sample, data, order, wm, regularizer)
         init = (x0m.tucker_supercore, x0m.tt_supercore)  # optimizer state = the bare supercore pair
         return problem, init, lambda sc: ut3.UniformTuckerTensorTrain(sc[0], sc[1], x0m.shape, x0m.masks)
 

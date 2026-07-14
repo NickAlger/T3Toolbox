@@ -121,7 +121,8 @@ class TestFrontendOptimizers(unittest.TestCase):
 
     def test_newton_cg_regularizer(self):
         """Identity regularization through the adapter: λ=0 recovers, λ>0 shrinks ‖x‖ (ridge); a residual
-        weight ω composes with the regularizer (ω-independence); a uniform x0 + regularizer errors clearly."""
+        weight ω composes with the regularizer (ω-independence). (Uniform reg is covered in
+        TestFrontendUniformOptimizers.)"""
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)
         x_u, _ = topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, x0, max_newton=30)
         x_r, _ = topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, x0,
@@ -137,12 +138,6 @@ class TestFrontendOptimizers(unittest.TestCase):
                                  weight=omega, regularizer=topt.IdentityRegularizer(1e-1), max_newton=30)
         self.assertIsInstance(x_wr, t3.TuckerTensorTrain)
         self.assertLess(nrm(x_wr), nrm(x_u))
-
-        # uniform + regularizer: not yet supported -> a clear error (S3)
-        ux0 = ut3.UniformTuckerTensorTrain.from_t3(x0)
-        with self.assertRaises(NotImplementedError):
-            topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe', self.ww, self.data, ux0,
-                           regularizer=topt.IdentityRegularizer(1e-3), max_newton=1)
 
     def test_bad_kind_errors(self):
         with self.assertRaises(ValueError):
@@ -261,6 +256,32 @@ class TestFrontendUniformOptimizers(unittest.TestCase):
         for du, dr in zip(su['diagnostics'], sr['diagnostics']):
             self.assertTrue(np.allclose(du['train_err'], dr['train_err'], atol=1e-7))
             self.assertTrue(np.allclose(du['val_err'], dr['val_err'], atol=1e-7))
+
+    def test_regularizer_matches_ragged_and_garbage_robust(self):
+        """S3: identity regularization on the uniform layer (1) matches the ragged reg fit exactly (the
+        equivalence contract), (2) shrinks the solution, and (3) is robust to garbage in the input padding
+        (the §7 tripwire) -- 1e6 written into the masked-out padding must not change the fit."""
+        import t3toolbox.backend.ut3_masking as ut3mask
+        lam = 0.1
+        xr0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)
+        xu0 = ut3.UniformTuckerTensorTrain.from_t3(xr0)
+        R = topt.IdentityRegularizer(lam)
+        xr, _ = topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, xr0, regularizer=R, max_newton=30)
+        xu, _ = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe', self.ww, self.data, xu0, regularizer=R, max_newton=30)
+        self.assertIsInstance(xu, ut3.UniformTuckerTensorTrain)
+        self.assertTrue(np.allclose(np.asarray(xu.to_dense()), xr.to_dense(), atol=1e-6))   # uniform == ragged
+        xu_u, _ = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe', self.ww, self.data, xu0, max_newton=30)
+        self.assertLess(float(np.linalg.norm(np.asarray(xu.to_dense()))),
+                        float(np.linalg.norm(np.asarray(xu_u.to_dense()))))                 # ridge shrinks ‖x‖
+
+        # garbage-robustness: 1e6 in the masked-out padding of a (nonzero) start must not change the fit
+        clean, _ = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe', self.ww, self.data, self.uX0, regularizer=R, max_newton=20)
+        tk, tt, shape, masks_tuple = self.uX0.data
+        onem = ut3mask.ut3_apply_masks((np.ones_like(tk), np.ones_like(tt), shape, masks_tuple))
+        uX0g = ut3.UniformTuckerTensorTrain(np.asarray(tk) + 1e6 * (1.0 - np.asarray(onem[0])),
+                                            np.asarray(tt) + 1e6 * (1.0 - np.asarray(onem[1])), shape, self.uX0.masks)
+        dirty, _ = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe', self.ww, self.data, uX0g, regularizer=R, max_newton=20)
+        self.assertTrue(np.allclose(np.asarray(dirty.to_dense()), np.asarray(clean.to_dense()), atol=1e-6))
 
     def test_mc_sgd_and_adam_adapters(self):
         """The stochastic adapters (mc_sgd on the uniform manifold, adam on uniform corewise) run

@@ -160,7 +160,8 @@ class TestGaussNewtonModel(unittest.TestCase):
                                                 p.corewise_inner(model.gn_hessian(p)), rtol=RTOL, atol=ATOL))
                     rho = float(R.value(BOPS[geom_name], (model.frame.data[0], model.frame.data[2])))
                     self.assertTrue(np.allclose(model.objective_value, s['c'] + rho, rtol=RTOL, atol=ATOL))
-        # a uniform model + regularizer is not yet supported -> a clear error (S3)
+        # uniform reg via the model factories (roll-your-own) is a later slice -> a clear error for now
+        # (the uniform OPTIMIZER path does support regularization; see TestFrontendUniformOptimizers)
         ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS))
         ww = [np.random.randn(N_SAMPLES, N) for N in SHAPE]
         with self.assertRaises(NotImplementedError):

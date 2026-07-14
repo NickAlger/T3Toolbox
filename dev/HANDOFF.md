@@ -38,9 +38,19 @@ branch can be deleted (optional).
   **S2 DONE (uncommitted):** `mc_sgd`/`adam` `regularizer=` with the **(batch/n) scaling** —
   `_minibatch_step_problem` scales the reg by `min(batch,n)/n` for the per-step kernel (generic
   `_ScaledRegularizer` wrapper), full-batch stop keeps the full reg; verified scale=batch/n, mc_sgd+adam
-  shrink, jit-clean. **Next: S3** (uniform twin — `point_norm_sq`/`point_tangent`/`value` reading `P_last`
-  mask-correctly; the garbage/NaN-padding + exact-mask tests §7/§9; drop the frontend uniform-reg
-  `NotImplementedError` guards), then S4 (`examples/` demo), S5 (docs).
+  shrink, jit-clean.
+  **S3 DONE (uncommitted):** uniform twin (optimizer path) — `point_norm_sq`/`point_tangent` on the uniform
+  `GeometryOps` (manifold: `utv_project_ut3_onto_tangent_space` + orthogonalize→project→inner, mask-aware,
+  no hand-mask logic; corewise: cores + masked `inner`); `uniform_least_squares_problem(regularizer=)`;
+  frontend uniform guard dropped. **Verified uniform reg == ragged reg exactly (~1e-11)** + garbage-robust
+  (1e6 padding, §7). Key finding: the uniform layer masks by *multiply*, so NaN padding isn't invariant
+  (pre-existing) — use **large finite** garbage. **`point_tangent` refactored (2026-07-14, per Nick):**
+  from `tv_project_t3_onto_tangent_space(frame, base)` (correct but roundabout — projects the base point
+  onto its *own* tangent, contractions collapse to `P_last`) to the **direct construction** (last TT
+  variation `= P_last`, else zero; already gauged — no projection). Verified element-wise-identical to the
+  projection (ragged + uniform); all reg tests green. **Next: S3b** (uniform `UniformGaussNewtonModel`
+  roll-your-own reg — the optimizer path already works; the fitting model-factory guard still rejects it),
+  then S4 (`examples/` demo), S5 (docs). Also noted: masked-last-core `point_norm_sq` optimization.
   Design note + full slice plan: **`dev/regularization_design.md`**.
   Framework: a `Regularizer` is an objective term folded into the local GN model
   (`objective`/`gradient`/`gn_quadratic`/`hvp`) + `Problem.objective`, so it composes with every
@@ -134,6 +144,12 @@ branch can be deleted (optional).
 
 ## Backlog (not scheduled)
 
+- **Base-point-as-tangent as a public library op** (Nick, 2026-07-14) — representing a base point `X` as a
+  gauged tangent `v_X` within its own tangent space is broadly useful; expose it as a first-class op
+  (frontend `T3Tangent`/`UT3Tangent` factory + backend helper) with the direct construction (last TT
+  variation `= P_last`, else zero; already gauged). Reg's `_manifold_point_tangent` /
+  `uniform_manifold_ops`'s closure is the current internal impl to promote/share.
+  (`dev/regularization_design.md` §11b.)
 - **Default-path doctest pass** for undocumented public functions (Nick wants this).
 - **`core_shapes` (property, strips stack) vs `get_core_shapes` (static, includes stack)**
   inconsistency — verified live 2026-07-12; a code decision for Nick.
