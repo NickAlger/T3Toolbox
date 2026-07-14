@@ -280,11 +280,16 @@ bug. **Interface consequence:** the regularizer is handed tangents + the geometr
    `test_newton_cg_regularizer` (+ ω-compose + uniform guard), + a reg subTest in `test_jit_paths_recover`.
    Full suite green (627). **NOTE: frontend `GaussNewtonModel` reg wiring deferred to S1b** (the frontend
    *optimizer* path works fully via the backend; the roll-your-own frontend model is a smaller surface).
-1b. **S1b — frontend `GaussNewtonModel` reg parity.** Wire `regularizer=` into the frontend model
-   factories (`apply_model`/`probe_model`/…) + `GaussNewtonModel.objective_value`/`gradient`/`gn_hessian`/
-   `gn_quadratic`/`evaluate` (delegate to the backend `Regularizer` via the backend `GeometryOps`, rewrap
-   the tangent as a `T3Tangent`). The roll-your-own frontend surface; the backend `LocalModel` twin already
-   folds reg (S1), so this is glue + tests.
+1b. **S1b — frontend `GaussNewtonModel` reg parity. ✅ DONE (2026-07-14, uncommitted).** `regularizer=` on
+   all six model factories (`apply`/`entries`/`probe` + the three `*_derivatives`; uniform x →
+   `NotImplementedError`); `regularizer` field on `GaussNewtonModel` folded into
+   `objective_value`/`gradient`/`gn_quadratic`/`gn_hessian`/`evaluate` (delegates to the backend
+   `Regularizer` via `_backend_geometry_ops(self.geometry)`, wrapping the raw tangent as a `T3Tangent`).
+   **jax pytree registration updated to carry `regularizer` as static aux** (else it drops on a jit
+   round-trip — fixed + verified). Test `test_fitting.py::test_regularizer`: the two-form identity and
+   `gn_quadratic==pᵀHp` hold with reg on all kinds/geometries, objective gains ρ, uniform rejected.
+   Verified the frontend model == the backend `LocalModel` with reg (obj/grad/gn_quadratic/hvp) and the
+   pytree round-trip preserves the regularizer. Full suite green (628).
 2. **S2 — stochastic optimizers.** `mc_sgd`/`adam` `regularizer=` with the (batch/n) scaling (§8.1).
 3. **S3 — uniform twin.** Uniform `point_norm_sq`/`point_tangent`/`value` (read `P_last` mask-correctly);
    uniform `GaussNewtonModel` + optimizers `regularizer=`. Tests: equivalence-to-ragged +

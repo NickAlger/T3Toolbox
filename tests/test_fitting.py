@@ -137,6 +137,36 @@ class TestGaussNewtonModel(unittest.TestCase):
                         two_form = model.objective_value + model.gradient.corewise_inner(p) + 0.5 * p.corewise_inner(model.gn_hessian(p))
                         self.assertTrue(np.allclose(model.evaluate(p), two_form, rtol=RTOL, atol=ATOL))
 
+    def test_regularizer(self):
+        '''An IdentityRegularizer folds ρ=½λ‖X‖² into the frontend model on all kinds/geometries: the
+        two-form identity `m(p)=c+⟨g,p⟩+½⟨p,Hp⟩` and `gn_quadratic==pᵀHp` still hold (reg folded
+        consistently across all five methods), the objective gains ρ, and uniform is rejected.'''
+        import t3toolbox.backend.optimizers as bopt
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        lam = 0.4
+        BOPS = {'manifold': bopt.MANIFOLD_OPS, 'corewise': bopt.COREWISE_OPS}
+        for kind in KINDS:
+            for geom_name in GEOMS:
+                with self.subTest(kind=kind, geom=geom_name):
+                    s = _setup(kind, geom_name, ())
+                    R = bopt.IdentityRegularizer(lam)
+                    model = _FACTORY[kind](s['geometry'], s['x'], s['sample'], s['r'], regularizer=R)
+                    p = _raw_step(s)
+                    two_form = (model.objective_value + model.gradient.corewise_inner(p)
+                                + 0.5 * p.corewise_inner(model.gn_hessian(p)))
+                    self.assertTrue(np.allclose(model.evaluate(p), two_form, rtol=RTOL, atol=ATOL))
+                    self.assertTrue(np.allclose(model.gn_quadratic(p),
+                                                p.corewise_inner(model.gn_hessian(p)), rtol=RTOL, atol=ATOL))
+                    rho = float(R.value(BOPS[geom_name], (model.frame.data[0], model.frame.data[2])))
+                    self.assertTrue(np.allclose(model.objective_value, s['c'] + rho, rtol=RTOL, atol=ATOL))
+        # a uniform model + regularizer is not yet supported -> a clear error (S3)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS))
+        ww = [np.random.randn(N_SAMPLES, N) for N in SHAPE]
+        with self.assertRaises(NotImplementedError):
+            fitting.apply_model(ut3m.UNIFORM_MANIFOLD, ux, ww, np.zeros(N_SAMPLES),
+                                regularizer=bopt.IdentityRegularizer(0.1))
+
     def test_razor_self_containment(self):
         '''The model applies Π itself: a raw p gives the same result as the projected Πp (both geometries).'''
         for kind in KINDS:

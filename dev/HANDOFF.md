@@ -30,8 +30,13 @@ branch can be deleted (optional).
   `objective`/`gradient`/`gn_quadratic`/`hvp` + `Problem.objective`; `least_squares_problem(regularizer=)`;
   frontend `newton_cg`/`gradient_descent` `regularizer=` (+ uniform→`NotImplementedError` guard, S3).
   Verified: FD total gradient (1e-8/1e-11), manifold ridge shrinks ‖x‖, corewise weight-decay, jit-clean.
-  **Next: S1b** (frontend `GaussNewtonModel` reg parity — the backend optimizer path already works fully),
-  then S2 (stochastic + batch/n scaling), S3 (uniform + garbage tests), S4 (`examples/` demo), S5 (docs).
+  **S1b DONE (uncommitted):** frontend `GaussNewtonModel` reg parity — `regularizer=` on all six model
+  factories (uniform x → `NotImplementedError`), folded into `objective_value`/`gradient`/`gn_quadratic`/
+  `gn_hessian`/`evaluate` (delegates to the backend `Regularizer`); jax pytree reg registration fixed
+  (carries `regularizer` as aux, else dropped on jit round-trip). Frontend == backend LocalModel verified;
+  `test_fitting.py::test_regularizer`; full suite green (628).
+  **Next: S2** (stochastic `mc_sgd`/`adam` + the batch/n reg scaling, §8.1), then S3 (uniform + garbage
+  tests), S4 (`examples/` demo), S5 (docs).
   Design note + full slice plan: **`dev/regularization_design.md`**.
   Framework: a `Regularizer` is an objective term folded into the local GN model
   (`objective`/`gradient`/`gn_quadratic`/`hvp`) + `Problem.objective`, so it composes with every
