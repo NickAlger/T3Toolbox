@@ -249,7 +249,10 @@ def newton_cg(
 
     ``verbose=True`` prints a per-iteration diagnostic block (objective / gradient, CG stats, line search,
     and the per-``(mode, order)`` relative-error table); pass ``val_sample`` / ``val_data`` to add a
-    validation column. The per-iteration records are also returned in ``stats['diagnostics']``. This is a
+    validation column. With a ``regularizer`` attached the objective is shown split as ``obj = misfit +
+    reg`` (the ``½‖ω⊙r‖²`` data misfit vs ``ρ(x)``); both parts are on every record as ``misfit`` /
+    ``regularization`` (the latter ``None`` when unregularized), in ``stats['history']`` (always) and
+    ``stats['diagnostics']`` (when verbose). This is a
     thin convenience over the **backend** display -- a raw-``.data`` user builds the same callback with
     :py:func:`t3toolbox.backend.optimizer_display.make_newton_display` and passes it as ``callback=`` to
     :py:func:`t3toolbox.backend.optimizers.newton_cg`. A custom ``callback`` overrides ``verbose``. Works on

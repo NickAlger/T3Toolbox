@@ -366,6 +366,26 @@ class TestBackendOptimizers(unittest.TestCase):
         self.assertGreater(res[0.0][1], res[1e-3][1])                   # ridge shrinks ‖x‖ ...
         self.assertGreater(res[1e-3][1], res[1e-1][1])                  # ... monotonically toward 0
 
+    def test_history_misfit_reg_split(self):
+        """stats['history'] carries the objective split: each row's misfit + regularization == objective for
+        a regularized run (reg ≥ 0); regularization is None (misfit == objective) with no regularizer."""
+        rng = np.random.default_rng(4)
+        ww = unit_vecs(300, SHAPE, rng); data = dense_probe(self.A, ww)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
+        prob = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data,
+                                         regularizer=opt.IdentityRegularizer(1e-2))
+        _, st = opt.newton_cg(prob, x0, max_newton=8)
+        for row in st['history']:                                       # regularized: obj = misfit + reg, reg ≥ 0
+            self.assertIsNotNone(row['regularization'])
+            self.assertGreaterEqual(row['regularization'], 0.0)
+            self.assertAlmostEqual(row['misfit'] + row['regularization'], row['objective'],
+                                   delta=1e-9 * abs(row['objective']) + 1e-12)
+        prob0 = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
+        _, st0 = opt.newton_cg(prob0, x0, max_newton=8)
+        for row in st0['history']:                                      # unregularized: reg None, misfit == obj
+            self.assertIsNone(row['regularization'])
+            self.assertEqual(row['misfit'], row['objective'])
+
     def test_uniform_point_norm_sq_garbage_robust(self):
         """S3/§7: the uniform manifold point_norm_sq equals ‖X‖²_HS and is robust to garbage in the input
         padding (1e6 into the masked-out region must not change the reduction -- the phantom-rank tripwire)."""

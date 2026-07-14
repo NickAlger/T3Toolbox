@@ -156,11 +156,18 @@ class LocalModel:
     regularizer: typ.Any = None   # optional backend.regularization.Regularizer; ρ folded into obj/grad/gn_quadratic/hvp
 
     @property
-    def objective(self):                                 # c = ½‖r‖²  (+ ρ(X) if regularized)
-        c = 0.5 * self.kind.sumsq(self.residual, self.n_w)
-        if self.regularizer is not None:                 # ρ at the frame's tensor X = (U, P) = (frame[0], frame[2])
-            c = c + self.regularizer.value(self.geom, (self.frame[0], self.frame[2]))
-        return c
+    def misfit(self):                                    # ½‖ω⊙r‖²  (the weighted data misfit alone)
+        return 0.5 * self.kind.sumsq(self.residual, self.n_w)
+
+    @property
+    def regularization(self):                            # ρ(X) at X = (U, P) = (frame[0], frame[2]); 0 if unregularized
+        if self.regularizer is None:
+            return 0.0
+        return self.regularizer.value(self.geom, (self.frame[0], self.frame[2]))
+
+    @property
+    def objective(self):                                 # c = ½‖ω⊙r‖²  (+ ρ(X) if regularized)
+        return self.misfit + self.regularization
 
     @property
     def gradient(self) -> Tangent:                       # g = Π 𝒥ᵀ r  (+ g_R)
@@ -491,12 +498,14 @@ class NewtonInfo:
     **converged** line (no CG / line search ran). The scalar subset (all but ``x_cores`` / ``lm``) is what
     lands in ``stats['history']``."""
     iteration:    int              # Newton iteration index (0-based)
-    objective:    float            # weighted ½‖ω⊙r‖² at x (= lm.objective)
+    objective:    float            # total objective ½‖ω⊙r‖² + ρ(X) at x (= misfit + regularization; = lm.objective)
     gnorm:        float            # ‖g‖ (Riemannian gradient norm, geom.inner)
     g0norm:       float            # ‖g₀‖ Newton-stop reference (the initial ‖g‖, or the g0norm_newton override)
     converged:    bool             # gnorm <= gtol_rel*g0norm -- this is the final line (step fields None)
     x_cores:      typ.Any = None                       # the point BEFORE the step (for a val forward)
     lm:           typ.Any = None                       # the LocalModel at x (residual/sample/frame)
+    misfit:         typ.Optional[float] = None         # ½‖ω⊙r‖² data-misfit part of the objective
+    regularization: typ.Optional[float] = None         # ρ(X) regularization part (None when no regularizer is attached)
     forcing_eta:  typ.Optional[float] = None           # inexact-Newton forcing term η
     cg_tol:       typ.Optional[float] = None           # CG stop tolerance = η·‖g‖
     cg_iters:     typ.Optional[int]   = None           # CG iterations run
@@ -570,7 +579,9 @@ def newton_cg(
     t_prev = time.perf_counter()
     for it in range(max_newton):
         lm = problem.local_model(x)
-        f = float(lm.objective)
+        misfit = float(lm.misfit)
+        reg_val = float(lm.regularization) if lm.regularizer is not None else None   # None: no regularizer attached
+        f = misfit + (reg_val or 0.0)
         losses.append(f)
         g = lm.gradient
         gnorm = float(problem.geom.inner(g, g)) ** 0.5
@@ -580,7 +591,7 @@ def newton_cg(
         cg_ref     = g0norm_cg     if g0norm_cg     is not None else newton_ref         # CG-forcing ‖g0‖ (inherits Newton's)
         if gnorm <= gtol_rel * newton_ref:                               # converged -- final line, no step
             info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=newton_ref, converged=True,
-                              x_cores=x, lm=lm)
+                              x_cores=x, lm=lm, misfit=misfit, regularization=reg_val)
             if callback is not None:
                 callback(info)
             history.append(_newton_scalar_record(info))
@@ -615,7 +626,8 @@ def newton_cg(
         step_rel = (alpha * p_norm / x_norm) if x_norm > 0 else float('nan')
         t_now = time.perf_counter()
         info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=newton_ref, converged=False,
-                          x_cores=x, lm=lm, forcing_eta=eta, cg_tol=cg_tol, cg_iters=cg_iters,
+                          x_cores=x, lm=lm, misfit=misfit, regularization=reg_val,
+                          forcing_eta=eta, cg_tol=cg_tol, cg_iters=cg_iters,
                           cg_maxiter=cg_maxiter,
                           cg_resid=cg_rs ** 0.5, cg_converged=cg_converged, cg_truncated=cg_truncated,
                           ls_steps=ls_steps, alpha=alpha, slope=slope, pHp=pHp, delta_f=delta_f,

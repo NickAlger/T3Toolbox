@@ -100,6 +100,20 @@ class TestFormatter(unittest.TestCase):
         self.assertNotIn("unwt", bdisp._format_header(_info(objective=1.0), obj_unweighted=1.0))
         self.assertIn("unwt", bdisp._format_header(_info(objective=1.0), obj_unweighted=2.5))
 
+    def test_header_misfit_reg_breakdown(self):
+        """With a regularizer attached the objective splits as `obj = misfit + reg`; unregularized (the
+        default, `regularization=None`) shows no split. The `(unwt …)` gap sits on the misfit and reflects
+        ω alone -- it must NOT fire merely because a regularizer shifts the total (the old comparison bug)."""
+        plain = bdisp._format_header(_info(objective=1.0), obj_unweighted=None)
+        self.assertNotIn("misfit", plain); self.assertNotIn("+ reg", plain)      # regularization None -> no split
+        reg = bdisp._format_header(_info(objective=1.29, misfit=1.0, regularization=0.29), obj_unweighted=None)
+        self.assertIn("= misfit 1.000e+00 + reg 2.900e-01", reg)
+        self.assertNotIn("unwt", reg)                                            # no ω -> misfit == unweighted
+        reg_w = bdisp._format_header(_info(objective=1.29, misfit=1.0, regularization=0.29), obj_unweighted=0.8)
+        self.assertIn("misfit 1.000e+00 (unwt 8.00e-01)", reg_w)                 # ω gap annotates the misfit term
+        reg_nobug = bdisp._format_header(_info(objective=1.29, misfit=1.0, regularization=0.29), obj_unweighted=1.0)
+        self.assertNotIn("unwt", reg_nobug)   # unwt == misfit (only reg shifts the total) -> no spurious (unwt …)
+
     def test_truncated_symbol(self):
         h = bdisp._format_header(_info(cg_converged=False, cg_truncated=True), None)
         self.assertIn("⌇", h)

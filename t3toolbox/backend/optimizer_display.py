@@ -121,8 +121,13 @@ def _format_table(train_err: NDArray, val_err: typ.Optional[NDArray], fmt: str) 
 def _format_header(info: "bopt.NewtonInfo", obj_unweighted: typ.Optional[float]) -> str:
     """The one-line per-iteration scalar header (a shorter form on the converged final line)."""
     obj = "obj %.3e" % info.objective
-    if obj_unweighted is not None and not math.isclose(obj_unweighted, info.objective, rel_tol=1e-9):
-        obj += " (unwt %.2e)" % obj_unweighted
+    if info.regularization is not None and info.misfit is not None:   # regularizer attached -> obj = misfit + reg
+        misfit_str = "%.3e" % info.misfit
+        if obj_unweighted is not None and not math.isclose(obj_unweighted, info.misfit, rel_tol=1e-9):
+            misfit_str += " (unwt %.2e)" % obj_unweighted             # ω-weighting gap sits on the misfit term
+        obj += " = misfit %s + reg %.3e" % (misfit_str, info.regularization)
+    elif obj_unweighted is not None and not math.isclose(obj_unweighted, info.objective, rel_tol=1e-9):
+        obj += " (unwt %.2e)" % obj_unweighted                        # unregularized + nontrivial ω: unweighted vs total
     rel_g = info.gnorm / info.g0norm if info.g0norm else float('nan')
     obj += "  ‖g‖ %.2e (%.1e·g₀)" % (info.gnorm, rel_g)
     parts = ["iter %2d" % info.iteration, obj]
@@ -142,12 +147,14 @@ def format_newton_iter(
         info:           "bopt.NewtonInfo",       # the per-iteration diagnostics from newton_cg
         train_err:      NDArray,                  # (n_mode, n_order) training relative-error matrix
         val_err:        typ.Optional[NDArray] = None,   # (n_mode, n_order) validation matrix, or None
-        obj_unweighted: typ.Optional[float]   = None,   # ½‖r‖² (shown next to the weighted obj iff ω ≠ 1)
+        obj_unweighted: typ.Optional[float]   = None,   # ½‖r‖²; shown next to the misfit iff a nontrivial ω makes it differ
         fmt:            str = '%.1e',
 ) -> str:                                         # the formatted header line + relative-error table
     """Format one Newton iteration as a header line + the relative-error table (pure -- returns a string).
-    The layout of the table follows ``train_err``'s shape (Decision 2a). ``obj_unweighted`` is shown next
-    to the (weighted) objective only when it differs (a nontrivial residual weight ``ω``).
+    The layout of the table follows ``train_err``'s shape (Decision 2a). When a regularizer is attached the
+    header splits the objective as ``obj = misfit + reg`` (``info.misfit`` / ``info.regularization``);
+    ``obj_unweighted`` (the unweighted ½‖r‖²) is shown next to the **misfit** term only when a nontrivial
+    residual weight ``ω`` makes it differ (unregularized, it annotates the objective, as before).
 
     Examples
     --------
@@ -165,6 +172,17 @@ def format_newton_iter(
                ord0     ord1
         m0  1.9e-02  1.3e-02
         m1  1.0e+00  5.2e-04
+
+    With a regularizer attached, the objective splits as ``obj = misfit + reg`` (here a single apply
+    dataset, so a 1x1 error table):
+
+    >>> info = bopt.NewtonInfo(iteration=3, objective=6.003e1, gnorm=1.60, g0norm=1.07e1, converged=False,
+    ...                        misfit=5.974e1, regularization=2.9e-1, cg_iters=8, cg_maxiter=200,
+    ...                        cg_tol=6.2e-1, cg_resid=4.9e-1, cg_converged=True, cg_truncated=False,
+    ...                        ls_steps=0, alpha=1.0, step_rel=1.2, delta_f=-2.22, rho=0.07, wall_time=0.03)
+    >>> print(disp.format_newton_iter(info, np.array([[3.7e-1]])))
+    iter  3 | obj 6.003e+01 = misfit 5.974e+01 + reg 2.900e-01  ‖g‖ 1.60e+00 (1.5e-01·g₀) | CG 8/200 tol 6.2e-01 resid 4.9e-01 ✓ | ls 0 α 1.00e+00 ‖Δx‖/‖x‖ 1.2e+00 | Δf -2.22e+00 ρ 0.07 | 0.03s
+      rel err   3.7e-01
     """
     return _format_header(info, obj_unweighted) + "\n" + _format_table(train_err, val_err, fmt)
 
