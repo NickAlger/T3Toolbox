@@ -21,7 +21,44 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **`use_jit=True` auto-convert (silent-drop bug) — DONE, on `main` (2026-07-14), uncommitted.**
+- **Regularization framework — S1 DONE (2026-07-14, uncommitted); design in `dev/regularization_design.md`.**
+  Adding regularization to the fitting objective `min ½‖ω⊙(S(X)−y)‖² + ρ(X)`. **S1 (ragged identity,
+  Newton-CG) is implemented + full suite green (627 tests):** new `backend/regularization.py`
+  (`Regularizer` + `IdentityRegularizer`, re-exported from `bopt` and `optimizers`); `GeometryOps` gains
+  `point_norm_sq` + `point_tangent` (manifold `v_X` via `tv_project_t3_onto_tangent_space`; corewise
+  cores-as-tangent); `regularizer` field on `Problem`/`LocalModel` folded into
+  `objective`/`gradient`/`gn_quadratic`/`hvp` + `Problem.objective`; `least_squares_problem(regularizer=)`;
+  frontend `newton_cg`/`gradient_descent` `regularizer=` (+ uniform→`NotImplementedError` guard, S3).
+  Verified: FD total gradient (1e-8/1e-11), manifold ridge shrinks ‖x‖, corewise weight-decay, jit-clean.
+  **Next: S1b** (frontend `GaussNewtonModel` reg parity — the backend optimizer path already works fully),
+  then S2 (stochastic + batch/n scaling), S3 (uniform + garbage tests), S4 (`examples/` demo), S5 (docs).
+  Design note + full slice plan: **`dev/regularization_design.md`**.
+  Framework: a `Regularizer` is an objective term folded into the local GN model
+  (`objective`/`gradient`/`gn_quadratic`/`hvp`) + `Problem.objective`, so it composes with every
+  optimizer/kind/geometry/representation. Decisions locked: **D1** identity in the geometry's own tangent
+  metric (`H_R = λ·project`; manifold = HS-ridge, corewise = weight-decay + makes the gauge-singular
+  corewise Newton `H` PD); **D2** true objective regularization (adds `g_R` — forced by compose-with-all-
+  optimizers); **D3** `X_ref=0`, `λ` scalar, `Regularizer` a protocol so Grasedyck–Kramer (inverse-
+  unfolding-σ weighting) drops in later. Nick's key concern captured: **uniform garbage-safety** — the
+  `ρ` reduction must sum only masked content; route everything through mask-aware primitives
+  (`inner`/`project`/masked norm), never raw supercores; test with garbage/NaN-padding robustness + exact
+  output masks (not just dense-vs-ragged). **Interface subtleties resolved + verified (2026-07-14):**
+  (a) the attachment point is a single gauged tangent term `v_X` = last TT variation `= P_last` (already
+  gauged; `dense(v_X)=X`; `‖v_X‖_coord=‖X‖_HS`; the naive sum-of-frame-core-norms is WRONG, 42291.8 vs
+  42280.8); `H_R=λI` is the EXACT Riemannian Hessian (grad fully tangent → no curvature term). (b) the
+  manifold retraction (`t3svd`) always emits **left-orthogonal** cores, so the line-search norm
+  `value(x)=‖x.tt_cores[-1]‖²` is one core norm — no re-orthogonalization, no waste on rejected candidates.
+  Noted follow-up (separate from reg, §11a): `already_left_orthogonal=True` after retract to skip the next
+  step's re-orthogonalization. **Backend-user equality (§5a):** reg is fully backend-homed (`Regularizer` +
+  `IdentityRegularizer` in `backend/regularization.py`; `point_norm_sq`/`point_tangent`/`value` on
+  `GeometryOps`; `regularizer=` on `bopt.least_squares_problem`; folding in `LocalModel`), so a raw-`.data`
+  user regularizes with the same one kwarg. The `value` left-orthogonal precondition is check-free in the
+  backend the house way — and the checker tools already exist (`t3_orthogonality_residual` /
+  `t3_left_orthogonalize`, public in `backend/t3_orthogonalization.__all__`), so no inequality and no new
+  checker. Queued: an `examples/` demo (S4). **Next: implement slice S1 (ragged identity, Newton-CG).**
+  Nothing committed yet (design note only).
+
+- **`use_jit=True` auto-convert (silent-drop bug) — DONE + PUSHED to `main` (2026-07-14, `3ce68fea`).**
   Fixes: `use_jit=True` with numpy inputs used to silently run eager (the flag looked accepted but did
   nothing — meaningless "jit" benchmarks). Root cause was the `_maybe_jit` / `xwhile` guard requiring all
   inputs to already be jax. **Key technical finding:** it's *not* a jax limitation — a jit tracer *is* a
@@ -45,7 +82,7 @@ branch can be deleted (optional).
   asserting — a green run guarantees no leak into the single-process `--doctest-modules` sweep (verified:
   full sweep 169 passed; also green on the jax 0.4.30 compat-floor env). **Next: commit.**
 
-- **Newton-CG warm-start reference overrides — DONE, on `main` (2026-07-14), uncommitted.**
+- **Newton-CG warm-start reference overrides — DONE + PUSHED to `main` (2026-07-14, `649edb62`).**
   `newton_cg` now takes three optional kwargs so a warm-start continuation loop isn't hurt by a
   misleadingly-small initial `‖g0‖`: `g0norm_newton` / `g0norm_cg` override the reference norm the
   Newton stop (`‖g‖ ≤ gtol_rel·‖g0‖`) and the CG forcing term (`η = min(0.5, (‖g‖/‖g0‖)**power)`) are

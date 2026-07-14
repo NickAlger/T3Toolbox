@@ -34,6 +34,7 @@ import typing as typ
 from t3toolbox.backend.common import *
 from t3toolbox.backend import tv_operations as tops
 from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+from t3toolbox.backend.regularization import Regularizer, IdentityRegularizer   # re-exported for backend users
 import t3toolbox.corewise as cw
 
 __all__ = [
@@ -43,6 +44,8 @@ __all__ = [
     'Problem',
     'LocalModel',
     'NewtonInfo',
+    'Regularizer',
+    'IdentityRegularizer',
     'least_squares_problem',
     'flat_draw',
     'gradient_descent',
@@ -64,6 +67,9 @@ class GeometryOps:
     retract: typ.Callable    # (frame, variations)       -> x_cores=(U,G)        chart retraction
     inner:   typ.Callable    # (v1, v2)                 -> scalar               coordinate ⟨·,·⟩ (check-free twin of Geometry.inner)
 
+    point_norm_sq: typ.Optional[typ.Callable] = None   # x_cores -> ‖X‖² in the coordinate metric; the reg objective (None => geometry has no reg support)
+    point_tangent: typ.Optional[typ.Callable] = None   # frame   -> the position X as a gauged tangent v_X; the reg gradient direction
+
 
 def _corewise_frame(
         x_cores: Tangent,    # (tucker_cores, tt_cores)
@@ -77,6 +83,8 @@ COREWISE_OPS = GeometryOps(
     project=lambda frame, var: var,                                   # Euclidean cores: no gauge projection
     retract=lambda frame, var: cw.corewise_add((frame[0], frame[2]), var),   # additive: (U,P)=(U,G) += var
     inner=cw.corewise_dot,                                           # ragged coordinate dot (layer-agnostic tree dot)
+    point_norm_sq=lambda x_cores: cw.corewise_dot(x_cores, x_cores),  # Σ‖core_i‖² (weight-decay); collapses every axis
+    point_tangent=lambda frame: (frame[0], frame[2]),                # the cores (U,G) as a tangent; X_ref=0
 )
 
 
@@ -87,11 +95,26 @@ def _manifold_frame(
     return frame
 
 
+def _manifold_point_norm_sq(
+        x_cores: Tangent,    # (tucker_cores, tt_cores) -- a LEFT-orthogonal T3 (a frame's base cores, or a retracted point)
+) -> NDArray:                # ‖X‖²_HS (scalar for stack C=()); check-free left-orthogonal precondition
+    """``‖X‖²_HS = ‖last TT core‖²`` -- exact for a left-orthogonal T3 (the frame's ``(U,P)`` or a
+    ``t3svd`` retraction output), so no dense tensor and no re-orthogonalization. The left-orthogonal
+    precondition is check-free here (backend); a raw-data user can verify it with
+    :py:func:`t3toolbox.backend.t3_orthogonalization.t3_orthogonality_residual`. (``dev/regularization_design.md`` §4a.)"""
+    last = x_cores[1][-1]
+    xnp, _, _ = get_backend(False, tree_contains_jax(x_cores))
+    return xnp.sum(last * last)
+
+
 MANIFOLD_OPS = GeometryOps(
     frame=_manifold_frame,
     project=lambda frame, var: tops.tv_orthogonal_gauge_projection(frame, var),   # Π  (gauge-fix the tangent)
     retract=lambda frame, var: tops.tv_retract(frame, var),                       # implicit truncated T3-SVD
     inner=cw.corewise_dot,                                                    # ragged coordinate dot
+    point_norm_sq=_manifold_point_norm_sq,
+    # v_X: project the base point X=(U,P) onto the tangent (= X, since X is tangent) -> a gauged tangent
+    point_tangent=lambda frame: tops.tv_project_t3_onto_tangent_space(frame, (frame[0], frame[2])),
 )
 
 
@@ -110,23 +133,37 @@ class LocalModel:
     residual: typ.Any        # r = S(x) - data
     n_w:      int            # number of leading sample-stack axes
 
-    @property
-    def objective(self):                                 # c = ½‖r‖²
-        return 0.5 * self.kind.sumsq(self.residual, self.n_w)
+    regularizer: typ.Any = None   # optional backend.regularization.Regularizer; ρ folded into obj/grad/gn_quadratic/hvp
 
     @property
-    def gradient(self) -> Tangent:                       # g = Π 𝒥ᵀ r
-        return self.geom.project(self.frame, self.kind.transpose(self.residual, self.sample, self.frame, self.sweep))
+    def objective(self):                                 # c = ½‖r‖²  (+ ρ(X) if regularized)
+        c = 0.5 * self.kind.sumsq(self.residual, self.n_w)
+        if self.regularizer is not None:                 # ρ at the frame's tensor X = (U, P) = (frame[0], frame[2])
+            c = c + self.regularizer.value(self.geom, (self.frame[0], self.frame[2]))
+        return c
+
+    @property
+    def gradient(self) -> Tangent:                       # g = Π 𝒥ᵀ r  (+ g_R)
+        g = self.geom.project(self.frame, self.kind.transpose(self.residual, self.sample, self.frame, self.sweep))
+        if self.regularizer is not None:
+            g = cw.corewise_add(g, self.regularizer.gradient(self.geom, self.frame))
+        return g
 
     def jacobian(self, p: Tangent):                      # 𝒥 Π p
         return self.kind.forward(self.geom.project(self.frame, p), self.sample, self.frame, self.sweep)
 
-    def gn_quadratic(self, p: Tangent):                  # ‖𝒥 Π p‖²  (one forward; the Cauchy denominator)
-        return self.kind.sumsq(self.jacobian(p), self.n_w)
+    def gn_quadratic(self, p: Tangent):                  # ‖𝒥 Π p‖²  (+ ⟨p, H_R p⟩) -- the Cauchy denominator
+        q = self.kind.sumsq(self.jacobian(p), self.n_w)
+        if self.regularizer is not None:
+            q = q + self.regularizer.quadratic(self.geom, self.frame, p)
+        return q
 
-    def hvp(self, p: Tangent) -> Tangent:                # H p = Π 𝒥ᵀ 𝒥 Π p
+    def hvp(self, p: Tangent) -> Tangent:                # H p = Π 𝒥ᵀ 𝒥 Π p  (+ H_R p)
         z = self.jacobian(p)
-        return self.geom.project(self.frame, self.kind.transpose(z, self.sample, self.frame, self.sweep))
+        Hp = self.geom.project(self.frame, self.kind.transpose(z, self.sample, self.frame, self.sweep))
+        if self.regularizer is not None:
+            Hp = cw.corewise_add(Hp, self.regularizer.hessian(self.geom, self.frame, p))
+        return Hp
 
     def retract(self, p: Tangent) -> Tangent:            # chart step from this frame -> new x_cores
         return self.geom.retract(self.frame, p)
@@ -145,6 +182,8 @@ class Problem:
     sample: typ.Any       # the FULL sample (ww / index / (ww,pp) / (index,pp))
     data:   typ.Any       # the FULL observed data S(x_true) (+ noise)
 
+    regularizer: typ.Any = None   # optional backend.regularization.Regularizer; ρ folded into local_model + objective
+
     def local_model(self, x_cores: Tangent, sample=None, data=None) -> LocalModel:
         """Linearize at ``x_cores`` on the full data (``sample=None``) or an explicit minibatch."""
         if sample is None:
@@ -152,26 +191,34 @@ class Problem:
         frame = self.geom.frame(x_cores)
         sweep = self.kind.precompute(frame, sample)
         residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
-        return LocalModel(self.geom, self.kind, sample, frame, sweep, residual, self.kind.w_axes(sample))
+        return LocalModel(self.geom, self.kind, sample, frame, sweep, residual, self.kind.w_axes(sample),
+                          self.regularizer)
 
     def objective(self, x_cores: Tangent, sample=None, data=None):
-        """``½‖S(x)-data‖²`` on the full data (``sample=None``) or an explicit minibatch; no frame sweep
-        (cheap -- for the line search / the full-batch stop signal)."""
+        """``½‖S(x)-data‖²`` (+ ``ρ(x)`` if regularized) on the full data (``sample=None``) or an explicit
+        minibatch; no frame sweep (cheap -- for the line search / the full-batch stop signal). The reg term
+        reads ``x_cores`` directly, so on the manifold it assumes ``x_cores`` is left-orthogonal (true for a
+        retraction output -- the line-search points; ``dev/regularization_design.md`` §4a)."""
         if sample is None:
             sample, data = self.sample, self.data
         residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
-        return 0.5 * self.kind.sumsq(residual, self.kind.w_axes(sample))
+        c = 0.5 * self.kind.sumsq(residual, self.kind.w_axes(sample))
+        if self.regularizer is not None:
+            c = c + self.regularizer.value(self.geom, x_cores)
+        return c
 
 
 def least_squares_problem(
-        geom:   GeometryOps,   # COREWISE_OPS / MANIFOLD_OPS
-        kind:   typ.Any,       # backend fitting.{APPLY,ENTRIES,PROBE} or a derivative kind
-        sample: typ.Any,       # ww / index / (ww,pp) / (index,pp)
-        data:   typ.Any,       # observed values
+        geom:        GeometryOps,   # COREWISE_OPS / MANIFOLD_OPS
+        kind:        typ.Any,       # backend fitting.{APPLY,ENTRIES,PROBE} or a derivative kind
+        sample:      typ.Any,       # ww / index / (ww,pp) / (index,pp)
+        data:        typ.Any,       # observed values
+        regularizer: typ.Any = None,  # optional backend.regularization.Regularizer (e.g. IdentityRegularizer(λ))
 ) -> Problem:
     """Assemble a least-squares ``Problem`` from a geometry, a sampling kind, the sample, and the observed
-    data. (The frontend adapter calls this with the same backend objects a raw-data user would.)"""
-    return Problem(geom, kind, sample, data)
+    data, plus an optional ``regularizer`` (adds ``ρ(x)`` to the objective, folded into the local GN model).
+    (The frontend adapter calls this with the same backend objects a raw-data user would.)"""
+    return Problem(geom, kind, sample, data, regularizer)
 
 
 def flat_draw(

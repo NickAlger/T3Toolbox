@@ -300,6 +300,72 @@ class TestBackendOptimizers(unittest.TestCase):
         self.assertAlmostEqual(one.forcing_eta,  (g0 / BIG) ** 1.0, places=10)
         self.assertLess(one.forcing_eta, half.forcing_eta)                 # power 1.0 => tighter CG than 0.5
 
+    def test_identity_regularizer_contributions(self):
+        """IdentityRegularizer folds ρ=½λ‖X‖² into the local model on both geometries: `value` = ½λ‖X‖²
+        (manifold HS ridge / corewise weight-decay), the TOTAL gradient FD-matches the objective, and
+        gn_quadratic gains exactly λ‖Πp‖²."""
+        rng = np.random.default_rng(1)
+        ww = unit_vecs(80, SHAPE, rng); data = dense_probe(self.A, ww)
+        X0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        lam = 0.37
+        for gname, geom, _ in self.GEOMS:
+            with self.subTest(geometry=gname):
+                reg = opt.IdentityRegularizer(lam)
+                prob  = opt.least_squares_problem(geom, bfit.PROBE, ww, data, regularizer=reg)
+                prob0 = opt.least_squares_problem(geom, bfit.PROBE, ww, data)
+                lm, lm0 = prob.local_model(X0.data), prob0.local_model(X0.data)
+                frame = lm.frame
+                base = (frame[0], frame[2])                                  # the frame's tensor X = (U, P)
+                # value: manifold = ½λ‖X‖²_HS ; corewise = ½λ Σ‖core‖²
+                if gname == 'manifold':
+                    rho_true = 0.5 * lam * float(np.linalg.norm(t3.TuckerTensorTrain(*base).to_dense())) ** 2
+                else:
+                    rho_true = 0.5 * lam * sum(float(np.sum(c * c)) for c in tuple(base[0]) + tuple(base[1]))
+                self.assertAlmostEqual(float(reg.value(geom, base)), rho_true, places=5)
+                # the TOTAL (data + reg) gradient FD-matches the objective along a projected direction
+                p = geom.project(frame, t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data)
+                slope = float(cw.corewise_dot(lm.gradient, geom.project(frame, p)))
+                eps = 1e-6
+                fd = (float(prob.objective(geom.retract(frame, cw.corewise_scale(p, eps))))
+                      - float(prob.objective(geom.retract(frame, cw.corewise_scale(p, -eps))))) / (2 * eps)
+                self.assertLess(abs(slope - fd) / abs(fd), 1e-5)
+                # reg contribution to gn_quadratic is exactly λ‖Πp‖²
+                Pp = geom.project(frame, p)
+                self.assertAlmostEqual(float(lm.gn_quadratic(p)) - float(lm0.gn_quadratic(p)),
+                                       lam * float(cw.corewise_dot(Pp, Pp)), places=5)
+
+    def test_manifold_point_tangent_is_vX(self):
+        """MANIFOLD_OPS.point_tangent(frame) = the attachment point as a gauged tangent v_X: dense(v_X) = X,
+        and ‖X‖_HS = ‖P_last‖ = point_norm_sq**½, across structures (design §4)."""
+        from t3toolbox.backend import tv_operations as tvo
+        for shp, tk, tt in [((5, 6, 7), (2, 2, 2), (1, 2, 2, 1)), ((4, 4, 4, 4), (2, 2, 2, 2), (1, 2, 3, 2, 1))]:
+            with self.subTest(shape=shp):
+                X = t3.TuckerTensorTrain.randn(shp, tk, tt); Xd = X.to_dense()
+                frame = opt.MANIFOLD_OPS.frame(X.data)
+                vX = opt.MANIFOLD_OPS.point_tangent(frame)
+                self.assertTrue(np.allclose(tvo.tv_to_dense(frame, vX, include_shift=False), Xd))   # dense(v_X)=X
+                self.assertAlmostEqual(float(opt.MANIFOLD_OPS.point_norm_sq((frame[0], frame[2]))) ** 0.5,
+                                       float(np.linalg.norm(Xd)), places=5)                          # ‖X‖=‖P_last‖
+
+    def test_regularized_newton_cg_shrinks(self):
+        """Regularized manifold Newton-CG: λ=0 recovers the exact tensor; a larger λ (ridge) shrinks ‖x‖
+        monotonically toward 0 while still converging. Corewise weight-decay likewise biases + converges."""
+        rng = np.random.default_rng(3)
+        ww = unit_vecs(300, SHAPE, rng); data = dense_probe(self.A, ww)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
+        A_norm = float(np.linalg.norm(self.A))
+        nrm = lambda c: float(np.linalg.norm(t3.TuckerTensorTrain(*c).to_dense()))
+        err = lambda c: float(np.linalg.norm(t3.TuckerTensorTrain(*c).to_dense() - self.A)) / A_norm
+        res = {}
+        for lam in (0.0, 1e-3, 1e-1):
+            reg = opt.IdentityRegularizer(lam) if lam > 0 else None
+            prob = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data, regularizer=reg)
+            x, _ = opt.newton_cg(prob, x0, max_newton=30)
+            res[lam] = (err(x), nrm(x))
+        self.assertLess(res[0.0][0], 1e-6)                              # λ=0 recovers exactly
+        self.assertGreater(res[0.0][1], res[1e-3][1])                   # ridge shrinks ‖x‖ ...
+        self.assertGreater(res[1e-3][1], res[1e-1][1])                  # ... monotonically toward 0
+
     def test_jit_paths_recover(self):
         """With jax inputs + use_jit=True, newton_cg (jit CG), mc_sgd, and adam jit-compile their kernels
         (a stray np.* on a tracer would raise) and recover -- the jit dispatch check for the optimizers."""
@@ -324,6 +390,11 @@ class TestBackendOptimizers(unittest.TestCase):
             xn, _ = opt.newton_cg(pm, x0z, max_newton=20, use_jit=True)
             self.assertIsInstance(xn[0][0], jnp.ndarray)
             self.assertLess(true_err(xn), 1e-3)
+        with self.subTest(optimizer='newton_cg', regularized=True):     # the reg Hessian λ·Π runs inside the jit CG
+            pm_reg = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww_j, data_j,
+                                               regularizer=opt.IdentityRegularizer(1e-2))
+            xr, _ = opt.newton_cg(pm_reg, x0z, max_newton=15, use_jit=True)
+            self.assertIsInstance(xr[0][0], jnp.ndarray)
         with self.subTest(optimizer='mc_sgd'):
             xm, _ = opt.mc_sgd(pm, x0_j, np.random.default_rng(7), batch=40, max_iter=300, use_jit=True)
             self.assertIsInstance(xm[0][0], jnp.ndarray)

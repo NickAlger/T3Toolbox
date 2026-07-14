@@ -98,6 +98,31 @@ class TestFrontendOptimizers(unittest.TestCase):
         self.assertIsInstance(x, t3.TuckerTensorTrain)
         self.assertTrue(is_jax_ndarray(x.data[0][0]))         # jax-backed result
 
+    def test_newton_cg_regularizer(self):
+        """Identity regularization through the adapter: λ=0 recovers, λ>0 shrinks ‖x‖ (ridge); a residual
+        weight ω composes with the regularizer (ω-independence); a uniform x0 + regularizer errors clearly."""
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)
+        x_u, _ = topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, x0, max_newton=30)
+        x_r, _ = topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, x0,
+                                regularizer=topt.IdentityRegularizer(1e-1), max_newton=30)
+        self.assertIsInstance(x_r, t3.TuckerTensorTrain)
+        self.assertLess(self._true_err(x_u), 1e-3)                                   # λ=0 recovers
+        nrm = lambda X: float(np.linalg.norm(X.to_dense()))
+        self.assertLess(nrm(x_r), nrm(x_u))                                          # ridge shrinks ‖x‖
+
+        # ω-independence: a per-mode residual weight composes with the regularizer (still shrinks, still runs)
+        omega = np.linspace(0.5, 2.0, len(SHAPE))
+        x_wr, _ = topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, x0,
+                                 weight=omega, regularizer=topt.IdentityRegularizer(1e-1), max_newton=30)
+        self.assertIsInstance(x_wr, t3.TuckerTensorTrain)
+        self.assertLess(nrm(x_wr), nrm(x_u))
+
+        # uniform + regularizer: not yet supported -> a clear error (S3)
+        ux0 = ut3.UniformTuckerTensorTrain.from_t3(x0)
+        with self.assertRaises(NotImplementedError):
+            topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe', self.ww, self.data, ux0,
+                           regularizer=topt.IdentityRegularizer(1e-3), max_newton=1)
+
     def test_bad_kind_errors(self):
         with self.assertRaises(ValueError):
             topt.gradient_descent(t3m.MANIFOLD, 'nope', self.ww, self.data, self.X0, n_iter=1)

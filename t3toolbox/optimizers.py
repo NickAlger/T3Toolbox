@@ -41,11 +41,17 @@ import t3toolbox.backend.optimizer_display as bdisp
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
 
+# Regularizers live in the backend (check-free; a raw-.data user constructs them directly) and are
+# re-exported here for frontend convenience -- neither user is privileged (dev/regularization_design.md §5a).
+from t3toolbox.backend.regularization import Regularizer, IdentityRegularizer
+
 __all__ = [
     'gradient_descent',
     'mc_sgd',
     'adam',
     'newton_cg',
+    'Regularizer',
+    'IdentityRegularizer',
 ]
 
 _KIND = {'apply': bfit.APPLY, 'entries': bfit.ENTRIES, 'probe': bfit.PROBE}
@@ -103,6 +109,7 @@ def _setup(
         x0,                 # TuckerTensorTrain (ragged) or UniformTuckerTensorTrain (uniform)
         order:  typ.Optional[int] = None,  # derivative kinds only: highest order (required)
         weight: typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
+        regularizer: typ.Any = None,       # optional backend.regularization.Regularizer (ragged only for now)
 ) -> typ.Tuple[
         bopt.Problem,       # the fixed-rank least-squares problem
         typ.Any,            # initial optimizer state: x0.data (ragged) or the bare supercore pair (uniform)
@@ -124,6 +131,9 @@ def _setup(
     wm = _fitting._canonical_weight(weight, kind, _n_modes(kind, sample), order or 0)   # 2-D ω[m,o] or None
 
     if isinstance(x0, ut3.UniformTuckerTensorTrain):
+        if regularizer is not None:                      # uniform reg is a later slice (S3); ragged only for now
+            raise NotImplementedError("regularization is not yet supported on the uniform layer; use a "
+                                      "ragged TuckerTensorTrain x0 (uniform support is planned).")
         geom_name = _uniform_geometry_name(geometry)
         x0m = uf.uniform_minimal(x0)                     # transparent minimal-rank reduction (no-op if minimal)
         problem = uf.uniform_least_squares_problem(geom_name, kind, x0m, sample, data, order, wm)
@@ -135,7 +145,7 @@ def _setup(
             bk = bfit.probe_kind(wm) if kind == 'probe' and wm is not None else _KIND[kind]
         else:
             bk = _DERIV_KIND[kind](order, wm)
-        problem = bopt.least_squares_problem(_geometry_ops(geometry), bk, sample, data)
+        problem = bopt.least_squares_problem(_geometry_ops(geometry), bk, sample, data, regularizer=regularizer)
         return problem, x0.data, lambda cores: t3.TuckerTensorTrain(*cores)
 
     raise TypeError(f"x0 must be a TuckerTensorTrain or UniformTuckerTensorTrain, got {type(x0).__name__}")
@@ -153,15 +163,17 @@ def gradient_descent(
         x0:       Point,                # initial point (any cores; the geometry orthogonalizes internally)
         order:    typ.Optional[int] = None,  # derivative kinds: highest order (required)
         weight:   typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
+        regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ) (ragged only)
         **kwargs,                       # forwarded to backend.optimizers.gradient_descent (n_iter, gtol_rel, ...)
 ) -> typ.Tuple[Point, dict]:            # (x_opt, stats)
     """Fit ``x`` to ``data`` by steepest descent (Cauchy step + Armijo line search) on ``geometry``.
 
     Accepts a ragged ``TuckerTensorTrain`` (with ``manifold.MANIFOLD`` / ``COREWISE``) or a uniform
     ``UniformTuckerTensorTrain`` (with ``uniform_manifold.UNIFORM_MANIFOLD`` / ``UNIFORM_COREWISE``); the
-    representation is inferred from ``x0`` and returned in kind. See
+    representation is inferred from ``x0`` and returned in kind. Pass ``regularizer`` (e.g.
+    ``optimizers.IdentityRegularizer(λ)``) to add ``ρ(x)`` to the objective (ragged only for now). See
     :py:func:`t3toolbox.backend.optimizers.gradient_descent`."""
-    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight)
+    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer)
     x_cores, stats = bopt.gradient_descent(problem, init, **kwargs)
     return rewrap(x_cores), stats
 
@@ -221,6 +233,7 @@ def newton_cg(
         val_data:   typ.Any = None,               # optional validation data (both given adds the val column)
         callback:   typ.Optional[typ.Callable] = None,  # custom callback(NewtonInfo) each iter (overrides `verbose`)
         use_jit:    bool = False,               # jit the inner CG: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
+        regularizer: typ.Any = None,            # optional regularizer, e.g. optimizers.IdentityRegularizer(λ) (ragged only)
         **kwargs,                       # forwarded to backend.optimizers.newton_cg (max_newton, gtol_rel, g0norm_newton, ...)
 ) -> typ.Tuple[Point, dict]:
     """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse. Ragged or uniform
@@ -304,7 +317,7 @@ def newton_cg(
     >>> dtype_x64, ok_x64
     ('float64', True)
     """
-    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight)
+    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer)
     records = None
     if callback is None and verbose:
         vs, vd = val_sample, val_data
