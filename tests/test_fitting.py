@@ -138,12 +138,10 @@ class TestGaussNewtonModel(unittest.TestCase):
                         self.assertTrue(np.allclose(model.evaluate(p), two_form, rtol=RTOL, atol=ATOL))
 
     def test_regularizer(self):
-        '''An IdentityRegularizer folds ρ=½λ‖X‖² into the frontend model on all kinds/geometries: the
-        two-form identity `m(p)=c+⟨g,p⟩+½⟨p,Hp⟩` and `gn_quadratic==pᵀHp` still hold (reg folded
-        consistently across all five methods), the objective gains ρ, and uniform is rejected.'''
+        '''An IdentityRegularizer folds ρ=½λ‖X‖² into the frontend GaussNewtonModel on all kinds/geometries:
+        the two-form identity `m(p)=c+⟨g,p⟩+½⟨p,Hp⟩` and `gn_quadratic==pᵀHp` still hold (reg folded
+        consistently across all five methods) and the objective gains ρ.'''
         import t3toolbox.backend.optimizers as bopt
-        import t3toolbox.uniform_tucker_tensor_train as ut3
-        import t3toolbox.uniform_manifold as ut3m
         lam = 0.4
         BOPS = {'manifold': bopt.MANIFOLD_OPS, 'corewise': bopt.COREWISE_OPS}
         for kind in KINDS:
@@ -160,13 +158,32 @@ class TestGaussNewtonModel(unittest.TestCase):
                                                 p.corewise_inner(model.gn_hessian(p)), rtol=RTOL, atol=ATOL))
                     rho = float(R.value(BOPS[geom_name], (model.frame.data[0], model.frame.data[2])))
                     self.assertTrue(np.allclose(model.objective_value, s['c'] + rho, rtol=RTOL, atol=ATOL))
-        # uniform reg via the model factories (roll-your-own) is a later slice -> a clear error for now
-        # (the uniform OPTIMIZER path does support regularization; see TestFrontendUniformOptimizers)
-        ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SHAPE, TUCKER_RANKS, TT_RANKS))
-        ww = [np.random.randn(N_SAMPLES, N) for N in SHAPE]
-        with self.assertRaises(NotImplementedError):
-            fitting.apply_model(ut3m.UNIFORM_MANIFOLD, ux, ww, np.zeros(N_SAMPLES),
-                                regularizer=bopt.IdentityRegularizer(0.1))
+
+    def test_uniform_regularizer(self):
+        '''S3b: the UniformGaussNewtonModel supports the same regularizer (roll-your-own uniform reg): the
+        two-form / `gn_quadratic==pᵀHp` identities hold with reg, and the uniform objective matches the
+        ragged model's exactly (the equivalence contract). Uses minimal ranks -- the model factory (unlike
+        the optimizer) does not call uniform_minimal.'''
+        import t3toolbox.backend.optimizers as bopt
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        np.random.seed(0)
+        R = bopt.IdentityRegularizer(0.4)
+        Xr = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 2), (1, 2, 2, 1))   # minimal / realizable ranks
+        Xu = ut3.UniformTuckerTensorTrain.from_t3(Xr)
+        ww = [np.random.randn(20, N) for N in (6, 7, 8)]
+        r = [np.random.randn(20, N) for N in (6, 7, 8)]
+        for ug, rg in [(ut3m.UNIFORM_MANIFOLD, t3m.MANIFOLD), (ut3m.UNIFORM_COREWISE, t3m.COREWISE)]:
+            with self.subTest(geom=type(ug).__name__):
+                um = fitting.probe_model(ug, Xu, ww, r, regularizer=R)
+                rm = fitting.probe_model(rg, Xr, ww, r, regularizer=R)
+                p = ug.randn(um.frame)
+                two_form = (um.objective_value + um.gradient.corewise_inner(p)
+                            + 0.5 * p.corewise_inner(um.gn_hessian(p)))
+                self.assertTrue(np.allclose(um.evaluate(p), two_form, rtol=RTOL, atol=1e-7))
+                self.assertTrue(np.allclose(um.gn_quadratic(p),
+                                            p.corewise_inner(um.gn_hessian(p)), rtol=RTOL, atol=1e-7))
+                self.assertTrue(np.allclose(um.objective_value, rm.objective_value, rtol=RTOL, atol=1e-7))
 
     def test_razor_self_containment(self):
         '''The model applies Π itself: a raw p gives the same result as the projected Πp (both geometries).'''

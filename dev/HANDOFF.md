@@ -48,9 +48,14 @@ branch can be deleted (optional).
   from `tv_project_t3_onto_tangent_space(frame, base)` (correct but roundabout — projects the base point
   onto its *own* tangent, contractions collapse to `P_last`) to the **direct construction** (last TT
   variation `= P_last`, else zero; already gauged — no projection). Verified element-wise-identical to the
-  projection (ragged + uniform); all reg tests green. **Next: S3b** (uniform `UniformGaussNewtonModel`
-  roll-your-own reg — the optimizer path already works; the fitting model-factory guard still rejects it),
-  then S4 (`examples/` demo), S5 (docs). Also noted: masked-last-core `point_norm_sq` optimization.
+  projection (ragged + uniform); all reg tests green.
+  **S3b DONE (uncommitted):** uniform `UniformGaussNewtonModel` reg parity (roll-your-own) — `regularizer=`
+  on all six model factories (`_reject_uniform_regularizer` guard removed); folded into
+  `objective_value`/`gradient`/`gn_quadratic`/`gn_hessian`/`evaluate` via `_ubgeom` (backend uniform
+  `GeometryOps` at rank) + `_reg_tangent`; pytree carries reg. `test_fitting.py::test_uniform_regularizer`
+  (identities + uniform==ragged objective, both geometries). Full suite green (633). **Next: S4**
+  (`examples/` demo — the runnable regularization example Nick wants), then S5 (docs). Also noted:
+  masked-last-core `point_norm_sq` optimization.
   Design note + full slice plan: **`dev/regularization_design.md`**.
   Framework: a `Regularizer` is an objective term folded into the local GN model
   (`objective`/`gradient`/`gn_quadratic`/`hvp`) + `Problem.objective`, so it composes with every

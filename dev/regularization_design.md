@@ -317,7 +317,17 @@ bug. **Interface consequence:** the regularizer is handed tangents + the geometr
    `test_uniform_point_norm_sq_garbage_robust` + frontend `test_regularizer_matches_ragged_and_garbage_robust`.
    Full suite green (632). **Note:** the masked-last-core read (`ut3_apply_masks(x)[1][-1]`, cheaper +
    ragged-consistent) is a future optimization for `point_norm_sq`; the uniform `UniformGaussNewtonModel`
-   roll-your-own reg is deferred to **S3b** (the optimizer path — the primary — works fully).
+   roll-your-own reg is **S3b** (below, now done).
+3b. **S3b — uniform `UniformGaussNewtonModel` reg parity. ✅ DONE (2026-07-14, uncommitted).** The uniform
+   roll-your-own model twin of S1b: `regularizer=` on all six factories (the `_reject_uniform_regularizer`
+   guard removed); `UniformGaussNewtonModel` folds reg into `objective_value`/`gradient`/`gn_quadratic`/
+   `gn_hessian`/`evaluate`, delegating to the backend `Regularizer` via `_ubgeom` (builds the backend
+   uniform `GeometryOps` from the frame's base point at rank) + `_reg_tangent` (wraps a bare pair as a
+   `UT3Tangent`). Pytree registration carries `regularizer` as aux. Test `test_fitting.py::test_uniform_regularizer`:
+   two-form / `gn_quadratic==pᵀHp` identities hold with reg on both geometries + the uniform objective
+   matches the ragged model's; pytree round-trip preserves the reg. (Uses minimal ranks — the model factory,
+   unlike the optimizer, does not call `uniform_minimal`.) Full suite green (633).
+
 4. **S4 — user-facing example** in `examples/` (Nick wants this): a runnable demo of identity
    regularization stabilizing an ill-posed fit — e.g. recover a low-rank tensor from *too few* / noisy
    probes where the unregularized Newton-CG fit is unstable, and `regularizer=IdentityRegularizer(λ)`
