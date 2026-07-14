@@ -35,8 +35,12 @@ branch can be deleted (optional).
   `gn_hessian`/`evaluate` (delegates to the backend `Regularizer`); jax pytree reg registration fixed
   (carries `regularizer` as aux, else dropped on jit round-trip). Frontend == backend LocalModel verified;
   `test_fitting.py::test_regularizer`; full suite green (628).
-  **Next: S2** (stochastic `mc_sgd`/`adam` + the batch/n reg scaling, §8.1), then S3 (uniform + garbage
-  tests), S4 (`examples/` demo), S5 (docs).
+  **S2 DONE (uncommitted):** `mc_sgd`/`adam` `regularizer=` with the **(batch/n) scaling** —
+  `_minibatch_step_problem` scales the reg by `min(batch,n)/n` for the per-step kernel (generic
+  `_ScaledRegularizer` wrapper), full-batch stop keeps the full reg; verified scale=batch/n, mc_sgd+adam
+  shrink, jit-clean. **Next: S3** (uniform twin — `point_norm_sq`/`point_tangent`/`value` reading `P_last`
+  mask-correctly; the garbage/NaN-padding + exact-mask tests §7/§9; drop the frontend uniform-reg
+  `NotImplementedError` guards), then S4 (`examples/` demo), S5 (docs).
   Design note + full slice plan: **`dev/regularization_design.md`**.
   Framework: a `Regularizer` is an objective term folded into the local GN model
   (`objective`/`gradient`/`gn_quadratic`/`hvp`) + `Problem.objective`, so it composes with every

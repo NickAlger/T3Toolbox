@@ -190,11 +190,13 @@ def mc_sgd(
         weight:   typ.Optional[typ.Any] = None,   # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         draw:     typ.Optional[typ.Callable]        = None,  # custom draw(rng)->(sample_B,data_B); None = flat
         use_jit:  bool = False,         # jit the per-step kernel: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
+        regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ) (ragged only); scaled by batch/n per step
         **kwargs,                       # forwarded to backend.optimizers.mc_sgd (max_iter, check_every, ...)
 ) -> typ.Tuple[Point, dict]:
     """Manifold Cauchy SGD -- minibatched, tuning-free Cauchy step. Ragged or uniform ``x0`` (see
-    :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.mc_sgd`."""
-    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight)
+    :py:func:`gradient_descent`). A ``regularizer`` (ragged only) is scaled by ``batch/n`` per step so
+    ``λ`` matches the full-batch optimizers. See :py:func:`t3toolbox.backend.optimizers.mc_sgd`."""
+    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer)
     x_cores, stats = bopt.mc_sgd(problem, init, rng, batch, draw=draw, use_jit=use_jit, **kwargs)
     return rewrap(x_cores), stats
 
@@ -211,11 +213,14 @@ def adam(
         weight:   typ.Optional[typ.Any] = None,   # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         draw:     typ.Optional[typ.Callable]        = None,
         use_jit:  bool = False,         # jit the per-step kernel: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
+        regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ) (ragged only); scaled by batch/n per step
         **kwargs,                       # forwarded to backend.optimizers.adam (lr, max_iter, ...)
 ) -> typ.Tuple[Point, dict]:
     """Adam over the cores -- the dependency-free first-order method for the corewise geometry. Ragged or
-    uniform ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.adam`."""
-    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight)
+    uniform ``x0`` (see :py:func:`gradient_descent`). A ``regularizer`` (ragged only) is scaled by
+    ``batch/n`` per step so ``λ`` matches the full-batch optimizers. See
+    :py:func:`t3toolbox.backend.optimizers.adam`."""
+    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer)
     x_cores, stats = bopt.adam(problem, init, rng, batch, draw=draw, use_jit=use_jit, **kwargs)
     return rewrap(x_cores), stats
 

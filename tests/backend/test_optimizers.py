@@ -366,6 +366,36 @@ class TestBackendOptimizers(unittest.TestCase):
         self.assertGreater(res[0.0][1], res[1e-3][1])                   # ridge shrinks ‖x‖ ...
         self.assertGreater(res[1e-3][1], res[1e-1][1])                  # ... monotonically toward 0
 
+    def test_stochastic_regularizer_scaling(self):
+        """The stochastic optimizers scale the (deterministic) regularizer by batch/n per step (so λ matches
+        the full-batch optimizers) while the full-batch stop keeps the full-strength reg; mc_sgd + reg
+        shrinks ‖x‖."""
+        rng = np.random.default_rng(4)
+        n = 200
+        ww = unit_vecs(n, SHAPE, rng); data = dense_probe(self.A, ww)
+        reg = opt.IdentityRegularizer(0.5)
+        prob = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data, regularizer=reg)
+        frame = opt.MANIFOLD_OPS.frame(t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data)
+        tnorm = lambda t: float(cw.corewise_dot(t, t)) ** 0.5
+        g_full = tnorm(reg.gradient(opt.MANIFOLD_OPS, frame))
+        for b in (40, n):                                              # step-problem reg-grad == (b/n)·full
+            sp = opt._minibatch_step_problem(prob, b)
+            self.assertAlmostEqual(tnorm(sp.regularizer.gradient(opt.MANIFOLD_OPS, frame)),
+                                   (min(b, n) / n) * g_full, places=6)
+        self.assertIsNot(opt._minibatch_step_problem(prob, 40), prob)      # a distinct (scaled) problem
+        p_unreg = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
+        self.assertIs(opt._minibatch_step_problem(p_unreg, 40), p_unreg)   # unregularized -> no-op (unchanged)
+
+        # mc_sgd (manifold) with reg shrinks ‖x‖ toward 0 vs the unregularized fit
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
+        nrm = lambda c: float(np.linalg.norm(t3.TuckerTensorTrain(*c).to_dense()))
+        xu, _ = opt.mc_sgd(opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data),
+                           x0, np.random.default_rng(7), batch=50, max_iter=500)
+        xr, _ = opt.mc_sgd(opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data,
+                                                     regularizer=opt.IdentityRegularizer(0.3)),
+                           x0, np.random.default_rng(7), batch=50, max_iter=500)
+        self.assertLess(nrm(xr), nrm(xu))
+
     def test_jit_paths_recover(self):
         """With jax inputs + use_jit=True, newton_cg (jit CG), mc_sgd, and adam jit-compile their kernels
         (a stray np.* on a tracer would raise) and recover -- the jit dispatch check for the optimizers."""

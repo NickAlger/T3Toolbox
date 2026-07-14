@@ -98,6 +98,27 @@ class TestFrontendOptimizers(unittest.TestCase):
         self.assertIsInstance(x, t3.TuckerTensorTrain)
         self.assertTrue(is_jax_ndarray(x.data[0][0]))         # jax-backed result
 
+    def test_stochastic_regularizer(self):
+        """mc_sgd (manifold) and adam (corewise) accept a regularizer (scaled batch/n internally) and shrink
+        the solution vs the unregularized fit."""
+        nrm = lambda X: float(np.linalg.norm(X.to_dense()))
+        x0z = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)
+        xu, _ = topt.mc_sgd(t3m.MANIFOLD, 'probe', self.ww, self.data, x0z,
+                            np.random.default_rng(5), batch=40, max_iter=400)
+        xr, _ = topt.mc_sgd(t3m.MANIFOLD, 'probe', self.ww, self.data, x0z,
+                            np.random.default_rng(5), batch=40, max_iter=400,
+                            regularizer=topt.IdentityRegularizer(0.3))
+        self.assertIsInstance(xr, t3.TuckerTensorTrain)
+        self.assertLess(nrm(xr), nrm(xu))
+
+        au, _ = topt.adam(t3m.COREWISE, 'probe', self.ww, self.data, self.X0,
+                          np.random.default_rng(5), batch=40, lr=2e-2, max_iter=500)
+        ar, _ = topt.adam(t3m.COREWISE, 'probe', self.ww, self.data, self.X0,
+                          np.random.default_rng(5), batch=40, lr=2e-2, max_iter=500,
+                          regularizer=topt.IdentityRegularizer(1.0))
+        self.assertIsInstance(ar, t3.TuckerTensorTrain)
+        self.assertLess(nrm(ar), nrm(au))
+
     def test_newton_cg_regularizer(self):
         """Identity regularization through the adapter: λ=0 recovers, λ>0 shrinks ‖x‖ (ridge); a residual
         weight ω composes with the regularizer (ω-independence); a uniform x0 + regularizer errors clearly."""

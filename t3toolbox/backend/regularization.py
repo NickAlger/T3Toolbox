@@ -68,3 +68,26 @@ class IdentityRegularizer(Regularizer):
     def quadratic(self, geom, frame, p):   # ⟨p, λ·Π p⟩ = λ‖Π p‖²
         projected = geom.project(frame, p)
         return self.strength * geom.inner(projected, projected)
+
+
+@dc.dataclass(frozen=True)
+class _ScaledRegularizer(Regularizer):
+    """``inner`` scaled by a constant ``factor`` -- ``factor·ρ``. Used by the **stochastic** optimizers,
+    where the minibatch data gradient is a ``batch/n`` estimate of the full data gradient, so the
+    (deterministic) regularizer is scaled by ``batch/n`` to keep ``λ``'s meaning consistent with the
+    full-batch optimizers (``dev/regularization_design.md`` §8.1). Valid for any regularizer: scaling a
+    function by ``factor`` scales its value, gradient, and Hessian all by ``factor``."""
+    inner:  Regularizer
+    factor: float
+
+    def value(self, geom, x_cores):
+        return self.factor * self.inner.value(geom, x_cores)
+
+    def gradient(self, geom, frame):
+        return cw.corewise_scale(self.inner.gradient(geom, frame), self.factor)
+
+    def hessian(self, geom, frame, p):
+        return cw.corewise_scale(self.inner.hessian(geom, frame, p), self.factor)
+
+    def quadratic(self, geom, frame, p):
+        return self.factor * self.inner.quadratic(geom, frame, p)

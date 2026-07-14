@@ -35,6 +35,7 @@ from t3toolbox.backend.common import *
 from t3toolbox.backend import tv_operations as tops
 from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
 from t3toolbox.backend.regularization import Regularizer, IdentityRegularizer   # re-exported for backend users
+from t3toolbox.backend.regularization import _ScaledRegularizer                 # internal: minibatch reg scaling
 import t3toolbox.corewise as cw
 
 __all__ = [
@@ -238,6 +239,22 @@ def flat_draw(
     return draw
 
 
+def _minibatch_step_problem(
+        problem: Problem,
+        batch:   int,        # nominal minibatch size (the ``batch`` arg; = the default flat draw's size)
+) -> Problem:
+    """The problem the **stochastic** per-step kernel linearizes against: identical to ``problem`` but with
+    the regularizer scaled by ``batch/n``. The minibatch data gradient is a ``batch/n`` estimate of the
+    full-data gradient, so scaling the (deterministic) regularizer to match keeps ``λ``'s meaning the same
+    as in the full-batch optimizers (``dev/regularization_design.md`` §8.1). No-op when unregularized. The
+    **full-batch** stop/loss keeps the full-strength ``problem.regularizer``. (Assumes the nominal ``batch``
+    size; a custom ``draw`` of a different size may want ``λ`` retuned.)"""
+    if problem.regularizer is None:
+        return problem
+    n = problem.kind.n_measurements(problem.sample)
+    return dc.replace(problem, regularizer=_ScaledRegularizer(problem.regularizer, min(batch, n) / n))
+
+
 # --------------------------------------------------------------------------------------------------
 # Optimizers
 # --------------------------------------------------------------------------------------------------
@@ -332,12 +349,13 @@ def mc_sgd(
     ``sample`` / ``data`` (a custom ``draw`` should return jax minibatches to stay on device)."""
     x0, problem = _prepare_jit_inputs(use_jit, x0, problem)
     draw = draw if draw is not None else flat_draw(problem, batch)
+    step_problem = _minibatch_step_problem(problem, batch)  # reg scaled by batch/n; full reg kept for the stop
     a_smooth = 1.0 - math.exp(-1.0 / smooth_tau)
 
     def step(cores, sample_B, data_B):                      # the jit-able per-step kernel
-        lm = problem.local_model(cores, sample_B, data_B)
+        lm = step_problem.local_model(cores, sample_B, data_B)
         g = lm.gradient
-        gg = problem.geom.inner(g, g)
+        gg = step_problem.geom.inner(g, g)
         xnp, _, _ = get_backend(False, tree_contains_jax(g))
         alpha = gg / xnp.maximum(lm.gn_quadratic(g), 1e-30)
         return lm.retract(cw.corewise_scale(g, -alpha))
@@ -378,10 +396,11 @@ def adam(
     per-step kernel (``lr_t``/``t`` flow in as traced args, so the schedule does not force a recompile),
     auto-converting numpy inputs to jax first (:py:func:`_prepare_jit_inputs`)."""
     x0, problem = _prepare_jit_inputs(use_jit, x0, problem)
+    step_problem = _minibatch_step_problem(problem, batch)  # reg scaled by batch/n; full reg kept for the stop
     b1, b2 = betas
 
     def step(cores, m, v, sample_B, data_B, lr_t, t):      # the jit-able per-step kernel
-        lm = problem.local_model(cores, sample_B, data_B)
+        lm = step_problem.local_model(cores, sample_B, data_B)
         g = lm.gradient
         m = cw.corewise_map(lambda mi, gi: b1 * mi + (1.0 - b1) * gi, m, g)
         v = cw.corewise_map(lambda vi, gi: b2 * vi + (1.0 - b2) * gi * gi, v, g)

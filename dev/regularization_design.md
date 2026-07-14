@@ -244,10 +244,13 @@ bug. **Interface consequence:** the regularizer is handed tangents + the geometr
 
 ## 8. Composition subtleties (decide per slice; none block the ragged Newton-CG slice)
 
-1. **Stochastic optimizers (`mc_sgd`/`adam`).** `ρ` is deterministic; the data term is a minibatch **sum**
-   over `batch` of `n` measurements, so `E[minibatch data-grad] ≈ (batch/n)·full data-grad`. To keep the
-   reg at the right relative scale, add `(batch/n)·g_R` per step (or `(n/batch)·`data + `g_R`). Decide in
-   the stochastic slice; note the chosen convention.
+1. **Stochastic optimizers (`mc_sgd`/`adam`) — RESOLVED (S2).** `ρ` is deterministic; the data term is a
+   minibatch **sum** over `batch` of `n` measurements, so `E[minibatch data-grad] ≈ (batch/n)·full
+   data-grad`. **Chosen convention:** scale the reg by `min(batch,n)/n` for the per-step kernel
+   (`_minibatch_step_problem` + `_ScaledRegularizer`); the full-batch stop keeps the full reg. This makes
+   the minibatch Cauchy step ≈ the full step (the `batch/n` factors cancel) and keeps `λ`'s meaning
+   consistent with the full-batch optimizers. Assumes the nominal `batch` size — a custom `draw` of a
+   different size may want `λ` retuned (documented on the frontend).
 2. **`gn_quadratic` / `evaluate` must include the reg term** (`+ λ⟨p,Mp⟩`) or the line-search denominator
    and predicted-reduction ρ silently disagree with the true objective. Easy to forget.
 3. **`ω`-independence** — asserted by a test (a reg + a nontrivial `ω` compose without cross-talk).
@@ -290,7 +293,14 @@ bug. **Interface consequence:** the regularizer is handed tangents + the geometr
    `gn_quadratic==pᵀHp` hold with reg on all kinds/geometries, objective gains ρ, uniform rejected.
    Verified the frontend model == the backend `LocalModel` with reg (obj/grad/gn_quadratic/hvp) and the
    pytree round-trip preserves the regularizer. Full suite green (628).
-2. **S2 — stochastic optimizers.** `mc_sgd`/`adam` `regularizer=` with the (batch/n) scaling (§8.1).
+2. **S2 — stochastic optimizers. ✅ DONE (2026-07-14, uncommitted).** `mc_sgd`/`adam` `regularizer=` with
+   the **(batch/n) scaling** (§8.1): a `_minibatch_step_problem(problem, batch)` scales the reg by
+   `min(batch,n)/n` for the per-step kernel (via the generic `_ScaledRegularizer` wrapper — valid for any
+   regularizer, since `factor·ρ` scales value/grad/hessian by `factor`), while the full-batch stop keeps
+   the full-strength reg. Verified: reg-grad scale is exactly `batch/n` (0.25 at b=50/n=200, 1.0 at b=n),
+   the Cauchy step's `c` factors cancel so the minibatch step ≈ the full step, mc_sgd (manifold) + adam
+   (corewise) shrink ‖x‖. Tests: `test_optimizers.py::test_stochastic_regularizer_scaling` +
+   `test_optimizers_frontend.py::test_stochastic_regularizer`; jit-clean (dispatch). Suites green (54).
 3. **S3 — uniform twin.** Uniform `point_norm_sq`/`point_tangent`/`value` (read `P_last` mask-correctly);
    uniform `GaussNewtonModel` + optimizers `regularizer=`. Tests: equivalence-to-ragged +
    **garbage-robustness + exact masks** (§9). Guarded by a skipped test from S1 so it cannot silently slip.
