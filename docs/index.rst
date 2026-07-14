@@ -1,14 +1,11 @@
 T3Toolbox
 =========
 
-A pure-Python (NumPy + optional JAX) library for **Tucker tensor trains (T3)** -- a Tucker
-decomposition whose central core is stored as a tensor train. When the ranks are moderate,
-a T3 breaks the curse of dimensionality: storing a dense tensor costs :math:`O(N^d)` memory,
-while the T3 representing it costs :math:`O(dnr^2 + dnN)`.
-
-Tucker tensor trains are also known as **extended tensor trains (ETT)** -- the two names refer to
-the same format. This library uses "Tucker tensor train" (and the abbreviation T3) throughout, but
-everything here applies equally if you know these objects as extended tensor trains.
+A pure-Python (NumPy + optional JAX) library for **Tucker tensor trains (T3)**. A Tucker tensor train 
+is the composition of a Tucker decomposition with a tensor train decomposition of the central core.
+When the ranks are moderate, a T3 breaks the curse of dimensionality: storing a dense tensor costs 
+O(N^d) memory, while the T3 representing it costs O(dnr^2 + dnN). 
+Tucker tensor trains are also known as **extended tensor trains (ETT)**.
 
 The library provides the T3 format itself (arithmetic, orthogonalization, T3-SVD), the three
 sampling operations (``entries`` / ``apply`` / ``probe``) and their derivatives, the fixed-rank
