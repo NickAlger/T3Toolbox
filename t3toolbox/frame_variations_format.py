@@ -64,7 +64,11 @@ class T3Frame:                     # jax aux_data (it holds arrays; value hash/e
         - tucker_variations = (V0, ..., V(d-1)), elm_shape=(nDi, Ni)
         - tt_variations     = (H0, ..., H(d-1)), elm_shape=(rLi, nUi, rRi)
 
-    Note that Ld and R0 are not used in these diagrams.
+    Note that Ld and R0 are not used in these diagrams. (Why keep them, then? They hold the base
+    point as one extra variation term so the frame remembers where it is attached, and they give every
+    family a uniform length d for code reuse / off-by-one safety. See ``docs/frame_variations.md`` for
+    the full rationale, and for how the gauged variations act as coordinates -- which is what the
+    weighted-layer metric ``T3FrameWeights`` reweights.)
 
     The edge ranks are shown in the following diagrams::
 

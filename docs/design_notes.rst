@@ -11,6 +11,7 @@ Core design
 .. toctree::
    :maxdepth: 1
 
+   frame_variations
    batching_and_stacking
    entries_apply_probe
    transposes
