@@ -5,8 +5,6 @@
 #
 # Runs mirror the documented dev flow (PYTHONPATH=repo root; no install step).
 # pytest-subtests guarantees unittest subTest failures surface on every pytest generation.
-# The parked weighted module is excluded from the doctest sweep (its docstring examples
-# deliberately keep pre-rename names until the post-1.0 weighted revival).
 name: tests
 
 on:
@@ -47,6 +45,6 @@ jobs:
       - name: Test suite
         run: pytest tests/ -q
       - name: Module doctests
-        run: pytest --doctest-modules t3toolbox --ignore=t3toolbox/weighted_tucker_tensor_train.py -q
+        run: pytest --doctest-modules t3toolbox -q
       - name: Quickstart doctest
         run: python -m doctest docs/getting_started.rst
