@@ -41,6 +41,10 @@ if common.jax_available:
 __all__ = [
     'UT3Masks',
     'UniformTuckerTensorTrain',
+    'UT3Weights',
+    'absorb_weights',
+    'weighted_norm',
+    'weighted_inner',
 ]
 
 @dataclass(frozen=True, eq=False)  # eq=False -> the mixin's VALUE-based __hash__/__eq__ stand (a bare
@@ -892,6 +896,257 @@ def _from_data(
 # (ragged <-> uniform conversions are methods on UniformTuckerTensorTrain: `.from_t3` / `.to_t3`.)
 
 
+###########################################
+
+
+@dataclass(frozen=True)
+class UT3Weights:
+    """Diagonal weights on the internal edges of a :py:class:`UniformTuckerTensorTrain` -- the uniform
+    twin of :py:class:`~t3toolbox.tucker_tensor_train.T3Weights`.
+
+    One vector per internal edge, packed into two supercores + a :py:class:`UT3Masks` holder:
+
+    - ``tucker_weight_supercore``: ``(d,) + stack_shape + (n,)`` -- the Tucker-rank edges
+    - ``tt_weight_supercore``: ``(d+1,) + stack_shape + (r,)`` -- the TT-bond edges
+    - ``masks``: **the same two edge masks as the train it weights** (a weight's edges *are* the tensor's
+      edges, so it declares the same ranks). This is a genuine precondition, not bookkeeping -- see
+      :py:meth:`is_consistent_with`.
+
+    There is deliberately **no ``shape`` field** (unlike ``UniformTuckerTensorTrain``): weights live only
+    on the *internal* edges, so a weight has no physical mode legs at all.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> np.random.seed(0)
+    >>> x  = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 2, 2), (1, 2, 2, 1))
+    >>> ux = ut3.UniformTuckerTensorTrain.from_t3(x, n=4, r=3)   # padded ABOVE the real ranks
+    >>> W  = ut3.UT3Weights.from_t3weights(t3.T3Weights.from_t3svd(x), n=ux.n, r=ux.r)
+    >>> print(W.is_consistent_with(ux))     # same edges -> same masks
+    True
+    >>> print(W.tucker_weight_supercore.shape, np.asarray(W.tucker_ranks).tolist())  # padded to 4, real 2
+    (3, 4) [2, 2, 2]
+    >>> xw = ut3.absorb_weights(ux, W)      # shape-preserving; masks unchanged
+    >>> print(xw.tucker_supercore.shape == ux.tucker_supercore.shape, xw.masks == ux.masks)
+    True True
+
+    The padding is a canonical zero, so ``reciprocal`` cannot naively divide (``1/0 = inf`` would poison
+    every masked reduction downstream: masking multiplies, and ``0 * inf = nan``). It guards the padding
+    instead -- which matters because the Grasedyck-Kramer metric *is* a reciprocal of singular values:
+
+    >>> with np.errstate(divide='ignore'):                             # the naive divide DOES blow up
+    ...     naive = 1.0 / W.tucker_weight_supercore
+    >>> print(bool(np.isinf(naive).any()))
+    True
+    >>> Wr = W.reciprocal()                                            # ...the guarded one does not
+    >>> print(bool(np.isfinite(Wr.tucker_weight_supercore).all()))
+    True
+    >>> print(bool(np.isfinite(ut3.weighted_norm(ux, Wr))))            # so the GK norm stays finite
+    True
+    """
+    tucker_weight_supercore: NDArray   # shape=(d,)  +stack_shape+(n,)
+    tt_weight_supercore:     NDArray   # shape=(d+1,)+stack_shape+(r,)
+    masks:                   UT3Masks  # static rank structure: the SAME edge masks as the weighted train
+
+    # ----------------------------------------------------------------- views
+    @cached_property
+    def supercores(self) -> Tuple[NDArray, NDArray]:
+        """``(tucker_weight_supercore, tt_weight_supercore)``."""
+        return self.tucker_weight_supercore, self.tt_weight_supercore
+
+    @cached_property
+    def data(self) -> Tuple[NDArray, NDArray, Tuple[NDArray, NDArray]]:
+        """Raw-array view, mirroring the fields: ``(tucker_weight_supercore, tt_weight_supercore,
+        (2 rank masks))``. Backend ``ut3_*_weights`` functions take this layout. Note it is a **3-tuple**,
+        one shorter than ``UniformTuckerTensorTrain.data`` -- there is no ``shape`` slot."""
+        return self.tucker_weight_supercore, self.tt_weight_supercore, self.masks.data
+
+    # ------------------------------------------------- padded (uniform) structure
+    @cached_property
+    def d(self) -> int:
+        """Number of modes."""
+        return self.tucker_weight_supercore.shape[0]
+
+    @cached_property
+    def n(self) -> int:
+        """Padded Tucker rank."""
+        return self.tucker_weight_supercore.shape[-1]
+
+    @cached_property
+    def r(self) -> int:
+        """Padded TT rank."""
+        return self.tt_weight_supercore.shape[-1]
+
+    @cached_property
+    def stack_shape(self) -> Tuple[int, ...]:
+        """Stack shape (``()`` if unstacked). Lives at axes ``1 .. len(stack_shape)`` (``d`` is axis 0)."""
+        return self.tucker_weight_supercore.shape[1:-1]
+
+    # ------------------------------------------------- original (real) structure
+    @cached_property
+    def tucker_ranks(self) -> NDArray:  # dtype=int, shape=(d,)+stack_shape
+        """Real Tucker ranks (from ``tucker_edge_mask``; may vary across the stack)."""
+        return self.masks.tucker_edge_mask.sum(axis=-1)
+
+    @cached_property
+    def tt_ranks(self) -> NDArray:  # dtype=int, shape=(d+1,)+stack_shape
+        """Real TT ranks (from ``tt_edge_mask``; may vary across the stack)."""
+        return self.masks.tt_edge_mask.sum(axis=-1)
+
+    # ----------------------------------------------------------------- validation
+    def validate(self):
+        """Check the structural invariants (supercore shapes agree with the masks; masks boolean)."""
+        tkm, ttm = self.masks.data
+        for m, name in ((tkm, 'tucker_edge_mask'), (ttm, 'tt_edge_mask')):
+            if not common.is_boolean_ndarray(m):
+                raise ValueError('UT3Weights: %s must be a boolean array (got %s).'
+                                 % (name, getattr(m, 'dtype', type(m))))
+
+        d, stack, n, r = self.d, self.stack_shape, self.n, self.r
+        expected = {
+            'tucker_edge_mask': (d,) + stack + (n,),
+            'tt_edge_mask':     (d + 1,) + stack + (r,),
+            'tt_weight_supercore': (d + 1,) + stack + (r,),
+        }
+        actual = {
+            'tucker_edge_mask': tuple(tkm.shape),
+            'tt_edge_mask':     tuple(ttm.shape),
+            'tt_weight_supercore': tuple(self.tt_weight_supercore.shape),
+        }
+        for k in expected:
+            if actual[k] != expected[k]:
+                raise ValueError(
+                    'Inconsistent UT3Weights: %s.shape = %s, expected %s (d=%d, stack_shape=%s, n=%d, r=%d).'
+                    % (k, actual[k], expected[k], d, stack, n, r))
+
+    def __post_init__(self):
+        self.validate()
+
+    def __repr__(self) -> str:
+        ss = ', stack_shape=%s' % (self.stack_shape,) if self.stack_shape else ''
+        return 'UT3Weights(d=%d, n=%d, r=%d%s)' % (self.d, self.n, self.r, ss)
+
+    # ----------------------------------------------------------------- operations
+    def is_consistent_with(self, x: 'UniformTuckerTensorTrain') -> bool:
+        """True iff these weights can be absorbed into ``x`` (non-raising).
+
+        Requires that the padded shapes fit **and that the edge masks are equal**.
+
+        The mask equality is the real content, and it is a check ragged does not need: ragged catches a
+        rank mismatch as an einsum shape error (a length-``n`` weight vector against a rank-``n`` core),
+        but uniform pads both to the common ``(n, r)``, so a mismatch is invisible to the shapes and would
+        silently corrupt -- a weight whose mask calls slot ``i`` padding carries a canonical zero there,
+        and absorbing it would **zero a real slot** of ``x``. The same precondition uniform adds to
+        variation add/sub (``docs/uniform_masks_vs_ranks.md``).
+        """
+        return ut3_operations.ut3_weights_consistent(x.data, self.data)
+
+    def reciprocal(self) -> 'UT3Weights':
+        """Elementwise ``1/w`` on the real slots (e.g. to form inverse-singular-value weights); the
+        padding stays a canonical, **finite** zero rather than becoming ``inf``. Masks unchanged. See
+        :py:func:`~t3toolbox.backend.ut3_operations.ut3_reciprocal_weights` for why that guard is
+        load-bearing (and why real-slot zeros are deliberately *not* guarded)."""
+        return _weights_from_data(ut3_operations.ut3_reciprocal_weights(self.data))
+
+    def sqrt(self) -> 'UT3Weights':
+        """Elementwise ``sqrt`` on the real slots; the padding stays a canonical, finite zero (masks
+        unchanged)."""
+        return _weights_from_data(ut3_operations.ut3_sqrt_weights(self.data))
+
+    # ----------------------------------------------------------------- ragged <-> uniform conversions
+    @staticmethod
+    def from_t3weights(
+            weights: 't3.T3Weights',
+            n: Optional[int] = None,   # padded Tucker rank (default max rank); pass to match the train's pad
+            r: Optional[int] = None,   # padded TT rank     (default max rank)
+    ) -> 'UT3Weights':
+        """Pack a ragged :py:class:`~t3toolbox.tucker_tensor_train.T3Weights` into a uniform one.
+
+        Pass ``n``/``r`` to match the padding of the :py:class:`UniformTuckerTensorTrain` these weights
+        will pair with (e.g. ``n=ux.n, r=ux.r``); the defaults pad tightly to the weights' own max rank,
+        which only matches a tightly-padded train.
+        """
+        return _weights_from_data(ut3_conversions.t3weights_to_ut3weights(weights.data, n=n, r=r))
+
+    def to_t3weights(self):  # -> T3Weights (unstacked) or a nested tree (shaped like stack_shape) of them
+        """Convert back to ragged form.
+
+        Unstacked: one :py:class:`~t3toolbox.tucker_tensor_train.T3Weights`. Stacked: a nested tree of
+        them (a varying-rank stack has no single stacked ``T3Weights``, exactly as for
+        :py:meth:`UniformTuckerTensorTrain.to_t3`; ``docs/uniform_ranks_and_varieties.md``).
+        """
+        def _wrap(res):
+            if common.is_ndarray(res[0][0]):   # res = (tucker_weights, tt_weights) leaf
+                return t3.T3Weights(*res)
+            return tuple(_wrap(w) for w in res)
+
+        return _wrap(ut3_conversions.ut3weights_to_t3weights(self.data))
+
+
+def _weights_from_data(
+        data: Tuple[NDArray, NDArray, Tuple[NDArray, NDArray]],
+) -> 'UT3Weights':
+    """Wrap a backend weights ``.data`` tuple into a :py:class:`UT3Weights` (the ``_from_data`` twin)."""
+    tucker_weight_supercore, tt_weight_supercore, masks = data
+    return UT3Weights(tucker_weight_supercore, tt_weight_supercore, UT3Masks(*masks))
+
+
+def absorb_weights(x: 'UniformTuckerTensorTrain', weights: UT3Weights) -> 'UniformTuckerTensorTrain':
+    """Contract diagonal edge weights into ``x``'s supercores (shape-preserving): the returned
+    ``UniformTuckerTensorTrain`` represents the fully-weighted network, with ``x``'s masks unchanged.
+    Uniform twin of :py:func:`t3toolbox.tucker_tensor_train.absorb_weights`; see
+    :py:func:`~t3toolbox.backend.ut3_operations.ut3_absorb_weights` for the side-conventions."""
+    _check_weights_pair(x, weights, 'absorb_weights')
+    return _from_data(ut3_operations.ut3_absorb_weights(x.data, weights.data))
+
+
+def weighted_norm(x: 'UniformTuckerTensorTrain', weights: UT3Weights,
+                  use_orthogonalization: bool = True) -> NDArray:  # shape=stack_shape
+    """Weighted Hilbert-Schmidt norm ``||absorb_weights(x, weights)||`` (shape ``stack_shape``; a scalar
+    when unstacked). The plain norm squares the inserted diagonal, so ``diag(1/sigma)`` penalises by
+    ``1/sigma^2``. Uniform twin of :py:func:`t3toolbox.tucker_tensor_train.weighted_norm`."""
+    _check_weights_pair(x, weights, 'weighted_norm')
+    return ut3_linalg.ut3_weighted_norm(x.data, weights.data, use_orthogonalization=use_orthogonalization)
+
+
+def weighted_inner(
+        x_A:       'UniformTuckerTensorTrain',
+        weights_A: UT3Weights,
+        x_B:       'UniformTuckerTensorTrain',
+        weights_B: UT3Weights,
+        use_orthogonalization: bool = True,
+) -> NDArray:  # weighted HS inner product, shape=stack_shape
+    """Weighted Hilbert-Schmidt inner product
+    ``<absorb_weights(x_A, weights_A), absorb_weights(x_B, weights_B)>``. Operands share physical shape;
+    ranks/masks/weights may differ. Uniform twin of
+    :py:func:`t3toolbox.tucker_tensor_train.weighted_inner`."""
+    _check_weights_pair(x_A, weights_A, 'weighted_inner')
+    _check_weights_pair(x_B, weights_B, 'weighted_inner')
+    if x_A.shape != x_B.shape:
+        raise ValueError('Cannot weighted-inner UniformTuckerTensorTrains with different shapes: %s vs %s.'
+                         % (x_A.shape, x_B.shape))
+    return ut3_linalg.ut3_weighted_inner(x_A.data, weights_A.data, x_B.data, weights_B.data,
+                                         use_orthogonalization=use_orthogonalization)
+
+
+def _check_weights_pair(x: 'UniformTuckerTensorTrain', weights: UT3Weights, op: str) -> None:
+    """Structural precondition for every ``(train, weights)`` op: the weights must fit ``x`` and declare
+    the SAME edge masks. Enforced in the frontend (the backend twin is the non-raising
+    ``ut3_weights_consistent``), because uniform padding hides a mismatch that ragged would catch as a
+    numpy shape error -- the ``UT3Variations`` same-mask precedent. Masks are host numpy, so this is a
+    cheap ``array_equal``, valid even under jit."""
+    if not weights.is_consistent_with(x):
+        raise ValueError(
+            'Inconsistent (UniformTuckerTensorTrain, UT3Weights) pair in %s.\n'
+            'The weights must match the train\'s padded (n, r) and declare the SAME edge masks (a '
+            'weight\'s edges ARE the tensor\'s edges).\n'
+            'train: n=%d, r=%d, stack_shape=%s ; weights: n=%d, r=%d, stack_shape=%s ; masks equal: %s'
+            % (op, x.n, x.r, x.stack_shape, weights.n, weights.r, weights.stack_shape,
+               weights.masks == x.masks))
+
+
 if common.jax_available:
     # UniformTuckerTensorTrain as a jax pytree: the two supercores are the (traced) children; the static
     # aux_data is ``(shape, UT3Masks)``. Both are STRUCTURE (the real mode dims + which rank slots are
@@ -906,4 +1161,13 @@ if common.jax_available:
         UniformTuckerTensorTrain,
         lambda x: ((x.tucker_supercore, x.tt_supercore), (x.shape, x.masks)),
         lambda aux, children: UniformTuckerTensorTrain(children[0], children[1], aux[0], aux[1]),
+    )
+    # UT3Weights follows the same split: the two weight supercores are the traced children (weights are
+    # float PARAMETERS -- differentiable data), the UT3Masks holder is value-hashed static aux (masks are
+    # boolean STRUCTURE). That opposite treatment is exactly why the two are kept apart; see
+    # docs/contributor/uniform_rank_masks_rationale.md. No ``shape`` in aux: weights have no physical legs.
+    jax.tree_util.register_pytree_node(
+        UT3Weights,
+        lambda w: ((w.tucker_weight_supercore, w.tt_weight_supercore), w.masks),
+        lambda aux, children: UT3Weights(children[0], children[1], aux),
     )

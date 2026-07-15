@@ -4,9 +4,10 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """Linear algebra on uniform supercores (dense-tensor semantics) with mask bookkeeping.
 
-``ut3_scale``/``ut3_add``/``ut3_sum_stack``/``ut3_inner_product``/``ut3_norm_orthogonalized``.
-Output masks follow the rank recurrences (add = mask concatenation) on the host (``np``), while
-the supercores flow through ``xnp`` (``docs/uniform_masks_vs_ranks.md``).
+``ut3_scale``/``ut3_add``/``ut3_sum_stack``/``ut3_inner_product``/``ut3_norm_orthogonalized``, plus the
+weighted-layer ``ut3_weighted_norm``/``ut3_weighted_inner`` (uniform twins of ``t3_weighted_norm``/
+``t3_weighted_inner``). Output masks follow the rank recurrences (add = mask concatenation) on the host
+(``np``), while the supercores flow through ``xnp`` (``docs/uniform_masks_vs_ranks.md``).
 """
 import numpy as np
 import typing as typ
@@ -15,6 +16,7 @@ import math
 import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_operations as ut3_operations
+import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
 import t3toolbox.backend.t3_operations as t3_operations
 from t3toolbox.backend.common import *
 
@@ -24,6 +26,8 @@ __all__ = [
     'ut3_sum_stack',
     'ut3_inner_product',
     'ut3_norm_orthogonalized',
+    'ut3_weighted_norm',
+    'ut3_weighted_inner',
 ]
 
 # A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, shape, (tucker_edge_mask, tt_edge_mask)).
@@ -151,3 +155,66 @@ def ut3_norm_orthogonalized(x: UT3Data) -> NDArray:  # HS norm, shape=stack_shap
     Gf = mtt[-1].sum(axis=-1)                 # last TT core, trailing bond summed -> stack+(r,n)
     norm_sq = (Gf * Gf).sum(axis=(-2, -1))    # over (r, n); keep the stack
     return xnp.sqrt(xnp.abs(norm_sq))
+
+
+def _ut3_left_orthogonalized(data: UT3Data) -> UT3Data:  # down-orth the Tucker, then left-orth the TT
+    """The two-step chain the norm fast path assumes: down-orthogonalize the Tucker supercores, then
+    left-orthogonalize the TT supercores. Order matters, and neither step alone suffices.
+
+    (Asymmetry worth knowing: the ragged backend's ``t3_norm``/``t3_inner_product`` orthogonalize
+    internally behind a ``use_orthogonalization`` flag, but the uniform backend exposes only the
+    already-orthogonalized fast path ``ut3_norm_orthogonalized`` and leaves this composition to the
+    frontend -- so there is no ``ut3_norm``/``ut3_inner`` twin to delegate to here. This helper keeps the
+    chain in one place on the backend side; whether to close the gap with real ``ut3_norm``/``ut3_inner``
+    twins is an open question, not settled by this slice.)
+    """
+    return ut3_orthogonalization.ut3_left_orthogonalize_tt_cores(
+        ut3_orthogonalization.ut3_down_orthogonalize_tucker_cores(data))
+
+
+def ut3_weighted_norm(
+        x:       UT3Data,                              # (tucker_supercore, tt_supercore, shape, masks)
+        weights: ut3_operations.UT3WeightsData,        # (tucker_weight_supercore, tt_weight_supercore, masks)
+        use_orthogonalization: bool = True,            # for numerical stability
+) -> NDArray:                                          # weighted HS norm, shape=stack_shape
+    """Weighted Hilbert-Schmidt norm of a uniform Tucker tensor train -- the norm of the fully-weighted
+    network, ``norm(absorb(x, weights))``. Uniform twin of ``t3_weighted_norm``.
+
+    The plain norm **squares** the inserted diagonals, so ``weights = 1/sigma`` penalises by
+    ``1/sigma^2``. Absorbing breaks any orthogonality ``x`` had (that is what the weights do), so the
+    orthogonalization here runs on the *weighted* train, as in ragged.
+
+    Weighting does not mask, but the norm does: the reduction is the existing plain uniform norm, which
+    masks its own input on entry -- so the garbage padding ``absorb`` passes through is zeroed there,
+    where reductions are, not here (``dev/uniform_weighting_design.md`` §2).
+
+    **Precondition:** ``weights``' masks must equal ``x``'s masks
+    (:py:func:`~t3toolbox.backend.ut3_operations.ut3_weights_consistent`); the frontend enforces it.
+    """
+    weighted = ut3_operations.ut3_absorb_weights(x, weights)
+    if use_orthogonalization:
+        return ut3_norm_orthogonalized(_ut3_left_orthogonalized(weighted))
+    xnp, _, _ = get_backend(True, tree_contains_jax(weighted[:2]))
+    return xnp.sqrt(xnp.abs(ut3_inner_product(weighted, weighted)))
+
+
+def ut3_weighted_inner(
+        x_A:       UT3Data,                        # (tucker_supercore, tt_supercore, shape, masks) of A
+        weights_A: ut3_operations.UT3WeightsData,  # weights of A
+        x_B:       UT3Data,                        # (tucker_supercore, tt_supercore, shape, masks) of B
+        weights_B: ut3_operations.UT3WeightsData,  # weights of B
+        use_orthogonalization: bool = True,        # for numerical stability
+) -> NDArray:                                      # weighted HS inner, shape=stack_shape
+    """Weighted Hilbert-Schmidt inner product ``<absorb(A, weights_A), absorb(B, weights_B)>`` of two
+    weighted uniform Tucker tensor trains. Uniform twin of ``t3_weighted_inner``.
+
+    A and B must share physical ``shape`` (the same ambient space); their ranks, masks and weights may
+    differ from each other. Each operand's weights must match *its own* object's masks
+    (:py:func:`~t3toolbox.backend.ut3_operations.ut3_weights_consistent`); the frontend enforces it.
+    """
+    weighted_A = ut3_operations.ut3_absorb_weights(x_A, weights_A)
+    weighted_B = ut3_operations.ut3_absorb_weights(x_B, weights_B)
+    if use_orthogonalization:
+        weighted_A = _ut3_left_orthogonalized(weighted_A)
+        weighted_B = _ut3_left_orthogonalized(weighted_B)
+    return ut3_inner_product(weighted_A, weighted_B)

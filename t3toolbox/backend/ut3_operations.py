@@ -2,17 +2,22 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
-"""Structural operations on uniform supercore data.
+"""Structural operations on uniform supercore data, and the uniform weighted-layer core ops.
 
 ``ut3_squash_tails``/``ut3_reverse``, stack/unstack + leaf structure, and the packing seam
 (``pack_vectors``/``unpack_vectors``/``is_packed``/``pack_if_ragged``) behind the
 packedness-mirror convention (user-facing ops mirror the input's packedness).
+
+The weighted layer (uniform twins of the ragged ``t3_*_weights`` ops, same module split):
+``ut3_absorb_weights`` / ``ut3_weights_consistent`` / ``ut3_reciprocal_weights`` /
+``ut3_sqrt_weights``. Note this module does **not** import the masking layer: weighting and
+masking are kept apart, and the shared mechanics they both need (``prefix_mask``,
+``require_concrete_masks``) live in ``common`` (``dev/uniform_weighting_design.md`` §2).
 """
 import numpy as np
 import typing as typ
 
 import t3toolbox.backend.stacking as stacking
-import t3toolbox.backend.ut3_masking as ut3_masking
 from t3toolbox.backend.common import *
 from t3toolbox.backend.tt_operations import tt_reverse, tt_squash_tails
 
@@ -26,12 +31,23 @@ __all__ = [
     'ut3_unstack',
     'ut3_stack',
     'ut3_leaf_structure',
+    'ut3_absorb_weights',
+    'ut3_weights_consistent',
+    'ut3_reciprocal_weights',
+    'ut3_sqrt_weights',
 ]
 
 # A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, shape, (tucker_edge_mask, tt_edge_mask)).
 # `shape` is a static int tuple (N0,...,N(d-1)); the two rank masks are HOST bool, static structure
 # (numpy, never traced); the supercores are xnp data.
 UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDArray, NDArray]]
+
+# A uniform-T3-WEIGHTS .data tuple: (tucker_weight_supercore, tt_weight_supercore, (2 edge masks)).
+# NO `shape`: weights live only on the INTERNAL edges -- a weight has no physical mode legs (external
+# weights are out of scope; dev/weighted_layer_design.md §2). Otherwise it mirrors UT3Data: the weight
+# supercores are xnp data, the masks are HOST bool static structure and are the SAME masks as the object
+# the weight pairs with (a weight's edges are the tensor's edges).
+UT3WeightsData = typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray]]
 
 
 def ut3_leaf_structure(d: int):  # leaf-structure template for stacking.apply_func_to_leaf_subtrees
@@ -200,3 +216,135 @@ def tree_depth_of_tree_over_leaf(
 ) -> int:           # number of stacking levels (tree nesting depth above the leaf tuple)
     """Number of stack levels in a tree of 4-array leaves = total nesting depth minus the 1 leaf level."""
     return stacking.tree_depth(flat_tree) - 1
+
+
+def ut3_absorb_weights(
+        x:       UT3Data,         # (tucker_supercore, tt_supercore, shape, masks)
+        weights: UT3WeightsData,  # (tucker_weight_supercore, tt_weight_supercore, masks)
+) -> UT3Data:                     # the weighted train: same shape, same masks (absorb preserves both)
+    """Contract diagonal edge weights into a uniform Tucker tensor train's supercores (shape-preserving).
+
+    The uniform twin of ``t3_absorb_weights``, with the same side-convention, but vectorized over the
+    leading ``(d,)`` instead of looping the cores:
+
+    - **Tucker weights -> the Tucker supercore** (its rank leg ``n``).
+    - **TT bond weights leftward**: bond ``r(k+1)`` into core ``k``'s right leg; the leftmost boundary
+      bond ``r0`` (which has no left neighbour) goes **rightward** into core ``0``'s left leg instead. So
+      each of the ``d+1`` bonds is absorbed exactly once.
+
+    **No entry masking, deliberately -- absorb is garbage-transparent.** It is a *pointwise scale along
+    each edge axis*, not a reduction: real slot ``i`` of the output depends only on slot ``i`` of the core
+    and slot ``i`` of the weight, so garbage can never mix into a real slot. Garbage padding in gives
+    garbage padding out, which the equivalence contract declares don't-care
+    (``docs/uniform_equivalence_contract.md``). Do not add a defensive entry-mask: it would be dead work,
+    and masking is a separate concern from weighting (``dev/uniform_weighting_design.md`` §2).
+
+    **Precondition (structural; NOT enforced here):** ``weights``' masks must equal ``x``'s masks --
+    :py:func:`ut3_weights_consistent`. Ragged catches a rank mismatch as a loud einsum shape error, but
+    uniform pads both to the common ``(n, r)``, so a mismatch is **silent and corrupting** (a weight whose
+    mask calls slot ``i`` padding carries a canonical zero there, and absorbing it would zero a *real*
+    slot of ``x``). The frontend enforces it; a raw-``.data`` user should call the predicate first. This
+    is the same precondition uniform adds to variation add/sub (``docs/uniform_masks_vs_ranks.md``).
+    """
+    xnp, _, _ = get_backend(True, tree_contains_jax((x[:2], weights[:2])))
+    tucker_supercore, tt_supercore, shape, masks = x
+    tucker_weight_supercore, tt_weight_supercore, _ = weights
+
+    weighted_tucker = xnp.einsum('d...n,d...nN->d...nN', tucker_weight_supercore, tucker_supercore)
+
+    # Bond r(k+1) leftward into core k's right leg -- every core at once (tt weights 1..d).
+    weighted_tt = xnp.einsum('d...lnr,d...r->d...lnr', tt_supercore, tt_weight_supercore[1:])
+    # The boundary bond r0 has no left neighbour -> rightward into core 0's left leg. Slice-and-rejoin on
+    # the d axis (the ut3_scale idiom) keeps the rest untouched; the [:1] slices keep d in the einsum.
+    G0 = xnp.einsum('d...lnr,d...l->d...lnr', weighted_tt[:1], tt_weight_supercore[:1])
+    weighted_tt = xnp.concatenate([G0, weighted_tt[1:]], axis=0)
+
+    return weighted_tucker, weighted_tt, shape, masks
+
+
+def ut3_weights_consistent(
+        x:       UT3Data,         # (tucker_supercore, tt_supercore, shape, masks)
+        weights: UT3WeightsData,  # (tucker_weight_supercore, tt_weight_supercore, masks)
+) -> bool:                        # True iff `weights` can be absorbed into `x`
+    """True iff ``weights`` fits ``x``: the padded weight shapes match, **and the edge masks are equal**.
+
+    Mask equality is the substance, and it is what the ragged twin (``t3_weights_consistent``, which
+    compares lengths/ranks/stack) gets for free from shapes. A weight's edges *are* the tensor's edges, so
+    it declares the same ranks; ragged enforces that structurally (a length-``n`` weight vector against a
+    rank-``n`` core -- a mismatch is an einsum shape error). Uniform pads both to the common ``(n, r)``, so
+    a mismatched mask is invisible to the shapes and would silently corrupt: a weight whose mask calls slot
+    ``i`` padding carries a canonical zero there, so absorbing it **zeroes a real slot** of ``x``. Hence an
+    explicit structural predicate -- the same precondition uniform adds to variation add/sub
+    (``docs/uniform_masks_vs_ranks.md``). Non-raising (the frontend raises).
+    """
+    tucker_supercore, tt_supercore, _, (tucker_edge_mask, tt_edge_mask) = x
+    tucker_weight_supercore, tt_weight_supercore, (weight_tucker_mask, weight_tt_mask) = weights
+
+    d     = tucker_supercore.shape[0]
+    stack = tucker_supercore.shape[1:-2]
+    n     = tucker_supercore.shape[-2]
+    r     = tt_supercore.shape[-1]
+
+    if tuple(tucker_weight_supercore.shape) != (d,) + stack + (n,):
+        return False
+    if tuple(tt_weight_supercore.shape) != (d + 1,) + stack + (r,):
+        return False
+
+    # np (host): masks are static structure, so this is a cheap host-side compare -- valid under jit.
+    return (np.array_equal(weight_tucker_mask, tucker_edge_mask)
+            and np.array_equal(weight_tt_mask, tt_edge_mask))
+
+
+def _ut3_map_real_weights(
+        weights: UT3WeightsData,  # (tucker_weight_supercore, tt_weight_supercore, masks)
+        fn,                       # (xnp, w) -> w, applied elementwise to the REAL slots only
+) -> UT3WeightsData:              # fn on the real slots; padding forced to a canonical, finite 0
+    """Apply ``fn`` to the real slots of both weight supercores, forcing the padding to a finite ``0``.
+
+    The padding is **neutralized to 1 before ``fn`` runs**, then overwritten with ``0`` -- the standard
+    double-``where``. Both halves earn their keep: ``fn`` may be undefined (``1/0``) or
+    non-differentiable (``sqrt`` at ``0``) at the padding's canonical zero, and a single outer ``where``
+    would not save you -- ``nan`` from the dead branch still propagates through the **gradient**. It also
+    neutralizes large-finite *garbage* padding, so no separate entry-masking is needed.
+
+    Why the padding must end finite at all: masking downstream works by multiplication, and
+    ``0 * inf = nan`` would poison every masked reduction (``docs/uniform_equivalence_contract.md``).
+    """
+    xnp, _, _ = get_backend(True, tree_contains_jax(weights[:2]))
+    tucker_weight_supercore, tt_weight_supercore, (tucker_edge_mask, tt_edge_mask) = weights
+    require_concrete_masks(tucker_edge_mask, tt_edge_mask)  # masks are host, not traced
+
+    def go(w, m):
+        neutral = xnp.where(m, w, 1.0)         # padding (canonical 0 OR garbage) -> 1: fn safe, grad finite
+        return xnp.where(m, fn(xnp, neutral), 0.0)   # real slots: fn(w). padding: the canonical finite 0
+
+    return (go(tucker_weight_supercore, tucker_edge_mask),
+            go(tt_weight_supercore, tt_edge_mask),
+            (tucker_edge_mask, tt_edge_mask))
+
+
+def ut3_reciprocal_weights(
+        weights: UT3WeightsData,  # (tucker_weight_supercore, tt_weight_supercore, masks)
+) -> UT3WeightsData:              # 1/w on the real slots; padding a canonical, finite 0; masks unchanged
+    """Elementwise ``1/w`` on the real slots (masks unchanged) -- e.g. to form inverse-singular-value
+    weights.
+
+    **Not just ``1/w``**, because a canonical weight's padding is zero and ``1/0 = inf``, which then
+    poisons every masked reduction downstream (``0 * inf = nan``). That is the headline path, not a corner
+    case: the Grasedyck-Kramer metric *is* ``from_ut3svd(x).reciprocal()``. The real slots are left alone
+    (see :py:func:`_ut3_map_real_weights` for how the padding is handled).
+
+    **The real slots are deliberately unprotected**: a genuinely zero singular value gives ``inf`` here,
+    exactly as in the ragged layer. It is a real weight, not a padding artifact, so it is the caller's to
+    avoid -- silently clamping it would hide a rank-deficient point.
+    """
+    return _ut3_map_real_weights(weights, lambda xnp, w: 1.0 / w)
+
+
+def ut3_sqrt_weights(
+        weights: UT3WeightsData,  # (tucker_weight_supercore, tt_weight_supercore, masks)
+) -> UT3WeightsData:              # sqrt(w) on the real slots; padding a canonical, finite 0; masks unchanged
+    """Elementwise ``sqrt`` on the real slots (masks unchanged). The padding is neutralized rather than
+    square-rooted: ``sqrt`` is fine at the canonical ``0`` but not differentiable there (an ``inf``
+    gradient), and garbage padding can be negative (``nan``). See :py:func:`_ut3_map_real_weights`."""
+    return _ut3_map_real_weights(weights, lambda xnp, w: xnp.sqrt(w))
