@@ -124,6 +124,10 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a: a + 2.5, self.x)                 # T3+scalar (t3_plus_scalar)
         self.assert_jit_jax(  # resize (change_tucker/tt_core_shapes); static shapes -> jit-able
             lambda a: a.resize((5, 6, 7), (3, 3, 3), (1, 3, 3, 1)), self.x)
+        # weighted layer: absorb edge weights into the cores (t3_absorb_weights); T3Weights is a pytree
+        Wj = t3.T3Weights(tuple(jnp.ones(n) for n in self.x.tucker_ranks),
+                          tuple(jnp.ones(r) for r in self.x.tt_ranks))
+        self.assert_jit_jax(lambda a, w: t3.absorb_weights(a, w), self.x, Wj)
         # ambient adjoints: residual c shape W (+ C); both sum modes; returns CP factors (a pytree)
         N = STRUCT[0]
         self.assert_jit_jax(

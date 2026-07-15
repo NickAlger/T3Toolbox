@@ -25,6 +25,7 @@ import t3toolbox.backend.t3_operations as ragged_operations
 import t3toolbox.backend.t3_orthogonalization as ragged_orthogonalization
 import t3toolbox.backend.t3_linalg as ragged_linalg
 import t3toolbox.backend.t3_svd as ragged_t3svd
+import t3toolbox.backend.stacking as stacking
 import t3toolbox.corewise as corewise
 
 import t3toolbox.backend.common as common
@@ -38,6 +39,8 @@ if common.jax_available:
 
 __all__ = [
     'TuckerTensorTrain',
+    'T3Weights',
+    'absorb_weights',
 ]
 
 
@@ -4376,9 +4379,131 @@ class TuckerTensorTrain:
         return TuckerTensorTrain(*result[0]), result[1], result[2]
 
 
+###########################################
+########         T3Weights          ########
+###########################################
+
+
+@dataclass(frozen=True)
+class T3Weights:
+    """Diagonal weights on the internal edges of a :py:class:`TuckerTensorTrain` -- one vector per edge.
+
+    A weight is a diagonal matrix inserted on a network edge (stored as its diagonal vector). Two edge
+    families: **Tucker-rank** edges ``nᵢ`` (between each Tucker factor and its TT core, ``len=d``) and
+    **TT-bond** edges ``rᵢ`` (between neighbouring TT cores, ``len=d+1``, ends ``r₀=r_d=1``). The
+    represented tensor is ``absorb_weights(x, W).to_dense()``; the plain (unweighted) network norm squares
+    the inserted diagonal, so ``diag(1/σ)`` penalises by ``1/σ²``. Batching mirrors ``TuckerTensorTrain``:
+    every vector is ``stack_shape + (rank,)`` (the frame/core stack ``C``); one object holds a stack of
+    weights.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 2, 2), (1, 2, 2, 1))   # minimal ranks
+    >>> W = t3.T3Weights.from_t3svd(x)          # the singular values are the canonical weight object
+    >>> print(W.tucker_ranks, W.tt_ranks)
+    (2, 2, 2) (1, 2, 2, 1)
+    >>> print(W.is_consistent_with(x))
+    True
+    >>> xw = t3.absorb_weights(x, W)            # shape-preserving; ranks unchanged
+    >>> print(xw.ranks == x.ranks)
+    True
+    """
+    tucker_weights: Tuple[NDArray, ...]  # len=d,   elm_shape=stack_shape+(ni,)
+    tt_weights:     Tuple[NDArray, ...]  # len=d+1, elm_shape=stack_shape+(ri,)
+
+    @cached_property
+    def data(self) -> Tuple[Tuple[NDArray, ...], Tuple[NDArray, ...]]:
+        return self.tucker_weights, self.tt_weights
+
+    @cached_property
+    def d(self) -> int:
+        return len(self.tucker_weights)
+
+    @cached_property
+    def tucker_ranks(self) -> Tuple[int, ...]:  # len=d
+        return tuple(int(w.shape[-1]) for w in self.tucker_weights)
+
+    @cached_property
+    def tt_ranks(self) -> Tuple[int, ...]:  # len=d+1
+        return tuple(int(w.shape[-1]) for w in self.tt_weights)
+
+    @cached_property
+    def stack_shape(self) -> Tuple[int, ...]:
+        return self.tucker_weights[0].shape[:-1]
+
+    def validate(self):
+        """Structural consistency: lengths (d / d+1) and a uniform stack_shape on every vector."""
+        if len(self.tt_weights) != self.d + 1:
+            raise ValueError('Inconsistent T3Weights.\n' + str(self.d) + ' = d, but len(tt_weights) = '
+                             + str(len(self.tt_weights)) + ' (expected d+1).')
+        ss = self.stack_shape
+        for kind, ws in (('tucker_weights', self.tucker_weights), ('tt_weights', self.tt_weights)):
+            for ii, w in enumerate(ws):
+                if w.ndim < 1 or w.shape[:-1] != ss:
+                    raise ValueError('Inconsistent T3Weights.\n' + kind + '[' + str(ii) + '].shape = '
+                                     + str(w.shape) + ' is not stack_shape ' + str(ss) + ' + (rank,).')
+
+    def __post_init__(self):
+        self.validate()
+
+    def is_consistent_with(self, x: 'TuckerTensorTrain') -> bool:
+        """True iff these weights' ranks + stack_shape match the ``TuckerTensorTrain`` ``x`` (non-raising)."""
+        return ragged_operations.t3_weights_consistent(x.data, self.data)
+
+    def reciprocal(self) -> 'T3Weights':
+        """Elementwise ``1/w`` on every edge (e.g. to form inverse-singular-value weights)."""
+        return T3Weights(tuple(1.0 / w for w in self.tucker_weights),
+                         tuple(1.0 / w for w in self.tt_weights))
+
+    def sqrt(self) -> 'T3Weights':
+        """Elementwise ``sqrt`` on every edge."""
+        xnp, _, _ = common.get_backend(False, common.tree_contains_jax(self.data))
+        return T3Weights(tuple(xnp.sqrt(w) for w in self.tucker_weights),
+                         tuple(xnp.sqrt(w) for w in self.tt_weights))
+
+    def reverse(self) -> 'T3Weights':
+        """Reverse the mode order (reverses both edge-vector tuples), matching ``TuckerTensorTrain.reverse``."""
+        return T3Weights(self.tucker_weights[::-1], self.tt_weights[::-1])
+
+    def unstack(self):  # array-like tree of T3Weights mirroring stack_shape
+        """Unstack a stack of weights into an array-like tree (mirrors ``TuckerTensorTrain.unstack``)."""
+        result_tuple = stacking.basic_ragged_unstack(self.data, 1)
+        return stacking.apply_func_to_leaf_subtrees(result_tuple, lambda x: T3Weights(*x), self.data)
+
+    @staticmethod
+    def stack(xx) -> 'T3Weights':  # array-like tree of T3Weights -> one stacked T3Weights
+        """Stack an array-like tree of T3Weights into one (mirrors ``TuckerTensorTrain.stack``)."""
+        xx_tuples = stacking.apply_func_to_leaf_subtrees(xx, lambda x: x.data, None)
+        return T3Weights(*stacking.basic_ragged_stack(xx_tuples))
+
+    @classmethod
+    def from_t3svd(cls, x: 'TuckerTensorTrain', **kwargs) -> 'T3Weights':
+        """The singular values of ``x`` as a weight object -- the canonical (unmodified) σ's, so
+        ``from_t3svd(x).reciprocal()`` is the inverse-σ (Grasedyck-Kramer) weighting. ``**kwargs`` pass to
+        :py:meth:`t3svd`; the weights are shape-consistent with the ``t3svd`` result (with ``x`` itself when
+        ``x`` has minimal ranks, the usual case)."""
+        _, tucker_svals, tt_svals = x.t3svd(**kwargs)
+        return cls(tuple(tucker_svals), tuple(tt_svals))
+
+
+def absorb_weights(x: 'TuckerTensorTrain', weights: T3Weights) -> 'TuckerTensorTrain':
+    """Contract diagonal edge weights into ``x``'s cores (shape-preserving): the returned
+    ``TuckerTensorTrain`` represents the fully-weighted network. See
+    :py:func:`t3toolbox.backend.t3_operations.t3_absorb_weights` for the side-conventions."""
+    return TuckerTensorTrain(*ragged_operations.t3_absorb_weights(x.data, weights.data))
+
+
 if common.jax_available:
     jax.tree_util.register_pytree_node(
         TuckerTensorTrain,
         lambda x: (x.data, None),
         lambda aux_data, children: TuckerTensorTrain(*children),
+    )
+    jax.tree_util.register_pytree_node(
+        T3Weights,
+        lambda w: (w.data, None),
+        lambda aux_data, children: T3Weights(*children),
     )

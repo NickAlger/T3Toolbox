@@ -28,6 +28,8 @@ __all__ = [
     't3_stack',
     't3_core_shapes',
     't3_sum',
+    't3_absorb_weights',
+    't3_weights_consistent',
 ]
 
 
@@ -358,3 +360,64 @@ def t3_sum(
             S = (tuple(left_tucker + right_tucker), tuple(left_tt + right_tt))
 
     return S
+
+
+def t3_absorb_weights(
+        x0:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+        weights: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # weighted tucker_cores, len=d,   elm_shape=stack_shape+(ni, Ni)
+    typ.Tuple[NDArray, ...],  # weighted tt_cores,     len=d,   elm_shape=stack_shape+(ri, ni, r(i+1))
+]:
+    """Contract diagonal edge weights into a Tucker tensor train's cores (shape-preserving).
+
+    ``weights = (tucker_weights, tt_weights)`` with ``tucker_weights`` len=d, elm_shape
+    ``stack_shape+(ni,)`` and ``tt_weights`` len=d+1, elm_shape ``stack_shape+(ri,)`` -- one diagonal
+    (stored as its vector) per internal edge. The result is a plain ``(tucker_cores, tt_cores)`` whose
+    dense value is the fully-weighted network. Side-convention (library-decided):
+
+    - **Tucker weights → the Tucker cores** (the rank leg): ``'...i,...io->...io'``.
+    - **TT bond weights leftward**: bond ``r(k+1)`` into its left-neighbour core ``G_k``'s right leg;
+      the leftmost boundary bond ``r0`` (no left neighbour) is absorbed **rightward** into ``G_0``'s left
+      leg. Each of the d+1 bonds is absorbed exactly once.
+
+    Stacking rides the leading ``'...'`` (weights share the cores' ``C`` stack). jax-ness is inferred.
+    """
+    xnp, _, _ = get_backend(False, tree_contains_jax((x0, weights)))
+    tucker_cores0, tt_cores0 = x0
+    tucker_weights, tt_weights = weights
+
+    tucker_cores = tuple(xnp.einsum('...i,...io->...io', w, B)
+                         for w, B in zip(tucker_weights, tucker_cores0))
+
+    tt_cores = []
+    for k, G in enumerate(tt_cores0):
+        Gk = xnp.einsum('...iaj,...j->...iaj', G, tt_weights[k + 1])   # bond r(k+1) leftward into G_k's right leg
+        if k == 0:
+            Gk = xnp.einsum('...i,...iaj->...iaj', tt_weights[0], Gk)  # boundary r0 rightward into G_0's left leg
+        tt_cores.append(Gk)
+
+    return tucker_cores, tuple(tt_cores)
+
+
+def t3_weights_consistent(
+        x0:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+        weights: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
+) -> bool:                                                                 # True iff shape-consistent
+    """True iff the weight tuple's lengths, per-edge ranks, and stack_shape match the T3 ``x0``
+    (a non-raising structural shape predicate)."""
+    tucker_cores, tt_cores = x0
+    tucker_weights, tt_weights = weights
+    d = len(tucker_cores)
+    if len(tucker_weights) != d or len(tt_weights) != d + 1:
+        return False
+    stack = tucker_cores[0].shape[:-2]
+    tucker_ranks = tuple(B.shape[-2] for B in tucker_cores)
+    tt_ranks = tuple(G.shape[-3] for G in tt_cores) + (tt_cores[-1].shape[-1],)
+    for w, n in zip(tucker_weights, tucker_ranks):
+        if w.shape != stack + (n,):
+            return False
+    for w, r in zip(tt_weights, tt_ranks):
+        if w.shape != stack + (r,):
+            return False
+    return True
