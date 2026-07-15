@@ -136,27 +136,29 @@ def ut3_to_t3(
 
     Unstacked: returns one ``(tucker_cores, tt_cores)``. Stacked: returns a nested tuple (shaped like
     ``stack_shape``) of such pairs -- a *tree*, since a varying-rank stack has no single stacked
-    ``TuckerTensorTrain`` (``docs/uniform_ranks_and_varieties.md``). The real sub-blocks are extracted by
-    ``argwhere`` (handles gappy edge masks; ``docs/uniform_masks_vs_ranks.md``).
+    ``TuckerTensorTrain`` (``docs/uniform_ranks_and_varieties.md``). The real sub-blocks are selected *through
+    the rank masks* (boolean indexing, ascending order) rather than by slicing a prefix, since an edge mask
+    may be gappy after ``+``/``x`` (``docs/uniform_masks_vs_ranks.md``).
     """
     tucker_supercore, tt_supercore, shape, (tucker_masks, tt_masks) = x
-    require_concrete_masks(tucker_masks, tt_masks)  # host masks: argwhere is np
+    require_concrete_masks(tucker_masks, tt_masks)  # host masks: the boolean index must be concrete
 
     stack_shape = tucker_supercore.shape[1:-2]
 
     if not stack_shape:  # unstacked -> one ragged T3
-        # np: the masks are host structure, so the real-index extraction runs on the host. The physical
-        # `shape` is a contiguous prefix, so it slices [:Ni] (no argwhere); only the rank masks scatter.
-        tucker_inds = [np.argwhere(em).reshape(-1) for em in list(tucker_masks)]
-        tt_inds     = [np.argwhere(em).reshape(-1) for em in list(tt_masks)]
+        # Index each rank axis straight with its boolean mask: it selects the real slots in ascending
+        # order, which is what a gappy mask needs (a rank mask may scatter after +/x, so a prefix slice
+        # would be wrong). The physical `shape` IS a contiguous prefix, so it slices [:Ni].
+        tk_m = list(tucker_masks)
+        tt_m = list(tt_masks)
 
         tucker_cores = tuple(
-            B[ii, :][:, :Ni]
-            for ii, Ni, B in zip(tucker_inds, shape, list(tucker_supercore))
+            B[m][:, :Ni]
+            for m, Ni, B in zip(tk_m, shape, list(tucker_supercore))
         )
         tt_cores = tuple(
-            G[ii, :, :][:, aa, :][:, :, jj]
-            for ii, aa, jj, G in zip(tt_inds[:-1], tucker_inds, tt_inds[1:], list(tt_supercore))
+            G[ml][:, ma][:, :, mr]
+            for ml, ma, mr, G in zip(tt_m[:-1], tk_m, tt_m[1:], list(tt_supercore))
         )
         return tucker_cores, tt_cores
 
@@ -241,23 +243,23 @@ def ut3weights_to_t3weights(
 ]:
     """Convert uniform weight supercores + masks back to ragged ``T3Weights`` core pairs.
 
-    The weight twin of :py:func:`ut3_to_t3`, and it inherits that function's two honest awkwardnesses:
-    the real slots are gathered by ``argwhere`` (an edge mask may be **gappy** after concat/Kronecker --
-    ``docs/uniform_masks_vs_ranks.md`` -- so this is a gather, not a slice), and a **stacked** weight
-    returns a *tree* of ragged weights rather than one stacked weight, since a varying-rank stack has no
-    single ragged representation (``docs/uniform_ranks_and_varieties.md``).
+    The weight twin of :py:func:`ut3_to_t3`. Two things to know: an edge mask may be **gappy** after
+    concat/Kronecker (``docs/uniform_masks_vs_ranks.md``), so the real slots are selected *through the
+    mask* rather than by slicing a prefix -- boolean indexing does exactly that, in ascending order; and a
+    **stacked** weight returns a *tree* of ragged weights rather than one stacked weight, since a
+    varying-rank stack has no single ragged representation (``docs/uniform_ranks_and_varieties.md``).
     """
     tucker_weight_supercore, tt_weight_supercore, (tucker_mask, tt_mask) = weights
-    require_concrete_masks(tucker_mask, tt_mask)  # host masks: argwhere is np
+    require_concrete_masks(tucker_mask, tt_mask)  # host masks: the boolean index must be concrete
 
     stack_shape = tucker_weight_supercore.shape[1:-1]
 
     if not stack_shape:  # unstacked -> one ragged weight pair
-        # np: the masks are host structure, so the real-index extraction runs on the host.
-        tucker_out = tuple(w[np.argwhere(m).reshape(-1)]
-                           for m, w in zip(list(tucker_mask), list(tucker_weight_supercore)))
-        tt_out = tuple(w[np.argwhere(m).reshape(-1)]
-                       for m, w in zip(list(tt_mask), list(tt_weight_supercore)))
+        # Index straight with the boolean mask: it selects the real slots in ascending order, which is
+        # what a gappy mask needs and what the ragged twin's ordering expects. (numpy and jax both accept
+        # a CONCRETE host bool index -- and the masks always are, by construction.)
+        tucker_out = tuple(w[m] for m, w in zip(list(tucker_mask), list(tucker_weight_supercore)))
+        tt_out = tuple(w[m] for m, w in zip(list(tt_mask), list(tt_weight_supercore)))
         return tucker_out, tt_out
 
     return tuple(
