@@ -21,8 +21,28 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Uniform weighting layer — S0 DONE (2026-07-15, committed, NOT pushed). NEXT: S1. Plan:
+- **Uniform weighting layer — S0/S1/S2 DONE (2026-07-15, committed, NOT pushed). NEXT: S3. Plan:
   `dev/uniform_weighting_design.md`** (§8 = the settled decisions; §6 = the slices).
+  - **S1/S2 (done) — the uniform base-point layer ships**: `UT3Weights` (weight supercores + a `UT3Masks`
+    holder; no `shape` field) + `absorb_weights` / `weighted_norm` / `weighted_inner` / `reciprocal` /
+    `sqrt` / `concatenate` / `kronecker` / `from_ut3svd` + the ragged↔uniform conversions, backend
+    (`ut3_operations` / `ut3_linalg` / `ut3_conversions`) + frontend + pytree. Matches the ragged oracle
+    exactly (absorb 0.0, norm/inner ~1e-12). Tests: `tests/test_uniform_weighted.py`; user doc:
+    `docs/weighting.md` §"On the uniform layer". **Three things a future reader should not re-derive:**
+    (a) **`absorb` needs no masking** — it is a pointwise scale along edge axes, not a reduction, so it is
+    garbage-transparent (the pre-review plan claimed the opposite); as a result `ut3_operations` does not
+    import the masking layer at all, and the wall fell out rather than being imposed. (b) **`reciprocal`
+    must guard the padding** (`1/0 = inf` → `0*inf = nan` poisons masked reductions; the GK metric *is* a
+    reciprocal) but deliberately does **not** guard real-slot zeros. (c) **Uniform adds a mask-equality
+    precondition** ragged gets free from shapes. **Mutation testing earned its keep twice**: it caught that
+    the S1 mismatch test only perturbed the tucker mask (a `weights_consistent` ignoring the tt mask
+    passed), and it confirmed S2's gappy-mask tests kill both plausible-but-wrong prefix masks. Worth
+    repeating on any further mask-carrying op.
+  - **Two side-fixes** (committed separately, both prompted by the wall): `common.prefix_mask` extracted
+    (~8 duplicates across 4 modules), and `require_concrete_masks` moved to `common` — it was already
+    documented as "infrastructure, unprefixed by design" but lived in `ut3_masking`, and **`ufv_masking`
+    still does not use it, so the frame/variation masks are unguarded against traced masks** (pre-existing,
+    not fixed). Plus a stale CI `--ignore` for the S4-deleted parked module.
   - **S0 (done) — fixed the ragged frame-weight stack model**, which the design review found wrong. It had to
     go first: the ragged layer is this build's equivalence oracle, so mirroring the bug would have had the
     oracle certify it. `T3FrameWeights` is **frame-like** (carries the frame stack `C`), but
