@@ -10,7 +10,7 @@ packedness-mirror convention (user-facing ops mirror the input's packedness).
 
 The weighted layer (uniform twins of the ragged ``t3_*_weights`` ops, same module split):
 ``ut3_absorb_weights`` / ``ut3_weights_consistent`` / ``ut3_reciprocal_weights`` /
-``ut3_sqrt_weights``. Note this module does **not** import the masking layer: weighting and
+``ut3_sqrt_weights`` / ``ut3_concatenate_weights`` / ``ut3_kronecker_weights``. Note this module does **not** import the masking layer: weighting and
 masking are kept apart, and the shared mechanics they both need (``prefix_mask``,
 ``require_concrete_masks``) live in ``common`` (``dev/uniform_weighting_design.md`` §2).
 """
@@ -35,6 +35,8 @@ __all__ = [
     'ut3_weights_consistent',
     'ut3_reciprocal_weights',
     'ut3_sqrt_weights',
+    'ut3_concatenate_weights',
+    'ut3_kronecker_weights',
 ]
 
 # A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, shape, (tucker_edge_mask, tt_edge_mask)).
@@ -348,3 +350,76 @@ def ut3_sqrt_weights(
     square-rooted: ``sqrt`` is fine at the canonical ``0`` but not differentiable there (an ``inf``
     gradient), and garbage padding can be negative (``nan``). See :py:func:`_ut3_map_real_weights`."""
     return _ut3_map_real_weights(weights, lambda xnp, w: xnp.sqrt(w))
+
+
+def _weight_pair_backend(weights_A: UT3WeightsData, weights_B: UT3WeightsData):
+    """``(xnp, A supercores, B supercores, A masks, B masks)`` for the two-weight combines."""
+    xnp, _, _ = get_backend(True, tree_contains_jax((weights_A[:2], weights_B[:2])))
+    require_concrete_masks(*weights_A[2], *weights_B[2])  # masks are host, not traced
+    return xnp, weights_A[:2], weights_B[:2], weights_A[2], weights_B[2]
+
+
+def ut3_concatenate_weights(
+        weights_A: UT3WeightsData,  # (tucker_weight_supercore, tt_weight_supercore, masks)
+        weights_B: UT3WeightsData,  # (tucker_weight_supercore, tt_weight_supercore, masks)
+) -> UT3WeightsData:                # per-edge concatenation: padded widths ADD, masks concatenate
+    """Per-edge concatenation of two uniform weights -- the ``+`` / direct-sum combine, where ranks add.
+    Uniform twin of ``t3_concatenate_weights``, and the weight-side partner of ``ut3_add`` (which
+    concatenates the *object's* rank masks in exactly the same way).
+
+    Both the padded supercores and the masks concatenate on the last axis, so the output's padded width
+    is ``nA + nB`` and its real rank is ``rank_A + rank_B``.
+
+    **The output mask can go gappy, and that is correct** (``docs/uniform_masks_vs_ranks.md``): if ``A``'s
+    mask has slack (real rank below its padded width), the concatenation leaves a hole between ``A``'s
+    real slots and ``B``'s block. The data stays put -- no compaction -- and ``ut3weights_to_t3weights``
+    gathers through the holes. Re-canonicalize with the SVD if a prefix form is wanted.
+
+    Neither operand's real slots move, so no masking is needed: the supercores are copied, not reduced,
+    and each output slot comes from exactly one input slot (garbage padding stays in the padding).
+    """
+    xnp, (tkA, ttA), (tkB, ttB), (tkmA, ttmA), (tkmB, ttmB) = _weight_pair_backend(weights_A, weights_B)
+    tucker = xnp.concatenate([tkA, tkB], axis=-1)
+    tt     = xnp.concatenate([ttA, ttB], axis=-1)
+    # np (host): masks are static structure -- concatenation IS the closure of the mask algebra under +.
+    masks = (np.concatenate([tkmA, tkmB], axis=-1), np.concatenate([ttmA, ttmB], axis=-1))
+    return tucker, tt, masks
+
+
+def ut3_kronecker_weights(
+        weights_A: UT3WeightsData,  # (tucker_weight_supercore, tt_weight_supercore, masks)
+        weights_B: UT3WeightsData,  # (tucker_weight_supercore, tt_weight_supercore, masks)
+) -> UT3WeightsData:                # per-edge Kronecker: padded widths MULTIPLY, masks Kronecker
+    """Per-edge Kronecker product of two uniform weights -- the Hadamard (``⊙``) combine, where ranks
+    multiply. Uniform twin of ``t3_kronecker_weights``.
+
+    Each edge is a **last-axis outer product, then reshape**, on the supercores *and* on the masks:
+    ``(wA ⊗ wB)[..., a*nB + b] = wA[..., a] · wB[..., b]`` -- **A-major**, over the PADDED widths, with
+    the shared ``(d,)+stack`` prefix broadcast. Not ``np.kron``, which would Kronecker the mode/stack axes
+    too.
+
+    **The output mask is genuinely gappy, and the stride is the point.** The real set is
+    ``{a*nB + b : mask_A[a] and mask_B[b]}`` -- strided over the *padded* width ``nB``, not the real rank
+    -- so even two prefix masks give holes (the ``docs/uniform_masks_vs_ranks.md`` worked example:
+    ``{0,1}`` of 3 times ``{0}`` of 2 gives ``{0, 2}``). Applying the same outer-product to the boolean
+    masks is exactly right, and it is what keeps the ragged round-trip exact: ``argwhere`` returns the
+    real slots in increasing flattened index, which for prefix inputs is ``(a, b)`` lexicographic --
+    A-major, matching the ragged twin's ordering element for element.
+
+    **A-major must agree with whatever core-combine pairs with it** (mismatched ordering silently
+    corrupts -- the ragged build hit exactly this). Note there is currently **no uniform Hadamard**
+    (``ut3_add`` exists; ``ut3_mult`` does not), so this op ships verified against the ragged oracle but
+    without a uniform core-combine partner -- see ``dev/uniform_weighting_design.md`` §3.
+    """
+    xnp, (tkA, ttA), (tkB, ttB), (tkmA, ttmA), (tkmB, ttmB) = _weight_pair_backend(weights_A, weights_B)
+
+    def kron_last(a, b, np_module):  # (...,pA),(...,pB) -> (...,pA*pB), A-major, shared prefix broadcast
+        prefix = np_module.broadcast_shapes(a.shape[:-1], b.shape[:-1])
+        return (a[..., :, None] * b[..., None, :]).reshape(prefix + (a.shape[-1] * b.shape[-1],))
+
+    tucker = kron_last(tkA, tkB, xnp)
+    tt     = kron_last(ttA, ttB, xnp)
+    # np (host): masks are static structure. The SAME outer-product-then-reshape, on booleans -- the
+    # closure of the mask algebra under x. `*` on bools is `and`.
+    masks = (kron_last(tkmA, tkmB, np), kron_last(ttmA, ttmB, np))
+    return tucker, tt, masks

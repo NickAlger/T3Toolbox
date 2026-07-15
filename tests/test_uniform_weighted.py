@@ -305,6 +305,149 @@ class TestUT3WeightsPreconditions(unittest.TestCase):
             ut3.UT3Weights(uW.tucker_weight_supercore[..., :-1], uW.tt_weight_supercore, uW.masks)
 
 
+class TestUT3WeightsCombine(unittest.TestCase):
+    """concatenate (the + combine) and kronecker (the Hadamard combine) -- the two rank-changing ops, and
+    the only ones whose output masks go GAPPY. Per docs/contributor/testing_strategy.md the exact mask
+    pattern is asserted, not just the rank count: a too-permissive mask is invisible to value tests."""
+
+    def test_concatenate_equals_ragged(self):
+        rng = np.random.default_rng(20)
+        for struct in STRUCTURES:
+            for pad in PADS:
+                with self.subTest(struct=struct, pad=pad):
+                    x = t3.TuckerTensorTrain.randn(*struct)
+                    WA, WB = rand_ragged_weights(x, rng), rand_ragged_weights(x, rng)
+                    _, uA = to_uniform_pair(x, WA, pad)
+                    _, uB = to_uniform_pair(x, WB, pad)
+
+                    got = uA.concatenate(uB).to_t3weights()
+                    ref = WA.concatenate(WB)
+                    for fam_got, fam_ref in zip(got.data, ref.data):
+                        for a, b in zip(fam_got, fam_ref):
+                            self.assertTrue(np.array_equal(a, b))
+
+    def test_kronecker_equals_ragged(self):
+        """The A-major ordering must match the ragged twin element-for-element -- a transposed pairing
+        would still have the right ranks and the right multiset of values."""
+        rng = np.random.default_rng(21)
+        for struct in STRUCTURES:
+            for pad in PADS:
+                with self.subTest(struct=struct, pad=pad):
+                    x = t3.TuckerTensorTrain.randn(*struct)
+                    WA, WB = rand_ragged_weights(x, rng), rand_ragged_weights(x, rng)
+                    _, uA = to_uniform_pair(x, WA, pad)
+                    _, uB = to_uniform_pair(x, WB, pad)
+
+                    got = uA.kronecker(uB).to_t3weights()
+                    ref = WA.kronecker(WB)
+                    for fam_got, fam_ref in zip(got.data, ref.data):
+                        for a, b in zip(fam_got, fam_ref):
+                            self.assertTrue(np.allclose(a, b))
+
+    def test_concatenate_mask_is_exactly_the_concatenation(self):
+        """Exact output masks, derived from the inputs' masks rather than read back from the impl -- and
+        deliberately with SLACK on A, so the concatenation is gappy (a hole between A's real slots and B's
+        block). Padded widths add."""
+        rng = np.random.default_rng(22)
+        x = t3.TuckerTensorTrain.randn(*STRUCTURES[0])
+        _, uA = to_uniform_pair(x, rand_ragged_weights(x, rng), (5, 4))   # forced pad -> A has slack
+        _, uB = to_uniform_pair(x, rand_ragged_weights(x, rng), (5, 4))
+        z = uA.concatenate(uB)
+
+        self.assertEqual(z.n, uA.n + uB.n)
+        self.assertEqual(z.r, uA.r + uB.r)
+        want_tk = np.concatenate([uA.masks.tucker_edge_mask, uB.masks.tucker_edge_mask], axis=-1)
+        want_tt = np.concatenate([uA.masks.tt_edge_mask, uB.masks.tt_edge_mask], axis=-1)
+        self.assertTrue(np.array_equal(z.masks.tucker_edge_mask, want_tk))
+        self.assertTrue(np.array_equal(z.masks.tt_edge_mask, want_tt))
+
+        # It really is gappy: A's slack sits between the two real blocks, so the mask is not a prefix.
+        row = z.masks.tucker_edge_mask[0]
+        self.assertFalse(np.array_equal(row, np.arange(len(row)) < row.sum()))   # NOT a prefix
+        self.assertTrue(row[uA.n])                                               # B's block starts at nA
+
+    def test_kronecker_mask_is_the_strided_outer_product(self):
+        """The Kronecker mask against a hand-built expectation: real iff mask_A[a] AND mask_B[b] at the
+        flattened index a*nB + b -- strided over the PADDED width, so gappy even from prefix inputs. This
+        is the worked example in docs/uniform_masks_vs_ranks.md."""
+        rng = np.random.default_rng(23)
+        x = t3.TuckerTensorTrain.randn(*STRUCTURES[0])
+        _, uA = to_uniform_pair(x, rand_ragged_weights(x, rng), (5, 4))
+        _, uB = to_uniform_pair(x, rand_ragged_weights(x, rng), (3, 2))
+        z = uA.kronecker(uB)
+
+        self.assertEqual(z.n, uA.n * uB.n)
+        self.assertEqual(z.r, uA.r * uB.r)
+
+        # Hand-built from the definition (a double loop), not from the implementation's reshape.
+        mA, mB = uA.masks.tucker_edge_mask, uB.masks.tucker_edge_mask
+        want = np.zeros((mA.shape[0], uA.n * uB.n), dtype=bool)
+        for mode in range(mA.shape[0]):
+            for a in range(uA.n):
+                for b in range(uB.n):
+                    want[mode, a * uB.n + b] = mA[mode, a] and mB[mode, b]
+        self.assertTrue(np.array_equal(z.masks.tucker_edge_mask, want))
+
+        # Ranks multiply, and the pattern is strided-with-holes rather than a prefix.
+        self.assertTrue(np.array_equal(np.asarray(z.tucker_ranks),
+                                       np.asarray(uA.tucker_ranks) * np.asarray(uB.tucker_ranks)))
+        row = z.masks.tucker_edge_mask[0]
+        self.assertFalse(np.array_equal(row, np.arange(len(row)) < row.sum()))   # NOT a prefix
+
+    def test_combine_masks_stay_host_numpy(self):
+        """Masks are structure: they must stay host numpy through the combines even on jax supercores."""
+        if not common.jax_available:
+            self.skipTest('jax not available')
+        import jax.numpy as jnp
+        rng = np.random.default_rng(24)
+        x = t3.TuckerTensorTrain.randn(*STRUCTURES[0])
+        _, uA = to_uniform_pair(x, rand_ragged_weights(x, rng), (5, 4))
+        jA = ut3.UT3Weights(jnp.asarray(uA.tucker_weight_supercore),
+                            jnp.asarray(uA.tt_weight_supercore), uA.masks)
+        for name in ('concatenate', 'kronecker'):
+            with self.subTest(op=name):
+                out = getattr(jA, name)(jA)
+                self.assertTrue(common.is_numpy_ndarray(out.masks.tucker_edge_mask))
+                self.assertTrue(common.is_numpy_ndarray(out.masks.tt_edge_mask))
+
+
+class TestUT3WeightsFromSvd(unittest.TestCase):
+    def test_from_ut3svd_matches_ragged(self):
+        """The uniform singular-value weights equal the ragged ones on the real parts, and pair with the
+        t3svd RESULT (which is what carries their masks)."""
+        rng = np.random.default_rng(25)
+        for struct in STRUCTURES:
+            with self.subTest(struct=struct):
+                x = t3.TuckerTensorTrain.randn(*struct)
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+
+                W = ut3.UT3Weights.from_ut3svd(ux)
+                xs, _, _ = ux.t3svd()
+                self.assertTrue(W.is_consistent_with(xs))       # pairs with the t3svd result
+
+                ref = t3.T3Weights.from_t3svd(x)
+                for fam_got, fam_ref in zip(W.to_t3weights().data, ref.data):
+                    for a, b in zip(fam_got, fam_ref):
+                        self.assertTrue(np.allclose(np.abs(a), np.abs(b), atol=1e-10))
+
+    def test_from_ut3svd_reciprocal_is_the_gk_metric(self):
+        """The headline path end-to-end: sigmas -> reciprocal -> weighted norm, finite and matching
+        ragged. This is the composition that motivated the reciprocal padding guard."""
+        rng = np.random.default_rng(26)
+        x = t3.TuckerTensorTrain.randn(*STRUCTURES[0])
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        xs, _, _ = ux.t3svd()
+
+        gk = ut3.UT3Weights.from_ut3svd(ux).reciprocal()
+        self.assertTrue(np.isfinite(gk.tucker_weight_supercore).all())
+        got = ut3.weighted_norm(xs, gk)
+        self.assertTrue(np.isfinite(got))
+
+        xr = xs.to_t3()
+        ref = t3.weighted_norm(xr, t3.T3Weights.from_t3svd(x).reciprocal())
+        self.assertLess(abs(got - ref), 1e-8 * (abs(ref) + 1))
+
+
 class TestUT3WeightsDispatch(unittest.TestCase):
     def test_jit_absorb_and_norm(self):
         """jit the weighted ops with the masks closed over and only the supercores traced (the backend

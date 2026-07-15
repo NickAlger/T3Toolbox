@@ -1055,6 +1055,35 @@ class UT3Weights:
         unchanged)."""
         return _weights_from_data(ut3_operations.ut3_sqrt_weights(self.data))
 
+    def concatenate(self, other: 'UT3Weights') -> 'UT3Weights':
+        """Per-edge concatenation with ``other`` -- the ``+`` / direct-sum combine (ranks add, padded
+        widths add). The output mask **may go gappy** if either input has rank slack, which is expected
+        and correct (``docs/uniform_masks_vs_ranks.md``)."""
+        return _weights_from_data(ut3_operations.ut3_concatenate_weights(self.data, other.data))
+
+    def kronecker(self, other: 'UT3Weights') -> 'UT3Weights':
+        """Per-edge Kronecker product with ``other`` -- the Hadamard (elementwise-product) combine (ranks
+        multiply, padded widths multiply). The output mask is **strided/gappy** (the real set is
+        ``{a*nB + b}`` over the *padded* width), which is correct; see
+        :py:func:`~t3toolbox.backend.ut3_operations.ut3_kronecker_weights`."""
+        return _weights_from_data(ut3_operations.ut3_kronecker_weights(self.data, other.data))
+
+    # ----------------------------------------------------------------- constructors
+    @classmethod
+    def from_ut3svd(cls, x: 'UniformTuckerTensorTrain', **kwargs) -> 'UT3Weights':
+        """The singular values of ``x`` as a weight object -- the canonical (unmodified) sigmas, so
+        ``from_ut3svd(x).reciprocal()`` is the inverse-sigma (Grasedyck-Kramer) weighting. Uniform twin of
+        :py:meth:`~t3toolbox.tucker_tensor_train.T3Weights.from_t3svd`.
+
+        ``**kwargs`` pass to :py:meth:`UniformTuckerTensorTrain.t3svd`. The weights carry the **t3svd
+        result's** masks, so they pair with that result -- which is ``x`` itself only when ``x`` already
+        has minimal ranks and tight padding. Otherwise weight the returned train, not the original:
+
+            ``xs, _, _ = x.t3svd(); W = UT3Weights.from_ut3svd(x); absorb_weights(xs, W)``
+        """
+        new_x, tucker_svals, tt_svals = x.t3svd(**kwargs)
+        return cls(tucker_svals, tt_svals, new_x.masks)
+
     # ----------------------------------------------------------------- ragged <-> uniform conversions
     @staticmethod
     def from_t3weights(

@@ -104,10 +104,42 @@ stricter `weights.stack_shape == frame.stack_shape` is enforced (a `K + C`-stack
 silently weight one frame's `K` tangents with `K` different metrics). See
 [`batching_and_stacking.md`](batching_and_stacking.md).
 
+## On the uniform layer
+
+`UT3Weights` is the uniform mirror of `T3Weights` — the same weights, padded for `jit`/GPU. It is *the
+ragged weight, padded*: `to_ragged(op_uniform(to_uniform(W))) == op_ragged(W)`, as for every uniform op
+([`uniform_equivalence_contract.md`](uniform_equivalence_contract.md)). It holds two weight supercores
+plus **the same edge masks as the train it weights** (a weight's edges *are* the tensor's edges), and
+carries no `shape` — weights live only on internal edges.
+
+```python
+import t3toolbox.uniform_tucker_tensor_train as ut3
+
+ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+W  = ut3.UT3Weights.from_ut3svd(ux)          # or .from_t3weights(ragged_W, n=ux.n, r=ux.r)
+gk = W.reciprocal()                          # inverse-σ; also .sqrt() / .concatenate() / .kronecker()
+n  = ut3.weighted_norm(ux, gk)               # + absorb_weights / weighted_inner
+```
+
+Three differences from ragged are worth knowing, and none of them are ports-in-progress:
+
+- **The masks must match.** Ragged catches a rank mismatch as a shape error; uniform pads both sides to a
+  common width, so a mismatched weight would *silently* zero a real slot. Hence `is_consistent_with`, and
+  every `(train, weights)` op enforces it — the one precondition uniform adds.
+- **`reciprocal` guards the padding.** The padding is a canonical zero, and `1/0 = inf` would poison every
+  masked reduction downstream (`0 × inf = nan`). Real-slot zeros are deliberately *not* guarded: a zero
+  singular value is real data, and clamping it would hide a rank-deficient point.
+- **`concatenate` / `kronecker` produce gappy masks.** Ranks add / multiply as usual, but the real slots
+  stop being a prefix ([`uniform_masks_vs_ranks.md`](uniform_masks_vs_ranks.md)). Expected and correct; the
+  T3-SVD re-canonicalizes.
+
+The tangent-side mirror (`UT3FrameWeights`) is not built yet.
+
 ## Scope
 
-Shipped: the two weight classes, `absorb`, `weighted_norm` / `weighted_inner`, `concatenate` /
-`kronecker`, `from_t3svd`. Not yet packaged (but reachable from these primitives): weighted `+` / `−` /
-scale / `⊙` as operations, and the **Grasedyck–Kramer singular-value regularizer** — a
-`SingularValueRegularizer` that builds `W` from the frame's singular values and applies it through the
-`T3FrameWeights` metric (see the regularization notes).
+Shipped: the two ragged weight classes, `absorb`, `weighted_norm` / `weighted_inner`, `concatenate` /
+`kronecker`, `from_t3svd`; and the uniform base-point mirror (`UT3Weights` + the same operations +
+`from_ut3svd`). Not yet packaged (but reachable from these primitives): weighted `+` / `−` / scale / `⊙`
+as operations, the uniform **tangent** mirror (`UT3FrameWeights`), and the **Grasedyck–Kramer
+singular-value regularizer** — a `SingularValueRegularizer` that builds `W` from the frame's singular
+values and applies it through the `T3FrameWeights` metric (see the regularization notes).
