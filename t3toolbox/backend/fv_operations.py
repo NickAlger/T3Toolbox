@@ -249,14 +249,31 @@ def fv_weights_consistent(
         weights:    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
                               typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
 ) -> bool:                                                                     # True iff shape-consistent
-    """True iff the four weight families (each len=d) match the variation ranks + stack (non-raising).
-    up<->H.nU (axis -2), down<->V.nD (axis -2), left<->H.rL (axis -3), right<->H.rR (axis -1)."""
+    """True iff the four weight families (each len=d) can be absorbed into ``variations`` (non-raising).
+
+    Ranks: up<->H.nU (axis -2), down<->V.nD (axis -2), left<->H.rL (axis -3), right<->H.rR (axis -1).
+
+    Stacks -- the **trailing rule**: a weight is **frame-like**, carrying the frame stack ``C``, while the
+    variations carry ``K + C`` (a ``K``-batch of tangents at one frame shares the one metric). So the
+    weight's stack must be the **trailing (inner) part** of the variation stack -- exactly the rule
+    ``check_fv_pair`` applies to a (frame, variations) pair, with the weight playing the frame's role.
+    Absorption then broadcasts ``C`` over ``K + C`` for free through the leading ``'...'`` (which works
+    because ``C`` is innermost). ``K`` may be empty, the common case.
+
+    Like the variations themselves, this predicate is **blind to the frame**: a weight whose stack is the
+    whole variation stack also passes, reading as ``C_w = K + C`` (that many base points, one tangent each)
+    -- a legitimate absorption. Whether the weight is the metric of *this* tangent's frame needs the frame,
+    and is checked by ``frame_variations_format.check_fw_pair`` at the tangent level.
+    """
     V_cores, H_cores = variations
     up, down, left, right = weights
     d = len(V_cores)
     if not (len(up) == len(down) == len(left) == len(right) == d):
         return False
-    stack = V_cores[0].shape[:-2]
+    var_stack = V_cores[0].shape[:-2]     # K + C
+    stack = up[0].shape[:-1]              # C -- the weight is frame-like (all four families share it)
+    if var_stack[len(var_stack) - len(stack):] != stack:  # C must be the trailing part of K + C
+        return False
     for i in range(d):
         if up[i].shape != stack + (H_cores[i].shape[-2],):    return False
         if down[i].shape != stack + (V_cores[i].shape[-2],):  return False

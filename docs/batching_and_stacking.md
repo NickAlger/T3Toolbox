@@ -84,7 +84,7 @@ The codebase annotates shapes in trailing comments and encodes them in names. Th
 | **heterogeneous stack** | one T3 whose cores have different-but-broadcastable stacks (frame `C`, variation `K+C`). First-class in the backend (§5). |
 | **"the split is recovered"** | `C`/`K`/`W` lengths are read off operand shapes, never threaded as parameters (§4, §6). |
 | **`sum_over_probes`** | transpose flag (§11): `False` (default, **primary**) keeps the probe stack `W` as an output stack — one tangent/tensor per probe; `True` sums `W` (`= Σ_W` of `False`) for the optimization `Jᵀr`. |
-| **ragged / uniform / weighted** | the three representations. **ragged** (tuples of arrays) is the default; **uniform** (supercores + masks) is the jit/GPU mirror of the whole stack (`docs/uniform_equivalence_contract.md`); **weighted** is parked pending a redesign. |
+| **ragged / uniform / weighted** | the three representations. **ragged** (tuples of arrays) is the default; **uniform** (supercores + masks) is the jit/GPU mirror of the whole stack (`docs/uniform_equivalence_contract.md`); **weighted** is diagonal edge weights on the internal edges — a data format + `absorb` into cores, not a separate object layer (`docs/weighting.md`). |
 
 > The block letters `W`/`K`/`C` are deliberately disjoint from the core/variation symbols
 > (`U`,`P`,`Q`,`O`,`G`,`H`,`B`) and from `Jᵀ`/tensor/`T3`, so a shape comment is never ambiguous.
@@ -302,6 +302,14 @@ This is *the* thing that decides where broadcasting is lazy vs materialized:
 
 `check_fv_pair` enforces exactly this: *`frame.stack_shape` must be the trailing (inner) suffix of
 `variations.stack_shape`.* (It does **not** require equality — that was the pre-`K`-stack invariant.)
+
+**`T3FrameWeights` is frame-like, and follows the same rule.** A tangent metric
+([`weighting.md`](weighting.md)) is one metric *per base point*, so it carries `C` — not `K + C` — even
+though it is *absorbed into* the variations. Where it batches and what it acts on are different questions;
+conflating them is what put an over-strict `K + C` stack check on the weight predicate until it was fixed.
+So pairing a weight with variations uses the trailing-suffix rule (`fv_weights_consistent`, blind to the
+frame like the variations themselves), and `check_fw_pair` — the weight↔frame analog of `check_fv_pair` —
+enforces the exact `weights.stack_shape == frame.stack_shape` wherever the frame is present.
 
 Because the split is not recoverable from a *bare tree of objects*, the two-axis stack/unstack (§ below)
 must name which stack it peels.

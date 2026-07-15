@@ -85,10 +85,23 @@ It pairs with a minimal-rank tangent at `x` (where the complement rank `nD` equa
 
 ## Batching
 
-Both weight classes **mirror the batching of their paired object** — `T3Weights` like `TuckerTensorTrain`,
-`T3FrameWeights` like `T3Variations`: every vector is `stack_shape + (rank,)`, and one object holds a
-stack of weights. Every operation is a single broadcast prefix (a weight always shares exactly its
-object's `C` stack), so stacking rides along for free. See
+Every weight vector is `stack_shape + (rank,)`, one object holds a stack of weights, and **both classes
+carry the base-point stack `C`** — never the tangent stack `K`. Every operation is a single broadcast
+prefix, so stacking rides along for free.
+
+- **`T3Weights`** batches like the `TuckerTensorTrain` it weights: stack `C`.
+- **`T3FrameWeights`** batches like **`T3Frame`**: stack `C` — one metric per base point. This is worth
+  pausing on, because the weight is *absorbed into* the variations (which carry `K + C`) while it *batches
+  with* the frame. The two are different questions: a `K`-batch of tangents at one frame shares the **one**
+  metric, and the leading `'...'` broadcasts `C` over `K + C` for free (`C` is innermost). So the
+  Grasedyck–Kramer metric of a `C`-stacked point is `C`-stacked, and pairs directly with any `K`-stack of
+  tangents there.
+
+Pairing a `T3FrameWeights` with variations therefore follows the **same trailing-stack rule** as pairing a
+`T3Frame` with them: the weight's stack must be the trailing (inner) part of the variation stack. Like the
+variations, that check is blind to the frame — so at the tangent level, where the frame *is* present, the
+stricter `weights.stack_shape == frame.stack_shape` is enforced (a `K + C`-stacked weight would otherwise
+silently weight one frame's `K` tangents with `K` different metrics). See
 [`batching_and_stacking.md`](batching_and_stacking.md).
 
 ## Scope

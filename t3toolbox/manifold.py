@@ -426,6 +426,7 @@ class T3Tangent:
         >>> print(t3m.MANIFOLD.project_oblique(vw).is_gauged())          # ...project_oblique re-gauges it
         True
         """
+        bvf.check_fw_pair(self.frame, weights)
         return T3Tangent(self.frame, bvf.absorb_weights(self.variations, weights))
 
     def weighted_norm(self, weights: 'bvf.T3FrameWeights'):
@@ -434,16 +435,22 @@ class T3Tangent:
         stays orthonormal (untouched). Vectorized over the stack (returns shape ``K + C``). The inserted
         diagonal is squared by the norm, so ``weights = 1/sigma`` penalises by ``1/sigma^2``. As with
         :py:meth:`corewise_norm`, this is the coordinate metric (= HS on an orthonormal, gauged frame).
+        ``weights`` is frame-like: its stack must equal the frame's ``C`` (checked --
+        :py:func:`~t3toolbox.frame_variations_format.check_fw_pair`), and it broadcasts over ``K``.
         Backend twin: :py:func:`~t3toolbox.backend.fv_operations.fv_weighted_norm`.
         """
+        bvf.check_fw_pair(self.frame, weights)
         return fv_operations.fv_weighted_norm(self.variations.data, weights.data, len(self.stack_shape))
 
     def weighted_inner(self, other: 'T3Tangent', weights: 'bvf.T3FrameWeights'):
         """The **weighted** coordinate inner product ``<absorb(W,self), absorb(W,other)>`` w.r.t. one
         metric ``weights`` -- absorb the weights into both tangents' variations and dot. The same-frame
-        precondition is checked; vectorized over the stack (returns shape ``K + C``). Backend twin:
+        precondition is checked, as is the frame-like stack of ``weights``
+        (:py:func:`~t3toolbox.frame_variations_format.check_fw_pair`); vectorized over the stack (returns
+        shape ``K + C``). Backend twin:
         :py:func:`~t3toolbox.backend.fv_operations.fv_weighted_inner`."""
         self._check_same_tangent_space(other)
+        bvf.check_fw_pair(self.frame, weights)
         return fv_operations.fv_weighted_inner(self.variations.data, other.variations.data,
                                                weights.data, len(self.stack_shape))
 

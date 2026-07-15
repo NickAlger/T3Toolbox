@@ -115,14 +115,15 @@ Both carry: `validate` (internal shape consistency, structural → always raises
   - T3: `absorb(x: TuckerTensorTrain, W: T3Weights) -> TuckerTensorTrain` (shape-preserving; the
     represented tensor is the fully-weighted network). **TT weights absorbed leftward** (boundary `r₀`
     rightward into `G₀`); **Tucker weights into the Tucker cores.**
-  - Frame/tangent: `absorb(frame, W: T3FrameWeights) -> weighted frame` weighting **only the four frame
-    cores** — **up→`U`, down→`O`, left→`P`, right→`Q`** (each frame core absorbs exactly its own family;
-    the **variation cores `V`/`H` are untouched**, because in the doubled-rank `to_t3` the up/down blocks of
-    each Tucker edge and the left/right blocks of each bond sit on opposite sides, so weighting `U`/`O`/`P`/`Q`
-    covers every rank direction once — §6). The parked `absorb_weights_into_tangent_cores` is rewritten
-    (correct `(U,O,P,Q)` order, frame-only, no `use_jax`, no `shape_weights`). **Do not re-wrap the weighted
-    frame as a `T3Tangent`/`T3Frame`** — it is deliberately non-orthonormal and must not masquerade as a
-    tangent-space element (§6).
+  - Frame/tangent: **SUPERSEDED — see the header + §6.** *This bullet records the original sketch: absorb
+    into the four **frame** cores (up→`U`, down→`O`, left→`P`, right→`Q`), variations untouched, with the
+    weighted frame deliberately non-orthonormal. **That is not what shipped.*** The design changed mid-build
+    to the **metric-on-variations** (Approach-1): `absorb(variations, W: T3FrameWeights) -> T3Variations`
+    weights the **variation** cores — **down→`V`, up/left/right→`H`** — and the **frame is left orthonormal
+    and untouched**. Reason: the frame's `d+1`-th left/right cores are base-point padding ("not really part
+    of the frame"), so there are only `d` natural tangent edges, and the metric reading is what
+    Grasedyck–Kramer needs. The shipped code (`fv_absorb_weights`) and `docs/weighting.md` are correct; this
+    §4 bullet and §6 below were left stale and are corrected here (2026-07-15).
 - **`is_consistent_with(W, object) -> bool`** — non-raising shape predicate (mirrors `is_orthogonal`).
   `absorb` also validates and raises on mismatch (structural).
 - **`from_t3svd`** — build a `T3Weights` from the `t3svd` singular values (§7), **the unmodified σ's** — the
@@ -221,7 +222,21 @@ operator ergonomics (`a + b`, `a.norm()`) are later wanted, a *thin* `WeightedT3
 to these functions is a ~20-line optional add — sugar over the substrate, not the substrate. Decide it
 then; zero cost now.
 
-## 6. Weighted-tangent norm — the doubled-rank T3 path (verified structural)
+## 6. Weighted-tangent norm — SUPERSEDED (the doubled-rank T3 path was NOT what shipped)
+
+> **⚠️ This whole section records the abandoned first design.** It assumed weights are absorbed into the
+> **frame** cores (`U/O/P/Q`), which breaks orthonormality and therefore forces the doubled-rank `tv_to_t3`
+> detour below. The build instead adopted the **metric-on-variations** (see the header + §4): weights go into
+> `V`/`H`, the **frame stays orthonormal**, and so the weighted norm is simply the **corewise coordinate
+> norm of the weight-absorbed variations** — `corewise_stack_norm(fv_absorb_weights(variations, W))`, which
+> is `O(ranks)` and needs no `tv_to_t3`, no doubled-rank tensor, and no orthonormality repair. The shipped
+> functions are `fv_weighted_norm` / `fv_weighted_inner` in `fv_operations` (**not** `tv_operations` — the
+> `tv_*` twins in §4a were never needed). `docs/weighting.md` + `docs/frame_variations.md` are the correct
+> account. Kept only as the record of the road not taken. *(Corrected 2026-07-15; the §4b stacking analysis
+> below is still accurate and, notably, states the **correct** stack rule — "weights carry `C` only, never
+> `K`; `T3FrameWeights` mirrors `T3Frame`" — which the implementation then got wrong by moving the stack to
+> the variations along with the absorption target. Fixed in the uniform-weighting build's S0;
+> `dev/uniform_weighting_design.md` §8.6.)*
 
 Absorbing weights into a tangent breaks the frame's orthonormality, so the cheap `Σ‖variationᵢ‖²`
 shortcut and `MANIFOLD.norm`/`inner` are **invalid** (and would trip the safe-mode orthogonality

@@ -21,8 +21,36 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Uniform weighting layer — DESIGN AGREED, no code yet (2026-07-15). START HERE next session. Plan:
-  `dev/uniform_weighting_design.md`.** The uniform mirror of the shipped ragged weighted layer:
+- **Uniform weighting layer — S0 DONE (2026-07-15, committed, NOT pushed). NEXT: S1. Plan:
+  `dev/uniform_weighting_design.md`** (§8 = the settled decisions; §6 = the slices).
+  - **S0 (done) — fixed the ragged frame-weight stack model**, which the design review found wrong. It had to
+    go first: the ragged layer is this build's equivalence oracle, so mirroring the bug would have had the
+    oracle certify it. `T3FrameWeights` is **frame-like** (carries the frame stack `C`), but
+    `fv_weights_consistent` demanded the weight match the *variations'* full `K+C` stack, so it **rejected**
+    the canonical Grasedyck-Kramer weight (`from_t3weights(from_t3svd(x))` is `C`-stacked) the moment there
+    was a `K`-stack of tangents at that frame. **No numbers were ever wrong** — the predicate is purely
+    diagnostic (in no enforcement path), and a `C`-only weight already computed bit-identically to a
+    `K`-tiled one (verified, max diff `0.0`; the leading `'...'` lifts `C` over `K` because `C` is innermost).
+    Root cause: at the metric-on-variations design change the implementation moved the *stack* to the
+    variations when only the *absorption target* should have moved — where an object **batches** and what it
+    **acts on** are different questions. Fix as shipped: the **trailing-stack rule** in
+    `fv_weights_consistent` (`check_fv_pair`'s existing frame<->variations rule, with the weight playing the
+    frame's role; stays blind to the frame, non-breaking) + the new **`check_fw_pair(frame, weights)`** guard
+    (`weights.stack_shape == frame.stack_shape` exactly, + ranks vs the frame's variation holes) wired into
+    `T3Tangent.weighted_norm`/`weighted_inner`/`absorb_weights` + docs (`weighting.md` §Batching, the class
+    docstring, `batching_and_stacking.md` — which also had a stale "weighted is parked" line) + tests (the
+    helper built only `K+C` weights, which is why nothing caught it; `test_frame_like_stack` +
+    `test_tangent_rejects_non_frame_stack` added, and the former was **verified to fail against the pre-S0
+    predicate**). `dev/weighted_layer_design.md` §4/§6 marked superseded (they still described the abandoned
+    absorb-into-the-frame design + its doubled-rank `tv_to_t3` norm path). Gates: full suite 654 passed /
+    40,304 subtests; docs `-W` clean.
+  - **Also settled at review (§8)**: mask-guarded `reciprocal`/`sqrt` (`1/0 = inf` -> `0*inf = nan` poisons
+    the GK path — the plan had missed it), `kronecker` ships unpaired (there is no `ut3_mult`), a
+    masking/weighting **conceptual wall** (weighting never calls masking; break shared code into a neutral
+    subfunction) — nearly free, since `absorb` is **garbage-transparent** (pointwise, not a reduction: the
+    pre-review plan's "absorb must mask on entry" was wrong), and `UT3Weights` carries no `shape` field.
+  - **S1 next** — `UT3Weights` + `ut3_absorb_weights` + `ut3_weighted_norm`/`_inner` + conversions +
+    mask-guarded `reciprocal`/`sqrt`. The uniform mirror proper:
   `UT3Weights` / `UT3FrameWeights` (weight supercores + boolean masks — reuse `UT3Masks` /
   `UT3VariationsMasks`; a weight's edges are the object's edges) + masked `absorb` / `weighted_norm`/`inner`
   / `concatenate` / `kronecker` / conversions / `from_t3svd` / `from_t3weights`. **Lever:** the ragged layer

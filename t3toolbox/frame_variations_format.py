@@ -1315,7 +1315,16 @@ class T3FrameWeights:
     ``up`` (on ``H``'s ``nU`` leg), ``down`` (on ``V``'s ``nD`` leg), ``left`` (``H``'s ``rL``),
     ``right`` (``H``'s ``rR``). :py:meth:`T3Tangent.weighted_norm` / :py:meth:`~T3Tangent.weighted_inner`
     absorb these into the variation cores and take the coordinate norm/inner -- the frame stays orthonormal
-    and untouched. Batches like :py:class:`T3Variations` (every vector ``stack_shape + (rank,)``).
+    and untouched.
+
+    **Batching: a weight is FRAME-like** (it is *absorbed into* the variations, but it *batches with* the
+    frame -- do not conflate the two). Every vector is ``stack_shape + (rank,)``, and that stack is the frame
+    stack ``C``, like :py:class:`T3Frame` -- **not** the variations' ``K + C``: a weight is one metric per
+    base point, shared by all ``K`` tangent vectors at that frame, and it broadcasts over ``K`` for free
+    (``C`` is innermost). Pairing with variations alone follows the same trailing-stack rule as
+    :py:func:`check_fv_pair` (the weight's stack is the trailing/inner part of the variation stack); at the
+    tangent level, where the frame is present too, :py:func:`check_fw_pair` enforces the exact
+    ``weights.stack_shape == frame.stack_shape``.
     """
     up_weights:    typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nUi,)
     down_weights:  typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nDi,)
@@ -1414,6 +1423,51 @@ class T3FrameWeights:
         as for ``t3svd`` output); the Grasedyck–Kramer metric is
         ``T3FrameWeights.from_t3weights(T3Weights.from_t3svd(x)).reciprocal()``."""
         return cls(*fv_operations.fv_weights_from_t3_weights(t3_weights.data))
+
+
+def check_fw_pair(
+        frame:   T3Frame,          # stack_shape = C (frame/core stack)
+        weights: T3FrameWeights,   # stack_shape = C -- a weight is FRAME-LIKE: one metric per base point
+) -> None:
+    """Check that ``weights`` is a metric on the tangent coordinates **at this frame**.
+
+    The weight<->frame analog of :py:func:`check_fv_pair`. A :py:class:`T3FrameWeights` is **frame-like**:
+    it carries the frame stack ``C`` (one metric per base point, shared by every tangent there), and its
+    four families weight the variation holes ``frame`` leaves -- ``up``<->``nU``, ``down``<->``nD``,
+    ``left``<->``rL``, ``right``<->``rR``. So the stack must match ``frame.stack_shape`` **exactly** (not
+    merely be a trailing part of it, as when pairing with variations alone).
+
+    Why the stricter check lives here: absorption only needs the weight's stack to be the *trailing* part
+    of the variation stack (:py:func:`~t3toolbox.backend.fv_operations.fv_weights_consistent`, which is
+    blind to the frame, like the variations themselves). A ``K + C``-stacked weight also satisfies that --
+    it reads as ``C_w = K + C`` (that many base points, one tangent each), a legitimate absorption -- so it
+    would silently weight a ``C``-framed tangent's ``K`` coordinates with ``K`` *different* metrics. This
+    is the only place where both objects are present, hence the only place with enough information to
+    reject it. Structural (shapes only) -> raises in both safety modes; jit-safe.
+    """
+    if weights.stack_shape != frame.stack_shape:
+        raise ValueError(
+            'Inconsistent (T3Frame, T3FrameWeights) pair.\n'
+            'A T3FrameWeights is a metric at a base point, so it carries the FRAME stack C exactly (the\n'
+            'variations carry K + C; a K-batch of tangents at one frame shares the one metric).\n'
+            + str(weights.stack_shape) + ' = weights.stack_shape != '
+            + str(frame.stack_shape) + ' = frame.stack_shape'
+        )
+
+    tucker_holes, tt_holes = frame.variation_shapes   # (nD, N) per core; (rL, nU, rR) per core
+    families = (
+        ('up',    weights.up_ranks,    tuple(h[1] for h in tt_holes)),
+        ('down',  weights.down_ranks,  tuple(h[0] for h in tucker_holes)),
+        ('left',  weights.left_ranks,  tuple(h[0] for h in tt_holes)),
+        ('right', weights.right_ranks, tuple(h[2] for h in tt_holes)),
+    )
+    for name, weight_ranks, hole_ranks in families:
+        if weight_ranks != hole_ranks:
+            raise ValueError(
+                'Inconsistent (T3Frame, T3FrameWeights) pair.\n'
+                + str(weight_ranks) + ' = weights.' + name + '_ranks does not match '
+                + str(hole_ranks) + ' = the frame\'s ' + name + ' variation-hole ranks.'
+            )
 
 
 def absorb_weights(variations: T3Variations, weights: T3FrameWeights) -> T3Variations:
