@@ -227,7 +227,9 @@ oracle, so mirroring the bug would put it in two places and have the oracle cert
    `from_ut3weights`** (+ the uniform `check_fw_pair` analog). Settled by S0's model: weights at `C`, masks at
    `C`, absorb broadcasts over `K+C`.
 4. **S4 — frontend wiring** (`UT3Weights`/`UT3FrameWeights` classes, methods, `absorb_weights`,
-   `UT3Tangent.weighted_norm`/`inner`/`absorb_weights`) + dispatch inference (ragged vs uniform from the arg).
+   `UT3Tangent.weighted_norm`/`inner`/`absorb_weights`). **Landed inside S1/S3** rather than as its own
+   slice. ~~+ dispatch inference (ragged vs uniform from the arg)~~ — **deliberately not built**, see §8.7:
+   the module *is* the dispatch.
 5. **S5 — docs** (extend `weighting.md` with the uniform mirror; correct the absorb-is-a-reduction claim; note
    in the uniform docs).
 
@@ -274,3 +276,29 @@ oracle, so mirroring the bug would put it in two places and have the oracle cert
    *(A rejected alternative: check the weight against the **frame** — `fv_weights_consistent(frame, weights)`.
    It invents a second pairing pattern where the library already has one, and couples the predicate to a frame
    that the standalone `absorb_weights(variations, W)` does not have.)*
+7. **No ragged/uniform dispatch on the weighted free functions — the module IS the dispatch** (Nick,
+   2026-07-15; drops half of S4 as originally written). The weighted surface stays **parallel and
+   module-scoped**: `tucker_tensor_train.absorb_weights` and `uniform_tucker_tensor_train.absorb_weights`
+   are two functions, each typed for its layer, and likewise the tangent pair in
+   `frame_variations_format` / `uniform_frame_variations_format`. Nothing infers the layer from the
+   argument.
+
+   **Why.** The user controls dispatch by deciding which layer they are working in; if they need to
+   switch, the conversion hooks are how (`from_t3`/`to_t3`, `from_t3weights`/`to_t3weights`,
+   `from_t3frameweights`/`to_t3frameweights`, and the object conversions). This also matches the shape of
+   the library everywhere else: the package root exposes ragged and uniform **side by side under distinct
+   names** (`TuckerTensorTrain`/`UniformTuckerTensorTrain`, `MANIFOLD`/`UNIFORM_MANIFOLD`,
+   `t3_orthogonal_representations`/`ut3_orthogonal_representations`), and every op is reached through its
+   layer's module. A type-dispatching `absorb_weights` would be the only such function in the library and
+   would blur a boundary the rest of the API keeps sharp.
+
+   **The optimizers are not a counterexample.** `optimizers.py` really does
+   `isinstance(x0, UniformTuckerTensorTrain)` — but `newton_cg` is a *single entry point* a user calls with
+   whatever `x0` they have, so it has no module to dispatch through. `absorb_weights` does.
+
+   **Loose end (not a blocker):** the weighted surface is not re-exported from the package root at all —
+   `T3Weights` is `t3toolbox.tucker_tensor_train.T3Weights`, unlike every other frontend class. The docs
+   already teach that submodule path, and the ragged layer shipped that way. Worth a look someday: the
+   *classes* have distinct names (`T3Weights`/`UT3Weights`/`T3FrameWeights`/`UT3FrameWeights`) so they
+   could be root-exported with no collision; only the free functions collide, which is exactly the
+   collision this decision declines to resolve with dispatch.

@@ -26,7 +26,15 @@ branch can be deleted (optional).
   slices). The uniform mirror is **functionally complete**: `UT3Weights` + `UT3FrameWeights`, both with
   absorb / weighted_norm / weighted_inner / reciprocal / sqrt / concatenate / kronecker, plus
   `from_ut3svd` / `from_ut3weights` and the ragged↔uniform conversions, backend + frontend + pytrees.
-  (S4 "frontend wiring" landed inside S1/S3 rather than as its own slice.)
+  - **S4 was half built and half deliberately dropped (§8.7).** The wiring (classes, methods,
+    `absorb_weights`, the `UT3Tangent` methods) landed inside S1/S3. The clause "+ dispatch inference
+    (ragged vs uniform from the arg)" is **not built, by decision** (Nick, 2026-07-15): the **module IS the
+    dispatch** — the user picks the layer they work in, and the conversion hooks are how they switch. So the
+    weighted surface is parallel and module-scoped (`tucker_tensor_train.absorb_weights` vs
+    `uniform_tucker_tensor_train.absorb_weights`), matching how the root exposes ragged/uniform side by side
+    under distinct names. The optimizers' `isinstance` dispatch is not a counterexample (`newton_cg` is a
+    single entry point with no module to dispatch through). Loose end noted in §8.7: the weighted surface is
+    not re-exported at the package root at all, unlike every other frontend class.
   - **S3 (done) — the tangent metric.** `UT3FrameWeights` is **frame-like** (stack `C`), and the S0 model
     pays off exactly as designed: the `C`→`K+C` lift is **free** via the right-aligned `'...'`, which works
     only because `C` is innermost. Verified bit-identical to a `K`-tiled metric (0.0), and all-ones recovers
