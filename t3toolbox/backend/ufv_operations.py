@@ -32,7 +32,21 @@ __all__ = [
     'ufv_save',
     'ufv_load',
     'ufv_frame_orthogonality_residual',
+    'ufv_absorb_weights',
+    'ufv_weights_consistent',
+    'ufv_weights_from_ut3_weights',
+    'ufv_reciprocal_weights',
+    'ufv_sqrt_weights',
+    'ufv_concatenate_weights',
+    'ufv_kronecker_weights',
 ]
+
+# A uniform FRAME-WEIGHTS .data tuple: (up, down, left, right, (4 variation edge masks)).
+# The four supercores are each (d,)+C+(size,) and the masks match them. NO `shape` (weights have no
+# physical legs) and NO K: a frame weight is FRAME-LIKE -- one metric per base point, carrying the frame
+# stack C, broadcast over the variations' K+C at absorb (dev/uniform_weighting_design.md §8.5/§8.6).
+UT3FrameWeightsData = typ.Tuple[NDArray, NDArray, NDArray, NDArray,
+                                typ.Tuple[NDArray, NDArray, NDArray, NDArray]]
 
 N_MASKS = 4  # both UT3Frame and UT3Variations hold four edge masks
 
@@ -233,3 +247,171 @@ def ufv_frame_orthogonality_residual(data):  # UT3Frame .data -> max orthogonali
         devs.append(dev(xnp.einsum('...iaj,...iak->...jk', mleft[:-1], mleft[:-1]), lm[1:-1], rL))   # outgoing edges 1..d-1
         devs.append(dev(xnp.einsum('...iaj,...kaj->...ik', mright[1:], mright[1:]), rm[1:-1], rR))   # incoming edges 1..d-1
     return xnp.max(xnp.stack(devs), axis=0)   # max over the four senses, keep stack_shape
+
+
+def ufv_absorb_weights(
+        variations: typ.Tuple,       # UT3Variations .data: (tkv, ttv, shape, masks), stack = K + C
+        weights:    UT3FrameWeightsData,  # (up, down, left, right, masks), stack = C
+) -> typ.Tuple:                      # UT3Variations .data: weighted, same shape and masks
+    """Absorb the four-family metric weights into the VARIATION supercores -- the uniform twin of
+    ``fv_absorb_weights`` (the tangent metric on coordinates: ``down`` -> V's ``nD`` leg;
+    ``up``/``left``/``right`` -> H's ``nU``/``rL``/``rR`` legs). The frame is left orthonormal and
+    untouched, so this is O(ranks) and does not disturb the tangent space.
+
+    **The weight is frame-like (stack ``C``) and the variations are ``K + C``, and the broadcast is
+    free**: the ellipsis in ``'d...i,d...io->d...io'`` right-aligns, so a ``C``-stacked weight lifts over
+    the tangent stack ``K`` at no cost. That works *only because* ``C`` is innermost -- the library-wide
+    frame-inner convention (``docs/batching_and_stacking.md``). One metric, shared by the ``K`` tangent
+    vectors at that frame.
+
+    **No entry masking**, for the same reason as ``ut3_absorb_weights``: this is a pointwise scale along
+    each edge axis, not a reduction, so garbage never mixes into a real slot (garbage-transparent). The
+    reduction that follows (``utv_weighted_norm``/``_inner``) masks its own input.
+
+    **Precondition (structural, NOT enforced here):** the weight's masks, broadcast over ``K``, must equal
+    the variations' masks -- ``ufv_weights_consistent``. Uniform padding hides a mismatch that ragged
+    would raise as a shape error; the frontend enforces it.
+    """
+    xnp, _, _ = get_backend(True, tree_contains_jax((variations[:2], weights[:4])))
+    tucker_variations, tt_variations, shape, masks = variations
+    up, down, left, right, _ = weights
+
+    weighted_tucker = xnp.einsum('d...i,d...io->d...io', down, tucker_variations)
+    weighted_tt = xnp.einsum('d...aib,d...a,d...i,d...b->d...aib', tt_variations, left, up, right)
+    return weighted_tucker, weighted_tt, shape, masks
+
+
+def ufv_weights_consistent(
+        variations: typ.Tuple,            # UT3Variations .data: (tkv, ttv, shape, masks), stack = K + C
+        weights:    UT3FrameWeightsData,  # (up, down, left, right, masks), stack = C
+) -> bool:                                # True iff `weights` can be absorbed into `variations`
+    """True iff the four weight families fit ``variations`` (non-raising): padded widths match, the weight
+    stack is the **trailing part** of the variation stack, and the weight's masks -- broadcast constant
+    over the excess ``K`` -- equal the variations' masks.
+
+    Two checks ragged does not need, both because uniform pads:
+
+    - **The trailing-stack rule** is ragged's too (a weight is frame-like: it carries ``C``, the variations
+      carry ``K + C``; ``fv_weights_consistent``), but here it must be spelled out against padded shapes.
+    - **Mask equality** is uniform-only. Ragged catches a rank mismatch as an einsum shape error; uniform
+      pads both to the common ``(nU, nD, rL, rR)``, so a mismatch is invisible to the shapes and would
+      silently corrupt -- a weight whose mask calls slot ``i`` padding carries a canonical zero there, so
+      absorbing it **zeroes a real variation slot**. The mask comparison mirrors ``check_ufv_pair``'s
+      (the variation masks are constant along ``K``).
+    """
+    tucker_variations, tt_variations, _, variation_masks = variations
+    up, down, left, right, weight_masks = weights
+
+    d = tucker_variations.shape[0]
+    var_stack = tucker_variations.shape[1:-2]
+    weight_stack = up.shape[1:-1]
+    n_K = len(var_stack) - len(weight_stack)
+    if n_K < 0 or var_stack[n_K:] != weight_stack:   # C must be the trailing part of K + C
+        return False
+
+    nD = tucker_variations.shape[-2]
+    rL, nU, rR = tt_variations.shape[-3], tt_variations.shape[-2], tt_variations.shape[-1]
+    for arr, size in ((up, nU), (down, nD), (left, rL), (right, rR)):
+        if tuple(arr.shape) != (d,) + weight_stack + (size,):
+            return False
+
+    # np (host): masks are static structure. Reshape each C-mask to insert n_K size-1 axes after the
+    # leading mode axis, broadcast up to K+C, and compare -- the check_ufv_pair pattern.
+    for a, b in zip(weight_masks, variation_masks):
+        if tuple(a.shape) != tuple(b.shape[:1]) + weight_stack + tuple(b.shape[-1:]):
+            return False
+        a_bcast = np.broadcast_to(a.reshape(a.shape[:1] + (1,) * n_K + a.shape[1:]), b.shape)
+        if not np.array_equal(a_bcast, b):
+            return False
+    return True
+
+
+def ufv_weights_from_ut3_weights(
+        weights: typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray]],  # UT3Weights .data
+) -> UT3FrameWeightsData:  # (up, down, left, right, masks) -- a tangent metric
+    """Build uniform frame weights (a tangent metric) from uniform base-point edge weights -- the twin of
+    ``fv_weights_from_t3_weights``, and the same slicing, applied to supercores **and** masks:
+
+    ``up = down = tucker``; ``left = tt[:-1]``, ``right = tt[1:]``. The TT slicing encodes the ``H_i`` bond
+    convention (``H_i``'s left bond is TT bond ``i``, its right bond is bond ``i+1``), which turns the
+    ``d+1`` bond supercore into the two ``d``-length families -- non-obvious, hence a named function.
+
+    The result pairs with a **minimal-rank** tangent (where the complement rank ``nD`` equals the Tucker
+    rank ``nU``, as for ``ut3svd`` output). A non-minimal tangent has ``nD < nU`` and would mismatch the
+    ``down`` family at use -- caught by ``ufv_weights_consistent`` rather than silently absorbed.
+    """
+    tucker_weight_supercore, tt_weight_supercore, (tucker_mask, tt_mask) = weights
+    up = down = tucker_weight_supercore
+    left, right = tt_weight_supercore[:-1], tt_weight_supercore[1:]
+    masks = (tucker_mask, tucker_mask, tt_mask[:-1], tt_mask[1:])   # np: host structure, sliced not rebuilt
+    return up, down, left, right, masks
+
+
+def _ufv_map_real_weights(
+        weights: UT3FrameWeightsData,  # (up, down, left, right, masks)
+        fn,                            # (xnp, w) -> w, applied elementwise to the REAL slots only
+) -> UT3FrameWeightsData:              # fn on the real slots; padding forced to a canonical, finite 0
+    """Apply ``fn`` to the real slots of all four families, forcing the padding to a finite ``0``. The
+    frame-weight twin of ``_ut3_map_real_weights``; see it for why the double-``where`` is required (``fn``
+    may be undefined or non-differentiable at the padding's canonical zero, and a ``nan`` from a dead
+    branch still propagates through the gradient)."""
+    xnp, _, _ = get_backend(True, tree_contains_jax(weights[:4]))
+    masks = weights[4]
+    require_concrete_masks(*masks)  # masks are host, not traced
+
+    def go(w, m):
+        neutral = xnp.where(m, w, 1.0)              # padding (canonical 0 OR garbage) -> 1: fn safe, grad finite
+        return xnp.where(m, fn(xnp, neutral), 0.0)  # real slots: fn(w). padding: the canonical finite 0
+
+    return tuple(go(w, m) for w, m in zip(weights[:4], masks)) + (masks,)
+
+
+def ufv_reciprocal_weights(weights: UT3FrameWeightsData) -> UT3FrameWeightsData:
+    """Elementwise ``1/w`` on the real slots of all four families (masks unchanged); the padding stays a
+    canonical, **finite** zero rather than becoming ``inf``. See ``ut3_reciprocal_weights`` -- this is the
+    Grasedyck-Kramer path (``from_ut3weights(from_ut3svd(x)).reciprocal()``), so the guard is on the
+    headline route. Real-slot zeros are deliberately NOT guarded."""
+    return _ufv_map_real_weights(weights, lambda xnp, w: 1.0 / w)
+
+
+def ufv_sqrt_weights(weights: UT3FrameWeightsData) -> UT3FrameWeightsData:
+    """Elementwise ``sqrt`` on the real slots of all four families; the padding stays a canonical, finite
+    zero (masks unchanged)."""
+    return _ufv_map_real_weights(weights, lambda xnp, w: xnp.sqrt(w))
+
+
+def ufv_concatenate_weights(
+        weights_A: UT3FrameWeightsData,
+        weights_B: UT3FrameWeightsData,
+) -> UT3FrameWeightsData:  # per-family concatenation: padded widths add, masks concatenate
+    """Per-edge concatenation of two frame-weight 4-tuples (the ``+`` combine; ranks add). Supercores and
+    masks concatenate on the last axis -- the same operation applied twice, because concatenation commutes
+    with elementwise multiply. Output masks may go **gappy** (expected; ``docs/uniform_masks_vs_ranks.md``)."""
+    xnp, _, _ = get_backend(True, tree_contains_jax((weights_A[:4], weights_B[:4])))
+    require_concrete_masks(*weights_A[4], *weights_B[4])
+    families = tuple(xnp.concatenate([a, b], axis=-1) for a, b in zip(weights_A[:4], weights_B[:4]))
+    # np (host): masks are static structure.
+    masks = tuple(np.concatenate([a, b], axis=-1) for a, b in zip(weights_A[4], weights_B[4]))
+    return families + (masks,)
+
+
+def ufv_kronecker_weights(
+        weights_A: UT3FrameWeightsData,
+        weights_B: UT3FrameWeightsData,
+) -> UT3FrameWeightsData:  # per-family Kronecker: padded widths multiply, masks Kronecker
+    """Per-edge Kronecker product of two frame-weight 4-tuples (the Hadamard combine; ranks multiply).
+
+    Kronecker the weights, Kronecker the masks -- one operation applied twice, since the Kronecker product
+    commutes with elementwise multiply (see ``ut3_kronecker_weights`` for the argument). A **last-axis
+    outer product broadcasting the shared prefix**, A-major -- NOT ``np.kron``. Output masks are strided
+    (gappy), which is correct."""
+    xnp, _, _ = get_backend(True, tree_contains_jax((weights_A[:4], weights_B[:4])))
+    require_concrete_masks(*weights_A[4], *weights_B[4])
+
+    def kron_last(a, b, np_module):  # (...,pA),(...,pB) -> (...,pA*pB), A-major, shared prefix broadcast
+        prefix = np_module.broadcast_shapes(a.shape[:-1], b.shape[:-1])
+        return (a[..., :, None] * b[..., None, :]).reshape(prefix + (a.shape[-1] * b.shape[-1],))
+
+    families = tuple(kron_last(a, b, xnp) for a, b in zip(weights_A[:4], weights_B[:4]))
+    masks = tuple(kron_last(a, b, np) for a, b in zip(weights_A[4], weights_B[4]))
+    return families + (masks,)

@@ -264,6 +264,47 @@ class UT3Tangent:
         xnp, _, _ = get_backend(True, self.contains_jax)
         return xnp.sqrt(self.corewise_inner(self))
 
+    def absorb_weights(self, weights: 'ubv.UT3FrameWeights') -> 'UT3Tangent':
+        """Absorb the metric ``weights`` into this tangent's **variation** supercores (``down``->V,
+        ``up``/``left``/``right``->H), returning the weighted tangent **at the same frame**. Its
+        :py:meth:`corewise_norm` equals :py:meth:`weighted_norm`.
+
+        **Warning -- the result is not gauged.** Scaling the variation coordinates breaks the gauge
+        conditions (the frame's orthogonality is untouched), so the returned tangent is a *coordinate*
+        reweighting: :py:meth:`corewise_norm` / :py:meth:`corewise_inner` are correct on it, but the
+        Hilbert-Schmidt geometry needs a gauged tangent. Re-gauge with ``project_oblique`` if you need HS
+        semantics. Uniform twin of :py:meth:`~t3toolbox.manifold.T3Tangent.absorb_weights`.
+        """
+        ubv.check_ufw_pair(self.frame, weights)
+        return UT3Tangent(self.frame, ubv.absorb_weights(self.variations, weights))
+
+    def weighted_norm(self, weights: 'ubv.UT3FrameWeights') -> NDArray:  # shape = stack_shape (K+C)
+        """The **weighted** (Grasedyck-Kramer) coordinate norm: absorb the metric into the variation
+        supercores and take the coordinate norm. The frame stays orthonormal (untouched), so this is
+        ``O(ranks)``. Vectorized over the stack (returns shape ``K + C``).
+
+        The inserted diagonal is **squared** by the norm, so ``weights = 1/sigma`` penalises by
+        ``1/sigma^2``. As with :py:meth:`corewise_norm` this is the coordinate metric (= HS on an
+        orthonormal, gauged frame). ``weights`` is frame-like: its stack must equal the frame's ``C``
+        (checked -- :py:func:`~t3toolbox.uniform_frame_variations_format.check_ufw_pair`), and it
+        broadcasts over ``K``. Backend twin:
+        :py:func:`~t3toolbox.backend.utv_operations.utv_weighted_norm`.
+        """
+        ubv.check_ufw_pair(self.frame, weights)
+        return utv_operations.utv_weighted_norm(self.variations.data, weights.data,
+                                                len(self.stack_shape))
+
+    def weighted_inner(self, other: 'UT3Tangent',
+                       weights: 'ubv.UT3FrameWeights') -> NDArray:  # shape = stack_shape (K+C)
+        """The **weighted** coordinate inner product ``<absorb(W, self), absorb(W, other)>`` w.r.t. one
+        metric ``weights``. The same-tangent-space precondition is checked, as is the frame-like stack of
+        ``weights``; vectorized over the stack (returns shape ``K + C``). Backend twin:
+        :py:func:`~t3toolbox.backend.utv_operations.utv_weighted_inner`."""
+        self._check_same_tangent_space(other)
+        ubv.check_ufw_pair(self.frame, weights)
+        return utv_operations.utv_weighted_inner(self.variations.data, other.variations.data,
+                                                 weights.data, len(self.stack_shape))
+
     def normalized(self) -> 'UT3Tangent':
         """Unit-norm rescaling ``self / self.corewise_norm()``, vectorized over the stack (each stacked
         tangent scaled by its own norm; the base point unchanged)."""

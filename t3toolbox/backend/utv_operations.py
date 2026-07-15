@@ -44,6 +44,8 @@ __all__ = [
     'utv_unstack_frame_stack',
     'utv_stack_frame_stack',
     'utv_sum_tangent_stack',
+    'utv_weighted_norm',
+    'utv_weighted_inner',
 ]
 
 
@@ -504,3 +506,44 @@ def utv_project_ut3_onto_tangent_space(
     # Gauge the ungauged variations (they carry the frame's gauge-shifted masks).
     gauge_masks = (up_mask, down_mask, frame_left_mask[:-1], frame_right_mask[1:])
     return utv_orthogonal_gauge_projection(frame_data, (dB, dG, shape, gauge_masks))
+
+
+def utv_weighted_norm(
+        variations: typ.Tuple,  # UT3Variations .data: (tkv, ttv, shape, masks), stack = K + C
+        weights:    typ.Tuple,  # UT3FrameWeights .data: (up, down, left, right, masks), stack = C
+        n_stack:    int,        # leading K+C stack axes to keep; 0 -> a single scalar
+) -> NDArray:                   # weighted coordinate norm, shape = stack_shape[:n_stack]
+    """Weighted (Grasedyck-Kramer) coordinate norm of a uniform tangent's variations: absorb the metric
+    into the variation supercores, then take the corewise stack-norm. Uniform twin of ``fv_weighted_norm``.
+
+    The frame (orthonormal) is not needed and not touched, so this is O(ranks). The inserted diagonal is
+    **squared** by the norm, so ``weights = 1/sigma`` penalises by ``1/sigma^2``. Like ``corewise_norm``
+    this is the coordinate metric (= Hilbert-Schmidt only on an orthonormal, gauged frame) -- and note that
+    absorbing weights **breaks the gauge**, so the HS reading does not survive the weighting.
+
+    Weighting does not mask; the reduction does (``utv_corewise_inner`` masks its own input), so garbage
+    padding is zeroed where the sum happens. **Precondition:** the weight's masks (broadcast over ``K``)
+    must equal the variations' -- ``ufv_weights_consistent``; the frontend enforces it.
+
+    Lives here, not in ``ufv_operations`` beside ``ufv_absorb_weights``, because the corewise reduction it
+    needs is ``utv_corewise_inner`` and ``utv_operations`` already imports ``ufv_operations`` -- the other
+    placement would be a circular import. (Ragged has no such constraint: its ``fv_weighted_norm`` reaches
+    a standalone ``corewise`` module.)
+    """
+    weighted = ufv_operations.ufv_absorb_weights(variations, weights)
+    xnp, _, _ = get_backend(True, tree_contains_jax(weighted[:2]))
+    return xnp.sqrt(xnp.abs(utv_corewise_inner(weighted, weighted, n_stack)))
+
+
+def utv_weighted_inner(
+        variations_a: typ.Tuple,  # UT3Variations .data of A, stack = K + C
+        variations_b: typ.Tuple,  # UT3Variations .data of B, stack = K + C (same frame as A)
+        weights:      typ.Tuple,  # ONE metric: UT3FrameWeights .data, stack = C
+        n_stack:      int,        # leading K+C stack axes to keep; 0 -> a single scalar
+) -> NDArray:                     # weighted coordinate inner product, shape = stack_shape[:n_stack]
+    """Weighted coordinate inner product ``<absorb(W, A), absorb(W, B)>`` w.r.t. **one** metric -- absorb
+    into both tangents' variations and dot. Uniform twin of ``fv_weighted_inner``. The caller checks
+    same-frame; the frontend also checks the metric against the frame."""
+    weighted_a = ufv_operations.ufv_absorb_weights(variations_a, weights)
+    weighted_b = ufv_operations.ufv_absorb_weights(variations_b, weights)
+    return utv_corewise_inner(weighted_a, weighted_b, n_stack)

@@ -30,6 +30,9 @@ __all__ = [
     'UT3Frame',
     'UT3Variations',
     'ut3_orthogonal_representations',
+    'UT3FrameWeights',
+    'absorb_weights',
+    'check_ufw_pair',
 ]
 
 
@@ -1047,6 +1050,290 @@ def ut3_orthogonal_representations(
 
 
 
+###########################################
+
+
+@dataclass(frozen=True)
+class UT3FrameWeights:
+    """Diagonal weights defining a **metric on the tangent coordinates** of a :py:class:`UT3Frame` -- the
+    uniform twin of :py:class:`~t3toolbox.frame_variations_format.T3FrameWeights`.
+
+    Four families, each ``len=d`` (one per variation core), packed into supercores + a
+    :py:class:`UT3VariationsMasks` holder: ``up`` (on ``H``'s ``nU`` leg), ``down`` (on ``V``'s ``nD``
+    leg), ``left`` (``H``'s ``rL``), ``right`` (``H``'s ``rR``). Absorbed into the **variation**
+    supercores, leaving the frame orthonormal and untouched -- so it is ``O(ranks)``.
+
+    **Batching: a weight is FRAME-like** (it is *absorbed into* the variations, but it *batches with* the
+    frame -- do not conflate the two). Every supercore is ``(d,) + C + (size,)`` where ``C`` is the
+    **frame** stack, not the variations' ``K + C``: one metric per base point, shared by all ``K`` tangent
+    vectors at that frame, broadcast over ``K`` for free (``C`` is innermost). There is no ``shape``
+    field: weights live only on internal edges.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.uniform_frame_variations_format as ubvf
+    >>> import t3toolbox.uniform_manifold as ut3m
+    >>> np.random.seed(0)
+    >>> x  = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 2, 2), (1, 2, 2, 1), stack_shape=(2,))
+    >>> ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+    >>> frame, _ = ubvf.ut3_orthogonal_representations(ux)
+    >>> v = ut3m.UNIFORM_COREWISE.randn(frame, stack_shape=(3,))   # 3 tangents at each of 2 base points
+    >>> print(frame.stack_shape, v.stack_shape)            # C, then K + C
+    (2,) (3, 2)
+
+    The metric is built from the base point's singular values, so it carries ``C`` -- and pairs directly
+    with the ``K``-stack of tangents there:
+
+    >>> W = ubvf.UT3FrameWeights.from_ut3weights(ut3.UT3Weights.from_ut3svd(ux)).reciprocal()
+    >>> print(W.stack_shape)                               # C, NOT K + C
+    (2,)
+    >>> print(np.asarray(v.weighted_norm(W)).shape)        # one norm per stacked tangent
+    (3, 2)
+    """
+    up_weight_supercore:    NDArray             # (d,)+C+(nU,)
+    down_weight_supercore:  NDArray             # (d,)+C+(nD,)
+    left_weight_supercore:  NDArray             # (d,)+C+(rL,)
+    right_weight_supercore: NDArray             # (d,)+C+(rR,)
+    masks:                  UT3VariationsMasks  # static rank structure: the four variation edge masks, at C
+
+    # ----------------------------------------------------------------- views
+    @ft.cached_property
+    def supercores(self) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:
+        """``(up, down, left, right)`` weight supercores."""
+        return (self.up_weight_supercore, self.down_weight_supercore,
+                self.left_weight_supercore, self.right_weight_supercore)
+
+    @ft.cached_property
+    def data(self) -> typ.Tuple:
+        """Raw-array view, mirroring the fields: ``(up, down, left, right, (4 rank masks))``. Backend
+        ``ufv_*_weights`` / ``utv_weighted_*`` functions take this layout. A **5-tuple** -- one shorter
+        than ``UT3Frame.data``, which also carries ``shape``."""
+        return self.supercores + (self.masks.data,)
+
+    # ------------------------------------------------- padded (uniform) structure
+    @ft.cached_property
+    def d(self) -> int:
+        return self.up_weight_supercore.shape[0]
+
+    @ft.cached_property
+    def nU(self) -> int:
+        return self.up_weight_supercore.shape[-1]
+
+    @ft.cached_property
+    def nD(self) -> int:
+        return self.down_weight_supercore.shape[-1]
+
+    @ft.cached_property
+    def rL(self) -> int:
+        return self.left_weight_supercore.shape[-1]
+
+    @ft.cached_property
+    def rR(self) -> int:
+        return self.right_weight_supercore.shape[-1]
+
+    @ft.cached_property
+    def stack_shape(self) -> typ.Tuple[int, ...]:
+        """The **frame** stack ``C`` (``()`` if unstacked) -- never the variations' ``K + C``."""
+        return self.up_weight_supercore.shape[1:-1]
+
+    # ------------------------------------------------- original (real) structure
+    @ft.cached_property
+    def up_ranks(self) -> NDArray:  # dtype=int, (d,)+C
+        return self.masks.variations_up_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def down_ranks(self) -> NDArray:  # dtype=int, (d,)+C
+        return self.masks.variations_down_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def left_ranks(self) -> NDArray:  # dtype=int, (d,)+C
+        return self.masks.variations_left_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def right_ranks(self) -> NDArray:  # dtype=int, (d,)+C
+        return self.masks.variations_right_mask.sum(axis=-1)
+
+    # ----------------------------------------------------------------- validation
+    def validate(self) -> None:
+        """Structural: the four masks are boolean and match their supercores (same ``(d,)+C+(size,)``)."""
+        for m, name in zip(self.masks.data, ('variations_up_mask', 'variations_down_mask',
+                                             'variations_left_mask', 'variations_right_mask')):
+            if not common.is_boolean_ndarray(m):
+                raise ValueError('UT3FrameWeights: %s must be a boolean array (got %s).'
+                                 % (name, getattr(m, 'dtype', type(m))))
+        d, ss = self.d, self.stack_shape
+        for sc, m, name in zip(self.supercores, self.masks.data, ('up', 'down', 'left', 'right')):
+            if tuple(sc.shape) != (d,) + ss + (sc.shape[-1],):
+                raise ValueError('Inconsistent UT3FrameWeights: %s_weight_supercore.shape = %s, expected '
+                                 '(d=%d,) + stack_shape=%s + (size,).' % (name, tuple(sc.shape), d, ss))
+            if tuple(m.shape) != tuple(sc.shape):
+                raise ValueError('Inconsistent UT3FrameWeights: %s mask shape %s != supercore shape %s.'
+                                 % (name, tuple(m.shape), tuple(sc.shape)))
+
+    def __post_init__(self):
+        self.validate()
+
+    def __repr__(self) -> str:
+        ss = ', stack_shape=%s' % (self.stack_shape,) if self.stack_shape else ''
+        return ('UT3FrameWeights(d=%d, nU=%d, nD=%d, rL=%d, rR=%d%s)'
+                % (self.d, self.nU, self.nD, self.rL, self.rR, ss))
+
+    # ----------------------------------------------------------------- operations
+    def is_consistent_with(self, tangent) -> bool:
+        """True iff this metric can be absorbed into a ``UT3Tangent``'s (or ``UT3Variations``') variations
+        (non-raising): padded widths match, this weight's stack ``C`` is the **trailing part** of the
+        variation stack ``K + C``, and the masks agree (broadcast constant over ``K``).
+
+        Like the variations themselves, this is **blind to the frame**. Whether the metric belongs to a
+        particular tangent's frame needs the frame, and is checked by :py:func:`check_ufw_pair`.
+        """
+        variations = tangent.variations if hasattr(tangent, 'variations') else tangent
+        return ufv_operations.ufv_weights_consistent(variations.data, self.data)
+
+    def reciprocal(self) -> 'UT3FrameWeights':
+        """Elementwise ``1/w`` on the real slots of all four families (e.g. the inverse-singular-value /
+        Grasedyck-Kramer metric); the padding stays a canonical, **finite** zero rather than becoming
+        ``inf``. Masks unchanged. See
+        :py:func:`~t3toolbox.backend.ufv_operations.ufv_reciprocal_weights`."""
+        return _frame_weights_from_data(ufv_operations.ufv_reciprocal_weights(self.data))
+
+    def sqrt(self) -> 'UT3FrameWeights':
+        """Elementwise ``sqrt`` on the real slots of all four families; the padding stays a canonical,
+        finite zero (masks unchanged)."""
+        return _frame_weights_from_data(ufv_operations.ufv_sqrt_weights(self.data))
+
+    def concatenate(self, other: 'UT3FrameWeights') -> 'UT3FrameWeights':
+        """Per-edge concatenation (the ``+`` combine; ranks add). Output masks may go gappy."""
+        return _frame_weights_from_data(ufv_operations.ufv_concatenate_weights(self.data, other.data))
+
+    def kronecker(self, other: 'UT3FrameWeights') -> 'UT3FrameWeights':
+        """Per-edge Kronecker product (the Hadamard combine; ranks multiply). Output masks are strided."""
+        return _frame_weights_from_data(ufv_operations.ufv_kronecker_weights(self.data, other.data))
+
+    # ----------------------------------------------------------------- constructors
+    @classmethod
+    def from_ut3weights(cls, weights: 'ut3.UT3Weights') -> 'UT3FrameWeights':
+        """Build a tangent metric from uniform base-point edge weights (e.g.
+        ``UT3Weights.from_ut3svd(x)``): ``up = down = tucker``, ``left = tt[:-1]``, ``right = tt[1:]``, on
+        the supercores **and** the masks. The TT slicing follows the ``H_i`` bond convention (``H_i``'s
+        left bond is TT bond ``i``, its right bond is bond ``i+1``) -- simple but convention-dependent,
+        hence a named method.
+
+        The result pairs with a **minimal-rank** tangent (where the complement rank ``nD`` equals the
+        Tucker rank ``nU``, as for ``ut3svd`` output); a non-minimal tangent has ``nD < nU`` and is
+        rejected by :py:meth:`is_consistent_with` rather than silently absorbed. The Grasedyck-Kramer
+        metric is ``UT3FrameWeights.from_ut3weights(UT3Weights.from_ut3svd(x)).reciprocal()``.
+        """
+        return _frame_weights_from_data(ufv_operations.ufv_weights_from_ut3_weights(weights.data))
+
+    # ----------------------------------------------------------------- ragged <-> uniform conversions
+    @staticmethod
+    def from_t3frameweights(
+            weights: 'bvf.T3FrameWeights',
+            nU: typ.Optional[int] = None,   # padded up rank    (default max); pass to match the tangent's pad
+            nD: typ.Optional[int] = None,   # padded down rank  (default max)
+            rL: typ.Optional[int] = None,   # padded left rank  (default max)
+            rR: typ.Optional[int] = None,   # padded right rank (default max)
+    ) -> 'UT3FrameWeights':
+        """Pack a ragged :py:class:`~t3toolbox.frame_variations_format.T3FrameWeights` into a uniform one.
+
+        Pass the padded sizes to match the tangent these weights will pair with (e.g. from
+        ``frame.uniform_structure``); the defaults pad tightly to the weights' own max ranks.
+        """
+        return _frame_weights_from_data(
+            ufv_conversions.t3frameweights_to_ut3frameweights(weights.data, nU=nU, nD=nD, rL=rL, rR=rR))
+
+    def to_t3frameweights(self):  # -> T3FrameWeights (unstacked) or a nested tree (shaped like C) of them
+        """Convert back to ragged form. Unstacked: one
+        :py:class:`~t3toolbox.frame_variations_format.T3FrameWeights`. Stacked: a nested tree of them (a
+        varying-rank stack has no single stacked ragged weight -- the :py:meth:`UT3Frame.to_t3frame`
+        pattern)."""
+        def _wrap(res):
+            if common.is_ndarray(res[0][0]):   # res = (up, down, left, right) leaf
+                return bvf.T3FrameWeights(*res)
+            return tuple(_wrap(w) for w in res)
+
+        return _wrap(ufv_conversions.ut3frameweights_to_t3frameweights(self.data))
+
+
+def _frame_weights_from_data(data: typ.Tuple) -> 'UT3FrameWeights':
+    """Wrap a backend frame-weights ``.data`` tuple ``(up, down, left, right, (4 masks))`` into a
+    :py:class:`UT3FrameWeights`."""
+    return UT3FrameWeights(*data[:4], UT3VariationsMasks(*data[4]))
+
+
+def check_ufw_pair(
+        frame:   UT3Frame,          # stack_shape = C
+        weights: UT3FrameWeights,   # stack_shape = C -- a weight is FRAME-LIKE: one metric per base point
+) -> None:
+    """Check that ``weights`` is a metric on the tangent coordinates **at this frame**.
+
+    The uniform twin of :py:func:`~t3toolbox.frame_variations_format.check_fw_pair`, and the weight
+    analog of :py:func:`check_ufv_pair`. The stack must equal ``frame.stack_shape`` **exactly** (not
+    merely be a trailing part of it, as when pairing with variations alone), and the four families must
+    match the frame's variation holes -- ``up`` <-> ``nU``, ``down`` <-> ``nD``, ``left`` <-> ``rL``,
+    ``right`` <-> ``rR`` -- in both padded width and **rank mask**.
+
+    Two things uniform must check that ragged gets for free:
+
+    - **The exact stack.** Absorption only needs the weight's stack to be the *trailing* part of the
+      variation stack (:py:meth:`UT3FrameWeights.is_consistent_with`, blind to the frame). A ``K + C``
+      weight satisfies that too -- it reads as ``C_w = K + C`` -- so it would silently weight one frame's
+      ``K`` tangents with ``K`` different metrics. Only here are both objects present.
+    - **The masks.** Uniform pads every family to a common width, so a mask mismatch is invisible to the
+      shapes and would silently zero a real variation slot. The frame's masks are gauge-shifted to the
+      variation families exactly as in :py:func:`check_ufv_pair` (``frame_left_mask[:-1]`` /
+      ``frame_right_mask[1:]``: the ``d+1``-th left/right cores are base-point padding, not tangent edges).
+
+    Structural (shapes + host-numpy masks) -> raises in both safety modes; jit-safe.
+    """
+    if weights.stack_shape != frame.stack_shape:
+        raise ValueError(
+            'Inconsistent (UT3Frame, UT3FrameWeights) pair.\n'
+            'A UT3FrameWeights is a metric at a base point, so it carries the FRAME stack C exactly (the\n'
+            'variations carry K + C; a K-batch of tangents at one frame shares the one metric).\n'
+            + str(weights.stack_shape) + ' = weights.stack_shape != '
+            + str(frame.stack_shape) + ' = frame.stack_shape')
+
+    frame_masks = (frame.masks.up_mask, frame.masks.down_mask,
+                   frame.masks.frame_left_mask[:-1], frame.masks.frame_right_mask[1:])
+    sizes = (frame.nU, frame.nD, frame.rL, frame.rR)
+    names = ('up', 'down', 'left', 'right')
+    for name, supercore, weight_mask, frame_mask, size in zip(
+            names, weights.supercores, weights.masks.data, frame_masks, sizes):
+        if supercore.shape[-1] != size:
+            raise ValueError(
+                'Inconsistent (UT3Frame, UT3FrameWeights) pair.\n%s_weight_supercore has padded width %d, '
+                'but the frame\'s %s variation hole is %d wide.'
+                % (name, supercore.shape[-1], name, size))
+        if not np.array_equal(weight_mask, frame_mask):
+            raise ValueError(
+                'Inconsistent (UT3Frame, UT3FrameWeights) pair.\nThe %s rank mask differs from the frame\'s '
+                '%s variation-hole mask -- absorbing it would silently zero a real variation slot.'
+                % (name, name))
+
+
+def absorb_weights(variations: UT3Variations, weights: UT3FrameWeights) -> UT3Variations:
+    """Absorb the metric ``weights`` into the variation supercores (``down``->V, ``up``/``left``/``right``
+    ->H), returning the weighted :py:class:`UT3Variations` (the frame is unchanged, and the masks are
+    preserved -- absorb is rank-preserving).
+
+    The ``C``-stacked metric broadcasts over the variations' ``K`` for free. Uniform twin of
+    :py:func:`t3toolbox.frame_variations_format.absorb_weights`; see
+    :py:func:`~t3toolbox.backend.ufv_operations.ufv_absorb_weights`."""
+    if not weights.is_consistent_with(variations):
+        raise ValueError(
+            'Inconsistent (UT3Variations, UT3FrameWeights) pair in absorb_weights.\n'
+            'The metric must fit the variation holes and declare the SAME rank masks (broadcast over K).\n'
+            'variations: stack_shape=%s ; weights: stack_shape=%s'
+            % (variations.stack_shape, weights.stack_shape))
+    return UT3Variations(*ufv_operations.ufv_absorb_weights(variations.data, weights.data)[:2],
+                         variations.shape, variations.masks)
+
+
 if common.jax_available:
     # UT3Frame as a jax pytree: the four supercores are the (traced) children; the static aux_data is
     # (shape, UT3FrameMasks). `shape` is a value-hashable int tuple (same shape -> same jit cache key);
@@ -1068,4 +1355,11 @@ if common.jax_available:
         UT3Variations,
         lambda x: ((x.tucker_variations, x.tt_variations), (x.shape, x.masks)),
         lambda aux, children: UT3Variations(children[0], children[1], aux[0], aux[1]),
+    )
+    # UT3FrameWeights: the four weight supercores are traced children (float PARAMETERS), the mask holder
+    # is value-hashed static aux (boolean STRUCTURE). No `shape` -- weights have no physical legs.
+    jax.tree_util.register_pytree_node(
+        UT3FrameWeights,
+        lambda w: (w.supercores, w.masks),
+        lambda aux, children: UT3FrameWeights(*children, aux),
     )

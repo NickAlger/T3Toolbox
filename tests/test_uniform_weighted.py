@@ -498,3 +498,237 @@ class TestUT3WeightsDispatch(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+# ---------------------------------------------------------------------------------------------------
+# UT3FrameWeights -- the TANGENT metric (S3).
+# ---------------------------------------------------------------------------------------------------
+import t3toolbox.frame_variations_format as bvf
+import t3toolbox.manifold as t3m
+import t3toolbox.uniform_frame_variations_format as ubvf
+import t3toolbox.uniform_manifold as ut3m
+import t3toolbox.backend.ufv_operations as ufv_operations
+import t3toolbox.backend.utv_operations as utv_operations
+
+CK_STACKS = [((), ()), ((), (2,)), ((2,), ()), ((2,), (3,)), ((2,), (2, 3))]   # (C, K)
+
+
+def make_ragged_tangent(struct, C, K):
+    x = t3.TuckerTensorTrain.randn(*struct, stack_shape=C)
+    frame, _ = bvf.t3_orthogonal_representations(x)
+    return t3m.COREWISE.randn(frame, stack_shape=K)   # variations stack = K + C
+
+
+def rand_ragged_frame_weights(v, rng, stack_shape=None):
+    """A random ragged T3FrameWeights at v's frame. FRAME-LIKE: stack C, not the variations' K + C."""
+    V, H = v.variations.data
+    ss = v.frame.stack_shape if stack_shape is None else stack_shape
+    d = len(V)
+    return bvf.T3FrameWeights(
+        tuple(np.abs(rng.standard_normal(ss + (H[i].shape[-2],))) + 0.5 for i in range(d)),   # up   <- nU
+        tuple(np.abs(rng.standard_normal(ss + (V[i].shape[-2],))) + 0.5 for i in range(d)),   # down <- nD
+        tuple(np.abs(rng.standard_normal(ss + (H[i].shape[-3],))) + 0.5 for i in range(d)),   # left <- rL
+        tuple(np.abs(rng.standard_normal(ss + (H[i].shape[-1],))) + 0.5 for i in range(d)))   # right<- rR
+
+
+def to_uniform_tangent_pair(v, W):
+    """(ragged tangent, ragged metric) -> (uniform tangent, uniform metric) padded consistently."""
+    uv = ut3m.UT3Tangent.from_t3tangent(v)
+    _, _, nU, nD, rL, rR, _ = uv.variations.uniform_structure
+    return uv, ubvf.UT3FrameWeights.from_t3frameweights(W, nU=nU, nD=nD, rL=rL, rR=rR)
+
+
+class TestUT3FrameWeights(unittest.TestCase):
+    def test_weighted_norm_inner_equal_ragged(self):
+        """The uniform tangent metric matches the ragged twin over structures x (C, K) stacks -- including
+        a multi-axis K, where the C-over-K+C broadcast is easiest to get wrong."""
+        rng = np.random.default_rng(30)
+        for struct in STRUCTURES:
+            for C, K in CK_STACKS:
+                with self.subTest(struct=struct, C=C, K=K):
+                    v = make_ragged_tangent(struct, C, K)
+                    W = rand_ragged_frame_weights(v, rng)
+                    uv, uW = to_uniform_tangent_pair(v, W)
+
+                    self.assertEqual(uW.stack_shape, C)          # frame-like: C, never K + C
+                    self.assertTrue(uW.is_consistent_with(uv))
+
+                    got = np.asarray(uv.weighted_norm(uW))
+                    ref = np.asarray(v.weighted_norm(W))
+                    self.assertEqual(got.shape, K + C)
+                    self.assertLess(np.abs(got - ref).max(), 1e-9 * (ref.max() + 1))
+
+                    w2 = t3m.COREWISE.randn(v.frame, stack_shape=K)
+                    uw2 = ut3m.UT3Tangent(uv.frame, to_uniform_tangent_pair(w2, W)[0].variations)
+                    gi = np.asarray(uv.weighted_inner(uw2, uW))
+                    ri = np.asarray(v.weighted_inner(w2, W))
+                    self.assertLess(np.abs(gi - ri).max(), 1e-9 * (np.abs(ri).max() + 1))
+
+    def test_C_weight_equals_K_tiled_weight(self):
+        """The S3 design bet: one C-stacked metric shared by the K tangents at that frame gives exactly
+        what an explicitly K-tiled metric would -- the leading '...' broadcast IS the tiling. (Reference
+        via the backend, which is blind to the frame; the frontend rejects a K+C metric.)"""
+        rng = np.random.default_rng(31)
+        C, K = (2,), (3,)
+        v = make_ragged_tangent(STRUCTURES[0], C, K)
+        uv, uW = to_uniform_tangent_pair(v, rand_ragged_frame_weights(v, rng))
+
+        def tile(a):
+            return np.broadcast_to(a.reshape(a.shape[:1] + (1,) * len(K) + a.shape[1:]),
+                                   a.shape[:1] + K + a.shape[1:]).copy()
+        tiled = tuple(tile(a) for a in uW.supercores) + (tuple(tile(m) for m in uW.masks.data),)
+
+        n_stack = len(uv.stack_shape)
+        got = np.asarray(uv.weighted_norm(uW))
+        ref = np.asarray(utv_operations.utv_weighted_norm(uv.variations.data, tiled, n_stack))
+        self.assertTrue(np.array_equal(got, ref))    # exactly, not approximately
+
+    def test_all_ones_metric_is_corewise_norm(self):
+        """An all-ones metric must recover the plain coordinate norm exactly."""
+        rng = np.random.default_rng(32)
+        for C, K in [((), ()), ((2,), (3,))]:
+            with self.subTest(C=C, K=K):
+                v = make_ragged_tangent(STRUCTURES[0], C, K)
+                uv, uW = to_uniform_tangent_pair(v, rand_ragged_frame_weights(v, rng))
+                ones = ubvf.UT3FrameWeights(*[np.ones_like(a) for a in uW.supercores], uW.masks)
+                self.assertLess(np.abs(np.asarray(uv.weighted_norm(ones))
+                                       - np.asarray(uv.corewise_norm())).max(), 1e-12)
+
+    def test_absorb_weights_and_gauge(self):
+        """absorb_weights returns the weighted tangent at the SAME frame; its corewise_norm equals
+        weighted_norm; and it is NOT gauged (weighting breaks the gauge, as in ragged)."""
+        rng = np.random.default_rng(33)
+        v = make_ragged_tangent(STRUCTURES[0], (), (2,))
+        uv, uW = to_uniform_tangent_pair(v, rand_ragged_frame_weights(v, rng))
+        gauged = ut3m.UNIFORM_MANIFOLD.project_oblique(uv)
+
+        vw = gauged.absorb_weights(uW)
+        self.assertIs(vw.frame, gauged.frame)                       # same frame object, untouched
+        self.assertEqual(vw.variations.masks, gauged.variations.masks)   # absorb preserves the masks
+        self.assertLess(np.abs(np.asarray(vw.corewise_norm())
+                               - np.asarray(gauged.weighted_norm(uW))).max(), 1e-12)
+        self.assertTrue(np.all(gauged.is_gauged()))
+        self.assertFalse(np.all(vw.is_gauged()))                    # weighting breaks the gauge
+
+    def test_roundtrip_and_from_ut3weights(self):
+        """to_uniform -> to_ragged recovers the ragged metric; from_ut3weights slices base-point weights
+        into the four families (up=down=tucker, left=tt[:-1], right=tt[1:])."""
+        rng = np.random.default_rng(34)
+        v = make_ragged_tangent(STRUCTURES[0], (), ())
+        W = rand_ragged_frame_weights(v, rng)
+        _, uW = to_uniform_tangent_pair(v, W)
+        back = uW.to_t3frameweights()
+        for fam_got, fam_ref in zip(back.data, W.data):
+            for a, b in zip(fam_got, fam_ref):
+                self.assertTrue(np.array_equal(a, b))
+
+        x = t3.TuckerTensorTrain.randn(*STRUCTURES[0])
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        uWb = ut3.UT3Weights.from_ut3svd(ux)
+        fw = ubvf.UT3FrameWeights.from_ut3weights(uWb)
+        self.assertTrue(np.array_equal(fw.up_weight_supercore, fw.down_weight_supercore))   # up == down
+        self.assertTrue(np.array_equal(fw.left_weight_supercore, uWb.tt_weight_supercore[:-1]))
+        self.assertTrue(np.array_equal(fw.right_weight_supercore, uWb.tt_weight_supercore[1:]))
+
+        ref = bvf.T3FrameWeights.from_t3weights(t3.T3Weights.from_t3svd(x))
+        for fam_got, fam_ref in zip(fw.to_t3frameweights().data, ref.data):
+            for a, b in zip(fam_got, fam_ref):
+                self.assertTrue(np.allclose(np.abs(a), np.abs(b), atol=1e-10))
+
+    def test_gk_metric_end_to_end(self):
+        """The headline path: sigmas -> frame metric -> reciprocal -> weighted tangent norm. Finite (the
+        padding guard) and matching ragged."""
+        rng = np.random.default_rng(35)
+        x = t3.TuckerTensorTrain.randn(*STRUCTURES[0])
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        frame, _ = ubvf.ut3_orthogonal_representations(ux)
+        gk = ubvf.UT3FrameWeights.from_ut3weights(ut3.UT3Weights.from_ut3svd(ux)).reciprocal()
+        self.assertTrue(all(np.isfinite(a).all() for a in gk.supercores))
+
+        v = ut3m.UNIFORM_COREWISE.randn(frame)          # unstacked: to_t3variations gives one object
+        got = np.asarray(v.weighted_norm(gk))
+        self.assertTrue(np.isfinite(got).all())
+
+        rframe, _ = bvf.t3_orthogonal_representations(x)
+        rgk = bvf.T3FrameWeights.from_t3weights(t3.T3Weights.from_t3svd(x)).reciprocal()
+        rv = t3m.T3Tangent(rframe, v.variations.to_t3variations())
+        self.assertLess(np.abs(got - np.asarray(rv.weighted_norm(rgk))).max(), 1e-7 * (got.max() + 1))
+
+    def test_reciprocal_padding_is_guarded(self):
+        """Same hazard as the base-point layer, on all four families: naive 1/w on the padding gives inf;
+        the guarded op stays finite with canonical zero padding."""
+        rng = np.random.default_rng(36)
+        v = make_ragged_tangent(STRUCTURES[0], (), ())
+        uv, uW = to_uniform_tangent_pair(v, rand_ragged_frame_weights(v, rng))
+        # Force padding to exist on every family.
+        wide = ubvf.UT3FrameWeights(
+            *[np.pad(a, ((0, 0),) * (a.ndim - 1) + ((0, 2),)) for a in uW.supercores],
+            ubvf.UT3VariationsMasks(*[np.pad(m, ((0, 0),) * (m.ndim - 1) + ((0, 2),)) for m in uW.masks.data]))
+        with np.errstate(divide='ignore'):
+            self.assertTrue(np.isinf(1.0 / wide.up_weight_supercore).any())   # the hazard is real
+        out = wide.reciprocal()
+        for a, m in zip(out.supercores, wide.masks.data):
+            self.assertTrue(np.isfinite(a).all())
+            self.assertTrue((a[~m] == 0).all())
+
+    def test_frame_like_precondition(self):
+        """check_ufw_pair rejects a metric whose stack is not the frame's C -- a K+C metric would weight
+        one frame's K tangents with K DIFFERENT metrics. The blind backend predicate still accepts it
+        (it reads as C_w = K+C), exactly as in the ragged layer: two levels, both deliberate."""
+        rng = np.random.default_rng(37)
+        C, K = (2,), (3,)
+        v = make_ragged_tangent(STRUCTURES[0], C, K)
+        uv, _ = to_uniform_tangent_pair(v, rand_ragged_frame_weights(v, rng))
+        W_bad = rand_ragged_frame_weights(v, rng, stack_shape=K + C)     # NOT frame-like
+        _, uW_bad = to_uniform_tangent_pair(v, W_bad)
+
+        self.assertTrue(uW_bad.is_consistent_with(uv))                   # blind predicate accepts
+        for name, op in (('weighted_norm', lambda: uv.weighted_norm(uW_bad)),
+                         ('weighted_inner', lambda: uv.weighted_inner(uv, uW_bad)),
+                         ('absorb_weights', lambda: uv.absorb_weights(uW_bad))):
+            with self.subTest(op=name), self.assertRaises(ValueError):
+                op()
+
+    def test_mask_mismatch_is_rejected(self):
+        """The uniform-only precondition, on each of the four families in turn: a metric declaring a
+        different rank mask has the SAME padded shape, so nothing errors naturally -- absorbing it would
+        silently zero a real variation slot.
+
+        The mismatch must be mask-only: perturb the mask while leaving every supercore untouched, so the
+        shape checks all pass and only the mask comparison can reject it. (An earlier version widened the
+        supercores too, and so was rejected on shape -- it passed while the mask check was disabled.)"""
+        rng = np.random.default_rng(38)
+        v = make_ragged_tangent(STRUCTURES[0], (), ())
+        uv, uW = to_uniform_tangent_pair(v, rand_ragged_frame_weights(v, rng))
+        self.assertTrue(uW.is_consistent_with(uv))
+
+        for fam, name in enumerate(('up', 'down', 'left', 'right')):
+            masks = [m.copy() for m in uW.masks.data]
+            last_real = int(masks[fam][0].sum()) - 1
+            masks[fam][0, last_real] = False             # declare a REAL slot to be padding
+            bad = ubvf.UT3FrameWeights(*uW.supercores, ubvf.UT3VariationsMasks(*masks))
+            with self.subTest(family=name):
+                # Every supercore is byte-identical to the good metric -- only the mask differs.
+                for a, b in zip(bad.supercores, uW.supercores):
+                    self.assertTrue(np.array_equal(a, b))
+                self.assertFalse(bad.is_consistent_with(uv))
+                for op_name, op in (('weighted_norm', lambda: uv.weighted_norm(bad)),
+                                    ('absorb_weights', lambda: uv.absorb_weights(bad))):
+                    with self.subTest(op=op_name), self.assertRaises(ValueError):
+                        op()
+
+    def test_masks_stay_host_numpy(self):
+        """Masks are structure: host numpy even on jax supercores, through every op."""
+        if not common.jax_available:
+            self.skipTest('jax not available')
+        import jax.numpy as jnp
+        rng = np.random.default_rng(39)
+        v = make_ragged_tangent(STRUCTURES[0], (), ())
+        _, uW = to_uniform_tangent_pair(v, rand_ragged_frame_weights(v, rng))
+        jW = ubvf.UT3FrameWeights(*[jnp.asarray(a) for a in uW.supercores], uW.masks)
+        for name in ('reciprocal', 'sqrt'):
+            with self.subTest(op=name):
+                self.assertTrue(all(common.is_numpy_ndarray(m) for m in getattr(jW, name)().masks.data))
+        for name in ('concatenate', 'kronecker'):
+            with self.subTest(op=name):
+                self.assertTrue(all(common.is_numpy_ndarray(m) for m in getattr(jW, name)(jW).masks.data))

@@ -131,15 +131,28 @@ Three differences from ragged are worth knowing, and none of them are ports-in-p
   singular value is real data, and clamping it would hide a rank-deficient point.
 - **`concatenate` / `kronecker` produce gappy masks.** Ranks add / multiply as usual, but the real slots
   stop being a prefix ([`uniform_masks_vs_ranks.md`](uniform_masks_vs_ranks.md)). Expected and correct; the
-  T3-SVD re-canonicalizes.
+  T3-SVD re-canonicalizes. The ops themselves need no mask cleverness — combining the weights and combining
+  the masks *the same way* is exactly right, because both concatenation and the Kronecker product commute
+  with elementwise multiply.
 
-The tangent-side mirror (`UT3FrameWeights`) is not built yet.
+`UT3FrameWeights` mirrors `T3FrameWeights` the same way, and the frame-like batching is where it earns its
+keep: the metric carries the frame stack `C`, so the singular-value metric of a `C`-stacked point pairs
+directly with a `K`-stack of tangents there, broadcasting over `K` for free.
+
+```python
+import t3toolbox.uniform_frame_variations_format as ubvf
+
+frame, _ = ubvf.ut3_orthogonal_representations(ux)
+gk = ubvf.UT3FrameWeights.from_ut3weights(ut3.UT3Weights.from_ut3svd(ux)).reciprocal()
+n  = tangent.weighted_norm(gk)     # + weighted_inner / absorb_weights; gk.stack_shape == frame.stack_shape
+```
 
 ## Scope
 
 Shipped: the two ragged weight classes, `absorb`, `weighted_norm` / `weighted_inner`, `concatenate` /
-`kronecker`, `from_t3svd`; and the uniform base-point mirror (`UT3Weights` + the same operations +
-`from_ut3svd`). Not yet packaged (but reachable from these primitives): weighted `+` / `−` / scale / `⊙`
-as operations, the uniform **tangent** mirror (`UT3FrameWeights`), and the **Grasedyck–Kramer
-singular-value regularizer** — a `SingularValueRegularizer` that builds `W` from the frame's singular
-values and applies it through the `T3FrameWeights` metric (see the regularization notes).
+`kronecker`, `from_t3svd` / `from_t3weights`; and the **full uniform mirror** — `UT3Weights` and
+`UT3FrameWeights` with the same operations, plus `from_ut3svd` / `from_ut3weights` and the ragged↔uniform
+conversions. Not yet packaged (but reachable from these primitives): weighted `+` / `−` / scale / `⊙` as
+operations, and the **Grasedyck–Kramer singular-value regularizer** — a `SingularValueRegularizer` that
+builds `W` from the frame's singular values and applies it through the `T3FrameWeights` metric (see the
+regularization notes). Both layers now have everything that regularizer needs.

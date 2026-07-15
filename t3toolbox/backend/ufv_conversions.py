@@ -23,6 +23,8 @@ __all__ = [
     't3frame_to_ut3frame',
     'ut3variations_to_t3variations',
     't3variations_to_ut3variations',
+    't3frameweights_to_ut3frameweights',
+    'ut3frameweights_to_t3frameweights',
 ]
 
 
@@ -325,3 +327,78 @@ def t3variations_to_ut3variations(
         nU, nD, rL, rR,
     )
     return tkv, ttv, shape, masks
+
+
+def t3frameweights_to_ut3frameweights(
+        weights: typ.Tuple[
+            typ.Sequence[NDArray],  # up_weights,    len=d, elm_shape=C+(nUi,)
+            typ.Sequence[NDArray],  # down_weights,  len=d, elm_shape=C+(nDi,)
+            typ.Sequence[NDArray],  # left_weights,  len=d, elm_shape=C+(rLi,)
+            typ.Sequence[NDArray],  # right_weights, len=d, elm_shape=C+(rRi,)
+        ],
+        nU: int = None,             # padded up rank    (default max); pass to match the tangent's pad
+        nD: int = None,             # padded down rank  (default max)
+        rL: int = None,             # padded left rank  (default max)
+        rR: int = None,             # padded right rank (default max)
+) -> typ.Tuple[
+    NDArray,  # up_weight_supercore,    (d,)+C+(nU,)
+    NDArray,  # down_weight_supercore,  (d,)+C+(nD,)
+    NDArray,  # left_weight_supercore,  (d,)+C+(rL,)
+    NDArray,  # right_weight_supercore, (d,)+C+(rR,)
+    typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # the four edge masks, HOST bool, static
+]:
+    """Pack a ragged ``T3FrameWeights`` into uniform frame-weight supercores + masks (the ``.data`` layout).
+
+    The frame-weight twin of :py:func:`t3frame_to_ut3frame`, and simpler: each family is one vector per
+    edge, so only the last axis is padded, and there is no physical ``shape`` (weights live on internal
+    edges only). The ``C`` stack is carried through untouched -- a frame weight is **frame-like**, so it
+    never grows a ``K`` axis (``dev/uniform_weighting_design.md`` §8.5).
+
+    Pass ``nU``/``nD``/``rL``/``rR`` to match the padding of the tangent these weights will pair with
+    (e.g. from ``frame.uniform_structure``); the defaults pad tightly to the weights' own max ranks.
+    """
+    use_jax = tree_contains_jax(weights)
+    up_weights, down_weights, left_weights, right_weights = weights
+    stack_shape = up_weights[0].shape[:-1]   # C
+
+    sizes = []
+    for fam, override in zip(weights, (nU, nD, rL, rR)):
+        sizes.append(max(w.shape[-1] for w in fam) if override is None else override)
+
+    supercores = tuple(_pad_stack(fam, (size,), use_jax) for fam, size in zip(weights, sizes))
+    # prefix_mask, not the masking layer: weighting and masking each call the shared neutral primitive.
+    masks = tuple(prefix_mask(_broadcast_ranks_over_stack([w.shape[-1] for w in fam], stack_shape), size)
+                  for fam, size in zip(weights, sizes))
+    return supercores + (masks,)
+
+
+def ut3frameweights_to_t3frameweights(
+        weights: typ.Tuple[
+            NDArray, NDArray, NDArray, NDArray,             # up, down, left, right supercores, (d,)+C+(size,)
+            typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # the four edge masks
+        ],
+) -> typ.Union[
+    typ.Tuple[typ.Tuple[NDArray, ...], ...],  # (up, down, left, right) ragged families, if unstacked
+    typ.Tuple,                                 # else a nested tree (shaped like C) of those
+]:
+    """Convert uniform frame-weight supercores + masks back to ragged ``T3FrameWeights`` families.
+
+    The frame-weight twin of :py:func:`ut3frame_to_t3frame`. As there, a **stacked** weight returns a
+    *tree* of ragged weights (a varying-rank stack has no single ragged representation), and the real slots
+    are selected *through the masks* rather than by slicing a prefix, since a mask may be gappy after
+    ``+``/``x`` (``docs/uniform_masks_vs_ranks.md``).
+    """
+    supercores, masks = weights[:4], weights[4]
+    require_concrete_masks(*masks)  # host masks: the boolean index must be concrete
+
+    stack_shape = supercores[0].shape[1:-1]   # C
+
+    if not stack_shape:  # unstacked -> one ragged 4-tuple of families
+        return tuple(tuple(w[m] for m, w in zip(list(mask), list(sc)))
+                     for sc, mask in zip(supercores, masks))
+
+    return tuple(
+        ut3frameweights_to_t3frameweights(
+            tuple(sc[:, ii] for sc in supercores) + (tuple(m[:, ii] for m in masks),))
+        for ii in range(supercores[0].shape[1])
+    )
