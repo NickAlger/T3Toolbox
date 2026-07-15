@@ -395,24 +395,32 @@ class T3Tangent:
         """
         return cw.corewise_stack_norm(self.variations.data, len(self.stack_shape))
 
+    def absorb_weights(self, weights: 'bvf.T3FrameWeights') -> 'bvf.T3Variations':
+        """Absorb the metric ``weights`` into this tangent's **variation** cores (``down``->V,
+        ``up``/``left``/``right``->H), returning the weighted :py:class:`~t3toolbox.frame_variations_format.T3Variations`
+        (the frame is unchanged). Its :py:meth:`corewise_norm` equals :py:meth:`weighted_norm`. Thin wrapper
+        over the standalone :py:func:`t3toolbox.frame_variations_format.absorb_weights` /
+        backend :py:func:`~t3toolbox.backend.fv_operations.fv_absorb_weights`."""
+        return bvf.absorb_weights(self.variations, weights)
+
     def weighted_norm(self, weights: 'bvf.T3FrameWeights'):
         """The **weighted** (Grasedyck-Kramer) coordinate norm: absorb the metric ``weights`` into the
-        variation cores (``down``->V, ``up``/``left``/``right``->H) and take :py:meth:`corewise_norm`.
-        The frame stays orthonormal (untouched). Vectorized over the stack (returns shape ``K + C``). The
-        inserted diagonal is squared by the norm, so ``weights = 1/sigma`` penalises by ``1/sigma^2``. As
-        with :py:meth:`corewise_norm`, this is the coordinate metric (= HS on an orthonormal, gauged frame).
+        variation cores (``down``->V, ``up``/``left``/``right``->H) and take the coordinate norm. The frame
+        stays orthonormal (untouched). Vectorized over the stack (returns shape ``K + C``). The inserted
+        diagonal is squared by the norm, so ``weights = 1/sigma`` penalises by ``1/sigma^2``. As with
+        :py:meth:`corewise_norm`, this is the coordinate metric (= HS on an orthonormal, gauged frame).
+        Backend twin: :py:func:`~t3toolbox.backend.fv_operations.fv_weighted_norm`.
         """
-        wvar = fv_operations.fv_absorb_weights(self.variations.data, weights.data)
-        return cw.corewise_stack_norm(wvar, len(self.stack_shape))
+        return fv_operations.fv_weighted_norm(self.variations.data, weights.data, len(self.stack_shape))
 
     def weighted_inner(self, other: 'T3Tangent', weights: 'bvf.T3FrameWeights'):
         """The **weighted** coordinate inner product ``<absorb(W,self), absorb(W,other)>`` w.r.t. one
         metric ``weights`` -- absorb the weights into both tangents' variations and dot. The same-frame
-        precondition is checked; vectorized over the stack (returns shape ``K + C``)."""
+        precondition is checked; vectorized over the stack (returns shape ``K + C``). Backend twin:
+        :py:func:`~t3toolbox.backend.fv_operations.fv_weighted_inner`."""
         self._check_same_tangent_space(other)
-        w_self = fv_operations.fv_absorb_weights(self.variations.data, weights.data)
-        w_other = fv_operations.fv_absorb_weights(other.variations.data, weights.data)
-        return cw.corewise_stack_dot(w_self, w_other, len(self.stack_shape))
+        return fv_operations.fv_weighted_inner(self.variations.data, other.variations.data,
+                                               weights.data, len(self.stack_shape))
 
     def normalized(self) -> 'T3Tangent':
         """Unit-norm rescaling ``self / self.corewise_norm()``, vectorized over the stack.

@@ -267,6 +267,32 @@ class TestT3FrameWeights(unittest.TestCase):
         with self.assertRaises(ValueError):
             bvf.T3FrameWeights((np.ones(2),), (np.ones(2),), (np.ones(1),), (np.ones(2), np.ones(1)))  # ragged lengths
 
+    def test_backend_norm_inner_match_frontend(self):
+        """The backend fv_weighted_norm / fv_weighted_inner equal the T3Tangent methods."""
+        import t3toolbox.backend.fv_operations as fv
+        rng = np.random.default_rng(7)
+        v = make_tangent(STRUCTURES[0], (), (2,))
+        w = t3m.COREWISE.randn(v.frame, stack_shape=(2,))
+        W = rand_frame_weights(v, rng)
+        ns = len(v.variations.stack_shape)
+        self.assertTrue(np.allclose(np.asarray(fv.fv_weighted_norm(v.variations.data, W.data, ns)),
+                                    np.asarray(v.weighted_norm(W))))
+        self.assertTrue(np.allclose(np.asarray(fv.fv_weighted_inner(v.variations.data, w.variations.data, W.data, ns)),
+                                    np.asarray(v.weighted_inner(w, W))))
+
+    def test_absorb_weights_frontend(self):
+        """standalone absorb_weights == T3Tangent.absorb_weights (both -> T3Variations); its corewise_norm
+        equals weighted_norm."""
+        rng = np.random.default_rng(8)
+        v = make_tangent(STRUCTURES[1], (), (2,))
+        W = rand_frame_weights(v, rng)
+        wv_s = bvf.absorb_weights(v.variations, W)
+        wv_m = v.absorb_weights(W)
+        self.assertIsInstance(wv_s, bvf.T3Variations)
+        self.assertTrue(all(np.array_equal(a, b) for fa, fb in zip(wv_s.data, wv_m.data) for a, b in zip(fa, fb)))
+        wt = t3m.T3Tangent(v.frame, wv_m)                          # weighted variations at the same frame
+        self.assertTrue(np.allclose(np.asarray(wt.corewise_norm()), np.asarray(v.weighted_norm(W))))
+
     def test_from_t3weights(self):
         """from_t3weights: up=down=tucker, left=tt[:-1], right=tt[1:]; consistent with a minimal tangent."""
         for struct in STRUCTURES[:2]:

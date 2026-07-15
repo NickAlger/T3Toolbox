@@ -182,6 +182,7 @@ class TestDispatch(unittest.TestCase):
                                 tuple(jnp.ones(H.shape[-3]) for H in Hv), tuple(jnp.ones(H.shape[-1]) for H in Hv))
         self.assert_jit_jax(lambda a, w: a.weighted_norm(w), self.v, Wf)
         self.assert_jit_jax(lambda a, b, w: a.weighted_inner(b, w), self.v, self.w, Wf)
+        self.assert_jit_jax(lambda a, w: a.absorb_weights(w), self.v, Wf)  # -> weighted T3Variations
         self.assert_jit_jax(lambda w1, w2: w1.concatenate(w2), Wf, Wf)
         self.assert_jit_jax(lambda w1, w2: w1.kronecker(w2), Wf, Wf)
         self.assert_jit_jax(lambda a, b: a + b, self.v, self.w)

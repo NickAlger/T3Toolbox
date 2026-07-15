@@ -31,6 +31,7 @@ __all__ = [
     'T3Frame',
     'T3Variations',
     'T3FrameWeights',
+    'absorb_weights',
     'fv_to_t3',
     't3_orthogonal_representations',
 ]
@@ -1413,6 +1414,16 @@ class T3FrameWeights:
         as for ``t3svd`` output); the Grasedyck–Kramer metric is
         ``T3FrameWeights.from_t3weights(T3Weights.from_t3svd(x)).reciprocal()``."""
         return cls(*fv_operations.fv_weights_from_t3_weights(t3_weights.data))
+
+
+def absorb_weights(variations: T3Variations, weights: T3FrameWeights) -> T3Variations:
+    """Absorb the metric ``weights`` into the variation cores (``down``->V, ``up``/``left``/``right``->H),
+    returning the weighted :py:class:`T3Variations` (the frame is unchanged). The coordinate norm
+    (``corewise_norm``) of the result is the weighted tangent norm -- see
+    :py:meth:`~t3toolbox.manifold.T3Tangent.weighted_norm`, and the helper method
+    :py:meth:`~t3toolbox.manifold.T3Tangent.absorb_weights`. Frontend of
+    :py:func:`t3toolbox.backend.fv_operations.fv_absorb_weights`."""
+    return T3Variations(*fv_operations.fv_absorb_weights(variations.data, weights.data))
 
 
 if jax_available:

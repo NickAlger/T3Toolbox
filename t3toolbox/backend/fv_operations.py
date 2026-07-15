@@ -18,6 +18,7 @@ import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.t3_operations as t3_operations
 from t3toolbox.backend.common import *
 import t3toolbox.backend.t3_conversions as t3_conversions
+import t3toolbox.corewise as corewise
 
 __all__ = [
     'fv_variations_from_vector',
@@ -32,6 +33,8 @@ __all__ = [
     'fv_concatenate_weights',
     'fv_kronecker_weights',
     'fv_weights_from_t3_weights',
+    'fv_weighted_norm',
+    'fv_weighted_inner',
 ]
 
 
@@ -302,3 +305,29 @@ def fv_weights_from_t3_weights(
     left = tuple(tt_weights[:-1])
     right = tuple(tt_weights[1:])
     return up, down, left, right
+
+
+def fv_weighted_norm(
+        variations: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (V, H)
+        weights:    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
+                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+        n_stack:    int,                                                       # leading K+C stack axes kept
+) -> NDArray:                                                                  # weighted norm, shape=stack
+    """Weighted (Grasedyck-Kramer) coordinate norm of a tangent's variations: the corewise stack-norm of
+    the weight-absorbed variations. The frame (orthonormal) is not needed. Backend twin of
+    ``T3Tangent.weighted_norm``."""
+    return corewise.corewise_stack_norm(fv_absorb_weights(variations, weights), n_stack)
+
+
+def fv_weighted_inner(
+        variations_A: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (V, H) of A
+        variations_B: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (V, H) of B
+        weights:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
+                                typ.Sequence[NDArray], typ.Sequence[NDArray]],   # one metric (up, down, left, right)
+        n_stack:      int,                                                       # leading K+C stack axes kept
+) -> NDArray:                                                                    # weighted inner, shape=stack
+    """Weighted coordinate inner product ``<absorb(W,A), absorb(W,B)>`` w.r.t. one metric ``weights`` --
+    the corewise stack-dot of the two weight-absorbed variations. The caller checks same-frame. Backend
+    twin of ``T3Tangent.weighted_inner``."""
+    return corewise.corewise_stack_dot(fv_absorb_weights(variations_A, weights),
+                                       fv_absorb_weights(variations_B, weights), n_stack)
