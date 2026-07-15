@@ -26,6 +26,7 @@ __all__ = [
     'to_numpy',
     #
     'ValueHashedMasks',
+    'require_concrete_masks',
     'prefix_mask',
     #
     'ragged_scan',
@@ -469,6 +470,32 @@ class ValueHashedMasks:
         if type(other) is not type(self):
             return NotImplemented
         return all(np.array_equal(a, b) for a, b in zip(self.data, other.data))
+
+
+def require_concrete_masks(
+        *masks: NDArray,  # HOST bool, static -- the uniform structure masks (must NOT be traced)
+) -> None:
+    """Guard the uniform-mask contract: masks are concrete host (numpy) arrays, never jax tracers.
+
+    Under jit any ``jnp`` op on a mask returns a tracer, which breaks the layer two ways: host-int
+    shape/rank extraction (``int(mask.sum())``) raises ``ConcretizationTypeError``, and recomputed masks
+    leak as tracers into the (identity-hashed, never-inspected) output ``aux_data`` -- silently invalid.
+    So a traced mask here means the masks were passed *among* the traced jit args; the fix is functional,
+    not numerical (raise, per the structural-vs-numerical philosophy). See
+    ``docs/contributor/uniform_pytree_composition.md``.
+
+    Infrastructure, not part of the ``ut3_*`` family (``docs/naming_conventions.md``): it guards the mask
+    representation itself, so it serves every uniform object -- plain, frame, variations, and weights.
+    """
+    if not jax_available:
+        return
+    for m in masks:
+        if isinstance(m, jax.core.Tracer):
+            raise ValueError(
+                'uniform masks must be concrete host (numpy) arrays, but a traced mask was seen -- you '
+                'likely jitted a backend function with the masks among the traced args. Close over the '
+                'masks as constants and trace only the supercores (the masks are static structure). '
+                'See docs/contributor/uniform_pytree_composition.md.')
 
 
 def prefix_mask(

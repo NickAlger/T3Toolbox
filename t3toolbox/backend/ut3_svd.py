@@ -163,7 +163,7 @@ def ut3svd_supercores(
 
     frame_supercore, tt_supercore = cores
     frame_masks, tt_masks = rank_truncation_masks
-    ut3_masking.require_concrete_masks(frame_masks, tt_masks)  # masks (constant operands) are host
+    require_concrete_masks(frame_masks, tt_masks)  # masks (constant operands) are host
 
     if squash_tails_first:
         tt_supercore = tt_operations.tt_squash_tails(tt_supercore)

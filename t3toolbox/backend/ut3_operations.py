@@ -59,7 +59,7 @@ def ut3_squash_tails(data: UT3Data) -> UT3Data:
     xnp, _, _ = get_backend(True, use_jax)
 
     tk, tt, shape, (tkm, ttm) = data
-    ut3_masking.require_concrete_masks(tkm, ttm)  # masks are host, not traced
+    require_concrete_masks(tkm, ttm)  # masks are host, not traced
     new_tt = tt_squash_tails(tt)
     r = tt.shape[-1]
     stack = tt.shape[1:-3]

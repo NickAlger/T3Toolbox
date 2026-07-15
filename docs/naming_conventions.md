@@ -146,7 +146,11 @@ T4S paper names the object neither way, so there is no paper conflict to worry a
 - **Frontend methods stay unprefixed** even when a same-named backend function exists at a
   different level (e.g. the method `x.rank_adjustment_sweep()` vs backend
   `t3_rank_adjustment_sweep`); the class namespace disambiguates.
-- **`require_concrete_masks`** is a jit guard (infrastructure), unprefixed by design.
+- **`require_concrete_masks`** is a jit guard (infrastructure), unprefixed by design — and lives in
+  `backend/common.py` for the same reason, beside the `ValueHashedMasks` mixin and `prefix_mask`: those
+  three are the uniform **mask-representation** contract (concrete host arrays · value-based hash/eq ·
+  the canonical prefix form), which every uniform object's masks obey — plain, frame, variations, and
+  weights. They are not part of any one object's `ut3_*`/`ufv_*` family.
 
 ## Intended asymmetries (uniform vs ragged)
 

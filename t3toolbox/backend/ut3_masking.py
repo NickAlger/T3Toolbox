@@ -4,7 +4,9 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """The plain-ut3 mask layer: build, validate, apply.
 
-``ut3_make_masks``, ``require_concrete_masks`` (the jit tracer guard), ``ut3_apply_masks``.
+``ut3_make_masks`` and ``ut3_apply_masks``. (The jit tracer guard ``require_concrete_masks`` is
+infrastructure and lives in ``common``, beside the ``ValueHashedMasks`` mixin -- the two halves of the
+uniform mask-representation contract, shared by every uniform object's masks.)
 Masks are boolean prefix vectors, static structure, and ALWAYS host numpy (``np``, never
 ``xnp``) -- do not "fix" that (``docs/uniform_masks_vs_ranks.md``,
 ``docs/contributor/uniform_rank_masks_rationale.md``).
@@ -13,39 +15,11 @@ import numpy as np
 import typing as typ
 
 from t3toolbox.backend.common import *
-import t3toolbox.backend.common as common
-
-if common.jax_available:
-    import jax  # only for the tracer-detection guard below (gated by common.jax_available)
 
 __all__ = [
     'ut3_make_masks',
-    'require_concrete_masks',
     'ut3_apply_masks',
 ]
-
-
-def require_concrete_masks(
-        *masks: NDArray,  # HOST bool, static -- the uniform structure masks (must NOT be traced)
-) -> None:
-    """Guard the uniform-mask contract: masks are concrete host (numpy) arrays, never jax tracers.
-
-    Under jit any ``jnp`` op on a mask returns a tracer, which breaks the layer two ways: host-int
-    shape/rank extraction (``int(mask.sum())``) raises ``ConcretizationTypeError``, and recomputed masks
-    leak as tracers into the (identity-hashed, never-inspected) output ``aux_data`` -- silently invalid.
-    So a traced mask here means the masks were passed *among* the traced jit args; the fix is functional,
-    not numerical (raise, per the structural-vs-numerical philosophy). See
-    ``docs/contributor/uniform_pytree_composition.md``.
-    """
-    if not common.jax_available:
-        return
-    for m in masks:
-        if isinstance(m, jax.core.Tracer):
-            raise ValueError(
-                'uniform masks must be concrete host (numpy) arrays, but a traced mask was seen -- you '
-                'likely jitted a backend function with the masks among the traced args. Close over the '
-                'masks as constants and trace only the supercores (the masks are static structure). '
-                'See docs/contributor/uniform_pytree_composition.md.')
 
 
 def ut3_make_masks(

@@ -136,7 +136,7 @@ def ut3_to_t3(
     ``argwhere`` (handles gappy edge masks; ``docs/uniform_masks_vs_ranks.md``).
     """
     tucker_supercore, tt_supercore, shape, (tucker_masks, tt_masks) = x
-    ut3_masking.require_concrete_masks(tucker_masks, tt_masks)  # host masks: argwhere is np
+    require_concrete_masks(tucker_masks, tt_masks)  # host masks: argwhere is np
 
     stack_shape = tucker_supercore.shape[1:-2]
 

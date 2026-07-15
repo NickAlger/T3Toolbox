@@ -53,7 +53,7 @@ def ut3_add(x: UT3Data, y: UT3Data) -> UT3Data:  # z = x + y (ranks add; NOT squ
 
     tk_x, tt_x, shape, (tkm_x, ttm_x) = x
     tk_y, tt_y, _,     (tkm_y, ttm_y) = y
-    ut3_masking.require_concrete_masks(tkm_x, ttm_x, tkm_y, ttm_y)  # masks are host, not traced
+    require_concrete_masks(tkm_x, ttm_x, tkm_y, ttm_y)  # masks are host, not traced
 
     d = tk_x.shape[0]
     stack = tk_x.shape[1:-2]
@@ -86,7 +86,7 @@ def ut3_sum_stack(x: UT3Data) -> UT3Data:  # sum over ALL stack axes -> unstacke
     xnp, _, _ = get_backend(True, use_jax)
 
     tk, tt, shape, (tkm, ttm) = x
-    ut3_masking.require_concrete_masks(tkm, ttm)  # masks are host, not traced
+    require_concrete_masks(tkm, ttm)  # masks are host, not traced
     d = tk.shape[0]
     stack = tk.shape[1:-2]
     if len(stack) == 0:
