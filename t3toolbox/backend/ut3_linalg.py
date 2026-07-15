@@ -164,9 +164,10 @@ def _ut3_left_orthogonalized(data: UT3Data) -> UT3Data:  # down-orth the Tucker,
     (Asymmetry worth knowing: the ragged backend's ``t3_norm``/``t3_inner_product`` orthogonalize
     internally behind a ``use_orthogonalization`` flag, but the uniform backend exposes only the
     already-orthogonalized fast path ``ut3_norm_orthogonalized`` and leaves this composition to the
-    frontend -- so there is no ``ut3_norm``/``ut3_inner`` twin to delegate to here. This helper keeps the
-    chain in one place on the backend side; whether to close the gap with real ``ut3_norm``/``ut3_inner``
-    twins is an open question, not settled by this slice.)
+    frontend -- so there is no ``ut3_norm``/``ut3_inner`` twin to delegate to here. That gap is an
+    unfinished port rather than a design decision, and filling it means promoting this helper; it is
+    **wanted eventually, low priority** -- logged in
+    ``docs/contributor/deferred_and_rejected.md``. This helper keeps the chain in one place meanwhile.)
     """
     return ut3_orthogonalization.ut3_left_orthogonalize_tt_cores(
         ut3_orthogonalization.ut3_down_orthogonalize_tucker_cores(data))
