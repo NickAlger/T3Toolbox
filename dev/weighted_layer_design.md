@@ -6,9 +6,13 @@ ability to **absorb** weights into cores, and enough weighted linear algebra (`n
 `concatenate`, `kronecker`) that the weighted objects form a closed algebra — while leaving a clean seam
 for the deferred **Grasedyck–Kramer singular-value regularizer** (which consumes this layer), and NOT
 rebuilding the heavy `WeightedTuckerTensorTrain` wrapper. Design agreed interactively with Nick; **all
-decisions settled 2026-07-14** (§9) — absorb side-conventions, `from_t3svd`, naming, the backend/frontend
-split (§4a) — except the **uniform mirror** (deferred, but its shape decided: weights carry boolean masks).
-Ready to implement (slices §11)._
+decisions settled 2026-07-14** (§9). **SHIPPED 2026-07-15** — slices S1–S5 done (commits `358860bb`,
+`059124f1`, `99dcb8b5`, `80354977`, + docs). **One design change during build:** the tangent weight is a
+**metric on the variation coordinates** (Approach-1, `d`-each, weight `V`/`H`, frame orthonormal), NOT the
+tensor-weighting-of-all-edges we first sketched — because the frame's `d+1`-th left/right cores are
+base-point padding ("not really part of the frame"), so there are only `d` natural tangent edges, and the
+metric interpretation is what Grasedyck–Kramer needs (§6 revised). Deferred: weighted `+`/`⊙` operations,
+the uniform mirror, the GK regularizer._
 
 ## 0. Resume from a fresh context (read this first)
 

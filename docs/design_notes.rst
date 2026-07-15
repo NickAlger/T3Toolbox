@@ -16,6 +16,7 @@ Core design
    transposes
    t3m_methods
    fitting_and_optimization
+   weighting
    numerical_contracts
    rank_continuation
    naming_conventions

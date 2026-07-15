@@ -21,18 +21,20 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Weighted tensor-network layer — DESIGN AGREED, no code yet (2026-07-14). Plan: `dev/weighted_layer_design.md`.**
-  Reviving the parked weighted layer, *lightly*: diagonal edge-weights on a T3 / frame-variations tangent.
-  **Two weight classes** — `T3Weights` (tucker[d], tt[d+1], = the `t3svd` sval format) and `T3FrameWeights`
-  (up/down/left/right, forced by the tangent = sum-of-d-T3s structure) — plus **functions** `absorb` /
-  `is_consistent_with` / `from_t3svd` / `weighted_norm` / `weighted_inner` / `concatenate` / `kronecker`.
-  **No heavy `WeightedTuckerTensorTrain` wrapper** (the old "too heavy" part); the substrate is
-  classes + `absorb`, so all future weighted linear algebra (`+`/`⊙`/scale, optional thin container) is a
-  pure addition. Verified this session: the **Kronecker law** for Hadamard products (weights `⊗`, rel err
-  1.2e-15) and the concat↔`+` / kron↔`⊙` duality; the weighted-**tangent** norm goes `absorb → tv_to_t3
-  (doubled-rank, structural — confirmed) → t3 norm` (O(ranks)). This layer is the **primitive the deferred
-  Grasedyck–Kramer `SingularValueRegularizer` will consume** (`absorb` = the `M`-apply). Slices S1–S5 in the
-  plan; open points (naming, `absorb` side-convention, `from_t3svd` sqrt convention, uniform mirror) in §9.
+- **Weighted tensor-network layer — SHIPPED (S1–S5, 2026-07-15). Plan/record: `dev/weighted_layer_design.md`;
+  user doc: `docs/weighting.md`.** Diagonal edge-weights, lightly (no heavy wrapper). **`T3Weights`**
+  (tucker[d], tt[d+1] = `t3svd` sval format) weights a **`TuckerTensorTrain` as a tensor** — `absorb_weights`
+  / `weighted_norm`/`weighted_inner` / `concatenate`↔`+` / `kronecker`↔`⊙` (Kronecker-of-weights verified
+  1.2e-15) / `from_t3svd`. **`T3FrameWeights`** (up/down/left/right, each len d) is a **metric on a tangent's
+  coordinates** (Grasedyck–Kramer preconditioner) — `T3Tangent.weighted_norm/weighted_inner`, absorbed into
+  the **variation** cores (frame orthonormal). Commits `358860bb`/`059124f1`/`99dcb8b5`/`80354977` + docs.
+  **Key design change during build (see design-note header + §6):** the tangent weight is the
+  **metric-on-variations** (`d` natural edges; the frame's `d+1`-th left/right cores are base-point padding),
+  NOT the tensor-weighting we first sketched — cleaner, `O(ranks)`, and what GK needs. Old parked `wt3_*`
+  layer retired (S4). **Deferred (reachable):** weighted `+`/`⊙`/scale ops + optional thin container; the
+  uniform mirror (weights carry boolean masks); the GK `SingularValueRegularizer`.
+  **Nick reviews the whole thing 2026-07-15** (built autonomously per his request). Follow-ups after review:
+  promote the durable rationale into the rendered contributor guide + archive the design note (reg-thread pattern).
 
 - **Regularization framework — COMPLETE & SHIPPED (S1–S5, 2026-07-14).** Identity (Tikhonov)
   regularization on the fitting objective `min ½‖ω⊙(S(X)−y)‖² + ρ(X)`, composing with every optimizer /

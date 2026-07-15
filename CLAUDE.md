@@ -132,9 +132,16 @@ updated to this version by the time the package is released.
   masks can't be traced, so a backend optimizer holds them as loop-invariant state and traces only the
   supercores — jit the whole step closing over the frame masks, and the frame masks fall out as
   constant-folded constants; the design constraint for the 3b uniform optimizer).
-- **weighted** — cores + edge-weight vectors (`wt3_*`, `weighted_*`); weights "absorbed" into cores.
-  Tangent weighting (`absorb_weights_into_tangent_cores`) is **parked** in `backend/fv_operations.py`
-  pending a redesign of weighted tensor networks.
+- **weighted** — diagonal **edge weights** on the internal edges, a lightweight data format + `absorb`
+  into cores (NOT a separate object layer; see [`docs/weighting.md`](docs/weighting.md)). Two classes:
+  **`T3Weights`** (`tucker[d], tt[d+1]` = the `t3svd` sval format) weights a **`TuckerTensorTrain` as a
+  tensor** (`t3_absorb_weights` + `t3_weighted_norm/inner` + `t3_{concatenate,kronecker}_weights` in
+  `t3_operations`/`t3_linalg`; `absorb_weights`/`weighted_norm`/`weighted_inner` + `from_t3svd` frontend);
+  **`T3FrameWeights`** (`up/down/left/right`, each len d) is a **metric on a tangent's coordinates**
+  (Grasedyck–Kramer preconditioner) — absorbed into the **variation** cores (`fv_absorb_weights` in
+  `fv_operations`; `T3Tangent.weighted_norm/weighted_inner`, frame left orthonormal). `concatenate`↔`+`,
+  `kronecker`↔`⊙` (Hadamard, Kronecker-of-weights verified). Batching mirrors the paired class (all
+  machinery-1). The old parked `wt3_*`/`EdgeVectors`/`WeightedTuckerTensorTrain` layer was **retired**.
 
 > **Batching/stacking is the most error-prone part of the library. Before touching anything with
 > batch/stack axes, read [`docs/batching_and_stacking.md`](docs/batching_and_stacking.md)** — start with
@@ -399,8 +406,11 @@ doctests CI-enforced on both numpy generations.
 - **Design references:** the rendered docs are the reference — user tier (`docs/*.md` +
   the user guide) and the Contributor guide (`docs/contributor/`); `entries_apply_probe.md` §8
   carries the probing paper↔code map.
-- **Parked:** the **weighted layer** — deferred past 1.0, cordoned with import/call-time
-  UserWarnings (untested, pre-rename conventions inside; revive via redesign, 1.1+).
+- **Weighted layer — SHIPPED** (the edge-weight redesign): `T3Weights` (tensor) + `T3FrameWeights`
+  (tangent metric) + `absorb`/`weighted_norm`/`weighted_inner`/`concatenate`/`kronecker`/`from_t3svd`;
+  the old parked `wt3_*` layer retired. See `docs/weighting.md`; build record `dev/weighted_layer_design.md`.
+  Deferred (reachable from the primitives): weighted `+`/`⊙`/scale operations, the uniform mirror (weights
+  carry masks), and the Grasedyck–Kramer `SingularValueRegularizer`.
 
 ## Open questions / TODO
 
@@ -408,8 +418,9 @@ Live status + backlog: **`dev/HANDOFF.md`**. The durable open items:
 
 - **Goal-1 `fit(...)` facade** — auto geometry/optimizer/ranks/`x0` + rank-continuation/validation
   ("standard user, no fiddling"). **Deferred to 1.1**; 1.0 ships as an honest mid-level toolkit.
-- **Redesign the weighted tensor-network** code structure (deferred past 1.0; the layer is parked
-  + cordoned until then).
+- **Weighted tensor-network layer — SHIPPED** (edge-weight redesign; `docs/weighting.md`). Follow-ups
+  (deferred, reachable from the primitives): weighted `+`/`−`/scale/`⊙` operations + an optional thin
+  container, the uniform mirror (weights carry boolean masks), and the Grasedyck–Kramer regularizer.
 - **Minimal-rank audit — RESOLVED** (the settled verdict, per the catalog and the enforced check
   sites): minimal rank is a correctness precondition for **nothing** — gauge projections +
   `project`/`project_dense_onto_tangent` need orthogonality only; `inner`/`norm` HS-faithfulness
