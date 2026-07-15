@@ -35,6 +35,8 @@ __all__ = [
     't3m_inplace_fused',
     't3m_swap',
     't3_plus_scalar',
+    't3_weighted_norm',
+    't3_weighted_inner',
 ]
 
 
@@ -603,3 +605,28 @@ def t3_plus_scalar(
 
 
 
+
+
+def t3_weighted_norm(
+        x0:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
+        weights: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
+        use_orthogonalization: bool = True,                                # for numerical stability
+) -> NDArray:                                                              # weighted HS norm, shape=stack_shape
+    """Weighted Hilbert-Schmidt norm of a Tucker tensor train: ``t3_norm(absorb(x0, weights))`` -- the norm
+    of the fully-weighted network. The plain norm squares the inserted diagonals (so ``diag(1/sigma)``
+    penalises by ``1/sigma^2``)."""
+    return t3_norm(t3_ops.t3_absorb_weights(x0, weights), use_orthogonalization=use_orthogonalization)
+
+
+def t3_weighted_inner(
+        x0_A:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores) of A
+        weights_A: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # weights of A
+        x0_B:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores) of B
+        weights_B: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # weights of B
+        use_orthogonalization: bool = True,                                  # for numerical stability
+) -> NDArray:                                                                # weighted HS inner, shape=stack_shape
+    """Weighted Hilbert-Schmidt inner product ``<absorb(A), absorb(B)>`` of two weighted Tucker tensor
+    trains. A and B must share physical shape (same ambient space); ranks/weights may differ."""
+    return t3_inner_product(t3_ops.t3_absorb_weights(x0_A, weights_A),
+                            t3_ops.t3_absorb_weights(x0_B, weights_B),
+                            use_orthogonalization=use_orthogonalization)

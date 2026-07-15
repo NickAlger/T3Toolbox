@@ -30,6 +30,8 @@ __all__ = [
     't3_sum',
     't3_absorb_weights',
     't3_weights_consistent',
+    't3_concatenate_weights',
+    't3_kronecker_weights',
 ]
 
 
@@ -421,3 +423,43 @@ def t3_weights_consistent(
         if w.shape != stack + (r,):
             return False
     return True
+
+
+def t3_concatenate_weights(
+        weights_A: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
+        weights_B: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # concatenated tucker_weights, ranks add
+    typ.Tuple[NDArray, ...],  # concatenated tt_weights,     ranks add
+]:
+    """Per-edge concatenation of two weight tuples (the ``+`` / direct-sum combine: ranks add). Last-axis
+    ``concatenate``; the shared ``C`` stack rides along. Same-length, same-stack tuples assumed."""
+    xnp, _, _ = get_backend(False, tree_contains_jax((weights_A, weights_B)))
+    (twA, ttA), (twB, ttB) = weights_A, weights_B
+    tucker = tuple(xnp.concatenate([a, b], axis=-1) for a, b in zip(twA, twB))
+    tt = tuple(xnp.concatenate([a, b], axis=-1) for a, b in zip(ttA, ttB))
+    return tucker, tt
+
+
+def t3_kronecker_weights(
+        weights_A: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
+        weights_B: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # Kronecker tucker_weights, ranks multiply
+    typ.Tuple[NDArray, ...],  # Kronecker tt_weights,     ranks multiply
+]:
+    """Per-edge Kronecker product of two weight tuples (the Hadamard ``*`` combine: ranks multiply). The
+    weights of ``A ⊙ B`` (elementwise product of the represented tensors) are the Kronecker products of the
+    edge weights (verified). This is a **last-axis outer product broadcasting the shared ``C`` stack** --
+    ``(wA ⊗ wB)[..., a*rB + b] = wA[..., a]·wB[..., b]`` (A-major) -- **not** ``np.kron`` (which would
+    Kronecker the stack axes too). The A-major order must match the Hadamard core-combine's."""
+    xnp, _, _ = get_backend(False, tree_contains_jax((weights_A, weights_B)))
+
+    def kron_vec(a, b):  # (...,rA),(...,rB) -> (...,rA*rB), A-major, C broadcast
+        ss = xnp.broadcast_shapes(a.shape[:-1], b.shape[:-1])
+        return (a[..., :, None] * b[..., None, :]).reshape(ss + (a.shape[-1] * b.shape[-1],))
+
+    (twA, ttA), (twB, ttB) = weights_A, weights_B
+    tucker = tuple(kron_vec(a, b) for a, b in zip(twA, twB))
+    tt = tuple(kron_vec(a, b) for a, b in zip(ttA, ttB))
+    return tucker, tt

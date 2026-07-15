@@ -50,6 +50,18 @@ def hand_weighted_dense(x, W):
     return np.einsum(','.join(terms) + '->...' + ''.join(out), *ops)
 
 
+def hadamard_cores(xA, xB):
+    """Hadamard (elementwise-product) combine of two T3s' UNWEIGHTED cores (physical output shared,
+    internal legs Kronecker) -- the core partner of T3Weights.kronecker, done here in the test."""
+    ss = xA.stack_shape
+    Uc = tuple(np.einsum('...ix,...jx->...ijx', a, b).reshape(ss + (a.shape[-2] * b.shape[-2], a.shape[-1]))
+               for a, b in zip(xA.data[0], xB.data[0]))
+    Gc = tuple(np.einsum('...aib,...cjd->...acijbd', a, b).reshape(
+                   ss + (a.shape[-3] * b.shape[-3], a.shape[-2] * b.shape[-2], a.shape[-1] * b.shape[-1]))
+               for a, b in zip(xA.data[1], xB.data[1]))
+    return t3.TuckerTensorTrain(Uc, Gc)
+
+
 class TestT3Weights(unittest.TestCase):
     def test_absorb_dense_oracle(self):
         """absorb_weights(x, W).to_dense() == the weights-inserted hand-einsum, across structures x stacks."""
@@ -108,6 +120,50 @@ class TestT3Weights(unittest.TestCase):
             t3.T3Weights((np.ones((2,)),), (np.ones((1,)),))                  # tt len 1 != d+1=2
         with self.assertRaises(ValueError):
             t3.T3Weights((np.ones((3, 2)),), (np.ones((3, 1)), np.ones((4, 1))))  # ragged stack (3 vs 4)
+
+    def test_weighted_norm_inner(self):
+        """weighted_norm/weighted_inner match the dense (weights-inserted) norm/inner, over structures x stacks."""
+        rng = np.random.default_rng(4)
+        for struct in STRUCTURES:
+            for ss in STACKS:
+                with self.subTest(struct=struct, stack=ss):
+                    xA = t3.TuckerTensorTrain.randn(*struct, stack_shape=ss); WA = rand_weights(xA, rng)
+                    xB = t3.TuckerTensorTrain.randn(*struct, stack_shape=ss); WB = rand_weights(xB, rng)
+                    dA, dB = hand_weighted_dense(xA, WA), hand_weighted_dense(xB, WB)
+                    ax = tuple(range(len(ss), dA.ndim))          # non-stack (mode) axes -> reduce to stack_shape
+                    ref_norm = np.sqrt((dA ** 2).sum(axis=ax))
+                    ref_inner = (dA * dB).sum(axis=ax)
+                    self.assertLess(np.abs(np.asarray(t3.weighted_norm(xA, WA)) - ref_norm).max(),
+                                    1e-10 * (ref_norm.max() + 1))
+                    self.assertLess(np.abs(np.asarray(t3.weighted_inner(xA, WA, xB, WB)) - ref_inner).max(),
+                                    1e-10 * (np.abs(ref_inner).max() + 1))
+
+    def test_concatenate(self):
+        """concatenate: ranks add; values are the per-edge last-axis concatenation (the '+' combine)."""
+        rng = np.random.default_rng(6)
+        x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 2, 2), (1, 2, 2, 1), stack_shape=(2, 3))
+        WA, WB = rand_weights(x, rng), rand_weights(x, rng)
+        C = WA.concatenate(WB)
+        self.assertEqual(C.tucker_ranks, tuple(2 * n for n in x.tucker_ranks))
+        self.assertEqual(C.tt_ranks, tuple(2 * r for r in x.tt_ranks))
+        for a, b, c in zip(WA.tucker_weights + WA.tt_weights, WB.tucker_weights + WB.tt_weights,
+                           C.tucker_weights + C.tt_weights):
+            self.assertTrue(np.allclose(c, np.concatenate([a, b], axis=-1)))
+
+    def test_kronecker_hadamard(self):
+        """kronecker: ranks multiply, and it IS the weight of the Hadamard product -- absorb(kron cores,
+        kron weights).to_dense() == elementwise product of the two represented tensors (verifies A-major)."""
+        rng = np.random.default_rng(5)
+        for struct in STRUCTURES:
+            for ss in [(), (2,)]:
+                with self.subTest(struct=struct, stack=ss):
+                    xA = t3.TuckerTensorTrain.randn(*struct, stack_shape=ss); WA = rand_weights(xA, rng)
+                    xB = t3.TuckerTensorTrain.randn(*struct, stack_shape=ss); WB = rand_weights(xB, rng)
+                    dA, dB = hand_weighted_dense(xA, WA), hand_weighted_dense(xB, WB)
+                    WC = WA.kronecker(WB)
+                    self.assertEqual(WC.tucker_ranks, tuple(a * b for a, b in zip(xA.tucker_ranks, xB.tucker_ranks)))
+                    dC = t3.absorb_weights(hadamard_cores(xA, xB), WC).to_dense()
+                    self.assertLess(np.linalg.norm(dC - dA * dB) / max(np.linalg.norm(dA * dB), 1e-30), 1e-11)
 
     def test_structural_ops(self):
         """reverse / stack / unstack round-trips; reverse mirrors TuckerTensorTrain.reverse."""

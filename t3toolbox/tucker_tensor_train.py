@@ -41,6 +41,8 @@ __all__ = [
     'TuckerTensorTrain',
     'T3Weights',
     'absorb_weights',
+    'weighted_norm',
+    'weighted_inner',
 ]
 
 
@@ -4468,6 +4470,15 @@ class T3Weights:
         """Reverse the mode order (reverses both edge-vector tuples), matching ``TuckerTensorTrain.reverse``."""
         return T3Weights(self.tucker_weights[::-1], self.tt_weights[::-1])
 
+    def concatenate(self, other: 'T3Weights') -> 'T3Weights':
+        """Per-edge concatenation with ``other`` -- the ``+`` / direct-sum combine (ranks add)."""
+        return T3Weights(*ragged_operations.t3_concatenate_weights(self.data, other.data))
+
+    def kronecker(self, other: 'T3Weights') -> 'T3Weights':
+        """Per-edge Kronecker product with ``other`` -- the Hadamard (elementwise-product) combine (ranks
+        multiply): the weights of ``A ⊙ B`` are the Kronecker products of the edge weights."""
+        return T3Weights(*ragged_operations.t3_kronecker_weights(self.data, other.data))
+
     def unstack(self):  # array-like tree of T3Weights mirroring stack_shape
         """Unstack a stack of weights into an array-like tree (mirrors ``TuckerTensorTrain.unstack``)."""
         result_tuple = stacking.basic_ragged_unstack(self.data, 1)
@@ -4494,6 +4505,24 @@ def absorb_weights(x: 'TuckerTensorTrain', weights: T3Weights) -> 'TuckerTensorT
     ``TuckerTensorTrain`` represents the fully-weighted network. See
     :py:func:`t3toolbox.backend.t3_operations.t3_absorb_weights` for the side-conventions."""
     return TuckerTensorTrain(*ragged_operations.t3_absorb_weights(x.data, weights.data))
+
+
+def weighted_norm(x: 'TuckerTensorTrain', weights: T3Weights) -> NDArray:
+    """Weighted Hilbert-Schmidt norm ``||absorb_weights(x, weights)||`` (returns an array of shape
+    ``stack_shape``; a scalar when unstacked)."""
+    return ragged_linalg.t3_weighted_norm(x.data, weights.data)
+
+
+def weighted_inner(
+        x_A:       'TuckerTensorTrain',
+        weights_A: T3Weights,
+        x_B:       'TuckerTensorTrain',
+        weights_B: T3Weights,
+) -> NDArray:  # weighted HS inner product, shape=stack_shape
+    """Weighted Hilbert-Schmidt inner product of two weighted Tucker tensor trains
+    ``<absorb_weights(x_A, weights_A), absorb_weights(x_B, weights_B)>``. Operands share physical shape;
+    ranks/weights may differ."""
+    return ragged_linalg.t3_weighted_inner(x_A.data, weights_A.data, x_B.data, weights_B.data)
 
 
 if common.jax_available:
