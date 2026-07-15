@@ -132,6 +132,7 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a, w: t3.weighted_inner(a, w, a, w), self.x, Wj)
         self.assert_jit_jax(lambda w1, w2: w1.concatenate(w2), Wj, Wj)  # ranks add
         self.assert_jit_jax(lambda w1, w2: w1.kronecker(w2), Wj, Wj)    # ranks multiply
+        self.assert_jit_jax(lambda w: bvf.T3FrameWeights.from_t3weights(w), Wj)  # T3Weights -> tangent metric
         # ambient adjoints: residual c shape W (+ C); both sum modes; returns CP factors (a pytree)
         N = STRUCT[0]
         self.assert_jit_jax(

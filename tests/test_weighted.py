@@ -267,6 +267,20 @@ class TestT3FrameWeights(unittest.TestCase):
         with self.assertRaises(ValueError):
             bvf.T3FrameWeights((np.ones(2),), (np.ones(2),), (np.ones(1),), (np.ones(2), np.ones(1)))  # ragged lengths
 
+    def test_from_t3weights(self):
+        """from_t3weights: up=down=tucker, left=tt[:-1], right=tt[1:]; consistent with a minimal tangent."""
+        for struct in STRUCTURES[:2]:
+            with self.subTest(struct=struct):
+                x = t3.TuckerTensorTrain.randn(*struct)
+                Wt = t3.T3Weights.from_t3svd(x)
+                Wf = bvf.T3FrameWeights.from_t3weights(Wt)
+                for a, b in zip(Wf.up_weights, Wt.tucker_weights):     self.assertTrue(np.array_equal(a, b))
+                for a, b in zip(Wf.down_weights, Wt.tucker_weights):   self.assertTrue(np.array_equal(a, b))
+                for a, b in zip(Wf.left_weights, Wt.tt_weights[:-1]):  self.assertTrue(np.array_equal(a, b))
+                for a, b in zip(Wf.right_weights, Wt.tt_weights[1:]):  self.assertTrue(np.array_equal(a, b))
+                frame, _ = bvf.t3_orthogonal_representations(x)        # nD==nU for minimal x
+                self.assertTrue(Wf.is_consistent_with(t3m.COREWISE.randn(frame)))
+
     def test_concat_kron_reverse(self):
         """concatenate ranks add; kronecker ranks multiply; reverse swaps left<->right and reverses."""
         rng = np.random.default_rng(4)

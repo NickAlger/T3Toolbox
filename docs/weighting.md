@@ -65,6 +65,19 @@ stays orthonormal and untouched, so this is `O(ranks)` and does not disturb the 
 weights recover `tangent.corewise_norm()`. Like `T3Weights`, `T3FrameWeights` has `reciprocal` / `sqrt` /
 `concatenate` / `kronecker` / `reverse` / `stack` / `unstack` / `is_consistent_with`.
 
+**From a base-point weight.** `T3FrameWeights.from_t3weights(W)` builds a tangent metric from a
+`T3Weights` — `up = down =` the Tucker weights, and `left` / `right` are the TT-bond weights sliced by the
+`Hᵢ` bond convention (`left = tt[:-1]`, `right = tt[1:]`). So the **Grasedyck–Kramer metric from a point's
+singular values** is one line:
+
+```python
+import t3toolbox.frame_variations_format as bvf
+gk = bvf.T3FrameWeights.from_t3weights(t3.T3Weights.from_t3svd(x)).reciprocal()
+```
+
+It pairs with a minimal-rank tangent at `x` (where the complement rank `nD` equals the Tucker rank, as for
+`t3svd` output — see [`frame_variations.md`](frame_variations.md)).
+
 ## Batching
 
 Both weight classes **mirror the batching of their paired object** — `T3Weights` like `TuckerTensorTrain`,

@@ -31,6 +31,7 @@ __all__ = [
     'fv_weights_consistent',
     'fv_concatenate_weights',
     'fv_kronecker_weights',
+    'fv_weights_from_t3_weights',
 ]
 
 
@@ -278,3 +279,26 @@ def fv_kronecker_weights(weights_A, weights_B):  # each (up, down, left, right) 
         return (a[..., :, None] * b[..., None, :]).reshape(ss + (a.shape[-1] * b.shape[-1],))
 
     return tuple(tuple(kv(a, b) for a, b in zip(fA, fB)) for fA, fB in zip(weights_A, weights_B))
+
+
+def fv_weights_from_t3_weights(
+        t3_weights: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # up_weights    = tucker_weights
+    typ.Tuple[NDArray, ...],  # down_weights  = tucker_weights
+    typ.Tuple[NDArray, ...],  # left_weights  = tt_weights[:-1]
+    typ.Tuple[NDArray, ...],  # right_weights = tt_weights[1:]
+]:
+    """Build frame weights (a tangent metric) from base-point edge weights ``(tucker_weights, tt_weights)``.
+
+    ``up = down = tucker_weights``; ``left = tt_weights[:-1]``, ``right = tt_weights[1:]``. The TT slicing
+    encodes the convention that ``H_i``'s left bond is TT bond ``i`` and its right bond is bond ``i+1`` --
+    non-obvious, hence a named function. The result is a valid ``T3FrameWeights``; it pairs with a
+    **minimal-rank** tangent (where the down/complement rank ``nD`` equals the Tucker rank ``nU``, e.g. from
+    ``t3svd``). A non-minimal tangent has ``nD < nU`` and would mismatch the down family at use."""
+    tucker_weights, tt_weights = t3_weights
+    up = tuple(tucker_weights)
+    down = tuple(tucker_weights)
+    left = tuple(tt_weights[:-1])
+    right = tuple(tt_weights[1:])
+    return up, down, left, right

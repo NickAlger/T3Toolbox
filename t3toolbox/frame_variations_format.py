@@ -1403,6 +1403,17 @@ class T3FrameWeights:
         xx_tuples = stacking.apply_func_to_leaf_subtrees(xx, lambda x: x.data, None)
         return T3FrameWeights(*stacking.basic_ragged_stack(xx_tuples))
 
+    @classmethod
+    def from_t3weights(cls, t3_weights: 't3.T3Weights') -> 'T3FrameWeights':
+        """Build a tangent metric from base-point edge weights (e.g. ``T3Weights.from_t3svd(x)``):
+        ``up = down = tucker_weights``, ``left = tt_weights[:-1]``, ``right = tt_weights[1:]``. The TT
+        slicing follows the ``Hᵢ`` bond convention (``Hᵢ``'s left bond is TT bond ``i``, right bond
+        ``i+1``) -- simple but convention-dependent, hence a named method. The result pairs with a
+        **minimal-rank** tangent at ``x`` (where the complement rank ``nD`` equals the Tucker rank ``nU``,
+        as for ``t3svd`` output); the Grasedyck–Kramer metric is
+        ``T3FrameWeights.from_t3weights(T3Weights.from_t3svd(x)).reciprocal()``."""
+        return cls(*fv_operations.fv_weights_from_t3_weights(t3_weights.data))
+
 
 if jax_available:
     import jax
