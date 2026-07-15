@@ -5,8 +5,8 @@
 """Structural operations on ragged t3 data.
 
 Squash tails, segment/concatenate, stack/unstack, broadcast-to-common-stack, core-shape
-utilities. ``wt3_squash_tails`` is an unexported PARKED weighted-layer copy (pending the
-post-1.0 weighted redesign) -- leave it alone.
+utilities, and the weighted-layer core ops (``t3_absorb_weights`` / ``t3_{concatenate,kronecker}_weights``
+/ ``t3_weights_consistent``).
 """
 import numpy as np
 import typing as typ
@@ -265,47 +265,6 @@ def t3_core_shapes(
         tt_core_shapes.append(vs+(rL,n,rR))
 
     return tuple(tucker_core_shapes), tuple(tt_core_shapes)
-
-
-def wt3_squash_tails(
-        x, # weighted Tucker tensor train
-):
-    """Reduce the first and last dimensions of the first and last tt cores to 1.
-
-    PARKED weighted-layer copy (unexported; kept pending the post-1.0 weighted redesign).
-    Calling it emits a UserWarning.
-    """
-    import warnings
-    warnings.warn(
-        "wt3_squash_tails is PARKED weighted-layer code: untested and scheduled for redesign. "
-        "Results may be wrong.",
-        UserWarning, stacklevel=2,
-    )
-    xnp, _, _ = get_backend(False)
-
-    x0, w = x
-    tucker_cores, tt_cores = x0
-    tucker_weights, tt_weights = w
-
-    stack_shape = tucker_weights[0].shape[:-1]
-
-    first_G = xnp.einsum('...aib,...a->...aib', tt_cores[0], tt_weights[0])
-    first_G = first_G.sum(axis=-3, keepdims=True)
-    first_wtt = xnp.ones(stack_shape + (1,))
-
-    mid_G = tt_cores[1:-1]
-    mid_wtt = tt_weights[1:-1]
-
-    last_G = xnp.einsum('...aib,...b->...aib', tt_cores[-1], tt_weights[-1])
-    last_G = last_G.sum(axis=-1, keepdims=True)
-    last_wtt = xnp.ones(stack_shape + (1,))
-
-    tt_cores = (first_G,) + mid_G + (last_G,)
-    tt_weights = (first_wtt,) + mid_wtt + (last_wtt,)
-
-    x0 = (tucker_cores, tt_cores)
-    w = (tucker_weights, tt_weights)
-    return (x0, w)
 
 
 def t3_sum(

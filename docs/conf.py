@@ -49,9 +49,9 @@ autoapi_own_page_level = 'method'
 autoapi_add_toctree_entry = False  # placed explicitly by api_reference.rst
 
 # The rendered reference covers the whole validated surface (frontend AND backend; backend users
-# are first-class). Excluded: only the unvalidated surface -- OLD_* strays and the parked
-# weighted layer (weighted_tucker_tensor_train.py, backend/wt3_operations.py).
-autoapi_ignore = ['*OLD*', '*weighted_tucker_tensor_train*', '*wt3_*']
+# are first-class). Excluded: only the unvalidated surface -- OLD_* strays. (The old parked weighted
+# layer was retired in the weighted-tensor-network build; the new layer lives in the documented modules.)
+autoapi_ignore = ['*OLD*']
 
 # No 'imported-members': each object is documented once, in its defining module (kills the
 # duplicate-cross-reference-target noise from the curated __init__ re-exports and the backend's
