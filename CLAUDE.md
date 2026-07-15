@@ -370,9 +370,15 @@ doctests CI-enforced on both numpy generations.
   residual-weight matrix** in the objective `½‖ω⊙r‖²` (per-**order** for the derivative kinds — the
   Gauss-Newton conditioner; per-**mode** for probe — probe is the only kind with a per-mode axis, so
   apply/entries stay order-only; a bare vector = per-order, backward compatible; **not** the parked
-  weighted *layer* — this is a fitting-objective weight; `docs/fitting_and_optimization.md` §4.6); plus an optional
+  weighted *layer* — this is a fitting-objective weight; `docs/fitting_and_optimization.md` §4.6); plus an
+  optional **`regularizer=`** objective term `ρ(x)` — shipped: `IdentityRegularizer(λ)` = `½λ‖x‖²` (HS
+  ridge on `MANIFOLD`, weight decay on `COREWISE`), composes with every optimizer/kind/geometry/representation,
+  λ auto-scaled by `batch/n` in minibatch steps, extensible via the small `Regularizer` protocol
+  (`backend/regularization.py`; Grasedyck–Kramer prior is future work); `docs/fitting_and_optimization.md`
+  §4.9; plus an optional
   **`verbose=` per-iteration diagnostic display** for `newton_cg` (CG/line-search stats + a
-  per-`(mode,order)` relative-error table, train/validation) — backend-owned in
+  per-`(mode,order)` relative-error table, train/validation; a regularized run splits the objective as
+  `obj = misfit + reg`, the `misfit`/`regularization` fields also carried in `stats['history']`) — backend-owned in
   `backend/optimizer_display.py` (`make_newton_display` + a `callback=` hook), so a raw-`.data` user gets
   the identical display; plus `newton_cg` **warm-start reference overrides** — `g0norm_newton` /
   `g0norm_cg` pin the reference `‖g0‖` the Newton stop / CG forcing term are relative to (default = the

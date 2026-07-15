@@ -49,6 +49,10 @@ x_opt, stats = topt.mc_sgd(t3m.MANIFOLD, 'apply_derivatives', (ww, pp), data, x0
 
 # fit from probes with a PER-MODE weight (discount a noisier mode; probe-only, see §4.6):
 x_opt, stats = topt.newton_cg(t3m.MANIFOLD, 'probe', ww, data, x0, weight=ω_mode)   # ω_mode shape (d,)
+
+# add identity (Tikhonov) regularization ½λ‖x‖² to any fit (any optimizer/geometry/kind, see §4.9):
+x_opt, stats = topt.newton_cg(t3m.MANIFOLD, 'apply', ww, data, x0,
+                              regularizer=topt.IdentityRegularizer(1e-3))
 ```
 
 - **Optimizers:** `gradient_descent` (Cauchy + Armijo), `mc_sgd` (Manifold Cauchy SGD — tuning-free
@@ -72,6 +76,8 @@ x_opt, stats = topt.newton_cg(t3m.MANIFOLD, 'probe', ww, data, x0, weight=ω_mod
   **derivative** kinds take a per-order vector `(order+1,)`; **probe** additionally takes a per-**mode**
   weight — `probe` (plain) a 1-D `(d,)`, `probe_derivatives` the full `(d, order+1)` matrix. apply/entries
   contract every mode into a scalar, so they have no mode axis (mode weighting is probe-only).
+- **`regularizer`** (optional, see §4.9) adds a term `ρ(x)` to the objective; `IdentityRegularizer(λ)`
+  is `½λ‖x‖²`, and composes with every optimizer / geometry / kind.
 - **Derivative kinds** take keyword `order` (highest derivative order). `mc_sgd`/`adam` also take `draw`
   (§2.3).
 
@@ -283,6 +289,35 @@ battle-tested Wolfe line search — so the intended pattern is the **scipy bridg
 `scipy.optimize.minimize(method='L-BFGS-B')` directly). A *Riemannian* L-BFGS (with vector
 transport — the quasi-Newton method only this library could provide) is deferred.
 
+### 4.9 Regularization: an optional objective term
+
+Any fit takes an optional **regularizer** that adds a term `ρ(x)` to the objective:
+`½‖ω⊙(S(x) − y)‖² + ρ(x)`. Pass it as `regularizer=` to any optimizer — it composes with every
+geometry, sampling kind, and the ragged/uniform layers, because it acts on `x`, not on the
+measurements. The one shipped regularizer is **identity (Tikhonov)**, `ρ(x) = ½λ‖x‖²`:
+
+```python
+x_opt, stats = topt.newton_cg(t3m.MANIFOLD, 'apply', ww, data, x0,
+                              regularizer=topt.IdentityRegularizer(1e-3))   # λ = 1e-3
+```
+
+`ρ` is measured in the **geometry's own metric**: on `MANIFOLD` it is the Hilbert–Schmidt ridge
+`½λ‖x‖²_HS` (its Gauss–Newton term is exactly `+λI`, conditioning the poorly-determined tangent
+directions); on `COREWISE` it is weight decay `½λ Σ_c ‖core_c‖²`.
+
+- **Choosing λ.** There is no universal value — sweep it and pick by a **held-out validation** set
+  (the training misfit only ever prefers `λ = 0`, so it can't choose λ). Worked recipe:
+  [`examples/fit_hilbert_regularized.py`](https://github.com/NickAlger/T3Toolbox/blob/main/examples/fit_hilbert_regularized.py).
+- **Watching it.** `newton_cg(..., verbose=True)` prints the objective split `obj = misfit + reg` each
+  iteration; the same `misfit` / `regularization` fields ride along in `stats['history']`
+  (`regularization` is `None` when no regularizer is attached) — read them to see how hard λ is pulling.
+- **Stochastic optimizers.** `mc_sgd` / `adam` automatically scale `ρ` by `batch/n` each minibatch step,
+  so λ keeps the same meaning whatever batch size you use — you do **not** rescale λ by hand.
+- **Custom regularizers.** `IdentityRegularizer` is one implementation of the small `Regularizer` protocol
+  (`backend.regularization`); a custom term supplies its value / gradient / Gauss–Newton contribution and
+  drops into the same slot. (An inverse-unfolding-singular-value prior, after Grasedyck–Kramer, is future
+  work.)
+
 ---
 
 ## 5. Practical guidance from the field
@@ -309,6 +344,11 @@ repo, maintainer-local):
 - **When the data only constrains a structured subspace** (e.g. symmetric tensors), the fit fills
   the unconstrained null space with a large "halo" — **project/symmetrize the fitted tensor** to
   read off the meaningful part.
+- **On the fixed-rank manifold, the rank is already your main regularizer.** Before reaching for a
+  `regularizer` (§4.9), check whether an appropriate rank — or rank continuation — gives what you need;
+  in the maintainer's toy studies identity `λ` was a modest secondary denoiser (most useful on
+  ill-conditioned or noisy fits), not a substitute for choosing the rank. Worked example:
+  [`examples/fit_hilbert_regularized.py`](https://github.com/NickAlger/T3Toolbox/blob/main/examples/fit_hilbert_regularized.py).
 
 ---
 

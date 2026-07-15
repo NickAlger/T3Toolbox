@@ -1,9 +1,12 @@
 # Regularization framework — design note
 
-_Started 2026-07-14. Design-only; no code yet. Scope: ship **identity (Tikhonov) regularization** now,
-through a framework that composes with every optimizer / sampling kind / geometry / representation and
-leaves a clean seam for **Grasedyck–Kramer-style** (inverse-unfolding-singular-value) regularization
-later._
+_Started 2026-07-14; **SHIPPED & ARCHIVED 2026-07-14** (all slices S1–S5 done). Scope: ship **identity
+(Tikhonov) regularization**, through a framework that composes with every optimizer / sampling kind /
+geometry / representation and leaves a clean seam for **Grasedyck–Kramer-style**
+(inverse-unfolding-singular-value) regularization later. **The durable design decisions, the `v_X`/`value`
+derivations, the uniform mask-safety rule, and the deferred items are summarized in the rendered contributor
+guide** ([`docs/contributor/fitting_internals.md`](../../docs/contributor/fitting_internals.md) →
+"Regularization"); this note is the full build record._
 
 ## 0. Resume from a fresh context (read this first)
 
@@ -348,7 +351,13 @@ bug. **Interface consequence:** the regularizer is handed tangents + the geometr
    > Nick chose the **good-fit, modest-honest-denoising** framing (fit ~0.30 ≪ 0.66, gain ~1.2×) over the
    > dramatic-but-poor rescue. The sharper "improve a *good* fit" story needs the selective **Grasedyck–Kramer**
    > prior (§11), not identity reg — noted in the example's docstring.
-5. **S5 — docs.** `docs/fitting_and_optimization.md` new § (+ link the example); CLAUDE.md shipped-surface.
+5. **S5 — docs. ✅ DONE (2026-07-14, uncommitted).** New **§4.9 "Regularization: an optional objective
+   term"** in `docs/fitting_and_optimization.md` (usage-focused: API, `ρ` per geometry, choose-λ-by-validation
+   → the example, the `obj = misfit + reg` diagnostic, `batch/n` auto-scaling, the `Regularizer` seam) + a
+   `regularizer=` line in the §2.1 code block + a §2.1 kwarg bullet + a §5 practical-guidance bullet (**rank
+   is the primary regularizer** — check rank/continuation first; identity λ is a modest secondary denoiser).
+   CLAUDE.md shipped-surface updated (regularizer clause + the misfit/reg split in the verbose clause). Docs
+   build clean with `-W`. Tone: how-to-use, not advocacy/report (Nick's steer).
 
 ## 11. Grasedyck–Kramer seam (future, not now)
 

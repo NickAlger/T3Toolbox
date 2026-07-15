@@ -21,76 +21,20 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Regularization framework — S1 DONE (2026-07-14, uncommitted); design in `dev/regularization_design.md`.**
-  Adding regularization to the fitting objective `min ½‖ω⊙(S(X)−y)‖² + ρ(X)`. **S1 (ragged identity,
-  Newton-CG) is implemented + full suite green (627 tests):** new `backend/regularization.py`
-  (`Regularizer` + `IdentityRegularizer`, re-exported from `bopt` and `optimizers`); `GeometryOps` gains
-  `point_norm_sq` + `point_tangent` (manifold `v_X` via `tv_project_t3_onto_tangent_space`; corewise
-  cores-as-tangent); `regularizer` field on `Problem`/`LocalModel` folded into
-  `objective`/`gradient`/`gn_quadratic`/`hvp` + `Problem.objective`; `least_squares_problem(regularizer=)`;
-  frontend `newton_cg`/`gradient_descent` `regularizer=` (+ uniform→`NotImplementedError` guard, S3).
-  Verified: FD total gradient (1e-8/1e-11), manifold ridge shrinks ‖x‖, corewise weight-decay, jit-clean.
-  **S1b DONE (uncommitted):** frontend `GaussNewtonModel` reg parity — `regularizer=` on all six model
-  factories (uniform x → `NotImplementedError`), folded into `objective_value`/`gradient`/`gn_quadratic`/
-  `gn_hessian`/`evaluate` (delegates to the backend `Regularizer`); jax pytree reg registration fixed
-  (carries `regularizer` as aux, else dropped on jit round-trip). Frontend == backend LocalModel verified;
-  `test_fitting.py::test_regularizer`; full suite green (628).
-  **S2 DONE (uncommitted):** `mc_sgd`/`adam` `regularizer=` with the **(batch/n) scaling** —
-  `_minibatch_step_problem` scales the reg by `min(batch,n)/n` for the per-step kernel (generic
-  `_ScaledRegularizer` wrapper), full-batch stop keeps the full reg; verified scale=batch/n, mc_sgd+adam
-  shrink, jit-clean.
-  **S3 DONE (uncommitted):** uniform twin (optimizer path) — `point_norm_sq`/`point_tangent` on the uniform
-  `GeometryOps` (manifold: `utv_project_ut3_onto_tangent_space` + orthogonalize→project→inner, mask-aware,
-  no hand-mask logic; corewise: cores + masked `inner`); `uniform_least_squares_problem(regularizer=)`;
-  frontend uniform guard dropped. **Verified uniform reg == ragged reg exactly (~1e-11)** + garbage-robust
-  (1e6 padding, §7). Key finding: the uniform layer masks by *multiply*, so NaN padding isn't invariant
-  (pre-existing) — use **large finite** garbage. **`point_tangent` refactored (2026-07-14, per Nick):**
-  from `tv_project_t3_onto_tangent_space(frame, base)` (correct but roundabout — projects the base point
-  onto its *own* tangent, contractions collapse to `P_last`) to the **direct construction** (last TT
-  variation `= P_last`, else zero; already gauged — no projection). Verified element-wise-identical to the
-  projection (ragged + uniform); all reg tests green.
-  **S3b DONE (uncommitted):** uniform `UniformGaussNewtonModel` reg parity (roll-your-own) — `regularizer=`
-  on all six model factories (`_reject_uniform_regularizer` guard removed); folded into
-  `objective_value`/`gradient`/`gn_quadratic`/`gn_hessian`/`evaluate` via `_ubgeom` (backend uniform
-  `GeometryOps` at rank) + `_reg_tangent`; pytree carries reg. `test_fitting.py::test_uniform_regularizer`
-  (identities + uniform==ragged objective, both geometries). Full suite green (633).
-  **S4 DONE (uncommitted):** `examples/fit_hilbert_regularized.py` (**Option A** — chosen after regime
-  exploration; rationale block in `regularization_design.md` §10 S4). Fit a Hilbert tensor 16³ (spectral
-  decay) at rank (3,3,3) from 400 noisy applies + 400 validation; unreg overfits slightly (recovery ~0.356,
-  above the t3svd floor 0.0077), reg traces the U-curve (‖X‖ 4.12→3.13), λ from held-out validation → mean
-  0.306 (~1.16×, val picks optimum 3/6, near-optimal rest). Showcases the `obj = misfit + reg` split. Pointer
-  in `docs/fitting_and_optimization.md` §6. (Superseded an ill-posed exact-rank-2 draft — dramatic 2.9× but
-  poor final fit ~0.6; Nick chose the good-fit/modest-gain framing.)
-  **Misfit/reg display split DONE + COMMITTED (`d9700056`, unpushed):** `LocalModel.misfit`/`.regularization`
-  props; `NewtonInfo` carries both → `stats['history']`/`['diagnostics']`; `verbose=` shows `obj = misfit +
-  reg` (Format A); fixed a latent `(unwt …)` mislabel bug (compared vs total, now vs misfit). Tests + doctest.
-  **Next: S5** (docs — a new § in `fitting_and_optimization.md` + CLAUDE.md shipped-surface). Also noted:
-  masked-last-core `point_norm_sq` optimization.
-  Design note + full slice plan: **`dev/regularization_design.md`**.
-  Framework: a `Regularizer` is an objective term folded into the local GN model
-  (`objective`/`gradient`/`gn_quadratic`/`hvp`) + `Problem.objective`, so it composes with every
-  optimizer/kind/geometry/representation. Decisions locked: **D1** identity in the geometry's own tangent
-  metric (`H_R = λ·project`; manifold = HS-ridge, corewise = weight-decay + makes the gauge-singular
-  corewise Newton `H` PD); **D2** true objective regularization (adds `g_R` — forced by compose-with-all-
-  optimizers); **D3** `X_ref=0`, `λ` scalar, `Regularizer` a protocol so Grasedyck–Kramer (inverse-
-  unfolding-σ weighting) drops in later. Nick's key concern captured: **uniform garbage-safety** — the
-  `ρ` reduction must sum only masked content; route everything through mask-aware primitives
-  (`inner`/`project`/masked norm), never raw supercores; test with garbage/NaN-padding robustness + exact
-  output masks (not just dense-vs-ragged). **Interface subtleties resolved + verified (2026-07-14):**
-  (a) the attachment point is a single gauged tangent term `v_X` = last TT variation `= P_last` (already
-  gauged; `dense(v_X)=X`; `‖v_X‖_coord=‖X‖_HS`; the naive sum-of-frame-core-norms is WRONG, 42291.8 vs
-  42280.8); `H_R=λI` is the EXACT Riemannian Hessian (grad fully tangent → no curvature term). (b) the
-  manifold retraction (`t3svd`) always emits **left-orthogonal** cores, so the line-search norm
-  `value(x)=‖x.tt_cores[-1]‖²` is one core norm — no re-orthogonalization, no waste on rejected candidates.
-  Noted follow-up (separate from reg, §11a): `already_left_orthogonal=True` after retract to skip the next
-  step's re-orthogonalization. **Backend-user equality (§5a):** reg is fully backend-homed (`Regularizer` +
-  `IdentityRegularizer` in `backend/regularization.py`; `point_norm_sq`/`point_tangent`/`value` on
-  `GeometryOps`; `regularizer=` on `bopt.least_squares_problem`; folding in `LocalModel`), so a raw-`.data`
-  user regularizes with the same one kwarg. The `value` left-orthogonal precondition is check-free in the
-  backend the house way — and the checker tools already exist (`t3_orthogonality_residual` /
-  `t3_left_orthogonalize`, public in `backend/t3_orthogonalization.__all__`), so no inequality and no new
-  checker. Queued: an `examples/` demo (S4). **Next: implement slice S1 (ragged identity, Newton-CG).**
-  Nothing committed yet (design note only).
+- **Regularization framework — COMPLETE & SHIPPED (S1–S5, 2026-07-14).** Identity (Tikhonov)
+  regularization on the fitting objective `min ½‖ω⊙(S(X)−y)‖² + ρ(X)`, composing with every optimizer /
+  kind / geometry / representation: `regularizer=IdentityRegularizer(λ)` on any optimizer, ragged + uniform,
+  backend-homed (`backend/regularization.py`). Plus the **`obj = misfit + reg` display split** (`verbose=` +
+  `stats['history']`/`['diagnostics']`; also fixed a latent `(unwt …)` mislabel bug). Commits: S1–S4 + the
+  split **pushed** (`d9700056`, `54d752d2`); **S5 docs + this cleanup uncommitted → next: commit.**
+  - **Durable knowledge now in the rendered docs** (design note archived): user usage →
+    `fitting_and_optimization.md` §4.9 (+ the §5 "rank is the primary regularizer" note); contributor design
+    decisions + the `v_X`/`value` derivations + uniform mask-safety + stochastic scaling + the deferred items
+    (Grasedyck–Kramer seam, base-point-as-tangent public op, `already_left_orthogonal` amortization) →
+    `docs/contributor/fitting_internals.md` ("Regularization" + "What's deferred"). Full build record:
+    `dev/archive/regularization_design.md`.
+  - Worked example: `examples/fit_hilbert_regularized.py` (Option A — Hilbert denoising, fit ~0.30, λ by
+    validation). Small open optimization: masked-last-core `point_norm_sq` (uniform, cheaper + ragged-consistent).
 
 - **`use_jit=True` auto-convert (silent-drop bug) — DONE + PUSHED to `main` (2026-07-14, `3ce68fea`).**
   Fixes: `use_jit=True` with numpy inputs used to silently run eager (the flag looked accepted but did
@@ -164,7 +108,8 @@ branch can be deleted (optional).
   (frontend `T3Tangent`/`UT3Tangent` factory + backend helper) with the direct construction (last TT
   variation `= P_last`, else zero; already gauged). Reg's `_manifold_point_tangent` /
   `uniform_manifold_ops`'s closure is the current internal impl to promote/share.
-  (`dev/regularization_design.md` §11b.)
+  (Now also in `docs/contributor/fitting_internals.md` "What's deferred"; full context:
+  `dev/archive/regularization_design.md` §11b.)
 - **Default-path doctest pass** for undocumented public functions (Nick wants this).
 - **`core_shapes` (property, strips stack) vs `get_core_shapes` (static, includes stack)**
   inconsistency — verified live 2026-07-12; a code decision for Nick.
