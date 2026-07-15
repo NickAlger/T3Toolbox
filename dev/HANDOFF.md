@@ -21,8 +21,18 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Uniform weighting layer — S0/S1/S2 DONE (2026-07-15, committed, NOT pushed). NEXT: S3. Plan:
-  `dev/uniform_weighting_design.md`** (§8 = the settled decisions; §6 = the slices).
+- **Uniform weighting layer — S0–S4 DONE (2026-07-15, committed, NOT pushed). NEXT: S5 (docs sweep) —
+  then the thread closes. Plan: `dev/uniform_weighting_design.md`** (§8 = the settled decisions; §6 = the
+  slices). The uniform mirror is **functionally complete**: `UT3Weights` + `UT3FrameWeights`, both with
+  absorb / weighted_norm / weighted_inner / reciprocal / sqrt / concatenate / kronecker, plus
+  `from_ut3svd` / `from_ut3weights` and the ragged↔uniform conversions, backend + frontend + pytrees.
+  (S4 "frontend wiring" landed inside S1/S3 rather than as its own slice.)
+  - **S3 (done) — the tangent metric.** `UT3FrameWeights` is **frame-like** (stack `C`), and the S0 model
+    pays off exactly as designed: the `C`→`K+C` lift is **free** via the right-aligned `'...'`, which works
+    only because `C` is innermost. Verified bit-identical to a `K`-tiled metric (0.0), and all-ones recovers
+    `corewise_norm`. **Placement note (forced, not preference):** `utv_weighted_norm`/`_inner` live in
+    `utv_operations`, not beside `ufv_absorb_weights` as ragged does — they need `utv_corewise_inner`, and
+    `utv_operations` already imports `ufv_operations`, so the ragged placement would be a circular import.
   - **S1/S2 (done) — the uniform base-point layer ships**: `UT3Weights` (weight supercores + a `UT3Masks`
     holder; no `shape` field) + `absorb_weights` / `weighted_norm` / `weighted_inner` / `reciprocal` /
     `sqrt` / `concatenate` / `kronecker` / `from_ut3svd` + the ragged↔uniform conversions, backend
@@ -69,8 +79,13 @@ branch can be deleted (optional).
     masking/weighting **conceptual wall** (weighting never calls masking; break shared code into a neutral
     subfunction) — nearly free, since `absorb` is **garbage-transparent** (pointwise, not a reduction: the
     pre-review plan's "absorb must mask on entry" was wrong), and `UT3Weights` carries no `shape` field.
-  - **S1 next** — `UT3Weights` + `ut3_absorb_weights` + `ut3_weighted_norm`/`_inner` + conversions +
-    mask-guarded `reciprocal`/`sqrt`. The uniform mirror proper:
+  - **S5 next (the last slice)** — a docs sweep. `docs/weighting.md` already carries the uniform mirror;
+    what remains is promoting the durable rationale into the contributor guide and archiving the design
+    note (the reg-thread pattern), including: **mutation testing caught a hole in my own tests twice**
+    (S1's tucker-only mask perturbation; S3's mismatch test that widened supercores and so was rejected on
+    SHAPE, never reaching the mask check) — the lesson is that a mask check must be isolated, not merely
+    exercised, and it belongs in `docs/contributor/testing_strategy.md` beside the phantom-rank story. The
+    original mirror scope, for reference:
   `UT3Weights` / `UT3FrameWeights` (weight supercores + boolean masks — reuse `UT3Masks` /
   `UT3VariationsMasks`; a weight's edges are the object's edges) + masked `absorb` / `weighted_norm`/`inner`
   / `concatenate` / `kronecker` / conversions / `from_t3svd` / `from_t3weights`. **Lever:** the ragged layer
