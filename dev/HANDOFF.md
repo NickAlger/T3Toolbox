@@ -21,6 +21,18 @@ branch can be deleted (optional).
 
 ## Active threads
 
+- **Uniform weighting layer — DESIGN AGREED, no code yet (2026-07-15). START HERE next session. Plan:
+  `dev/uniform_weighting_design.md`.** The uniform mirror of the shipped ragged weighted layer:
+  `UT3Weights` / `UT3FrameWeights` (weight supercores + boolean masks — reuse `UT3Masks` /
+  `UT3VariationsMasks`; a weight's edges are the object's edges) + masked `absorb` / `weighted_norm`/`inner`
+  / `concatenate` / `kronecker` / conversions / `from_t3svd` / `from_t3weights`. **Lever:** the ragged layer
+  is the equivalence oracle (`to_ragged(op_uniform(to_uniform(x))) == op_ragged(x)`). **Hard part:** the
+  masks — mask on entry (garbage don't-care), and `concat`/`kron` go **gappy** (masks concatenate/Kronecker
+  per `docs/uniform_masks_vs_ranks.md`); `absorb`/`norm`/`inner` keep the mask. Slices S1–S5 + a watch-list
+  (gappy masks, mask-on-entry, host-numpy masks, variable-rank-per-stack tests) in the plan. Ragged layer
+  fully shipped (`T3Weights`/`T3FrameWeights` + all ops + `from_t3svd`/`from_t3weights`, backend+frontend;
+  `docs/weighting.md`, `docs/frame_variations.md`).
+
 - **Weighted tensor-network layer — SHIPPED (S1–S5, 2026-07-15). Plan/record: `dev/weighted_layer_design.md`;
   user doc: `docs/weighting.md`.** Diagonal edge-weights, lightly (no heavy wrapper). **`T3Weights`**
   (tucker[d], tt[d+1] = `t3svd` sval format) weights a **`TuckerTensorTrain` as a tensor** — `absorb_weights`
