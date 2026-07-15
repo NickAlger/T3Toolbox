@@ -56,12 +56,17 @@ one per variation core — in four families matching the tangent's rank types:
 | `right` | `H`'s right bond (`rR`) | `d` |
 
 ```python
-n = tangent.weighted_norm(W)             # absorb W into the variations V,H; take the coordinate norm
-g = tangent.weighted_inner(other, W)     # one metric W; the same-frame precondition is checked
+n  = tangent.weighted_norm(W)            # absorb W into the variations V,H; take the coordinate norm
+g  = tangent.weighted_inner(other, W)    # one metric W; the same-frame precondition is checked
+vw = tangent.absorb_weights(W)           # the weighted tangent itself (vw.corewise_norm() == n)
 ```
 
 The weights are absorbed into the **variation** cores (`down`→`V`, `up`/`left`/`right`→`H`); the frame
-stays orthonormal and untouched, so this is `O(ranks)` and does not disturb the tangent space. All-ones
+stays orthonormal and untouched, so this is `O(ranks)` and does not disturb the tangent space.
+`tangent.absorb_weights(W)` returns the weighted tangent at the same frame — but note it is **not gauged**
+(scaling the coordinates breaks the gauge, though not the frame's orthogonality), so use `corewise` ops on
+it, or re-gauge with `MANIFOLD.project_oblique` for Hilbert–Schmidt semantics. (The standalone
+`frame_variations_format.absorb_weights(variations, W)` returns the weighted `T3Variations`.) All-ones
 weights recover `tangent.corewise_norm()`. Like `T3Weights`, `T3FrameWeights` has `reciprocal` / `sqrt` /
 `concatenate` / `kronecker` / `reverse` / `stack` / `unstack` / `is_consistent_with`.
 

@@ -395,13 +395,38 @@ class T3Tangent:
         """
         return cw.corewise_stack_norm(self.variations.data, len(self.stack_shape))
 
-    def absorb_weights(self, weights: 'bvf.T3FrameWeights') -> 'bvf.T3Variations':
+    def absorb_weights(self, weights: 'bvf.T3FrameWeights') -> 'T3Tangent':
         """Absorb the metric ``weights`` into this tangent's **variation** cores (``down``->V,
-        ``up``/``left``/``right``->H), returning the weighted :py:class:`~t3toolbox.frame_variations_format.T3Variations`
-        (the frame is unchanged). Its :py:meth:`corewise_norm` equals :py:meth:`weighted_norm`. Thin wrapper
-        over the standalone :py:func:`t3toolbox.frame_variations_format.absorb_weights` /
-        backend :py:func:`~t3toolbox.backend.fv_operations.fv_absorb_weights`."""
-        return bvf.absorb_weights(self.variations, weights)
+        ``up``/``left``/``right``->H), returning the weighted tangent **at the same frame**. Its
+        :py:meth:`corewise_norm` equals :py:meth:`weighted_norm`.
+
+        **Warning -- the result is not gauged.** Scaling the variation coordinates breaks the gauge
+        conditions (the frame's orthogonality is untouched), so the returned tangent is a *coordinate*
+        reweighting: :py:meth:`corewise_norm` / :py:meth:`corewise_inner` are correct on it, but the
+        Hilbert-Schmidt :py:meth:`ManifoldGeometry.norm` / :py:meth:`~ManifoldGeometry.inner` need a gauged
+        tangent. Re-gauge with :py:meth:`ManifoldGeometry.project_oblique` (which preserves the represented
+        vector) or :py:meth:`ManifoldGeometry.project` if you need HS semantics.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.frame_variations_format as bvf
+        >>> import t3toolbox.manifold as t3m
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 2, 2), (1, 2, 2, 1))
+        >>> frame, _ = bvf.t3_orthogonal_representations(x)
+        >>> v = t3m.MANIFOLD.project_oblique(t3m.COREWISE.randn(frame))   # a gauged tangent at the frame
+        >>> print(v.is_gauged())
+        True
+        >>> W = bvf.T3FrameWeights.from_t3weights(t3.T3Weights.from_t3svd(x))   # a metric (the point's sigmas)
+        >>> vw = v.absorb_weights(W)                                      # weighted tangent, same frame
+        >>> print(vw.is_gauged())                                        # weighting broke the gauge...
+        False
+        >>> print(t3m.MANIFOLD.project_oblique(vw).is_gauged())          # ...project_oblique re-gauges it
+        True
+        """
+        return T3Tangent(self.frame, bvf.absorb_weights(self.variations, weights))
 
     def weighted_norm(self, weights: 'bvf.T3FrameWeights'):
         """The **weighted** (Grasedyck-Kramer) coordinate norm: absorb the metric ``weights`` into the

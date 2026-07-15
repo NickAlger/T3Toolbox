@@ -281,17 +281,19 @@ class TestT3FrameWeights(unittest.TestCase):
                                     np.asarray(v.weighted_inner(w, W))))
 
     def test_absorb_weights_frontend(self):
-        """standalone absorb_weights == T3Tangent.absorb_weights (both -> T3Variations); its corewise_norm
-        equals weighted_norm."""
+        """standalone absorb_weights -> T3Variations; T3Tangent.absorb_weights -> T3Tangent (same frame,
+        weighted variations); corewise_norm of the result equals weighted_norm; the result is not gauged."""
         rng = np.random.default_rng(8)
         v = make_tangent(STRUCTURES[1], (), (2,))
         W = rand_frame_weights(v, rng)
         wv_s = bvf.absorb_weights(v.variations, W)
-        wv_m = v.absorb_weights(W)
+        vw = v.absorb_weights(W)
         self.assertIsInstance(wv_s, bvf.T3Variations)
-        self.assertTrue(all(np.array_equal(a, b) for fa, fb in zip(wv_s.data, wv_m.data) for a, b in zip(fa, fb)))
-        wt = t3m.T3Tangent(v.frame, wv_m)                          # weighted variations at the same frame
-        self.assertTrue(np.allclose(np.asarray(wt.corewise_norm()), np.asarray(v.weighted_norm(W))))
+        self.assertIsInstance(vw, t3m.T3Tangent)
+        self.assertIs(vw.frame, v.frame)                          # same frame (untouched)
+        self.assertTrue(all(np.array_equal(a, b)                  # method's variations == standalone
+                            for fa, fb in zip(wv_s.data, vw.variations.data) for a, b in zip(fa, fb)))
+        self.assertTrue(np.allclose(np.asarray(vw.corewise_norm()), np.asarray(v.weighted_norm(W))))
 
     def test_from_t3weights(self):
         """from_t3weights: up=down=tucker, left=tt[:-1], right=tt[1:]; consistent with a minimal tangent."""
