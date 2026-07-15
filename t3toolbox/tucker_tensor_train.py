@@ -40,9 +40,9 @@ if common.jax_available:
 __all__ = [
     'TuckerTensorTrain',
     'T3Weights',
-    'absorb_weights',
-    'weighted_norm',
-    'weighted_inner',
+    't3_absorb_weights',
+    't3_weighted_norm',
+    't3_weighted_inner',
 ]
 
 
@@ -4409,7 +4409,7 @@ class T3Weights:
     (2, 2, 2) (1, 2, 2, 1)
     >>> print(W.is_consistent_with(x))
     True
-    >>> xw = t3.absorb_weights(x, W)            # shape-preserving; ranks unchanged
+    >>> xw = t3.t3_absorb_weights(x, W)            # shape-preserving; ranks unchanged
     >>> print(xw.ranks == x.ranks)
     True
     """
@@ -4500,20 +4500,20 @@ class T3Weights:
         return cls(tuple(tucker_svals), tuple(tt_svals))
 
 
-def absorb_weights(x: 'TuckerTensorTrain', weights: T3Weights) -> 'TuckerTensorTrain':
+def t3_absorb_weights(x: 'TuckerTensorTrain', weights: T3Weights) -> 'TuckerTensorTrain':
     """Contract diagonal edge weights into ``x``'s cores (shape-preserving): the returned
     ``TuckerTensorTrain`` represents the fully-weighted network. See
     :py:func:`t3toolbox.backend.t3_operations.t3_absorb_weights` for the side-conventions."""
     return TuckerTensorTrain(*ragged_operations.t3_absorb_weights(x.data, weights.data))
 
 
-def weighted_norm(x: 'TuckerTensorTrain', weights: T3Weights) -> NDArray:
+def t3_weighted_norm(x: 'TuckerTensorTrain', weights: T3Weights) -> NDArray:
     """Weighted Hilbert-Schmidt norm ``||absorb_weights(x, weights)||`` (returns an array of shape
     ``stack_shape``; a scalar when unstacked)."""
     return ragged_linalg.t3_weighted_norm(x.data, weights.data)
 
 
-def weighted_inner(
+def t3_weighted_inner(
         x_A:       'TuckerTensorTrain',
         weights_A: T3Weights,
         x_B:       'TuckerTensorTrain',

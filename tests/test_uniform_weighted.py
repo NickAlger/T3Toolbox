@@ -137,8 +137,8 @@ class TestUT3AbsorbAndNorm(unittest.TestCase):
                     W = rand_ragged_weights(x, rng)
                     ux, uW = to_uniform_pair(x, W, pad)
 
-                    got = ut3.absorb_weights(ux, uW).to_t3()
-                    ref = t3.absorb_weights(x, W)
+                    got = ut3.ut3_absorb_weights(ux, uW).to_t3()
+                    ref = t3.t3_absorb_weights(x, W)
                     for fam_got, fam_ref in zip(got.data, ref.data):
                         for a, b in zip(fam_got, fam_ref):
                             self.assertTrue(np.allclose(a, b, atol=1e-12))
@@ -148,7 +148,7 @@ class TestUT3AbsorbAndNorm(unittest.TestCase):
         rng = np.random.default_rng(4)
         x = t3.TuckerTensorTrain.randn(*STRUCTURES[0])
         ux, uW = to_uniform_pair(x, rand_ragged_weights(x, rng), (5, 4))
-        xw = ut3.absorb_weights(ux, uW)
+        xw = ut3.ut3_absorb_weights(ux, uW)
         self.assertEqual(xw.masks, ux.masks)
         self.assertEqual(xw.shape, ux.shape)
         self.assertEqual(xw.tucker_supercore.shape, ux.tucker_supercore.shape)
@@ -165,12 +165,12 @@ class TestUT3AbsorbAndNorm(unittest.TestCase):
                     uxA, uWA = to_uniform_pair(xA, WA, pad)
                     uxB, uWB = to_uniform_pair(xB, WB, pad)
 
-                    ref_n = t3.weighted_norm(xA, WA)
-                    got_n = ut3.weighted_norm(uxA, uWA)
+                    ref_n = t3.t3_weighted_norm(xA, WA)
+                    got_n = ut3.ut3_weighted_norm(uxA, uWA)
                     self.assertLess(abs(got_n - ref_n), 1e-9 * (abs(ref_n) + 1))
 
-                    ref_i = t3.weighted_inner(xA, WA, xB, WB)
-                    got_i = ut3.weighted_inner(uxA, uWA, uxB, uWB)
+                    ref_i = t3.t3_weighted_inner(xA, WA, xB, WB)
+                    got_i = ut3.ut3_weighted_inner(uxA, uWA, uxB, uWB)
                     self.assertLess(abs(got_i - ref_i), 1e-9 * (abs(ref_i) + 1))
 
     def test_garbage_padding_is_inert(self):
@@ -184,17 +184,17 @@ class TestUT3AbsorbAndNorm(unittest.TestCase):
                 ux, uW = to_uniform_pair(x, W, (5, 4))
                 dirty = corrupt(uW)
 
-                clean_cores = ut3.absorb_weights(ux, uW).to_t3().data
-                dirty_cores = ut3.absorb_weights(ux, dirty).to_t3().data
+                clean_cores = ut3.ut3_absorb_weights(ux, uW).to_t3().data
+                dirty_cores = ut3.ut3_absorb_weights(ux, dirty).to_t3().data
                 for fam_c, fam_d in zip(clean_cores, dirty_cores):
                     for a, b in zip(fam_c, fam_d):
                         self.assertTrue(np.array_equal(a, b))   # real parts: bit-identical
 
-                self.assertLess(abs(ut3.weighted_norm(ux, dirty) - ut3.weighted_norm(ux, uW)),
-                                1e-9 * (ut3.weighted_norm(ux, uW) + 1))
-                self.assertLess(abs(ut3.weighted_inner(ux, dirty, ux, dirty)
-                                    - ut3.weighted_inner(ux, uW, ux, uW)),
-                                1e-8 * (abs(ut3.weighted_inner(ux, uW, ux, uW)) + 1))
+                self.assertLess(abs(ut3.ut3_weighted_norm(ux, dirty) - ut3.ut3_weighted_norm(ux, uW)),
+                                1e-9 * (ut3.ut3_weighted_norm(ux, uW) + 1))
+                self.assertLess(abs(ut3.ut3_weighted_inner(ux, dirty, ux, dirty)
+                                    - ut3.ut3_weighted_inner(ux, uW, ux, uW)),
+                                1e-8 * (abs(ut3.ut3_weighted_inner(ux, uW, ux, uW)) + 1))
 
 
 class TestUT3WeightsElementwise(unittest.TestCase):
@@ -234,11 +234,11 @@ class TestUT3WeightsElementwise(unittest.TestCase):
             naive = ut3.UT3Weights(1.0 / uW.tucker_weight_supercore,
                                    1.0 / uW.tt_weight_supercore, uW.masks)
         self.assertTrue(np.isinf(naive.tucker_weight_supercore).any())
-        self.assertTrue(np.isnan(ut3.absorb_weights(ux, naive).to_dense()).any())   # 0 * inf = nan
+        self.assertTrue(np.isnan(ut3.ut3_absorb_weights(ux, naive).to_dense()).any())   # 0 * inf = nan
 
         guarded = uW.reciprocal()
         self.assertTrue(np.isfinite(guarded.tucker_weight_supercore).all())
-        self.assertTrue(np.isfinite(ut3.absorb_weights(ux, guarded).to_dense()).all())
+        self.assertTrue(np.isfinite(ut3.ut3_absorb_weights(ux, guarded).to_dense()).all())
 
     def test_reciprocal_does_not_guard_real_zeros(self):
         """Deliberate asymmetry: a genuinely zero weight in a REAL slot still gives inf, exactly as in the
@@ -280,9 +280,9 @@ class TestUT3WeightsPreconditions(unittest.TestCase):
                 self.assertEqual(bad.tucker_weight_supercore.shape, uW.tucker_weight_supercore.shape)
                 self.assertEqual(bad.tt_weight_supercore.shape, uW.tt_weight_supercore.shape)
                 self.assertFalse(bad.is_consistent_with(ux))
-                for name, op in (('absorb_weights', lambda: ut3.absorb_weights(ux, bad)),
-                                 ('weighted_norm', lambda: ut3.weighted_norm(ux, bad)),
-                                 ('weighted_inner', lambda: ut3.weighted_inner(ux, bad, ux, uW))):
+                for name, op in (('absorb_weights', lambda: ut3.ut3_absorb_weights(ux, bad)),
+                                 ('weighted_norm', lambda: ut3.ut3_weighted_norm(ux, bad)),
+                                 ('weighted_inner', lambda: ut3.ut3_weighted_inner(ux, bad, ux, uW))):
                     with self.subTest(op=name), self.assertRaises(ValueError):
                         op()
 
@@ -294,7 +294,7 @@ class TestUT3WeightsPreconditions(unittest.TestCase):
         mismatched = ut3.UT3Weights.from_t3weights(rand_ragged_weights(x, rng), n=6, r=4)
         self.assertFalse(mismatched.is_consistent_with(ux))
         with self.assertRaises(ValueError):
-            ut3.absorb_weights(ux, mismatched)
+            ut3.ut3_absorb_weights(ux, mismatched)
 
     def test_validate_raises(self):
         """Structural inconsistency raises at construction (mask/supercore shape disagreement)."""
@@ -440,11 +440,11 @@ class TestUT3WeightsFromSvd(unittest.TestCase):
 
         gk = ut3.UT3Weights.from_ut3svd(ux).reciprocal()
         self.assertTrue(np.isfinite(gk.tucker_weight_supercore).all())
-        got = ut3.weighted_norm(xs, gk)
+        got = ut3.ut3_weighted_norm(xs, gk)
         self.assertTrue(np.isfinite(got))
 
         xr = xs.to_t3()
-        ref = t3.weighted_norm(xr, t3.T3Weights.from_t3svd(x).reciprocal())
+        ref = t3.t3_weighted_norm(xr, t3.T3Weights.from_t3svd(x).reciprocal())
         self.assertLess(abs(got - ref), 1e-8 * (abs(ref) + 1))
 
 
@@ -461,7 +461,7 @@ class TestUT3WeightsDispatch(unittest.TestCase):
         rng = np.random.default_rng(13)
         x = t3.TuckerTensorTrain.randn(*STRUCTURES[0])
         ux, uW = to_uniform_pair(x, rand_ragged_weights(x, rng), (5, 4))
-        ref = ut3.weighted_norm(ux, uW)
+        ref = ut3.ut3_weighted_norm(ux, uW)
 
         shape, masks = ux.shape, ux.masks.data
         w_masks = uW.masks.data
@@ -487,7 +487,7 @@ class TestUT3WeightsDispatch(unittest.TestCase):
         ux, uW = to_uniform_pair(x, rand_ragged_weights(x, rng), (5, 4))
         ux, uW = ux.to_jax(), ut3.UT3Weights(*[common.to_jax(s) for s in uW.supercores], uW.masks)
 
-        f = jax.jit(lambda a, w: ut3.weighted_norm(a, w))
+        f = jax.jit(lambda a, w: ut3.ut3_weighted_norm(a, w))
         first = np.asarray(f(ux, uW))
         rebuilt = ut3.UT3Weights(uW.tucker_weight_supercore, uW.tt_weight_supercore,
                                  ut3.UT3Masks(*[m.copy() for m in uW.masks.data]))

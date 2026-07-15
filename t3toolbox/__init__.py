@@ -11,10 +11,26 @@ fitting models, and the optimizers. **Backend users import submodules explicitly
 ``from t3toolbox.backend import probing``) -- the backend is namespaced by module and
 deliberately not re-exported here. Naming conventions: ``docs/naming_conventions.md``.
 """
-from t3toolbox.tucker_tensor_train import TuckerTensorTrain
-from t3toolbox.uniform_tucker_tensor_train import UniformTuckerTensorTrain
-from t3toolbox.frame_variations_format import T3Frame, T3Variations, t3_orthogonal_representations
-from t3toolbox.uniform_frame_variations_format import UT3Frame, UT3Variations, ut3_orthogonal_representations
+from t3toolbox.tucker_tensor_train import (
+    TuckerTensorTrain,
+    T3Weights,
+    t3_absorb_weights,
+    t3_weighted_norm,
+    t3_weighted_inner,
+)
+from t3toolbox.uniform_tucker_tensor_train import (
+    UniformTuckerTensorTrain,
+    UT3Weights,
+    ut3_absorb_weights,
+    ut3_weighted_norm,
+    ut3_weighted_inner,
+)
+from t3toolbox.frame_variations_format import (
+    T3Frame, T3Variations, t3_orthogonal_representations, T3FrameWeights, fv_absorb_weights,
+)
+from t3toolbox.uniform_frame_variations_format import (
+    UT3Frame, UT3Variations, ut3_orthogonal_representations, UT3FrameWeights, ufv_absorb_weights,
+)
 from t3toolbox.manifold import T3Tangent, MANIFOLD, COREWISE
 from t3toolbox.uniform_manifold import UT3Tangent, UNIFORM_MANIFOLD, UNIFORM_COREWISE
 from t3toolbox.fitting import (
@@ -50,6 +66,22 @@ __all__ = [
     'UT3Tangent',
     't3_orthogonal_representations',
     'ut3_orthogonal_representations',
+    # weights (edge weights on a tensor; a metric on a tangent's coordinates) -- docs/weighting.md.
+    # The free functions carry the family prefix because, unlike a method, they have no class namespace
+    # to disambiguate them -- the t3_orthogonal_representations pattern. Without it all four
+    # absorb_weights would collide here.
+    'T3Weights',
+    'UT3Weights',
+    'T3FrameWeights',
+    'UT3FrameWeights',
+    't3_absorb_weights',
+    'ut3_absorb_weights',
+    'fv_absorb_weights',
+    'ufv_absorb_weights',
+    't3_weighted_norm',
+    't3_weighted_inner',
+    'ut3_weighted_norm',
+    'ut3_weighted_inner',
     # geometries
     'MANIFOLD',
     'COREWISE',

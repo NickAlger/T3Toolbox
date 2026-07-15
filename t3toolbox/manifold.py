@@ -427,7 +427,7 @@ class T3Tangent:
         True
         """
         bvf.check_fw_pair(self.frame, weights)
-        return T3Tangent(self.frame, bvf.absorb_weights(self.variations, weights))
+        return T3Tangent(self.frame, bvf.fv_absorb_weights(self.variations, weights))
 
     def weighted_norm(self, weights: 'bvf.T3FrameWeights'):
         """The **weighted** (Grasedyck-Kramer) coordinate norm: absorb the metric ``weights`` into the

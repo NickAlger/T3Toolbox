@@ -146,6 +146,22 @@ T4S paper names the object neither way, so there is no paper conflict to worry a
 - **Frontend methods stay unprefixed** even when a same-named backend function exists at a
   different level (e.g. the method `x.rank_adjustment_sweep()` vs backend
   `t3_rank_adjustment_sweep`); the class namespace disambiguates.
+- **Frontend *free* functions DO carry the family prefix** — they have no class namespace, so the
+  prefix does that job instead. It is the same rule as the bullet above, not an exception to it:
+  whatever disambiguates, disambiguates. Examples: `t3_orthogonal_representations` /
+  `ut3_orthogonal_representations`, and the weighted layer's `t3_absorb_weights` /
+  `ut3_absorb_weights` / `fv_absorb_weights` / `ufv_absorb_weights` (+ `t3_`/`ut3_weighted_norm`,
+  `_weighted_inner`).
+  - **Sharing a name with the backend twin is fine, and intended** — `t3_orthogonal_representations`
+    exists in *both* `frame_variations_format` (objects) and `backend/fv_conversions` (raw `.data`).
+    Same operation, two levels; the module namespace tells them apart, and the backend is never
+    re-exported flat, so they never meet.
+  - **The prefix is what makes the root export possible.** Ragged/uniform × tensor/tangent gives
+    **four** distinct "absorb the weights" operations; unprefixed they would all be `absorb_weights`
+    and could not coexist in `t3toolbox/__init__.py` (the second import would silently shadow the
+    first). The weighted free functions were briefly unprefixed and hit exactly this; prefixing them
+    was the fix (2026-07-15). The *classes* never had the problem — `T3Weights` / `UT3Weights` /
+    `T3FrameWeights` / `UT3FrameWeights` are already distinct.
 - **`require_concrete_masks`** is a jit guard (infrastructure), unprefixed by design — and lives in
   `backend/common.py` for the same reason, beside the `ValueHashedMasks` mixin and `prefix_mask`: those
   three are the uniform **mask-representation** contract (concrete host arrays · value-based hash/eq ·

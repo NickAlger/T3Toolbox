@@ -73,7 +73,7 @@ class TestT3Weights(unittest.TestCase):
                 with self.subTest(struct=struct, stack=ss):
                     x = t3.TuckerTensorTrain.randn(*struct, stack_shape=ss)
                     W = rand_weights(x, rng)
-                    xw = t3.absorb_weights(x, W)
+                    xw = t3.t3_absorb_weights(x, W)
                     self.assertEqual(xw.ranks, x.ranks)                       # shape-preserving
                     ref = hand_weighted_dense(x, W)
                     self.assertLess(np.linalg.norm(xw.to_dense() - ref) / max(np.linalg.norm(ref), 1e-30), 1e-12)
@@ -87,9 +87,9 @@ class TestT3Weights(unittest.TestCase):
                     x = t3.TuckerTensorTrain.randn(*struct, stack_shape=ss)
                     ones = t3.T3Weights(tuple(np.ones(ss + (n,)) for n in x.tucker_ranks),
                                         tuple(np.ones(ss + (r,)) for r in x.tt_ranks))
-                    self.assertLess(cw.corewise_norm(cw.corewise_sub(t3.absorb_weights(x, ones).data, x.data)), 1e-12)
+                    self.assertLess(cw.corewise_norm(cw.corewise_sub(t3.t3_absorb_weights(x, ones).data, x.data)), 1e-12)
                     W = rand_weights(x, rng)
-                    back = t3.absorb_weights(t3.absorb_weights(x, W), W.reciprocal())
+                    back = t3.t3_absorb_weights(t3.t3_absorb_weights(x, W), W.reciprocal())
                     self.assertLess(cw.corewise_norm(cw.corewise_sub(back.data, x.data)), 1e-9)
 
     def test_from_t3svd(self):
@@ -135,9 +135,9 @@ class TestT3Weights(unittest.TestCase):
                     ax = tuple(range(len(ss), dA.ndim))          # non-stack (mode) axes -> reduce to stack_shape
                     ref_norm = np.sqrt((dA ** 2).sum(axis=ax))
                     ref_inner = (dA * dB).sum(axis=ax)
-                    self.assertLess(np.abs(np.asarray(t3.weighted_norm(xA, WA)) - ref_norm).max(),
+                    self.assertLess(np.abs(np.asarray(t3.t3_weighted_norm(xA, WA)) - ref_norm).max(),
                                     1e-10 * (ref_norm.max() + 1))
-                    self.assertLess(np.abs(np.asarray(t3.weighted_inner(xA, WA, xB, WB)) - ref_inner).max(),
+                    self.assertLess(np.abs(np.asarray(t3.t3_weighted_inner(xA, WA, xB, WB)) - ref_inner).max(),
                                     1e-10 * (np.abs(ref_inner).max() + 1))
 
     def test_concatenate(self):
@@ -164,7 +164,7 @@ class TestT3Weights(unittest.TestCase):
                     dA, dB = hand_weighted_dense(xA, WA), hand_weighted_dense(xB, WB)
                     WC = WA.kronecker(WB)
                     self.assertEqual(WC.tucker_ranks, tuple(a * b for a, b in zip(xA.tucker_ranks, xB.tucker_ranks)))
-                    dC = t3.absorb_weights(hadamard_cores(xA, xB), WC).to_dense()
+                    dC = t3.t3_absorb_weights(hadamard_cores(xA, xB), WC).to_dense()
                     self.assertLess(np.linalg.norm(dC - dA * dB) / max(np.linalg.norm(dA * dB), 1e-30), 1e-11)
 
     def test_structural_ops(self):
@@ -350,7 +350,7 @@ class TestT3FrameWeights(unittest.TestCase):
         rng = np.random.default_rng(8)
         v = make_tangent(STRUCTURES[1], (), (2,))
         W = rand_frame_weights(v, rng)
-        wv_s = bvf.absorb_weights(v.variations, W)
+        wv_s = bvf.fv_absorb_weights(v.variations, W)
         vw = v.absorb_weights(W)
         self.assertIsInstance(wv_s, bvf.T3Variations)
         self.assertIsInstance(vw, t3m.T3Tangent)

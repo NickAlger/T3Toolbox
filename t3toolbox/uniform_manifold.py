@@ -276,7 +276,7 @@ class UT3Tangent:
         semantics. Uniform twin of :py:meth:`~t3toolbox.manifold.T3Tangent.absorb_weights`.
         """
         ubv.check_ufw_pair(self.frame, weights)
-        return UT3Tangent(self.frame, ubv.absorb_weights(self.variations, weights))
+        return UT3Tangent(self.frame, ubv.ufv_absorb_weights(self.variations, weights))
 
     def weighted_norm(self, weights: 'ubv.UT3FrameWeights') -> NDArray:  # shape = stack_shape (K+C)
         """The **weighted** (Grasedyck-Kramer) coordinate norm: absorb the metric into the variation

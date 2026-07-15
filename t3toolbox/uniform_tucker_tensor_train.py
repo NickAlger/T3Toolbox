@@ -42,9 +42,9 @@ __all__ = [
     'UT3Masks',
     'UniformTuckerTensorTrain',
     'UT3Weights',
-    'absorb_weights',
-    'weighted_norm',
-    'weighted_inner',
+    'ut3_absorb_weights',
+    'ut3_weighted_norm',
+    'ut3_weighted_inner',
 ]
 
 @dataclass(frozen=True, eq=False)  # eq=False -> the mixin's VALUE-based __hash__/__eq__ stand (a bare
@@ -928,7 +928,7 @@ class UT3Weights:
     True
     >>> print(W.tucker_weight_supercore.shape, np.asarray(W.tucker_ranks).tolist())  # padded to 4, real 2
     (3, 4) [2, 2, 2]
-    >>> xw = ut3.absorb_weights(ux, W)      # shape-preserving; masks unchanged
+    >>> xw = ut3.ut3_absorb_weights(ux, W)      # shape-preserving; masks unchanged
     >>> print(xw.tucker_supercore.shape == ux.tucker_supercore.shape, xw.masks == ux.masks)
     True True
 
@@ -943,7 +943,7 @@ class UT3Weights:
     >>> Wr = W.reciprocal()                                            # ...the guarded one does not
     >>> print(bool(np.isfinite(Wr.tucker_weight_supercore).all()))
     True
-    >>> print(bool(np.isfinite(ut3.weighted_norm(ux, Wr))))            # so the GK norm stays finite
+    >>> print(bool(np.isfinite(ut3.ut3_weighted_norm(ux, Wr))))            # so the GK norm stays finite
     True
     """
     tucker_weight_supercore: NDArray   # shape=(d,)  +stack_shape+(n,)
@@ -1122,25 +1122,25 @@ def _weights_from_data(
     return UT3Weights(tucker_weight_supercore, tt_weight_supercore, UT3Masks(*masks))
 
 
-def absorb_weights(x: 'UniformTuckerTensorTrain', weights: UT3Weights) -> 'UniformTuckerTensorTrain':
+def ut3_absorb_weights(x: 'UniformTuckerTensorTrain', weights: UT3Weights) -> 'UniformTuckerTensorTrain':
     """Contract diagonal edge weights into ``x``'s supercores (shape-preserving): the returned
     ``UniformTuckerTensorTrain`` represents the fully-weighted network, with ``x``'s masks unchanged.
-    Uniform twin of :py:func:`t3toolbox.tucker_tensor_train.absorb_weights`; see
+    Uniform twin of :py:func:`t3toolbox.tucker_tensor_train.t3_absorb_weights`; see
     :py:func:`~t3toolbox.backend.ut3_operations.ut3_absorb_weights` for the side-conventions."""
     _check_weights_pair(x, weights, 'absorb_weights')
     return _from_data(ut3_operations.ut3_absorb_weights(x.data, weights.data))
 
 
-def weighted_norm(x: 'UniformTuckerTensorTrain', weights: UT3Weights,
+def ut3_weighted_norm(x: 'UniformTuckerTensorTrain', weights: UT3Weights,
                   use_orthogonalization: bool = True) -> NDArray:  # shape=stack_shape
     """Weighted Hilbert-Schmidt norm ``||absorb_weights(x, weights)||`` (shape ``stack_shape``; a scalar
     when unstacked). The plain norm squares the inserted diagonal, so ``diag(1/sigma)`` penalises by
-    ``1/sigma^2``. Uniform twin of :py:func:`t3toolbox.tucker_tensor_train.weighted_norm`."""
+    ``1/sigma^2``. Uniform twin of :py:func:`t3toolbox.tucker_tensor_train.t3_weighted_norm`."""
     _check_weights_pair(x, weights, 'weighted_norm')
     return ut3_linalg.ut3_weighted_norm(x.data, weights.data, use_orthogonalization=use_orthogonalization)
 
 
-def weighted_inner(
+def ut3_weighted_inner(
         x_A:       'UniformTuckerTensorTrain',
         weights_A: UT3Weights,
         x_B:       'UniformTuckerTensorTrain',
@@ -1150,7 +1150,7 @@ def weighted_inner(
     """Weighted Hilbert-Schmidt inner product
     ``<absorb_weights(x_A, weights_A), absorb_weights(x_B, weights_B)>``. Operands share physical shape;
     ranks/masks/weights may differ. Uniform twin of
-    :py:func:`t3toolbox.tucker_tensor_train.weighted_inner`."""
+    :py:func:`t3toolbox.tucker_tensor_train.t3_weighted_inner`."""
     _check_weights_pair(x_A, weights_A, 'weighted_inner')
     _check_weights_pair(x_B, weights_B, 'weighted_inner')
     if x_A.shape != x_B.shape:

@@ -24,9 +24,9 @@ import t3toolbox.tucker_tensor_train as t3
 
 W  = t3.T3Weights.from_t3svd(x)        # the singular values of x (unmodified)
 Wp = W.reciprocal()                    # inverse-σ (Grasedyck–Kramer) weighting; also .sqrt()
-xw = t3.absorb_weights(x, Wp)          # a plain TuckerTensorTrain: the fully-weighted network
-n  = t3.weighted_norm(x, Wp)           # = xw.norm(); the inserted diagonal is squared by the norm
-g  = t3.weighted_inner(x, W, y, W2)    # <absorb(x,W), absorb(y,W2)>  (same physical shape)
+xw = t3.t3_absorb_weights(x, Wp)          # a plain TuckerTensorTrain: the fully-weighted network
+n  = t3.t3_weighted_norm(x, Wp)           # = xw.norm(); the inserted diagonal is squared by the norm
+g  = t3.t3_weighted_inner(x, W, y, W2)    # <absorb(x,W), absorb(y,W2)>  (same physical shape)
 ```
 
 `absorb` is shape-preserving (the diagonals fold into the cores). Convention: Tucker weights go into the
@@ -118,7 +118,7 @@ import t3toolbox.uniform_tucker_tensor_train as ut3
 ux = ut3.UniformTuckerTensorTrain.from_t3(x)
 W  = ut3.UT3Weights.from_ut3svd(ux)          # or .from_t3weights(ragged_W, n=ux.n, r=ux.r)
 gk = W.reciprocal()                          # inverse-σ; also .sqrt() / .concatenate() / .kronecker()
-n  = ut3.weighted_norm(ux, gk)               # + absorb_weights / weighted_inner
+n  = ut3.ut3_weighted_norm(ux, gk)               # + absorb_weights / weighted_inner
 ```
 
 Three differences from ragged are worth knowing, and none of them are ports-in-progress:

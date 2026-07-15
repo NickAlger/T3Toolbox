@@ -31,7 +31,7 @@ __all__ = [
     'T3Frame',
     'T3Variations',
     'T3FrameWeights',
-    'absorb_weights',
+    'fv_absorb_weights',
     'fv_to_t3',
     't3_orthogonal_representations',
 ]
@@ -1470,7 +1470,7 @@ def check_fw_pair(
             )
 
 
-def absorb_weights(variations: T3Variations, weights: T3FrameWeights) -> T3Variations:
+def fv_absorb_weights(variations: T3Variations, weights: T3FrameWeights) -> T3Variations:
     """Absorb the metric ``weights`` into the variation cores (``down``->V, ``up``/``left``/``right``->H),
     returning the weighted :py:class:`T3Variations` (the frame is unchanged). The coordinate norm
     (``corewise_norm``) of the result is the weighted tangent norm -- see

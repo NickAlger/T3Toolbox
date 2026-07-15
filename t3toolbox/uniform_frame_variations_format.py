@@ -31,7 +31,7 @@ __all__ = [
     'UT3Variations',
     'ut3_orthogonal_representations',
     'UT3FrameWeights',
-    'absorb_weights',
+    'ufv_absorb_weights',
     'check_ufw_pair',
 ]
 
@@ -1316,13 +1316,13 @@ def check_ufw_pair(
                 % (name, name))
 
 
-def absorb_weights(variations: UT3Variations, weights: UT3FrameWeights) -> UT3Variations:
+def ufv_absorb_weights(variations: UT3Variations, weights: UT3FrameWeights) -> UT3Variations:
     """Absorb the metric ``weights`` into the variation supercores (``down``->V, ``up``/``left``/``right``
     ->H), returning the weighted :py:class:`UT3Variations` (the frame is unchanged, and the masks are
     preserved -- absorb is rank-preserving).
 
     The ``C``-stacked metric broadcasts over the variations' ``K`` for free. Uniform twin of
-    :py:func:`t3toolbox.frame_variations_format.absorb_weights`; see
+    :py:func:`t3toolbox.frame_variations_format.fv_absorb_weights`; see
     :py:func:`~t3toolbox.backend.ufv_operations.ufv_absorb_weights`."""
     if not weights.is_consistent_with(variations):
         raise ValueError(
