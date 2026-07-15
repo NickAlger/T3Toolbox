@@ -21,6 +21,7 @@ from dataclasses import dataclass
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.corewise as cw
+import t3toolbox.backend.fv_operations as fv_operations
 import t3toolbox.safety as safety
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.tv_operations as tv_operations
@@ -393,6 +394,25 @@ class T3Tangent:
         orthonormal, gauged frame; for that semantic use :py:meth:`ManifoldGeometry.norm`.
         """
         return cw.corewise_stack_norm(self.variations.data, len(self.stack_shape))
+
+    def weighted_norm(self, weights: 'bvf.T3FrameWeights'):
+        """The **weighted** (Grasedyck-Kramer) coordinate norm: absorb the metric ``weights`` into the
+        variation cores (``down``->V, ``up``/``left``/``right``->H) and take :py:meth:`corewise_norm`.
+        The frame stays orthonormal (untouched). Vectorized over the stack (returns shape ``K + C``). The
+        inserted diagonal is squared by the norm, so ``weights = 1/sigma`` penalises by ``1/sigma^2``. As
+        with :py:meth:`corewise_norm`, this is the coordinate metric (= HS on an orthonormal, gauged frame).
+        """
+        wvar = fv_operations.fv_absorb_weights(self.variations.data, weights.data)
+        return cw.corewise_stack_norm(wvar, len(self.stack_shape))
+
+    def weighted_inner(self, other: 'T3Tangent', weights: 'bvf.T3FrameWeights'):
+        """The **weighted** coordinate inner product ``<absorb(W,self), absorb(W,other)>`` w.r.t. one
+        metric ``weights`` -- absorb the weights into both tangents' variations and dot. The same-frame
+        precondition is checked; vectorized over the stack (returns shape ``K + C``)."""
+        self._check_same_tangent_space(other)
+        w_self = fv_operations.fv_absorb_weights(self.variations.data, weights.data)
+        w_other = fv_operations.fv_absorb_weights(other.variations.data, weights.data)
+        return cw.corewise_stack_dot(w_self, w_other, len(self.stack_shape))
 
     def normalized(self) -> 'T3Tangent':
         """Unit-norm rescaling ``self / self.corewise_norm()``, vectorized over the stack.

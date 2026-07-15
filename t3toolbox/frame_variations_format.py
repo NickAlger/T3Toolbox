@@ -30,6 +30,7 @@ from t3toolbox.backend.common import *
 __all__ = [
     'T3Frame',
     'T3Variations',
+    'T3FrameWeights',
     'fv_to_t3',
     't3_orthogonal_representations',
 ]
@@ -1300,6 +1301,105 @@ def t3_orthogonal_representations(
     return T3Frame(*result[0]), T3Variations(*result[1])
 
 
+@dataclass(frozen=True)
+class T3FrameWeights:
+    """Diagonal weights defining a **metric on the tangent coordinates** -- a Grasedyck-Kramer-style
+    reweighting of the ``d`` variation directions (penalise poorly-informed ones with e.g. ``1/sigma``).
+
+    Four families, each ``len=d`` (one per variation core, Approach-1 / metric-on-variations):
+    ``up`` (on ``H``'s ``nU`` leg), ``down`` (on ``V``'s ``nD`` leg), ``left`` (``H``'s ``rL``),
+    ``right`` (``H``'s ``rR``). :py:meth:`T3Tangent.weighted_norm` / :py:meth:`~T3Tangent.weighted_inner`
+    absorb these into the variation cores and take the coordinate norm/inner -- the frame stays orthonormal
+    and untouched. Batches like :py:class:`T3Variations` (every vector ``stack_shape + (rank,)``).
+    """
+    up_weights:    typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nUi,)
+    down_weights:  typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nDi,)
+    left_weights:  typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(rLi,)
+    right_weights: typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(rRi,)
+
+    @ft.cached_property
+    def data(self) -> typ.Tuple[typ.Tuple[NDArray, ...], ...]:  # (up, down, left, right)
+        return self.up_weights, self.down_weights, self.left_weights, self.right_weights
+
+    @ft.cached_property
+    def d(self) -> int:
+        return len(self.up_weights)
+
+    @ft.cached_property
+    def up_ranks(self) -> typ.Tuple[int, ...]:
+        return tuple(int(w.shape[-1]) for w in self.up_weights)
+
+    @ft.cached_property
+    def down_ranks(self) -> typ.Tuple[int, ...]:
+        return tuple(int(w.shape[-1]) for w in self.down_weights)
+
+    @ft.cached_property
+    def left_ranks(self) -> typ.Tuple[int, ...]:
+        return tuple(int(w.shape[-1]) for w in self.left_weights)
+
+    @ft.cached_property
+    def right_ranks(self) -> typ.Tuple[int, ...]:
+        return tuple(int(w.shape[-1]) for w in self.right_weights)
+
+    @ft.cached_property
+    def stack_shape(self) -> typ.Tuple[int, ...]:
+        return self.up_weights[0].shape[:-1]
+
+    def validate(self):
+        """Structural: four families each of length d, and one uniform stack_shape on every vector."""
+        ss = self.stack_shape
+        for name, fam in (('up', self.up_weights), ('down', self.down_weights),
+                          ('left', self.left_weights), ('right', self.right_weights)):
+            if len(fam) != self.d:
+                raise ValueError('Inconsistent T3FrameWeights.\n' + str(self.d) + ' = d, but len('
+                                 + name + '_weights) = ' + str(len(fam)))
+            for ii, w in enumerate(fam):
+                if w.ndim < 1 or w.shape[:-1] != ss:
+                    raise ValueError('Inconsistent T3FrameWeights.\n' + name + '_weights[' + str(ii)
+                                     + '].shape = ' + str(w.shape) + ' is not stack_shape ' + str(ss) + ' + (rank,).')
+
+    def __post_init__(self):
+        self.validate()
+
+    def is_consistent_with(self, tangent) -> bool:
+        """True iff these weights match the variation ranks + stack of a ``T3Tangent`` (or ``T3Variations``)."""
+        variations = tangent.variations if hasattr(tangent, 'variations') else tangent
+        return fv_operations.fv_weights_consistent(variations.data, self.data)
+
+    def reciprocal(self) -> 'T3FrameWeights':
+        """Elementwise ``1/w`` on every family (e.g. inverse-singular-value weights)."""
+        return T3FrameWeights(*[tuple(1.0 / w for w in fam) for fam in self.data])
+
+    def sqrt(self) -> 'T3FrameWeights':
+        """Elementwise ``sqrt`` on every family."""
+        xnp, _, _ = get_backend(False, tree_contains_jax(self.data))
+        return T3FrameWeights(*[tuple(xnp.sqrt(w) for w in fam) for fam in self.data])
+
+    def reverse(self) -> 'T3FrameWeights':
+        """Reverse the mode order, swapping ``left``<->``right`` (mirrors :py:meth:`T3Frame.reverse`)."""
+        return T3FrameWeights(self.up_weights[::-1], self.down_weights[::-1],
+                              self.right_weights[::-1], self.left_weights[::-1])
+
+    def concatenate(self, other: 'T3FrameWeights') -> 'T3FrameWeights':
+        """Per-edge concatenation (the ``+`` combine; ranks add)."""
+        return T3FrameWeights(*fv_operations.fv_concatenate_weights(self.data, other.data))
+
+    def kronecker(self, other: 'T3FrameWeights') -> 'T3FrameWeights':
+        """Per-edge Kronecker product (the Hadamard combine; ranks multiply)."""
+        return T3FrameWeights(*fv_operations.fv_kronecker_weights(self.data, other.data))
+
+    def unstack(self):
+        """Unstack a stack of frame-weights into an array-like tree (mirrors ``T3Variations.unstack``)."""
+        result_tuple = stacking.basic_ragged_unstack(self.data, 1)
+        return stacking.apply_func_to_leaf_subtrees(result_tuple, lambda x: T3FrameWeights(*x), self.data)
+
+    @staticmethod
+    def stack(xx) -> 'T3FrameWeights':
+        """Stack an array-like tree of frame-weights into one (mirrors ``T3Variations.stack``)."""
+        xx_tuples = stacking.apply_func_to_leaf_subtrees(xx, lambda x: x.data, None)
+        return T3FrameWeights(*stacking.basic_ragged_stack(xx_tuples))
+
+
 if jax_available:
     import jax
 
@@ -1313,4 +1413,9 @@ if jax_available:
         T3Variations,
         lambda x: (x.data, None),
         lambda aux_data, children: T3Variations(*children),
+    )
+    jax.tree_util.register_pytree_node(
+        T3FrameWeights,
+        lambda x: (x.data, None),
+        lambda aux_data, children: T3FrameWeights(*children),
     )

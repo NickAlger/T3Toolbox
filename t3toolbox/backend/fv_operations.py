@@ -29,6 +29,10 @@ __all__ = [
     'fv_frame_reverse',
     'fv_frame_orthogonality_residual',
     'fv_frame_consistency_residual',
+    'fv_absorb_weights',
+    'fv_weights_consistent',
+    'fv_concatenate_weights',
+    'fv_kronecker_weights',
 ]
 
 
@@ -328,3 +332,65 @@ def fv_frame_consistency_residual(
     num = xnp.sqrt(xnp.sum((left - right) ** 2, axis=mode_axes))   # Frobenius over modes -> stack_shape
     den = xnp.sqrt(xnp.sum(right ** 2, axis=mode_axes))
     return num / xnp.maximum(1.0, den)
+
+
+def fv_absorb_weights(
+        variations: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_variations V, tt_variations H)
+        weights:    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
+                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right), each len=d
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # weighted tucker_variations, elm_shape=stack+(nDi, Ni)
+    typ.Tuple[NDArray, ...],  # weighted tt_variations,     elm_shape=stack+(rLi, nUi, rRi)
+]:
+    """Absorb the four-family metric weights into the VARIATION cores (the tangent metric on coordinates,
+    Approach-1 / metric-on-variations): ``down`` -> V's ``nD`` leg; ``up``/``left``/``right`` -> H's
+    ``nU``/``rL``/``rR`` legs. The frame is left orthonormal and untouched. ``corewise_stack_norm`` of the
+    result is the weighted (Grasedyck-Kramer) tangent norm. All families are len=d (one per variation core);
+    single leading ``'...'`` -- the weights share the variations' ``K+C`` stack."""
+    xnp, _, _ = get_backend(False, tree_contains_jax((variations, weights)))
+    V_cores, H_cores = variations
+    up, down, left, right = weights
+    wV = tuple(xnp.einsum('...i,...io->...io', dn, V) for dn, V in zip(down, V_cores))
+    wH = tuple(xnp.einsum('...aib,...a,...i,...b->...aib', H, lf, u, rt)
+               for H, lf, u, rt in zip(H_cores, left, up, right))
+    return wV, wH
+
+
+def fv_weights_consistent(
+        variations: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (V, H)
+        weights:    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
+                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+) -> bool:                                                                     # True iff shape-consistent
+    """True iff the four weight families (each len=d) match the variation ranks + stack (non-raising).
+    up<->H.nU (axis -2), down<->V.nD (axis -2), left<->H.rL (axis -3), right<->H.rR (axis -1)."""
+    V_cores, H_cores = variations
+    up, down, left, right = weights
+    d = len(V_cores)
+    if not (len(up) == len(down) == len(left) == len(right) == d):
+        return False
+    stack = V_cores[0].shape[:-2]
+    for i in range(d):
+        if up[i].shape != stack + (H_cores[i].shape[-2],):    return False
+        if down[i].shape != stack + (V_cores[i].shape[-2],):  return False
+        if left[i].shape != stack + (H_cores[i].shape[-3],):  return False
+        if right[i].shape != stack + (H_cores[i].shape[-1],): return False
+    return True
+
+
+def fv_concatenate_weights(weights_A, weights_B):  # each (up, down, left, right) -> concatenated, ranks add
+    """Per-edge concatenation of two frame-weight 4-tuples (the '+' combine; ranks add). Last-axis."""
+    xnp, _, _ = get_backend(False, tree_contains_jax((weights_A, weights_B)))
+    return tuple(tuple(xnp.concatenate([a, b], axis=-1) for a, b in zip(fA, fB))
+                 for fA, fB in zip(weights_A, weights_B))
+
+
+def fv_kronecker_weights(weights_A, weights_B):  # each (up, down, left, right) -> Kronecker, ranks multiply
+    """Per-edge Kronecker product of two frame-weight 4-tuples (the Hadamard combine; ranks multiply).
+    Last-axis outer product broadcasting the shared stack (A-major); NOT np.kron."""
+    xnp, _, _ = get_backend(False, tree_contains_jax((weights_A, weights_B)))
+
+    def kv(a, b):
+        ss = xnp.broadcast_shapes(a.shape[:-1], b.shape[:-1])
+        return (a[..., :, None] * b[..., None, :]).reshape(ss + (a.shape[-1] * b.shape[-1],))
+
+    return tuple(tuple(kv(a, b) for a, b in zip(fA, fB)) for fA, fB in zip(weights_A, weights_B))

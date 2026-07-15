@@ -175,6 +175,14 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a: t3m.MANIFOLD.retract(a), self.v)
         self.assert_jit_jax(lambda a, b: a.corewise_inner(b), self.v, self.w)   # binary op; same-frame guard skips under the trace
         self.assert_jit_jax(lambda a: a.corewise_norm(), self.v)
+        # weighted layer: T3FrameWeights metric on the variations (absorb into V,H -> corewise)
+        Vv, Hv = self.v.variations.data
+        Wf = bvf.T3FrameWeights(tuple(jnp.ones(H.shape[-2]) for H in Hv), tuple(jnp.ones(V.shape[-2]) for V in Vv),
+                                tuple(jnp.ones(H.shape[-3]) for H in Hv), tuple(jnp.ones(H.shape[-1]) for H in Hv))
+        self.assert_jit_jax(lambda a, w: a.weighted_norm(w), self.v, Wf)
+        self.assert_jit_jax(lambda a, b, w: a.weighted_inner(b, w), self.v, self.w, Wf)
+        self.assert_jit_jax(lambda w1, w2: w1.concatenate(w2), Wf, Wf)
+        self.assert_jit_jax(lambda w1, w2: w1.kronecker(w2), Wf, Wf)
         self.assert_jit_jax(lambda a, b: a + b, self.v, self.w)
         self.assert_jit_jax(lambda a, b: a - b, self.v, self.w)
         self.assert_jit_jax(lambda a: 2.5 * a, self.v)

@@ -10,6 +10,8 @@ import unittest
 import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.frame_variations_format as bvf
+import t3toolbox.manifold as t3m
 import t3toolbox.corewise as cw
 
 
@@ -175,6 +177,106 @@ class TestT3Weights(unittest.TestCase):
         Wr = t3.T3Weights.stack(W.unstack())
         for a, b in zip(Wr.tucker_weights + Wr.tt_weights, W.tucker_weights + W.tt_weights):
             self.assertTrue(np.allclose(a, b))
+
+
+def make_tangent(struct, C, K):
+    x = t3.TuckerTensorTrain.randn(*struct, stack_shape=C)
+    frame, _ = bvf.t3_orthogonal_representations(x)
+    return t3m.COREWISE.randn(frame, stack_shape=K)   # variations stack = K + C
+
+
+def rand_frame_weights(v, rng):
+    V, H = v.variations.data
+    ss, d = v.variations.stack_shape, len(V)
+    return bvf.T3FrameWeights(
+        tuple(rng.standard_normal(ss + (H[i].shape[-2],)) for i in range(d)),   # up   <- nU
+        tuple(rng.standard_normal(ss + (V[i].shape[-2],)) for i in range(d)),   # down <- nD
+        tuple(rng.standard_normal(ss + (H[i].shape[-3],)) for i in range(d)),   # left <- rL
+        tuple(rng.standard_normal(ss + (H[i].shape[-1],)) for i in range(d)))   # right<- rR
+
+
+def hand_frame_metric_sq(v, W):
+    """Independent hand computation of the weighted tangent metric ||v||^2_W = sum of weighted Frobenius^2."""
+    V, H = v.variations.data
+    ss = v.variations.stack_shape
+    ns, d = len(ss), len(V)
+    up, dn, lf, rt = W.data
+
+    def wfro2(arr, wts):
+        w = arr
+        for k, wt in enumerate(wts):
+            shp = ss + tuple(wt.shape[-1] if j == k else 1 for j in range(arr.ndim - ns))
+            w = w * wt.reshape(shp)
+        return (w * w).sum(axis=tuple(range(ns, arr.ndim)))
+
+    return (sum(wfro2(V[i], [dn[i]]) for i in range(d))
+            + sum(wfro2(H[i], [lf[i], up[i], rt[i]]) for i in range(d)))
+
+
+CK_STACKS = [((), ()), ((), (2,)), ((2,), ()), ((2,), (2, 3))]   # (C, K)
+
+
+class TestT3FrameWeights(unittest.TestCase):
+    def test_weighted_metric(self):
+        """T3Tangent.weighted_norm matches the hand metric; all-ones weights == corewise_norm; over
+        structures x (C,K) stacks (including a non-trivial K=(2,3))."""
+        rng = np.random.default_rng(0)
+        for struct in STRUCTURES[:2]:                 # d=3 and d=4 (skip d=1: no interior)
+            for C, K in CK_STACKS:
+                with self.subTest(struct=struct, C=C, K=K):
+                    v = make_tangent(struct, C, K)
+                    W = rand_frame_weights(v, rng)
+                    self.assertTrue(W.is_consistent_with(v))
+                    ref = np.sqrt(np.asarray(hand_frame_metric_sq(v, W)))
+                    self.assertLess(np.abs(np.asarray(v.weighted_norm(W)) - ref).max(), 1e-10 * (ref.max() + 1))
+                    ones = bvf.T3FrameWeights(*[tuple(np.ones_like(w) for w in fam) for fam in W.data])
+                    self.assertLess(np.abs(np.asarray(v.weighted_norm(ones)) - np.asarray(v.corewise_norm())).max(), 1e-11)
+
+    def test_weighted_inner(self):
+        """weighted_inner(self) == weighted_norm^2; symmetric; matches the metric."""
+        rng = np.random.default_rng(1)
+        for struct in STRUCTURES[:2]:
+            for C, K in [((), ()), ((2,), (2,))]:
+                with self.subTest(struct=struct, C=C, K=K):
+                    v = make_tangent(struct, C, K)
+                    W = rand_frame_weights(v, rng)
+                    self.assertLess(np.abs(np.asarray(v.weighted_inner(v, W))
+                                           - np.asarray(v.weighted_norm(W)) ** 2).max(), 1e-9)
+                    w2 = t3m.COREWISE.randn(v.frame, stack_shape=K)  # another tangent at the SAME frame
+                    a = np.asarray(v.weighted_inner(w2, W)); b = np.asarray(w2.weighted_inner(v, W))
+                    self.assertLess(np.abs(a - b).max(), 1e-9)      # symmetry
+
+    def test_reciprocal_identity(self):
+        """down->V, up/left/right->H legs undo under reciprocal: absorb then reciprocal-absorb recovers v."""
+        import t3toolbox.backend.fv_operations as fv
+        rng = np.random.default_rng(2)
+        v = make_tangent(STRUCTURES[0], (), (2,))
+        W = rand_frame_weights(v, rng)
+        wvar = fv.fv_absorb_weights(v.variations.data, W.data)
+        back = fv.fv_absorb_weights(wvar, W.reciprocal().data)
+        self.assertLess(cw.corewise_norm(cw.corewise_sub(back, v.variations.data)), 1e-9)
+
+    def test_consistent_and_validate(self):
+        """is_consistent_with rejects a wrong rank; validate rejects a wrong family length / ragged stack."""
+        rng = np.random.default_rng(3)
+        v = make_tangent(STRUCTURES[0], (), ())
+        W = rand_frame_weights(v, rng)
+        bad = bvf.T3FrameWeights(W.up_weights, W.down_weights, W.left_weights,
+                                 tuple(np.ones(r + 1) for r in W.right_ranks))   # perturb right ranks
+        self.assertFalse(bad.is_consistent_with(v))
+        with self.assertRaises(ValueError):
+            bvf.T3FrameWeights((np.ones(2),), (np.ones(2),), (np.ones(1),), (np.ones(2), np.ones(1)))  # ragged lengths
+
+    def test_concat_kron_reverse(self):
+        """concatenate ranks add; kronecker ranks multiply; reverse swaps left<->right and reverses."""
+        rng = np.random.default_rng(4)
+        v = make_tangent(STRUCTURES[1], (2,), (2,))
+        W = rand_frame_weights(v, rng)
+        self.assertEqual(W.concatenate(W).up_ranks, tuple(2 * n for n in W.up_ranks))
+        self.assertEqual(W.kronecker(W).left_ranks, tuple(n * n for n in W.left_ranks))
+        self.assertEqual(W.reverse().left_ranks, W.right_ranks[::-1])   # left<->right swap + reverse
+        Wr = bvf.T3FrameWeights.stack(W.unstack())
+        self.assertTrue(all(np.allclose(a, b) for fa, fb in zip(Wr.data, W.data) for a, b in zip(fa, fb)))
 
 
 if __name__ == "__main__":
