@@ -3,7 +3,9 @@
 _Started 2026-07-15. The uniform mirror of the (shipped-to-main, unreleased) ragged weighted layer. Ships
 `UT3Weights` / `UT3FrameWeights` (weight supercores + boolean masks) + the masked ops, so the weighted layer
 runs on the jit/GPU uniform representation. **The lever: the ragged layer is the equivalence oracle** —
-`to_uniform → op → to_ragged == op_ragged`. **The difficulty: the boolean masks** (concat/kron go gappy).
+`to_uniform → op → to_ragged == op_ragged`. **The real risks** (revised post-S2): *not* the boolean masks —
+their algebra is trivial and closed (§3) — but **ordering/axis** mistakes (`np.kron` vs a broadcast last-axis
+outer product) and the **padding hazards** (`1/0 = inf`; a mask mismatch only uniform can hide).
 **Design review 2026-07-15 (Nick) settled §8's decisions and added S0** — the ragged layer must be fixed
 first, because a wrong oracle certifies a wrong mirror._
 
@@ -18,7 +20,8 @@ it onto the **uniform** representation (`(d,)+stack+(…)` supercores + HOST-boo
 masks** (Nick's decision) so operations can check mask-compatibility and skip garbage.
 
 **Start at S0** (§6): the design review found the ragged frame-weight *stack model* is wrong, and the ragged
-layer is this build's oracle.
+layer is this build's oracle. *(S0/S1/S2 are now done — see `dev/HANDOFF.md`. §3's "these are the hard ones"
+framing was corrected post-S2: the combines are trivial; the risks are elsewhere.)*
 
 ## 1. The uniform weight objects (data = weight supercores + masks)
 
@@ -104,9 +107,32 @@ split (`t3_*`/`fv_*`):
 | `*_concatenate_weights` (for `+`) | supercore **grows** to the new max rank (ranks add); concat the real weight vectors | masks **concatenate** (may go **gappy**) |
 | `*_kronecker_weights` (for `⊙`) | supercore grows to the new max rank (ranks multiply); Kronecker the real weight vectors | masks **Kronecker** (gappy — strided, per `docs/uniform_masks_vs_ranks.md`) |
 
-`concat`/`kron` are the hard ones: they change ranks, so the padded supercore re-sizes and the masks transform
-— the `docs/uniform_masks_vs_ranks.md` `+`/`×` mask algebra. `ut3_add` is the working precedent for the concat
+`concat`/`kron` change ranks, so the padded supercore re-sizes and the masks transform — the
+`docs/uniform_masks_vs_ranks.md` `+`/`×` mask algebra. `ut3_add` is the working precedent for the concat
 side (it concatenates both rank masks on the host). `absorb`/`norm`/`inner` keep the mask unchanged.
+
+**These are not the hard ones — the mask algebra is trivial and closed** *(corrected 2026-07-15, post-S2;
+the pre-review plan billed them as the difficulty and that was wrong)*. Treat the mask as just another
+weight holding 0s and 1s: the contract is `weight_AB * mask_AB == combine(weight_A * mask_A, weight_B *
+mask_B)`, and it is satisfied by combining the weights and combining the masks **the same way** — because
+both concatenation and the Kronecker product commute with elementwise multiply (`kron(a∘p, b∘q) =
+kron(a,b) ∘ kron(p,q)`, the mixed-product property; nothing special to booleans). So each op is one
+operation applied twice, with no mask cleverness at all. That closure *is* the argument for boolean masks
+over integer ranks (`docs/contributor/uniform_rank_masks_rationale.md`) — an integer rank cannot even
+express the strided result.
+
+The genuine risks are elsewhere, and both are ordering/axis mistakes rather than mask logic:
+1. **`kron` must be a last-axis outer product broadcasting the shared `(d,)+stack` prefix — NOT `np.kron`**,
+   which would Kronecker the mode/stack axes too. The ragged build hit exactly this.
+2. **A-major must agree with any core-combine that pairs with it** (in uniform there is none yet — no
+   `ut3_mult`).
+
+The output masks *are* gappy (concat leaves a hole wherever an input had rank slack; kron's real set
+`{a*nB + b : mask_A[a] and mask_B[b]}` is strided over the **padded** width, so even two prefix inputs give
+holes). That is a description of the result, not a difficulty: it costs the combines nothing, and only
+obliges *consumers* to read the mask instead of slicing a prefix. It cannot be flattened: slot `a*nB + b`
+with `b >= rank_B` holds `wA[a] * <padding>`, so a prefix mask of rank `rA*rB` would claim padding as real
+data — the phantom-rank bug (killed by mutation test, S2).
 
 **`kronecker` is unpaired in uniform, and we build it anyway** (§8.2): there is **no `ut3_mult`** — the
 uniform layer has `ut3_add` but no Hadamard product. So `ut3_concatenate_weights` has a real partner
@@ -207,8 +233,12 @@ oracle, so mirroring the bug would put it in two places and have the oracle cert
 
 ## 7. Watch-list (the traps)
 
-- **Gappy masks after concat/kron** — assert the exact strided pattern, not just the rank count. The supercore
-  re-size + host-mask Kronecker is the most error-prone code in the build.
+- **Gappy masks after concat/kron are EXPECTED, not a bug** — and the ops need no mask cleverness (combine
+  the weights and the masks the same way; §3). But **assert the exact strided pattern, not the rank count**:
+  a prefix mask of the right rank is the plausible-wrong answer, and it is invisible to value tests
+  (phantom rank). Both such mutations were tried and killed in S2.
+- **`kron` is a last-axis outer product broadcasting the shared prefix — NOT `np.kron`** (which would
+  Kronecker the mode/stack axes). The ragged build hit exactly this; it is the real trap in the combines.
 - **`to_ragged` through a gappy mask is a gather, not a slice.**
 - **`reciprocal` → `inf` → `0 × inf = nan`** — the finite-padding rule; the headline GK path.
 - **Do NOT add an entry mask to `absorb`** "for safety" — it is garbage-transparent, and the pre-review plan

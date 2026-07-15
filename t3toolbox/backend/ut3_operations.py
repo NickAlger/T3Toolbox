@@ -393,23 +393,30 @@ def ut3_kronecker_weights(
     """Per-edge Kronecker product of two uniform weights -- the Hadamard (``⊙``) combine, where ranks
     multiply. Uniform twin of ``t3_kronecker_weights``.
 
-    Each edge is a **last-axis outer product, then reshape**, on the supercores *and* on the masks:
-    ``(wA ⊗ wB)[..., a*nB + b] = wA[..., a] · wB[..., b]`` -- **A-major**, over the PADDED widths, with
-    the shared ``(d,)+stack`` prefix broadcast. Not ``np.kron``, which would Kronecker the mode/stack axes
-    too.
+    **Kronecker the weights, Kronecker the masks -- that is the whole operation.** Treat the mask as just
+    another weight that happens to hold 0s and 1s: what we need is
+    ``weight_AB * mask_AB == kron(weight_A * mask_A, weight_B * mask_B)``, and it is satisfied by
+    ``weight_AB = kron(weight_A, weight_B)`` and ``mask_AB = kron(mask_A, mask_B)``, because elementwise
+    multiply **commutes** with the Kronecker product: ``kron(a∘p, b∘q) = kron(a,b) ∘ kron(p,q)`` (the
+    mixed-product property, for any vectors -- nothing here is special to booleans). So there is no mask
+    cleverness: the same ``kron_last`` runs on both operands.
 
-    **The output mask is genuinely gappy, and the stride is the point.** The real set is
-    ``{a*nB + b : mask_A[a] and mask_B[b]}`` -- strided over the *padded* width ``nB``, not the real rank
-    -- so even two prefix masks give holes (the ``docs/uniform_masks_vs_ranks.md`` worked example:
-    ``{0,1}`` of 3 times ``{0}`` of 2 gives ``{0, 2}``). Applying the same outer-product to the boolean
-    masks is exactly right, and it is what keeps the ragged round-trip exact: ``argwhere`` returns the
-    real slots in increasing flattened index, which for prefix inputs is ``(a, b)`` lexicographic --
-    A-major, matching the ragged twin's ordering element for element.
+    Each edge is a **last-axis outer product, then reshape**: ``(wA ⊗ wB)[..., a*nB + b] = wA[..., a] ·
+    wB[..., b]`` -- **A-major**, over the PADDED widths, with the shared ``(d,)+stack`` prefix broadcast.
+    **This is the one real trap**: not ``np.kron``, which would Kronecker the mode/stack axes too (the
+    ragged build hit exactly that). A-major must also agree with whatever core-combine pairs with it.
 
-    **A-major must agree with whatever core-combine pairs with it** (mismatched ordering silently
-    corrupts -- the ragged build hit exactly this). Note there is currently **no uniform Hadamard**
-    (``ut3_add`` exists; ``ut3_mult`` does not), so this op ships verified against the ragged oracle but
-    without a uniform core-combine partner -- see ``dev/uniform_weighting_design.md`` §3.
+    The resulting mask is **not an interval** -- the real set is ``{a*nB + b : mask_A[a] and mask_B[b]}``,
+    strided over the *padded* width ``nB``, so even two prefix inputs give holes (``{0,1}`` of 3 times
+    ``{0}`` of 2 gives ``{0, 2}``; ``docs/uniform_masks_vs_ranks.md``). That is a description of the
+    output, not a difficulty: it costs nothing here, and only obliges *consumers* to read the mask rather
+    than slice a prefix. It cannot be flattened to a prefix of rank ``rA*rB``: slot ``a*nB + b`` with
+    ``b >= rank_B`` holds ``wA[a] * <padding>``, so a prefix mask would claim padding as real data
+    (phantom rank).
+
+    Note there is currently **no uniform Hadamard** (``ut3_add`` exists; ``ut3_mult`` does not), so this
+    op ships verified against the ragged oracle but without a uniform core-combine partner -- see
+    ``dev/uniform_weighting_design.md`` §3.
     """
     xnp, (tkA, ttA), (tkB, ttB), (tkmA, ttmA), (tkmB, ttmB) = _weight_pair_backend(weights_A, weights_B)
 
