@@ -64,7 +64,7 @@ def ut3_squash_tails(data: UT3Data) -> UT3Data:
     r = tt.shape[-1]
     stack = tt.shape[1:-3]
     # np (host): the rank-1 boundary masks are static structure, not supercore data. Intentional.
-    rank1 = np.broadcast_to(np.arange(r) < 1, stack + (r,))                    # [True, False, ...]
+    rank1 = np.broadcast_to(prefix_mask(1, r), stack + (r,))                   # [True, False, ...]
     new_ttm = np.concatenate([rank1[None], ttm[1:-1], rank1[None]], axis=0)
     return tk, new_tt, shape, (tkm, new_ttm)
 

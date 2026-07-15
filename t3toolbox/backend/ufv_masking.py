@@ -37,10 +37,10 @@ def ufv_make_frame_masks(
     """Build the prefix RANK edge masks for a uniform frame. The physical ``shape`` is a separate
     int tuple (not a mask), so this returns only the four rank masks. HOST numpy (masks are static
     structure -- ``np``, not ``xnp``; see ``docs/contributor/uniform_pytree_composition.md``)."""
-    up_mask    = np.arange(nU) < np.asarray(up_ranks)[..., None]
-    down_mask  = np.arange(nD) < np.asarray(down_ranks)[..., None]
-    left_mask  = np.arange(rL) < np.asarray(left_ranks)[..., None]
-    right_mask = np.arange(rR) < np.asarray(right_ranks)[..., None]
+    up_mask    = prefix_mask(up_ranks, nU)
+    down_mask  = prefix_mask(down_ranks, nD)
+    left_mask  = prefix_mask(left_ranks, rL)
+    right_mask = prefix_mask(right_ranks, rR)
     return up_mask, down_mask, left_mask, right_mask
 
 
@@ -78,7 +78,7 @@ def ufv_apply_frame_masks(
     nD = down_tt_supercore.shape[-2]
     rR = down_tt_supercore.shape[-1]
 
-    shape_mask = np.arange(N) < np.asarray(shape)[:, None]  # (d, N) HOST bool, reconstructed from ints
+    shape_mask = prefix_mask(shape, N)  # (d, N) HOST bool, reconstructed from the static shape ints
 
     SM_k = shape_mask.reshape(           (d,) + (1,)*len(ss) + (1,)  + (N,))
     UM_k = up_mask.reshape(              (d,) + ss           + (nU,) + (1,))
@@ -129,7 +129,7 @@ def ufv_apply_variations_masks(
     nU = tt_variations_supercore.shape[-2]
     rR = tt_variations_supercore.shape[-1]
 
-    shape_mask = np.arange(N) < np.asarray(shape)[:, None]  # (d, N) HOST bool, reconstructed from ints
+    shape_mask = prefix_mask(shape, N)  # (d, N) HOST bool, reconstructed from the static shape ints
 
     # tucker_variations (d,)+ss+(nD, N): mask nD by variations_down, N by shape.
     SM   = shape_mask.reshape(            (d,) + (1,)*len(ss) + (1,)  + (N,))

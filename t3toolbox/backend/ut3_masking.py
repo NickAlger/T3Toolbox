@@ -68,12 +68,9 @@ def ut3_make_masks(
     the supercores are jax -- the ``np.*`` here is intentional and jit-required (a jax mask becomes a
     tracer under jit and breaks the layer). See ``docs/contributor/uniform_pytree_composition.md``.
     """
-    # np (host), not xnp: masks are static structure -- a jax mask is a tracer under jit. Intentional.
-    tucker_ranks = np.asarray(tucker_ranks) # (d,)   + stack_shape
-    tt_ranks     = np.asarray(tt_ranks)     # (d+1,) + stack_shape
-
-    tucker_edge_mask = np.arange(n) < tucker_ranks[..., None]   # (d,)   + stack_shape + (n,)
-    tt_edge_mask     = np.arange(r) < tt_ranks[..., None]       # (d+1,) + stack_shape + (r,)
+    # prefix_mask is np (host), not xnp: masks are static structure -- a jax mask is a tracer under jit.
+    tucker_edge_mask = prefix_mask(tucker_ranks, n)   # (d,)   + stack_shape + (n,)
+    tt_edge_mask     = prefix_mask(tt_ranks, r)       # (d+1,) + stack_shape + (r,)
 
     return tucker_edge_mask, tt_edge_mask
 
@@ -105,7 +102,7 @@ def ut3_apply_masks(
     xnp, _, _ = get_backend(True, use_jax)
 
     N = tucker_supercore.shape[-1]
-    shape_mask = np.arange(N) < np.asarray(shape)[:, None]  # (d, N) HOST bool, reconstructed from ints
+    shape_mask = prefix_mask(shape, N)  # (d, N) HOST bool, reconstructed from the static shape ints
 
     masked_tucker_supercore = xnp.einsum(
         'd...nN,d...n,dN->d...nN',

@@ -26,6 +26,7 @@ __all__ = [
     'to_numpy',
     #
     'ValueHashedMasks',
+    'prefix_mask',
     #
     'ragged_scan',
     'numpy_scan',
@@ -468,3 +469,35 @@ class ValueHashedMasks:
         if type(other) is not type(self):
             return NotImplemented
         return all(np.array_equal(a, b) for a, b in zip(self.data, other.data))
+
+
+def prefix_mask(
+        ranks: NDArray,  # HOST int, any shape (e.g. (d,)+stack_shape, or a plain int tuple); the real extent
+        pad:   int,      # padded width of the edge
+) -> NDArray:            # HOST bool, static, shape = ranks.shape + (pad,)
+    """Boolean prefix indicator: slot ``j`` is real iff ``j < rank`` -- the canonical (prefix) form.
+
+    The shared primitive under every prefix structure in the uniform layer: the rank edge masks
+    (``ut3_make_masks`` / ``ufv_make_frame_masks``), the physical shape mask rebuilt from the static
+    ``shape`` ints, the orthogonalization rank recurrences, and the weight layer's edge masks.
+
+    It is deliberately **neutral** -- it belongs to neither the masking layer nor the weighting layer.
+    Masks are boolean *structure*; weights are float *parameters* (opposite jax treatment: static aux vs
+    traced leaf -- ``docs/contributor/uniform_rank_masks_rationale.md``). Both legitimately need prefix
+    indicators, but the weighting layer must never route its *operations* through the masking layer, so
+    the shared mechanics live here and each side calls this (``dev/uniform_weighting_design.md`` §2).
+
+    HOST numpy (``np``, never ``xnp``): a prefix mask is static structure, and a jax mask becomes a tracer
+    under jit -- breaking ``int(mask.sum())`` extraction and leaking tracers into ``aux_data``. See
+    ``docs/contributor/uniform_pytree_composition.md``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from t3toolbox.backend.common import prefix_mask
+    >>> prefix_mask(np.array([2, 3]), 4).astype(int).tolist()   # per-edge ranks -> (2, 4) prefix rows
+    [[1, 1, 0, 0], [1, 1, 1, 0]]
+    >>> prefix_mask(np.array(1), 3).astype(int).tolist()        # a scalar rank -> one row
+    [1, 0, 0]
+    """
+    return np.arange(pad) < np.asarray(ranks)[..., None]

@@ -72,10 +72,6 @@ def ut3_orthogonality_residual(
 # docs/contributor/uniform_pytree_composition.md. Only the supercore SVDs go through xnp.
 
 
-def _prefix_mask(ranks: NDArray, pad: int) -> NDArray:  # ranks (HOST int) -> HOST bool prefix mask of width pad
-    return np.arange(pad) < ranks[..., None]
-
-
 def _left_orthogonalized_tt_ranks(tt_ranks, tucker_ranks):  # HOST int (d+1,)+stack ; L->R recurrence
     d = tucker_ranks.shape[0]
     new = [tt_ranks[0]]
@@ -127,7 +123,7 @@ def ut3_down_orthogonalize_tucker_cores(data: UT3Data) -> UT3Data:
     stack = mtk.shape[1:-2]
     shape_arr = np.asarray(shape).reshape((mtk.shape[0],) + (1,) * len(stack))
     new_tucker_ranks = np.minimum(tkm.sum(axis=-1), shape_arr)
-    new_tkm = _prefix_mask(new_tucker_ranks, new_tk.shape[-2])
+    new_tkm = prefix_mask(new_tucker_ranks, new_tk.shape[-2])
     return new_tk, new_tt, shape, (new_tkm, ttm)
 
 
@@ -164,7 +160,7 @@ def ut3_up_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
 
     tt_ranks = ttm.sum(axis=-1)  # HOST int (d+1,)+stack
     new_tucker_ranks = np.minimum(tkm.sum(axis=-1), tt_ranks[:-1] * tt_ranks[1:])
-    new_tkm = _prefix_mask(new_tucker_ranks, new_tt.shape[-2])
+    new_tkm = prefix_mask(new_tucker_ranks, new_tt.shape[-2])
     return new_tk, new_tt, shape, (new_tkm, ttm)
 
 
@@ -177,7 +173,7 @@ def ut3_left_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
     tkm, ttm = data[3]                              # HOST bool rank masks
     new_tt = orth.tt_left_orthogonalize(mtt)
     new_tt_ranks = _left_orthogonalized_tt_ranks(ttm.sum(axis=-1), tkm.sum(axis=-1))
-    new_ttm = _prefix_mask(new_tt_ranks, new_tt.shape[-1])
+    new_ttm = prefix_mask(new_tt_ranks, new_tt.shape[-1])
     return data[0], new_tt, data[2], (tkm, new_ttm)
 
 
@@ -190,5 +186,5 @@ def ut3_right_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
     tkm, ttm = data[3]                              # HOST bool rank masks
     new_tt = orth.tt_right_orthogonalize(mtt)
     new_tt_ranks = _right_orthogonalized_tt_ranks(ttm.sum(axis=-1), tkm.sum(axis=-1))
-    new_ttm = _prefix_mask(new_tt_ranks, new_tt.shape[-1])
+    new_ttm = prefix_mask(new_tt_ranks, new_tt.shape[-1])
     return data[0], new_tt, data[2], (tkm, new_ttm)
