@@ -1,8 +1,8 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-07-12 (evening). Prior history: `dev/archive/handoff_2026-07-12_1.0_complete.md`
-(the 1.0 completion: R1–R7, the R4 doc pass, the docs user/dev split S1–S5, the cordon/ETT/
-literature morning)._
+_Updated 2026-07-16 (jet recurrence/convolution prototyping — see Active threads). Prior history:
+`dev/archive/handoff_2026-07-12_1.0_complete.md` (the 1.0 completion: R1–R7, the R4 doc pass, the
+docs user/dev split S1–S5, the cordon/ETT/literature morning)._
 
 ## Where we are — 2026.0.0 SHIPPED ✅
 
@@ -30,6 +30,37 @@ branch can be deleted (optional).
   handoff ritual's "sweep superseded notes into `dev/archive/`" does NOT apply to it.**
 
 ## Active threads
+
+- **Jet recurrence/convolution forms — the zippering direction, PROTOTYPING (2026-07-16; committed, NOT
+  pushed).** The concrete realization of the `trs`-as-sparse-convolution idea in the standing
+  architecture question. Experimental, **module-private** mirrors in `sampling_derivatives.py` (no
+  `__all__` entry, no swap into call sites yet), verified vs the `trs` originals in
+  `tests/test_jet_recurrence.py`. Research record + benchmarks live in the separate repo
+  (`nicks_research_experiments/t3_jet_experiments/`, esp. `findings.md`), not here.
+  - **Done so far:** the **plain chain** — `compute_mu_jets_banded_fused` (affine two-term recurrence,
+    folded into one GEMM) and `compute_eta_jets_scanned` (full-convolution order-scan); and the **forward
+    tangent Jacobian** — `compute_sigma_jets_banded` / `compute_tau_jets_banded` (three affine
+    pushthroughs) and `compute_deta_jets_scanned` (three full-convolution combines). All correct to
+    ~1e-12 across K-stacked shapes; swapping all five in passes the full probe + uniform suite (temporary
+    monkeypatch, 137 tests / 582 subtests).
+  - **The two load-bearing lessons** (both cost a wrong prediction first, both measured): (1) a memory
+    win from a scan needs a **real `lax.scan`/`lax.map`, not a Python loop** — unrolled loops let XLA keep
+    everything co-resident (measured ~1.2× vs the intended 14–28×), and this **only works on the uniform
+    path** (ragged `xmap`/`xscan` are Python loops; uniform dispatches to the real jax primitives, and
+    `lax.map` is *sequential*, not `vmap`). (2) deta's higher memory than eta is the **K stack, linear in
+    K** — *not* the three terms; reordering the accumulation is a no-op (XLA schedules it identically,
+    V1=V2=V3 byte-identical).
+  - **Wins (uniform jit, r=128 W=32000):** mu fused — numpy ~2.9×, jax 1.03–1.10×, memory constant vs
+    trs-linear. eta scanned — **14–28× less XLA temp** (~4.5 GB const vs 64–128 GB). deta scanned —
+    **3.3–6.9× at K=4 / 28× at K=1** (~9 GB at K=1). Timing (W=3000): deta scanned **1.5–1.8× faster at
+    K=1**, 0.6–0.7× at K=4 (leaner but the scan serializes order); sigma ~parity.
+  - **Not done (next):** the **transpose/tilde jets** (`sigma_tilde`/`tau_tilde`/`dxi_tilde` — a
+    banded+scanned *mix*, since the adjoint sweep has an affine propagation term and a full source term),
+    then the **assembly** (`assemble_tt_variation_jets` — the hard one: order-summed `WKCaib` outer
+    products + a `sum_over_probes=True` W-reduction that wants a *chunked* W-scan; **measure the peak
+    before designing**). Also deferred: extracting the inline per-step grouped einsums into named
+    `contractions.py` functions — **decision: keep inline until the primitives settle** (through the
+    assembly), then extract in one pass as the swap-in step.
 
 - **`contractions.py` unfusing — DONE (2026-07-15, `dae52839` + `f65b341d`; committed, NOT pushed).**
   No named block is fused with another any more: 14 sites, 112/112 bit-identical, full suite 712 passed /

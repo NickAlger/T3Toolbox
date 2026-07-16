@@ -91,6 +91,16 @@ Listed so they are not re-invented from scratch. None costed, none recommended.
 _Nick, 2026-07-16 — a direction, not just an observation. Unlike the material above, this one has an
 intended shape; it is parked on cost, not on doubt._
 
+> **UPDATE 2026-07-16 — now being PROTOTYPED** (experimental, module-private in
+> `sampling_derivatives.py`; see `dev/HANDOFF.md` "Jet recurrence/convolution forms" and the research
+> repo `nicks_research_experiments/t3_jet_experiments/findings.md`). The plain chain (mu/eta) and the
+> forward tangent Jacobian (sigma/tau/deta) are done and verified vs the `trs` originals; affine inputs
+> become two-term recurrences, full convolutions become order-scans. **The zippering pays off as a
+> memory win** (eta 14–28×, deta up to 28× smaller XLA peak) — but *only on the uniform path*, where
+> `xmap`/`xscan` are the real sequential `jax.lax.map`/`scan`; a Python loop does not force the
+> freeing. Still to prototype: the transpose/tilde jets and the assembly. The `trs` baseline stays as
+> the oracle throughout, exactly as this note required.
+
 **The idea.** A `trs` binomial tensor **is a sparse convolution tensor**. Passing it to einsum as a
 dense operand is the wrong handling. The right form is a **zippering sum of non-`trs` contractions**
 — i.e. unroll the convolution over the order axes and sum ordinary contractions — instead of one big
