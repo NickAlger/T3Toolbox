@@ -563,4 +563,76 @@ back-projection is inherently exponential-rank --- $[s^t]\!\prod_j(\mathbf w_j+s
 elementary-symmetric combination of rank $\binom{d}{t}$ --- unlike the clean rank-$1$/rank-$d$
 non-derivative ambient. See \texttt{docs/ambient\_derivative\_transpose\_note.md}.
 
+\section{Recurrence and convolution realization}
+\label{sec:recurrence}
+
+Each contraction of Section~\ref{sec:impl} sums the binomial tensor \eqref{eq:trs} against jets to
+produce one output order. Forming \texttt{trs} as a dense einsum operand is wasteful --- it is a sparse
+convolution tensor, and the einsum path treats it as dense, materialising an intermediate scaling with
+the product of every index. Abstracting away the spatial cores and the batch stacks, every step is one
+of two scalar shapes in the jet indices,
+\begin{align}
+  \text{(forward)} \qquad & c^{(t)} \;=\; \sum_{r+s=t} \binom{t}{r}\, a^{(r)} b^{(s)},
+  \label{eq:conv-fwd}\\
+  \text{(reverse)} \qquad & c^{(r)} \;=\; \sum_{t \ge r} \binom{t}{r}\, b^{(t-r)} z^{(t)},
+  \label{eq:conv-rev}
+\end{align}
+where the reverse \eqref{eq:conv-rev} is the adjoint of the forward \eqref{eq:conv-fwd} in the argument
+$a$: it equals $\partial/\partial a^{(r)}$ of the scalar $\sum_t z^{(t)} c^{(t)}$, and it is what
+produces the transpose (tilde) edge variables. Each occurs in two regimes.
+
+\paragraph{Affine input: two-term recurrences.}
+When one factor is an \emph{input} jet it is supported on orders $\{0,1\}$ (Lemma~\ref{lem:affine}), so
+\eqref{eq:conv-fwd} and \eqref{eq:conv-rev} collapse to bidiagonal recurrences with no \texttt{trs}
+tensor:
+\begin{align}
+  \text{forward, } b \text{ affine:} \qquad & c^{(t)} \;=\; a^{(t)} b^{(0)} + t\, a^{(t-1)} b^{(1)},
+  \label{eq:rec-fwd}\\
+  \text{reverse, } b \text{ affine:} \qquad & c^{(r)} \;=\; b^{(0)} z^{(r)} + (r+1)\, b^{(1)} z^{(r+1)}.
+  \label{eq:rec-rev}
+\end{align}
+The reverse recurrence \eqref{eq:rec-rev} shifts \emph{up} ($z^{(r+1)}$, weight $r{+}1$) where the
+forward \eqref{eq:rec-fwd} shifts \emph{down} ($a^{(t-1)}$, weight $t$): the transpose of a bidiagonal
+map is bidiagonal. This drives the pushthroughs $\boldsymbol\mu,\boldsymbol\nu$
+\eqref{eq:dmu}/\eqref{eq:dnu}, their variation analogues $\boldsymbol\sigma,\boldsymbol\tau$
+\eqref{eq:rsigma}/\eqref{eq:rtau}, and the adjoint-propagation term of $\widetilde{\boldsymbol\sigma},
+\widetilde{\boldsymbol\tau}$.
+
+\paragraph{Full jets: convolution and correlation.}
+When both factors are pushthrough jets --- the combines $\boldsymbol\eta,\delta\boldsymbol\eta$
+\eqref{eq:deta} and the adjoint source of $\widetilde{\boldsymbol\sigma},\widetilde{\boldsymbol\tau},
+\delta\widetilde{\boldsymbol\xi}$ --- neither is affine, and \eqref{eq:conv-fwd}/\eqref{eq:conv-rev} are
+a genuine binomial convolution / correlation. Scaling to exponential-generating-function coordinates
+$\hat a^{(r)} = a^{(r)}/r!$, $\hat b^{(s)} = b^{(s)}/s!$, $\hat z^{(t)} = t!\,z^{(t)}$ removes the
+binomial weight and exhibits them as an ordinary convolution and its adjoint correlation:
+\begin{equation}
+  \hat c^{(t)} \;=\; \sum_{r+s=t} \hat a^{(r)} \hat b^{(s)}, \qquad
+  r!\,c^{(r)} \;=\; \sum_{s \ge 0} \hat b^{(s)} \hat z^{(r+s)} .
+  \label{eq:egf}
+\end{equation}
+Both are $O(K^2)$ in the order and admit no cheaper closed form --- a cumulative-sum shortcut linearises
+the correlation only when the kernel $\hat b$ is constant, which is degenerate. Since $K \le d$ this is
+negligible; the binding cost is memory.
+
+\paragraph{Memory: scan the summed axes.}
+The dense \texttt{trs} contraction holds a spatial intermediate for \emph{every} order at once. As the
+order axis is only summed, each operation is instead realised as a \emph{scan} over an input order: the
+convolution \eqref{eq:conv-fwd} scans $r$, forming one order-slice of the spatial product and folding in
+the second jet in a single contraction; the correlation \eqref{eq:conv-rev} scans the full jet's order
+likewise. One order slice is resident --- an $(K{+}1)\times$ reduction --- and it composes with the
+outer core sweep (also a scan). On the packed (uniform) backend these dispatch to
+\texttt{jax.lax.scan}/\texttt{lax.map}, which \emph{force} the sequential freeing; an unrolled loop lets
+the compiler keep every slice live, so the scan primitive is essential rather than cosmetic.
+
+\paragraph{The variation assembly.}
+The transpose closes by assembling the variation-core gradients $\delta\widetilde{\mathbf G}_i,
+\delta\widetilde{\mathbf U}_i$: order-summed outer products of the tilde edge variables with the base
+jets. Here the order axes are \emph{fully} summed (no output order) and the free legs are a whole core
+$(\mathrm{r_L},\mathrm{n},\mathrm{r_R})$, so the intermediate is the largest in the chain --- and it is
+exactly \emph{linear} in the sample stack $W$. It is therefore chunked over $W$: the dense assembly runs
+per $W$-block, and the blocks are combined by \emph{addition} when $W$ is summed (the minibatch
+gradient, $\sum_{\text{probes}}$) or by \emph{concatenation} when $W$ is kept. The reducer is the only
+axis-role-dependent piece, so the same seam chunks the base stack $C$ (always kept, hence concatenated)
+when it, rather than $W$, is the large axis.
+
 \end{document}
