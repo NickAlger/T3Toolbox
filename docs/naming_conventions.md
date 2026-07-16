@@ -115,6 +115,12 @@ which layer you are holding.
   `t3_corewise_randn` (iid core entries) vs `MANIFOLD.randn` (tangent-space Gaussian).
 - **`numerically_`** — an SVD-grade numerical check, vs bare structural integer arithmetic
   (`has_minimal_ranks` vs `has_numerically_minimal_ranks`).
+- **`_trs` suffix** (sampling-derivative jets) — the *dense binomial-tensor* implementation, kept as a
+  reference twin of the standard recurrence/scan form that owns the bare name. `compute_mu_jets` (the
+  standard, memory-lean, call-site-wired form) vs `compute_mu_jets_trs` (contracts the `trs` binomial
+  tensor as a dense einsum operand: numerically equal to tolerance, higher peak memory, occasionally
+  faster in tiny/memory-abundant regimes). The bare name is always the recommended default; `_trs` is
+  opt-in. (`trs` = the binomial convolution tensor `trs[t,r,s] = C(t,r)·[r+s=t]`, the module's own term.)
 - **Capability-honest tails** — `ut3_full_sum` (all modes only, vs ragged `t3_sum(axis=...)`),
   `ut3_norm_orthogonalized` (always orthogonalizes). The uniform twin is not renamed to match
   the ragged name when it genuinely supports less.

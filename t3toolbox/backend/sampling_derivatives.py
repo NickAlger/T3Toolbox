@@ -38,9 +38,9 @@ from t3toolbox.backend.common import *
 # order-stacked edge variables "jets" (order axis t; index 0 is the ordinary probing edge variable).
 # The pushthrough recursion and the combine are then the SAME operation -- a binomial jet-product --
 # and reduce to single einsums (the t-contractions in contractions.py):
-#   - compute_mu_jets : left  jets mu_i^(t)  via trs_rWCa_Caib_sWCi_to_tWCb (input jet on the mode).
-#   - compute_nu_jets : right jets nu_i^(t)  -- the mirror image (tt_reverse).
-#   - compute_eta_jets: combine at each free mode via trs_rWCa_Caib_sWCb_to_tWCi (nu jet on the bond).
+#   - compute_mu_jets_trs : left  jets mu_i^(t)  via trs_rWCa_Caib_sWCi_to_tWCb (input jet on the mode).
+#   - compute_nu_jets_trs : right jets nu_i^(t)  -- the mirror image (tt_reverse).
+#   - compute_eta_jets_trs: combine at each free mode via trs_rWCa_Caib_sWCb_to_tWCi (nu jet on the bond).
 #   - assemble_z_jets : lift each order through the Tucker cores via tWCi_Cio_to_tWCo (t broadcast).
 #
 # Provenance: the symmetric-derivative formulation is NOT part of the published T4S paper (it was cut
@@ -67,9 +67,12 @@ __all__ = [
     # Plain T3 (Euclidean)
     't3_probe_derivatives',
     'build_input_jets',
-    'compute_mu_jets',
+    'compute_mu_jets',           # standard (recurrence/scan); *_trs = dense-binomial reference form
     'compute_nu_jets',
     'compute_eta_jets',
+    'compute_mu_jets_trs',
+    'compute_nu_jets_trs',
+    'compute_eta_jets_trs',
     'assemble_z_jets',
     'binomial_combine_tensor',
     # Frame sweep (the reusable, variation-free jets -- the fitting inner-solve reuse hook). Per-kind:
@@ -83,6 +86,9 @@ __all__ = [
     'compute_sigma_jets',
     'compute_tau_jets',
     'compute_deta_jets',
+    'compute_sigma_jets_trs',
+    'compute_tau_jets_trs',
+    'compute_deta_jets_trs',
     'assemble_tangent_z_jets',
     # Apply / entries derivatives (all-modes special case) -- forward
     't3_apply_derivatives',
@@ -97,9 +103,13 @@ __all__ = [
     'compute_deta_tilde_jets',
     'compute_tau_tilde_jets',
     'compute_sigma_tilde_jets',
+    'compute_tau_tilde_jets_trs',
+    'compute_sigma_tilde_jets_trs',
     'compute_dxi_tilde_jets',
     'assemble_tucker_variation_jets',
     'assemble_tt_variation_jets',
+    'assemble_tucker_variation_jets_trs',
+    'assemble_tt_variation_jets_trs',
     # Apply / entries derivatives transpose (adjoint-state)
     'tv_apply_derivatives_transpose',
     'tv_apply_transpose_derivatives_from_sweep',
@@ -274,7 +284,7 @@ def _init_jet(
     return xnp.concatenate([ones, zeros], axis=0)
 
 
-def compute_mu_jets(
+def compute_mu_jets_trs(
         tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nUi,rR(i+1))
         xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+W+C+(nUi,)
         trs:        NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
@@ -306,27 +316,28 @@ def compute_mu_jets(
 
 
 # ==================================================================================================
-# EXPERIMENTAL -- convolution/recurrence forms of the jet contractions (module-private; workshop)
+# The STANDARD jet contractions -- convolution/recurrence/scan/chunk forms
 # ==================================================================================================
-# A slow mirror of the trs-based jet functions above, built one at a time and checked to give the
-# SAME results (tests/test_jet_recurrence.py), to see whether they run faster / use less memory. If
-# they pan out, we swap them into the call sites. NOT public API (no __all__ entry); the design
-# question that motivates them is dev/OPEN_QUESTION_contractions_architecture.md.
+# These are the default implementations wired into the sampling-derivative call sites; each has a dense
+# `*_trs` twin (above/below) kept as a reference -- numerically equal to tolerance, occasionally faster
+# in tiny / memory-abundant regimes, and the oracle in tests/test_jet_recurrence.py. The design question
+# that motivates the recurrence form is dev/OPEN_QUESTION_contractions_architecture.md.
 #
 # The idea: a trs binomial tensor is a sparse convolution tensor, so contracting it as a DENSE einsum
 # operand is the wrong handling -- it is what makes _pairwise_path degenerate (the trs operand shares
 # one index per operand, so it sorts LAST and the intermediate balloons to the union of all indices).
 # The right form unrolls the convolution over the order axis into ordinary (non-trs) contractions.
 #
-# mu/nu pushthrough (this slice) is the CLEAN case: the input jet is affine, so xi is nonzero only at
-# orders s in {0,1} (build_input_jets returns size 2). The binomial sum then has just two surviving
-# terms -- a bidiagonal recurrence, no trs tensor, no (order+1)^2 work:
+# mu/nu pushthrough is the CLEAN case: the input jet is affine, so xi is nonzero only at orders s in
+# {0,1} (build_input_jets returns size 2). The binomial sum then has just two surviving terms -- a
+# bidiagonal recurrence, no trs tensor, no (order+1)^2 work:
 #
 #     mu_i^(t)  =  [mu^(t) . G . xi^(0)]  +  t * [mu^(t-1) . G . xi^(1)]
 #
 # (C(t,t)=1 gives the s=0 term; C(t,t-1)=t gives the s=1 term.) Verified equal to the dense trs
-# contraction to 1e-16. (eta combine is a DIFFERENT, genuinely-full convolution -- nu is a full jet,
-# not affine-truncated -- and is a later slice.)
+# contraction to 1e-16. eta/deta/tilde are the genuinely-FULL convolutions (nu is a full jet, not
+# affine-truncated): the summed order axis is scanned instead (peak drops by the (order+1) factor), and
+# the memory win lands on the uniform+jax path where xscan/xmap are real lax.scan/lax.map (sequential).
 
 
 def _Caib_sWCi_to_sWCab(
@@ -360,48 +371,6 @@ def _tWCa_WCab_to_tWCb(
     return xnp.einsum('t...a,...ab->t...b', mu_jet, Gxi)
 
 
-def compute_mu_jets_banded(
-        tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nUi,rR(i+1))
-        xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+W+C+(nUi,)
-        trs:        NDArray,                # binomial tensor -- ONLY its shape (order) is read here
-) -> typ.Tuple[NDArray, ...]:               # mu_jets. len=d, elm_shape=(order+1,)+W+C+(rLi,). mu_jets[i][t]=mu_{i-1}^(t)
-    '''EXPERIMENTAL banded-recurrence mirror of :py:func:`compute_mu_jets` (module-private).
-
-    Same signature and same result, but the affine input jet (``s in {0,1}``) makes each pushthrough a
-    two-term recurrence rather than a dense ``trs`` contraction:
-
-        ``mu_i^(t) = mu^(t) . G . xi^(0)  +  t * mu^(t-1) . G . xi^(1)``
-
-    ``trs`` is taken only for its order (``shape[0]-1``), never contracted -- kept in the signature so
-    it is a drop-in swap for ``compute_mu_jets`` and the equivalence test can call both identically.
-    '''
-    use_jax = tree_contains_jax((tt_cores, xi_jets, trs))
-    is_uniform = is_ndarray(tt_cores)
-    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
-
-    order = trs.shape[0] - 1
-    s_size = min(2, order + 1)                             # affine input jet: orders {0, 1}
-    tvec = xnp.arange(order + 1)                           # the C(t,t-1)=t multipliers
-
-    def _func(mu_jet, data):
-        G, xi_jet = data
-        Gxi = _Caib_sWCi_to_sWCab(G, xi_jet[:s_size])     # (s, W, C, a, b), s in {0,1}
-        next_mu = _tWCa_WCab_to_tWCb(mu_jet, Gxi[0])      # the s=0 term: mu^(t) . G . xi^(0)
-        if s_size > 1:                                     # static branch (order >= 1)
-            M1 = _tWCa_WCab_to_tWCb(mu_jet, Gxi[1])       # mu^(t) . G . xi^(1)
-            shift = xnp.concatenate([xnp.zeros_like(M1[:1]), M1[:-1]], axis=0)   # mu^(t-1) term
-            t_bcast = tvec.reshape((order + 1,) + (1,) * (next_mu.ndim - 1))
-            next_mu = next_mu + t_bcast * shift            # + t * mu^(t-1) . G . xi^(1)
-        return next_mu, (mu_jet,)
-
-    stack_shape = xi_jets[0].shape[1:-1]     # full W + C batch (W outer, C inner); either may be empty
-    r0 = tt_cores[0].shape[-3]
-    init = _init_jet(order, stack_shape, r0, xnp)
-
-    _, (mu_jets,) = xscan(_func, init, (tt_cores, xi_jets))
-    return mu_jets
-
-
 def _stWCa_sWCab_to_tWCb(
         stacked_mu:  NDArray,  # s + t + W + C + (a,)    -- jet-pair axis s, order t (both passive on t)
         Gxi:         NDArray,  # s +     W + C + (a, b)  -- core-with-input-jet, both order slices
@@ -415,19 +384,21 @@ def _stWCa_sWCab_to_tWCb(
     return xnp.einsum('st...a,s...ab->t...b', stacked_mu, Gxi)
 
 
-def compute_mu_jets_banded_fused(
+def compute_mu_jets(
         tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nUi,rR(i+1))
         xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+W+C+(nUi,)
         trs:        NDArray,                # binomial tensor -- ONLY its shape (order) is read here
 ) -> typ.Tuple[NDArray, ...]:               # mu_jets. len=d, elm_shape=(order+1,)+W+C+(rLi,). mu_jets[i][t]=mu_{i-1}^(t)
-    '''EXPERIMENTAL fused variant of :py:func:`compute_mu_jets_banded` (module-private).
+    '''Left derivative-pushthrough jets (standard fused-recurrence form).
 
-    Same two-term recurrence, but folded into ONE contraction per core instead of two einsums + a shift
-    + a broadcast: stack ``[mu^(t), t * mu^(t-1)]`` on a jet-pair axis ``s`` and contract it together with
-    the bond ``a`` against ``[G.xi^(0), G.xi^(1)]`` (:py:func:`_stWCa_sWCab_to_tWCb`). Motivation: under
-    jit the two-einsum form is ~parity with the dense ``trs`` at scale; giving XLA a single larger GEMM
-    is the lever to turn parity into a win. The shift (for ``mu^(t-1)``) is still needed, but it now
-    feeds the single contraction rather than sitting between two.
+    ``mu_jets[i]`` is the left edge variable entering core ``i`` (``mu_{i-1}``), stacked over derivative
+    orders. The affine input jet (``xi`` nonzero only at orders ``s in {0,1}``) collapses each binomial
+    pushthrough to a two-term recurrence ``mu_i^(t) = mu^(t).G.xi^(0) + t * mu^(t-1).G.xi^(1)`` -- no
+    dense ``trs`` tensor, no ``(order+1)^2`` work. The two terms are folded into ONE contraction per core:
+    stack ``[mu^(t), t * mu^(t-1)]`` on a jet-pair axis ``s`` and contract it together with the bond ``a``
+    against ``[G.xi^(0), G.xi^(1)]`` (:py:func:`_stWCa_sWCab_to_tWCb`) -- one larger GEMM for XLA to
+    schedule turns the two-einsum form's ~parity with the dense ``trs`` into a win. Equal to the dense
+    :py:func:`compute_mu_jets_trs` to tolerance; see it for the binomial-tensor reference form.
     '''
     use_jax = tree_contains_jax((tt_cores, xi_jets, trs))
     is_uniform = is_ndarray(tt_cores)
@@ -457,25 +428,42 @@ def compute_mu_jets_banded_fused(
     return mu_jets
 
 
-def compute_nu_jets(
+def compute_nu_jets_trs(
         tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nUi,rR(i+1))
         xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+W+C+(nUi,)
         trs:        NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:               # nu_jets. len=d, elm_shape=(order+1,)+W+C+(rR(i+1),). nu_jets[i][t]=nu_i^(t)
     '''Right derivative-pushthrough jets.
 
-    The mirror image of :py:func:`compute_mu_jets`: reverse the tensor train (``tt_reverse`` swaps
+    The mirror image of :py:func:`compute_mu_jets_trs`: reverse the tensor train (``tt_reverse`` swaps
     bonds and core order), run the left sweep, reverse the result. ``nu_jets[i]`` is the right edge
     variable entering core ``i`` (``nu_i``), stacked over derivative orders.
     '''
     # Polymorphic reverse: the uniform tt_reverse keeps the supercore (tt_operations.tt_reverse would iterate
     # the supercore's d axis -- the unroll trap). The jet slices [::-1] just reverse the leading d axis.
-    reverse = tt_operations.tt_reverse if is_ndarray(tt_cores) else tt_operations.tt_reverse
+    reverse = tt_operations.tt_reverse
+    rev_nu_jets = compute_mu_jets_trs(reverse(tt_cores), xi_jets[::-1], trs)
+    return rev_nu_jets[::-1]
+
+
+def compute_nu_jets(
+        tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nUi,rR(i+1))
+        xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+W+C+(nUi,)
+        trs:        NDArray,                # binomial tensor -- only its shape (order) is read here
+) -> typ.Tuple[NDArray, ...]:               # nu_jets. len=d, elm_shape=(order+1,)+W+C+(rR(i+1),). nu_jets[i][t]=nu_i^(t)
+    '''Right derivative-pushthrough jets (standard recurrence form).
+
+    The mirror image of :py:func:`compute_mu_jets`: reverse the tensor train (``tt_reverse`` swaps
+    bonds and core order), run the left banded-recurrence sweep, reverse the result. ``nu_jets[i]`` is
+    the right edge variable entering core ``i`` (``nu_i``), stacked over derivative orders. Equal to the
+    dense :py:func:`compute_nu_jets_trs` to tolerance; see it for the binomial-tensor reference form.
+    '''
+    reverse = tt_operations.tt_reverse
     rev_nu_jets = compute_mu_jets(reverse(tt_cores), xi_jets[::-1], trs)
     return rev_nu_jets[::-1]
 
 
-def compute_eta_jets(
+def compute_eta_jets_trs(
         tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nOi,rR(i+1))
         mu_jets:    typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
         nu_jets:    typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
@@ -504,13 +492,15 @@ def compute_eta_jets(
     return eta_jets
 
 
-def compute_eta_jets_scanned(
+def compute_eta_jets(
         tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nOi,rR(i+1))
         mu_jets:    typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
         nu_jets:    typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
         trs:        NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:               # eta_jets. len=d, elm_shape=(order+1,)+W+C+(nOi,)
-    '''EXPERIMENTAL memory-lean mirror of :py:func:`compute_eta_jets` (module-private).
+    '''Combine the left and right jets at each free mode (standard order-scan form).
+
+    Dense reference: :py:func:`compute_eta_jets_trs` (equal to tolerance).
 
     eta is a FULL convolution (both jets run ``0..order``), so the dense ``trs`` contraction forms the
     spatial product ``mu . G`` with mode AND bond live at every order at once: an ``(order+1)*W*r^2``
@@ -531,7 +521,7 @@ def compute_eta_jets_scanned(
     ~1.2x, i.e. no win). Uniform, both scans: measured **14-28x** smaller XLA peak than the dense
     d-einsum and CONSTANT in order (~4.5 GB vs 64-128 GB at the huge config). The order loop being a
     real scan is what forces this -- an unrolled loop does not. Verified equal to
-    :py:func:`compute_eta_jets` to 1e-12 (ragged) and 1e-7 (uniform, float32).
+    :py:func:`compute_eta_jets_trs` to 1e-12 (ragged) and 1e-7 (uniform, float32).
     '''
     use_jax = tree_contains_jax((tt_cores, mu_jets, nu_jets, trs))
     xnp, xmap, xscan = get_backend(is_ndarray(tt_cores), use_jax)
@@ -746,7 +736,7 @@ def _zero_jet(
 
 def _sigma_jet_step(sigma_jet, Q, O, dG, xi_jet, dxi_jet, mu_jet, trs_push):
     '''One step of the K-aware jet-ified sigma recursion (the perturbation-leftward jets), shared by
-    compute_sigma_jets (keeps the per-core sequence) and tv_apply_derivatives (keeps only the
+    compute_sigma_jets_trs (keeps the per-core sequence) and tv_apply_derivatives (keeps only the
     terminal carry). Three-group (W sample, K tangent, C frame): sigma/dxi carry K, the frame edge vars
     (xi, mu) and frame cores (Q, O) do not; t2's only core is the variation core dG (K+C), so len(C) is
     supplied via n_frame (recovered from the C-only Q). Reduces to the 2-group result when K=().'''
@@ -758,7 +748,7 @@ def _sigma_jet_step(sigma_jet, Q, O, dG, xi_jet, dxi_jet, mu_jet, trs_push):
     return t1 + t2 + t3
 
 
-def compute_sigma_jets(
+def compute_sigma_jets_trs(
         var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
         right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
         down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
@@ -794,7 +784,7 @@ def compute_sigma_jets(
     return sigma_jets
 
 
-def compute_tau_jets(
+def compute_tau_jets_trs(
         var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
         left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
         down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
@@ -803,19 +793,19 @@ def compute_tau_jets(
         nu_jets:        typ.Sequence[NDArray],  # frame right jets, len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:                   # tau_jets. len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
-    '''Variation-rightward edge-variable jets tau -- the mirror of :py:func:`compute_sigma_jets`.
+    '''Variation-rightward edge-variable jets tau -- the mirror of :py:func:`compute_sigma_jets_trs`.
 
     Reverse the train (P in the Q-slot, O and dG reversed), run the sigma sweep, reverse the result.
     '''
     reverse = tt_operations.tt_reverse if is_ndarray(var_tt_cores) else tt_operations.tt_reverse
-    rev = compute_sigma_jets(
+    rev = compute_sigma_jets_trs(
         reverse(var_tt_cores), reverse(left_tt_cores),
         reverse(down_tt_cores), xi_jets[::-1], dxi_jets[::-1], nu_jets[::-1], trs,
     )
     return rev[::-1]
 
 
-def compute_deta_jets(
+def compute_deta_jets_trs(
         var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
         left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
         right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
@@ -858,7 +848,7 @@ def compute_deta_jets(
     return deta_jets
 
 
-def compute_deta_jets_scanned(
+def compute_deta_jets(
         var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
         left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
         right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
@@ -868,16 +858,18 @@ def compute_deta_jets_scanned(
         tau_jets:       typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:                   # deta_jets. len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
-    '''EXPERIMENTAL memory-lean mirror of :py:func:`compute_deta_jets` (module-private).
+    '''Tangent combine at each free mode (standard order-scan form).
 
-    The three-term tangent analog of :py:func:`compute_eta_jets_scanned`: ``deta_i = sigma Q nu +
+    Dense reference: :py:func:`compute_deta_jets_trs` (equal to tolerance).
+
+    The three-term tangent analog of :py:func:`compute_eta_jets`: ``deta_i = sigma Q nu +
     mu dG nu + mu P tau``, three FULL convolutions (mode ``i`` free). The dense uniform d-einsum forms
     the ``(order+1)*W*K*r^2`` spatial product for every core at once; this scans the input order ``r``
     (one order slice of ``jetL . core`` live at a time) and folds in all of the right jet + the
     binomial weights -- peak ``W*K*r^2``. The K tangent stack sits on a *different* operand in each
     term (sigma / dG / tau), so W, K, C are flattened to explicit blocks (K rides). Memory win needs
-    the uniform path (real ``lax.map``/``lax.scan``); see :py:func:`compute_eta_jets_scanned`. Verified
-    equal to :py:func:`compute_deta_jets` to 1e-12.
+    the uniform path (real ``lax.map``/``lax.scan``); see :py:func:`compute_eta_jets`. Verified
+    equal to :py:func:`compute_deta_jets_trs` to 1e-12.
     '''
     use_jax = tree_contains_jax((var_tt_cores, left_tt_cores, right_tt_cores,
                                  mu_jets, nu_jets, sigma_jets, tau_jets, trs))
@@ -968,7 +960,7 @@ def _sigma_banded_step(sigma_jet, Q, O, dG, xi_jet, dxi_jet, mu_jet, s_size, tve
     return (t1 + t2 + t3).reshape((order + 1,) + W_shape + K_shape + C_shape + (b,))
 
 
-def compute_sigma_jets_banded(
+def compute_sigma_jets(
         var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
         right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
         down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
@@ -977,13 +969,15 @@ def compute_sigma_jets_banded(
         mu_jets:        typ.Sequence[NDArray],  # frame left jets,  len=d, elm_shape=(order+1,)+W+C+(rLi,)
         trs:            NDArray,                # binomial tensor -- ONLY its shape (order) is read here
 ) -> typ.Tuple[NDArray, ...]:                   # sigma_jets. len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
-    '''EXPERIMENTAL banded mirror of :py:func:`compute_sigma_jets` (module-private).
+    '''Variation-leftward edge-variable jets sigma (standard banded-recurrence form).
 
-    The three-pushthrough tangent analog of :py:func:`compute_mu_jets_banded_fused`. Both input jets
+    Dense reference: :py:func:`compute_sigma_jets_trs` (equal to tolerance).
+
+    The three-pushthrough tangent analog of :py:func:`compute_mu_jets`. Both input jets
     (``xi``, ``dxi``) are affine (size 2), so each of the three pushthroughs
     (``sigma Q(xi) + mu dG(xi) + mu O(dxi)``) is a fused two-term recurrence rather than a dense ``trs``
     contraction. The K tangent stack rides on the carried sigma / the variation core / the var input.
-    Verified equal to :py:func:`compute_sigma_jets` to 1e-12.
+    Verified equal to :py:func:`compute_sigma_jets_trs` to 1e-12.
     '''
     use_jax = tree_contains_jax((var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs))
     xnp, xmap, xscan = get_backend(is_ndarray(var_tt_cores), use_jax)
@@ -1003,7 +997,7 @@ def compute_sigma_jets_banded(
     return sigma_jets
 
 
-def compute_tau_jets_banded(
+def compute_tau_jets(
         var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
         left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
         down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
@@ -1012,9 +1006,10 @@ def compute_tau_jets_banded(
         nu_jets:        typ.Sequence[NDArray],  # frame right jets, len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
         trs:            NDArray,                # binomial tensor -- ONLY its shape (order) is read here
 ) -> typ.Tuple[NDArray, ...]:                   # tau_jets. len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
-    '''EXPERIMENTAL banded mirror of :py:func:`compute_tau_jets` -- sigma-banded on the reversed train.'''
+    '''Variation-rightward edge-variable jets tau (standard banded-recurrence form) -- sigma-banded on
+    the reversed train. Dense reference: :py:func:`compute_tau_jets_trs` (equal to tolerance).'''
     reverse = tt_operations.tt_reverse
-    rev = compute_sigma_jets_banded(
+    rev = compute_sigma_jets(
         reverse(var_tt_cores), reverse(left_tt_cores),
         reverse(down_tt_cores), xi_jets[::-1], dxi_jets[::-1], nu_jets[::-1], trs,
     )
@@ -1399,7 +1394,7 @@ def compute_deta_tilde_jets(
 
 
 def _adj_sweep(P_cores, xi_jets, deta_tildes, edge_jets, trs):
-    '''The jet adjoint sweep shared by compute_tau_tilde_jets / compute_sigma_tilde_jets: a left-to-right scan
+    '''The jet adjoint sweep shared by compute_tau_tilde_jets_trs / compute_sigma_tilde_jets_trs: a left-to-right scan
     (mirroring probing.compute_tau_tilde) of the adjoint-hooked pushthrough (propagation) plus the
     deta_tilde source. Both terms are the same trs, wired as the transpose (output at the swept order s).'''
     use_jax = tree_contains_jax((P_cores, xi_jets, deta_tildes, edge_jets, trs))
@@ -1422,7 +1417,7 @@ def _adj_sweep(P_cores, xi_jets, deta_tildes, edge_jets, trs):
     return tildes
 
 
-def compute_tau_tilde_jets(
+def compute_tau_tilde_jets_trs(
         left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
         xi_jets:        typ.Sequence[NDArray],  # frame input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
         deta_tildes:    typ.Sequence[NDArray],  # adjoint-up jets, len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
@@ -1433,14 +1428,14 @@ def compute_tau_tilde_jets(
     return _adj_sweep(left_tt_cores, xi_jets, deta_tildes, mu_jets, trs)
 
 
-def compute_sigma_tilde_jets(
+def compute_sigma_tilde_jets_trs(
         right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
         xi_jets:        typ.Sequence[NDArray],  # frame input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
         deta_tildes:    typ.Sequence[NDArray],  # adjoint-up jets, len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
         nu_jets:        typ.Sequence[NDArray],  # frame right jets, len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:                   # sigma_tildes. len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
-    '''Adjoint-var-leftward edge-variable jets -- the mirror (reverse) of compute_tau_tilde_jets.'''
+    '''Adjoint-var-leftward edge-variable jets -- the mirror (reverse) of compute_tau_tilde_jets_trs.'''
     reverse = tt_operations.tt_reverse if is_ndarray(right_tt_cores) else tt_operations.tt_reverse
     rev = _adj_sweep(reverse(right_tt_cores), xi_jets[::-1],
                      deta_tildes[::-1], nu_jets[::-1], trs)
@@ -1514,13 +1509,15 @@ def _adj_sweep_scanned(P_cores, xi_jets, deta_tildes, edge_jets, trs):
     return tildes
 
 
-def compute_tau_tilde_jets_scanned(left_tt_cores, xi_jets, deta_tildes, mu_jets, trs):
-    '''EXPERIMENTAL memory-lean mirror of :py:func:`compute_tau_tilde_jets`.'''
+def compute_tau_tilde_jets(left_tt_cores, xi_jets, deta_tildes, mu_jets, trs):
+    '''Adjoint-var-leftward edge-variable jets tau_tilde (standard order-scan form). Dense reference:
+    :py:func:`compute_tau_tilde_jets_trs` (equal to tolerance).'''
     return _adj_sweep_scanned(left_tt_cores, xi_jets, deta_tildes, mu_jets, trs)
 
 
-def compute_sigma_tilde_jets_scanned(right_tt_cores, xi_jets, deta_tildes, nu_jets, trs):
-    '''EXPERIMENTAL memory-lean mirror of :py:func:`compute_sigma_tilde_jets` (reverse of tau_tilde).'''
+def compute_sigma_tilde_jets(right_tt_cores, xi_jets, deta_tildes, nu_jets, trs):
+    '''Adjoint-var-rightward edge-variable jets sigma_tilde (standard order-scan form; reverse of
+    tau_tilde). Dense reference: :py:func:`compute_sigma_tilde_jets_trs` (equal to tolerance).'''
     rev = _adj_sweep_scanned(tt_operations.tt_reverse(right_tt_cores), xi_jets[::-1],
                              deta_tildes[::-1], nu_jets[::-1], trs)
     return rev[::-1]
@@ -1559,7 +1556,7 @@ def compute_dxi_tilde_jets(
     return dxi_tildes
 
 
-def assemble_tucker_variation_jets(
+def assemble_tucker_variation_jets_trs(
         ztildes:        typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
         dxi_tildes:     typ.Sequence[NDArray],  # adjoint-var-down jets, len=d, elm_shape=(order+1,)+W+K+C+(nOi,)
         ww:             typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
@@ -1595,19 +1592,19 @@ def assemble_tucker_variation_jets(
     return dU_tildes
 
 
-def assemble_tucker_variation_jets_scanned(
+def assemble_tucker_variation_jets(
         ztildes, dxi_tildes, ww, pp, etas, n_probe, sum_over_probes,
         chunk_size: typ.Optional[int] = None,
 ) -> NDArray:
-    '''EXPERIMENTAL W-chunked mirror of :py:func:`assemble_tucker_variation_jets` (module-private,
-    uniform). The milder assembly (two legs nO,N -- the dense gradient is a few GB, not the tt-core's
-    hundreds), chunked over W with the same reducer seam (add if summed, concat if kept) for a uniform
-    chunked-assembly interface. The only twist: ``ww``/``pp`` have no order axis, so W sits at a
-    per-operand axis (2 for the order-carrying jets, 1 for ww/pp). chunk_size None / ragged / multi-W /
-    small W -> dense.'''
+    '''Assemble the Tucker variation gradient (standard W-chunked form; dense reference
+    :py:func:`assemble_tucker_variation_jets_trs`). The milder assembly (two legs nO,N -- the dense
+    gradient is a few GB, not the tt-core's hundreds), chunked over W with the same reducer seam (add if
+    summed, concat if kept) for a uniform chunked-assembly interface. The only twist: ``ww``/``pp`` have
+    no order axis, so W sits at a per-operand axis (2 for the order-carrying jets, 1 for ww/pp).
+    ``chunk_size`` None / ragged / multi-W / small W -> runs the dense assembly directly (no chunking).'''
     ops = (ztildes, dxi_tildes, ww, pp, etas)
     w_axes = (2, 2, 1, 1, 2)                          # per-operand W axis (ww/pp carry no order axis)
-    dense = lambda: assemble_tucker_variation_jets(*ops, n_probe, sum_over_probes)
+    dense = lambda: assemble_tucker_variation_jets_trs(*ops, n_probe, sum_over_probes)
     if chunk_size is None or not is_ndarray(etas) or n_probe != 1:
         return dense()
     use_jax = tree_contains_jax(ops)
@@ -1616,11 +1613,11 @@ def assemble_tucker_variation_jets_scanned(
     if W <= chunk_size:
         return dense()
     return _wchunked_reduce(
-        lambda co: assemble_tucker_variation_jets(*co, n_probe, sum_over_probes),
+        lambda co: assemble_tucker_variation_jets_trs(*co, n_probe, sum_over_probes),
         ops, w_axes, W, chunk_size, sum_over_probes, 1, use_jax, xnp)
 
 
-def assemble_tt_variation_jets(
+def assemble_tt_variation_jets_trs(
         sigma_tildes:   typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
         tau_tildes:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
         deta_tildes:    typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
@@ -1718,7 +1715,7 @@ def _wchunked_reduce(assemble_one, ops, w_axes, W, cs, summed, out_w_axis, use_j
     return xnp.concatenate(parts, axis=out_w_axis)
 
 
-def assemble_tt_variation_jets_scanned(
+def assemble_tt_variation_jets(
         sigma_tildes:   typ.Sequence[NDArray],
         tau_tildes:     typ.Sequence[NDArray],
         deta_tildes:    typ.Sequence[NDArray],
@@ -1730,7 +1727,8 @@ def assemble_tt_variation_jets_scanned(
         sum_over_probes: bool,
         chunk_size:     typ.Optional[int] = None,   # W-chunk size; None -> dense (no chunking)
 ) -> NDArray:                                        # dG_tildes supercore, [W+]C+(rLi,nUi,rRi)
-    '''EXPERIMENTAL memory-lean mirror of :py:func:`assemble_tt_variation_jets` (module-private, uniform).
+    '''Assemble the TT variation gradient (standard W-chunked form; dense reference
+    :py:func:`assemble_tt_variation_jets_trs`).
 
     The dense assembly's peak is exactly LINEAR in the sample stack W (measured: ~5.3 MB / W-row at
     r=128), so it is chunked along W: the dense assembly runs per W-chunk and the partials are combined.
@@ -1747,7 +1745,7 @@ def assemble_tt_variation_jets_scanned(
     so only one chunk's intermediate is resident.
     '''
     ops = (sigma_tildes, tau_tildes, deta_tildes, xi_jets, mu_jets, nu_jets)
-    dense = lambda: assemble_tt_variation_jets(*ops, trs, n_probe, sum_over_probes)
+    dense = lambda: assemble_tt_variation_jets_trs(*ops, trs, n_probe, sum_over_probes)
     if chunk_size is None or not is_ndarray(xi_jets) or n_probe != 1:
         return dense()
 
@@ -1757,7 +1755,7 @@ def assemble_tt_variation_jets_scanned(
     if W <= chunk_size:
         return dense()
     return _wchunked_reduce(
-        lambda co: assemble_tt_variation_jets(*co, trs, n_probe, sum_over_probes),
+        lambda co: assemble_tt_variation_jets_trs(*co, trs, n_probe, sum_over_probes),
         ops, (2,) * len(ops), W, chunk_size, sum_over_probes, 1, use_jax, xnp)
 
 

@@ -31,12 +31,17 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Jet recurrence/convolution forms — the zippering direction, PROTOTYPING (2026-07-16; committed, NOT
-  pushed).** The concrete realization of the `trs`-as-sparse-convolution idea in the standing
-  architecture question. Experimental, **module-private** mirrors in `sampling_derivatives.py` (no
-  `__all__` entry, no swap into call sites yet), verified vs the `trs` originals in
-  `tests/test_jet_recurrence.py`. Research record + benchmarks live in the separate repo
-  (`nicks_research_experiments/t3_jet_experiments/`, esp. `findings.md`), not here.
+- **Jet recurrence/convolution forms — the zippering direction, WIRED IN as the standard (2026-07-16;
+  committed, NOT pushed).** The concrete realization of the `trs`-as-sparse-convolution idea in the
+  standing architecture question, now the default implementation. **The lean forms own the canonical
+  names; the dense forms are the `_trs` reference twins** (Nick's design, 2026-07-16): `compute_mu_jets`
+  (recurrence/scan/chunk, wired into every call site) vs `compute_mu_jets_trs` (dense binomial-tensor
+  einsum, numerically equal to tolerance, kept for reference + tiny/memory-abundant regimes + the
+  `test_jet_recurrence.py` oracle). Both public. The non-fused `compute_mu_jets_banded` was dropped
+  (dominated by the fused form). Testing: `test_probe_derivatives` (vs dense/adjoint) now anchors the
+  lean path; `test_jet_recurrence` keeps `standard == trs`, so `_trs` stays anchored transitively.
+  Research record + benchmarks: separate repo (`nicks_research_experiments/t3_jet_experiments/`,
+  esp. `findings.md`). **Names below are the pre-rename `_banded_fused`/`_scanned` labels (history).**
   - **Done so far:** the **plain chain** — `compute_mu_jets_banded_fused` (affine two-term recurrence,
     folded into one GEMM) and `compute_eta_jets_scanned` (full-convolution order-scan); and the **forward
     tangent Jacobian** — `compute_sigma_jets_banded` / `compute_tau_jets_banded` (three affine
@@ -68,11 +73,16 @@ branch can be deleted (optional).
     assemble_tucker *worse* than dense at N>>n. Replaced pad+reshape+moveaxis with `_wchunked_reduce`:
     slice each chunk in place (`lax.scan`/`dynamic_slice` on jax, eager loop on numpy), reduce add/concat.
     assemble_tt now 168→2.63 GB (**64×**, was 21×); N>>n fixed (assemble_tucker 51.9→1.6 GB at N=10000).
-  - **Not done (next):** wire the scanned/chunked forms into `tv_probe_derivatives_transpose` (thread
-    `chunk_size`); **C-chunking** (the reducer seam already supports it);
-    uniform mask-strict/garbage-robust tests before any swap-in. Deferred: extracting the inline per-step
-    grouped einsums into named `contractions.py` functions — **keep inline until swap-in**, then extract
-    in one pass.
+  - **Rename + wire-in — DONE (2026-07-16).** Lean forms took the canonical names, dense → `_trs`
+    (single-pass whole-word rename + surgical seam re-point; the chunked assemblies still call
+    `assemble_*_trs` per chunk *intentionally* — chunking runs the dense contraction on each W-slice).
+    Added canonical `compute_nu_jets`; `__all__` carries both name sets. Full suite green;
+    `test_jet_recurrence` gained a `nu` equivalence check.
+  - **Not done (next):** thread the `chunk_size` parameter through the outer functions
+    (`tv_probe_derivatives_transpose` / `..._from_sweep` → the canonical assemblies), so a big-W caller
+    can actually turn on chunking (today it defaults to `None` = the dense fallback). Then **C-chunking**
+    (the reducer seam already supports it); uniform mask-strict/garbage-robust tests. Deferred: extracting
+    the inline per-step grouped einsums into named `contractions.py` functions — one pass, later.
 
 - **`contractions.py` unfusing — DONE (2026-07-15, `dae52839` + `f65b341d`; committed, NOT pushed).**
   No named block is fused with another any more: 14 sites, 112/112 bit-identical, full suite 712 passed /

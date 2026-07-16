@@ -2714,7 +2714,7 @@ def trs_drWCa_dCaib_dsWCb_to_dtWCi(
         dCaib: NDArray,
         dsWCb: NDArray,
 ) -> NDArray:
-    """d-prefixed uniform twin of :py:func:`trs_rWCa_Caib_sWCb_to_tWCi` (plain compute_eta_jets)."""
+    """d-prefixed uniform twin of :py:func:`trs_rWCa_Caib_sWCb_to_tWCi` (plain compute_eta_jets_trs)."""
     use_jax = tree_contains_jax((trs, drWCa, dCaib, dsWCb))
     xnp, _, _ = get_backend(True, use_jax)
 
@@ -2836,7 +2836,7 @@ def trs_drWKCa_dCaib_dsWCb_to_dtWKCi(
         dCaib: NDArray,
         dsWCb: NDArray,
 ) -> NDArray:
-    """d-prefixed uniform twin of :py:func:`trs_rWKCa_Caib_sWCb_to_tWKCi` (compute_deta_jets term1)."""
+    """d-prefixed uniform twin of :py:func:`trs_rWKCa_Caib_sWCb_to_tWKCi` (compute_deta_jets_trs term1)."""
     use_jax = tree_contains_jax((trs, drWKCa, dCaib, dsWCb))
     xnp, _, _ = get_backend(True, use_jax)
 
@@ -2864,7 +2864,7 @@ def trs_drWCa_dKCaib_dsWCb_to_dtWKCi(
         dsWCb: NDArray,
         n_frame: int,      # len(C) (dKCaib is K+C with no C-only operand to pin it)
 ) -> NDArray:
-    """d-prefixed uniform twin of :py:func:`trs_rWCa_KCaib_sWCb_to_tWKCi` (compute_deta_jets term2)."""
+    """d-prefixed uniform twin of :py:func:`trs_rWCa_KCaib_sWCb_to_tWKCi` (compute_deta_jets_trs term2)."""
     use_jax = tree_contains_jax((trs, drWCa, dKCaib, dsWCb))
     xnp, _, _ = get_backend(True, use_jax)
 
@@ -2892,7 +2892,7 @@ def trs_drWCa_dCaib_dsWKCb_to_dtWKCi(
         dCaib: NDArray,
         dsWKCb: NDArray,
 ) -> NDArray:
-    """d-prefixed uniform twin of :py:func:`trs_rWCa_Caib_sWKCb_to_tWKCi` (compute_deta_jets term3)."""
+    """d-prefixed uniform twin of :py:func:`trs_rWCa_Caib_sWKCb_to_tWKCi` (compute_deta_jets_trs term3)."""
     use_jax = tree_contains_jax((trs, drWCa, dCaib, dsWKCb))
     xnp, _, _ = get_backend(True, use_jax)
 

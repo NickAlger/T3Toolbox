@@ -1,13 +1,16 @@
 # Authors: Nick Alger and Blake Christierson
 # Copyright: MIT License (2026)
 # https://github.com/NickAlger/T3Toolbox
-"""Equivalence of the EXPERIMENTAL banded-recurrence jet functions with the trs-based originals.
+"""Equivalence of the standard recurrence/scan/chunk jet functions with their dense `*_trs` twins.
 
-The banded forms (sampling_derivatives.compute_*_jets_banded, module-private) unroll the affine jet
-convolution into a two-term recurrence -- no dense trs contraction. They are being workshopped one at
-a time; each must give BIT-FOR-BIT-close results to the trs original it mirrors, over the same stack
-shapes those originals are tested at (test_probe_derivatives.py): W in {(), (3,), (2,2)}, an optional
-frame stack C, orders 0..4. Numpy-only, per the suite's convention (jax dispatch is test_dispatch).
+The standard forms (sampling_derivatives.compute_mu_jets, compute_eta_jets, ... -- the ones wired into
+the sampling-derivative call sites) unroll the binomial convolution into a two-term recurrence (affine
+mu/nu/sigma/tau) or an order-scan (full eta/deta/tilde) -- no dense trs contraction. Each must give
+results close to the dense `*_trs` reference it replaces, over the same stack shapes those references
+are tested at (test_probe_derivatives.py): W in {(), (3,), (2,2)}, an optional frame stack C, orders
+0..4. This keeps the (now call-site-orphaned) `*_trs` forms exercised: standard == trs here, and
+standard == dense in test_probe_derivatives, so trs stays anchored to ground truth transitively.
+Numpy-only, per the suite's convention (jax dispatch is test_dispatch).
 """
 import numpy as np
 import unittest
@@ -24,7 +27,7 @@ class TestMuJetsBanded(unittest.TestCase):
     ]
 
     def _mu_inputs(self, STRUCT, W, C, ORDER, rng):
-        """Reproduce t3_probe_derivatives' construction up to compute_mu_jets: a genuinely C-stacked
+        """Reproduce t3_probe_derivatives' construction up to compute_mu_jets_trs: a genuinely C-stacked
         T3, ambient probes projected onto the frame (mode dim = tucker rank), and the input jets."""
         shapes = STRUCT[0]
         x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
@@ -37,8 +40,7 @@ class TestMuJetsBanded(unittest.TestCase):
         trs = pd.binomial_combine_tensor(ORDER)
         return tt_cores, xi_jets, trs
 
-    BANDED = {'banded': pd.compute_mu_jets_banded,
-              'banded_fused': pd.compute_mu_jets_banded_fused}
+    BANDED = {'fused': pd.compute_mu_jets}    # the standard mu (was compute_mu_jets_banded_fused)
 
     def test_banded_matches_trs_mu(self):
         rng = np.random.default_rng(0)
@@ -50,7 +52,7 @@ class TestMuJetsBanded(unittest.TestCase):
                             with self.subTest(variant=variant, STRUCT=STRUCT[0], W=W, C=C, ORDER=ORDER):
                                 tt_cores, xi_jets, trs = self._mu_inputs(STRUCT, W, C, ORDER, rng)
 
-                                expected = pd.compute_mu_jets(tt_cores, xi_jets, trs)
+                                expected = pd.compute_mu_jets_trs(tt_cores, xi_jets, trs)
                                 actual = fn(tt_cores, xi_jets, trs)
 
                                 self.assertEqual(len(actual), len(expected))
@@ -61,9 +63,28 @@ class TestMuJetsBanded(unittest.TestCase):
                                     rel = np.linalg.norm(a - e) / denom if denom else np.linalg.norm(a)
                                     self.assertLess(rel, 1e-12, 'core %d: rel err %.2e' % (i, rel))
 
+    def test_banded_matches_trs_nu(self):
+        # nu = reverse(mu) wrapper, so equivalence follows from mu; check it directly anyway.
+        rng = np.random.default_rng(1)
+        for STRUCT in self.STRUCTS:
+            for W in [(), (3,), (2, 2)]:
+                for C in [(), (2,)]:
+                    for ORDER in [0, 1, 2, 3, 4]:
+                        with self.subTest(STRUCT=STRUCT[0], W=W, C=C, ORDER=ORDER):
+                            tt_cores, xi_jets, trs = self._mu_inputs(STRUCT, W, C, ORDER, rng)
+                            expected = pd.compute_nu_jets_trs(tt_cores, xi_jets, trs)
+                            actual = pd.compute_nu_jets(tt_cores, xi_jets, trs)
+                            self.assertEqual(len(actual), len(expected))
+                            for i in range(len(expected)):
+                                e, a = np.asarray(expected[i]), np.asarray(actual[i])
+                                self.assertEqual(a.shape, e.shape)
+                                denom = np.linalg.norm(e)
+                                rel = np.linalg.norm(a - e) / denom if denom else np.linalg.norm(a)
+                                self.assertLess(rel, 1e-12, 'core %d: rel err %.2e' % (i, rel))
+
 
 class TestEtaJetsScanned(TestMuJetsBanded):
-    """The memory-lean order-scan eta must equal the dense-trs compute_eta_jets on real widths."""
+    """The memory-lean order-scan eta must equal the dense-trs compute_eta_jets_trs on real widths."""
 
     def test_scanned_matches_trs_eta(self):
         rng = np.random.default_rng(0)
@@ -80,11 +101,11 @@ class TestEtaJetsScanned(TestMuJetsBanded):
                             xi_jets = pd.build_input_jets(pd.compute_xi(tucker_cores, ww),
                                                           pd.compute_xi(tucker_cores, pp))
                             trs = pd.binomial_combine_tensor(ORDER)
-                            mu = pd.compute_mu_jets(tt_cores, xi_jets, trs)
-                            nu = pd.compute_nu_jets(tt_cores, xi_jets, trs)
+                            mu = pd.compute_mu_jets_trs(tt_cores, xi_jets, trs)
+                            nu = pd.compute_nu_jets_trs(tt_cores, xi_jets, trs)
 
-                            expected = pd.compute_eta_jets(tt_cores, mu, nu, trs)
-                            actual = pd.compute_eta_jets_scanned(tt_cores, mu, nu, trs)
+                            expected = pd.compute_eta_jets_trs(tt_cores, mu, nu, trs)
+                            actual = pd.compute_eta_jets(tt_cores, mu, nu, trs)
 
                             self.assertEqual(len(actual), len(expected))
                             for k in range(len(expected)):
@@ -114,8 +135,8 @@ class TestForwardTangentJets(unittest.TestCase):
         xi = pd.build_input_jets(pd.compute_xi(up, ww), pd.compute_xi(up, pp))
         dxi = pd.build_input_jets(pd.compute_xi(dU, ww), pd.compute_xi(dU, pp))
         trs = pd.binomial_combine_tensor(ORDER)
-        mu = pd.compute_mu_jets(left, xi, trs)
-        nu = pd.compute_nu_jets(right, xi, trs)
+        mu = pd.compute_mu_jets_trs(left, xi, trs)
+        nu = pd.compute_nu_jets_trs(right, xi, trs)
         return dict(dG=dG, P=left, Q=right, O=down, xi=xi, dxi=dxi, mu=mu, nu=nu, trs=trs)
 
     def _close(self, got, ref, tag):
@@ -134,15 +155,15 @@ class TestForwardTangentJets(unittest.TestCase):
             for ORDER in [0, 1, 2, 3]:
                 with self.subTest(W=W, K=K, C=C, ORDER=ORDER):
                     d = self._tangent_inputs(STRUCT, W, K, C, ORDER, rng)
-                    s_ref = pd.compute_sigma_jets(d['dG'], d['Q'], d['O'], d['xi'], d['dxi'], d['mu'], d['trs'])
-                    s_got = pd.compute_sigma_jets_banded(d['dG'], d['Q'], d['O'], d['xi'], d['dxi'], d['mu'], d['trs'])
-                    t_ref = pd.compute_tau_jets(d['dG'], d['P'], d['O'], d['xi'], d['dxi'], d['nu'], d['trs'])
-                    t_got = pd.compute_tau_jets_banded(d['dG'], d['P'], d['O'], d['xi'], d['dxi'], d['nu'], d['trs'])
+                    s_ref = pd.compute_sigma_jets_trs(d['dG'], d['Q'], d['O'], d['xi'], d['dxi'], d['mu'], d['trs'])
+                    s_got = pd.compute_sigma_jets(d['dG'], d['Q'], d['O'], d['xi'], d['dxi'], d['mu'], d['trs'])
+                    t_ref = pd.compute_tau_jets_trs(d['dG'], d['P'], d['O'], d['xi'], d['dxi'], d['nu'], d['trs'])
+                    t_got = pd.compute_tau_jets(d['dG'], d['P'], d['O'], d['xi'], d['dxi'], d['nu'], d['trs'])
                     self._close(s_got, s_ref, 'sigma')
                     self._close(t_got, t_ref, 'tau')
 
-                    dt_ref = pd.compute_deta_jets(d['dG'], d['P'], d['Q'], d['mu'], d['nu'], s_ref, t_ref, d['trs'])
-                    dt_got = pd.compute_deta_jets_scanned(d['dG'], d['P'], d['Q'], d['mu'], d['nu'], s_got, t_got, d['trs'])
+                    dt_ref = pd.compute_deta_jets_trs(d['dG'], d['P'], d['Q'], d['mu'], d['nu'], s_ref, t_ref, d['trs'])
+                    dt_got = pd.compute_deta_jets(d['dG'], d['P'], d['Q'], d['mu'], d['nu'], s_got, t_got, d['trs'])
                     self._close(dt_got, dt_ref, 'deta')
 
 
@@ -168,16 +189,16 @@ class TestTildeTangentJets(unittest.TestCase):
                     pp = [rng.standard_normal(W + (n,)) for n in shapes]
                     xi = pd.build_input_jets(pd.compute_xi(up, ww), pd.compute_xi(up, pp))
                     trs = pd.binomial_combine_tensor(ORDER)
-                    mu = pd.compute_mu_jets(left, xi, trs)
-                    nu = pd.compute_nu_jets(right, xi, trs)
+                    mu = pd.compute_mu_jets_trs(left, xi, trs)
+                    nu = pd.compute_nu_jets_trs(right, xi, trs)
                     zt = [rng.standard_normal((ORDER + 1,) + W + K + C + (n,)) for n in shapes]
                     deta_t = pd.compute_deta_tilde_jets(up, zt)
 
                     for tag, ref, got in [
-                        ('tau_tilde', pd.compute_tau_tilde_jets(left, xi, deta_t, mu, trs),
-                         pd.compute_tau_tilde_jets_scanned(left, xi, deta_t, mu, trs)),
-                        ('sigma_tilde', pd.compute_sigma_tilde_jets(right, xi, deta_t, nu, trs),
-                         pd.compute_sigma_tilde_jets_scanned(right, xi, deta_t, nu, trs)),
+                        ('tau_tilde', pd.compute_tau_tilde_jets_trs(left, xi, deta_t, mu, trs),
+                         pd.compute_tau_tilde_jets(left, xi, deta_t, mu, trs)),
+                        ('sigma_tilde', pd.compute_sigma_tilde_jets_trs(right, xi, deta_t, nu, trs),
+                         pd.compute_sigma_tilde_jets(right, xi, deta_t, nu, trs)),
                     ]:
                         self.assertEqual(len(got), len(ref))
                         for k in range(len(ref)):
@@ -205,10 +226,10 @@ class TestAssemblyChunked(unittest.TestCase):
                     xi, mu, nu = R(d, 2, W, r), R(d, order + 1, W, r), R(d, order + 1, W, r)
                     trs = pd.binomial_combine_tensor(order)
                     for sop in [True, False]:
-                        ref = pd.assemble_tt_variation_jets(sig, tau, deta, xi, mu, nu, trs, 1, sop)
+                        ref = pd.assemble_tt_variation_jets_trs(sig, tau, deta, xi, mu, nu, trs, 1, sop)
                         for cs in [3, 4, W, W + 5]:      # non-divisor, divisor-ish, exact, oversize
                             with self.subTest(K=K, order=order, W=W, sum_over_probes=sop, chunk_size=cs):
-                                got = pd.assemble_tt_variation_jets_scanned(
+                                got = pd.assemble_tt_variation_jets(
                                     sig, tau, deta, xi, mu, nu, trs, 1, sop, chunk_size=cs)
                                 e, a = np.asarray(ref), np.asarray(got)
                                 self.assertEqual(a.shape, e.shape)
@@ -225,10 +246,10 @@ class TestAssemblyChunked(unittest.TestCase):
                     zt, dxt = R(d, order + 1, W, K, N), R(d, order + 1, W, K, nO)
                     ww, pp, eta = R(d, W, N), R(d, W, N), R(d, order + 1, W, nO)
                     for sop in [True, False]:
-                        ref = pd.assemble_tucker_variation_jets(zt, dxt, ww, pp, eta, 1, sop)
+                        ref = pd.assemble_tucker_variation_jets_trs(zt, dxt, ww, pp, eta, 1, sop)
                         for cs in [3, 4, W, W + 5]:
                             with self.subTest(K=K, order=order, W=W, sum_over_probes=sop, chunk_size=cs):
-                                got = pd.assemble_tucker_variation_jets_scanned(
+                                got = pd.assemble_tucker_variation_jets(
                                     zt, dxt, ww, pp, eta, 1, sop, chunk_size=cs)
                                 e, a = np.asarray(ref), np.asarray(got)
                                 self.assertEqual(a.shape, e.shape)

@@ -91,15 +91,19 @@ Listed so they are not re-invented from scratch. None costed, none recommended.
 _Nick, 2026-07-16 — a direction, not just an observation. Unlike the material above, this one has an
 intended shape; it is parked on cost, not on doubt._
 
-> **UPDATE 2026-07-16 — now being PROTOTYPED** (experimental, module-private in
-> `sampling_derivatives.py`; see `dev/HANDOFF.md` "Jet recurrence/convolution forms" and the research
-> repo `nicks_research_experiments/t3_jet_experiments/findings.md`). The plain chain (mu/eta) and the
-> forward tangent Jacobian (sigma/tau/deta) are done and verified vs the `trs` originals; affine inputs
-> become two-term recurrences, full convolutions become order-scans. **The zippering pays off as a
-> memory win** (eta 14–28×, deta up to 28× smaller XLA peak) — but *only on the uniform path*, where
-> `xmap`/`xscan` are the real sequential `jax.lax.map`/`scan`; a Python loop does not force the
-> freeing. Still to prototype: the transpose/tilde jets and the assembly. The `trs` baseline stays as
-> the oracle throughout, exactly as this note required.
+> **UPDATE 2026-07-16 — PROTOTYPED, THEN MADE THE DEFAULT** (in `sampling_derivatives.py`; see
+> `dev/HANDOFF.md` "Jet recurrence/convolution forms" and the research repo
+> `nicks_research_experiments/t3_jet_experiments/findings.md`). The whole forward tangent Jacobian *and*
+> its transpose (mu/nu/eta, sigma/tau/deta, the tilde jets, both variation assemblies) are in
+> recurrence/scan/chunk form and verified vs the `trs` originals; affine inputs become two-term
+> recurrences, full convolutions become order-scans, the assemblies W-chunk the dense contraction.
+> **The zippering pays off as a memory win** (eta 14–28×, deta up to 28×, tt-assembly 64× smaller XLA
+> peak) — but *only on the uniform path*, where `xmap`/`xscan` are the real sequential
+> `jax.lax.map`/`scan`; a Python loop does not force the freeing. **These lean forms now own the
+> canonical jet names and are wired into every call site; the dense `trs` forms are retained as the
+> `_trs` reference twins** (the oracle in `test_jet_recurrence.py`) — exactly as this note required the
+> baseline to stay. This resolves the *jet* corner of the architecture question in the zippering
+> direction; the broader `contractions.py` public-API/fusion question (below) remains open.
 
 **The idea.** A `trs` binomial tensor **is a sparse convolution tensor**. Passing it to einsum as a
 dense operand is the wrong handling. The right form is a **zippering sum of non-`trs` contractions**
