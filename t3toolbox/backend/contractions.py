@@ -717,11 +717,11 @@ def WCi_WCa_WCj_to_Ciaj(
 
 
 def trs_rWCa_Caib_sWCi_to_tWCb(
-        trs:  NDArray,  # t + (r, s)          -- binomial_combine_tensor; r,s contracted -> output order t
-        rWCa: NDArray,  # r + W + C + (a,)    -- mu jet (left edge var), stacked over input order r
-        Caib: NDArray,  # C + (a, i, b)       -- core (C-only -> pins len(C))
-        sWCi: NDArray,  # s + W + C + (i,)    -- input jet on mode i: (xi, dxi, 0...) over order s
-) -> NDArray:           # t + W + C + (b,)    -- pushed jet
+        trs: NDArray,
+        rWCa: NDArray,
+        Caib: NDArray,
+        sWCi: NDArray,
+) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
     Derivative-order pushthrough: the binomial jet-product of the left jet with the input jet through
@@ -756,11 +756,11 @@ def trs_rWCa_Caib_sWCi_to_tWCb(
 
 
 def trs_rWCa_Caib_sWCb_to_tWCi(
-        trs:  NDArray,  # t + (r, s)          -- binomial_combine_tensor; r,s contracted -> output order t
-        rWCa: NDArray,  # r + W + C + (a,)    -- mu jet (left edge var), stacked over input order r
-        Caib: NDArray,  # C + (a, i, b)       -- core (C-only -> pins len(C))
-        sWCb: NDArray,  # s + W + C + (b,)    -- nu jet (right edge var), stacked over input order s
-) -> NDArray:           # t + W + C + (i,)    -- combined jet, mode i free
+        trs: NDArray,
+        rWCa: NDArray,
+        Caib: NDArray,
+        sWCb: NDArray,
+) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
     Derivative-order combine: the binomial jet-product of the left and right jets through one core,
@@ -794,9 +794,9 @@ def trs_rWCa_Caib_sWCb_to_tWCi(
 
 
 def tWCi_Cio_to_tWCo(
-        tWCi: NDArray,  # t + W + C + (i,)    -- combined jet (down edge var)
-        Cio:  NDArray,  # C + (i, o)          -- Tucker core (C-only -> pins len(C))
-) -> NDArray:           # t + W + C + (o,)    -- lifted jet (probe-derivative output)
+        tWCi: NDArray,
+        Cio: NDArray,
+) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
     Derivative-order assemble: lift the combined jet to the ambient mode through the Tucker core. The
@@ -835,9 +835,9 @@ def tWCi_Cio_to_tWCo(
 
 
 def tWCo_Cio_to_tWCi(
-        tWCo: NDArray,  # t + W + C + (o,)    -- residual jet (transpose of tWCi_Cio_to_tWCo)
-        Cio:  NDArray,  # C + (i, o)          -- Tucker core (C-only -> pins len(C))
-) -> NDArray:           # t + W + C + (i,)    -- adjoint-up jet (deta_tilde), order t broadcast
+        tWCo: NDArray,
+        Cio: NDArray,
+) -> NDArray:
     """Computes named contraction. Adjoint lift: contract the ambient mode, order t rides through."""
     use_jax = tree_contains_jax((tWCo, Cio))
     xnp, _, _ = get_backend(True, use_jax)
@@ -876,10 +876,10 @@ def tWCo_Cio_to_tWCi(
 
 
 def WKCa_Caib_WCi_to_WKCb(
-        WKCa: NDArray,  # W + K + C + (a,)   -- e.g. sigma (perturbation left edge var)
-        Caib: NDArray,  # C + (a, i, b)      -- e.g. Q frame core (C-only -> pins len(C))
-        WCi:  NDArray,  # W + C + (i,)       -- e.g. xi-hat frame edge var (W+C -> pins len(W))
-) -> NDArray:           # W + K + C + (b,)
+        WKCa: NDArray,
+        Caib: NDArray,
+        WCi: NDArray,
+) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
     Three-group (W, K, C) base-inner contraction. Self-infers the split: Caib (C-only) pins len(C),
@@ -912,10 +912,10 @@ def WKCa_Caib_WCi_to_WKCb(
 
 
 def WCa_Caib_WKCi_to_WKCb(
-        WCa:  NDArray,  # W + C + (a,)       -- e.g. mu-hat frame edge var (W+C -> pins len(W))
-        Caib: NDArray,  # C + (a, i, b)      -- e.g. O frame core (C-only -> pins len(C))
-        WKCi: NDArray,  # W + K + C + (i,)   -- e.g. delta-xi (perturbation up edge var)
-) -> NDArray:           # W + K + C + (b,)
+        WCa: NDArray,
+        Caib: NDArray,
+        WKCi: NDArray,
+) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
     Three-group (W, K, C) base-inner contraction. Self-infers the split: Caib (C-only) pins len(C),
@@ -947,10 +947,10 @@ def WCa_Caib_WKCi_to_WKCb(
 
 
 def WKCa_Caib_WCb_to_WKCi(
-        WKCa: NDArray,  # W + K + C + (a,)   -- e.g. sigma (perturbation left edge var)
-        Caib: NDArray,  # C + (a, i, b)      -- e.g. Q frame core (C-only -> pins len(C))
-        WCb:  NDArray,  # W + C + (b,)       -- e.g. nu-hat frame edge var (W+C -> pins len(W))
-) -> NDArray:           # W + K + C + (i,)
+        WKCa: NDArray,
+        Caib: NDArray,
+        WCb: NDArray,
+) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
     Three-group (W, K, C) base-inner contraction. Self-infers the split: Caib (C-only) pins len(C),
@@ -982,10 +982,10 @@ def WKCa_Caib_WCb_to_WKCi(
 
 
 def WCa_Caib_WKCb_to_WKCi(
-        WCa:  NDArray,  # W + C + (a,)       -- e.g. mu-hat frame edge var (W+C -> pins len(W))
-        Caib: NDArray,  # C + (a, i, b)      -- e.g. P frame core (C-only -> pins len(C))
-        WKCb: NDArray,  # W + K + C + (b,)   -- e.g. tau (perturbation right edge var)
-) -> NDArray:           # W + K + C + (i,)
+        WCa: NDArray,
+        Caib: NDArray,
+        WKCb: NDArray,
+) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
     Three-group (W, K, C) base-inner contraction. Self-infers the split: Caib (C-only) pins len(C),
@@ -1017,12 +1017,12 @@ def WCa_Caib_WKCb_to_WKCi(
 
 
 def WCa_KCaib_WCi_to_WKCb(
-        WCa:   NDArray,  # W + C + (a,)        -- e.g. mu-hat frame edge var (W+C)
-        KCaib: NDArray,  # K + C + (a, i, b)   -- e.g. delta-C variation tt core (K+C)
-        WCi:   NDArray,  # W + C + (i,)        -- e.g. xi-hat frame edge var (W+C)
+        WCa: NDArray,
+        KCaib: NDArray,
+        WCi: NDArray,
         n_frame: int,     # len(C). The only core operand (KCaib) is K+C, so len(C) cannot be
                          # recovered from these operands -- it is supplied (the n_probe precedent).
-) -> NDArray:            # W + K + C + (b,)
+) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
     Three-group (W, K, C) base-inner contraction whose only core operand is a variation core (K+C).
@@ -1055,11 +1055,11 @@ def WCa_KCaib_WCi_to_WKCb(
 
 
 def WCa_KCaib_WCb_to_WKCi(
-        WCa:   NDArray,  # W + C + (a,)        -- e.g. mu-hat frame edge var (W+C)
-        KCaib: NDArray,  # K + C + (a, i, b)   -- e.g. delta-C variation tt core (K+C)
-        WCb:   NDArray,  # W + C + (b,)        -- e.g. nu-hat frame edge var (W+C)
+        WCa: NDArray,
+        KCaib: NDArray,
+        WCb: NDArray,
         n_frame: int,     # len(C) (supplied; KCaib is K+C with no C-only operand to pin it).
-) -> NDArray:            # W + K + C + (i,)
+) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
     Three-group (W, K, C) base-inner contraction whose only core operand is a variation core (K+C).
@@ -1092,10 +1092,10 @@ def WCa_KCaib_WCb_to_WKCi(
 
 
 def WCi_KCio_to_WKCo(
-        WCi:   NDArray,  # W + C + (i,)        -- e.g. eta-hat frame edge var (W+C)
-        KCio:  NDArray,  # K + C + (i, o)      -- e.g. delta-U variation tucker core (K+C)
+        WCi: NDArray,
+        KCio: NDArray,
         n_frame: int,     # len(C) (supplied; KCio is K+C with no C-only operand to pin it).
-) -> NDArray:            # W + K + C + (o,)
+) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
     Three-group (W, K, C) base-inner contraction whose only core operand is a variation core (K+C).
@@ -1126,9 +1126,9 @@ def WCi_KCio_to_WKCo(
 
 
 def WKCi_Cio_to_WKCo(
-        WKCi: NDArray,  # W + K + C + (i,)   -- e.g. delta-eta (perturbation down edge var)
-        Cio:  NDArray,  # C + (i, o)         -- e.g. U frame tucker core (C-only)
-) -> NDArray:           # W + K + C + (o,)
+        WKCi: NDArray,
+        Cio: NDArray,
+) -> NDArray:
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
     Lifts the down edge variable through the C-only frame Tucker core, contracting the TT-rank index
@@ -1172,10 +1172,10 @@ def WKCi_Cio_to_WKCo(
 
 
 def WKCo_WCa_to_WKCao(
-        WKCo:   NDArray,  # W + K + C + (o,)   -- z-tilde residual (carries K)
-        WCa:    NDArray,  # W + C + (a,)       -- eta-hat frame edge var (W+C -> pins C given n_probe)
+        WKCo: NDArray,
+        WCa: NDArray,
         n_probe: int,     # len(W); {W+K+C, W+C} do not pin it, so it is supplied
-) -> NDArray:             # W + K + C + (a, o)
+) -> NDArray:
     """Computes named contraction (outer product over a, o). Capitals are grouped indices, may be empty.
 
     Transpose-assemble (z-tilde (x) eta-hat), keeping the probe stack W.
@@ -1203,10 +1203,10 @@ def WKCo_WCa_to_WKCao(
 
 
 def WKCo_WCa_to_KCao(
-        WKCo:   NDArray,  # W + K + C + (o,)   -- z-tilde residual (carries K)
-        WCa:    NDArray,  # W + C + (a,)       -- eta-hat frame edge var
+        WKCo: NDArray,
+        WCa: NDArray,
         n_probe: int,     # len(W), summed out
-) -> NDArray:             # K + C + (a, o)
+) -> NDArray:
     """Computes named contraction (outer product over a, o; probe stack W summed out).
 
     Transpose-assemble (z-tilde (x) eta-hat), summing over the probe stack W.
@@ -1234,9 +1234,9 @@ def WKCo_WCa_to_KCao(
 
 
 def Wo_WKCa_to_WKCao(
-        Wo:   NDArray,  # W + (o,)           -- probe vector w (W-only -> self-pins len(W))
-        WKCa: NDArray,  # W + K + C + (a,)   -- delta-xi-tilde (carries K)
-) -> NDArray:           # W + K + C + (a, o)
+        Wo: NDArray,
+        WKCa: NDArray,
+) -> NDArray:
     """Computes named contraction (outer product over a, o). Capitals are grouped indices, may be empty.
 
     Transpose-assemble (w (x) delta-xi-tilde), keeping the probe stack W. W is SHARED (on both operands,
@@ -1266,9 +1266,9 @@ def Wo_WKCa_to_WKCao(
 
 
 def Wo_WKCa_to_KCao(
-        Wo:   NDArray,  # W + (o,)           -- probe vector w (W-only -> self-pins len(W))
-        WKCa: NDArray,  # W + K + C + (a,)   -- delta-xi-tilde (carries K)
-) -> NDArray:           # K + C + (a, o)
+        Wo: NDArray,
+        WKCa: NDArray,
+) -> NDArray:
     """Computes named contraction (outer product over a, o; probe stack W summed out).
 
     Transpose-assemble (w (x) delta-xi-tilde), summing over the probe stack W. W is SHARED (on both
@@ -1297,11 +1297,11 @@ def Wo_WKCa_to_KCao(
 
 
 def WCi_WCa_WKCj_to_WKCiaj(
-        WCi:    NDArray,  # W + C + (i,)       -- frame edge var (W+C -> pins C given n_probe)
-        WCa:    NDArray,  # W + C + (a,)       -- frame edge var
-        WKCj:   NDArray,  # W + K + C + (j,)   -- residual-derived edge var (carries K)
+        WCi: NDArray,
+        WCa: NDArray,
+        WKCj: NDArray,
         n_probe: int,     # len(W); {W+C, W+C, W+K+C} do not pin it, so it is supplied
-) -> NDArray:             # W + K + C + (i, a, j)
+) -> NDArray:
     """Computes named contraction (triple outer product over i, a, j). Capitals may be empty.
 
     Transpose tt-assemble term with K on the third (j) edge var, keeping the probe stack W.
@@ -1331,11 +1331,11 @@ def WCi_WCa_WKCj_to_WKCiaj(
 
 
 def WCi_WCa_WKCj_to_KCiaj(
-        WCi:    NDArray,  # W + C + (i,)
-        WCa:    NDArray,  # W + C + (a,)
-        WKCj:   NDArray,  # W + K + C + (j,)
+        WCi: NDArray,
+        WCa: NDArray,
+        WKCj: NDArray,
         n_probe: int,     # len(W), summed out
-) -> NDArray:             # K + C + (i, a, j)
+) -> NDArray:
     """Computes named contraction (triple outer product over i, a, j; probe stack W summed out).
 
     Transpose tt-assemble term with K on the third (j) edge var, summing over the probe stack W.
@@ -1365,11 +1365,11 @@ def WCi_WCa_WKCj_to_KCiaj(
 
 
 def WKCi_WCa_WCj_to_WKCiaj(
-        WKCi:   NDArray,  # W + K + C + (i,)   -- residual-derived edge var (carries K)
-        WCa:    NDArray,  # W + C + (a,)       -- frame edge var (W+C -> pins C given n_probe)
-        WCj:    NDArray,  # W + C + (j,)       -- frame edge var
+        WKCi: NDArray,
+        WCa: NDArray,
+        WCj: NDArray,
         n_probe: int,     # len(W); supplied
-) -> NDArray:             # W + K + C + (i, a, j)
+) -> NDArray:
     """Computes named contraction (triple outer product over i, a, j). Capitals may be empty.
 
     Transpose tt-assemble term with K on the first (i) edge var, keeping the probe stack W.
@@ -1399,11 +1399,11 @@ def WKCi_WCa_WCj_to_WKCiaj(
 
 
 def WKCi_WCa_WCj_to_KCiaj(
-        WKCi:   NDArray,  # W + K + C + (i,)
-        WCa:    NDArray,  # W + C + (a,)
-        WCj:    NDArray,  # W + C + (j,)
+        WKCi: NDArray,
+        WCa: NDArray,
+        WCj: NDArray,
         n_probe: int,     # len(W), summed out
-) -> NDArray:             # K + C + (i, a, j)
+) -> NDArray:
     """Computes named contraction (triple outer product over i, a, j; probe stack W summed out).
 
     Transpose tt-assemble term with K on the first (i) edge var, summing over the probe stack W.
@@ -1433,11 +1433,11 @@ def WKCi_WCa_WCj_to_KCiaj(
 
 
 def WCi_WKCa_WCj_to_WKCiaj(
-        WCi:    NDArray,  # W + C + (i,)       -- frame edge var (W+C -> pins C given n_probe)
-        WKCa:   NDArray,  # W + K + C + (a,)   -- residual-derived edge var (carries K)
-        WCj:    NDArray,  # W + C + (j,)       -- frame edge var
+        WCi: NDArray,
+        WKCa: NDArray,
+        WCj: NDArray,
         n_probe: int,     # len(W); supplied
-) -> NDArray:             # W + K + C + (i, a, j)
+) -> NDArray:
     """Computes named contraction (triple outer product over i, a, j). Capitals may be empty.
 
     Transpose tt-assemble term with K on the middle (a) edge var, keeping the probe stack W.
@@ -1467,11 +1467,11 @@ def WCi_WKCa_WCj_to_WKCiaj(
 
 
 def WCi_WKCa_WCj_to_KCiaj(
-        WCi:    NDArray,  # W + C + (i,)
-        WKCa:   NDArray,  # W + K + C + (a,)
-        WCj:    NDArray,  # W + C + (j,)
+        WCi: NDArray,
+        WKCa: NDArray,
+        WCj: NDArray,
         n_probe: int,     # len(W), summed out
-) -> NDArray:             # K + C + (i, a, j)
+) -> NDArray:
     """Computes named contraction (triple outer product over i, a, j; probe stack W summed out).
 
     Transpose tt-assemble term with K on the middle (a) edge var, summing over the probe stack W.
@@ -1515,11 +1515,11 @@ def WCi_WKCa_WCj_to_KCiaj(
 
 
 def trs_rWKCa_Caib_sWCi_to_tWKCb(
-        trs:   NDArray,  # t + (r, s)           -- binomial tensor; r,s contracted -> output order t
-        rWKCa: NDArray,  # r + W + K + C + (a,)  -- swept variation jet (sigma), K on this operand
-        Caib:  NDArray,  # C + (a, i, b)         -- frame core (C-only -> pins len(C))
-        sWCi:  NDArray,  # s + W + C + (i,)      -- frame input jet on mode i (W+C -> pins len(W))
-) -> NDArray:            # t + W + K + C + (b,)  -- pushed jet, K rides through
+        trs: NDArray,
+        rWKCa: NDArray,
+        Caib: NDArray,
+        sWCi: NDArray,
+) -> NDArray:
     """Computes named contraction. Order-threaded 3-group (W,K,C) pushthrough; the K-stacked analog of
     trs_rWCa_Caib_sWCi_to_tWCb (K on the swept jet). Self-infers: Caib pins C, sWCi pins W, K=remainder."""
     use_jax = tree_contains_jax((trs, rWKCa, Caib, sWCi))
@@ -1542,11 +1542,11 @@ def trs_rWKCa_Caib_sWCi_to_tWKCb(
 
 
 def trs_rWCa_Caib_sWKCi_to_tWKCb(
-        trs:   NDArray,  # t + (r, s)           -- binomial tensor; r,s contracted -> output order t
-        rWCa:  NDArray,  # r + W + C + (a,)      -- frame left jet (mu) (W+C -> pins len(W))
-        Caib:  NDArray,  # C + (a, i, b)         -- frame core (C-only -> pins len(C))
-        sWKCi: NDArray,  # s + W + K + C + (i,)  -- variation input jet on mode i (dxi), K on this operand
-) -> NDArray:            # t + W + K + C + (b,)  -- pushed jet, K rides through
+        trs: NDArray,
+        rWCa: NDArray,
+        Caib: NDArray,
+        sWKCi: NDArray,
+) -> NDArray:
     """Computes named contraction. Order-threaded 3-group (W,K,C) pushthrough; the K-stacked analog of
     trs_rWCa_Caib_sWCi_to_tWCb (K on the input jet). Self-infers: Caib pins C, rWCa pins W, K=remainder."""
     use_jax = tree_contains_jax((trs, rWCa, Caib, sWKCi))
@@ -1569,12 +1569,12 @@ def trs_rWCa_Caib_sWKCi_to_tWKCb(
 
 
 def trs_rWCa_KCaib_sWCi_to_tWKCb(
-        trs:   NDArray,  # t + (r, s)            -- binomial tensor; r,s contracted -> output order t
-        rWCa:  NDArray,  # r + W + C + (a,)       -- frame left jet (mu) (W+C -> pins len(W))
-        KCaib: NDArray,  # K + C + (a, i, b)      -- variation tt core (dG), K on this operand
-        sWCi:  NDArray,  # s + W + C + (i,)       -- frame input jet on mode i
+        trs: NDArray,
+        rWCa: NDArray,
+        KCaib: NDArray,
+        sWCi: NDArray,
         n_frame: int,     # len(C). Only core operand is K+C, so len(C) is supplied (n_probe precedent).
-) -> NDArray:            # t + W + K + C + (b,)   -- pushed jet, K rides through
+) -> NDArray:
     """Computes named contraction. Order-threaded 3-group (W,K,C) pushthrough; the K-stacked analog of
     trs_rWCa_Caib_sWCi_to_tWCb (K on the variation core). Operands {W+C, K+C, W+C} do not pin len(C) -> n_frame."""
     use_jax = tree_contains_jax((trs, rWCa, KCaib, sWCi))
@@ -1598,11 +1598,11 @@ def trs_rWCa_KCaib_sWCi_to_tWKCb(
 
 
 def trs_rWKCa_Caib_sWCb_to_tWKCi(
-        trs:   NDArray,  # t + (r, s)           -- binomial tensor; r,s contracted -> output order t
-        rWKCa: NDArray,  # r + W + K + C + (a,)  -- swept variation jet (sigma), K on this operand
-        Caib:  NDArray,  # C + (a, i, b)         -- frame core (C-only -> pins len(C))
-        sWCb:  NDArray,  # s + W + C + (b,)      -- frame right jet (nu) (W+C -> pins len(W))
-) -> NDArray:            # t + W + K + C + (i,)  -- combined jet, mode i free, K rides through
+        trs: NDArray,
+        rWKCa: NDArray,
+        Caib: NDArray,
+        sWCb: NDArray,
+) -> NDArray:
     """Computes named contraction. Order-threaded 3-group (W,K,C) combine; the K-stacked analog of
     trs_rWCa_Caib_sWCb_to_tWCi (K on the left jet). Self-infers: Caib pins C, sWCb pins W, K=remainder."""
     use_jax = tree_contains_jax((trs, rWKCa, Caib, sWCb))
@@ -1625,11 +1625,11 @@ def trs_rWKCa_Caib_sWCb_to_tWKCi(
 
 
 def trs_rWCa_Caib_sWKCb_to_tWKCi(
-        trs:   NDArray,  # t + (r, s)           -- binomial tensor; r,s contracted -> output order t
-        rWCa:  NDArray,  # r + W + C + (a,)      -- frame left jet (mu) (W+C -> pins len(W))
-        Caib:  NDArray,  # C + (a, i, b)         -- frame core (C-only -> pins len(C))
-        sWKCb: NDArray,  # s + W + K + C + (b,)  -- swept variation jet (tau), K on this operand
-) -> NDArray:            # t + W + K + C + (i,)  -- combined jet, mode i free, K rides through
+        trs: NDArray,
+        rWCa: NDArray,
+        Caib: NDArray,
+        sWKCb: NDArray,
+) -> NDArray:
     """Computes named contraction. Order-threaded 3-group (W,K,C) combine; the K-stacked analog of
     trs_rWCa_Caib_sWCb_to_tWCi (K on the right jet). Self-infers: Caib pins C, rWCa pins W, K=remainder."""
     use_jax = tree_contains_jax((trs, rWCa, Caib, sWKCb))
@@ -1652,12 +1652,12 @@ def trs_rWCa_Caib_sWKCb_to_tWKCi(
 
 
 def trs_rWCa_KCaib_sWCb_to_tWKCi(
-        trs:   NDArray,  # t + (r, s)            -- binomial tensor; r,s contracted -> output order t
-        rWCa:  NDArray,  # r + W + C + (a,)       -- frame left jet (mu) (W+C -> pins len(W))
-        KCaib: NDArray,  # K + C + (a, i, b)      -- variation tt core (dG), K on this operand
-        sWCb:  NDArray,  # s + W + C + (b,)       -- frame right jet (nu)
+        trs: NDArray,
+        rWCa: NDArray,
+        KCaib: NDArray,
+        sWCb: NDArray,
         n_frame: int,     # len(C). Only core operand is K+C, so len(C) is supplied (n_probe precedent).
-) -> NDArray:            # t + W + K + C + (i,)   -- combined jet, mode i free, K rides through
+) -> NDArray:
     """Computes named contraction. Order-threaded 3-group (W,K,C) combine; the K-stacked analog of
     trs_rWCa_Caib_sWCb_to_tWCi (K on the variation core). Operands {W+C, K+C, W+C} do not pin len(C) -> n_frame."""
     use_jax = tree_contains_jax((trs, rWCa, KCaib, sWCb))
@@ -1681,9 +1681,9 @@ def trs_rWCa_KCaib_sWCb_to_tWKCi(
 
 
 def tWKCi_Cio_to_tWKCo(
-        tWKCi: NDArray,  # t + W + K + C + (i,)  -- combined variation jet (deta), K on this operand
-        Cio:   NDArray,  # C + (i, o)            -- frame Tucker core (C-only)
-) -> NDArray:            # t + W + K + C + (o,)  -- lifted jet
+        tWKCi: NDArray,
+        Cio: NDArray,
+) -> NDArray:
     """Computes named contraction. Order-threaded lift of the combined variation jet through the
     C-only frame Tucker core (no trs -- the order axis t is a passive broadcast).
 
@@ -1712,10 +1712,10 @@ def tWKCi_Cio_to_tWKCo(
 
 
 def tWCi_KCio_to_tWKCo(
-        tWCi: NDArray,  # t + W + C + (i,)     -- frame down jet (eta), no K (order rides in the W block)
-        KCio: NDArray,  # K + C + (i, o)       -- variation Tucker core (dU), K on this operand
+        tWCi: NDArray,
+        KCio: NDArray,
         n_frame: int,    # len(C). Only core operand is K+C, so len(C) is supplied (n_probe precedent).
-) -> NDArray:           # t + W + K + C + (o,)  -- lifted jet, K rides through
+) -> NDArray:
     """Computes named contraction. Order-threaded lift through a variation core; the lift has no trs, so
     the order axis t rides as a passive broadcast -- but it is kept as its OWN einsum letter rather than
     folded into the W block. Folding would flatten (t, W) with t MAJOR, forcing a reshard of a W-sharded
@@ -1760,11 +1760,11 @@ def tWCi_KCio_to_tWKCo(
 
 
 def trs_tWKCa_Caib_uWCi_to_sWKCb(
-        trs:   NDArray,  # t + (u, s)           -- binomial tensor; t (multiplier) and u summed -> order s
-        tWKCa: NDArray,  # t + W + K + C + (a,)  -- swept adjoint jet (tau/sigma_tilde), K on this operand
-        Caib:  NDArray,  # C + (a, i, b)         -- frame core (C-only -> pins len(C))
-        uWCi:  NDArray,  # u + W + C + (i,)      -- frame input jet on mode i (xi) (W+C -> pins len(W))
-) -> NDArray:            # s + W + K + C + (b,)  -- propagated adjoint jet, K rides through
+        trs: NDArray,
+        tWKCa: NDArray,
+        Caib: NDArray,
+        uWCi: NDArray,
+) -> NDArray:
     """Computes named contraction. Order-threaded 3-group adjoint-hooked pushthrough (sweep
     propagation, output order s); the K-stacked analog of trs_tWCa_Caib_uWCi_to_sWCb (K on the swept
     adjoint jet). Self-infers: Caib pins C, uWCi pins W, K=remainder."""
@@ -1788,11 +1788,11 @@ def trs_tWKCa_Caib_uWCi_to_sWKCb(
 
 
 def trs_rWCa_Caib_tWKCi_to_sWKCb(
-        trs:   NDArray,  # t + (r, s)           -- binomial tensor; r (mu) and t (deta_tilde) summed -> s
-        rWCa:  NDArray,  # r + W + C + (a,)      -- frame left jet (mu) (W+C -> pins len(W))
-        Caib:  NDArray,  # C + (a, i, b)         -- frame core (C-only -> pins len(C))
-        tWKCi: NDArray,  # t + W + K + C + (i,)  -- adjoint-up jet (deta_tilde) on mode i, K on this operand
-) -> NDArray:            # s + W + K + C + (b,)  -- adjoint sweep source term, K rides through
+        trs: NDArray,
+        rWCa: NDArray,
+        Caib: NDArray,
+        tWKCi: NDArray,
+) -> NDArray:
     """Computes named contraction. Order-threaded 3-group adjoint-hooked deta_tilde source (output
     order s); the K-stacked analog of trs_rWCa_Caib_tWCi_to_sWCb (K on deta_tilde). Self-infers:
     Caib pins C, rWCa pins W, K=remainder."""
@@ -1816,11 +1816,11 @@ def trs_rWCa_Caib_tWKCi_to_sWKCb(
 
 
 def trs_tWKCa_Caib_sWCb_to_uWKCi(
-        trs:   NDArray,  # t + (u, s)           -- binomial tensor; t (tau_tilde) and s (nu) summed -> u
-        tWKCa: NDArray,  # t + W + K + C + (a,)  -- adjoint jet (tau_tilde), K on this operand
-        Caib:  NDArray,  # C + (a, i, b)         -- down frame core O (C-only -> pins len(C))
-        sWCb:  NDArray,  # s + W + C + (b,)      -- frame right jet (nu) (W+C -> pins len(W))
-) -> NDArray:            # u + W + K + C + (i,)  -- adjoint-var-down jet (dxi_tilde), output order u, K rides
+        trs: NDArray,
+        tWKCa: NDArray,
+        Caib: NDArray,
+        sWCb: NDArray,
+) -> NDArray:
     """Computes named contraction. Order-threaded 3-group dxi_tilde-from-tau combine (output order u);
     the K-stacked analog of trs_tWCa_Caib_sWCb_to_uWCi (K on tau_tilde). Self-infers: Caib pins C,
     sWCb pins W, K=remainder."""
@@ -1844,11 +1844,11 @@ def trs_tWKCa_Caib_sWCb_to_uWKCi(
 
 
 def trs_rWCa_Caib_tWKCb_to_uWKCi(
-        trs:   NDArray,  # t + (r, u)           -- binomial tensor; r (mu) and t (sigma_tilde) summed -> u
-        rWCa:  NDArray,  # r + W + C + (a,)      -- frame left jet (mu) (W+C -> pins len(W))
-        Caib:  NDArray,  # C + (a, i, b)         -- down frame core O (C-only -> pins len(C))
-        tWKCb: NDArray,  # t + W + K + C + (b,)  -- adjoint jet (sigma_tilde), K on this operand
-) -> NDArray:            # u + W + K + C + (i,)  -- adjoint-var-down jet (dxi_tilde), output order u, K rides
+        trs: NDArray,
+        rWCa: NDArray,
+        Caib: NDArray,
+        tWKCb: NDArray,
+) -> NDArray:
     """Computes named contraction. Order-threaded 3-group dxi_tilde-from-sigma combine (output order u);
     the K-stacked analog of trs_rWCa_Caib_tWCb_to_uWCi (K on sigma_tilde). Self-infers: Caib pins C,
     rWCa pins W, K=remainder."""
@@ -1872,9 +1872,9 @@ def trs_rWCa_Caib_tWKCb_to_uWKCi(
 
 
 def tWKCo_Cio_to_tWKCi(
-        tWKCo: NDArray,  # t + W + K + C + (o,)  -- residual jet (carries K)
-        Cio:   NDArray,  # C + (i, o)            -- frame Tucker core (C-only)
-) -> NDArray:            # t + W + K + C + (i,)  -- adjoint-up jet (deta_tilde), K rides through
+        tWKCo: NDArray,
+        Cio: NDArray,
+) -> NDArray:
     """Computes named contraction. Order-threaded adjoint lift: contract the ambient mode o against
     the C-only frame Tucker core, order t riding through as a passive broadcast.
 
@@ -2018,11 +2018,11 @@ def uWKCa_uWo_to_KCao(uWKCa, uWo):
 
 
 def WCa_WCi_WKCb_to_WKCaib(
-        WCa:    NDArray,  # W + C + (a,)       -- mu (left edge var, frame)
-        WCi:    NDArray,  # W + C + (i,)       -- xi (up-index proj, frame)
-        WKCb:   NDArray,  # W + K + C + (b,)   -- sigma_hat (adjoint right edge var, carries K)
+        WCa: NDArray,
+        WCi: NDArray,
+        WKCb: NDArray,
         n_probe: int,     # len(W); {W+C, W+C, W+K+C} do not pin it, so it is supplied
-) -> NDArray:             # W + K + C + (a, i, b)   -- the dG-tilde tt-core, keeping the probe stack W
+) -> NDArray:
     """Computes named contraction (triple outer product over a, i, b). Capitals may be empty.
 
     Adjoint-state apply/entries dG assemble ``mu (x) xi (x) sigma_hat`` (the order-0 strip of
@@ -2055,11 +2055,11 @@ def WCa_WCi_WKCb_to_WKCaib(
 
 
 def WCa_WCi_WKCb_to_KCaib(
-        WCa:    NDArray,  # W + C + (a,)       -- mu (left edge var, frame)
-        WCi:    NDArray,  # W + C + (i,)       -- xi (up-index proj, frame)
-        WKCb:   NDArray,  # W + K + C + (b,)   -- sigma_hat (adjoint right edge var, carries K)
+        WCa: NDArray,
+        WCi: NDArray,
+        WKCb: NDArray,
         n_probe: int,     # len(W), summed out
-) -> NDArray:             # K + C + (a, i, b)   -- the dG-tilde tt-core, summing the probe stack W
+) -> NDArray:
     """Computes named contraction (triple outer product over a, i, b; probe stack W summed out).
 
     Sum-over-probes form of :py:func:`WCa_WCi_WKCb_to_WKCaib` (the J^T r back-projection): the
@@ -2105,10 +2105,10 @@ def WCa_WCi_WKCb_to_KCaib(
 
 
 def dWKCa_dCaib_dWCb_to_dWKCi(
-        dWKCa: NDArray,  # d + W + K + C + (a,)
-        dCaib: NDArray,  # d + C + (a, i, b)   -- C-only core, pins len(C)
-        dWCb:  NDArray,  # d + W + C + (b,)    -- W+C, pins len(W)
-) -> NDArray:            # d + W + K + C + (i,)
+        dWKCa: NDArray,
+        dCaib: NDArray,
+        dWCb: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WKCa_Caib_WCb_to_WKCi` (compute_deta term1)."""
     use_jax = tree_contains_jax((dWKCa, dCaib, dWCb))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2137,10 +2137,10 @@ def dWKCa_dCaib_dWCb_to_dWKCi(
 
 
 def dWCa_dCaib_dWKCb_to_dWKCi(
-        dWCa:  NDArray,  # d + W + C + (a,)        -- W+C, pins len(W)
-        dCaib: NDArray,  # d + C + (a, i, b)       -- C-only core, pins len(C)
-        dWKCb: NDArray,  # d + W + K + C + (b,)
-) -> NDArray:            # d + W + K + C + (i,)
+        dWCa: NDArray,
+        dCaib: NDArray,
+        dWKCb: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WCa_Caib_WKCb_to_WKCi` (compute_deta term3, compute_dxi_tilde)."""
     use_jax = tree_contains_jax((dWCa, dCaib, dWKCb))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2169,11 +2169,11 @@ def dWCa_dCaib_dWKCb_to_dWKCi(
 
 
 def dWCa_dKCaib_dWCb_to_dWKCi(
-        dWCa:   NDArray,  # d + W + C + (a,)        -- W+C
-        dKCaib: NDArray,  # d + K + C + (a, i, b)   -- variation core (K+C); no C-only operand
-        dWCb:   NDArray,  # d + W + C + (b,)        -- W+C
+        dWCa: NDArray,
+        dKCaib: NDArray,
+        dWCb: NDArray,
         n_frame: int,      # len(C) (supplied; dKCaib is K+C with no C-only operand to pin it)
-) -> NDArray:             # d + W + K + C + (i,)
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WCa_KCaib_WCb_to_WKCi` (compute_deta term2)."""
     use_jax = tree_contains_jax((dWCa, dKCaib, dWCb))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2203,9 +2203,9 @@ def dWCa_dKCaib_dWCb_to_dWKCi(
 
 
 def dWKCi_dCio_to_dWKCo(
-        dWKCi: NDArray,  # d + W + K + C + (i,)
-        dCio:  NDArray,  # d + C + (i, o)   -- C-only core
-) -> NDArray:            # d + W + K + C + (o,)
+        dWKCi: NDArray,
+        dCio: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WKCi_Cio_to_WKCo` (assemble_tangent_z term1). Lifts the down
     edge variable through the C-only frame Tucker supercore.
 
@@ -2234,10 +2234,10 @@ def dWKCi_dCio_to_dWKCo(
 
 
 def dWCi_dKCio_to_dWKCo(
-        dWCi:   NDArray,  # d + W + C + (i,)       -- W+C
-        dKCio:  NDArray,  # d + K + C + (i, o)     -- variation core (K+C)
+        dWCi: NDArray,
+        dKCio: NDArray,
         n_frame: int,      # len(C) (supplied; dKCio is K+C with no C-only operand to pin it)
-) -> NDArray:             # d + W + K + C + (o,)
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WCi_KCio_to_WKCo` (assemble_tangent_z term2)."""
     use_jax = tree_contains_jax((dWCi, dKCio))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2265,9 +2265,9 @@ def dWCi_dKCio_to_dWKCo(
 
 
 def dWCo_dCio_to_dWCi(
-        dWCo: NDArray,  # d + W + C + (o,)   -- W+C
-        dCio: NDArray,  # d + C + (i, o)     -- C-only core (shared C batch on both operands)
-) -> NDArray:           # d + W + C + (i,)
+        dWCo: NDArray,
+        dCio: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WCo_Cio_to_WCi` (compute_deta_tilde). C is a SHARED batch on
     both operands (the shared-C contraction, NOT the outer-product :py:func:`dCio_dWo_to_dWCi`)."""
     use_jax = tree_contains_jax((dWCo, dCio))
@@ -2292,10 +2292,10 @@ def dWCo_dCio_to_dWCi(
 
 
 def dWKCo_dWCa_to_dWKCao(
-        dWKCo:   NDArray,  # d + W + K + C + (o,)
-        dWCa:    NDArray,  # d + W + C + (a,)    -- W+C, pins C given n_probe
+        dWKCo: NDArray,
+        dWCa: NDArray,
         n_probe: int,      # len(W); {W+K+C, W+C} do not pin it, so supplied
-) -> NDArray:              # d + W + K + C + (a, o)
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WKCo_WCa_to_WKCao` (assemble_tucker_variations, keep W)."""
     use_jax = tree_contains_jax((dWKCo, dWCa))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2321,10 +2321,10 @@ def dWKCo_dWCa_to_dWKCao(
 
 
 def dWKCo_dWCa_to_dKCao(
-        dWKCo:   NDArray,  # d + W + K + C + (o,)
-        dWCa:    NDArray,  # d + W + C + (a,)
+        dWKCo: NDArray,
+        dWCa: NDArray,
         n_probe: int,      # len(W), summed out
-) -> NDArray:              # d + K + C + (a, o)
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WKCo_WCa_to_KCao` (assemble_tucker_variations, sum W)."""
     use_jax = tree_contains_jax((dWKCo, dWCa))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2350,9 +2350,9 @@ def dWKCo_dWCa_to_dKCao(
 
 
 def dWo_dWKCa_to_dWKCao(
-        dWo:   NDArray,  # d + W + (o,)           -- W-only probe vector, self-pins len(W)
-        dWKCa: NDArray,  # d + W + K + C + (a,)
-) -> NDArray:            # d + W + K + C + (a, o)
+        dWo: NDArray,
+        dWKCa: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`Wo_WKCa_to_WKCao` (assemble_tucker_variations, keep W).
 
     ``W`` is SHARED (on both operands, self-inferred from the W-only probe supercore ``dWo``) and gets a
@@ -2380,9 +2380,9 @@ def dWo_dWKCa_to_dWKCao(
 
 
 def dWo_dWKCa_to_dKCao(
-        dWo:   NDArray,  # d + W + (o,)           -- W-only probe vector, self-pins len(W)
-        dWKCa: NDArray,  # d + W + K + C + (a,)
-) -> NDArray:            # d + K + C + (a, o)
+        dWo: NDArray,
+        dWKCa: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`Wo_WKCa_to_KCao` (assemble_tucker_variations, sum W).
 
     ``W`` is SHARED (on both operands, self-inferred from the W-only probe supercore ``dWo``) and gets a
@@ -2411,11 +2411,11 @@ def dWo_dWKCa_to_dKCao(
 
 
 def dWCi_dWCa_dWKCj_to_dWKCiaj(
-        dWCi:    NDArray,  # d + W + C + (i,)       -- W+C, pins C given n_probe
-        dWCa:    NDArray,  # d + W + C + (a,)
-        dWKCj:   NDArray,  # d + W + K + C + (j,)   -- carries K
+        dWCi: NDArray,
+        dWCa: NDArray,
+        dWKCj: NDArray,
         n_probe: int,      # len(W); supplied
-) -> NDArray:              # d + W + K + C + (i, a, j)
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WCi_WCa_WKCj_to_WKCiaj` (assemble_tt_variations, K on j, keep W)."""
     use_jax = tree_contains_jax((dWCi, dWCa, dWKCj))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2443,11 +2443,11 @@ def dWCi_dWCa_dWKCj_to_dWKCiaj(
 
 
 def dWCi_dWCa_dWKCj_to_dKCiaj(
-        dWCi:    NDArray,  # d + W + C + (i,)
-        dWCa:    NDArray,  # d + W + C + (a,)
-        dWKCj:   NDArray,  # d + W + K + C + (j,)
+        dWCi: NDArray,
+        dWCa: NDArray,
+        dWKCj: NDArray,
         n_probe: int,      # len(W), summed out
-) -> NDArray:              # d + K + C + (i, a, j)
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WCi_WCa_WKCj_to_KCiaj` (assemble_tt_variations, K on j, sum W)."""
     use_jax = tree_contains_jax((dWCi, dWCa, dWKCj))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2475,11 +2475,11 @@ def dWCi_dWCa_dWKCj_to_dKCiaj(
 
 
 def dWKCi_dWCa_dWCj_to_dWKCiaj(
-        dWKCi:   NDArray,  # d + W + K + C + (i,)   -- carries K
-        dWCa:    NDArray,  # d + W + C + (a,)       -- W+C, pins C given n_probe
-        dWCj:    NDArray,  # d + W + C + (j,)
+        dWKCi: NDArray,
+        dWCa: NDArray,
+        dWCj: NDArray,
         n_probe: int,      # len(W); supplied
-) -> NDArray:              # d + W + K + C + (i, a, j)
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WKCi_WCa_WCj_to_WKCiaj` (assemble_tt_variations, K on i, keep W)."""
     use_jax = tree_contains_jax((dWKCi, dWCa, dWCj))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2507,11 +2507,11 @@ def dWKCi_dWCa_dWCj_to_dWKCiaj(
 
 
 def dWKCi_dWCa_dWCj_to_dKCiaj(
-        dWKCi:   NDArray,  # d + W + K + C + (i,)
-        dWCa:    NDArray,  # d + W + C + (a,)
-        dWCj:    NDArray,  # d + W + C + (j,)
+        dWKCi: NDArray,
+        dWCa: NDArray,
+        dWCj: NDArray,
         n_probe: int,      # len(W), summed out
-) -> NDArray:              # d + K + C + (i, a, j)
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WKCi_WCa_WCj_to_KCiaj` (assemble_tt_variations, K on i, sum W)."""
     use_jax = tree_contains_jax((dWKCi, dWCa, dWCj))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2539,11 +2539,11 @@ def dWKCi_dWCa_dWCj_to_dKCiaj(
 
 
 def dWCi_dWKCa_dWCj_to_dWKCiaj(
-        dWCi:    NDArray,  # d + W + C + (i,)       -- W+C, pins C given n_probe
-        dWKCa:   NDArray,  # d + W + K + C + (a,)   -- carries K
-        dWCj:    NDArray,  # d + W + C + (j,)
+        dWCi: NDArray,
+        dWKCa: NDArray,
+        dWCj: NDArray,
         n_probe: int,      # len(W); supplied
-) -> NDArray:              # d + W + K + C + (i, a, j)
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WCi_WKCa_WCj_to_WKCiaj` (assemble_tt_variations, K on a, keep W)."""
     use_jax = tree_contains_jax((dWCi, dWKCa, dWCj))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2571,11 +2571,11 @@ def dWCi_dWKCa_dWCj_to_dWKCiaj(
 
 
 def dWCi_dWKCa_dWCj_to_dKCiaj(
-        dWCi:    NDArray,  # d + W + C + (i,)
-        dWKCa:   NDArray,  # d + W + K + C + (a,)
-        dWCj:    NDArray,  # d + W + C + (j,)
+        dWCi: NDArray,
+        dWKCa: NDArray,
+        dWCj: NDArray,
         n_probe: int,      # len(W), summed out
-) -> NDArray:              # d + K + C + (i, a, j)
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WCi_WKCa_WCj_to_KCiaj` (assemble_tt_variations, K on a, sum W)."""
     use_jax = tree_contains_jax((dWCi, dWKCa, dWCj))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2603,11 +2603,11 @@ def dWCi_dWKCa_dWCj_to_dKCiaj(
 
 
 def dWCa_dWCi_dWKCb_to_dWKCaib(
-        dWCa:    NDArray,  # d + W + C + (a,)       -- W+C, pins C given n_probe
-        dWCi:    NDArray,  # d + W + C + (i,)
-        dWKCb:   NDArray,  # d + W + K + C + (b,)   -- carries K
+        dWCa: NDArray,
+        dWCi: NDArray,
+        dWKCb: NDArray,
         n_probe: int,      # len(W); supplied
-) -> NDArray:              # d + W + K + C + (a, i, b)
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WCa_WCi_WKCb_to_WKCaib` (apply/entries adjoint dG assemble, keep W)."""
     use_jax = tree_contains_jax((dWCa, dWCi, dWKCb))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2635,11 +2635,11 @@ def dWCa_dWCi_dWKCb_to_dWKCaib(
 
 
 def dWCa_dWCi_dWKCb_to_dKCaib(
-        dWCa:    NDArray,  # d + W + C + (a,)
-        dWCi:    NDArray,  # d + W + C + (i,)
-        dWKCb:   NDArray,  # d + W + K + C + (b,)
+        dWCa: NDArray,
+        dWCi: NDArray,
+        dWKCb: NDArray,
         n_probe: int,      # len(W), summed out
-) -> NDArray:              # d + K + C + (a, i, b)
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`WCa_WCi_WKCb_to_KCaib` (apply/entries adjoint dG assemble, sum W)."""
     use_jax = tree_contains_jax((dWCa, dWCi, dWKCb))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2685,11 +2685,11 @@ def dWCa_dWCi_dWKCb_to_dKCaib(
 # ---- forward combine + lift (mode i free; the eta / z jet builders) ----
 
 def trs_drWCa_dCaib_dsWCb_to_dtWCi(
-        trs:   NDArray,  # t + (r, s)              -- binomial tensor; r,s contracted -> output order t (no d)
-        drWCa: NDArray,  # d + r + W + C + (a,)     -- mu jet (W+C -> pins len(W))
-        dCaib: NDArray,  # d + C + (a, i, b)        -- core (C-only -> pins len(C))
-        dsWCb: NDArray,  # d + s + W + C + (b,)     -- nu jet
-) -> NDArray:            # d + t + W + C + (i,)     -- combined jet, mode i free
+        trs: NDArray,
+        drWCa: NDArray,
+        dCaib: NDArray,
+        dsWCb: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`trs_rWCa_Caib_sWCb_to_tWCi` (plain compute_eta_jets)."""
     use_jax = tree_contains_jax((trs, drWCa, dCaib, dsWCb))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2711,9 +2711,9 @@ def trs_drWCa_dCaib_dsWCb_to_dtWCi(
 
 
 def dtWCi_dCio_to_dtWCo(
-        dtWCi: NDArray,  # d + t + W + C + (i,)     -- combined jet (down edge var)
-        dCio:  NDArray,  # d + C + (i, o)           -- Tucker core (C-only)
-) -> NDArray:            # d + t + W + C + (o,)     -- lifted jet (probe-derivative output)
+        dtWCi: NDArray,
+        dCio: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`tWCi_Cio_to_tWCo` (plain assemble_z_jets). The Tucker lift has
     no ``trs``, so the order axis ``t`` rides as a passive broadcast -- but it is kept as its OWN einsum
     letter rather than folded into the W block. Folding would flatten ``(t, W)`` with ``t`` MAJOR, forcing
@@ -2741,9 +2741,9 @@ def dtWCi_dCio_to_dtWCo(
 
 
 def dtWKCi_dCio_to_dtWKCo(
-        dtWKCi: NDArray,  # d + t + W + K + C + (i,)  -- combined variation jet (deta), carries K
-        dCio:   NDArray,  # d + C + (i, o)            -- frame Tucker core (C-only)
-) -> NDArray:             # d + t + W + K + C + (o,)  -- lifted jet
+        dtWKCi: NDArray,
+        dCio: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`tWKCi_Cio_to_tWKCo` (assemble_tangent_z_jets term1). Passive
     order-threaded Tucker lift (no ``trs``) through the C-only frame Tucker supercore.
 
@@ -2773,10 +2773,10 @@ def dtWKCi_dCio_to_dtWKCo(
 
 
 def dtWCi_dKCio_to_dtWKCo(
-        dtWCi:  NDArray,  # d + t + W + C + (i,)      -- frame down jet (eta), no K
-        dKCio:  NDArray,  # d + K + C + (i, o)        -- variation Tucker core (dU), carries K
+        dtWCi: NDArray,
+        dKCio: NDArray,
         n_frame: int,      # len(C) (dKCio is K+C with no C-only operand to pin it)
-) -> NDArray:             # d + t + W + K + C + (o,)  -- lifted jet, K rides through
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`tWCi_KCio_to_tWKCo` (assemble_tangent_z_jets term2). The lift
     has no ``trs``, so ``t`` rides as a passive broadcast -- but it is kept as its OWN einsum letter rather
     than folded into the W block, which would flatten ``(t, W)`` with ``t`` MAJOR and force a reshard of a
@@ -2807,11 +2807,11 @@ def dtWCi_dKCio_to_dtWKCo(
 
 
 def trs_drWKCa_dCaib_dsWCb_to_dtWKCi(
-        trs:    NDArray,  # t + (r, s)               -- binomial tensor (no d)
-        drWKCa: NDArray,  # d + r + W + K + C + (a,)  -- swept variation jet (sigma), carries K
-        dCaib:  NDArray,  # d + C + (a, i, b)         -- frame core (C-only)
-        dsWCb:  NDArray,  # d + s + W + C + (b,)      -- frame right jet (nu) (W+C -> pins len(W))
-) -> NDArray:             # d + t + W + K + C + (i,)  -- combined jet, mode i free, K rides through
+        trs: NDArray,
+        drWKCa: NDArray,
+        dCaib: NDArray,
+        dsWCb: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`trs_rWKCa_Caib_sWCb_to_tWKCi` (compute_deta_jets term1)."""
     use_jax = tree_contains_jax((trs, drWKCa, dCaib, dsWCb))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2834,12 +2834,12 @@ def trs_drWKCa_dCaib_dsWCb_to_dtWKCi(
 
 
 def trs_drWCa_dKCaib_dsWCb_to_dtWKCi(
-        trs:    NDArray,  # t + (r, s)               -- binomial tensor (no d)
-        drWCa:  NDArray,  # d + r + W + C + (a,)      -- frame left jet (mu) (W+C -> pins len(W))
-        dKCaib: NDArray,  # d + K + C + (a, i, b)     -- variation tt core (dG), carries K
-        dsWCb:  NDArray,  # d + s + W + C + (b,)      -- frame right jet (nu)
+        trs: NDArray,
+        drWCa: NDArray,
+        dKCaib: NDArray,
+        dsWCb: NDArray,
         n_frame: int,      # len(C) (dKCaib is K+C with no C-only operand to pin it)
-) -> NDArray:             # d + t + W + K + C + (i,)  -- combined jet, mode i free, K rides through
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`trs_rWCa_KCaib_sWCb_to_tWKCi` (compute_deta_jets term2)."""
     use_jax = tree_contains_jax((trs, drWCa, dKCaib, dsWCb))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2863,11 +2863,11 @@ def trs_drWCa_dKCaib_dsWCb_to_dtWKCi(
 
 
 def trs_drWCa_dCaib_dsWKCb_to_dtWKCi(
-        trs:    NDArray,  # t + (r, s)               -- binomial tensor (no d)
-        drWCa:  NDArray,  # d + r + W + C + (a,)      -- frame left jet (mu) (W+C -> pins len(W))
-        dCaib:  NDArray,  # d + C + (a, i, b)         -- frame core (C-only)
-        dsWKCb: NDArray,  # d + s + W + K + C + (b,)  -- swept variation jet (tau), carries K
-) -> NDArray:             # d + t + W + K + C + (i,)  -- combined jet, mode i free, K rides through
+        trs: NDArray,
+        drWCa: NDArray,
+        dCaib: NDArray,
+        dsWKCb: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`trs_rWCa_Caib_sWKCb_to_tWKCi` (compute_deta_jets term3)."""
     use_jax = tree_contains_jax((trs, drWCa, dCaib, dsWKCb))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2892,9 +2892,9 @@ def trs_drWCa_dCaib_dsWKCb_to_dtWKCi(
 # ---- transpose (adjoint) sweeps + assembly ----
 
 def dtWCo_dCio_to_dtWCi(
-        dtWCo: NDArray,  # d + t + W + C + (o,)     -- residual jet (transpose of dtWCi_dCio_to_dtWCo)
-        dCio:  NDArray,  # d + C + (i, o)           -- Tucker core (C-only)
-) -> NDArray:            # d + t + W + C + (i,)     -- adjoint-up jet (deta_tilde), order t broadcast
+        dtWCo: NDArray,
+        dCio: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`tWCo_Cio_to_tWCi`: adjoint lift, contract the ambient mode,
     order ``t`` rides through as a passive broadcast.
 
@@ -2927,9 +2927,9 @@ def dtWCo_dCio_to_dtWCi(
 
 
 def dtWKCo_dCio_to_dtWKCi(
-        dtWKCo: NDArray,  # d + t + W + K + C + (o,)  -- residual jet (carries K)
-        dCio:   NDArray,  # d + C + (i, o)            -- frame Tucker core (C-only)
-) -> NDArray:             # d + t + W + K + C + (i,)  -- adjoint-up jet (deta_tilde), K rides through
+        dtWKCo: NDArray,
+        dCio: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`tWKCo_Cio_to_tWKCi` (compute_deta_tilde_jets). Passive adjoint
     lift: contract the ambient mode ``o`` against the C-only frame Tucker supercore, order ``t`` riding
     through.
@@ -2960,11 +2960,11 @@ def dtWKCo_dCio_to_dtWKCi(
 
 
 def trs_dtWKCa_dCaib_dsWCb_to_duWKCi(
-        trs:    NDArray,  # t + (u, s)               -- binomial tensor; t (tau_tilde), s (nu) summed -> u
-        dtWKCa: NDArray,  # d + t + W + K + C + (a,)  -- adjoint jet (tau_tilde), carries K
-        dCaib:  NDArray,  # d + C + (a, i, b)         -- down frame core O (C-only)
-        dsWCb:  NDArray,  # d + s + W + C + (b,)      -- frame right jet (nu) (W+C -> pins len(W))
-) -> NDArray:             # d + u + W + K + C + (i,)  -- adjoint-var-down jet (dxi_tilde), order u, K rides
+        trs: NDArray,
+        dtWKCa: NDArray,
+        dCaib: NDArray,
+        dsWCb: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`trs_tWKCa_Caib_sWCb_to_uWKCi` (compute_dxi_tilde_jets, tau term)."""
     use_jax = tree_contains_jax((trs, dtWKCa, dCaib, dsWCb))
     xnp, _, _ = get_backend(True, use_jax)
@@ -2987,11 +2987,11 @@ def trs_dtWKCa_dCaib_dsWCb_to_duWKCi(
 
 
 def trs_drWCa_dCaib_dtWKCb_to_duWKCi(
-        trs:    NDArray,  # t + (r, u)               -- binomial tensor; r (mu), t (sigma_tilde) summed -> u
-        drWCa:  NDArray,  # d + r + W + C + (a,)      -- frame left jet (mu) (W+C -> pins len(W))
-        dCaib:  NDArray,  # d + C + (a, i, b)         -- down frame core O (C-only)
-        dtWKCb: NDArray,  # d + t + W + K + C + (b,)  -- adjoint jet (sigma_tilde), carries K
-) -> NDArray:             # d + u + W + K + C + (i,)  -- adjoint-var-down jet (dxi_tilde), order u, K rides
+        trs: NDArray,
+        drWCa: NDArray,
+        dCaib: NDArray,
+        dtWKCb: NDArray,
+) -> NDArray:
     """d-prefixed uniform twin of :py:func:`trs_rWCa_Caib_tWKCb_to_uWKCi` (compute_dxi_tilde_jets sigma term;
     also the apply/entries adjoint dxi_hat combine)."""
     use_jax = tree_contains_jax((trs, drWCa, dCaib, dtWKCb))

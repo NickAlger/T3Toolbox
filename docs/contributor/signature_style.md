@@ -119,8 +119,18 @@ operands / `max_*` caps / `rtol`,`atol` / `oversample`, blank-line-separated.)
 
 ## Within reason (principle over dogma)
 
-This is a convention, not a contract enforced by anything. Apply it where it earns its keep; handle
-the exceptions case by case. Reasonable deviations:
+This is a convention, not a contract enforced by anything.
+
+> **The iron imperative for every comment is that it be useful to a user of the code or a maintainer
+> of the library.** A comment that only repeats what the signature already says is not neutral — it is
+> a liability: a second, unverified copy of the contract, free to drift out of sync with the first.
+> The shape comment exists for one reason: to carry **type information the language cannot express**
+> (shapes, sequence lengths, which bond matches which). Where that information is *already* expressed —
+> by an annotation, or by the name itself — the comment has no job to do.
+
+Apply the convention where it earns its keep; handle the exceptions case by case. **These rules cannot
+anticipate every case: the deviations below are illustrative, not exhaustive, and it matters more to
+follow their spirit than their wording.** Reasonable deviations:
 
 - **Trivial scalars** (`use_jax: bool`, an obvious `axis: int`) may need no comment, or only a brief
   role note. Don't manufacture filler to fill a column.
@@ -130,6 +140,17 @@ the exceptions case by case. Reasonable deviations:
   `t3_probe`'s `x`) may wrap across several lines; perfect single-line alignment is impossible there,
   so keep it readable rather than rigidly tabular.
 - **One-off / throwaway internal closures** (`_func` inside an `xmap`) don't need the full treatment.
+- **The named contractions in `backend/contractions.py`** — an explicit exception. There the function's
+  *name* already **is** the shape contract (`WKCa_Caib_WCi_to_WKCb` says operand 1 is `W+K+C+(a,)`,
+  operand 2 is `C+(a,i,b)`), so a comment restating it (`# W + K + C + (a,)` beside `WKCa`) tells the
+  reader nothing the signature has not already told them — exactly the liability above. Leave those
+  signatures bare; the module's original style is the reference. Prose describing an operand's *role at
+  one call site* ("mu jet", "probe vector w") is worse than redundant there: `contractions.py` is a
+  deliberately caller-agnostic mechanical workaround for einsum's lack of grouped indices, so naming one
+  caller's variables in it misleads a reader about what the function is for — that context belongs in the
+  docstring, if anywhere. The exception is specific to the **named contractions**: a parameter whose name
+  does *not* state its contract (`n_probe: int  # len(W)`) still needs the information — though the better
+  fix is usually a name that states it (`len_W`) than a comment compensating for one that doesn't.
 
 The two costs we accept knowingly: the comments are **unverified** (they can drift — tests and review
 are the only guard, so update them when shapes change), and the **alignment is hand-maintained** (no
