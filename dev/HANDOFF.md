@@ -63,13 +63,13 @@ branch can be deleted (optional).
     now in recurrence/scan/chunk form. All experimental, module-private, verified vs the trs originals
     in `tests/test_jet_recurrence.py`; polymorphic (numpy/jax × ragged/uniform correct; the memory win
     is jax+uniform). Research record: `nicks_research_experiments/t3_jet_experiments/findings.md`.
-  - **OPEN — W-chunking copies operands, so it fails when the ambient N >> the tucker dim n** (measured
-    2026-07-16). `_to_chunks` (pad+reshape+moveaxis) duplicates the whole operand; when N is large the
-    `ztildes` input itself is huge, so the copy dominates and chunked assemble_tucker is *worse* than
-    dense (91 vs 52 GB at N=10000). assemble_tt is unaffected (small inputs). **Fix (follow-up):
-    copy-free chunking — `lax.scan` over chunk index + `lax.dynamic_slice` per chunk, no pre-reshape.**
+  - **Copy-free W-chunking — DONE (2026-07-16).** Nick pinpointed the `moveaxis` (used to put the chunk
+    axis leading for `xmap`) as a transpose that copies the whole operand — which made chunked
+    assemble_tucker *worse* than dense at N>>n. Replaced pad+reshape+moveaxis with `_wchunked_reduce`:
+    slice each chunk in place (`lax.scan`/`dynamic_slice` on jax, eager loop on numpy), reduce add/concat.
+    assemble_tt now 168→2.63 GB (**64×**, was 21×); N>>n fixed (assemble_tucker 51.9→1.6 GB at N=10000).
   - **Not done (next):** wire the scanned/chunked forms into `tv_probe_derivatives_transpose` (thread
-    `chunk_size`); the copy-free chunking fix above; **C-chunking** (the reducer seam already supports it);
+    `chunk_size`); **C-chunking** (the reducer seam already supports it);
     uniform mask-strict/garbage-robust tests before any swap-in. Deferred: extracting the inline per-step
     grouped einsums into named `contractions.py` functions — **keep inline until swap-in**, then extract
     in one pass.
