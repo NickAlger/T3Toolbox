@@ -53,6 +53,22 @@ cross-references.)
 - **The ambient derivative transpose** — has its own analysis-and-deferral note:
   [`ambient_derivative_transpose_note.md`](ambient_derivative_transpose_note.md)
   (intrinsically exponential-rank back-projection; no use case).
+- **numpy 2-operand einsum: `optimize=False` is not BLAS** (unresolved; low priority — Nick,
+  2026-07-15). `_grouped_einsum`'s docstring claims *"2-operand contractions are already BLAS, so they
+  pass straight through on both."* For numpy that is **false**: passing through means `optimize=False`,
+  which runs `c_einsum`, never BLAS. Forcing the path (`_pairwise_path` already returns the correct
+  `('einsum_path', (0,1))` for 2 operands) buys BLAS but pays a fixed ~20–25µs dispatch overhead, so
+  there is a **real crossover**, measured on `'WCi,Cio->WCo'`: **0.1× at W=1, 0.7× at W=32, 1.8× at
+  W=64, 9.0× at W=2048.** It loses up to 10× below W≈64 and wins up to 9× above. So the short-circuit's
+  *effect* is a defensible default for small contractions — a regime-dependent tradeoff, not a bug.
+  **The library's operating point sits well above the crossover** (`W` indexes the samples being fitted,
+  so it is large by construction; the core dims are tied to it, `r ≈ a ≈ i ≈ b` ranging 1..`sqrt(W)/2`
+  for probing, 1..`cbrt(W)/2` for entries/apply). But **numpy is not the performance path** — jax is,
+  and jax's einsum has good path selection — so the bar here is "not doing something dumb", not
+  "optimal". Not free either: the BLAS path is **not bit-identical** (~1.7e-16, one ULP — different
+  summation order). *(Not to be confused with the MULTI-operand case, where numpy's own optimizer picks
+  a FLOP-tied non-BLAS path and `_pairwise_path` is 22× faster on the 4-operand `trs` contraction. That
+  machinery is doing real work and must not be touched.)* Source: `dev/archive/contractions_sharding_plan.md` §8.
 - **Backend `ut3_norm` / `ut3_inner` twins** (wanted eventually; low priority — Nick, 2026-07-15).
   The ragged backend has self-contained `t3_norm(x, use_orthogonalization=True)` /
   `t3_inner_product(x, y, use_orthogonalization=True)`, which orthogonalize internally. The uniform

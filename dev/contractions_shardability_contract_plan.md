@@ -1,0 +1,72 @@
+# The shardability contract — every grouped index shardable over its first sub-axis
+
+_Nick's proposal, 2026-07-15. **This is the live work**; the unfusing that motivated it is DONE
+(`dae52839`, `f65b341d`) and its plans are archived. Read `docs/contributor/batching_internals.md` for
+the rule as it now stands, and `dev/OPEN_QUESTION_contractions_architecture.md` for the standing unease
+this probes._
+
+## Why this, and why now
+
+The fusing bug was found three times over, and **the human-maintained inventory was wrong every time**:
+
+1. the upstream survey found the 5 `t`-folds and missed the 4 internal `K+C` fusions (its detector only
+   looked at *delegations* — it structurally could not see them);
+2. the detector I then wrote into the module docstring missed them too;
+3. my "complete, mechanically derived" inventory (unfusing plan §2) then **exempted `_assemble_dU_dxi`
+   and `_assemble_dU_dxi_d` as "already clean"** — they fused `K+C` into `X` and backed four *public*
+   functions. The implementing agent found them by grepping for the fused letter instead of trusting
+   the list.
+
+Three enumerations, three misses. **That is the argument.** A uniform obligation has no list to be
+wrong about.
+
+## The contract
+
+> **Every grouped index in `contractions.py` must be shardable over its first sub-axis.**
+
+Nick's proposal, to be built **after B lands**. It is stronger than the static naming check this plan
+originally proposed (§3), for three reasons:
+
+1. **It is equivalent to the no-fusing rule, not a proxy for it.** Fusing `X` with `Y` necessarily puts
+   one of them to the right of the other, and the right-hand one's *first* sub-axis is then non-major in
+   the flatten. So *every block shardable on its first sub-axis* ⟺ *no block is fused with a preceding
+   block* ⟺ *no fusing*. Every case we found confirms it: `t`+`W` fused → `W`'s first axis fails;
+   `W`+`K` → `K`'s first fails; `K`+`C` → `C`'s first fails. One uniform obligation, no per-site
+   judgement — which is what we have now missed **twice**.
+2. **It encodes exactly the limit Nick accepted** ("forcing sharding on the leading batch subaxis only is
+   acceptable"): it permits the within-block flatten a *shared* block requires, and forbids cross-block
+   fusion.
+3. **It checks a property, not a form.** A static name-vs-subscript check can be satisfied by writing the
+   letters and flattening anyway. This cannot.
+
+**The interesting part.** The test must know where each block starts — the same unpinnable split — but a
+test *constructs* its inputs, so it knows. And the block layout is **parseable from the function's name**
+(`WKCi_Cio_to_WKCo` ⇒ operand 1 is `W+K+C+(i,)`, operand 2 is `C+(i,o)`), so the check can be **automatic
+over the whole file** rather than a hand table. That turns the name from an unchecked promise into a
+**checked** one — directly addressing observation #1 in
+`dev/OPEN_QUESTION_contractions_architecture.md`. It does not dissolve the unease (the structure still is
+not data at *runtime*, only in the harness), but the names can no longer lie silently.
+
+It is also **cheap information about the blocks-as-data direction**: if parsing the names into a block
+spec comes out clean, the spec wants to exist; if it is riddled with exceptions, that is evidence too.
+
+**Feasibility to check FIRST** (do not promise before measuring): how many of the ~60 names parse
+cleanly. The regular ones are trivial; the `trs_*` family, the order axes, and the sum-over-`W` ones
+(`Wo_WKCa_to_KCao` — `W` is absent from the output) need care. 50 clean + 10 documented exceptions is a
+good test; 30/30 is a hand table and much less attractive. **Cost**: ~60 functions × ≤3 blocks × ~250ms
+≈ under a minute.
+
+## Watch-list
+
+- **`_pairwise_path` and `'...'` — latent, not triggered** (found while landing option B, verified). It
+  builds `set(term)` per operand, so the `.` of an ellipsis lands in the term set and counts as a
+  *shared index*, skewing the greedy pairing. Harmless today: every `'...'` rewrite is 2-operand, and
+  `_grouped_einsum` bypasses `_pairwise_path` entirely at ≤2 operands. **It would bite the first
+  3+-operand `'...'` contraction anyone writes.** Worth a guard when this lands — this is the natural
+  place, since the contract is what would make such a contraction appear.
+- **Probe feasibility BEFORE promising**: how many of the ~60 names parse into a block spec. 50 clean +
+  10 documented exceptions is a good test; 30/30 is a hand table and much less attractive. The `trs_*`
+  family, the order axes, and the sum-over-`W` sites (`Wo_WKCa_to_KCao` — `W` absent from the output)
+  are the awkward ones.
+- **Cost**: ~60 functions × ≤3 blocks × ~250ms ≈ under a minute. Trimmable.
+- Divisibility: a sharded axis must be divisible by the device count (4 in the existing harness).

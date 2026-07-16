@@ -31,17 +31,23 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **`contractions.py` unfusing (option B) — IN FLIGHT.** Plan: `dev/contractions_unfusing_plan.md`
-  (**read its ⚠️ header box: §2/§4 are wrong as written**). The premise "every named block gets its own
-  einsum letter" is impossible — the `W|K` and `K|C` splits are not recoverable from the operands, so the
-  fusion was forced by the signature. Option B instead: a **passive** block (one operand, rides to the
-  output) needs no letter and no flatten — it rides as `'...'`. Bit-identical; 0 all-gathers where the
-  letter option gives 3; and it fixes `W`-minor sharding, which the plan had accepted as unfixable.
-  Real rule: **flatten only what einsum forces you to.**
-  - **NEXT, after B lands (Nick):** the **shardability contract** — *every grouped index must be
-    shardable over its first sub-axis* — as a uniform, automatic obligation. It is *equivalent* to the
-    no-fusing rule (not a proxy), encodes exactly the leading-subaxis limit Nick accepted, and checks a
-    property rather than a form. Plan §7a. Probe the name-parsing feasibility first.
+- **`contractions.py` unfusing — DONE (2026-07-15, `dae52839` + `f65b341d`; committed, NOT pushed).**
+  No named block is fused with another any more: 14 sites, 112/112 bit-identical, full suite 712 passed /
+  40,532 subtests. The rule is now **flatten only what einsum forces you to** — a *shared* block (on
+  several operands) must be a letter; a *passive* block (one operand, rides to the output) rides as
+  `'...'`. Rule + evidence: `docs/contributor/batching_internals.md`. Plans archived (**and wrong in
+  places — read their banners**).
+  - **Two things worth not re-deriving.** (1) "Every named block gets its own einsum letter" is
+    **impossible** — the `W|K` and `K|C` splits are not recoverable from the operands, so the fusion was
+    forced by the signature, not laziness. (2) Option B *beat* the plan: `W`-minor sharding on a
+    multi-axis block, which the plan accepted as inherent, is now free (3 all-gathers → 0). Only a
+    *shared* block's flatten survives.
+  - **NEXT: the shardability contract** — `dev/contractions_shardability_contract_plan.md`. *Every
+    grouped index must be shardable over its first sub-axis.* Equivalent to the no-fusing rule (not a
+    proxy), encodes exactly the leading-subaxis limit Nick accepted, and checks a property not a form.
+    **Probe the name-parsing feasibility first** — that number decides automatic-check vs hand-table, and
+    is also cheap evidence for the standing architecture question. Its watch-list carries the latent
+    `_pairwise_path`/`'...'` trap.
 
 - **Weighted layer (edge weights) — COMPLETE & SHIPPED, ragged + uniform (2026-07-15). Thread closed;
   committed, NOT pushed.** Diagonal weights on the internal edges, as a lightweight data format +

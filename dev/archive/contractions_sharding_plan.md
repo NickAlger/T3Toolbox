@@ -1,5 +1,10 @@
 # `contractions.py`: stop folding the order axis into the W block — plan
 
+> **ARCHIVED 2026-07-15 — DONE (`345dad57`), then superseded by the full unfusing (`dae52839`).** Its
+> "leave the W+K folds alone" no longer holds; those are unfused too. **§8's numpy `optimize=` finding is
+> unresolved and has been promoted** to `docs/contributor/deferred_and_rejected.md` so it does not get
+> lost here. Current rule: `docs/contributor/batching_internals.md`.
+
 _**S1-S4 SHIPPED (`345dad57`). Partly superseded: Nick's decision to UNFUSE EVERYTHING supersedes this
 note's "leave the W+K folds alone" -- see `dev/contractions_unfusing_plan.md`, which also records the 4
 INTERNAL fusions that this note's delegation-detector structurally could not see.**_

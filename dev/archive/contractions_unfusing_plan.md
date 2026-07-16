@@ -1,5 +1,20 @@
 # `contractions.py`: unfuse everything — the name is the type, and the body must honour it
 
+> **ARCHIVED 2026-07-15 — DONE (`dae52839`, `f65b341d`), and WRONG in several places. Do not use as a
+> reference.** The rule as it actually stands is `docs/contributor/batching_internals.md`; the live
+> follow-up is `dev/contractions_shardability_contract_plan.md`. Known-wrong sections, beyond the ⚠️ box
+> below (which covers only §2/§4):
+> - **§0** says the inventory missed sites "twice". It was **three** times — §2 itself then exempted
+>   `_assemble_dU_dxi`/`_assemble_dU_dxi_d` as "already clean"; they fused `K+C` into `X` and backed
+>   four public functions.
+> - **§2** calls itself "complete, mechanically derived". **It was not** (see above), and its "should be"
+>   column is impossible anyway (the splits are unpinnable — ⚠️ box).
+> - **§3** proposes a static name-vs-subscript guard. **Superseded** by the shardability contract: a
+>   static check can be satisfied by writing the letters and flattening anyway, and cannot express
+>   `'...'` at all.
+> - **§6** references §3.
+> Kept for the history — the reasoning, the measurements, and the roads not taken.
+
 > **⚠️ REVISED 2026-07-15 mid-build — §2 and §4 below are WRONG as written; read this box first.**
 > The plan assumed every named block could be given its own einsum letter. **It cannot.** The `W|K` and
 > `K|C` splits are **not recoverable from the operands**: for `WKCi_Cio_to_WKCo`, the splits
