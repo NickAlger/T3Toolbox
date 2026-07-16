@@ -188,5 +188,32 @@ class TestTildeTangentJets(unittest.TestCase):
                             self.assertLess(rel, 1e-12, '%s core %d: rel %.2e' % (tag, k, rel))
 
 
+class TestAssemblyChunked(unittest.TestCase):
+    """The W-chunked assembly must equal the dense assembly for any chunk_size (it is a reorganization
+    of the same sum) -- both reducers: add (sum_over_probes) and concat (kept). Random uniform arrays
+    suffice; the dense assembly's correctness is pinned by the transpose adjoint-identity tests."""
+
+    def test_chunked_matches_dense(self):
+        rng = np.random.default_rng(0)
+        d = 5
+        for K in [1, 3]:
+            for order in [2, 3]:
+                for W in [7, 10]:
+                    r = 4
+                    R = lambda *s: rng.standard_normal(s)
+                    sig, tau, deta = R(d, order + 1, W, K, r), R(d, order + 1, W, K, r), R(d, order + 1, W, K, r)
+                    xi, mu, nu = R(d, 2, W, r), R(d, order + 1, W, r), R(d, order + 1, W, r)
+                    trs = pd.binomial_combine_tensor(order)
+                    for sop in [True, False]:
+                        ref = pd.assemble_tt_variation_jets(sig, tau, deta, xi, mu, nu, trs, 1, sop)
+                        for cs in [3, 4, W, W + 5]:      # non-divisor, divisor-ish, exact, oversize
+                            with self.subTest(K=K, order=order, W=W, sum_over_probes=sop, chunk_size=cs):
+                                got = pd.assemble_tt_variation_jets_scanned(
+                                    sig, tau, deta, xi, mu, nu, trs, 1, sop, chunk_size=cs)
+                                e, a = np.asarray(ref), np.asarray(got)
+                                self.assertEqual(a.shape, e.shape)
+                                self.assertLess(np.linalg.norm(a - e) / np.linalg.norm(e), 1e-12)
+
+
 if __name__ == '__main__':
     unittest.main()

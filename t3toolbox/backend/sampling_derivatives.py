@@ -1652,6 +1652,69 @@ def assemble_tt_variation_jets(
     return dG_tildes
 
 
+def assemble_tt_variation_jets_scanned(
+        sigma_tildes:   typ.Sequence[NDArray],
+        tau_tildes:     typ.Sequence[NDArray],
+        deta_tildes:    typ.Sequence[NDArray],
+        xi_jets:        typ.Sequence[NDArray],
+        mu_jets:        typ.Sequence[NDArray],
+        nu_jets:        typ.Sequence[NDArray],
+        trs:            NDArray,
+        n_probe:        int,
+        sum_over_probes: bool,
+        chunk_size:     typ.Optional[int] = None,   # W-chunk size; None -> dense (no chunking)
+) -> NDArray:                                        # dG_tildes supercore, [W+]C+(rLi,nUi,rRi)
+    '''EXPERIMENTAL memory-lean mirror of :py:func:`assemble_tt_variation_jets` (module-private, uniform).
+
+    The dense assembly's peak is exactly LINEAR in the sample stack W (measured: ~5.3 MB / W-row at
+    r=128), so it is chunked along W: the dense assembly runs per W-chunk and the partials are combined.
+    Peak ~ ``chunk_size * (per-W-row)`` instead of ``W * (per-W-row)``.
+
+    **The reducer is the seam that keeps this from locking into W-only** (Nick, 2026-07-16). A chunked
+    batch axis is combined by ADD if it is *summed* (``sum_over_probes`` -> the gradient) or by CONCAT if
+    it is *kept* (the ``sum_over_probes=False`` per-probe output, and -- later -- a chunked *frame* stack
+    C, which is always kept). The per-chunk assembler is axis-agnostic (the dense assembly), so extending
+    to C-chunking is a new slice front + the same reducer, not a rewrite.
+
+    Chunking runs on the uniform path with a single W axis; ragged / multi-W / ``chunk_size`` unset /
+    ``W <= chunk_size`` fall back to the dense assembly. The chunk map is a real ``lax.map`` (sequential),
+    so only one chunk's intermediate is resident.
+    '''
+    ops = (sigma_tildes, tau_tildes, deta_tildes, xi_jets, mu_jets, nu_jets)
+    dense = lambda: assemble_tt_variation_jets(*ops, trs, n_probe, sum_over_probes)
+    if chunk_size is None or not is_ndarray(xi_jets) or n_probe != 1:
+        return dense()
+
+    use_jax = tree_contains_jax(ops + (trs,))
+    xnp, xmap, _ = get_backend(True, use_jax)
+    W_axis = 2                                        # uniform supercore: (d, order, W, ...)
+    W = xi_jets.shape[W_axis]
+    if W <= chunk_size:
+        return dense()
+
+    n_chunks = -(-W // chunk_size)                    # ceil
+    padW = n_chunks * chunk_size
+
+    def _to_chunks(op):
+        pad = [(0, 0)] * op.ndim
+        pad[W_axis] = (0, padW - W)                   # pad W with zeros -> padded rows contribute 0
+        op = xnp.pad(op, pad)
+        sh = op.shape[:W_axis] + (n_chunks, chunk_size) + op.shape[W_axis + 1:]
+        return xnp.moveaxis(op.reshape(sh), W_axis, 0)   # (n_chunks, d, order, chunk_size, ...)
+
+    chunked = tuple(_to_chunks(op) for op in ops)
+    # xmap (lax.map / numpy_map) maps over the leading n_chunks axis; f returns a 1-tuple (numpy_map's
+    # convention), collected as (n_chunks,)+output.
+    (partials,) = xmap(lambda co: (assemble_tt_variation_jets(*co, trs, n_probe, sum_over_probes),), chunked)
+
+    if sum_over_probes:                               # reducer = ADD (W is summed)
+        return xnp.sum(partials, axis=0)
+    # reducer = CONCAT (W kept): partials (n_chunks, d, chunk_size, K,C,a,i,b) -> (d, W, K,C,a,i,b)
+    p = xnp.moveaxis(partials, 1, 0)                  # (d, n_chunks, chunk_size, ...)
+    p = p.reshape((p.shape[0], padW) + p.shape[3:])
+    return p[:, :W]
+
+
 def tv_probe_transpose_derivatives_from_sweep(
         ztildes:    typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
