@@ -1595,6 +1595,44 @@ def assemble_tucker_variation_jets(
     return dU_tildes
 
 
+def assemble_tucker_variation_jets_scanned(
+        ztildes, dxi_tildes, ww, pp, etas, n_probe, sum_over_probes,
+        chunk_size: typ.Optional[int] = None,
+) -> NDArray:
+    '''EXPERIMENTAL W-chunked mirror of :py:func:`assemble_tucker_variation_jets` (module-private,
+    uniform). The milder assembly (two legs nO,N -- the dense gradient is a few GB, not the tt-core's
+    hundreds), chunked over W with the same reducer seam (add if summed, concat if kept) for a uniform
+    chunked-assembly interface. The only twist: ``ww``/``pp`` have no order axis, so W sits at a
+    per-operand axis (2 for the order-carrying jets, 1 for ww/pp). chunk_size None / ragged / multi-W /
+    small W -> dense.'''
+    ops = (ztildes, dxi_tildes, ww, pp, etas)
+    w_axes = (2, 2, 1, 1, 2)                          # per-operand W axis (ww/pp carry no order axis)
+    dense = lambda: assemble_tucker_variation_jets(*ops, n_probe, sum_over_probes)
+    if chunk_size is None or not is_ndarray(etas) or n_probe != 1:
+        return dense()
+    xnp, xmap, _ = get_backend(True, tree_contains_jax(ops))
+    W = etas.shape[2]
+    if W <= chunk_size:
+        return dense()
+    n_chunks = -(-W // chunk_size)
+    padW = n_chunks * chunk_size
+
+    def _to_chunks(op, wax):
+        pad = [(0, 0)] * op.ndim
+        pad[wax] = (0, padW - W)
+        op = xnp.pad(op, pad)
+        sh = op.shape[:wax] + (n_chunks, chunk_size) + op.shape[wax + 1:]
+        return xnp.moveaxis(op.reshape(sh), wax, 0)
+
+    chunked = tuple(_to_chunks(op, wax) for op, wax in zip(ops, w_axes))
+    (partials,) = xmap(lambda co: (assemble_tucker_variation_jets(*co, n_probe, sum_over_probes),), chunked)
+    if sum_over_probes:                              # reducer = ADD
+        return xnp.sum(partials, axis=0)
+    p = xnp.moveaxis(partials, 1, 0)                 # reducer = CONCAT: (d, n_chunks, chunk_size, ...)
+    p = p.reshape((p.shape[0], padW) + p.shape[3:])
+    return p[:, :W]
+
+
 def assemble_tt_variation_jets(
         sigma_tildes:   typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
         tau_tildes:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)

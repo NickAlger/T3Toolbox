@@ -214,6 +214,26 @@ class TestAssemblyChunked(unittest.TestCase):
                                 self.assertEqual(a.shape, e.shape)
                                 self.assertLess(np.linalg.norm(a - e) / np.linalg.norm(e), 1e-12)
 
+    def test_tucker_chunked_matches_dense(self):
+        rng = np.random.default_rng(0)
+        d = 5
+        for K in [1, 3]:
+            for order in [2, 3]:
+                for W in [7, 10]:
+                    nO, N = 4, 5
+                    R = lambda *s: rng.standard_normal(s)
+                    zt, dxt = R(d, order + 1, W, K, N), R(d, order + 1, W, K, nO)
+                    ww, pp, eta = R(d, W, N), R(d, W, N), R(d, order + 1, W, nO)
+                    for sop in [True, False]:
+                        ref = pd.assemble_tucker_variation_jets(zt, dxt, ww, pp, eta, 1, sop)
+                        for cs in [3, 4, W, W + 5]:
+                            with self.subTest(K=K, order=order, W=W, sum_over_probes=sop, chunk_size=cs):
+                                got = pd.assemble_tucker_variation_jets_scanned(
+                                    zt, dxt, ww, pp, eta, 1, sop, chunk_size=cs)
+                                e, a = np.asarray(ref), np.asarray(got)
+                                self.assertEqual(a.shape, e.shape)
+                                self.assertLess(np.linalg.norm(a - e) / np.linalg.norm(e), 1e-12)
+
 
 if __name__ == '__main__':
     unittest.main()
