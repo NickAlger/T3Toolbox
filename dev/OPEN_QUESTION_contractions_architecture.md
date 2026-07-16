@@ -58,6 +58,17 @@ equivalence contract, 40k subtests — is **constitutionally blind** to it. It t
 (T3Polynomial) trying to shard to find it. Whatever the architecture is, it has a class of property that
 its test strategy cannot see. That is worth sitting with independently of any redesign.
 
+**6. The module is public API — and probably should not have been.**
+_Nick, 2026-07-16: "Probably, we shouldn't have made contractions.py part of the public-facing API
+surface since it is really internal plumbing. But too late now."_ Concretely: 101 public defs, every one
+rendered into the published API reference (`docs/conf.py`'s `verbatim_signature` pulls each signature
+out of the source verbatim). That is why the `trs` canonicalization landed as a **breaking change**
+rather than a tidy-up. It also silently raises the price of every direction below: *"make blocks data"*
+and *"generate the subscript from a block spec"* both rewrite a surface users are invited to call, so
+each is a migration rather than a free choice. **Worth asking when this is taken up: is the public
+surface itself part of what should change?** If the module were internal plumbing, most of the cost in
+this note evaporates.
+
 ## Candidate directions (unexplored — do NOT treat as a shortlist)
 
 Listed so they are not re-invented from scratch. None costed, none recommended.
@@ -74,6 +85,43 @@ Listed so they are not re-invented from scratch. None costed, none recommended.
   dual-path by design (`xnp`/`xmap`/`xscan`). Does `xmap` already reach far enough?
 - **Do nothing.** Also a real answer. It works, it is well-tested, and B fixed the concrete problem. The
   unease may be about a cost already paid rather than one still coming.
+
+## Revisit: the `trs_*` contractions are sparse convolutions faked as dense operands
+
+_Nick, 2026-07-16 — a direction, not just an observation. Unlike the material above, this one has an
+intended shape; it is parked on cost, not on doubt._
+
+**The idea.** A `trs` binomial tensor **is a sparse convolution tensor**. Passing it to einsum as a
+dense operand is the wrong handling. The right form is a **zippering sum of non-`trs` contractions**
+— i.e. unroll the convolution over the order axes and sum ordinary contractions — instead of one big
+`trs` contraction. **This is a big job**, and it is *not* to be started before there is a correct and
+tested `trs` baseline: that baseline is what a rewrite would be validated against. So the current
+contractions earn their keep as the reference implementation even if they are eventually replaced.
+
+**Independent measured support (2026-07-16, while probing the shardability contract).** The `trs_*`
+family is exactly where `_pairwise_path` degenerates, and the mechanism is the same "dense operand"
+mistake:
+
+- `_pairwise_path` is greedy on **shared** indices and is **size-blind by design** (its docstring:
+  *"Keyed only on the subscript string (index sharing is size-independent)"*). But a shared index that
+  is in the output is a **batch** index and contracts nothing.
+- The binomial tensor shares only ONE index with each operand, while the operand pairs share three
+  (`d`,`W`,`C` — all batch). So `trs` — **the only operand that can contract anything** — is sorted
+  **last**. For `tus,dtWKCa,duWCi,dsWCb->dWKCaib` the first two of three steps contract *nothing*, and
+  the intermediate grows to the union of all ten indices before anything is summed.
+- Peak intermediate is then `s*t*u` × the output: measured **27×** at order-axis size 3, and **8–64×**
+  across the realistic order range 2–4. **8 of 47** multi-operand contractions improve under a
+  contracted-index heuristic (aggregate peak 42.3M → 5.8M elements); **2 get worse**.
+- Scope: **numpy path only** — `_grouped_einsum` hands jax the raw einsum and lets XLA choose. And this
+  is a **peak-memory** measurement, *not* a runtime claim: fewer FLOPs already misled us here once
+  (`optimize=True` minimised FLOPs and ran **50×** slower by breaking BLAS-friendliness), so no
+  path-heuristic change should be inferred from these numbers alone.
+
+The connection worth keeping: the structural instinct (*a sparse convolution tensor should not be a
+dense einsum operand*) and the measured pathology (*the convolution operand is the one that gets
+deferred, so nothing contracts until the last step*) are **the same fact seen from two sides**. That
+is a reason to believe the zippering direction is right, and a reason the numpy-path oddity is a
+symptom rather than a bug to patch.
 
 ## Where the evidence lives
 
