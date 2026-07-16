@@ -37,25 +37,29 @@ class TestMuJetsBanded(unittest.TestCase):
         trs = pd.binomial_combine_tensor(ORDER)
         return tt_cores, xi_jets, trs
 
+    BANDED = {'banded': pd.compute_mu_jets_banded,
+              'banded_fused': pd.compute_mu_jets_banded_fused}
+
     def test_banded_matches_trs_mu(self):
         rng = np.random.default_rng(0)
-        for STRUCT in self.STRUCTS:
-            for W in [(), (3,), (2, 2)]:
-                for C in [(), (2,)]:
-                    for ORDER in [0, 1, 2, 3, 4]:
-                        with self.subTest(STRUCT=STRUCT[0], W=W, C=C, ORDER=ORDER):
-                            tt_cores, xi_jets, trs = self._mu_inputs(STRUCT, W, C, ORDER, rng)
+        for variant, fn in self.BANDED.items():
+            for STRUCT in self.STRUCTS:
+                for W in [(), (3,), (2, 2)]:
+                    for C in [(), (2,)]:
+                        for ORDER in [0, 1, 2, 3, 4]:
+                            with self.subTest(variant=variant, STRUCT=STRUCT[0], W=W, C=C, ORDER=ORDER):
+                                tt_cores, xi_jets, trs = self._mu_inputs(STRUCT, W, C, ORDER, rng)
 
-                            expected = pd.compute_mu_jets(tt_cores, xi_jets, trs)
-                            actual = pd.compute_mu_jets_banded(tt_cores, xi_jets, trs)
+                                expected = pd.compute_mu_jets(tt_cores, xi_jets, trs)
+                                actual = fn(tt_cores, xi_jets, trs)
 
-                            self.assertEqual(len(actual), len(expected))
-                            for i in range(len(expected)):
-                                e, a = np.asarray(expected[i]), np.asarray(actual[i])
-                                self.assertEqual(a.shape, e.shape)
-                                denom = np.linalg.norm(e)
-                                rel = np.linalg.norm(a - e) / denom if denom else np.linalg.norm(a)
-                                self.assertLess(rel, 1e-12, 'core %d: rel err %.2e' % (i, rel))
+                                self.assertEqual(len(actual), len(expected))
+                                for i in range(len(expected)):
+                                    e, a = np.asarray(expected[i]), np.asarray(actual[i])
+                                    self.assertEqual(a.shape, e.shape)
+                                    denom = np.linalg.norm(e)
+                                    rel = np.linalg.norm(a - e) / denom if denom else np.linalg.norm(a)
+                                    self.assertLess(rel, 1e-12, 'core %d: rel err %.2e' % (i, rel))
 
 
 if __name__ == '__main__':

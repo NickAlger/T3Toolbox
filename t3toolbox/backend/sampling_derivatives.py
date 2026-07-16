@@ -402,6 +402,61 @@ def compute_mu_jets_banded(
     return mu_jets
 
 
+def _stWCa_sWCab_to_tWCb(
+        stacked_mu:  NDArray,  # s + t + W + C + (a,)    -- jet-pair axis s, order t (both passive on t)
+        Gxi:         NDArray,  # s +     W + C + (a, b)  -- core-with-input-jet, both order slices
+) -> NDArray:                  #     t + W + C + (b,)    -- the two-term step, in ONE contraction
+    '''Fused two-term recurrence step: contract the jet-pair axis ``s`` AND the bond ``a`` in a single
+    einsum. With ``stacked_mu[0] = mu^(t)``, ``stacked_mu[1] = t * mu^(t-1)``, and ``Gxi[s] = G . xi^(s)``,
+    the ``s`` sum reproduces ``mu^(t) . G . xi^(0) + t * mu^(t-1) . G . xi^(1)``. One larger GEMM instead
+    of two smaller ones -- gives XLA a single contraction to schedule (the whole point of the fused form).'''
+    use_jax = tree_contains_jax((stacked_mu, Gxi))
+    xnp, _, _ = get_backend(is_ndarray(stacked_mu), use_jax)
+    return xnp.einsum('st...a,s...ab->t...b', stacked_mu, Gxi)
+
+
+def compute_mu_jets_banded_fused(
+        tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nUi,rR(i+1))
+        xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+W+C+(nUi,)
+        trs:        NDArray,                # binomial tensor -- ONLY its shape (order) is read here
+) -> typ.Tuple[NDArray, ...]:               # mu_jets. len=d, elm_shape=(order+1,)+W+C+(rLi,). mu_jets[i][t]=mu_{i-1}^(t)
+    '''EXPERIMENTAL fused variant of :py:func:`compute_mu_jets_banded` (module-private).
+
+    Same two-term recurrence, but folded into ONE contraction per core instead of two einsums + a shift
+    + a broadcast: stack ``[mu^(t), t * mu^(t-1)]`` on a jet-pair axis ``s`` and contract it together with
+    the bond ``a`` against ``[G.xi^(0), G.xi^(1)]`` (:py:func:`_stWCa_sWCab_to_tWCb`). Motivation: under
+    jit the two-einsum form is ~parity with the dense ``trs`` at scale; giving XLA a single larger GEMM
+    is the lever to turn parity into a win. The shift (for ``mu^(t-1)``) is still needed, but it now
+    feeds the single contraction rather than sitting between two.
+    '''
+    use_jax = tree_contains_jax((tt_cores, xi_jets, trs))
+    is_uniform = is_ndarray(tt_cores)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+
+    order = trs.shape[0] - 1
+    s_size = min(2, order + 1)                             # affine input jet: orders {0, 1}
+    tvec = xnp.arange(order + 1)                           # the C(t,t-1)=t multipliers
+
+    def _func(mu_jet, data):
+        G, xi_jet = data
+        Gxi = _Caib_sWCi_to_sWCab(G, xi_jet[:s_size])     # (s, W, C, a, b), s in {0,1}
+        if s_size > 1:                                     # static branch (order >= 1)
+            t_bcast = tvec.reshape((order + 1,) + (1,) * (mu_jet.ndim - 1))
+            shifted = xnp.concatenate([xnp.zeros_like(mu_jet[:1]), mu_jet[:-1]], axis=0)  # mu^(t-1)
+            stacked_mu = xnp.stack([mu_jet, t_bcast * shifted], axis=0)   # (s=2,) + mu jet shape
+            next_mu = _stWCa_sWCab_to_tWCb(stacked_mu, Gxi)
+        else:                                              # order 0: only s=0 survives
+            next_mu = _tWCa_WCab_to_tWCb(mu_jet, Gxi[0])
+        return next_mu, (mu_jet,)
+
+    stack_shape = xi_jets[0].shape[1:-1]
+    r0 = tt_cores[0].shape[-3]
+    init = _init_jet(order, stack_shape, r0, xnp)
+
+    _, (mu_jets,) = xscan(_func, init, (tt_cores, xi_jets))
+    return mu_jets
+
+
 def compute_nu_jets(
         tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nUi,rR(i+1))
         xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+W+C+(nUi,)
