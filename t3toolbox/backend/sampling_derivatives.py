@@ -536,7 +536,7 @@ def compute_eta_jets_scanned(
     use_jax = tree_contains_jax((tt_cores, mu_jets, nu_jets, trs))
     xnp, xmap, xscan = get_backend(is_ndarray(tt_cores), use_jax)
     order = trs.shape[0] - 1
-    trs_r = xnp.moveaxis(trs, 1, 0)                        # (r, t, s) -- scan leads on the input order r
+    trs_r = xnp.moveaxis(trs, 1, 0)                        # binomial CONSTANT (order+1)^3; scan leads on input order r -- const-folded, ~free
 
     def _func(data):
         mu_jet, G, nu_jet = data                          # (T,W,C,a) ; (C,a,i,b) ; (T,W,C,b)
@@ -883,7 +883,7 @@ def compute_deta_jets_scanned(
                                  mu_jets, nu_jets, sigma_jets, tau_jets, trs))
     xnp, xmap, xscan = get_backend(is_ndarray(var_tt_cores), use_jax)
     order = trs.shape[0] - 1
-    trs_r = xnp.moveaxis(trs, 1, 0)                   # (r, t, s) -- scan leads on the left order r
+    trs_r = xnp.moveaxis(trs, 1, 0)                   # binomial CONSTANT (order+1)^3; scan leads on left order r -- const-folded, ~free
 
     def _func(data):
         P, Q, dG, mu_jet, nu_jet, sigma_jet, tau_jet = data
@@ -1501,7 +1501,7 @@ def _adj_sweep_scanned(P_cores, xi_jets, deta_tildes, edge_jets, trs):
     order = trs.shape[0] - 1
     s_size = min(2, order + 1)
     svec = xnp.arange(order + 1)
-    trs_r = xnp.moveaxis(trs, 1, 0)                             # (r, t, s) -- inner scan leads on edge order r
+    trs_r = xnp.moveaxis(trs, 1, 0)                             # binomial CONSTANT (order+1)^3; inner scan leads on edge order r -- const-folded, ~free
 
     def _step(carry, data):
         P, xi, deta_t, edge = data
