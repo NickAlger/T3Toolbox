@@ -1447,6 +1447,85 @@ def compute_sigma_tilde_jets(
     return rev[::-1]
 
 
+def _adj_tilde_step(carry, P, xi, deta_t, edge, s_size, svec, order, xnp, xscan, trs_r):
+    '''One K-aware step of the memory-lean adjoint sweep. Two terms, both the TRANSPOSE of a forward
+    contraction: **prop** (adjoint of the affine pushthrough) is a two-term REVERSE recurrence -- shifted
+    UP (``carry^(s+1)``, weight ``s+1``), fused into one GEMM; **src** (adjoint of the full combine, the
+    deta_tilde source) is a full REVERSE convolution, an inner order-scan over the edge order ``r`` with
+    peak ``W*r^2`` per slice. W, K, C flattened (carry/deta carry K; xi/edge/P do not).'''
+    C_shape = P.shape[:-3]
+    nf = len(C_shape)
+    a, i, b = P.shape[-3], P.shape[-2], P.shape[-1]
+    nW = xi.ndim - 2 - nf
+    W_shape = xi.shape[1:1 + nW]
+    nK = carry.ndim - 2 - nW - nf
+    K_shape = carry.shape[1 + nW:1 + nW + nK]
+    sW, sK, sC = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
+
+    Pf = P.reshape((sC, a, i, b))
+    carry_f = carry.reshape((order + 1, sW, sK, sC, a))
+    xi_f = xi[:s_size].reshape((s_size, sW, sC, i))
+    edge_f = edge.reshape((order + 1, sW, sC, a))
+    deta_f = deta_t.reshape((order + 1, sW, sK, sC, i))
+
+    # --- prop: two-term reverse recurrence (xi affine). prop^(s) = carry^(s) P xi^(0) + (s+1) carry^(s+1) P xi^(1)
+    Pxi = xnp.einsum('Caib,kWCi->kWCab', Pf, xi_f)              # (k=s_size, W, C, a, b)
+    if s_size > 1:
+        sp1 = (svec + 1).reshape((order + 1,) + (1,) * (carry_f.ndim - 1))
+        up = xnp.concatenate([carry_f[1:], xnp.zeros_like(carry_f[:1])], axis=0)   # carry^(s+1)
+        stacked = xnp.stack([carry_f, sp1 * up], axis=0)        # (2,)+carry shape
+        prop = xnp.einsum('ksWKCa,kWCab->sWKCb', stacked, Pxi)
+    else:
+        prop = xnp.einsum('sWKCa,WCab->sWKCb', carry_f, Pxi[0])
+
+    # --- src: full reverse convolution -- inner scan over the edge order r, peak W*r^2 per slice
+    def _src_step(acc, xr):
+        edge_r, trsr = xr                                       # (W,C,a) ; (t,s)
+        ep = xnp.einsum('WCa,Caib->WCib', edge_r, Pf)           # edge^(r) P over a -- peak W*r^2
+        epd = xnp.einsum('WCib,tWKCi->tWKCb', ep, deta_f)       # fold all t (deta full) -> (t,W,K,C,b)
+        return acc + xnp.einsum('ts,tWKCb->sWKCb', trsr, epd), ()
+
+    src0 = xnp.zeros((order + 1, sW, sK, sC, b), carry.dtype)
+    src, _ = xscan(_src_step, src0, (edge_f, trs_r))
+
+    return (prop + src).reshape((order + 1,) + W_shape + K_shape + C_shape + (b,))
+
+
+def _adj_sweep_scanned(P_cores, xi_jets, deta_tildes, edge_jets, trs):
+    '''EXPERIMENTAL memory-lean mirror of :py:func:`_adj_sweep` (module-private). Same left-to-right core
+    sweep, but each step's two `trs` einsums become the TRANSPOSE of the forward recurrence/convolution:
+    a two-term reverse recurrence (prop, affine xi) + an inner order-scan (src, full). The inner scan
+    is real (`lax.scan` on the uniform path) so its `W*r^2` slice is the peak, not `(order+1)*W*r^2`.'''
+    use_jax = tree_contains_jax((P_cores, xi_jets, deta_tildes, edge_jets, trs))
+    xnp, xmap, xscan = get_backend(is_ndarray(P_cores), use_jax)
+    order = trs.shape[0] - 1
+    s_size = min(2, order + 1)
+    svec = xnp.arange(order + 1)
+    trs_r = xnp.moveaxis(trs, 1, 0)                             # (r, t, s) -- inner scan leads on edge order r
+
+    def _step(carry, data):
+        P, xi, deta_t, edge = data
+        new = _adj_tilde_step(carry, P, xi, deta_t, edge, s_size, svec, order, xnp, xscan, trs_r)
+        return new, (carry,)
+
+    rL0 = P_cores[0].shape[-3]
+    init = xnp.zeros((order + 1,) + deta_tildes[0].shape[1:-1] + (rL0,))
+    _, (tildes,) = xscan(_step, init, (P_cores, xi_jets, deta_tildes, edge_jets))
+    return tildes
+
+
+def compute_tau_tilde_jets_scanned(left_tt_cores, xi_jets, deta_tildes, mu_jets, trs):
+    '''EXPERIMENTAL memory-lean mirror of :py:func:`compute_tau_tilde_jets`.'''
+    return _adj_sweep_scanned(left_tt_cores, xi_jets, deta_tildes, mu_jets, trs)
+
+
+def compute_sigma_tilde_jets_scanned(right_tt_cores, xi_jets, deta_tildes, nu_jets, trs):
+    '''EXPERIMENTAL memory-lean mirror of :py:func:`compute_sigma_tilde_jets` (reverse of tau_tilde).'''
+    rev = _adj_sweep_scanned(tt_operations.tt_reverse(right_tt_cores), xi_jets[::-1],
+                             deta_tildes[::-1], nu_jets[::-1], trs)
+    return rev[::-1]
+
+
 def compute_dxi_tilde_jets(
         down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
         mu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)

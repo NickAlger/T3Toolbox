@@ -146,5 +146,47 @@ class TestForwardTangentJets(unittest.TestCase):
                     self._close(dt_got, dt_ref, 'deta')
 
 
+class TestTildeTangentJets(unittest.TestCase):
+    """The transpose (tilde) edge-variable jets (sigma_tilde/tau_tilde scanned) must equal the trs
+    versions -- a two-term reverse recurrence (prop) + a full reverse-convolution order-scan (src)."""
+
+    import t3toolbox.frame_variations_format as _bvf
+    import t3toolbox.manifold as _t3m
+
+    def test_tilde_jets_match_trs(self):
+        rng = np.random.default_rng(0)
+        STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        shapes = STRUCT[0]
+        for W, K, C in [((), (), ()), ((), (3,), ()), ((2,), (3,), (2,)), ((2, 2), (2,), (2,))]:
+            for ORDER in [0, 1, 2, 3]:
+                with self.subTest(W=W, K=K, C=C, ORDER=ORDER):
+                    x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
+                    frame, _ = self._bvf.t3_orthogonal_representations(x)
+                    v = self._t3m.COREWISE.randn(frame, stack_shape=K)
+                    up, down, left, right = frame.data
+                    ww = [rng.standard_normal(W + (n,)) for n in shapes]
+                    pp = [rng.standard_normal(W + (n,)) for n in shapes]
+                    xi = pd.build_input_jets(pd.compute_xi(up, ww), pd.compute_xi(up, pp))
+                    trs = pd.binomial_combine_tensor(ORDER)
+                    mu = pd.compute_mu_jets(left, xi, trs)
+                    nu = pd.compute_nu_jets(right, xi, trs)
+                    zt = [rng.standard_normal((ORDER + 1,) + W + K + C + (n,)) for n in shapes]
+                    deta_t = pd.compute_deta_tilde_jets(up, zt)
+
+                    for tag, ref, got in [
+                        ('tau_tilde', pd.compute_tau_tilde_jets(left, xi, deta_t, mu, trs),
+                         pd.compute_tau_tilde_jets_scanned(left, xi, deta_t, mu, trs)),
+                        ('sigma_tilde', pd.compute_sigma_tilde_jets(right, xi, deta_t, nu, trs),
+                         pd.compute_sigma_tilde_jets_scanned(right, xi, deta_t, nu, trs)),
+                    ]:
+                        self.assertEqual(len(got), len(ref))
+                        for k in range(len(ref)):
+                            e, a = np.asarray(ref[k]), np.asarray(got[k])
+                            self.assertEqual(a.shape, e.shape)
+                            denom = np.linalg.norm(e)
+                            rel = np.linalg.norm(a - e) / denom if denom else np.linalg.norm(a)
+                            self.assertLess(rel, 1e-12, '%s core %d: rel %.2e' % (tag, k, rel))
+
+
 if __name__ == '__main__':
     unittest.main()
