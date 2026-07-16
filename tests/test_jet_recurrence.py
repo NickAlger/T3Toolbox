@@ -62,5 +62,38 @@ class TestMuJetsBanded(unittest.TestCase):
                                     self.assertLess(rel, 1e-12, 'core %d: rel err %.2e' % (i, rel))
 
 
+class TestEtaJetsScanned(TestMuJetsBanded):
+    """The memory-lean order-scan eta must equal the dense-trs compute_eta_jets on real widths."""
+
+    def test_scanned_matches_trs_eta(self):
+        rng = np.random.default_rng(0)
+        for STRUCT in self.STRUCTS:
+            for W in [(), (3,), (2, 2)]:
+                for C in [(), (2,)]:
+                    for ORDER in [0, 1, 2, 3, 4]:
+                        with self.subTest(STRUCT=STRUCT[0], W=W, C=C, ORDER=ORDER):
+                            x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
+                            tucker_cores, tt_cores = x.data
+                            shapes = STRUCT[0]
+                            ww = [rng.standard_normal(W + (n,)) for n in shapes]
+                            pp = [rng.standard_normal(W + (n,)) for n in shapes]
+                            xi_jets = pd.build_input_jets(pd.compute_xi(tucker_cores, ww),
+                                                          pd.compute_xi(tucker_cores, pp))
+                            trs = pd.binomial_combine_tensor(ORDER)
+                            mu = pd.compute_mu_jets(tt_cores, xi_jets, trs)
+                            nu = pd.compute_nu_jets(tt_cores, xi_jets, trs)
+
+                            expected = pd.compute_eta_jets(tt_cores, mu, nu, trs)
+                            actual = pd.compute_eta_jets_scanned(tt_cores, mu, nu, trs)
+
+                            self.assertEqual(len(actual), len(expected))
+                            for k in range(len(expected)):
+                                e, a = np.asarray(expected[k]), np.asarray(actual[k])
+                                self.assertEqual(a.shape, e.shape)
+                                denom = np.linalg.norm(e)
+                                rel = np.linalg.norm(a - e) / denom if denom else np.linalg.norm(a)
+                                self.assertLess(rel, 1e-12, 'core %d: rel err %.2e' % (k, rel))
+
+
 if __name__ == '__main__':
     unittest.main()

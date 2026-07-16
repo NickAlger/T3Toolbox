@@ -504,6 +504,65 @@ def compute_eta_jets(
     return eta_jets
 
 
+def compute_eta_jets_scanned(
+        tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+        mu_jets:    typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
+        nu_jets:    typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
+        trs:        NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
+) -> typ.Tuple[NDArray, ...]:               # eta_jets. len=d, elm_shape=(order+1,)+W+C+(nOi,)
+    '''EXPERIMENTAL memory-lean mirror of :py:func:`compute_eta_jets` (module-private).
+
+    eta is a FULL convolution (both jets run ``0..order``), so the dense ``trs`` contraction forms the
+    spatial product ``mu . G`` with mode AND bond live at every order at once: an ``(order+1)*W*r^2``
+    intermediate (and the uniform d-einsum forms it for every core at once -- ``d`` times worse,
+    128 GB at r=128, W=32000, order 5). This scans the two small axes instead, so only one slice is
+    ever live:
+
+        ``eta^(t) = sum_r C(t,r) [ mu^(r) . G ] . nu^(t-r)``
+
+    - ``xscan`` over the input order ``r`` (the convolution): forms ``mu^(r) . G`` one order at a time
+      and accumulates -- removes the ``(order+1)`` factor;
+    - ``xmap`` over cores: removes the ``d`` factor.
+
+    **The win requires the UNIFORM path** (a stacked supercore), where ``xmap``/``xscan`` dispatch to the
+    real ``jax.lax.map`` / ``jax.lax.scan`` -- both *sequential* (``lax.map`` is a ``scan``, not a
+    vectorizing ``vmap``), so only one core+order intermediate is resident. On the RAGGED path
+    ``xmap``/``xscan`` are Python loops that unroll under jit and keep everything co-resident (measured
+    ~1.2x, i.e. no win). Uniform, both scans: measured **14-28x** smaller XLA peak than the dense
+    d-einsum and CONSTANT in order (~4.5 GB vs 64-128 GB at the huge config). The order loop being a
+    real scan is what forces this -- an unrolled loop does not. Verified equal to
+    :py:func:`compute_eta_jets` to 1e-12 (ragged) and 1e-7 (uniform, float32).
+    '''
+    use_jax = tree_contains_jax((tt_cores, mu_jets, nu_jets, trs))
+    xnp, xmap, xscan = get_backend(is_ndarray(tt_cores), use_jax)
+    order = trs.shape[0] - 1
+    trs_r = xnp.moveaxis(trs, 1, 0)                        # (r, t, s) -- scan leads on the input order r
+
+    def _func(data):
+        mu_jet, G, nu_jet = data                          # (T,W,C,a) ; (C,a,i,b) ; (T,W,C,b)
+        C_shape = G.shape[:-3]
+        a, i, b = G.shape[-3], G.shape[-2], G.shape[-1]
+        W_shape = mu_jet.shape[1:-(len(C_shape) + 1)]
+        size_C = math.prod(C_shape)
+
+        G_f = G.reshape((size_C, a, i, b))
+        mu_f = mu_jet.reshape((order + 1,) + W_shape + (size_C, a))
+        nu_f = nu_jet.reshape((order + 1,) + W_shape + (size_C, b))
+
+        def _accumulate(eta, xr):
+            mu_r, trsr = xr                                          # (W,C,a) ; (t,s)
+            MG_r = xnp.einsum('...Ca,Caib->...Cib', mu_r, G_f)       # peak: W + C + (i, b)
+            MGN_r = xnp.einsum('...Cib,s...Cb->s...Ci', MG_r, nu_f)  # fold in all of nu -> order s
+            return eta + xnp.einsum('ts,s...Ci->t...Ci', trsr, MGN_r), ()   # binomial weights over t
+
+        eta0 = xnp.zeros((order + 1,) + W_shape + (size_C, i), mu_jet.dtype)
+        eta, _ = xscan(_accumulate, eta0, (mu_f, trs_r))
+        return (eta.reshape((order + 1,) + W_shape + C_shape + (i,)),)
+
+    (eta_jets,) = xmap(_func, (mu_jets, tt_cores, nu_jets))
+    return eta_jets
+
+
 def assemble_z_jets(
         tucker_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(nUi,Ni)
         eta_jets:       typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(nUi,)
