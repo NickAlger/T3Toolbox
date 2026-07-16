@@ -1037,7 +1037,7 @@ def _adj_sweep(P_cores, xi_jets, deta_tildes, edge_jets, trs):
         P, xi, deta_t, edge = data
         # Three-group (W,K,C): the swept adjoint (carry) and deta_tilde carry K; xi/edge (frame) and P
         # (frame core) do not. Both terms self-infer the split (xi pins W, P pins C, K=remainder).
-        prop = contractions.trs_tWKCa_Caib_uWCi_to_sWKCb(trs_xi, carry, P, xi[:s_size])  # propagation
+        prop = contractions.trs_tWKCa_Caib_rWCi_to_sWKCb(trs_xi, carry, P, xi[:s_size])  # propagation
         src  = contractions.trs_rWCa_Caib_tWKCi_to_sWKCb(trs,    edge,  P, deta_t)       # deta_tilde source
         return prop + src, (carry,)
 
@@ -1090,16 +1090,16 @@ def compute_dxi_tilde_jets(
     if is_uniform:
         # d-prefixed adjoint combines (3b-6'a); the ragged xmap is the oracle. tau/sigma_tilde carry K; mu/nu
         # are W+C; O is the C-only down supercore. Both self-infer the W/K/C split.
-        from_tau = contractions.trs_dtWKCa_dCaib_dsWCb_to_duWKCi(trs, tau_tildes, down_tt_cores, nu_jets)
-        from_sig = contractions.trs_drWCa_dCaib_dtWKCb_to_duWKCi(trs, mu_jets, down_tt_cores, sigma_tildes)
+        from_tau = contractions.trs_dtWKCa_dCaib_dsWCb_to_drWKCi(trs, tau_tildes, down_tt_cores, nu_jets)
+        from_sig = contractions.trs_drWCa_dCaib_dtWKCb_to_dsWKCi(trs, mu_jets, down_tt_cores, sigma_tildes)
         dxi_tildes = from_tau + from_sig
     else:
         def _func(data):
             O, mu, nu, st, tt = data
             # Three-group (W,K,C): tau_tilde (tt) / sigma_tilde (st) carry K, mu/nu (frame) and O (frame core)
             # do not. Both self-infer (mu/nu pin W, O pins C, K=remainder).
-            from_tau = contractions.trs_tWKCa_Caib_sWCb_to_uWKCi(trs, tt, O, nu)
-            from_sig = contractions.trs_rWCa_Caib_tWKCb_to_uWKCi(trs, mu, O, st)
+            from_tau = contractions.trs_tWKCa_Caib_sWCb_to_rWKCi(trs, tt, O, nu)
+            from_sig = contractions.trs_rWCa_Caib_tWKCb_to_sWKCi(trs, mu, O, st)
             return (from_tau + from_sig,)
 
         (dxi_tildes,) = xmap(_func, (down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes))
@@ -1167,12 +1167,12 @@ def assemble_tt_variation_jets(
         # d-prefixed dG assembly (3b-6'a); the xi order-slice is [:, :s_size] (order at supercore axis 1).
         # trs is shared (no d), so its slices are unchanged. Ragged xmap is the oracle.
         if sum_over_probes:
-            f_sig, f_tau, f_det = (contractions.trs_drWCa_duWCi_dtWKCb_to_dKCaib,
-                                   contractions.trs_dtWKCa_duWCi_dsWCb_to_dKCaib,
+            f_sig, f_tau, f_det = (contractions.trs_drWCa_dsWCi_dtWKCb_to_dKCaib,
+                                   contractions.trs_dtWKCa_drWCi_dsWCb_to_dKCaib,
                                    contractions.trs_drWCa_dtWKCi_dsWCb_to_dKCaib)
         else:
-            f_sig, f_tau, f_det = (contractions.trs_drWCa_duWCi_dtWKCb_to_dWKCaib,
-                                   contractions.trs_dtWKCa_duWCi_dsWCb_to_dWKCaib,
+            f_sig, f_tau, f_det = (contractions.trs_drWCa_dsWCi_dtWKCb_to_dWKCaib,
+                                   contractions.trs_dtWKCa_drWCi_dsWCb_to_dWKCaib,
                                    contractions.trs_drWCa_dtWKCi_dsWCb_to_dWKCaib)
         t_sig = f_sig(trs[:, :, :s_size], mu_jets, xi_jets[:, :s_size], sigma_tildes, n_probe)
         t_tau = f_tau(trs[:, :s_size, :], tau_tildes, xi_jets[:, :s_size], nu_jets, n_probe)
@@ -1180,12 +1180,12 @@ def assemble_tt_variation_jets(
         return t_sig + t_tau + t_det
 
     if sum_over_probes:
-        f_sig, f_tau, f_det = (contractions.trs_rWCa_uWCi_tWKCb_to_KCaib,
-                               contractions.trs_tWKCa_uWCi_sWCb_to_KCaib,
+        f_sig, f_tau, f_det = (contractions.trs_rWCa_sWCi_tWKCb_to_KCaib,
+                               contractions.trs_tWKCa_rWCi_sWCb_to_KCaib,
                                contractions.trs_rWCa_tWKCi_sWCb_to_KCaib)
     else:
-        f_sig, f_tau, f_det = (contractions.trs_rWCa_uWCi_tWKCb_to_WKCaib,
-                               contractions.trs_tWKCa_uWCi_sWCb_to_WKCaib,
+        f_sig, f_tau, f_det = (contractions.trs_rWCa_sWCi_tWKCb_to_WKCaib,
+                               contractions.trs_tWKCa_rWCi_sWCb_to_WKCaib,
                                contractions.trs_rWCa_tWKCi_sWCb_to_WKCaib)
 
     def _func(data):
@@ -1310,7 +1310,7 @@ def compute_sigma_hat_jets(
 
     def _step(carry, data):
         Q, xi = data
-        return contractions.trs_tWKCa_Caib_uWCi_to_sWKCb(trs_xi, carry, Q, xi[:s_size]), (carry,)
+        return contractions.trs_tWKCa_Caib_rWCi_to_sWKCb(trs_xi, carry, Q, xi[:s_size]), (carry,)
 
     _, (rev_sigma_hats,) = xscan(_step, seed, (rev_Q, rev_xi))
     return rev_sigma_hats[::-1]
@@ -1331,8 +1331,8 @@ def _apply_derivatives_transpose_from_jets(
     if is_uniform:
         # d-prefixed adjoint combine + single-term assembly (3b-6'a); the w/dxi order-slice is [:, :s_size]
         # (order at supercore axis 1). trs is shared (no d). Ragged xmap is the oracle.
-        dxi_hats = contractions.trs_drWCa_dCaib_dtWKCb_to_duWKCi(trs, mu_jets, down_tt_cores, sigma_hats)
-        dG = contractions.trs_drWCa_duWCi_dtWKCb_to_dKCaib if sum_over_probes else contractions.trs_drWCa_duWCi_dtWKCb_to_dWKCaib
+        dxi_hats = contractions.trs_drWCa_dCaib_dtWKCb_to_dsWKCi(trs, mu_jets, down_tt_cores, sigma_hats)
+        dG = contractions.trs_drWCa_dsWCi_dtWKCb_to_dKCaib if sum_over_probes else contractions.trs_drWCa_dsWCi_dtWKCb_to_dWKCaib
         dU = contractions.duWKCa_duWo_to_dKCao if sum_over_probes else contractions.duWKCa_duWo_to_dWKCao
         dG_tildes = dG(trs[:, :, :s_size], mu_jets, xi_jets[:, :s_size], sigma_hats, n_probe)
         dU_tildes = dU(dxi_hats[:, :s_size], w_jets[:, :s_size])
@@ -1340,11 +1340,11 @@ def _apply_derivatives_transpose_from_jets(
 
     def _dxi_hat(data):
         O, mu, sh = data                        # dxi_hat = mu * O * sigma_hat (mode leg free)
-        return (contractions.trs_rWCa_Caib_tWKCb_to_uWKCi(trs, mu, O, sh),)
+        return (contractions.trs_rWCa_Caib_tWKCb_to_sWKCi(trs, mu, O, sh),)
 
     (dxi_hats,) = xmap(_dxi_hat, (down_tt_cores, mu_jets, sigma_hats))
 
-    dG = contractions.trs_rWCa_uWCi_tWKCb_to_KCaib if sum_over_probes else contractions.trs_rWCa_uWCi_tWKCb_to_WKCaib
+    dG = contractions.trs_rWCa_sWCi_tWKCb_to_KCaib if sum_over_probes else contractions.trs_rWCa_sWCi_tWKCb_to_WKCaib
     dU = contractions.uWKCa_uWo_to_KCao if sum_over_probes else contractions.uWKCa_uWo_to_WKCao
 
     def _asm(data):

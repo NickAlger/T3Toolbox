@@ -819,7 +819,7 @@ class TestContractions(unittest.TestCase):
     # ---- order-threaded 3-group ADJOINT contractions (K-stacked derivative-probe transpose) ----
 
     def test_trs_tWKCa_Caib_uWCi_to_sWKCb(self):
-        self._check_jet3(contractions.trs_tWKCa_Caib_uWCi_to_sWKCb,
+        self._check_jet3(contractions.trs_tWKCa_Caib_rWCi_to_sWKCb,
                          [('t', 'WKC', 'a'), ('', 'C', 'aib'), ('u', 'WC', 'i')], ('s', 'WKC', 'b'),
                          trs_sub='tus')
 
@@ -829,12 +829,12 @@ class TestContractions(unittest.TestCase):
                          trs_sub='trs')
 
     def test_trs_tWKCa_Caib_sWCb_to_uWKCi(self):
-        self._check_jet3(contractions.trs_tWKCa_Caib_sWCb_to_uWKCi,
+        self._check_jet3(contractions.trs_tWKCa_Caib_sWCb_to_rWKCi,
                          [('t', 'WKC', 'a'), ('', 'C', 'aib'), ('s', 'WC', 'b')], ('u', 'WKC', 'i'),
                          trs_sub='tus')
 
     def test_trs_rWCa_Caib_tWKCb_to_uWKCi(self):
-        self._check_jet3(contractions.trs_rWCa_Caib_tWKCb_to_uWKCi,
+        self._check_jet3(contractions.trs_rWCa_Caib_tWKCb_to_sWKCi,
                          [('r', 'WC', 'a'), ('', 'C', 'aib'), ('t', 'WKC', 'b')], ('u', 'WKC', 'i'),
                          trs_sub='tru')
 
@@ -844,22 +844,22 @@ class TestContractions(unittest.TestCase):
 
     # dG gradient assembly (order summed -> out has no order letter)
     def test_trs_rWCa_uWCi_tWKCb_to_WKCaib(self):
-        self._check_jet3(contractions.trs_rWCa_uWCi_tWKCb_to_WKCaib,
+        self._check_jet3(contractions.trs_rWCa_sWCi_tWKCb_to_WKCaib,
                          [('r', 'WC', 'a'), ('u', 'WC', 'i'), ('t', 'WKC', 'b')], ('', 'WKC', 'aib'),
                          trs_sub='tru', needs_n_probe=True)
 
     def test_trs_rWCa_uWCi_tWKCb_to_KCaib(self):
-        self._check_jet3(contractions.trs_rWCa_uWCi_tWKCb_to_KCaib,
+        self._check_jet3(contractions.trs_rWCa_sWCi_tWKCb_to_KCaib,
                          [('r', 'WC', 'a'), ('u', 'WC', 'i'), ('t', 'WKC', 'b')], ('', 'KC', 'aib'),
                          trs_sub='tru', needs_n_probe=True)
 
     def test_trs_tWKCa_uWCi_sWCb_to_WKCaib(self):
-        self._check_jet3(contractions.trs_tWKCa_uWCi_sWCb_to_WKCaib,
+        self._check_jet3(contractions.trs_tWKCa_rWCi_sWCb_to_WKCaib,
                          [('t', 'WKC', 'a'), ('u', 'WC', 'i'), ('s', 'WC', 'b')], ('', 'WKC', 'aib'),
                          trs_sub='tus', needs_n_probe=True)
 
     def test_trs_tWKCa_uWCi_sWCb_to_KCaib(self):
-        self._check_jet3(contractions.trs_tWKCa_uWCi_sWCb_to_KCaib,
+        self._check_jet3(contractions.trs_tWKCa_rWCi_sWCb_to_KCaib,
                          [('t', 'WKC', 'a'), ('u', 'WC', 'i'), ('s', 'WC', 'b')], ('', 'KC', 'aib'),
                          trs_sub='tus', needs_n_probe=True)
 
@@ -969,33 +969,33 @@ class TestContractions(unittest.TestCase):
                            [('t', 'WKC', 'o'), ('', 'C', 'io')], ('t', 'WKC', 'i'), trs_sub="")
 
     def test_trs_dtWKCa_dCaib_dsWCb_to_duWKCi(self):
-        self._check_jet3_d(contractions.trs_dtWKCa_dCaib_dsWCb_to_duWKCi,
+        self._check_jet3_d(contractions.trs_dtWKCa_dCaib_dsWCb_to_drWKCi,
                            [('t', 'WKC', 'a'), ('', 'C', 'aib'), ('s', 'WC', 'b')], ('u', 'WKC', 'i'),
                            trs_sub='tus')
 
     def test_trs_drWCa_dCaib_dtWKCb_to_duWKCi(self):
-        self._check_jet3_d(contractions.trs_drWCa_dCaib_dtWKCb_to_duWKCi,
+        self._check_jet3_d(contractions.trs_drWCa_dCaib_dtWKCb_to_dsWKCi,
                            [('r', 'WC', 'a'), ('', 'C', 'aib'), ('t', 'WKC', 'b')], ('u', 'WKC', 'i'),
                            trs_sub='tru')
 
     # dG gradient assembly (order summed -> out has no order letter)
     def test_trs_drWCa_duWCi_dtWKCb_to_dWKCaib(self):
-        self._check_jet3_d(contractions.trs_drWCa_duWCi_dtWKCb_to_dWKCaib,
+        self._check_jet3_d(contractions.trs_drWCa_dsWCi_dtWKCb_to_dWKCaib,
                            [('r', 'WC', 'a'), ('u', 'WC', 'i'), ('t', 'WKC', 'b')], ('', 'WKC', 'aib'),
                            trs_sub='tru', needs_n_probe=True)
 
     def test_trs_drWCa_duWCi_dtWKCb_to_dKCaib(self):
-        self._check_jet3_d(contractions.trs_drWCa_duWCi_dtWKCb_to_dKCaib,
+        self._check_jet3_d(contractions.trs_drWCa_dsWCi_dtWKCb_to_dKCaib,
                            [('r', 'WC', 'a'), ('u', 'WC', 'i'), ('t', 'WKC', 'b')], ('', 'KC', 'aib'),
                            trs_sub='tru', needs_n_probe=True)
 
     def test_trs_dtWKCa_duWCi_dsWCb_to_dWKCaib(self):
-        self._check_jet3_d(contractions.trs_dtWKCa_duWCi_dsWCb_to_dWKCaib,
+        self._check_jet3_d(contractions.trs_dtWKCa_drWCi_dsWCb_to_dWKCaib,
                            [('t', 'WKC', 'a'), ('u', 'WC', 'i'), ('s', 'WC', 'b')], ('', 'WKC', 'aib'),
                            trs_sub='tus', needs_n_probe=True)
 
     def test_trs_dtWKCa_duWCi_dsWCb_to_dKCaib(self):
-        self._check_jet3_d(contractions.trs_dtWKCa_duWCi_dsWCb_to_dKCaib,
+        self._check_jet3_d(contractions.trs_dtWKCa_drWCi_dsWCb_to_dKCaib,
                            [('t', 'WKC', 'a'), ('u', 'WC', 'i'), ('s', 'WC', 'b')], ('', 'KC', 'aib'),
                            trs_sub='tus', needs_n_probe=True)
 
@@ -1046,12 +1046,12 @@ class TestContractions(unittest.TestCase):
                     np.asarray(drWKCa)[:, 0], dCaib, np.asarray(dsWCb)[:, 0]))
                 self.check_relerr(plain, jet[:, 0])
 
-                # dG assembly (sum W): trs_drWCa_duWCi_dtWKCb_to_dKCaib  ==0==  dWCa_dWCi_dWKCb_to_dKCaib.
+                # dG assembly (sum W): trs_drWCa_dsWCi_dtWKCb_to_dKCaib  ==0==  dWCa_dWCi_dWKCb_to_dKCaib.
                 # The assembly sums all orders (r+u=t), so zero orders >0 -> only the r=u=t=0 term survives.
                 drWCa = np.array(RANDN(D, 3, *W, *C, a)); duWCi = np.array(RANDN(D, 3, *W, *C, i))
                 dtWKCb = np.array(RANDN(D, 3, *W, *K, *C, b))
                 drWCa[:, 1:] = 0.0; duWCi[:, 1:] = 0.0; dtWKCb[:, 1:] = 0.0
-                jetG = np.asarray(contractions.trs_drWCa_duWCi_dtWKCb_to_dKCaib(trs, drWCa, duWCi, dtWKCb, len(W)))
+                jetG = np.asarray(contractions.trs_drWCa_dsWCi_dtWKCb_to_dKCaib(trs, drWCa, duWCi, dtWKCb, len(W)))
                 plainG = np.asarray(contractions.dWCa_dWCi_dWKCb_to_dKCaib(
                     drWCa[:, 0], duWCi[:, 0], dtWKCb[:, 0], len(W)))
                 self.check_relerr(plainG, jetG)

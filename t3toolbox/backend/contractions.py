@@ -134,6 +134,29 @@ __all__ = [
     'WKCi_WCa_WCj_to_KCiaj',
     'WCi_WKCa_WCj_to_WKCiaj',
     'WCi_WKCa_WCj_to_KCiaj',
+    'trs_rWKCa_Caib_sWCi_to_tWKCb',
+    'trs_rWCa_Caib_sWKCi_to_tWKCb',
+    'trs_rWCa_KCaib_sWCi_to_tWKCb',
+    'trs_rWKCa_Caib_sWCb_to_tWKCi',
+    'trs_rWCa_Caib_sWKCb_to_tWKCi',
+    'trs_rWCa_KCaib_sWCb_to_tWKCi',
+    'tWKCi_Cio_to_tWKCo',
+    'tWCi_KCio_to_tWKCo',
+    'trs_tWKCa_Caib_rWCi_to_sWKCb',
+    'trs_rWCa_Caib_tWKCi_to_sWKCb',
+    'trs_tWKCa_Caib_sWCb_to_rWKCi',
+    'trs_rWCa_Caib_tWKCb_to_sWKCi',
+    'tWKCo_Cio_to_tWKCi',
+    'trs_rWCa_sWCi_tWKCb_to_WKCaib',
+    'trs_rWCa_sWCi_tWKCb_to_KCaib',
+    'trs_tWKCa_rWCi_sWCb_to_WKCaib',
+    'trs_tWKCa_rWCi_sWCb_to_KCaib',
+    'trs_rWCa_tWKCi_sWCb_to_WKCaib',
+    'trs_rWCa_tWKCi_sWCb_to_KCaib',
+    'tWCa_tWKCo_to_WKCao',
+    'tWCa_tWKCo_to_KCao',
+    'uWKCa_uWo_to_WKCao',
+    'uWKCa_uWo_to_KCao',
     # Adjoint-state apply/entries transpose dG assemble: mu (x) xi (x) sigma_hat (tt-core order a,i,b).
     'WCa_WCi_WKCb_to_WKCaib',
     'WCa_WCi_WKCb_to_KCaib',
@@ -168,12 +191,12 @@ __all__ = [
     'trs_drWCa_dCaib_dsWKCb_to_dtWKCi',
     'dtWCo_dCio_to_dtWCi',
     'dtWKCo_dCio_to_dtWKCi',
-    'trs_dtWKCa_dCaib_dsWCb_to_duWKCi',
-    'trs_drWCa_dCaib_dtWKCb_to_duWKCi',
-    'trs_drWCa_duWCi_dtWKCb_to_dWKCaib',
-    'trs_drWCa_duWCi_dtWKCb_to_dKCaib',
-    'trs_dtWKCa_duWCi_dsWCb_to_dWKCaib',
-    'trs_dtWKCa_duWCi_dsWCb_to_dKCaib',
+    'trs_dtWKCa_dCaib_dsWCb_to_drWKCi',
+    'trs_drWCa_dCaib_dtWKCb_to_dsWKCi',
+    'trs_drWCa_dsWCi_dtWKCb_to_dWKCaib',
+    'trs_drWCa_dsWCi_dtWKCb_to_dKCaib',
+    'trs_dtWKCa_drWCi_dsWCb_to_dWKCaib',
+    'trs_dtWKCa_drWCi_dsWCb_to_dKCaib',
     'trs_drWCa_dtWKCi_dsWCb_to_dWKCaib',
     'trs_drWCa_dtWKCi_dsWCb_to_dKCaib',
     'dtWCa_dtWKCo_to_dWKCao',
@@ -181,6 +204,7 @@ __all__ = [
     'duWKCa_duWo_to_dWKCao',
     'duWKCa_duWo_to_dKCao',
 ]
+
 
 
 # --------------------------------------------------------------------------------------------------
@@ -828,7 +852,7 @@ def tWCi_Cio_to_tWCo(
 # Transpose (adjoint) of the symmetric probe derivatives -- the adjoint lift.
 #
 # The jet-ified adjoint sweeps and the order-less gradient assembly are the K-stacked 3-group
-# (W,K,C) versions further down (trs_tWKCa_Caib_uWCi_to_sWKCb etc., which reduce to the 2-block case
+# (W,K,C) versions further down (trs_tWKCa_Caib_rWCi_to_sWKCb etc., which reduce to the 2-block case
 # when K=()). Only the adjoint lift (contract the ambient mode, order t broadcast) lives here; it is
 # delegated to from the 3-group tWKCo_Cio_to_tWKCi.
 ###############################################################################
@@ -1759,20 +1783,20 @@ def tWCi_KCio_to_tWKCo(
 ###############################################################################
 
 
-def trs_tWKCa_Caib_uWCi_to_sWKCb(
+def trs_tWKCa_Caib_rWCi_to_sWKCb(
         trs: NDArray,
         tWKCa: NDArray,
         Caib: NDArray,
-        uWCi: NDArray,
+        rWCi: NDArray,
 ) -> NDArray:
     """Computes named contraction. Order-threaded 3-group adjoint-hooked pushthrough (sweep
     propagation, output order s); the K-stacked analog of trs_tWCa_Caib_uWCi_to_sWCb (K on the swept
-    adjoint jet). Self-infers: Caib pins C, uWCi pins W, K=remainder."""
-    use_jax = tree_contains_jax((trs, tWKCa, Caib, uWCi))
+    adjoint jet). Self-infers: Caib pins C, rWCi pins W, K=remainder."""
+    use_jax = tree_contains_jax((trs, tWKCa, Caib, rWCi))
     xnp, _, _ = get_backend(True, use_jax)
 
     C_shape = Caib.shape[:-3]
-    W_shape = uWCi.shape[1:-(len(C_shape) + 1)]
+    W_shape = rWCi.shape[1:-(len(C_shape) + 1)]
     K_shape = tWKCa.shape[1 + len(W_shape):-(len(C_shape) + 1)]
     a_shape, i_shape, b_shape = (Caib.shape[-3],), (Caib.shape[-2],), (Caib.shape[-1],)
     s_shape = (trs.shape[2],)
@@ -1780,9 +1804,9 @@ def trs_tWKCa_Caib_uWCi_to_sWKCb(
     size_W, size_K, size_C = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
     tWKCa = tWKCa.reshape((trs.shape[0], size_W, size_K, size_C) + a_shape)
     Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
-    uWCi  = uWCi.reshape((trs.shape[1], size_W, size_C) + i_shape)
+    rWCi  = rWCi.reshape((trs.shape[1], size_W, size_C) + i_shape)
 
-    sWKCb = _grouped_einsum(xnp, use_jax, 'tus,tWKCa,Caib,uWCi->sWKCb', trs, tWKCa, Caib, uWCi)
+    sWKCb = _grouped_einsum(xnp, use_jax, 'trs,tWKCa,Caib,rWCi->sWKCb', trs, tWKCa, Caib, rWCi)
 
     return sWKCb.reshape(s_shape + W_shape + K_shape + C_shape + b_shape)
 
@@ -1815,7 +1839,7 @@ def trs_rWCa_Caib_tWKCi_to_sWKCb(
     return sWKCb.reshape(s_shape + W_shape + K_shape + C_shape + b_shape)
 
 
-def trs_tWKCa_Caib_sWCb_to_uWKCi(
+def trs_tWKCa_Caib_sWCb_to_rWKCi(
         trs: NDArray,
         tWKCa: NDArray,
         Caib: NDArray,
@@ -1831,19 +1855,19 @@ def trs_tWKCa_Caib_sWCb_to_uWKCi(
     W_shape = sWCb.shape[1:-(len(C_shape) + 1)]
     K_shape = tWKCa.shape[1 + len(W_shape):-(len(C_shape) + 1)]
     a_shape, i_shape, b_shape = (Caib.shape[-3],), (Caib.shape[-2],), (Caib.shape[-1],)
-    u_shape = (trs.shape[1],)
+    r_shape = (trs.shape[1],)
 
     size_W, size_K, size_C = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
     tWKCa = tWKCa.reshape((trs.shape[0], size_W, size_K, size_C) + a_shape)
     Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     sWCb  = sWCb.reshape((trs.shape[2], size_W, size_C) + b_shape)
 
-    uWKCi = _grouped_einsum(xnp, use_jax, 'tus,tWKCa,Caib,sWCb->uWKCi', trs, tWKCa, Caib, sWCb)
+    rWKCi = _grouped_einsum(xnp, use_jax, 'trs,tWKCa,Caib,sWCb->rWKCi', trs, tWKCa, Caib, sWCb)
 
-    return uWKCi.reshape(u_shape + W_shape + K_shape + C_shape + i_shape)
+    return rWKCi.reshape(r_shape + W_shape + K_shape + C_shape + i_shape)
 
 
-def trs_rWCa_Caib_tWKCb_to_uWKCi(
+def trs_rWCa_Caib_tWKCb_to_sWKCi(
         trs: NDArray,
         rWCa: NDArray,
         Caib: NDArray,
@@ -1859,16 +1883,16 @@ def trs_rWCa_Caib_tWKCb_to_uWKCi(
     W_shape = rWCa.shape[1:-(len(C_shape) + 1)]
     K_shape = tWKCb.shape[1 + len(W_shape):-(len(C_shape) + 1)]
     a_shape, i_shape, b_shape = (Caib.shape[-3],), (Caib.shape[-2],), (Caib.shape[-1],)
-    u_shape = (trs.shape[2],)
+    s_shape = (trs.shape[2],)
 
     size_W, size_K, size_C = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
     rWCa  = rWCa.reshape((trs.shape[1], size_W, size_C) + a_shape)
     Caib  = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
     tWKCb = tWKCb.reshape((trs.shape[0], size_W, size_K, size_C) + b_shape)
 
-    uWKCi = _grouped_einsum(xnp, use_jax, 'tru,rWCa,Caib,tWKCb->uWKCi', trs, rWCa, Caib, tWKCb)
+    sWKCi = _grouped_einsum(xnp, use_jax, 'trs,rWCa,Caib,tWKCb->sWKCi', trs, rWCa, Caib, tWKCb)
 
-    return uWKCi.reshape(u_shape + W_shape + K_shape + C_shape + i_shape)
+    return sWKCi.reshape(s_shape + W_shape + K_shape + C_shape + i_shape)
 
 
 def tWKCo_Cio_to_tWKCi(
@@ -1929,24 +1953,24 @@ def _assemble_dG_jet3(trs, opA, opI, opB, einsum_str, k_op, n_probe, keep_W):
     return out.reshape((W_shape if keep_W else ()) + K_shape + C_shape + tail)
 
 
-def trs_rWCa_uWCi_tWKCb_to_WKCaib(trs, rWCa, uWCi, tWKCb, n_probe):
+def trs_rWCa_sWCi_tWKCb_to_WKCaib(trs, rWCa, sWCi, tWKCb, n_probe):
     """Computes named contraction. dG_tilde sigma-term (mu (x) xi (x) sigma_tilde), K on sigma_tilde, keep W."""
-    return _assemble_dG_jet3(trs, rWCa, uWCi, tWKCb, 'tru,rWCa,uWCi,tWKCb->WKCaib', 'B', n_probe, True)
+    return _assemble_dG_jet3(trs, rWCa, sWCi, tWKCb, 'trs,rWCa,sWCi,tWKCb->WKCaib', 'B', n_probe, True)
 
 
-def trs_rWCa_uWCi_tWKCb_to_KCaib(trs, rWCa, uWCi, tWKCb, n_probe):
+def trs_rWCa_sWCi_tWKCb_to_KCaib(trs, rWCa, sWCi, tWKCb, n_probe):
     """Computes named contraction. dG_tilde sigma-term (mu (x) xi (x) sigma_tilde), K on sigma_tilde, sum W."""
-    return _assemble_dG_jet3(trs, rWCa, uWCi, tWKCb, 'tru,rWCa,uWCi,tWKCb->KCaib', 'B', n_probe, False)
+    return _assemble_dG_jet3(trs, rWCa, sWCi, tWKCb, 'trs,rWCa,sWCi,tWKCb->KCaib', 'B', n_probe, False)
 
 
-def trs_tWKCa_uWCi_sWCb_to_WKCaib(trs, tWKCa, uWCi, sWCb, n_probe):
+def trs_tWKCa_rWCi_sWCb_to_WKCaib(trs, tWKCa, rWCi, sWCb, n_probe):
     """Computes named contraction. dG_tilde tau-term (tau_tilde (x) xi (x) nu), K on tau_tilde, keep W."""
-    return _assemble_dG_jet3(trs, tWKCa, uWCi, sWCb, 'tus,tWKCa,uWCi,sWCb->WKCaib', 'A', n_probe, True)
+    return _assemble_dG_jet3(trs, tWKCa, rWCi, sWCb, 'trs,tWKCa,rWCi,sWCb->WKCaib', 'A', n_probe, True)
 
 
-def trs_tWKCa_uWCi_sWCb_to_KCaib(trs, tWKCa, uWCi, sWCb, n_probe):
+def trs_tWKCa_rWCi_sWCb_to_KCaib(trs, tWKCa, rWCi, sWCb, n_probe):
     """Computes named contraction. dG_tilde tau-term (tau_tilde (x) xi (x) nu), K on tau_tilde, sum W."""
-    return _assemble_dG_jet3(trs, tWKCa, uWCi, sWCb, 'tus,tWKCa,uWCi,sWCb->KCaib', 'A', n_probe, False)
+    return _assemble_dG_jet3(trs, tWKCa, rWCi, sWCb, 'trs,tWKCa,rWCi,sWCb->KCaib', 'A', n_probe, False)
 
 
 def trs_rWCa_tWKCi_sWCb_to_WKCaib(trs, rWCa, tWKCi, sWCb, n_probe):
@@ -2026,7 +2050,7 @@ def WCa_WCi_WKCb_to_WKCaib(
     """Computes named contraction (triple outer product over a, i, b). Capitals may be empty.
 
     Adjoint-state apply/entries dG assemble ``mu (x) xi (x) sigma_hat`` (the order-0 strip of
-    :py:func:`trs_rWCa_uWCi_tWKCb_to_WKCaib`; same structure as
+    :py:func:`trs_rWCa_sWCi_tWKCb_to_WKCaib`; same structure as
     :py:func:`WCi_WCa_WKCj_to_WKCiaj` relabeled to the tt-core order (a, i, b)). K on the third
     (sigma_hat) operand, keeping the probe stack W.
     """
@@ -2959,13 +2983,13 @@ def dtWKCo_dCio_to_dtWKCi(
     return dtWKCi
 
 
-def trs_dtWKCa_dCaib_dsWCb_to_duWKCi(
+def trs_dtWKCa_dCaib_dsWCb_to_drWKCi(
         trs: NDArray,
         dtWKCa: NDArray,
         dCaib: NDArray,
         dsWCb: NDArray,
 ) -> NDArray:
-    """d-prefixed uniform twin of :py:func:`trs_tWKCa_Caib_sWCb_to_uWKCi` (compute_dxi_tilde_jets, tau term)."""
+    """d-prefixed uniform twin of :py:func:`trs_tWKCa_Caib_sWCb_to_rWKCi` (compute_dxi_tilde_jets, tau term)."""
     use_jax = tree_contains_jax((trs, dtWKCa, dCaib, dsWCb))
     xnp, _, _ = get_backend(True, use_jax)
 
@@ -2974,25 +2998,25 @@ def trs_dtWKCa_dCaib_dsWCb_to_duWKCi(
     W_shape = dsWCb.shape[2:-(len(C_shape) + 1)]
     K_shape = dtWKCa.shape[2 + len(W_shape):-(len(C_shape) + 1)]
     a_shape, i_shape, b_shape = (dCaib.shape[-3],), (dCaib.shape[-2],), (dCaib.shape[-1],)
-    u_shape = (trs.shape[1],)
+    r_shape = (trs.shape[1],)
 
     size_W, size_K, size_C = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
     dtWKCa = dtWKCa.reshape(d_shape + (trs.shape[0], size_W, size_K, size_C) + a_shape)
     dCaib  = dCaib.reshape(d_shape + (size_C,) + a_shape + i_shape + b_shape)
     dsWCb  = dsWCb.reshape(d_shape + (trs.shape[2], size_W, size_C) + b_shape)
 
-    duWKCi = _grouped_einsum(xnp, use_jax, 'tus,dtWKCa,dCaib,dsWCb->duWKCi', trs, dtWKCa, dCaib, dsWCb)
+    drWKCi = _grouped_einsum(xnp, use_jax, 'trs,dtWKCa,dCaib,dsWCb->drWKCi', trs, dtWKCa, dCaib, dsWCb)
 
-    return duWKCi.reshape(d_shape + u_shape + W_shape + K_shape + C_shape + i_shape)
+    return drWKCi.reshape(d_shape + r_shape + W_shape + K_shape + C_shape + i_shape)
 
 
-def trs_drWCa_dCaib_dtWKCb_to_duWKCi(
+def trs_drWCa_dCaib_dtWKCb_to_dsWKCi(
         trs: NDArray,
         drWCa: NDArray,
         dCaib: NDArray,
         dtWKCb: NDArray,
 ) -> NDArray:
-    """d-prefixed uniform twin of :py:func:`trs_rWCa_Caib_tWKCb_to_uWKCi` (compute_dxi_tilde_jets sigma term;
+    """d-prefixed uniform twin of :py:func:`trs_rWCa_Caib_tWKCb_to_sWKCi` (compute_dxi_tilde_jets sigma term;
     also the apply/entries adjoint dxi_hat combine)."""
     use_jax = tree_contains_jax((trs, drWCa, dCaib, dtWKCb))
     xnp, _, _ = get_backend(True, use_jax)
@@ -3002,16 +3026,16 @@ def trs_drWCa_dCaib_dtWKCb_to_duWKCi(
     W_shape = drWCa.shape[2:-(len(C_shape) + 1)]
     K_shape = dtWKCb.shape[2 + len(W_shape):-(len(C_shape) + 1)]
     a_shape, i_shape, b_shape = (dCaib.shape[-3],), (dCaib.shape[-2],), (dCaib.shape[-1],)
-    u_shape = (trs.shape[2],)
+    s_shape = (trs.shape[2],)
 
     size_W, size_K, size_C = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
     drWCa  = drWCa.reshape(d_shape + (trs.shape[1], size_W, size_C) + a_shape)
     dCaib  = dCaib.reshape(d_shape + (size_C,) + a_shape + i_shape + b_shape)
     dtWKCb = dtWKCb.reshape(d_shape + (trs.shape[0], size_W, size_K, size_C) + b_shape)
 
-    duWKCi = _grouped_einsum(xnp, use_jax, 'tru,drWCa,dCaib,dtWKCb->duWKCi', trs, drWCa, dCaib, dtWKCb)
+    dsWKCi = _grouped_einsum(xnp, use_jax, 'trs,drWCa,dCaib,dtWKCb->dsWKCi', trs, drWCa, dCaib, dtWKCb)
 
-    return duWKCi.reshape(d_shape + u_shape + W_shape + K_shape + C_shape + i_shape)
+    return dsWKCi.reshape(d_shape + s_shape + W_shape + K_shape + C_shape + i_shape)
 
 
 # ---- d-prefixed order-threaded 3-block dG gradient assembly (order summed; K on the residual operand) ----
@@ -3042,24 +3066,24 @@ def _assemble_dG_jet3_d(trs, opA, opI, opB, einsum_str, k_op, n_probe, keep_W):
     return out.reshape(d_shape + (W_shape if keep_W else ()) + K_shape + C_shape + tail)
 
 
-def trs_drWCa_duWCi_dtWKCb_to_dWKCaib(trs, drWCa, duWCi, dtWKCb, n_probe):
-    """d-prefixed uniform twin of :py:func:`trs_rWCa_uWCi_tWKCb_to_WKCaib` (dG sigma-term, keep W)."""
-    return _assemble_dG_jet3_d(trs, drWCa, duWCi, dtWKCb, 'tru,drWCa,duWCi,dtWKCb->dWKCaib', 'B', n_probe, True)
+def trs_drWCa_dsWCi_dtWKCb_to_dWKCaib(trs, drWCa, dsWCi, dtWKCb, n_probe):
+    """d-prefixed uniform twin of :py:func:`trs_rWCa_sWCi_tWKCb_to_WKCaib` (dG sigma-term, keep W)."""
+    return _assemble_dG_jet3_d(trs, drWCa, dsWCi, dtWKCb, 'trs,drWCa,dsWCi,dtWKCb->dWKCaib', 'B', n_probe, True)
 
 
-def trs_drWCa_duWCi_dtWKCb_to_dKCaib(trs, drWCa, duWCi, dtWKCb, n_probe):
-    """d-prefixed uniform twin of :py:func:`trs_rWCa_uWCi_tWKCb_to_KCaib` (dG sigma-term, sum W)."""
-    return _assemble_dG_jet3_d(trs, drWCa, duWCi, dtWKCb, 'tru,drWCa,duWCi,dtWKCb->dKCaib', 'B', n_probe, False)
+def trs_drWCa_dsWCi_dtWKCb_to_dKCaib(trs, drWCa, dsWCi, dtWKCb, n_probe):
+    """d-prefixed uniform twin of :py:func:`trs_rWCa_sWCi_tWKCb_to_KCaib` (dG sigma-term, sum W)."""
+    return _assemble_dG_jet3_d(trs, drWCa, dsWCi, dtWKCb, 'trs,drWCa,dsWCi,dtWKCb->dKCaib', 'B', n_probe, False)
 
 
-def trs_dtWKCa_duWCi_dsWCb_to_dWKCaib(trs, dtWKCa, duWCi, dsWCb, n_probe):
-    """d-prefixed uniform twin of :py:func:`trs_tWKCa_uWCi_sWCb_to_WKCaib` (dG tau-term, keep W)."""
-    return _assemble_dG_jet3_d(trs, dtWKCa, duWCi, dsWCb, 'tus,dtWKCa,duWCi,dsWCb->dWKCaib', 'A', n_probe, True)
+def trs_dtWKCa_drWCi_dsWCb_to_dWKCaib(trs, dtWKCa, drWCi, dsWCb, n_probe):
+    """d-prefixed uniform twin of :py:func:`trs_tWKCa_rWCi_sWCb_to_WKCaib` (dG tau-term, keep W)."""
+    return _assemble_dG_jet3_d(trs, dtWKCa, drWCi, dsWCb, 'trs,dtWKCa,drWCi,dsWCb->dWKCaib', 'A', n_probe, True)
 
 
-def trs_dtWKCa_duWCi_dsWCb_to_dKCaib(trs, dtWKCa, duWCi, dsWCb, n_probe):
-    """d-prefixed uniform twin of :py:func:`trs_tWKCa_uWCi_sWCb_to_KCaib` (dG tau-term, sum W)."""
-    return _assemble_dG_jet3_d(trs, dtWKCa, duWCi, dsWCb, 'tus,dtWKCa,duWCi,dsWCb->dKCaib', 'A', n_probe, False)
+def trs_dtWKCa_drWCi_dsWCb_to_dKCaib(trs, dtWKCa, drWCi, dsWCb, n_probe):
+    """d-prefixed uniform twin of :py:func:`trs_tWKCa_rWCi_sWCb_to_KCaib` (dG tau-term, sum W)."""
+    return _assemble_dG_jet3_d(trs, dtWKCa, drWCi, dsWCb, 'trs,dtWKCa,drWCi,dsWCb->dKCaib', 'A', n_probe, False)
 
 
 def trs_drWCa_dtWKCi_dsWCb_to_dWKCaib(trs, drWCa, dtWKCi, dsWCb, n_probe):
