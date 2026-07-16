@@ -31,6 +31,18 @@ branch can be deleted (optional).
 
 ## Active threads
 
+- **`contractions.py` unfusing (option B) — IN FLIGHT.** Plan: `dev/contractions_unfusing_plan.md`
+  (**read its ⚠️ header box: §2/§4 are wrong as written**). The premise "every named block gets its own
+  einsum letter" is impossible — the `W|K` and `K|C` splits are not recoverable from the operands, so the
+  fusion was forced by the signature. Option B instead: a **passive** block (one operand, rides to the
+  output) needs no letter and no flatten — it rides as `'...'`. Bit-identical; 0 all-gathers where the
+  letter option gives 3; and it fixes `W`-minor sharding, which the plan had accepted as unfixable.
+  Real rule: **flatten only what einsum forces you to.**
+  - **NEXT, after B lands (Nick):** the **shardability contract** — *every grouped index must be
+    shardable over its first sub-axis* — as a uniform, automatic obligation. It is *equivalent* to the
+    no-fusing rule (not a proxy), encodes exactly the leading-subaxis limit Nick accepted, and checks a
+    property rather than a form. Plan §7a. Probe the name-parsing feasibility first.
+
 - **Weighted layer (edge weights) — COMPLETE & SHIPPED, ragged + uniform (2026-07-15). Thread closed;
   committed, NOT pushed.** Diagonal weights on the internal edges, as a lightweight data format +
   `absorb` into cores. `T3Weights`/`UT3Weights` weight a **tensor**; `T3FrameWeights`/`UT3FrameWeights`
