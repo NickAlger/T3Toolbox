@@ -182,6 +182,18 @@ is solid and portable (numpy einsum without a path is `c_einsum`, never BLAS; wi
 asserting bit-equality would move.
 
 So: the docstring's *claim* needs correcting either way (it says "already BLAS"; they are not). Whether
-the *behavior* should change needs a size-aware rule and an analytic argument — a real thread with a real
-design question (where is the crossover, is `W` reliably large in the library's own inner loops, and does
-a general-purpose library get to assume that?). **Not folded into this plan.**
+the *behavior* should change needs a size-aware rule and an analytic argument — **not folded into this
+plan.**
+
+**The regime, for whoever opens that thread** (Nick, 2026-07-15 — this is the missing input the crossover
+question needs): `W` indexes the **samples used to fit** the network, so it is *relatively large* by
+construction, and the core dims are tied to it — roughly `r := a ≈ i ≈ b`, with `r` ranging from 1 to
+about **`sqrt(W)/2`** (probing) or **`cbrt(W)/2`** (entries/apply), because those are the core sizes the
+data can actually determine. So the library's real operating point sits **well above** the measured
+`W≈64` crossover, and the 2-operand passthrough is likely losing several-fold *in the regime that
+matters* — which strengthens the case, but only for numpy.
+
+**And numpy is not the performance path** (Nick): jax is, and jax's einsum has very good path selection
+(measured: the folded/explicit and path/no-path distinctions are a wash under `jit`). The bar for the
+numpy path is therefore "not doing something dumb", not "optimal" — which is a much weaker claim than my
+original framing, and is why this stays deferred rather than urgent.

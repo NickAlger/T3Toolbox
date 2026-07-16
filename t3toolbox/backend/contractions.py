@@ -21,6 +21,55 @@ from t3toolbox.backend.common import *
 # DIFFERENT operand subsets (the core/frame stack C vs the probe/tangent stack W/K), which a single
 # '...' cannot express. For the full design -- why base-inner (W/K outer, C inner), the naming
 # scheme, and when to use this vs a plain '...' einsum -- see docs/batching_and_stacking.md (esp. §4).
+#
+###############################################################################
+# SHARDING: ONLY THE LEFTMOST MEMBER OF A FLATTENED GROUP IS FREE.  (Read before adding a delegation.)
+#
+# Flattening a group of axes is a pure reinterpretation -- there is no transpose anywhere in this file,
+# by design -- but it is SHARDING-SAFE ONLY IF THE SHARDED AXIS IS THE MAJOR (leftmost) MEMBER of the
+# group being flattened. A reshape moves nothing on a device; it reindexes which logical elements live
+# where. With (t=2, W=4) sharded on W, row-major flat index t*4 + W:
+#
+#   dev0 holds W in {0,1} -> flat {0,1,4,5};  dev1 holds W in {2,3} -> flat {2,3,6,7}
+#   a contiguous 2-way tiling is {0..3}/{4..7} -- neither matches, so XLA inserts a collective.
+#   Reversed, (W=4, K=2): dev0 holds W in {0,1} -> flat {0,1,2,3} = exactly tile 0. Free.
+#
+# THE GENERAL RULE, stated once:  *** within ANY flattened group, only the LEFTMOST member can be
+# sharded for free. ***  It bites at three levels, all measured (4 virtual devices, all-gather counts):
+#
+#   1. ACROSS blocks -- t/d vs W.  W may absorb blocks to its RIGHT (K, C), but must NEVER be folded
+#      with anything on its LEFT (t, d). This is the one that was broken: five lifts folded t into W,
+#      3 all-gathers each; now 0. Pinned by tests/test_contractions_sharding.py.
+#
+#   2. BETWEEN blocks -- W vs K.  The remaining W+K folds (WKCi_Cio_to_WKCo, tWKCi_Cio_to_tWKCo,
+#      tWKCo_Cio_to_tWKCi, dWKCi_dCio_to_dWKCo, dtWKCi_dCio_to_dtWKCo, dtWKCo_dCio_to_dtWKCi) are free
+#      for W (major) and NOT free for K (minor: measured 3 all-gathers). *** SHARDING K IS THEREFORE
+#      NOT SUPPORTED TODAY *** -- W is the sample axis and the stated target. If K-sharding is ever
+#      wanted the recipe is identical to the t fix (stop fusing; give K its own einsum letter, as
+#      tWCi_KCio_to_tWKCo and dtWCi_dKCio_to_dtWKCo already do -- those two ARE K-shardable, measured 0).
+#      It is numerically a no-op, so it is mechanical; it is just not free (one more axis) and nothing
+#      needs it yet.
+#
+#   3. WITHIN a block -- a multi-axis W/K/C flattens its OWN axes (size_C = math.prod(C_shape)), so the
+#      same rule applies one level down: only the LEADING axis of a multi-axis block is shardable.
+#      Measured on C=(4,4): sharding C's major axis costs 0, its minor axis costs 6. Same for W=(4,4):
+#      0 major, 3 minor. Sharding a single-axis C is free (C is a shared batch, folded with nothing).
+#
+# THE DETECTOR. Every function infers its group boundaries POSITIONALLY from its own signature (e.g.
+# "everything left of C is W"). That inference cannot tell "t then W" from "one big W", so mis-grouping
+# can only arise at a DELEGATION, where a caller hands a t-carrying array to a callee that calls it W:
+#
+#   If the callee's name DROPS the leading t while the caller has it, t has been folded into the W
+#   block and W is no longer major.  (Dropping K is always fine -- K is to W's right.)
+#
+#   awk '/^def /{n=$0} /^    return [a-zA-Z_]+\(/{print n" -> "$0}' contractions.py
+#
+# This was a real bug (level 1 above). It is invisible to every other test -- nothing in the library
+# shards, and the fold is numerically EXACT (a pure reinterpretation, bit-identical to the explicit
+# form) -- so the numerical suite cannot see it. It is pinned by tests/test_contractions_sharding.py,
+# which compiles under 4 virtual devices and asserts 0 all-gathers.
+# Rationale + evidence: docs/contributor/batching_internals.md.
+###############################################################################
 
 __all__ = [
     'Wa_Caib_Wi_to_WCb',
@@ -98,6 +147,7 @@ __all__ = [
     'trs_drWKCa_dCaib_dsWCb_to_dtWKCi',
     'trs_drWCa_dKCaib_dsWCb_to_dtWKCi',
     'trs_drWCa_dCaib_dsWKCb_to_dtWKCi',
+    'dtWCo_dCio_to_dtWCi',
     'dtWKCo_dCio_to_dtWKCi',
     'trs_dtWKCa_dCaib_dsWCb_to_duWKCi',
     'trs_drWCa_dCaib_dtWKCb_to_duWKCi',
@@ -1592,8 +1642,12 @@ def tWKCi_Cio_to_tWKCo(
         tWKCi: NDArray,  # t + W + K + C + (i,)  -- combined variation jet (deta), K on this operand
         Cio:   NDArray,  # C + (i, o)            -- frame Tucker core (C-only)
 ) -> NDArray:            # t + W + K + C + (o,)  -- lifted jet
-    """Computes named contraction. Order-threaded lift; W and K fuse into one outer block and Cio is
-    C-only, so this is exactly tWCi_Cio_to_tWCo with the outer block W+K. Delegates to it."""
+    """Computes named contraction. Order-threaded lift; Cio is C-only, so this is exactly
+    tWCi_Cio_to_tWCo with the outer block W+K. Delegates to it.
+
+    **Sharding-safe:** W and K fuse into ONE outer block, which is
+    SHARDING-SAFE: K is to W's right, so W stays the major member of the flattened block (module
+    docstring, the SHARDING block). Only folding t would break it."""
     return tWCi_Cio_to_tWCo(tWKCi, Cio)
 
 
@@ -1602,10 +1656,32 @@ def tWCi_KCio_to_tWKCo(
         KCio: NDArray,  # K + C + (i, o)       -- variation Tucker core (dU), K on this operand
         n_frame: int,    # len(C). Only core operand is K+C, so len(C) is supplied (n_probe precedent).
 ) -> NDArray:           # t + W + K + C + (o,)  -- lifted jet, K rides through
-    """Computes named contraction. Order-threaded lift through a variation core; the lift has no trs
-    (order rides as a passive broadcast), so this is exactly WCi_KCio_to_WKCo with order folded into
-    the W block. Delegates to it."""
-    return WCi_KCio_to_WKCo(tWCi, KCio, n_frame)
+    """Computes named contraction. Order-threaded lift through a variation core; the lift has no trs, so
+    the order axis t rides as a passive broadcast -- but it is kept as its OWN einsum letter rather than
+    folded into the W block. Folding would flatten (t, W) with t MAJOR, forcing a reshard of a W-sharded
+    array; see the SHARDING block in the module docstring."""
+    use_jax = tree_contains_jax((tWCi, KCio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    KC_shape = KCio.shape[:-2]
+    C_shape = KC_shape[len(KC_shape) - n_frame:]
+    K_shape = KC_shape[:len(KC_shape) - n_frame]
+    i_shape = (KCio.shape[-2],)
+    o_shape = (KCio.shape[-1],)
+    t_shape = (tWCi.shape[0],)
+    W_shape = tWCi.shape[1:len(tWCi.shape) - 1 - n_frame]   # t held OUT of the W block
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    tWCi = tWCi.reshape(t_shape + (size_W, size_C) + i_shape)
+    KCio = KCio.reshape((size_K, size_C) + i_shape + o_shape)
+
+    tWKCo = _grouped_einsum(xnp, use_jax, 'tWCi,KCio->tWKCo', tWCi, KCio)
+
+    tWKCo = tWKCo.reshape(t_shape + W_shape + K_shape + C_shape + o_shape)
+    return tWKCo
 
 
 
@@ -1739,8 +1815,12 @@ def tWKCo_Cio_to_tWKCi(
         tWKCo: NDArray,  # t + W + K + C + (o,)  -- residual jet (carries K)
         Cio:   NDArray,  # C + (i, o)            -- frame Tucker core (C-only)
 ) -> NDArray:            # t + W + K + C + (i,)  -- adjoint-up jet (deta_tilde), K rides through
-    """Computes named contraction. Order-threaded adjoint lift; W and K fuse into one outer block and
-    Cio is C-only, so this is exactly tWCo_Cio_to_tWCi with the outer block W+K. Delegates to it."""
+    """Computes named contraction. Order-threaded adjoint lift; Cio is C-only, so this is exactly
+    tWCo_Cio_to_tWCi with the outer block W+K. Delegates to it.
+
+    **Sharding-safe:** W and K fuse into ONE outer block, which is
+    SHARDING-SAFE: K is to W's right, so W stays the major member of the flattened block (module
+    docstring, the SHARDING block). Only folding t would break it."""
     return tWCo_Cio_to_tWCi(tWKCo, Cio)
 
 
@@ -2521,9 +2601,29 @@ def dtWCi_dCio_to_dtWCo(
         dCio:  NDArray,  # d + C + (i, o)           -- Tucker core (C-only)
 ) -> NDArray:            # d + t + W + C + (o,)     -- lifted jet (probe-derivative output)
     """d-prefixed uniform twin of :py:func:`tWCi_Cio_to_tWCo` (plain assemble_z_jets). The Tucker lift has
-    no ``trs`` (the order axis rides passively), so this is exactly :py:func:`dWCi_dCio_to_dWCo` with the
-    order axis ``t`` folded into the outer W block (``t+W``)."""
-    return dWCi_dCio_to_dWCo(dtWCi, dCio)
+    no ``trs``, so the order axis ``t`` rides as a passive broadcast -- but it is kept as its OWN einsum
+    letter rather than folded into the W block. Folding would flatten ``(t, W)`` with ``t`` MAJOR, forcing
+    a reshard of a W-sharded array; see the SHARDING block in the module docstring."""
+    use_jax = tree_contains_jax((dtWCi, dCio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dCio.shape[0],)
+    C_shape = dCio.shape[1:-2]
+    i_shape = (dCio.shape[-2],)
+    o_shape = (dCio.shape[-1],)
+    t_shape = (dtWCi.shape[1],)
+    W_shape = dtWCi.shape[2:-(len(C_shape) + 1)]   # t held OUT of the W block
+
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
+
+    dCio  = dCio.reshape(d_shape + (size_C,) + i_shape + o_shape)
+    dtWCi = dtWCi.reshape(d_shape + t_shape + (size_W, size_C) + i_shape)
+
+    dtWCo = _grouped_einsum(xnp, use_jax, 'dtWCi,dCio->dtWCo', dtWCi, dCio)
+
+    dtWCo = dtWCo.reshape(d_shape + t_shape + W_shape + C_shape + o_shape)
+    return dtWCo
 
 
 def dtWKCi_dCio_to_dtWKCo(
@@ -2531,8 +2631,13 @@ def dtWKCi_dCio_to_dtWKCo(
         dCio:   NDArray,  # d + C + (i, o)            -- frame Tucker core (C-only)
 ) -> NDArray:             # d + t + W + K + C + (o,)  -- lifted jet
     """d-prefixed uniform twin of :py:func:`tWKCi_Cio_to_tWKCo` (assemble_tangent_z_jets term1). Passive
-    Tucker lift: :py:func:`dWCi_dCio_to_dWCo` with ``t+W+K`` folded into the outer block."""
-    return dWCi_dCio_to_dWCo(dtWKCi, dCio)
+    Tucker lift, and ``dCio`` is C-only, so this is exactly :py:func:`dtWCi_dCio_to_dtWCo` with the outer
+    block ``W+K``. Delegates to it.
+
+    **Sharding-safe:** it fuses ``W+K`` but NOT ``t`` -- ``K`` is to ``W``'s right, so ``W`` stays the
+    major member of the flattened block (module docstring, the SHARDING block). Do not
+    "simplify" this into the t-folding :py:func:`dWCi_dCio_to_dWCo`."""
+    return dtWCi_dCio_to_dtWCo(dtWKCi, dCio)
 
 
 def dtWCi_dKCio_to_dtWKCo(
@@ -2541,9 +2646,32 @@ def dtWCi_dKCio_to_dtWKCo(
         n_frame: int,      # len(C) (dKCio is K+C with no C-only operand to pin it)
 ) -> NDArray:             # d + t + W + K + C + (o,)  -- lifted jet, K rides through
     """d-prefixed uniform twin of :py:func:`tWCi_KCio_to_tWKCo` (assemble_tangent_z_jets term2). The lift
-    has no ``trs`` (order passive), so this is exactly :py:func:`dWCi_dKCio_to_dWKCo` with ``t`` folded into
-    the outer W block (``t+W``)."""
-    return dWCi_dKCio_to_dWKCo(dtWCi, dKCio, n_frame)
+    has no ``trs``, so ``t`` rides as a passive broadcast -- but it is kept as its OWN einsum letter rather
+    than folded into the W block, which would flatten ``(t, W)`` with ``t`` MAJOR and force a reshard of a
+    W-sharded array; see the SHARDING block in the module docstring."""
+    use_jax = tree_contains_jax((dtWCi, dKCio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dKCio.shape[0],)
+    KC_shape = dKCio.shape[1:-2]
+    C_shape = KC_shape[len(KC_shape) - n_frame:]
+    K_shape = KC_shape[:len(KC_shape) - n_frame]
+    i_shape = (dKCio.shape[-2],)
+    o_shape = (dKCio.shape[-1],)
+    t_shape = (dtWCi.shape[1],)
+    W_shape = dtWCi.shape[2:-(1 + n_frame)]   # t held OUT of the W block
+
+    size_W = math.prod(W_shape)
+    size_K = math.prod(K_shape)
+    size_C = math.prod(C_shape)
+
+    dtWCi = dtWCi.reshape(d_shape + t_shape + (size_W, size_C) + i_shape)
+    dKCio = dKCio.reshape(d_shape + (size_K, size_C) + i_shape + o_shape)
+
+    dtWKCo = _grouped_einsum(xnp, use_jax, 'dtWCi,dKCio->dtWKCo', dtWCi, dKCio)
+
+    dtWKCo = dtWKCo.reshape(d_shape + t_shape + W_shape + K_shape + C_shape + o_shape)
+    return dtWKCo
 
 
 def trs_drWKCa_dCaib_dsWCb_to_dtWKCi(
@@ -2631,13 +2759,53 @@ def trs_drWCa_dCaib_dsWKCb_to_dtWKCi(
 
 # ---- transpose (adjoint) sweeps + assembly ----
 
+def dtWCo_dCio_to_dtWCi(
+        dtWCo: NDArray,  # d + t + W + C + (o,)     -- residual jet (transpose of dtWCi_dCio_to_dtWCo)
+        dCio:  NDArray,  # d + C + (i, o)           -- Tucker core (C-only)
+) -> NDArray:            # d + t + W + C + (i,)     -- adjoint-up jet (deta_tilde), order t broadcast
+    """d-prefixed uniform twin of :py:func:`tWCo_Cio_to_tWCi`: adjoint lift, contract the ambient mode,
+    order ``t`` rides through as a passive broadcast.
+
+    ``t`` is kept as its OWN einsum letter rather than folded into the W block -- folding would flatten
+    ``(t, W)`` with ``t`` MAJOR and force a reshard of a W-sharded array; see "Sharding: W must stay
+    major" in the module docstring. (This twin was missing: uniform had no explicit ``t``-carrying adjoint
+    lift, which is why :py:func:`dtWKCo_dCio_to_dtWKCi` reached past it to the t-folding
+    :py:func:`dWCo_dCio_to_dWCi`.)
+    """
+    use_jax = tree_contains_jax((dtWCo, dCio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dCio.shape[0],)
+    C_shape = dCio.shape[1:-2]
+    i_shape = (dCio.shape[-2],)
+    o_shape = (dCio.shape[-1],)
+    t_shape = (dtWCo.shape[1],)
+    W_shape = dtWCo.shape[2:-(len(C_shape) + 1)]   # t held OUT of the W block
+
+    size_W = math.prod(W_shape)
+    size_C = math.prod(C_shape)
+
+    dCio  = dCio.reshape(d_shape + (size_C,) + i_shape + o_shape)
+    dtWCo = dtWCo.reshape(d_shape + t_shape + (size_W, size_C) + o_shape)
+
+    dtWCi = _grouped_einsum(xnp, use_jax, 'dtWCo,dCio->dtWCi', dtWCo, dCio)
+
+    dtWCi = dtWCi.reshape(d_shape + t_shape + W_shape + C_shape + i_shape)
+    return dtWCi
+
+
 def dtWKCo_dCio_to_dtWKCi(
         dtWKCo: NDArray,  # d + t + W + K + C + (o,)  -- residual jet (carries K)
         dCio:   NDArray,  # d + C + (i, o)            -- frame Tucker core (C-only)
 ) -> NDArray:             # d + t + W + K + C + (i,)  -- adjoint-up jet (deta_tilde), K rides through
     """d-prefixed uniform twin of :py:func:`tWKCo_Cio_to_tWKCi` (compute_deta_tilde_jets). Passive adjoint
-    lift: :py:func:`dWCo_dCio_to_dWCi` (shared-C) with ``t+W+K`` folded into the outer block."""
-    return dWCo_dCio_to_dWCi(dtWKCo, dCio)
+    lift, and ``dCio`` is C-only (shared-C), so this is exactly :py:func:`dtWCo_dCio_to_dtWCi` with the
+    outer block ``W+K``. Delegates to it.
+
+    **Sharding-safe:** it fuses ``W+K`` but NOT ``t`` -- ``K`` is to ``W``'s right, so ``W`` stays the
+    major member of the flattened block (module docstring, the SHARDING block). Do not
+    "simplify" this into the t-folding :py:func:`dWCo_dCio_to_dWCi`."""
+    return dtWCo_dCio_to_dtWCi(dtWKCo, dCio)
 
 
 def trs_dtWKCa_dCaib_dsWCb_to_duWKCi(
