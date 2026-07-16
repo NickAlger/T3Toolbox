@@ -251,8 +251,16 @@ corresponding 2-block contraction when `K` is empty.
 **Decision rule:** if your two batches are on the *same* operands → `'...'`. If they are on *different*
 operand subsets and must remain independent → a grouped-block contraction.
 
-(Rules for *adding* contractions — when a new name must delegate vs be a genuine new implementation —
-are contributor material: [`contributor/batching_internals.md`](contributor/batching_internals.md).)
+**Sharding for multi-GPU: shard the leading axis of your stack.** If you shard a stacked axis across
+devices (data-parallel fitting shards `W`, the sample stack), put the axis you shard **first** in its
+block. That is always safe. The detail, if you need it: the probe/tangent stacks `W` and `K` ride
+through the contractions unflattened, so *any* of their axes shards for free; the frame stack `C` is
+shared across operands and must be flattened internally, so only **its** leading axis does. Nothing
+fuses two blocks together, so `W`, `K` and `C` are independently shardable.
+
+(Rules for *adding* contractions — every named block gets its own einsum letter, no fusing — and the
+sharding reasoning behind the rule above are contributor material:
+[`contributor/batching_internals.md`](contributor/batching_internals.md).)
 
 ---
 
