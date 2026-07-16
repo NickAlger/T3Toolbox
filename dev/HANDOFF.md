@@ -54,13 +54,25 @@ branch can be deleted (optional).
     trs-linear. eta scanned — **14–28× less XLA temp** (~4.5 GB const vs 64–128 GB). deta scanned —
     **3.3–6.9× at K=4 / 28× at K=1** (~9 GB at K=1). Timing (W=3000): deta scanned **1.5–1.8× faster at
     K=1**, 0.6–0.7× at K=4 (leaner but the scan serializes order); sigma ~parity.
-  - **Not done (next):** the **transpose/tilde jets** (`sigma_tilde`/`tau_tilde`/`dxi_tilde` — a
-    banded+scanned *mix*, since the adjoint sweep has an affine propagation term and a full source term),
-    then the **assembly** (`assemble_tt_variation_jets` — the hard one: order-summed `WKCaib` outer
-    products + a `sum_over_probes=True` W-reduction that wants a *chunked* W-scan; **measure the peak
-    before designing**). Also deferred: extracting the inline per-step grouped einsums into named
-    `contractions.py` functions — **decision: keep inline until the primitives settle** (through the
-    assembly), then extract in one pass as the swap-in step.
+  - **Also DONE (2026-07-16 cont.):** the **transpose/tilde jets** (`compute_{sigma,tau}_tilde_jets_scanned`
+    — the banded prop + scanned src *mix*; a nested scan, jit-clean; 2–3.4× less memory) and **both
+    variation assemblies** (`assemble_{tt,tucker}_variation_jets_scanned` — W-chunked with a
+    **reducer seam**: add if the chunked axis is summed / concat if kept, so C-batching is a parameter
+    not a rewrite; tt-core 168→8 GB / 21×). The math is recorded in
+    `docs/symmetric_probe_derivatives.tex` §recurrence. The whole forward Jacobian + its transpose are
+    now in recurrence/scan/chunk form. All experimental, module-private, verified vs the trs originals
+    in `tests/test_jet_recurrence.py`; polymorphic (numpy/jax × ragged/uniform correct; the memory win
+    is jax+uniform). Research record: `nicks_research_experiments/t3_jet_experiments/findings.md`.
+  - **OPEN — W-chunking copies operands, so it fails when the ambient N >> the tucker dim n** (measured
+    2026-07-16). `_to_chunks` (pad+reshape+moveaxis) duplicates the whole operand; when N is large the
+    `ztildes` input itself is huge, so the copy dominates and chunked assemble_tucker is *worse* than
+    dense (91 vs 52 GB at N=10000). assemble_tt is unaffected (small inputs). **Fix (follow-up):
+    copy-free chunking — `lax.scan` over chunk index + `lax.dynamic_slice` per chunk, no pre-reshape.**
+  - **Not done (next):** wire the scanned/chunked forms into `tv_probe_derivatives_transpose` (thread
+    `chunk_size`); the copy-free chunking fix above; **C-chunking** (the reducer seam already supports it);
+    uniform mask-strict/garbage-robust tests before any swap-in. Deferred: extracting the inline per-step
+    grouped einsums into named `contractions.py` functions — **keep inline until swap-in**, then extract
+    in one pass.
 
 - **`contractions.py` unfusing — DONE (2026-07-15, `dae52839` + `f65b341d`; committed, NOT pushed).**
   No named block is fused with another any more: 14 sites, 112/112 bit-identical, full suite 712 passed /
