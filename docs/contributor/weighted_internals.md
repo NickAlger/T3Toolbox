@@ -121,9 +121,12 @@ extractions, both of which improved the layer independently of weighting:
   **mask-representation contract** (concrete host arrays · value-based hash/eq · canonical prefix form),
   obeyed by every uniform object's masks rather than owned by any one family.
 
-*(Known gap, surfaced by that move and not fixed: `ufv_masking` still does not call
-`require_concrete_masks`, so the frame/variation masks are unguarded against being passed as traced jit
-args — they fail with jax's cryptic `ConcretizationTypeError` instead of the actionable message.)*
+*(That move also surfaced a real gap, since fixed: the whole frame/variation side never called the
+guard — `ufv_apply_frame_masks`, `ufv_apply_variations_masks`, `ut3frame_to_t3frame` and
+`ut3variations_to_t3variations` all accepted traced masks and failed with jax's cryptic
+`TracerArrayConversionError` from inside a numpy call, rather than the message that names the fix. All
+four now guard, and `tests/test_dispatch.py::TestTracedMaskGuard` pins every chokepoint across all four
+uniform object kinds — the plain-layer guard previously had no test at all, only a doctest.)*
 
 ### `reciprocal` must guard the padding — and this is why weights carry masks
 

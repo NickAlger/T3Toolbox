@@ -41,10 +41,12 @@ branch can be deleted (optional).
     across 4 modules); `require_concrete_masks` moved to `common` (it is the mask-representation contract,
     not a `ut3_` family member); a stale CI `--ignore` for the S4-deleted parked module removed; and
     `docs/batching_and_stacking.md`'s "weighted is parked" line corrected.
-  - **Known gap, surfaced but NOT fixed:** `ufv_masking` still does not call `require_concrete_masks`, so
-    the frame/variation masks are unguarded against being passed as traced jit args (they fail with jax's
-    cryptic `ConcretizationTypeError` instead of the actionable message). Pre-existing; unrelated to
-    weighting; cheap to fix.
+  - **The guard gap it surfaced is now FIXED** (2026-07-15): the frame/variation side never called
+    `require_concrete_masks` at all — `ufv_apply_frame_masks`, `ufv_apply_variations_masks`,
+    `ut3frame_to_t3frame`, `ut3variations_to_t3variations` all took traced masks and died with jax's
+    cryptic `TracerArrayConversionError` instead of the actionable message. All four guard now, and
+    `tests/test_dispatch.py::TestTracedMaskGuard` pins all ten chokepoints (plain / frame / variations /
+    weights) — the plain-layer guard had no test at all before, only a doctest.
   - **Deferred (reachable from the primitives):** weighted `+`/`-`/scale/`⊙` as operations + an optional
     thin container; the Grasedyck-Kramer `SingularValueRegularizer` — **both layers now have every
     primitive it needs**, so it is the natural next consumer.

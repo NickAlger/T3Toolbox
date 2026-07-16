@@ -789,3 +789,82 @@ class TestDispatch(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTracedMaskGuard(unittest.TestCase):
+    """Every uniform mask chokepoint must reject a TRACED mask with the actionable error.
+
+    Uniform masks are static structure and must be closed over, not passed among the traced jit args
+    (docs/contributor/uniform_pytree_composition.md). Getting that wrong is an easy, natural mistake --
+    `jax.jit(op)(obj.data)` traces every leaf, masks included -- and without the guard it surfaces as
+    jax's cryptic TracerArrayConversionError from deep inside a numpy call. `require_concrete_masks`
+    turns it into an error that names the fix.
+
+    This pins the guard at every chokepoint, on all four uniform object kinds: plain, frame, variations,
+    and weights. The frame/variation ones were unguarded until 2026-07-15 -- the guard lived in
+    ut3_masking and the ufv layer simply never called it.
+    """
+
+    def _assert_actionable(self, name, fn, data):
+        import jax
+        with self.subTest(op=name):
+            with self.assertRaises(ValueError) as cm:
+                jax.jit(fn)(data)          # traces every leaf -> the masks become tracers
+            self.assertIn('uniform masks must be concrete', str(cm.exception))
+
+    def test_traced_masks_rejected_everywhere(self):
+        if not common.jax_available:
+            self.skipTest('jax not available')
+        import t3toolbox.uniform_frame_variations_format as ubvf
+        import t3toolbox.backend.ut3_masking as ut3_masking
+        import t3toolbox.backend.ut3_conversions as ut3_conversions
+        import t3toolbox.backend.ut3_operations as ut3_operations
+        import t3toolbox.backend.ufv_masking as ufv_masking
+        import t3toolbox.backend.ufv_conversions as ufv_conversions
+
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x).to_jax()
+        frame, variations = ubvf.ut3_orthogonal_representations(ux)
+        uW = ut3.UT3Weights.from_t3weights(
+            t3.T3Weights.from_t3svd(x), n=ux.n, r=ux.r)
+        jW = ut3.UT3Weights(common.to_jax(uW.tucker_weight_supercore),
+                            common.to_jax(uW.tt_weight_supercore), uW.masks)
+
+        # plain layer
+        self._assert_actionable('ut3_apply_masks', ut3_masking.ut3_apply_masks, ux.data)
+        self._assert_actionable('ut3_to_dense', ut3_conversions.ut3_to_dense, ux.data)
+        self._assert_actionable('ut3_to_t3', ut3_conversions.ut3_to_t3, ux.data)
+        self._assert_actionable('ut3_squash_tails', ut3_operations.ut3_squash_tails, ux.data)
+        # frame / variations (unguarded before 2026-07-15)
+        self._assert_actionable('ufv_apply_frame_masks',
+                                ufv_masking.ufv_apply_frame_masks, frame.data)
+        self._assert_actionable('ufv_apply_variations_masks',
+                                ufv_masking.ufv_apply_variations_masks, variations.data)
+        self._assert_actionable('ut3frame_to_t3frame',
+                                ufv_conversions.ut3frame_to_t3frame, frame.data)
+        self._assert_actionable('ut3variations_to_t3variations',
+                                ufv_conversions.ut3variations_to_t3variations, variations.data)
+        # weights
+        self._assert_actionable('ut3weights_to_t3weights',
+                                ut3_conversions.ut3weights_to_t3weights, jW.data)
+        self._assert_actionable('ut3_reciprocal_weights',
+                                ut3_operations.ut3_reciprocal_weights, jW.data)
+
+    def test_the_right_form_works(self):
+        """The counterpart: close over the masks, trace only the supercores -- the documented recipe."""
+        if not common.jax_available:
+            self.skipTest('jax not available')
+        import jax
+        import t3toolbox.backend.ufv_masking as ufv_masking
+        import t3toolbox.uniform_frame_variations_format as ubvf
+
+        np.random.seed(0)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(
+            t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))).to_jax()
+        frame, _ = ubvf.ut3_orthogonal_representations(ux)
+        shape, masks = frame.shape, frame.masks.data
+
+        masked = jax.jit(lambda up, dn, lf, rt: ufv_masking.ufv_apply_frame_masks(
+            (up, dn, lf, rt, shape, masks)))(*frame.supercores)
+        self.assertTrue(all(common.is_jax_ndarray(a) for a in masked))

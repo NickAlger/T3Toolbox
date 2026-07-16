@@ -6,6 +6,8 @@
 
 Masks are static structure and ALWAYS host numpy (``np``, never ``xnp``) -- intentional, required
 for jit; do not "fix" it (``docs/uniform_masks_vs_ranks.md``, ``docs/contributor/uniform_pytree_composition.md``).
+The two ``ufv_apply_*_masks`` functions are the frame/variation **mask chokepoints** and guard the
+contract with ``require_concrete_masks``, mirroring ``ut3_apply_masks`` on the plain layer.
 """
 import numpy as np
 import typing as typ
@@ -69,6 +71,7 @@ def ufv_apply_frame_masks(
     a traced mask breaks the layer; see ``docs/contributor/uniform_pytree_composition.md``)."""
     (up_tucker_supercore, down_tt_supercore, left_tt_supercore, right_tt_supercore,
      shape, (up_mask, down_mask, frame_left_mask, frame_right_mask)) = data
+    require_concrete_masks(up_mask, down_mask, frame_left_mask, frame_right_mask)  # host, not traced
 
     d = up_tucker_supercore.shape[0]
     ss = up_tucker_supercore.shape[1:-2]
@@ -120,6 +123,7 @@ def ufv_apply_variations_masks(
     is reconstructed on the host from the static ``shape`` ints (``np``, never ``jnp``)."""
     (tucker_variations_supercore, tt_variations_supercore,
      shape, (up_mask, down_mask, variations_left_mask, variations_right_mask)) = data
+    require_concrete_masks(up_mask, down_mask, variations_left_mask, variations_right_mask)  # host, not traced
 
     d = tucker_variations_supercore.shape[0]
     ss = tucker_variations_supercore.shape[1:-2]

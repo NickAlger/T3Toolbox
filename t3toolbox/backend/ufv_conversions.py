@@ -137,6 +137,7 @@ def ut3frame_to_t3frame(
     '''
     (up_supercore, down_supercore, left_supercore, right_supercore,
      shape, (up_mask, down_mask, frame_left_mask, frame_right_mask)) = x
+    require_concrete_masks(up_mask, down_mask, frame_left_mask, frame_right_mask)  # host: argwhere is np
     stack_shape = up_supercore.shape[1:-2]
     d = up_supercore.shape[0]
 
@@ -249,6 +250,7 @@ def ut3variations_to_t3variations(
     variation tt-core ``H_i`` has shape ``(rLi, nUi, rR(i+1))`` -- left/up/right masks index its three axes.
     '''
     tucker_variations, tt_variations, shape, (vup, vdown, vleft, vright) = x
+    require_concrete_masks(vup, vdown, vleft, vright)  # host: argwhere is np
     stack_shape = tucker_variations.shape[1:-2]
     d = tucker_variations.shape[0]
 
