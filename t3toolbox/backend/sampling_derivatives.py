@@ -305,6 +305,103 @@ def compute_mu_jets(
     return mu_jets
 
 
+# ==================================================================================================
+# EXPERIMENTAL -- convolution/recurrence forms of the jet contractions (module-private; workshop)
+# ==================================================================================================
+# A slow mirror of the trs-based jet functions above, built one at a time and checked to give the
+# SAME results (tests/test_jet_recurrence.py), to see whether they run faster / use less memory. If
+# they pan out, we swap them into the call sites. NOT public API (no __all__ entry); the design
+# question that motivates them is dev/OPEN_QUESTION_contractions_architecture.md.
+#
+# The idea: a trs binomial tensor is a sparse convolution tensor, so contracting it as a DENSE einsum
+# operand is the wrong handling -- it is what makes _pairwise_path degenerate (the trs operand shares
+# one index per operand, so it sorts LAST and the intermediate balloons to the union of all indices).
+# The right form unrolls the convolution over the order axis into ordinary (non-trs) contractions.
+#
+# mu/nu pushthrough (this slice) is the CLEAN case: the input jet is affine, so xi is nonzero only at
+# orders s in {0,1} (build_input_jets returns size 2). The binomial sum then has just two surviving
+# terms -- a bidiagonal recurrence, no trs tensor, no (order+1)^2 work:
+#
+#     mu_i^(t)  =  [mu^(t) . G . xi^(0)]  +  t * [mu^(t-1) . G . xi^(1)]
+#
+# (C(t,t)=1 gives the s=0 term; C(t,t-1)=t gives the s=1 term.) Verified equal to the dense trs
+# contraction to 1e-16. (eta combine is a DIFFERENT, genuinely-full convolution -- nu is a full jet,
+# not affine-truncated -- and is a later slice.)
+
+
+def _Caib_sWCi_to_sWCab(
+        G:       NDArray,  # C + (a, i, b)      -- tt core (C-only frame stack)
+        xi_jet:  NDArray,  # s + W + C + (i,)   -- input jet on mode i, s in {0,1}
+) -> NDArray:              # s + W + C + (a, b) -- core with the input jet contracted on mode i
+    '''Core times input jet, contracting mode ``i``, keeping the order axis ``s``. C is SHARED
+    (flattened to one letter); the passive s+W prefix rides as ``'...'``.'''
+    use_jax = tree_contains_jax((G, xi_jet))
+    xnp, _, _ = get_backend(is_ndarray(G), use_jax)
+
+    C_shape = G.shape[:-3]
+    a, i, b = G.shape[-3], G.shape[-2], G.shape[-1]
+    sW_shape = xi_jet.shape[:-(len(C_shape) + 1)]      # s + W, ride as '...'
+    size_C = math.prod(C_shape)
+
+    G_flat = G.reshape((size_C, a, i, b))
+    xi_flat = xi_jet.reshape(sW_shape + (size_C, i))
+    out = xnp.einsum('Caib,...Ci->...Cab', G_flat, xi_flat)
+    return out.reshape(sW_shape + C_shape + (a, b))
+
+
+def _tWCa_WCab_to_tWCb(
+        mu_jet:  NDArray,  # t + W + C + (a,)    -- left jet at order t (t passive)
+        Gxi:     NDArray,  #     W + C + (a, b)  -- core-with-input-jet, one order slice
+) -> NDArray:              # t + W + C + (b,)    -- mu^(t) . G . xi, bond a contracted
+    '''Contract the left bond ``a``, keeping the order axis ``t`` (passive on ``mu_jet``). W+C is
+    shared and contiguous on both operands, so it rides as ``'...'`` -- nothing is flattened.'''
+    use_jax = tree_contains_jax((mu_jet, Gxi))
+    xnp, _, _ = get_backend(is_ndarray(mu_jet), use_jax)
+    return xnp.einsum('t...a,...ab->t...b', mu_jet, Gxi)
+
+
+def compute_mu_jets_banded(
+        tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nUi,rR(i+1))
+        xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+W+C+(nUi,)
+        trs:        NDArray,                # binomial tensor -- ONLY its shape (order) is read here
+) -> typ.Tuple[NDArray, ...]:               # mu_jets. len=d, elm_shape=(order+1,)+W+C+(rLi,). mu_jets[i][t]=mu_{i-1}^(t)
+    '''EXPERIMENTAL banded-recurrence mirror of :py:func:`compute_mu_jets` (module-private).
+
+    Same signature and same result, but the affine input jet (``s in {0,1}``) makes each pushthrough a
+    two-term recurrence rather than a dense ``trs`` contraction:
+
+        ``mu_i^(t) = mu^(t) . G . xi^(0)  +  t * mu^(t-1) . G . xi^(1)``
+
+    ``trs`` is taken only for its order (``shape[0]-1``), never contracted -- kept in the signature so
+    it is a drop-in swap for ``compute_mu_jets`` and the equivalence test can call both identically.
+    '''
+    use_jax = tree_contains_jax((tt_cores, xi_jets, trs))
+    is_uniform = is_ndarray(tt_cores)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+
+    order = trs.shape[0] - 1
+    s_size = min(2, order + 1)                             # affine input jet: orders {0, 1}
+    tvec = xnp.arange(order + 1)                           # the C(t,t-1)=t multipliers
+
+    def _func(mu_jet, data):
+        G, xi_jet = data
+        Gxi = _Caib_sWCi_to_sWCab(G, xi_jet[:s_size])     # (s, W, C, a, b), s in {0,1}
+        next_mu = _tWCa_WCab_to_tWCb(mu_jet, Gxi[0])      # the s=0 term: mu^(t) . G . xi^(0)
+        if s_size > 1:                                     # static branch (order >= 1)
+            M1 = _tWCa_WCab_to_tWCb(mu_jet, Gxi[1])       # mu^(t) . G . xi^(1)
+            shift = xnp.concatenate([xnp.zeros_like(M1[:1]), M1[:-1]], axis=0)   # mu^(t-1) term
+            t_bcast = tvec.reshape((order + 1,) + (1,) * (next_mu.ndim - 1))
+            next_mu = next_mu + t_bcast * shift            # + t * mu^(t-1) . G . xi^(1)
+        return next_mu, (mu_jet,)
+
+    stack_shape = xi_jets[0].shape[1:-1]     # full W + C batch (W outer, C inner); either may be empty
+    r0 = tt_cores[0].shape[-3]
+    init = _init_jet(order, stack_shape, r0, xnp)
+
+    _, (mu_jets,) = xscan(_func, init, (tt_cores, xi_jets))
+    return mu_jets
+
+
 def compute_nu_jets(
         tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nUi,rR(i+1))
         xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+W+C+(nUi,)
