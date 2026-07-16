@@ -41,7 +41,9 @@ open** (Nick's rule, 2026-07-12):
 
 **Handoff ritual:** when wrapping up, refresh `dev/HANDOFF.md` (one living doc by default; more when
 threads interleave), sweep superseded notes into `dev/archive/` as dated files, and keep this file's
-Current-state pointer accurate.
+Current-state pointer accurate. **Exception: a `dev/OPEN_QUESTION_*.md` note is a standing question, not
+a thread — it is unresolved, not superseded, and must NOT be archived.** (Today: the `contractions.py`
+architecture, parked by Nick 2026-07-15.)
 
 ## The paper (`t4s.pdf` in repo root)
 

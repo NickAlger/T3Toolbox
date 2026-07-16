@@ -19,6 +19,16 @@ Loose ends: the **GitHub Release** for `v2026.0.0` — Nick to create via the we
 CHANGELOG `[2026.0.0]` section); **Zenodo DOI** still deferred (Nick, later); the dead `gh-pages`
 branch can be deleted (optional).
 
+## Standing open question — DO NOT ARCHIVE
+
+- **The `contractions.py` architecture** — `dev/OPEN_QUESTION_contractions_architecture.md`. Nick, after
+  the option-B unfusing decision: *"this issue does make me feel uneasy about the architecture. I can't
+  really put my finger on why."* Parked deliberately, with the evidence preserved while fresh (the block
+  structure exists only in function names, not in any value; ~60 enumerated variants because the
+  abstraction can't be parameterised; a failure class the whole numerical suite is constitutionally blind
+  to). **That note is a standing question, not a plan — it stays in `dev/` until Nick resolves it. The
+  handoff ritual's "sweep superseded notes into `dev/archive/`" does NOT apply to it.**
+
 ## Active threads
 
 - **Weighted layer (edge weights) — COMPLETE & SHIPPED, ragged + uniform (2026-07-15). Thread closed;
