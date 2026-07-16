@@ -515,7 +515,7 @@ def assemble_tangent_z(
 
     if is_uniform:
         # d-prefixed (3b-6a): lift the edge vars through the tucker supercores. detas is W+K+C, lifted
-        # through the C-only frame tucker core (dWKCi_dCio_to_dWKCo delegates to the two-group form); etas
+        # through the C-only frame tucker core (W and K ride passively there, so no split is needed); etas
         # is W+C, lifted through the K+C variation tucker core (n_frame = len(C)). Ragged xmap is the oracle.
         n_frame = tucker_cores.ndim - 3
         term1 = contractions.dWKCi_dCio_to_dWKCo(detas, tucker_cores)
@@ -524,9 +524,9 @@ def assemble_tangent_z(
     else:
         def _func(x):
             B, dB, eta, deta = x
-            # Three-group contractions (see compute_sigma): deta carries K (term1 fuses W+K over the
-            # C-only frame core B, via the delegator); eta is W+C and dB is the variation core K+C, so
-            # term2 needs len(C) -- recovered here from the C-only tucker core B (2 tensor axes).
+            # Three-group contractions (see compute_sigma): deta carries K (in term1 both W and K ride
+            # passively over the C-only frame core B, so no split is needed); eta is W+C and dB is the
+            # variation core K+C, so term2 needs len(C) -- recovered here from the C-only core B.
             n_frame = B.ndim - 2
             term1 = contractions.WKCi_Cio_to_WKCo(deta, B)
             term2 = contractions.WCi_KCio_to_WKCo(eta, dB, n_frame)

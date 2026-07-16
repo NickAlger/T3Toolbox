@@ -23,51 +23,70 @@ from t3toolbox.backend.common import *
 # scheme, and when to use this vs a plain '...' einsum -- see docs/batching_and_stacking.md (esp. §4).
 #
 ###############################################################################
-# SHARDING: ONLY THE LEFTMOST MEMBER OF A FLATTENED GROUP IS FREE.  (Read before adding a delegation.)
+# SHARDING: FLATTEN ONLY WHAT EINSUM FORCES YOU TO.  (Read before writing a contraction.)
 #
-# Flattening a group of axes is a pure reinterpretation -- there is no transpose anywhere in this file,
-# by design -- but it is SHARDING-SAFE ONLY IF THE SHARDED AXIS IS THE MAJOR (leftmost) MEMBER of the
-# group being flattened. A reshape moves nothing on a device; it reindexes which logical elements live
-# where. With (t=2, W=4) sharded on W, row-major flat index t*4 + W:
+# THE RULE, stated once:  *** No named block may be FUSED (flattened together) with another. A block
+# that is SHARED across operands needs an einsum letter, so it must flatten its own axes; a block that
+# is PASSIVE (lives on ONE operand and rides to the output) needs no letter and rides as '...', with
+# every axis intact. ***
+#
+# WHY IT MATTERS. Flattening axes is a pure reinterpretation -- there is no transpose anywhere in this
+# file, by design -- but a reshape moves nothing on a device; it reindexes which logical elements live
+# where. So it is SHARDING-SAFE ONLY IF THE SHARDED AXIS IS THE MAJOR (leftmost) MEMBER of the group
+# being flattened. With (t=2, W=4) sharded on W, row-major flat index t*4 + W:
 #
 #   dev0 holds W in {0,1} -> flat {0,1,4,5};  dev1 holds W in {2,3} -> flat {2,3,6,7}
 #   a contiguous 2-way tiling is {0..3}/{4..7} -- neither matches, so XLA inserts a collective.
 #   Reversed, (W=4, K=2): dev0 holds W in {0,1} -> flat {0,1,2,3} = exactly tile 0. Free.
 #
-# THE GENERAL RULE, stated once:  *** within ANY flattened group, only the LEFTMOST member can be
-# sharded for free. ***  It bites at three levels, all measured (4 virtual devices, all-gather counts):
+# Every flatten therefore FREEZES a sharding choice: within a flattened group only the leftmost member
+# is free. The fix is not to order the fusions cleverly -- it is to not fuse. Each flatten must be
+# forced by einsum, and einsum only forces one for a block that needs a LETTER.
 #
-#   1. ACROSS blocks -- t/d vs W.  W may absorb blocks to its RIGHT (K, C), but must NEVER be folded
-#      with anything on its LEFT (t, d). This is the one that was broken: five lifts folded t into W,
-#      3 all-gathers each; now 0. Pinned by tests/test_contractions_sharding.py.
+# SHARED vs PASSIVE -- the whole decision:
 #
-#   2. BETWEEN blocks -- W vs K.  The remaining W+K folds (WKCi_Cio_to_WKCo, tWKCi_Cio_to_tWKCo,
-#      tWKCo_Cio_to_tWKCi, dWKCi_dCio_to_dWKCo, dtWKCi_dCio_to_dtWKCo, dtWKCo_dCio_to_dtWKCi) are free
-#      for W (major) and NOT free for K (minor: measured 3 all-gathers). *** SHARDING K IS THEREFORE
-#      NOT SUPPORTED TODAY *** -- W is the sample axis and the stated target. If K-sharding is ever
-#      wanted the recipe is identical to the t fix (stop fusing; give K its own einsum letter, as
-#      tWCi_KCio_to_tWKCo and dtWCi_dKCio_to_dtWKCo already do -- those two ARE K-shardable, measured 0).
-#      It is numerically a no-op, so it is mechanical; it is just not free (one more axis) and nothing
-#      needs it yet.
+#   * SHARED (needs a letter, so it flattens its own axes).  C in 'WCi,Cio->WCo': it is on both
+#     operands, and einsum must know they are the same block. A fixed subscript cannot spell a variable
+#     number of axes, so the block flattens to one axis (size_C = math.prod(C_shape)) -- and only C's
+#     LEADING axis is shardable. Measured on C=(4,4): major 0, minor 6. This is inherent and ACCEPTED
+#     (the only escape is generating the subscript per call, which is rejected -- see
+#     docs/contributor/batching_internals.md).
 #
-#   3. WITHIN a block -- a multi-axis W/K/C flattens its OWN axes (size_C = math.prod(C_shape)), so the
-#      same rule applies one level down: only the LEADING axis of a multi-axis block is shardable.
-#      Measured on C=(4,4): sharding C's major axis costs 0, its minor axis costs 6. Same for W=(4,4):
-#      0 major, 3 minor. Sharding a single-axis C is free (C is a shared batch, folded with nothing).
+#   * PASSIVE (needs no letter, so it flattens NOTHING).  W+K in '...Ci,Cio->...Co': both live on one
+#     operand and ride to the output untouched. Einsum's '...' spells a variable number of axes
+#     natively, so they keep their individual axes: W and K are each shardable, on ANY axis, at zero
+#     cost. Measured 0 for K, and 0 for W's MINOR axis with W=(4,4) -- the case the letter form cannot
+#     fix (it costs 3).
+#
+# W, K AND C ARE ALL SHARDABLE TODAY. W is the sample axis and the usual data-parallel target, but no
+# block is second-class. The only remaining limit is the block-internal one above, and it now applies
+# ONLY to a block that a contraction genuinely needs a letter for.
+#
+# A PASSIVE BLOCK'S SPLIT IS NOT KNOWABLE -- AND THAT IS THE POINT. In WKCi_Cio_to_WKCo, Cio pins
+# len(C), but NOTHING pins len(W) vs len(K): W=(2,3),K=() and W=(2,),K=(3,) and W=(),K=(2,3) all give
+# operand shape (2,3,C,i) and the same output shape. The function cannot know the split, so it cannot
+# give W and K separate letters -- which is exactly why these once fused. '...' dissolves the problem:
+# the split is never needed, because a passive block is never flattened. Do NOT add an n_probe/n_frame
+# parameter to recover a split a contraction does not need. (Contrast tWCi_KCio_to_tWKCo, where K IS
+# pinned -- it is on the other operand -- and n_frame is genuinely required.)
 #
 # THE DETECTOR. Every function infers its group boundaries POSITIONALLY from its own signature (e.g.
-# "everything left of C is W"). That inference cannot tell "t then W" from "one big W", so mis-grouping
-# can only arise at a DELEGATION, where a caller hands a t-carrying array to a callee that calls it W:
+# "everything left of C is W"), so a mis-grouping is invisible in the shapes. Check the RULE instead:
 #
-#   If the callee's name DROPS the leading t while the caller has it, t has been folded into the W
-#   block and W is no longer major.  (Dropping K is always fine -- K is to W's right.)
+#   Every block in a function's NAME must appear in its einsum subscript either as its OWN letter or
+#   inside the '...'. Two named blocks sharing one letter -- or a block flattened into another's letter
+#   before the call -- is a FUSION, and is a bug.
 #
-#   awk '/^def /{n=$0} /^    return [a-zA-Z_]+\(/{print n" -> "$0}' contractions.py
+# Fusion hides in two forms, and a grep for delegations only sees the first:
+#   1. DELEGATION -- 'return <callee>(...)' where the callee's name drops a block the caller names
+#      (it got folded into a neighbour):   awk '/^def /{n=$0} /^    return [a-zA-Z_]+\(/{print n" -> "$0}'
+#   2. INTERNAL -- two named blocks merged into one letter in the subscript itself (the old 'Wo,WXa->WXao',
+#      X = K+C). No callee to name-check; only reading the subscript against the name finds it.
+# Prefer a static check of the rule over either grep: tests/test_contractions_naming.py.
 #
-# This was a real bug (level 1 above). It is invisible to every other test -- nothing in the library
-# shards, and the fold is numerically EXACT (a pure reinterpretation, bit-identical to the explicit
-# form) -- so the numerical suite cannot see it. It is pinned by tests/test_contractions_sharding.py,
-# which compiles under 4 virtual devices and asserts 0 all-gathers.
+# None of this is visible to the numerical suite: a fusion is bit-identical to the unfused form (a pure
+# reinterpretation), and nothing else in the library shards. The only instrument that can see it is the
+# compiler -- tests/test_contractions_sharding.py compiles under 4 virtual devices and counts collectives.
 # Rationale + evidence: docs/contributor/batching_internals.md.
 ###############################################################################
 
@@ -1112,10 +1131,29 @@ def WKCi_Cio_to_WKCo(
 ) -> NDArray:           # W + K + C + (o,)
     """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
 
-    Three-group name for readability; W and K fuse into one outer block and Cio is C-only, so this
-    is exactly the two-group ``WCi_Cio_to_WCo`` with the outer block being W+K. Delegates to it.
+    Lifts the down edge variable through the C-only frame Tucker core, contracting the TT-rank index
+    i. C is SHARED (it is on both operands, so Cio pins len(C)) and gets a letter; W and K are
+    PASSIVE (they live on WKCi alone and ride to the output untouched), so they ride as ``'...'``
+    with every axis intact -- neither fused with the other nor flattened. See the SHARDING block in
+    the module docstring.
     """
-    return WCi_Cio_to_WCo(WKCi, Cio)
+    use_jax = tree_contains_jax((WKCi, Cio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Cio.shape[:-2]
+    i_shape = (Cio.shape[-2],)
+    o_shape = (Cio.shape[-1],)
+    WK_shape = WKCi.shape[:-(len(C_shape) + 1)]     # W + K, kept as individual axes under '...'
+
+    size_C = math.prod(C_shape)
+
+    Cio  = Cio.reshape((size_C,) + i_shape + o_shape)
+    WKCi = WKCi.reshape(WK_shape + (size_C,) + i_shape)
+
+    WKCo = _grouped_einsum(xnp, use_jax, '...Ci,Cio->...Co', WKCi, Cio)
+
+    WKCo = WKCo.reshape(WK_shape + C_shape + o_shape)
+    return WKCo
 
 
 ###############################################################################
@@ -1201,9 +1239,12 @@ def Wo_WKCa_to_WKCao(
 ) -> NDArray:           # W + K + C + (a, o)
     """Computes named contraction (outer product over a, o). Capitals are grouped indices, may be empty.
 
-    Transpose-assemble (w (x) delta-xi-tilde), keeping the probe stack W. Self-infers len(W) from the
-    W-only probe vector Wo; K and C never need separating here (no operand carries C without K), so
-    they ride as one combined block.
+    Transpose-assemble (w (x) delta-xi-tilde), keeping the probe stack W. W is SHARED (on both operands,
+    self-inferred from the W-only probe vector Wo) and gets a letter. K and C are PASSIVE (they live on
+    WKCa alone and ride to the output), so they ride as ``'...'`` with every axis intact -- neither fused
+    with each other nor flattened. This is also why no ``n_frame`` is needed: the K|C boundary is not
+    pinned by the operands, and this contraction never needs it. See the SHARDING block in the module
+    docstring.
     """
     use_jax = tree_contains_jax((Wo, WKCa))
     xnp, _, _ = get_backend(True, use_jax)
@@ -1211,15 +1252,14 @@ def Wo_WKCa_to_WKCao(
     W_shape = Wo.shape[:-1]
     o_shape = (Wo.shape[-1],)
     a_shape = (WKCa.shape[-1],)
-    KC_shape = WKCa.shape[len(W_shape):-1]
+    KC_shape = WKCa.shape[len(W_shape):-1]   # K + C, individual axes under '...'
 
     size_W = math.prod(W_shape)
-    size_KC = math.prod(KC_shape)
 
     Wo   = Wo.reshape((size_W,) + o_shape)
-    WKCa = WKCa.reshape((size_W,) + (size_KC,) + a_shape)
+    WKCa = WKCa.reshape((size_W,) + KC_shape + a_shape)
 
-    WKCao = _grouped_einsum(xnp, use_jax, 'Wo,WXa->WXao', Wo, WKCa)
+    WKCao = _grouped_einsum(xnp, use_jax, 'Wo,W...a->W...ao', Wo, WKCa)
 
     WKCao = WKCao.reshape(W_shape + KC_shape + a_shape + o_shape)
     return WKCao
@@ -1231,8 +1271,11 @@ def Wo_WKCa_to_KCao(
 ) -> NDArray:           # K + C + (a, o)
     """Computes named contraction (outer product over a, o; probe stack W summed out).
 
-    Transpose-assemble (w (x) delta-xi-tilde), summing over the probe stack W. Self-infers len(W);
-    K and C ride combined.
+    Transpose-assemble (w (x) delta-xi-tilde), summing over the probe stack W. W is SHARED (on both
+    operands, self-inferred from the W-only probe vector Wo) and gets a letter -- here it is summed, so it
+    is absent from the output. K and C are PASSIVE (on WKCa alone, riding to the output), so they ride as
+    ``'...'`` with every axis intact -- neither fused with each other nor flattened. See the SHARDING block
+    in the module docstring.
     """
     use_jax = tree_contains_jax((Wo, WKCa))
     xnp, _, _ = get_backend(True, use_jax)
@@ -1240,15 +1283,14 @@ def Wo_WKCa_to_KCao(
     W_shape = Wo.shape[:-1]
     o_shape = (Wo.shape[-1],)
     a_shape = (WKCa.shape[-1],)
-    KC_shape = WKCa.shape[len(W_shape):-1]
+    KC_shape = WKCa.shape[len(W_shape):-1]   # K + C, individual axes under '...'
 
     size_W = math.prod(W_shape)
-    size_KC = math.prod(KC_shape)
 
     Wo   = Wo.reshape((size_W,) + o_shape)
-    WKCa = WKCa.reshape((size_W,) + (size_KC,) + a_shape)
+    WKCa = WKCa.reshape((size_W,) + KC_shape + a_shape)
 
-    KCao = _grouped_einsum(xnp, use_jax, 'Wo,WXa->Xao', Wo, WKCa)
+    KCao = _grouped_einsum(xnp, use_jax, 'Wo,W...a->...ao', Wo, WKCa)
 
     KCao = KCao.reshape(KC_shape + a_shape + o_shape)
     return KCao
@@ -1642,13 +1684,31 @@ def tWKCi_Cio_to_tWKCo(
         tWKCi: NDArray,  # t + W + K + C + (i,)  -- combined variation jet (deta), K on this operand
         Cio:   NDArray,  # C + (i, o)            -- frame Tucker core (C-only)
 ) -> NDArray:            # t + W + K + C + (o,)  -- lifted jet
-    """Computes named contraction. Order-threaded lift; Cio is C-only, so this is exactly
-    tWCi_Cio_to_tWCo with the outer block W+K. Delegates to it.
+    """Computes named contraction. Order-threaded lift of the combined variation jet through the
+    C-only frame Tucker core (no trs -- the order axis t is a passive broadcast).
 
-    **Sharding-safe:** W and K fuse into ONE outer block, which is
-    SHARDING-SAFE: K is to W's right, so W stays the major member of the flattened block (module
-    docstring, the SHARDING block). Only folding t would break it."""
-    return tWCi_Cio_to_tWCo(tWKCi, Cio)
+    C is SHARED (on both operands; Cio pins len(C)) and gets a letter. t is a single passive axis
+    and keeps its own letter. W and K are PASSIVE (on tWKCi alone, riding to the output), so they
+    ride as ``'...'`` with every axis intact -- nothing is fused or flattened across them. See the
+    SHARDING block in the module docstring."""
+    use_jax = tree_contains_jax((tWKCi, Cio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Cio.shape[:-2]
+    i_shape = (Cio.shape[-2],)
+    o_shape = (Cio.shape[-1],)
+    t_shape = (tWKCi.shape[0],)
+    WK_shape = tWKCi.shape[1:-(len(C_shape) + 1)]   # W + K, individual axes under '...'
+
+    size_C = math.prod(C_shape)
+
+    Cio   = Cio.reshape((size_C,) + i_shape + o_shape)
+    tWKCi = tWKCi.reshape(t_shape + WK_shape + (size_C,) + i_shape)
+
+    tWKCo = _grouped_einsum(xnp, use_jax, 't...Ci,Cio->t...Co', tWKCi, Cio)
+
+    tWKCo = tWKCo.reshape(t_shape + WK_shape + C_shape + o_shape)
+    return tWKCo
 
 
 def tWCi_KCio_to_tWKCo(
@@ -1815,13 +1875,31 @@ def tWKCo_Cio_to_tWKCi(
         tWKCo: NDArray,  # t + W + K + C + (o,)  -- residual jet (carries K)
         Cio:   NDArray,  # C + (i, o)            -- frame Tucker core (C-only)
 ) -> NDArray:            # t + W + K + C + (i,)  -- adjoint-up jet (deta_tilde), K rides through
-    """Computes named contraction. Order-threaded adjoint lift; Cio is C-only, so this is exactly
-    tWCo_Cio_to_tWCi with the outer block W+K. Delegates to it.
+    """Computes named contraction. Order-threaded adjoint lift: contract the ambient mode o against
+    the C-only frame Tucker core, order t riding through as a passive broadcast.
 
-    **Sharding-safe:** W and K fuse into ONE outer block, which is
-    SHARDING-SAFE: K is to W's right, so W stays the major member of the flattened block (module
-    docstring, the SHARDING block). Only folding t would break it."""
-    return tWCo_Cio_to_tWCi(tWKCo, Cio)
+    C is SHARED (on both operands; Cio pins len(C)) and gets a letter. t is a single passive axis
+    and keeps its own letter. W and K are PASSIVE (on tWKCo alone, riding to the output), so they
+    ride as ``'...'`` with every axis intact -- nothing is fused or flattened across them. See the
+    SHARDING block in the module docstring."""
+    use_jax = tree_contains_jax((tWKCo, Cio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Cio.shape[:-2]
+    i_shape = (Cio.shape[-2],)
+    o_shape = (Cio.shape[-1],)
+    t_shape = (tWKCo.shape[0],)
+    WK_shape = tWKCo.shape[1:-(len(C_shape) + 1)]   # W + K, individual axes under '...'
+
+    size_C = math.prod(C_shape)
+
+    Cio   = Cio.reshape((size_C,) + i_shape + o_shape)
+    tWKCo = tWKCo.reshape(t_shape + WK_shape + (size_C,) + o_shape)
+
+    tWKCi = _grouped_einsum(xnp, use_jax, 't...Co,Cio->t...Ci', tWKCo, Cio)
+
+    tWKCi = tWKCi.reshape(t_shape + WK_shape + C_shape + i_shape)
+    return tWKCi
 
 
 # ---- order-threaded 3-block gradient assembly (order summed; K on the residual-derived operand) ----
@@ -1909,17 +1987,23 @@ def tWCa_tWKCo_to_KCao(tWCa, tWKCo, n_probe):
 
 def _assemble_dU_dxi(uWKCa, uWo, keep_W):
     '''dU_tilde dxi_tilde (x) w_jet term (order-diagonal sum over u): dxi_tilde carries K (W+K+C), the
-    w_jet is W-only (self-pins W, no C). K and C ride combined (no operand separates them here, and the
-    output dU core's K+C ordering is exactly dxi_tilde's). K=() recovers uWCa_uWo_to_[W]Cao.'''
+    w_jet is W-only (self-pins W, no C). K=() recovers uWCa_uWo_to_[W]Cao.
+
+    W is SHARED (on both operands, self-pinned by the W-only w_jet) and gets a letter, as does the
+    order axis u (summed). K and C are PASSIVE (on uWKCa alone, riding to the output in exactly the
+    output dU core's K+C ordering), so they ride as ``'...'`` with every axis intact -- neither fused
+    with each other nor flattened, which is also why their unpinnable split is never needed. See the
+    SHARDING block in the module docstring.'''
     use_jax = tree_contains_jax((uWKCa, uWo))
     xnp, _, _ = get_backend(True, use_jax)
     W_shape = uWo.shape[1:-1]
     o_shape, a_shape = (uWo.shape[-1],), (uWKCa.shape[-1],)
-    KC_shape = uWKCa.shape[1 + len(W_shape):-1]
-    size_W, size_KC = math.prod(W_shape), math.prod(KC_shape)
-    uWKCa = uWKCa.reshape((uWKCa.shape[0], size_W, size_KC) + a_shape)
+    KC_shape = uWKCa.shape[1 + len(W_shape):-1]   # K + C, individual axes under '...'
+    size_W = math.prod(W_shape)
+    uWKCa = uWKCa.reshape((uWKCa.shape[0], size_W) + KC_shape + a_shape)
     uWo   = uWo.reshape((uWo.shape[0], size_W) + o_shape)
-    out = _grouped_einsum(xnp, use_jax, 'uWXa,uWo->WXao' if keep_W else 'uWXa,uWo->Xao', uWKCa, uWo)
+    out = _grouped_einsum(xnp, use_jax,
+                          'uW...a,uWo->W...ao' if keep_W else 'uW...a,uWo->...ao', uWKCa, uWo)
     return out.reshape((W_shape if keep_W else ()) + KC_shape + a_shape + o_shape)
 
 
@@ -2122,9 +2206,31 @@ def dWKCi_dCio_to_dWKCo(
         dWKCi: NDArray,  # d + W + K + C + (i,)
         dCio:  NDArray,  # d + C + (i, o)   -- C-only core
 ) -> NDArray:            # d + W + K + C + (o,)
-    """d-prefixed uniform twin of :py:func:`WKCi_Cio_to_WKCo` (assemble_tangent_z term1). W and K fuse
-    into one outer block and dCio is C-only, so this is exactly :py:func:`dWCi_dCio_to_dWCo` (W+K outer)."""
-    return dWCi_dCio_to_dWCo(dWKCi, dCio)
+    """d-prefixed uniform twin of :py:func:`WKCi_Cio_to_WKCo` (assemble_tangent_z term1). Lifts the down
+    edge variable through the C-only frame Tucker supercore.
+
+    ``C`` is SHARED (on both operands; ``dCio`` pins ``len(C)``) and gets a letter, as does the core index
+    ``d``. ``W`` and ``K`` are PASSIVE (on ``dWKCi`` alone, riding to the output), so they ride as ``'...'``
+    with every axis intact -- nothing fused or flattened across them. See the SHARDING block in the module
+    docstring."""
+    use_jax = tree_contains_jax((dWKCi, dCio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dCio.shape[0],)
+    C_shape = dCio.shape[1:-2]
+    i_shape = (dCio.shape[-2],)
+    o_shape = (dCio.shape[-1],)
+    WK_shape = dWKCi.shape[1:-(len(C_shape) + 1)]   # W + K, individual axes under '...'
+
+    size_C = math.prod(C_shape)
+
+    dCio  = dCio.reshape(d_shape + (size_C,) + i_shape + o_shape)
+    dWKCi = dWKCi.reshape(d_shape + WK_shape + (size_C,) + i_shape)
+
+    dWKCo = _grouped_einsum(xnp, use_jax, 'd...Ci,dCio->d...Co', dWKCi, dCio)
+
+    dWKCo = dWKCo.reshape(d_shape + WK_shape + C_shape + o_shape)
+    return dWKCo
 
 
 def dWCi_dKCio_to_dWKCo(
@@ -2248,7 +2354,11 @@ def dWo_dWKCa_to_dWKCao(
         dWKCa: NDArray,  # d + W + K + C + (a,)
 ) -> NDArray:            # d + W + K + C + (a, o)
     """d-prefixed uniform twin of :py:func:`Wo_WKCa_to_WKCao` (assemble_tucker_variations, keep W).
-    K and C ride as one combined block X (no operand carries C without K)."""
+
+    ``W`` is SHARED (on both operands, self-inferred from the W-only probe supercore ``dWo``) and gets a
+    letter, as does the core index ``d``. ``K`` and ``C`` are PASSIVE (on ``dWKCa`` alone, riding to the
+    output), so they ride as ``'...'`` with every axis intact -- neither fused with each other nor
+    flattened. See the SHARDING block in the module docstring."""
     use_jax = tree_contains_jax((dWo, dWKCa))
     xnp, _, _ = get_backend(True, use_jax)
 
@@ -2256,15 +2366,14 @@ def dWo_dWKCa_to_dWKCao(
     W_shape = dWo.shape[1:-1]
     o_shape = (dWo.shape[-1],)
     a_shape = (dWKCa.shape[-1],)
-    KC_shape = dWKCa.shape[1 + len(W_shape):-1]
+    KC_shape = dWKCa.shape[1 + len(W_shape):-1]   # K + C, individual axes under '...'
 
     size_W = math.prod(W_shape)
-    size_KC = math.prod(KC_shape)
 
     dWo   = dWo.reshape(d_shape + (size_W,) + o_shape)
-    dWKCa = dWKCa.reshape(d_shape + (size_W, size_KC) + a_shape)
+    dWKCa = dWKCa.reshape(d_shape + (size_W,) + KC_shape + a_shape)
 
-    dWKCao = _grouped_einsum(xnp, use_jax, 'dWo,dWXa->dWXao', dWo, dWKCa)
+    dWKCao = _grouped_einsum(xnp, use_jax, 'dWo,dW...a->dW...ao', dWo, dWKCa)
 
     dWKCao = dWKCao.reshape(d_shape + W_shape + KC_shape + a_shape + o_shape)
     return dWKCao
@@ -2274,7 +2383,13 @@ def dWo_dWKCa_to_dKCao(
         dWo:   NDArray,  # d + W + (o,)           -- W-only probe vector, self-pins len(W)
         dWKCa: NDArray,  # d + W + K + C + (a,)
 ) -> NDArray:            # d + K + C + (a, o)
-    """d-prefixed uniform twin of :py:func:`Wo_WKCa_to_KCao` (assemble_tucker_variations, sum W)."""
+    """d-prefixed uniform twin of :py:func:`Wo_WKCa_to_KCao` (assemble_tucker_variations, sum W).
+
+    ``W`` is SHARED (on both operands, self-inferred from the W-only probe supercore ``dWo``) and gets a
+    letter -- here it is summed, so it is absent from the output; the core index ``d`` keeps its letter.
+    ``K`` and ``C`` are PASSIVE (on ``dWKCa`` alone, riding to the output), so they ride as ``'...'`` with
+    every axis intact -- neither fused with each other nor flattened. See the SHARDING block in the module
+    docstring."""
     use_jax = tree_contains_jax((dWo, dWKCa))
     xnp, _, _ = get_backend(True, use_jax)
 
@@ -2282,15 +2397,14 @@ def dWo_dWKCa_to_dKCao(
     W_shape = dWo.shape[1:-1]
     o_shape = (dWo.shape[-1],)
     a_shape = (dWKCa.shape[-1],)
-    KC_shape = dWKCa.shape[1 + len(W_shape):-1]
+    KC_shape = dWKCa.shape[1 + len(W_shape):-1]   # K + C, individual axes under '...'
 
     size_W = math.prod(W_shape)
-    size_KC = math.prod(KC_shape)
 
     dWo   = dWo.reshape(d_shape + (size_W,) + o_shape)
-    dWKCa = dWKCa.reshape(d_shape + (size_W, size_KC) + a_shape)
+    dWKCa = dWKCa.reshape(d_shape + (size_W,) + KC_shape + a_shape)
 
-    dKCao = _grouped_einsum(xnp, use_jax, 'dWo,dWXa->dXao', dWo, dWKCa)
+    dKCao = _grouped_einsum(xnp, use_jax, 'dWo,dW...a->d...ao', dWo, dWKCa)
 
     dKCao = dKCao.reshape(d_shape + KC_shape + a_shape + o_shape)
     return dKCao
@@ -2631,13 +2745,31 @@ def dtWKCi_dCio_to_dtWKCo(
         dCio:   NDArray,  # d + C + (i, o)            -- frame Tucker core (C-only)
 ) -> NDArray:             # d + t + W + K + C + (o,)  -- lifted jet
     """d-prefixed uniform twin of :py:func:`tWKCi_Cio_to_tWKCo` (assemble_tangent_z_jets term1). Passive
-    Tucker lift, and ``dCio`` is C-only, so this is exactly :py:func:`dtWCi_dCio_to_dtWCo` with the outer
-    block ``W+K``. Delegates to it.
+    order-threaded Tucker lift (no ``trs``) through the C-only frame Tucker supercore.
 
-    **Sharding-safe:** it fuses ``W+K`` but NOT ``t`` -- ``K`` is to ``W``'s right, so ``W`` stays the
-    major member of the flattened block (module docstring, the SHARDING block). Do not
-    "simplify" this into the t-folding :py:func:`dWCi_dCio_to_dWCo`."""
-    return dtWCi_dCio_to_dtWCo(dtWKCi, dCio)
+    ``C`` is SHARED (on both operands; ``dCio`` pins ``len(C)``) and gets a letter, as do the single passive
+    axes ``d`` and ``t``. ``W`` and ``K`` are PASSIVE (on ``dtWKCi`` alone, riding to the output), so they
+    ride as ``'...'`` with every axis intact -- nothing fused or flattened across them. See the SHARDING
+    block in the module docstring."""
+    use_jax = tree_contains_jax((dtWKCi, dCio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dCio.shape[0],)
+    C_shape = dCio.shape[1:-2]
+    i_shape = (dCio.shape[-2],)
+    o_shape = (dCio.shape[-1],)
+    t_shape = (dtWKCi.shape[1],)
+    WK_shape = dtWKCi.shape[2:-(len(C_shape) + 1)]   # W + K, individual axes under '...'
+
+    size_C = math.prod(C_shape)
+
+    dCio   = dCio.reshape(d_shape + (size_C,) + i_shape + o_shape)
+    dtWKCi = dtWKCi.reshape(d_shape + t_shape + WK_shape + (size_C,) + i_shape)
+
+    dtWKCo = _grouped_einsum(xnp, use_jax, 'dt...Ci,dCio->dt...Co', dtWKCi, dCio)
+
+    dtWKCo = dtWKCo.reshape(d_shape + t_shape + WK_shape + C_shape + o_shape)
+    return dtWKCo
 
 
 def dtWCi_dKCio_to_dtWKCo(
@@ -2799,13 +2931,32 @@ def dtWKCo_dCio_to_dtWKCi(
         dCio:   NDArray,  # d + C + (i, o)            -- frame Tucker core (C-only)
 ) -> NDArray:             # d + t + W + K + C + (i,)  -- adjoint-up jet (deta_tilde), K rides through
     """d-prefixed uniform twin of :py:func:`tWKCo_Cio_to_tWKCi` (compute_deta_tilde_jets). Passive adjoint
-    lift, and ``dCio`` is C-only (shared-C), so this is exactly :py:func:`dtWCo_dCio_to_dtWCi` with the
-    outer block ``W+K``. Delegates to it.
+    lift: contract the ambient mode ``o`` against the C-only frame Tucker supercore, order ``t`` riding
+    through.
 
-    **Sharding-safe:** it fuses ``W+K`` but NOT ``t`` -- ``K`` is to ``W``'s right, so ``W`` stays the
-    major member of the flattened block (module docstring, the SHARDING block). Do not
-    "simplify" this into the t-folding :py:func:`dWCo_dCio_to_dWCi`."""
-    return dtWCo_dCio_to_dtWCi(dtWKCo, dCio)
+    ``C`` is SHARED (on both operands; ``dCio`` pins ``len(C)``) and gets a letter, as do the single passive
+    axes ``d`` and ``t``. ``W`` and ``K`` are PASSIVE (on ``dtWKCo`` alone, riding to the output), so they
+    ride as ``'...'`` with every axis intact -- nothing fused or flattened across them. See the SHARDING
+    block in the module docstring."""
+    use_jax = tree_contains_jax((dtWKCo, dCio))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    d_shape = (dCio.shape[0],)
+    C_shape = dCio.shape[1:-2]
+    i_shape = (dCio.shape[-2],)
+    o_shape = (dCio.shape[-1],)
+    t_shape = (dtWKCo.shape[1],)
+    WK_shape = dtWKCo.shape[2:-(len(C_shape) + 1)]   # W + K, individual axes under '...'
+
+    size_C = math.prod(C_shape)
+
+    dCio   = dCio.reshape(d_shape + (size_C,) + i_shape + o_shape)
+    dtWKCo = dtWKCo.reshape(d_shape + t_shape + WK_shape + (size_C,) + o_shape)
+
+    dtWKCi = _grouped_einsum(xnp, use_jax, 'dt...Co,dCio->dt...Ci', dtWKCo, dCio)
+
+    dtWKCi = dtWKCi.reshape(d_shape + t_shape + WK_shape + C_shape + i_shape)
+    return dtWKCi
 
 
 def trs_dtWKCa_dCaib_dsWCb_to_duWKCi(
@@ -2955,18 +3106,23 @@ def dtWCa_dtWKCo_to_dKCao(dtWCa, dtWKCo, n_probe):
 def _assemble_dU_dxi_d(duWKCa, duWo, keep_W):
     '''d-prefixed twin of :py:func:`_assemble_dU_dxi`: dU_tilde dxi_tilde (x) w_jet term (order-diagonal sum
     over u). Both operands carry ``d`` (shape[0]) then order u (shape[1]); dxi_tilde carries K; the w_jet is
-    W-only (self-pins W, no C). K and C ride combined (block X). ``d`` rides through.'''
+    W-only (self-pins W, no C).
+
+    ``d``, the order axis ``u`` (summed) and the SHARED ``W`` (self-pinned by the W-only w_jet) each keep
+    their own letter. ``K`` and ``C`` are PASSIVE (on ``duWKCa`` alone, riding to the output), so they ride
+    as ``'...'`` with every axis intact -- neither fused with each other nor flattened. See the SHARDING
+    block in the module docstring.'''
     use_jax = tree_contains_jax((duWKCa, duWo))
     xnp, _, _ = get_backend(True, use_jax)
     d_shape = (duWo.shape[0],)
     W_shape = duWo.shape[2:-1]
     o_shape, a_shape = (duWo.shape[-1],), (duWKCa.shape[-1],)
-    KC_shape = duWKCa.shape[2 + len(W_shape):-1]
-    size_W, size_KC = math.prod(W_shape), math.prod(KC_shape)
-    duWKCa = duWKCa.reshape(d_shape + (duWKCa.shape[1], size_W, size_KC) + a_shape)
+    KC_shape = duWKCa.shape[2 + len(W_shape):-1]   # K + C, individual axes under '...'
+    size_W = math.prod(W_shape)
+    duWKCa = duWKCa.reshape(d_shape + (duWKCa.shape[1], size_W) + KC_shape + a_shape)
     duWo   = duWo.reshape(d_shape + (duWo.shape[1], size_W) + o_shape)
     out = _grouped_einsum(xnp, use_jax,
-                          'duWXa,duWo->dWXao' if keep_W else 'duWXa,duWo->dXao', duWKCa, duWo)
+                          'duW...a,duWo->dW...ao' if keep_W else 'duW...a,duWo->d...ao', duWKCa, duWo)
     return out.reshape(d_shape + (W_shape if keep_W else ()) + KC_shape + a_shape + o_shape)
 
 

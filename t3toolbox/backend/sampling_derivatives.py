@@ -367,7 +367,7 @@ def assemble_z_jets(
 
     if is_uniform:
         # d-prefixed jet lift (3b-6'a); the ragged xmap below is the oracle. The order axis rides passively
-        # through the C-only tucker supercore (delegates to the plain dWCi_dCio_to_dWCo, t folded into W).
+        # through the C-only tucker supercore, keeping its own einsum letter (never folded into W).
         z_jets = contractions.dtWCi_dCio_to_dtWCo(eta_jets, tucker_cores)
     else:
         def _func(data):
@@ -662,7 +662,7 @@ def assemble_tangent_z_jets(
 
     if is_uniform:
         # d-prefixed jet lifts (3b-6'a); the ragged xmap below is the oracle. deta carries K (lifted via the
-        # C-only U supercore, which fuses W+K); eta is W+C lifted through the K+C variation tucker core dU,
+        # C-only U supercore, where W and K ride passively); eta is W+C lifted through the K+C variation core dU,
         # so the eta-lift needs len(C) = n_frame, read off the C-only U supercore (d,)+C+(nU,N).
         n_frame = tucker_cores.ndim - 3
         term1 = contractions.dtWKCi_dCio_to_dtWKCo(deta_jets, tucker_cores)
@@ -671,7 +671,7 @@ def assemble_tangent_z_jets(
     else:
         def _func(data):
             U, dU, eta_jet, deta_jet = data
-            # Three-group (W,K,C): deta carries K (lift via the C-only U fuses W+K); eta is W+C and dU is
+            # Three-group (W,K,C): deta carries K (in the lift via the C-only U, W and K ride passively); eta is W+C and dU is
             # the variation core (K+C), so the eta-lift needs len(C) -- recovered from the C-only U.
             n_frame = U.ndim - 2
             return (contractions.tWKCi_Cio_to_tWKCo(deta_jet, U)
@@ -1013,7 +1013,7 @@ def compute_deta_tilde_jets(
 
     if is_uniform:
         # d-prefixed adjoint lift (3b-6'a); the ragged xmap is the oracle. The order axis rides passively
-        # through the C-only U supercore (delegates to the shared-C dWCo_dCio_to_dWCi, t+W+K folded into W).
+        # through the C-only U supercore, keeping its own einsum letter (t, W and K are never folded).
         deta_tildes = contractions.dtWKCo_dCio_to_dtWKCi(ztildes, up_tucker_cores)
     else:
         def _func(data):
