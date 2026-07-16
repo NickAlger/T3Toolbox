@@ -1,5 +1,9 @@
 # `contractions.py`: stop folding the order axis into the W block — plan
 
+_**S1-S4 SHIPPED (`345dad57`). Partly superseded: Nick's decision to UNFUSE EVERYTHING supersedes this
+note's "leave the W+K folds alone" -- see `dev/contractions_unfusing_plan.md`, which also records the 4
+INTERNAL fusions that this note's delegation-detector structurally could not see.**_
+
 _Started 2026-07-15. Source: the T3Polynomial survey, `/home/nick/repos/T3Polynomial/dev/t3toolbox-upstream-notes.md`
 §"`contractions.py`: order-axis folding blocks W-sharding". **That note's survey is confirmed and its one
 open caveat is now resolved — measured, not reasoned (§2).** Scope: 5 functions, a module-docstring
