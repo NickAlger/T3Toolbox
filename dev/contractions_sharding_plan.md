@@ -130,41 +130,58 @@ the outer W block" sentence (it becomes false) and gain a pointer to the invaria
 4. **S4 — promote** the invariant to `docs/contributor/` (it is a durable design record, not a dev note)
    and archive this plan.
 
-## 7. Questions for Nick
+## 7. Decisions (Nick, 2026-07-15)
 
-1. **Is sharding-friendliness a library concern?** My read: yes. The uniform layer exists for GPU/jit, the
-   fix is a provable numerical no-op, the cost is noise-level, and the alternative is that the library
-   silently blocks a legitimate use its own design points at. It is also not T3Polynomial-specific — any
-   data-parallel user hits it. But it is currently *unused* capability, which is the honest counterargument.
-2. **Do you want the multi-device HLO regression test (S3)?** It is the difference between a documented
-   invariant and an enforced one — and this whole issue exists *because* the invariant was invisible. My
-   read: yes, precisely because nothing else can see it. The cost is a test that manipulates `XLA_FLAGS`
-   and skips without jax.
-3. **The ~5–8% numpy cost** on the 2-operand path (§2). Acceptable to buy the sharding property? My read:
-   yes (it is one extra axis to iterate, and the jax path is where this matters), but you own the
-   perf/generality trade.
+1. **Sharding-friendliness IS a library concern** — specifically w.r.t. the sample `W` group/stack. The
+   plan proceeds.
+2. **The multi-device HLO regression test is wanted** (S3). It is the difference between a documented
+   invariant and an enforced one, and this issue exists *because* the invariant was invisible to every
+   existing test.
+3. The ~5–8% numpy cost of the explicit form (§2) rides along with (1) — it is noise-level next to the
+   property it buys, and the jax path (where this matters) is a wash or slightly faster.
 
-## 8. Adjacent finding — OUT OF SCOPE, flagged not fixed
+## 8. Adjacent: the numpy 2-operand `optimize` question — OUT OF SCOPE, and NOT the one-liner I first claimed
 
-While measuring §2 I hit something unrelated and possibly worth more than this whole plan. `_grouped_einsum`
-says:
+While measuring §2 I noticed `_grouped_einsum`'s claim:
 
 > *"2-operand contractions are already BLAS, so they pass straight through on both."*
 
-For numpy that appears to be **false**. "Passing straight through" means `np.einsum(sub, a, b)` with
-numpy's default `optimize=False`, which does *not* use BLAS — it runs the naive `c_einsum` loop.
-Measured, same subscripts and data, `optimize=False` vs `optimize=True`:
+and first reported it as simply false with a ~2–7× one-line fix. **That was wrong** — or rather, half
+right in a way that matters. Nick supplied the missing context (`optimize=True` was tried and was ~50×
+*slower*), and measuring both regimes together reconciles it:
 
-| contraction | opt=False | opt=True | ratio |
+**Regime A — MULTI-operand (3+). The existing design is right, and the effect is large.** numpy's own
+optimizer picks a FLOP-tied path that stays inside a single non-BLAS `c_einsum`; the forced greedy
+pairwise path makes every step 2-operand and BLAS-eligible:
+
+| contraction | opt=False | opt=True | `_pairwise_path` |
 |---|---|---|---|
-| `dWCi,dCio->dWCo` (3,2048,4,8) | 3954µs | 2219µs | **1.8×** |
-| `dWCi,dCio->dWCo` (3,128,4,8) | 199µs | 55µs | **3.6×** |
-| `WCi,Cio->WCo` (4096,4,8) | 2524µs | 378µs | **6.7×** |
-| `WCa,Caib->WCib` (2048,4,8) | 2536µs | 793µs | **3.2×** |
+| `Wa,Caib,Wi->WCb` (3 ops) | 2757µs | 2789µs | **2201µs** |
+| `WCa,Caib,WCi->WCb` (3 ops) | 3813µs | 2843µs | **1754µs** |
+| `trs,rWCa,Caib,sWCb->tWCi` (4 ops) | 162903µs | 159744µs | **7388µs** (**22×**) |
 
-If this holds up, **every 2-operand numpy contraction in the file is leaving ~2–7× on the table**, and the
-fix is one line (`optimize=True` unconditionally, or extend `_pairwise_path` to the 2-operand case).
-Caveats: these are laptop microbenchmarks on one BLAS build, and `optimize=True` has its own path-finding
-overhead that can dominate at small sizes — so this needs the analytic argument and a size sweep, not my
-say-so. Deliberately **not** folded into this plan: different problem, different evidence, and the numpy
-path is not what T3Polynomial cares about. Worth its own thread.
+That is Nick's 50× — confirmed in kind. `_pairwise_path` is doing real work and must not be touched.
+
+**Regime B — 2-operand. The claim is false but the EFFECT is a defensible default**, because there is a
+genuine crossover. The short-circuit hands numpy `optimize=False` → `c_einsum`, no BLAS. Forcing the path
+(`_pairwise_path` already returns the correct `('einsum_path', (0,1))` for 2 operands) buys BLAS but pays
+a **fixed ~20–25µs** dispatch overhead. Sweeping `W` on `'WCi,Cio->WCo'` (C=4, i=o=8):
+
+| W | 1 | 8 | 32 | **64** | 128 | 512 | 2048 | 8192 |
+|---|---|---|---|---|---|---|---|---|
+| speedup of forcing the path | **0.1×** | **0.3×** | **0.7×** | 1.8× | 2.2× | 5.0× | 9.0× | 8.7× |
+
+**It loses up to 10× below W≈64 and wins up to 9× above it.** On a degenerate contraction (C=1, i=o=1)
+passthrough always wins. So this is a **regime-dependent tradeoff, not a bug with a one-line fix** — which
+is exactly the shape of question that should not be settled by a laptop microbenchmark. The analytic part
+is solid and portable (numpy einsum without a path is `c_einsum`, never BLAS; with a path it dispatches to
+`tensordot`); the *crossover* is BLAS-build- and shape-dependent, and the library is general-purpose.
+
+**Also not free numerically:** the BLAS path is **not** bit-identical (rel diff ~1.7e-16, one ULP —
+`c_einsum` and `tensordot` sum in different orders). Within the dense-oracle tolerance, but any test
+asserting bit-equality would move.
+
+So: the docstring's *claim* needs correcting either way (it says "already BLAS"; they are not). Whether
+the *behavior* should change needs a size-aware rule and an analytic argument — a real thread with a real
+design question (where is the crossover, is `W` reliably large in the library's own inner loops, and does
+a general-purpose library get to assume that?). **Not folded into this plan.**
