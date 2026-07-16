@@ -858,6 +858,169 @@ def compute_deta_jets(
     return deta_jets
 
 
+def compute_deta_jets_scanned(
+        var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
+        left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
+        right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+        mu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
+        nu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
+        sigma_jets:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
+        tau_jets:       typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
+        trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
+) -> typ.Tuple[NDArray, ...]:                   # deta_jets. len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
+    '''EXPERIMENTAL memory-lean mirror of :py:func:`compute_deta_jets` (module-private).
+
+    The three-term tangent analog of :py:func:`compute_eta_jets_scanned`: ``deta_i = sigma Q nu +
+    mu dG nu + mu P tau``, three FULL convolutions (mode ``i`` free). The dense uniform d-einsum forms
+    the ``(order+1)*W*K*r^2`` spatial product for every core at once; this scans the input order ``r``
+    (one order slice of ``jetL . core`` live at a time) and folds in all of the right jet + the
+    binomial weights -- peak ``W*K*r^2``. The K tangent stack sits on a *different* operand in each
+    term (sigma / dG / tau), so W, K, C are flattened to explicit blocks (K rides). Memory win needs
+    the uniform path (real ``lax.map``/``lax.scan``); see :py:func:`compute_eta_jets_scanned`. Verified
+    equal to :py:func:`compute_deta_jets` to 1e-12.
+    '''
+    use_jax = tree_contains_jax((var_tt_cores, left_tt_cores, right_tt_cores,
+                                 mu_jets, nu_jets, sigma_jets, tau_jets, trs))
+    xnp, xmap, xscan = get_backend(is_ndarray(var_tt_cores), use_jax)
+    order = trs.shape[0] - 1
+    trs_r = xnp.moveaxis(trs, 1, 0)                   # (r, t, s) -- scan leads on the left order r
+
+    def _func(data):
+        P, Q, dG, mu_jet, nu_jet, sigma_jet, tau_jet = data
+        C_shape = Q.shape[:-3]                        # Q is C+(a,i,b)
+        nf = len(C_shape)
+        i = Q.shape[-2]                               # mode nU (shared, free); bonds differ per term
+        a_mu, a_sig = mu_jet.shape[-1], sigma_jet.shape[-1]
+        b_nu, b_tau = nu_jet.shape[-1], tau_jet.shape[-1]
+        nW = mu_jet.ndim - 2 - nf                     # mu is (order+1,)+W+C+(a,)
+        W_shape = mu_jet.shape[1:1 + nW]
+        nK = (sigma_jet.ndim - 2) - nW - nf           # sigma is (order+1,)+W+K+C+(a,)
+        K_shape = sigma_jet.shape[1 + nW:1 + nW + nK]
+        sW, sK, sC = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
+
+        Qf = Q.reshape((sC, a_sig, i, b_nu))
+        Pf = P.reshape((sC, a_mu, i, b_tau))
+        dGf = dG.reshape((sK, sC, a_mu, i, b_nu))
+        mu_f = mu_jet.reshape((order + 1, sW, sC, a_mu))
+        nu_f = nu_jet.reshape((order + 1, sW, sC, b_nu))
+        sig_f = sigma_jet.reshape((order + 1, sW, sK, sC, a_sig))
+        tau_f = tau_jet.reshape((order + 1, sW, sK, sC, b_tau))
+
+        def _step(eta, xr):
+            mu_r, sig_r, trsr = xr                                       # (sW,sC,a) ; (sW,sK,sC,a) ; (t,s)
+            mg1 = xnp.einsum('WKCa,Caib->WKCib', sig_r, Qf)              # term1: sigma Q nu  (K on sigma)
+            mgn1 = xnp.einsum('WKCib,sWCb->sWKCi', mg1, nu_f)
+            mg2 = xnp.einsum('WCa,KCaib->WKCib', mu_r, dGf)             # term2: mu dG nu    (K on core)
+            mgn2 = xnp.einsum('WKCib,sWCb->sWKCi', mg2, nu_f)
+            mg3 = xnp.einsum('WCa,Caib->WCib', mu_r, Pf)               # term3: mu P tau    (K on tau)
+            mgn3 = xnp.einsum('WCib,sWKCb->sWKCi', mg3, tau_f)
+            contrib = xnp.einsum('ts,sWKCi->tWKCi', trsr, mgn1 + mgn2 + mgn3)
+            return eta + contrib, ()
+
+        eta0 = xnp.zeros((order + 1, sW, sK, sC, i), mu_jet.dtype)
+        eta, _ = xscan(_step, eta0, (mu_f, sig_f, trs_r))
+        return (eta.reshape((order + 1,) + W_shape + K_shape + C_shape + (i,)),)
+
+    (deta_jets,) = xmap(_func, (left_tt_cores, right_tt_cores, var_tt_cores,
+                                mu_jets, nu_jets, sigma_jets, tau_jets))
+    return deta_jets
+
+
+def _sigma_banded_step(sigma_jet, Q, O, dG, xi_jet, dxi_jet, mu_jet, s_size, tvec, order, xnp):
+    '''One K-aware banded step of the sigma recursion: the three affine pushthroughs of
+    :py:func:`_sigma_jet_step` as fused two-term recurrences (no trs). W, K, C flattened; K rides on
+    the carried sigma (t1), the variation core dG (t2), or the var input dxi (t3).'''
+    C_shape = Q.shape[:-3]
+    nf = len(C_shape)
+    nU, nO = Q.shape[-2], O.shape[-2]
+    a_sig, a_mu, b = sigma_jet.shape[-1], mu_jet.shape[-1], Q.shape[-1]   # b = output bond rR(i+1)
+    nW = xi_jet.ndim - 2 - nf
+    W_shape = xi_jet.shape[1:1 + nW]
+    nK = dxi_jet.ndim - 2 - nW - nf
+    K_shape = dxi_jet.shape[1 + nW:1 + nW + nK]
+    sW, sK, sC = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
+
+    Qf = Q.reshape((sC, a_sig, nU, b))
+    dGf = dG.reshape((sK, sC, a_mu, nU, b))
+    Of = O.reshape((sC, a_mu, nO, b))
+    xi_f = xi_jet[:s_size].reshape((s_size, sW, sC, nU))
+    dxi_f = dxi_jet[:s_size].reshape((s_size, sW, sK, sC, nO))
+    sig_f = sigma_jet.reshape((order + 1, sW, sK, sC, a_sig))
+    mu_f = mu_jet.reshape((order + 1, sW, sC, a_mu))
+
+    Qxi = xnp.einsum('Caib,sWCi->sWCab', Qf, xi_f)          # (s,W,C,a,b)   -- no K
+    dGxi = xnp.einsum('KCaib,sWCi->sWKCab', dGf, xi_f)      # (s,W,K,C,a,b) -- K on core
+    Odxi = xnp.einsum('Caib,sWKCi->sWKCab', Of, dxi_f)      # (s,W,K,C,a,b) -- K on var input
+
+    def stacked(jet_f):     # (order+1,...,a) -> (s=2,)+... = [jet^(t), t*jet^(t-1)]
+        t_b = tvec.reshape((order + 1,) + (1,) * (jet_f.ndim - 1))
+        shifted = xnp.concatenate([xnp.zeros_like(jet_f[:1]), jet_f[:-1]], axis=0)
+        return xnp.stack([jet_f, t_b * shifted], axis=0)
+
+    if s_size > 1:
+        t1 = xnp.einsum('stWKCa,sWCab->tWKCb', stacked(sig_f), Qxi)     # K on sigma
+        t2 = xnp.einsum('stWCa,sWKCab->tWKCb', stacked(mu_f), dGxi)     # K on core
+        t3 = xnp.einsum('stWCa,sWKCab->tWKCb', stacked(mu_f), Odxi)     # K on var input
+    else:                                                              # order 0: only s=0
+        t1 = xnp.einsum('tWKCa,WCab->tWKCb', sig_f, Qxi[0])
+        t2 = xnp.einsum('tWCa,WKCab->tWKCb', mu_f, dGxi[0])
+        t3 = xnp.einsum('tWCa,WKCab->tWKCb', mu_f, Odxi[0])
+    return (t1 + t2 + t3).reshape((order + 1,) + W_shape + K_shape + C_shape + (b,))
+
+
+def compute_sigma_jets_banded(
+        var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
+        right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+        down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+        xi_jets:        typ.Sequence[NDArray],  # frame input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
+        dxi_jets:       typ.Sequence[NDArray],  # var  input jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
+        mu_jets:        typ.Sequence[NDArray],  # frame left jets,  len=d, elm_shape=(order+1,)+W+C+(rLi,)
+        trs:            NDArray,                # binomial tensor -- ONLY its shape (order) is read here
+) -> typ.Tuple[NDArray, ...]:                   # sigma_jets. len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
+    '''EXPERIMENTAL banded mirror of :py:func:`compute_sigma_jets` (module-private).
+
+    The three-pushthrough tangent analog of :py:func:`compute_mu_jets_banded_fused`. Both input jets
+    (``xi``, ``dxi``) are affine (size 2), so each of the three pushthroughs
+    (``sigma Q(xi) + mu dG(xi) + mu O(dxi)``) is a fused two-term recurrence rather than a dense ``trs``
+    contraction. The K tangent stack rides on the carried sigma / the variation core / the var input.
+    Verified equal to :py:func:`compute_sigma_jets` to 1e-12.
+    '''
+    use_jax = tree_contains_jax((var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs))
+    xnp, xmap, xscan = get_backend(is_ndarray(var_tt_cores), use_jax)
+    order = trs.shape[0] - 1
+    s_size = min(2, order + 1)
+    tvec = xnp.arange(order + 1)
+
+    def _func(sigma_jet, data):
+        Q, O, dG, xi_jet, dxi_jet, mu_jet = data
+        return _sigma_banded_step(sigma_jet, Q, O, dG, xi_jet, dxi_jet, mu_jet,
+                                  s_size, tvec, order, xnp), (sigma_jet,)
+
+    stack_shape = dxi_jets[0].shape[1:-1]
+    rR0 = right_tt_cores[0].shape[-3]
+    init = _zero_jet(order, stack_shape, rR0, xnp)
+    _, (sigma_jets,) = xscan(_func, init, (right_tt_cores, down_tt_cores, var_tt_cores, xi_jets, dxi_jets, mu_jets))
+    return sigma_jets
+
+
+def compute_tau_jets_banded(
+        var_tt_cores:   typ.Sequence[NDArray],  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
+        left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
+        down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+        xi_jets:        typ.Sequence[NDArray],  # frame input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
+        dxi_jets:       typ.Sequence[NDArray],  # var  input jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
+        nu_jets:        typ.Sequence[NDArray],  # frame right jets, len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
+        trs:            NDArray,                # binomial tensor -- ONLY its shape (order) is read here
+) -> typ.Tuple[NDArray, ...]:                   # tau_jets. len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
+    '''EXPERIMENTAL banded mirror of :py:func:`compute_tau_jets` -- sigma-banded on the reversed train.'''
+    reverse = tt_operations.tt_reverse
+    rev = compute_sigma_jets_banded(
+        reverse(var_tt_cores), reverse(left_tt_cores),
+        reverse(down_tt_cores), xi_jets[::-1], dxi_jets[::-1], nu_jets[::-1], trs,
+    )
+    return rev[::-1]
+
+
 def assemble_tangent_z_jets(
         tucker_cores:       typ.Sequence[NDArray],  # U.  len=d, elm_shape=C+(nUi,Ni)
         var_tucker_cores:   typ.Sequence[NDArray],  # dU. len=d, elm_shape=K+C+(nOi,Ni)

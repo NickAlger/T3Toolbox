@@ -95,5 +95,56 @@ class TestEtaJetsScanned(TestMuJetsBanded):
                                 self.assertLess(rel, 1e-12, 'core %d: rel err %.2e' % (k, rel))
 
 
+class TestForwardTangentJets(unittest.TestCase):
+    """The forward-Jacobian tangent jets (sigma/tau banded, deta scanned) must equal the trs versions,
+    over the K-stacked shapes of test_probe_derivatives.test_tangent_derivatives_K_stacked."""
+
+    import t3toolbox.frame_variations_format as _bvf
+    import t3toolbox.manifold as _t3m
+
+    def _tangent_inputs(self, STRUCT, W, K, C, ORDER, rng):
+        x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
+        frame, _ = self._bvf.t3_orthogonal_representations(x)
+        v = self._t3m.COREWISE.randn(frame, stack_shape=K)
+        up, down, left, right = frame.data
+        dU, dG = v.variations.data
+        shapes = STRUCT[0]
+        ww = [rng.standard_normal(W + (n,)) for n in shapes]
+        pp = [rng.standard_normal(W + (n,)) for n in shapes]
+        xi = pd.build_input_jets(pd.compute_xi(up, ww), pd.compute_xi(up, pp))
+        dxi = pd.build_input_jets(pd.compute_xi(dU, ww), pd.compute_xi(dU, pp))
+        trs = pd.binomial_combine_tensor(ORDER)
+        mu = pd.compute_mu_jets(left, xi, trs)
+        nu = pd.compute_nu_jets(right, xi, trs)
+        return dict(dG=dG, P=left, Q=right, O=down, xi=xi, dxi=dxi, mu=mu, nu=nu, trs=trs)
+
+    def _close(self, got, ref, tag):
+        self.assertEqual(len(got), len(ref))
+        for k in range(len(ref)):
+            a, b = np.asarray(got[k]), np.asarray(ref[k])
+            self.assertEqual(a.shape, b.shape)
+            denom = np.linalg.norm(b)
+            rel = np.linalg.norm(a - b) / denom if denom else np.linalg.norm(a)
+            self.assertLess(rel, 1e-12, '%s core %d: rel %.2e' % (tag, k, rel))
+
+    def test_forward_tangent_jets_match_trs(self):
+        rng = np.random.default_rng(0)
+        STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        for W, K, C in [((), (), ()), ((), (3,), ()), ((2,), (3,), (2,)), ((2, 2), (2,), (2,))]:
+            for ORDER in [0, 1, 2, 3]:
+                with self.subTest(W=W, K=K, C=C, ORDER=ORDER):
+                    d = self._tangent_inputs(STRUCT, W, K, C, ORDER, rng)
+                    s_ref = pd.compute_sigma_jets(d['dG'], d['Q'], d['O'], d['xi'], d['dxi'], d['mu'], d['trs'])
+                    s_got = pd.compute_sigma_jets_banded(d['dG'], d['Q'], d['O'], d['xi'], d['dxi'], d['mu'], d['trs'])
+                    t_ref = pd.compute_tau_jets(d['dG'], d['P'], d['O'], d['xi'], d['dxi'], d['nu'], d['trs'])
+                    t_got = pd.compute_tau_jets_banded(d['dG'], d['P'], d['O'], d['xi'], d['dxi'], d['nu'], d['trs'])
+                    self._close(s_got, s_ref, 'sigma')
+                    self._close(t_got, t_ref, 'tau')
+
+                    dt_ref = pd.compute_deta_jets(d['dG'], d['P'], d['Q'], d['mu'], d['nu'], s_ref, t_ref, d['trs'])
+                    dt_got = pd.compute_deta_jets_scanned(d['dG'], d['P'], d['Q'], d['mu'], d['nu'], s_got, t_got, d['trs'])
+                    self._close(dt_got, dt_ref, 'deta')
+
+
 if __name__ == '__main__':
     unittest.main()
