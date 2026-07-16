@@ -1610,27 +1610,14 @@ def assemble_tucker_variation_jets_scanned(
     dense = lambda: assemble_tucker_variation_jets(*ops, n_probe, sum_over_probes)
     if chunk_size is None or not is_ndarray(etas) or n_probe != 1:
         return dense()
-    xnp, xmap, _ = get_backend(True, tree_contains_jax(ops))
+    use_jax = tree_contains_jax(ops)
+    xnp, _, _ = get_backend(True, use_jax)
     W = etas.shape[2]
     if W <= chunk_size:
         return dense()
-    n_chunks = -(-W // chunk_size)
-    padW = n_chunks * chunk_size
-
-    def _to_chunks(op, wax):
-        pad = [(0, 0)] * op.ndim
-        pad[wax] = (0, padW - W)
-        op = xnp.pad(op, pad)
-        sh = op.shape[:wax] + (n_chunks, chunk_size) + op.shape[wax + 1:]
-        return xnp.moveaxis(op.reshape(sh), wax, 0)
-
-    chunked = tuple(_to_chunks(op, wax) for op, wax in zip(ops, w_axes))
-    (partials,) = xmap(lambda co: (assemble_tucker_variation_jets(*co, n_probe, sum_over_probes),), chunked)
-    if sum_over_probes:                              # reducer = ADD
-        return xnp.sum(partials, axis=0)
-    p = xnp.moveaxis(partials, 1, 0)                 # reducer = CONCAT: (d, n_chunks, chunk_size, ...)
-    p = p.reshape((p.shape[0], padW) + p.shape[3:])
-    return p[:, :W]
+    return _wchunked_reduce(
+        lambda co: assemble_tucker_variation_jets(*co, n_probe, sum_over_probes),
+        ops, w_axes, W, chunk_size, sum_over_probes, 1, use_jax, xnp)
 
 
 def assemble_tt_variation_jets(
@@ -1690,6 +1677,47 @@ def assemble_tt_variation_jets(
     return dG_tildes
 
 
+def _slice_w(op, wax, start, size, use_dyn):
+    '''One W-chunk of ``op`` at axis ``wax`` -- a dynamic slice on jax (traced start), a static slice on
+    numpy. Both are views/fusible: NO copy of the operand (unlike pad+reshape+moveaxis).'''
+    if use_dyn:
+        import jax
+        return jax.lax.dynamic_slice_in_dim(op, start, size, axis=wax)
+    idx = [slice(None)] * op.ndim
+    idx[wax] = slice(start, start + size)
+    return op[tuple(idx)]
+
+
+def _wchunked_reduce(assemble_one, ops, w_axes, W, cs, summed, out_w_axis, use_jax, xnp):
+    '''Copy-free W-chunking. Extract each chunk in place and reduce: ADD if W is summed (the gradient)
+    or CONCAT along ``out_w_axis`` if W is kept. No pad, no reshape, no transpose of the operands (which
+    is what made the old approach duplicate the N-large residual). On jax the summed reduction is a real
+    ``lax.scan`` over the full chunks (dynamic slices) so only one chunk is resident; the remainder is a
+    static slice; chunk 0 seeds the accumulator (and its shape). On numpy it is an eager loop (which
+    frees each chunk anyway).'''
+    def _chunk(start, size, dyn):
+        return tuple(_slice_w(op, wax, start, size, dyn) for op, wax in zip(ops, w_axes))
+    n_full, rem = divmod(W, cs)
+    if summed:
+        acc = assemble_one(_chunk(0, cs, False))                      # chunk 0: init + output shape
+        if use_jax and n_full > 1:
+            import jax
+            import jax.numpy as jnp
+
+            def _step(a, i):
+                return a + assemble_one(tuple(jax.lax.dynamic_slice_in_dim(op, i * cs, cs, wax)
+                                              for op, wax in zip(ops, w_axes))), 0
+            acc, _ = jax.lax.scan(_step, acc, jnp.arange(1, n_full))
+        elif n_full > 1:
+            for k in range(1, n_full):
+                acc = acc + assemble_one(_chunk(k * cs, cs, False))
+        if rem:
+            acc = acc + assemble_one(_chunk(n_full * cs, rem, False))
+        return acc
+    parts = [assemble_one(_chunk(st, min(cs, W - st), False)) for st in range(0, W, cs)]
+    return xnp.concatenate(parts, axis=out_w_axis)
+
+
 def assemble_tt_variation_jets_scanned(
         sigma_tildes:   typ.Sequence[NDArray],
         tau_tildes:     typ.Sequence[NDArray],
@@ -1724,33 +1752,13 @@ def assemble_tt_variation_jets_scanned(
         return dense()
 
     use_jax = tree_contains_jax(ops + (trs,))
-    xnp, xmap, _ = get_backend(True, use_jax)
-    W_axis = 2                                        # uniform supercore: (d, order, W, ...)
-    W = xi_jets.shape[W_axis]
+    xnp, _, _ = get_backend(True, use_jax)
+    W = xi_jets.shape[2]                              # uniform supercore: (d, order, W, ...)
     if W <= chunk_size:
         return dense()
-
-    n_chunks = -(-W // chunk_size)                    # ceil
-    padW = n_chunks * chunk_size
-
-    def _to_chunks(op):
-        pad = [(0, 0)] * op.ndim
-        pad[W_axis] = (0, padW - W)                   # pad W with zeros -> padded rows contribute 0
-        op = xnp.pad(op, pad)
-        sh = op.shape[:W_axis] + (n_chunks, chunk_size) + op.shape[W_axis + 1:]
-        return xnp.moveaxis(op.reshape(sh), W_axis, 0)   # (n_chunks, d, order, chunk_size, ...)
-
-    chunked = tuple(_to_chunks(op) for op in ops)
-    # xmap (lax.map / numpy_map) maps over the leading n_chunks axis; f returns a 1-tuple (numpy_map's
-    # convention), collected as (n_chunks,)+output.
-    (partials,) = xmap(lambda co: (assemble_tt_variation_jets(*co, trs, n_probe, sum_over_probes),), chunked)
-
-    if sum_over_probes:                               # reducer = ADD (W is summed)
-        return xnp.sum(partials, axis=0)
-    # reducer = CONCAT (W kept): partials (n_chunks, d, chunk_size, K,C,a,i,b) -> (d, W, K,C,a,i,b)
-    p = xnp.moveaxis(partials, 1, 0)                  # (d, n_chunks, chunk_size, ...)
-    p = p.reshape((p.shape[0], padW) + p.shape[3:])
-    return p[:, :W]
+    return _wchunked_reduce(
+        lambda co: assemble_tt_variation_jets(*co, trs, n_probe, sum_over_probes),
+        ops, (2,) * len(ops), W, chunk_size, sum_over_probes, 1, use_jax, xnp)
 
 
 def tv_probe_transpose_derivatives_from_sweep(
