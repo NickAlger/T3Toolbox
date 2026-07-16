@@ -512,7 +512,7 @@ def prefix_mask(
     Masks are boolean *structure*; weights are float *parameters* (opposite jax treatment: static aux vs
     traced leaf -- ``docs/contributor/uniform_rank_masks_rationale.md``). Both legitimately need prefix
     indicators, but the weighting layer must never route its *operations* through the masking layer, so
-    the shared mechanics live here and each side calls this (``dev/uniform_weighting_design.md`` §2).
+    the shared mechanics live here and each side calls this (``docs/contributor/weighted_internals.md`` §2).
 
     HOST numpy (``np``, never ``xnp``): a prefix mask is static structure, and a jax mask becomes a tracer
     under jit -- breaking ``int(mask.sum())`` extraction and leaking tracers into ``aux_data``. See

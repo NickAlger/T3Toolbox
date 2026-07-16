@@ -352,7 +352,7 @@ def t3frameweights_to_ut3frameweights(
     The frame-weight twin of :py:func:`t3frame_to_ut3frame`, and simpler: each family is one vector per
     edge, so only the last axis is padded, and there is no physical ``shape`` (weights live on internal
     edges only). The ``C`` stack is carried through untouched -- a frame weight is **frame-like**, so it
-    never grows a ``K`` axis (``dev/uniform_weighting_design.md`` §8.5).
+    never grows a ``K`` axis (``docs/contributor/weighted_internals.md`` §8.5).
 
     Pass ``nU``/``nD``/``rL``/``rR`` to match the padding of the tangent these weights will pair with
     (e.g. from ``frame.uniform_structure``); the defaults pad tightly to the weights' own max ranks.

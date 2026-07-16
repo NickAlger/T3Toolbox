@@ -21,103 +21,33 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Uniform weighting layer — S0–S4 DONE (2026-07-15, committed, NOT pushed). NEXT: S5 (docs sweep) —
-  then the thread closes. Plan: `dev/uniform_weighting_design.md`** (§8 = the settled decisions; §6 = the
-  slices). The uniform mirror is **functionally complete**: `UT3Weights` + `UT3FrameWeights`, both with
-  absorb / weighted_norm / weighted_inner / reciprocal / sqrt / concatenate / kronecker, plus
-  `from_ut3svd` / `from_ut3weights` and the ragged↔uniform conversions, backend + frontend + pytrees.
-  - **S4 was half built and half deliberately dropped (§8.7).** The wiring (classes, methods,
-    `absorb_weights`, the `UT3Tangent` methods) landed inside S1/S3. The clause "+ dispatch inference
-    (ragged vs uniform from the arg)" is **not built, by decision** (Nick, 2026-07-15): the **module IS the
-    dispatch** — the user picks the layer they work in, and the conversion hooks are how they switch. So the
-    weighted surface is parallel and module-scoped (`tucker_tensor_train.absorb_weights` vs
-    `uniform_tucker_tensor_train.absorb_weights`), matching how the root exposes ragged/uniform side by side
-    under distinct names. The optimizers' `isinstance` dispatch is not a counterexample (`newton_cg` is a
-    single entry point with no module to dispatch through). Loose end noted in §8.7: the weighted surface is
-    not re-exported at the package root at all, unlike every other frontend class.
-  - **S3 (done) — the tangent metric.** `UT3FrameWeights` is **frame-like** (stack `C`), and the S0 model
-    pays off exactly as designed: the `C`→`K+C` lift is **free** via the right-aligned `'...'`, which works
-    only because `C` is innermost. Verified bit-identical to a `K`-tiled metric (0.0), and all-ones recovers
-    `corewise_norm`. **Placement note (forced, not preference):** `utv_weighted_norm`/`_inner` live in
-    `utv_operations`, not beside `ufv_absorb_weights` as ragged does — they need `utv_corewise_inner`, and
-    `utv_operations` already imports `ufv_operations`, so the ragged placement would be a circular import.
-  - **S1/S2 (done) — the uniform base-point layer ships**: `UT3Weights` (weight supercores + a `UT3Masks`
-    holder; no `shape` field) + `absorb_weights` / `weighted_norm` / `weighted_inner` / `reciprocal` /
-    `sqrt` / `concatenate` / `kronecker` / `from_ut3svd` + the ragged↔uniform conversions, backend
-    (`ut3_operations` / `ut3_linalg` / `ut3_conversions`) + frontend + pytree. Matches the ragged oracle
-    exactly (absorb 0.0, norm/inner ~1e-12). Tests: `tests/test_uniform_weighted.py`; user doc:
-    `docs/weighting.md` §"On the uniform layer". **Three things a future reader should not re-derive:**
-    (a) **`absorb` needs no masking** — it is a pointwise scale along edge axes, not a reduction, so it is
-    garbage-transparent (the pre-review plan claimed the opposite); as a result `ut3_operations` does not
-    import the masking layer at all, and the wall fell out rather than being imposed. (b) **`reciprocal`
-    must guard the padding** (`1/0 = inf` → `0*inf = nan` poisons masked reductions; the GK metric *is* a
-    reciprocal) but deliberately does **not** guard real-slot zeros. (c) **Uniform adds a mask-equality
-    precondition** ragged gets free from shapes. **Mutation testing earned its keep twice**: it caught that
-    the S1 mismatch test only perturbed the tucker mask (a `weights_consistent` ignoring the tt mask
-    passed), and it confirmed S2's gappy-mask tests kill both plausible-but-wrong prefix masks. Worth
-    repeating on any further mask-carrying op.
-  - **Two side-fixes** (committed separately, both prompted by the wall): `common.prefix_mask` extracted
-    (~8 duplicates across 4 modules), and `require_concrete_masks` moved to `common` — it was already
-    documented as "infrastructure, unprefixed by design" but lived in `ut3_masking`, and **`ufv_masking`
-    still does not use it, so the frame/variation masks are unguarded against traced masks** (pre-existing,
-    not fixed). Plus a stale CI `--ignore` for the S4-deleted parked module.
-  - **S0 (done) — fixed the ragged frame-weight stack model**, which the design review found wrong. It had to
-    go first: the ragged layer is this build's equivalence oracle, so mirroring the bug would have had the
-    oracle certify it. `T3FrameWeights` is **frame-like** (carries the frame stack `C`), but
-    `fv_weights_consistent` demanded the weight match the *variations'* full `K+C` stack, so it **rejected**
-    the canonical Grasedyck-Kramer weight (`from_t3weights(from_t3svd(x))` is `C`-stacked) the moment there
-    was a `K`-stack of tangents at that frame. **No numbers were ever wrong** — the predicate is purely
-    diagnostic (in no enforcement path), and a `C`-only weight already computed bit-identically to a
-    `K`-tiled one (verified, max diff `0.0`; the leading `'...'` lifts `C` over `K` because `C` is innermost).
-    Root cause: at the metric-on-variations design change the implementation moved the *stack* to the
-    variations when only the *absorption target* should have moved — where an object **batches** and what it
-    **acts on** are different questions. Fix as shipped: the **trailing-stack rule** in
-    `fv_weights_consistent` (`check_fv_pair`'s existing frame<->variations rule, with the weight playing the
-    frame's role; stays blind to the frame, non-breaking) + the new **`check_fw_pair(frame, weights)`** guard
-    (`weights.stack_shape == frame.stack_shape` exactly, + ranks vs the frame's variation holes) wired into
-    `T3Tangent.weighted_norm`/`weighted_inner`/`absorb_weights` + docs (`weighting.md` §Batching, the class
-    docstring, `batching_and_stacking.md` — which also had a stale "weighted is parked" line) + tests (the
-    helper built only `K+C` weights, which is why nothing caught it; `test_frame_like_stack` +
-    `test_tangent_rejects_non_frame_stack` added, and the former was **verified to fail against the pre-S0
-    predicate**). `dev/weighted_layer_design.md` §4/§6 marked superseded (they still described the abandoned
-    absorb-into-the-frame design + its doubled-rank `tv_to_t3` norm path). Gates: full suite 654 passed /
-    40,304 subtests; docs `-W` clean.
-  - **Also settled at review (§8)**: mask-guarded `reciprocal`/`sqrt` (`1/0 = inf` -> `0*inf = nan` poisons
-    the GK path — the plan had missed it), `kronecker` ships unpaired (there is no `ut3_mult`), a
-    masking/weighting **conceptual wall** (weighting never calls masking; break shared code into a neutral
-    subfunction) — nearly free, since `absorb` is **garbage-transparent** (pointwise, not a reduction: the
-    pre-review plan's "absorb must mask on entry" was wrong), and `UT3Weights` carries no `shape` field.
-  - **S5 next (the last slice)** — a docs sweep. `docs/weighting.md` already carries the uniform mirror;
-    what remains is promoting the durable rationale into the contributor guide and archiving the design
-    note (the reg-thread pattern), including: **mutation testing caught a hole in my own tests twice**
-    (S1's tucker-only mask perturbation; S3's mismatch test that widened supercores and so was rejected on
-    SHAPE, never reaching the mask check) — the lesson is that a mask check must be isolated, not merely
-    exercised, and it belongs in `docs/contributor/testing_strategy.md` beside the phantom-rank story. The
-    original mirror scope, for reference:
-  `UT3Weights` / `UT3FrameWeights` (weight supercores + boolean masks — reuse `UT3Masks` /
-  `UT3VariationsMasks`; a weight's edges are the object's edges) + masked `absorb` / `weighted_norm`/`inner`
-  / `concatenate` / `kronecker` / conversions / `from_t3svd` / `from_t3weights`. **Lever:** the ragged layer
-  is the equivalence oracle (`to_ragged(op_uniform(to_uniform(x))) == op_ragged(x)`). **Hard part:** the
-  masks — mask on entry (garbage don't-care), and `concat`/`kron` go **gappy** (masks concatenate/Kronecker
-  per `docs/uniform_masks_vs_ranks.md`); `absorb`/`norm`/`inner` keep the mask. Slices S1–S5 + a watch-list
-  (gappy masks, mask-on-entry, host-numpy masks, variable-rank-per-stack tests) in the plan. Ragged layer
-  fully shipped (`T3Weights`/`T3FrameWeights` + all ops + `from_t3svd`/`from_t3weights`, backend+frontend;
-  `docs/weighting.md`, `docs/frame_variations.md`).
-
-- **Weighted tensor-network layer — SHIPPED (S1–S5, 2026-07-15). Plan/record: `dev/weighted_layer_design.md`;
-  user doc: `docs/weighting.md`.** Diagonal edge-weights, lightly (no heavy wrapper). **`T3Weights`**
-  (tucker[d], tt[d+1] = `t3svd` sval format) weights a **`TuckerTensorTrain` as a tensor** — `absorb_weights`
-  / `weighted_norm`/`weighted_inner` / `concatenate`↔`+` / `kronecker`↔`⊙` (Kronecker-of-weights verified
-  1.2e-15) / `from_t3svd`. **`T3FrameWeights`** (up/down/left/right, each len d) is a **metric on a tangent's
-  coordinates** (Grasedyck–Kramer preconditioner) — `T3Tangent.weighted_norm/weighted_inner`, absorbed into
-  the **variation** cores (frame orthonormal). Commits `358860bb`/`059124f1`/`99dcb8b5`/`80354977` + docs.
-  **Key design change during build (see design-note header + §6):** the tangent weight is the
-  **metric-on-variations** (`d` natural edges; the frame's `d+1`-th left/right cores are base-point padding),
-  NOT the tensor-weighting we first sketched — cleaner, `O(ranks)`, and what GK needs. Old parked `wt3_*`
-  layer retired (S4). **Deferred (reachable):** weighted `+`/`⊙`/scale ops + optional thin container; the
-  uniform mirror (weights carry boolean masks); the GK `SingularValueRegularizer`.
-  **Nick reviews the whole thing 2026-07-15** (built autonomously per his request). Follow-ups after review:
-  promote the durable rationale into the rendered contributor guide + archive the design note (reg-thread pattern).
+- **Weighted layer (edge weights) — COMPLETE & SHIPPED, ragged + uniform (2026-07-15). Thread closed;
+  committed, NOT pushed.** Diagonal weights on the internal edges, as a lightweight data format +
+  `absorb` into cores. `T3Weights`/`UT3Weights` weight a **tensor**; `T3FrameWeights`/`UT3FrameWeights`
+  are a **metric on a tangent's coordinates** (Grasedyck-Kramer). All four carry `absorb` /
+  `weighted_norm`/`weighted_inner` / `reciprocal`/`sqrt` / `concatenate`/`kronecker`, plus
+  `from_*svd` / `from_*weights` and ragged<->uniform conversions; frontend free functions are
+  family-prefixed (`t3_`/`ut3_`/`fv_`/`ufv_absorb_weights`) and the whole surface is exported at the
+  package root. Tests: `tests/test_weighted.py`, `tests/test_uniform_weighted.py`.
+  - **Durable knowledge is now in the rendered docs** (build notes archived): user usage ->
+    `docs/weighting.md`; design records -> **`docs/contributor/weighted_internals.md`** (the two-classes
+    reasoning, the metric-on-variations change, the frame-like stack model + the two-level check, the
+    uniform mirror's three traps, placement notes, and what's deferred); the testing lesson ->
+    `docs/contributor/testing_strategy.md` ("Exercising a mask check is not testing it"); the naming rule
+    -> `docs/naming_conventions.md`; the `ut3_norm`/`ut3_inner` gap -> `docs/contributor/deferred_and_rejected.md`.
+    Build records: `dev/archive/weighted_layer_design.md` (ragged), `dev/archive/uniform_weighting_design.md`
+    (uniform; §8 = its decision log). **The rendered docs are authoritative where the archives disagree.**
+  - **Side-fixes that landed with it** (all committed): `common.prefix_mask` extracted (~8 duplicates
+    across 4 modules); `require_concrete_masks` moved to `common` (it is the mask-representation contract,
+    not a `ut3_` family member); a stale CI `--ignore` for the S4-deleted parked module removed; and
+    `docs/batching_and_stacking.md`'s "weighted is parked" line corrected.
+  - **Known gap, surfaced but NOT fixed:** `ufv_masking` still does not call `require_concrete_masks`, so
+    the frame/variation masks are unguarded against being passed as traced jit args (they fail with jax's
+    cryptic `ConcretizationTypeError` instead of the actionable message). Pre-existing; unrelated to
+    weighting; cheap to fix.
+  - **Deferred (reachable from the primitives):** weighted `+`/`-`/scale/`⊙` as operations + an optional
+    thin container; the Grasedyck-Kramer `SingularValueRegularizer` — **both layers now have every
+    primitive it needs**, so it is the natural next consumer.
 
 - **Regularization framework — COMPLETE & SHIPPED (S1–S5, 2026-07-14).** Identity (Tikhonov)
   regularization on the fitting objective `min ½‖ω⊙(S(X)−y)‖² + ρ(X)`, composing with every optimizer /

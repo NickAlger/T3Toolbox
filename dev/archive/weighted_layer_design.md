@@ -1,5 +1,14 @@
 # Weighted tensor-network layer — design note
 
+> **ARCHIVED 2026-07-15 — build record for the ragged layer; superseded as a reference.**
+> The durable design records now live in the rendered contributor guide:
+> [`docs/contributor/weighted_internals.md`](../../docs/contributor/weighted_internals.md);
+> the user-facing account is [`docs/weighting.md`](../../docs/weighting.md). Kept for the
+> *history* — the decisions and the roads not taken. **Where this note disagrees with those,
+> this note is wrong** (several claims were corrected mid-build; the corrections are marked
+> inline, but the rendered docs are authoritative).
+
+
 _Started 2026-07-14. Redesign of the parked weighted layer. Scope: a lightweight **edge-weight
 representation** (diagonal weights on the internal edges of a T3 / a frame-variations tangent), the
 ability to **absorb** weights into cores, and enough weighted linear algebra (`norm`, `inner`,

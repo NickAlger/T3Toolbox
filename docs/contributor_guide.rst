@@ -27,6 +27,7 @@ Design-decision records
 
    contributor/batching_internals
    contributor/fitting_internals
+   contributor/weighted_internals
    contributor/numerical_contract_catalog
    contributor/t3svd_design_rationale
    contributor/t3svd_verification

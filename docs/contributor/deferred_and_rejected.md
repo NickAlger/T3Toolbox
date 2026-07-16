@@ -67,4 +67,4 @@ cross-references.)
   (uniform weighting S1), which had to reproduce the chain; it is parked in that module's private
   `_ut3_left_orthogonalized` helper, so filling the gap means promoting that helper into real
   `ut3_norm`/`ut3_inner` and having the frontend + weighted twins delegate. Source:
-  `dev/uniform_weighting_design.md` (S1), `backend/ut3_linalg.py`.
+  `weighted_internals.md` (S1), `backend/ut3_linalg.py`.

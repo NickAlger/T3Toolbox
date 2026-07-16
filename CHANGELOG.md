@@ -5,7 +5,35 @@ All notable changes to T3Toolbox are documented here. The format follows
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **Weighting (edge weights)** — diagonal weights on the internal edges of a T3, as a lightweight data
+  format plus `absorb` into cores, in **both** the ragged and uniform representations. Two classes per
+  layer, because a tensor and a tangent have genuinely different edges:
+  - **`T3Weights` / `UT3Weights`** weight a Tucker tensor train **as a tensor** (`tucker[d]`, `tt[d+1]` —
+    exactly the shape `t3svd` returns, so the singular values *are* the canonical weight object).
+  - **`T3FrameWeights` / `UT3FrameWeights`** are a **metric on a tangent's coordinates** (`up`/`down`/
+    `left`/`right`, each `len=d`) — the Grasedyck–Kramer preconditioner — absorbed into the variation
+    cores with the frame left orthonormal, so they are `O(ranks)`.
+  - Operations on all four: `absorb_weights`, `weighted_norm` / `weighted_inner`, `reciprocal` / `sqrt`,
+    and `concatenate` / `kronecker` (the `+` / `⊙` duality: ranks add / multiply). Constructors
+    `from_t3svd` / `from_ut3svd` and `from_t3weights` / `from_ut3weights`, plus ragged↔uniform
+    conversions for both weight types.
+  - The frontend free functions carry the family prefix — `t3_absorb_weights`, `ut3_absorb_weights`,
+    `fv_absorb_weights`, `ufv_absorb_weights` (+ `t3_`/`ut3_weighted_norm` / `_weighted_inner`) — and the
+    whole surface is exported from the package root. Docs: `docs/weighting.md`; design records:
+    `docs/contributor/weighted_internals.md`.
+
+### Changed
+
+- `backend/common.py` gains `prefix_mask` (the boolean prefix indicator shared by every uniform prefix
+  structure) and now hosts `require_concrete_masks`, which moved from `backend/ut3_masking.py` — it is
+  infrastructure for the uniform *mask-representation contract*, not part of any one object family.
+
+### Removed
+
+- The old parked weighted layer (`weighted_tucker_tensor_train.py`, `backend/wt3_operations.py`, the
+  `wt3_` prefix, and the broken `absorb_weights_into_tangent_cores`), superseded by the above.
 
 ## [2026.0.0] — 2026-07-13
 

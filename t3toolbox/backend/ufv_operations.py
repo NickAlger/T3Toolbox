@@ -44,7 +44,7 @@ __all__ = [
 # A uniform FRAME-WEIGHTS .data tuple: (up, down, left, right, (4 variation edge masks)).
 # The four supercores are each (d,)+C+(size,) and the masks match them. NO `shape` (weights have no
 # physical legs) and NO K: a frame weight is FRAME-LIKE -- one metric per base point, carrying the frame
-# stack C, broadcast over the variations' K+C at absorb (dev/uniform_weighting_design.md §8.5/§8.6).
+# stack C, broadcast over the variations' K+C at absorb (docs/contributor/weighted_internals.md).
 UT3FrameWeightsData = typ.Tuple[NDArray, NDArray, NDArray, NDArray,
                                 typ.Tuple[NDArray, NDArray, NDArray, NDArray]]
 

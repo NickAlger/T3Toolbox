@@ -96,6 +96,41 @@ boundaries) are pinned by the exact-mask assertions above. A representation whos
 operations by concatenation and Kronecker products is simply *harder to corrupt* than one that threads
 hand-maintained integer ranks.
 
+## Exercising a mask check is not testing it — isolate it
+
+The two tools above tell you *what* to assert. This is about whether your assertion can actually fail,
+and it is the lesson of the weighted build (2026-07-15), where **mutation testing caught a hole in the
+new tests twice** — both times in a test that looked right, passed, and proved nothing.
+
+The pattern to distrust: a test that constructs a bad object and asserts it is rejected. It passes. But
+*which* check rejected it?
+
+- **S1.** `test_mask_mismatch_is_rejected` perturbed only the **tucker** mask. Deleting the tt-mask
+  comparison from `ut3_weights_consistent` entirely — a predicate half-blind — left the suite green.
+- **S3.** The frame-weight version *widened the supercores* as well as perturbing the mask. So the
+  **shape** check rejected it, and the mask comparison was never reached: deleting the mask comparison
+  left the suite green.
+
+Both were fixed by making the mismatch **mask-only and family-complete**: perturb one mask family at a
+time, with every supercore byte-identical to the good object (assert that), so nothing but the mask
+comparison can be doing the rejecting. Then each deletion dies.
+
+Two rules follow, and they generalize past masks:
+
+1. **A rejection test must isolate the check under test.** If any *earlier* check could also reject your
+   bad input, you are testing that earlier check. Make the input good in every respect except the one.
+2. **Enumerate the families.** A check over `k` mask families needs `k` mismatches, not one. "It rejects
+   a bad mask" is not the claim; "it rejects a bad mask *on each family*" is.
+
+**Why this bites here specifically:** dense-vs-ragged agreement cannot see any of it. A half-blind
+predicate computes identical numbers on every well-formed input — it only misbehaves on the malformed
+input the test was supposed to construct and didn't. That is the same blind spot as phantom rank, one
+level up: the *checks* need the same suspicion as the *masks*.
+
+**Mutation testing is the cheap way to find this.** Delete the check, run the suite; if it stays green,
+the test is decorative. It is worth doing routinely on any mask-carrying op — it took minutes and found
+two real holes that review had not.
+
 ## The adversarial audit pattern
 
 For subtle correctness work, a useful cross-check is an **independent cold-read audit**: a fresh agent with
@@ -114,7 +149,9 @@ When adding a uniform operation, write:
    is the ragged op, against *its* ranks);
 3. **garbage-padded-input** robustness (clean == dirty);
 4. **jax dispatch** in `tests/test_dispatch.py` (jit the op; a stray `np.*` on a tracer raises), unless an
-   in-file jit test already covers it.
+   in-file jit test already covers it;
+5. if the op has a **structural precondition**, a rejection test that **isolates** it (above) — and a
+   quick mutation check that deleting the check turns the suite red.
 
 Numbers 2 and 3 are the ones that distinguish a *correct* uniform object from a merely *numerically
 plausible* one. Do not skip them.

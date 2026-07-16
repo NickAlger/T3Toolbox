@@ -1,5 +1,14 @@
 # Uniform weighting layer — design note
 
+> **ARCHIVED 2026-07-15 — build record for the uniform mirror; superseded as a reference.**
+> The durable design records now live in the rendered contributor guide:
+> [`docs/contributor/weighted_internals.md`](../../docs/contributor/weighted_internals.md);
+> the user-facing account is [`docs/weighting.md`](../../docs/weighting.md). Kept for the
+> *history* — the decisions and the roads not taken. **Where this note disagrees with those,
+> this note is wrong** (several claims were corrected mid-build; the corrections are marked
+> inline, but the rendered docs are authoritative).
+
+
 _Started 2026-07-15. The uniform mirror of the (shipped-to-main, unreleased) ragged weighted layer. Ships
 `UT3Weights` / `UT3FrameWeights` (weight supercores + boolean masks) + the masked ops, so the weighted layer
 runs on the jit/GPU uniform representation. **The lever: the ragged layer is the equivalence oracle** —

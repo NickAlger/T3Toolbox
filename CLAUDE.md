@@ -136,12 +136,18 @@ updated to this version by the time the package is released.
   into cores (NOT a separate object layer; see [`docs/weighting.md`](docs/weighting.md)). Two classes:
   **`T3Weights`** (`tucker[d], tt[d+1]` = the `t3svd` sval format) weights a **`TuckerTensorTrain` as a
   tensor** (`t3_absorb_weights` + `t3_weighted_norm/inner` + `t3_{concatenate,kronecker}_weights` in
-  `t3_operations`/`t3_linalg`; `absorb_weights`/`weighted_norm`/`weighted_inner` + `from_t3svd` frontend);
-  **`T3FrameWeights`** (`up/down/left/right`, each len d) is a **metric on a tangent's coordinates**
-  (Grasedyck–Kramer preconditioner) — absorbed into the **variation** cores (`fv_absorb_weights` in
-  `fv_operations`; `T3Tangent.weighted_norm/weighted_inner`, frame left orthonormal). `concatenate`↔`+`,
-  `kronecker`↔`⊙` (Hadamard, Kronecker-of-weights verified). Batching mirrors the paired class (all
-  machinery-1). The old parked `wt3_*`/`EdgeVectors`/`WeightedTuckerTensorTrain` layer was **retired**.
+  `t3_operations`/`t3_linalg`; frontend `t3_absorb_weights`/`t3_weighted_norm`/`t3_weighted_inner` +
+  `from_t3svd`); **`T3FrameWeights`** (`up/down/left/right`, each len d) is a **metric on a tangent's
+  coordinates** (Grasedyck–Kramer preconditioner) — absorbed into the **variation** cores
+  (`fv_absorb_weights`; `T3Tangent.weighted_norm/weighted_inner`, frame left orthonormal).
+  `concatenate`↔`+`, `kronecker`↔`⊙` (Hadamard, Kronecker-of-weights verified). **Uniform mirrors all of
+  it** (`UT3Weights`/`UT3FrameWeights` + `ut3_*`/`ufv_*`/`utv_*`). The old parked
+  `wt3_*`/`EdgeVectors`/`WeightedTuckerTensorTrain` layer was **retired**.
+  **Batching: a weight is absorbed into its target but batches with the FRAME** — `T3Weights` carries the
+  tensor's `C`; `T3FrameWeights` carries the **frame's** `C`, *not* the variations' `K+C` (one metric per
+  base point, broadcast over `K` for free). Conflating "what it acts on" with "what it batches with" was a
+  real bug — [`docs/contributor/weighted_internals.md`](docs/contributor/weighted_internals.md). All
+  machinery-1.
 
 > **Batching/stacking is the most error-prone part of the library. Before touching anything with
 > batch/stack axes, read [`docs/batching_and_stacking.md`](docs/batching_and_stacking.md)** — start with
@@ -208,8 +214,8 @@ backend deps (`tv_operations`, `fv_conversions`, `t3_operations`, `t3_linalg`,
 `load`, `t3_corewise_randn`/`t3_zeros`/`t3_ones`, `common.randn`, and the rank-spec helpers in
 `ranks.py` — keep a `use_jax` flag (there's nothing to infer from; it chooses the output type).
 Factories that DO take an existing object infer from it (e.g. `T3Tangent.zeros/randn` from the frame,
-`from_tensor_train`/`from_canonical` from the cores). The deferred weighted layer still threads
-`use_jax` (old pattern) — migrate when repairing it.
+`from_tensor_train`/`from_canonical` from the cores). *(The weighted layer — ragged and uniform — follows
+the inferred convention throughout; the old parked layer that threaded `use_jax` is retired.)*
 **The other exception — uniform masks are ALWAYS numpy, by `np` not `xnp` (and that is intentional, not
 a backend-agnosticism bug).** A `UniformTuckerTensorTrain`'s masks are static *structure* (jax pytree
 `aux_data`), so all mask logic — building, rank recurrences, `+`/`×` concat/Kronecker, `int(mask.sum())`
@@ -406,11 +412,19 @@ doctests CI-enforced on both numpy generations.
 - **Design references:** the rendered docs are the reference — user tier (`docs/*.md` +
   the user guide) and the Contributor guide (`docs/contributor/`); `entries_apply_probe.md` §8
   carries the probing paper↔code map.
-- **Weighted layer — SHIPPED** (the edge-weight redesign): `T3Weights` (tensor) + `T3FrameWeights`
-  (tangent metric) + `absorb`/`weighted_norm`/`weighted_inner`/`concatenate`/`kronecker`/`from_t3svd`;
-  the old parked `wt3_*` layer retired. See `docs/weighting.md`; build record `dev/weighted_layer_design.md`.
-  Deferred (reachable from the primitives): weighted `+`/`⊙`/scale operations, the uniform mirror (weights
-  carry masks), and the Grasedyck–Kramer `SingularValueRegularizer`.
+- **Weighted layer — SHIPPED, ragged AND uniform** (the edge-weight redesign + its uniform mirror):
+  `T3Weights`/`UT3Weights` (tensor) + `T3FrameWeights`/`UT3FrameWeights` (tangent metric), each with
+  `absorb`/`weighted_norm`/`weighted_inner`/`reciprocal`/`sqrt`/`concatenate`/`kronecker`, the
+  `from_*svd`/`from_*weights` constructors, and ragged↔uniform conversions; the old parked `wt3_*` layer
+  retired. **User doc: `docs/weighting.md`; design records:
+  [`docs/contributor/weighted_internals.md`](docs/contributor/weighted_internals.md)** (build records
+  archived in `dev/archive/`). **Three things not to re-derive** (all in that note): a weight is absorbed
+  into the **variations** but batches with the **frame** (stack `C`, not `K+C` — conflating those was a real
+  bug); uniform `absorb` is **garbage-transparent** so it needs no masking (which is why the weighted code
+  never touches the masking layer); and uniform `reciprocal` **must** guard the padding (`1/0 = inf` →
+  `0*inf = nan`; the GK metric *is* a reciprocal) but deliberately does not guard real-slot zeros.
+  Deferred (reachable from the primitives): weighted `+`/`⊙`/scale operations and the Grasedyck–Kramer
+  `SingularValueRegularizer` — both layers now have everything it needs.
 
 ## Open questions / TODO
 
@@ -418,9 +432,10 @@ Live status + backlog: **`dev/HANDOFF.md`**. The durable open items:
 
 - **Goal-1 `fit(...)` facade** — auto geometry/optimizer/ranks/`x0` + rank-continuation/validation
   ("standard user, no fiddling"). **Deferred to 1.1**; 1.0 ships as an honest mid-level toolkit.
-- **Weighted tensor-network layer — SHIPPED** (edge-weight redesign; `docs/weighting.md`). Follow-ups
-  (deferred, reachable from the primitives): weighted `+`/`−`/scale/`⊙` operations + an optional thin
-  container, the uniform mirror (weights carry boolean masks), and the Grasedyck–Kramer regularizer.
+- **Weighted tensor-network layer — SHIPPED, ragged + uniform** (`docs/weighting.md`; design records
+  `docs/contributor/weighted_internals.md`). Follow-ups (deferred, reachable from the primitives):
+  weighted `+`/`−`/scale/`⊙` operations + an optional thin container, and the Grasedyck–Kramer
+  `SingularValueRegularizer` — both layers now have every primitive it needs.
 - **Minimal-rank audit — RESOLVED** (the settled verdict, per the catalog and the enforced check
   sites): minimal rank is a correctness precondition for **nothing** — gauge projections +
   `project`/`project_dense_onto_tangent` need orthogonality only; `inner`/`norm` HS-faithfulness

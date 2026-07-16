@@ -10,9 +10,10 @@ packedness-mirror convention (user-facing ops mirror the input's packedness).
 
 The weighted layer (uniform twins of the ragged ``t3_*_weights`` ops, same module split):
 ``ut3_absorb_weights`` / ``ut3_weights_consistent`` / ``ut3_reciprocal_weights`` /
-``ut3_sqrt_weights`` / ``ut3_concatenate_weights`` / ``ut3_kronecker_weights``. Note this module does **not** import the masking layer: weighting and
-masking are kept apart, and the shared mechanics they both need (``prefix_mask``,
-``require_concrete_masks``) live in ``common`` (``dev/uniform_weighting_design.md`` §2).
+``ut3_sqrt_weights`` / ``ut3_concatenate_weights`` / ``ut3_kronecker_weights``. Note this module does
+**not** import the masking layer: weighting and masking are kept apart, and the shared mechanics they
+both need (``prefix_mask``, ``require_concrete_masks``) live in ``common``
+(``docs/contributor/weighted_internals.md``).
 """
 import numpy as np
 import typing as typ
@@ -46,7 +47,7 @@ UT3Data = typ.Tuple[NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDArray, ND
 
 # A uniform-T3-WEIGHTS .data tuple: (tucker_weight_supercore, tt_weight_supercore, (2 edge masks)).
 # NO `shape`: weights live only on the INTERNAL edges -- a weight has no physical mode legs (external
-# weights are out of scope; dev/weighted_layer_design.md §2). Otherwise it mirrors UT3Data: the weight
+# weights are out of scope; docs/contributor/weighted_internals.md). Otherwise it mirrors UT3Data: the
 # supercores are xnp data, the masks are HOST bool static structure and are the SAME masks as the object
 # the weight pairs with (a weight's edges are the tensor's edges).
 UT3WeightsData = typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray]]
@@ -239,7 +240,7 @@ def ut3_absorb_weights(
     and slot ``i`` of the weight, so garbage can never mix into a real slot. Garbage padding in gives
     garbage padding out, which the equivalence contract declares don't-care
     (``docs/uniform_equivalence_contract.md``). Do not add a defensive entry-mask: it would be dead work,
-    and masking is a separate concern from weighting (``dev/uniform_weighting_design.md`` §2).
+    and masking is a separate concern from weighting (``docs/contributor/weighted_internals.md`` §2).
 
     **Precondition (structural; NOT enforced here):** ``weights``' masks must equal ``x``'s masks --
     :py:func:`ut3_weights_consistent`. Ragged catches a rank mismatch as a loud einsum shape error, but
@@ -416,7 +417,7 @@ def ut3_kronecker_weights(
 
     Note there is currently **no uniform Hadamard** (``ut3_add`` exists; ``ut3_mult`` does not), so this
     op ships verified against the ragged oracle but without a uniform core-combine partner -- see
-    ``dev/uniform_weighting_design.md`` §3.
+    ``docs/contributor/weighted_internals.md`` §3.
     """
     xnp, (tkA, ttA), (tkB, ttB), (tkmA, ttmA), (tkmB, ttmB) = _weight_pair_backend(weights_A, weights_B)
 

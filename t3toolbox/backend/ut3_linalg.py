@@ -187,7 +187,7 @@ def ut3_weighted_norm(
 
     Weighting does not mask, but the norm does: the reduction is the existing plain uniform norm, which
     masks its own input on entry -- so the garbage padding ``absorb`` passes through is zeroed there,
-    where reductions are, not here (``dev/uniform_weighting_design.md`` §2).
+    where reductions are, not here (``docs/contributor/weighted_internals.md`` §2).
 
     **Precondition:** ``weights``' masks must equal ``x``'s masks
     (:py:func:`~t3toolbox.backend.ut3_operations.ut3_weights_consistent`); the frontend enforces it.
