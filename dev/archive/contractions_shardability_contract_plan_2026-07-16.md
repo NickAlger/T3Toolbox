@@ -1,3 +1,21 @@
+> **DONE — 2026-07-16 (`4e3381ad`). Archived; kept as the build record.** The contract is built and
+> passing: `TestShardabilityContract` in `tests/test_contractions_sharding.py`, an automatic sweep over
+> every public contraction, 280 (function, block) pairs, ~37s, holding everywhere with nothing exempted.
+> The rule and the two non-obvious details now live in `docs/contributor/batching_internals.md` — read
+> that, not this.
+>
+> **Two things this plan got wrong or did not know:**
+> 1. It proposed parsing the ~60 names in `__all__`. There are **101** public defs — `__all__` was itself
+>    wrong (78 listed), and its 23 omissions included the family that hid the fusion bug. The sweep
+>    enumerates the module's functions instead. *Fifth* inventory of this module found wrong.
+> 2. The feasibility probe came out **78/78** (200/200 against the hand-written shape comments), far past
+>    the "50 clean + 10 exceptions" bar — so the automatic check was never in doubt. It also found the
+>    `trs`/`tus` naming drift and 259 redundant shape comments, both since fixed (`67cac3f3`, `98d8b161`).
+>
+> **The watch-list's `_pairwise_path`/`'...'` trap is still open** — the contract did not require a guard.
+> Live status: `dev/HANDOFF.md`. The standing architecture question:
+> `dev/OPEN_QUESTION_contractions_architecture.md` (**not** archived — unresolved, not superseded).
+
 # The shardability contract — every grouped index shardable over its first sub-axis
 
 _Nick's proposal, 2026-07-15. **This is the live work**; the unfusing that motivated it is DONE

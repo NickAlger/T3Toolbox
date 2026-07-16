@@ -42,12 +42,22 @@ branch can be deleted (optional).
     forced by the signature, not laziness. (2) Option B *beat* the plan: `W`-minor sharding on a
     multi-axis block, which the plan accepted as inherent, is now free (3 all-gathers → 0). Only a
     *shared* block's flatten survives.
-  - **NEXT: the shardability contract** — `dev/contractions_shardability_contract_plan.md`. *Every
-    grouped index must be shardable over its first sub-axis.* Equivalent to the no-fusing rule (not a
-    proxy), encodes exactly the leading-subaxis limit Nick accepted, and checks a property not a form.
-    **Probe the name-parsing feasibility first** — that number decides automatic-check vs hand-table, and
-    is also cheap evidence for the standing architecture question. Its watch-list carries the latent
-    `_pairwise_path`/`'...'` trap.
+  - **The shardability contract — BUILT & DONE (2026-07-16).** *Every grouped index must be shardable
+    over its first sub-axis.* `TestShardabilityContract` in `tests/test_contractions_sharding.py`: an
+    **automatic sweep** over every public contraction (enumerated from the module's functions, **not**
+    `__all__`), 280 (function, block) pairs, ~37s, holds everywhere with nothing exempted. The existing
+    hand-written tests are kept — the sweep proves the rule holds, they record what broke it and what it
+    cost. Rule + the two non-obvious details: `docs/contributor/batching_internals.md`. Plan archived.
+    - **The feasibility probe answered the design question decisively:** 78/78 names parsed (101/101 now
+      `__all__` is fixed), **200/200** agreeing with the independently hand-written shape comments, 78/78
+      constructing → calling → matching the predicted output shape. Far past the "50 clean + 10
+      exceptions → automatic" bar. One exception: `trs` (a family tag; letters from the body einsum;
+      carries no grouped index, so never sharded).
+    - **Still open from the watch-list: the latent `_pairwise_path`/`'...'` trap.** It builds `set(term)`
+      per operand, so an ellipsis's `.` counts as a shared index and skews the greedy pairing. Harmless
+      today (every `'...'` rewrite is 2-operand, and `_grouped_einsum` bypasses `_pairwise_path` at ≤2
+      operands) — **it would bite the first 3+-operand `'...'` contraction anyone writes.** No guard was
+      added; the contract did not require one.
 
 - **Weighted layer (edge weights) — COMPLETE & SHIPPED, ragged + uniform (2026-07-15). Thread closed;
   committed, NOT pushed.** Diagonal weights on the internal edges, as a lightweight data format +

@@ -128,17 +128,32 @@ all-gathers**. It pins the freed `W`/`K`/`C` cases (so the doc's claims are chec
 includes a deliberately-broken fold to prove the check *can* fail (re-fusing one site by hand fails
 three tests).
 
-**The planned guard is stronger, and is a property rather than a form:** *every grouped index must be
-shardable over its first sub-axis*. That is **equivalent** to the no-fusing rule, not a proxy for it —
+**The shardability contract (built, 2026-07-16) — the standing guard.** *Every grouped index must be
+shardable over its first sub-axis.* It is **equivalent** to the no-fusing rule, not a proxy for it —
 fusing `X` with `Y` necessarily puts one of them to the right of the other, and the right-hand one's
 *first* sub-axis is then non-major in the flatten. It also encodes exactly the limit accepted below. A
 static name-vs-subscript check was considered and is weaker: it can be satisfied by writing the letters
 and flattening anyway, and it cannot express `'...'` at all.
 
+It runs as an **automatic sweep** (`TestShardabilityContract`) over **every** public contraction —
+enumerated from the module's own functions, deliberately **not** `__all__`, which was itself found wrong
+(78 listed, 101 defined, and the 23 omissions included the family that hid the fusion bug). 280
+(function, block) pairs, ~37s; it holds everywhere today with nothing exempted. **Adding a contraction
+adds its coverage automatically — there is no list to update, which is the entire point:** four
+hand-maintained inventories of this module have now been found wrong.
+
+Two things not to re-derive if you touch it. The block under test gets `(n_devices, 2)` while every
+*other* block gets size **2, not 1** — a size-1 neighbour still tiles correctly when fused, so the check
+would pass vacuously. And it is validated by **mutation**: re-fusing `W+K` by hand in
+`WKCi_Cio_to_WKCo` fails on `K` and not on `W`, at 3 all-gathers — the block the equivalence argument
+predicts, at the cost this table records.
+
 **Why it could drift at all:** group boundaries are inferred *positionally* ("everything left of `C` is
 `W`"), so handing a `t`-carrying array to a callee that names no `t` silently redefines `W` to mean
 `t+W` — nothing complains. **This is worth sitting with:** the block structure is not data. It exists
-only in the function's *name*, so it cannot be checked, inferred, or detectably wrong. See the standing
+only in the function's *name*. The contract now makes that name a **checked** promise — the sweep parses
+the block layout from it, so a name that contradicts its body fails — but the structure is still not data
+at *runtime*, only in the harness. See the standing
 open question in `dev/OPEN_QUESTION_contractions_architecture.md`.
 
 ### The residue: within-block flattening (accepted, not a bug to fix)
