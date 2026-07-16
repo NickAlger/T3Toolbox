@@ -317,5 +317,181 @@ class TestWShardingInvariant(unittest.TestCase):
                                  'and the invariant it claims to pin is unpinned')
 
 
+# ------------------------------------------------------------------------------------------------
+# The shardability contract -- an automatic sweep over EVERY public contraction
+# ------------------------------------------------------------------------------------------------
+# The tests above pin the sites we know about. This pins the RULE, over every function in the
+# module, because the sites we know about have never been the whole list: four hand-maintained
+# inventories of this module have now been found wrong (the upstream survey, the docstring
+# detector, the "complete, mechanically derived" unfusing inventory, and __all__ itself, which
+# was missing 23 live functions -- including the family that hid the fusion bug). A uniform
+# obligation has no list to be wrong about.
+
+BLOCKS = ('W', 'K', 'C')          # the grouped indices the contract governs
+_CORE = 'd'                       # the leading core/derivative axis
+_AXIS_SIZE = {'d': 2, 't': 3, 'r': 3, 's': 3, 'u': 3, 'a': 2, 'i': 3, 'b': 5, 'o': 5, 'j': 2}
+
+
+def _body_einsum(fn):
+    """The einsum subscript literal in the body -- ground truth for an operand's letters."""
+    import inspect
+    import re
+    m = re.search(r"'([a-zA-Z.]+(?:,[a-zA-Z.]+)*->[a-zA-Z.]*)'", inspect.getsource(fn))
+    return m.group(1) if m else None
+
+
+def _parse_operand(token, fn):
+    """'WKCa' -> [('block','W'), ('block','K'), ('block','C'), ('axis','a')]; None if unparseable.
+
+    `trs` is the one operand whose name is a family tag rather than a spec: its order-axis letters
+    vary per function (and the output order's position inside it moves), so they come from the body
+    einsum. It carries no grouped index, so the contract never shards it.
+    """
+    import re
+    if token == 'trs':
+        sub = _body_einsum(fn)
+        if sub is None:
+            return None
+        return [('axis', ch) for ch in sub.split('->')[0].split(',')[0]]
+    spec = []
+    for i, ch in enumerate(token):
+        if ch in BLOCKS:
+            spec.append(('block', ch))
+        elif ch == _CORE and i != 0:
+            return None                      # 'd' is only ever the leading core axis
+        elif re.fullmatch(r'[a-z]', ch):
+            spec.append(('axis', ch))
+        else:
+            return None
+    return spec or None
+
+
+def _public_contractions():
+    """Every public contraction, enumerated from the MODULE's own functions.
+
+    Deliberately not `__all__`: that list was itself found wrong (78 listed, 101 defined), and the
+    23 it omitted included `uWKCa_uWo_to_WKCao`, backed by one of the very helpers that hid the
+    fusion bug from three enumerations. A sweep keyed on `__all__` would inherit the blind spot it
+    exists to remove.
+    """
+    import inspect
+    import t3toolbox.backend.contractions as ctr
+    out = []
+    for name, fn in inspect.getmembers(ctr, inspect.isfunction):
+        if name.startswith('_') or fn.__module__ != ctr.__name__ or '_to_' not in name:
+            continue
+        out.append((name, fn))
+    return out
+
+
+@unittest.skipUnless(common.jax_available, 'jax not available')
+class TestShardabilityContract(unittest.TestCase):
+    """**Every grouped index must be shardable over its FIRST sub-axis.** Swept over every public
+    contraction, with the block layout parsed from each function's name.
+
+    This is EQUIVALENT to the no-fusing rule, not a proxy for it: fusing X with Y necessarily puts
+    one of them to the right of the other, and the right-hand one's FIRST sub-axis is then non-major
+    in the flatten, so it cannot be sharded for free. Every case we found confirms it -- t+W fused
+    -> W's first axis pays; W+K -> K's first pays; K+C -> C's first pays.
+
+    It also encodes exactly the limit that is accepted (`batching_internals.md`): it permits the
+    within-block flatten a SHARED block requires -- only the leading sub-axis is claimed -- while
+    forbidding cross-block fusion. And it checks a PROPERTY, not a form: a static name-vs-subscript
+    check can be satisfied by writing the letters and flattening anyway; this cannot.
+
+    Sizing matters and is not arbitrary. The block under test gets `(n_devices, 2)` so its leading
+    axis is shardable and a real within-block flatten happens; every OTHER block gets size 2 rather
+    than 1, because a size-1 neighbour still tiles correctly when fused and the check would pass
+    vacuously.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import jax
+        if jax.device_count() < 2:
+            raise unittest.SkipTest(
+                'need >= 2 devices; XLA_FLAGS was ignored (jax already initialized in this process)')
+        from jax.sharding import Mesh
+        cls.jax = jax
+        cls.n_dev = jax.device_count()
+        cls.mesh = Mesh(np.array(jax.devices()), axis_names=('m',))
+        cls.rng = np.random.default_rng(0)
+
+    def _block_shape(self, block, target):
+        return (self.n_dev, 2) if block == target else (2,)
+
+    def _operand(self, spec, target):
+        """(shape, PartitionSpec) for one operand, sharding `target`'s leading axis if present."""
+        from jax.sharding import PartitionSpec as P
+        shape, parts, hit = [], [], False
+        for kind, name in spec:
+            if kind == 'block':
+                shp = self._block_shape(name, target)
+                for j in range(len(shp)):
+                    shape.append(shp[j])
+                    parts.append('m' if (name == target and j == 0 and not hit) else None)
+                    hit = hit or (name == target and j == 0)
+            else:
+                shape.append(_AXIS_SIZE.get(name, 3))
+                parts.append(None)
+        return tuple(shape), (P(*parts) if 'm' in parts else P())
+
+    def test_every_grouped_index_shards_on_its_first_sub_axis(self):
+        import inspect
+        fns = _public_contractions()
+        self.assertGreater(len(fns), 90, 'the sweep found suspiciously few contractions to check')
+
+        checked = 0
+        for name, fn in fns:
+            sig = inspect.signature(fn)
+            operands = [p for p in sig.parameters if p not in ('n_probe', 'n_frame')]
+            specs = {t: _parse_operand(t, fn) for t in operands}
+            if any(v is None for v in specs.values()):
+                self.fail('%s: could not parse operand spec from the name -- the name IS the block '
+                          'type signature here, so an unparseable one is a naming bug (or this '
+                          'parser needs to learn a new form): %s'
+                          % (name, [t for t, v in specs.items() if v is None]))
+
+            present = {b for s in specs.values() for k, b in s if k == 'block'}
+            for target in sorted(present):
+                built = [self._operand(specs[t], target) for t in operands]
+                arrs = [self.rng.standard_normal(shape) for shape, _ in built]
+                pspecs = [ps for _, ps in built]
+
+                ints = {}
+                if 'n_probe' in sig.parameters:
+                    ints['n_probe'] = len(self._block_shape('W', target))
+                if 'n_frame' in sig.parameters:
+                    ints['n_frame'] = len(self._block_shape('C', target))
+
+                def call(*xs, _fn=fn, _names=tuple(operands), _ints=dict(ints)):
+                    return _fn(**dict(zip(_names, xs)), **_ints)
+
+                with self.subTest(op=name, sharded=target):
+                    n = self._all_gathers(call, pspecs, *arrs)
+                    self.assertEqual(
+                        n, 0,
+                        "%s inserted %d all-gather(s) with %s's LEADING sub-axis sharded. The "
+                        'contract is that every grouped index shards over its first sub-axis; a '
+                        'failure here means %s was FUSED with a block to its left, so its first '
+                        'axis is no longer major in the flattened group. Fix the contraction (let '
+                        "the passive block ride as '...'), do not weaken this test." % (
+                            name, n, target, target))
+                    checked += 1
+
+        # the sweep is only worth anything if it actually swept
+        self.assertGreater(checked, 150,
+                           'only %d (function, block) pairs were checked -- the sweep is not '
+                           'covering the module' % checked)
+
+    def _all_gathers(self, fn, specs, *arrs):
+        """Compile `fn` with the given PartitionSpecs and count all-gathers in the HLO."""
+        import jax.numpy as jnp
+        from jax.sharding import NamedSharding
+        xs = [self.jax.device_put(jnp.asarray(a), NamedSharding(self.mesh, s))
+              for a, s in zip(arrs, specs)]
+        return self.jax.jit(fn).lower(*xs).compile().as_text().count('all-gather')
+
+
 if __name__ == '__main__':
     unittest.main()
