@@ -817,7 +817,7 @@ def compute_deta_tilde(
         # C IS a shared batch on both operands (the residual ztildes carries the frame stack C, not only
         # the probe stack W), so this is the SHARED-C contraction dWCo_dCio_to_dWCi -- NOT the outer-product
         # dCio_dWo_to_dWCi (which assumes no shared C and is wrong for a C-stacked tangent). Mirrors the
-        # ragged WCo_Cio_to_WCi(zt, U); the ragged xmap branch below is the oracle.
+        # ragged contract('WCo,Cio->WCi', zt, U); the ragged xmap branch below is the oracle.
         deta_tildes = contractions.contract('dWCo,dCio->dWCi', ztildes, up_tucker_cores)
     else:
         def _func(x):

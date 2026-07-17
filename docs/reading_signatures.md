@@ -23,7 +23,7 @@ def compute_mu(
 |---|---|
 | `# len=d, elm_shape=C+(ri,ni,r(i+1))` | a length-`d` tuple of arrays, each shaped `C + (ri, ni, r(i+1))` |
 | `# shape=W+(Ni,)` | a bare array (no tuple wrapper) of that shape |
-| `C`, `W`, `K` | the three batch **blocks**: frame/core stack, probe stack, tangent stack — the same letters used in body-variable suffixes (`mu_WCa`) and contraction names (`WCa_Caib_WCi_to_WCb`). Full legend: [`batching_and_stacking.md`](batching_and_stacking.md) |
+| `C`, `W`, `K` | the three batch **blocks**: frame/core stack, probe stack, tangent stack — the same letters used in body-variable suffixes (`mu_WCa`) and grouped-contraction subscripts (`contract('WCa,Caib,WCi->WCb', ...)`). Full legend: [`batching_and_stacking.md`](batching_and_stacking.md) |
 | lowercase letters (`ri`, `nUi`, `Ni`) | single axes (ranks, mode sizes); a leading `d` is the stacked core / derivative axis |
 | `# 1 <= max_rank <= min(N,M)`, `# requires unstacked`, `# 'left' \| 'right'` | a constraint or role note — a contract the type can't carry |
 | `# HOST bool, static` | the array **must be host numpy, never jax/traced** — it is static structure (the uniform masks; runtime-enforced by the mask guard). **No tag is the default**: dtype-agnostic and numpy-or-jax polymorphic |

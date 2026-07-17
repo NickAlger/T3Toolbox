@@ -39,9 +39,9 @@ from t3toolbox.backend.common import *
 # order-stacked edge variables "jets" (order axis t; index 0 is the ordinary probing edge variable).
 # The pushthrough recursion and the combine are then the SAME operation -- a binomial jet-product --
 # and reduce to single einsums (the t-contractions in contractions.py):
-#   - compute_mu_jets_trs : left  jets mu_i^(t)  via trs_rWCa_Caib_sWCi_to_tWCb (input jet on the mode).
+#   - compute_mu_jets_trs : left  jets mu_i^(t)  via contract('trs,rWCa,Caib,sWCi->tWCb', ...) (input jet on the mode).
 #   - compute_nu_jets_trs : right jets nu_i^(t)  -- the mirror image (tt_reverse).
-#   - compute_eta_jets_trs: combine at each free mode via trs_rWCa_Caib_sWCb_to_tWCi (nu jet on the bond).
+#   - compute_eta_jets_trs: combine at each free mode via contract('trs,rWCa,Caib,sWCb->tWCi', ...) (nu jet on the bond).
 #   - assemble_z_jets : lift each order through the Tucker cores via tWCi_Cio_to_tWCo (t broadcast).
 #
 # Provenance: the symmetric-derivative formulation is NOT part of the published T4S paper (it was cut
@@ -295,7 +295,7 @@ def compute_mu_jets_trs(
     '''Left derivative-pushthrough jets.
 
     Sweep left-to-right, at each core taking the binomial jet-product of the running left jet with the
-    input jet through the core (``trs_rWCa_Caib_sWCi_to_tWCb``). Like :py:func:`probing.compute_mu`,
+    input jet through the core (``'trs,rWCa,Caib,sWCi->tWCb'``). Like :py:func:`probing.compute_mu`,
     ``mu_jets[i]`` is the left edge variable *entering* core ``i`` (``mu_{i-1}``), stacked over orders.
     '''
     use_jax = tree_contains_jax((tt_cores, xi_jets, trs))
@@ -355,7 +355,7 @@ def compute_mu_jets(
     pushthrough to a two-term recurrence ``mu_i^(t) = mu^(t).G.xi^(0) + t * mu^(t-1).G.xi^(1)`` -- no
     dense ``trs`` tensor, no ``(order+1)^2`` work. The two terms are folded into ONE contraction per core:
     stack ``[mu^(t), t * mu^(t-1)]`` on a jet-pair axis ``s`` and contract it together with the bond ``a``
-    against ``[G.xi^(0), G.xi^(1)]`` (:py:func:`_stWCa_sWCab_to_tWCb`) -- one larger GEMM for XLA to
+    against ``[G.xi^(0), G.xi^(1)]`` (``'stWCa,sWCab->tWCb'``) -- one larger GEMM for XLA to
     schedule turns the two-einsum form's ~parity with the dense ``trs`` into a win. Equal to the dense
     :py:func:`compute_mu_jets_trs` to tolerance; see it for the binomial-tensor reference form.
     '''
@@ -431,7 +431,7 @@ def compute_eta_jets_trs(
     '''Combine the left and right jets at each free mode via the binomial jet-product.
 
     ``eta_i^(t) = sum_{r+s=t} C(t,r) mu_{i-1}^(r) . G_i . nu_i^(s)``, one einsum per core
-    (``trs_rWCa_Caib_sWCb_to_tWCi``) -- the same binomial convolution as the pushthrough, with the
+    (``'trs,rWCa,Caib,sWCb->tWCi'``) -- the same binomial convolution as the pushthrough, with the
     right jet on the bond and mode ``i`` left free.
     '''
     use_jax = tree_contains_jax((tt_cores, mu_jets, nu_jets, trs))
@@ -714,7 +714,7 @@ def compute_sigma_jets_trs(
     '''Variation-leftward edge-variable jets sigma (the jet-ified Algorithm-7 sigma recursion).
 
     ``sigma_i = sigma_{i-1} Q_i(xi_i) + mu_{i-1} dG_i(xi_i) + mu_{i-1} O_i(dxi_i)`` -- three
-    pushthroughs (``trs_rWCa_Caib_sWCi_to_tWCb``): the carried sigma jet through Q, and the frame mu
+    pushthroughs (``'trs,rWCa,Caib,sWCi->tWCb'``): the carried sigma jet through Q, and the frame mu
     jet through the variation core dG and the down frame O. Boundary ``sigma_0 = 0`` (all orders).
     '''
     use_jax = tree_contains_jax((var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs))
@@ -772,7 +772,7 @@ def compute_deta_jets_trs(
     '''Variation-downward edge-variable jets deta (the jet-ified Algorithm-7 deta combine).
 
     ``deta_i = sigma_{i-1} Q_i nu_i + mu_{i-1} dG_i nu_i + mu_{i-1} P_i tau_i`` -- three combines
-    (``trs_rWCa_Caib_sWCb_to_tWCi``), mode ``i`` free.
+    (``'trs,rWCa,Caib,sWCb->tWCi'``), mode ``i`` free.
     '''
     use_jax = tree_contains_jax((var_tt_cores, left_tt_cores, right_tt_cores, mu_jets, nu_jets, sigma_jets, tau_jets, trs))
     is_uniform = is_ndarray(var_tt_cores)

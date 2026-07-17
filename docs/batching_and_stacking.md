@@ -65,10 +65,10 @@ The codebase annotates shapes in trailing comments and encodes them in names. Th
   (`a`, `i`, `b`, `o`, `j`).
 - **Order is frame-inner: `W + K + C + (axes)`** (probe outer, tangent middle, frame inner).
 - **Body locals suffix their layout:** `mu_WCa` is an array with axes `W + C + (a,)`.
-- **Contraction functions are `inputs_to_output`:** `WCa_Caib_WCi_to_WCb` reads as a per-operand
-  block+leg signature (operand 1 = `W+C+(a,)`; operand 2 = a `C`-only core with legs `a,i,b`; operand
-  3 = `W+C+(i,)`; output frame-inner `W+C+(b,)`).
-- A leading **`d`** on a contraction name (`dWCa_…`) is the uniform layer's supercore/derivative axis
+- **Grouped contractions are einsum strings:** `contract('WCa,Caib,WCi->WCb', ...)` reads as a
+  per-operand block+leg signature (operand 1 = `W+C+(a,)`; operand 2 = a `C`-only core with legs
+  `a,i,b`; operand 3 = `W+C+(i,)`; output frame-inner `W+C+(b,)`).
+- A leading **`d`** in a subscripts term (`dWCa`) is the uniform layer's supercore/derivative axis
   (see `docs/uniform_supercore_layout.md`).
 
 ### Glossary
@@ -82,7 +82,7 @@ The codebase annotates shapes in trailing comments and encodes them in names. Th
 | **frame-inner** | the ordering rule: `C` innermost, `W`/`K` outermost (`W + K + C`). |
 | **`frame_stack_shape` / `tangent_stack_shape`** | a `T3Tangent`'s `C` and `K` parts, *derived* from the (frame, variations) pairing (§6), not stored. |
 | **heterogeneous stack** | one T3 whose cores have different-but-broadcastable stacks (frame `C`, variation `K+C`). First-class in the backend (§5). |
-| **"the split is recovered"** | `C`/`K`/`W` lengths are read off operand shapes, never threaded as parameters (§4, §6). |
+| **"the split is recovered"** | `C`/`K`/`W` lengths are read off operand shapes wherever the shapes can pin them; `contract` demands an explicit `len_<G>=` exactly when they cannot (§4). The tangent `K`/`C` split is derived from the (frame, variations) pairing (§6). |
 | **`sum_over_probes`** | transpose flag (§11): `False` (default, **primary**) keeps the probe stack `W` as an output stack — one tangent/tensor per probe; `True` sums `W` (`= Σ_W` of `False`) for the optimization `Jᵀr`. |
 | **ragged / uniform / weighted** | the three representations. **ragged** (tuples of arrays) is the default; **uniform** (supercores + masks) is the jit/GPU mirror of the whole stack (`docs/uniform_equivalence_contract.md`); **weighted** is diagonal edge weights on the internal edges — a data format + `absorb` into cores, not a separate object layer (`docs/weighting.md`). |
 
@@ -99,7 +99,7 @@ The codebase annotates shapes in trailing comments and encodes them in names. Th
 - Library-wide convention is **frame-inner**: the core stack `C` is **innermost** (adjacent to the
   tensor indices); the extra stacks `W`, `K` are **outermost**. Orders: `W+C`, `K+C`, `W+K+C` (§3).
 - There are **two machineries** for batch axes: a leading `...` in einsum (for *one* broadcastable
-  prefix) and the **named grouped-block contractions** in `contractions.py` (for *two* independent
+  prefix) and the **grouped-einsum interpreter** `contractions.contract` (for *two* independent
   blocks on different operand subsets) (§4).
 - A T3 may have **heterogeneous-but-broadcastable** core stacks (e.g. frame cores `C`, one variation
   core `K+C`). This is *first-class* in the backend; `t3_broadcast_to_common_stack` materializes it
@@ -214,53 +214,42 @@ the gauge projections, `project_*`, `corewise_*`, `tv_to_dense/_t3`, orthogonali
 This is why most of the library "just works" with stacking: you write the einsum with `'...'` and
 negative axes, and `C`/`K`/`W` ride along.
 
-### (b) Two independent blocks on DIFFERENT operand subsets → `contractions.py`
+### (b) Two independent blocks on DIFFERENT operand subsets → `contractions.contract`
 
 When **two** independent batch blocks live on **different subsets** of the operands, a single `'...'`
 **cannot** express it: right-aligned broadcasting would force the two blocks to align, but they are on
 different operands and must stay independent. **The canonical case is probing:** the core/frame stack
 `C` (on the cores) and the probe stack `W` (on the probe vectors only).
 
-So probing is built on the **named grouped-block contraction toolkit** in `backend/contractions.py`:
+So probing is built on the **grouped-einsum interpreter** `backend.contractions.contract`:
 
-- Each function is named `inputs_to_output` with **one capital letter per grouped block** and
-  lowercase letters for single axes — e.g. `WCa_Caib_WCi_to_WCb`, `WCo_WCa_to_Cao`.
-- Each grouped block (a capital) is reshaped to **one flat axis** of size `math.prod(shape)` (which is
-  **`1` when the block is empty**, so the *same code* handles no-stack / one-stack / both-stack — the
-  empty case collapses to a length-1 axis).
-- The flattened operands are `einsum`'d with the capitals as ordinary indices, then the result is
-  reshaped back to the original block shapes.
-- **Output order is frame-inner too:** `W` (and `K`) outer, `C` inner. E.g. `WCa_..._to_WCb` returns
+- The subscripts are a standard einsum string with one extension: an **UPPERCASE letter is a GROUP
+  of zero or more axes**, lowercase letters are single axes — e.g.
+  `contract('WCa,Caib,WCi->WCb', mu, P, xi)`. An empty group contributes no axes, so the *same
+  call* handles no-stack / one-stack / both-stack.
+- Each group's axis count is **solved from the operand ndims** (a small exact linear system).
+  Whether the ndims *can* pin a split is a property of the subscripts alone — so a call site either
+  never needs help or always does, and in the latter case `contract` raises, naming exactly the
+  `len_<G>=` keyword to pass (e.g. `contract('WCo,WCa->Cao', z, eta, len_W=1)`). Groups that always
+  travel together (`'WKCi,Cio->WKCo'` — nothing separates `W` from `K` anywhere) need no split at
+  all: only their combined total matters, and any supplied split is verified but changes nothing.
+- The groups then expand into ordinary single-axis letters and **one einsum runs on the operands
+  exactly as given — no reshape, no data movement**.
+- **Output order is frame-inner:** `W` (and `K`) outer, `C` inner. E.g. `'...->WCb'` returns
   `W_shape + C_shape + (b,)`.
 
-When you need a *third* private block (e.g. forward-probing a `K`-stacked tangent — `W` probes, `K`
-tangents, `C` frame, all independent), you need a **3-block** contraction (`W`, `K`, `C`). These exist
-(the bottom of `contractions.py`, frame-inner output `W + K + C`), used by both the
-forward tangent probe's perturbation sweep and the transpose (`probe_transpose` accepting `K`-stacked
-residuals: the adjoint sweep reuses the forward's contractions, the assembly adds 10 outer-product
-builders in keep-`W`/sum-`W` forms). **The split is recovered from operand shapes, never passed in:**
-whichever stack has a *pure* operand pins its length — a `C`-only frame core pins `len(C)` (forward), a
-`W`-only probe vector pins `len(W)` (transpose tucker-assemble) — and the rest self-infer the remainder.
-Only a contraction with *no* pure operand for the needed split takes an int count (`{W+C, K+C, W+C}` or
-`{W+C, W+K+C}` is underdetermined by axis counts alone): the forward's variation-core-only ones take
-`n_frame`; the transpose's `tt`-assemble takes `n_probe`. Each is recomputed at the lowest level that
-holds a suitable operand (the sweep `_func`, or `tv_probe_transpose` for `tt`-assemble, which has
-no pure operand of its own), the same precedent as the original `n_probe`. Each reduces to the
-corresponding 2-block contraction when `K` is empty.
+A *third* independent block (forward-probing a `K`-stacked tangent — `W` probes, `K` tangents, `C`
+frame) is just a third capital letter in the string: `contract('WKCa,Caib,WCi->WKCb', ...)`.
 
 **Decision rule:** if your two batches are on the *same* operands → `'...'`. If they are on *different*
-operand subsets and must remain independent → a grouped-block contraction.
+operand subsets and must remain independent → `contract`.
 
-**Sharding for multi-GPU: shard the leading axis of your stack.** If you shard a stacked axis across
-devices (data-parallel fitting shards `W`, the sample stack), put the axis you shard **first** in its
-block. That is always safe. The detail, if you need it: the probe/tangent stacks `W` and `K` ride
-through the contractions unflattened, so *any* of their axes shards for free; the frame stack `C` is
-shared across operands and must be flattened internally, so only **its** leading axis does. Nothing
-fuses two blocks together, so `W`, `K` and `C` are independently shardable.
-
-(Rules for *adding* contractions — every named block gets its own einsum letter, no fusing — and the
-sharding reasoning behind the rule above are contributor material:
-[`contributor/batching_internals.md`](contributor/batching_internals.md).)
+**Sharding for multi-GPU: any axis of any group shards freely.** `contract` never reshapes, so every
+group sub-axis is an honest einsum axis; sharding a batch/free axis costs zero collectives, and
+sharding a summed axis costs exactly the all-reduce the mathematics requires. (This is checked by
+compiling every subscripts string in the library under virtual devices —
+`tests/test_contractions_sharding.py`; the history of why it is checked, not just argued, is
+contributor material: [`contributor/batching_internals.md`](contributor/batching_internals.md).)
 
 ---
 
@@ -355,7 +344,7 @@ can be `jit`/`vmap`/`grad`-ed:
     batch-of-tangents-sharing-one-frame picture (`vmap`-over-`K`, frame fixed), close the frame over and map
     a function of the variations: `vmap(lambda v: f(T3Tangent(frame, v)))`. The `K`-stacked forward
     probe does not use `vmap` internally — it uses the genuine 3-block (`W`,`K`,`C`) contractions (§4):
-    consistent with the `contractions.py` toolkit (the blessed mechanism for independent blocks), no
+    consistent with the `contract` interpreter (the blessed mechanism for independent blocks), no
     Python `K` loop on the numpy path, and low-level einsums fold into XLA at least as well as a `vmap`
     (which can add layout/transpose churn over a long function).
   - **The same-frame guard is NUMERICAL (`safety.frames_equal`), not object identity.** Two tangents
@@ -384,7 +373,7 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
   index blocks (`C`/`W`/`K`), lowercase = single axes, a leading `d` = a stacked/derivative (uniform
   supercore) axis. `apply`/`entries` use the same `W` (vec/index stack) and `C` (core stack) as
   everywhere else.
-- **Contraction functions** are `inputs_to_output`, e.g. `WCa_Caib_WCi_to_WCb`: read each token as a
+- **Grouped contractions** are `contract('WCa,Caib,WCi->WCb', ...)` calls: read each term as a
   grouped-block einsum signature; output is frame-inner (`W` outer, `C` inner).
 - **Paper ↔ code** (Appendix A of the T4S paper): `U`=up_tucker, `P`=left_tt, `Q`=right_tt,
   `O`=down_tt (called `down_tt_cores`, not "outer"); `δU`=tucker_variations (`V`), `δG`=tt_variations
@@ -422,7 +411,7 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
 | Concern | Look at |
 |---|---|
 | The `'...'`-einsum ops (broadcast a frame over `K`/`W`) | `backend/t3_conversions.py` (`t3_to_dense`) + `backend/t3_operations.py` (`t3_broadcast_to_common_stack`), `backend/tv_operations.py` (`tv_to_dense/_t3`, gauge, `project_*`) |
-| The grouped-block contraction toolkit (`W`/`K`/`C` blocks) | `backend/contractions.py` |
+| The grouped-einsum interpreter (`W`/`K`/`C` group blocks) | `backend/contractions.py` (`contract`) |
 | Probing (2-block `W`,`C`; 3-block `W`,`K`,`C` for a tangent-stacked tangent — forward + transpose) | `backend/probing.py`, `manifold.py` (`T3Tangent.probe`/`probe_transpose`) |
 | Tree ↔ stacked-object (meaning 2) | `backend/stacking.py` |
 | Two-axis stack/unstack | `manifold.py` (`unstack_tangents`/`_frame`, `stack_*`) + `tv_operations.py` (`*_stack` backend fns) |

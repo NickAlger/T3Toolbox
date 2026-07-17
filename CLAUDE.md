@@ -42,8 +42,9 @@ open** (Nick's rule, 2026-07-12):
 **Handoff ritual:** when wrapping up, refresh `dev/HANDOFF.md` (one living doc by default; more when
 threads interleave), sweep superseded notes into `dev/archive/` as dated files, and keep this file's
 Current-state pointer accurate. **Exception: a `dev/OPEN_QUESTION_*.md` note is a standing question, not
-a thread — it is unresolved, not superseded, and must NOT be archived.** (Today: the `contractions.py`
-architecture, parked by Nick 2026-07-15.)
+a thread — it is unresolved, not superseded, and must NOT be archived until resolved.** (None open
+today; the `contractions.py` architecture question was resolved 2026-07-17 — the grouped-einsum
+interpreter — and archived with its resolution banner.)
 
 ## The paper (`t4s.pdf` in repo root)
 
@@ -176,9 +177,11 @@ updated to this version by the time the package is released.
 **Two batch machineries** (full detail + the *why* are in the doc above): (1) **one** broadcastable
 prefix → a leading `'...'` einsum, which rides `stack_shape` for free; (2) **two** independent blocks
 on *different* operand subsets (canonical case: core/frame stack `C` on the cores vs probe stack `W` on
-`ww` only — a single `'...'` can't express it) → the named grouped-block contractions in
-`backend/contractions.py` (`WCa_Caib_WCi_to_WCb` etc.; each capital block reshaped to one flat axis,
-= 1 when empty). **Convention (library-wide, frame-inner): core stack `C` innermost, extra stacks
+`ww` only — a single `'...'` can't express it) → the grouped-einsum interpreter
+`backend.contractions.contract('WCa,Caib,WCi->WCb', *ops)` (UPPERCASE letter = a group of zero-or-more
+axes, solved from the operand ndims; `len_W=`/`len_C=` supplied exactly when the string alone can't pin
+a split — the error says which; no reshape ever happens, so every group sub-axis shards freely).
+**Convention (library-wide, frame-inner): core stack `C` innermost, extra stacks
 `W`/`K` outermost** (`W+C`, `K+C`, `W+K+C`) — because `'...'`-broadcast replicates a frame over the
 extras for free only when `C` is innermost. (`apply`/`entries` were the last `C+W` holdout — flipped
 in 5b; the whole library is now frame-inner.)
@@ -250,8 +253,8 @@ to `xnp`.** Rule: **supercores → `xnp`; masks → `np`.** Full reasoning + the
   (trivial scalars may need no comment). Full rationale + rules + exemplar:
   **[`docs/contributor/signature_style.md`](docs/contributor/signature_style.md)** (reference module: `backend/probing.py`).
 - Body locals encode axis layout in the **name suffix** (`C_aib`, `mu_WCa`, `B0_b_j_c`), matching the
-  contraction-naming scheme (`C`/`W`/`K` = grouped index blocks, lowercase = single axes, leading `d` =
-  stacked/derivative axis; functions named `inputs_to_output`, e.g. `WCa_Caib_WCi_to_WCb`).
+  grouped-subscripts scheme (`C`/`W`/`K` = grouped index blocks, lowercase = single axes, leading `d` =
+  stacked/derivative axis; contractions are `contract('WCa,Caib,WCi->WCb', ...)` calls).
 - `math.prod` (not `np.prod(..., dtype=int)`) for static products of shape ints.
 - einsum everywhere with a leading `'...'`; numpy path passes `optimize=path`, jax path omits it.
 - Uppercase single-letter core names (`U V G P Q O …`) are intentional — ignore "should be
@@ -365,7 +368,7 @@ project engineering practices below are shared.)*
   signature change ripples through the OO wrappers that delegate to it (e.g. `TuckerTensorTrain.probe`
   → `t3_probe`) and *their* tests/doctests, not just the file you edited. After such a change, run the
   full suite (`test_tucker_tensor_train` + `test_manifold` + `test_frame_variations_format` +
-  `backend/test_contractions`), not only the directly-touched tests.
+  `test_contractions_interpreter`), not only the directly-touched tests.
 - Don't ship a possibly-wrong result with a weak test — if something looks off, dig in or flag it.
 
 ## Current state

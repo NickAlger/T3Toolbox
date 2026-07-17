@@ -221,18 +221,16 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda cc, w, p: pd.t3_probe_derivatives(w, p, cc, 3),
             xc.data, list(self.ww), list(self.zz))
-        # the new t-contractions directly (order axis t=3 leading; W=(2,), C=())
+        # the grouped-einsum interpreter directly: ndim solve + expansion at trace time (static
+        # string/lens); a 4-operand trs combine, an order-broadcast lift, and a summed-W assemble
         trs = pd.binomial_combine_tensor(3)
         mu = jnp.ones((4, 2, 5)); G = jnp.ones((5, 4, 6)); xij = jnp.ones((2, 2, 4)); nu = jnp.ones((4, 2, 6))
-        self.assert_jit_jax(lambda a, b, c, e: contractions.trs_rWCa_Caib_sWCi_to_tWCb(a, b, c, e),
-                            trs[:, :, :2], mu, G, xij)
-        self.assert_jit_jax(lambda a, b, c, e: contractions.trs_rWCa_Caib_sWCb_to_tWCi(a, b, c, e),
-                            trs, mu, G, nu)
-        eta = jnp.ones((4, 2, 4)); U = jnp.ones((4, 7))
-        self.assert_jit_jax(lambda a, b: contractions.tWCi_Cio_to_tWCo(a, b), eta, U)
-        # the grouped-einsum interpreter: ndim solve + expansion at trace time, static string/lens
         self.assert_jit_jax(lambda a, b, c, e: contractions.contract('trs,rWCa,Caib,sWCi->tWCb', a, b, c, e),
                             trs[:, :, :2], mu, G, xij)
+        self.assert_jit_jax(lambda a, b, c, e: contractions.contract('trs,rWCa,Caib,sWCb->tWCi', a, b, c, e),
+                            trs, mu, G, nu)
+        eta = jnp.ones((4, 2, 4)); U = jnp.ones((4, 7))
+        self.assert_jit_jax(lambda a, b: contractions.contract('tWCi,Cio->tWCo', a, b), eta, U)
         self.assert_jit_jax(lambda a, b: contractions.contract('WCo,WCa->Cao', a, b, len_W=1),
                             jnp.ones((2, 5)), jnp.ones((2, 6)))
         # Riemannian (tangent) forward derivatives: jit, frame + variation sweeps, all-orders
@@ -280,13 +278,15 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(
             lambda var, b, ix, p: pd.tv_entries_derivatives(ix, p, var, b, 3),
             self.var.data, self.frame.data, idx, list(self.zz))
-        # the new order-threaded 3-block contractions directly (K=(3,), C=())
+        # the order-threaded 3-group interpreter strings directly (K=(3,), C=())
         sig = jnp.ones((4, 2, 3, 5)); Qc = jnp.ones((5, 4, 6)); xij2 = jnp.ones((2, 2, 4))
-        self.assert_jit_jax(lambda a, b, c, e: contractions.trs_rWKCa_Caib_sWCi_to_tWKCb(a, b, c, e),
-                            trs[:, :, :2], sig, Qc, xij2)
+        self.assert_jit_jax(
+            lambda a, b, c, e: contractions.contract('trs,rWKCa,Caib,sWCi->tWKCb', a, b, c, e),
+            trs[:, :, :2], sig, Qc, xij2)
         dGc = jnp.ones((3, 5, 4, 6)); muc = jnp.ones((4, 2, 5))
-        self.assert_jit_jax(lambda a, b, c, e: contractions.trs_rWCa_KCaib_sWCi_to_tWKCb(a, b, c, e, 0),
-                            trs[:, :, :2], muc, dGc, xij2)
+        self.assert_jit_jax(
+            lambda a, b, c, e: contractions.contract('trs,rWCa,KCaib,sWCi->tWKCb', a, b, c, e, len_C=0),
+            trs[:, :, :2], muc, dGc, xij2)
         # apply/entries derivative transpose (adjoint-state seeded sweep): residual jet c is a scalar
         # (order+1)+W+K+C. Single tangent (K=()) and K-stacked; both sum_over_probes; entries gathers idx.
         ca = jnp.asarray(np.random.randn(4, 2))        # order+1=4, W=(2,), K=(), C=()
@@ -314,9 +314,10 @@ class TestDispatch(unittest.TestCase):
 
     # ---------------------------------------------------- jit bucket: backend functions
     def test_jit_backend(self):
-        # one custom contraction (contractions.py)
+        # one grouped contraction through the interpreter (contractions.py)
         FGa = jnp.ones((2, 3)); Gaib = jnp.ones((3, 4, 5)); FGi = jnp.ones((2, 4))
-        self.assert_jit_jax(lambda a, b, c: contractions.WCa_Caib_WCi_to_WCb(a, b, c), FGa, Gaib, FGi)
+        self.assert_jit_jax(lambda a, b, c: contractions.contract('WCa,Caib,WCi->WCb', a, b, c),
+                            FGa, Gaib, FGi)
         # t3_orthogonal_representations (fv_conversions.py) -> returns (T3Frame, T3Variations)
         self.assert_jit_jax(lambda a: bvf.t3_orthogonal_representations(a), self.x)
         # tangent backend (tv_operations.py)

@@ -68,7 +68,7 @@ def compute_mu(
 3. **Three vertically-aligned columns**: argument name · type annotation · `#` contract. The block
    reads as a table; a single-arg change touches a single line.
 4. The contract uses the **shared shape vocabulary** — the same letters as the body-local suffixes
-   (`mu_WCa`, `B0_b_j_c`) and the contraction names (`WCa_Caib_WCi_to_WCb`). One vocabulary across
+   (`mu_WCa`, `B0_b_j_c`) and the grouped-contraction subscripts (`'WCa,Caib,WCi->WCb'`). One vocabulary across
    signature, body, and helper names: learn it once, read it everywhere.
 
 ## Micro-grammar (keep the table cells uniform)
@@ -140,17 +140,14 @@ follow their spirit than their wording.** Reasonable deviations:
   `t3_probe`'s `x`) may wrap across several lines; perfect single-line alignment is impossible there,
   so keep it readable rather than rigidly tabular.
 - **One-off / throwaway internal closures** (`_func` inside an `xmap`) don't need the full treatment.
-- **The named contractions in `backend/contractions.py`** — an explicit exception. There the function's
-  *name* already **is** the shape contract (`WKCa_Caib_WCi_to_WKCb` says operand 1 is `W+K+C+(a,)`,
-  operand 2 is `C+(a,i,b)`), so a comment restating it (`# W + K + C + (a,)` beside `WKCa`) tells the
-  reader nothing the signature has not already told them — exactly the liability above. Leave those
-  signatures bare; the module's original style is the reference. Prose describing an operand's *role at
-  one call site* ("mu jet", "probe vector w") is worse than redundant there: `contractions.py` is a
-  deliberately caller-agnostic mechanical workaround for einsum's lack of grouped indices, so naming one
-  caller's variables in it misleads a reader about what the function is for — that context belongs in the
-  docstring, if anywhere. The exception is specific to the **named contractions**: a parameter whose name
-  does *not* state its contract (`n_probe: int  # len(W)`) still needs the information — though the better
-  fix is usually a name that states it (`len_W`) than a comment compensating for one that doesn't.
+- **Grouped-contraction call sites (`contractions.contract`)** — an explicit exception. There the
+  *subscripts string* already **is** the shape contract (`'WKCa,Caib,WCi->WKCb'` says operand 1 is
+  `W+K+C+(a,)`, operand 2 is `C+(a,i,b)`), so a comment restating it tells the reader nothing the
+  call has not already told them — exactly the liability above. The supplement keywords state their
+  own contract by name (`len_C=` = the number of `C` axes). Prose describing an operand's *role at
+  one call site* ("mu jet", "probe vector w") belongs in the calling function, never inside
+  `contractions.py`: the interpreter is deliberately caller-agnostic, a mechanical workaround for
+  einsum's lack of grouped indices.
 
 The two costs we accept knowingly: the comments are **unverified** (they can drift — tests and review
 are the only guard, so update them when shapes change), and the **alignment is hand-maintained** (no

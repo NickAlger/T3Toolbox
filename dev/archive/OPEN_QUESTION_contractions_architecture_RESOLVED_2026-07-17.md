@@ -1,8 +1,25 @@
 # OPEN QUESTION — the `contractions.py` architecture (Nick, think about this properly)
 
-> **DO NOT ARCHIVE.** This note is not a plan and has no slices. It is a standing question, parked
-> deliberately, and it stays in `dev/` until Nick has thought it through and decides what (if anything)
-> to do. Sweeping it into `dev/archive/` would be exactly the wrong move — it is unresolved, not done.
+> **RESOLVED 2026-07-17 (Nick) — the grouped-einsum interpreter.** The question below was settled by
+> replacing the ~104 enumerated named contractions with ONE interpreter,
+> `contractions.contract('WCo,WCa->Cao', *ops, len_W=...)`: standard einsum strings where an
+> uppercase letter is a group of zero-or-more axes, group sizes solved exactly from the operand
+> ndims (identifiability = a rank condition on the string; co-traveling groups need only their run
+> total), groups expanded per call into fresh letters, **no reshape anywhere** — so every group
+> sub-axis shards freely and fusion is inexpressible. Each numbered observation below got its
+> answer: (1) the block structure is still not runtime data, but the string is now *executed* rather
+> than trusted, and einsum checks every group axis extent; (2) nothing re-derives structure
+> positionally — the solve either pins a split or demands `len_<G>`; (3) the enumeration is gone
+> (~3200 lines → ~450); (4) option B's insight ("the split is never needed") became the co-travel
+> merge, mechanical; (5) the failure class the suite was blind to is unrepresentable, and the
+> compiled sharding sweep remains as the guard; (6) the public surface shrank to one general-purpose
+> function — the 104 names were deleted outright (breaking; release was days old). The §"Revisit"
+> zippering direction had already resolved the jet corner (2026-07-16). Evidence, migration and
+> records: `dev/HANDOFF.md` "grouped-einsum interpreter", `docs/contributor/batching_internals.md`,
+> `tests/test_contractions_interpreter.py`, CHANGELOG `[Unreleased]`.
+
+> ~~**DO NOT ARCHIVE.**~~ (Archived on resolution, 2026-07-17.) This note is not a plan and has no
+> slices. It was a standing question, parked deliberately until Nick decided what (if anything) to do.
 
 _Raised 2026-07-15, by Nick, immediately after deciding option B for the unfusing work: **"this issue
 does make me feel uneasy about the architecture. I can't really put my finger on why."**_

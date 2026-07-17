@@ -19,15 +19,11 @@ Loose ends: the **GitHub Release** for `v2026.0.0` — Nick to create via the we
 CHANGELOG `[2026.0.0]` section); **Zenodo DOI** still deferred (Nick, later); the dead `gh-pages`
 branch can be deleted (optional).
 
-## Standing open question — DO NOT ARCHIVE
+## Standing open question
 
-- **The `contractions.py` architecture** — `dev/OPEN_QUESTION_contractions_architecture.md`. Nick, after
-  the option-B unfusing decision: *"this issue does make me feel uneasy about the architecture. I can't
-  really put my finger on why."* Parked deliberately, with the evidence preserved while fresh (the block
-  structure exists only in function names, not in any value; ~60 enumerated variants because the
-  abstraction can't be parameterised; a failure class the whole numerical suite is constitutionally blind
-  to). **That note is a standing question, not a plan — it stays in `dev/` until Nick resolves it. The
-  handoff ritual's "sweep superseded notes into `dev/archive/`" does NOT apply to it.**
+- **None.** The `contractions.py` architecture question (Nick's 2026-07-15 unease) was **RESOLVED
+  2026-07-17 by the grouped-einsum interpreter** and archived with its resolution banner:
+  `dev/archive/OPEN_QUESTION_contractions_architecture_RESOLVED_2026-07-17.md`.
 
 ## Active threads
 
@@ -60,6 +56,24 @@ branch can be deleted (optional).
   SUBSCRIPT STRING instead. Zero named-contraction references remain outside `contractions.py` and
   its tests. Gates: jet/probe suites, full `test_dispatch` (jit through every flipped hot path),
   module doctests, compat-floor env, full suite.
+  **Slice 4 — DONE (2026-07-17): the 104 named contractions are DELETED and `contract` is the
+  surface.** Phase A (pre-deletion, separate commit): the standing evidence — the loop oracle over
+  the AST-scanned vocabulary (123 strings; the scan caught the 19 slice-3 strings that had no
+  coverage) + the frozen identifiability table (`HISTORICAL`, seeded from the signatures and
+  cross-verified before deletion) + call-site consistency + split invariance + the any-axis sharding
+  sweep over the whole vocabulary (678 compiled cases, 0 all-gathers); also surfaced+fixed a latent
+  `\dots` invalid-escape in a `tucker_tensor_train` docstring. Phase B: `contractions.py` truncated
+  to the interpreter (~3200 → ~450 lines, `__all__ = ['contract']`, module docstring + SHARDING
+  block rewritten); deleted `tests/backend/test_contractions.py`, `test_contractions_unfused.py`,
+  `test_contractions_lean_jets.py`, the migration cross-checks, and the named-fn sharding classes;
+  `test_dispatch` entries converted to `contract` strings; CHANGELOG Added + BREAKING-Removed
+  entries. Phase C (docs): `batching_and_stacking.md` (§4b rewritten for the interpreter; the
+  "shard the leading axis" rule DELETED — any axis now; legend/§8/§10 updated),
+  `batching_internals.md` (interpreter-era extension rule; the two failure eras recorded; the
+  "generating the subscript per call — REJECTED" record flipped with its new information),
+  `signature_style.md` + `reading_signatures.md` references, CLAUDE.md (machinery-2 + code-style
+  bullets + the open-question pointer). **The standing architecture question is RESOLVED and
+  archived**: `dev/archive/OPEN_QUESTION_contractions_architecture_RESOLVED_2026-07-17.md`.
   **Slice 3 — DONE (2026-07-17): the lean-jet inline einsums are `contract` call sites.** The four
   scan-step bodies (`compute_eta_jets`, `compute_deta_jets`, `_sigma_banded_step`,
   `_adj_tilde_step`) now pass W/K/C UNFLATTENED to `contract(...)` (`len_C` supplied where the W|C
