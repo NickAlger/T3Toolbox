@@ -343,50 +343,6 @@ def compute_mu_jets_trs(
 # the memory win lands on the uniform+jax path where xscan/xmap are real lax.scan/lax.map (sequential).
 
 
-def _Caib_sWCi_to_sWCab(
-        G:       NDArray,  # C + (a, i, b)      -- tt core (C-only frame stack)
-        xi_jet:  NDArray,  # s + W + C + (i,)   -- input jet on mode i, s in {0,1}
-) -> NDArray:              # s + W + C + (a, b) -- core with the input jet contracted on mode i
-    '''Core times input jet, contracting mode ``i``, keeping the order axis ``s``. C is SHARED
-    (flattened to one letter); the passive s+W prefix rides as ``'...'``.'''
-    use_jax = tree_contains_jax((G, xi_jet))
-    xnp, _, _ = get_backend(is_ndarray(G), use_jax)
-
-    C_shape = G.shape[:-3]
-    a, i, b = G.shape[-3], G.shape[-2], G.shape[-1]
-    sW_shape = xi_jet.shape[:-(len(C_shape) + 1)]      # s + W, ride as '...'
-    size_C = math.prod(C_shape)
-
-    G_flat = G.reshape((size_C, a, i, b))
-    xi_flat = xi_jet.reshape(sW_shape + (size_C, i))
-    out = xnp.einsum('Caib,...Ci->...Cab', G_flat, xi_flat)
-    return out.reshape(sW_shape + C_shape + (a, b))
-
-
-def _tWCa_WCab_to_tWCb(
-        mu_jet:  NDArray,  # t + W + C + (a,)    -- left jet at order t (t passive)
-        Gxi:     NDArray,  #     W + C + (a, b)  -- core-with-input-jet, one order slice
-) -> NDArray:              # t + W + C + (b,)    -- mu^(t) . G . xi, bond a contracted
-    '''Contract the left bond ``a``, keeping the order axis ``t`` (passive on ``mu_jet``). W+C is
-    shared and contiguous on both operands, so it rides as ``'...'`` -- nothing is flattened.'''
-    use_jax = tree_contains_jax((mu_jet, Gxi))
-    xnp, _, _ = get_backend(is_ndarray(mu_jet), use_jax)
-    return xnp.einsum('t...a,...ab->t...b', mu_jet, Gxi)
-
-
-def _stWCa_sWCab_to_tWCb(
-        stacked_mu:  NDArray,  # s + t + W + C + (a,)    -- jet-pair axis s, order t (both passive on t)
-        Gxi:         NDArray,  # s +     W + C + (a, b)  -- core-with-input-jet, both order slices
-) -> NDArray:                  #     t + W + C + (b,)    -- the two-term step, in ONE contraction
-    '''Fused two-term recurrence step: contract the jet-pair axis ``s`` AND the bond ``a`` in a single
-    einsum. With ``stacked_mu[0] = mu^(t)``, ``stacked_mu[1] = t * mu^(t-1)``, and ``Gxi[s] = G . xi^(s)``,
-    the ``s`` sum reproduces ``mu^(t) . G . xi^(0) + t * mu^(t-1) . G . xi^(1)``. One larger GEMM instead
-    of two smaller ones -- gives XLA a single contraction to schedule (the whole point of the fused form).'''
-    use_jax = tree_contains_jax((stacked_mu, Gxi))
-    xnp, _, _ = get_backend(is_ndarray(stacked_mu), use_jax)
-    return xnp.einsum('st...a,s...ab->t...b', stacked_mu, Gxi)
-
-
 def compute_mu_jets(
         tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nUi,rR(i+1))
         xi_jets:    typ.Sequence[NDArray],  # input jets,  len=d, elm_shape=(2,)+W+C+(nUi,)
@@ -413,14 +369,14 @@ def compute_mu_jets(
 
     def _func(mu_jet, data):
         G, xi_jet = data
-        Gxi = _Caib_sWCi_to_sWCab(G, xi_jet[:s_size])     # (s, W, C, a, b), s in {0,1}
+        Gxi = contractions.Caib_sWCi_to_sWCab(G, xi_jet[:s_size])     # (s, W, C, a, b), s in {0,1}
         if s_size > 1:                                     # static branch (order >= 1)
             t_bcast = tvec.reshape((order + 1,) + (1,) * (mu_jet.ndim - 1))
             shifted = xnp.concatenate([xnp.zeros_like(mu_jet[:1]), mu_jet[:-1]], axis=0)  # mu^(t-1)
             stacked_mu = xnp.stack([mu_jet, t_bcast * shifted], axis=0)   # (s=2,) + mu jet shape
-            next_mu = _stWCa_sWCab_to_tWCb(stacked_mu, Gxi)
+            next_mu = contractions.stWCa_sWCab_to_tWCb(stacked_mu, Gxi)
         else:                                              # order 0: only s=0 survives
-            next_mu = _tWCa_WCab_to_tWCb(mu_jet, Gxi[0])
+            next_mu = contractions.tWCa_WCab_to_tWCb(mu_jet, Gxi[0])
         return next_mu, (mu_jet,)
 
     stack_shape = xi_jets[0].shape[1:-1]

@@ -109,6 +109,10 @@ __all__ = [
     # Symmetric probe-derivative contractions (the t derivative-order axis + binomial tensor).
     'trs_rWCa_Caib_sWCi_to_tWCb',
     'trs_rWCa_Caib_sWCb_to_tWCi',
+    # Lean (recurrence/scan) probe-derivative jet contractions -- the sharding-aware twins of the trs forms.
+    'Caib_sWCi_to_sWCab',
+    'tWCa_WCab_to_tWCb',
+    'stWCa_sWCab_to_tWCb',
     'tWCi_Cio_to_tWCo',
     # Transpose (adjoint) of the symmetric probe derivatives: the adjoint lift (the 2-block adjoint
     # sweeps + order-less assembly are superseded by the K-stacked 3-group versions below, which
@@ -815,6 +819,62 @@ def trs_rWCa_Caib_sWCb_to_tWCi(
 
     tWCi = tWCi.reshape(t_shape + W_shape + C_shape + i_shape)
     return tWCi
+
+
+def Caib_sWCi_to_sWCab(
+        Caib: NDArray,
+        sWCi: NDArray,
+) -> NDArray:
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Core times an input jet, contracting mode i and keeping the (affine) order axis s -- the shared step
+    of the lean mu/nu pushthrough (compute_mu_jets) and the sigma/tau_tilde adjoint sweeps. C is shared
+    (a letter, so it flattens); the passive s + W prefix rides as '...'.
+    """
+    use_jax = tree_contains_jax((Caib, sWCi))
+    xnp, _, _ = get_backend(True, use_jax)
+
+    C_shape = Caib.shape[:-3]
+    a_shape = (Caib.shape[-3],)
+    i_shape = (Caib.shape[-2],)
+    b_shape = (Caib.shape[-1],)
+    size_C = math.prod(C_shape)
+
+    Caib = Caib.reshape((size_C,) + a_shape + i_shape + b_shape)
+    sWCi = sWCi.reshape(sWCi.shape[:-(len(C_shape) + 1)] + (size_C,) + i_shape)
+
+    sWCab = _grouped_einsum(xnp, use_jax, 'Caib,...Ci->...Cab', Caib, sWCi)
+
+    return sWCab.reshape(sWCab.shape[:-3] + C_shape + a_shape + b_shape)
+
+
+def tWCa_WCab_to_tWCb(
+        tWCa: NDArray,
+        WCab: NDArray,
+) -> NDArray:
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Contract the bond a, keeping the order t -- the order-0 step of the lean mu recurrence
+    (compute_mu_jets). W + C ride as a shared '...' batch on both operands; nothing is flattened.
+    """
+    use_jax = tree_contains_jax((tWCa, WCab))
+    xnp, _, _ = get_backend(True, use_jax)
+    return _grouped_einsum(xnp, use_jax, 't...a,...ab->t...b', tWCa, WCab)
+
+
+def stWCa_sWCab_to_tWCb(
+        stWCa: NDArray,
+        sWCab: NDArray,
+) -> NDArray:
+    """Computes named contraction. Capital letters indicate grouped indices, which may be empty.
+
+    Fused two-term lean-mu recurrence step: contract the jet-pair axis s AND the bond a in one einsum
+    (compute_mu_jets). With stWCa[0]=mu^(t), stWCa[1]=t*mu^(t-1) and sWCab[s]=G.xi^(s), the s sum is
+    mu^(t).G.xi^(0) + t*mu^(t-1).G.xi^(1) -- one larger GEMM. W + C ride as '...'.
+    """
+    use_jax = tree_contains_jax((stWCa, sWCab))
+    xnp, _, _ = get_backend(True, use_jax)
+    return _grouped_einsum(xnp, use_jax, 'st...a,s...ab->t...b', stWCa, sWCab)
 
 
 def tWCi_Cio_to_tWCo(
