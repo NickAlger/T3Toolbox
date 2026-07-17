@@ -310,9 +310,10 @@ def uniform_entries_derivatives_kind(
 
 
 def uniform_probe_derivatives_kind(
-        x0_data:  typ.Tuple,
-        order:    int,
-        weight:   typ.Optional[typ.Sequence[float]] = None,
+        x0_data:    typ.Tuple,
+        order:      int,
+        weight:     typ.Optional[typ.Sequence[float]] = None,
+        chunk_size: typ.Optional[int] = 100,                 # W-chunk size for the 𝒥ᵀ assembly (docs/chunking.md)
 ) -> bfit.SamplingKind:                                  # sample = (ww, pp)
     """The uniform **probe-derivatives** ``SamplingKind`` -- the twin of
     :py:func:`t3toolbox.backend.fitting.probe_derivatives_kind`.
@@ -330,7 +331,7 @@ def uniform_probe_derivatives_kind(
         forward=lambda v_sc, s, frame_data, sweep: utv_sampling.utv_probe_jacobian_derivatives_from_sweep(
             (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep, order),
         transpose=lambda r, s, frame_data, sweep: utv_sampling.utv_probe_transpose_derivatives_from_sweep(
-            aw(r, 2), sweep, order, sum_over_probes=True),
+            aw(r, 2), sweep, order, sum_over_probes=True, chunk_size=chunk_size),
         sumsq=lambda out, n_w: bfit.sumsq_over_probes(aw(out, 1), n_w + 1),
         point_forward=lambda x_sc, s: ut3_sampling.ut3_probe_derivatives(
             s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
@@ -344,15 +345,18 @@ _DERIV_SAMPLING_KIND = {'apply_derivatives':   uniform_apply_derivatives_kind,
 
 
 def uniform_derivatives_kind(
-        name:     str,        # 'apply_derivatives' / 'entries_derivatives' / 'probe_derivatives'
-        x0_data:  typ.Tuple,  # UniformTuckerTensorTrain.data at the fixed rank
-        order:    int,
-        weight:   typ.Optional[typ.Sequence[float]] = None,
+        name:       str,        # 'apply_derivatives' / 'entries_derivatives' / 'probe_derivatives'
+        x0_data:    typ.Tuple,  # UniformTuckerTensorTrain.data at the fixed rank
+        order:      int,
+        weight:     typ.Optional[typ.Sequence[float]] = None,
+        chunk_size: typ.Optional[int] = 100,   # probe_derivatives only (its 𝒥ᵀ assembly chunks); ignored otherwise
 ) -> bfit.SamplingKind:
     """Dispatch to the uniform derivative sampling kind by name."""
     if name not in _DERIV_SAMPLING_KIND:
         raise ValueError(f"unknown uniform derivative kind {name!r}; expected one of "
                          f"{sorted(_DERIV_SAMPLING_KIND)}")
+    if name == 'probe_derivatives':            # the only derivative kind with a chunkable assembly
+        return _DERIV_SAMPLING_KIND[name](x0_data, order, weight, chunk_size=chunk_size)
     return _DERIV_SAMPLING_KIND[name](x0_data, order, weight)
 
 
@@ -456,6 +460,7 @@ def uniform_least_squares_problem(
         order:     typ.Optional[int] = None,  # derivative kinds only (required)
         weight:    typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) or ω[mode,order] (derivatives)
         regularizer: typ.Any = None,          # optional backend.regularization.Regularizer (e.g. IdentityRegularizer(λ))
+        chunk_size: typ.Optional[int] = 100,  # probe_derivatives only: W-chunk size for 𝒥ᵀ (docs/chunking.md)
 ) -> bopt.Problem:
     """Assemble a fully-packed uniform least-squares :py:class:`~t3toolbox.backend.optimizers.Problem`.
 
@@ -509,6 +514,6 @@ def uniform_least_squares_problem(
     N = x0_data[0].shape[-1]
     geom = uniform_geometry_ops(geometry, x0_data)
     kind = (uniform_sampling_kind(kind_name, x0_data, weight) if kind_name in ('apply', 'entries', 'probe')
-            else uniform_derivatives_kind(kind_name, x0_data, order, weight))
+            else uniform_derivatives_kind(kind_name, x0_data, order, weight, chunk_size=chunk_size))
     return bopt.least_squares_problem(geom, kind, pack_sample(kind_name, sample, N), pack_data(kind_name, data, N),
                                       regularizer=regularizer)

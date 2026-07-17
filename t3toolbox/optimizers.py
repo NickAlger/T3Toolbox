@@ -101,6 +101,35 @@ def _n_modes(kind: str, sample: typ.Any) -> int:
     return s.shape[0] if kind.startswith('entries') else len(s)
 
 
+def _resolve_chunk_size(chunk_size, kind, x0, sample, order, batch=None):
+    """Resolve ``chunk_size='auto'`` to a memory-balanced value for a uniform **probe_derivatives** fit
+    (:py:func:`~t3toolbox.backend.sampling_derivatives.estimate_chunk_size`, measured eagerly from the
+    supercore shapes); ints / ``None`` pass through unchanged. Only probe_derivatives has a chunkable
+    ``𝒥ᵀ`` assembly, so every other kind (and the ragged path, which frees eagerly) resolves to ``None``
+    -- a no-op. For minibatch optimizers the transpose sees ``batch`` probes, not the full ``|W|``. See
+    :doc:`/chunking`."""
+    if chunk_size != 'auto':
+        return chunk_size
+    if kind != 'probe_derivatives' or not isinstance(x0, ut3.UniformTuckerTensorTrain):
+        return None
+    try:
+        import jax  # noqa: F401  -- the estimator measures peak scratch via a compile
+    except ImportError:
+        return 100
+    import numpy as np
+    tsc, qsc = np.asarray(x0.tucker_supercore), np.asarray(x0.tt_supercore)  # (d,nU,N) ; (d,r,nU,r)
+    d, nU, r = tsc.shape[0], int(tsc.shape[-2]), int(qsc.shape[-1])
+    full_W = int(np.prod(np.asarray(sample[0][0]).shape[:-1]))
+    w = min(int(batch), full_W) if batch else full_W
+    return bfit_pd().estimate_chunk_size(tuple(x0.shape), (nU,) * d, (r,) * (d + 1), order, w, dtype=tsc.dtype)
+
+
+def bfit_pd():
+    """Lazy import of the sampling-derivatives backend (only needed to resolve chunk_size='auto')."""
+    import t3toolbox.backend.sampling_derivatives as pd
+    return pd
+
+
 def _setup(
         geometry,           # ragged (t3m.MANIFOLD/COREWISE) or uniform (ut3m.UNIFORM_MANIFOLD/COREWISE) singleton
         kind:   str,        # 'apply' / 'entries' / 'probe' (+ '_derivatives')
@@ -110,6 +139,8 @@ def _setup(
         order:  typ.Optional[int] = None,  # derivative kinds only: highest order (required)
         weight: typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         regularizer: typ.Any = None,       # optional backend.regularization.Regularizer (ragged only for now)
+        chunk_size: typ.Any = 'auto',      # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
+        batch:  typ.Optional[int] = None,  # minibatch size (mc_sgd/adam): the W the transpose sees, for 'auto'
 ) -> typ.Tuple[
         bopt.Problem,       # the fixed-rank least-squares problem
         typ.Any,            # initial optimizer state: x0.data (ragged) or the bare supercore pair (uniform)
@@ -133,13 +164,18 @@ def _setup(
     if isinstance(x0, ut3.UniformTuckerTensorTrain):
         geom_name = _uniform_geometry_name(geometry)
         x0m = uf.uniform_minimal(x0)                     # transparent minimal-rank reduction (no-op if minimal)
-        problem = uf.uniform_least_squares_problem(geom_name, kind, x0m, sample, data, order, wm, regularizer)
+        cs = _resolve_chunk_size(chunk_size, kind, x0m, sample, order, batch)   # 'auto' -> balanced (probe only)
+        problem = uf.uniform_least_squares_problem(geom_name, kind, x0m, sample, data, order, wm, regularizer,
+                                                   chunk_size=cs)
         init = (x0m.tucker_supercore, x0m.tt_supercore)  # optimizer state = the bare supercore pair
         return problem, init, lambda sc: ut3.UniformTuckerTensorTrain(sc[0], sc[1], x0m.shape, x0m.masks)
 
     if isinstance(x0, t3.TuckerTensorTrain):
         if kind in _KIND:                                # plain kinds: only probe is weightable (per-mode)
             bk = bfit.probe_kind(wm) if kind == 'probe' and wm is not None else _KIND[kind]
+        elif kind == 'probe_derivatives':                # the only derivative kind with a chunkable 𝒥ᵀ assembly
+            cs = _resolve_chunk_size(chunk_size, kind, x0, sample, order, batch)   # ragged -> None (no-op)
+            bk = _DERIV_KIND[kind](order, wm, chunk_size=cs)
         else:
             bk = _DERIV_KIND[kind](order, wm)
         problem = bopt.least_squares_problem(_geometry_ops(geometry), bk, sample, data, regularizer=regularizer)
@@ -161,6 +197,7 @@ def gradient_descent(
         order:    typ.Optional[int] = None,  # derivative kinds: highest order (required)
         weight:   typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ) (ragged only)
+        chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
         **kwargs,                       # forwarded to backend.optimizers.gradient_descent (n_iter, gtol_rel, ...)
 ) -> typ.Tuple[Point, dict]:            # (x_opt, stats)
     """Fit ``x`` to ``data`` by steepest descent (Cauchy step + Armijo line search) on ``geometry``.
@@ -170,7 +207,7 @@ def gradient_descent(
     representation is inferred from ``x0`` and returned in kind. Pass ``regularizer`` (e.g.
     ``optimizers.IdentityRegularizer(λ)``) to add ``ρ(x)`` to the objective (ragged only for now). See
     :py:func:`t3toolbox.backend.optimizers.gradient_descent`."""
-    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer)
+    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size)
     x_cores, stats = bopt.gradient_descent(problem, init, **kwargs)
     return rewrap(x_cores), stats
 
@@ -188,12 +225,13 @@ def mc_sgd(
         draw:     typ.Optional[typ.Callable]        = None,  # custom draw(rng)->(sample_B,data_B); None = flat
         use_jit:  bool = False,         # jit the per-step kernel: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
         regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ) (ragged only); scaled by batch/n per step
+        chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
         **kwargs,                       # forwarded to backend.optimizers.mc_sgd (max_iter, check_every, ...)
 ) -> typ.Tuple[Point, dict]:
     """Manifold Cauchy SGD -- minibatched, tuning-free Cauchy step. Ragged or uniform ``x0`` (see
     :py:func:`gradient_descent`). A ``regularizer`` (ragged only) is scaled by ``batch/n`` per step so
     ``λ`` matches the full-batch optimizers. See :py:func:`t3toolbox.backend.optimizers.mc_sgd`."""
-    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer)
+    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size, batch=batch)
     x_cores, stats = bopt.mc_sgd(problem, init, rng, batch, draw=draw, use_jit=use_jit, **kwargs)
     return rewrap(x_cores), stats
 
@@ -211,13 +249,14 @@ def adam(
         draw:     typ.Optional[typ.Callable]        = None,
         use_jit:  bool = False,         # jit the per-step kernel: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
         regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ) (ragged only); scaled by batch/n per step
+        chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
         **kwargs,                       # forwarded to backend.optimizers.adam (lr, max_iter, ...)
 ) -> typ.Tuple[Point, dict]:
     """Adam over the cores -- the dependency-free first-order method for the corewise geometry. Ragged or
     uniform ``x0`` (see :py:func:`gradient_descent`). A ``regularizer`` (ragged only) is scaled by
     ``batch/n`` per step so ``λ`` matches the full-batch optimizers. See
     :py:func:`t3toolbox.backend.optimizers.adam`."""
-    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer)
+    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size, batch=batch)
     x_cores, stats = bopt.adam(problem, init, rng, batch, draw=draw, use_jit=use_jit, **kwargs)
     return rewrap(x_cores), stats
 
@@ -236,6 +275,7 @@ def newton_cg(
         callback:   typ.Optional[typ.Callable] = None,  # custom callback(NewtonInfo) each iter (overrides `verbose`)
         use_jit:    bool = False,               # jit the inner CG: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
         regularizer: typ.Any = None,            # optional regularizer, e.g. optimizers.IdentityRegularizer(λ) (ragged only)
+        chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
         **kwargs,                       # forwarded to backend.optimizers.newton_cg (max_newton, gtol_rel, g0norm_newton, ...)
 ) -> typ.Tuple[Point, dict]:
     """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse. Ragged or uniform
@@ -258,6 +298,11 @@ def newton_cg(
     :py:func:`t3toolbox.backend.optimizers.newton_cg`. A custom ``callback`` overrides ``verbose``. Works on
     both the ragged and uniform layers (the uniform ``block_sumsq`` reduces the packed residual directly;
     validation data is packed automatically).
+
+    For a large-``|W|`` uniform ``probe_derivatives`` fit, ``chunk_size='auto'`` (the default) sizes the
+    ``𝒥ᵀ`` gradient assembly's memory automatically (via
+    :py:func:`~t3toolbox.backend.sampling_derivatives.estimate_chunk_size`); pass an ``int`` / ``None`` to
+    override. Other kinds and the ragged layer ignore it. See :doc:`/chunking`.
 
     Examples
     --------
@@ -322,7 +367,7 @@ def newton_cg(
     >>> dtype_x64, ok_x64
     ('float64', True)
     """
-    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer)
+    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size)
     records = None
     if callback is None and verbose:
         vs, vd = val_sample, val_data

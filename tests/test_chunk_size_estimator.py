@@ -61,5 +61,54 @@ class TestChunkSizeEstimator(unittest.TestCase):
         self.assertIsInstance(cs, int)
 
 
+@unittest.skipUnless(_HAVE_JAX, "the 'auto' resolver estimates via jax")
+class TestFittingChunkSizeWiring(unittest.TestCase):
+    """chunk_size threads through the optimizer layer: 'auto' resolves to the estimator for a uniform
+    probe_derivatives fit (None for ragged / non-probe), and chunking is exact through the optimizer."""
+
+    STRUCT = ((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
+
+    def _probes(self, W, seed=0):
+        rng = np.random.default_rng(seed)
+        ww = [rng.standard_normal((W, n)) for n in self.STRUCT[0]]
+        pp = [rng.standard_normal((W, n)) for n in self.STRUCT[0]]
+        return ww, pp
+
+    def test_resolver(self):
+        import t3toolbox.optimizers as opt
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        xu = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*self.STRUCT))
+        xr = t3.TuckerTensorTrain.randn(*self.STRUCT)
+        s = self._probes(300)
+        self.assertIsInstance(opt._resolve_chunk_size('auto', 'probe_derivatives', xu, s, 2), int)  # uniform -> int
+        self.assertIsNone(opt._resolve_chunk_size('auto', 'probe_derivatives', xr, s, 2))            # ragged -> None
+        self.assertIsNone(opt._resolve_chunk_size('auto', 'apply_derivatives', xu, s, 2))            # non-probe -> None
+        self.assertEqual(opt._resolve_chunk_size(7, 'probe_derivatives', xu, s, 2), 7)               # int passthrough
+        self.assertEqual(opt._resolve_chunk_size('auto', 'probe_derivatives', xu, s, 2, batch=40),   # minibatch caps W
+                         opt._resolve_chunk_size('auto', 'probe_derivatives', xu, self._probes(40), 2))
+
+    def test_newton_cg_exact_across_chunk_size(self):
+        # chunk_size is an exact reorganization -> the fit is identical up to float rounding, for any
+        # chunk_size. (Relative tolerance: the add-reducer differs from the dense sum only at ~1e-12.)
+        import t3toolbox.optimizers as opt
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        np.random.seed(0)                     # TuckerTensorTrain.randn uses the global RNG; pin it
+        ww, pp = self._probes(200)
+        xtrue = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*self.STRUCT))
+        data = xtrue.probe_derivatives(ww, pp, 2)
+        x0 = ut3.UniformTuckerTensorTrain.zeros(*self.STRUCT)
+        losses = []
+        for cs in ('auto', 4, None):          # 4 forces chunking (W=200 > 4); all must agree (exact)
+            _, stats = opt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', (ww, pp), data, x0,
+                                     order=2, chunk_size=cs, max_newton=2)
+            losses.append(stats['losses'][-1])
+        ref = losses[2]                       # None = the dense assembly
+        for l in losses[:2]:
+            self.assertLessEqual(abs(l - ref), 1e-9 * abs(ref) + 1e-12)
+
+
 if __name__ == '__main__':
     unittest.main()

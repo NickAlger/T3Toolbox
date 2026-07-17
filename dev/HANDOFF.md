@@ -78,11 +78,30 @@ branch can be deleted (optional).
     `assemble_*_trs` per chunk *intentionally* — chunking runs the dense contraction on each W-slice).
     Added canonical `compute_nu_jets`; `__all__` carries both name sets. Full suite green;
     `test_jet_recurrence` gained a `nu` equivalence check.
-  - **Not done (next):** thread the `chunk_size` parameter through the outer functions
-    (`tv_probe_derivatives_transpose` / `..._from_sweep` → the canonical assemblies), so a big-W caller
-    can actually turn on chunking (today it defaults to `None` = the dense fallback). Then **C-chunking**
-    (the reducer seam already supports it); uniform mask-strict/garbage-robust tests. Deferred: extracting
-    the inline per-step grouped einsums into named `contractions.py` functions — one pass, later.
+  - **`chunk_size` wiring + estimator — DONE (2026-07-16; committed, NOT pushed).** Three slices, all
+    green (docs clean under `-W`):
+    - **A** (`d84054a1`): `chunk_size` (`Optional[int]`, default `100`, `None`=dense) threaded through the
+      whole probe-transpose chain (both assemblies → the backend transpose fns + corewise → `utv_` twins →
+      `T3Tangent`/`UT3Tangent.probe_derivatives_transpose`). New user doc `docs/chunking.md`.
+    - **B** (`83dd4c70`): `estimate_chunk_size` / `max_chunk_size_within` — eager, shape-param estimators.
+      `per_row` is **measured** (dual `ShapeDtypeStruct` lowerings + `memory_analysis().temp_size`, max over
+      TT + Tucker, cached) not analytic (~20× off); balanced default = assembly ≈ jet floor; `n_shards`
+      sizes the per-device shard. `tests/test_chunk_size_estimator.py`.
+    - **C** (this commit): `chunk_size='auto'` threaded through the 4 optimizers + `_setup` + the two kind
+      builders; `_resolve_chunk_size` calls the estimator for a uniform `probe_derivatives` fit (shapes off
+      `x0`, minibatch size for `mc_sgd`/`adam`), `None` for ragged/non-probe. `Problem` stores the kind
+      directly so the closed-over `chunk_size` survives jit.
+    - **Design decisions** (Nick, 2026-07-16): no `'auto'` at the low levels — plain int + safe fixed
+      default; the estimator is a separate eager (outside-jit) function so it sidesteps GSPMD's trace-time
+      sharding-blindness; **balanced** (assembly ≈ edge-var memory) is the default policy, `max_chunk_size_within`
+      the opt-in absolute-budget one. Full record: `docs/chunking.md`.
+  - **Deferred:** (1) `probe_derivatives_model` / `_uniform_model` (the direct model-builder frontend) still
+    uses the fixed `100` default — threading `chunk_size` there needs a static field on the pytree
+    `UniformGaussNewtonModel` (its `kind` cached-property rebuilds from fields); the optimizers (the main
+    path) are fully wired. (2) **Sharded fitting** — the `shard_map` boundary + `psum` in the optimizer
+    (slice D); the estimator already takes `n_shards` and `docs/chunking.md` ships the manual recipe.
+    Also still open from the jet thread: **C-chunking** (the reducer seam supports it), uniform
+    mask-strict/garbage-robust tests, extracting the inline per-step grouped einsums into `contractions.py`.
 
 - **`contractions.py` unfusing — DONE (2026-07-15, `dae52839` + `f65b341d`; committed, NOT pushed).**
   No named block is fused with another any more: 14 sites, 112/112 bit-identical, full suite 712 passed /

@@ -94,6 +94,12 @@ peak stays under an absolute byte cap (e.g. a fraction of device memory).
 For sharded `W`, pass `n_shards` (or read it from the input array's `.sharding` eagerly) so the returned
 chunk sizes each device's shard; combine with the `shard_map` recipe below.
 
+**In fitting you get this for free.** The optimizers (`newton_cg`, `mc_sgd`, `adam`, `gradient_descent`)
+and `probe_derivatives_kind` take a `chunk_size` argument defaulting to `'auto'`: for a uniform
+`probe_derivatives` fit they call `estimate_chunk_size` once with the shapes read off `x0` (and the
+minibatch size for the minibatch optimizers), so a large-`|W|` fit stops OOMing with no action from you.
+Pass an `int` or `None` to override; ragged and non-`probe_derivatives` fits ignore it (nothing to chunk).
+
 ## Sharding over `W`
 
 For very large `|W|` the sample stack is often **sharded across devices**. Chunking and sharding

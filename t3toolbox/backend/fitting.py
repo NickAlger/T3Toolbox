@@ -390,8 +390,9 @@ def entries_derivatives_kind(
 
 
 def probe_derivatives_kind(
-        order:  int,
-        weight: typ.Optional[typ.Any] = None,       # residual weight ω[mode,order], (d,order+1) broadcast; None = 1
+        order:      int,
+        weight:     typ.Optional[typ.Any] = None,   # residual weight ω[mode,order], (d,order+1) broadcast; None = 1
+        chunk_size: typ.Optional[int] = 100,        # W-chunk size for the 𝒥ᵀ gradient assembly (docs/chunking.md)
 ) -> SamplingKind:                                  # sample = (ww, pp); data = list of d, (order+1)+W+(Ni,)
     '''The **probe-derivatives** sampling kind: vector-valued (one free mode per probe), so the residual
     / output is a list of ``d`` arrays. ``sample = (ww, pp)``. Probe has both a mode and an order axis, so
@@ -403,7 +404,7 @@ def probe_derivatives_kind(
         precompute=lambda frame, s: pd.tv_precompute_probe_frame_sweep_jets(frame, s[0], s[1], order),
         forward=lambda v, s, frame, bs: pd.tv_probe_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, bs, order),
         transpose=lambda r, s, frame, bs: pd.tv_probe_transpose_derivatives_from_sweep(
-            aw(r, 2), s[0], s[1], frame, bs, order, sum_over_probes=True),
+            aw(r, 2), s[0], s[1], frame, bs, order, sum_over_probes=True, chunk_size=chunk_size),
         sumsq=lambda out, n_w: sumsq_over_probes(aw(out, 1), n_w + 1),
         w_axes=lambda s: s[0][0].ndim - 1,
         point_forward=lambda x_cores, s: pd.t3_probe_derivatives(s[0], s[1], x_cores, order),
