@@ -490,23 +490,18 @@ def compute_eta_jets(
     def _func(data):
         mu_jet, G, nu_jet = data                          # (T,W,C,a) ; (C,a,i,b) ; (T,W,C,b)
         C_shape = G.shape[:-3]
-        a, i, b = G.shape[-3], G.shape[-2], G.shape[-1]
+        i = G.shape[-2]
         W_shape = mu_jet.shape[1:-(len(C_shape) + 1)]
-        size_C = math.prod(C_shape)
-
-        G_f = G.reshape((size_C, a, i, b))
-        mu_f = mu_jet.reshape((order + 1,) + W_shape + (size_C, a))
-        nu_f = nu_jet.reshape((order + 1,) + W_shape + (size_C, b))
 
         def _accumulate(eta, xr):
-            mu_r, trsr = xr                                          # (W,C,a) ; (t,s)
-            MG_r = xnp.einsum('...Ca,Caib->...Cib', mu_r, G_f)       # peak: W + C + (i, b)
-            MGN_r = xnp.einsum('...Cib,s...Cb->s...Ci', MG_r, nu_f)  # fold in all of nu -> order s
-            return eta + xnp.einsum('ts,s...Ci->t...Ci', trsr, MGN_r), ()   # binomial weights over t
+            mu_r, trsr = xr                                                        # (W,C,a) ; (t,s)
+            MG_r = contractions.contract('WCa,Caib->WCib', mu_r, G)                # peak: W + C + (i, b)
+            MGN_r = contractions.contract('WCib,sWCb->sWCi', MG_r, nu_jet)         # fold in all of nu -> order s
+            return eta + contractions.contract('ts,sWCi->tWCi', trsr, MGN_r), ()   # binomial weights over t
 
-        eta0 = xnp.zeros((order + 1,) + W_shape + (size_C, i), mu_jet.dtype)
-        eta, _ = xscan(_accumulate, eta0, (mu_f, trs_r))
-        return (eta.reshape((order + 1,) + W_shape + C_shape + (i,)),)
+        eta0 = xnp.zeros((order + 1,) + W_shape + C_shape + (i,), mu_jet.dtype)
+        eta, _ = xscan(_accumulate, eta0, (mu_jet, trs_r))
+        return (eta,)
 
     (eta_jets,) = xmap(_func, (mu_jets, tt_cores, nu_jets))
     return eta_jets
@@ -826,7 +821,8 @@ def compute_deta_jets(
     the ``(order+1)*W*K*r^2`` spatial product for every core at once; this scans the input order ``r``
     (one order slice of ``jetL . core`` live at a time) and folds in all of the right jet + the
     binomial weights -- peak ``W*K*r^2``. The K tangent stack sits on a *different* operand in each
-    term (sigma / dG / tau), so W, K, C are flattened to explicit blocks (K rides). Memory win needs
+    term (sigma / dG / tau), so several of the grouped contractions need ``len_C`` (the W|C split
+    is not pinned by their operands). Memory win needs
     the uniform path (real ``lax.map``/``lax.scan``); see :py:func:`compute_eta_jets`. Verified
     equal to :py:func:`compute_deta_jets_trs` to 1e-12.
     '''
@@ -841,36 +837,25 @@ def compute_deta_jets(
         C_shape = Q.shape[:-3]                        # Q is C+(a,i,b)
         nf = len(C_shape)
         i = Q.shape[-2]                               # mode nU (shared, free); bonds differ per term
-        a_mu, a_sig = mu_jet.shape[-1], sigma_jet.shape[-1]
-        b_nu, b_tau = nu_jet.shape[-1], tau_jet.shape[-1]
         nW = mu_jet.ndim - 2 - nf                     # mu is (order+1,)+W+C+(a,)
         W_shape = mu_jet.shape[1:1 + nW]
         nK = (sigma_jet.ndim - 2) - nW - nf           # sigma is (order+1,)+W+K+C+(a,)
         K_shape = sigma_jet.shape[1 + nW:1 + nW + nK]
-        sW, sK, sC = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
-
-        Qf = Q.reshape((sC, a_sig, i, b_nu))
-        Pf = P.reshape((sC, a_mu, i, b_tau))
-        dGf = dG.reshape((sK, sC, a_mu, i, b_nu))
-        mu_f = mu_jet.reshape((order + 1, sW, sC, a_mu))
-        nu_f = nu_jet.reshape((order + 1, sW, sC, b_nu))
-        sig_f = sigma_jet.reshape((order + 1, sW, sK, sC, a_sig))
-        tau_f = tau_jet.reshape((order + 1, sW, sK, sC, b_tau))
 
         def _step(eta, xr):
-            mu_r, sig_r, trsr = xr                                       # (sW,sC,a) ; (sW,sK,sC,a) ; (t,s)
-            mg1 = xnp.einsum('WKCa,Caib->WKCib', sig_r, Qf)              # term1: sigma Q nu  (K on sigma)
-            mgn1 = xnp.einsum('WKCib,sWCb->sWKCi', mg1, nu_f)
-            mg2 = xnp.einsum('WCa,KCaib->WKCib', mu_r, dGf)             # term2: mu dG nu    (K on core)
-            mgn2 = xnp.einsum('WKCib,sWCb->sWKCi', mg2, nu_f)
-            mg3 = xnp.einsum('WCa,Caib->WCib', mu_r, Pf)               # term3: mu P tau    (K on tau)
-            mgn3 = xnp.einsum('WCib,sWKCb->sWKCi', mg3, tau_f)
-            contrib = xnp.einsum('ts,sWKCi->tWKCi', trsr, mgn1 + mgn2 + mgn3)
+            mu_r, sig_r, trsr = xr                                                    # (W,C,a) ; (W,K,C,a) ; (t,s)
+            mg1 = contractions.contract('WKCa,Caib->WKCib', sig_r, Q)                 # term1: sigma Q nu  (K on sigma)
+            mgn1 = contractions.contract('WKCib,sWCb->sWKCi', mg1, nu_jet, len_C=nf)
+            mg2 = contractions.contract('WCa,KCaib->WKCib', mu_r, dG, len_C=nf)       # term2: mu dG nu    (K on core)
+            mgn2 = contractions.contract('WKCib,sWCb->sWKCi', mg2, nu_jet, len_C=nf)
+            mg3 = contractions.contract('WCa,Caib->WCib', mu_r, P)                    # term3: mu P tau    (K on tau)
+            mgn3 = contractions.contract('WCib,sWKCb->sWKCi', mg3, tau_jet, len_C=nf)
+            contrib = contractions.contract('ts,sWKCi->tWKCi', trsr, mgn1 + mgn2 + mgn3)
             return eta + contrib, ()
 
-        eta0 = xnp.zeros((order + 1, sW, sK, sC, i), mu_jet.dtype)
-        eta, _ = xscan(_step, eta0, (mu_f, sig_f, trs_r))
-        return (eta.reshape((order + 1,) + W_shape + K_shape + C_shape + (i,)),)
+        eta0 = xnp.zeros((order + 1,) + W_shape + K_shape + C_shape + (i,), mu_jet.dtype)
+        eta, _ = xscan(_step, eta0, (mu_jet, sigma_jet, trs_r))
+        return (eta,)
 
     (deta_jets,) = xmap(_func, (left_tt_cores, right_tt_cores, var_tt_cores,
                                 mu_jets, nu_jets, sigma_jets, tau_jets))
@@ -879,44 +864,30 @@ def compute_deta_jets(
 
 def _sigma_banded_step(sigma_jet, Q, O, dG, xi_jet, dxi_jet, mu_jet, s_size, tvec, order, xnp):
     '''One K-aware banded step of the sigma recursion: the three affine pushthroughs of
-    :py:func:`_sigma_jet_step` as fused two-term recurrences (no trs). W, K, C flattened; K rides on
-    the carried sigma (t1), the variation core dG (t2), or the var input dxi (t3).'''
-    C_shape = Q.shape[:-3]
-    nf = len(C_shape)
-    nU, nO = Q.shape[-2], O.shape[-2]
-    a_sig, a_mu, b = sigma_jet.shape[-1], mu_jet.shape[-1], Q.shape[-1]   # b = output bond rR(i+1)
-    nW = xi_jet.ndim - 2 - nf
-    W_shape = xi_jet.shape[1:1 + nW]
-    nK = dxi_jet.ndim - 2 - nW - nf
-    K_shape = dxi_jet.shape[1 + nW:1 + nW + nK]
-    sW, sK, sC = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
+    :py:func:`_sigma_jet_step` as fused two-term recurrences (no trs). W, K, C ride unflattened
+    through the grouped contractions (``len_C`` supplied where the W|C split is unpinned); K rides
+    on the carried sigma (t1), the variation core dG (t2), or the var input dxi (t3).'''
+    nf = len(Q.shape[:-3])
+    xi_s, dxi_s = xi_jet[:s_size], dxi_jet[:s_size]
 
-    Qf = Q.reshape((sC, a_sig, nU, b))
-    dGf = dG.reshape((sK, sC, a_mu, nU, b))
-    Of = O.reshape((sC, a_mu, nO, b))
-    xi_f = xi_jet[:s_size].reshape((s_size, sW, sC, nU))
-    dxi_f = dxi_jet[:s_size].reshape((s_size, sW, sK, sC, nO))
-    sig_f = sigma_jet.reshape((order + 1, sW, sK, sC, a_sig))
-    mu_f = mu_jet.reshape((order + 1, sW, sC, a_mu))
+    Qxi = contractions.contract('Caib,sWCi->sWCab', Q, xi_s)                 # (s,W,C,a,b)   -- no K
+    dGxi = contractions.contract('KCaib,sWCi->sWKCab', dG, xi_s, len_C=nf)   # (s,W,K,C,a,b) -- K on core
+    Odxi = contractions.contract('Caib,sWKCi->sWKCab', O, dxi_s)             # (s,W,K,C,a,b) -- K on var input
 
-    Qxi = xnp.einsum('Caib,sWCi->sWCab', Qf, xi_f)          # (s,W,C,a,b)   -- no K
-    dGxi = xnp.einsum('KCaib,sWCi->sWKCab', dGf, xi_f)      # (s,W,K,C,a,b) -- K on core
-    Odxi = xnp.einsum('Caib,sWKCi->sWKCab', Of, dxi_f)      # (s,W,K,C,a,b) -- K on var input
-
-    def stacked(jet_f):     # (order+1,...,a) -> (s=2,)+... = [jet^(t), t*jet^(t-1)]
-        t_b = tvec.reshape((order + 1,) + (1,) * (jet_f.ndim - 1))
-        shifted = xnp.concatenate([xnp.zeros_like(jet_f[:1]), jet_f[:-1]], axis=0)
-        return xnp.stack([jet_f, t_b * shifted], axis=0)
+    def stacked(jet):       # (order+1,...,a) -> (s=2,)+... = [jet^(t), t*jet^(t-1)]
+        t_b = tvec.reshape((order + 1,) + (1,) * (jet.ndim - 1))
+        shifted = xnp.concatenate([xnp.zeros_like(jet[:1]), jet[:-1]], axis=0)
+        return xnp.stack([jet, t_b * shifted], axis=0)
 
     if s_size > 1:
-        t1 = xnp.einsum('stWKCa,sWCab->tWKCb', stacked(sig_f), Qxi)     # K on sigma
-        t2 = xnp.einsum('stWCa,sWKCab->tWKCb', stacked(mu_f), dGxi)     # K on core
-        t3 = xnp.einsum('stWCa,sWKCab->tWKCb', stacked(mu_f), Odxi)     # K on var input
-    else:                                                              # order 0: only s=0
-        t1 = xnp.einsum('tWKCa,WCab->tWKCb', sig_f, Qxi[0])
-        t2 = xnp.einsum('tWCa,WKCab->tWKCb', mu_f, dGxi[0])
-        t3 = xnp.einsum('tWCa,WKCab->tWKCb', mu_f, Odxi[0])
-    return (t1 + t2 + t3).reshape((order + 1,) + W_shape + K_shape + C_shape + (b,))
+        t1 = contractions.contract('stWKCa,sWCab->tWKCb', stacked(sigma_jet), Qxi, len_C=nf)   # K on sigma
+        t2 = contractions.contract('stWCa,sWKCab->tWKCb', stacked(mu_jet), dGxi, len_C=nf)     # K on core
+        t3 = contractions.contract('stWCa,sWKCab->tWKCb', stacked(mu_jet), Odxi, len_C=nf)     # K on var input
+    else:                                                                    # order 0: only s=0
+        t1 = contractions.contract('tWKCa,WCab->tWKCb', sigma_jet, Qxi[0], len_C=nf)
+        t2 = contractions.contract('tWCa,WKCab->tWKCb', mu_jet, dGxi[0], len_C=nf)
+        t3 = contractions.contract('tWCa,WKCab->tWKCb', mu_jet, Odxi[0], len_C=nf)
+    return t1 + t2 + t3
 
 
 def compute_sigma_jets(
@@ -1406,43 +1377,36 @@ def _adj_tilde_step(carry, P, xi, deta_t, edge, s_size, svec, order, xnp, xscan,
     contraction: **prop** (adjoint of the affine pushthrough) is a two-term REVERSE recurrence -- shifted
     UP (``carry^(s+1)``, weight ``s+1``), fused into one GEMM; **src** (adjoint of the full combine, the
     deta_tilde source) is a full REVERSE convolution, an inner order-scan over the edge order ``r`` with
-    peak ``W*r^2`` per slice. W, K, C flattened (carry/deta carry K; xi/edge/P do not).'''
-    C_shape = P.shape[:-3]
-    nf = len(C_shape)
-    a, i, b = P.shape[-3], P.shape[-2], P.shape[-1]
+    peak ``W*r^2`` per slice. W, K, C ride unflattened through the grouped contractions (carry/deta
+    carry K; xi/edge/P do not; ``len_C`` supplied where the W|C split is unpinned).'''
+    nf = len(P.shape[:-3])
+    b = P.shape[-1]
     nW = xi.ndim - 2 - nf
     W_shape = xi.shape[1:1 + nW]
-    nK = carry.ndim - 2 - nW - nf
-    K_shape = carry.shape[1 + nW:1 + nW + nK]
-    sW, sK, sC = math.prod(W_shape), math.prod(K_shape), math.prod(C_shape)
-
-    Pf = P.reshape((sC, a, i, b))
-    carry_f = carry.reshape((order + 1, sW, sK, sC, a))
-    xi_f = xi[:s_size].reshape((s_size, sW, sC, i))
-    edge_f = edge.reshape((order + 1, sW, sC, a))
-    deta_f = deta_t.reshape((order + 1, sW, sK, sC, i))
+    K_shape = carry.shape[1 + nW:carry.ndim - 1 - nf]
+    C_shape = P.shape[:-3]
 
     # --- prop: two-term reverse recurrence (xi affine). prop^(s) = carry^(s) P xi^(0) + (s+1) carry^(s+1) P xi^(1)
-    Pxi = xnp.einsum('Caib,kWCi->kWCab', Pf, xi_f)              # (k=s_size, W, C, a, b)
+    Pxi = contractions.contract('Caib,kWCi->kWCab', P, xi[:s_size])   # (k=s_size, W, C, a, b)
     if s_size > 1:
-        sp1 = (svec + 1).reshape((order + 1,) + (1,) * (carry_f.ndim - 1))
-        up = xnp.concatenate([carry_f[1:], xnp.zeros_like(carry_f[:1])], axis=0)   # carry^(s+1)
-        stacked = xnp.stack([carry_f, sp1 * up], axis=0)        # (2,)+carry shape
-        prop = xnp.einsum('ksWKCa,kWCab->sWKCb', stacked, Pxi)
+        sp1 = (svec + 1).reshape((order + 1,) + (1,) * (carry.ndim - 1))
+        up = xnp.concatenate([carry[1:], xnp.zeros_like(carry[:1])], axis=0)   # carry^(s+1)
+        stacked = xnp.stack([carry, sp1 * up], axis=0)                # (2,)+carry shape
+        prop = contractions.contract('ksWKCa,kWCab->sWKCb', stacked, Pxi, len_C=nf)
     else:
-        prop = xnp.einsum('sWKCa,WCab->sWKCb', carry_f, Pxi[0])
+        prop = contractions.contract('sWKCa,WCab->sWKCb', carry, Pxi[0], len_C=nf)
 
     # --- src: full reverse convolution -- inner scan over the edge order r, peak W*r^2 per slice
     def _src_step(acc, xr):
-        edge_r, trsr = xr                                       # (W,C,a) ; (t,s)
-        ep = xnp.einsum('WCa,Caib->WCib', edge_r, Pf)           # edge^(r) P over a -- peak W*r^2
-        epd = xnp.einsum('WCib,tWKCi->tWKCb', ep, deta_f)       # fold all t (deta full) -> (t,W,K,C,b)
-        return acc + xnp.einsum('ts,tWKCb->sWKCb', trsr, epd), ()
+        edge_r, trsr = xr                                             # (W,C,a) ; (t,s)
+        ep = contractions.contract('WCa,Caib->WCib', edge_r, P)       # edge^(r) P over a -- peak W*r^2
+        epd = contractions.contract('WCib,tWKCi->tWKCb', ep, deta_t, len_C=nf)   # fold all t (deta full)
+        return acc + contractions.contract('ts,tWKCb->sWKCb', trsr, epd), ()
 
-    src0 = xnp.zeros((order + 1, sW, sK, sC, b), carry.dtype)
-    src, _ = xscan(_src_step, src0, (edge_f, trs_r))
+    src0 = xnp.zeros((order + 1,) + W_shape + K_shape + C_shape + (b,), carry.dtype)
+    src, _ = xscan(_src_step, src0, (edge, trs_r))
 
-    return (prop + src).reshape((order + 1,) + W_shape + K_shape + C_shape + (b,))
+    return prop + src
 
 
 def _adj_sweep_scanned(P_cores, xi_jets, deta_tildes, edge_jets, trs):

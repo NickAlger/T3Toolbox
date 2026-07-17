@@ -60,8 +60,16 @@ branch can be deleted (optional).
   SUBSCRIPT STRING instead. Zero named-contraction references remain outside `contractions.py` and
   its tests. Gates: jet/probe suites, full `test_dispatch` (jit through every flipped hot path),
   module doctests, compat-floor env, full suite.
-  Remaining slices: (3) extract the remaining lean-jet inline einsums as `contract` call sites
-  (inventory in `dev/contraction_cleanup_resume.md`); (4) delete the named fns + their oracle tests
+  **Slice 3 — DONE (2026-07-17): the lean-jet inline einsums are `contract` call sites.** The four
+  scan-step bodies (`compute_eta_jets`, `compute_deta_jets`, `_sigma_banded_step`,
+  `_adj_tilde_step`) now pass W/K/C UNFLATTENED to `contract(...)` (`len_C` supplied where the W|C
+  split is unpinned) — the pre-flatten reshapes at the top of each step are gone, so the any-axis
+  sharding property now reaches the jet hot paths; ZERO `xnp.einsum` remain in
+  `sampling_derivatives.py`. Verified: lean == trs == the definition (float64-exact small,
+  float32-noise at W=3000); the uniform-jit **memory win survives the rewrite** (eta measured
+  0.03 vs 0.84 GiB XLA temp = 28x at d=4, order 5, W=3000, r=48); jet/probe suites, compat floor,
+  full suite. The resume note is superseded → `dev/archive/contraction_cleanup_resume_2026-07-16.md`.
+  Remaining slice: (4) delete the named fns + their oracle tests
   (the differential test's reference then retires with them — keep the loop oracle + sharding
   sweeps), rewrite the module docstring/SHARDING block for the interpreter era, update
   `docs/batching_and_stacking.md` §4 (drop "shard the leading axis" → any axis) +
@@ -115,10 +123,9 @@ branch can be deleted (optional).
     assemble_tt now 168→2.63 GB (**64×**, was 21×); N>>n fixed (assemble_tucker 51.9→1.6 GB at N=10000).
   - **Contraction cleanup — SUPERSEDED by the grouped-einsum interpreter (2026-07-17, Nick's
     decision).** The named-function extraction (phase 1 mu done, `6e9a55d8`) stops here; the
-    remaining inline einsums in `sampling_derivatives.py` will instead become `contract(...)` call
-    sites (see the interpreter thread below). `dev/contraction_cleanup_resume.md` is kept only for
-    its einsum inventory (its "add named contractions + hand-written oracles" instructions are
-    obsolete).
+    remaining inline einsums in `sampling_derivatives.py` instead became `contract(...)` call
+    sites (interpreter slice 3, done). The note is archived:
+    `dev/archive/contraction_cleanup_resume_2026-07-16.md`.
   - **Rename + wire-in — DONE (2026-07-16).** Lean forms took the canonical names, dense → `_trs`
     (single-pass whole-word rename + surgical seam re-point; the chunked assemblies still call
     `assemble_*_trs` per chunk *intentionally* — chunking runs the dense contraction on each W-slice).

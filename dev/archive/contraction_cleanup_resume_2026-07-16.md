@@ -1,5 +1,12 @@
 # RESUME: extract the lean-jet contractions into contractions.py (no-context handoff)
 
+> **SUPERSEDED 2026-07-17 — the task this note describes was completed by a different mechanism.**
+> Nick replaced the named-contraction architecture with the grouped-einsum interpreter
+> (`contractions.contract('WCa,Caib,WCi->WCb', ...)`); the inline einsums inventoried below became
+> `contract` call sites (slice 3), not named functions, and the hand-written-oracle instructions no
+> longer apply. Kept for the einsum inventory and the K-trap analysis (now mechanical — the
+> interpreter's rank solve reproduces it). See `dev/HANDOFF.md` "grouped-einsum interpreter".
+
 _Written 2026-07-16 to resume a mid-flight cleanup in a fresh session with no memory of it. Read this
 top-to-bottom, then read the referenced code. The broader project guide is `CLAUDE.md` (repo root)._
 
