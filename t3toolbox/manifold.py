@@ -941,6 +941,7 @@ class T3Tangent:
             frame:              bvf.T3Frame,
             order:              int,                    # highest derivative order
             sum_over_probes:    bool = False,           # True: sum the sample stack W (Gauss-Newton J^T r)
+            chunk_size:         typ.Optional[int] = 100,  # W-chunk size for the gradient assembly; None -> dense
     ) -> 'T3Tangent':
         """Transpose ``(J^(s))^T`` of :py:meth:`probe_derivatives`; returns a :py:class:`T3Tangent` at ``frame``.
 
@@ -948,6 +949,9 @@ class T3Tangent:
         (``(order+1)+W+K+C+(Ni,)``); the tangent batch ``K`` rides through, the sample stack ``W`` is
         summed (``sum_over_probes=True``, the Gauss-Newton ``J^T r``) or kept (``False``, ``W`` becomes
         the tangent stack). Bare ``(J^(s))^T`` (no gauge projector).
+
+        ``chunk_size`` bounds the peak memory of the (uniform+jax) gradient assembly by processing the
+        sample stack in slices; ``None`` runs the dense assembly. See :doc:`/chunking`.
 
         See Also
         --------
@@ -977,7 +981,7 @@ class T3Tangent:
         """
         sampling_derivatives.check_perturbation_vectors(ww, pp)
         dU, dG = sampling_derivatives.tv_probe_derivatives_transpose(
-            ztildes, ww, pp, frame.data, order, sum_over_probes=sum_over_probes)
+            ztildes, ww, pp, frame.data, order, sum_over_probes=sum_over_probes, chunk_size=chunk_size)
         return T3Tangent(frame, bvf.T3Variations(dU, dG))
 
     @staticmethod

@@ -732,6 +732,7 @@ class UT3Tangent:
             frame:  ubv.UT3Frame,      # the orthogonal frame the tangent attaches at
             order:  int,               # highest derivative order
             sum_over_probes:  bool = False,
+            chunk_size=100,            # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
     ) -> 'UT3Tangent':  # tangent stack W+K (sum_over_probes=False) or K (True); frame stack C
         """Transpose ``𝒥ᵀ`` of :py:meth:`probe_derivatives`: back-project residual jets into a
         :py:class:`UT3Tangent` at ``frame``. The residual jets live in the forward derivative-probe space
@@ -768,7 +769,7 @@ class UT3Tangent:
         """
         sampling_derivatives.check_perturbation_vectors(ww, pp)
         vd = utv_sampling.utv_probe_derivatives_transpose(
-            ztildes, ww, pp, frame.data, order, sum_over_probes=sum_over_probes)
+            ztildes, ww, pp, frame.data, order, sum_over_probes=sum_over_probes, chunk_size=chunk_size)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
     @staticmethod

@@ -336,13 +336,15 @@ def utv_probe_transpose_derivatives_from_sweep(
         frame_sweep,   # = utv_precompute_probe_frame_sweep_jets(...)
         order,        # highest derivative order
         sum_over_probes=True,
+        chunk_size=100,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
     """Transpose ``𝒥ᵀ`` of the probe-derivatives reusing the jet sweep (the bare adjoint): pack the residual
     jets to ``N``, share :py:func:`sampling_derivatives.tv_probe_transpose_derivatives_from_sweep`."""
     mb, packed_ww, packed_pp, _shape, psweep = frame_sweep
     packed_z = ut3_operations.pack_if_ragged(ztildes, mb[0].shape[-1])
     return sampling_derivatives.tv_probe_transpose_derivatives_from_sweep(
-        packed_z, packed_ww, packed_pp, mb, psweep, order, sum_over_probes=sum_over_probes)
+        packed_z, packed_ww, packed_pp, mb, psweep, order, sum_over_probes=sum_over_probes,
+        chunk_size=chunk_size)
 
 
 def utv_entries_transpose_derivatives_from_sweep(
@@ -505,6 +507,7 @@ def utv_probe_derivatives_transpose(
         frame_data,       # UT3Frame .data (an orthogonal frame), supercore stack = C
         order,            # highest derivative order
         sum_over_probes=False,
+        chunk_size=100,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
 ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
     """Apply the transpose ``𝒥ᵀ`` of the probe-derivative map to residual jets (the bare adjoint). Mask-once,
     pack the residual jets + ``ww`` + ``pp``, share ``sampling_derivatives.tv_probe_derivatives_transpose``,
@@ -515,7 +518,7 @@ def utv_probe_derivatives_transpose(
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
     dU_tilde, dG_tilde = sampling_derivatives.tv_probe_derivatives_transpose(
-        packed_z, packed_ww, packed_pp, mb, order, sum_over_probes=sum_over_probes)
+        packed_z, packed_ww, packed_pp, mb, order, sum_over_probes=sum_over_probes, chunk_size=chunk_size)
     masks = _gauge_masks_over_Knew(frame_data, dU_tilde)
     return (dU_tilde, dG_tilde, frame_data[4], masks)
 
