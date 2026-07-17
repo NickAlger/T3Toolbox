@@ -321,6 +321,13 @@ branch can be deleted (optional).
 
 ## Backlog (not scheduled)
 
+- **Standalone grouped-contractions library — PARKED (Nick, 2026-07-17).** Splitting `contract`
+  into a small independent repo (T3 would VENDOR a single-file copy — no runtime dependency).
+  Revisit trigger: the next time a grouped contraction is needed in another project. The einx
+  feasibility check (einx.dot covers the headline case, compiles to the same expanded einsum,
+  shards clean; residue = co-travel merging + the string-level identifiability contract + zero-dep
+  minimalism) and the plan of record live in the research repo:
+  `grouped_contractions_vs_einx/findings.md`.
 - **Base-point-as-tangent as a public library op** (Nick, 2026-07-14) — representing a base point `X` as a
   gauged tangent `v_X` within its own tangent space is broadly useful; expose it as a first-class op
   (frontend `T3Tangent`/`UT3Tangent` factory + backend helper) with the direct construction (last TT
