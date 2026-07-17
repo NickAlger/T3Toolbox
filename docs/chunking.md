@@ -61,14 +61,38 @@ edge-variable memory that is *already* necessarily resident. Then the assembly i
 pole — if the rest of the pipeline fits, so does the assembly (total peak `≈ 2×` the necessary floor).
 This is device-agnostic: it needs no knowledge of the device's memory, only the problem shapes.
 
-**The estimator.** A helper that computes a memory-balanced `chunk_size` from the problem shapes
-(`d`, `order`, ranks, `|W|`, `dtype`) — measuring the assembly's true per-row cost rather than guessing
-it — is provided as a separate, eager (outside-`jit`) function. Call it once and pass the integer it
-returns as `chunk_size`. See the estimator's own documentation for the exact signature and the optional
-"largest chunk that fits an absolute byte budget" policy.
+**The estimator.** Rather than guess, call `estimate_chunk_size` once (eagerly, outside `jit`) with the
+same shapes you used to build the problem, and pass the integer it returns as `chunk_size`. It measures
+the assembly's true per-row cost with XLA's own scratch accounting (`memory_analysis`) — no ~20×-off
+analytic formula — and returns the largest chunk whose peak stays comparable to the resident jets:
 
-Until then, a practical manual rule: the assembly's per-row cost is roughly `(order+1)²·r²·8` bytes (a
-few MB per probe at `r = 128`, order 5); pick `chunk_size ≈ (your per-device memory budget) / (that)`.
+```python
+from t3toolbox.backend.sampling_derivatives import estimate_chunk_size, max_chunk_size_within
+
+cs = estimate_chunk_size(
+    mode_shapes=(N_1, ..., N_d),     # ambient dims (as passed to TuckerTensorTrain.randn)
+    tucker_ranks=(nU_1, ..., nU_d),
+    tt_ranks=(r_0, ..., r_d),        # the d+1 TT bonds
+    order=K,
+    n_probes=len_W,                  # number of probes
+    n_tangent=1,                     # tangent-stack size (a batch of tangents at one frame)
+    n_shards=1,                      # W split across this many devices -> sizes the LOCAL shard
+    dtype=np.float32,                # float64 under x64
+)
+JTr = T3Tangent.probe_derivatives_transpose(r, ww, pp, frame, K, sum_over_probes=True, chunk_size=cs)
+```
+
+It sizes the **larger** of the TT-core (`r²` legs) and Tucker (`nO`, `N` legs) gradients, so it stays
+safe when `N ≫ n`; and when the whole assembly already fits the balance it returns `chunk_size = |W|`
+(the transpose then runs dense, no chunking overhead). The first call compiles (~2 s); results are cached
+by shape.
+
+If instead you want to fill a known device — the "use my whole GPU" policy — use
+`max_chunk_size_within(..., target_bytes=...)`, which returns the largest `chunk_size` whose assembly
+peak stays under an absolute byte cap (e.g. a fraction of device memory).
+
+For sharded `W`, pass `n_shards` (or read it from the input array's `.sharding` eagerly) so the returned
+chunk sizes each device's shard; combine with the `shard_map` recipe below.
 
 ## Sharding over `W`
 

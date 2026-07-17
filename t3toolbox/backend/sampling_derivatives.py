@@ -11,6 +11,7 @@ derivative layer is one module rather than three. Math: ``docs/symmetric_probe_d
 costs/usage: ``docs/entries_apply_probe.md``.
 """
 import math
+import functools
 import itertools
 import numpy as np
 import typing as typ
@@ -100,6 +101,8 @@ __all__ = [
     # Tangent vector (Riemannian) -- transpose
     'tv_probe_derivatives_transpose',
     'tv_probe_transpose_derivatives_from_sweep',
+    'estimate_chunk_size',            # eager helpers to choose the transpose chunk_size (docs/chunking.md)
+    'max_chunk_size_within',
     'compute_deta_tilde_jets',
     'compute_tau_tilde_jets',
     'compute_sigma_tilde_jets',
@@ -1759,6 +1762,118 @@ def assemble_tt_variation_jets(
         ops, (2,) * len(ops), W, chunk_size, sum_over_probes, 1, use_jax, xnp)
 
 
+# ==================================================================================================
+# Choosing chunk_size -- an eager (outside-jit) estimator from the problem shapes
+# ==================================================================================================
+# The transpose functions take a plain-int chunk_size with a safe fixed default. To pick a *tuned*
+# value, call these once outside jit and pass the int down. Two policies (docs/chunking.md):
+#   estimate_chunk_size   -- BALANCED: assembly peak ~ the resident edge-jet memory (device-agnostic).
+#   max_chunk_size_within -- BUDGET:   the largest chunk whose assembly peak fits an absolute byte cap.
+# Both size the LARGER of the two gradient assemblies (TT-core r^2 legs vs Tucker nO/N legs; the latter
+# dominates when N >> n), and divide W by n_shards so the chunk sizes each device's shard (docs/chunking.md
+# sharding section). Uniform+jax only -- numpy/ragged free eagerly and never chunk.
+
+
+def _jet_floor_bytes(mode_shapes, tucker_ranks, tt_ranks, order, W, n_tangent, itemsize):
+    '''Exact bytes of the resident edge-variable jets the transpose assembly reads -- the necessary
+    memory floor (linear in W). Uniform supercores pad ranks to their max, so max ranks are used; the
+    tangent stack K rides on the tilde jets and the residual only.'''
+    d, op, K = len(mode_shapes), order + 1, n_tangent
+    r, nU, N = max(tt_ranks), max(tucker_ranks), max(mode_shapes)
+    nO = nU                                         # down-core mode ~ the Tucker rank
+    per_core_row = (K * op * (r + r + nU + nO + N)   # sigma_t, tau_t, deta_t, dxi_t, ztildes (carry K)
+                    + 2 * nU + op * (r + r + nO)      # xi, mu, nu, eta (no K)
+                    + 2 * N)                          # ww, pp
+    return d * W * per_core_row * itemsize
+
+
+@functools.lru_cache(maxsize=None)
+def _assembly_per_row_bytes(mode_shapes, tucker_ranks, tt_ranks, order, n_tangent, dtype):
+    '''Measured peak scratch (bytes) per W-row of the dense gradient assembly, the MAX over the TT-core
+    and Tucker assemblies. Measured, not derived: XLA fuses away most of the naive ``(order+1)^2 r^2``
+    intermediate, so an analytic formula is ~20x off. ``memory_analysis().temp_size`` is exactly linear
+    in W, so two abstract (``ShapeDtypeStruct``) lowerings isolate the per-row slope with no allocation.
+    jax-only (the chunking path is uniform+jax). Cached by shape signature.'''
+    import jax
+    d, op = len(mode_shapes), order + 1
+    r, nU, N = max(tt_ranks), max(tucker_ranks), max(mode_shapes)
+    nO = nU
+    kax = (n_tangent,) if n_tangent > 1 else ()      # K axis present only when batching tangents
+
+    def _structs(W):
+        S = lambda *shape: jax.ShapeDtypeStruct(shape, dtype)
+        tt = (S(d, op, W, *kax, r), S(d, op, W, *kax, r), S(d, op, W, *kax, nU),   # sigma_t, tau_t, deta_t
+              S(d, 2, W, nU), S(d, op, W, r), S(d, op, W, r), S(op, op, op))         # xi, mu, nu, trs
+        tk = (S(d, op, W, *kax, N), S(d, op, W, *kax, nO),                          # ztildes, dxi_t
+              S(d, W, N), S(d, W, N), S(d, op, W, nO))                               # ww, pp, eta
+        return tt, tk
+
+    def _temp(f, args):
+        return jax.jit(f).lower(*args).compile().memory_analysis().temp_size_in_bytes
+
+    f_tt = lambda *a: assemble_tt_variation_jets_trs(*a, 1, True)
+    f_tk = lambda *a: assemble_tucker_variation_jets_trs(*a, 1, True)
+    (tt1, tk1), (tt2, tk2) = _structs(256), _structs(512)
+    per_tt = (_temp(f_tt, tt2) - _temp(f_tt, tt1)) / 256.0
+    per_tk = (_temp(f_tk, tk2) - _temp(f_tk, tk1)) / 256.0
+    return max(per_tt, per_tk, 1.0)
+
+
+def estimate_chunk_size(
+        mode_shapes:    typ.Sequence[int],  # (N_1..N_d)   ambient dims (as passed to TuckerTensorTrain.randn)
+        tucker_ranks:   typ.Sequence[int],  # (nU_1..nU_d) Tucker ranks
+        tt_ranks:       typ.Sequence[int],  # (r_0..r_d)   the d+1 TT bonds
+        order:          int,                # highest derivative order K
+        n_probes:       int,                # |W|, the number of probes (global; divided by n_shards)
+        *,
+        n_tangent:      int = 1,            # tangent stack K (a batch of tangents sharing the frame)
+        n_shards:       int = 1,            # W split across this many devices -> chunk sizes the LOCAL shard
+        dtype:          typ.Any = None,     # array dtype; default float32 (jax default). float64 under x64
+) -> int:                                   # a memory-balanced chunk_size for tv_probe_derivatives_transpose
+    '''A memory-**balanced** ``chunk_size`` for the probe-derivative transpose assembly, from the problem
+    shapes -- call it once (eagerly, outside ``jit``) and pass the int as ``chunk_size``.
+
+    Picks the largest chunk whose assembly peak is comparable to the edge-variable jets already resident
+    (the necessary floor), so the assembly is never the tallest pole -- if the rest of the pipeline fits,
+    so does the assembly (total peak ``~2x`` the floor). Device-agnostic: no device-memory query, only the
+    shapes. The assembly per-row cost is **measured** via XLA's own scratch accounting (needs jax; a
+    ~2 s one-time compile, cached by shape). For an absolute byte cap instead, see
+    :py:func:`max_chunk_size_within`; the memory model is in the chunking design note.
+
+    Sized for the larger of the TT-core and Tucker gradients (Tucker wins when ``N >> n``). ``n_shards``
+    divides ``W`` so the chunk sizes each device's shard (use ``shard_map``; see the chunking note). Only
+    meaningful on the uniform+jax path -- numpy/ragged never chunk.
+    '''
+    dtype = np.dtype(np.float32 if dtype is None else dtype)
+    ms, tr, tt = tuple(mode_shapes), tuple(tucker_ranks), tuple(tt_ranks)
+    w_local = max(1, int(n_probes) // max(1, int(n_shards)))
+    budget = _jet_floor_bytes(ms, tr, tt, order, w_local, n_tangent, dtype.itemsize)
+    per_row = _assembly_per_row_bytes(ms, tr, tt, order, n_tangent, dtype)
+    return max(1, min(w_local, int(budget // per_row)))
+
+
+def max_chunk_size_within(
+        mode_shapes:    typ.Sequence[int],  # (N_1..N_d)   ambient dims
+        tucker_ranks:   typ.Sequence[int],  # (nU_1..nU_d) Tucker ranks
+        tt_ranks:       typ.Sequence[int],  # (r_0..r_d)   the d+1 TT bonds
+        order:          int,                # highest derivative order K
+        n_probes:       int,                # |W| (global; divided by n_shards)
+        target_bytes:   float,              # absolute peak-memory cap for the assembly (per device)
+        *,
+        n_tangent:      int = 1,
+        n_shards:       int = 1,
+        dtype:          typ.Any = None,
+) -> int:                                   # the largest chunk_size whose assembly peak fits target_bytes
+    '''The largest ``chunk_size`` whose gradient-assembly peak stays within ``target_bytes`` (per device)
+    -- the "use my whole device" policy: pass an absolute byte budget (e.g. a fraction of device memory).
+    Contrast the device-agnostic :py:func:`estimate_chunk_size`. Same measured per-row cost.'''
+    dtype = np.dtype(np.float32 if dtype is None else dtype)
+    ms, tr, tt = tuple(mode_shapes), tuple(tucker_ranks), tuple(tt_ranks)
+    w_local = max(1, int(n_probes) // max(1, int(n_shards)))
+    per_row = _assembly_per_row_bytes(ms, tr, tt, order, n_tangent, dtype)
+    return max(1, min(w_local, int(float(target_bytes) // per_row)))
+
+
 def tv_probe_transpose_derivatives_from_sweep(
         ztildes:    typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
@@ -1829,8 +1944,9 @@ def tv_probe_derivatives_transpose(
     ``chunk_size`` bounds the peak memory of the (uniform+jax) gradient assembly by processing the
     sample stack ``W`` in slices of that size; ``None`` (or ``>= W``) runs the dense assembly. The
     default is a safe fixed value, tuned only for moderate problems (a fixed ``chunk_size`` bounds the
-    chunk *count*, not the bytes); a helper to compute a memory-balanced value from the problem shapes
-    is planned. Chunking engages only on the uniform+jax path (numpy/ragged free eagerly).
+    chunk *count*, not the bytes); for a memory-balanced value from the problem shapes call
+    :py:func:`estimate_chunk_size` once (eagerly). Chunking engages only on the uniform+jax path
+    (numpy/ragged free eagerly). See :doc:`/chunking`.
     '''
     sweep = tv_precompute_probe_frame_sweep_jets(frame, ww, pp, order)
     return tv_probe_transpose_derivatives_from_sweep(
