@@ -493,5 +493,79 @@ class TestShardabilityContract(unittest.TestCase):
         return self.jax.jit(fn).lower(*xs).compile().as_text().count('all-gather')
 
 
+@unittest.skipUnless(common.jax_available, 'jax not available')
+class TestInterpreterAnyAxisSharding(unittest.TestCase):
+    """The grouped-einsum interpreter never reshapes, so EVERY sub-axis of EVERY group is shardable
+    -- strictly stronger than the named contractions' contract, whose one residue (a shared block
+    flattens, so only its LEADING axis is free; batching_internals.md) was an artifact of the
+    flatten. Shard each sub-axis of each group in turn, compile, assert ZERO all-gathers. A summed
+    group legitimately costs an all-REDUCE (the psum the math requires) -- never an all-gather.
+    """
+
+    # (subscripts, lens): every group is exercised with 2 sub-axes, so minor axes are covered
+    CASES = [
+        ('WCi,Cio->WCo', {}),                       # shared multi-axis C: its minor axis was the residue
+        ('WCo,WCa->Cao', {'len_W': 2}),             # W summed away: partial sums + all-reduce, no gather
+        ('trs,rWCa,Caib,sWCi->tWCb', {}),           # 4-operand jet pushthrough (numpy pairwise twin)
+        ('WCa,KCaib,WCi->WKCb', {'len_C': 2}),      # three groups, K on the core operand
+    ]
+    SINGLE = {'t': 3, 'r': 3, 's': 2, 'a': 2, 'i': 3, 'b': 3, 'o': 3}
+
+    @classmethod
+    def setUpClass(cls):
+        import jax
+        if jax.device_count() < 2:
+            raise unittest.SkipTest(
+                'need >= 2 devices; XLA_FLAGS was ignored (jax already initialized in this process)')
+        from jax.sharding import Mesh
+        cls.jax = jax
+        cls.n_dev = jax.device_count()
+        cls.mesh = Mesh(np.array(jax.devices()), axis_names=('m',))
+        cls.rng = np.random.default_rng(0)
+
+    def _all_gathers(self, fn, specs, *arrs):
+        import jax.numpy as jnp
+        from jax.sharding import NamedSharding
+        xs = [self.jax.device_put(jnp.asarray(a), NamedSharding(self.mesh, s))
+              for a, s in zip(arrs, specs)]
+        return self.jax.jit(fn).lower(*xs).compile().as_text().count('all-gather')
+
+    def test_every_sub_axis_of_every_group_shards_free(self):
+        from jax.sharding import PartitionSpec as P
+        import t3toolbox.backend.contractions as ctr
+
+        checked = 0
+        for subs, lens in self.CASES:
+            terms = subs.split('->')[0].split(',')
+            groups = sorted({ch for ch in subs if ch.isupper()})
+            for g in groups:
+                for ax in range(2):     # every group carries 2 sub-axes; ax=1 is the minor one
+                    with self.subTest(subs=subs, group=g, axis=ax):
+                        def gshape(ch):     # sharded sub-axis sized to the mesh, the rest 2
+                            return tuple(self.n_dev if (ch == g and j == ax) else 2
+                                         for j in range(2))
+                        arrs, specs = [], []
+                        for t in terms:
+                            shape, parts = [], []
+                            for ch in t:
+                                if ch.isupper():
+                                    for j in range(2):
+                                        shape.append(gshape(ch)[j])
+                                        parts.append('m' if (ch == g and j == ax) else None)
+                                else:
+                                    shape.append(self.SINGLE[ch])
+                                    parts.append(None)
+                            arrs.append(self.rng.standard_normal(shape))
+                            specs.append(P(*parts) if 'm' in parts else P())
+                        n = self._all_gathers(
+                            lambda *ops: ctr.contract(subs, *ops, **lens), specs, *arrs)
+                        self.assertEqual(0, n,
+                            "contract(%r) inserted %d all-gather(s) with axis %d of group %s "
+                            "sharded -- the interpreter must not reshape, so every group sub-axis "
+                            "must shard free." % (subs, n, ax, g))
+                        checked += 1
+        self.assertGreater(checked, 15, 'the any-axis sweep barely ran (%d cases)' % checked)
+
+
 if __name__ == '__main__':
     unittest.main()

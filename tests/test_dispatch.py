@@ -230,6 +230,11 @@ class TestDispatch(unittest.TestCase):
                             trs, mu, G, nu)
         eta = jnp.ones((4, 2, 4)); U = jnp.ones((4, 7))
         self.assert_jit_jax(lambda a, b: contractions.tWCi_Cio_to_tWCo(a, b), eta, U)
+        # the grouped-einsum interpreter: ndim solve + expansion at trace time, static string/lens
+        self.assert_jit_jax(lambda a, b, c, e: contractions.contract('trs,rWCa,Caib,sWCi->tWCb', a, b, c, e),
+                            trs[:, :, :2], mu, G, xij)
+        self.assert_jit_jax(lambda a, b: contractions.contract('WCo,WCa->Cao', a, b, len_W=1),
+                            jnp.ones((2, 5)), jnp.ones((2, 6)))
         # Riemannian (tangent) forward derivatives: jit, frame + variation sweeps, all-orders
         self.assert_jit_jax(
             lambda var, b, w, p: pd.tv_probe_derivatives(w, p, var, b, 3),

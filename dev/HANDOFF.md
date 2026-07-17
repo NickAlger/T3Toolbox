@@ -31,6 +31,40 @@ branch can be deleted (optional).
 
 ## Active threads
 
+- **The grouped-einsum interpreter `contractions.contract` — SLICE 1 BUILT (2026-07-17; committed,
+  NOT pushed).** Nick's resolution of the standing `contractions.py` architecture question: ONE
+  public interpreter, `contract('WCo,WCa->Cao', *ops, len_W=...)` — standard einsum format,
+  UPPERCASE = a group of zero-or-more axes, lowercase = single axes. Solves each group's axis count
+  from the operand ndims (exact linear system over Fractions; identifiability = a rank condition on
+  the SUBSCRIPTS, never instance shapes, so a call site either always needs a `len_<G>` or never
+  does; co-traveling groups need only their run total — the old "don't demand a split you don't
+  need" rule, now mechanical), expands groups into fresh letters, runs ONE einsum on the operands
+  **as given — no reshape ever**, which strengthens the shardability contract from
+  "leading sub-axis" to **ANY sub-axis of any group** (compiler-verified:
+  `TestInterpreterAnyAxisSharding`, 24 cases, 0 all-gathers) and makes block fusion inexpressible.
+  numpy path reuses `_pairwise_path` computed on the GROUPED string (identical paths to the named
+  fns, size-independent, cached); jax gets the single expanded einsum. Perf parity measured
+  (≤1.06x; the 4-operand trs combine is ~0.8x = FASTER, empty groups no longer leave size-1 axes).
+  Evidence: `tests/test_contractions_interpreter.py` — the definitional loop oracle (map the
+  single-axis contraction over group indices), a differential sweep vs ALL ~100 named contractions
+  over the empty/single/multi block matrix, and the supplement meta-test (the rank analysis
+  reproduces every hand-written `n_probe`/`n_frame` decision); jit dispatch in `test_dispatch.py`;
+  green on the compat floor env (numpy 1.22 / jax 0.4.30).
+  **END STATE (Nick, 2026-07-17): make `contract` the public grouped-contraction surface and DELETE
+  the 104 named contractions** (breaking OK — release is days old, known users don't call them).
+  Remaining slices: (2) flip call sites in `probing.py` / `sampling_derivatives.py` /
+  `apply.py` / `entries.py` (+ any others) to `contract(...)`, mapping `n_probe`→`len_W`,
+  `n_frame`→`len_C`; (3) extract the remaining lean-jet inline einsums as `contract` call sites
+  (inventory in `dev/contraction_cleanup_resume.md`); (4) delete the named fns + their oracle tests
+  (the differential test's reference then retires with them — keep the loop oracle + sharding
+  sweeps), rewrite the module docstring/SHARDING block for the interpreter era, update
+  `docs/batching_and_stacking.md` §4 (drop "shard the leading axis" → any axis) +
+  `docs/contributor/batching_internals.md` (the "generate the subscript per call" REJECTED entry is
+  now the design — record the new information: call-site strings stay literal/greppable) + CLAUDE.md
+  + `dev/OPEN_QUESTION_contractions_architecture.md` (resolution). Stale doc ref found on the way:
+  `batching_internals.md` + the resume note cite `tests/test_contractions_naming.py`, which never
+  existed (no git history).
+
 - **Jet recurrence/convolution forms — the zippering direction, WIRED IN as the standard (2026-07-16;
   committed, NOT pushed).** The concrete realization of the `trs`-as-sparse-convolution idea in the
   standing architecture question, now the default implementation. **The lean forms own the canonical
@@ -73,6 +107,12 @@ branch can be deleted (optional).
     assemble_tucker *worse* than dense at N>>n. Replaced pad+reshape+moveaxis with `_wchunked_reduce`:
     slice each chunk in place (`lax.scan`/`dynamic_slice` on jax, eager loop on numpy), reduce add/concat.
     assemble_tt now 168→2.63 GB (**64×**, was 21×); N>>n fixed (assemble_tucker 51.9→1.6 GB at N=10000).
+  - **Contraction cleanup — SUPERSEDED by the grouped-einsum interpreter (2026-07-17, Nick's
+    decision).** The named-function extraction (phase 1 mu done, `6e9a55d8`) stops here; the
+    remaining inline einsums in `sampling_derivatives.py` will instead become `contract(...)` call
+    sites (see the interpreter thread below). `dev/contraction_cleanup_resume.md` is kept only for
+    its einsum inventory (its "add named contractions + hand-written oracles" instructions are
+    obsolete).
   - **Rename + wire-in — DONE (2026-07-16).** Lean forms took the canonical names, dense → `_trs`
     (single-pass whole-word rename + surgical seam re-point; the chunked assemblies still call
     `assemble_*_trs` per chunk *intentionally* — chunking runs the dense contraction on each W-slice).
@@ -99,7 +139,9 @@ branch can be deleted (optional).
     uses the fixed `100` default — threading `chunk_size` there needs a static field on the pytree
     `UniformGaussNewtonModel` (its `kind` cached-property rebuilds from fields); the optimizers (the main
     path) are fully wired. (2) **Sharded fitting** — the `shard_map` boundary + `psum` in the optimizer
-    (slice D); the estimator already takes `n_shards` and `docs/chunking.md` ships the manual recipe.
+    (slice D), **postponed 2026-07-16** (Nick wants to weigh scope); full design + the genuine decisions
+    are in **`dev/sharded_fitting_plan.md`**. The estimator already takes `n_shards` and
+    `docs/chunking.md` ships the manual recipe.
     Also still open from the jet thread: **C-chunking** (the reducer seam supports it), uniform
     mask-strict/garbage-robust tests, extracting the inline per-step grouped einsums into `contractions.py`.
 
