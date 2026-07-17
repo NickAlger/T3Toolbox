@@ -61,7 +61,7 @@ def t3_entries(
             xi_CpW, tuple(range(-n_idx, 0)), tuple(range(n_idx)),
         )
 
-        mu_WCb = contractions.WCa_Caib_WCi_to_WCb(
+        mu_WCb = contractions.contract('WCa,Caib,WCi->WCb', 
             mu_WCa, G_Capb, xi_WCp,
         )
 

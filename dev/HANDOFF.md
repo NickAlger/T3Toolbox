@@ -52,9 +52,15 @@ branch can be deleted (optional).
   green on the compat floor env (numpy 1.22 / jax 0.4.30).
   **END STATE (Nick, 2026-07-17): make `contract` the public grouped-contraction surface and DELETE
   the 104 named contractions** (breaking OK — release is days old, known users don't call them).
-  Remaining slices: (2) flip call sites in `probing.py` / `sampling_derivatives.py` /
-  `apply.py` / `entries.py` (+ any others) to `contract(...)`, mapping `n_probe`→`len_W`,
-  `n_frame`→`len_C`; (3) extract the remaining lean-jet inline einsums as `contract` call sites
+  **Slice 2 — DONE (2026-07-17): all 108 library call sites flipped to `contract(...)`** —
+  `probing.py` (49), `sampling_derivatives.py` (47), `apply.py` (11), `entries.py` (1); the
+  mechanical rewrite mapped the trailing `n_probe`/`n_frame` args to `len_W=`/`len_C=` keywords,
+  and the ~10 function-object *selection* sites (`f = contractions.X if sum_over_probes else
+  contractions.Y` in the two variation assemblies + the apply/entries adjoint tail) now select the
+  SUBSCRIPT STRING instead. Zero named-contraction references remain outside `contractions.py` and
+  its tests. Gates: jet/probe suites, full `test_dispatch` (jit through every flipped hot path),
+  module doctests, compat-floor env, full suite.
+  Remaining slices: (3) extract the remaining lean-jet inline einsums as `contract` call sites
   (inventory in `dev/contraction_cleanup_resume.md`); (4) delete the named fns + their oracle tests
   (the differential test's reference then retires with them — keep the loop oracle + sharding
   sweeps), rewrite the module docstring/SHARDING block for the interpreter era, update

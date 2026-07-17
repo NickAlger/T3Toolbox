@@ -56,7 +56,7 @@ def t3_apply(
 
     def _func(mu_WCa, v_B_G):
         v_Wo, B_Cpo, G_Capb = v_B_G
-        mu_WCb = contractions.WCa_Caib_Wo_Cio_to_WCb(
+        mu_WCb = contractions.contract('WCa,Caib,Wo,Cio->WCb', 
             mu_WCa, G_Capb, v_Wo, B_Cpo,
         )
         return mu_WCb, (0,)
@@ -365,24 +365,24 @@ def _apply_transpose_adjoint(c, ww, xis, mus, down_tt_cores, right_tt_cores, sum
         # unroll). ww is the packed apply/one-hot probe supercore (d,)+W+(N,) -> n_probe = len(W). The
         # ragged loop below is the oracle.
         n_probe = ww.ndim - 2
-        dxi_hats = contractions.dWCa_dCaib_dWKCb_to_dWKCi(mus, down_tt_cores, sigma_hats)
+        dxi_hats = contractions.contract('dWCa,dCaib,dWKCb->dWKCi', mus, down_tt_cores, sigma_hats)
         if sum_over_probes:
-            dG_tildes = contractions.dWCa_dWCi_dWKCb_to_dKCaib(mus, xis, sigma_hats, n_probe)
-            dU_tildes = contractions.dWo_dWKCa_to_dKCao(ww, dxi_hats)
+            dG_tildes = contractions.contract('dWCa,dWCi,dWKCb->dKCaib', mus, xis, sigma_hats, len_W=n_probe)
+            dU_tildes = contractions.contract('dWo,dWKCa->dKCao', ww, dxi_hats)
         else:
-            dG_tildes = contractions.dWCa_dWCi_dWKCb_to_dWKCaib(mus, xis, sigma_hats, n_probe)
-            dU_tildes = contractions.dWo_dWKCa_to_dWKCao(ww, dxi_hats)
+            dG_tildes = contractions.contract('dWCa,dWCi,dWKCb->dWKCaib', mus, xis, sigma_hats, len_W=n_probe)
+            dU_tildes = contractions.contract('dWo,dWKCa->dWKCao', ww, dxi_hats)
         return dU_tildes, dG_tildes
 
     n_probe = ww[0].ndim - 1
-    dxi_hats = tuple(contractions.WCa_Caib_WKCb_to_WKCi(mu, O, sh)        # dxi_hat = mu . O . sigma_hat
+    dxi_hats = tuple(contractions.contract('WCa,Caib,WKCb->WKCi', mu, O, sh)        # dxi_hat = mu . O . sigma_hat
                      for mu, O, sh in zip(mus, down_tt_cores, sigma_hats))
     if sum_over_probes:
-        dG_tildes = tuple(contractions.WCa_WCi_WKCb_to_KCaib(mu, xi, sh, n_probe)
+        dG_tildes = tuple(contractions.contract('WCa,WCi,WKCb->KCaib', mu, xi, sh, len_W=n_probe)
                           for mu, xi, sh in zip(mus, xis, sigma_hats))
-        dU_tildes = tuple(contractions.Wo_WKCa_to_KCao(w, dxh) for w, dxh in zip(ww, dxi_hats))
+        dU_tildes = tuple(contractions.contract('Wo,WKCa->KCao', w, dxh) for w, dxh in zip(ww, dxi_hats))
     else:
-        dG_tildes = tuple(contractions.WCa_WCi_WKCb_to_WKCaib(mu, xi, sh, n_probe)
+        dG_tildes = tuple(contractions.contract('WCa,WCi,WKCb->WKCaib', mu, xi, sh, len_W=n_probe)
                           for mu, xi, sh in zip(mus, xis, sigma_hats))
-        dU_tildes = tuple(contractions.Wo_WKCa_to_WKCao(w, dxh) for w, dxh in zip(ww, dxi_hats))
+        dU_tildes = tuple(contractions.contract('Wo,WKCa->WKCao', w, dxh) for w, dxh in zip(ww, dxi_hats))
     return dU_tildes, dG_tildes   # (var_tucker, var_tt) = T3Variations.data

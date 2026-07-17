@@ -188,11 +188,11 @@ def compute_xi(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        xis = contractions.dCio_dWo_to_dWCi(up_tucker_cores, ww)
+        xis = contractions.contract('dCio,dWo->dWCi', up_tucker_cores, ww)
     else:
         def _func(x):
             U, w = x
-            return (contractions.Cio_Wo_to_WCi(U, w),)
+            return (contractions.contract('Cio,Wo->WCi', U, w),)
 
         (xis,) = xmap(_func, (up_tucker_cores, ww))
 
@@ -218,7 +218,7 @@ def compute_mu(
 
     def _func(mu, x):
         P, xi = x[0], x[1]
-        mu_next = contractions.WCa_Caib_WCi_to_WCb(mu, P, xi)
+        mu_next = contractions.contract('WCa,Caib,WCi->WCb', mu, P, xi)
         return mu_next, (mu,)
 
     # carry has the same leading stack as the edge variables (order-agnostic), plus the left bond
@@ -268,11 +268,11 @@ def compute_eta(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        etas = contractions.dWCa_dCaib_dWCb_to_dWCi(mus, down_tt_cores, nus)
+        etas = contractions.contract('dWCa,dCaib,dWCb->dWCi', mus, down_tt_cores, nus)
     else:
         def _func(x):
             mu, G, nu = x
-            return (contractions.WCa_Caib_WCb_to_WCi(mu, G, nu),)
+            return (contractions.contract('WCa,Caib,WCb->WCi', mu, G, nu),)
 
         (etas,) = xmap(_func, (mus, down_tt_cores, nus))
 
@@ -296,11 +296,11 @@ def assemble_z(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        zs = contractions.dWCi_dCio_to_dWCo(etas, tucker_cores)
+        zs = contractions.contract('dWCi,dCio->dWCo', etas, tucker_cores)
     else:
         def _func(x):
             eta, U = x
-            return (contractions.WCi_Cio_to_WCo(eta, U),)
+            return (contractions.contract('WCi,Cio->WCo', eta, U),)
 
         (zs,) = xmap(_func, (etas, tucker_cores))
 
@@ -349,9 +349,9 @@ def _sigma_step(sigma, Q, O, dG, xi, dxi, mu):
     n_probe precedent). Reduces to the two-group result when K is empty.
     '''
     n_frame = Q.ndim - 3
-    t1 = contractions.WKCa_Caib_WCi_to_WKCb(sigma, Q, xi)
-    t2 = contractions.WCa_KCaib_WCi_to_WKCb(mu, dG, xi, n_frame)
-    t3 = contractions.WCa_Caib_WKCi_to_WKCb(mu, O, dxi)
+    t1 = contractions.contract('WKCa,Caib,WCi->WKCb', sigma, Q, xi)
+    t2 = contractions.contract('WCa,KCaib,WCi->WKCb', mu, dG, xi, len_C=n_frame)
+    t3 = contractions.contract('WCa,Caib,WKCi->WKCb', mu, O, dxi)
     return t1 + t2 + t3
 
 
@@ -466,9 +466,9 @@ def compute_deta(
         # supercores are W+C / C-only; the variation supercore var_tt_cores is K+C. n_frame = len(C),
         # read off the C-only frame supercore (d,)+C+(rR,nU,rR). The ragged xmap branch below is the oracle.
         n_frame = right_tt_cores.ndim - 4
-        term1 = contractions.dWKCa_dCaib_dWCb_to_dWKCi(sigmas, right_tt_cores, nus)
-        term2 = contractions.dWCa_dKCaib_dWCb_to_dWKCi(mus, var_tt_cores, nus, n_frame)
-        term3 = contractions.dWCa_dCaib_dWKCb_to_dWKCi(mus, left_tt_cores, taus)
+        term1 = contractions.contract('dWKCa,dCaib,dWCb->dWKCi', sigmas, right_tt_cores, nus)
+        term2 = contractions.contract('dWCa,dKCaib,dWCb->dWKCi', mus, var_tt_cores, nus, len_C=n_frame)
+        term3 = contractions.contract('dWCa,dCaib,dWKCb->dWKCi', mus, left_tt_cores, taus)
         detas = term1 + term2 + term3
     else:
         def _func(x):
@@ -476,9 +476,9 @@ def compute_deta(
             # Three-group contractions (see compute_sigma): sigma/tau carry K, mu/nu and frame cores
             # P/Q do not. term1/term3 self-infer; term2's only core is dG (K+C) -> n_frame from Q.
             n_frame = Q.ndim - 3
-            term1 = contractions.WKCa_Caib_WCb_to_WKCi(sigma, Q, nu)
-            term2 = contractions.WCa_KCaib_WCb_to_WKCi(mu, dG, nu, n_frame)
-            term3 = contractions.WCa_Caib_WKCb_to_WKCi(mu, P, tau)
+            term1 = contractions.contract('WKCa,Caib,WCb->WKCi', sigma, Q, nu)
+            term2 = contractions.contract('WCa,KCaib,WCb->WKCi', mu, dG, nu, len_C=n_frame)
+            term3 = contractions.contract('WCa,Caib,WKCb->WKCi', mu, P, tau)
             return (term1 + term2 + term3,)
 
         xs = (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus)
@@ -518,8 +518,8 @@ def assemble_tangent_z(
         # through the C-only frame tucker core (W and K ride passively there, so no split is needed); etas
         # is W+C, lifted through the K+C variation tucker core (n_frame = len(C)). Ragged xmap is the oracle.
         n_frame = tucker_cores.ndim - 3
-        term1 = contractions.dWKCi_dCio_to_dWKCo(detas, tucker_cores)
-        term2 = contractions.dWCi_dKCio_to_dWKCo(etas, var_tucker_cores, n_frame)
+        term1 = contractions.contract('dWKCi,dCio->dWKCo', detas, tucker_cores)
+        term2 = contractions.contract('dWCi,dKCio->dWKCo', etas, var_tucker_cores, len_C=n_frame)
         zs = term1 + term2
     else:
         def _func(x):
@@ -528,8 +528,8 @@ def assemble_tangent_z(
             # passively over the C-only frame core B, so no split is needed); eta is W+C and dB is the
             # variation core K+C, so term2 needs len(C) -- recovered here from the C-only core B.
             n_frame = B.ndim - 2
-            term1 = contractions.WKCi_Cio_to_WKCo(deta, B)
-            term2 = contractions.WCi_KCio_to_WKCo(eta, dB, n_frame)
+            term1 = contractions.contract('WKCi,Cio->WKCo', deta, B)
+            term2 = contractions.contract('WCi,KCio->WKCo', eta, dB, len_C=n_frame)
             return (term1 + term2,)
 
         (zs,) = xmap(_func, (tucker_cores, var_tucker_cores, etas, detas))
@@ -786,7 +786,7 @@ def compute_sigma_hat(
 
     def _step(carry, data):
         Q, xi = data
-        return contractions.WKCa_Caib_WCi_to_WKCb(carry, Q, xi), (carry,)
+        return contractions.contract('WKCa,Caib,WCi->WKCb', carry, Q, xi), (carry,)
 
     _, (rev_sigma_hats,) = xscan(_step, seed, (rev_Q, rev_xi))
     return rev_sigma_hats[::-1]
@@ -818,13 +818,13 @@ def compute_deta_tilde(
         # the probe stack W), so this is the SHARED-C contraction dWCo_dCio_to_dWCi -- NOT the outer-product
         # dCio_dWo_to_dWCi (which assumes no shared C and is wrong for a C-stacked tangent). Mirrors the
         # ragged WCo_Cio_to_WCi(zt, U); the ragged xmap branch below is the oracle.
-        deta_tildes = contractions.dWCo_dCio_to_dWCi(ztildes, up_tucker_cores)
+        deta_tildes = contractions.contract('dWCo,dCio->dWCi', ztildes, up_tucker_cores)
     else:
         def _func(x):
             U, zt = x
             # C (T3 stack) is shared between the core U and the residual zt; W is the probe stack on
             # zt. This is NOT compute_xi (which forms an outer product over the two stacks).
-            return (contractions.WCo_Cio_to_WCi(zt, U),)
+            return (contractions.contract('WCo,Cio->WCi', zt, U),)
 
         (deta_tildes,) = xmap(_func, (up_tucker_cores, ztildes))
 
@@ -855,8 +855,8 @@ def compute_tau_tilde(
         # Three-group (W probe, K tangent, C frame): tau_tilde/deta_tilde carry K (from the residual),
         # xi/mu and the frame core P do not. Both terms self-infer the split (P pins C, xi/mu pin W);
         # reduces to the two-group result when K is empty (no K-stacked residual).
-        t1 = contractions.WKCa_Caib_WCi_to_WKCb(tau_tilde, P, xi)
-        t2 = contractions.WCa_Caib_WKCi_to_WKCb(mu, P, deta_tilde)
+        t1 = contractions.contract('WKCa,Caib,WCi->WKCb', tau_tilde, P, xi)
+        t2 = contractions.contract('WCa,Caib,WKCi->WKCb', mu, P, deta_tilde)
         tau_tilde_next = t1 + t2
         return tau_tilde_next, (tau_tilde,)
 
@@ -913,16 +913,16 @@ def compute_dxi_tilde(
     if is_uniform:
         # d-prefixed WKC (3b-6a): tau_tildes/sigma_tildes carry K (W+K+C); mus/nus are W+C; the frame
         # supercore down_tt_cores (O) is C-only. Mirrors the ragged calls; the ragged xmap is the oracle.
-        term1 = contractions.dWKCa_dCaib_dWCb_to_dWKCi(tau_tildes, down_tt_cores, nus)
-        term2 = contractions.dWCa_dCaib_dWKCb_to_dWKCi(mus, down_tt_cores, sigma_tildes)
+        term1 = contractions.contract('dWKCa,dCaib,dWCb->dWKCi', tau_tildes, down_tt_cores, nus)
+        term2 = contractions.contract('dWCa,dCaib,dWKCb->dWKCi', mus, down_tt_cores, sigma_tildes)
         dxi_tildes = term1 + term2
     else:
         def _func(x):
             O, mu, nu, st, tt = x
             # Three-group (see compute_tau_tilde): tt/st carry K, mu/nu and the frame core O do not.
             # Both terms self-infer (O pins C, mu/nu pin W).
-            term1 = contractions.WKCa_Caib_WCb_to_WKCi(tt, O, nu)
-            term2 = contractions.WCa_Caib_WKCb_to_WKCi(mu, O, st)
+            term1 = contractions.contract('WKCa,Caib,WCb->WKCi', tt, O, nu)
+            term2 = contractions.contract('WCa,Caib,WKCb->WKCi', mu, O, st)
             return (term1 + term2,)
 
         xs = (down_tt_cores, mus, nus, sigma_tildes, tau_tildes)
@@ -956,11 +956,11 @@ def assemble_tucker_variations(
         # supercore (d,)+W+(N,) -> n_probe = len(W). The ragged xmap below is the oracle.
         n_probe = ww.ndim - 2
         if sum_over_probes:
-            dU_tildes = (contractions.dWKCo_dWCa_to_dKCao(ztildes, etas, n_probe)
-                         + contractions.dWo_dWKCa_to_dKCao(ww, dxi_tildes))
+            dU_tildes = (contractions.contract('dWKCo,dWCa->dKCao', ztildes, etas, len_W=n_probe)
+                         + contractions.contract('dWo,dWKCa->dKCao', ww, dxi_tildes))
         else:
-            dU_tildes = (contractions.dWKCo_dWCa_to_dWKCao(ztildes, etas, n_probe)
-                         + contractions.dWo_dWKCa_to_dWKCao(ww, dxi_tildes))
+            dU_tildes = (contractions.contract('dWKCo,dWCa->dWKCao', ztildes, etas, len_W=n_probe)
+                         + contractions.contract('dWo,dWKCa->dWKCao', ww, dxi_tildes))
     else:
         def _func(x):
             z_tilde, eta, w, dxi_tilde = x
@@ -972,15 +972,15 @@ def assemble_tucker_variations(
             n_probe = w.ndim - 1
             if sum_over_probes:
                 dU_tilde = (
-                        contractions.WKCo_WCa_to_KCao(z_tilde, eta, n_probe)
+                        contractions.contract('WKCo,WCa->KCao', z_tilde, eta, len_W=n_probe)
                         +
-                        contractions.Wo_WKCa_to_KCao(w, dxi_tilde)
+                        contractions.contract('Wo,WKCa->KCao', w, dxi_tilde)
                 )
             else:
                 dU_tilde = (
-                        contractions.WKCo_WCa_to_WKCao(z_tilde, eta, n_probe)
+                        contractions.contract('WKCo,WCa->WKCao', z_tilde, eta, len_W=n_probe)
                         +
-                        contractions.Wo_WKCa_to_WKCao(w, dxi_tilde)
+                        contractions.contract('Wo,WKCa->WKCao', w, dxi_tilde)
                 )
             return (dU_tilde,)
 
@@ -1017,13 +1017,13 @@ def assemble_tt_variations(
         # term (sigma_tilde on j, tau_tilde on i, deta_tilde on a); the frame edge vars xi/mu/nu are W+C.
         # n_probe = len(W) (supplied). The ragged xmap below is the oracle.
         if sum_over_probes:
-            dG_tildes = (contractions.dWCi_dWCa_dWKCj_to_dKCiaj(mus, xis, sigma_tildes, n_probe)
-                         + contractions.dWKCi_dWCa_dWCj_to_dKCiaj(tau_tildes, xis, nus, n_probe)
-                         + contractions.dWCi_dWKCa_dWCj_to_dKCiaj(mus, deta_tildes, nus, n_probe))
+            dG_tildes = (contractions.contract('dWCi,dWCa,dWKCj->dKCiaj', mus, xis, sigma_tildes, len_W=n_probe)
+                         + contractions.contract('dWKCi,dWCa,dWCj->dKCiaj', tau_tildes, xis, nus, len_W=n_probe)
+                         + contractions.contract('dWCi,dWKCa,dWCj->dKCiaj', mus, deta_tildes, nus, len_W=n_probe))
         else:
-            dG_tildes = (contractions.dWCi_dWCa_dWKCj_to_dWKCiaj(mus, xis, sigma_tildes, n_probe)
-                         + contractions.dWKCi_dWCa_dWCj_to_dWKCiaj(tau_tildes, xis, nus, n_probe)
-                         + contractions.dWCi_dWKCa_dWCj_to_dWKCiaj(mus, deta_tildes, nus, n_probe))
+            dG_tildes = (contractions.contract('dWCi,dWCa,dWKCj->dWKCiaj', mus, xis, sigma_tildes, len_W=n_probe)
+                         + contractions.contract('dWKCi,dWCa,dWCj->dWKCiaj', tau_tildes, xis, nus, len_W=n_probe)
+                         + contractions.contract('dWCi,dWKCa,dWCj->dWKCiaj', mus, deta_tildes, nus, len_W=n_probe))
     else:
         def _func(x):
             xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde = x
@@ -1034,19 +1034,19 @@ def assemble_tt_variations(
             # keeps K always; W is summed (K+C) or kept (W+K+C) per sum_over_probes.
             if sum_over_probes:
                 dG_tilde = (
-                        contractions.WCi_WCa_WKCj_to_KCiaj(mu, xi, sigma_tilde, n_probe)
+                        contractions.contract('WCi,WCa,WKCj->KCiaj', mu, xi, sigma_tilde, len_W=n_probe)
                         +
-                        contractions.WKCi_WCa_WCj_to_KCiaj(tau_tilde, xi, nu, n_probe)
+                        contractions.contract('WKCi,WCa,WCj->KCiaj', tau_tilde, xi, nu, len_W=n_probe)
                         +
-                        contractions.WCi_WKCa_WCj_to_KCiaj(mu, deta_tilde, nu, n_probe)
+                        contractions.contract('WCi,WKCa,WCj->KCiaj', mu, deta_tilde, nu, len_W=n_probe)
                 )
             else:
                 dG_tilde = (
-                        contractions.WCi_WCa_WKCj_to_WKCiaj(mu, xi, sigma_tilde, n_probe)
+                        contractions.contract('WCi,WCa,WKCj->WKCiaj', mu, xi, sigma_tilde, len_W=n_probe)
                         +
-                        contractions.WKCi_WCa_WCj_to_WKCiaj(tau_tilde, xi, nu, n_probe)
+                        contractions.contract('WKCi,WCa,WCj->WKCiaj', tau_tilde, xi, nu, len_W=n_probe)
                         +
-                        contractions.WCi_WKCa_WCj_to_WKCiaj(mu, deta_tilde, nu, n_probe)
+                        contractions.contract('WCi,WKCa,WCj->WKCiaj', mu, deta_tilde, nu, len_W=n_probe)
                 )
             return (dG_tilde,)
 
