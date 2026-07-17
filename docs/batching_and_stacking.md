@@ -242,7 +242,8 @@ A *third* independent block (forward-probing a `K`-stacked tangent — `W` probe
 frame) is just a third capital letter in the string: `contract('WKCa,Caib,WCi->WKCb', ...)`.
 
 **Decision rule:** if your two batches are on the *same* operands → `'...'`. If they are on *different*
-operand subsets and must remain independent → `contract`.
+operand subsets and must remain independent → `contract`. (Full usage guide, with examples and the
+guarantees spelled out: [`grouped_contractions`](grouped_contractions.md).)
 
 **Sharding for multi-GPU: any axis of any group shards freely.** `contract` never reshapes, so every
 group sub-axis is an honest einsum axis; sharding a batch/free axis costs zero collectives, and

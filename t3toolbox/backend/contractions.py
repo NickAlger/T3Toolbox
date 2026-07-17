@@ -368,10 +368,12 @@ def contract(
     data movement, every axis of every group independently shardable. Dispatch follows the house
     convention (inferred numpy/jax; numpy uses the greedy pairwise BLAS path, jax one fused einsum).
 
-    Block-letter conventions (``W`` probe stack, ``K`` tangent stack, ``C`` frame stack,
-    frame-inner order) are in ``docs/batching_and_stacking.md``. Group axes follow einsum's usual
-    extent rules: mismatched sizes for the same group axis raise, except that a size-1 axis
-    broadcasts (standard einsum semantics on both backends).
+    Full usage guide with examples: ``docs/grouped_contractions.md``; block-letter conventions
+    (``W`` probe stack, ``K`` tangent stack, ``C`` frame stack, frame-inner order) are in
+    ``docs/batching_and_stacking.md``; implementation internals:
+    ``docs/contributor/contractions_internals.md``. Group axes follow einsum's usual extent rules:
+    mismatched sizes for the same group axis raise, except that a size-1 axis broadcasts (standard
+    einsum semantics on both backends).
 
     A batched matvec where the matrix batch ``C`` is shared and the vector batch ``W`` rides:
 

@@ -74,6 +74,15 @@ branch can be deleted (optional).
   `signature_style.md` + `reading_signatures.md` references, CLAUDE.md (machinery-2 + code-style
   bullets + the open-question pointer). **The standing architecture question is RESOLVED and
   archived**: `dev/archive/OPEN_QUESTION_contractions_architecture_RESOLVED_2026-07-17.md`.
+  **Docs — DONE (2026-07-17 evening): the framework write-up.** `docs/grouped_contractions.md`
+  (user tier: the problem, the dialect, usage with run-and-pasted examples, the `len_<G>`
+  supplement story + its three guarantees, what-you-get, motivation-in-brief) and
+  `docs/contributor/contractions_internals.md` (the pipeline; the exact linear system + the
+  rank/kernel identifiability story + the greedy-supplement argument; the static-not-instance
+  decision; co-travel runs incl. the output-inclusion counterexample and the no-cycles argument;
+  letter assignment with real expanded strings; why the pairwise path is computed on the grouped
+  string; validation-for-free; the evidence structure + the one HISTORICAL-table duty). Wired into
+  both toctrees; cross-refs from `batching_and_stacking.md` §4 and the `contract` docstring.
   **Slice 3 — DONE (2026-07-17): the lean-jet inline einsums are `contract` call sites.** The four
   scan-step bodies (`compute_eta_jets`, `compute_deta_jets`, `_sigma_banded_step`,
   `_adj_tilde_step`) now pass W/K/C UNFLATTENED to `contract(...)` (`len_C` supplied where the W|C

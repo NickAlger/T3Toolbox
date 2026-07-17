@@ -13,6 +13,7 @@ Core design
 
    frame_variations
    batching_and_stacking
+   grouped_contractions
    entries_apply_probe
    transposes
    t3m_methods

@@ -26,6 +26,7 @@ Design-decision records
    :maxdepth: 1
 
    contributor/batching_internals
+   contributor/contractions_internals
    contributor/fitting_internals
    contributor/weighted_internals
    contributor/numerical_contract_catalog
