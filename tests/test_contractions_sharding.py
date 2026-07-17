@@ -493,23 +493,37 @@ class TestShardabilityContract(unittest.TestCase):
         return self.jax.jit(fn).lower(*xs).compile().as_text().count('all-gather')
 
 
+def _scan_vocabulary():
+    """Every grouped-subscript string literal in the library source (the same self-maintaining
+    scan as test_contractions_interpreter.py -- duplicated so the test modules stay standalone)."""
+    import ast
+    import pathlib
+    import re
+    import t3toolbox
+    subs_re = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')
+    vocab = set()
+    for path in sorted(pathlib.Path(t3toolbox.__file__).parent.rglob('*.py')):
+        for node in ast.walk(ast.parse(path.read_text())):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                s = node.value.replace(' ', '')
+                if subs_re.match(s) and any(ch.isupper() for ch in s):
+                    vocab.add(s)
+    return vocab
+
+
 @unittest.skipUnless(common.jax_available, 'jax not available')
 class TestInterpreterAnyAxisSharding(unittest.TestCase):
     """The grouped-einsum interpreter never reshapes, so EVERY sub-axis of EVERY group is shardable
     -- strictly stronger than the named contractions' contract, whose one residue (a shared block
     flattens, so only its LEADING axis is free; batching_internals.md) was an artifact of the
-    flatten. Shard each sub-axis of each group in turn, compile, assert ZERO all-gathers. A summed
-    group legitimately costs an all-REDUCE (the psum the math requires) -- never an all-gather.
+    flatten. Swept over the FULL library vocabulary (AST-scanned, self-maintaining): shard each
+    sub-axis of each group of each subscripts string in turn, compile, assert ZERO all-gathers. A
+    summed group legitimately costs an all-REDUCE (the psum the math requires) -- never an
+    all-gather.
     """
 
-    # (subscripts, lens): every group is exercised with 2 sub-axes, so minor axes are covered
-    CASES = [
-        ('WCi,Cio->WCo', {}),                       # shared multi-axis C: its minor axis was the residue
-        ('WCo,WCa->Cao', {'len_W': 2}),             # W summed away: partial sums + all-reduce, no gather
-        ('trs,rWCa,Caib,sWCi->tWCb', {}),           # 4-operand jet pushthrough (numpy pairwise twin)
-        ('WCa,KCaib,WCi->WKCb', {'len_C': 2}),      # three groups, K on the core operand
-    ]
-    SINGLE = {'t': 3, 'r': 3, 's': 2, 'a': 2, 'i': 3, 'b': 3, 'o': 3}
+    SINGLE = {'d': 2, 't': 3, 'r': 3, 's': 2, 'u': 3, 'k': 2, 'a': 2, 'i': 3, 'b': 3, 'o': 3,
+              'j': 2, 'c': 3}
 
     @classmethod
     def setUpClass(cls):
@@ -534,12 +548,15 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
         from jax.sharding import PartitionSpec as P
         import t3toolbox.backend.contractions as ctr
 
+        vocab = sorted(_scan_vocabulary())
+        self.assertGreater(len(vocab), 100, 'the AST scan found suspiciously few subscripts')
         checked = 0
-        for subs, lens in self.CASES:
+        for subs in vocab:
             terms = subs.split('->')[0].split(',')
             groups = sorted({ch for ch in subs if ch.isupper()})
+            lens = {'len_' + g: 2 for g in groups}      # all supplements: always sufficient
             for g in groups:
-                for ax in range(2):     # every group carries 2 sub-axes; ax=1 is the minor one
+                for ax in range(2):     # every group gets 2 sub-axes; ax=1 is the minor one
                     with self.subTest(subs=subs, group=g, axis=ax):
                         def gshape(ch):     # sharded sub-axis sized to the mesh, the rest 2
                             return tuple(self.n_dev if (ch == g and j == ax) else 2
@@ -564,7 +581,7 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
                             "sharded -- the interpreter must not reshape, so every group sub-axis "
                             "must shard free." % (subs, n, ax, g))
                         checked += 1
-        self.assertGreater(checked, 15, 'the any-axis sweep barely ran (%d cases)' % checked)
+        self.assertGreater(checked, 400, 'the any-axis sweep barely ran (%d cases)' % checked)
 
 
 if __name__ == '__main__':

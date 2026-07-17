@@ -2370,7 +2370,7 @@ class TuckerTensorTrain:
         result: scalar or NDArray or TuckerTensorTrain
             Sum of tensor over specified axes.
             Case 1a: ``axis`` is None or ``axis`` contains all indices ``1,dots,d`` and self is not stacked: ``result`` is scalar.
-            Case 1b: ``axis`` is None or ``axis`` contains all axes ``1,\dots,d`` and self is stacked: ``result`` is NDArray and ``result.shape=self.stack_shape``.
+            Case 1b: ``axis`` is None or ``axis`` contains all axes ``1,...,d`` and self is stacked: ``result`` is NDArray and ``result.shape=self.stack_shape``.
             Case 2: ``axis`` is ``int``, or ``axis`` is ``Sequence[int]``, and ``axis`` is missing at least ine index from ``1,...,d``: ``result`` is TuckerTensorTrain.
 
         See Also
