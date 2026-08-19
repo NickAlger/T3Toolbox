@@ -1,0 +1,746 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1.1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{enumitem}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue]{hyperref}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{algorithm}[theorem]{Algorithm}
+\theoremstyle{remark}
+\newtheorem{remark}[theorem]{Remark}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\T}{\boldsymbol{T}}
+\newcommand{\rank}{\operatorname{rank}}
+\newcommand{\tr}{\operatorname{tr}}
+\newcommand{\lammax}{\lambda_{\max}}
+\newcommand{\lammin}{\lambda_{\min}}
+\newcommand{\HS}{\mathrm{HS}}
+\newcommand{\cond}{\operatorname{cond}}
+\newcommand{\diag}{\operatorname{diag}}
+\newcommand{\Mnr}{\mathcal{M}_{\boldsymbol{n},\boldsymbol{r}}}
+\newcommand{\Msh}{\mathcal{M}^{\mathrm{sh}}_{\boldsymbol{n},\boldsymbol{r}}}
+
+\title{Shared Tucker Factors for Tucker Tensor Trains:\\
+Algorithms, Bounds, and Proofs}
+\author{Companion notes for the T3Toolbox sharing implementation}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent
+These notes summarize the mathematics behind adding \emph{shared Tucker
+factors} to the Tucker tensor train (T3) format: the shared rank theorem, the
+grouped truncation algorithm and its quasi-optimality bound, initialization
+from unshared representations, the geometry of the fixed-rank shared manifold
+(tied tangent spaces, the Gram-sum projection, retraction, dimension), the
+edge-conditioning statistics used for rank continuation, and the single-pass
+property of group-aware useless-rank removal. The shared format is the SF-ETT
+decomposition of Molozhavenko and Rakhuba~\cite{MR2026}, generalized from one
+trailing shared block to an arbitrary partition of the modes into sharing
+groups.
+\end{abstract}
+
+\noindent\emph{Revision (v2, 2026-08-19): updated after implementation review
+--- Proposition~\ref{prop:tilt} restated basis-free (no complement basis),
+the corewise geometry added (Proposition~\ref{prop:corewise}), the
+numerical-form and zero-padded-restart remarks added
+(Remarks~\ref{rem:svdsolve} and~\ref{rem:restart}), the dimension formula's
+limits corrected (Proposition~\ref{prop:dim} and its erratum remark), the
+tied doubled-rank embedding made explicit (Remark~\ref{rem:embedding}), and
+the tail-energy definition of $\rank_\varepsilon$ made explicit
+(Theorem~\ref{thm:rankbound}).}
+
+\section{Setup and notation}\label{sec:setup}
+
+A \emph{Tucker tensor train} (T3; equivalently, extended tensor train)
+represents a tensor $\T \in \R^{N_1 \times \cdots \times N_d}$ as
+\[
+\T = \bigl[\bigl[\, G ;\; U_1, \ldots, U_d \,\bigr]\bigr],
+\qquad
+G = \mathrm{TT}(G_1, \ldots, G_d),
+\]
+where $U_i \in \R^{N_i \times n_i}$ are the Tucker factors,
+$G_i \in \R^{r_{i-1} \times n_i \times r_i}$ are the TT cores of the central
+Tucker core $G \in \R^{n_1 \times \cdots \times n_d}$, and
+$r_0 = r_d = 1$. We call $\boldsymbol{n} = (n_1,\ldots,n_d)$ the Tucker ranks
+and $\boldsymbol{r} = (r_1,\ldots,r_{d-1})$ the TT ranks.
+
+$\T_{(i)} \in \R^{N_i \times \prod_{j\neq i} N_j}$ denotes the $i$-th
+matricization of $\T$ and $\T^{\langle i \rangle}$ its $i$-th matrix
+unfolding. $W_i \in \R^{n_i \times r_{i-1} r_i}$ denotes the
+\emph{up-matricization} of core $G_i$ (Tucker leg to rows). All statements
+below assume the standard \emph{orthogonalized representations}: the factors
+$U_i$ have orthonormal columns, and, when a statement refers to mode $i$, the
+TT chain is in \emph{$i$-orthogonal form} (cores left of $i$ left-orthogonal,
+cores right of $i$ right-orthogonal), reachable by QR sweeps without changing
+$\T$.
+
+\begin{definition}[Mode environment / Gram matrix]\label{def:gram}
+$\Gamma_i \coloneqq G_{(i)} G_{(i)}^\top \in \R^{n_i \times n_i}$, the Gram of
+the $i$-th matricization of the Tucker core. $\Gamma_i$ is
+representation-independent; in the $i$-orthogonal representation it
+telescopes to
+\[
+\Gamma_i = W_i W_i^\top .
+\]
+We write $S_i$ for any factor with $\Gamma_i = S_i S_i^\top$ (e.g.\ the
+R-factor absorbed during mode-$i$ down-orthogonalization; in frame coordinates
+of the fixed-rank manifold, $S_i$ is pre-absorbed so that the coordinate Gram
+is the identity).
+\end{definition}
+
+\begin{definition}[Sharing partition; shared T3]\label{def:sharing}
+A \emph{sharing partition} assigns each mode $i \in \{1,\ldots,d\}$ to a group
+$g$; modes in a group $g = (i_1, \ldots, i_{k_g})$ must have equal mode sizes,
+denoted $N_g$. A T3 is \emph{shared} (an SF-T3) if $U_{i} = U_{g}$ and
+$n_i = n_g$ for all $i \in g$, for every group. Singleton groups impose no
+constraint. $\Msh$ denotes the set of shared T3s with fixed ranks
+(Section~\ref{sec:geometry}).
+\end{definition}
+
+Throughout, ``the concatenation'' for a group $g$ means the column-wise block
+matrix $[\,\T_{(i_1)} \,|\, \cdots \,|\, \T_{(i_{k_g})}\,]$.
+
+\section{Shared ranks}\label{sec:ranks}
+
+\begin{lemma}[Stacked skeleton factorization]\label{lem:skeleton}
+Let $\T$ be a shared T3 with orthonormal factors, and let each $W_i$ be taken
+in the $i$-orthogonal representation. Then for each mode $i$ of group $g$,
+\begin{equation}\label{eq:skeleton}
+\T_{(i)} = U_g\, W_i\, M_i,
+\end{equation}
+where $M_i$ has orthonormal rows, and stacking the group's matricizations,
+\begin{equation}\label{eq:stacked}
+\bigl[\,\T_{(i_1)} \,|\, \cdots \,|\, \T_{(i_k)}\,\bigr]
+= U_g \,\bigl[\, W_{i_1} \,|\, \cdots \,|\, W_{i_k} \,\bigr]\,
+\operatorname{blockdiag}\!\bigl(M_{i_1}, \ldots, M_{i_k}\bigr).
+\end{equation}
+Consequently the nonzero singular values of the concatenation equal those of
+the small matrix $[\,W_{i_1} | \cdots | W_{i_k}\,]$, and
+\begin{equation}\label{eq:specid}
+s_{g,j}^2 \;=\;
+\lambda_j\Bigl(\textstyle\sum_{i \in g} \Gamma_i\Bigr)
+\;=\;
+\lambda_j\Bigl(\textstyle\sum_{i \in g} S_i S_i^\top\Bigr),
+\qquad j = 1, \ldots, n_g,
+\end{equation}
+where $s_{g,1} \geq s_{g,2} \geq \cdots$ are the singular values of the
+concatenation.
+\end{lemma}
+
+\begin{proof}
+Equation~\eqref{eq:skeleton} is the standard matricization identity for a T3
+in $i$-orthogonal form: the environment of mode $i$'s Tucker leg contracts to
+a matrix $M_i$ with orthonormal rows (a Kronecker/interface product of
+orthonormal-column factors and left/right-orthogonal partial chains).
+Each block of the concatenation is factored in its own representation of the
+same tensor $\T$; since each factorization holds individually and the left
+factor $U_g$ is common by sharedness, \eqref{eq:stacked} follows by placing
+the $M_i$ in block-diagonal position. The outer factors in \eqref{eq:stacked}
+are, respectively, orthonormal-column and orthonormal-row, so singular values
+pass to the middle factor. Finally,
+$[\,W_{i_1}|\cdots|W_{i_k}\,][\,W_{i_1}|\cdots|W_{i_k}\,]^\top
+= \sum_{i\in g} W_i W_i^\top = \sum_{i\in g} \Gamma_i$, and $\Gamma_i$ is
+representation-independent, so mixing per-mode representations is consistent.
+\end{proof}
+
+\begin{theorem}[Shared minimal rank; cf.~{\cite[Thm.~1]{MR2026}},
+{\cite{Pesh2024}}]\label{thm:sharedrank}
+The minimal Tucker rank of group $g$ over all shared T3 representations of
+$\T$ is
+\[
+n_g^{\min} \;=\; \rank\bigl[\,\T_{(i_1)} \,|\, \cdots \,|\, \T_{(i_k)}\,\bigr].
+\]
+TT ranks are unaffected by sharing:\ $r_i^{\min} = \rank \T^{\langle i\rangle}$.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+$(\geq)$: in any shared representation, every $\T_{(i)}$, $i \in g$, has
+column space contained in $\operatorname{range}(U_g)$, hence so does the
+concatenation, giving $\rank[\cdots] \leq n_g$.
+$(\leq)$: take $U_g$ to be an orthonormal basis of the concatenation's column
+space; projecting each mode ($U_g U_g^\top \T_{(i)} = \T_{(i)}$) yields an
+exact shared representation with $n_g = \rank[\cdots]$; TT-decompose the
+resulting core at the unfolding ranks. See \cite{MR2026,Pesh2024} for
+details.
+\end{proof}
+
+\section{Grouped truncation (shared rounding)}\label{sec:rounding}
+
+\begin{algorithm}[Grouped T3-SVD / SF-rounding; cf.~{\cite[Alg.~1]{MR2026}}]
+\label{alg:rounding}
+Input: shared T3 with orthonormal factors; target ranks. Output: shared T3
+with target ranks.
+\begin{enumerate}[label=\emph{(\arabic*)},itemsep=1pt,topsep=2pt]
+\item TT-round the cores to the target TT ranks (standard sweep; factors
+  untouched). In an interlaced implementation, steps (2)--(4) are woven into
+  the same sweep; the interlacing order changes truncated results but not the
+  bounds below.
+\item For each mode $i$, obtain $W_i$ in the $i$-orthogonal representation
+  (one orthogonalization sweep).
+\item Singleton modes: truncated SVD of $W_i$; rotate factor and core as
+  usual.
+\item Each group $g$: one truncated SVD of the concatenation
+  $[\,W_{i_1} | \cdots | W_{i_k}\,] \in \R^{n_g \times \sum_{i\in g}
+  r_{i-1} r_i}$, yielding leading left singular vectors $Y \in \R^{n_g \times
+  n_g'}$. Update $U_g \leftarrow U_g Y$ \emph{once} (assigned to every mode of
+  $g$) and apply $Y^\top$ to the up-leg of every core in $g$.
+\end{enumerate}
+By Lemma~\ref{lem:skeleton}, step (4) computes the optimal rank-$n_g'$
+truncation of the concatenation while touching the large dimension $N_g$ only
+in the single product $U_g Y$, at cost $O(N_g n_g^2)$ per group; the SVD
+itself acts on an $n_g \times \sum_i r_{i-1} r_i$ matrix.
+\end{algorithm}
+
+\begin{theorem}[Quasi-optimality; {\cite[Thm.~2]{MR2026}}]\label{thm:quasi}
+Let $P_{\mathrm{sf}}(\T)$ denote the output of
+Algorithm~\ref{alg:rounding} (equivalently, of its dense analogue applied to
+an arbitrary tensor) at ranks $(\boldsymbol{n}, \boldsymbol{r})$. Then
+\[
+\bigl\| \T - P_{\mathrm{sf}}(\T) \bigr\|_{\HS}
+\;\leq\;
+C(d)\,
+\inf_{\substack{\boldsymbol{Y} \text{ shared},\\
+\mathrm{ranks}(\boldsymbol{Y}) \preceq (\boldsymbol{n},\boldsymbol{r})}}
+\bigl\| \T - \boldsymbol{Y} \bigr\|_{\HS},
+\qquad
+C(d) = \sqrt{d} + \sqrt{d}\sqrt{d-1} + \sqrt{d-1}.
+\]
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Split $P_{\mathrm{sf}} = P_{\mathrm{SF\text{-}Tucker}} \circ
+P_{\mathrm{TT}}$ (either order; \cite[Rem.~1]{MR2026}). Each stage is
+quasi-optimal in its own class ($\sqrt{d}$ for the HOSVD-type shared factor
+truncation, using that the shared-mode error is controlled by the
+concatenation tail; $\sqrt{d-1}$ for TT-SVD), and each stage's best-in-class
+error is bounded by the best shared error via the triangle inequality; the
+constants compose to $C(d)$.
+\end{proof}
+
+\begin{remark}[Truncation error identity]
+When the input is exactly shared and step (4) truncates group $g$ from
+$n_g$ to $n_g'$, the error contributed by that step is
+$\bigl(\sum_{j > n_g'} s_{g,j}^2\bigr)^{1/2}$: by
+Lemma~\ref{lem:skeleton} the discarded tail of the concatenation is exactly
+the Hilbert--Schmidt error of simultaneously projecting all group modes onto
+the retained basis.
+\end{remark}
+
+\begin{theorem}[Rank upper bound for the interlaced sweep]\label{thm:rankbound}
+In tolerance-based truncation, every rank selected by
+Algorithm~\ref{alg:rounding} satisfies
+\[
+n_g' \;\leq\; \rank_\varepsilon
+\bigl[\,\T_{(i_1)} \,|\, \cdots \,|\, \T_{(i_k)}\,\bigr]
+\quad\text{(of the \emph{original} input)},
+\qquad
+r_i' \;\leq\; \rank_\varepsilon \T^{\langle i \rangle},
+\]
+where $\rank_\varepsilon$ is numerical rank at the working tolerance,
+counted by tail Frobenius energy (the criterion the implemented truncated SVD
+uses): $\rank_\varepsilon(A) = \min\{\, r :
+\|A - A_r\|_F \le \max(\varepsilon \|A\|_F,\ \mathrm{atol}) \,\}$ with $A_r$
+the best rank-$r$ approximation.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Edge monotonicity: any truncation performed at another edge multiplies the
+group's concatenation on the right by a block-orthogonal-projection-type
+factor (and on the left by nothing, since factors are orthonormal), which
+cannot increase its rank; likewise for unfoldings. Hence the matrix whose SVD
+is truncated at each step has rank at most that of the corresponding
+matricization/unfolding of the original tensor.
+\end{proof}
+
+\section{Initialization: unshared $\to$ shared}\label{sec:init}
+
+\begin{algorithm}[Shared projection of an unshared T3]\label{alg:init}
+Input: T3 with orthonormal but distinct factors $U_i$, $i \in g$.
+For each group $g$:
+\begin{enumerate}[label=\emph{(\arabic*)},itemsep=1pt,topsep=2pt]
+\item Stack factors and compute one tall QR:
+  $[\,U_{i_1} | \cdots | U_{i_k}\,] = Q R$, with
+  $Q \in \R^{N_g \times m}$, $m \leq \sum_{i\in g} n_i$.
+\item Express each block $B_i \coloneqq U_i W_i$ (never formed at size
+  $N_g$) in the $Q$ basis: $Q^\top B_i = R_{[i]} W_i$, where $R_{[i]}$ is the
+  corresponding column block of $R$. SVD the small stacked matrix
+  $[\,R_{[i_1]} W_{i_1} | \cdots | R_{[i_k]} W_{i_k}\,] \in
+  \R^{m \times \sum_i r_{i-1} r_i}$; retain leading left singular vectors
+  $Y$.
+\item Set $U_g \coloneqq Q Y$; project each mode by applying
+  $(U_g^\top U_i)$ to the up-leg of core $i$ and replacing the factor by
+  $U_g$. Follow with Algorithm~\ref{alg:rounding}.
+\end{enumerate}
+\end{algorithm}
+
+\begin{lemma}\label{lem:init}
+The column space of $[\,B_{i_1} | \cdots | B_{i_k}\,]$ lies in
+$\operatorname{range}(Q)$, so step (2) computes the exact dominant left
+singular subspace of the concatenation $[\,\T_{(i_1)}|\cdots|\T_{(i_k)}\,]$
+while touching the large dimension only in the QR of step (1) and the product
+$QY$. The resulting projection is quasi-optimal with respect to the best
+shared approximation, with the constant of Theorem~\ref{thm:quasi} (same
+composition argument, with the shared-HOSVD stage now acting on unshared
+input).
+\end{lemma}
+
+\section{Fixed-rank geometry with tied factors}\label{sec:geometry}
+
+Let $\Mnr$ denote the manifold of fixed-rank T3s and
+$T_{\T}\Mnr$ its tangent space at a point $\T$ with orthonormal
+representation. A tangent vector is a sum of $d$ TT-variation terms and $d$
+Tucker-variation terms; in \emph{gauged} form the Tucker variation at mode
+$i$ satisfies $U_i^\top \dot V_i = 0$, and gauge conditions make all cross
+terms in the Hilbert--Schmidt inner product vanish, so
+\begin{equation}\label{eq:hsnorm}
+\langle \xi, \eta \rangle_{\HS}
+= \sum_{i=1}^{d} \tr\bigl( \dot V_i^\top \dot W_i\, \Gamma_i \bigr)
++ \text{(TT-variation terms)} .
+\end{equation}
+In \emph{frame coordinates} the factor $S_i$ (with $\Gamma_i = S_i S_i^\top$)
+is pre-absorbed per mode, so the coordinates $C_i$ of Tucker variations are
+orthonormal: corewise Euclidean inner products equal Hilbert--Schmidt inner
+products.
+
+\begin{definition}[Shared manifold]
+$\Msh \subset \Mnr$ is the set of shared T3-representable tensors with fixed
+shared ranks: one Tucker rank $n_g$ and one factor per group. It is the
+transversal intersection of the fixed-rank T3 manifold with the shared-Tucker
+manifold and is smooth \cite[Thm.~5]{MR2026}.
+\end{definition}
+
+\begin{proposition}[Tied tangent space is a tilted subspace]\label{prop:tilt}
+Fix a shared point. A tangent vector is tangent to $\Msh$ iff its TT
+variations are unrestricted and, per group, its Tucker variations arise from
+a single \emph{gauged ambient direction} $\dot U \in \R^{N_g \times n_g}$
+with $U_g^\top \dot U = 0$: in the ($S$-absorbed) frame coordinates,
+\begin{equation}\label{eq:tied}
+C_i = \dot U\, S_i \quad \text{for a common gauged } \dot U, \qquad i \in g .
+\end{equation}
+This is a linear subspace of the full gauged tangent space, tilted
+mode-by-mode by the (generally distinct, generally rectangular) $S_i$.
+\end{proposition}
+
+\begin{remark}[No complement basis; rectangular $S_i$]
+An earlier draft stated \eqref{eq:tied} through an orthonormal complement
+$O_g$ of $U_g$ ($\dot U = O_g B$, coordinates $C_i = B S_i$), suggesting a
+complement must be constructed once per group and tied across it. The
+subspace depends only on $U_g$ (tied by hypothesis) and the $S_i$; no
+complement basis is ever materialized (nor is one materialized anywhere in
+T3Toolbox), and the per-mode rotational freedom in the factorization
+$\Gamma_i = S_i S_i^\top$ (replacing $S_i$ by $S_i Q_i$ together with the
+correspondingly rotated orthonormal core) cancels identically in
+\eqref{eq:tied} and in the projection \eqref{eq:gramsolve}. Note also that in
+implementation $S_i \in \R^{n_g \times n_{D,i}}$ with
+$n_{D,i} = \min(n_g,\ r_{i-1} r_i)$ --- rectangular in general, so an
+individual Gram $\Gamma_i$ may be singular at a perfectly smooth shared
+point; only the group sum is invertible there
+(Proposition~\ref{prop:kappa}(iii)).
+\end{remark}
+
+\begin{proposition}[Projection onto the tied subspace]\label{prop:proj}
+The orthogonal projection (in the frame-coordinate Euclidean metric, which
+equals Hilbert--Schmidt) of arbitrary gauged coordinates
+$(C_{i})_{i \in g}$ onto the subspace~\eqref{eq:tied} is given by
+\begin{equation}\label{eq:gramsolve}
+\dot U \;=\; \Bigl(\sum_{i \in g} C_i S_i^\top\Bigr)
+        \Bigl(\sum_{i \in g} S_i S_i^\top\Bigr)^{-1}
+   \;=\; \Bigl(\sum_{i \in g} C_i S_i^\top\Bigr)
+        \Bigl(\sum_{i \in g} \Gamma_i\Bigr)^{-1},
+\qquad
+C_i \leftarrow \dot U S_i .
+\end{equation}
+TT variations and singleton modes are unaffected, and $\dot U$ is
+automatically gauged when the $C_i$ are. Formula~\eqref{eq:gramsolve}
+is the projection formula of \cite[\S 5.3]{MR2026} rederived as least squares
+onto a tilted diagonal; $\sum_i C_i S_i^\top$ equals the sum of raw per-mode
+cotangents $(\nabla f)_{(i)} G_{(i)}^\top$.
+\end{proposition}
+
+\begin{proof}
+Minimize $\sum_{i\in g} \| C_i - \dot U S_i \|_F^2$ over $\dot U$; setting the
+gradient to zero gives the normal equations
+$\sum_i C_i S_i^\top = \dot U \sum_i S_i S_i^\top$, invertible whenever the
+point has full shared rank ($s_{g,n_g} > 0$ by \eqref{eq:specid}). Gauge:
+$U_g^\top \sum_i C_i S_i^\top = \sum_i (U_g^\top C_i) S_i^\top = 0$, and the
+Gram sum acts on the other side, so $U_g^\top \dot U = 0$.
+\end{proof}
+
+\begin{remark}[Numerical form: solve the tilted least squares by SVD, never
+by normal equations]\label{rem:svdsolve}
+Implementations should not form the Gram sum. Stacking
+\[
+M_g = \begin{bmatrix} S_{i_1}^\top \\ \vdots \\ S_{i_k}^\top \end{bmatrix}
+\in \R^{(\sum_{i\in g} n_{D,i}) \times n_g},
+\qquad
+C^{\mathrm{stack}} = \begin{bmatrix} C_{i_1}^\top \\ \vdots \\
+C_{i_k}^\top \end{bmatrix},
+\]
+the projection is the least-squares solution
+$\dot U^\top = M_g^{+}\, C^{\mathrm{stack}}$ (then
+$C_i^\top \leftarrow S_i^\top \dot U^\top$, the corresponding row block of
+$M_g \dot U^\top$), computed from one thin SVD of $M_g$ with a relative
+singular-value clip. Three payoffs. (i) The solve has the intrinsic
+least-squares sensitivity ($\kappa_g$ on the solution component); the
+normal-equations/Cholesky route is $\kappa_g^2$ unconditionally.
+(ii) $\sigma(M_g) = (s_{g,j})_j$ \emph{is} the group spectrum
+\eqref{eq:specid}, at full (non-squared) accuracy: in float32 the Gram route
+loses trailing levels below $\sqrt{\varepsilon}\, s_{g,1}$ entirely
+(measured at $s_{g,\min}/s_{g,1} \approx 10^{-4}$: relative error
+$3\cdot10^{-1}$ via the Gram eigendecomposition vs $8\cdot10^{-5}$ via the
+SVD of $M_g$). (iii) The clipped pseudoinverse is well-defined
+(minimum-norm) at rank-deficient points, which rank continuation visits by
+construction (Remark~\ref{rem:restart}).
+\end{remark}
+
+\begin{remark}[Metric unchanged]
+Because \eqref{eq:tied} is a linear subspace and the frame metric is
+Euclidean on gauged coordinates, the restriction of the metric to tied
+tangents requires no correction: inner products and norms of tied tangents
+are computed exactly as in the unshared case. The Gram-sum enters only
+through the projection~\eqref{eq:gramsolve}. In particular, plain averaging
+$C_i \mapsto \frac1k \sum_j C_j$ projects onto the wrong subspace
+$\{C_{i_1} = \cdots = C_{i_k}\}$, which corresponds to no tied ambient
+direction.
+\end{remark}
+
+\begin{proposition}[The corewise geometry ties by averaging]
+\label{prop:corewise}
+Consider instead the over-parametrized \emph{corewise} geometry: points are
+the raw cores $((U_i)_i, (G_i)_i)$, the metric is Euclidean on the core
+entries, and the retraction is addition of core perturbations. The shared
+parameter set $\{\,U_i = U_j,\ i, j \in g,\ \forall g\,\}$ is a linear
+subspace of the parameter space; its tangent space is
+$\{\dot U_i \text{ equal within each group}\}$ (TT-core perturbations
+unrestricted), and the orthogonal projection onto it in the corewise metric
+is the per-group arithmetic mean
+$\dot U_i \mapsto \tfrac{1}{k_g} \sum_{j \in g} \dot U_j$. The additive
+retraction then preserves tying exactly.
+\end{proposition}
+
+\begin{remark}[One principle, two formulas]
+Both geometries tie by \emph{orthogonal projection onto the geometry's tied
+subspace in the geometry's own metric on its own coordinates}. The formulas
+differ because the coordinates differ: the manifold geometry's gauged
+coordinates carry $S_i$ pre-absorbed, so its tied subspace is tilted
+\eqref{eq:tied} and the projection is the Gram-weighted solve
+\eqref{eq:gramsolve}; the corewise coordinates are raw factor copies, so its
+tied subspace is the diagonal and the projection is the mean. Using either
+formula in the other geometry projects onto the wrong subspace; the two agree
+only when the group Grams are all equal (e.g.\ at an exactly symmetric
+point, Corollary~\ref{cor:sym}).
+\end{remark}
+
+\begin{proposition}[Retraction]\label{prop:retract}
+For a shared point $\T$ and tied tangent $\xi$, the attached point
+$\T + \xi$ admits a shared T3 representation with doubled ranks (the doubled
+factor is $[\,U_g \,|\, \dot U_g\,]$, identical across each group), and
+\[
+R(\T, \xi) \coloneqq P_{\mathrm{sf}}(\T + \xi)
+\]
+(Algorithm~\ref{alg:rounding} truncating back to the original ranks) is a
+retraction on $\Msh$. This follows from quasi-optimality
+(Theorem~\ref{thm:quasi}) via the argument of
+\cite[Prop.~2.3]{KSV2014}; see \cite[Prop.~6]{MR2026}.
+\end{proposition}
+
+\begin{remark}[Tied doubled-rank embedding]\label{rem:embedding}
+The attached point $\T + \xi$ should be \emph{constructed} tied, not re-tied
+after the fact: per group, the doubled factor is $[\,U_g \,|\, \dot U\,]$
+(one matrix, used at every mode of $g$; $2 n_g$ columns) and the paired core
+block at mode $i$ is the \emph{center core} $W_i$ (equivalently, $S_i$
+absorbed back into the $S$-stripped orthonormal core) --- cf.\ the SF-ETT
+tangent representation \cite[\S 5.2]{MR2026}. The naive embedding by
+per-mode factor blocks $[\,U_g \,|\, \dot U S_i\,]$ (the $S$-absorbed
+coordinates) is \emph{not} tied: the blocks differ across the group in value
+and, when the $n_{D,i}$ differ, even in shape, and no per-mode averaging
+repairs this. $\dot U$ is recovered from tied coordinates by the
+least-squares solve of Remark~\ref{rem:svdsolve} (exact on tied input; its
+residual is a natural tied-tangent check).
+\end{remark}
+
+\begin{proposition}[Dimension; cf.~{\cite[Thm.~5]{MR2026}}]\label{prop:dim}
+With groups $g$ of mode size $N_g$ and shared rank $n_g$ (singleton groups
+reducing to the standard terms),
+\[
+\dim \Msh
+= \underbrace{\sum_{i=1}^{d} r_{i-1}\, n_{g(i)}\, r_i
+  \;-\; \sum_{i=1}^{d-1} r_i^2}_{\text{TT-core term (cores are never tied)}}
+\;+\; \sum_{\text{groups } g} n_g \bigl( N_g - n_g \bigr),
+\]
+where $g(i)$ is the group of mode $i$ and the boundary bonds
+$r_0 = r_d = 1$ carry no gauge: one Stiefel-quotient term per \emph{group}
+instead of per mode.
+\end{proposition}
+
+\begin{remark}[Erratum and scope]
+The printed \cite[Thm.~5]{MR2026} subtracts $\sum_{i=1}^{d} r_i^2$,
+over-subtracting by exactly $1$ (the boundary bond $r_d = 1$ is not a gauge
+degree of freedom); the matrix case $d = 2$ pins the limits above. Note also
+that both \cite{MR2026} and \cite{Pesh2024} prove smoothness and the
+dimension for a \emph{single trailing block} of shared modes; the
+arbitrary-partition statement here follows by iterating the same
+transversality argument group by group, and has been validated empirically by
+matching the rank of a dense tied tangent basis to the formula --- including
+a case where a group rank exceeds an individual mode's local ceiling
+$r_{i-1} r_i$ (Proposition~\ref{prop:ceiling}), where the \emph{unshared}
+minimal-rank reduction would clip the rank and the formula, applied to the
+unshared-reduced ranks, under-counts. Implementations must therefore reduce
+by the \emph{shared} minimal ranks before applying the formula.
+\end{remark}
+
+\section{Rank continuation: edge conditioning under sharing}\label{sec:cont}
+
+The rank-continuation policy of \cite{T4S} grows ranks on the most
+well-conditioned edges of the tensor network, keeping all edges comparably
+conditioned, because edge conditioning governs the conditioning of the
+fixed-rank subproblem. Sharing replaces the group's per-mode Tucker edges
+with a single edge whose spectrum is the concatenation spectrum
+$s_{g,\cdot}$ of \eqref{eq:specid}:
+\[
+\kappa_g \coloneqq \frac{s_{g,1}}{s_{g,n_g}},
+\qquad
+\kappa^{\mathrm{loc}}_i \coloneqq \sqrt{\cond(\Gamma_i)}
+\quad (i \in g),
+\]
+competing in the same growth rule as TT-edge and singleton-Tucker condition
+numbers: an edge grows only if it is well conditioned relative to the worst
+edge, $\kappa < \kappa_{\max}/\tau$ (with $\tau > 1$); the group contributes
+\emph{one} $\kappa_g$ to the pool, and one growth decision is applied
+group-wide.
+
+\begin{proposition}[$\kappa_g$ is the shared subproblem conditioning]
+\label{prop:kappa}
+At a shared point:
+\begin{enumerate}[label=(\roman*),itemsep=1pt,topsep=2pt]
+\item The Gram of the tied parameterization $B \mapsto (BS_i)_{i \in g}$ is
+  $\sum_{i\in g}\Gamma_i$: for a tied Tucker tangent,
+  $\|\xi\|_{\HS}^2 = \tr\bigl(B (\sum_i \Gamma_i) B^\top\bigr)$. Its
+  eigenvalue spread is $\kappa_g^2$.
+\item The projection solve~\eqref{eq:gramsolve} has condition number
+  $\kappa_g^2$.
+\item $s_{g,n_g} \to 0$ iff the point approaches the stratum of lower shared
+  rank (Theorem~\ref{thm:sharedrank}), where the fixed-rank parametrization
+  degenerates. Individual $\Gamma_i$ are never inverted for shared modes;
+  per-mode near-rank-deficiency is not a degeneracy of $\Msh$.
+\end{enumerate}
+\end{proposition}
+
+\begin{proof}
+(i) is \eqref{eq:hsnorm} with $\dot V_i \leftrightarrow BS_i$ absorbed into
+frame coordinates: $\sum_i \|BS_i\|_F^2 = \tr(B(\sum_i S_iS_i^\top)B^\top)$.
+(ii) is immediate from \eqref{eq:gramsolve} and \eqref{eq:specid}. (iii) is
+Theorem~\ref{thm:sharedrank} with \eqref{eq:specid}.
+\end{proof}
+
+\begin{proposition}[Conditioning of the sum]\label{prop:mediant}
+$\displaystyle \kappa_g \;\leq\; \max_{i \in g} \kappa^{\mathrm{loc}}_i$,
+and the inequality can be strict by an arbitrarily large factor.
+\end{proposition}
+
+\begin{proof}
+All $\Gamma_i$ are positive semidefinite, so
+$\lammax(\sum_i \Gamma_i) \leq \sum_i \lammax(\Gamma_i)$ and
+$\lammin(\sum_i \Gamma_i) \geq \sum_i \lammin(\Gamma_i)$. Hence, by the
+mediant inequality
+$\frac{\sum_i a_i}{\sum_i b_i} \leq \max_i \frac{a_i}{b_i}$
+(for $a_i \ge 0$, $b_i > 0$),
+\[
+\kappa_g^2
+= \frac{\lammax(\sum_i \Gamma_i)}{\lammin(\sum_i \Gamma_i)}
+\leq \frac{\sum_i \lammax(\Gamma_i)}{\sum_i \lammin(\Gamma_i)}
+\leq \max_{i \in g} \frac{\lammax(\Gamma_i)}{\lammin(\Gamma_i)}
+= \max_{i \in g} \cond(\Gamma_i).
+\]
+Strictness: $\Gamma_1 = \diag(1, \epsilon)$, $\Gamma_2 = \diag(\epsilon, 1)$
+gives $\kappa^{\mathrm{loc}}_1 = \kappa^{\mathrm{loc}}_2 = \epsilon^{-1/2}$
+but $\kappa_g = 1$.
+\end{proof}
+
+Proposition~\ref{prop:mediant} says the shared edge is never worse
+conditioned than the worst per-mode Tucker edge of its group, and can be far
+better: under tying, a direction is well-determined if \emph{some} mode of
+the group informs it. Conversely, $\kappa_g$ remaining small while $n_g$
+grows past each mode's individual effective rank signals a shared basis being
+forced to cover a union of dissimilar column spaces (sharing a poor model for
+the data).
+
+\begin{corollary}[Scale cancellation; exact symmetric degeneration]
+\label{cor:sym}
+Each $i$-orthogonal representation preserves norms, so
+$\sum_j s_{g,j}^2 = k_g \|\T\|_{\HS}^2$: raw magnitudes inflate by
+$\sqrt{k_g}$ relative to a single mode but cancel in the ratio $\kappa_g$,
+which compares against TT and singleton edges with no normalization. If the
+group is exactly symmetric ($\Gamma_{i_1} = \cdots = \Gamma_{i_k} =
+\Gamma$; e.g.\ symmetric derivative tensors with all input modes shared),
+then $\sum_i \Gamma_i = k\,\Gamma$, so $s_{g,j} = \sqrt{k}\,\sigma_j$
+elementwise and $\kappa_g$ equals the per-mode condition number exactly.
+\end{corollary}
+
+\begin{remark}[Zero-padded restarts: which tangent channels are alive]
+\label{rem:restart}
+Rank continuation warm-starts by zero-padding, which places the iterate
+\emph{on} the lower-shared-rank stratum: the freshly added factor directions
+carry no core mass, so the corresponding rows of every $S_i$ vanish, the new
+levels of $s_g$ are exactly zero, and the tied Tucker channel
+\eqref{eq:tied} admits no first-order motion in the new directions (the
+clipped pseudoinverse of Remark~\ref{rem:svdsolve} returns the minimum-norm
+solution --- zero there). The escape is carried by the \emph{untied
+TT-variation channel}: TT variations are unrestricted and have first-order
+content in the new up-slots, paired with the (deterministically completed,
+tied) new factor columns, so the first Gauss--Newton step activates the new
+directions through core mass; once $s_g$ acquires mass, the tied Tucker
+channel reactivates, with a transiently large $\kappa_g$ that the clipped
+solve handles (small mass $\Rightarrow$ large permitted rotation --- the
+same behavior the unshared $S$-absorbed coordinates exhibit). Consequently,
+full shared rank must \emph{not} be enforced as a precondition of the
+projection, and the projection solve must be a clipped pseudoinverse. All
+statements in this remark have been verified numerically on zero-padded
+shared points.
+\end{remark}
+
+\section{Group-aware useless-rank removal: single pass suffices}
+\label{sec:removal}
+
+Rank proposals are reduced to nondegenerate values by the standard
+three-phase sweep (Tucker vs.\ mode size; TT right-unfoldings right-to-left;
+interleaved Tucker/TT left-to-right), with local ceilings
+$n_i \leq \min(N_i,\, r_{i-1} r_i)$ (singletons),
+$r_i \leq r_{i-1} n_i$, $r_{i-1} \leq n_i r_i$.
+
+\begin{proposition}[Group ceiling]\label{prop:ceiling}
+For a group $g$,
+\begin{equation}\label{eq:ceiling}
+n_g \;\leq\;
+\min\Bigl( N_g,\ \sum_{i \in g} \min\bigl( N_g,\ r_{i-1}\, r_i \bigr) \Bigr).
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+By Theorem~\ref{thm:sharedrank} and \eqref{eq:skeleton},
+$\rank[\,\T_{(i_1)}|\cdots|\T_{(i_k)}\,]
+\leq \min(N_g,\ \sum_i \rank \T_{(i)})
+\leq \min(N_g,\ \sum_i \min(N_g,\ r_{i-1} r_i))$.
+\end{proof}
+
+A shared basis column is useless only if useless for \emph{every} mode of the
+group: the per-mode ceilings \emph{add} across the group rather than
+min-reduce, and $n_g$ may exceed $r_{i-1} r_i$ at individual modes without
+the representation being reducible. Ceiling~\eqref{eq:ceiling} couples $n_g$
+to TT ranks at distant chain positions, so the constraint incidence graph
+acquires cycles; generic monotone constraint propagation on cyclic graphs
+requires fixed-point iteration, in contrast to the tree-structured unshared
+case (dynamic programming on a tree; one ordered pass). Nevertheless:
+
+\begin{lemma}[Self-protection]\label{lem:selfprotect}
+After the cap
+$n_g \leftarrow \min\bigl(N_g,\ \sum_{i\in g} \min(N_g,\, r_{i-1}r_i)\bigr)$,
+every TT constraint at the group's own modes involving $n_g$ holds
+automatically, given that all $n_g$ values used in the TT phases satisfied
+$n_g \leq N_g$ (phase~1).
+\end{lemma}
+
+\begin{proof}
+The sum dominates each of its own terms, so
+$n_g \geq \min(N_g,\, r_{i-1} r_i)$ for each $i \in g$.
+\emph{Case $r_{i-1} r_i \leq N_g$:} then $n_g \geq r_{i-1} r_i$, and since
+ranks are $\geq 1$,
+\[
+r_{i-1}\, n_g \;\geq\; r_{i-1}^2\, r_i \;\geq\; r_i,
+\qquad
+n_g\, r_i \;\geq\; r_{i-1}\, r_i^2 \;\geq\; r_{i-1},
+\]
+so both the left- and right-unfolding constraints hold.
+\emph{Case $r_{i-1} r_i > N_g$:} the $i$-th term equals $N_g$, hence the sum
+is $\geq N_g$ and $n_g = N_g$ exactly; the constraints
+$r_i \leq r_{i-1} N_g$ and $r_{i-1} \leq N_g\, r_i$ are then precisely those
+enforced by phase~1 ($n \leq N$) together with the standard TT phases, since
+every $n_g$ value used there was $\leq N_g$.
+\end{proof}
+
+\begin{theorem}[Single pass]\label{thm:singlepass}
+The three-phase sweep with (a) group-wide Tucker reductions, (b) the
+ceiling~\eqref{eq:ceiling}, and (c) re-evaluation and re-capping of $n_g$ at
+every group-mode visit during the left-to-right phase (standard
+Tucker-then-TT ordering at each core), reaches the componentwise-greatest
+nondegenerate rank vector below the proposal in a single pass.
+\end{theorem}
+
+\begin{proof}
+Monotone cap iteration from the proposal converges to the greatest fixed
+point (Knaster--Tarski/Kleene on the finite lattice of integer rank vectors);
+it remains to show one ordered pass attains it, i.e.\ that no constraint is
+violated at exit. Constraints not involving any $n_g$ are handled exactly as
+in the unshared tree argument. For constraints involving $n_g$:
+
+(i) \emph{Staleness within the sweep.} $n_g$ is monotone nonincreasing
+through the sweep and $\leq N_g$ from phase~1 onward. A TT cap at group mode
+$i$ was enforced with the then-current value; the left-to-right phase touches
+$r_i$ for the last time at position $i$, before any later re-evaluation can
+reduce $n_g$; final consistency at mode $i$ then follows from
+Lemma~\ref{lem:selfprotect} applied with final values, since
+$n_g^{\mathrm{final}} \geq \min(N_g,\, r_{i-1} r_i)$ with the final (frozen)
+$r_{i-1}, r_i$.
+
+(ii) \emph{Last group mode.} The ceiling at the group's last mode $i_k$ is
+evaluated before that mode's own TT cap; if the cap binds
+($r_{i_k} \leftarrow r_{i_k-1} n_g$), the mode's ceiling term becomes
+$\min(N_g,\, r_{i_k-1}^2\, n_g) \geq \min(N_g,\, n_g) = n_g$, so the just-set
+$n_g$ remains consistent.
+
+(iii) \emph{No propagation.} $n_g$ appears in no constraint outside group
+$g$'s modes, and by Lemma~\ref{lem:selfprotect} ceiling-driven reductions of
+$n_g$ never force TT reductions. Hence the direction
+$r \to n_g$ flows while $n_g \to r$ is vacuous; every cycle of the constraint
+incidence graph contains a vacuous edge and is never traversed, and no
+cross-group cascade exists.
+
+At exit, all constraints hold, so the pass output is a fixed point; since
+each cap is the loosest reduction consistent with its constraint and caps are
+monotone, the output is the greatest fixed point below the proposal.
+\end{proof}
+
+\begin{remark}
+The proof uses the specific phase structure: phase~1 ($n \leq N$)
+\emph{precedes} the TT phases, and the left-to-right phase applies the Tucker
+step before the TT step at each core. Implementations should assert the
+theorem empirically (a second pass changes nothing) rather than assume it
+survives reorderings. Note also that sharing only ever \emph{relaxes} Tucker
+ceilings relative to per-mode removal, since the sum in \eqref{eq:ceiling}
+dominates each per-mode term.
+\end{remark}
+
+\begin{thebibliography}{9}
+
+\bibitem{MR2026}
+A.~Molozhavenko and M.~Rakhuba,
+\emph{Optimization on the extended tensor-train manifold with shared
+factors}, Computational and Applied Mathematics \textbf{45}:221, 2026.
+
+\bibitem{Pesh2024}
+I.~Peshekhonov, A.~Arzhantsev, and M.~Rakhuba,
+\emph{Training a Tucker model with shared factors: a Riemannian optimization
+approach}, AISTATS, PMLR 238, 2024.
+
+\bibitem{KSV2014}
+D.~Kressner, M.~Steinlechner, and B.~Vandereycken,
+\emph{Low-rank tensor completion by Riemannian optimization},
+BIT Numerical Mathematics \textbf{54}, 447--468, 2014.
+
+\bibitem{T4S}
+N.~Alger, B.~Christierson, P.~Chen, and O.~Ghattas,
+\emph{Tucker tensor train Taylor series}, arXiv:2603.21141, 2026.
+
+\end{thebibliography}
+
+\end{document}

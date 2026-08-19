@@ -1,8 +1,8 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-07-16 (jet recurrence/convolution prototyping — see Active threads). Prior history:
-`dev/archive/handoff_2026-07-12_1.0_complete.md` (the 1.0 completion: R1–R7, the R4 doc pass, the
-docs user/dev split S1–S5, the cordon/ETT/literature morning)._
+_Updated 2026-08-19 (shared Tucker factors: design settled, implementation started — see Active
+threads). Prior history: `dev/archive/handoff_2026-07-12_1.0_complete.md` (the 1.0 completion:
+R1–R7, the R4 doc pass, the docs user/dev split S1–S5, the cordon/ETT/literature morning)._
 
 ## Where we are — 2026.0.0 SHIPPED ✅
 
@@ -26,6 +26,22 @@ branch can be deleted (optional).
   `dev/archive/OPEN_QUESTION_contractions_architecture_RESOLVED_2026-07-17.md`.
 
 ## Active threads
+
+- **Shared Tucker factors (SF-T3) — DESIGN SETTLED (2026-08-19), implementation in progress.**
+  Optimize over T3s whose Tucker factors are tied within user-specified mode groups (the SF-ETT
+  of Molozhavenko & Rakhuba 2026, generalized to arbitrary partitions). **The spec is
+  `dev/shared_factors_handoff.md` (v3)**, with the math in `dev/shared_t3_math.tex` (+pdf) —
+  both updated 2026-08-19 after two design-review rounds (all decisions AGREED; the v3 header
+  lists what changed vs v2: the corewise post-pass is the per-group MEAN not the Gram solve;
+  `S_i` is recomputed from the frame by RE-SWEEP (bit-identical to construction; companion holds
+  a thin SVD of stacked `S^T`, never a Cholesky/Gram — float32-measured); grouped `t3svd` is the
+  paper-faithful two-phase with an all-singleton dispatch anchor; the retraction embedding is
+  built tied (`[U_g | Udot]` + center cores) — the v2 mean-re-share was unsound; `GeometryOps`
+  gains a `precompute` slot (breaking, sanctioned); zero-padded restarts escape via the untied
+  TT channel — full shared rank is a diagnostic, never a precondition). Commit sequence in v3
+  §8 (13 slices: ragged 1–8, uniform 9–11, docs 12, symmetric jetted-probes example 13).
+  The three reference papers are in the research repo (`tensor/references/`); copies in `dev/`
+  stay untracked (third-party PDFs).
 
 - **The grouped-einsum interpreter `contractions.contract` — SLICE 1 BUILT (2026-07-17; committed,
   NOT pushed).** Nick's resolution of the standing `contractions.py` architecture question: ONE
