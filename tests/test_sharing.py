@@ -925,6 +925,139 @@ class TestSharedGeometry(unittest.TestCase):
         self.assertIs(xc.data[0][0], xc.data[0][1])
 
 
+class TestSharedContinuation(unittest.TestCase):
+    """Matrix 14: shared rank continuation on real tensors -- the kappa_g spectrum properties
+    (symmetric degeneration, the mediant bound), the tied zero-padded restart and its gated
+    channels, the two-step escape, and the end-to-end continuation loop. The synthetic-spectra
+    growth-rule tests live in tests/backend/test_ranks.py."""
+
+    def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed per test
+
+    @staticmethod
+    def _tied_target(shape, tucker_ranks, tt_ranks, groups):
+        x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks)
+        tk = list(x.tucker_cores)
+        for group in groups:
+            for ii in group[1:]:
+                tk[ii] = tk[group[0]]
+        return t3.TuckerTensorTrain(tuple(tk), x.tt_cores)
+
+    def test_symmetric_degeneration(self):
+        # 14c (cor:sym): on an exactly symmetric tensor the group Grams are all equal, so
+        # s_g = sqrt(k) * sigma elementwise and kappa_g EQUALS the per-mode condition number
+        i, j, k = np.ogrid[1:7, 1:7, 1:7]
+        A = 1.0 / (i + j + k + 1)                                        # the Hilbert tensor: symmetric
+        xs = t3.TuckerTensorTrain.t3svd_dense(A)[0].share((0, 0, 0))     # exact tied representation
+        _, sk_g, _ = xs.t3svd(sharing=(0, 0, 0))
+        _, sk_u, _ = xs.t3svd()
+        for m in range(3):
+            with self.subTest(mode=m):
+                s_g, s_u = np.asarray(sk_g[m]), np.asarray(sk_u[m])
+                self.assertEqual(s_g.size, s_u.size)
+                self.assertLess(np.max(np.abs(s_g - np.sqrt(3.0) * s_u)), 1e-12 * float(s_g[0]))
+        kappa_g = float(sk_g[0][0] / sk_g[0][-1])
+        kappa_loc = float(sk_u[0][0] / sk_u[0][-1])
+        self.assertLess(abs(kappa_g - kappa_loc), 1e-6 * kappa_loc)
+
+    def test_mediant_bound_and_complementary_gain(self):
+        # 14d (prop:mediant): kappa_g <= max per-mode kappa always; strictly (and arbitrarily) smaller
+        # when the group spectra are complementary -- a direction is well-determined if SOME mode
+        # informs it
+        for trial in range(10):
+            x = self._tied_target((6, 6, 5), (3, 3, 2), (1, 3, 3, 1), ((0, 1),))
+            _, s_g, _ = x.t3svd(sharing=(0, 0, 1))
+            _, s_u, _ = x.t3svd()
+            kappa_g = float(s_g[0][0] / s_g[0][-1])
+            kappa_loc_max = max(float(s_u[m][0] / s_u[m][-1]) for m in (0, 1))
+            self.assertLessEqual(kappa_g, kappa_loc_max * (1 + 1e-9))
+        # the constructed complementary case: Gamma_0 ~ diag(1, eps^2), Gamma_1 ~ diag(eps^2, 1)
+        # -> per-mode kappas 1/eps but kappa_g = 1 exactly
+        eps = 1e-4
+        p, q = np.random.randn(5), np.random.randn(5)
+        T = np.zeros((2, 2, 5))
+        T[0, 1, :] = p / np.linalg.norm(p)
+        T[1, 0, :] = eps * q / np.linalg.norm(q)
+        xt = t3.TuckerTensorTrain.t3svd_dense(T)[0].share((0, 0, 1))
+        _, sc_g, _ = xt.t3svd(sharing=(0, 0, 1))
+        _, sc_u, _ = xt.t3svd()
+        kappa_g = float(sc_g[0][0] / sc_g[0][-1])
+        kappa_loc = min(float(sc_u[m][0] / sc_u[m][-1]) for m in (0, 1))
+        self.assertLess(kappa_g, 2.0)
+        self.assertGreater(kappa_loc, 1e3)
+
+    def test_padded_restart_tied_dense_equal_and_gated(self):
+        # 14f + P1: resize(sharing=) pads the group factor ONCE (one array per group), preserves the
+        # tensor, and the fresh directions carry exactly-zero group-spectrum levels (the tied Tucker
+        # channel is gated at the restart)
+        spec = (0, 0, 1)
+        x = self._tied_target((6, 6, 5), (2, 2, 2), (1, 2, 2, 1), ((0, 1),))
+        xp = x.resize(x.shape, (3, 3, 2), (1, 3, 2, 1), sharing=spec)
+        self.assertIs(xp.tucker_cores[0], xp.tucker_cores[1])
+        self.assertTrue(np.allclose(np.asarray(xp.to_dense()), np.asarray(x.to_dense())))
+        _, s_pad, _ = xp.t3svd(sharing=spec)
+        self.assertEqual(np.asarray(s_pad[0]).size, 3)
+        self.assertEqual(float(np.asarray(s_pad[0])[-1]), 0.0)          # exactly zero, not merely small
+        # the companion sees the same gating: svd_s new level exactly zero
+        geom = sg.shared_manifold(spec)
+        sfd = geom.shared_frame_data(geom.frame(xp))
+        self.assertEqual(float(np.asarray(sfd.svd_s[0])[-1]), 0.0)
+        # untied input is rejected in safe mode (the padded factor would silently overwrite mode 1)
+        x_untied = t3.TuckerTensorTrain.randn((6, 6, 5), (2, 2, 2), (1, 2, 2, 1))
+        with self.assertRaises(ValueError):
+            x_untied.resize(x_untied.shape, (3, 3, 2), (1, 3, 2, 1), sharing=spec)
+
+    def test_restart_escape_activates_new_directions(self):
+        # 14g (rem:restart): from a zero-padded shared start the tied Tucker channel is gated, but the
+        # untied TT-variation channel activates the new group directions within two Newton steps --
+        # s_g's fresh level goes from exactly 0 to O(1) mass
+        shape, spec = (6, 6, 5), (0, 0, 1)
+        A = self._tied_target(shape, (3, 3, 3), (1, 3, 3, 1), ((0, 1),))
+        ww = [np.random.randn(150, N) for N in shape]
+        ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
+        b = A.apply(ww)
+        x_lo, _, _ = A.t3svd(max_tucker_ranks=2, max_tt_ranks=2, sharing=spec)
+        xp = x_lo.resize(shape, (3, 3, 3), (1, 3, 3, 1), sharing=spec)
+        _, s_pad, _ = xp.t3svd(sharing=spec)
+        self.assertEqual(float(np.asarray(s_pad[0])[-1]), 0.0)
+        x2, _ = optimizers.newton_cg(sg.shared_manifold(spec), 'apply', ww, b, xp, max_newton=2)
+        _, s_2, _ = x2.t3svd(sharing=spec)
+        self.assertGreater(float(np.asarray(s_2[0])[-1]), 1e-3 * float(np.asarray(s_2[0])[0]))
+        self.assertTrue(bool(np.all(np.asarray(x2.has_shared_tucker_factors(spec)))))
+
+    def test_end_to_end_continuation_reaches_true_shared_ranks(self):
+        # 14h: the full outer loop -- fit, grow (grouped), zero-padded tied restart -- recovers a tied
+        # target at exactly its true shared ranks. g0norm_newton is pinned across levels per the
+        # docs/rank_continuation.md warm-start guidance (a padded restart's initial gradient is small).
+        shape, spec = (6, 6, 5), (0, 0, 1)
+        A = self._tied_target(shape, (3, 3, 3), (1, 3, 3, 1), ((0, 1),))
+        Ad = np.asarray(A.to_dense())
+        ww = [np.random.randn(150, N) for N in shape]
+        ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
+        b = A.apply(ww)
+        X = t3.TuckerTensorTrain.zeros(shape, (1, 1, 1), (1, 1, 1, 1))
+        g0 = None
+        rel = np.inf
+        for level in range(6):
+            kwargs = dict(max_newton=30)
+            if g0 is not None:
+                kwargs['g0norm_newton'] = g0
+            X, stats = optimizers.newton_cg(sg.shared_manifold(spec), 'apply', ww, b, X, **kwargs)
+            if g0 is None:
+                g0 = stats['history'][0]['gnorm']
+            self.assertTrue(bool(np.all(np.asarray(X.has_shared_tucker_factors(spec)))))
+            rel = float(np.linalg.norm(np.asarray(X.to_dense()) - Ad) / np.linalg.norm(Ad))
+            if rel < 1e-8:
+                break
+            new_n, new_r = X.continuation_ranks(sharing=spec)
+            if (new_n, new_r) == (X.tucker_ranks, X.tt_ranks):
+                break
+            X = X.resize(shape, new_n, new_r, sharing=spec)
+        self.assertLess(rel, 1e-8)
+        self.assertEqual((X.tucker_ranks, X.tt_ranks), ((3, 3, 3), (1, 3, 3, 1)))
+        self.assertIs(X.data[0][0], X.data[0][1])
+
+
 class TestSharedMinimalRanksGroundTruth(unittest.TestCase):
     """Shared minimal ranks == generic dense edge-cut ranks of a TIED T3 (non-circular ground truth;
     mirrors the unshared test_compute_minimal_ranks_matches_matricization). The hand-worked expected

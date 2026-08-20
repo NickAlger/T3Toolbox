@@ -1118,8 +1118,13 @@ class TuckerTensorTrain:
             new_shape: Sequence[int], # len=d
             new_tucker_ranks: Sequence[int], # len=d
             new_tt_ranks: Sequence[int], # len=d+1
+            sharing: typ.Sequence = None, # len=d; group labels (None = unshared)
     ) -> 'TuckerTensorTrain':
         '''Change shape and ranks by resizing cores. Makes cores bigger via zero padding. Makes cores smaller via truncation.
+
+        With ``sharing``, the resized group factors stay SHARED -- one array assigned to every group
+        mode (the input's factors must already be tied; safe mode checks). This is the zero-padded
+        warm start of shared rank continuation: pad the group factor once, same array at every mode.
 
         Returns
         -------
@@ -1146,11 +1151,36 @@ class TuckerTensorTrain:
         >>> padded_x = x.resize((17,18,17), (8,8,8), (5,5,6,7))
         >>> print(padded_x.structure)
         ((17, 18, 17), (8, 8, 8), (5, 5, 6, 7), ())
+
+        Shared factors: a plain resize pads each mode separately (tied VALUES, separate arrays);
+        ``sharing=`` keeps the group factor one object -- and the represented tensor unchanged:
+
+        >>> np.random.seed(0)
+        >>> xs = t3.TuckerTensorTrain.randn((5, 5, 4), (2, 2, 2), (1, 2, 2, 1)).share((0, 0, 1),
+        ...                                                                           max_tucker_ranks=2)
+        >>> xp = xs.resize(xs.shape, (3, 3, 2), (1, 2, 2, 1), sharing=(0, 0, 1))
+        >>> print(xp.tucker_cores[0] is xp.tucker_cores[1],
+        ...       bool(np.allclose(xp.to_dense(), xs.to_dense())))
+        True True
         '''
         tucker_cores, tt_cores = self.data
 
+        if sharing is not None and safety.checks_active(self.data):
+            atol_check = safety.effective_rtol(self.data)
+            residual = backend_sharing.t3_sharing_residual(self.data, sharing)
+            safety.require(bool((residual <= atol_check).all()),
+                           'resize(sharing=...) requires the Tucker factors to be tied within each '
+                           'sharing group (the resized group factor is ONE shared array). Tie them '
+                           'first (backend.sharing.t3_share_tucker_cores), or run in unsafe mode '
+                           '(safety.unsafe()).')
+
         new_tucker_cores = ragged_operations.tucker_change_core_shapes(tucker_cores, new_shape, new_tucker_ranks)
         new_tt_cores = tt_operations.tt_change_core_shapes(tt_cores, new_tucker_ranks, new_tt_ranks)
+
+        if sharing is not None:
+            # exact on tied input (drift-form mean returns the reference bitwise); ONE array per group
+            new_tucker_cores, new_tt_cores = backend_sharing.t3_share_tucker_cores(
+                (tuple(new_tucker_cores), tuple(new_tt_cores)), sharing)
 
         return TuckerTensorTrain(tuple(new_tucker_cores), tuple(new_tt_cores))
 
@@ -4297,6 +4327,7 @@ class TuckerTensorTrain:
             max_grow:    typ.Optional[int] = None,  # cap on #edges grown per call (None = all eligible)
             rtol:        float = None,
             atol:        float = None,
+            sharing:     typ.Sequence = None,       # len=d; group labels (None = unshared)
     ) -> Tuple[
         Tuple[int, ...],  # (n0', ..., n(d-1)')  new Tucker ranks
         Tuple[int, ...],  # (r0', ..., rd')      new TT ranks
@@ -4323,6 +4354,13 @@ class TuckerTensorTrain:
         ``max_grow`` caps how many edges grow per call: ``None`` (default) grows every eligible edge at
         once; ``max_grow=1`` grows **one edge at a time** (the single best-conditioned edge that has
         structural room) -- pair with ``tau=1.0`` for the most conservative, finest-grained continuation.
+
+        With ``sharing`` (Tucker factors tied within groups; the T3 must already be tied -- safe mode
+        checks), a group's modes are ONE edge: the grouped :py:meth:`t3svd` reports the group spectrum
+        ``s_g`` at every group mode, the group contributes one condition number to the pool, one growth
+        decision applies group-wide (a group counts as ONE ``max_grow`` candidate), and useless-rank
+        removal is the shared one (the group ceiling). Pair with ``resize(..., sharing=...)`` so the
+        zero-padded warm start stays exactly tied (one array per group).
 
         See Also
         --------
@@ -4371,6 +4409,19 @@ class TuckerTensorTrain:
 
         >>> print(X.continuation_ranks(tau=1.5, max_grow=1))
         ((2, 3, 2), (1, 2, 2, 1))
+
+        Shared factors: at a tied iterate, the group's modes grow (or hold) TOGETHER, from the one
+        group spectrum -- and with ``max_grow=1`` the whole group counts as the single grown edge:
+
+        >>> np.random.seed(0)
+        >>> Xs = t3.TuckerTensorTrain.t3svd_dense(A)[0].share((0, 0, 1), max_tucker_ranks=2,
+        ...                                                   max_tt_ranks=2)
+        >>> print(Xs.tucker_ranks, Xs.tt_ranks)
+        (2, 2, 2) (1, 2, 2, 1)
+        >>> print(Xs.continuation_ranks(sharing=(0, 0, 1)))
+        ((3, 3, 3), (1, 3, 3, 1))
+        >>> print(Xs.continuation_ranks(tau=1.0, max_grow=1, sharing=(0, 0, 1)))
+        ((3, 3, 2), (1, 2, 2, 1))
         '''
         if len(self.stack_shape) > 0:
             raise ValueError(
@@ -4378,10 +4429,10 @@ class TuckerTensorTrain:
                 'Different stack elements could continue to different ranks. Unstack first, then call '
                 'continuation_ranks for each unstacked Tucker tensor train.'
             )
-        _, ss_tucker, ss_tt = self.t3svd(rtol=rtol, atol=atol)
+        _, ss_tucker, ss_tt = self.t3svd(rtol=rtol, atol=atol, sharing=sharing)
         return ranks.compute_continuation_ranks(
             self.shape, ss_tucker, ss_tt,
-            tau=tau, n_chunk=n_chunk, kappa_guard=kappa_guard, max_grow=max_grow)
+            tau=tau, n_chunk=n_chunk, kappa_guard=kappa_guard, max_grow=max_grow, sharing=sharing)
 
     def rank_adjustment_sweep(
             self,

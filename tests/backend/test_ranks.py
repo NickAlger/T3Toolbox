@@ -292,6 +292,104 @@ class TestSharedMinimalRanks(unittest.TestCase):
             self.assertEqual(tuple(int(v) for v in r_arr[:, kk]), r_seq)
 
 
+class TestSharedContinuationRanks(unittest.TestCase):
+    """Shared rank continuation: a sharing group's Tucker edges are ONE edge (one kappa_g in the pool,
+    one growth decision group-wide, one max_grow candidate), and useless-rank removal is the shared
+    one. Group modes must carry the IDENTICAL spectrum (the grouped t3svd assigns one s_g array per
+    group)."""
+
+    def _sv(self, kappa, k):
+        # k descending singular values with condition number sigma_1/sigma_k = kappa (k>=1 -> 1.0)
+        return np.linspace(1.0, 1.0 / kappa, k)
+
+    def test_group_grows_group_wide(self):
+        # the group (kappa_g=2) and mode 2 / bond 2 are well below the worst edge (bond 1, kappa=1000)
+        # -> the group grows on BOTH its modes; the ill bond is frozen
+        shape = (20, 20, 20)
+        s_g = self._sv(2.0, 2)
+        tucker_sv = [s_g, s_g, self._sv(3.0, 2)]
+        tt_sv     = [self._sv(1., 1), self._sv(1000., 2), self._sv(2.5, 2), self._sv(1., 1)]
+        got = ranks.compute_continuation_ranks(shape, tucker_sv, tt_sv, tau=10.0, sharing=(0, 0, 1))
+        self.assertEqual(got, ((3, 3, 3), (1, 2, 3, 1)))
+
+    def test_group_is_kappa_max_and_freezes(self):
+        # the group's kappa_g=1000 is the worst edge -> the group holds on BOTH modes while the others
+        # grow. Bond 1's proposed growth is then clipped by the shared removal (r1 <= r0*n0 = 2, with
+        # the frozen group holding n0 = 2).
+        shape = (20, 20, 20)
+        s_g = self._sv(1000., 2)
+        tucker_sv = [s_g, s_g, self._sv(2.0, 2)]
+        tt_sv     = [self._sv(1., 1), self._sv(4.0, 2), self._sv(2.5, 2), self._sv(1., 1)]
+        got = ranks.compute_continuation_ranks(shape, tucker_sv, tt_sv, tau=10.0, sharing=(0, 0, 1))
+        self.assertEqual(got, ((2, 2, 3), (1, 2, 3, 1)))
+
+    def test_kappa_guard_applies_to_kappa_g(self):
+        # bond 1 is catastrophic (kappa_max=1e20 -> threshold 1e19); the group (kappa_g=1e15) passes
+        # the relative rule but the absolute guard (1e12) freezes it; lifting the guard grows it
+        shape = (20, 20, 20)
+        s_g = self._sv(1e15, 2)
+        tucker_sv = [s_g, s_g, self._sv(2.0, 2)]
+        tt_sv     = [self._sv(1., 1), self._sv(1e20, 2), self._sv(2.5, 2), self._sv(1., 1)]
+        held = ranks.compute_continuation_ranks(shape, tucker_sv, tt_sv, tau=10.0, sharing=(0, 0, 1))
+        self.assertEqual(held, ((2, 2, 3), (1, 2, 3, 1)))
+        grown = ranks.compute_continuation_ranks(shape, tucker_sv, tt_sv, tau=10.0,
+                                                 kappa_guard=1e16, sharing=(0, 0, 1))
+        self.assertEqual(grown, ((3, 3, 3), (1, 2, 3, 1)))
+
+    def test_max_grow_counts_group_as_one_candidate(self):
+        # the group is the single best-conditioned edge (kappa_g=1.5): max_grow=1 grows BOTH group
+        # modes and nothing else -- the group is one candidate, not two
+        shape = (20, 20, 20)
+        s_g = self._sv(1.5, 2)
+        tucker_sv = [s_g, s_g, self._sv(5.0, 2)]
+        tt_sv     = [self._sv(1., 1), self._sv(4.0, 2), self._sv(6.0, 2), self._sv(1., 1)]
+        got = ranks.compute_continuation_ranks(shape, tucker_sv, tt_sv, tau=1.0, max_grow=1,
+                                               sharing=(0, 0, 1))
+        self.assertEqual(got, ((3, 3, 2), (1, 2, 2, 1)))
+
+    def test_max_grow_skips_structurally_capped_group(self):
+        # the (non-adjacent) group {0,2} has the smallest kappa but sits at its mode-size cap
+        # (n_g = 3 = N_g): the greedy must skip it -- trialing the group-wide increment and having the
+        # SHARED removal clip it back -- and grow the next-best edge, the middle singleton mode
+        shape = (3, 20, 3)
+        s_g = self._sv(1.5, 3)
+        tucker_sv = [s_g, self._sv(2.0, 4), s_g]
+        tt_sv     = [self._sv(1., 1), self._sv(3.0, 3), self._sv(4.0, 3), self._sv(1., 1)]
+        got = ranks.compute_continuation_ranks(shape, tucker_sv, tt_sv, tau=1.0, max_grow=1,
+                                               sharing=(0, 1, 0))
+        self.assertEqual(got, ((3, 5, 3), (1, 3, 3, 1)))
+
+    def test_uniform_bump_fallback_bumps_group_once(self):
+        # all edges comparably conditioned -> nothing passes the relative rule -> the fallback bumps
+        # every edge by n_chunk; the group modes bump TOGETHER (once each, staying tied)
+        shape = (20, 20, 20)
+        s_g = self._sv(1.1, 2)
+        tucker_sv = [s_g, s_g, self._sv(1.2, 2)]
+        tt_sv     = [self._sv(1., 1), self._sv(1.3, 2), self._sv(1.25, 2), self._sv(1., 1)]
+        got = ranks.compute_continuation_ranks(shape, tucker_sv, tt_sv, tau=10.0, sharing=(0, 0, 1))
+        self.assertEqual(got, ((3, 3, 3), (1, 3, 3, 1)))
+
+    def test_unequal_group_spectra_raise(self):
+        # isolated rejection: same lengths and a valid partition -- ONLY the within-group spectrum
+        # identity fails (a shared group has ONE spectrum s_g)
+        shape = (20, 20, 20)
+        tucker_sv = [self._sv(2.0, 2), self._sv(2.5, 2), self._sv(3.0, 2)]
+        tt_sv     = [self._sv(1., 1), self._sv(4.0, 2), self._sv(2.5, 2), self._sv(1., 1)]
+        with self.assertRaises(ValueError):
+            ranks.compute_continuation_ranks(shape, tucker_sv, tt_sv, sharing=(0, 0, 1))
+
+    def test_all_singletons_match_unshared_exactly(self):
+        shape = (20, 20, 20)
+        tucker_sv = [self._sv(2.0, 2), self._sv(1000., 2), self._sv(3.0, 2)]
+        tt_sv     = [self._sv(1., 1), self._sv(4.0, 2), self._sv(2.5, 2), self._sv(1., 1)]
+        for kwargs in [dict(tau=10.0), dict(tau=1.5, n_chunk=2), dict(tau=1.0, max_grow=1)]:
+            with self.subTest(**kwargs):
+                self.assertEqual(
+                    ranks.compute_continuation_ranks(shape, tucker_sv, tt_sv, **kwargs),
+                    ranks.compute_continuation_ranks(shape, tucker_sv, tt_sv,
+                                                     sharing=(0, 1, 2), **kwargs))
+
+
 class TestSharedManifoldDim(unittest.TestCase):
     """Shared manifold dimension: shared minimal reduction first, TT term unchanged, ONE Stiefel term
     per group. Hand-worked here; validated against dense tied-tangent ranks in tests/test_sharing.py."""

@@ -33,6 +33,16 @@ All notable changes to T3Toolbox are documented here. The format follows
     rank may exceed an individual mode's `rL_i*rR_i` — the unshared reduction would clip it and untie
     the group), `manifold.manifold_dim(s, sharing=)` (one Stiefel term per group; validated against
     dense tied-tangent ranks), and `frame_has_minimal_ranks(..., sharing=)`.
+  - **Shared rank continuation** — `continuation_ranks(sharing=)` /
+    `backend.ranks.compute_continuation_ranks(sharing=)`: a group's Tucker edges are ONE edge — one
+    `κ_g = s_g[0]/s_g[-1]` in the conditioning pool, one growth decision applied group-wide, one
+    `max_grow` candidate — with the shared useless-rank removal (`κ_g` is never worse than the group's
+    worst per-mode condition number, and can be far better on complementary spectra). Plus
+    `resize(..., sharing=)` for the zero-padded warm start: the group factor is padded once (one array
+    per group), the represented tensor unchanged. A freshly padded restart carries exactly-zero new
+    spectrum levels (the tied Tucker channel is gated); the escape runs through the untied TT-variation
+    channel within the first Newton steps — which is why full shared rank is a diagnostic, never an
+    enforced precondition.
   - Backend surface in `backend.sharing` (`validate_sharing`, `t3_sharing_residual`,
     `t3_tucker_factors_shared`, `t3_share_tucker_cores`, `T3SharedFrameData` +
     `fv_shared_frame_data`, the tied post-passes) and `backend.t3_svd.t3_share_tucker_factors`.

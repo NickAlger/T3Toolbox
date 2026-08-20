@@ -211,8 +211,10 @@ def _grow_capped_edges(
         tucker_ranks: typ.Tuple[int,...], # (n_i),  current
         tt_ranks:     typ.Tuple[int,...], # (r_i),  current
         candidates:   typ.Sequence[typ.Tuple[float, int, int]],  # (kappa, kind, index); kind 0=Tucker mode, 1=TT bond
+
         n_chunk:      int,
         max_grow:     int,                # >= 1
+        sharing:      typ.Optional[typ.Sequence] = None,  # len=d; group labels: a kind-0 candidate is a whole GROUP
 ) -> typ.Tuple[
     typ.Tuple[int,...],  # new_tucker_ranks
     typ.Tuple[int,...],  # new_tt_ranks
@@ -220,7 +222,14 @@ def _grow_capped_edges(
     '''Grow up to ``max_grow`` of the candidate edges, best-conditioned (smallest kappa) first, taking
     each only if it survives useless-rank removal -- so a structurally-capped edge is skipped and the
     next candidate tried. Ties break deterministically (kappa, then Tucker before TT, then index).
+    With ``sharing``, a kind-0 candidate (indexed by the group's first mode) is a whole sharing group:
+    it counts as ONE candidate, the increment applies group-wide, and the cleanup is the shared
+    useless-rank removal.
     '''
+    mode_group = None
+    if sharing is not None:
+        groups = sharing_module.validate_sharing(sharing, shape)
+        mode_group = {ii: group for group in groups for ii in group}
     tucker = list(tucker_ranks)
     tt = list(tt_ranks)
     grown = 0
@@ -230,10 +239,12 @@ def _grow_capped_edges(
         trial_tucker = list(tucker)
         trial_tt = list(tt)
         if kind == 0:
-            trial_tucker[index] += n_chunk
+            for jj in (mode_group[index] if mode_group is not None else (index,)):
+                trial_tucker[jj] += n_chunk
         else:
             trial_tt[index] += n_chunk
-        clean_tucker, clean_tt = compute_minimal_ranks(shape, tuple(trial_tucker), tuple(trial_tt))
+        clean_tucker, clean_tt = compute_minimal_ranks(shape, tuple(trial_tucker), tuple(trial_tt),
+                                                       sharing=sharing)
         if (tuple(clean_tucker), tuple(clean_tt)) != (tuple(tucker), tuple(tt)):
             tucker, tt = list(clean_tucker), list(clean_tt)   # this edge actually grew -> keep it
             grown += 1
@@ -248,6 +259,7 @@ def compute_continuation_ranks(
         n_chunk:                int   = 1,              # rank increment added to each grown edge
         kappa_guard:            float = 1e12,           # absolute safety cap: never grow an edge with kappa_i >= this
         max_grow:               typ.Optional[int] = None,  # cap on #edges grown per call (None = all eligible)
+        sharing:                typ.Optional[typ.Sequence] = None,  # len=d, static; one hashable group label per mode (None = unshared)
 ) -> typ.Tuple[
     typ.Tuple[int, ...],  # (n0', ..., n(d-1)')  new Tucker ranks
     typ.Tuple[int, ...],  # (r0', ..., rd')      new TT ranks
@@ -293,13 +305,43 @@ def compute_continuation_ranks(
 
     The paper uses ``tau = 10.0`` and typically ``n_chunk = 1``. Pure host arithmetic on ranks
     (structure), hence numpy-only -- a between-solves decision, never inside a jit trace.
+
+    With ``sharing`` (one hashable group label per mode --
+    :py:func:`~t3toolbox.backend.sharing.validate_sharing`), a sharing group's Tucker edges are ONE
+    edge: the group modes must carry the IDENTICAL spectrum (the group spectrum ``s_g``, as the
+    grouped ``t3svd`` reports at every group mode; a mismatch raises -- unequal spectra are not a
+    shared spectrum family), the group contributes one ``kappa_g = s_g[0]/s_g[-1]`` to the pool, one
+    growth decision applies group-wide (``kappa_guard`` guards ``kappa_g``; ``max_grow`` counts the
+    group as ONE candidate; the uniform-bump fallback bumps the group once), and useless-rank
+    removal is the shared one (:py:func:`compute_minimal_ranks` with ``sharing`` -- the group
+    ceiling, so a shared rank is never clipped to a single mode's local ceiling). ``kappa_g`` is the
+    conditioning of the tied Tucker subproblem, and is never worse than the group's worst per-mode
+    condition number (it can be far better: under tying, a direction is well-determined if SOME mode
+    of the group informs it).
     '''
     assert(max_grow is None or max_grow >= 1)
+    groups = None
+    if sharing is not None:
+        all_groups = sharing_module.validate_sharing(sharing, shape)
+        if sharing_module.nontrivial_groups(all_groups):
+            groups = all_groups
+        # trivial partition -> the per-mode logic below (identical: every group is one mode)
+
     d = len(shape)
     tucker_ranks = tuple(int(np.asarray(s).size) for s in tucker_singular_values)  # (n_i),  len d
     tt_ranks     = tuple(int(np.asarray(s).size) for s in tt_singular_values)      # (r_i),  len d+1
     assert(len(tucker_ranks) == d)
     assert(len(tt_ranks) == d + 1)
+
+    if groups is not None:
+        for group in sharing_module.nontrivial_groups(groups):
+            for jj in group[1:]:
+                if not np.array_equal(np.asarray(tucker_singular_values[group[0]]),
+                                      np.asarray(tucker_singular_values[jj])):
+                    raise ValueError(
+                        'sharing group %r: modes %d and %d carry different Tucker spectra -- a shared '
+                        'group has ONE spectrum s_g (t3svd(sharing=...) reports it at every group '
+                        'mode); pass the grouped t3svd singular values' % (group, group[0], jj))
 
     kappa_tucker, kappa_tt = edge_condition_numbers(tucker_singular_values, tt_singular_values)
     finite_kappas = [k for k in (kappa_tucker + kappa_tt) if np.isfinite(k)]
@@ -314,13 +356,22 @@ def compute_continuation_ranks(
                     for i in range(d + 1))
 
     if max_grow is None:
+        # per-mode decisions are group-consistent for free: group modes carry the identical spectrum,
+        # hence identical kappa and identical grow verdicts -- the increment applies group-wide
         proposed_tucker = tuple(n + n_chunk if grow_tucker[i] else n for i, n in enumerate(tucker_ranks))
         proposed_tt     = tuple(r + n_chunk if grow_tt[i]     else r for i, r in enumerate(tt_ranks))
-        new_tucker, new_tt = compute_minimal_ranks(shape, proposed_tucker, proposed_tt)  # useless-rank removal
+        new_tucker, new_tt = compute_minimal_ranks(shape, proposed_tucker, proposed_tt,
+                                                   sharing=sharing)  # useless-rank removal
     else:
-        eligible = ([(kappa_tucker[i], 0, i) for i in range(d) if grow_tucker[i]]
-                  + [(kappa_tt[i], 1, i)     for i in range(d + 1) if grow_tt[i]])
-        new_tucker, new_tt = _grow_capped_edges(shape, tucker_ranks, tt_ranks, eligible, n_chunk, max_grow)
+        if groups is None:
+            eligible_tucker = [(kappa_tucker[i], 0, i) for i in range(d) if grow_tucker[i]]
+        else:
+            # one candidate per GROUP (indexed by its first mode; a group is one edge) -- the greedy
+            # trials the group-wide increment, so max_grow counts the group as one
+            eligible_tucker = [(kappa_tucker[g[0]], 0, g[0]) for g in groups if grow_tucker[g[0]]]
+        eligible = eligible_tucker + [(kappa_tt[i], 1, i) for i in range(d + 1) if grow_tt[i]]
+        new_tucker, new_tt = _grow_capped_edges(shape, tucker_ranks, tt_ranks, eligible, n_chunk,
+                                                max_grow, sharing=sharing)
 
     if tuple(new_tucker) == tucker_ranks and tuple(new_tt) == tt_ranks:
         # Nothing grew by the rule -> uniform-bump fallback over every below-guard edge (NOT capped by
@@ -328,10 +379,10 @@ def compute_continuation_ranks(
         # degenerate start no single edge can grow). If no edge is below the guard the bump is empty ->
         # ranks return unchanged -> the caller stops (the safety stop). Boundary bonds are held fixed.
         bump_tucker = tuple(n + n_chunk if kappa_tucker[i] < kappa_guard else n
-                            for i, n in enumerate(tucker_ranks))
+                            for i, n in enumerate(tucker_ranks))   # group modes bump together (equal kappa)
         bump_tt = tuple(r + n_chunk if (0 < i < d and kappa_tt[i] < kappa_guard) else r
                         for i, r in enumerate(tt_ranks))
-        new_tucker, new_tt = compute_minimal_ranks(shape, bump_tucker, bump_tt)
+        new_tucker, new_tt = compute_minimal_ranks(shape, bump_tucker, bump_tt, sharing=sharing)
 
     return new_tucker, new_tt
 
