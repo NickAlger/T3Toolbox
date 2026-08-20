@@ -24,8 +24,9 @@ grouped-einsum interpreter `contract` replacing the ~104 named contractions (bre
 edge-layer, ragged + uniform; regularization; per-mode residual weighting; the Newton-CG diagnostic
 display; chunking; the recurrence/scan jets; and rank continuation for shared factors.
 
-Loose ends: the **GitHub Release for `v2026.0.0`** was never created (2026.1.0's was); **Zenodo DOI**
-still deferred (Nick, later); the dead `gh-pages` branch can be deleted (optional).
+Loose ends: **Zenodo DOI** still deferred (Nick, later); the dead `gh-pages` branch can be deleted
+(optional). GitHub Releases exist for both tags (`v2026.0.0` 2026-07-13, `v2026.1.0` 2026-08-20) --
+an older handoff claimed 2026.0.0's was missing; it was not.
 
 ## Standing open questions
 
