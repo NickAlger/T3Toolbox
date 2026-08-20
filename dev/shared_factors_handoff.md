@@ -602,11 +602,29 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
    ~1e-15; threading == separate post-pass; idempotence; the corewise mean twin; variation-padding
    garbage robustness; the jit chain (companion + tied projection + tied retraction, masks/groups
    closed over) in test_dispatch.
-11. **NEXT.** Shared uniform geometry factories (`uniform_geometry_ops(..., sharing=)`,
-   `precompute=` populated) + `SharedGeometry` widened to uniform bases + the fitting gates
-   (`_uniform_geometry_name`, `_uniform_model`, `_ubgeom`,
-   `uniform_least_squares_problem(sharing=)` incl. its minimal-rank gate) + uniform end-to-end
-   + the compile-once shared uniform fit.
+11. **DONE** (`3fe13802`) shared uniform geometries + fitting gates: backend factories
+   `uniform_manifold_ops`/`uniform_corewise_ops`/`uniform_geometry_ops` take `sharing=`
+   (closures capture `groups` beside the masks; manifold populates `precompute` with
+   `ufv_shared_frame_data`, project/retract thread `shared_data=aux`; corewise = the mean
+   post-pass, no companion); `uniform_least_squares_problem(sharing=)` with a SHARED-minimal
+   gate. `SharedGeometry` widened to the uniform singletons (`is_uniform`, 4-way `base_name`
+   + pytree map, `_is_manifold_kind`; every method branches -- uniform tangent ops call the
+   `utv_*`/`ufv_*` machinery directly with `um._ut3variations_from_data`/`_ut3_from_data`,
+   the `t3m._require_orthogonal_frame` cross-module precedent; the uniform retract's
+   tied-coordinates safe check compares against the MASKED variations -- raw padding garbage
+   would false-fail it). Gates: `_uniform_geometry_name` returns `(name, sharing)`;
+   `_setup` threads `uniform_minimal(x0, sharing=)` + the problem `sharing=`;
+   `_geometry_ops`/`_ragged_frame`/`_backend_geometry_ops` reject layer mismatches;
+   `_uniform_model` accepts the wrapper and computes `geometry_aux = precompute_aux(frame)`;
+   `UniformGaussNewtonModel` gains the `geometry_aux` LEAF (pytree children now 5) + `_project`
+   at all four sites + a sharing-aware `_ubgeom`. Tests (TestUniformSharedGeometry):
+   deterministic gd trajectories == ragged shared (needs a tied NONZERO SHARED-MINIMAL start:
+   zero starts have arbitrary frame completions, non-minimal starts are reduced on the uniform
+   path only -- both legitimately diverge the layers); corewise match; newton_cg recovery at
+   true ranks (3e-11) with every output tied; model invariants == ragged (objective, grad
+   norms, quadratics, <g,Hg>, regularized -- the regularizer exercising the sharing-aware
+   `_ubgeom`); layer-mismatch gates both directions; compile-once
+   (test_jit_shared_uniform_gauss_newton_model: ONE trace across rebuilt models).
 12. `docs/sharing.md` + `contributor/sharing_internals.md` + getting-started snippet.
 13. The symmetric jetted-probes example.
 
