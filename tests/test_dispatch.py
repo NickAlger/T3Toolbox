@@ -587,6 +587,27 @@ class TestDispatch(unittest.TestCase):
                                                                           sharing=(0, 0, 1)),
             uxt, returns_ut3=True)
 
+        # the uniform companion + tied projection + tied retraction (slice 10): masks/groups closed
+        # over (static), the frame/variation supercores traced; the companion (a registered pytree:
+        # arrays leaves, partition aux) flows through the trace
+        import t3toolbox.backend.ufv_conversions as ufvc
+        import t3toolbox.backend.utv_operations as utvo
+        frame_u, var_u = ufvc.ut3_orthogonal_representations(uxt.data)
+        groups = bsharing.validate_sharing((0, 0, 1), uxt.shape)
+        f_shape, f_masks = frame_u[4], frame_u[5]
+        v_shape, v_masks = var_u[2], var_u[3]
+
+        def tied_step(up, dn, lf, rt, tkv, ttv):
+            frame_d = (up, dn, lf, rt, f_shape, f_masks)
+            var_d = (tkv, ttv, v_shape, v_masks)
+            sfd = bsharing.ufv_shared_frame_data(frame_d, groups)
+            tied = utvo.utv_orthogonal_gauge_projection(frame_d, var_d, shared_data=sfd)
+            out = utvo.utv_retract(frame_d, tied, shared_data=sfd)
+            return out[0], out[1]
+
+        tkv0 = jnp.asarray(np.random.randn(*np.shape(var_u[0])))
+        self.assert_jit_jax(tied_step, *frame_u[:4], tkv0, var_u[1])
+
         # array-in constructor under jit: a jax TuckerTensorTrain in -> jax supercores out, masks stay
         # concrete. (from_t3 is the array-taking uniform constructor; from_canonical / from_tensor_train
         # were removed as ambiguous ragged round-trips. Pure zeros/ones/randn have no array input ->

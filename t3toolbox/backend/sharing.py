@@ -28,6 +28,7 @@ from dataclasses import dataclass
 
 import t3toolbox.backend.tt_orthogonalization as tt_orthogonalization
 import t3toolbox.backend.ut3_masking as ut3_masking
+import t3toolbox.backend.ufv_masking as ufv_masking
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -44,6 +45,9 @@ __all__ = [
     'fv_tied_ambient_directions',
     'ut3_sharing_residual',
     'ut3_tucker_factors_shared',
+    'ufv_shared_frame_data',
+    'ufv_share_tucker_variations',
+    'ufv_mean_tucker_variations',
 ]
 
 
@@ -693,6 +697,64 @@ def ut3_tucker_factors_shared(
     the uniform twin of :py:func:`t3_tucker_factors_shared` (the boolean form of
     :py:func:`ut3_sharing_residual`; a non-enforcing checker).'''
     return ut3_sharing_residual(data, sharing) <= rtol
+
+
+def ufv_shared_frame_data(
+        frame_data,  # UT3Frame .data: (up_sc, down_sc, left_sc, right_sc, shape, (4 masks)); stack = C
+        groups:     typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition (validate_sharing)
+) -> 'T3SharedFrameData':
+    '''The uniform twin of :py:func:`fv_shared_frame_data`: the IDENTICAL polymorphic derivation
+    (the right re-sweep, ``S_i^T = <O_i, H_i>`` batched over the mode axis, one batched thin SVD per
+    group of the statically-gathered concatenation) on the frame's supercores.
+
+    The re-sweep runs on the frame's stored left supercore AS STORED -- deliberately NOT re-masked:
+    the companion's exactness rests on reproducing the construction's own sweep on the SAME arrays
+    (bit-identical, so the ``<O_i, H_i>`` pairing inherits the construction's SVD gauge). The stored
+    padding slots carry the construction's arbitrary orthonormal completions (the equivalence
+    contract's honest caveat); masking them first changes the sweep's SVD sign choices and BREAKS the
+    pairing (measured: a flipped bond column destroys the group spectrum). The padded rows of each
+    ``S_i^T`` vanish to roundoff anyway (completion rows are orthogonal to the center's row space),
+    so every consumer stays padding-transparent. Contract: the frame's chains must be the polymorphic
+    sweep's own output at these padded dims (a frame built by ``ut3_orthogonal_representations``); a
+    ``t3frame_to_ut3frame``-packed RAGGED frame is NOT guaranteed (the padded re-sweep can flip signs
+    against the unpadded construction).
+
+    Container reuse: the returned :py:class:`T3SharedFrameData` holds SUPERCORE SLICES at the padded
+    dims (frame stack ``C`` leading; ``row_splits`` are multiples of the padded ``nD``).
+    '''
+    up_sc, down_sc, left_sc, right_sc = frame_data[0], frame_data[1], frame_data[2], frame_data[3]
+    return fv_shared_frame_data((up_sc, down_sc, left_sc, right_sc), groups)
+
+
+def ufv_share_tucker_variations(
+        variations_data,   # UT3Variations .data: (tkv_sc, ttv_sc, shape, (4 masks)); stack = K + C
+        shared_data:    'T3SharedFrameData',  # the frame's UNIFORM companion (ufv_shared_frame_data)
+        rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
+):  # -> tied variations .data (same masks; padded rows come back exactly zero)
+    '''The uniform twin of :py:func:`fv_share_tucker_variations` (the manifold tied post-pass):
+    mask the variation supercores, delegate to the polymorphic ragged solve on the mode slices,
+    re-stack. The companion's masked ``U_M`` zeroes every padded row of the redistribution, so the
+    output is masked-clean and the masks are unchanged.'''
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+    shape, masks = variations_data[2], variations_data[3]
+    use_jax = tree_contains_jax(variations_data[:2])
+    xnp, _, _ = get_backend(True, use_jax)
+    new_tk_slices, _ = fv_share_tucker_variations((tkv, ttv), shared_data, rcond=rcond)
+    return xnp.stack(list(new_tk_slices), axis=0), ttv, shape, masks
+
+
+def ufv_mean_tucker_variations(
+        variations_data,   # UT3Variations .data at the corewise (U,G,G,G) frame; stack = K + C
+        groups:         typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical (validate_sharing)
+):  # -> tied variations .data (per-group drift-form mean; same masks)
+    '''The uniform twin of :py:func:`fv_mean_tucker_variations` (the corewise tied post-pass):
+    mask, delegate to the polymorphic per-group drift-form mean on the mode slices, re-stack.'''
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+    shape, masks = variations_data[2], variations_data[3]
+    use_jax = tree_contains_jax(variations_data[:2])
+    xnp, _, _ = get_backend(True, use_jax)
+    new_tk_slices, _ = fv_mean_tucker_variations((tkv, ttv), groups)
+    return xnp.stack(list(new_tk_slices), axis=0), ttv, shape, masks
 
 
 if jax_available:

@@ -28,6 +28,7 @@ import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_svd as ut3_svd
 import t3toolbox.backend.tv_operations as tv_operations
+import t3toolbox.backend.sharing as sharing_module
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -176,6 +177,7 @@ def utv_to_ut3(
         frame_data,       # UT3Frame .data:      (up, down, left, right, shape, (4 masks)),  supercore stack = C
         variations_data,  # UT3Variations .data: (tkv, ttv, shape, (4 masks)),               supercore stack = K + C
         include_shift: bool = False,  # False: tangent vector v. True: base point + v.
+        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied embedding (SF-T3)
 ):  # -> doubled-rank UniformTuckerTensorTrain .data: (tucker_supercore, tt_supercore, shape, (tucker_mask, tt_mask))
     """Doubled-rank uniform Tucker tensor train representing a uniform frame-variations tangent vector.
 
@@ -191,13 +193,55 @@ def utv_to_ut3(
     Stack-aware: the variation supercores carry ``K + C``; the frame supercores (stack ``C``) are broadcast
     up to ``K + C`` (mirror ragged ``bcast``), and the masks (host numpy, carrying ``K + C`` already from
     the variations) are concatenated on the host. With ``include_shift=True`` the base point is folded into
-    the last core (``base point + v``)."""
+    the last core (``base point + v``).
+
+    With ``shared_data`` (the frame's uniform SF-T3 companion), the embedding is built TIED, mirroring
+    the ragged branch: per nontrivial group the common gauged ambient direction ``Udot``
+    (:py:func:`~t3toolbox.backend.sharing.fv_tied_ambient_directions` -- garbage-immune through the
+    companion's masked ``U_M``) takes the variation slot at EVERY group mode, and the companion's
+    center core ``H_i`` replaces ``O_i`` (an exact rewrite of each Tucker term). ``Udot`` has the UP
+    width, so the variation block is rebuilt at height ``nU``: singleton slices zero-pad from ``nD``
+    (block masks pad with False); group block masks are the frame's UP mask."""
     up_sc, down_sc, left_sc, right_sc, shape, _base_masks = frame_data
     tkv, ttv, _shape_v, var_masks = variations_data
     var_up_mask, var_down_mask, var_left_mask, var_right_mask = var_masks
 
     use_jax = tree_contains_jax((up_sc, down_sc, left_sc, right_sc, tkv, ttv))
     xnp, _, _ = get_backend(True, use_jax)
+
+    if shared_data is not None and sharing_module.nontrivial_groups(shared_data.groups):
+        udots = sharing_module.fv_tied_ambient_directions((tkv, ttv), shared_data)
+        nU_pad, nD_pad = up_sc.shape[-2], down_sc.shape[-2]
+        pad = nU_pad - nD_pad
+        d0 = up_sc.shape[0]
+        ss_v = tkv.shape[1:-2]                              # K + C
+        n_K0 = len(ss_v) - (up_sc.ndim - 3)
+        up_mask_frame = frame_data[5][0]                    # (d,)+C+(nU,), HOST
+        up_mask_v = np.broadcast_to(                        # (d,)+K+C+(nU,): the frame mask over K
+            up_mask_frame.reshape(up_mask_frame.shape[:1] + (1,) * n_K0 + up_mask_frame.shape[1:]),
+            up_mask_frame.shape[:1] + tuple(ss_v) + up_mask_frame.shape[-1:])
+        mode_slot = {ii: (gi, jj)
+                     for gi, group in enumerate(sharing_module.nontrivial_groups(shared_data.groups))
+                     for jj, ii in enumerate(group)}
+        tkv_slices, down_slices, block_masks = [], [], []
+        for ii in range(d0):
+            if ii in mode_slot:
+                gi, jj = mode_slot[ii]
+                tkv_slices.append(udots[gi])                             # ONE array per group, (K+C)+(nU, N)
+                down_slices.append(shared_data.centers[gi][jj])          # H_i replaces O_i, (C)+(rL, nU, rR)
+                block_masks.append(up_mask_v[ii])
+            else:
+                v = tkv[ii]
+                tkv_slices.append(xnp.concatenate(
+                    [v, xnp.zeros(v.shape[:-2] + (pad, v.shape[-1]))], axis=-2))
+                O = down_sc[ii]
+                down_slices.append(xnp.concatenate(
+                    [O, xnp.zeros(O.shape[:-2] + (pad, O.shape[-1]))], axis=-2))
+                block_masks.append(np.concatenate(
+                    [var_down_mask[ii], np.zeros(var_down_mask[ii].shape[:-1] + (pad,), bool)], axis=-1))
+        tkv = xnp.stack(tkv_slices, axis=0)                 # (d,)+K+C+(nU, N)
+        down_sc = xnp.stack(down_slices, axis=0)            # (d,)+C+(rL, nU, rR)
+        var_down_mask = np.stack(block_masks, axis=0)       # (d,)+K+C+(nU,), HOST
 
     d  = up_sc.shape[0]
     nU = up_sc.shape[-2]; N = up_sc.shape[-1]; nD = down_sc.shape[-2]
@@ -273,6 +317,7 @@ def utv_to_ut3(
 def utv_retract(
         frame_data,       # UT3Frame .data:      supercore stack = C
         variations_data,  # UT3Variations .data: supercore stack = K + C
+        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied retraction (SF-T3)
 ):  # -> retracted UniformTuckerTensorTrain .data (at the BASE point's ranks; stack = K + C)
     """Retract a uniform frame-variations tangent vector onto the fixed-rank manifold.
 
@@ -286,8 +331,13 @@ def utv_retract(
     **Varying ranks across ``C``** work for free: the per-``C`` frame ranks are the per-element truncation
     targets. **The ``K`` (tangent) stack:** the frame ranks have stack ``C`` while the shifted UT3 has stack
     ``K + C``, so the frame ranks are broadcast over ``K`` (the ``K`` tangents share the frame, hence the same
-    truncation targets)."""
-    doubled = utv_to_ut3(frame_data, variations_data, include_shift=True)   # .data, stack K + C
+    truncation targets).
+
+    With ``shared_data``, the SF-T3 tied retraction (mirroring ragged ``tv_retract``): the TIED
+    doubled-rank embedding (:py:func:`utv_to_ut3` with ``shared_data``) followed by the GROUPED
+    mask-truncated SVD (``ut3svd(sharing=...)``), so the retracted point's factors stay exactly tied."""
+    doubled = utv_to_ut3(frame_data, variations_data, include_shift=True,
+                         shared_data=shared_data)                          # .data, stack K + C
     ss = doubled[0].shape[1:-2]                       # K + C (the shifted UT3 stack)
     C = frame_data[0].shape[1:-2]                     # C (the frame stack)
     n_K = len(ss) - len(C)
@@ -300,8 +350,11 @@ def utv_retract(
         return np.broadcast_to(ranks.reshape(ranks.shape[:1] + (1,) * n_K + ranks.shape[1:]),
                                ranks.shape[:1] + ss)
 
+    sharing_labels = (None if shared_data is None
+                      else sharing_module.groups_to_labels(shared_data.groups))
     new_data, _ss_tucker, _ss_tt = ut3_svd.ut3svd(
-        doubled, max_tucker_ranks=bcast_over_K(up_ranks), max_tt_ranks=bcast_over_K(left_ranks))
+        doubled, max_tucker_ranks=bcast_over_K(up_ranks), max_tt_ranks=bcast_over_K(left_ranks),
+        sharing=sharing_labels)
     return new_data
 
 
@@ -374,6 +427,7 @@ def utv_corewise_inner(
 def utv_orthogonal_gauge_projection(
         frame_data,       # UT3Frame .data
         variations_data,  # UT3Variations .data
+        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied post-pass (SF-T3)
 ):  # -> gauged variations .data (same masks; the tangent VECTOR changes)
     """Orthogonally project the variations onto the gauge-satisfying subspace (the uniform mirror of
     :py:func:`tv_operations.tv_orthogonal_gauge_projection`). Removes the component of each Tucker
@@ -383,7 +437,11 @@ def utv_orthogonal_gauge_projection(
 
     Mask-once up front (the frame and variation padding zeroed), then mask-agnostic einsums vectorized over
     the leading mode axis ``d`` (a per-core *map*); the last TT variation is left unchanged (the ``[:-1]``
-    boundary). The output carries the variation's masks unchanged (gauge preserves the rank structure)."""
+    boundary). The output carries the variation's masks unchanged (gauge preserves the rank structure).
+
+    With ``shared_data`` (the frame's uniform SF-T3 companion,
+    :py:func:`~t3toolbox.backend.sharing.ufv_shared_frame_data`), the tied post-pass fires after the
+    gauge loops (``P_tied = P_tied o P_gauge``, tied within gauged), mirroring the ragged threading."""
     up_sc, _down, left_sc, _right = ufv_masking.ufv_apply_frame_masks(frame_data)
     tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
     _tkv0, _ttv0, shape, masks = variations_data
@@ -398,6 +456,8 @@ def utv_orthogonal_gauge_projection(
     gram_tk = xnp.einsum('d...jo,d...ko->d...jk', tkv, up_sc)                  # dB U^T, (d,)+stack+(nD, nU)
     new_tkv = tkv - xnp.einsum('d...jk,d...ko->d...jo', gram_tk, up_sc)
 
+    if shared_data is not None and sharing_module.nontrivial_groups(shared_data.groups):
+        return sharing_module.ufv_share_tucker_variations((new_tkv, new_ttv, shape, masks), shared_data)
     return new_tkv, new_ttv, shape, masks
 
 

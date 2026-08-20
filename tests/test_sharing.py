@@ -1061,6 +1061,157 @@ class TestSharedContinuation(unittest.TestCase):
         self.assertIs(X.data[0][0], X.data[0][1])
 
 
+class TestUniformSharedTangent(unittest.TestCase):
+    """Slice 10: the uniform companion (``ufv_shared_frame_data``) + the tied post-passes and tied
+    retraction (``utv_*`` ``shared_data=``). Verified GAUGE-INVARIANTLY: each layer builds its own
+    frame (padded SVDs choose their own sign gauge, so raw coordinates are not comparable across
+    layers), and the comparisons are on represented DENSE tangents/points plus the gauge-invariant
+    group spectrum. Structures are shared-minimal (the fitting pipeline's guarantee via
+    ``uniform_minimal`` -- at non-minimal ranks the two layers legitimately build different frames)."""
+
+    # (shape, tucker_ranks, tt_ranks, sharing) -- all shared-minimal (asserted in setUp)
+    _CASES = [
+        ((6, 6, 5),    (3, 3, 2),    (1, 3, 2, 1),    (0, 0, 1)),
+        ((5, 6, 5, 6), (2, 3, 2, 3), (1, 2, 3, 2, 1), ('a', 'b', 'a', 'b')),   # unequal nD in a group
+        ((6, 6, 4),    (4, 4, 2),    (1, 2, 2, 1),    (0, 0, 1)),              # the group-ceiling case
+        ((7, 7, 7),    (4, 4, 4),    (1, 3, 3, 1),    (0, 0, 0)),              # all modes one group
+    ]
+
+    def setUp(self):
+        np.random.seed(0)
+        import t3toolbox.backend.ranks as ranks
+        for shape, n, r, spec in self._CASES:
+            assert ranks.compute_minimal_ranks(shape, n, r, sharing=spec) == (n, r)
+
+    @staticmethod
+    def _frames_and_companions(shape, n, r, spec):
+        import t3toolbox.backend.ufv_conversions as ufvc
+        x = _tied_t3(shape, n, r, spec)
+        groups = sharing.validate_sharing(spec, shape)
+        u = ut3.UniformTuckerTensorTrain.from_t3(x)
+        frame_r, _ = fvc.t3_orthogonal_representations(x.data)
+        frame_u, _ = ufvc.ut3_orthogonal_representations(u.data)
+        sfd_r = sharing.fv_shared_frame_data(frame_r, groups)
+        sfd_u = sharing.ufv_shared_frame_data(frame_u, groups)
+        return x, u, frame_r, frame_u, sfd_r, sfd_u, groups
+
+    @staticmethod
+    def _tvdense(frame_d, var_d):
+        return np.asarray(t3.TuckerTensorTrain(*tvo.tv_to_t3(frame_d, var_d)).to_dense())
+
+    def test_companion_matches_ragged_and_dense(self):
+        # svd_s (gauge-invariant) == the ragged companion's == the dense concatenated-matricization
+        # spectrum; the padded tail is exactly zero (the raw re-sweep's completion rows are
+        # orthogonal to the centers' row space)
+        for shape, n, r, spec in self._CASES:
+            with self.subTest(shape=shape, sharing=spec):
+                x, _, _, _, sfd_r, sfd_u, groups = self._frames_and_companions(shape, n, r, spec)
+                x_dense = np.asarray(x.to_dense())
+                for gi, group in enumerate(sharing.nontrivial_groups(groups)):
+                    s_r, s_u = np.asarray(sfd_r.svd_s[gi]), np.asarray(sfd_u.svd_s[gi])
+                    self.assertLess(float(np.linalg.norm(s_u[:s_r.size] - s_r)), 1e-9 * s_r[0])
+                    if s_u.size > s_r.size:
+                        self.assertLess(float(np.abs(s_u[s_r.size:]).max()), 1e-9 * s_r[0])
+                    s_dense = _dense_group_svals(x_dense, group)
+                    self.assertLess(float(np.linalg.norm(s_u[:s_r.size] - s_dense[:s_r.size])),
+                                    1e-9 * s_dense[0])
+
+    def test_tied_projection_matches_ragged(self):
+        # project a fixed ambient T3 onto the tied tangent space in each layer; compare the
+        # represented dense tangents. Also: the shared_data= threading through the gauge projection
+        # equals the separate post-pass, and the post-pass is idempotent.
+        import t3toolbox.backend.ufv_conversions as ufvc
+        import t3toolbox.backend.utv_operations as utvo
+        for shape, n, r, spec in self._CASES:
+            with self.subTest(shape=shape, sharing=spec):
+                x, u, frame_r, frame_u, sfd_r, sfd_u, groups = \
+                    self._frames_and_companions(shape, n, r, spec)
+                z = t3.TuckerTensorTrain.randn(shape, n, r)
+                proj_r = tvo.tv_project_t3_onto_tangent_space(frame_r, z.data, shared_data=sfd_r)
+                zu = ut3.UniformTuckerTensorTrain.from_t3(
+                    z, n=u.tucker_supercore.shape[-2], r=u.tt_supercore.shape[-1])
+                raw_u = utvo.utv_project_ut3_onto_tangent_space(frame_u, zu.data)
+                proj_u = sharing.ufv_share_tucker_variations(raw_u, sfd_u)
+                d_r = self._tvdense(frame_r, proj_r)
+                d_u = self._tvdense(ufvc.ut3frame_to_t3frame(frame_u),
+                                    ufvc.ut3variations_to_t3variations(proj_u))
+                self.assertLess(float(np.linalg.norm(d_u - d_r)), 1e-9 * np.linalg.norm(d_r))
+                # threading: gauge projection with shared_data == gauge then the post-pass
+                gauged_then_tied = utvo.utv_orthogonal_gauge_projection(frame_u, raw_u,
+                                                                        shared_data=sfd_u)
+                separate = sharing.ufv_share_tucker_variations(
+                    utvo.utv_orthogonal_gauge_projection(frame_u, raw_u), sfd_u)
+                self.assertTrue(np.allclose(np.asarray(gauged_then_tied[0]),
+                                            np.asarray(separate[0])))
+                # idempotent
+                twice = sharing.ufv_share_tucker_variations(proj_u, sfd_u)
+                self.assertTrue(np.allclose(np.asarray(twice[0]), np.asarray(proj_u[0]),
+                                            atol=1e-12 * float(np.linalg.norm(d_r))))
+
+    def test_tied_retract_matches_ragged(self):
+        import t3toolbox.backend.ufv_conversions as ufvc
+        import t3toolbox.backend.utv_operations as utvo
+        from t3toolbox.uniform_tucker_tensor_train import _from_data
+        for shape, n, r, spec in self._CASES:
+            with self.subTest(shape=shape, sharing=spec):
+                x, u, frame_r, frame_u, sfd_r, sfd_u, groups = \
+                    self._frames_and_companions(shape, n, r, spec)
+                z = t3.TuckerTensorTrain.randn(shape, n, r)
+                proj_r = tvo.tv_project_t3_onto_tangent_space(frame_r, z.data, shared_data=sfd_r)
+                zu = ut3.UniformTuckerTensorTrain.from_t3(
+                    z, n=u.tucker_supercore.shape[-2], r=u.tt_supercore.shape[-1])
+                proj_u = sharing.ufv_share_tucker_variations(
+                    utvo.utv_project_ut3_onto_tangent_space(frame_u, zu.data), sfd_u)
+                y_r = t3.TuckerTensorTrain(*tvo.tv_retract(frame_r, proj_r, shared_data=sfd_r))
+                y_u_data = utvo.utv_retract(frame_u, proj_u, shared_data=sfd_u)
+                y_u = _from_data(y_u_data)
+                self.assertLess(
+                    float(np.linalg.norm(np.asarray(y_u.to_dense()) - np.asarray(y_r.to_dense()))),
+                    1e-9 * float(np.linalg.norm(np.asarray(y_r.to_dense()))))
+                self.assertEqual(tuple(int(v) for v in y_u.tucker_ranks), y_r.tucker_ranks)
+                self.assertEqual(tuple(int(v) for v in y_u.tt_ranks), y_r.tt_ranks)
+                self.assertEqual(float(sharing.ut3_sharing_residual(y_u_data, spec)), 0.0)
+
+    def test_mean_post_pass_matches_ragged_slices(self):
+        # the corewise twin: the uniform drift-form mean == the ragged mean on the masked slices
+        shape, n, r, spec = self._CASES[0]
+        _, u, _, frame_u, _, _, groups = self._frames_and_companions(shape, n, r, spec)
+        import t3toolbox.backend.ufv_conversions as ufvc
+        _, var_u = ufvc.ut3_orthogonal_representations(u.data)
+        tkv = np.random.randn(*np.asarray(var_u[0]).shape)
+        var_d = (tkv, var_u[1], var_u[2], var_u[3])
+        out = sharing.ufv_mean_tucker_variations(var_d, groups)
+        import t3toolbox.backend.ufv_masking as ufv_masking
+        tkv_m, _ = ufv_masking.ufv_apply_variations_masks(var_d)
+        ref, _ = sharing.fv_mean_tucker_variations((tkv_m, var_u[1]), groups)
+        for ii in range(len(shape)):
+            self.assertTrue(np.array_equal(np.asarray(out[0][ii]), np.asarray(ref[ii])))
+
+    def test_garbage_robust_tangent_ops(self):
+        # garbage in the VARIATION padding must not change the tied projection or retraction
+        # (the frame is used as stored -- its padding is part of the construction, by design)
+        import t3toolbox.backend.ufv_masking as ufv_masking
+        import t3toolbox.backend.utv_operations as utvo
+        shape, n, r, spec = self._CASES[1]                       # unequal nD: real padding to corrupt
+        _, u, _, frame_u, _, sfd_u, groups = self._frames_and_companions(shape, n, r, spec)
+        z = t3.TuckerTensorTrain.randn(shape, n, r)
+        zu = ut3.UniformTuckerTensorTrain.from_t3(
+            z, n=u.tucker_supercore.shape[-2], r=u.tt_supercore.shape[-1])
+        proj = utvo.utv_project_ut3_onto_tangent_space(frame_u, zu.data)
+        ind = ufv_masking.ufv_apply_variations_masks(
+            (np.ones_like(np.asarray(proj[0])), np.ones_like(np.asarray(proj[1])),
+             proj[2], proj[3]))
+        dirty = (proj[0] + 1e3 * (1.0 - ind[0]), proj[1] + 1e3 * (1.0 - ind[1]),
+                 proj[2], proj[3])
+        clean_tied = sharing.ufv_share_tucker_variations(proj, sfd_u)
+        dirty_tied = sharing.ufv_share_tucker_variations(dirty, sfd_u)
+        self.assertTrue(np.allclose(np.asarray(clean_tied[0]), np.asarray(dirty_tied[0])))
+        y_clean = utvo.utv_retract(frame_u, clean_tied, shared_data=sfd_u)
+        y_dirty = utvo.utv_retract(frame_u, dirty_tied, shared_data=sfd_u)
+        self.assertTrue(np.allclose(np.asarray(y_clean[0]), np.asarray(y_dirty[0])))
+        self.assertTrue(np.allclose(np.asarray(y_clean[1]), np.asarray(y_dirty[1])))
+
+
 class TestSharedMinimalRanksGroundTruth(unittest.TestCase):
     """Shared minimal ranks == generic dense edge-cut ranks of a TIED T3 (non-circular ground truth;
     mirrors the unshared test_compute_minimal_ranks_matches_matricization). The hand-worked expected

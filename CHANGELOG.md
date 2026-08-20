@@ -55,7 +55,19 @@ All notable changes to T3Toolbox are documented here. The format follows
     uniform start (it can clip a group rank to unequal per-mode values). All verified under the
     uniform equivalence contract (== the ragged grouped ops on real parts, per stack element,
     varying-rank stacks included), with exact output-mask assertions, garbage robustness, and
-    jit-clean dispatch. The shared uniform geometries and fitting path land next.
+    jit-clean dispatch.
+  - **Uniform mirror, tied tangent machinery** — the uniform companion `ufv_shared_frame_data`
+    (the identical polymorphic derivation on the frame's stored supercores — deliberately NOT
+    re-masked: the companion's exactness rests on reproducing the construction's own sweep on the
+    same arrays, and the padded rows of each `S_i^T` vanish because completion rows are orthogonal
+    to the centers' row space), the tied post-passes `ufv_share_tucker_variations` /
+    `ufv_mean_tucker_variations` (mask-and-delegate to the polymorphic ragged solves), and
+    `shared_data=` threading through `utv_orthogonal_gauge_projection` / `utv_to_ut3` (the TIED
+    doubled-rank embedding: `Udot` at every group mode, the companion's centers replacing the down
+    cores, the variation block rebuilt at the up width) / `utv_retract` (tied embedding + the grouped
+    `ut3svd`). Verified gauge-invariantly against the ragged twins (dense tangents/points at
+    machine precision; outputs exactly tied) — the shared uniform geometries and fitting path land
+    next.
   - Backend surface in `backend.sharing` (`validate_sharing`, `t3_sharing_residual`,
     `t3_tucker_factors_shared`, `t3_share_tucker_cores`, `T3SharedFrameData` +
     `fv_shared_frame_data`, the tied post-passes) and `backend.t3_svd.t3_share_tucker_factors`.
