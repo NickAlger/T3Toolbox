@@ -124,9 +124,18 @@ numerically redundant). Which operations actually *need* minimal ranks was settl
 **Verdict: minimal rank is not a correctness precondition for any verified operation**, so it is
 never checked — a minimal-rank gate would reject legitimate rank-redundant frames for no
 correctness reason. It survives as the `retract` rank-preservation caveat and as the diagnostic
-checkers. (Related fact: `t3_orthogonal_representations` does *not* guarantee structural
-minimality — build from a minimal-rank point if you need rank preservation.) Naming rule: bare
-`minimal_ranks` means the structural notion; `numerically_minimal` means the SVD-grade notion.
+checkers. Naming rule: bare `minimal_ranks` means the structural notion; `numerically_minimal` means
+the SVD-grade notion.
+
+**Why excess rank is inert** (the mechanism, worth knowing before you reach for a rank check): a frame
+carries *four* rank stores — `up`/`down` and `left`/`right` — and an over-ranked request is absorbed as
+slack between them rather than breaking any single core's orthonormality. So an orthonormal frame need
+not be minimal: `t3_orthogonal_representations` does not guarantee it, and neither does
+`T3Frame.random_orthogonal`, which happily returns `up_ranks=(4,4,4)` with `down_ranks=(2,4,2)` if you
+ask for a Tucker rank the TT bonds cannot support. Such a frame is exactly orthogonal and every tangent
+operation on it is exact — the tangent space, its dimension, and the HS identities are unchanged. Full
+derivation and the measured numbers: [`frame_variations.md`](frame_variations.md). Build from a
+minimal-rank point only if you need retraction to *preserve* the rank tuple.
 
 ---
 

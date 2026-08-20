@@ -225,6 +225,11 @@ The **transposes** (``probe_transpose``, ``apply_transpose``, ``entries_transpos
 probe -- while ``True`` sums ``W`` to give the Gauss-Newton back-projection ``Jᵀr`` used in
 optimization. The two agree up to that sum (``True`` is ``Σ_W`` of ``False``).
 
+Contractions over these blocks are written in one grouped-einsum dialect --
+``contract('WCa,Caib,WCi->WCb', *operands)``, where an uppercase letter stands for a *group* of zero or
+more axes whose size is solved from the operand shapes. It is the sole public entry point of
+``backend.contractions`` and the machinery behind every sampling op; see :doc:`grouped_contractions`.
+
 For the full design -- why frame-inner, the two contraction machineries, how the ``K``/``C`` split is
 recovered, ``vmap``/``jit`` with the frame as a pytree leaf -- see :doc:`batching_and_stacking`
 (start with its "Start here" on-ramp).
@@ -264,12 +269,16 @@ multiplication (:doc:`uniform_masks_vs_ranks`), and they are deliberately **host
 pytree structure) while the supercores flow through numpy or jax (:doc:`contributor/uniform_pytree_composition`).
 
 .. note::
-	The manifold, orthogonalization, and T3-SVD operations on the uniform layer assume a
-	**minimal-rank base point**, exactly as on the ragged layer (where, e.g., retraction preserves
-	frame ranks only at a minimal-rank frame). The fitting/optimizer frontend enforces this
-	transparently (it reduces the initial guess with ``uniform_minimal``); when driving the uniform
-	backend yourself, reduce first via ``ut3svd`` / ``uniform_minimal``. Any T3 can be reduced to
-	minimal ranks with T3-SVD.
+	The uniform **fitting** path requires a **minimal-rank** initial guess, and says so with an error
+	if it does not get one. The reason is specific to this layer: the rank masks are loop-invariant,
+	while a retraction from a non-minimal point drops the unrealizable rank -- which would desync the
+	masks from the actual ranks mid-optimization. The frontend handles it transparently (it reduces
+	``x0`` with ``uniform_minimal``); when driving the uniform backend yourself, reduce first via
+	``ut3svd`` / ``uniform_minimal``. Any T3 can be reduced to minimal ranks with T3-SVD.
+
+	This is a **representation** constraint of the packed layer, not a mathematical one. Nothing on
+	the ragged layer requires minimal ranks: an orthonormal frame carries excess rank as slack and
+	every tangent operation on it is exact (:doc:`numerical_contracts`, :doc:`frame_variations`).
 
 
 NumPy and JAX
@@ -378,7 +387,10 @@ Relevant literature
 
 * Under the name **extended tensor train**, the smooth manifold structure of this format is
   studied by Molozhavenko and Rakhuba [9] — the most direct published treatment of the Tucker
-  tensor train manifold (there with shared Tucker factors).
+  tensor train manifold (there with shared Tucker factors). The shared-factor idea itself comes
+  from the SF-Tucker decomposition of Peshekhonov, Arzhantsev, and Rakhuba [37]; this library
+  generalizes it from one trailing shared block to an arbitrary partition of the modes
+  (:doc:`sharing`).
 
 * The algorithms here are extensions of standard tensor train algorithms (no Tucker):
 
@@ -439,7 +451,7 @@ Relevant literature
 
 [8] Kolda, Tamara G., and Brett W. Bader. "Tensor decompositions and applications." SIAM Review 51.3 (2009): 455-500. `https://epubs.siam.org/doi/10.1137/07070111X <https://epubs.siam.org/doi/10.1137/07070111X>`_
 
-[9] Molozhavenko, A. and Rakhuba, M. "Optimization on the extended tensor-train manifold with shared factors." Computational and Applied Mathematics 45(6):221, 2026.
+[9] Molozhavenko, A. and Rakhuba, M. "Optimization on the extended tensor-train manifold with shared factors." Computational and Applied Mathematics 45(6):221, 2026. `https://doi.org/10.1007/s40314-025-03605-0 <https://doi.org/10.1007/s40314-025-03605-0>`_
 
 [10] Steinlechner, M. M. "Riemannian Optimization for Solving High-Dimensional Problems with Low-Rank Tensor Structure." PhD thesis, École polytechnique fédérale de Lausanne, 2016.
 
@@ -494,6 +506,8 @@ Relevant literature
 [35] Lubich, C., Rohwedder, T., Schneider, R., and Vandereycken, B. "Dynamical approximation by hierarchical Tucker and tensor-train tensors." SIAM Journal on Matrix Analysis and Applications 34(2):470-494, 2013.
 
 [36] Holtz, S., Rohwedder, T., and Schneider, R. "The alternating linear scheme for tensor optimization in the tensor train format." SIAM Journal on Scientific Computing 34(2):A683-A713, 2012.
+
+[37] Peshekhonov, I., Arzhantsev, A., and Rakhuba, M. "Training a Tucker Model With Shared Factors: a Riemannian Optimization Approach." Proceedings of the 27th International Conference on Artificial Intelligence and Statistics (AISTATS), PMLR 238, 2024. `https://proceedings.mlr.press/v238/peshekhonov24a.html <https://proceedings.mlr.press/v238/peshekhonov24a.html>`_
 
 
 Related software

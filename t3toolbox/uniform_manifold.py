@@ -1038,7 +1038,8 @@ class UniformManifoldGeometry:
         """Random tangent at ``frame``: a standard Gaussian on the tangent space ``T_xM``.
 
         Raw i.i.d. ``N(0, 1)`` variation supercores, then the gauge projection :py:meth:`project` (``Pi``).
-        For an orthogonal, minimal-rank ``frame`` this is the standard Gaussian on ``T_xM``. ``stack_shape``
+        For an orthogonal ``frame`` this is the standard Gaussian on ``T_xM`` (minimal rank is not
+        required -- the tangent space is whatever the orthonormal frame spans). ``stack_shape``
         is the extra outer tangent stack ``K`` (default ``()``). Inherits :py:meth:`project`'s safe-mode ORTH
         precondition (a non-orthogonal ``frame`` raises; skipped under ``safety.unsafe()`` / a jax trace)."""
         return self.project(UT3Tangent(frame, _randn_variations_at(frame, stack_shape)))
@@ -1086,7 +1087,8 @@ class UniformManifoldGeometry:
         """Gauge ``v``'s variations while preserving the represented tangent vector (oblique projection).
 
         Returns a tangent at the same frame representing the SAME vector as ``v`` but gauged, so that on an
-        orthogonal minimal-rank frame :py:meth:`inner` / :py:meth:`norm` give the true Hilbert-Schmidt values.
+        orthogonal frame :py:meth:`inner` / :py:meth:`norm` give the true Hilbert-Schmidt values (minimal
+        rank is not required).
         **Safe mode** requires ``v``'s frame orthogonal (raises otherwise); skipped under ``safety.unsafe()``
         / a jax trace."""
         _require_orthogonal_frame(v.frame, 'UniformManifoldGeometry.project_oblique')

@@ -583,8 +583,10 @@ def compute_manifold_dim(
 ) -> int:
     '''Dimension of the fixed-rank Tucker tensor train manifold for the given structure.
 
-    Computed from the structurally-minimal ranks (gauge already quotiented), so this is the true
-    tangent-space dimension for a minimal-rank base point.
+    Computed from the structurally-minimal ranks (gauge already quotiented). Because the reduction to
+    minimal ranks happens here, this is the true tangent-space dimension for **any** structure of the
+    given ranks, minimal or not: a rank the rest of the network cannot support adds no tangent
+    directions, and passing the non-reduced ranks gives the same answer as passing the reduced ones.
 
     With ``sharing``, the dimension of the shared-factor manifold (Tucker factors tied within each
     group): the reduction to minimal ranks is the SHARED one (:py:func:`compute_minimal_ranks` with

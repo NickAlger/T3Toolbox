@@ -65,6 +65,52 @@ That is exactly why the minimal `T3Tangent` stores only `(frame, variations)` an
 and why the `K`/`C` stack split is *recovered* rather than stored (see
 [`batching_and_stacking.md`](batching_and_stacking.md)).
 
+## Four rank stores — and why excess rank is inert
+
+A `T3Frame` does not carry *one* rank tuple, it carries **four**: `up_ranks` (the rows of each Tucker
+factor `Uᵢ`), `down_ranks` (the mode leg of each down/outer core `Oᵢ`), and `left_ranks` / `right_ranks`
+(the TT bonds, in each sweep direction). That redundancy is not bookkeeping sloppiness — it is what makes
+non-minimal ranks harmless, and it is worth understanding before reading
+[`numerical_contracts.md`](numerical_contracts.md)'s verdict that minimal rank is a precondition for
+nothing.
+
+Each core must be orthonormal *in its own unfolding*, and that caps that core's own rank — you cannot have
+more orthonormal rows than the space they live in:
+
+| core | orthonormality | the rank it caps |
+|---|---|---|
+| `Uᵢ` (up / Tucker) | rows orthonormal | `nᵢ ≤ Nᵢ` |
+| `Oᵢ` (down / outer) | `nᵢ × (rᵢ·rᵢ₊₁)` unfolding, rows orthonormal | `nᵢ ≤ rᵢ·rᵢ₊₁` |
+| `Lᵢ` (left) | `(rᵢ·nᵢ) × rᵢ₊₁`, columns orthonormal | `rᵢ₊₁ ≤ rᵢ·nᵢ` |
+| `Rᵢ` (right) | `rᵢ × (nᵢ·rᵢ₊₁)`, rows orthonormal | `rᵢ ≤ nᵢ·rᵢ₊₁` |
+
+Those are exactly the four minimal-rank inequalities ([`t3svd_minimal_ranks.md`](t3svd_minimal_ranks.md)) — read as
+*feasibility conditions for an orthonormal core* rather than as a property of the tensor. Violate one in a
+single core and orthogonality fails outright (a residual of order 1, not a tolerance miss).
+
+**But the bound is per core, not per frame.** Ask for more rank than the rest of the network supports and
+nothing fails: the excess is carried as **slack between the four stores**. `T3Frame.random_orthogonal`
+with `tucker_ranks=(4,4,4)`, `tt_ranks=(1,2,2,1)` on a `(6,6,6)` tensor — where mode 0's Tucker ceiling is
+`r₀·r₁ = 2` — returns `up_ranks=(4,4,4)` alongside `down_ranks=(2,4,2)`. Ask for `tt_ranks=(1,9,9,1)` and
+`left_ranks` and `right_ranks` come back *different from each other*, each capped in its own direction.
+Orthogonalizing a non-minimal point does the same thing.
+
+Two consequences follow, and they are the whole story:
+
+- **An orthonormal frame need not have minimal ranks.** `has_minimal_ranks` additionally requires
+  `up == down` and `left == right`, so it reports `False` on exactly these frames. That is correct and
+  useful — it is a diagnostic that your *stored* rank tuple is partly unrealizable — but it is not a defect
+  of the frame, and orthogonality does not imply it.
+- **The excess is geometrically inert.** The tangent variations are shaped by the operative (down) ranks,
+  so the tangent space is unchanged: its dimension still equals `manifold_dim`, `MANIFOLD.inner`/`norm`
+  are still exactly Hilbert–Schmidt, and the ambient projection is still idempotent and self-adjoint — all
+  to machine precision. What grows is the *ungauged* coordinate array; the gauge conditions cut it back to
+  the same tangent space. The first retraction collapses the slack, which is why retraction preserves ranks
+  only on a minimal frame.
+
+So the precondition for the whole tangent machinery is **orthonormality plus the gauge**, full stop.
+Minimality is a property of how the base point is *stored*, not of the geometry built on it.
+
 ## Weights are a diagonal metric on those coordinates
 
 This is where the weighted layer ([`weighting.md`](weighting.md)) plugs in, and it clarifies the whole

@@ -5,6 +5,13 @@ parked in [`docs/jit_oo_handoff.md`](jit_oo_handoff.md) (per-function jit + the 
 and supersedes it. It adjusts two house rules (see §8). Read §0–§3 for the reasoning, §4–§5 for the
 critical execution rule, §7 for the build order.*
 
+> **Superseded in one place (2026-06-19, same session):** §5/§6's decision to check **structural minimal
+> ranks** in safe mode was disproved by the minimal-rank experiment later the same day and was never
+> wired — §7's build log already records this ("Minimal rank is *not* wired"). Minimal rank is a
+> correctness precondition for nothing; the current statement is `docs/numerical_contracts.md`, and the
+> mechanism (a frame carries four rank stores and absorbs excess rank as slack) is
+> `docs/frame_variations.md`. Everything else in this plan shipped as written.
+
 ## 0. Resuming from a fresh context (read this first)
 
 If you are a future Claude with little memory of the conversation that produced this: the library hit a

@@ -599,7 +599,16 @@ class T3Frame:                     # jax aux_data (it holds arrays; value hash/e
             use_jax:        bool = False,
     ) -> 'T3Frame':
         """Orthogonal representation of a *random* T3 -- a genuine random base point (orthogonal,
-        consistent), **not** iid-random cores. Equals ``from_t3(TuckerTensorTrain.randn(...))``."""
+        consistent), **not** iid-random cores. Equals ``from_t3(TuckerTensorTrain.randn(...))``.
+
+        Requesting a rank above what the rest of the network can support is allowed and does not raise:
+        an orthonormal core cannot carry more rank than its own shape admits, so the excess is carried as
+        **slack** between the frame's four rank stores rather than in any one core. Asking for
+        ``tucker_ranks=(4,4,4)`` with ``tt_ranks=(1,2,2,1)`` returns ``up_ranks=(4,4,4)`` but
+        ``down_ranks=(2,4,2)``; asking for ``tt_ranks=(1,9,9,1)`` returns different ``left_ranks`` and
+        ``right_ranks``. The frame is exactly orthogonal either way and every tangent operation on it is
+        exact -- only :py:attr:`has_minimal_ranks` reports ``False`` (a diagnostic, never a
+        precondition; see ``docs/frame_variations.md``)."""
         x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks, stack_shape=stack_shape, use_jax=use_jax)
         return t3_orthogonal_representations(x)[0]
 
@@ -651,7 +660,9 @@ class T3Frame:                     # jax aux_data (it holds arrays; value hash/e
         see :py:meth:`to_t3`) and recompute its orthogonal representation via
         :py:func:`t3_orthogonal_representations`. For a frame that is already orthogonal and consistent
         this returns an equivalent orthogonal frame; for a hand-built or drifted one it returns a
-        genuinely orthogonal, minimal-rank frame for the *right-canonical* base point.
+        genuinely orthogonal frame for the *right-canonical* base point (each direction's ranks capped
+        at what the network supports, so an over-ranked input comes back carrying up/down slack --
+        see :py:attr:`has_minimal_ranks`).
         """
         return T3Frame.from_t3(self.to_t3())
 

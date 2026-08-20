@@ -12,7 +12,8 @@ non-enforced **caveat**.*
 > **APPROVED by Nick, 2026-06-19**, with these decisions:
 > 1. `retract` precondition = **ORTH only** (not GAUGE — retract is gauge-invariant). ✓
 > 2. `MANIFOLD.inner` checks **all** of SF + ORTH + GAUGE (+ structural-minimal, below), the frame ones
->    cached on the frozen objects. ✓
+>    cached on the frozen objects. ✓ *— the minimal-rank parenthetical was superseded the same day; see
+>    the note under this banner.*
 > 3. **Frontend-only** enforcement for now; a backend mirror is deferred and needs careful discussion
 >    (current lean: *no* backend numerical checks). ✓
 > 4. No reclassifications. ✓
@@ -21,7 +22,21 @@ non-enforced **caveat**.*
 >    ranks are **structurally** minimal (`has_minimal_ranks`, cheap rank arithmetic); **never** run the
 >    numerical (SVD) check; **document** the requirement on each op. See the revised "Minimal ranks"
 >    section. The structurally-but-not-numerically-minimal gap is an adversarial edge case (failure mode:
->    NaN / wrong result) we accept.
+>    NaN / wrong result) we accept. *— superseded the same day; see the note below.*
+
+**Superseded (same session, 2026-06-19).** Decisions 2 and 5 approved a safe-mode **structural
+minimal-rank check**. The op-by-op experiment run about an hour later — the "Minimal ranks" section
+below — disproved its premise: minimal rank is a correctness precondition for *nothing*. The check was
+never wired, and the banner above is kept as written only because it records what was approved at the
+time. What stands is the verdict in that section and the user page
+[`../numerical_contracts.md`](../numerical_contracts.md).
+
+The mechanism behind the result was worked out later and is written up in
+[`../frame_variations.md`](../frame_variations.md): a frame carries **four** rank stores
+(`up`/`down`, `left`/`right`) and absorbs an over-ranked request as slack between them, so an
+orthonormal frame need not be minimal — `T3Frame.random_orthogonal` returns exactly such a frame for any
+over-ranked request, and every tangent operation on it is exact. Orthonormality plus the gauge is the
+whole precondition; a minimal-rank gate would reject legitimate frames.
 
 ## The classification rule
 
@@ -52,6 +67,11 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 
 `SF` = same-frame, `ORTH` = orthogonal frame, `GAUGE` = variations gauged. "—" = no numerical precondition
 (structural checks like shapes/ranks/`check_fv_pair` still apply, always, in both modes).
+
+> **Read the `minimal` entries in the caveat columns below as pre-experiment.** The "Minimal ranks"
+> section further down measured every one of them and found none to hold: `inner`/`norm` are exactly HS
+> without minimality, and only `retract`'s *strict rank preservation* survives as a real caveat. The
+> rows are left as written because this is the record of the sweep as approved.
 
 ### `T3Tangent` (after the §S3 rename)
 | op | precondition (checked in safe mode) | caveat (never checked) | note |

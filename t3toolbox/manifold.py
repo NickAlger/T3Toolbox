@@ -116,8 +116,8 @@ class T3Tangent:
     Hilbert-Schmidt inner product / norm (which check the orthogonal-frame + gauged preconditions in safe
     mode), and :py:meth:`CorewiseGeometry.inner` / ``norm`` are the Euclidean ones. This class exposes only
     the **raw coordinate** :py:meth:`corewise_inner` / :py:meth:`corewise_norm` (equal to HS only on an
-    orthonormal, gauged, minimal-rank frame -- see :py:meth:`is_orthogonal` / :py:meth:`is_gauged` and the
-    contract catalog), with no HS claim.
+    orthonormal, gauged frame -- see :py:meth:`is_orthogonal` / :py:meth:`is_gauged` and the contract
+    catalog; minimal rank is *not* required), with no HS claim.
 
     A tangent vector is the sum of 2d single-core variation terms -- equation (47), Appendix A.3, of
     Alger, Christierson, Chen & Ghattas (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
@@ -391,8 +391,8 @@ class T3Tangent:
         Vectorized over the stack: returns an array of shape :py:attr:`stack_shape` (``K + C``), one dot
         per stacked tangent (a scalar when unstacked). The same-frame precondition is checked.
 
-        This is the *coordinate* inner product; it equals Hilbert-Schmidt only on an orthonormal, gauged,
-        (minimal-rank) frame. For that semantic -- with the orthogonal/gauge preconditions checked -- use
+        This is the *coordinate* inner product; it equals Hilbert-Schmidt on an orthonormal, gauged frame
+        (minimal rank is not required). For that semantic -- with the orthogonal/gauge preconditions checked -- use
         :py:meth:`ManifoldGeometry.inner` (or :py:meth:`CorewiseGeometry.inner` for the Euclidean metric).
         The gauged identity ``<v, v'>_HS = sum_i <dU_i, dU_i'> + sum_i <dG_i, dG_i'>`` is Appendix A.3 of
         Alger et al. (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
@@ -509,7 +509,8 @@ class T3Tangent:
         """Dimension of the tangent space at this base point (= the fixed-rank manifold dimension).
 
         Computed from the structurally-minimal ranks (gauge already quotiented), so it equals the true
-        tangent-space dimension for a minimal-rank base point. See :py:func:`manifold_dim`.
+        tangent-space dimension whether or not the frame's stored ranks are minimal -- excess rank adds
+        no tangent directions. See :py:func:`manifold_dim`.
         """
         return manifold_dim((self.shape, self.frame.up_ranks, self.frame.left_ranks))
 
@@ -1266,8 +1267,8 @@ class ManifoldGeometry:
         """Gauge ``v``'s variations while preserving the represented tangent vector (oblique projection).
 
         Returns a tangent at the same frame representing the SAME vector as ``v`` but gauged, so that on
-        an orthogonal minimal-rank frame :py:meth:`inner` / :py:meth:`norm` give the true Hilbert-Schmidt
-        values.
+        an orthogonal frame :py:meth:`inner` / :py:meth:`norm` give the true Hilbert-Schmidt values
+        (minimal rank is not required).
 
         **Safe mode** requires ``v``'s frame to be **orthogonal** (raises otherwise); skipped under
         ``safety.unsafe()`` / a jax trace.
