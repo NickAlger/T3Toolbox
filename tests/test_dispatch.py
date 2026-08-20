@@ -27,6 +27,7 @@ import t3toolbox.backend.sampling_derivatives as pd
 import t3toolbox.backend.tv_operations as tops
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.probing as probing
+import t3toolbox.backend.sharing as bsharing
 import t3toolbox.fitting as fitting
 
 try:
@@ -329,6 +330,18 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda b: fv_operations.fv_frame_orthogonality_residual(b), self.frame.data)
         self.assert_jit_jax(lambda b: fv_operations.fv_frame_consistency_residual(b), self.frame.data)
         self.assert_jit_jax(lambda b, v: tops.tv_gauge_residual(b, v), self.frame.data, self.var.data)
+        # sharing residual / checker / mean-repair (sharing.py); `sharing` is static, closed over
+        stk = (jnp.asarray(np.random.randn(3, 6)),) * 2
+        stt = (jnp.asarray(np.random.randn(1, 3, 2)), jnp.asarray(np.random.randn(2, 3, 1)))
+        self.assert_jit_jax(lambda a0, a1, g0, g1:
+                            bsharing.t3_sharing_residual(((a0, a1), (g0, g1)), (0, 0)),
+                            stk[0], stk[1], stt[0], stt[1])
+        self.assert_jit_jax(lambda a0, a1, g0, g1:
+                            bsharing.t3_tucker_factors_shared(((a0, a1), (g0, g1)), (0, 0)),
+                            stk[0], stk[1], stt[0], stt[1])
+        self.assert_jit_jax(lambda a0, a1, g0, g1:
+                            bsharing.t3_share_tucker_cores(((a0, a1), (g0, g1)), (0, 0)),
+                            stk[0], stk[1], stt[0], stt[1])
 
     # ---------------------------------------------------- jit bucket: Gauss-Newton fitting (fitting.py)
     def test_jit_fitting(self):
