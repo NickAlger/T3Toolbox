@@ -6,6 +6,7 @@ import unittest
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.sharing as sharing
+import t3toolbox.backend.fv_conversions as fvc
 
 np.random.seed(0)
 
@@ -146,6 +147,103 @@ class TestShareTuckerCores(unittest.TestCase):
         x_dense = t3.TuckerTensorTrain(*x_data).to_dense()
         y_dense = t3.TuckerTensorTrain(tk2, tt2).to_dense()
         self.assertTrue(np.array_equal(np.asarray(x_dense), np.asarray(y_dense)))
+
+
+class TestSharedFrameData(unittest.TestCase):
+    """Permanent invariants of the shared-frame companion (the S_i machinery)."""
+
+    @staticmethod
+    def _svd_reconstruct(sfd, gi):
+        # M_g = U diag(s) Vt, batched over the frame stack
+        return np.einsum('...ux,...x,...xv->...uv',
+                         np.asarray(sfd.svd_U[gi]), np.asarray(sfd.svd_s[gi]),
+                         np.asarray(sfd.svd_Vt[gi]))
+
+    def test_centers_match_construction_exactly(self):
+        # the re-sweep recompute IS the construction's own computation: bit-identical centers
+        for STRUCTURE in SHARED_STRUCTURES:
+            for STACK_SHAPE in STACK_SHAPES:
+                with self.subTest(STRUCTURE=STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    x_data, sharing_spec, groups = _tied_data(STRUCTURE, STACK_SHAPE)
+                    frame_d, variations_d = fvc.t3_orthogonal_representations(x_data)
+                    sfd = sharing.fv_shared_frame_data(frame_d, groups)
+                    HH = variations_d[1]                     # the construction's center cores
+                    for gi, group in enumerate(sharing.nontrivial_groups(groups)):
+                        for jj, ii in enumerate(group):
+                            self.assertTrue(np.array_equal(np.asarray(sfd.centers[gi][jj]),
+                                                           np.asarray(HH[ii])))
+
+    def test_s_factor_identities(self):
+        # S_i S_i^T == Gamma_i (from the centers) and S_i-absorbed O_i == H_i, per group mode;
+        # singular values descending; row splits match the nD_i
+        for STRUCTURE in SHARED_STRUCTURES[1:]:
+            for STACK_SHAPE in STACK_SHAPES:
+                with self.subTest(STRUCTURE=STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    x_data, _, groups = _tied_data(STRUCTURE, STACK_SHAPE)
+                    frame_d, _ = fvc.t3_orthogonal_representations(x_data)
+                    OO = frame_d[1]
+                    sfd = sharing.fv_shared_frame_data(frame_d, groups)
+                    for gi, group in enumerate(sharing.nontrivial_groups(groups)):
+                        M = self._svd_reconstruct(sfd, gi)
+                        splits = sfd.row_splits[gi]
+                        ss = np.asarray(sfd.svd_s[gi])
+                        self.assertTrue(np.all(np.diff(ss, axis=-1) <= 1e-12 * ss[..., :1]))
+                        for jj, ii in enumerate(group):
+                            S_T = M[..., splits[jj]:splits[jj + 1], :]      # (C)+(nDi, nU)
+                            S = np.swapaxes(S_T, -1, -2)
+                            H = np.asarray(sfd.centers[gi][jj])
+                            Gamma = np.einsum('...aub,...avb->...uv', H, H)
+                            scale = np.linalg.norm(Gamma)
+                            self.assertLess(np.linalg.norm(
+                                np.einsum('...ux,...vx->...uv', S, S) - Gamma), 1e-10 * scale)
+                            SO = np.einsum('...ux,...axb->...aub', S, np.asarray(OO[ii]))
+                            self.assertLess(np.linalg.norm(SO - H), 1e-10 * np.linalg.norm(H))
+
+    def test_group_spectrum_matches_dense(self):
+        # svd_s == singular values of the dense concatenated matricizations (M7.1 / test 14b)
+        STRUCTURE = SHARED_STRUCTURES[2]                     # (6,6,6,5), group (0,1,2)
+        for STACK_SHAPE in [(), (2,)]:
+            with self.subTest(STACK_SHAPE=STACK_SHAPE):
+                x_data, _, groups = _tied_data(STRUCTURE, STACK_SHAPE)
+                frame_d, _ = fvc.t3_orthogonal_representations(x_data)
+                sfd = sharing.fv_shared_frame_data(frame_d, groups)
+                group = sharing.nontrivial_groups(groups)[0]
+                n_g = x_data[0][group[0]].shape[-2]
+                dense = np.asarray(t3.TuckerTensorTrain(*x_data).to_dense())
+                for idx in np.ndindex(*STACK_SHAPE) if STACK_SHAPE else [()]:
+                    T = dense[idx]
+                    mats = [np.moveaxis(T, ii, 0).reshape(T.shape[ii], -1) for ii in group]
+                    s_dense = np.linalg.svd(np.concatenate(mats, axis=1), compute_uv=False)
+                    s_g = np.asarray(sfd.svd_s[0])[idx]
+                    self.assertLess(np.linalg.norm(s_g - s_dense[:n_g]), 1e-9 * s_dense[0])
+
+    def test_padded_point_degeneracy(self):
+        # zero-padded shared restart: S_i rows for the new directions are exactly zero and the
+        # trailing group spectrum levels vanish (the restart analysis, handoff v3 section 4.8)
+        shape, n, r, sharing_spec = SHARED_STRUCTURES[2]
+        x_data, _, groups = _tied_data((shape, n, r, sharing_spec), ())
+        x = t3.TuckerTensorTrain(*x_data)
+        xp = x.resize(shape, (4, 4, 4, 2), r)                # group Tucker rank 3 -> 4
+        self.assertTrue(np.allclose(np.asarray(xp.to_dense()), np.asarray(x.to_dense())))
+        frame_d, _ = fvc.t3_orthogonal_representations(xp.data)
+        OO = frame_d[1]
+        sfd = sharing.fv_shared_frame_data(frame_d, groups)
+        group = sharing.nontrivial_groups(groups)[0]
+        for gi, ii in enumerate(group):
+            H = np.asarray(sfd.centers[0][gi])
+            S = np.einsum('...aub,...axb->...ux', H, np.asarray(OO[ii]))   # (nU'=4, nDi)
+            self.assertEqual(float(np.linalg.norm(S[..., 3:, :])), 0.0)   # new row exactly zero
+        ss = np.asarray(sfd.svd_s[0])
+        self.assertLessEqual(float(ss[-1]), 1e-14 * float(ss[0]))         # degenerate group level
+
+    def test_all_singleton_companion_is_empty(self):
+        x = t3.TuckerTensorTrain.randn((4, 5), (2, 3), (1, 2, 1))
+        frame_d, _ = fvc.t3_orthogonal_representations(x.data)
+        groups = sharing.validate_sharing((0, 1), (4, 5))
+        sfd = sharing.fv_shared_frame_data(frame_d, groups)
+        self.assertEqual(sfd.centers, ())
+        self.assertEqual(sfd.svd_s, ())
+        self.assertEqual(sfd.groups, groups)
 
 
 if __name__ == '__main__':

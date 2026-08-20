@@ -2,13 +2,17 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
-"""Shared Tucker factors (SF-T3): the sharing partition and the tied-factors checkers.
+"""Shared Tucker factors (SF-T3): the sharing partition, the tied-factors checkers, and the
+per-frame companion.
 
 ``validate_sharing`` canonicalizes a per-mode label spec into the static ``groups`` form;
 ``t3_sharing_residual`` / ``t3_tucker_factors_shared`` are the non-enforcing tied-factors
 checkers (the safe-mode precondition behind the shared operations); ``t3_share_tucker_cores``
 is the plain per-group mean (drift repair for nearly-tied POINTS -- never the metric
 projection of a tangent, which is geometry-specific and lives with the shared geometry).
+``fv_shared_frame_data`` derives the :py:class:`T3SharedFrameData` companion from an
+orthogonal frame -- the per-group center cores and the thin SVD of the stacked ``S`` factors
+that the shared geometry's projection, retraction, and spectrum diagnostics consume.
 
 A shared T3 is an ordinary Tucker tensor train whose Tucker factors are equal within
 user-specified groups of modes -- the SF-ETT decomposition of Molozhavenko & Rakhuba (2026),
@@ -17,14 +21,19 @@ user-specified groups of modes -- the SF-ETT decomposition of Molozhavenko & Rak
 """
 import numpy as np
 import typing as typ
+from dataclasses import dataclass
 
+import t3toolbox.backend.tt_orthogonalization as tt_orthogonalization
 from t3toolbox.backend.common import *
 
 __all__ = [
     'validate_sharing',
+    'nontrivial_groups',
     't3_sharing_residual',
     't3_tucker_factors_shared',
     't3_share_tucker_cores',
+    'T3SharedFrameData',
+    'fv_shared_frame_data',
 ]
 
 
@@ -83,6 +92,26 @@ def validate_sharing(
                 'modes in a sharing group must have equal mode sizes (one shared factor needs '
                 'one ambient dimension); group %r has sizes %r' % (group, sizes))
     return groups
+
+
+def nontrivial_groups(
+        groups: typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical form (validate_sharing)
+) -> typ.Tuple[typ.Tuple[int, ...], ...]:             # static; the groups with >= 2 modes
+    '''The sharing groups that actually tie anything (two or more modes), in canonical order.
+
+    An all-singleton result means the partition is trivial -- shared operations dispatch to
+    their unshared code paths in that case.
+
+    Examples
+    --------
+    >>> import t3toolbox.backend.sharing as sharing
+    >>> groups = sharing.validate_sharing((0, 1, 1, 2), (4, 5, 5, 6))
+    >>> sharing.nontrivial_groups(groups)
+    ((1, 2),)
+    >>> sharing.nontrivial_groups(sharing.validate_sharing((0, 1, 2), (4, 5, 6)))
+    ()
+    '''
+    return tuple(group for group in groups if len(group) > 1)
 
 
 def _validate_group_tucker_ranks(
@@ -269,3 +298,127 @@ def t3_share_tucker_cores(
         for ii in group:
             new_tucker_cores[ii] = mean       # the SAME array object at every group mode
     return tuple(new_tucker_cores), tuple(tt_cores)
+
+
+@dataclass(frozen=True, eq=False)  # eq=False -> identity hash/eq (array fields; value-eq is ambiguous)
+class T3SharedFrameData:
+    '''The per-frame companion of the shared geometry: everything the tied projection,
+    the shared retraction, and the group-spectrum diagnostics need, derived from an
+    orthogonal frame by :py:func:`fv_shared_frame_data` (never stored inside a frame).
+
+    All array fields carry the frame stack ``C`` leading; ``groups`` / ``row_splits`` are
+    static structure (jax aux). One entry per NONTRIVIAL group (>= 2 modes), in canonical
+    order; ``svd_*`` is the thin SVD of the stacked matrix
+    ``M_g = concat_i(S_i^T)`` -- deliberately an SVD, never a Cholesky/Gram: the solve gets
+    the intrinsic least-squares sensitivity, ``svd_s`` IS the group spectrum ``s_g`` at full
+    (non-squared) accuracy, and the clipped pseudoinverse is well-defined at the
+    rank-deficient points rank continuation visits.
+    '''
+    groups:     tuple  # static; the FULL canonical partition (validate_sharing form)
+    row_splits: tuple  # static; per nontrivial group: cumulative row offsets of the stacked S^T blocks, len=k+1
+    centers:    tuple  # per nontrivial group: tuple of center cores H_i, elm_shape=C+(rLi, nUi, rR(i+1))
+    svd_U:      tuple  # per nontrivial group: left factor of thin SVD of M_g,  shape=C+(sum_nD, q)
+    svd_s:      tuple  # per nontrivial group: singular values of M_g = the group spectrum s_g, C+(q,)
+    svd_Vt:     tuple  # per nontrivial group: right factor of thin SVD of M_g, shape=C+(q, n_g)
+
+
+def fv_shared_frame_data(
+        frame_data: typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+            typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+        ],
+        groups:     typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition (validate_sharing)
+) -> T3SharedFrameData:
+    '''Derive the shared-geometry companion from an **orthogonal** frame.
+
+    Three steps, all exact by construction rather than by tolerance:
+
+    1. **Re-sweep** the frame's stored left chain
+       (``tt_right_orthogonalize(left_tt_cores, return_variation_cores=True)``) -- the SAME
+       computation, on the SAME arrays, that produced the center cores ``H_i`` at frame
+       construction, so the centers here reproduce the constructed ones exactly.
+    2. Per mode of each nontrivial group, ``S_i^T = <O_i, H_i>`` against the frame's STORED
+       down core (``S_i S_i^T = Gamma_i`` and ``W2_i = S_i O2_i`` hold by the construction's
+       own factorization; no re-SVD, so no sign/degenerate-block hazards).
+    3. Per nontrivial group, one thin (batched) SVD of the stacked
+       ``M_g = concat_i(S_i^T)``, shape ``C + (sum_i nD_i, n_g)``.
+
+    Requires an orthogonal frame (the identities above presume the frame's gauges); the
+    shared geometry enforces that in safe mode at its check sites -- this backend function is
+    check-free. ``svd_s`` is the group spectrum: the singular values of the concatenated
+    matricizations ``[X_(i1) | ... | X_(ik)]`` of the represented tensor. Stack-aware (frame
+    stack ``C`` rides every array); ragged path only (uniform twin deferred to the uniform
+    slices). Design + measurements: ``dev/shared_t3_math.tex`` (the tilted subspace and its
+    SVD-not-normal-equations remark).
+
+    Examples
+    --------
+    The companion of a shared frame: the centers reproduce the construction's own centers
+    exactly, and ``svd_s`` is the concatenated-matricization spectrum of the tensor:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.frame_variations_format as bvf
+    >>> import t3toolbox.backend.sharing as sharing
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 6, 6), (3, 3, 3), (1, 2, 2, 1))
+    >>> tk, tt = x.data
+    >>> x = t3.TuckerTensorTrain((tk[0],) * 3, tt)                # tie all three modes
+    >>> frame, variations = bvf.t3_orthogonal_representations(x)
+    >>> groups = sharing.validate_sharing((0, 0, 0), x.shape)
+    >>> sfd = sharing.fv_shared_frame_data(frame.data, groups)
+    >>> print(len(sfd.centers[0]), sfd.svd_s[0].shape, sfd.row_splits[0])
+    3 (3,) (0, 2, 5, 7)
+    >>> print(all(np.array_equal(np.asarray(H), np.asarray(V))
+    ...           for H, V in zip(sfd.centers[0], variations.tt_variations)))
+    True
+    >>> Xd = np.asarray(x.to_dense())
+    >>> mats = [np.moveaxis(Xd, ii, 0).reshape(6, -1) for ii in range(3)]
+    >>> s_dense = np.linalg.svd(np.concatenate(mats, axis=1), compute_uv=False)
+    >>> print(bool(np.allclose(np.asarray(sfd.svd_s[0]), s_dense[:3])))
+    True
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame_data
+    use_jax = tree_contains_jax(frame_data)
+    xnp, _, _ = get_backend(False, use_jax)
+
+    # Re-sweep: the centers H_i, by the construction's own computation on the frame's stored
+    # left chain (exact reproduction; the zipper H_i = Z_i R_i is a measured-viable GEMM-only
+    # alternative if the SVD-based sweep ever shows up in a GPU profile).
+    _, HH = tt_orthogonalization.tt_right_orthogonalize(left_tt_cores, return_variation_cores=True)
+
+    centers, row_splits, svd_U, svd_s, svd_Vt = [], [], [], [], []
+    for group in nontrivial_groups(groups):
+        SS_gT = tuple(
+            xnp.einsum('...axb,...aub->...xu', down_tt_cores[ii], HH[ii])  # S_i^T, C+(nDi, nU)
+            for ii in group)
+        splits = (0,)
+        for S_T in SS_gT:
+            splits = splits + (splits[-1] + S_T.shape[-2],)
+        M = xnp.concatenate(SS_gT, axis=-2)                                # C+(sum nD, nU)
+        U_M, s_g, Vt_M = xnp.linalg.svd(M, full_matrices=False)
+        centers.append(tuple(HH[ii] for ii in group))
+        row_splits.append(splits)
+        svd_U.append(U_M)
+        svd_s.append(s_g)
+        svd_Vt.append(Vt_M)
+
+    return T3SharedFrameData(groups=tuple(groups), row_splits=tuple(row_splits),
+                             centers=tuple(centers), svd_U=tuple(svd_U),
+                             svd_s=tuple(svd_s), svd_Vt=tuple(svd_Vt))
+
+
+if jax_available:
+    import jax
+
+    # The companion is a jax pytree: the per-group arrays (centers + SVD factors) are LEAVES
+    # (they flow as traced data beside the frame), the partition and the static row offsets are
+    # aux_data -- so a companion crossing a jit boundary keeps a stable, static structure key.
+    jax.tree_util.register_pytree_node(
+        T3SharedFrameData,
+        lambda s: ((s.centers, s.svd_U, s.svd_s, s.svd_Vt), (s.groups, s.row_splits)),
+        lambda aux, ch: T3SharedFrameData(groups=aux[0], row_splits=aux[1], centers=ch[0],
+                                          svd_U=ch[1], svd_s=ch[2], svd_Vt=ch[3]),
+    )

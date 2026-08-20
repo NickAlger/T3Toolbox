@@ -342,6 +342,11 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a0, a1, g0, g1:
                             bsharing.t3_share_tucker_cores(((a0, a1), (g0, g1)), (0, 0)),
                             stk[0], stk[1], stt[0], stt[1])
+        # the shared-frame companion (re-sweep + batched thin SVD); groups static, arrays leaves
+        def _shared_frame_data(a, g0, g1):
+            frame, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain((a, a), (g0, g1)))
+            return bsharing.fv_shared_frame_data(frame.data, ((0, 1),))
+        self.assert_jit_jax(_shared_frame_data, stk[0], stt[0], stt[1])
 
     # ---------------------------------------------------- jit bucket: Gauss-Newton fitting (fitting.py)
     def test_jit_fitting(self):
