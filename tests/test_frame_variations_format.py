@@ -7,6 +7,7 @@ import unittest
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.corewise as cw
+import t3toolbox.backend.fv_conversions as fvc
 
 np.random.seed(0)
 tol = 1e-9
@@ -460,6 +461,24 @@ class TestFrameVariationsFormat(unittest.TestCase):
                         self._assert_orthonormal(np.einsum('...iaj,...iak->...jk', L[ii], L[ii]), L[ii].shape[-1])
                     for ii in range(1, d):
                         self._assert_orthonormal(np.einsum('...iaj,...kaj->...ik', R[ii], R[ii]), R[ii].shape[-3])
+
+    def test_orthogonal_representations_squash_tails_flag(self):
+        # Regression: `squash_tails` used to be shadowed by a local helper of the same name, so
+        # `squash_tails=False` silently still squashed. On an already-squashed input the two flag
+        # values agree exactly; on a fat-boundary input (a concatenation) only True collapses the
+        # boundary bonds to 1.
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+        frame_t, var_t = fvc.t3_orthogonal_representations(x.data, squash_tails=True)
+        frame_f, var_f = fvc.t3_orthogonal_representations(x.data, squash_tails=False)
+        for fam_t, fam_f in zip(frame_t + var_t, frame_f + var_f):
+            self._equal_cores(fam_t, fam_f)
+
+        y = (x + x).data                                             # boundary bonds become 2
+        self.assertEqual(np.asarray(y[1][0]).shape[-3], 2)
+        frame_t2, _ = fvc.t3_orthogonal_representations(y, squash_tails=True)
+        self.assertEqual(np.asarray(frame_t2[2][0]).shape[-3], 1)    # left-chain boundary squashed
+        frame_f2, _ = fvc.t3_orthogonal_representations(y, squash_tails=False)
+        self.assertEqual(np.asarray(frame_f2[2][0]).shape[-3], 2)    # ...preserved when skipped
 
     def test_t3frame_is_orthogonal(self):
         # bases from t3_orthogonal_representations are orthogonal

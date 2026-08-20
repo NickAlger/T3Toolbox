@@ -155,16 +155,15 @@ def t3_orthogonal_representations(
 
     if is_uniform:
         # uniform path operates on bare (masked) supercores -- the (n,N)/(rL,n,rR) arrays, not .data.
-        squash_tails = lambda tk, tt: (tk, tt_operations.tt_squash_tails(tt))
         up_orthogonalize_tucker_cores = lambda x: uniform_orth.down_orthogonalize_tucker_supercores(*x)
         down_orthogonalize_tt_cores = lambda x: uniform_orth.up_orthogonalize_tt_supercores(*x)
     else:
-        squash_tails = lambda tk, tt: (tk, tt_operations.tt_squash_tails(tt))
         up_orthogonalize_tucker_cores = ragged_orth.t3_down_orthogonalize_tucker_cores
         down_orthogonalize_tt_cores = ragged_orth.t3_up_orthogonalize_tt_cores
 
     if squash_tails:
-        x = squash_tails(*x)
+        # tt_squash_tails is polymorphic over the representation (ragged core tuple / supercore)
+        x = (x[0], tt_operations.tt_squash_tails(x[1]))
 
     if not already_left_orthogonal:
         # Orthogonalize Tucker cores upward to get up_tt_cores U
