@@ -76,7 +76,12 @@ def t3svd(
     real group runs the two-phase grouped algorithm of :py:func:`_t3svd_shared` for ALL modes
     (Molozhavenko & Rakhuba 2026, Algorithm 1) -- so under truncation, shared and unshared results
     differ even on exactly-shared input; only the lossless case agrees. The returned Tucker
-    singular values carry the GROUP spectrum ``s_g`` at every mode of a group.
+    singular values carry the GROUP spectrum ``s_g`` at every mode of a group: the singular values
+    of the concatenated matricization ``[T_(i1) | ... | T_(ik)]`` of the (phase-1 TT-rounded)
+    tensor -- equivalently the Jacobian spectrum of the shared factor (see
+    :py:class:`~t3toolbox.backend.sharing.T3SharedFrameData`). Scale note: ``sum_j s_gj^2 =
+    k * ||T||^2``, so at group modes the per-mode norm identity ``||ss_tucker[i]|| = ||T||`` is
+    replaced by the ``sqrt(k)``-inflated group version (cancels in condition-number ratios).
     '''
     num_cores = len(x[0])
 

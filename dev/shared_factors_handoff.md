@@ -392,7 +392,21 @@ Aptness diagnostic (`κ_g` vs `κ^loc_i`), termination/selection via sharing-awa
   tangent picture; grouped `t3svd` + the two-phase/singleton note; the two geometries and their
   different post-passes; Batching; Uniform; Scope: memory-vs-compute, **sharing ≠ symmetry**
   (SF-Tucker is explicit; our flagship example is a symmetric tensor — preempt the conflation),
-  weights×sharing deferred, partition user-provided); contributor record
+  weights×sharing deferred, partition user-provided); **plus a dedicated subsection "What the
+  group spectrum is" [added after Nick's slice-8 question — MUST be included]:** the four
+  equivalent faces of `s_g` — (a) singular values of the concatenated matricization
+  `[T_(i1)|…|T_(ik)]` (representation-independent; what SF-Tucker/SF-ETT compute — cite
+  Peshekhonov, Arzhantsev & Rakhuba 2024 AND Molozhavenko & Rakhuba 2026); (b) `s_g² =
+  eig(Σ Γ_i)` summed mode Grams; (c) the Jacobian spectrum of a gauged tied factor motion (why
+  `κ_g` IS the tied subproblem conditioning); (d) an honest single-cut spectrum of the k-fold
+  stacked/lifted tensor (mode-permuted copies along a new axis — the unshared cut intuition
+  survives one level up). Plus: the `√k` scale (`Σs² = k‖T‖²` — cancels in ratios but breaks
+  the per-mode norm invariant at group modes), elementwise domination `s_{g,j} ≥ σ_{i,j}`, the
+  d=2 `[T|Tᵀ]` blend picture, under truncation all phase-3 spectra come from the SAME phase-1
+  tensor (cleaner than the unshared moving-target sweep), and the `T3Weights.from_t3svd`
+  caveat (grouped `ss_tucker` breaks its norm convention — name it in the deferred
+  weights×sharing Scope note). A pointer paragraph in `docs/rank_continuation.md` (grouped
+  edges = one edge; the sharing kwargs). Contributor record
   `docs/contributor/sharing_internals.md` (S_i story + measurements, decision-7 revision,
   embedding design, restart analysis); `getting_started.rst` snippet with `sharing=(0,0,0)`
   (CI-doctested); CHANGELOG (`### Added` + the `!` protocol note for `GeometryOps`).

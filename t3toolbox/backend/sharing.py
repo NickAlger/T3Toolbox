@@ -17,7 +17,10 @@ that the shared geometry's projection, retraction, and spectrum diagnostics cons
 A shared T3 is an ordinary Tucker tensor train whose Tucker factors are equal within
 user-specified groups of modes -- the SF-ETT decomposition of Molozhavenko & Rakhuba (2026),
 "Optimization on the extended tensor-train manifold with shared factors" (Comput. Appl. Math.
-45:221), generalized to an arbitrary partition of the modes into sharing groups.
+45:221), generalized to an arbitrary partition of the modes into sharing groups. The
+shared-factor format originates with SF-Tucker: Peshekhonov, Arzhantsev & Rakhuba (2024),
+"Training a Tucker model with shared factors: a Riemannian optimization approach"
+(AISTATS, PMLR 238).
 """
 import numpy as np
 import typing as typ
@@ -337,6 +340,17 @@ class T3SharedFrameData:
     the intrinsic least-squares sensitivity, ``svd_s`` IS the group spectrum ``s_g`` at full
     (non-squared) accuracy, and the clipped pseudoinverse is well-defined at the
     rank-deficient points rank continuation visits.
+
+    **What ``s_g`` is** (representation-independent -- a property of the represented tensor
+    ``T`` and the partition alone): the singular values of the concatenated matricization
+    ``[T_(i1) | ... | T_(ik)]`` over the group's modes; equivalently
+    ``s_g^2 = eig(sum_i Gamma_i)`` (the summed mode Grams), equivalently the singular values
+    of the Jacobian of ``T`` with respect to a gauged tied motion of the shared factor -- the
+    exact analog of what a per-mode Tucker spectrum is to an unshared factor. Note the scale:
+    every mode carries the full norm, so ``sum_j s_gj^2 = k * ||T||^2`` (a group of ``k``
+    modes inflates the spectrum by ``sqrt(k)``; the factor cancels in every condition-number
+    ratio). Cf. Peshekhonov, Arzhantsev & Rakhuba (2024, SF-Tucker) and Molozhavenko &
+    Rakhuba (2026, SF-ETT), whose algorithms compute this same object.
     '''
     groups:     tuple  # static; the FULL canonical partition (validate_sharing form)
     row_splits: tuple  # static; per nontrivial group: cumulative row offsets of the stacked S^T blocks, len=k+1

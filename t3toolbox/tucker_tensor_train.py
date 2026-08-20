@@ -4206,7 +4206,11 @@ class TuckerTensorTrain:
 
         Shared Tucker factors (``sharing``): tie modes into groups; each group truncates by ONE
         SVD of its concatenated centers, coming back with a single shared basis (the same array
-        at every group mode) and the group spectrum at each group mode:
+        at every group mode) and the group spectrum ``s_g`` at each group mode. ``s_g`` is the
+        singular values of the concatenated matricization ``[T_(i1) | ... | T_(ik)]`` -- the
+        shared factor's analog of a per-mode Tucker spectrum (its Jacobian spectrum; note
+        ``sum(s_g**2) = k * ||T||**2``, so it is ``sqrt(k)``-inflated relative to a single mode --
+        see :py:class:`~t3toolbox.backend.sharing.T3SharedFrameData`):
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
@@ -4357,10 +4361,13 @@ class TuckerTensorTrain:
 
         With ``sharing`` (Tucker factors tied within groups; the T3 must already be tied -- safe mode
         checks), a group's modes are ONE edge: the grouped :py:meth:`t3svd` reports the group spectrum
-        ``s_g`` at every group mode, the group contributes one condition number to the pool, one growth
-        decision applies group-wide (a group counts as ONE ``max_grow`` candidate), and useless-rank
-        removal is the shared one (the group ceiling). Pair with ``resize(..., sharing=...)`` so the
-        zero-padded warm start stays exactly tied (one array per group).
+        ``s_g`` at every group mode (the singular values of the concatenated matricization
+        ``[T_(i1)|...|T_(ik)]`` = the Jacobian spectrum of the shared factor, so its condition number
+        is exactly the tied subproblem's conditioning), the group contributes one condition number to
+        the pool, one growth decision applies group-wide (a group counts as ONE ``max_grow``
+        candidate), and useless-rank removal is the shared one (the group ceiling). Pair with
+        ``resize(..., sharing=...)`` so the zero-padded warm start stays exactly tied (one array per
+        group).
 
         See Also
         --------

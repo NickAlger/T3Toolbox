@@ -314,10 +314,18 @@ def compute_continuation_ranks(
     growth decision applies group-wide (``kappa_guard`` guards ``kappa_g``; ``max_grow`` counts the
     group as ONE candidate; the uniform-bump fallback bumps the group once), and useless-rank
     removal is the shared one (:py:func:`compute_minimal_ranks` with ``sharing`` -- the group
-    ceiling, so a shared rank is never clipped to a single mode's local ceiling). ``kappa_g`` is the
-    conditioning of the tied Tucker subproblem, and is never worse than the group's worst per-mode
-    condition number (it can be far better: under tying, a direction is well-determined if SOME mode
-    of the group informs it).
+    ceiling, so a shared rank is never clipped to a single mode's local ceiling).
+
+    ``s_g`` is representation-independent -- the singular values of the concatenated matricization
+    ``[T_(i1)|...|T_(ik)]``, equivalently the Jacobian spectrum of a gauged tied motion of the
+    shared factor (see :py:class:`~t3toolbox.backend.sharing.T3SharedFrameData`) -- so ``kappa_g``
+    is exactly the conditioning of the tied Tucker subproblem, playing the same role the per-edge
+    condition number plays for unshared edges in Section 5.4.1. It is never worse than the group's
+    worst per-mode condition number, and can be far better (under tying, a direction is
+    well-determined if SOME mode of the group informs it); the ``sqrt(k)`` scale inflation of
+    ``s_g`` cancels in every ratio, so group and singleton edges compete fairly in one pool.
+    Cf. Molozhavenko & Rakhuba (2026, SF-ETT); the shared-factor format originates with SF-Tucker
+    (Peshekhonov, Arzhantsev & Rakhuba, 2024).
     '''
     assert(max_grow is None or max_grow >= 1)
     groups = None
