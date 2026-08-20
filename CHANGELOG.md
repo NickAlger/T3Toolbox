@@ -12,7 +12,7 @@ All notable changes to T3Toolbox are documented here. The format follows
   Rakhuba (2026), generalized from one trailing block to an arbitrary partition; the partition is
   always user-provided). A `sharing` spec is one hashable group label per mode, e.g. `(0, 0, 1)`;
   a shared T3 is an ordinary `TuckerTensorTrain` whose group factors are equal (redundant storage —
-  a compute-not-memory feature). Ragged layer (the uniform mirror is in progress):
+  a compute-not-memory feature). Ragged layer and its full uniform mirror:
   - **The shared geometries** — `shared(MANIFOLD, sharing)` with shorthands `shared_manifold(sharing)`
     / `shared_corewise(sharing)`, exported from the package root: drop-in geometry wrappers for every
     optimizer and fitting model. Projections post-pass onto the tied tangent subspace *in the base
@@ -77,10 +77,10 @@ All notable changes to T3Toolbox are documented here. The format follows
     compile-once path holds for shared fits (one trace across rebuilt same-rank models). All four
     optimizers run shared on the uniform layer; deterministic trajectories match the ragged shared
     runs, and every iterate stays exactly tied.
-  - **Docs**: the user page [`docs/sharing.md`](docs/sharing.md) (the format, the grouped
+  - **Docs**: the user page [`docs/sharing.md`](https://nickalger.github.io/T3Toolbox/sharing.html) (the format, the grouped
     truncation, *what the group spectrum is*, the two geometries, rank machinery, batching,
     uniform, scope — including sharing ≠ symmetry); the design record
-    [`docs/contributor/sharing_internals.md`](docs/contributor/sharing_internals.md); a shared
+    [`docs/contributor/sharing_internals.md`](https://nickalger.github.io/T3Toolbox/contributor/sharing_internals.html); a shared
     section in the CI-doctested getting-started tour; the sharing section of
     `docs/rank_continuation.md`; and the TIED precondition rows in `docs/numerical_contracts.md`.
   - **Weights × sharing** — the combination composes within the existing framework (absorbing keeps
@@ -129,6 +129,57 @@ All notable changes to T3Toolbox are documented here. The format follows
     whole surface is exported from the package root. Docs: `docs/weighting.md`; design records:
     `docs/contributor/weighted_internals.md`.
 
+- **Regularization on the fitting objective** — `regularizer=` on every optimizer
+  (`gradient_descent` / `mc_sgd` / `adam` / `newton_cg`) and on the six model factories, minimizing
+  `½‖ω⊙(S(x) − y)‖² + ρ(x)`. Shipped implementation: `IdentityRegularizer(λ)` = `½λ‖x‖²` — a
+  Hilbert–Schmidt ridge on `MANIFOLD`, weight decay on `COREWISE` — composing with every optimizer,
+  sampling kind, geometry and representation (ragged **and** uniform), with `λ` auto-scaled by
+  `batch/n` in the minibatch steps so the stochastic objective is an unbiased estimate of the full
+  one. Extensible through the small `Regularizer` protocol in `backend/regularization.py`. Docs:
+  `docs/fitting_and_optimization.md` §4.9; example `examples/fit_hilbert_regularized.py`
+  (denoising, with λ chosen by held-out validation).
+
+- **Per-mode residual weighting** — the fitting layer's residual weight `ω` generalizes from a
+  per-order vector to an `ω[mode, order]` matrix, owned by the sampling kind: `probe_model(weight=)`
+  takes a length-`d` per-mode vector and `probe_derivatives_model(weight=)` a `(d, order+1)` matrix
+  (probe is the only kind with a per-mode axis, so `apply`/`entries` stay per-order). A bare vector
+  is still read as per-order, so existing calls are unchanged. Docs:
+  `docs/fitting_and_optimization.md` §4.6; example `examples/fit_per_mode_weight_probes.py`
+  (inverse-noise weighting of a noisier mode).
+
+- **Newton-CG diagnostics** — `newton_cg(..., verbose=True)` prints a per-iteration block (objective
+  and gradient norms, CG statistics, line search, ρ, wall time) plus a per-`(mode, order)`
+  relative-error table, with an optional held-out validation column via `val_sample=` / `val_data=`;
+  the same records are returned in `stats['diagnostics']` and `stats['history']`, and a regularized
+  run splits the objective as `obj = misfit + reg`. Backend-owned
+  (`backend.optimizer_display.make_newton_display` + a `callback=` hook), so a raw-`.data` user gets
+  the identical display; ragged and uniform. Example `examples/fit_probe_display.py`.
+
+- **Newton-CG warm-start controls** — `g0norm_newton` / `g0norm_cg` pin the reference `‖g₀‖` that the
+  Newton stopping test and the CG forcing term are measured against (the computed initial norm is
+  misleadingly small after a rank-continuation warm start; `g0norm_newton` also feeds CG unless
+  `g0norm_cg` is given), and `cg_forcing_power` (default `0.5`) trades CG iterations per Newton step
+  against the number of Newton steps. `NewtonInfo.g0norm` reports the effective reference. Docs:
+  `docs/fitting_and_optimization.md` §5.
+
+- **`chunk_size` for the probe-derivative transpose** — the `𝒥ᵀ` variation assemblies are computed in
+  chunks over the probe stack `W`, trading recompute for peak memory: `chunk_size` (default `100`,
+  `None` = dense) threads through the whole transpose chain and both `T3Tangent` /
+  `UT3Tangent.probe_derivatives_transpose`, and the optimizers accept `chunk_size='auto'` (the
+  default), which sizes it from `x0`'s shapes. The sizing helpers
+  `backend.sampling_derivatives.estimate_chunk_size` / `max_chunk_size_within` are eager (outside
+  `jit`), measure the per-row cost by lowering the real kernel rather than estimating it
+  analytically, and take an `n_shards=` for per-device sizing. Docs: `docs/chunking.md`.
+
+- **Recurrence/scan jets are now the standard derivative path** — the pushthrough, combine and
+  variation-assembly jets are computed by affine two-term recurrences and order-scans rather than by
+  contracting the dense binomial `trs` tensor. The lean forms own the canonical names
+  (`compute_mu_jets`, `compute_eta_jets`, `compute_{sigma,tau}_jets`, `compute_deta_jets`, the tilde
+  twins, and `assemble_{tt,tucker}_variation_jets`); the dense forms remain public as the `*_trs`
+  reference twins (numerically equal, and the test oracle). Under `jit` on the uniform layer this is
+  a large memory win at unchanged accuracy — measured at rank 128, `W`=32000: ~14–28× less XLA
+  temporary for the `eta` jets and 168 GB → 2.63 GB (64×) for the TT-core variation assembly.
+
 ### Changed
 
 - **BREAKING: the backend `optimizers.GeometryOps` protocol** gains an optional `precompute` slot
@@ -149,6 +200,23 @@ All notable changes to T3Toolbox are documented here. The format follows
 - `backend/common.py` gains `prefix_mask` (the boolean prefix indicator shared by every uniform prefix
   structure) and now hosts `require_concrete_masks`, which moved from `backend/ut3_masking.py` — it is
   infrastructure for the uniform *mask-representation contract*, not part of any one object family.
+
+- **`use_jit=True` now converts its inputs to jax instead of silently running eager.** Previously the
+  flag was accepted but ignored unless `x0` / `sample` / `data` were already jax arrays, so a "jit"
+  run could be an eager one (and a meaningless benchmark). Requesting jit is now taken as opting into
+  jax-world precision: `x0`, `problem.sample` and `problem.data` are moved onto jax, the result comes
+  back **jax-backed** (float32 unless `jax_enable_x64` is set), and the call **raises** if jax is not
+  installed. `use_jit` is also now an explicit keyword on `newton_cg` / `mc_sgd` / `adam` rather than
+  arriving through `**kwargs`. Docs: `docs/fitting_and_optimization.md` §4.5.
+
+### Fixed
+
+- `backend.fv_conversions` ignored `squash_tails=False` — the parameter was shadowed inside the
+  function, so the tails were squashed regardless of what the caller asked for.
+- The uniform frame/variation entry points (`ufv_apply_frame_masks`, `ufv_apply_variations_masks`,
+  `ut3frame_to_t3frame`, `ut3variations_to_t3variations`) accepted **traced** masks and failed deep
+  inside jax with a `TracerArrayConversionError`; they now call `require_concrete_masks` and raise the
+  actionable message, like the plain-layer entry points already did.
 
 ### Removed
 

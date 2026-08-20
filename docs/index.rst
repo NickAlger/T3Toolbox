@@ -10,7 +10,9 @@ Tucker tensor trains are also known as **extended tensor trains (ETT)**.
 The library provides the T3 format itself (arithmetic, orthogonalization, T3-SVD), the three
 sampling operations (``entries`` / ``apply`` / ``probe``) and their derivatives, the fixed-rank
 T3 manifold with tangent vectors and Riemannian geometry, least-squares fitting with four
-optimizers, and a mask-based **uniform** (padded, GPU/`jit`-friendly) mirror of the whole stack.
+optimizers (residual weighting, regularization and rank continuation included), optimization over
+**shared Tucker factors** (SF-T3), diagonal **edge weighting** of tensors and tangent coordinates,
+and a mask-based **uniform** (padded, GPU/`jit`-friendly) mirror of the whole stack.
 
 .. toctree::
    :maxdepth: 1
@@ -20,6 +22,7 @@ optimizers, and a mask-based **uniform** (padded, GPU/`jit`-friendly) mirror of 
    design_notes
    contributor_guide
    api_reference
+   release_notes
 
 
 Installation
