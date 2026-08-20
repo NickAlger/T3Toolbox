@@ -41,6 +41,9 @@ def _tied_data(structure, stack_shape):
 
 
 class TestValidateSharing(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed per test
+
     def test_canonical_groups(self):
         # groups ordered by first mode, modes ascending, singletons included; labels any hashables
         self.assertEqual(sharing.validate_sharing((0, 1, 1, 2, 2, 2), (4, 5, 5, 6, 6, 6)),
@@ -61,6 +64,9 @@ class TestValidateSharing(unittest.TestCase):
 
 
 class TestSharingCheckers(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed per test
+
     def test_exactly_tied_residual_is_zero(self):
         for STRUCTURE in SHARED_STRUCTURES:
             for STACK_SHAPE in STACK_SHAPES:
@@ -124,6 +130,9 @@ class TestSharingCheckers(unittest.TestCase):
 
 
 class TestShareTuckerCores(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed per test
+
     def test_mean_and_identity_assignment(self):
         for STRUCTURE in SHARED_STRUCTURES:
             for STACK_SHAPE in STACK_SHAPES:
@@ -163,6 +172,9 @@ def _dense_group_svals(x_dense, group):
 
 
 class TestGroupedT3svd(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed per test
+
     def _assert_bit_identical(self, res_a, res_b):
         (xa, ska, sta), (xb, skb, stb) = res_a, res_b
         for fam_a, fam_b in zip(xa, xb):
@@ -347,6 +359,9 @@ def _untie_representation(x_data):
 
 
 class TestShareTuckerFactors(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed per test
+
     def test_exact_recovery_from_unshared_representation(self):
         # test 6: densified-shared recovery -- a shared tensor with an untied representation
         # comes back exactly, tied, at the true shared ranks
@@ -435,6 +450,9 @@ class TestShareTuckerFactors(unittest.TestCase):
 
 class TestSharedFrameData(unittest.TestCase):
     """Permanent invariants of the shared-frame companion (the S_i machinery)."""
+    def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed per test
+
 
     @staticmethod
     def _svd_reconstruct(sfd, gi):
@@ -579,6 +597,9 @@ def _dense_tied_projector(frame_d, groups, variation_shapes):
 
 class TestSharedPostPass(unittest.TestCase):
     """The tied post-pass (manifold Gram/SVD solve + corewise mean) and its threading."""
+    def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed per test
+
 
     def test_matches_dense_projection(self):
         # matrix test 7a: project a random dense tensor onto the tied tangent subspace through
@@ -727,6 +748,9 @@ class TestSharedPostPass(unittest.TestCase):
 
 class TestSharedGeometry(unittest.TestCase):
     """The frontend wrapper: retraction axioms, gradient consistency, optimizer integration."""
+    def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed per test
+
 
     @staticmethod
     def _tied_point(structure):
