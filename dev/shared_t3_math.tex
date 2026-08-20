@@ -299,6 +299,23 @@ composition argument, with the shared-HOSVD stage now acting on unshared
 input).
 \end{lemma}
 
+\begin{remark}[Implementation form: exact rewrite, defer all selection to the
+rounding]
+T3Toolbox implements only step (1)'s stacked-factor SVD, as an \emph{exact}
+common-span rewrite: the factor coefficients are the SVD's own row blocks
+($B_i = W_{[i]} \operatorname{diag}(s)\, V^\top$, valid for arbitrary --- not
+necessarily orthonormal --- input factors), the shared factor becomes
+$V^\top$ (group rank $m = \min(\sum_i n_i, N_g)$), and ALL rank/tolerance
+selection is deferred to the grouped rounding
+(Algorithm~\ref{alg:rounding}). This is equivalent to steps (2)--(3): the
+optimal shared basis lies in the span of the group's factors, and the group
+spectrum is representation-independent, so the rounding on the rewritten
+representation selects the same subspace and reports the same $s_g$; the
+explicit small SVD of steps (2)--(3) is an optional efficiency device
+(pre-shrinking the group rank before the TT sweep), at the cost of a second
+truncation stage.
+\end{remark}
+
 \section{Fixed-rank geometry with tied factors}\label{sec:geometry}
 
 Let $\Mnr$ denote the manifold of fixed-rank T3s and

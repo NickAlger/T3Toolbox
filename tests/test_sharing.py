@@ -329,6 +329,105 @@ class TestGroupedT3svd(unittest.TestCase):
         x.t3svd(sharing=(0, 1, 2))                          # all-singleton: no tie required
 
 
+def _untie_representation(x_data):
+    """Rotate each mode's factor by a random orthogonal Q (core absorbs Q^T): same tensor,
+    untied factors."""
+    tk, tt = [list(c) for c in x_data]
+    for ii in range(len(tk)):
+        n = tk[ii].shape[-2]
+        Q = np.linalg.qr(np.random.randn(n, n))[0]
+        tk[ii] = Q @ np.asarray(tk[ii])
+        tt[ii] = np.einsum('...aub,xu->...axb', np.asarray(tt[ii]), Q)
+    return tuple(tk), tuple(tt)
+
+
+class TestShareTuckerFactors(unittest.TestCase):
+    def test_exact_recovery_from_unshared_representation(self):
+        # test 6: densified-shared recovery -- a shared tensor with an untied representation
+        # comes back exactly, tied, at the true shared ranks
+        for STRUCTURE in SHARED_STRUCTURES[1:3]:
+            with self.subTest(STRUCTURE=STRUCTURE):
+                shape, n, r, spec = STRUCTURE
+                x_data, _, groups = _tied_data(STRUCTURE, ())
+                x_dense = np.asarray(t3.TuckerTensorTrain(*x_data).to_dense())
+                x_un = _untie_representation(x_data)
+                self.assertGreater(float(np.asarray(
+                    sharing.t3_sharing_residual(x_un, spec))), 1e-3)     # genuinely untied
+                y, _, _ = bt3svd.t3_share_tucker_factors(x_un, spec, rtol=1e-12)
+                yT = t3.TuckerTensorTrain(*y)
+                self.assertTrue(np.allclose(np.asarray(yT.to_dense()), x_dense))
+                self.assertEqual(yT.tucker_ranks, n)
+                self.assertEqual(yT.tt_ranks, r)
+                for group in sharing.nontrivial_groups(groups):
+                    for ii in group[1:]:
+                        self.assertIs(y[0][ii], y[0][group[0]])
+
+    def test_agrees_with_grouped_t3svd_on_shared_input(self):
+        # at equal truncation settings (rtol, or caps), share == grouped t3svd on tied input
+        x_data, spec, _ = _tied_data(SHARED_STRUCTURES[2], ())
+        for kwargs in [dict(rtol=1e-12), dict(max_tucker_ranks=(2, 2, 2, 2))]:
+            with self.subTest(kwargs=kwargs):
+                a, ska, _ = bt3svd.t3_share_tucker_factors(x_data, spec, **kwargs)
+                b, skb, _ = bt3svd.t3svd(x_data, sharing=spec, **kwargs)
+                self.assertTrue(np.allclose(
+                    np.asarray(t3.TuckerTensorTrain(*a).to_dense()),
+                    np.asarray(t3.TuckerTensorTrain(*b).to_dense())))
+                self.assertEqual(t3.TuckerTensorTrain(*a).tucker_ranks,
+                                 t3.TuckerTensorTrain(*b).tucker_ranks)
+                self.assertTrue(np.allclose(np.asarray(ska[0]), np.asarray(skb[0])))
+
+    def test_quasi_optimality_on_low_rank_plus_noise(self):
+        # err <= C(d) * ||noise|| when a shared tensor at the target ranks exists
+        shape, n, r, spec = SHARED_STRUCTURES[2]
+        d = len(shape)
+        x_data, _, _ = _tied_data((shape, n, r, spec), ())
+        x_un = _untie_representation(x_data)
+        noise = t3.TuckerTensorTrain.randn(shape, (2, 2, 2, 2), (1, 2, 2, 2, 1))
+        eps = 1e-4 * float(np.linalg.norm(t3.TuckerTensorTrain(*x_data).to_dense())) \
+            / float(np.linalg.norm(noise.to_dense()))
+        noisy = t3.TuckerTensorTrain(*x_un) + t3.TuckerTensorTrain(
+            noise.data[0], (np.asarray(noise.data[1][0]) * eps,) + tuple(noise.data[1][1:]))
+        y, _, _ = bt3svd.t3_share_tucker_factors(noisy.data, spec,
+                                                 max_tucker_ranks=n, max_tt_ranks=r)
+        err = np.linalg.norm(np.asarray(t3.TuckerTensorTrain(*y).to_dense())
+                             - np.asarray(noisy.to_dense()))
+        C_d = np.sqrt(d) + np.sqrt(d) * np.sqrt(d - 1) + np.sqrt(d - 1)
+        self.assertLessEqual(err, C_d * eps * float(np.linalg.norm(noise.to_dense())))
+
+    def test_all_singleton_dispatches_to_plain_t3svd(self):
+        x = t3.TuckerTensorTrain.randn((6, 5, 4), (3, 2, 2), (1, 2, 2, 1))
+        a, _, _ = bt3svd.t3_share_tucker_factors(x.data, (0, 1, 2))
+        b, _, _ = bt3svd.t3svd(x.data)
+        for fam_a, fam_b in zip(a, b):
+            for A, B in zip(fam_a, fam_b):
+                self.assertTrue(np.array_equal(np.asarray(A), np.asarray(B)))
+
+    def test_stacked_caps_match_per_element(self):
+        shape, n, r, spec = SHARED_STRUCTURES[2]
+        x_data, _, _ = _tied_data((shape, n, r, spec), (2,))
+        x_un = _untie_representation(x_data)                 # same rotations across the stack
+        y, _, _ = bt3svd.t3_share_tucker_factors(x_un, spec, max_tucker_ranks=(2, 2, 2, 2),
+                                                 max_tt_ranks=(1, 2, 2, 2, 1))
+        yT = t3.TuckerTensorTrain(*y)
+        self.assertIs(y[0][0], y[0][1])
+        for ee in range(2):
+            xe = (tuple(np.asarray(B)[ee] for B in x_un[0]),
+                  tuple(np.asarray(G)[ee] for G in x_un[1]))
+            ye, _, _ = bt3svd.t3_share_tucker_factors(xe, spec, max_tucker_ranks=(2, 2, 2, 2),
+                                                      max_tt_ranks=(1, 2, 2, 2, 1))
+            self.assertTrue(np.allclose(
+                np.asarray(yT.to_dense())[ee],
+                np.asarray(t3.TuckerTensorTrain(*ye).to_dense()), atol=1e-9))
+
+    def test_frontend_share_method(self):
+        x_data, spec, _ = _tied_data(SHARED_STRUCTURES[1], ())
+        x_un = t3.TuckerTensorTrain(*_untie_representation(x_data))
+        y = x_un.share(spec, rtol=1e-12)
+        self.assertIsInstance(y, t3.TuckerTensorTrain)
+        self.assertIs(y.data[0][0], y.data[0][1])
+        self.assertTrue(np.allclose(np.asarray(y.to_dense()), np.asarray(x_un.to_dense())))
+
+
 class TestSharedFrameData(unittest.TestCase):
     """Permanent invariants of the shared-frame companion (the S_i machinery)."""
 

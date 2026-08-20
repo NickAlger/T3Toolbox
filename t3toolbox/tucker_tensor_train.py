@@ -4181,6 +4181,68 @@ class TuckerTensorTrain:
         )
         return TuckerTensorTrain(*result[0]), result[1], result[2]
 
+    def share(
+            self,
+            sharing:            typ.Sequence,                           # len=d; one hashable group label per mode
+            max_tt_ranks:       typ.Union[int, Sequence[int]] = None,   # scalar (caps all) or len=d+1
+            max_tucker_ranks:   typ.Union[int, Sequence[int]] = None,   # scalar or len=d; equal within groups
+            rtol: float = None,
+            atol: float = None,
+    ) -> 'TuckerTensorTrain':
+        '''Project onto the shared-Tucker-factors (SF-T3) format: one Tucker factor per sharing group.
+
+        The quasi-optimal shared initializer: per group, the shared basis is the dominant left
+        singular subspace of the concatenated matricizations ``[X_(i1) | ... | X_(ik)]`` (computed
+        from small matrices -- the large dimension is touched once per group), each mode is
+        projected onto it, and the result is rounded by the grouped :py:meth:`t3svd`. The output's
+        group factors are exactly tied (one shared array per group). Unlike
+        ``t3svd(sharing=...)``, the input's factors need NOT be tied -- this is how you *enter*
+        the shared format. Quasi-optimal w.r.t. the best shared approximation with constant
+        ``C(d) = sqrt(d) + sqrt(d)*sqrt(d-1) + sqrt(d-1)``.
+
+        Without any cap or tolerance the result is the lossless common-span rewrite (the group
+        rank is the structural span of the stacked factors, ``min(sum_i n_i, N_g)``); pass
+        ``rtol`` or caps to select the numerical shared rank, exactly as with :py:meth:`t3svd`.
+        For the grouped spectra, call ``t3svd(sharing=...)`` on the (now tied) result.
+
+        Examples
+        --------
+        A shared tensor whose *representation* has been unshared (per-mode rotations of the
+        factors; the tensor is unchanged) is recovered exactly, tied, at the true shared ranks:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
+        >>> x0 = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
+        >>> tk, tt = x0.data
+        >>> x_sh = t3.TuckerTensorTrain((tk[0], tk[0], tk[2]), tt)      # a tied point
+        >>> tk2, tt2 = [list(c) for c in x_sh.data]
+        >>> for i in range(3):                                          # untie the representation
+        ...     Q = np.linalg.qr(np.random.randn(tk2[i].shape[0], tk2[i].shape[0]))[0]
+        ...     tk2[i] = Q @ np.asarray(tk2[i])
+        ...     tt2[i] = np.einsum('aub,xu->axb', np.asarray(tt2[i]), Q)
+        >>> x_un = t3.TuckerTensorTrain(tuple(tk2), tuple(tt2))
+        >>> print(np.allclose(x_un.to_dense(), x_sh.to_dense()))        # same tensor, untied factors
+        True
+        >>> y = x_un.share((0, 0, 1), rtol=1e-12)
+        >>> print(np.allclose(y.to_dense(), x_sh.to_dense()), y.tucker_ranks,
+        ...       y.data[0][0] is y.data[0][1])
+        True (3, 3, 2) True
+
+        On a generic (not exactly shared) tensor, ``share`` finds the best-shared-format
+        projection at the requested ranks -- the error is the price of tying:
+
+        >>> z = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
+        >>> zs = z.share((0, 0, 1), max_tucker_ranks=(3, 3, 2), max_tt_ranks=(1, 2, 2, 1))
+        >>> rel_err = float(np.linalg.norm(zs.to_dense() - z.to_dense()) / np.linalg.norm(z.to_dense()))
+        >>> print(zs.data[0][0] is zs.data[0][1], bool(0.0 < rel_err < 1.0))
+        True True
+        '''
+        result = ragged_t3svd.t3_share_tucker_factors(
+            self.data, sharing,
+            max_tt_ranks=max_tt_ranks, max_tucker_ranks=max_tucker_ranks, rtol=rtol, atol=atol)
+        return TuckerTensorTrain(*result[0])
+
     def continuation_ranks(
             self: 'TuckerTensorTrain',
             tau:         float = 10.0,   # grow an edge only if kappa_i < kappa_max / tau  (tau > 1)

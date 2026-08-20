@@ -25,6 +25,7 @@ from t3toolbox.backend.common import *
 __all__ = [
     't3svd',
     't3_rank_adjustment_sweep',
+    't3_share_tucker_factors',
     'dense_tucker_svd',
     'dense_ttsvd',
     'dense_t3svd',
@@ -341,6 +342,78 @@ def t3_rank_adjustment_sweep(
     else:
         raise ValueError("direction must be 'left_to_right' or 'right_to_left'; got %r" % (direction,))
     return x
+
+
+def t3_share_tucker_factors(
+        x: typ.Tuple[
+            typ.Tuple[NDArray, ...],  # tucker_cores; factors may be arbitrary (untied)
+            typ.Tuple[NDArray, ...],  # tt_cores
+        ],
+        sharing:            typ.Sequence,  # len=d, static; one hashable group label per mode
+        max_tt_ranks:       typ.Sequence[int] = None,  # len=d+1 (or scalar); passed to the grouped t3svd
+        max_tucker_ranks:   typ.Sequence[int] = None,  # len=d (or scalar); equal within groups
+        rtol: float = None,
+        atol: float = None,
+) -> typ.Tuple[
+    typ.Tuple[
+        typ.Tuple[NDArray, ...],  # new_tucker_cores; ONE shared array per group
+        typ.Tuple[NDArray, ...],  # new_tt_cores
+    ],
+    typ.Tuple[NDArray,...], # Tucker singular values, len=d; group modes carry the group spectrum
+    typ.Tuple[NDArray,...], # TT singular values, len=d+1
+]:
+    '''Quasi-optimal projection of an arbitrary (unshared) T3 onto the shared format.
+
+    The shared initializer (``dev/shared_t3_math.tex``, Algorithm 3, simplified): two steps.
+
+    1. **Exact common-span rewrite**, per group: one SVD of the row-stacked factors
+       ``[B_{i_1}; ...; B_{i_k}] = W diag(s) V^T`` gives the common basis (``V^T``'s rows span
+       every group factor's rows) and, for free, each factor's exact coefficients in it
+       (``B_i = (W_i diag(s)) V^T`` -- the SVD's own row blocks). The shared factor ``V^T`` is
+       assigned as ONE array per group and each group core's up leg absorbs its coefficient
+       block. This is a LOSSLESS re-representation (no orthogonality assumptions on the
+       input); the group rank becomes the structural span ``m = min(sum_i n_i, N_g)``.
+    2. The grouped :py:func:`t3svd` at the requested ranks/tolerances does ALL the selection
+       (the optimal shared basis lies in the span of the group's factors, so nothing is lost
+       to step 1; the large dimension ``N_g`` is touched only in step 1's stacked SVD).
+
+    On an already-shared input this reports exactly the grouped ``t3svd``'s spectra (the
+    rewrite changes the representation, not the tensor, and the group spectrum is
+    representation-independent), and the result is quasi-optimal with respect to the best
+    shared approximation with the constant ``C(d) = sqrt(d) + sqrt(d) sqrt(d-1) + sqrt(d-1)``
+    (the composition argument of the grouped rounding). Singleton-only partitions reduce to
+    the plain :py:func:`t3svd`. Stack-aware (tolerances require an unstacked input, as
+    everywhere). Without any cap or tolerance the result is the lossless common-span rewrite
+    at rank ``m`` -- dropping numerically-zero directions requires a tolerance, exactly as in
+    the unshared ``t3svd``.
+    '''
+    shape = tuple(B.shape[-1] for B in x[0])
+    groups = sharing_module.validate_sharing(sharing, shape)
+    nontrivial = sharing_module.nontrivial_groups(groups)
+    if not nontrivial:
+        return t3svd(x, max_tt_ranks=max_tt_ranks, max_tucker_ranks=max_tucker_ranks,
+                     rtol=rtol, atol=atol)
+
+    use_jax = tree_contains_jax(x)
+    xnp, _, _ = get_backend(False, use_jax)
+
+    new_tucker = list(x[0])
+    new_tt = list(x[1])
+    for group in nontrivial:
+        # common row basis of the group's factors + exact per-factor coefficients, one SVD
+        B_stack = xnp.concatenate([new_tucker[ii] for ii in group], axis=-2)  # C+(sum n_i, N)
+        W_q, s_q, Vt_q = xnp.linalg.svd(B_stack, full_matrices=False)         # basis rows: C+(m, N)
+        offsets = np.cumsum([0] + [new_tucker[ii].shape[-2] for ii in group])
+        for jj, ii in enumerate(group):
+            W_block = W_q[..., offsets[jj]:offsets[jj + 1], :]                # C+(n_i, m)
+            P_i = xnp.einsum('...ux,...x->...ux', W_block, s_q)               # B_i = P_i @ Vt_q, exact
+            new_tucker[ii] = Vt_q                             # the SAME array object at every group mode
+            new_tt[ii] = xnp.einsum('...aub,...ux->...axb', new_tt[ii], P_i)
+
+    # step 2: the grouped rounding does ALL the rank/tolerance selection
+    return t3svd((tuple(new_tucker), tuple(new_tt)),
+                 max_tt_ranks=max_tt_ranks, max_tucker_ranks=max_tucker_ranks,
+                 rtol=rtol, atol=atol, sharing=sharing)
 
 
 def dense_tucker_svd(
