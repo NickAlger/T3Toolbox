@@ -67,9 +67,11 @@ Everything below is importable directly from ``t3toolbox``.
   :py:func:`~t3toolbox.optimizers.gradient_descent`, :py:func:`~t3toolbox.optimizers.mc_sgd`,
   :py:func:`~t3toolbox.optimizers.adam`, :py:func:`~t3toolbox.optimizers.newton_cg`.
   Ragged vs uniform is inferred from the initial guess ``x0``.
-- ``Regularizer`` / ``IdentityRegularizer`` (in :py:mod:`~t3toolbox.optimizers`, defined in
-  :py:mod:`~t3toolbox.backend.regularization`) -- the optional objective term ``ρ(x)``
-  (:doc:`fitting_and_optimization` §4.9).
+- ``Regularizer`` / ``IdentityRegularizer`` -- the optional objective term ``ρ(x)``
+  (:doc:`fitting_and_optimization` §4.9). These are the one exception to the rule above: they are
+  **not** re-exported at the package root, so import them from the module --
+  ``import t3toolbox.optimizers as topt; topt.IdentityRegularizer(1e-3)`` (defined in
+  :py:mod:`~t3toolbox.backend.regularization`).
 
 **Safety**
 
