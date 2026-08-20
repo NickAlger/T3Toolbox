@@ -1212,6 +1212,101 @@ class TestUniformSharedTangent(unittest.TestCase):
         self.assertTrue(np.allclose(np.asarray(y_clean[1]), np.asarray(y_dirty[1])))
 
 
+class TestUniformSharedGeometry(unittest.TestCase):
+    """Slice 11: the shared uniform geometry surface -- SharedGeometry over the uniform singletons,
+    the geometry factories, and the fitting gates. Deterministic runs must MATCH the ragged shared
+    runs (the equivalence contract on whole optimizer trajectories); recovery must stay tied."""
+
+    def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed per test
+
+    @staticmethod
+    def _problem(shape, spec):
+        A = _tied_t3(shape, (3, 3, 3), (1, 3, 3, 1), spec)
+        ww = [np.random.randn(150, N) for N in shape]
+        ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
+        return A, ww, A.apply(ww)
+
+    def test_trajectories_match_ragged_and_recovery_stays_tied(self):
+        import t3toolbox.uniform_manifold as um
+        shape, spec = (6, 6, 5), (0, 0, 1)
+        A, ww, b = self._problem(shape, spec)
+        Ad = np.asarray(A.to_dense())
+        # deterministic gradient descent from a tied NONZERO, SHARED-MINIMAL start (an exact-zero
+        # start has an arbitrary orthogonal completion in its frame, and a non-minimal start is
+        # transparently reduced on the uniform path only -- both legitimately diverge the layers)
+        x00 = _tied_t3(shape, (3, 3, 2), (1, 3, 2, 1), spec)
+        X0 = t3.TuckerTensorTrain(x00.tucker_cores, tuple(0.5 * np.asarray(G) for G in x00.tt_cores))
+        uX0 = ut3.UniformTuckerTensorTrain.from_t3(X0)
+        xr, s_r = optimizers.gradient_descent(sg.shared_manifold(spec), 'apply', ww, b, X0, n_iter=8)
+        xu, s_u = optimizers.gradient_descent(sg.shared(um.UNIFORM_MANIFOLD, spec), 'apply', ww, b,
+                                              uX0, n_iter=8)
+        self.assertIsInstance(xu, ut3.UniformTuckerTensorTrain)
+        self.assertTrue(np.allclose(s_r['losses'], s_u['losses']))
+        self.assertTrue(np.allclose(np.asarray(xu.to_dense()), np.asarray(xr.to_dense()), atol=1e-8))
+        self.assertTrue(np.all(np.asarray(xu.has_shared_tucker_factors(spec))))
+        # corewise: the additive geometry, tied start
+        x0c = t3.TuckerTensorTrain(x00.tucker_cores, tuple(0.3 * np.asarray(G) for G in x00.tt_cores))
+        ux0c = ut3.UniformTuckerTensorTrain.from_t3(x0c)
+        xr2, _ = optimizers.gradient_descent(sg.shared_corewise(spec), 'apply', ww, b, x0c, n_iter=8)
+        xu2, _ = optimizers.gradient_descent(sg.shared(um.UNIFORM_COREWISE, spec), 'apply', ww, b,
+                                             ux0c, n_iter=8)
+        self.assertTrue(np.allclose(np.asarray(xu2.to_dense()), np.asarray(xr2.to_dense()), atol=1e-8))
+        self.assertTrue(np.all(np.asarray(xu2.has_shared_tucker_factors(spec))))
+        # newton_cg at the true shared ranks: recovers, every output tied
+        uX03 = ut3.UniformTuckerTensorTrain.from_t3(
+            t3.TuckerTensorTrain.zeros(shape, (3, 3, 3), (1, 3, 3, 1)))
+        xu3, _ = optimizers.newton_cg(sg.shared(um.UNIFORM_MANIFOLD, spec), 'apply', ww, b, uX03,
+                                      max_newton=25)
+        rel = float(np.linalg.norm(np.asarray(xu3.to_dense()) - Ad) / np.linalg.norm(Ad))
+        self.assertLess(rel, 1e-8)
+        self.assertTrue(np.all(np.asarray(xu3.has_shared_tucker_factors(spec))))
+
+    def test_model_invariants_match_ragged(self):
+        # the frontend fitting-model path: shared uniform GaussNewton model == shared ragged model on
+        # every gauge-invariant quantity; the companion rides as the model's geometry_aux leaf
+        import t3toolbox.uniform_manifold as um
+        from t3toolbox.backend.regularization import IdentityRegularizer
+        shape, spec = (6, 6, 5), (0, 0, 1)
+        x = _tied_t3(shape, (3, 3, 2), (1, 3, 2, 1), spec)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        ww = [np.random.randn(15, N) for N in shape]
+        r = np.asarray(x.apply(ww)) - np.random.randn(15)
+        mr = fitting.apply_model(sg.shared_manifold(spec), x, ww, r)
+        mu = fitting.apply_model(sg.shared(um.UNIFORM_MANIFOLD, spec), ux, ww, r)
+        self.assertIsInstance(mu.geometry_aux, sharing.T3SharedFrameData)
+        self.assertTrue(np.isclose(float(mr.objective_value), float(mu.objective_value)))
+        self.assertTrue(np.isclose(float(mr.gradient.corewise_inner(mr.gradient)),
+                                   float(mu.gradient.corewise_inner(mu.gradient))))
+        self.assertTrue(np.isclose(float(mr.gn_quadratic(mr.gradient)),
+                                   float(mu.gn_quadratic(mu.gradient))))
+        self.assertTrue(np.isclose(float(mr.gradient.corewise_inner(mr.gn_hessian(mr.gradient))),
+                                   float(mu.gradient.corewise_inner(mu.gn_hessian(mu.gradient)))))
+        mu_reg = fitting.apply_model(sg.shared(um.UNIFORM_MANIFOLD, spec), ux, ww, r,
+                                     regularizer=IdentityRegularizer(0.1))
+        mr_reg = fitting.apply_model(sg.shared_manifold(spec), x, ww, r,
+                                     regularizer=IdentityRegularizer(0.1))
+        self.assertTrue(np.isclose(float(mu_reg.objective_value), float(mr_reg.objective_value)))
+
+    def test_layer_mismatch_gates(self):
+        # a SharedGeometry's base layer must match the point's layer, both directions
+        import t3toolbox.uniform_manifold as um
+        shape, spec = (6, 6, 5), (0, 0, 1)
+        x = _tied_t3(shape, (2, 2, 2), (1, 2, 2, 1), spec)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        ww = [np.random.randn(10, N) for N in shape]
+        b = x.apply(ww)
+        with self.assertRaises(ValueError):
+            optimizers.gradient_descent(sg.shared(um.UNIFORM_MANIFOLD, spec), 'apply', ww, b, x,
+                                        n_iter=1)
+        with self.assertRaises(ValueError):
+            optimizers.gradient_descent(sg.shared_manifold(spec), 'apply', ww, b, ux, n_iter=1)
+        with self.assertRaises(ValueError):
+            fitting.apply_model(sg.shared(um.UNIFORM_MANIFOLD, spec), x, ww, np.zeros(10))
+        with self.assertRaises(ValueError):
+            fitting.apply_model(sg.shared_manifold(spec), ux, ww, np.zeros(10))
+
+
 class TestSharedMinimalRanksGroundTruth(unittest.TestCase):
     """Shared minimal ranks == generic dense edge-cut ranks of a TIED T3 (non-circular ground truth;
     mirrors the unshared test_compute_minimal_ranks_matches_matricization). The hand-worked expected

@@ -66,8 +66,17 @@ All notable changes to T3Toolbox are documented here. The format follows
     doubled-rank embedding: `Udot` at every group mode, the companion's centers replacing the down
     cores, the variation block rebuilt at the up width) / `utv_retract` (tied embedding + the grouped
     `ut3svd`). Verified gauge-invariantly against the ragged twins (dense tangents/points at
-    machine precision; outputs exactly tied) — the shared uniform geometries and fitting path land
-    next.
+    machine precision; outputs exactly tied).
+  - **Uniform mirror, shared geometries + fitting** — `shared(UNIFORM_MANIFOLD, sharing)` /
+    `shared(UNIFORM_COREWISE, sharing)`: the `SharedGeometry` wrapper now takes the uniform
+    singletons too (uniform points/frames/tangents in and out; same value-hashed identity), the
+    backend factories take `sharing=` (`uniform_geometry_ops` and both singles — the closures
+    capture the partition beside the masks and populate `precompute` with the uniform companion),
+    `uniform_least_squares_problem(sharing=)` with a shared-minimal gate, and the frontend fitting
+    models carry the companion as a `geometry_aux` leaf (`UniformGaussNewtonModel`), so the packed
+    compile-once path holds for shared fits (one trace across rebuilt same-rank models). All four
+    optimizers run shared on the uniform layer; deterministic trajectories match the ragged shared
+    runs, and every iterate stays exactly tied.
   - Backend surface in `backend.sharing` (`validate_sharing`, `t3_sharing_residual`,
     `t3_tucker_factors_shared`, `t3_share_tucker_cores`, `T3SharedFrameData` +
     `fv_shared_frame_data`, the tied post-passes) and `backend.t3_svd.t3_share_tucker_factors`.

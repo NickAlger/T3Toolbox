@@ -74,6 +74,10 @@ def _geometry_ops(geometry, shape=None) -> bopt.GeometryOps:
     if geometry is t3m.COREWISE:
         return bopt.COREWISE_OPS
     if isinstance(geometry, sg.SharedGeometry):
+        if geometry.is_uniform:
+            raise ValueError("a ragged TuckerTensorTrain x0 requires a SharedGeometry over a RAGGED "
+                             "base (manifold.MANIFOLD / manifold.COREWISE); this one wraps a uniform "
+                             "base -- pass a UniformTuckerTensorTrain x0 instead")
         if shape is None:
             raise ValueError("a SharedGeometry needs the point's shape to canonicalize its "
                              "sharing partition (internal: pass shape=x0.shape)")
@@ -85,14 +89,22 @@ def _geometry_ops(geometry, shape=None) -> bopt.GeometryOps:
                      f"UniformTuckerTensorTrain x0)")
 
 
-def _uniform_geometry_name(geometry) -> str:
-    """Map a **uniform** frontend geometry singleton to the backend geometry name (``'manifold'`` / ``'corewise'``)."""
+def _uniform_geometry_name(geometry) -> typ.Tuple[
+    str,                          # backend geometry name: 'manifold' | 'corewise'
+    typ.Optional[typ.Tuple],      # the sharing labels (None = unshared)
+]:
+    """Map a **uniform** frontend geometry (a singleton, or a :py:class:`SharedGeometry` over one)
+    to the backend geometry name plus its sharing labels (``None`` for the plain singletons)."""
     if geometry is ut3m.UNIFORM_MANIFOLD:
-        return 'manifold'
+        return 'manifold', None
     if geometry is ut3m.UNIFORM_COREWISE:
-        return 'corewise'
+        return 'corewise', None
+    if isinstance(geometry, sg.SharedGeometry) and geometry.is_uniform:
+        name = 'manifold' if geometry.base is ut3m.UNIFORM_MANIFOLD else 'corewise'
+        return name, geometry.sharing
     raise ValueError(f"a UniformTuckerTensorTrain x0 requires a uniform geometry "
-                     f"(uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE), got {geometry!r}")
+                     f"(uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE, or a "
+                     f"shared_geometry.SharedGeometry over one), got {geometry!r}")
 
 
 def _check_kind(kind: str, order: typ.Optional[int]) -> None:
@@ -172,11 +184,11 @@ def _setup(
     wm = _fitting._canonical_weight(weight, kind, _n_modes(kind, sample), order or 0)   # 2-D ω[m,o] or None
 
     if isinstance(x0, ut3.UniformTuckerTensorTrain):
-        geom_name = _uniform_geometry_name(geometry)
-        x0m = uf.uniform_minimal(x0)                     # transparent minimal-rank reduction (no-op if minimal)
+        geom_name, sharing_spec = _uniform_geometry_name(geometry)
+        x0m = uf.uniform_minimal(x0, sharing=sharing_spec)   # transparent SHARED-minimal reduction (no-op if minimal)
         cs = _resolve_chunk_size(chunk_size, kind, x0m, sample, order, batch)   # 'auto' -> balanced (probe only)
         problem = uf.uniform_least_squares_problem(geom_name, kind, x0m, sample, data, order, wm, regularizer,
-                                                   chunk_size=cs)
+                                                   chunk_size=cs, sharing=sharing_spec)
         init = (x0m.tucker_supercore, x0m.tt_supercore)  # optimizer state = the bare supercore pair
         return problem, init, lambda sc: ut3.UniformTuckerTensorTrain(sc[0], sc[1], x0m.shape, x0m.masks)
 

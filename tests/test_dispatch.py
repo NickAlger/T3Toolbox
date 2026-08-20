@@ -501,6 +501,40 @@ class TestDispatch(unittest.TestCase):
                                        "(kind rebuilt lazily, not stored as a fresh closure)")
         self._leaves_all_jax(hp)
 
+    def test_jit_shared_uniform_gauss_newton_model(self):
+        # The SHARED uniform model (slice 11): SharedGeometry(UNIFORM_MANIFOLD, sharing) is value-hashed
+        # aux, the SF-T3 companion rides as the geometry_aux LEAF, and the tied matvec (companion-fed
+        # projections on both sides) compiles ONCE across rebuilt same-rank models.
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.shared_geometry as sgm
+        SH, TK, TT = (5, 5, 4), (3, 3, 2), (1, 3, 2, 1)     # tied group {0,1}; shared-minimal
+        W = 12
+        ww = [np.random.randn(W, n) for n in SH]
+        geom = sgm.shared(ut3m.UNIFORM_MANIFOLD, (0, 0, 1))
+
+        def build(seed):
+            np.random.seed(seed)
+            xr = t3.TuckerTensorTrain.randn(SH, TK, TT)
+            tk_b, tt_b = xr.data
+            x = ut3.UniformTuckerTensorTrain.from_t3(
+                t3.TuckerTensorTrain((tk_b[0], tk_b[0], tk_b[2]), tt_b)).to_jax()
+            r = jnp.asarray(np.asarray(x.apply(ww)) - np.random.randn(W))
+            return fitting.apply_model(geom, x, ww, r)
+
+        traces = [0]
+        @jax.jit
+        def Hmatvec(m, p):
+            traces[0] += 1
+            return m.gn_hessian(p)
+        for seed in (1, 2, 3):
+            m = build(seed)
+            p = geom.randn(m.frame)
+            hp = Hmatvec(m, p)
+            jax.block_until_ready(hp.variations.supercores)
+        self.assertEqual(traces[0], 1, "shared UniformGaussNewtonModel matvec recompiled -- the wrapper "
+                                       "must be value-hashed aux and the companion a leaf")
+        self._leaves_all_jax(hp)
+
     def test_jit_uniform_weighted_gn_model(self):
         # A WEIGHTED UniformGaussNewtonModel (per-mode plain probe + full ω[mode,order] probe_derivatives)
         # must keep compile-once across rebuilds: the ω matrix rides in the value-hashed aux as a nested
