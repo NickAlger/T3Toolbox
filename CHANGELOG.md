@@ -83,6 +83,11 @@ All notable changes to T3Toolbox are documented here. The format follows
     [`docs/contributor/sharing_internals.md`](docs/contributor/sharing_internals.md); a shared
     section in the CI-doctested getting-started tour; the sharing section of
     `docs/rank_continuation.md`; and the TIED precondition rows in `docs/numerical_contracts.md`.
+  - **Example**: `examples/fit_shared_factors_jetted_probes.py` — a groupwise-symmetric five-mode
+    target (two Hilbert tensors coupled by a random matrix; two sharing groups of different mode
+    sizes) fit from noisy probe-derivative jets, running the SAME rank-continuation fit shared vs
+    unshared: tying the factors the target's symmetry justifies reaches ~35% lower true error with
+    ~37% fewer parameters before overfitting.
   - Backend surface in `backend.sharing` (`validate_sharing`, `t3_sharing_residual`,
     `t3_tucker_factors_shared`, `t3_share_tucker_cores`, `T3SharedFrameData` +
     `fv_shared_frame_data`, the tied post-passes) and `backend.t3_svd.t3_share_tucker_factors`.
