@@ -29,6 +29,7 @@ Design-decision records
    contributor/contractions_internals
    contributor/fitting_internals
    contributor/weighted_internals
+   contributor/sharing_internals
    contributor/numerical_contract_catalog
    contributor/t3svd_design_rationale
    contributor/t3svd_verification

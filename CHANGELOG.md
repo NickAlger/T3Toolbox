@@ -77,6 +77,12 @@ All notable changes to T3Toolbox are documented here. The format follows
     compile-once path holds for shared fits (one trace across rebuilt same-rank models). All four
     optimizers run shared on the uniform layer; deterministic trajectories match the ragged shared
     runs, and every iterate stays exactly tied.
+  - **Docs**: the user page [`docs/sharing.md`](docs/sharing.md) (the format, the grouped
+    truncation, *what the group spectrum is*, the two geometries, rank machinery, batching,
+    uniform, scope — including sharing ≠ symmetry); the design record
+    [`docs/contributor/sharing_internals.md`](docs/contributor/sharing_internals.md); a shared
+    section in the CI-doctested getting-started tour; the sharing section of
+    `docs/rank_continuation.md`; and the TIED precondition rows in `docs/numerical_contracts.md`.
   - Backend surface in `backend.sharing` (`validate_sharing`, `t3_sharing_residual`,
     `t3_tucker_factors_shared`, `t3_share_tucker_cores`, `T3SharedFrameData` +
     `fv_shared_frame_data`, the tied post-passes) and `backend.t3_svd.t3_share_tucker_factors`.

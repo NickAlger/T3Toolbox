@@ -112,6 +112,35 @@ The same call runs **fully packed and jit-compiled on the uniform layer** if you
 inferred from ``x0``. End-to-end examples (noise, validation, rank continuation) are in the
 repository's `examples/ <https://github.com/NickAlger/T3Toolbox/tree/main/examples>`_ directory.
 
+Shared Tucker factors
+---------------------
+
+When several modes should use the **same basis**, tie them with a ``sharing`` spec -- one hashable
+label per mode; equal labels share one Tucker factor. A symmetric target is the flagship case
+(every mode matricization is equal, so one basis is exactly right), and wrapping a geometry with
+``shared`` makes every optimizer keep the factors tied (see :doc:`sharing`)::
+
+	>>> import numpy as np
+	>>> import t3toolbox as t3t
+	>>> import t3toolbox.manifold as t3m
+	>>> np.random.seed(0)
+	>>> i, j, k = np.ogrid[1:7, 1:7, 1:7]
+	>>> A = t3t.TuckerTensorTrain.t3svd_dense(1.0 / (i + j + k + 1.0))[0]   # symmetric (Hilbert)
+	>>> xs = A.share((0, 0, 0), max_tucker_ranks=3, max_tt_ranks=3)         # ONE basis for all modes
+	>>> print(bool(np.all(xs.has_shared_tucker_factors((0, 0, 0)))), xs.data[0][0] is xs.data[0][2])
+	True True
+	>>> s = (xs.shape, xs.tucker_ranks, xs.tt_ranks)
+	>>> print(t3m.manifold_dim(s), '->', t3m.manifold_dim(s, sharing=(0, 0, 0)))   # fewer parameters
+	54 -> 36
+	>>> ww = [np.random.randn(120, N) for N in A.shape]
+	>>> ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
+	>>> b = A.apply(ww)
+	>>> x0 = t3t.TuckerTensorTrain.zeros(A.shape, xs.tucker_ranks, xs.tt_ranks)
+	>>> x_fit, stats = t3t.newton_cg(t3t.shared_manifold((0, 0, 0)), 'apply', ww, b, x0, max_newton=30)
+	>>> rel = np.linalg.norm(x_fit.to_dense() - A.to_dense()) / np.linalg.norm(A.to_dense())
+	>>> print(bool(np.all(x_fit.has_shared_tucker_factors((0, 0, 0)))), bool(rel < 1e-3))
+	True True
+
 NumPy or JAX
 ------------
 

@@ -155,6 +155,8 @@ In the frontend these are the ``T3Frame`` / ``T3Variations`` classes
 ``TuckerTensorTrain``), and a ``T3Tangent`` bundles the pair. The Hilbert-Schmidt metric lives on
 the ``MANIFOLD`` geometry (``MANIFOLD.inner`` / ``norm`` / ``project`` / ``retract`` / ``transport``);
 the Euclidean coordinate metric on the same tangent coordinates is the ``COREWISE`` geometry.
+To optimize with the Tucker factors constrained equal within groups of modes, wrap either geometry
+with ``shared(geometry, sharing)`` -- the shared-factor (SF-T3) submanifold, :doc:`sharing`.
 
 
 The three sampling operations: entries, apply, probe

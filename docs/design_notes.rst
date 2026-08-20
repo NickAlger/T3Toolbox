@@ -20,6 +20,7 @@ Core design
    fitting_and_optimization
    chunking
    weighting
+   sharing
    numerical_contracts
    rank_continuation
    naming_conventions

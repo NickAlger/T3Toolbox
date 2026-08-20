@@ -27,6 +27,7 @@ The classic example: orthogonality/gaugedness is a **caveat** for a raw coordina
 | **orthogonal** (`ORTH`) | the frame is orthonormal (U/O/L/R conditions) | `T3Frame.is_orthogonal(atol)` |
 | **gauged** (`GAUGE`) | the variations satisfy the gauge conditions (48)–(49) | `T3Tangent.is_gauged(atol)` |
 | **minimal rank** | no stored rank is redundant | `has_minimal_ranks` (structural) / `has_numerically_minimal_ranks` (numerical) — **diagnostic only, never enforced** (see the verdict below) |
+| **tied factors** (`TIED`) | the Tucker factors are numerically equal within each sharing group ([`sharing.md`](sharing.md)) | `has_shared_tucker_factors(sharing, rtol)` (ragged and uniform; the residual is `backend.sharing.t3_sharing_residual` / `ut3_sharing_residual`) |
 
 Checkers are **per stack element** (they return a verdict of shape `stack_shape`); a safe-mode
 precondition requires **all** elements to pass. The checks are cheap in loops: the underlying
@@ -70,6 +71,24 @@ always, in both modes).
 | `MANIFOLD.transport(v, new_frame)` | **ORTH** (the new frame) | — |
 | `MANIFOLD.randn`/`random_orthogonal`/`randn_like` | **ORTH** (via the projection) | minimal (for a *true* Gaussian on `T_xM`) |
 | `MANIFOLD.frame`, `COREWISE.frame`, `COREWISE.{randn, project, retract, randn_like}` | — | `frame` *produces* the orthonormal frame; corewise ops are gauge-free by design |
+
+### The shared (SF-T3) surface
+
+The sharing partition itself is structural (validated always: lengths, hashable labels, equal mode
+sizes and Tucker ranks within groups). The numerical precondition is **TIED** — grouped operations
+assume the factors are already tied (they pick ONE basis per group; running them on untied input
+would silently discard the differences), so safe mode checks it at the entry points:
+
+| op | precondition | caveat (never checked) |
+|---|---|---|
+| `t3svd(sharing=…)`, `rank_adjustment_sweep(…, sharing=…)`, `resize(…, sharing=…)` (ragged and uniform) | **TIED** | |
+| `continuation_ranks(sharing=…)` | **TIED** (via its internal grouped `t3svd`) | |
+| `shared(…)` wrapper: `frame(x)`, `transport(v, new_frame)` | **TIED** (the point / the new frame) + the base geometry's preconditions | |
+| `shared(MANIFOLD/UNIFORM_MANIFOLD).retract(p)` | **ORTH + TIED frame factors + TIED tangent coordinates** (the embedding's solve would silently tied-project an untied tangent) | minimal (the base retract's rank-preservation caveat) |
+| `shared(…).project`, `project_ambient`, `randn` | the base geometry's preconditions only (they *produce* tied output) | |
+| `shared(…).inner` / `norm` | the base geometry's (sharing never reweights the metric) | |
+| `x.share(sharing, …)` | — (it is how you *enter* the format; untied input is the point) | |
+| **full shared rank** (`s_{g,min} > 0`) | **never enforced** — a zero-padded continuation restart sits *on* the lower-rank stratum by construction ([`sharing.md`](sharing.md)); the projection solve is a clipped pseudoinverse, well-defined there | diagnostic via the group spectrum |
 
 ### `GaussNewtonModel` / `UniformGaussNewtonModel`
 

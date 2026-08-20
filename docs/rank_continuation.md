@@ -108,6 +108,26 @@ All are optional with sensible defaults; the only one you are likely to touch is
 | `kappa_guard` | An absolute conditioning safety net (default `1e12`): never grow an edge this ill-conditioned. It should fire only on genuine near-degeneracy. |
 | `rtol`, `atol` | Passed to the internal T3-SVD. By default the current ranks are read from the iterate's structural ranks; set these to continue from the numerical rank at a tolerance instead. |
 
+## Shared Tucker factors
+
+With a sharing partition ([`sharing.md`](sharing.md)), a group's Tucker edges are **one edge**: the
+group modes carry one spectrum (`s_g`, from the grouped `t3svd`), contribute one condition number
+`κ_g = s_{g,1}/s_{g,n_g}` to the pool (exactly the conditioning of the tied-factor subproblem — the
+`√k` scale inflation of `s_g` cancels in every ratio, so group and singleton edges compete fairly),
+receive one growth decision applied group-wide, count as **one** `max_grow` candidate, and are
+cleaned by the shared useless-rank removal (the group ceiling). The loop is unchanged — thread the
+spec through both calls:
+
+```python
+new_tucker, new_tt = X.continuation_ranks(sharing=sharing)
+X = X.resize(shape, new_tucker, new_tt, sharing=sharing)   # the group factor padded ONCE, tied warm start
+```
+
+A freshly padded shared point has exactly-zero new spectrum levels (the tied Tucker channel is
+momentarily gated; the escape runs through the TT variations within the first steps), which is why
+full shared rank is never enforced anywhere. The warm-start `g0norm_newton` guidance above matters
+doubly here — without the pin, the fit stalls at the target level and continuation over-grows.
+
 ## Working on raw `.data` tuples (no frontend)
 
 `continuation_ranks` is a thin wrapper: it computes the iterate's T3-SVD and forwards the singular values
