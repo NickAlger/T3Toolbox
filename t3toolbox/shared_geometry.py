@@ -278,11 +278,14 @@ class SharedGeometry:
             new_variations = backend_sharing.fv_mean_tucker_variations(p.variations.data, groups)
             x_data = (p.frame.up_tucker_cores, p.frame.left_tt_cores)
             new = cw.corewise_add(x_data, new_variations)
-            new_tucker = list(new[0])
-            for group in backend_sharing.nontrivial_groups(groups):
-                for ii in group[1:]:
-                    new_tucker[ii] = new_tucker[group[0]]    # ONE array per group (values equal)
-            return t3.TuckerTensorTrain(tuple(new_tucker), new[1])
+            # Tie the SUM rather than aliasing one mode's copy of it. Because
+            # ``mean_i(U_i + V_i) = mean_i(U_i) + mean_i(V_i)``, tying after the add IS the corewise
+            # (Euclidean) projection of ``x + v`` onto the tied set -- so the retraction is TOTAL: an
+            # untied tangent (already handled by the mean above) and an untied base point both land on
+            # the shared set, with nothing silently discarded. On a tied base point every summed core is
+            # already identical and ``t3_share_tucker_cores`` is a bitwise fixed point, so the sanctioned
+            # path is unchanged to the last ulp; it also gives ONE array per group, as before.
+            return t3.TuckerTensorTrain(*backend_sharing.t3_share_tucker_cores(new, self.sharing))
         t3m._require_orthogonal_frame(p.frame, 'SharedGeometry.retract')
         _require_tied_factors((p.frame.up_tucker_cores, p.frame.left_tt_cores), self.sharing,
                               'SharedGeometry.retract')
