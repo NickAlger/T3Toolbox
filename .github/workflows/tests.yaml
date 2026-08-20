@@ -48,3 +48,10 @@ jobs:
         run: pytest --doctest-modules t3toolbox -q
       - name: Quickstart doctest
         run: python -m doctest docs/getting_started.rst
+      # Every markdown doc page too: the examples in the design notes are executable, so a change
+      # to the library that invalidates a documented example fails CI instead of rotting quietly.
+      # Excluded: contributor/doctest_style.md -- it is the style guide, so its `>>>` blocks are
+      # deliberately illustrative fragments (including wrong ones) and doctest cannot even parse it.
+      - name: Documentation doctests
+        run: |
+          python -m doctest $(ls docs/*.md docs/contributor/*.md | grep -v 'doctest_style.md')

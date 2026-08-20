@@ -18,14 +18,29 @@ Jit the **whole per-step kernel once**, closing over the loop-invariant masks; t
 (+ minibatch):
 
 ```python
-shape, masks = frame.shape, frame.masks_data            # LOOP-INVARIANT at fixed rank -- built once
-@jax.jit
-def step(supercores, minibatch):
-    data = (supercores[0], supercores[1], shape, masks)         # masks/shape CLOSED OVER (constants)
-    frame_data, var_data = ut3_orthogonal_representations(data) # re-orthogonalize INSIDE the trace
-    ...  # apply tangent, gradient, retract
-    return new_supercores
-for it: supercores = step(supercores, draw())
+>>> import numpy as np, jax
+>>> import t3toolbox.tucker_tensor_train as t3
+>>> import t3toolbox.uniform_tucker_tensor_train as ut3
+>>> from t3toolbox.backend.ufv_conversions import ut3_orthogonal_representations
+>>> from t3toolbox.backend.utv_operations import utv_retract
+>>> np.random.seed(0)
+>>> x = ut3.UniformTuckerTensorTrain.from_t3(
+...         t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1)))
+>>> shape, masks = x.shape, x.masks.data       # LOOP-INVARIANT at fixed rank -- built once
+>>> traces = []                                # counts how many times the body is TRACED
+>>> @jax.jit
+... def step(supercores):
+...     traces.append(1)                                             # runs at TRACE time only
+...     data = (supercores[0], supercores[1], shape, masks)          # masks/shape CLOSED OVER (constants)
+...     frame_data, var_data = ut3_orthogonal_representations(data)  # re-orthogonalize INSIDE the trace
+...     var_data = (0.9 * var_data[0], 0.9 * var_data[1]) + var_data[2:]  # stand-in gradient step
+...     return utv_retract(frame_data, var_data)[:2]                 # retract -> new supercores
+>>> supercores = tuple(jax.numpy.asarray(s) for s in x.supercores)
+>>> for _ in range(3):                         # the supercores CHANGE every step
+...     supercores = step(supercores)
+>>> print(len(traces))                         # compiled ONCE, despite re-orthogonalizing each step
+1
+
 ```
 
 - The frame masks are **closed over** → the kernel compiles once; no recompile.

@@ -30,10 +30,25 @@ from `|W|·(per-row)` to `chunk_size·(per-row)`, and the result is bit-for-bit 
 exact reorganization, not an approximation).
 
 ```python
-# same numbers, bounded memory:
-JTr_dense   = T3Tangent.probe_derivatives_transpose(r, ww, pp, frame, order, chunk_size=None)
-JTr_chunked = T3Tangent.probe_derivatives_transpose(r, ww, pp, frame, order, chunk_size=512)
-# JTr_chunked == JTr_dense, but the chunked run peaks at ~512/|W| of the memory
+>>> import numpy as np
+>>> import t3toolbox.tucker_tensor_train as t3
+>>> import t3toolbox.frame_variations_format as bvf
+>>> import t3toolbox.manifold as t3m
+>>> np.random.seed(0)
+>>> shape, tucker_ranks, tt_ranks, order = (12, 12, 12), (6, 6, 6), (1, 6, 6, 1), 2
+>>> frame, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks))
+>>> ww = [np.random.randn(512, N) for N in shape]              # |W| = 512 probes
+>>> pp = [np.random.randn(512, N) for N in shape]              # the perturbation directions
+>>> r  = [np.random.randn(order + 1, 512, N) for N in shape]   # residual jets, (order+1)+W+(Ni,)
+
+>>> # same numbers, bounded memory:
+>>> JTr_dense   = t3m.T3Tangent.probe_derivatives_transpose(r, ww, pp, frame, order,
+...                                                         sum_over_probes=True, chunk_size=None)
+>>> JTr_chunked = t3m.T3Tangent.probe_derivatives_transpose(r, ww, pp, frame, order,
+...                                                         sum_over_probes=True, chunk_size=128)
+>>> float((JTr_chunked - JTr_dense).corewise_norm())   # identical numbers (memory drops on uniform+jax)
+0.0
+
 ```
 
 Semantics:
@@ -64,22 +79,29 @@ This is device-agnostic: it needs no knowledge of the device's memory, only the 
 **The estimator.** Rather than guess, call `estimate_chunk_size` once (eagerly, outside `jit`) with the
 same shapes you used to build the problem, and pass the integer it returns as `chunk_size`. It measures
 the assembly's true per-row cost with XLA's own scratch accounting (`memory_analysis`) — no ~20×-off
-analytic formula — and returns the largest chunk whose peak stays comparable to the resident jets:
+analytic formula — and returns the largest chunk whose peak stays comparable to the resident jets.
+(The measurement lowers a real kernel, so **`estimate_chunk_size` and `max_chunk_size_within` need jax
+installed** — as does chunking itself. The value they return is machine-dependent.)
 
 ```python
-from t3toolbox.backend.sampling_derivatives import estimate_chunk_size, max_chunk_size_within
+>>> from t3toolbox.backend.sampling_derivatives import estimate_chunk_size, max_chunk_size_within
+>>> cs = estimate_chunk_size(
+...     mode_shapes=shape,           # ambient dims (as passed to TuckerTensorTrain.randn)
+...     tucker_ranks=tucker_ranks,
+...     tt_ranks=tt_ranks,           # the d+1 TT bonds
+...     order=order,
+...     n_probes=512,                # number of probes
+...     n_tangent=1,                 # tangent-stack size (a batch of tangents at one frame)
+...     n_shards=1,                  # W split across this many devices -> sizes the LOCAL shard
+...     dtype=np.float32,            # float64 under x64
+... )
+>>> bool(isinstance(cs, int) and 1 <= cs <= 512)     # a usable chunk, never larger than |W|
+True
+>>> JTr = t3m.T3Tangent.probe_derivatives_transpose(r, ww, pp, frame, order,
+...                                                 sum_over_probes=True, chunk_size=cs)
+>>> float((JTr - JTr_dense).corewise_norm())         # still the exact dense assembly
+0.0
 
-cs = estimate_chunk_size(
-    mode_shapes=(N_1, ..., N_d),     # ambient dims (as passed to TuckerTensorTrain.randn)
-    tucker_ranks=(nU_1, ..., nU_d),
-    tt_ranks=(r_0, ..., r_d),        # the d+1 TT bonds
-    order=K,
-    n_probes=len_W,                  # number of probes
-    n_tangent=1,                     # tangent-stack size (a batch of tangents at one frame)
-    n_shards=1,                      # W split across this many devices -> sizes the LOCAL shard
-    dtype=np.float32,                # float64 under x64
-)
-JTr = T3Tangent.probe_derivatives_transpose(r, ww, pp, frame, K, sum_over_probes=True, chunk_size=cs)
 ```
 
 It sizes the **larger** of the TT-core (`r²` legs) and Tucker (`nO`, `N` legs) gradients, so it stays
@@ -89,10 +111,25 @@ by shape.
 
 If instead you want to fill a known device — the "use my whole GPU" policy — use
 `max_chunk_size_within(..., target_bytes=...)`, which returns the largest `chunk_size` whose assembly
-peak stays under an absolute byte cap (e.g. a fraction of device memory).
+peak stays under an absolute byte cap (e.g. a fraction of device memory):
+
+```python
+>>> shapes = dict(mode_shapes=shape, tucker_ranks=tucker_ranks, tt_ranks=tt_ranks, order=order)
+>>> tight = max_chunk_size_within(**shapes, n_probes=512, target_bytes=2**20)   # cap the assembly at 1 MiB
+>>> loose = max_chunk_size_within(**shapes, n_probes=512, target_bytes=2**24)   # ... at 16 MiB
+>>> bool(1 <= tight <= loose <= 512)      # a bigger budget never chunks smaller; both capped by |W|
+True
+
+```
 
 For sharded `W`, pass `n_shards` (or read it from the input array's `.sharding` eagerly) so the returned
 chunk sizes each device's shard; combine with the `shard_map` recipe below.
+
+```python
+>>> bool(estimate_chunk_size(**shapes, n_probes=512, n_shards=4) <= cs)   # sizes the LOCAL shard
+True
+
+```
 
 **In fitting you get this for free.** The optimizers (`newton_cg`, `mc_sgd`, `adam`, `gradient_descent`)
 and `probe_derivatives_kind` take a `chunk_size` argument defaulting to `'auto'`: for a uniform

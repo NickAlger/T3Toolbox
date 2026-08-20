@@ -24,12 +24,19 @@ forgone so the whole existing API keeps working on shared points unchanged; what
 **fewer optimization parameters and one jointly-informed basis**, not a smaller object.
 
 ```python
-import numpy as np
-import t3toolbox as t3t
+>>> import numpy as np
+>>> import t3toolbox as t3t
+>>> np.random.seed(0)
+>>> x = t3t.TuckerTensorTrain.randn((6, 6, 4), (4, 4, 3), (1, 2, 2, 1))
 
-xs = x.share((0, 0, 1))                            # enter the format: the quasi-optimal projection
-xs.has_shared_tucker_factors((0, 0, 1))            # the checker (per stack element)
-xs.data[0][0] is xs.data[0][1]                     # one factor ARRAY per group
+>>> xs = x.share((0, 0, 1))                         # enter the format: the quasi-optimal projection
+>>> print(xs.tucker_ranks, xs.tt_ranks)             # the group basis must serve BOTH modes
+(6, 6, 2) (1, 2, 2, 1)
+>>> print(bool(np.all(xs.has_shared_tucker_factors((0, 0, 1)))))    # the checker (per stack element)
+True
+>>> print(xs.data[0][0] is xs.data[0][1])           # one factor ARRAY per group
+True
+
 ```
 
 `share(sharing, max_tucker_ranks=…, max_tt_ranks=…, rtol=…)` is the way **in** from an arbitrary
@@ -103,9 +110,23 @@ the joint spectrum of the one basis that must serve rows *and* columns.
 The headline: wrap a geometry, and every optimizer works unchanged.
 
 ```python
-geom  = t3t.shared_manifold(sharing)          # = t3t.shared(t3t.MANIFOLD, sharing)
-geomc = t3t.shared_corewise(sharing)          # = t3t.shared(t3t.COREWISE, sharing)
-x_fit, stats = t3t.newton_cg(geom, 'apply', ww, b, x0, max_newton=30)
+>>> sharing = (0, 0, 1)
+>>> geom  = t3t.shared_manifold(sharing)      # = t3t.shared(t3t.MANIFOLD, sharing)
+>>> geomc = t3t.shared_corewise(sharing)      # = t3t.shared(t3t.COREWISE, sharing)
+
+>>> A  = t3t.TuckerTensorTrain.randn((5, 5, 4), (2, 2, 2), (1, 2, 2, 1)).share(sharing)
+>>> ww = [np.random.randn(200, N) for N in A.shape]
+>>> ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
+>>> b  = A.apply(ww)
+>>> x0 = t3t.TuckerTensorTrain.zeros(A.shape, A.tucker_ranks, A.tt_ranks)
+
+>>> x_fit, stats = t3t.newton_cg(geom, 'apply', ww, b, x0, max_newton=30)
+>>> print(bool(np.all(x_fit.has_shared_tucker_factors(sharing))))         # every iterate stays tied
+True
+>>> err = np.linalg.norm(x_fit.to_dense() - A.to_dense()) / np.linalg.norm(A.to_dense())
+>>> print(bool(err < 1e-8))
+True
+
 ```
 
 Every iterate stays exactly tied (one factor array per group). At a shared point the tied tangent
@@ -141,10 +162,14 @@ would clip it there and untie the group. `TuckerTensorTrain.get_minimal_ranks(�
 
 ```python
 >>> t3t.TuckerTensorTrain.get_minimal_ranks((6, 6, 4), (4, 4, 3), (1, 2, 2, 1))
-((2, 4, 2), (1, 2, 2, 1))                     # per-mode: clips mode 0, UNTIES the group
+((2, 4, 2), (1, 2, 2, 1))
 >>> t3t.TuckerTensorTrain.get_minimal_ranks((6, 6, 4), (4, 4, 3), (1, 2, 2, 1), sharing=(0, 0, 1))
-((4, 4, 2), (1, 2, 2, 1))                     # the group ceiling keeps the shared rank
+((4, 4, 2), (1, 2, 2, 1))
+
 ```
+
+The per-mode reduction clips mode 0 to 2 and so **unties** the group; the group ceiling keeps the
+shared rank at 4.
 
 **Dimension.** `manifold.manifold_dim(s, sharing=…)` is the shared submanifold's dimension: the
 reduction to minimal ranks is the *shared* one, the TT-core term is unchanged (TT cores are never
@@ -172,10 +197,11 @@ the frame stack `C` and broadcasts over a tangent stack `K` for free — the sta
 
 ## On the uniform layer
 
-The full surface mirrors, under the usual contract
-([`uniform_equivalence_contract.md`](uniform_equivalence_contract.md)): `ut3svd(sharing=…)` and
-`rank_adjustment_sweep(…, sharing=…)` on `UniformTuckerTensorTrain` (mask-only truncation — one
-group rank mask at every group mode; no `rtol`/`atol`, as always on uniform),
+The optimization surface mirrors, under the usual contract
+([`uniform_equivalence_contract.md`](uniform_equivalence_contract.md)): `t3svd(sharing=…)` and
+`rank_adjustment_sweep(…, sharing=…)` on `UniformTuckerTensorTrain` (the backend function is
+`ut3svd`; mask-only truncation — one group rank mask at every group mode; no `rtol`/`atol`, as
+always on uniform),
 `has_shared_tucker_factors` on masked content, and `shared(UNIFORM_MANIFOLD, sharing)` /
 `shared(UNIFORM_COREWISE, sharing)` running the packed, compile-once fitting path (the sharing
 partition rides beside the masks as static closure state; the per-frame companion flows as traced
@@ -183,8 +209,15 @@ data, so a shared fit compiles once like an unshared one). Ragged vs uniform is 
 as everywhere:
 
 ```python
-ux0 = t3t.UniformTuckerTensorTrain.from_t3(x0)
-x_fit, stats = t3t.newton_cg(t3t.shared(t3t.UNIFORM_MANIFOLD, sharing), 'apply', ww, b, ux0)
+>>> ux0 = t3t.UniformTuckerTensorTrain.from_t3(x0)
+>>> ux_fit, _ = t3t.newton_cg(t3t.shared(t3t.UNIFORM_MANIFOLD, sharing), 'apply', ww, b, ux0,
+...                           max_newton=30)
+>>> print(bool(np.all(ux_fit.has_shared_tucker_factors(sharing))))
+True
+>>> uerr = np.linalg.norm(ux_fit.to_t3().to_dense() - A.to_dense()) / np.linalg.norm(A.to_dense())
+>>> print(bool(uerr < 1e-8))
+True
+
 ```
 
 One uniform-specific note: a shared uniform start is reduced to *shared*-minimal ranks
@@ -214,10 +247,30 @@ transparently (`uniform_minimal(x0, sharing=…)`) — the per-mode reduction wo
   `SingularValueRegularizer`.
 - **The partition is user-provided.** Automatic selection of what to share is permanently out of
   scope.
-- **Safe mode** checks tied factors at the shared entry points (`t3svd(sharing=…)`, the wrapper's
-  `frame`/`retract`/`transport`, `resize(…, sharing=…)`) and tied tangent *coordinates* at the
+- **Safe mode** checks tied factors at the shared entry points (`t3svd(sharing=…)`,
+  `rank_adjustment_sweep(…, sharing=…)`, the wrapper's `frame`/`retract`/`transport`,
+  `resize(…, sharing=…)`) and tied tangent *coordinates* at the
   manifold retraction; see [`numerical_contracts.md`](numerical_contracts.md). Full shared rank is
   never enforced (the continuation-restart argument above).
+
+## References
+
+The shared-factor idea and the two algorithms this page generalizes:
+
+- Peshekhonov, I., Arzhantsev, A., and Rakhuba, M. "Training a Tucker Model With Shared Factors: a
+  Riemannian Optimization Approach." *Proceedings of the 27th International Conference on Artificial
+  Intelligence and Statistics (AISTATS)*, PMLR 238, 2024.
+  [proceedings.mlr.press/v238/peshekhonov24a.html](https://proceedings.mlr.press/v238/peshekhonov24a.html)
+  — **SF-Tucker**: shared factors for the Tucker format, and the Riemannian machinery for optimizing
+  over them.
+- Molozhavenko, A. and Rakhuba, M. "Optimization on the extended tensor-train manifold with shared
+  factors." *Computational and Applied Mathematics* 45(6):221, 2026.
+  [doi.org/10.1007/s40314-025-03605-0](https://doi.org/10.1007/s40314-025-03605-0) — **SF-ETT**:
+  the same idea for extended tensor trains (= Tucker tensor trains), with **one trailing shared
+  block**. Its Algorithm 1 is the two-phase grouped truncation implemented here; its Theorem 5 is the
+  manifold-dimension result. The generalization to an **arbitrary partition** of the modes — and
+  therefore the group ceiling on minimal ranks, the group spectrum as a per-group object, and the
+  grouped rank continuation — is this library's extension.
 
 *Design records — the `S_i` machinery and its float32 measurements, the two-phase decision, the
 tied embedding, and the restart analysis — are in*

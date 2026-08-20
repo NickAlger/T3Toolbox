@@ -20,13 +20,24 @@ A `TuckerTensorTrain` has two internal edge families: **Tucker-rank** edges `n�
 values are the canonical weight:
 
 ```python
-import t3toolbox.tucker_tensor_train as t3
+>>> import numpy as np
+>>> import t3toolbox.tucker_tensor_train as t3
+>>> np.random.seed(0)
+>>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 2, 2), (1, 2, 2, 1))   # a minimal-rank point
+>>> W  = t3.T3Weights.from_t3svd(x)        # the singular values of x (unmodified)
+>>> Wp = W.reciprocal()                    # inverse-σ (Grasedyck–Kramer) weighting; also .sqrt()
+>>> xw = t3.t3_absorb_weights(x, Wp)          # a plain TuckerTensorTrain: the fully-weighted network
+>>> n  = t3.t3_weighted_norm(x, Wp)           # = xw.norm(); the inserted diagonal is squared by the norm
+>>> print(bool(np.allclose(n, xw.norm())))
+True
+>>> print(xw.shape == x.shape, xw.ranks == x.ranks)   # absorb is shape- and rank-preserving
+True True
+>>> y  = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 3, 3), (1, 2, 3, 1))
+>>> W2 = t3.T3Weights.from_t3svd(y)
+>>> g  = t3.t3_weighted_inner(x, W, y, W2)    # <absorb(x,W), absorb(y,W2)>  (same physical shape)
+>>> print(bool(np.allclose(g, t3.t3_absorb_weights(x, W).inner(t3.t3_absorb_weights(y, W2)))))
+True
 
-W  = t3.T3Weights.from_t3svd(x)        # the singular values of x (unmodified)
-Wp = W.reciprocal()                    # inverse-σ (Grasedyck–Kramer) weighting; also .sqrt()
-xw = t3.t3_absorb_weights(x, Wp)          # a plain TuckerTensorTrain: the fully-weighted network
-n  = t3.t3_weighted_norm(x, Wp)           # = xw.norm(); the inserted diagonal is squared by the norm
-g  = t3.t3_weighted_inner(x, W, y, W2)    # <absorb(x,W), absorb(y,W2)>  (same physical shape)
 ```
 
 `absorb` is shape-preserving (the diagonals fold into the cores). Convention: Tucker weights go into the
@@ -56,9 +67,20 @@ one per variation core — in four families matching the tangent's rank types:
 | `right` | `H`'s right bond (`rR`) | `d` |
 
 ```python
-n  = tangent.weighted_norm(W)            # absorb W into the variations V,H; take the coordinate norm
-g  = tangent.weighted_inner(other, W)    # one metric W; the same-frame precondition is checked
-vw = tangent.absorb_weights(W)           # the weighted tangent itself (vw.corewise_norm() == n)
+>>> import t3toolbox.frame_variations_format as bvf
+>>> import t3toolbox.manifold as t3m
+>>> frame, _ = bvf.t3_orthogonal_representations(x)     # an orthogonal frame at x
+>>> tangent = t3m.MANIFOLD.randn(frame)                 # two tangent vectors there
+>>> other   = t3m.MANIFOLD.randn(frame)
+>>> W = bvf.T3FrameWeights.from_t3weights(t3.T3Weights.from_t3svd(x))   # a metric: x's σ's
+>>> n  = tangent.weighted_norm(W)            # absorb W into the variations V,H; take the coordinate norm
+>>> g  = tangent.weighted_inner(other, W)    # one metric W; the same-frame precondition is checked
+>>> vw = tangent.absorb_weights(W)           # the weighted tangent itself (vw.corewise_norm() == n)
+>>> print(bool(np.allclose(vw.corewise_norm(), n)))
+True
+>>> print(bool(np.allclose(g, vw.corewise_inner(other.absorb_weights(W)))))
+True
+
 ```
 
 The weights are absorbed into the **variation** cores (`down`→`V`, `up`/`left`/`right`→`H`); the frame
@@ -66,7 +88,7 @@ stays orthonormal and untouched, so this is `O(ranks)` and does not disturb the 
 `tangent.absorb_weights(W)` returns the weighted tangent at the same frame — but note it is **not gauged**
 (scaling the coordinates breaks the gauge, though not the frame's orthogonality), so use `corewise` ops on
 it, or re-gauge with `MANIFOLD.project_oblique` for Hilbert–Schmidt semantics. (The standalone
-`frame_variations_format.absorb_weights(variations, W)` returns the weighted `T3Variations`.) All-ones
+`frame_variations_format.fv_absorb_weights(variations, W)` returns the weighted `T3Variations`.) All-ones
 weights recover `tangent.corewise_norm()`. Like `T3Weights`, `T3FrameWeights` has `reciprocal` / `sqrt` /
 `concatenate` / `kronecker` / `reverse` / `stack` / `unstack` / `is_consistent_with`.
 
@@ -76,8 +98,13 @@ weights recover `tangent.corewise_norm()`. Like `T3Weights`, `T3FrameWeights` ha
 singular values** is one line:
 
 ```python
-import t3toolbox.frame_variations_format as bvf
-gk = bvf.T3FrameWeights.from_t3weights(t3.T3Weights.from_t3svd(x)).reciprocal()
+>>> import t3toolbox.frame_variations_format as bvf
+>>> gk = bvf.T3FrameWeights.from_t3weights(t3.T3Weights.from_t3svd(x)).reciprocal()
+>>> print(gk.up_ranks, gk.down_ranks)              # up = down = the Tucker weights
+(2, 2, 2) (2, 2, 2)
+>>> print(gk.left_ranks, gk.right_ranks)           # left = tt[:-1], right = tt[1:]
+(1, 2, 2) (2, 2, 1)
+
 ```
 
 It pairs with a minimal-rank tangent at `x` (where the complement rank `nD` equals the Tucker rank, as for
@@ -121,12 +148,16 @@ plus **the same edge masks as the train it weights** (a weight's edges *are* the
 carries no `shape` — weights live only on internal edges.
 
 ```python
-import t3toolbox.uniform_tucker_tensor_train as ut3
+>>> import t3toolbox.uniform_tucker_tensor_train as ut3
+>>> ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+>>> W  = ut3.UT3Weights.from_ut3svd(ux)          # or .from_t3weights(ragged_W, n=ux.n, r=ux.r)
+>>> gk = W.reciprocal()                          # inverse-σ; also .sqrt() / .concatenate() / .kronecker()
+>>> n  = ut3.ut3_weighted_norm(ux, gk)               # + absorb_weights / weighted_inner
+>>> print(W.is_consistent_with(ux))              # a weight declares the SAME edge masks as its train
+True
+>>> print(bool(np.allclose(n, t3.t3_weighted_norm(x, t3.T3Weights.from_t3svd(x).reciprocal()))))
+True
 
-ux = ut3.UniformTuckerTensorTrain.from_t3(x)
-W  = ut3.UT3Weights.from_ut3svd(ux)          # or .from_t3weights(ragged_W, n=ux.n, r=ux.r)
-gk = W.reciprocal()                          # inverse-σ; also .sqrt() / .concatenate() / .kronecker()
-n  = ut3.ut3_weighted_norm(ux, gk)               # + absorb_weights / weighted_inner
 ```
 
 Three differences from ragged are worth knowing, and none of them are ports-in-progress:
@@ -148,11 +179,19 @@ keep: the metric carries the frame stack `C`, so the singular-value metric of a 
 directly with a `K`-stack of tangents there, broadcasting over `K` for free.
 
 ```python
-import t3toolbox.uniform_frame_variations_format as ubvf
+>>> import t3toolbox.uniform_frame_variations_format as ubvf
+>>> import t3toolbox.uniform_manifold as ut3m
+>>> xs  = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 2, 2), (1, 2, 2, 1), stack_shape=(2,))
+>>> uxs = ut3.UniformTuckerTensorTrain.from_t3(xs)                   # C = 2 base points
+>>> frame, _ = ubvf.ut3_orthogonal_representations(uxs)
+>>> gk = ubvf.UT3FrameWeights.from_ut3weights(ut3.UT3Weights.from_ut3svd(uxs)).reciprocal()
+>>> tangent = ut3m.UNIFORM_MANIFOLD.randn(frame, stack_shape=(3,))   # K = 3 tangents at each base point
+>>> n  = tangent.weighted_norm(gk)     # + weighted_inner / absorb_weights; gk.stack_shape == frame.stack_shape
+>>> print(gk.stack_shape == frame.stack_shape)   # the metric is FRAME-like: it carries C, not K + C
+True
+>>> print(n.shape)                               # ...and broadcasts over K for free: K + C
+(3, 2)
 
-frame, _ = ubvf.ut3_orthogonal_representations(ux)
-gk = ubvf.UT3FrameWeights.from_ut3weights(ut3.UT3Weights.from_ut3svd(ux)).reciprocal()
-n  = tangent.weighted_norm(gk)     # + weighted_inner / absorb_weights; gk.stack_shape == frame.stack_shape
 ```
 
 ## Scope

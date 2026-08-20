@@ -33,26 +33,65 @@ There are three entry points, from highest-level to lowest.
 
 ### 2.1 Drive a library optimizer (the common case)
 
+A small end-to-end problem to drive — a rank-`(2,2,2)`/`(1,2,2,1)` tensor `A` we pretend not to know,
+measured 120 times by each sampling kind (normalizing every measurement row to unit norm is what keeps
+the least-squares well conditioned):
+
 ```python
-import t3toolbox.manifold as t3m
-import t3toolbox.optimizers as topt
+>>> import numpy as np
+>>> import t3toolbox.tucker_tensor_train as t3
+>>> import t3toolbox.manifold as t3m
+>>> import t3toolbox.optimizers as topt
+>>> np.random.seed(0)
+>>> shape, tucker_ranks, tt_ranks = (6, 7, 8), (2, 2, 2), (1, 2, 2, 1)
+>>> A = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks)
+>>> ww = [np.random.randn(120, N) for N in shape]                    # measurement vectors, len=d
+>>> ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]  # unit-norm rows
+>>> pp = [np.random.randn(120, N) for N in shape]                    # perturbation directions
+>>> pp = [p / np.linalg.norm(p, axis=1, keepdims=True) for p in pp]
+>>> K, rng = 2, np.random.default_rng(0)
+>>> data  = A.apply(ww)                      # the apply measurements,        shape W
+>>> pdata = A.probe(ww)                      # the probe measurements,        len=d
+>>> jets  = A.apply_derivatives(ww, pp, K)   # the apply-derivative jets, shape (K+1,)+W
+>>> x0 = t3.TuckerTensorTrain.zeros(shape, tucker_ranks, tt_ranks)
 
-# fit from applies, on the fixed-rank manifold, by Newton-CG (zero start is fine on the manifold):
-x_opt, stats = topt.newton_cg(t3m.MANIFOLD, 'apply', ww, data, x0)
+```
 
-# fit from probes, on the raw cores (corewise), by Adam:
-x_opt, stats = topt.adam(t3m.COREWISE, 'probe', ww, data, x0, rng, batch)
+Every fit is then one call:
 
-# fit from apply-DERIVATIVE jets, by Manifold Cauchy SGD, with a per-order weight and a custom minibatch:
-x_opt, stats = topt.mc_sgd(t3m.MANIFOLD, 'apply_derivatives', (ww, pp), data, x0,
-                           rng, batch, order=K, weight=ω, draw=my_draw)
+```python
+>>> # fit from applies, on the fixed-rank manifold, by Newton-CG (zero start is fine on the manifold):
+>>> x_opt, stats = topt.newton_cg(t3m.MANIFOLD, 'apply', ww, data, x0, max_newton=30)
+>>> bool(np.linalg.norm(x_opt.to_dense() - A.to_dense()) < 1e-8 * np.linalg.norm(A.to_dense()))
+True
 
-# fit from probes with a PER-MODE weight (discount a noisier mode; probe-only, see §4.6):
-x_opt, stats = topt.newton_cg(t3m.MANIFOLD, 'probe', ww, data, x0, weight=ω_mode)   # ω_mode shape (d,)
+>>> # fit from probes, on the raw cores (corewise), by Adam (corewise needs a NONZERO start):
+>>> x0c = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks)
+>>> x_ad, stats = topt.adam(t3m.COREWISE, 'probe', ww, pdata, x0c, rng, 20, max_iter=50)
+>>> misfit = lambda z: float(sum(np.sum((zi - yi) ** 2) for zi, yi in zip(z.probe(ww), pdata)))
+>>> bool(misfit(x_ad) < misfit(x0c))                    # 50 Adam steps descend
+True
 
-# add identity (Tikhonov) regularization ½λ‖x‖² to any fit (any optimizer/geometry/kind, see §4.9):
-x_opt, stats = topt.newton_cg(t3m.MANIFOLD, 'apply', ww, data, x0,
-                              regularizer=topt.IdentityRegularizer(1e-3))
+>>> # fit from apply-DERIVATIVE jets, by Manifold Cauchy SGD, with a per-order weight ω (§2.3 adds a draw):
+>>> w_order = [1.0, 0.5, 0.25]                          # ω, shape (K+1,) -- per order
+>>> x_mc, stats = topt.mc_sgd(t3m.MANIFOLD, 'apply_derivatives', (ww, pp), jets, x0,
+...                           rng, 20, order=K, weight=w_order, max_iter=60, check_every=20)
+>>> bool(stats['losses'][-1] < stats['losses'][0])      # the full-batch loss checks descend
+True
+
+>>> # fit from probes with a PER-MODE weight (discount a noisier mode; probe-only, see §4.6):
+>>> w_mode = [1.0, 1.0, 0.5]                            # ω_mode, shape (d,)
+>>> x_pm, stats = topt.newton_cg(t3m.MANIFOLD, 'probe', ww, pdata, x0, weight=w_mode, max_newton=20)
+>>> bool(np.linalg.norm(x_pm.to_dense() - A.to_dense()) < 1e-6 * np.linalg.norm(A.to_dense()))
+True
+
+>>> # add identity (Tikhonov) regularization ½λ‖x‖² to any fit (any optimizer/geometry/kind, see §4.9):
+>>> x_rg, stats = topt.newton_cg(t3m.MANIFOLD, 'apply', ww, data, x0,
+...                              regularizer=topt.IdentityRegularizer(1e-3), max_newton=10)
+>>> last = stats['history'][-1]                         # the objective splits as misfit + reg
+>>> bool(np.allclose(last['objective'], last['misfit'] + last['regularization']))
+True
+
 ```
 
 - **Optimizers:** `gradient_descent` (Cauchy + Armijo), `mc_sgd` (Manifold Cauchy SGD — tuning-free
@@ -86,14 +125,21 @@ x_opt, stats = topt.newton_cg(t3m.MANIFOLD, 'apply', ww, data, x0,
 If you want to write your own iteration (a custom trust region, a different line search), grab the model:
 
 ```python
-import t3toolbox.fitting as fitting
+>>> import t3toolbox.fitting as fitting
+>>> x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks)   # the current point
+>>> residual = x.apply(ww) - data                                   # residual r = apply(x) − y
+>>> model = fitting.apply_model(t3m.MANIFOLD, x, ww, residual)
+>>> g  = model.gradient                   # Π 𝒥ᵀr   (a gauged T3Tangent)
+>>> v  = t3m.MANIFOLD.randn(model.frame)  # any tangent at the model's frame
+>>> Hv = model.gn_hessian(v)              # Π 𝒥ᵀ𝒥Π v (the GN normal operator; symmetric PSD)
+>>> q  = model.gn_quadratic(v)            # ‖Jv‖²   (ONE forward — the cheap Cauchy/line-search denominator)
+>>> bool(np.allclose(float(q), float(v.corewise_inner(Hv))))        # vᵀHv = ‖Jv‖², one forward vs two
+True
+>>> α  = float(g.corewise_inner(g)) / float(model.gn_quadratic(g))  # the Cauchy step length
+>>> x_new = t3m.MANIFOLD.retract(-α * g)
+>>> bool(0.5 * np.sum((x_new.apply(ww) - data) ** 2) < float(model.objective_value))
+True
 
-model = fitting.apply_model(t3m.MANIFOLD, x, ww, residual)     # residual r = apply(x) − y
-g  = model.gradient                       # Π 𝒥ᵀr   (a gauged T3Tangent)
-Hv = model.gn_hessian(v)                  # Π 𝒥ᵀ𝒥Π v (the GN normal operator; symmetric PSD)
-q  = model.gn_quadratic(v)                # ‖Jv‖²   (ONE forward — the cheap Cauchy/line-search denominator)
-α  = g.corewise_inner(g) / q
-x_new = t3m.MANIFOLD.retract(-α * g)
 ```
 
 Factories: `apply_model` / `entries_model` / `probe_model` (the last takes an optional per-mode
@@ -109,11 +155,14 @@ Stochastic optimizers (`mc_sgd`, `adam`) draw a fresh minibatch each step. You c
 function that returns a random sub-batch of the measurements:
 
 ```python
-def my_draw(rng):
-    idx = rng.choice(n_x, size=batch, replace=False)   # e.g. slice base points X
-    return (sample_B, data_B)                           # the restricted (sample, data)
+>>> def my_draw(rng):
+...     idx = rng.choice(120, size=16, replace=False)   # any index expression on YOUR arrays
+...     return ([w[idx] for w in ww], data[idx])        # the restricted (sample, data)
+>>> x_mb, stats = topt.mc_sgd(t3m.MANIFOLD, 'apply', ww, data, x0,
+...                           rng, 16, draw=my_draw, max_iter=60, check_every=20)
+>>> bool(stats['losses'][-1] < stats['losses'][0])
+True
 
-x, stats = topt.mc_sgd(..., draw=my_draw)
 ```
 
 `draw(rng) → (sample_B, data_B)` returns the subset of measurement vectors **and** their measured values.
@@ -134,6 +183,11 @@ unconstrained Python/numpy — or write it in jax on device-resident data to kee
 
 The geometry is **structural, never a flag** — `MANIFOLD ⟺ Π`, `COREWISE ⟺ no Π` is bundled in the
 geometry object. Mixing them silently corrupts the result, so they cannot be mixed by accident.
+
+Each has a uniform twin (`UNIFORM_MANIFOLD` / `UNIFORM_COREWISE`, chosen to match a uniform `x0`), and
+**any of the four can be wrapped** to constrain the Tucker factors equal within groups of modes:
+`shared(MANIFOLD, sharing)` — shorthand `shared_manifold(sharing)` — restricts the search to the
+shared-factor submanifold, and every optimizer works on it unchanged. See [`sharing.md`](sharing.md).
 
 ---
 
@@ -156,7 +210,13 @@ geometry object. Mixing them silently corrupts the result, so they cannot be mix
   for the default draw (`n_measurements`, `take`). It carries **no gauge** — that's the geometry's.
   Singletons `APPLY`/`ENTRIES`/`PROBE`; parameterized constructors `*_derivatives_kind(order, weight)`.
 - **`Geometry`** (`manifold.py` `MANIFOLD`/`COREWISE`; backend `GeometryOps`) — `frame(x)` (the frame),
-  `project` (the gauge `Π`), `retract`, plus the Hilbert-Schmidt `inner`/`norm`.
+  `project` (the gauge `Π`), `retract`, plus the Hilbert-Schmidt `inner`/`norm`, and an optional
+  `precompute(frame)` returning a per-frame **geometry aux** that `project`/`retract` then receive. The
+  aux exists so a geometry with per-frame setup pays for it once per local model rather than once per
+  matvec (the shared-factor wrapper's SVD companion is the motivating case); it is `None` for
+  `MANIFOLD`/`COREWISE`, and a custom `GeometryOps` need only accept and ignore `aux=None`. It is
+  carried as a leaf on `LocalModel` (`geom_aux`) and on `GaussNewtonModel` (`geometry_aux`) —
+  [`contributor/precompute_and_caching.md`](contributor/precompute_and_caching.md).
 - **`Problem` + `LocalModel`** (`backend/optimizers.py`) — the backend oracle. `Problem(geom, kind, sample,
   data)` is **layout-agnostic**: `local_model(x [, sample_B, data_B])` linearizes at a point on the full
   data or an explicit minibatch, returning a `LocalModel` with `.gradient` / `.objective` / `.hvp` /
@@ -262,12 +322,21 @@ weight is a 1-D `(d,)` per-mode vector (a 2-D `(d, 1)` is rejected — this keep
 forward-stable spelling if a less-important weighting axis is ever added).
 
 ```python
-# probe_derivatives: down-weight the noisy high orders AND discount a coarse mode, independently:
-mode_w, order_w = [1.0, 0.6, 0.3], [1.0, 0.5, 0.3, 0.2]                    # (d=3,) and (order+1=4,)
-model = fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, order=3, residual=r,
-                                        weight=np.outer(mode_w, order_w))   # ω[mode,order], (3, 4)
-# plain probe: a per-mode vector is 1-D (d,):
-model = fitting.probe_model(t3m.MANIFOLD, x, ww, r, weight=[0.5, 1.0, 2.0])
+>>> # probe_derivatives: down-weight the noisy high orders AND discount a coarse mode, independently:
+>>> ww3, pp3 = [w[:20] for w in ww], [p[:20] for p in pp]                       # 20 probes is plenty here
+>>> r = [zi - yi for zi, yi in zip(x.probe_derivatives(ww3, pp3, 3),           # RAW r = S(x) − y,
+...                                A.probe_derivatives(ww3, pp3, 3))]          #   len=d, (order+1)+W+(Ni,)
+>>> mode_w, order_w = [1.0, 0.6, 0.3], [1.0, 0.5, 0.3, 0.2]                    # (d=3,) and (order+1=4,)
+>>> model = fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww3, pp3, order=3, residual=r,
+...                                         weight=np.outer(mode_w, order_w))   # ω[mode,order], (3, 4)
+>>> np.outer(mode_w, order_w).shape
+(3, 4)
+>>> # plain probe: a per-mode vector is 1-D (d,):
+>>> rp = [zi - yi for zi, yi in zip(x.probe(ww), pdata)]
+>>> model = fitting.probe_model(t3m.MANIFOLD, x, ww, rp, weight=[0.5, 1.0, 2.0])
+>>> print(model.gradient.is_gauged())
+True
+
 ```
 
 ### 4.7 The corewise gradient is hand-rolled — and outperforms autodiff
@@ -297,8 +366,14 @@ geometry, sampling kind, and the ragged/uniform layers, because it acts on `x`, 
 measurements. The one shipped regularizer is **identity (Tikhonov)**, `ρ(x) = ½λ‖x‖²`:
 
 ```python
-x_opt, stats = topt.newton_cg(t3m.MANIFOLD, 'apply', ww, data, x0,
-                              regularizer=topt.IdentityRegularizer(1e-3))   # λ = 1e-3
+>>> x_opt, stats = topt.newton_cg(t3m.MANIFOLD, 'apply', ww, data, x0, max_newton=10,
+...                               regularizer=topt.IdentityRegularizer(1e-3))   # λ = 1e-3
+>>> last = stats['history'][-1]
+>>> sorted(k for k in last if k in ('objective', 'misfit', 'regularization'))
+['misfit', 'objective', 'regularization']
+>>> bool(last['regularization'] > 0.0)          # λ‖x‖²/2 -- the term λ contributes
+True
+
 ```
 
 `ρ` is measured in the **geometry's own metric**: on `MANIFOLD` it is the Hilbert–Schmidt ridge
@@ -363,10 +438,15 @@ repo, maintainer-local):
   (**per-mode residual weighting** — inverse-noise probe fit, §4.6); `fit_probe_display.py`
   (**`verbose=True` Newton-CG diagnostics** — both relative-error table layouts);
   `fit_hilbert_regularized.py` (**identity/Tikhonov regularization** — denoising a noisy Hilbert-tensor
-  fit, with λ chosen by held-out validation; shows the `obj = misfit + reg` split).
+  fit, with λ chosen by held-out validation; shows the `obj = misfit + reg` split);
+  `fit_shared_factors_jetted_probes.py` (**shared Tucker factors** — a groupwise-symmetric target fit
+  from noisy probe-derivative jets, shared vs unshared under the same rank continuation).
 - **Adjacent:** [`entries_apply_probe.md`](entries_apply_probe.md) (the three sampling ops + their
   transposes), [`transposes.md`](transposes.md) (ambient/corewise/tangent taxonomy),
   [`batching_and_stacking.md`](batching_and_stacking.md) (the `W`/`K`/`C` stack design),
-  [`rank_continuation.md`](rank_continuation.md) (growing ranks during a fit).
+  [`rank_continuation.md`](rank_continuation.md) (growing ranks during a fit),
+  [`sharing.md`](sharing.md) (the shared-factor geometries), [`weighting.md`](weighting.md) (edge
+  weights and the Grasedyck–Kramer tangent metric), [`chunking.md`](chunking.md) (`chunk_size` for the
+  probe-derivative transpose).
 - **Implementation rationale** (memory tradeoffs, einsum paths, deferred work):
   [`contributor/fitting_internals.md`](contributor/fitting_internals.md).

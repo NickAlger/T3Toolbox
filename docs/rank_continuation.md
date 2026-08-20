@@ -47,14 +47,30 @@ The library provides the **rank-proposal step**; you drive the continuation loop
 split validation data, when to stop). The proposal is one method on `TuckerTensorTrain`:
 
 ```python
-new_tucker_ranks, new_tt_ranks = X.continuation_ranks()        # the ranks to grow to next
+>>> import numpy as np
+>>> import t3toolbox.tucker_tensor_train as t3
+>>> np.random.seed(0)
+>>> i, j, k = np.meshgrid(np.arange(8), np.arange(7), np.arange(6), indexing='ij')
+>>> T = 1.0 / (1.0 + 0.05*i + 1.0*j + 8.0*k)     # smooth, very different decay rate per mode
+>>> X, _, _ = t3.TuckerTensorTrain.t3svd_dense(T, max_tucker_ranks=3, max_tt_ranks=3)
+>>> print(X.tucker_ranks, X.tt_ranks)
+(3, 3, 3) (1, 3, 3, 1)
+>>> new_tucker_ranks, new_tt_ranks = X.continuation_ranks()        # the ranks to grow to next
+>>> print(new_tucker_ranks, new_tt_ranks)      # only mode 1 is well conditioned enough to grow
+(3, 4, 3) (1, 3, 3, 1)
+
 ```
 
 and you warm-start the next fit by zero-padding the converged cores up to those ranks (§5.4.2) with
 `resize` (this does not change the represented tensor):
 
 ```python
-X0 = X.resize(X.shape, new_tucker_ranks, new_tt_ranks)         # warm start at the grown ranks
+>>> X0 = X.resize(X.shape, new_tucker_ranks, new_tt_ranks)         # warm start at the grown ranks
+>>> print(X0.tucker_ranks, X0.tt_ranks)
+(3, 4, 3) (1, 3, 3, 1)
+>>> print(bool(np.allclose(X0.to_dense(), X.to_dense())))          # zero padding: the same tensor
+True
+
 ```
 
 A complete continuation loop — solve, propose, warm-start, repeat — looks like this (see the example for
@@ -119,8 +135,20 @@ cleaned by the shared useless-rank removal (the group ceiling). The loop is unch
 spec through both calls:
 
 ```python
-new_tucker, new_tt = X.continuation_ranks(sharing=sharing)
-X = X.resize(shape, new_tucker, new_tt, sharing=sharing)   # the group factor padded ONCE, tied warm start
+>>> ii, jj, kk = np.meshgrid(np.arange(7), np.arange(7), np.arange(6), indexing='ij')
+>>> Ts = 1.0 / (1.0 + 0.1*ii + 2.0*jj + 5.0*kk)                # modes 0 and 1 have equal size
+>>> Xd, _, _ = t3.TuckerTensorTrain.t3svd_dense(Ts, max_tucker_ranks=3, max_tt_ranks=3)
+>>> sharing = (0, 0, 1)
+>>> Xs = Xd.share(sharing, max_tucker_ranks=3, max_tt_ranks=3)  # a point with modes 0,1 tied
+>>> print(Xs.continuation_ranks())               # unshared: mode 0 is too ill conditioned to grow ...
+((3, 4, 4), (1, 3, 4, 1))
+>>> new_tucker, new_tt = Xs.continuation_ranks(sharing=sharing)
+>>> Xs = Xs.resize(Xs.shape, new_tucker, new_tt, sharing=sharing)   # the group factor padded ONCE, tied warm start
+>>> print(new_tucker, new_tt)                    # ... shared: one edge, so modes 0 and 1 grow together
+(4, 4, 4) (1, 3, 4, 1)
+>>> print(bool(np.all(Xs.has_shared_tucker_factors(sharing))), Xs.data[0][0] is Xs.data[0][1])
+True True
+
 ```
 
 A freshly padded shared point has exactly-zero new spectrum levels (the tied Tucker channel is
@@ -135,8 +163,17 @@ to the backend. If you bypass the OO frontend, call the backend directly with si
 have (e.g. from `t3svd`):
 
 ```python
-import t3toolbox.backend.ranks as ranks
-new_tucker, new_tt = ranks.compute_continuation_ranks(shape, tucker_singular_values, tt_singular_values)
+>>> import t3toolbox.backend.ranks as ranks
+>>> _, tucker_singular_values, tt_singular_values = X.t3svd()      # or singular values you already have
+>>> new_tucker, new_tt = ranks.compute_continuation_ranks(X.shape, tucker_singular_values, tt_singular_values)
+>>> print((new_tucker, new_tt) == X.continuation_ranks())          # the frontend is exactly this call
+True
+>>> kappa_tucker, kappa_tt = ranks.edge_condition_numbers(tucker_singular_values, tt_singular_values)
+>>> print(len(kappa_tucker), len(kappa_tt))                        # d Tucker edges, d+1 TT bonds
+3 4
+>>> print(float(kappa_tt[0]), float(kappa_tt[-1]))                 # the length-1 boundary bonds are 1.0
+1.0 1.0
+
 ```
 
 `ranks.edge_condition_numbers(tucker_singular_values, tt_singular_values)` returns the per-edge condition

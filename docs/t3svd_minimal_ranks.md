@@ -26,6 +26,20 @@ is a clean bipartition with no hidden multi-cut degeneracy.) `compute_minimal_ra
 propagating the structural bottlenecks; check with `has_minimal_ranks`. See
 `test_compute_minimal_ranks_matches_matricization`.
 
+### With shared Tucker factors
+
+When the Tucker factors are tied within mode groups (`sharing=`, see [`sharing.md`](sharing.md)), the
+per-mode Tucker ceiling `n_i <= min(N_i, rL_i * rR_i)` is replaced by the **group** ceiling
+
+```
+n_g <= min(N_g, sum_{i in g} min(N_g, rL_i * rR_i))
+```
+
+— a shared basis column is useless only if it is useless for *every* mode of the group, so the
+per-mode ceilings add and a shared rank may legitimately exceed an individual mode's local ceiling.
+Both `compute_minimal_ranks` and `rank_adjustment_sweep` take `sharing=`; running the unshared
+reduction on a shared structure clips such ranks and unties the group.
+
 ## Why the truncating sweep can leave non-minimal ranks
 
 `t3svd` sweeps left to right. At mode `i` it first truncates the **Tucker** rank `n_i` (against the
@@ -66,8 +80,23 @@ sweep adds the backward (right) bounds and the result is fully minimal — and a
 left-orthogonal, so this is the common path:
 
 ```python
-x2, _, _ = x.t3svd(max_tt_ranks=2)        # left-orthogonal, possibly non-minimal
-x3 = x2.rank_adjustment_sweep('right_to_left')   # minimal, right-orthogonal (lossless)
+>>> import numpy as np
+>>> import t3toolbox.tucker_tensor_train as t3
+>>> np.random.seed(0)
+>>> x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 6, 7), (1, 3, 7, 1))  # the worked example above
+>>> x2, _, _ = x.t3svd(max_tt_ranks=2)        # left-orthogonal, possibly non-minimal
+>>> print(x2.tucker_ranks, x2.tt_ranks)       # n_0 = 3 orphaned by the capped bond r_1 = 2
+(3, 6, 2) (1, 2, 2, 1)
+>>> print(x2.has_minimal_ranks)
+False
+>>> x3 = x2.rank_adjustment_sweep('right_to_left')   # minimal, right-orthogonal (lossless)
+>>> print(x3.tucker_ranks, x3.tt_ranks)
+(2, 4, 2) (1, 2, 2, 1)
+>>> print(x3.has_minimal_ranks)
+True
+>>> print(np.allclose(x2.to_dense(), x3.to_dense()))   # lossless: the same tensor
+True
+
 ```
 
 On a general input (orthogonal in neither direction, or the same direction as the sweep) one sweep is a

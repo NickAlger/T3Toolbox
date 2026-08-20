@@ -157,3 +157,24 @@ This is a convention, not a contract. Apply it where it earns its keep:
 The accepted cost: reproducibility occasionally trades a little informativeness (mitigated by the
 magnitude-in-comment habit) — paid on purpose. (Doctests are CI-enforced on both numpy generations,
 so run them locally when you touch a docstring: a stale output fails the build, not just the reader.)
+
+## The doc *pages* are doctested too
+
+CI runs `python -m doctest` over `docs/getting_started.rst` **and every `docs/*.md` +
+`docs/contributor/*.md` page**, on both numpy generations. The examples in the design notes are
+therefore executable specifications: a library change that invalidates a documented example fails the
+build instead of rotting quietly. Four things follow.
+
+- **Write page examples as `>>>` sessions inside the ```` ```python ```` fence** (not as bare code with
+  results in `#` comments). The rendered page looks the same; the difference is that CI now runs it.
+- **Leave a blank line before the closing fence.** doctest reads expected output until a blank line,
+  so a ```` ``` ```` sitting directly under an output line is swallowed *into* the expected text and
+  the example fails with a baffling diff. This bites once per page.
+- **Each file is its own namespace, shared across all its blocks.** Put imports and setup in the first
+  block and reuse the names later; nothing crosses between pages.
+- **Genuinely schematic blocks stay plain fences** — pseudo-code, a signature illustration, a
+  multi-device `shard_map` recipe. Do not contort an example to make it runnable; an unrunnable
+  illustration that teaches beats a runnable one that does not.
+
+This page is the one exclusion in the CI step: its `>>>` fragments are deliberately illustrative
+(including deliberately-wrong ones), and doctest cannot even parse it.
