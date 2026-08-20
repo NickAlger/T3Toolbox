@@ -33,6 +33,7 @@ from t3toolbox.uniform_frame_variations_format import (
 )
 from t3toolbox.manifold import T3Tangent, MANIFOLD, COREWISE
 from t3toolbox.uniform_manifold import UT3Tangent, UNIFORM_MANIFOLD, UNIFORM_COREWISE
+from t3toolbox.shared_geometry import shared, shared_manifold, shared_corewise
 from t3toolbox.fitting import (
     GaussNewtonModel,
     UniformGaussNewtonModel,
@@ -87,6 +88,11 @@ __all__ = [
     'COREWISE',
     'UNIFORM_MANIFOLD',
     'UNIFORM_COREWISE',
+    # shared-factor geometry wrappers (Tucker factors tied within sharing groups) -- docs/sharing.md.
+    # shared(MANIFOLD, sharing) wraps a base geometry; shared_manifold/shared_corewise are shorthands.
+    'shared',
+    'shared_manifold',
+    'shared_corewise',
     # fitting models
     'GaussNewtonModel',
     'UniformGaussNewtonModel',

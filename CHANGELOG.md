@@ -7,6 +7,38 @@ All notable changes to T3Toolbox are documented here. The format follows
 
 ### Added
 
+- **Shared Tucker factors (SF-T3)** — optimize over Tucker tensor trains whose Tucker factors are
+  constrained equal within user-specified groups of modes (the SF-ETT decomposition of Molozhavenko &
+  Rakhuba (2026), generalized from one trailing block to an arbitrary partition; the partition is
+  always user-provided). A `sharing` spec is one hashable group label per mode, e.g. `(0, 0, 1)`;
+  a shared T3 is an ordinary `TuckerTensorTrain` whose group factors are equal (redundant storage —
+  a compute-not-memory feature). Ragged layer (the uniform mirror is in progress):
+  - **The shared geometries** — `shared(MANIFOLD, sharing)` with shorthands `shared_manifold(sharing)`
+    / `shared_corewise(sharing)`, exported from the package root: drop-in geometry wrappers for every
+    optimizer and fitting model. Projections post-pass onto the tied tangent subspace *in the base
+    geometry's own metric* (manifold: the tilted least-squares projection through a per-frame SVD
+    companion; corewise: the per-group mean), and the manifold retraction goes through a tied
+    doubled-rank embedding plus the grouped `t3svd`, so every iterate stays exactly tied (one array
+    per group).
+  - **Grouped `t3svd(sharing=)` / `rank_adjustment_sweep(..., sharing=)`** — the paper-faithful
+    two-phase truncation (TT rounding, then simultaneous group Tucker SVDs on concatenated
+    matricizations), reporting one spectrum `s_g` per group; `sharing=None` or an all-singleton
+    partition is the existing sweep exactly.
+  - **`TuckerTensorTrain.share(sharing, ...)`** — the quasi-optimal shared initializer (exact
+    common-span rewrite + grouped truncation), and the checker method
+    **`has_shared_tucker_factors(sharing, rtol=)`** (per-stack-element bool).
+  - **Shared rank bookkeeping** — `get_minimal_ranks(..., sharing=)` /
+    `backend.ranks.compute_minimal_ranks(sharing=)` with the group ceiling
+    `n_g <= min(N_g, sum_i min(N_g, rL_i*rR_i))` (per-mode ceilings ADD across a group, so a shared
+    rank may exceed an individual mode's `rL_i*rR_i` — the unshared reduction would clip it and untie
+    the group), `manifold.manifold_dim(s, sharing=)` (one Stiefel term per group; validated against
+    dense tied-tangent ranks), and `frame_has_minimal_ranks(..., sharing=)`.
+  - Backend surface in `backend.sharing` (`validate_sharing`, `t3_sharing_residual`,
+    `t3_tucker_factors_shared`, `t3_share_tucker_cores`, `T3SharedFrameData` +
+    `fv_shared_frame_data`, the tied post-passes) and `backend.t3_svd.t3_share_tucker_factors`.
+    Safe mode checks tied factors at shared entry points; full shared rank is a diagnostic, never a
+    precondition (rank-continuation restarts legitimately sit below it).
+
 - **The grouped-einsum interpreter `backend.contractions.contract`** — one general entry point for
   every grouped contraction: `contract('WCa,Caib,WCi->WCb', *operands, len_W=...)`. Standard einsum
   strings where an UPPERCASE letter is a *group* of zero or more axes (`W` probe stack, `K` tangent
@@ -36,6 +68,14 @@ All notable changes to T3Toolbox are documented here. The format follows
     `docs/contributor/weighted_internals.md`.
 
 ### Changed
+
+- **BREAKING: the backend `optimizers.GeometryOps` protocol** gains an optional `precompute` slot
+  (`frame -> geometry aux`, `None` for the existing geometries), and `project`/`retract` take a third
+  argument (`(frame, variations, aux=None)`). `Problem.local_model` builds the aux once per Newton
+  step (a `LocalModel.geom_aux` leaf field beside `sweep`) and passes it to `project`/`retract`; the
+  frontend `GaussNewtonModel` mirrors it as a `geometry_aux` leaf. Migration for custom `GeometryOps`:
+  accept (and ignore) `aux=None` in `project`/`retract`; the shared geometries use the slot to compute
+  their per-frame SVD companion once per local model instead of once per CG matvec.
 
 - `backend/common.py` gains `prefix_mask` (the boolean prefix indicator shared by every uniform prefix
   structure) and now hosts `require_concrete_masks`, which moved from `backend/ut3_masking.py` — it is

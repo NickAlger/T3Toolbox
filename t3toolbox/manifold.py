@@ -43,12 +43,18 @@ __all__ = [
 
 
 def manifold_dim(
-        s,  # structure: (shape, tucker_ranks, tt_ranks) = ((N0,...), (n0,...), (1,r1,...,1))
-) -> int:  # dimension of the fixed-rank T3 manifold
+        s,                                          # structure: (shape, tucker_ranks, tt_ranks) = ((N0,...), (n0,...), (1,r1,...,1))
+        sharing: typ.Optional[typ.Sequence] = None, # len=d, static; one hashable group label per mode (None = unshared)
+) -> int:  # dimension of the fixed-rank (shared-factor) T3 manifold
     """Get the dimension of the fixed rank T3 manifold with a given structure.
 
     The fixed-rank Tucker tensor train manifold M_{n,r} is described in Appendix A.3 of Alger et al.
-    (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
+    (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141). With ``sharing`` (one hashable
+    group label per mode), the dimension of the shared-factor submanifold -- Tucker factors tied
+    within each group (cf. Molozhavenko & Rakhuba (2026); arbitrary partitions are our extension):
+    the minimal-rank reduction is the shared one, and each group contributes ONE Stiefel term
+    ``n_g*(N_g - n_g)`` instead of one per mode. See
+    :py:func:`~t3toolbox.backend.ranks.compute_manifold_dim`.
 
     Examples
     --------
@@ -81,8 +87,18 @@ def manifold_dim(
     >>> ss = np.linalg.svd(dense_vv, compute_uv=False)
     >>> print(int(np.sum(ss > 1e-9 * ss[0])))   # number of nonzero singular values == manifold_dim
     29
+
+    With ``sharing=``, the dimension of the shared-factor manifold. Tying factors removes
+    parameters -- here one Stiefel term for the 3-mode group instead of three:
+
+    >>> import t3toolbox.manifold as t3m
+    >>> s = ((5, 5, 5), (3, 3, 3), (1, 3, 3, 1))
+    >>> print(t3m.manifold_dim(s))
+    45
+    >>> print(t3m.manifold_dim(s, sharing=(0, 0, 0)))
+    33
     """
-    return ranks.compute_manifold_dim(s[0], s[1], s[2])
+    return ranks.compute_manifold_dim(s[0], s[1], s[2], sharing=sharing)
 
 
 @dataclass(frozen=True)

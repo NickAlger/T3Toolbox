@@ -128,6 +128,19 @@ class TestSharingCheckers(unittest.TestCase):
         with self.assertRaises(ValueError):
             sharing.t3_share_tucker_cores((tk, tt), (0, 0))
 
+    def test_frontend_method_has_shared_tucker_factors(self):
+        # the method form of t3_tucker_factors_shared (a property checker of the T3, hence a method
+        # -- not a free function: it combines the T3 with a spec, not with another substantive object)
+        x = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
+        self.assertFalse(bool(x.has_shared_tucker_factors((0, 0, 1))))
+        self.assertTrue(bool(x.share((0, 0, 1)).has_shared_tucker_factors((0, 0, 1))))
+        # per-stack-element verdicts, matching the backend checker exactly
+        x_data, spec, _ = _tied_data(SHARED_STRUCTURES[2], (2,))
+        xs = t3.TuckerTensorTrain(*x_data)
+        verdicts = np.asarray(xs.has_shared_tucker_factors(spec))
+        self.assertEqual(verdicts.shape, (2,))
+        self.assertTrue(np.all(verdicts))
+
 
 class TestShareTuckerCores(unittest.TestCase):
     def setUp(self):
@@ -910,6 +923,85 @@ class TestSharedGeometry(unittest.TestCase):
         relc = float(np.linalg.norm(np.asarray(xc.to_dense()) - Ad) / np.linalg.norm(Ad))
         self.assertLess(relc, 1e-4)
         self.assertIs(xc.data[0][0], xc.data[0][1])
+
+
+class TestSharedMinimalRanksGroundTruth(unittest.TestCase):
+    """Shared minimal ranks == generic dense edge-cut ranks of a TIED T3 (non-circular ground truth;
+    mirrors the unshared test_compute_minimal_ranks_matches_matricization). The hand-worked expected
+    tuples for the same structures live in tests/backend/test_ranks.py."""
+
+    def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed per test
+
+    def test_matches_dense_edge_cut_ranks_of_tied_t3(self):
+        # group Tucker rank = rank of the concatenated matricization [X_(i1)|...|X_(ik)];
+        # TT ranks = the sequential-unfolding ranks. Structures cover: the group ceiling keeping a
+        # rank the per-mode reduction clips, the sum-bound ceiling, non-adjacent groups, an all-modes
+        # group, TT reductions interacting with the group, and the d=2 matrix case.
+        cases = [
+            ((6, 6, 4),    (4, 4, 3),    (1, 2, 2, 1),    (0, 0, 1)),
+            ((9, 9, 4),    (7, 7, 2),    (1, 2, 2, 1),    (0, 0, 1)),
+            ((5, 5, 4),    (5, 5, 4),    (1, 3, 3, 1),    (0, 0, 1)),
+            ((7, 7, 7),    (7, 7, 7),    (1, 2, 2, 1),    (0, 0, 0)),
+            ((5, 4, 5),    (2, 3, 2),    (1, 6, 6, 1),    (0, 1, 0)),
+            ((3, 5, 3, 5), (3, 4, 3, 4), (1, 2, 3, 2, 1), ('a', 'b', 'a', 'b')),
+            ((5, 5, 6, 6), (5, 5, 6, 6), (1, 2, 2, 2, 1), (0, 0, 1, 1)),
+            ((6, 6),       (6, 6),       (1, 3, 1),       (0, 0)),
+        ]
+        for shape, tucker, tt, spec in cases:
+            with self.subTest(shape=shape, tucker=tucker, tt=tt, sharing=spec):
+                groups = sharing.validate_sharing(spec, shape)
+                x_data, _, _ = _tied_data((shape, tucker, tt, spec), ())
+                T = np.asarray(t3.TuckerTensorTrain(*x_data).to_dense())
+                d = len(shape)
+
+                dense_n = [0] * d
+                for group in groups:
+                    M = np.concatenate([np.moveaxis(T, jj, 0).reshape(shape[jj], -1)
+                                        for jj in group], axis=1)
+                    rank = int(np.linalg.matrix_rank(M, tol=1e-9 * np.linalg.norm(M, ord=2)))
+                    for jj in group:
+                        dense_n[jj] = rank
+                dense_r = [1] * (d + 1)
+                for ii in range(1, d):
+                    M = T.reshape(int(np.prod(shape[:ii])), -1)
+                    dense_r[ii] = int(np.linalg.matrix_rank(M, tol=1e-9 * np.linalg.norm(M, ord=2)))
+
+                got = t3.TuckerTensorTrain.get_minimal_ranks(shape, tucker, tt, sharing=spec)
+                self.assertEqual(got, (tuple(dense_n), tuple(dense_r)))
+
+
+class TestSharedManifoldDimGroundTruth(unittest.TestCase):
+    """manifold_dim(s, sharing=) == the rank of a dense basis of random tied tangents (the empirical
+    backstop for the arbitrary-partition dimension formula -- the papers prove a single trailing
+    block only). Hand-worked values for these structures live in tests/backend/test_ranks.py."""
+
+    def setUp(self):
+        np.random.seed(0)
+
+    def test_dense_tied_tangent_rank_matches_formula(self):
+        # all structures shared-minimal; the first has n_g = 4 > rL*rR = 2 at mode 0 (the group
+        # ceiling case, where the UNSHARED reduction would clip the rank and the unshared formula
+        # miscounts -- asserted disjoint below)
+        cases = [
+            ((6, 6, 4),    (4, 4, 2), (1, 2, 2, 1),    (0, 0, 1)),
+            ((5, 5, 5),    (3, 3, 3), (1, 3, 3, 1),    (0, 0, 0)),
+            ((4, 5, 4),    (3, 3, 3), (1, 3, 3, 1),    (0, 1, 0)),
+            ((4, 4, 3, 3), (2, 2, 3, 3), (1, 2, 3, 2, 1), (0, 0, 1, 1)),
+        ]
+        for shape, tucker, tt, spec in cases:
+            with self.subTest(shape=shape, tucker=tucker, tt=tt, sharing=spec):
+                formula = t3m.manifold_dim((shape, tucker, tt), sharing=spec)
+                x_data, _, _ = _tied_data((shape, tucker, tt, spec), ())
+                geom = sg.shared_manifold(spec)
+                frame = geom.frame(t3.TuckerTensorTrain(*x_data))
+                self.assertEqual((tuple(frame.up_ranks), tuple(frame.left_ranks)), (tucker, tt))
+                dense_vv = np.stack([np.asarray(geom.randn(frame).to_dense()).reshape(-1)
+                                     for _ in range(formula + 25)])
+                ss = np.linalg.svd(dense_vv, compute_uv=False)
+                dense_dim = int(np.sum(ss > 1e-9 * ss[0]))
+                self.assertEqual(dense_dim, formula)
+                self.assertLess(formula, t3m.manifold_dim((shape, tucker, tt)))   # tying removes params
 
 
 if __name__ == '__main__':

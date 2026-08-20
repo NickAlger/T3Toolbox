@@ -601,6 +601,7 @@ class TuckerTensorTrain:
             shape: Sequence[int],
             tucker_ranks: Sequence[int],
             tt_ranks: Sequence[int],
+            sharing: typ.Optional[typ.Sequence] = None,  # len=d, static; one hashable group label per mode (None = unshared)
     ) -> Tuple[
         Tuple[int, ...],  # new_tucker_ranks
         Tuple[int, ...],  # new_tt_ranks
@@ -622,13 +623,29 @@ class TuckerTensorTrain:
             - Minimal TT ranks are equal to the ranks of ``(N*...*Ni) x (N(i+1)*...*N(d-1))`` matrix unfoldings.
             - Minimal Tucker ranks are equal to the ranks of ``Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1))`` matricizations.
 
+        With ``sharing`` (one hashable group label per mode), minimality is with respect to Tucker
+        factors tied within each group: reductions apply group-wide, and the per-mode Tucker ceiling
+        ``ni <= min(Ni, ri*r(i+1))`` is replaced by the group ceiling
+        ``n_g <= min(N_g, sum_{i in g} min(N_g, ri*r(i+1)))``. Per-mode ceilings ADD across a group
+        (a shared basis column is useless only if it is useless for every mode of the group), so a
+        shared rank may exceed ``ri*r(i+1)`` at individual modes. See
+        :py:func:`~t3toolbox.backend.ranks.compute_minimal_ranks`.
+
         Examples
         --------
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> print(t3.TuckerTensorTrain.get_minimal_ranks((10,11,12,13), (14,15,16,17), (98,99,100,101,102)))
         ((10, 11, 12, 13), (1, 10, 100, 13, 1))
+
+        The group ceiling can keep a shared rank the per-mode reduction would clip (and, by clipping
+        one mode of the group but not another, untie):
+
+        >>> print(t3.TuckerTensorTrain.get_minimal_ranks((6, 6, 4), (4, 4, 3), (1, 2, 2, 1)))
+        ((2, 4, 2), (1, 2, 2, 1))
+        >>> print(t3.TuckerTensorTrain.get_minimal_ranks((6, 6, 4), (4, 4, 3), (1, 2, 2, 1), sharing=(0, 0, 1)))
+        ((4, 4, 2), (1, 2, 2, 1))
         '''
-        return ranks.compute_minimal_ranks(shape, tucker_ranks, tt_ranks)
+        return ranks.compute_minimal_ranks(shape, tucker_ranks, tt_ranks, sharing=sharing)
 
     @cached_property
     def minimal_ranks(self) -> Tuple[Tuple[int,...], Tuple[int,...]]:
@@ -776,6 +793,35 @@ class TuckerTensorTrain:
         bool array** (scalar when unstacked); reduce with ``.all()``.
         """
         return ragged_orthogonalization.t3_orthogonality_residual(self.data, 'right') <= atol
+
+    def has_shared_tucker_factors(
+            self,
+            sharing:    typ.Sequence,   # len=d; one hashable group label per mode
+            rtol:       float = 1e-9,   # relative tolerance on the factor deviation
+    ) -> NDArray:  # bool array, shape = stack_shape (scalar/0-d when unstacked)
+        """True (per stack element) if the Tucker factors are tied within every sharing group.
+
+        Non-enforcing convenience checker (relative factor deviation ``<= rtol``; see
+        :py:func:`~t3toolbox.backend.sharing.t3_sharing_residual`). Structural problems -- wrong
+        ``sharing`` length, unequal mode sizes or Tucker ranks within a group -- raise
+        unconditionally. **Per-stack-element bool array** (scalar when unstacked); reduce with
+        ``.all()`` for a single verdict. A tied T3 is what :py:meth:`share` returns and what the
+        shared geometries (``shared_manifold``/``shared_corewise``) preserve along an optimization.
+        Note sharing ties the **factors** within groups -- it is not tensor symmetry.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
+        >>> print(bool(x.has_shared_tucker_factors((0, 0, 1))))   # a random T3 is not tied
+        False
+        >>> x_shared = x.share((0, 0, 1))
+        >>> print(bool(x_shared.has_shared_tucker_factors((0, 0, 1))))
+        True
+        """
+        return backend_sharing.t3_tucker_factors_shared(self.data, sharing, rtol=rtol)
 
     def validate(self):
         """Check internal consistency of the Tucker tensor train.

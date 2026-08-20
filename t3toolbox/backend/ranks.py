@@ -12,6 +12,7 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.linalg as linalg
+import t3toolbox.backend.sharing as sharing_module
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -57,6 +58,7 @@ def compute_minimal_ranks(
             typ.Sequence[int], # (r0,...,rd)
             NDArray, # dtype=int, shape=(d+1,) + stack_shape
         ],
+        sharing: typ.Optional[typ.Sequence] = None, # len=d, static; one hashable group label per mode (None = unshared)
         use_jax: bool = False,
 ) -> typ.Tuple[
     typ.Union[
@@ -69,7 +71,33 @@ def compute_minimal_ranks(
     ], # new_tt_ranks
 ]:
     '''Find minimal ranks for a generic Tucker tensor train with a given structure.
+
+    With ``sharing`` (one hashable group label per mode --
+    :py:func:`~t3toolbox.backend.sharing.validate_sharing`),
+    minimality is with respect to Tucker factors tied within each group: Tucker reductions apply
+    group-wide, and the per-mode ceiling ``n_i <= min(N_i, rL_i*rR_i)`` is replaced by the group
+    ceiling
+
+        ``n_g <= min(N_g, sum_{i in g} min(N_g, rL_i*rR_i))``
+
+    re-evaluated at every group-mode visit of the left-to-right phase. A shared basis column is
+    useless only if it is useless for EVERY mode of the group, so the per-mode ceilings ADD across
+    the group and ``n_g`` may legitimately exceed ``rL_i*rR_i`` at individual modes -- the unshared
+    reduction applied to a shared structure clips such ranks and unties the group. The result equals
+    the generic dense edge-cut ranks of a tied T3 (group Tucker rank = the rank of the concatenated
+    matricization ``[X_(i1)|...|X_(ik)]``), and a single pass reaches the fixed point -- a second
+    pass changes nothing (asserted property-based in the tests, per the single-pass theorem's
+    sensitivity to the phase ordering). Input Tucker ranks must already be equal within each group
+    (structural error otherwise -- an unequal proposal is not a shared rank vector).
+    ``sharing=None`` or an all-singleton partition is the existing unshared reduction exactly.
     '''
+    groups = None
+    if sharing is not None:
+        all_groups = sharing_module.validate_sharing(sharing, shape)
+        if sharing_module.nontrivial_groups(all_groups):
+            groups = all_groups
+        # trivial partition -> the unshared sweep below (identical: singleton ceilings reduce per-mode)
+
     xnp, _, _ = get_backend(False, use_jax)
 
     is_sequence: bool = False
@@ -82,6 +110,15 @@ def compute_minimal_ranks(
     d = len(shape)
     assert(len(tucker_ranks) == d)
     assert(len(tt_ranks) == d+1)
+
+    if groups is not None:
+        for group in sharing_module.nontrivial_groups(groups):
+            for jj in group[1:]:
+                if not np.array_equal(np.asarray(tucker_ranks[group[0]]), np.asarray(tucker_ranks[jj])):
+                    raise ValueError(
+                        'input Tucker ranks must be equal within a sharing group (an unequal proposal '
+                        'is not a shared rank vector); group %r has unequal ranks at modes %d and %d'
+                        % (group, group[0], jj))
 
     new_tucker_ranks   = list(tucker_ranks)
     new_tt_ranks       = list(tt_ranks)
@@ -98,15 +135,31 @@ def compute_minimal_ranks(
         new_tt_ranks[ii] = np.minimum(rL, n*rR)
 
     new_tt_ranks[0] = xnp.ones(tt_ranks.shape[1:], dtype=int)
-    for ii in range(d):
-        n   = new_tucker_ranks[ii]
-        rL  = new_tt_ranks[ii]
-        rR  = new_tt_ranks[ii+1]
+    if groups is None:
+        for ii in range(d):
+            n   = new_tucker_ranks[ii]
+            rL  = new_tt_ranks[ii]
+            rR  = new_tt_ranks[ii+1]
 
-        n = np.minimum(n, rL*rR)
-        rR = np.minimum(rR, rL*n)
-        new_tucker_ranks[ii] = n
-        new_tt_ranks[ii+1] = rR
+            n = np.minimum(n, rL*rR)
+            rR = np.minimum(rR, rL*n)
+            new_tucker_ranks[ii] = n
+            new_tt_ranks[ii+1] = rR
+    else:
+        # Left-to-right phase, Tucker step BEFORE TT step at each core (the single-pass theorem
+        # depends on this ordering): a group mode re-evaluates the group ceiling with the CURRENT
+        # bond ranks and assigns the cap group-wide; the TT step is the standard per-mode cap.
+        mode_group = {ii: group for group in groups for ii in group}
+        for ii in range(d):
+            group = mode_group[ii]
+            N_g = shape[ii]
+            ceiling = xnp.minimum(N_g, new_tt_ranks[group[0]] * new_tt_ranks[group[0] + 1])
+            for jj in group[1:]:
+                ceiling = ceiling + xnp.minimum(N_g, new_tt_ranks[jj] * new_tt_ranks[jj + 1])
+            n_g = xnp.minimum(new_tucker_ranks[ii], xnp.minimum(N_g, ceiling))
+            for jj in group:
+                new_tucker_ranks[jj] = n_g
+            new_tt_ranks[ii+1] = xnp.minimum(new_tt_ranks[ii+1], new_tt_ranks[ii] * n_g)
 
     if is_sequence:
         new_tucker_ranks = tuple(int(n) for n in new_tucker_ranks)
@@ -425,13 +478,25 @@ def compute_manifold_dim(
         shape:          typ.Sequence[int],  # (N0, ..., N(d-1))
         tucker_ranks:   typ.Sequence[int],  # (n0, ..., n(d-1))
         tt_ranks:       typ.Sequence[int],  # (r0, ..., rd)
+
+        sharing:        typ.Optional[typ.Sequence] = None,  # len=d, static; one hashable group label per mode (None = unshared)
 ) -> int:
     '''Dimension of the fixed-rank Tucker tensor train manifold for the given structure.
 
     Computed from the structurally-minimal ranks (gauge already quotiented), so this is the true
     tangent-space dimension for a minimal-rank base point.
+
+    With ``sharing``, the dimension of the shared-factor manifold (Tucker factors tied within each
+    group): the reduction to minimal ranks is the SHARED one (:py:func:`compute_minimal_ranks` with
+    ``sharing`` -- the unshared reduction can clip a group rank the group ceiling admits, and the
+    formula applied to the clipped ranks miscounts), the TT-core term is unchanged (TT cores are
+    never tied), and there is one Stiefel term ``n_g*(N_g - n_g)`` per GROUP instead of per mode.
+    Cf. Molozhavenko & Rakhuba (2026), Thm. 5, which proves a single trailing block (and
+    over-subtracts by one: the boundary bond ``r_d = 1`` carries no gauge); arbitrary partitions
+    are our extension, validated empirically against dense tied-tangent ranks.
     '''
-    min_tucker_ranks, min_tt_ranks = compute_minimal_ranks(shape, tucker_ranks, tt_ranks)
+    min_tucker_ranks, min_tt_ranks = compute_minimal_ranks(shape, tucker_ranks, tt_ranks,
+                                                           sharing=sharing)
 
     num_cores = len(shape)
     manifold_dim: int = 0
@@ -444,9 +509,13 @@ def compute_manifold_dim(
         else:
             manifold_dim += (rL * n - rR) * rR
 
-    for ii in range(num_cores):
-        n = min_tucker_ranks[ii]
-        N = shape[ii]
+    if sharing is None:
+        groups = tuple((ii,) for ii in range(num_cores))
+    else:
+        groups = sharing_module.validate_sharing(sharing, shape)
+    for group in groups:   # one Stiefel term per group (a singleton group = the standard per-mode term)
+        n = min_tucker_ranks[group[0]]
+        N = shape[group[0]]
         manifold_dim += (N - n) * n
 
     return int(manifold_dim)
@@ -458,16 +527,28 @@ def frame_has_minimal_ranks(
         down_ranks:     typ.Sequence[int],
         left_ranks:     typ.Sequence[int],
         right_ranks:    typ.Sequence[int],
+
+        sharing:        typ.Optional[typ.Sequence] = None,  # len=d, static; one hashable group label per mode (None = unshared)
 ) -> bool:
     '''True if a T3Frame with these (redundant) ranks is structurally minimal.
 
     Requires the left/right and up/down rank stores to agree, and the up/left ranks to equal the
-    minimal ranks for the shape.
+    minimal ranks for the shape. With ``sharing``, minimality is the SHARED notion
+    (:py:func:`compute_minimal_ranks` with ``sharing``): up ranks must additionally be equal within
+    each group (False otherwise -- untied ranks cannot carry tied factors), and the group ceiling
+    can keep a rank the per-mode reduction would clip. A diagnostic, never a precondition (minimal
+    rank -- shared or not -- is not a correctness precondition for any verified operation, and a
+    freshly rank-padded continuation restart legitimately sits below full shared rank).
     '''
     if tuple(left_ranks) != tuple(right_ranks):
         return False
     if tuple(up_ranks) != tuple(down_ranks):
         return False
-    min_tucker_ranks, min_tt_ranks = compute_minimal_ranks(shape, up_ranks, left_ranks)
+    if sharing is not None:
+        for group in sharing_module.validate_sharing(sharing, shape):
+            if len(set(int(up_ranks[jj]) for jj in group)) > 1:   # untied ranks: not shared-minimal
+                return False
+    min_tucker_ranks, min_tt_ranks = compute_minimal_ranks(shape, up_ranks, left_ranks,
+                                                           sharing=sharing)
     return (tuple(int(n) for n in min_tucker_ranks) == tuple(int(n) for n in up_ranks)
             and tuple(int(r) for r in min_tt_ranks) == tuple(int(r) for r in left_ranks))

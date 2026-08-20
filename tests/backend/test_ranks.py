@@ -193,5 +193,146 @@ class TestComputeContinuationRanks(unittest.TestCase):
         self.assertEqual(stopped, ((2, 2, 2), (1, 2, 2, 1)))
 
 
+class TestSharedMinimalRanks(unittest.TestCase):
+    """Shared (tied-Tucker-factor) minimal ranks: the group ceiling
+    ``n_g <= min(N_g, sum_{i in g} min(N_g, rL_i*rR_i))``. Hand-worked cases here; every structure is
+    ALSO cross-validated against the dense edge-cut ranks of a random tied T3 in
+    tests/test_sharing.py (this file stays pure host arithmetic on ranks)."""
+
+    def test_group_ceiling_keeps_rank_the_per_mode_reduction_clips(self):
+        # group {0,1}: per-mode ceiling at mode 0 is rL*rR = 1*2 = 2 < 4, but the ceilings ADD across
+        # the group: min(6, min(6,2) + min(6,4)) = 6 >= 4, so the shared rank 4 survives. The unshared
+        # reduction clips mode 0 to 2 (and thereby UNTIES the group); mode 2's singleton cap 3 -> 2.
+        self.assertEqual(ranks.compute_minimal_ranks((6, 6, 4), (4, 4, 3), (1, 2, 2, 1)),
+                         ((2, 4, 2), (1, 2, 2, 1)))
+        self.assertEqual(ranks.compute_minimal_ranks((6, 6, 4), (4, 4, 3), (1, 2, 2, 1),
+                                                     sharing=(0, 0, 1)),
+                         ((4, 4, 2), (1, 2, 2, 1)))
+
+    def test_group_ceiling_sum_binds(self):
+        # here the SUM binds before the mode size: min(9, min(9,2) + min(9,4)) = 6 < 9, so n_g: 7 -> 6
+        self.assertEqual(ranks.compute_minimal_ranks((9, 9, 4), (7, 7, 2), (1, 2, 2, 1),
+                                                     sharing=(0, 0, 1)),
+                         ((6, 6, 2), (1, 2, 2, 1)))
+
+    def test_all_modes_one_group(self):
+        # ceiling min(7, min(7,2)+min(7,4)+min(7,2)) = 7: nothing clips even though every per-mode
+        # ceiling (2, 4, 2) is far below 7
+        self.assertEqual(ranks.compute_minimal_ranks((7, 7, 7), (7, 7, 7), (1, 2, 2, 1),
+                                                     sharing=(0, 0, 0)),
+                         ((7, 7, 7), (1, 2, 2, 1)))
+
+    def test_non_adjacent_group_with_tt_reduction(self):
+        # TT proposals 6 reduce (r1 <= n0*r0 = 2, r2 <= n2*r3 = 2); the non-adjacent group {0,2}
+        # keeps n_g = 2 (ceiling min(5, 2+2) = 4 >= 2)
+        self.assertEqual(ranks.compute_minimal_ranks((5, 4, 5), (2, 3, 2), (1, 6, 6, 1),
+                                                     sharing=(0, 1, 0)),
+                         ((2, 3, 2), (1, 2, 2, 1)))
+
+    def test_mode_size_cap_applies_group_wide(self):
+        # proposal n_g = 5 = N_g at the group, 4 > 3 = rL*rR at the trailing singleton
+        self.assertEqual(ranks.compute_minimal_ranks((5, 5, 4), (5, 5, 4), (1, 3, 3, 1),
+                                                     sharing=(0, 0, 1)),
+                         ((5, 5, 3), (1, 3, 3, 1)))
+
+    def test_none_and_all_singletons_match_unshared_exactly(self):
+        rng = np.random.default_rng(0)
+        for trial in range(50):
+            d = int(rng.integers(2, 6))
+            shape = tuple(int(v) for v in rng.integers(2, 7, size=d))
+            tucker = tuple(int(v) for v in rng.integers(1, 9, size=d))
+            tt = (1,) + tuple(int(v) for v in rng.integers(1, 9, size=d - 1)) + (1,)
+            with self.subTest(shape=shape, tucker=tucker, tt=tt):
+                unshared = ranks.compute_minimal_ranks(shape, tucker, tt)
+                singletons = ranks.compute_minimal_ranks(shape, tucker, tt,
+                                                         sharing=tuple(range(d)))
+                self.assertEqual(unshared, singletons)
+
+    def test_single_pass_is_idempotent(self):
+        # the single-pass theorem is sensitive to the phase ordering -- assert empirically that a
+        # second pass changes nothing, over random proposals x random partitions
+        rng = np.random.default_rng(0)
+        for trial in range(200):
+            d = int(rng.integers(2, 6))
+            labels = tuple(int(v) for v in rng.integers(0, min(d, 3), size=d))
+            label_size = {lab: int(rng.integers(2, 7)) for lab in set(labels)}
+            shape = tuple(label_size[lab] for lab in labels)
+            tucker = [0] * d
+            for lab in set(labels):
+                ng = int(rng.integers(1, 9))
+                for ii in range(d):
+                    if labels[ii] == lab:
+                        tucker[ii] = ng
+            tucker = tuple(tucker)
+            tt = (1,) + tuple(int(v) for v in rng.integers(1, 9, size=d - 1)) + (1,)
+            with self.subTest(shape=shape, tucker=tucker, tt=tt, labels=labels):
+                n1, r1 = ranks.compute_minimal_ranks(shape, tucker, tt, sharing=labels)
+                n2, r2 = ranks.compute_minimal_ranks(shape, n1, r1, sharing=labels)
+                self.assertEqual((n1, r1), (n2, r2))
+
+    def test_unequal_ranks_within_group_raise(self):
+        # isolated rejection: equal mode sizes (validate_sharing passes), valid lengths -- ONLY the
+        # within-group rank equality fails
+        with self.assertRaises(ValueError):
+            ranks.compute_minimal_ranks((6, 6, 4), (4, 3, 2), (1, 2, 2, 1), sharing=(0, 0, 1))
+
+    def test_stacked_array_mode_matches_per_element(self):
+        # array input with a stack axis: per-element results equal the sequence-mode calls
+        shape = (6, 6, 4)
+        tucker = np.array([[4, 3], [4, 3], [3, 2]])          # (d,) + stack (2,)
+        tt = np.array([[1, 1], [2, 2], [2, 2], [1, 1]])      # (d+1,) + stack (2,)
+        n_arr, r_arr = ranks.compute_minimal_ranks(shape, tucker, tt, sharing=(0, 0, 1))
+        self.assertEqual(n_arr.shape, (3, 2))
+        self.assertEqual(r_arr.shape, (4, 2))
+        for kk in range(2):
+            n_seq, r_seq = ranks.compute_minimal_ranks(
+                shape, tuple(int(v) for v in tucker[:, kk]), tuple(int(v) for v in tt[:, kk]),
+                sharing=(0, 0, 1))
+            self.assertEqual(tuple(int(v) for v in n_arr[:, kk]), n_seq)
+            self.assertEqual(tuple(int(v) for v in r_arr[:, kk]), r_seq)
+
+
+class TestSharedManifoldDim(unittest.TestCase):
+    """Shared manifold dimension: shared minimal reduction first, TT term unchanged, ONE Stiefel term
+    per group. Hand-worked here; validated against dense tied-tangent ranks in tests/test_sharing.py."""
+
+    def test_hand_worked_all_modes_one_group(self):
+        # (5,5,5), n=(3,3,3), r=(1,3,3,1), already minimal (shared and unshared):
+        # TT term = 1*3*3 + 3*3*3 + 3*3*1 - (3^2 + 3^2) = 45 - 18 = 27
+        # Stiefel: unshared 3 * [3*(5-3)] = 18 -> 45; shared ONE term 3*(5-3) = 6 -> 33
+        self.assertEqual(ranks.compute_manifold_dim((5, 5, 5), (3, 3, 3), (1, 3, 3, 1)), 45)
+        self.assertEqual(ranks.compute_manifold_dim((5, 5, 5), (3, 3, 3), (1, 3, 3, 1),
+                                                    sharing=(0, 0, 0)), 33)
+
+    def test_group_ceiling_case_needs_the_shared_reduction(self):
+        # n=(4,4,2) is shared-minimal but NOT unshared-minimal (mode 0 clips to 2): the unshared
+        # formula applied to this shared structure miscounts (36), the shared one is exact (32 --
+        # validated against the dense tied-tangent rank in test_sharing.py):
+        # TT term = 1*4*2 + 2*4*2 + 2*2*1 - (2^2 + 2^2) = 28 - 8 = 20
+        # Stiefel = 4*(6-4) [group] + 2*(4-2) [singleton] = 12 -> 32
+        self.assertEqual(ranks.compute_manifold_dim((6, 6, 4), (4, 4, 2), (1, 2, 2, 1),
+                                                    sharing=(0, 0, 1)), 32)
+        self.assertEqual(ranks.compute_manifold_dim((6, 6, 4), (4, 4, 2), (1, 2, 2, 1)), 36)
+
+    def test_sharing_none_and_singletons_agree(self):
+        s = ((15, 16, 13), (9, 10, 8), (2, 7, 6, 3))
+        self.assertEqual(ranks.compute_manifold_dim(*s), 578)                       # the known value
+        self.assertEqual(ranks.compute_manifold_dim(*s, sharing=(0, 1, 2)), 578)
+
+
+class TestSharedFrameHasMinimalRanks(unittest.TestCase):
+    def test_shared_vs_unshared_verdicts(self):
+        # (4,4,2)/(1,2,2,1) on (6,6,4): shared-minimal for the group {0,1} but NOT unshared-minimal
+        args = ((6, 6, 4), (4, 4, 2), (4, 4, 2), (1, 2, 2, 1), (1, 2, 2, 1))
+        self.assertFalse(ranks.frame_has_minimal_ranks(*args))
+        self.assertTrue(ranks.frame_has_minimal_ranks(*args, sharing=(0, 0, 1)))
+
+    def test_untied_ranks_are_not_shared_minimal(self):
+        # unshared-minimal ranks whose group entries differ: fine unshared, False (not an error) shared
+        args = ((6, 6, 4), (2, 4, 2), (2, 4, 2), (1, 2, 2, 1), (1, 2, 2, 1))
+        self.assertTrue(ranks.frame_has_minimal_ranks(*args))
+        self.assertFalse(ranks.frame_has_minimal_ranks(*args, sharing=(0, 0, 1)))
+
+
 if __name__ == "__main__":
     unittest.main()
