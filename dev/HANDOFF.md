@@ -27,8 +27,8 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Shared Tucker factors (SF-T3) — SLICES 0–8 BUILT (2026-08-19; 0–7 pushed, 8 committed
-  locally).**
+- **Shared Tucker factors (SF-T3) — COMPLETE (all slices 0–13 built, 2026-08-19/20; 0–7 pushed,
+  8–13 committed locally awaiting review/push).**
   Optimize over T3s whose Tucker factors are tied within user-specified mode groups (the SF-ETT
   of Molozhavenko & Rakhuba 2026, generalized to arbitrary partitions). **The spec is
   `dev/shared_factors_handoff.md` (v3)**, with the math in `dev/shared_t3_math.tex` (+pdf) —
@@ -73,11 +73,21 @@ branch can be deleted (optional).
   levels EXACTLY 0; the two-step TT-channel escape; end-to-end continuation from rank-1 zeros to
   exactly the target shared ranks at 1e-10, with `g0norm_newton` pinned per
   docs/rank_continuation.md).
-  **Next: slices 9–11** (uniform mirror, incl.
-  sharing-aware `uniform_minimal`), 12 (docs/sharing.md + contributor internals + doctested
-  getting-started snippet), 13 (the symmetric jetted-probes example). The three reference
-  papers are in the research repo (`tensor/references/`); copies in `dev/` stay untracked
-  (third-party PDFs).
+  9–11. the FULL uniform mirror — grouped `ut3svd`/adjustment + the grouped raw-sweep recurrence
+  + sharing-aware `uniform_minimal` (the untie hazard closed); the uniform companion + tied
+  post-passes/embedding/retraction (mostly mask-and-delegate: the ragged solves are polymorphic;
+  one hard-won lesson: the companion re-sweeps the frame supercores AS STORED, never re-masked);
+  `shared(UNIFORM_MANIFOLD/UNIFORM_COREWISE, sharing)` + all fitting gates + compile-once
+  (verified: shared uniform trajectories == ragged shared; ONE jit trace across rebuilt models);
+  12. the docs — `docs/sharing.md` (incl. the required "What the group spectrum is" section),
+  `docs/contributor/sharing_internals.md`, the CI-doctested getting-started section, the
+  rank_continuation + numerical_contracts additions;
+  13. `examples/fit_shared_factors_jetted_probes.py` — a groupwise-symmetric 5-mode target
+  (`sharing=(0,0,0,1,1)`, two groups, different sizes), noisy probe-derivative jets, the SAME
+  continuation fit shared-vs-unshared: ~35% lower true error at ~37% fewer parameters before
+  overfitting (Nick's redesign, 2026-08-20).
+  **Next: Nick reviews + pushes 8–13.** The three reference papers are in the research repo
+  (`tensor/references/`); copies in `dev/` stay untracked (third-party PDFs).
 
 - **The grouped-einsum interpreter `contractions.contract` — SLICE 1 BUILT (2026-07-17; committed,
   NOT pushed).** Nick's resolution of the standing `contractions.py` architecture question: ONE

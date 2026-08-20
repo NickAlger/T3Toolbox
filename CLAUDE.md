@@ -417,6 +417,21 @@ doctests CI-enforced on both numpy generations.
 - **Design references:** the rendered docs are the reference — user tier (`docs/*.md` +
   the user guide) and the Contributor guide (`docs/contributor/`); `entries_apply_probe.md` §8
   carries the probing paper↔code map.
+- **Shared Tucker factors (SF-T3) — BUILT, ragged AND uniform (2026-08-19/20; slices 0–7 pushed,
+  8–13 local pending review).** Optimize over T3s whose Tucker factors are tied within
+  user-specified mode groups (SF-ETT, Molozhavenko & Rakhuba 2026, generalized to arbitrary
+  partitions — the arbitrary-partition dimension/smoothness is OUR extension). Surface: `sharing=`
+  on `t3svd`/`rank_adjustment_sweep`/`get_minimal_ranks`/`manifold_dim`/`continuation_ranks`/
+  `resize` (+ uniform twins), `x.share(...)`, `has_shared_tucker_factors` (a METHOD — checker
+  grammar), the `shared(base, sharing)` geometry wrapper (`shared_manifold`/`shared_corewise`,
+  uniform bases included, compile-once), and the (breaking) `GeometryOps.precompute` aux slot.
+  **User doc: [`docs/sharing.md`](docs/sharing.md)** (incl. "What the group spectrum is" — the
+  four faces of `s_g`; sharing ≠ symmetry); **design records:
+  [`docs/contributor/sharing_internals.md`](docs/contributor/sharing_internals.md)** (the S_i
+  re-sweep/SVD-not-Gram measurements, the two-phase decision, the tied embedding, the
+  padded-restart analysis — full shared rank is a DIAGNOSTIC, never a precondition). Example:
+  `examples/fit_shared_factors_jetted_probes.py`. Working spec (thread-local):
+  `dev/shared_factors_handoff.md` + `dev/shared_t3_math.tex`.
 - **Weighted layer — SHIPPED, ragged AND uniform** (the edge-weight redesign + its uniform mirror):
   `T3Weights`/`UT3Weights` (tensor) + `T3FrameWeights`/`UT3FrameWeights` (tangent metric), each with
   `absorb`/`weighted_norm`/`weighted_inner`/`reciprocal`/`sqrt`/`concatenate`/`kronecker`, the

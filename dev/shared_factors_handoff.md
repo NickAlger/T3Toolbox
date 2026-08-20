@@ -637,7 +637,24 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
    shared fit to 1e-4, run on both envs) + the `rank_continuation.md` sharing section + the TIED
    precondition rows/section in `numerical_contracts.md` + a user-guide pointer + toctrees wired
    (design_notes + contributor_guide) + CHANGELOG doc pointers. Sphinx -W green.
-13. **NEXT.** The symmetric jetted-probes example.
+13. **DONE** (`f5f17dfe`) the example, redesigned per Nick (2026-08-20):
+   `examples/fit_shared_factors_jetted_probes.py`. Target = the GROUPWISE-symmetric
+   `T[i,j,k,n,o] = Σ A[i,j,k,l] B[l,m] C[m,n,o]` (A, C Hilbert; B random) — symmetric within
+   groups {0,1,2} and {3,4} (different sizes across groups), `sharing=(0,0,0,1,1)` mirroring it;
+   showcases the arbitrary-partition generalization, not the degenerate all-modes case. Data =
+   noisy probe-derivative jets (orders 0..2, per-order ω, unit-norm vectors). The comparison:
+   the SAME adaptive continuation fit (continuation_ranks + resize warm starts + the
+   g0norm_newton pin) twice, differing ONLY in geometry — shared_manifold vs MANIFOLD. Verdict
+   (seed 0; effect verified robust across seeds 0–2 at two problem sizes before fixing
+   constants): shared best-by-validation true error 3.44e-2 at DOF 99 vs unshared 5.32e-2 at
+   DOF 156 — ~35% lower error, ~37% fewer parameters; both validation curves show the
+   overfitting turn, shared later/lower. Includes the cor:sym demo (s_g = √3·σ to 9.6e-16) and
+   the tied-iterates assertions. Runtime ~1.5 min. NOTE the honest cap, stated in the
+   docstring: TT parameters are never tied, so the advantage scales like √(DOF ratio) — the
+   dramatic 3.5× gap seen at MAX_NEWTON=25 was an under-convergence artifact; the fair-budget
+   (MAX_NEWTON=30–40) gap is the real one.
+
+**ALL SLICES 0–13 DONE — the feature is complete** (code, tests, docs, example).
 
 ### 8b. Implementation state — what exists where (for a fresh context)
 
