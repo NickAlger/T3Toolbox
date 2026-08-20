@@ -35,6 +35,7 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.manifold as t3m
 import t3toolbox.uniform_manifold as ut3m
+import t3toolbox.shared_geometry as sg
 import t3toolbox.fitting as _fitting   # for _canonical_weight (the shared frontend weight contract; no cycle)
 import t3toolbox.backend.optimizers as bopt
 import t3toolbox.backend.optimizer_display as bdisp
@@ -64,15 +65,24 @@ _DERIV_KIND = {'apply_derivatives':   bfit.apply_derivatives_kind,
 Point = typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain]
 
 
-def _geometry_ops(geometry) -> bopt.GeometryOps:
-    """Map a **ragged** frontend geometry singleton to its backend ``GeometryOps`` (check-free)."""
+def _geometry_ops(geometry, shape=None) -> bopt.GeometryOps:
+    """Map a **ragged** frontend geometry (a singleton, or a :py:class:`SharedGeometry` over one)
+    to its backend ``GeometryOps`` (check-free). A shared wrapper needs ``shape`` (the mode
+    sizes) to canonicalize its partition."""
     if geometry is t3m.MANIFOLD:
         return bopt.MANIFOLD_OPS
     if geometry is t3m.COREWISE:
         return bopt.COREWISE_OPS
+    if isinstance(geometry, sg.SharedGeometry):
+        if shape is None:
+            raise ValueError("a SharedGeometry needs the point's shape to canonicalize its "
+                             "sharing partition (internal: pass shape=x0.shape)")
+        base_ops = bopt.MANIFOLD_OPS if geometry.base is t3m.MANIFOLD else bopt.COREWISE_OPS
+        return bopt.shared_geometry_ops(base_ops, geometry.groups(shape))
     raise ValueError(f"unknown geometry {geometry!r}; expected manifold.MANIFOLD / manifold.COREWISE "
-                     f"(or the uniform singletons uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE, "
-                     f"with a UniformTuckerTensorTrain x0)")
+                     f"(or a shared_geometry.SharedGeometry over one, or the uniform singletons "
+                     f"uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE with a "
+                     f"UniformTuckerTensorTrain x0)")
 
 
 def _uniform_geometry_name(geometry) -> str:
@@ -178,7 +188,8 @@ def _setup(
             bk = _DERIV_KIND[kind](order, wm, chunk_size=cs)
         else:
             bk = _DERIV_KIND[kind](order, wm)
-        problem = bopt.least_squares_problem(_geometry_ops(geometry), bk, sample, data, regularizer=regularizer)
+        problem = bopt.least_squares_problem(_geometry_ops(geometry, x0.shape), bk, sample, data,
+                                             regularizer=regularizer)
         return problem, x0.data, lambda cores: t3.TuckerTensorTrain(*cores)
 
     raise TypeError(f"x0 must be a TuckerTensorTrain or UniformTuckerTensorTrain, got {type(x0).__name__}")

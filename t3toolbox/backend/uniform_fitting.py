@@ -77,12 +77,12 @@ def uniform_manifold_ops(
         return ufv_conversions.ut3_orthogonal_representations(
             (x_sc[0], x_sc[1], shape, base_masks))[0]
 
-    def project(frame_data, var_sc):                        # gauge Pi; bare variation pair in and out
+    def project(frame_data, var_sc, aux=None):                        # gauge Pi; bare variation pair in and out
         gauged = utv_ops.utv_orthogonal_gauge_projection(
             frame_data, (var_sc[0], var_sc[1], shape, var_masks))
         return (gauged[0], gauged[1])
 
-    def retract(frame_data, var_sc):                        # manifold retraction -> bare point pair
+    def retract(frame_data, var_sc, aux=None):                        # manifold retraction -> bare point pair
         new_x = utv_ops.utv_retract(frame_data, (var_sc[0], var_sc[1], shape, var_masks))
         return (new_x[0], new_x[1])
 
@@ -128,10 +128,10 @@ def uniform_corewise_ops(
         return (x_sc[0], x_sc[1], x_sc[1], x_sc[1], shape,
                 (tucker_mask, tucker_mask, tt_mask, tt_mask))
 
-    def project(frame_data, var_sc):                       # identity (Euclidean core space, no gauge)
+    def project(frame_data, var_sc, aux=None):                       # identity (Euclidean core space, no gauge)
         return var_sc
 
-    def retract(frame_data, var_sc):                       # additive: cores += var -> bare point pair
+    def retract(frame_data, var_sc, aux=None):                       # additive: cores += var -> bare point pair
         new_x = utv_ops.utv_corewise_retract(frame_data, (var_sc[0], var_sc[1], shape, var_masks))
         return (new_x[0], new_x[1])
 

@@ -28,6 +28,7 @@ import t3toolbox.backend.tv_operations as tops
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.probing as probing
 import t3toolbox.backend.sharing as bsharing
+import t3toolbox.shared_geometry as sgm
 import t3toolbox.fitting as fitting
 
 try:
@@ -364,6 +365,20 @@ class TestDispatch(unittest.TestCase):
             return tops.tv_project_dense_onto_tangent_space(frame.data, z, shared_data=sfd)
         self.assert_jit_jax(_tied_projection, stk[0], stt[0], stt[1],
                             jnp.asarray(np.random.randn(6, 6)))
+
+    def test_jit_shared_geometry_fitting(self):
+        # a SharedGeometry model: the wrapper is value-hashed aux, the companion a leaf; the
+        # matvec (tied projections on both sides) compiles clean
+        xt = t3.TuckerTensorTrain((jnp.asarray(np.random.randn(2, 6)),) * 2,
+                                  (jnp.asarray(np.random.randn(1, 2, 2)),
+                                   jnp.asarray(np.random.randn(2, 2, 1))))
+        geom = sgm.shared_manifold((0, 0))
+        ww = tuple(jnp.asarray(np.random.randn(5, 6)) for _ in range(2))
+        r = jnp.asarray(np.random.randn(5))
+        model = fitting.apply_model(geom, xt, ww, r)
+        p = geom.randn(model.frame)
+        self.assert_jit_jax(lambda m, q: m.gn_hessian(q), model, p)
+        self.assert_jit_jax(lambda m: m.gradient, model)
 
     # ---------------------------------------------------- jit bucket: Gauss-Newton fitting (fitting.py)
     def test_jit_fitting(self):

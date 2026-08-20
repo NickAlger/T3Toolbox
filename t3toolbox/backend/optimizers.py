@@ -33,6 +33,7 @@ import typing as typ
 
 from t3toolbox.backend.common import *
 from t3toolbox.backend import tv_operations as tops
+from t3toolbox.backend import sharing as sharing_module
 from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
 from t3toolbox.backend.regularization import Regularizer, IdentityRegularizer   # re-exported for backend users
 from t3toolbox.backend.regularization import _ScaledRegularizer                 # internal: minibatch reg scaling
@@ -42,6 +43,7 @@ __all__ = [
     'GeometryOps',
     'COREWISE_OPS',
     'MANIFOLD_OPS',
+    'shared_geometry_ops',
     'Problem',
     'LocalModel',
     'NewtonInfo',
@@ -64,10 +66,13 @@ Tangent = typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]   # (tucker_va
 @dc.dataclass(frozen=True)
 class GeometryOps:
     frame:    typ.Callable    # x_cores=(U,G)            -> frame=(U,O,P,Q)        the linearization frame
-    project: typ.Callable    # (frame, variations)       -> variations           gauge Π (identity for corewise)
-    retract: typ.Callable    # (frame, variations)       -> x_cores=(U,G)        chart retraction
+    project: typ.Callable    # (frame, variations, aux=None) -> variations       gauge Π (identity for corewise)
+    retract: typ.Callable    # (frame, variations, aux=None) -> x_cores=(U,G)    chart retraction
     inner:   typ.Callable    # (v1, v2)                 -> scalar               coordinate ⟨·,·⟩ (check-free twin of Geometry.inner)
 
+    precompute: typ.Optional[typ.Callable] = None      # frame -> per-frame geometry aux (e.g. the SF-T3 companion),
+                                                       # computed ONCE per local model (the `sweep` pattern) and passed
+                                                       # back to project/retract as `aux`; None => geometry has no aux
     point_norm_sq: typ.Optional[typ.Callable] = None   # x_cores -> ‖X‖² in the coordinate metric; the reg objective (None => geometry has no reg support)
     point_tangent: typ.Optional[typ.Callable] = None   # frame   -> the position X as a gauged tangent v_X; the reg gradient direction
 
@@ -81,8 +86,8 @@ def _corewise_frame(
 
 COREWISE_OPS = GeometryOps(
     frame=_corewise_frame,
-    project=lambda frame, var: var,                                   # Euclidean cores: no gauge projection
-    retract=lambda frame, var: cw.corewise_add((frame[0], frame[2]), var),   # additive: (U,P)=(U,G) += var
+    project=lambda frame, var, aux=None: var,                         # Euclidean cores: no gauge projection
+    retract=lambda frame, var, aux=None: cw.corewise_add((frame[0], frame[2]), var),   # additive: (U,P)=(U,G) += var
     inner=cw.corewise_dot,                                           # ragged coordinate dot (layer-agnostic tree dot)
     point_norm_sq=lambda x_cores: cw.corewise_dot(x_cores, x_cores),  # Σ‖core_i‖² (weight-decay); collapses every axis
     point_tangent=lambda frame: (frame[0], frame[2]),                # the cores (U,G) as a tangent; X_ref=0
@@ -130,12 +135,83 @@ def _manifold_point_tangent(
 
 MANIFOLD_OPS = GeometryOps(
     frame=_manifold_frame,
-    project=lambda frame, var: tops.tv_orthogonal_gauge_projection(frame, var),   # Π  (gauge-fix the tangent)
-    retract=lambda frame, var: tops.tv_retract(frame, var),                       # implicit truncated T3-SVD
+    project=lambda frame, var, aux=None: tops.tv_orthogonal_gauge_projection(frame, var),   # Π  (gauge-fix the tangent)
+    retract=lambda frame, var, aux=None: tops.tv_retract(frame, var),                       # implicit truncated T3-SVD
     inner=cw.corewise_dot,                                                    # ragged coordinate dot
     point_norm_sq=_manifold_point_norm_sq,
     point_tangent=_manifold_point_tangent,
 )
+
+
+def shared_geometry_ops(
+        base:   GeometryOps,   # MANIFOLD_OPS or COREWISE_OPS (the ragged singletons)
+        groups: typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition (sharing.validate_sharing)
+) -> GeometryOps:
+    '''The shared (SF-T3) geometry on raw data: wrap a ragged base geometry so every projection
+    lands on the TIED tangent subspace and the retraction stays on the shared set.
+
+    One principle, two formulas -- each geometry ties by orthogonal projection onto ITS tied
+    subspace in ITS metric on ITS coordinates:
+
+    - ``MANIFOLD_OPS`` base: ``precompute`` derives the per-frame companion
+      (:py:func:`~t3toolbox.backend.sharing.fv_shared_frame_data` -- built once per local model,
+      the ``sweep`` pattern); ``project`` composes the gauge projection with the tied post-pass
+      (:py:func:`~t3toolbox.backend.sharing.fv_share_tucker_variations`); ``retract`` builds the
+      TIED doubled-rank embedding and truncates with the grouped ``t3svd``
+      (``tv_retract(..., shared_data=...)``).
+    - ``COREWISE_OPS`` base: ``project`` is the per-group arithmetic mean
+      (:py:func:`~t3toolbox.backend.sharing.fv_mean_tucker_variations`; the corewise coordinates
+      are raw factor copies), and the additive retraction preserves tying exactly, so
+      ``retract`` only mean-ties its input first (a bitwise no-op on tied input).
+
+    ``inner`` / ``point_norm_sq`` / ``point_tangent`` delegate unchanged (the tied subspace is a
+    linear subspace; the restriction of the metric is itself, and the regularizer's base-point
+    tangent has zero Tucker variations, hence is trivially tied). Check-free, like every backend
+    geometry -- the frontend shared geometry owns the safe-mode tied-factors preconditions.
+    '''
+    if base is COREWISE_OPS:
+        def _corewise_shared_retract(frame, var, aux=None):
+            new = cw.corewise_add((frame[0], frame[2]),
+                                  sharing_module.fv_mean_tucker_variations(var, groups))
+            new_tucker = list(new[0])
+            for group in sharing_module.nontrivial_groups(groups):
+                for ii in group[1:]:
+                    new_tucker[ii] = new_tucker[group[0]]   # ONE array per group (values equal)
+            return tuple(new_tucker), new[1]
+
+        return GeometryOps(
+            frame=base.frame,
+            project=lambda frame, var, aux=None: sharing_module.fv_mean_tucker_variations(var, groups),
+            retract=_corewise_shared_retract,
+            inner=base.inner,
+            point_norm_sq=base.point_norm_sq,
+            point_tangent=base.point_tangent,
+        )
+    if base is MANIFOLD_OPS:
+        def _precompute(frame):
+            return sharing_module.fv_shared_frame_data(frame, groups)
+
+        def _project(frame, var, aux=None):
+            if aux is None:                      # standalone call; the model path passes the companion
+                aux = _precompute(frame)
+            return tops.tv_orthogonal_gauge_projection(frame, var, shared_data=aux)
+
+        def _retract(frame, var, aux=None):
+            if aux is None:
+                aux = _precompute(frame)
+            return tops.tv_retract(frame, var, shared_data=aux)
+
+        return GeometryOps(
+            frame=base.frame,
+            project=_project,
+            retract=_retract,
+            inner=base.inner,
+            precompute=_precompute,
+            point_norm_sq=base.point_norm_sq,
+            point_tangent=base.point_tangent,
+        )
+    raise ValueError('shared_geometry_ops wraps the ragged singletons (MANIFOLD_OPS / '
+                     'COREWISE_OPS); got %r' % (base,))
 
 
 # --------------------------------------------------------------------------------------------------
@@ -154,6 +230,7 @@ class LocalModel:
     n_w:      int            # number of leading sample-stack axes
 
     regularizer: typ.Any = None   # optional backend.regularization.Regularizer; ρ folded into obj/grad/gn_quadratic/hvp
+    geom_aux:    typ.Any = None   # = geom.precompute(frame) (per-frame companion, e.g. SF-T3); a leaf, like sweep
 
     @property
     def misfit(self):                                    # ½‖ω⊙r‖²  (the weighted data misfit alone)
@@ -171,13 +248,15 @@ class LocalModel:
 
     @property
     def gradient(self) -> Tangent:                       # g = Π 𝒥ᵀ r  (+ g_R)
-        g = self.geom.project(self.frame, self.kind.transpose(self.residual, self.sample, self.frame, self.sweep))
+        g = self.geom.project(self.frame, self.kind.transpose(self.residual, self.sample, self.frame, self.sweep),
+                              aux=self.geom_aux)
         if self.regularizer is not None:
             g = cw.corewise_add(g, self.regularizer.gradient(self.geom, self.frame))
         return g
 
     def jacobian(self, p: Tangent):                      # 𝒥 Π p
-        return self.kind.forward(self.geom.project(self.frame, p), self.sample, self.frame, self.sweep)
+        return self.kind.forward(self.geom.project(self.frame, p, aux=self.geom_aux),
+                                 self.sample, self.frame, self.sweep)
 
     def gn_quadratic(self, p: Tangent):                  # ‖𝒥 Π p‖²  (+ ⟨p, H_R p⟩) -- the Cauchy denominator
         q = self.kind.sumsq(self.jacobian(p), self.n_w)
@@ -187,13 +266,14 @@ class LocalModel:
 
     def hvp(self, p: Tangent) -> Tangent:                # H p = Π 𝒥ᵀ 𝒥 Π p  (+ H_R p)
         z = self.jacobian(p)
-        Hp = self.geom.project(self.frame, self.kind.transpose(z, self.sample, self.frame, self.sweep))
+        Hp = self.geom.project(self.frame, self.kind.transpose(z, self.sample, self.frame, self.sweep),
+                               aux=self.geom_aux)
         if self.regularizer is not None:
             Hp = cw.corewise_add(Hp, self.regularizer.hessian(self.geom, self.frame, p))
         return Hp
 
     def retract(self, p: Tangent) -> Tangent:            # chart step from this frame -> new x_cores
-        return self.geom.retract(self.frame, p)
+        return self.geom.retract(self.frame, p, aux=self.geom_aux)
 
 
 @dc.dataclass(frozen=True)
@@ -217,9 +297,10 @@ class Problem:
             sample, data = self.sample, self.data
         frame = self.geom.frame(x_cores)
         sweep = self.kind.precompute(frame, sample)
+        geom_aux = self.geom.precompute(frame) if self.geom.precompute is not None else None
         residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
         return LocalModel(self.geom, self.kind, sample, frame, sweep, residual, self.kind.w_axes(sample),
-                          self.regularizer)
+                          self.regularizer, geom_aux)
 
     def objective(self, x_cores: Tangent, sample=None, data=None):
         """``½‖S(x)-data‖²`` (+ ``ρ(x)`` if regularized) on the full data (``sample=None``) or an explicit

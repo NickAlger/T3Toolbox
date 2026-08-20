@@ -208,6 +208,7 @@ def tv_to_t3(
             typ.Sequence[NDArray],  # tt_variations
         ],
         include_shift:  bool = False,  # False: tangent vector v. True: base point + v.
+        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied embedding (SF-T3)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # tucker_cores (doubled Tucker ranks)
     typ.Tuple[NDArray, ...],  # tt_cores     (doubled TT ranks)
@@ -218,11 +219,32 @@ def tv_to_t3(
     the standard block-bidiagonal embedding. With ``include_shift=True`` the base point is folded
     into the last TT core so the result represents ``base point + v``. Stack-aware.
 
+    With ``shared_data`` (the frame's SF-T3 companion), the embedding is built TIED: per
+    nontrivial group, the common gauged ambient direction ``Udot`` is recovered from the (tied)
+    coordinates (:py:func:`~t3toolbox.backend.sharing.fv_tied_ambient_directions`) and takes the
+    ``V_i`` slot at every group mode -- ONE array per group, so the doubled factors
+    ``[U_g; Udot]`` are exactly equal across the group -- while the paired core block becomes
+    the companion's center core ``H_i`` (the identity ``S_i``-absorbed-``O_i == H_i`` makes this
+    an exact rewrite of each Tucker term). The naive ``[U_g; V_i]`` embedding is NOT tied (the
+    ``V_i = S_i^T Udot`` differ across a group in value, and in shape when the ``nD_i``
+    differ). Cf. the SF-ETT tangent representation, Molozhavenko & Rakhuba (2026) Sec. 5.2.
+
     Equations (50)-(53) and Figure 20, Appendix A.3.1, of Alger et al. (2026),
     "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
     """
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
     tucker_variations, tt_variations = variations
+
+    if shared_data is not None and sharing_module.nontrivial_groups(shared_data.groups):
+        udots = sharing_module.fv_tied_ambient_directions(variations, shared_data)
+        tucker_variations = list(tucker_variations)
+        down_tt_cores = list(down_tt_cores)
+        for gi, group in enumerate(sharing_module.nontrivial_groups(shared_data.groups)):
+            for jj, ii in enumerate(group):
+                tucker_variations[ii] = udots[gi]                    # ONE array per group
+                down_tt_cores[ii] = shared_data.centers[gi][jj]      # H_i replaces O_i (exact)
+        tucker_variations = tuple(tucker_variations)
+        down_tt_cores = tuple(down_tt_cores)
 
     use_jax = tree_contains_jax((frame, variations))
     xnp, _, _ = get_backend(False, use_jax)
@@ -243,6 +265,12 @@ def tv_to_t3(
 
     # Tucker cores: [U_i ; V_i] stacked along the Tucker-rank axis.
     x_tucker_cores = [xnp.concatenate([U, V], axis=-2) for U, V in zip(up_tucker_cores, tucker_variations)]
+    if shared_data is not None:
+        # the group inputs are identical objects, so the concatenations are value-equal;
+        # assign ONE array per group (structural tie, never floating-point agreement)
+        for group in sharing_module.nontrivial_groups(shared_data.groups):
+            for ii in group[1:]:
+                x_tucker_cores[ii] = x_tucker_cores[group[0]]
 
     if num_cores == 1:
         H = tt_variations[0]
@@ -596,6 +624,7 @@ def tv_retract(
             typ.Sequence[NDArray],  # tucker_variations
             typ.Sequence[NDArray],  # tt_variations
         ],
+        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied retraction (SF-T3)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # tucker_cores (retracted T3, base-point ranks)
     typ.Tuple[NDArray, ...],  # tt_cores
@@ -607,12 +636,20 @@ def tv_retract(
     ``up`` ranks and ``left`` TT ranks read off the frame cores -- with the implicit T3-SVD, yielding
     a point on the manifold of the base point's ranks.
 
+    With ``shared_data`` (the frame's SF-T3 companion), the embedding is built TIED
+    (:py:func:`tv_to_t3` with ``shared_data``) and truncated by the GROUPED T3-SVD, so the
+    retracted point's group factors are exactly one shared array per group -- the shared
+    manifold's retraction.
+
     The truncation is the implicit T3-SVD (Algorithm 10) of Alger et al. (2026), "Tucker Tensor
     Train Taylor Series" (arXiv:2603.21141).
     '''
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
-    shifted = tv_to_t3(frame, variations, include_shift=True)
+    shifted = tv_to_t3(frame, variations, include_shift=True, shared_data=shared_data)
     up_ranks = tuple(U.shape[-2] for U in up_tucker_cores)
     left_ranks = tuple(L.shape[-3] for L in left_tt_cores) + (left_tt_cores[-1].shape[-1],)
-    retracted, _, _ = ragged_t3svd.t3svd(shifted, max_tucker_ranks=up_ranks, max_tt_ranks=left_ranks)
+    sharing_labels = (None if shared_data is None
+                      else sharing_module.groups_to_labels(shared_data.groups))
+    retracted, _, _ = ragged_t3svd.t3svd(shifted, max_tucker_ranks=up_ranks, max_tt_ranks=left_ranks,
+                                         sharing=sharing_labels)
     return retracted

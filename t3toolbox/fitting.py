@@ -75,6 +75,7 @@ import t3toolbox.frame_variations_format as bvf
 import t3toolbox.uniform_frame_variations_format as ubv
 import t3toolbox.manifold as t3m
 import t3toolbox.uniform_manifold as ut3m
+import t3toolbox.shared_geometry as sg
 import t3toolbox.safety as safety
 import t3toolbox.backend.fitting as fb
 import t3toolbox.backend.optimizers as bopt   # the backend GeometryOps a Regularizer leans on (no cycle: backend never imports fitting)
@@ -231,10 +232,16 @@ class GaussNewtonModel:
                                    # carried across a jit boundary and reused, not recomputed per matvec
 
     regularizer: typ.Any = None    # optional backend.regularization.Regularizer; ρ folded into obj/grad/hessian/quadratic/evaluate
+    geometry_aux: typ.Any = None   # per-frame geometry companion (e.g. the SF-T3 T3SharedFrameData); a jax LEAF
+
+    def _project(self, v: t3m.T3Tangent) -> t3m.T3Tangent:   # Π with the once-per-model companion
+        if self.geometry_aux is not None:
+            return self.geometry.project(v, shared_data=self.geometry_aux)
+        return self.geometry.project(v)
 
     @property
     def _bgeom(self):              # the backend GeometryOps for this geometry (the regularizer's primitives)
-        return _backend_geometry_ops(self.geometry)
+        return _backend_geometry_ops(self.geometry, self.frame.shape)
 
     def _reg_tangent(self, raw) -> t3m.T3Tangent:   # wrap a backend raw (tucker_var, tt_var) as a T3Tangent at frame
         return t3m.T3Tangent(self.frame, bvf.T3Variations(*raw))
@@ -260,7 +267,7 @@ class GaussNewtonModel:
         On the manifold geometry this is the gauged Riemannian gradient; on the corewise geometry it is
         the raw core gradient ``𝒥ᵀr`` (a tangent at ``(U,G,G,G)``, no ``Π``).'''
         dU_dG = self.kind.transpose(self.residual, self.sample, self.frame.data, self.sweep)
-        g = self.geometry.project(t3m.T3Tangent(self.frame, bvf.T3Variations(*dU_dG)))
+        g = self._project(t3m.T3Tangent(self.frame, bvf.T3Variations(*dU_dG)))
         if self.regularizer is not None:
             g = g + self._reg_tangent(self.regularizer.gradient(self._bgeom, self.frame.data))
         return g
@@ -277,7 +284,7 @@ class GaussNewtonModel:
         quadratic form. The result lives in the sample space (a scalar per sample for apply / entries; one
         vector per mode for probe).'''
         _require_at_frame(self.frame, p)
-        Pp = self.geometry.project(p)
+        Pp = self._project(p)
         return self.kind.forward(Pp.variations.data, self.sample, self.frame.data, self.sweep)
 
     def gn_quadratic(
@@ -305,10 +312,10 @@ class GaussNewtonModel:
         which is gauge-singular -- fine for first-order methods, needs regularization for Newton.) For the
         *scalar* quadratic form ``pᵀHp`` alone, prefer the cheaper :py:meth:`gn_quadratic`.'''
         _require_at_frame(self.frame, p)
-        Pp = self.geometry.project(p)
+        Pp = self._project(p)
         z = self.kind.forward(Pp.variations.data, self.sample, self.frame.data, self.sweep)
         dU_dG = self.kind.transpose(z, self.sample, self.frame.data, self.sweep)
-        Hp = self.geometry.project(t3m.T3Tangent(self.frame, bvf.T3Variations(*dU_dG)))
+        Hp = self._project(t3m.T3Tangent(self.frame, bvf.T3Variations(*dU_dG)))
         if self.regularizer is not None:
             Hp = Hp + self._reg_tangent(self.regularizer.hessian(self._bgeom, self.frame.data, p.variations.data))
         return Hp
@@ -321,7 +328,7 @@ class GaussNewtonModel:
         With a ``regularizer``, ``c`` and ``g`` already carry ``ρ`` / ``g_R``, so only the quadratic
         ``½⟨p, H_R p⟩`` is added here.'''
         _require_at_frame(self.frame, p)
-        Pp = self.geometry.project(p)
+        Pp = self._project(p)
         Jp = self.kind.forward(Pp.variations.data, self.sample, self.frame.data, self.sweep)
         m = self.objective_value + self.gradient.corewise_inner(Pp) + 0.5 * self.kind.sumsq(Jp, self._n_w)
         if self.regularizer is not None:
@@ -464,23 +471,38 @@ class UniformGaussNewtonModel:
 
 
 def _ragged_frame(geometry, x: t3.TuckerTensorTrain) -> bvf.T3Frame:
-    '''Validate + build the frame for a ragged model: a ragged ``x`` needs a ragged geometry singleton.'''
-    if geometry is not t3m.MANIFOLD and geometry is not t3m.COREWISE:
+    '''Validate + build the frame for a ragged model: a ragged ``x`` needs a ragged geometry
+    (a singleton, or a :py:class:`~t3toolbox.shared_geometry.SharedGeometry` over one).'''
+    if (geometry is not t3m.MANIFOLD and geometry is not t3m.COREWISE
+            and not isinstance(geometry, sg.SharedGeometry)):
         raise ValueError("a ragged TuckerTensorTrain requires a ragged geometry (manifold.MANIFOLD / "
-                         "manifold.COREWISE); for a UniformTuckerTensorTrain use the uniform geometries "
+                         "manifold.COREWISE, or a shared_geometry.SharedGeometry over one); for a "
+                         "UniformTuckerTensorTrain use the uniform geometries "
                          "(uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE).")
     return geometry.frame(x)
 
 
-def _backend_geometry_ops(geometry):
-    '''Map a ragged frontend geometry singleton to its backend ``GeometryOps`` -- the regularizer lives in
+def _ragged_geometry_aux(geometry, frame):
+    '''The once-per-model geometry companion (SharedGeometry's precompute hook; None otherwise).'''
+    if isinstance(geometry, sg.SharedGeometry):
+        return geometry.precompute_aux(frame)
+    return None
+
+
+def _backend_geometry_ops(geometry, shape=None):
+    '''Map a ragged frontend geometry to its backend ``GeometryOps`` -- the regularizer lives in
     the backend and leans on ``point_norm_sq`` / ``point_tangent`` / ``project`` / ``inner``, so the
-    frontend model delegates to it on raw ``.data`` (dev/regularization_design.md §5a).'''
+    frontend model delegates to it on raw ``.data`` (dev/regularization_design.md §5a). A shared
+    wrapper needs ``shape`` to canonicalize its partition.'''
     if geometry is t3m.MANIFOLD:
         return bopt.MANIFOLD_OPS
     if geometry is t3m.COREWISE:
         return bopt.COREWISE_OPS
-    raise ValueError("regularization requires a ragged geometry (manifold.MANIFOLD / COREWISE).")
+    if isinstance(geometry, sg.SharedGeometry) and shape is not None:
+        base_ops = bopt.MANIFOLD_OPS if geometry.base is t3m.MANIFOLD else bopt.COREWISE_OPS
+        return bopt.shared_geometry_ops(base_ops, geometry.groups(shape))
+    raise ValueError("regularization requires a ragged geometry (manifold.MANIFOLD / COREWISE, "
+                     "or a SharedGeometry over one).")
 
 
 def _uniform_model(
@@ -529,7 +551,7 @@ def apply_model(
         return _uniform_model(geometry, x, 'apply', ww, residual, regularizer=regularizer)
     frame = _ragged_frame(geometry, x)
     return GaussNewtonModel(geometry, frame, fb.APPLY, ww, residual, fb.APPLY.precompute(frame.data, ww),
-                            regularizer)
+                            regularizer, _ragged_geometry_aux(geometry, frame))
 
 
 def entries_model(
@@ -547,7 +569,8 @@ def entries_model(
         return _uniform_model(geometry, x, 'entries', index, residual, regularizer=regularizer)
     frame = _ragged_frame(geometry, x)
     return GaussNewtonModel(geometry, frame, fb.ENTRIES, index, residual,
-                            fb.ENTRIES.precompute(frame.data, index), regularizer)
+                            fb.ENTRIES.precompute(frame.data, index), regularizer,
+                            _ragged_geometry_aux(geometry, frame))
 
 
 def probe_model(
@@ -598,7 +621,8 @@ def probe_model(
         return _uniform_model(geometry, x, 'probe', ww, residual, weight=wm, regularizer=regularizer)
     frame = _ragged_frame(geometry, x)
     kind = fb.probe_kind(wm)
-    return GaussNewtonModel(geometry, frame, kind, ww, residual, kind.precompute(frame.data, ww), regularizer)
+    return GaussNewtonModel(geometry, frame, kind, ww, residual, kind.precompute(frame.data, ww),
+                            regularizer, _ragged_geometry_aux(geometry, frame))
 
 
 # --------------------------------------------------------------------------------------------------
@@ -653,7 +677,8 @@ def apply_derivatives_model(
     kind = fb.apply_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
     return GaussNewtonModel(geometry, frame, kind, (ww, pp), residual,
-                            kind.precompute(frame.data, (ww, pp)), regularizer)
+                            kind.precompute(frame.data, (ww, pp)), regularizer,
+                            _ragged_geometry_aux(geometry, frame))
 
 
 def entries_derivatives_model(
@@ -674,7 +699,8 @@ def entries_derivatives_model(
     kind = fb.entries_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
     return GaussNewtonModel(geometry, frame, kind, (index, pp), residual,
-                            kind.precompute(frame.data, (index, pp)), regularizer)
+                            kind.precompute(frame.data, (index, pp)), regularizer,
+                            _ragged_geometry_aux(geometry, frame))
 
 
 def probe_derivatives_model(
@@ -698,7 +724,8 @@ def probe_derivatives_model(
     kind = fb.probe_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
     return GaussNewtonModel(geometry, frame, kind, (ww, pp), residual,
-                            kind.precompute(frame.data, (ww, pp)), regularizer)
+                            kind.precompute(frame.data, (ww, pp)), regularizer,
+                            _ragged_geometry_aux(geometry, frame))
 
 
 if jax_available:
@@ -712,9 +739,10 @@ if jax_available:
     # trace. The same-frame guard is the numerical same-frame check (skips under the trace).
     jax.tree_util.register_pytree_node(
         GaussNewtonModel,
-        lambda m: ((m.frame, m.sweep, m.sample, m.residual), (m.geometry, m.kind, m.regularizer)),
+        lambda m: ((m.frame, m.sweep, m.sample, m.residual, m.geometry_aux),
+                   (m.geometry, m.kind, m.regularizer)),
         lambda aux, children: GaussNewtonModel(aux[0], children[0], aux[1], children[2], children[3],
-                                               children[1], aux[2]),
+                                               children[1], aux[2], children[4]),
     )
 
     # UniformGaussNewtonModel: the data (frame -- itself a leaf pytree -- sweep, sample, residual) are LEAVES;

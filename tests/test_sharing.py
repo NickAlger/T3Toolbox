@@ -5,6 +5,10 @@ import numpy as np
 import unittest
 
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.manifold as t3m
+import t3toolbox.shared_geometry as sg
+import t3toolbox.fitting as fitting
+import t3toolbox.optimizers as optimizers
 import t3toolbox.backend.sharing as sharing
 import t3toolbox.backend.fv_conversions as fvc
 import t3toolbox.backend.t3_svd as bt3svd
@@ -719,6 +723,169 @@ class TestSharedPostPass(unittest.TestCase):
         ttv_c = tuple(np.random.randn(K, 2, *H.shape[-3:]) for H in frame_c[2])
         out = sharing.fv_share_tucker_variations((tkv_c, ttv_c), sfd_c)
         self.assertEqual(np.asarray(out[0][0]).shape[:2], (K, 2))
+
+
+class TestSharedGeometry(unittest.TestCase):
+    """The frontend wrapper: retraction axioms, gradient consistency, optimizer integration."""
+
+    @staticmethod
+    def _tied_point(structure):
+        x_data, spec, groups = _tied_data(structure, ())
+        return t3.TuckerTensorTrain(*x_data), spec, groups
+
+    def test_wrapper_identity_and_hash(self):
+        a, b = sg.shared_manifold((0, 0, 1)), sg.shared_manifold((0, 0, 1))
+        self.assertEqual(a, b)
+        self.assertEqual(hash(a), hash(b))
+        self.assertNotEqual(a, sg.shared_manifold((0, 1, 1)))
+        self.assertNotEqual(a, sg.shared_corewise((0, 0, 1)))
+        with self.assertRaises(ValueError):
+            sg.shared('not a geometry', (0, 0))
+
+    def test_retraction_axioms(self):
+        # matrix test 10: retract(0) == x; second-order agreement (manifold) / exactness
+        # (corewise); output exactly tied (one array per group); both geometries
+        x, spec, groups = self._tied_point(SHARED_STRUCTURES[2])
+        x_dense = np.asarray(x.to_dense())
+        group = sharing.nontrivial_groups(groups)[0]
+        for geom in [sg.shared_manifold(spec), sg.shared_corewise(spec)]:
+            with self.subTest(base=geom.base_name):
+                frame = geom.frame(x)
+                y0 = geom.retract(t3m.T3Tangent.zeros(frame))
+                self.assertTrue(np.allclose(np.asarray(y0.to_dense()), x_dense))
+                self.assertIs(y0.data[0][group[0]], y0.data[0][group[1]])
+                v = geom.randn(frame)
+                errs = []
+                for tval in (1e-2, 1e-3):
+                    yt = geom.retract(tval * v)
+                    target = x_dense + tval * np.asarray(v.to_dense())
+                    errs.append(float(np.linalg.norm(np.asarray(yt.to_dense()) - target)))
+                    self.assertIs(yt.data[0][group[0]], yt.data[0][group[1]])
+                # first-order retraction on BOTH geometries: the tensor is multilinear in the
+                # cores, so even the additive corewise chart agrees with x + t*v only to O(t^2)
+                self.assertLess(errs[1], errs[0] / 50.0)      # a decade of t -> ~100x
+                if geom.base_name == 'corewise':
+                    # ...but it is EXACT in parameter space: cores == x.cores + t * variations
+                    tval = 1e-2
+                    yt = geom.retract(tval * v)
+                    for ii, (C, C0, dC) in enumerate(zip(yt.data[1], x.data[1],
+                                                         v.variations.tt_variations)):
+                        self.assertTrue(np.allclose(np.asarray(C),
+                                                    np.asarray(C0) + tval * np.asarray(dC)))
+                if geom.base_name == 'manifold':
+                    self.assertEqual(y0.tucker_ranks, x.tucker_ranks)
+                    self.assertEqual(y0.tt_ranks, x.tt_ranks)
+
+    def test_gradient_consistency(self):
+        # matrix test 8: finite differences of f(retract(x, t*xi)) at t=0 vs inner(grad, xi),
+        # through GaussNewtonModel, both geometries
+        x, spec, _ = self._tied_point(SHARED_STRUCTURES[1])
+        ww = [np.random.randn(40, N) for N in x.shape]
+        ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
+        b = np.random.randn(40)
+        for geom in [sg.shared_manifold(spec), sg.shared_corewise(spec)]:
+            with self.subTest(base=geom.base_name):
+                r = np.asarray(x.apply(ww)) - b
+                model = fitting.apply_model(geom, x, ww, r)
+                g = model.gradient
+                xi = geom.randn(model.frame)
+                h = 1e-6
+
+                def f_of(t):
+                    y = geom.retract(t * xi) if t != 0.0 else x
+                    return 0.5 * float(np.sum((np.asarray(y.apply(ww)) - b) ** 2))
+
+                fd = (f_of(h) - f_of(-h)) / (2 * h)
+                ip = float(g.corewise_inner(xi))
+                self.assertLess(abs(fd - ip), 1e-4 * max(1.0, abs(ip)))
+
+    def test_fitting_model_gates_and_tied_pipeline(self):
+        # the model factories accept the wrapper; the gradient and Hessian actions are tied
+        # (fixed points of the post-pass); the companion rides the model once per frame
+        x, spec, groups = self._tied_point(SHARED_STRUCTURES[2])
+        ww = [np.random.randn(60, N) for N in x.shape]
+        r = np.asarray(x.apply(ww)) - np.random.randn(60)
+        geom = sg.shared_manifold(spec)
+        model = fitting.apply_model(geom, x, ww, r)
+        self.assertIsInstance(model.geometry_aux, sharing.T3SharedFrameData)
+        g = model.gradient
+        tied_again = sharing.fv_share_tucker_variations(g.variations.data, model.geometry_aux)
+        for A, B in zip(tied_again[0], g.variations.tucker_variations):
+            self.assertTrue(np.allclose(np.asarray(A), np.asarray(B), atol=1e-9))
+        Hp = model.gn_hessian(geom.randn(model.frame))
+        tied_H = sharing.fv_share_tucker_variations(Hp.variations.data, model.geometry_aux)
+        for A, B in zip(tied_H[0], Hp.variations.tucker_variations):
+            self.assertTrue(np.allclose(np.asarray(A), np.asarray(B), atol=1e-9))
+        # regularizer path composes (the backend GeometryOps mapping accepts the wrapper)
+        model_reg = fitting.apply_model(geom, x, ww, r,
+                                        regularizer=optimizers.IdentityRegularizer(1e-3))
+        self.assertGreater(float(model_reg.objective_value), float(model.objective_value))
+        _ = model_reg.gradient
+
+    def test_transport_and_project_ambient(self):
+        x, spec, groups = self._tied_point(SHARED_STRUCTURES[1])
+        geom = sg.shared_manifold(spec)
+        frame = geom.frame(x)
+        v = geom.randn(frame)
+        y, spec2, _ = self._tied_point(SHARED_STRUCTURES[1])
+        new_frame = geom.frame(y)
+        w = geom.transport(v, new_frame)
+        sfd_new = geom.shared_frame_data(new_frame)
+        tied_w = sharing.fv_share_tucker_variations(w.variations.data, sfd_new)
+        for A, B in zip(tied_w[0], w.variations.tucker_variations):
+            self.assertTrue(np.allclose(np.asarray(A), np.asarray(B), atol=1e-9))
+        w2 = geom.project_ambient(new_frame, v.to_t3())
+        for A, B in zip(w2.variations.tucker_variations, w.variations.tucker_variations):
+            self.assertTrue(np.allclose(np.asarray(A), np.asarray(B)))
+
+    def test_safe_mode_preconditions(self):
+        x_untied = t3.TuckerTensorTrain.randn((6, 6), (3, 3), (1, 2, 1))
+        geom = sg.shared_manifold((0, 0))
+        with self.assertRaises(ValueError):
+            geom.frame(x_untied)
+        x, spec, _ = self._tied_point(SHARED_STRUCTURES[1])
+        frame = geom.frame(x)
+        v_untied = t3m.MANIFOLD.randn(frame)                 # gauged but NOT tied
+        with self.assertRaises(ValueError):
+            geom.retract(v_untied)
+        with safety.unsafe():
+            y = geom.retract(v_untied)                       # tied-projects and proceeds
+        self.assertIs(y.data[0][0], y.data[0][1])
+
+    def test_end_to_end_recovery_iterates_stay_tied(self):
+        # matrix test 11 (ragged): recover a tied target; every Newton iterate stays tied
+        shape, n, r = (6, 6, 6), (2, 2, 2), (1, 2, 2, 1)
+        A0 = t3.TuckerTensorTrain.randn(shape, n, r)
+        tk, tt = A0.data
+        A = t3.TuckerTensorTrain((tk[0],) * 3, tt)
+        Ad = np.asarray(A.to_dense())
+        ww = [np.random.randn(150, N) for N in shape]
+        ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
+        b = A.apply(ww)
+        spec = (0, 0, 0)
+        tied_per_iter = []
+
+        def cb(info):
+            tied_per_iter.append(bool(np.all(np.asarray(
+                sharing.t3_tucker_factors_shared(info.x_cores, spec)))))
+
+        x0 = t3.TuckerTensorTrain.zeros(shape, n, r)
+        x_fit, stats = optimizers.newton_cg(sg.shared_manifold(spec), 'apply', ww, b, x0,
+                                            max_newton=25, callback=cb)
+        rel = float(np.linalg.norm(np.asarray(x_fit.to_dense()) - Ad) / np.linalg.norm(Ad))
+        self.assertLess(rel, 1e-6)
+        self.assertTrue(all(tied_per_iter) and len(tied_per_iter) > 3)
+        self.assertIs(x_fit.data[0][0], x_fit.data[0][1])
+        # corewise: adam from a small tied random start (zero is a critical point of the
+        # multilinear parametrization -- a corewise fact, nothing to do with sharing)
+        x0c0 = t3.TuckerTensorTrain.randn(shape, n, r)
+        tkc, ttc = x0c0.data
+        x0c = t3.TuckerTensorTrain((tkc[0],) * 3, tuple(0.3 * np.asarray(G) for G in ttc))
+        xc, _ = optimizers.adam(sg.shared_corewise(spec), 'apply', ww, b, x0c,
+                                np.random.default_rng(0), batch=64, lr=3e-2, max_iter=1500)
+        relc = float(np.linalg.norm(np.asarray(xc.to_dense()) - Ad) / np.linalg.norm(Ad))
+        self.assertLess(relc, 1e-4)
+        self.assertIs(xc.data[0][0], xc.data[0][1])
 
 
 if __name__ == '__main__':

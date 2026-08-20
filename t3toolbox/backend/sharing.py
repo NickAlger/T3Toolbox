@@ -29,6 +29,7 @@ from t3toolbox.backend.common import *
 __all__ = [
     'validate_sharing',
     'nontrivial_groups',
+    'groups_to_labels',
     't3_sharing_residual',
     't3_tucker_factors_shared',
     't3_share_tucker_cores',
@@ -36,6 +37,7 @@ __all__ = [
     'fv_shared_frame_data',
     'fv_share_tucker_variations',
     'fv_mean_tucker_variations',
+    'fv_tied_ambient_directions',
 ]
 
 
@@ -114,6 +116,26 @@ def nontrivial_groups(
     ()
     '''
     return tuple(group for group in groups if len(group) > 1)
+
+
+def groups_to_labels(
+        groups: typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical form (validate_sharing)
+) -> typ.Tuple[int, ...]:                             # len=d, static; the per-mode label spec
+    '''The inverse of :py:func:`validate_sharing`: per-mode integer labels for a canonical
+    partition (``validate_sharing(groups_to_labels(g), shape) == g``).
+
+    Examples
+    --------
+    >>> import t3toolbox.backend.sharing as sharing
+    >>> sharing.groups_to_labels(((0, 2), (1,)))
+    (0, 1, 0)
+    '''
+    d = sum(len(group) for group in groups)
+    labels = [None] * d
+    for gi, group in enumerate(groups):
+        for ii in group:
+            labels[ii] = gi
+    return tuple(labels)
 
 
 def _validate_group_tucker_ranks(
@@ -473,24 +495,61 @@ def fv_share_tucker_variations(
 
     new_tucker = list(tucker_variations)
     for gi, group in enumerate(nontrivial_groups(shared_data.groups)):
+        Udot = _tied_solve(shared_data, gi, tucker_variations, rcond, xnp)
+        # R = M_g @ Udot: the tied coordinates of every group mode in one stack
         U_M, s_g, Vt_M = shared_data.svd_U[gi], shared_data.svd_s[gi], shared_data.svd_Vt[gi]
         splits = shared_data.row_splits[gi]
-        eff_rcond = (float(np.finfo(s_g.dtype).eps) * max(splits[-1], Vt_M.shape[-1])
-                     if rcond is None else rcond)
-        keep = s_g > eff_rcond * s_g[..., :1]                 # relative clip against s_{g,1}
-        s_inv = xnp.where(keep, 1.0 / xnp.where(keep, s_g, 1.0), 0.0)   # branch-free clipped pinv
-
-        Vstack = xnp.concatenate([tucker_variations[ii] for ii in group], axis=-2)  # (K+C)+(sum nD, N)
-        t = xnp.einsum('...xw,...xn->...wn', U_M, Vstack)     # U_M^T Vstack, (K+C)+(q, N)
-        t = xnp.einsum('...w,...wn->...wn', s_inv, t)         # clipped pinv apply
-        Udot = xnp.einsum('...wy,...wn->...yn', Vt_M, t)      # the tied ambient direction, (K+C)+(n_g, N)
-        # R = M_g @ Udot: the tied coordinates of every group mode in one stack
         r = xnp.einsum('...wy,...yn->...wn', Vt_M, Udot)
         r = xnp.einsum('...w,...wn->...wn', s_g, r)
         R = xnp.einsum('...xw,...wn->...xn', U_M, r)          # (K+C)+(sum nD, N)
         for jj, ii in enumerate(group):
             new_tucker[ii] = R[..., splits[jj]:splits[jj + 1], :]
     return tuple(new_tucker), tuple(tt_variations)
+
+
+def _tied_solve(
+        shared_data:        'T3SharedFrameData',
+        gi:                 int,      # index into the companion's nontrivial-group tuples
+        tucker_variations:  typ.Sequence[NDArray],  # len=d, elm_shape=(K+C)+(nDi, Ni)
+        rcond:              typ.Optional[float],   # relative clip; None -> dtype eps * max dim
+        xnp,                                        # the array backend (numpy / jax.numpy)
+) -> NDArray:  # Udot: the common gauged ambient direction, (K+C)+(n_g, N)
+    '''The clipped least-squares solve ``Udot = M_g^+ [stacked V_i]`` against the companion's
+    stacked-``S`` SVD (minimum-norm at rank-deficient points; sensitivity ``kappa_g``).'''
+    group = nontrivial_groups(shared_data.groups)[gi]
+    U_M, s_g, Vt_M = shared_data.svd_U[gi], shared_data.svd_s[gi], shared_data.svd_Vt[gi]
+    splits = shared_data.row_splits[gi]
+    eff_rcond = (float(np.finfo(s_g.dtype).eps) * max(splits[-1], Vt_M.shape[-1])
+                 if rcond is None else rcond)
+    keep = s_g > eff_rcond * s_g[..., :1]                     # relative clip against s_{g,1}
+    s_inv = xnp.where(keep, 1.0 / xnp.where(keep, s_g, 1.0), 0.0)   # branch-free clipped pinv
+
+    Vstack = xnp.concatenate([tucker_variations[ii] for ii in group], axis=-2)  # (K+C)+(sum nD, N)
+    t = xnp.einsum('...xw,...xn->...wn', U_M, Vstack)         # U_M^T Vstack, (K+C)+(q, N)
+    t = xnp.einsum('...w,...wn->...wn', s_inv, t)             # clipped pinv apply
+    return xnp.einsum('...wy,...wn->...yn', Vt_M, t)          # Udot, (K+C)+(n_g, N)
+
+
+def fv_tied_ambient_directions(
+        variations_data: typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nDi, Ni)
+            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nUi, rRi)
+        ],
+        shared_data:    'T3SharedFrameData',  # the frame's companion (fv_shared_frame_data)
+        rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
+) -> typ.Tuple[NDArray, ...]:  # per NONTRIVIAL group: Udot, elm_shape=(K+C)+(n_g, N)
+    '''Recover each group's common gauged ambient direction ``Udot`` from (tied) Tucker
+    variation coordinates -- the clipped least-squares solve of
+    :py:func:`fv_share_tucker_variations`, returning ``Udot`` itself instead of the
+    redistributed coordinates. Exact on exactly-tied input (``V_i = S_i^T Udot``); on untied
+    input it returns the least-squares fit (the tied projection's ambient direction). The
+    shared retraction uses this to build the TIED doubled-rank embedding
+    (``[U_g | Udot]`` per group, with the center cores as the paired blocks).'''
+    tucker_variations, _ = variations_data
+    use_jax = tree_contains_jax(variations_data)
+    xnp, _, _ = get_backend(False, use_jax)
+    return tuple(_tied_solve(shared_data, gi, tucker_variations, rcond, xnp)
+                 for gi in range(len(nontrivial_groups(shared_data.groups))))
 
 
 def fv_mean_tucker_variations(
