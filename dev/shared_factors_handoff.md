@@ -564,8 +564,28 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
    end-to-end continuation loop from rank-1 zeros to exactly the target shared ranks, rel err
    1e-10, `g0norm_newton` pinned per the rank_continuation.md warm-start guidance). CHANGELOG
    extended. Docs pointer in `docs/rank_continuation.md` deferred to slice 12 with the rest.
-9–11. **NEXT.** Uniform mirror (incl. sharing-aware `uniform_minimal`), equivalence/jit tests,
-   uniform end-to-end.
+9. **DONE** (`988d0777`) uniform grouped truncation family: backend `_ut3svd_shared_supercores`
+   (the two-phase in scan/supercore form -- TT-bond-only scan, polymorphic center collection,
+   per-group SVDs on static gathers + `xnp.concatenate`, lossless left re-orth; spectra masked to
+   the FINAL masks = the ragged trim) + `ut3svd(sharing=)` / `_reduce_left_to_right(sharing=)` /
+   `ut3_rank_adjustment_sweep(sharing=)` (partition reversed as `tuple(reversed(sharing))`) +
+   `compute_raw_sweep_ranks(sharing=)` (the grouped MULTI-PASS recurrence: right-orth, capped
+   phase-1 bonds, lossless right, group concat sizes `min(n_g, Σ rL·rR, cap)`, lossless left --
+   pinned == ragged grouped t3svd output ranks over 88 randomized structures/caps BEFORE
+   implementation) + `ut3_sharing_residual`/`ut3_tucker_factors_shared` (masked content;
+   structurally-unequal group rank masks raise) + `uniform_minimal(x0, sharing=)` (the untie
+   hazard closed: plain reduction clips (4,4,2)->(2,4,2) on the ceiling structure) + frontend
+   `UniformTuckerTensorTrain.t3svd(sharing=)` / `rank_adjustment_sweep(sharing=)` /
+   `has_shared_tucker_factors` with the safe-mode tied checks. Tests: TestUniformShared in
+   test_sharing.py (contract vs ragged incl. forced padding + varying-rank stacks + per-element
+   caps, exact masks == ragged ranks, garbage robustness, dispatch anchor bit-identical,
+   adjustment/minimal equivalences, per-element checker verdicts) + jit entries in test_dispatch.
+10–11. **NEXT.** Uniform companion (`C_x_i` twin of `up_orthogonalize_tt_supercores`) + uniform
+   tied post-passes/embedding/retract (`utv_*` `shared_data=`) + shared uniform geometry factories
+   (`uniform_geometry_ops(..., sharing=)`, `precompute=` populated) + `SharedGeometry` widened to
+   uniform bases + the fitting gates (`_uniform_geometry_name`, `_uniform_model`, `_ubgeom`,
+   `uniform_least_squares_problem(sharing=)` incl. its minimal-rank gate) + equivalence/jit tests
+   + the compile-once shared uniform fit.
 12. `docs/sharing.md` + `contributor/sharing_internals.md` + getting-started snippet.
 13. The symmetric jetted-probes example.
 
@@ -659,6 +679,22 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
   rank_continuation.md warm-start guidance (`g0norm_newton` pinned across levels): without it the
   fit stalls at the target level and continuation over-grows — reproduced, then fixed, in the 14h
   test.
+- **Uniform layer (slice 9)**: `backend/ut3_svd.py` gains `_ut3svd_shared_supercores` (two-phase in
+  scan/supercore form; tie insurance = a static `ref_index` gather; phase-3 loop over ALL groups
+  incl. singletons with one SVD of the statically-gathered concatenation, `Y`/`ss` zero-padded to
+  width `n` then masked by the group's cap mask; boundary spectra mirror ragged: `ss_tt0` before the
+  scan, `ss_last` from the FINAL last core after phase 4, interior bonds from the scan's first `d-1`
+  steps); `ut3svd(sharing=)` sizes/slices via `compute_raw_sweep_ranks(sharing=)` and masks the
+  reported spectra by the FINAL masks (the ragged trim); `_reduce_left_to_right(sharing=)` uses
+  shared-minimal masks + the shared sweep with `skip_orthogonalization=True`; reversal remaps the
+  partition by `tuple(reversed(sharing))`. `backend/sharing.py` gains the masked uniform checkers
+  (`ut3_sharing_residual` -- structurally-unequal group rank masks RAISE, so a per-mode-clipped
+  "untied ranks" state is caught before any value comparison). `uniform_fitting.uniform_minimal`
+  takes `sharing=` (inline shared-minimality check; routes through the grouped frontend calls).
+  Frontend `UniformTuckerTensorTrain`: `t3svd(sharing=)` + `rank_adjustment_sweep(sharing=)` (safe
+  mode: `checks_active(self.data[:2])` -- supercores only, masks are host) +
+  `has_shared_tucker_factors`. NOT yet uniform: the companion, `utv_*` `shared_data=`, geometry
+  factories, `SharedGeometry` uniform bases, the fitting gates (slices 10–11).
 - **Tests**: `tests/test_sharing.py` — 10 classes (ValidateSharing, SharingCheckers,
   ShareTuckerCores, GroupedT3svd, ShareTuckerFactors, SharedPostPass, SharedFrameData,
   SharedGeometry, + slice 7's SharedMinimalRanksGroundTruth / SharedManifoldDimGroundTruth —
