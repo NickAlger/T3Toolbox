@@ -25,8 +25,10 @@ import t3toolbox.backend.t3_operations as ragged_operations
 import t3toolbox.backend.t3_orthogonalization as ragged_orthogonalization
 import t3toolbox.backend.t3_linalg as ragged_linalg
 import t3toolbox.backend.t3_svd as ragged_t3svd
+import t3toolbox.backend.sharing as backend_sharing
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.corewise as corewise
+import t3toolbox.safety as safety
 
 import t3toolbox.backend.common as common
 from t3toolbox.backend.common import NDArray
@@ -3945,6 +3947,7 @@ class TuckerTensorTrain:
             rtol: float = None,
             atol: float = None,
             assume_orthogonal: bool = False,
+            sharing: typ.Sequence = None,                           # len=d; group labels (None = unshared)
     ) -> Tuple[
         'TuckerTensorTrain', # new_x
         Tuple[NDArray,...],  # Tucker singular values, len=d
@@ -3980,6 +3983,19 @@ class TuckerTensorTrain:
             *left*-orthogonal input (e.g. a prior :py:meth:`t3svd` result) is not the right form; reverse
             it yourself (a left-orthogonal T3 reversed is right-orthogonal) if you want to skip. Default:
             ``False`` (always orthogonalize -- safe).
+        sharing: Sequence, optional
+            Shared-Tucker-factors (SF-T3) grouped truncation: one hashable group label per mode
+            (e.g. ``(0, 0, 0)`` ties all three modes into one group). Modes sharing a label must
+            have equal sizes and **already-tied factors** (a numerical precondition, checked in
+            safe mode). Each group truncates by ONE SVD of its concatenated centers; the shared
+            basis is assigned as the same array to every group mode, and the **group spectrum**
+            ``s_g`` (the singular values of the concatenated matricizations) is reported as the
+            Tucker singular values of every group mode. ``max_tucker_ranks`` must be equal within
+            each group. ``None`` (default) and all-singleton labelings run the ordinary unshared
+            sweep bit-identically; a real group runs the two-phase grouped algorithm (TT rounding
+            first, then all Tucker steps together -- Molozhavenko & Rakhuba 2026, Algorithm 1),
+            so under truncation the shared and unshared results differ even on tied input; the
+            lossless case agrees exactly.
 
         Returns
         -------
@@ -4111,6 +4127,37 @@ class TuckerTensorTrain:
         >>> b, _, _ = xr.t3svd(max_tt_ranks=2)
         >>> print(np.allclose(a.to_dense(), b.to_dense()))
         True
+
+        Shared Tucker factors (``sharing``): tie modes into groups; each group truncates by ONE
+        SVD of its concatenated centers, coming back with a single shared basis (the same array
+        at every group mode) and the group spectrum at each group mode:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
+        >>> tk, tt = x.data
+        >>> x = t3.TuckerTensorTrain((tk[0], tk[0], tk[2]), tt)      # a tied point (modes 0, 1)
+        >>> y, ss_tucker, ss_tt = x.t3svd(sharing=(0, 0, 1))
+        >>> print(np.allclose(y.to_dense(), x.to_dense()))           # lossless case: same tensor
+        True
+        >>> print(y.data[0][0] is y.data[0][1])                      # ONE shared factor array
+        True
+        >>> print(np.array_equal(ss_tucker[0], ss_tucker[1]))        # the group spectrum s_g, per mode
+        True
+        >>> yt, _, _ = x.t3svd(sharing=(0, 0, 1), max_tucker_ranks=2)   # grouped truncation
+        >>> print(yt.tucker_ranks, yt.data[0][0] is yt.data[0][1])
+        (2, 2, 2) True
+
+        Untied factors with ``sharing`` raise in safe mode (grouped truncation assumes one basis
+        per group -- tie first, e.g. ``backend.sharing.t3_share_tucker_cores``, or run inside
+        ``safety.unsafe()``):
+
+        >>> x_untied = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
+        >>> x_untied.t3svd(sharing=(0, 0, 1))   # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+            ...
+        ValueError
         '''
         if len(self.stack_shape) > 0 and ((rtol is not None) or (atol is not None)):
             raise ValueError(
@@ -4118,11 +4165,19 @@ class TuckerTensorTrain:
                 'Different elements of the stack could end out having different shapes.\n' +
                 'First unstack, then call t3svd for each unstacked Tucker tensor train.'
             )
+        if sharing is not None and safety.checks_active(self.data):
+            atol_check = safety.effective_rtol(self.data)
+            residual = backend_sharing.t3_sharing_residual(self.data, sharing)
+            safety.require(bool((residual <= atol_check).all()),
+                           't3svd(sharing=...) requires the Tucker factors to be tied within each '
+                           'sharing group (grouped truncation picks ONE basis per group). Tie them '
+                           'first (backend.sharing.t3_share_tucker_cores), or run in unsafe mode '
+                           '(safety.unsafe()).')
 
         result = ragged_t3svd.t3svd(
             self.data,
             max_tt_ranks=max_tt_ranks, max_tucker_ranks=max_tucker_ranks,
-            rtol=rtol, atol=atol, assume_orthogonal=assume_orthogonal,
+            rtol=rtol, atol=atol, assume_orthogonal=assume_orthogonal, sharing=sharing,
         )
         return TuckerTensorTrain(*result[0]), result[1], result[2]
 
@@ -4220,7 +4275,11 @@ class TuckerTensorTrain:
             self.shape, ss_tucker, ss_tt,
             tau=tau, n_chunk=n_chunk, kappa_guard=kappa_guard, max_grow=max_grow)
 
-    def rank_adjustment_sweep(self, direction: str = 'right_to_left') -> 'TuckerTensorTrain':
+    def rank_adjustment_sweep(
+            self,
+            direction: str = 'right_to_left',   # 'right_to_left' | 'left_to_right'
+            sharing:   typ.Sequence = None,     # len=d; group labels (None = unshared)
+    ) -> 'TuckerTensorTrain':
         """A single lossless directional sweep that drops structurally-redundant ranks (the separate
         rank-minimization step; :py:meth:`t3svd` itself does **not** minimize). Returns the adjusted T3.
 
@@ -4264,8 +4323,38 @@ class TuckerTensorTrain:
         False True
         >>> print(y2.rank_adjustment_sweep('right_to_left').has_minimal_ranks)   # correct direction
         True
+
+        ``sharing``: a partition with a real group routes through the grouped lossless reduction
+        (a per-mode Tucker step would untie the group). The group's ceiling is the SUM of its
+        modes' local ceilings, so the shared rank may legitimately exceed an individual mode's
+        ``rL_i*rR_i`` -- here bond 1 is capped to 1, so mode 0's local ceiling is
+        ``rL_0*rR_0 = 1`` and the unshared reduction would clip it (untying the group), while
+        the group ceiling ``1 + 2 = 3`` keeps the shared rank at 3. Tied factors are a
+        safe-mode precondition; the directional/compose-both-directions contract is as above:
+
+        >>> np.random.seed(0)
+        >>> z = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
+        >>> tkz, ttz = z.data
+        >>> z = t3.TuckerTensorTrain((tkz[0], tkz[0], tkz[2]), ttz)     # a tied point
+        >>> z2, _, _ = z.t3svd(sharing=(0, 0, 1), max_tt_ranks=[1, 1, 2, 1])   # left-orth output
+        >>> z3 = z2.rank_adjustment_sweep('right_to_left', sharing=(0, 0, 1))
+        >>> print(z3.tucker_ranks, z3.data[0][0] is z3.data[0][1])      # group ceiling, ONE group array
+        (3, 3, 2) True
+        >>> print(z3.rank_adjustment_sweep('right_to_left').tucker_ranks)   # unshared clips mode 0 (unties!)
+        (1, 2, 2)
+        >>> print(np.allclose(z3.to_dense(), z2.to_dense()))            # lossless
+        True
         """
-        return TuckerTensorTrain(*ragged_t3svd.t3_rank_adjustment_sweep(self.data, direction))
+        if sharing is not None and safety.checks_active(self.data):
+            atol_check = safety.effective_rtol(self.data)
+            residual = backend_sharing.t3_sharing_residual(self.data, sharing)
+            safety.require(bool((residual <= atol_check).all()),
+                           'rank_adjustment_sweep(sharing=...) requires the Tucker factors to be '
+                           'tied within each sharing group. Tie them first '
+                           '(backend.sharing.t3_share_tucker_cores), or run in unsafe mode '
+                           '(safety.unsafe()).')
+        return TuckerTensorTrain(*ragged_t3svd.t3_rank_adjustment_sweep(self.data, direction,
+                                                                        sharing=sharing))
 
     @staticmethod
     def t3svd_dense(

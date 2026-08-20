@@ -227,13 +227,18 @@ error is bounded by the best shared error via the triangle inequality; the
 constants compose to $C(d)$.
 \end{proof}
 
-\begin{remark}[Truncation error identity]
+\begin{remark}[Truncation error bound]
 When the input is exactly shared and step (4) truncates group $g$ from
-$n_g$ to $n_g'$, the error contributed by that step is
-$\bigl(\sum_{j > n_g'} s_{g,j}^2\bigr)^{1/2}$: by
-Lemma~\ref{lem:skeleton} the discarded tail of the concatenation is exactly
-the Hilbert--Schmidt error of simultaneously projecting all group modes onto
-the retained basis.
+$n_g$ to $n_g'$ with retained basis $Y$, the squared error contributed by
+that step is \emph{at most} $\sum_{j > n_g'} s_{g,j}^2$: by
+Lemma~\ref{lem:skeleton} the discarded tail of the concatenation equals the
+\emph{sum over the group's modes} of the single-mode projection errors,
+$\sum_{i \in g} \|(I - YY^\top)\T_{(i)}\|_F^2$, which bounds the error of the
+simultaneous projection $\T \times_{i \in g} YY^\top$ by the standard
+HOSVD subadditivity argument. Equality holds for singleton groups ($k=1$);
+for $k > 1$ the simultaneous projection error is strictly smaller in general
+(verified numerically: e.g.\ $4.19\cdot10^2$ vs the tail bound
+$4.80\cdot10^2$ on a random tied example).
 \end{remark}
 
 \begin{theorem}[Rank upper bound for the interlaced sweep]\label{thm:rankbound}

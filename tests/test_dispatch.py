@@ -112,6 +112,16 @@ class TestDispatch(unittest.TestCase):
             lambda a: a.t3svd(max_tucker_ranks=(2, 2, 2), max_tt_ranks=(1, 2, 2, 1)), self.x)
         self.assert_jit_jax(  # rank_adjustment_sweep: directional rank-drop, static shapes -> jit-able
             lambda a: a.t3svd(max_tt_ranks=(1, 2, 2, 1))[0].rank_adjustment_sweep('right_to_left'), self.x)
+        # grouped t3svd + grouped adjustment (sharing static; fixed caps -> static shapes; the
+        # safe-mode tied check skips under the trace)
+        xt = t3.TuckerTensorTrain((jnp.asarray(np.random.randn(3, 5)),) * 2,
+                                  (jnp.asarray(np.random.randn(1, 3, 2)),
+                                   jnp.asarray(np.random.randn(2, 3, 1))))
+        self.assert_jit_jax(
+            lambda a: a.t3svd(max_tucker_ranks=2, max_tt_ranks=2, sharing=(0, 0)), xt)
+        self.assert_jit_jax(
+            lambda a: a.t3svd(sharing=(0, 0))[0].rank_adjustment_sweep('right_to_left',
+                                                                       sharing=(0, 0)), xt)
         # t3m methods with FIXED max-ranks -> static shapes -> jit-able (rtol/atol stay eager)
         for mth in ('form_then_round', 'inplace_fused', 'swap'):
             self.assert_jit_jax(

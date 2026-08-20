@@ -7,6 +7,8 @@ import unittest
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.sharing as sharing
 import t3toolbox.backend.fv_conversions as fvc
+import t3toolbox.backend.t3_svd as bt3svd
+import t3toolbox.safety as safety
 
 np.random.seed(0)
 
@@ -147,6 +149,184 @@ class TestShareTuckerCores(unittest.TestCase):
         x_dense = t3.TuckerTensorTrain(*x_data).to_dense()
         y_dense = t3.TuckerTensorTrain(tk2, tt2).to_dense()
         self.assertTrue(np.array_equal(np.asarray(x_dense), np.asarray(y_dense)))
+
+
+def _dense_group_svals(x_dense, group):
+    """Singular values of the dense concatenated matricizations [X_(i1) | ... | X_(ik)]."""
+    mats = [np.moveaxis(x_dense, ii, 0).reshape(x_dense.shape[ii], -1) for ii in group]
+    return np.linalg.svd(np.concatenate(mats, axis=1), compute_uv=False)
+
+
+class TestGroupedT3svd(unittest.TestCase):
+    def _assert_bit_identical(self, res_a, res_b):
+        (xa, ska, sta), (xb, skb, stb) = res_a, res_b
+        for fam_a, fam_b in zip(xa, xb):
+            for A, B in zip(fam_a, fam_b):
+                self.assertTrue(np.array_equal(np.asarray(A), np.asarray(B)))
+        for SA, SB in zip(ska + sta, skb + stb):
+            self.assertTrue(np.array_equal(np.asarray(SA), np.asarray(SB)))
+
+    def test_none_and_all_singleton_dispatch_bit_identical(self):
+        # test 7.2: sharing=None and all-singleton partitions run the literal unshared sweep
+        for STACK_SHAPE in [(), (2,)]:
+            with self.subTest(STACK_SHAPE=STACK_SHAPE):
+                x = t3.TuckerTensorTrain.randn((6, 5, 4), (3, 2, 2), (1, 2, 2, 1),
+                                               stack_shape=STACK_SHAPE)
+                ref = bt3svd.t3svd(x.data, max_tucker_ranks=2)
+                self._assert_bit_identical(bt3svd.t3svd(x.data, max_tucker_ranks=2, sharing=None), ref)
+                self._assert_bit_identical(
+                    bt3svd.t3svd(x.data, max_tucker_ranks=2, sharing=('a', 'b', 'c')), ref)
+
+    def test_lossless_agreement_with_unshared(self):
+        # test 7.4: on exactly-tied input with no truncation, shared and unshared represent the
+        # same tensor and report the same TT ranks; the shared output is tied and left-orthogonal
+        for STRUCTURE in SHARED_STRUCTURES[1:]:
+            for STACK_SHAPE in STACK_SHAPES:
+                with self.subTest(STRUCTURE=STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    x_data, sharing_spec, groups = _tied_data(STRUCTURE, STACK_SHAPE)
+                    x_dense = np.asarray(t3.TuckerTensorTrain(*x_data).to_dense())
+                    y, sk, st = bt3svd.t3svd(x_data, sharing=sharing_spec)
+                    y2, _, _ = bt3svd.t3svd(x_data)
+                    yT = t3.TuckerTensorTrain(*y)
+                    self.assertTrue(np.allclose(np.asarray(yT.to_dense()), x_dense))
+                    self.assertEqual(yT.tt_ranks, t3.TuckerTensorTrain(*y2).tt_ranks)
+                    self.assertTrue(np.all(np.asarray(yT.is_left_orthogonal())))
+                    for group in sharing.nontrivial_groups(groups):
+                        for ii in group[1:]:
+                            self.assertIs(y[0][ii], y[0][group[0]])
+                            self.assertTrue(np.array_equal(np.asarray(sk[ii]),
+                                                           np.asarray(sk[group[0]])))
+
+    def test_group_spectrum_and_subspace(self):
+        # test 7.3: s_g equals the dense concatenated-matricization spectrum, and the shared
+        # basis spans its top left singular subspace (exact rank -> projector match)
+        x_data, sharing_spec, groups = _tied_data(SHARED_STRUCTURES[2], ())
+        group = sharing.nontrivial_groups(groups)[0]
+        x_dense = np.asarray(t3.TuckerTensorTrain(*x_data).to_dense())
+        y, sk, _ = bt3svd.t3svd(x_data, sharing=sharing_spec)
+        n_g = y[0][group[0]].shape[-2]
+        s_dense = _dense_group_svals(x_dense, group)
+        self.assertLess(np.linalg.norm(np.asarray(sk[group[0]]) - s_dense[:n_g]),
+                        1e-9 * s_dense[0])
+        U_rows = np.asarray(y[0][group[0]])                              # (n_g, N), orthonormal rows
+        mats = [np.moveaxis(x_dense, ii, 0).reshape(6, -1) for ii in group]
+        Yd = np.linalg.svd(np.concatenate(mats, axis=1))[0][:, :n_g]     # dense top left vectors
+        P_ours, P_dense = U_rows.T @ U_rows, Yd @ Yd.T
+        self.assertLess(np.linalg.norm(P_ours - P_dense), 1e-8)
+
+    def test_truncation_error_bounds(self):
+        # group-only truncation error is bounded by the tail of s_g (the sum of single-mode
+        # projection errors; equality only for singleton groups) ...
+        x_data, sharing_spec, _ = _tied_data(SHARED_STRUCTURES[2], ())
+        x_dense = np.asarray(t3.TuckerTensorTrain(*x_data).to_dense())
+        _, sk_full, _ = bt3svd.t3svd(x_data, sharing=sharing_spec)
+        y, _, _ = bt3svd.t3svd(x_data, sharing=sharing_spec, max_tucker_ranks=(2, 2, 2, 2))
+        err = np.linalg.norm(np.asarray(t3.TuckerTensorTrain(*y).to_dense()) - x_dense)
+        tail = np.sqrt(sum(float(np.sum(np.asarray(sk_full[ii])[2:] ** 2)) for ii in (0, 3)))
+        self.assertLessEqual(err, tail * (1 + 1e-9))
+        # ... and the full result is quasi-optimal: err <= C(d) * ||noise|| on tied low-rank+noise
+        shape, n, r, spec = SHARED_STRUCTURES[2]
+        d = len(shape)
+        lo_data, _, _ = _tied_data((shape, n, r, spec), ())
+        lo = t3.TuckerTensorTrain(*lo_data)
+        noise_data, _, _ = _tied_data((shape, (2, 2, 2, 2), (1, 2, 2, 2, 1), spec), ())
+        noise = t3.TuckerTensorTrain(*noise_data)
+        eps = 1e-4 * float(np.linalg.norm(lo.to_dense())) / float(np.linalg.norm(noise.to_dense()))
+        noisy = lo + t3.TuckerTensorTrain(
+            noise.data[0], (np.asarray(noise.data[1][0]) * eps,) + tuple(noise.data[1][1:]))
+        y, _, _ = bt3svd.t3svd(noisy.data, sharing=spec, max_tucker_ranks=n, max_tt_ranks=r)
+        err = np.linalg.norm(np.asarray(t3.TuckerTensorTrain(*y).to_dense())
+                             - np.asarray(noisy.to_dense()))
+        noise_norm = eps * float(np.linalg.norm(noise.to_dense()))
+        C_d = np.sqrt(d) + np.sqrt(d) * np.sqrt(d - 1) + np.sqrt(d - 1)
+        self.assertLessEqual(err, C_d * noise_norm)
+
+    def test_exact_rank_recovery_and_upper_bound(self):
+        # test 7.5a: inflate an exactly-shared exact-rank T3, recover the true ranks exactly
+        shape, n, r, spec = SHARED_STRUCTURES[2]
+        x_data, _, groups = _tied_data((shape, n, r, spec), ())
+        x_dense = np.asarray(t3.TuckerTensorTrain(*x_data).to_dense())
+        xz = t3.TuckerTensorTrain(*x_data) + t3.TuckerTensorTrain.zeros(
+            shape, (2, 2, 2, 2), (1, 2, 2, 2, 1))
+        ztk = list(xz.data[0])
+        for group in sharing.nontrivial_groups(groups):
+            for ii in group:
+                ztk[ii] = ztk[group[0]]                     # concatenated tied factors are equal
+        w, _, _ = bt3svd.t3svd((tuple(ztk), xz.data[1]), sharing=spec, rtol=1e-12)
+        wT = t3.TuckerTensorTrain(*w)
+        self.assertEqual(wT.tucker_ranks, n)
+        self.assertEqual(wT.tt_ranks, r)
+        self.assertIs(w[0][0], w[0][1])
+        self.assertTrue(np.allclose(np.asarray(wT.to_dense()), x_dense))
+        # test 7.5b: tolerance-based ranks obey the tail-energy bound on the ORIGINAL's spectra
+        RT = 0.3
+        y_data, spec_y, groups_y = _tied_data(SHARED_STRUCTURES[2], ())
+        y_dense = np.asarray(t3.TuckerTensorTrain(*y_data).to_dense())
+        yt, _, _ = bt3svd.t3svd(y_data, sharing=spec_y, rtol=RT)
+        ytT = t3.TuckerTensorTrain(*yt)
+        out_norm = float(np.linalg.norm(np.asarray(ytT.to_dense())))
+        group = sharing.nontrivial_groups(groups_y)[0]
+        k = len(group)
+        thresh_g = RT * np.sqrt(k) * out_norm
+        tails = lambda ss: np.sqrt(np.cumsum(np.asarray(ss)[::-1] ** 2))[::-1]
+        ub_g = max(1, int(np.sum(tails(_dense_group_svals(y_dense, group)) >= thresh_g)))
+        self.assertLessEqual(ytT.tucker_ranks[group[0]], ub_g)
+        thresh = RT * out_norm                              # singleton Tucker + TT edges
+        for ii in [jj for jj in range(4) if jj not in group]:
+            s_i = np.linalg.svd(np.moveaxis(y_dense, ii, 0).reshape(y_dense.shape[ii], -1),
+                                compute_uv=False)
+            self.assertLessEqual(ytT.tucker_ranks[ii], max(1, int(np.sum(tails(s_i) >= thresh))))
+        for ii in range(1, 4):
+            s_u = np.linalg.svd(y_dense.reshape(int(np.prod(y_dense.shape[:ii])), -1),
+                                compute_uv=False)
+            self.assertLessEqual(ytT.tt_ranks[ii], max(1, int(np.sum(tails(s_u) >= thresh))))
+
+    def test_stacked_caps_match_per_element(self):
+        # caps-only grouped truncation on a stack: each element represents what the same call on
+        # the unstacked element represents (tolerances on stacks raise, as unshared)
+        x_data, spec, groups = _tied_data(SHARED_STRUCTURES[2], (2,))
+        y, _, _ = bt3svd.t3svd(x_data, sharing=spec, max_tucker_ranks=(2, 2, 2, 2),
+                               max_tt_ranks=(1, 2, 2, 2, 1))
+        yT = t3.TuckerTensorTrain(*y)
+        self.assertIs(y[0][0], y[0][1])
+        for ee in range(2):
+            xe = (tuple(np.asarray(B)[ee] for B in x_data[0]),
+                  tuple(np.asarray(G)[ee] for G in x_data[1]))
+            ye, _, _ = bt3svd.t3svd(xe, sharing=spec, max_tucker_ranks=(2, 2, 2, 2),
+                                    max_tt_ranks=(1, 2, 2, 2, 1))
+            self.assertTrue(np.allclose(
+                np.asarray(yT.to_dense())[ee],
+                np.asarray(t3.TuckerTensorTrain(*ye).to_dense()), atol=1e-9))
+        with self.assertRaises(ValueError):
+            bt3svd.t3svd(x_data, sharing=spec, rtol=1e-6)
+
+    def test_adjustment_group_ceiling_and_dispatch(self):
+        # the grouped lossless reduction respects the group ceiling (n_g may exceed a single
+        # mode's local rL*rR ceiling), stays lossless and tied; all-singleton == unshared bitwise
+        x_data, spec, groups = _tied_data(SHARED_STRUCTURES[1], ())      # (6,6), group (0,1)
+        y, _, _ = bt3svd.t3svd(x_data, sharing=spec, max_tt_ranks=(1, 1, 1))
+        z = bt3svd.t3_rank_adjustment_sweep(y, 'right_to_left', sharing=spec)
+        zT = t3.TuckerTensorTrain(*z)
+        self.assertEqual(zT.tucker_ranks, (2, 2))            # ceiling sum(1*1, 1*1) = 2 < n_g = 3
+        self.assertIs(z[0][0], z[0][1])
+        self.assertTrue(np.allclose(np.asarray(zT.to_dense()),
+                                    np.asarray(t3.TuckerTensorTrain(*y).to_dense())))
+        w = t3.TuckerTensorTrain.randn((6, 5), (3, 2), (1, 2, 1))
+        ref = bt3svd.t3_rank_adjustment_sweep(w.data, 'right_to_left')
+        alt = bt3svd.t3_rank_adjustment_sweep(w.data, 'right_to_left', sharing=('a', 'b'))
+        for fam_a, fam_b in zip(alt, ref):
+            for A, B in zip(fam_a, fam_b):
+                self.assertTrue(np.array_equal(np.asarray(A), np.asarray(B)))
+
+    def test_frontend_safe_mode_tied_precondition(self):
+        # untied factors + sharing raise in safe mode; skipped under safety.unsafe()
+        x = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
+        with self.assertRaises(ValueError):
+            x.t3svd(sharing=(0, 0, 1))
+        with safety.unsafe():
+            y, _, _ = x.t3svd(sharing=(0, 0, 1))            # insurance-ties and proceeds
+        self.assertIs(y.data[0][0], y.data[0][1])
+        x.t3svd(sharing=(0, 1, 2))                          # all-singleton: no tie required
 
 
 class TestSharedFrameData(unittest.TestCase):

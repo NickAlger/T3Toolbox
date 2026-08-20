@@ -18,6 +18,7 @@ import t3toolbox.backend.t3_orthogonalization as ragged_orth
 import t3toolbox.backend.tt_orthogonalization as orth
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.ranks as ranks
+import t3toolbox.backend.sharing as sharing_module
 import t3toolbox.backend.common as common
 from t3toolbox.backend.common import *
 
@@ -40,6 +41,7 @@ def t3svd(
         rtol: float = None,
         atol: float = None,
         assume_orthogonal: bool = False,
+        sharing:            typ.Sequence = None,      # len=d, static; group labels (None = unshared)
 ) -> typ.Tuple[
     typ.Tuple[
         typ.Tuple[NDArray, ...],  # new_tucker_cores
@@ -64,12 +66,30 @@ def t3svd(
     **right-orthogonal** (Tucker down-orthogonal + TT right-orthogonal -- the form the L->R sweep needs).
     **Not enforced** (verify with ``TuckerTensorTrain.is_right_orthogonal``). A left-orthogonal input must
     be reversed by the caller (a left-orthogonal T3 reversed is right-orthogonal).
+
+    ``sharing`` (SF-T3 grouped truncation): a per-mode tuple of hashable group labels ties the
+    Tucker factors within each group -- ONE truncated SVD of the concatenated group centers picks
+    one shared basis per group, applied to every group mode (the input's factors must already be
+    tied within groups; the frontend checks this in safe mode). ``sharing=None`` and all-singleton
+    partitions dispatch to the literal unshared sweep above (bit-identical); any partition with a
+    real group runs the two-phase grouped algorithm of :py:func:`_t3svd_shared` for ALL modes
+    (Molozhavenko & Rakhuba 2026, Algorithm 1) -- so under truncation, shared and unshared results
+    differ even on exactly-shared input; only the lossless case agrees. The returned Tucker
+    singular values carry the GROUP spectrum ``s_g`` at every mode of a group.
     '''
     num_cores = len(x[0])
 
     # Accept scalar or per-position max ranks (None entry = no cap at that position).
     max_tucker_ranks = ranks.normalize_max_ranks(max_tucker_ranks, num_cores)
     max_tt_ranks = ranks.normalize_max_ranks(max_tt_ranks, num_cores + 1)
+
+    if sharing is not None:
+        shape = tuple(B.shape[-1] for B in x[0])
+        groups = sharing_module.validate_sharing(sharing, shape)
+        if sharing_module.nontrivial_groups(groups):
+            return _t3svd_shared(x, groups, max_tt_ranks, max_tucker_ranks, rtol, atol,
+                                 assume_orthogonal)
+        # all-singleton partition: fall through to the literal unshared sweep (bit-identical)
 
     # make leading and trailing TT-ranks equal to 1 (no-op when already 1, i.e. for orthogonal input)
     x = (x[0], tt_operations.tt_squash_tails(x[1]))
@@ -101,12 +121,171 @@ def t3svd(
     return x, tuple(all_ss_tucker), tuple(all_ss_tt)
 
 
+def _up_matricization(
+        H:  NDArray,  # a TT core, shape=stack_shape+(rL, n, rR)
+) -> NDArray:         # shape=stack_shape+(n, rL*rR)
+    '''The up-matricization W2 of a TT core (Tucker leg to rows), stack-aware.'''
+    Hn = H.swapaxes(-3, -2)
+    return Hn.reshape(Hn.shape[:-2] + (Hn.shape[-2] * Hn.shape[-1],))
+
+
+def _reversed_groups(
+        groups: typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition
+        d:      int,                                  # number of modes
+) -> typ.Tuple[typ.Tuple[int, ...], ...]:             # static; the partition of the REVERSED mode order
+    '''Remap a canonical partition through the mode reversal ``i -> d-1-i`` (re-canonicalized).'''
+    remapped = [tuple(sorted(d - 1 - ii for ii in group)) for group in groups]
+    return tuple(sorted(remapped, key=lambda group: group[0]))
+
+
+def _t3svd_shared(
+        x: typ.Tuple[
+            typ.Tuple[NDArray, ...],  # tucker_cores; tied within groups (checked by the frontend)
+            typ.Tuple[NDArray, ...],  # tt_cores
+        ],
+        groups:             typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical (validate_sharing)
+        max_tt_ranks:       typ.Sequence,  # len=d+1, normalized (entries int or None)
+        max_tucker_ranks:   typ.Sequence,  # len=d, normalized; must be equal within each group
+        rtol: float = None,
+        atol: float = None,
+        assume_orthogonal: bool = False,
+) -> typ.Tuple[
+    typ.Tuple[
+        typ.Tuple[NDArray, ...],  # new_tucker_cores; ONE shared array per group
+        typ.Tuple[NDArray, ...],  # new_tt_cores
+    ],
+    typ.Tuple[NDArray,...], # Tucker singular values, len=d; group modes carry the GROUP spectrum s_g
+    typ.Tuple[NDArray,...], # TT singular values, len=d+1
+]:
+    '''The grouped (SF-T3) T3-SVD: the two-phase rounding of Molozhavenko & Rakhuba (2026),
+    Algorithm 1, generalized to an arbitrary partition -- TT-round first, then collect every
+    mode's center simultaneously, then ALL Tucker truncations at once (HOSVD-style), then
+    restore the left-orthogonal output contract. Under truncation this treats singleton modes
+    differently than the interlaced unshared sweep (all Tucker steps see the same TT-rounded
+    tensor); the two agree exactly in the lossless case.
+
+    Phases:
+
+    1. **TT rounding**: the unshared left-to-right bond sweep with the Tucker steps skipped
+       (skipping is what keeps the tied factors tied -- a per-mode rotation would untie them).
+       Output left-orthogonal at the TT caps.
+    2. **Collect**: one lossless right sweep (``tt_right_orthogonalize(...,
+       return_variation_cores=True)``) yields every mode's center core ``H_i`` of the SAME
+       TT-rounded tensor, simultaneously -- the paper's ``NonOrthCores``.
+    3. **Tucker steps, simultaneous**: singleton modes truncate the SVD of their center's
+       up-matricization ``W2_i``; each group truncates ONE SVD of the concatenation
+       ``[W2_{i_1} | ... | W2_{i_k}]``, whose singular values ARE the group spectrum ``s_g``
+       (the singular values of the concatenated matricizations of the represented tensor --
+       the stacked-skeleton factorization, ``dev/shared_t3_math.tex`` Lemma 1). The rotation
+       ``Y_g`` is applied to the shared factor ONCE (the same array assigned to every group
+       mode) and to every group core's up leg. Note the tolerance acts on the concatenation,
+       whose Frobenius norm is ``sqrt(k) * ||T||``.
+    4. **Restore left orthogonality** (lossless ``tt_left_orthogonalize``): the Tucker
+       rotations broke the phase-2 gauge. This can shrink bonds that became structurally
+       excessive against the reduced Tucker ranks (the same raw-sweep, non-minimal-caveat
+       semantics as the unshared ``t3svd``); the reported TT spectra are trimmed to the final
+       bond dims (the trimmed tail is the removed structural excess).
+
+    **Rank upper bound** (tolerance-based truncation; the grouped generalization of
+    ``docs/contributor/t3svd_verification.md``): every selected group rank satisfies
+
+        n_g'  <=  rank_eps( [X_(i_1) | ... | X_(i_k)] )   of the ORIGINAL input,
+
+    with ``rank_eps`` counted by tail Frobenius energy at threshold
+    ``max(rtol * sqrt(k) * ||output||, atol)``, and the TT bounds unchanged. Proof sketch
+    (edge monotonicity): every truncation performed at another edge multiplies the group's
+    concatenated matricization on the right by block orthogonal-projection factors (the
+    factors stay orthonormal on the left), which cannot increase any singular value, hence
+    cannot increase any tail energy; and the running norm only decreases during the sweep, so
+    ``rtol * sqrt(k) * ||output||`` lower-bounds every per-step threshold. The same argument
+    gives the unshared per-edge bounds for the singleton modes and the TT bonds.
+    '''
+    num_cores = len(x[0])
+    use_jax = tree_contains_jax(x)
+    xnp, _, _ = get_backend(False, use_jax)
+    nontrivial = sharing_module.nontrivial_groups(groups)
+
+    # structural: tied factors need equal ranks and equal caps within each group
+    sharing_module._validate_group_tucker_ranks(x[0], groups)
+    for group in nontrivial:
+        caps = tuple(max_tucker_ranks[ii] for ii in group)
+        if len(set(caps)) > 1:
+            raise ValueError(
+                'max_tucker_ranks must be equal within a sharing group (one shared rank per '
+                'group); group %r has caps %r' % (group, caps))
+
+    x = (x[0], tt_operations.tt_squash_tails(x[1]))
+    if not assume_orthogonal:
+        x = ragged_orth.t3_down_orthogonalize_tucker_cores(x)
+        x = (x[0], orth.tt_right_orthogonalize(x[1]))
+
+    # Insurance: make the ties structural (per-mode orthogonalization of bit-identical tied
+    # factors is bit-identical, so this is a no-op on exactly-tied input; on input tied only to
+    # roundoff it repairs the drift at roundoff level).
+    tucker_cores = list(x[0])
+    for group in nontrivial:
+        for ii in group[1:]:
+            tucker_cores[ii] = tucker_cores[group[0]]
+    x = (tuple(tucker_cores), x[1])
+
+    # ---- phase 1: TT rounding (bond sweep only; Tucker steps deliberately skipped) ----
+    G0 = x[1][0]
+    _, ss_first, _ = linalg.right_svd(G0)
+    all_ss_tt = [ss_first]
+    for ii in range(num_cores - 1):
+        x, ss_tt = ragged_orth.t3_left_svd_tt_core(   # SVD between ith and (i+1)th TT core
+            x, ii, max_rank=max_tt_ranks[ii + 1], rtol=rtol, atol=atol)
+        all_ss_tt.append(ss_tt)
+
+    # ---- phase 2: collect every mode's center of the TT-rounded tensor (lossless) ----
+    right_tt_cores, HH = orth.tt_right_orthogonalize(x[1], return_variation_cores=True)
+    x = (x[0], right_tt_cores)
+
+    # ---- phase 3: all Tucker truncations at once, from the collected centers ----
+    new_tucker = list(x[0])
+    new_tt = list(x[1])
+    all_ss_tucker = [None] * num_cores
+    for group in groups:
+        if len(group) == 1:
+            ii = group[0]
+            W2 = _up_matricization(HH[ii])
+            Y, ss, _ = linalg.truncated_svd(W2, max_rank=max_tucker_ranks[ii], rtol=rtol, atol=atol)
+            new_tucker[ii] = xnp.einsum('...ux,...uo->...xo', Y, new_tucker[ii])
+            new_tt[ii] = xnp.einsum('...aub,...ux->...axb', new_tt[ii], Y)
+            all_ss_tucker[ii] = ss
+        else:
+            M = xnp.concatenate([_up_matricization(HH[ii]) for ii in group], axis=-1)
+            Y, s_g, _ = linalg.truncated_svd(M, max_rank=max_tucker_ranks[group[0]],
+                                             rtol=rtol, atol=atol)
+            B_shared = xnp.einsum('...ux,...uo->...xo', Y, new_tucker[group[0]])
+            for ii in group:
+                new_tucker[ii] = B_shared         # the SAME array object at every group mode
+                new_tt[ii] = xnp.einsum('...aub,...ux->...axb', new_tt[ii], Y)
+                all_ss_tucker[ii] = s_g
+    x = (tuple(new_tucker), tuple(new_tt))
+
+    # ---- phase 4: restore the left-orthogonal output contract (lossless) ----
+    x = (x[0], orth.tt_left_orthogonalize(x[1]))
+
+    # boundary norm at the right edge (of the FINAL tensor), as the unshared sweep reports it
+    _, ss_last, _ = linalg.left_svd(x[1][-1])
+    all_ss_tt.append(ss_last)
+    # trim the phase-1 bond spectra to the final bond dims (phase 4 may have removed
+    # structural excess created by the Tucker truncations)
+    final_bonds = (1,) + tuple(G.shape[-1] for G in x[1][:-1]) + (1,)
+    all_ss_tt = [ss[..., :final_bonds[ii]] if ii not in (0, num_cores) else ss
+                 for ii, ss in enumerate(all_ss_tt)]
+
+    return x, tuple(all_ss_tucker), tuple(all_ss_tt)
+
+
 def t3_rank_adjustment_sweep(
         x: typ.Tuple[
             typ.Tuple[NDArray, ...],  # tucker_cores
             typ.Tuple[NDArray, ...],  # tt_cores
         ],
         direction: str = 'right_to_left',  # 'right_to_left' | 'left_to_right'
+        sharing:   typ.Sequence = None,    # len=d, static; group labels (None = unshared)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # tucker_cores
     typ.Tuple[NDArray, ...],  # tt_cores
@@ -119,7 +298,34 @@ def t3_rank_adjustment_sweep(
     opposite direction** -- e.g. a :py:func:`t3svd` result is left-orthogonal, so
     ``t3_rank_adjustment_sweep(result, 'right_to_left')`` minimizes it (verify with ``has_minimal_ranks``).
     On a general input it is a partial reduction; compose both directions for guaranteed minimal ranks.
+
+    ``sharing``: a partition with a real group routes through the grouped lossless reduction
+    (:py:func:`_t3svd_shared` with no caps -- the per-mode Tucker step would untie the group).
+    The group Tucker rank drops to the STRUCTURAL rank of the concatenated centers,
+    ``min(n_g, sum_i rL_i * rR_i)`` -- which may exceed an individual mode's ``rL_i * rR_i``
+    (the group ceiling; that is not a reducible redundancy). Direction and orthogonality
+    contracts are as above (``'right_to_left'`` is implemented by mode reversal); the same
+    compose-both-directions rule gives guaranteed shared-minimal ranks. ``sharing=None`` and
+    all-singleton partitions run the literal unshared sweep.
     '''
+    if sharing is not None:
+        shape = tuple(B.shape[-1] for B in x[0])
+        groups = sharing_module.validate_sharing(sharing, shape)
+        if sharing_module.nontrivial_groups(groups):
+            no_tk = (None,) * len(x[0])
+            no_tt = (None,) * (len(x[0]) + 1)
+            if direction == 'left_to_right':
+                y, _, _ = _t3svd_shared(x, groups, no_tt, no_tk, None, None,
+                                        assume_orthogonal=True)   # no prep, like the unshared sweep
+                return y
+            elif direction == 'right_to_left':
+                xr = (tuple(x[0][::-1]), tt_operations.tt_reverse(x[1]))
+                yr, _, _ = _t3svd_shared(xr, _reversed_groups(groups, len(x[0])), no_tt, no_tk,
+                                         None, None, assume_orthogonal=True)
+                return (tuple(yr[0][::-1]), tt_operations.tt_reverse(yr[1]))
+            raise ValueError("direction must be 'left_to_right' or 'right_to_left'; got %r" % (direction,))
+        # all-singleton partition: fall through to the literal unshared sweep (bit-identical)
+
     x = (x[0], tt_operations.tt_squash_tails(x[1]))
     num_cores = len(x[0])
     if direction == 'right_to_left':
