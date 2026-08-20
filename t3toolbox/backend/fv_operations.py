@@ -233,8 +233,14 @@ def fv_absorb_weights(
     """Absorb the four-family metric weights into the VARIATION cores (the tangent metric on coordinates,
     Approach-1 / metric-on-variations): ``down`` -> V's ``nD`` leg; ``up``/``left``/``right`` -> H's
     ``nU``/``rL``/``rR`` legs. The frame is left orthonormal and untouched. ``corewise_stack_norm`` of the
-    result is the weighted (Grasedyck-Kramer) tangent norm. All families are len=d (one per variation core);
-    single leading ``'...'`` -- the weights share the variations' ``K+C`` stack."""
+    result is the weighted (Grasedyck-Kramer) tangent norm. All families are len=d (one per variation core).
+
+    **The weight is frame-like (stack ``C``) while the variations carry ``K + C``, and the broadcast is
+    free**: the single leading ``'...'`` right-aligns, so one metric per base point lifts over the ``K``
+    tangent vectors at that point. That works *only because* ``C`` is innermost -- the library-wide
+    frame-inner convention (``docs/batching_and_stacking.md``). Do not read the weight as carrying
+    ``K+C``: it does not, and conflating the two was a real bug once
+    (``docs/contributor/weighted_internals.md``)."""
     xnp, _, _ = get_backend(False, tree_contains_jax((variations, weights)))
     V_cores, H_cores = variations
     up, down, left, right = weights

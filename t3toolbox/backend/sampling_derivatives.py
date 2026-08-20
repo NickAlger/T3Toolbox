@@ -710,7 +710,7 @@ def compute_sigma_jets_trs(
         dxi_jets:       typ.Sequence[NDArray],  # var  input jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
         mu_jets:        typ.Sequence[NDArray],  # frame left jets,  len=d, elm_shape=(order+1,)+W+C+(rLi,)
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
-) -> typ.Tuple[NDArray, ...]:                   # sigma_jets. len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
+) -> typ.Tuple[NDArray, ...]:                   # sigma_jets. len=d, elm_shape=(order+1,)+W+K+C+(rRi,)
     '''Variation-leftward edge-variable jets sigma (the jet-ified Algorithm-7 sigma recursion).
 
     ``sigma_i = sigma_{i-1} Q_i(xi_i) + mu_{i-1} dG_i(xi_i) + mu_{i-1} O_i(dxi_i)`` -- three
@@ -765,7 +765,7 @@ def compute_deta_jets_trs(
         right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
         mu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
         nu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
-        sigma_jets:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
+        sigma_jets:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rRi,)
         tau_jets:       typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:                   # deta_jets. len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
@@ -808,7 +808,7 @@ def compute_deta_jets(
         right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
         mu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
         nu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
-        sigma_jets:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
+        sigma_jets:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rRi,)
         tau_jets:       typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:                   # deta_jets. len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
@@ -898,7 +898,7 @@ def compute_sigma_jets(
         dxi_jets:       typ.Sequence[NDArray],  # var  input jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
         mu_jets:        typ.Sequence[NDArray],  # frame left jets,  len=d, elm_shape=(order+1,)+W+C+(rLi,)
         trs:            NDArray,                # binomial tensor -- ONLY its shape (order) is read here
-) -> typ.Tuple[NDArray, ...]:                   # sigma_jets. len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
+) -> typ.Tuple[NDArray, ...]:                   # sigma_jets. len=d, elm_shape=(order+1,)+W+K+C+(rRi,)
     '''Variation-leftward edge-variable jets sigma (standard banded-recurrence form).
 
     Dense reference: :py:func:`compute_sigma_jets_trs` (equal to tolerance).
@@ -1353,7 +1353,7 @@ def compute_tau_tilde_jets_trs(
         deta_tildes:    typ.Sequence[NDArray],  # adjoint-up jets, len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
         mu_jets:        typ.Sequence[NDArray],  # frame left jets,  len=d, elm_shape=(order+1,)+W+C+(rLi,)
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
-) -> typ.Tuple[NDArray, ...]:                   # tau_tildes. len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
+) -> typ.Tuple[NDArray, ...]:                   # tau_tildes. len=d, elm_shape=(order+1,)+W+K+C+(rLi,)
     '''Adjoint-var-rightward edge-variable jets (jet-ified probing.compute_tau_tilde).'''
     return _adj_sweep(left_tt_cores, xi_jets, deta_tildes, mu_jets, trs)
 
@@ -1433,13 +1433,13 @@ def _adj_sweep_scanned(P_cores, xi_jets, deta_tildes, edge_jets, trs):
 
 
 def compute_tau_tilde_jets(left_tt_cores, xi_jets, deta_tildes, mu_jets, trs):
-    '''Adjoint-var-leftward edge-variable jets tau_tilde (standard order-scan form). Dense reference:
+    '''Adjoint-var-rightward edge-variable jets tau_tilde (standard order-scan form). Dense reference:
     :py:func:`compute_tau_tilde_jets_trs` (equal to tolerance).'''
     return _adj_sweep_scanned(left_tt_cores, xi_jets, deta_tildes, mu_jets, trs)
 
 
 def compute_sigma_tilde_jets(right_tt_cores, xi_jets, deta_tildes, nu_jets, trs):
-    '''Adjoint-var-rightward edge-variable jets sigma_tilde (standard order-scan form; reverse of
+    '''Adjoint-var-leftward edge-variable jets sigma_tilde (standard order-scan form; reverse of
     tau_tilde). Dense reference: :py:func:`compute_sigma_tilde_jets_trs` (equal to tolerance).'''
     rev = _adj_sweep_scanned(tt_operations.tt_reverse(right_tt_cores), xi_jets[::-1],
                              deta_tildes[::-1], nu_jets[::-1], trs)
@@ -1451,7 +1451,7 @@ def compute_dxi_tilde_jets(
         mu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
         nu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
         sigma_tildes:   typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
-        tau_tildes:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
+        tau_tildes:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rLi,)
         trs:            NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
 ) -> typ.Tuple[NDArray, ...]:                   # dxi_tildes. len=d, elm_shape=(order+1,)+W+K+C+(nOi,)
     '''Adjoint-var-down edge-variable jets (jet-ified probing.compute_dxi_tilde): two adjoint-hooked
@@ -1544,7 +1544,7 @@ def assemble_tucker_variation_jets(
 
 def assemble_tt_variation_jets_trs(
         sigma_tildes:   typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
-        tau_tildes:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rL(i+1),)
+        tau_tildes:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rLi,)
         deta_tildes:    typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
         xi_jets:        typ.Sequence[NDArray],  # frame input jets, len=d, elm_shape=(2,)+W+C+(nUi,)
         mu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
