@@ -91,7 +91,8 @@ installed** — as does chunking itself. The value they return is machine-depend
 ...     tt_ranks=tt_ranks,           # the d+1 TT bonds
 ...     order=order,
 ...     n_probes=512,                # number of probes
-...     n_tangent=1,                 # tangent-stack size (a batch of tangents at one frame)
+...     n_tangent=1,                 # tangent-stack size K (a batch of tangents at one frame)
+...     stack_shape=(),              # frame stack C (a batch of base points); () = unstacked
 ...     n_shards=1,                  # W split across this many devices -> sizes the LOCAL shard
 ...     dtype=np.float32,            # float64 under x64
 ... )
@@ -121,6 +122,23 @@ peak stays under an absolute byte cap (e.g. a fraction of device memory):
 True
 
 ```
+
+**If the frame is a batch of base points, pass `stack_shape`** (the frame stack `C`). Every
+edge-variable jet carries `C`, so the assembly costs `prod(C)` times more — while a `target_bytes`
+budget does not scale at all. Omitting it on a stacked frame therefore makes
+`max_chunk_size_within` return a chunk up to `prod(C)` times too large, which is the
+out-of-memory that policy exists to prevent:
+
+```python
+>>> free    = max_chunk_size_within(**shapes, n_probes=8192, target_bytes=2**24)
+>>> stacked = max_chunk_size_within(**shapes, n_probes=8192, target_bytes=2**24, stack_shape=(4,))
+>>> round(free / stacked)              # the same budget buys a 4x smaller chunk on a 4-point batch
+4
+
+```
+
+`estimate_chunk_size` is only mildly sensitive to it (the jet floor it balances against scales too,
+so the two sides largely cancel — not exactly, because `ww`/`pp` carry no `C`).
 
 For sharded `W`, pass `n_shards` (or read it from the input array's `.sharding` eagerly) so the returned
 chunk sizes each device's shard; combine with the `shard_map` recipe below.

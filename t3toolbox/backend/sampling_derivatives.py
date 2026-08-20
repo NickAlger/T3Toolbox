@@ -1696,38 +1696,54 @@ def assemble_tt_variation_jets(
 # sharding section). Uniform+jax only -- numpy/ragged free eagerly and never chunk.
 
 
-def _jet_floor_bytes(mode_shapes, tucker_ranks, tt_ranks, order, W, n_tangent, itemsize):
+def _jet_floor_bytes(mode_shapes, tucker_ranks, tt_ranks, order, W, n_tangent, itemsize,
+                     stack_shape=()):
     '''Exact bytes of the resident edge-variable jets the transpose assembly reads -- the necessary
     memory floor (linear in W). Uniform supercores pad ranks to their max, so max ranks are used; the
-    tangent stack K rides on the tilde jets and the residual only.'''
+    tangent stack K rides on the tilde jets and the residual only.
+
+    The frame stack ``C`` multiplies every *jet*, because each jet carries ``W + [K +] C``; it does
+    NOT multiply ``ww``/``pp``, which are probe vectors of shape ``W + (Ni,)`` with no frame stack.
+    Scaling the whole row by ``prod(C)`` would therefore over-count.'''
     d, op, K = len(mode_shapes), order + 1, n_tangent
     r, nU, N = max(tt_ranks), max(tucker_ranks), max(mode_shapes)
     nO = nU                                         # down-core mode ~ the Tucker rank
-    per_core_row = (K * op * (r + r + nU + nO + N)   # sigma_t, tau_t, deta_t, dxi_t, ztildes (carry K)
-                    + 2 * nU + op * (r + r + nO)      # xi, mu, nu, eta (no K)
-                    + 2 * N)                          # ww, pp
+    C = math.prod(tuple(stack_shape))               # frame stack: on the jets only
+    per_core_row = (C * (K * op * (r + r + nU + nO + N)   # sigma_t, tau_t, deta_t, dxi_t, ztildes (K+C)
+                         + 2 * nU + op * (r + r + nO))     # xi, mu, nu, eta (C, no K)
+                    + 2 * N)                               # ww, pp -- probe vectors, W only
     return d * W * per_core_row * itemsize
 
 
 @functools.lru_cache(maxsize=None)
-def _assembly_per_row_bytes(mode_shapes, tucker_ranks, tt_ranks, order, n_tangent, dtype):
+def _assembly_per_row_bytes(mode_shapes, tucker_ranks, tt_ranks, order, n_tangent, dtype,
+                            stack_shape=()):
     '''Measured peak scratch (bytes) per W-row of the dense gradient assembly, the MAX over the TT-core
     and Tucker assemblies. Measured, not derived: XLA fuses away most of the naive ``(order+1)^2 r^2``
     intermediate, so an analytic formula is ~20x off. ``memory_analysis().temp_size`` is exactly linear
     in W, so two abstract (``ShapeDtypeStruct``) lowerings isolate the per-row slope with no allocation.
-    jax-only (the chunking path is uniform+jax). Cached by shape signature.'''
+    jax-only (the chunking path is uniform+jax). Cached by shape signature.
+
+    The frame stack ``C`` is put into the operand *shapes* rather than multiplied onto the result,
+    because the scaling is not always ``prod(C)``: it is exactly linear when the peak is driven by
+    jets (which all carry ``C``) and sub-linear when the C-free ``ww``/``pp`` dominate. Measuring is
+    the whole point of this function -- don't layer an assumption on top of it.'''
     import jax
     d, op = len(mode_shapes), order + 1
     r, nU, N = max(tt_ranks), max(tucker_ranks), max(mode_shapes)
     nO = nU
     kax = (n_tangent,) if n_tangent > 1 else ()      # K axis present only when batching tangents
+    cax = tuple(stack_shape)                         # C axis/axes -- frame-inner, so after K
 
     def _structs(W):
         S = lambda *shape: jax.ShapeDtypeStruct(shape, dtype)
-        tt = (S(d, op, W, *kax, r), S(d, op, W, *kax, r), S(d, op, W, *kax, nU),   # sigma_t, tau_t, deta_t
-              S(d, 2, W, nU), S(d, op, W, r), S(d, op, W, r), S(op, op, op))         # xi, mu, nu, trs
-        tk = (S(d, op, W, *kax, N), S(d, op, W, *kax, nO),                          # ztildes, dxi_t
-              S(d, W, N), S(d, W, N), S(d, op, W, nO))                               # ww, pp, eta
+        # W + K + C + (leg,) on every jet; ww/pp carry W only, trs is pure order structure.
+        tt = (S(d, op, W, *kax, *cax, r), S(d, op, W, *kax, *cax, r),               # sigma_t, tau_t
+              S(d, op, W, *kax, *cax, nU),                                           # deta_t
+              S(d, 2, W, *cax, nU), S(d, op, W, *cax, r), S(d, op, W, *cax, r),      # xi, mu, nu
+              S(op, op, op))                                                          # trs
+        tk = (S(d, op, W, *kax, *cax, N), S(d, op, W, *kax, *cax, nO),              # ztildes, dxi_t
+              S(d, W, N), S(d, W, N), S(d, op, W, *cax, nO))                         # ww, pp, eta
         return tt, tk
 
     def _temp(f, args):
@@ -1749,6 +1765,7 @@ def estimate_chunk_size(
         n_probes:       int,                # |W|, the number of probes (global; divided by n_shards)
         *,
         n_tangent:      int = 1,            # tangent stack K (a batch of tangents sharing the frame)
+        stack_shape:    typ.Sequence[int] = (),  # frame stack C (a batch of base points); () = unstacked
         n_shards:       int = 1,            # W split across this many devices -> chunk sizes the LOCAL shard
         dtype:          typ.Any = None,     # array dtype; default float32 (jax default). float64 under x64
 ) -> int:                                   # a memory-balanced chunk_size for tv_probe_derivatives_transpose
@@ -1765,12 +1782,19 @@ def estimate_chunk_size(
     Sized for the larger of the TT-core and Tucker gradients (Tucker wins when ``N >> n``). ``n_shards``
     divides ``W`` so the chunk sizes each device's shard (use ``shard_map``; see the chunking note). Only
     meaningful on the uniform+jax path -- numpy/ragged never chunk.
+
+    Pass ``stack_shape`` for a **batch of base points** (the frame stack ``C``): every edge-variable jet
+    carries it, so it multiplies both sides of the balance. This policy is therefore only mildly
+    sensitive to it -- the probe vectors ``ww``/``pp`` carry no ``C``, so the two sides do not scale
+    quite together -- but :py:func:`max_chunk_size_within` is *very* sensitive, since its budget is an
+    absolute byte count that does not scale at all.
     '''
     dtype = np.dtype(np.float32 if dtype is None else dtype)
     ms, tr, tt = tuple(mode_shapes), tuple(tucker_ranks), tuple(tt_ranks)
+    cs = tuple(int(c) for c in stack_shape)
     w_local = max(1, int(n_probes) // max(1, int(n_shards)))
-    budget = _jet_floor_bytes(ms, tr, tt, order, w_local, n_tangent, dtype.itemsize)
-    per_row = _assembly_per_row_bytes(ms, tr, tt, order, n_tangent, dtype)
+    budget = _jet_floor_bytes(ms, tr, tt, order, w_local, n_tangent, dtype.itemsize, cs)
+    per_row = _assembly_per_row_bytes(ms, tr, tt, order, n_tangent, dtype, cs)
     return max(1, min(w_local, int(budget // per_row)))
 
 
@@ -1783,16 +1807,23 @@ def max_chunk_size_within(
         target_bytes:   float,              # absolute peak-memory cap for the assembly (per device)
         *,
         n_tangent:      int = 1,
+        stack_shape:    typ.Sequence[int] = (),  # frame stack C (a batch of base points); () = unstacked
         n_shards:       int = 1,
         dtype:          typ.Any = None,
 ) -> int:                                   # the largest chunk_size whose assembly peak fits target_bytes
     '''The largest ``chunk_size`` whose gradient-assembly peak stays within ``target_bytes`` (per device)
     -- the "use my whole device" policy: pass an absolute byte budget (e.g. a fraction of device memory).
-    Contrast the device-agnostic :py:func:`estimate_chunk_size`. Same measured per-row cost.'''
+    Contrast the device-agnostic :py:func:`estimate_chunk_size`. Same measured per-row cost.
+
+    **Pass ``stack_shape`` if the frame is a batch of base points** (the frame stack ``C``). The budget
+    is an absolute byte count and does not scale with ``C``, while the assembly does -- so omitting it
+    on a stacked frame returns a chunk up to ``prod(C)`` times too large, which is exactly the
+    out-of-memory this policy exists to prevent.'''
     dtype = np.dtype(np.float32 if dtype is None else dtype)
     ms, tr, tt = tuple(mode_shapes), tuple(tucker_ranks), tuple(tt_ranks)
+    cs = tuple(int(c) for c in stack_shape)
     w_local = max(1, int(n_probes) // max(1, int(n_shards)))
-    per_row = _assembly_per_row_bytes(ms, tr, tt, order, n_tangent, dtype)
+    per_row = _assembly_per_row_bytes(ms, tr, tt, order, n_tangent, dtype, cs)
     return max(1, min(w_local, int(float(target_bytes) // per_row)))
 
 
