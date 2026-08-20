@@ -27,8 +27,11 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Shared Tucker factors (SF-T3) — COMPLETE (all slices 0–13 built, 2026-08-19/20; 0–7 pushed,
-  8–13 committed locally awaiting review/push).**
+- **Shared Tucker factors (SF-T3) — COMPLETE AND FULLY PUSHED (all slices 0–13 + two follow-ups,
+  2026-08-19/20; through `813db064`).** Follow-ups: the weights×sharing compatibility checker
+  (composition verified; checker-only, nothing gates) and the precompute audit (Regularizer
+  `aux=` threading closing the per-matvec companion rebuild in regularized shared fits +
+  `docs/contributor/precompute_and_caching.md`).
   Optimize over T3s whose Tucker factors are tied within user-specified mode groups (the SF-ETT
   of Molozhavenko & Rakhuba 2026, generalized to arbitrary partitions). **The spec is
   `dev/shared_factors_handoff.md` (v3)**, with the math in `dev/shared_t3_math.tex` (+pdf) —
@@ -86,7 +89,9 @@ branch can be deleted (optional).
   (`sharing=(0,0,0,1,1)`, two groups, different sizes), noisy probe-derivative jets, the SAME
   continuation fit shared-vs-unshared: ~35% lower true error at ~37% fewer parameters before
   overfitting (Nick's redesign, 2026-08-20).
-  **Next: Nick reviews + pushes 8–13.** The three reference papers are in the research repo
+  **Next: RELEASE PREP** (version bump — `YYYY.MINOR.PATCH`, current 2026.0.0, breaking changes
+  queued → presumably 2026.1.0; precedent: `dev/archive/release_plan_2026-07-13.md`; the
+  `[Unreleased]` CHANGELOG section is complete and current). The three reference papers are in the research repo
   (`tensor/references/`); copies in `dev/` stay untracked (third-party PDFs).
 
 - **The grouped-einsum interpreter `contractions.contract` — SLICE 1 BUILT (2026-07-17; committed,

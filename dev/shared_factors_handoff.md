@@ -656,6 +656,26 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
 
 **ALL SLICES 0–13 DONE — the feature is complete** (code, tests, docs, example).
 
+**Post-completion follow-ups (2026-08-20, both PUSHED):**
+- `3796b75e` weights × sharing RESOLVED (see §9): the non-enforcing compatibility checker only
+  (`T3Weights.has_shared_tucker_weights` + `UT3Weights` twin; backend
+  `t3_weights_sharing_residual`/`t3_weights_shared` + `ut3_*`; labels-only `_groups_from_labels`
+  factored from `validate_sharing`). Nothing gates; `T3FrameWeights` excluded (nD lengths can
+  differ within a group). Docs Scope bullets rewritten in sharing.md + weighting.md.
+- `813db064` the precompute audit: `Regularizer.gradient/hessian/quadratic` gain `aux=None`
+  (all 11 call sites pass the stored companion — closes the per-matvec companion rebuild in
+  regularized SHARED fits; regression test mock-spies zero rebuilds). Design record:
+  `docs/contributor/precompute_and_caching.md` (mechanisms, scope ladder, the principle,
+  retract→frame fusion recorded-not-built, rejections). Protocol note added to the CHANGELOG
+  breaking items.
+
+**EVERYTHING IS PUSHED through `813db064`. NEXT: release prep** — the `[Unreleased]` CHANGELOG
+carries the full story (contractions interpreter + SF-T3 + the breaking `GeometryOps.precompute`
+and `Regularizer` aux protocol changes); versions are `YYYY.MINOR.PATCH` (current 2026.0.0 →
+presumably 2026.1.0); the precedent checklist is `dev/archive/release_plan_2026-07-13.md`
+(pyproject version, CHANGELOG release header, tag, PyPI, docs deploy). Suite at 720 passed /
+41,969 subtests, all gates green on both envs.
+
 ### 8b. Implementation state — what exists where (for a fresh context)
 
 - **`backend/sharing.py`** (all of): `validate_sharing(sharing, shape) -> groups`;
