@@ -35,11 +35,11 @@ class Regularizer:
     gauged/projected tangent."""
     def value(self, geom, x_cores):        # ρ(X)          -- for Problem.objective / line search (any point)
         raise NotImplementedError
-    def gradient(self, geom, frame):       # g_R = Π∇ρ     -- a tangent at frame
+    def gradient(self, geom, frame, aux=None):     # g_R = Π∇ρ  -- a tangent at frame
         raise NotImplementedError
-    def hessian(self, geom, frame, p):     # H_R p         -- a tangent at frame
+    def hessian(self, geom, frame, p, aux=None):   # H_R p      -- a tangent at frame
         raise NotImplementedError
-    def quadratic(self, geom, frame, p):   # ⟨p, H_R p⟩    -- scalar, for gn_quadratic
+    def quadratic(self, geom, frame, p, aux=None): # ⟨p, H_R p⟩ -- scalar, for gn_quadratic
         raise NotImplementedError
 
 
@@ -59,14 +59,14 @@ class IdentityRegularizer(Regularizer):
     def value(self, geom, x_cores):
         return 0.5 * self.strength * geom.point_norm_sq(x_cores)
 
-    def gradient(self, geom, frame):       # λ·Π(X) = λ·v_X  (point_tangent already returns a gauged tangent)
+    def gradient(self, geom, frame, aux=None):     # λ·Π(X) = λ·v_X  (point_tangent is already gauged; aux unused)
         return cw.corewise_scale(geom.point_tangent(frame), self.strength)
 
-    def hessian(self, geom, frame, p):     # λ·Π p
-        return cw.corewise_scale(geom.project(frame, p), self.strength)
+    def hessian(self, geom, frame, p, aux=None):   # λ·Π p  (aux = the per-frame geometry companion, e.g. SF-T3)
+        return cw.corewise_scale(geom.project(frame, p, aux=aux), self.strength)
 
-    def quadratic(self, geom, frame, p):   # ⟨p, λ·Π p⟩ = λ‖Π p‖²
-        projected = geom.project(frame, p)
+    def quadratic(self, geom, frame, p, aux=None): # ⟨p, λ·Π p⟩ = λ‖Π p‖²
+        projected = geom.project(frame, p, aux=aux)
         return self.strength * geom.inner(projected, projected)
 
 
@@ -83,11 +83,11 @@ class _ScaledRegularizer(Regularizer):
     def value(self, geom, x_cores):
         return self.factor * self.inner.value(geom, x_cores)
 
-    def gradient(self, geom, frame):
-        return cw.corewise_scale(self.inner.gradient(geom, frame), self.factor)
+    def gradient(self, geom, frame, aux=None):
+        return cw.corewise_scale(self.inner.gradient(geom, frame, aux=aux), self.factor)
 
-    def hessian(self, geom, frame, p):
-        return cw.corewise_scale(self.inner.hessian(geom, frame, p), self.factor)
+    def hessian(self, geom, frame, p, aux=None):
+        return cw.corewise_scale(self.inner.hessian(geom, frame, p, aux=aux), self.factor)
 
-    def quadratic(self, geom, frame, p):
-        return self.factor * self.inner.quadratic(geom, frame, p)
+    def quadratic(self, geom, frame, p, aux=None):
+        return self.factor * self.inner.quadratic(geom, frame, p, aux=aux)

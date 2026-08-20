@@ -1288,6 +1288,29 @@ class TestUniformSharedGeometry(unittest.TestCase):
                                      regularizer=IdentityRegularizer(0.1))
         self.assertTrue(np.isclose(float(mu_reg.objective_value), float(mr_reg.objective_value)))
 
+    def test_regularizer_uses_the_precomputed_companion(self):
+        # the precompute audit fix (2026-08-20): the Regularizer protocol threads aux, so a
+        # regularized shared matvec must NOT rebuild the SF-T3 companion per call -- previously the
+        # one per-matvec leak (regularizer.hessian/quadratic called geom.project 2-arg)
+        from unittest import mock
+        from t3toolbox.backend.regularization import IdentityRegularizer
+        spec = (0, 0, 1)
+        x = _tied_t3((6, 6, 5), (3, 3, 2), (1, 3, 2, 1), spec)
+        ww = [np.random.randn(15, N) for N in x.shape]
+        r = np.asarray(x.apply(ww)) - np.random.randn(15)
+        geom = sg.shared_manifold(spec)
+        m = fitting.apply_model(geom, x, ww, r, regularizer=IdentityRegularizer(0.1))
+        self.assertIsNotNone(m.geometry_aux)
+        p = geom.randn(m.frame)
+        _ = m.gradient                                     # realize the cached property first
+        with mock.patch.object(sharing, 'fv_shared_frame_data',
+                               wraps=sharing.fv_shared_frame_data) as spy:
+            for _ in range(3):
+                m.gn_hessian(p)
+                m.gn_quadratic(p)
+            self.assertEqual(spy.call_count, 0,
+                             'a regularized shared matvec rebuilt the companion (aux not threaded)')
+
     def test_layer_mismatch_gates(self):
         # a SharedGeometry's base layer must match the point's layer, both directions
         import t3toolbox.uniform_manifold as um

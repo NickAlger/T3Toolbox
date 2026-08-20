@@ -269,7 +269,7 @@ class GaussNewtonModel:
         dU_dG = self.kind.transpose(self.residual, self.sample, self.frame.data, self.sweep)
         g = self._project(t3m.T3Tangent(self.frame, bvf.T3Variations(*dU_dG)))
         if self.regularizer is not None:
-            g = g + self._reg_tangent(self.regularizer.gradient(self._bgeom, self.frame.data))
+            g = g + self._reg_tangent(self.regularizer.gradient(self._bgeom, self.frame.data, aux=self.geometry_aux))
         return g
 
     def jacobian(
@@ -300,7 +300,7 @@ class GaussNewtonModel:
         ``regularizer`` is set this adds its ``⟨p, H_R p⟩`` term, consistent with :py:meth:`gn_hessian`.'''
         q = self.kind.sumsq(self.jacobian(p), self._n_w)
         if self.regularizer is not None:
-            q = q + self.regularizer.quadratic(self._bgeom, self.frame.data, p.variations.data)
+            q = q + self.regularizer.quadratic(self._bgeom, self.frame.data, p.variations.data, aux=self.geometry_aux)
         return q
 
     def gn_hessian(self, p: t3m.T3Tangent) -> t3m.T3Tangent:
@@ -317,7 +317,7 @@ class GaussNewtonModel:
         dU_dG = self.kind.transpose(z, self.sample, self.frame.data, self.sweep)
         Hp = self._project(t3m.T3Tangent(self.frame, bvf.T3Variations(*dU_dG)))
         if self.regularizer is not None:
-            Hp = Hp + self._reg_tangent(self.regularizer.hessian(self._bgeom, self.frame.data, p.variations.data))
+            Hp = Hp + self._reg_tangent(self.regularizer.hessian(self._bgeom, self.frame.data, p.variations.data, aux=self.geometry_aux))
         return Hp
 
     def evaluate(self, p: t3m.T3Tangent) -> NDArray:  # m(p), shape C
@@ -332,7 +332,7 @@ class GaussNewtonModel:
         Jp = self.kind.forward(Pp.variations.data, self.sample, self.frame.data, self.sweep)
         m = self.objective_value + self.gradient.corewise_inner(Pp) + 0.5 * self.kind.sumsq(Jp, self._n_w)
         if self.regularizer is not None:
-            m = m + 0.5 * self.regularizer.quadratic(self._bgeom, self.frame.data, p.variations.data)
+            m = m + 0.5 * self.regularizer.quadratic(self._bgeom, self.frame.data, p.variations.data, aux=self.geometry_aux)
         return m
 
 
@@ -441,7 +441,7 @@ class UniformGaussNewtonModel:
         regularizer gradient ``g_R`` when set.'''
         g = self._wrap(self.kind.transpose(self.residual, self.sample, self.frame.data, self.sweep))
         if self.regularizer is not None:
-            g = g + self._reg_tangent(self.regularizer.gradient(self._ubgeom, self.frame.data))
+            g = g + self._reg_tangent(self.regularizer.gradient(self._ubgeom, self.frame.data, aux=self.geometry_aux))
         return g
 
     def jacobian(self, p: ut3m.UT3Tangent) -> NDArray:  # J p = 𝒥(Π p)
@@ -455,7 +455,7 @@ class UniformGaussNewtonModel:
         step-length denominator), not a Hessian apply; plus the regularizer term when set.'''
         q = self.kind.sumsq(self.jacobian(p), self._n_w)
         if self.regularizer is not None:
-            q = q + self.regularizer.quadratic(self._ubgeom, self.frame.data, p.variations.supercores)
+            q = q + self.regularizer.quadratic(self._ubgeom, self.frame.data, p.variations.supercores, aux=self.geometry_aux)
         return q
 
     def gn_hessian(self, p: ut3m.UT3Tangent) -> ut3m.UT3Tangent:  # H p = Π 𝒥ᵀ 𝒥 Π p (+ H_R p)
@@ -466,7 +466,7 @@ class UniformGaussNewtonModel:
         z = self.kind.forward(Pp.variations.supercores, self.sample, self.frame.data, self.sweep)
         Hp = self._wrap(self.kind.transpose(z, self.sample, self.frame.data, self.sweep))
         if self.regularizer is not None:
-            Hp = Hp + self._reg_tangent(self.regularizer.hessian(self._ubgeom, self.frame.data, p.variations.supercores))
+            Hp = Hp + self._reg_tangent(self.regularizer.hessian(self._ubgeom, self.frame.data, p.variations.supercores, aux=self.geometry_aux))
         return Hp
 
     def evaluate(self, p: ut3m.UT3Tangent) -> NDArray:  # m(p), shape C
@@ -477,7 +477,7 @@ class UniformGaussNewtonModel:
         Jp = self.kind.forward(Pp.variations.supercores, self.sample, self.frame.data, self.sweep)
         m = self.objective_value + self.gradient.corewise_inner(Pp) + 0.5 * self.kind.sumsq(Jp, self._n_w)
         if self.regularizer is not None:
-            m = m + 0.5 * self.regularizer.quadratic(self._ubgeom, self.frame.data, p.variations.supercores)
+            m = m + 0.5 * self.regularizer.quadratic(self._ubgeom, self.frame.data, p.variations.supercores, aux=self.geometry_aux)
         return m
 
 

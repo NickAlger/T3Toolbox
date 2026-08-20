@@ -139,6 +139,13 @@ All notable changes to T3Toolbox are documented here. The format follows
   accept (and ignore) `aux=None` in `project`/`retract`; the shared geometries use the slot to compute
   their per-frame SVD companion once per local model instead of once per CG matvec.
 
+- **The `Regularizer` protocol threads the geometry aux**: `gradient`/`hessian`/`quadratic` gain an
+  `aux=None` parameter (the per-frame geometry companion, e.g. the SF-T3 `T3SharedFrameData`), and
+  every model/`LocalModel` call site passes its stored companion — closing the one seam where a
+  regularized *shared* fit rebuilt the companion per CG matvec. Custom `Regularizer`
+  implementations: accept (and may ignore) `aux=None`. Design record:
+  `docs/contributor/precompute_and_caching.md` (the precompute/caching principle and audit).
+
 - `backend/common.py` gains `prefix_mask` (the boolean prefix indicator shared by every uniform prefix
   structure) and now hosts `require_concrete_masks`, which moved from `backend/ut3_masking.py` — it is
   infrastructure for the uniform *mask-representation contract*, not part of any one object family.

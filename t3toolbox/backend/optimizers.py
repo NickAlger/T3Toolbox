@@ -251,7 +251,7 @@ class LocalModel:
         g = self.geom.project(self.frame, self.kind.transpose(self.residual, self.sample, self.frame, self.sweep),
                               aux=self.geom_aux)
         if self.regularizer is not None:
-            g = cw.corewise_add(g, self.regularizer.gradient(self.geom, self.frame))
+            g = cw.corewise_add(g, self.regularizer.gradient(self.geom, self.frame, aux=self.geom_aux))
         return g
 
     def jacobian(self, p: Tangent):                      # 𝒥 Π p
@@ -261,7 +261,7 @@ class LocalModel:
     def gn_quadratic(self, p: Tangent):                  # ‖𝒥 Π p‖²  (+ ⟨p, H_R p⟩) -- the Cauchy denominator
         q = self.kind.sumsq(self.jacobian(p), self.n_w)
         if self.regularizer is not None:
-            q = q + self.regularizer.quadratic(self.geom, self.frame, p)
+            q = q + self.regularizer.quadratic(self.geom, self.frame, p, aux=self.geom_aux)
         return q
 
     def hvp(self, p: Tangent) -> Tangent:                # H p = Π 𝒥ᵀ 𝒥 Π p  (+ H_R p)
@@ -269,7 +269,7 @@ class LocalModel:
         Hp = self.geom.project(self.frame, self.kind.transpose(z, self.sample, self.frame, self.sweep),
                                aux=self.geom_aux)
         if self.regularizer is not None:
-            Hp = cw.corewise_add(Hp, self.regularizer.hessian(self.geom, self.frame, p))
+            Hp = cw.corewise_add(Hp, self.regularizer.hessian(self.geom, self.frame, p, aux=self.geom_aux))
         return Hp
 
     def retract(self, p: Tangent) -> Tangent:            # chart step from this frame -> new x_cores
