@@ -625,8 +625,19 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
    norms, quadratics, <g,Hg>, regularized -- the regularizer exercising the sharing-aware
    `_ubgeom`); layer-mismatch gates both directions; compile-once
    (test_jit_shared_uniform_gauss_newton_model: ONE trace across rebuilt models).
-12. `docs/sharing.md` + `contributor/sharing_internals.md` + getting-started snippet.
-13. The symmetric jetted-probes example.
+12. **DONE** (`6bc725a5`) the docs: `docs/sharing.md` (the format; grouped truncation + dispatch
+   rule; the REQUIRED "What the group spectrum is" section — four faces, √k scale, elementwise
+   domination, the d=2 blend, one-tensor spectra families; the two geometries / one principle two
+   formulas; rank machinery incl. the group-ceiling `get_minimal_ranks` example; batching; uniform;
+   Scope with sharing ≠ symmetry + the weights×sharing `from_t3svd` caveat) +
+   `docs/contributor/sharing_internals.md` (S_i machinery + measurements table, decision-7
+   revision, two-phase rationale + erratum, tied embedding, restart analysis, precompute slot, the
+   uniform delegation + the two hard-won lessons, smaller decisions incl. the checker-is-a-method
+   record) + the CI-doctested getting-started "Shared Tucker factors" section (54 -> 36 dims,
+   shared fit to 1e-4, run on both envs) + the `rank_continuation.md` sharing section + the TIED
+   precondition rows/section in `numerical_contracts.md` + a user-guide pointer + toctrees wired
+   (design_notes + contributor_guide) + CHANGELOG doc pointers. Sphinx -W green.
+13. **NEXT.** The symmetric jetted-probes example.
 
 ### 8b. Implementation state — what exists where (for a fresh context)
 
