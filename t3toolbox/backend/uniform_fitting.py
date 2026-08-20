@@ -35,6 +35,7 @@ from t3toolbox.backend import utv_operations as utv_ops
 from t3toolbox.backend import utv_sampling
 from t3toolbox.backend import ut3_sampling
 from t3toolbox.backend import ut3_operations
+from t3toolbox.backend import ranks
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -432,6 +433,7 @@ def _ptake_deriv_probe(sample, data, idx):
 
 def uniform_minimal(
         x0:  typ.Any,   # UniformTuckerTensorTrain
+        sharing: typ.Optional[typ.Sequence] = None,  # len=d, static; one hashable group label per mode (None = unshared)
 ) -> typ.Any:           # the same tensor with structurally-minimal ranks (x0 itself if already minimal)
     """Reduce ``x0`` to its **structurally-minimal ranks** -- the SAME tensor, with any unrealizable nominal
     rank dropped (e.g. a TT bond rank exceeding what the Tucker ranks can realize). A no-op (returns ``x0``
@@ -444,11 +446,19 @@ def uniform_minimal(
     uniform layer cannot (its masks are fixed), so it must start minimal and stay minimal (from a minimal
     frame the retraction provably preserves the ranks). Reduction: ``t3svd`` (-> left-orthogonal) then a
     ``'right_to_left'`` :py:meth:`~t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain.rank_adjustment_sweep`
-    (-> minimal, right-orthogonal). Same-tensor, done once at setup (eager)."""
-    if bool(np.all(x0.has_minimal_ranks)):
+    (-> minimal, right-orthogonal). Same-tensor, done once at setup (eager).
+
+    With ``sharing``, minimality is the SHARED notion and the reduction is the grouped one -- REQUIRED
+    for a shared start: the per-mode reduction can clip a group rank the group ceiling admits (untying
+    the group), and even at shared-minimal ranks its per-mode SVDs rotate each factor independently
+    (untying the values). The grouped path keeps the factors tied and the group rank shared."""
+    tucker_ranks = np.asarray(x0.tucker_ranks)
+    tt_ranks = np.asarray(x0.tt_ranks)
+    min_tucker, min_tt = ranks.compute_minimal_ranks(x0.shape, tucker_ranks, tt_ranks, sharing=sharing)
+    if bool(np.all(tucker_ranks == np.asarray(min_tucker)) and np.all(tt_ranks == np.asarray(min_tt))):
         return x0
-    left_orthogonal, _ss_tk, _ss_tt = x0.t3svd()
-    return left_orthogonal.rank_adjustment_sweep('right_to_left')
+    left_orthogonal, _ss_tk, _ss_tt = x0.t3svd(sharing=sharing)
+    return left_orthogonal.rank_adjustment_sweep('right_to_left', sharing=sharing)
 
 
 def uniform_least_squares_problem(

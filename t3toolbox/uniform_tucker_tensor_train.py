@@ -32,7 +32,9 @@ import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 import t3toolbox.backend.ut3_svd as ut3_svd
 import t3toolbox.backend.ut3_constructors as ut3_constructors
 import t3toolbox.backend.stacking as stacking
+import t3toolbox.backend.sharing as backend_sharing
 import t3toolbox.backend.common as common
+import t3toolbox.safety as safety
 from t3toolbox.backend.common import NDArray
 
 if common.jax_available:
@@ -662,7 +664,8 @@ class UniformTuckerTensorTrain:
                 & np.all(np.asarray(self.tt_ranks) == np.asarray(mn[1]), axis=0))
 
     # ----------------------------------------------------------------- T3-SVD
-    def t3svd(self, max_tt_ranks=None, max_tucker_ranks=None, assume_orthogonal=False):
+    def t3svd(self, max_tt_ranks=None, max_tucker_ranks=None, assume_orthogonal=False,
+              sharing: typ.Sequence = None):
         """Mask-truncated T3-SVD -- the basic algorithm, matching ragged :py:meth:`TuckerTensorTrain.t3svd`
         on real parts. Always **left-orthogonal**; under truncation **not** necessarily minimal (use
         :py:meth:`rank_adjustment_sweep` to minimize). ``assume_orthogonal=True`` skips the
@@ -670,13 +673,53 @@ class UniformTuckerTensorTrain:
         :py:meth:`is_right_orthogonal` -- not checked). Uniform truncates by **max rank only** -- unlike
         ragged ``t3svd`` there is no ``rtol``/``atol`` (a tolerance would make the output shape
         data-dependent, which the uniform layer forbids; see ``docs/uniform_ranks_and_varieties.md``).
-        Per-stack-element ``max_*_ranks`` arrays are allowed. Returns ``(new UT3, Tucker svals, TT svals)``."""
+        Per-stack-element ``max_*_ranks`` arrays are allowed. Returns ``(new UT3, Tucker svals, TT svals)``.
+
+        ``sharing`` (one hashable group label per mode) is the grouped SF-T3 truncation, matching the
+        ragged ``t3svd(sharing=)`` on real parts: one shared basis per group (one rank mask at every
+        group mode), the group spectrum ``s_g`` reported at every group mode. The factors must already
+        be tied within groups (safe mode checks; see :py:meth:`has_shared_tucker_factors`)."""
+        if sharing is not None and safety.checks_active(self.data[:2]):
+            atol_check = safety.effective_rtol(self.data[:2])
+            residual = backend_sharing.ut3_sharing_residual(self.data, sharing)
+            safety.require(bool((residual <= atol_check).all()),
+                           't3svd(sharing=...) requires the Tucker factors to be tied within each '
+                           'sharing group (grouped truncation picks ONE basis per group). Tie them '
+                           'first, or run in unsafe mode (safety.unsafe()).')
         new_data, ss_tucker, ss_tt = ut3_svd.ut3svd(
             self.data, max_tucker_ranks=max_tucker_ranks, max_tt_ranks=max_tt_ranks,
-            assume_orthogonal=assume_orthogonal)
+            assume_orthogonal=assume_orthogonal, sharing=sharing)
         return _from_data(new_data), ss_tucker, ss_tt
 
-    def rank_adjustment_sweep(self, direction: str = 'right_to_left') -> 'UniformTuckerTensorTrain':
+    def has_shared_tucker_factors(
+            self,
+            sharing:    typ.Sequence,   # len=d; one hashable group label per mode
+            rtol:       float = 1e-9,   # relative tolerance on the factor deviation
+    ) -> NDArray:  # bool array, shape = stack_shape (scalar/0-d when unstacked)
+        """True (per stack element) if the MASKED Tucker factors are tied within every sharing group --
+        the uniform twin of :py:meth:`TuckerTensorTrain.has_shared_tucker_factors` (padding is
+        don't-care garbage and is ignored). Non-enforcing checker; structural problems (wrong
+        ``sharing`` length, unequal mode sizes or Tucker rank masks within a group) raise
+        unconditionally. Reduce with ``.all()`` for a single verdict.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
+        >>> tk, tt = x.data
+        >>> tied = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain((tk[0], tk[0], tk[2]), tt))
+        >>> print(bool(tied.has_shared_tucker_factors((0, 0, 1))))
+        True
+        >>> print(bool(ut3.UniformTuckerTensorTrain.from_t3(x).has_shared_tucker_factors((0, 0, 1))))
+        False
+        """
+        return backend_sharing.ut3_tucker_factors_shared(self.data, sharing, rtol=rtol)
+
+    def rank_adjustment_sweep(self, direction: str = 'right_to_left',
+                              sharing: typ.Sequence = None) -> 'UniformTuckerTensorTrain':
         """A single directional sweep that drops structurally-redundant ranks (the separate
         rank-minimization step; :py:meth:`t3svd` does not minimize). ``'right_to_left'`` returns a
         right-orthogonal UT3, ``'left_to_right'`` a left-orthogonal one; it reaches minimal ranks **only
@@ -705,8 +748,19 @@ class UniformTuckerTensorTrain:
         >>> bad = x2.rank_adjustment_sweep('left_to_right')        # WRONG direction -> corrupts the tensor
         >>> print(np.allclose(bad.to_dense(), x2.to_dense()))
         False
+
+        With ``sharing``, the reduction is the SHARED one (the group ceiling; tied factors stay tied --
+        the per-mode reduction would clip a group rank the ceiling admits and untie the group). The
+        factors must already be tied within groups (safe mode checks).
         """
-        return _from_data(ut3_svd.ut3_rank_adjustment_sweep(self.data, direction))
+        if sharing is not None and safety.checks_active(self.data[:2]):
+            atol_check = safety.effective_rtol(self.data[:2])
+            residual = backend_sharing.ut3_sharing_residual(self.data, sharing)
+            safety.require(bool((residual <= atol_check).all()),
+                           'rank_adjustment_sweep(sharing=...) requires the Tucker factors to be tied '
+                           'within each sharing group. Tie them first, or run in unsafe mode '
+                           '(safety.unsafe()).')
+        return _from_data(ut3_svd.ut3_rank_adjustment_sweep(self.data, direction, sharing=sharing))
 
     # ----------------------------------------------------------------- stacking
     def unstack(self):

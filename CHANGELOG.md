@@ -43,6 +43,19 @@ All notable changes to T3Toolbox are documented here. The format follows
     spectrum levels (the tied Tucker channel is gated); the escape runs through the untied TT-variation
     channel within the first Newton steps — which is why full shared rank is a diagnostic, never an
     enforced precondition.
+  - **Uniform mirror, grouped truncation family** — `UniformTuckerTensorTrain.t3svd(sharing=)` /
+    `rank_adjustment_sweep(..., sharing=)` / `has_shared_tucker_factors(sharing, rtol=)`, backend
+    `ut3svd(sharing=)` (the two-phase grouped sweep in scan/supercore form: TT-bond rounding scan with
+    the Tucker steps skipped, centers collected by the polymorphic right sweep, per-group SVDs on
+    statically-gathered concatenations — mask-only truncation, ONE group rank mask at every group
+    mode), `ut3_rank_adjustment_sweep(sharing=)`, the grouped host recurrence
+    `compute_raw_sweep_ranks(sharing=)` (verified == the ragged grouped output ranks over randomized
+    structures/caps), the masked checkers `ut3_sharing_residual` / `ut3_tucker_factors_shared`, and a
+    sharing-aware `uniform_minimal` — required: the per-mode reduction silently unties a shared
+    uniform start (it can clip a group rank to unequal per-mode values). All verified under the
+    uniform equivalence contract (== the ragged grouped ops on real parts, per stack element,
+    varying-rank stacks included), with exact output-mask assertions, garbage robustness, and
+    jit-clean dispatch. The shared uniform geometries and fitting path land next.
   - Backend surface in `backend.sharing` (`validate_sharing`, `t3_sharing_residual`,
     `t3_tucker_factors_shared`, `t3_share_tucker_cores`, `T3SharedFrameData` +
     `fv_shared_frame_data`, the tied post-passes) and `backend.t3_svd.t3_share_tucker_factors`.

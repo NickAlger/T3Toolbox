@@ -9,9 +9,12 @@ import t3toolbox.manifold as t3m
 import t3toolbox.shared_geometry as sg
 import t3toolbox.fitting as fitting
 import t3toolbox.optimizers as optimizers
+import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.backend.sharing as sharing
 import t3toolbox.backend.fv_conversions as fvc
 import t3toolbox.backend.t3_svd as bt3svd
+import t3toolbox.backend.ut3_svd as but3svd
+import t3toolbox.backend.uniform_fitting as uf
 import t3toolbox.backend.tv_operations as tvo
 import t3toolbox.safety as safety
 
@@ -1135,6 +1138,181 @@ class TestSharedManifoldDimGroundTruth(unittest.TestCase):
                 dense_dim = int(np.sum(ss > 1e-9 * ss[0]))
                 self.assertEqual(dense_dim, formula)
                 self.assertLess(formula, t3m.manifold_dim((shape, tucker, tt)))   # tying removes params
+
+
+def _tied_t3(shape, tucker_ranks, tt_ranks, spec):
+    """A random ragged T3 with the Tucker factors tied (same array) within each sharing group."""
+    x = t3.TuckerTensorTrain.randn(shape, tucker_ranks, tt_ranks)
+    tk = list(x.tucker_cores)
+    for group in sharing.validate_sharing(spec, shape):
+        for ii in group[1:]:
+            tk[ii] = tk[group[0]]
+    return t3.TuckerTensorTrain(tuple(tk), x.tt_cores)
+
+
+def _corrupt_ut3(u, scale=1e3):
+    """Add ``scale`` * garbage to the masked-out (padding) region; the real region is unchanged
+    (the testing_strategy garbage-robustness probe -- the tests/test_uniform_manifold.py pattern)."""
+    ind = ut3.UniformTuckerTensorTrain(np.ones_like(np.asarray(u.tucker_supercore)),
+                                       np.ones_like(np.asarray(u.tt_supercore)),
+                                       u.shape, u.masks).apply_masks().supercores
+    return ut3.UniformTuckerTensorTrain(u.tucker_supercore + scale * (1.0 - np.asarray(ind[0])),
+                                        u.tt_supercore + scale * (1.0 - np.asarray(ind[1])),
+                                        u.shape, u.masks)
+
+
+class TestUniformShared(unittest.TestCase):
+    """Slice 9: the uniform mirror of the grouped truncation family, under the uniform equivalence
+    contract (``to_uniform -> op -> to_ragged == op_ragged`` on real parts), with exact output-mask
+    assertions (against the RAGGED output ranks -- non-circular) and garbage robustness, per
+    docs/contributor/testing_strategy.md."""
+
+    def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed per test
+
+    def _check_matches_ragged(self, x, spec, u, cap_n=None, cap_r=None):
+        """The contract for one input: dense + exact masks (== ragged ranks) + spectra + tied output."""
+        yr_data, sk_r, st_r = bt3svd.t3svd(x.data, max_tucker_ranks=cap_n, max_tt_ranks=cap_r,
+                                           sharing=spec)
+        yr = t3.TuckerTensorTrain(*yr_data)
+        yu, sk_u, st_u = u.t3svd(max_tucker_ranks=cap_n, max_tt_ranks=cap_r, sharing=spec)
+        self.assertTrue(np.allclose(np.asarray(yu.to_dense()), np.asarray(yr.to_dense())))
+        # exact output masks, derived from the ragged output's core shapes (non-circular)
+        self.assertEqual(tuple(int(v) for v in yu.tucker_ranks), yr.tucker_ranks)
+        self.assertEqual(tuple(int(v) for v in yu.tt_ranks), yr.tt_ranks)
+        # ONE group rank mask at every group mode; output exactly tied on real content
+        tkm = np.asarray(yu.masks.data[0])
+        for group in sharing.nontrivial_groups(sharing.validate_sharing(spec, x.shape)):
+            for ii in group[1:]:
+                self.assertTrue(np.array_equal(tkm[group[0]], tkm[ii]))
+        self.assertTrue(np.all(np.asarray(yu.has_shared_tucker_factors(spec))))
+        # reported spectra match the ragged ones on the masked prefix
+        for m in range(len(x.shape)):
+            ref = np.asarray(sk_r[m])
+            self.assertLess(float(np.linalg.norm(np.asarray(sk_u[m])[:ref.size] - ref)),
+                            1e-9 * max(float(ref[0]), 1e-300))
+        for m in range(len(x.shape) + 1):
+            ref = np.asarray(st_r[m])
+            self.assertLess(float(np.linalg.norm(np.asarray(st_u[m])[:ref.size] - ref)),
+                            1e-9 * max(float(ref[0]), 1e-300))
+
+    def test_grouped_ut3svd_matches_ragged(self):
+        # lossless + capped, adjacent + non-adjacent + all-modes groups, natural + forced padding
+        cases = [
+            ((6, 6, 5),    (3, 3, 2),    (1, 3, 3, 1),    (0, 0, 1),          None,        None,   {}),
+            ((6, 6, 5),    (3, 3, 2),    (1, 3, 3, 1),    (0, 0, 1),          (2, 2, 2),   2,      {}),
+            ((5, 6, 5, 6), (2, 3, 2, 3), (1, 2, 3, 2, 1), ('a', 'b', 'a', 'b'), (2, 2, 2, 2), None, {}),
+            ((7, 7, 7),    (4, 4, 4),    (1, 3, 3, 1),    (0, 0, 0),          3,           2,      {}),
+            ((6, 6, 5),    (3, 3, 2),    (1, 3, 3, 1),    (0, 0, 1),          None,        None,
+             dict(N=8, n=5, r=5)),                                     # forced-larger padding
+        ]
+        for shape, tucker, tt, spec, cap_n, cap_r, pad in cases:
+            with self.subTest(shape=shape, sharing=spec, cap_n=cap_n, cap_r=cap_r, pad=pad):
+                x = _tied_t3(shape, tucker, tt, spec)
+                u = ut3.UniformTuckerTensorTrain.from_t3(x, **pad)
+                self._check_matches_ragged(x, spec, u, cap_n=cap_n, cap_r=cap_r)
+
+    def test_grouped_ut3svd_varying_ranks_across_stack(self):
+        # a varying-rank C stack (two tied elements with different group ranks) + per-element caps
+        spec = (0, 0, 1)
+        x1 = _tied_t3((6, 6, 5), (3, 3, 2), (1, 3, 3, 1), spec)
+        x2 = _tied_t3((6, 6, 5), (2, 2, 2), (1, 2, 2, 1), spec)
+        u = ut3.UniformTuckerTensorTrain.stack([ut3.UniformTuckerTensorTrain.from_t3(x, n=3, r=3)
+                                                for x in (x1, x2)])
+        cap_n = np.array([[2, 2], [2, 2], [2, 2]])          # (d,) + stack: cap both elements to 2
+        cap_r = np.array([[1, 1], [3, 2], [3, 2], [1, 1]])  # per-element bond caps
+        yu, _, _ = u.t3svd(max_tucker_ranks=cap_n, max_tt_ranks=cap_r, sharing=spec)
+        for kk, x in enumerate((x1, x2)):
+            with self.subTest(element=kk):
+                yr_data, _, _ = bt3svd.t3svd(x.data,
+                                             max_tucker_ranks=tuple(int(v) for v in cap_n[:, kk]),
+                                             max_tt_ranks=tuple(int(v) for v in cap_r[:, kk]),
+                                             sharing=spec)
+                yr = t3.TuckerTensorTrain(*yr_data)
+                yu_k = yu.unstack()[kk].to_t3()
+                self.assertTrue(np.allclose(np.asarray(yu_k.to_dense()), np.asarray(yr.to_dense())))
+                self.assertEqual(yu_k.tucker_ranks, yr.tucker_ranks)
+                self.assertEqual(yu_k.tt_ranks, yr.tt_ranks)
+        self.assertTrue(np.all(np.asarray(yu.has_shared_tucker_factors(spec))))
+
+    def test_grouped_ut3svd_garbage_robust(self):
+        # mask-once: garbage in the padding must not change the result (bitwise on masked content)
+        spec = (0, 0, 1)
+        x = _tied_t3((6, 6, 5), (3, 3, 2), (1, 3, 3, 1), spec)
+        u = ut3.UniformTuckerTensorTrain.from_t3(x, n=5, r=5)   # real padding to corrupt
+        y_clean, sk_c, st_c = u.t3svd(max_tucker_ranks=2, sharing=spec)
+        y_dirty, sk_d, st_d = _corrupt_ut3(u).t3svd(max_tucker_ranks=2, sharing=spec)
+        for a, b in zip(y_clean.apply_masks().supercores, y_dirty.apply_masks().supercores):
+            self.assertTrue(np.array_equal(np.asarray(a), np.asarray(b)))
+        for a, b in zip(y_clean.masks.data, y_dirty.masks.data):
+            self.assertTrue(np.array_equal(a, b))
+        self.assertTrue(np.array_equal(np.asarray(sk_c), np.asarray(sk_d)))
+        self.assertTrue(np.array_equal(np.asarray(st_c), np.asarray(st_d)))
+
+    def test_dispatch_anchor_none_and_singletons(self):
+        # sharing=None and all-singleton partitions run the literal unshared sweep, bit-identically
+        x = t3.TuckerTensorTrain.randn((6, 5, 4), (3, 3, 2), (1, 3, 2, 1))
+        u = ut3.UniformTuckerTensorTrain.from_t3(x)
+        ref, sk0, st0 = but3svd.ut3svd(u.data, max_tucker_ranks=2)
+        for spec in (None, (0, 1, 2)):
+            with self.subTest(sharing=spec):
+                got, sk, st = but3svd.ut3svd(u.data, max_tucker_ranks=2, sharing=spec)
+                for a, b in zip(ref[:2], got[:2]):
+                    self.assertTrue(np.array_equal(np.asarray(a), np.asarray(b)))
+                self.assertTrue(np.array_equal(np.asarray(sk0), np.asarray(sk)))
+                self.assertTrue(np.array_equal(np.asarray(st0), np.asarray(st)))
+
+    def test_shared_adjustment_and_uniform_minimal(self):
+        # the untie hazard (group-ceiling structure): the per-mode reduction clips the group rank
+        # (4,4,2)->(2,4,2), structurally untying it; the shared path keeps the rank, the ties, and
+        # the tensor -- and matches the ragged shared adjustment exactly
+        spec = (0, 0, 1)
+        x = _tied_t3((6, 6, 4), (4, 4, 2), (1, 2, 2, 1), spec)     # shared-minimal, NOT unshared-minimal
+        u = ut3.UniformTuckerTensorTrain.from_t3(x)
+        um_plain = uf.uniform_minimal(u)
+        self.assertEqual(tuple(int(v) for v in um_plain.tucker_ranks), (2, 4, 2))   # untied ranks
+        um_shared = uf.uniform_minimal(u, sharing=spec)
+        self.assertIs(um_shared, u)                                 # already shared-minimal: no-op
+        # a padded (non-minimal) shared start reduces to the shared minimal ranks, tied, same tensor
+        x_pad = x.resize(x.shape, (4, 4, 2), (1, 5, 5, 1), sharing=spec)
+        u_pad = ut3.UniformTuckerTensorTrain.from_t3(x_pad)
+        um2 = uf.uniform_minimal(u_pad, sharing=spec)
+        self.assertEqual(tuple(int(v) for v in um2.tucker_ranks), (4, 4, 2))
+        self.assertTrue(np.all(np.asarray(um2.has_shared_tucker_factors(spec))))
+        self.assertTrue(np.allclose(np.asarray(um2.to_dense()), np.asarray(u_pad.to_dense())))
+        # adjustment sweep == the ragged shared adjustment (dense + ranks), both directions
+        y_l, _, _ = u_pad.t3svd(sharing=spec)
+        for direction in ('right_to_left', 'left_to_right'):
+            with self.subTest(direction=direction):
+                src_u = y_l if direction == 'right_to_left' else um2
+                src_r = src_u.to_t3()
+                yr = src_r.rank_adjustment_sweep(direction, sharing=spec)
+                yu = src_u.rank_adjustment_sweep(direction, sharing=spec)
+                self.assertTrue(np.allclose(np.asarray(yu.to_dense()), np.asarray(yr.to_dense())))
+                self.assertEqual(tuple(int(v) for v in yu.tucker_ranks), yr.tucker_ranks)
+                self.assertEqual(tuple(int(v) for v in yu.tt_ranks), yr.tt_ranks)
+                self.assertTrue(np.all(np.asarray(yu.has_shared_tucker_factors(spec))))
+
+    def test_uniform_checker_per_element_and_safe_mode(self):
+        spec = (0, 0, 1)
+        x1 = _tied_t3((6, 6, 5), (3, 3, 2), (1, 3, 3, 1), spec)
+        x2 = _tied_t3((6, 6, 5), (3, 3, 2), (1, 3, 3, 1), spec)
+        u = ut3.UniformTuckerTensorTrain.stack([ut3.UniformTuckerTensorTrain.from_t3(x) for x in (x1, x2)])
+        self.assertTrue(np.all(np.asarray(u.has_shared_tucker_factors(spec))))
+        # perturb element 1's REAL factor content at one group mode -> per-element verdicts
+        tk = np.asarray(u.tucker_supercore).copy()
+        tk[1, 1, 0, 0] += 1e-3                                        # mode 1, element 1, real slot
+        u2 = ut3.UniformTuckerTensorTrain(tk, u.tt_supercore, u.shape, u.masks)
+        verdicts = np.asarray(u2.has_shared_tucker_factors(spec))
+        self.assertTrue(bool(verdicts[0]) and not bool(verdicts[1]))
+        # garbage-only perturbation leaves the verdicts True (padding is don't-care)
+        u3 = _corrupt_ut3(u)
+        self.assertTrue(np.all(np.asarray(u3.has_shared_tucker_factors(spec))))
+        # safe mode rejects a grouped t3svd on untied factors; unsafe passes
+        with self.assertRaises(ValueError):
+            u2.t3svd(sharing=spec)
+        with safety.unsafe():
+            u2.t3svd(sharing=spec)
 
 
 if __name__ == '__main__':

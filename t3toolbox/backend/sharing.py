@@ -27,6 +27,7 @@ import typing as typ
 from dataclasses import dataclass
 
 import t3toolbox.backend.tt_orthogonalization as tt_orthogonalization
+import t3toolbox.backend.ut3_masking as ut3_masking
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -41,6 +42,8 @@ __all__ = [
     'fv_share_tucker_variations',
     'fv_mean_tucker_variations',
     'fv_tied_ambient_directions',
+    'ut3_sharing_residual',
+    'ut3_tucker_factors_shared',
 ]
 
 
@@ -598,6 +601,98 @@ def fv_mean_tucker_variations(
         for ii in group:
             new_tucker[ii] = mean             # the SAME array object at every group mode
     return tuple(new_tucker), tuple(tt_variations)
+
+
+############################################################
+##########    Uniform-layer twins (supercores)    ##########
+############################################################
+
+
+def _validate_group_tucker_rank_masks(
+        tucker_mask:    NDArray,                              # HOST bool, shape=(d,)+stack+(n,)
+        groups:         typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical (validate_sharing)
+):
+    '''Structural: tied factors need equal Tucker rank masks within each group (per stack element).'''
+    for group in nontrivial_groups(groups):
+        for jj in group[1:]:
+            if not np.array_equal(tucker_mask[group[0]], tucker_mask[jj]):
+                raise ValueError(
+                    'Tucker rank masks must be equal within a sharing group (tied factors have one '
+                    'shared rank); group %r differs at modes %d and %d' % (group, group[0], jj))
+
+
+def ut3_sharing_residual(
+        data:       typ.Tuple[
+            NDArray,             # tucker_supercore, shape=(d,)+stack+(n,N)
+            NDArray,             # tt_supercore,     shape=(d,)+stack+(r,n,r)
+            typ.Sequence[int],   # shape, static int tuple
+            typ.Tuple[NDArray, NDArray],  # (tucker_edge_mask, tt_edge_mask), HOST bool, static
+        ],
+        sharing:    typ.Sequence,   # len=d, static; one hashable group label per mode
+) -> NDArray:  # shape = stack_shape; max relative factor deviation per stack element (0 == exactly tied)
+    '''The uniform twin of :py:func:`t3_sharing_residual`: per stack element, the max over groups and
+    group modes of ``||B_i - B_ref||_F / ||B_ref||_F`` on the MASKED factor content (padding is
+    don't-care garbage, so it is zeroed before comparing -- two elements tied on their real content
+    are tied regardless of their padding). Structural problems -- invalid partition, unequal Tucker
+    rank masks within a group -- raise unconditionally.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.backend.sharing as sharing
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
+    >>> tk, tt = x.data
+    >>> tied = t3.TuckerTensorTrain((tk[0], tk[0], tk[2]), tt)   # tie modes 0, 1
+    >>> u = ut3.UniformTuckerTensorTrain.from_t3(tied)
+    >>> print(float(sharing.ut3_sharing_residual(u.data, (0, 0, 1))))
+    0.0
+    >>> u2 = ut3.UniformTuckerTensorTrain.from_t3(x)             # untied
+    >>> print(bool(sharing.ut3_sharing_residual(u2.data, (0, 0, 1)) > 0.1))
+    True
+    '''
+    shape = data[2]
+    tucker_mask, _tt_mask = data[3]
+    groups = validate_sharing(sharing, shape)
+    _validate_group_tucker_rank_masks(tucker_mask, groups)
+
+    masked_tucker, _ = ut3_masking.ut3_apply_masks(data)
+    use_jax = tree_contains_jax(data[:2])
+    xnp, _, _ = get_backend(True, use_jax)
+
+    devs = []
+    for group in groups:
+        if len(group) < 2:
+            continue
+        B_ref = masked_tucker[group[0]]
+        denom = xnp.sqrt(xnp.sum(B_ref * B_ref, axis=(-2, -1)))   # keep stack
+        for ii in group[1:]:
+            diff = masked_tucker[ii] - B_ref
+            num = xnp.sqrt(xnp.sum(diff * diff, axis=(-2, -1)))
+            pos = denom > 0.0
+            devs.append(xnp.where(pos, num / xnp.where(pos, denom, 1.0),   # branch-free zero guard
+                                  xnp.where(num > 0.0, xnp.inf, 0.0)))
+    if not devs:                                                  # all-singleton: trivially tied
+        return xnp.zeros(masked_tucker.shape[1:-2])
+    return xnp.max(xnp.stack(devs), axis=0)   # max over the checks, keep stack_shape
+
+
+def ut3_tucker_factors_shared(
+        data:       typ.Tuple[
+            NDArray,             # tucker_supercore, shape=(d,)+stack+(n,N)
+            NDArray,             # tt_supercore,     shape=(d,)+stack+(r,n,r)
+            typ.Sequence[int],   # shape, static int tuple
+            typ.Tuple[NDArray, NDArray],  # (tucker_edge_mask, tt_edge_mask), HOST bool, static
+        ],
+        sharing:    typ.Sequence,   # len=d, static; one hashable group label per mode
+        rtol:       float = 1e-9,   # relative tolerance on the factor deviation
+) -> NDArray:  # bool array, shape = stack_shape (scalar/0-d when unstacked)
+    '''True (per stack element) where the MASKED Tucker factors are tied within every sharing group --
+    the uniform twin of :py:func:`t3_tucker_factors_shared` (the boolean form of
+    :py:func:`ut3_sharing_residual`; a non-enforcing checker).'''
+    return ut3_sharing_residual(data, sharing) <= rtol
 
 
 if jax_available:

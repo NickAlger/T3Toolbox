@@ -571,6 +571,22 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_uniform(
             lambda u: u.t3svd(max_tucker_ranks=2, max_tt_ranks=2)[0], ux, returns_ut3=True)
 
+        # grouped (SF-T3) ut3svd / adjustment / residual under jit: the partition + masks are static
+        # (closed over / aux), the supercores trace; output masks stay concrete; safe mode is skipped
+        # under the trace (checks_active is trace-aware)
+        xr = t3.TuckerTensorTrain.randn((5, 5, 4), (3, 3, 2), (1, 2, 2, 1))
+        tk_r, tt_r = xr.data
+        uxt = ut3.UniformTuckerTensorTrain.from_t3(
+            t3.TuckerTensorTrain((tk_r[0], tk_r[0], tk_r[2]), tt_r)).to_jax()
+        self.assert_jit_jax(lambda u: bsharing.ut3_sharing_residual(u.data, (0, 0, 1)), uxt)
+        self.assert_jit_uniform(
+            lambda u: u.t3svd(max_tucker_ranks=2, max_tt_ranks=2, sharing=(0, 0, 1))[0],
+            uxt, returns_ut3=True)
+        self.assert_jit_uniform(
+            lambda u: u.t3svd(sharing=(0, 0, 1))[0].rank_adjustment_sweep('right_to_left',
+                                                                          sharing=(0, 0, 1)),
+            uxt, returns_ut3=True)
+
         # array-in constructor under jit: a jax TuckerTensorTrain in -> jax supercores out, masks stay
         # concrete. (from_t3 is the array-taking uniform constructor; from_canonical / from_tensor_train
         # were removed as ambiguous ragged round-trips. Pure zeros/ones/randn have no array input ->

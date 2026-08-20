@@ -401,6 +401,7 @@ def compute_raw_sweep_ranks(
         tt_ranks,                         # current TT ranks:     seq (r0,...) or array (d+1,)+stack
         cap_tucker_ranks,                 # min(current, max) Tucker ranks, same form as tucker_ranks
         cap_tt_ranks,                     # min(current, max) TT ranks,     same form as tt_ranks
+        sharing: typ.Optional[typ.Sequence] = None,  # len=d, static; one hashable group label per mode (None = unshared)
         use_jax: bool = False,
 ) -> typ.Tuple:                           # (raw_tucker_ranks, raw_tt_ranks), same form as inputs
     '''Ranks the T3-SVD sweep produces under hard rank caps -- i.e. the ranks ``t3svd`` returns (it does
@@ -410,7 +411,23 @@ def compute_raw_sweep_ranks(
     structural minimum (non-minimal -- see :py:func:`compute_minimal_ranks`). The caps enter the forward
     pass via the pre-capped ranks. (Used by uniform ``ut3svd`` to shrink the padded supercore to the
     actual content ranks.)
+
+    With ``sharing`` (a partition with a real group), the predicted ranks are those of the TWO-PHASE
+    grouped sweep (``_t3svd_shared`` / its uniform twin), which is a different pipeline: TT-bond
+    rounding first (capped), then a lossless right sweep, then all Tucker truncations at once (each
+    group keeps ``min(n_g, sum_{i in g} rL_i*rR_i, cap)`` of its concatenation -- the structural size
+    of the group SVD, assigned group-wide), then a lossless left re-orthogonalization that can shrink
+    bonds against the reduced Tucker ranks. Verified == the ragged grouped ``t3svd`` output ranks over
+    randomized structures/caps. Input Tucker ranks and caps must be equal within each group
+    (structural error otherwise). ``sharing=None`` or an all-singleton partition is the unshared
+    recurrence above.
     '''
+    groups = None
+    if sharing is not None:
+        all_groups = sharing_module.validate_sharing(sharing, shape)
+        if sharing_module.nontrivial_groups(all_groups):
+            groups = all_groups
+
     xnp, _, _ = get_backend(False, use_jax)
 
     is_sequence = isinstance(tucker_ranks, typ.Sequence)
@@ -418,6 +435,15 @@ def compute_raw_sweep_ranks(
     tt_ranks = xnp.array(tt_ranks)
     cap_tucker_ranks = xnp.array(cap_tucker_ranks)
     cap_tt_ranks = xnp.array(cap_tt_ranks)
+
+    if groups is not None:
+        for group in sharing_module.nontrivial_groups(groups):
+            for jj in group[1:]:
+                for name, arr in (('Tucker ranks', tucker_ranks), ('Tucker rank caps', cap_tucker_ranks)):
+                    if not np.array_equal(np.asarray(arr[group[0]]), np.asarray(arr[jj])):
+                        raise ValueError(
+                            'input %s must be equal within a sharing group (one shared rank per group); '
+                            'group %r differs at modes %d and %d' % (name, group, group[0], jj))
 
     d = len(shape)
     n = list(tucker_ranks)
@@ -431,9 +457,24 @@ def compute_raw_sweep_ranks(
     for ii in range(d - 1, 0, -1):                          # right-orthogonalize: r_i <- min(r_i, n_i*r_{i+1})
         r[ii] = xnp.minimum(r[ii], n[ii] * r[ii + 1])
 
-    for ii in range(d):                                     # L->R sweep, each edge capped
-        n[ii] = xnp.minimum(xnp.minimum(n[ii], r[ii] * r[ii + 1]), cap_tucker_ranks[ii])
-        r[ii + 1] = xnp.minimum(xnp.minimum(r[ii] * n[ii], r[ii + 1]), cap_tt_ranks[ii + 1])
+    if groups is None:
+        for ii in range(d):                                 # L->R sweep, each edge capped
+            n[ii] = xnp.minimum(xnp.minimum(n[ii], r[ii] * r[ii + 1]), cap_tucker_ranks[ii])
+            r[ii + 1] = xnp.minimum(xnp.minimum(r[ii] * n[ii], r[ii + 1]), cap_tt_ranks[ii + 1])
+    else:
+        for ii in range(d - 1):                             # phase 1: L->R TT-bond rounding, capped
+            r[ii + 1] = xnp.minimum(xnp.minimum(r[ii + 1], r[ii] * n[ii]), cap_tt_ranks[ii + 1])
+        for ii in range(d - 1, 0, -1):                      # phase 2: lossless right sweep (collect)
+            r[ii] = xnp.minimum(r[ii], n[ii] * r[ii + 1])
+        for group in groups:                                # phase 3: group SVDs of the concatenations
+            cols = r[group[0]] * r[group[0] + 1]
+            for jj in group[1:]:
+                cols = cols + r[jj] * r[jj + 1]
+            n_g = xnp.minimum(xnp.minimum(n[group[0]], cols), cap_tucker_ranks[group[0]])
+            for jj in group:
+                n[jj] = n_g
+        for ii in range(d - 1):                             # phase 4: lossless left re-orthogonalization
+            r[ii + 1] = xnp.minimum(r[ii + 1], r[ii] * n[ii])
 
     if is_sequence:
         return tuple(int(v) for v in n), tuple(int(v) for v in r)
