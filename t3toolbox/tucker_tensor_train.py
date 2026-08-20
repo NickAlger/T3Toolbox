@@ -4710,6 +4710,41 @@ class T3Weights:
         """True iff these weights' ranks + stack_shape match the ``TuckerTensorTrain`` ``x`` (non-raising)."""
         return ragged_operations.t3_weights_consistent(x.data, self.data)
 
+    def has_shared_tucker_weights(
+            self,
+            sharing:    typ.Sequence,   # len=d; one hashable group label per mode
+            rtol:       float = 1e-9,   # relative tolerance on the Tucker-weight deviation
+    ) -> NDArray:  # bool array, shape = stack_shape (scalar/0-d when unstacked)
+        """True (per stack element) if the Tucker weights are equal within every sharing group --
+        i.e. these weights are COMPATIBLE with the sharing partition: absorbing them into a tied
+        T3 keeps it tied (Tucker weights scale the factors; equal group weights scale a shared
+        factor identically). TT-bond weights are unconstrained (they never touch the factors).
+
+        Non-enforcing checker (see :py:func:`~t3toolbox.backend.sharing.t3_weights_sharing_residual`):
+        absorbing group-unequal weights is legitimate -- it just unties the result. Weights built
+        from the grouped T3-SVD (``from_t3svd(x, sharing=...)``) are group-equal by construction,
+        and ``reciprocal``/``sqrt``/``concatenate``/``kronecker`` preserve group-equality.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 3, 2, 1))
+        >>> tk, tt = x.data
+        >>> xs = t3.TuckerTensorTrain((tk[0], tk[0], tk[2]), tt)         # a tied point
+        >>> W = t3.T3Weights.from_t3svd(xs, sharing=(0, 0, 1))           # the grouped spectra
+        >>> print(bool(W.has_shared_tucker_weights((0, 0, 1))))
+        True
+        >>> W2 = t3.T3Weights.from_t3svd(xs)                             # per-mode spectra: unequal
+        >>> print(bool(W2.has_shared_tucker_weights((0, 0, 1))))
+        False
+        >>> xa = t3.t3_absorb_weights(xs, W.reciprocal())                # compatible weights ...
+        >>> print(bool(np.all(xa.has_shared_tucker_factors((0, 0, 1))))) # ... keep the T3 tied
+        True
+        """
+        return backend_sharing.t3_weights_shared(self.data, sharing, rtol=rtol)
+
     def reciprocal(self) -> 'T3Weights':
         """Elementwise ``1/w`` on every edge (e.g. to form inverse-singular-value weights)."""
         return T3Weights(tuple(1.0 / w for w in self.tucker_weights),

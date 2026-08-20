@@ -199,9 +199,19 @@ transparently (`uniform_minimal(x0, sharing=…)`) — the per-mode reduction wo
   given rank. (Conversely, symmetric tensors are the flagship *use case*: their mode matricizations
   are equal, so one shared basis is exactly right — see the symmetric fitting example in
   `examples/`.) Do not expect `sharing=(0,0,0)` to enforce `T[i,j,k] = T[j,i,k]`.
-- **Weights × sharing is deferred.** No API site takes both today, and the interaction is genuinely
-  undefined in v1 — note in particular that `T3Weights.from_t3svd` on a *grouped* `t3svd` result
-  would read `√k`-inflated group spectra where its convention expects per-mode norms.
+- **Weights compose with sharing already** ([`weighting.md`](weighting.md)): absorbing edge weights
+  keeps a tied T3 tied **iff the Tucker weight vectors are equal within each group** (Tucker weights
+  scale the factors; TT-bond weights never touch them) — checkable with
+  `T3Weights.has_shared_tucker_weights(sharing)` (+ the `UT3Weights` twin), non-enforcing: absorbing
+  group-unequal weights is legitimate, it just unties the result (repair with
+  `t3_share_tucker_cores` or re-enter with `share`). `from_t3svd(x, sharing=…)` builds group-equal
+  weights by construction (the group spectrum at every group mode — `√k`-inflated relative to
+  per-mode spectra, a per-group constant that cancels within each group's reciprocal ratios), and
+  `reciprocal`/`sqrt`/`concatenate`/`kronecker` all preserve group-equality. What remains deferred is
+  the weighted tied *metric* — a Grasedyck–Kramer preconditioner for the shared geometry (the
+  `T3FrameWeights` route is not even well-formed under sharing: the `down` family lives on the `nD`
+  legs, which can differ in *length* within a group) — future work alongside the
+  `SingularValueRegularizer`.
 - **The partition is user-provided.** Automatic selection of what to share is permanently out of
   scope.
 - **Safe mode** checks tied factors at the shared entry points (`t3svd(sharing=…)`, the wrapper's

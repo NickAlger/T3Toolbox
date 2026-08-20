@@ -803,8 +803,23 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
 
 ## 9. Explicitly deferred (record, do not implement)
 
-- **Weights × sharing:** interaction undefined in v1; no API site takes both today — document
-  in `docs/sharing.md` Scope (+ the deferred/rejected ledger) rather than erroring.
+- **Weights × sharing — RESOLVED (Nick, 2026-08-20; verified + implemented same day).** The
+  combination already composes: absorb keeps a tied T3 tied iff the group Tucker weight vectors
+  are equal (TT weights never touch the factors); `from_t3svd(x, sharing=)` produces group-equal
+  weights (kwargs already forwarded); the weight algebra
+  (`reciprocal`/`sqrt`/`concatenate`/`kronecker`) preserves group-equality. Shipped: the
+  NON-enforcing checker only — `T3Weights.has_shared_tucker_weights(sharing, rtol)` +
+  `UT3Weights` twin (masked), backend `t3_weights_sharing_residual`/`t3_weights_shared` +
+  `ut3_*` twins (labels-only canonicalization `_groups_from_labels` — weights carry no mode
+  sizes; unequal weight LENGTHS within a group raise). Nothing gates (absorbing group-unequal
+  weights is a legitimate untie-then-repair flow). `T3FrameWeights` deliberately EXCLUDED: the
+  `down` family lives on the `nD` legs, which can differ in LENGTH within a group — "equal
+  within groups" is not well-formed there; the meaningful frame-weights question is the weighted
+  tied METRIC (GK preconditioner for the shared geometry), which stays deferred with the
+  `SingularValueRegularizer` below.
+- **Grasedyck–Kramer metric / `SingularValueRegularizer` for the SHARED geometry:** the tied
+  projection in a weighted metric is genuinely different machinery (the group spectrum `s_g` is
+  the natural weight source); future work with the unshared GK regularizer.
 - **ε-inflation restart** (SALSA-flavored): documented fallback if the two-step escape (§4.8)
   proves slow in practice.
 - **Zipper-based companion recompute** (GEMM-only): measured viable; switch only if GPU

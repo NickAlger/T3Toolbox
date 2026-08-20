@@ -83,6 +83,14 @@ gk = bvf.T3FrameWeights.from_t3weights(t3.T3Weights.from_t3svd(x)).reciprocal()
 It pairs with a minimal-rank tangent at `x` (where the complement rank `nD` equals the Tucker rank, as for
 `t3svd` output — see [`frame_variations.md`](frame_variations.md)).
 
+**Shared Tucker factors.** Weighting composes with the shared-factor format
+([`sharing.md`](sharing.md)) with one condition: absorbing keeps a tied T3 tied **iff the Tucker
+weight vectors are equal within each sharing group** (Tucker weights scale the factors; TT-bond
+weights are absorbed into the TT cores and never touch them). `W.has_shared_tucker_weights(sharing)`
+checks that compatibility (non-enforcing — absorbing group-unequal weights is legal, it just unties
+the result). `from_t3svd(x, sharing=…)` produces group-equal weights by construction, and the whole
+weight algebra (`reciprocal`/`sqrt`/`concatenate`/`kronecker`) preserves group-equality.
+
 ## Batching
 
 Every weight vector is `stack_shape + (rank,)`, one object holds a stack of weights, and **both classes

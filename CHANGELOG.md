@@ -83,6 +83,13 @@ All notable changes to T3Toolbox are documented here. The format follows
     [`docs/contributor/sharing_internals.md`](docs/contributor/sharing_internals.md); a shared
     section in the CI-doctested getting-started tour; the sharing section of
     `docs/rank_continuation.md`; and the TIED precondition rows in `docs/numerical_contracts.md`.
+  - **Weights × sharing** — the combination composes within the existing framework (absorbing keeps
+    a tied T3 tied iff the group Tucker weight vectors are equal; TT-bond weights never touch the
+    factors; `from_t3svd(x, sharing=…)` builds group-equal weights; the weight algebra preserves
+    group-equality), so the only addition is the non-enforcing compatibility checker:
+    `T3Weights.has_shared_tucker_weights(sharing, rtol=)` and the `UT3Weights` twin (masked
+    content), with `t3_weights_sharing_residual` / `t3_weights_shared` (+ `ut3_*`) in
+    `backend.sharing`. Nothing gates — absorbing group-unequal weights legitimately unties.
   - **Example**: `examples/fit_shared_factors_jetted_probes.py` — a groupwise-symmetric five-mode
     target (two Hilbert tensors coupled by a random matrix; two sharing groups of different mode
     sizes) fit from noisy probe-derivative jets, running the SAME rank-continuation fit shared vs

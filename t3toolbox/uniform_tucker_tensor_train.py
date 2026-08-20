@@ -1097,6 +1097,33 @@ class UT3Weights:
         """
         return ut3_operations.ut3_weights_consistent(x.data, self.data)
 
+    def has_shared_tucker_weights(
+            self,
+            sharing:    typ.Sequence,   # len=d; one hashable group label per mode
+            rtol:       float = 1e-9,   # relative tolerance on the Tucker-weight deviation
+    ) -> NDArray:  # bool array, shape = stack_shape (scalar/0-d when unstacked)
+        """True (per stack element) if the MASKED Tucker weights are equal within every sharing
+        group -- the uniform twin of
+        :py:meth:`~t3toolbox.tucker_tensor_train.T3Weights.has_shared_tucker_weights` (padding is
+        don't-care; unequal group rank masks raise). Non-enforcing.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> np.random.seed(0)
+        >>> x = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 3, 2, 1))
+        >>> tk, tt = x.data
+        >>> uxs = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain((tk[0], tk[0], tk[2]), tt))
+        >>> W = ut3.UT3Weights.from_ut3svd(uxs, sharing=(0, 0, 1))
+        >>> print(bool(W.has_shared_tucker_weights((0, 0, 1))))
+        True
+        >>> print(bool(ut3.UT3Weights.from_ut3svd(uxs).has_shared_tucker_weights((0, 0, 1))))
+        False
+        """
+        return backend_sharing.ut3_weights_shared(self.data, sharing, rtol=rtol)
+
     def reciprocal(self) -> 'UT3Weights':
         """Elementwise ``1/w`` on the real slots (e.g. to form inverse-singular-value weights); the
         padding stays a canonical, **finite** zero rather than becoming ``inf``. Masks unchanged. See

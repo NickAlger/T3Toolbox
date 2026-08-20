@@ -1407,6 +1407,87 @@ def _corrupt_ut3(u, scale=1e3):
                                         u.shape, u.masks)
 
 
+class TestWeightsSharing(unittest.TestCase):
+    """The weights x sharing resolution (2026-08-20): the combination already composes within the
+    existing framework -- the ONLY addition is the non-enforcing compatibility checker (group-equal
+    Tucker weights <=> absorb preserves tying; TT weights never touch the factors). Nothing gates."""
+
+    def setUp(self):
+        np.random.seed(0)   # TuckerTensorTrain.randn draws from the GLOBAL rng -> seed per test
+
+    @staticmethod
+    def _tied(shape=(6, 6, 5), n=(3, 3, 2), r=(1, 3, 2, 1), spec=(0, 0, 1)):
+        return _tied_t3(shape, n, r, spec)
+
+    def test_equal_weights_preserve_tying_unequal_untie_without_error(self):
+        spec = (0, 0, 1)
+        xs = self._tied()
+        w_eq = t3.T3Weights((np.array([1., 2., 3.]), np.array([1., 2., 3.]), np.array([1., 2.])),
+                            (np.ones(1), np.array([1., 2., 3.]), np.array([2., 1.]), np.ones(1)))
+        self.assertTrue(bool(w_eq.has_shared_tucker_weights(spec)))
+        xa = t3.t3_absorb_weights(xs, w_eq)
+        self.assertTrue(np.all(np.asarray(xa.has_shared_tucker_factors(spec))))
+        # ... and the absorbed tied network flows through the grouped machinery
+        ya, _, _ = xa.t3svd(sharing=spec)
+        self.assertTrue(np.all(np.asarray(ya.has_shared_tucker_factors(spec))))
+        # unequal group weights: checker False, absorb legal, result untied (the legitimate escape)
+        w_neq = t3.T3Weights((np.array([1., 2., 3.]), np.array([3., 1., 2.]), np.array([1., 2.])),
+                             w_eq.data[1])
+        self.assertFalse(bool(w_neq.has_shared_tucker_weights(spec)))
+        xb = t3.t3_absorb_weights(xs, w_neq)                             # no error
+        self.assertFalse(np.all(np.asarray(xb.has_shared_tucker_factors(spec))))
+        # TT-bond weights are unconstrained: any values keep the checker verdict
+        w_tt = t3.T3Weights(w_eq.data[0],
+                            (np.ones(1), np.array([9., 1., 2.]), np.array([5., 7.]), np.ones(1)))
+        self.assertTrue(bool(w_tt.has_shared_tucker_weights(spec)))
+        self.assertTrue(np.all(np.asarray(
+            t3.t3_absorb_weights(xs, w_tt).has_shared_tucker_factors(spec))))
+
+    def test_grouped_from_t3svd_is_compatible_and_algebra_is_closed(self):
+        spec = (0, 0, 1)
+        xs = self._tied()
+        W = t3.T3Weights.from_t3svd(xs, sharing=spec)          # group spectra: group-equal by construction
+        self.assertTrue(bool(W.has_shared_tucker_weights(spec)))
+        self.assertTrue(np.array_equal(np.asarray(W.data[0][0]), np.asarray(W.data[0][1])))
+        # per-mode svals of the same tied tensor are NOT group-equal (checker catches it)
+        self.assertFalse(bool(t3.T3Weights.from_t3svd(xs).has_shared_tucker_weights(spec)))
+        # the weight algebra preserves group-equality
+        for out in (W.reciprocal(), W.sqrt(), W.concatenate(W), W.kronecker(W)):
+            self.assertTrue(bool(out.has_shared_tucker_weights(spec)))
+
+    def test_structural_and_stacked(self):
+        spec = (0, 0, 1)
+        # isolated structural rejection: unequal weight LENGTHS within a group (unequal ranks)
+        w_bad = ((np.ones(2), np.ones(3), np.ones(2)),
+                 (np.ones(1), np.ones(2), np.ones(2), np.ones(1)))
+        with self.assertRaises(ValueError):
+            sharing.t3_weights_sharing_residual(w_bad, spec)
+        # per-stack-element verdicts
+        tw = np.ones((2, 3))
+        tw2 = tw.copy()
+        tw2[1] += 1e-3                                          # perturb stack element 1 only
+        W = t3.T3Weights((tw, tw2, np.ones((2, 2))),
+                         (np.ones((2, 1)), np.ones((2, 3)), np.ones((2, 2)), np.ones((2, 1))))
+        verdicts = np.asarray(W.has_shared_tucker_weights(spec))
+        self.assertTrue(bool(verdicts[0]) and not bool(verdicts[1]))
+        # all-singleton partitions are trivially compatible
+        self.assertTrue(bool(W.has_shared_tucker_weights((0, 1, 2)).all()))
+
+    def test_uniform_twin_masked_and_garbage_robust(self):
+        spec = (0, 0, 1)
+        xs = self._tied()
+        uxs = ut3.UniformTuckerTensorTrain.from_t3(xs)
+        W = ut3.UT3Weights.from_ut3svd(uxs, sharing=spec)
+        self.assertTrue(bool(np.all(np.asarray(W.has_shared_tucker_weights(spec)))))
+        self.assertFalse(bool(np.all(np.asarray(
+            ut3.UT3Weights.from_ut3svd(uxs).has_shared_tucker_weights(spec)))))
+        # garbage in the padded weight slots must not change the verdict
+        tkm, _ = W.masks.data
+        dirty = ut3.UT3Weights(np.asarray(W.tucker_weight_supercore) + 7.7 * (1.0 - tkm),
+                               W.tt_weight_supercore, W.masks)
+        self.assertTrue(bool(np.all(np.asarray(dirty.has_shared_tucker_weights(spec)))))
+
+
 class TestUniformShared(unittest.TestCase):
     """Slice 9: the uniform mirror of the grouped truncation family, under the uniform equivalence
     contract (``to_uniform -> op -> to_ragged == op_ragged`` on real parts), with exact output-mask

@@ -48,6 +48,10 @@ __all__ = [
     'ufv_shared_frame_data',
     'ufv_share_tucker_variations',
     'ufv_mean_tucker_variations',
+    't3_weights_sharing_residual',
+    't3_weights_shared',
+    'ut3_weights_sharing_residual',
+    'ut3_weights_shared',
 ]
 
 
@@ -82,13 +86,29 @@ def validate_sharing(
         ...
     ValueError
     '''
-    sharing = tuple(sharing)
     shape = tuple(int(N) for N in shape)
-    if len(sharing) != len(shape):
+    groups = _groups_from_labels(sharing, len(shape))
+    for group in groups:
+        sizes = tuple(shape[ii] for ii in group)
+        if len(set(sizes)) > 1:
+            raise ValueError(
+                'modes in a sharing group must have equal mode sizes (one shared factor needs '
+                'one ambient dimension); group %r has sizes %r' % (group, sizes))
+    return groups
+
+
+def _groups_from_labels(
+        sharing:    typ.Sequence,   # len=d, static; one hashable group label per mode
+        d:          int,            # number of modes
+) -> typ.Tuple[typ.Tuple[int, ...], ...]:  # canonical groups (no mode-size check -- for shape-free data)
+    '''The label-grouping core of :py:func:`validate_sharing`, without the equal-mode-sizes check --
+    for objects that carry no mode sizes (the edge-weight checkers: weights live on internal edges
+    only). Length and hashability are still structural errors.'''
+    sharing = tuple(sharing)
+    if len(sharing) != d:
         raise ValueError(
             'sharing must assign one group label per mode: len(sharing) = %d != %d = number of modes'
-            % (len(sharing), len(shape)))
-
+            % (len(sharing), d))
     modes_by_label = {}                       # insertion-ordered -> groups ordered by first mode
     for ii, label in enumerate(sharing):
         try:
@@ -97,15 +117,7 @@ def validate_sharing(
             raise ValueError(
                 'sharing labels must be hashable; got %r at mode %d' % (label, ii))
         modes_by_label.setdefault(label, []).append(ii)
-
-    groups = tuple(tuple(modes) for modes in modes_by_label.values())
-    for group in groups:
-        sizes = tuple(shape[ii] for ii in group)
-        if len(set(sizes)) > 1:
-            raise ValueError(
-                'modes in a sharing group must have equal mode sizes (one shared factor needs '
-                'one ambient dimension); group %r has sizes %r' % (group, sizes))
-    return groups
+    return tuple(tuple(modes) for modes in modes_by_label.values())
 
 
 def nontrivial_groups(
@@ -755,6 +767,129 @@ def ufv_mean_tucker_variations(
     xnp, _, _ = get_backend(True, use_jax)
     new_tk_slices, _ = fv_mean_tucker_variations((tkv, ttv), groups)
     return xnp.stack(list(new_tk_slices), axis=0), ttv, shape, masks
+
+
+############################################################
+##########    Edge-weight sharing compatibility    #########
+############################################################
+
+
+def _weights_deviation(vectors, groups, xnp, stack_of):
+    '''Max relative deviation of per-mode weight VECTORS within each group (the shared core of the
+    two weight checkers): ``||w_i - w_ref|| / ||w_ref||`` per stack element, branch-free zero guard
+    (zero reference + nonzero other -> inf). ``vectors[i]`` = stack+(rank_i,); all-singleton -> 0.'''
+    devs = []
+    for group in groups:
+        if len(group) < 2:
+            continue
+        w_ref = vectors[group[0]]
+        denom = xnp.sqrt(xnp.sum(w_ref * w_ref, axis=-1))
+        for ii in group[1:]:
+            diff = vectors[ii] - w_ref
+            num = xnp.sqrt(xnp.sum(diff * diff, axis=-1))
+            pos = denom > 0.0
+            devs.append(xnp.where(pos, num / xnp.where(pos, denom, 1.0),
+                                  xnp.where(num > 0.0, xnp.inf, 0.0)))
+    if not devs:
+        return xnp.zeros(stack_of)
+    return xnp.max(xnp.stack(devs), axis=0)
+
+
+def t3_weights_sharing_residual(
+        weights:    typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_weights. len=d,   elm_shape=stack_shape+(ni,)
+            typ.Sequence[NDArray],  # tt_weights.     len=d+1, elm_shape=stack_shape+(ri,)
+        ],
+        sharing:    typ.Sequence,   # len=d, static; one hashable group label per mode
+) -> NDArray:  # shape = stack_shape; max relative Tucker-weight deviation per stack element
+    '''Non-enforcing check that edge weights are COMPATIBLE with a sharing partition, per stack
+    element: the max over groups and group modes of ``||w_i - w_ref|| / ||w_ref||`` on the TUCKER
+    weight vectors. TT-bond weights are unconstrained (they are absorbed into the TT cores and
+    never touch the factors -- only equal group Tucker weights keep ``absorb_weights`` on a tied
+    T3 tied). Weights carry no mode sizes, so the size check of :py:func:`validate_sharing` does
+    not apply; unequal weight LENGTHS within a group (unequal Tucker ranks) raise (structural).
+    ``T3Weights.from_t3svd(x, sharing=...)`` produces group-equal weights by construction (the
+    group spectrum at every group mode), and ``concatenate``/``kronecker``/``reciprocal``/``sqrt``
+    all preserve group-equality.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.sharing as sharing
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 3, 2, 1))
+    >>> tk, tt = x.data
+    >>> xs = t3.TuckerTensorTrain((tk[0], tk[0], tk[2]), tt)          # a tied point
+    >>> W = t3.T3Weights.from_t3svd(xs, sharing=(0, 0, 1))            # grouped svals: group-equal
+    >>> print(float(sharing.t3_weights_sharing_residual(W.data, (0, 0, 1))))
+    0.0
+    >>> W2 = t3.T3Weights.from_t3svd(xs)                              # per-mode svals: NOT group-equal
+    >>> print(bool(sharing.t3_weights_sharing_residual(W2.data, (0, 0, 1)) > 1e-3))
+    True
+    '''
+    tucker_weights, _tt_weights = weights
+    d = len(tucker_weights)
+    groups = _groups_from_labels(sharing, d)
+    for group in groups:
+        lengths = tuple(tucker_weights[ii].shape[-1] for ii in group)
+        if len(set(lengths)) > 1:
+            raise ValueError(
+                'Tucker weights in a sharing group must have equal lengths (one shared rank per '
+                'group); group %r has lengths %r' % (group, lengths))
+    use_jax = tree_contains_jax(weights)
+    xnp, _, _ = get_backend(False, use_jax)
+    return _weights_deviation(tucker_weights, groups, xnp, tucker_weights[0].shape[:-1])
+
+
+def t3_weights_shared(
+        weights:    typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_weights. len=d,   elm_shape=stack_shape+(ni,)
+            typ.Sequence[NDArray],  # tt_weights.     len=d+1, elm_shape=stack_shape+(ri,)
+        ],
+        sharing:    typ.Sequence,   # len=d, static; one hashable group label per mode
+        rtol:       float = 1e-9,   # relative tolerance on the Tucker-weight deviation
+) -> NDArray:  # bool array, shape = stack_shape (scalar/0-d when unstacked)
+    '''True (per stack element) where the Tucker weights are equal within every sharing group --
+    the boolean form of :py:func:`t3_weights_sharing_residual`. A non-enforcing checker:
+    absorbing group-UNEQUAL weights into a tied T3 is legitimate (it just unties the result --
+    repair with :py:func:`t3_share_tucker_cores` or re-enter with ``share`` if wanted).'''
+    return t3_weights_sharing_residual(weights, sharing) <= rtol
+
+
+def ut3_weights_sharing_residual(
+        weights_data:   typ.Tuple[
+            NDArray,             # tucker_weight_supercore, shape=(d,)+stack+(n,)
+            NDArray,             # tt_weight_supercore,     shape=(d+1,)+stack+(r,)
+            typ.Tuple[NDArray, NDArray],  # (tucker_edge_mask, tt_edge_mask), HOST bool, static
+        ],
+        sharing:        typ.Sequence,   # len=d, static; one hashable group label per mode
+) -> NDArray:  # shape = stack_shape; max relative MASKED Tucker-weight deviation per stack element
+    '''The uniform twin of :py:func:`t3_weights_sharing_residual`: the comparison runs on the
+    MASKED Tucker weight vectors (padding is don't-care), and unequal group rank masks raise
+    (structural -- unequal ranks cannot carry one shared weight).'''
+    tucker_w_sc, _tt_w_sc, (tucker_mask, _tt_mask) = weights_data
+    d = tucker_w_sc.shape[0]
+    groups = _groups_from_labels(sharing, d)
+    _validate_group_tucker_rank_masks(tucker_mask, groups)
+    use_jax = tree_contains_jax(weights_data[:2])
+    xnp, _, _ = get_backend(True, use_jax)
+    masked = tucker_w_sc * tucker_mask
+    return _weights_deviation(masked, groups, xnp, masked.shape[1:-1])
+
+
+def ut3_weights_shared(
+        weights_data:   typ.Tuple[
+            NDArray,             # tucker_weight_supercore, shape=(d,)+stack+(n,)
+            NDArray,             # tt_weight_supercore,     shape=(d+1,)+stack+(r,)
+            typ.Tuple[NDArray, NDArray],  # (tucker_edge_mask, tt_edge_mask), HOST bool, static
+        ],
+        sharing:        typ.Sequence,   # len=d, static; one hashable group label per mode
+        rtol:           float = 1e-9,   # relative tolerance on the Tucker-weight deviation
+) -> NDArray:  # bool array, shape = stack_shape (scalar/0-d when unstacked)
+    '''True (per stack element) where the MASKED Tucker weights are equal within every sharing
+    group -- the boolean form of :py:func:`ut3_weights_sharing_residual` (non-enforcing).'''
+    return ut3_weights_sharing_residual(weights_data, sharing) <= rtol
 
 
 if jax_available:

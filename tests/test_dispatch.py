@@ -353,6 +353,13 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a0, a1, g0, g1:
                             bsharing.t3_share_tucker_cores(((a0, a1), (g0, g1)), (0, 0)),
                             stk[0], stk[1], stt[0], stt[1])
+        # the weights-compatibility residual/checker (weights carry no shape; labels-only groups)
+        wv = (jnp.asarray(np.random.rand(3)),) * 2
+        wtt = tuple(jnp.asarray(np.random.rand(k)) for k in (1, 2, 1))
+        self.assert_jit_jax(lambda w0, w1: bsharing.t3_weights_sharing_residual(((w0, w1), wtt), (0, 0)),
+                            wv[0], wv[1])
+        self.assert_jit_jax(lambda w0, w1: bsharing.t3_weights_shared(((w0, w1), wtt), (0, 0)),
+                            wv[0], wv[1])
         # the shared-frame companion (re-sweep + batched thin SVD); groups static, arrays leaves
         def _shared_frame_data(a, g0, g1):
             frame, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain((a, a), (g0, g1)))
