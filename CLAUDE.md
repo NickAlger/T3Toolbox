@@ -378,12 +378,14 @@ project engineering practices below are shared.)*
 
 ## Current state
 
-**2026.0.0 is SHIPPED to PyPI (2026-07-13) — `pip install t3toolbox`** (release history:
-`dev/archive/release_plan_2026-07-13.md`; live status: `dev/HANDOFF.md`). "Tested" = *numerical correctness in
-numpy* (vs dense ground truth) **plus** *jax dispatch* covered by `tests/test_dispatch.py` (jit
-each op; a stray `np.*` on a tracer raises) — not a duplicate numerical sweep. Full suite green
-(593 tests / 40,215 subtests; ~6 min in the current env); docs at zero warnings with `-W` in CI;
-doctests CI-enforced on both numpy generations.
+**2026.1.0 is SHIPPED to PyPI (2026-08-20) — `pip install t3toolbox`** (2026.0.0 shipped
+2026-07-13; the checklist both followed is `dev/archive/release_plan_2026-07-13.md`; live status:
+`dev/HANDOFF.md`). "Tested" = *numerical correctness in numpy* (vs dense ground truth) **plus** *jax
+dispatch* covered by `tests/test_dispatch.py` (jit each op; a stray `np.*` on a tracer raises) — not a
+duplicate numerical sweep. Full suite green (726 tests / 41,976 subtests; ~7 min in the current env);
+docs at zero warnings with `-W` in CI; doctests CI-enforced on both numpy generations — **module
+doctests, `getting_started.rst`, AND every `docs/*.md` + `docs/contributor/*.md` page** (the one
+exclusion is `doctest_style.md`, whose fragments are illustrative).
 
 - **The shipped surface (all solid/tested):** `TuckerTensorTrain` + backend (arithmetic,
   `to_dense`, `t3svd`, `t3m`, save/load; the three sampling ops + their symmetric derivatives +
@@ -435,8 +437,9 @@ doctests CI-enforced on both numpy generations.
   [`docs/contributor/sharing_internals.md`](docs/contributor/sharing_internals.md)** (the S_i
   re-sweep/SVD-not-Gram measurements, the two-phase decision, the tied embedding, the
   padded-restart analysis — full shared rank is a DIAGNOSTIC, never a precondition). Example:
-  `examples/fit_shared_factors_jetted_probes.py`. Working spec (thread-local):
-  `dev/shared_factors_handoff.md` + `dev/shared_t3_math.tex`.
+  `examples/fit_shared_factors_jetted_probes.py`. The derivation note is `docs/shared_t3_math.tex`
+  (+pdf); the build spec is archived at
+  `dev/archive/shared_factors_handoff_2026-08-20_complete.md`.
 - **Weighted layer — SHIPPED, ragged AND uniform** (the edge-weight redesign + its uniform mirror):
   `T3Weights`/`UT3Weights` (tensor) + `T3FrameWeights`/`UT3FrameWeights` (tangent metric), each with
   `absorb`/`weighted_norm`/`weighted_inner`/`reciprocal`/`sqrt`/`concatenate`/`kronecker`, the

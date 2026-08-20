@@ -182,7 +182,7 @@ def _t3svd_shared(
        up-matricization ``W2_i``; each group truncates ONE SVD of the concatenation
        ``[W2_{i_1} | ... | W2_{i_k}]``, whose singular values ARE the group spectrum ``s_g``
        (the singular values of the concatenated matricizations of the represented tensor --
-       the stacked-skeleton factorization, ``dev/shared_t3_math.tex`` Lemma 1). The rotation
+       the stacked-skeleton factorization, ``docs/shared_t3_math.tex`` Lemma 1). The rotation
        ``Y_g`` is applied to the shared factor ONCE (the same array assigned to every group
        mode) and to every group core's up leg. Note the tolerance acts on the concatenation,
        whose Frobenius norm is ``sqrt(k) * ||T||``.
@@ -369,7 +369,7 @@ def t3_share_tucker_factors(
 ]:
     '''Quasi-optimal projection of an arbitrary (unshared) T3 onto the shared format.
 
-    The shared initializer (``dev/shared_t3_math.tex``, Algorithm 3, simplified): two steps.
+    The shared initializer (``docs/shared_t3_math.tex``, Algorithm 3, simplified): two steps.
 
     1. **Exact common-span rewrite**, per group: one SVD of the row-stacked factors
        ``[B_{i_1}; ...; B_{i_k}] = W diag(s) V^T`` gives the common basis (``V^T``'s rows span

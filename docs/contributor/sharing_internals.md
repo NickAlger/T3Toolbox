@@ -4,7 +4,7 @@
 > its measurements, the choices that were revised during design review, the tied embedding, the
 > restart analysis, and the uniform-mirror lessons. The user-facing story is
 > [`sharing.md`](../sharing.md); the math derivations live in the maintainers' working notes
-> (`dev/shared_t3_math.tex` while the thread is open). Papers: Peshekhonov, Arzhantsev & Rakhuba,
+> ([`../shared_t3_math.tex`](../shared_t3_math.tex), the derivation note). Papers: Peshekhonov, Arzhantsev & Rakhuba,
 > "Training a Tucker Model With Shared Factors: a Riemannian Optimization Approach", AISTATS 2024,
 > PMLR 238 ([link](https://proceedings.mlr.press/v238/peshekhonov24a.html)) — SF-Tucker; and
 > Molozhavenko & Rakhuba, "Optimization on the extended tensor-train manifold with shared factors",
