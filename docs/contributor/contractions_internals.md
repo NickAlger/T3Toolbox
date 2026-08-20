@@ -14,7 +14,7 @@ A call runs four stages; the first three are pure string/integer work, cached as
 ```
 parse            'WCo,WCa->Cao'  ->  input terms ('WCo','WCa'), output 'Cao'; validation
 solve lengths    operand ndims + len_* kwargs  ->  {W: 1, C: 1}   (exact linear algebra)
-expand           groups -> fresh single-axis letters  ->  'uvo,uva->auv'-style ordinary einsum
+expand           groups -> fresh single-axis letters  ->  'bco,bca->cao' (ordinary einsum)
 dispatch         numpy: greedy pairwise path (computed on the GROUPED string); jax: one einsum
 ```
 
@@ -28,8 +28,9 @@ happens once at trace time and the compiled program contains only the einsum.
 `_parse_grouped_subscripts` enforces: ascii letters only; exactly one `->` (explicit output);
 nonempty input terms (the output may be empty = scalar); no symbol repeated within a term; every
 output symbol present in some input; no `'...'` (groups subsume it). Whitespace is stripped, so
-`'WCo, WCa -> Cao'` and `'WCo,WCa->Cao'` are the same contraction (and share a cache entry —
-callers see the *stripped* string in error messages).
+`'WCo, WCa -> Cao'` and `'WCo,WCa->Cao'` are the same contraction (they get separate
+`_expanded_subscripts` cache entries — the cache is keyed on the raw argument — and error messages
+quote the caller's *original* string; only `_pairwise_path` is keyed on the stripped form).
 
 ## 3. Group lengths as an exact linear system
 
@@ -186,8 +187,9 @@ implementation's mechanism:
 1. **the definitional loop oracle** — the lowercase-only contraction literally mapped over every
    group index tuple, over the full vocabulary × an empty/single/multi-axis shape matrix;
 2. **the frozen identifiability table** (`HISTORICAL`) — for every string, whether a supplement is
-   demanded, pinned as data (seeded from the deleted named functions' `n_probe`/`n_frame`
-   signatures, which the rank analysis was verified to reproduce exactly, all ~100 cases);
+   demanded, pinned as data (the 104 seeded entries came from the deleted named functions'
+   `n_probe`/`n_frame` signatures, every one verified reproduced exactly by the rank solve before
+   the functions were deleted; the table holds **123** strings today, the rest lean-jet scan steps);
 3. **call-site consistency** — every literal `contract(...)` call in the library supplies a
    sufficient supplement set;
 4. **split invariance** — all valid splits of a co-traveling run give bitwise-identical results;

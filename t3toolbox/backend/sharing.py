@@ -406,9 +406,9 @@ def fv_shared_frame_data(
     shared geometry enforces that in safe mode at its check sites -- this backend function is
     check-free. ``svd_s`` is the group spectrum: the singular values of the concatenated
     matricizations ``[X_(i1) | ... | X_(ik)]`` of the represented tensor. Stack-aware (frame
-    stack ``C`` rides every array); ragged path only (uniform twin deferred to the uniform
-    slices). Design + measurements: ``dev/shared_t3_math.tex`` (the tilted subspace and its
-    SVD-not-normal-equations remark).
+    stack ``C`` rides every array). The uniform twin is
+    :py:func:`ufv_shared_frame_data`. Design + measurements: ``docs/contributor/sharing_internals.md``
+    (the tilted subspace and the SVD-not-normal-equations measurement).
 
     Examples
     --------
@@ -494,7 +494,7 @@ def fv_share_tucker_variations(
     Broadcasting: the companion carries the frame stack ``C``; the variations carry ``K + C``
     -- the library-wide frame-inner layout makes the solve broadcast for free. Verified against
     the dense orthogonal projection onto the tied tangent subspace (design round, 1.6e-13;
-    promoted to the permanent tests). Ragged path only (uniform twin deferred).
+    promoted to the permanent tests). The uniform twin is :py:func:`ufv_share_tucker_variations`.
 
     Examples
     --------

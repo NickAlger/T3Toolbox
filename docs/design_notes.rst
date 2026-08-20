@@ -45,8 +45,3 @@ The uniform layer
    uniform_supercore_layout
    uniform_masks_vs_ranks
    uniform_backend_jit_recipe
-
-.. note::
-	The user/developer split of these notes is in progress: the pages above marked for
-	rewrite-splits (batching, fitting, the contract catalog, the mask notes) still carry some
-	contributor-facing material until their split lands.

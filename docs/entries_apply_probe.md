@@ -32,7 +32,7 @@ are left free** and **what kind of test vectors** are used:
   `d` vectors, the `i`-th being `X(w₀,…,wᵢ₋₁,·,wᵢ₊₁,…,w_{d-1}) ∈ ℝ^{Nᵢ}`.
 
 > **Probing is the original exemplar.** This code was first written *for* Riemannian fitting against
-> **probes** (Section 6 of the paper) — that is the problem `T3Targent.probe` / `probe_transpose` were
+> **probes** (Section 6 of the paper) — that is the problem `T3Tangent.probe` / `probe_transpose` were
 > built around. `apply` and `entries` were added later as the cheaper all-modes special cases, as part
 > of making the library **general-purpose**: they are equally first-class, and (as verified below) just
 > as Riemannian-ready. Pick the operation your problem actually calls for — none is privileged.
@@ -154,8 +154,8 @@ Notes:
   three exist for all three ops.
 - **Bare `𝒥` / `𝒥ᵀ`, no gauge projector.** The tangent methods are the bare single-sample Jacobian and
   its adjoint. The full Riemannian operators factor as **`J = 𝒥 ∘ Π`** and **`Jᵀ = Π ∘ 𝒥ᵀ`**, where
-  `Π = orthogonal_gauge_projection` projects onto gauged variations. Compose `Π` yourself: take the
-  gradient as `op_transpose(r, …, sum_over_probes=True).orthogonal_gauge_projection()`.
+  `Π = MANIFOLD.project` projects onto gauged variations. Compose `Π` yourself: take the
+  gradient as `MANIFOLD.project(op_transpose(r, …, sum_over_probes=True))`.
 - **`sum_over_probes`** (transpose only): `False` (primary) keeps the probe/sample stack `W` — one
   tangent per sample; `True` sums it — the Gauss-Newton data-misfit gradient `Jᵀr` (a single tangent
   when `W` is the only extra stack). See [`batching_and_stacking.md`](batching_and_stacking.md) §11.
@@ -164,7 +164,7 @@ Notes:
 
 For the least-squares objective `f(X) = ½‖S(X) − b‖²` on the fixed-rank manifold, with `S` any of the
 three operations, the matrix-free Riemannian gradient
-`g = op_transpose(r, …, sum_over_probes=True).orthogonal_gauge_projection()` and the Gauss-Newton
+`g = MANIFOLD.project(op_transpose(r, …, sum_over_probes=True))` and the Gauss-Newton
 Hessian `H V = (𝒥ᵀ 𝒥 V)` gauged were checked end-to-end at an orthogonal, minimal-rank frame: the
 adjoint identity holds exactly, gradients match finite differences along the retraction, and the
 Gauss-Newton Hessian is symmetric PSD, for all three operators (the recorded verification numbers:
@@ -230,9 +230,9 @@ sum-of-products: `Σ aᵢbᵢ` for the scalar cases, `Σ_modes Σ a[m]·b[m]` fo
 
 How `backend/probing.py` maps to Section 6 of the paper (page/algorithm numbers per the local
 `t4s.pdf`). The Riemannian least-squares operators factor as **`J = 𝒥 ∘ Π`** and **`Jᵀ = Π ∘ 𝒥ᵀ`**:
-`Π` is the orthogonal gauge projector (`orthogonal_gauge_projection`, enforcing gauge conditions
-(48)–(49)), and `𝒥` is the bare tangent sampling op below. Notation: hat `^` = base-point
-quantities, `δ` = perturbation, tilde `~` = adjoint (transpose sweep).
+`Π` is the orthogonal gauge projector (`MANIFOLD.project`; backend `tv_orthogonal_gauge_projection`,
+enforcing gauge conditions (48)–(49)), and `𝒥` is the bare tangent sampling op below.
+Notation: hat `^` = base-point quantities, `δ` = perturbation, tilde `~` = adjoint (transpose sweep).
 
 **A probe (§6.2.1, Algorithm 5)** — the `i`-th probe contracts with all probing vectors except the
 `i`-th, leaving index `i` free. Edge variables ↔ code:

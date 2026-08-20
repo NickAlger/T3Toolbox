@@ -324,7 +324,7 @@ def compute_mu_jets_trs(
 # These are the default implementations wired into the sampling-derivative call sites; each has a dense
 # `*_trs` twin (above/below) kept as a reference -- numerically equal to tolerance, occasionally faster
 # in tiny / memory-abundant regimes, and the oracle in tests/test_jet_recurrence.py. The design question
-# that motivates the recurrence form is dev/OPEN_QUESTION_contractions_architecture.md.
+# that motivates the recurrence form is dev/archive/OPEN_QUESTION_contractions_architecture_RESOLVED_2026-07-17.md.
 #
 # The idea: a trs binomial tensor is a sparse convolution tensor, so contracting it as a DENSE einsum
 # operand is the wrong handling -- it is what makes _pairwise_path degenerate (the trs operand shares

@@ -63,7 +63,7 @@ __all__ = [
 # NOTE: probing is intentionally UNWEIGHTED. In the typical regime (many probes at once) it is
 # cheaper to absorb any edge weights into the cores once, up front, then probe the weighted cores
 # with the plain functions below (rather than threading weights through every probe). The up-front
-# weighting helper lives with the (deferred) weighted-tensor-network code.
+# weighting helper is ``t3_absorb_weights`` (see ``docs/weighting.md``).
 
 
 #####################################################
@@ -171,8 +171,8 @@ def t3_probe(
 
 
 def compute_xi(
-        up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=C+(nUi,Ni)
-        ww:                 typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=W+(Ni,)
+        up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(nUi,Ni)
+        ww:                 typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+(Ni,)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # xis. len=d, elm_shape=(...,nUi)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -200,8 +200,8 @@ def compute_xi(
 
 
 def compute_mu(
-        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d-1. elm_shape=C+(rLi,nUi,rL(i+1))
-        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=W+C+(nUi,)
+        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d-1, elm_shape=C+(rLi,nUi,rL(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+C+(nUi,)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # mus. len=d, elm_shape=W+C+(rLi,)
     '''Compute leftward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -230,8 +230,8 @@ def compute_mu(
 
 
 def compute_nu(
-        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=C+(rRi,nUi,rR(i+1))
-        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=W+C+(nUi,)
+        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+C+(nUi,)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # nus. len=d, elm_shape=W+C+(rR(i+1),)
     '''Compute rightward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -250,9 +250,9 @@ def compute_nu(
 
 
 def compute_eta(
-        down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=C+(rLi,nOi,rR(i+1))
-        mus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=W+C+(rLi,)
-        nus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,rR(i+1))
+        down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+        mus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+C+(rLi,)
+        nus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # etas. len=d, elm_shape=W+C+(nOi,)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -280,8 +280,8 @@ def compute_eta(
 
 
 def assemble_z(
-        tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=C+(ni,Ni)
-        etas:           typ.Union[typ.Sequence[NDArray], NDArray],  # len=d. elm_shape=W+C+(ni,)
+        tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=C+(ni,Ni)
+        etas:           typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(ni,)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # zs. len=d, elm_shape=W+C+(Ni,)
     '''Assemble probes from downward edge variables.
 
@@ -312,8 +312,8 @@ def assemble_z(
 #####################################################
 
 def compute_dxi(
-        var_tucker_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(nOi,Ni)
-        ww:                     typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(...,Ni)
+        var_tucker_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(nOi,Ni)
+        ww:                     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,Ni)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dxis. len=d, elm_shape=(...,nOi)
     '''Compute var-upward edge variables dxi.
     Used for probing a tangent vector.
@@ -488,8 +488,8 @@ def compute_deta(
 
 
 def assemble_tangent_z(
-        tucker_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(nUi,Ni)
-        var_tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray], # len=d. elm_shape=(nOi,Ni)
+        tucker_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(nUi,Ni)
+        var_tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(nOi,Ni)
         etas:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
         detas:              typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # zs. len=d, elm_shape=(...,Ni)

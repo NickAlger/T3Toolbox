@@ -125,7 +125,7 @@ stack**, and (for jit) **host-static** (`uniform_pytree_composition.md`):
 | integer rank **counts** | ❌ gappy ⇒ per-element compaction | ✅ | a count can't denote a gap; compaction is ragged data movement *and* data-dependent shapes ⇒ not jittable |
 | hot-**position** lists / "hot rank" tuples | ✅ position arithmetic | ❌ varying length ⇒ ragged | a *sparse* mask; per-element lengths differ ⇒ jagged, defeating the uniform layout (you'd pad+remask — reinvent the mask) |
 | **bool tuples** (vs arrays) | ✅ | ✅ | value-hashable, but non-contiguous/boxed ⇒ must materialize for the multiply; slower eager, worse stacked memory; no win over a bool array (which can be value-hashed via its bytes) |
-| **float** mask doubling as edge **weights** | — | — | conflates *structure* (static aux, non-differentiable, defines rank, value-neutral) with a *parameter* (traced leaf, differentiable, scales the contraction, value-affecting): opposite jax treatment, and autodiff would silently differentiate — and a grad step corrupt — the "mask." Weights are a separate (parked) concept |
+| **float** mask doubling as edge **weights** | — | — | conflates *structure* (static aux, non-differentiable, defines rank, value-neutral) with a *parameter* (traced leaf, differentiable, scales the contraction, value-affecting): opposite jax treatment, and autodiff would silently differentiate — and a grad step corrupt — the "mask." Weights are a separate concept |
 
 The bool mask is the unique fixed point: **closed ∧ uniform-shaped ∧ host-static.** The one
 attractive property of the integer/tuple forms — value-based hashing for jit-cache hits — is real

@@ -160,7 +160,7 @@ def _setup(
         x0,                 # TuckerTensorTrain (ragged) or UniformTuckerTensorTrain (uniform)
         order:  typ.Optional[int] = None,  # derivative kinds only: highest order (required)
         weight: typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
-        regularizer: typ.Any = None,       # optional backend.regularization.Regularizer (ragged only for now)
+        regularizer: typ.Any = None,       # optional backend.regularization.Regularizer (ragged or uniform)
         chunk_size: typ.Any = 'auto',      # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
         batch:  typ.Optional[int] = None,  # minibatch size (mc_sgd/adam): the W the transpose sees, for 'auto'
 ) -> typ.Tuple[
@@ -219,7 +219,7 @@ def gradient_descent(
         x0:       Point,                # initial point (any cores; the geometry orthogonalizes internally)
         order:    typ.Optional[int] = None,  # derivative kinds: highest order (required)
         weight:   typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
-        regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ) (ragged only)
+        regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
         chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
         **kwargs,                       # forwarded to backend.optimizers.gradient_descent (n_iter, gtol_rel, ...)
 ) -> typ.Tuple[Point, dict]:            # (x_opt, stats)
@@ -228,7 +228,7 @@ def gradient_descent(
     Accepts a ragged ``TuckerTensorTrain`` (with ``manifold.MANIFOLD`` / ``COREWISE``) or a uniform
     ``UniformTuckerTensorTrain`` (with ``uniform_manifold.UNIFORM_MANIFOLD`` / ``UNIFORM_COREWISE``); the
     representation is inferred from ``x0`` and returned in kind. Pass ``regularizer`` (e.g.
-    ``optimizers.IdentityRegularizer(λ)``) to add ``ρ(x)`` to the objective (ragged only for now). See
+    ``optimizers.IdentityRegularizer(λ)``) to add ``ρ(x)`` to the objective (either representation). See
     :py:func:`t3toolbox.backend.optimizers.gradient_descent`."""
     problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size)
     x_cores, stats = bopt.gradient_descent(problem, init, **kwargs)
@@ -247,12 +247,12 @@ def mc_sgd(
         weight:   typ.Optional[typ.Any] = None,   # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         draw:     typ.Optional[typ.Callable]        = None,  # custom draw(rng)->(sample_B,data_B); None = flat
         use_jit:  bool = False,         # jit the per-step kernel: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
-        regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ) (ragged only); scaled by batch/n per step
+        regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ); scaled by batch/n per step
         chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
         **kwargs,                       # forwarded to backend.optimizers.mc_sgd (max_iter, check_every, ...)
 ) -> typ.Tuple[Point, dict]:
     """Manifold Cauchy SGD -- minibatched, tuning-free Cauchy step. Ragged or uniform ``x0`` (see
-    :py:func:`gradient_descent`). A ``regularizer`` (ragged only) is scaled by ``batch/n`` per step so
+    :py:func:`gradient_descent`). A ``regularizer`` is scaled by ``batch/n`` per step so
     ``λ`` matches the full-batch optimizers. See :py:func:`t3toolbox.backend.optimizers.mc_sgd`."""
     problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size, batch=batch)
     x_cores, stats = bopt.mc_sgd(problem, init, rng, batch, draw=draw, use_jit=use_jit, **kwargs)
@@ -271,12 +271,12 @@ def adam(
         weight:   typ.Optional[typ.Any] = None,   # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         draw:     typ.Optional[typ.Callable]        = None,
         use_jit:  bool = False,         # jit the per-step kernel: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
-        regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ) (ragged only); scaled by batch/n per step
+        regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ); scaled by batch/n per step
         chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
         **kwargs,                       # forwarded to backend.optimizers.adam (lr, max_iter, ...)
 ) -> typ.Tuple[Point, dict]:
     """Adam over the cores -- the dependency-free first-order method for the corewise geometry. Ragged or
-    uniform ``x0`` (see :py:func:`gradient_descent`). A ``regularizer`` (ragged only) is scaled by
+    uniform ``x0`` (see :py:func:`gradient_descent`). A ``regularizer`` is scaled by
     ``batch/n`` per step so ``λ`` matches the full-batch optimizers. See
     :py:func:`t3toolbox.backend.optimizers.adam`."""
     problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size, batch=batch)
@@ -297,7 +297,7 @@ def newton_cg(
         val_data:   typ.Any = None,               # optional validation data (both given adds the val column)
         callback:   typ.Optional[typ.Callable] = None,  # custom callback(NewtonInfo) each iter (overrides `verbose`)
         use_jit:    bool = False,               # jit the inner CG: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
-        regularizer: typ.Any = None,            # optional regularizer, e.g. optimizers.IdentityRegularizer(λ) (ragged only)
+        regularizer: typ.Any = None,            # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
         chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
         **kwargs,                       # forwarded to backend.optimizers.newton_cg (max_newton, gtol_rel, g0norm_newton, ...)
 ) -> typ.Tuple[Point, dict]:

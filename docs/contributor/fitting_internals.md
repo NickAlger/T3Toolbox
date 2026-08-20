@@ -103,8 +103,10 @@ keeps full-strength reg. A custom `draw` of a non-nominal batch size may want `�
 - **The Goal-1 `fit(...)` facade** — a "just fit my tensor" entry point that picks a sensible geometry +
   optimizer, supplies the geometry-correct `x0`, and runs **rank continuation** with validation. The
   current layer is a clean *mid-level toolkit*; the facade is what delivers "standard user, no fiddling".
-  Rank continuation + validation currently live in the examples (the right defaults: manifold → zero start
-  + warm continuation; corewise → nonzero start + cold per level — see `dev/archive/optimizers_plan.md` §7).
+  The rank *ladder* is library surface (`x.continuation_ranks(...)` / `backend.ranks.compute_continuation_ranks`,
+  user page [`../rank_continuation.md`](../rank_continuation.md)); what is still example-only is the outer
+  continuation **loop** and validation (the right defaults: manifold → zero start + warm continuation;
+  corewise → nonzero start + cold per level — see `dev/archive/optimizers_plan.md` §7).
 - **A Riemannian L-BFGS** (with vector transport) — the quasi-Newton method only this library could
   provide; the Euclidean case is deliberately left to the scipy bridge.
 - **Order-slicing minibatches** (output-masking) and order/polynomial-degree continuation — research,

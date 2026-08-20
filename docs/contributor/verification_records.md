@@ -9,7 +9,7 @@ tests are the living guarantee.
 (Stated qualitatively in `../entries_apply_probe.md` §4.) For the least-squares objective
 `f(X) = ½‖S(X) − b‖²` on the fixed-rank manifold, with `S` each of the three sampling operations,
 the matrix-free Riemannian gradient
-`g = op_transpose(r, …, sum_over_probes=True).orthogonal_gauge_projection()` and the Gauss-Newton
+`g = MANIFOLD.project(op_transpose(r, …, sum_over_probes=True))` and the Gauss-Newton
 Hessian `H V = (𝒥ᵀ 𝒥 V)` gauged were checked end-to-end at an orthogonal, minimal-rank frame:
 
 | operator | adjoint `⟨r, 𝒥V⟩ = ⟨𝒥ᵀr, V⟩` | gradient vs finite-diff *along the retraction* | Gauss-Newton Hessian   |

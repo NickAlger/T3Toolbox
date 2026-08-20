@@ -4,7 +4,7 @@
 > i.e. it asserts the *real* orthonormal frame vectors occupy the **leading** slots of each (padded)
 > frame core, with `[rank, pad)` being don't-care garbage. This note records why that assertion is
 > correct **only because the orthogonalization is SVD-based**, and would break under (non-pivoted or
-> pivoted) QR. Pairs with `docs/uniform_masks_vs_ranks.md` and `docs/uniform_pytree_composition.md`.
+> pivoted) QR. Pairs with `docs/uniform_masks_vs_ranks.md` and `uniform_pytree_composition.md`.
 
 ## The contract
 
@@ -50,7 +50,7 @@ SVD gives the prefix-mask design exactly the two things it needs:
 
 1. **Correctness** — the rank-many real content sits in the masked prefix, for *any* input arrangement.
 2. **Determinism** — at fixed rank the prefix structure is identical every time. This is the bridge to
-   the jit-performance story (`docs/uniform_pytree_composition.md`): in a manifold-optimization loop the
+   the jit-performance story (`uniform_pytree_composition.md`): in a manifold-optimization loop the
    frame is re-orthogonalized **every step**, yet the masks come out **identical** (same prefix), so they
    are loop-invariant and neither the backend (close-over) nor the frontend (value-hashed holder) path
    recompiles. Under pivoted QR the masks would shift each iteration and you would recompile *regardless*.

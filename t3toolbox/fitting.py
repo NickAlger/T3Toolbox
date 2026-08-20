@@ -563,7 +563,7 @@ def apply_model(
 
     Accepts a ragged ``TuckerTensorTrain`` (-> :py:class:`GaussNewtonModel`) or a uniform
     ``UniformTuckerTensorTrain`` (-> :py:class:`UniformGaussNewtonModel`); the representation is inferred
-    from ``x`` and the geometry must match. ``regularizer`` adds ``ρ(x)`` to the model (ragged only).'''
+    from ``x`` and the geometry must match. ``regularizer`` adds ``ρ(x)`` to the model (ragged or uniform).'''
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'apply', ww, residual, regularizer=regularizer)
     frame = _ragged_frame(geometry, x)

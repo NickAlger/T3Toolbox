@@ -4,8 +4,13 @@
 > its measurements, the choices that were revised during design review, the tied embedding, the
 > restart analysis, and the uniform-mirror lessons. The user-facing story is
 > [`sharing.md`](../sharing.md); the math derivations live in the maintainers' working notes
-> (`dev/shared_t3_math.tex` while the thread is open). Papers: Peshekhonov, Arzhantsev & Rakhuba
-> (AISTATS 2024, SF-Tucker); Molozhavenko & Rakhuba (Comput. Appl. Math. 45:221, 2026, SF-ETT).
+> (`dev/shared_t3_math.tex` while the thread is open). Papers: Peshekhonov, Arzhantsev & Rakhuba,
+> "Training a Tucker Model With Shared Factors: a Riemannian Optimization Approach", AISTATS 2024,
+> PMLR 238 ([link](https://proceedings.mlr.press/v238/peshekhonov24a.html)) — SF-Tucker; and
+> Molozhavenko & Rakhuba, "Optimization on the extended tensor-train manifold with shared factors",
+> Comput. Appl. Math. 45(6):221, 2026 ([doi](https://doi.org/10.1007/s40314-025-03605-0)) — SF-ETT,
+> whose Algorithm 1 and Theorem 5 are implemented here (generalized to arbitrary partitions).
+> Both are listed in full in the user guide's literature section.
 
 ## The `S_i` machinery: recompute by re-sweep, never retain, never re-SVD
 
@@ -158,6 +163,9 @@ width `nU` (the `U̇` slot), zero-padding singleton blocks.
   family (raise, don't average).
 - **`t3_share_tucker_factors` lives in `backend/t3_svd.py`**, not `sharing.py` (import direction:
   `t3_svd` imports `sharing`).
-- **The regularizer recomputes the companion** on its own `project` calls (2-arg path) — accepted:
-  tiny against a matvec, and the regularizer's base-point tangent has zero Tucker variations
-  (trivially tied), so `point_norm_sq`/`point_tangent` delegate unchanged.
+- **The regularizer used to recompute the companion** on its own `project` calls (2-arg path). That
+  "accepted cost" note was mis-scoped — the recompute was once per CG **matvec**, not once per model
+  — and it is **fixed**: `Regularizer.gradient`/`hessian`/`quadratic` now take `aux=` and the models
+  pass their stored companion through ([`precompute_and_caching.md`](precompute_and_caching.md)).
+  Unaffected either way: the regularizer's base-point tangent has zero Tucker variations (trivially
+  tied), so `point_norm_sq`/`point_tangent` delegate unchanged.

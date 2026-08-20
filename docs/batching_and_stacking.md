@@ -424,8 +424,8 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
 
 ## 11. Transposes, adjoints, and `sum_over_probes`
 
-Every transpose in the library — `probe_transpose`, and the `apply_transpose`/`entries_transpose`
-adjoints on both `T3Tangent` and `TuckerTensorTrain` — takes a `sum_over_probes` flag. This is the one
+Every transpose in the library — `probe_transpose`, and the `apply`/`entries` adjoints on both
+`T3Tangent` and `TuckerTensorTrain` — takes a `sum_over_probes` flag. This is the one
 place where the probe stack `W` does something subtle, so here is the whole story.
 
 ### The mental model
@@ -468,9 +468,10 @@ an output stack; `True` sums `W` away; `K` and `C` always pass through.
 |---|---|---|---|
 | `T3Tangent.probe_transpose` | `ztildes[i]`: `W + K + C + (Nᵢ,)` | tangent stack `W + K`, frame `C` | tangent stack `K`, frame `C` |
 | `T3Tangent.apply_transpose` / `entries_transpose` | `c`: `W + C` | tangent stack `W`, frame `C` | tangent stack `()`, frame `C` |
-| `TuckerTensorTrain.apply_transpose` / `entries_transpose` | `c`: `W + C` | T3 `stack_shape = W + C` | T3 `stack_shape = C` |
+| `TuckerTensorTrain.apply_ambient_transpose` / `entries_ambient_transpose` | `c`: `W + C` | CP factors, stack `W + C` (CP rank 1) | CP factors, stack `C` (`W` becomes the CP rank) |
+| `TuckerTensorTrain.apply_corewise_transpose` / `entries_corewise_transpose` | `c`: `W + C` | core grads, stack `W + C` | core grads, stack `C` |
 
-The `apply`/`entries` adjoints currently take a residual with no `K` block (`K`-stacked residuals are a
-deliberately deferred `probe_transpose`-style extension). Their forward outputs
+The `apply`/`entries` adjoints accept a `K` block in the residual too — it is optional, so a residual
+of shape `W + C` and one of shape `W + K + C` are both valid. Their forward outputs
 are `W + K + C` (tangent) and `W + C` (plain), so the residual-in column is just "the forward output,
 adjoint-mapped back."

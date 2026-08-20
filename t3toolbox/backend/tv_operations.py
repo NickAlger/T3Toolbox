@@ -100,7 +100,7 @@ def tv_orthogonal_gauge_projection(
 
     Changes the represented tangent vector. The result satisfies, for an orthogonal frame,
     ``U_i V_i^T = 0`` (all i) and ``einsum('...abi,...abj->...ij', L_i, H_i) = 0`` (i = 0..d-2).
-    Stack-aware. Ragged path only (uniform deferred).
+    Stack-aware. Uniform twin: :py:func:`~t3toolbox.backend.utv_operations.utv_orthogonal_gauge_projection`.
 
     With ``shared_data`` (the frame's SF-T3 companion,
     :py:func:`~t3toolbox.backend.sharing.fv_shared_frame_data`), the gauge projection is
@@ -157,7 +157,7 @@ def tv_oblique_gauge_projection(
     Generalizes Holtz, Rohwedder & Schneider (2012), "On manifolds of tensors of fixed TT-rank".
     The Tucker perturbation is made perpendicular to U (compensating through the down/outer cores),
     then the TT variations are made left-perpendicular (compensating through the right cores).
-    Stack-aware. Ragged path only (uniform deferred).
+    Stack-aware. Uniform twin: :py:func:`~t3toolbox.backend.utv_operations.utv_oblique_gauge_projection`.
 
     Enforces the gauge conditions (48)-(49), Appendix A.3, of Alger et al. (2026), "Tucker Tensor
     Train Taylor Series" (arXiv:2603.21141).
@@ -350,8 +350,8 @@ def tv_project_t3_onto_tangent_space(
 
     Returns gauged variations representing the orthogonal projection of ``x`` *directly* onto the
     tangent space (a linear subspace); it does not subtract the base point. The frame must be an
-    orthogonal representation (minimal rank is *not* required). Stack-aware. Ragged path only (uniform
-    deferred).
+    orthogonal representation (minimal rank is *not* required). Stack-aware. Uniform twin:
+    :py:func:`~t3toolbox.backend.utv_operations.utv_project_ut3_onto_tangent_space`.
     """
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
     outer_tt_cores = down_tt_cores

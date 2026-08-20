@@ -35,7 +35,7 @@ Two reading rules that make the system trustworthy:
   there is a contract the type system cannot capture. No comment on a trivial scalar means there is
   nothing more to know.
 - **One vocabulary everywhere.** The signature letters, the body-local name suffixes, and the
-  contraction-function names all use the same shape vocabulary — learn it once from the
+  grouped-contraction subscripts all use the same shape vocabulary — learn it once from the
   [batching legend](batching_and_stacking.md) and every signature in the library reads the same way.
 
 (The authoring side of this convention — alignment mechanics, grouping rules, when to deviate — is

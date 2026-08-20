@@ -7,7 +7,7 @@
 %  algpseudocode, booktabs, hyperref, geometry -- all standard).
 %
 %  This note derives, from a single Leibniz rule for Taylor jets, the efficient
-%  sweeping algorithm that the backend module t3toolbox/backend/probe_derivatives.py
+%  sweeping algorithm that the backend module t3toolbox/backend/sampling_derivatives.py
 %  implements. The symmetric-derivative material is NOT part of the published T4S
 %  paper (it was cut long ago); an older, unvetted derivation existed and is
 %  superseded here. Everything below is verified against a dense oracle in
@@ -49,7 +49,7 @@ derivatives of this map --- the derivatives obtained by perturbing every input v
 probing-style sweep that carries an extra Taylor-jet axis. The whole construction follows from one
 Leibniz rule for jets: because each input vector enters affinely, its jet truncates at order one,
 and every quantity built from it is assembled by a binomial convolution of jets. This note records
-the math behind \texttt{t3toolbox/backend/probe\_derivatives.py}. It treats the Euclidean (plain-T3)
+the math behind \texttt{t3toolbox/backend/sampling\_derivatives.py}. It treats the Euclidean (plain-T3)
 and Riemannian (tangent-vector) probing maps, both forward and transpose, the latter by a
 jet-ified adjoint-state Lagrangian. Section~\ref{sec:extensions} sketches the extensions that the code
 also implements: the all-modes special cases (\emph{apply}/\emph{entries}), the full batch stacking
@@ -325,20 +325,22 @@ $r$ and $s$ are summed against $\texttt{trs}$ to produce the output order $t$. T
 the truncated jet algebra of Remark~\ref{rem:algebra}.
 
 \paragraph{Contractions.}
-The implementation (\texttt{t3toolbox/backend/probe\_derivatives.py}) realises each step as a single
-einsum, named by its indices (lowercase $t,r,s$ for the order axes, capital $W$ for the sample stack
-and $C$ for the base stack, as in plain probing):
+The implementation (\texttt{t3toolbox/backend/sampling\_derivatives.py}) realises each step as a
+single grouped einsum, written as a subscript string in the dialect of
+\texttt{backend.contractions.contract} (lowercase $t,r,s$ for the order axes, capital $W$ for the
+sample stack and $C$ for the base stack --- each capital standing for a \emph{group} of zero or more
+axes, as in plain probing):
 \begin{center}
 \begin{tabular}{lll}
 \toprule
 step & contraction & probing analogue \\
 \midrule
 pushthrough \eqref{eq:dmu}/\eqref{eq:dnu}
-  & \texttt{trs\_rWCa\_Caib\_sWCi\_to\_tWCb} & \texttt{WCa\_Caib\_WCi\_to\_WCb} \\
+  & \texttt{'trs,rWCa,Caib,sWCi->tWCb'} & \texttt{'WCa,Caib,WCi->WCb'} \\
 combine \eqref{eq:deta}
-  & \texttt{trs\_rWCa\_Caib\_sWCb\_to\_tWCi} & \texttt{WCa\_Caib\_WCb\_to\_WCi} \\
+  & \texttt{'trs,rWCa,Caib,sWCb->tWCi'} & \texttt{'WCa,Caib,WCb->WCi'} \\
 lift \eqref{eq:dz}
-  & \texttt{tWCi\_Cio\_to\_tWCo} & \texttt{WCi\_Cio\_to\_WCo} \\
+  & \texttt{'tWCi,Cio->tWCo'} & \texttt{'WCi,Cio->WCo'} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -523,7 +525,7 @@ shapes.
 \label{sec:extensions}
 
 The sections above derive probe derivatives, forward and transpose. The code
-(\texttt{probe\_derivatives.py}) also implements the following, each by the same jet calculus; we sketch
+(\texttt{sampling\_derivatives.py}) also implements the following, each by the same jet calculus; we sketch
 the math here and refer to \texttt{dev/archive/derivatives\_mirror\_plan.md} for the build details.
 
 \paragraph{All-modes special cases: \emph{apply} and \emph{entries}.}

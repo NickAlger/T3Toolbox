@@ -162,6 +162,5 @@ pay it on purpose.
   undecided question — don't conflate it with signature cleanup.)
 - Applies to the **frontend** (`TuckerTensorTrain` & friends) too, not only the backend — and to the
   uniform layer (whose `HOST bool, static` mask tags are the motivating case above).
-- The parked weighted layer (`wt3_*`) is not held to this until its post-1.0 revival.
 - The reader-side half of this convention (the decode table users need) is
   [`../reading_signatures.md`](../reading_signatures.md).

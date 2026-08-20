@@ -60,17 +60,20 @@ Per-call expansion removes the flatten and the residue with it — see the shard
   round-trip. Numericalizing the guard (`safety.frames_equal`) let the frame become a pytree
   **leaf**: traced data, compile-once across bases. Full story:
   `dev/archive/safe_unsafe_mode_plan.md`.
-- **`K`-stacked residuals for the `apply`/`entries` adjoints are deliberately deferred** (a
-  `probe_transpose`-style extension; build history: `dev/archive/apply_entries_handoff.md`).
+- **`K`-stacked residuals for the `apply`/`entries` adjoints shipped** (once deferred as a
+  `probe_transpose`-style extension). The adjoint-state transpose takes a residual of shape
+  `W + K + C` (`K` optional) and carries `K` into the variation gradient — see
+  `_apply_transpose_adjoint` in `backend/apply.py`, reused by `tv_entries_transpose_from_sweep`.
+  Build history: `dev/archive/apply_entries_handoff.md`.
 
 ## Test-writing guidance (batching-specific)
 
 - **Tests are RNG-order sensitive** (one global seed at import) — a bug class we hit. New numerical
   tests are numpy-only (jax invocation is covered by `test_dispatch`); see `CLAUDE.md`.
 - **Stacked arrays blow up fast.** In tests keep stack dims 1–2 and core dims small.
-- **The parked weighted layer still threads `use_jax`** (the old pattern) — don't take it as a
-  model for new code. (The uniform layer follows the modern conventions: inferred dispatch,
-  host-numpy masks — see the `uniform_*` notes.)
+- **Everything follows the modern conventions now** — inferred dispatch (no threaded `use_jax`),
+  host-numpy masks; see the `uniform_*` notes. (The old `wt3_*` weighted layer, the last holdout
+  that threaded `use_jax`, was deleted; its shipped replacement infers dispatch like the rest.)
 
 ## Sharding: from "leftmost member only" to "any axis of any group"
 
@@ -132,7 +135,7 @@ solve refuses underdetermined splits unless supplied, and einsum checks every gr
 across operands. What remains uncheckable at runtime is the same as for any einsum: whether the
 string the caller wrote is the contraction they meant — which is what the consumer-level dense
 oracles are for. (This resolved the standing architecture question of
-`dev/OPEN_QUESTION_contractions_architecture.md`, archived 2026-07-17.)
+`dev/archive/OPEN_QUESTION_contractions_architecture_RESOLVED_2026-07-17.md`.)
 
 ### The residue that no longer exists (and the un-rejection that removed it)
 

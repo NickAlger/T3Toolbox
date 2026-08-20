@@ -32,14 +32,17 @@ cross-references.)
 
 ## Deferred (would be built if the need materializes)
 
-- **The bidiagonal-`trs` jet optimization.** The pushthrough/assembly contractions convolve a
-  full-order jet with the input/perturbation jet, which is capped at 2 orders (`s ∈ {0,1}`), so
-  `trs[t,r,s]` is nonzero only at `r ∈ {t, t−1}` — bidiagonal. The code computes these as a dense
-  `(K+1)×(K+1)` einsum (`O(K²)`) where the math is `O(K)`; exploiting it (two slice-contractions)
-  would cut the order-mixing by `~K/2` on those contractions (only the *combine* in probe is a
-  genuine full `O(K²)` convolution). Design-time measurement (W=300, ranks 4): derivative apply
-  forward ~32× the plain op at order 4, transpose ~78×. Deliberately not built: training cost is
-  secondary, `K ≤ d` is small, and it trades away the clean uniform-`trs` abstraction. Source:
+- **The bidiagonal-`trs` jet optimization — deferred, then BUILT; now the standard form.** The
+  pushthrough/assembly contractions convolve a full-order jet with the input/perturbation jet, which
+  is capped at 2 orders (`s ∈ {0,1}`), so `trs[t,r,s]` is nonzero only at `r ∈ {t, t−1}` —
+  bidiagonal, `O(K)` where the dense `(K+1)×(K+1)` einsum is `O(K²)`. Deferred at design time
+  (training cost secondary, `K ≤ d` small); the measurement that motivated it (W=300, ranks 4):
+  derivative apply forward ~32× the plain op at order 4, transpose ~78×. It was built afterwards as
+  the recurrence/scan forms in `backend/sampling_derivatives.py` — `compute_mu_jets` is a fused
+  two-term recurrence with no `trs` operand at all, and the genuinely-full convolutions
+  (`eta`/`deta`/tilde) scan the summed order axis instead. Those are the **defaults** at every call
+  site; the dense binomial forms survive as the `*_trs` reference twins (`compute_mu_jets_trs`,
+  `compute_eta_jets_trs`, …), the oracle in `tests/test_jet_recurrence.py`. Source:
   `dev/archive/derivatives_mirror_plan.md` §"Future-work / perf optimization".
 - **Structured tangent stacks (`K`) — open idea** (Nick, 2026-06-12). When the `K` tangent vectors
   carry special structure — e.g. an orthonormal block within one tangent space `T_x M` — can

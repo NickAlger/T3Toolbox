@@ -564,9 +564,9 @@ def dense_ttsvd(
     Returns
     -------
     typ.Tuple[NDArray,...]
-        TT cores. len=d. elm_shape=(ri, ni, r(i+1))
+        TT cores. len=d, elm_shape=(ri, ni, r(i+1))
     typ.Tuple[NDArray,...]
-        Singular values of unfoldings. len=d+1. elm_shape=(ri,)
+        Singular values of unfoldings. len=d+1, elm_shape=(ri,)
 
     See Also
     --------

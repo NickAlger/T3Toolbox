@@ -131,11 +131,12 @@ no class** (the OO-averse backend user is fully supported):
   the standard jax idiom:
 
   ```python
-  masks = (shape_mask, tucker_edge_mask, tt_edge_mask)        # HOST bool, static
-  dense = jax.jit(lambda tk, tt: ut3_to_dense((tk, tt, masks)))(tucker_sc, tt_sc)
+  shape = (N0, ..., N(d-1))                                   # static int tuple
+  masks = (tucker_edge_mask, tt_edge_mask)                    # HOST bool, static
+  dense = jax.jit(lambda tk, tt: ut3_to_dense((tk, tt, shape, masks)))(tucker_sc, tt_sc)
   ```
 
-  The closed-over numpy masks become compile-time device constants; the supercores are the traced args.
+  The closed-over `shape` and numpy masks become compile-time device constants; the supercores are the traced args.
   (`static_argnums`/`static_argnames` is *not* the route — the masks are arrays, hence unhashable, so
   they can't be marked static without a wrapper; close-over is the clean move.)
 - **Frontend.** If you do use `UniformTuckerTensorTrain`, `jax.jit` over it works with nothing to think
