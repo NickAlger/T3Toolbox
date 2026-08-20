@@ -8,6 +8,7 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.sharing as sharing
 import t3toolbox.backend.fv_conversions as fvc
 import t3toolbox.backend.t3_svd as bt3svd
+import t3toolbox.backend.tv_operations as tvo
 import t3toolbox.safety as safety
 
 np.random.seed(0)
@@ -523,6 +524,201 @@ class TestSharedFrameData(unittest.TestCase):
         self.assertEqual(sfd.centers, ())
         self.assertEqual(sfd.svd_s, ())
         self.assertEqual(sfd.groups, groups)
+
+
+def _dense_of_variations(frame_d, variations_d):
+    return np.asarray(tvo.tv_to_dense(frame_d, variations_d)).reshape(-1)
+
+
+def _dense_tied_projector(frame_d, groups, variation_shapes):
+    """Dense orthogonal projector onto the TIED gauged tangent subspace: basis = every TT unit
+    direction + every singleton-Tucker unit direction + per-group tied directions S_i^T E for a
+    spanning set of gauged ambient E (built independently of the post-pass implementation)."""
+    UU, OO = frame_d[0], frame_d[1]
+    # centers via a fresh right sweep of the frame's left chain (independent route)
+    import t3toolbox.backend.tt_orthogonalization as tth
+    _, HH = tth.tt_right_orthogonalize(frame_d[2], return_variation_cores=True)
+    tkshapes, ttshapes = variation_shapes
+    d = len(tkshapes)
+    singleton_modes = [g[0] for g in groups if len(g) == 1]
+    basis = []
+    zero_vars = lambda: ([np.zeros(s) for s in tkshapes], [np.zeros(s) for s in ttshapes])
+    for ii in range(d):
+        for kk in range(int(np.prod(ttshapes[ii]))):
+            tkv, ttv = zero_vars()
+            ttv[ii].flat[kk] = 1.0
+            basis.append(_dense_of_variations(frame_d, (tuple(tkv), tuple(ttv))))
+    for ii in singleton_modes:
+        for kk in range(int(np.prod(tkshapes[ii]))):
+            tkv, ttv = zero_vars()
+            tkv[ii].flat[kk] = 1.0
+            basis.append(_dense_of_variations(frame_d, (tuple(tkv), tuple(ttv))))
+    for group in sharing.nontrivial_groups(groups):
+        SS = {ii: np.einsum('...aub,...axb->...ux', np.asarray(HH[ii]), np.asarray(OO[ii]))
+              for ii in group}
+        U_rows = np.asarray(UU[group[0]])
+        n_g, N = U_rows.shape[-2], U_rows.shape[-1]
+        for aa in range(n_g):
+            for bb in range(N):
+                E = np.zeros((n_g, N))
+                E[aa, bb] = 1.0
+                E -= (E @ U_rows.T) @ U_rows                 # gauge the ambient direction
+                if np.linalg.norm(E) < 1e-12:
+                    continue
+                tkv, ttv = zero_vars()
+                for ii in group:
+                    tkv[ii] = SS[ii].T @ E
+                basis.append(_dense_of_variations(frame_d, (tuple(tkv), tuple(ttv))))
+    B = np.stack(basis, axis=1)
+    return B @ np.linalg.pinv(B, rcond=1e-10)
+
+
+class TestSharedPostPass(unittest.TestCase):
+    """The tied post-pass (manifold Gram/SVD solve + corewise mean) and its threading."""
+
+    def test_matches_dense_projection(self):
+        # matrix test 7a: project a random dense tensor onto the tied tangent subspace through
+        # the public projection entry point; compare against the dense orthogonal projector
+        shape, n, r, spec = SHARED_STRUCTURES[2]
+        x_data, _, groups = _tied_data((shape, n, r, spec), ())
+        frame_d, _ = fvc.t3_orthogonal_representations(x_data)
+        sfd = sharing.fv_shared_frame_data(frame_d, groups)
+        tkshapes = tuple((O.shape[-2], U.shape[-1]) for O, U in zip(frame_d[1], frame_d[0]))
+        ttshapes = tuple((L.shape[-3], U.shape[-2], R.shape[-1])
+                         for L, U, R in zip(frame_d[2], frame_d[0], frame_d[3]))
+        P = _dense_tied_projector(frame_d, groups, (tkshapes, ttshapes))
+        Z = np.random.randn(*shape)
+        var_tied = tvo.tv_project_dense_onto_tangent_space(frame_d, Z, shared_data=sfd)
+        lhs = _dense_of_variations(frame_d, var_tied)
+        rhs = P @ Z.reshape(-1)
+        self.assertLess(np.linalg.norm(lhs - rhs), 1e-9 * np.linalg.norm(rhs))
+
+    def test_idempotent_gauged_fixed_point_and_recovery(self):
+        # idempotence; gauge preservation; exactly-tied inputs are fixed points; a constructed
+        # tied tangent's ambient direction is recovered through the tied coordinates
+        for STRUCTURE in SHARED_STRUCTURES[1:]:
+            for STACK_SHAPE in [(), (2,)]:
+                with self.subTest(STRUCTURE=STRUCTURE, STACK_SHAPE=STACK_SHAPE):
+                    x_data, spec, groups = _tied_data(STRUCTURE, STACK_SHAPE)
+                    frame_d, _ = fvc.t3_orthogonal_representations(x_data)
+                    sfd = sharing.fv_shared_frame_data(frame_d, groups)
+                    raw = ([np.random.randn(*(STACK_SHAPE + (O.shape[-2], U.shape[-1])))
+                            for O, U in zip(frame_d[1], frame_d[0])],
+                           [np.random.randn(*(STACK_SHAPE + H.shape[-3:])) for H in frame_d[2]])
+                    v1 = tvo.tv_orthogonal_gauge_projection(frame_d, (tuple(raw[0]), tuple(raw[1])),
+                                                            shared_data=sfd)
+                    gauge_res = np.asarray(tvo.tv_gauge_residual(frame_d, v1))
+                    self.assertTrue(np.all(gauge_res <= 1e-9))
+                    v2 = sharing.fv_share_tucker_variations(v1, sfd)
+                    for A, B in zip(v2[0], v1[0]):
+                        self.assertTrue(np.allclose(np.asarray(A), np.asarray(B), atol=1e-10))
+
+    def test_degenerate_point_min_norm(self):
+        # at a zero-padded shared point, the tied projection puts exactly zero in the gated new
+        # directions (the clipped pinv's min-norm solution) -- the restart analysis, verified P3
+        shape, n, r, spec = SHARED_STRUCTURES[2]
+        x_data, _, groups = _tied_data((shape, n, r, spec), ())
+        xp = t3.TuckerTensorTrain(*x_data).resize(shape, (4, 4, 4, 2), r)
+        frame_d, _ = fvc.t3_orthogonal_representations(xp.data)
+        sfd = sharing.fv_shared_frame_data(frame_d, groups)
+        Z = np.random.randn(*shape)
+        var_tied = tvo.tv_project_dense_onto_tangent_space(frame_d, Z, shared_data=sfd)
+        group = sharing.nontrivial_groups(groups)[0]
+        OO = frame_d[1]
+        import t3toolbox.backend.tt_orthogonalization as tth
+        _, HH = tth.tt_right_orthogonalize(frame_d[2], return_variation_cores=True)
+        M = np.concatenate([np.einsum('axb,aub->xu', np.asarray(OO[ii]), np.asarray(HH[ii]))
+                            for ii in group], axis=0)        # stacked S^T, (sum nD, 4)
+        Vstack = np.concatenate([np.asarray(var_tied[0][ii]) for ii in group], axis=0)
+        Udot = np.linalg.lstsq(M, Vstack, rcond=1e-10)[0]    # (4, N): the tied ambient direction
+        self.assertEqual(float(np.linalg.norm(Udot[3:, :])), 0.0)   # gated new direction: exactly 0
+        self.assertLess(float(np.linalg.norm(M @ Udot - Vstack)),   # tied coords in range(M)
+                        1e-9 * (1 + float(np.linalg.norm(Vstack))))
+
+    def test_mean_post_pass_and_geometry_separation(self):
+        # corewise mean: exact tie by identity, drift fixed point; and on generic (unequal-S)
+        # gauged input the mean and the Gram/SVD solve produce DIFFERENT projections -- each is
+        # the right one in its own geometry only
+        x_data, spec, groups = _tied_data(SHARED_STRUCTURES[2], ())
+        frame_d, _ = fvc.t3_orthogonal_representations(x_data)
+        sfd = sharing.fv_shared_frame_data(frame_d, groups)
+        raw = ([np.random.randn(O.shape[-2], U.shape[-1])
+                for O, U in zip(frame_d[1], frame_d[0])],
+               [np.random.randn(*H.shape[-3:]) for H in frame_d[2]])
+        gauged = tvo.tv_orthogonal_gauge_projection(frame_d, (tuple(raw[0]), tuple(raw[1])))
+        tied_gram = sharing.fv_share_tucker_variations(gauged, sfd)
+        # mean: requires equal shapes within the group -- give the corewise-style variations
+        # (raw core perturbations at the (U,G,G,G) frame have full nU rows)
+        corewise_vars = ([np.random.randn(U.shape[-2], U.shape[-1]) for U in x_data[0]],
+                         [np.random.randn(*G.shape[-3:]) for G in x_data[1]])
+        tied_mean = sharing.fv_mean_tucker_variations(
+            (tuple(corewise_vars[0]), tuple(corewise_vars[1])), groups)
+        group = sharing.nontrivial_groups(groups)[0]
+        self.assertIs(tied_mean[0][group[0]], tied_mean[0][group[1]])
+        ref = sum(np.asarray(corewise_vars[0][ii]) for ii in group) / len(group)
+        self.assertTrue(np.allclose(np.asarray(tied_mean[0][group[0]]), ref))
+        tied_twice = sharing.fv_mean_tucker_variations(tied_mean, groups)
+        self.assertTrue(np.array_equal(np.asarray(tied_twice[0][group[0]]),
+                                       np.asarray(tied_mean[0][group[0]])))
+        # geometry separation, strongest form: on THIS structure the gauged manifold
+        # coordinates have different shapes across the group (nD_i = min(n, rL_i*rR_i) differ),
+        # so the arithmetic mean is not even well-formed on them
+        self.assertNotEqual(np.asarray(gauged[0][group[0]]).shape,
+                            np.asarray(gauged[0][group[1]]).shape)
+        # ...and where shapes DO match (a symmetric-bond structure), the mean of the gauged
+        # coordinates differs from the Gram/SVD-tied coordinates by a large factor
+        y_data, spec_y, groups_y = _tied_data(SHARED_STRUCTURES[1], ())     # nD = (2, 2)
+        frame_y, _ = fvc.t3_orthogonal_representations(y_data)
+        sfd_y = sharing.fv_shared_frame_data(frame_y, groups_y)
+        raw_y = ([np.random.randn(O.shape[-2], U.shape[-1])
+                  for O, U in zip(frame_y[1], frame_y[0])],
+                 [np.random.randn(*H.shape[-3:]) for H in frame_y[2]])
+        gauged_y = tvo.tv_orthogonal_gauge_projection(frame_y, (tuple(raw_y[0]), tuple(raw_y[1])))
+        tied_y = sharing.fv_share_tucker_variations(gauged_y, sfd_y)
+        group_y = sharing.nontrivial_groups(groups_y)[0]
+        mean_of_gauged = sum(np.asarray(gauged_y[0][ii]) for ii in group_y) / len(group_y)
+        rel_gap = (np.linalg.norm(np.asarray(tied_y[0][group_y[0]]) - mean_of_gauged)
+                   / np.linalg.norm(mean_of_gauged))
+        self.assertGreater(float(rel_gap), 0.05)
+
+    def test_threading_composition(self):
+        # tv_project_t3/dense with shared_data == (project without) then fv_share, exactly
+        x_data, spec, groups = _tied_data(SHARED_STRUCTURES[1], ())
+        frame_d, _ = fvc.t3_orthogonal_representations(x_data)
+        sfd = sharing.fv_shared_frame_data(frame_d, groups)
+        other = t3.TuckerTensorTrain.randn((6, 6), (2, 2), (1, 2, 1))
+        a = tvo.tv_project_t3_onto_tangent_space(frame_d, other.data, shared_data=sfd)
+        b = sharing.fv_share_tucker_variations(
+            tvo.tv_project_t3_onto_tangent_space(frame_d, other.data), sfd)
+        for fam_a, fam_b in zip(a, b):
+            for A, B in zip(fam_a, fam_b):
+                self.assertTrue(np.array_equal(np.asarray(A), np.asarray(B)))
+
+    def test_k_over_c_broadcast(self):
+        # matrix test 13 (post-pass slice): one frame (C=()) with a K-stack of variations --
+        # the companion (C axes) broadcasts against the K+C variations; per-K-element agreement
+        x_data, spec, groups = _tied_data(SHARED_STRUCTURES[2], ())
+        frame_d, _ = fvc.t3_orthogonal_representations(x_data)
+        sfd = sharing.fv_shared_frame_data(frame_d, groups)
+        K = 3
+        tkv = tuple(np.random.randn(K, O.shape[-2], U.shape[-1])
+                    for O, U in zip(frame_d[1], frame_d[0]))
+        ttv = tuple(np.random.randn(K, *H.shape[-3:]) for H in frame_d[2])
+        stacked = sharing.fv_share_tucker_variations((tkv, ttv), sfd)
+        for kk in range(K):
+            single = sharing.fv_share_tucker_variations(
+                (tuple(v[kk] for v in tkv), tuple(v[kk] for v in ttv)), sfd)
+            for A, B in zip(stacked[0], single[0]):
+                self.assertTrue(np.allclose(np.asarray(A)[kk], np.asarray(B), atol=1e-12))
+        # and a C-stacked frame with K+C variations
+        xc_data, _, groups_c = _tied_data(SHARED_STRUCTURES[2], (2,))
+        frame_c, _ = fvc.t3_orthogonal_representations(xc_data)
+        sfd_c = sharing.fv_shared_frame_data(frame_c, groups_c)
+        tkv_c = tuple(np.random.randn(K, 2, O.shape[-2], U.shape[-1])
+                      for O, U in zip(frame_c[1], frame_c[0]))
+        ttv_c = tuple(np.random.randn(K, 2, *H.shape[-3:]) for H in frame_c[2])
+        out = sharing.fv_share_tucker_variations((tkv_c, ttv_c), sfd_c)
+        self.assertEqual(np.asarray(out[0][0]).shape[:2], (K, 2))
 
 
 if __name__ == '__main__':

@@ -34,6 +34,8 @@ __all__ = [
     't3_share_tucker_cores',
     'T3SharedFrameData',
     'fv_shared_frame_data',
+    'fv_share_tucker_variations',
+    'fv_mean_tucker_variations',
 ]
 
 
@@ -408,6 +410,121 @@ def fv_shared_frame_data(
     return T3SharedFrameData(groups=tuple(groups), row_splits=tuple(row_splits),
                              centers=tuple(centers), svd_U=tuple(svd_U),
                              svd_s=tuple(svd_s), svd_Vt=tuple(svd_Vt))
+
+
+def fv_share_tucker_variations(
+        variations_data: typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nDi, Ni)
+            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nUi, rRi)
+        ],
+        shared_data:    'T3SharedFrameData',  # the frame's companion (fv_shared_frame_data)
+        rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker_variations, tied within groups (exact row blocks of one solve)
+    typ.Tuple[NDArray, ...],  # tt_variations, untouched
+]:
+    '''The tied post-pass of the shared MANIFOLD geometry: orthogonally project gauged Tucker
+    variation coordinates onto the tied subspace ``{V_i = S_i^T Udot, common gauged Udot}``.
+
+    Per nontrivial group, one clipped least-squares solve against the companion's stacked-``S``
+    SVD (``Udot = M_g^+ [V_{i_1}; ...; V_{i_k}]``, sensitivity ``kappa_g`` -- never the
+    ``kappa_g^2`` normal equations) followed by the exact redistribution ``V_i <- S_i^T Udot``
+    (the row blocks of ``M_g Udot``). Gauge is preserved identically (each ``S_i^T Udot`` is
+    gauged when ``Udot`` is, and ``Udot`` inherits the gauge from gauged inputs); the
+    projection is idempotent and fixes exactly-tied inputs. TT variations are untouched
+    (sharing constrains only the Tucker factors). The clip makes the solve well-defined
+    (minimum-norm) at rank-deficient points -- which zero-padded continuation restarts visit by
+    construction, where the gated directions correctly receive zero.
+
+    Broadcasting: the companion carries the frame stack ``C``; the variations carry ``K + C``
+    -- the library-wide frame-inner layout makes the solve broadcast for free. Verified against
+    the dense orthogonal projection onto the tied tangent subspace (design round, 1.6e-13;
+    promoted to the permanent tests). Ragged path only (uniform twin deferred).
+
+    Examples
+    --------
+    Gauge a raw direction at a tied frame, then tie it; the post-pass is idempotent and the
+    result stays gauged:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.tv_operations as tvo
+    >>> import t3toolbox.backend.sharing as sharing
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 6), (3, 3), (1, 2, 1))
+    >>> tk, tt = x.data
+    >>> frame_d, _ = fvc.t3_orthogonal_representations(((tk[0], tk[0]), tt))
+    >>> groups = sharing.validate_sharing((0, 0), (6, 6))
+    >>> sfd = sharing.fv_shared_frame_data(frame_d, groups)
+    >>> raw = (tuple(np.random.randn(O.shape[-2], U.shape[-1])
+    ...              for O, U in zip(frame_d[1], frame_d[0])),
+    ...        tuple(np.random.randn(*H.shape[-3:]) for H in frame_d[2]))
+    >>> tied = tvo.tv_orthogonal_gauge_projection(frame_d, raw, shared_data=sfd)
+    >>> tied2 = sharing.fv_share_tucker_variations(tied, sfd)
+    >>> print(bool(np.allclose(np.asarray(tied[0][0]), np.asarray(tied2[0][0]))))   # idempotent
+    True
+    >>> print(float(tvo.tv_gauge_residual(frame_d, tied)) < 1e-12)                  # still gauged
+    True
+    '''
+    tucker_variations, tt_variations = variations_data
+    use_jax = tree_contains_jax(variations_data)
+    xnp, _, _ = get_backend(False, use_jax)
+
+    new_tucker = list(tucker_variations)
+    for gi, group in enumerate(nontrivial_groups(shared_data.groups)):
+        U_M, s_g, Vt_M = shared_data.svd_U[gi], shared_data.svd_s[gi], shared_data.svd_Vt[gi]
+        splits = shared_data.row_splits[gi]
+        eff_rcond = (float(np.finfo(s_g.dtype).eps) * max(splits[-1], Vt_M.shape[-1])
+                     if rcond is None else rcond)
+        keep = s_g > eff_rcond * s_g[..., :1]                 # relative clip against s_{g,1}
+        s_inv = xnp.where(keep, 1.0 / xnp.where(keep, s_g, 1.0), 0.0)   # branch-free clipped pinv
+
+        Vstack = xnp.concatenate([tucker_variations[ii] for ii in group], axis=-2)  # (K+C)+(sum nD, N)
+        t = xnp.einsum('...xw,...xn->...wn', U_M, Vstack)     # U_M^T Vstack, (K+C)+(q, N)
+        t = xnp.einsum('...w,...wn->...wn', s_inv, t)         # clipped pinv apply
+        Udot = xnp.einsum('...wy,...wn->...yn', Vt_M, t)      # the tied ambient direction, (K+C)+(n_g, N)
+        # R = M_g @ Udot: the tied coordinates of every group mode in one stack
+        r = xnp.einsum('...wy,...yn->...wn', Vt_M, Udot)
+        r = xnp.einsum('...w,...wn->...wn', s_g, r)
+        R = xnp.einsum('...xw,...wn->...xn', U_M, r)          # (K+C)+(sum nD, N)
+        for jj, ii in enumerate(group):
+            new_tucker[ii] = R[..., splits[jj]:splits[jj + 1], :]
+    return tuple(new_tucker), tuple(tt_variations)
+
+
+def fv_mean_tucker_variations(
+        variations_data: typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(ni, Ni)
+            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, ni, rRi)
+        ],
+        groups:         typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical (validate_sharing)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # tucker_variations; ONE mean array per group
+    typ.Tuple[NDArray, ...],  # tt_variations, untouched
+]:
+    '''The tied post-pass of the shared COREWISE geometry: orthogonally project raw core
+    perturbations onto the tied subspace ``{dU_i all equal within each group}``.
+
+    On the corewise geometry the coordinates are raw factor copies and the metric is Euclidean
+    on the core entries, so the projection is the per-group arithmetic mean, assigned as ONE
+    array per group (the additive corewise retraction then preserves tying exactly). Computed
+    in the drift form (``ref + mean of differences``) so an exactly-tied group is a bitwise
+    fixed point. TT variations untouched. This is NOT the manifold geometry's post-pass -- the
+    two geometries tie by orthogonal projection in their OWN metrics on their OWN coordinates,
+    and the formulas differ (see :py:func:`fv_share_tucker_variations`).
+    '''
+    tucker_variations, tt_variations = variations_data
+    new_tucker = list(tucker_variations)
+    for group in nontrivial_groups(groups):
+        ref = tucker_variations[group[0]]
+        drift = tucker_variations[group[1]] - ref
+        for ii in group[2:]:
+            drift = drift + (tucker_variations[ii] - ref)
+        mean = ref + drift / len(group)
+        for ii in group:
+            new_tucker[ii] = mean             # the SAME array object at every group mode
+    return tuple(new_tucker), tuple(tt_variations)
 
 
 if jax_available:

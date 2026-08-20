@@ -21,6 +21,7 @@ import t3toolbox.backend.fv_conversions as fv_conversions
 import t3toolbox.backend.t3_operations as ragged_operations
 import t3toolbox.backend.ut3_operations as uniform_operations
 import t3toolbox.backend.t3_svd as ragged_t3svd
+import t3toolbox.backend.sharing as sharing_module
 import t3toolbox.backend.stacking as stacking
 from t3toolbox.backend.common import *
 from t3toolbox.backend.tt_operations import tt_reverse, tt_zipper_left_to_right, tt_zipper_right_to_left
@@ -90,6 +91,7 @@ def tv_orthogonal_gauge_projection(
             typ.Sequence[NDArray],  # tucker_variations
             typ.Sequence[NDArray],  # tt_variations
         ],
+        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied post-pass (SF-T3)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # gauged_tucker_variations
     typ.Tuple[NDArray, ...],  # gauged_tt_variations
@@ -99,6 +101,13 @@ def tv_orthogonal_gauge_projection(
     Changes the represented tangent vector. The result satisfies, for an orthogonal frame,
     ``U_i V_i^T = 0`` (all i) and ``einsum('...abi,...abj->...ij', L_i, H_i) = 0`` (i = 0..d-2).
     Stack-aware. Ragged path only (uniform deferred).
+
+    With ``shared_data`` (the frame's SF-T3 companion,
+    :py:func:`~t3toolbox.backend.sharing.fv_shared_frame_data`), the gauge projection is
+    followed by the tied post-pass
+    (:py:func:`~t3toolbox.backend.sharing.fv_share_tucker_variations`) -- the composition is
+    the orthogonal projection onto the TIED gauged tangent subspace, since the tied subspace is
+    contained in the gauged one. Default ``None``: unchanged behavior.
 
     Gauge conditions (48)-(49), Appendix A.3, of Alger et al. (2026), "Tucker Tensor Train
     Taylor Series" (arXiv:2603.21141).
@@ -122,7 +131,10 @@ def tv_orthogonal_gauge_projection(
         parallel = xnp.einsum('...jk,...ko->...jo', xnp.einsum('...jo,...ko->...jk', dB, U), U)
         new_tucker_variations.append(dB - parallel)
 
-    return tuple(new_tucker_variations), tuple(new_tt_variations)
+    gauged = (tuple(new_tucker_variations), tuple(new_tt_variations))
+    if shared_data is not None:
+        gauged = sharing_module.fv_share_tucker_variations(gauged, shared_data)
+    return gauged
 
 
 def tv_oblique_gauge_projection(
@@ -301,6 +313,7 @@ def tv_project_t3_onto_tangent_space(
             typ.Sequence[NDArray],  # tucker_cores
             typ.Sequence[NDArray],  # tt_cores
         ],
+        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied post-pass (SF-T3)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # gauged tucker_variations
     typ.Tuple[NDArray, ...],  # gauged tt_variations
@@ -348,7 +361,7 @@ def tv_project_t3_onto_tangent_space(
     )
 
     return tv_orthogonal_gauge_projection(
-        frame, (ungauged_tucker_variations, ungauged_tt_variations),
+        frame, (ungauged_tucker_variations, ungauged_tt_variations), shared_data=shared_data,
     )
 
 
@@ -360,6 +373,7 @@ def tv_project_dense_onto_tangent_space(
             typ.Sequence[NDArray],  # right_tt_cores
         ],
         Z:      NDArray,  # dense ambient tensor. shape = stack_shape + (N0, ..., N(d-1))
+        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied post-pass (SF-T3)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # gauged tucker_variations
     typ.Tuple[NDArray, ...],  # gauged tt_variations
@@ -428,6 +442,7 @@ def tv_project_dense_onto_tangent_space(
 
     return tv_orthogonal_gauge_projection(
         frame, (tuple(ungauged_tucker_variations), tuple(ungauged_tt_variations)),
+        shared_data=shared_data,
     )
 
 

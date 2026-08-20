@@ -357,6 +357,13 @@ class TestDispatch(unittest.TestCase):
             frame, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain((a, a), (g0, g1)))
             return bsharing.fv_shared_frame_data(frame.data, ((0, 1),))
         self.assert_jit_jax(_shared_frame_data, stk[0], stt[0], stt[1])
+        # the tied post-pass through the threaded gauge projection (clip-pinv solve, all einsums)
+        def _tied_projection(a, g0, g1, z):
+            frame, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain((a, a), (g0, g1)))
+            sfd = bsharing.fv_shared_frame_data(frame.data, ((0, 1),))
+            return tops.tv_project_dense_onto_tangent_space(frame.data, z, shared_data=sfd)
+        self.assert_jit_jax(_tied_projection, stk[0], stt[0], stt[1],
+                            jnp.asarray(np.random.randn(6, 6)))
 
     # ---------------------------------------------------- jit bucket: Gauss-Newton fitting (fitting.py)
     def test_jit_fitting(self):
