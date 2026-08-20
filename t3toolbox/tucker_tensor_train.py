@@ -1171,7 +1171,7 @@ class TuckerTensorTrain:
             safety.require(bool((residual <= atol_check).all()),
                            'resize(sharing=...) requires the Tucker factors to be tied within each '
                            'sharing group (the resized group factor is ONE shared array). Tie them '
-                           'first (backend.sharing.t3_share_tucker_cores), or run in unsafe mode '
+                           'first (backend.sharing.t3_tie_tucker_factors), or run in unsafe mode '
                            '(safety.unsafe()).')
 
         new_tucker_cores = ragged_operations.tucker_change_core_shapes(tucker_cores, new_shape, new_tucker_ranks)
@@ -1179,7 +1179,7 @@ class TuckerTensorTrain:
 
         if sharing is not None:
             # exact on tied input (drift-form mean returns the reference bitwise); ONE array per group
-            new_tucker_cores, new_tt_cores = backend_sharing.t3_share_tucker_cores(
+            new_tucker_cores, new_tt_cores = backend_sharing.t3_tie_tucker_factors(
                 (tuple(new_tucker_cores), tuple(new_tt_cores)), sharing)
 
         return TuckerTensorTrain(tuple(new_tucker_cores), tuple(new_tt_cores))
@@ -4210,7 +4210,7 @@ class TuckerTensorTrain:
         singular values of the concatenated matricization ``[T_(i1) | ... | T_(ik)]`` -- the
         shared factor's analog of a per-mode Tucker spectrum (its Jacobian spectrum; note
         ``sum(s_g**2) = k * ||T||**2``, so it is ``sqrt(k)``-inflated relative to a single mode --
-        see :py:class:`~t3toolbox.backend.sharing.T3SharedFrameData`):
+        see :py:class:`~t3toolbox.backend.sharing.SharedFrameData`):
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
@@ -4230,7 +4230,7 @@ class TuckerTensorTrain:
         (2, 2, 2) True
 
         Untied factors with ``sharing`` raise in safe mode (grouped truncation assumes one basis
-        per group -- tie first, e.g. ``backend.sharing.t3_share_tucker_cores``, or run inside
+        per group -- tie first, e.g. ``backend.sharing.t3_tie_tucker_factors``, or run inside
         ``safety.unsafe()``):
 
         >>> x_untied = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
@@ -4251,7 +4251,7 @@ class TuckerTensorTrain:
             safety.require(bool((residual <= atol_check).all()),
                            't3svd(sharing=...) requires the Tucker factors to be tied within each '
                            'sharing group (grouped truncation picks ONE basis per group). Tie them '
-                           'first (backend.sharing.t3_share_tucker_cores), or run in unsafe mode '
+                           'first (backend.sharing.t3_tie_tucker_factors), or run in unsafe mode '
                            '(safety.unsafe()).')
 
         result = ragged_t3svd.t3svd(
@@ -4517,7 +4517,7 @@ class TuckerTensorTrain:
             safety.require(bool((residual <= atol_check).all()),
                            'rank_adjustment_sweep(sharing=...) requires the Tucker factors to be '
                            'tied within each sharing group. Tie them first '
-                           '(backend.sharing.t3_share_tucker_cores), or run in unsafe mode '
+                           '(backend.sharing.t3_tie_tucker_factors), or run in unsafe mode '
                            '(safety.unsafe()).')
         return TuckerTensorTrain(*ragged_t3svd.t3_rank_adjustment_sweep(self.data, direction,
                                                                         sharing=sharing))
@@ -4720,7 +4720,7 @@ class T3Weights:
         T3 keeps it tied (Tucker weights scale the factors; equal group weights scale a shared
         factor identically). TT-bond weights are unconstrained (they never touch the factors).
 
-        Non-enforcing checker (see :py:func:`~t3toolbox.backend.sharing.t3_weights_sharing_residual`):
+        Non-enforcing checker (see :py:func:`~t3toolbox.backend.sharing.t3_tucker_weights_sharing_residual`):
         absorbing group-unequal weights is legitimate -- it just unties the result. Weights built
         from the grouped T3-SVD (``from_t3svd(x, sharing=...)``) are group-equal by construction,
         and ``reciprocal``/``sqrt``/``concatenate``/``kronecker`` preserve group-equality.
@@ -4743,7 +4743,7 @@ class T3Weights:
         >>> print(bool(np.all(xa.has_shared_tucker_factors((0, 0, 1))))) # ... keep the T3 tied
         True
         """
-        return backend_sharing.t3_weights_shared(self.data, sharing, rtol=rtol)
+        return backend_sharing.t3_tucker_weights_shared(self.data, sharing, rtol=rtol)
 
     def reciprocal(self) -> 'T3Weights':
         """Elementwise ``1/w`` on every edge (e.g. to form inverse-singular-value weights)."""

@@ -95,14 +95,14 @@ branch can be deleted (optional).
   TT channel — full shared rank is a diagnostic, never a precondition).
   **Built so far (one commit per slice; `tests/test_sharing.py` = the suite):**
   0'. the `squash_tails` shadowing bugfix; 1. `backend/sharing.py` (partition validation +
-  tied-factors checkers + mean point-repair); 2. `T3SharedFrameData` + `fv_shared_frame_data`
+  tied-factors checkers + mean point-repair); 2. `SharedFrameData` + `fv_shared_frame_data`
   (re-sweep + stacked-S SVD companion) + the permanent invariant tests; 3. grouped
   `t3svd(sharing=)` (two-phase) + `t3_rank_adjustment_sweep(sharing=)` + frontend threading with
   safe-mode tied checks (a math-note erratum found by test: the group truncation error is
   BOUNDED by the s_g tail, not equal); 4. `t3_share_tucker_factors` + `x.share(...)` (the exact
   common-span rewrite + grouped rounding; the tex's pre-truncation recorded as optional);
   5. the tied post-pass, both geometries (`fv_share_tucker_variations` clip-SVD solve /
-  `fv_mean_tucker_variations`) + `shared_data=` threading through the three tv_ projections;
+  `fv_share_tucker_variations_corewise`) + `shared_data=` threading through the three tv_ projections;
   6. `GeometryOps.precompute` protocol extension (breaking; all geometries take `aux=None`) +
   backend `shared_geometry_ops` + the TIED doubled-rank embedding (`tv_to_t3`/`tv_retract`
   `shared_data=`) + frontend `t3toolbox/shared_geometry.py` (`SharedGeometry`, `shared`,

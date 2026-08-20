@@ -200,7 +200,7 @@ uniform adds to variation add/sub ([`../uniform_masks_vs_ranks.md`](../uniform_m
 
 ## Placement notes (both forced, not preference)
 
-- **`utv_weighted_norm` / `utv_weighted_inner` live in `utv_operations`**, not beside
+- **`ufv_weighted_norm` / `ufv_weighted_inner` live in `utv_operations`**, not beside
   `ufv_absorb_weights` as their ragged twins do (`fv_weighted_norm` is in `fv_operations`). They need
   `utv_corewise_inner`, and `utv_operations` already imports `ufv_operations` — the ragged placement
   would be a circular import. Ragged has no such constraint: its `fv_` layer reaches a standalone

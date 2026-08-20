@@ -232,7 +232,7 @@ class GaussNewtonModel:
                                    # carried across a jit boundary and reused, not recomputed per matvec
 
     regularizer: typ.Any = None    # optional backend.regularization.Regularizer; ρ folded into obj/grad/hessian/quadratic/evaluate
-    geometry_aux: typ.Any = None   # per-frame geometry companion (e.g. the SF-T3 T3SharedFrameData); a jax LEAF
+    geometry_aux: typ.Any = None   # per-frame geometry companion (e.g. the SF-T3 SharedFrameData); a jax LEAF
 
     def _project(self, v: t3m.T3Tangent) -> t3m.T3Tangent:   # Π with the once-per-model companion
         if self.geometry_aux is not None:
@@ -388,7 +388,7 @@ class UniformGaussNewtonModel:
     sweep:     typ.Any               # = kind.precompute(frame.data, sample); a leaf (carried across a jit boundary)
 
     regularizer: typ.Any = None      # optional backend.regularization.Regularizer; ρ folded into obj/grad/hessian/quadratic/evaluate
-    geometry_aux: typ.Any = None     # per-frame geometry companion (the SF-T3 T3SharedFrameData); a jax LEAF
+    geometry_aux: typ.Any = None     # per-frame geometry companion (the SF-T3 SharedFrameData); a jax LEAF
 
     def _project(self, v: 'ut3m.UT3Tangent') -> 'ut3m.UT3Tangent':   # Π with the once-per-model companion
         if self.geometry_aux is not None:
@@ -497,7 +497,7 @@ def _ragged_frame(geometry, x: t3.TuckerTensorTrain) -> bvf.T3Frame:
 def _ragged_geometry_aux(geometry, frame):
     '''The once-per-model geometry companion (SharedGeometry's precompute hook; None otherwise).'''
     if isinstance(geometry, sg.SharedGeometry):
-        return geometry.precompute_aux(frame)
+        return geometry.precompute(frame)
     return None
 
 
@@ -538,7 +538,7 @@ def _uniform_model(
                          "shared_geometry.SharedGeometry over one).")
     N = x.N
     frame = geometry.frame(x)                              # UT3Frame (a SharedGeometry checks tied factors)
-    geometry_aux = (geometry.precompute_aux(frame)         # the once-per-model SF-T3 companion (or None)
+    geometry_aux = (geometry.precompute(frame)         # the once-per-model SF-T3 companion (or None)
                     if isinstance(geometry, sg.SharedGeometry) else None)
     weight_t = _hashable_weight(weight)                   # nested-tuple ω[m,o] (hashable jit aux)
     packed_sample = ufit.pack_sample(kind_name, sample, N)

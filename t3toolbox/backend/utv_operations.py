@@ -45,8 +45,8 @@ __all__ = [
     'utv_unstack_frame_stack',
     'utv_stack_frame_stack',
     'utv_sum_tangent_stack',
-    'utv_weighted_norm',
-    'utv_weighted_inner',
+    'ufv_weighted_norm',
+    'ufv_weighted_inner',
 ]
 
 
@@ -177,7 +177,7 @@ def utv_to_ut3(
         frame_data,       # UT3Frame .data:      (up, down, left, right, shape, (4 masks)),  supercore stack = C
         variations_data,  # UT3Variations .data: (tkv, ttv, shape, (4 masks)),               supercore stack = K + C
         include_shift: bool = False,  # False: tangent vector v. True: base point + v.
-        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied embedding (SF-T3)
+        shared_data: typ.Optional['sharing_module.SharedFrameData'] = None,  # tied embedding (SF-T3)
 ):  # -> doubled-rank UniformTuckerTensorTrain .data: (tucker_supercore, tt_supercore, shape, (tucker_mask, tt_mask))
     """Doubled-rank uniform Tucker tensor train representing a uniform frame-variations tangent vector.
 
@@ -317,7 +317,7 @@ def utv_to_ut3(
 def utv_retract(
         frame_data,       # UT3Frame .data:      supercore stack = C
         variations_data,  # UT3Variations .data: supercore stack = K + C
-        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied retraction (SF-T3)
+        shared_data: typ.Optional['sharing_module.SharedFrameData'] = None,  # tied retraction (SF-T3)
 ):  # -> retracted UniformTuckerTensorTrain .data (at the BASE point's ranks; stack = K + C)
     """Retract a uniform frame-variations tangent vector onto the fixed-rank manifold.
 
@@ -427,7 +427,7 @@ def utv_corewise_inner(
 def utv_orthogonal_gauge_projection(
         frame_data,       # UT3Frame .data
         variations_data,  # UT3Variations .data
-        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied post-pass (SF-T3)
+        shared_data: typ.Optional['sharing_module.SharedFrameData'] = None,  # tied post-pass (SF-T3)
 ):  # -> gauged variations .data (same masks; the tangent VECTOR changes)
     """Orthogonally project the variations onto the gauge-satisfying subspace (the uniform mirror of
     :py:func:`tv_operations.tv_orthogonal_gauge_projection`). Removes the component of each Tucker
@@ -568,7 +568,7 @@ def utv_project_ut3_onto_tangent_space(
     return utv_orthogonal_gauge_projection(frame_data, (dB, dG, shape, gauge_masks))
 
 
-def utv_weighted_norm(
+def ufv_weighted_norm(
         variations: typ.Tuple,  # UT3Variations .data: (tkv, ttv, shape, masks), stack = K + C
         weights:    typ.Tuple,  # UT3FrameWeights .data: (up, down, left, right, masks), stack = C
         n_stack:    int,        # leading K+C stack axes to keep; 0 -> a single scalar
@@ -585,17 +585,21 @@ def utv_weighted_norm(
     padding is zeroed where the sum happens. **Precondition:** the weight's masks (broadcast over ``K``)
     must equal the variations' -- ``ufv_weights_consistent``; the frontend enforces it.
 
-    Lives here, not in ``ufv_operations`` beside ``ufv_absorb_weights``, because the corewise reduction it
-    needs is ``utv_corewise_inner`` and ``utv_operations`` already imports ``ufv_operations`` -- the other
-    placement would be a circular import. (Ragged has no such constraint: its ``fv_weighted_norm`` reaches
-    a standalone ``corewise`` module.)
+    **Named for its operand, placed for its imports.** The prefix is ``ufv_`` because the operands are
+    variations + weights with no frame (the ``fv`` family), matching the ragged twin ``fv_weighted_norm``
+    so the pair is findable by name. It nonetheless *lives* in ``utv_operations`` beside its siblings,
+    because the corewise reduction it needs is ``utv_corewise_inner`` and ``utv_operations`` already
+    imports ``ufv_operations`` -- the other placement would be a circular import. A module hosting more
+    than one family is not unusual here (``backend/sharing.py`` hosts four); the prefix tracks the data,
+    not the file. (Ragged has no such constraint: its ``fv_weighted_norm`` reaches a standalone
+    ``corewise`` module.)
     """
     weighted = ufv_operations.ufv_absorb_weights(variations, weights)
     xnp, _, _ = get_backend(True, tree_contains_jax(weighted[:2]))
     return xnp.sqrt(xnp.abs(utv_corewise_inner(weighted, weighted, n_stack)))
 
 
-def utv_weighted_inner(
+def ufv_weighted_inner(
         variations_a: typ.Tuple,  # UT3Variations .data of A, stack = K + C
         variations_b: typ.Tuple,  # UT3Variations .data of B, stack = K + C (same frame as A)
         weights:      typ.Tuple,  # ONE metric: UT3FrameWeights .data, stack = C

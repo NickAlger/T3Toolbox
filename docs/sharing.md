@@ -237,7 +237,7 @@ transparently (`uniform_minimal(x0, sharing=…)`) — the per-mode reduction wo
   scale the factors; TT-bond weights never touch them) — checkable with
   `T3Weights.has_shared_tucker_weights(sharing)` (+ the `UT3Weights` twin), non-enforcing: absorbing
   group-unequal weights is legitimate, it just unties the result (repair with
-  `t3_share_tucker_cores` or re-enter with `share`). `from_t3svd(x, sharing=…)` builds group-equal
+  `t3_tie_tucker_factors` or re-enter with `share`). `from_t3svd(x, sharing=…)` builds group-equal
   weights by construction (the group spectrum at every group mode — `√k`-inflated relative to
   per-mode spectra, a per-group constant that cancels within each group's reciprocal ratios), and
   `reciprocal`/`sqrt`/`concatenate`/`kronecker` all preserve group-equality. What remains deferred is

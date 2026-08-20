@@ -1122,7 +1122,7 @@ class UT3Weights:
         >>> print(bool(ut3.UT3Weights.from_ut3svd(uxs).has_shared_tucker_weights((0, 0, 1))))
         False
         """
-        return backend_sharing.ut3_weights_shared(self.data, sharing, rtol=rtol)
+        return backend_sharing.ut3_tucker_weights_shared(self.data, sharing, rtol=rtol)
 
     def reciprocal(self) -> 'UT3Weights':
         """Elementwise ``1/w`` on the real slots (e.g. to form inverse-singular-value weights); the

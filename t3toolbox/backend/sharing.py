@@ -7,10 +7,10 @@ per-frame companion.
 
 ``validate_sharing`` canonicalizes a per-mode label spec into the static ``groups`` form;
 ``t3_sharing_residual`` / ``t3_tucker_factors_shared`` are the non-enforcing tied-factors
-checkers (the safe-mode precondition behind the shared operations); ``t3_share_tucker_cores``
+checkers (the safe-mode precondition behind the shared operations); ``t3_tie_tucker_factors``
 is the plain per-group mean (drift repair for nearly-tied POINTS -- never the metric
 projection of a tangent, which is geometry-specific and lives with the shared geometry).
-``fv_shared_frame_data`` derives the :py:class:`T3SharedFrameData` companion from an
+``fv_shared_frame_data`` derives the :py:class:`SharedFrameData` companion from an
 orthogonal frame -- the per-group center cores and the thin SVD of the stacked ``S`` factors
 that the shared geometry's projection, retraction, and spectrum diagnostics consume.
 
@@ -37,24 +37,24 @@ __all__ = [
     'groups_to_labels',
     't3_sharing_residual',
     't3_tucker_factors_shared',
-    't3_share_tucker_cores',
-    'ut3_share_tucker_cores',
-    'T3SharedFrameData',
+    't3_tie_tucker_factors',
+    'ut3_tie_tucker_factors',
+    'SharedFrameData',
     'fv_shared_frame_data',
     'fv_share_tucker_variations',
-    'fv_mean_tucker_variations',
+    'fv_share_tucker_variations_corewise',
     'fv_tied_variations_residual',
     'fv_tied_ambient_directions',
     'ut3_sharing_residual',
     'ut3_tucker_factors_shared',
     'ufv_shared_frame_data',
     'ufv_share_tucker_variations',
-    'ufv_mean_tucker_variations',
+    'ufv_share_tucker_variations_corewise',
     'ufv_tied_variations_residual',
-    't3_weights_sharing_residual',
-    't3_weights_shared',
-    'ut3_weights_sharing_residual',
-    'ut3_weights_shared',
+    't3_tucker_weights_sharing_residual',
+    't3_tucker_weights_shared',
+    'ut3_tucker_weights_sharing_residual',
+    'ut3_tucker_weights_shared',
 ]
 
 
@@ -277,7 +277,7 @@ def t3_tucker_factors_shared(
     return t3_sharing_residual(x, sharing) <= rtol
 
 
-def t3_share_tucker_cores(
+def t3_tie_tucker_factors(
         x:          typ.Tuple[
             typ.Sequence[NDArray],  # tucker_cores. len=d, elm_shape=stack_shape+(ni, Ni)
             typ.Sequence[NDArray],  # tt_cores.     len=d, elm_shape=stack_shape+(ri, ni, r(i+1))
@@ -313,7 +313,7 @@ def t3_share_tucker_cores(
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
     >>> tk, tt = x.data
-    >>> tk2, tt2 = sharing.t3_share_tucker_cores(x.data, (0, 0, 1))
+    >>> tk2, tt2 = sharing.t3_tie_tucker_factors(x.data, (0, 0, 1))
     >>> print(tk2[0] is tk2[1], tt2 is tt)
     True True
     >>> print(bool(np.allclose(np.asarray(tk2[0]), (np.asarray(tk[0]) + np.asarray(tk[1])) / 2)))
@@ -323,7 +323,7 @@ def t3_share_tucker_cores(
 
     Already-tied input comes back with unchanged factor values:
 
-    >>> tk3, _ = sharing.t3_share_tucker_cores(((tk[0], tk[0], tk[2]), tt), (0, 0, 1))
+    >>> tk3, _ = sharing.t3_tie_tucker_factors(((tk[0], tk[0], tk[2]), tt), (0, 0, 1))
     >>> print(bool(np.array_equal(np.asarray(tk3[0]), np.asarray(tk[0]))))
     True
     '''
@@ -349,7 +349,7 @@ def t3_share_tucker_cores(
     return tuple(new_tucker_cores), tuple(tt_cores)
 
 
-def ut3_share_tucker_cores(
+def ut3_tie_tucker_factors(
         data:       typ.Tuple[
             NDArray,             # tucker_supercore, shape=(d,)+stack+(n,N)
             NDArray,             # tt_supercore,     shape=(d,)+stack+(r,n,r)
@@ -363,7 +363,7 @@ def ut3_share_tucker_cores(
     typ.Sequence[int],              # shape, untouched
     typ.Tuple[NDArray, NDArray],    # masks, untouched (the tie changes values, never ranks)
 ]:
-    '''The uniform twin of :py:func:`t3_share_tucker_cores`: tie the Tucker factors exactly, by
+    '''The uniform twin of :py:func:`t3_tie_tucker_factors`: tie the Tucker factors exactly, by
     per-group arithmetic averaging of the supercore slices.
 
     Use this to repair **numerical drift** away from equal factors without round-tripping through the
@@ -392,7 +392,7 @@ def ut3_share_tucker_cores(
     >>> u = ut3.UniformTuckerTensorTrain.from_t3(x)                      # untied
     >>> print(bool(sharing.ut3_sharing_residual(u.data, (0, 0, 1)) > 0.1))
     True
-    >>> tied = sharing.ut3_share_tucker_cores(u.data, (0, 0, 1))
+    >>> tied = sharing.ut3_tie_tucker_factors(u.data, (0, 0, 1))
     >>> print(float(sharing.ut3_sharing_residual(tied, (0, 0, 1))))
     0.0
 
@@ -400,7 +400,7 @@ def ut3_share_tucker_cores(
 
     >>> print(bool(np.array_equal(tied[1], u.data[1])), tied[2] == u.data[2])
     True True
-    >>> again = sharing.ut3_share_tucker_cores(tied, (0, 0, 1))
+    >>> again = sharing.ut3_tie_tucker_factors(tied, (0, 0, 1))
     >>> print(bool(np.array_equal(np.asarray(again[0]), np.asarray(tied[0]))))
     True
     '''
@@ -424,7 +424,7 @@ def ut3_share_tucker_cores(
 
 
 @dataclass(frozen=True, eq=False)  # eq=False -> identity hash/eq (array fields; value-eq is ambiguous)
-class T3SharedFrameData:
+class SharedFrameData:
     '''The per-frame companion of the shared geometry: everything the tied projection,
     the shared retraction, and the group-spectrum diagnostics need, derived from an
     orthogonal frame by :py:func:`fv_shared_frame_data` (never stored inside a frame).
@@ -464,7 +464,7 @@ def fv_shared_frame_data(
             typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
         ],
         groups:     typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition (validate_sharing)
-) -> T3SharedFrameData:
+) -> SharedFrameData:
     '''Derive the shared-geometry companion from an **orthogonal** frame.
 
     Three steps, all exact by construction rather than by tolerance:
@@ -539,7 +539,7 @@ def fv_shared_frame_data(
         svd_s.append(s_g)
         svd_Vt.append(Vt_M)
 
-    return T3SharedFrameData(groups=tuple(groups), row_splits=tuple(row_splits),
+    return SharedFrameData(groups=tuple(groups), row_splits=tuple(row_splits),
                              centers=tuple(centers), svd_U=tuple(svd_U),
                              svd_s=tuple(svd_s), svd_Vt=tuple(svd_Vt))
 
@@ -549,7 +549,7 @@ def fv_share_tucker_variations(
             typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nDi, Ni)
             typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nUi, rRi)
         ],
-        shared_data:    'T3SharedFrameData',  # the frame's companion (fv_shared_frame_data)
+        shared_data:    'SharedFrameData',  # the frame's companion (fv_shared_frame_data)
         rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # tucker_variations, tied within groups (exact row blocks of one solve)
@@ -618,7 +618,7 @@ def fv_share_tucker_variations(
 
 
 def _tied_solve(
-        shared_data:        'T3SharedFrameData',
+        shared_data:        'SharedFrameData',
         gi:                 int,      # index into the companion's nontrivial-group tuples
         tucker_variations:  typ.Sequence[NDArray],  # len=d, elm_shape=(K+C)+(nDi, Ni)
         rcond:              typ.Optional[float],   # relative clip; None -> dtype eps * max dim
@@ -645,7 +645,7 @@ def fv_tied_ambient_directions(
             typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nDi, Ni)
             typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nUi, rRi)
         ],
-        shared_data:    'T3SharedFrameData',  # the frame's companion (fv_shared_frame_data)
+        shared_data:    'SharedFrameData',  # the frame's companion (fv_shared_frame_data)
         rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
 ) -> typ.Tuple[NDArray, ...]:  # per NONTRIVIAL group: Udot, elm_shape=(K+C)+(n_g, N)
     '''Recover each group's common gauged ambient direction ``Udot`` from (tied) Tucker
@@ -662,7 +662,7 @@ def fv_tied_ambient_directions(
                  for gi in range(len(nontrivial_groups(shared_data.groups))))
 
 
-def fv_mean_tucker_variations(
+def fv_share_tucker_variations_corewise(
         variations_data: typ.Tuple[
             typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(ni, Ni)
             typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, ni, rRi)
@@ -702,7 +702,7 @@ def fv_tied_variations_residual(
             typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=K+C+(nDi, Ni)
             typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=K+C+(rLi, nUi, rR(i+1))
         ],
-        shared_data:    'T3SharedFrameData',  # the frame's companion (fv_shared_frame_data)
+        shared_data:    'SharedFrameData',  # the frame's companion (fv_shared_frame_data)
         rcond:          typ.Optional[float] = None,  # relative clip on the group spectrum; None -> dtype eps
 ) -> NDArray:  # shape = K + C; relative deviation per stack element (0 == already tied)
     '''How far a tangent's coordinates are from the TIED tangent subspace, per stack element.
@@ -851,7 +851,7 @@ def ut3_tucker_factors_shared(
 def ufv_shared_frame_data(
         frame_data,  # UT3Frame .data: (up_sc, down_sc, left_sc, right_sc, shape, (4 masks)); stack = C
         groups:     typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition (validate_sharing)
-) -> 'T3SharedFrameData':
+) -> 'SharedFrameData':
     '''The uniform twin of :py:func:`fv_shared_frame_data`: the IDENTICAL polymorphic derivation
     (the right re-sweep, ``S_i^T = <O_i, H_i>`` batched over the mode axis, one batched thin SVD per
     group of the statically-gathered concatenation) on the frame's supercores.
@@ -868,7 +868,7 @@ def ufv_shared_frame_data(
     ``t3frame_to_ut3frame``-packed RAGGED frame is NOT guaranteed (the padded re-sweep can flip signs
     against the unpadded construction).
 
-    Container reuse: the returned :py:class:`T3SharedFrameData` holds SUPERCORE SLICES at the padded
+    Container reuse: the returned :py:class:`SharedFrameData` holds SUPERCORE SLICES at the padded
     dims (frame stack ``C`` leading; ``row_splits`` are multiples of the padded ``nD``).
     '''
     up_sc, down_sc, left_sc, right_sc = frame_data[0], frame_data[1], frame_data[2], frame_data[3]
@@ -877,7 +877,7 @@ def ufv_shared_frame_data(
 
 def ufv_share_tucker_variations(
         variations_data,   # UT3Variations .data: (tkv_sc, ttv_sc, shape, (4 masks)); stack = K + C
-        shared_data:    'T3SharedFrameData',  # the frame's UNIFORM companion (ufv_shared_frame_data)
+        shared_data:    'SharedFrameData',  # the frame's UNIFORM companion (ufv_shared_frame_data)
         rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
 ):  # -> tied variations .data (same masks; padded rows come back exactly zero)
     '''The uniform twin of :py:func:`fv_share_tucker_variations` (the manifold tied post-pass):
@@ -892,23 +892,23 @@ def ufv_share_tucker_variations(
     return xnp.stack(list(new_tk_slices), axis=0), ttv, shape, masks
 
 
-def ufv_mean_tucker_variations(
+def ufv_share_tucker_variations_corewise(
         variations_data,   # UT3Variations .data at the corewise (U,G,G,G) frame; stack = K + C
         groups:         typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical (validate_sharing)
 ):  # -> tied variations .data (per-group drift-form mean; same masks)
-    '''The uniform twin of :py:func:`fv_mean_tucker_variations` (the corewise tied post-pass):
+    '''The uniform twin of :py:func:`fv_share_tucker_variations_corewise` (the corewise tied post-pass):
     mask, delegate to the polymorphic per-group drift-form mean on the mode slices, re-stack.'''
     tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
     shape, masks = variations_data[2], variations_data[3]
     use_jax = tree_contains_jax(variations_data[:2])
     xnp, _, _ = get_backend(True, use_jax)
-    new_tk_slices, _ = fv_mean_tucker_variations((tkv, ttv), groups)
+    new_tk_slices, _ = fv_share_tucker_variations_corewise((tkv, ttv), groups)
     return xnp.stack(list(new_tk_slices), axis=0), ttv, shape, masks
 
 
 def ufv_tied_variations_residual(
         variations_data,    # UT3Variations .data: (tkv_sc, ttv_sc, shape, (4 masks)); stack = K + C
-        shared_data:    'T3SharedFrameData',  # the frame's UNIFORM companion (ufv_shared_frame_data)
+        shared_data:    'SharedFrameData',  # the frame's UNIFORM companion (ufv_shared_frame_data)
         rcond:          typ.Optional[float] = None,  # relative clip on the group spectrum; None -> dtype eps
 ) -> NDArray:  # shape = K + C; relative deviation per stack element (0 == already tied)
     '''The uniform twin of :py:func:`fv_tied_variations_residual`, on the MASKED variation content.
@@ -956,7 +956,7 @@ def _weights_deviation(vectors, groups, xnp, stack_of):
     return xnp.max(xnp.stack(devs), axis=0)
 
 
-def t3_weights_sharing_residual(
+def t3_tucker_weights_sharing_residual(
         weights:    typ.Tuple[
             typ.Sequence[NDArray],  # tucker_weights. len=d,   elm_shape=stack_shape+(ni,)
             typ.Sequence[NDArray],  # tt_weights.     len=d+1, elm_shape=stack_shape+(ri,)
@@ -983,10 +983,10 @@ def t3_weights_sharing_residual(
     >>> tk, tt = x.data
     >>> xs = t3.TuckerTensorTrain((tk[0], tk[0], tk[2]), tt)          # a tied point
     >>> W = t3.T3Weights.from_t3svd(xs, sharing=(0, 0, 1))            # grouped svals: group-equal
-    >>> print(float(sharing.t3_weights_sharing_residual(W.data, (0, 0, 1))))
+    >>> print(float(sharing.t3_tucker_weights_sharing_residual(W.data, (0, 0, 1))))
     0.0
     >>> W2 = t3.T3Weights.from_t3svd(xs)                              # per-mode svals: NOT group-equal
-    >>> print(bool(sharing.t3_weights_sharing_residual(W2.data, (0, 0, 1)) > 1e-3))
+    >>> print(bool(sharing.t3_tucker_weights_sharing_residual(W2.data, (0, 0, 1)) > 1e-3))
     True
     '''
     tucker_weights, _tt_weights = weights
@@ -1003,7 +1003,7 @@ def t3_weights_sharing_residual(
     return _weights_deviation(tucker_weights, groups, xnp, tucker_weights[0].shape[:-1])
 
 
-def t3_weights_shared(
+def t3_tucker_weights_shared(
         weights:    typ.Tuple[
             typ.Sequence[NDArray],  # tucker_weights. len=d,   elm_shape=stack_shape+(ni,)
             typ.Sequence[NDArray],  # tt_weights.     len=d+1, elm_shape=stack_shape+(ri,)
@@ -1012,13 +1012,13 @@ def t3_weights_shared(
         rtol:       float = 1e-9,   # relative tolerance on the Tucker-weight deviation
 ) -> NDArray:  # bool array, shape = stack_shape (scalar/0-d when unstacked)
     '''True (per stack element) where the Tucker weights are equal within every sharing group --
-    the boolean form of :py:func:`t3_weights_sharing_residual`. A non-enforcing checker:
+    the boolean form of :py:func:`t3_tucker_weights_sharing_residual`. A non-enforcing checker:
     absorbing group-UNEQUAL weights into a tied T3 is legitimate (it just unties the result --
-    repair with :py:func:`t3_share_tucker_cores` or re-enter with ``share`` if wanted).'''
-    return t3_weights_sharing_residual(weights, sharing) <= rtol
+    repair with :py:func:`t3_tie_tucker_factors` or re-enter with ``share`` if wanted).'''
+    return t3_tucker_weights_sharing_residual(weights, sharing) <= rtol
 
 
-def ut3_weights_sharing_residual(
+def ut3_tucker_weights_sharing_residual(
         weights_data:   typ.Tuple[
             NDArray,             # tucker_weight_supercore, shape=(d,)+stack+(n,)
             NDArray,             # tt_weight_supercore,     shape=(d+1,)+stack+(r,)
@@ -1026,7 +1026,7 @@ def ut3_weights_sharing_residual(
         ],
         sharing:        typ.Sequence,   # len=d, static; one hashable group label per mode
 ) -> NDArray:  # shape = stack_shape; max relative MASKED Tucker-weight deviation per stack element
-    '''The uniform twin of :py:func:`t3_weights_sharing_residual`: the comparison runs on the
+    '''The uniform twin of :py:func:`t3_tucker_weights_sharing_residual`: the comparison runs on the
     MASKED Tucker weight vectors (padding is don't-care), and unequal group rank masks raise
     (structural -- unequal ranks cannot carry one shared weight).'''
     tucker_w_sc, _tt_w_sc, (tucker_mask, _tt_mask) = weights_data
@@ -1039,7 +1039,7 @@ def ut3_weights_sharing_residual(
     return _weights_deviation(masked, groups, xnp, masked.shape[1:-1])
 
 
-def ut3_weights_shared(
+def ut3_tucker_weights_shared(
         weights_data:   typ.Tuple[
             NDArray,             # tucker_weight_supercore, shape=(d,)+stack+(n,)
             NDArray,             # tt_weight_supercore,     shape=(d+1,)+stack+(r,)
@@ -1049,8 +1049,8 @@ def ut3_weights_shared(
         rtol:           float = 1e-9,   # relative tolerance on the Tucker-weight deviation
 ) -> NDArray:  # bool array, shape = stack_shape (scalar/0-d when unstacked)
     '''True (per stack element) where the MASKED Tucker weights are equal within every sharing
-    group -- the boolean form of :py:func:`ut3_weights_sharing_residual` (non-enforcing).'''
-    return ut3_weights_sharing_residual(weights_data, sharing) <= rtol
+    group -- the boolean form of :py:func:`ut3_tucker_weights_sharing_residual` (non-enforcing).'''
+    return ut3_tucker_weights_sharing_residual(weights_data, sharing) <= rtol
 
 
 if jax_available:
@@ -1060,8 +1060,8 @@ if jax_available:
     # (they flow as traced data beside the frame), the partition and the static row offsets are
     # aux_data -- so a companion crossing a jit boundary keeps a stable, static structure key.
     jax.tree_util.register_pytree_node(
-        T3SharedFrameData,
+        SharedFrameData,
         lambda s: ((s.centers, s.svd_U, s.svd_s, s.svd_Vt), (s.groups, s.row_splits)),
-        lambda aux, ch: T3SharedFrameData(groups=aux[0], row_splits=aux[1], centers=ch[0],
+        lambda aux, ch: SharedFrameData(groups=aux[0], row_splits=aux[1], centers=ch[0],
                                           svd_U=ch[1], svd_s=ch[2], svd_Vt=ch[3]),
     )

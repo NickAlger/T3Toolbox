@@ -35,7 +35,14 @@ which of these conventions are rename-invariant — are in
 
 The **weighted** layer has no prefix of its own: it names its operations inside the existing
 families (`t3_absorb_weights` / `ut3_absorb_weights` / `fv_absorb_weights` / `ufv_absorb_weights`,
-see below); the old `wt3_*` prefix layer was retired. **Shared Tucker factors** work the same way —
+see below); the old `wt3_*` prefix layer was retired.
+
+> **`weight=` on the optimizers is a different thing entirely.** The fitting layer's `weight=`
+> ([`fitting_and_optimization.md`](fitting_and_optimization.md) §4.6) is the **residual weight `ω`**
+> in the objective `½‖ω⊙r‖²` — a per-`(mode, order)` scaling of the *measurements*. It has nothing to
+> do with the weighted layer's edge weights, which are diagonal factors on a tensor's internal edges
+> ([`weighting.md`](weighting.md)). The collision is unfortunate but `weight=` shipped in 2026.0.0,
+> so it stays; the plural `weights` and the `*Weights` classes always mean edge weights. **Shared Tucker factors** work the same way —
 `backend/sharing.py` is one module, but each function inside it carries the family prefix of the data
 it operates on (`t3_sharing_residual`, `ut3_tucker_factors_shared`, `fv_shared_frame_data`,
 `ufv_share_tucker_variations`). A *feature* is not a family.
@@ -120,14 +127,20 @@ which layer you are holding.
   `t3_corewise_randn` (iid core entries) vs `MANIFOLD.randn` (tangent-space Gaussian).
 - **`numerically_`** — an SVD-grade numerical check, vs bare structural integer arithmetic
   (`has_minimal_ranks` vs `has_numerically_minimal_ranks`).
-- **`is_` / `has_` (a checker)** — a non-enforcing predicate that reports a property, returning a
-  verdict per stack element. A checker on a *property of an object* is a **frontend method or
-  property**, not a free function: it answers a question about that object, so it belongs on it —
-  `x.has_shared_tucker_factors(sharing)`, `frame.is_orthogonal()`, `t.is_gauged()`,
-  `W.has_shared_tucker_weights(sharing)`. Free functions in the backend carry the family prefix and
-  exist for raw-`.data` users (`t3_tucker_factors_shared`, `ut3_sharing_residual`). A checker that
-  takes a tolerance or a spec argument is a **method**; a pure derived property (`has_minimal_ranks`)
-  is a **property**. Checkers never raise — safe mode raises at the *call site* that uses them.
+- **Checkers** — a non-enforcing predicate that reports a property, returning a verdict per stack
+  element. Checkers never raise; safe mode raises at the *call site* that uses them. **The two tiers
+  spell it differently, and that is deliberate:**
+  - **Frontend: `is_` / `has_`, as a method or property on the object itself.** A checker asks a
+    question *about that object*, so it belongs on it — `frame.is_orthogonal()`, `t.is_gauged()`,
+    `x.has_shared_tucker_factors(sharing)`, `W.has_shared_tucker_weights(sharing)`. One that takes a
+    tolerance or a spec argument is a **method**; a pure derived property (`has_minimal_ranks`) is a
+    **property**.
+  - **Backend: `<family>_<subject>_<predicate>`, adjective last.** The family prefix must come first
+    (that is the whole grammar), so `t3_is_...` would read badly and bury the subject. Hence
+    `t3_tucker_factors_shared`, `ut3_tucker_weights_shared`, `fv_weights_consistent`,
+    `ranks.frame_has_minimal_ranks`. The paired *residual* — the continuous quantity the boolean
+    thresholds — takes the same stem with `_residual` (`t3_sharing_residual`,
+    `fv_tied_variations_residual`), and both keep the stack.
 - **`_trs` suffix** (sampling-derivative jets) — the *dense binomial-tensor* implementation, kept as a
   reference twin of the standard recurrence/scan form that owns the bare name. `compute_mu_jets` (the
   standard, memory-lean, call-site-wired form) vs `compute_mu_jets_trs` (contracts the `trs` binomial

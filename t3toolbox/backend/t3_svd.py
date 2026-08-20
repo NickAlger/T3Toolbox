@@ -79,7 +79,7 @@ def t3svd(
     singular values carry the GROUP spectrum ``s_g`` at every mode of a group: the singular values
     of the concatenated matricization ``[T_(i1) | ... | T_(ik)]`` of the (phase-1 TT-rounded)
     tensor -- equivalently the Jacobian spectrum of the shared factor (see
-    :py:class:`~t3toolbox.backend.sharing.T3SharedFrameData`). Scale note: ``sum_j s_gj^2 =
+    :py:class:`~t3toolbox.backend.sharing.SharedFrameData`). Scale note: ``sum_j s_gj^2 =
     k * ||T||^2``, so at group modes the per-mode norm identity ``||ss_tucker[i]|| = ||T||`` is
     replaced by the ``sqrt(k)``-inflated group version (cancels in condition-number ratios).
     '''

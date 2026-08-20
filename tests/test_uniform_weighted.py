@@ -580,7 +580,7 @@ class TestUT3FrameWeights(unittest.TestCase):
 
         n_stack = len(uv.stack_shape)
         got = np.asarray(uv.weighted_norm(uW))
-        ref = np.asarray(utv_operations.utv_weighted_norm(uv.variations.data, tiled, n_stack))
+        ref = np.asarray(utv_operations.ufv_weighted_norm(uv.variations.data, tiled, n_stack))
         self.assertTrue(np.array_equal(got, ref))    # exactly, not approximately
 
     def test_all_ones_metric_is_corewise_norm(self):

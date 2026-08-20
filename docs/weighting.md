@@ -12,6 +12,13 @@ play two genuinely different roles:
 | `T3Weights` | `TuckerTensorTrain` | weights of a **tensor** (all internal edges) | the cores |
 | `T3FrameWeights` | a tangent (`T3Tangent`) | a **metric** on the tangent coordinates | the variation cores |
 
+> **Not to be confused with `weight=` in the fitting layer.** The optimizers' `weight=` is the
+> **residual weight `ω`** in the objective `½‖ω⊙r‖²` — a per-`(mode, order)` scaling of the
+> *measurements*, described in [`fitting_and_optimization.md`](fitting_and_optimization.md) §4.6. It is
+> unrelated to this page: nothing here touches the objective, and nothing there touches a tensor's
+> edges. Throughout the library, the plural `weights` and the `*Weights` classes always mean **edge**
+> weights.
+
 ## `T3Weights` — a weighted tensor
 
 A `TuckerTensorTrain` has two internal edge families: **Tucker-rank** edges `nᵢ` (`d` of them) and

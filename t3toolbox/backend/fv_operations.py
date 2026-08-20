@@ -32,7 +32,7 @@ __all__ = [
     'fv_weights_consistent',
     'fv_concatenate_weights',
     'fv_kronecker_weights',
-    'fv_weights_from_t3_weights',
+    't3weights_to_t3frameweights',
     'fv_weighted_norm',
     'fv_weighted_inner',
 ]
@@ -307,7 +307,7 @@ def fv_kronecker_weights(weights_A, weights_B):  # each (up, down, left, right) 
     return tuple(tuple(kv(a, b) for a, b in zip(fA, fB)) for fA, fB in zip(weights_A, weights_B))
 
 
-def fv_weights_from_t3_weights(
+def t3weights_to_t3frameweights(
         t3_weights: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # up_weights    = tucker_weights

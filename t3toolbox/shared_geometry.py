@@ -51,7 +51,7 @@ def _require_tied_factors(
         safety.require(
             bool((residual <= atol).all()),
             '{} requires the Tucker factors to be tied within each sharing group. Enter the '
-            'shared format first (TuckerTensorTrain.share, or t3_share_tucker_cores for a '
+            'shared format first (TuckerTensorTrain.share, or t3_tie_tucker_factors for a '
             'nearly-tied point), or run in unsafe mode (safety.unsafe()).'.format(who))
 
 
@@ -76,9 +76,9 @@ class SharedGeometry:
     Construct via :py:func:`shared` / :py:func:`shared_manifold` / :py:func:`shared_corewise`.
     The wrapper is stateless up to its static ``(base, sharing)`` identity (value-based
     ``__eq__``/``__hash__``, so it is a stable jit aux); the per-frame companion
-    (:py:class:`~t3toolbox.backend.sharing.T3SharedFrameData`) is DERIVED from a frame on
+    (:py:class:`~t3toolbox.backend.sharing.SharedFrameData`) is DERIVED from a frame on
     demand -- pass it explicitly (``shared_data=``) to amortize across calls at one frame, as
-    the fitting models do via :py:meth:`precompute_aux`.
+    the fitting models do via :py:meth:`precompute`.
 
     On a MANIFOLD base the full surface is available (``frame``/``project``/``project_oblique``/
     ``inner``/``norm``/``retract``/``project_ambient``/``transport``/``randn``); on a COREWISE
@@ -163,7 +163,7 @@ class SharedGeometry:
         uniform ``UniformTuckerTensorTrain`` -> ``UT3Frame``).
 
         **An untied ``x`` is tied first, silently**, by the per-group mean
-        (:py:func:`~t3toolbox.backend.sharing.t3_share_tucker_cores` / its uniform twin) -- the frame of
+        (:py:func:`~t3toolbox.backend.sharing.t3_tie_tucker_factors` / its uniform twin) -- the frame of
         a shared geometry describes a point on the shared set, so entering the format is this method's
         job rather than the caller's. An already-tied point is a bitwise fixed point, so the ordinary
         path is unchanged. This is what makes an untied initial guess a non-event for the optimizers,
@@ -171,11 +171,11 @@ class SharedGeometry:
         self.groups(x.shape)                                     # structural validation
         if self.is_uniform:
             return self.base.frame(um._ut3_from_data(
-                backend_sharing.ut3_share_tucker_cores(x.data, self.sharing)))
+                backend_sharing.ut3_tie_tucker_factors(x.data, self.sharing)))
         return self.base.frame(t3.TuckerTensorTrain(
-            *backend_sharing.t3_share_tucker_cores(x.data, self.sharing)))
+            *backend_sharing.t3_tie_tucker_factors(x.data, self.sharing)))
 
-    def shared_frame_data(self, frame) -> backend_sharing.T3SharedFrameData:
+    def shared_frame_data(self, frame) -> backend_sharing.SharedFrameData:
         """The per-frame companion (centers + the stacked-``S`` SVD), derived from ``frame``
         (a ``T3Frame`` or a ``UT3Frame``).
 
@@ -185,7 +185,7 @@ class SharedGeometry:
             return backend_sharing.ufv_shared_frame_data(frame.data, self.groups(frame.shape))
         return backend_sharing.fv_shared_frame_data(frame.data, self.groups(frame.shape))
 
-    def precompute_aux(self, frame):
+    def precompute(self, frame):
         """The fitting models' once-per-frame hook: the companion (manifold bases) or ``None``
         (corewise bases -- the mean needs only the static partition)."""
         if self._is_manifold_kind:
@@ -199,11 +199,11 @@ class SharedGeometry:
         post-pass; corewise: the per-group mean). Inherits the base's safe-mode preconditions.
         Ragged bases take/return ``T3Tangent``; uniform bases take/return ``UT3Tangent``."""
         if self.base is t3m.COREWISE:
-            new_variations = backend_sharing.fv_mean_tucker_variations(
+            new_variations = backend_sharing.fv_share_tucker_variations_corewise(
                 v.variations.data, self.groups(v.shape))
             return t3m.T3Tangent(v.frame, bvf.T3Variations(*new_variations))
         if self.base is um.UNIFORM_COREWISE:
-            new_variations = backend_sharing.ufv_mean_tucker_variations(
+            new_variations = backend_sharing.ufv_share_tucker_variations_corewise(
                 v.variations.data, self.groups(v.shape))
             return um.UT3Tangent(v.frame, um._ut3variations_from_data(new_variations))
         if self.base is um.UNIFORM_MANIFOLD:
@@ -258,7 +258,7 @@ class SharedGeometry:
         solve, which is almost never what the caller meant."""
         groups = self.groups(p.shape)
         if self.base is um.UNIFORM_COREWISE:
-            tied = backend_sharing.ufv_mean_tucker_variations(p.variations.data, groups)
+            tied = backend_sharing.ufv_share_tucker_variations_corewise(p.variations.data, groups)
             return self.base.retract(um.UT3Tangent(p.frame, um._ut3variations_from_data(tied)))
         if self.base is um.UNIFORM_MANIFOLD:
             um._require_orthogonal_frame(p.frame, 'SharedGeometry.retract')
@@ -279,7 +279,7 @@ class SharedGeometry:
             return um._ut3_from_data(utv_operations.utv_retract(
                 p.frame.data, p.variations.data, shared_data=shared_data))
         if self.base is t3m.COREWISE:
-            new_variations = backend_sharing.fv_mean_tucker_variations(p.variations.data, groups)
+            new_variations = backend_sharing.fv_share_tucker_variations_corewise(p.variations.data, groups)
             x_data = (p.frame.up_tucker_cores, p.frame.left_tt_cores)
             new = cw.corewise_add(x_data, new_variations)
             # Tie the SUM rather than aliasing one mode's copy of it. Because
@@ -287,9 +287,9 @@ class SharedGeometry:
             # (Euclidean) projection of ``x + v`` onto the tied set -- so the retraction is TOTAL: an
             # untied tangent (already handled by the mean above) and an untied base point both land on
             # the shared set, with nothing silently discarded. On a tied base point every summed core is
-            # already identical and ``t3_share_tucker_cores`` is a bitwise fixed point, so the sanctioned
+            # already identical and ``t3_tie_tucker_factors`` is a bitwise fixed point, so the sanctioned
             # path is unchanged to the last ulp; it also gives ONE array per group, as before.
-            return t3.TuckerTensorTrain(*backend_sharing.t3_share_tucker_cores(new, self.sharing))
+            return t3.TuckerTensorTrain(*backend_sharing.t3_tie_tucker_factors(new, self.sharing))
         t3m._require_orthogonal_frame(p.frame, 'SharedGeometry.retract')
         _require_tied_factors((p.frame.up_tucker_cores, p.frame.left_tt_cores), self.sharing,
                               'SharedGeometry.retract')

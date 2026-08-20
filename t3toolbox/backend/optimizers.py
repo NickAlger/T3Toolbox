@@ -160,7 +160,7 @@ def shared_geometry_ops(
       TIED doubled-rank embedding and truncates with the grouped ``t3svd``
       (``tv_retract(..., shared_data=...)``).
     - ``COREWISE_OPS`` base: ``project`` is the per-group arithmetic mean
-      (:py:func:`~t3toolbox.backend.sharing.fv_mean_tucker_variations`; the corewise coordinates
+      (:py:func:`~t3toolbox.backend.sharing.fv_share_tucker_variations_corewise`; the corewise coordinates
       are raw factor copies), and the additive retraction preserves tying exactly, so
       ``retract`` only mean-ties its input first (a bitwise no-op on tied input).
 
@@ -172,7 +172,7 @@ def shared_geometry_ops(
     if base is COREWISE_OPS:
         def _corewise_shared_retract(frame, var, aux=None):
             new = cw.corewise_add((frame[0], frame[2]),
-                                  sharing_module.fv_mean_tucker_variations(var, groups))
+                                  sharing_module.fv_share_tucker_variations_corewise(var, groups))
             new_tucker = list(new[0])
             for group in sharing_module.nontrivial_groups(groups):
                 for ii in group[1:]:
@@ -181,7 +181,7 @@ def shared_geometry_ops(
 
         return GeometryOps(
             frame=base.frame,
-            project=lambda frame, var, aux=None: sharing_module.fv_mean_tucker_variations(var, groups),
+            project=lambda frame, var, aux=None: sharing_module.fv_share_tucker_variations_corewise(var, groups),
             retract=_corewise_shared_retract,
             inner=base.inner,
             point_norm_sq=base.point_norm_sq,

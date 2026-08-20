@@ -72,7 +72,7 @@ SVD gauge freedom `(O_i, S_i) → (O_i Q, S_i Q)` cancels identically in everyth
    (`t3svd`, `t3_rank_adjustment_sweep`, `compute_minimal_ranks`, `compute_manifold_dim`,
    `compute_continuation_ranks`, uniform twins), one geometry wrapper
    `shared(base_geometry, sharing)` with factories `shared_manifold(sharing)` /
-   `shared_corewise(sharing)`, a derived companion (`T3SharedFrameData`), and **one sanctioned
+   `shared_corewise(sharing)`, a derived companion (`SharedFrameData`), and **one sanctioned
    protocol extension [v3]**: `GeometryOps` gains an optional `precompute` slot (§4.4;
    breaking-change release already planned for the contractions work).
 4. **In scope for v1:** both geometries, the uniform layer, shared minimal ranks +
@@ -104,11 +104,11 @@ SVD gauge freedom `(O_i, S_i) → (O_i Q, S_i Q)` cancels identically in everyth
 
 ### 2.1 Recompute, don't retain
 
-`T3SharedFrameData` is **derived from the frame on demand** — never carried inside a frame, never
+`SharedFrameData` is **derived from the frame on demand** — never carried inside a frame, never
 cached statefully:
 
 ```
-fv_shared_frame_data(frame_data, groups) -> T3SharedFrameData
+fv_shared_frame_data(frame_data, groups) -> SharedFrameData
   1. (_, H) = tt_right_orthogonalize(left_tt_cores, return_variation_cores=True)
        # the RE-SWEEP: the same function, on the same stored arrays, that produced the centers
        # at frame construction — measured BIT-IDENTICAL to construction (float64 AND jax
@@ -125,7 +125,7 @@ fv_shared_frame_data(frame_data, groups) -> T3SharedFrameData
 
 ```python
 @dataclass(frozen=True)
-class T3SharedFrameData:            # backend/sharing.py; jax pytree: arrays leaves, groups aux
+class SharedFrameData:            # backend/sharing.py; jax pytree: arrays leaves, groups aux
     groups:   tuple                 # static: the FULL canonical partition
     centers:  tuple                 # per nontrivial group: tuple of H_i  (frame stack C leading)
     svd_U:    tuple                 # per nontrivial group: U_M of thin SVD of M_g,  C+(sum nD, q)
@@ -220,9 +220,9 @@ As v2 §3, with two resolutions:
 - `t3_tucker_factors_shared(x, sharing, rtol=1e-9) -> bool array` — the boolean checker on the
   residual (check-free backend; frontend safe-mode sites pair the residual with
   `safety.effective_rtol`).
-- `t3_share_tucker_cores(x, sharing)` — per-group arithmetic mean, ONE array assigned to every
+- `t3_tie_tucker_factors(x, sharing)` — per-group arithmetic mean, ONE array assigned to every
   group mode. Drift repair for nearly-tied POINTS only; never for tangents/embeddings.
-- (slice 2) `T3SharedFrameData` + `fv_shared_frame_data` per §2.
+- (slice 2) `SharedFrameData` + `fv_shared_frame_data` per §2.
 
 ### 4.2 Grouped `t3svd` — `backend/t3_svd.py` (+ `t3_rank_adjustment_sweep`) — slice 3
 
@@ -279,7 +279,7 @@ V_i    <- row-slices of  M_g @ Udot          # = S_i^T Udot; static row offsets 
 ```
 
 TT variations untouched; gauge preserved identically (verified); tied output assigned
-consistently. Corewise twin `fv_mean_tucker_variations(variations_data, groups)` — per-group
+consistently. Corewise twin `fv_share_tucker_variations_corewise(variations_data, groups)` — per-group
 mean, one array per group. Thread `shared_data=None` kwargs through
 `tv_orthogonal_gauge_projection` / `tv_project_t3_onto_tangent_space` /
 `tv_project_dense_onto_tangent_space` (default unchanged; the post-pass fires after the
@@ -524,14 +524,14 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
 0. **DONE** (`2bad59de`) handoff v3 + `shared_t3_math.tex` errata (+ rebuilt pdf).
 0'. **DONE** (`d15d4807`) `fix(fv_conversions)`: the `squash_tails` shadowing bug + regression test.
 1. **DONE** (`74676bcd`) `backend/sharing.py`: `validate_sharing`, `t3_sharing_residual`,
-   `t3_tucker_factors_shared`, `t3_share_tucker_cores` + `tests/test_sharing.py` + dispatch entry.
-2. **DONE** (`e10dba36`) `T3SharedFrameData` + `fv_shared_frame_data` (re-sweep + stacked SVD) +
+   `t3_tucker_factors_shared`, `t3_tie_tucker_factors` + `tests/test_sharing.py` + dispatch entry.
+2. **DONE** (`e10dba36`) `SharedFrameData` + `fv_shared_frame_data` (re-sweep + stacked SVD) +
    the §2.5 permanent invariant tests (safe-mode wiring landed with slice 6, where the frontend
    entry points exist).
 3. **DONE** (`cc339507`) grouped `t3svd` (two-phase + dispatch) + `t3_rank_adjustment_sweep(sharing=)`
    + rank-bound comment + frontend threading with safe-mode tied checks + tests 2–5.
 4. **DONE** (`93df40a8`) `t3_share_tucker_factors` + `TuckerTensorTrain.share()` + test 6.
-5. **DONE** (`6cbaaa85`) post-pass (`fv_share_tucker_variations` + `fv_mean_tucker_variations`)
+5. **DONE** (`6cbaaa85`) post-pass (`fv_share_tucker_variations` + `fv_share_tucker_variations_corewise`)
    + `tv_*` kwarg threading + tests 7 (incl. stacked / K-over-C broadcast).
 6. **DONE** (`0a41027e`, breaking `!`) `t3toolbox/shared_geometry.py` + backend
    `shared_geometry_ops` + the `GeometryOps.precompute` protocol extension + the tied
@@ -552,7 +552,7 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
    validation with exact `array_equal` — the grouped t3svd assigns one `s_g` array per group) +
    frontend `continuation_ranks(sharing=)` (threads through the grouped t3svd, inheriting its
    safe-mode tied check) + `resize(..., sharing=)` (safe-mode tied check at entry; post-pass =
-   `t3_share_tucker_cores`, exact on tied input via the drift-form mean — ONE array per group) +
+   `t3_tie_tucker_factors`, exact on tied input via the drift-form mean — ONE array per group) +
    tests 14: synthetic growth-rule tests in `tests/backend/test_ranks.py`
    (TestSharedContinuationRanks — group-wide growth, κ_g as κ_max, guard on κ_g, group as one
    max_grow candidate, capped-group skip, fallback bumps group once, unequal-spectra rejection,
@@ -587,7 +587,7 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
    pairing — found by test, a flipped bond column destroyed a group spectrum; the padded `S_i^T`
    rows vanish anyway since completion rows ⊥ the centers' row space. Contract: frames from
    `ut3_orthogonal_representations`; a `t3frame_to_ut3frame`-packed ragged frame is NOT
-   guaranteed) + `ufv_share_tucker_variations`/`ufv_mean_tucker_variations` (mask-and-delegate;
+   guaranteed) + `ufv_share_tucker_variations`/`ufv_share_tucker_variations_corewise` (mask-and-delegate;
    the ragged post-passes are fully polymorphic) + `shared_data=` on
    `utv_orthogonal_gauge_projection` (post-pass after the gauge loops), `utv_to_ut3` (tied
    embedding: `Udot` at every group mode — garbage-immune through the companion's masked-clean
@@ -615,7 +615,7 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
    would false-fail it). Gates: `_uniform_geometry_name` returns `(name, sharing)`;
    `_setup` threads `uniform_minimal(x0, sharing=)` + the problem `sharing=`;
    `_geometry_ops`/`_ragged_frame`/`_backend_geometry_ops` reject layer mismatches;
-   `_uniform_model` accepts the wrapper and computes `geometry_aux = precompute_aux(frame)`;
+   `_uniform_model` accepts the wrapper and computes `geometry_aux = precompute(frame)`;
    `UniformGaussNewtonModel` gains the `geometry_aux` LEAF (pytree children now 5) + `_project`
    at all four sites + a sharing-aware `_ubgeom`. Tests (TestUniformSharedGeometry):
    deterministic gd trajectories == ragged shared (needs a tied NONZERO SHARED-MINIMAL start:
@@ -659,7 +659,7 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
 **Post-completion follow-ups (2026-08-20, both PUSHED):**
 - `3796b75e` weights × sharing RESOLVED (see §9): the non-enforcing compatibility checker only
   (`T3Weights.has_shared_tucker_weights` + `UT3Weights` twin; backend
-  `t3_weights_sharing_residual`/`t3_weights_shared` + `ut3_*`; labels-only `_groups_from_labels`
+  `t3_tucker_weights_sharing_residual`/`t3_tucker_weights_shared` + `ut3_*`; labels-only `_groups_from_labels`
   factored from `validate_sharing`). Nothing gates; `T3FrameWeights` excluded (nD lengths can
   differ within a group). Docs Scope bullets rewritten in sharing.md + weighting.md.
 - `813db064` the precompute audit: `Regularizer.gradient/hessian/quadratic` gain `aux=None`
@@ -682,15 +682,15 @@ presumably 2026.1.0); the precedent checklist is `dev/archive/release_plan_2026-
   `nontrivial_groups(groups)`; `groups_to_labels(groups)` (inverse of validate);
   `t3_sharing_residual(x, sharing)` (per-stack max relative factor deviation; inf on
   zero-ref/nonzero-other; structural rank/size errors always); `t3_tucker_factors_shared(x,
-  sharing, rtol=1e-9)`; `t3_share_tucker_cores(x, sharing)` (mean in DRIFT form `ref +
+  sharing, rtol=1e-9)`; `t3_tie_tucker_factors(x, sharing)` (mean in DRIFT form `ref +
   mean(diffs)` — plain `sum/k` perturbs the last ulp already at k=3; ONE array per group);
-  `T3SharedFrameData(groups, row_splits, centers, svd_U, svd_s, svd_Vt)` (arrays leaves,
+  `SharedFrameData(groups, row_splits, centers, svd_U, svd_s, svd_Vt)` (arrays leaves,
   statics aux; `eq=False`); `fv_shared_frame_data(frame_data, groups)` (re-sweep
   `tt_right_orthogonalize(left, return_variation_cores=True)` — bit-identical to construction
   — then `S_i^T = einsum('...axb,...aub->...xu', O_i, H_i)` against the STORED down cores,
   then per-group batched thin SVD of `M_g = concat(S_i^T)`); `fv_share_tucker_variations`
   (manifold post-pass via `_tied_solve` clip-pinv; dtype-aware rcond); `fv_tied_ambient_directions`
-  (returns `Udot` per group — the retraction consumes it); `fv_mean_tucker_variations`
+  (returns `Udot` per group — the retraction consumes it); `fv_share_tucker_variations_corewise`
   (corewise post-pass, drift form).
 - **`backend/t3_svd.py`**: `t3svd(..., sharing=None)` — dispatch: None/all-singleton → the
   literal existing sweep (bit-identical, tested); else `_t3svd_shared` (phase 1 TT-bond sweep
@@ -720,7 +720,7 @@ presumably 2026.1.0); the precedent checklist is `dev/archive/release_plan_2026-
 - **`t3toolbox/shared_geometry.py`**: `SharedGeometry` (value-based `__eq__`/`__hash__` over
   `(base_name, sharing)`; zero-leaf pytree; `groups(shape)` canonicalizes lazily — shape is
   unknown at construction), `shared`/`shared_manifold`/`shared_corewise`; methods: `frame`
-  (safe-mode tied check), `shared_frame_data`, `precompute_aux` (companion / None),
+  (safe-mode tied check), `shared_frame_data`, `precompute` (companion / None),
   `project(v, shared_data=None)`, `project_oblique` (delegate; manifold only), `inner`/`norm`
   (delegate), `randn`/`randn_like` (delegate+project), `retract(p, shared_data=None)`
   (safe-mode: ORTH + tied factors + tied COORDINATES via one extra post-pass compare),
@@ -761,7 +761,7 @@ presumably 2026.1.0); the precedent checklist is `dev/archive/release_plan_2026-
   GROUP (indexed by first mode; `_grow_capped_edges(sharing=)` trials the group-wide increment —
   REQUIRED, a single-mode trial would raise the within-group equality error), and the fallback bump
   stays tied for free. Frontend: `continuation_ranks(sharing=)` (threads t3svd(sharing) — safe-mode
-  tied check inherited); `resize(..., sharing=)` (tied check at entry + `t3_share_tucker_cores`
+  tied check inherited); `resize(..., sharing=)` (tied check at entry + `t3_tie_tucker_factors`
   post-pass — exact on tied input, ONE array per group). The e2e loop needs the
   rank_continuation.md warm-start guidance (`g0norm_newton` pinned across levels): without it the
   fit stalls at the target level and continuation over-grows — reproduced, then fixed, in the 14h
@@ -829,7 +829,7 @@ presumably 2026.1.0); the precedent checklist is `dev/archive/release_plan_2026-
   weights (kwargs already forwarded); the weight algebra
   (`reciprocal`/`sqrt`/`concatenate`/`kronecker`) preserves group-equality. Shipped: the
   NON-enforcing checker only — `T3Weights.has_shared_tucker_weights(sharing, rtol)` +
-  `UT3Weights` twin (masked), backend `t3_weights_sharing_residual`/`t3_weights_shared` +
+  `UT3Weights` twin (masked), backend `t3_tucker_weights_sharing_residual`/`t3_tucker_weights_shared` +
   `ut3_*` twins (labels-only canonicalization `_groups_from_labels` — weights carry no mode
   sizes; unequal weight LENGTHS within a group raise). Nothing gates (absorbing group-unequal
   weights is a legitimate untie-then-repair flow). `T3FrameWeights` deliberately EXCLUDED: the

@@ -91,7 +91,7 @@ def tv_orthogonal_gauge_projection(
             typ.Sequence[NDArray],  # tucker_variations
             typ.Sequence[NDArray],  # tt_variations
         ],
-        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied post-pass (SF-T3)
+        shared_data: typ.Optional['sharing_module.SharedFrameData'] = None,  # tied post-pass (SF-T3)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # gauged_tucker_variations
     typ.Tuple[NDArray, ...],  # gauged_tt_variations
@@ -208,7 +208,7 @@ def tv_to_t3(
             typ.Sequence[NDArray],  # tt_variations
         ],
         include_shift:  bool = False,  # False: tangent vector v. True: base point + v.
-        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied embedding (SF-T3)
+        shared_data: typ.Optional['sharing_module.SharedFrameData'] = None,  # tied embedding (SF-T3)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # tucker_cores (doubled Tucker ranks)
     typ.Tuple[NDArray, ...],  # tt_cores     (doubled TT ranks)
@@ -341,7 +341,7 @@ def tv_project_t3_onto_tangent_space(
             typ.Sequence[NDArray],  # tucker_cores
             typ.Sequence[NDArray],  # tt_cores
         ],
-        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied post-pass (SF-T3)
+        shared_data: typ.Optional['sharing_module.SharedFrameData'] = None,  # tied post-pass (SF-T3)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # gauged tucker_variations
     typ.Tuple[NDArray, ...],  # gauged tt_variations
@@ -401,7 +401,7 @@ def tv_project_dense_onto_tangent_space(
             typ.Sequence[NDArray],  # right_tt_cores
         ],
         Z:      NDArray,  # dense ambient tensor. shape = stack_shape + (N0, ..., N(d-1))
-        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied post-pass (SF-T3)
+        shared_data: typ.Optional['sharing_module.SharedFrameData'] = None,  # tied post-pass (SF-T3)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # gauged tucker_variations
     typ.Tuple[NDArray, ...],  # gauged tt_variations
@@ -624,7 +624,7 @@ def tv_retract(
             typ.Sequence[NDArray],  # tucker_variations
             typ.Sequence[NDArray],  # tt_variations
         ],
-        shared_data: typ.Optional['sharing_module.T3SharedFrameData'] = None,  # tied retraction (SF-T3)
+        shared_data: typ.Optional['sharing_module.SharedFrameData'] = None,  # tied retraction (SF-T3)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # tucker_cores (retracted T3, base-point ranks)
     typ.Tuple[NDArray, ...],  # tt_cores

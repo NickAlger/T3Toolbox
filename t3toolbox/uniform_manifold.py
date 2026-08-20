@@ -288,10 +288,10 @@ class UT3Tangent:
         orthonormal, gauged frame). ``weights`` is frame-like: its stack must equal the frame's ``C``
         (checked -- :py:func:`~t3toolbox.uniform_frame_variations_format.check_ufw_pair`), and it
         broadcasts over ``K``. Backend twin:
-        :py:func:`~t3toolbox.backend.utv_operations.utv_weighted_norm`.
+        :py:func:`~t3toolbox.backend.utv_operations.ufv_weighted_norm`.
         """
         ubv.check_ufw_pair(self.frame, weights)
-        return utv_operations.utv_weighted_norm(self.variations.data, weights.data,
+        return utv_operations.ufv_weighted_norm(self.variations.data, weights.data,
                                                 len(self.stack_shape))
 
     def weighted_inner(self, other: 'UT3Tangent',
@@ -299,10 +299,10 @@ class UT3Tangent:
         """The **weighted** coordinate inner product ``<absorb(W, self), absorb(W, other)>`` w.r.t. one
         metric ``weights``. The same-tangent-space precondition is checked, as is the frame-like stack of
         ``weights``; vectorized over the stack (returns shape ``K + C``). Backend twin:
-        :py:func:`~t3toolbox.backend.utv_operations.utv_weighted_inner`."""
+        :py:func:`~t3toolbox.backend.utv_operations.ufv_weighted_inner`."""
         self._check_same_tangent_space(other)
         ubv.check_ufw_pair(self.frame, weights)
-        return utv_operations.utv_weighted_inner(self.variations.data, other.variations.data,
+        return utv_operations.ufv_weighted_inner(self.variations.data, other.variations.data,
                                                  weights.data, len(self.stack_shape))
 
     def normalized(self) -> 'UT3Tangent':

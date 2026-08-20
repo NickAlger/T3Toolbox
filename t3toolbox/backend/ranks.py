@@ -330,7 +330,7 @@ def compute_continuation_ranks(
 
     ``s_g`` is representation-independent -- the singular values of the concatenated matricization
     ``[T_(i1)|...|T_(ik)]``, equivalently the Jacobian spectrum of a gauged tied motion of the
-    shared factor (see :py:class:`~t3toolbox.backend.sharing.T3SharedFrameData`) -- so ``kappa_g``
+    shared factor (see :py:class:`~t3toolbox.backend.sharing.SharedFrameData`) -- so ``kappa_g``
     is exactly the conditioning of the tied Tucker subproblem, playing the same role the per-edge
     condition number plays for unshared edges in Section 5.4.1. It is never worse than the group's
     worst per-mode condition number, and can be far better (under tying, a direction is

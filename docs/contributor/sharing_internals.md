@@ -19,7 +19,7 @@ gauged ambient `U̇`, where `S_i = W2_i O2_iᵀ` is the small factor the frame c
 produces (`backend/t3_orthogonalization.py`, the `Cxi` local; `S_i S_iᵀ = Γ_i` and `W2_i = S_i O2_i`
 exactly). Three decisions:
 
-1. **Derived on demand, never stored.** `T3SharedFrameData` (the companion) is computed from a frame
+1. **Derived on demand, never stored.** `SharedFrameData` (the companion) is computed from a frame
    when needed — frames stay minimal dataclasses.
 2. **Recomputed by RE-SWEEP, not by a zipper and not by a re-SVD.** The companion re-runs
    `tt_right_orthogonalize(left_tt_cores, return_variation_cores=True)` — the *same function on the

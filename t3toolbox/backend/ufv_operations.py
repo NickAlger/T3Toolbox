@@ -266,7 +266,7 @@ def ufv_absorb_weights(
 
     **No entry masking**, for the same reason as ``ut3_absorb_weights``: this is a pointwise scale along
     each edge axis, not a reduction, so garbage never mixes into a real slot (garbage-transparent). The
-    reduction that follows (``utv_weighted_norm``/``_inner``) masks its own input.
+    reduction that follows (``ufv_weighted_norm``/``_inner``) masks its own input.
 
     **Precondition (structural, NOT enforced here):** the weight's masks, broadcast over ``K``, must equal
     the variations' masks -- ``ufv_weights_consistent``. Uniform padding hides a mismatch that ragged
@@ -330,7 +330,7 @@ def ufv_weights_from_ut3_weights(
         weights: typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray]],  # UT3Weights .data
 ) -> UT3FrameWeightsData:  # (up, down, left, right, masks) -- a tangent metric
     """Build uniform frame weights (a tangent metric) from uniform base-point edge weights -- the twin of
-    ``fv_weights_from_t3_weights``, and the same slicing, applied to supercores **and** masks:
+    ``t3weights_to_t3frameweights``, and the same slicing, applied to supercores **and** masks:
 
     ``up = down = tucker``; ``left = tt[:-1]``, ``right = tt[1:]``. The TT slicing encodes the ``H_i`` bond
     convention (``H_i``'s left bond is TT bond ``i``, its right bond is bond ``i+1``), which turns the

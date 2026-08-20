@@ -160,7 +160,7 @@ def uniform_corewise_ops(
     over.
 
     With ``sharing`` (a real group), ``project`` becomes the per-group drift-form mean
-    (:py:func:`~t3toolbox.backend.sharing.ufv_mean_tucker_variations` -- the corewise tied projection)
+    (:py:func:`~t3toolbox.backend.sharing.ufv_share_tucker_variations_corewise` -- the corewise tied projection)
     and ``retract`` mean-ties before the additive step, so tied-in gives tied-out exactly. No
     companion (``precompute`` stays ``None``; the mean needs only the static partition).
     """
@@ -187,12 +187,12 @@ def uniform_corewise_ops(
             return (new_x[0], new_x[1])
     else:
         def project(frame_data, var_sc, aux=None):                   # the per-group mean (the corewise tied projection)
-            tied = sharing_module.ufv_mean_tucker_variations(
+            tied = sharing_module.ufv_share_tucker_variations_corewise(
                 (var_sc[0], var_sc[1], shape, var_masks), groups)
             return (tied[0], tied[1])
 
         def retract(frame_data, var_sc, aux=None):                   # mean-tie, then additive (tied-in => tied-out)
-            tied = sharing_module.ufv_mean_tucker_variations(
+            tied = sharing_module.ufv_share_tucker_variations_corewise(
                 (var_sc[0], var_sc[1], shape, var_masks), groups)
             new_x = utv_ops.utv_corewise_retract(frame_data, tied)
             return (new_x[0], new_x[1])

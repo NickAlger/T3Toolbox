@@ -71,7 +71,7 @@ def ut3svd(
     grouped sweep (:py:func:`_ut3svd_shared_supercores`), with ONE group rank mask assigned to every
     group mode, and the reported spectra masked to the FINAL ranks (the ragged two-phase's trimming;
     group modes carry the group spectrum ``s_g``, ``sqrt(k)``-inflated -- see
-    :py:class:`~t3toolbox.backend.sharing.T3SharedFrameData`).
+    :py:class:`~t3toolbox.backend.sharing.SharedFrameData`).
     """
     masked_tucker, masked_tt = ut3_masking.ut3_apply_masks(data)   # guards: masks must be host
     shape = data[2]                                                     # static int tuple

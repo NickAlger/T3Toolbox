@@ -130,7 +130,7 @@ class TestSharingCheckers(unittest.TestCase):
         with self.assertRaises(ValueError):
             sharing.t3_sharing_residual((tk, tt), (0, 0))
         with self.assertRaises(ValueError):
-            sharing.t3_share_tucker_cores((tk, tt), (0, 0))
+            sharing.t3_tie_tucker_factors((tk, tt), (0, 0))
 
     def test_frontend_method_has_shared_tucker_factors(self):
         # the method form of t3_tucker_factors_shared (a property checker of the T3, hence a method
@@ -157,7 +157,7 @@ class TestShareTuckerCores(unittest.TestCase):
                     shape, n, r, sharing_spec = STRUCTURE
                     x = t3.TuckerTensorTrain.randn(shape, n, r, stack_shape=STACK_SHAPE)
                     tk, tt = x.data
-                    tk2, tt2 = sharing.t3_share_tucker_cores(x.data, sharing_spec)
+                    tk2, tt2 = sharing.t3_tie_tucker_factors(x.data, sharing_spec)
                     groups = sharing.validate_sharing(sharing_spec, shape)
                     self.assertIs(tt2[0], tt[0])                 # tt cores untouched (same objects)
                     for group in groups:
@@ -174,7 +174,7 @@ class TestShareTuckerCores(unittest.TestCase):
     def test_tied_input_is_unchanged(self):
         # mean of identical arrays is exact in floating point -> values unchanged, tensor unchanged
         x_data, sharing_spec, _ = _tied_data(SHARED_STRUCTURES[2], ())
-        tk2, tt2 = sharing.t3_share_tucker_cores(x_data, sharing_spec)
+        tk2, tt2 = sharing.t3_tie_tucker_factors(x_data, sharing_spec)
         for A, B in zip(tk2, x_data[0]):
             self.assertTrue(np.array_equal(np.asarray(A), np.asarray(B)))
         x_dense = t3.TuckerTensorTrain(*x_data).to_dense()
@@ -693,13 +693,13 @@ class TestSharedPostPass(unittest.TestCase):
         # (raw core perturbations at the (U,G,G,G) frame have full nU rows)
         corewise_vars = ([np.random.randn(U.shape[-2], U.shape[-1]) for U in x_data[0]],
                          [np.random.randn(*G.shape[-3:]) for G in x_data[1]])
-        tied_mean = sharing.fv_mean_tucker_variations(
+        tied_mean = sharing.fv_share_tucker_variations_corewise(
             (tuple(corewise_vars[0]), tuple(corewise_vars[1])), groups)
         group = sharing.nontrivial_groups(groups)[0]
         self.assertIs(tied_mean[0][group[0]], tied_mean[0][group[1]])
         ref = sum(np.asarray(corewise_vars[0][ii]) for ii in group) / len(group)
         self.assertTrue(np.allclose(np.asarray(tied_mean[0][group[0]]), ref))
-        tied_twice = sharing.fv_mean_tucker_variations(tied_mean, groups)
+        tied_twice = sharing.fv_share_tucker_variations_corewise(tied_mean, groups)
         self.assertTrue(np.array_equal(np.asarray(tied_twice[0][group[0]]),
                                        np.asarray(tied_mean[0][group[0]])))
         # geometry separation, strongest form: on THIS structure the gauged manifold
@@ -848,7 +848,7 @@ class TestSharedGeometry(unittest.TestCase):
         r = np.asarray(x.apply(ww)) - np.random.randn(60)
         geom = sg.shared_manifold(spec)
         model = fitting.apply_model(geom, x, ww, r)
-        self.assertIsInstance(model.geometry_aux, sharing.T3SharedFrameData)
+        self.assertIsInstance(model.geometry_aux, sharing.SharedFrameData)
         g = model.gradient
         tied_again = sharing.fv_share_tucker_variations(g.variations.data, model.geometry_aux)
         for A, B in zip(tied_again[0], g.variations.tucker_variations):
@@ -888,11 +888,11 @@ class TestSharedGeometry(unittest.TestCase):
         self.assertFalse(bool(np.all(x_untied.has_shared_tucker_factors((0, 0)))))
         frame = geom.frame(x_untied)                          # no raise
         tied_point = t3.TuckerTensorTrain(
-            *sharing.t3_share_tucker_cores(x_untied.data, (0, 0)))
+            *sharing.t3_tie_tucker_factors(x_untied.data, (0, 0)))
         self.assertTrue(np.allclose(np.asarray(frame.to_t3().to_dense()),
                                     np.asarray(tied_point.to_dense())))
         # an already-tied point is a bitwise fixed point -- the ordinary path is untouched
-        x_tied = t3.TuckerTensorTrain(*sharing.t3_share_tucker_cores(x_untied.data, (0, 0)))
+        x_tied = t3.TuckerTensorTrain(*sharing.t3_tie_tucker_factors(x_untied.data, (0, 0)))
         f2 = geom.frame(x_tied)
         for A, B in zip(f2.data[0], geom.base.frame(x_tied).data[0]):
             self.assertTrue(np.array_equal(np.asarray(A), np.asarray(B)))
@@ -1225,10 +1225,10 @@ class TestUniformSharedTangent(unittest.TestCase):
         _, var_u = ufvc.ut3_orthogonal_representations(u.data)
         tkv = np.random.randn(*np.asarray(var_u[0]).shape)
         var_d = (tkv, var_u[1], var_u[2], var_u[3])
-        out = sharing.ufv_mean_tucker_variations(var_d, groups)
+        out = sharing.ufv_share_tucker_variations_corewise(var_d, groups)
         import t3toolbox.backend.ufv_masking as ufv_masking
         tkv_m, _ = ufv_masking.ufv_apply_variations_masks(var_d)
-        ref, _ = sharing.fv_mean_tucker_variations((tkv_m, var_u[1]), groups)
+        ref, _ = sharing.fv_share_tucker_variations_corewise((tkv_m, var_u[1]), groups)
         for ii in range(len(shape)):
             self.assertTrue(np.array_equal(np.asarray(out[0][ii]), np.asarray(ref[ii])))
 
@@ -1319,7 +1319,7 @@ class TestUniformSharedGeometry(unittest.TestCase):
         r = np.asarray(x.apply(ww)) - np.random.randn(15)
         mr = fitting.apply_model(sg.shared_manifold(spec), x, ww, r)
         mu = fitting.apply_model(sg.shared(um.UNIFORM_MANIFOLD, spec), ux, ww, r)
-        self.assertIsInstance(mu.geometry_aux, sharing.T3SharedFrameData)
+        self.assertIsInstance(mu.geometry_aux, sharing.SharedFrameData)
         self.assertTrue(np.isclose(float(mr.objective_value), float(mu.objective_value)))
         self.assertTrue(np.isclose(float(mr.gradient.corewise_inner(mr.gradient)),
                                    float(mu.gradient.corewise_inner(mu.gradient))))
@@ -1529,7 +1529,7 @@ class TestWeightsSharing(unittest.TestCase):
         w_bad = ((np.ones(2), np.ones(3), np.ones(2)),
                  (np.ones(1), np.ones(2), np.ones(2), np.ones(1)))
         with self.assertRaises(ValueError):
-            sharing.t3_weights_sharing_residual(w_bad, spec)
+            sharing.t3_tucker_weights_sharing_residual(w_bad, spec)
         # per-stack-element verdicts
         tw = np.ones((2, 3))
         tw2 = tw.copy()

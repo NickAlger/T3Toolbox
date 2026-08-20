@@ -61,7 +61,7 @@ All notable changes to T3Toolbox are documented here. The format follows
     re-masked: the companion's exactness rests on reproducing the construction's own sweep on the
     same arrays, and the padded rows of each `S_i^T` vanish because completion rows are orthogonal
     to the centers' row space), the tied post-passes `ufv_share_tucker_variations` /
-    `ufv_mean_tucker_variations` (mask-and-delegate to the polymorphic ragged solves), and
+    `ufv_share_tucker_variations_corewise` (mask-and-delegate to the polymorphic ragged solves), and
     `shared_data=` threading through `utv_orthogonal_gauge_projection` / `utv_to_ut3` (the TIED
     doubled-rank embedding: `Udot` at every group mode, the companion's centers replacing the down
     cores, the variation block rebuilt at the up width) / `utv_retract` (tied embedding + the grouped
@@ -88,7 +88,7 @@ All notable changes to T3Toolbox are documented here. The format follows
     factors; `from_t3svd(x, sharing=…)` builds group-equal weights; the weight algebra preserves
     group-equality), so the only addition is the non-enforcing compatibility checker:
     `T3Weights.has_shared_tucker_weights(sharing, rtol=)` and the `UT3Weights` twin (masked
-    content), with `t3_weights_sharing_residual` / `t3_weights_shared` (+ `ut3_*`) in
+    content), with `t3_tucker_weights_sharing_residual` / `t3_tucker_weights_shared` (+ `ut3_*`) in
     `backend.sharing`. Nothing gates — absorbing group-unequal weights legitimately unties.
   - **Example**: `examples/fit_shared_factors_jetted_probes.py` — a groupwise-symmetric five-mode
     target (two Hilbert tensors coupled by a random matrix; two sharing groups of different mode
@@ -100,7 +100,7 @@ All notable changes to T3Toolbox are documented here. The format follows
     the slow drift a long run of low-precision first-order steps can produce is absorbed at the next
     frame. An already-tied point is a bitwise fixed point, so the ordinary path is unchanged. The
     uniform layer gets the same route without a round trip through ragged:
-    **`ut3_share_tucker_cores`**, the twin of `t3_share_tucker_cores` (garbage-transparent, so it needs
+    **`ut3_tie_tucker_factors`**, the twin of `t3_tie_tucker_factors` (garbage-transparent, so it needs
     no masking; masks and TT cores untouched). The shared **corewise** retraction ties the *sum* rather
     than aliasing one mode's copy of it, which makes it total: `mean_i(U_i + V_i) = mean_i(U_i) +
     mean_i(V_i)`, so an untied tangent (always handled) and an untied base point both land on the
@@ -110,7 +110,7 @@ All notable changes to T3Toolbox are documented here. The format follows
     the ragged and uniform paths and collapsed the whole stack into one scalar (so one untied stack
     element could hide behind many tied ones).
   - Backend surface in `backend.sharing` (`validate_sharing`, `t3_sharing_residual`,
-    `t3_tucker_factors_shared`, `t3_share_tucker_cores`, `T3SharedFrameData` +
+    `t3_tucker_factors_shared`, `t3_tie_tucker_factors`, `SharedFrameData` +
     `fv_shared_frame_data`, the tied post-passes) and `backend.t3_svd.t3_share_tucker_factors`.
     Safe mode checks tied factors at shared entry points; full shared rank is a diagnostic, never a
     precondition (rank-continuation restarts legitimately sit below it).
@@ -208,7 +208,7 @@ All notable changes to T3Toolbox are documented here. The format follows
   their per-frame SVD companion once per local model instead of once per CG matvec.
 
 - **The `Regularizer` protocol threads the geometry aux**: `gradient`/`hessian`/`quadratic` gain an
-  `aux=None` parameter (the per-frame geometry companion, e.g. the SF-T3 `T3SharedFrameData`), and
+  `aux=None` parameter (the per-frame geometry companion, e.g. the SF-T3 `SharedFrameData`), and
   every model/`LocalModel` call site passes its stored companion — closing the one seam where a
   regularized *shared* fit rebuilt the companion per CG matvec. Custom `Regularizer`
   implementations: accept (and may ignore) `aux=None`. Design record:

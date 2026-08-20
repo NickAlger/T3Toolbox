@@ -1433,7 +1433,7 @@ class T3FrameWeights:
         **minimal-rank** tangent at ``x`` (where the complement rank ``nD`` equals the Tucker rank ``nU``,
         as for ``t3svd`` output); the Grasedyck–Kramer metric is
         ``T3FrameWeights.from_t3weights(T3Weights.from_t3svd(x)).reciprocal()``."""
-        return cls(*fv_operations.fv_weights_from_t3_weights(t3_weights.data))
+        return cls(*fv_operations.t3weights_to_t3frameweights(t3_weights.data))
 
 
 def check_fw_pair(
