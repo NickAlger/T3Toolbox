@@ -580,11 +580,32 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
    test_sharing.py (contract vs ragged incl. forced padding + varying-rank stacks + per-element
    caps, exact masks == ragged ranks, garbage robustness, dispatch anchor bit-identical,
    adjustment/minimal equivalences, per-element checker verdicts) + jit entries in test_dispatch.
-10–11. **NEXT.** Uniform companion (`C_x_i` twin of `up_orthogonalize_tt_supercores`) + uniform
-   tied post-passes/embedding/retract (`utv_*` `shared_data=`) + shared uniform geometry factories
-   (`uniform_geometry_ops(..., sharing=)`, `precompute=` populated) + `SharedGeometry` widened to
-   uniform bases + the fitting gates (`_uniform_geometry_name`, `_uniform_model`, `_ubgeom`,
-   `uniform_least_squares_problem(sharing=)` incl. its minimal-rank gate) + equivalence/jit tests
+10. **DONE** (`335a4971`) uniform companion + tied tangent machinery: `ufv_shared_frame_data`
+   (delegates to the POLYMORPHIC `fv_shared_frame_data` on the frame's stored supercores —
+   **deliberately NOT re-masked**: the companion must reproduce the construction's own sweep on
+   the SAME arrays; masking first changes the padded SVDs' sign gauge and breaks the `<O, H>`
+   pairing — found by test, a flipped bond column destroyed a group spectrum; the padded `S_i^T`
+   rows vanish anyway since completion rows ⊥ the centers' row space. Contract: frames from
+   `ut3_orthogonal_representations`; a `t3frame_to_ut3frame`-packed ragged frame is NOT
+   guaranteed) + `ufv_share_tucker_variations`/`ufv_mean_tucker_variations` (mask-and-delegate;
+   the ragged post-passes are fully polymorphic) + `shared_data=` on
+   `utv_orthogonal_gauge_projection` (post-pass after the gauge loops), `utv_to_ut3` (tied
+   embedding: `Udot` at every group mode — garbage-immune through the companion's masked-clean
+   `U_M` — centers replace the down cores, the variation block rebuilt at the UP width `nU` with
+   singleton blocks zero-padded and block masks = the frame's up mask at group modes), and
+   `utv_retract` (tied embedding + `ut3svd(sharing=groups_to_labels(...))`). Tests
+   (TestUniformSharedTangent): **gauge-invariant comparisons only** — each layer builds its own
+   frame (padded SVD sign gauges differ), so compare represented DENSE tangents/points + the
+   invariant group spectrum, on SHARED-MINIMAL structures (at non-minimal ranks the two layers
+   legitimately build different frames — the pre-existing reason uniform fitting requires
+   `uniform_minimal`). Companion==ragged==dense spectra; tied projection/retraction == ragged at
+   ~1e-15; threading == separate post-pass; idempotence; the corewise mean twin; variation-padding
+   garbage robustness; the jit chain (companion + tied projection + tied retraction, masks/groups
+   closed over) in test_dispatch.
+11. **NEXT.** Shared uniform geometry factories (`uniform_geometry_ops(..., sharing=)`,
+   `precompute=` populated) + `SharedGeometry` widened to uniform bases + the fitting gates
+   (`_uniform_geometry_name`, `_uniform_model`, `_ubgeom`,
+   `uniform_least_squares_problem(sharing=)` incl. its minimal-rank gate) + uniform end-to-end
    + the compile-once shared uniform fit.
 12. `docs/sharing.md` + `contributor/sharing_internals.md` + getting-started snippet.
 13. The symmetric jetted-probes example.
