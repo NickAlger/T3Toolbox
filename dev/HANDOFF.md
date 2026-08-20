@@ -27,7 +27,7 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Shared Tucker factors (SF-T3) — DESIGN SETTLED (2026-08-19), implementation in progress.**
+- **Shared Tucker factors (SF-T3) — SLICES 0–6 BUILT (2026-08-19; committed, NOT pushed).**
   Optimize over T3s whose Tucker factors are tied within user-specified mode groups (the SF-ETT
   of Molozhavenko & Rakhuba 2026, generalized to arbitrary partitions). **The spec is
   `dev/shared_factors_handoff.md` (v3)**, with the math in `dev/shared_t3_math.tex` (+pdf) —
@@ -38,10 +38,30 @@ branch can be deleted (optional).
   paper-faithful two-phase with an all-singleton dispatch anchor; the retraction embedding is
   built tied (`[U_g | Udot]` + center cores) — the v2 mean-re-share was unsound; `GeometryOps`
   gains a `precompute` slot (breaking, sanctioned); zero-padded restarts escape via the untied
-  TT channel — full shared rank is a diagnostic, never a precondition). Commit sequence in v3
-  §8 (13 slices: ragged 1–8, uniform 9–11, docs 12, symmetric jetted-probes example 13).
-  The three reference papers are in the research repo (`tensor/references/`); copies in `dev/`
-  stay untracked (third-party PDFs).
+  TT channel — full shared rank is a diagnostic, never a precondition).
+  **Built so far (one commit per slice; `tests/test_sharing.py` = the suite):**
+  0'. the `squash_tails` shadowing bugfix; 1. `backend/sharing.py` (partition validation +
+  tied-factors checkers + mean point-repair); 2. `T3SharedFrameData` + `fv_shared_frame_data`
+  (re-sweep + stacked-S SVD companion) + the permanent invariant tests; 3. grouped
+  `t3svd(sharing=)` (two-phase) + `t3_rank_adjustment_sweep(sharing=)` + frontend threading with
+  safe-mode tied checks (a math-note erratum found by test: the group truncation error is
+  BOUNDED by the s_g tail, not equal); 4. `t3_share_tucker_factors` + `x.share(...)` (the exact
+  common-span rewrite + grouped rounding; the tex's pre-truncation recorded as optional);
+  5. the tied post-pass, both geometries (`fv_share_tucker_variations` clip-SVD solve /
+  `fv_mean_tucker_variations`) + `shared_data=` threading through the three tv_ projections;
+  6. `GeometryOps.precompute` protocol extension (breaking; all geometries take `aux=None`) +
+  backend `shared_geometry_ops` + the TIED doubled-rank embedding (`tv_to_t3`/`tv_retract`
+  `shared_data=`) + frontend `t3toolbox/shared_geometry.py` (`SharedGeometry`, `shared`,
+  `shared_manifold`, `shared_corewise`) + the integration gates (`optimizers._geometry_ops`,
+  `fitting._ragged_frame`/`_backend_geometry_ops`, `GaussNewtonModel.geometry_aux` leaf) —
+  end-to-end verified: `newton_cg(shared_manifold(...))` recovers a tied target to 4e-10 with
+  every iterate tied; `adam(shared_corewise(...))` to 1e-12.
+  **Next: slice 7** (shared `compute_minimal_ranks` + `manifold_dim` + root exports +
+  CHANGELOG), 8 (shared rank continuation + restart-escape test), 9–11 (uniform mirror, incl.
+  sharing-aware `uniform_minimal`), 12 (docs/sharing.md + contributor internals + doctested
+  getting-started snippet), 13 (the symmetric jetted-probes example). The three reference
+  papers are in the research repo (`tensor/references/`); copies in `dev/` stay untracked
+  (third-party PDFs).
 
 - **The grouped-einsum interpreter `contractions.contract` — SLICE 1 BUILT (2026-07-17; committed,
   NOT pushed).** Nick's resolution of the standing `contractions.py` architecture question: ONE
