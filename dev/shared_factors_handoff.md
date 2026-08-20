@@ -379,8 +379,15 @@ Aptness diagnostic (`κ_g` vs `κ^loc_i`), termination/selection via sharing-awa
 
 ### 4.9 Minor touch points
 
-- Exports (`t3toolbox/__init__.py`, slice 7): `shared`, `shared_manifold`, `shared_corewise`,
-  `t3_share_tucker_factors`, `t3_tucker_factors_shared` (geometries group / tensors group).
+- Exports (`t3toolbox/__init__.py`, slice 7) **[REVISED at slice 7, Nick 2026-08-19]:** root gains
+  ONLY the three geometry names `shared`, `shared_manifold`, `shared_corewise` (frontend, from
+  `shared_geometry.py`). The two backend functions v3 listed are NOT exported: the checker became
+  the **method `TuckerTensorTrain.has_shared_tucker_factors(sharing, rtol=1e-9)`** (a property
+  checker of the T3 — the `has_minimal_ranks` grammar — not a free function: it combines the T3
+  with a *spec*, not another substantive object; the uniform twin will be a method on
+  `UniformTuckerTensorTrain`, no collision), and `t3_share_tucker_factors` needs no free-function
+  frontend because `x.share(...)` IS its frontend. Raw-`.data` users import `backend.sharing` /
+  `backend.t3_svd` as always.
 - Docs (slices 12–13): user page **`docs/sharing.md`** on the `weighting.md` template (tied
   tangent picture; grouped `t3svd` + the two-phase/singleton note; the two geometries and their
   different post-passes; Batching; Uniform; Scope: memory-vs-compute, **sharing ≠ symmetry**
@@ -445,7 +452,8 @@ x.rank_adjustment_sweep(direction, sharing=sharing)
 TuckerTensorTrain.get_minimal_ranks(shape, tucker_ranks, tt_ranks, sharing=sharing)  # staticmethod, as today
 x.continuation_ranks(sharing=sharing, tau=10.0, n_chunk=1, kappa_guard=1e12, max_grow=None)
 t3m.manifold_dim(s, sharing=sharing)                          # existing structure-tuple signature
-t3t.t3_tucker_factors_shared(x.data, sharing, rtol=...)       # + backend t3_sharing_residual
+x.has_shared_tucker_factors(sharing, rtol=...)                # method (slice-7 revision); backend:
+                                                              #   sharing.t3_tucker_factors_shared / t3_sharing_residual
 ```
 
 ---
@@ -497,7 +505,7 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
 
 ---
 
-## 8. Commit sequence — STATUS 2026-08-19 (end of session 1): 0–6 DONE, one commit each
+## 8. Commit sequence — STATUS 2026-08-19 (session 2): 0–7 DONE, one commit each
 
 0. **DONE** (`2bad59de`) handoff v3 + `shared_t3_math.tex` errata (+ rebuilt pdf).
 0'. **DONE** (`d15d4807`) `fix(fv_conversions)`: the `squash_tails` shadowing bug + regression test.
@@ -515,9 +523,16 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
    `shared_geometry_ops` + the `GeometryOps.precompute` protocol extension + the tied
    embedding/retract + the integration gates + tests 8, 10, 11-ragged.
    (+ `89f0dced` per-class setUp seeding in `tests/test_sharing.py`; `e7ce4531` HANDOFF.)
-   **Gate state: full suite 670 passed / 41,678 subtests; compat-floor env green; NOT pushed.**
-7. **NEXT.** Shared `compute_minimal_ranks` + `manifold_dim` + test 9; exports; CHANGELOG.
-8. Shared rank continuation + tests 14 (incl. the restart-escape test).
+7. **DONE** (`187ea0ae`) shared `compute_minimal_ranks(sharing=)` (group ceiling, single-pass) +
+   `compute_manifold_dim(sharing=)` + `frame_has_minimal_ranks(sharing=)` + frontend threading
+   (`manifold_dim(s, sharing=)`, `get_minimal_ranks(sharing=)`) + the
+   `has_shared_tucker_factors` METHOD (the §4.9 export revision) + root exports
+   (`shared`/`shared_manifold`/`shared_corewise`) + tests 9 (hand-worked in
+   `tests/backend/test_ranks.py`, dense ground truths in `tests/test_sharing.py`) + CHANGELOG
+   (the sharing `### Added` entry + the BREAKING `GeometryOps` note under `### Changed`).
+   **Gate state: full suite 687 passed / 41,940 subtests; whole-package doctests green;
+   compat-floor env green (touched tests + doctests + import); docs `-W` build green; NOT pushed.**
+8. **NEXT.** Shared rank continuation + tests 14 (incl. the restart-escape test).
 9–11. Uniform mirror (incl. sharing-aware `uniform_minimal`), equivalence/jit tests,
    uniform end-to-end.
 12. `docs/sharing.md` + `contributor/sharing_internals.md` + getting-started snippet.
@@ -583,13 +598,36 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
 - **Frontend `tucker_tensor_train.py`**: `t3svd(sharing=)` + `rank_adjustment_sweep(direction,
   sharing=)` (both with the safe-mode tied check: `safety.checks_active` + `effective_rtol` +
   residual `.all()`), `share(sharing, ...)` method; new imports `backend_sharing`, `safety`.
-- **Tests**: `tests/test_sharing.py` — 8 classes (ValidateSharing, SharingCheckers,
+- **`backend/ranks.py` (slice 7)**: `compute_minimal_ranks(..., sharing=None, use_jax=False)` —
+  dispatch None/all-singleton → the literal existing sweep; else within-group input-rank equality
+  validated (structural ValueError — an unequal proposal is not a shared rank vector), then the
+  single-pass shared sweep (phase 3 left-to-right, Tucker step BEFORE TT step at each core, the
+  group ceiling `min(N_g, Σ min(N_g, rL·rR))` re-evaluated at every group-mode visit with the
+  CURRENT bonds, assigned group-wide); dual-mode (sequence / stacked array) preserved — every new
+  op is elementwise `xnp.minimum`/sum, so the uniform slices get the batched path for free.
+  `compute_manifold_dim(..., sharing=None)` — shared reduction first, TT term unchanged, ONE
+  Stiefel term per group. `frame_has_minimal_ranks(..., sharing=None)` — returns False (not an
+  error) on untied up-ranks. `ranks.py` now imports `backend.sharing` (no cycle: sharing imports
+  only `tt_orthogonalization` + `common`). Frontend: `manifold_dim(s, sharing=)`,
+  `get_minimal_ranks(..., sharing=)` (the group-ceiling doctest pair `((2,4,2))` vs `((4,4,2))`),
+  the `has_shared_tucker_factors` method (see the §4.9 export revision). Root exports: the three
+  geometry names. Verified BEFORE implementation (scratch, promoted to tests): sweep == dense
+  edge-cut ranks of tied T3s (48 hand+randomized structures), idempotent (200 trials),
+  all-singleton == unshared (200 trials); dim formula == dense tied-tangent SVD rank (4
+  structures incl. the group-ceiling case: shared 32 == dense 32, unshared formula says 36).
+- **Tests**: `tests/test_sharing.py` — 10 classes (ValidateSharing, SharingCheckers,
   ShareTuckerCores, GroupedT3svd, ShareTuckerFactors, SharedPostPass, SharedFrameData,
-  SharedGeometry), EVERY class seeds in `setUp` (suite-order RNG coupling bit once — module-level
-  seeds run at import, before any test). jit entries: `test_dispatch.py::test_jit_backend`
+  SharedGeometry, + slice 7's SharedMinimalRanksGroundTruth / SharedManifoldDimGroundTruth —
+  dense edge-cut and tied-tangent-SVD ground truths), EVERY class seeds in `setUp` (suite-order
+  RNG coupling bit once — module-level seeds run at import, before any test). Hand-worked shared
+  rank/dim tuples live in `tests/backend/test_ranks.py` (SharedMinimalRanks / SharedManifoldDim /
+  SharedFrameHasMinimalRanks — same structures as the dense ground truths, pure host arithmetic;
+  incl. idempotence + all-singleton==unshared property sweeps, the isolated unequal-rank
+  rejection, and stacked-array mode). jit entries: `test_dispatch.py::test_jit_backend`
   (residual/checker/mean/companion/tied projection), `test_jit_tucker_tensor_train` (grouped
-  t3svd + adjustment), `test_jit_shared_geometry_fitting` (shared model matvec).
-  `test_frame_variations_format.py` has the squash_tails regression.
+  t3svd + adjustment), `test_jit_shared_geometry_fitting` (shared model matvec); ranks are
+  host-only by doctrine — no dispatch entries. `test_frame_variations_format.py` has the
+  squash_tails regression.
 
 ### 8c. Session-1 lessons not in the spec above (do not re-derive)
 

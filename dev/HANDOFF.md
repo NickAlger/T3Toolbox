@@ -27,7 +27,7 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Shared Tucker factors (SF-T3) — SLICES 0–6 BUILT (2026-08-19; committed, NOT pushed).**
+- **Shared Tucker factors (SF-T3) — SLICES 0–7 BUILT (2026-08-19; committed, NOT pushed).**
   Optimize over T3s whose Tucker factors are tied within user-specified mode groups (the SF-ETT
   of Molozhavenko & Rakhuba 2026, generalized to arbitrary partitions). **The spec is
   `dev/shared_factors_handoff.md` (v3)**, with the math in `dev/shared_t3_math.tex` (+pdf) —
@@ -55,9 +55,16 @@ branch can be deleted (optional).
   `shared_manifold`, `shared_corewise`) + the integration gates (`optimizers._geometry_ops`,
   `fitting._ragged_frame`/`_backend_geometry_ops`, `GaussNewtonModel.geometry_aux` leaf) —
   end-to-end verified: `newton_cg(shared_manifold(...))` recovers a tied target to 4e-10 with
-  every iterate tied; `adam(shared_corewise(...))` to 1e-12.
-  **Next: slice 7** (shared `compute_minimal_ranks` + `manifold_dim` + root exports +
-  CHANGELOG), 8 (shared rank continuation + restart-escape test), 9–11 (uniform mirror, incl.
+  every iterate tied; `adam(shared_corewise(...))` to 1e-12;
+  7. shared rank bookkeeping — `compute_minimal_ranks(sharing=)` (the group ceiling
+  `n_g <= min(N_g, Σ min(N_g, rL·rR))`, single-pass, verified == dense edge-cut ranks of tied
+  T3s) + `manifold_dim(s, sharing=)` (one Stiefel term per GROUP; verified == dense
+  tied-tangent SVD rank) + `frame_has_minimal_ranks(sharing=)` + the
+  `TuckerTensorTrain.has_shared_tucker_factors` method (a checker is a METHOD, not a free
+  function — Nick's slice-7 export revision, recorded in the spec §4.9) + root exports
+  (`shared`/`shared_manifold`/`shared_corewise` only) + CHANGELOG (sharing `### Added` + the
+  BREAKING `GeometryOps.precompute` note).
+  **Next: slice 8** (shared rank continuation + restart-escape test), 9–11 (uniform mirror, incl.
   sharing-aware `uniform_minimal`), 12 (docs/sharing.md + contributor internals + doctested
   getting-started snippet), 13 (the symmetric jetted-probes example). The three reference
   papers are in the research repo (`tensor/references/`); copies in `dev/` stay untracked
