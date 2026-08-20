@@ -497,28 +497,122 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
 
 ---
 
-## 8. Commit sequence
+## 8. Commit sequence — STATUS 2026-08-19 (end of session 1): 0–6 DONE, one commit each
 
-0. **[this commit]** handoff v3 + `shared_t3_math.tex` errata (+ rebuilt pdf).
-0'. `fix(fv_conversions)`: the `squash_tails` shadowing bug + regression test.
-1. `backend/sharing.py`: `validate_sharing`, `t3_sharing_residual`, `t3_tucker_factors_shared`,
-   `t3_share_tucker_cores` + `tests/test_sharing.py` + dispatch entry.
-2. `T3SharedFrameData` + `fv_shared_frame_data` (re-sweep + stacked SVD) + safe-mode contract
-   wiring points + the §2.5 permanent invariant tests.
-3. Grouped `t3svd` (two-phase + dispatch) + `t3_rank_adjustment_sweep(sharing=)` + rank-bound
-   comment + tests 2–5.
-4. `t3_share_tucker_factors` + `.share()` + test 6.
-5. Post-pass (`fv_share_tucker_variations` + `fv_mean_tucker_variations`) + `tv_*` kwarg
-   threading + tests 7 (incl. stacked).
-6. `shared_geometry.py` + backend `shared_ops` + the `GeometryOps.precompute` protocol
-   extension + shared embedding/retract + the six integration gates + tests 8, 10.
-7. Shared `compute_minimal_ranks` + `manifold_dim` + test 9; end-to-end test 11 (ragged);
-   exports; CHANGELOG.
+0. **DONE** (`2bad59de`) handoff v3 + `shared_t3_math.tex` errata (+ rebuilt pdf).
+0'. **DONE** (`d15d4807`) `fix(fv_conversions)`: the `squash_tails` shadowing bug + regression test.
+1. **DONE** (`74676bcd`) `backend/sharing.py`: `validate_sharing`, `t3_sharing_residual`,
+   `t3_tucker_factors_shared`, `t3_share_tucker_cores` + `tests/test_sharing.py` + dispatch entry.
+2. **DONE** (`e10dba36`) `T3SharedFrameData` + `fv_shared_frame_data` (re-sweep + stacked SVD) +
+   the §2.5 permanent invariant tests (safe-mode wiring landed with slice 6, where the frontend
+   entry points exist).
+3. **DONE** (`cc339507`) grouped `t3svd` (two-phase + dispatch) + `t3_rank_adjustment_sweep(sharing=)`
+   + rank-bound comment + frontend threading with safe-mode tied checks + tests 2–5.
+4. **DONE** (`93df40a8`) `t3_share_tucker_factors` + `TuckerTensorTrain.share()` + test 6.
+5. **DONE** (`6cbaaa85`) post-pass (`fv_share_tucker_variations` + `fv_mean_tucker_variations`)
+   + `tv_*` kwarg threading + tests 7 (incl. stacked / K-over-C broadcast).
+6. **DONE** (`0a41027e`, breaking `!`) `t3toolbox/shared_geometry.py` + backend
+   `shared_geometry_ops` + the `GeometryOps.precompute` protocol extension + the tied
+   embedding/retract + the integration gates + tests 8, 10, 11-ragged.
+   (+ `89f0dced` per-class setUp seeding in `tests/test_sharing.py`; `e7ce4531` HANDOFF.)
+   **Gate state: full suite 670 passed / 41,678 subtests; compat-floor env green; NOT pushed.**
+7. **NEXT.** Shared `compute_minimal_ranks` + `manifold_dim` + test 9; exports; CHANGELOG.
 8. Shared rank continuation + tests 14 (incl. the restart-escape test).
 9–11. Uniform mirror (incl. sharing-aware `uniform_minimal`), equivalence/jit tests,
    uniform end-to-end.
 12. `docs/sharing.md` + `contributor/sharing_internals.md` + getting-started snippet.
 13. The symmetric jetted-probes example.
+
+### 8b. Implementation state — what exists where (for a fresh context)
+
+- **`backend/sharing.py`** (all of): `validate_sharing(sharing, shape) -> groups`;
+  `nontrivial_groups(groups)`; `groups_to_labels(groups)` (inverse of validate);
+  `t3_sharing_residual(x, sharing)` (per-stack max relative factor deviation; inf on
+  zero-ref/nonzero-other; structural rank/size errors always); `t3_tucker_factors_shared(x,
+  sharing, rtol=1e-9)`; `t3_share_tucker_cores(x, sharing)` (mean in DRIFT form `ref +
+  mean(diffs)` — plain `sum/k` perturbs the last ulp already at k=3; ONE array per group);
+  `T3SharedFrameData(groups, row_splits, centers, svd_U, svd_s, svd_Vt)` (arrays leaves,
+  statics aux; `eq=False`); `fv_shared_frame_data(frame_data, groups)` (re-sweep
+  `tt_right_orthogonalize(left, return_variation_cores=True)` — bit-identical to construction
+  — then `S_i^T = einsum('...axb,...aub->...xu', O_i, H_i)` against the STORED down cores,
+  then per-group batched thin SVD of `M_g = concat(S_i^T)`); `fv_share_tucker_variations`
+  (manifold post-pass via `_tied_solve` clip-pinv; dtype-aware rcond); `fv_tied_ambient_directions`
+  (returns `Udot` per group — the retraction consumes it); `fv_mean_tucker_variations`
+  (corewise post-pass, drift form).
+- **`backend/t3_svd.py`**: `t3svd(..., sharing=None)` — dispatch: None/all-singleton → the
+  literal existing sweep (bit-identical, tested); else `_t3svd_shared` (phase 1 TT-bond sweep
+  with Tucker steps SKIPPED; phase 2 collect centers via one right sweep; phase 3 all Tucker
+  SVDs at once — singletons per mode, groups on the concatenation, `Y` applied to the
+  right-orthogonal chain, ONE factor array per group, `s_g` reported at every group mode;
+  phase 4 lossless left re-orth restoring the left-orthogonal contract, reported TT spectra
+  TRIMMED to final bond dims — continuation reads ranks off sval lengths). Helpers
+  `_up_matricization`, `_reversed_groups`. `t3_rank_adjustment_sweep(..., sharing=)`
+  ('right_to_left' via mode reversal + `_t3svd_shared` uncapped/assume_orthogonal).
+  `t3_share_tucker_factors` lives HERE (not sharing.py — import cycle: t3_svd imports sharing):
+  the exact common-span rewrite (one stacked-factor SVD per group; coefficients are the SVD's
+  own row blocks, valid for arbitrary factors; NO pre-truncation) + grouped `t3svd` doing ALL
+  selection.
+- **`backend/tv_operations.py`**: `shared_data=None` kwargs on `tv_orthogonal_gauge_projection`
+  (post-pass fires after the gauge loops), `tv_project_t3/dense_onto_tangent_space`
+  (pass-through), `tv_to_t3` (the TIED embedding: substitute `Udot` into the group modes'
+  variation slots and the companion's centers `H_i` into their down-core slots BEFORE the
+  existing assembly — drop-in; then re-assign one doubled factor per group), `tv_retract`
+  (tied embedding + grouped t3svd via `groups_to_labels`).
+- **`backend/optimizers.py`** (BREAKING): `GeometryOps` gains `precompute` (frame -> aux);
+  `project`/`retract` signatures are `(frame, var, aux=None)` everywhere (both ragged
+  singletons + both uniform factories in `uniform_fitting.py` updated); `LocalModel.geom_aux`
+  leaf field (built once in `Problem.local_model`, passed to project/retract);
+  `shared_geometry_ops(base, groups)` factory beside the singletons (corewise variant re-ties
+  structurally after `corewise_add`).
+- **`t3toolbox/shared_geometry.py`**: `SharedGeometry` (value-based `__eq__`/`__hash__` over
+  `(base_name, sharing)`; zero-leaf pytree; `groups(shape)` canonicalizes lazily — shape is
+  unknown at construction), `shared`/`shared_manifold`/`shared_corewise`; methods: `frame`
+  (safe-mode tied check), `shared_frame_data`, `precompute_aux` (companion / None),
+  `project(v, shared_data=None)`, `project_oblique` (delegate; manifold only), `inner`/`norm`
+  (delegate), `randn`/`randn_like` (delegate+project), `retract(p, shared_data=None)`
+  (safe-mode: ORTH + tied factors + tied COORDINATES via one extra post-pass compare),
+  `project_ambient`, `transport` (tied check on new_frame). NO full-shared-rank precondition
+  anywhere (restarts sit on the stratum).
+- **Gates**: `optimizers._geometry_ops(geometry, shape=None)` (the one call site passes
+  `x0.shape`); `fitting._ragged_frame` accepts the wrapper; `fitting._backend_geometry_ops
+  (geometry, shape)` (called from `_bgeom` with `self.frame.shape`); `_ragged_geometry_aux`
+  helper; `GaussNewtonModel.geometry_aux` leaf (pytree children now 5) + `_project` helper
+  used at all four project sites; all six model factories thread the aux. Uniform gates
+  (`_uniform_geometry_name`, `_uniform_model`, `_ubgeom`) untouched — `SharedGeometry`
+  rejects uniform bases at construction until slices 9–11.
+- **Frontend `tucker_tensor_train.py`**: `t3svd(sharing=)` + `rank_adjustment_sweep(direction,
+  sharing=)` (both with the safe-mode tied check: `safety.checks_active` + `effective_rtol` +
+  residual `.all()`), `share(sharing, ...)` method; new imports `backend_sharing`, `safety`.
+- **Tests**: `tests/test_sharing.py` — 8 classes (ValidateSharing, SharingCheckers,
+  ShareTuckerCores, GroupedT3svd, ShareTuckerFactors, SharedPostPass, SharedFrameData,
+  SharedGeometry), EVERY class seeds in `setUp` (suite-order RNG coupling bit once — module-level
+  seeds run at import, before any test). jit entries: `test_dispatch.py::test_jit_backend`
+  (residual/checker/mean/companion/tied projection), `test_jit_tucker_tensor_train` (grouped
+  t3svd + adjustment), `test_jit_shared_geometry_fitting` (shared model matvec).
+  `test_frame_variations_format.py` has the squash_tails regression.
+
+### 8c. Session-1 lessons not in the spec above (do not re-derive)
+
+- **Tex erratum found by test:** the group truncation error is BOUNDED by the `s_g` tail (the
+  tail = the SUM of single-mode projection errors; equality only for singletons). Fixed in
+  `shared_t3_math.tex` ("Truncation error bound" remark) with the measured 4.19e2-vs-4.80e2.
+- **`share` semantics:** without caps/rtol it is the LOSSLESS common-span rewrite (group rank
+  `min(sum n_i, N)` — structural, consistent with unshared `t3svd`'s no-tolerance behavior);
+  agreement with grouped `t3svd` holds at EQUAL truncation settings. The tex Algorithm-3
+  pre-truncation (K-SVD) is recorded as an optional efficiency device — implementing it caused
+  a double-truncation spectrum-reporting artifact under caps (caught by the agreement test).
+- **Corewise facts:** zero cores are a critical point of the multilinear parametrization
+  (corewise e2e tests start from a small TIED random point); gauged manifold coordinates can
+  differ in SHAPE across a group (`nD_i = min(n, rL_i*rR_i)`) so the mean is not even defined
+  on them — the strongest geometry-separation demonstration (in the tests).
+- **Regularizer + shared:** `Regularizer.hessian/quadratic` call `geom.project(frame, p)`
+  2-arg → the shared project recomputes the companion per reg call (correct; accepted cost;
+  tiny vs a matvec). `point_tangent`'s `v_X` has zero Tucker variations → trivially tied.
+- **The doctest gem:** `rank_adjustment_sweep` docstring shows the group ceiling live — caps
+  `[1,1,2,1]` give shared `(3,3,2)` (kept: ceiling `1+2=3`) where the unshared sweep clips to
+  `(1,2,2)` and unties.
+- Verification-script results are promoted into `tests/test_sharing.py`; the float32
+  measurements live in Appendix A below (the scratchpad scripts are gone with the session).
 
 ---
 
