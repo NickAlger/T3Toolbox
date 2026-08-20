@@ -27,6 +27,56 @@ branch can be deleted (optional).
 
 ## Active threads
 
+- **Release prep, step 1 — THE DOCUMENTATION PASS (2026-08-20, done; uncommitted at time of writing).**
+  A four-way audit (API names, the contractions interpreter, sharing, internal consistency) against the
+  code, then the fixes. Gates after: full suite **720 / 41,969 green**, module doctests **191 green**,
+  docs build **clean under `-W --keep-going`**, doc doctests green on **both** generations.
+  - **The release notes were the big gap.** `[Unreleased]` was missing SIX feature groups that landed
+    *after* the `v2026.0.0` tag (verified by checking file existence at the tag): regularization,
+    per-mode residual weighting, the Newton-CG diagnostic display, the `g0norm`/forcing warm-start
+    controls, chunking + the estimators, and the recurrence/scan jets — plus the `use_jit` behavior
+    change and two bug fixes. All now written up. (The previous handoff's "the `[Unreleased]` section
+    is complete and current" was **wrong** — don't trust it again without checking against the tag.)
+  - **New: `docs/release_notes.md`** — wired into the root toctree; carries an "Upgrading from
+    2026.0.0" section (the three breaking changes with migration recipes) and `{include}`s
+    `CHANGELOG.md`. The two repo-relative doc links in the CHANGELOG became site URLs so they resolve
+    from both GitHub and the rendered page.
+  - **CI now doctests every `docs/*.md` + `docs/contributor/*.md` page** (Nick's call: warn us when the
+    docs and the code drift apart). ~36 fenced examples across 9 pages became runnable `>>>` sessions;
+    genuinely schematic blocks stay plain fences. One exclusion: `doctest_style.md`, whose fragments are
+    illustrative and which doctest cannot even parse. **Two gotchas now recorded in `doctest_style.md`
+    and CLAUDE.md**: a markdown page needs a **blank line before the closing fence** or doctest swallows
+    it into the expected output; and each page is its own namespace shared across its blocks. The pass
+    immediately caught real rot — `uniform_backend_jit_recipe.md` used a `frame.masks_data` attribute
+    that does not exist, and `fitting_and_optimization.md` §2.2's Cauchy step used `gn_quadratic(v)`
+    where the math needs `gn_quadratic(g)`.
+  - **Minimal ranks: docs now match code, and the *why* is finally written down** (Nick's question, and
+    he was right to push back on my first answer). Orthonormality + gauge is the whole precondition.
+    Excess rank is inert because a `T3Frame` carries **four** rank stores (`up`/`down`, `left`/`right`)
+    and absorbs an over-ranked request as slack between them — `random_orthogonal((6,6,6),(4,4,4),(1,2,2,1))`
+    returns `up=(4,4,4)`, `down=(2,4,2)`, is exactly orthogonal, and has `has_minimal_ranks=False`.
+    Measured: same tangent space (dim == `manifold_dim`), HS identities exact, projections exact; even a
+    frame whose four representations describe *different* points keeps inner/norm/project exact.
+    **Do not re-derive this** — it is in `docs/frame_variations.md` ("Four rank stores — and why excess
+    rank is inert"), pointed at from `numerical_contracts.md`. The contradiction's origin: the
+    catalog's sign-off banner (2026-06-19 15:22) approved a structural-minimal check; the experiment
+    75 minutes later disproved it, rewrote the body, and left the banner. Banner now annotated as
+    superseded, and the same fossil in `dev/archive/safe_unsafe_mode_plan.md` §5/§6 got a banner too.
+    Nine "(ragged only)" regularizer annotations and five "uniform twin deferred" docstrings were
+    false and are fixed (uniform regularization verified working: ‖x‖ 106.8 → 35.4 at λ=1).
+  - **Coverage added**: `api_reference.rst` listed 29 of 44 root exports — the weights layer, the
+    sharing geometries and three backend modules are now in; README + `index.rst` scope lists mention
+    sharing/weighting/regularization/continuation; the fitting page finally mentions `shared(...)`,
+    the `precompute` slot and the shared example; the SF-Tucker and SF-ETT papers are cited in full
+    (with DOI/PMLR links) in the user guide's literature list, on `docs/sharing.md` (new References
+    section) and in `sharing_internals.md`.
+  - **Promoted from the dev spec before it gets archived**: the checker-naming rule (a property
+    checker is a frontend method/property, not a free function) is now in `naming_conventions.md`.
+  - **Next in release prep**: version bump (`YYYY.MINOR.PATCH`; `2026.0.0` → **`2026.1.0`**, breaking
+    changes queued), CHANGELOG `[Unreleased]` → the release header, then the
+    `dev/archive/release_plan_2026-07-13.md` checklist (wheel + `twine check` + fresh-venv smoke,
+    commit + tag → the trusted-publishing workflow → PyPI, docs deploy).
+
 - **Shared Tucker factors (SF-T3) — COMPLETE AND FULLY PUSHED (all slices 0–13 + two follow-ups,
   2026-08-19/20; through `813db064`).** Follow-ups: the weights×sharing compatibility checker
   (composition verified; checker-only, nothing gates) and the precompute audit (Regularizer

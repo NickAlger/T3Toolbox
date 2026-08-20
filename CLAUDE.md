@@ -108,8 +108,9 @@ updated to this version by the time the package is released.
 **Three representations** (the organizing principle):
 - **ragged** — tuples of variably-shaped arrays. The default, fully working path.
 - **uniform** — one stacked supercore array + masks (`ut3_*`, `ufv_*`, `uniform_*`); for
-  `jax.lax.scan` vectorization. **`UniformTuckerTensorTrain` (the plain layer) is built through slice 8
-  and jit-wired with host-numpy masks** (uniform frame/variations/tangents still deferred). **Before
+  `jax.lax.scan` vectorization. **The uniform mirror is COMPLETE** — `UniformTuckerTensorTrain`,
+  `UT3Frame`/`UT3Variations`/`UT3Tangent`, the uniform geometries, sampling + jets, the weighted layer,
+  shared factors, and the optimizers, all jit-wired with host-numpy masks. **Before
   touching uniform code, read the design notes** — governing: [`docs/uniform_equivalence_contract.md`](docs/uniform_equivalence_contract.md)
   (the uniform layer is a *faster ragged layer*: `to_uniform → op → to_ragged == op_ragged` on real
   parts, garbage don't-care — this is correctness *and* the test strategy). Then:
@@ -337,8 +338,12 @@ The dividing line is **structural vs numerical**:
   jit round-trip, so the frame flows as traced data with no per-frame recompile — see `manifold.py`.)
   A few tests still build explicit jax operands where that *is* the thing under test (e.g.
   `test_contains_jax`); those keep the `jnp` import.
-- **Doctests = reproducible examples**, CI-enforced (the `tests` workflow runs module doctests + the
-  quickstart page on both numpy generations): **examples first** (teach the API), not coverage. Seed (`np.random.seed(0)`) or fixed inputs; value-match via
+- **Doctests = reproducible examples**, CI-enforced (the `tests` workflow runs module doctests, the
+  quickstart page, **and every `docs/*.md` + `docs/contributor/*.md` page**, on both numpy
+  generations — so a documented example that the library outgrows fails the build; the one exclusion
+  is `doctest_style.md`, whose fragments are illustrative. Page examples are `>>>` sessions inside the
+  ```` ```python ```` fence, and **need a blank line before the closing fence** or doctest swallows it
+  into the expected output): **examples first** (teach the API), not coverage. Seed (`np.random.seed(0)`) or fixed inputs; value-match via
   `np.allclose`; print **structure** (shapes/ranks) not raw values; show **gotchas** (structural →
   traceback `+IGNORE_EXCEPTION_DETAIL`; numerical → wrong-vs-right). One distinct behavior per option
   (no cross-product); long tail → prose. **Run the example and paste the real output — never hand-write

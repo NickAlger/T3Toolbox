@@ -38,6 +38,20 @@ Everything below is importable directly from ``t3toolbox``.
   geometry and the Euclidean coordinate geometry.
 - ``UNIFORM_MANIFOLD`` / ``UNIFORM_COREWISE`` (in :py:mod:`~t3toolbox.uniform_manifold`) -- their
   uniform twins.
+- :py:func:`~t3toolbox.shared_geometry.shared` with the shorthands
+  :py:func:`~t3toolbox.shared_geometry.shared_manifold` /
+  :py:func:`~t3toolbox.shared_geometry.shared_corewise` -- wrap any of the four geometries to
+  constrain the Tucker factors equal within groups of modes (:doc:`sharing`).
+
+**Weights**
+
+- :py:class:`~t3toolbox.tucker_tensor_train.T3Weights` /
+  :py:class:`~t3toolbox.uniform_tucker_tensor_train.UT3Weights` -- diagonal edge weights on a T3 *as a
+  tensor*; :py:class:`~t3toolbox.frame_variations_format.T3FrameWeights` /
+  :py:class:`~t3toolbox.uniform_frame_variations_format.UT3FrameWeights` -- a metric on a tangent's
+  coordinates (:doc:`weighting`).
+- The free functions ``t3_absorb_weights`` / ``ut3_absorb_weights`` / ``fv_absorb_weights`` /
+  ``ufv_absorb_weights``, and ``t3_weighted_norm`` / ``t3_weighted_inner`` (+ the ``ut3_`` twins).
 
 **Fitting and optimization**
 
@@ -53,6 +67,9 @@ Everything below is importable directly from ``t3toolbox``.
   :py:func:`~t3toolbox.optimizers.gradient_descent`, :py:func:`~t3toolbox.optimizers.mc_sgd`,
   :py:func:`~t3toolbox.optimizers.adam`, :py:func:`~t3toolbox.optimizers.newton_cg`.
   Ragged vs uniform is inferred from the initial guess ``x0``.
+- ``Regularizer`` / ``IdentityRegularizer`` (in :py:mod:`~t3toolbox.optimizers`, defined in
+  :py:mod:`~t3toolbox.backend.regularization`) -- the optional objective term ``ρ(x)``
+  (:doc:`fitting_and_optimization` §4.9).
 
 **Safety**
 
@@ -87,9 +104,16 @@ Backend modules follow the family-prefix grammar (``t3_`` ragged tensor, ``ut3_`
   uniform object-type wrappers :py:mod:`~t3toolbox.backend.ut3_sampling`,
   :py:mod:`~t3toolbox.backend.utv_sampling`.
 - **Fitting and optimization**: :py:mod:`~t3toolbox.backend.fitting`,
-  :py:mod:`~t3toolbox.backend.optimizers`, :py:mod:`~t3toolbox.backend.uniform_fitting`.
+  :py:mod:`~t3toolbox.backend.optimizers`, :py:mod:`~t3toolbox.backend.uniform_fitting`,
+  :py:mod:`~t3toolbox.backend.regularization` (the ``ρ(x)`` objective term) and
+  :py:mod:`~t3toolbox.backend.optimizer_display` (the Newton-CG diagnostic display, so a backend
+  user gets the identical output).
+- **Shared Tucker factors**: :py:mod:`~t3toolbox.backend.sharing` -- partition validation, the
+  tied-factor checkers, the shared-frame companion and the tied post-passes (:doc:`sharing`); the
+  frontend geometry wrapper lives in :py:mod:`~t3toolbox.shared_geometry`.
 - **Infrastructure**: :py:mod:`~t3toolbox.backend.common`,
-  :py:mod:`~t3toolbox.backend.contractions`, :py:mod:`~t3toolbox.backend.stacking`,
+  :py:func:`~t3toolbox.backend.contractions.contract` (the grouped-einsum interpreter --
+  :doc:`grouped_contractions`), :py:mod:`~t3toolbox.backend.stacking`,
   :py:mod:`~t3toolbox.backend.linalg`, :py:mod:`~t3toolbox.backend.ranks`.
 
 .. note::

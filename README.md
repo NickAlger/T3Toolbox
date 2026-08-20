@@ -106,15 +106,22 @@ for the full tour with verified outputs.
   `T3Variations`, `T3Tangent`), gauge projections, retraction, and two geometries — the
   Hilbert-Schmidt `MANIFOLD` and the Euclidean-coordinate `COREWISE`.
 - **Least-squares fitting** from any of the sampling operations or their derivatives
-  (Gauss-Newton models) with four optimizers: `gradient_descent`, `mc_sgd`, `adam`, `newton_cg`.
+  (Gauss-Newton models) with four optimizers: `gradient_descent`, `mc_sgd`, `adam`, `newton_cg` —
+  with optional residual weighting, Tikhonov regularization, live Newton-CG diagnostics, and
+  rank continuation.
+- **Shared Tucker factors (SF-T3)**: optimize over T3s whose Tucker factors are constrained equal
+  within user-specified groups of modes — `shared(MANIFOLD, sharing)` wraps any geometry, and the
+  grouped T3-SVD, rank bookkeeping and continuation follow.
+- **Edge weighting**: diagonal weights on a T3's internal edges (`T3Weights`) and on a tangent's
+  coordinates (`T3FrameWeights`, the Grasedyck-Kramer preconditioner), with `absorb` into cores.
 - The **uniform layer**: zero-padded supercores + boolean rank masks mirroring the whole stack —
   same results, uniform shapes — for `jax.lax.scan` vectorization, GPU efficiency, and
   compile-once `jit` (optimizers included).
 - **NumPy / JAX** backends with dispatch inferred from the input arrays; frontend classes are
   registered jax pytrees.
 - **Safe mode**: numerical preconditions (same tangent space, orthogonal frame, gauged
-  variations) checked by default, skippable for speed (`t3toolbox.unsafe()`); structural
-  problems always error.
+  variations, tied factors) checked by default, skippable for speed (`t3toolbox.unsafe()`);
+  structural problems always error.
 
 ## Documentation
 

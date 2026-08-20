@@ -81,6 +81,11 @@ their shape information (the fill is never used to infer shape).
   vectors.** When a slot's structural rank exceeds its numerical rank, the extra prefix columns are
   legitimate-but-arbitrary orthonormal directions (deterministic per run, not meaningful data) —
   visible in outputs, and expected.
+- **The shared-factor companion is guaranteed only for frames the uniform layer built.**
+  `ufv_shared_frame_data` re-sweeps the frame's supercores *as stored* (padding included), so it is
+  exact for a frame from `ut3_orthogonal_representations`; a frame packed from a ragged one via
+  `t3frame_to_ut3frame` is **not** guaranteed (the padded re-sweep can flip sign gauges against the
+  unpadded construction). See `docs/contributor/sharing_internals.md`.
 
 See also `docs/uniform_ranks_and_varieties.md`, `docs/uniform_supercore_layout.md`,
 `docs/uniform_masks_vs_ranks.md`, `docs/contributor/uniform_pytree_composition.md`.
