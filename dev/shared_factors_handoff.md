@@ -505,7 +505,7 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
 
 ---
 
-## 8. Commit sequence — STATUS 2026-08-19 (session 2): 0–7 DONE, one commit each
+## 8. Commit sequence — STATUS 2026-08-19 (session 2): 0–8 DONE, one commit each
 
 0. **DONE** (`2bad59de`) handoff v3 + `shared_t3_math.tex` errata (+ rebuilt pdf).
 0'. **DONE** (`d15d4807`) `fix(fv_conversions)`: the `squash_tails` shadowing bug + regression test.
@@ -532,8 +532,25 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
    (the sharing `### Added` entry + the BREAKING `GeometryOps` note under `### Changed`).
    **Gate state: full suite 687 passed / 41,940 subtests; whole-package doctests green;
    compat-floor env green (touched tests + doctests + import); docs `-W` build green; NOT pushed.**
-8. **NEXT.** Shared rank continuation + tests 14 (incl. the restart-escape test).
-9–11. Uniform mirror (incl. sharing-aware `uniform_minimal`), equivalence/jit tests,
+8. **DONE** (`50ba1e68`) shared rank continuation: `compute_continuation_ranks(sharing=)` (one
+   `κ_g` per group; group-wide decisions; group = ONE `max_grow` candidate via the group-aware
+   `_grow_capped_edges(sharing=)`; shared removal at all three cleanup sites; identical-spectrum
+   validation with exact `array_equal` — the grouped t3svd assigns one `s_g` array per group) +
+   frontend `continuation_ranks(sharing=)` (threads through the grouped t3svd, inheriting its
+   safe-mode tied check) + `resize(..., sharing=)` (safe-mode tied check at entry; post-pass =
+   `t3_share_tucker_cores`, exact on tied input via the drift-form mean — ONE array per group) +
+   tests 14: synthetic growth-rule tests in `tests/backend/test_ranks.py`
+   (TestSharedContinuationRanks — group-wide growth, κ_g as κ_max, guard on κ_g, group as one
+   max_grow candidate, capped-group skip, fallback bumps group once, unequal-spectra rejection,
+   all-singleton==unshared) and tensor tests in `tests/test_sharing.py` (TestSharedContinuation —
+   14c symmetric degeneration `s_g = √3·σ` to 7e-16 + `κ_g == κ_loc`; 14d mediant bound + the
+   complementary construction `κ_g = 1` vs per-mode `1e4`; 14f tied padded restart, dense-equal,
+   new levels EXACTLY 0 in both the t3svd spectrum and the companion `svd_s`, untied-input
+   rejection; 14g restart escape — new `s_g` level 0 → O(1) mass within two Newton steps; 14h
+   end-to-end continuation loop from rank-1 zeros to exactly the target shared ranks, rel err
+   1e-10, `g0norm_newton` pinned per the rank_continuation.md warm-start guidance). CHANGELOG
+   extended. Docs pointer in `docs/rank_continuation.md` deferred to slice 12 with the rest.
+9–11. **NEXT.** Uniform mirror (incl. sharing-aware `uniform_minimal`), equivalence/jit tests,
    uniform end-to-end.
 12. `docs/sharing.md` + `contributor/sharing_internals.md` + getting-started snippet.
 13. The symmetric jetted-probes example.
@@ -615,6 +632,19 @@ entries; stacked variants per §3 (`stack_shape=(3,)` and `(2,2)`). Changes vs v
   edge-cut ranks of tied T3s (48 hand+randomized structures), idempotent (200 trials),
   all-singleton == unshared (200 trials); dim formula == dense tied-tangent SVD rank (4
   structures incl. the group-ceiling case: shared 32 == dense 32, unshared formula says 36).
+- **`backend/ranks.py` (slice 8)**: `compute_continuation_ranks(..., sharing=None)` — validates
+  the group modes carry the IDENTICAL spectrum (exact `array_equal`; the grouped t3svd assigns one
+  `s_g` array per group — unequal spectra raise), then the per-mode grow logic is group-consistent
+  FOR FREE (equal spectra ⇒ equal kappas ⇒ equal verdicts), so only three things genuinely change:
+  the three cleanup sites pass `sharing=` (shared removal), `max_grow` candidates are built one per
+  GROUP (indexed by first mode; `_grow_capped_edges(sharing=)` trials the group-wide increment —
+  REQUIRED, a single-mode trial would raise the within-group equality error), and the fallback bump
+  stays tied for free. Frontend: `continuation_ranks(sharing=)` (threads t3svd(sharing) — safe-mode
+  tied check inherited); `resize(..., sharing=)` (tied check at entry + `t3_share_tucker_cores`
+  post-pass — exact on tied input, ONE array per group). The e2e loop needs the
+  rank_continuation.md warm-start guidance (`g0norm_newton` pinned across levels): without it the
+  fit stalls at the target level and continuation over-grows — reproduced, then fixed, in the 14h
+  test.
 - **Tests**: `tests/test_sharing.py` — 10 classes (ValidateSharing, SharingCheckers,
   ShareTuckerCores, GroupedT3svd, ShareTuckerFactors, SharedPostPass, SharedFrameData,
   SharedGeometry, + slice 7's SharedMinimalRanksGroundTruth / SharedManifoldDimGroundTruth —

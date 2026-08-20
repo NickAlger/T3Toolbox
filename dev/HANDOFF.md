@@ -27,7 +27,8 @@ branch can be deleted (optional).
 
 ## Active threads
 
-- **Shared Tucker factors (SF-T3) — SLICES 0–7 BUILT (2026-08-19; committed, NOT pushed).**
+- **Shared Tucker factors (SF-T3) — SLICES 0–8 BUILT (2026-08-19; 0–7 pushed, 8 committed
+  locally).**
   Optimize over T3s whose Tucker factors are tied within user-specified mode groups (the SF-ETT
   of Molozhavenko & Rakhuba 2026, generalized to arbitrary partitions). **The spec is
   `dev/shared_factors_handoff.md` (v3)**, with the math in `dev/shared_t3_math.tex` (+pdf) —
@@ -63,8 +64,16 @@ branch can be deleted (optional).
   `TuckerTensorTrain.has_shared_tucker_factors` method (a checker is a METHOD, not a free
   function — Nick's slice-7 export revision, recorded in the spec §4.9) + root exports
   (`shared`/`shared_manifold`/`shared_corewise` only) + CHANGELOG (sharing `### Added` + the
-  BREAKING `GeometryOps.precompute` note).
-  **Next: slice 8** (shared rank continuation + restart-escape test), 9–11 (uniform mirror, incl.
+  BREAKING `GeometryOps.precompute` note);
+  8. shared rank continuation — `continuation_ranks(sharing=)` / backend
+  `compute_continuation_ranks(sharing=)` (one `κ_g` per group, group-wide growth, group = ONE
+  `max_grow` candidate, shared removal) + `resize(..., sharing=)` (tied zero-padded warm start,
+  one array per group) + tests 14 (symmetric degeneration `s_g = √k·σ`; the mediant bound with
+  the complementary `κ_g=1`-vs-`1e4` construction; padded restart exactly gated — new spectrum
+  levels EXACTLY 0; the two-step TT-channel escape; end-to-end continuation from rank-1 zeros to
+  exactly the target shared ranks at 1e-10, with `g0norm_newton` pinned per
+  docs/rank_continuation.md).
+  **Next: slices 9–11** (uniform mirror, incl.
   sharing-aware `uniform_minimal`), 12 (docs/sharing.md + contributor internals + doctested
   getting-started snippet), 13 (the symmetric jetted-probes example). The three reference
   papers are in the research repo (`tensor/references/`); copies in `dev/` stay untracked
