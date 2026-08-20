@@ -95,6 +95,20 @@ All notable changes to T3Toolbox are documented here. The format follows
     sizes) fit from noisy probe-derivative jets, running the SAME rank-continuation fit shared vs
     unshared: tying the factors the target's symmetry justifies reaches ~35% lower true error with
     ~37% fewer parameters before overfitting.
+  - **Entering the format is the geometry's job.** `shared(...).frame(x)` ties an untied `x` first,
+    silently, by the per-group mean — so an untied initial guess is a non-event for the optimizers, and
+    the slow drift a long run of low-precision first-order steps can produce is absorbed at the next
+    frame. An already-tied point is a bitwise fixed point, so the ordinary path is unchanged. The
+    uniform layer gets the same route without a round trip through ragged:
+    **`ut3_share_tucker_cores`**, the twin of `t3_share_tucker_cores` (garbage-transparent, so it needs
+    no masking; masks and TT cores untouched). The shared **corewise** retraction ties the *sum* rather
+    than aliasing one mode's copy of it, which makes it total: `mean_i(U_i + V_i) = mean_i(U_i) +
+    mean_i(V_i)`, so an untied tangent (always handled) and an untied base point both land on the
+    shared set with nothing silently discarded. The TIED-tangent precondition is now one backend
+    checker — `fv_tied_variations_residual` / `ufv_tied_variations_residual`, a single **global
+    Frobenius** ratio **per stack element** — replacing two hand-rolled formulas that disagreed between
+    the ragged and uniform paths and collapsed the whole stack into one scalar (so one untied stack
+    element could hide behind many tied ones).
   - Backend surface in `backend.sharing` (`validate_sharing`, `t3_sharing_residual`,
     `t3_tucker_factors_shared`, `t3_share_tucker_cores`, `T3SharedFrameData` +
     `fv_shared_frame_data`, the tied post-passes) and `backend.t3_svd.t3_share_tucker_factors`.
@@ -169,7 +183,10 @@ All notable changes to T3Toolbox are documented here. The format follows
   default), which sizes it from `x0`'s shapes. The sizing helpers
   `backend.sampling_derivatives.estimate_chunk_size` / `max_chunk_size_within` are eager (outside
   `jit`), measure the per-row cost by lowering the real kernel rather than estimating it
-  analytically, and take an `n_shards=` for per-device sizing. Docs: `docs/chunking.md`.
+  analytically, and take an `n_shards=` for per-device sizing and a `stack_shape=` for a batch of base
+  points (the frame stack `C` multiplies the assembly but not an absolute byte budget, so omitting it
+  on a stacked frame would make `max_chunk_size_within` return a chunk up to `prod(C)` times too
+  large). Docs: `docs/chunking.md`.
 
 - **Recurrence/scan jets are now the standard derivative path** — the pushthrough, combine and
   variation-assembly jets are computed by affine two-term recurrences and order-scans rather than by
@@ -211,6 +228,16 @@ All notable changes to T3Toolbox are documented here. The format follows
 
 ### Fixed
 
+- **A `GaussNewtonModel` built from a parameterized sampling kind recompiled on every rebuild.** The
+  model carries its `SamplingKind` as jax pytree `aux_data`, and jax keys its compilation cache on the
+  aux; the derivative kinds and the weighted probe kind are built per model out of fresh closures, which
+  under dataclass field equality never compare equal. So the documented "roll your own optimizer"
+  pattern — rebuild the model at each outer point, `jit` a function of it — paid a full recompile every
+  step (measured: 3 traces for 3 rebuilds, against 1 for the `apply`/`entries`/`probe` singletons).
+  `SamplingKind` now compares on a value `identity` (name, order, residual weight, `chunk_size`) rather
+  than on its closures, so a rebuilt kind with the same parameters is the same cache key while a
+  genuinely different one still gets its own compilation. The uniform model already did this through its
+  value-hashed aux; the ragged twin now matches, and both are pinned by regression tests.
 - `backend.fv_conversions` ignored `squash_tails=False` — the parameter was shadowed inside the
   function, so the tails were squashed regardless of what the caller asked for.
 - The uniform frame/variation entry points (`ufv_apply_frame_masks`, `ufv_apply_variations_masks`,

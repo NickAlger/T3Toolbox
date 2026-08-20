@@ -257,8 +257,19 @@ def _make_weight(
     return apply_w
 
 
-@dataclass(frozen=True)
-class SamplingKind:
+def _kind_key(
+        wm: typ.Optional[NDArray],   # canonical 2-D ω[m,o] from _weight_matrix, or None
+) -> typ.Optional[typ.Tuple]:        # a hashable, value-equal form of the weight (None stays None)
+    '''The value-hashable form of a residual-weight matrix, for :py:attr:`SamplingKind.identity`.
+
+    A weight is host-numpy static structure, so two kinds built from equal weights must compare equal
+    -- otherwise a rebuilt model is a fresh jit cache key. (The uniform model's aux uses the same trick;
+    see :py:func:`t3toolbox.fitting._hashable_weight`.)'''
+    return None if wm is None else tuple(tuple(float(v) for v in row) for row in np.asarray(wm))
+
+
+@dataclass(frozen=True, eq=False)   # eq=False: identity-based equality would make every rebuild a new
+class SamplingKind:                 # jit cache key -- see `identity` and __eq__ below
     '''A sampling kind's bare primitives, bundled so the GN model is generic over the kind.
 
     Holds the kind-specific functions the geometry-generic Gauss-Newton model needs -- the bare ``𝒥`` /
@@ -278,9 +289,34 @@ class SamplingKind:
     take:           typ.Callable   # (sample, data, idx)                        -> (sample_B, data_B) (flat W subset)
     block_sumsq:    typ.Optional[typ.Callable] = None   # (out, n_w) -> (n_mode, n_order) per-block ‖·‖² (UNWEIGHTED; for the diagnostic table)
 
+    identity:       typ.Optional[typ.Tuple] = None      # hashable value-identity: every parameter that
+    #                                                     changes the compiled program (name, order,
+    #                                                     weight key, chunk_size). None -> object identity.
+
+    def __eq__(self, other):
+        '''Value equality over :py:attr:`identity` -- the parameters, never the closures.
+
+        A kind's fields are lambdas, so the dataclass default (compare every field) makes two kinds built
+        from the SAME parameters unequal: fresh closures are never ``==``. That matters because a
+        :py:class:`~t3toolbox.fitting.GaussNewtonModel` carries its kind as jax pytree **aux_data**, and
+        jax keys its compilation cache on the aux. Under the default, rebuilding the model at each outer
+        step -- which is exactly the documented "roll your own optimizer" pattern -- recompiled every
+        step for the parameterized kinds (the singletons ``APPLY``/``ENTRIES``/``PROBE`` were fine, being
+        one shared object). Comparing the identity instead makes a rebuilt kind the same cache key, as
+        the uniform model already achieved by keeping ``kind_name`` + a value-hashed weight in its aux.'''
+        if not isinstance(other, SamplingKind):
+            return NotImplemented
+        if self.identity is None or other.identity is None:
+            return self is other          # unparameterized/hand-built: fall back to object identity
+        return self.identity == other.identity
+
+    def __hash__(self):
+        return id(self) if self.identity is None else hash(self.identity)
+
 
 APPLY = SamplingKind(
     name='apply',
+    identity=('apply',),
     precompute=lambda frame, ww: bapply.tv_precompute_apply_frame_sweep(frame, ww),
     forward=lambda v, ww, frame, bs: bapply.tv_apply_jacobian_from_sweep(v, ww, frame, bs),
     transpose=lambda r, ww, frame, bs: bapply.tv_apply_transpose_from_sweep(r, ww, frame, bs, sum_over_probes=True),
@@ -294,6 +330,7 @@ APPLY = SamplingKind(
 
 ENTRIES = SamplingKind(
     name='entries',
+    identity=('entries',),
     precompute=lambda frame, index: bentries.tv_precompute_entries_frame_sweep(frame, index),
     forward=lambda v, index, frame, bs: bentries.tv_entries_jacobian_from_sweep(v, index, frame, bs),
     transpose=lambda r, index, frame, bs: bentries.tv_entries_transpose_from_sweep(r, index, frame, bs, sum_over_probes=True),
@@ -315,9 +352,11 @@ def probe_kind(
     plain unweighted probe (``PROBE``). Plain probe has no order axis, so the weight is a 1-D ``(d,)``
     per-mode vector -- the frontend enforces that (rejecting a 2-D ``(d, 1)``; see
     :py:func:`t3toolbox.fitting.probe_model`).'''
-    aw = _make_weight(_weight_matrix(weight, 0, 'mode'))   # ragged probe list; per-mode scalar (o = 1)
+    wm = _weight_matrix(weight, 0, 'mode')                  # ragged probe list; per-mode scalar (o = 1)
+    aw = _make_weight(wm)
     return SamplingKind(
         name='probe',
+        identity=('probe', _kind_key(wm)),
         precompute=lambda frame, ww: probing.tv_precompute_probe_frame_sweep(frame, ww),
         forward=lambda v, ww, frame, bs: probing.tv_probe_jacobian_from_sweep(v, ww, frame, bs),
         transpose=lambda r, ww, frame, bs: probing.tv_probe_transpose_from_sweep(aw(r, 2), ww, frame, bs, sum_over_probes=True),
@@ -350,9 +389,11 @@ def apply_derivatives_kind(
     '''The **apply-derivatives** sampling kind (operator only): symmetric directional derivatives of the
     all-modes apply, orders ``0..order``, in direction ``P``. ``sample = (ww, pp)``. All-modes apply has no
     mode axis, so ``weight`` is **order-only** (a per-mode weight raises -- mode weighting is probe-only).'''
-    aw = _make_weight(_weight_matrix(weight, order, 'order'))
+    wm = _weight_matrix(weight, order, 'order')
+    aw = _make_weight(wm)
     return SamplingKind(
         name='apply_derivatives',
+        identity=('apply_derivatives', order, _kind_key(wm)),
         precompute=lambda frame, s: pd.tv_precompute_apply_frame_sweep_jets(frame, s[0], s[1], order),
         forward=lambda v, s, frame, bs: pd.tv_apply_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, bs, order),
         transpose=lambda r, s, frame, bs: pd.tv_apply_transpose_derivatives_from_sweep(
@@ -373,9 +414,11 @@ def entries_derivatives_kind(
     '''The **entries-derivatives** sampling kind: like :py:func:`apply_derivatives_kind` but at integer
     grid points. ``sample = (index, pp)``. Order-only ``weight`` (no mode axis -- mode weighting is
     probe-only).'''
-    aw = _make_weight(_weight_matrix(weight, order, 'order'))
+    wm = _weight_matrix(weight, order, 'order')
+    aw = _make_weight(wm)
     return SamplingKind(
         name='entries_derivatives',
+        identity=('entries_derivatives', order, _kind_key(wm)),
         precompute=lambda frame, s: pd.tv_precompute_entries_frame_sweep_jets(frame, s[0], s[1], order),
         forward=lambda v, s, frame, bs: pd.tv_entries_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, bs, order),
         transpose=lambda r, s, frame, bs: pd.tv_entries_transpose_derivatives_from_sweep(
@@ -398,9 +441,11 @@ def probe_derivatives_kind(
     / output is a list of ``d`` arrays. ``sample = (ww, pp)``. Probe has both a mode and an order axis, so
     ``weight`` is the full ``ω[mode, order]`` matrix ``(d, order+1)`` (a row ``(order+1,)`` = per-order, a
     column ``(d, 1)`` = per-mode, a matrix = both).'''
-    aw = _make_weight(_weight_matrix(weight, order, 'order'))
+    wm = _weight_matrix(weight, order, 'order')
+    aw = _make_weight(wm)
     return SamplingKind(
         name='probe_derivatives',
+        identity=('probe_derivatives', order, _kind_key(wm), chunk_size),
         precompute=lambda frame, s: pd.tv_precompute_probe_frame_sweep_jets(frame, s[0], s[1], order),
         forward=lambda v, s, frame, bs: pd.tv_probe_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, bs, order),
         transpose=lambda r, s, frame, bs: pd.tv_probe_transpose_derivatives_from_sweep(

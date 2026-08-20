@@ -754,6 +754,11 @@ if jax_available:
     # frame changes -- `jit(lambda model, p: model.gn_hessian(p))(model, p)` compiles once and reuses across
     # outer steps. The sweep is a stored field (a leaf) so it is carried/reused, not recomputed inside the
     # trace. The same-frame guard is the numerical same-frame check (skips under the trace).
+    # The kind sits in the aux, so it must be VALUE-comparable: the parameterized kinds
+    # (*_derivatives_kind, a weighted probe_kind) are built fresh per model out of closures, and under the
+    # dataclass default every rebuild was a new cache key -- one recompile per outer step. SamplingKind
+    # compares on its `identity` (name, order, weight, chunk_size) instead; see its __eq__, and
+    # test_dispatch.test_jit_ragged_gauss_newton_model_parameterized_kind.
     jax.tree_util.register_pytree_node(
         GaussNewtonModel,
         lambda m: ((m.frame, m.sweep, m.sample, m.residual, m.geometry_aux),

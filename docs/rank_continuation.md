@@ -156,6 +156,37 @@ momentarily gated; the escape runs through the TT variations within the first st
 full shared rank is never enforced anywhere. The warm-start `g0norm_newton` guidance above matters
 doubly here — without the pin, the fit stalls at the target level and continuation over-grows.
 
+## On the uniform layer
+
+**Rank continuation is a ragged-layer activity, deliberately.** There is no uniform `resize` or
+`continuation_ranks`, and that is not an oversight: continuation *changes* the ranks, while a uniform
+object's whole point is a fixed padded shape with the masks held loop-invariant. A uniform T3 is also
+inherently a stack, and `continuation_ranks` already refuses a stacked ragged point for the same reason
+— different stack elements would continue to different ranks.
+
+The shipped pattern is therefore a round trip: keep the cheap bookkeeping on the ragged point, and drop
+into the uniform layer only for the fit, one continuation level at a time.
+
+```python
+x = x0                                        # ragged
+for level in range(max_levels):
+    ux = UniformTuckerTensorTrain.from_t3(x)              # pack for the fit
+    ux, stats = newton_cg(UNIFORM_MANIFOLD, kind, sample, data, ux, g0norm_newton=g0)
+    x = ux.to_t3()                                        # back to ragged for the bookkeeping
+    new_tucker, new_tt = x.continuation_ranks()
+    if (new_tucker, new_tt) == (x.tucker_ranks, x.tt_ranks):
+        break                                             # nothing left to grow
+    x = x.resize(new_tucker, new_tt)
+```
+
+`examples/fit_hilbert_uniform_newton_cg.py` runs this end to end.
+
+> **Do not feed `ut3svd` singular values to `compute_continuation_ranks`.** It infers the current
+> ranks from `len(s[i])`, and uniform spectra are padded to the *nominal* rank — so every length is
+> the padded width, the padding zeros drive `kappa_i` to infinity, and the call **type-checks and
+> returns silently wrong ranks**. In a measured case it proposed `((2,2,2),(1,2,2,1))` where the truth
+> was `((3,3,3),(1,3,3,1))` — a spurious "stop continuing". Convert with `.to_t3()` first, as above.
+
 ## Working on raw `.data` tuples (no frontend)
 
 `continuation_ranks` is a thin wrapper: it computes the iterate's T3-SVD and forwards the singular values

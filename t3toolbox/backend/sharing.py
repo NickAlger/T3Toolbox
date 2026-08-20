@@ -38,16 +38,19 @@ __all__ = [
     't3_sharing_residual',
     't3_tucker_factors_shared',
     't3_share_tucker_cores',
+    'ut3_share_tucker_cores',
     'T3SharedFrameData',
     'fv_shared_frame_data',
     'fv_share_tucker_variations',
     'fv_mean_tucker_variations',
+    'fv_tied_variations_residual',
     'fv_tied_ambient_directions',
     'ut3_sharing_residual',
     'ut3_tucker_factors_shared',
     'ufv_shared_frame_data',
     'ufv_share_tucker_variations',
     'ufv_mean_tucker_variations',
+    'ufv_tied_variations_residual',
     't3_weights_sharing_residual',
     't3_weights_shared',
     'ut3_weights_sharing_residual',
@@ -346,6 +349,80 @@ def t3_share_tucker_cores(
     return tuple(new_tucker_cores), tuple(tt_cores)
 
 
+def ut3_share_tucker_cores(
+        data:       typ.Tuple[
+            NDArray,             # tucker_supercore, shape=(d,)+stack+(n,N)
+            NDArray,             # tt_supercore,     shape=(d,)+stack+(r,n,r)
+            typ.Sequence[int],   # shape, static int tuple
+            typ.Tuple[NDArray, NDArray],  # (tucker_edge_mask, tt_edge_mask), HOST bool, static
+        ],
+        sharing:    typ.Sequence,   # len=d, static; one hashable group label per mode
+) -> typ.Tuple[
+    NDArray,                        # tucker_supercore with each group's slices set to the group mean
+    NDArray,                        # tt_supercore, untouched
+    typ.Sequence[int],              # shape, untouched
+    typ.Tuple[NDArray, NDArray],    # masks, untouched (the tie changes values, never ranks)
+]:
+    '''The uniform twin of :py:func:`t3_share_tucker_cores`: tie the Tucker factors exactly, by
+    per-group arithmetic averaging of the supercore slices.
+
+    Use this to repair **numerical drift** away from equal factors without round-tripping through the
+    ragged layer -- e.g. after many low-precision first-order steps, where an exactly-tied start can
+    creep apart. TT cores, shape and masks are untouched: averaging changes factor *values*, never
+    ranks, and a group's Tucker rank masks are required equal anyway (structural, raises otherwise).
+
+    **Garbage-transparent, so no masking is needed.** A group's rank masks are equal, so every real
+    slot is real at every mode of the group and the mean of the real content uses only real values;
+    the padding averages to other padding, which is don't-care either way
+    (``docs/uniform_equivalence_contract.md``).
+
+    As in the ragged twin the mean is computed as ``B_ref + mean(B_i - B_ref)``, so an exactly-tied
+    group is a **bitwise fixed point** for any group size. Unlike the ragged twin there is no array
+    identity to preserve -- a supercore holds one slice per mode -- so ties are exact by *value*, which
+    is what the uniform checkers compare.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.backend.sharing as sharing
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
+    >>> u = ut3.UniformTuckerTensorTrain.from_t3(x)                      # untied
+    >>> print(bool(sharing.ut3_sharing_residual(u.data, (0, 0, 1)) > 0.1))
+    True
+    >>> tied = sharing.ut3_share_tucker_cores(u.data, (0, 0, 1))
+    >>> print(float(sharing.ut3_sharing_residual(tied, (0, 0, 1))))
+    0.0
+
+    Masks and TT cores come back untouched, and re-tying is a bitwise fixed point:
+
+    >>> print(bool(np.array_equal(tied[1], u.data[1])), tied[2] == u.data[2])
+    True True
+    >>> again = sharing.ut3_share_tucker_cores(tied, (0, 0, 1))
+    >>> print(bool(np.array_equal(np.asarray(again[0]), np.asarray(tied[0]))))
+    True
+    '''
+    tucker_supercore, tt_supercore, shape, masks = data
+    groups = validate_sharing(sharing, shape)
+    _validate_group_tucker_rank_masks(masks[0], groups)
+
+    xnp, _, _ = get_backend(True, tree_contains_jax(data[:2]))
+    slices = [tucker_supercore[ii] for ii in range(len(shape))]
+    for group in groups:
+        if len(group) < 2:
+            continue
+        B_ref = slices[group[0]]
+        drift = slices[group[1]] - B_ref
+        for ii in group[2:]:
+            drift = drift + (slices[ii] - B_ref)
+        mean = B_ref + drift / len(group)
+        for ii in group:
+            slices[ii] = mean
+    return xnp.stack(slices), tt_supercore, shape, masks
+
+
 @dataclass(frozen=True, eq=False)  # eq=False -> identity hash/eq (array fields; value-eq is ambiguous)
 class T3SharedFrameData:
     '''The per-frame companion of the shared geometry: everything the tied projection,
@@ -620,6 +697,66 @@ def fv_mean_tucker_variations(
 
 
 ############################################################
+def fv_tied_variations_residual(
+        variations:     typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=K+C+(nDi, Ni)
+            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=K+C+(rLi, nUi, rR(i+1))
+        ],
+        shared_data:    'T3SharedFrameData',  # the frame's companion (fv_shared_frame_data)
+        rcond:          typ.Optional[float] = None,  # relative clip on the group spectrum; None -> dtype eps
+) -> NDArray:  # shape = K + C; relative deviation per stack element (0 == already tied)
+    '''How far a tangent's coordinates are from the TIED tangent subspace, per stack element.
+
+    One **global Frobenius** ratio: ``||Pi_sh(V) - V||_F / ||V||_F``, with both norms taken over all
+    ``d`` Tucker variation cores at once (sum of squares, then one square root) and the stack axes
+    ``K + C`` kept. Only the Tucker variations can be untied -- the TT variations are unrestricted --
+    so they alone enter the norm. Zero reference with a nonzero deviation gives ``inf``, branch-free,
+    matching :py:func:`t3_sharing_residual`.
+
+    This is the non-enforcing checker behind the shared geometry's TIED-tangent precondition. It costs
+    one tied projection, which is strictly cheaper than the retraction it guards.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.shared_geometry as sg
+    >>> import t3toolbox.backend.sharing as sharing
+    >>> np.random.seed(0)
+    >>> sh = (0, 0, 1)
+    >>> x = t3.TuckerTensorTrain.randn((6, 6, 5), (2, 2, 2), (1, 2, 2, 1)).share(sh)
+    >>> geom = sg.shared_manifold(sh)
+    >>> frame = geom.frame(x)
+    >>> companion = geom.shared_frame_data(frame)
+
+    A tangent produced by the shared geometry is already tied; a raw one from the base geometry is not:
+
+    >>> tied = geom.randn(frame)
+    >>> print(bool(sharing.fv_tied_variations_residual(tied.variations.data, companion) < 1e-12))
+    True
+    >>> raw = t3m.MANIFOLD.randn(frame)
+    >>> print(bool(sharing.fv_tied_variations_residual(raw.variations.data, companion) > 0.1))
+    True
+    '''
+    tucker_variations, _ = variations
+    tied, _ = fv_share_tucker_variations(variations, shared_data, rcond=rcond)
+    xnp, _, _ = get_backend(False, tree_contains_jax((tucker_variations, shared_data.svd_s)))
+
+    num_sq = den_sq = None
+    for V, T in zip(tucker_variations, tied):
+        diff = T - V
+        n_i = xnp.sum(diff * diff, axis=(-2, -1))     # sum the CORE axes, keep the K+C stack
+        d_i = xnp.sum(V * V, axis=(-2, -1))
+        num_sq = n_i if num_sq is None else num_sq + n_i
+        den_sq = d_i if den_sq is None else den_sq + d_i
+    num, den = xnp.sqrt(num_sq), xnp.sqrt(den_sq)
+    pos = den > 0.0
+    return xnp.where(pos, num / xnp.where(pos, den, 1.0),   # branch-free zero guard
+                     xnp.where(num > 0.0, xnp.inf, 0.0))
+
+
+############################################################
 ##########    Uniform-layer twins (supercores)    ##########
 ############################################################
 
@@ -767,6 +904,30 @@ def ufv_mean_tucker_variations(
     xnp, _, _ = get_backend(True, use_jax)
     new_tk_slices, _ = fv_mean_tucker_variations((tkv, ttv), groups)
     return xnp.stack(list(new_tk_slices), axis=0), ttv, shape, masks
+
+
+def ufv_tied_variations_residual(
+        variations_data,    # UT3Variations .data: (tkv_sc, ttv_sc, shape, (4 masks)); stack = K + C
+        shared_data:    'T3SharedFrameData',  # the frame's UNIFORM companion (ufv_shared_frame_data)
+        rcond:          typ.Optional[float] = None,  # relative clip on the group spectrum; None -> dtype eps
+) -> NDArray:  # shape = K + C; relative deviation per stack element (0 == already tied)
+    '''The uniform twin of :py:func:`fv_tied_variations_residual`, on the MASKED variation content.
+
+    Same single global Frobenius ratio with the ``K + C`` stack kept -- masked first, because padding is
+    don't-care garbage and two tangents tied on their real content are tied whatever their padding
+    holds. The core axes summed over are the supercore's trailing ``(nDi, Ni)``; the leading ``d`` axis
+    is summed as well, since the norm spans all ``d`` cores.
+    '''
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+    tied_sc = ufv_share_tucker_variations(variations_data, shared_data, rcond=rcond)[0]
+    xnp, _, _ = get_backend(True, tree_contains_jax((variations_data[:2], shared_data.svd_s)))
+
+    diff = tied_sc - tkv
+    num = xnp.sqrt(xnp.sum(diff * diff, axis=(0, -2, -1)))   # over d and the core axes; keep K+C
+    den = xnp.sqrt(xnp.sum(tkv * tkv, axis=(0, -2, -1)))
+    pos = den > 0.0
+    return xnp.where(pos, num / xnp.where(pos, den, 1.0),    # branch-free zero guard
+                     xnp.where(num > 0.0, xnp.inf, 0.0))
 
 
 ############################################################

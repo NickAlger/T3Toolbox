@@ -10,6 +10,7 @@ import t3toolbox.shared_geometry as sg
 import t3toolbox.fitting as fitting
 import t3toolbox.optimizers as optimizers
 import t3toolbox.uniform_tucker_tensor_train as ut3
+import t3toolbox.frame_variations_format as bvf
 import t3toolbox.backend.sharing as sharing
 import t3toolbox.backend.fv_conversions as fvc
 import t3toolbox.backend.t3_svd as bt3svd
@@ -878,11 +879,55 @@ class TestSharedGeometry(unittest.TestCase):
         for A, B in zip(w2.variations.tucker_variations, w.variations.tucker_variations):
             self.assertTrue(np.allclose(np.asarray(A), np.asarray(B)))
 
-    def test_safe_mode_preconditions(self):
+    def test_frame_ties_an_untied_point_silently(self):
+        # frame() enters the shared format rather than refusing: a shared geometry's frame describes a
+        # point ON the shared set, so an untied x is tied by the per-group mean first. This is what makes
+        # an untied initial guess a non-event for the optimizers, and what absorbs low-precision drift.
         x_untied = t3.TuckerTensorTrain.randn((6, 6), (3, 3), (1, 2, 1))
         geom = sg.shared_manifold((0, 0))
-        with self.assertRaises(ValueError):
-            geom.frame(x_untied)
+        self.assertFalse(bool(np.all(x_untied.has_shared_tucker_factors((0, 0)))))
+        frame = geom.frame(x_untied)                          # no raise
+        tied_point = t3.TuckerTensorTrain(
+            *sharing.t3_share_tucker_cores(x_untied.data, (0, 0)))
+        self.assertTrue(np.allclose(np.asarray(frame.to_t3().to_dense()),
+                                    np.asarray(tied_point.to_dense())))
+        # an already-tied point is a bitwise fixed point -- the ordinary path is untouched
+        x_tied = t3.TuckerTensorTrain(*sharing.t3_share_tucker_cores(x_untied.data, (0, 0)))
+        f2 = geom.frame(x_tied)
+        for A, B in zip(f2.data[0], geom.base.frame(x_tied).data[0]):
+            self.assertTrue(np.array_equal(np.asarray(A), np.asarray(B)))
+
+    def test_tied_variations_residual_is_per_stack_element(self):
+        # The TIED-tangent precondition must not let one untied stack element hide behind the others:
+        # the residual keeps the C stack, and retract reduces with .all().
+        spec = (0, 0, 1)
+        x = t3.TuckerTensorTrain.randn((6, 6, 5), (2, 2, 2), (1, 2, 2, 1), stack_shape=(4,)).share(spec)
+        geom = sg.shared_manifold(spec)
+        frame = geom.frame(x)
+        companion = geom.shared_frame_data(frame)
+
+        tied = geom.randn(frame)                              # in the tied subspace
+        raw = t3m.MANIFOLD.randn(frame)                       # gauged but NOT tied
+        r_tied = sharing.fv_tied_variations_residual(tied.variations.data, companion)
+        r_raw = sharing.fv_tied_variations_residual(raw.variations.data, companion)
+        self.assertEqual(np.shape(r_tied), (4,))              # one verdict per stack element
+        self.assertLess(float(np.max(r_tied)), 1e-10)
+        self.assertGreater(float(np.min(r_raw)), 0.1)
+
+        # untie ONE element of an otherwise tied tangent
+        tkv = [np.array(A) for A in tied.variations.tucker_variations]
+        for ii in range(len(tkv)):
+            tkv[ii][1] = np.asarray(raw.variations.tucker_variations[ii])[1]
+        mixed = t3m.T3Tangent(frame, bvf.T3Variations(tuple(tkv), tied.variations.tt_variations))
+        r_mixed = sharing.fv_tied_variations_residual(mixed.variations.data, companion)
+        self.assertGreater(float(r_mixed[1]), 0.1)                     # the bad element is flagged ...
+        self.assertLess(float(np.max(np.delete(np.asarray(r_mixed), 1))), 1e-10)   # ... and only it
+        self.assertAlmostEqual(float(r_mixed[1]), float(r_raw[1]), places=10)
+        with self.assertRaises(ValueError):                            # .all() catches the one element
+            geom.retract(mixed)
+
+    def test_safe_mode_preconditions(self):
+        geom = sg.shared_manifold((0, 0))
         x, spec, _ = self._tied_point(SHARED_STRUCTURES[1])
         frame = geom.frame(x)
         v_untied = t3m.MANIFOLD.randn(frame)                 # gauged but NOT tied

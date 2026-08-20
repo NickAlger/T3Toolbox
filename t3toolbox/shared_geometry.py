@@ -160,14 +160,20 @@ class SharedGeometry:
     # ------------------------------------------------------------------ frame + companion
     def frame(self, x):
         """The base geometry's frame at ``x`` (ragged ``TuckerTensorTrain`` -> ``T3Frame``;
-        uniform ``UniformTuckerTensorTrain`` -> ``UT3Frame``). Safe mode requires ``x``'s
-        factors tied."""
+        uniform ``UniformTuckerTensorTrain`` -> ``UT3Frame``).
+
+        **An untied ``x`` is tied first, silently**, by the per-group mean
+        (:py:func:`~t3toolbox.backend.sharing.t3_share_tucker_cores` / its uniform twin) -- the frame of
+        a shared geometry describes a point on the shared set, so entering the format is this method's
+        job rather than the caller's. An already-tied point is a bitwise fixed point, so the ordinary
+        path is unchanged. This is what makes an untied initial guess a non-event for the optimizers,
+        and it also absorbs the slow drift a long run of low-precision first-order steps can produce."""
         self.groups(x.shape)                                     # structural validation
         if self.is_uniform:
-            _require_tied_factors_uniform(x.data, self.sharing, 'SharedGeometry.frame')
-        else:
-            _require_tied_factors(x.data, self.sharing, 'SharedGeometry.frame')
-        return self.base.frame(x)
+            return self.base.frame(um._ut3_from_data(
+                backend_sharing.ut3_share_tucker_cores(x.data, self.sharing)))
+        return self.base.frame(t3.TuckerTensorTrain(
+            *backend_sharing.t3_share_tucker_cores(x.data, self.sharing)))
 
     def shared_frame_data(self, frame) -> backend_sharing.T3SharedFrameData:
         """The per-frame companion (centers + the stacked-``S`` SVD), derived from ``frame``
@@ -264,14 +270,12 @@ class SharedGeometry:
                 shared_data = self.shared_frame_data(p.frame)
             if safety.checks_active(p.frame.data[:4], p.variations.data[:2]):
                 atol = safety.effective_rtol(p.frame.data[:4], p.variations.data[:2])
-                tied = backend_sharing.ufv_share_tucker_variations(p.variations.data, shared_data)
-                tkv_masked = p.variations.apply_masks().supercores[0]   # padding is don't-care
-                num = float(np.linalg.norm(np.asarray(tied[0]) - np.asarray(tkv_masked)))
-                den = float(np.linalg.norm(np.asarray(tkv_masked)))
-                safety.require(num <= atol * max(den, 1.0),
-                               'SharedGeometry.retract requires TIED tangent coordinates (project '
-                               'with this geometry first); an untied tangent would be silently '
-                               'tied-projected. Run in unsafe mode (safety.unsafe()) to skip.')
+                residual = backend_sharing.ufv_tied_variations_residual(p.variations.data, shared_data)
+                safety.require(
+                    bool((residual <= atol).all()),
+                    'SharedGeometry.retract requires TIED tangent coordinates (project '
+                    'with this geometry first); an untied tangent would be silently '
+                    'tied-projected. Run in unsafe mode (safety.unsafe()) to skip.')
             return um._ut3_from_data(utv_operations.utv_retract(
                 p.frame.data, p.variations.data, shared_data=shared_data))
         if self.base is t3m.COREWISE:
@@ -293,14 +297,12 @@ class SharedGeometry:
             shared_data = self.shared_frame_data(p.frame)
         if safety.checks_active(p.frame.data, p.variations.data):
             atol = safety.effective_rtol(p.frame.data, p.variations.data)
-            tied = backend_sharing.fv_share_tucker_variations(p.variations.data, shared_data)
-            num = sum(float(np.linalg.norm(np.asarray(A) - np.asarray(B)))
-                      for A, B in zip(tied[0], p.variations.tucker_variations))
-            den = sum(float(np.linalg.norm(np.asarray(B))) for B in p.variations.tucker_variations)
-            safety.require(num <= atol * max(den, 1.0),
-                           'SharedGeometry.retract requires TIED tangent coordinates (project '
-                           'with this geometry first); an untied tangent would be silently '
-                           'tied-projected. Run in unsafe mode (safety.unsafe()) to skip.')
+            residual = backend_sharing.fv_tied_variations_residual(p.variations.data, shared_data)
+            safety.require(
+                bool((residual <= atol).all()),
+                'SharedGeometry.retract requires TIED tangent coordinates (project '
+                'with this geometry first); an untied tangent would be silently '
+                'tied-projected. Run in unsafe mode (safety.unsafe()) to skip.')
         cores = tv_operations.tv_retract(p.frame.data, p.variations.data, shared_data=shared_data)
         return t3.TuckerTensorTrain(*cores)
 

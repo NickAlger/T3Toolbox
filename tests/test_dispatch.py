@@ -508,6 +508,54 @@ class TestDispatch(unittest.TestCase):
                                        "(kind rebuilt lazily, not stored as a fresh closure)")
         self._leaves_all_jax(hp)
 
+    def test_jit_ragged_gauss_newton_model_parameterized_kind(self):
+        # The ragged twin of the test above, for the PARAMETERIZED kinds. A GaussNewtonModel carries its
+        # SamplingKind as jax aux_data, and jax keys the compilation cache on the aux. APPLY/ENTRIES/PROBE
+        # are module singletons, so they were always one object and always one compile -- but the derivative
+        # and weighted kinds are BUILT PER MODEL, out of fresh closures, so under dataclass field equality
+        # every rebuilt model was a new cache key and the documented "roll your own optimizer" loop
+        # recompiled every outer step (measured: 3 traces for 3 rebuilds). SamplingKind.identity fixes it by
+        # comparing the PARAMETERS (name, order, weight, chunk_size) instead of the lambdas.
+        SH, TK, TT = STRUCT
+        W, ORDER = 12, 2
+        ww = [np.random.randn(W, n) for n in SH]
+        pp = [np.random.randn(W, n) for n in SH]
+        weight = np.array([[1.0, 0.5, 0.25]] * len(SH))
+
+        def build(seed, wt):
+            np.random.seed(seed)
+            x = t3.TuckerTensorTrain.randn(SH, TK, TT)
+            x = t3.TuckerTensorTrain(tuple(jnp.asarray(c) for c in x.data[0]),
+                                     tuple(jnp.asarray(c) for c in x.data[1]))
+            r = [jnp.asarray(np.asarray(z) - np.random.randn(*np.shape(z)))
+                 for z in x.probe_derivatives(ww, pp, ORDER)]
+            return fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, ORDER, r, weight=wt)
+
+        for label, wt in (('unweighted', None), ('weighted', weight)):
+            with self.subTest(kind=label):
+                traces = [0]
+                @jax.jit
+                def Hmatvec(m, p):
+                    traces[0] += 1                          # +1 per TRACE (compile), not per call
+                    return m.gn_hessian(p)
+                for seed in (1, 2, 3):
+                    m = build(seed, wt)                     # rebuilt model: fresh kind, same parameters
+                    hp = Hmatvec(m, t3m.MANIFOLD.randn(m.frame))
+                    jax.block_until_ready(hp.variations.tucker_variations[0])
+                self.assertEqual(traces[0], 1,
+                                 'GaussNewtonModel matvec recompiled on rebuild -- SamplingKind must '
+                                 'compare by identity (parameters), not by its closure fields')
+
+        # ... and a genuinely different kind MUST still get its own compile
+        traces = [0]
+        @jax.jit
+        def Hmatvec2(m, p):
+            traces[0] += 1
+            return m.gn_hessian(p)
+        Hmatvec2(build(1, None), t3m.MANIFOLD.randn(build(1, None).frame))
+        Hmatvec2(build(1, weight), t3m.MANIFOLD.randn(build(1, weight).frame))
+        self.assertEqual(traces[0], 2, 'different residual weights must not share a compilation')
+
     def test_jit_shared_uniform_gauss_newton_model(self):
         # The SHARED uniform model (slice 11): SharedGeometry(UNIFORM_MANIFOLD, sharing) is value-hashed
         # aux, the SF-T3 companion rides as the geometry_aux LEAF, and the tied matvec (companion-fed
