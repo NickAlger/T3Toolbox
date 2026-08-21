@@ -103,70 +103,37 @@ Every one of these follows a recipe already proven above. Suggested order is by 
 regardless of `use_jax`, so no `lax` primitive is ever built and the defect cannot occur. Converting
 them is consistency-only. **Open question for Nick: do we do them at all?**
 
-## Tier 2 — `_wchunked_reduce`: simplify, then pad-and-reshape
+## Tier 2 — `_wchunked_reduce` — **DONE** (2026-08-21)
 
-Not a hoist. Two parts, in order.
+Split into `_wchunked_sum` (the scan path) and `_wchunked_concat` (the list path, which never had the
+defect); `out_w_axis` dropped, `n_probe` and `sum_over_probes` pinned by construction, so
+`assemble_one` collapsed into four module-level chunk functions (`_{tucker,tt}_chunk_{summed,kept}`).
 
-### Part 1: simplify (the genericity is the problem)
+**Operands as `xs` turned out to be impossible.** `lax.scan` only scans the LEADING axis, so
+operands-as-`xs` needs the chunk axis at position 0 — a `moveaxis` of every operand, which is exactly
+the transpose the original design rejected for duplicating the N-large residual. Reshaping is free;
+the transpose that must follow it is not. So the operands ride the **carry** instead (loop-invariant
+pass-through), and the scan body comes from an `lru_cache` factory keyed on
+`(chunk_fn, cs, w_axes)` — the first use of principle 4's memoized factory in the library, at the
+site the plan predicted would earn it. `cs` must be a key rather than a capture because it is the
+`dynamic_slice` size (necessarily static) *and* user-tunable, so a stable body closing over it would
+go stale (principle 5). Body captures are `chunk_fn, cs, jax, w_axes` — all hashable non-arrays.
 
-Working backwards from its only two call sites, **four of the five captures do not vary on the path
-that has the defect**:
+**Nick's probe-axis flattening landed too**, for its own sake rather than to feed `xs`: `_flatten_w`
+merges the probe axes into one super-axis, making `n_probe == 1` an invariant of the chunked path.
+That **removed a restriction** — both call sites previously bailed with `n_probe != 1 -> dense()`, so
+multi-axis probe stacks got no chunking at all. Only applied on the summed path, where reducing the
+stack makes the merge exact; a kept stack would need unflattening, so the concat path keeps the old
+bailout.
 
-- `out_w_axis` is `1` at both sites — dead generality.
-- `n_probe` is **always 1** on the chunked path (the guard returns `dense()` otherwise).
-- `summed` selects two entirely different algorithms, and **only `summed=True` reaches `lax.scan`**;
-  the `False` branch is a list comprehension plus `concatenate` and has no defect at all.
-- `w_axes` is a per-assembler constant.
+Results:
 
-So: split into `_wchunked_sum` and `_wchunked_concat` (this also takes `out_w_axis` with it, since
-only the concat form uses it). Inside `_wchunked_sum`, `summed` is `True` and `n_probe` is `1` by
-construction, so both drop out of the assembler call and `assemble_one` collapses from an arbitrary
-callable to **one of two module-level assemblers with all statics known**.
-
-### Part 2: flatten the probe axes, then split (Nick, 2026-08-21)
-
-The operands become scan `xs` instead of captured constants — that is what makes the body
-closure-free at module level, with no carry trick, and it stops `cs` needing to be static (it becomes
-the trailing dimension of a reshaped operand; the scan length is the leading one).
-
-**Do it by reshaping, not padding.** Two refinements on the original pad-and-reshape idea, in order:
-
-1. **Merge the probe axes into one super-axis of size `prod(W)`, then chunk on that** (Nick's
-   suggestion). Because the summed path reduces over the probe stack anyway, flattening is exact —
-   **verified bit-identical (0.0)** against the multi-axis form at probe stacks `(5,)`, `(3,2)` and
-   `(2,2,3)`, with unchanged output shapes. This is better than picking an axis to slice: no need to
-   hunt for the largest probe axis, and no risk of slicing a small leading one.
-   **It also removes a restriction rather than just simplifying.** Both call sites currently bail with
-   `n_probe != 1 -> return dense()`, so a multi-axis probe stack gets no chunking at all today. After
-   flattening, `n_probe == 1` is an invariant established by construction, so chunking applies at any
-   probe rank — and `n_probe` drops out of the assembler call for free.
-2. **Split the exact-multiple prefix; keep the existing remainder path.** The copy in "pad and
-   reshape" comes from the *pad*, not the reshape. `W` is a **contiguous axis group in every operand**
-   (verified: `(order+1)+W+K+C+(leg,)` for the jets, `W+(leg,)` for `ww`/`pp`), so both the merge and
-   the split `(…, W, …) -> (…, n_chunks, cs, …)` are contiguous-axis reshapes — metadata, which XLA
-   normally fuses rather than materializing. Reshape `[:n_full*cs]` and leave the remainder to the
-   static slice the code already has, and no padding is needed.
-
-**Fallback if the reshape does materialize**: the padded version, whose cost Nick has already
-accepted. Measured scales, comparing the extra operand copy against what chunking avoids:
-
-| config | operand total (the extra copy) | unchunked assembly avoided | ratio |
-|---|---|---|---|
-| T3Polynomial-ish, W=512 | 0.01 G | 0.02 G | 1.7x |
-| mid: N=1000, r=64, W=8192 | 1.99 G | 19.5 G | 9.8x |
-| design config (docstring) | 11.4 G | 152.6 G | 13.4x |
-| design config, N=4000 | 40.0 G | 610.4 G | 15.3x |
-
-Read it as: the ratio is comfortable exactly where the absolute cost bites, and where the ratio is
-poor (small configs) the absolute cost is ~10 MB. But +11 GiB at the design config is a real GPU
-allocation, which is why the reshape-only route is worth measuring first.
-
-**Measure, do not assume**: use the route `_assembly_per_row_bytes` already uses —
-`jax.jit(f).lower(*args).compile().memory_analysis().temp_size_in_bytes` on abstract
-`ShapeDtypeStruct`s — to confirm the reshape is free, and record the numbers here.
-
-Gated on uniform + jax + `chunk_size` set + `n_probe == 1` + `W > cs` (default 100, so `W > 200`),
-but on the `probe_derivatives` Newton `Jᵀ` path with two guaranteed cache misses per call.
+| check | result |
+|---|---|
+| numerics, 32 cases (2 assemblers x 2 probe ranks x numpy/jax x both flags x dense/chunked) | 28 bit-identical; the 4 that differ are the multi-axis summed cases that now chunk instead of falling back to dense — agreeing with dense to ~1e-13 re-association roundoff |
+| compiles / mappings over 5 repeat calls of the chunked summed assembly | **0 / 0** (was 2 guaranteed misses per call) |
+| peak XLA temp, before vs after | **identical**: 6.75 MiB chunked vs 52.68 MiB dense. Ops-in-carry costs nothing — XLA treats loop-carried invariants like constants, so no padding was ever needed |
+| tests | `test_jet_recurrence` + `test_probe_derivatives` + `test_dispatch` + `test_chunk_size_estimator`: 60 passed / 785 subtests |
 
 ## Tier 3 — `optimizers.py` `_cg_solve`: the `LocalModel` refactor
 

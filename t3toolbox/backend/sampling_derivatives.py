@@ -1728,16 +1728,19 @@ def assemble_tucker_variation_jets(
     ops = (ztildes, dxi_tildes, ww, pp, etas)
     w_axes = (2, 2, 1, 1, 2)                          # per-operand W axis (ww/pp carry no order axis)
     dense = lambda: assemble_tucker_variation_jets_trs(*ops, n_probe, sum_over_probes)
-    if chunk_size is None or not is_ndarray(etas) or n_probe != 1:
+    if chunk_size is None or not is_ndarray(etas):
+        return dense()
+    if n_probe != 1 and not sum_over_probes:          # merging probe axes is exact only when reduced
         return dense()
     use_jax = tree_contains_jax(ops)
     xnp, _, _ = get_backend(True, use_jax)
-    W = etas.shape[2]
+    W = math.prod(etas.shape[2:2 + n_probe])
     if W <= chunk_size:
         return dense()
-    return _wchunked_reduce(
-        lambda co: assemble_tucker_variation_jets_trs(*co, n_probe, sum_over_probes),
-        ops, w_axes, W, chunk_size, sum_over_probes, 1, use_jax, xnp)
+    ops, w_axes = _flatten_w(ops, w_axes, n_probe)     # -> one probe super-axis; n_probe == 1 holds
+    if sum_over_probes:
+        return _wchunked_sum(_tucker_chunk_summed, None, ops, w_axes, W, chunk_size, use_jax)
+    return _wchunked_concat(_tucker_chunk_kept, None, ops, w_axes, W, chunk_size, xnp)
 
 
 def _tt_variation_jets_trs_core(
@@ -1837,34 +1840,101 @@ def _slice_w(op, wax, start, size, use_dyn):
     return op[tuple(idx)]
 
 
-def _wchunked_reduce(assemble_one, ops, w_axes, W, cs, summed, out_w_axis, use_jax, xnp):
-    '''Copy-free W-chunking. Extract each chunk in place and reduce: ADD if W is summed (the gradient)
-    or CONCAT along ``out_w_axis`` if W is kept. No pad, no reshape, no transpose of the operands (which
-    is what made the old approach duplicate the N-large residual). On jax the summed reduction is a real
-    ``lax.scan`` over the full chunks (dynamic slices) so only one chunk is resident; the remainder is a
-    static slice; chunk 0 seeds the accumulator (and its shape). On numpy it is an eager loop (which
-    frees each chunk anyway).'''
-    def _chunk(start, size, dyn):
-        return tuple(_slice_w(op, wax, start, size, dyn) for op, wax in zip(ops, w_axes))
-    n_full, rem = divmod(W, cs)
-    if summed:
-        acc = assemble_one(_chunk(0, cs, False))                      # chunk 0: init + output shape
-        if use_jax and n_full > 1:
-            import jax
-            import jax.numpy as jnp
+def _tucker_chunk_summed(co, extra):    # extra unused; kept for a common chunk-fn signature
+    '''One W-chunk of the Tucker-variation assembly at the chunked path's pinned statics.'''
+    return assemble_tucker_variation_jets_trs(*co, 1, True)
 
-            def _step(a, i):
-                return a + assemble_one(tuple(jax.lax.dynamic_slice_in_dim(op, i * cs, cs, wax)
-                                              for op, wax in zip(ops, w_axes))), 0
-            acc, _ = jax.lax.scan(_step, acc, jnp.arange(1, n_full))
-        elif n_full > 1:
-            for k in range(1, n_full):
-                acc = acc + assemble_one(_chunk(k * cs, cs, False))
-        if rem:
-            acc = acc + assemble_one(_chunk(n_full * cs, rem, False))
-        return acc
-    parts = [assemble_one(_chunk(st, min(cs, W - st), False)) for st in range(0, W, cs)]
-    return xnp.concatenate(parts, axis=out_w_axis)
+
+def _tucker_chunk_kept(co, extra):
+    '''As :py:func:`_tucker_chunk_summed`, keeping the probe stack.'''
+    return assemble_tucker_variation_jets_trs(*co, 1, False)
+
+
+def _tt_chunk_summed(co, trs):
+    '''One W-chunk of the TT-variation assembly. ``trs`` arrives as an argument, not a capture: it is
+    an array, so it can be neither a factory key nor a closure (docs/contributor/scan_body_principles.md).'''
+    return assemble_tt_variation_jets_trs(*co, trs, 1, True)
+
+
+def _tt_chunk_kept(co, trs):
+    '''As :py:func:`_tt_chunk_summed`, keeping the probe stack.'''
+    return assemble_tt_variation_jets_trs(*co, trs, 1, False)
+
+
+@functools.lru_cache(maxsize=None)
+def _wchunked_sum_step(
+        chunk_fn,               # one of the module-level _*_chunk_summed functions
+        cs:      int,           # chunk size -- the dynamic_slice SIZE, so necessarily static
+        w_axes:  typ.Tuple[int, ...],   # per-operand W axis
+):                              # -> the lax.scan body (carry, i) -> (carry, 0)
+    '''The scan body of :py:func:`_wchunked_sum`: one stable object per ``(assembler, cs, w_axes)``.
+
+    A memoized factory rather than a plain module-level function because ``cs`` is the slice size and
+    must stay static, and it is user-tunable -- a stable body closing over it would silently reuse a
+    stale jaxpr (``docs/contributor/scan_body_principles.md``, principle 5). All three keys are
+    hashable non-arrays, per principle 4's rule; the operands and ``trs`` ride the carry instead.'''
+    import jax
+
+    def _step(carry, i):
+        acc, ops, extra = carry
+        chunk = tuple(jax.lax.dynamic_slice_in_dim(o, i * cs, cs, w) for o, w in zip(ops, w_axes))
+        return (acc + chunk_fn(chunk, extra), ops, extra), 0
+    return _step
+
+
+def _flatten_w(
+        ops:     typ.Sequence[NDArray],  # operands, each with n_probe consecutive W axes at w_axes[i]
+        w_axes:  typ.Tuple[int, ...],    # per-operand W start axis
+        n_probe: int,                    # number of probe axes to merge
+) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[int, ...]]:   # (flattened ops, unchanged w_axes)
+    '''Merge each operand's probe axes into ONE super-axis of size ``prod(W)``.
+
+    W is a contiguous axis group in every operand, so this is an axis merge (metadata, not a copy).
+    It makes ``n_probe == 1`` an invariant of the chunked path rather than a precondition -- so
+    chunking applies at any probe rank -- and it removes the question of which probe axis to slice.
+    Exact only where the probe stack is REDUCED (the summed path); a kept stack would need
+    unflattening, so the caller does not come here in that case with ``n_probe > 1``.'''
+    if n_probe == 1:
+        return tuple(ops), w_axes
+    flat = []
+    for o, w in zip(ops, w_axes):
+        sh = tuple(o.shape)
+        flat.append(o.reshape(sh[:w] + (math.prod(sh[w:w + n_probe]),) + sh[w + n_probe:]))
+    return tuple(flat), w_axes
+
+
+def _wchunked_sum(chunk_fn, extra, ops, w_axes, W, cs, use_jax):
+    '''W-chunked assembly, ADDING the chunks (the summed gradient). Copy-free: each chunk is extracted
+    in place -- no pad, no reshape, no transpose of the operands. On jax the full chunks are a real
+    ``lax.scan`` over dynamic slices, so only one chunk is resident; the remainder is a static slice;
+    chunk 0 seeds the accumulator and its shape. On numpy it is an eager loop, which frees each chunk
+    anyway. The operands and ``extra`` ride the CARRY (loop-invariant) so the scan body can be a stable
+    object -- see :py:func:`_wchunked_sum_step`.'''
+    def _chunk(start, size):
+        return tuple(_slice_w(o, w, start, size, False) for o, w in zip(ops, w_axes))
+    n_full, rem = divmod(W, cs)
+    acc = chunk_fn(_chunk(0, cs), extra)
+    if use_jax and n_full > 1:
+        import jax
+        import jax.numpy as jnp
+        step = _wchunked_sum_step(chunk_fn, cs, tuple(w_axes))
+        (acc, _, _), _ = jax.lax.scan(step, (acc, tuple(ops), extra), jnp.arange(1, n_full))
+    elif n_full > 1:
+        for k in range(1, n_full):
+            acc = acc + chunk_fn(_chunk(k * cs, cs), extra)
+    if rem:
+        acc = acc + chunk_fn(_chunk(n_full * cs, rem), extra)
+    return acc
+
+
+def _wchunked_concat(chunk_fn, extra, ops, w_axes, W, cs, xnp):
+    '''W-chunked assembly, CONCATENATING the chunks (the probe stack is kept). No scan here -- the
+    parts must all be materialized to concatenate them -- so no loop body and none of the
+    identity-cache concerns of :py:func:`_wchunked_sum`.'''
+    def _chunk(start, size):
+        return tuple(_slice_w(o, w, start, size, False) for o, w in zip(ops, w_axes))
+    parts = [chunk_fn(_chunk(st, min(cs, W - st)), extra) for st in range(0, W, cs)]
+    return xnp.concatenate(parts, axis=1)
 
 
 def assemble_tt_variation_jets(
@@ -1897,18 +1967,22 @@ def assemble_tt_variation_jets(
     so only one chunk's intermediate is resident.
     '''
     ops = (sigma_tildes, tau_tildes, deta_tildes, xi_jets, mu_jets, nu_jets)
+    w_axes = (2,) * len(ops)
     dense = lambda: assemble_tt_variation_jets_trs(*ops, trs, n_probe, sum_over_probes)
-    if chunk_size is None or not is_ndarray(xi_jets) or n_probe != 1:
+    if chunk_size is None or not is_ndarray(xi_jets):
+        return dense()
+    if n_probe != 1 and not sum_over_probes:          # merging probe axes is exact only when reduced
         return dense()
 
     use_jax = tree_contains_jax(ops + (trs,))
     xnp, _, _ = get_backend(True, use_jax)
-    W = xi_jets.shape[2]                              # uniform supercore: (d, order, W, ...)
+    W = math.prod(xi_jets.shape[2:2 + n_probe])       # uniform supercore: (d, order, W..., ...)
     if W <= chunk_size:
         return dense()
-    return _wchunked_reduce(
-        lambda co: assemble_tt_variation_jets_trs(*co, trs, n_probe, sum_over_probes),
-        ops, (2,) * len(ops), W, chunk_size, sum_over_probes, 1, use_jax, xnp)
+    ops, w_axes = _flatten_w(ops, w_axes, n_probe)     # -> one probe super-axis; n_probe == 1 holds
+    if sum_over_probes:
+        return _wchunked_sum(_tt_chunk_summed, trs, ops, w_axes, W, chunk_size, use_jax)
+    return _wchunked_concat(_tt_chunk_kept, trs, ops, w_axes, W, chunk_size, xnp)
 
 
 # ==================================================================================================
