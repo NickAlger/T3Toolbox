@@ -197,7 +197,8 @@ shared-factor submanifold, and every optimizer works on it unchanged. See [`shar
         t3toolbox/optimizers.py   (frontend adapter: kind-string + order/weight/draw -> TuckerTensorTrain)
         t3toolbox/fitting.py      (frontend: GaussNewtonModel + *_model factories; T3Tangent in/out)
    ─────────────────────────────  the backend razor: a raw-.data user runs the SAME check-free code ──────
-        backend/optimizers.py     (algorithms; Problem/LocalModel oracle; GeometryOps; flat_draw)
+        backend/optimizers.py     (algorithms; Problem/LocalModel oracle; flat_draw) -- no T3 imports
+        backend/geometry.py       (the T3 geometries: Manifold/Corewise + their uniform twins)
         backend/fitting.py        (SamplingKind: APPLY/ENTRIES/PROBE + *_derivatives_kind; sumsq helpers)
         backend/probing.py        (the bare 𝒥/𝒥ᵀ for apply/entries/probe + frame-sweep reuse hooks)
         backend/sampling_derivatives.py  (the derivative 𝒥/𝒥ᵀ + frame-sweep-jets reuse hooks)
@@ -209,12 +210,12 @@ shared-factor submanifold, and every optimizer works on it unchanged. See [`shar
   (the `‖·‖²` reduction), `w_axes`, plus `point_forward` (`S(x)`, for the residual) and the minimal layout
   for the default draw (`n_measurements`, `take`). It carries **no gauge** — that's the geometry's.
   Singletons `APPLY`/`ENTRIES`/`PROBE`; parameterized constructors `*_derivatives_kind(order, weight)`.
-- **`Geometry`** (`manifold.py` `MANIFOLD`/`COREWISE`; backend `GeometryOps`) — `frame(x)` (the frame),
+- **`Geometry`** (`manifold.py` `MANIFOLD`/`COREWISE`; `backend/geometry.py`) — `frame(x)` (the frame),
   `project` (the gauge `Π`), `retract`, plus the Hilbert-Schmidt `inner`/`norm`, and an optional
   `precompute(frame)` returning a per-frame **geometry aux** that `project`/`retract` then receive. The
   aux exists so a geometry with per-frame setup pays for it once per local model rather than once per
   matvec (the shared-factor wrapper's SVD companion is the motivating case); it is `None` for
-  `MANIFOLD`/`COREWISE`, and a custom `GeometryOps` need only accept and ignore `aux=None`. It is
+  `MANIFOLD`/`COREWISE`, and a custom geometry need only accept and ignore `aux=None`. It is
   carried as a leaf on `LocalModel` (`geom_aux`) and on `GaussNewtonModel` (`geometry_aux`) —
   [`contributor/precompute_and_caching.md`](contributor/precompute_and_caching.md).
 - **`Problem` + `LocalModel`** (`backend/optimizers.py`) — the backend oracle. `Problem(geom, kind, sample,

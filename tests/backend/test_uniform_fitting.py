@@ -16,6 +16,7 @@ import t3toolbox.uniform_frame_variations_format as ubv
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.optimizers as bopt
+import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.apply as bapply
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
@@ -27,8 +28,8 @@ _STRUCT = ((10, 11, 12), (2, 4, 2), (1, 2, 2, 1))   # (shape, tucker, tt); MINIM
 
 # name -> (frontend geometry singleton, backend GeometryOps factory)
 _GEOMS = {
-    'manifold': (ut3m.UNIFORM_MANIFOLD, uf.uniform_manifold_ops),
-    'corewise': (ut3m.UNIFORM_COREWISE, uf.uniform_corewise_ops),
+    'manifold': (ut3m.UNIFORM_MANIFOLD, bgeo.UniformManifoldGeometryOps.from_point),
+    'corewise': (ut3m.UNIFORM_COREWISE, bgeo.UniformCorewiseGeometryOps.from_point),
 }
 
 
@@ -336,7 +337,7 @@ class TestUniformProblem(unittest.TestCase):
     LocalModel -- objective, gradient (via <g, p>), and gn_quadratic(p) -- on the equivalent frame, for
     every sampling kind and both geometries. This certifies the Problem factory's sample/data packing and
     the reused LocalModel wiring."""
-    _GEOMS = [('manifold', bopt.MANIFOLD_OPS, t3m.MANIFOLD), ('corewise', bopt.COREWISE_OPS, t3m.COREWISE)]
+    _GEOMS = [('manifold', bgeo.ManifoldGeometryOps(), t3m.MANIFOLD), ('corewise', bgeo.CorewiseGeometryOps(), t3m.COREWISE)]
 
     def setUp(self):
         import t3toolbox.corewise as cw
@@ -420,7 +421,7 @@ class TestUniformOptimizers(unittest.TestCase):
         self._x0u = (self.ux0.data[0], self.ux0.data[1])
 
     def _problems(self, geom):
-        bg = {'manifold': bopt.MANIFOLD_OPS, 'corewise': bopt.COREWISE_OPS}[geom]
+        bg = {'manifold': bgeo.ManifoldGeometryOps(), 'corewise': bgeo.CorewiseGeometryOps()}[geom]
         return (bopt.least_squares_problem(bg, bfit.APPLY, self.ww, self.data),
                 uf.uniform_least_squares_problem(geom, 'apply', self.ux0, self.ww, self.data))
 

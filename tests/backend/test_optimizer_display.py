@@ -9,6 +9,7 @@ import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.optimizers as bopt
+import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.optimizer_display as bdisp
 
@@ -135,7 +136,7 @@ class TestMakeNewtonDisplay(unittest.TestCase):
                 ops += [[d, f]]; out.append(np.einsum(*ops))
             return out
         data = dprobe(A, ww)
-        return bopt.least_squares_problem(bopt.MANIFOLD_OPS, bfit.PROBE, ww, data), ww, data, dprobe, A
+        return bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data), ww, data, dprobe, A
 
     def test_records_and_silent(self):
         """make_newton_display records a self-contained per-iteration dict (scalars + train_err/val_err)

@@ -21,8 +21,9 @@ The oracle:
   objects and retracts.
 * ``LocalModel``  -- the GN model linearized at a point (``.gradient`` / ``.objective`` /
   ``.hvp`` / ``.gn_quadratic`` / ``.retract``), the backend twin of ``fitting.GaussNewtonModel``.
-* ``GeometryOps`` -- (frame, project, retract) on raw data; ``MANIFOLD_OPS`` / ``COREWISE_OPS``
-  singletons.
+* ``Geometry``    -- the *where you optimize* axis: frame / project / retract / inner on raw data.
+  This module declares only the **protocol** it needs; the T3 implementations live in
+  :py:mod:`t3toolbox.backend.geometry`, so nothing here depends on the T3 representation.
 
 Tangent vectors are raw ``(tucker_var, tt_var)`` tuples; vector arithmetic is the ``corewise`` ops.
 """
@@ -32,18 +33,11 @@ import time
 import typing as typ
 
 from t3toolbox.backend.common import *
-from t3toolbox.backend import tv_operations as tops
-from t3toolbox.backend import sharing as sharing_module
-from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
 from t3toolbox.backend.regularization import Regularizer, IdentityRegularizer   # re-exported for backend users
 from t3toolbox.backend.regularization import _ScaledRegularizer                 # internal: minibatch reg scaling
 import t3toolbox.corewise as cw
 
 __all__ = [
-    'GeometryOps',
-    'COREWISE_OPS',
-    'MANIFOLD_OPS',
-    'shared_geometry_ops',
     'Problem',
     'LocalModel',
     'NewtonInfo',
@@ -60,158 +54,43 @@ __all__ = [
 Tangent = typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]   # (tucker_variations, tt_variations)
 
 
-# --------------------------------------------------------------------------------------------------
-# Geometry ops on raw data (frame / project / retract) -- the backend twin of the frontend geometries
-# --------------------------------------------------------------------------------------------------
-@dc.dataclass(frozen=True)
-class GeometryOps:
-    frame:    typ.Callable    # x_cores=(U,G)            -> frame=(U,O,P,Q)        the linearization frame
-    project: typ.Callable    # (frame, variations, aux=None) -> variations       gauge Π (identity for corewise)
-    retract: typ.Callable    # (frame, variations, aux=None) -> x_cores=(U,G)    chart retraction
-    inner:   typ.Callable    # (v1, v2)                 -> scalar               coordinate ⟨·,·⟩ (check-free twin of Geometry.inner)
+class Geometry(typ.Protocol):
+    """What an optimizer needs of a geometry -- declared here, by the consumer, so this module stays
+    independent of any particular tensor representation.
 
-    precompute: typ.Optional[typ.Callable] = None      # frame -> per-frame geometry aux (e.g. the SF-T3 companion),
-                                                       # computed ONCE per local model (the `sweep` pattern) and passed
-                                                       # back to project/retract as `aux`; None => geometry has no aux
-    point_norm_sq: typ.Optional[typ.Callable] = None   # x_cores -> ‖X‖² in the coordinate metric; the reg objective (None => geometry has no reg support)
-    point_tangent: typ.Optional[typ.Callable] = None   # frame   -> the position X as a gauged tangent v_X; the reg gradient direction
+    The T3 implementations are in :py:mod:`t3toolbox.backend.geometry`
+    (``ManifoldGeometryOps`` / ``CorewiseGeometryOps`` + their uniform twins). Anything supplying these
+    methods works: the optimizers only ever build tangents through ``project`` / ``retract`` /
+    ``point_tangent`` and combine them with the layer-agnostic ``corewise`` tree arithmetic.
 
+    Implementations should hash and compare **by value** (their parameters, not their identity) --
+    a geometry rides as jax ``aux_data``, so identity semantics recompile on every rebuild. See
+    :py:class:`~t3toolbox.backend.common.ValueHashedFields`."""
 
-def _corewise_frame(
-        x_cores: Tangent,    # (tucker_cores, tt_cores)
-) -> typ.Tuple:              # (U, O, P, Q) = (U, G, G, G); the raw cores ARE the frame
-    tucker_cores, tt_cores = x_cores
-    return (tucker_cores, tt_cores, tt_cores, tt_cores)
+    def frame(self, x_cores):                          # x_cores -> the linearization frame
+        ...
 
+    def base_point(self, frame):                       # frame -> the point X the frame is attached to
+        ...
 
-COREWISE_OPS = GeometryOps(
-    frame=_corewise_frame,
-    project=lambda frame, var, aux=None: var,                         # Euclidean cores: no gauge projection
-    retract=lambda frame, var, aux=None: cw.corewise_add((frame[0], frame[2]), var),   # additive: (U,P)=(U,G) += var
-    inner=cw.corewise_dot,                                           # ragged coordinate dot (layer-agnostic tree dot)
-    point_norm_sq=lambda x_cores: cw.corewise_dot(x_cores, x_cores),  # Σ‖core_i‖² (weight-decay); collapses every axis
-    point_tangent=lambda frame: (frame[0], frame[2]),                # the cores (U,G) as a tangent; X_ref=0
-)
+    def precompute(self, frame):                       # frame -> per-frame companion (None if none)
+        ...
 
+    def project(self, frame, variations, aux=None):    # gauge Pi (identity for corewise)
+        ...
 
-def _manifold_frame(
-        x_cores: Tangent,    # (tucker_cores, tt_cores)
-) -> typ.Tuple:              # (U, O, P, Q) orthonormal frame (Algorithm 11)
-    frame, _ = t3_orthogonal_representations(x_cores)
-    return frame
+    def retract(self, frame, variations, aux=None):    # chart step -> new x_cores
+        ...
 
+    def inner(self, a, b):                             # coordinate <.,.> on tangents
+        ...
 
-def _manifold_point_norm_sq(
-        x_cores: Tangent,    # (tucker_cores, tt_cores) -- a LEFT-orthogonal T3 (a frame's base cores, or a retracted point)
-) -> NDArray:                # ‖X‖²_HS (scalar for stack C=()); check-free left-orthogonal precondition
-    """``‖X‖²_HS = ‖last TT core‖²`` -- exact for a left-orthogonal T3 (the frame's ``(U,P)`` or a
-    ``t3svd`` retraction output), so no dense tensor and no re-orthogonalization. The left-orthogonal
-    precondition is check-free here (backend); a raw-data user can verify it with
-    :py:func:`t3toolbox.backend.t3_orthogonalization.t3_orthogonality_residual`. (``dev/regularization_design.md`` §4a.)"""
-    last = x_cores[1][-1]
-    xnp, _, _ = get_backend(False, tree_contains_jax(x_cores))
-    return xnp.sum(last * last)
+    def point_norm_sq(self, x_cores):                  # ‖X‖² in the coordinate metric (regularizer)
+        ...
 
+    def point_tangent(self, frame):                    # X as a gauged tangent v_X (regularizer)
+        ...
 
-def _manifold_point_tangent(
-        frame:  typ.Tuple,    # (U, O, P, Q) -- an orthogonal frame
-) -> Tangent:                 # v_X: the attachment point X as a gauged tangent (tucker_var, tt_var)
-    """The attachment point ``X = (U, P)`` as a gauged tangent ``v_X`` -- **the DIRECT construction**: all
-    variations zero except the last TT variation, set to the frame's last left core ``P_last``. This is
-    already gauged (the last TT variation is the one slot with no gauge condition), so it needs neither an
-    ambient projection nor a gauge projection: ``dense(v_X) = X`` and ``‖v_X‖_coord = ‖X‖_HS`` exactly.
-    (It equals ``tv_project_t3_onto_tangent_space(frame, (U, P))`` -- verified -- but avoids that roundabout
-    computation, whose environment contractions all collapse since the projected T3 IS the frame's own
-    cores. See ``dev/regularization_design.md`` §12 and the base-point-as-tangent backlog item.)"""
-    up, down, left, right = frame
-    xnp, _, _ = get_backend(False, tree_contains_jax(frame))
-    d = len(up)
-    stack = up[0].shape[:-2]                                         # the frame stack C
-    tucker_var = tuple(xnp.zeros(stack + (down[i].shape[-2], up[i].shape[-1])) for i in range(d))
-    tt_var = tuple(xnp.zeros(stack + (left[i].shape[-3], up[i].shape[-2], right[i].shape[-1]))
-                   for i in range(d - 1)) + (left[-1],)              # last TT variation = P_last
-    return (tucker_var, tt_var)
-
-
-MANIFOLD_OPS = GeometryOps(
-    frame=_manifold_frame,
-    project=lambda frame, var, aux=None: tops.tv_orthogonal_gauge_projection(frame, var),   # Π  (gauge-fix the tangent)
-    retract=lambda frame, var, aux=None: tops.tv_retract(frame, var),                       # implicit truncated T3-SVD
-    inner=cw.corewise_dot,                                                    # ragged coordinate dot
-    point_norm_sq=_manifold_point_norm_sq,
-    point_tangent=_manifold_point_tangent,
-)
-
-
-def shared_geometry_ops(
-        base:   GeometryOps,   # MANIFOLD_OPS or COREWISE_OPS (the ragged singletons)
-        groups: typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition (sharing.validate_sharing)
-) -> GeometryOps:
-    '''The shared (SF-T3) geometry on raw data: wrap a ragged base geometry so every projection
-    lands on the TIED tangent subspace and the retraction stays on the shared set.
-
-    One principle, two formulas -- each geometry ties by orthogonal projection onto ITS tied
-    subspace in ITS metric on ITS coordinates:
-
-    - ``MANIFOLD_OPS`` base: ``precompute`` derives the per-frame companion
-      (:py:func:`~t3toolbox.backend.sharing.fv_shared_frame_data` -- built once per local model,
-      the ``sweep`` pattern); ``project`` composes the gauge projection with the tied post-pass
-      (:py:func:`~t3toolbox.backend.sharing.fv_share_tucker_variations`); ``retract`` builds the
-      TIED doubled-rank embedding and truncates with the grouped ``t3svd``
-      (``tv_retract(..., shared_data=...)``).
-    - ``COREWISE_OPS`` base: ``project`` is the per-group arithmetic mean
-      (:py:func:`~t3toolbox.backend.sharing.fv_share_tucker_variations_corewise`; the corewise coordinates
-      are raw factor copies), and the additive retraction preserves tying exactly, so
-      ``retract`` only mean-ties its input first (a bitwise no-op on tied input).
-
-    ``inner`` / ``point_norm_sq`` / ``point_tangent`` delegate unchanged (the tied subspace is a
-    linear subspace; the restriction of the metric is itself, and the regularizer's base-point
-    tangent has zero Tucker variations, hence is trivially tied). Check-free, like every backend
-    geometry -- the frontend shared geometry owns the safe-mode tied-factors preconditions.
-    '''
-    if base is COREWISE_OPS:
-        def _corewise_shared_retract(frame, var, aux=None):
-            new = cw.corewise_add((frame[0], frame[2]),
-                                  sharing_module.fv_share_tucker_variations_corewise(var, groups))
-            new_tucker = list(new[0])
-            for group in sharing_module.nontrivial_groups(groups):
-                for ii in group[1:]:
-                    new_tucker[ii] = new_tucker[group[0]]   # ONE array per group (values equal)
-            return tuple(new_tucker), new[1]
-
-        return GeometryOps(
-            frame=base.frame,
-            project=lambda frame, var, aux=None: sharing_module.fv_share_tucker_variations_corewise(var, groups),
-            retract=_corewise_shared_retract,
-            inner=base.inner,
-            point_norm_sq=base.point_norm_sq,
-            point_tangent=base.point_tangent,
-        )
-    if base is MANIFOLD_OPS:
-        def _precompute(frame):
-            return sharing_module.fv_shared_frame_data(frame, groups)
-
-        def _project(frame, var, aux=None):
-            if aux is None:                      # standalone call; the model path passes the companion
-                aux = _precompute(frame)
-            return tops.tv_orthogonal_gauge_projection(frame, var, shared_data=aux)
-
-        def _retract(frame, var, aux=None):
-            if aux is None:
-                aux = _precompute(frame)
-            return tops.tv_retract(frame, var, shared_data=aux)
-
-        return GeometryOps(
-            frame=base.frame,
-            project=_project,
-            retract=_retract,
-            inner=base.inner,
-            precompute=_precompute,
-            point_norm_sq=base.point_norm_sq,
-            point_tangent=base.point_tangent,
-        )
-    raise ValueError('shared_geometry_ops wraps the ragged singletons (MANIFOLD_OPS / '
-                     'COREWISE_OPS); got %r' % (base,))
 
 
 # --------------------------------------------------------------------------------------------------
@@ -221,7 +100,7 @@ def shared_geometry_ops(
 class LocalModel:
     """The Gauss-Newton model linearized at a point -- the backend twin of ``fitting.GaussNewtonModel``.
     Built by ``Problem.local_model``; the frame sweep is computed once and reused by every method below."""
-    geom:     GeometryOps
+    geom:     typ.Any        # a Geometry (backend.geometry.*GeometryOps); aux_data, so it must hash by VALUE
     kind:     typ.Any        # backend fitting.SamplingKind (forward / transpose / sumsq / w_axes)
     sample:   typ.Any        # ww (probe/apply) or index (entries)
     frame:     typ.Tuple      # (U, O, P, Q)
@@ -237,10 +116,10 @@ class LocalModel:
         return 0.5 * self.kind.sumsq(self.residual, self.n_w)
 
     @property
-    def regularization(self):                            # ρ(X) at X = (U, P) = (frame[0], frame[2]); 0 if unregularized
+    def regularization(self):                            # ρ(X) at X = geom.base_point(frame); 0 if unregularized
         if self.regularizer is None:
             return 0.0
-        return self.regularizer.value(self.geom, (self.frame[0], self.frame[2]))
+        return self.regularizer.value(self.geom, self.geom.base_point(self.frame))
 
     @property
     def objective(self):                                 # c = ½‖ω⊙r‖²  (+ ρ(X) if regularized)
@@ -284,7 +163,7 @@ class Problem:
     or on an explicitly-passed minibatch ``(sample, data)`` (e.g. from a ``draw``). The ``Problem`` itself
     owns **no** minibatch-layout logic -- where the sample stack ``W`` lives, how to slice it -- that is
     the ``kind``'s (``kind.take`` for the default flat draw) or the user's ``draw``."""
-    geom:   GeometryOps
+    geom:   typ.Any       # a Geometry (see the Geometry protocol above)
     kind:   typ.Any       # backend fitting.SamplingKind
     sample: typ.Any       # the FULL sample (ww / index / (ww,pp) / (index,pp))
     data:   typ.Any       # the FULL observed data S(x_true) (+ noise)
@@ -297,7 +176,7 @@ class Problem:
             sample, data = self.sample, self.data
         frame = self.geom.frame(x_cores)
         sweep = self.kind.precompute(frame, sample)
-        geom_aux = self.geom.precompute(frame) if self.geom.precompute is not None else None
+        geom_aux = self.geom.precompute(frame)        # None when the geometry has no companion
         residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
         return LocalModel(self.geom, self.kind, sample, frame, sweep, residual, self.kind.w_axes(sample),
                           self.regularizer, geom_aux)
@@ -317,7 +196,7 @@ class Problem:
 
 
 def least_squares_problem(
-        geom:        GeometryOps,   # COREWISE_OPS / MANIFOLD_OPS
+        geom:        typ.Any,       # a Geometry (backend.geometry.{Manifold,Corewise}GeometryOps, or uniform)
         kind:        typ.Any,       # backend fitting.{APPLY,ENTRIES,PROBE} or a derivative kind
         sample:      typ.Any,       # ww / index / (ww,pp) / (index,pp)
         data:        typ.Any,       # observed values

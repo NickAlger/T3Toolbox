@@ -13,6 +13,7 @@ rebuilt-but-identical mask holder on the same jit cache key.
 import numpy as np
 import typing as typ
 import functools as ft
+import dataclasses as dc
 import weakref
 
 __all__ = [
@@ -27,6 +28,7 @@ __all__ = [
     'to_numpy',
     #
     'ValueHashedMasks',
+    'ValueHashedFields',
     'require_concrete_masks',
     'prefix_mask',
     #
@@ -507,6 +509,52 @@ class ValueHashedMasks:
         if type(other) is not type(self):
             return NotImplemented
         return all(np.array_equal(a, b) for a, b in zip(self.data, other.data))
+
+
+class ValueHashedFields:
+    """Mixin giving a frozen dataclass VALUE-based ``__hash__``/``__eq__`` over **all** its fields,
+    with numpy arrays compared by CONTENT rather than by identity.
+
+    The generalization of :py:class:`ValueHashedMasks` (which value-hashes one designated ``.data``
+    tuple of masks) to a dataclass whose *parameters are its fields*. Both exist for the same reason:
+    the object rides as jax ``aux_data``, so its ``__hash__``/``__eq__`` are part of the jit
+    compilation cache key, and identity semantics make a rebuilt-but-identical object a NEW key ->
+    jit RECOMPILES. A geometry rebuilt at each rank-continuation level, or a sampling kind rebuilt at
+    each outer step, must be the SAME cache key when its parameters are the same.
+
+    Use it instead of the dataclass ``eq=True`` default whenever a field may hold a numpy array
+    (``eq=True`` would raise "truth value of an array is ambiguous"), and instead of ``eq=False``
+    whenever the object is a jit aux (identity semantics recompile). Subclasses must be
+    ``@dataclass(frozen=True, eq=False)``.
+
+    The alternative this replaces is a hand-maintained parallel ``identity`` tuple restating the
+    fields -- correct while someone keeps it in sync, silently identity-based for a user-built object
+    that omits it. Here the fields ARE the key, so there is nothing to keep in sync.
+    """
+
+    @staticmethod
+    def _value_key(v):
+        """A hashable, value-equal key for one field: arrays by (shape, dtype, bytes); tuples/lists
+        recursively; anything else by itself (it must already hash by value)."""
+        if isinstance(v, np.ndarray):
+            return ('__array__', v.shape, v.dtype.str, v.tobytes())
+        if isinstance(v, (tuple, list)):
+            return tuple(ValueHashedFields._value_key(x) for x in v)
+        return v
+
+    @ft.cached_property
+    def _fields_key(self) -> typ.Tuple:
+        return tuple(self._value_key(getattr(self, f.name)) for f in dc.fields(self))
+
+    def __hash__(self) -> int:
+        return hash(self._fields_key)
+
+    def __eq__(self, other) -> bool:
+        if self is other:
+            return True
+        if type(other) is not type(self):
+            return NotImplemented
+        return self._fields_key == other._fields_key
 
 
 def require_concrete_masks(

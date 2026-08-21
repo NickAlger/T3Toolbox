@@ -1,7 +1,7 @@
 # Precompute and caching: the design principle
 
 > Where derived data may be computed once and reused during optimization, where it must not be, and
-> why — the first-principles audit (2026-08-20) behind `GeometryOps.precompute`, the regularizer
+> why — the first-principles audit (2026-08-20) behind the geometry's `precompute`, the regularizer
 > `aux=` threading, and the decisions recorded at the bottom. Written after the SF-T3 build, whose
 > per-frame companion made the question concrete; the principle is general.
 
@@ -20,7 +20,7 @@ wrong place breaks the execution model. So the design question is never "should 
    (`T3Frame.orthogonality_residual`, `T3Tangent.gauge_residual`). Invalidation is impossible
    because mutation is impossible. Safe, but limited to things derivable from one object alone.
 2. **Explicit aux threading at scope boundaries** — compute X at the moment its inputs settle and
-   pass it along as a value: the sampling `sweep`, the SF-T3 companion (`GeometryOps.precompute` →
+   pass it along as a value: the sampling `sweep`, the SF-T3 companion (the geometry's `precompute` →
    `LocalModel.geom_aux` / the frontend models' `geometry_aux`), the packed sample. This is the
    functionally *pure* form of caching: reuse follows **provenance** (the same object flowing
    through the loop), invalidation is structural (a new frame simply *is* a new aux), and it
@@ -99,7 +99,7 @@ code path. Verdict: build only if first-order manifold fitting becomes a hot pat
    value-hashed aux / a leaf beside `sweep`). If none exists, that is a design decision, not a
    refactor — stop and weigh it.
 2. Keep an `aux=None` recompute fallback so standalone calls stay correct (the
-   `shared_geometry_ops` pattern).
+   shared-geometry pattern — now the geometry's `groups` field).
 3. The object flows as a pytree **leaf** if it holds arrays; only hashable statics go in aux keys.
 4. Audit *every* consumer seam — the regularizer leak lived precisely in the one seam nobody
    re-checked after the channel was added.

@@ -173,8 +173,10 @@ T4S paper names the object neither way, so there is no paper conflict to worry a
 - **Fitting/optimization is role-named**: `uniform_minimal`, `uniform_least_squares_problem`,
   the `uniform_*_kind` seam builders, `pack_sample`/`pack_data`, and the packedness utilities
   (`is_packed`, `pack_if_ragged`) are fitting infrastructure, not family data ops.
-- **`MANIFOLD` / `COREWISE`** are the frontend geometry singletons; the backend `GeometryOps`
-  singletons are `MANIFOLD_OPS` / `COREWISE_OPS`.
+- **`MANIFOLD` / `COREWISE`** are the frontend geometry singletons; the backend twins are the
+  classes `ManifoldGeometryOps` / `CorewiseGeometryOps` in `backend/geometry.py` (with
+  `Uniform`-prefixed versions carrying the fixed rank). The `Ops` suffix distinguishes the
+  backend class from the frontend class of the same concept.
 - **Frontend methods stay unprefixed** even when a same-named backend function exists at a
   different level (e.g. the method `x.rank_adjustment_sweep()` vs backend
   `t3_rank_adjustment_sweep`); the class namespace disambiguates.

@@ -109,10 +109,10 @@ The end-to-end continuation loop needs the documented warm-start guidance
 the pin the fit stalls at the target level and continuation over-grows (reproduced, then fixed, in
 the tests).
 
-## The `GeometryOps.precompute` slot
+## The geometry `precompute` slot
 
 Per-projection companion recompute is cheap full-batch but would put `2d` small SVDs on every CG
-matvec. The sanctioned (breaking) protocol extension: `GeometryOps` gains an optional
+matvec. The sanctioned (breaking) protocol extension: a geometry gains an optional
 `precompute: frame -> aux` slot; `Problem.local_model` computes the aux **once per Newton step**
 (the `sweep` pattern) and passes it back to `project`/`retract` as `aux=`; the frontend models
 mirror it as a `geometry_aux` **leaf** (it holds arrays — it must flow as traced data, never as jit

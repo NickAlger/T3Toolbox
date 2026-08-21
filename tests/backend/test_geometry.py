@@ -1,0 +1,165 @@
+"""Tests for the backend geometries (``backend/geometry.py``).
+
+The *numerical* correctness of these geometries is covered where it always was -- against the frontend
+geometry singletons in ``test_uniform_fitting`` and against dense ground truth in ``test_optimizers``.
+What is tested HERE is the property the value-typed design exists for, and which nothing else pins:
+
+  * **value identity** -- a rebuilt geometry with the same parameters is ``==`` and hash-equal, so it is
+    the SAME jax compilation cache key. Under the previous record-of-closures design this was False for
+    every uniform and every shared geometry, which meant a recompile at each rank-continuation level and
+    each rebuilt model. Granularity matters in both directions: same rank must hit, different rank must
+    miss (the shapes differ, so a shared compiled program would be wrong).
+  * the **variation supercore shapes** of the uniform base-point tangent when ``nD != nU`` -- the case a
+    shortcut derivation gets wrong (see :py:func:`~t3toolbox.backend.geometry.ufv_base_point_tangent`).
+
+numpy-only (jit dispatch is covered in test_dispatch)."""
+import unittest
+
+import numpy as np
+
+import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.uniform_tucker_tensor_train as ut3
+import t3toolbox.backend.geometry as bgeo
+import t3toolbox.backend.uniform_fitting as uf
+from t3toolbox.backend import ufv_conversions
+
+SHAPE, TUCKER, TT = (6, 7, 8), (2, 3, 2), (1, 2, 2, 1)
+
+
+def uniform_point(shape=SHAPE, tucker=TUCKER, tt=TT, sharing=None, seed=0):
+    np.random.seed(seed)
+    A = t3.TuckerTensorTrain.randn(shape, tucker, tt)
+    if sharing is not None:
+        A = A.share(sharing)
+    return uf.uniform_minimal(ut3.UniformTuckerTensorTrain.from_t3(A), sharing=sharing)
+
+
+class TestGeometryValueIdentity(unittest.TestCase):
+    """A geometry rides as jax ``aux_data``; equal parameters must mean an equal cache key."""
+
+    def test_ragged_geometries_rebuild_equal(self):
+        for cls in (bgeo.ManifoldGeometryOps, bgeo.CorewiseGeometryOps):
+            with self.subTest(geometry=cls.__name__):
+                self.assertEqual(cls(), cls())
+                self.assertEqual(hash(cls()), hash(cls()))
+        self.assertNotEqual(bgeo.ManifoldGeometryOps(), bgeo.CorewiseGeometryOps())
+
+    def test_shared_ragged_geometries_rebuild_equal(self):
+        """Was False under the closure design: ``shared_geometry_ops`` built fresh lambdas each call."""
+        a = bgeo.ManifoldGeometryOps().with_sharing((0, 0, 1), (6, 6, 8))
+        b = bgeo.ManifoldGeometryOps().with_sharing((0, 0, 1), (6, 6, 8))
+        self.assertEqual(a, b)
+        self.assertEqual(hash(a), hash(b))
+        self.assertNotEqual(a, bgeo.ManifoldGeometryOps())                      # shared != unshared
+        self.assertNotEqual(a, bgeo.ManifoldGeometryOps().with_sharing((0, 1, 1), (6, 7, 7)))
+
+    def test_trivial_sharing_normalizes_to_unshared(self):
+        """An all-singleton partition ties nothing, so it must BE the unshared geometry -- one
+        representation, hence one cache key, however the caller spelled it."""
+        self.assertEqual(bgeo.ManifoldGeometryOps().with_sharing((0, 1, 2), SHAPE),
+                         bgeo.ManifoldGeometryOps())
+        self.assertEqual(bgeo.ManifoldGeometryOps().with_sharing(None, SHAPE),
+                         bgeo.ManifoldGeometryOps())
+        self.assertEqual(bgeo.canonical_groups(None, SHAPE), ())
+
+    def test_uniform_geometry_same_rank_hits_different_rank_misses(self):
+        x = uniform_point()
+        y = uniform_point(seed=1)                                   # same rank, different VALUES
+        z = uniform_point(tucker=(3, 3, 3), tt=(1, 3, 3, 1))        # different RANK
+        for cls in (bgeo.UniformManifoldGeometryOps, bgeo.UniformCorewiseGeometryOps):
+            with self.subTest(geometry=cls.__name__):
+                g = cls.from_point(x.data)
+                self.assertEqual(g, cls.from_point(x.data))         # rebuilt from the same point
+                self.assertEqual(hash(g), hash(cls.from_point(x.data)))
+                self.assertEqual(g, cls.from_point(y.data))         # same rank -> same program -> HIT
+                self.assertNotEqual(g, cls.from_point(z.data))      # different rank -> MISS
+
+    def test_uniform_sharing_is_part_of_the_identity(self):
+        sym = uniform_point((6, 6, 6), (2, 2, 2), (1, 2, 2, 1))     # equal mode sizes: tying is legal
+        for cls in (bgeo.UniformManifoldGeometryOps, bgeo.UniformCorewiseGeometryOps):
+            with self.subTest(geometry=cls.__name__):
+                shared = cls.from_point(sym.data, (0, 0, 0))
+                self.assertEqual(shared, cls.from_point(sym.data, (0, 0, 0)))   # rebuilt -> HIT
+                self.assertEqual(hash(shared), hash(cls.from_point(sym.data, (0, 0, 0))))
+                self.assertNotEqual(shared, cls.from_point(sym.data))           # shared != unshared
+                self.assertNotEqual(shared, cls.from_point(sym.data, (0, 0, 1)))
+
+    def test_uniform_geometry_is_usable_as_a_cache_key(self):
+        """The concrete consequence: a dict (and hence jax's compilation cache) keyed on the geometry
+        finds the entry a rebuilt-but-identical geometry stored."""
+        x = uniform_point()
+        cache = {bgeo.UniformManifoldGeometryOps.from_point(x.data): 'compiled'}
+        self.assertEqual(cache[bgeo.UniformManifoldGeometryOps.from_point(x.data)], 'compiled')
+
+    def test_masks_compare_by_content_not_identity(self):
+        """The masks are numpy arrays; equal content must compare equal (copies are a different object)."""
+        x = uniform_point()
+        g = bgeo.UniformManifoldGeometryOps.from_point(x.data)
+        copied = bgeo.UniformManifoldGeometryOps(g.shape, tuple(m.copy() for m in g.masks),
+                                                 tuple(m.copy() for m in g.var_masks), g.groups)
+        self.assertEqual(g, copied)
+        self.assertEqual(hash(g), hash(copied))
+
+
+class TestBasePointTangent(unittest.TestCase):
+    def test_uniform_variation_shapes_match_the_orthogonal_representation(self):
+        """``ufv_base_point_tangent`` must produce the variation supercore shapes that
+        ``ut3_orthogonal_representations`` does -- including when the down rank differs from the up rank,
+        where reading the shapes off the ``up`` supercore silently gives the wrong answer."""
+        cases = [(SHAPE, TUCKER, TT, None),
+                 ((6, 6, 6), (1, 1, 1), (1, 1, 1, 1), (0, 0, 0)),   # nD=1, nU=3 -- the regression case
+                 ((6, 6, 6), (3, 2, 1), (1, 3, 2, 1), None),
+                 ((5, 6, 7, 4), (2, 2, 3, 2), (1, 2, 3, 2, 1), None),
+                 ((7, 7, 7, 7), (4, 2, 3, 1), (1, 4, 2, 3, 1), (0, 0, 1, 2))]
+        for shape, tucker, tt, sharing in cases:
+            with self.subTest(shape=shape, sharing=sharing):
+                x = uniform_point(shape, tucker, tt, sharing)
+                frame_data, variation_data = ufv_conversions.ut3_orthogonal_representations(x.data)
+                geom = bgeo.UniformManifoldGeometryOps.from_point(x.data, sharing)
+                v_x = geom.point_tangent(frame_data)
+                self.assertEqual(np.shape(v_x[0]), np.shape(variation_data[0]))
+                self.assertEqual(np.shape(v_x[1]), np.shape(variation_data[1]))
+
+    def test_base_point_tangent_norm_equals_point_norm(self):
+        """``‖v_X‖_coord == ‖X‖_HS``: the direct construction is exact, on both layers."""
+        np.random.seed(0)
+        A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        hs_norm = float(np.linalg.norm(A.to_dense()))
+
+        geom = bgeo.ManifoldGeometryOps()
+        frame = geom.frame(A.data)
+        v_x = geom.point_tangent(frame)
+        self.assertAlmostEqual(float(geom.inner(v_x, v_x)) ** 0.5, hs_norm, places=10)
+        self.assertAlmostEqual(float(geom.point_norm_sq(geom.base_point(frame))) ** 0.5, hs_norm, places=10)
+
+        x = uf.uniform_minimal(ut3.UniformTuckerTensorTrain.from_t3(A))
+        ugeom = bgeo.UniformManifoldGeometryOps.from_point(x.data)
+        uframe = ugeom.frame((x.tucker_supercore, x.tt_supercore))
+        uv_x = ugeom.point_tangent(uframe)
+        self.assertAlmostEqual(float(ugeom.inner(uv_x, uv_x)) ** 0.5, hs_norm, places=10)
+
+
+class TestPromotedMath(unittest.TestCase):
+    """The backend rule: every line of math inside a geometry method is also a standalone function.
+    These were unreachable inner closures under the previous design."""
+
+    def test_t3_alias_tied_tucker_factors_gives_one_array_per_group(self):
+        np.random.seed(0)
+        A = t3.TuckerTensorTrain.randn((6, 6, 6), (2, 2, 2), (1, 2, 2, 1)).share((0, 0, 1))
+        groups = bgeo.canonical_groups((0, 0, 1), (6, 6, 6))
+        aliased = bgeo.t3_alias_tied_tucker_factors(A.data[0], groups)
+        self.assertIs(aliased[0], aliased[1])            # the tied group is ONE array object
+        self.assertIsNot(aliased[0], aliased[2])
+        for before, after in zip(A.data[0], aliased):    # values untouched
+            self.assertTrue(np.array_equal(np.asarray(before), np.asarray(after)))
+
+    def test_t3_left_orthogonal_norm_sq_matches_the_dense_norm(self):
+        np.random.seed(0)
+        A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        left_orthogonal, _, _ = A.t3svd()
+        self.assertAlmostEqual(float(bgeo.t3_left_orthogonal_norm_sq(left_orthogonal.data)) ** 0.5,
+                               float(np.linalg.norm(A.to_dense())), places=10)
+
+
+if __name__ == '__main__':
+    unittest.main()

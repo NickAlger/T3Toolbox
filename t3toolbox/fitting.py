@@ -78,7 +78,7 @@ import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.shared_geometry as sg
 import t3toolbox.safety as safety
 import t3toolbox.backend.fitting as fb
-import t3toolbox.backend.optimizers as bopt   # the backend GeometryOps a Regularizer leans on (no cycle: backend never imports fitting)
+import t3toolbox.backend.geometry as bgeo    # the backend geometry a Regularizer leans on (no cycle: backend never imports fitting)
 import t3toolbox.backend.uniform_fitting as ufit
 from t3toolbox.backend.common import *
 
@@ -240,7 +240,7 @@ class GaussNewtonModel:
         return self.geometry.project(v)
 
     @property
-    def _bgeom(self):              # the backend GeometryOps for this geometry (the regularizer's primitives)
+    def _bgeom(self):              # the backend geometry for this one (the regularizer's primitives)
         return _backend_geometry_ops(self.geometry, self.frame.shape)
 
     def _reg_tangent(self, raw) -> t3m.T3Tangent:   # wrap a backend raw (tucker_var, tt_var) as a T3Tangent at frame
@@ -396,7 +396,7 @@ class UniformGaussNewtonModel:
         return self.geometry.project(v)
 
     @ft.cached_property
-    def _ubgeom(self):               # the backend uniform GeometryOps at this model's rank (the regularizer's primitives)
+    def _ubgeom(self):               # the backend uniform geometry at this model's rank (the regularizer's primitives)
         if isinstance(self.geometry, sg.SharedGeometry):
             name = 'manifold' if self.geometry.base is ut3m.UNIFORM_MANIFOLD else 'corewise'
             sharing_spec = self.geometry.sharing
@@ -404,7 +404,8 @@ class UniformGaussNewtonModel:
             name = 'manifold' if self.geometry is ut3m.UNIFORM_MANIFOLD else 'corewise'
             sharing_spec = None
         x0_data = (self.frame.data[0], self.frame.data[2], self.frame.shape, self.x0_masks.data)   # base point (U,P) at rank
-        return ufit.uniform_geometry_ops(name, x0_data, sharing=sharing_spec)
+        return (bgeo.UniformManifoldGeometryOps.from_point(x0_data, sharing_spec) if name == 'manifold'
+                else bgeo.UniformCorewiseGeometryOps.from_point(x0_data, sharing_spec))
 
     def _reg_tangent(self, bare) -> ut3m.UT3Tangent:   # wrap a backend raw (tkv, ttv) supercore pair as a UT3Tangent at frame
         var = ubv.UT3Variations(bare[0], bare[1], self.frame.shape,
@@ -502,17 +503,18 @@ def _ragged_geometry_aux(geometry, frame):
 
 
 def _backend_geometry_ops(geometry, shape=None):
-    '''Map a ragged frontend geometry to its backend ``GeometryOps`` -- the regularizer lives in
-    the backend and leans on ``point_norm_sq`` / ``point_tangent`` / ``project`` / ``inner``, so the
-    frontend model delegates to it on raw ``.data`` (dev/regularization_design.md §5a). A shared
-    wrapper needs ``shape`` to canonicalize its partition.'''
+    '''Map a ragged frontend geometry to its backend geometry (:py:mod:`t3toolbox.backend.geometry`)
+    -- the regularizer lives in the backend and leans on ``point_norm_sq`` / ``point_tangent`` /
+    ``project`` / ``inner``, so the frontend model delegates to it on raw ``.data``
+    (dev/archive/regularization_design.md §5a). A shared wrapper needs ``shape`` to canonicalize its
+    partition.'''
     if geometry is t3m.MANIFOLD:
-        return bopt.MANIFOLD_OPS
+        return bgeo.ManifoldGeometryOps()
     if geometry is t3m.COREWISE:
-        return bopt.COREWISE_OPS
+        return bgeo.CorewiseGeometryOps()
     if isinstance(geometry, sg.SharedGeometry) and not geometry.is_uniform and shape is not None:
-        base_ops = bopt.MANIFOLD_OPS if geometry.base is t3m.MANIFOLD else bopt.COREWISE_OPS
-        return bopt.shared_geometry_ops(base_ops, geometry.groups(shape))
+        base = bgeo.ManifoldGeometryOps() if geometry.base is t3m.MANIFOLD else bgeo.CorewiseGeometryOps()
+        return base.with_sharing(geometry.sharing, shape)
     raise ValueError("regularization requires a ragged geometry (manifold.MANIFOLD / COREWISE, "
                      "or a SharedGeometry over one).")
 

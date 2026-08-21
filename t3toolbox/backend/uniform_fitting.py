@@ -30,6 +30,7 @@ import numpy as np
 
 from t3toolbox.backend import optimizers as bopt
 from t3toolbox.backend import fitting as bfit
+from t3toolbox.backend import geometry as geometry_module
 from t3toolbox.backend import ufv_conversions
 from t3toolbox.backend import utv_operations as utv_ops
 from t3toolbox.backend import utv_sampling
@@ -40,9 +41,6 @@ from t3toolbox.backend import sharing as sharing_module
 from t3toolbox.backend.common import *
 
 __all__ = [
-    'uniform_manifold_ops',
-    'uniform_corewise_ops',
-    'uniform_geometry_ops',
     'uniform_apply_kind',
     'uniform_entries_kind',
     'uniform_probe_kind',
@@ -56,172 +54,6 @@ __all__ = [
     'pack_sample',
     'pack_data',
 ]
-
-
-def uniform_manifold_ops(
-        x0_data:  typ.Tuple,   # UniformTuckerTensorTrain.data = (tk_sc, tt_sc, shape, (tucker_mask, tt_mask))
-        sharing:  typ.Optional[typ.Sequence] = None,  # len=d, static; one hashable group label per mode (None = unshared)
-) -> bopt.GeometryOps:         # the uniform manifold geometry ops (masks of x0's fixed rank closed over)
-    """The uniform **manifold** ``GeometryOps`` at ``x0``'s fixed rank -- the raw-supercore twin of
-    :py:data:`t3toolbox.uniform_manifold.UNIFORM_MANIFOLD`.
-
-    ``frame`` = the orthonormal frame (:py:func:`ufv_conversions.ut3_orthogonal_representations`); ``project``
-    = the gauge projection ``Pi``; ``retract`` = the manifold (doubled-rank, mask-truncated) retraction;
-    ``inner`` = the masked coordinate dot (:py:func:`utv_operations.utv_corewise_inner`, the
-    check-free twin of ``UNIFORM_MANIFOLD.inner`` -- equal to Hilbert-Schmidt on this orthonormal, gauged
-    frame). All masks are loop-invariant at ``x0``'s rank and closed over here.
-
-    With ``sharing`` (a partition with a real group; captured statically beside the masks -- the uniform
-    twin of :py:func:`~t3toolbox.backend.optimizers.shared_geometry_ops` over ``MANIFOLD_OPS``):
-    ``precompute`` derives the per-frame companion
-    (:py:func:`~t3toolbox.backend.sharing.ufv_shared_frame_data`), and ``project``/``retract`` become the
-    tied projection / tied retraction (``shared_data=`` threading; a standalone call with ``aux=None``
-    recomputes the companion). ``inner``/``point_*`` delegate unchanged (the tied subspace is linear;
-    the regularizer's base-point tangent has zero Tucker variations, hence trivially tied).
-    """
-    tucker_sc, _tt_sc, shape, base_masks = x0_data
-    n_stack = tucker_sc.ndim - 3     # |C| frame stack (0 for a single tensor); tucker sc = (d,) + C + (nU, N)
-    _frame, var_data = ufv_conversions.ut3_orthogonal_representations(x0_data)
-    var_masks = var_data[3]          # (up, down, left[:-1], right[1:]) -- fixed at this rank; for `inner`
-
-    groups = None
-    if sharing is not None:
-        all_groups = sharing_module.validate_sharing(sharing, shape)
-        if sharing_module.nontrivial_groups(all_groups):
-            groups = all_groups
-        # trivial partition -> the plain closures below (identical)
-
-    def frame(x_sc):                                          # (tk_sc, tt_sc) -> orthonormal frame .data
-        return ufv_conversions.ut3_orthogonal_representations(
-            (x_sc[0], x_sc[1], shape, base_masks))[0]
-
-    precompute = None
-    if groups is None:
-        def project(frame_data, var_sc, aux=None):                    # gauge Pi; bare variation pair in and out
-            gauged = utv_ops.utv_orthogonal_gauge_projection(
-                frame_data, (var_sc[0], var_sc[1], shape, var_masks))
-            return (gauged[0], gauged[1])
-
-        def retract(frame_data, var_sc, aux=None):                    # manifold retraction -> bare point pair
-            new_x = utv_ops.utv_retract(frame_data, (var_sc[0], var_sc[1], shape, var_masks))
-            return (new_x[0], new_x[1])
-    else:
-        def precompute(frame_data):                                   # frame -> the SF-T3 companion
-            return sharing_module.ufv_shared_frame_data(frame_data, groups)
-
-        def project(frame_data, var_sc, aux=None):                    # tied projection (gauge + post-pass)
-            if aux is None:                      # standalone call; the model path passes the companion
-                aux = precompute(frame_data)
-            gauged = utv_ops.utv_orthogonal_gauge_projection(
-                frame_data, (var_sc[0], var_sc[1], shape, var_masks), shared_data=aux)
-            return (gauged[0], gauged[1])
-
-        def retract(frame_data, var_sc, aux=None):                    # tied retraction (tied embedding + grouped SVD)
-            if aux is None:
-                aux = precompute(frame_data)
-            new_x = utv_ops.utv_retract(frame_data, (var_sc[0], var_sc[1], shape, var_masks),
-                                        shared_data=aux)
-            return (new_x[0], new_x[1])
-
-    def inner(a_sc, b_sc):                                  # masked coordinate <.,.> over the bare pairs
-        return utv_ops.utv_corewise_inner(
-            (a_sc[0], a_sc[1], shape, var_masks), (b_sc[0], b_sc[1], shape, var_masks), n_stack)
-
-    def point_tangent(frame_data):                          # v_X: the attachment point X as a gauged tangent
-        # DIRECT construction (the uniform twin of _manifold_point_tangent): all variations zero except the
-        # last TT variation supercore slice = the frame's last left core P_last -- already gauged (no
-        # projection). var_masks/var_data give the loop-invariant variation supercore shapes.
-        xnp, _, _ = get_backend(True, tree_contains_jax(frame_data))
-        d = np.shape(var_data[0])[0]
-        tkv = xnp.zeros(tuple(np.shape(var_data[0])))                                 # tucker variations: all zero
-        ttv = xnp.concatenate([xnp.zeros((d - 1,) + tuple(np.shape(var_data[1])[1:])),
-                               frame_data[2][-1:]], axis=0)                           # tt: zero except last = P_last
-        return (tkv, ttv)
-
-    def point_norm_sq(x_sc):                                # ‖X‖² = ‖v_X‖²_coord (masked)
-        vX = point_tangent(frame(x_sc))                     # orthogonalize -> v_X (direct) -> masked inner
-        return inner(vX, vX)
-
-    return bopt.GeometryOps(frame=frame, project=project, retract=retract, inner=inner,
-                            precompute=precompute,
-                            point_norm_sq=point_norm_sq, point_tangent=point_tangent)
-
-
-def uniform_corewise_ops(
-        x0_data:  typ.Tuple,   # UniformTuckerTensorTrain.data = (tk_sc, tt_sc, shape, (tucker_mask, tt_mask))
-        sharing:  typ.Optional[typ.Sequence] = None,  # len=d, static; one hashable group label per mode (None = unshared)
-) -> bopt.GeometryOps:         # the uniform corewise geometry ops (masks of x0's fixed rank closed over)
-    """The uniform **corewise** ``GeometryOps`` at ``x0``'s fixed rank -- the raw-supercore twin of
-    :py:data:`t3toolbox.uniform_manifold.UNIFORM_COREWISE`.
-
-    ``frame`` = the ``(U, G, G, G)`` non-orthonormal frame (Section 6.3 ``(P, Q, O) -> G``); ``project`` =
-    the identity (no gauge on the core space); ``retract`` = the additive retraction (``cores += var``);
-    ``inner`` = the masked coordinate dot (the Euclidean metric here). Masks are loop-invariant and closed
-    over.
-
-    With ``sharing`` (a real group), ``project`` becomes the per-group drift-form mean
-    (:py:func:`~t3toolbox.backend.sharing.ufv_share_tucker_variations_corewise` -- the corewise tied projection)
-    and ``retract`` mean-ties before the additive step, so tied-in gives tied-out exactly. No
-    companion (``precompute`` stays ``None``; the mean needs only the static partition).
-    """
-    tucker_sc, _tt_sc, shape, (tucker_mask, tt_mask) = x0_data
-    n_stack = tucker_sc.ndim - 3
-    var_masks = (tucker_mask, tucker_mask, tt_mask[:-1], tt_mask[1:])   # _variation_masks_of the (U,G,G,G) frame
-
-    groups = None
-    if sharing is not None:
-        all_groups = sharing_module.validate_sharing(sharing, shape)
-        if sharing_module.nontrivial_groups(all_groups):
-            groups = all_groups
-
-    def frame(x_sc):                                         # (tk_sc, tt_sc) -> the (U, G, G, G) frame .data
-        return (x_sc[0], x_sc[1], x_sc[1], x_sc[1], shape,
-                (tucker_mask, tucker_mask, tt_mask, tt_mask))
-
-    if groups is None:
-        def project(frame_data, var_sc, aux=None):                   # identity (Euclidean core space, no gauge)
-            return var_sc
-
-        def retract(frame_data, var_sc, aux=None):                   # additive: cores += var -> bare point pair
-            new_x = utv_ops.utv_corewise_retract(frame_data, (var_sc[0], var_sc[1], shape, var_masks))
-            return (new_x[0], new_x[1])
-    else:
-        def project(frame_data, var_sc, aux=None):                   # the per-group mean (the corewise tied projection)
-            tied = sharing_module.ufv_share_tucker_variations_corewise(
-                (var_sc[0], var_sc[1], shape, var_masks), groups)
-            return (tied[0], tied[1])
-
-        def retract(frame_data, var_sc, aux=None):                   # mean-tie, then additive (tied-in => tied-out)
-            tied = sharing_module.ufv_share_tucker_variations_corewise(
-                (var_sc[0], var_sc[1], shape, var_masks), groups)
-            new_x = utv_ops.utv_corewise_retract(frame_data, tied)
-            return (new_x[0], new_x[1])
-
-    def inner(a_sc, b_sc):
-        return utv_ops.utv_corewise_inner(
-            (a_sc[0], a_sc[1], shape, var_masks), (b_sc[0], b_sc[1], shape, var_masks), n_stack)
-
-    def point_tangent(frame_data):                         # the cores (U,G) as a tangent (project = identity here)
-        return (frame_data[0], frame_data[2])
-
-    def point_norm_sq(x_sc):                               # Σ‖core_i‖² (masked coordinate norm; weight-decay)
-        return inner(x_sc, x_sc)
-
-    return bopt.GeometryOps(frame=frame, project=project, retract=retract, inner=inner,
-                            point_norm_sq=point_norm_sq, point_tangent=point_tangent)
-
-
-def uniform_geometry_ops(
-        kind:     str,        # 'manifold' or 'corewise'
-        x0_data:  typ.Tuple,  # UniformTuckerTensorTrain.data at the fixed rank to optimize over
-        sharing:  typ.Optional[typ.Sequence] = None,  # len=d, static; group labels (None = unshared)
-) -> bopt.GeometryOps:
-    """Dispatch to :py:func:`uniform_manifold_ops` / :py:func:`uniform_corewise_ops` by name."""
-    if kind == 'manifold':
-        return uniform_manifold_ops(x0_data, sharing=sharing)
-    if kind == 'corewise':
-        return uniform_corewise_ops(x0_data, sharing=sharing)
-    raise ValueError(f"unknown uniform geometry kind {kind!r}; expected 'manifold' or 'corewise'")
 
 
 # --------------------------------------------------------------------------------------------------
@@ -537,7 +369,8 @@ def uniform_least_squares_problem(
 ) -> bopt.Problem:
     """Assemble a fully-packed uniform least-squares :py:class:`~t3toolbox.backend.optimizers.Problem`.
 
-    Builds the uniform geometry (:py:func:`uniform_geometry_ops`) + sampling kind
+    Builds the uniform geometry (:py:class:`~t3toolbox.backend.geometry.UniformManifoldGeometryOps` /
+    :py:class:`~t3toolbox.backend.geometry.UniformCorewiseGeometryOps`) + sampling kind
     (:py:func:`uniform_sampling_kind` / :py:func:`uniform_derivatives_kind`) at ``x0``'s fixed rank, packs
     the loop-invariant ``sample`` + ``data`` once, and returns the reused backend ``Problem``. The optimizer
     then runs on the bare supercore pair ``(x0.data[0], x0.data[1])`` -- e.g.
@@ -589,7 +422,8 @@ def uniform_least_squares_problem(
             "x0 = uniform_minimal(x0" + (", sharing=...)" if sharing is not None else ")") + ".")
     x0_data = x0.data
     N = x0_data[0].shape[-1]
-    geom = uniform_geometry_ops(geometry, x0_data, sharing=sharing)
+    geom = (geometry_module.UniformManifoldGeometryOps.from_point(x0_data, sharing) if geometry == 'manifold'
+            else geometry_module.UniformCorewiseGeometryOps.from_point(x0_data, sharing))
     kind = (uniform_sampling_kind(kind_name, x0_data, weight) if kind_name in ('apply', 'entries', 'probe')
             else uniform_derivatives_kind(kind_name, x0_data, order, weight, chunk_size=chunk_size))
     return bopt.least_squares_problem(geom, kind, pack_sample(kind_name, sample, N), pack_data(kind_name, data, N),
