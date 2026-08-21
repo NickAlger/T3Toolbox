@@ -29,6 +29,9 @@ __all__ = [
     #
     'ValueHashedMasks',
     'ValueHashedFields',
+    'StaticSkeleton',
+    'partition_static',
+    'rebuild_static',
     'require_concrete_masks',
     'prefix_mask',
     #
@@ -555,6 +558,74 @@ class ValueHashedFields:
         if type(other) is not type(self):
             return NotImplemented
         return self._fields_key == other._fields_key
+
+
+
+@dc.dataclass(frozen=True, eq=False)
+class StaticSkeleton(ValueHashedFields):
+    """The static half of a partitioned data tuple -- tree shape plus the static values, hashed by value
+    so it can ride as jax ``aux_data``. Produced by :py:func:`partition_static`."""
+    tree: typ.Any = ()
+
+
+def _is_static_leaf(x) -> bool:
+    """Whether a leaf is STATIC STRUCTURE rather than traced data, per the uniform layer's contract.
+
+    Two cases, and only two: a Python ``int``/``bool`` (a shape entry, an axis count) and a **host numpy
+    boolean array** (a rank mask). Masks are always host numpy by construction and never traced
+    (``docs/uniform_masks_vs_ranks.md``); a jax boolean array is therefore NOT a mask and stays traced,
+    and an integer numpy *array* (the ``entries`` index sample) is data and stays traced too."""
+    if isinstance(x, (bool, int)) and not isinstance(x, np.ndarray):
+        return True
+    return isinstance(x, np.ndarray) and x.dtype == np.bool_
+
+
+def partition_static(
+        tree,   # a tuple/list tree of arrays and static structure (a frame's .data, a frame sweep, ...)
+) -> typ.Tuple[
+    typ.Tuple,        # the dynamic leaves, in traversal order -- the jax pytree children
+    StaticSkeleton,   # the tree shape + static values -- the jax pytree aux_data
+]:
+    """Split a raw backend data tuple into what jax should TRACE and what it must keep STATIC.
+
+    Backend data tuples mix both -- a uniform frame is ``(4 supercores, shape, masks)`` -- and a bare
+    tuple is a jax pytree whose every element is a leaf, so flattening one naively traces the masks and
+    the shape. That raises (``require_concrete_masks``) or silently produces a program that cannot do
+    host-integer shape arithmetic. The frontend avoids it by giving ``UT3Frame`` a registered pytree with
+    the masks as aux; the backend keeps plain tuples, so the split happens here instead.
+
+    Round-trips exactly through :py:func:`rebuild_static`."""
+    dynamic = []
+
+    def walk(node):
+        if isinstance(node, (tuple, list)):
+            return ('list' if type(node) is list else 'tuple', tuple(walk(e) for e in node))
+        if _is_static_leaf(node):
+            return ('static', node)
+        dynamic.append(node)
+        return ('dynamic', None)
+
+    skeleton = walk(tree)                  # must run BEFORE tuple(dynamic) -- it is what fills it
+    return tuple(dynamic), StaticSkeleton(skeleton)
+
+
+def rebuild_static(
+        dynamic:   typ.Sequence,   # the dynamic leaves from partition_static (or their traced/updated twins)
+        skeleton:  StaticSkeleton,  # the matching skeleton
+):
+    """Reassemble the tuple tree :py:func:`partition_static` split, substituting ``dynamic`` in order."""
+    it = iter(dynamic)
+
+    def walk(node):
+        tag, payload = node
+        if tag == 'static':
+            return payload
+        if tag == 'dynamic':
+            return next(it)
+        rebuilt = [walk(e) for e in payload]
+        return rebuilt if tag == 'list' else tuple(rebuilt)
+
+    return walk(skeleton.tree)
 
 
 def require_concrete_masks(

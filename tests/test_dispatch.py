@@ -22,6 +22,9 @@ import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.fv_operations as fv_operations
+import t3toolbox.corewise as _cw
+import t3toolbox.backend.geometry as bgeo
+import t3toolbox.backend.optimizers as bopt
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.common as common
 import t3toolbox.backend.contractions as contractions
@@ -509,6 +512,59 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(traces[0], 1, "UniformGaussNewtonModel matvec recompiled -- aux must be value-hashed "
                                        "(kind rebuilt lazily, not stored as a fresh closure)")
         self._leaves_all_jax(hp)
+
+    def _apply_problem_jax(self):
+        SH, TK, TT = STRUCT
+        np.random.seed(0)
+        A = t3.TuckerTensorTrain.randn(SH, TK, TT)
+        cores = (tuple(jnp.asarray(c) for c in A.data[0]), tuple(jnp.asarray(c) for c in A.data[1]))
+        ww = [jnp.asarray(np.random.randn(40, n)) for n in SH]
+        b = jnp.asarray(np.asarray(A.apply([np.asarray(w) for w in ww])))
+        return bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, ww, b), cores
+
+    def test_local_model_rebuilt_each_step_is_one_jit_cache_key(self):
+        """A LocalModel is rebuilt at every Newton iteration by construction. It must flatten to the SAME
+        treedef each time, or the inner CG recompiles per iteration -- which is exactly what it did before
+        slices 1-3 (measured: 1 compile per Newton iteration on the probe_derivatives path).
+
+        The mechanism is that the model's aux is (geometry, kind, n_w, regularizer) and the first two are
+        now value-typed dataclasses, plus a static skeleton holding the frame's shape and rank masks --
+        which must NOT be traced (`require_concrete_masks` rejects a traced mask outright)."""
+        problem, cores = self._apply_problem_jax()
+        traces = [0]
+
+        @jax.jit
+        def objective_of(model):
+            traces[0] += 1                       # +1 per TRACE (compile), not per call
+            return model.objective
+
+        for _ in range(3):
+            lm = problem.local_model(cores)      # REBUILT, as the outer loop does
+            jax.block_until_ready(objective_of(lm))
+        self.assertEqual(traces[0], 1, "LocalModel recompiled -- its aux must be value-stable")
+
+        leaves, _ = jax.tree_util.tree_flatten(problem.local_model(cores))
+        masks = [l for l in leaves if hasattr(l, 'dtype') and np.asarray(l).dtype == bool]
+        self.assertEqual(masks, [], "rank masks must stay in the aux, never among the traced leaves")
+
+    def test_cg_tolerance_is_not_stale(self):
+        """The CG tolerance changes every Newton iteration (it is the forcing term). A `lax.while_loop`
+        body caches on its own identity, so a stable body READING a changed Python value would silently
+        get the cached jaxpr with the OLD value -- solving to a stale tolerance. `tol` and `maxiter` ride
+        in the loop state and are traced arguments, so that is unrepresentable.
+
+        Tightening the tolerance must therefore cost strictly more CG iterations, not the same number."""
+        problem, cores = self._apply_problem_jax()
+        lm = problem.local_model(cores)
+        neg_g = _cw.corewise_scale(lm.gradient, -1.0)
+        gnorm = float(problem.geom.inner(lm.gradient, lm.gradient)) ** 0.5
+
+        counts = []
+        for frac in (0.5, 0.1, 0.02, 0.005):                      # progressively tighter
+            _p, i, _rs, _ok = bopt._cg_solve(lm, neg_g, frac * gnorm, 200, True)
+            counts.append(int(i))
+        self.assertEqual(counts, sorted(counts), f"iterations must grow as tol tightens; got {counts}")
+        self.assertGreater(counts[-1], counts[0], f"tolerance ignored (stale): {counts}")
 
     def test_a_derived_kind_does_not_inherit_its_parents_cache_key(self):
         """A kind with DIFFERENT math must not share a jit cache key with the one it derives from.

@@ -5,6 +5,8 @@ frontend `fitting.GaussNewtonModel` exactly (it is the same math through the sam
 Plus: the optimizers descend. numpy-only (jit dispatch is covered separately in test_dispatch)."""
 import unittest
 
+import types
+
 import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
@@ -201,17 +203,24 @@ class TestBackendOptimizers(unittest.TestCase):
         operator (`ok` True, `resid ≤ tol`), and truncates on a nonpositive-curvature direction (`ok`
         False). A toy diagonal operator wrapped as a `(tucker, tt)` tree exercises the branch deterministically."""
         rhs = ([np.array([1.0, 1.0, 1.0])], [])                     # a (tucker=[vec], tt=[]) tangent tree
-        make_hvp = lambda D: (lambda t: ([D * t[0][0]], []))        # diagonal H
-        inner = cw.corewise_dot
+
+        class ToyModel:
+            """The whole interface CG needs of a local model: `hvp` and `geom.inner`. A toy diagonal
+            operator exercises the curvature branch deterministically."""
+            def __init__(self, diagonal):
+                self.diagonal = diagonal
+                self.geom = types.SimpleNamespace(inner=cw.corewise_dot)
+
+            def hvp(self, t):
+                return ([self.diagonal * t[0][0]], [])
+
         # PD: CG converges to D^-1 rhs, ok stays True, residual under tol
-        p, i, rs, ok = opt._cg_solve(make_hvp(np.array([2.0, 3.0, 5.0])), rhs,
-                                     tol=1e-10, maxiter=50, use_jit=False, inner=inner)
+        p, i, rs, ok = opt._cg_solve(ToyModel(np.array([2.0, 3.0, 5.0])), rhs, 1e-10, 50, False)
         self.assertTrue(bool(ok))
         self.assertLessEqual(float(rs) ** 0.5, 1e-10)
         self.assertTrue(np.allclose(p[0][0], 1.0 / np.array([2.0, 3.0, 5.0])))
         # indefinite (negative-definite here): dᵀHd < 0 on the first direction -> immediate truncation
-        p2, i2, rs2, ok2 = opt._cg_solve(make_hvp(np.array([-1.0, -2.0, -3.0])), rhs,
-                                         tol=1e-10, maxiter=50, use_jit=False, inner=inner)
+        p2, i2, rs2, ok2 = opt._cg_solve(ToyModel(np.array([-1.0, -2.0, -3.0])), rhs, 1e-10, 50, False)
         self.assertFalse(bool(ok2))                                 # truncated on nonpositive curvature
         self.assertGreater(float(rs2) ** 0.5, 1e-10)               # did NOT reach the tolerance
 

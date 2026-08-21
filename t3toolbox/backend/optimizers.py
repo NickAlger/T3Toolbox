@@ -12,7 +12,7 @@ once and assembles the ``Problem`` oracle from the same backend functions (desig
 Because the numerical safety preconditions live only in the frontend, this layer is **check-free** of
 them (structural shape guards inside the backend functions remain, and are jit-safe). So ``jit`` needs no
 ``unsafe()`` wrapping; the ``use_jit`` machinery is a thin jax-only layer on top of the ordinary
-numpy/jax dispatch (the per-step kernels jit via ``_maybe_jit``; the inner CG runs as a
+numpy/jax dispatch (the per-step kernels jit via ``_jitted``; the inner CG runs as a
 ``lax.while_loop`` -- eager-vs-jit agreement is covered in ``tests/backend/test_optimizers.py``).
 
 The oracle:
@@ -28,6 +28,7 @@ The oracle:
 Tangent vectors are raw ``(tucker_var, tt_var)`` tuples; vector arithmetic is the ``corewise`` ops.
 """
 import dataclasses as dc
+import functools as ft
 import math
 import time
 import typing as typ
@@ -300,16 +301,70 @@ def _prepare_jit_inputs(use_jit, x0, problem):
             dc.replace(problem, sample=tree_to_jax(problem.sample), data=tree_to_jax(problem.data)))
 
 
-def _maybe_jit(fn, use_jit, x0, problem):
-    """jit ``fn`` iff ``use_jit`` AND jax is available AND the inputs (x0, sample, data) are **all** jax
-    (so the minibatch gather + kernel run on device). Otherwise return ``fn`` unchanged -- the eager path
-    (``use_jit=False``; inputs are guaranteed jax under ``use_jit`` via :py:func:`_prepare_jit_inputs`).
-    Compiles once and is reused across the fixed-shape steps."""
-    if (use_jit and jax_available and tree_contains_jax(x0)
-            and tree_contains_jax(problem.sample) and tree_contains_jax(problem.data)):
-        import jax
-        return jax.jit(fn)
-    return fn
+def _jit_engaged(use_jit, x0, problem) -> bool:
+    """Whether the jit path actually engages: asked for, jax present, and the inputs (x0, sample, data)
+    are **all** jax so the minibatch gather + kernel run on device. Under ``use_jit`` the inputs are
+    guaranteed jax by :py:func:`_prepare_jit_inputs`; this stays a check because a raw-``.data`` caller
+    may reach these functions directly."""
+    return bool(use_jit and jax_available and tree_contains_jax(x0)
+                and tree_contains_jax(problem.sample) and tree_contains_jax(problem.data))
+
+
+@ft.lru_cache(maxsize=None)
+def _jitted(fn, static_argnums=()):
+    """``jax.jit(fn)``, memoized on the (module-level, hence stable) function object.
+
+    The jit wrapper must itself be a stable object: ``jax.jit`` caches on the wrapper, so building a
+    fresh one per call -- which is what the previous ``_maybe_jit(step, ...)`` did with a per-call
+    closure -- discarded the cache every time and recompiled once per optimizer invocation. Memoizing a
+    module-level function instead compiles once per *shape signature*, process-wide.
+
+    jax is imported here rather than at module scope: this module stays importable without jax
+    (``docs/fitting_and_optimization.md`` §4.5)."""
+    import jax
+    return jax.jit(fn, static_argnums=static_argnums)
+
+
+def _mc_sgd_step(
+        problem,             # the (reg-scaled) minibatch Problem
+        cores:     Tangent,  # the current point
+        sample_B,            # the drawn minibatch sample
+        data_B,              # its observed data
+) -> Tangent:                # the retracted next point
+    """One Manifold Cauchy SGD step: gradient, the tuning-free Cauchy length ``α = ‖g‖²/‖𝒥g‖²``, retract.
+
+    Module-level and closure-free so the jit wrapper memoized on it is stable -- see :py:func:`_jitted`."""
+    lm = problem.local_model(cores, sample_B, data_B)
+    g = lm.gradient
+    gg = problem.geom.inner(g, g)
+    xnp, _, _ = get_backend(False, tree_contains_jax(g))
+    alpha = gg / xnp.maximum(lm.gn_quadratic(g), 1e-30)
+    return lm.retract(cw.corewise_scale(g, -alpha))
+
+
+def _adam_step(
+        problem,             # the (reg-scaled) minibatch Problem
+        cores:     Tangent,  # the current point
+        m:         Tangent,  # first-moment EMA, a tree matching the cores
+        v:         Tangent,  # second-moment EMA
+        sample_B,            # the drawn minibatch sample
+        data_B,              # its observed data
+        lr_t,                # the scheduled learning rate for this step
+        t,                   # 1-based step index (bias correction)
+        b1,                  # beta_1
+        b2,                  # beta_2
+        eps,                 # denominator floor
+) -> typ.Tuple[Tangent, Tangent, Tangent]:   # (next point, m, v)
+    """One Adam step over the cores, elementwise (so this IS per-core Adam). Module-level and
+    closure-free; ``lr_t`` / ``t`` flow in as arguments so the schedule forces no recompile."""
+    lm = problem.local_model(cores, sample_B, data_B)
+    g = lm.gradient
+    m = cw.corewise_map(lambda mi, gi: b1 * mi + (1.0 - b1) * gi, m, g)
+    v = cw.corewise_map(lambda vi, gi: b2 * vi + (1.0 - b2) * gi * gi, v, g)
+    bc1, bc2 = 1.0 - b1 ** t, 1.0 - b2 ** t            # bias corrections
+    xnp, _, _ = get_backend(False, tree_contains_jax(g))
+    update = cw.corewise_map(lambda mi, vi: lr_t * (mi / bc1) / (xnp.sqrt(vi / bc2) + eps), m, v)
+    return lm.retract(cw.corewise_scale(update, -1.0)), m, v
 
 
 def gradient_descent(
@@ -377,21 +432,14 @@ def mc_sgd(
     step_problem = _minibatch_step_problem(problem, batch)  # reg scaled by batch/n; full reg kept for the stop
     a_smooth = 1.0 - math.exp(-1.0 / smooth_tau)
 
-    def step(cores, sample_B, data_B):                      # the jit-able per-step kernel
-        lm = step_problem.local_model(cores, sample_B, data_B)
-        g = lm.gradient
-        gg = step_problem.geom.inner(g, g)
-        xnp, _, _ = get_backend(False, tree_contains_jax(g))
-        alpha = gg / xnp.maximum(lm.gn_quadratic(g), 1e-30)
-        return lm.retract(cw.corewise_scale(g, -alpha))
-    step = _maybe_jit(step, use_jit, x0, problem)
+    step = _jitted(_mc_sgd_step) if _jit_engaged(use_jit, x0, problem) else _mc_sgd_step
 
     x = x0
     s_hist = []
     n_iter = 0
     for k in range(max_iter):
         n_iter = k + 1
-        x = step(x, *draw(rng))
+        x = step(step_problem, x, *draw(rng))
         if n_iter % check_every == 0:                       # full-batch loss check (the stop signal, host)
             L = float(problem.objective(x))
             s = L if not s_hist else a_smooth * L + (1.0 - a_smooth) * s_hist[-1]
@@ -425,16 +473,7 @@ def adam(
     step_problem = _minibatch_step_problem(problem, batch)  # reg scaled by batch/n; full reg kept for the stop
     b1, b2 = betas
 
-    def step(cores, m, v, sample_B, data_B, lr_t, t):      # the jit-able per-step kernel
-        lm = step_problem.local_model(cores, sample_B, data_B)
-        g = lm.gradient
-        m = cw.corewise_map(lambda mi, gi: b1 * mi + (1.0 - b1) * gi, m, g)
-        v = cw.corewise_map(lambda vi, gi: b2 * vi + (1.0 - b2) * gi * gi, v, g)
-        bc1, bc2 = 1.0 - b1 ** t, 1.0 - b2 ** t            # bias corrections
-        xnp, _, _ = get_backend(False, tree_contains_jax(g))
-        update = cw.corewise_map(lambda mi, vi: lr_t * (mi / bc1) / (xnp.sqrt(vi / bc2) + eps), m, v)
-        return lm.retract(cw.corewise_scale(update, -1.0)), m, v
-    step = _maybe_jit(step, use_jit, x0, problem)
+    step = _jitted(_adam_step) if _jit_engaged(use_jit, x0, problem) else _adam_step
 
     draw = draw if draw is not None else flat_draw(problem, batch)
     cores = x0
@@ -444,48 +483,85 @@ def adam(
     for k in range(max_iter):
         sample_B, data_B = draw(rng)
         lr_t = lr * (0.5 * (1.0 + math.cos(math.pi * k / max_iter)) if cosine else 1.0)
-        cores, m, v = step(cores, m, v, sample_B, data_B, lr_t, k + 1)
+        cores, m, v = step(step_problem, cores, m, v, sample_B, data_B, lr_t, k + 1, b1, b2, eps)
         if (k + 1) % 50 == 0:
             losses.append(float(problem.objective(cores)))
     return cores, {'losses': losses, 'n_iter': max_iter}
 
 
-def _cg_solve(hvp, rhs, tol, maxiter, use_jit, inner):
-    """Solve ``H p = rhs`` by conjugate gradients (``H = hvp``, symmetric PSD), to residual ``‖r‖ ≤ tol``.
-    ``inner`` is the geometry's coordinate ``⟨·,·⟩`` (``geom.inner`` -- masked for the uniform layer, so
-    padding is never summed). The body is **backend-agnostic and branch-free** (an ``xnp.where`` curvature
-    guard: a nonpositive ``dᵀHd`` -- a gauge direction of the singular corewise ``H`` -- takes a zero step
-    and the ``ok`` flag stops CG, i.e. truncated CG), so the SAME body runs eager (numpy/jax) or jit
-    (``lax.while_loop``) through :py:func:`common.xwhile`.
+# --------------------------------------------------------------------------------------------------
+# Conjugate gradients. The loop bodies are MODULE-LEVEL and closure-free, and every value they need --
+# including the tolerance and the iteration cap -- rides in the loop state.
+#
+# This is a correctness requirement, not a tidiness one. `lax.while_loop` caches its traced body on the
+# body's IDENTITY, so a stable body that READS a Python value which changed since the last call gets the
+# cached jaxpr with the OLD value, silently. `tol` is recomputed every Newton iteration from the forcing
+# term, so a body closing over it would solve to a stale tolerance
+# (`docs/contributor/scan_body_principles.md`, principle 5). Carrying it makes that unrepresentable.
+#
+# The local model rides in the state too -- loop-invariant, passed through untouched. XLA treats a
+# loop-carried invariant like a constant, so this costs nothing (measured in the tier-2 chunking work).
+# --------------------------------------------------------------------------------------------------
+def _cg_cond(
+        state:  typ.Tuple,   # (p, r, d, rs, i, ok, local_model, tol2, maxiter)
+) -> NDArray:                # 0-d bool: keep iterating
+    """Continue while the residual is above tolerance, the cap is unreached, and curvature stayed positive."""
+    _p, _r, _d, rs, i, ok, _lm, tol2, maxiter = state
+    return (rs > tol2) & (i < maxiter) & ok
 
-    Returns the solution ``p`` plus the final loop state needed for diagnostics: the iteration count
-    ``i``, the residual² ``rs = ‖H p − rhs‖² = ‖H p + g‖²`` (``rhs = −g``), and the positive-curvature
-    flag ``ok`` (``False`` == the loop stopped on a truncation). The caller derives converged / truncated /
-    maxiter from ``(rs, i, ok)``."""
-    xnp, _, _ = get_backend(False, tree_contains_jax(rhs))
+
+def _cg_body(
+        state:  typ.Tuple,   # (p, r, d, rs, i, ok, local_model, tol2, maxiter)
+) -> typ.Tuple:              # the same, advanced one CG iteration
+    """One CG iteration. **Backend-agnostic and branch-free** -- the curvature guard is an ``xnp.where``,
+    so a nonpositive ``dᵀHd`` (a gauge direction of the singular corewise ``H``) takes a zero step and
+    clears ``ok``, which stops the loop: truncated CG. The same body therefore drives the eager Python
+    loop and ``lax.while_loop``."""
+    p, r, d, rs, i, ok, lm, tol2, maxiter = state
+    xnp, _, _ = get_backend(False, tree_contains_jax(r))
+    inner = lm.geom.inner
+    Hd = lm.hvp(d)
+    dHd = inner(d, Hd)
+    pos = dHd > 0.0
+    alpha = xnp.where(pos, rs / xnp.where(pos, dHd, 1.0), 0.0)        # 0 step on nonpositive curvature
+    p = cw.corewise_add(p, cw.corewise_scale(d, alpha))
+    r = cw.corewise_sub(r, cw.corewise_scale(Hd, alpha))
+    rs_new = inner(r, r)
+    beta = xnp.where(pos, rs_new / rs, 0.0)
+    d = cw.corewise_add(r, cw.corewise_scale(d, beta))
+    return (p, r, d, rs_new, i + 1, pos, lm, tol2, maxiter)
+
+
+def _cg_core(
+        local_model,            # the LocalModel supplying H (`hvp`) and the coordinate inner product
+        rhs:      Tangent,      # the right-hand side (= −g)
+        tol:      typ.Any,      # stop at ‖H p − rhs‖ ≤ tol
+        maxiter:  typ.Any,      # iteration cap
+        use_jit:  bool,         # STATIC: selects lax.while_loop vs the eager Python loop
+) -> typ.Tuple:                 # (p, i, rs, ok)
+    """Solve ``H p = rhs`` by conjugate gradients (``H`` symmetric PSD) to residual ``‖r‖ ≤ tol``.
+
+    Returns the solution plus the loop state the caller needs for diagnostics: the iteration count ``i``,
+    the residual² ``rs = ‖H p − rhs‖²``, and the positive-curvature flag ``ok`` (``False`` == stopped on a
+    truncation). Converged / truncated / hit-maxiter are derived from ``(rs, i, ok)``."""
+    rs0 = local_model.geom.inner(rhs, rhs)
     tol2 = tol * tol
-    rs0 = inner(rhs, rhs)
-    state0 = (cw.corewise_zeros_like(rhs), rhs, rhs, rs0, 0, rs0 > tol2)   # (p, r, d, rs, i, ok)
-
-    def cond(s):
-        p, r, d, rs, i, ok = s
-        return (rs > tol2) & (i < maxiter) & ok
-
-    def body(s):
-        p, r, d, rs, i, ok = s
-        Hd = hvp(d)
-        dHd = inner(d, Hd)
-        pos = dHd > 0.0
-        alpha = xnp.where(pos, rs / xnp.where(pos, dHd, 1.0), 0.0)        # 0 step on nonpositive curvature
-        p = cw.corewise_add(p, cw.corewise_scale(d, alpha))
-        r = cw.corewise_sub(r, cw.corewise_scale(Hd, alpha))
-        rs_new = inner(r, r)
-        beta = xnp.where(pos, rs_new / rs, 0.0)
-        d = cw.corewise_add(r, cw.corewise_scale(d, beta))
-        return (p, r, d, rs_new, i + 1, pos)
-
-    p, r, d, rs, i, ok = xwhile(cond, body, state0, use_jit)
+    state0 = (cw.corewise_zeros_like(rhs), rhs, rhs, rs0, 0, rs0 > tol2, local_model, tol2, maxiter)
+    p, _r, _d, rs, i, ok, _lm, _tol2, _maxiter = xwhile(_cg_cond, _cg_body, state0, use_jit)
     return p, i, rs, ok
+
+
+def _cg_solve(local_model, rhs, tol, maxiter, use_jit):
+    """Dispatch CG to the compiled or the eager path -- the SAME core either way.
+
+    Under jit the whole solve is one compiled function of ``(local_model, rhs, tol, maxiter)``, so the
+    cache key is jax's own: the model's pytree structure (its geometry and kind ride as **value-hashed**
+    aux) plus the argument shapes. ``tol`` and ``maxiter`` are traced arguments, so a Newton loop that
+    tightens the forcing term every iteration reuses one compiled program instead of recompiling -- and
+    cannot go stale."""
+    if use_jit and jax_available and tree_contains_jax(rhs):
+        return _jitted(_cg_core, (4,))(local_model, rhs, tol, maxiter, True)
+    return _cg_core(local_model, rhs, tol, maxiter, False)
 
 
 @dc.dataclass(frozen=True)
@@ -601,8 +677,7 @@ def newton_cg(
         eta = min(0.5, (gnorm / cg_ref) ** cg_forcing_power)             # inexact-Newton (Eisenstat-Walker) forcing term
         cg_tol = eta * gnorm
         neg_g = cw.corewise_scale(g, -1.0)
-        p, cg_i, cg_rs, cg_ok = _cg_solve(lm.hvp, neg_g, tol=cg_tol, maxiter=cg_maxiter,
-                                          use_jit=use_jit, inner=problem.geom.inner)
+        p, cg_i, cg_rs, cg_ok = _cg_solve(lm, neg_g, cg_tol, cg_maxiter, use_jit)
         cg_iters, cg_rs, cg_ok = int(cg_i), float(cg_rs), bool(cg_ok)
         cg_converged = cg_rs <= cg_tol * cg_tol
         cg_truncated = (not cg_converged) and (not cg_ok)
@@ -639,3 +714,41 @@ def newton_cg(
         history.append(_newton_scalar_record(info))
         x = x_trial
     return x, {'losses': losses, 'newton': newton_iters, 'history': history}
+
+
+if jax_available:
+    import jax
+
+    # Register Problem and LocalModel as jax pytrees. The DATA are leaves (sample / data / frame / sweep /
+    # residual / the per-frame geometry companion); the STATICS are aux (geometry, kind, regularizer, and
+    # the sample-stack axis count derived from the sample's shape).
+    #
+    # This is what makes the jit cache key value-based, and it is the whole point of slices 1-2: geometry
+    # and kind are frozen dataclasses whose parameters are FIELDS, so a model rebuilt at each Newton
+    # iteration -- which the outer loop does, every iteration, by construction -- hashes and compares
+    # EQUAL to the previous one. Under the old record-of-closures they were fresh objects every time, so
+    # `jit(_cg_core)` would have recompiled per iteration and there would have been no point compiling it
+    # at all. The regularizers are frozen dataclasses of floats, hence hashable by value already.
+    # The data tuples are partitioned rather than handed over whole: a backend frame is
+    # `(supercores..., shape, masks)` and a frame sweep carries a shape too, so flattening them naively
+    # would TRACE the masks and the shape ints -- which `require_concrete_masks` rejects outright, and
+    # which would break the host-integer shape arithmetic the uniform layer runs on. `partition_static`
+    # keeps them in the aux, exactly as the frontend `UT3Frame` keeps its masks in aux.
+    def _flatten_problem(p):
+        dyn, skel = partition_static((p.sample, p.data))
+        return dyn, (p.geom, p.kind, p.regularizer, skel)
+
+    def _unflatten_problem(aux, children):
+        sample, data = rebuild_static(children, aux[3])
+        return Problem(aux[0], aux[1], sample, data, aux[2])
+
+    def _flatten_local_model(m):
+        dyn, skel = partition_static((m.sample, m.frame, m.sweep, m.residual, m.geom_aux))
+        return dyn, (m.geom, m.kind, m.n_w, m.regularizer, skel)
+
+    def _unflatten_local_model(aux, children):
+        sample, frame, sweep, residual, geom_aux = rebuild_static(children, aux[4])
+        return LocalModel(aux[0], aux[1], sample, frame, sweep, residual, aux[2], aux[3], geom_aux)
+
+    jax.tree_util.register_pytree_node(Problem, _flatten_problem, _unflatten_problem)
+    jax.tree_util.register_pytree_node(LocalModel, _flatten_local_model, _unflatten_local_model)

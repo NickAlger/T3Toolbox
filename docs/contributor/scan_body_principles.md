@@ -182,6 +182,28 @@ requirements: it must be a stable module-level object, with static shapes, and n
 flow branching on traced values. The two remedies compose; the body-level one is cheaper and helps
 everywhere.
 
+**Where jitting the caller IS the right remedy** — and the one case in the library where it was.
+`optimizers._cg_solve` closes over the model's Hessian-apply, the geometry's inner product, the CG
+tolerance and the iteration cap. Two of those change every Newton iteration, so principle 5 applies;
+but hoisting is not enough on its own, because the *cache* the body would hit is keyed on identity.
+
+The resolution was to move the boundary rather than only the body: `_cg_solve` became a plain
+function of `(local_model, rhs, tol, maxiter)`, jitted whole. Now the cache key is jax's own — the
+model's pytree structure, whose aux is value-hashed — and `tol` / `maxiter` are traced arguments, so
+they cannot go stale by construction. The bodies were hoisted too, so the same closure-free pair
+drives the eager loop.
+
+The general shape: **when the values a body reads are awkward to defunctionalize, put the jit
+boundary where a value-based cache already exists, instead of hand-defunctionalizing to make an
+identity-based cache behave like a value-based one.** That only works if the objects crossing the
+boundary hash by value — which is why the geometry and the sampling kind are frozen dataclasses whose
+parameters are fields (`common.ValueHashedFields`) rather than records of closures. Raw backend data
+tuples mix arrays with static structure, so they are split on the way through
+(`common.partition_static`) — the masks and shape ints stay in the aux, as the frontend `UT3Frame`
+has always kept them.
+
+Measured on the uniform `probe_derivatives` Newton-CG path: **1 compile per Newton iteration → 0**.
+
 ## Exemplar
 
 `_mu_jets_step` and its caller `compute_mu_jets` in `backend/sampling_derivatives.py`. The step
