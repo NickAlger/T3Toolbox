@@ -396,6 +396,25 @@ directions); on `COREWISE` it is weight decay `½λ Σ_c ‖core_c‖²`.
 
 ---
 
+### 4.10 Stacked points: build the model, not the fit
+
+A **stacked** point carries a batch of base points `C`, and every objective is then an array of shape
+`C` — one value per element. The Gauss-Newton model handles that fine: `Problem.local_model` and the
+frontend `GaussNewtonModel` accept a stacked point and return a shape-`C` `objective` with a matching
+per-element gradient, so **driving your own loop over a stacked problem works**.
+
+The four library optimizers do **not** support it, and raise `NotImplementedError` if you try. Their
+convergence tests, Armijo line searches, and plateau detection all reduce the objective with a Python
+`float()`, which a shape-`C` array cannot satisfy. Fit the elements separately
+(`backend.stacking.unstack`) or roll your own loop. Stacked optimization is a possible future feature.
+
+Separately, a **regularizer on a stacked point** raises wherever it is attached — including on the
+model path that otherwise supports stacking. The data misfit keeps `C` but every regularizer scalar
+collapses it, so `objective = misfit + ρ` would add the whole-stack regularization total to each
+element, inflating the effective `λ` by about `|C|` and doing it unevenly.
+
+---
+
 ## 5. Practical guidance from the field
 
 Distilled from fitting studies with the library (the studies themselves live in a separate research

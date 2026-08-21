@@ -508,8 +508,17 @@ class TestBackendOptimizers(unittest.TestCase):
 
 
 
-class TestStackedRegularizerIsRejected(unittest.TestCase):
-    """A regularized fit of a STACKED point raises rather than silently mis-weighting.
+class TestStackedPointIsRejected(unittest.TestCase):
+    """Stacked points: the optimizers reject them, and so does any regularized objective.
+
+    Two separate limitations, both raising NotImplementedError rather than failing obscurely.
+
+    (1) Optimizing a stacked point is not supported at all -- the objective is an array of shape ``C``
+    and every optimizer reduces it with a Python ``float()``. Before the guard this surfaced as a
+    ``TypeError`` from inside the loop, and for ``adam`` only when its loss logging first fired at
+    iteration 50. Building the local model on a stacked point is fine and still works.
+
+    (2) A regularized objective would silently mis-weight a stacked point.
 
     The data misfit keeps the frame stack ``C`` (one value per element) while every regularizer scalar
     collapses it, so ``objective = misfit + rho`` would add the whole-stack regularization total to each
@@ -523,6 +532,26 @@ class TestStackedRegularizerIsRejected(unittest.TestCase):
         self.ww = unit_vecs(20, SHAPE, self.rng)
         self.data = self.A.apply(self.ww)
         self.reg = opt.IdentityRegularizer(0.5)
+
+    def test_every_optimizer_rejects_a_stacked_point(self):
+        """All four, unregularized -- the limitation is the scalar reduction, not the regularizer."""
+        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, self.ww, self.data)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT, stack_shape=(3,)).data
+        rng = np.random.default_rng(0)
+        for name, call in (('gradient_descent', lambda: opt.gradient_descent(problem, x0, n_iter=2)),
+                           ('newton_cg', lambda: opt.newton_cg(problem, x0, max_newton=2)),
+                           ('mc_sgd', lambda: opt.mc_sgd(problem, x0, rng, 8, max_iter=2)),
+                           ('adam', lambda: opt.adam(problem, x0, rng, 8, max_iter=2))):
+            with self.subTest(optimizer=name):
+                with self.assertRaises(NotImplementedError):
+                    call()
+
+    def test_a_stacked_local_model_still_works(self):
+        """The supported stacked path: build the model, drive your own loop. Its objective keeps C."""
+        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, self.ww, self.data)
+        lm = problem.local_model(self.A.data)
+        self.assertEqual(np.shape(lm.objective), (3,))
+        self.assertEqual(np.shape(problem.objective(self.A.data)), (3,))
 
     def test_backend_problem_raises_on_a_stacked_point(self):
         problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY,

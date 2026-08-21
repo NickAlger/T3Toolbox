@@ -252,6 +252,35 @@ def _minibatch_step_problem(
 # --------------------------------------------------------------------------------------------------
 # Optimizers
 # --------------------------------------------------------------------------------------------------
+def _require_unstacked(
+        geom,             # the problem's geometry (supplies stack_shape)
+        x0,               # the initial point
+        who:      str,    # the optimizer name, for the message
+) -> None:
+    """Structural guard: **optimizing a STACKED point is not supported.**
+
+    A stacked point carries a batch of base points ``C``, so every objective the optimizers consume is
+    an array of shape ``C``, one value per element -- but their convergence tests, Armijo line searches
+    and plateau detection all reduce it with a Python ``float()``. Left alone the failure is a
+    ``TypeError`` (or a broadcast error) from deep inside the loop, and for ``adam`` only once its loss
+    logging first fires, tens of iterations in. Raise at entry instead.
+
+    Fit the stack elements separately (``backend.stacking.unstack``), or build the local model directly
+    -- :py:meth:`Problem.local_model` and the frontend ``GaussNewtonModel`` DO support a stacked point
+    and return a shape-``C`` objective, so rolling your own loop over a stacked problem works. It is only
+    the library optimizers' scalar reductions that do not. A possible future feature.
+
+    Structural (a shape question), so it raises in both safety modes and is jit-safe."""
+    stack = tuple(geom.stack_shape(x0))
+    if stack:
+        raise NotImplementedError(
+            "%s: optimizing a STACKED point (stack C = %r) is not supported. The objective is an array "
+            "of shape C -- one value per stack element -- and the optimizers' convergence tests and line "
+            "searches reduce it to a scalar. Fit the elements separately (backend.stacking.unstack), or "
+            "drive your own loop from Problem.local_model / fitting.GaussNewtonModel, which do support a "
+            "stacked point." % (who, stack))
+
+
 def _prepare_jit_inputs(use_jit, x0, problem):
     """When ``use_jit``, move the optimizer inputs onto jax so the jit path actually engages -- the
     **auto-convert** contract: asking for jit is opting into "jax world" (device residency + jax's default
@@ -296,6 +325,7 @@ def gradient_descent(
     on any geometry, including the additive corewise chart where a bare Cauchy step overshoots the
     high-degree objective. Exercises the whole backend-first stack (``gradient`` / ``gn_quadratic`` /
     ``objective`` / ``retract``). (Eager; the jit kernel + the `xwhile` line search come in G3.3/G3.4.)"""
+    _require_unstacked(problem.geom, x0, 'gradient_descent')
     x = x0
     losses = []
     g0norm = None
@@ -341,6 +371,7 @@ def mc_sgd(
     draws minibatches; the full-batch stop check stays on the host), auto-converting numpy inputs to jax
     first (:py:func:`_prepare_jit_inputs`) -- so the **default** ``flat_draw`` then slices the on-device
     ``sample`` / ``data`` (a custom ``draw`` should return jax minibatches to stay on device)."""
+    _require_unstacked(problem.geom, x0, 'mc_sgd')
     x0, problem = _prepare_jit_inputs(use_jit, x0, problem)
     draw = draw if draw is not None else flat_draw(problem, batch)
     step_problem = _minibatch_step_problem(problem, batch)  # reg scaled by batch/n; full reg kept for the stop
@@ -389,6 +420,7 @@ def adam(
     step.) On corewise the step is additive (``lm.retract`` = ``cores += step``). ``use_jit`` jits the
     per-step kernel (``lr_t``/``t`` flow in as traced args, so the schedule does not force a recompile),
     auto-converting numpy inputs to jax first (:py:func:`_prepare_jit_inputs`)."""
+    _require_unstacked(problem.geom, x0, 'adam')
     x0, problem = _prepare_jit_inputs(use_jit, x0, problem)
     step_problem = _minibatch_step_problem(problem, batch)  # reg scaled by batch/n; full reg kept for the stop
     b1, b2 = betas
@@ -540,6 +572,7 @@ def newton_cg(
     residual), so it composes with ``use_jit`` (only the inner CG jits) but not with a hypothetical
     fully-jitted outer loop. Ready-made displays: :py:func:`t3toolbox.backend.optimizer_display.make_newton_display`.
     ``stats`` always carries ``'history'`` -- one :py:func:`_newton_scalar_record` per iteration."""
+    _require_unstacked(problem.geom, x0, 'newton_cg')
     x0, problem = _prepare_jit_inputs(use_jit, x0, problem)             # auto-convert to jax when jitting
     x = x0
     computed_g0norm = None                                              # the initial ‖g‖ -- the default reference
