@@ -330,6 +330,38 @@ def tv_to_t3(
     return tuple(x_tucker_cores), tuple(x_tt_cores)
 
 
+def _project_t3_rebasis_step(
+        x: typ.Tuple[NDArray, NDArray, NDArray],   # (G_other, B_other, U): C+(rLi,ni,rR(i+1)) ; C+(ni,Ni) ; C+(nUi,Ni)
+) -> typ.Tuple[NDArray]:                           # (G_other2,): C+(rLi,nUi,rR(i+1))
+    """Re-express one TT core of the other T3 in the frame's up-Tucker basis, for
+    :py:func:`tv_project_t3_onto_tangent_space`. Closure-free map body --
+    ``docs/contributor/scan_body_principles.md``."""
+    G_other, B_other, U = x
+    xnp, _, _ = get_backend(False, tree_contains_jax(x))
+    BU = xnp.einsum('...iz,...xz->...ix', B_other, U)
+    G_other2 = xnp.einsum('...aib,...ix->...axb', G_other, BU)
+    return (G_other2,)
+
+
+def _project_t3_variations_step(
+        x: typ.Tuple[NDArray, NDArray, NDArray,
+                     NDArray, NDArray, NDArray],   # (ZL, ZR, G, B, O, U)
+) -> typ.Tuple[
+    NDArray,  # dG. ungauged tt variation,     C+(rLi,nUi,rR(i+1))
+    NDArray,  # dB. ungauged tucker variation, C+(nOi,Ni)
+]:
+    """One core of the ungauged tangent-space projection of :py:func:`tv_project_t3_onto_tangent_space`.
+    Closure-free map body -- ``docs/contributor/scan_body_principles.md``."""
+    ZL, ZR, G, B, O, U = x
+    xnp, _, _ = get_backend(False, tree_contains_jax(x))
+    env = xnp.einsum('...ax,...aib,...by->...xiy', ZL, G, ZR)
+    BU = xnp.einsum('...io,...jo->...ij', B, U)
+    dG = xnp.einsum('...xiy,...ij->...xjy', env, BU)
+    M = xnp.einsum('...xiy,...xjy->...ij', env, O)
+    dB = xnp.einsum('...ij,...io->...jo', M, B)
+    return dG, dB
+
+
 def tv_project_t3_onto_tangent_space(
         frame:      typ.Tuple[
             typ.Sequence[NDArray],  # up_tucker_cores
@@ -363,28 +395,15 @@ def tv_project_t3_onto_tangent_space(
     xnp, xmap, _ = get_backend(False, use_jax)
 
     # Re-express the other T3's TT cores in the frame's up-Tucker basis.
-    def _func1(args):
-        G_other, B_other, U = args
-        BU = xnp.einsum('...iz,...xz->...ix', B_other, U)
-        G_other2 = xnp.einsum('...aib,...ix->...axb', G_other, BU)
-        return (G_other2,)
-
-    (other_tt_cores2,) = xmap(_func1, (other_tt_cores, other_tucker_cores, up_tucker_cores))
+    (other_tt_cores2,) = xmap(
+        _project_t3_rebasis_step, (other_tt_cores, other_tucker_cores, up_tucker_cores),
+    )
 
     zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1])
     zipper_right2left = tt_zipper_right_to_left(other_tt_cores2[1:], right_tt_cores[1:])
 
-    def _func2(args):
-        ZL, ZR, G, B, O, U = args
-        env = xnp.einsum('...ax,...aib,...by->...xiy', ZL, G, ZR)
-        BU = xnp.einsum('...io,...jo->...ij', B, U)
-        dG = xnp.einsum('...xiy,...ij->...xjy', env, BU)
-        M = xnp.einsum('...xiy,...xjy->...ij', env, O)
-        dB = xnp.einsum('...ij,...io->...jo', M, B)
-        return dG, dB
-
     ungauged_tt_variations, ungauged_tucker_variations = xmap(
-        _func2,
+        _project_t3_variations_step,
         (zipper_left2right, zipper_right2left, other_tt_cores, other_tucker_cores, outer_tt_cores, up_tucker_cores),
     )
 

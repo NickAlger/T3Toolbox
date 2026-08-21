@@ -99,6 +99,32 @@ def t3_right_orthogonalize(
     return (up_tucker_cores, right_tt_cores)
 
 
+def _up_orthogonalize_tt_cores_step(
+        x: typ.Tuple[NDArray, NDArray],   # (Uio, Haib): C+(ni,Ni) ; C+(rLi,ni,rR(i+1))
+) -> typ.Tuple[
+    NDArray,  # Vxo.  tucker variation, C+(n2,Ni)
+    NDArray,  # Oaxb. outer-orthogonal tt core, C+(rLi,n2,rR(i+1))
+]:
+    """One core of the map of :py:func:`t3_up_orthogonalize_tt_cores`. Closure-free map body --
+    ``docs/contributor/scan_body_principles.md``."""
+    Uio, Haib = x
+    xnp, _, _ = get_backend(False, tree_contains_jax(x))
+
+    stack_shape = Uio.shape[:-2]        # the core stack C (equivalently Haib.shape[:-3])
+
+    rL, n, rR = Haib.shape[-3:]
+    H_ab_i = Haib.swapaxes(-2, -1).reshape(stack_shape + (rL * rR, n))
+
+    O_ab_x, ssx, WTxi = xnp.linalg.svd(H_ab_i, full_matrices=False)
+    n2 = ssx.shape[-1]
+    Oaxb = O_ab_x.reshape(stack_shape + (rL, rR, n2)).swapaxes(-2, -1)
+
+    Cxi = ssx.reshape(stack_shape + (-1, 1)) * WTxi
+
+    Vxo = xnp.einsum('...xi,...io->...xo', Cxi, Uio)
+    return (Vxo, Oaxb)
+
+
 def t3_up_orthogonalize_tt_cores(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
 ) -> typ.Tuple[
@@ -111,26 +137,29 @@ def t3_up_orthogonalize_tt_cores(
     is_uniform = False
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    #
-    stack_shape = x[0][0].shape[:-2]
-
-    def _func(Uio_Haib):
-        Uio, Haib, = Uio_Haib
-
-        rL, n, rR = Haib.shape[-3:]
-        H_ab_i = Haib.swapaxes(-2, -1).reshape(stack_shape + (rL * rR, n))
-
-        O_ab_x, ssx, WTxi = xnp.linalg.svd(H_ab_i, full_matrices=False)
-        n2 = ssx.shape[-1]
-        Oaxb = O_ab_x.reshape(stack_shape + (rL, rR, n2)).swapaxes(-2, -1)
-
-        Cxi = ssx.reshape(stack_shape + (-1, 1)) * WTxi
-
-        Vxo = xnp.einsum('...xi,...io->...xo', Cxi, Uio)
-        return (Vxo, Oaxb)
-
-    tucker_variations, outer_tt_cores = xmap(_func, x)
+    tucker_variations, outer_tt_cores = xmap(_up_orthogonalize_tt_cores_step, x)
     return (tucker_variations, outer_tt_cores)
+
+
+def _down_orthogonalize_tucker_cores_step(
+        x: typ.Tuple[NDArray, NDArray],   # (Bio, Gaib): C+(ni,Ni) ; C+(rLi,ni,rR(i+1))
+) -> typ.Tuple[
+    NDArray,  # new_Uxo.  up-orthogonal tucker core, C+(x,Ni)
+    NDArray,  # new_Gaxb. tt core with the remainder absorbed, C+(rLi,x,rR(i+1))
+]:
+    """One core of the map of :py:func:`t3_down_orthogonalize_tucker_cores`. Closure-free map body
+    -- ``docs/contributor/scan_body_principles.md``."""
+    Bio, Gaib = x
+    xnp, _, _ = get_backend(False, tree_contains_jax(x))
+
+    Boi = Bio.swapaxes(-1,-2)
+
+    Uox, ssx, WTxi = xnp.linalg.svd(Boi, full_matrices=False)
+    Rxi = xnp.einsum('...x,...xi->...xi', ssx, WTxi)
+
+    new_Gaxb = xnp.einsum('...aib,...xi->...axb', Gaib, Rxi)
+    new_Uxo = Uox.swapaxes(-1,-2)
+    return (new_Uxo, new_Gaxb)
 
 
 def t3_down_orthogonalize_tucker_cores(
@@ -145,19 +174,7 @@ def t3_down_orthogonalize_tucker_cores(
     is_uniform = False
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    #
-    def _func(up_func_args):
-        Bio, Gaib = up_func_args
-        Boi = Bio.swapaxes(-1,-2)
-
-        Uox, ssx, WTxi = xnp.linalg.svd(Boi, full_matrices=False)
-        Rxi = xnp.einsum('...x,...xi->...xi', ssx, WTxi)
-
-        new_Gaxb = xnp.einsum('...aib,...xi->...axb', Gaib, Rxi)
-        new_Uxo = Uox.swapaxes(-1,-2)
-        return (new_Uxo, new_Gaxb)
-
-    up_tucker_cores, new_tt_cores = xmap(_func, x)
+    up_tucker_cores, new_tt_cores = xmap(_down_orthogonalize_tucker_cores_step, x)
     return (up_tucker_cores, new_tt_cores)
 
 

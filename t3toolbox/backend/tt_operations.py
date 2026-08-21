@@ -149,6 +149,18 @@ def tt_change_core_shapes(
     return tuple(new_tt_cores)
 
 
+def _tt_zipper_step(
+        Z:     NDArray,                      # carry: stack_shape+(rAi, rBi)
+        GA_GB: typ.Tuple[NDArray, NDArray],  # (A_i, B_i): stack+(rAi,ni,rA(i+1)) ; stack+(rBi,ni,rB(i+1))
+) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:   # (next carry, (Z,))
+    '''One core of the sweep of :py:func:`tt_zipper_left_to_right`. Closure-free scan body --
+    ``docs/contributor/scan_body_principles.md``.'''
+    xnp, _, _ = get_backend(True, tree_contains_jax((Z, GA_GB)))   # only xnp; it ignores the flag
+    GA, GB = GA_GB
+    Z_next = xnp.einsum('...ij,...iak,...jal->...kl', Z, GA, GB)
+    return Z_next, (Z,)
+
+
 def tt_zipper_left_to_right(
         coresA:     typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rAi, ni, rA(i+1))
         coresB:     typ.Sequence[NDArray],  # len=d, elm_shape=stack_shape+(rBi, ni, rB(i+1))
@@ -165,14 +177,9 @@ def tt_zipper_left_to_right(
     use_jax = tree_contains_jax((coresA, coresB))
     xnp, _, xscan = get_backend(is_uniform, use_jax)
 
-    def _func(Z, GA_GB):
-        GA, GB = GA_GB
-        Z_next = xnp.einsum('...ij,...iak,...jal->...kl', Z, GA, GB)
-        return Z_next, (Z,)
-
     ss = coresA[0].shape[:-3]
     Z0 = xnp.ones(ss + (coresA[0].shape[-3], coresB[0].shape[-3]))
-    Zf, (ZZ_first,) = xscan(_func, Z0, (coresA, coresB))
+    Zf, (ZZ_first,) = xscan(_tt_zipper_step, Z0, (coresA, coresB))
     return tuple(ZZ_first) + (Zf,)
 
 

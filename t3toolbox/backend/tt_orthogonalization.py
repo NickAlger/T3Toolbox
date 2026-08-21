@@ -22,6 +22,17 @@ __all__ = [
 ]
 
 
+def _tt_left_step(
+        H0: NDArray,               # carry: running right factor, stack_shape+(rL,n,rR)
+        x:  typ.Tuple[NDArray],    # (G1,) the next TT core
+) -> typ.Tuple[NDArray, typ.Tuple[NDArray, NDArray]]:   # (next carry, (L0, H0))
+    '''One core of the left-orthogonalizing sweep of :py:func:`tt_left_orthogonalize`. Closure-free
+    scan body -- ``docs/contributor/scan_body_principles.md``.'''
+    G1 = x[0]
+    L0, H1, _ = linalg.left_svd_pair(H0, G1)
+    return H1, (L0, H0)
+
+
 def tt_left_orthogonalize(
         tt_cores: typ.Union[
             typ.Sequence[NDArray], # ragged. len=d, elm_shape=stack_shape+(ri,ni,r(i+1))
@@ -35,19 +46,13 @@ def tt_left_orthogonalize(
     """Left-orthogonalize a Tensor train (no Tucker).
     """
     is_uniform = is_ndarray(tt_cores)
-    use_jax = any([is_jax_ndarray(G) for G in tt_cores])
+    use_jax = tree_contains_jax(tt_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
-
-    #
-    def _left_func(H0, x):
-        G1 = x[0]
-        L0, H1, _ = linalg.left_svd_pair(H0, G1)
-        return H1, (L0, H0)
 
     init = tt_cores[0]
     xs = (tt_cores[1:],)
     if len(xs[0]) > 0:  # >1 core to sweep; len() works for a ragged tuple and a uniform supercore alike
-        Hf, (LL0, HH0) = xscan(_left_func, init, xs)
+        Hf, (LL0, HH0) = xscan(_tt_left_step, init, xs)
     else:
         Hf = init
         LL0 = ()

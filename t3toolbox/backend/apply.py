@@ -30,6 +30,19 @@ __all__ = [
     't3_apply_corewise_transpose',
 ]
 
+def _t3_apply_step(
+        mu_WCa: NDArray,                                # carry: W+C+(rLi,)
+        v_B_G:  typ.Tuple[NDArray, NDArray, NDArray],   # (v, B, G): W+(Ni,) ; C+(nUi,Ni) ; C+(rLi,nUi,rL(i+1))
+) -> typ.Tuple[NDArray, typ.Tuple[int]]:   # (next carry, (0,) -- nothing emitted per mode)
+    '''One mode of the all-modes contraction of :py:func:`t3_apply`. Closure-free scan body --
+    ``docs/contributor/scan_body_principles.md``.'''
+    v_Wo, B_Cpo, G_Capb = v_B_G
+    mu_WCb = contractions.contract('WCa,Caib,Wo,Cio->WCb', 
+        mu_WCa, G_Capb, v_Wo, B_Cpo,
+    )
+    return mu_WCb, (0,)
+
+
 def t3_apply(
         x: typ.Union[
             typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
@@ -54,16 +67,9 @@ def t3_apply(
     vsc = tucker_cores[0].shape[:-2] # core/frame stack C (the batch of T3s)
     vsw = vecs[0].shape[:-1]         # vec stack W (the probe-like vectors), base-inner: W outer, C inner
 
-    def _func(mu_WCa, v_B_G):
-        v_Wo, B_Cpo, G_Capb = v_B_G
-        mu_WCb = contractions.contract('WCa,Caib,Wo,Cio->WCb', 
-            mu_WCa, G_Capb, v_Wo, B_Cpo,
-        )
-        return mu_WCb, (0,)
-
     mu_WCa = xnp.ones(vsw + vsc + (tt_cores[0].shape[-3],))   # W + C
     v_B_G = (vecs, tucker_cores, tt_cores)
-    mu_WCz, _ = xscan(_func, mu_WCa, v_B_G)
+    mu_WCz, _ = xscan(_t3_apply_step, mu_WCa, v_B_G)
 
     result = xnp.sum(mu_WCz, axis=-1)
     return result
@@ -322,6 +328,16 @@ def t3_apply_corewise_transpose(
     )
 
 
+def _apply_from_xis_step(
+        sigma: NDArray,   # carry: W+K+C+(rRi,)
+        x:     typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray, NDArray],  # (Q, O, dG, xi, dxi, mu)
+) -> typ.Tuple[NDArray, typ.Tuple[int]]:   # (next carry, (0,) -- only the terminal carry is used)
+    '''One edge of the sweep of :py:func:`_apply_from_xis`, emitting nothing (the sequence-keeping twin
+    is ``probing._sigma_sweep_step``). Closure-free scan body -- ``docs/contributor/scan_body_principles.md``.'''
+    Q, O, dG, xi, dxi, mu = x
+    return _sigma_step(sigma, Q, O, dG, xi, dxi, mu), (0,)
+
+
 def _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores):
     '''Run the perturbation sigma sweep (via Q) to its TERMINAL carry and contract the final bond.
 
@@ -331,14 +347,10 @@ def _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
     is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    def _func(sigma, x):
-        Q, O, dG, xi, dxi, mu = x
-        return _sigma_step(sigma, Q, O, dG, xi, dxi, mu), (0,)
-
     # carry sigma is W+K+C; take the leading stack from dxis (carries K), not xis (W+C only).
     rR0 = right_tt_cores[0].shape[-3]
     init = xnp.zeros(dxis[0].shape[:-1] + (rR0,))
-    sigma_terminal, _ = xscan(_func, init, (right_tt_cores, down_tt_cores, var_tt_cores, xis, dxis, mus))
+    sigma_terminal, _ = xscan(_apply_from_xis_step, init, (right_tt_cores, down_tt_cores, var_tt_cores, xis, dxis, mus))
     return xnp.sum(sigma_terminal, axis=-1)   # contract the terminal bond -> W + K + C
 
 

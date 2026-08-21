@@ -189,6 +189,47 @@ def _reduce_left_to_right(
     return (out_tucker, out_tt, shape, new_masks)
 
 
+def _ut3svd_step(
+        carry: NDArray,        # Y: stack_shape+(r,r), the running bond factor
+        x:     typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (B, G, frame_mask, tt_mask_i), one mode
+) -> typ.Tuple[
+        NDArray,               # Y_next: stack_shape+(r,r)
+        typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (new_B, new_G, ss_frame, ss_tt)
+]:
+    '''One mode of the uniform T3-SVD sweep of :py:func:`ut3svd_supercores`. Closure-free scan
+    body -- ``docs/contributor/scan_body_principles.md``.'''
+    xnp, _, _ = get_backend(True, tree_contains_jax((carry, x)))
+    Y = carry  # (r, r)
+    B, G, frame_mask, tt_mask_i = x
+    stack_shape = carry.shape[:-2]
+    r = carry.shape[-1]
+    n = G.shape[-2]                                    # before the einsum below rebinds G
+
+    G = xnp.einsum('...ij,...jak->...iak', Y, G)
+    M = G.swapaxes(-2, -1).reshape(stack_shape + (r * r, n))
+    U, ss_frame, Vt = xnp.linalg.svd(M, full_matrices=False)
+    nb = ss_frame.shape[-1]
+    U = xnp.concatenate([U, xnp.zeros(stack_shape + (r * r, n - nb))], axis=-1)
+    ss_frame = xnp.concatenate([ss_frame, xnp.zeros(stack_shape + (n - nb,))], axis=-1)
+    Vt = xnp.concatenate([Vt, xnp.zeros(stack_shape + (n - nb, n))], axis=-2)
+    U = U * frame_mask.reshape(stack_shape + (1, -1))
+    ss_frame = ss_frame * frame_mask
+    Vt = Vt * frame_mask.reshape(stack_shape + (-1, 1))
+
+    new_B = xnp.einsum('...ij,...jk->...ik', Vt, B)
+
+    M = xnp.einsum('...ij,...j->...ij', U, ss_frame).reshape(
+        stack_shape + (r, r, n)).swapaxes(-1, -2).reshape(stack_shape + (r * n, r))
+    U, ss_tt, Vt = xnp.linalg.svd(M, full_matrices=False)
+    U = U * tt_mask_i.reshape(stack_shape + (1, -1))
+    ss_tt = ss_tt * tt_mask_i
+    Vt = Vt * tt_mask_i.reshape(stack_shape + (-1, 1))
+
+    new_G = U.reshape(stack_shape + (r, n, r))
+    Y_next = xnp.einsum('...i,...ij->...ij', ss_tt, Vt)
+    return Y_next, (new_B, new_G, ss_frame, ss_tt)
+
+
 def ut3svd_supercores(
         cores: typ.Tuple[
             NDArray,  # tucker_supercore (assumed masked)
@@ -242,46 +283,46 @@ def ut3svd_supercores(
     ss_tt0 = xnp.concatenate([ss_tt00, xnp.zeros(stack_shape + (r - ss_tt00.shape[-1],))], axis=-1)
     ss_tt0 = ss_tt0 * tt_masks[0]
 
-    def _step(carry, x):
-        Y = carry  # (r, r)
-        B, G, frame_mask, tt_mask_i = x
-
-        G = xnp.einsum('...ij,...jak->...iak', Y, G)
-        M = G.swapaxes(-2, -1).reshape(stack_shape + (r * r, n))
-        U, ss_frame, Vt = xnp.linalg.svd(M, full_matrices=False)
-        nb = ss_frame.shape[-1]
-        U = xnp.concatenate([U, xnp.zeros(stack_shape + (r * r, n - nb))], axis=-1)
-        ss_frame = xnp.concatenate([ss_frame, xnp.zeros(stack_shape + (n - nb,))], axis=-1)
-        Vt = xnp.concatenate([Vt, xnp.zeros(stack_shape + (n - nb, n))], axis=-2)
-        U = U * frame_mask.reshape(stack_shape + (1, -1))
-        ss_frame = ss_frame * frame_mask
-        Vt = Vt * frame_mask.reshape(stack_shape + (-1, 1))
-
-        new_B = xnp.einsum('...ij,...jk->...ik', Vt, B)
-
-        M = xnp.einsum('...ij,...j->...ij', U, ss_frame).reshape(
-            stack_shape + (r, r, n)).swapaxes(-1, -2).reshape(stack_shape + (r * n, r))
-        U, ss_tt, Vt = xnp.linalg.svd(M, full_matrices=False)
-        U = U * tt_mask_i.reshape(stack_shape + (1, -1))
-        ss_tt = ss_tt * tt_mask_i
-        Vt = Vt * tt_mask_i.reshape(stack_shape + (-1, 1))
-
-        new_G = U.reshape(stack_shape + (r, n, r))
-        Y_next = xnp.einsum('...i,...ij->...ij', ss_tt, Vt)
-        return Y_next, (new_B, new_G, ss_frame, ss_tt)
-
     Y0 = xnp.eye(r)
     if stack_shape:
         Y0 = xnp.tensordot(xnp.ones(stack_shape), Y0, axes=[(), ()])
 
     Yf, (new_frame_cores, new_tt_cores, frame_singular_values, tt_singular_values0) = xscan(
-        _step, Y0, (frame_supercore, tt_supercore, frame_masks, tt_masks[1:]))
+        _ut3svd_step, Y0, (frame_supercore, tt_supercore, frame_masks, tt_masks[1:]))
 
     G_last = xnp.einsum('d...iaj,...jk->d...iak', new_tt_cores[-1:], Yf)
     new_tt_cores = xnp.concatenate([new_tt_cores[:-1], G_last], axis=0)
 
     tt_singular_values = xnp.concatenate([ss_tt0.reshape((1,) + stack_shape + (r,)), tt_singular_values0], axis=0)
     return (new_frame_cores, new_tt_cores), frame_singular_values, tt_singular_values
+
+
+def _ut3svd_shared_step(
+        carry: NDArray,                      # Y: stack_shape+(r,r), the running bond factor
+        x:     typ.Tuple[NDArray, NDArray],  # (G, tt_mask_i), one mode
+) -> typ.Tuple[
+        NDArray,                             # Y_next: stack_shape+(r,r)
+        typ.Tuple[NDArray, NDArray],         # (new_G, ss)
+]:
+    '''One mode of the TT-bond rounding scan of :py:func:`_ut3svd_shared_supercores` -- :py:func:`_ut3svd_step`
+    without the Tucker steps. Closure-free scan body -- ``docs/contributor/scan_body_principles.md``.'''
+    xnp, _, _ = get_backend(True, tree_contains_jax((carry, x)))
+    Y = carry  # (r, r)
+    G, tt_mask_i = x
+    stack_shape = carry.shape[:-2]
+    r = carry.shape[-1]
+    n = G.shape[-2]                                    # before the einsum below rebinds G
+
+    G = xnp.einsum('...ij,...jak->...iak', Y, G)
+    M = G.reshape(stack_shape + (r * n, r))
+    U, ss, Vt = xnp.linalg.svd(M, full_matrices=False)   # thin: exactly r columns (r <= r*n)
+    U = U * tt_mask_i.reshape(stack_shape + (1, -1))
+    ss = ss * tt_mask_i
+    Vt = Vt * tt_mask_i.reshape(stack_shape + (-1, 1))
+
+    new_G = U.reshape(stack_shape + (r, n, r))
+    Y_next = xnp.einsum('...i,...ij->...ij', ss, Vt)
+    return Y_next, (new_G, ss)
 
 
 def _ut3svd_shared_supercores(
@@ -350,25 +391,10 @@ def _ut3svd_shared_supercores(
     ss_tt0 = ss_tt0 * tt_masks[0]
 
     # ---- phase 1: TT-bond rounding scan (Tucker steps deliberately skipped) ----
-    def _tt_step(carry, x):
-        Y = carry  # (r, r)
-        G, tt_mask_i = x
-
-        G = xnp.einsum('...ij,...jak->...iak', Y, G)
-        M = G.reshape(stack_shape + (r * n, r))
-        U, ss, Vt = xnp.linalg.svd(M, full_matrices=False)   # thin: exactly r columns (r <= r*n)
-        U = U * tt_mask_i.reshape(stack_shape + (1, -1))
-        ss = ss * tt_mask_i
-        Vt = Vt * tt_mask_i.reshape(stack_shape + (-1, 1))
-
-        new_G = U.reshape(stack_shape + (r, n, r))
-        Y_next = xnp.einsum('...i,...ij->...ij', ss, Vt)
-        return Y_next, (new_G, ss)
-
     Y0 = xnp.eye(r)
     if stack_shape:
         Y0 = xnp.tensordot(xnp.ones(stack_shape), Y0, axes=[(), ()])
-    Yf, (rounded_tt, ss_tt_scan) = xscan(_tt_step, Y0, (tt_supercore, tt_masks[1:]))
+    Yf, (rounded_tt, ss_tt_scan) = xscan(_ut3svd_shared_step, Y0, (tt_supercore, tt_masks[1:]))
     G_last = xnp.einsum('d...iaj,...jk->d...iak', rounded_tt[-1:], Yf)
     rounded_tt = xnp.concatenate([rounded_tt[:-1], G_last], axis=0)
 

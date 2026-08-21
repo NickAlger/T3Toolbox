@@ -31,6 +31,27 @@ __all__ = [
 ]
 
 
+def _t3_entries_step(
+        mu_WCa:  NDArray,                                # carry: W+C+(rLi,)
+        ind_B_G: typ.Tuple[NDArray, NDArray, NDArray],   # (ind, B, G): int W ; C+(nUi,Ni) ; C+(rLi,nUi,rL(i+1))
+) -> typ.Tuple[NDArray, typ.Tuple[int]]:   # (next carry, (0,) -- nothing emitted per mode)
+    '''One mode of the all-modes fiber contraction of :py:func:`t3_entries`. Closure-free scan body --
+    ``docs/contributor/scan_body_principles.md``.'''
+    xnp, _, _ = get_backend(True, tree_contains_jax((mu_WCa, ind_B_G)))   # only xnp; it ignores the flag
+    ind, B_Cpo, G_Capb = ind_B_G
+    n_idx = ind.ndim                                           # this mode's index carries exactly the W axes
+    xi_CpW = B_Cpo[..., ind]                                   # C + (p,) + W (index batch trails)
+    xi_WCp = xnp.moveaxis(                                     # -> W + C + (p,) = WCi
+        xi_CpW, tuple(range(-n_idx, 0)), tuple(range(n_idx)),
+    )
+
+    mu_WCb = contractions.contract('WCa,Caib,WCi->WCb', 
+        mu_WCa, G_Capb, xi_WCp,
+    )
+
+    return mu_WCb, (0,)
+
+
 def t3_entries(
         x: typ.Union[
             typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
@@ -52,24 +73,10 @@ def t3_entries(
     index = xnp.array(index)
 
     vsw = index.shape[1:]    # index stack W (base-inner: W outer, C inner)
-    n_idx = len(vsw)
-
-    def _func(mu_WCa, ind_B_G):
-        ind, B_Cpo, G_Capb = ind_B_G
-        xi_CpW = B_Cpo[..., ind]                                   # C + (p,) + W (index batch trails)
-        xi_WCp = xnp.moveaxis(                                     # -> W + C + (p,) = WCi
-            xi_CpW, tuple(range(-n_idx, 0)), tuple(range(n_idx)),
-        )
-
-        mu_WCb = contractions.contract('WCa,Caib,WCi->WCb', 
-            mu_WCa, G_Capb, xi_WCp,
-        )
-
-        return mu_WCb, (0,)
 
     mu_WCa = xnp.ones(vsw + vsc + (tt_cores[0].shape[-3],))   # W + C
     ind_B_G = (index, tucker_cores, tt_cores)
-    mu_WCz, _ = xscan(_func, mu_WCa, ind_B_G)
+    mu_WCz, _ = xscan(_t3_entries_step, mu_WCa, ind_B_G)
 
     result = xnp.sum(mu_WCz, axis=-1)
     return result

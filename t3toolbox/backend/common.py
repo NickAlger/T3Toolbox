@@ -13,6 +13,7 @@ rebuilt-but-identical mask holder on the same jit cache key.
 import numpy as np
 import typing as typ
 import functools as ft
+import weakref
 
 __all__ = [
     'jax_available',
@@ -247,7 +248,43 @@ jax_scan = numpy_scan
 jax_map = numpy_map
 if jax_available:
     jax_scan = jax.lax.scan
-    jax_map = jax.lax.map
+
+    _jax_map_adapters = weakref.WeakKeyDictionary()   # body -> its scan adapter (see jax_map)
+
+    def _jax_map_adapter(f):
+        f_ref = weakref.ref(f)      # the adapter must NOT strongly reference f: it is the VALUE in a
+                                    # WeakKeyDictionary keyed on f, so a strong ref would make every
+                                    # entry immortal and pin each throwaway body (and its arrays).
+
+        def g(carry, x):
+            return carry, f_ref()(x)
+        return g
+
+    def jax_map(f, xs):
+        """``jax.lax.map`` with a per-body cached scan adapter.
+
+        ``lax.map`` is a ``scan`` that builds a FRESH ``lambda _, x: ((), f(x))`` every call, and
+        ``scan`` keys its trace/compile cache on that lambda's identity -- so ``lax.map`` recompiles on
+        every call however stable ``f`` is, which no amount of hoisting at the call sites can fix
+        (:doc:`/contributor/scan_body_principles`). Reusing one adapter per ``f`` restores the hit, so a
+        module-level body compiles once, as it already does under ``xscan``.
+
+        The keys are weak so the cache discriminates by itself: a module-level body outlives the process
+        and keeps its entry, while a body still built inline dies with the call and takes its entry --
+        and everything it closed over -- with it.
+
+        ``batch_size`` is deliberately unsupported: nothing in the library passes it, and it selects a
+        chunked-``vmap`` strategy rather than the sequential ``scan`` the memory-lean sampling paths
+        depend on.
+        """
+        try:
+            g = _jax_map_adapters.get(f)
+        except TypeError:                       # not weak-referenceable -- fall back, uncached
+            return jax.lax.map(f, xs)
+        if g is None:
+            g = _jax_map_adapter(f)
+            _jax_map_adapters[f] = g
+        return jax.lax.scan(g, (), xs)[1]
 
 
 def get_backend(

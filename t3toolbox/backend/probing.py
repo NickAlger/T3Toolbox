@@ -170,6 +170,15 @@ def t3_probe(
     return zs
 
 
+def _xi_step(
+        x: typ.Tuple[NDArray, NDArray],   # (U, w): C+(nUi,Ni) ; W+(Ni,)
+) -> typ.Tuple[NDArray]:                  # (xi,): W+C+(nUi,)
+    '''One core of the ragged map of :py:func:`compute_xi`. Closure-free map body --
+    ``docs/contributor/scan_body_principles.md``.'''
+    U, w = x
+    return (contractions.contract('Cio,Wo->WCi', U, w),)
+
+
 def compute_xi(
         up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(nUi,Ni)
         ww:                 typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+(Ni,)
@@ -190,13 +199,20 @@ def compute_xi(
     if is_uniform:
         xis = contractions.contract('dCio,dWo->dWCi', up_tucker_cores, ww)
     else:
-        def _func(x):
-            U, w = x
-            return (contractions.contract('Cio,Wo->WCi', U, w),)
-
-        (xis,) = xmap(_func, (up_tucker_cores, ww))
+        (xis,) = xmap(_xi_step, (up_tucker_cores, ww))
 
     return xis
+
+
+def _mu_step(
+        mu: NDArray,                      # carry: W+C+(rLi,)
+        x:  typ.Tuple[NDArray, NDArray],  # (P, xi): C+(rLi,nUi,rL(i+1)) ; W+C+(nUi,)
+) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:   # (next carry, (mu,))
+    '''One edge of the leftward sweep of :py:func:`compute_mu`. Closure-free scan body --
+    ``docs/contributor/scan_body_principles.md``.'''
+    P, xi = x[0], x[1]
+    mu_next = contractions.contract('WCa,Caib,WCi->WCb', mu, P, xi)
+    return mu_next, (mu,)
 
 
 def compute_mu(
@@ -216,16 +232,11 @@ def compute_mu(
     is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    def _func(mu, x):
-        P, xi = x[0], x[1]
-        mu_next = contractions.contract('WCa,Caib,WCi->WCb', mu, P, xi)
-        return mu_next, (mu,)
-
     # carry has the same leading stack as the edge variables (order-agnostic), plus the left bond
     r0 = left_tt_cores[0].shape[-3]
     init = xnp.ones(xis[0].shape[:-1] + (r0,))
 
-    last_mu, (mus,) = xscan(_func, init, (left_tt_cores, xis))
+    last_mu, (mus,) = xscan(_mu_step, init, (left_tt_cores, xis))
     return mus
 
 
@@ -249,6 +260,15 @@ def compute_nu(
     return rev_nus[::-1]
 
 
+def _eta_step(
+        x: typ.Tuple[NDArray, NDArray, NDArray],   # (mu, G, nu): W+C+(rLi,) ; C+(rLi,nOi,rR(i+1)) ; W+C+(rR(i+1),)
+) -> typ.Tuple[NDArray]:                           # (eta,): W+C+(nOi,)
+    '''One core of the ragged map of :py:func:`compute_eta`. Closure-free map body --
+    ``docs/contributor/scan_body_principles.md``.'''
+    mu, G, nu = x
+    return (contractions.contract('WCa,Caib,WCb->WCi', mu, G, nu),)
+
+
 def compute_eta(
         down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rLi,nOi,rR(i+1))
         mus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+C+(rLi,)
@@ -270,13 +290,18 @@ def compute_eta(
     if is_uniform:
         etas = contractions.contract('dWCa,dCaib,dWCb->dWCi', mus, down_tt_cores, nus)
     else:
-        def _func(x):
-            mu, G, nu = x
-            return (contractions.contract('WCa,Caib,WCb->WCi', mu, G, nu),)
-
-        (etas,) = xmap(_func, (mus, down_tt_cores, nus))
+        (etas,) = xmap(_eta_step, (mus, down_tt_cores, nus))
 
     return etas
+
+
+def _assemble_z_step(
+        x: typ.Tuple[NDArray, NDArray],   # (eta, U): W+C+(ni,) ; C+(ni,Ni)
+) -> typ.Tuple[NDArray]:                  # (z,): W+C+(Ni,)
+    '''One core of the ragged map of :py:func:`assemble_z`. Closure-free map body --
+    ``docs/contributor/scan_body_principles.md``.'''
+    eta, U = x
+    return (contractions.contract('WCi,Cio->WCo', eta, U),)
 
 
 def assemble_z(
@@ -298,11 +323,7 @@ def assemble_z(
     if is_uniform:
         zs = contractions.contract('dWCi,dCio->dWCo', etas, tucker_cores)
     else:
-        def _func(x):
-            eta, U = x
-            return (contractions.contract('WCi,Cio->WCo', eta, U),)
-
-        (zs,) = xmap(_func, (etas, tucker_cores))
+        (zs,) = xmap(_assemble_z_step, (etas, tucker_cores))
 
     return zs
 
@@ -355,6 +376,16 @@ def _sigma_step(sigma, Q, O, dG, xi, dxi, mu):
     return t1 + t2 + t3
 
 
+def _sigma_sweep_step(
+        sigma: NDArray,   # carry: W+K+C+(rRi,)
+        x:     typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray, NDArray],  # (Q, O, dG, xi, dxi, mu)
+) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:   # (next carry, (sigma,))
+    '''One edge of the sweep of :py:func:`compute_sigma`, keeping the per-core sequence. Closure-free
+    scan body -- ``docs/contributor/scan_body_principles.md``.'''
+    Q, O, dG, xi, dxi, mu = x
+    return _sigma_step(sigma, Q, O, dG, xi, dxi, mu), (sigma,)
+
+
 def compute_sigma(
         var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
         right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
@@ -384,15 +415,11 @@ def compute_sigma(
     is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    def _func(sigma, x):
-        Q, O, dG, xi, dxi, mu = x
-        return _sigma_step(sigma, Q, O, dG, xi, dxi, mu), (sigma,)
-
     # carry sigma is W+K+C; take the leading stack from dxis (which carries K), not xis (W+C only)
     rR0 = right_tt_cores[0].shape[-3]
     init = xnp.zeros(dxis[0].shape[:-1] + (rR0,))
 
-    last_sigma, (sigmas,) = xscan(_func, init, (right_tt_cores, down_tt_cores, var_tt_cores, xis, dxis, mus))
+    last_sigma, (sigmas,) = xscan(_sigma_sweep_step, init, (right_tt_cores, down_tt_cores, var_tt_cores, xis, dxis, mus))
     return sigmas
 
 
@@ -429,6 +456,22 @@ def compute_tau(
         xis[::-1], dxis[::-1], nus[::-1],
     )
     return rev_taus[::-1]
+
+
+def _deta_step(
+        x: typ.Tuple[NDArray, NDArray, NDArray,
+                     NDArray, NDArray, NDArray, NDArray],   # (P, Q, dG, mu, nu, sigma, tau)
+) -> typ.Tuple[NDArray]:                                    # (deta,): W+K+C+(nUi,)
+    '''One core of the ragged map of :py:func:`compute_deta`. Closure-free map body --
+    ``docs/contributor/scan_body_principles.md``.'''
+    P, Q, dG, mu, nu, sigma, tau = x
+    # Three-group contractions (see compute_sigma): sigma/tau carry K, mu/nu and frame cores
+    # P/Q do not. term1/term3 self-infer; term2's only core is dG (K+C) -> n_frame from Q.
+    n_frame = Q.ndim - 3
+    term1 = contractions.contract('WKCa,Caib,WCb->WKCi', sigma, Q, nu)
+    term2 = contractions.contract('WCa,KCaib,WCb->WKCi', mu, dG, nu, len_C=n_frame)
+    term3 = contractions.contract('WCa,Caib,WKCb->WKCi', mu, P, tau)
+    return (term1 + term2 + term3,)
 
 
 def compute_deta(
@@ -471,20 +514,25 @@ def compute_deta(
         term3 = contractions.contract('dWCa,dCaib,dWKCb->dWKCi', mus, left_tt_cores, taus)
         detas = term1 + term2 + term3
     else:
-        def _func(x):
-            P, Q, dG, mu, nu, sigma, tau = x
-            # Three-group contractions (see compute_sigma): sigma/tau carry K, mu/nu and frame cores
-            # P/Q do not. term1/term3 self-infer; term2's only core is dG (K+C) -> n_frame from Q.
-            n_frame = Q.ndim - 3
-            term1 = contractions.contract('WKCa,Caib,WCb->WKCi', sigma, Q, nu)
-            term2 = contractions.contract('WCa,KCaib,WCb->WKCi', mu, dG, nu, len_C=n_frame)
-            term3 = contractions.contract('WCa,Caib,WKCb->WKCi', mu, P, tau)
-            return (term1 + term2 + term3,)
-
         xs = (left_tt_cores, right_tt_cores, var_tt_cores, mus, nus, sigmas, taus)
-        (detas,) = xmap(_func, xs)
+        (detas,) = xmap(_deta_step, xs)
 
     return detas
+
+
+def _assemble_tangent_z_step(
+        x: typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # (B, dB, eta, deta)
+) -> typ.Tuple[NDArray]:                                    # (z,): W+K+C+(Ni,)
+    '''One core of the ragged map of :py:func:`assemble_tangent_z`. Closure-free map body --
+    ``docs/contributor/scan_body_principles.md``.'''
+    B, dB, eta, deta = x
+    # Three-group contractions (see compute_sigma): deta carries K (in term1 both W and K ride
+    # passively over the C-only frame core B, so no split is needed); eta is W+C and dB is the
+    # variation core K+C, so term2 needs len(C) -- recovered here from the C-only core B.
+    n_frame = B.ndim - 2
+    term1 = contractions.contract('WKCi,Cio->WKCo', deta, B)
+    term2 = contractions.contract('WCi,KCio->WKCo', eta, dB, len_C=n_frame)
+    return (term1 + term2,)
 
 
 def assemble_tangent_z(
@@ -522,17 +570,7 @@ def assemble_tangent_z(
         term2 = contractions.contract('dWCi,dKCio->dWKCo', etas, var_tucker_cores, len_C=n_frame)
         zs = term1 + term2
     else:
-        def _func(x):
-            B, dB, eta, deta = x
-            # Three-group contractions (see compute_sigma): deta carries K (in term1 both W and K ride
-            # passively over the C-only frame core B, so no split is needed); eta is W+C and dB is the
-            # variation core K+C, so term2 needs len(C) -- recovered here from the C-only core B.
-            n_frame = B.ndim - 2
-            term1 = contractions.contract('WKCi,Cio->WKCo', deta, B)
-            term2 = contractions.contract('WCi,KCio->WKCo', eta, dB, len_C=n_frame)
-            return (term1 + term2,)
-
-        (zs,) = xmap(_func, (tucker_cores, var_tucker_cores, etas, detas))
+        (zs,) = xmap(_assemble_tangent_z_step, (tucker_cores, var_tucker_cores, etas, detas))
 
     return zs
 
@@ -760,6 +798,16 @@ def tv_precompute_probe_frame_sweep(
     return xis, mus, nus, etas
 
 
+def _sigma_hat_step(
+        carry: NDArray,                      # W+K+C+(rR(i+1),)
+        data:  typ.Tuple[NDArray, NDArray],  # (Q, xi): C+(rRi,nUi,rR(i+1)) ; W+C+(nUi,)
+) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:   # (next carry, (carry,))
+    '''One edge of the adjoint reverse sweep of :py:func:`compute_sigma_hat`. Closure-free scan body
+    -- ``docs/contributor/scan_body_principles.md``.'''
+    Q, xi = data
+    return contractions.contract('WKCa,Caib,WCi->WKCb', carry, Q, xi), (carry,)
+
+
 def compute_sigma_hat(
         right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
         xis:            typ.Sequence[NDArray],  # frame up-index edge vars, len=d, elm_shape=W+C+(nUi,)
@@ -784,17 +832,24 @@ def compute_sigma_hat(
     rR_d = right_tt_cores[-1].shape[-1]
     seed = xnp.broadcast_to(c[..., None], tuple(c.shape) + (rR_d,))
 
-    def _step(carry, data):
-        Q, xi = data
-        return contractions.contract('WKCa,Caib,WCi->WKCb', carry, Q, xi), (carry,)
-
-    _, (rev_sigma_hats,) = xscan(_step, seed, (rev_Q, rev_xi))
+    _, (rev_sigma_hats,) = xscan(_sigma_hat_step, seed, (rev_Q, rev_xi))
     return rev_sigma_hats[::-1]
 
 
 ###############################################################
 ###########    Transpose of tangent to probes map    ##########
 ###############################################################
+
+def _deta_tilde_step(
+        x: typ.Tuple[NDArray, NDArray],   # (U, zt): C+(nUi,Ni) ; W+K+C+(Ni,)
+) -> typ.Tuple[NDArray]:                  # (deta_tilde,): W+K+C+(nUi,)
+    '''One core of the ragged map of :py:func:`compute_deta_tilde`. Closure-free map body --
+    ``docs/contributor/scan_body_principles.md``.'''
+    U, zt = x
+    # C (T3 stack) is shared between the core U and the residual zt; W is the probe stack on
+    # zt. This is NOT compute_xi (which forms an outer product over the two stacks).
+    return (contractions.contract('WCo,Cio->WCi', zt, U),)
+
 
 def compute_deta_tilde(
         up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(nUi,Ni)
@@ -820,15 +875,25 @@ def compute_deta_tilde(
         # ragged contract('WCo,Cio->WCi', zt, U); the ragged xmap branch below is the oracle.
         deta_tildes = contractions.contract('dWCo,dCio->dWCi', ztildes, up_tucker_cores)
     else:
-        def _func(x):
-            U, zt = x
-            # C (T3 stack) is shared between the core U and the residual zt; W is the probe stack on
-            # zt. This is NOT compute_xi (which forms an outer product over the two stacks).
-            return (contractions.contract('WCo,Cio->WCi', zt, U),)
-
-        (deta_tildes,) = xmap(_func, (up_tucker_cores, ztildes))
+        (deta_tildes,) = xmap(_deta_tilde_step, (up_tucker_cores, ztildes))
 
     return deta_tildes
+
+
+def _tau_tilde_step(
+        tau_tilde: NDArray,   # carry: W+K+C+(rLi,)
+        x:         typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (P, xi, deta_tilde, mu)
+) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:   # (next carry, (tau_tilde,))
+    '''One edge of the adjoint rightward sweep of :py:func:`compute_tau_tilde`. Closure-free scan
+    body -- ``docs/contributor/scan_body_principles.md``.'''
+    P, xi, deta_tilde, mu = x
+    # Three-group (W probe, K tangent, C frame): tau_tilde/deta_tilde carry K (from the residual),
+    # xi/mu and the frame core P do not. Both terms self-infer the split (P pins C, xi/mu pin W);
+    # reduces to the two-group result when K is empty (no K-stacked residual).
+    t1 = contractions.contract('WKCa,Caib,WCi->WKCb', tau_tilde, P, xi)
+    t2 = contractions.contract('WCa,Caib,WKCi->WKCb', mu, P, deta_tilde)
+    tau_tilde_next = t1 + t2
+    return tau_tilde_next, (tau_tilde,)
 
 
 def compute_tau_tilde(
@@ -850,20 +915,10 @@ def compute_tau_tilde(
     is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    def _func(tau_tilde, x):
-        P, xi, deta_tilde, mu = x
-        # Three-group (W probe, K tangent, C frame): tau_tilde/deta_tilde carry K (from the residual),
-        # xi/mu and the frame core P do not. Both terms self-infer the split (P pins C, xi/mu pin W);
-        # reduces to the two-group result when K is empty (no K-stacked residual).
-        t1 = contractions.contract('WKCa,Caib,WCi->WKCb', tau_tilde, P, xi)
-        t2 = contractions.contract('WCa,Caib,WKCi->WKCb', mu, P, deta_tilde)
-        tau_tilde_next = t1 + t2
-        return tau_tilde_next, (tau_tilde,)
-
     # carry tau_tilde is W+K+C; take the leading stack from deta_tildes (carries K), not mus (W+C).
     init = xnp.zeros(deta_tildes[0].shape[:-1] + (left_tt_cores[0].shape[-3],))
 
-    last_tau_tilde, (tau_tildes,) = xscan(_func, init, (left_tt_cores, xis, deta_tildes, mus))
+    last_tau_tilde, (tau_tildes,) = xscan(_tau_tilde_step, init, (left_tt_cores, xis, deta_tildes, mus))
     return tau_tildes
 
 
@@ -888,6 +943,19 @@ def compute_sigma_tilde(
     return compute_tau_tilde(
         deta_tildes[::-1], reverse(right_tt_cores), xis[::-1], nus[::-1],
     )[::-1]
+
+
+def _dxi_tilde_step(
+        x: typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray],   # (O, mu, nu, st, tt)
+) -> typ.Tuple[NDArray]:                                             # (dxi_tilde,): W+K+C+(nOi,)
+    '''One core of the ragged map of :py:func:`compute_dxi_tilde`. Closure-free map body --
+    ``docs/contributor/scan_body_principles.md``.'''
+    O, mu, nu, st, tt = x
+    # Three-group (see compute_tau_tilde): tt/st carry K, mu/nu and the frame core O do not.
+    # Both terms self-infer (O pins C, mu/nu pin W).
+    term1 = contractions.contract('WKCa,Caib,WCb->WKCi', tt, O, nu)
+    term2 = contractions.contract('WCa,Caib,WKCb->WKCi', mu, O, st)
+    return (term1 + term2,)
 
 
 def compute_dxi_tilde(
@@ -917,18 +985,48 @@ def compute_dxi_tilde(
         term2 = contractions.contract('dWCa,dCaib,dWKCb->dWKCi', mus, down_tt_cores, sigma_tildes)
         dxi_tildes = term1 + term2
     else:
-        def _func(x):
-            O, mu, nu, st, tt = x
-            # Three-group (see compute_tau_tilde): tt/st carry K, mu/nu and the frame core O do not.
-            # Both terms self-infer (O pins C, mu/nu pin W).
-            term1 = contractions.contract('WKCa,Caib,WCb->WKCi', tt, O, nu)
-            term2 = contractions.contract('WCa,Caib,WKCb->WKCi', mu, O, st)
-            return (term1 + term2,)
-
         xs = (down_tt_cores, mus, nus, sigma_tildes, tau_tildes)
-        (dxi_tildes,) = xmap(_func, xs)
+        (dxi_tildes,) = xmap(_dxi_tilde_step, xs)
 
     return dxi_tildes
+
+
+def _assemble_tucker_variations_core(
+        x:               typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (z_tilde, eta, w, dxi_tilde)
+        sum_over_probes: bool,     # caller intent -- no operand carries it; hence the two bodies below
+) -> typ.Tuple[NDArray]:           # (dU_tilde,): W+K+C+(nOi,Ni), or K+C+(nOi,Ni) when summed
+    '''One core of the ragged map of :py:func:`assemble_tucker_variations`, shared by the two
+    closure-free map bodies below -- ``docs/contributor/scan_body_principles.md``.'''
+    z_tilde, eta, w, dxi_tilde = x
+    # Three-group (W probe, K tangent, C frame): z_tilde/dxi_tilde carry K, eta does not, w is
+    # W-only. n_probe = len(W) is recovered locally from the W-only probe vector w (the
+    # z_tilde (x) eta term needs it; the w (x) dxi_tilde term self-infers W from w). Output
+    # keeps K always; W is summed (K+C) or kept (W+K+C) per sum_over_probes. Reduces to the
+    # two-group result when K is empty.
+    n_probe = w.ndim - 1
+    if sum_over_probes:
+        dU_tilde = (
+                contractions.contract('WKCo,WCa->KCao', z_tilde, eta, len_W=n_probe)
+                +
+                contractions.contract('Wo,WKCa->KCao', w, dxi_tilde)
+        )
+    else:
+        dU_tilde = (
+                contractions.contract('WKCo,WCa->WKCao', z_tilde, eta, len_W=n_probe)
+                +
+                contractions.contract('Wo,WKCa->WKCao', w, dxi_tilde)
+        )
+    return (dU_tilde,)
+
+
+def _assemble_tucker_variations_step_summed(x):    # closure-free map body -- docs/contributor/scan_body_principles.md
+    '''``sum_over_probes=True`` variant of :py:func:`_assemble_tucker_variations_core`.'''
+    return _assemble_tucker_variations_core(x, True)
+
+
+def _assemble_tucker_variations_step_unsummed(x):  # closure-free map body -- docs/contributor/scan_body_principles.md
+    '''``sum_over_probes=False`` variant of :py:func:`_assemble_tucker_variations_core`.'''
+    return _assemble_tucker_variations_core(x, False)
 
 
 def assemble_tucker_variations(
@@ -962,31 +1060,56 @@ def assemble_tucker_variations(
             dU_tildes = (contractions.contract('dWKCo,dWCa->dWKCao', ztildes, etas, len_W=n_probe)
                          + contractions.contract('dWo,dWKCa->dWKCao', ww, dxi_tildes))
     else:
-        def _func(x):
-            z_tilde, eta, w, dxi_tilde = x
-            # Three-group (W probe, K tangent, C frame): z_tilde/dxi_tilde carry K, eta does not, w is
-            # W-only. n_probe = len(W) is recovered locally from the W-only probe vector w (the
-            # z_tilde (x) eta term needs it; the w (x) dxi_tilde term self-infers W from w). Output
-            # keeps K always; W is summed (K+C) or kept (W+K+C) per sum_over_probes. Reduces to the
-            # two-group result when K is empty.
-            n_probe = w.ndim - 1
-            if sum_over_probes:
-                dU_tilde = (
-                        contractions.contract('WKCo,WCa->KCao', z_tilde, eta, len_W=n_probe)
-                        +
-                        contractions.contract('Wo,WKCa->KCao', w, dxi_tilde)
-                )
-            else:
-                dU_tilde = (
-                        contractions.contract('WKCo,WCa->WKCao', z_tilde, eta, len_W=n_probe)
-                        +
-                        contractions.contract('Wo,WKCa->WKCao', w, dxi_tilde)
-                )
-            return (dU_tilde,)
-
-        (dU_tildes,) = xmap(_func, (ztildes, etas, ww, dxi_tildes))
+        step = (_assemble_tucker_variations_step_summed if sum_over_probes
+                else _assemble_tucker_variations_step_unsummed)
+        (dU_tildes,) = xmap(step, (ztildes, etas, ww, dxi_tildes))
 
     return dU_tildes
+
+
+def _assemble_tt_variations_core(
+        x:               typ.Tuple[NDArray, NDArray, NDArray,
+                                   NDArray, NDArray, NDArray],  # (xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde)
+        n_probe:         int,      # len(W); rides as an extra map operand -- see assemble_tt_variations
+        sum_over_probes: bool,     # caller intent -- no operand carries it; hence the two bodies below
+) -> typ.Tuple[NDArray]:           # (dG_tilde,): W+K+C+(rLi,nUi,rR(i+1)), or K+C+(...) when summed
+    '''One core of the ragged map of :py:func:`assemble_tt_variations`, shared by the two
+    closure-free map bodies below -- ``docs/contributor/scan_body_principles.md``.'''
+    xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde = x
+    # Three-group (W probe, K tangent, C frame): the residual-derived edge vars sigma_tilde /
+    # tau_tilde / deta_tilde carry K (on the j / i / a leg respectively), the frame edge vars
+    # xi/mu/nu do not. No operand here is W-only or C-only, so len(W)=n_probe is supplied;
+    # each contraction then derives C from an W+C operand and K from the W+K+C one. Output
+    # keeps K always; W is summed (K+C) or kept (W+K+C) per sum_over_probes.
+    if sum_over_probes:
+        dG_tilde = (
+                contractions.contract('WCi,WCa,WKCj->KCiaj', mu, xi, sigma_tilde, len_W=n_probe)
+                +
+                contractions.contract('WKCi,WCa,WCj->KCiaj', tau_tilde, xi, nu, len_W=n_probe)
+                +
+                contractions.contract('WCi,WKCa,WCj->KCiaj', mu, deta_tilde, nu, len_W=n_probe)
+        )
+    else:
+        dG_tilde = (
+                contractions.contract('WCi,WCa,WKCj->WKCiaj', mu, xi, sigma_tilde, len_W=n_probe)
+                +
+                contractions.contract('WKCi,WCa,WCj->WKCiaj', tau_tilde, xi, nu, len_W=n_probe)
+                +
+                contractions.contract('WCi,WKCa,WCj->WKCiaj', mu, deta_tilde, nu, len_W=n_probe)
+        )
+    return (dG_tilde,)
+
+
+def _assemble_tt_variations_step_summed(x):    # closure-free map body -- docs/contributor/scan_body_principles.md
+    '''``sum_over_probes=True`` variant of :py:func:`_assemble_tt_variations_core`; ``n_probe`` rides
+    as the last map operand (it is per-call data, not structure).'''
+    return _assemble_tt_variations_core(x[:-1], x[-1], True)
+
+
+def _assemble_tt_variations_step_unsummed(x):  # closure-free map body -- docs/contributor/scan_body_principles.md
+    '''``sum_over_probes=False`` variant of :py:func:`_assemble_tt_variations_core`; ``n_probe`` rides
+    as the last map operand (it is per-call data, not structure).'''
+    return _assemble_tt_variations_core(x[:-1], x[-1], False)
 
 
 def assemble_tt_variations(
@@ -1025,33 +1148,12 @@ def assemble_tt_variations(
                          + contractions.contract('dWKCi,dWCa,dWCj->dWKCiaj', tau_tildes, xis, nus, len_W=n_probe)
                          + contractions.contract('dWCi,dWKCa,dWCj->dWKCiaj', mus, deta_tildes, nus, len_W=n_probe))
     else:
-        def _func(x):
-            xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde = x
-            # Three-group (W probe, K tangent, C frame): the residual-derived edge vars sigma_tilde /
-            # tau_tilde / deta_tilde carry K (on the j / i / a leg respectively), the frame edge vars
-            # xi/mu/nu do not. No operand here is W-only or C-only, so len(W)=n_probe is supplied;
-            # each contraction then derives C from an W+C operand and K from the W+K+C one. Output
-            # keeps K always; W is summed (K+C) or kept (W+K+C) per sum_over_probes.
-            if sum_over_probes:
-                dG_tilde = (
-                        contractions.contract('WCi,WCa,WKCj->KCiaj', mu, xi, sigma_tilde, len_W=n_probe)
-                        +
-                        contractions.contract('WKCi,WCa,WCj->KCiaj', tau_tilde, xi, nu, len_W=n_probe)
-                        +
-                        contractions.contract('WCi,WKCa,WCj->KCiaj', mu, deta_tilde, nu, len_W=n_probe)
-                )
-            else:
-                dG_tilde = (
-                        contractions.contract('WCi,WCa,WKCj->WKCiaj', mu, xi, sigma_tilde, len_W=n_probe)
-                        +
-                        contractions.contract('WKCi,WCa,WCj->WKCiaj', tau_tilde, xi, nu, len_W=n_probe)
-                        +
-                        contractions.contract('WCi,WKCa,WCj->WKCiaj', mu, deta_tilde, nu, len_W=n_probe)
-                )
-            return (dG_tilde,)
-
-        xs = (xis, mus, nus, sigma_tildes, tau_tildes, deta_tildes)
-        (dG_tildes,) = xmap(_func, xs)
+        # n_probe is per-call runtime data with no W-only operand to recover it from, so it rides as
+        # an extra per-core map operand (principle 6) rather than being closed over.
+        step = (_assemble_tt_variations_step_summed if sum_over_probes
+                else _assemble_tt_variations_step_unsummed)
+        xs = (xis, mus, nus, sigma_tildes, tau_tildes, deta_tildes, (n_probe,) * len(xis))
+        (dG_tildes,) = xmap(step, xs)
 
     return dG_tildes
 

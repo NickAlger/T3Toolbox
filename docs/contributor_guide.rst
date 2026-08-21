@@ -17,6 +17,7 @@ Conventions for new code
    contributor/doctest_style
    contributor/testing_strategy
    contributor/naming_rules
+   contributor/scan_body_principles
    contributor/refactoring_methodology
 
 Design-decision records

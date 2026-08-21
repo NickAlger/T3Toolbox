@@ -111,6 +111,18 @@ def ut3_sum_stack(x: UT3Data) -> UT3Data:  # sum over ALL stack axes -> unstacke
     return new_tk, new_tt, shape, (new_tkm, new_ttm)
 
 
+def _ut3_inner_product_step(
+        M_ab:   NDArray,                      # carry: stack_shape+(rx_i, ry_i)
+        G_x_y:  typ.Tuple[NDArray, NDArray],  # (Gx, Gy) for one mode, each stack+(rL, N, rR)
+) -> typ.Tuple[NDArray, typ.Tuple[int]]:      # (next carry, (0,) -- only the terminal carry is used)
+    '''One mode of the zipper of :py:func:`ut3_inner_product`. Closure-free scan body --
+    ``docs/contributor/scan_body_principles.md``.'''
+    xnp, _, _ = get_backend(True, tree_contains_jax((M_ab, G_x_y)))   # only xnp; it ignores the flag
+    Gx_aob, Gy_cod = G_x_y
+    M_cd = xnp.einsum('...ab,...aoc,...bod->...cd', M_ab, Gx_aob, Gy_cod)
+    return M_cd, (0,)
+
+
 def ut3_inner_product(x: UT3Data, y: UT3Data) -> NDArray:  # HS inner product, shape=stack_shape
     """Hilbert-Schmidt inner product of two uniform Tucker tensor trains. Masks (zero padding) and
     squashes both, absorbs the Tucker cores into the TT cores, then zippers the two trains to a scalar
@@ -131,13 +143,8 @@ def ut3_inner_product(x: UT3Data, y: UT3Data) -> NDArray:  # HS inner product, s
     rx = mtt_x.shape[-1]
     ry = mtt_y.shape[-1]
 
-    def _push(M_ab, G_x_y):
-        Gx_aob, Gy_cod = G_x_y
-        M_cd = xnp.einsum('...ab,...aoc,...bod->...cd', M_ab, Gx_aob, Gy_cod)
-        return M_cd, (0,)
-
     M0 = xnp.ones(stack_shape + (rx, ry))
-    Mf, _ = xscan(_push, M0, (big_x, big_y))
+    Mf, _ = xscan(_ut3_inner_product_step, M0, (big_x, big_y))
     return xnp.einsum('...ab->...', Mf)
 
 

@@ -461,6 +461,20 @@ def utv_orthogonal_gauge_projection(
     return new_tkv, new_ttv, shape, masks
 
 
+def _utv_oblique_gauge_step(
+        X_prev: NDArray,                               # carry: previous core's (P^L)^T dG^L, K+C+(rL, rR)
+        core:   typ.Tuple[NDArray, NDArray, NDArray],  # (L, R, dG): C+(rL,n,rL) ; C+(rR,n,rR) ; K+C+(rL,n,rR)
+) -> typ.Tuple[NDArray, typ.Tuple[NDArray, NDArray]]:  # (next carry, (projected core, corrected core))
+    '''One core of the TT sweep of :py:func:`utv_oblique_gauge_projection`. Closure-free scan body --
+    ``docs/contributor/scan_body_principles.md``.'''
+    xnp, _, _ = get_backend(True, tree_contains_jax((X_prev, core)))   # only xnp; it ignores the flag
+    L, R, dG_in = core                                                    # slices: L,R (stack C), dG (stack K+C)
+    dG = dG_in + xnp.einsum('...jk,...kbl->...jbl', X_prev, R)            # incoming correction X_prev @ Q_ii
+    Xi = xnp.einsum('...iaj,...iak->...jk', L, dG)                         # (P^L)^T dG^L, stack+(rL, rR)
+    proj = dG - xnp.einsum('...iaj,...jk->...iak', L, Xi)
+    return Xi, (proj, dG)
+
+
 def utv_oblique_gauge_projection(
         frame_data,       # UT3Frame .data
         variations_data,  # UT3Variations .data
@@ -492,14 +506,7 @@ def utv_oblique_gauge_projection(
     ss = tkv.shape[1:-2]                                                       # variation stack K+C
     rL, rR = left_sc.shape[-1], right_sc.shape[-1]
 
-    def _tt_step(X_prev, core):
-        L, R, dG_in = core                                                    # slices: L,R (stack C), dG (stack K+C)
-        dG = dG_in + xnp.einsum('...jk,...kbl->...jbl', X_prev, R)            # incoming correction X_prev @ Q_ii
-        Xi = xnp.einsum('...iaj,...iak->...jk', L, dG)                         # (P^L)^T dG^L, stack+(rL, rR)
-        proj = dG - xnp.einsum('...iaj,...jk->...iak', L, Xi)
-        return Xi, (proj, dG)
-
-    _, (proj_stack, dG_stack) = xscan(_tt_step, xnp.zeros(ss + (rL, rR)), (left_sc, right_sc, ttv))
+    _, (proj_stack, dG_stack) = xscan(_utv_oblique_gauge_step, xnp.zeros(ss + (rL, rR)), (left_sc, right_sc, ttv))
     new_ttv = xnp.concatenate([proj_stack[:-1], dG_stack[-1:]], axis=0)        # last core: un-projected
 
     return new_tkv, new_ttv, shape, masks
