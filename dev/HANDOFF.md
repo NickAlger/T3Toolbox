@@ -5,6 +5,42 @@ into 2026.0.0 and 2026.1.0 is archived at `dev/archive/handoff_2026-08-20_pre-20
 1.0, `dev/archive/handoff_2026-07-12_1.0_complete.md`); what each release contains is the CHANGELOG,
 and why it is the way it is is `docs/`. This file is where-we-are + what's next, nothing else._
 
+## Newest thread — the eager-jax scan-body sweep (2026-08-21)
+
+**Tiers 1 and 2 are done and pushed** (`f0099c4c`, `48cdd13c`); **tier 3 is planned but not started**
+and wants its own session.
+
+The defect: `lax.scan` keys its trace/compile cache on the IDENTITY of the body it is handed, so a
+body defined inside its caller is a fresh object every call — it re-traces, re-compiles, and leaves
+LLVM JIT mappings behind until `use_jit=True` runs abort on Linux's `vm.max_map_count`. It is also
+why the jit path measured ~40x SLOWER than numpy: nearly all of its per-iteration time was
+recompilation. Found from a downstream consumer, diagnosed here.
+
+On the `probe_derivatives` Newton-CG path: **compiles per Newton iteration 19 → 1**, mappings
+877 → 294. `common.jax_map` also had to change — `jax.lax.map` builds a fresh wrapper lambda per
+call and so can never hit the cache however stable the body is.
+
+- **Durable principles**: `docs/contributor/scan_body_principles.md` (in the Contributor guide).
+- **Catalogue** of all 54 sites, with the measurement recipe: `dev/scan_body_sweep.md`.
+- **Plan**, incl. the full tier-3 specification: `dev/scan_body_plan.md`.
+
+**Tier 3 — `_cg_solve`, the last per-iteration recompile.** Not a hoist; a small refactor Nick has
+wanted for a while. `cond` captures `tol2`, which changes every Newton iteration, and a stable body
+reading a changed Python value silently gets the cached jaxpr with the OLD value — so this is a
+correctness constraint, not a performance preference: `tol2`/`maxiter` must be carried in the loop
+state. `body` captures `hvp`, a bound method of a per-iteration `LocalModel`. An `lru_cache` on it is
+recorded as REJECTED (never hits, and pins every `LocalModel`'s arrays). All viable routes need
+`LocalModel` to become a jax pytree — prove that first. Templates already in-house: `SamplingKind`'s
+`identity`-tuple `__eq__`/`__hash__`, `common.ValueHashedMasks`, and `UniformGaussNewtonModel`'s
+pytree registration. Target agreed with Nick: **once per fitting run is acceptable**. Oracle:
+`tests/backend/test_optimizers.py` already covers eager-vs-jit agreement.
+
+Two known non-defects left deliberately: `optimizers.py:395` jits a fresh `step` per `mc_sgd`/`adam`
+*call* (one compile per optimizer invocation, which coincides with a rank change — accepted), and
+`xmap` bodies dispatch per-element rather than per-operation, which differs from the old whole-tree
+rule only for mixed numpy/jax sequences that nothing in the library produces (documented in the
+principles page).
+
 ## Where we are — 2026.1.0 SHIPPED ✅
 
 **Live on PyPI, 2026-08-20 — `pip install t3toolbox`** (2026.0.0 was 2026-07-13). Tag `v2026.1.0`,
