@@ -168,6 +168,14 @@ class ManifoldGeometryOps(ValueHashedFields):
         frame, _ = t3_orthogonal_representations(x_cores)
         return frame
 
+    def stack_shape(
+            self,
+            x_cores:  typ.Tuple,   # (tucker_cores, tt_cores)
+    ) -> typ.Tuple[int, ...]:      # C -- the frame/core stack (empty for a single tensor)
+        """The point's frame stack ``C``. Which axes are the stack is a layout question, so it belongs
+        to the geometry rather than to the caller (as :py:meth:`base_point` does)."""
+        return tuple(x_cores[0][0].shape[:-2])
+
     def base_point(
             self,
             frame:  typ.Tuple,   # (U, O, P, Q)
@@ -242,6 +250,14 @@ class CorewiseGeometryOps(ValueHashedFields):
     ) -> typ.Tuple:                # (U, O, P, Q) = (U, G, G, G) -- the raw cores ARE the frame
         """The (non-orthonormal) corewise frame: the Section 6.3 substitution ``(P, Q, O) -> G``."""
         return t3_corewise_frame(x_cores)
+
+    def stack_shape(
+            self,
+            x_cores:  typ.Tuple,   # (tucker_cores, tt_cores)
+    ) -> typ.Tuple[int, ...]:      # C -- the frame/core stack (empty for a single tensor)
+        """The point's frame stack ``C``. Which axes are the stack is a layout question, so it belongs
+        to the geometry rather than to the caller (as :py:meth:`base_point` does)."""
+        return tuple(x_cores[0][0].shape[:-2])
 
     def base_point(self, frame):
         """The point ``X = (U, G)`` the frame is attached to (see :py:meth:`ManifoldGeometryOps.base_point`)."""
@@ -337,6 +353,13 @@ class UniformManifoldGeometryOps(ValueHashedFields):
         """The orthonormal frame at ``x_sc``, using this geometry's held shape and rank masks."""
         return ufv_conversions.ut3_orthogonal_representations(
             (x_sc[0], x_sc[1], self.shape, self.masks))[0]
+
+    def stack_shape(
+            self,
+            x_sc:  typ.Tuple,      # bare (tucker_supercore, tt_supercore)
+    ) -> typ.Tuple[int, ...]:      # C -- the frame/core stack (empty for a single tensor)
+        """The point's frame stack ``C``. The uniform Tucker supercore is ``(d,) + C + (nU, N)``."""
+        return tuple(x_sc[0].shape[1:-2])
 
     def base_point(self, frame_data):
         """The bare supercore pair ``(U, P)`` the frame is attached to."""
@@ -435,6 +458,13 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
     ) -> typ.Tuple:             # uniform frame .data = (U, G, G, G, shape, masks)
         """The corewise frame: the cores themselves, with the doubled mask set."""
         return ufv_conversions.ut3_corewise_frame((x_sc[0], x_sc[1], self.shape, self.masks))
+
+    def stack_shape(
+            self,
+            x_sc:  typ.Tuple,      # bare (tucker_supercore, tt_supercore)
+    ) -> typ.Tuple[int, ...]:      # C -- the frame/core stack (empty for a single tensor)
+        """The point's frame stack ``C``. The uniform Tucker supercore is ``(d,) + C + (nU, N)``."""
+        return tuple(x_sc[0].shape[1:-2])
 
     def base_point(self, frame_data):
         """The bare supercore pair ``(U, G)`` the frame is attached to."""

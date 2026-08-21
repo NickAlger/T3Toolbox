@@ -35,6 +35,7 @@ import typing as typ
 from t3toolbox.backend.common import *
 from t3toolbox.backend.regularization import Regularizer, IdentityRegularizer   # re-exported for backend users
 from t3toolbox.backend.regularization import _ScaledRegularizer                 # internal: minibatch reg scaling
+from t3toolbox.backend.regularization import require_unstacked_for_regularizer
 import t3toolbox.corewise as cw
 
 __all__ = [
@@ -71,6 +72,9 @@ class Geometry(typ.Protocol):
         ...
 
     def base_point(self, frame):                       # frame -> the point X the frame is attached to
+        ...
+
+    def stack_shape(self, x_cores):                    # x_cores -> the frame stack C
         ...
 
     def precompute(self, frame):                       # frame -> per-frame companion (None if none)
@@ -174,6 +178,8 @@ class Problem:
         """Linearize at ``x_cores`` on the full data (``sample=None``) or an explicit minibatch."""
         if sample is None:
             sample, data = self.sample, self.data
+        if self.regularizer is not None:
+            require_unstacked_for_regularizer(self.geom.stack_shape(x_cores), 'Problem.local_model')
         frame = self.geom.frame(x_cores)
         sweep = self.kind.precompute(frame, sample)
         geom_aux = self.geom.precompute(frame)        # None when the geometry has no companion
@@ -188,6 +194,8 @@ class Problem:
         retraction output -- the line-search points; ``dev/regularization_design.md`` §4a)."""
         if sample is None:
             sample, data = self.sample, self.data
+        if self.regularizer is not None:
+            require_unstacked_for_regularizer(self.geom.stack_shape(x_cores), 'Problem.objective')
         residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
         c = 0.5 * self.kind.sumsq(residual, self.kind.w_axes(sample))
         if self.regularizer is not None:

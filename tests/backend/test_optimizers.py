@@ -507,5 +507,56 @@ class TestBackendOptimizers(unittest.TestCase):
             opt.jax_available = saved
 
 
+
+class TestStackedRegularizerIsRejected(unittest.TestCase):
+    """A regularized fit of a STACKED point raises rather than silently mis-weighting.
+
+    The data misfit keeps the frame stack ``C`` (one value per element) while every regularizer scalar
+    collapses it, so ``objective = misfit + rho`` would add the whole-stack regularization total to each
+    element -- inflating the effective lambda by about ``|C|``, and unevenly. The regularizer *gradient*
+    is per-element correct, which is what made the inconsistency easy to miss."""
+
+    def setUp(self):
+        np.random.seed(0)
+        self.rng = np.random.default_rng(0)
+        self.A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT, stack_shape=(3,))
+        self.ww = unit_vecs(20, SHAPE, self.rng)
+        self.data = self.A.apply(self.ww)
+        self.reg = opt.IdentityRegularizer(0.5)
+
+    def test_backend_problem_raises_on_a_stacked_point(self):
+        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY,
+                                            self.ww, self.data, regularizer=self.reg)
+        for label, call in (('local_model', lambda: problem.local_model(self.A.data)),
+                            ('objective', lambda: problem.objective(self.A.data)),
+                            ('newton_cg', lambda: opt.newton_cg(problem, self.A.data, max_newton=1))):
+            with self.subTest(entry=label):
+                with self.assertRaises(NotImplementedError):
+                    call()
+
+    def test_frontend_model_raises_on_a_stacked_point(self):
+        """The reachable path: the optimizers already cannot fit a stacked point (their outer loop casts
+        the objective with float()), so the roll-your-own model is where this bug could actually bite."""
+        residual = np.zeros_like(np.asarray(self.data))
+        with self.assertRaises(NotImplementedError):
+            fitting.apply_model(t3m.MANIFOLD, self.A, self.ww, residual, regularizer=self.reg)
+
+    def test_unstacked_regularized_is_unaffected(self):
+        B = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        data = B.apply(self.ww)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)
+        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY,
+                                            self.ww, data, regularizer=self.reg)
+        _x, stats = opt.newton_cg(problem, x0.data, max_newton=4)
+        self.assertLess(stats['losses'][-1], stats['losses'][0])
+
+    def test_stacked_without_a_regularizer_still_builds_its_model(self):
+        """The guard is about the regularizer only -- an unregularized stacked model is untouched, and
+        its objective keeps the stack."""
+        residual = np.zeros_like(np.asarray(self.data))
+        model = fitting.apply_model(t3m.MANIFOLD, self.A, self.ww, residual)
+        self.assertEqual(np.shape(model.objective_value), (3,))
+
+
 if __name__ == "__main__":
     unittest.main()

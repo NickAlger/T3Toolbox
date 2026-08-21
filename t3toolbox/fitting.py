@@ -78,7 +78,8 @@ import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.shared_geometry as sg
 import t3toolbox.safety as safety
 import t3toolbox.backend.fitting as fb
-import t3toolbox.backend.geometry as bgeo    # the backend geometry a Regularizer leans on (no cycle: backend never imports fitting)
+import t3toolbox.backend.geometry as bgeo
+import t3toolbox.backend.regularization as breg    # the backend geometry a Regularizer leans on (no cycle: backend never imports fitting)
 import t3toolbox.backend.uniform_fitting as ufit
 from t3toolbox.backend.common import *
 
@@ -234,6 +235,10 @@ class GaussNewtonModel:
     regularizer: typ.Any = None    # optional backend.regularization.Regularizer; ρ folded into obj/grad/hessian/quadratic/evaluate
     geometry_aux: typ.Any = None   # per-frame geometry companion (e.g. the SF-T3 SharedFrameData); a jax LEAF
 
+
+    def __post_init__(self):
+        if self.regularizer is not None:
+            breg.require_unstacked_for_regularizer(self.frame.stack_shape, 'GaussNewtonModel')
     def _project(self, v: t3m.T3Tangent) -> t3m.T3Tangent:   # Π with the once-per-model companion
         if self.geometry_aux is not None:
             return self.geometry.project(v, shared_data=self.geometry_aux)
@@ -390,6 +395,10 @@ class UniformGaussNewtonModel:
     regularizer: typ.Any = None      # optional backend.regularization.Regularizer; ρ folded into obj/grad/hessian/quadratic/evaluate
     geometry_aux: typ.Any = None     # per-frame geometry companion (the SF-T3 SharedFrameData); a jax LEAF
 
+
+    def __post_init__(self):
+        if self.regularizer is not None:
+            breg.require_unstacked_for_regularizer(self.frame.stack_shape, 'UniformGaussNewtonModel')
     def _project(self, v: 'ut3m.UT3Tangent') -> 'ut3m.UT3Tangent':   # Π with the once-per-model companion
         if self.geometry_aux is not None:
             return self.geometry.project(v, shared_data=self.geometry_aux)

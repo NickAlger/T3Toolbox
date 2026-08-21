@@ -20,6 +20,33 @@ import typing as typ
 
 import t3toolbox.corewise as cw
 
+__all__ = ['Regularizer', 'IdentityRegularizer', 'require_unstacked_for_regularizer']
+
+
+def require_unstacked_for_regularizer(
+        stack_shape:  typ.Tuple[int, ...],   # C, from geom.stack_shape(x) / frame.stack_shape
+        who:          str,                   # the calling operation, for the message
+) -> None:
+    """Structural guard: a regularized fit of a STACKED point is not implemented -- raise, do not
+    silently mis-weight.
+
+    The data misfit keeps the frame stack ``C`` (``kind.sumsq`` returns one value per stack element)
+    while every regularizer scalar collapses it -- ``point_norm_sq`` and ``inner`` sum every axis. So
+    ``objective = misfit + rho`` would broadcast the WHOLE-STACK regularization total onto each
+    element, inflating the effective ``lambda`` by about ``|C|`` and doing it unevenly (the
+    smallest-norm element takes the largest relative penalty). The regularizer *gradient* is per-element
+    correct, which is what makes the inconsistency easy to miss.
+
+    Structural (a shape question), so it raises in both safety modes and is jit-safe -- shapes are
+    concrete at trace time. Unstacked fits, the overwhelmingly common case, are unaffected."""
+    stack = tuple(stack_shape)
+    if stack:
+        raise NotImplementedError(
+            "%s: a regularizer on a STACKED point (stack C = %r) is not implemented. The data misfit "
+            "keeps the stack (one value per element) but the regularization term collapses it, so the "
+            "whole-stack total would be added to every element. Fit the stack elements separately, or "
+            "drop the regularizer." % (who, stack))
+
 __all__ = [
     'Regularizer',
     'IdentityRegularizer',

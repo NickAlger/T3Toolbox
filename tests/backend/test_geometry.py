@@ -103,6 +103,24 @@ class TestGeometryValueIdentity(unittest.TestCase):
         self.assertEqual(hash(g), hash(copied))
 
 
+class TestStackShape(unittest.TestCase):
+    """Which axes are the stack is a layout question, so the geometry answers it (like base_point)."""
+
+    def test_ragged_and_uniform_agree(self):
+        for stack in [(), (3,), (2, 3)]:
+            with self.subTest(stack=stack):
+                np.random.seed(0)
+                A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT, stack_shape=stack)
+                self.assertEqual(bgeo.ManifoldGeometryOps().stack_shape(A.data), stack)
+                self.assertEqual(bgeo.CorewiseGeometryOps().stack_shape(A.data), stack)
+                x = uf.uniform_minimal(ut3.UniformTuckerTensorTrain.from_t3(A))
+                bare = (x.tucker_supercore, x.tt_supercore)
+                for cls in (bgeo.UniformManifoldGeometryOps, bgeo.UniformCorewiseGeometryOps):
+                    geom = cls.from_point(x.data)
+                    self.assertEqual(geom.stack_shape(bare), stack)
+                    self.assertEqual(geom.n_stack, len(stack))
+
+
 class TestBasePointTangent(unittest.TestCase):
     def test_uniform_variation_shapes_match_the_orthogonal_representation(self):
         """``ufv_base_point_tangent`` must produce the variation supercore shapes that
