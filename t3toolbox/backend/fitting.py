@@ -22,6 +22,7 @@ case. The objective constant ``c = ½‖r‖²`` is just ``½ · sumsq(r)`` (the
 quadratic term ``½‖𝒥Πp‖²``), so the kind needs no separate objective function.
 '''
 
+import functools as ft
 import math
 import typing as typ
 from dataclasses import dataclass
@@ -36,6 +37,12 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'SamplingKind',
+    'ApplyKind',
+    'EntriesKind',
+    'ProbeKind',
+    'ApplyDerivativesKind',
+    'EntriesDerivativesKind',
+    'ProbeDerivativesKind',
     'APPLY',
     'ENTRIES',
     'PROBE',
@@ -257,203 +264,353 @@ def _make_weight(
     return apply_w
 
 
-def _kind_key(
-        wm: typ.Optional[NDArray],   # canonical 2-D ω[m,o] from _weight_matrix, or None
-) -> typ.Optional[typ.Tuple]:        # a hashable, value-equal form of the weight (None stays None)
-    '''The value-hashable form of a residual-weight matrix, for :py:attr:`SamplingKind.identity`.
+# --------------------------------------------------------------------------------------------------
+# The sampling kinds
+#
+# Parameters are FIELDS, not closures (the same rule as backend.geometry): a kind rides as jax
+# ``aux_data``, so its hash/eq are part of the compilation cache key, and a kind rebuilt from the same
+# parameters must be the SAME key or every rebuilt model recompiles. Value-based hash/eq comes from
+# `common.ValueHashedFields` over the fields themselves, so there is nothing to keep in sync -- this
+# replaces the hand-maintained `identity` tuple, which was correct only while someone remembered to
+# extend it and fell back to object identity for a user-built kind that omitted it.
+#
+# What varies factors along three axes, and the class structure follows them rather than the six names:
+#   * output shape  -- scalar (apply/entries) vs a per-mode vector (probe): the `sumsq` / `block_sumsq`
+#                      reductions, supplied by _ScalarOutputKind / _ProbeOutputKind.
+#   * derivative or not -- `has_order`, which adds a leading order axis to the data and one to `n_w`.
+#   * layer         -- ragged here, uniform in `uniform_fitting`, which overrides exactly five methods
+#                      (precompute / forward / transpose / point_forward / take) and the weight axes.
+# --------------------------------------------------------------------------------------------------
+@dataclass(frozen=True, eq=False)   # eq=False + ValueHashedFields: value hash/eq over the fields
+class SamplingKind(ValueHashedFields):
+    """A sampling kind: the bare ``J`` / ``J^T`` for one measurement operator, plus its reductions.
 
-    A weight is host-numpy static structure, so two kinds built from equal weights must compare equal
-    -- otherwise a rebuilt model is a fresh jit cache key. (The uniform model's aux uses the same trick;
-    see :py:func:`t3toolbox.fitting._hashable_weight`.)'''
-    return None if wm is None else tuple(tuple(float(v) for v in row) for row in np.asarray(wm))
+    The *what you measure* axis of a fit. Holds the kind-specific operations the geometry-generic
+    Gauss-Newton model needs -- the bare Jacobian and its transpose (no gauge ``Pi``: that is the
+    geometry's), the ``|.|^2`` reduction over the sample stack, and the point operation ``S(x)`` used to
+    form the residual -- plus the minimal layout the default minibatch draw needs.
 
+    Built-in kinds: :py:data:`APPLY`, :py:data:`ENTRIES`, :py:data:`PROBE` (module singletons) and the
+    parameterized :py:class:`ProbeKind`, :py:class:`ApplyDerivativesKind`,
+    :py:class:`EntriesDerivativesKind`, :py:class:`ProbeDerivativesKind`. The uniform twins are in
+    :py:mod:`t3toolbox.backend.uniform_fitting`.
 
-@dataclass(frozen=True, eq=False)   # eq=False: identity-based equality would make every rebuild a new
-class SamplingKind:                 # jit cache key -- see `identity` and __eq__ below
-    '''A sampling kind's bare primitives, bundled so the GN model is generic over the kind.
+    **Writing your own.** Subclass and supply the five operation methods; you get value identity for free
+    provided your parameters are dataclass fields (that is the point -- a kind whose parameters hide in
+    closures cannot be compared, and silently recompiles).
+    """
 
-    Holds the kind-specific functions the geometry-generic Gauss-Newton model needs -- the bare ``𝒥`` /
-    ``𝒥ᵀ`` (no gauge ``Π``: that is the geometry's), the ``‖·‖²`` reduction, and the sample-stack axis
-    count. The model binds one of :py:data:`APPLY` / :py:data:`ENTRIES` / :py:data:`PROBE`; the geometry
-    supplies ``Π`` around them. ``sample`` is the kind's measurement spec: the probe/apply vectors ``ww``
-    (apply / probe) or the integer grid ``index`` (entries).
-    '''
-    name:           str           # 'apply' / 'entries' / 'probe' (+ '_derivatives')
-    precompute:     typ.Callable   # (frame_data, sample)                        -> frame_sweep
-    forward:        typ.Callable   # (variations_data, sample, frame_data, sweep)-> 𝒥 v  (the bare forward)
-    transpose:      typ.Callable   # (residual, sample, frame_data, sweep)       -> 𝒥ᵀ r (summed over W; raw dU,dG)
-    sumsq:          typ.Callable   # (forward_out, n_w)                         -> ‖forward_out‖² (over W [+order,Ni])
-    w_axes:         typ.Callable   # (sample)                                   -> n_w (leading sample-stack axes)
-    point_forward:  typ.Callable   # (x_cores, sample)                          -> S(x) (the POINT op, for the residual)
-    n_measurements: typ.Callable   # (sample)                                   -> int (flat |W|, for the default draw)
-    take:           typ.Callable   # (sample, data, idx)                        -> (sample_B, data_B) (flat W subset)
-    block_sumsq:    typ.Optional[typ.Callable] = None   # (out, n_w) -> (n_mode, n_order) per-block ‖·‖² (UNWEIGHTED; for the diagnostic table)
+    name:              typ.ClassVar[str] = 'sampling'
+    has_order:         typ.ClassVar[bool] = False   # True for the derivative kinds (leading order axis)
+    has_block_sumsq:   typ.ClassVar[bool] = True    # False disables the diagnostic per-block error table
 
-    identity:       typ.Optional[typ.Tuple] = None      # hashable value-identity: every parameter that
-    #                                                     changes the compiled program (name, order,
-    #                                                     weight key, chunk_size). None -> object identity.
+    # ---- the five operations a layer supplies -------------------------------------------------
+    def precompute(self, frame, sample):
+        """The reusable frame sweep at ``frame`` for ``sample`` (computed once per local model)."""
+        raise NotImplementedError
 
-    def __eq__(self, other):
-        '''Value equality over :py:attr:`identity` -- the parameters, never the closures.
+    def forward(self, variations, sample, frame, sweep):
+        """The bare Jacobian ``J v`` (no gauge)."""
+        raise NotImplementedError
 
-        A kind's fields are lambdas, so the dataclass default (compare every field) makes two kinds built
-        from the SAME parameters unequal: fresh closures are never ``==``. That matters because a
-        :py:class:`~t3toolbox.fitting.GaussNewtonModel` carries its kind as jax pytree **aux_data**, and
-        jax keys its compilation cache on the aux. Under the default, rebuilding the model at each outer
-        step -- which is exactly the documented "roll your own optimizer" pattern -- recompiled every
-        step for the parameterized kinds (the singletons ``APPLY``/``ENTRIES``/``PROBE`` were fine, being
-        one shared object). Comparing the identity instead makes a rebuilt kind the same cache key, as
-        the uniform model already achieved by keeping ``kind_name`` + a value-hashed weight in its aux.'''
-        if not isinstance(other, SamplingKind):
-            return NotImplemented
-        if self.identity is None or other.identity is None:
-            return self is other          # unparameterized/hand-built: fall back to object identity
-        return self.identity == other.identity
+    def transpose(self, residual, sample, frame, sweep):
+        """The bare transpose ``J^T r``, summed over the sample stack ``W``; raw ``(dU, dG)``."""
+        raise NotImplementedError
 
-    def __hash__(self):
-        return id(self) if self.identity is None else hash(self.identity)
+    def point_forward(self, x_cores, sample):
+        """The point operation ``S(x)`` -- what the residual is measured against."""
+        raise NotImplementedError
 
+    def take(self, sample, data, idx):
+        """Gather a flat ``W`` subset of ``(sample, data)`` -- the default minibatch draw's layout hook."""
+        raise NotImplementedError
 
-APPLY = SamplingKind(
-    name='apply',
-    identity=('apply',),
-    precompute=lambda frame, ww: bapply.tv_precompute_apply_frame_sweep(frame, ww),
-    forward=lambda v, ww, frame, bs: bapply.tv_apply_jacobian_from_sweep(v, ww, frame, bs),
-    transpose=lambda r, ww, frame, bs: bapply.tv_apply_transpose_from_sweep(r, ww, frame, bs, sum_over_probes=True),
-    sumsq=sumsq_over_samples,
-    w_axes=lambda ww: ww[0].ndim - 1,
-    point_forward=lambda x_cores, ww: bapply.t3_apply(x_cores, ww),
-    n_measurements=lambda ww: _prod_w(ww[0], 0, ww[0].ndim - 1),
-    take=_take_apply,
-    block_sumsq=lambda out, n_w: block_sumsq_over_samples(out, n_w, has_order=False),
-)
+    # ---- sample layout ------------------------------------------------------------------------
+    def w_axes(self, sample):
+        """The number of leading sample-stack (``W``) axes."""
+        raise NotImplementedError
 
-ENTRIES = SamplingKind(
-    name='entries',
-    identity=('entries',),
-    precompute=lambda frame, index: bentries.tv_precompute_entries_frame_sweep(frame, index),
-    forward=lambda v, index, frame, bs: bentries.tv_entries_jacobian_from_sweep(v, index, frame, bs),
-    transpose=lambda r, index, frame, bs: bentries.tv_entries_transpose_from_sweep(r, index, frame, bs, sum_over_probes=True),
-    sumsq=sumsq_over_samples,
-    w_axes=lambda index: index.ndim - 1,
-    point_forward=lambda x_cores, index: bentries.t3_entries(x_cores, index),
-    n_measurements=lambda index: _prod_w(index, 1, index.ndim - 1),
-    take=_take_entries,
-    block_sumsq=lambda out, n_w: block_sumsq_over_samples(out, n_w, has_order=False),
-)
+    def n_measurements(self, sample):
+        """The flat ``|W|`` measurement count, for the default draw."""
+        raise NotImplementedError
 
-def probe_kind(
-        weight: typ.Optional[typ.Any] = None,  # per-mode residual weight ω, (d,) / (d,1); None = 1 (unweighted)
-) -> SamplingKind:                             # the vector-valued `probe` kind (optionally per-mode weighted)
-    '''The **probe** sampling kind (vector-valued: one free mode per probe), optionally **per-mode**
-    weighted. Mode weighting is the order-0 special case of the same residual-weight machinery as the
-    derivative kinds: the objective is ``½ Σ_i ‖ω_i z_i‖²`` over the ``d`` per-mode probe residuals ``z_i``,
-    so ``ω`` (a per-mode scalar) enters ``sumsq`` (×ω) and ``transpose`` (×ω²) only. ``weight=None`` is the
-    plain unweighted probe (``PROBE``). Plain probe has no order axis, so the weight is a 1-D ``(d,)``
-    per-mode vector -- the frontend enforces that (rejecting a 2-D ``(d, 1)``; see
-    :py:func:`t3toolbox.fitting.probe_model`).'''
-    wm = _weight_matrix(weight, 0, 'mode')                  # ragged probe list; per-mode scalar (o = 1)
-    aw = _make_weight(wm)
-    return SamplingKind(
-        name='probe',
-        identity=('probe', _kind_key(wm)),
-        precompute=lambda frame, ww: probing.tv_precompute_probe_frame_sweep(frame, ww),
-        forward=lambda v, ww, frame, bs: probing.tv_probe_jacobian_from_sweep(v, ww, frame, bs),
-        transpose=lambda r, ww, frame, bs: probing.tv_probe_transpose_from_sweep(aw(r, 2), ww, frame, bs, sum_over_probes=True),
-        sumsq=lambda out, n_w: sumsq_over_probes(aw(out, 1), n_w),
-        w_axes=lambda ww: ww[0].ndim - 1,
-        point_forward=lambda x_cores, ww: probing.t3_probe(ww, x_cores),
-        n_measurements=lambda ww: _prod_w(ww[0], 0, ww[0].ndim - 1),
-        take=_take_probe,
-        block_sumsq=lambda out, n_w: block_sumsq_over_probes(out, n_w, has_order=False),
-    )
+    # ---- reductions (supplied by the output-shape bases below) --------------------------------
+    def sumsq(self, out, n_w):
+        """``|out|^2`` over ``W`` (and the order / free-mode axes), keeping the frame stack ``C``."""
+        raise NotImplementedError
+
+    def block_sumsq(self, out, n_w):
+        """Per-``(mode, order)`` ``|.|^2`` -> a 2-D matrix; UNWEIGHTED (the honest diagnostic table)."""
+        raise NotImplementedError
+
+    # ---- the residual weight -------------------------------------------------------------------
+    _bare_binds_to:  typ.ClassVar[str] = 'order'          # what a 1-D weight means (see _weight_matrix)
+    _order_axis:     typ.ClassVar[typ.Optional[int]] = 0  # omega's order axis in an ARRAY output
+    _mode_axis:      typ.ClassVar[typ.Optional[int]] = None   # omega's mode axis in an ARRAY output
+
+    @property
+    def weight(self):
+        """The canonical 2-D ``omega[mode, order]``, or ``None``. Unweightable kinds have no weight."""
+        return None
+
+    @ft.cached_property
+    def _apply_weight(self):
+        """``apply_w(x, power) = x * omega**power`` for this kind's output layout."""
+        return _make_weight(self.weight, self._order_axis, self._mode_axis)
 
 
-PROBE = probe_kind()   # the plain unweighted probe kind (a module singleton, as APPLY / ENTRIES)
+@dataclass(frozen=True, eq=False)
+class _ScalarOutputKind(SamplingKind):
+    """Kinds whose output is a scalar per measurement (apply / entries): every mode is contracted, so
+    there is no mode axis and a per-mode weight is a structural error."""
+
+    def sumsq(self, out, n_w):
+        return sumsq_over_samples(self._apply_weight(out, 1), n_w + (1 if self.has_order else 0))
+
+    def block_sumsq(self, out, n_w):
+        return block_sumsq_over_samples(out, n_w, has_order=self.has_order)
+
+
+@dataclass(frozen=True, eq=False)
+class _ProbeOutputKind(SamplingKind):
+    """Kinds whose output is a vector per measurement per mode (probe): one free mode each, so the
+    reduction also sums the free mode and the kind carries a mode axis to weight."""
+
+    def sumsq(self, out, n_w):
+        return sumsq_over_probes(self._apply_weight(out, 1), n_w + (1 if self.has_order else 0))
+
+    def block_sumsq(self, out, n_w):
+        return block_sumsq_over_probes(out, n_w, has_order=self.has_order)
 
 
 # --------------------------------------------------------------------------------------------------
-# Derivative sampling kinds (the symmetric directional-derivative jets of apply/entries/probe). The
-# operator is parameterized by `order` (highest derivative order) + an optional residual weight `weight`
-# (ω[mode, order], a matrix -- `_weight_matrix`/`_make_weight`). `sample` is the paired `(ww, pp)` /
-# `(index, pp)`; the data + outputs gain a leading order axis, so `sumsq`/`w_axes` count it via `n_w + 1`.
-# ω enters only `sumsq` (×ω) and `transpose` (×ω²); `forward`/`point_forward` are raw (the user passes RAW
-# data + ω). apply/entries contract every mode into a scalar -- no mode axis -- so they take an ORDER-ONLY
-# weight (a per-mode weight is a structural error, caught in `_make_weight`); only probe is mode-weightable
-# (`(d, order+1)`). See dev/archive/derivative_fitting_plan.md §5 and dev/per_mode_weighting_plan.md.
+# Sample-layout mixins -- where W lives differs by sample type, not by kind
 # --------------------------------------------------------------------------------------------------
-def apply_derivatives_kind(
-        order:  int,                                # highest derivative order
-        weight: typ.Optional[typ.Any] = None,       # ORDER-only residual weight ω, (order+1,); None = 1
-) -> SamplingKind:                                  # sample = (ww, pp); data = (order+1)+W
-    '''The **apply-derivatives** sampling kind (operator only): symmetric directional derivatives of the
-    all-modes apply, orders ``0..order``, in direction ``P``. ``sample = (ww, pp)``. All-modes apply has no
-    mode axis, so ``weight`` is **order-only** (a per-mode weight raises -- mode weighting is probe-only).'''
-    wm = _weight_matrix(weight, order, 'order')
-    aw = _make_weight(wm)
-    return SamplingKind(
-        name='apply_derivatives',
-        identity=('apply_derivatives', order, _kind_key(wm)),
-        precompute=lambda frame, s: pd.tv_precompute_apply_frame_sweep_jets(frame, s[0], s[1], order),
-        forward=lambda v, s, frame, bs: pd.tv_apply_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, bs, order),
-        transpose=lambda r, s, frame, bs: pd.tv_apply_transpose_derivatives_from_sweep(
-            aw(r, 2), s[0], s[1], frame, bs, order, sum_over_probes=True),
-        sumsq=lambda out, n_w: sumsq_over_samples(aw(out, 1), n_w + 1),
-        w_axes=lambda s: s[0][0].ndim - 1,
-        point_forward=lambda x_cores, s: pd.t3_apply_derivatives(s[0], s[1], x_cores, order),
-        n_measurements=lambda s: _prod_w(s[0][0], 0, s[0][0].ndim - 1),
-        take=_take_deriv_apply,
-        block_sumsq=lambda out, n_w: block_sumsq_over_samples(out, n_w, has_order=True),
-    )
+class _WwSample:
+    """``sample = ww`` (a list of d probe/apply vector stacks)."""
+    def w_axes(self, sample):
+        return sample[0].ndim - 1
+
+    def n_measurements(self, sample):
+        return _prod_w(sample[0], 0, sample[0].ndim - 1)
 
 
-def entries_derivatives_kind(
-        order:  int,
-        weight: typ.Optional[typ.Any] = None,       # ORDER-only residual weight ω, (order+1,); None = 1
-) -> SamplingKind:                                  # sample = (index, pp); data = (order+1)+W
-    '''The **entries-derivatives** sampling kind: like :py:func:`apply_derivatives_kind` but at integer
-    grid points. ``sample = (index, pp)``. Order-only ``weight`` (no mode axis -- mode weighting is
-    probe-only).'''
-    wm = _weight_matrix(weight, order, 'order')
-    aw = _make_weight(wm)
-    return SamplingKind(
-        name='entries_derivatives',
-        identity=('entries_derivatives', order, _kind_key(wm)),
-        precompute=lambda frame, s: pd.tv_precompute_entries_frame_sweep_jets(frame, s[0], s[1], order),
-        forward=lambda v, s, frame, bs: pd.tv_entries_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, bs, order),
-        transpose=lambda r, s, frame, bs: pd.tv_entries_transpose_derivatives_from_sweep(
-            aw(r, 2), s[0], s[1], frame, bs, order, sum_over_probes=True),
-        sumsq=lambda out, n_w: sumsq_over_samples(aw(out, 1), n_w + 1),
-        w_axes=lambda s: s[0].ndim - 1,
-        point_forward=lambda x_cores, s: pd.t3_entries_derivatives(s[0], s[1], x_cores, order),
-        n_measurements=lambda s: _prod_w(s[0], 1, s[0].ndim - 1),
-        take=_take_deriv_entries,
-        block_sumsq=lambda out, n_w: block_sumsq_over_samples(out, n_w, has_order=True),
-    )
+class _IndexSample:
+    """``sample = index`` (an integer grid, mode index leading)."""
+    def w_axes(self, sample):
+        return sample.ndim - 1
+
+    def n_measurements(self, sample):
+        return _prod_w(sample, 1, sample.ndim - 1)
 
 
-def probe_derivatives_kind(
-        order:      int,
-        weight:     typ.Optional[typ.Any] = None,   # residual weight ω[mode,order], (d,order+1) broadcast; None = 1
-        chunk_size: typ.Optional[int] = 100,        # W-chunk size for the 𝒥ᵀ gradient assembly (docs/chunking.md)
-) -> SamplingKind:                                  # sample = (ww, pp); data = list of d, (order+1)+W+(Ni,)
-    '''The **probe-derivatives** sampling kind: vector-valued (one free mode per probe), so the residual
-    / output is a list of ``d`` arrays. ``sample = (ww, pp)``. Probe has both a mode and an order axis, so
-    ``weight`` is the full ``ω[mode, order]`` matrix ``(d, order+1)`` (a row ``(order+1,)`` = per-order, a
-    column ``(d, 1)`` = per-mode, a matrix = both).'''
-    wm = _weight_matrix(weight, order, 'order')
-    aw = _make_weight(wm)
-    return SamplingKind(
-        name='probe_derivatives',
-        identity=('probe_derivatives', order, _kind_key(wm), chunk_size),
-        precompute=lambda frame, s: pd.tv_precompute_probe_frame_sweep_jets(frame, s[0], s[1], order),
-        forward=lambda v, s, frame, bs: pd.tv_probe_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, bs, order),
-        transpose=lambda r, s, frame, bs: pd.tv_probe_transpose_derivatives_from_sweep(
-            aw(r, 2), s[0], s[1], frame, bs, order, sum_over_probes=True, chunk_size=chunk_size),
-        sumsq=lambda out, n_w: sumsq_over_probes(aw(out, 1), n_w + 1),
-        w_axes=lambda s: s[0][0].ndim - 1,
-        point_forward=lambda x_cores, s: pd.t3_probe_derivatives(s[0], s[1], x_cores, order),
-        n_measurements=lambda s: _prod_w(s[0][0], 0, s[0][0].ndim - 1),
-        take=_take_deriv_probe,
-        block_sumsq=lambda out, n_w: block_sumsq_over_probes(out, n_w, has_order=True),
-    )
+class _WwPpSample:
+    """``sample = (ww, pp)`` -- the derivative pairing."""
+    def w_axes(self, sample):
+        return sample[0][0].ndim - 1
+
+    def n_measurements(self, sample):
+        return _prod_w(sample[0][0], 0, sample[0][0].ndim - 1)
+
+
+class _IndexPpSample:
+    """``sample = (index, pp)`` -- the derivative pairing at grid points."""
+    def w_axes(self, sample):
+        return sample[0].ndim - 1
+
+    def n_measurements(self, sample):
+        return _prod_w(sample[0], 1, sample[0].ndim - 1)
+
+
+# --------------------------------------------------------------------------------------------------
+# The six ragged kinds
+# --------------------------------------------------------------------------------------------------
+@dataclass(frozen=True, eq=False)
+class ApplyKind(_WwSample, _ScalarOutputKind):
+    """The all-modes ``apply``: one scalar per measurement. Unweighted (no mode or order axis)."""
+
+    name = 'apply'
+
+    def precompute(self, frame, ww):
+        return bapply.tv_precompute_apply_frame_sweep(frame, ww)
+
+    def forward(self, v, ww, frame, sweep):
+        return bapply.tv_apply_jacobian_from_sweep(v, ww, frame, sweep)
+
+    def transpose(self, r, ww, frame, sweep):
+        return bapply.tv_apply_transpose_from_sweep(r, ww, frame, sweep, sum_over_probes=True)
+
+    def point_forward(self, x_cores, ww):
+        return bapply.t3_apply(x_cores, ww)
+
+    def take(self, sample, data, idx):
+        return _take_apply(sample, data, idx)
+
+
+@dataclass(frozen=True, eq=False)
+class EntriesKind(_IndexSample, _ScalarOutputKind):
+    """The all-modes ``entries``: one scalar per multi-index. Unweighted."""
+
+    name = 'entries'
+
+    def precompute(self, frame, index):
+        return bentries.tv_precompute_entries_frame_sweep(frame, index)
+
+    def forward(self, v, index, frame, sweep):
+        return bentries.tv_entries_jacobian_from_sweep(v, index, frame, sweep)
+
+    def transpose(self, r, index, frame, sweep):
+        return bentries.tv_entries_transpose_from_sweep(r, index, frame, sweep, sum_over_probes=True)
+
+    def point_forward(self, x_cores, index):
+        return bentries.t3_entries(x_cores, index)
+
+    def take(self, sample, data, idx):
+        return _take_entries(sample, data, idx)
+
+
+@dataclass(frozen=True, eq=False)
+class ProbeKind(_WwSample, _ProbeOutputKind):
+    """The vector-valued ``probe`` (one free mode per measurement), optionally **per-mode** weighted.
+
+    Mode weighting is the order-0 case of the same residual-weight machinery as the derivative kinds:
+    the objective is ``1/2 sum_i |omega_i z_i|^2``, so ``omega`` enters ``sumsq`` (x omega) and
+    ``transpose`` (x omega^2) only. Plain probe has no order axis, so the weight is a 1-D ``(d,)``
+    per-mode vector."""
+
+    name = 'probe'
+    _bare_binds_to = 'mode'
+
+    residual_weight:  typ.Optional[typ.Any] = None   # per-mode omega, (d,) / (d,1); None = unweighted
+
+    def __post_init__(self):
+        # canonicalize once, so equal-but-differently-spelled weights are the SAME cache key
+        object.__setattr__(self, 'residual_weight', _weight_matrix(self.residual_weight, 0, self._bare_binds_to))
+
+    @property
+    def weight(self):
+        return self.residual_weight
+
+    def precompute(self, frame, ww):
+        return probing.tv_precompute_probe_frame_sweep(frame, ww)
+
+    def forward(self, v, ww, frame, sweep):
+        return probing.tv_probe_jacobian_from_sweep(v, ww, frame, sweep)
+
+    def transpose(self, r, ww, frame, sweep):
+        return probing.tv_probe_transpose_from_sweep(self._apply_weight(r, 2), ww, frame, sweep,
+                                                     sum_over_probes=True)
+
+    def point_forward(self, x_cores, ww):
+        return probing.t3_probe(ww, x_cores)
+
+    def take(self, sample, data, idx):
+        return _take_probe(sample, data, idx)
+
+
+@dataclass(frozen=True, eq=False)
+class _DerivativesKind(SamplingKind):
+    """Shared parameters of the symmetric directional-derivative (jet) kinds: the highest ``order`` and
+    an optional residual weight. The data and outputs gain a leading order axis, so the reductions count
+    it via ``n_w + 1``; ``omega`` enters ``sumsq`` (x omega) and ``transpose`` (x omega^2) only, leaving
+    ``forward`` / ``point_forward`` raw (the user passes RAW data + omega)."""
+
+    has_order = True
+
+    order:            int = 0                        # highest derivative order
+    residual_weight:  typ.Optional[typ.Any] = None   # omega; see the concrete kinds for its shape
+
+    def __post_init__(self):
+        object.__setattr__(self, 'residual_weight',
+                           _weight_matrix(self.residual_weight, self.order, self._bare_binds_to))
+
+    @property
+    def weight(self):
+        return self.residual_weight
+
+
+@dataclass(frozen=True, eq=False)
+class ApplyDerivativesKind(_WwPpSample, _ScalarOutputKind, _DerivativesKind):
+    """Symmetric directional derivatives of the all-modes apply, orders ``0..order``, in direction ``P``.
+    ``sample = (ww, pp)``. All-modes apply has no mode axis, so ``weight`` is **order-only**."""
+
+    name = 'apply_derivatives'
+
+    def precompute(self, frame, s):
+        return pd.tv_precompute_apply_frame_sweep_jets(frame, s[0], s[1], self.order)
+
+    def forward(self, v, s, frame, sweep):
+        return pd.tv_apply_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, sweep, self.order)
+
+    def transpose(self, r, s, frame, sweep):
+        return pd.tv_apply_transpose_derivatives_from_sweep(
+            self._apply_weight(r, 2), s[0], s[1], frame, sweep, self.order, sum_over_probes=True)
+
+    def point_forward(self, x_cores, s):
+        return pd.t3_apply_derivatives(s[0], s[1], x_cores, self.order)
+
+    def take(self, sample, data, idx):
+        return _take_deriv_apply(sample, data, idx)
+
+
+@dataclass(frozen=True, eq=False)
+class EntriesDerivativesKind(_IndexPpSample, _ScalarOutputKind, _DerivativesKind):
+    """:py:class:`ApplyDerivativesKind` at integer grid points. ``sample = (index, pp)``. Order-only weight."""
+
+    name = 'entries_derivatives'
+
+    def precompute(self, frame, s):
+        return pd.tv_precompute_entries_frame_sweep_jets(frame, s[0], s[1], self.order)
+
+    def forward(self, v, s, frame, sweep):
+        return pd.tv_entries_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, sweep, self.order)
+
+    def transpose(self, r, s, frame, sweep):
+        return pd.tv_entries_transpose_derivatives_from_sweep(
+            self._apply_weight(r, 2), s[0], s[1], frame, sweep, self.order, sum_over_probes=True)
+
+    def point_forward(self, x_cores, s):
+        return pd.t3_entries_derivatives(s[0], s[1], x_cores, self.order)
+
+    def take(self, sample, data, idx):
+        return _take_deriv_entries(sample, data, idx)
+
+
+@dataclass(frozen=True, eq=False)
+class ProbeDerivativesKind(_WwPpSample, _ProbeOutputKind, _DerivativesKind):
+    """Vector-valued derivative probing: the residual is a list of ``d`` order-leading arrays.
+    ``sample = (ww, pp)``. Probe has both a mode and an order axis, so ``weight`` is the full
+    ``omega[mode, order]`` matrix (a row = per-order, a column = per-mode, a matrix = both)."""
+
+    name = 'probe_derivatives'
+
+    chunk_size:  typ.Optional[int] = 100   # W-chunk size for the J^T assembly (docs/chunking.md)
+
+    def precompute(self, frame, s):
+        return pd.tv_precompute_probe_frame_sweep_jets(frame, s[0], s[1], self.order)
+
+    def forward(self, v, s, frame, sweep):
+        return pd.tv_probe_jacobian_derivatives_from_sweep(v, s[0], s[1], frame, sweep, self.order)
+
+    def transpose(self, r, s, frame, sweep):
+        return pd.tv_probe_transpose_derivatives_from_sweep(
+            self._apply_weight(r, 2), s[0], s[1], frame, sweep, self.order,
+            sum_over_probes=True, chunk_size=self.chunk_size)
+
+    def point_forward(self, x_cores, s):
+        return pd.t3_probe_derivatives(s[0], s[1], x_cores, self.order)
+
+    def take(self, sample, data, idx):
+        return _take_deriv_probe(sample, data, idx)
+
+
+APPLY = ApplyKind()      # the plain module singletons
+ENTRIES = EntriesKind()
+PROBE = ProbeKind()
+
+# Constructor aliases -- the pre-class spelling, kept because it reads better at a call site
+# (`probe_derivatives_kind(order, weight)`) and because it is the documented public surface.
+probe_kind = ProbeKind
+apply_derivatives_kind = ApplyDerivativesKind
+entries_derivatives_kind = EntriesDerivativesKind
+probe_derivatives_kind = ProbeDerivativesKind

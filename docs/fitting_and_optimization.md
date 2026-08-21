@@ -205,11 +205,18 @@ shared-factor submanifold, and every optimizer works on it unchanged. See [`shar
         manifold.py               (MANIFOLD/COREWISE geometries; T3Tangent; retract/project/frame)
 ```
 
-- **`SamplingKind`** (`backend/fitting.py`) — bundles the kind-specific functions the GN model needs:
-  `precompute` (the reusable frame sweep), `forward` (`𝒥v`), `transpose` (`𝒥ᵀr`, summed over `W`), `sumsq`
-  (the `‖·‖²` reduction), `w_axes`, plus `point_forward` (`S(x)`, for the residual) and the minimal layout
-  for the default draw (`n_measurements`, `take`). It carries **no gauge** — that's the geometry's.
-  Singletons `APPLY`/`ENTRIES`/`PROBE`; parameterized constructors `*_derivatives_kind(order, weight)`.
+- **`SamplingKind`** (`backend/fitting.py`) — the operations the GN model needs for one measurement
+  operator: `precompute` (the reusable frame sweep), `forward` (`𝒥v`), `transpose` (`𝒥ᵀr`, summed over
+  `W`), `sumsq` (the `‖·‖²` reduction), `w_axes`, plus `point_forward` (`S(x)`, for the residual) and the
+  minimal layout for the default draw (`n_measurements`, `take`). It carries **no gauge** — that's the
+  geometry's. Singletons `APPLY`/`ENTRIES`/`PROBE`; parameterized
+  `ProbeKind` / `*DerivativesKind`, also spelled `*_derivatives_kind(order, weight)`.
+
+  **Writing your own** — subclass and supply the five operations. Keep your parameters as dataclass
+  **fields**: a kind rides as jax `aux_data`, so its hash/eq are part of the compilation cache key, and
+  fields give you value identity (a rebuilt kind is the *same* key, a differently-parameterized one is
+  not) for free. Deriving a variant by copying an existing kind and swapping a function is exactly what
+  the field-based identity prevents — a variant is a subclass, which is a distinct type.
 - **`Geometry`** (`manifold.py` `MANIFOLD`/`COREWISE`; `backend/geometry.py`) — `frame(x)` (the frame),
   `project` (the gauge `Π`), `retract`, plus the Hilbert-Schmidt `inner`/`norm`, and an optional
   `precompute(frame)` returning a per-frame **geometry aux** that `project`/`retract` then receive. The

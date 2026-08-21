@@ -16,6 +16,7 @@ import t3toolbox.uniform_frame_variations_format as ubv
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.optimizers as bopt
+import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.apply as bapply
 import t3toolbox.backend.fitting as bfit
@@ -98,7 +99,7 @@ class TestUniformSamplingKind(unittest.TestCase):
         self.var = ubv.UT3Variations.randn_like(self.frame)
         self.frame_r = self.frame.to_t3frame()               # equivalent ragged frame
         self.var_r = self.var.to_t3variations()            # equivalent ragged variation
-        self.vmask = uf._var_masks_from_frame(self.frame.data)
+        self.vmask = ufv_masking.ufv_variation_masks(self.frame.data[5])
 
     def _sample(self, is_index, W=15):
         shape = _STRUCT[0]
@@ -180,18 +181,18 @@ class TestUniformBlockSumsq(unittest.TestCase):
         # plain probe: ragged residual = list of d (W+(Ni,)); packed = (d,)+W+(N,)
         r_probe = [rng.standard_normal((W, n)) for n in shape]
         bs_ragged = np.asarray(bfit.PROBE.block_sumsq(r_probe, 1))
-        bs_uniform = np.asarray(uf.uniform_probe_kind(x.data).block_sumsq(uops.pack_if_ragged(r_probe, N), 1))
+        bs_uniform = np.asarray(uf.UniformProbeKind.from_point(x.data).block_sumsq(uops.pack_if_ragged(r_probe, N), 1))
         self.assertEqual(bs_ragged.shape, (len(shape), 1))
         self.assertTrue(np.allclose(bs_ragged, bs_uniform))
         # probe derivatives: ragged = list of d ((order+1)+W+(Ni,)); packed = (d,)+(order+1)+W+(N,)
         r_jet = [rng.standard_normal((order + 1, W, n)) for n in shape]
         bd_ragged = np.asarray(bfit.probe_derivatives_kind(order).block_sumsq(r_jet, 1))
-        bd_uniform = np.asarray(uf.uniform_probe_derivatives_kind(x.data, order)
+        bd_uniform = np.asarray(uf.UniformProbeDerivativesKind.from_point(x.data, order=order)
                                 .block_sumsq(uops.pack_if_ragged(r_jet, N), 1))
         self.assertEqual(bd_ragged.shape, (len(shape), order + 1))
         self.assertTrue(np.allclose(bd_ragged, bd_uniform))
         # apply/entries kinds have no mode axis -> they INHERIT the ragged (scalar-output) block_sumsq
-        self.assertEqual(np.asarray(uf.uniform_apply_kind(x.data).block_sumsq(rng.standard_normal((W,)), 1)).shape,
+        self.assertEqual(np.asarray(uf.UniformApplyKind.from_point(x.data).block_sumsq(rng.standard_normal((W,)), 1)).shape,
                          (1, 1))
 
 
@@ -251,7 +252,7 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
         self.var = ubv.UT3Variations.randn_like(self.frame)
         self.frame_r = self.frame.to_t3frame()
         self.var_r = self.var.to_t3variations()
-        self.vmask = uf._var_masks_from_frame(self.frame.data)
+        self.vmask = ufv_masking.ufv_variation_masks(self.frame.data[5])
         _wmat = bfit._weight_matrix(self._WEIGHT, self._ORDER, 'order')
         self.aw = bfit._make_weight(_wmat, order_axis=0, mode_axis=None)          # order-leading (apply/entries)
         self.aw_packed = bfit._make_weight(_wmat, order_axis=1, mode_axis=0)      # packed probe: order at axis 1

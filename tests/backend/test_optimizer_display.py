@@ -158,10 +158,18 @@ class TestMakeNewtonDisplay(unittest.TestCase):
         self.assertLess(float(records[-1]['train_err'].mean()), float(records[0]['train_err'].mean()))
 
     def test_needs_block_sumsq(self):
-        """A kind without block_sumsq raises a clear error (all built-in kinds provide it)."""
-        prob, ww, data, _, _ = self._probe_problem()
+        """A kind that does not provide block_sumsq raises a clear error (all built-in kinds do).
+
+        A kind is a class now, so "no block_sumsq" is a subclass declaring ``has_block_sumsq = False``
+        rather than a field set to None."""
         import dataclasses as dc
-        prob_no_bs = dc.replace(prob, kind=dc.replace(prob.kind, block_sumsq=None))
+
+        @dc.dataclass(frozen=True, eq=False)
+        class ProbeKindWithoutBlockSumsq(bfit.ProbeKind):
+            has_block_sumsq = False
+
+        prob, ww, data, _, _ = self._probe_problem()
+        prob_no_bs = dc.replace(prob, kind=ProbeKindWithoutBlockSumsq())
         with self.assertRaises(ValueError):
             bdisp.make_newton_display(prob_no_bs)
 

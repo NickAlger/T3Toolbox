@@ -204,11 +204,12 @@ def make_newton_display(
     denominators). Each call: recomputes the residual block norms, forms the train (and, if ``val_data``
     is given, validation -- one extra ``point_forward``, no transpose/sweep) relative-error matrices,
     prints via ``print_fn``, and appends a self-contained record (the scalar fields + ``train_err`` /
-    ``val_err``). Requires ``problem.kind.block_sumsq`` (all built-in kinds have it)."""
+    ``val_err``). Requires ``problem.kind.has_block_sumsq`` (all built-in kinds have it)."""
     kind = problem.kind
-    if kind.block_sumsq is None:
+    if not kind.has_block_sumsq:
         raise ValueError("this sampling kind has no block_sumsq -- the relative-error table needs it "
-                         "(all built-in kinds provide it; a custom kind must set the block_sumsq field).")
+                         "(all built-in kinds provide it; a custom kind must implement block_sumsq and "
+                         "set has_block_sumsq = True).")
     n_w = kind.w_axes(problem.sample)
     data_bs = np.asarray(kind.block_sumsq(problem.data, n_w), dtype=float)
     have_val = val_data is not None

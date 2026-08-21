@@ -547,7 +547,7 @@ class ValueHashedFields:
         return tuple(self._value_key(getattr(self, f.name)) for f in dc.fields(self))
 
     def __hash__(self) -> int:
-        return hash(self._fields_key)
+        return hash((type(self), self._fields_key))   # type included: field-free siblings must not collide
 
     def __eq__(self, other) -> bool:
         if self is other:

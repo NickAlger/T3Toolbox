@@ -42,13 +42,13 @@ from t3toolbox.backend import sharing as sharing_module
 from t3toolbox.backend.common import *
 
 __all__ = [
-    'uniform_apply_kind',
-    'uniform_entries_kind',
-    'uniform_probe_kind',
+    'UniformApplyKind',
+    'UniformEntriesKind',
+    'UniformProbeKind',
+    'UniformApplyDerivativesKind',
+    'UniformEntriesDerivativesKind',
+    'UniformProbeDerivativesKind',
     'uniform_sampling_kind',
-    'uniform_apply_derivatives_kind',
-    'uniform_entries_derivatives_kind',
-    'uniform_probe_derivatives_kind',
     'uniform_derivatives_kind',
     'uniform_minimal',
     'uniform_least_squares_problem',
@@ -58,184 +58,205 @@ __all__ = [
 
 
 # --------------------------------------------------------------------------------------------------
-# SamplingKind builders -- the uniform twins of backend.fitting.{APPLY,ENTRIES,PROBE}. Only the four
-# layer-specific fields (precompute / forward / transpose / point_forward) differ; the layer-agnostic
-# reductions and default-draw layout (sumsq / w_axes / n_measurements / take) are reused verbatim from
-# the ragged kind via `dataclasses.replace`. `forward` derives the variation masks from the frame it is
-# handed (the `(up, down, left[:-1], right[1:])` gauge shift -- valid for BOTH the orthonormal manifold
-# frame and the (U,G,G,G) corewise frame), so the kind is geometry-agnostic; only `point_forward` (the
-# S(x) op on the plain-UT3 point) closes over the plain-UT3 shape + edge masks.
+# The uniform sampling kinds -- subclasses of the ragged ones (backend.fitting) that override exactly
+# the five layer-specific operations (precompute / forward / transpose / point_forward / take) and, for
+# the probe kinds, where omega's axes sit in the PACKED output. The layer-agnostic half -- the
+# reductions, the sample layout, the residual-weight machinery, and the value identity -- is inherited.
+#
+# Each carries the fixed rank it is built at (`shape` + the plain-UT3 `masks`) as FIELDS, so a rebuilt
+# kind of the same rank is the same jax cache key (the same rule as backend.geometry). `forward` derives
+# the variation masks from the frame it is handed, so the kinds stay geometry-agnostic; only
+# `point_forward` (the S(x) op on the plain-UT3 point) needs the held shape + masks.
 # --------------------------------------------------------------------------------------------------
-def _var_masks_from_frame(frame_data):
-    """The variation masks of a frame -- the gauge shift, applied to the frame's own rank masks."""
-    return ufv_masking.ufv_variation_masks(frame_data[5])
+@dc.dataclass(frozen=True, eq=False)
+class _UniformKind:
+    """The fixed rank a uniform kind is built at. Defaults so the field ordering works alongside the
+    inherited defaulted parameters (Python 3.9 has no ``kw_only``); use :py:meth:`from_point`."""
+
+    shape:  typ.Tuple[int, ...] = ()   # the mode sizes
+    masks:  typ.Tuple = ()             # plain-UT3 (tucker_edge_mask, tt_edge_mask); HOST numpy
+
+    @classmethod
+    def from_point(cls, x0_data, **parameters):
+        """The kind at ``x0``'s fixed rank; ``parameters`` are the kind's own (order / weight / chunk)."""
+        _tk_sc, _tt_sc, shape, base_masks = x0_data
+        return cls(shape=tuple(shape), masks=tuple(base_masks), **parameters)
+
+    @property
+    def _point(self):
+        """A plain-UT3 ``.data`` shim for the point operation, given the bare supercore pair."""
+        return lambda x_sc: (x_sc[0], x_sc[1], self.shape, self.masks)
+
+    @staticmethod
+    def _variations(v_sc, frame_data):
+        """A bare variation supercore pair as variation ``.data``, masked by the frame's gauge shift."""
+        return (v_sc[0], v_sc[1], frame_data[4], ufv_masking.ufv_variation_masks(frame_data[5]))
 
 
-def uniform_apply_kind(
-        x0_data:  typ.Tuple,   # UniformTuckerTensorTrain.data = (tk_sc, tt_sc, shape, (tucker_mask, tt_mask))
-) -> bfit.SamplingKind:        # the uniform all-modes `apply` sampling kind at x0's fixed rank
-    """The uniform **apply** ``SamplingKind`` -- the twin of :py:data:`t3toolbox.backend.fitting.APPLY`."""
-    _tk, _tt, shape, base_masks = x0_data
-    return dc.replace(
-        bfit.APPLY,
-        precompute=lambda frame_data, ww: utv_sampling.utv_precompute_apply_frame_sweep(frame_data, ww),
-        forward=lambda v_sc, ww, frame_data, sweep: utv_sampling.utv_apply_jacobian_from_sweep(
-            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep),
-        transpose=lambda r, ww, frame_data, sweep: utv_sampling.utv_apply_transpose_from_sweep(
-            r, sweep, sum_over_probes=True),
-        point_forward=lambda x_sc, ww: ut3_sampling.ut3_apply((x_sc[0], x_sc[1], shape, base_masks), ww),
-        take=_ptake_apply,
-    )
+@dc.dataclass(frozen=True, eq=False)
+class UniformApplyKind(_UniformKind, bfit.ApplyKind):
+    """The uniform twin of :py:data:`~t3toolbox.backend.fitting.APPLY`."""
+
+    def precompute(self, frame_data, ww):
+        return utv_sampling.utv_precompute_apply_frame_sweep(frame_data, ww)
+
+    def forward(self, v_sc, ww, frame_data, sweep):
+        return utv_sampling.utv_apply_jacobian_from_sweep(self._variations(v_sc, frame_data), sweep)
+
+    def transpose(self, r, ww, frame_data, sweep):
+        return utv_sampling.utv_apply_transpose_from_sweep(r, sweep, sum_over_probes=True)
+
+    def point_forward(self, x_sc, ww):
+        return ut3_sampling.ut3_apply(self._point(x_sc), ww)
+
+    def take(self, sample, data, idx):
+        return _ptake_apply(sample, data, idx)
 
 
-def uniform_entries_kind(
-        x0_data:  typ.Tuple,
-) -> bfit.SamplingKind:        # the uniform all-modes `entries` sampling kind
-    """The uniform **entries** ``SamplingKind`` -- the twin of :py:data:`t3toolbox.backend.fitting.ENTRIES`."""
-    _tk, _tt, shape, base_masks = x0_data
-    return dc.replace(
-        bfit.ENTRIES,
-        precompute=lambda frame_data, index: utv_sampling.utv_precompute_entries_frame_sweep(frame_data, index),
-        forward=lambda v_sc, index, frame_data, sweep: utv_sampling.utv_entries_jacobian_from_sweep(
-            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep),
-        transpose=lambda r, index, frame_data, sweep: utv_sampling.utv_entries_transpose_from_sweep(
-            r, sweep, sum_over_probes=True),
-        point_forward=lambda x_sc, index: ut3_sampling.ut3_entries((x_sc[0], x_sc[1], shape, base_masks), index),
-        take=_ptake_entries,
-    )
+@dc.dataclass(frozen=True, eq=False)
+class UniformEntriesKind(_UniformKind, bfit.EntriesKind):
+    """The uniform twin of :py:data:`~t3toolbox.backend.fitting.ENTRIES`."""
+
+    def precompute(self, frame_data, index):
+        return utv_sampling.utv_precompute_entries_frame_sweep(frame_data, index)
+
+    def forward(self, v_sc, index, frame_data, sweep):
+        return utv_sampling.utv_entries_jacobian_from_sweep(self._variations(v_sc, frame_data), sweep)
+
+    def transpose(self, r, index, frame_data, sweep):
+        return utv_sampling.utv_entries_transpose_from_sweep(r, sweep, sum_over_probes=True)
+
+    def point_forward(self, x_sc, index):
+        return ut3_sampling.ut3_entries(self._point(x_sc), index)
+
+    def take(self, sample, data, idx):
+        return _ptake_entries(sample, data, idx)
 
 
-def uniform_probe_kind(
-        x0_data:  typ.Tuple,
-        weight:   typ.Optional[typ.Any] = None,  # per-mode residual weight ω, (d,) / (d,1); None = 1
-) -> bfit.SamplingKind:        # the uniform vector-valued `probe` sampling kind (optionally per-mode weighted)
-    """The uniform **probe** ``SamplingKind`` -- the twin of :py:func:`t3toolbox.backend.fitting.probe_kind`.
+@dc.dataclass(frozen=True, eq=False)
+class UniformProbeKind(_UniformKind, bfit.ProbeKind):
+    """The uniform twin of :py:class:`~t3toolbox.backend.fitting.ProbeKind`.
 
-    The forward / residual are the **packed** probe output ``(d,)+W+C+(N,)`` (mode index ``d`` at axis 0, no
-    order axis), so the per-mode weight ``ω`` is built with ``mode_axis=0`` (no order axis) and ``sumsq`` /
-    ``transpose`` are overridden to weight it (``ω`` enters ``sumsq`` ×ω, ``transpose`` ×ω²)."""
-    _tk, _tt, shape, base_masks = x0_data
-    aw = bfit._make_weight(bfit._weight_matrix(weight, 0, 'mode'), order_axis=None, mode_axis=0)
-    return dc.replace(
-        bfit.PROBE,
-        precompute=lambda frame_data, ww: utv_sampling.utv_precompute_probe_frame_sweep(frame_data, ww),
-        forward=lambda v_sc, ww, frame_data, sweep: utv_sampling.utv_probe_jacobian_from_sweep(
-            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep),
-        transpose=lambda r, ww, frame_data, sweep: utv_sampling.utv_probe_transpose_from_sweep(
-            aw(r, 2), sweep, sum_over_probes=True),
-        sumsq=lambda out, n_w: bfit.sumsq_over_probes(aw(out, 1), n_w),
-        point_forward=lambda x_sc, ww: ut3_sampling.ut3_probe(ww, (x_sc[0], x_sc[1], shape, base_masks)),
-        take=_ptake_probe,
-    )
+    The forward / residual are the **packed** probe output ``(d,)+W+C+(N,)`` -- mode index ``d`` at axis
+    0, no order axis -- so ``omega``'s mode axis is 0 and it has no order axis, unlike the ragged kind
+    whose per-mode weight indexes a list."""
+
+    _order_axis = None
+    _mode_axis = 0
+
+    def precompute(self, frame_data, ww):
+        return utv_sampling.utv_precompute_probe_frame_sweep(frame_data, ww)
+
+    def forward(self, v_sc, ww, frame_data, sweep):
+        return utv_sampling.utv_probe_jacobian_from_sweep(self._variations(v_sc, frame_data), sweep)
+
+    def transpose(self, r, ww, frame_data, sweep):
+        return utv_sampling.utv_probe_transpose_from_sweep(self._apply_weight(r, 2), sweep,
+                                                           sum_over_probes=True)
+
+    def point_forward(self, x_sc, ww):
+        return ut3_sampling.ut3_probe(ww, self._point(x_sc))
+
+    def take(self, sample, data, idx):
+        return _ptake_probe(sample, data, idx)
 
 
-_SAMPLING_KIND = {'apply': uniform_apply_kind, 'entries': uniform_entries_kind, 'probe': uniform_probe_kind}
+@dc.dataclass(frozen=True, eq=False)
+class UniformApplyDerivativesKind(_UniformKind, bfit.ApplyDerivativesKind):
+    """The uniform twin of :py:class:`~t3toolbox.backend.fitting.ApplyDerivativesKind`."""
+
+    def precompute(self, frame_data, s):
+        return utv_sampling.utv_precompute_apply_frame_sweep_jets(frame_data, s[0], s[1], self.order)
+
+    def forward(self, v_sc, s, frame_data, sweep):
+        return utv_sampling.utv_apply_jacobian_derivatives_from_sweep(
+            self._variations(v_sc, frame_data), sweep, self.order)
+
+    def transpose(self, r, s, frame_data, sweep):
+        return utv_sampling.utv_apply_transpose_derivatives_from_sweep(
+            self._apply_weight(r, 2), sweep, self.order, sum_over_probes=True)
+
+    def point_forward(self, x_sc, s):
+        return ut3_sampling.ut3_apply_derivatives(s[0], s[1], self._point(x_sc), self.order)
+
+    def take(self, sample, data, idx):
+        return _ptake_deriv_apply(sample, data, idx)
+
+
+@dc.dataclass(frozen=True, eq=False)
+class UniformEntriesDerivativesKind(_UniformKind, bfit.EntriesDerivativesKind):
+    """The uniform twin of :py:class:`~t3toolbox.backend.fitting.EntriesDerivativesKind`."""
+
+    def precompute(self, frame_data, s):
+        return utv_sampling.utv_precompute_entries_frame_sweep_jets(frame_data, s[0], s[1], self.order)
+
+    def forward(self, v_sc, s, frame_data, sweep):
+        return utv_sampling.utv_entries_jacobian_derivatives_from_sweep(
+            self._variations(v_sc, frame_data), sweep, self.order)
+
+    def transpose(self, r, s, frame_data, sweep):
+        return utv_sampling.utv_entries_transpose_derivatives_from_sweep(
+            self._apply_weight(r, 2), sweep, self.order, sum_over_probes=True)
+
+    def point_forward(self, x_sc, s):
+        return ut3_sampling.ut3_entries_derivatives(s[0], s[1], self._point(x_sc), self.order)
+
+    def take(self, sample, data, idx):
+        return _ptake_deriv_entries(sample, data, idx)
+
+
+@dc.dataclass(frozen=True, eq=False)
+class UniformProbeDerivativesKind(_UniformKind, bfit.ProbeDerivativesKind):
+    """The uniform twin of :py:class:`~t3toolbox.backend.fitting.ProbeDerivativesKind`.
+
+    The forward / residual are the packed jets ``(d,)+(order+1,)+W+C+(N,)`` -- order at axis 1, after the
+    mode index ``d`` -- so ``omega`` sits at ``mode_axis=0, order_axis=1``. The ragged kind's
+    order-leading placement would broadcast ``omega`` over ``d`` here."""
+
+    _order_axis = 1
+    _mode_axis = 0
+
+    def precompute(self, frame_data, s):
+        return utv_sampling.utv_precompute_probe_frame_sweep_jets(frame_data, s[0], s[1], self.order)
+
+    def forward(self, v_sc, s, frame_data, sweep):
+        return utv_sampling.utv_probe_jacobian_derivatives_from_sweep(
+            self._variations(v_sc, frame_data), sweep, self.order)
+
+    def transpose(self, r, s, frame_data, sweep):
+        return utv_sampling.utv_probe_transpose_derivatives_from_sweep(
+            self._apply_weight(r, 2), sweep, self.order, sum_over_probes=True,
+            chunk_size=self.chunk_size)
+
+    def point_forward(self, x_sc, s):
+        return ut3_sampling.ut3_probe_derivatives(s[0], s[1], self._point(x_sc), self.order)
+
+    def take(self, sample, data, idx):
+        return _ptake_deriv_probe(sample, data, idx)
+
+
+_SAMPLING_KIND = {'apply': UniformApplyKind, 'entries': UniformEntriesKind, 'probe': UniformProbeKind}
+_DERIV_SAMPLING_KIND = {'apply_derivatives':   UniformApplyDerivativesKind,
+                        'entries_derivatives': UniformEntriesDerivativesKind,
+                        'probe_derivatives':   UniformProbeDerivativesKind}
 
 
 def uniform_sampling_kind(
         name:     str,        # 'apply' / 'entries' / 'probe'
         x0_data:  typ.Tuple,  # UniformTuckerTensorTrain.data at the fixed rank
-        weight:   typ.Optional[typ.Any] = None,  # per-mode weight ω (probe only); apply/entries take none
+        weight:   typ.Optional[typ.Any] = None,  # per-mode weight omega (probe only); apply/entries take none
 ) -> bfit.SamplingKind:
-    """Dispatch to the uniform :py:func:`uniform_apply_kind` / ``entries`` / ``probe`` by name. Only the
-    vector-valued **probe** kind is weightable (per-mode ``ω``); plain apply/entries have no mode axis and
-    take no weight (a non-``None`` ``weight`` for them is a structural error)."""
+    """Build the uniform plain sampling kind by name, at ``x0``'s fixed rank. Only the vector-valued
+    **probe** kind is weightable (per-mode ``omega``); plain apply/entries have no mode axis and take no
+    weight (a non-``None`` ``weight`` for them is a structural error)."""
     if name == 'probe':
-        return uniform_probe_kind(x0_data, weight)
+        return UniformProbeKind.from_point(x0_data, residual_weight=weight)
     if name in ('apply', 'entries'):
         if weight is not None:
             raise ValueError(f"the plain '{name}' kind takes no residual weight (no mode or order axis); "
                              "per-mode weighting is defined for probe, per-order for the derivative kinds.")
-        return _SAMPLING_KIND[name](x0_data)
+        return _SAMPLING_KIND[name].from_point(x0_data)
     raise ValueError(f"unknown uniform sampling kind {name!r}; expected one of {sorted(_SAMPLING_KIND)}")
-
-
-# --------------------------------------------------------------------------------------------------
-# Derivative (jet) SamplingKind builders -- the uniform twins of backend.fitting.{apply,entries,probe}_
-# derivatives_kind. The sample is the paired `(ww, pp)` / `(index, pp)`; the per-order residual weight
-# omega enters only sumsq (inherited from the ragged kind) and transpose (re-applied here as aw(r, 2), the
-# omega**2 residual weight of the gradient J^T omega^2 r). forward / point_forward stay RAW (the user
-# passes raw data + omega). `forward` derives the variation masks from the frame (geometry-agnostic).
-# --------------------------------------------------------------------------------------------------
-def uniform_apply_derivatives_kind(
-        x0_data:  typ.Tuple,                             # UniformTuckerTensorTrain.data at the fixed rank
-        order:    int,                                   # highest derivative order
-        weight:   typ.Optional[typ.Sequence[float]] = None,  # per-order residual weight omega, (order+1,); None=1
-) -> bfit.SamplingKind:                                  # sample = (ww, pp)
-    """The uniform **apply-derivatives** ``SamplingKind`` -- the twin of
-    :py:func:`t3toolbox.backend.fitting.apply_derivatives_kind`."""
-    _tk, _tt, shape, base_masks = x0_data
-    aw = bfit._make_weight(bfit._weight_matrix(weight, order, 'order'), order_axis=0, mode_axis=None)
-    return dc.replace(
-        bfit.apply_derivatives_kind(order, weight),
-        precompute=lambda frame_data, s: utv_sampling.utv_precompute_apply_frame_sweep_jets(
-            frame_data, s[0], s[1], order),
-        forward=lambda v_sc, s, frame_data, sweep: utv_sampling.utv_apply_jacobian_derivatives_from_sweep(
-            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep, order),
-        transpose=lambda r, s, frame_data, sweep: utv_sampling.utv_apply_transpose_derivatives_from_sweep(
-            aw(r, 2), sweep, order, sum_over_probes=True),
-        point_forward=lambda x_sc, s: ut3_sampling.ut3_apply_derivatives(
-            s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
-        take=_ptake_deriv_apply,
-    )
-
-
-def uniform_entries_derivatives_kind(
-        x0_data:  typ.Tuple,
-        order:    int,
-        weight:   typ.Optional[typ.Sequence[float]] = None,
-) -> bfit.SamplingKind:                                  # sample = (index, pp)
-    """The uniform **entries-derivatives** ``SamplingKind`` -- the twin of
-    :py:func:`t3toolbox.backend.fitting.entries_derivatives_kind`."""
-    _tk, _tt, shape, base_masks = x0_data
-    aw = bfit._make_weight(bfit._weight_matrix(weight, order, 'order'), order_axis=0, mode_axis=None)
-    return dc.replace(
-        bfit.entries_derivatives_kind(order, weight),
-        precompute=lambda frame_data, s: utv_sampling.utv_precompute_entries_frame_sweep_jets(
-            frame_data, s[0], s[1], order),
-        forward=lambda v_sc, s, frame_data, sweep: utv_sampling.utv_entries_jacobian_derivatives_from_sweep(
-            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep, order),
-        transpose=lambda r, s, frame_data, sweep: utv_sampling.utv_entries_transpose_derivatives_from_sweep(
-            aw(r, 2), sweep, order, sum_over_probes=True),
-        point_forward=lambda x_sc, s: ut3_sampling.ut3_entries_derivatives(
-            s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
-        take=_ptake_deriv_entries,
-    )
-
-
-def uniform_probe_derivatives_kind(
-        x0_data:    typ.Tuple,
-        order:      int,
-        weight:     typ.Optional[typ.Sequence[float]] = None,
-        chunk_size: typ.Optional[int] = 100,                 # W-chunk size for the 𝒥ᵀ assembly (docs/chunking.md)
-) -> bfit.SamplingKind:                                  # sample = (ww, pp)
-    """The uniform **probe-derivatives** ``SamplingKind`` -- the twin of
-    :py:func:`t3toolbox.backend.fitting.probe_derivatives_kind`.
-
-    The forward / residual are the **packed** probe-derivative jets ``(d,)+(order+1,)+W+C+(N,)`` (order at
-    axis 1, after the mode index ``d``), so the per-order weight ``ω`` is built with ``order_axis=1`` and
-    ``sumsq`` / ``transpose`` are overridden to weight the correct axis (the inherited order-leading ``aw``
-    would broadcast ``ω`` over ``d``)."""
-    _tk, _tt, shape, base_masks = x0_data
-    aw = bfit._make_weight(bfit._weight_matrix(weight, order, 'order'), order_axis=1, mode_axis=0)  # packed probe: mode axis 0, order axis 1
-    return dc.replace(
-        bfit.probe_derivatives_kind(order, weight),
-        precompute=lambda frame_data, s: utv_sampling.utv_precompute_probe_frame_sweep_jets(
-            frame_data, s[0], s[1], order),
-        forward=lambda v_sc, s, frame_data, sweep: utv_sampling.utv_probe_jacobian_derivatives_from_sweep(
-            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep, order),
-        transpose=lambda r, s, frame_data, sweep: utv_sampling.utv_probe_transpose_derivatives_from_sweep(
-            aw(r, 2), sweep, order, sum_over_probes=True, chunk_size=chunk_size),
-        sumsq=lambda out, n_w: bfit.sumsq_over_probes(aw(out, 1), n_w + 1),
-        point_forward=lambda x_sc, s: ut3_sampling.ut3_probe_derivatives(
-            s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
-        take=_ptake_deriv_probe,
-    )
-
-
-_DERIV_SAMPLING_KIND = {'apply_derivatives':   uniform_apply_derivatives_kind,
-                        'entries_derivatives': uniform_entries_derivatives_kind,
-                        'probe_derivatives':   uniform_probe_derivatives_kind}
 
 
 def uniform_derivatives_kind(
@@ -243,15 +264,16 @@ def uniform_derivatives_kind(
         x0_data:    typ.Tuple,  # UniformTuckerTensorTrain.data at the fixed rank
         order:      int,
         weight:     typ.Optional[typ.Sequence[float]] = None,
-        chunk_size: typ.Optional[int] = 100,   # probe_derivatives only (its 𝒥ᵀ assembly chunks); ignored otherwise
+        chunk_size: typ.Optional[int] = 100,   # probe_derivatives only; ignored otherwise
 ) -> bfit.SamplingKind:
-    """Dispatch to the uniform derivative sampling kind by name."""
+    """Build the uniform derivative sampling kind by name, at ``x0``'s fixed rank."""
     if name not in _DERIV_SAMPLING_KIND:
         raise ValueError(f"unknown uniform derivative kind {name!r}; expected one of "
                          f"{sorted(_DERIV_SAMPLING_KIND)}")
+    cls = _DERIV_SAMPLING_KIND[name]
     if name == 'probe_derivatives':            # the only derivative kind with a chunkable assembly
-        return _DERIV_SAMPLING_KIND[name](x0_data, order, weight, chunk_size=chunk_size)
-    return _DERIV_SAMPLING_KIND[name](x0_data, order, weight)
+        return cls.from_point(x0_data, order=order, residual_weight=weight, chunk_size=chunk_size)
+    return cls.from_point(x0_data, order=order, residual_weight=weight)
 
 
 # --------------------------------------------------------------------------------------------------

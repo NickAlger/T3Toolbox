@@ -13,6 +13,7 @@ jit-compiles and returns jax leaves is pure-jax. Dynamic-shape ops (rtol/atol tr
 from the data) cannot be jitted, so they get a weaker jax-in -> jax-out output check. A handful of
 numerical smoke tests guard against subtle backend divergence on the most complex ops.
 """
+import dataclasses as dc
 import numpy as np
 import unittest
 
@@ -21,6 +22,7 @@ import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.fv_operations as fv_operations
+import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.common as common
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.sampling_derivatives as pd
@@ -508,13 +510,51 @@ class TestDispatch(unittest.TestCase):
                                        "(kind rebuilt lazily, not stored as a fresh closure)")
         self._leaves_all_jax(hp)
 
+    def test_a_derived_kind_does_not_inherit_its_parents_cache_key(self):
+        """A kind with DIFFERENT math must not share a jit cache key with the one it derives from.
+
+        Regression test for a silent miscompile in the pre-class design. Kinds were a dataclass of
+        lambdas plus a hand-maintained ``identity`` tuple, and ``dataclasses.replace`` copied that tuple
+        unchanged -- so ``dc.replace(APPLY, forward=<something else>)`` compared EQUAL to ``APPLY``,
+        jax reused ``APPLY``'s compiled program, and jit returned the unscaled answer while eager
+        returned the scaled one (measured: 115.302888 vs 28.825722 on this fixture).
+
+        Parameters are fields now and behaviour is methods, so the failure is unrepresentable: a variant
+        is a subclass, which is a different type, which the value-based ``__eq__`` rejects up front."""
+        SH, TK, TT = STRUCT
+
+        @dc.dataclass(frozen=True, eq=False)
+        class HalfApplyKind(bfit.ApplyKind):
+            def forward(self, v, ww_, frame, sweep):
+                return 0.5 * super().forward(v, ww_, frame, sweep)
+
+        self.assertNotEqual(HalfApplyKind(), bfit.APPLY)
+        self.assertNotEqual(hash(HalfApplyKind()), hash(bfit.APPLY))
+
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn(SH, TK, TT)
+        x = t3.TuckerTensorTrain(tuple(jnp.asarray(c) for c in x.data[0]),
+                                 tuple(jnp.asarray(c) for c in x.data[1]))
+        ww = [jnp.asarray(np.random.randn(15, n)) for n in SH]
+        r = jnp.asarray(np.random.randn(15))
+
+        quad = jax.jit(lambda m, p: m.gn_quadratic(p))
+        plain = fitting.apply_model(t3m.MANIFOLD, x, ww, r)
+        derived = dc.replace(plain, kind=HalfApplyKind())
+        p0 = t3m.MANIFOLD.randn(plain.frame)
+
+        q_plain = float(quad(plain, p0))
+        q_derived = float(quad(derived, p0))
+        self.assertAlmostEqual(q_derived, float(derived.gn_quadratic(p0)), places=10)  # jit == eager
+        self.assertNotAlmostEqual(q_derived, q_plain, places=6)                        # and NOT the parent's
+
     def test_jit_ragged_gauss_newton_model_parameterized_kind(self):
         # The ragged twin of the test above, for the PARAMETERIZED kinds. A GaussNewtonModel carries its
         # SamplingKind as jax aux_data, and jax keys the compilation cache on the aux. APPLY/ENTRIES/PROBE
         # are module singletons, so they were always one object and always one compile -- but the derivative
         # and weighted kinds are BUILT PER MODEL, out of fresh closures, so under dataclass field equality
         # every rebuilt model was a new cache key and the documented "roll your own optimizer" loop
-        # recompiled every outer step (measured: 3 traces for 3 rebuilds). SamplingKind.identity fixes it by
+        # recompiled every outer step (measured: 3 traces for 3 rebuilds). Value-typed kinds fix it by
         # comparing the PARAMETERS (name, order, weight, chunk_size) instead of the lambdas.
         SH, TK, TT = STRUCT
         W, ORDER = 12, 2
