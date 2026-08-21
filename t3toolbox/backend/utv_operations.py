@@ -571,7 +571,7 @@ def utv_project_ut3_onto_tangent_space(
     dB = xnp.einsum('d...ij,d...io->d...jo', M, other_tk)                      # tucker variation, (d,)+stack+(nD, N)
 
     # Gauge the ungauged variations (they carry the frame's gauge-shifted masks).
-    gauge_masks = (up_mask, down_mask, frame_left_mask[:-1], frame_right_mask[1:])
+    gauge_masks = ufv_masking.ufv_variation_masks((up_mask, down_mask, frame_left_mask, frame_right_mask))
     return utv_orthogonal_gauge_projection(frame_data, (dB, dG, shape, gauge_masks))
 
 

@@ -32,6 +32,7 @@ from t3toolbox.backend import optimizers as bopt
 from t3toolbox.backend import fitting as bfit
 from t3toolbox.backend import geometry as geometry_module
 from t3toolbox.backend import ufv_conversions
+from t3toolbox.backend import ufv_masking
 from t3toolbox.backend import utv_operations as utv_ops
 from t3toolbox.backend import utv_sampling
 from t3toolbox.backend import ut3_sampling
@@ -66,10 +67,8 @@ __all__ = [
 # S(x) op on the plain-UT3 point) closes over the plain-UT3 shape + edge masks.
 # --------------------------------------------------------------------------------------------------
 def _var_masks_from_frame(frame_data):
-    """The variation masks of a frame: the frame's gauge-shifted rank masks
-    ``(up, down, frame_left[:-1], frame_right[1:])`` (mirrors ``UT3Variations._variation_masks_of``)."""
-    up_mask, down_mask, frame_left_mask, frame_right_mask = frame_data[5]
-    return (up_mask, down_mask, frame_left_mask[:-1], frame_right_mask[1:])
+    """The variation masks of a frame -- the gauge shift, applied to the frame's own rank masks."""
+    return ufv_masking.ufv_variation_masks(frame_data[5])
 
 
 def uniform_apply_kind(

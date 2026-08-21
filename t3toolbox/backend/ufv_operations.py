@@ -39,6 +39,7 @@ __all__ = [
     'ufv_sqrt_weights',
     'ufv_concatenate_weights',
     'ufv_kronecker_weights',
+    'ufv_variation_shapes',
 ]
 
 # A uniform FRAME-WEIGHTS .data tuple: (up, down, left, right, (4 variation edge masks)).
@@ -49,6 +50,34 @@ UT3FrameWeightsData = typ.Tuple[NDArray, NDArray, NDArray, NDArray,
                                 typ.Tuple[NDArray, NDArray, NDArray, NDArray]]
 
 N_MASKS = 4  # both UT3Frame and UT3Variations hold four edge masks
+
+
+
+def ufv_variation_shapes(
+        frame_data:  typ.Tuple,   # uniform frame .data = (up_sc, down_sc, left_sc, right_sc, shape, masks)
+) -> typ.Tuple[
+    typ.Tuple[int, ...],          # tucker variation supercore shape = (d,) + C + (nD, N)
+    typ.Tuple[int, ...],          # tt variation supercore shape     = (d,) + C + (rL, nU, rR)
+]:
+    """The uniform variation supercore shapes of a frame -- the backend twin of the frontend
+    ``UT3Frame.uniform_variation_shapes`` (which omits the stack; this one includes it).
+
+    The ONE place the uniform frame-to-variation axis convention lives, so it cannot drift. The padded
+    dims are read exactly as ``UT3Frame`` and :py:func:`~t3toolbox.backend.ufv_conversions.ut3_orthogonal_representations`
+    read them::
+
+        nU = up.shape[-2]    nD = down.shape[-2]    rL = left.shape[-1]    rR = right.shape[-1]    N = up.shape[-1]
+
+    Note ``rL`` comes off the left supercore's **last** axis. Every uniform bond pads to a single ``r``,
+    so the left supercore's leading and trailing bond axes happen to be equal and ``shape[-3]`` gives the
+    same number today -- but that is a coincidence of the padding, not the contract, and it would break
+    silently under per-edge padding. Use this function rather than indexing by hand.
+    """
+    up_sc, down_sc, left_sc, right_sc = frame_data[0], frame_data[1], frame_data[2], frame_data[3]
+    d_and_stack = tuple(up_sc.shape[:-2])                                     # (d,) + C
+    nU, N = up_sc.shape[-2], up_sc.shape[-1]
+    nD, rL, rR = down_sc.shape[-2], left_sc.shape[-1], right_sc.shape[-1]
+    return d_and_stack + (nD, N), d_and_stack + (rL, nU, rR)
 
 
 def ufv_leaf_structure(

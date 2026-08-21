@@ -18,6 +18,8 @@ import unittest
 import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.manifold as t3m
+import t3toolbox.frame_variations_format as bvf
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.uniform_fitting as uf
@@ -119,6 +121,41 @@ class TestBasePointTangent(unittest.TestCase):
                 v_x = geom.point_tangent(frame_data)
                 self.assertEqual(np.shape(v_x[0]), np.shape(variation_data[0]))
                 self.assertEqual(np.shape(v_x[1]), np.shape(variation_data[1]))
+
+    def test_asymmetric_tt_bonds(self):
+        """``rL != rR``. The TT bond ranks differ on both sides of every interior core, so the variation
+        core is genuinely rectangular (e.g. ``(3, 2, 6)`` then ``(6, 3, 2)``). The end-to-end property is
+        the real check: ``dense(v_X) == X`` and ``‖v_X‖_coord == ‖X‖_HS``, on both layers.
+
+        Frame bookkeeping is easy to get subtly wrong here, and the uniform layer hides it: every uniform
+        bond pads to one ``r``, so an axis index that is wrong in principle still agrees numerically.
+        Ragged is where the asymmetry is real."""
+        cases = [((6, 7, 8, 5), (2, 3, 2, 2), (1, 2, 4, 3, 1)),
+                 ((9, 4, 7, 6), (3, 2, 3, 3), (1, 3, 6, 2, 1)),
+                 ((6, 7, 8, 5, 6), (2, 3, 4, 2, 3), (1, 2, 5, 3, 2, 1)),
+                 ((8, 8, 8, 8), (4, 4, 4, 4), (1, 2, 6, 2, 1)),
+                 ((5, 9), (2, 4), (1, 3, 1))]
+        for shape, tucker, tt in cases:
+            with self.subTest(shape=shape, tt_ranks=tt):
+                np.random.seed(0)
+                A = t3.TuckerTensorTrain.randn(shape, tucker, tt)
+                dense, hs_norm = A.to_dense(), float(np.linalg.norm(A.to_dense()))
+
+                geom = bgeo.ManifoldGeometryOps()
+                frame = geom.frame(A.data)
+                v_x = geom.point_tangent(frame)
+                tangent = t3m.T3Tangent(bvf.T3Frame(*frame), bvf.T3Variations(*v_x))
+                self.assertLess(float(np.linalg.norm(np.asarray(tangent.to_dense()) - dense)) / hs_norm, 1e-13)
+                self.assertLess(abs(float(geom.inner(v_x, v_x)) ** 0.5 - hs_norm) / hs_norm, 1e-13)
+
+                x = uf.uniform_minimal(ut3.UniformTuckerTensorTrain.from_t3(A))
+                ugeom = bgeo.UniformManifoldGeometryOps.from_point(x.data)
+                uframe = ugeom.frame((x.tucker_supercore, x.tt_supercore))
+                uv_x = ugeom.point_tangent(uframe)
+                _fd, variation_data = ufv_conversions.ut3_orthogonal_representations(x.data)
+                self.assertEqual(np.shape(uv_x[0]), np.shape(variation_data[0]))
+                self.assertEqual(np.shape(uv_x[1]), np.shape(variation_data[1]))
+                self.assertLess(abs(float(ugeom.inner(uv_x, uv_x)) ** 0.5 - hs_norm) / hs_norm, 1e-13)
 
     def test_base_point_tangent_norm_equals_point_norm(self):
         """``‖v_X‖_coord == ‖X‖_HS``: the direct construction is exact, on both layers."""

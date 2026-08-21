@@ -15,6 +15,7 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.t3_conversions as t3_conversions
+import t3toolbox.backend.fv_conversions as fv_conversions
 import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.t3_operations as ragged_ops
@@ -1418,9 +1419,8 @@ def t3_probe_corewise_transpose(
     L-BFGS) fitting from probes. ``sum_over_probes=True`` sums the probe stack ``W`` (the gradient
     ``J^T r``); ``False`` keeps it. Math reference: Section 6.3, Alger et al. (2026) (arXiv:2603.21141).
     '''
-    tucker_cores, tt_cores = core_pair
     return tv_probe_transpose(
-        ztildes, ww, (tucker_cores, tt_cores, tt_cores, tt_cores), sum_over_probes=sum_over_probes,
+        ztildes, ww, fv_conversions.t3_corewise_frame(core_pair), sum_over_probes=sum_over_probes,
     )
 
 

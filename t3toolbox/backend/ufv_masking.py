@@ -16,9 +16,23 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'ufv_make_frame_masks',
+    'ufv_variation_masks',
     'ufv_apply_frame_masks',
     'ufv_apply_variations_masks',
 ]
+
+
+def ufv_variation_masks(
+        frame_masks:  typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, frame_left, frame_right); HOST bool
+) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:                   # (up, down, left[:-1], right[1:])
+    """The variation masks of a frame: its rank masks with the **gauge shift** applied.
+
+    A variation occupies one TT slot, not a boundary edge, so it takes the frame's left masks without
+    the last and the right masks without the first. The up/down masks pass through. This one line is
+    the whole convention, and it was previously open-coded at four sites; call it rather than slicing
+    by hand. (The frontend twin is ``UT3Variations._variation_masks_of``.)"""
+    up_mask, down_mask, frame_left_mask, frame_right_mask = frame_masks
+    return (up_mask, down_mask, frame_left_mask[:-1], frame_right_mask[1:])
 
 
 def ufv_make_frame_masks(

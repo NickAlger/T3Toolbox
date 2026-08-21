@@ -19,6 +19,7 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'ut3_orthogonal_representations',
+    'ut3_corewise_frame',
     'ut3frame_to_t3frame',
     't3frame_to_ut3frame',
     'ut3variations_to_t3variations',
@@ -110,8 +111,27 @@ def ut3_orthogonal_representations(
     um, dm, lm, rm = ufv_masking.ufv_make_frame_masks(up_ranks, down_ranks, left_ranks, right_ranks, nU, nD, rL, rR)
 
     frame_data     = (uc, dc, lc, rc, shape, (um, dm, lm, rm))
-    variation_data = (tkv, ttv, shape, (um, dm, lm[:-1], rm[1:]))
+    variation_data = (tkv, ttv, shape, ufv_masking.ufv_variation_masks((um, dm, lm, rm)))
     return frame_data, variation_data
+
+
+def ut3_corewise_frame(
+        data: typ.Tuple[
+            NDArray,                          # tucker_supercore
+            NDArray,                          # tt_supercore
+            typ.Tuple[int, ...],              # shape
+            typ.Tuple[NDArray, NDArray],      # (tucker_edge_mask, tt_edge_mask)
+        ],
+) -> typ.Tuple:                               # uniform frame .data = (U, G, G, G, shape, masks)
+    '''The uniform **corewise** frame: the twin of :py:func:`t3_corewise_frame`, carrying the
+    ``(U, G, G, G)`` supercores and the matching ``(tucker, tucker, tt, tt)`` frame mask set.
+
+    The mask half is the part worth naming -- the corewise frame's four mask slots are the plain
+    tensor's two, doubled, and getting that pairing wrong produces a frame that validates but gauges
+    the wrong slots.'''
+    tucker_sc, tt_sc, shape, (tucker_mask, tt_mask) = data
+    return (tucker_sc, tt_sc, tt_sc, tt_sc, tuple(shape),
+            (tucker_mask, tucker_mask, tt_mask, tt_mask))
 
 
 def ut3frame_to_t3frame(

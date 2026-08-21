@@ -21,6 +21,7 @@ import t3toolbox.backend.t3_conversions as t3_conversions
 import t3toolbox.corewise as corewise
 
 __all__ = [
+    'fv_variation_shapes',
     'fv_variations_from_vector',
     'fv_variations_zeros',
     'fv_variations_randn',
@@ -78,6 +79,26 @@ def fv_variations_from_vector(
         o += n
     nt = len(tucker_shapes)
     return tuple(cores[:nt]), tuple(cores[nt:])
+
+
+def fv_variation_shapes(
+        frame:  typ.Tuple,   # (U, O, P, Q) frame data; len=d each, elm_shape=stack_shape+(...)
+) -> VariationShapes:        # (tucker_variation_shapes, tt_variation_shapes); WITHOUT the stack
+    '''The variation shapes of a frame: ``(nD_i, N_i)`` per Tucker variation and
+    ``(rL_i, nU_i, rR_i)`` per TT variation, read off the frame cores.
+
+    The backend twin of the frontend ``T3Frame.variation_shapes`` -- and the ONE place the
+    frame-to-variation axis convention is written down for the ragged layer. Frame bookkeeping is
+    non-obvious (the TT variation takes its left bond from the core itself but its right bond from the
+    core's own trailing axis, which is the NEXT bond -- the gauge shift ``left[:-1]`` / ``right[1:]``
+    in mask form), so open-coding these indices is how they drift. Feed the result to
+    :py:func:`fv_variations_zeros` / :py:func:`fv_variations_randn`.'''
+    up, down, left, right = frame
+    d = len(up)
+    tucker_variation_shapes = tuple((down[i].shape[-2], up[i].shape[-1]) for i in range(d))
+    tt_variation_shapes = tuple((left[i].shape[-3], up[i].shape[-2], right[i].shape[-1])
+                                for i in range(d))
+    return tucker_variation_shapes, tt_variation_shapes
 
 
 def fv_variations_zeros(

@@ -34,6 +34,7 @@ from t3toolbox.backend.common import *
 __all__ = [
     'validate_sharing',
     'nontrivial_groups',
+    'canonical_groups',
     'groups_to_labels',
     't3_sharing_residual',
     't3_tucker_factors_shared',
@@ -121,6 +122,23 @@ def _groups_from_labels(
                 'sharing labels must be hashable; got %r at mode %d' % (label, ii))
         modes_by_label.setdefault(label, []).append(ii)
     return tuple(tuple(modes) for modes in modes_by_label.values())
+
+
+def canonical_groups(
+        sharing:  typ.Optional[typ.Sequence],   # len=d group labels, or None
+        shape:    typ.Tuple[int, ...],          # the mode sizes (group members must agree)
+) -> typ.Tuple[typ.Tuple[int, ...], ...]:       # canonical partition, () when there is nothing to tie
+    """Normalize a ``sharing`` spec to a canonical partition, collapsing "nothing is tied" to ``()``.
+
+    ``None`` and an all-singleton partition both give ``()``, so a consumer that stores the partition
+    has exactly ONE representation of the unshared case -- which matters when the partition is part of
+    an object's value identity (a jit ``aux_data`` key). :py:func:`validate_sharing` +
+    :py:func:`nontrivial_groups` do the work; this just names the pairing, which callers otherwise
+    open-code."""
+    if sharing is None:
+        return ()
+    all_groups = validate_sharing(sharing, shape)
+    return all_groups if nontrivial_groups(all_groups) else ()
 
 
 def nontrivial_groups(

@@ -42,8 +42,11 @@ from t3toolbox.backend.common import *
 from t3toolbox.backend import tv_operations as tops
 from t3toolbox.backend import utv_operations as utv_ops
 from t3toolbox.backend import ufv_conversions
+from t3toolbox.backend import fv_operations
+from t3toolbox.backend import ufv_operations
+from t3toolbox.backend import ufv_masking
 from t3toolbox.backend import sharing as sharing_module
-from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
+from t3toolbox.backend.fv_conversions import t3_orthogonal_representations, t3_corewise_frame
 import t3toolbox.corewise as cw
 
 __all__ = [
@@ -59,20 +62,7 @@ __all__ = [
 ]
 
 
-def canonical_groups(
-        sharing:  typ.Optional[typ.Sequence],   # len=d group labels, or None / already-canonical groups
-        shape:    typ.Tuple[int, ...],          # the mode sizes (validates group members agree)
-) -> typ.Tuple[typ.Tuple[int, ...], ...]:       # canonical partition, () when there is nothing to tie
-    """Normalize a ``sharing`` spec to the canonical partition a geometry stores in ``groups``.
-
-    ``None``, and any partition whose every group is a singleton, both normalize to ``()`` -- the
-    "nothing is tied" value -- so the unshared geometry has exactly one representation and compares
-    equal however it was built. Delegates the real work to
-    :py:func:`~t3toolbox.backend.sharing.validate_sharing`."""
-    if sharing is None:
-        return ()
-    all_groups = sharing_module.validate_sharing(sharing, shape)
-    return all_groups if sharing_module.nontrivial_groups(all_groups) else ()
+canonical_groups = sharing_module.canonical_groups   # re-exported: the geometry's `groups` field is exactly this
 
 
 # --------------------------------------------------------------------------------------------------
@@ -101,14 +91,11 @@ def fv_base_point_tangent(
     (It equals ``tv_project_t3_onto_tangent_space(frame, (U, P))`` -- verified -- but avoids that roundabout
     computation, whose environment contractions all collapse since the projected T3 IS the frame's own
     cores. See ``dev/archive/regularization_design.md`` §12.)"""
-    up, down, left, right = frame
-    xnp, _, _ = get_backend(False, tree_contains_jax(frame))
-    d = len(up)
+    up, _down, left, _right = frame
     stack = up[0].shape[:-2]                                         # the frame stack C
-    tucker_var = tuple(xnp.zeros(stack + (down[i].shape[-2], up[i].shape[-1])) for i in range(d))
-    tt_var = tuple(xnp.zeros(stack + (left[i].shape[-3], up[i].shape[-2], right[i].shape[-1]))
-                   for i in range(d - 1)) + (left[-1],)              # last TT variation = P_last
-    return (tucker_var, tt_var)
+    tucker_var, tt_var = fv_operations.fv_variations_zeros(
+        fv_operations.fv_variation_shapes(frame), stack, tree_contains_jax(frame))
+    return (tucker_var, tt_var[:-1] + (left[-1],))                   # last TT variation = P_last
 
 
 def ufv_base_point_tangent(
@@ -117,19 +104,16 @@ def ufv_base_point_tangent(
     """The uniform twin of :py:func:`fv_base_point_tangent`: the attachment point as a gauged tangent,
     all variation slots zero except the last TT slice, set to the frame's last left core ``P_last``.
 
-    The variation supercore dims are read off the frame's supercores at the SAME axis positions the
-    ragged twin uses -- ``(d,) + C + (nD, N)`` for the Tucker variations and ``(d,) + C + (rL, nU, rR)``
-    for the TT variations (the layout ``UT3Frame.uniform_variation_shapes`` names). Do not shortcut this
-    to "the Tucker variation has the ``up`` supercore's shape": that holds only when ``nD == nU``, which
-    is true of most unshared ranks and false as soon as a sharing group's rank differs from the down
-    rank."""
-    up_sc, down_sc, left_sc, right_sc = frame_data[0], frame_data[1], frame_data[2], frame_data[3]
+    The variation supercore shapes come from
+    :py:func:`~t3toolbox.backend.ufv_operations.ufv_variation_shapes`, which is where the frame axis
+    convention is written down. Do not re-derive them here: the tempting shortcut ("the Tucker
+    variation has the ``up`` supercore's shape") holds only when ``nD == nU``, which is true of most
+    unshared ranks and false as soon as a sharing group's rank differs from the down rank."""
+    left_sc = frame_data[2]
     xnp, _, _ = get_backend(True, tree_contains_jax(frame_data))
-    d_and_stack = up_sc.shape[:-2]                                   # (d,) + C
-    d = d_and_stack[0]
-    tucker_var_shape = d_and_stack + (down_sc.shape[-2], up_sc.shape[-1])              # (nD, N)
-    tt_var_shape = d_and_stack + (left_sc.shape[-3], up_sc.shape[-2], right_sc.shape[-1])  # (rL, nU, rR)
-    tucker_var_sc = xnp.zeros(tucker_var_shape)                                        # all zero
+    tucker_var_shape, tt_var_shape = ufv_operations.ufv_variation_shapes(frame_data)
+    d = tucker_var_shape[0]
+    tucker_var_sc = xnp.zeros(tucker_var_shape)                        # all zero
     tt_var_sc = xnp.concatenate([xnp.zeros((d - 1,) + tt_var_shape[1:]),
                                  left_sc[-1:]], axis=0)                # zero except last = P_last
     return (tucker_var_sc, tt_var_sc)
@@ -257,8 +241,7 @@ class CorewiseGeometryOps(ValueHashedFields):
             x_cores:  typ.Tuple,   # (tucker_cores, tt_cores)
     ) -> typ.Tuple:                # (U, O, P, Q) = (U, G, G, G) -- the raw cores ARE the frame
         """The (non-orthonormal) corewise frame: the Section 6.3 substitution ``(P, Q, O) -> G``."""
-        tucker_cores, tt_cores = x_cores
-        return (tucker_cores, tt_cores, tt_cores, tt_cores)
+        return t3_corewise_frame(x_cores)
 
     def base_point(self, frame):
         """The point ``X = (U, G)`` the frame is attached to (see :py:meth:`ManifoldGeometryOps.base_point`)."""
@@ -437,11 +420,11 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
 
     @property
     def var_masks(self) -> typ.Tuple:
-        """The variation masks of the ``(U, G, G, G)`` frame: the gauge shift
-        ``(tucker, tucker, tt[:-1], tt[1:])``. A pure derivation of :py:attr:`masks`, so it is a
-        property rather than a stored field."""
+        """The variation masks of the ``(U, G, G, G)`` frame -- the corewise frame's mask set put
+        through the gauge shift. A pure derivation of :py:attr:`masks`, so it is a property rather
+        than a stored field."""
         tucker_mask, tt_mask = self.masks
-        return (tucker_mask, tucker_mask, tt_mask[:-1], tt_mask[1:])
+        return ufv_masking.ufv_variation_masks((tucker_mask, tucker_mask, tt_mask, tt_mask))
 
     def _variations(self, var_sc):
         return (var_sc[0], var_sc[1], self.shape, self.var_masks)
@@ -450,10 +433,8 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
             self,
             x_sc:  typ.Tuple,   # bare (tucker_supercore, tt_supercore)
     ) -> typ.Tuple:             # uniform frame .data = (U, G, G, G, shape, masks)
-        """The corewise frame: the cores themselves, with the gauge-shifted mask set."""
-        tucker_mask, tt_mask = self.masks
-        return (x_sc[0], x_sc[1], x_sc[1], x_sc[1], self.shape,
-                (tucker_mask, tucker_mask, tt_mask, tt_mask))
+        """The corewise frame: the cores themselves, with the doubled mask set."""
+        return ufv_conversions.ut3_corewise_frame((x_sc[0], x_sc[1], self.shape, self.masks))
 
     def base_point(self, frame_data):
         """The bare supercore pair ``(U, G)`` the frame is attached to."""
