@@ -12,6 +12,7 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.contractions as contractions
+import t3toolbox.backend.fv_conversions as fv_conversions
 import t3toolbox.backend.apply as apply
 from t3toolbox.backend.common import *
 import math
@@ -251,9 +252,8 @@ def t3_entries_corewise_transpose(
     the frame ``tucker_cores``. ``sum_over_probes=True`` scatter-adds colliding indices (the gradient
     ``J^T r``).
     '''
-    tucker_cores, tt_cores = core_pair
     return tv_entries_transpose(
-        c, index, (tucker_cores, tt_cores, tt_cores, tt_cores), sum_over_probes=sum_over_probes,
+        c, index, fv_conversions.t3_corewise_frame(core_pair), sum_over_probes=sum_over_probes,
     )
 
 

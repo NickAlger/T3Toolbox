@@ -55,8 +55,8 @@ Everything below is importable directly from ``t3toolbox``.
 
 **Fitting and optimization**
 
-- :py:class:`~t3toolbox.fitting.GaussNewtonModel`,
-  :py:class:`~t3toolbox.fitting.UniformGaussNewtonModel` -- the geometry-generic local models.
+- :py:class:`~t3toolbox.fitting.GaussNewtonModel` -- the geometry-generic local model
+  (one class for both the ragged and the uniform representation).
 - The six model factories (in :py:mod:`~t3toolbox.fitting`):
   :py:func:`~t3toolbox.fitting.entries_model`, :py:func:`~t3toolbox.fitting.apply_model`,
   :py:func:`~t3toolbox.fitting.probe_model`,

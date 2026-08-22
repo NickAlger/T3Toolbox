@@ -92,6 +92,16 @@ updated to this version by the time the package is released.
 > **Corollary:** don't leave a backend user one fiddly step short of a usable result — if a backend
 > function would otherwise force them to know some follow-up call (e.g. `tree_zip` to pair two returned
 > trees), fold that step in so the function returns the directly-usable thing.
+> **Backend classes: parameters are FIELDS, behaviour is METHODS.** "No classes in the backend" was a
+> proxy that the geometry/optimization layers outgrew; the value it protected is that the math stays
+> reachable. The sharpened rule: **backend functions implement the math on plain data; backend classes
+> bind parameters and name roles, and every line of math in a method is also reachable as a standalone
+> function.** A record-of-functions IS a class (dictionary-passing), and it hides the parameters — which
+> matters because these objects ride as jax `aux_data`, so their hash/eq are the compilation cache key.
+> Value identity comes from the fields (`common.ValueHashedFields`); a hand-maintained `identity` tuple
+> beside them is the anti-pattern (it silently miscompiled). Full record:
+> [`docs/contributor/parameters_not_closures.md`](docs/contributor/parameters_not_closures.md).
+>
 > **Corollary (the test is knowledge, not line count):** a one-line wrapper *earns* its place in the
 > backend when it encodes a non-obvious **capability** — its value is the name + docstring + test, not
 > the code. A trivial-*and*-obvious one-liner (`return a + b`) stays inline; a trivial-*but*-non-obvious
@@ -382,7 +392,7 @@ project engineering practices below are shared.)*
 2026-07-13; the checklist both followed is `dev/archive/release_plan_2026-07-13.md`; live status:
 `dev/HANDOFF.md`). "Tested" = *numerical correctness in numpy* (vs dense ground truth) **plus** *jax
 dispatch* covered by `tests/test_dispatch.py` (jit each op; a stray `np.*` on a tracer raises) — not a
-duplicate numerical sweep. Full suite green (726 tests / 41,976 subtests; ~7 min in the current env);
+duplicate numerical sweep. Full suite green (748 tests / 42,002 subtests; ~6 min in the current env);
 docs at zero warnings with `-W` in CI; doctests CI-enforced on both numpy generations — **module
 doctests, `getting_started.rst`, AND every `docs/*.md` + `docs/contributor/*.md` page** (the one
 exclusion is `doctest_style.md`, whose fragments are illustrative).
@@ -421,6 +431,17 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
   per-mode residual weight). (Build history: the archived plans in
   `dev/archive/` — `uniform_fix_plan`, `uniform_optimizers_plan`, `naming_pass_plan`,
   `docs_pass_plan`, `docs_split_plan`.)
+- **Optimization layer restructured (2026-08-21, UNRELEASED — on branch
+  `optimization-layer-value-typed`).** The geometry, the sampling kind and the local model are frozen
+  dataclasses whose **parameters are fields**, not records of closures, so they hash/compare by value
+  and are stable jax `aux_data`. New `backend/geometry.py`; `SamplingKind` is a class hierarchy;
+  `UniformGaussNewtonModel` merged into `GaussNewtonModel`; sharing is a `groups` field.
+  `backend/optimizers.py` now imports no T3-specific module. Inner CG compiles **once per fitting run
+  instead of once per Newton iteration**. Fixed along the way: a silent miscompile where a
+  `dc.replace`-derived kind reused its parent's compiled program, and a stacked+regularized fit that
+  silently mis-weighted (now raises, as does stacked optimization generally). Breaking — see the
+  CHANGELOG's `[Unreleased]` and the upgrade notes. **Why:
+  [`docs/contributor/parameters_not_closures.md`](docs/contributor/parameters_not_closures.md).**
 - **Design references:** the rendered docs are the reference — user tier (`docs/*.md` +
   the user guide) and the Contributor guide (`docs/contributor/`); `entries_apply_probe.md` §8
   carries the probing paper↔code map.

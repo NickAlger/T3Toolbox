@@ -1,27 +1,18 @@
 # Authors: Nick Alger and Blake Christierson
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
-"""Uniform-layer fitting seams: the ``GeometryOps`` factories (and, later, the ``SamplingKind`` builders)
-that let the geometry-generic optimizers (:py:mod:`t3toolbox.backend.optimizers`) run on **uniform
-supercores**. The uniform twin of :py:mod:`t3toolbox.backend.fitting` -- optimizers-on-uniform slice U2.
+"""Uniform-layer fitting: the packed ``SamplingKind`` classes and the least-squares ``Problem``.
 
-The optimizers are written against three pluggable seams (``GeometryOps``, ``SamplingKind``,
-``corewise``) and never mention a layer; supplying uniform implementations of the seams runs the SAME
-algorithm bodies on uniform data. This module supplies the **geometry** half.
+The uniform twins of :py:mod:`t3toolbox.backend.fitting`'s kinds -- subclasses that override the five
+layer-specific operations and, for the probe kinds, where ``omega``'s axes sit in the PACKED output.
+Each carries the fixed rank it was built at (``shape`` + the plain-UT3 ``masks``) as FIELDS, so a
+rebuilt kind of the same rank is the same jax cache key
+(:py:mod:`t3toolbox.backend.geometry` follows the same rule; the reasoning is
+``docs/contributor/parameters_not_closures.md``).
 
-The mask-holding recipe (``docs/uniform_backend_jit_recipe.md``). A uniform ``.data`` tuple carries host-
-numpy **masks** that cannot be jit-traced. So -- unlike the stateless ragged ``MANIFOLD`` / ``COREWISE``
-singletons -- the uniform geometry is a **factory** that captures the loop-invariant masks (fixed at
-fixed rank) and closes over them; the optimizer traces only the supercores. The convention throughout:
-
-  * the optimizer's **point** ``x`` is a bare supercore pair ``(tucker_sc, tt_sc)`` (masks closed over);
-  * a **tangent** is a bare variation supercore pair ``(tucker_var_sc, tt_var_sc)``;
-  * a **frame** is the full frame ``.data`` (``frame`` returns it, ``project`` / ``retract`` consume it).
-
-Each closure re-attaches the held ``shape`` + masks at the boundary (building the full ``.data`` tuples
-the ``utv_operations`` primitives expect) and strips them back to a bare pair on output, so
-``corewise.*`` and ``GeometryOps.inner`` see only supercores. Under jit the re-derived frame masks
-constant-fold to device constants (the "1 compile" behaviour of the recipe).
+:py:func:`uniform_least_squares_problem` packs the loop-invariant sample + data ONCE and returns the
+shared backend ``Problem``, so the optimizers run fully packed -- no per-matvec pack/unpack. The
+**geometry** half lives in :py:mod:`t3toolbox.backend.geometry`.
 """
 import dataclasses as dc
 import typing as typ
@@ -30,7 +21,9 @@ import numpy as np
 
 from t3toolbox.backend import optimizers as bopt
 from t3toolbox.backend import fitting as bfit
+from t3toolbox.backend import geometry as geometry_module
 from t3toolbox.backend import ufv_conversions
+from t3toolbox.backend import ufv_masking
 from t3toolbox.backend import utv_operations as utv_ops
 from t3toolbox.backend import utv_sampling
 from t3toolbox.backend import ut3_sampling
@@ -40,16 +33,13 @@ from t3toolbox.backend import sharing as sharing_module
 from t3toolbox.backend.common import *
 
 __all__ = [
-    'uniform_manifold_ops',
-    'uniform_corewise_ops',
-    'uniform_geometry_ops',
-    'uniform_apply_kind',
-    'uniform_entries_kind',
-    'uniform_probe_kind',
+    'UniformApplyKind',
+    'UniformEntriesKind',
+    'UniformProbeKind',
+    'UniformApplyDerivativesKind',
+    'UniformEntriesDerivativesKind',
+    'UniformProbeDerivativesKind',
     'uniform_sampling_kind',
-    'uniform_apply_derivatives_kind',
-    'uniform_entries_derivatives_kind',
-    'uniform_probe_derivatives_kind',
     'uniform_derivatives_kind',
     'uniform_minimal',
     'uniform_least_squares_problem',
@@ -58,353 +48,206 @@ __all__ = [
 ]
 
 
-def uniform_manifold_ops(
-        x0_data:  typ.Tuple,   # UniformTuckerTensorTrain.data = (tk_sc, tt_sc, shape, (tucker_mask, tt_mask))
-        sharing:  typ.Optional[typ.Sequence] = None,  # len=d, static; one hashable group label per mode (None = unshared)
-) -> bopt.GeometryOps:         # the uniform manifold geometry ops (masks of x0's fixed rank closed over)
-    """The uniform **manifold** ``GeometryOps`` at ``x0``'s fixed rank -- the raw-supercore twin of
-    :py:data:`t3toolbox.uniform_manifold.UNIFORM_MANIFOLD`.
-
-    ``frame`` = the orthonormal frame (:py:func:`ufv_conversions.ut3_orthogonal_representations`); ``project``
-    = the gauge projection ``Pi``; ``retract`` = the manifold (doubled-rank, mask-truncated) retraction;
-    ``inner`` = the masked coordinate dot (:py:func:`utv_operations.utv_corewise_inner`, the
-    check-free twin of ``UNIFORM_MANIFOLD.inner`` -- equal to Hilbert-Schmidt on this orthonormal, gauged
-    frame). All masks are loop-invariant at ``x0``'s rank and closed over here.
-
-    With ``sharing`` (a partition with a real group; captured statically beside the masks -- the uniform
-    twin of :py:func:`~t3toolbox.backend.optimizers.shared_geometry_ops` over ``MANIFOLD_OPS``):
-    ``precompute`` derives the per-frame companion
-    (:py:func:`~t3toolbox.backend.sharing.ufv_shared_frame_data`), and ``project``/``retract`` become the
-    tied projection / tied retraction (``shared_data=`` threading; a standalone call with ``aux=None``
-    recomputes the companion). ``inner``/``point_*`` delegate unchanged (the tied subspace is linear;
-    the regularizer's base-point tangent has zero Tucker variations, hence trivially tied).
-    """
-    tucker_sc, _tt_sc, shape, base_masks = x0_data
-    n_stack = tucker_sc.ndim - 3     # |C| frame stack (0 for a single tensor); tucker sc = (d,) + C + (nU, N)
-    _frame, var_data = ufv_conversions.ut3_orthogonal_representations(x0_data)
-    var_masks = var_data[3]          # (up, down, left[:-1], right[1:]) -- fixed at this rank; for `inner`
-
-    groups = None
-    if sharing is not None:
-        all_groups = sharing_module.validate_sharing(sharing, shape)
-        if sharing_module.nontrivial_groups(all_groups):
-            groups = all_groups
-        # trivial partition -> the plain closures below (identical)
-
-    def frame(x_sc):                                          # (tk_sc, tt_sc) -> orthonormal frame .data
-        return ufv_conversions.ut3_orthogonal_representations(
-            (x_sc[0], x_sc[1], shape, base_masks))[0]
-
-    precompute = None
-    if groups is None:
-        def project(frame_data, var_sc, aux=None):                    # gauge Pi; bare variation pair in and out
-            gauged = utv_ops.utv_orthogonal_gauge_projection(
-                frame_data, (var_sc[0], var_sc[1], shape, var_masks))
-            return (gauged[0], gauged[1])
-
-        def retract(frame_data, var_sc, aux=None):                    # manifold retraction -> bare point pair
-            new_x = utv_ops.utv_retract(frame_data, (var_sc[0], var_sc[1], shape, var_masks))
-            return (new_x[0], new_x[1])
-    else:
-        def precompute(frame_data):                                   # frame -> the SF-T3 companion
-            return sharing_module.ufv_shared_frame_data(frame_data, groups)
-
-        def project(frame_data, var_sc, aux=None):                    # tied projection (gauge + post-pass)
-            if aux is None:                      # standalone call; the model path passes the companion
-                aux = precompute(frame_data)
-            gauged = utv_ops.utv_orthogonal_gauge_projection(
-                frame_data, (var_sc[0], var_sc[1], shape, var_masks), shared_data=aux)
-            return (gauged[0], gauged[1])
-
-        def retract(frame_data, var_sc, aux=None):                    # tied retraction (tied embedding + grouped SVD)
-            if aux is None:
-                aux = precompute(frame_data)
-            new_x = utv_ops.utv_retract(frame_data, (var_sc[0], var_sc[1], shape, var_masks),
-                                        shared_data=aux)
-            return (new_x[0], new_x[1])
-
-    def inner(a_sc, b_sc):                                  # masked coordinate <.,.> over the bare pairs
-        return utv_ops.utv_corewise_inner(
-            (a_sc[0], a_sc[1], shape, var_masks), (b_sc[0], b_sc[1], shape, var_masks), n_stack)
-
-    def point_tangent(frame_data):                          # v_X: the attachment point X as a gauged tangent
-        # DIRECT construction (the uniform twin of _manifold_point_tangent): all variations zero except the
-        # last TT variation supercore slice = the frame's last left core P_last -- already gauged (no
-        # projection). var_masks/var_data give the loop-invariant variation supercore shapes.
-        xnp, _, _ = get_backend(True, tree_contains_jax(frame_data))
-        d = np.shape(var_data[0])[0]
-        tkv = xnp.zeros(tuple(np.shape(var_data[0])))                                 # tucker variations: all zero
-        ttv = xnp.concatenate([xnp.zeros((d - 1,) + tuple(np.shape(var_data[1])[1:])),
-                               frame_data[2][-1:]], axis=0)                           # tt: zero except last = P_last
-        return (tkv, ttv)
-
-    def point_norm_sq(x_sc):                                # ‖X‖² = ‖v_X‖²_coord (masked)
-        vX = point_tangent(frame(x_sc))                     # orthogonalize -> v_X (direct) -> masked inner
-        return inner(vX, vX)
-
-    return bopt.GeometryOps(frame=frame, project=project, retract=retract, inner=inner,
-                            precompute=precompute,
-                            point_norm_sq=point_norm_sq, point_tangent=point_tangent)
-
-
-def uniform_corewise_ops(
-        x0_data:  typ.Tuple,   # UniformTuckerTensorTrain.data = (tk_sc, tt_sc, shape, (tucker_mask, tt_mask))
-        sharing:  typ.Optional[typ.Sequence] = None,  # len=d, static; one hashable group label per mode (None = unshared)
-) -> bopt.GeometryOps:         # the uniform corewise geometry ops (masks of x0's fixed rank closed over)
-    """The uniform **corewise** ``GeometryOps`` at ``x0``'s fixed rank -- the raw-supercore twin of
-    :py:data:`t3toolbox.uniform_manifold.UNIFORM_COREWISE`.
-
-    ``frame`` = the ``(U, G, G, G)`` non-orthonormal frame (Section 6.3 ``(P, Q, O) -> G``); ``project`` =
-    the identity (no gauge on the core space); ``retract`` = the additive retraction (``cores += var``);
-    ``inner`` = the masked coordinate dot (the Euclidean metric here). Masks are loop-invariant and closed
-    over.
-
-    With ``sharing`` (a real group), ``project`` becomes the per-group drift-form mean
-    (:py:func:`~t3toolbox.backend.sharing.ufv_share_tucker_variations_corewise` -- the corewise tied projection)
-    and ``retract`` mean-ties before the additive step, so tied-in gives tied-out exactly. No
-    companion (``precompute`` stays ``None``; the mean needs only the static partition).
-    """
-    tucker_sc, _tt_sc, shape, (tucker_mask, tt_mask) = x0_data
-    n_stack = tucker_sc.ndim - 3
-    var_masks = (tucker_mask, tucker_mask, tt_mask[:-1], tt_mask[1:])   # _variation_masks_of the (U,G,G,G) frame
-
-    groups = None
-    if sharing is not None:
-        all_groups = sharing_module.validate_sharing(sharing, shape)
-        if sharing_module.nontrivial_groups(all_groups):
-            groups = all_groups
-
-    def frame(x_sc):                                         # (tk_sc, tt_sc) -> the (U, G, G, G) frame .data
-        return (x_sc[0], x_sc[1], x_sc[1], x_sc[1], shape,
-                (tucker_mask, tucker_mask, tt_mask, tt_mask))
-
-    if groups is None:
-        def project(frame_data, var_sc, aux=None):                   # identity (Euclidean core space, no gauge)
-            return var_sc
-
-        def retract(frame_data, var_sc, aux=None):                   # additive: cores += var -> bare point pair
-            new_x = utv_ops.utv_corewise_retract(frame_data, (var_sc[0], var_sc[1], shape, var_masks))
-            return (new_x[0], new_x[1])
-    else:
-        def project(frame_data, var_sc, aux=None):                   # the per-group mean (the corewise tied projection)
-            tied = sharing_module.ufv_share_tucker_variations_corewise(
-                (var_sc[0], var_sc[1], shape, var_masks), groups)
-            return (tied[0], tied[1])
-
-        def retract(frame_data, var_sc, aux=None):                   # mean-tie, then additive (tied-in => tied-out)
-            tied = sharing_module.ufv_share_tucker_variations_corewise(
-                (var_sc[0], var_sc[1], shape, var_masks), groups)
-            new_x = utv_ops.utv_corewise_retract(frame_data, tied)
-            return (new_x[0], new_x[1])
-
-    def inner(a_sc, b_sc):
-        return utv_ops.utv_corewise_inner(
-            (a_sc[0], a_sc[1], shape, var_masks), (b_sc[0], b_sc[1], shape, var_masks), n_stack)
-
-    def point_tangent(frame_data):                         # the cores (U,G) as a tangent (project = identity here)
-        return (frame_data[0], frame_data[2])
-
-    def point_norm_sq(x_sc):                               # Σ‖core_i‖² (masked coordinate norm; weight-decay)
-        return inner(x_sc, x_sc)
-
-    return bopt.GeometryOps(frame=frame, project=project, retract=retract, inner=inner,
-                            point_norm_sq=point_norm_sq, point_tangent=point_tangent)
-
-
-def uniform_geometry_ops(
-        kind:     str,        # 'manifold' or 'corewise'
-        x0_data:  typ.Tuple,  # UniformTuckerTensorTrain.data at the fixed rank to optimize over
-        sharing:  typ.Optional[typ.Sequence] = None,  # len=d, static; group labels (None = unshared)
-) -> bopt.GeometryOps:
-    """Dispatch to :py:func:`uniform_manifold_ops` / :py:func:`uniform_corewise_ops` by name."""
-    if kind == 'manifold':
-        return uniform_manifold_ops(x0_data, sharing=sharing)
-    if kind == 'corewise':
-        return uniform_corewise_ops(x0_data, sharing=sharing)
-    raise ValueError(f"unknown uniform geometry kind {kind!r}; expected 'manifold' or 'corewise'")
-
-
 # --------------------------------------------------------------------------------------------------
-# SamplingKind builders -- the uniform twins of backend.fitting.{APPLY,ENTRIES,PROBE}. Only the four
-# layer-specific fields (precompute / forward / transpose / point_forward) differ; the layer-agnostic
-# reductions and default-draw layout (sumsq / w_axes / n_measurements / take) are reused verbatim from
-# the ragged kind via `dataclasses.replace`. `forward` derives the variation masks from the frame it is
-# handed (the `(up, down, left[:-1], right[1:])` gauge shift -- valid for BOTH the orthonormal manifold
-# frame and the (U,G,G,G) corewise frame), so the kind is geometry-agnostic; only `point_forward` (the
-# S(x) op on the plain-UT3 point) closes over the plain-UT3 shape + edge masks.
+# The uniform sampling kinds -- subclasses of the ragged ones (backend.fitting) that override exactly
+# the five layer-specific operations (precompute / forward / transpose / point_forward / take) and, for
+# the probe kinds, where omega's axes sit in the PACKED output. The layer-agnostic half -- the
+# reductions, the sample layout, the residual-weight machinery, and the value identity -- is inherited.
+#
+# Each carries the fixed rank it is built at (`shape` + the plain-UT3 `masks`) as FIELDS, so a rebuilt
+# kind of the same rank is the same jax cache key (the same rule as backend.geometry). `forward` derives
+# the variation masks from the frame it is handed, so the kinds stay geometry-agnostic; only
+# `point_forward` (the S(x) op on the plain-UT3 point) needs the held shape + masks.
 # --------------------------------------------------------------------------------------------------
-def _var_masks_from_frame(frame_data):
-    """The variation masks of a frame: the frame's gauge-shifted rank masks
-    ``(up, down, frame_left[:-1], frame_right[1:])`` (mirrors ``UT3Variations._variation_masks_of``)."""
-    up_mask, down_mask, frame_left_mask, frame_right_mask = frame_data[5]
-    return (up_mask, down_mask, frame_left_mask[:-1], frame_right_mask[1:])
+@dc.dataclass(frozen=True, eq=False)
+class _UniformKind:
+    """The fixed rank a uniform kind is built at. Defaults so the field ordering works alongside the
+    inherited defaulted parameters (Python 3.9 has no ``kw_only``); use :py:meth:`from_point`."""
+
+    shape:  typ.Tuple[int, ...] = ()   # the mode sizes
+    masks:  typ.Tuple = ()             # plain-UT3 (tucker_edge_mask, tt_edge_mask); HOST numpy
+
+    @classmethod
+    def from_point(cls, x0_data, **parameters):
+        """The kind at ``x0``'s fixed rank; ``parameters`` are the kind's own (order / weight / chunk)."""
+        _tk_sc, _tt_sc, shape, base_masks = x0_data
+        return cls(shape=tuple(shape), masks=tuple(base_masks), **parameters)
+
+    @property
+    def _point(self):
+        """A plain-UT3 ``.data`` shim for the point operation, given the bare supercore pair."""
+        return lambda x_sc: (x_sc[0], x_sc[1], self.shape, self.masks)
+
+    @staticmethod
+    def _variations(v_sc, frame_data):
+        """A bare variation supercore pair as variation ``.data``, masked by the frame's gauge shift."""
+        return (v_sc[0], v_sc[1], frame_data[4], ufv_masking.ufv_variation_masks(frame_data[5]))
 
 
-def uniform_apply_kind(
-        x0_data:  typ.Tuple,   # UniformTuckerTensorTrain.data = (tk_sc, tt_sc, shape, (tucker_mask, tt_mask))
-) -> bfit.SamplingKind:        # the uniform all-modes `apply` sampling kind at x0's fixed rank
-    """The uniform **apply** ``SamplingKind`` -- the twin of :py:data:`t3toolbox.backend.fitting.APPLY`."""
-    _tk, _tt, shape, base_masks = x0_data
-    return dc.replace(
-        bfit.APPLY,
-        precompute=lambda frame_data, ww: utv_sampling.utv_precompute_apply_frame_sweep(frame_data, ww),
-        forward=lambda v_sc, ww, frame_data, sweep: utv_sampling.utv_apply_jacobian_from_sweep(
-            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep),
-        transpose=lambda r, ww, frame_data, sweep: utv_sampling.utv_apply_transpose_from_sweep(
-            r, sweep, sum_over_probes=True),
-        point_forward=lambda x_sc, ww: ut3_sampling.ut3_apply((x_sc[0], x_sc[1], shape, base_masks), ww),
-        take=_ptake_apply,
-    )
+@dc.dataclass(frozen=True, eq=False)
+class UniformApplyKind(_UniformKind, bfit.ApplyKind):
+    """The uniform twin of :py:data:`~t3toolbox.backend.fitting.APPLY`."""
+
+    def precompute(self, frame_data, ww):
+        return utv_sampling.utv_precompute_apply_frame_sweep(frame_data, ww)
+
+    def forward(self, v_sc, ww, frame_data, sweep):
+        return utv_sampling.utv_apply_jacobian_from_sweep(self._variations(v_sc, frame_data), sweep)
+
+    def transpose(self, r, ww, frame_data, sweep):
+        return utv_sampling.utv_apply_transpose_from_sweep(r, sweep, sum_over_probes=True)
+
+    def point_forward(self, x_sc, ww):
+        return ut3_sampling.ut3_apply(self._point(x_sc), ww)
+
+    def take(self, sample, data, idx):
+        return _ptake_apply(sample, data, idx)
 
 
-def uniform_entries_kind(
-        x0_data:  typ.Tuple,
-) -> bfit.SamplingKind:        # the uniform all-modes `entries` sampling kind
-    """The uniform **entries** ``SamplingKind`` -- the twin of :py:data:`t3toolbox.backend.fitting.ENTRIES`."""
-    _tk, _tt, shape, base_masks = x0_data
-    return dc.replace(
-        bfit.ENTRIES,
-        precompute=lambda frame_data, index: utv_sampling.utv_precompute_entries_frame_sweep(frame_data, index),
-        forward=lambda v_sc, index, frame_data, sweep: utv_sampling.utv_entries_jacobian_from_sweep(
-            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep),
-        transpose=lambda r, index, frame_data, sweep: utv_sampling.utv_entries_transpose_from_sweep(
-            r, sweep, sum_over_probes=True),
-        point_forward=lambda x_sc, index: ut3_sampling.ut3_entries((x_sc[0], x_sc[1], shape, base_masks), index),
-        take=_ptake_entries,
-    )
+@dc.dataclass(frozen=True, eq=False)
+class UniformEntriesKind(_UniformKind, bfit.EntriesKind):
+    """The uniform twin of :py:data:`~t3toolbox.backend.fitting.ENTRIES`."""
+
+    def precompute(self, frame_data, index):
+        return utv_sampling.utv_precompute_entries_frame_sweep(frame_data, index)
+
+    def forward(self, v_sc, index, frame_data, sweep):
+        return utv_sampling.utv_entries_jacobian_from_sweep(self._variations(v_sc, frame_data), sweep)
+
+    def transpose(self, r, index, frame_data, sweep):
+        return utv_sampling.utv_entries_transpose_from_sweep(r, sweep, sum_over_probes=True)
+
+    def point_forward(self, x_sc, index):
+        return ut3_sampling.ut3_entries(self._point(x_sc), index)
+
+    def take(self, sample, data, idx):
+        return _ptake_entries(sample, data, idx)
 
 
-def uniform_probe_kind(
-        x0_data:  typ.Tuple,
-        weight:   typ.Optional[typ.Any] = None,  # per-mode residual weight ω, (d,) / (d,1); None = 1
-) -> bfit.SamplingKind:        # the uniform vector-valued `probe` sampling kind (optionally per-mode weighted)
-    """The uniform **probe** ``SamplingKind`` -- the twin of :py:func:`t3toolbox.backend.fitting.probe_kind`.
+@dc.dataclass(frozen=True, eq=False)
+class UniformProbeKind(_UniformKind, bfit.ProbeKind):
+    """The uniform twin of :py:class:`~t3toolbox.backend.fitting.ProbeKind`.
 
-    The forward / residual are the **packed** probe output ``(d,)+W+C+(N,)`` (mode index ``d`` at axis 0, no
-    order axis), so the per-mode weight ``ω`` is built with ``mode_axis=0`` (no order axis) and ``sumsq`` /
-    ``transpose`` are overridden to weight it (``ω`` enters ``sumsq`` ×ω, ``transpose`` ×ω²)."""
-    _tk, _tt, shape, base_masks = x0_data
-    aw = bfit._make_weight(bfit._weight_matrix(weight, 0, 'mode'), order_axis=None, mode_axis=0)
-    return dc.replace(
-        bfit.PROBE,
-        precompute=lambda frame_data, ww: utv_sampling.utv_precompute_probe_frame_sweep(frame_data, ww),
-        forward=lambda v_sc, ww, frame_data, sweep: utv_sampling.utv_probe_jacobian_from_sweep(
-            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep),
-        transpose=lambda r, ww, frame_data, sweep: utv_sampling.utv_probe_transpose_from_sweep(
-            aw(r, 2), sweep, sum_over_probes=True),
-        sumsq=lambda out, n_w: bfit.sumsq_over_probes(aw(out, 1), n_w),
-        point_forward=lambda x_sc, ww: ut3_sampling.ut3_probe(ww, (x_sc[0], x_sc[1], shape, base_masks)),
-        take=_ptake_probe,
-    )
+    The forward / residual are the **packed** probe output ``(d,)+W+C+(N,)`` -- mode index ``d`` at axis
+    0, no order axis -- so ``omega``'s mode axis is 0 and it has no order axis, unlike the ragged kind
+    whose per-mode weight indexes a list."""
+
+    _order_axis = None
+    _mode_axis = 0
+
+    def precompute(self, frame_data, ww):
+        return utv_sampling.utv_precompute_probe_frame_sweep(frame_data, ww)
+
+    def forward(self, v_sc, ww, frame_data, sweep):
+        return utv_sampling.utv_probe_jacobian_from_sweep(self._variations(v_sc, frame_data), sweep)
+
+    def transpose(self, r, ww, frame_data, sweep):
+        return utv_sampling.utv_probe_transpose_from_sweep(self._apply_weight(r, 2), sweep,
+                                                           sum_over_probes=True)
+
+    def point_forward(self, x_sc, ww):
+        return ut3_sampling.ut3_probe(ww, self._point(x_sc))
+
+    def take(self, sample, data, idx):
+        return _ptake_probe(sample, data, idx)
 
 
-_SAMPLING_KIND = {'apply': uniform_apply_kind, 'entries': uniform_entries_kind, 'probe': uniform_probe_kind}
+@dc.dataclass(frozen=True, eq=False)
+class UniformApplyDerivativesKind(_UniformKind, bfit.ApplyDerivativesKind):
+    """The uniform twin of :py:class:`~t3toolbox.backend.fitting.ApplyDerivativesKind`."""
+
+    def precompute(self, frame_data, s):
+        return utv_sampling.utv_precompute_apply_frame_sweep_jets(frame_data, s[0], s[1], self.order)
+
+    def forward(self, v_sc, s, frame_data, sweep):
+        return utv_sampling.utv_apply_jacobian_derivatives_from_sweep(
+            self._variations(v_sc, frame_data), sweep, self.order)
+
+    def transpose(self, r, s, frame_data, sweep):
+        return utv_sampling.utv_apply_transpose_derivatives_from_sweep(
+            self._apply_weight(r, 2), sweep, self.order, sum_over_probes=True)
+
+    def point_forward(self, x_sc, s):
+        return ut3_sampling.ut3_apply_derivatives(s[0], s[1], self._point(x_sc), self.order)
+
+    def take(self, sample, data, idx):
+        return _ptake_deriv_apply(sample, data, idx)
+
+
+@dc.dataclass(frozen=True, eq=False)
+class UniformEntriesDerivativesKind(_UniformKind, bfit.EntriesDerivativesKind):
+    """The uniform twin of :py:class:`~t3toolbox.backend.fitting.EntriesDerivativesKind`."""
+
+    def precompute(self, frame_data, s):
+        return utv_sampling.utv_precompute_entries_frame_sweep_jets(frame_data, s[0], s[1], self.order)
+
+    def forward(self, v_sc, s, frame_data, sweep):
+        return utv_sampling.utv_entries_jacobian_derivatives_from_sweep(
+            self._variations(v_sc, frame_data), sweep, self.order)
+
+    def transpose(self, r, s, frame_data, sweep):
+        return utv_sampling.utv_entries_transpose_derivatives_from_sweep(
+            self._apply_weight(r, 2), sweep, self.order, sum_over_probes=True)
+
+    def point_forward(self, x_sc, s):
+        return ut3_sampling.ut3_entries_derivatives(s[0], s[1], self._point(x_sc), self.order)
+
+    def take(self, sample, data, idx):
+        return _ptake_deriv_entries(sample, data, idx)
+
+
+@dc.dataclass(frozen=True, eq=False)
+class UniformProbeDerivativesKind(_UniformKind, bfit.ProbeDerivativesKind):
+    """The uniform twin of :py:class:`~t3toolbox.backend.fitting.ProbeDerivativesKind`.
+
+    The forward / residual are the packed jets ``(d,)+(order+1,)+W+C+(N,)`` -- order at axis 1, after the
+    mode index ``d`` -- so ``omega`` sits at ``mode_axis=0, order_axis=1``. The ragged kind's
+    order-leading placement would broadcast ``omega`` over ``d`` here."""
+
+    _order_axis = 1
+    _mode_axis = 0
+
+    def precompute(self, frame_data, s):
+        return utv_sampling.utv_precompute_probe_frame_sweep_jets(frame_data, s[0], s[1], self.order)
+
+    def forward(self, v_sc, s, frame_data, sweep):
+        return utv_sampling.utv_probe_jacobian_derivatives_from_sweep(
+            self._variations(v_sc, frame_data), sweep, self.order)
+
+    def transpose(self, r, s, frame_data, sweep):
+        return utv_sampling.utv_probe_transpose_derivatives_from_sweep(
+            self._apply_weight(r, 2), sweep, self.order, sum_over_probes=True,
+            chunk_size=self.chunk_size)
+
+    def point_forward(self, x_sc, s):
+        return ut3_sampling.ut3_probe_derivatives(s[0], s[1], self._point(x_sc), self.order)
+
+    def take(self, sample, data, idx):
+        return _ptake_deriv_probe(sample, data, idx)
+
+
+_SAMPLING_KIND = {'apply': UniformApplyKind, 'entries': UniformEntriesKind, 'probe': UniformProbeKind}
+_DERIV_SAMPLING_KIND = {'apply_derivatives':   UniformApplyDerivativesKind,
+                        'entries_derivatives': UniformEntriesDerivativesKind,
+                        'probe_derivatives':   UniformProbeDerivativesKind}
 
 
 def uniform_sampling_kind(
         name:     str,        # 'apply' / 'entries' / 'probe'
         x0_data:  typ.Tuple,  # UniformTuckerTensorTrain.data at the fixed rank
-        weight:   typ.Optional[typ.Any] = None,  # per-mode weight ω (probe only); apply/entries take none
+        weight:   typ.Optional[typ.Any] = None,  # per-mode weight omega (probe only); apply/entries take none
 ) -> bfit.SamplingKind:
-    """Dispatch to the uniform :py:func:`uniform_apply_kind` / ``entries`` / ``probe`` by name. Only the
-    vector-valued **probe** kind is weightable (per-mode ``ω``); plain apply/entries have no mode axis and
-    take no weight (a non-``None`` ``weight`` for them is a structural error)."""
+    """Build the uniform plain sampling kind by name, at ``x0``'s fixed rank. Only the vector-valued
+    **probe** kind is weightable (per-mode ``omega``); plain apply/entries have no mode axis and take no
+    weight (a non-``None`` ``weight`` for them is a structural error)."""
     if name == 'probe':
-        return uniform_probe_kind(x0_data, weight)
+        return UniformProbeKind.from_point(x0_data, weight=weight)
     if name in ('apply', 'entries'):
         if weight is not None:
             raise ValueError(f"the plain '{name}' kind takes no residual weight (no mode or order axis); "
                              "per-mode weighting is defined for probe, per-order for the derivative kinds.")
-        return _SAMPLING_KIND[name](x0_data)
+        return _SAMPLING_KIND[name].from_point(x0_data)
     raise ValueError(f"unknown uniform sampling kind {name!r}; expected one of {sorted(_SAMPLING_KIND)}")
-
-
-# --------------------------------------------------------------------------------------------------
-# Derivative (jet) SamplingKind builders -- the uniform twins of backend.fitting.{apply,entries,probe}_
-# derivatives_kind. The sample is the paired `(ww, pp)` / `(index, pp)`; the per-order residual weight
-# omega enters only sumsq (inherited from the ragged kind) and transpose (re-applied here as aw(r, 2), the
-# omega**2 residual weight of the gradient J^T omega^2 r). forward / point_forward stay RAW (the user
-# passes raw data + omega). `forward` derives the variation masks from the frame (geometry-agnostic).
-# --------------------------------------------------------------------------------------------------
-def uniform_apply_derivatives_kind(
-        x0_data:  typ.Tuple,                             # UniformTuckerTensorTrain.data at the fixed rank
-        order:    int,                                   # highest derivative order
-        weight:   typ.Optional[typ.Sequence[float]] = None,  # per-order residual weight omega, (order+1,); None=1
-) -> bfit.SamplingKind:                                  # sample = (ww, pp)
-    """The uniform **apply-derivatives** ``SamplingKind`` -- the twin of
-    :py:func:`t3toolbox.backend.fitting.apply_derivatives_kind`."""
-    _tk, _tt, shape, base_masks = x0_data
-    aw = bfit._make_weight(bfit._weight_matrix(weight, order, 'order'), order_axis=0, mode_axis=None)
-    return dc.replace(
-        bfit.apply_derivatives_kind(order, weight),
-        precompute=lambda frame_data, s: utv_sampling.utv_precompute_apply_frame_sweep_jets(
-            frame_data, s[0], s[1], order),
-        forward=lambda v_sc, s, frame_data, sweep: utv_sampling.utv_apply_jacobian_derivatives_from_sweep(
-            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep, order),
-        transpose=lambda r, s, frame_data, sweep: utv_sampling.utv_apply_transpose_derivatives_from_sweep(
-            aw(r, 2), sweep, order, sum_over_probes=True),
-        point_forward=lambda x_sc, s: ut3_sampling.ut3_apply_derivatives(
-            s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
-        take=_ptake_deriv_apply,
-    )
-
-
-def uniform_entries_derivatives_kind(
-        x0_data:  typ.Tuple,
-        order:    int,
-        weight:   typ.Optional[typ.Sequence[float]] = None,
-) -> bfit.SamplingKind:                                  # sample = (index, pp)
-    """The uniform **entries-derivatives** ``SamplingKind`` -- the twin of
-    :py:func:`t3toolbox.backend.fitting.entries_derivatives_kind`."""
-    _tk, _tt, shape, base_masks = x0_data
-    aw = bfit._make_weight(bfit._weight_matrix(weight, order, 'order'), order_axis=0, mode_axis=None)
-    return dc.replace(
-        bfit.entries_derivatives_kind(order, weight),
-        precompute=lambda frame_data, s: utv_sampling.utv_precompute_entries_frame_sweep_jets(
-            frame_data, s[0], s[1], order),
-        forward=lambda v_sc, s, frame_data, sweep: utv_sampling.utv_entries_jacobian_derivatives_from_sweep(
-            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep, order),
-        transpose=lambda r, s, frame_data, sweep: utv_sampling.utv_entries_transpose_derivatives_from_sweep(
-            aw(r, 2), sweep, order, sum_over_probes=True),
-        point_forward=lambda x_sc, s: ut3_sampling.ut3_entries_derivatives(
-            s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
-        take=_ptake_deriv_entries,
-    )
-
-
-def uniform_probe_derivatives_kind(
-        x0_data:    typ.Tuple,
-        order:      int,
-        weight:     typ.Optional[typ.Sequence[float]] = None,
-        chunk_size: typ.Optional[int] = 100,                 # W-chunk size for the 𝒥ᵀ assembly (docs/chunking.md)
-) -> bfit.SamplingKind:                                  # sample = (ww, pp)
-    """The uniform **probe-derivatives** ``SamplingKind`` -- the twin of
-    :py:func:`t3toolbox.backend.fitting.probe_derivatives_kind`.
-
-    The forward / residual are the **packed** probe-derivative jets ``(d,)+(order+1,)+W+C+(N,)`` (order at
-    axis 1, after the mode index ``d``), so the per-order weight ``ω`` is built with ``order_axis=1`` and
-    ``sumsq`` / ``transpose`` are overridden to weight the correct axis (the inherited order-leading ``aw``
-    would broadcast ``ω`` over ``d``)."""
-    _tk, _tt, shape, base_masks = x0_data
-    aw = bfit._make_weight(bfit._weight_matrix(weight, order, 'order'), order_axis=1, mode_axis=0)  # packed probe: mode axis 0, order axis 1
-    return dc.replace(
-        bfit.probe_derivatives_kind(order, weight),
-        precompute=lambda frame_data, s: utv_sampling.utv_precompute_probe_frame_sweep_jets(
-            frame_data, s[0], s[1], order),
-        forward=lambda v_sc, s, frame_data, sweep: utv_sampling.utv_probe_jacobian_derivatives_from_sweep(
-            (v_sc[0], v_sc[1], frame_data[4], _var_masks_from_frame(frame_data)), sweep, order),
-        transpose=lambda r, s, frame_data, sweep: utv_sampling.utv_probe_transpose_derivatives_from_sweep(
-            aw(r, 2), sweep, order, sum_over_probes=True, chunk_size=chunk_size),
-        sumsq=lambda out, n_w: bfit.sumsq_over_probes(aw(out, 1), n_w + 1),
-        point_forward=lambda x_sc, s: ut3_sampling.ut3_probe_derivatives(
-            s[0], s[1], (x_sc[0], x_sc[1], shape, base_masks), order),
-        take=_ptake_deriv_probe,
-    )
-
-
-_DERIV_SAMPLING_KIND = {'apply_derivatives':   uniform_apply_derivatives_kind,
-                        'entries_derivatives': uniform_entries_derivatives_kind,
-                        'probe_derivatives':   uniform_probe_derivatives_kind}
 
 
 def uniform_derivatives_kind(
@@ -412,15 +255,16 @@ def uniform_derivatives_kind(
         x0_data:    typ.Tuple,  # UniformTuckerTensorTrain.data at the fixed rank
         order:      int,
         weight:     typ.Optional[typ.Sequence[float]] = None,
-        chunk_size: typ.Optional[int] = 100,   # probe_derivatives only (its 𝒥ᵀ assembly chunks); ignored otherwise
+        chunk_size: typ.Optional[int] = 100,   # probe_derivatives only; ignored otherwise
 ) -> bfit.SamplingKind:
-    """Dispatch to the uniform derivative sampling kind by name."""
+    """Build the uniform derivative sampling kind by name, at ``x0``'s fixed rank."""
     if name not in _DERIV_SAMPLING_KIND:
         raise ValueError(f"unknown uniform derivative kind {name!r}; expected one of "
                          f"{sorted(_DERIV_SAMPLING_KIND)}")
+    cls = _DERIV_SAMPLING_KIND[name]
     if name == 'probe_derivatives':            # the only derivative kind with a chunkable assembly
-        return _DERIV_SAMPLING_KIND[name](x0_data, order, weight, chunk_size=chunk_size)
-    return _DERIV_SAMPLING_KIND[name](x0_data, order, weight)
+        return cls.from_point(x0_data, order=order, weight=weight, chunk_size=chunk_size)
+    return cls.from_point(x0_data, order=order, weight=weight)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -537,7 +381,8 @@ def uniform_least_squares_problem(
 ) -> bopt.Problem:
     """Assemble a fully-packed uniform least-squares :py:class:`~t3toolbox.backend.optimizers.Problem`.
 
-    Builds the uniform geometry (:py:func:`uniform_geometry_ops`) + sampling kind
+    Builds the uniform geometry (:py:class:`~t3toolbox.backend.geometry.UniformManifoldGeometryOps` /
+    :py:class:`~t3toolbox.backend.geometry.UniformCorewiseGeometryOps`) + sampling kind
     (:py:func:`uniform_sampling_kind` / :py:func:`uniform_derivatives_kind`) at ``x0``'s fixed rank, packs
     the loop-invariant ``sample`` + ``data`` once, and returns the reused backend ``Problem``. The optimizer
     then runs on the bare supercore pair ``(x0.data[0], x0.data[1])`` -- e.g.
@@ -589,7 +434,8 @@ def uniform_least_squares_problem(
             "x0 = uniform_minimal(x0" + (", sharing=...)" if sharing is not None else ")") + ".")
     x0_data = x0.data
     N = x0_data[0].shape[-1]
-    geom = uniform_geometry_ops(geometry, x0_data, sharing=sharing)
+    geom = (geometry_module.UniformManifoldGeometryOps.from_point(x0_data, sharing) if geometry == 'manifold'
+            else geometry_module.UniformCorewiseGeometryOps.from_point(x0_data, sharing))
     kind = (uniform_sampling_kind(kind_name, x0_data, weight) if kind_name in ('apply', 'entries', 'probe')
             else uniform_derivatives_kind(kind_name, x0_data, order, weight, chunk_size=chunk_size))
     return bopt.least_squares_problem(geom, kind, pack_sample(kind_name, sample, N), pack_data(kind_name, data, N),

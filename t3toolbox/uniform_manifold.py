@@ -32,6 +32,7 @@ import t3toolbox.manifold as t3m
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.safety as safety
 import t3toolbox.backend.ranks as ranks
+import t3toolbox.backend.ufv_conversions as ufv_conversions
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ufv_operations as ufv_operations
 import t3toolbox.backend.utv_operations as utv_operations
@@ -1231,9 +1232,8 @@ class UniformCorewiseGeometry:
         substitution ``(P, Q, O) -> G`` gives all three non-up slots the single core ``G``'s rank structure,
         with no boundary slicing (the ``[:-1]`` / ``[1:]`` gauge shift is a *variations*, not a frame,
         thing)."""
-        tk_sc, tt_sc, shape, (tucker_mask, tt_mask) = x.data
-        masks = ubv.UT3FrameMasks(tucker_mask, tucker_mask, tt_mask, tt_mask)
-        return ubv.UT3Frame(tk_sc, tt_sc, tt_sc, tt_sc, shape, masks)
+        up, down, left, right, shape, mask_tuple = ufv_conversions.ut3_corewise_frame(x.data)
+        return ubv.UT3Frame(up, down, left, right, shape, ubv.UT3FrameMasks(*mask_tuple))
 
     def randn(
             self,

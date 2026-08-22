@@ -197,24 +197,40 @@ shared-factor submanifold, and every optimizer works on it unchanged. See [`shar
         t3toolbox/optimizers.py   (frontend adapter: kind-string + order/weight/draw -> TuckerTensorTrain)
         t3toolbox/fitting.py      (frontend: GaussNewtonModel + *_model factories; T3Tangent in/out)
    ─────────────────────────────  the backend razor: a raw-.data user runs the SAME check-free code ──────
-        backend/optimizers.py     (algorithms; Problem/LocalModel oracle; GeometryOps; flat_draw)
+        backend/optimizers.py     (algorithms; Problem/LocalModel oracle; flat_draw) -- no T3 imports
+        backend/geometry.py       (the T3 geometries: Manifold/Corewise + their uniform twins)
         backend/fitting.py        (SamplingKind: APPLY/ENTRIES/PROBE + *_derivatives_kind; sumsq helpers)
         backend/probing.py        (the bare 𝒥/𝒥ᵀ for apply/entries/probe + frame-sweep reuse hooks)
         backend/sampling_derivatives.py  (the derivative 𝒥/𝒥ᵀ + frame-sweep-jets reuse hooks)
         manifold.py               (MANIFOLD/COREWISE geometries; T3Tangent; retract/project/frame)
 ```
 
-- **`SamplingKind`** (`backend/fitting.py`) — bundles the kind-specific functions the GN model needs:
-  `precompute` (the reusable frame sweep), `forward` (`𝒥v`), `transpose` (`𝒥ᵀr`, summed over `W`), `sumsq`
-  (the `‖·‖²` reduction), `w_axes`, plus `point_forward` (`S(x)`, for the residual) and the minimal layout
-  for the default draw (`n_measurements`, `take`). It carries **no gauge** — that's the geometry's.
-  Singletons `APPLY`/`ENTRIES`/`PROBE`; parameterized constructors `*_derivatives_kind(order, weight)`.
-- **`Geometry`** (`manifold.py` `MANIFOLD`/`COREWISE`; backend `GeometryOps`) — `frame(x)` (the frame),
+- **`SamplingKind`** (`backend/fitting.py`) — the operations the GN model needs for one measurement
+  operator: `precompute` (the reusable frame sweep), `forward` (`𝒥v`), `transpose` (`𝒥ᵀr`, summed over
+  `W`), `sumsq` (the `‖·‖²` reduction), `w_axes`, plus `point_forward` (`S(x)`, for the residual) and the
+  minimal layout for the default draw (`n_measurements`, `take`). It carries **no gauge** — that's the
+  geometry's. Singletons `APPLY`/`ENTRIES`/`PROBE`; parameterized
+  `ProbeKind` / `*DerivativesKind`, also spelled `*_derivatives_kind(order, weight)`.
+
+  **Writing your own** — subclass. Which methods you must supply depends on where you start: from a
+  concrete kind (`ApplyKind`, `ProbeKind`, a `*DerivativesKind`) you override only what differs; from
+  `ScalarOutputKind` or `ProbeOutputKind` — pick the one matching your output shape, and you inherit the
+  `‖·‖²` reductions — you supply the five operations plus `w_axes` / `n_measurements`; from bare
+  `SamplingKind` you supply all nine. Each unimplemented one raises with a message saying so.
+  Keep your parameters as dataclass **fields**: a kind rides as jax `aux_data`, so its hash/eq are part
+  of the compilation cache key, and fields give you value identity (a rebuilt kind is the *same* key, a
+  differently-parameterized one is not) for free. A parameter stashed on the instance instead of
+  declared — captured in a hand-written `__init__`, or on a class that forgot its `@dataclass`
+  decorator — is invisible to that identity, and raises a `TypeError` saying so the first time the
+  object is hashed or compared.
+  Deriving a variant by copying an existing kind and swapping a function is prevented outright: a
+  variant is a subclass, hence a distinct type.
+- **`Geometry`** (`manifold.py` `MANIFOLD`/`COREWISE`; `backend/geometry.py`) — `frame(x)` (the frame),
   `project` (the gauge `Π`), `retract`, plus the Hilbert-Schmidt `inner`/`norm`, and an optional
   `precompute(frame)` returning a per-frame **geometry aux** that `project`/`retract` then receive. The
   aux exists so a geometry with per-frame setup pays for it once per local model rather than once per
   matvec (the shared-factor wrapper's SVD companion is the motivating case); it is `None` for
-  `MANIFOLD`/`COREWISE`, and a custom `GeometryOps` need only accept and ignore `aux=None`. It is
+  `MANIFOLD`/`COREWISE`, and a custom geometry need only accept and ignore `aux=None`. It is
   carried as a leaf on `LocalModel` (`geom_aux`) and on `GaussNewtonModel` (`geometry_aux`) —
   [`contributor/precompute_and_caching.md`](contributor/precompute_and_caching.md).
 - **`Problem` + `LocalModel`** (`backend/optimizers.py`) — the backend oracle. `Problem(geom, kind, sample,
@@ -392,6 +408,39 @@ directions); on `COREWISE` it is weight decay `½λ Σ_c ‖core_c‖²`.
   (`backend.regularization`); a custom term supplies its value / gradient / Gauss–Newton contribution and
   drops into the same slot. (An inverse-unfolding-singular-value prior, after Grasedyck–Kramer, is future
   work.)
+
+---
+
+### 4.10 Stacked points: build the model, not the fit
+
+A **stacked** point carries a batch of base points `C`, and every objective is then an array of shape
+`C` — one value per element. The Gauss-Newton model handles that fine: `Problem.local_model` and the
+frontend `GaussNewtonModel` accept a stacked point and return a shape-`C` `objective` with a matching
+per-element gradient, so **driving your own loop over a stacked problem works**.
+
+The four library optimizers do **not** support it, and raise `NotImplementedError` if you try. Their
+convergence tests, Armijo line searches, and plateau detection all reduce the objective with a Python
+`float()`, which a shape-`C` array cannot satisfy. Fit the elements separately
+(`backend.stacking.unstack`) or roll your own loop. Stacked optimization is a possible future feature.
+
+Separately, a **regularizer on a stacked point** raises wherever it is attached — including on the
+model path that otherwise supports stacking. The data misfit keeps `C` but every regularizer scalar
+collapses it, so `objective = misfit + ρ` would add the whole-stack regularization total to each
+element, inflating the effective `λ` by about `|C|` and doing it unevenly.
+
+---
+
+### 4.11 A zero start makes the ragged and uniform layers diverge
+
+A zero point has no preferred orthonormal frame, so the completion the two layers pick differs — same
+objective, different gradient, and from there different iterates. On a well-conditioned `apply` fit both
+still converge to the same answer; on an ill-conditioned `entries` fit they need not (measured: from
+zero, ragged reached `8.8e-16` where uniform stalled at `8.49`; from a small random start both reached
+`~2e-10`). The layers agree to ~1e-14 per step from **any nonzero** start.
+
+So "a zero start is fine on the manifold" — true, and still the simplest thing to do — is a statement
+about one layer at a time, not a promise that the two layers will track each other. If you are comparing
+representations, start nonzero.
 
 ---
 

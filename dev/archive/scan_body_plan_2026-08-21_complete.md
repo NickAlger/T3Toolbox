@@ -1,6 +1,13 @@
 # Scan-body sweep — the plan
 
-*Companion to [`scan_body_sweep.md`](scan_body_sweep.md) (the catalogue) and
+> **COMPLETE (2026-08-21).** All three tiers done. Tier 3 was not solved as specified -- instead of
+> defunctionalizing the CG body, the jit boundary moved: `_cg_solve` is jitted whole over a pytree
+> `LocalModel`, which required the optimization layer's axis objects to hash by value. That became a
+> five-slice refactor; the durable record is
+> [`docs/contributor/parameters_not_closures.md`](../../docs/contributor/parameters_not_closures.md).
+> Result: 19 -> 1 -> **0** compiles per Newton iteration.
+
+*Companion to [`scan_body_sweep_2026-08-21_complete.md`](scan_body_sweep_2026-08-21_complete.md) (the catalogue) and
 `docs/contributor/scan_body_principles.md` (the durable principles). Written 2026-08-21 after
 workshopping eight conversions with Nick. Ephemeral: archive when the sweep is done.*
 

@@ -124,7 +124,7 @@ keeps full-strength reg. A custom `draw` of a non-nominal batch size may want `�
 - **Base-point-as-tangent as a public op.** Representing `X` as its gauged tangent `v_X` (last TT variation
   `= P_last`, else zero — already gauged) is broadly useful beyond the reg gradient; worth a first-class
   `T3Tangent`/`UT3Tangent` factory + backend helper. The reg's `point_tangent`
-  (`backend/optimizers.py::_manifold_point_tangent`; the uniform closure in `uniform_fitting`) is the
+  (`backend/geometry.py::fv_base_point_tangent` / `ufv_base_point_tangent`) is the
   current internal implementation to promote.
 - **`already_left_orthogonal` retraction amortization** — `MANIFOLD.retract` (`t3svd`) emits left-orthogonal
   cores, but the next step's `t3_orthogonal_representations` re-orthogonalizes from scratch;

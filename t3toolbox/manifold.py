@@ -22,6 +22,7 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.corewise as cw
 import t3toolbox.backend.fv_operations as fv_operations
+import t3toolbox.backend.fv_conversions as fv_conversions
 import t3toolbox.safety as safety
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.tv_operations as tv_operations
@@ -1429,8 +1430,7 @@ class CorewiseGeometry:
             x:  t3.TuckerTensorTrain,
     ) -> bvf.T3Frame:  # the (U, G, G, G) non-orthonormal frame at x
         """The core-parameter frame at ``x``: ``(U, G, G, G)`` (down/left/right all the TT cores ``G``)."""
-        tucker_cores, tt_cores = x.data
-        return bvf.T3Frame(tucker_cores, tt_cores, tt_cores, tt_cores)
+        return bvf.T3Frame(*fv_conversions.t3_corewise_frame(x.data))
 
     def randn(
             self,

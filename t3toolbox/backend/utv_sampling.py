@@ -425,8 +425,7 @@ def _gauge_masks_over_Knew(
     ``K_new`` -- the leading stack of the transpose output minus the frame stack ``C``. ``sum_over_probes``
     determines ``K_new`` (``W+K`` kept / ``K`` summed); we read it off the output supercore rather than
     re-deriving it. Masks are host numpy (static aux), so this stays on ``np``."""
-    up_mask, down_mask, frame_left_mask, frame_right_mask = frame_data[5]
-    gauge = (up_mask, down_mask, frame_left_mask[:-1], frame_right_mask[1:])  # length-d variation masks, stack C
+    gauge = ufv_masking.ufv_variation_masks(frame_data[5])   # length-d variation masks, stack C
     C = frame_data[0].shape[1:-2]                 # frame stack C (up supercore is (d,)+C+(nU,N))
     out_stack = out_supercore.shape[1:-2]         # K_new + C
     K_new = out_stack[:len(out_stack) - len(C)]

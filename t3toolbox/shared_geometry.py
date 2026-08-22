@@ -144,11 +144,15 @@ class SharedGeometry:
         return self.base is t3m.MANIFOLD or self.base is um.UNIFORM_MANIFOLD
 
     def __eq__(self, other) -> bool:
-        return (type(other) is SharedGeometry and other.base is self.base
+        # type(self), NOT the hardcoded class: a SUBCLASS is a different geometry, and this pair is a jit
+        # cache key (a SharedGeometry rides in GaussNewtonModel's aux). Hardcoding the name made a
+        # subclass with different math compare and hash EQUAL to the plain wrapper, so whichever was
+        # compiled first served both -- a silent wrong answer for the un-subclassed object.
+        return (type(other) is type(self) and other.base is self.base
                 and other.sharing == self.sharing)
 
     def __hash__(self) -> int:
-        return hash((SharedGeometry, self.base_name, self.sharing))
+        return hash((type(self), self.base_name, self.sharing))
 
     def __repr__(self) -> str:
         return 'SharedGeometry(%s, sharing=%r)' % (self.base_name.upper(), self.sharing)

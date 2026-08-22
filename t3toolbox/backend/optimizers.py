@@ -12,7 +12,7 @@ once and assembles the ``Problem`` oracle from the same backend functions (desig
 Because the numerical safety preconditions live only in the frontend, this layer is **check-free** of
 them (structural shape guards inside the backend functions remain, and are jit-safe). So ``jit`` needs no
 ``unsafe()`` wrapping; the ``use_jit`` machinery is a thin jax-only layer on top of the ordinary
-numpy/jax dispatch (the per-step kernels jit via ``_maybe_jit``; the inner CG runs as a
+numpy/jax dispatch (the per-step kernels jit via ``_jitted``; the inner CG runs as a
 ``lax.while_loop`` -- eager-vs-jit agreement is covered in ``tests/backend/test_optimizers.py``).
 
 The oracle:
@@ -21,29 +21,25 @@ The oracle:
   objects and retracts.
 * ``LocalModel``  -- the GN model linearized at a point (``.gradient`` / ``.objective`` /
   ``.hvp`` / ``.gn_quadratic`` / ``.retract``), the backend twin of ``fitting.GaussNewtonModel``.
-* ``GeometryOps`` -- (frame, project, retract) on raw data; ``MANIFOLD_OPS`` / ``COREWISE_OPS``
-  singletons.
+* ``Geometry``    -- the *where you optimize* axis: frame / project / retract / inner on raw data.
+  This module declares only the **protocol** it needs; the T3 implementations live in
+  :py:mod:`t3toolbox.backend.geometry`, so nothing here depends on the T3 representation.
 
 Tangent vectors are raw ``(tucker_var, tt_var)`` tuples; vector arithmetic is the ``corewise`` ops.
 """
 import dataclasses as dc
+import functools as ft
 import math
 import time
 import typing as typ
 
 from t3toolbox.backend.common import *
-from t3toolbox.backend import tv_operations as tops
-from t3toolbox.backend import sharing as sharing_module
-from t3toolbox.backend.fv_conversions import t3_orthogonal_representations
 from t3toolbox.backend.regularization import Regularizer, IdentityRegularizer   # re-exported for backend users
 from t3toolbox.backend.regularization import _ScaledRegularizer                 # internal: minibatch reg scaling
+from t3toolbox.backend.regularization import require_unstacked_for_regularizer
 import t3toolbox.corewise as cw
 
 __all__ = [
-    'GeometryOps',
-    'COREWISE_OPS',
-    'MANIFOLD_OPS',
-    'shared_geometry_ops',
     'Problem',
     'LocalModel',
     'NewtonInfo',
@@ -60,158 +56,46 @@ __all__ = [
 Tangent = typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]   # (tucker_variations, tt_variations)
 
 
-# --------------------------------------------------------------------------------------------------
-# Geometry ops on raw data (frame / project / retract) -- the backend twin of the frontend geometries
-# --------------------------------------------------------------------------------------------------
-@dc.dataclass(frozen=True)
-class GeometryOps:
-    frame:    typ.Callable    # x_cores=(U,G)            -> frame=(U,O,P,Q)        the linearization frame
-    project: typ.Callable    # (frame, variations, aux=None) -> variations       gauge Π (identity for corewise)
-    retract: typ.Callable    # (frame, variations, aux=None) -> x_cores=(U,G)    chart retraction
-    inner:   typ.Callable    # (v1, v2)                 -> scalar               coordinate ⟨·,·⟩ (check-free twin of Geometry.inner)
+class Geometry(typ.Protocol):
+    """What an optimizer needs of a geometry -- declared here, by the consumer, so this module stays
+    independent of any particular tensor representation.
 
-    precompute: typ.Optional[typ.Callable] = None      # frame -> per-frame geometry aux (e.g. the SF-T3 companion),
-                                                       # computed ONCE per local model (the `sweep` pattern) and passed
-                                                       # back to project/retract as `aux`; None => geometry has no aux
-    point_norm_sq: typ.Optional[typ.Callable] = None   # x_cores -> ‖X‖² in the coordinate metric; the reg objective (None => geometry has no reg support)
-    point_tangent: typ.Optional[typ.Callable] = None   # frame   -> the position X as a gauged tangent v_X; the reg gradient direction
+    The T3 implementations are in :py:mod:`t3toolbox.backend.geometry`
+    (``ManifoldGeometryOps`` / ``CorewiseGeometryOps`` + their uniform twins). Anything supplying these
+    methods works: the optimizers only ever build tangents through ``project`` / ``retract`` /
+    ``point_tangent`` and combine them with the layer-agnostic ``corewise`` tree arithmetic.
 
+    Implementations should hash and compare **by value** (their parameters, not their identity) --
+    a geometry rides as jax ``aux_data``, so identity semantics recompile on every rebuild. See
+    :py:class:`~t3toolbox.backend.common.ValueHashedFields`."""
 
-def _corewise_frame(
-        x_cores: Tangent,    # (tucker_cores, tt_cores)
-) -> typ.Tuple:              # (U, O, P, Q) = (U, G, G, G); the raw cores ARE the frame
-    tucker_cores, tt_cores = x_cores
-    return (tucker_cores, tt_cores, tt_cores, tt_cores)
+    def frame(self, x_cores):                          # x_cores -> the linearization frame
+        ...
 
+    def base_point(self, frame):                       # frame -> the point X the frame is attached to
+        ...
 
-COREWISE_OPS = GeometryOps(
-    frame=_corewise_frame,
-    project=lambda frame, var, aux=None: var,                         # Euclidean cores: no gauge projection
-    retract=lambda frame, var, aux=None: cw.corewise_add((frame[0], frame[2]), var),   # additive: (U,P)=(U,G) += var
-    inner=cw.corewise_dot,                                           # ragged coordinate dot (layer-agnostic tree dot)
-    point_norm_sq=lambda x_cores: cw.corewise_dot(x_cores, x_cores),  # Σ‖core_i‖² (weight-decay); collapses every axis
-    point_tangent=lambda frame: (frame[0], frame[2]),                # the cores (U,G) as a tangent; X_ref=0
-)
+    def stack_shape(self, x_cores):                    # x_cores -> the frame stack C
+        ...
 
+    def precompute(self, frame):                       # frame -> per-frame companion (None if none)
+        ...
 
-def _manifold_frame(
-        x_cores: Tangent,    # (tucker_cores, tt_cores)
-) -> typ.Tuple:              # (U, O, P, Q) orthonormal frame (Algorithm 11)
-    frame, _ = t3_orthogonal_representations(x_cores)
-    return frame
+    def project(self, frame, variations, aux=None):    # gauge Pi (identity for corewise)
+        ...
 
+    def retract(self, frame, variations, aux=None):    # chart step -> new x_cores
+        ...
 
-def _manifold_point_norm_sq(
-        x_cores: Tangent,    # (tucker_cores, tt_cores) -- a LEFT-orthogonal T3 (a frame's base cores, or a retracted point)
-) -> NDArray:                # ‖X‖²_HS (scalar for stack C=()); check-free left-orthogonal precondition
-    """``‖X‖²_HS = ‖last TT core‖²`` -- exact for a left-orthogonal T3 (the frame's ``(U,P)`` or a
-    ``t3svd`` retraction output), so no dense tensor and no re-orthogonalization. The left-orthogonal
-    precondition is check-free here (backend); a raw-data user can verify it with
-    :py:func:`t3toolbox.backend.t3_orthogonalization.t3_orthogonality_residual`. (``dev/regularization_design.md`` §4a.)"""
-    last = x_cores[1][-1]
-    xnp, _, _ = get_backend(False, tree_contains_jax(x_cores))
-    return xnp.sum(last * last)
+    def inner(self, a, b):                             # coordinate <.,.> on tangents
+        ...
 
+    def point_norm_sq(self, x_cores):                  # ‖X‖² in the coordinate metric (regularizer)
+        ...
 
-def _manifold_point_tangent(
-        frame:  typ.Tuple,    # (U, O, P, Q) -- an orthogonal frame
-) -> Tangent:                 # v_X: the attachment point X as a gauged tangent (tucker_var, tt_var)
-    """The attachment point ``X = (U, P)`` as a gauged tangent ``v_X`` -- **the DIRECT construction**: all
-    variations zero except the last TT variation, set to the frame's last left core ``P_last``. This is
-    already gauged (the last TT variation is the one slot with no gauge condition), so it needs neither an
-    ambient projection nor a gauge projection: ``dense(v_X) = X`` and ``‖v_X‖_coord = ‖X‖_HS`` exactly.
-    (It equals ``tv_project_t3_onto_tangent_space(frame, (U, P))`` -- verified -- but avoids that roundabout
-    computation, whose environment contractions all collapse since the projected T3 IS the frame's own
-    cores. See ``dev/regularization_design.md`` §12 and the base-point-as-tangent backlog item.)"""
-    up, down, left, right = frame
-    xnp, _, _ = get_backend(False, tree_contains_jax(frame))
-    d = len(up)
-    stack = up[0].shape[:-2]                                         # the frame stack C
-    tucker_var = tuple(xnp.zeros(stack + (down[i].shape[-2], up[i].shape[-1])) for i in range(d))
-    tt_var = tuple(xnp.zeros(stack + (left[i].shape[-3], up[i].shape[-2], right[i].shape[-1]))
-                   for i in range(d - 1)) + (left[-1],)              # last TT variation = P_last
-    return (tucker_var, tt_var)
+    def point_tangent(self, frame):                    # X as a gauged tangent v_X (regularizer)
+        ...
 
-
-MANIFOLD_OPS = GeometryOps(
-    frame=_manifold_frame,
-    project=lambda frame, var, aux=None: tops.tv_orthogonal_gauge_projection(frame, var),   # Π  (gauge-fix the tangent)
-    retract=lambda frame, var, aux=None: tops.tv_retract(frame, var),                       # implicit truncated T3-SVD
-    inner=cw.corewise_dot,                                                    # ragged coordinate dot
-    point_norm_sq=_manifold_point_norm_sq,
-    point_tangent=_manifold_point_tangent,
-)
-
-
-def shared_geometry_ops(
-        base:   GeometryOps,   # MANIFOLD_OPS or COREWISE_OPS (the ragged singletons)
-        groups: typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition (sharing.validate_sharing)
-) -> GeometryOps:
-    '''The shared (SF-T3) geometry on raw data: wrap a ragged base geometry so every projection
-    lands on the TIED tangent subspace and the retraction stays on the shared set.
-
-    One principle, two formulas -- each geometry ties by orthogonal projection onto ITS tied
-    subspace in ITS metric on ITS coordinates:
-
-    - ``MANIFOLD_OPS`` base: ``precompute`` derives the per-frame companion
-      (:py:func:`~t3toolbox.backend.sharing.fv_shared_frame_data` -- built once per local model,
-      the ``sweep`` pattern); ``project`` composes the gauge projection with the tied post-pass
-      (:py:func:`~t3toolbox.backend.sharing.fv_share_tucker_variations`); ``retract`` builds the
-      TIED doubled-rank embedding and truncates with the grouped ``t3svd``
-      (``tv_retract(..., shared_data=...)``).
-    - ``COREWISE_OPS`` base: ``project`` is the per-group arithmetic mean
-      (:py:func:`~t3toolbox.backend.sharing.fv_share_tucker_variations_corewise`; the corewise coordinates
-      are raw factor copies), and the additive retraction preserves tying exactly, so
-      ``retract`` only mean-ties its input first (a bitwise no-op on tied input).
-
-    ``inner`` / ``point_norm_sq`` / ``point_tangent`` delegate unchanged (the tied subspace is a
-    linear subspace; the restriction of the metric is itself, and the regularizer's base-point
-    tangent has zero Tucker variations, hence is trivially tied). Check-free, like every backend
-    geometry -- the frontend shared geometry owns the safe-mode tied-factors preconditions.
-    '''
-    if base is COREWISE_OPS:
-        def _corewise_shared_retract(frame, var, aux=None):
-            new = cw.corewise_add((frame[0], frame[2]),
-                                  sharing_module.fv_share_tucker_variations_corewise(var, groups))
-            new_tucker = list(new[0])
-            for group in sharing_module.nontrivial_groups(groups):
-                for ii in group[1:]:
-                    new_tucker[ii] = new_tucker[group[0]]   # ONE array per group (values equal)
-            return tuple(new_tucker), new[1]
-
-        return GeometryOps(
-            frame=base.frame,
-            project=lambda frame, var, aux=None: sharing_module.fv_share_tucker_variations_corewise(var, groups),
-            retract=_corewise_shared_retract,
-            inner=base.inner,
-            point_norm_sq=base.point_norm_sq,
-            point_tangent=base.point_tangent,
-        )
-    if base is MANIFOLD_OPS:
-        def _precompute(frame):
-            return sharing_module.fv_shared_frame_data(frame, groups)
-
-        def _project(frame, var, aux=None):
-            if aux is None:                      # standalone call; the model path passes the companion
-                aux = _precompute(frame)
-            return tops.tv_orthogonal_gauge_projection(frame, var, shared_data=aux)
-
-        def _retract(frame, var, aux=None):
-            if aux is None:
-                aux = _precompute(frame)
-            return tops.tv_retract(frame, var, shared_data=aux)
-
-        return GeometryOps(
-            frame=base.frame,
-            project=_project,
-            retract=_retract,
-            inner=base.inner,
-            precompute=_precompute,
-            point_norm_sq=base.point_norm_sq,
-            point_tangent=base.point_tangent,
-        )
-    raise ValueError('shared_geometry_ops wraps the ragged singletons (MANIFOLD_OPS / '
-                     'COREWISE_OPS); got %r' % (base,))
 
 
 # --------------------------------------------------------------------------------------------------
@@ -221,7 +105,7 @@ def shared_geometry_ops(
 class LocalModel:
     """The Gauss-Newton model linearized at a point -- the backend twin of ``fitting.GaussNewtonModel``.
     Built by ``Problem.local_model``; the frame sweep is computed once and reused by every method below."""
-    geom:     GeometryOps
+    geom:     typ.Any        # a Geometry (backend.geometry.*GeometryOps); aux_data, so it must hash by VALUE
     kind:     typ.Any        # backend fitting.SamplingKind (forward / transpose / sumsq / w_axes)
     sample:   typ.Any        # ww (probe/apply) or index (entries)
     frame:     typ.Tuple      # (U, O, P, Q)
@@ -237,10 +121,10 @@ class LocalModel:
         return 0.5 * self.kind.sumsq(self.residual, self.n_w)
 
     @property
-    def regularization(self):                            # ρ(X) at X = (U, P) = (frame[0], frame[2]); 0 if unregularized
+    def regularization(self):                            # ρ(X) at X = geom.base_point(frame); 0 if unregularized
         if self.regularizer is None:
             return 0.0
-        return self.regularizer.value(self.geom, (self.frame[0], self.frame[2]))
+        return self.regularizer.value(self.geom, self.geom.base_point(self.frame))
 
     @property
     def objective(self):                                 # c = ½‖ω⊙r‖²  (+ ρ(X) if regularized)
@@ -284,7 +168,7 @@ class Problem:
     or on an explicitly-passed minibatch ``(sample, data)`` (e.g. from a ``draw``). The ``Problem`` itself
     owns **no** minibatch-layout logic -- where the sample stack ``W`` lives, how to slice it -- that is
     the ``kind``'s (``kind.take`` for the default flat draw) or the user's ``draw``."""
-    geom:   GeometryOps
+    geom:   typ.Any       # a Geometry (see the Geometry protocol above)
     kind:   typ.Any       # backend fitting.SamplingKind
     sample: typ.Any       # the FULL sample (ww / index / (ww,pp) / (index,pp))
     data:   typ.Any       # the FULL observed data S(x_true) (+ noise)
@@ -295,9 +179,11 @@ class Problem:
         """Linearize at ``x_cores`` on the full data (``sample=None``) or an explicit minibatch."""
         if sample is None:
             sample, data = self.sample, self.data
+        if self.regularizer is not None:
+            require_unstacked_for_regularizer(self.geom.stack_shape(x_cores), 'Problem.local_model')
         frame = self.geom.frame(x_cores)
         sweep = self.kind.precompute(frame, sample)
-        geom_aux = self.geom.precompute(frame) if self.geom.precompute is not None else None
+        geom_aux = self.geom.precompute(frame)        # None when the geometry has no companion
         residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
         return LocalModel(self.geom, self.kind, sample, frame, sweep, residual, self.kind.w_axes(sample),
                           self.regularizer, geom_aux)
@@ -309,6 +195,8 @@ class Problem:
         retraction output -- the line-search points; ``dev/regularization_design.md`` §4a)."""
         if sample is None:
             sample, data = self.sample, self.data
+        if self.regularizer is not None:
+            require_unstacked_for_regularizer(self.geom.stack_shape(x_cores), 'Problem.objective')
         residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
         c = 0.5 * self.kind.sumsq(residual, self.kind.w_axes(sample))
         if self.regularizer is not None:
@@ -317,7 +205,7 @@ class Problem:
 
 
 def least_squares_problem(
-        geom:        GeometryOps,   # COREWISE_OPS / MANIFOLD_OPS
+        geom:        typ.Any,       # a Geometry (backend.geometry.{Manifold,Corewise}GeometryOps, or uniform)
         kind:        typ.Any,       # backend fitting.{APPLY,ENTRIES,PROBE} or a derivative kind
         sample:      typ.Any,       # ww / index / (ww,pp) / (index,pp)
         data:        typ.Any,       # observed values
@@ -365,6 +253,38 @@ def _minibatch_step_problem(
 # --------------------------------------------------------------------------------------------------
 # Optimizers
 # --------------------------------------------------------------------------------------------------
+def _require_unstacked(
+        geom,             # the problem's geometry (supplies stack_shape)
+        x0,               # the initial point
+        who:      str,    # the optimizer name, for the message
+) -> None:
+    """Structural guard: **optimizing a STACKED point is not supported.**
+
+    A stacked point carries a batch of base points ``C``, so every objective the optimizers consume is
+    an array of shape ``C``, one value per element -- but their convergence tests, Armijo line searches
+    and plateau detection all reduce it with a Python ``float()``. Left alone the failure is a
+    ``TypeError`` (or a broadcast error) from deep inside the loop, and for ``adam`` only once its loss
+    logging first fires, tens of iterations in. Raise at entry instead.
+
+    Fit the stack elements separately (``backend.stacking.unstack``), or build the local model directly
+    -- :py:meth:`Problem.local_model` and the frontend ``GaussNewtonModel`` DO support a stacked point
+    and return a shape-``C`` objective, so rolling your own loop over a stacked problem works. It is only
+    the library optimizers' scalar reductions that do not. (A **regularizer** on a stacked point is a
+    separate matter and raises on that path too --
+    :py:func:`~t3toolbox.backend.regularization.require_unstacked_for_regularizer`.) A possible future
+    feature.
+
+    Structural (a shape question), so it raises in both safety modes and is jit-safe."""
+    stack = tuple(geom.stack_shape(x0))
+    if stack:
+        raise NotImplementedError(
+            "%s: optimizing a STACKED point (stack C = %r) is not supported. The objective is an array "
+            "of shape C -- one value per stack element -- and the optimizers' convergence tests and line "
+            "searches reduce it to a scalar. Fit the elements separately (backend.stacking.unstack), or "
+            "drive your own loop from Problem.local_model / fitting.GaussNewtonModel, which do support a "
+            "stacked point." % (who, stack))
+
+
 def _prepare_jit_inputs(use_jit, x0, problem):
     """When ``use_jit``, move the optimizer inputs onto jax so the jit path actually engages -- the
     **auto-convert** contract: asking for jit is opting into "jax world" (device residency + jax's default
@@ -384,16 +304,70 @@ def _prepare_jit_inputs(use_jit, x0, problem):
             dc.replace(problem, sample=tree_to_jax(problem.sample), data=tree_to_jax(problem.data)))
 
 
-def _maybe_jit(fn, use_jit, x0, problem):
-    """jit ``fn`` iff ``use_jit`` AND jax is available AND the inputs (x0, sample, data) are **all** jax
-    (so the minibatch gather + kernel run on device). Otherwise return ``fn`` unchanged -- the eager path
-    (``use_jit=False``; inputs are guaranteed jax under ``use_jit`` via :py:func:`_prepare_jit_inputs`).
-    Compiles once and is reused across the fixed-shape steps."""
-    if (use_jit and jax_available and tree_contains_jax(x0)
-            and tree_contains_jax(problem.sample) and tree_contains_jax(problem.data)):
-        import jax
-        return jax.jit(fn)
-    return fn
+def _jit_engaged(use_jit, x0, problem) -> bool:
+    """Whether the jit path actually engages: asked for, jax present, and the inputs (x0, sample, data)
+    are **all** jax so the minibatch gather + kernel run on device. Under ``use_jit`` the inputs are
+    guaranteed jax by :py:func:`_prepare_jit_inputs`; this stays a check because a raw-``.data`` caller
+    may reach these functions directly."""
+    return bool(use_jit and jax_available and tree_contains_jax(x0)
+                and tree_contains_jax(problem.sample) and tree_contains_jax(problem.data))
+
+
+@ft.lru_cache(maxsize=None)
+def _jitted(fn, static_argnums=()):
+    """``jax.jit(fn)``, memoized on the (module-level, hence stable) function object.
+
+    The jit wrapper must itself be a stable object: ``jax.jit`` caches on the wrapper, so building a
+    fresh one per call -- which is what the previous ``_maybe_jit(step, ...)`` did with a per-call
+    closure -- discarded the cache every time and recompiled once per optimizer invocation. Memoizing a
+    module-level function instead compiles once per *shape signature*, process-wide.
+
+    jax is imported here rather than at module scope: this module stays importable without jax
+    (``docs/fitting_and_optimization.md`` §4.5)."""
+    import jax
+    return jax.jit(fn, static_argnums=static_argnums)
+
+
+def _mc_sgd_step(
+        problem,             # the (reg-scaled) minibatch Problem
+        cores:     Tangent,  # the current point
+        sample_B,            # the drawn minibatch sample
+        data_B,              # its observed data
+) -> Tangent:                # the retracted next point
+    """One Manifold Cauchy SGD step: gradient, the tuning-free Cauchy length ``α = ‖g‖²/‖𝒥g‖²``, retract.
+
+    Module-level and closure-free so the jit wrapper memoized on it is stable -- see :py:func:`_jitted`."""
+    lm = problem.local_model(cores, sample_B, data_B)
+    g = lm.gradient
+    gg = problem.geom.inner(g, g)
+    xnp, _, _ = get_backend(False, tree_contains_jax(g))
+    alpha = gg / xnp.maximum(lm.gn_quadratic(g), 1e-30)
+    return lm.retract(cw.corewise_scale(g, -alpha))
+
+
+def _adam_step(
+        problem,             # the (reg-scaled) minibatch Problem
+        cores:     Tangent,  # the current point
+        m:         Tangent,  # first-moment EMA, a tree matching the cores
+        v:         Tangent,  # second-moment EMA
+        sample_B,            # the drawn minibatch sample
+        data_B,              # its observed data
+        lr_t,                # the scheduled learning rate for this step
+        t,                   # 1-based step index (bias correction)
+        b1,                  # beta_1
+        b2,                  # beta_2
+        eps,                 # denominator floor
+) -> typ.Tuple[Tangent, Tangent, Tangent]:   # (next point, m, v)
+    """One Adam step over the cores, elementwise (so this IS per-core Adam). Module-level and
+    closure-free; ``lr_t`` / ``t`` flow in as arguments so the schedule forces no recompile."""
+    lm = problem.local_model(cores, sample_B, data_B)
+    g = lm.gradient
+    m = cw.corewise_map(lambda mi, gi: b1 * mi + (1.0 - b1) * gi, m, g)
+    v = cw.corewise_map(lambda vi, gi: b2 * vi + (1.0 - b2) * gi * gi, v, g)
+    bc1, bc2 = 1.0 - b1 ** t, 1.0 - b2 ** t            # bias corrections
+    xnp, _, _ = get_backend(False, tree_contains_jax(g))
+    update = cw.corewise_map(lambda mi, vi: lr_t * (mi / bc1) / (xnp.sqrt(vi / bc2) + eps), m, v)
+    return lm.retract(cw.corewise_scale(update, -1.0)), m, v
 
 
 def gradient_descent(
@@ -409,6 +383,7 @@ def gradient_descent(
     on any geometry, including the additive corewise chart where a bare Cauchy step overshoots the
     high-degree objective. Exercises the whole backend-first stack (``gradient`` / ``gn_quadratic`` /
     ``objective`` / ``retract``). (Eager; the jit kernel + the `xwhile` line search come in G3.3/G3.4.)"""
+    _require_unstacked(problem.geom, x0, 'gradient_descent')
     x = x0
     losses = []
     g0norm = None
@@ -454,26 +429,20 @@ def mc_sgd(
     draws minibatches; the full-batch stop check stays on the host), auto-converting numpy inputs to jax
     first (:py:func:`_prepare_jit_inputs`) -- so the **default** ``flat_draw`` then slices the on-device
     ``sample`` / ``data`` (a custom ``draw`` should return jax minibatches to stay on device)."""
+    _require_unstacked(problem.geom, x0, 'mc_sgd')
     x0, problem = _prepare_jit_inputs(use_jit, x0, problem)
     draw = draw if draw is not None else flat_draw(problem, batch)
     step_problem = _minibatch_step_problem(problem, batch)  # reg scaled by batch/n; full reg kept for the stop
     a_smooth = 1.0 - math.exp(-1.0 / smooth_tau)
 
-    def step(cores, sample_B, data_B):                      # the jit-able per-step kernel
-        lm = step_problem.local_model(cores, sample_B, data_B)
-        g = lm.gradient
-        gg = step_problem.geom.inner(g, g)
-        xnp, _, _ = get_backend(False, tree_contains_jax(g))
-        alpha = gg / xnp.maximum(lm.gn_quadratic(g), 1e-30)
-        return lm.retract(cw.corewise_scale(g, -alpha))
-    step = _maybe_jit(step, use_jit, x0, problem)
+    step = _jitted(_mc_sgd_step) if _jit_engaged(use_jit, x0, problem) else _mc_sgd_step
 
     x = x0
     s_hist = []
     n_iter = 0
     for k in range(max_iter):
         n_iter = k + 1
-        x = step(x, *draw(rng))
+        x = step(step_problem, x, *draw(rng))
         if n_iter % check_every == 0:                       # full-batch loss check (the stop signal, host)
             L = float(problem.objective(x))
             s = L if not s_hist else a_smooth * L + (1.0 - a_smooth) * s_hist[-1]
@@ -502,20 +471,12 @@ def adam(
     step.) On corewise the step is additive (``lm.retract`` = ``cores += step``). ``use_jit`` jits the
     per-step kernel (``lr_t``/``t`` flow in as traced args, so the schedule does not force a recompile),
     auto-converting numpy inputs to jax first (:py:func:`_prepare_jit_inputs`)."""
+    _require_unstacked(problem.geom, x0, 'adam')
     x0, problem = _prepare_jit_inputs(use_jit, x0, problem)
     step_problem = _minibatch_step_problem(problem, batch)  # reg scaled by batch/n; full reg kept for the stop
     b1, b2 = betas
 
-    def step(cores, m, v, sample_B, data_B, lr_t, t):      # the jit-able per-step kernel
-        lm = step_problem.local_model(cores, sample_B, data_B)
-        g = lm.gradient
-        m = cw.corewise_map(lambda mi, gi: b1 * mi + (1.0 - b1) * gi, m, g)
-        v = cw.corewise_map(lambda vi, gi: b2 * vi + (1.0 - b2) * gi * gi, v, g)
-        bc1, bc2 = 1.0 - b1 ** t, 1.0 - b2 ** t            # bias corrections
-        xnp, _, _ = get_backend(False, tree_contains_jax(g))
-        update = cw.corewise_map(lambda mi, vi: lr_t * (mi / bc1) / (xnp.sqrt(vi / bc2) + eps), m, v)
-        return lm.retract(cw.corewise_scale(update, -1.0)), m, v
-    step = _maybe_jit(step, use_jit, x0, problem)
+    step = _jitted(_adam_step) if _jit_engaged(use_jit, x0, problem) else _adam_step
 
     draw = draw if draw is not None else flat_draw(problem, batch)
     cores = x0
@@ -525,48 +486,85 @@ def adam(
     for k in range(max_iter):
         sample_B, data_B = draw(rng)
         lr_t = lr * (0.5 * (1.0 + math.cos(math.pi * k / max_iter)) if cosine else 1.0)
-        cores, m, v = step(cores, m, v, sample_B, data_B, lr_t, k + 1)
+        cores, m, v = step(step_problem, cores, m, v, sample_B, data_B, lr_t, k + 1, b1, b2, eps)
         if (k + 1) % 50 == 0:
             losses.append(float(problem.objective(cores)))
     return cores, {'losses': losses, 'n_iter': max_iter}
 
 
-def _cg_solve(hvp, rhs, tol, maxiter, use_jit, inner):
-    """Solve ``H p = rhs`` by conjugate gradients (``H = hvp``, symmetric PSD), to residual ``‖r‖ ≤ tol``.
-    ``inner`` is the geometry's coordinate ``⟨·,·⟩`` (``geom.inner`` -- masked for the uniform layer, so
-    padding is never summed). The body is **backend-agnostic and branch-free** (an ``xnp.where`` curvature
-    guard: a nonpositive ``dᵀHd`` -- a gauge direction of the singular corewise ``H`` -- takes a zero step
-    and the ``ok`` flag stops CG, i.e. truncated CG), so the SAME body runs eager (numpy/jax) or jit
-    (``lax.while_loop``) through :py:func:`common.xwhile`.
+# --------------------------------------------------------------------------------------------------
+# Conjugate gradients. The loop bodies are MODULE-LEVEL and closure-free, and every value they need --
+# including the tolerance and the iteration cap -- rides in the loop state.
+#
+# This is a correctness requirement, not a tidiness one. `lax.while_loop` caches its traced body on the
+# body's IDENTITY, so a stable body that READS a Python value which changed since the last call gets the
+# cached jaxpr with the OLD value, silently. `tol` is recomputed every Newton iteration from the forcing
+# term, so a body closing over it would solve to a stale tolerance
+# (`docs/contributor/scan_body_principles.md`, principle 5). Carrying it makes that unrepresentable.
+#
+# The local model rides in the state too -- loop-invariant, passed through untouched. XLA treats a
+# loop-carried invariant like a constant, so this costs nothing (measured in the tier-2 chunking work).
+# --------------------------------------------------------------------------------------------------
+def _cg_cond(
+        state:  typ.Tuple,   # (p, r, d, rs, i, ok, local_model, tol2, maxiter)
+) -> NDArray:                # 0-d bool: keep iterating
+    """Continue while the residual is above tolerance, the cap is unreached, and curvature stayed positive."""
+    _p, _r, _d, rs, i, ok, _lm, tol2, maxiter = state
+    return (rs > tol2) & (i < maxiter) & ok
 
-    Returns the solution ``p`` plus the final loop state needed for diagnostics: the iteration count
-    ``i``, the residual² ``rs = ‖H p − rhs‖² = ‖H p + g‖²`` (``rhs = −g``), and the positive-curvature
-    flag ``ok`` (``False`` == the loop stopped on a truncation). The caller derives converged / truncated /
-    maxiter from ``(rs, i, ok)``."""
-    xnp, _, _ = get_backend(False, tree_contains_jax(rhs))
+
+def _cg_body(
+        state:  typ.Tuple,   # (p, r, d, rs, i, ok, local_model, tol2, maxiter)
+) -> typ.Tuple:              # the same, advanced one CG iteration
+    """One CG iteration. **Backend-agnostic and branch-free** -- the curvature guard is an ``xnp.where``,
+    so a nonpositive ``dᵀHd`` (a gauge direction of the singular corewise ``H``) takes a zero step and
+    clears ``ok``, which stops the loop: truncated CG. The same body therefore drives the eager Python
+    loop and ``lax.while_loop``."""
+    p, r, d, rs, i, ok, lm, tol2, maxiter = state
+    xnp, _, _ = get_backend(False, tree_contains_jax(r))
+    inner = lm.geom.inner
+    Hd = lm.hvp(d)
+    dHd = inner(d, Hd)
+    pos = dHd > 0.0
+    alpha = xnp.where(pos, rs / xnp.where(pos, dHd, 1.0), 0.0)        # 0 step on nonpositive curvature
+    p = cw.corewise_add(p, cw.corewise_scale(d, alpha))
+    r = cw.corewise_sub(r, cw.corewise_scale(Hd, alpha))
+    rs_new = inner(r, r)
+    beta = xnp.where(pos, rs_new / rs, 0.0)
+    d = cw.corewise_add(r, cw.corewise_scale(d, beta))
+    return (p, r, d, rs_new, i + 1, pos, lm, tol2, maxiter)
+
+
+def _cg_core(
+        local_model,            # the LocalModel supplying H (`hvp`) and the coordinate inner product
+        rhs:      Tangent,      # the right-hand side (= −g)
+        tol:      typ.Any,      # stop at ‖H p − rhs‖ ≤ tol
+        maxiter:  typ.Any,      # iteration cap
+        use_jit:  bool,         # STATIC: selects lax.while_loop vs the eager Python loop
+) -> typ.Tuple:                 # (p, i, rs, ok)
+    """Solve ``H p = rhs`` by conjugate gradients (``H`` symmetric PSD) to residual ``‖r‖ ≤ tol``.
+
+    Returns the solution plus the loop state the caller needs for diagnostics: the iteration count ``i``,
+    the residual² ``rs = ‖H p − rhs‖²``, and the positive-curvature flag ``ok`` (``False`` == stopped on a
+    truncation). Converged / truncated / hit-maxiter are derived from ``(rs, i, ok)``."""
+    rs0 = local_model.geom.inner(rhs, rhs)
     tol2 = tol * tol
-    rs0 = inner(rhs, rhs)
-    state0 = (cw.corewise_zeros_like(rhs), rhs, rhs, rs0, 0, rs0 > tol2)   # (p, r, d, rs, i, ok)
-
-    def cond(s):
-        p, r, d, rs, i, ok = s
-        return (rs > tol2) & (i < maxiter) & ok
-
-    def body(s):
-        p, r, d, rs, i, ok = s
-        Hd = hvp(d)
-        dHd = inner(d, Hd)
-        pos = dHd > 0.0
-        alpha = xnp.where(pos, rs / xnp.where(pos, dHd, 1.0), 0.0)        # 0 step on nonpositive curvature
-        p = cw.corewise_add(p, cw.corewise_scale(d, alpha))
-        r = cw.corewise_sub(r, cw.corewise_scale(Hd, alpha))
-        rs_new = inner(r, r)
-        beta = xnp.where(pos, rs_new / rs, 0.0)
-        d = cw.corewise_add(r, cw.corewise_scale(d, beta))
-        return (p, r, d, rs_new, i + 1, pos)
-
-    p, r, d, rs, i, ok = xwhile(cond, body, state0, use_jit)
+    state0 = (cw.corewise_zeros_like(rhs), rhs, rhs, rs0, 0, rs0 > tol2, local_model, tol2, maxiter)
+    p, _r, _d, rs, i, ok, _lm, _tol2, _maxiter = xwhile(_cg_cond, _cg_body, state0, use_jit)
     return p, i, rs, ok
+
+
+def _cg_solve(local_model, rhs, tol, maxiter, use_jit):
+    """Dispatch CG to the compiled or the eager path -- the SAME core either way.
+
+    Under jit the whole solve is one compiled function of ``(local_model, rhs, tol, maxiter)``, so the
+    cache key is jax's own: the model's pytree structure (its geometry and kind ride as **value-hashed**
+    aux) plus the argument shapes. ``tol`` and ``maxiter`` are traced arguments, so a Newton loop that
+    tightens the forcing term every iteration reuses one compiled program instead of recompiling -- and
+    cannot go stale."""
+    if use_jit and jax_available and tree_contains_jax(rhs):
+        return _jitted(_cg_core, (4,))(local_model, rhs, tol, maxiter, True)
+    return _cg_core(local_model, rhs, tol, maxiter, False)
 
 
 @dc.dataclass(frozen=True)
@@ -653,6 +651,7 @@ def newton_cg(
     residual), so it composes with ``use_jit`` (only the inner CG jits) but not with a hypothetical
     fully-jitted outer loop. Ready-made displays: :py:func:`t3toolbox.backend.optimizer_display.make_newton_display`.
     ``stats`` always carries ``'history'`` -- one :py:func:`_newton_scalar_record` per iteration."""
+    _require_unstacked(problem.geom, x0, 'newton_cg')
     x0, problem = _prepare_jit_inputs(use_jit, x0, problem)             # auto-convert to jax when jitting
     x = x0
     computed_g0norm = None                                              # the initial ‖g‖ -- the default reference
@@ -681,8 +680,7 @@ def newton_cg(
         eta = min(0.5, (gnorm / cg_ref) ** cg_forcing_power)             # inexact-Newton (Eisenstat-Walker) forcing term
         cg_tol = eta * gnorm
         neg_g = cw.corewise_scale(g, -1.0)
-        p, cg_i, cg_rs, cg_ok = _cg_solve(lm.hvp, neg_g, tol=cg_tol, maxiter=cg_maxiter,
-                                          use_jit=use_jit, inner=problem.geom.inner)
+        p, cg_i, cg_rs, cg_ok = _cg_solve(lm, neg_g, cg_tol, cg_maxiter, use_jit)
         cg_iters, cg_rs, cg_ok = int(cg_i), float(cg_rs), bool(cg_ok)
         cg_converged = cg_rs <= cg_tol * cg_tol
         cg_truncated = (not cg_converged) and (not cg_ok)
@@ -719,3 +717,41 @@ def newton_cg(
         history.append(_newton_scalar_record(info))
         x = x_trial
     return x, {'losses': losses, 'newton': newton_iters, 'history': history}
+
+
+if jax_available:
+    import jax
+
+    # Register Problem and LocalModel as jax pytrees. The DATA are leaves (sample / data / frame / sweep /
+    # residual / the per-frame geometry companion); the STATICS are aux (geometry, kind, regularizer, and
+    # the sample-stack axis count derived from the sample's shape).
+    #
+    # This is what makes the jit cache key value-based, and it is the whole point of slices 1-2: geometry
+    # and kind are frozen dataclasses whose parameters are FIELDS, so a model rebuilt at each Newton
+    # iteration -- which the outer loop does, every iteration, by construction -- hashes and compares
+    # EQUAL to the previous one. Under the old record-of-closures they were fresh objects every time, so
+    # `jit(_cg_core)` would have recompiled per iteration and there would have been no point compiling it
+    # at all. The regularizers are frozen dataclasses of floats, hence hashable by value already.
+    # The data tuples are partitioned rather than handed over whole: a backend frame is
+    # `(supercores..., shape, masks)` and a frame sweep carries a shape too, so flattening them naively
+    # would TRACE the masks and the shape ints -- which `require_concrete_masks` rejects outright, and
+    # which would break the host-integer shape arithmetic the uniform layer runs on. `partition_static`
+    # keeps them in the aux, exactly as the frontend `UT3Frame` keeps its masks in aux.
+    def _flatten_problem(p):
+        dyn, skel = partition_static((p.sample, p.data))
+        return dyn, (p.geom, p.kind, p.regularizer, skel)
+
+    def _unflatten_problem(aux, children):
+        sample, data = rebuild_static(children, aux[3])
+        return Problem(aux[0], aux[1], sample, data, aux[2])
+
+    def _flatten_local_model(m):
+        dyn, skel = partition_static((m.sample, m.frame, m.sweep, m.residual, m.geom_aux))
+        return dyn, (m.geom, m.kind, m.n_w, m.regularizer, skel)
+
+    def _unflatten_local_model(aux, children):
+        sample, frame, sweep, residual, geom_aux = rebuild_static(children, aux[4])
+        return LocalModel(aux[0], aux[1], sample, frame, sweep, residual, aux[2], aux[3], geom_aux)
+
+    jax.tree_util.register_pytree_node(Problem, _flatten_problem, _unflatten_problem)
+    jax.tree_util.register_pytree_node(LocalModel, _flatten_local_model, _unflatten_local_model)

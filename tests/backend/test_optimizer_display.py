@@ -9,6 +9,7 @@ import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.optimizers as bopt
+import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.optimizer_display as bdisp
 
@@ -135,7 +136,7 @@ class TestMakeNewtonDisplay(unittest.TestCase):
                 ops += [[d, f]]; out.append(np.einsum(*ops))
             return out
         data = dprobe(A, ww)
-        return bopt.least_squares_problem(bopt.MANIFOLD_OPS, bfit.PROBE, ww, data), ww, data, dprobe, A
+        return bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data), ww, data, dprobe, A
 
     def test_records_and_silent(self):
         """make_newton_display records a self-contained per-iteration dict (scalars + train_err/val_err)
@@ -157,12 +158,35 @@ class TestMakeNewtonDisplay(unittest.TestCase):
         self.assertLess(float(records[-1]['train_err'].mean()), float(records[0]['train_err'].mean()))
 
     def test_needs_block_sumsq(self):
-        """A kind without block_sumsq raises a clear error (all built-in kinds provide it)."""
-        prob, ww, data, _, _ = self._probe_problem()
+        """A kind that does not provide block_sumsq raises a clear error (all built-in kinds do).
+
+        `block_sumsq` is optional, so ``has_block_sumsq`` is declared by whoever IMPLEMENTS it -- False on
+        the base, True on the two output-shape bases. The case that matters is a user kind written from
+        the base that simply omits it: it must trip the friendly guard, not sail through to a bare
+        NotImplementedError from the base method (which is what an inherited True default caused)."""
         import dataclasses as dc
-        prob_no_bs = dc.replace(prob, kind=dc.replace(prob.kind, block_sumsq=None))
+
+        prob, ww, data, _, _ = self._probe_problem()
+
+        @dc.dataclass(frozen=True, eq=False)
+        class KindOmittingBlockSumsq(bfit.SamplingKind):
+            """A user kind written from the base, implementing the operations but not block_sumsq."""
+            def w_axes(self, sample):
+                return 1
+
+        self.assertFalse(KindOmittingBlockSumsq().has_block_sumsq)
         with self.assertRaises(ValueError):
-            bdisp.make_newton_display(prob_no_bs)
+            bdisp.make_newton_display(dc.replace(prob, kind=KindOmittingBlockSumsq()))
+
+        @dc.dataclass(frozen=True, eq=False)                     # and the explicit opt-out still works
+        class ProbeKindOptingOut(bfit.ProbeKind):
+            has_block_sumsq = False
+
+        with self.assertRaises(ValueError):
+            bdisp.make_newton_display(dc.replace(prob, kind=ProbeKindOptingOut()))
+
+        for builtin in (bfit.APPLY, bfit.ENTRIES, bfit.PROBE, bfit.probe_derivatives_kind(2)):
+            self.assertTrue(builtin.has_block_sumsq, f'{builtin.name} implements block_sumsq')
 
 
 if __name__ == "__main__":

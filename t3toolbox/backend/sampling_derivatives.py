@@ -17,6 +17,7 @@ import numpy as np
 import typing as typ
 
 import t3toolbox.backend.tt_operations as tt_operations
+import t3toolbox.backend.fv_conversions as fv_conversions
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.t3_operations as ragged_ops
 import t3toolbox.backend.ut3_operations as uniform_ops
@@ -2491,9 +2492,8 @@ def t3_probe_corewise_derivatives_transpose(
     :py:func:`tv_probe_derivatives_transpose` (frame ``(U, G, G, G)``; orthogonality not required).
     Returns gradients shaped like ``(tucker_cores, tt_cores)``. Verified vs ``jax.grad``.
     '''
-    tucker_cores, tt_cores = core_pair
     return tv_probe_derivatives_transpose(
-        ztildes, ww, pp, (tucker_cores, tt_cores, tt_cores, tt_cores), order,
+        ztildes, ww, pp, fv_conversions.t3_corewise_frame(core_pair), order,
         sum_over_probes=sum_over_probes, chunk_size=chunk_size)
 
 
@@ -2508,9 +2508,8 @@ def t3_apply_corewise_derivatives_transpose(
     '''Corewise transpose of :py:func:`t3_apply_derivatives`: gradient of the apply-derivative jets
     w.r.t. the frame cores (Section 6.3 substitution into :py:func:`tv_apply_derivatives_transpose`).
     '''
-    tucker_cores, tt_cores = core_pair
     return tv_apply_derivatives_transpose(
-        c, ww, pp, (tucker_cores, tt_cores, tt_cores, tt_cores), order, sum_over_probes=sum_over_probes)
+        c, ww, pp, fv_conversions.t3_corewise_frame(core_pair), order, sum_over_probes=sum_over_probes)
 
 
 def t3_entries_corewise_derivatives_transpose(
@@ -2524,9 +2523,8 @@ def t3_entries_corewise_derivatives_transpose(
     '''Corewise transpose of :py:func:`t3_entries_derivatives`: gradient of the entry-derivative jets
     w.r.t. the frame cores (Section 6.3 substitution into :py:func:`tv_entries_derivatives_transpose`).
     '''
-    tucker_cores, tt_cores = core_pair
     return tv_entries_derivatives_transpose(
-        c, index, pp, (tucker_cores, tt_cores, tt_cores, tt_cores), order, sum_over_probes=sum_over_probes)
+        c, index, pp, fv_conversions.t3_corewise_frame(core_pair), order, sum_over_probes=sum_over_probes)
 
 
 #####################################################

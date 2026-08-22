@@ -13,6 +13,7 @@ rebuilt-but-identical mask holder on the same jit cache key.
 import numpy as np
 import typing as typ
 import functools as ft
+import dataclasses as dc
 import weakref
 
 __all__ = [
@@ -27,6 +28,10 @@ __all__ = [
     'to_numpy',
     #
     'ValueHashedMasks',
+    'ValueHashedFields',
+    'StaticSkeleton',
+    'partition_static',
+    'rebuild_static',
     'require_concrete_masks',
     'prefix_mask',
     #
@@ -507,6 +512,150 @@ class ValueHashedMasks:
         if type(other) is not type(self):
             return NotImplemented
         return all(np.array_equal(a, b) for a, b in zip(self.data, other.data))
+
+
+class ValueHashedFields:
+    """Mixin giving a frozen dataclass VALUE-based ``__hash__``/``__eq__`` over **all** its fields,
+    with numpy arrays compared by CONTENT rather than by identity.
+
+    The generalization of :py:class:`ValueHashedMasks` (which value-hashes one designated ``.data``
+    tuple of masks) to a dataclass whose *parameters are its fields*. Both exist for the same reason:
+    the object rides as jax ``aux_data``, so its ``__hash__``/``__eq__`` are part of the jit
+    compilation cache key, and identity semantics make a rebuilt-but-identical object a NEW key ->
+    jit RECOMPILES. A geometry rebuilt at each rank-continuation level, or a sampling kind rebuilt at
+    each outer step, must be the SAME cache key when its parameters are the same.
+
+    Use it instead of the dataclass ``eq=True`` default whenever a field may hold a numpy array
+    (``eq=True`` would raise "truth value of an array is ambiguous"), and instead of ``eq=False``
+    whenever the object is a jit aux (identity semantics recompile). Subclasses must be
+    ``@dataclass(frozen=True, eq=False)``.
+
+    The alternative this replaces is a hand-maintained parallel ``identity`` tuple restating the
+    fields -- correct while someone keeps it in sync, silently identity-based for a user-built object
+    that omits it. Here the fields ARE the key, so there is nothing to keep in sync.
+    """
+
+    @staticmethod
+    def _value_key(v):
+        """A hashable, value-equal key for one field: arrays by (shape, dtype, bytes); tuples/lists
+        recursively; anything else by itself (it must already hash by value)."""
+        if isinstance(v, np.ndarray):
+            return ('__array__', v.shape, v.dtype.str, v.tobytes())
+        if isinstance(v, (tuple, list)):
+            return tuple(ValueHashedFields._value_key(x) for x in v)
+        return v
+
+
+    def require_parameters_are_fields(self) -> None:
+        """Reject a parameter that was stashed on the instance instead of declared as a **field**.
+
+        The value identity is built from ``dc.fields(self)``, so anything else an instance carries is
+        invisible to it -- two objects that differ only in such a value compare EQUAL, and since these
+        objects are jax ``aux_data`` one of them silently receives the other's compiled program. That
+        makes "parameters are fields" a correctness rule, not a style preference, and this turns the
+        three ways of breaking it (a hand-written ``__init__``, a bare class attribute assigned per
+        instance, a class that forgot its ``@dataclass`` decorator) into a construction-time error.
+
+        Call it from ``__post_init__``. Values cached by ``functools.cached_property`` also live in
+        ``__dict__`` by design and are skipped -- they are derived, never parameters."""
+        declared = {f.name for f in dc.fields(self)}
+        cached = {name for cls in type(self).__mro__
+                  for name, attr in vars(cls).items() if isinstance(attr, ft.cached_property)}
+        stray = set(self.__dict__) - declared - cached
+        if stray:
+            raise TypeError(
+                "%s carries %s outside its dataclass fields. Parameters must be declared as fields: the "
+                "value identity (and hence the jax compilation cache key) is built from the fields alone, "
+                "so an instance attribute set some other way is invisible to it and two differently "
+                "parameterized objects would compare equal -- one would silently get the other's compiled "
+                "program. Declare it as an annotated field on a @dataclass(frozen=True, eq=False) class."
+                % (type(self).__name__, ', '.join(sorted(repr(k) for k in stray))))
+
+    @ft.cached_property
+    def _fields_key(self) -> typ.Tuple:
+        # Checked HERE, not in __post_init__: a hand-written __init__ sets its attributes AFTER calling
+        # the dataclass __init__ (which is what runs __post_init__), so at that point there is nothing to
+        # see. First hash/eq is both late enough to catch it and exactly the moment it would do harm.
+        self.require_parameters_are_fields()
+        return tuple(self._value_key(getattr(self, f.name)) for f in dc.fields(self))
+
+    def __hash__(self) -> int:
+        return hash((type(self), self._fields_key))   # type included: field-free siblings must not collide
+
+    def __eq__(self, other) -> bool:
+        if self is other:
+            return True
+        if type(other) is not type(self):
+            return NotImplemented
+        return self._fields_key == other._fields_key
+
+
+
+@dc.dataclass(frozen=True, eq=False)
+class StaticSkeleton(ValueHashedFields):
+    """The static half of a partitioned data tuple -- tree shape plus the static values, hashed by value
+    so it can ride as jax ``aux_data``. Produced by :py:func:`partition_static`."""
+    tree: typ.Any = ()
+
+
+def _is_static_leaf(x) -> bool:
+    """Whether a leaf is STATIC STRUCTURE rather than traced data, per the uniform layer's contract.
+
+    Two cases, and only two: a Python ``int``/``bool`` (a shape entry, an axis count) and a **host numpy
+    boolean array** (a rank mask). Masks are always host numpy by construction and never traced
+    (``docs/uniform_masks_vs_ranks.md``); a jax boolean array is therefore NOT a mask and stays traced,
+    and an integer numpy *array* (the ``entries`` index sample) is data and stays traced too."""
+    if isinstance(x, (bool, int)) and not isinstance(x, np.ndarray):
+        return True
+    return isinstance(x, np.ndarray) and x.dtype == np.bool_
+
+
+def partition_static(
+        tree,   # a tuple/list tree of arrays and static structure (a frame's .data, a frame sweep, ...)
+) -> typ.Tuple[
+    typ.Tuple,        # the dynamic leaves, in traversal order -- the jax pytree children
+    StaticSkeleton,   # the tree shape + static values -- the jax pytree aux_data
+]:
+    """Split a raw backend data tuple into what jax should TRACE and what it must keep STATIC.
+
+    Backend data tuples mix both -- a uniform frame is ``(4 supercores, shape, masks)`` -- and a bare
+    tuple is a jax pytree whose every element is a leaf, so flattening one naively traces the masks and
+    the shape. That raises (``require_concrete_masks``) or silently produces a program that cannot do
+    host-integer shape arithmetic. The frontend avoids it by giving ``UT3Frame`` a registered pytree with
+    the masks as aux; the backend keeps plain tuples, so the split happens here instead.
+
+    Round-trips exactly through :py:func:`rebuild_static`."""
+    dynamic = []
+
+    def walk(node):
+        if isinstance(node, (tuple, list)):
+            return ('list' if type(node) is list else 'tuple', tuple(walk(e) for e in node))
+        if _is_static_leaf(node):
+            return ('static', node)
+        dynamic.append(node)
+        return ('dynamic', None)
+
+    skeleton = walk(tree)                  # must run BEFORE tuple(dynamic) -- it is what fills it
+    return tuple(dynamic), StaticSkeleton(skeleton)
+
+
+def rebuild_static(
+        dynamic:   typ.Sequence,   # the dynamic leaves from partition_static (or their traced/updated twins)
+        skeleton:  StaticSkeleton,  # the matching skeleton
+):
+    """Reassemble the tuple tree :py:func:`partition_static` split, substituting ``dynamic`` in order."""
+    it = iter(dynamic)
+
+    def walk(node):
+        tag, payload = node
+        if tag == 'static':
+            return payload
+        if tag == 'dynamic':
+            return next(it)
+        rebuilt = [walk(e) for e in payload]
+        return rebuilt if tag == 'list' else tuple(rebuilt)
+
+    return walk(skeleton.tree)
 
 
 def require_concrete_masks(

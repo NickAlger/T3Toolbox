@@ -5,6 +5,10 @@
 #
 # Runs mirror the documented dev flow (PYTHONPATH=repo root; no install step).
 # pytest-subtests guarantees unittest subTest failures surface on every pytest generation.
+#
+# Two jobs, and they run in PARALLEL (neither declares `needs:`): the `test` matrix above, and
+# `examples` below. The examples take about as long as the suite does, so running them concurrently
+# costs compute minutes rather than wall-clock waiting.
 name: tests
 
 on:
@@ -55,3 +59,44 @@ jobs:
       - name: Documentation doctests
         run: |
           python -m doctest $(ls docs/*.md docs/contributor/*.md | grep -v 'doctest_style.md')
+
+  # The examples are the most user-facing code in the repo -- the thing a reader runs first -- and they
+  # exercise compositions the suite does not assemble: rank continuation, held-out validation, custom
+  # minibatch draws, the scipy and optax bridges. They were NOT covered here until 2026-08-21, which is
+  # how a refactor of the whole optimization layer could land without any of them being executed.
+  #
+  # One generation only (the current one). These are pure API usage on top of a library the matrix above
+  # already tests against both numpy generations, so a second leg would mostly re-run the same Python.
+  #
+  # Deliberately ALL of them, not a curated fast subset: a hand-maintained list is what rots when someone
+  # adds an example and forgets, which is the failure this job exists to prevent. Roughly 5-6 minutes
+  # locally, dominated by five that run long optimizations to demonstrate convergence quality
+  # (fit_shared_factors_jetted_probes alone is ~87 s). If that ever becomes the critical path, split the
+  # slow ones into a tag-triggered job rather than pruning the list here.
+  examples:
+    name: examples (py3.11 / numpy>=2 / jax)
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      # optax is needed by ONE example (fit_hilbert_from_probes_optax.py), which exists to pin down how
+      # T3 objects hook into optax. scipy likewise for the L-BFGS bridge. The library itself stays
+      # dependency-free -- both are example-only, imported inside the example.
+      - name: Install
+        run: pip install "numpy>=2" jax optax scipy
+      - name: Versions
+        run: python -c "import sys, numpy, jax, optax, scipy; print(sys.version.split()[0], 'numpy', numpy.__version__, 'jax', jax.__version__, 'optax', optax.__version__, 'scipy', scipy.__version__)"
+      # Every example must exit 0. Run them all before failing, so one breakage does not mask the rest.
+      - name: Run every example
+        run: |
+          failed=0
+          for f in examples/*.py; do
+            echo "::group::$f"
+            if python "$f"; then echo "PASS $f"; else echo "::error file=$f::example failed"; failed=1; fi
+            echo "::endgroup::"
+          done
+          exit $failed

@@ -5,12 +5,15 @@ frontend `fitting.GaussNewtonModel` exactly (it is the same math through the sam
 Plus: the optimizers descend. numpy-only (jit dispatch is covered separately in test_dispatch)."""
 import unittest
 
+import types
+
 import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.manifold as t3m
 import t3toolbox.fitting as fitting
 import t3toolbox.backend.fitting as bfit
+import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.optimizers as opt
 import t3toolbox.backend.sampling_derivatives as pd
 import t3toolbox.corewise as cw
@@ -51,7 +54,7 @@ class TestBackendOptimizers(unittest.TestCase):
         self.X = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
 
     # (geometry name, backend GeometryOps, frontend geometry singleton)
-    GEOMS = [('corewise', opt.COREWISE_OPS, t3m.COREWISE), ('manifold', opt.MANIFOLD_OPS, t3m.MANIFOLD)]
+    GEOMS = [('corewise', bgeo.CorewiseGeometryOps(), t3m.COREWISE), ('manifold', bgeo.ManifoldGeometryOps(), t3m.MANIFOLD)]
     _FMODEL = {'apply': fitting.apply_model, 'entries': fitting.entries_model, 'probe': fitting.probe_model}
     _BKIND = {'apply': bfit.APPLY, 'entries': bfit.ENTRIES, 'probe': bfit.PROBE}
 
@@ -123,11 +126,11 @@ class TestBackendOptimizers(unittest.TestCase):
         e0 = true_err(x0)
 
         with self.subTest(optimizer='mc_sgd', geometry='manifold'):
-            pm = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
+            pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
             xm, _ = opt.mc_sgd(pm, x0, np.random.default_rng(3), batch=40, max_iter=500)
             self.assertLess(true_err(xm), 0.3 * e0)
         with self.subTest(optimizer='adam', geometry='corewise'):
-            pc = opt.least_squares_problem(opt.COREWISE_OPS, bfit.PROBE, ww, data)
+            pc = opt.least_squares_problem(bgeo.CorewiseGeometryOps(), bfit.PROBE, ww, data)
             xc, _ = opt.adam(pc, x0, np.random.default_rng(3), batch=40, lr=2e-2, max_iter=600)
             self.assertLess(true_err(xc), 0.3 * e0)
 
@@ -154,7 +157,7 @@ class TestBackendOptimizers(unittest.TestCase):
         }
         for name, (kind, sample, data) in cases.items():
             with self.subTest(kind=name):
-                prob = opt.least_squares_problem(opt.COREWISE_OPS, kind, sample, data)
+                prob = opt.least_squares_problem(bgeo.CorewiseGeometryOps(), kind, sample, data)
                 gU, gG = prob.local_model(X0.data).gradient
                 dU = [rng.standard_normal(u.shape) for u in X0.tucker_cores]
                 dG = [rng.standard_normal(g.shape) for g in X0.tt_cores]
@@ -172,7 +175,7 @@ class TestBackendOptimizers(unittest.TestCase):
                 sB, dB = opt.flat_draw(prob, batch=5)(rng)
                 self.assertTrue(np.isfinite(float(prob.local_model(X0.data, sB, dB).objective)))
         # recovery: mc_sgd (manifold) from a zero start, with the apply-derivatives kind + flat default
-        prob_m = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.apply_derivatives_kind(order, omega), (ww, pp),
+        prob_m = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.apply_derivatives_kind(order, omega), (ww, pp),
                                            np.asarray(pd.t3_apply_derivatives(ww, pp, Xtrue.data, order)))
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
         _, stats = opt.mc_sgd(prob_m, x0, np.random.default_rng(1), batch=6, max_iter=400)
@@ -185,7 +188,7 @@ class TestBackendOptimizers(unittest.TestCase):
         jit path returns a jax-backed result."""
         rng = np.random.default_rng(4)
         ww = unit_vecs(300, SHAPE, rng); data = dense_probe(self.A, ww)
-        problem = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
+        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
         A_norm = float(np.linalg.norm(self.A))
         for use_jit in (False, True):
@@ -200,17 +203,24 @@ class TestBackendOptimizers(unittest.TestCase):
         operator (`ok` True, `resid ≤ tol`), and truncates on a nonpositive-curvature direction (`ok`
         False). A toy diagonal operator wrapped as a `(tucker, tt)` tree exercises the branch deterministically."""
         rhs = ([np.array([1.0, 1.0, 1.0])], [])                     # a (tucker=[vec], tt=[]) tangent tree
-        make_hvp = lambda D: (lambda t: ([D * t[0][0]], []))        # diagonal H
-        inner = cw.corewise_dot
+
+        class ToyModel:
+            """The whole interface CG needs of a local model: `hvp` and `geom.inner`. A toy diagonal
+            operator exercises the curvature branch deterministically."""
+            def __init__(self, diagonal):
+                self.diagonal = diagonal
+                self.geom = types.SimpleNamespace(inner=cw.corewise_dot)
+
+            def hvp(self, t):
+                return ([self.diagonal * t[0][0]], [])
+
         # PD: CG converges to D^-1 rhs, ok stays True, residual under tol
-        p, i, rs, ok = opt._cg_solve(make_hvp(np.array([2.0, 3.0, 5.0])), rhs,
-                                     tol=1e-10, maxiter=50, use_jit=False, inner=inner)
+        p, i, rs, ok = opt._cg_solve(ToyModel(np.array([2.0, 3.0, 5.0])), rhs, 1e-10, 50, False)
         self.assertTrue(bool(ok))
         self.assertLessEqual(float(rs) ** 0.5, 1e-10)
         self.assertTrue(np.allclose(p[0][0], 1.0 / np.array([2.0, 3.0, 5.0])))
         # indefinite (negative-definite here): dᵀHd < 0 on the first direction -> immediate truncation
-        p2, i2, rs2, ok2 = opt._cg_solve(make_hvp(np.array([-1.0, -2.0, -3.0])), rhs,
-                                         tol=1e-10, maxiter=50, use_jit=False, inner=inner)
+        p2, i2, rs2, ok2 = opt._cg_solve(ToyModel(np.array([-1.0, -2.0, -3.0])), rhs, 1e-10, 50, False)
         self.assertFalse(bool(ok2))                                 # truncated on nonpositive curvature
         self.assertGreater(float(rs2) ** 0.5, 1e-10)               # did NOT reach the tolerance
 
@@ -221,7 +231,7 @@ class TestBackendOptimizers(unittest.TestCase):
         rng = np.random.default_rng(4)
         ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
-        pm = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
+        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
         seen = []
         x, stats = opt.newton_cg(pm, x0, max_newton=15, callback=seen.append)
 
@@ -257,7 +267,7 @@ class TestBackendOptimizers(unittest.TestCase):
         rng = np.random.default_rng(4)
         ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
-        pm = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
+        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
 
         def run(**kw):
             seen = []; kw.setdefault('max_newton', 8)
@@ -335,16 +345,16 @@ class TestBackendOptimizers(unittest.TestCase):
                                        lam * float(cw.corewise_dot(Pp, Pp)), places=5)
 
     def test_manifold_point_tangent_is_vX(self):
-        """MANIFOLD_OPS.point_tangent(frame) = the attachment point as a gauged tangent v_X: dense(v_X) = X,
+        """ManifoldGeometryOps.point_tangent(frame) = the attachment point as a gauged tangent v_X: dense(v_X) = X,
         and ‖X‖_HS = ‖P_last‖ = point_norm_sq**½, across structures (design §4)."""
         from t3toolbox.backend import tv_operations as tvo
         for shp, tk, tt in [((5, 6, 7), (2, 2, 2), (1, 2, 2, 1)), ((4, 4, 4, 4), (2, 2, 2, 2), (1, 2, 3, 2, 1))]:
             with self.subTest(shape=shp):
                 X = t3.TuckerTensorTrain.randn(shp, tk, tt); Xd = X.to_dense()
-                frame = opt.MANIFOLD_OPS.frame(X.data)
-                vX = opt.MANIFOLD_OPS.point_tangent(frame)
+                frame = bgeo.ManifoldGeometryOps().frame(X.data)
+                vX = bgeo.ManifoldGeometryOps().point_tangent(frame)
                 self.assertTrue(np.allclose(tvo.tv_to_dense(frame, vX, include_shift=False), Xd))   # dense(v_X)=X
-                self.assertAlmostEqual(float(opt.MANIFOLD_OPS.point_norm_sq((frame[0], frame[2]))) ** 0.5,
+                self.assertAlmostEqual(float(bgeo.ManifoldGeometryOps().point_norm_sq((frame[0], frame[2]))) ** 0.5,
                                        float(np.linalg.norm(Xd)), places=5)                          # ‖X‖=‖P_last‖
 
     def test_regularized_newton_cg_shrinks(self):
@@ -359,7 +369,7 @@ class TestBackendOptimizers(unittest.TestCase):
         res = {}
         for lam in (0.0, 1e-3, 1e-1):
             reg = opt.IdentityRegularizer(lam) if lam > 0 else None
-            prob = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data, regularizer=reg)
+            prob = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data, regularizer=reg)
             x, _ = opt.newton_cg(prob, x0, max_newton=30)
             res[lam] = (err(x), nrm(x))
         self.assertLess(res[0.0][0], 1e-6)                              # λ=0 recovers exactly
@@ -372,7 +382,7 @@ class TestBackendOptimizers(unittest.TestCase):
         rng = np.random.default_rng(4)
         ww = unit_vecs(300, SHAPE, rng); data = dense_probe(self.A, ww)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
-        prob = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data,
+        prob = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data,
                                          regularizer=opt.IdentityRegularizer(1e-2))
         _, st = opt.newton_cg(prob, x0, max_newton=8)
         for row in st['history']:                                       # regularized: obj = misfit + reg, reg ≥ 0
@@ -380,7 +390,7 @@ class TestBackendOptimizers(unittest.TestCase):
             self.assertGreaterEqual(row['regularization'], 0.0)
             self.assertAlmostEqual(row['misfit'] + row['regularization'], row['objective'],
                                    delta=1e-9 * abs(row['objective']) + 1e-12)
-        prob0 = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
+        prob0 = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
         _, st0 = opt.newton_cg(prob0, x0, max_newton=8)
         for row in st0['history']:                                      # unregularized: reg None, misfit == obj
             self.assertIsNone(row['regularization'])
@@ -396,7 +406,7 @@ class TestBackendOptimizers(unittest.TestCase):
         Xn2 = float(np.linalg.norm(Xr.to_dense())) ** 2
         Xum = uf.uniform_minimal(ut3.UniformTuckerTensorTrain.from_t3(Xr))
         tk, tt, shape, masks = Xum.data
-        gops = uf.uniform_manifold_ops(Xum.data)
+        gops = bgeo.UniformManifoldGeometryOps.from_point(Xum.data)
         self.assertAlmostEqual(float(gops.point_norm_sq((tk, tt))) / Xn2, 1.0, places=5)     # == ‖X‖²_HS
         onem = ut3mask.ut3_apply_masks((np.ones_like(tk), np.ones_like(tt), shape, masks))   # 1 in-mask, 0 padding
         g = (np.asarray(tk) + 1e6 * (1.0 - np.asarray(onem[0])),
@@ -411,24 +421,24 @@ class TestBackendOptimizers(unittest.TestCase):
         n = 200
         ww = unit_vecs(n, SHAPE, rng); data = dense_probe(self.A, ww)
         reg = opt.IdentityRegularizer(0.5)
-        prob = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data, regularizer=reg)
-        frame = opt.MANIFOLD_OPS.frame(t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data)
+        prob = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data, regularizer=reg)
+        frame = bgeo.ManifoldGeometryOps().frame(t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data)
         tnorm = lambda t: float(cw.corewise_dot(t, t)) ** 0.5
-        g_full = tnorm(reg.gradient(opt.MANIFOLD_OPS, frame))
+        g_full = tnorm(reg.gradient(bgeo.ManifoldGeometryOps(), frame))
         for b in (40, n):                                              # step-problem reg-grad == (b/n)·full
             sp = opt._minibatch_step_problem(prob, b)
-            self.assertAlmostEqual(tnorm(sp.regularizer.gradient(opt.MANIFOLD_OPS, frame)),
+            self.assertAlmostEqual(tnorm(sp.regularizer.gradient(bgeo.ManifoldGeometryOps(), frame)),
                                    (min(b, n) / n) * g_full, places=6)
         self.assertIsNot(opt._minibatch_step_problem(prob, 40), prob)      # a distinct (scaled) problem
-        p_unreg = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
+        p_unreg = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
         self.assertIs(opt._minibatch_step_problem(p_unreg, 40), p_unreg)   # unregularized -> no-op (unchanged)
 
         # mc_sgd (manifold) with reg shrinks ‖x‖ toward 0 vs the unregularized fit
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
         nrm = lambda c: float(np.linalg.norm(t3.TuckerTensorTrain(*c).to_dense()))
-        xu, _ = opt.mc_sgd(opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data),
+        xu, _ = opt.mc_sgd(opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data),
                            x0, np.random.default_rng(7), batch=50, max_iter=500)
-        xr, _ = opt.mc_sgd(opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data,
+        xr, _ = opt.mc_sgd(opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data,
                                                      regularizer=opt.IdentityRegularizer(0.3)),
                            x0, np.random.default_rng(7), batch=50, max_iter=500)
         self.assertLess(nrm(xr), nrm(xu))
@@ -449,8 +459,8 @@ class TestBackendOptimizers(unittest.TestCase):
         x0_j = jax.tree_util.tree_map(jnp.asarray, (tuple(sc * C for C in self.X.data[0]),
                                                     tuple(sc * C for C in self.X.data[1])))
         e0 = true_err(x0_j)
-        pm = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww_j, data_j)
-        pc = opt.least_squares_problem(opt.COREWISE_OPS, bfit.PROBE, ww_j, data_j)
+        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww_j, data_j)
+        pc = opt.least_squares_problem(bgeo.CorewiseGeometryOps(), bfit.PROBE, ww_j, data_j)
 
         with self.subTest(optimizer='newton_cg'):
             x0z = jax.tree_util.tree_map(jnp.asarray, t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data)
@@ -458,7 +468,7 @@ class TestBackendOptimizers(unittest.TestCase):
             self.assertIsInstance(xn[0][0], jnp.ndarray)
             self.assertLess(true_err(xn), 1e-3)
         with self.subTest(optimizer='newton_cg', regularized=True):     # the reg Hessian λ·Π runs inside the jit CG
-            pm_reg = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww_j, data_j,
+            pm_reg = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww_j, data_j,
                                                regularizer=opt.IdentityRegularizer(1e-2))
             xr, _ = opt.newton_cg(pm_reg, x0z, max_newton=15, use_jit=True)
             self.assertIsInstance(xr[0][0], jnp.ndarray)
@@ -476,7 +486,7 @@ class TestBackendOptimizers(unittest.TestCase):
             wwa = [jnp.asarray(np.asarray(w)[:NW]) for w in ww]            # (NW, Ni) -- a subset of the W stack
             ppa = [jnp.asarray(rng.standard_normal((NW, N))) for N in SHAPE]
             da = jnp.asarray(pd.t3_apply_derivatives(wwa, ppa, t3.TuckerTensorTrain(*x0z).data, order)) * 0.0 + 1.0
-            prob_d = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.apply_derivatives_kind(order, [1.0, .5, .3]),
+            prob_d = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.apply_derivatives_kind(order, [1.0, .5, .3]),
                                                (wwa, ppa), da)
             xd, _ = opt.mc_sgd(prob_d, x0z, np.random.default_rng(7), batch=20, max_iter=120, use_jit=True)
             self.assertIsInstance(xd[0][0], jnp.ndarray)        # jit-compiled (a stray np.* on a tracer raises)
@@ -487,8 +497,8 @@ class TestBackendOptimizers(unittest.TestCase):
         patched off to simulate a jax-less install)."""
         rng = np.random.default_rng(4)
         ww = unit_vecs(40, SHAPE, rng); data = dense_probe(self.A, ww)
-        pm = opt.least_squares_problem(opt.MANIFOLD_OPS, bfit.PROBE, ww, data)
-        pc = opt.least_squares_problem(opt.COREWISE_OPS, bfit.PROBE, ww, data)
+        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
+        pc = opt.least_squares_problem(bgeo.CorewiseGeometryOps(), bfit.PROBE, ww, data)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
         saved = opt.jax_available
         opt.jax_available = False
@@ -504,6 +514,173 @@ class TestBackendOptimizers(unittest.TestCase):
             self.assertFalse(is_jax_ndarray(xf[0][0]))
         finally:
             opt.jax_available = saved
+
+
+
+class TestStackedPointIsRejected(unittest.TestCase):
+    """Stacked points: the optimizers reject them, and so does any regularized objective.
+
+    Two separate limitations, both raising NotImplementedError rather than failing obscurely.
+
+    (1) Optimizing a stacked point is not supported at all -- the objective is an array of shape ``C``
+    and every optimizer reduces it with a Python ``float()``. Before the guard this surfaced as a
+    ``TypeError`` from inside the loop, and for ``adam`` only when its loss logging first fired at
+    iteration 50. Building the local model on a stacked point is fine and still works.
+
+    (2) A regularized objective would silently mis-weight a stacked point.
+
+    The data misfit keeps the frame stack ``C`` (one value per element) while every regularizer scalar
+    collapses it, so ``objective = misfit + rho`` would add the whole-stack regularization total to each
+    element -- inflating the effective lambda by about ``|C|``, and unevenly. The regularizer *gradient*
+    is per-element correct, which is what made the inconsistency easy to miss."""
+
+    def setUp(self):
+        np.random.seed(0)
+        self.rng = np.random.default_rng(0)
+        self.A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT, stack_shape=(3,))
+        self.ww = unit_vecs(20, SHAPE, self.rng)
+        self.data = self.A.apply(self.ww)
+        self.reg = opt.IdentityRegularizer(0.5)
+
+    def test_every_optimizer_rejects_a_stacked_point(self):
+        """All four, unregularized -- the limitation is the scalar reduction, not the regularizer."""
+        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, self.ww, self.data)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT, stack_shape=(3,)).data
+        rng = np.random.default_rng(0)
+        for name, call in (('gradient_descent', lambda: opt.gradient_descent(problem, x0, n_iter=2)),
+                           ('newton_cg', lambda: opt.newton_cg(problem, x0, max_newton=2)),
+                           ('mc_sgd', lambda: opt.mc_sgd(problem, x0, rng, 8, max_iter=2)),
+                           ('adam', lambda: opt.adam(problem, x0, rng, 8, max_iter=2))):
+            with self.subTest(optimizer=name):
+                with self.assertRaises(NotImplementedError):
+                    call()
+
+    def test_a_stacked_local_model_still_works(self):
+        """The supported stacked path: build the model, drive your own loop. Its objective keeps C."""
+        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, self.ww, self.data)
+        lm = problem.local_model(self.A.data)
+        self.assertEqual(np.shape(lm.objective), (3,))
+        self.assertEqual(np.shape(problem.objective(self.A.data)), (3,))
+
+    def test_backend_problem_raises_on_a_stacked_point(self):
+        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY,
+                                            self.ww, self.data, regularizer=self.reg)
+        for label, call in (('local_model', lambda: problem.local_model(self.A.data)),
+                            ('objective', lambda: problem.objective(self.A.data)),
+                            ('newton_cg', lambda: opt.newton_cg(problem, self.A.data, max_newton=1))):
+            with self.subTest(entry=label):
+                with self.assertRaises(NotImplementedError):
+                    call()
+
+    def test_frontend_model_raises_on_a_stacked_point(self):
+        """The reachable path: the optimizers already cannot fit a stacked point (their outer loop casts
+        the objective with float()), so the roll-your-own model is where this bug could actually bite."""
+        residual = np.zeros_like(np.asarray(self.data))
+        with self.assertRaises(NotImplementedError):
+            fitting.apply_model(t3m.MANIFOLD, self.A, self.ww, residual, regularizer=self.reg)
+
+    def test_unstacked_regularized_is_unaffected(self):
+        B = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        data = B.apply(self.ww)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)
+        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY,
+                                            self.ww, data, regularizer=self.reg)
+        _x, stats = opt.newton_cg(problem, x0.data, max_newton=4)
+        self.assertLess(stats['losses'][-1], stats['losses'][0])
+
+    def test_stacked_without_a_regularizer_still_builds_its_model(self):
+        """The guard is about the regularizer only -- an unregularized stacked model is untouched, and
+        its objective keeps the stack."""
+        residual = np.zeros_like(np.asarray(self.data))
+        model = fitting.apply_model(t3m.MANIFOLD, self.A, self.ww, residual)
+        self.assertEqual(np.shape(model.objective_value), (3,))
+
+
+
+class TestWeightCombinations(unittest.TestCase):
+    """Combinations the suite never made, chosen because they share the SHAPE of a bug that shipped.
+
+    The stacked-plus-regularized defect survived into 2026.1.0 because no test combined `stack_shape`
+    with a `regularizer` — a missing COMBINATION, not a missing file. These two are the neighbours of
+    that gap: a residual weight had never been combined with a stack, nor with a regularizer."""
+
+    def setUp(self):
+        np.random.seed(0)
+        self.rng = np.random.default_rng(0)
+
+    def test_weighted_stacked_model_matches_the_per_element_models(self):
+        """A weighted model on a stacked point must equal the per-element weighted models, elementwise.
+        `_make_weight` places ω by axis, and a frame stack shifts those axes."""
+        import t3toolbox.backend.stacking as stacking
+        K = 3
+        ww = unit_vecs(20, SHAPE, self.rng)
+        omega = np.linspace(0.5, 1.5, len(SHAPE))                     # per-mode ω for the probe kind
+        kind = bfit.probe_kind(omega)
+        elements = [t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT) for _ in range(K)]
+        stacked = t3.TuckerTensorTrain(*stacking.stack(tuple(e.data for e in elements), axes=(0,)))
+
+        # data from DIFFERENT tensors than the evaluation point, so the objective is far from zero --
+        # evaluating a model at its own solution gives ~1e-16 on both sides and compares nothing.
+        targets = [t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT) for _ in range(K)]
+        data_el = [dense_probe(t.to_dense(), ww) for t in targets]
+        stacked_data = [np.stack([d[i] for d in data_el], axis=-2) for i in range(len(SHAPE))]
+
+        geom = bgeo.ManifoldGeometryOps()
+        stacked_obj = np.asarray(opt.least_squares_problem(geom, kind, ww, stacked_data)
+                                 .local_model(stacked.data).objective)
+        self.assertEqual(stacked_obj.shape, (K,))
+        self.assertGreater(float(np.min(stacked_obj)), 1.0, 'objective must be far from zero to compare')
+        for i, element in enumerate(elements):
+            with self.subTest(element=i):
+                lone = opt.least_squares_problem(geom, kind, ww, data_el[i]).local_model(element.data)
+                self.assertAlmostEqual(float(stacked_obj[i]) / float(lone.objective), 1.0, places=10)
+
+    def test_weighted_and_regularized_objective_splits_exactly(self):
+        """A residual weight and a regularizer together: `objective == misfit + regularization` exactly,
+        and the regularizer's quadratic term is λ‖Πp‖² regardless of the weight."""
+        order, lam = 2, 0.25
+        ww = unit_vecs(16, SHAPE, self.rng)
+        pp = [self.rng.standard_normal((16, n)) for n in SHAPE]
+        omega = np.outer(np.linspace(0.5, 1.5, len(SHAPE)), np.linspace(0.4, 1.2, order + 1))
+        A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        data = [np.asarray(z) for z in A.probe_derivatives(ww, pp, order)]
+        reg = opt.IdentityRegularizer(lam)
+
+        for name, geom in (('manifold', bgeo.ManifoldGeometryOps()), ('corewise', bgeo.CorewiseGeometryOps())):
+            with self.subTest(geometry=name):
+                problem = opt.least_squares_problem(
+                    geom, bfit.probe_derivatives_kind(order, omega), (ww, pp), data, regularizer=reg)
+                lm = problem.local_model(A.data)
+                self.assertAlmostEqual(float(lm.objective),
+                                       float(lm.misfit) + float(lm.regularization), places=10)
+                np.random.seed(2)
+                p = cw.corewise_map(lambda z: np.random.randn(*z.shape), lm.gradient)
+                projected = geom.project(lm.frame, p)
+                self.assertAlmostEqual(
+                    float(reg.quadratic(geom, lm.frame, p)),
+                    lam * float(geom.inner(projected, projected)), places=10)
+
+    def test_chunk_size_does_not_change_the_gradient(self):
+        """`chunk_size` is the default ('auto') on every frontend optimizer but was never exercised above
+        the primitive layer. Every setting must give the same gradient."""
+        order = 2
+        ww = unit_vecs(24, SHAPE, self.rng)
+        pp = [self.rng.standard_normal((24, n)) for n in SHAPE]
+        A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        data = [np.asarray(z) for z in A.probe_derivatives(ww, pp, order)]
+        x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
+
+        def gradient_at(chunk_size):
+            kind = bfit.probe_derivatives_kind(order, None, chunk_size)
+            lm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data).local_model(x0)
+            return lm.gradient
+
+        reference = gradient_at(None)
+        for chunk_size in (1, 3, 7, 100):
+            with self.subTest(chunk_size=chunk_size):
+                got = gradient_at(chunk_size)
+                self.assertLess(float(cw.corewise_norm(cw.corewise_sub(got, reference)))
+                                / float(cw.corewise_norm(reference)), 1e-12)
 
 
 if __name__ == "__main__":

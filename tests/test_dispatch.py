@@ -13,6 +13,7 @@ jit-compiles and returns jax leaves is pure-jax. Dynamic-shape ops (rtol/atol tr
 from the data) cannot be jitted, so they get a weaker jax-in -> jax-out output check. A handful of
 numerical smoke tests guard against subtle backend divergence on the most complex ops.
 """
+import dataclasses as dc
 import numpy as np
 import unittest
 
@@ -21,6 +22,10 @@ import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.fv_operations as fv_operations
+import t3toolbox.corewise as _cw
+import t3toolbox.backend.geometry as bgeo
+import t3toolbox.backend.optimizers as bopt
+import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.common as common
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.sampling_derivatives as pd
@@ -508,13 +513,105 @@ class TestDispatch(unittest.TestCase):
                                        "(kind rebuilt lazily, not stored as a fresh closure)")
         self._leaves_all_jax(hp)
 
+    def _apply_problem_jax(self):
+        SH, TK, TT = STRUCT
+        np.random.seed(0)
+        A = t3.TuckerTensorTrain.randn(SH, TK, TT)
+        cores = (tuple(jnp.asarray(c) for c in A.data[0]), tuple(jnp.asarray(c) for c in A.data[1]))
+        ww = [jnp.asarray(np.random.randn(40, n)) for n in SH]
+        b = jnp.asarray(np.asarray(A.apply([np.asarray(w) for w in ww])))
+        return bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, ww, b), cores
+
+    def test_local_model_rebuilt_each_step_is_one_jit_cache_key(self):
+        """A LocalModel is rebuilt at every Newton iteration by construction. It must flatten to the SAME
+        treedef each time, or the inner CG recompiles per iteration -- which is exactly what it did before
+        slices 1-3 (measured: 1 compile per Newton iteration on the probe_derivatives path).
+
+        The mechanism is that the model's aux is (geometry, kind, n_w, regularizer) and the first two are
+        now value-typed dataclasses, plus a static skeleton holding the frame's shape and rank masks --
+        which must NOT be traced (`require_concrete_masks` rejects a traced mask outright)."""
+        problem, cores = self._apply_problem_jax()
+        traces = [0]
+
+        @jax.jit
+        def objective_of(model):
+            traces[0] += 1                       # +1 per TRACE (compile), not per call
+            return model.objective
+
+        for _ in range(3):
+            lm = problem.local_model(cores)      # REBUILT, as the outer loop does
+            jax.block_until_ready(objective_of(lm))
+        self.assertEqual(traces[0], 1, "LocalModel recompiled -- its aux must be value-stable")
+
+        leaves, _ = jax.tree_util.tree_flatten(problem.local_model(cores))
+        masks = [l for l in leaves if hasattr(l, 'dtype') and np.asarray(l).dtype == bool]
+        self.assertEqual(masks, [], "rank masks must stay in the aux, never among the traced leaves")
+
+    def test_cg_tolerance_is_not_stale(self):
+        """The CG tolerance changes every Newton iteration (it is the forcing term). A `lax.while_loop`
+        body caches on its own identity, so a stable body READING a changed Python value would silently
+        get the cached jaxpr with the OLD value -- solving to a stale tolerance. `tol` and `maxiter` ride
+        in the loop state and are traced arguments, so that is unrepresentable.
+
+        Tightening the tolerance must therefore cost strictly more CG iterations, not the same number."""
+        problem, cores = self._apply_problem_jax()
+        lm = problem.local_model(cores)
+        neg_g = _cw.corewise_scale(lm.gradient, -1.0)
+        gnorm = float(problem.geom.inner(lm.gradient, lm.gradient)) ** 0.5
+
+        counts = []
+        for frac in (0.5, 0.1, 0.02, 0.005):                      # progressively tighter
+            _p, i, _rs, _ok = bopt._cg_solve(lm, neg_g, frac * gnorm, 200, True)
+            counts.append(int(i))
+        self.assertEqual(counts, sorted(counts), f"iterations must grow as tol tightens; got {counts}")
+        self.assertGreater(counts[-1], counts[0], f"tolerance ignored (stale): {counts}")
+
+    def test_a_derived_kind_does_not_inherit_its_parents_cache_key(self):
+        """A kind with DIFFERENT math must not share a jit cache key with the one it derives from.
+
+        Regression test for a silent miscompile in the pre-class design. Kinds were a dataclass of
+        lambdas plus a hand-maintained ``identity`` tuple, and ``dataclasses.replace`` copied that tuple
+        unchanged -- so ``dc.replace(APPLY, forward=<something else>)`` compared EQUAL to ``APPLY``,
+        jax reused ``APPLY``'s compiled program, and jit returned the unscaled answer while eager
+        returned the scaled one (measured on the GaussNewtonModel docstring's fixture: 115.302888 vs
+        28.825722; this fixture is smaller, but the failure is the same).
+
+        Parameters are fields now and behaviour is methods, so the failure is unrepresentable: a variant
+        is a subclass, which is a different type, which the value-based ``__eq__`` rejects up front."""
+        SH, TK, TT = STRUCT
+
+        @dc.dataclass(frozen=True, eq=False)
+        class HalfApplyKind(bfit.ApplyKind):
+            def forward(self, v, ww_, frame, sweep):
+                return 0.5 * super().forward(v, ww_, frame, sweep)
+
+        self.assertNotEqual(HalfApplyKind(), bfit.APPLY)
+        self.assertNotEqual(hash(HalfApplyKind()), hash(bfit.APPLY))
+
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn(SH, TK, TT)
+        x = t3.TuckerTensorTrain(tuple(jnp.asarray(c) for c in x.data[0]),
+                                 tuple(jnp.asarray(c) for c in x.data[1]))
+        ww = [jnp.asarray(np.random.randn(15, n)) for n in SH]
+        r = jnp.asarray(np.random.randn(15))
+
+        quad = jax.jit(lambda m, p: m.gn_quadratic(p))
+        plain = fitting.apply_model(t3m.MANIFOLD, x, ww, r)
+        derived = dc.replace(plain, kind=HalfApplyKind())
+        p0 = t3m.MANIFOLD.randn(plain.frame)
+
+        q_plain = float(quad(plain, p0))
+        q_derived = float(quad(derived, p0))
+        self.assertAlmostEqual(q_derived, float(derived.gn_quadratic(p0)), places=10)  # jit == eager
+        self.assertNotAlmostEqual(q_derived, q_plain, places=6)                        # and NOT the parent's
+
     def test_jit_ragged_gauss_newton_model_parameterized_kind(self):
         # The ragged twin of the test above, for the PARAMETERIZED kinds. A GaussNewtonModel carries its
         # SamplingKind as jax aux_data, and jax keys the compilation cache on the aux. APPLY/ENTRIES/PROBE
         # are module singletons, so they were always one object and always one compile -- but the derivative
         # and weighted kinds are BUILT PER MODEL, out of fresh closures, so under dataclass field equality
         # every rebuilt model was a new cache key and the documented "roll your own optimizer" loop
-        # recompiled every outer step (measured: 3 traces for 3 rebuilds). SamplingKind.identity fixes it by
+        # recompiled every outer step (measured: 3 traces for 3 rebuilds). Value-typed kinds fix it by
         # comparing the PARAMETERS (name, order, weight, chunk_size) instead of the lambdas.
         SH, TK, TT = STRUCT
         W, ORDER = 12, 2

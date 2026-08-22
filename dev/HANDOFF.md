@@ -1,45 +1,114 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-08-20, just after the 2026.1.0 release. The per-thread history of everything that went
+_Updated 2026-08-21._ _Previously updated 2026-08-20, just after the 2026.1.0 release. The per-thread history of everything that went
 into 2026.0.0 and 2026.1.0 is archived at `dev/archive/handoff_2026-08-20_pre-2026.1.0.md` (and, for
 1.0, `dev/archive/handoff_2026-07-12_1.0_complete.md`); what each release contains is the CHANGELOG,
 and why it is the way it is is `docs/`. This file is where-we-are + what's next, nothing else._
 
-## Newest thread — the eager-jax scan-body sweep (2026-08-21)
+## Newest thread — the optimization-layer restructuring (2026-08-21)
 
-**Tiers 1 and 2 are done and pushed** (`f0099c4c`, `48cdd13c`); **tier 3 is planned but not started**
-and wants its own session.
+**On branch `optimization-layer-value-typed`, NOT pushed, NOT released.** Nine commits, every gate
+green at each: full suite **751 passed / 42,011 subtests**, 192 module doctests, doc pages clean,
+`sphinx -W` clean.
 
-The defect: `lax.scan` keys its trace/compile cache on the IDENTITY of the body it is handed, so a
-body defined inside its caller is a fresh object every call — it re-traces, re-compiles, and leaves
-LLVM JIT mappings behind until `use_jit=True` runs abort on Linux's `vm.max_map_count`. It is also
-why the jit path measured ~40x SLOWER than numpy: nearly all of its per-iteration time was
-recompilation. Found from a downstream consumer, diagnosed here.
+    8ef7c118  backend geometries become value-typed classes
+    b38b0439  give the frame conventions one home each
+    a0b268bd  reject a regularized fit of a STACKED point
+    927cfc64  reject a STACKED point in the optimizers
+    3a31dd2f  SamplingKind becomes value-typed classes
+    981a4b46  move the jit boundary -- 1 compile per Newton iteration -> 0
+    843de628  one GaussNewtonModel for both representations
+    604149f2  docs: record the restructuring, close the sweep
+    cb36ef9f  act on the four-lane review
 
-On the `probe_derivatives` Newton-CG path: **compiles per Newton iteration 19 → 1**, mappings
-877 → 294. `common.jax_map` also had to change — `jax.lax.map` builds a fresh wrapper lambda per
-call and so can never hit the cache however stable the body is.
+### How this started, and what it really was
 
-- **Durable principles**: `docs/contributor/scan_body_principles.md` (in the Contributor guide).
-- **Catalogue** of all 54 sites, with the measurement recipe: `dev/scan_body_sweep.md`.
-- **Plan**, incl. the full tier-3 specification: `dev/scan_body_plan.md`.
+It began as tier 3 of the scan-body sweep (archived:
+`dev/archive/scan_body_plan_2026-08-21_complete.md`), which had got the `probe_derivatives` Newton-CG
+path from 19 compiles per Newton iteration to 1. The last one was `_cg_solve`, and the plan said to
+defunctionalize its `while_loop` body.
 
-**Tier 3 — `_cg_solve`, the last per-iteration recompile.** Not a hoist; a small refactor Nick has
-wanted for a while. `cond` captures `tol2`, which changes every Newton iteration, and a stable body
-reading a changed Python value silently gets the cached jaxpr with the OLD value — so this is a
-correctness constraint, not a performance preference: `tol2`/`maxiter` must be carried in the loop
-state. `body` captures `hvp`, a bound method of a per-iteration `LocalModel`. An `lru_cache` on it is
-recorded as REJECTED (never hits, and pins every `LocalModel`'s arrays). All viable routes need
-`LocalModel` to become a jax pytree — prove that first. Templates already in-house: `SamplingKind`'s
-`identity`-tuple `__eq__`/`__hash__`, `common.ValueHashedMasks`, and `UniformGaussNewtonModel`'s
-pytree registration. Target agreed with Nick: **once per fitting run is acceptable**. Oracle:
-`tests/backend/test_optimizers.py` already covers eager-vs-jit agreement.
+That turned out to be the wrong altitude. The real defect was that **every axis object in the layer was
+a bag of closures**, and every jax cache keys on identity — so a rebuilt-but-identical geometry or kind
+was always a new cache key, which is the normal case in a fitting loop. The same workaround had been
+independently invented three times (`SamplingKind.identity`, `UniformGaussNewtonModel`'s four shadow
+fields, a memoized factory in the chunked assembly). Fixing the cause instead: **parameters are fields,
+behaviour is methods**, value identity from `common.ValueHashedFields`.
 
-Two known non-defects left deliberately: `optimizers.py:395` jits a fresh `step` per `mc_sgd`/`adam`
-*call* (one compile per optimizer invocation, which coincides with a rank change — accepted), and
-`xmap` bodies dispatch per-element rather than per-operation, which differs from the old whole-tree
-rule only for mixed numpy/jax sequences that nothing in the library produces (documented in the
-principles page).
+**The durable record is [`docs/contributor/parameters_not_closures.md`](../docs/contributor/parameters_not_closures.md)** —
+rationale, the sharpened backend rule, measurements, rejected alternatives. Read that, not this.
+
+### Two real bugs found on the way, both live in shipped 2026.1.0
+
+- **A derived kind silently reused its parent's compiled program.** `dc.replace` copied the `identity`
+  tuple, so `dc.replace(APPLY, forward=<other math>) == APPLY`; jit returned 115.302888 where eager
+  gave 28.825722. Unrepresentable now (a variant is a subclass).
+- **A regularized fit of a stacked point mis-weighted silently.** The misfit keeps the stack `C`, every
+  regularizer scalar collapses it, so the whole-stack total was added to each element. Now raises.
+  Separately: no optimizer ever supported stacked points (`float()` on a shape-`C` objective) — that
+  now raises at the entry instead of from inside the loop.
+
+### Results
+
+| | before | after |
+|---|---|---|
+| compiles / Newton iteration (uniform `probe_derivatives`) | 1 | **0** |
+| `mc_sgd` / `adam` step kernel | one compile per optimizer *call* | once per shape signature |
+| CG tolerance staleness | freshness load-bearing for correctness | unrepresentable |
+| `backend/optimizers.py` T3-specific imports | 3 | **0** |
+
+Numerics were held to bit-identical against the pre-refactor tree throughout — geometry surfaces
+(124,692 values), corewise transposes (24,882), kind surfaces (19,426), frontend model surfaces
+(8,160) — with two documented exceptions, both jitted `newton_cg`, agreeing to 1e-12 / 1e-15 relative
+on the fitted **tensor** (XLA fuses a larger compiled region differently).
+
+### Reviewed (2026-08-21)
+
+Four independent review lanes plus an `examples/` sweep, each required to ship a reproduction with its
+finding. Result: **two silent wrong answers**, both fixed in `cb36ef9f`.
+
+- `SharedGeometry.__eq__`/`__hash__` keyed on a hardcoded class name, so a subclass collided with the
+  shipped wrapper in the jit cache. **Live in 2026.1.0**, and exactly the failure the decision record
+  called unrepresentable — the record overclaimed, and now says so.
+- `_weight_matrix` aliased the caller's array, so a weight sweep reusing one buffer desynced the cache
+  key from the compiled program. Sharpened by this refactor (the weight became part of the value
+  identity); now copied and frozen.
+
+Plus seven regressions of mine, all documentation or ergonomics: a second `__all__` silently rebinding
+the first, `has_block_sumsq` defaulting the wrong way, `weight=` renamed gratuitously, six removed
+uniform builders documented nowhere, three new geometry protocol members undocumented, a "supply the
+five operations" recipe that needed nine and pointed at private bases, and stale cross-references.
+
+Positive evidence worth keeping: 250 untested combinations run against independent oracles found
+nothing; compile-once re-measured across 48 configurations, not the 1 I had checked; all 14 `examples/`
+scripts byte-identical against the pre-refactor tree. They were **not in CI**, which is how a refactor of
+the whole optimization layer could land without one of them being executed; `tests.yaml` now has an
+`examples` job that runs all fourteen. It is a second job with no `needs:`, so it runs in parallel with
+the test matrix and takes about as long (~5-6 min locally), costing compute minutes rather than waiting.
+
+Three things the review found and we chose not to fix — all in
+`docs/contributor/deferred_and_rejected.md`: a construction-time guard for "parameter is not a field"
+(the design's one sharp edge — see *Honest limits* in the decision record), a kind/geometry rank-pairing
+guard, and `d=1` on the uniform layer (pre-existing, in `ut3_svd`).
+
+### Next
+
+1. **Nick reviews the branch**, then merge to `main`. Nothing is pushed.
+2. **Release**: bump `pyproject.toml` (`2026.2.0` — the scheme has no major slot, and 2026.1.0 itself
+   shipped breaking changes), retitle the CHANGELOG's `[Unreleased]`, follow
+   `dev/archive/release_plan_2026-07-13.md`. The upgrade notes are already written in
+   `docs/release_notes.md`.
+3. **Follow-ups** are logged in `docs/contributor/deferred_and_rejected.md`: stacked optimization, the
+   seven open-coded sharing normalizations in the SVD layer, a mixin for the repeated uniform-geometry
+   methods, and jitting the outer Newton loop (its prerequisite — a pytree `LocalModel` — now exists;
+   what it fights is the host-side `callback` display).
+
+### Two verification lessons worth keeping
+
+- **Breadth is not coverage when the cases share a degeneracy.** A frame-shape derivation passed 21
+  structures including stacks, and was wrong; all 21 had `nD == nU`.
+- **Compare invariants, not representations.** An optimizer diff showed 1.75 absolute and looked like a
+  regression; it was comparing gauge-dependent cores (`U → UQ`, `G → Qᵀ G` leaves the tensor unchanged).
 
 ## Where we are — 2026.1.0 SHIPPED ✅
 

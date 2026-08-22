@@ -90,7 +90,7 @@ would silently discard the differences), so safe mode checks it at the entry poi
 | `x.share(sharing, …)` | — (it is how you *enter* the format; untied input is the point) | |
 | **full shared rank** (`s_{g,min} > 0`) | **never enforced** — a zero-padded continuation restart sits *on* the lower-rank stratum by construction ([`sharing.md`](sharing.md)); the projection solve is a clipped pseudoinverse, well-defined there | diagnostic via the group spectrum |
 
-### `GaussNewtonModel` / `UniformGaussNewtonModel`
+### `GaussNewtonModel`
 
 | op | precondition |
 |---|---|

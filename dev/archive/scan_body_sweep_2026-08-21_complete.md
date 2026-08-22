@@ -1,5 +1,8 @@
 # Scan-body sweep — the catalogue
 
+> **COMPLETE (2026-08-21).** The catalogue this recorded is fully converted (tiers 1-2 mechanically,
+> tier 3 by relocating the jit boundary). Kept for the site inventory and the measurement recipe.
+
 *Working note for the in-flight conversion to closure-free scan/map bodies
 (`docs/contributor/scan_body_principles.md`). Ephemeral: delete or archive when the sweep is done.
 Line numbers are against the tree as of 2026-08-21, AFTER `_mu_jets_step` landed.*
