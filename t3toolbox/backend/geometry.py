@@ -46,6 +46,8 @@ from t3toolbox.backend import fv_operations
 from t3toolbox.backend import ufv_operations
 from t3toolbox.backend import ufv_masking
 from t3toolbox.backend import sharing as sharing_module
+from t3toolbox.backend import t3_orthogonalization as ragged_orth
+from t3toolbox.backend import tt_operations
 from t3toolbox.backend.fv_conversions import t3_orthogonal_representations, t3_corewise_frame
 import t3toolbox.corewise as cw
 
@@ -73,7 +75,9 @@ def t3_left_orthogonal_norm_sq(
 ) -> NDArray:                  # ‖X‖²_HS (scalar for stack C=())
     """``‖X‖²_HS = ‖last TT core‖²`` -- exact for a left-orthogonal T3 (the frame's ``(U,P)`` or a
     ``t3svd`` retraction output), so no dense tensor and no re-orthogonalization. The left-orthogonal
-    precondition is check-free here (backend); a raw-data user can verify it with
+    precondition is check-free here (backend) and is the caller's responsibility: on a raw point the value
+    is simply wrong (measured 3 vs 1400 on a ``randn`` point -- the 2026-08-22 review). Use
+    :py:meth:`ManifoldGeometryOps.point_norm_sq` for an arbitrary point; verify a point with
     :py:func:`t3toolbox.backend.t3_orthogonalization.t3_orthogonality_residual`.
     (``dev/archive/regularization_design.md`` §4a.)"""
     last = x_cores[1][-1]
@@ -216,8 +220,13 @@ class ManifoldGeometryOps(ValueHashedFields):
         return cw.corewise_dot(a, b)
 
     def point_norm_sq(self, x_cores):
-        """``‖X‖²`` in the coordinate metric -- the regularizer's objective term."""
-        return t3_left_orthogonal_norm_sq(x_cores)
+        """``‖X‖²_HS`` -- the regularizer's objective term. Exact for ANY point: left-orthogonalizes first
+        (Tucker up-orth + one left TT sweep, no ``W`` factor -- negligible beside the misfit evaluation it
+        always sits next to), then reads ``‖last TT core‖²``. The uniform twin does the same. The check-free
+        fast path for a point known to be left-orthogonal is :py:func:`t3_left_orthogonal_norm_sq`."""
+        tucker, tt = x_cores
+        return t3_left_orthogonal_norm_sq(
+            ragged_orth.t3_left_orthogonalize((tucker, tt_operations.tt_squash_tails(tt))))
 
     def point_tangent(self, frame):
         """The attachment point as a gauged tangent ``v_X`` -- the regularizer's gradient direction."""

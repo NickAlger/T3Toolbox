@@ -517,6 +517,53 @@ class TestBackendOptimizers(unittest.TestCase):
 
 
 
+class TestProblemContracts(unittest.TestCase):
+    """Backend ``Problem`` contracts from the 2026-08-22 review: an explicit minibatch is (sample, data)
+    together (S6), and the regularized objective is exact at a RAW, non-left-orthogonal point (S7)."""
+
+    def _problem(self, regularizer=None):
+        np.random.seed(3)
+        x_true = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 3), (1, 2, 2, 1))
+        ww = tuple(np.random.randn(20, n) for n in (4, 5, 6))
+        b = x_true.apply(ww)
+        return opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, ww, b,
+                                         regularizer=regularizer), ww, b
+
+    def test_data_without_sample_is_rejected(self):
+        # `objective(x, data=other)` used to silently score the TRAINING data.
+        problem, ww, b = self._problem()
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
+        for bad in (dict(data=b + 1.0), dict(sample=ww)):
+            with self.subTest(**{k: 'given' for k in bad}):
+                with self.assertRaises(ValueError):
+                    problem.objective(x.data, **bad)
+                with self.assertRaises(ValueError):
+                    problem.local_model(x.data, **bad)
+        other = b + 5.0
+        self.assertAlmostEqual(float(problem.objective(x.data, ww, other)),
+                               0.5 * float(np.sum((x.apply(ww) - other) ** 2)), places=8)
+        self.assertAlmostEqual(float(problem.local_model(x.data, ww, other).objective),
+                               0.5 * float(np.sum((x.apply(ww) - other) ** 2)), places=8)
+
+    def test_regularized_objective_exact_at_a_raw_point(self):
+        # point_norm_sq read ‖last TT core‖², exact only for a left-orthogonal point; a randn point gave
+        # reg term 3 where the truth was 1400. Now exact for any point (ragged == uniform == dense).
+        import t3toolbox.backend.regularization as reg
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        lam = 0.7
+        problem, ww, b = self._problem(reg.IdentityRegularizer(lam))
+        for ttr in [(1, 2, 2, 1), (2, 2, 2, 3)]:                     # incl. unsquashed tails
+            with self.subTest(tt=ttr):
+                x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), ttr)
+                truth = 0.5 * float(np.sum((x.apply(ww) - b) ** 2)) + 0.5 * lam * float(x.norm()) ** 2
+                self.assertLess(abs(float(problem.objective(x.data)) - truth) / truth, 1e-10)
+                geom = bgeo.ManifoldGeometryOps()
+                self.assertLess(abs(float(geom.point_norm_sq(x.data)) - float(x.norm()) ** 2) / truth, 1e-10)
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+                ugeom = bgeo.UniformManifoldGeometryOps.from_point(ux.data)
+                self.assertLess(abs(float(ugeom.point_norm_sq(ux.data[:2])) - float(x.norm()) ** 2) / truth, 1e-10)
+
+
 class TestStackedPointIsRejected(unittest.TestCase):
     """Stacked points: the optimizers reject them, and so does any regularized objective.
 

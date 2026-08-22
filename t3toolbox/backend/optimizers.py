@@ -175,10 +175,21 @@ class Problem:
 
     regularizer: typ.Any = None   # optional backend.regularization.Regularizer; ρ folded into local_model + objective
 
+    def _sample_and_data(self, sample, data, where: str):
+        """The full ``(sample, data)`` when neither is given, the explicit pair when both are; exactly one
+        is a structural error (``data=`` alone used to be silently dropped in favour of the training data)."""
+        if sample is None and data is None:
+            return self.sample, self.data
+        if sample is None or data is None:
+            raise ValueError('%s: pass `sample` and `data` together (an explicit minibatch), or neither '
+                             '(the full training data); got sample=%s, data=%s'
+                             % (where, 'None' if sample is None else 'given', 'None' if data is None else 'given'))
+        return sample, data
+
     def local_model(self, x_cores: Tangent, sample=None, data=None) -> LocalModel:
-        """Linearize at ``x_cores`` on the full data (``sample=None``) or an explicit minibatch."""
-        if sample is None:
-            sample, data = self.sample, self.data
+        """Linearize at ``x_cores`` on the full data (``sample=None``) or an explicit minibatch
+        (``sample`` AND ``data`` -- passing one without the other is a structural error)."""
+        sample, data = self._sample_and_data(sample, data, 'Problem.local_model')
         if self.regularizer is not None:
             require_unstacked_for_regularizer(self.geom.stack_shape(x_cores), 'Problem.local_model')
         frame = self.geom.frame(x_cores)
@@ -191,10 +202,10 @@ class Problem:
     def objective(self, x_cores: Tangent, sample=None, data=None):
         """``½‖S(x)-data‖²`` (+ ``ρ(x)`` if regularized) on the full data (``sample=None``) or an explicit
         minibatch; no frame sweep (cheap -- for the line search / the full-batch stop signal). The reg term
-        reads ``x_cores`` directly, so on the manifold it assumes ``x_cores`` is left-orthogonal (true for a
-        retraction output -- the line-search points; ``dev/regularization_design.md`` §4a)."""
-        if sample is None:
-            sample, data = self.sample, self.data
+        reads ``x_cores`` directly through ``geom.point_norm_sq`` (exact for any point;
+        ``dev/archive/regularization_design.md`` §4a). ``sample`` and ``data`` go together: one without the
+        other is a structural error (the data used to be silently ignored when only it was passed)."""
+        sample, data = self._sample_and_data(sample, data, 'Problem.objective')
         if self.regularizer is not None:
             require_unstacked_for_regularizer(self.geom.stack_shape(x_cores), 'Problem.objective')
         residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
