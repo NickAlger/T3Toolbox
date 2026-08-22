@@ -524,6 +524,35 @@ class TestResidualWeighting(unittest.TestCase):
         self.assertTrue(np.allclose(float(m1.objective_value), float(m2.objective_value)))
 
 
+class TestPerModeWeightRowCount(unittest.TestCase):
+    """Review 2026-08-22 (S8): a per-mode weight with MORE rows than modes is truncated (intended -- one
+    weight rides through a continuation scheme that adds modes), on both layers; FEWER rows is a structural
+    error at construction on the frontend and at the first reduction on the backend (not an IndexError)."""
+
+    def setUp(self):
+        np.random.seed(5)
+        self.x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        self.ww = tuple(np.random.randn(7, n) for n in (4, 5, 6))
+        self.r = [np.random.randn(7, n) for n in (4, 5, 6)]                    # a probe residual, W=(7,)
+        self.w5 = np.array([1.0, 2.0, 3.0, 4.0, 5.0])
+
+    def test_over_long_is_truncated(self):
+        import t3toolbox.backend.fitting as bfit
+        m_long = fitting.probe_model(t3m.MANIFOLD, self.x, self.ww, self.r, weight=self.w5)
+        m_d = fitting.probe_model(t3m.MANIFOLD, self.x, self.ww, self.r, weight=self.w5[:3])
+        self.assertAlmostEqual(float(m_long.objective_value), float(m_d.objective_value), places=10)
+        k_long = bfit.probe_kind(weight=self.w5)
+        k_d = bfit.probe_kind(weight=self.w5[:3])
+        self.assertAlmostEqual(float(k_long.sumsq(self.r, 1)), float(k_d.sumsq(self.r, 1)), places=10)
+
+    def test_short_is_rejected(self):
+        import t3toolbox.backend.fitting as bfit
+        with self.assertRaises(ValueError):
+            fitting.probe_model(t3m.MANIFOLD, self.x, self.ww, self.r, weight=self.w5[:2])
+        with self.assertRaises(ValueError):
+            bfit.probe_kind(weight=self.w5[:2]).sumsq(self.r, 1)
+
+
 class TestUniformLayerGaussNewtonModel(unittest.TestCase):
     '''U7b: the uniform roll-your-own surface. ``fitting.apply_model`` &c. dispatch a
     ``UniformTuckerTensorTrain`` x to a ``GaussNewtonModel`` on a UT3Frame (UT3Tangent-valued gradient /

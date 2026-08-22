@@ -160,9 +160,12 @@ def _canonical_weight(
     if o not in (1, order + 1):
         raise ValueError("residual weight's order dimension must be 1 or order+1=%d; got %d (shape %s)"
                          % (order + 1, o, wm.shape))
-    if m not in (1, d):
-        raise ValueError("residual weight's mode dimension must be 1 or d=%d; got %d (shape %s)"
-                         % (d, m, wm.shape))
+    if 1 < m < d:
+        # m > d is allowed: the extra rows are ignored (a continuation scheme can carry one per-mode weight
+        # across stages that add modes; the backend truncates at apply time). Fewer rows than modes is a
+        # structural error.
+        raise ValueError("residual weight's mode dimension must be 1 or >= d=%d (extra rows are ignored); "
+                         "got %d (shape %s)" % (d, m, wm.shape))
     if 'probe' not in kind_name and m > 1:          # apply/entries: no mode axis (mode weighting is probe-only)
         raise ValueError("apply / entries contract every mode into a scalar -- they have no mode axis, so a "
                          "per-mode weight (mode dim %d > 1) is undefined. Use an order-only weight "

@@ -335,7 +335,10 @@ where it turns an order-`1e-3` recovery into `1e-4` from the same data.
 apply/entries contract every mode into a scalar — they have **no mode axis**, so their weight is
 order-only (a per-mode weight is a structural error). Plain `probe_model` has **no order axis**, so its
 weight is a 1-D `(d,)` per-mode vector (a 2-D `(d, 1)` is rejected — this keeps `(d,)` the single,
-forward-stable spelling if a less-important weighting axis is ever added).
+forward-stable spelling if a less-important weighting axis is ever added). A per-mode weight may have
+**more** rows than modes — the extra rows are ignored, so one weight can ride through a continuation
+scheme that adds modes — but fewer rows than modes (other than the broadcast `1`) is a structural error,
+on both layers.
 
 ```python
 >>> # probe_derivatives: down-weight the noisy high orders AND discount a coarse mode, independently:

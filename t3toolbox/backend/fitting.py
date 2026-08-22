@@ -254,9 +254,19 @@ def _make_weight(
     if w2d is None:
         return lambda x, power: x
     m, o = w2d.shape
+
+    def check_modes(d):
+        # A per-mode weight with MORE rows than modes is truncated to the first d (intended: a continuation
+        # scheme can carry one weight across rank/mode stages); FEWER rows (but not the broadcast 1) is a
+        # structural error here, not an IndexError deep inside the reduction.
+        if 1 < m < d:
+            raise ValueError("residual weight's mode dimension must be 1 or >= d=%d (extra rows are ignored); "
+                             "got %d (shape %s)" % (d, m, w2d.shape))
+
     def apply_w(x, power):
         wp = w2d ** power
         if isinstance(x, (list, tuple)):                 # ragged probe: a list of d order-leading arrays
+            check_modes(len(x))
             return [xi * wp[i if m > 1 else 0].reshape((o,) + (1,) * (xi.ndim - 1))
                     for i, xi in enumerate(x)]
         if mode_axis is None and m > 1:                  # apply/entries have no mode axis (probe-only)
@@ -264,7 +274,11 @@ def _make_weight(
                              "weight (mode dim %d > 1) is only defined for probe" % m)
         shp = [1] * x.ndim                               # place ω's non-unit axes; 1s broadcast elsewhere
         if mode_axis is not None:
-            shp[mode_axis] = m
+            d = x.shape[mode_axis]
+            check_modes(d)
+            if m > d:
+                wp = wp[:d]                              # packed layout cannot broadcast the extra rows
+            shp[mode_axis] = min(m, d)
         if order_axis is not None:
             shp[order_axis] = o
         return x * wp.reshape(tuple(shp))
