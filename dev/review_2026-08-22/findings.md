@@ -90,3 +90,41 @@ oracles == finite differences at asymmetric shapes and orders 0–4: no numerica
 
 Phase B: adversarial verification (two independent refuters per S/C cluster, one confirmer per substantive
 D), then triage with Nick under the agreed gate (confirmed S + C block the tag; D fixed; E deferred).
+
+---
+
+## Phase B — verification verdicts (inline, 2026-08-22)
+
+Done in the main session by re-running each lane's repro and reading the code; multi-lane clusters
+(S1, S2, S3, S13, C1, C2, C3, C4, C7, C9, C13) were treated as independently confirmed by construction
+and only spot-checked. Every single-lane S/C item and every substantive D item was re-run.
+
+| item | verdict | note |
+|---|---|---|
+| S1 | holds (spot-checked) | both root causes reproduce: mask recurrence left ranks (1,2,2,1) vs actual (1,2,3,1); zero-padded `resize` start → uniform frame residual 1.0 vs ragged 7e-16 |
+| S2 | holds (spot-checked) | R8-3 also holds: the corewise transposes leave nonzero values in padded boundary-bond slots (864/… sweep rows), which is what feeds S2 |
+| S4 | holds | `is_right_orthogonal()` False after the sweep on generic input; documented chain truncates worse (0.216 vs 0.165) |
+| S5 | holds | ambient transpose zero for negative indices; jax forward silently clamps out-of-range (extra D) |
+| S6 | holds | `objective(x, data=other)` returns the training value |
+| S7 | holds, backend-only | already characterized |
+| S8 | holds, backend-only | |
+| S9 | holds | 32–33% off on the `to_t3frame()` leaf route, which `UniformManifoldGeometry.project_ambient`'s docstring recommends for dense gradients |
+| S10 | holds | |
+| S11 | holds | NaN grads on tight and padded trains; finite with `use_orthogonalization=False` |
+| S12 | holds | broadcastable-hole case: `a + b` under `unsafe()` returns a tangent with no error |
+| S13 | holds | |
+| **S14** | **holds, sharper than claimed** | the frame's Tucker basis is rotated relative to the t3svd singular basis **unstacked too** (the default up-orthogonalization re-SVDs an already-orthonormal factor: degenerate spectrum → arbitrary rotation). `t3_orthogonal_representations(xs, already_left_orthogonal=True)` preserves the gauge to 1e-15 (stacked and unstacked). The `docs/weighting.md` recipe omits the flag, so the σ-weights land on rotated coordinates. Fix is documentation + a guarded helper. |
+| C5 | holds | slack pad (n=5,r=4 over real 3,2) crashes `newton_cg`/`mc_sgd`/`adam`/backend GD; COREWISE fine |
+| C6 | holds | adam only; the other three run |
+| C7 | holds | numpy false failure at ‖p‖≈5e7; jax float32 eager fails on a modest `randn((4,5,6),…)` problem (`gauge_residual` 1.2e-5 > 1e-5) |
+| C8, C9, C10, C12 | hold | |
+| D `truncated_svd` rule | holds | spectrum [1, .08×4], rtol .1: doc rule keeps 1, code keeps 4 (tail-Frobenius); `t3svd` parsimony bound in the docs is false |
+| D λ vs `draw` | holds | factor 0.5 used for a 5-element draw with `batch=50` |
+| D adam gauge-dependence | holds | MANIFOLD 5.7e-3 numpy-vs-jax, 6.9e-3 ragged-vs-uniform; COREWISE and newton_cg agree to 1e-15 |
+| D two-chunk memory | holds | W=200, chunk 100: 39.6 MiB vs dense 42.8 (expected ~21) |
+| D `t3_norm(use_orthogonalization=False)` | holds | orthogonalizes twice |
+| D retract on non-minimal frame | holds | FD ladder flat at 1.1e-1 on a `share()`-entered point; fine on the `n0 > r0 r1` case and on `shared_manifold.retract` |
+| D `n_i > N_i` sweep claim, interchangeable-geometry claim | hold | |
+| R7-13 SharedGeometry subclass | refuted (as in planning) | an unregistered subclass is a leaf; as a jit arg it raises a TypeError, no silent base-class swap |
+
+Nothing in the S/C list was refuted. One lane claim was imprecise (S14 "stacked only"), in the direction of being worse.
