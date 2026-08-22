@@ -106,7 +106,22 @@ def current_safety():
 
 def set_default_safety(rtol_numpy=DEFAULT_RTOL_NUMPY, rtol_jax=DEFAULT_RTOL_JAX):
     '''Set the safety tolerances for the current context. Prefer the :py:func:`safe` / :py:func:`unsafe`
-    context managers for scoped changes; use this for a script-level default.'''
+    context managers for scoped changes; use this for a script-level default.
+
+    ``set_default_safety(None, None)`` makes **unsafe** the default (the only script-level way to do so;
+    ``unsafe()`` is a context manager). Otherwise both tolerances must be positive numbers -- a lone
+    ``None`` is rejected here rather than failing inside the first precondition check.
+
+    Scope: a ``contextvars`` variable, so the setting applies to the **current context** -- the calling
+    thread, or the current asyncio task and the tasks it spawns afterwards. Threads started before or
+    independently see the module default (safe); set it in each thread, or use the context managers.'''
+    if rtol_numpy is None and rtol_jax is None:
+        _safety.set(None)                       # the ContextVar's own None-means-unsafe convention
+        return
+    for name, v in (('rtol_numpy', rtol_numpy), ('rtol_jax', rtol_jax)):
+        if v is None or not (float(v) > 0):
+            raise ValueError('set_default_safety: %s must be a positive number, or BOTH tolerances None for '
+                             'unsafe mode; got rtol_numpy=%r, rtol_jax=%r' % (name, rtol_numpy, rtol_jax))
     _safety.set(SafetyTolerances(rtol_numpy, rtol_jax))
 
 

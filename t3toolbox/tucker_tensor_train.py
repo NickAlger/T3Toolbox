@@ -745,6 +745,12 @@ class TuckerTensorTrain:
         """
         if not self.has_minimal_ranks:
             return False                                # structural redundancy => numerical redundancy
+        if self.stack_shape:                             # per element: t3svd(rtol=) needs an unstacked train
+            out = np.empty(self.stack_shape, dtype=bool)
+            for idx in np.ndindex(*self.stack_shape):
+                elem = TuckerTensorTrain(tuple(B[idx] for B in self.tucker_cores), tuple(G[idx] for G in self.tt_cores))
+                out[idx] = elem.has_numerically_minimal_ranks(rtol)
+            return out
         truncated = self.t3svd(rtol=rtol)[0]
         return (self.tucker_ranks, self.tt_ranks) == (truncated.tucker_ranks, truncated.tt_ranks)
 
@@ -3384,7 +3390,7 @@ class TuckerTensorTrain:
         if len(index) != self.d:
             raise ValueError(
                 'Wrong number of indices for Tucker tensor train.\n'
-                + str(self.d) + ' = num tensor indices != num provided indices = ' + str(index.shape[0])
+                + str(self.d) + ' = num tensor indices != num provided indices = ' + str(len(index))
             )
 
         return entries.t3_entries(self.data, index)
@@ -4325,6 +4331,11 @@ class TuckerTensorTrain:
         >>> print(zs.data[0][0] is zs.data[0][1], bool(0.0 < rel_err < 1.0))
         True True
         '''
+        if (rtol is not None or atol is not None) and len(self.stack_shape) > 0:
+            raise ValueError(
+                'rtol/atol truncation is not supported for stacked Tucker tensor trains in share() '
+                '(stack elements could truncate to different ranks).\n'
+                'Use max_tucker_ranks/max_tt_ranks for stacked input, or unstack first.')
         result = ragged_t3svd.t3_share_tucker_factors(
             self.data, sharing,
             max_tt_ranks=max_tt_ranks, max_tucker_ranks=max_tucker_ranks, rtol=rtol, atol=atol)

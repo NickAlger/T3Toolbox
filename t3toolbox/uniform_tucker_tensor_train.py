@@ -261,6 +261,10 @@ class UniformTuckerTensorTrain:
         if self.stack_shape != other.stack_shape:
             raise ValueError('Cannot add UniformTuckerTensorTrains with different stack_shapes: %s vs %s.'
                              % (self.stack_shape, other.stack_shape))
+        if self.N != other.N:
+            raise ValueError('Cannot add UniformTuckerTensorTrains with different padded mode widths N: %d vs %d '
+                             '(the same shape padded differently -- re-pad one operand with from_t3(..., N=%d)).'
+                             % (self.N, other.N, max(self.N, other.N)))
         return _from_data(ut3_operations.ut3_squash_tails(ut3_linalg.ut3_add(self.data, other.data)))
 
     def __sub__(self, other: 'UniformTuckerTensorTrain') -> 'UniformTuckerTensorTrain':
@@ -276,6 +280,10 @@ class UniformTuckerTensorTrain:
         if self.shape != other.shape:
             raise ValueError('Cannot inner-product UniformTuckerTensorTrains with different shapes: %s vs %s.'
                              % (self.shape, other.shape))
+        if self.N != other.N:
+            raise ValueError('Cannot inner-product UniformTuckerTensorTrains with different padded mode widths N: '
+                             '%d vs %d (the same shape padded differently -- re-pad one operand with '
+                             'from_t3(..., N=%d)).' % (self.N, other.N, max(self.N, other.N)))
         xd, yd = self.data, other.data
         if use_orthogonalization:
             xd = ut3_orthogonalization.ut3_left_orthogonalize_tt_cores(

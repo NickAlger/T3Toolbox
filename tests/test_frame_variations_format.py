@@ -533,5 +533,27 @@ class TestFrameVariationsFormat(unittest.TestCase):
         self.assertFalse(nonorth.has_numerically_minimal_ranks().all())
 
 
+
+class TestReviewC13Frames(unittest.TestCase):
+    def test_check_fv_pair_rejects_a_d_mismatch(self):
+        np.random.seed(3)
+        x3 = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))
+        x2 = t3.TuckerTensorTrain.randn((5, 6), (2, 2), (1, 2, 1))
+        frame3, _ = bvf.t3_orthogonal_representations(x3)
+        _, var2 = bvf.t3_orthogonal_representations(x2)
+        with self.assertRaises(ValueError) as cm:
+            bvf.check_fv_pair(frame3, var2)
+        self.assertIn('d=3', str(cm.exception))
+
+    def test_validate_message_reports_the_ranks_not_the_stack(self):
+        np.random.seed(4)
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 3, 3), (1, 2, 2, 1), stack_shape=(2, 3))
+        frame, _ = bvf.t3_orthogonal_representations(x)
+        up = list(frame.up_tucker_cores)
+        up[1] = np.random.randn(2, 3, 4, 6)                      # Tucker rank 4 where L/R say 3
+        with self.assertRaises(ValueError) as cm:
+            bvf.T3Frame(tuple(up), frame.down_tt_cores, frame.left_tt_cores, frame.right_tt_cores)
+        self.assertIn('U.shape[-2]=4', str(cm.exception))
+
 if __name__ == "__main__":
     unittest.main()

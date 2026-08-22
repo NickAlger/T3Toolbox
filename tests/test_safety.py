@@ -124,5 +124,21 @@ class TestEagerOnlyUnderJit(unittest.TestCase):
         self.assertFalse(safety.is_tracing(const))               # eager again: not tracing
 
 
+
+class TestSetDefaultSafety(unittest.TestCase):
+    def test_none_none_is_unsafe_and_a_lone_none_is_rejected(self):
+        token_before = safety.current_safety()
+        try:
+            safety.set_default_safety(None, None)
+            self.assertIsNone(safety.current_safety())
+            self.assertFalse(safety.checks_active(np.zeros(3)))
+            with self.assertRaises(ValueError):
+                safety.set_default_safety(None, 1e-5)
+            with self.assertRaises(ValueError):
+                safety.set_default_safety(-1.0, 1e-5)
+        finally:
+            safety.set_default_safety()
+            self.assertIsNotNone(safety.current_safety())
+
 if __name__ == '__main__':
     unittest.main()

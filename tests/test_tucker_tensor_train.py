@@ -3154,6 +3154,27 @@ class TestDenseProbeD1(unittest.TestCase):
         self.assertEqual(got.shape, (2, 3, 7))
         self.assertLess(norm(got - ref), 1e-12)
 
+
+
+class TestReviewC13Tucker(unittest.TestCase):
+    def test_entries_wrong_length_list_is_a_value_error(self):
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+        with self.assertRaises(ValueError):
+            x.entries([1, 2])
+
+    def test_share_with_rtol_on_a_stacked_train_is_rejected_at_the_frontend(self):
+        xs = t3.TuckerTensorTrain.randn((5, 5, 4), (2, 2, 2), (1, 2, 2, 1), stack_shape=(2,))
+        with self.assertRaises(ValueError) as cm:
+            xs.share((0, 0, 1), rtol=1e-3)
+        self.assertIn('stacked', str(cm.exception))
+        xs.share((0, 0, 1), max_tucker_ranks=2)                  # caps still work on a stack
+
+    def test_has_numerically_minimal_ranks_on_a_stack(self):
+        xs = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1), stack_shape=(2, 2))
+        out = xs.has_numerically_minimal_ranks()
+        self.assertEqual(np.shape(out), (2, 2))
+        self.assertTrue(bool(np.all(out)))
+
 if __name__ == '__main__':
     unittest.main()
 

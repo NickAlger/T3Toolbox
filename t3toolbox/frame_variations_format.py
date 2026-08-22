@@ -497,9 +497,9 @@ class T3Frame:                     # jax aux_data (it holds arrays; value hash/e
                 raise ValueError(
                     'Inconsistent T3Frame.\n'
                     + 'Tucker rank mismatch at index ' + str(ii)
-                    + ': U.shape[-2]=' + str(U.shape[0])
-                    + ', L.shape[-2]=' + str(L.shape[1])
-                    + ', R.shape[-2]=' + str(R.shape[1])
+                    + ': U.shape[-2]=' + str(U.shape[-2])
+                    + ', L.shape[-2]=' + str(L.shape[-2])
+                    + ', R.shape[-2]=' + str(R.shape[-2])
                 )
 
             if D.shape[-3] != L.shape[-3]:
@@ -1119,11 +1119,16 @@ def check_fv_pair(
 
     xVV, xHH = frame.variation_shapes
     yVV, yHH = variations.variation_shapes
+    if len(yVV) != len(xVV) or len(yHH) != len(xHH):
+        raise ValueError(
+            'Inconsistent (T3Frame, T3Variations) pair: the frame has d=%d cores, the variations have d=%d '
+            '(a zip over the holes would silently compare only the first min(d) of them).'
+            % (len(xVV), len(yVV)))
 
     for ii, (xV, yV) in enumerate(zip(xVV, yVV)):
         if xV != yV:
             raise ValueError(
-                'Inconsistent T3Base - T3Variation pair.\n'
+                'Inconsistent (T3Frame, T3Variations) pair.\n'
                 + str(ii) + '-th Tucker variation shape' + str(yV)
                 + ' does not fit frame hole ' + str(xV)
             )
@@ -1131,7 +1136,7 @@ def check_fv_pair(
     for ii, (xH, yH) in enumerate(zip(xHH, yHH)):
         if xH != yH:
             raise ValueError(
-                'Inconsistent T3Base - T3Variation pair.\n'
+                'Inconsistent (T3Frame, T3Variations) pair.\n'
                 + str(ii) + '-th tensor train variation shape' + str(yH)
                 + ' does not fit frame hole ' + str(xH)
             )

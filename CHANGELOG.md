@@ -106,6 +106,17 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   silently fit on the wrong geometry), and built a `Problem` for a derivative kind without `order=` that failed
   on first use. Geometry and kind strings are validated (case-insensitively, see below) and `order` is required up front.
 
+- **Structural validation gaps and wrong messages** (each a deep or misleading failure before):
+  `check_fv_pair` accepted a frame and variations with different numbers of cores (four ops then returned
+  partial sums); `T3Frame.validate`'s Tucker-rank message printed stack dimensions on a stacked frame;
+  `entries()` with a wrong-length *list* index raised `AttributeError` instead of the documented
+  `ValueError`; `share(rtol=…)` on a stacked T3 failed inside `truncated_svd`; uniform `+` / `inner` on
+  operands with different padded widths `N` raised raw numpy errors; the six `GaussNewtonModel` factories
+  did no validation of the sample / residual against the point; `set_default_safety(None, None)` was
+  accepted and then every check crashed (it now means *unsafe by default*, the one script-level way to
+  get it; a lone `None` is rejected); `has_numerically_minimal_ranks()` raised on a stacked train (now a
+  per-element bool array like the other checkers).
+
 ### Changed
 
 - **jax requested but not installed: run on numpy and warn, never raise.** `TuckerTensorTrain.randn(use_jax=True)`

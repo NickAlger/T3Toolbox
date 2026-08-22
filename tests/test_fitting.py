@@ -662,5 +662,34 @@ class TestUniformLayerGaussNewtonModel(unittest.TestCase):
             m.gn_hessian(p_other)
 
 
+
+class TestFactoryValidation(unittest.TestCase):
+    """Review 2026-08-22 (C13): the factories validate sample / residual against the point up front."""
+
+    def test_mismatches_are_named_value_errors(self):
+        np.random.seed(6)
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
+        ww = tuple(np.random.randn(7, n) for n in x.shape)
+        r = x.apply(ww)
+        fitting.apply_model(t3m.MANIFOLD, x, ww, r)                                   # the good case
+        with self.assertRaises(ValueError):
+            fitting.apply_model(t3m.MANIFOLD, x, ww, r[:5])                            # residual shape
+        with self.assertRaises(ValueError):
+            fitting.apply_model(t3m.MANIFOLD, x, ww[:2], r)                            # len(ww)
+        bad = (ww[0], np.random.randn(7, 9), ww[2])
+        with self.assertRaises(ValueError):
+            fitting.apply_model(t3m.MANIFOLD, x, bad, r)                               # N_i
+        pr = x.probe(ww)
+        with self.assertRaises(ValueError):
+            fitting.probe_model(t3m.MANIFOLD, x, ww, pr[:2])                           # probe residual len
+        idx = np.random.randint(0, 4, size=(3, 7)) % np.array(x.shape)[:, None]
+        with self.assertRaises(ValueError):
+            fitting.entries_model(t3m.MANIFOLD, x, idx[:2], x.entries(idx))            # index rows
+        pp = tuple(np.random.randn(7, n) for n in x.shape)
+        jets = x.apply_derivatives(ww, pp, 2)
+        fitting.apply_derivatives_model(t3m.MANIFOLD, x, ww, pp, 2, jets)
+        with self.assertRaises(ValueError):
+            fitting.apply_derivatives_model(t3m.MANIFOLD, x, ww, pp, 2, jets[:2])     # order axis
+
 if __name__ == '__main__':
     unittest.main()

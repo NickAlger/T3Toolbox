@@ -488,6 +488,49 @@ def _uniform_model(
                             regularizer, geometry_aux)
 
 
+def _check_ragged_sample(x, kind_name, sample, residual, order=0):
+    """Structural validation of a ragged factory's (sample, residual) against the point ``x`` -- named
+    errors at construction instead of an einsum / index error deep inside the first gradient
+    (the 2026-08-22 review, C13). ``W`` is read off the sample; ``C`` is the point's stack."""
+    d, C = x.d, tuple(x.stack_shape)
+    deriv = kind_name.endswith('_derivatives')
+    base = kind_name[:-len('_derivatives')] if deriv else kind_name
+    main, pp = (sample if deriv else (sample, None))
+    if base == 'entries':
+        index = np.asarray(main)
+        if index.ndim < 1 or index.shape[0] != d:
+            raise ValueError('%s_model: index must have shape (d,)+W with d=%d; got %s' % (kind_name, d, index.shape))
+        W = tuple(index.shape[1:])
+    else:
+        if len(main) != d:
+            raise ValueError('%s_model: expected %d sample vectors (one per mode), got %d' % (kind_name, d, len(main)))
+        W = tuple(np.shape(main[0])[:-1])
+        for i, w in enumerate(main):
+            if np.shape(w)[-1] != x.shape[i] or tuple(np.shape(w)[:-1]) != W:
+                raise ValueError('%s_model: sample vector %d has shape %s, expected W+(N_%d,) = %s'
+                                 % (kind_name, i, np.shape(w), i, W + (x.shape[i],)))
+    if pp is not None:
+        if len(pp) != d:
+            raise ValueError('%s_model: expected %d perturbation vectors, got %d' % (kind_name, d, len(pp)))
+        for i, p in enumerate(pp):
+            if np.shape(p)[-1] != x.shape[i] or tuple(np.shape(p)[:-1]) != W:
+                raise ValueError('%s_model: perturbation vector %d has shape %s, expected W+(N_%d,) = %s'
+                                 % (kind_name, i, np.shape(p), i, W + (x.shape[i],)))
+    lead = (order + 1,) if deriv else ()
+    if base == 'probe':
+        if len(residual) != d:
+            raise ValueError('%s_model: the probe residual must be a len=d list (d=%d), got len %d'
+                             % (kind_name, d, len(residual)))
+        for i, r in enumerate(residual):
+            if tuple(np.shape(r)) != lead + W + C + (x.shape[i],):
+                raise ValueError('%s_model: residual[%d] has shape %s, expected %s (= %sW+C+(N_%d,))'
+                                 % (kind_name, i, np.shape(r), lead + W + C + (x.shape[i],),
+                                    '(order+1,)+' if deriv else '', i))
+    elif tuple(np.shape(residual)) != lead + W + C:
+        raise ValueError('%s_model: residual has shape %s, expected %s (= %sW+C)'
+                         % (kind_name, np.shape(residual), lead + W + C, '(order+1,)+' if deriv else ''))
+
+
 def apply_model(
         geometry,                            # MANIFOLD / COREWISE (or the UNIFORM_* twin for a uniform x)
         x:          typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],   # the current point
@@ -502,6 +545,7 @@ def apply_model(
     from ``x`` and the geometry must match. ``regularizer`` adds ``ρ(x)`` to the model (ragged or uniform).'''
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'apply', ww, residual, regularizer=regularizer)
+    _check_ragged_sample(x, 'apply', ww, residual)
     frame = _ragged_frame(geometry, x)
     return GaussNewtonModel(geometry, frame, fb.APPLY, ww, residual, fb.APPLY.precompute(frame.data, ww),
                             regularizer, _ragged_geometry_aux(geometry, frame))
@@ -520,6 +564,7 @@ def entries_model(
     ``index`` (shape ``(d,)+W``) rather than applies against probe vectors.'''
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'entries', index, residual, regularizer=regularizer)
+    _check_ragged_sample(x, 'entries', index, residual)
     frame = _ragged_frame(geometry, x)
     return GaussNewtonModel(geometry, frame, fb.ENTRIES, index, residual,
                             fb.ENTRIES.precompute(frame.data, index), regularizer,
@@ -572,6 +617,7 @@ def probe_model(
     wm = _canonical_weight(weight, 'probe', len(ww), 0)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'probe', ww, residual, weight=wm, regularizer=regularizer)
+    _check_ragged_sample(x, 'probe', ww, residual)
     frame = _ragged_frame(geometry, x)
     kind = fb.probe_kind(wm)
     return GaussNewtonModel(geometry, frame, kind, ww, residual, kind.precompute(frame.data, ww),
@@ -627,6 +673,7 @@ def apply_derivatives_model(
     wm = _canonical_weight(weight, 'apply_derivatives', len(ww), order)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'apply_derivatives', (ww, pp), residual, order, wm, regularizer=regularizer)
+    _check_ragged_sample(x, 'apply_derivatives', (ww, pp), residual, order)
     kind = fb.apply_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
     return GaussNewtonModel(geometry, frame, kind, (ww, pp), residual,
@@ -649,6 +696,7 @@ def entries_derivatives_model(
     wm = _canonical_weight(weight, 'entries_derivatives', index.shape[0], order)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'entries_derivatives', (index, pp), residual, order, wm, regularizer=regularizer)
+    _check_ragged_sample(x, 'entries_derivatives', (index, pp), residual, order)
     kind = fb.entries_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
     return GaussNewtonModel(geometry, frame, kind, (index, pp), residual,
@@ -674,6 +722,7 @@ def probe_derivatives_model(
     wm = _canonical_weight(weight, 'probe_derivatives', len(ww), order)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'probe_derivatives', (ww, pp), residual, order, wm, regularizer=regularizer)
+    _check_ragged_sample(x, 'probe_derivatives', (ww, pp), residual, order)
     kind = fb.probe_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
     return GaussNewtonModel(geometry, frame, kind, (ww, pp), residual,

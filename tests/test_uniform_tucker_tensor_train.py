@@ -643,5 +643,17 @@ class TestUniformGarbageAndDegenerate(unittest.TestCase):
                 self.assertLessEqual(relerr(frame.to_dense(), xd), TOL)
 
 
+
+class TestReviewC13Uniform(unittest.TestCase):
+    def test_padded_width_mismatch_is_a_structural_error(self):
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
+        a = ut3.UniformTuckerTensorTrain.from_t3(x)
+        b = ut3.UniformTuckerTensorTrain.from_t3(x, N=9)
+        with self.assertRaises(ValueError) as cm:
+            a + b
+        self.assertIn('padded', str(cm.exception))
+        with self.assertRaises(ValueError):
+            a.inner(b)
+
 if __name__ == '__main__':
     unittest.main()
