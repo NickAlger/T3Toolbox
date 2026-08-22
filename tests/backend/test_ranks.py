@@ -432,5 +432,47 @@ class TestSharedFrameHasMinimalRanks(unittest.TestCase):
         self.assertFalse(ranks.frame_has_minimal_ranks(*args, sharing=(0, 0, 1)))
 
 
+
+class TestOrthogonalRepresentationRanks(unittest.TestCase):
+    """Review 2026-08-22 (S1a): the recurrence must reproduce the ranks the sweep actually produces, on
+    NON-minimal structures too (the old right-then-left order agreed only on minimal ones, and the uniform
+    frame masks built from it were too small)."""
+
+    @staticmethod
+    def _actual(x):
+        import t3toolbox.frame_variations_format as fvf
+        fr = fvf.T3Frame.from_t3(x)
+        up = tuple(U.shape[-2] for U in fr.up_tucker_cores)
+        down = tuple(O.shape[-2] for O in fr.down_tt_cores)
+        left = tuple(P.shape[-3] for P in fr.left_tt_cores) + (fr.left_tt_cores[-1].shape[-1],)
+        right = tuple(Q.shape[-3] for Q in fr.right_tt_cores) + (fr.right_tt_cores[-1].shape[-1],)
+        return up, down, left, right
+
+    def test_matches_the_sweep_on_random_structures(self):
+        import t3toolbox.tucker_tensor_train as t3
+        rng = np.random.default_rng(0)
+        cases = [((5, 5, 5), (2, 2, 2), (1, 4, 4, 1)), ((5, 7, 6), (2, 3, 2), (1, 2, 3, 1)),
+                 ((13, 14, 15, 16), (4, 5, 6, 7), (1, 4, 99, 7, 1))]
+        for _ in range(120):
+            d = int(rng.integers(1, 5))
+            shape = tuple(int(v) for v in rng.integers(2, 7, size=d))
+            tk = tuple(int(v) for v in rng.integers(1, 7, size=d))
+            tt = (1,) + tuple(int(v) for v in rng.integers(1, 9, size=d - 1)) + (1,)
+            cases.append((shape, tk, tt))
+        for shape, tk, tt in cases:
+            with self.subTest(shape=shape, tucker=tk, tt=tt):
+                x = t3.TuckerTensorTrain.randn(shape, tk, tt)
+                self.assertEqual(ranks.compute_orthogonal_representation_ranks(shape, tk, tt), self._actual(x))
+
+    def test_stacked_rank_arrays(self):
+        # (d,)+stack int arrays in, (d,)+stack arrays out, equal to the per-element sequence answer
+        shape = (5, 7, 6)
+        tk = np.array([[2, 3], [3, 3], [2, 1]])                     # (d, C=2)
+        tt = np.array([[1, 1], [2, 4], [3, 2], [1, 1]])             # (d+1, C=2)
+        up, down, left, right = ranks.compute_orthogonal_representation_ranks(shape, tk, tt)
+        for c in range(2):
+            ref = ranks.compute_orthogonal_representation_ranks(shape, tuple(tk[:, c]), tuple(tt[:, c]))
+            self.assertEqual((tuple(up[:, c]), tuple(down[:, c]), tuple(left[:, c]), tuple(right[:, c])), ref)
+
 if __name__ == "__main__":
     unittest.main()

@@ -527,71 +527,45 @@ def compute_orthogonal_representation_ranks(
         NDArray,  # dtype=int, shape=(d+1,) + stack_shape
     ],  # right_tt_ranks
 ]:
-    '''Find ranks that would be produced by sweeping orthogonalization, except without actually doing it.
+    '''The ranks the orthogonal-representation sweep (``fv_conversions.t3_orthogonal_representations``)
+    produces, without running it -- the uniform frame masks are built from these, so this recurrence must
+    follow the sweep's ORDER exactly:
+
+    1. Tucker down-orthogonalization: ``up_i = min(n_i, N_i)``;
+    2. a LEFT sweep on the original TT bonds: ``left_{i+1} = min(left_i * up_i, r_{i+1})``;
+    3. a RIGHT sweep over the left-orthogonal chain: ``right_i = min(left_i, up_i * right_{i+1})``;
+    4. the down cores: ``down_i = min(up_i, left_i * right_{i+1})``.
+
+    The boundary bonds are 1 (the sweep squashes the tails). Until 2026-08-22 this ran the paper's
+    right-then-left order on the original bonds; on minimal-rank structures the two agree, on any
+    non-minimal TT bond they do not, and the uniform frame's left/down masks were too small (review S1).
+    Host numpy throughout: ranks are static structure (``use_jax`` is accepted for compatibility and ignored).
     '''
-    xnp, _, _ = get_backend(False, use_jax)
-
-    is_sequence: bool = False
-    if isinstance(tucker_ranks, typ.Sequence):
-        is_sequence = True
-
-    tucker_ranks = xnp.array(tucker_ranks)
-    tt_ranks = xnp.array(tt_ranks)
-
+    tucker_ranks_arr = np.asarray(tucker_ranks)
+    tt_ranks_arr = np.asarray(tt_ranks)
     d = len(shape)
-    if len(tucker_ranks) != d:
-        raise ValueError('len(tucker_ranks) = %d != d = %d' % (len(tucker_ranks), d))
-    if len(tt_ranks) != d + 1:
-        raise ValueError('len(tt_ranks) = %d != d + 1 = %d' % (len(tt_ranks), d + 1))
-
-    stack_shape = tt_ranks.shape[1:]
-
-    up_ranks    = list(tucker_ranks)
-    right_ranks = list(tt_ranks)
-
-    for ii in range(d):
-        up_ranks[ii] = xnp.minimum(up_ranks[ii], shape[ii])
-
-    right_ranks[-1] = xnp.ones(stack_shape, dtype=int)
-    for ii in range(d-1, 0, -1):
-        n   = up_ranks[ii]
-        rL  = tt_ranks[ii]
-        rR  = right_ranks[ii+1]
-
-        right_ranks[ii] = np.minimum(rL, n*rR)
-
-    left_ranks = right_ranks.copy()
-
-    left_ranks[0] = xnp.ones(stack_shape, dtype=int)
-    for ii in range(d):
-        n   = up_ranks[ii]
-        rL  = left_ranks[ii]
-        rR  = right_ranks[ii+1]
-
-        left_ranks[ii+1] = np.minimum(rL*n, rR)
-
-    down_ranks = up_ranks.copy()
-
-    for ii in range(d):
-        n   = up_ranks[ii]
-        rL  = left_ranks[ii]
-        rR  = right_ranks[ii+1]
-
-        down_ranks[ii] = np.minimum(n, rL*rR)
-
-    if is_sequence:
-        up_ranks = tuple(int(n) for n in up_ranks)
-        left_ranks = tuple(int(r) for r in left_ranks)
-        right_ranks = tuple(int(r) for r in right_ranks)
-        down_ranks = tuple(int(r) for r in down_ranks)
-    else:
-        up_ranks = xnp.array(up_ranks)
-        left_ranks = xnp.array(left_ranks)
-        right_ranks = xnp.array(right_ranks)
-        down_ranks = xnp.array(down_ranks)
-
-    return up_ranks, down_ranks, left_ranks, right_ranks
-
+    if len(tucker_ranks_arr) != d:
+        raise ValueError('len(tucker_ranks) = %d != d = %d' % (len(tucker_ranks_arr), d))
+    if len(tt_ranks_arr) != d + 1:
+        raise ValueError('len(tt_ranks) = %d != d + 1 = %d' % (len(tt_ranks_arr), d + 1))
+    stack_shape = tt_ranks_arr.shape[1:]
+    one = np.ones(stack_shape, dtype=int)
+    up = [np.minimum(tucker_ranks_arr[i], shape[i]) * one for i in range(d)]
+    left = [tt_ranks_arr[i] * one for i in range(d + 1)]
+    left[0] = one
+    for i in range(d - 1):                                   # left sweep on the ORIGINAL bonds
+        left[i + 1] = np.minimum(left[i] * up[i], tt_ranks_arr[i + 1])
+    left[d] = one
+    right = list(left)                                       # right sweep over the LEFT-orthogonal chain
+    right[d] = one
+    for i in range(d - 1, 0, -1):
+        right[i] = np.minimum(left[i], up[i] * right[i + 1])
+    right[0] = one
+    down = [np.minimum(up[i], left[i] * right[i + 1]) for i in range(d)]
+    if isinstance(tucker_ranks, typ.Sequence):
+        return (tuple(int(n) for n in up), tuple(int(n) for n in down),
+                tuple(int(r) for r in left), tuple(int(r) for r in right))
+    return np.stack(up), np.stack(down), np.stack(left), np.stack(right)
 
 def compute_manifold_dim(
         shape:          typ.Sequence[int],  # (N0, ..., N(d-1))

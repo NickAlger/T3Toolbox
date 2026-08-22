@@ -833,5 +833,36 @@ class TestUT3FrameCheckers(unittest.TestCase):
         self.assertFalse(frame.allclose(other).all())                 # different base points
 
 
+
+class TestNonMinimalUniformFrame(unittest.TestCase):
+    """Review 2026-08-22 (S1a): UT3Frame.from_ut3 / ut3_orthogonal_representations on a structurally
+    NON-minimal point must be orthogonal and equal the ragged frame per element -- the frame masks used to
+    come from a rank recurrence in the wrong sweep order, leaving the down cores non-orthonormal."""
+
+    def test_frame_on_non_minimal_points(self):
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.frame_variations_format as fvf
+        np.random.seed(0)
+        for shape, tk, tt, C in [((5, 5, 5), (2, 2, 2), (1, 4, 4, 1), ()),
+                                 ((5, 7, 6), (2, 3, 2), (1, 2, 3, 1), ()),
+                                 ((4, 5, 3), (2, 3, 2), (1, 2, 3, 1), (2,)),
+                                 ((3, 5, 4), (2, 3, 2), (1, 4, 3, 1), (2, 2))]:
+            with self.subTest(shape=shape, tucker=tk, tt=tt, stack=C):
+                x = t3.TuckerTensorTrain.randn(shape, tk, tt, stack_shape=C)
+                self.assertFalse(bool(np.all(x.has_minimal_ranks)))
+                uf = ubv.UT3Frame.from_ut3(ut3.UniformTuckerTensorTrain.from_t3(x))
+                self.assertTrue(bool(np.all(uf.is_orthogonal())), float(np.max(np.asarray(uf.orthogonality_residual))))
+                rf = fvf.T3Frame.from_t3(x)
+                self.assertLess(float(np.max(np.abs(np.asarray(uf.to_dense()) - np.asarray(rf.to_dense())))),
+                                1e-9 * (1 + float(np.max(np.abs(np.asarray(x.to_dense()))))))
+                up, down, left, right = uf.data[5]
+                ref = (tuple(U.shape[-2] for U in rf.up_tucker_cores), tuple(O.shape[-2] for O in rf.down_tt_cores),
+                       tuple(P.shape[-3] for P in rf.left_tt_cores) + (rf.left_tt_cores[-1].shape[-1],),
+                       tuple(Q.shape[-3] for Q in rf.right_tt_cores) + (rf.right_tt_cores[-1].shape[-1],))
+                got = tuple(tuple(int(v) for v in np.reshape(m.sum(-1), (m.shape[0],) + C)[(slice(None),) + (0,) * len(C)])
+                            for m in (up, down, left, right))
+                self.assertEqual(got, ref)
+
 if __name__ == '__main__':
     unittest.main()
