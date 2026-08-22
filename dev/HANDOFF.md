@@ -81,7 +81,10 @@ five operations" recipe that needed nine and pointed at private bases, and stale
 
 Positive evidence worth keeping: 250 untested combinations run against independent oracles found
 nothing; compile-once re-measured across 48 configurations, not the 1 I had checked; all 14 `examples/`
-scripts byte-identical against the pre-refactor tree — **they are not in CI**, which is a real gap.
+scripts byte-identical against the pre-refactor tree. They were **not in CI**, which is how a refactor of
+the whole optimization layer could land without one of them being executed; `tests.yaml` now has an
+`examples` job that runs all fourteen. It is a second job with no `needs:`, so it runs in parallel with
+the test matrix and takes about as long (~5-6 min locally), costing compute minutes rather than waiting.
 
 Three things the review found and we chose not to fix — all in
 `docs/contributor/deferred_and_rejected.md`: a construction-time guard for "parameter is not a field"
