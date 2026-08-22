@@ -1,0 +1,122 @@
+UNIFORM  d2         ()    tangent_absorb_weights           np/jax MISMATCH relerr 9.26e-02
+UNIFORM  d2         ()    ufv_absorb_weights               np/jax MISMATCH relerr 1.41e+00
+UNIFORM  d2         (1,)  tangent_absorb_weights           np/jax MISMATCH relerr 9.26e-02
+UNIFORM  d2         (1,)  ufv_absorb_weights               np/jax MISMATCH relerr 1.41e+00
+UNIFORM  d2         (2,)  um_transport                     np ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch; jax ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch
+UNIFORM  d2_rank1   ()    um_transport                     np ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch; jax ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch
+UNIFORM  d2_rank1   ()    stack_tangents                   jit ERR ConcretizationTypeError: Abstract tracer value encountered where concrete value is expected: traced array with shape int64[1]
+UNIFORM  d2_rank1   (1,)  um_transport                     np ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch; jax ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch
+UNIFORM  d2_rank1   (2,)  stack_unstack                    jit ERR ConcretizationTypeError: Abstract tracer value encountered where concrete value is expected: traced array with shape int64[1]
+UNIFORM  d2_rank1   (2,)  stack_tangents                   jit ERR ConcretizationTypeError: Abstract tracer value encountered where concrete value is expected: traced array with shape int64[1]
+UNIFORM  d3_mode1   ()    tangent_probe_T                  uniform/ragged MISMATCH relerr 5.74e-02
+UNIFORM  d3_mode1   ()    tangent_apply_T                  uniform/ragged MISMATCH relerr 8.56e-02
+UNIFORM  d3_mode1   ()    tangent_entries_T                uniform/ragged MISMATCH relerr 1.58e-01
+UNIFORM  d3_mode1   ()    tangent_probe_derivs_T           uniform/ragged MISMATCH relerr 1.36e-01
+UNIFORM  d3_mode1   ()    tangent_apply_derivs_T           uniform/ragged MISMATCH relerr 5.72e-02
+UNIFORM  d3_mode1   ()    tangent_entries_derivs_T         uniform/ragged MISMATCH relerr 7.65e-02
+UNIFORM  d3_mode1   ()    stack_tangents                   jit ERR ConcretizationTypeError: Abstract tracer value encountered where concrete value is expected: traced array with shape int64[1]
+UNIFORM  d3_mode1   ()    tangent_weighted_norm            np/jax MISMATCH relerr 4.12e-01; np/jit MISMATCH relerr 4.12e-01
+UNIFORM  d3_mode1   ()    tangent_absorb_weights           np/jax MISMATCH relerr 9.61e-01; np/jit MISMATCH relerr 9.61e-01
+UNIFORM  d3_mode1   ()    ufv_absorb_weights               np/jax MISMATCH relerr 1.63e+00; np/jit MISMATCH relerr 1.63e+00
+UNIFORM  d3_mode1   (1,)  tangent_probe_T                  uniform/ragged MISMATCH relerr 5.74e-02
+UNIFORM  d3_mode1   (1,)  tangent_apply_T                  uniform/ragged MISMATCH relerr 8.56e-02
+UNIFORM  d3_mode1   (1,)  tangent_entries_T                uniform/ragged MISMATCH relerr 1.58e-01
+UNIFORM  d3_mode1   (1,)  tangent_probe_derivs_T           uniform/ragged MISMATCH relerr 1.36e-01
+UNIFORM  d3_mode1   (1,)  tangent_apply_derivs_T           uniform/ragged MISMATCH relerr 5.72e-02
+UNIFORM  d3_mode1   (1,)  tangent_entries_derivs_T         uniform/ragged MISMATCH relerr 7.65e-02
+UNIFORM  d3_mode1   (1,)  tangent_weighted_norm            np/jax MISMATCH relerr 4.12e-01
+UNIFORM  d3_mode1   (1,)  tangent_absorb_weights           np/jax MISMATCH relerr 9.61e-01
+UNIFORM  d3_mode1   (1,)  ufv_absorb_weights               np/jax MISMATCH relerr 1.63e+00
+UNIFORM  d3_mode1   (2,)  stack_unstack                    jit ERR ConcretizationTypeError: Abstract tracer value encountered where concrete value is expected: traced array with shape int64[1]
+UNIFORM  d3_mode1   (2,)  tangent_probe_T                  uniform/ragged MISMATCH relerr 8.99e-02
+UNIFORM  d3_mode1   (2,)  tangent_apply_T                  uniform/ragged MISMATCH relerr 3.42e-02
+UNIFORM  d3_mode1   (2,)  tangent_entries_T                uniform/ragged MISMATCH relerr 6.14e-02
+UNIFORM  d3_mode1   (2,)  tangent_probe_derivs_T           uniform/ragged MISMATCH relerr 1.06e-01
+UNIFORM  d3_mode1   (2,)  tangent_apply_derivs_T           uniform/ragged MISMATCH relerr 5.40e-02
+UNIFORM  d3_mode1   (2,)  tangent_entries_derivs_T         uniform/ragged MISMATCH relerr 5.71e-02
+UNIFORM  d3_mode1   (2,)  um_transport                     jax ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch
+UNIFORM  d3_mode1   (2,)  stack_tangents                   jit ERR ConcretizationTypeError: Abstract tracer value encountered where concrete value is expected: traced array with shape int64[1]
+UNIFORM  d3_mode1   (2,)  tangent_weighted_norm            np/jax MISMATCH relerr 8.82e-05; np/jit MISMATCH relerr 8.82e-05
+UNIFORM  d3_mode1   (2,)  tangent_absorb_weights           np/jax MISMATCH relerr 3.26e-04; np/jit MISMATCH relerr 3.26e-04
+UNIFORM  d3_mode1   (2,)  ufv_absorb_weights               np/jax MISMATCH relerr 4.21e-02; np/jit MISMATCH relerr 4.21e-02
+UNIFORM  d3_square  ()    um_transport                     np ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch; jax ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch
+UNIFORM  d3_square  ()    tangent_weighted_norm            np/jax MISMATCH relerr 2.01e+00; uniform/ragged MISMATCH relerr 5.86e-02
+UNIFORM  d3_square  ()    tangent_absorb_weights           np/jax MISMATCH relerr 2.13e+00
+UNIFORM  d3_square  ()    ufv_absorb_weights               np/jax MISMATCH relerr 6.89e-02
+UNIFORM  d3_square  (1,)  um_transport                     np ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch; jax ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch
+UNIFORM  d3_square  (1,)  tangent_weighted_norm            np/jax MISMATCH relerr 2.01e+00; uniform/ragged MISMATCH relerr 5.86e-02
+UNIFORM  d3_square  (1,)  tangent_absorb_weights           np/jax MISMATCH relerr 2.13e+00
+UNIFORM  d3_square  (1,)  ufv_absorb_weights               np/jax MISMATCH relerr 6.89e-02
+UNIFORM  d3_square  (2,)  um_transport                     np ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch; jax ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch
+UNIFORM  d3_square  (2,)  tangent_weighted_norm            np/jax MISMATCH relerr 1.54e-01; uniform/ragged MISMATCH relerr 3.26e-02
+UNIFORM  d3_square  (2,)  tangent_absorb_weights           np/jax MISMATCH relerr 4.59e-01
+UNIFORM  d3_square  (2,)  ufv_absorb_weights               np/jax MISMATCH relerr 1.29e+00
+UNIFORM  d3_nonmin  ()    tangent_to_dense                 uniform/ragged MISMATCH relerr 4.55e-02
+UNIFORM  d3_nonmin  ()    tangent_probe                    uniform/ragged MISMATCH relerr 1.73e-02
+UNIFORM  d3_nonmin  ()    tangent_apply                    uniform/ragged MISMATCH relerr 4.23e-02
+UNIFORM  d3_nonmin  ()    tangent_entries                  uniform/ragged MISMATCH relerr 5.64e-02
+UNIFORM  d3_nonmin  ()    tangent_probe_T                  uniform/ragged MISMATCH relerr 1.94e-01
+UNIFORM  d3_nonmin  ()    tangent_apply_T                  uniform/ragged MISMATCH relerr 2.28e-01
+UNIFORM  d3_nonmin  ()    tangent_entries_T                uniform/ragged MISMATCH relerr 1.23e-01
+UNIFORM  d3_nonmin  ()    tangent_probe_derivs             uniform/ragged MISMATCH relerr 9.24e-02
+UNIFORM  d3_nonmin  ()    tangent_probe_derivs_T           uniform/ragged MISMATCH relerr 2.24e-01
+UNIFORM  d3_nonmin  ()    tangent_apply_derivs_T           uniform/ragged MISMATCH relerr 1.91e-01
+UNIFORM  d3_nonmin  ()    tangent_entries_derivs_T         uniform/ragged MISMATCH relerr 1.90e-01
+UNIFORM  d3_nonmin  ()    um_project                       np ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort; jax ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort
+UNIFORM  d3_nonmin  ()    um_project_oblique               np ERR ValueError: UniformManifoldGeometry.project_oblique requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch; jax ERR ValueError: UniformManifoldGeometry.project_oblique requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch
+UNIFORM  d3_nonmin  ()    um_norm                          np ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort; jax ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort
+UNIFORM  d3_nonmin  ()    um_retract                       np ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort; jax ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort
+UNIFORM  d3_nonmin  ()    um_project_ambient               np ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch; jax ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch
+UNIFORM  d3_nonmin  ()    um_transport                     np ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort; jax ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort
+UNIFORM  d3_nonmin  ()    stack_tangents                   jit ERR ConcretizationTypeError: Abstract tracer value encountered where concrete value is expected: traced array with shape int64[1]
+UNIFORM  d3_nonmin  ()    tangent_weighted_norm            uniform/ragged MISMATCH relerr 7.38e-01
+UNIFORM  d3_nonmin  (1,)  tangent_to_dense                 uniform/ragged MISMATCH relerr 4.55e-02
+UNIFORM  d3_nonmin  (1,)  tangent_probe                    uniform/ragged MISMATCH relerr 1.73e-02
+UNIFORM  d3_nonmin  (1,)  tangent_apply                    uniform/ragged MISMATCH relerr 4.23e-02
+UNIFORM  d3_nonmin  (1,)  tangent_entries                  uniform/ragged MISMATCH relerr 5.64e-02
+UNIFORM  d3_nonmin  (1,)  tangent_probe_T                  uniform/ragged MISMATCH relerr 1.94e-01
+UNIFORM  d3_nonmin  (1,)  tangent_apply_T                  uniform/ragged MISMATCH relerr 2.28e-01
+UNIFORM  d3_nonmin  (1,)  tangent_entries_T                uniform/ragged MISMATCH relerr 1.23e-01
+UNIFORM  d3_nonmin  (1,)  tangent_probe_derivs             uniform/ragged MISMATCH relerr 9.24e-02
+UNIFORM  d3_nonmin  (1,)  tangent_probe_derivs_T           uniform/ragged MISMATCH relerr 2.24e-01
+UNIFORM  d3_nonmin  (1,)  tangent_apply_derivs_T           uniform/ragged MISMATCH relerr 1.91e-01
+UNIFORM  d3_nonmin  (1,)  tangent_entries_derivs_T         uniform/ragged MISMATCH relerr 1.90e-01
+UNIFORM  d3_nonmin  (1,)  um_project                       np ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort; jax ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort
+UNIFORM  d3_nonmin  (1,)  um_project_oblique               np ERR ValueError: UniformManifoldGeometry.project_oblique requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch; jax ERR ValueError: UniformManifoldGeometry.project_oblique requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch
+UNIFORM  d3_nonmin  (1,)  um_norm                          np ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort; jax ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort
+UNIFORM  d3_nonmin  (1,)  um_retract                       np ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort; jax ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort
+UNIFORM  d3_nonmin  (1,)  um_project_ambient               np ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch; jax ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch
+UNIFORM  d3_nonmin  (1,)  um_transport                     np ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort; jax ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort
+UNIFORM  d3_nonmin  (1,)  tangent_weighted_norm            uniform/ragged MISMATCH relerr 7.38e-01
+UNIFORM  d3_nonmin  (2,)  stack_unstack                    jit ERR ConcretizationTypeError: Abstract tracer value encountered where concrete value is expected: traced array with shape int64[1]
+UNIFORM  d3_nonmin  (2,)  tangent_to_dense                 uniform/ragged MISMATCH relerr 1.81e-01
+UNIFORM  d3_nonmin  (2,)  tangent_probe                    uniform/ragged MISMATCH relerr 2.20e-01
+UNIFORM  d3_nonmin  (2,)  tangent_apply                    uniform/ragged MISMATCH relerr 2.04e-01
+UNIFORM  d3_nonmin  (2,)  tangent_entries                  uniform/ragged MISMATCH relerr 1.51e-01
+UNIFORM  d3_nonmin  (2,)  tangent_probe_T                  uniform/ragged MISMATCH relerr 4.46e-01
+UNIFORM  d3_nonmin  (2,)  tangent_apply_T                  uniform/ragged MISMATCH relerr 2.98e-01
+UNIFORM  d3_nonmin  (2,)  tangent_entries_T                uniform/ragged MISMATCH relerr 2.53e-01
+UNIFORM  d3_nonmin  (2,)  tangent_probe_derivs             uniform/ragged MISMATCH relerr 8.39e-02
+UNIFORM  d3_nonmin  (2,)  tangent_probe_derivs_T           uniform/ragged MISMATCH relerr 1.89e-01
+UNIFORM  d3_nonmin  (2,)  tangent_apply_derivs_T           uniform/ragged MISMATCH relerr 2.76e-01
+UNIFORM  d3_nonmin  (2,)  tangent_entries_derivs_T         uniform/ragged MISMATCH relerr 2.27e-01
+UNIFORM  d3_nonmin  (2,)  um_project                       np ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort; jax ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort
+UNIFORM  d3_nonmin  (2,)  um_project_oblique               np ERR ValueError: UniformManifoldGeometry.project_oblique requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch; jax ERR ValueError: UniformManifoldGeometry.project_oblique requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch
+UNIFORM  d3_nonmin  (2,)  um_norm                          np ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort; jax ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort
+UNIFORM  d3_nonmin  (2,)  um_retract                       np ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort; jax ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort
+UNIFORM  d3_nonmin  (2,)  um_project_ambient               np ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch; jax ERR ValueError: UniformManifoldGeometry.project_ambient requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Sch
+UNIFORM  d3_nonmin  (2,)  um_transport                     np ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort; jax ERR ValueError: UniformManifoldGeometry.project requires an orthogonal frame (the manifold geometry needs an orthonormal frame to be the Hilbert-Schmidt-ort
+UNIFORM  d3_nonmin  (2,)  stack_tangents                   jit ERR ConcretizationTypeError: Abstract tracer value encountered where concrete value is expected: traced array with shape int64[1]
+UNIFORM  d3_nonmin  (2,)  tangent_weighted_norm            np/jax MISMATCH relerr 4.95e-02; np/jit MISMATCH relerr 4.95e-02; uniform/ragged MISMATCH relerr 3.74e-03
+UNIFORM  d3_nonmin  (2,)  tangent_absorb_weights           np/jax MISMATCH relerr 8.95e-02; np/jit MISMATCH relerr 8.95e-02
+UNIFORM  d3_nonmin  (2,)  ufv_absorb_weights               np/jax MISMATCH relerr 1.41e+00; np/jit MISMATCH relerr 1.41e+00
+UNIFORM  d4         ()    tangent_weighted_norm            np/jax MISMATCH relerr 8.14e-02; uniform/ragged MISMATCH relerr 1.70e-01
+UNIFORM  d4         ()    tangent_absorb_weights           np/jax MISMATCH relerr 2.31e-01
+UNIFORM  d4         ()    ufv_absorb_weights               np/jax MISMATCH relerr 1.01e+00
+UNIFORM  d4         (1,)  tangent_weighted_norm            np/jax MISMATCH relerr 8.14e-02; uniform/ragged MISMATCH relerr 1.70e-01
+UNIFORM  d4         (1,)  tangent_absorb_weights           np/jax MISMATCH relerr 2.31e-01
+UNIFORM  d4         (1,)  ufv_absorb_weights               np/jax MISMATCH relerr 1.01e+00
+UNIFORM  d4         (2,)  tangent_weighted_norm            np/jax MISMATCH relerr 1.70e-02; uniform/ragged MISMATCH relerr 2.95e-01
+UNIFORM  d4         (2,)  tangent_absorb_weights           np/jax MISMATCH relerr 2.87e-01
+UNIFORM  d4         (2,)  ufv_absorb_weights               np/jax MISMATCH relerr 1.72e+00
+TOTAL NOTES: 121

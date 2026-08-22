@@ -1,0 +1,8 @@
+randn right_to_left is_right_orthogonal False residual(right) = 15.932690403370835 ranks (3, 4, 3) (1, 3, 3, 1) in ranks (3, 4, 3) (1, 3, 3, 1)
+randn right_to_left uniform is_right_orthogonal False err vs dense 1.0e-15
+randn left_to_right is_left_orthogonal False residual(left) = 13.103549175544956 ranks (3, 4, 3) (1, 3, 3, 1) in ranks (3, 4, 3) (1, 3, 3, 1)
+randn left_to_right uniform is_left_orthogonal False err vs dense 1.4e-15
+sum   right_to_left is_right_orthogonal False residual(right) = 9.606573933219007 ranks (4, 5, 4) (1, 5, 4, 1) in ranks (4, 5, 5) (2, 5, 4, 2)
+sum   right_to_left uniform is_right_orthogonal False err vs dense 1.0e-01
+sum   left_to_right is_left_orthogonal False residual(left) = 9.984511363565712 ranks (4, 5, 4) (1, 4, 4, 1) in ranks (4, 5, 5) (2, 5, 4, 2)
+sum   left_to_right uniform is_left_orthogonal False err vs dense 7.0e-16

@@ -1,0 +1,134 @@
+FAIL d=3 C=() K=() ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 3
+FAIL d=3 C=(1,) K=() ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+FAIL d=3 C=(3,) K=() ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+FAIL d=3 C=(2, 3) K=() ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 5
+FAIL d=3 C=() K=(2,) ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 3
+FAIL d=3 C=() K=(2,) utangent misc EXC ValueError('cannot reshape array of size 9 into shape (3,2,3,1)')^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/ufv_masking.py", line 154, in ufv_apply_variations_masks
+    DM_k = down_mask.reshape(             (d,) + ss
+FAIL d=3 C=(3,) K=(2,) ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+FAIL d=3 C=(3,) K=(2,) utangent misc EXC ValueError('cannot reshape array of size 27 into shape (3,2,3,3,1)')^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/ufv_masking.py", line 154, in ufv_apply_variations_masks
+    DM_k = down_mask.reshape(             (d,) + ss
+FAIL d=3 C=(2, 3) K=(4,) ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 5
+FAIL d=3 C=(2, 3) K=(4,) utangent misc EXC ValueError('cannot reshape array of size 54 into shape (3,4,2,3,3,1)')^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/ufv_masking.py", line 154, in ufv_apply_variations_masks
+    DM_k = down_mask.reshape(             (d,) + ss
+FAIL d=4 C=() K=() ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 3
+FAIL d=4 C=(1,) K=() ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+FAIL d=4 C=(3,) K=() ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+FAIL d=4 C=(2, 3) K=() ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 5
+FAIL d=4 C=() K=(2,) ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 3
+FAIL d=4 C=() K=(2,) utangent misc EXC ValueError('cannot reshape array of size 16 into shape (4,2,4,1)')^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/ufv_masking.py", line 154, in ufv_apply_variations_masks
+    DM_k = down_mask.reshape(             (d,) + ss
+FAIL d=4 C=(3,) K=(2,) ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+FAIL d=4 C=(3,) K=(2,) utangent misc EXC ValueError('cannot reshape array of size 48 into shape (4,2,3,4,1)')^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/ufv_masking.py", line 154, in ufv_apply_variations_masks
+    DM_k = down_mask.reshape(             (d,) + ss
+FAIL d=4 C=(2, 3) K=(4,) ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 5
+FAIL d=4 C=(2, 3) K=(4,) utangent misc EXC ValueError('cannot reshape array of size 96 into shape (4,4,2,3,4,1)')^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/ufv_masking.py", line 154, in ufv_apply_variations_masks
+    DM_k = down_mask.reshape(             (d,) + ss
+FAIL d=2 C=() K=() ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 3
+FAIL d=2 C=(1,) K=() ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+FAIL d=2 C=(3,) K=() ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+FAIL d=2 C=(2, 3) K=() ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 5
+FAIL d=2 C=() K=(2,) ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 3
+FAIL d=2 C=() K=(2,) utangent misc EXC ValueError('cannot reshape array of size 4 into shape (2,2,2,1)')^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/ufv_masking.py", line 154, in ufv_apply_variations_masks
+    DM_k = down_mask.reshape(             (d,) + ss
+FAIL d=2 C=(3,) K=(2,) ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+FAIL d=2 C=(3,) K=(2,) utangent misc EXC ValueError('cannot reshape array of size 12 into shape (2,2,3,2,1)')^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/ufv_masking.py", line 154, in ufv_apply_variations_masks
+    DM_k = down_mask.reshape(             (d,) + ss
+FAIL d=2 C=(2, 3) K=(4,) ut3 mul EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 5
+FAIL d=2 C=(2, 3) K=(4,) utangent misc EXC ValueError('cannot reshape array of size 24 into shape (2,4,2,3,2,1)')^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/ufv_masking.py", line 154, in ufv_apply_variations_masks
+    DM_k = down_mask.reshape(             (d,) + ss
+
+=== OK: 3624  FAILS: 30
+   d=3 C=() K=() ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 3
+   d=3 C=(1,) K=() ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+   d=3 C=(3,) K=() ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+   d=3 C=(2, 3) K=() ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 5
+   d=3 C=() K=(2,) ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 3
+   d=3 C=() K=(2,) utangent misc | EXC ValueError('cannot reshape array of size 9 into shape (3,2,3,1)')^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^
+   d=3 C=(3,) K=(2,) ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+   d=3 C=(3,) K=(2,) utangent misc | EXC ValueError('cannot reshape array of size 27 into shape (3,2,3,3,1)')^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^
+   d=3 C=(2, 3) K=(4,) ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 5
+   d=3 C=(2, 3) K=(4,) utangent misc | EXC ValueError('cannot reshape array of size 54 into shape (3,4,2,3,3,1)')^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^
+   d=4 C=() K=() ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 3
+   d=4 C=(1,) K=() ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+   d=4 C=(3,) K=() ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+   d=4 C=(2, 3) K=() ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 5
+   d=4 C=() K=(2,) ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 3
+   d=4 C=() K=(2,) utangent misc | EXC ValueError('cannot reshape array of size 16 into shape (4,2,4,1)')^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^
+   d=4 C=(3,) K=(2,) ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+   d=4 C=(3,) K=(2,) utangent misc | EXC ValueError('cannot reshape array of size 48 into shape (4,2,3,4,1)')^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^
+   d=4 C=(2, 3) K=(4,) ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 5
+   d=4 C=(2, 3) K=(4,) utangent misc | EXC ValueError('cannot reshape array of size 96 into shape (4,4,2,3,4,1)')^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^
+   d=2 C=() K=() ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 3
+   d=2 C=(1,) K=() ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+   d=2 C=(3,) K=() ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+   d=2 C=(2, 3) K=() ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 5
+   d=2 C=() K=(2,) ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 3
+   d=2 C=() K=(2,) utangent misc | EXC ValueError('cannot reshape array of size 4 into shape (2,2,2,1)')^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^
+   d=2 C=(3,) K=(2,) ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 4
+   d=2 C=(3,) K=(2,) utangent misc | EXC ValueError('cannot reshape array of size 12 into shape (2,2,3,2,1)')^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^
+   d=2 C=(2, 3) K=(4,) ut3 mul | EXC ValueError('all the input arrays must have same number of dimensions, but the array at index 0 has 5
+   d=2 C=(2, 3) K=(4,) utangent misc | EXC ValueError('cannot reshape array of size 24 into shape (2,4,2,3,2,1)')^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/utv_operations.py", line 446, in utv_orthogonal_gauge_projection
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+               ^^^^^^^^^^^^^^^^^

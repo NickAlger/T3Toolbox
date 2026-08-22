@@ -1,0 +1,6 @@
+objective on training data        : 107677.24688262444
+objective(x, data=other) expected : 110081.92522722208
+objective(x, data=other) actual   : 107677.24688262444   <- equals training value? True
+local_model(x, data=other).objective: 107677.24688262444  (expected 110081.92522722208 )
+--- sample given, data omitted:
+TypeError : unsupported operand type(s) for -: 'float' and 'NoneType'

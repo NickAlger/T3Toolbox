@@ -1,0 +1,23 @@
+GU.is_uniform True  GR.is_uniform False
+PASS (1) GU.project_ambient(C frame, C grad) TIED
+PASS (1) GU.project_ambient == GR.project_ambient per element (dense)  [1.6714939241716376e-15]
+PASS (1) GU.randn(K) tied + gauged
+FAIL (1) GU.transport(K+C tangent) raises (same K+C limitation as UNIFORM_MANIFOLD.transport)  [ValueError: cannot reshape array of size 24 into shape (4,3,2,3,1)]
+PASS (1) GU.transport(C tangent) TIED at the new frame
+PASS (1) GU.retract(K+C) tied per element
+PASS (2) c=0 ragged companion on to_t3frame() leaf: spectrum == true  [(array([755.242, 395.06 ]), array([755.242, 395.06 ,   0.   ]))]
+FAIL (2) c=0 GR.project_ambient(to_t3frame leaf, z) == true tied projection (dense)  [0.3183415346692767]
+PASS (2) c=0 leaf frame tied + orthogonal
+    |tied - unshared| / |unshared| = 0.4187027111163734
+PASS (2) c=0 leaf result tied w.r.t. the leaf companion
+FAIL (2) c=0 leaf result lies in the TRUE tied tangent space (re-projection fixes it)  [0.1802397218485309]
+PASS (2) c=1 ragged companion on to_t3frame() leaf: spectrum == true  [(array([293.136, 113.992]), array([293.136, 113.992,   0.   ]))]
+FAIL (2) c=1 GR.project_ambient(to_t3frame leaf, z) == true tied projection (dense)  [0.33309340417618244]
+PASS (2) c=1 leaf frame tied + orthogonal
+    |tied - unshared| / |unshared| = 0.838537890913521
+PASS (2) c=1 leaf result tied w.r.t. the leaf companion
+FAIL (2) c=1 leaf result lies in the TRUE tied tangent space (re-projection fixes it)  [0.21262719019288007]
+PASS (3) CHARACTERIZE: GR(ragged base).project_ambient(UT3Frame, UT3) error  [ValueError: too many values to unpack (expected 4)]
+PASS (3) CHARACTERIZE: plain MANIFOLD.project_ambient(UT3Frame, UT3) error  [ValueError: too many values to unpack (expected 4)]
+PASS (4) ragged has_shared_tucker_factors on unequal group ranks RAISES  [modes in a sharing group must have equal Tucker ranks (their factors a]
+PASS (4) uniform has_shared_tucker_factors on unequal group ranks RAISES  [Tucker rank masks must be equal within a sharing group (tied factors h]

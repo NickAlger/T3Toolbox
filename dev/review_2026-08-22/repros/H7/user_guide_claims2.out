@@ -1,0 +1,15 @@
+backend gradient_descent sig (problem: t3toolbox.backend.optimizers.Problem, x0: Tuple[Sequence[Union[numpy.ndarray, jax.jaxlib._jax.Array]], Sequence[Union[numpy.ndarray, jax.jaxlib._jax.Array]]], n_iter: int = 100, gtol_rel: float = 1e-08, c_armijo: float = 0.0001) -> Tuple[Tuple[Sequence[Union[numpy.ndarray, jax.jaxlib._jax.Array]], Sequence[Union[numpy.ndarray, jax.jaxlib._jax.Array]]], dict]
+gradient_descent stacked x0: OTHER TypeError gradient_descent() got an unexpected keyword argument 'max_iters'
+T3.has_minimal_ranks is cached_property ; UT3.has_minimal_ranks is property
+TuckerTensorTrain {'has_minimal_ranks': 'cached_property', 'has_numerically_minimal_ranks': 'function', 'is_left_orthogonal': 'function', 'is_right_orthogonal': 'function', 'has_shared_tucker_factors': 'function'}
+UniformTuckerTensorTrain {'is_left_orthogonal': 'function', 'is_right_orthogonal': 'function', 'has_minimal_ranks': 'property', 'has_shared_tucker_factors': 'function'}
+T3Frame {'is_orthogonal': 'function', 'has_minimal_ranks': 'cached_property', 'has_numerically_minimal_ranks': 'function', 'is_consistent': 'function'}
+UT3Frame {'is_orthogonal': 'function', 'has_minimal_ranks': 'cached_property', 'has_numerically_minimal_ranks': 'function', 'is_consistent': 'function'}
+T3Variations {}
+UT3Variations {}
+T3Tangent {'has_minimal_ranks': 'cached_property', 'has_numerically_minimal_ranks': 'function', 'is_orthogonal': 'function', 'is_gauged': 'function'}
+UT3Tangent {'has_minimal_ranks': 'cached_property', 'has_numerically_minimal_ranks': 'function', 'is_orthogonal': 'function', 'is_gauged': 'function'}
+T3Weights {'is_consistent_with': 'function', 'has_shared_tucker_weights': 'function'}
+UT3Weights {'is_consistent_with': 'function', 'has_shared_tucker_weights': 'function'}
+nonminimal uniform x0 ranks [4 4 3] [1 4 4 1] minimal? False
+frontend newton_cg non-minimal uniform x0: ran; result ranks [4 4 3] [1 4 3 1]

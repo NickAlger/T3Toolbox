@@ -1,0 +1,17 @@
+CLAUDE.md:[15]: `TuckerTensorTrainTools` not found (whole word) in t3toolbox/
+CLAUDE.md:[19, 363]: `optax` not found (whole word) in t3toolbox/
+CLAUDE.md:[159]: `EdgeVectors` not found (whole word) in t3toolbox/
+CLAUDE.md:[159]: `WeightedTuckerTensorTrain` not found (whole word) in t3toolbox/
+CLAUDE.md:[244]: `device_put` not found (whole word) in t3toolbox/
+CLAUDE.md:[266]: `C_aib` not found (whole word) in t3toolbox/
+CLAUDE.md:[350]: `test_contains_jax` not found (whole word) in t3toolbox/
+CLAUDE.md:[385]: `test_manifold` not found (whole word) in t3toolbox/
+CLAUDE.md:[385]: `test_frame_variations_format` not found (whole word) in t3toolbox/
+CLAUDE.md:[386]: `test_contractions_interpreter` not found (whole word) in t3toolbox/
+CLAUDE.md:[432]: `uniform_optimizers_plan` not found (whole word) in t3toolbox/
+CLAUDE.md:[432]: `naming_pass_plan` not found (whole word) in t3toolbox/
+CLAUDE.md:[433]: `docs_pass_plan` not found (whole word) in t3toolbox/
+CLAUDE.md:[433]: `docs_split_plan` not found (whole word) in t3toolbox/
+CLAUDE.md:[438]: `UniformGaussNewtonModel` not found (whole word) in t3toolbox/
+CLAUDE.md:[476, 487]: `SingularValueRegularizer` not found (whole word) in t3toolbox/
+CLAUDE.md:[490]: `project_dense_onto_tangent` not found (whole word) in t3toolbox/

@@ -1,0 +1,8 @@
+LocalModel members: ['geom_aux', 'gn_quadratic', 'gradient', 'hvp', 'jacobian', 'misfit', 'objective', 'regularization', 'regularizer', 'retract']
+uniform_minimal sig: (x0: Any, sharing: Optional[Sequence] = None) -> Any
+frame_has_minimal_ranks sig: (shape: Sequence[int], up_ranks: Sequence[int], down_ranks: Sequence[int], left_ranks: Sequence[int], right_ranks: Sequence[int], sharing: Optional[Sequence] = None) -> bool
+stacked+regularizer factory RAISED NotImplementedError GaussNewtonModel: a regularizer on a STACKED point (stack C = (2,)) is not implemented. The data mis
+stacked no-reg factory ok; objective shape ['objective_value']
+non-field param kind: TypeError: Bad carries 'p' outside its dataclass fields. Parameters must be declared as fields: the value ident
+forgot-dataclass subclass eq: True True
+random_orthogonal((5,5,5),(4,4,4),(1,2,2,1)) up_ranks (4, 4, 4) down_ranks (2, 4, 2) orthogonal True

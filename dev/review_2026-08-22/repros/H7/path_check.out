@@ -1,0 +1,9 @@
+CHANGELOG.md:317: MISSING backend/wt3_operations.py
+t3toolbox/optimizers.py:47: MISSING dev/regularization_design.md
+t3toolbox/uniform_frame_variations_format.py:1049: MISSING dev/uniform_fix_plan.md
+t3toolbox/backend/optimizers.py:195: MISSING dev/regularization_design.md
+t3toolbox/backend/optimizers.py:244: MISSING dev/regularization_design.md
+t3toolbox/backend/ut3_orthogonalization.py:137: MISSING backend/orthogonal_representations.py
+t3toolbox/backend/regularization.py:10: MISSING dev/regularization_design.md
+t3toolbox/backend/regularization.py:81: MISSING dev/regularization_design.md
+t3toolbox/backend/regularization.py:103: MISSING dev/regularization_design.md

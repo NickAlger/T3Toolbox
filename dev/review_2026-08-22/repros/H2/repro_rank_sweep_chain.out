@@ -1,0 +1,12 @@
+generic x -> rank_adjustment_sweep(right_to_left):
+  is_right_orthogonal(): False
+   B0: BBt 5.3e+00 BtB 5.5e+00
+   B1: BBt 1.2e+01 BtB 1.2e+01
+   B2: BBt 2.3e+01 BtB 2.3e+01
+   G0: right 6.9e+02 left 6.1e+02
+   G1: right 6.3e-16 left 6.2e-01
+   G2: right 8.5e-16 left 2.0e+00
+left-orth x -> rank_adjustment_sweep(right_to_left): is_right_orthogonal(): True
+truncation err  x.t3svd(max_tt_ranks=2)                                     : 0.1652
+truncation err  x.rank_adjustment_sweep(r2l).t3svd(max_tt_ranks=2, assume_orthogonal=True): 0.2156
+(same ranks both: (1, 2, 2, 1) (1, 2, 2, 1) )

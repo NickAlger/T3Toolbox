@@ -1,0 +1,1049 @@
+t3toolbox/fitting.py:109:        raise ValueError("trial tangent must live at the model's frame (it is at a different frame); "
+t3toolbox/fitting.py-110-                         "run inside safety.unsafe() to skip this numerical check")
+t3toolbox/fitting.py-111-
+t3toolbox/fitting.py-112-
+t3toolbox/fitting.py-113-def _tangent_at(frame, raw):
+--
+t3toolbox/fitting.py:149:            raise ValueError("plain probe takes a 1-D per-mode residual weight of shape (d,); it has no "
+t3toolbox/fitting.py-150-                             "order axis (got shape %s). For per-(mode, order) weighting use "
+t3toolbox/fitting.py-151-                             "probe_derivatives." % (w.shape,))
+t3toolbox/fitting.py-152-        wm = w[:, None]                             # (d, 1) -- per-mode
+t3toolbox/fitting.py-153-    elif w.ndim == 1:
+--
+t3toolbox/fitting.py:158:        raise ValueError("residual weight must be 1-D or 2-D (ω[mode, order]); got shape %s" % (w.shape,))
+t3toolbox/fitting.py-159-    m, o = wm.shape
+t3toolbox/fitting.py-160-    if o not in (1, order + 1):
+t3toolbox/fitting.py:161:        raise ValueError("residual weight's order dimension must be 1 or order+1=%d; got %d (shape %s)"
+t3toolbox/fitting.py-162-                         % (order + 1, o, wm.shape))
+t3toolbox/fitting.py-163-    if m not in (1, d):
+t3toolbox/fitting.py:164:        raise ValueError("residual weight's mode dimension must be 1 or d=%d; got %d (shape %s)"
+t3toolbox/fitting.py-165-                         % (d, m, wm.shape))
+t3toolbox/fitting.py-166-    if 'probe' not in kind_name and m > 1:          # apply/entries: no mode axis (mode weighting is probe-only)
+t3toolbox/fitting.py:167:        raise ValueError("apply / entries contract every mode into a scalar -- they have no mode axis, so a "
+t3toolbox/fitting.py-168-                         "per-mode weight (mode dim %d > 1) is undefined. Use an order-only weight "
+t3toolbox/fitting.py-169-                         "(order+1,); per-mode weighting is defined only for probe." % m)
+t3toolbox/fitting.py-170-    return wm
+t3toolbox/fitting.py-171-
+--
+t3toolbox/fitting.py:400:        raise ValueError("a ragged TuckerTensorTrain requires a ragged geometry (manifold.MANIFOLD / "
+t3toolbox/fitting.py-401-                         "manifold.COREWISE, or a shared_geometry.SharedGeometry over one); for a "
+t3toolbox/fitting.py-402-                         "UniformTuckerTensorTrain use the uniform geometries "
+t3toolbox/fitting.py-403-                         "(uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE, or a SharedGeometry "
+t3toolbox/fitting.py-404-                         "over one).")
+--
+t3toolbox/fitting.py:438:        raise ValueError("regularization requires a ragged geometry (manifold.MANIFOLD / COREWISE, "
+t3toolbox/fitting.py-439-                         "or a SharedGeometry over one).")
+t3toolbox/fitting.py-440-    return ops
+t3toolbox/fitting.py-441-
+t3toolbox/fitting.py-442-
+--
+t3toolbox/fitting.py:463:        raise ValueError("a UniformTuckerTensorTrain requires a uniform geometry "
+t3toolbox/fitting.py-464-                         "(uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE, or a "
+t3toolbox/fitting.py-465-                         "shared_geometry.SharedGeometry over one).")
+t3toolbox/fitting.py-466-    N = x.N
+t3toolbox/fitting.py-467-    frame = geometry.frame(x)                              # UT3Frame (a SharedGeometry checks tied factors)
+t3toolbox/optimizers.py:75:            raise ValueError("a ragged TuckerTensorTrain x0 requires a SharedGeometry over a RAGGED "
+t3toolbox/optimizers.py-76-                             "base (manifold.MANIFOLD / manifold.COREWISE); this one wraps a uniform "
+t3toolbox/optimizers.py-77-                             "base -- pass a UniformTuckerTensorTrain x0 instead")
+t3toolbox/optimizers.py-78-        if shape is None:
+t3toolbox/optimizers.py:79:            raise ValueError("a SharedGeometry needs the point's shape to canonicalize its "
+t3toolbox/optimizers.py-80-                             "sharing partition (internal: pass shape=x0.shape)")
+t3toolbox/optimizers.py-81-    ops = _fitting.ragged_backend_geometry(geometry, shape)
+t3toolbox/optimizers.py-82-    if ops is not None:
+t3toolbox/optimizers.py-83-        return ops
+t3toolbox/optimizers.py:84:    raise ValueError(f"unknown geometry {geometry!r}; expected manifold.MANIFOLD / manifold.COREWISE "
+t3toolbox/optimizers.py-85-                     f"(or a shared_geometry.SharedGeometry over one, or the uniform singletons "
+t3toolbox/optimizers.py-86-                     f"uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE with a "
+t3toolbox/optimizers.py-87-                     f"UniformTuckerTensorTrain x0)")
+t3toolbox/optimizers.py-88-
+--
+t3toolbox/optimizers.py:103:    raise ValueError(f"a UniformTuckerTensorTrain x0 requires a uniform geometry "
+t3toolbox/optimizers.py-104-                     f"(uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE, or a "
+t3toolbox/optimizers.py-105-                     f"shared_geometry.SharedGeometry over one), got {geometry!r}")
+t3toolbox/optimizers.py-106-
+t3toolbox/optimizers.py-107-
+--
+t3toolbox/optimizers.py:111:        raise ValueError(f"unknown sampling kind {kind!r}; expected one of "
+t3toolbox/optimizers.py-112-                         f"{sorted(_KIND) + sorted(_DERIV_KIND)}")
+t3toolbox/optimizers.py-113-    if kind in _DERIV_KIND and order is None:
+t3toolbox/optimizers.py:114:        raise ValueError(f"derivative kind {kind!r} requires order=")
+t3toolbox/optimizers.py-115-
+t3toolbox/optimizers.py-116-
+t3toolbox/optimizers.py-117-def _n_modes(kind: str, sample: typ.Any) -> int:
+t3toolbox/optimizers.py-118-    """Number of tensor modes ``d`` from the kind's sample (``ww`` list / ``index`` array; a derivative
+--
+t3toolbox/optimizers.py:180:        raise ValueError(f"the plain '{kind}' kind takes no residual weight (no mode or order axis); "
+t3toolbox/optimizers.py-181-                         "per-mode weighting is defined for probe, per-order for the derivative kinds.")
+t3toolbox/optimizers.py-182-    wm = _fitting._canonical_weight(weight, kind, _n_modes(kind, sample), order or 0)   # 2-D ω[m,o] or None
+t3toolbox/optimizers.py-183-
+t3toolbox/optimizers.py-184-    if isinstance(x0, ut3.UniformTuckerTensorTrain):
+--
+t3toolbox/optimizers.py:205:    raise TypeError(f"x0 must be a TuckerTensorTrain or UniformTuckerTensorTrain, got {type(x0).__name__}")
+t3toolbox/optimizers.py-206-
+t3toolbox/optimizers.py-207-
+t3toolbox/optimizers.py-208-# Derivative kinds (kind='*_derivatives') need `order` and a paired `(ww, pp)` / `(index, pp)` sample;
+t3toolbox/optimizers.py-209-# everything else is identical. `order`/`weight` build the kind (`weight` = a residual weight ω:
+t3toolbox/shared_geometry.py:119:            raise ValueError(
+t3toolbox/shared_geometry.py-120-                'SharedGeometry wraps a geometry singleton (manifold.MANIFOLD / manifold.COREWISE / '
+t3toolbox/shared_geometry.py-121-                'uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE); got %r.' % (base,))
+t3toolbox/shared_geometry.py-122-        self.base = base
+t3toolbox/shared_geometry.py-123-        self.sharing = tuple(sharing)
+--
+t3toolbox/shared_geometry.py:128:                raise ValueError('sharing labels must be hashable; got %r at mode %d' % (label, ii))
+t3toolbox/shared_geometry.py-129-
+t3toolbox/shared_geometry.py-130-    # ---- static identity (a stable jit-aux key: rebuilt-equal wrappers are the same geometry) ----
+t3toolbox/shared_geometry.py-131-    @property
+t3toolbox/shared_geometry.py-132-    def base_name(self) -> str:
+--
+t3toolbox/shared_geometry.py:232:            raise AttributeError('project_oblique is a manifold-geometry operation')
+t3toolbox/shared_geometry.py-233-        return self.base.project_oblique(v)
+t3toolbox/shared_geometry.py-234-
+t3toolbox/shared_geometry.py-235-    def inner(self, t1: t3m.T3Tangent, t2: t3m.T3Tangent):
+t3toolbox/shared_geometry.py-236-        """The base geometry's inner product -- the tied subspace is linear, so the restricted
+--
+t3toolbox/shared_geometry.py:319:            raise AttributeError('project_ambient is a manifold-geometry operation')
+t3toolbox/shared_geometry.py-320-        if self.base is um.UNIFORM_MANIFOLD:
+t3toolbox/shared_geometry.py-321-            if shared_data is None:
+t3toolbox/shared_geometry.py-322-                shared_data = self.shared_frame_data(frame)
+t3toolbox/shared_geometry.py-323-            raw = self.base.project_ambient(frame, grad)             # gauge projection (ORTH-checked)
+--
+t3toolbox/shared_geometry.py:342:        raise ValueError("project_ambient: method must be 'contraction' or 't3svd', got %r"
+t3toolbox/shared_geometry.py-343-                         % (method,))
+t3toolbox/shared_geometry.py-344-
+t3toolbox/shared_geometry.py-345-    def transport(self, v, new_frame, shared_data=None):
+t3toolbox/shared_geometry.py-346-        """Projective transport onto the TIED tangent space at ``new_frame`` (manifold bases
+--
+t3toolbox/shared_geometry.py:349:            raise AttributeError('transport is a manifold-geometry operation')
+t3toolbox/shared_geometry.py-350-        if self.base is um.UNIFORM_MANIFOLD:
+t3toolbox/shared_geometry.py-351-            _require_tied_factors_uniform(
+t3toolbox/shared_geometry.py-352-                (new_frame.data[0], new_frame.data[2], new_frame.shape,
+t3toolbox/shared_geometry.py-353-                 (new_frame.data[5][0], new_frame.data[5][2])),
+t3toolbox/backend/t3_svd.py:219:            raise ValueError(
+t3toolbox/backend/t3_svd.py-220-                'max_tucker_ranks must be equal within a sharing group (one shared rank per '
+t3toolbox/backend/t3_svd.py-221-                'group); group %r has caps %r' % (group, caps))
+t3toolbox/backend/t3_svd.py-222-
+t3toolbox/backend/t3_svd.py-223-    x = (x[0], tt_operations.tt_squash_tails(x[1]))
+--
+t3toolbox/backend/t3_svd.py:332:            raise ValueError("direction must be 'left_to_right' or 'right_to_left'; got %r" % (direction,))
+t3toolbox/backend/t3_svd.py-333-        # all-singleton partition: fall through to the literal unshared sweep (bit-identical)
+t3toolbox/backend/t3_svd.py-334-
+t3toolbox/backend/t3_svd.py-335-    x = (x[0], tt_operations.tt_squash_tails(x[1]))
+t3toolbox/backend/t3_svd.py-336-    num_cores = len(x[0])
+--
+t3toolbox/backend/t3_svd.py:348:        raise ValueError("direction must be 'left_to_right' or 'right_to_left'; got %r" % (direction,))
+t3toolbox/backend/t3_svd.py-349-    return x
+t3toolbox/backend/t3_svd.py-350-
+t3toolbox/backend/t3_svd.py-351-
+t3toolbox/backend/t3_svd.py-352-def t3_share_tucker_factors(
+t3toolbox/backend/optimizer_display.py:210:        raise ValueError("this sampling kind has no block_sumsq -- the relative-error table needs it "
+t3toolbox/backend/optimizer_display.py-211-                         "(all built-in kinds provide it; a custom kind must implement block_sumsq and "
+t3toolbox/backend/optimizer_display.py-212-                         "set has_block_sumsq = True).")
+t3toolbox/backend/optimizer_display.py-213-    n_w = kind.w_axes(problem.sample)
+t3toolbox/backend/optimizer_display.py-214-    data_bs = np.asarray(kind.block_sumsq(problem.data, n_w), dtype=float)
+t3toolbox/backend/common.py:529:    (``eq=True`` would raise "truth value of an array is ambiguous"), and instead of ``eq=False``
+t3toolbox/backend/common.py-530-    whenever the object is a jit aux (identity semantics recompile). Subclasses must be
+t3toolbox/backend/common.py-531-    ``@dataclass(frozen=True, eq=False)``.
+t3toolbox/backend/common.py-532-
+t3toolbox/backend/common.py-533-    The alternative this replaces is a hand-maintained parallel ``identity`` tuple restating the
+--
+t3toolbox/backend/common.py:566:            raise TypeError(
+t3toolbox/backend/common.py-567-                "%s carries %s outside its dataclass fields. Parameters must be declared as fields: the "
+t3toolbox/backend/common.py-568-                "value identity (and hence the jax compilation cache key) is built from the fields alone, "
+t3toolbox/backend/common.py-569-                "so an instance attribute set some other way is invisible to it and two differently "
+t3toolbox/backend/common.py-570-                "parameterized objects would compare equal -- one would silently get the other's compiled "
+--
+t3toolbox/backend/common.py:680:            raise ValueError(
+t3toolbox/backend/common.py-681-                'uniform masks must be concrete host (numpy) arrays, but a traced mask was seen -- you '
+t3toolbox/backend/common.py-682-                'likely jitted a backend function with the masks among the traced args. Close over the '
+t3toolbox/backend/common.py-683-                'masks as constants and trace only the supercores (the masks are static structure). '
+t3toolbox/backend/common.py-684-                'See docs/contributor/uniform_pytree_composition.md.')
+t3toolbox/backend/regularization.py:41:        raise NotImplementedError(
+t3toolbox/backend/regularization.py-42-            "%s: a regularizer on a STACKED point (stack C = %r) is not implemented. The data misfit "
+t3toolbox/backend/regularization.py-43-            "keeps the stack (one value per element) but the regularization term collapses it, so the "
+t3toolbox/backend/regularization.py-44-            "whole-stack total would be added to every element. Fit the stack elements separately, or "
+t3toolbox/backend/regularization.py-45-            "drop the regularizer." % (who, stack))
+--
+t3toolbox/backend/regularization.py:62:        raise NotImplementedError
+t3toolbox/backend/regularization.py-63-    def gradient(self, geom, frame, aux=None):     # g_R = Π∇ρ  -- a tangent at frame
+t3toolbox/backend/regularization.py:64:        raise NotImplementedError
+t3toolbox/backend/regularization.py-65-    def hessian(self, geom, frame, p, aux=None):   # H_R p      -- a tangent at frame
+t3toolbox/backend/regularization.py:66:        raise NotImplementedError
+t3toolbox/backend/regularization.py-67-    def quadratic(self, geom, frame, p, aux=None): # ⟨p, H_R p⟩ -- scalar, for gn_quadratic
+t3toolbox/backend/regularization.py:68:        raise NotImplementedError
+t3toolbox/backend/regularization.py-69-
+t3toolbox/backend/regularization.py-70-
+t3toolbox/backend/regularization.py-71-@dc.dataclass(frozen=True)
+t3toolbox/backend/regularization.py-72-class IdentityRegularizer(Regularizer):
+t3toolbox/backend/contractions.py:142:        raise ValueError(f"contract({subscripts!r}): '...' is not part of the grouped-einsum "
+t3toolbox/backend/contractions.py-143-                         f"format -- spell the riding axes as an uppercase group instead.")
+t3toolbox/backend/contractions.py-144-    if s.count('->') != 1:
+t3toolbox/backend/contractions.py:145:        raise ValueError(f"contract({subscripts!r}): an explicit '->' output is required.")
+t3toolbox/backend/contractions.py-146-    lhs, out = s.split('->')
+t3toolbox/backend/contractions.py-147-    terms = tuple(lhs.split(','))
+t3toolbox/backend/contractions.py-148-    for t in terms:
+t3toolbox/backend/contractions.py-149-        if t == '' or any(ch not in _LETTERS for ch in t):
+t3toolbox/backend/contractions.py:150:            raise ValueError(f"contract({subscripts!r}): invalid term {t!r} -- input terms are "
+t3toolbox/backend/contractions.py-151-                             f"nonempty strings of ascii letters (uppercase = group, lowercase = axis).")
+t3toolbox/backend/contractions.py-152-    if any(ch not in _LETTERS for ch in out):
+t3toolbox/backend/contractions.py:153:        raise ValueError(f"contract({subscripts!r}): invalid output term {out!r} -- the output is "
+t3toolbox/backend/contractions.py-154-                         f"a (possibly empty) string of ascii letters.")
+t3toolbox/backend/contractions.py-155-    for t in terms + (out,):
+t3toolbox/backend/contractions.py-156-        if len(set(t)) != len(t):
+t3toolbox/backend/contractions.py:157:            raise ValueError(f"contract({subscripts!r}): symbol repeated within term {t!r} -- "
+t3toolbox/backend/contractions.py-158-                             f"each group/axis may appear at most once per term.")
+t3toolbox/backend/contractions.py-159-    missing = set(out) - set().union(*(set(t) for t in terms))
+t3toolbox/backend/contractions.py-160-    if missing:
+t3toolbox/backend/contractions.py:161:        raise ValueError(f"contract({subscripts!r}): output symbol(s) {sorted(missing)} do not "
+t3toolbox/backend/contractions.py-162-                         f"appear in any input term.")
+t3toolbox/backend/contractions.py-163-    return terms, out
+t3toolbox/backend/contractions.py-164-
+t3toolbox/backend/contractions.py-165-
+--
+t3toolbox/backend/contractions.py:218:        raise ValueError(f"contract({subscripts!r}): len_{unknown.pop()} was supplied but that "
+t3toolbox/backend/contractions.py-219-                         f"group does not appear in the subscripts.")
+t3toolbox/backend/contractions.py-220-    n = len(groups)
+t3toolbox/backend/contractions.py-221-    col = {g: j for j, g in enumerate(groups)}
+t3toolbox/backend/contractions.py-222-    if not groups:
+--
+t3toolbox/backend/contractions.py:225:                raise ValueError(f"contract({subscripts!r}): operand for term {t!r} has ndim "
+t3toolbox/backend/contractions.py-226-                                 f"{nd}, expected {len(t)}.")
+t3toolbox/backend/contractions.py-227-        return {}
+t3toolbox/backend/contractions.py-228-
+t3toolbox/backend/contractions.py-229-    rows = []   # (coeffs: list of Fraction, rhs: Fraction)
+--
+t3toolbox/backend/contractions.py:268:            raise inconsistent
+t3toolbox/backend/contractions.py-269-
+t3toolbox/backend/contractions.py-270-    def reduce_functional(f):   # -> (determined: bool, value: Fraction)
+t3toolbox/backend/contractions.py-271-        f = list(f)
+t3toolbox/backend/contractions.py-272-        val = Fraction(0)
+--
+t3toolbox/backend/contractions.py:282:            raise inconsistent
+t3toolbox/backend/contractions.py-283-        return int(value)
+t3toolbox/backend/contractions.py-284-
+t3toolbox/backend/contractions.py-285-    runs = _co_travel_runs(terms + (out,), tuple(groups))
+t3toolbox/backend/contractions.py-286-    lengths = {}
+--
+t3toolbox/backend/contractions.py:302:            raise inconsistent
+t3toolbox/backend/contractions.py-303-        free = [g for g in run if g not in known]
+t3toolbox/backend/contractions.py-304-        for j, g in enumerate(free):    # any split of the run remainder gives the same einsum
+t3toolbox/backend/contractions.py-305-            lengths[g] = remainder if j == 0 else 0
+t3toolbox/backend/contractions.py-306-        lengths.update(known)
+--
+t3toolbox/backend/contractions.py:308:        raise _Underdetermined(undetermined_runs)
+t3toolbox/backend/contractions.py-309-    return lengths
+t3toolbox/backend/contractions.py-310-
+t3toolbox/backend/contractions.py-311-
+t3toolbox/backend/contractions.py-312-@functools.lru_cache(maxsize=None)
+--
+t3toolbox/backend/contractions.py:323:        raise ValueError(f"contract({subscripts!r}): {len(terms)} input term(s) but "
+t3toolbox/backend/contractions.py-324-                         f"{len(ndims)} operand(s).")
+t3toolbox/backend/contractions.py-325-    try:
+t3toolbox/backend/contractions.py-326-        lengths = _solve_group_lengths(subscripts, terms, out, ndims, dict(lens_items))
+t3toolbox/backend/contractions.py-327-    except _Underdetermined as e:
+--
+t3toolbox/backend/contractions.py:330:        raise ValueError(
+t3toolbox/backend/contractions.py-331-            f"contract({subscripts!r}): the operand ndims do not determine the axis counts of "
+t3toolbox/backend/contractions.py-332-            f"group(s) {', '.join('|'.join(run) for run in runs)} -- only combined totals are "
+t3toolbox/backend/contractions.py-333-            f"pinned. Supply one of: {candidates} (repeat with another if still underdetermined). "
+t3toolbox/backend/contractions.py-334-            f"Note this is decided from the subscripts alone, so a call site either always needs "
+--
+t3toolbox/backend/contractions.py:341:        raise ValueError(f"contract({subscripts!r}): the expansion needs more than "
+t3toolbox/backend/contractions.py-342-                         f"{len(pool)} distinct einsum letters; reduce the group sizes.")
+t3toolbox/backend/contractions.py-343-    letters = {}
+t3toolbox/backend/contractions.py-344-    i = 0
+t3toolbox/backend/contractions.py-345-    for t in terms + (out,):
+--
+t3toolbox/backend/contractions.py:412:            raise TypeError(f"contract() got an unexpected keyword argument {key!r} -- group "
+t3toolbox/backend/contractions.py-413-                            f"lengths are passed as len_<GROUP LETTER>, e.g. len_W=2.")
+t3toolbox/backend/contractions.py-414-        lens[key[4]] = operator.index(value)
+t3toolbox/backend/contractions.py-415-    ndims = tuple(op.ndim for op in operands)
+t3toolbox/backend/contractions.py-416-    expanded = _expanded_subscripts(subscripts, ndims, tuple(sorted(lens.items())))
+t3toolbox/backend/ut3_orthogonalization.py:62:        raise ValueError("side must be 'left' or 'right'; got %r" % (side,))
+t3toolbox/backend/ut3_orthogonalization.py-63-    resid_tt = xnp.max(xnp.abs(M - xnp.eye(r) * interior[..., None, :]), axis=(0, -2, -1))   # -> stack_shape
+t3toolbox/backend/ut3_orthogonalization.py-64-    return xnp.maximum(resid, resid_tt)
+t3toolbox/backend/ut3_orthogonalization.py-65-
+t3toolbox/backend/ut3_orthogonalization.py-66-# Each function re-masks on entry; the SVD remainder R = ss.Vt has ss=0 in padded slots, so no garbage
+t3toolbox/uniform_manifold.py:210:            raise ValueError(
+t3toolbox/uniform_manifold.py-211-                'Tangent vectors have different stack shapes; elementwise linear algebra requires '
+t3toolbox/uniform_manifold.py-212-                'matching stacks (same tangent stack K over the shared frame stack C).\n'
+t3toolbox/uniform_manifold.py-213-                + str(self.stack_shape) + ' = self.stack_shape != other.stack_shape = ' + str(other.stack_shape))
+t3toolbox/uniform_manifold.py-214-        if self.variations.masks != other.variations.masks:
+t3toolbox/uniform_manifold.py:215:            raise ValueError(
+t3toolbox/uniform_manifold.py-216-                'Tangent vectors have different rank masks (different strata of the determinantal '
+t3toolbox/uniform_manifold.py-217-                'variety, i.e. different tangent spaces).')
+t3toolbox/uniform_manifold.py-218-        # NUMERICAL (skippable): are these the same frame? The `is` fast-path keeps the common eager case
+t3toolbox/uniform_manifold.py-219-        # O(1); the value compare (frame supercores only -- data[:4]; the full .data carries the int-tuple
+--
+t3toolbox/uniform_manifold.py:224:            raise ValueError(
+t3toolbox/uniform_manifold.py-225-                'Tangent vectors are in different tangent spaces (their frames are not the same frame).\n'
+t3toolbox/uniform_manifold.py-226-                'Linear algebra between tangent vectors requires the same frame; run inside '
+t3toolbox/uniform_manifold.py-227-                'safety.unsafe() to skip this numerical check.')
+t3toolbox/uniform_manifold.py-228-
+--
+t3toolbox/uniform_manifold.py:901:                raise ValueError(
+t3toolbox/uniform_manifold.py-902-                    'stack_tangents requires every tangent to be at the same frame -- they must live in the '
+t3toolbox/uniform_manifold.py-903-                    'same tangent space. To stack tangents at *different* base points, use stack_frame. '
+t3toolbox/uniform_manifold.py-904-                    '(Run inside safety.unsafe() to skip this numerical check.)')
+t3toolbox/uniform_manifold.py-905-        variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
+--
+t3toolbox/uniform_manifold.py:923:                raise ValueError(
+t3toolbox/uniform_manifold.py-924-                    'stack_frame requires all tangents to share the padded dims (d, N, nU, nD, rL, rR), the '
+t3toolbox/uniform_manifold.py-925-                    'mode shape, and the tangent stack K (only the base point -- and its ranks/masks -- may '
+t3toolbox/uniform_manifold.py-926-                    'differ across the frame stack C).')
+t3toolbox/uniform_manifold.py-927-        paired_tree = stacking.apply_func_to_leaf_subtrees(
+--
+t3toolbox/uniform_manifold.py:1173:            raise TypeError(
+t3toolbox/uniform_manifold.py-1174-                'UniformManifoldGeometry.project_ambient accepts a UniformTuckerTensorTrain gradient only; '
+t3toolbox/uniform_manifold.py-1175-                'the uniform layer has no native dense-array projection. For a dense gradient, project via '
+t3toolbox/uniform_manifold.py-1176-                'the ragged ManifoldGeometry.project_ambient and the cross-layer converters '
+t3toolbox/uniform_manifold.py-1177-                '(UT3Frame.to_t3frame / UT3Tangent.from_t3tangent). Got %r.' % (type(grad).__name__,))
+t3toolbox/uniform_frame_variations_format.py:425:            raise ValueError(
+t3toolbox/uniform_frame_variations_format.py-426-                'Inconsistent shapes for UT3Frame.\n'
+t3toolbox/uniform_frame_variations_format.py-427-                + shapes_string
+t3toolbox/uniform_frame_variations_format.py-428-            )
+t3toolbox/uniform_frame_variations_format.py-429-
+--
+t3toolbox/uniform_frame_variations_format.py:678:            raise ValueError('Inconsistent shapes for UT3Variations.\n' + shapes_string)
+t3toolbox/uniform_frame_variations_format.py-679-
+t3toolbox/uniform_frame_variations_format.py-680-    def __post_init__(self):
+t3toolbox/uniform_frame_variations_format.py-681-        self.validate()
+t3toolbox/uniform_frame_variations_format.py-682-
+--
+t3toolbox/uniform_frame_variations_format.py:707:            raise ValueError('UT3Variations op: structures differ (%s vs %s).'
+t3toolbox/uniform_frame_variations_format.py-708-                             % (self.uniform_structure, other.uniform_structure))
+t3toolbox/uniform_frame_variations_format.py-709-        if self.shape != other.shape:
+t3toolbox/uniform_frame_variations_format.py:710:            raise ValueError('UT3Variations op: shapes differ (%s vs %s).' % (self.shape, other.shape))
+t3toolbox/uniform_frame_variations_format.py-711-        if self.masks != other.masks:
+t3toolbox/uniform_frame_variations_format.py:712:            raise ValueError('UT3Variations op: rank masks differ (different tangent spaces).')
+t3toolbox/uniform_frame_variations_format.py-713-
+t3toolbox/uniform_frame_variations_format.py-714-    def __add__(self, other: 'UT3Variations') -> 'UT3Variations':
+t3toolbox/uniform_frame_variations_format.py-715-        """Corewise sum (variations form a vector space at a fixed frame; the mask is unchanged)."""
+t3toolbox/uniform_frame_variations_format.py-716-        self._check_same_tangent_structure(other)
+--
+t3toolbox/uniform_frame_variations_format.py:924:        raise ValueError(
+t3toolbox/uniform_frame_variations_format.py-925-            'Inconsistent (UT3Frame, UT3Variations) pair: stack-free structures differ.\n'
+t3toolbox/uniform_frame_variations_format.py-926-            + str(frame.uniform_structure[:6]) + ' (frame) != '
+t3toolbox/uniform_frame_variations_format.py-927-            + str(variations.uniform_structure[:6]) + ' (variations)')
+t3toolbox/uniform_frame_variations_format.py-928-
+--
+t3toolbox/uniform_frame_variations_format.py:930:        raise ValueError('Inconsistent (UT3Frame, UT3Variations) pair: shapes differ (%s vs %s).'
+t3toolbox/uniform_frame_variations_format.py-931-                         % (frame.shape, variations.shape))
+t3toolbox/uniform_frame_variations_format.py-932-
+t3toolbox/uniform_frame_variations_format.py-933-    # The frame core (C) stack must be the trailing suffix of the variations (K+C) stack.
+t3toolbox/uniform_frame_variations_format.py-934-    frame_stack, var_stack = frame.stack_shape, variations.stack_shape
+--
+t3toolbox/uniform_frame_variations_format.py:937:        raise ValueError(
+t3toolbox/uniform_frame_variations_format.py-938-            'Inconsistent (UT3Frame, UT3Variations) pair: frame stack_shape %s is not a trailing suffix '
+t3toolbox/uniform_frame_variations_format.py-939-            'of variations stack_shape %s (expected variations.stack_shape == K + frame.stack_shape).'
+t3toolbox/uniform_frame_variations_format.py-940-            % (frame_stack, var_stack))
+t3toolbox/uniform_frame_variations_format.py-941-
+--
+t3toolbox/uniform_frame_variations_format.py:954:            raise ValueError(
+t3toolbox/uniform_frame_variations_format.py-955-                'Inconsistent (UT3Frame, UT3Variations) pair: %s rank masks differ '
+t3toolbox/uniform_frame_variations_format.py-956-                '(variation mask must be constant along the K stack and equal the frame mask).' % name)
+t3toolbox/uniform_frame_variations_format.py-957-
+t3toolbox/uniform_frame_variations_format.py-958-
+--
+t3toolbox/uniform_frame_variations_format.py:1165:                raise ValueError('UT3FrameWeights: %s must be a boolean array (got %s).'
+t3toolbox/uniform_frame_variations_format.py-1166-                                 % (name, getattr(m, 'dtype', type(m))))
+t3toolbox/uniform_frame_variations_format.py-1167-        d, ss = self.d, self.stack_shape
+t3toolbox/uniform_frame_variations_format.py-1168-        for sc, m, name in zip(self.supercores, self.masks.data, ('up', 'down', 'left', 'right')):
+t3toolbox/uniform_frame_variations_format.py-1169-            if tuple(sc.shape) != (d,) + ss + (sc.shape[-1],):
+t3toolbox/uniform_frame_variations_format.py:1170:                raise ValueError('Inconsistent UT3FrameWeights: %s_weight_supercore.shape = %s, expected '
+t3toolbox/uniform_frame_variations_format.py-1171-                                 '(d=%d,) + stack_shape=%s + (size,).' % (name, tuple(sc.shape), d, ss))
+t3toolbox/uniform_frame_variations_format.py-1172-            if tuple(m.shape) != tuple(sc.shape):
+t3toolbox/uniform_frame_variations_format.py:1173:                raise ValueError('Inconsistent UT3FrameWeights: %s mask shape %s != supercore shape %s.'
+t3toolbox/uniform_frame_variations_format.py-1174-                                 % (name, tuple(m.shape), tuple(sc.shape)))
+t3toolbox/uniform_frame_variations_format.py-1175-
+t3toolbox/uniform_frame_variations_format.py-1176-    def __post_init__(self):
+t3toolbox/uniform_frame_variations_format.py-1177-        self.validate()
+--
+t3toolbox/uniform_frame_variations_format.py:1294:        raise ValueError(
+t3toolbox/uniform_frame_variations_format.py-1295-            'Inconsistent (UT3Frame, UT3FrameWeights) pair.\n'
+t3toolbox/uniform_frame_variations_format.py-1296-            'A UT3FrameWeights is a metric at a base point, so it carries the FRAME stack C exactly (the\n'
+t3toolbox/uniform_frame_variations_format.py-1297-            'variations carry K + C; a K-batch of tangents at one frame shares the one metric).\n'
+t3toolbox/uniform_frame_variations_format.py-1298-            + str(weights.stack_shape) + ' = weights.stack_shape != '
+--
+t3toolbox/uniform_frame_variations_format.py:1308:            raise ValueError(
+t3toolbox/uniform_frame_variations_format.py-1309-                'Inconsistent (UT3Frame, UT3FrameWeights) pair.\n%s_weight_supercore has padded width %d, '
+t3toolbox/uniform_frame_variations_format.py-1310-                'but the frame\'s %s variation hole is %d wide.'
+t3toolbox/uniform_frame_variations_format.py-1311-                % (name, supercore.shape[-1], name, size))
+t3toolbox/uniform_frame_variations_format.py-1312-        if not np.array_equal(weight_mask, frame_mask):
+t3toolbox/uniform_frame_variations_format.py:1313:            raise ValueError(
+t3toolbox/uniform_frame_variations_format.py-1314-                'Inconsistent (UT3Frame, UT3FrameWeights) pair.\nThe %s rank mask differs from the frame\'s '
+t3toolbox/uniform_frame_variations_format.py-1315-                '%s variation-hole mask -- absorbing it would silently zero a real variation slot.'
+t3toolbox/uniform_frame_variations_format.py-1316-                % (name, name))
+t3toolbox/uniform_frame_variations_format.py-1317-
+--
+t3toolbox/uniform_frame_variations_format.py:1328:        raise ValueError(
+t3toolbox/uniform_frame_variations_format.py-1329-            'Inconsistent (UT3Variations, UT3FrameWeights) pair in absorb_weights.\n'
+t3toolbox/uniform_frame_variations_format.py-1330-            'The metric must fit the variation holes and declare the SAME rank masks (broadcast over K).\n'
+t3toolbox/uniform_frame_variations_format.py-1331-            'variations: stack_shape=%s ; weights: stack_shape=%s'
+t3toolbox/uniform_frame_variations_format.py-1332-            % (variations.stack_shape, weights.stack_shape))
+t3toolbox/uniform_tucker_tensor_train.py:162:                raise ValueError(
+t3toolbox/uniform_tucker_tensor_train.py-163-                    'UniformTuckerTensorTrain: %s must be a boolean array (got %s).'
+t3toolbox/uniform_tucker_tensor_train.py-164-                    % (name, getattr(m, 'dtype', type(m))))
+t3toolbox/uniform_tucker_tensor_train.py-165-
+t3toolbox/uniform_tucker_tensor_train.py-166-        d, stack, n, N, r = self.d, self.stack_shape, self.n, self.N, self.r
+--
+t3toolbox/uniform_tucker_tensor_train.py:168:            raise ValueError(
+t3toolbox/uniform_tucker_tensor_train.py-169-                'UniformTuckerTensorTrain: shape=%s has length %d, expected d=%d.'
+t3toolbox/uniform_tucker_tensor_train.py-170-                % (self.shape, len(self.shape), d))
+t3toolbox/uniform_tucker_tensor_train.py-171-        if any(Ni < 0 or Ni > N for Ni in self.shape):
+t3toolbox/uniform_tucker_tensor_train.py:172:            raise ValueError(
+t3toolbox/uniform_tucker_tensor_train.py-173-                'UniformTuckerTensorTrain: every entry of shape=%s must be in [0, padded N=%d].'
+t3toolbox/uniform_tucker_tensor_train.py-174-                % (self.shape, N))
+t3toolbox/uniform_tucker_tensor_train.py-175-
+t3toolbox/uniform_tucker_tensor_train.py-176-        expected = {
+--
+t3toolbox/uniform_tucker_tensor_train.py:188:                raise ValueError(
+t3toolbox/uniform_tucker_tensor_train.py-189-                    'Inconsistent UniformTuckerTensorTrain: %s.shape = %s, expected %s '
+t3toolbox/uniform_tucker_tensor_train.py-190-                    '(d=%d, stack_shape=%s, n=%d, N=%d, r=%d).'
+t3toolbox/uniform_tucker_tensor_train.py-191-                    % (k, actual[k], expected[k], d, stack, n, N, r))
+t3toolbox/uniform_tucker_tensor_train.py-192-
+--
+t3toolbox/uniform_tucker_tensor_train.py:259:            raise ValueError('Cannot add UniformTuckerTensorTrains with different shapes: %s vs %s.'
+t3toolbox/uniform_tucker_tensor_train.py-260-                             % (self.shape, other.shape))
+t3toolbox/uniform_tucker_tensor_train.py-261-        if self.stack_shape != other.stack_shape:
+t3toolbox/uniform_tucker_tensor_train.py:262:            raise ValueError('Cannot add UniformTuckerTensorTrains with different stack_shapes: %s vs %s.'
+t3toolbox/uniform_tucker_tensor_train.py-263-                             % (self.stack_shape, other.stack_shape))
+t3toolbox/uniform_tucker_tensor_train.py-264-        return _from_data(ut3_operations.ut3_squash_tails(ut3_linalg.ut3_add(self.data, other.data)))
+t3toolbox/uniform_tucker_tensor_train.py-265-
+t3toolbox/uniform_tucker_tensor_train.py-266-    def __sub__(self, other: 'UniformTuckerTensorTrain') -> 'UniformTuckerTensorTrain':
+--
+t3toolbox/uniform_tucker_tensor_train.py:277:            raise ValueError('Cannot inner-product UniformTuckerTensorTrains with different shapes: %s vs %s.'
+t3toolbox/uniform_tucker_tensor_train.py-278-                             % (self.shape, other.shape))
+t3toolbox/uniform_tucker_tensor_train.py-279-        xd, yd = self.data, other.data
+t3toolbox/uniform_tucker_tensor_train.py-280-        if use_orthogonalization:
+t3toolbox/uniform_tucker_tensor_train.py-281-            xd = ut3_orthogonalization.ut3_left_orthogonalize_tt_cores(
+--
+t3toolbox/uniform_tucker_tensor_train.py:613:            raise NotImplementedError(
+t3toolbox/uniform_tucker_tensor_train.py-614-                'Partial sum (axis given) is deferred for UniformTuckerTensorTrain; only the full sum '
+t3toolbox/uniform_tucker_tensor_train.py-615-                '(axis=None) is implemented. See dev/archive/uniform_port_plan.md.')
+t3toolbox/uniform_tucker_tensor_train.py-616-        return ut3_sampling.ut3_full_sum(self.data)
+t3toolbox/uniform_tucker_tensor_train.py-617-
+--
+t3toolbox/uniform_tucker_tensor_train.py:1058:                raise ValueError('UT3Weights: %s must be a boolean array (got %s).'
+t3toolbox/uniform_tucker_tensor_train.py-1059-                                 % (name, getattr(m, 'dtype', type(m))))
+t3toolbox/uniform_tucker_tensor_train.py-1060-
+t3toolbox/uniform_tucker_tensor_train.py-1061-        d, stack, n, r = self.d, self.stack_shape, self.n, self.r
+t3toolbox/uniform_tucker_tensor_train.py-1062-        expected = {
+--
+t3toolbox/uniform_tucker_tensor_train.py:1074:                raise ValueError(
+t3toolbox/uniform_tucker_tensor_train.py-1075-                    'Inconsistent UT3Weights: %s.shape = %s, expected %s (d=%d, stack_shape=%s, n=%d, r=%d).'
+t3toolbox/uniform_tucker_tensor_train.py-1076-                    % (k, actual[k], expected[k], d, stack, n, r))
+t3toolbox/uniform_tucker_tensor_train.py-1077-
+t3toolbox/uniform_tucker_tensor_train.py-1078-    def __post_init__(self):
+--
+t3toolbox/uniform_tucker_tensor_train.py:1238:        raise ValueError('Cannot weighted-inner UniformTuckerTensorTrains with different shapes: %s vs %s.'
+t3toolbox/uniform_tucker_tensor_train.py-1239-                         % (x_A.shape, x_B.shape))
+t3toolbox/uniform_tucker_tensor_train.py-1240-    return ut3_linalg.ut3_weighted_inner(x_A.data, weights_A.data, x_B.data, weights_B.data,
+t3toolbox/uniform_tucker_tensor_train.py-1241-                                         use_orthogonalization=use_orthogonalization)
+t3toolbox/uniform_tucker_tensor_train.py-1242-
+--
+t3toolbox/uniform_tucker_tensor_train.py:1251:        raise ValueError(
+t3toolbox/uniform_tucker_tensor_train.py-1252-            'Inconsistent (UniformTuckerTensorTrain, UT3Weights) pair in %s.\n'
+t3toolbox/uniform_tucker_tensor_train.py-1253-            'The weights must match the train\'s padded (n, r) and declare the SAME edge masks (a '
+t3toolbox/uniform_tucker_tensor_train.py-1254-            'weight\'s edges ARE the tensor\'s edges).\n'
+t3toolbox/uniform_tucker_tensor_train.py-1255-            'train: n=%d, r=%d, stack_shape=%s ; weights: n=%d, r=%d, stack_shape=%s ; masks equal: %s'
+t3toolbox/manifold.py:358:            raise ValueError(
+t3toolbox/manifold.py-359-                'Tangent vectors are in different tangent spaces (their frames are not the same frame).\n'
+t3toolbox/manifold.py-360-                'Linear algebra between tangent vectors requires the same frame; run inside '
+t3toolbox/manifold.py-361-                'safety.unsafe() to skip this numerical check.'
+t3toolbox/manifold.py-362-            )
+--
+t3toolbox/manifold.py:364:            raise ValueError(
+t3toolbox/manifold.py-365-                'Tangent vectors have different stack shapes; elementwise linear algebra requires '
+t3toolbox/manifold.py-366-                'matching stacks (same tangent stack K over the shared frame stack C).\n'
+t3toolbox/manifold.py-367-                + str(self.stack_shape) + ' = self.stack_shape != other.stack_shape = ' + str(other.stack_shape)
+t3toolbox/manifold.py-368-            )
+--
+t3toolbox/manifold.py:1105:                raise ValueError(
+t3toolbox/manifold.py-1106-                    'stack_tangents requires every tangent to be at the same frame -- they must live in '
+t3toolbox/manifold.py-1107-                    'the same tangent space. To stack tangents at *different* base points, use '
+t3toolbox/manifold.py-1108-                    'stack_frame. (Run inside safety.unsafe() to skip this numerical check.)'
+t3toolbox/manifold.py-1109-                )
+--
+t3toolbox/manifold.py:1127:                raise ValueError(
+t3toolbox/manifold.py-1128-                    'stack_frame requires all tangents to share the same structure and tangent '
+t3toolbox/manifold.py-1129-                    'stack K (only the base point may differ across the frame stack C).'
+t3toolbox/manifold.py-1130-                )
+t3toolbox/manifold.py-1131-        paired_tree = stacking.apply_func_to_leaf_subtrees(
+--
+t3toolbox/manifold.py:1375:            raise ValueError(
+t3toolbox/manifold.py-1376-                "project_ambient: method must be 'contraction' or 't3svd', got %r" % (method,))
+t3toolbox/manifold.py-1377-
+t3toolbox/manifold.py-1378-    def transport(
+t3toolbox/manifold.py-1379-            self,
+t3toolbox/safety.py:195:        raise ValueError(message)
+t3toolbox/safety.py-196-
+t3toolbox/safety.py-197-
+t3toolbox/safety.py-198-def frames_equal(data1, data2, rtol=None):
+t3toolbox/safety.py-199-    '''Numerical equality of two frames given as nested core tuples (e.g. ``T3Frame.data``).
+--
+t3toolbox/safety.py:216:            raise ValueError('tangents are in different tangent spaces')
+t3toolbox/safety.py-217-
+t3toolbox/safety.py-218-    The ``b1 is b2`` identity is the O(1) fast path; this only runs (and only matters) when the objects
+t3toolbox/safety.py-219-    differ but may still represent the same frame (the jit round-trip).'''
+t3toolbox/safety.py-220-    tols = _safety.get()
+t3toolbox/backend/t3_operations.py:138:        raise ValueError(
+t3toolbox/backend/t3_operations.py-139-            "Attempted to extract segment with length < 1.\n"
+t3toolbox/backend/t3_operations.py-140-            + str(start) + ' = start >= stop = ' + str(stop)
+t3toolbox/backend/t3_operations.py-141-        )
+t3toolbox/backend/t3_operations.py-142-    return tuple(tucker_cores[start:stop]), tuple(tt_cores[start:stop])
+--
+t3toolbox/backend/t3_operations.py:160:        raise ValueError(
+t3toolbox/backend/t3_operations.py-161-            'Empty TuckerTensorTrain not supported.\n'
+t3toolbox/backend/t3_operations.py-162-            + str(len(xx)) + ' = len(xx)'
+t3toolbox/backend/t3_operations.py-163-        )
+t3toolbox/backend/t3_operations.py-164-    elif len(xx) == 1:
+--
+t3toolbox/backend/t3_operations.py:169:            raise ValueError(
+t3toolbox/backend/t3_operations.py-170-                'First and last TT-ranks inconsistent for concatenation.\n'
+t3toolbox/backend/t3_operations.py-171-                + str(x_tt[-1].shape[-1]) + ' = x.tt_ranks[-1] != y.tt_ranks[0] = '
+t3toolbox/backend/t3_operations.py-172-                + str(y_tt[0].shape[-3])
+t3toolbox/backend/t3_operations.py-173-            )
+t3toolbox/backend/ut3_constructors.py:61:    raise ValueError(
+t3toolbox/backend/ut3_constructors.py-62-        'rank spec has shape %s, expected a scalar, (%d,), or %s' % (arr.shape, length, target))
+t3toolbox/backend/ut3_constructors.py-63-
+t3toolbox/backend/ut3_constructors.py-64-
+t3toolbox/backend/ut3_constructors.py-65-def _ut3_constant(
+--
+t3toolbox/backend/ut3_constructors.py:101:        raise ValueError('unknown fill %r' % (fill,))
+t3toolbox/backend/ut3_constructors.py-102-
+t3toolbox/backend/ut3_constructors.py-103-    shape = tuple(int(Ni) for Ni in shape)  # static int tuple (N0,...,N(d-1))
+t3toolbox/backend/ut3_constructors.py-104-    masks = ut3_masking.ut3_make_masks(tucker_ranks, tt_ranks, n, r)  # HOST bool rank masks, static
+t3toolbox/backend/ut3_constructors.py-105-    # Mask the padded ("garbage") regions to zero so the represented tensor is exactly the fill value.
+t3toolbox/frame_variations_format.py:430:            raise ValueError(
+t3toolbox/frame_variations_format.py-431-                'Inconsistent T3Frame.\n'
+t3toolbox/frame_variations_format.py-432-                + 'All core sequences must have length d=' + str(d) + '.\n'
+t3toolbox/frame_variations_format.py-433-                + 'len(UU)=' + str(len(UU))
+t3toolbox/frame_variations_format.py-434-                + ', len(DD)=' + str(len(DD))
+--
+t3toolbox/frame_variations_format.py:442:                raise ValueError(
+t3toolbox/frame_variations_format.py-443-                    'Inconsistent T3Frame.\n'
+t3toolbox/frame_variations_format.py-444-                    + 'tucker_cores[' + str(ii) + '] is not a (stacked) matrix. shape=' + str(U.shape)
+t3toolbox/frame_variations_format.py-445-                )
+t3toolbox/frame_variations_format.py-446-
+--
+t3toolbox/frame_variations_format.py:450:                    raise ValueError(
+t3toolbox/frame_variations_format.py-451-                        'Inconsistent T3Frame.\n'
+t3toolbox/frame_variations_format.py-452-                        + name + '_cores[' + str(ii) + '] is not a (stacked) 3-tensor. '
+t3toolbox/frame_variations_format.py-453-                        + 'shape=' + str(C.shape)
+t3toolbox/frame_variations_format.py-454-                    )
+--
+t3toolbox/frame_variations_format.py:468:            raise ValueError(
+t3toolbox/frame_variations_format.py-469-                'Inconsistent T3Frame.\n'
+t3toolbox/frame_variations_format.py-470-                + str(up_stack_shapes) + ' = up_stack_shapes.\n'
+t3toolbox/frame_variations_format.py-471-                + str(down_stack_shapes) + ' = down_stack_shapes.\n'
+t3toolbox/frame_variations_format.py-472-                + str(left_stack_shapes) + ' = left_stack_shapes.\n'
+--
+t3toolbox/frame_variations_format.py:479:            raise ValueError(
+t3toolbox/frame_variations_format.py-480-                'Inconsistent T3Frame.\n'
+t3toolbox/frame_variations_format.py-481-                + str(rLl) + ' = rL_left != rL_right = ' + str(rLr)
+t3toolbox/frame_variations_format.py-482-            )
+t3toolbox/frame_variations_format.py-483-
+--
+t3toolbox/frame_variations_format.py:487:            raise ValueError(
+t3toolbox/frame_variations_format.py-488-                'Inconsistent T3Frame.\n'
+t3toolbox/frame_variations_format.py-489-                + str(rRl) + ' = rR_left != rR_right = ' + str(rRr)
+t3toolbox/frame_variations_format.py-490-            )
+t3toolbox/frame_variations_format.py-491-
+--
+t3toolbox/frame_variations_format.py:496:                raise ValueError(
+t3toolbox/frame_variations_format.py-497-                    'Inconsistent T3Frame.\n'
+t3toolbox/frame_variations_format.py-498-                    + 'Tucker rank mismatch at index ' + str(ii)
+t3toolbox/frame_variations_format.py-499-                    + ': U.shape[-2]=' + str(U.shape[0])
+t3toolbox/frame_variations_format.py-500-                    + ', L.shape[-2]=' + str(L.shape[1])
+--
+t3toolbox/frame_variations_format.py:505:                raise ValueError(
+t3toolbox/frame_variations_format.py-506-                    'Inconsistent T3Frame.\n'
+t3toolbox/frame_variations_format.py-507-                    + 'Down TT core left rank mismatch at index' + str(ii)
+t3toolbox/frame_variations_format.py-508-                    + ': D.shape[-3]=' + str(D.shape[-3])
+t3toolbox/frame_variations_format.py-509-                    + '!= L.shape[-3]=' + str(L.shape[-3])
+--
+t3toolbox/frame_variations_format.py:513:                raise ValueError(
+t3toolbox/frame_variations_format.py-514-                    'Inconsistent T3Base.\n'
+t3toolbox/frame_variations_format.py-515-                    + 'Down TT core right rank mismatch at index' + str(ii)
+t3toolbox/frame_variations_format.py-516-                    + ': D.shape[-1]=' + str(D.shape[-1])
+t3toolbox/frame_variations_format.py-517-                    + '!= R.shape[-1]=' + str(R.shape[-1])
+--
+t3toolbox/frame_variations_format.py:839:            raise ValueError(
+t3toolbox/frame_variations_format.py-840-                'Inconsistent T3Variations.\n'
+t3toolbox/frame_variations_format.py-841-                + 'All core sequences must have length d=' + str(d) + '.\n'
+t3toolbox/frame_variations_format.py-842-                + 'len(VV)=' + str(len(VV))
+t3toolbox/frame_variations_format.py-843-                + ', len(HH)=' + str(len(HH))
+--
+t3toolbox/frame_variations_format.py:848:                raise ValueError(
+t3toolbox/frame_variations_format.py-849-                    'Inconsistent T3Variations.\n'
+t3toolbox/frame_variations_format.py-850-                    + 'tucker_cores[' + str(ii) + '] is not a (stacked) matrix. shape=' + str(V.shape)
+t3toolbox/frame_variations_format.py-851-                )
+t3toolbox/frame_variations_format.py-852-
+--
+t3toolbox/frame_variations_format.py:855:                raise ValueError(
+t3toolbox/frame_variations_format.py-856-                    'Inconsistent T3Variations.\n'
+t3toolbox/frame_variations_format.py-857-                    + 'tt_cores[' + str(ii) + '] is not a (stacked) 3-tensor. '
+t3toolbox/frame_variations_format.py-858-                    + 'shape=' + str(H.shape)
+t3toolbox/frame_variations_format.py-859-                )
+--
+t3toolbox/frame_variations_format.py:865:            raise ValueError(
+t3toolbox/frame_variations_format.py-866-                'Inconsistent T3Frame.\n'
+t3toolbox/frame_variations_format.py-867-                + str(tucker_stack_shapes) + ' = tucker_stack_shapes.\n'
+t3toolbox/frame_variations_format.py-868-                + str(tt_stack_shapes) + ' = tt_stack_shapes.\n'
+t3toolbox/frame_variations_format.py-869-            )
+--
+t3toolbox/frame_variations_format.py:1097:    Gotcha -- variation cores that do not fit the frame's holes raise (structural error):
+t3toolbox/frame_variations_format.py-1098-
+t3toolbox/frame_variations_format.py-1099-    >>> bad_shapes = ((tucker_shapes[0][0] + 1, tucker_shapes[0][1]),) + tucker_shapes[1:]
+t3toolbox/frame_variations_format.py-1100-    >>> bad = bvf.T3Variations(tuple(np.ones(ss + s) for s in bad_shapes),
+t3toolbox/frame_variations_format.py-1101-    ...                        tuple(np.ones(ss + s) for s in tt_shapes))
+--
+t3toolbox/frame_variations_format.py:1112:        raise ValueError(
+t3toolbox/frame_variations_format.py-1113-            'Inconsistent (T3Frame, T3Variations) pair.\n'
+t3toolbox/frame_variations_format.py-1114-            'The frame stack_shape must be the trailing (inner) part of the variation stack_shape.\n'
+t3toolbox/frame_variations_format.py-1115-            + str(frame_stack) + ' = frame.stack_shape is not a suffix of '
+t3toolbox/frame_variations_format.py-1116-            + str(var_stack) + ' = variations.stack_shape'
+--
+t3toolbox/frame_variations_format.py:1124:            raise ValueError(
+t3toolbox/frame_variations_format.py-1125-                'Inconsistent T3Base - T3Variation pair.\n'
+t3toolbox/frame_variations_format.py-1126-                + str(ii) + '-th Tucker variation shape' + str(yV)
+t3toolbox/frame_variations_format.py-1127-                + ' does not fit frame hole ' + str(xV)
+t3toolbox/frame_variations_format.py-1128-            )
+--
+t3toolbox/frame_variations_format.py:1132:            raise ValueError(
+t3toolbox/frame_variations_format.py-1133-                'Inconsistent T3Base - T3Variation pair.\n'
+t3toolbox/frame_variations_format.py-1134-                + str(ii) + '-th tensor train variation shape' + str(yH)
+t3toolbox/frame_variations_format.py-1135-                + ' does not fit frame hole ' + str(xH)
+t3toolbox/frame_variations_format.py-1136-            )
+--
+t3toolbox/frame_variations_format.py:1379:                raise ValueError('Inconsistent T3FrameWeights.\n' + str(self.d) + ' = d, but len('
+t3toolbox/frame_variations_format.py-1380-                                 + name + '_weights) = ' + str(len(fam)))
+t3toolbox/frame_variations_format.py-1381-            for ii, w in enumerate(fam):
+t3toolbox/frame_variations_format.py-1382-                if w.ndim < 1 or w.shape[:-1] != ss:
+t3toolbox/frame_variations_format.py:1383:                    raise ValueError('Inconsistent T3FrameWeights.\n' + name + '_weights[' + str(ii)
+t3toolbox/frame_variations_format.py-1384-                                     + '].shape = ' + str(w.shape) + ' is not stack_shape ' + str(ss) + ' + (rank,).')
+t3toolbox/frame_variations_format.py-1385-
+t3toolbox/frame_variations_format.py-1386-    def __post_init__(self):
+t3toolbox/frame_variations_format.py-1387-        self.validate()
+--
+t3toolbox/frame_variations_format.py:1460:        raise ValueError(
+t3toolbox/frame_variations_format.py-1461-            'Inconsistent (T3Frame, T3FrameWeights) pair.\n'
+t3toolbox/frame_variations_format.py-1462-            'A T3FrameWeights is a metric at a base point, so it carries the FRAME stack C exactly (the\n'
+t3toolbox/frame_variations_format.py-1463-            'variations carry K + C; a K-batch of tangents at one frame shares the one metric).\n'
+t3toolbox/frame_variations_format.py-1464-            + str(weights.stack_shape) + ' = weights.stack_shape != '
+--
+t3toolbox/frame_variations_format.py:1477:            raise ValueError(
+t3toolbox/frame_variations_format.py-1478-                'Inconsistent (T3Frame, T3FrameWeights) pair.\n'
+t3toolbox/frame_variations_format.py-1479-                + str(weight_ranks) + ' = weights.' + name + '_ranks does not match '
+t3toolbox/frame_variations_format.py-1480-                + str(hole_ranks) + ' = the frame\'s ' + name + ' variation-hole ranks.'
+t3toolbox/frame_variations_format.py-1481-            )
+t3toolbox/backend/uniform_fitting.py:247:            raise ValueError(f"the plain '{name}' kind takes no residual weight (no mode or order axis); "
+t3toolbox/backend/uniform_fitting.py-248-                             "per-mode weighting is defined for probe, per-order for the derivative kinds.")
+t3toolbox/backend/uniform_fitting.py-249-        return _SAMPLING_KIND[name].from_point(x0_data)
+t3toolbox/backend/uniform_fitting.py:250:    raise ValueError(f"unknown uniform sampling kind {name!r}; expected one of {sorted(_SAMPLING_KIND)}")
+t3toolbox/backend/uniform_fitting.py-251-
+t3toolbox/backend/uniform_fitting.py-252-
+t3toolbox/backend/uniform_fitting.py-253-def uniform_derivatives_kind(
+t3toolbox/backend/uniform_fitting.py-254-        name:       str,        # 'apply_derivatives' / 'entries_derivatives' / 'probe_derivatives'
+--
+t3toolbox/backend/uniform_fitting.py:262:        raise ValueError(f"unknown uniform derivative kind {name!r}; expected one of "
+t3toolbox/backend/uniform_fitting.py-263-                         f"{sorted(_DERIV_SAMPLING_KIND)}")
+t3toolbox/backend/uniform_fitting.py-264-    cls = _DERIV_SAMPLING_KIND[name]
+t3toolbox/backend/uniform_fitting.py-265-    if name == 'probe_derivatives':            # the only derivative kind with a chunkable assembly
+t3toolbox/backend/uniform_fitting.py-266-        return cls.from_point(x0_data, order=order, weight=weight, chunk_size=chunk_size)
+--
+t3toolbox/backend/uniform_fitting.py:296:    raise ValueError(f"unknown uniform sampling kind {name!r}")
+t3toolbox/backend/uniform_fitting.py-297-
+t3toolbox/backend/uniform_fitting.py-298-
+t3toolbox/backend/uniform_fitting.py-299-def pack_data(name, data, N):
+t3toolbox/backend/uniform_fitting.py-300-    """Pack the observed data (or a residual of the same shape) once: probe kinds -> a packed
+--
+t3toolbox/backend/uniform_fitting.py:430:        raise ValueError(
+t3toolbox/backend/uniform_fitting.py-431-            "uniform_least_squares_problem requires a minimal-rank frame x0 (a non-minimal nominal rank is "
+t3toolbox/backend/uniform_fitting.py-432-            "unrealizable and would desync the retraction from the fixed masks mid-optimization; with "
+t3toolbox/backend/uniform_fitting.py-433-            "sharing, minimality is the SHARED notion -- the group ceiling). Reduce it first: "
+t3toolbox/backend/uniform_fitting.py-434-            "x0 = uniform_minimal(x0" + (", sharing=...)" if sharing is not None else ")") + ".")
+t3toolbox/backend/optimizers.py:280:        raise NotImplementedError(
+t3toolbox/backend/optimizers.py-281-            "%s: optimizing a STACKED point (stack C = %r) is not supported. The objective is an array "
+t3toolbox/backend/optimizers.py-282-            "of shape C -- one value per stack element -- and the optimizers' convergence tests and line "
+t3toolbox/backend/optimizers.py-283-            "searches reduce it to a scalar. Fit the elements separately (backend.stacking.unstack), or "
+t3toolbox/backend/optimizers.py-284-            "drive your own loop from Problem.local_model / fitting.GaussNewtonModel, which do support a "
+--
+t3toolbox/backend/optimizers.py:301:        raise ValueError("use_jit=True requires jax (install the t3toolbox[jax] extra); without jax there "
+t3toolbox/backend/optimizers.py-302-                         "is nothing to compile. Drop use_jit to run eager on numpy.")
+t3toolbox/backend/optimizers.py-303-    return (tree_to_jax(x0),
+t3toolbox/backend/optimizers.py-304-            dc.replace(problem, sample=tree_to_jax(problem.sample), data=tree_to_jax(problem.data)))
+t3toolbox/backend/optimizers.py-305-
+t3toolbox/tucker_tensor_train.py:830:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-831-                'Inconsistent TuckerTensorTrain.\n'
+t3toolbox/tucker_tensor_train.py-832-                + str(len(self.tucker_cores)) + ' = len(tucker_cores) != len(tt_cores) = ' + str(len(self.tt_cores))
+t3toolbox/tucker_tensor_train.py-833-            )
+t3toolbox/tucker_tensor_train.py-834-
+--
+t3toolbox/tucker_tensor_train.py:836:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-837-                'Empty TuckerTensorTrain not supported.\n'
+t3toolbox/tucker_tensor_train.py-838-                + str(len(self.tucker_cores)) + ' = len(tucker_cores)'
+t3toolbox/tucker_tensor_train.py-839-            )
+t3toolbox/tucker_tensor_train.py-840-
+--
+t3toolbox/tucker_tensor_train.py:843:                raise ValueError(
+t3toolbox/tucker_tensor_train.py-844-                    'Inconsistent TuckerTensorTrain.\n'
+t3toolbox/tucker_tensor_train.py-845-                    + 'tt_cores[' + str(ii) + '] has less than 3 indices. shape=' + str(G.shape)
+t3toolbox/tucker_tensor_train.py-846-                )
+t3toolbox/tucker_tensor_train.py-847-
+--
+t3toolbox/tucker_tensor_train.py:851:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-852-                'Inconsistent TuckerTensorTrain.\n'
+t3toolbox/tucker_tensor_train.py-853-                + str(left_tt_ranks) + ' = left_tt_ranks != right_tt_ranks = ' + str(right_tt_ranks)
+t3toolbox/tucker_tensor_train.py-854-            )
+t3toolbox/tucker_tensor_train.py-855-
+--
+t3toolbox/tucker_tensor_train.py:858:                raise ValueError(
+t3toolbox/tucker_tensor_train.py-859-                    'Inconsistent TuckerTensorTrain.\n'
+t3toolbox/tucker_tensor_train.py-860-                    + 'tucker_cores[' + str(ii) + '] has less than 2 indices. shape=' + str(B.shape)
+t3toolbox/tucker_tensor_train.py-861-                )
+t3toolbox/tucker_tensor_train.py-862-
+--
+t3toolbox/tucker_tensor_train.py:865:                raise ValueError(
+t3toolbox/tucker_tensor_train.py-866-                    'Inconsistent TuckerTensorTrain.\n'
+t3toolbox/tucker_tensor_train.py-867-                    + str(B.shape[-2]) + ' = tucker_cores[' + str(ii) + '].shape[-2]'
+t3toolbox/tucker_tensor_train.py-868-                    + ' != '
+t3toolbox/tucker_tensor_train.py-869-                    + 'tt_cores[' + str(ii) + '].shape[-2] = ' + str(G.shape[-2])
+--
+t3toolbox/tucker_tensor_train.py:877:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-878-                'Inconsistent TuckerTensorTrain.\n'
+t3toolbox/tucker_tensor_train.py-879-                + str(tt_stack_shapes) + ' = tt_stack_shapes'
+t3toolbox/tucker_tensor_train.py-880-                + '\n'
+t3toolbox/tucker_tensor_train.py-881-                + str(tucker_stack_shapes) + ' = tucker_stack_shapes'
+--
+t3toolbox/tucker_tensor_train.py:1385:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-1386-                'Wrong number of Tucker ranks.\n' +
+t3toolbox/tucker_tensor_train.py-1387-                str(len(tucker_ranks)) + ' = len(tucker_ranks) != len(shape) = ' + str(len(shape))
+t3toolbox/tucker_tensor_train.py-1388-            )
+t3toolbox/tucker_tensor_train.py-1389-
+--
+t3toolbox/tucker_tensor_train.py:1391:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-1392-                'Wrong number of TT ranks.\n' +
+t3toolbox/tucker_tensor_train.py-1393-                str(len(tt_ranks)) + ' = len(tt_ranks) != len(shape)+1 = ' + str(len(shape)+1)
+t3toolbox/tucker_tensor_train.py-1394-            )
+t3toolbox/tucker_tensor_train.py-1395-
+--
+t3toolbox/tucker_tensor_train.py:1556:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-1557-                'Inconsistent ranks in Canonical decomposition.\n'
+t3toolbox/tucker_tensor_train.py-1558-                + 'canonical_ranks = ' + str(canonical_ranks)
+t3toolbox/tucker_tensor_train.py-1559-            )
+t3toolbox/tucker_tensor_train.py-1560-
+--
+t3toolbox/tucker_tensor_train.py:1562:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-1563-                'Inconsistent stack_shapes in Canonical decomposition.\n'
+t3toolbox/tucker_tensor_train.py-1564-                + 'stack_shapes = ' + str(stack_shapes)
+t3toolbox/tucker_tensor_train.py-1565-            )
+t3toolbox/tucker_tensor_train.py-1566-
+--
+t3toolbox/tucker_tensor_train.py:1907:                raise ValueError(
+t3toolbox/tucker_tensor_train.py-1908-                    'Attempted to add TuckerTensorTrains self+other with inconsistent shapes.'
+t3toolbox/tucker_tensor_train.py-1909-                    + str(self.shape) + ' = self.shape != other.shape = ' + str(other.shape)
+t3toolbox/tucker_tensor_train.py-1910-                )
+t3toolbox/tucker_tensor_train.py-1911-            if self.stack_shape != other.stack_shape:
+t3toolbox/tucker_tensor_train.py:1912:                raise NotImplementedError(
+t3toolbox/tucker_tensor_train.py-1913-                    'Cannot add TuckerTensorTrains with different stack shapes.\n'
+t3toolbox/tucker_tensor_train.py-1914-                    + str(self.stack_shape)
+t3toolbox/tucker_tensor_train.py-1915-                    + ' = self.stack_shape != other.stack_shape = '
+t3toolbox/tucker_tensor_train.py-1916-                    + str(other.stack_shape)
+--
+t3toolbox/tucker_tensor_train.py:1925:                raise ValueError(
+t3toolbox/tucker_tensor_train.py-1926-                    'Attempted to add TuckerTensorTrain self to array other with inconsistent shapes.'
+t3toolbox/tucker_tensor_train.py-1927-                    + str(self.stack_shape + self.shape) + ' = self.stack_shape + self.shape != other.shape = ' + str(other.shape)
+t3toolbox/tucker_tensor_train.py-1928-                )
+t3toolbox/tucker_tensor_train.py-1929-            return self.to_dense() + other
+--
+t3toolbox/tucker_tensor_train.py:2074:            raise TypeError('t3m requires a TuckerTensorTrain, got %s' % type(other).__name__)
+t3toolbox/tucker_tensor_train.py-2075-        if self.shape != other.shape:
+t3toolbox/tucker_tensor_train.py:2076:            raise ValueError('t3m shape mismatch: %s vs %s' % (self.shape, other.shape))
+t3toolbox/tucker_tensor_train.py-2077-        if self.stack_shape != other.stack_shape:
+t3toolbox/tucker_tensor_train.py:2078:            raise ValueError('t3m stack_shape mismatch: %s vs %s' % (self.stack_shape, other.stack_shape))
+t3toolbox/tucker_tensor_train.py-2079-        if (rtol is not None or atol is not None) and len(self.stack_shape) > 0:
+t3toolbox/tucker_tensor_train.py:2080:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-2081-                'rtol/atol truncation is not supported for stacked Tucker tensor trains '
+t3toolbox/tucker_tensor_train.py-2082-                '(stack elements could truncate to different ranks).\n'
+t3toolbox/tucker_tensor_train.py-2083-                'Use max_tucker_ranks/max_tt_ranks for stacked input, or unstack first.')
+t3toolbox/tucker_tensor_train.py-2084-
+--
+t3toolbox/tucker_tensor_train.py:2087:            raise ValueError('t3m method must be one of %s, got %r' % (valid, method))
+t3toolbox/tucker_tensor_train.py-2088-        if oversample < 1:
+t3toolbox/tucker_tensor_train.py:2089:            raise ValueError('t3m oversample must be >= 1, got %r' % (oversample,))
+t3toolbox/tucker_tensor_train.py-2090-        if oversample != 1 and method != 'swap':
+t3toolbox/tucker_tensor_train.py:2091:            raise ValueError('t3m oversample only applies to method="swap", got method=%r' % (method,))
+t3toolbox/tucker_tensor_train.py-2092-        backend = {
+t3toolbox/tucker_tensor_train.py-2093-            'form_then_round': ragged_linalg.t3m_form_then_round,
+t3toolbox/tucker_tensor_train.py-2094-            'inplace_fused': ragged_linalg.t3m_inplace_fused,
+t3toolbox/tucker_tensor_train.py-2095-            'swap': ragged_linalg.t3m_swap,
+--
+t3toolbox/tucker_tensor_train.py:2329:                raise ValueError(
+t3toolbox/tucker_tensor_train.py-2330-                    'Attempted to take inner product of TuckerTensorTrains (x,y) with inconsistent shapes.'
+t3toolbox/tucker_tensor_train.py-2331-                    + str(self.shape) + ' = x.shape != y.shape = ' + str(other.shape)
+t3toolbox/tucker_tensor_train.py-2332-                )
+t3toolbox/tucker_tensor_train.py-2333-
+--
+t3toolbox/tucker_tensor_train.py:2335:                raise NotImplementedError(
+t3toolbox/tucker_tensor_train.py-2336-                    'Cannot take inner product of TuckerTensorTrains with different stack shapes.\n'
+t3toolbox/tucker_tensor_train.py-2337-                    + str(self.stack_shape)
+t3toolbox/tucker_tensor_train.py-2338-                    + ' = x.stack_shape != y.stack_shape = '
+t3toolbox/tucker_tensor_train.py-2339-                    + str(other.stack_shape)
+--
+t3toolbox/tucker_tensor_train.py:2348:                raise ValueError(
+t3toolbox/tucker_tensor_train.py-2349-                    'Attempted to take inner product of array x with TuckerTensorTrain y with inconsistent shapes.'
+t3toolbox/tucker_tensor_train.py-2350-                    + str(self.stack_shape + self.shape) + ' = self.stack_shape + self.shape != other.shape = ' + str(other.shape)
+t3toolbox/tucker_tensor_train.py-2351-                )
+t3toolbox/tucker_tensor_train.py-2352-            contraction_inds = tuple(range(len(self.stack_shape), len(other.shape)))
+--
+t3toolbox/tucker_tensor_train.py:2358:            raise NotImplementedError(
+t3toolbox/tucker_tensor_train.py-2359-                'T3 inner product only implemented for other in: {T3, dense}.\n'
+t3toolbox/tucker_tensor_train.py-2360-                + 'type(other) = ' + str(type(other))
+t3toolbox/tucker_tensor_train.py-2361-            )
+t3toolbox/tucker_tensor_train.py-2362-
+--
+t3toolbox/tucker_tensor_train.py:3378:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-3379-                'Wrong number of indices for Tucker tensor train.\n'
+t3toolbox/tucker_tensor_train.py-3380-                + str(self.d) + ' = num tensor indices != num provided indices = ' + str(index.shape[0])
+t3toolbox/tucker_tensor_train.py-3381-            )
+t3toolbox/tucker_tensor_train.py-3382-
+--
+t3toolbox/tucker_tensor_train.py:3474:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-3475-                'Attempted to apply TuckerTensorTrain to wrong number of vectors.'
+t3toolbox/tucker_tensor_train.py-3476-                + str(str(len(self.shape)) + ' = num_indices != len(vecs) = ' + str(len(vecs)))
+t3toolbox/tucker_tensor_train.py-3477-            )
+t3toolbox/tucker_tensor_train.py-3478-        return apply.t3_apply(self.data, vecs)
+--
+t3toolbox/tucker_tensor_train.py:4232:        Untied factors with ``sharing`` raise in safe mode (grouped truncation assumes one basis
+t3toolbox/tucker_tensor_train.py-4233-        per group -- tie first, e.g. ``backend.sharing.t3_tie_tucker_factors``, or run inside
+t3toolbox/tucker_tensor_train.py-4234-        ``safety.unsafe()``):
+t3toolbox/tucker_tensor_train.py-4235-
+t3toolbox/tucker_tensor_train.py-4236-        >>> x_untied = t3.TuckerTensorTrain.randn((6, 6, 5), (3, 3, 2), (1, 2, 2, 1))
+--
+t3toolbox/tucker_tensor_train.py:4243:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-4244-                'Cannot use rtol or atol with t3svd for stacked Tucker tensor train.\n' +
+t3toolbox/tucker_tensor_train.py-4245-                'Different elements of the stack could end out having different shapes.\n' +
+t3toolbox/tucker_tensor_train.py-4246-                'First unstack, then call t3svd for each unstacked Tucker tensor train.'
+t3toolbox/tucker_tensor_train.py-4247-            )
+--
+t3toolbox/tucker_tensor_train.py:4434:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-4435-                'continuation_ranks is defined for a single (unstacked) Tucker tensor train.\n'
+t3toolbox/tucker_tensor_train.py-4436-                'Different stack elements could continue to different ranks. Unstack first, then call '
+t3toolbox/tucker_tensor_train.py-4437-                'continuation_ranks for each unstacked Tucker tensor train.'
+t3toolbox/tucker_tensor_train.py-4438-            )
+--
+t3toolbox/tucker_tensor_train.py:4623:            raise ValueError(
+t3toolbox/tucker_tensor_train.py-4624-                'Cannot use t3svd_dense with rtol or atol for stacked tensor T.\n' +
+t3toolbox/tucker_tensor_train.py-4625-                'Different elements of the stack could end out having different shapes.\n' +
+t3toolbox/tucker_tensor_train.py-4626-                'First unstack, then call t3svd_dense for each unstacked tensor.\n' +
+t3toolbox/tucker_tensor_train.py-4627-                'stack_shape = ' + str(stack_shape)
+--
+t3toolbox/tucker_tensor_train.py:4697:            raise ValueError('Inconsistent T3Weights.\n' + str(self.d) + ' = d, but len(tt_weights) = '
+t3toolbox/tucker_tensor_train.py-4698-                             + str(len(self.tt_weights)) + ' (expected d+1).')
+t3toolbox/tucker_tensor_train.py-4699-        ss = self.stack_shape
+t3toolbox/tucker_tensor_train.py-4700-        for kind, ws in (('tucker_weights', self.tucker_weights), ('tt_weights', self.tt_weights)):
+t3toolbox/tucker_tensor_train.py-4701-            for ii, w in enumerate(ws):
+--
+t3toolbox/tucker_tensor_train.py:4703:                    raise ValueError('Inconsistent T3Weights.\n' + kind + '[' + str(ii) + '].shape = '
+t3toolbox/tucker_tensor_train.py-4704-                                     + str(w.shape) + ' is not stack_shape ' + str(ss) + ' + (rank,).')
+t3toolbox/tucker_tensor_train.py-4705-
+t3toolbox/tucker_tensor_train.py-4706-    def __post_init__(self):
+t3toolbox/tucker_tensor_train.py-4707-        self.validate()
+t3toolbox/backend/t3_orthogonalization.py:71:        raise ValueError("side must be 'left' or 'right'; got %r" % (side,))
+t3toolbox/backend/t3_orthogonalization.py-72-
+t3toolbox/backend/t3_orthogonalization.py-73-    return xnp.max(xnp.stack(devs), axis=0)   # max over the checks, keep stack_shape
+t3toolbox/backend/t3_orthogonalization.py-74-
+t3toolbox/backend/t3_orthogonalization.py-75-
+t3toolbox/backend/utv_operations.py:297:        raise NotImplementedError(
+t3toolbox/backend/utv_operations.py-298-            'utv_to_ut3 requires d >= 2 (the d == 1 single-mode case does not fit the square-bond '
+t3toolbox/backend/utv_operations.py-299-            'uniform doubled-rank format).')
+t3toolbox/backend/utv_operations.py-300-    blocks = [first_core()] + ([mid_cores()] if d > 2 else []) + [last_core()]
+t3toolbox/backend/utv_operations.py-301-    tt_supercore = xnp.concatenate(blocks, axis=0)                             # (d,)+ss+(rR+rL, nU+nD, rR+rL)
+t3toolbox/backend/fitting.py:227:        raise ValueError("residual weight must be 1-D or 2-D (ω[mode, order]); got %d-D of shape %s"
+t3toolbox/backend/fitting.py-228-                         % (w.ndim, w.shape))
+t3toolbox/backend/fitting.py-229-    w.setflags(write=False)               # and frozen, so the kind cannot be mutated through its own field
+t3toolbox/backend/fitting.py-230-    o = w.shape[1]
+t3toolbox/backend/fitting.py-231-    if o not in (1, order + 1):
+t3toolbox/backend/fitting.py:232:        raise ValueError("residual weight's order dimension must be 1 or order+1=%d; got %d (shape %s)"
+t3toolbox/backend/fitting.py-233-                         % (order + 1, o, w.shape))
+t3toolbox/backend/fitting.py-234-    return w
+t3toolbox/backend/fitting.py-235-
+t3toolbox/backend/fitting.py-236-
+--
+t3toolbox/backend/fitting.py:263:            raise ValueError("this sampling kind has no mode axis (apply / entries); a per-mode residual "
+t3toolbox/backend/fitting.py-264-                             "weight (mode dim %d > 1) is only defined for probe" % m)
+t3toolbox/backend/fitting.py-265-        shp = [1] * x.ndim                               # place ω's non-unit axes; 1s broadcast elsewhere
+t3toolbox/backend/fitting.py-266-        if mode_axis is not None:
+t3toolbox/backend/fitting.py-267-            shp[mode_axis] = m
+--
+t3toolbox/backend/fitting.py:319:        raise NotImplementedError(
+t3toolbox/backend/fitting.py-320-            "%s does not implement precompute(): the reusable frame sweep. Subclass a concrete kind (ApplyKind, ProbeKind, "
+t3toolbox/backend/fitting.py-321-            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+t3toolbox/backend/fitting.py-322-            "are writing a new operator from scratch." % type(self).__name__)
+t3toolbox/backend/fitting.py-323-
+--
+t3toolbox/backend/fitting.py:326:        raise NotImplementedError(
+t3toolbox/backend/fitting.py-327-            "%s does not implement forward(): the bare Jacobian J v. Subclass a concrete kind (ApplyKind, ProbeKind, "
+t3toolbox/backend/fitting.py-328-            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+t3toolbox/backend/fitting.py-329-            "are writing a new operator from scratch." % type(self).__name__)
+t3toolbox/backend/fitting.py-330-
+--
+t3toolbox/backend/fitting.py:333:        raise NotImplementedError(
+t3toolbox/backend/fitting.py-334-            "%s does not implement transpose(): the bare transpose J^T r. Subclass a concrete kind (ApplyKind, ProbeKind, "
+t3toolbox/backend/fitting.py-335-            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+t3toolbox/backend/fitting.py-336-            "are writing a new operator from scratch." % type(self).__name__)
+t3toolbox/backend/fitting.py-337-
+--
+t3toolbox/backend/fitting.py:340:        raise NotImplementedError(
+t3toolbox/backend/fitting.py-341-            "%s does not implement point_forward(): the point operation S(x). Subclass a concrete kind (ApplyKind, ProbeKind, "
+t3toolbox/backend/fitting.py-342-            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+t3toolbox/backend/fitting.py-343-            "are writing a new operator from scratch." % type(self).__name__)
+t3toolbox/backend/fitting.py-344-
+--
+t3toolbox/backend/fitting.py:347:        raise NotImplementedError(
+t3toolbox/backend/fitting.py-348-            "%s does not implement take(): the minibatch gather. Subclass a concrete kind (ApplyKind, ProbeKind, "
+t3toolbox/backend/fitting.py-349-            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+t3toolbox/backend/fitting.py-350-            "are writing a new operator from scratch." % type(self).__name__)
+t3toolbox/backend/fitting.py-351-
+--
+t3toolbox/backend/fitting.py:355:        raise NotImplementedError(
+t3toolbox/backend/fitting.py-356-            "%s does not implement w_axes(): the number of leading sample-stack axes. Subclass a concrete kind (ApplyKind, ProbeKind, "
+t3toolbox/backend/fitting.py-357-            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+t3toolbox/backend/fitting.py-358-            "are writing a new operator from scratch." % type(self).__name__)
+t3toolbox/backend/fitting.py-359-
+--
+t3toolbox/backend/fitting.py:362:        raise NotImplementedError(
+t3toolbox/backend/fitting.py-363-            "%s does not implement n_measurements(): the flat |W| measurement count. Subclass a concrete kind (ApplyKind, ProbeKind, "
+t3toolbox/backend/fitting.py-364-            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+t3toolbox/backend/fitting.py-365-            "are writing a new operator from scratch." % type(self).__name__)
+t3toolbox/backend/fitting.py-366-
+--
+t3toolbox/backend/fitting.py:370:        raise NotImplementedError(
+t3toolbox/backend/fitting.py-371-            "%s does not implement sumsq(): the |.|^2 reduction. Subclass a concrete kind (ApplyKind, ProbeKind, "
+t3toolbox/backend/fitting.py-372-            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+t3toolbox/backend/fitting.py-373-            "are writing a new operator from scratch." % type(self).__name__)
+t3toolbox/backend/fitting.py-374-
+--
+t3toolbox/backend/fitting.py:380:        raise NotImplementedError(
+t3toolbox/backend/fitting.py-381-            "%s does not implement block_sumsq -- it is optional, and only the Newton-CG relative-error "
+t3toolbox/backend/fitting.py-382-            "display needs it. Implement it and set has_block_sumsq = True." % type(self).__name__)
+t3toolbox/backend/fitting.py-383-
+t3toolbox/backend/fitting.py-384-    # ---- the residual weight -------------------------------------------------------------------
+t3toolbox/backend/ufv_operations.py:302:    would raise as a shape error; the frontend enforces it.
+t3toolbox/backend/ufv_operations.py-303-    """
+t3toolbox/backend/ufv_operations.py-304-    xnp, _, _ = get_backend(True, tree_contains_jax((variations[:2], weights[:4])))
+t3toolbox/backend/ufv_operations.py-305-    tucker_variations, tt_variations, shape, masks = variations
+t3toolbox/backend/ufv_operations.py-306-    up, down, left, right, _ = weights
+t3toolbox/backend/linalg.py:194:            raise ValueError(
+t3toolbox/backend/linalg.py-195-                'Cannot use truncated_svd with rtol or atol for stacked matrix A (len(A.shape) > 2).\n' +
+t3toolbox/backend/linalg.py-196-                'Different elements of the stack could end out having different shapes.\n' +
+t3toolbox/backend/linalg.py-197-                'First unstack, then call truncated_svd for each unstacked matrix.\n' +
+t3toolbox/backend/linalg.py-198-                'A.shape = ' + str(A.shape)
+t3toolbox/backend/sampling_derivatives.py:211:            raise ValueError(
+t3toolbox/backend/sampling_derivatives.py-212-                "perturbation P must match the shape (sample stack W and mode dim) of the points X; "
+t3toolbox/backend/sampling_derivatives.py-213-                "mode %d: P %s vs X %s" % (i, np.shape(p), np.shape(w)))
+t3toolbox/backend/sampling_derivatives.py-214-
+t3toolbox/backend/sampling_derivatives.py-215-
+--
+t3toolbox/backend/sampling_derivatives.py:229:            raise ValueError(
+t3toolbox/backend/sampling_derivatives.py-230-                "perturbation P's sample stack W must match index's; mode %d: P %s vs index %s"
+t3toolbox/backend/sampling_derivatives.py-231-                % (i, tuple(np.shape(p)[:-1]), iW))
+t3toolbox/backend/sampling_derivatives.py-232-        if shape is not None and np.shape(p)[-1] != shape[i]:
+t3toolbox/backend/sampling_derivatives.py:233:            raise ValueError(
+t3toolbox/backend/sampling_derivatives.py-234-                "perturbation P's mode dim must match the ambient dim Ni; mode %d: P has %d vs Ni=%d"
+t3toolbox/backend/sampling_derivatives.py-235-                % (i, np.shape(p)[-1], shape[i]))
+t3toolbox/backend/sampling_derivatives.py-236-
+t3toolbox/backend/sampling_derivatives.py-237-
+t3toolbox/backend/ut3_svd.py:152:    raise ValueError("direction must be 'left_to_right' or 'right_to_left'; got %r" % (direction,))
+t3toolbox/backend/ut3_svd.py-153-
+t3toolbox/backend/ut3_svd.py-154-
+t3toolbox/backend/ut3_svd.py-155-def _reduce_left_to_right(
+t3toolbox/backend/ut3_svd.py-156-        data: UT3Data,
+t3toolbox/backend/ranks.py:46:        raise ValueError(
+t3toolbox/backend/ranks.py-47-            'max-rank sequence has length %d, expected %d' % (len(spec), length))
+t3toolbox/backend/ranks.py-48-    return spec
+t3toolbox/backend/ranks.py-49-
+t3toolbox/backend/ranks.py-50-
+--
+t3toolbox/backend/ranks.py:118:                    raise ValueError(
+t3toolbox/backend/ranks.py-119-                        'input Tucker ranks must be equal within a sharing group (an unequal proposal '
+t3toolbox/backend/ranks.py-120-                        'is not a shared rank vector); group %r has unequal ranks at modes %d and %d'
+t3toolbox/backend/ranks.py-121-                        % (group, group[0], jj))
+t3toolbox/backend/ranks.py-122-
+--
+t3toolbox/backend/ranks.py:361:                    raise ValueError(
+t3toolbox/backend/ranks.py-362-                        'sharing group %r: modes %d and %d carry different Tucker spectra -- a shared '
+t3toolbox/backend/ranks.py-363-                        'group has ONE spectrum s_g (t3svd(sharing=...) reports it at every group '
+t3toolbox/backend/ranks.py-364-                        'mode); pass the grouped t3svd singular values' % (group, group[0], jj))
+t3toolbox/backend/ranks.py-365-
+--
+t3toolbox/backend/ranks.py:456:                        raise ValueError(
+t3toolbox/backend/ranks.py-457-                            'input %s must be equal within a sharing group (one shared rank per group); '
+t3toolbox/backend/ranks.py-458-                            'group %r differs at modes %d and %d' % (name, group, group[0], jj))
+t3toolbox/backend/ranks.py-459-
+t3toolbox/backend/ranks.py-460-    d = len(shape)
+t3toolbox/backend/sharing.py:72:    mode sizes within a group -- raise unconditionally (both safety modes).
+t3toolbox/backend/sharing.py-73-
+t3toolbox/backend/sharing.py-74-    Examples
+t3toolbox/backend/sharing.py-75-    --------
+t3toolbox/backend/sharing.py-76-    Labels are arbitrary hashables; groups come back as mode-index tuples, ordered by first
+--
+t3toolbox/backend/sharing.py:98:            raise ValueError(
+t3toolbox/backend/sharing.py-99-                'modes in a sharing group must have equal mode sizes (one shared factor needs '
+t3toolbox/backend/sharing.py-100-                'one ambient dimension); group %r has sizes %r' % (group, sizes))
+t3toolbox/backend/sharing.py-101-    return groups
+t3toolbox/backend/sharing.py-102-
+--
+t3toolbox/backend/sharing.py:113:        raise ValueError(
+t3toolbox/backend/sharing.py-114-            'sharing must assign one group label per mode: len(sharing) = %d != %d = number of modes'
+t3toolbox/backend/sharing.py-115-            % (len(sharing), d))
+t3toolbox/backend/sharing.py-116-    modes_by_label = {}                       # insertion-ordered -> groups ordered by first mode
+t3toolbox/backend/sharing.py-117-    for ii, label in enumerate(sharing):
+--
+t3toolbox/backend/sharing.py:121:            raise ValueError(
+t3toolbox/backend/sharing.py-122-                'sharing labels must be hashable; got %r at mode %d' % (label, ii))
+t3toolbox/backend/sharing.py-123-        modes_by_label.setdefault(label, []).append(ii)
+t3toolbox/backend/sharing.py-124-    return tuple(tuple(modes) for modes in modes_by_label.values())
+t3toolbox/backend/sharing.py-125-
+--
+t3toolbox/backend/sharing.py:192:            raise ValueError(
+t3toolbox/backend/sharing.py-193-                'modes in a sharing group must have equal Tucker ranks (their factors are one '
+t3toolbox/backend/sharing.py-194-                'shared array); group %r has ranks %r' % (group, ranks))
+t3toolbox/backend/sharing.py-195-
+t3toolbox/backend/sharing.py-196-
+--
+t3toolbox/backend/sharing.py:213:    raise unconditionally.
+t3toolbox/backend/sharing.py-214-
+t3toolbox/backend/sharing.py-215-    Examples
+t3toolbox/backend/sharing.py-216-    --------
+t3toolbox/backend/sharing.py-217-    Exactly-tied factors (one array used at both modes) give exactly 0; independent random
+--
+t3toolbox/backend/sharing.py:790:                raise ValueError(
+t3toolbox/backend/sharing.py-791-                    'Tucker rank masks must be equal within a sharing group (tied factors have one '
+t3toolbox/backend/sharing.py-792-                    'shared rank); group %r differs at modes %d and %d' % (group, group[0], jj))
+t3toolbox/backend/sharing.py-793-
+t3toolbox/backend/sharing.py-794-
+--
+t3toolbox/backend/sharing.py:808:    rank masks within a group -- raise unconditionally.
+t3toolbox/backend/sharing.py-809-
+t3toolbox/backend/sharing.py-810-    Examples
+t3toolbox/backend/sharing.py-811-    --------
+t3toolbox/backend/sharing.py-812-    >>> import numpy as np
+--
+t3toolbox/backend/sharing.py:989:    not apply; unequal weight LENGTHS within a group (unequal Tucker ranks) raise (structural).
+t3toolbox/backend/sharing.py-990-    ``T3Weights.from_t3svd(x, sharing=...)`` produces group-equal weights by construction (the
+t3toolbox/backend/sharing.py-991-    group spectrum at every group mode), and ``concatenate``/``kronecker``/``reciprocal``/``sqrt``
+t3toolbox/backend/sharing.py-992-    all preserve group-equality.
+t3toolbox/backend/sharing.py-993-
+--
+t3toolbox/backend/sharing.py:1016:            raise ValueError(
+t3toolbox/backend/sharing.py-1017-                'Tucker weights in a sharing group must have equal lengths (one shared rank per '
+t3toolbox/backend/sharing.py-1018-                'group); group %r has lengths %r' % (group, lengths))
+t3toolbox/backend/sharing.py-1019-    use_jax = tree_contains_jax(weights)
+t3toolbox/backend/sharing.py-1020-    xnp, _, _ = get_backend(False, use_jax)
+t3toolbox/backend/t3_linalg.py:534:        raise ValueError('oversample must be >= 1, got %r' % (oversample,))
+t3toolbox/backend/t3_linalg.py-535-
+t3toolbox/backend/t3_linalg.py-536-    Ux, Gx = x
+t3toolbox/backend/t3_linalg.py-537-    Uy, Gy = y
+t3toolbox/backend/t3_linalg.py-538-    d = len(Ux)

@@ -1,0 +1,12 @@
+sum_over_probes=False
+  probe_transpose            rel 2.2e-16
+  apply_transpose            rel 2.0e-16
+  apply_derivatives_transpose rel 2.1e-16
+  probe_derivatives_transpose(chunk_size=None) rel 1.9e-16
+  probe_derivatives_transpose(chunk_size=2) rel 1.9e-16
+sum_over_probes=True
+  probe_transpose            rel 1.9e-16
+  apply_transpose            rel 1.7e-16
+  apply_derivatives_transpose rel 2.2e-16
+  probe_derivatives_transpose(chunk_size=None) rel 2.0e-16
+  probe_derivatives_transpose(chunk_size=2) rel 1.8e-16

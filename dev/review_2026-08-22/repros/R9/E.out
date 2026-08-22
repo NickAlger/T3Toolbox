@@ -1,0 +1,13 @@
+--- d=3, K=(3,), C=(2,): variations stack (3, 2)
+PASS ragged T3Variations.sum_stack(axis=-1): sums last stack axis -> stack  [(3,)]
+FAIL     uniform sum_stack(axis=-1) raises an obscure structural error (K != d)  [Inconsistent (UT3Frame, UT3Variations) pair: up rank masks differ (variation mask must be constant a]
+FAIL     uniform sum_tangents(axis=-1) raises  [Inconsistent (UT3Frame, UT3Variations) pair: up rank masks differ (variation mask must be constant a]
+PASS uniform sum_stack(axis=0) sums K -> stack (2,) and matches dense
+--- d=3, K=(4,), C=(2,): variations stack (4, 2)
+PASS ragged T3Variations.sum_stack(axis=-1): sums last stack axis -> stack  [(4,)]
+FAIL     uniform sum_stack(axis=-1) raises an obscure structural error (K != d)  [Inconsistent shapes for UT3Variations.]
+FAIL     uniform sum_tangents(axis=-1) raises  [Inconsistent shapes for UT3Variations.]
+PASS uniform sum_stack(axis=0) sums K -> stack (2,) and matches dense
+--- backend: ufv_variations_sum_stack / utv_sum_tangent_stack with axis=-1 use stack axis 1+(-1)=0
+    ['stack_axes = tuple(range(1, 1 + n_stack)) if axis is None else (1 + axis,)']
+    ['k_axes = tuple(range(1, 1 + n_tangent)) if axis is None else (1 + axis,)']

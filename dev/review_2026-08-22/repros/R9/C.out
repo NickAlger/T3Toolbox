@@ -1,0 +1,41 @@
+PASS stack shapes  [(3, 2)]
+PASS stacked has_minimal_ranks shape == C  [[ True False]]
+PASS stacked has_minimal_ranks per element == ragged  [[True, False]]
+PASS stacked minimal_ranks shapes (d,)+C,(d+1,)+C  [((3, 2), (4, 2))]
+PASS   minimal_ranks[0] == per-element  [(array([2, 2, 2]), ((2, 2, 2), (1, 2, 2, 1)))]
+PASS   minimal_ranks[1] == per-element  [(array([1, 2, 2]), ((1, 2, 2), (1, 1, 2, 1)))]
+PASS tangent_space_dimension shape == C (K shared)  [[26 21]]
+PASS tangent_space_dimension per element == ragged manifold_dim  [[26, 21]]
+PASS has_numerically_minimal_ranks shape == C  [[ True False]]
+PASS UT3Frame treedef of a rebuilt-identical object is EQUAL (value-hashed aux)
+PASS UT3Frame treedef hash equal
+PASS UT3Frame unflatten(flatten) round trip equal on real content
+PASS UT3Variations treedef of a rebuilt-identical object is EQUAL (value-hashed aux)
+PASS UT3Variations treedef hash equal
+PASS UT3Variations unflatten(flatten) round trip equal on real content
+PASS UT3Tangent treedef of a rebuilt-identical object is EQUAL (value-hashed aux)
+PASS UT3Tangent treedef hash equal
+PASS UT3Tangent unflatten(flatten) round trip equal on real content
+PASS UT3FrameWeights treedef of rebuilt-identical equal
+PASS UT3FrameWeights round trip
+PASS UT3FrameMasks is VALUE hashed/eq (contradicts the :1340 comment)
+PASS tangent probe_derivatives_transpose: chunk_size None/100/3/4 identical  [5.329070518200751e-15]
+PASS CHARACTERIZE backlog: UT3.probe_corewise_derivatives_transpose has NO chunk_size param  [(self, ztildes: Sequence[Union[numpy.ndarray, jax.jaxlib._jax.Array]], ww: Sequence[Union[numpy.ndarray, jax.jaxlib._jax.Array]], pp: Sequence[Union[numpy.ndarray, jax.jaxlib._jax.Array]], order: int, sum_over_probes: bool = False) -> Tuple[Union[numpy.ndarray, jax.jaxlib._jax.Array], Union[numpy.ndarray, jax.jaxlib._jax.Array]]]
+    ragged twin signature: (self: 'TuckerTensorTrain', ztildes: collections.abc.Sequence[typing.Union[numpy.ndarray, jax.jaxlib._jax.Array]], ww: collections.abc.Sequence[typing.Union[numpy.ndarray, jax.jaxlib._jax.Array]], pp: collections.abc.Sequence[typing.Union[numpy.ndarray, jax.jaxlib._jax.Array]], order: int, sum_over_probes: bool = False) -> Tuple[Tuple[Union[numpy.ndarray, jax.jaxlib._jax.Array], ...], Tuple[Union[numpy.ndarray, jax.jaxlib._jax.Array], ...]]
+PASS UT3 corewise deriv transpose == ragged (chunk_size=None)  [2.842170943040401e-14]
+PASS ragged corewise deriv transpose chunk 100 == None  [0.0]
+PASS UT3Variations.sum_stack(axis=0) sums K (3,2)->(2,)  [(2,)]
+FAIL CHARACTERIZE: sum_stack(axis=-1) result stack  [(2,)]
+PASS ragged T3Variations.sum_stack(axis=-1) works ->  [()]
+PASS sum_tangents() == 2*vC (3 terms: v + 2v - v)
+PASS module docstring claims "no save/to_vector" asymmetry  [['returns the frontend objects (the backend ``ufv_conversions`` twin returns raw data). Class', 'asymmetries vs the ragged classes (e.g. no ``save``/``to_vector``) are deliberate design, not gaps.']]
+PASS ...but UT3Frame.save AND UT3Variations.save/load exist
+PASS UT3Variations.save/load round trip
+PASS UT3Variations has no to_vector/from_vector/size/data_size (undocumented asymmetry vs T3Variations)
+PASS UT3Tangent.reverse().to_dense() == to_dense() with mode axes reversed (docstring says "will ... once ... lands")
+PASS UT3Tangent.corewise_inner docstring says "(forthcoming) manifold geometry"
+FAIL UT3Tangent.reverse docstring says "Will commute ... once ... lands"
+PASS uniform_manifold module docstring says "Deferred to later 3b slices"
+PASS utv_sampling module docstring says transpose "lands in 3b-6c"
+PASS frontend ut3_orthogonal_representations docstring documents a nonexistent xnp param + T3Base return
+PASS uniform_frame_variations_format references dev/uniform_fix_plan.md (file is in dev/archive)

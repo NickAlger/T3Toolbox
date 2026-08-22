@@ -1,0 +1,66 @@
+frame orthogonal? True
+bad_frame orthogonal? False
+ungauged is_gauged? False
+OK T3Tangent + (SF): doc says raises -> RAISED ValueError
+OK T3Tangent.allclose (SF): doc says raises -> RAISED ValueError
+OK corewise_inner (SF): doc says raises -> RAISED ValueError
+OK corewise_inner ungauged same frame (no check): doc says no check -> no raise
+OK corewise_norm bad frame (no check): doc says no check -> no raise
+OK MANIFOLD.inner SF: doc says raises -> RAISED ValueError
+OK MANIFOLD.inner ungauged (GAUGE): doc says raises -> RAISED ValueError
+OK MANIFOLD.inner bad frame (ORTH): doc says raises -> RAISED ValueError
+OK MANIFOLD.norm ungauged (GAUGE): doc says raises -> RAISED ValueError
+OK MANIFOLD.norm bad frame (ORTH): doc says raises -> RAISED ValueError
+OK COREWISE.inner SF: doc says raises -> RAISED ValueError
+OK COREWISE.inner ungauged (no check): doc says no check -> no raise
+OK COREWISE.norm bad frame (no check): doc says no check -> no raise
+OK MANIFOLD.project bad frame (ORTH): doc says raises -> RAISED ValueError
+OK MANIFOLD.project ungauged (ORTH only): doc says no check -> no raise
+OK MANIFOLD.project_oblique bad frame (ORTH): doc says raises -> RAISED ValueError
+OK MANIFOLD.retract bad frame (ORTH): doc says raises -> RAISED ValueError
+OK MANIFOLD.retract ungauged (ORTH only): doc says no check -> no raise
+OK MANIFOLD.project_ambient bad frame (ORTH): doc says raises -> RAISED ValueError
+OK MANIFOLD.transport to bad frame (ORTH): doc says raises -> RAISED ValueError
+OK MANIFOLD.randn bad frame (ORTH): doc says raises -> RAISED ValueError
+MISMATCH MANIFOLD.random_orthogonal exists: doc says no check -> RAISED TypeError
+OK MANIFOLD.randn_like: doc says no check -> no raise
+OK COREWISE.project bad frame (no check): doc says no check -> no raise
+OK COREWISE.retract bad frame (no check): doc says no check -> no raise
+OK stack_tangents SF: doc says raises -> RAISED ValueError
+  T3Tangent.sum_tangents exists
+  T3Tangent.unit exists
+  T3Tangent.zeros_like exists
+  T3Tangent.normalized exists
+  T3Tangent.reverse exists
+  T3Tangent.to_vector exists
+  T3Tangent.from_vector exists
+  T3Tangent.stack_frame exists
+  T3Tangent.unstack_tangents exists
+  T3Tangent.unstack_frame exists
+  T3Tangent.gauge_residual exists
+  T3Tangent.has_numerically_minimal_ranks exists
+  T3Tangent.to_t3 exists
+  T3Tangent.to_dense exists
+  T3Frame.orthogonality_residual exists
+  T3Frame.random_orthogonal exists
+  T3Frame.up_ranks exists
+  T3Frame.down_ranks exists
+  T3Frame.is_consistent exists
+  manifold.manifold_dim True  tangent_space_dimension: ['tangent_space_dimension']
+  TuckerTensorTrain.inner sig (self, other, use_orthogonalization: bool = True)
+  GaussNewtonModel.gradient exists
+  GaussNewtonModel.gn_hessian exists
+  GaussNewtonModel.jacobian exists
+  GaussNewtonModel.gn_quadratic exists
+  GaussNewtonModel.evaluate exists
+OK GaussNewtonModel.gn_hessian foreign p (SF): doc says raises -> RAISED ValueError
+OK GaussNewtonModel.jacobian foreign p (SF): doc says raises -> RAISED ValueError
+OK GaussNewtonModel.gn_quadratic foreign p (SF): doc says raises -> RAISED ValueError
+OK GaussNewtonModel.evaluate foreign p (SF): doc says raises -> RAISED ValueError
+OK t3svd(sharing) untied (TIED): doc says raises -> RAISED ValueError
+OK rank_adjustment_sweep(sharing) untied (TIED): doc says raises -> RAISED ValueError
+OK resize(sharing) untied (TIED): doc says raises -> RAISED ValueError
+OK continuation_ranks(sharing) untied (TIED): doc says raises -> RAISED ValueError
+OK share untied (no check): doc says no check -> no raise
+OK shared.frame untied (TIED) -- CHANGELOG says ties silently: doc says no check -> no raise
+OK shared.transport to untied frame (TIED): doc says raises -> RAISED ValueError

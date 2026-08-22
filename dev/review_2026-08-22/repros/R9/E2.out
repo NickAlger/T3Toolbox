@@ -1,0 +1,7 @@
+variations supercore shape (d,)+K+C+(nD,N) = (3, 3, 2, 3, 6)  stack_shape = (3, 2)
+sum_stack(axis=-1).stack_shape = (2,)  (expected K = (3,))
+got.tucker_variations.shape = (3, 2, 3, 6)  correct (sum over C) shape = (3, 3, 3, 6)
+max|got - sum over the MODE axis d| = 0.0  <- what it computed
+got.masks == OR over the mode axis? True
+ragged T3Variations.sum_stack(axis=-1).stack_shape = (3,)  (numpy semantics: last stack axis)
+uniform sum_stack(axis=1).stack_shape = (3,) (positive index works)

@@ -1,0 +1,21 @@
+root __all__ size 43
+NOT AT ROOT: IdentityRegularizer
+NOT AT ROOT: Regularizer
+NOT AT ROOT: t3toolbox
+NOT AT ROOT: ut3_
+NOT AT ROOT: x0
+ROOT NAME NOT IN API REF: ut3_weighted_inner
+ROOT NAME NOT IN API REF: ut3_weighted_norm
+BACKEND MODULE NOT LISTED: geometry
+FRONTEND MODULE NOT LISTED: corewise.py
+tucker_tensor_train in __all__ but not root: []
+uniform_tucker_tensor_train in __all__ but not root: ['UT3Masks']
+frame_variations_format in __all__ but not root: ['fv_to_t3']
+uniform_frame_variations_format in __all__ but not root: ['check_ufw_pair']
+manifold in __all__ but not root: ['ManifoldGeometry', 'CorewiseGeometry', 'manifold_dim']
+uniform_manifold in __all__ but not root: ['UniformManifoldGeometry', 'UniformCorewiseGeometry']
+fitting in __all__ but not root: []
+optimizers in __all__ but not root: ['Regularizer', 'IdentityRegularizer']
+shared_geometry in __all__ but not root: ['SharedGeometry']
+safety in __all__ but not root: ['SafetyTolerances', 'DEFAULT_RTOL_NUMPY', 'DEFAULT_RTOL_JAX', 'current_safety', 'set_default_safety', 'effective_rtol', 'is_tracing', 'checks_active', 'require', 'frames_equal', 'frames_equal_or_skip']
+corewise in __all__ but not root: ['NDArrayTree', 'corewise_add', 'corewise_sub', 'corewise_scale', 'corewise_zeros_like', 'corewise_map', 'corewise_stack_scale', 'corewise_neg', 'corewise_sum', 'corewise_stack_sum', 'corewise_dot', 'corewise_stack_dot', 'corewise_norm', 'corewise_stack_norm', 'corewise_err', 'corewise_relerr', 'corewise_logical_not']

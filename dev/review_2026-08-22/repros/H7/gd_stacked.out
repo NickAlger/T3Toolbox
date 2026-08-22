@@ -1,0 +1,1 @@
+gradient_descent stacked x0: NotImplementedError: gradient_descent: optimizing a STACKED point (stack C = (2,)) is not supported. 

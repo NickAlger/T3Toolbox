@@ -1,0 +1,8 @@
+ragged  tv_apply_transpose_from_sweep (defaults): dU[0].shape = (4, 2, 5)
+uniform utv_apply_transpose_from_sweep (defaults): dU.shape    = (3, 3, 7)  (d leads)
+ragged  tv_probe_transpose_from_sweep (defaults): dU[0].shape = (4, 2, 5)
+uniform utv_probe_transpose_from_sweep (defaults): dU.shape    = (3, 3, 7)
+tv_apply_transpose_from_sweep sum_over_probes default = False
+utv_apply_transpose_from_sweep sum_over_probes default = True
+tv_probe_transpose_from_sweep sum_over_probes default = False
+utv_probe_transpose_from_sweep sum_over_probes default = True

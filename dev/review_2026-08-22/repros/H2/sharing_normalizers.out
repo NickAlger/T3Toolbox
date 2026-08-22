@@ -1,0 +1,15 @@
+all-singleton spec None  : agrees with None? True 
+all-singleton spec tuple : agrees with None? True 
+all-singleton spec list  : agrees with None? True 
+all-singleton spec np    : agrees with None? True 
+all-singleton spec str   : agrees with None? True 
+--- nontrivial partition in several spellings
+spelling tuple   : agrees with tuple? True 
+spelling list    : agrees with tuple? True 
+spelling np      : agrees with tuple? True 
+spelling str     : agrees with tuple? False {'geom_eq_tuple': ((True, True), (False, False))}
+spelling np-int32: agrees with tuple? True 
+--- SharedGeometry with an all-singleton partition vs the plain geometry (fit results)
+plain vs shared(all-singleton): dense rel diff 0.0e+00
+precompute(frame) on all-singleton shared manifold: SharedFrameData
+canonical_groups((0,1,2)) = () ; SharedGeometry.groups = ((0,), (1,), (2,))

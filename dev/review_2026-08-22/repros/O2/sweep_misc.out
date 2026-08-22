@@ -1,0 +1,134 @@
+== jit == eager (x64) ==
+MISMATCH ragged  manifold shared=False apply               w=none   reg=False newton=1.2e-14 mc_sgd=6.0e-15 adam=3.1e-03 jit_dtype=float64
+MISMATCH ragged  manifold shared=False apply               w=none   reg=True  newton=4.3e-15 mc_sgd=7.2e-15 adam=4.0e-03 jit_dtype=float64
+MISMATCH ragged  manifold shared=False probe               w=mode   reg=False newton=8.4e-15 mc_sgd=1.3e-14 adam=3.3e-03 jit_dtype=float64
+MISMATCH ragged  manifold shared=False probe               w=mode   reg=True  newton=1.0e-14 mc_sgd=1.3e-14 adam=2.8e-03 jit_dtype=float64
+MISMATCH ragged  manifold shared=False probe_derivatives   w=matrix reg=False newton=1.3e-14 mc_sgd=1.2e-14 adam=2.6e-03 jit_dtype=float64
+MISMATCH ragged  manifold shared=False probe_derivatives   w=matrix reg=True  newton=6.8e-15 mc_sgd=7.2e-15 adam=2.3e-03 jit_dtype=float64
+MISMATCH ragged  manifold shared=False entries_derivatives w=order  reg=False newton=2.3e-14 mc_sgd=3.0e-14 adam=3.9e-03 jit_dtype=float64
+MISMATCH ragged  manifold shared=False entries_derivatives w=order  reg=True  newton=9.7e-15 mc_sgd=3.6e-14 adam=4.0e-03 jit_dtype=float64
+OK ragged  corewise shared=False apply               w=none   reg=False newton=4.9e-16 mc_sgd=4.5e-16 adam=4.1e-16 jit_dtype=float64
+OK ragged  corewise shared=False apply               w=none   reg=True  newton=4.2e-16 mc_sgd=8.0e-16 adam=6.3e-16 jit_dtype=float64
+OK ragged  corewise shared=False probe               w=mode   reg=False newton=1.9e-14 mc_sgd=5.9e-16 adam=5.8e-16 jit_dtype=float64
+OK ragged  corewise shared=False probe               w=mode   reg=True  newton=2.8e-14 mc_sgd=4.0e-16 adam=3.9e-16 jit_dtype=float64
+OK ragged  corewise shared=False probe_derivatives   w=matrix reg=False newton=2.8e-12 mc_sgd=2.2e-15 adam=3.0e-16 jit_dtype=float64
+OK ragged  corewise shared=False probe_derivatives   w=matrix reg=True  newton=1.9e-12 mc_sgd=9.5e-16 adam=3.0e-16 jit_dtype=float64
+OK ragged  corewise shared=False entries_derivatives w=order  reg=False newton=9.8e-16 mc_sgd=8.7e-16 adam=4.6e-16 jit_dtype=float64
+OK ragged  corewise shared=False entries_derivatives w=order  reg=True  newton=5.7e-16 mc_sgd=2.0e-15 adam=2.1e-16 jit_dtype=float64
+MISMATCH ragged  manifold shared=True  apply               w=none   reg=False newton=1.5e-14 mc_sgd=1.9e-13 adam=3.9e-02 jit_dtype=float64
+MISMATCH ragged  manifold shared=True  apply               w=none   reg=True  newton=5.0e-15 mc_sgd=7.3e-15 adam=3.6e-02 jit_dtype=float64
+MISMATCH ragged  manifold shared=True  probe               w=mode   reg=False newton=8.1e-15 mc_sgd=7.4e-15 adam=2.6e-02 jit_dtype=float64
+MISMATCH ragged  manifold shared=True  probe               w=mode   reg=True  newton=8.0e-15 mc_sgd=2.6e-14 adam=3.2e-02 jit_dtype=float64
+MISMATCH ragged  manifold shared=True  probe_derivatives   w=matrix reg=False newton=7.2e-15 mc_sgd=5.0e-15 adam=3.2e-02 jit_dtype=float64
+MISMATCH ragged  manifold shared=True  probe_derivatives   w=matrix reg=True  newton=2.7e-15 mc_sgd=5.6e-15 adam=2.7e-02 jit_dtype=float64
+MISMATCH ragged  manifold shared=True  entries_derivatives w=order  reg=False newton=3.0e-14 mc_sgd=7.5e-15 adam=1.7e-02 jit_dtype=float64
+MISMATCH ragged  manifold shared=True  entries_derivatives w=order  reg=True  newton=2.2e-14 mc_sgd=5.7e-15 adam=2.0e-02 jit_dtype=float64
+MISMATCH uniform manifold shared=False apply               w=none   reg=False newton=6.9e-15 mc_sgd=5.2e-15 adam=3.5e-03 jit_dtype=float64
+MISMATCH uniform manifold shared=False apply               w=none   reg=True  newton=3.3e-15 mc_sgd=8.5e-15 adam=3.6e-03 jit_dtype=float64
+MISMATCH uniform manifold shared=False probe               w=mode   reg=False newton=2.7e-14 mc_sgd=1.5e-14 adam=4.1e-03 jit_dtype=float64
+MISMATCH uniform manifold shared=False probe               w=mode   reg=True  newton=2.0e-14 mc_sgd=1.1e-14 adam=4.7e-03 jit_dtype=float64
+MISMATCH uniform manifold shared=False probe_derivatives   w=matrix reg=False newton=1.0e-14 mc_sgd=8.7e-15 adam=5.0e-03 jit_dtype=float64
+MISMATCH uniform manifold shared=False probe_derivatives   w=matrix reg=True  newton=1.0e-14 mc_sgd=1.6e-14 adam=5.0e-03 jit_dtype=float64
+MISMATCH uniform manifold shared=False entries_derivatives w=order  reg=False newton=2.3e-14 mc_sgd=2.1e-14 adam=1.0e-02 jit_dtype=float64
+MISMATCH uniform manifold shared=False entries_derivatives w=order  reg=True  newton=8.2e-15 mc_sgd=3.8e-14 adam=3.2e-03 jit_dtype=float64
+OK uniform corewise shared=False apply               w=none   reg=False newton=7.3e-16 mc_sgd=4.5e-16 adam=5.2e-16 jit_dtype=float64
+OK uniform corewise shared=False apply               w=none   reg=True  newton=1.0e-15 mc_sgd=5.7e-16 adam=5.3e-16 jit_dtype=float64
+OK uniform corewise shared=False probe               w=mode   reg=False newton=2.4e-14 mc_sgd=3.5e-16 adam=2.9e-16 jit_dtype=float64
+OK uniform corewise shared=False probe               w=mode   reg=True  newton=3.9e-14 mc_sgd=4.0e-16 adam=3.9e-16 jit_dtype=float64
+OK uniform corewise shared=False probe_derivatives   w=matrix reg=False newton=9.2e-12 mc_sgd=2.3e-15 adam=4.4e-16 jit_dtype=float64
+OK uniform corewise shared=False probe_derivatives   w=matrix reg=True  newton=2.7e-12 mc_sgd=3.6e-15 adam=5.1e-16 jit_dtype=float64
+OK uniform corewise shared=False entries_derivatives w=order  reg=False newton=8.2e-16 mc_sgd=2.0e-15 adam=4.3e-16 jit_dtype=float64
+OK uniform corewise shared=False entries_derivatives w=order  reg=True  newton=6.5e-16 mc_sgd=2.2e-15 adam=4.6e-16 jit_dtype=float64
+MISMATCH uniform manifold shared=True  apply               w=none   reg=False newton=9.7e-15 mc_sgd=1.1e-13 adam=3.2e-02 jit_dtype=float64
+MISMATCH uniform manifold shared=True  apply               w=none   reg=True  newton=1.6e-14 mc_sgd=4.6e-15 adam=2.3e-02 jit_dtype=float64
+MISMATCH uniform manifold shared=True  probe               w=mode   reg=False newton=4.7e-15 mc_sgd=6.0e-15 adam=2.2e-02 jit_dtype=float64
+MISMATCH uniform manifold shared=True  probe               w=mode   reg=True  newton=1.7e-14 mc_sgd=3.7e-15 adam=3.1e-02 jit_dtype=float64
+MISMATCH uniform manifold shared=True  probe_derivatives   w=matrix reg=False newton=9.1e-15 mc_sgd=3.1e-14 adam=2.1e-02 jit_dtype=float64
+MISMATCH uniform manifold shared=True  probe_derivatives   w=matrix reg=True  newton=2.6e-15 mc_sgd=5.3e-15 adam=1.8e-02 jit_dtype=float64
+MISMATCH uniform manifold shared=True  entries_derivatives w=order  reg=False newton=5.8e-14 mc_sgd=2.7e-15 adam=2.3e-02 jit_dtype=float64
+MISMATCH uniform manifold shared=True  entries_derivatives w=order  reg=True  newton=2.7e-14 mc_sgd=6.9e-15 adam=3.1e-02 jit_dtype=float64
+== chunk_size (probe_derivatives, order 2, W=12) ==
+OK ragged  jit=False chunk=None  vs None: 0.0e+00
+OK ragged  jit=False chunk=auto  vs None: 0.0e+00
+OK ragged  jit=False chunk=5     vs None: 0.0e+00
+OK ragged  jit=False chunk=1     vs None: 0.0e+00
+OK ragged  jit=False chunk=100   vs None: 0.0e+00
+OK ragged  jit=True  chunk=None  vs None: 0.0e+00
+OK ragged  jit=True  chunk=auto  vs None: 0.0e+00
+OK ragged  jit=True  chunk=5     vs None: 0.0e+00
+OK ragged  jit=True  chunk=1     vs None: 0.0e+00
+OK ragged  jit=True  chunk=100   vs None: 0.0e+00
+OK uniform jit=False chunk=None  vs None: 0.0e+00
+OK uniform jit=False chunk=auto  vs None: 0.0e+00
+OK uniform jit=False chunk=5     vs None: 1.0e-14
+OK uniform jit=False chunk=1     vs None: 9.4e-15
+OK uniform jit=False chunk=100   vs None: 0.0e+00
+OK uniform jit=True  chunk=None  vs None: 0.0e+00
+OK uniform jit=True  chunk=auto  vs None: 0.0e+00
+OK uniform jit=True  chunk=5     vs None: 4.5e-15
+OK uniform jit=True  chunk=1     vs None: 6.0e-15
+OK uniform jit=True  chunk=100   vs None: 0.0e+00
+== stacked x0 ==
+OK gradient_descent ragged  NotImplementedError at entry (before touching the mismatched sample): gradient_descent: optimizing a STACKED point (stack C = (2,)...
+OK gradient_descent uniform NotImplementedError at entry (before touching the mismatched sample): gradient_descent: optimizing a STACKED point (stack C = (2,)...
+OK newton_cg        ragged  NotImplementedError at entry (before touching the mismatched sample): newton_cg: optimizing a STACKED point (stack C = (2,)) is no...
+OK newton_cg        uniform NotImplementedError at entry (before touching the mismatched sample): newton_cg: optimizing a STACKED point (stack C = (2,)) is no...
+OK mc_sgd           ragged  NotImplementedError at entry (before touching the mismatched sample): mc_sgd: optimizing a STACKED point (stack C = (2,)) is not s...
+OK mc_sgd           uniform NotImplementedError at entry (before touching the mismatched sample): mc_sgd: optimizing a STACKED point (stack C = (2,)) is not s...
+OK adam             ragged  NotImplementedError at entry (before touching the mismatched sample): adam: optimizing a STACKED point (stack C = (2,)) is not sup...
+OK adam             uniform NotImplementedError at entry (before touching the mismatched sample): adam: optimizing a STACKED point (stack C = (2,)) is not sup...
+OK stacked regularized model raises NotImplementedError
+== x0 variants (manifold, apply) ==
+OK  random         ragged  newton_cg        final_obj=6.9062e-03 losses=['8.355e+01', '1.494e+01', '1.788e+00', '1.639e-01']
+OK  random         ragged  gradient_descent final_obj=1.5207e+00 losses=['8.355e+01', '1.494e+01', '4.219e+00', '2.284e+00']
+OK  random         ragged  mc_sgd           final_obj=2.5730e+01 losses=['2.573e+01']
+OK  random         ragged  adam             final_obj=8.2844e+01 losses=[]
+OK  random         uniform newton_cg        final_obj=6.9062e-03 losses=['8.355e+01', '1.494e+01', '1.788e+00', '1.639e-01']
+OK  random         uniform gradient_descent final_obj=1.5207e+00 losses=['8.355e+01', '1.494e+01', '4.219e+00', '2.284e+00']
+OK  random         uniform mc_sgd           final_obj=2.5730e+01 losses=['2.573e+01']
+OK  random         uniform adam             final_obj=8.2944e+01 losses=[]
+OK  orthogonalized ragged  newton_cg        final_obj=6.9062e-03 losses=['8.355e+01', '1.494e+01', '1.788e+00', '1.639e-01']
+OK  orthogonalized ragged  gradient_descent final_obj=1.5207e+00 losses=['8.355e+01', '1.494e+01', '4.219e+00', '2.284e+00']
+OK  orthogonalized ragged  mc_sgd           final_obj=2.5730e+01 losses=['2.573e+01']
+OK  orthogonalized ragged  adam             final_obj=8.2878e+01 losses=[]
+OK  orthogonalized uniform newton_cg        final_obj=6.9062e-03 losses=['8.355e+01', '1.494e+01', '1.788e+00', '1.639e-01']
+OK  orthogonalized uniform gradient_descent final_obj=1.5207e+00 losses=['8.355e+01', '1.494e+01', '4.219e+00', '2.284e+00']
+OK  orthogonalized uniform mc_sgd           final_obj=2.5730e+01 losses=['2.573e+01']
+OK  orthogonalized uniform adam             final_obj=8.2973e+01 losses=[]
+OK  zero           ragged  newton_cg        final_obj=1.5439e+00 losses=['6.016e+01', '4.940e+01', '2.399e+01', '4.600e+00']
+OK  zero           ragged  gradient_descent final_obj=3.7825e+00 losses=['6.016e+01', '4.940e+01', '3.392e+01', '1.592e+01']
+OK  zero           ragged  mc_sgd           final_obj=5.5270e+01 losses=['5.527e+01']
+OK  zero           ragged  adam             final_obj=5.9976e+01 losses=[]
+OK  zero           uniform newton_cg        final_obj=1.8962e-01 losses=['6.016e+01', '3.651e+01', '3.137e+00', '1.127e+00']
+OK  zero           uniform gradient_descent final_obj=1.8183e+00 losses=['6.016e+01', '4.245e+01', '1.826e+01', '4.279e+00']
+OK  zero           uniform mc_sgd           final_obj=5.4474e+01 losses=['5.447e+01']
+OK  zero           uniform adam             final_obj=6.0048e+01 losses=[]
+OK  nonminimal     ragged  newton_cg        final_obj=1.8179e+01 losses=['1.797e+02', '7.673e+01', '3.685e+01', '3.107e+01']
+OK  nonminimal     ragged  gradient_descent final_obj=6.3275e+01 losses=['1.797e+02', '1.075e+02', '8.492e+01', '7.254e+01']
+OK  nonminimal     ragged  mc_sgd           final_obj=9.1569e+01 losses=['9.157e+01']
+EXC nonminimal     ragged  adam            : ValueError: operands could not be broadcast together with shapes (3,5) (2,5) 
+OK  nonminimal     uniform newton_cg        final_obj=1.3108e+01 losses=['1.797e+02', '7.879e+01', '4.279e+01', '3.335e+01']
+OK  nonminimal     uniform gradient_descent final_obj=6.3296e+01 losses=['1.797e+02', '1.075e+02', '8.497e+01', '7.257e+01']
+OK  nonminimal     uniform mc_sgd           final_obj=9.1333e+01 losses=['9.133e+01']
+OK  nonminimal     uniform adam             final_obj=1.7937e+02 losses=[]
+== verbose display smoke ==
+OK  ragged  probe               verbose: 2 records, 10 lines printed; history keys ok=True
+OK  ragged  probe_derivatives   verbose: 2 records, 12 lines printed; history keys ok=True
+OK  ragged  apply               verbose: 2 records, 4 lines printed; history keys ok=True
+OK  uniform probe               verbose: 2 records, 10 lines printed; history keys ok=True
+OK  uniform probe_derivatives   verbose: 2 records, 12 lines printed; history keys ok=True
+OK  uniform apply               verbose: 2 records, 4 lines printed; history keys ok=True
+== d=1 ragged ==
+OK  d=1 apply               ManifoldGeometry   losses[0]=3.116e+01 hand_final=6.844e-03
+OK  d=1 apply               CorewiseGeometry   losses[0]=3.116e+01 hand_final=4.080e-02
+OK  d=1 entries             ManifoldGeometry   losses[0]=3.054e+01 hand_final=4.337e-06
+OK  d=1 entries             CorewiseGeometry   losses[0]=3.054e+01 hand_final=1.594e-02
+OK  d=1 probe               ManifoldGeometry   losses[0]=1.750e+02 hand_final=1.129e-28
+OK  d=1 probe               CorewiseGeometry   losses[0]=1.750e+02 hand_final=8.267e-04
+OK  d=1 apply_derivatives   ManifoldGeometry   losses[0]=1.949e+02 hand_final=2.168e-03
+OK  d=1 apply_derivatives   CorewiseGeometry   losses[0]=1.949e+02 hand_final=1.818e-03
+OK  d=1 probe_derivatives   ManifoldGeometry   losses[0]=1.750e+02 hand_final=7.786e-29
+OK  d=1 probe_derivatives   CorewiseGeometry   losses[0]=1.750e+02 hand_final=8.267e-04
+== Problem.objective (backend) at a raw non-left-orthogonal x0 with a regularizer (known S) ==
+Problem.objective(raw x0) = 84.040247   hand = 245.599525   LocalModel.objective = 245.599525
+gradient_descent losses = ['245.599525', '81.696708'], hand at returned = 46.045242 (the loop itself uses LocalModel.objective + retracted points: unaffected)

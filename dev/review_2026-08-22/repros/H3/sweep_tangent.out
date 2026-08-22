@@ -1,0 +1,162 @@
+FAIL d=3 C=() K=() COREWISE.retract dense k=() c=() relerr=1.35e+00
+FAIL d=3 C=(1,) K=() COREWISE.retract dense k=() c=(0,) relerr=4.31e+00
+FAIL d=3 C=(3,) K=() COREWISE.retract dense k=() c=(0,) relerr=2.96e+00
+FAIL d=3 C=(2, 3) K=() COREWISE.retract dense k=() c=(0, 0) relerr=3.41e+00
+FAIL d=3 C=() K=(2,) COREWISE.retract dense k=(0,) c=() relerr=3.77e+00
+FAIL d=3 C=(3,) K=(2,) COREWISE.retract dense k=(0,) c=(0,) relerr=6.39e+00
+FAIL d=3 C=(1,) K=(2,) COREWISE.retract dense k=(0,) c=(0,) relerr=5.16e+00
+FAIL d=3 C=(2, 3) K=(4,) COREWISE.retract dense k=(0,) c=(0, 0) relerr=3.35e+00
+FAIL d=4 C=() K=() COREWISE.retract dense k=() c=() relerr=6.67e+00
+FAIL d=4 C=(1,) K=() COREWISE.retract dense k=() c=(0,) relerr=1.75e+00
+FAIL d=4 C=(3,) K=() COREWISE.retract dense k=() c=(0,) relerr=4.13e+00
+FAIL d=4 C=(2, 3) K=() COREWISE.retract dense k=() c=(0, 0) relerr=5.35e+00
+FAIL d=4 C=() K=(2,) COREWISE.retract dense k=(0,) c=() relerr=3.85e+00
+FAIL d=4 C=(3,) K=(2,) COREWISE.retract dense k=(0,) c=(0,) relerr=9.37e+00
+FAIL d=4 C=(1,) K=(2,) COREWISE.retract dense k=(0,) c=(0,) relerr=1.69e+01
+FAIL d=4 C=(2, 3) K=(4,) COREWISE.retract dense k=(0,) c=(0, 0) relerr=5.30e+00
+FAIL d=2 C=() K=() COREWISE.retract dense k=() c=() relerr=1.76e+00
+FAIL d=2 C=(1,) K=() COREWISE.retract dense k=() c=(0,) relerr=3.02e+00
+FAIL d=2 C=(3,) K=() COREWISE.retract dense k=() c=(0,) relerr=8.17e+00
+FAIL d=2 C=(2, 3) K=() COREWISE.retract dense k=() c=(0, 0) relerr=4.51e+00
+FAIL d=2 C=() K=(2,) COREWISE.retract dense k=(0,) c=() relerr=1.64e+00
+FAIL d=2 C=(3,) K=(2,) COREWISE.retract dense k=(0,) c=(0,) relerr=2.04e+00
+FAIL d=2 C=(1,) K=(2,) COREWISE.retract dense k=(0,) c=(0,) relerr=1.14e+00
+FAIL d=2 C=(2, 3) K=(4,) COREWISE.retract dense k=(0,) c=(0, 0) relerr=8.02e-01
+FAIL d=1 C=() K=() COREWISE.retract dense k=() c=() relerr=2.66e-01
+FAIL d=1 C=() K=() project_ambient/transport EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1])
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tt_operations.py", line 180, in tt_zipper_left_to_right
+    ss = coresA[0].shape[:-3]
+         ~~~~~
+FAIL d=1 C=(1,) K=() COREWISE.retract dense k=() c=(0,) relerr=7.93e-01
+FAIL d=1 C=(1,) K=() project_ambient/transport EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1])
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tt_operations.py", line 180, in tt_zipper_left_to_right
+    ss = coresA[0].shape[:-3]
+         ~~~~~
+FAIL d=1 C=(3,) K=() COREWISE.retract dense k=() c=(0,) relerr=8.86e-01
+FAIL d=1 C=(3,) K=() project_ambient/transport EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1])
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tt_operations.py", line 180, in tt_zipper_left_to_right
+    ss = coresA[0].shape[:-3]
+         ~~~~~
+FAIL d=1 C=(2, 3) K=() COREWISE.retract dense k=() c=(0, 0) relerr=1.49e+00
+FAIL d=1 C=(2, 3) K=() project_ambient/transport EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1])
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tt_operations.py", line 180, in tt_zipper_left_to_right
+    ss = coresA[0].shape[:-3]
+         ~~~~~
+FAIL d=1 C=() K=(2,) COREWISE.retract dense k=(0,) c=() relerr=2.74e-01
+FAIL d=1 C=() K=(2,) project_ambient/transport EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1])
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tt_operations.py", line 180, in tt_zipper_left_to_right
+    ss = coresA[0].shape[:-3]
+         ~~~~~
+FAIL d=1 C=(3,) K=(2,) COREWISE.retract dense k=(0,) c=(0,) relerr=1.05e+00
+FAIL d=1 C=(3,) K=(2,) project_ambient/transport EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1])
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tt_operations.py", line 180, in tt_zipper_left_to_right
+    ss = coresA[0].shape[:-3]
+         ~~~~~
+FAIL d=1 C=(1,) K=(2,) COREWISE.retract dense k=(0,) c=(0,) relerr=2.93e-01
+FAIL d=1 C=(1,) K=(2,) project_ambient/transport EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1])
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tt_operations.py", line 180, in tt_zipper_left_to_right
+    ss = coresA[0].shape[:-3]
+         ~~~~~
+FAIL d=1 C=(2, 3) K=(4,) COREWISE.retract dense k=(0,) c=(0, 0) relerr=1.32e+00
+FAIL d=1 C=(2, 3) K=(4,) project_ambient/transport EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1])
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tt_operations.py", line 180, in tt_zipper_left_to_right
+    ss = coresA[0].shape[:-3]
+         ~~~~~
+
+=== OK: 3618  FAILS: 40
+   d=3 C=() K=() COREWISE.retract dense | k=() c=() relerr=1.35e+00
+   d=3 C=(1,) K=() COREWISE.retract dense | k=() c=(0,) relerr=4.31e+00
+   d=3 C=(3,) K=() COREWISE.retract dense | k=() c=(0,) relerr=2.96e+00
+   d=3 C=(2, 3) K=() COREWISE.retract dense | k=() c=(0, 0) relerr=3.41e+00
+   d=3 C=() K=(2,) COREWISE.retract dense | k=(0,) c=() relerr=3.77e+00
+   d=3 C=(3,) K=(2,) COREWISE.retract dense | k=(0,) c=(0,) relerr=6.39e+00
+   d=3 C=(1,) K=(2,) COREWISE.retract dense | k=(0,) c=(0,) relerr=5.16e+00
+   d=3 C=(2, 3) K=(4,) COREWISE.retract dense | k=(0,) c=(0, 0) relerr=3.35e+00
+   d=4 C=() K=() COREWISE.retract dense | k=() c=() relerr=6.67e+00
+   d=4 C=(1,) K=() COREWISE.retract dense | k=() c=(0,) relerr=1.75e+00
+   d=4 C=(3,) K=() COREWISE.retract dense | k=() c=(0,) relerr=4.13e+00
+   d=4 C=(2, 3) K=() COREWISE.retract dense | k=() c=(0, 0) relerr=5.35e+00
+   d=4 C=() K=(2,) COREWISE.retract dense | k=(0,) c=() relerr=3.85e+00
+   d=4 C=(3,) K=(2,) COREWISE.retract dense | k=(0,) c=(0,) relerr=9.37e+00
+   d=4 C=(1,) K=(2,) COREWISE.retract dense | k=(0,) c=(0,) relerr=1.69e+01
+   d=4 C=(2, 3) K=(4,) COREWISE.retract dense | k=(0,) c=(0, 0) relerr=5.30e+00
+   d=2 C=() K=() COREWISE.retract dense | k=() c=() relerr=1.76e+00
+   d=2 C=(1,) K=() COREWISE.retract dense | k=() c=(0,) relerr=3.02e+00
+   d=2 C=(3,) K=() COREWISE.retract dense | k=() c=(0,) relerr=8.17e+00
+   d=2 C=(2, 3) K=() COREWISE.retract dense | k=() c=(0, 0) relerr=4.51e+00
+   d=2 C=() K=(2,) COREWISE.retract dense | k=(0,) c=() relerr=1.64e+00
+   d=2 C=(3,) K=(2,) COREWISE.retract dense | k=(0,) c=(0,) relerr=2.04e+00
+   d=2 C=(1,) K=(2,) COREWISE.retract dense | k=(0,) c=(0,) relerr=1.14e+00
+   d=2 C=(2, 3) K=(4,) COREWISE.retract dense | k=(0,) c=(0, 0) relerr=8.02e-01
+   d=1 C=() K=() COREWISE.retract dense | k=() c=() relerr=2.66e-01
+   d=1 C=() K=() project_ambient/transport | EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper
+   d=1 C=(1,) K=() COREWISE.retract dense | k=() c=(0,) relerr=7.93e-01
+   d=1 C=(1,) K=() project_ambient/transport | EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper
+   d=1 C=(3,) K=() COREWISE.retract dense | k=() c=(0,) relerr=8.86e-01
+   d=1 C=(3,) K=() project_ambient/transport | EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper
+   d=1 C=(2, 3) K=() COREWISE.retract dense | k=() c=(0, 0) relerr=1.49e+00
+   d=1 C=(2, 3) K=() project_ambient/transport | EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper
+   d=1 C=() K=(2,) COREWISE.retract dense | k=(0,) c=() relerr=2.74e-01
+   d=1 C=() K=(2,) project_ambient/transport | EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper
+   d=1 C=(3,) K=(2,) COREWISE.retract dense | k=(0,) c=(0,) relerr=1.05e+00
+   d=1 C=(3,) K=(2,) project_ambient/transport | EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper
+   d=1 C=(1,) K=(2,) COREWISE.retract dense | k=(0,) c=(0,) relerr=2.93e-01
+   d=1 C=(1,) K=(2,) project_ambient/transport | EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper
+   d=1 C=(2, 3) K=(4,) COREWISE.retract dense | k=(0,) c=(0, 0) relerr=1.32e+00
+   d=1 C=(2, 3) K=(4,) project_ambient/transport | EXC IndexError('tuple index out of range')me.data, grad.data)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/tv_operations.py", line 402, in tv_project_t3_onto_tangent_space
+    zipper_left2right = tt_zipper

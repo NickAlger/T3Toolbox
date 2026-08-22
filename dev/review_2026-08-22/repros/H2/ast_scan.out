@@ -1,0 +1,69 @@
+WRAPPER-DROP t3toolbox/manifold.py:1459 CorewiseGeometry.inner does not forward ['t1']
+WRAPPER-DROP t3toolbox/manifold.py:1471 CorewiseGeometry.norm does not forward ['t']
+UNUSED   t3toolbox/tucker_tensor_train.py:1934 TuckerTensorTrain.__mul__(use_jax)
+WRAPPER-DROP t3toolbox/uniform_manifold.py:421 UT3Tangent.to_dense does not forward ['include_shift']
+WRAPPER-DROP t3toolbox/uniform_manifold.py:1261 UniformCorewiseGeometry.inner does not forward ['t1']
+WRAPPER-DROP t3toolbox/uniform_manifold.py:1273 UniformCorewiseGeometry.norm does not forward ['t']
+UNUSED   t3toolbox/backend/fitting.py:105 block_sumsq_over_samples(n_w)
+UNUSED   t3toolbox/backend/fitting.py:120 block_sumsq_over_probes(n_w)
+UNUSED   t3toolbox/backend/geometry.py:266 CorewiseGeometryOps.precompute(frame)
+UNUSED   t3toolbox/backend/geometry.py:270 CorewiseGeometryOps.project(frame)
+UNUSED   t3toolbox/backend/geometry.py:270 CorewiseGeometryOps.project(aux)
+UNUSED   t3toolbox/backend/geometry.py:276 CorewiseGeometryOps.retract(aux)
+UNUSED   t3toolbox/backend/geometry.py:473 UniformCorewiseGeometryOps.precompute(frame_data)
+UNUSED   t3toolbox/backend/geometry.py:477 UniformCorewiseGeometryOps.project(frame_data)
+UNUSED   t3toolbox/backend/geometry.py:477 UniformCorewiseGeometryOps.project(aux)
+UNUSED   t3toolbox/backend/geometry.py:484 UniformCorewiseGeometryOps.retract(aux)
+UNUSED   t3toolbox/backend/optimizers.py:72 Geometry.frame(x_cores)
+UNUSED   t3toolbox/backend/optimizers.py:75 Geometry.base_point(frame)
+UNUSED   t3toolbox/backend/optimizers.py:78 Geometry.stack_shape(x_cores)
+UNUSED   t3toolbox/backend/optimizers.py:81 Geometry.precompute(frame)
+UNUSED   t3toolbox/backend/optimizers.py:84 Geometry.project(frame)
+UNUSED   t3toolbox/backend/optimizers.py:84 Geometry.project(variations)
+UNUSED   t3toolbox/backend/optimizers.py:84 Geometry.project(aux)
+UNUSED   t3toolbox/backend/optimizers.py:87 Geometry.retract(frame)
+UNUSED   t3toolbox/backend/optimizers.py:87 Geometry.retract(variations)
+UNUSED   t3toolbox/backend/optimizers.py:87 Geometry.retract(aux)
+UNUSED   t3toolbox/backend/optimizers.py:90 Geometry.inner(a)
+UNUSED   t3toolbox/backend/optimizers.py:90 Geometry.inner(b)
+UNUSED   t3toolbox/backend/optimizers.py:93 Geometry.point_norm_sq(x_cores)
+UNUSED   t3toolbox/backend/optimizers.py:96 Geometry.point_tangent(frame)
+SHADOWED t3toolbox/backend/optimizers.py:178 Problem.local_model(data) first assigned at line 181
+SHADOWED t3toolbox/backend/optimizers.py:191 Problem.objective(data) first assigned at line 197
+UNUSED   t3toolbox/backend/regularization.py:87 IdentityRegularizer.gradient(aux)
+WRAPPER-DROP t3toolbox/backend/regularization.py:87 IdentityRegularizer.gradient does not forward ['aux']
+WRAPPER-DROP t3toolbox/backend/sampling_derivatives.py:732 _zero_jet does not forward ['xnp']
+UNUSED   t3toolbox/backend/sampling_derivatives.py:1844 _tucker_chunk_summed(extra)
+WRAPPER-DROP t3toolbox/backend/sampling_derivatives.py:1844 _tucker_chunk_summed does not forward ['extra']
+UNUSED   t3toolbox/backend/sampling_derivatives.py:1849 _tucker_chunk_kept(extra)
+WRAPPER-DROP t3toolbox/backend/sampling_derivatives.py:1849 _tucker_chunk_kept does not forward ['extra']
+UNUSED   t3toolbox/backend/uniform_fitting.py:94 UniformApplyKind.forward(ww)
+WRAPPER-DROP t3toolbox/backend/uniform_fitting.py:94 UniformApplyKind.forward does not forward ['ww']
+UNUSED   t3toolbox/backend/uniform_fitting.py:97 UniformApplyKind.transpose(ww)
+UNUSED   t3toolbox/backend/uniform_fitting.py:97 UniformApplyKind.transpose(frame_data)
+WRAPPER-DROP t3toolbox/backend/uniform_fitting.py:97 UniformApplyKind.transpose does not forward ['ww', 'frame_data']
+UNUSED   t3toolbox/backend/uniform_fitting.py:114 UniformEntriesKind.forward(index)
+WRAPPER-DROP t3toolbox/backend/uniform_fitting.py:114 UniformEntriesKind.forward does not forward ['index']
+UNUSED   t3toolbox/backend/uniform_fitting.py:117 UniformEntriesKind.transpose(index)
+UNUSED   t3toolbox/backend/uniform_fitting.py:117 UniformEntriesKind.transpose(frame_data)
+WRAPPER-DROP t3toolbox/backend/uniform_fitting.py:117 UniformEntriesKind.transpose does not forward ['index', 'frame_data']
+UNUSED   t3toolbox/backend/uniform_fitting.py:141 UniformProbeKind.forward(ww)
+WRAPPER-DROP t3toolbox/backend/uniform_fitting.py:141 UniformProbeKind.forward does not forward ['ww']
+UNUSED   t3toolbox/backend/uniform_fitting.py:144 UniformProbeKind.transpose(ww)
+UNUSED   t3toolbox/backend/uniform_fitting.py:144 UniformProbeKind.transpose(frame_data)
+WRAPPER-DROP t3toolbox/backend/uniform_fitting.py:144 UniformProbeKind.transpose does not forward ['ww', 'frame_data']
+UNUSED   t3toolbox/backend/uniform_fitting.py:162 UniformApplyDerivativesKind.forward(s)
+WRAPPER-DROP t3toolbox/backend/uniform_fitting.py:162 UniformApplyDerivativesKind.forward does not forward ['s']
+UNUSED   t3toolbox/backend/uniform_fitting.py:166 UniformApplyDerivativesKind.transpose(s)
+UNUSED   t3toolbox/backend/uniform_fitting.py:166 UniformApplyDerivativesKind.transpose(frame_data)
+WRAPPER-DROP t3toolbox/backend/uniform_fitting.py:166 UniformApplyDerivativesKind.transpose does not forward ['s', 'frame_data']
+UNUSED   t3toolbox/backend/uniform_fitting.py:184 UniformEntriesDerivativesKind.forward(s)
+WRAPPER-DROP t3toolbox/backend/uniform_fitting.py:184 UniformEntriesDerivativesKind.forward does not forward ['s']
+UNUSED   t3toolbox/backend/uniform_fitting.py:188 UniformEntriesDerivativesKind.transpose(s)
+UNUSED   t3toolbox/backend/uniform_fitting.py:188 UniformEntriesDerivativesKind.transpose(frame_data)
+WRAPPER-DROP t3toolbox/backend/uniform_fitting.py:188 UniformEntriesDerivativesKind.transpose does not forward ['s', 'frame_data']
+UNUSED   t3toolbox/backend/uniform_fitting.py:213 UniformProbeDerivativesKind.forward(s)
+WRAPPER-DROP t3toolbox/backend/uniform_fitting.py:213 UniformProbeDerivativesKind.forward does not forward ['s']
+UNUSED   t3toolbox/backend/uniform_fitting.py:217 UniformProbeDerivativesKind.transpose(s)
+UNUSED   t3toolbox/backend/uniform_fitting.py:217 UniformProbeDerivativesKind.transpose(frame_data)
+WRAPPER-DROP t3toolbox/backend/uniform_fitting.py:217 UniformProbeDerivativesKind.transpose does not forward ['s', 'frame_data']

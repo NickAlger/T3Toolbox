@@ -1,0 +1,45 @@
+PASS stacked frame tied per element
+PASS unstacked frame slices are bitwise the stacked slices
+PASS companion spectrum: stacked == unstacked == ragged per element (padded tail 0)  [3.410605131648481e-13]
+PASS companion centers: stacked == unstacked per element
+PASS (a) tied gauge projection K+C == unstacked uniform per (k,c)  [0.0]
+PASS (a) tied residual shape K+C and == 0  [((3, 2), np.float64(6.147430708362223e-16))]
+PASS (a) gauged  [1.7416623698807143e-15]
+PASS (a) masks unchanged
+PASS (a) shared_data= threading == gauge then separate post-pass (stacked)
+PASS (a) post-pass idempotent (stacked)
+PASS (b) tied retract K+C == unstacked uniform per (k,c) (dense)  [0.0]
+PASS (b) retract masks prefix
+PASS (b) retract ranks == frame ranks bcast over K
+PASS (b) retracted points tied per (k,c)
+PASS (c) tied utv_to_ut3(shift=False) K+C == unstacked per (k,c)  [0.0]
+PASS (c) tied embedding == plain embedding of tied coordinates (shift=False)  [6.661338147750939e-16]
+FAIL (c) tied embedding masks prefix? (tucker)  [[4, 6, 4, 6]]
+PASS (c) tied utv_to_ut3(shift=True) K+C == unstacked per (k,c)  [0.0]
+PASS (c) tied embedding == plain embedding of tied coordinates (shift=True)  [2.842170943040401e-14]
+FAIL (c) tied embedding masks prefix? (tucker)  [[4, 6, 4, 6]]
+PASS (d) corewise tied post-pass K+C == unstacked per (k,c)  [0.0]
+PASS (e) tied projection robust to VARIATION garbage
+PASS (e) tied retract robust to VARIATION garbage
+PASS (e) tied residual robust to variation garbage
+PASS (e) corewise post-pass robust to variation garbage
+    spectrum clean  : [755.2421 395.0603   0.    ]
+    spectrum garbage: [3.19004960e+17 9.40941198e+12 1.26345059e+07]
+FAIL (e) CHARACTERIZE: tied projection with FRAME padding garbage (companion as-stored) == clean  [2.5438422164999057]
+    spectrum zero-padded frame: [755.2421 395.0603   0.    ]
+PASS (e) CHARACTERIZE: tied projection on a ZERO-padded (apply_masks) frame == clean  [1.7566623877701705e-16]
+FAIL (e) CHARACTERIZE: ragged companion on UT3Frame.to_t3frame() leaves gives the same tied projection  [1.2705942300565893]
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-nick-repos-T3Toolbox/7a6ed361-8c79-489c-87ff-713bf71ecb11/scratchpad/repros/R9/A2_shared_stacked.py", line 149, in <module>
+    pa = G.project_ambient(frame_u, z)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/shared_geometry.py", line 328, in project_ambient
+    shared_data = self.shared_frame_data(frame)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/shared_geometry.py", line 190, in shared_frame_data
+    return backend_sharing.fv_shared_frame_data(frame.data, self.groups(frame.shape))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/nick/repos/T3Toolbox/t3toolbox/backend/sharing.py", line 535, in fv_shared_frame_data
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame_data
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: too many values to unpack (expected 4)

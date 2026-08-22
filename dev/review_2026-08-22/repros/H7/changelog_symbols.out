@@ -1,0 +1,118 @@
+OK  t3toolbox.backend.geometry.ManifoldGeometryOps
+OK  t3toolbox.backend.geometry.CorewiseGeometryOps
+OK  t3toolbox.backend.geometry.UniformManifoldGeometryOps
+OK  t3toolbox.backend.geometry.UniformCorewiseGeometryOps
+ from_point: True (x0_data: Tuple, sharing: Optional[Sequence] = None) -> 'UniformManifoldGeometryOps'
+ with_sharing ragged: (self, sharing, shape) -> 'ManifoldGeometryOps'  uniform: (self, sharing) -> 'UniformManifoldGeometryOps'
+OK  t3toolbox.backend.fitting.ApplyKind
+OK  t3toolbox.backend.fitting.EntriesKind
+OK  t3toolbox.backend.fitting.ProbeKind
+OK  t3toolbox.backend.fitting.ApplyDerivativesKind
+OK  t3toolbox.backend.fitting.EntriesDerivativesKind
+OK  t3toolbox.backend.fitting.ProbeDerivativesKind
+MISSING t3toolbox.backend.fitting.UniformApplyKind
+MISSING t3toolbox.backend.fitting.UniformEntriesKind
+MISSING t3toolbox.backend.fitting.UniformProbeKind
+MISSING t3toolbox.backend.fitting.UniformApplyDerivativesKind
+MISSING t3toolbox.backend.fitting.UniformEntriesDerivativesKind
+MISSING t3toolbox.backend.fitting.UniformProbeDerivativesKind
+OK  t3toolbox.backend.fitting.ScalarOutputKind
+OK  t3toolbox.backend.fitting.ProbeOutputKind
+OK  t3toolbox.backend.fitting.SamplingKind
+MISSING t3toolbox.backend.fitting.apply_kind
+MISSING t3toolbox.backend.fitting.entries_kind
+OK  t3toolbox.backend.fitting.probe_kind
+OK  t3toolbox.backend.fitting.apply_derivatives_kind
+OK  t3toolbox.backend.fitting.entries_derivatives_kind
+OK  t3toolbox.backend.fitting.probe_derivatives_kind
+OK  t3toolbox.backend.uniform_fitting.uniform_sampling_kind
+MISSING t3toolbox.backend.fitting.uniform_sampling_kind
+OK  t3toolbox.backend.uniform_fitting.uniform_derivatives_kind
+MISSING t3toolbox.backend.fitting.uniform_derivatives_kind
+ UniformApplyKind.from_point None
+ has_block_sumsq on ApplyKind: True
+bf.__all__= ['SamplingKind', 'ScalarOutputKind', 'ProbeOutputKind', 'ApplyKind', 'EntriesKind', 'ProbeKind', 'ApplyDerivativesKind', 'EntriesDerivativesKind', 'ProbeDerivativesKind', 'APPLY', 'ENTRIES', 'PROBE', 'probe_kind', 'apply_derivatives_kind', 'entries_derivatives_kind', 'probe_derivatives_kind', 'sumsq_over_samples', 'sumsq_over_probes', 'block_sumsq_over_samples', 'block_sumsq_over_probes']
+Geometry protocol members: ['base_point', 'frame', 'inner', 'point_norm_sq', 'point_tangent', 'precompute', 'project', 'retract', 'stack_shape']
+removed? GeometryOps True
+removed? MANIFOLD_OPS True
+removed? COREWISE_OPS True
+removed? shared_geometry_ops True
+removed? uniform_manifold_ops True
+removed? uniform_corewise_ops True
+removed? uniform_geometry_ops True
+removed? uniform_apply_kind True
+removed? uniform_apply_derivatives_kind True
+UniformGaussNewtonModel removed? True
+_cg_solve sig: (local_model, rhs, tol, maxiter, use_jit)
+has_shared_tucker_factors (self, sharing: Sequence, rtol: float = 1e-09) -> Union[numpy.ndarray, jax.jaxlib._jax.Array]
+T3Weights.has_shared_tucker_weights (self, sharing: Sequence, rtol: float = 1e-09) -> Union[numpy.ndarray, jax.jaxlib._jax.Array]
+UT3Weights.has_shared_tucker_weights (self, sharing: Sequence, rtol: float = 1e-09) -> Union[numpy.ndarray, jax.jaxlib._jax.Array]
+manifold_dim (s, sharing: 'typ.Optional[typ.Sequence]' = None) -> 'int'
+MISSING t3toolbox.frame_variations_format.frame_has_minimal_ranks
+MISSING t3toolbox.backend.fv_conversions.frame_has_minimal_ranks
+[]
+/home/nick/repos/T3Toolbox/t3toolbox/backend/ranks.py:638:def frame_has_minimal_ranks(
+
+continuation_ranks (self: 'TuckerTensorTrain', tau: float = 10.0, n_chunk: int = 1, kappa_guard: float = 1000000000000.0, max_grow: Optional[int] = None, rtol: float = None, atol: float = None, sharing: Sequence = None) -> Tuple[Tuple[int, ...], Tuple[int, ...]]
+compute_continuation_ranks (shape: Sequence[int], tucker_singular_values: Sequence[Union[numpy.ndarray, jax.jaxlib._jax.Array]], tt_singular_values: Sequence[Union[numpy.ndarray, jax.jaxlib._jax.Array]], tau: float = 10.0, n_chunk: int = 1, kappa_guard: float = 1000000000000.0, max_grow: Optional[int] = None, sharing: Optional[Sequence] = None) -> Tuple[Tuple[int, ...], Tuple[int, ...]]
+resize (self, new_shape: collections.abc.Sequence[int], new_tucker_ranks: collections.abc.Sequence[int], new_tt_ranks: collections.abc.Sequence[int], sharing: Sequence = None) -> 'TuckerTensorTrain'
+get_minimal_ranks (shape: collections.abc.Sequence[int], tucker_ranks: collections.abc.Sequence[int], tt_ranks: collections.abc.Sequence[int], sharing: Optional[Sequence] = None) -> Tuple[Tuple[int, ...], Tuple[int, ...]]
+compute_minimal_ranks (shape: Sequence[int], tucker_ranks: Union[Sequence[int], numpy.ndarray, jax.jaxlib._jax.Array], tt_ranks: Union[Sequence[int], numpy.ndarray, jax.jaxlib._jax.Array], sharing: Optional[Sequence] = None, use_jax: bool = False) -> Tuple[Union[Tuple[int, ...], numpy.ndarray, jax.jaxlib._jax.Array], Union[Tuple[int, ...], numpy.ndarray, jax.jaxlib._jax.Array]]
+OK  t3toolbox.backend.sharing.validate_sharing
+OK  t3toolbox.backend.sharing.t3_sharing_residual
+OK  t3toolbox.backend.sharing.t3_tucker_factors_shared
+OK  t3toolbox.backend.sharing.t3_tie_tucker_factors
+OK  t3toolbox.backend.sharing.SharedFrameData
+OK  t3toolbox.backend.sharing.fv_shared_frame_data
+OK  t3toolbox.backend.sharing.t3_tucker_weights_sharing_residual
+OK  t3toolbox.backend.sharing.t3_tucker_weights_shared
+OK  t3toolbox.backend.sharing.ut3_tucker_weights_sharing_residual
+OK  t3toolbox.backend.sharing.ut3_tucker_weights_shared
+OK  t3toolbox.backend.sharing.ut3_sharing_residual
+OK  t3toolbox.backend.sharing.ut3_tucker_factors_shared
+OK  t3toolbox.backend.sharing.ut3_tie_tucker_factors
+OK  t3toolbox.backend.sharing.ufv_shared_frame_data
+OK  t3toolbox.backend.sharing.ufv_share_tucker_variations
+OK  t3toolbox.backend.sharing.ufv_share_tucker_variations_corewise
+OK  t3toolbox.backend.sharing.fv_tied_variations_residual
+OK  t3toolbox.backend.sharing.ufv_tied_variations_residual
+OK  t3toolbox.backend.t3_svd.t3_share_tucker_factors
+compute_raw_sweep_ranks (shape: Sequence[int], tucker_ranks, tt_ranks, cap_tucker_ranks, cap_tt_ranks, sharing: Optional[Sequence] = None, use_jax: bool = False) -> Tuple
+uniform_minimal [] ['uniform_minimal']
+utv_orthogonal_gauge_projection (frame_data, variations_data, shared_data: Optional[ForwardRef('sharing_module.SharedFrameData')] = None)
+utv_to_ut3 (frame_data, variations_data, include_shift: bool = False, shared_data: Optional[ForwardRef('sharing_module.SharedFrameData')] = None)
+utv_retract (frame_data, variations_data, shared_data: Optional[ForwardRef('sharing_module.SharedFrameData')] = None)
+OK  t3toolbox.backend.uniform_fitting.uniform_least_squares_problem
+ut3svd (data: Tuple[Union[numpy.ndarray, jax.jaxlib._jax.Array], Union[numpy.ndarray, jax.jaxlib._jax.Array], Tuple[int, ...], Tuple[Union[numpy.ndarray, jax.jaxlib._jax.Array], Union[numpy.ndarray, jax.jaxlib._jax.Array]]], max_tucker_ranks: Union[int, Sequence[int], numpy.ndarray, jax.jaxlib._jax.Array, NoneType] = None, max_tt_ranks: Union[int, Sequence[int], numpy.ndarray, jax.jaxlib._jax.Array, NoneType] = None, assume_orthogonal: bool = False, sharing: Optional[Sequence] = None) -> Tuple[Tuple[Union[numpy.ndarray, jax.jaxlib._jax.Array], Union[numpy.ndarray, jax.jaxlib._jax.Array], Tuple[int, ...], Tuple[Union[numpy.ndarray, jax.jaxlib._jax.Array], Union[numpy.ndarray, jax.jaxlib._jax.Array]]], Union[numpy.ndarray, jax.jaxlib._jax.Array], Union[numpy.ndarray, jax.jaxlib._jax.Array]]
+OK  t3toolbox.backend.sampling_derivatives.compute_mu_jets
+OK  t3toolbox.backend.sampling_derivatives.compute_eta_jets
+OK  t3toolbox.backend.sampling_derivatives.compute_sigma_jets
+OK  t3toolbox.backend.sampling_derivatives.compute_tau_jets
+OK  t3toolbox.backend.sampling_derivatives.compute_deta_jets
+OK  t3toolbox.backend.sampling_derivatives.assemble_tt_variation_jets
+OK  t3toolbox.backend.sampling_derivatives.assemble_tucker_variation_jets
+OK  t3toolbox.backend.sampling_derivatives.compute_mu_jets_trs
+OK  t3toolbox.backend.sampling_derivatives.compute_eta_jets_trs
+OK  t3toolbox.backend.sampling_derivatives.estimate_chunk_size
+OK  t3toolbox.backend.sampling_derivatives.max_chunk_size_within
+['compute_mu_jets_trs', 'compute_nu_jets_trs', 'compute_eta_jets_trs', 'compute_sigma_jets_trs', 'compute_tau_jets_trs', 'compute_deta_jets_trs', 'compute_deta_tilde_jets', 'compute_tau_tilde_jets', 'compute_sigma_tilde_jets', 'compute_tau_tilde_jets_trs', 'compute_sigma_tilde_jets_trs', 'compute_dxi_tilde_jets', 'assemble_tucker_variation_jets_trs', 'assemble_tt_variation_jets_trs']
+estimate_chunk_size (mode_shapes: Sequence[int], tucker_ranks: Sequence[int], tt_ranks: Sequence[int], order: int, n_probes: int, *, n_tangent: int = 1, stack_shape: Sequence[int] = (), n_shards: int = 1, dtype: Any = None) -> int
+max_chunk_size_within (mode_shapes: Sequence[int], tucker_ranks: Sequence[int], tt_ranks: Sequence[int], order: int, n_probes: int, target_bytes: float, *, n_tangent: int = 1, stack_shape: Sequence[int] = (), n_shards: int = 1, dtype: Any = None) -> int
+OK  t3toolbox.backend.common.prefix_mask
+OK  t3toolbox.backend.common.require_concrete_masks
+require_concrete_masks in ut3_masking? True
+newton_cg (geometry, kind: str, sample: Any, data: Any, x0: Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain], order: Optional[int] = None, weight: Optional[Any] = None, verbose: bool = False, val_sample: Any = None, val_data: Any = None, callback: Optional[Callable] = None, use_jit: bool = False, regularizer: Any = None, chunk_size: Any = 'auto', **kwargs) -> Tuple[Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain], dict]
+mc_sgd (geometry, kind: str, sample: Any, data: Any, x0: Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain], rng, batch: int, order: Optional[int] = None, weight: Optional[Any] = None, draw: Optional[Callable] = None, use_jit: bool = False, regularizer: Any = None, chunk_size: Any = 'auto', **kwargs) -> Tuple[Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain], dict]
+adam (geometry, kind: str, sample: Any, data: Any, x0: Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain], rng, batch: int, order: Optional[int] = None, weight: Optional[Any] = None, draw: Optional[Callable] = None, use_jit: bool = False, regularizer: Any = None, chunk_size: Any = 'auto', **kwargs) -> Tuple[Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain], dict]
+gradient_descent (geometry, kind: str, sample: Any, data: Any, x0: Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain], order: Optional[int] = None, weight: Optional[Any] = None, regularizer: Any = None, chunk_size: Any = 'auto', **kwargs) -> Tuple[Union[t3toolbox.tucker_tensor_train.TuckerTensorTrain, t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain], dict]
+backend newton_cg (problem: t3toolbox.backend.optimizers.Problem, x0: Tuple[Sequence[Union[numpy.ndarray, jax.jaxlib._jax.Array]], Sequence[Union[numpy.ndarray, jax.jaxlib._jax.Array]]], max_newton: int = 30, gtol_rel: float = 1e-08, cg_maxiter: int = 200, c_armijo: float = 0.0001, g0norm_newton: Optional[float] = None, g0norm_cg: Optional[float] = None, cg_forcing_power: float = 0.5, use_jit: bool = False, callback: Optional[Callable] = None) -> Tuple[Tuple[Sequence[Union[numpy.ndarray, jax.jaxlib._jax.Array]], Sequence[Union[numpy.ndarray, jax.jaxlib._jax.Array]]], dict]
+NewtonInfo fields ['iteration', 'objective', 'gnorm', 'g0norm', 'converged', 'x_cores', 'lm', 'misfit', 'regularization', 'forcing_eta', 'cg_tol', 'cg_iters', 'cg_maxiter', 'cg_resid', 'cg_converged', 'cg_truncated', 'ls_steps', 'alpha', 'slope', 'pHp', 'delta_f', 'rho', 'step_rel', 'wall_time']
+OK  t3toolbox.backend.optimizer_display.make_newton_display
+probe_model (geometry, x: 'typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain]', ww: 'typ.Sequence[NDArray]', residual: 'typ.Sequence[NDArray]', weight: 'typ.Optional[typ.Any]' = None, regularizer: 'typ.Any' = None) -> 'GaussNewtonModel'
+probe_derivatives_model (geometry, x: 'typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain]', ww: 'typ.Sequence[NDArray]', pp: 'typ.Sequence[NDArray]', order: 'int', residual: 'typ.Sequence[NDArray]', weight: 'typ.Optional[typ.Any]' = None, regularizer: 'typ.Any' = None) -> 'GaussNewtonModel'
+apply_model (geometry, x: 'typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain]', ww: 'typ.Sequence[NDArray]', residual: 'NDArray', regularizer: 'typ.Any' = None) -> 'GaussNewtonModel'
+T3Tangent.probe_derivatives_transpose (ztildes: 'typ.Sequence[NDArray]', ww: 'typ.Sequence[NDArray]', pp: 'typ.Sequence[NDArray]', frame: 'bvf.T3Frame', order: 'int', sum_over_probes: 'bool' = False, chunk_size: 'typ.Optional[int]' = 100) -> "'T3Tangent'"
+IdentityRegularizer methods ['gradient', 'hessian', 'quadratic', 'value'] (self, geom, frame, aux=None)
+Regularizer protocol members ['gradient', 'hessian', 'quadratic', 'value']
+safety __all__ ['SafetyTolerances', 'DEFAULT_RTOL_NUMPY', 'DEFAULT_RTOL_JAX', 'safe', 'unsafe', 'current_safety', 'set_default_safety', 'effective_rtol', 'is_tracing', 'checks_active', 'require', 'frames_equal', 'frames_equal_or_skip']
+root __all__ ['TuckerTensorTrain', 'UniformTuckerTensorTrain', 'T3Frame', 'T3Variations', 'T3Tangent', 'UT3Frame', 'UT3Variations', 'UT3Tangent', 't3_orthogonal_representations', 'ut3_orthogonal_representations', 'T3Weights', 'UT3Weights', 'T3FrameWeights', 'UT3FrameWeights', 't3_absorb_weights', 'ut3_absorb_weights', 'fv_absorb_weights', 'ufv_absorb_weights', 't3_weighted_norm', 't3_weighted_inner', 'ut3_weighted_norm', 'ut3_weighted_inner', 'MANIFOLD', 'COREWISE', 'UNIFORM_MANIFOLD', 'UNIFORM_COREWISE', 'shared', 'shared_manifold', 'shared_corewise', 'GaussNewtonModel', 'apply_model', 'entries_model', 'probe_model', 'apply_derivatives_model', 'entries_derivatives_model', 'probe_derivatives_model', 'gradient_descent', 'mc_sgd', 'adam', 'newton_cg', 'safety', 'safe', 'unsafe']

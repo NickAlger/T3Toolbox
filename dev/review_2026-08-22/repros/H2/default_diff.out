@@ -1,0 +1,53 @@
+=== (a) frontend method -> backend callee default diffs
+
+=== (b) ragged/uniform twin default diffs
+t3toolbox/frame_variations_format.py:935 T3Variations.zeros  <->  t3toolbox/uniform_frame_variations_format.py:803 UT3Variations.zeros
+    uniform-only defaulted params: ['masks']
+t3toolbox/frame_variations_format.py:948 T3Variations.randn  <->  t3toolbox/uniform_frame_variations_format.py:816 UT3Variations.randn
+    uniform-only defaulted params: ['masks']
+t3toolbox/frame_variations_format.py:957 T3Variations.unit  <->  t3toolbox/uniform_frame_variations_format.py:827 UT3Variations.unit
+    uniform-only defaulted params: ['masks']
+t3toolbox/manifold.py:1345 ManifoldGeometry.project_ambient  <->  t3toolbox/uniform_manifold.py:1156 UniformManifoldGeometry.project_ambient
+    ragged-only defaulted params: ['method']
+t3toolbox/tucker_tensor_train.py:891 TuckerTensorTrain.to_dense  <->  t3toolbox/uniform_tucker_tensor_train.py:207 UniformTuckerTensorTrain.to_dense
+    ragged-only defaulted params: ['squash_tails']
+t3toolbox/tucker_tensor_train.py:1934 TuckerTensorTrain.__mul__  <->  t3toolbox/uniform_tucker_tensor_train.py:246 UniformTuckerTensorTrain.__mul__
+    ragged-only defaulted params: ['use_jax']
+t3toolbox/tucker_tensor_train.py:2522 TuckerTensorTrain.sum_stack  <->  t3toolbox/uniform_tucker_tensor_train.py:269 UniformTuckerTensorTrain.sum_stack
+    ragged-only defaulted params: ['axis']
+t3toolbox/tucker_tensor_train.py:3147 TuckerTensorTrain.left_orthogonalize_tt_cores  <->  t3toolbox/uniform_tucker_tensor_train.py:631 UniformTuckerTensorTrain.left_orthogonalize_tt_cores
+    ragged-only defaulted params: ['return_variation_cores']
+t3toolbox/tucker_tensor_train.py:3209 TuckerTensorTrain.right_orthogonalize_tt_cores  <->  t3toolbox/uniform_tucker_tensor_train.py:635 UniformTuckerTensorTrain.right_orthogonalize_tt_cores
+    ragged-only defaulted params: ['return_variation_cores']
+t3toolbox/tucker_tensor_train.py:4019 TuckerTensorTrain.t3svd  <->  t3toolbox/uniform_tucker_tensor_train.py:667 UniformTuckerTensorTrain.t3svd
+    ragged-only defaulted params: ['rtol', 'atol']
+t3toolbox/tucker_tensor_train.py:4800 t3_weighted_norm  <->  t3toolbox/uniform_tucker_tensor_train.py:1215 ut3_weighted_norm
+    uniform-only defaulted params: ['use_orthogonalization']
+t3toolbox/tucker_tensor_train.py:4800 t3_weighted_norm  <->  t3toolbox/backend/ut3_linalg.py:183 ut3_weighted_norm
+    uniform-only defaulted params: ['use_orthogonalization']
+t3toolbox/tucker_tensor_train.py:4806 t3_weighted_inner  <->  t3toolbox/uniform_tucker_tensor_train.py:1224 ut3_weighted_inner
+    uniform-only defaulted params: ['use_orthogonalization']
+t3toolbox/tucker_tensor_train.py:4806 t3_weighted_inner  <->  t3toolbox/backend/ut3_linalg.py:209 ut3_weighted_inner
+    uniform-only defaulted params: ['use_orthogonalization']
+t3toolbox/backend/apply.py:264 tv_apply_transpose_from_sweep  <->  t3toolbox/backend/utv_sampling.py:191 utv_apply_transpose_from_sweep
+    DEFAULT sum_over_probes: ragged=False uniform=True
+t3toolbox/backend/entries.py:212 tv_entries_transpose_from_sweep  <->  t3toolbox/backend/utv_sampling.py:215 utv_entries_transpose_from_sweep
+    DEFAULT sum_over_probes: ragged=False uniform=True
+t3toolbox/backend/probing.py:1162 tv_probe_transpose_from_sweep  <->  t3toolbox/backend/utv_sampling.py:203 utv_probe_transpose_from_sweep
+    DEFAULT sum_over_probes: ragged=False uniform=True
+t3toolbox/backend/sampling_derivatives.py:2132 tv_probe_transpose_derivatives_from_sweep  <->  t3toolbox/backend/utv_sampling.py:334 utv_probe_transpose_derivatives_from_sweep
+    DEFAULT sum_over_probes: ragged=False uniform=True
+t3toolbox/backend/sampling_derivatives.py:2341 tv_apply_transpose_derivatives_from_sweep  <->  t3toolbox/backend/utv_sampling.py:321 utv_apply_transpose_derivatives_from_sweep
+    DEFAULT sum_over_probes: ragged=False uniform=True
+t3toolbox/backend/sampling_derivatives.py:2403 tv_entries_transpose_derivatives_from_sweep  <->  t3toolbox/backend/utv_sampling.py:350 utv_entries_transpose_derivatives_from_sweep
+    DEFAULT sum_over_probes: ragged=False uniform=True
+t3toolbox/backend/sampling_derivatives.py:2474 t3_probe_corewise_derivatives_transpose  <->  t3toolbox/backend/ut3_sampling.py:236 ut3_probe_corewise_derivatives_transpose
+    ragged-only defaulted params: ['chunk_size']
+t3toolbox/backend/t3_conversions.py:27 t3_to_dense  <->  t3toolbox/backend/ut3_conversions.py:86 ut3_to_dense
+    ragged-only defaulted params: ['squash_tails']
+t3toolbox/backend/t3_linalg.py:82 t3_sum_stack  <->  t3toolbox/backend/ut3_linalg.py:83 ut3_sum_stack
+    ragged-only defaulted params: ['axis']
+t3toolbox/backend/t3_linalg.py:172 t3_inner_product  <->  t3toolbox/backend/ut3_linalg.py:126 ut3_inner_product
+    ragged-only defaulted params: ['use_orthogonalization']
+t3toolbox/backend/t3_svd.py:35 t3svd  <->  t3toolbox/backend/ut3_svd.py:46 ut3svd
+    ragged-only defaulted params: ['rtol', 'atol']

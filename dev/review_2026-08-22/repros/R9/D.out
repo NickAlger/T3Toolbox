@@ -1,0 +1,40 @@
+PASS MANIFOLD.project == ragged per element (dense)  [3.2668443708956785e-16]
+PASS MANIFOLD.project garbage-robust (frame+variations padding)
+PASS MANIFOLD.project output masks == input masks
+PASS project_oblique preserves the vector (dense)
+PASS project_oblique == ragged per element (dense)  [2.299036025382229e-16]
+PASS project_oblique garbage-robust
+PASS project_oblique gauged per (k,c)  [2.9837243786801082e-15]
+PASS MANIFOLD.inner per (k,c) == ragged  [7.105427357601002e-15]
+PASS MANIFOLD.norm per (k,c) == ragged  [8.881784197001252e-16]
+PASS MANIFOLD.inner == dense HS dot per element  [3.552713678800501e-14]
+PASS corewise_inner garbage-robust
+PASS MANIFOLD.retract == ragged per element (dense)  [9.881219786930095e-15]
+PASS MANIFOLD.retract garbage-robust
+PASS retract output masks prefix
+FAIL retract output ranks == frame ranks per element, bcast over K
+    frame up ranks per C  : [[2, 2, 2, 2], [3, 3, 2, 2]]  left: [[1, 2, 3, 2, 1], [1, 1, 2, 2, 1]]
+    retract tucker ranks  : [[2, 2, 2, 2], [2, 3, 2, 2]]  tt: [[1, 2, 3, 2, 1], [1, 1, 2, 2, 1]]
+    frame has_minimal_ranks per C: [ True False]  (HET[1] is deliberately non-minimal: n0=3 > r0*r1=1)
+PASS to_ut3 garbage-robust (dense)
+PASS to_ut3(include_shift=True) == ragged  [0.0]
+PASS project_ambient == ragged per element  [3.503981295108759e-14]
+PASS project_ambient garbage-robust
+PASS project_ambient output masks == frame gauge masks
+PASS project_ambient gauged  [2.042810365310288e-14]
+FAIL CHARACTERIZE: UNIFORM_MANIFOLD.transport(K+C tangent, C frame) CRASHES  [ValueError: cannot reshape array of size 40 into shape (4,3,2,5,1)]
+PASS   ragged MANIFOLD.transport(K tangent, frame) works  [((3,), ())]
+PASS   ragged MANIFOLD.project_ambient(frame, K-stacked T3) works  [(3,)]
+FAIL   uniform project_ambient(frame C, grad K+C) raises  [ValueError: cannot reshape array of size 40 into shape (4,3,2,5,1)]
+PASS transport (C only) == ragged per element  [8.191717645793451e-14]
+PASS transport garbage-robust
+PASS COREWISE.retract == ragged per element  [0.0]
+PASS COREWISE.retract garbage-robust
+PASS COREWISE.retract output masks == point masks bcast over K
+PASS COREWISE.inner per (k,c) shape
+PASS gauge_residual per (k,c) == ragged  [4.440892098500626e-16]
+PASS gauge_residual garbage-robust
+PASS sum_tangents dense == sum over K of dense
+PASS normalized() has unit corewise norm per (k,c)
+FAIL weighted_norm on K+C with C metric  [ValueError: Inconsistent (UT3Frame, UT3FrameWeights) pair.
+up_weight_supercore has padded width 2, but the frame's up variation hole is 4 wide.]

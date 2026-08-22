@@ -1,0 +1,10 @@
+input right-orthogonal? False  left? False
+{'max_tt_ranks': 2} ragged: True-vs-False dense diff 2.5e+01 ; err vs dense True 1.5e-01 False 9.6e-02 ; tt svals equal? False
+{'max_tt_ranks': 2} uniform: True-vs-False dense diff 2.5e+01 ; err vs dense True 1.5e-01 False 9.6e-02 ; tt svals equal? False
+{'max_tucker_ranks': 2} ragged: True-vs-False dense diff 2.3e+01 ; err vs dense True 1.5e-01 False 1.0e-01 ; tt svals equal? False
+{'max_tucker_ranks': 2} uniform: True-vs-False dense diff 2.3e+01 ; err vs dense True 1.5e-01 False 1.0e-01 ; tt svals equal? False
+{} ragged: True-vs-False dense diff 4.2e-13 ; err vs dense True 7.4e-16 False 1.7e-15 ; tt svals equal? False
+{} uniform: True-vs-False dense diff 3.6e-13 ; err vs dense True 9.3e-16 False 1.5e-15 ; tt svals equal? False
+backend t3svd sig: (x: Tuple[Tuple[Union[numpy.ndarray, jax.jaxlib._jax.Array], ...], Tuple[Union[numpy.ndarray, jax.jaxlib._jax.Array], ...]], max_tt_ranks: Sequence[int] = None, max_tucker_ranks: Sequence[int] = None, rtol: float = None, atol: float = None, assume_orthogonal: bool = False, sharing: Sequence = None) -> Tuple[Tuple[Tuple[Union[numpy.ndarray, jax.jaxlib._jax.Array], ...], Tuple[Union[numpy.ndarray, jax.jaxlib._jax.Array], ...]], Tuple[Union[numpy.ndarray, jax.jaxlib._jax.Array], ...], Tuple[Union[numpy.ndarray, jax.jaxlib._jax.Array], ...]]
+assume_orthogonal referenced in backend t3svd body: ['assume_orthogonal: bool = False,', '``assume_orthogonal=True`` skips the initial orthogonalization, asserting the input is already', 'assume_orthogonal)', 'if not assume_orthogonal:']
+assume_orthogonal referenced in backend ut3svd body: ['assume_orthogonal: bool = False,', 'variety / rank sweep). ``assume_orthogonal=True`` skips the orthogonalization, asserting the input is', '(masked_tucker, masked_tt), cap_masks, skip_orthogonalization=assume_orthogonal)', '(masked_tucker, masked_tt), cap_masks, groups, skip_orthogonalization=assume_orthogonal)']

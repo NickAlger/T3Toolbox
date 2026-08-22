@@ -1,0 +1,8 @@
+FAIL (a) tied gauge projection stacked K+C == per-element ragged (dense)  [0.5002781435258248]
+Traceback (most recent call last):
+  File "/tmp/claude-1000/-home-nick-repos-T3Toolbox/7a6ed361-8c79-489c-87ff-713bf71ecb11/scratchpad/repros/R9/A_shared_stacked.py", line 70, in <module>
+    rep('(a) tied residual of projection == 0 on every (k,c)', res.shape == K + C and res.max() < 1e-10, (res.shape, res.max()))
+  File "/tmp/claude-1000/-home-nick-repos-T3Toolbox/7a6ed361-8c79-489c-87ff-713bf71ecb11/scratchpad/repros/R9/A_shared_stacked.py", line 56, in rep
+    print(('PASS ' if ok else 'FAIL ') + msg + ('' if val is None else '  [%s]' % val))
+                                                                       ~~~~~~~~~^~~~~
+TypeError: not all arguments converted during string formatting

@@ -1,0 +1,145 @@
+PASS C=() manifold apply                adjoint identity  [(-24.921357157444824, -24.92135715744482)]
+PASS C=() manifold apply                kind.forward == frontend op
+PASS C=() manifold apply                point_forward == ragged
+PASS C=() manifold apply                take -> forward == gather(forward)
+PASS C=() manifold apply                take(data) == gather(data)
+PASS C=() manifold entries              adjoint identity  [(-0.868887760270243, -0.8688877602702431)]
+PASS C=() manifold entries              kind.forward == frontend op
+PASS C=() manifold entries              point_forward == ragged
+PASS C=() manifold entries              take -> forward == gather(forward)
+PASS C=() manifold entries              take(data) == gather(data)
+PASS C=() manifold probe                adjoint identity  [(106.3461939076449, 106.34619390764492)]
+PASS C=() manifold probe                kind.forward == frontend op
+PASS C=() manifold probe                point_forward == ragged
+PASS C=() manifold probe                take -> forward == gather(forward)
+PASS C=() manifold probe                take(data) == gather(data)
+PASS C=() manifold apply_derivatives    adjoint identity  [(-1.5573434689677335, -1.5573434689677228)]
+PASS C=() manifold apply_derivatives    kind.forward == frontend op
+PASS C=() manifold apply_derivatives    point_forward == ragged
+PASS C=() manifold apply_derivatives    take -> forward == gather(forward)
+PASS C=() manifold apply_derivatives    take(data) == gather(data)
+PASS C=() manifold entries_derivatives  adjoint identity  [(35.27400898557439, 35.27400898557438)]
+PASS C=() manifold entries_derivatives  kind.forward == frontend op
+PASS C=() manifold entries_derivatives  point_forward == ragged
+PASS C=() manifold entries_derivatives  take -> forward == gather(forward)
+PASS C=() manifold entries_derivatives  take(data) == gather(data)
+PASS C=() manifold probe_derivatives    adjoint identity  [(118.6483931991324, 118.64839319913239)]
+PASS C=() manifold probe_derivatives    kind.forward == frontend op
+PASS C=() manifold probe_derivatives    point_forward == ragged
+PASS C=() manifold probe_derivatives    take -> forward == gather(forward)
+PASS C=() manifold probe_derivatives    take(data) == gather(data)
+PASS C=() corewise apply                adjoint identity  [(472.0466944320409, 472.0466944320407)]
+PASS C=() corewise apply                kind.forward == frontend op
+PASS C=() corewise apply                point_forward == ragged
+PASS C=() corewise apply                take -> forward == gather(forward)
+PASS C=() corewise apply                take(data) == gather(data)
+PASS C=() corewise entries              adjoint identity  [(13.757240980515427, 13.75724098051544)]
+PASS C=() corewise entries              kind.forward == frontend op
+PASS C=() corewise entries              point_forward == ragged
+PASS C=() corewise entries              take -> forward == gather(forward)
+PASS C=() corewise entries              take(data) == gather(data)
+PASS C=() corewise probe                adjoint identity  [(-9152.842495171768, -9152.842495171766)]
+PASS C=() corewise probe                kind.forward == frontend op
+PASS C=() corewise probe                point_forward == ragged
+PASS C=() corewise probe                take -> forward == gather(forward)
+PASS C=() corewise probe                take(data) == gather(data)
+PASS C=() corewise apply_derivatives    adjoint identity  [(-11415.623047813086, -11415.623047813086)]
+PASS C=() corewise apply_derivatives    kind.forward == frontend op
+PASS C=() corewise apply_derivatives    point_forward == ragged
+PASS C=() corewise apply_derivatives    take -> forward == gather(forward)
+PASS C=() corewise apply_derivatives    take(data) == gather(data)
+PASS C=() corewise entries_derivatives  adjoint identity  [(-1954.52604095888, -1954.526040958881)]
+PASS C=() corewise entries_derivatives  kind.forward == frontend op
+PASS C=() corewise entries_derivatives  point_forward == ragged
+PASS C=() corewise entries_derivatives  take -> forward == gather(forward)
+PASS C=() corewise entries_derivatives  take(data) == gather(data)
+PASS C=() corewise probe_derivatives    adjoint identity  [(-6647.215442003528, -6647.215442003521)]
+PASS C=() corewise probe_derivatives    kind.forward == frontend op
+PASS C=() corewise probe_derivatives    point_forward == ragged
+PASS C=() corewise probe_derivatives    take -> forward == gather(forward)
+PASS C=() corewise probe_derivatives    take(data) == gather(data)
+PASS C=(2,) manifold apply                adjoint identity  [(-32.22388747612669, -32.22388747612668)]
+PASS C=(2,) manifold apply                kind.forward == frontend op
+PASS C=(2,) manifold apply                point_forward == ragged
+PASS C=(2,) manifold apply                take -> forward == gather(forward)
+PASS C=(2,) manifold apply                take(data) == gather(data)
+PASS C=(2,) manifold entries              adjoint identity  [(-1.2802282605347444, -1.280228260534744)]
+PASS C=(2,) manifold entries              kind.forward == frontend op
+PASS C=(2,) manifold entries              point_forward == ragged
+PASS C=(2,) manifold entries              take -> forward == gather(forward)
+PASS C=(2,) manifold entries              take(data) == gather(data)
+PASS C=(2,) manifold probe                adjoint identity  [(13.800042211514992, 13.800042211515034)]
+PASS C=(2,) manifold probe                kind.forward == frontend op
+PASS C=(2,) manifold probe                point_forward == ragged
+PASS C=(2,) manifold probe                take -> forward == gather(forward)
+PASS C=(2,) manifold probe                take(data) == gather(data)
+PASS C=(2,) manifold apply_derivatives    adjoint identity  [(177.27084853749216, 177.2708485374922)]
+PASS C=(2,) manifold apply_derivatives    kind.forward == frontend op
+PASS C=(2,) manifold apply_derivatives    point_forward == ragged
+PASS C=(2,) manifold apply_derivatives    take -> forward == gather(forward)
+PASS C=(2,) manifold apply_derivatives    take(data) == gather(data)
+PASS C=(2,) manifold entries_derivatives  adjoint identity  [(-0.8498109347449547, -0.8498109347449638)]
+PASS C=(2,) manifold entries_derivatives  kind.forward == frontend op
+PASS C=(2,) manifold entries_derivatives  point_forward == ragged
+PASS C=(2,) manifold entries_derivatives  take -> forward == gather(forward)
+PASS C=(2,) manifold entries_derivatives  take(data) == gather(data)
+PASS C=(2,) manifold probe_derivatives    adjoint identity  [(-415.0278391787507, -415.0278391787506)]
+PASS C=(2,) manifold probe_derivatives    kind.forward == frontend op
+PASS C=(2,) manifold probe_derivatives    point_forward == ragged
+PASS C=(2,) manifold probe_derivatives    take -> forward == gather(forward)
+PASS C=(2,) manifold probe_derivatives    take(data) == gather(data)
+PASS C=(2,) corewise apply                adjoint identity  [(69.63559386393842, 69.6355938639384)]
+PASS C=(2,) corewise apply                kind.forward == frontend op
+PASS C=(2,) corewise apply                point_forward == ragged
+PASS C=(2,) corewise apply                take -> forward == gather(forward)
+PASS C=(2,) corewise apply                take(data) == gather(data)
+PASS C=(2,) corewise entries              adjoint identity  [(5.584477060805322, 5.584477060805318)]
+PASS C=(2,) corewise entries              kind.forward == frontend op
+PASS C=(2,) corewise entries              point_forward == ragged
+PASS C=(2,) corewise entries              take -> forward == gather(forward)
+PASS C=(2,) corewise entries              take(data) == gather(data)
+PASS C=(2,) corewise probe                adjoint identity  [(4412.4009128675625, 4412.4009128675625)]
+PASS C=(2,) corewise probe                kind.forward == frontend op
+PASS C=(2,) corewise probe                point_forward == ragged
+PASS C=(2,) corewise probe                take -> forward == gather(forward)
+PASS C=(2,) corewise probe                take(data) == gather(data)
+PASS C=(2,) corewise apply_derivatives    adjoint identity  [(-9125.542043152318, -9125.542043152316)]
+PASS C=(2,) corewise apply_derivatives    kind.forward == frontend op
+PASS C=(2,) corewise apply_derivatives    point_forward == ragged
+PASS C=(2,) corewise apply_derivatives    take -> forward == gather(forward)
+PASS C=(2,) corewise apply_derivatives    take(data) == gather(data)
+PASS C=(2,) corewise entries_derivatives  adjoint identity  [(-1502.7079103771073, -1502.7079103771075)]
+PASS C=(2,) corewise entries_derivatives  kind.forward == frontend op
+PASS C=(2,) corewise entries_derivatives  point_forward == ragged
+PASS C=(2,) corewise entries_derivatives  take -> forward == gather(forward)
+PASS C=(2,) corewise entries_derivatives  take(data) == gather(data)
+PASS C=(2,) corewise probe_derivatives    adjoint identity  [(4896.96223370967, 4896.9622337096735)]
+PASS C=(2,) corewise probe_derivatives    kind.forward == frontend op
+PASS C=(2,) corewise probe_derivatives    point_forward == ragged
+PASS C=(2,) corewise probe_derivatives    take -> forward == gather(forward)
+PASS C=(2,) corewise probe_derivatives    take(data) == gather(data)
+PASS pack_sample(apply) idempotent on packed input
+PASS pack_sample(apply) round trip
+PASS pack_sample(entries) idempotent on packed input
+PASS pack_sample(probe) idempotent on packed input
+PASS pack_sample(probe) round trip
+PASS pack_sample(apply_derivatives) idempotent on packed input
+PASS pack_sample(entries_derivatives) idempotent on packed input
+PASS pack_sample(probe_derivatives) idempotent on packed input
+PASS pack_data(probe) shape (d,)+W+(N,)  [(4, 7, 6)]
+PASS pack_data(apply) passthrough
+PASS pack_sample bogus raises ValueError
+per-mode minimal: ((2, 4, 2), (1, 2, 2, 1))  shared-minimal: ((4, 4, 2), (1, 2, 2, 1))
+PASS start is tied
+PASS uniform_minimal(sharing) returns x0 itself when shared-minimal
+PASS CHARACTERIZE uniform_minimal(no sharing) on a shared start changes ranks  [((np.int64(2), np.int64(4), np.int64(2)), (np.int64(6), np.int64(6), np.int64(2)))]
+PASS   ... and the same tensor
+PASS   ... has_shared_tucker_factors RAISES on the untied (unequal-rank) result  [Tucker rank masks must be equal within a sharing group (tied factors have one sh]
+FAIL gate: non-minimal shared start raises
+PASS uniform_minimal(sharing) -> same tensor
+PASS uniform_minimal(sharing) -> tied
+FAIL uniform_minimal(sharing) -> shared-minimal ranks  [((np.int64(4), np.int64(4), np.int64(2)), (np.int64(1), np.int64(3), np.int64(2), np.int64(1)))]
+PASS gate passes after uniform_minimal(sharing)  [((0, 1), (2,))]
+FAIL CHARACTERIZE: geometry="Manifold" (typo) silently gives  [UniformCorewiseGeometryOps]
+FAIL order=None for a derivative kind raises
+PASS weight on apply raises ValueError

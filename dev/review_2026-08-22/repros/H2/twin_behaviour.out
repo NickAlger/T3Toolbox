@@ -1,0 +1,35 @@
+t3svd {}                                                     ('dense rel err 1.4e-15', 'ranks', (4, 5, 4), (1, 4, 4, 1), '|', (np.int64(4), np.int64(5), np.int64(4)), 'svals rel 8.2e-16')
+t3svd {'max_tt_ranks': 2}                                    ('dense rel err 2.2e-15', 'ranks', (4, 5, 2), (1, 2, 2, 1), '|', (np.int64(4), np.int64(5), np.int64(2)), 'svals rel 1.6e-15')
+t3svd {'max_tucker_ranks': [2, 2, 2]}                        ('dense rel err 1.4e-15', 'ranks', (2, 2, 2), (1, 2, 4, 1), '|', (np.int64(2), np.int64(2), np.int64(2)), 'svals rel 6.7e-16')
+t3svd {'max_tt_ranks': [1, 2, 3, 1]}                         ('dense rel err 2.0e-15', 'ranks', (4, 5, 3), (1, 2, 3, 1), '|', (np.int64(4), np.int64(5), np.int64(3)), 'svals rel 9.4e-16')
+t3svd {'max_tucker_ranks': 2, 'max_tt_ranks': 2}             ('dense rel err 1.1e-15', 'ranks', (2, 2, 2), (1, 2, 2, 1), '|', (np.int64(2), np.int64(2), np.int64(2)), 'svals rel 5.6e-16')
+t3svd(assume_orthogonal=True) on right-orth input            rel err vs dense 2.8e-15 | 3.1e-15
+t3svd(assume_orthogonal=True) on NON-orth input (both wrong?) rel err vs dense 7.4e-16 | 9.3e-16
+rank_adjustment_sweep(right_to_left) dense+orth              ('rel 1.6e-01', 'L-orth', False, False, 'R-orth', False, False)
+rank_adjustment_sweep(left_to_right) dense+orth              ('rel 6.3e-16', 'L-orth', False, False, 'R-orth', False, False)
+inner(use_orthogonalization=True)                            rel 1.9e-16
+norm(use_orthogonalization=True)                             rel 1.3e-16
+inner(use_orthogonalization=False)                           rel 1.9e-16
+norm(use_orthogonalization=False)                            rel 1.2e-15
+t3_weighted_norm(use_orthogonalization=True)                 RAISED TypeError: t3_weighted_norm() got an unexpected keyword argument 'use_orthogonalization'
+t3_weighted_inner(use_orthogonalization=True)                RAISED TypeError: t3_weighted_inner() got an unexpected keyword argument 'use_orthogonalization'
+t3_weighted_norm(use_orthogonalization=False)                RAISED TypeError: t3_weighted_norm() got an unexpected keyword argument 'use_orthogonalization'
+t3_weighted_inner(use_orthogonalization=False)               RAISED TypeError: t3_weighted_inner() got an unexpected keyword argument 'use_orthogonalization'
+T3Tangent.probe_transpose(sum_over_probes=False)             rel 5.7e-02
+T3Tangent.apply_transpose(sum_over_probes=False)             rel 4.9e-02
+T3Tangent.apply_derivatives_transpose(order=2, sop=False)    rel 4.5e-02
+T3Tangent.probe_derivatives_transpose(order=2, sop=False, chunk_size=None) rel 3.6e-02
+T3Tangent.probe_derivatives_transpose(order=2, sop=False, chunk_size=2) rel 3.6e-02
+T3Tangent.probe_derivatives_transpose(order=2, sop=False, chunk_size=100) rel 3.6e-02
+T3Tangent.probe_transpose(sum_over_probes=True)              rel 5.6e-02
+T3Tangent.apply_transpose(sum_over_probes=True)              rel 4.3e-02
+T3Tangent.apply_derivatives_transpose(order=2, sop=True)     rel 3.6e-02
+T3Tangent.probe_derivatives_transpose(order=2, sop=True, chunk_size=None) rel 1.7e-02
+T3Tangent.probe_derivatives_transpose(order=2, sop=True, chunk_size=2) rel 1.7e-02
+T3Tangent.probe_derivatives_transpose(order=2, sop=True, chunk_size=100) rel 1.7e-02
+apply_corewise_transpose(sum_over_probes=False)              ('shapes', (4, 4, 5), (3, 4, 5, 7), 'rel core0 4.4e-17')
+apply_corewise_transpose(sum_over_probes=True)               ('shapes', (4, 5), (3, 5, 7), 'rel core0 4.0e-17')
+to_t3/to_ut3(include_shift=False)                            rel 4.1e-17
+to_t3/to_ut3(include_shift=True)                             rel 5.2e-17
+sum_stack() all axes                                         rel 5.0e-17
+sum_stack(axis=0) uniform                                    RAISED TypeError: UniformTuckerTensorTrain.sum_stack() got an unexpected keyword argument 'axis'

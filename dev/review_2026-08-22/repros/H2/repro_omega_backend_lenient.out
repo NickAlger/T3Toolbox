@@ -1,0 +1,7 @@
+--- weight of length 5 (d = 3)
+backend: objective = 43189.86995879971 ; gradient ok (no error)
+backend: same objective as weight[:3]? True
+frontend: ValueError : residual weight's mode dimension must be 1 or d=3; got 5 (shape (5, 1))
+--- weight of length 2 (d = 3)
+backend: IndexError : index 2 is out of bounds for axis 0 with size 2
+frontend: ValueError : residual weight's mode dimension must be 1 or d=3; got 2 (shape (2, 1))

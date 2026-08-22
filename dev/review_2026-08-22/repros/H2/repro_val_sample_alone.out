@@ -1,0 +1,3 @@
+val_sample only -> raised? no.  "val" in display: False ; val_err recorded: False
+val_data only -> TypeError : 'NoneType' object is not subscriptable
+backend make_newton_display(val_sample=wv) only: accepted silently = True

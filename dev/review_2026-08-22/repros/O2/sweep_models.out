@@ -1,0 +1,13 @@
+992 model cases run in 46s; 12 failures
+ FAIL ((2, 'ragged', 'manifold', False, 'probe', None, 'none', False, (3, 4)), 'NUM', {'grad_fd': 1.6939076799472605e-06})
+ FAIL ((2, 'uniform', 'manifold', False, 'apply_derivatives', 1, 'none', False, (12,)), 'NUM', {'grad_fd': 2.1248133157140912e-06})
+ FAIL ((2, 'uniform', 'manifold', False, 'apply_derivatives', 1, 'none', True, (12,)), 'NUM', {'grad_fd': 1.7417203799103452e-06})
+ FAIL ((2, 'ragged', 'manifold', False, 'apply_derivatives', 1, 'order', False, (12,)), 'NUM', {'grad_fd': 1.0035890080287035e-05})
+ FAIL ((2, 'uniform', 'manifold', False, 'apply_derivatives', 2, 'none', False, (12,)), 'NUM', {'grad_fd': 5.0907667073557344e-06})
+ FAIL ((2, 'ragged', 'manifold', False, 'apply_derivatives', 2, 'none', True, (12,)), 'NUM', {'grad_fd': 1.1202175713504402e-06})
+ FAIL ((2, 'uniform', 'manifold', False, 'apply_derivatives', 2, 'none', True, (12,)), 'NUM', {'grad_fd': 9.479473176285079e-06})
+ FAIL ((2, 'uniform', 'manifold', False, 'apply_derivatives', 2, 'order', False, (12,)), 'NUM', {'grad_fd': 1.068260803384843e-06})
+ FAIL ((2, 'ragged', 'manifold', False, 'entries_derivatives', 1, 'order', False, (12,)), 'NUM', {'grad_fd': 4.338115548008905e-06})
+ FAIL ((2, 'uniform', 'manifold', False, 'entries_derivatives', 2, 'order', True, (12,)), 'NUM', {'grad_fd': 1.9657942024526644e-06})
+ FAIL ((2, 'ragged', 'manifold', False, 'entries_derivatives', 3, 'none', False, (3, 4)), 'NUM', {'grad_fd': 1.9578951768171215e-05})
+ FAIL ((2, 'ragged', 'manifold', False, 'probe_derivatives', 1, 'none', True, (12,)), 'NUM', {'grad_fd': 2.095380203226276e-06})
