@@ -623,12 +623,21 @@ def tv_gauge_residual(
 
     The gauged tangent space requires each tucker variation orthogonal to its up-core, and each
     left-interior tt variation orthogonal to its left-core (see :py:func:`tv_orthogonal_gauge_projection`).
-    Returns the max absolute gauge inner product reduced over the **non-stack** axes (shape = the variation
-    stack ``K+C``); a caller thresholds it (``<= atol``).
+    **Relative**: the gauge grams ``U^T V`` / ``L^T H`` are divided by the coordinate norm of the WHOLE
+    tangent (all variation cores, per stack element; ``U`` / ``L`` are orthonormal, so the ratio is in
+    ``[0, 1]``, a zero tangent is trivially gauged, and a single vanishing core -- e.g. the first TT variation
+    at a rank-1 bond -- does not divide noise by noise). Returns the max over the checks, reduced over the **non-stack** axes (shape = the
+    variation stack ``K+C``); a caller thresholds it against a RELATIVE tolerance. (Until 2026-08-22 this
+    was the absolute ``max|U^T V|``, which scales with the tangent: a correctly gauged tangent of norm
+    ``>~1e8`` -- or ``>~50`` on jax float32 -- failed the safe-mode check, and a tiny ungauged one passed.)
     '''
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
     tucker_variations, tt_variations = variations
     xnp, _, _ = get_backend(False, tree_contains_jax((frame, variations)))
+    # the tangent's coordinate norm per stack element (all cores), the scale the grams are relative to
+    norm_sq = sum(xnp.sum(V * V, axis=(-2, -1)) for V in tucker_variations) \
+        + sum(xnp.sum(H * H, axis=(-3, -2, -1)) for H in tt_variations)
+    scale = xnp.maximum(xnp.sqrt(norm_sq), np.finfo(float).tiny)
     devs = []
     for U, V in zip(up_tucker_cores, tucker_variations):
         g = xnp.einsum('...ia,...ja->...ij', U, V)
@@ -636,7 +645,7 @@ def tv_gauge_residual(
     for L, H in zip(left_tt_cores[:-1], tt_variations[:-1]):
         g = xnp.einsum('...abi,...abj->...ij', L, H)
         devs.append(xnp.max(xnp.abs(g), axis=(-2, -1)))
-    return xnp.max(xnp.stack(devs), axis=0)   # max over the checks, keep stack_shape
+    return xnp.max(xnp.stack(devs), axis=0) / scale   # max over the checks, keep stack_shape; relative
 
 
 def tv_retract(

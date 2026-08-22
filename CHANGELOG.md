@@ -88,6 +88,12 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   lengths, `corewise` operand types, `dense_probe` vector shapes, …): a bare `AssertionError` normally, and
   no check at all under `python -O`, where a wrong-shaped `x * ndarray` broadcast silently. All are
   `ValueError` / `TypeError` with a message now.
+- **The gauge precondition compared an absolute residual against the relative tolerance.** `gauge_residual`
+  was `max|UᵀV|`, which scales with the tangent, while `MANIFOLD.inner`/`norm` threshold it at
+  `rtol` (1e-9 numpy, 1e-5 jax): a correctly gauged tangent of norm ≳1e8 failed in numpy, and on jax's
+  default float32 one of norm ≳50 -- the documented jax-eager safe-mode use -- while a tiny ungauged
+  tangent passed. The residual is now relative (each gram divided by its variation core's norm, per stack
+  element), on both layers.
 - **The tangent/corewise `apply`/`entries` transposes rejected a bare Python float residual** (the natural
   unstacked case; the ambient twin's own doctest passes `1.7`).
 

@@ -1252,5 +1252,26 @@ class TestUniformCorewiseGeometry(unittest.TestCase):
             _per_element_dense(self, v, self.C.retract, self.RC.retract)
 
 
+
+class TestUniformGaugeResidualIsRelative(unittest.TestCase):
+    """Review 2026-08-22 (C7): the uniform gauge residual is scale-free like the ragged one."""
+
+    def test_scale_invariance_and_tiny_ungauged(self):
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        np.random.seed(42)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1)))
+        frame = ut3m.UNIFORM_MANIFOLD.frame(ux)
+        v = ut3m.UNIFORM_MANIFOLD.project(ut3m.UNIFORM_COREWISE.randn(frame))
+        for s in (1e-8, 1.0, 1e8, 1e12):
+            with self.subTest(scale=s):
+                w = v * s
+                self.assertTrue(bool(np.all(w.is_gauged())))
+                ut3m.UNIFORM_MANIFOLD.norm(w)
+        u = ut3m.UNIFORM_COREWISE.randn(frame) * 1e-12
+        self.assertFalse(bool(np.all(u.is_gauged())))
+        with self.assertRaises(ValueError):
+            ut3m.UNIFORM_MANIFOLD.norm(u)
+
 if __name__ == '__main__':
     unittest.main()

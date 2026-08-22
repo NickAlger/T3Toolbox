@@ -1008,5 +1008,27 @@ class TestD1Degenerate(unittest.TestCase):
                 w = t3m.MANIFOLD.transport(v, t3m.MANIFOLD.frame(g))
                 self.assertEqual(w.frame.stack_shape, C)
 
+
+
+class TestGaugeResidualIsRelative(unittest.TestCase):
+    """Review 2026-08-22 (C7): the gauge residual is scale-free, so safe mode neither rejects a large
+    gauged tangent nor accepts a tiny ungauged one."""
+
+    def test_scale_invariance_and_tiny_ungauged(self):
+        np.random.seed(41)
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        frame = t3m.MANIFOLD.frame(x)
+        v = t3m.MANIFOLD.project(t3m.COREWISE.randn(frame))
+        for s in (1e-8, 1.0, 1e8, 1e12):
+            with self.subTest(scale=s):
+                w = v * s
+                self.assertTrue(bool(w.is_gauged()))
+                t3m.MANIFOLD.norm(w)                                     # safe mode accepts it
+                t3m.MANIFOLD.inner(w, w)
+        u = t3m.COREWISE.randn(frame) * 1e-12                          # tiny but NOT gauged
+        self.assertFalse(bool(u.is_gauged()))
+        with self.assertRaises(ValueError):
+            t3m.MANIFOLD.norm(u)
+
 if __name__ == "__main__":
     unittest.main()
