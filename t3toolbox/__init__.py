@@ -26,10 +26,12 @@ from t3toolbox.uniform_tucker_tensor_train import (
     ut3_weighted_inner,
 )
 from t3toolbox.frame_variations_format import (
-    T3Frame, T3Variations, t3_orthogonal_representations, T3FrameWeights, fv_absorb_weights,
+    T3Frame, T3Variations, t3_orthogonal_representations, t3svd_orthogonal_representations,
+    T3FrameWeights, fv_absorb_weights,
 )
 from t3toolbox.uniform_frame_variations_format import (
-    UT3Frame, UT3Variations, ut3_orthogonal_representations, UT3FrameWeights, ufv_absorb_weights,
+    UT3Frame, UT3Variations, ut3_orthogonal_representations, ut3svd_orthogonal_representations,
+    UT3FrameWeights, ufv_absorb_weights,
 )
 from t3toolbox.manifold import T3Tangent, MANIFOLD, COREWISE
 from t3toolbox.uniform_manifold import UT3Tangent, UNIFORM_MANIFOLD, UNIFORM_COREWISE
@@ -66,6 +68,9 @@ __all__ = [
     'UT3Tangent',
     't3_orthogonal_representations',
     'ut3_orthogonal_representations',
+    # the frame in the T3-SVD gauge, with its singular values (one SVD) -- what a sigma-metric pairs with
+    't3svd_orthogonal_representations',
+    'ut3svd_orthogonal_representations',
     # weights (edge weights on a tensor; a metric on a tangent's coordinates) -- docs/weighting.md.
     # The free functions carry the family prefix because, unlike a method, they have no class namespace
     # to disambiguate them -- the t3_orthogonal_representations pattern. Without it all four

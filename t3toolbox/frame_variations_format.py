@@ -34,6 +34,7 @@ __all__ = [
     'fv_absorb_weights',
     'fv_to_t3',
     't3_orthogonal_representations',
+    't3svd_orthogonal_representations',
 ]
 
 
@@ -1434,6 +1435,45 @@ class T3FrameWeights:
         as for ``t3svd`` output); the Grasedyck–Kramer metric is
         ``T3FrameWeights.from_t3weights(T3Weights.from_t3svd(x)).reciprocal()``."""
         return cls(*fv_operations.t3weights_to_t3frameweights(t3_weights.data))
+
+
+def t3svd_orthogonal_representations(
+        x: 't3.TuckerTensorTrain',
+        **t3svd_kwargs,                 # passed to TuckerTensorTrain.t3svd (max_*_ranks, rtol, atol, sharing, ...)
+) -> typ.Tuple[
+    T3Frame,           # orthogonal frame at the t3svd result, in the t3svd GAUGE (its Tucker basis = the singular basis)
+    T3Variations,      # the variations of that representation
+    't3.T3Weights',    # the singular values, ready for T3FrameWeights.from_t3weights (one SVD, not two)
+]:
+    '''The orthogonal frame of ``x`` **in the T3-SVD gauge**, with the singular values it came with.
+
+    Composes ``x.t3svd(**t3svd_kwargs)`` with :py:func:`t3_orthogonal_representations` called with
+    ``already_left_orthogonal=True`` -- the flag that matters: a T3-SVD result is left-orthogonal, and the
+    default sweep would re-SVD its already-orthonormal Tucker factors, whose spectrum is degenerate, so the
+    frame's Tucker basis would come out **rotated by an arbitrary orthogonal matrix** relative to the
+    singular basis. Per-coordinate singular-value weights (``T3FrameWeights.from_t3weights``, the
+    Grasedyck-Kramer metric of ``docs/weighting.md``) are only meaningful in the singular basis, which this
+    frame carries and the default frame does not (the 2026-08-22 review, S14). One SVD instead of two
+    (``T3Weights.from_t3svd`` discards the train it decomposed).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.frame_variations_format as bvf
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 3, 3), (1, 3, 3, 1))
+    >>> frame, variations, sigma = bvf.t3svd_orthogonal_representations(x)
+    >>> xs, _, _ = x.t3svd()
+    >>> print(all(np.allclose(U, Ux) for U, Ux in zip(frame.up_tucker_cores, xs.tucker_cores)))  # same gauge
+    True
+    >>> W = bvf.T3FrameWeights.from_t3weights(sigma)     # the sigma-metric on this frame's coordinates
+    >>> print(W.is_consistent_with(variations))
+    True
+    '''
+    xs, tucker_svals, tt_svals = x.t3svd(**t3svd_kwargs)
+    frame, variations = t3_orthogonal_representations(xs, already_left_orthogonal=True)
+    return frame, variations, t3.T3Weights(tuple(tucker_svals), tuple(tt_svals))
 
 
 def check_fw_pair(

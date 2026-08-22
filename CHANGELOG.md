@@ -59,6 +59,15 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   `arange(N) == index`, which matches nothing for `-1`; the forward `entries` and the tangent/corewise
   transposes wrap numpy-style, so the adjoint identity silently failed. All four now agree (`eye(N)[index]`).
   Documented alongside: an out-of-range index raises under numpy but clamps under jax (gather semantics).
+- **The documented singular-value-metric recipe applied the σ's in the wrong gauge.** `docs/weighting.md`
+  paired `T3FrameWeights.from_t3weights(T3Weights.from_t3svd(x))` with a frame from
+  `t3_orthogonal_representations(x)`, which re-SVDs the already-orthonormal Tucker factors of a T3-SVD
+  result -- a degenerate spectrum, so the frame's Tucker basis comes back rotated by an arbitrary orthogonal
+  matrix relative to the singular basis, and per-coordinate σ-weights then weight the wrong directions
+  (unstacked too; the planning measurement said "stacked only"). New **`t3svd_orthogonal_representations(x, **t3svd_kwargs)`**
+  (+ the `ut3svd_` twin, both exported at the root) returns `(frame, variations, T3Weights)` from ONE SVD
+  with the frame built `already_left_orthogonal=True`, so its Tucker basis is the singular basis; the recipe
+  and the `from_t3svd` docstring now say so.
 - **`backend.optimizers.Problem.objective(x, data=…)` / `.local_model(x, data=…)` ignored `data`** when
   `sample` was omitted, silently scoring the training data; `sample=` alone crashed with a bare `TypeError`.
   The pair now goes together or not at all (a structural error otherwise).

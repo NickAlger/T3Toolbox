@@ -76,10 +76,10 @@ one per variation core — in four families matching the tangent's rank types:
 ```python
 >>> import t3toolbox.frame_variations_format as bvf
 >>> import t3toolbox.manifold as t3m
->>> frame, _ = bvf.t3_orthogonal_representations(x)     # an orthogonal frame at x
+>>> frame, _, sigma = bvf.t3svd_orthogonal_representations(x)   # the frame at x in the T3-SVD gauge + x's σ's
 >>> tangent = t3m.MANIFOLD.randn(frame)                 # two tangent vectors there
 >>> other   = t3m.MANIFOLD.randn(frame)
->>> W = bvf.T3FrameWeights.from_t3weights(t3.T3Weights.from_t3svd(x))   # a metric: x's σ's
+>>> W = bvf.T3FrameWeights.from_t3weights(sigma)        # a metric: x's σ's, per coordinate of THIS frame
 >>> n  = tangent.weighted_norm(W)            # absorb W into the variations V,H; take the coordinate norm
 >>> g  = tangent.weighted_inner(other, W)    # one metric W; the same-frame precondition is checked
 >>> vw = tangent.absorb_weights(W)           # the weighted tangent itself (vw.corewise_norm() == n)
@@ -89,6 +89,13 @@ True
 True
 
 ```
+
+**The gauge matters.** A singular-value metric is per *coordinate*, and the coordinates are the frame's
+basis. `t3svd_orthogonal_representations` builds the frame with `already_left_orthogonal=True`, so its
+Tucker basis *is* the singular basis the σ's belong to (and it costs one SVD, not two). The default
+`t3_orthogonal_representations(x)` re-orthogonalizes the already-orthonormal Tucker factors, whose spectrum
+is degenerate, and comes back rotated by an arbitrary orthogonal matrix — σ-weights applied on that frame
+weight the wrong directions, silently (this was the documented recipe before 2026.2.0).
 
 The weights are absorbed into the **variation** cores (`down`→`V`, `up`/`left`/`right`→`H`); the frame
 stays orthonormal and untouched, so this is `O(ranks)` and does not disturb the tangent space.
@@ -181,8 +188,8 @@ Three differences from ragged are worth knowing, and none of them are ports-in-p
   the masks *the same way* is exactly right, because both concatenation and the Kronecker product commute
   with elementwise multiply.
 
-`UT3FrameWeights` mirrors `T3FrameWeights` the same way, and the frame-like batching is where it earns its
-keep: the metric carries the frame stack `C`, so the singular-value metric of a `C`-stacked point pairs
+`UT3FrameWeights` mirrors `T3FrameWeights` the same way (the arithmetic; not `reverse`/`stack`/`unstack`),
+and the frame-like batching is where it earns its keep: the metric carries the frame stack `C`, so the singular-value metric of a `C`-stacked point pairs
 directly with a `K`-stack of tangents there, broadcasting over `K` for free.
 
 ```python
@@ -190,8 +197,8 @@ directly with a `K`-stack of tangents there, broadcasting over `K` for free.
 >>> import t3toolbox.uniform_manifold as ut3m
 >>> xs  = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 2, 2), (1, 2, 2, 1), stack_shape=(2,))
 >>> uxs = ut3.UniformTuckerTensorTrain.from_t3(xs)                   # C = 2 base points
->>> frame, _ = ubvf.ut3_orthogonal_representations(uxs)
->>> gk = ubvf.UT3FrameWeights.from_ut3weights(ut3.UT3Weights.from_ut3svd(uxs)).reciprocal()
+>>> frame, _, sigma = ubvf.ut3svd_orthogonal_representations(uxs)   # the T3-SVD gauge, as in ragged
+>>> gk = ubvf.UT3FrameWeights.from_ut3weights(sigma).reciprocal()
 >>> tangent = ut3m.UNIFORM_MANIFOLD.randn(frame, stack_shape=(3,))   # K = 3 tangents at each base point
 >>> n  = tangent.weighted_norm(gk)     # + weighted_inner / absorb_weights; gk.stack_shape == frame.stack_shape
 >>> print(gk.stack_shape == frame.stack_shape)   # the metric is FRAME-like: it carries C, not K + C
@@ -204,9 +211,11 @@ True
 ## Scope
 
 Shipped: the two ragged weight classes, `absorb`, `weighted_norm` / `weighted_inner`, `concatenate` /
-`kronecker`, `from_t3svd` / `from_t3weights`; and the **full uniform mirror** — `UT3Weights` and
-`UT3FrameWeights` with the same operations, plus `from_ut3svd` / `from_ut3weights` and the ragged↔uniform
-conversions. Not yet packaged (but reachable from these primitives): weighted `+` / `−` / scale / `⊙` as
+`kronecker`, `from_t3svd` / `from_t3weights`, `reverse` / `stack` / `unstack`; and the uniform mirror —
+`UT3Weights` and `UT3FrameWeights` with the same arithmetic (`absorb`, `weighted_norm` / `weighted_inner`,
+`reciprocal` / `sqrt`, `concatenate` / `kronecker`), plus `from_ut3svd` / `from_ut3weights` and the
+ragged↔uniform conversions. The uniform classes have no `reverse` / `stack` / `unstack` yet (deliberately
+deferred; go through the ragged classes for those). Not yet packaged (but reachable from these primitives): weighted `+` / `−` / scale / `⊙` as
 operations, and the **Grasedyck–Kramer singular-value regularizer** — a `SingularValueRegularizer` that
 builds `W` from the frame's singular values and applies it through the `T3FrameWeights` metric (see the
 regularization notes). Both layers now have everything that regularizer needs.

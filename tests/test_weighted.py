@@ -385,5 +385,54 @@ class TestT3FrameWeights(unittest.TestCase):
         self.assertTrue(all(np.allclose(a, b) for fa, fb in zip(Wr.data, W.data) for a, b in zip(fa, fb)))
 
 
+class TestT3svdFrameGauge(unittest.TestCase):
+    """Review 2026-08-22 (S14): the frame a singular-value metric pairs with must carry the singular basis.
+    t3svd_orthogonal_representations keeps the T3-SVD gauge exactly; the default sweep does not."""
+
+    def test_frame_is_in_the_t3svd_gauge(self):
+        rng = np.random.default_rng(0)
+        for structure in STRUCTURES:
+            for C in STACKS:
+                with self.subTest(structure=structure, stack=C):
+                    np.random.seed(1)
+                    x = t3.TuckerTensorTrain.randn(*structure, stack_shape=C)
+                    frame, variations, sigma = bvf.t3svd_orthogonal_representations(x)
+                    xs, st, stt = x.t3svd()
+                    for U, Ux in zip(frame.up_tucker_cores, xs.tucker_cores):
+                        self.assertLess(float(np.max(np.abs(np.asarray(U) - np.asarray(Ux)))), 1e-12)
+                    self.assertTrue(np.all(frame.is_orthogonal()))
+                    self.assertLess(float(np.max(np.abs(np.asarray(frame.to_dense()) - np.asarray(x.to_dense())))),
+                                    1e-9 * (1 + float(np.max(np.abs(np.asarray(x.to_dense()))))))
+                    W = bvf.T3FrameWeights.from_t3weights(sigma)
+                    self.assertTrue(W.is_consistent_with(variations))
+                    self.assertTrue(all(np.allclose(a, b) for a, b in zip(sigma.tucker_weights, st)))
+                    # the default sweep (no flag) is NOT in that gauge -- the bug the helper exists for
+                    if max(structure[1]) > 1:
+                        default_frame, _ = bvf.t3_orthogonal_representations(xs)
+                        dev = max(float(np.max(np.abs(np.abs(np.einsum('...ai,...bi->...ab', np.asarray(U), np.asarray(Ux)))
+                                                         - np.eye(U.shape[-2]))))
+                                  for U, Ux in zip(default_frame.up_tucker_cores, xs.tucker_cores) if U.shape[-2] > 1)
+                        self.assertGreater(dev, 1e-3)
+
+    def test_uniform_twin_matches_ragged(self):
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_frame_variations_format as ubvf
+        for structure in STRUCTURES[:2]:
+            for C in STACKS:
+                with self.subTest(structure=structure, stack=C):
+                    np.random.seed(2)
+                    x = t3.TuckerTensorTrain.randn(*structure, stack_shape=C)
+                    frame, _, sigma = bvf.t3svd_orthogonal_representations(x)
+                    uframe, uvar, usigma = ubvf.ut3svd_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x))
+                    self.assertTrue(ubvf.UT3FrameWeights.from_ut3weights(usigma).is_consistent_with(uvar))
+                    self.assertTrue(np.all(uframe.is_orthogonal()))
+                    self.assertLess(float(np.max(np.abs(np.asarray(uframe.to_dense()) - np.asarray(frame.to_dense())))),
+                                    1e-9 * (1 + float(np.max(np.abs(np.asarray(x.to_dense()))))))
+                    if not C:                                     # to_t3frame() is a tree when stacked
+                        rf = uframe.to_t3frame()
+                        for U, Ur in zip(rf.up_tucker_cores, frame.up_tucker_cores):
+                            self.assertLess(float(np.max(np.abs(np.abs(np.asarray(U)) - np.abs(np.asarray(Ur))))), 1e-10)
+
+
 if __name__ == "__main__":
     unittest.main()

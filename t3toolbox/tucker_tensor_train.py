@@ -4792,7 +4792,13 @@ class T3Weights:
         """The singular values of ``x`` as a weight object -- the canonical (unmodified) σ's, so
         ``from_t3svd(x).reciprocal()`` is the inverse-σ (Grasedyck-Kramer) weighting. ``**kwargs`` pass to
         :py:meth:`t3svd`; the weights are shape-consistent with the ``t3svd`` result (with ``x`` itself when
-        ``x`` has minimal ranks, the usual case)."""
+        ``x`` has minimal ranks, the usual case).
+
+        The σ's are per-coordinate **in the T3-SVD gauge**. As a tangent metric
+        (``T3FrameWeights.from_t3weights``) they pair with a frame whose Tucker basis is the singular
+        basis -- build it with :py:func:`~t3toolbox.frame_variations_format.t3svd_orthogonal_representations`
+        (one SVD, gauge-preserving), not with the default ``t3_orthogonal_representations(x)``, whose
+        re-orthogonalization rotates the basis arbitrarily."""
         _, tucker_svals, tt_svals = x.t3svd(**kwargs)
         return cls(tuple(tucker_svals), tuple(tt_svals))
 

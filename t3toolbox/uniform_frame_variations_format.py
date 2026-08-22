@@ -30,6 +30,7 @@ __all__ = [
     'UT3Frame',
     'UT3Variations',
     'ut3_orthogonal_representations',
+    'ut3svd_orthogonal_representations',
     'UT3FrameWeights',
     'ufv_absorb_weights',
     'check_ufw_pair',
@@ -1263,6 +1264,23 @@ def _frame_weights_from_data(data: typ.Tuple) -> 'UT3FrameWeights':
     """Wrap a backend frame-weights ``.data`` tuple ``(up, down, left, right, (4 masks))`` into a
     :py:class:`UT3FrameWeights`."""
     return UT3FrameWeights(*data[:4], UT3VariationsMasks(*data[4]))
+
+
+def ut3svd_orthogonal_representations(
+        x: ut3.UniformTuckerTensorTrain,
+        **t3svd_kwargs,                 # passed to UniformTuckerTensorTrain.t3svd (max_*_ranks, sharing, ...)
+) -> typ.Tuple[
+    UT3Frame,            # orthogonal frame at the t3svd result, in the t3svd GAUGE
+    UT3Variations,       # the variations of that representation
+    'ut3.UT3Weights',    # the singular values (the result's masks), ready for UT3FrameWeights.from_ut3weights
+]:
+    '''Uniform twin of :py:func:`~t3toolbox.frame_variations_format.t3svd_orthogonal_representations`:
+    the orthogonal frame of ``x`` in the T3-SVD gauge (``already_left_orthogonal=True``, so the Tucker
+    basis is the singular basis and the returned singular values weight the right coordinates), with one
+    SVD instead of two.'''
+    xs, tucker_svals, tt_svals = x.t3svd(**t3svd_kwargs)
+    frame, variations = ut3_orthogonal_representations(xs, already_left_orthogonal=True)
+    return frame, variations, ut3.UT3Weights(tucker_svals, tt_svals, xs.masks)
 
 
 def check_ufw_pair(

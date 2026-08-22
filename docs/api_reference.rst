@@ -25,7 +25,9 @@ Everything below is importable directly from ``t3toolbox``.
 - :py:class:`~t3toolbox.frame_variations_format.T3Frame`,
   :py:class:`~t3toolbox.frame_variations_format.T3Variations`,
   :py:func:`~t3toolbox.frame_variations_format.t3_orthogonal_representations` -- the orthogonal
-  frame + gauged variations of a tangent direction.
+  frame + gauged variations of a tangent direction;
+  :py:func:`~t3toolbox.frame_variations_format.t3svd_orthogonal_representations` -- the same frame in
+  the T3-SVD gauge together with its singular values (what a singular-value metric pairs with).
 - :py:class:`~t3toolbox.manifold.T3Tangent` -- a tangent vector: one (frame, variations) pair.
 - :py:class:`~t3toolbox.uniform_frame_variations_format.UT3Frame`,
   :py:class:`~t3toolbox.uniform_frame_variations_format.UT3Variations`,
