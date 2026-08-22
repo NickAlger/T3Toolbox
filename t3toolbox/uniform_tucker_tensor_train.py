@@ -11,8 +11,6 @@ A UT3 pads the cores of a Tucker tensor train up to common sizes ``n`` (Tucker r
 real extent of each padded edge with boolean masks. It is, by design, a *faster representation of the
 ragged layer* -- see ``docs/uniform_equivalence_contract.md`` and the other ``docs/uniform_*.md`` notes.
 
-NOTE: this module is being built incrementally (slice 1: foundation). Linear algebra, orthogonalization,
-SVD, sampling, and the jax pytree registration land in later slices.
 """
 import typing as typ
 import numpy as np
@@ -76,7 +74,7 @@ class UniformTuckerTensorTrain:
 
     - ``tucker_supercore``: shape ``(d,) + stack_shape + (n, N)``
     - ``tt_supercore``: shape ``(d,) + stack_shape + (r, n, r)``
-    - ``masks``: the :py:class:`UT3Masks` (shape mask + the two rank masks)
+    - ``masks``: the :py:class:`UT3Masks` (the two rank masks; the shape mask is derived from ``shape``)
 
     The mode index ``d`` leads (outside the stack) so sweeps compile to ``lax.scan`` over axis 0
     (``docs/uniform_supercore_layout.md``). Ranks may differ across the stack; the physical shape may
@@ -615,12 +613,12 @@ class UniformTuckerTensorTrain:
             ztildes, ww, pp, self.data, order, sum_over_probes=sum_over_probes)
 
     def sum(self, axis=None) -> NDArray:
-        """Sum the represented tensor over all physical modes (shape=stack_shape). Partial sums (``axis``
-        given) are deferred -- see dev/archive/uniform_port_plan.md."""
+        """Sum the represented tensor over all physical modes (shape=stack_shape). A partial sum (``axis``
+        given) is not implemented on the uniform layer; use the ragged twin, ``x.to_t3().sum(axis)``."""
         if axis is not None:
             raise NotImplementedError(
-                'Partial sum (axis given) is deferred for UniformTuckerTensorTrain; only the full sum '
-                '(axis=None) is implemented. See dev/archive/uniform_port_plan.md.')
+                'Partial sum (axis given) is not implemented for UniformTuckerTensorTrain; only the full '
+                'sum (axis=None) is. Use the ragged twin: x.to_t3().sum(axis).')
         return ut3_sampling.ut3_full_sum(self.data)
 
     # ----------------------------------------------------------------- orthogonalization
@@ -918,7 +916,8 @@ class UniformTuckerTensorTrain:
         >>> import t3toolbox.uniform_tucker_tensor_train as ut3
         >>> np.random.seed(0)
         >>> x = ut3.UniformTuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
-        >>> fname = 'ut3_file.npz'
+        >>> import os, tempfile
+        >>> fname = os.path.join(tempfile.mkdtemp(), 'ut3_file.npz')
         >>> x.save(fname)
         >>> x2 = ut3.UniformTuckerTensorTrain.load(fname)
         >>> print(float(np.linalg.norm(x2.to_dense() - x.to_dense())))

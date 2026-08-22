@@ -13,11 +13,11 @@ Tensor network diagram for a Tucker tensor train::
         r0        r1        r2       r(d-1)          rd
     1 ------ G0 ------ G1 ------ ... ------ G(d-1) ------ 1
              |         |                    |
-             | n0      | n1                 | nd
+             | n0      | n1                 | n(d-1)
              |         |                    |
-             B0        B1                   Bd
+             B0        B1                   B(d-1)
              |         |                    |
-             | N0      | N1                 | Nd
+             | N0      | N1                 | N(d-1)
              |         |                    |
 
 Here:
@@ -34,7 +34,7 @@ The components of a dth order Tucker tensor train are:
 The structure of a Tucker tensor train is defined by:
 
 - Tensor shape: (N0, N1, ..., N(d-1))
-- Tucker ranks: (n0, r1, ..., n(d-1))
+- Tucker ranks: (n0, n1, ..., n(d-1))
 - TT ranks: (r0, r1, ..., rd)
 
 Typically, the first and last TT-ranks satisfy r0=rd=1, and "1" in the diagram
@@ -136,15 +136,15 @@ looks like this::
   is attached. When performing computations, these are computed once per tangent space, then fixed for
   all tangent vectors in the space:
 
-  - tucker_cores      = (U0,...,Ud), orthogonal
-  - left_tt_cores     = (L0,...Ld), left-orthogonal
-  - right_tt_cores    = (R0,...,Rd), right-orthogonal
-  - down_tt_cores     = (O0,...,Od), outer-orthogonal
+  - up_tucker_cores   = (U0,...,U(d-1)), orthogonal
+  - left_tt_cores     = (L0,...,L(d-1)), left-orthogonal
+  - right_tt_cores    = (R0,...,R(d-1)), right-orthogonal
+  - down_tt_cores     = (O0,...,O(d-1)), down-orthogonal
 
 - The following "variation" cores define the tangent vector w.r.t. the frame cores:
 
-  - tucker_variations = (V0,...,Vd)
-  - tt_variations     = (H0,...,Hd)
+  - tucker_variations = (V0,...,V(d-1))
+  - tt_variations     = (H0,...,H(d-1))
 
 Under certain *gauge conditions*, the representation of a tangent vector by its variation is unique,
 and performing linear algebra with the variation is equivalent to performing the corresponding linear
@@ -245,14 +245,16 @@ and compile once.
 
 In this case:
 
-- The Tucker cores B0, ..., Bd all have the same shape (n,N) and can be stacked into a *Tucker
+- The Tucker cores B0, ..., B(d-1) all have the same shape (n,N) and can be stacked into a *Tucker
   supercore* with shape (d,n,N).
-- The TT-cores G0, ..., Gd all have the same shape (r,n,r), and can be stacked into a *TT supercore*
+- The TT-cores G0, ..., G(d-1) all have the same shape (r,n,r), and can be stacked into a *TT supercore*
   with shape (d,r,n,r).
 
 We keep track of which parts of the cores are supposed to be zero (to prevent filling in these parts
-during computations) with *edge masks*. For each edge, the mask is a boolean vector of the form
-(1,...,1,0,...,0).
+during computations) with *edge masks*. For each edge, the mask is a boolean vector; in the canonical
+form it is a prefix ``(1,...,1,0,...,0)``, but ``+`` and the Hadamard product produce *gappy* working-form
+masks (the real slots are no longer a prefix) which the T3-SVD re-canonicalizes -- see
+``docs/uniform_masks_vs_ranks.md``.
 
 - The masks for the edges between Tucker cores and TT-cores have length n. For the ith edge, the
   first ni entries are 1, and the remaining entries are 0. These *Tucker edge masks* are collected
@@ -294,7 +296,8 @@ The one exception is **pure constructors with no array inputs** -- ``TuckerTenso
 ``zeros`` / ``ones`` / ``load`` and their backend twins -- which take a ``use_jax`` flag, because
 there is nothing to infer from. Factories that do take an existing object infer from it.
 
-The frontend classes (``TuckerTensorTrain``, ``T3Frame``, ``T3Variations``, ``T3Tangent``, the
+The frontend classes (``TuckerTensorTrain``, ``T3Frame``, ``T3Variations``, ``T3Tangent``, their uniform
+twins ``UniformTuckerTensorTrain`` / ``UT3Frame`` / ``UT3Variations`` / ``UT3Tangent``, the weight classes, the
 Gauss-Newton models) are registered jax **pytrees**, so ``jax.jit`` / ``grad`` / ``vmap`` apply to
 frontend methods directly. Two design points make jit practical:
 
@@ -385,7 +388,7 @@ Relevant literature
 
 * Most of the Tucker tensor train algorithms are described in Appendix A of our paper [1].
 
-* The probing algorithms are described in Section 5 of our paper [1].
+* The probing algorithms are described in Sections 4 and 6 of our paper [1] (derivative probing in Section 4, the sweeps in Section 6).
 
 * Under the name **extended tensor train**, the smooth manifold structure of this format is
   studied by Molozhavenko and Rakhuba [9] — the most direct published treatment of the Tucker

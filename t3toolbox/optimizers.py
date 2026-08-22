@@ -45,7 +45,7 @@ import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
 
 # Regularizers live in the backend (check-free; a raw-.data user constructs them directly) and are
-# re-exported here for frontend convenience -- neither user is privileged (dev/regularization_design.md §5a).
+# re-exported here for frontend convenience -- neither user is privileged (dev/archive/regularization_design.md §5a).
 from t3toolbox.backend.regularization import Regularizer, IdentityRegularizer
 
 __all__ = [
@@ -162,10 +162,10 @@ def _resolve_chunk_size(chunk_size, kind, x0, sample, order, batch=None):
     d, nU, r = tsc.shape[0], int(tsc.shape[-2]), int(qsc.shape[-1])
     full_W = int(np.prod(np.asarray(sample[0][0]).shape[:-1]))
     w = min(int(batch), full_W) if batch else full_W
-    return bfit_pd().estimate_chunk_size(tuple(x0.shape), (nU,) * d, (r,) * (d + 1), order, w, dtype=tsc.dtype)
+    return _bfit_pd().estimate_chunk_size(tuple(x0.shape), (nU,) * d, (r,) * (d + 1), order, w, dtype=tsc.dtype)
 
 
-def bfit_pd():
+def _bfit_pd():
     """Lazy import of the sampling-derivatives backend (only needed to resolve chunk_size='auto')."""
     import t3toolbox.backend.sampling_derivatives as pd
     return pd

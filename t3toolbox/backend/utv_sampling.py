@@ -2,7 +2,7 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
-"""Uniform tangent sampling (UT3Tangent probe / apply / entries), uniform-fix 3b-6b.
+"""Uniform tangent sampling (UT3Tangent probe / apply / entries).
 
 The uniform mirror of the ragged ``T3Tangent`` sampling frontend, sharing the polymorphic
 ``{probing.tv_probe, apply.tv_apply, entries.tv_entries}``. The boundary work is the same as the plain layer's
@@ -16,7 +16,7 @@ The uniform mirror of the ragged ``T3Tangent`` sampling frontend, sharing the po
 4. **unpack** the ``probe`` output back to ragged-width vectors (``apply``/``entries`` return a scalar --
    nothing to unpack).
 
-These are the bare Jacobian ``𝒥`` (no gauge projector ``Π``); the transpose ``𝒥ᵀ`` lands in 3b-6c.
+These are the bare Jacobian ``𝒥`` (no gauge projector ``Π``); the transpose ``𝒥ᵀ`` is the last section of this module.
 """
 import numpy as np
 

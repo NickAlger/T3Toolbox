@@ -252,7 +252,7 @@ def _minibatch_step_problem(
     """The problem the **stochastic** per-step kernel linearizes against: identical to ``problem`` but with
     the regularizer scaled by ``batch/n``. The minibatch data gradient is a ``batch/n`` estimate of the
     full-data gradient, so scaling the (deterministic) regularizer to match keeps ``λ``'s meaning the same
-    as in the full-batch optimizers (``dev/regularization_design.md`` §8.1). No-op when unregularized. The
+    as in the full-batch optimizers (``dev/archive/regularization_design.md`` §8.1). No-op when unregularized. The
     **full-batch** stop/loss keeps the full-strength ``problem.regularizer``. (Assumes the nominal ``batch``
     size; a custom ``draw`` of a different size may want ``λ`` retuned.)"""
     if problem.regularizer is None:

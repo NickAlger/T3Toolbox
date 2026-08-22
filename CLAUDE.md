@@ -211,8 +211,8 @@ exemplar; `apply`/`entries` are the general-purpose all-modes special cases.
   `(frame, variations)` pairs are frame-first. All verified backends (`tv_operations`,
   `fv_conversions` (incl. `t3_orthogonal_representations`), **and the sampling modules
   `probing`/`apply`/`entries`**) take these tuples in this
-  exact order — pass `.data` straight through, no reorder. (Only the parked `fv_operations.py`
-  `absorb_weights` still uses the old `(up, left, right, outer)` probing order.)
+  exact order — pass `.data` straight through, no reorder. (The weighted layer's `fv_operations.py` — the
+  shipped `T3FrameWeights` tangent-metric backend, not parked — uses the canonical order too.)
 - **`corewise_dot`/`corewise_norm` collapse EVERY axis** (stacks included) to a scalar. To keep the
   stack (vectorized linalg), use `corewise.corewise_stack_dot(X, Y, n_stack)`.
 
@@ -431,8 +431,7 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
   per-mode residual weight). (Build history: the archived plans in
   `dev/archive/` — `uniform_fix_plan`, `uniform_optimizers_plan`, `naming_pass_plan`,
   `docs_pass_plan`, `docs_split_plan`.)
-- **Optimization layer restructured (2026-08-21, UNRELEASED — on branch
-  `optimization-layer-value-typed`).** The geometry, the sampling kind and the local model are frozen
+- **Optimization layer restructured (2026-08-21; in 2026.2.0).** The geometry, the sampling kind and the local model are frozen
   dataclasses whose **parameters are fields**, not records of closures, so they hash/compare by value
   and are stable jax `aux_data`. New `backend/geometry.py`; `SamplingKind` is a class hierarchy;
   `UniformGaussNewtonModel` merged into `GaussNewtonModel`; sharing is a `groups` field.
@@ -440,19 +439,18 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
   instead of once per Newton iteration**. Fixed along the way: a silent miscompile where a
   `dc.replace`-derived kind reused its parent's compiled program, and a stacked+regularized fit that
   silently mis-weighted (now raises, as does stacked optimization generally). Breaking — see the
-  CHANGELOG's `[Unreleased]` and the upgrade notes. **Why:
+  CHANGELOG's `[2026.2.0]` and the upgrade notes. **Why:
   [`docs/contributor/parameters_not_closures.md`](docs/contributor/parameters_not_closures.md).**
 - **Design references:** the rendered docs are the reference — user tier (`docs/*.md` +
   the user guide) and the Contributor guide (`docs/contributor/`); `entries_apply_probe.md` §8
   carries the probing paper↔code map.
-- **Shared Tucker factors (SF-T3) — BUILT, ragged AND uniform (2026-08-19/20; slices 0–7 pushed,
-  8–13 local pending review).** Optimize over T3s whose Tucker factors are tied within
+- **Shared Tucker factors (SF-T3) — BUILT, ragged AND uniform (2026-08-19/20; shipped in 2026.1.0).** Optimize over T3s whose Tucker factors are tied within
   user-specified mode groups (SF-ETT, Molozhavenko & Rakhuba 2026, generalized to arbitrary
   partitions — the arbitrary-partition dimension/smoothness is OUR extension). Surface: `sharing=`
   on `t3svd`/`rank_adjustment_sweep`/`get_minimal_ranks`/`manifold_dim`/`continuation_ranks`/
   `resize` (+ uniform twins), `x.share(...)`, `has_shared_tucker_factors` (a METHOD — checker
   grammar), the `shared(base, sharing)` geometry wrapper (`shared_manifold`/`shared_corewise`,
-  uniform bases included, compile-once), and the (breaking) `GeometryOps.precompute` aux slot.
+  uniform bases included, compile-once), and the (breaking) `Geometry.precompute` aux slot (the protocol in `backend/optimizers.py`).
   **User doc: [`docs/sharing.md`](docs/sharing.md)** (incl. "What the group spectrum is" — the
   four faces of `s_g`; sharing ≠ symmetry); **design records:
   [`docs/contributor/sharing_internals.md`](docs/contributor/sharing_internals.md)** (the S_i

@@ -108,14 +108,16 @@ Backend modules follow the family-prefix grammar (``t3_`` ragged tensor, ``ut3_`
   uniform object-type wrappers :py:mod:`~t3toolbox.backend.ut3_sampling`,
   :py:mod:`~t3toolbox.backend.utv_sampling`.
 - **Fitting and optimization**: :py:mod:`~t3toolbox.backend.fitting`,
-  :py:mod:`~t3toolbox.backend.optimizers`, :py:mod:`~t3toolbox.backend.uniform_fitting`,
+  :py:mod:`~t3toolbox.backend.optimizers`, :py:mod:`~t3toolbox.backend.geometry` (the value-typed
+  geometries the optimizers consume), :py:mod:`~t3toolbox.backend.uniform_fitting`,
   :py:mod:`~t3toolbox.backend.regularization` (the ``ρ(x)`` objective term) and
   :py:mod:`~t3toolbox.backend.optimizer_display` (the Newton-CG diagnostic display, so a backend
   user gets the identical output).
 - **Shared Tucker factors**: :py:mod:`~t3toolbox.backend.sharing` -- partition validation, the
   tied-factor checkers, the shared-frame companion and the tied post-passes (:doc:`sharing`); the
   frontend geometry wrapper lives in :py:mod:`~t3toolbox.shared_geometry`.
-- **Infrastructure**: :py:mod:`~t3toolbox.backend.common`,
+- **Infrastructure**: :py:mod:`~t3toolbox.backend.common`, :py:mod:`~t3toolbox.corewise` (the
+  layer-agnostic tree arithmetic on core tuples -- a backend-style module that lives at the top level),
   :py:func:`~t3toolbox.backend.contractions.contract` (the grouped-einsum interpreter --
   :doc:`grouped_contractions`), :py:mod:`~t3toolbox.backend.stacking`,
   :py:mod:`~t3toolbox.backend.linalg`, :py:mod:`~t3toolbox.backend.ranks`.

@@ -14,11 +14,11 @@ Tensor network diagram for a Tucker tensor train:
         r0        r1        r2       r(d-1)          rd
     1 ------ G0 ------ G1 ------ ... ------ G(d-1) ------ 1
              |         |                    |
-             | n0      | n1                 | nd
+             | n0      | n1                 | n(d-1)
              |         |                    |
-             B0        B1                   Bd
+             B0        B1                   B(d-1)
              |         |                    |
-             | N0      | N1                 | Nd
+             | N0      | N1                 | N(d-1)
              |         |                    |
 
 Here the Gi (TT cores) and Bi (Tucker cores) are small tensors contracted along the edges to form

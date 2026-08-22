@@ -16,8 +16,6 @@ representation. Holds:
   the ragged ``MANIFOLD`` / ``COREWISE``, behind the per-element safe-mode preconditions, with the module
   singletons :py:data:`UNIFORM_MANIFOLD` / :py:data:`UNIFORM_COREWISE`.
 
-Deferred to later 3b slices: ``probe`` / ``apply`` / ``entries`` (+ derivatives) and the ``WKC``
-contractions (3b-6).
 """
 from __future__ import annotations
 

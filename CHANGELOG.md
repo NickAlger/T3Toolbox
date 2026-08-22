@@ -150,6 +150,18 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   compared equal to `APPLY`; under `jit` it returned `APPLY`'s answer (measured: 115.302888 where eager
   gave 28.825722). Unrepresentable now — a variant is a subclass, hence a distinct type.
 
+### Documentation
+
+- A sweep of doc ↔ code mismatches found by the 2026-08-22 review: the README / user-guide core diagram
+  and frame-core listings (`d` cores, not `d+1`; `up_tucker_cores`), the Tucker-rank tuple, the uniform
+  mask form (canonical prefix vs gappy working form), the registered-pytree list (the uniform classes were
+  missing), the paper section cited for probing, stale "slice"/"deferred" module docstrings on the uniform
+  layer, the `UT3FrameMasks` value-hash comment, `chunking.md`'s `'auto'` default (it is the frontend's),
+  `sharing.md`'s "closure state", six `dev/regularization_design.md` paths (now in `dev/archive/`), the
+  `t3m_methods.md` boundary-bond sentence, the `weighting.md` recipes and "same operations" claim, the
+  `GeometryOps` name in the project guide, `backend.geometry` and `corewise` in the API reference, and the
+  `save`/`load` doctests, which now write into a temporary directory instead of the working directory.
+
 ### Performance
 
 - **The inner CG compiles once per fitting run instead of once per Newton iteration** (measured

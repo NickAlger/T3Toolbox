@@ -204,8 +204,9 @@ The optimization surface mirrors, under the usual contract
 always on uniform),
 `has_shared_tucker_factors` on masked content, and `shared(UNIFORM_MANIFOLD, sharing)` /
 `shared(UNIFORM_COREWISE, sharing)` running the packed, compile-once fitting path (the sharing
-partition rides beside the masks as static closure state; the per-frame companion flows as traced
-data, so a shared fit compiles once like an unshared one). Ragged vs uniform is inferred from `x0`,
+partition is a value-hashed *field* of the geometry beside the masks, so a rebuilt geometry is the same
+jit cache key; the per-frame companion flows as traced data, so a shared fit compiles once like an
+unshared one). Ragged vs uniform is inferred from `x0`,
 as everywhere:
 
 ```python

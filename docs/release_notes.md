@@ -12,7 +12,8 @@ silently, and the constructor spellings you already use mostly still work.
 
 **Geometries moved and are constructed, not fetched.** `backend.optimizers.MANIFOLD_OPS` becomes
 `backend.geometry.ManifoldGeometryOps()`, `COREWISE_OPS` becomes `CorewiseGeometryOps()`, and
-`shared_geometry_ops(base, groups)` becomes `base.with_sharing(sharing, shape)`. On the uniform side,
+`shared_geometry_ops(base, groups)` becomes `base.with_sharing(sharing, shape)` (ragged; the uniform twins take
+`with_sharing(sharing)` -- they carry their shape already). On the uniform side,
 `uniform_geometry_ops(name, x0_data, sharing)` becomes
 `UniformManifoldGeometryOps.from_point(x0_data, sharing)` (or the `Corewise` twin). The **frontend**
 geometry singletons -- `MANIFOLD`, `COREWISE`, `UNIFORM_MANIFOLD`, `UNIFORM_COREWISE`,

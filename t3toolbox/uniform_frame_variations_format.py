@@ -1047,7 +1047,7 @@ def ut3_orthogonal_representations(
 
 # (`ufv_to_ut3` -- the uniform analog of `fv_to_t3`, substituting one variation core into the frame -- was
 # dropped: the left/right subchains become differently-shaped supercores glued by the variation, with no
-# clean single uniform supercore op. Low importance. See dev/uniform_fix_plan.md "Refinements (round 2)".)
+# clean single uniform supercore op. Low importance. See dev/archive/uniform_fix_plan.md "Refinements (round 2)".)
 
 
 
@@ -1355,7 +1355,8 @@ def ufv_absorb_weights(variations: UT3Variations, weights: UT3FrameWeights) -> U
 if common.jax_available:
     # UT3Frame as a jax pytree: the four supercores are the (traced) children; the static aux_data is
     # (shape, UT3FrameMasks). `shape` is a value-hashable int tuple (same shape -> same jit cache key);
-    # UT3FrameMasks is eq=False (identity hash/eq), valid hashable aux even though it holds bool arrays.
+    # UT3FrameMasks hashes/compares by VALUE over its mask content (common.ValueHashedMasks), so a rebuilt but
+    # identical holder is the same jit cache key -- the load-bearing perf contract (test_mask_rebuild_does_not_recompile).
     # Mirrors UniformTuckerTensorTrain. See docs/contributor/uniform_pytree_composition.md.
     import jax
     jax.tree_util.register_pytree_node(

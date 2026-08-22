@@ -97,7 +97,7 @@ def sumsq_over_probes(
 
 # --------------------------------------------------------------------------------------------------
 # Per-(mode, order) block reductions -- the `sumsq_*` siblings that KEEP the mode/order axes instead of
-# collapsing them, for the Newton-CG diagnostic error table (docs/fitting..§?, dev/newton_display_plan.md).
+# collapsing them, for the Newton-CG diagnostic error table (docs/fitting_and_optimization.md §2.1, the `verbose=` display).
 # They return a 2-D (n_mode, n_order) matrix mirroring the kind's ω[mode, order] shape, and are
 # **UNWEIGHTED** (raw ‖r_ij‖², so the table is the honest data-norm relative error and ½·Σ block == the
 # unweighted objective). apply/entries have no mode axis (n_mode = 1); plain kinds have no order (n_order = 1).

@@ -1752,8 +1752,9 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> fname = 't3_file.npz'
-        >>> x.save(fname) # Save to file 't3_file.npz'
+        >>> import os, tempfile
+        >>> fname = os.path.join(tempfile.mkdtemp(), 't3_file.npz')
+        >>> x.save(fname) # Save to file 't3_file.npz' in a temporary directory
         >>> x2 = t3.TuckerTensorTrain.load(fname) # Load from file
         >>> tucker_cores, tt_cores = x.data
         >>> tucker_cores2, tt_cores2 = x2.data
@@ -1803,8 +1804,9 @@ class TuckerTensorTrain:
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.TuckerTensorTrain.randn((14,15,16), (4,5,6), (1,3,2,1))
-        >>> fname = 't3_file.npz'
-        >>> x.save(fname) # Save to file 't3_file.npz'
+        >>> import os, tempfile
+        >>> fname = os.path.join(tempfile.mkdtemp(), 't3_file.npz')
+        >>> x.save(fname) # Save to file 't3_file.npz' in a temporary directory
         >>> x2 = t3.TuckerTensorTrain.load(fname) # Load from file
         >>> tucker_cores, tt_cores = x.data
         >>> tucker_cores2, tt_cores2 = x2.data

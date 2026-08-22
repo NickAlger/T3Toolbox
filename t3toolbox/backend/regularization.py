@@ -7,7 +7,7 @@ A ``Regularizer`` is an additive objective term ``ρ(X)`` folded into the local 
 (:py:class:`t3toolbox.backend.optimizers.LocalModel`) and ``Problem.objective``, so it composes with
 **every** optimizer, sampling kind, geometry, and representation with no changes to any of them. This
 layer is **check-free** -- a raw-``.data`` user constructs and attaches a regularizer directly, exactly as
-a frontend user does (design record + the razor check: ``dev/regularization_design.md`` §5a).
+a frontend user does (design record + the razor check: ``dev/archive/regularization_design.md`` §5a).
 
 The interface is **geometry-agnostic**: each method receives a ``GeometryOps`` and leans only on its
 primitives (``point_norm_sq`` / ``point_tangent`` / ``project`` / ``inner``), so the SAME regularizer
@@ -78,7 +78,7 @@ class IdentityRegularizer(Regularizer):
     the gauge-singular corewise Gauss-Newton Hessian strictly positive-definite -- a better-conditioned
     Newton system (though CG already converges on the singular ``H`` since the gradient ``g = 𝒥ᵀr`` lies in
     ``range(H)``). ``X_ref = 0``. The ``point_tangent`` = ``v_X`` construction (the attachment point as a
-    single gauged tangent term) is in ``dev/regularization_design.md`` §4."""
+    single gauged tangent term) is in ``dev/archive/regularization_design.md`` §4."""
     strength: float                        # λ >= 0  (0 disables the regularizer)
 
     def value(self, geom, x_cores):
@@ -100,7 +100,7 @@ class _ScaledRegularizer(Regularizer):
     """``inner`` scaled by a constant ``factor`` -- ``factor·ρ``. Used by the **stochastic** optimizers,
     where the minibatch data gradient is a ``batch/n`` estimate of the full data gradient, so the
     (deterministic) regularizer is scaled by ``batch/n`` to keep ``λ``'s meaning consistent with the
-    full-batch optimizers (``dev/regularization_design.md`` §8.1). Valid for any regularizer: scaling a
+    full-batch optimizers (``dev/archive/regularization_design.md`` §8.1). Valid for any regularizer: scaling a
     function by ``factor`` scales its value, gradient, and Hessian all by ``factor``."""
     inner:  Regularizer
     factor: float
