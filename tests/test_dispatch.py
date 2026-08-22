@@ -573,7 +573,8 @@ class TestDispatch(unittest.TestCase):
         lambdas plus a hand-maintained ``identity`` tuple, and ``dataclasses.replace`` copied that tuple
         unchanged -- so ``dc.replace(APPLY, forward=<something else>)`` compared EQUAL to ``APPLY``,
         jax reused ``APPLY``'s compiled program, and jit returned the unscaled answer while eager
-        returned the scaled one (measured: 115.302888 vs 28.825722 on this fixture).
+        returned the scaled one (measured on the GaussNewtonModel docstring's fixture: 115.302888 vs
+        28.825722; this fixture is smaller, but the failure is the same).
 
         Parameters are fields now and behaviour is methods, so the failure is unrepresentable: a variant
         is a subclass, which is a different type, which the value-based ``__eq__`` rejects up front."""

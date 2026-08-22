@@ -20,12 +20,19 @@ All notable changes to T3Toolbox are documented here. The format follows
     unshared. The frontend `shared_manifold` / `shared_corewise` constructors are unchanged.
   - **`SamplingKind` is a class hierarchy** (`ApplyKind`, `EntriesKind`, `ProbeKind`, the three
     `*DerivativesKind`, and their `Uniform*` twins). The `*_kind` constructor spellings still work.
-    Removed: the `identity` field and its `__eq__`/`__hash__`. A custom kind is now a **subclass**;
-    deriving one with `dataclasses.replace` no longer type-checks, and that is the point — see below.
+    Removed: the `identity` field and its `__eq__`/`__hash__`, and the six uniform builder functions
+    `uniform_{apply,entries,probe}_kind` / `uniform_{apply,entries,probe}_derivatives_kind` (use
+    `Uniform*Kind.from_point(x0_data, **parameters)`, or the unchanged `uniform_sampling_kind` /
+    `uniform_derivatives_kind` dispatchers). A custom kind is now a **subclass**; deriving one with
+    `dataclasses.replace` no longer type-checks, and that is the point — see below. `ScalarOutputKind`
+    and `ProbeOutputKind` are public, so a new operator can inherit the `‖·‖²` reductions.
   - **`fitting.UniformGaussNewtonModel` is removed.** One `GaussNewtonModel` serves both
     representations; the factories still dispatch on `x`. It is deliberately not aliased.
   - `optimizer_display` gates its error table on `kind.has_block_sumsq` rather than on a `block_sumsq`
-    field being `None`.
+    field being `None`. `block_sumsq` is optional; the flag is declared by whoever implements it.
+  - **A custom backend geometry needs three more members**: `stack_shape(x_cores)`, `base_point(frame)`,
+    and a `precompute` that is a *callable* returning `None` rather than `None` itself. The `Geometry`
+    protocol in `backend/optimizers.py` lists the full surface.
 
 - **Optimizing a STACKED point raises `NotImplementedError`.** It never worked -- `newton_cg` and
   `gradient_descent` failed on `float()` of a shape-`C` objective, `mc_sgd` on a broadcast, and `adam`

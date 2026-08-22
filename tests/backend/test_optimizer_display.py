@@ -160,18 +160,33 @@ class TestMakeNewtonDisplay(unittest.TestCase):
     def test_needs_block_sumsq(self):
         """A kind that does not provide block_sumsq raises a clear error (all built-in kinds do).
 
-        A kind is a class now, so "no block_sumsq" is a subclass declaring ``has_block_sumsq = False``
-        rather than a field set to None."""
+        `block_sumsq` is optional, so ``has_block_sumsq`` is declared by whoever IMPLEMENTS it -- False on
+        the base, True on the two output-shape bases. The case that matters is a user kind written from
+        the base that simply omits it: it must trip the friendly guard, not sail through to a bare
+        NotImplementedError from the base method (which is what an inherited True default caused)."""
         import dataclasses as dc
 
+        prob, ww, data, _, _ = self._probe_problem()
+
         @dc.dataclass(frozen=True, eq=False)
-        class ProbeKindWithoutBlockSumsq(bfit.ProbeKind):
+        class KindOmittingBlockSumsq(bfit.SamplingKind):
+            """A user kind written from the base, implementing the operations but not block_sumsq."""
+            def w_axes(self, sample):
+                return 1
+
+        self.assertFalse(KindOmittingBlockSumsq().has_block_sumsq)
+        with self.assertRaises(ValueError):
+            bdisp.make_newton_display(dc.replace(prob, kind=KindOmittingBlockSumsq()))
+
+        @dc.dataclass(frozen=True, eq=False)                     # and the explicit opt-out still works
+        class ProbeKindOptingOut(bfit.ProbeKind):
             has_block_sumsq = False
 
-        prob, ww, data, _, _ = self._probe_problem()
-        prob_no_bs = dc.replace(prob, kind=ProbeKindWithoutBlockSumsq())
         with self.assertRaises(ValueError):
-            bdisp.make_newton_display(prob_no_bs)
+            bdisp.make_newton_display(dc.replace(prob, kind=ProbeKindOptingOut()))
+
+        for builtin in (bfit.APPLY, bfit.ENTRIES, bfit.PROBE, bfit.probe_derivatives_kind(2)):
+            self.assertTrue(builtin.has_block_sumsq, f'{builtin.name} implements block_sumsq')
 
 
 if __name__ == "__main__":

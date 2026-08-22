@@ -170,14 +170,6 @@ def _canonical_weight(
     return wm
 
 
-def _hashable_weight(
-        wm:  typ.Optional[NDArray],   # canonical 2-D ω[m,o] from _canonical_weight, or None
-) -> typ.Optional[typ.Tuple[typ.Tuple[float, ...], ...]]:  # a nested tuple (a stable, hashable jit-aux key)
-    '''The value-hashed aux form of a weight matrix (a tuple of row tuples), so a rebuilt
-    model of the same weight is the SAME jit cache key.'''
-    return None if wm is None else tuple(tuple(float(v) for v in row) for row in wm)
-
-
 @dataclass(frozen=True)
 class GaussNewtonModel:
     '''The local Gauss-Newton model of a least-squares objective at ``frame``, generic over the geometry.

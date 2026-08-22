@@ -25,11 +25,24 @@ handed back `APPLY`'s compiled program. Subclass `ApplyKind` (or the relevant ba
 operations you need; keep your parameters as dataclass **fields** and you get correct jit cache
 behaviour for free.
 
+**A custom backend geometry needs three more members.** The 2026.0.0 notes below show a geometry
+object with `frame` / `project` / `retract` / `inner` / `precompute = None`. The optimizers now also call
+`stack_shape(x_cores)` (returns the frame stack `C`, used by the stacked-point guard) and
+`base_point(frame)` (the point the frame is attached to, used by the regularizer), and `precompute` must
+be a **callable** returning `None` rather than `None` itself. Adding the three reproduces the old
+behaviour exactly. The full surface is the `Geometry` protocol in `backend/optimizers.py`.
+
+**The six uniform kind builders are gone.** `uniform_apply_kind(x0_data)` and its five siblings become
+`UniformApplyKind.from_point(x0_data)` and theirs; the `uniform_sampling_kind(name, x0_data, weight)` /
+`uniform_derivatives_kind(name, x0_data, order, weight, chunk_size)` dispatchers are unchanged and are
+the easier route. The four **ragged** constructors (`probe_kind`, the three `*_derivatives_kind`) keep
+both their positional and their `weight=` keyword spellings.
+
 **`fitting.UniformGaussNewtonModel` is gone.** One `GaussNewtonModel` now serves both representations,
 and the `*_model` factories still dispatch on `x`, so `fitting.apply_model(UNIFORM_MANIFOLD, ux, ...)`
 returns what it always did -- just of the merged type. If you were checking
 `isinstance(m, UniformGaussNewtonModel)`, check the frame instead:
-`isinstance(m.frame, ubv.UT3Frame)`.
+`isinstance(m.frame, t3toolbox.UT3Frame)`.
 
 **Stacked points raise in the optimizers.** If you were passing a stacked `x0` to `newton_cg`,
 `gradient_descent`, `mc_sgd` or `adam`, you were getting a `TypeError` from inside the loop; you now get

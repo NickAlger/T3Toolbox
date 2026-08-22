@@ -90,7 +90,7 @@ Applying the rule surfaced four duplications, and each convention now has one ho
 | convention | before | after |
 |---|---|---|
 | the variation-mask gauge shift `(up, down, left[:-1], right[1:])` | 5 copies | `ufv_variation_masks` |
-| the `(U,G,G,G)` corewise frame | 3+ copies, **0** functions | `t3_corewise_frame` / `ut3_corewise_frame` |
+| the `(U,G,G,G)` corewise frame | ~10 copies + one private function this refactor briefly deleted | `t3_corewise_frame` / `ut3_corewise_frame` |
 | frame → variation shapes | frontend property only | `fv_variation_shapes` / `ufv_variation_shapes` |
 | the sharing-partition normalization | open-coded | `sharing.canonical_groups` |
 
@@ -126,7 +126,7 @@ documented contract (masks are always host numpy and never traced), so an intege
 | | before | after |
 |---|---|---|
 | compiles per Newton iteration (uniform `probe_derivatives`) | 1 | **0** |
-| a user-defined kind, rebuilt 5× as jit aux | 5 compiles | **0** |
+| a user-defined kind, rebuilt 5× as jit aux | 5 compiles | **1** (the cold one) |
 | `mc_sgd` / `adam` per-step kernel | one compile per optimizer *call* | once per shape signature, process-wide |
 | CG tolerance staleness | freshness was load-bearing for correctness | unrepresentable |
 

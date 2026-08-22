@@ -596,5 +596,92 @@ class TestStackedPointIsRejected(unittest.TestCase):
         self.assertEqual(np.shape(model.objective_value), (3,))
 
 
+
+class TestWeightCombinations(unittest.TestCase):
+    """Combinations the suite never made, chosen because they share the SHAPE of a bug that shipped.
+
+    The stacked-plus-regularized defect survived into 2026.1.0 because no test combined `stack_shape`
+    with a `regularizer` — a missing COMBINATION, not a missing file. These two are the neighbours of
+    that gap: a residual weight had never been combined with a stack, nor with a regularizer."""
+
+    def setUp(self):
+        np.random.seed(0)
+        self.rng = np.random.default_rng(0)
+
+    def test_weighted_stacked_model_matches_the_per_element_models(self):
+        """A weighted model on a stacked point must equal the per-element weighted models, elementwise.
+        `_make_weight` places ω by axis, and a frame stack shifts those axes."""
+        import t3toolbox.backend.stacking as stacking
+        K = 3
+        ww = unit_vecs(20, SHAPE, self.rng)
+        omega = np.linspace(0.5, 1.5, len(SHAPE))                     # per-mode ω for the probe kind
+        kind = bfit.probe_kind(omega)
+        elements = [t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT) for _ in range(K)]
+        stacked = t3.TuckerTensorTrain(*stacking.stack(tuple(e.data for e in elements), axes=(0,)))
+
+        # data from DIFFERENT tensors than the evaluation point, so the objective is far from zero --
+        # evaluating a model at its own solution gives ~1e-16 on both sides and compares nothing.
+        targets = [t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT) for _ in range(K)]
+        data_el = [dense_probe(t.to_dense(), ww) for t in targets]
+        stacked_data = [np.stack([d[i] for d in data_el], axis=-2) for i in range(len(SHAPE))]
+
+        geom = bgeo.ManifoldGeometryOps()
+        stacked_obj = np.asarray(opt.least_squares_problem(geom, kind, ww, stacked_data)
+                                 .local_model(stacked.data).objective)
+        self.assertEqual(stacked_obj.shape, (K,))
+        self.assertGreater(float(np.min(stacked_obj)), 1.0, 'objective must be far from zero to compare')
+        for i, element in enumerate(elements):
+            with self.subTest(element=i):
+                lone = opt.least_squares_problem(geom, kind, ww, data_el[i]).local_model(element.data)
+                self.assertAlmostEqual(float(stacked_obj[i]) / float(lone.objective), 1.0, places=10)
+
+    def test_weighted_and_regularized_objective_splits_exactly(self):
+        """A residual weight and a regularizer together: `objective == misfit + regularization` exactly,
+        and the regularizer's quadratic term is λ‖Πp‖² regardless of the weight."""
+        order, lam = 2, 0.25
+        ww = unit_vecs(16, SHAPE, self.rng)
+        pp = [self.rng.standard_normal((16, n)) for n in SHAPE]
+        omega = np.outer(np.linspace(0.5, 1.5, len(SHAPE)), np.linspace(0.4, 1.2, order + 1))
+        A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        data = [np.asarray(z) for z in A.probe_derivatives(ww, pp, order)]
+        reg = opt.IdentityRegularizer(lam)
+
+        for name, geom in (('manifold', bgeo.ManifoldGeometryOps()), ('corewise', bgeo.CorewiseGeometryOps())):
+            with self.subTest(geometry=name):
+                problem = opt.least_squares_problem(
+                    geom, bfit.probe_derivatives_kind(order, omega), (ww, pp), data, regularizer=reg)
+                lm = problem.local_model(A.data)
+                self.assertAlmostEqual(float(lm.objective),
+                                       float(lm.misfit) + float(lm.regularization), places=10)
+                np.random.seed(2)
+                p = cw.corewise_map(lambda z: np.random.randn(*z.shape), lm.gradient)
+                projected = geom.project(lm.frame, p)
+                self.assertAlmostEqual(
+                    float(reg.quadratic(geom, lm.frame, p)),
+                    lam * float(geom.inner(projected, projected)), places=10)
+
+    def test_chunk_size_does_not_change_the_gradient(self):
+        """`chunk_size` is the default ('auto') on every frontend optimizer but was never exercised above
+        the primitive layer. Every setting must give the same gradient."""
+        order = 2
+        ww = unit_vecs(24, SHAPE, self.rng)
+        pp = [self.rng.standard_normal((24, n)) for n in SHAPE]
+        A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        data = [np.asarray(z) for z in A.probe_derivatives(ww, pp, order)]
+        x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
+
+        def gradient_at(chunk_size):
+            kind = bfit.probe_derivatives_kind(order, None, chunk_size)
+            lm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data).local_model(x0)
+            return lm.gradient
+
+        reference = gradient_at(None)
+        for chunk_size in (1, 3, 7, 100):
+            with self.subTest(chunk_size=chunk_size):
+                got = gradient_at(chunk_size)
+                self.assertLess(float(cw.corewise_norm(cw.corewise_sub(got, reference)))
+                                / float(cw.corewise_norm(reference)), 1e-12)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,27 +1,18 @@
 # Authors: Nick Alger and Blake Christierson
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
-"""Uniform-layer fitting seams: the ``GeometryOps`` factories (and, later, the ``SamplingKind`` builders)
-that let the geometry-generic optimizers (:py:mod:`t3toolbox.backend.optimizers`) run on **uniform
-supercores**. The uniform twin of :py:mod:`t3toolbox.backend.fitting` -- optimizers-on-uniform slice U2.
+"""Uniform-layer fitting: the packed ``SamplingKind`` classes and the least-squares ``Problem``.
 
-The optimizers are written against three pluggable seams (``GeometryOps``, ``SamplingKind``,
-``corewise``) and never mention a layer; supplying uniform implementations of the seams runs the SAME
-algorithm bodies on uniform data. This module supplies the **geometry** half.
+The uniform twins of :py:mod:`t3toolbox.backend.fitting`'s kinds -- subclasses that override the five
+layer-specific operations and, for the probe kinds, where ``omega``'s axes sit in the PACKED output.
+Each carries the fixed rank it was built at (``shape`` + the plain-UT3 ``masks``) as FIELDS, so a
+rebuilt kind of the same rank is the same jax cache key
+(:py:mod:`t3toolbox.backend.geometry` follows the same rule; the reasoning is
+``docs/contributor/parameters_not_closures.md``).
 
-The mask-holding recipe (``docs/uniform_backend_jit_recipe.md``). A uniform ``.data`` tuple carries host-
-numpy **masks** that cannot be jit-traced. So -- unlike the stateless ragged ``MANIFOLD`` / ``COREWISE``
-singletons -- the uniform geometry is a **factory** that captures the loop-invariant masks (fixed at
-fixed rank) and closes over them; the optimizer traces only the supercores. The convention throughout:
-
-  * the optimizer's **point** ``x`` is a bare supercore pair ``(tucker_sc, tt_sc)`` (masks closed over);
-  * a **tangent** is a bare variation supercore pair ``(tucker_var_sc, tt_var_sc)``;
-  * a **frame** is the full frame ``.data`` (``frame`` returns it, ``project`` / ``retract`` consume it).
-
-Each closure re-attaches the held ``shape`` + masks at the boundary (building the full ``.data`` tuples
-the ``utv_operations`` primitives expect) and strips them back to a bare pair on output, so
-``corewise.*`` and ``GeometryOps.inner`` see only supercores. Under jit the re-derived frame masks
-constant-fold to device constants (the "1 compile" behaviour of the recipe).
+:py:func:`uniform_least_squares_problem` packs the loop-invariant sample + data ONCE and returns the
+shared backend ``Problem``, so the optimizers run fully packed -- no per-matvec pack/unpack. The
+**geometry** half lives in :py:mod:`t3toolbox.backend.geometry`.
 """
 import dataclasses as dc
 import typing as typ
@@ -250,7 +241,7 @@ def uniform_sampling_kind(
     **probe** kind is weightable (per-mode ``omega``); plain apply/entries have no mode axis and take no
     weight (a non-``None`` ``weight`` for them is a structural error)."""
     if name == 'probe':
-        return UniformProbeKind.from_point(x0_data, residual_weight=weight)
+        return UniformProbeKind.from_point(x0_data, weight=weight)
     if name in ('apply', 'entries'):
         if weight is not None:
             raise ValueError(f"the plain '{name}' kind takes no residual weight (no mode or order axis); "
@@ -272,8 +263,8 @@ def uniform_derivatives_kind(
                          f"{sorted(_DERIV_SAMPLING_KIND)}")
     cls = _DERIV_SAMPLING_KIND[name]
     if name == 'probe_derivatives':            # the only derivative kind with a chunkable assembly
-        return cls.from_point(x0_data, order=order, residual_weight=weight, chunk_size=chunk_size)
-    return cls.from_point(x0_data, order=order, residual_weight=weight)
+        return cls.from_point(x0_data, order=order, weight=weight, chunk_size=chunk_size)
+    return cls.from_point(x0_data, order=order, weight=weight)
 
 
 # --------------------------------------------------------------------------------------------------

@@ -5,7 +5,7 @@
 
 A thin wrapper over :py:mod:`t3toolbox.backend.optimizers` (where the algorithms live -- check-free, so a
 raw-``.data`` user can call them directly). This layer (1) maps the frontend geometry singletons and the
-sampling-kind name to the backend ``GeometryOps`` / ``SamplingKind``, (2) calls the backend optimizer on the
+sampling-kind name to the backend geometry / ``SamplingKind``, (2) calls the backend optimizer on the
 raw cores, and (3) re-wraps the result. Design: ``dev/archive/optimizers_plan.md``.
 
 **Two representations, inferred from** ``x0`` (the library-wide ragged/uniform dispatch; ``_setup``):

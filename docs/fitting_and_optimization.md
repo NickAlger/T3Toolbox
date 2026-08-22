@@ -212,11 +212,18 @@ shared-factor submanifold, and every optimizer works on it unchanged. See [`shar
   geometry's. Singletons `APPLY`/`ENTRIES`/`PROBE`; parameterized
   `ProbeKind` / `*DerivativesKind`, also spelled `*_derivatives_kind(order, weight)`.
 
-  **Writing your own** — subclass and supply the five operations. Keep your parameters as dataclass
-  **fields**: a kind rides as jax `aux_data`, so its hash/eq are part of the compilation cache key, and
-  fields give you value identity (a rebuilt kind is the *same* key, a differently-parameterized one is
-  not) for free. Deriving a variant by copying an existing kind and swapping a function is exactly what
-  the field-based identity prevents — a variant is a subclass, which is a distinct type.
+  **Writing your own** — subclass. Which methods you must supply depends on where you start: from a
+  concrete kind (`ApplyKind`, `ProbeKind`, a `*DerivativesKind`) you override only what differs; from
+  `ScalarOutputKind` or `ProbeOutputKind` — pick the one matching your output shape, and you inherit the
+  `‖·‖²` reductions — you supply the five operations plus `w_axes` / `n_measurements`; from bare
+  `SamplingKind` you supply all nine. Each unimplemented one raises with a message saying so.
+  Keep your parameters as dataclass **fields**: a kind rides as jax `aux_data`, so its hash/eq are part
+  of the compilation cache key, and fields give you value identity (a rebuilt kind is the *same* key, a
+  differently-parameterized one is not) for free. A parameter that is *not* a field — captured in a
+  hand-written `__init__`, or a bare class attribute — is invisible to that identity, so two
+  differently-parameterized instances collide and `jit` will serve one the other's compiled program.
+  Deriving a variant by copying an existing kind and swapping a function is prevented outright: a
+  variant is a subclass, hence a distinct type.
 - **`Geometry`** (`manifold.py` `MANIFOLD`/`COREWISE`; `backend/geometry.py`) — `frame(x)` (the frame),
   `project` (the gauge `Π`), `retract`, plus the Hilbert-Schmidt `inner`/`norm`, and an optional
   `precompute(frame)` returning a per-frame **geometry aux** that `project`/`retract` then receive. The

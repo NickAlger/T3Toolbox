@@ -37,6 +37,8 @@ from t3toolbox.backend.common import *
 
 __all__ = [
     'SamplingKind',
+    'ScalarOutputKind',
+    'ProbeOutputKind',
     'ApplyKind',
     'EntriesKind',
     'ProbeKind',
@@ -214,12 +216,17 @@ def _weight_matrix(
     and ``ω`` before it) -- they fold into the compiled program as device constants on the jax path.'''
     if weight is None:
         return None
-    w = np.asarray(weight, dtype=float)
+    w = np.array(weight, dtype=float)     # COPY, never a view: the canonical matrix is part of the
+    #                                      kind's VALUE IDENTITY and hence of the jit cache key, so a
+    #                                      caller mutating their own array in place (the natural way
+    #                                      to write a weight sweep) would otherwise desync the key
+    #                                      from the compiled program -- a silent wrong answer.
     if w.ndim == 1:
         w = w[None, :] if bare == 'order' else w[:, None]
     elif w.ndim != 2:
         raise ValueError("residual weight must be 1-D or 2-D (ω[mode, order]); got %d-D of shape %s"
                          % (w.ndim, w.shape))
+    w.setflags(write=False)               # and frozen, so the kind cannot be mutated through its own field
     o = w.shape[1]
     if o not in (1, order + 1):
         raise ValueError("residual weight's order dimension must be 1 or order+1=%d; got %d (shape %s)"
@@ -276,7 +283,7 @@ def _make_weight(
 #
 # What varies factors along three axes, and the class structure follows them rather than the six names:
 #   * output shape  -- scalar (apply/entries) vs a per-mode vector (probe): the `sumsq` / `block_sumsq`
-#                      reductions, supplied by _ScalarOutputKind / _ProbeOutputKind.
+#                      reductions, supplied by ScalarOutputKind / ProbeOutputKind.
 #   * derivative or not -- `has_order`, which adds a leading order axis to the data and one to `n_w`.
 #   * layer         -- ragged here, uniform in `uniform_fitting`, which overrides exactly five methods
 #                      (precompute / forward / transpose / point_forward / take) and the weight axes.
@@ -302,56 +309,88 @@ class SamplingKind(ValueHashedFields):
 
     name:              typ.ClassVar[str] = 'sampling'
     has_order:         typ.ClassVar[bool] = False   # True for the derivative kinds (leading order axis)
-    has_block_sumsq:   typ.ClassVar[bool] = True    # False disables the diagnostic per-block error table
+    has_block_sumsq:   typ.ClassVar[bool] = False   # set True by whoever IMPLEMENTS block_sumsq below;
+    #                                                a kind that does not gets the friendly guard in
+    #                                                optimizer_display rather than a bare NotImplementedError
 
     # ---- the five operations a layer supplies -------------------------------------------------
     def precompute(self, frame, sample):
         """The reusable frame sweep at ``frame`` for ``sample`` (computed once per local model)."""
-        raise NotImplementedError
+        raise NotImplementedError(
+            "%s does not implement precompute(): the reusable frame sweep. Subclass a concrete kind (ApplyKind, ProbeKind, "
+            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+            "are writing a new operator from scratch." % type(self).__name__)
 
     def forward(self, variations, sample, frame, sweep):
         """The bare Jacobian ``J v`` (no gauge)."""
-        raise NotImplementedError
+        raise NotImplementedError(
+            "%s does not implement forward(): the bare Jacobian J v. Subclass a concrete kind (ApplyKind, ProbeKind, "
+            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+            "are writing a new operator from scratch." % type(self).__name__)
 
     def transpose(self, residual, sample, frame, sweep):
         """The bare transpose ``J^T r``, summed over the sample stack ``W``; raw ``(dU, dG)``."""
-        raise NotImplementedError
+        raise NotImplementedError(
+            "%s does not implement transpose(): the bare transpose J^T r. Subclass a concrete kind (ApplyKind, ProbeKind, "
+            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+            "are writing a new operator from scratch." % type(self).__name__)
 
     def point_forward(self, x_cores, sample):
         """The point operation ``S(x)`` -- what the residual is measured against."""
-        raise NotImplementedError
+        raise NotImplementedError(
+            "%s does not implement point_forward(): the point operation S(x). Subclass a concrete kind (ApplyKind, ProbeKind, "
+            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+            "are writing a new operator from scratch." % type(self).__name__)
 
     def take(self, sample, data, idx):
         """Gather a flat ``W`` subset of ``(sample, data)`` -- the default minibatch draw's layout hook."""
-        raise NotImplementedError
+        raise NotImplementedError(
+            "%s does not implement take(): the minibatch gather. Subclass a concrete kind (ApplyKind, ProbeKind, "
+            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+            "are writing a new operator from scratch." % type(self).__name__)
 
     # ---- sample layout ------------------------------------------------------------------------
     def w_axes(self, sample):
         """The number of leading sample-stack (``W``) axes."""
-        raise NotImplementedError
+        raise NotImplementedError(
+            "%s does not implement w_axes(): the number of leading sample-stack axes. Subclass a concrete kind (ApplyKind, ProbeKind, "
+            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+            "are writing a new operator from scratch." % type(self).__name__)
 
     def n_measurements(self, sample):
         """The flat ``|W|`` measurement count, for the default draw."""
-        raise NotImplementedError
+        raise NotImplementedError(
+            "%s does not implement n_measurements(): the flat |W| measurement count. Subclass a concrete kind (ApplyKind, ProbeKind, "
+            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+            "are writing a new operator from scratch." % type(self).__name__)
 
     # ---- reductions (supplied by the output-shape bases below) --------------------------------
     def sumsq(self, out, n_w):
         """``|out|^2`` over ``W`` (and the order / free-mode axes), keeping the frame stack ``C``."""
-        raise NotImplementedError
+        raise NotImplementedError(
+            "%s does not implement sumsq(): the |.|^2 reduction. Subclass a concrete kind (ApplyKind, ProbeKind, "
+            "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
+            "are writing a new operator from scratch." % type(self).__name__)
 
     def block_sumsq(self, out, n_w):
-        """Per-``(mode, order)`` ``|.|^2`` -> a 2-D matrix; UNWEIGHTED (the honest diagnostic table)."""
-        raise NotImplementedError
+        """Per-``(mode, order)`` ``|.|^2`` -> a 2-D matrix; UNWEIGHTED (the honest diagnostic table).
+
+        Optional: only the Newton-CG relative-error display needs it. A kind that implements it must also
+        set ``has_block_sumsq = True`` so the display knows (the two output-shape bases below do)."""
+        raise NotImplementedError(
+            "%s does not implement block_sumsq -- it is optional, and only the Newton-CG relative-error "
+            "display needs it. Implement it and set has_block_sumsq = True." % type(self).__name__)
 
     # ---- the residual weight -------------------------------------------------------------------
     _bare_binds_to:  typ.ClassVar[str] = 'order'          # what a 1-D weight means (see _weight_matrix)
     _order_axis:     typ.ClassVar[typ.Optional[int]] = 0  # omega's order axis in an ARRAY output
     _mode_axis:      typ.ClassVar[typ.Optional[int]] = None   # omega's mode axis in an ARRAY output
 
-    @property
-    def weight(self):
-        """The canonical 2-D ``omega[mode, order]``, or ``None``. Unweightable kinds have no weight."""
-        return None
+    weight = None   # the canonical 2-D omega[mode, order]. A PLAIN class attribute, deliberately: it is
+    #                 not annotated, so it is not a dataclass field here, which lets the weightable kinds
+    #                 below declare a real FIELD of the same name. (A property would be a data descriptor
+    #                 and shadow the field; a ClassVar gets re-inherited through the output-shape bases
+    #                 and suppresses it.)
 
     @ft.cached_property
     def _apply_weight(self):
@@ -360,9 +399,11 @@ class SamplingKind(ValueHashedFields):
 
 
 @dataclass(frozen=True, eq=False)
-class _ScalarOutputKind(SamplingKind):
+class ScalarOutputKind(SamplingKind):
     """Kinds whose output is a scalar per measurement (apply / entries): every mode is contracted, so
     there is no mode axis and a per-mode weight is a structural error."""
+
+    has_block_sumsq = True                      # implemented just below
 
     def sumsq(self, out, n_w):
         return sumsq_over_samples(self._apply_weight(out, 1), n_w + (1 if self.has_order else 0))
@@ -372,9 +413,11 @@ class _ScalarOutputKind(SamplingKind):
 
 
 @dataclass(frozen=True, eq=False)
-class _ProbeOutputKind(SamplingKind):
+class ProbeOutputKind(SamplingKind):
     """Kinds whose output is a vector per measurement per mode (probe): one free mode each, so the
     reduction also sums the free mode and the kind carries a mode axis to weight."""
+
+    has_block_sumsq = True                      # implemented just below
 
     def sumsq(self, out, n_w):
         return sumsq_over_probes(self._apply_weight(out, 1), n_w + (1 if self.has_order else 0))
@@ -426,7 +469,7 @@ class _IndexPpSample:
 # The six ragged kinds
 # --------------------------------------------------------------------------------------------------
 @dataclass(frozen=True, eq=False)
-class ApplyKind(_WwSample, _ScalarOutputKind):
+class ApplyKind(_WwSample, ScalarOutputKind):
     """The all-modes ``apply``: one scalar per measurement. Unweighted (no mode or order axis)."""
 
     name = 'apply'
@@ -448,7 +491,7 @@ class ApplyKind(_WwSample, _ScalarOutputKind):
 
 
 @dataclass(frozen=True, eq=False)
-class EntriesKind(_IndexSample, _ScalarOutputKind):
+class EntriesKind(_IndexSample, ScalarOutputKind):
     """The all-modes ``entries``: one scalar per multi-index. Unweighted."""
 
     name = 'entries'
@@ -470,7 +513,7 @@ class EntriesKind(_IndexSample, _ScalarOutputKind):
 
 
 @dataclass(frozen=True, eq=False)
-class ProbeKind(_WwSample, _ProbeOutputKind):
+class ProbeKind(_WwSample, ProbeOutputKind):
     """The vector-valued ``probe`` (one free mode per measurement), optionally **per-mode** weighted.
 
     Mode weighting is the order-0 case of the same residual-weight machinery as the derivative kinds:
@@ -481,15 +524,11 @@ class ProbeKind(_WwSample, _ProbeOutputKind):
     name = 'probe'
     _bare_binds_to = 'mode'
 
-    residual_weight:  typ.Optional[typ.Any] = None   # per-mode omega, (d,) / (d,1); None = unweighted
+    weight:  typ.Optional[typ.Any] = None   # per-mode omega, (d,) / (d,1); None = unweighted
 
     def __post_init__(self):
         # canonicalize once, so equal-but-differently-spelled weights are the SAME cache key
-        object.__setattr__(self, 'residual_weight', _weight_matrix(self.residual_weight, 0, self._bare_binds_to))
-
-    @property
-    def weight(self):
-        return self.residual_weight
+        object.__setattr__(self, 'weight', _weight_matrix(self.weight, 0, self._bare_binds_to))
 
     def precompute(self, frame, ww):
         return probing.tv_precompute_probe_frame_sweep(frame, ww)
@@ -517,20 +556,15 @@ class _DerivativesKind(SamplingKind):
 
     has_order = True
 
-    order:            int = 0                        # highest derivative order
-    residual_weight:  typ.Optional[typ.Any] = None   # omega; see the concrete kinds for its shape
+    order:   int = 0                        # highest derivative order
+    weight:  typ.Optional[typ.Any] = None   # omega; see the concrete kinds for its shape
 
     def __post_init__(self):
-        object.__setattr__(self, 'residual_weight',
-                           _weight_matrix(self.residual_weight, self.order, self._bare_binds_to))
-
-    @property
-    def weight(self):
-        return self.residual_weight
+        object.__setattr__(self, 'weight', _weight_matrix(self.weight, self.order, self._bare_binds_to))
 
 
 @dataclass(frozen=True, eq=False)
-class ApplyDerivativesKind(_WwPpSample, _ScalarOutputKind, _DerivativesKind):
+class ApplyDerivativesKind(_WwPpSample, ScalarOutputKind, _DerivativesKind):
     """Symmetric directional derivatives of the all-modes apply, orders ``0..order``, in direction ``P``.
     ``sample = (ww, pp)``. All-modes apply has no mode axis, so ``weight`` is **order-only**."""
 
@@ -554,7 +588,7 @@ class ApplyDerivativesKind(_WwPpSample, _ScalarOutputKind, _DerivativesKind):
 
 
 @dataclass(frozen=True, eq=False)
-class EntriesDerivativesKind(_IndexPpSample, _ScalarOutputKind, _DerivativesKind):
+class EntriesDerivativesKind(_IndexPpSample, ScalarOutputKind, _DerivativesKind):
     """:py:class:`ApplyDerivativesKind` at integer grid points. ``sample = (index, pp)``. Order-only weight."""
 
     name = 'entries_derivatives'
@@ -577,7 +611,7 @@ class EntriesDerivativesKind(_IndexPpSample, _ScalarOutputKind, _DerivativesKind
 
 
 @dataclass(frozen=True, eq=False)
-class ProbeDerivativesKind(_WwPpSample, _ProbeOutputKind, _DerivativesKind):
+class ProbeDerivativesKind(_WwPpSample, ProbeOutputKind, _DerivativesKind):
     """Vector-valued derivative probing: the residual is a list of ``d`` order-leading arrays.
     ``sample = (ww, pp)``. Probe has both a mode and an order axis, so ``weight`` is the full
     ``omega[mode, order]`` matrix (a row = per-order, a column = per-mode, a matrix = both)."""

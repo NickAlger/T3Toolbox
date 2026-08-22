@@ -269,7 +269,10 @@ def _require_unstacked(
     Fit the stack elements separately (``backend.stacking.unstack``), or build the local model directly
     -- :py:meth:`Problem.local_model` and the frontend ``GaussNewtonModel`` DO support a stacked point
     and return a shape-``C`` objective, so rolling your own loop over a stacked problem works. It is only
-    the library optimizers' scalar reductions that do not. A possible future feature.
+    the library optimizers' scalar reductions that do not. (A **regularizer** on a stacked point is a
+    separate matter and raises on that path too --
+    :py:func:`~t3toolbox.backend.regularization.require_unstacked_for_regularizer`.) A possible future
+    feature.
 
     Structural (a shape question), so it raises in both safety modes and is jit-safe."""
     stack = tuple(geom.stack_shape(x0))
