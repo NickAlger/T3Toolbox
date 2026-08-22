@@ -219,9 +219,10 @@ shared-factor submanifold, and every optimizer works on it unchanged. See [`shar
   `SamplingKind` you supply all nine. Each unimplemented one raises with a message saying so.
   Keep your parameters as dataclass **fields**: a kind rides as jax `aux_data`, so its hash/eq are part
   of the compilation cache key, and fields give you value identity (a rebuilt kind is the *same* key, a
-  differently-parameterized one is not) for free. A parameter that is *not* a field — captured in a
-  hand-written `__init__`, or a bare class attribute — is invisible to that identity, so two
-  differently-parameterized instances collide and `jit` will serve one the other's compiled program.
+  differently-parameterized one is not) for free. A parameter stashed on the instance instead of
+  declared — captured in a hand-written `__init__`, or on a class that forgot its `@dataclass`
+  decorator — is invisible to that identity, and raises a `TypeError` saying so the first time the
+  object is hashed or compared.
   Deriving a variant by copying an existing kind and swapping a function is prevented outright: a
   variant is a subclass, hence a distinct type.
 - **`Geometry`** (`manifold.py` `MANIFOLD`/`COREWISE`; `backend/geometry.py`) — `frame(x)` (the frame),

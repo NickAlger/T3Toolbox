@@ -121,6 +121,53 @@ class TestStackShape(unittest.TestCase):
                     self.assertEqual(geom.n_stack, len(stack))
 
 
+class TestParametersMustBeFields(unittest.TestCase):
+    """`ValueHashedFields` builds the identity from `dc.fields`, so a parameter stashed anywhere else is
+    invisible to it -- differently-parameterized objects compare equal, and since these ride as jax
+    aux_data one silently gets the other's compiled program. Measured before the guard: a kind whose
+    `scale` lived in a hand-written `__init__` returned 293.561489 under jit for scale 2 and 3, where
+    eager gave 1174.245955 and 2642.053398."""
+
+    def test_a_hand_written_init_is_rejected(self):
+        class ByInit(bgeo.ManifoldGeometryOps):
+            def __init__(self, damping=1.0):
+                super().__init__()
+                object.__setattr__(self, 'damping', damping)
+
+        with self.assertRaises(TypeError) as caught:
+            hash(ByInit(2.0))
+        self.assertIn('damping', str(caught.exception))
+        self.assertIn('fields', str(caught.exception))
+
+    def test_a_missing_dataclass_decorator_is_rejected(self):
+        class NoDecorator(bgeo.ManifoldGeometryOps):
+            damping: float = 1.0                       # annotated, but the class is not a @dataclass
+            def __init__(self, damping=1.0):
+                super().__init__()
+                object.__setattr__(self, 'damping', damping)
+
+        with self.assertRaises(TypeError):
+            hash(NoDecorator(2.0))
+
+    def test_a_declared_field_is_accepted(self):
+        import dataclasses as dc
+
+        @dc.dataclass(frozen=True, eq=False)
+        class Damped(bgeo.ManifoldGeometryOps):
+            damping: float = 1.0
+
+        self.assertEqual(Damped(2.0), Damped(2.0))
+        self.assertNotEqual(Damped(2.0), Damped(3.0))
+        self.assertEqual(hash(Damped(2.0)), hash(Damped(2.0)))
+
+    def test_cached_property_values_are_not_mistaken_for_parameters(self):
+        """The library's own objects populate __dict__ through cached_property; the guard must not fire."""
+        x = uniform_point()
+        geom = bgeo.UniformManifoldGeometryOps.from_point(x.data)
+        _ = geom.n_stack, hash(geom), geom == geom
+        self.assertEqual(hash(geom), hash(bgeo.UniformManifoldGeometryOps.from_point(x.data)))
+
+
 class TestBasePointTangent(unittest.TestCase):
     def test_uniform_variation_shapes_match_the_orthogonal_representation(self):
         """``ufv_base_point_tangent`` must produce the variation supercore shapes that

@@ -139,23 +139,28 @@ two same-frame guards, and a duplicated geometry mapper.
 The design makes one class of bug impossible and, in exchange, sharpens the failure mode of a
 different one. Both are worth knowing before you write your own kind or geometry.
 
-**A parameter that is not a *field* is invisible to the identity, and the failure is now silent.**
-Under the old record-of-closures encoding a user-built kind had `identity = None` and fell back to
-object identity: every rebuild recompiled — slow, but always correct. Now, if a parameter is captured
-in a hand-written `__init__`, declared as a bare class attribute, or the class is annotated but missing
-its `@dataclass` decorator, every instance keys on the same (empty) field tuple, so differently
-parameterized instances collide and `jit` serves one the other's compiled program. Measured on a kind
-with a hand-written `__init__`: `scale=1.0` → 0.699391 (correct), `scale=2.0` → 0.699391 where eager
-gives 2.797564.
+**A parameter that is not a *field* is invisible to the identity — now guarded.** Stash a parameter on
+the instance instead of declaring it, and every instance keys on the same field tuple, so differently
+parameterized objects compare equal and `jit` serves one the other's compiled program. Measured on a
+kind whose `scale` lives in a hand-written `__init__`: `scale=2.0` and `scale=3.0` both returned
+`293.561489`, where eager gives `1174.245955` and `2642.053398`.
 
-So the rule "parameters are fields" is load-bearing for *correctness*, not just for speed, and the
-library's own house style — `name = 'apply'`, `_order_axis = 1` — teaches the bare-class-attribute
-spelling for things that are deliberately *not* parameters. A `__post_init__` guard rejecting
-undeclared instance attributes would turn all three spellings into construction-time errors; it is
-logged in [`deferred_and_rejected.md`](deferred_and_rejected.md) rather than built, because it must not
-false-positive on `functools.cached_property`, which writes to `__dict__` by design.
+`ValueHashedFields.require_parameters_are_fields` now rejects that. It runs from `_fields_key` — the
+moment the identity is first built — rather than from `__post_init__`, because a hand-written
+`__init__` sets its attributes *after* the dataclass `__init__` that would have run `__post_init__`, so
+there is nothing to see yet. Values cached by `functools.cached_property` live in `__dict__` by design
+and are excluded.
 
-**Behaviour is methods now, so a class-level monkeypatch defeats the cache.**
+Two of the three broken spellings raise: a hand-written `__init__`, and a class annotated but missing
+its `@dataclass` decorator. The third — a parameter as a bare **class** attribute — turns out to be
+safe rather than uncatchable: a class attribute is per-class, so two different values mean two different
+*types*, and the type is part of the identity, which separates them correctly (measured: `ScaleTwo()`
+and `ScaleThree()` compare unequal and each gets its own correct program). What is *not* safe is
+**mutating** a class attribute after use, which is the monkeypatch case below.
+
+**Behaviour is methods now, so mutating a class defeats the cache.** This covers both a monkeypatched
+method and a mutated class attribute used as a parameter (`ScaleTwo.scale = 9.0` after first use:
+`jit 461.211554` where eager gives `9339.533968`).
 `unittest.mock.patch.object(ApplyKind, 'forward', ...)` changes what the kind computes without changing
 its identity, and there is no guard against it — under the closure encoding there was no method to
 patch. Ordinary instance mutation is blocked (`FrozenInstanceError`); this is the one route left, and

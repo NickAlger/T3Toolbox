@@ -545,8 +545,38 @@ class ValueHashedFields:
             return tuple(ValueHashedFields._value_key(x) for x in v)
         return v
 
+
+    def require_parameters_are_fields(self) -> None:
+        """Reject a parameter that was stashed on the instance instead of declared as a **field**.
+
+        The value identity is built from ``dc.fields(self)``, so anything else an instance carries is
+        invisible to it -- two objects that differ only in such a value compare EQUAL, and since these
+        objects are jax ``aux_data`` one of them silently receives the other's compiled program. That
+        makes "parameters are fields" a correctness rule, not a style preference, and this turns the
+        three ways of breaking it (a hand-written ``__init__``, a bare class attribute assigned per
+        instance, a class that forgot its ``@dataclass`` decorator) into a construction-time error.
+
+        Call it from ``__post_init__``. Values cached by ``functools.cached_property`` also live in
+        ``__dict__`` by design and are skipped -- they are derived, never parameters."""
+        declared = {f.name for f in dc.fields(self)}
+        cached = {name for cls in type(self).__mro__
+                  for name, attr in vars(cls).items() if isinstance(attr, ft.cached_property)}
+        stray = set(self.__dict__) - declared - cached
+        if stray:
+            raise TypeError(
+                "%s carries %s outside its dataclass fields. Parameters must be declared as fields: the "
+                "value identity (and hence the jax compilation cache key) is built from the fields alone, "
+                "so an instance attribute set some other way is invisible to it and two differently "
+                "parameterized objects would compare equal -- one would silently get the other's compiled "
+                "program. Declare it as an annotated field on a @dataclass(frozen=True, eq=False) class."
+                % (type(self).__name__, ', '.join(sorted(repr(k) for k in stray))))
+
     @ft.cached_property
     def _fields_key(self) -> typ.Tuple:
+        # Checked HERE, not in __post_init__: a hand-written __init__ sets its attributes AFTER calling
+        # the dataclass __init__ (which is what runs __post_init__), so at that point there is nothing to
+        # see. First hash/eq is both late enough to catch it and exactly the moment it would do harm.
+        self.require_parameters_are_fields()
         return tuple(self._value_key(getattr(self, f.name)) for f in dc.fields(self))
 
     def __hash__(self) -> int:

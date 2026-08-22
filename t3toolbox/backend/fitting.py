@@ -386,16 +386,16 @@ class SamplingKind(ValueHashedFields):
     _order_axis:     typ.ClassVar[typ.Optional[int]] = 0  # omega's order axis in an ARRAY output
     _mode_axis:      typ.ClassVar[typ.Optional[int]] = None   # omega's mode axis in an ARRAY output
 
-    weight = None   # the canonical 2-D omega[mode, order]. A PLAIN class attribute, deliberately: it is
-    #                 not annotated, so it is not a dataclass field here, which lets the weightable kinds
-    #                 below declare a real FIELD of the same name. (A property would be a data descriptor
-    #                 and shadow the field; a ClassVar gets re-inherited through the output-shape bases
-    #                 and suppresses it.)
 
     @ft.cached_property
     def _apply_weight(self):
-        """``apply_w(x, power) = x * omega**power`` for this kind's output layout."""
-        return _make_weight(self.weight, self._order_axis, self._mode_axis)
+        """``apply_w(x, power) = x * omega**power`` for this kind's output layout.
+
+        A **weightable** kind declares a ``weight`` FIELD holding the canonical 2-D ``omega[mode, order]``
+        (:py:class:`ProbeKind`, the three ``*DerivativesKind``). The rest have no such field and no
+        weight, which is what the default here means -- it is asked for rather than declared on this base
+        because declaring it would place it first in every subclass's constructor signature."""
+        return _make_weight(getattr(self, 'weight', None), self._order_axis, self._mode_axis)
 
 
 @dataclass(frozen=True, eq=False)

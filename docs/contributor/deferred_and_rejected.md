@@ -32,15 +32,6 @@ cross-references.)
 
 ## Deferred (would be built if the need materializes)
 
-- **A construction-time guard for "parameter is not a field".** A geometry or sampling kind whose
-  parameter is captured in a hand-written `__init__`, set as a bare class attribute, or defined without
-  the `@dataclass` decorator is invisible to the value identity, so differently-parameterized instances
-  collide in the jit cache and one silently gets the other's compiled program (measured; see
-  [`parameters_not_closures.md`](parameters_not_closures.md) → Honest limits). Cheaply detectable: in all
-  three spellings the instance `__dict__` carries keys that are not declared fields. The reason it is not
-  built is that `functools.cached_property` also writes to `__dict__`, so the guard needs an exclusion
-  list and must not fire on the library's own `_fields_key` / `_apply_weight`.
-
 - **A guard that a sampling kind and a geometry were built at the same rank.** Both now carry `shape`
   and `masks` as comparable fields, but nothing compares them. Pairing a kind built at one rank with a
   geometry at another — reachable when the two ranks have identical *padded* shapes, so no shape error
