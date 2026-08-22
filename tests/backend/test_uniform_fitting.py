@@ -490,5 +490,32 @@ class TestUniformMinimalRank(unittest.TestCase):
         self.assertLess(s['losses'][-1], s['losses'][0])
 
 
+
+class TestProblemStringArgs(unittest.TestCase):
+    """Review 2026-08-22 (C12): geometry / kind strings are validated (case-insensitively) and a
+    derivative kind needs order= at construction, not on first use."""
+
+    def setUp(self):
+        np.random.seed(8)
+        x = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+        self.x0 = ut3.UniformTuckerTensorTrain.from_t3(x)
+        self.ww = tuple(np.random.randn(6, n) for n in x.shape)
+        self.b = x.apply(self.ww)
+
+    def test_geometry_string(self):
+        p = uf.uniform_least_squares_problem('Manifold', 'apply', self.x0, self.ww, self.b)
+        self.assertIsInstance(p.geom, bgeo.UniformManifoldGeometryOps)
+        p = uf.uniform_least_squares_problem('COREWISE', 'Apply', self.x0, self.ww, self.b)
+        self.assertIsInstance(p.geom, bgeo.UniformCorewiseGeometryOps)
+        with self.assertRaises(ValueError):
+            uf.uniform_least_squares_problem('manifld', 'apply', self.x0, self.ww, self.b)
+        with self.assertRaises(ValueError):
+            uf.uniform_least_squares_problem('manifold', 'bogus', self.x0, self.ww, self.b)
+
+    def test_derivative_kind_requires_order(self):
+        pp = tuple(np.random.randn(6, n) for n in self.x0.shape)
+        with self.assertRaises(ValueError):
+            uf.uniform_least_squares_problem('manifold', 'apply_derivatives', self.x0, (self.ww, pp), self.b)
+
 if __name__ == '__main__':
     unittest.main()

@@ -189,5 +189,20 @@ class TestMakeNewtonDisplay(unittest.TestCase):
             self.assertTrue(builtin.has_block_sumsq, f'{builtin.name} implements block_sumsq')
 
 
+
+class TestValidationArgsGoTogether(unittest.TestCase):
+    """Review 2026-08-22 (C9): val_data without val_sample used to fail deep inside the kind, and
+    val_sample without val_data was silently ignored."""
+
+    def test_one_without_the_other_raises(self):
+        np.random.seed(4)
+        x = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+        ww = tuple(np.random.randn(6, n) for n in x.shape)
+        problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, ww, x.apply(ww))
+        with self.assertRaises(ValueError):
+            bdisp.make_newton_display(problem, val_data=x.apply(ww))
+        with self.assertRaises(ValueError):
+            bdisp.make_newton_display(problem, val_sample=ww)
+
 if __name__ == "__main__":
     unittest.main()

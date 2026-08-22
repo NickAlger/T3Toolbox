@@ -423,6 +423,16 @@ def uniform_least_squares_problem(
     >>> print(bool(stats['losses'][-1] < stats['losses'][0]))     # it descends
     True
     """
+    geometry, kind_name = geometry.lower(), kind_name.lower()      # 'Manifold', 'PROBE', ... accepted
+    if geometry not in ('manifold', 'corewise'):
+        raise ValueError("geometry must be 'manifold' or 'corewise'; got %r (a typo used to build the "
+                         "corewise geometry silently)" % (geometry,))
+    if kind_name not in _SAMPLING_KIND and kind_name not in _DERIV_SAMPLING_KIND:
+        raise ValueError("unknown kind_name %r; expected one of %s"
+                         % (kind_name, sorted(_SAMPLING_KIND) + sorted(_DERIV_SAMPLING_KIND)))
+    if kind_name in _DERIV_SAMPLING_KIND and order is None:
+        raise ValueError("derivative kind %r requires order= (the Problem used to build and fail on first use)"
+                         % (kind_name,))
     min_tucker, min_tt = ranks.compute_minimal_ranks(x0.shape, np.asarray(x0.tucker_ranks),
                                                      np.asarray(x0.tt_ranks), sharing=sharing)
     if not bool(np.all(np.asarray(x0.tucker_ranks) == np.asarray(min_tucker))

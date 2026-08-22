@@ -317,5 +317,43 @@ class TestFrontendUniformOptimizers(unittest.TestCase):
         self.assertLess(stats['losses'][-1], stats['losses'][0])
 
 
+
+class TestReview20260822Frontend(unittest.TestCase):
+    """Frontend-adapter findings from the 2026-08-22 review (C6, C9, C12)."""
+
+    def setUp(self):
+        np.random.seed(7)
+        self.x_true = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+        self.ww = tuple(np.random.randn(12, n) for n in self.x_true.shape)
+        self.b = self.x_true.apply(self.ww)
+
+    def test_adam_on_manifold_with_non_minimal_x0_runs_and_warns(self):
+        # adam allocated its moments at x0's core shapes; the first retraction dropped the redundant rank
+        # (n_1 = 3 > r_1 r_2 = 2 here) and step 2 crashed. x0 is now reduced to minimal ranks on entry,
+        # and adam-on-manifold warns (gauge-dependent moments).
+        x0 = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 3, 2), (1, 2, 1, 1))
+        self.assertFalse(x0.has_minimal_ranks)
+        with self.assertWarns(RuntimeWarning):
+            x_opt, stats = topt.adam(t3m.MANIFOLD, 'apply', self.ww, self.b, x0, np.random.default_rng(0),
+                                     batch=6, max_iter=3, lr=1e-3)
+        self.assertTrue(x_opt.has_minimal_ranks)
+        # the other manifold optimizers also get the reduced start, and a MINIMAL start is untouched
+        x_min = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+        x_opt, _ = topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, x_min, max_newton=1)
+        self.assertEqual(x_opt.ranks, x_min.ranks)
+
+    def test_validation_args_go_together(self):
+        with self.assertRaises(ValueError):
+            topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x_true, max_newton=1,
+                           verbose=True, val_data=self.b)
+        with self.assertRaises(ValueError):
+            topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x_true, max_newton=1,
+                           verbose=True, val_sample=self.ww)
+
+    def test_kind_string_is_case_insensitive(self):
+        a, _ = topt.newton_cg(t3m.MANIFOLD, 'Apply', self.ww, self.b, self.x_true, max_newton=1)
+        b, _ = topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x_true, max_newton=1)
+        self.assertLess(float(np.linalg.norm(a.to_dense() - b.to_dense())), 1e-12)
+
 if __name__ == "__main__":
     unittest.main()

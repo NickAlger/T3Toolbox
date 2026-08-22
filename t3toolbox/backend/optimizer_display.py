@@ -212,6 +212,10 @@ def make_newton_display(
                          "set has_block_sumsq = True).")
     n_w = kind.w_axes(problem.sample)
     data_bs = np.asarray(kind.block_sumsq(problem.data, n_w), dtype=float)
+    if (val_sample is None) != (val_data is None):
+        raise ValueError("make_newton_display: pass val_sample and val_data together, or neither "
+                         "(val_sample=%s, val_data=%s)" % ('None' if val_sample is None else 'given',
+                                                           'None' if val_data is None else 'given'))
     have_val = val_data is not None
     n_w_val = kind.w_axes(val_sample) if have_val else None
     val_data_bs = np.asarray(kind.block_sumsq(val_data, n_w_val), dtype=float) if have_val else None

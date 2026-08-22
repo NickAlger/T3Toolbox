@@ -23,13 +23,14 @@ structural error). The result is returned in the same representation as ``x0``.
 
 **``use_jit=True``** (an explicit kwarg on ``mc_sgd`` / ``adam`` / ``newton_cg``) opts into jax: the
 optimizer **auto-converts** ``x0`` / ``sample`` / ``data`` onto jax and jit-compiles, so the result comes
-back **jax-backed** in jax's default float32 (enable jax x64 for float64); it **raises** if jax is not
-installed rather than silently running eager. See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
+back **jax-backed** in jax's default float32 (enable jax x64 for float64); if jax is not installed it
+runs eager on numpy with a one-time warning (the jax-absent policy, ``backend.common.jax_or_warn``). See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
 
     >>> # x_opt, stats = optimizers.gradient_descent(MANIFOLD, 'probe', ww, data, x0)           # ragged
     >>> # x_opt, stats = optimizers.newton_cg(UNIFORM_MANIFOLD, 'probe', ww, data, ux0)         # uniform
 """
 import typing as typ
+import warnings
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
@@ -105,6 +106,26 @@ def _uniform_geometry_name(geometry) -> typ.Tuple[
                      f"shared_geometry.SharedGeometry over one), got {geometry!r}")
 
 
+def _is_manifold_geometry(geometry) -> bool:
+    """Whether ``geometry`` is (a shared wrapper over) a manifold geometry, ragged or uniform."""
+    if isinstance(geometry, sg.SharedGeometry):
+        return geometry._is_manifold_kind
+    return geometry is t3m.MANIFOLD or geometry is ut3m.UNIFORM_MANIFOLD
+
+
+def _ragged_minimal(x0, sharing):
+    """Reduce a ragged manifold start to minimal ranks (the SAME tensor) -- the mirror of
+    :py:func:`~t3toolbox.backend.uniform_fitting.uniform_minimal`. A non-minimal ``x0`` is legal, but the
+    first retraction drops the redundant rank anyway, and an optimizer that allocates state at ``x0``'s
+    core shapes (adam's moments) then broke at step 2. With ``sharing`` the SHARED-minimal notion applies.
+    No-op when already minimal, so a minimal start is untouched (same gauge, same trajectory)."""
+    minimal = t3.TuckerTensorTrain.get_minimal_ranks(x0.shape, x0.tucker_ranks, x0.tt_ranks, sharing=sharing)
+    if (tuple(x0.tucker_ranks), tuple(x0.tt_ranks)) == (tuple(minimal[0]), tuple(minimal[1])):
+        return x0
+    y, _, _ = x0.t3svd(sharing=sharing)                              # lossless, left-orthogonal
+    return y.rank_adjustment_sweep('right_to_left', sharing=sharing)  # minimal (the t3svd output is left-orthogonal)
+
+
 def _check_kind(kind: str, order: typ.Optional[int]) -> None:
     """Validate the sampling-kind name (shared across representations); derivative kinds need ``order``."""
     if kind not in _KIND and kind not in _DERIV_KIND:
@@ -175,6 +196,7 @@ def _setup(
     frontend user never meets the minimal-rank requirement, and rewraps the optimizer's bare supercore pair
     with the frame's held ``shape`` + ``masks``.
     """
+    kind = kind.lower()                                           # 'Probe', 'PROBE_DERIVATIVES', ... accepted
     _check_kind(kind, order)
     if weight is not None and kind in ('apply', 'entries'):      # plain apply/entries: no axis to weight
         raise ValueError(f"the plain '{kind}' kind takes no residual weight (no mode or order axis); "
@@ -191,6 +213,8 @@ def _setup(
         return problem, init, lambda sc: ut3.UniformTuckerTensorTrain(sc[0], sc[1], x0m.shape, x0m.masks)
 
     if isinstance(x0, t3.TuckerTensorTrain):
+        if _is_manifold_geometry(geometry):
+            x0 = _ragged_minimal(x0, getattr(geometry, 'sharing', None))   # mirror of uniform_minimal (no-op if minimal)
         if kind in _KIND:                                # plain kinds: only probe is weightable (per-mode)
             bk = bfit.probe_kind(wm) if kind == 'probe' and wm is not None else _KIND[kind]
         elif kind == 'probe_derivatives':                # the only derivative kind with a chunkable 𝒥ᵀ assembly
@@ -244,7 +268,7 @@ def mc_sgd(
         order:    typ.Optional[int] = None,
         weight:   typ.Optional[typ.Any] = None,   # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         draw:     typ.Optional[typ.Callable]        = None,  # custom draw(rng)->(sample_B,data_B); None = flat
-        use_jit:  bool = False,         # jit the per-step kernel: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
+        use_jit:  bool = False,         # jit the per-step kernel: auto-converts x0/sample/data to jax -> a jax-backed float32 result; warns + runs eager if jax absent
         regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ); scaled by batch/n per step
         chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
         **kwargs,                       # forwarded to backend.optimizers.mc_sgd (max_iter, check_every, ...)
@@ -268,7 +292,7 @@ def adam(
         order:    typ.Optional[int] = None,
         weight:   typ.Optional[typ.Any] = None,   # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         draw:     typ.Optional[typ.Callable]        = None,
-        use_jit:  bool = False,         # jit the per-step kernel: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
+        use_jit:  bool = False,         # jit the per-step kernel: auto-converts x0/sample/data to jax -> a jax-backed float32 result; warns + runs eager if jax absent
         regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ); scaled by batch/n per step
         chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
         **kwargs,                       # forwarded to backend.optimizers.adam (lr, max_iter, ...)
@@ -277,6 +301,12 @@ def adam(
     uniform ``x0`` (see :py:func:`gradient_descent`). A ``regularizer`` is scaled by
     ``batch/n`` per step so ``λ`` matches the full-batch optimizers. See
     :py:func:`t3toolbox.backend.optimizers.adam`."""
+    if _is_manifold_geometry(geometry):
+        warnings.warn("adam on a MANIFOLD geometry: Adam's per-coordinate moments live in the core "
+                      "coordinates, which are gauge-dependent, so the iterates depend on the backend / "
+                      "representation (measured ~1e-2 between numpy, jax and uniform). It runs, but COREWISE "
+                      "is the intended geometry for adam; mc_sgd / newton_cg are the gauge-invariant "
+                      "manifold optimizers.", RuntimeWarning, stacklevel=2)
     problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size, batch=batch)
     x_cores, stats = bopt.adam(problem, init, rng, batch, draw=draw, use_jit=use_jit, **kwargs)
     return rewrap(x_cores), stats
@@ -294,7 +324,7 @@ def newton_cg(
         val_sample: typ.Any = None,               # optional validation sample (same layout as `sample`) -> a train|val table
         val_data:   typ.Any = None,               # optional validation data (both given adds the val column)
         callback:   typ.Optional[typ.Callable] = None,  # custom callback(NewtonInfo) each iter (overrides `verbose`)
-        use_jit:    bool = False,               # jit the inner CG: auto-converts x0/sample/data to jax -> a jax-backed float32 result; raises if jax absent
+        use_jit:    bool = False,               # jit the inner CG: auto-converts x0/sample/data to jax -> a jax-backed float32 result; warns + runs eager if jax absent
         regularizer: typ.Any = None,            # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
         chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
         **kwargs,                       # forwarded to backend.optimizers.newton_cg (max_newton, gtol_rel, g0norm_newton, ...)
@@ -390,6 +420,10 @@ def newton_cg(
     """
     problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size)
     records = None
+    if (val_sample is None) != (val_data is None):
+        raise ValueError("newton_cg: pass val_sample and val_data together, or neither (val_sample=%s, "
+                         "val_data=%s)" % ('None' if val_sample is None else 'given',
+                                            'None' if val_data is None else 'given'))
     if callback is None and verbose:
         vs, vd = val_sample, val_data
         if isinstance(x0, ut3.UniformTuckerTensorTrain) and val_data is not None:
