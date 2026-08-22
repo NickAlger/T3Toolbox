@@ -32,6 +32,27 @@ cross-references.)
 
 ## Deferred (would be built if the need materializes)
 
+- **A construction-time guard for "parameter is not a field".** A geometry or sampling kind whose
+  parameter is captured in a hand-written `__init__`, set as a bare class attribute, or defined without
+  the `@dataclass` decorator is invisible to the value identity, so differently-parameterized instances
+  collide in the jit cache and one silently gets the other's compiled program (measured; see
+  [`parameters_not_closures.md`](parameters_not_closures.md) → Honest limits). Cheaply detectable: in all
+  three spellings the instance `__dict__` carries keys that are not declared fields. The reason it is not
+  built is that `functools.cached_property` also writes to `__dict__`, so the guard needs an exclusion
+  list and must not fire on the library's own `_fields_key` / `_apply_weight`.
+
+- **A guard that a sampling kind and a geometry were built at the same rank.** Both now carry `shape`
+  and `masks` as comparable fields, but nothing compares them. Pairing a kind built at one rank with a
+  geometry at another — reachable when the two ranks have identical *padded* shapes, so no shape error
+  catches it — runs to completion and produces a wrong objective. `Problem.__post_init__` could compare
+  them when both are present.
+
+- **`d = 1` on the uniform layer.** Any uniform fit of a single-mode tensor fails in
+  `ut3_svd.ut3svd_supercores`, which concatenates a `(d,)+…` array with a `(d+1,)+…` one; ragged `d=1`
+  is fine. Verified identical on the pre-refactor tree, so this is pre-existing and lives in the SVD
+  layer, not the optimization layer. `d=1` structures are used elsewhere in the suite, just never with a
+  uniform frame.
+
 - **Stacked optimization.** A stacked point carries a batch of base points `C`, so every objective is
   an array of shape `C` -- but the optimizers' convergence tests, Armijo line searches and plateau
   detection all reduce it with a Python `float()`. All four now raise `NotImplementedError` at the

@@ -7,8 +7,8 @@ and why it is the way it is is `docs/`. This file is where-we-are + what's next,
 
 ## Newest thread — the optimization-layer restructuring (2026-08-21)
 
-**On branch `optimization-layer-value-typed`, NOT pushed, NOT released.** Seven commits, every gate
-green at each: full suite **748 passed / 42,002 subtests**, 192 module doctests, doc pages clean,
+**On branch `optimization-layer-value-typed`, NOT pushed, NOT released.** Nine commits, every gate
+green at each: full suite **751 passed / 42,011 subtests**, 192 module doctests, doc pages clean,
 `sphinx -W` clean.
 
     8ef7c118  backend geometries become value-typed classes
@@ -18,6 +18,8 @@ green at each: full suite **748 passed / 42,002 subtests**, 192 module doctests,
     3a31dd2f  SamplingKind becomes value-typed classes
     981a4b46  move the jit boundary -- 1 compile per Newton iteration -> 0
     843de628  one GaussNewtonModel for both representations
+    604149f2  docs: record the restructuring, close the sweep
+    cb36ef9f  act on the four-lane review
 
 ### How this started, and what it really was
 
@@ -59,6 +61,32 @@ Numerics were held to bit-identical against the pre-refactor tree throughout —
 (124,692 values), corewise transposes (24,882), kind surfaces (19,426), frontend model surfaces
 (8,160) — with two documented exceptions, both jitted `newton_cg`, agreeing to 1e-12 / 1e-15 relative
 on the fitted **tensor** (XLA fuses a larger compiled region differently).
+
+### Reviewed (2026-08-21)
+
+Four independent review lanes plus an `examples/` sweep, each required to ship a reproduction with its
+finding. Result: **two silent wrong answers**, both fixed in `cb36ef9f`.
+
+- `SharedGeometry.__eq__`/`__hash__` keyed on a hardcoded class name, so a subclass collided with the
+  shipped wrapper in the jit cache. **Live in 2026.1.0**, and exactly the failure the decision record
+  called unrepresentable — the record overclaimed, and now says so.
+- `_weight_matrix` aliased the caller's array, so a weight sweep reusing one buffer desynced the cache
+  key from the compiled program. Sharpened by this refactor (the weight became part of the value
+  identity); now copied and frozen.
+
+Plus seven regressions of mine, all documentation or ergonomics: a second `__all__` silently rebinding
+the first, `has_block_sumsq` defaulting the wrong way, `weight=` renamed gratuitously, six removed
+uniform builders documented nowhere, three new geometry protocol members undocumented, a "supply the
+five operations" recipe that needed nine and pointed at private bases, and stale cross-references.
+
+Positive evidence worth keeping: 250 untested combinations run against independent oracles found
+nothing; compile-once re-measured across 48 configurations, not the 1 I had checked; all 14 `examples/`
+scripts byte-identical against the pre-refactor tree — **they are not in CI**, which is a real gap.
+
+Three things the review found and we chose not to fix — all in
+`docs/contributor/deferred_and_rejected.md`: a construction-time guard for "parameter is not a field"
+(the design's one sharp edge — see *Honest limits* in the decision record), a kind/geometry rank-pairing
+guard, and `d=1` on the uniform layer (pre-existing, in `ut3_svd`).
 
 ### Next
 

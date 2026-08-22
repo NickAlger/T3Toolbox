@@ -429,6 +429,20 @@ element, inflating the effective `λ` by about `|C|` and doing it unevenly.
 
 ---
 
+### 4.11 A zero start makes the ragged and uniform layers diverge
+
+A zero point has no preferred orthonormal frame, so the completion the two layers pick differs — same
+objective, different gradient, and from there different iterates. On a well-conditioned `apply` fit both
+still converge to the same answer; on an ill-conditioned `entries` fit they need not (measured: from
+zero, ragged reached `8.8e-16` where uniform stalled at `8.49`; from a small random start both reached
+`~2e-10`). The layers agree to ~1e-14 per step from **any nonzero** start.
+
+So "a zero start is fine on the manifold" — true, and still the simplest thing to do — is a statement
+about one layer at a time, not a promise that the two layers will track each other. If you are comparing
+representations, start nonzero.
+
+---
+
 ## 5. Practical guidance from the field
 
 Distilled from fitting studies with the library (the studies themselves live in a separate research

@@ -134,6 +134,37 @@ Plus the deletions: `SamplingKind.identity` and its `__eq__`/`__hash__`, `_kind_
 `UniformGaussNewtonModel` entirely (four shadow fields, a lazy rebuild, a pytree registration), one of
 two same-frame guards, and a duplicated geometry mapper.
 
+## Honest limits
+
+The design makes one class of bug impossible and, in exchange, sharpens the failure mode of a
+different one. Both are worth knowing before you write your own kind or geometry.
+
+**A parameter that is not a *field* is invisible to the identity, and the failure is now silent.**
+Under the old record-of-closures encoding a user-built kind had `identity = None` and fell back to
+object identity: every rebuild recompiled — slow, but always correct. Now, if a parameter is captured
+in a hand-written `__init__`, declared as a bare class attribute, or the class is annotated but missing
+its `@dataclass` decorator, every instance keys on the same (empty) field tuple, so differently
+parameterized instances collide and `jit` serves one the other's compiled program. Measured on a kind
+with a hand-written `__init__`: `scale=1.0` → 0.699391 (correct), `scale=2.0` → 0.699391 where eager
+gives 2.797564.
+
+So the rule "parameters are fields" is load-bearing for *correctness*, not just for speed, and the
+library's own house style — `name = 'apply'`, `_order_axis = 1` — teaches the bare-class-attribute
+spelling for things that are deliberately *not* parameters. A `__post_init__` guard rejecting
+undeclared instance attributes would turn all three spellings into construction-time errors; it is
+logged in [`deferred_and_rejected.md`](deferred_and_rejected.md) rather than built, because it must not
+false-positive on `functools.cached_property`, which writes to `__dict__` by design.
+
+**Behaviour is methods now, so a class-level monkeypatch defeats the cache.**
+`unittest.mock.patch.object(ApplyKind, 'forward', ...)` changes what the kind computes without changing
+its identity, and there is no guard against it — under the closure encoding there was no method to
+patch. Ordinary instance mutation is blocked (`FrozenInstanceError`); this is the one route left, and
+it is deliberate Python.
+
+**A callable field silently forfeits the benefit.** `functools.partial` objects and lambdas hash by
+identity, so a kind parameterized by a *function* recompiles on every rebuild — correct, but back to
+the behaviour this refactor removed. Parameterize by data where you can.
+
 ## Rejected
 
 - **Adding an `identity` field to `GeometryOps` too.** The minimal fix for the compile-count symptom,
