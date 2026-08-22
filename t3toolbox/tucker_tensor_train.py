@@ -3288,8 +3288,10 @@ class TuckerTensorTrain:
         self: TuckerTensorTrain
             Tucker tensor train with ``shape=(N0,...,N(d-1))``
         index: NDArray
-            Index array or convertible to ``NDArray`` with ``dtype=int`` and 
-            ``shape=(d,)+idx_stack_shape``
+            Index array or convertible to ``NDArray`` with ``dtype=int`` and
+            ``shape=(d,)+idx_stack_shape``. numpy index semantics throughout (``entries`` and all three
+            transposes agree): a negative index wraps. An out-of-range index raises under numpy but
+            **clamps silently under jax** (gather semantics) -- validate indices yourself on the jax path.
 
         Returns
         -------

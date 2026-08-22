@@ -55,6 +55,29 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   and ignored a per-position `max_tt_ranks` given as a numpy array. Every `t3m` method now canonicalizes
   both operands' boundary bonds to 1 on entry -- the rule, and why the exact `*`/`t3_mult` deliberately do
   not, is in [`t3m_methods.md`](t3m_methods.md).
+- **`entries_ambient_transpose` returned zero factors for a negative index.** Its one-hots were built with
+  `arange(N) == index`, which matches nothing for `-1`; the forward `entries` and the tangent/corewise
+  transposes wrap numpy-style, so the adjoint identity silently failed. All four now agree (`eye(N)[index]`).
+  Documented alongside: an out-of-range index raises under numpy but clamps under jax (gather semantics).
+- **`backend.optimizers.Problem.objective(x, data=…)` / `.local_model(x, data=…)` ignored `data`** when
+  `sample` was omitted, silently scoring the training data; `sample=` alone crashed with a bare `TypeError`.
+  The pair now goes together or not at all (a structural error otherwise).
+- **The regularized objective was wrong at a raw point on the ragged manifold.** `ManifoldGeometryOps.point_norm_sq`
+  read `‖last TT core‖²`, exact only for a left-orthogonal point (measured 3 where the truth was 1400 on a
+  `randn` point). Backend-only: the optimizers evaluate the regularizer through the frame or at retraction
+  outputs, so no optimizer result or `stats` row was affected. It now left-orthogonalizes first (no `W`
+  factor, negligible beside the misfit it sits next to), matching the uniform twin.
+- **The tangent/corewise `apply`/`entries` transposes rejected a bare Python float residual** (the natural
+  unstacked case; the ambient twin's own doctest passes `1.7`).
+
+### Changed
+
+- **A per-mode residual weight may have more rows than modes.** The extra rows are ignored (intended: one
+  weight rides through a continuation scheme that adds modes), now on both layers -- the frontend used to
+  reject it while the backend truncated silently. Fewer rows than modes is a structural error on both.
+
+### Fixed (continued)
+
 - **`d = 1` on the uniform layer.** The uniform boundary-bond squash duplicated the single core, which took
   down every squashing op (`+`, `-`, `norm`, `inner`, `t3svd`, `rank_adjustment_sweep`, `UT3Frame.from_ut3`,
   `is_left_orthogonal`). A one-mode T3 now degenerates to the vector case on both layers, as intended.

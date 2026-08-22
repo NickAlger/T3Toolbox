@@ -3072,6 +3072,56 @@ class TestTuckerTensorTrain(unittest.TestCase):
                 self.assertLessEqual(abs(inner - fd) / max(abs(fd), 1e-30), 1e-5)
 
 
+class TestEntriesIndexSemantics(unittest.TestCase):
+    """Review 2026-08-22 (S5): all four entries ops follow numpy index semantics -- the ambient transpose
+    used to build its one-hots with ``arange(N) == idx``, which matched nothing for a negative index and
+    silently returned zero factors (breaking its defining adjoint identity)."""
+
+    def test_negative_indices_agree_across_all_entries_ops(self):
+        np.random.seed(11)
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+        xd = np.asarray(x.to_dense())
+        for index in ([-1, -2, -3], [[-1, 2], [0, -6], [3, -1]]):     # single and W-stacked indices
+            with self.subTest(index=index):
+                idx = np.array(index)
+                e = np.asarray(x.entries(idx))
+                ref = xd[tuple(idx)]
+                self.assertLess(norm(e - ref) / max(1.0, norm(ref)), 1e-12)
+                c = np.random.randn(*e.shape)
+                # ambient transpose: <E^T c, X> == <c, E X>  (the adjoint identity it used to fail)
+                T = t3.TuckerTensorTrain.from_canonical(x.entries_ambient_transpose(c, idx, x.shape))
+                lhs = float(np.sum(np.asarray(T.to_dense()) * xd))
+                self.assertLess(abs(lhs - float(np.sum(c * e))) / max(1.0, abs(lhs)), 1e-12)
+                # corewise transpose: negative indices == the wrapped positive ones, core by core
+                g_neg = x.entries_corewise_transpose(c, idx)
+                g_pos = x.entries_corewise_transpose(c, idx % np.array(x.shape)[:, None] if idx.ndim > 1
+                                                     else idx % np.array(x.shape))
+                for a, b in zip(g_neg[0] + g_neg[1], g_pos[0] + g_pos[1]):
+                    self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-12)
+
+    def test_python_float_residual(self):
+        # Review 2026-08-22 (C8): the unstacked apply/entries residual is a bare float; the tangent and
+        # corewise transposes used to die on `c[..., None]` (the ambient twin's doctest passes 1.7).
+        import t3toolbox.manifold as t3m
+        np.random.seed(12)
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+        ww = tuple(np.random.randn(n) for n in x.shape)
+        idx = np.array([1, 2, 3])
+        frame = t3m.MANIFOLD.frame(x)
+        for c in (1.7, np.float64(1.7), np.asarray(1.7)):
+            with self.subTest(type=type(c).__name__):
+                ga = x.apply_corewise_transpose(c, ww)
+                ge = x.entries_corewise_transpose(c, idx)
+                ta = t3m.T3Tangent.apply_transpose(c, ww, frame)
+                te = t3m.T3Tangent.entries_transpose(c, idx, frame)
+                ref = x.apply_corewise_transpose(np.asarray(1.7), ww)
+                for a, b in zip(ga[0] + ga[1], ref[0] + ref[1]):
+                    self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-12)
+                self.assertEqual(len(ge), 2)
+                self.assertEqual(ta.frame, frame)
+                self.assertEqual(te.frame, frame)
+
+
 if __name__ == '__main__':
     unittest.main()
 

@@ -101,8 +101,11 @@ def t3_entries_ambient_transpose(
     use_jax = tree_contains_jax((c, index))
     xnp, _, _ = get_backend(False, use_jax)
     index = xnp.array(index)
-    # one-hot CP factors e_{index_i} by direct scatter (O(|W| N), not eye's O(N^2)), elm_shape = W + (Ni,)
-    ww = tuple(1.0 * (xnp.arange(N) == index[i][..., None]) for i, N in enumerate(shape))
+    # one-hot CP factors e_{index_i}, elm_shape = W + (Ni,). eye(N)[index] follows numpy index semantics
+    # (a negative index wraps), exactly like the forward t3_entries and the tangent/corewise transposes
+    # (_onehot_vectors); the former `arange(N) == index` scatter matched nothing for a negative index and
+    # silently returned zero factors.
+    ww = tuple(xnp.eye(N)[index[i]] for i, N in enumerate(shape))
     return apply.t3_apply_ambient_transpose(c, ww, sum_over_probes=sum_over_probes)
 
 

@@ -831,6 +831,7 @@ def compute_sigma_hat(
     # The forward sums the terminal bond (rR_d, not necessarily 1 -- e.g. the corewise frame's own cores),
     # so the adjoint BROADCASTS c over it: seed = c (x) 1_{rR_d} -> W+K+C+(rR_d,).
     rR_d = right_tt_cores[-1].shape[-1]
+    c = xnp.asarray(c)          # a bare Python float is the natural W = K = C = () residual (apply/entries)
     seed = xnp.broadcast_to(c[..., None], tuple(c.shape) + (rR_d,))
 
     _, (rev_sigma_hats,) = xscan(_sigma_hat_step, seed, (rev_Q, rev_xi))
