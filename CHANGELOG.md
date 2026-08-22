@@ -49,6 +49,12 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   declares don't-care -- and a corewise gradient step (`adam(UNIFORM_COREWISE, …)`, `UNIFORM_COREWISE.retract`)
   leaves exactly those slots nonzero, so `x_fit + y` was silently wrong while `to_dense`/`norm` (which mask
   on entry) were right. It now masks on entry.
+- **`t3m` with boundary TT ranks `r0, rd != 1`.** `inplace_fused` (the default) never SVD'd the last bond,
+  so an unsquashed trailing bond survived as `rd_x · rd_y` and escaped `max_tt_ranks`; `swap` contracted the
+  two operands' trailing bonds against each other (silently wrong when equal, a raw einsum error when not)
+  and ignored a per-position `max_tt_ranks` given as a numpy array. Every `t3m` method now canonicalizes
+  both operands' boundary bonds to 1 on entry -- the rule, and why the exact `*`/`t3_mult` deliberately do
+  not, is in [`t3m_methods.md`](t3m_methods.md).
 - **`d = 1` on the uniform layer.** The uniform boundary-bond squash duplicated the single core, which took
   down every squashing op (`+`, `-`, `norm`, `inner`, `t3svd`, `rank_adjustment_sweep`, `UT3Frame.from_ut3`,
   `is_left_orthogonal`). A one-mode T3 now degenerates to the vector case on both layers, as intended.

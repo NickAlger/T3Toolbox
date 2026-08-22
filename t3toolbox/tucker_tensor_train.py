@@ -2057,7 +2057,10 @@ class TuckerTensorTrain:
 
         Truncation (any combination; default none ⇒ exact full product): ``max_tucker_ranks`` /
         ``max_tt_ranks`` (a scalar caps every position, or a per-position sequence) and ``rtol`` /
-        ``atol`` (per-step relative/absolute tolerances).
+        ``atol`` (per-step relative/absolute tolerances). Every method canonicalizes both operands'
+        boundary TT bonds to 1 on entry, so the result always has ``r0 = rd = 1`` even if the operands
+        did not -- a truncating product has no Kronecker structure to preserve there, unlike the exact
+        ``*`` / ``t3_mult`` (``docs/t3m_methods.md``).
 
         ``oversample`` (``method='swap'`` only, ``>= 1``, default ``1`` = off): relaxes the
         intermediate ranks/tolerances by this factor during the swaps and runs a final ``t3svd``

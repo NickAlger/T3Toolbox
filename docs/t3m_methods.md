@@ -53,12 +53,21 @@ other two are tested against.
 Any combination; default none = exact product:
 
 - `max_tucker_ranks`: an `int` (caps every mode) or a length-`d` sequence;
-- `max_tt_ranks`: an `int` (caps every bond; the boundary bonds stay 1) or a length-`d+1` sequence;
+- `max_tt_ranks`: an `int` (caps every bond) or a length-`d+1` sequence (list, tuple or array);
 - `rtol` / `atol`: scalar tolerances, applied **per truncation step** -- as with `t3svd`, the
   per-step errors accumulate in quadrature, so the realized error can exceed the request by up to
   `√(2d−1)`;
 - `rtol`/`atol` **require unstacked input** (different stack elements could truncate to different
   ranks, which one stacked object cannot represent); **max-rank truncation is stacking-compatible**.
+
+**Boundary bonds.** A `TuckerTensorTrain` may carry boundary TT ranks `r0, rd != 1` (e.g. a `segment`,
+a `resize`, or a train built from a TT with open ends). The rule is: an **exact** product (`t3_mult`,
+the `*` operator) keeps the Kronecker structure on every bond, boundary bonds included (`r0 = r0_x · r0_y`),
+because a downstream operation may rely on that algebraic structure; a **truncating** product has no
+structure to preserve, so all three `t3m` methods canonicalize both operands' boundary bonds to 1 on entry
+(`squash_tails`) and the result always has `r0 = rd = 1`. Before 2026.2.0 `inplace_fused` and `swap` did not
+squash, so an unsquashed trailing bond escaped `max_tt_ranks` (and `swap` contracted the two trailing bonds
+against each other).
 
 ## The quality guarantee (joint truncation)
 

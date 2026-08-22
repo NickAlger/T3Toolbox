@@ -342,6 +342,11 @@ def t3m_inplace_fused(
     mtr = ranks.normalize_max_ranks(max_tucker_ranks, d)
     mrr = ranks.normalize_max_ranks(max_tt_ranks, d + 1)
 
+    # A truncating product canonicalizes the boundary bonds to 1 (docs/t3m_methods.md): the sweep below
+    # never SVDs the last bond, so an unsquashed rd on either operand would survive as rd_x*rd_y, uncapped.
+    Gx = tt_operations.tt_squash_tails(Gx)
+    Gy = tt_operations.tt_squash_tails(Gy)
+
     # Right-orthogonalize each central TT (the product's central TT is then implicitly right-canonical).
     Gx = orth.tt_right_orthogonalize(Gx)
     Gy = orth.tt_right_orthogonalize(Gy)
@@ -546,6 +551,12 @@ def t3m_swap(
     rtol_in = None if rtol is None else rtol / oversample
     atol_in = None if atol is None else atol / oversample
 
+    # A truncating product canonicalizes the boundary bonds to 1 (docs/t3m_methods.md): the seam
+    # contraction pairs the two operands' trailing bonds against each other, which is only the
+    # represented-tensor product when both are 1.
+    Gx = tt_operations.tt_squash_tails(Gx)
+    Gy = tt_operations.tt_squash_tails(Gy)
+
     # Leaves -> root (fold Tucker weight into the central TTs), then build/gauge the chain.
     Ux, Gx = ragged_orth.t3_down_orthogonalize_tucker_cores((Ux, Gx))
     Uy, Gy = ragged_orth.t3_down_orthogonalize_tucker_cores((Uy, Gy))
@@ -570,8 +581,8 @@ def t3m_swap(
     tucker_cores = tuple(e[1] for e in chain)
     tt_cores = tuple(e[0] for e in chain)
 
-    need_cleanup = (oversample > 1) or (
-        isinstance(max_tt_ranks, typ.Sequence) and not isinstance(max_tt_ranks, (int, np.integer)))
+    # per-position bond caps (a list, tuple OR ndarray -- np.ndim, not typ.Sequence, which an ndarray is not)
+    need_cleanup = (oversample > 1) or (max_tt_ranks is not None and np.ndim(max_tt_ranks) > 0)
     if need_cleanup:
         rounded, _, _ = ragged_t3svd.t3svd(
             (tucker_cores, tt_cores),

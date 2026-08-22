@@ -144,6 +144,46 @@ class TestT3M(unittest.TestCase):
             A, B = _pair(((7, 8, 9), (3, 4, 3), (1, 2, 2, 1)), C)
             self.assertLess(_relerr((A * B).to_dense(), _oracle(A, B)), 1e-12)
 
+    # ---- boundary bonds != 1 (review 2026-08-22, S3) ----
+    def test_unsquashed_tails(self):
+        # Operands with r0, rd != 1 (allowed by validate; produced by segment/resize/from_tensor_train):
+        # every method must (i) reproduce the product exactly without truncation, and (ii) honor a cap at
+        # EVERY bond including the last -- inplace_fused used to leave rd = rd_x*rd_y uncapped, and swap
+        # contracted the two trailing bonds against each other (wrong when equal, a crash when not).
+        structures = [((7, 8, 9), (3, 4, 3), (2, 3, 3, 3)),
+                      ((7, 8, 9), (3, 4, 3), (2, 3, 3, 2)),      # rd differs between the pair below
+                      ((6, 7, 8, 9), (2, 3, 3, 2), (3, 2, 3, 2, 2))]
+        for structure in structures:
+            for C in STACK_SHAPES:
+                A, _ = _pair(structure, C)
+                shape, tr, _ = structure
+                B = t3.TuckerTensorTrain.randn(shape, tr, (3, 2, 2, 3) if len(shape) == 3 else (2, 3, 2, 3, 3),
+                                               stack_shape=C)
+                oracle = _oracle(A, B)
+                for method in ('form_then_round', 'inplace_fused', 'swap'):
+                    with self.subTest(method=method, structure=structure, stack=C):
+                        P = A.t3m(B, method=method)
+                        self.assertLess(_relerr(P.to_dense(), oracle), 1e-10)
+                        P = A.t3m(B, method=method, max_tucker_ranks=3, max_tt_ranks=3)
+                        self.assertTrue(all(r <= 3 for r in P.tt_ranks), P.tt_ranks)
+                        self.assertEqual((P.tt_ranks[0], P.tt_ranks[-1]), (1, 1))
+                        self.assertTrue(all(n <= 3 for n in P.tucker_ranks), P.tucker_ranks)
+                        if not C:
+                            ref = t3.TuckerTensorTrain.t3svd_dense(oracle, max_tucker_ranks=3, max_tt_ranks=3)[0]
+                            self.assertLess(_relerr(P.to_dense(), oracle),
+                                            2.0 * _relerr(ref.to_dense(), oracle) + 1e-12)
+
+    def test_swap_per_position_tt_array(self):
+        # A per-position max_tt_ranks given as a numpy ARRAY is honored like a tuple (the cleanup used to be
+        # gated on typ.Sequence, which an ndarray is not).
+        structure = ((6, 7, 8, 9), (2, 3, 3, 2), (1, 2, 3, 2, 1))
+        A, B = _pair(structure, ())
+        seq = np.array([1, 2, 3, 2, 1])
+        for method in ('form_then_round', 'inplace_fused', 'swap'):
+            with self.subTest(method=method):
+                P = A.t3m(B, method=method, max_tt_ranks=seq)
+                self.assertTrue(all(r <= s for r, s in zip(P.tt_ranks, seq)), (P.tt_ranks, seq))
+
     # ---- validation ----
     def test_validation(self):
         A, B = _pair(((7, 8, 9), (3, 4, 3), (1, 2, 2, 1)), ())
