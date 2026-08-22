@@ -1512,8 +1512,10 @@ def dense_probe(
     W = vectors[0].shape[:-1]
 
     for ii, v in enumerate(vectors):
-        assert(v.shape[:-1] == W)
-        assert(v.shape[-1] == shape[ii])
+        if v.shape[:-1] != W:
+            raise ValueError('dense_probe: vector %d has probe stack %s, expected W = %s' % (ii, v.shape[:-1], W))
+        if v.shape[-1] != shape[ii]:
+            raise ValueError('dense_probe: vector %d has length %d, expected N_%d = %d' % (ii, v.shape[-1], ii, shape[ii]))
 
     # We are going to construct an einsum string from letters.
     # A dense 2x2x..x2 tensor exhausting these letters would have 4e15 entries

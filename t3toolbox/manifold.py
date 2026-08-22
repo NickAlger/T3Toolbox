@@ -353,7 +353,16 @@ class T3Tangent:
         # same-frame is a NUMERICAL precondition (are these two frames the same frame?): the `is`
         # fast-path keeps the common eager case O(1); the value compare runs only when the objects differ
         # (e.g. a jit round-trip reconstructs a value-equal frame). Safe-mode + eager-only: skips under
-        # safety.unsafe() and under a jax trace. The stack-shape check is structural -> always.
+        # safety.unsafe() and under a jax trace. The stack-shape and frame-STRUCTURE checks are
+        # structural -> always: two frames of different core shapes are never the same tangent space, and
+        # that must not depend on the numerical guard (under unsafe()/jit a broadcastable mismatch used to
+        # add silently).
+        if self.frame is not other.frame:
+            mine, theirs = _frame_core_shapes(self.frame), _frame_core_shapes(other.frame)
+            if mine != theirs:
+                raise ValueError(
+                    'Tangent vectors are in different tangent spaces: their frames have different core '
+                    'shapes (%s vs %s).' % (mine, theirs))
         if not (self.frame is other.frame or safety.frames_equal_or_skip(self.frame.data, other.frame.data)):
             raise ValueError(
                 'Tangent vectors are in different tangent spaces (their frames are not the same frame).\n'
@@ -1137,6 +1146,12 @@ class T3Tangent:
 ############################################
 ##########    Geometry    ##################
 ############################################
+
+
+def _frame_core_shapes(frame) -> typ.Tuple[typ.Tuple[typ.Tuple[int, ...], ...], ...]:
+    """The structure of a frame: the shapes of its cores, family by family (a tuple of tuples of shapes).
+    Two frames with different structures are different tangent spaces regardless of their values."""
+    return tuple(tuple(tuple(c.shape) for c in family) for family in frame.data)
 
 
 def _require_orthogonal_frame(frame: bvf.T3Frame, who: str) -> None:

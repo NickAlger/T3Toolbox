@@ -606,6 +606,24 @@ class TestVariationLinearAlgebra(unittest.TestCase):
         tree = v.to_t3variations()                       # 3 ragged T3Variations
         self.assertEqual(self._cerr(s.to_t3variations().data, (tree[0] + tree[1] + tree[2]).data), 0.0)
 
+    def test_sum_stack_axis_follows_numpy_semantics(self):
+        # Review 2026-08-22 (S10): a negative axis counts from the LAST stack axis (the raw `1 + axis`
+        # sent axis=-1 to the mode index -- a silent sum over modes when K == d). Out of range raises.
+        frame, v = self._pair(ss=(3, 2))
+        for axis in (-1, -2, 0, 1):
+            with self.subTest(axis=axis):
+                s = v.sum_stack(axis=axis)
+                s.validate()
+                self.assertEqual(s.stack_shape, (3,) if axis in (-1, 1) else (2,))
+        # axis=-1 == axis=1 and axis=-2 == axis=0, and never the mode axis
+        self.assertTrue(all(np.array_equal(np.asarray(a), np.asarray(b)) for a, b in
+                            zip(v.sum_stack(axis=-1).supercores, v.sum_stack(axis=1).supercores)))
+        self.assertTrue(all(np.array_equal(np.asarray(a), np.asarray(b)) for a, b in
+                            zip(v.sum_stack(axis=-2).supercores, v.sum_stack(axis=0).supercores)))
+        for bad in (2, -3):
+            with self.assertRaises(ValueError):
+                v.sum_stack(axis=bad)
+
     def test_zeros_like_is_zero_tangent_at_frame(self):
         frame, _ = self._pair()
         z = ubv.UT3Variations.zeros_like(frame)

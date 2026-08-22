@@ -956,5 +956,36 @@ class TestManifold(unittest.TestCase):
             v.entries_derivatives(index, pp_bad, ORDER)
 
 
+
+
+class TestStructuralTangentMismatch(unittest.TestCase):
+    """Review 2026-08-22 (S12): tangents at frames of DIFFERENT rank structure are a structural error in
+    every mode -- the numerical same-frame guard (skipped under unsafe()/jit) used to be the only check,
+    and with broadcastable holes `a + b` silently returned a tangent of a's structure."""
+
+    def test_different_structure_raises_even_in_unsafe_mode(self):
+        np.random.seed(21)
+        a = _random_tangent(((4, 5, 3), (2, 2, 2), (1, 2, 2, 1)))
+        b = _random_tangent(((4, 5, 3), (1, 1, 1), (1, 1, 1, 1)))    # broadcastable holes (rank 1)
+        for ctx in (safety.safe, safety.unsafe):
+            with self.subTest(mode=ctx.__name__):
+                with ctx():
+                    with self.assertRaises(ValueError):
+                        a + b
+                    with self.assertRaises(ValueError):
+                        a.corewise_inner(b)
+
+    def test_fitting_model_rejects_wrong_structure_in_unsafe_mode(self):
+        import t3toolbox.fitting as fitting
+        np.random.seed(22)
+        x = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+        ww = tuple(np.random.randn(6, n) for n in x.shape)
+        model = fitting.apply_model(t3m.MANIFOLD, x, ww, x.apply(ww) * 0.5)
+        p = _random_tangent(((4, 5, 3), (1, 1, 1), (1, 1, 1, 1)))
+        with safety.unsafe():
+            with self.assertRaises(ValueError):
+                model.gn_quadratic(p)
+
+
 if __name__ == "__main__":
     unittest.main()

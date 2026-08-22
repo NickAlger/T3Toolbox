@@ -293,8 +293,8 @@ def t3_sum(
         if ax < 0:
             ax = d + ax
             axis[ii] = ax
-        assert(0 <= ax)
-        assert(ax < d)
+        if not (0 <= ax < d):
+            raise ValueError('axis %d out of range for %d stack axes' % (ax, d))
 
     axis = sorted(list(set(axis))) # remove duplicates
 

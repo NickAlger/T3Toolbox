@@ -166,7 +166,14 @@ def utv_sum_tangent_stack(
     tkv, ttv, shape, masks = variations_data
     xnp, _, _ = get_backend(True, tree_contains_jax((tkv, ttv)))
 
-    k_axes = tuple(range(1, 1 + n_tangent)) if axis is None else (1 + axis,)
+    if axis is None:
+        k_axes = tuple(range(1, 1 + n_tangent))
+    else:
+        # numpy semantics within K: a negative axis counts from the last TANGENT axis (the raw `1 + axis`
+        # sent axis=-1 to array axis 0, the mode index)
+        if not -n_tangent <= axis < n_tangent:
+            raise ValueError('sum_tangents: axis %d out of range for %d tangent-stack axes' % (axis, n_tangent))
+        k_axes = (1 + axis % n_tangent,)
     new_tkv = xnp.sum(tkv, axis=k_axes)
     new_ttv = xnp.sum(ttv, axis=k_axes)
     new_masks = tuple(np.any(m, axis=k_axes) for m in masks)   # host np: OR the real slots over K

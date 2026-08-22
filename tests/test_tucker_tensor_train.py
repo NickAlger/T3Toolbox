@@ -3099,6 +3099,25 @@ class TestEntriesIndexSemantics(unittest.TestCase):
                 for a, b in zip(g_neg[0] + g_neg[1], g_pos[0] + g_pos[1]):
                     self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-12)
 
+    def test_structural_checks_are_errors_not_asserts(self):
+        # Review 2026-08-22 (S13): structural problems hard-error in every mode -- including `python -O`,
+        # which strips `assert` (a wrong-shaped `x * ndarray` used to broadcast silently there).
+        import subprocess, sys
+        x = t3.TuckerTensorTrain.randn((4, 5), (2, 2), (1, 2, 1))
+        with self.assertRaises(ValueError):
+            x * np.ones((1, 5))
+        xs = t3.TuckerTensorTrain.randn((4, 5), (2, 2), (1, 2, 1), stack_shape=(2,))
+        with self.assertRaises(ValueError):
+            xs.sum_stack(axis=5)
+        with self.assertRaises(ValueError):
+            cw.corewise_add(x.tucker_cores, x.tucker_cores[:1])
+        code = ('import numpy as np, t3toolbox.tucker_tensor_train as t3\n'
+                'x = t3.TuckerTensorTrain.randn((4, 5), (2, 2), (1, 2, 1))\n'
+                'try:\n    x * np.ones((1, 5))\nexcept ValueError:\n    print("RAISED")\n')
+        out = subprocess.run([sys.executable, '-O', '-c', code], capture_output=True, text=True,
+                             env={**os.environ, 'PYTHONPATH': os.getcwd()})
+        self.assertIn('RAISED', out.stdout, out.stderr[-500:])
+
     def test_python_float_residual(self):
         # Review 2026-08-22 (C8): the unstacked apply/entries residual is a bare float; the tangent and
         # corewise transposes used to die on `c[..., None]` (the ambient twin's doctest passes 1.7).

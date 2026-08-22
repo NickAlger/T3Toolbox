@@ -58,8 +58,10 @@ def corewise_add(
     (array([3., 3., 3.]), (4, (), array([0., 0.])))
     '''
     if isinstance(X, list) or isinstance(X, tuple):
-        assert(isinstance(Y, list) or isinstance(Y, tuple))
-        assert(len(X) == len(Y))
+        if not isinstance(Y, (list, tuple)):
+            raise TypeError('corewise: expected a list/tuple of arrays matching X, got %s' % type(Y).__name__)
+        if len(X) != len(Y):
+            raise ValueError('corewise: core-tuple length mismatch, %d vs %d' % (len(X), len(Y)))
         return tuple([corewise_add(x, y) for x, y in zip(X, Y)])
     else:
         return X + Y
@@ -81,8 +83,10 @@ def corewise_sub(
     (array([-1., -1., -1.]), (-2, (), array([2., 2.])))
     '''
     if isinstance(X, list) or isinstance(X, tuple):
-        assert(isinstance(Y, list) or isinstance(Y, tuple))
-        assert(len(X) == len(Y))
+        if not isinstance(Y, (list, tuple)):
+            raise TypeError('corewise: expected a list/tuple of arrays matching X, got %s' % type(Y).__name__)
+        if len(X) != len(Y):
+            raise ValueError('corewise: core-tuple length mismatch, %d vs %d' % (len(X), len(Y)))
         return tuple([corewise_sub(x, y) for x, y in zip(X, Y)])
     else:
         return X - Y
@@ -207,8 +211,10 @@ def corewise_dot(
     xnp, _, _ = get_backend(False, use_jax)
 
     if isinstance(X, list) or isinstance(X, tuple):
-        assert(isinstance(Y, list) or isinstance(Y, tuple))
-        assert(len(X) == len(Y))
+        if not isinstance(Y, (list, tuple)):
+            raise TypeError('corewise: expected a list/tuple of arrays matching X, got %s' % type(Y).__name__)
+        if len(X) != len(Y):
+            raise ValueError('corewise: core-tuple length mismatch, %d vs %d' % (len(X), len(Y)))
         return xnp.sum(xnp.array([corewise_dot(x, y) for x, y in zip(X, Y)]))
     else:
         return xnp.sum(X * Y)
@@ -238,8 +244,10 @@ def corewise_stack_dot(
     xnp, _, _ = get_backend(False, use_jax)
 
     if isinstance(X, list) or isinstance(X, tuple):
-        assert(isinstance(Y, list) or isinstance(Y, tuple))
-        assert(len(X) == len(Y))
+        if not isinstance(Y, (list, tuple)):
+            raise TypeError('corewise: expected a list/tuple of arrays matching X, got %s' % type(Y).__name__)
+        if len(X) != len(Y):
+            raise ValueError('corewise: core-tuple length mismatch, %d vs %d' % (len(X), len(Y)))
         terms = [corewise_stack_dot(x, y, n_stack) for x, y in zip(X, Y)]
         out = terms[0]
         for term in terms[1:]:

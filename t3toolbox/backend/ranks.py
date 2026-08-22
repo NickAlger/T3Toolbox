@@ -108,8 +108,10 @@ def compute_minimal_ranks(
     tt_ranks = xnp.array(tt_ranks)
 
     d = len(shape)
-    assert(len(tucker_ranks) == d)
-    assert(len(tt_ranks) == d+1)
+    if len(tucker_ranks) != d:
+        raise ValueError('len(tucker_ranks) = %d != d = %d' % (len(tucker_ranks), d))
+    if len(tt_ranks) != d + 1:
+        raise ValueError('len(tt_ranks) = %d != d + 1 = %d' % (len(tt_ranks), d + 1))
 
     if groups is not None:
         for group in sharing_module.nontrivial_groups(groups):
@@ -339,7 +341,8 @@ def compute_continuation_ranks(
     Cf. Molozhavenko & Rakhuba (2026, SF-ETT); the shared-factor format originates with SF-Tucker
     (Peshekhonov, Arzhantsev & Rakhuba, 2024).
     '''
-    assert(max_grow is None or max_grow >= 1)
+    if not (max_grow is None or max_grow >= 1):
+        raise ValueError('max_grow must be None or >= 1; got %r' % (max_grow,))
     groups = None
     if sharing is not None:
         all_groups = sharing_module.validate_sharing(sharing, shape)
@@ -350,8 +353,10 @@ def compute_continuation_ranks(
     d = len(shape)
     tucker_ranks = tuple(int(np.asarray(s).size) for s in tucker_singular_values)  # (n_i),  len d
     tt_ranks     = tuple(int(np.asarray(s).size) for s in tt_singular_values)      # (r_i),  len d+1
-    assert(len(tucker_ranks) == d)
-    assert(len(tt_ranks) == d + 1)
+    if len(tucker_ranks) != d:
+        raise ValueError('len(tucker_ranks) = %d != d = %d' % (len(tucker_ranks), d))
+    if len(tt_ranks) != d + 1:
+        raise ValueError('len(tt_ranks) = %d != d + 1 = %d' % (len(tt_ranks), d + 1))
 
     if groups is not None:
         for group in sharing_module.nontrivial_groups(groups):
@@ -534,8 +539,10 @@ def compute_orthogonal_representation_ranks(
     tt_ranks = xnp.array(tt_ranks)
 
     d = len(shape)
-    assert(len(tucker_ranks) == d)
-    assert(len(tt_ranks) == d+1)
+    if len(tucker_ranks) != d:
+        raise ValueError('len(tucker_ranks) = %d != d = %d' % (len(tucker_ranks), d))
+    if len(tt_ranks) != d + 1:
+        raise ValueError('len(tt_ranks) = %d != d + 1 = %d' % (len(tt_ranks), d + 1))
 
     stack_shape = tt_ranks.shape[1:]
 

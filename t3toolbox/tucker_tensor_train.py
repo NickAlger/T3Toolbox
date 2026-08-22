@@ -2020,7 +2020,9 @@ class TuckerTensorTrain:
             if other.shape == ():
                 return TuckerTensorTrain(*ragged_linalg.t3_scale(self.data, other))
             else:
-                assert(other.shape == self.stack_shape + self.shape)
+                if other.shape != self.stack_shape + self.shape:
+                    raise ValueError('Cannot multiply: the array has shape %s, expected stack_shape + shape = %s'
+                                     % (other.shape, self.stack_shape + self.shape))
                 return self.to_dense() * other
 
         elif isinstance(other, TuckerTensorTrain):

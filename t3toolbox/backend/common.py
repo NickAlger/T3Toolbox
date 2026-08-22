@@ -343,13 +343,15 @@ def xcat(
     """Concatenate arrays or sequences.
     """
     if is_ndarray(x):
-        assert(is_ndarray(y))
+        if not is_ndarray(y):
+            raise TypeError('expected an ndarray to append, got %s' % type(y).__name__)
         if is_jax_ndarray(x) or is_jax_ndarray(y):
             return jnp.concatenate([x, y], axis=0)
         else:
             return np.concatenate([x, y], axis=0)
 
-    assert(isinstance(x, typ.Sequence) and isinstance(y, typ.Sequence))
+    if not (isinstance(x, typ.Sequence) and isinstance(y, typ.Sequence)):
+        raise TypeError('expected two sequences, got %s and %s' % (type(x).__name__, type(y).__name__))
 
     if len(x) == 0:
         return y
@@ -366,13 +368,15 @@ def xappend(
     """Append slice to array or element to sequence
     """
     if is_ndarray(S):
-        assert(is_ndarray(x))
+        if not is_ndarray(x):
+            raise TypeError('expected an ndarray, got %s' % type(x).__name__)
         if is_jax_ndarray(S) or is_jax_ndarray(x):
             return jnp.concatenate([S, x.reshape((1,)+x.shape)], axis=0)
         else:
             return np.concatenate([S, x.reshape((1,)+x.shape)], axis=0)
 
-    assert(isinstance(S, typ.Sequence))
+    if not isinstance(S, typ.Sequence):
+        raise TypeError('expected a sequence, got %s' % type(S).__name__)
 
     if len(S) == 0:
         return (x,)
@@ -387,13 +391,15 @@ def xprepend(
     """Prepend slice to array or element to sequence
     """
     if is_ndarray(S):
-        assert(is_ndarray(x))
+        if not is_ndarray(x):
+            raise TypeError('expected an ndarray, got %s' % type(x).__name__)
         if is_jax_ndarray(S) or is_jax_ndarray(x):
             return jnp.concatenate([x.reshape((1,)+x.shape), S], axis=0)
         else:
             return np.concatenate([x.reshape((1,)+x.shape), S], axis=0)
 
-    assert(isinstance(S, typ.Sequence))
+    if not isinstance(S, typ.Sequence):
+        raise TypeError('expected a sequence, got %s' % type(S).__name__)
 
     if len(S) == 0:
         return (x,)

@@ -105,6 +105,14 @@ def _require_at_frame(frame, p) -> None:
     (``frame.data[:4]``) -- the full ``.data`` carries the int-tuple ``shape`` that safety's array compare
     cannot take -- mirroring ``UT3Tangent._check_same_tangent_space``.'''
     a, b = (frame.data[:4], p.frame.data[:4]) if _is_uniform_frame(frame) else (frame.data, p.frame.data)
+    if p.frame is not frame:
+        # structural first, always: different core shapes are different tangent spaces whatever the values
+        # (the numerical compare below is skipped under unsafe()/jit and must not be the only guard)
+        sa = tuple(tuple(tuple(c.shape) for c in fam) if isinstance(fam, (list, tuple)) else tuple(fam.shape) for fam in a)
+        sb = tuple(tuple(tuple(c.shape) for c in fam) if isinstance(fam, (list, tuple)) else tuple(fam.shape) for fam in b)
+        if sa != sb:
+            raise ValueError("trial tangent must live at the model's frame: its frame has different core "
+                             "shapes (%s vs %s)" % (sb, sa))
     if not (p.frame is frame or safety.frames_equal_or_skip(a, b)):
         raise ValueError("trial tangent must live at the model's frame (it is at a different frame); "
                          "run inside safety.unsafe() to skip this numerical check")

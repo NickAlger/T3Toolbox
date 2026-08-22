@@ -58,7 +58,8 @@ def t3_add(
 
     vsx = tucker_cores_x[0].shape[:-2] # vectorization shape for x
     vsy = tucker_cores_y[0].shape[:-2] # vectorization shape for y
-    assert(vsx == vsy)
+    if vsx != vsy:
+        raise ValueError('stack_shape mismatch: %s vs %s' % (vsx, vsy))
 
     tucker_cores_z = [xnp.concatenate([Bx, By], axis=-2) for Bx, By in zip(tucker_cores_x, tucker_cores_y)]
 
@@ -114,7 +115,8 @@ def t3_sum_stack(
 
     summed_axes = sorted(set((ax + m) if ax < 0 else ax for ax in summed_axes))
     for ax in summed_axes:
-        assert(0 <= ax < m)
+        if not (0 <= ax < m):
+            raise ValueError('stack axis %d out of range for %d stack axes' % (ax, m))
 
     if len(summed_axes) == 0: # nothing to sum over
         return tuple(B.copy() for B in tucker_cores), tuple(G.copy() for G in tt_cores)
@@ -192,7 +194,8 @@ def t3_inner_product(
 
     vsx = tucker_cores_x[0].shape[:-2] # vectorization shape for x
     vsy = tucker_cores_y[0].shape[:-2] # vectorization shape for y
-    assert(vsx == vsy)
+    if vsx != vsy:
+        raise ValueError('stack_shape mismatch: %s vs %s' % (vsx, vsy))
 
     r0_x = tt_cores_x[0].shape[-3]
     r0_y = tt_cores_y[0].shape[-3]
@@ -255,7 +258,8 @@ def t3_mult(
 
     vsx = tucker_cores_x[0].shape[:-2] # vectorization shape for x
     vsy = tucker_cores_y[0].shape[:-2] # vectorization shape for y
-    assert(vsx == vsy)
+    if vsx != vsy:
+        raise ValueError('stack_shape mismatch: %s vs %s' % (vsx, vsy))
 
     tucker_cores_xy = []
     for Bx, By in zip(tucker_cores_x, tucker_cores_y):

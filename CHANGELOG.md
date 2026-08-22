@@ -67,6 +67,18 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   `randn` point). Backend-only: the optimizers evaluate the regularizer through the frame or at retraction
   outputs, so no optimizer result or `stats` row was affected. It now left-orthogonalizes first (no `W`
   factor, negligible beside the misfit it sits next to), matching the uniform twin.
+- **`UT3Variations.sum_stack(axis=-1)` / `UT3Tangent.sum_tangents(axis=-1)` summed over the MODE axis** (the
+  raw `1 + axis` sent `-1` to array axis 0), silently when `K == d` and with an obscure shape error
+  otherwise. Negative axes now count from the last stack axis, as in numpy and the ragged twin; out of
+  range raises.
+- **A structural tangent mismatch was caught only by the numerical same-frame guard**, which is skipped
+  under `safety.unsafe()` / a jax trace -- so `a + b` for tangents at frames of different rank structure
+  broadcast silently there. The core-shape comparison now runs unconditionally (structural problems always
+  error), in `T3Tangent` and the fitting model's trial-tangent guard.
+- **30 structural checks were written as `assert`** (`x * ndarray` shape, stack-axis ranges, core-tuple
+  lengths, `corewise` operand types, `dense_probe` vector shapes, …): a bare `AssertionError` normally, and
+  no check at all under `python -O`, where a wrong-shaped `x * ndarray` broadcast silently. All are
+  `ValueError` / `TypeError` with a message now.
 - **The tangent/corewise `apply`/`entries` transposes rejected a bare Python float residual** (the natural
   unstacked case; the ambient twin's own doctest passes `1.7`).
 

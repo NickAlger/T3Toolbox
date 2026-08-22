@@ -192,7 +192,14 @@ def ufv_variations_sum_stack(
     use_jax = tree_contains_jax((tkv, ttv))
     xnp, _, _ = get_backend(True, use_jax)
 
-    stack_axes = tuple(range(1, 1 + n_stack)) if axis is None else (1 + axis,)
+    if axis is None:
+        stack_axes = tuple(range(1, 1 + n_stack))
+    else:
+        # numpy semantics within the stack: a negative axis counts from the last STACK axis (the raw
+        # `1 + axis` sent axis=-1 to array axis 0, the mode index -- a silent sum over modes when K == d)
+        if not -n_stack <= axis < n_stack:
+            raise ValueError('sum_stack: axis %d out of range for %d stack axes' % (axis, n_stack))
+        stack_axes = (1 + axis % n_stack,)
     new_tkv = xnp.sum(tkv, axis=stack_axes)
     new_ttv = xnp.sum(ttv, axis=stack_axes)
     new_masks = tuple(np.any(m, axis=stack_axes) for m in masks)   # host np: OR the real slots over the stack
