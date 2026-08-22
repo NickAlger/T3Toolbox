@@ -517,5 +517,29 @@ class TestProblemStringArgs(unittest.TestCase):
         with self.assertRaises(ValueError):
             uf.uniform_least_squares_problem('manifold', 'apply_derivatives', self.x0, (self.ww, pp), self.b)
 
+
+
+class TestSlackPaddedStart(unittest.TestCase):
+    """Review 2026-08-22 (C5): a minimal-rank x0 stored with slack padding (from_t3(x, n=, r=) above the
+    real ranks) must run through every uniform optimizer; the retraction used to shrink the padded dims."""
+
+    def test_optimizers_run_from_a_slack_padded_x0(self):
+        import t3toolbox.optimizers as topt
+        np.random.seed(9)
+        x_true = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 2), (1, 2, 2, 1))
+        ww = tuple(np.random.randn(10, n) for n in x_true.shape)
+        b = x_true.apply(ww)
+        x0 = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 2), (1, 2, 2, 1))
+        ux0 = ut3.UniformTuckerTensorTrain.from_t3(x0, n=5, r=4)              # slack: real max (3, 2)
+        self.assertEqual((ux0.n, ux0.r), (5, 4))
+        frame = ut3m.UNIFORM_MANIFOLD.frame(ux0)
+        y = ut3m.UNIFORM_MANIFOLD.retract(ut3m.UNIFORM_MANIFOLD.randn(frame) * 1e-3)
+        self.assertEqual((y.n, y.r), (5, 4))                                   # the frame's padded dims
+        self.assertTrue(bool(np.all(np.asarray(y.tucker_ranks) == np.asarray(ux0.tucker_ranks))))
+        rng = np.random.default_rng(0)
+        topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'apply', ww, b, ux0, max_newton=2)
+        topt.mc_sgd(ut3m.UNIFORM_MANIFOLD, 'apply', ww, b, ux0, rng, batch=5, max_iter=3)
+        topt.gradient_descent(ut3m.UNIFORM_MANIFOLD, 'apply', ww, b, ux0, n_iter=2)
+
 if __name__ == '__main__':
     unittest.main()

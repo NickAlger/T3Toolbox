@@ -27,6 +27,7 @@ from t3toolbox.backend.tt_operations import tt_reverse, tt_squash_tails
 __all__ = [
     'ut3_squash_tails',
     'ut3_reverse',
+    'ut3_pad_ranks',
     'pack_vectors',
     'unpack_vectors',
     'is_packed',
@@ -92,6 +93,30 @@ def ut3_squash_tails(data: UT3Data) -> UT3Data:
     rank1 = np.broadcast_to(prefix_mask(1, r), stack + (r,))                   # [True, False, ...]
     new_ttm = np.concatenate([rank1[None], ttm[1:-1], rank1[None]], axis=0)
     return tk, new_tt, shape, (tkm, new_ttm)
+
+
+def ut3_pad_ranks(
+        data: UT3Data,
+        n:    int,          # target padded Tucker rank (>= the current padded n)
+        r:    int,          # target padded TT rank    (>= the current padded r)
+) -> UT3Data:               # the same tensor, ranks and masks, stored at padded dims (n, r)
+    """Zero-pad the rank dims of a uniform T3 to ``(n, r)`` -- the storage changes, the represented tensor,
+    the ranks and the mask CONTENT do not (the new slots are padding: mask False, value 0). The inverse of
+    the pad-shrinking ``ut3svd`` does (which slices to the max rank it kept); ``utv_retract`` uses it to
+    return a point at the frame's padded dims, so the optimizers' loop-invariant masks stay valid."""
+    tk, tt, shape, (tkm, ttm) = data
+    n0, r0 = tk.shape[-2], tt.shape[-1]
+    if n < n0 or r < r0:
+        raise ValueError('ut3_pad_ranks: target dims (n=%d, r=%d) must be >= the current (n=%d, r=%d)' % (n, r, n0, r0))
+    if (n, r) == (n0, r0):
+        return data
+    xnp, _, _ = get_backend(True, tree_contains_jax((tk, tt)))
+    zero = ((0, 0),)
+    tk = xnp.pad(tk, zero * (tk.ndim - 2) + ((0, n - n0), (0, 0)))
+    tt = xnp.pad(tt, zero * (tt.ndim - 3) + ((0, r - r0), (0, n - n0), (0, r - r0)))
+    tkm = np.pad(tkm, ((0, 0),) * (tkm.ndim - 1) + ((0, n - n0),))      # host np: masks are static structure
+    ttm = np.pad(ttm, ((0, 0),) * (ttm.ndim - 1) + ((0, r - r0),))
+    return tk, tt, shape, (tkm, ttm)
 
 
 def ut3_reverse(data: UT3Data) -> UT3Data:

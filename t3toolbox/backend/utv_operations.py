@@ -27,6 +27,7 @@ import t3toolbox.backend.ufv_operations as ufv_operations
 import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_svd as ut3_svd
+import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.tv_operations as tv_operations
 import t3toolbox.backend.sharing as sharing_module
 from t3toolbox.backend.common import *
@@ -362,7 +363,10 @@ def utv_retract(
     new_data, _ss_tucker, _ss_tt = ut3_svd.ut3svd(
         doubled, max_tucker_ranks=bcast_over_K(up_ranks), max_tt_ranks=bcast_over_K(left_ranks),
         sharing=sharing_labels)
-    return new_data
+    # ut3svd slices its output to the max rank it kept; the retracted point must live at the FRAME's padded
+    # dims (the docstring's promise, and what the optimizers' loop-invariant masks need) -- a slack-padded
+    # x0 (from_t3(x, n=, r=) above the real ranks) used to crash every uniform manifold optimizer at step 2.
+    return ut3_operations.ut3_pad_ranks(new_data, frame_data[0].shape[-2], frame_data[2].shape[-1])
 
 
 def utv_corewise_retract(

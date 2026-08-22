@@ -106,6 +106,10 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
 - **`adam` on a ragged manifold with a non-minimal-rank `x0` crashed at step 2** (its moment trees were
   allocated at `x0`'s core shapes; the first retraction drops the redundant rank). A ragged manifold `x0` is now
   reduced to minimal ranks on entry, mirroring the uniform path's `uniform_minimal`; a minimal start is untouched.
+- **A slack-padded `x0` crashed every uniform manifold optimizer at step 2.** `UniformTuckerTensorTrain.from_t3(x, n=, r=)`
+  (the documented "force a larger pad") passes the minimal-rank gate, but `utv_retract` returned its point at
+  the max rank `ut3svd` kept rather than at the frame's padded dims (its docstring promised the latter), so
+  the loop-invariant masks no longer fit. The retraction now re-pads (new `backend.ut3_operations.ut3_pad_ranks`).
 - **`newton_cg(verbose=True, val_data=…)` without `val_sample` failed deep inside the kind**, and `val_sample`
   alone was silently ignored; both now raise at the entry (`make_newton_display` too).
 - **`uniform_least_squares_problem`** accepted any non-`'manifold'` geometry string as corewise (so `'Manifold'`
