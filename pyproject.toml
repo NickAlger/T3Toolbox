@@ -11,7 +11,7 @@ include = ["t3toolbox*"]
 
 [project]
 name = "t3toolbox"
-version = "2026.1.0"
+version = "2026.2.0"
 description = "Library for working with Tucker tensor trains (extended tensor trains)"
 requires-python = ">=3.9"
 # Floors = the tested compatibility floor (CI: numpy 1.x + jax 0.4.30 on py3.9; numpy 2.x + latest jax on py3.11)
