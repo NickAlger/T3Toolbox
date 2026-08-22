@@ -70,10 +70,6 @@ def _geometry_ops(geometry, shape=None):
     """Map a **ragged** frontend geometry (a singleton, or a :py:class:`SharedGeometry` over one)
     to its backend geometry (check-free; :py:mod:`t3toolbox.backend.geometry`). A shared wrapper needs
     ``shape`` (the mode sizes) to canonicalize its partition."""
-    if geometry is t3m.MANIFOLD:
-        return bgeo.ManifoldGeometryOps()
-    if geometry is t3m.COREWISE:
-        return bgeo.CorewiseGeometryOps()
     if isinstance(geometry, sg.SharedGeometry):
         if geometry.is_uniform:
             raise ValueError("a ragged TuckerTensorTrain x0 requires a SharedGeometry over a RAGGED "
@@ -82,8 +78,9 @@ def _geometry_ops(geometry, shape=None):
         if shape is None:
             raise ValueError("a SharedGeometry needs the point's shape to canonicalize its "
                              "sharing partition (internal: pass shape=x0.shape)")
-        base = bgeo.ManifoldGeometryOps() if geometry.base is t3m.MANIFOLD else bgeo.CorewiseGeometryOps()
-        return base.with_sharing(geometry.sharing, shape)
+    ops = _fitting.ragged_backend_geometry(geometry, shape)
+    if ops is not None:
+        return ops
     raise ValueError(f"unknown geometry {geometry!r}; expected manifold.MANIFOLD / manifold.COREWISE "
                      f"(or a shared_geometry.SharedGeometry over one, or the uniform singletons "
                      f"uniform_manifold.UNIFORM_MANIFOLD / UNIFORM_COREWISE with a "

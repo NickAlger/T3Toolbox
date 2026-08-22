@@ -36,7 +36,6 @@ from t3toolbox.uniform_manifold import UT3Tangent, UNIFORM_MANIFOLD, UNIFORM_COR
 from t3toolbox.shared_geometry import shared, shared_manifold, shared_corewise
 from t3toolbox.fitting import (
     GaussNewtonModel,
-    UniformGaussNewtonModel,
     apply_model,
     entries_model,
     probe_model,
@@ -95,7 +94,6 @@ __all__ = [
     'shared_corewise',
     # fitting models
     'GaussNewtonModel',
-    'UniformGaussNewtonModel',
     'apply_model',
     'entries_model',
     'probe_model',

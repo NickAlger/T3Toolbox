@@ -345,9 +345,11 @@ The fitting layer solves least-squares problems over the fixed-rank T3 manifold 
 given samples of an unknown tensor -- entries, applies, probes, or their symmetric derivatives --
 find a T3 of the chosen ranks that matches them.
 
-- ``GaussNewtonModel`` (and ``UniformGaussNewtonModel``) is the geometry-generic local model:
-  gradient, Gauss-Newton Hessian-vector products, and retraction at a base point, over either the
-  ``MANIFOLD`` or ``COREWISE`` geometry.
+- ``GaussNewtonModel`` is the geometry-generic local model: gradient, Gauss-Newton
+  Hessian-vector products, and retraction at a base point, over either the ``MANIFOLD`` or
+  ``COREWISE`` geometry. One class serves both representations -- hand it a ragged
+  ``TuckerTensorTrain`` and its gradient is a ``T3Tangent``, hand it a
+  ``UniformTuckerTensorTrain`` and you get a ``UT3Tangent``.
 - The six factories -- ``entries_model`` / ``apply_model`` / ``probe_model`` and their
   ``*_derivatives_model`` twins -- assemble the model from sample data.
 - The four optimizers -- ``gradient_descent``, ``mc_sgd``, ``adam``, ``newton_cg`` -- drive it.

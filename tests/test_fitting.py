@@ -17,6 +17,7 @@ import unittest
 import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.uniform_frame_variations_format as ubv
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.fitting as fb
@@ -161,7 +162,7 @@ class TestGaussNewtonModel(unittest.TestCase):
                     self.assertTrue(np.allclose(model.objective_value, s['c'] + rho, rtol=RTOL, atol=ATOL))
 
     def test_uniform_regularizer(self):
-        '''S3b: the UniformGaussNewtonModel supports the same regularizer (roll-your-own uniform reg): the
+        '''S3b: the uniform-layer model supports the same regularizer (roll-your-own uniform reg): the
         two-form / `gn_quadratic==pᵀHp` identities hold with reg, and the uniform objective matches the
         ragged model's exactly (the equivalence contract). Uses minimal ranks -- the model factory (unlike
         the optimizer) does not call uniform_minimal.'''
@@ -523,9 +524,10 @@ class TestResidualWeighting(unittest.TestCase):
         self.assertTrue(np.allclose(float(m1.objective_value), float(m2.objective_value)))
 
 
-class TestUniformGaussNewtonModel(unittest.TestCase):
+class TestUniformLayerGaussNewtonModel(unittest.TestCase):
     '''U7b: the uniform roll-your-own surface. ``fitting.apply_model`` &c. dispatch a
-    ``UniformTuckerTensorTrain`` x to a ``UniformGaussNewtonModel`` (UT3Tangent-valued gradient / Hessian).
+    ``UniformTuckerTensorTrain`` x to a ``GaussNewtonModel`` on a UT3Frame (UT3Tangent-valued gradient /
+    Hessian) -- one model class serves both representations.
     Oracle: the tested backend ``LocalModel`` (== ragged) -- objective / gradient / gn_quadratic /
     gn_hessian agree to ~machine precision (both run the SAME packed kind + gauge projection). We feed the
     backend model's exact packed residual to the frontend model so the residuals match by construction.'''
@@ -573,7 +575,8 @@ class TestUniformGaussNewtonModel(unittest.TestCase):
                     lm = prob.local_model((x.data[0], x.data[1]))
                     kw = {'weight': w} if w is not None else {}
                     fmodel = factory(geom, x, *fargs, lm.residual, **kw)   # lm.residual is packed -> mirror no-op
-                    self.assertIsInstance(fmodel, fitting.UniformGaussNewtonModel)
+                    self.assertIsInstance(fmodel, fitting.GaussNewtonModel)
+                    self.assertIsInstance(fmodel.frame, ubv.UT3Frame)   # the uniform layer, one model class
                     self.assertTrue(np.allclose(float(fmodel.objective_value), float(lm.objective)))
                     self.assertLess(self._relerr(fmodel.gradient.variations.supercores, lm.gradient), 1e-10)
                     pt = geom.randn(fmodel.frame)
