@@ -7,8 +7,11 @@ and why it is the way it is is `docs/`. This file is where-we-are + what's next,
 
 ## Newest thread — the optimization-layer restructuring (2026-08-21)
 
-**On branch `optimization-layer-value-typed`, NOT pushed, NOT released.** Nine commits, every gate
-green at each: full suite **751 passed / 42,011 subtests**, 192 module doctests, doc pages clean,
+**MERGED into local `main`, NOT pushed, NOT released.** The branch
+`optimization-layer-value-typed` is pushed and is the reviewable unit; `main` carries the merge plus the
+`release: 2026.2.0` commit and is **15 commits ahead of `origin/main`**. Nick is doing an in-depth review
+before cutting the release (2026-08-22) — so nothing on `main` has left this machine, and there is no
+tag. Thirteen commits on the branch, every gate green at each: full suite **751 passed / 42,011 subtests**, 192 module doctests, doc pages clean,
 `sphinx -W` clean.
 
     8ef7c118  backend geometries become value-typed classes
@@ -91,13 +94,34 @@ Three things the review found and we chose not to fix — all in
 (the design's one sharp edge — see *Honest limits* in the decision record), a kind/geometry rank-pairing
 guard, and `d=1` on the uniform layer (pre-existing, in `ut3_svd`).
 
-### Next
+### Next — release prep is DONE; the remaining steps are one-way
 
-1. **Nick reviews the branch**, then merge to `main`. Nothing is pushed.
-2. **Release**: bump `pyproject.toml` (`2026.2.0` — the scheme has no major slot, and 2026.1.0 itself
-   shipped breaking changes), retitle the CHANGELOG's `[Unreleased]`, follow
-   `dev/archive/release_plan_2026-07-13.md`. The upgrade notes are already written in
-   `docs/release_notes.md`.
+Nick's in-depth review comes first (2026-08-22). Everything below it is already done and verified:
+
+- `main` = branch merge + `release: 2026.2.0`. Version bumped in **both** places it lives
+  (`pyproject.toml` and the fallback in `t3toolbox/__init__.py` — the second is the easy one to miss);
+  CHANGELOG `[Unreleased]` retitled `[2026.2.0] — 2026-08-22`. `docs/release_notes.md` needed no edit:
+  it pulls the changelog through its `{include}`, and its upgrade section is already titled
+  "Upgrading from 2026.1.0".
+- Verified against the **built artifact**, per `dev/archive/release_plan_2026-07-13.md` REL-2:
+  `twine check` PASSED on both; wheel is `t3toolbox` (53) + dist-info (5) with no strays; a fresh
+  numpy-only venv fits to 9.6e-10 ragged / 4.5e-11 uniform with jax genuinely absent and `use_jit=True`
+  raising cleanly; a fresh `[jax]` venv (jax 0.10.2 / numpy 2.4.6) runs `getting_started` 81/81.
+  The numpy-only leg matters more than usual: CI always installs jax, so it is exercised only here, and
+  this release adds code with jax-absent branches.
+- Final gate on merged `main`: 755 passed / 42,011 subtests, 192 module doctests, quickstart and every
+  doc page clean.
+
+What remains is irreversible and deliberately not done — a PyPI version cannot be reused:
+
+    git push origin main
+    git tag -a v2026.2.0 -m "..." && git push origin v2026.2.0     # triggers TestPyPI then PyPI
+
+REL-3 (trusted publishing) was configured for 2026.1.0, so there are no clicks this time.
+
+**Push `main` before tagging.** The new `examples` CI job has never run on a real runner — the workflow
+triggers on push to `main`, so that push is its first execution. Better to see it red there than during
+a release.
 3. **Follow-ups** are logged in `docs/contributor/deferred_and_rejected.md`: stacked optimization, the
    seven open-coded sharing normalizations in the SVD layer, a mixin for the repeated uniform-geometry
    methods, and jitting the outer Newton loop (its prerequisite — a pytree `LocalModel` — now exists;
