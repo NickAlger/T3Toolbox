@@ -38,11 +38,12 @@ cross-references.)
   catches it — runs to completion and produces a wrong objective. `Problem.__post_init__` could compare
   them when both are present.
 
-- **`d = 1` on the uniform layer.** Any uniform fit of a single-mode tensor fails in
-  `ut3_svd.ut3svd_supercores`, which concatenates a `(d,)+…` array with a `(d+1,)+…` one; ragged `d=1`
-  is fine. Verified identical on the pre-refactor tree, so this is pre-existing and lives in the SVD
-  layer, not the optimization layer. `d=1` structures are used elsewhere in the suite, just never with a
-  uniform frame.
+- ~~**`d = 1` on the uniform layer.**~~ **Resolved 2026-08-22.** The cause was not `ut3svd_supercores`
+  but `_tt_squash_tails_uniform`, which concatenated `[first, middle, last]` and so duplicated the single
+  core; every uniform op that squashes (`+`, `-`, `squash_tails`, `sum_stack`, `norm`, `t3svd`, the
+  frame) failed downstream. `d = 1` is now a supported *degenerate* case on both layers: a one-mode T3
+  is a vector in a rank-`n` subspace, rank is not meaningful, and every op reduces to the vector case
+  (`tests/test_uniform_tucker_tensor_train.py::TestUniformGarbageAndDegenerate`).
 
 - **Stacked optimization.** A stacked point carries a batch of base points `C`, so every objective is
   an array of shape `C` -- but the optimizers' convergence tests, Armijo line searches and plateau

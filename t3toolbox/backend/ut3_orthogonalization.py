@@ -52,6 +52,10 @@ def ut3_orthogonality_residual(
 
     Mt = xnp.einsum('...io,...jo->...ij', tucker_sc, tucker_sc)          # (d,)+stack+(n,n)
     resid = xnp.max(xnp.abs(Mt - xnp.eye(n) * tucker_mask[..., None, :]), axis=(0, -2, -1))  # -> stack_shape
+    if tt_sc.shape[0] == 1:
+        # d = 1: no interior bond, the single TT core is the center remainder -- only the Tucker term applies
+        # (a max over the empty interior would raise). Mirrors the ragged twin's loop over an empty tuple.
+        return resid
 
     interior = tt_mask[1:-1]                                              # interior bonds 1..d-1
     if side == 'left':                                                   # modes 0..d-2, right bonds

@@ -42,6 +42,16 @@ All notable changes to T3Toolbox are documented here. The format follows
 
 ### Fixed
 
+_The items below came out of the 2026-08-22 whole-library review (`dev/review_2026-08-22/`)._
+
+- **Uniform `+`, `-`, `squash_tails` and `sum_stack` read padding garbage.** `ut3_squash_tails` summed
+  the leading/trailing TT bond over *every* slot, including the padded ones the equivalence contract
+  declares don't-care -- and a corewise gradient step (`adam(UNIFORM_COREWISE, …)`, `UNIFORM_COREWISE.retract`)
+  leaves exactly those slots nonzero, so `x_fit + y` was silently wrong while `to_dense`/`norm` (which mask
+  on entry) were right. It now masks on entry.
+- **`d = 1` on the uniform layer.** The uniform boundary-bond squash duplicated the single core, which took
+  down every squashing op (`+`, `-`, `norm`, `inner`, `t3svd`, `rank_adjustment_sweep`, `UT3Frame.from_ut3`,
+  `is_left_orthogonal`). A one-mode T3 now degenerates to the vector case on both layers, as intended.
 - **A regularized fit of a stacked point silently mis-weighted, and now raises.** The data misfit keeps
   the frame stack `C` (one value per element) while every regularizer scalar collapses it, so
   `objective = misfit + ρ` added the whole-stack regularization total to *each* element -- inflating the

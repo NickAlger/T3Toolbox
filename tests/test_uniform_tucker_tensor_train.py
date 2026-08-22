@@ -586,5 +586,62 @@ class TestUniformTuckerTensorTrain(unittest.TestCase):
             ux.inner(uy)), TOL)
 
 
+def _corrupt(ux, scale=1e3):
+    """Add ``scale`` * garbage to EVERY padded slot of ``ux`` (Tucker padding AND the TT padding, including
+    the boundary-bond slots a corewise gradient step leaves nonzero); the real region is unchanged. A
+    correct (mask-once) op must be UNAFFECTED (``docs/uniform_equivalence_contract.md``)."""
+    scs = ux.supercores
+    ind = type(ux)(*([np.ones_like(s) for s in scs] + [ux.shape, ux.masks])).apply_masks().supercores
+    new = [sc + scale * (1.0 - i) for sc, i in zip(scs, ind)]
+    return type(ux)(*(new + [ux.shape, ux.masks]))
+
+
+class TestUniformGarbageAndDegenerate(unittest.TestCase):
+    """The garbage-padded-input prong (``docs/contributor/testing_strategy.md``) for the structural
+    arithmetic, and the ``d = 1`` degenerate case -- both regressions from the 2026-08-22 review."""
+
+    def test_squash_and_arithmetic_are_garbage_robust(self):
+        # ut3_squash_tails used to sum the UNMASKED boundary bonds, so garbage in a padded boundary-bond
+        # slot changed the tensor -- through squash_tails, +, -, and sum_stack (all squash).
+        for shape, tr, ttr in STRUCTURES + [((5, 6, 7), (3, 4, 2), (2, 3, 2, 2))]:   # incl. unsquashed tails
+            for ss in STACK_SHAPES:
+                with self.subTest(shape=shape, tt=ttr, stack=ss):
+                    x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+                    y = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+                    ux = _corrupt(ut3.UniformTuckerTensorTrain.from_t3(x, squash_tails=False))
+                    uy = _corrupt(ut3.UniformTuckerTensorTrain.from_t3(y, squash_tails=False))
+                    xd, yd = x.to_dense(), y.to_dense()
+                    self.assertLessEqual(relerr(ux.squash_tails().to_dense(), xd), TOL)
+                    self.assertLessEqual(relerr((ux + uy).to_dense(), xd + yd), TOL)
+                    self.assertLessEqual(relerr((ux - uy).to_dense(), xd - yd), TOL)
+                    # sum_stack sums over EVERY stack axis (the new leading one and the original ss)
+                    summed = np.sum(xd + yd, axis=tuple(range(len(ss)))) if ss else xd + yd
+                    self.assertLessEqual(
+                        relerr(ut3.UniformTuckerTensorTrain.stack((ux, uy)).sum_stack().to_dense(), summed), TOL)
+
+    def test_d1_degenerates_to_vector(self):
+        # A one-mode T3 is a vector in a rank-n subspace; every uniform op must reduce to that case
+        # (the uniform squash used to duplicate the single core, breaking everything downstream).
+        import t3toolbox.uniform_frame_variations_format as ufvf
+        for ttr, ss in [((1, 1), ()), ((2, 3), ()), ((1, 1), (2,)), ((2, 2), (2, 3))]:
+            with self.subTest(tt=ttr, stack=ss):
+                x = t3.TuckerTensorTrain.randn((7,), (3,), ttr, stack_shape=ss)
+                y = t3.TuckerTensorTrain.randn((7,), (3,), ttr, stack_shape=ss)
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x, squash_tails=False)
+                uy = ut3.UniformTuckerTensorTrain.from_t3(y, squash_tails=False)
+                xd, yd = x.to_dense(), y.to_dense()
+                self.assertLessEqual(relerr(ux.squash_tails().to_dense(), xd), TOL)
+                self.assertLessEqual(relerr((ux + uy).to_dense(), xd + yd), TOL)
+                self.assertLessEqual(relerr(ux.norm(), norm(xd.reshape(ss + (-1,)), axis=-1)), TOL)
+                self.assertLessEqual(relerr(ux.inner(uy), np.sum(xd * yd, axis=-1)), TOL)
+                self.assertLessEqual(relerr(ux.t3svd()[0].to_dense(), xd), TOL)
+                self.assertLessEqual(relerr(ux.rank_adjustment_sweep('right_to_left').to_dense(), xd), TOL)
+                self.assertLessEqual(relerr(ux.rank_adjustment_sweep('left_to_right').to_dense(), xd), TOL)
+                self.assertTrue(np.all(ux.t3svd()[0].is_left_orthogonal()))
+                frame = ufvf.UT3Frame.from_ut3(ux)
+                self.assertTrue(np.all(frame.is_orthogonal()))
+                self.assertLessEqual(relerr(frame.to_dense(), xd), TOL)
+
+
 if __name__ == '__main__':
     unittest.main()

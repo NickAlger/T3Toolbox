@@ -10,15 +10,17 @@ packedness-mirror convention (user-facing ops mirror the input's packedness).
 
 The weighted layer (uniform twins of the ragged ``t3_*_weights`` ops, same module split):
 ``ut3_absorb_weights`` / ``ut3_weights_consistent`` / ``ut3_reciprocal_weights`` /
-``ut3_sqrt_weights`` / ``ut3_concatenate_weights`` / ``ut3_kronecker_weights``. Note this module does
-**not** import the masking layer: weighting and masking are kept apart, and the shared mechanics they
+``ut3_sqrt_weights`` / ``ut3_concatenate_weights`` / ``ut3_kronecker_weights``. Note the weighted layer
+does **not** use the masking layer: weighting and masking are kept apart, and the shared mechanics they
 both need (``prefix_mask``, ``require_concrete_masks``) live in ``common``
-(``docs/contributor/weighted_internals.md``).
+(``docs/contributor/weighted_internals.md``). The one masking call in this module is
+``ut3_squash_tails``'s mask-on-entry, which is a structural op, not a weighted one.
 """
 import numpy as np
 import typing as typ
 
 import t3toolbox.backend.stacking as stacking
+import t3toolbox.backend.ut3_masking as ut3_masking
 from t3toolbox.backend.common import *
 from t3toolbox.backend.tt_operations import tt_reverse, tt_squash_tails
 
@@ -79,6 +81,10 @@ def ut3_squash_tails(data: UT3Data) -> UT3Data:
 
     tk, tt, shape, (tkm, ttm) = data
     require_concrete_masks(tkm, ttm)  # masks are host, not traced
+    # Mask on entry: the boundary-bond sums below run over EVERY slot of the leading/trailing bond, so any
+    # nonzero padding there (don't-care by contract, and exactly what a corewise gradient step leaves
+    # behind) would be summed into the real slot and change the represented tensor.
+    _, tt = ut3_masking.ut3_apply_masks(data)
     new_tt = tt_squash_tails(tt)
     r = tt.shape[-1]
     stack = tt.shape[1:-3]

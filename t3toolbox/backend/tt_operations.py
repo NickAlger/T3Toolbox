@@ -97,20 +97,26 @@ def _tt_squash_tails_uniform(
     n = tt_supercore.shape[-2]
     r = tt_supercore.shape[-1]
 
-    G0 = tt_supercore[:1]                                              # (1,)+stack+(r,n,r)
-    new_G0 = xnp.concatenate([
-        xnp.sum(G0, axis=-3, keepdims=True),                          # (1,)+stack+(1,n,r)
-        xnp.zeros((1,) + stack_shape + (r - 1, n, r)),
-    ], axis=-3)
+    def squash_left(G):                                               # (1,)+stack+(r,n,r)
+        return xnp.concatenate([
+            xnp.sum(G, axis=-3, keepdims=True),                       # (1,)+stack+(1,n,r)
+            xnp.zeros((1,) + stack_shape + (r - 1, n, r)),
+        ], axis=-3)
 
+    def squash_right(G):                                              # (1,)+stack+(r,n,r)
+        return xnp.concatenate([
+            xnp.sum(G, axis=-1, keepdims=True),                       # (1,)+stack+(r,n,1)
+            xnp.zeros((1,) + stack_shape + (r, n, r - 1)),
+        ], axis=-1)
+
+    if tt_supercore.shape[0] == 1:
+        # d = 1: the first and last core are the SAME core -- squash both bonds of it (the ragged twin does
+        # this naturally); concatenating [first, middle, last] would duplicate it into a 2-core supercore.
+        return squash_right(squash_left(tt_supercore))
+
+    new_G0 = squash_left(tt_supercore[:1])
     GG_mid = tt_supercore[1:-1]
-
-    Gf = tt_supercore[-1:]                                            # (1,)+stack+(r,n,r)
-    new_Gf = xnp.concatenate([
-        xnp.sum(Gf, axis=-1, keepdims=True),                          # (1,)+stack+(r,n,1)
-        xnp.zeros((1,) + stack_shape + (r, n, r - 1)),
-    ], axis=-1)
-
+    new_Gf = squash_right(tt_supercore[-1:])
     return xnp.concatenate([new_G0, GG_mid, new_Gf], axis=0)
 
 

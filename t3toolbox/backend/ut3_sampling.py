@@ -98,8 +98,11 @@ def ut3_full_sum(
 # Gradient of a sampling op w.r.t. the frame's own supercores (the Section 6.3 (P,Q,O)->G substitution, via
 # the now-polymorphic probing.*_corewise_transpose -- the tangent transpose at the frame (U, G, G, G)). For
 # a uniform core-wise optimizer (Adam, L-BFGS). Mask-once + pack at the boundary; return the RAW gradient
-# supercores (dU, dG), clean-padded (the masked frame zeros the padding, so the gradient never grows rank
-# into it) -- the uniform mirror of the ragged TuckerTensorTrain.*_corewise_transpose raw-tuple return.
+# supercores (dU, dG) -- the uniform mirror of the ragged TuckerTensorTrain.*_corewise_transpose raw-tuple
+# return. The padding of the result is NOT guaranteed clean: the boundary-bond squash is a sum over the whole
+# bond, so its gradient broadcasts into the padded boundary-bond slots too. That is don't-care by the
+# equivalence contract (every consumer masks on entry -- ut3_squash_tails included, since 2026-08-22), and
+# the masks, not the values, govern rank.
 
 def ut3_apply_corewise_transpose(
         c:    NDArray,                # residual, shape=W+K+C

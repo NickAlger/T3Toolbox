@@ -59,8 +59,13 @@ def tt_left_orthogonalize(
         HH0 = ()
 
     if is_uniform:
-        left_tt_cores = xnp.concatenate([LL0, Hf.reshape((1,)+Hf.shape)])
-        var_tt_cores  = xnp.concatenate([HH0, Hf.reshape((1,)+Hf.shape)])
+        Hf1 = Hf.reshape((1,) + Hf.shape)
+        if len(xs[0]) > 0:
+            left_tt_cores = xnp.concatenate([LL0, Hf1])
+            var_tt_cores  = xnp.concatenate([HH0, Hf1])
+        else:
+            left_tt_cores = Hf1   # d = 1: nothing was swept; the single core is the remainder (no concat of ())
+            var_tt_cores  = Hf1
     else:
         left_tt_cores = tuple(LL0) + (Hf,)
         var_tt_cores  = tuple(HH0) + (Hf,)
