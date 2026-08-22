@@ -987,5 +987,26 @@ class TestStructuralTangentMismatch(unittest.TestCase):
                 model.gn_quadratic(p)
 
 
+
+class TestD1Degenerate(unittest.TestCase):
+    """Review 2026-08-22 (C1): a one-mode T3 is a vector; the T3-gradient projection and transport used
+    to index an empty TT chain (IndexError) while every other d = 1 op worked."""
+
+    def test_project_ambient_t3_and_transport_at_d1(self):
+        np.random.seed(31)
+        for C in [(), (3,)]:
+            with self.subTest(stack=C):
+                x = t3.TuckerTensorTrain.randn((7,), (3,), (1, 1), stack_shape=C)
+                g = t3.TuckerTensorTrain.randn((7,), (2,), (1, 1), stack_shape=C)
+                frame = t3m.MANIFOLD.frame(x)
+                via_t3 = t3m.MANIFOLD.project_ambient(frame, g).to_dense()
+                via_dense = t3m.MANIFOLD.project_ambient(frame, g.to_dense()).to_dense()
+                self.assertLess(norm(np.asarray(via_t3) - np.asarray(via_dense)), 1e-10)
+                via_svd = t3m.MANIFOLD.project_ambient(frame, g.to_dense(), method='t3svd').to_dense()
+                self.assertLess(norm(np.asarray(via_svd) - np.asarray(via_dense)), 1e-10)
+                v = t3m.MANIFOLD.randn(frame)
+                w = t3m.MANIFOLD.transport(v, t3m.MANIFOLD.frame(g))
+                self.assertEqual(w.frame.stack_shape, C)
+
 if __name__ == "__main__":
     unittest.main()

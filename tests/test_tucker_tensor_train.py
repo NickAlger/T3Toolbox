@@ -3141,6 +3141,19 @@ class TestEntriesIndexSemantics(unittest.TestCase):
                 self.assertEqual(te.frame, frame)
 
 
+
+class TestDenseProbeD1(unittest.TestCase):
+    def test_dense_probe_with_probe_stack_at_d1(self):
+        # Review 2026-08-22 (C1): the W letters appeared only in the einsum output at d = 1.
+        import t3toolbox.backend.probing as probing
+        np.random.seed(13)
+        x = t3.TuckerTensorTrain.randn((7,), (3,), (1, 1))
+        ww = (np.random.randn(2, 3, 7),)                       # W = (2, 3)
+        ref = np.asarray(x.probe(ww)[0])
+        got = np.asarray(probing.dense_probe(ww, x.to_dense())[0])
+        self.assertEqual(got.shape, (2, 3, 7))
+        self.assertLess(norm(got - ref), 1e-12)
+
 if __name__ == '__main__':
     unittest.main()
 

@@ -258,7 +258,9 @@ def stack(
             stacked = xnp.array(collect(T, 0))
 
             # Move axes from the front (0, 1, ...) to their target positions
-            stacked = xnp.moveaxis(stacked, source=xnp.arange(len(axes)), destination=axes)
+            # static Python ints for the axes: under jit an xnp.arange is a tracer, and moveaxis needs
+            # concrete axis indices (every frontend stack() used to fail inside jit for that reason)
+            stacked = xnp.moveaxis(stacked, source=tuple(range(len(axes))), destination=tuple(axes))
 
             # Ensure the final array is in contiguous memory order (numpy only;
             # jax arrays are managed by the compiler and have no ascontiguousarray)

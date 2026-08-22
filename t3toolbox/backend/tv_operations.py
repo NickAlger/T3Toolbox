@@ -399,8 +399,15 @@ def tv_project_t3_onto_tangent_space(
         _project_t3_rebasis_step, (other_tt_cores, other_tucker_cores, up_tucker_cores),
     )
 
-    zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1])
-    zipper_right2left = tt_zipper_right_to_left(other_tt_cores2[1:], right_tt_cores[1:])
+    if len(other_tt_cores2) == 1:
+        # d = 1: no chain on either side of the single core -- the environments are the boundary ones
+        # matrices (an empty zipper cannot read the stack/bond sizes off an empty tuple).
+        ss = other_tt_cores2[0].shape[:-3]
+        zipper_left2right = (xnp.ones(ss + (other_tt_cores2[0].shape[-3], left_tt_cores[0].shape[-3])),)
+        zipper_right2left = (xnp.ones(ss + (other_tt_cores2[0].shape[-1], right_tt_cores[0].shape[-1])),)
+    else:
+        zipper_left2right = tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1])
+        zipper_right2left = tt_zipper_right_to_left(other_tt_cores2[1:], right_tt_cores[1:])
 
     ungauged_tt_variations, ungauged_tucker_variations = xmap(
         _project_t3_variations_step,

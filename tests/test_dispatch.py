@@ -1066,6 +1066,22 @@ class TestDispatch(unittest.TestCase):
             close(a, b)
 
 
+
+class TestJitStack(unittest.TestCase):
+    """Review 2026-08-22 (C4): stack() inside jit (moveaxis used to get a traced arange as its source)."""
+
+    def test_jit_stack_and_stack_tangents(self):
+        import jax
+        np.random.seed(9)
+        x = t3.TuckerTensorTrain.randn((4, 5), (2, 2), (1, 2, 1)).to_jax()
+        y = t3.TuckerTensorTrain.randn((4, 5), (2, 2), (1, 2, 1)).to_jax()
+        st = jax.jit(lambda u, v: t3.TuckerTensorTrain.stack((u, v)).data)(x, y)
+        self.assertEqual(tuple(st[0][0].shape), (2, 2, 4))
+        frame = t3m.MANIFOLD.frame(x)
+        a, b = t3m.MANIFOLD.randn(frame), t3m.MANIFOLD.randn(frame)
+        out = jax.jit(lambda p, q: t3m.T3Tangent.stack_tangents((p, q)).variations.data)(a, b)
+        self.assertEqual(tuple(out[0][0].shape)[:1], (2,))
+
 if __name__ == "__main__":
     unittest.main()
 

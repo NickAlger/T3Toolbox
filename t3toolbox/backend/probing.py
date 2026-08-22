@@ -1545,8 +1545,12 @@ def dense_probe(
         str += W_letters + C_letters + shape_letters[ii]
 
         vvi = tuple(vectors[:ii] + vectors[ii+1:][::-1])
-
-        z = xnp.einsum(str, T, *vvi)
+        if d == 1:
+            # no partner vectors to contract: the probe is the tensor itself, broadcast over W (the W
+            # letters would otherwise appear only in the einsum output, which numpy rejects)
+            z = xnp.broadcast_to(T, W + tuple(T.shape))
+        else:
+            z = xnp.einsum(str, T, *vvi)
         zz.append(z)
 
     return tuple(zz)
