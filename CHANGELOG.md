@@ -82,8 +82,34 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
 - **The tangent/corewise `apply`/`entries` transposes rejected a bare Python float residual** (the natural
   unstacked case; the ambient twin's own doctest passes `1.7`).
 
+- **`d = 1` on the ragged manifold:** `MANIFOLD.project_ambient(frame, <T3>)`, `project_ambient(…, method='t3svd')`
+  and `MANIFOLD.transport` raised an `IndexError` (an empty TT chain has no zipper); `dense_probe` raised on a
+  one-mode tensor with a probe stack. A one-mode T3 is a vector; these now degenerate to that case like
+  everything else.
+- **`stack()` was not jittable** (`TuckerTensorTrain.stack`, `T3Frame.stack`, `T3Tangent.stack_tangents`, the
+  uniform twins): `moveaxis` was given an `arange` source, which is a tracer under `jit`.
+- **`adam` on a ragged manifold with a non-minimal-rank `x0` crashed at step 2** (its moment trees were
+  allocated at `x0`'s core shapes; the first retraction drops the redundant rank). A ragged manifold `x0` is now
+  reduced to minimal ranks on entry, mirroring the uniform path's `uniform_minimal`; a minimal start is untouched.
+- **`newton_cg(verbose=True, val_data=…)` without `val_sample` failed deep inside the kind**, and `val_sample`
+  alone was silently ignored; both now raise at the entry (`make_newton_display` too).
+- **`uniform_least_squares_problem`** accepted any non-`'manifold'` geometry string as corewise (so `'Manifold'`
+  silently fit on the wrong geometry), and built a `Problem` for a derivative kind without `order=` that failed
+  on first use. Geometry and kind strings are validated (case-insensitively, see below) and `order` is required up front.
+
 ### Changed
 
+- **jax requested but not installed: run on numpy and warn, never raise.** `TuckerTensorTrain.randn(use_jax=True)`
+  / `UniformTuckerTensorTrain.randn(use_jax=True)` used to die with a bare `NameError`, `to_jax()` /
+  `load(use_jax=True)` silently returned numpy, and the optimizers' `use_jit=True` raised. The policy is now one
+  rule (`backend.common.jax_or_warn`): the request runs on numpy with a one-time `RuntimeWarning` naming the
+  `t3toolbox[jax]` extra -- a project developed without jax on one machine and deployed with it on another runs
+  unchanged on both. (`use_jit=True` with jax *present* still auto-converts to jax, as in 2026.1.0.)
+- **Geometry and kind strings are case-insensitive** on the frontend optimizers and `uniform_least_squares_problem`
+  (`'Manifold'`, `'PROBE_DERIVATIVES'`, …).
+- **`adam` on a manifold geometry warns**: its per-coordinate moments live in the gauge-dependent core
+  coordinates, so its iterates depend on the backend / representation (measured ~1e-2); `COREWISE` is the
+  intended geometry, `mc_sgd` / `newton_cg` the gauge-invariant manifold optimizers.
 - **A per-mode residual weight may have more rows than modes.** The extra rows are ignored (intended: one
   weight rides through a continuation scheme that adds modes), now on both layers -- the frontend used to
   reject it while the backend truncated silently. Fewer rows than modes is a structural error on both.

@@ -491,29 +491,39 @@ class TestBackendOptimizers(unittest.TestCase):
             xd, _ = opt.mc_sgd(prob_d, x0z, np.random.default_rng(7), batch=20, max_iter=120, use_jit=True)
             self.assertIsInstance(xd[0][0], jnp.ndarray)        # jit-compiled (a stray np.* on a tracer raises)
 
-    def test_use_jit_requires_jax(self):
-        """use_jit=True with jax unavailable raises (not the old silent eager fallback) for all three
-        optimizers. No compilation: the guard fires at entry before any kernel is built (jax_available
-        patched off to simulate a jax-less install)."""
+    def test_use_jit_without_jax_warns_and_runs_eager(self):
+        """use_jit=True with jax unavailable runs eager on numpy with a RuntimeWarning -- the library-wide
+        jax-absent policy (review 2026-08-22, C10; it used to raise, and before 2026.1.0 it silently dropped
+        the request). The guard fires at entry, before any kernel is built (common.jax_available patched
+        off to simulate a jax-less install; the once-per-site memo is reset so the warning is observable)."""
+        import warnings
+        import t3toolbox.backend.common as common
         rng = np.random.default_rng(4)
         ww = unit_vecs(40, SHAPE, rng); data = dense_probe(self.A, ww)
         pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
         pc = opt.least_squares_problem(bgeo.CorewiseGeometryOps(), bfit.PROBE, ww, data)
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
-        saved = opt.jax_available
-        opt.jax_available = False
+        saved = common.jax_available
+        common.jax_available = False
         try:
-            with self.assertRaises(ValueError):
-                opt.newton_cg(pm, x0, max_newton=1, use_jit=True)
-            with self.assertRaises(ValueError):
-                opt.mc_sgd(pm, x0, rng, batch=20, max_iter=1, use_jit=True)
-            with self.assertRaises(ValueError):
-                opt.adam(pc, x0, rng, batch=20, max_iter=1, use_jit=True)
-            # use_jit=False is unaffected -- still runs eager on numpy
-            xf, _ = opt.newton_cg(pm, x0, max_newton=1, use_jit=False)
+            for run in (lambda: opt.newton_cg(pm, x0, max_newton=1, use_jit=True),
+                        lambda: opt.mc_sgd(pm, x0, rng, batch=20, max_iter=1, use_jit=True),
+                        lambda: opt.adam(pc, x0, rng, batch=20, max_iter=1, use_jit=True)):
+                common._JAX_WARNED.discard('use_jit=True')
+                with warnings.catch_warnings(record=True) as w:
+                    warnings.simplefilter('always')
+                    xj, _ = run()
+                self.assertFalse(is_jax_ndarray(xj[0][0]))           # eager numpy result
+                self.assertTrue(any('use_jit=True' in str(m.message) for m in w), [str(m.message) for m in w])
+            # use_jit=False is unaffected -- eager on numpy, no warning
+            with warnings.catch_warnings(record=True) as w:
+                warnings.simplefilter('always')
+                xf, _ = opt.newton_cg(pm, x0, max_newton=1, use_jit=False)
             self.assertFalse(is_jax_ndarray(xf[0][0]))
+            self.assertFalse(any('jax' in str(m.message) for m in w))
         finally:
-            opt.jax_available = saved
+            common.jax_available = saved
+            common._JAX_WARNED.discard('use_jit=True')
 
 
 

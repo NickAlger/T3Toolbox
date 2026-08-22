@@ -421,7 +421,7 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
   `g0norm_cg` is given), and `cg_forcing_power` (default `0.5`) tunes CG effort per Newton step
   (`docs/fitting_and_optimization.md` §5); plus **`use_jit=True` auto-converts** (`mc_sgd`/`adam`/`newton_cg`):
   requesting jit moves `x0`/`sample`/`data` onto jax and compiles, so it returns a **jax-backed** result
-  (jax float32 unless x64) and **raises** if jax is absent — never the old silent eager drop
+  (jax float32 unless x64); if jax is absent it **warns and runs eager** (the library-wide jax-absent policy, `common.jax_or_warn`) — loud, never the old silent drop
   (`_prepare_jit_inputs`; `docs/fitting_and_optimization.md` §4.5); **the full uniform mirror
   of all of it** — `UniformTuckerTensorTrain`, `UT3Frame`/`UT3Variations`/`UT3Tangent`, the
   uniform geometries, uniform sampling + jets, and the optimizers running fully packed,

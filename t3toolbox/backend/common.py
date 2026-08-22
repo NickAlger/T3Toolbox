@@ -11,6 +11,7 @@ arrays at the lowest level); ``ValueHashedMasks`` is the value-based hash/eq mix
 rebuilt-but-identical mask holder on the same jit cache key.
 """
 import numpy as np
+import warnings
 import typing as typ
 import functools as ft
 import dataclasses as dc
@@ -25,6 +26,7 @@ __all__ = [
     'is_jax_ndarray',
     'is_numpy_ndarray',
     'to_jax',
+    'jax_or_warn',
     'to_numpy',
     #
     'ValueHashedMasks',
@@ -99,9 +101,24 @@ if jax_available:
         else:
             return False
 
-to_jax = lambda x: np.array(x)
-if jax_available:
-    to_jax = lambda x: jnp.array(x)
+_JAX_WARNED = set()
+
+
+def jax_or_warn(what: str) -> bool:
+    """The jax-absent policy: a request for jax (``use_jax=True``, ``to_jax``, ``use_jit=True``) on a machine
+    without jax runs on numpy and WARNS, once per call site -- never an error (a project developed without
+    jax on one machine and deployed with it on another must run unchanged on both), never silent (the old
+    ``to_jax = np.array`` fallback). Returns ``jax_available``."""
+    if not jax_available and what not in _JAX_WARNED:
+        _JAX_WARNED.add(what)
+        warnings.warn('%s: jax was requested but is not installed -- running on numpy instead. Install the '
+                      't3toolbox[jax] extra for jax.' % what, RuntimeWarning, stacklevel=3)
+    return jax_available
+
+
+def to_jax(x):
+    """``jnp.array(x)`` when jax is available; otherwise ``np.array(x)`` with a warning (see ``jax_or_warn``)."""
+    return jnp.array(x) if jax_or_warn('to_jax') else np.array(x)
 
 to_numpy = lambda x: np.array(x)
 
@@ -307,6 +324,9 @@ def get_backend(
         xmap = ragged_map
         xscan = ragged_scan
 
+    if use_jax and not jax_or_warn('get_backend(use_jax=True)'):
+        use_jax = False                       # jax absent: numpy, with the one-time warning
+        xmap, xscan = (numpy_map, numpy_scan) if is_uniform else (ragged_map, ragged_scan)
     if use_jax:
         xnp = jnp
     else:
@@ -409,7 +429,7 @@ def xprepend(
 
 
 def randn(*args, use_jax: bool):
-    if use_jax:
+    if use_jax and jax_or_warn('randn(use_jax=True)'):
         return jnp.array(np.random.randn(*args)) # should convert this to pure jax
     else:
         return np.random.randn(*args)
@@ -424,11 +444,11 @@ def tree_contains_jax(T):
 def tree_to_jax(T):
     """Move every array leaf of a pytree (nested tuples/lists of arrays) onto jax, preserving the tree
     structure; leaves already jax are a no-op (``jnp.asarray``). Numpy ``float64`` leaves become jax
-    ``float32`` unless jax x64 is enabled -- the caller opts into jax precision. **Requires jax** -- guard
-    on :py:data:`jax_available` at the call site (``jnp`` is only bound when jax is importable)."""
+    ``float32`` unless jax x64 is enabled -- the caller opts into jax precision. Without jax: numpy leaves
+    and a one-time warning (the jax-absent policy, :py:func:`jax_or_warn`)."""
     if isinstance(T, typ.Sequence):
         return type(T)(tree_to_jax(t) for t in T)   # preserve list-vs-tuple
-    return jnp.asarray(T)
+    return jnp.asarray(T) if jax_or_warn('tree_to_jax') else np.asarray(T)
 
 
 def items_are_uniform(

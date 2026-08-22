@@ -291,7 +291,7 @@ threading), so a single kernel runs numpy-eager, jax-eager, or jit-compiled. **`
 loop as one `lax.while_loop`. Asking for jit is opting into "jax world": the optimizer
 **auto-converts** the inputs (`x0`, `sample`, `data`) onto jax, so a `use_jit=True` call on numpy
 data **returns a jax-backed result** in jax's default **float32** (enable `jax.config.update(
-"jax_enable_x64", True)` first if you need float64), and **raises** if jax is not installed — the
+"jax_enable_x64", True)` first if you need float64), and, if jax is not installed, **warns and runs eager on numpy** — the
 request is honored or explained, never silently dropped. (Passing jax inputs yourself is equivalent;
 the convert is a no-op.) **The draw runs *outside* the compiled kernel** — its fixed-size minibatch arrays flow in
 as the kernel's inputs, so the kernel compiles **once** (constant shapes) and is reused. This keeps

@@ -304,13 +304,13 @@ def _prepare_jit_inputs(use_jit, x0, problem):
     untouched -- masks stay host-numpy per the uniform jit recipe, and a numpy weight folds in as a
     constant. Returns ``(x0, problem)`` unchanged when ``use_jit`` is False.
 
-    Raises when ``use_jit`` but jax is unavailable -- the one case with nothing to convert and no compiler;
-    silently degrading to eager is exactly the bug this replaces."""
+    When ``use_jit`` but jax is unavailable: runs eager on numpy with a one-time warning (the library-wide
+    jax-absent policy, ``common._jax_or_warn`` -- a script developed without jax and deployed with it must
+    run unchanged on both machines). Loud, not silent: the 2026.1.0 silent eager drop is what this replaces."""
     if not use_jit:
         return x0, problem
-    if not jax_available:
-        raise ValueError("use_jit=True requires jax (install the t3toolbox[jax] extra); without jax there "
-                         "is nothing to compile. Drop use_jit to run eager on numpy.")
+    if not jax_or_warn('use_jit=True'):
+        return x0, problem
     return (tree_to_jax(x0),
             dc.replace(problem, sample=tree_to_jax(problem.sample), data=tree_to_jax(problem.data)))
 
@@ -641,7 +641,7 @@ def newton_cg(
     line search keeps it robust regardless. ``use_jit`` jits only the inner CG (the outer loop, line
     search, and convergence test stay on the host), auto-converting numpy inputs to jax first
     (:py:func:`_prepare_jit_inputs`) -- so a ``use_jit=True`` call on numpy data returns a jax-backed
-    result (jax's default float32 unless x64 is enabled) and raises if jax is not installed.
+    result (jax's default float32 unless x64 is enabled); if jax is not installed it runs eager with a warning.
 
     **Overriding the reference gradient norm ‖g0‖** (``g0norm_newton`` / ``g0norm_cg`` /
     ``cg_forcing_power``). Both stopping tests are *relative* to a reference ‖g0‖: the Newton stop is
