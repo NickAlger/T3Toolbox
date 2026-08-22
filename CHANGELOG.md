@@ -3,6 +3,60 @@
 All notable changes to T3Toolbox are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); versions are `YYYY.MINOR.PATCH`.
 
+## [Unreleased]
+
+### Changed — breaking
+
+- **The optimization layer's axis objects are classes, not records of closures.** A geometry and a
+  sampling kind are now frozen dataclasses whose *parameters are fields*; their behaviour is methods.
+  This is what makes them compare and hash **by value**, which matters because both ride as jax
+  `aux_data` and therefore form part of the compilation cache key. Rationale, measurements and the
+  rejected alternatives: [`contributor/parameters_not_closures.md`](contributor/parameters_not_closures.md).
+  - **New `backend/geometry.py`** with `ManifoldGeometryOps` / `CorewiseGeometryOps` and their
+    `Uniform*` twins (the uniform ones carry the fixed rank they were built at; use `from_point`).
+    Removed: `backend.optimizers.GeometryOps`, `MANIFOLD_OPS`, `COREWISE_OPS`, `shared_geometry_ops`,
+    and `backend.uniform_fitting.uniform_{manifold,corewise,geometry}_ops`.
+  - **Sharing is a `groups` field**, not a wrapper — one class and one code path for shared and
+    unshared. The frontend `shared_manifold` / `shared_corewise` constructors are unchanged.
+  - **`SamplingKind` is a class hierarchy** (`ApplyKind`, `EntriesKind`, `ProbeKind`, the three
+    `*DerivativesKind`, and their `Uniform*` twins). The `*_kind` constructor spellings still work.
+    Removed: the `identity` field and its `__eq__`/`__hash__`. A custom kind is now a **subclass**;
+    deriving one with `dataclasses.replace` no longer type-checks, and that is the point — see below.
+  - **`fitting.UniformGaussNewtonModel` is removed.** One `GaussNewtonModel` serves both
+    representations; the factories still dispatch on `x`. It is deliberately not aliased.
+  - `optimizer_display` gates its error table on `kind.has_block_sumsq` rather than on a `block_sumsq`
+    field being `None`.
+
+- **Optimizing a STACKED point raises `NotImplementedError`.** It never worked -- `newton_cg` and
+  `gradient_descent` failed on `float()` of a shape-`C` objective, `mc_sgd` on a broadcast, and `adam`
+  once its loss logging first fired -- but it failed obscurely, from deep inside the loop. Building the
+  local model on a stacked point *is* supported and still works, so rolling your own loop over a stacked
+  problem is the route. Stacked optimization is possible future work.
+
+### Fixed
+
+- **A regularized fit of a stacked point silently mis-weighted, and now raises.** The data misfit keeps
+  the frame stack `C` (one value per element) while every regularizer scalar collapses it, so
+  `objective = misfit + ρ` added the whole-stack regularization total to *each* element -- inflating the
+  effective `λ` by about `|C|`, unevenly. The regularizer *gradient* was per-element correct, which is
+  what made it easy to miss. No test combined `stack_shape` with a regularizer.
+
+- **A derived sampling kind silently reused its parent's compiled program.** `dataclasses.replace`
+  copied the hand-maintained `identity` tuple unchanged, so `dc.replace(APPLY, forward=<other math>)`
+  compared equal to `APPLY`; under `jit` it returned `APPLY`'s answer (measured: 115.302888 where eager
+  gave 28.825722). Unrepresentable now — a variant is a subclass, hence a distinct type.
+
+### Performance
+
+- **The inner CG compiles once per fitting run instead of once per Newton iteration** (measured
+  1 → 0 compiles per iteration on the uniform `probe_derivatives` path, warm). `_cg_solve` is jitted as
+  a whole function of `(local_model, rhs, tol, maxiter)`, so the cache key is the model's pytree
+  treedef — value-based, thanks to the change above.
+- **`mc_sgd` / `adam` per-step kernels compile once per shape signature**, process-wide, rather than
+  once per optimizer call: the kernels are module-level functions and the jit wrapper is memoized on
+  them, replacing a per-call closure that discarded its own cache.
+- A user-defined kind or geometry now gets this for free, provided its parameters are dataclass fields.
+
 ## [2026.1.0] — 2026-08-20
 
 ### Added

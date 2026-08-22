@@ -32,6 +32,35 @@ cross-references.)
 
 ## Deferred (would be built if the need materializes)
 
+- **Stacked optimization.** A stacked point carries a batch of base points `C`, so every objective is
+  an array of shape `C` -- but the optimizers' convergence tests, Armijo line searches and plateau
+  detection all reduce it with a Python `float()`. All four now raise `NotImplementedError` at the
+  entry rather than failing from inside the loop. The Gauss-Newton *model* supports stacked points and
+  returns a shape-`C` objective, so rolling your own loop works today; making the optimizers vectorize
+  over `C` (and deciding what a per-element convergence test means when elements converge at different
+  rates) is the real work. Low priority.
+  Regularizing a stacked point is a separate, sharper problem: the misfit keeps `C` while every
+  regularizer scalar collapses it, so it raises regardless of the optimizer
+  ([`fitting_and_optimization.md`](../fitting_and_optimization.md) §4.10).
+
+- **Consolidating the sharing-partition normalization at its remaining call sites.** `None`-or-
+  all-singletons → "skip the shared path" is open-coded at seven sites in `backend/ranks.py`,
+  `backend/t3_svd.py` and `backend/ut3_svd.py`, each normalizing to a `None` sentinel.
+  `sharing.canonical_groups` is now the named form (it normalizes to `()`, which a geometry can store
+  as a field and compare by value). The seven were verified duplicative, not wrong; converting them
+  means touching the SVD layer, so it was left out of the optimization-layer work.
+
+- **A shared base for the repeated uniform-geometry methods.** `_variations`, `n_stack`, `base_point`
+  and `inner` are identical across `UniformManifoldGeometryOps` and `UniformCorewiseGeometryOps`
+  (~20 lines). A mixin would remove the repetition; left alone because dataclass inheritance with
+  defaulted fields is finicky enough that the duplication is currently the clearer of the two.
+
+- **Jitting the outer Newton loop.** Per iteration the host does roughly a dozen device→host syncs,
+  plus one per line-search backtrack (up to 40). Noise on CPU, not on a GPU. It is downstream of the
+  pytree `LocalModel` that now exists, so the prerequisite is met; what it fights is the `callback`
+  diagnostic display, which reads the concrete residual host-side (`jax.debug.callback` is the likely
+  route). Its own decision, deliberately kept out of the jit-boundary work.
+
 - **The bidiagonal-`trs` jet optimization — deferred, then BUILT; now the standard form.** The
   pushthrough/assembly contractions convolve a full-order jet with the input/perturbation jet, which
   is capped at 2 orders (`s ∈ {0,1}`), so `trs[t,r,s]` is nonzero only at `r ∈ {t, t−1}` —

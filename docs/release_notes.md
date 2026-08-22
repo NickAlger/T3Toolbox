@@ -5,6 +5,38 @@ The full changelog is reproduced below, newest first; the format follows
 then a minor number that increments with each release of that year). Start with the upgrade notes if
 you are moving an existing codebase forward.
 
+## Upgrading from 2026.1.0
+
+The optimization layer's axis objects became classes. Everything here raises rather than failing
+silently, and the constructor spellings you already use mostly still work.
+
+**Geometries moved and are constructed, not fetched.** `backend.optimizers.MANIFOLD_OPS` becomes
+`backend.geometry.ManifoldGeometryOps()`, `COREWISE_OPS` becomes `CorewiseGeometryOps()`, and
+`shared_geometry_ops(base, groups)` becomes `base.with_sharing(sharing, shape)`. On the uniform side,
+`uniform_geometry_ops(name, x0_data, sharing)` becomes
+`UniformManifoldGeometryOps.from_point(x0_data, sharing)` (or the `Corewise` twin). The **frontend**
+geometry singletons -- `MANIFOLD`, `COREWISE`, `UNIFORM_MANIFOLD`, `UNIFORM_COREWISE`,
+`shared_manifold(...)` -- are untouched, so ordinary fitting code needs no change.
+
+**A custom sampling kind is a subclass now.** Building one by copying an existing kind and swapping a
+function -- `dataclasses.replace(APPLY, forward=...)` -- no longer type-checks. This is deliberate: that
+construction copied the kind's identity along with it, so the variant claimed to *be* `APPLY` and `jit`
+handed back `APPLY`'s compiled program. Subclass `ApplyKind` (or the relevant base) and override the
+operations you need; keep your parameters as dataclass **fields** and you get correct jit cache
+behaviour for free.
+
+**`fitting.UniformGaussNewtonModel` is gone.** One `GaussNewtonModel` now serves both representations,
+and the `*_model` factories still dispatch on `x`, so `fitting.apply_model(UNIFORM_MANIFOLD, ux, ...)`
+returns what it always did -- just of the merged type. If you were checking
+`isinstance(m, UniformGaussNewtonModel)`, check the frame instead:
+`isinstance(m.frame, ubv.UT3Frame)`.
+
+**Stacked points raise in the optimizers.** If you were passing a stacked `x0` to `newton_cg`,
+`gradient_descent`, `mc_sgd` or `adam`, you were getting a `TypeError` from inside the loop; you now get
+a `NotImplementedError` at the entry that says what to do. Fit the stack elements separately, or build
+the local model and drive your own loop -- that path supports stacked points and returns a shape-`C`
+objective. A regularizer on a stacked point raises for a separate reason (see the changelog).
+
 ## Upgrading from 2026.0.0
 
 Three changes in this release can break existing code. All three are mechanical, and each raises a

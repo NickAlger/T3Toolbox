@@ -32,6 +32,7 @@ Design-decision records
    contributor/weighted_internals
    contributor/sharing_internals
    contributor/precompute_and_caching
+   contributor/parameters_not_closures
    contributor/numerical_contract_catalog
    contributor/t3svd_design_rationale
    contributor/t3svd_verification
