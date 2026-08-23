@@ -60,3 +60,8 @@ directions explicitly, or pads and never asks the padded slots to be orthonormal
   pair `(M M^T, P_real)` commutes), the real-complement completion identical (overlap 1.000, in the real row
   `(a=2,b=0)`), the padded rows as the common null space. The augmentation is the GSVD with `B` scaled by
   `eps`, computed through one ordinary (batchable) SVD.
+- `s1b_tucker_aug.py` — the Tucker site (rows = the mode index, padded only as a SUFFIX beyond N_i; n small):
+  one SVD of `[M | eps*C]` with `C` = the first `n` coordinate vectors masked by the shape mask, keep the first
+  `n` left singular vectors, remainder `U^T M`. Over 400 random cases (incl. N_i < n and numerical rank 0):
+  orthonormal (1e-15), the n_i real columns real-supported (0.0 on padded rows), range(M) ⊆ range(U) so the
+  tensor is exact (1e-15), sigma > 0 vectors unperturbed (7e-16). Cost O(N n^2): no N^3 anywhere.
