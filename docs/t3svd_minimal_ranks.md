@@ -72,7 +72,11 @@ separate, opt-in step.
 ranks (re-SVD each Tucker edge and TT bond with no cap). The represented tensor is unchanged.
 
 - `'right_to_left'` returns a **right-orthogonal** result;
-- `'left_to_right'` returns a **left-orthogonal** result.
+- `'left_to_right'` returns a **left-orthogonal** result
+
+(in the full sense -- Tucker cores included -- when the input's Tucker cores are already orthonormal, as
+for any `t3svd` result; the sweep re-SVDs the TT cores and bonds and *preserves* Tucker orthonormality but
+never creates it, so on a generic input only the TT cores come out orthogonal).
 
 **A single sweep reaches minimal ranks only if the input is already orthogonal in the *opposite*
 direction.** A left-orthogonal input already satisfies the forward (left) bounds, so a `'right_to_left'`

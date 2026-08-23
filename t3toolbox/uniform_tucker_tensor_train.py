@@ -728,7 +728,9 @@ class UniformTuckerTensorTrain:
                               sharing: typ.Sequence = None) -> 'UniformTuckerTensorTrain':
         """A single directional sweep that drops structurally-redundant ranks (the separate
         rank-minimization step; :py:meth:`t3svd` does not minimize). ``'right_to_left'`` returns a
-        right-orthogonal UT3, ``'left_to_right'`` a left-orthogonal one; it reaches minimal ranks **only
+        right-orthogonal UT3, ``'left_to_right'`` a left-orthogonal one (fully so when the input's Tucker
+        cores are already orthonormal, e.g. a :py:meth:`t3svd` result -- the sweep preserves Tucker
+        orthonormality but never creates it); it reaches minimal ranks **only
         if the input is orthogonal in the opposite direction** (a :py:meth:`t3svd` result is
         left-orthogonal, so ``'right_to_left'`` minimizes it).
 

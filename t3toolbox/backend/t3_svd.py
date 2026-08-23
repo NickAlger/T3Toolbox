@@ -300,10 +300,17 @@ def t3_rank_adjustment_sweep(
     edge and TT bond with **no cap**). The represented tensor is unchanged.
 
     ``'right_to_left'`` produces a **right-orthogonal** result; ``'left_to_right'`` a **left-orthogonal**
-    one. A single sweep reaches the minimal ranks **only if the input is already orthogonal in the
+    one -- in the full sense (Tucker cores orthonormal too) **when the input's Tucker cores are already
+    orthonormal**, e.g. any :py:func:`t3svd` result: the sweep re-SVDs the TT cores and their bonds and
+    *preserves* Tucker orthonormality (``Q <- V^T Q`` keeps orthonormal rows), it never re-orthonormalizes
+    a Tucker core. On a generic input the TT cores come out orthogonal and the Tucker cores stay as they
+    were (so ``is_right_orthogonal`` is False and ``t3svd(assume_orthogonal=True)`` would be wrong on it).
+    A single sweep reaches the minimal ranks **only if the input is already orthogonal in the
     opposite direction** -- e.g. a :py:func:`t3svd` result is left-orthogonal, so
     ``t3_rank_adjustment_sweep(result, 'right_to_left')`` minimizes it (verify with ``has_minimal_ranks``).
-    On a general input it is a partial reduction; compose both directions for guaranteed minimal ranks.
+    On a general input it is a partial reduction; compose both directions for guaranteed minimal ranks
+    (a Tucker rank above its mode size, ``n_i > N_i``, is reduced by a Tucker up-SVD first -- the one case
+    the TT-side steps cannot see).
 
     ``sharing``: a partition with a real group routes through the grouped lossless reduction
     (:py:func:`_t3svd_shared` with no caps -- the per-mode Tucker step would untie the group).
@@ -334,6 +341,9 @@ def t3_rank_adjustment_sweep(
 
     x = (x[0], tt_operations.tt_squash_tails(x[1]))
     num_cores = len(x[0])
+    for ii in range(num_cores):
+        if x[0][ii].shape[-2] > x[0][ii].shape[-1]:       # n_i > N_i: only a Tucker up-SVD can reduce it
+            x, _ = ragged_orth.t3_down_svd_tucker_core(x, ii)
     if direction == 'right_to_left':
         for ii in range(num_cores - 1, -1, -1):
             x, _ = ragged_orth.t3_down_svd_tt_core(x, ii)        # Tucker: drop n above rL*rR

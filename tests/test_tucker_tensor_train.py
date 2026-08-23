@@ -3175,6 +3175,21 @@ class TestReviewC13Tucker(unittest.TestCase):
         self.assertEqual(np.shape(out), (2, 2))
         self.assertTrue(bool(np.all(out)))
 
+
+
+class TestRankAdjustmentSweepTuckerAboveModeSize(unittest.TestCase):
+    def test_composed_sweeps_reach_minimal_ranks_when_n_exceeds_N(self):
+        # Review 2026-08-22 (S4 / R3-2): a Tucker rank above its mode size is invisible to the TT-side
+        # steps; the sweep now opens with a Tucker up-SVD, so "compose both directions" is minimal.
+        np.random.seed(51)
+        x = t3.TuckerTensorTrain.randn((13, 14, 15, 16), (4, 99, 6, 7), (1, 4, 9, 7, 1))
+        y = x.rank_adjustment_sweep('right_to_left').rank_adjustment_sweep('left_to_right')
+        self.assertTrue(y.has_minimal_ranks, (y.tucker_ranks, y.tt_ranks))
+        self.assertLess(norm(np.asarray(y.to_dense()) - np.asarray(x.to_dense())) / norm(np.asarray(x.to_dense())), 1e-12)
+        # and the conditional orthogonality claim: a t3svd input gives a fully right-orthogonal result
+        xs, _, _ = x.t3svd()
+        self.assertTrue(bool(xs.rank_adjustment_sweep('right_to_left').is_right_orthogonal()))
+
 if __name__ == '__main__':
     unittest.main()
 

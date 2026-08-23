@@ -794,8 +794,9 @@ class TuckerTensorTrain:
         center remainder).
 
         Non-enforcing convenience checker (see :py:meth:`is_left_orthogonal`). The result of
-        ``rank_adjustment_sweep('right_to_left')`` is right-orthogonal. Use this to verify before
-        asserting ``t3svd(..., assume_orthogonal=True)``, which is **not** checked. **Per-stack-element
+        ``rank_adjustment_sweep('right_to_left')`` is right-orthogonal when its input's Tucker cores were
+        orthonormal (any ``t3svd`` result); on a generic input only the TT cores are. Use this to verify
+        before asserting ``t3svd(..., assume_orthogonal=True)``, which is **not** checked. **Per-stack-element
         bool array** (scalar when unstacked); reduce with ``.all()``.
         """
         return ragged_orthogonalization.t3_orthogonality_residual(self.data, 'right') <= atol
@@ -4470,8 +4471,10 @@ class TuckerTensorTrain:
         rank-minimization step; :py:meth:`t3svd` itself does **not** minimize). Returns the adjusted T3.
 
         ``'right_to_left'`` returns a **right-orthogonal** T3; ``'left_to_right'`` a **left-orthogonal**
-        one. A single sweep reaches **minimal ranks only if the input is already orthogonal in the
-        opposite direction** -- e.g. a :py:meth:`t3svd` result is left-orthogonal, so
+        one -- fully (Tucker cores included) when the input's Tucker cores are already orthonormal (any
+        :py:meth:`t3svd` result); the sweep preserves Tucker orthonormality but never creates it, so on a
+        generic input only the TT cores come out orthogonal. A single sweep reaches **minimal ranks only
+        if the input is already orthogonal in the opposite direction** -- e.g. a :py:meth:`t3svd` result is left-orthogonal, so
         ``result.rank_adjustment_sweep('right_to_left')`` minimizes it (check with
         :py:attr:`has_minimal_ranks`). That precondition is **not enforced**: sweeping the wrong
         direction for the input's gauge just under-minimizes (it stays lossless here -- but the uniform
