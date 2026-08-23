@@ -282,22 +282,13 @@ class UniformTuckerTensorTrain:
             raise ValueError('Cannot inner-product UniformTuckerTensorTrains with different padded mode widths N: '
                              '%d vs %d (the same shape padded differently -- re-pad one operand with '
                              'from_t3(..., N=%d)).' % (self.N, other.N, max(self.N, other.N)))
-        xd, yd = self.data, other.data
-        if use_orthogonalization:
-            xd = ut3_orthogonalization.ut3_left_orthogonalize_tt_cores(
-                ut3_orthogonalization.ut3_down_orthogonalize_tucker_cores(xd))
-            yd = ut3_orthogonalization.ut3_left_orthogonalize_tt_cores(
-                ut3_orthogonalization.ut3_down_orthogonalize_tucker_cores(yd))
-        return ut3_linalg.ut3_inner_product(xd, yd)
+        return ut3_linalg.ut3_inner(self.data, other.data, use_orthogonalization)
 
     def norm(self, use_orthogonalization: bool = True):
-        """Hilbert-Schmidt (Frobenius) norm of the represented tensor (shape=stack_shape)."""
-        if use_orthogonalization:
-            xd = ut3_orthogonalization.ut3_left_orthogonalize_tt_cores(
-                ut3_orthogonalization.ut3_down_orthogonalize_tucker_cores(self.data))
-            return ut3_linalg.ut3_norm_orthogonalized(xd)
-        xnp, _, _ = common.get_backend(True, self.contains_jax)
-        return xnp.sqrt(xnp.abs(ut3_linalg.ut3_inner_product(self.data, self.data)))
+        """Hilbert-Schmidt (Frobenius) norm of the represented tensor (shape=stack_shape). Orthogonalizes
+        first by default (stable); ``jax.grad`` through it is finite on any padded train (the derivative
+        never goes through the SVD -- :py:func:`~t3toolbox.backend.ut3_linalg.ut3_norm`)."""
+        return ut3_linalg.ut3_norm(self.data, use_orthogonalization)
 
     # ----------------------------------------------------------------- sampling / evaluation
     def entries(

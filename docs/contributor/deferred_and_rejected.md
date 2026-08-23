@@ -114,7 +114,9 @@ cross-references.)
   summation order). *(Not to be confused with the MULTI-operand case, where numpy's own optimizer picks
   a FLOP-tied non-BLAS path and `_pairwise_path` is 22× faster on the 4-operand `trs` contraction. That
   machinery is doing real work and must not be touched.)* Source: `dev/archive/contractions_sharding_plan.md` §8.
-- **Backend `ut3_norm` / `ut3_inner` twins** (wanted eventually; low priority — Nick, 2026-07-15).
+- ~~**Backend `ut3_norm` / `ut3_inner` twins**~~ **Built 2026-08-22** (with the review's S11 fix: their jax
+  derivative is the exact multilinear rule, not a derivative through the SVD, which was NaN on every padded
+  train). The original note, for the record: (wanted eventually; low priority — Nick, 2026-07-15).
   The ragged backend has self-contained `t3_norm(x, use_orthogonalization=True)` /
   `t3_inner_product(x, y, use_orthogonalization=True)`, which orthogonalize internally. The uniform
   backend exposes only the already-orthogonalized fast path `ut3_norm_orthogonalized` (plus a

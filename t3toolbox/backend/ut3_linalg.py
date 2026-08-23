@@ -20,12 +20,17 @@ import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
 import t3toolbox.backend.t3_operations as t3_operations
 from t3toolbox.backend.common import *
 
+if jax_available:          # the custom_jvp rules below need jax itself, not only jnp
+    import jax
+
 __all__ = [
     'ut3_scale',
     'ut3_add',
     'ut3_sum_stack',
     'ut3_inner_product',
     'ut3_norm_orthogonalized',
+    'ut3_norm',
+    'ut3_inner',
     'ut3_weighted_norm',
     'ut3_weighted_inner',
 ]
@@ -180,6 +185,94 @@ def _ut3_left_orthogonalized(data: UT3Data) -> UT3Data:  # down-orth the Tucker,
         ut3_orthogonalization.ut3_down_orthogonalize_tucker_cores(data))
 
 
+# --------------------------------------------------------------------------------------------------
+# ut3_norm / ut3_inner: the orthogonalize-then-reduce twins of the ragged t3_norm / t3_inner_product, with
+# an autodiff rule that keeps the SVD out of the derivative.
+#
+# The VALUE goes through the SVD-based left-orthogonalization (precise: the norm of an orthogonal chain is
+# the norm of its last core). Differentiating THROUGH that path is not an option: jax's SVD JVP carries
+# 1/(s_i^2 - s_j^2) terms, and a padded uniform train has several exactly-zero singular values, so every
+# gradient came out NaN (review S11). The derivative is instead the exact multilinear rule
+#     d<T(x), T(x)> = 2 <T(x), dT>,   d<T(x), T(y)> = <dT_x, T(y)> + <T(x), dT_y>,
+# with dT the directional derivative of the represented tensor along the core perturbation, obtained by
+# jax.jvp of the zipper inner product with the ORTHOGONALIZED other side held fixed: the zipper is plain
+# einsums (exact derivative), one operand is orthonormal (well conditioned), and the SVD only ever sees
+# primals. Eigenvalue-sensitivity-based derivatives are future work.
+# --------------------------------------------------------------------------------------------------
+def _norm_sq_value(x: UT3Data):                  # ‖T(x)‖², precise path
+    n = ut3_norm_orthogonalized(_ut3_left_orthogonalized(x))
+    return n * n
+
+
+def _inner_value(x: UT3Data, y: UT3Data):        # <T(x), T(y)>, both orthogonalized first
+    return ut3_inner_product(_ut3_left_orthogonalized(x), _ut3_left_orthogonalized(y))
+
+
+def _norm_sq_jax(shape, masks):
+    """``(tk, tt) -> ‖T‖²`` as a jax custom_jvp closing over the static structure (shape ints, host masks)."""
+    @jax.custom_jvp
+    def f(tk, tt):
+        return _norm_sq_value((tk, tt, shape, masks))
+
+    @f.defjvp
+    def f_jvp(primals, tangents):
+        tk, tt = primals
+        dtk, dtt = tangents
+        xo = _ut3_left_orthogonalized((tk, tt, shape, masks))                 # primals only: no SVD derivative
+        _, d_inner = jax.jvp(lambda a, b: ut3_inner_product(xo, (a, b, shape, masks)), (tk, tt), (dtk, dtt))
+        return _norm_sq_value((tk, tt, shape, masks)), 2.0 * d_inner
+    return f
+
+
+def _inner_jax(shape_x, masks_x, shape_y, masks_y):
+    @jax.custom_jvp
+    def f(tkx, ttx, tky, tty):
+        return _inner_value((tkx, ttx, shape_x, masks_x), (tky, tty, shape_y, masks_y))
+
+    @f.defjvp
+    def f_jvp(primals, tangents):
+        tkx, ttx, tky, tty = primals
+        dtkx, dttx, dtky, dtty = tangents
+        xo = _ut3_left_orthogonalized((tkx, ttx, shape_x, masks_x))
+        yo = _ut3_left_orthogonalized((tky, tty, shape_y, masks_y))
+        _, d_y = jax.jvp(lambda a, b: ut3_inner_product(xo, (a, b, shape_y, masks_y)), (tky, tty), (dtky, dtty))
+        _, d_x = jax.jvp(lambda a, b: ut3_inner_product((a, b, shape_x, masks_x), yo), (tkx, ttx), (dtkx, dttx))
+        return ut3_inner_product(xo, yo), d_x + d_y
+    return f
+
+
+def ut3_norm(
+        x:  UT3Data,                                  # (tucker_supercore, tt_supercore, shape, masks)
+        use_orthogonalization: bool = True,           # True (default): orthogonalize first -- the stable path
+) -> NDArray:                                         # HS norm ‖T(x)‖, shape=stack_shape
+    """Hilbert-Schmidt norm of a uniform Tucker tensor train -- the twin of the ragged ``t3_norm``.
+    ``use_orthogonalization=True`` (default) left-orthogonalizes first and reads the last core's norm
+    (numerically stable; the zipper alternative accumulates roundoff along the chain); its jax derivative is
+    the exact multilinear rule above, so ``jax.grad`` through it is finite on any padded train.
+    ``False`` is the raw zipper ``sqrt(<x, x>)`` (cheaper, less stable; differentiable by plain autodiff)."""
+    tk, tt, shape, masks = x
+    xnp, _, _ = get_backend(True, tree_contains_jax((tk, tt)))
+    if not use_orthogonalization:
+        return xnp.sqrt(xnp.abs(ut3_inner_product(x, x)))
+    if jax_available and tree_contains_jax((tk, tt)):
+        return xnp.sqrt(xnp.abs(_norm_sq_jax(shape, masks)(tk, tt)))
+    return xnp.sqrt(xnp.abs(_norm_sq_value(x)))
+
+
+def ut3_inner(
+        x:  UT3Data,                                  # (tucker_supercore, tt_supercore, shape, masks)
+        y:  UT3Data,                                  # same physical shape; ranks/masks/padding may differ
+        use_orthogonalization: bool = True,           # True (default): orthogonalize both first (stable)
+) -> NDArray:                                         # HS inner product <T(x), T(y)>, shape=stack_shape
+    """Hilbert-Schmidt inner product of two uniform Tucker tensor trains -- the twin of the ragged
+    ``t3_inner_product``. See :py:func:`ut3_norm` for the orthogonalization / autodiff story."""
+    if not use_orthogonalization:
+        return ut3_inner_product(x, y)
+    if jax_available and tree_contains_jax((x[:2], y[:2])):
+        return _inner_jax(x[2], x[3], y[2], y[3])(x[0], x[1], y[0], y[1])
+    return _inner_value(x, y)
+
+
 def ut3_weighted_norm(
         x:       UT3Data,                              # (tucker_supercore, tt_supercore, shape, masks)
         weights: ut3_operations.UT3WeightsData,        # (tucker_weight_supercore, tt_weight_supercore, masks)
@@ -200,10 +293,7 @@ def ut3_weighted_norm(
     (:py:func:`~t3toolbox.backend.ut3_operations.ut3_weights_consistent`); the frontend enforces it.
     """
     weighted = ut3_operations.ut3_absorb_weights(x, weights)
-    if use_orthogonalization:
-        return ut3_norm_orthogonalized(_ut3_left_orthogonalized(weighted))
-    xnp, _, _ = get_backend(True, tree_contains_jax(weighted[:2]))
-    return xnp.sqrt(xnp.abs(ut3_inner_product(weighted, weighted)))
+    return ut3_norm(weighted, use_orthogonalization)
 
 
 def ut3_weighted_inner(
@@ -222,7 +312,4 @@ def ut3_weighted_inner(
     """
     weighted_A = ut3_operations.ut3_absorb_weights(x_A, weights_A)
     weighted_B = ut3_operations.ut3_absorb_weights(x_B, weights_B)
-    if use_orthogonalization:
-        weighted_A = _ut3_left_orthogonalized(weighted_A)
-        weighted_B = _ut3_left_orthogonalized(weighted_B)
-    return ut3_inner_product(weighted_A, weighted_B)
+    return ut3_inner(weighted_A, weighted_B, use_orthogonalization)

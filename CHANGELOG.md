@@ -76,6 +76,12 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   are now the zipper of the stored chains (`H_i = L_i Z_{i+1}`, no SVD), exact and gauge-consistent for a
   frame built by either layer; the uniform twin masks first, and the "frames packed from ragged are not
   guaranteed" caveat is gone.
+- **`jax.grad` through uniform `norm()` / `inner()` / `ut3_weighted_norm` / `ut3_weighted_inner` was all-NaN on
+  any train with rank slack** -- the default orthogonalized path differentiated through the SVD, whose JVP
+  has `1/(σᵢ²−σⱼ²)` terms and a padded train has several exactly-zero σ's. New backend twins
+  `ut3_norm` / `ut3_inner` (closing a ledger item) keep the precise orthogonalized VALUE and carry a
+  `custom_jvp` with the exact multilinear derivative (`2⟨T, dT⟩`, via the zipper with the orthogonalized
+  side held fixed -- no SVD in the derivative path); the frontend and the weighted ops route through them.
 - **`backend.optimizers.Problem.objective(x, data=…)` / `.local_model(x, data=…)` ignored `data`** when
   `sample` was omitted, silently scoring the training data; `sample=` alone crashed with a bare `TypeError`.
   The pair now goes together or not at all (a structural error otherwise).

@@ -496,6 +496,47 @@ class TestUT3WeightsDispatch(unittest.TestCase):
         self.assertEqual(f._cache_size(), 1)                            # ...so exactly ONE compile
 
 
+
+class TestUniformNormGradients(unittest.TestCase):
+    """Review 2026-08-22 (S11): jax.grad through the orthogonalized uniform norm / inner (plain and
+    weighted) is finite on a padded train and equals the finite-difference directional derivative."""
+
+    def _setup(self):
+        import jax, jax.numpy as jnp
+        import t3toolbox.backend.ut3_linalg as ul
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        jax.config.update('jax_enable_x64', True)
+        np.random.seed(81)
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 3, 1))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x, n=4, r=4).to_jax()     # padded above the real ranks
+        y = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 2, 2), (1, 3, 2, 1))
+        uy = ut3.UniformTuckerTensorTrain.from_t3(y, n=4, r=4).to_jax()
+        W = ut3.UT3Weights.from_t3weights(t3.T3Weights.from_t3svd(x).reciprocal(), n=4, r=4)   # at the train's pad
+        return jax, jnp, ul, ut3, ux, uy, W
+
+    def test_grad_is_finite_and_matches_finite_differences(self):
+        jax, jnp, ul, ut3, ux, uy, W = self._setup()
+        tk, tt, shape, masks = ux.data
+        funcs = {
+            'norm':           lambda a, b: ul.ut3_norm((a, b, shape, masks)),
+            'inner':          lambda a, b: ul.ut3_inner((a, b, shape, masks), uy.data),
+            'weighted_norm':  lambda a, b: ul.ut3_weighted_norm((a, b, shape, masks), W.data),
+            'weighted_inner': lambda a, b: ul.ut3_weighted_inner((a, b, shape, masks), W.data, uy.data, W.data),
+            'frontend norm':  lambda a, b: ut3.UniformTuckerTensorTrain(a, b, shape, ux.masks).norm(),
+        }
+        dtk, dtt = jnp.asarray(np.random.randn(*tk.shape)), jnp.asarray(np.random.randn(*tt.shape))
+        for name, f in funcs.items():
+            with self.subTest(f=name):
+                val, d_auto = jax.jvp(f, (tk, tt), (dtk, dtt))
+                self.assertTrue(bool(jnp.isfinite(d_auto)), name)
+                h = 1e-6
+                d_fd = (f(tk + h * dtk, tt + h * dtt) - f(tk - h * dtk, tt - h * dtt)) / (2 * h)
+                self.assertLess(abs(float(d_auto) - float(d_fd)) / max(1.0, abs(float(d_fd))), 1e-6, name)
+                g = jax.grad(f, argnums=(0, 1))(tk, tt)
+                self.assertTrue(bool(jnp.all(jnp.isfinite(g[0])) and jnp.all(jnp.isfinite(g[1]))), name)
+        # the value is the precise one (== the ragged norm), unchanged by the custom rule
+        self.assertLess(abs(float(ux.norm()) - float(ux.to_t3().norm())) / float(ux.norm()), 1e-12)
+
 if __name__ == '__main__':
     unittest.main()
 
