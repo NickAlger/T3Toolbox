@@ -128,3 +128,44 @@ and only spot-checked. Every single-lane S/C item and every substantive D item w
 | R7-13 SharedGeometry subclass | refuted (as in planning) | an unregistered subclass is a leaf; as a jit arg it raises a TypeError, no silent base-class swap |
 
 Nothing in the S/C list was refuted. One lane claim was imprecise (S14 "stacked only"), in the direction of being worse.
+
+---
+
+## Phase C — fixes landed (2026-08-22, same day)
+
+Every commit carries the cluster id; `git log --oneline 657f6001..` lists them. Tier 1 + Tier 2, all
+in the ledger's order of severity:
+
+| cluster | commit subject (abridged) | status |
+|---|---|---|
+| S2, C2 | uniform squash_tails masks on entry; d = 1 degenerates to the vector case | fixed |
+| S3 | t3m canonicalizes boundary TT bonds; ndarray max_tt_ranks honored | fixed |
+| S5, C8 | entries ambient transpose wraps negative indices; float residuals | fixed |
+| S6, S7 | Problem takes (sample, data) together; point_norm_sq exact at any ragged point | fixed |
+| S8 | per-mode weight may carry more rows than modes (ruled intended; short rows error) | changed |
+| S10, S12, S13 | uniform sum_stack axes; structural tangent check unconditional; 30 asserts → errors | fixed |
+| C1, C4 | ragged d = 1 projection/transport/dense_probe; stack() under jit | fixed |
+| C6, C9, C12 | ragged manifold x0 reduced to minimal (adam warns); val args; string validation | fixed |
+| C10 | jax requested but absent → numpy + warning, library-wide (incl. use_jit) | changed |
+| S14 | t3svd_orthogonal_representations (+ uniform twin): the frame in the T3-SVD gauge | fixed |
+| C13 | nine validation gaps / wrong messages | fixed |
+| known D list | CITATION, CLAUDE.md, README/user guide, API reference, chunking/sharing/weighting docs, … | fixed |
+| S1a | frame-mask rank recurrence follows the sweep (non-minimal structural ranks) | fixed |
+| C7 | gauge residual relative (whole-tangent norm), both layers | fixed |
+| C5 | utv_retract re-pads to the frame dims (new ut3_pad_ranks) | fixed |
+| S9 | shared companion centers from the zipper of the stored chains | fixed |
+| S4 | rank_adjustment_sweep: orthogonality stated conditionally; n_i > N_i guard | fixed (reclassified D + small fix) |
+| C3 | uniform transport / project_ambient of a K-stacked tangent | fixed |
+| S11 | ut3_norm / ut3_inner with a custom_jvp (no SVD in the derivative) | fixed |
+| substantive D | truncation rule, Geometry protocol, contracts rows, transposes, chunking regimes, … | fixed |
+
+**Open:** **S1b** — the uniform frame on a *numerically* rank-deficient train (zero singular values: the
+zero-padded `resize` warm start, `x + x`). Root cause pinned (not where the lane guessed): the SVD's
+null-space completion can land in the **padded** bond/mode slots, which the masks then erase; observed
+on the TT up-orthogonalization of the last core (`pin2` script). The fix is a masked orthonormal
+completion after each uniform SVD step (Tucker down-orth, both TT sweeps, the down step), restricted to
+the real rows and orthogonal to the σ>0 columns — deterministic and batchable (project the first `2n`
+real coordinate vectors, one small SVD). It needs the masks plumbed into the polymorphic sweep, so it is
+a half-day design slice, scheduled next. Until then: safe mode rejects such a frame (loudly), and the
+documented uniform rank-continuation loop works in a reduced tangent space on the very first step only.
+Also open: the E list and the test-hardening phase (Phase D), deferred to later sessions per the budget plan.
