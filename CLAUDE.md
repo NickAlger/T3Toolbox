@@ -44,7 +44,8 @@ threads interleave), sweep superseded notes into `dev/archive/` as dated files, 
 Current-state pointer accurate. **Exception: a `dev/OPEN_QUESTION_*.md` note is a standing question, not
 a thread — it is unresolved, not superseded, and must NOT be archived until resolved.** (None open
 today; the `contractions.py` architecture question was resolved 2026-07-17 — the grouped-einsum
-interpreter — and archived with its resolution banner.)
+interpreter — and archived with its resolution banner. **Open now:** `dev/OPEN_QUESTION_uniform_rank_deficient_frame.md`,
+the uniform frame at a rank-deficient point — review S1b, 2026-08-23.)
 
 ## The paper (`t4s.pdf` in repo root)
 

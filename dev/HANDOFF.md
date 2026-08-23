@@ -47,6 +47,10 @@ a half-day slice with its own tests (zero-padded `resize` start: frame orthogona
 that start matches ragged's convergence). Zero-detection of padded rows is NOT a substitute (a `zeros`
 start has no nonzero rows and is a documented manifold start).
 
+The design discussion since (GSVD-with-the-mask-as-second-matrix, the ragged round-trip, dumb noise, and
+the cost question) is written up as a standing question, **`dev/OPEN_QUESTION_uniform_rank_deficient_frame.md`**
+-- read that, not the paragraph above, for the current state; it is not to be archived until resolved.
+
 **Also deferred, by the budget plan:** the E list in the ledger (`findings_compact.md`), and the test-hardening
 phase (Phase D: the uniform prongs missing in `test_uniform_frame_variations_format` / the `_CONFIGS` matrix in
 `test_uniform_tucker_tensor_train`, direct tests for the 13 `*_from_sweep` hooks, `test_dispatch` entries for
