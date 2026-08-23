@@ -83,7 +83,8 @@ would silently discard the differences), so safe mode checks it at the entry poi
 |---|---|---|
 | `t3svd(sharing=…)`, `rank_adjustment_sweep(…, sharing=…)`, `resize(…, sharing=…)` (ragged and uniform) | **TIED** | |
 | `continuation_ranks(sharing=…)` | **TIED** (via its internal grouped `t3svd`) | |
-| `shared(…)` wrapper: `frame(x)`, `transport(v, new_frame)` | **TIED** (the point / the new frame) + the base geometry's preconditions | |
+| `shared(…)` wrapper: `transport(v, new_frame)` | **TIED** (the new frame) + the base geometry's preconditions | |
+| `shared(…).frame(x)` | none: it *ties* an untied `x` itself (quasi-optimally) and returns a tied frame | |
 | `shared(MANIFOLD/UNIFORM_MANIFOLD).retract(p)` | **ORTH + TIED frame factors + TIED tangent coordinates** (the embedding's solve would silently tied-project an untied tangent) | minimal (the base retract's rank-preservation caveat) |
 | `shared(…).project`, `project_ambient`, `randn` | the base geometry's preconditions only (they *produce* tied output) | |
 | `shared(…).inner` / `norm` | the base geometry's (sharing never reweights the metric) | |
@@ -117,7 +118,7 @@ numerically redundant). Which operations actually *need* minimal ranks was settl
 |---|---|---|
 | `MANIFOLD.inner`/`norm` | **NO** | the gauged coordinate inner product equals the dense HS value *exactly* on a non-minimal orthonormal frame — **orthogonal + gauged suffices** |
 | `manifold_dim` / `tangent_space_dimension` | **NO** | the formula matches the true tangent-space dimension for any ranks |
-| `MANIFOLD.retract` | **caveat only** | still a valid first-order retraction on a non-minimal frame; it just *drops* the numerically-redundant rank (desirable cleanup) — minimal buys only strict rank preservation |
+| `MANIFOLD.retract` | **caveat only** | on a *structurally* non-minimal but full-rank frame it is still a valid first-order retraction that *drops* the redundant rank (desirable cleanup) — minimal buys only strict rank preservation. At a *numerically rank-deficient* frame (zero singular values: a zero-padded `resize` warm start, `x + x`) it is **not** first-order accurate (the finite-difference ladder stays flat at ~1e-1); continuation restarts rely on the first Newton steps to leave that point, which they do |
 | `MANIFOLD.randn` / `project_oblique` | **NO** | correct on any orthonormal frame |
 | `MANIFOLD.project` / `project_ambient` / `transport`, the gauge projections | **NO** | orthogonality suffices |
 

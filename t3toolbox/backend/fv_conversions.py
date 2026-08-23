@@ -49,9 +49,9 @@ def fv_to_t3(
         frame: typ.Union[
             typ.Tuple[
                 typ.Tuple[NDArray, ...],  # up_tucker_cores
-                typ.Tuple[NDArray, ...],  # down_tucker_cores
+                typ.Tuple[NDArray, ...],  # down_tt_cores
                 typ.Tuple[NDArray, ...],  # left_tt_cores
-                typ.Tuple[NDArray, ...],  # right_tucker_cores
+                typ.Tuple[NDArray, ...],  # right_tt_cores
             ], # ragged
             typ.Tuple[
                 NDArray,  # up_tucker_supercore
@@ -137,9 +137,9 @@ def t3_orthogonal_representations(
     typ.Tuple[
         typ.Tuple[
             typ.Tuple[NDArray,...], # up_tucker_cores
-            typ.Tuple[NDArray, ...],  # down_tucker_cores
+            typ.Tuple[NDArray, ...],  # down_tt_cores
             typ.Tuple[NDArray,...], # left_tt_cores
-            typ.Tuple[NDArray,...], # right_tucker_cores
+            typ.Tuple[NDArray,...], # right_tt_cores
         ],
         typ.Tuple[
             typ.Tuple[NDArray,...], # tucker_variations

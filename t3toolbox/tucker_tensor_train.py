@@ -1918,7 +1918,7 @@ class TuckerTensorTrain:
                     + str(self.shape) + ' = self.shape != other.shape = ' + str(other.shape)
                 )
             if self.stack_shape != other.stack_shape:
-                raise NotImplementedError(
+                raise ValueError(
                     'Cannot add TuckerTensorTrains with different stack shapes.\n'
                     + str(self.stack_shape)
                     + ' = self.stack_shape != other.stack_shape = '
@@ -2346,7 +2346,7 @@ class TuckerTensorTrain:
                 )
 
             if self.stack_shape != other.stack_shape:
-                raise NotImplementedError(
+                raise ValueError(
                     'Cannot take inner product of TuckerTensorTrains with different stack shapes.\n'
                     + str(self.stack_shape)
                     + ' = x.stack_shape != y.stack_shape = '
@@ -3307,7 +3307,7 @@ class TuckerTensorTrain:
         Returns
         -------
         :py:class:`.NDArray`
-            Array of selected entries with ``shape=idx_stack_shape+t3_stack_shape`` (base-inner: the
+            Array of selected entries with ``shape=idx_stack_shape+t3_stack_shape`` (frame-inner: the
             index stack is outer, the T3 stack inner). A scalar for an unstacked T3 and a single index.
 
         Raises
@@ -3335,7 +3335,7 @@ class TuckerTensorTrain:
         >>> print(np.allclose(result, result2))
         True
 
-        With stacked index and stacked T3s -- output is base-inner ``idx_stack_shape + t3_stack_shape``:
+        With stacked index and stacked T3s -- output is frame-inner ``idx_stack_shape + t3_stack_shape``:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
@@ -3346,7 +3346,7 @@ class TuckerTensorTrain:
         >>> idx_stack_shape = (4,5,1)
         >>> index = [choice(14, size=idx_stack_shape), choice(15, size=idx_stack_shape), choice(16, size=idx_stack_shape)]
         >>> entries = x.entries(index)
-        >>> print(entries.shape)               # base-inner: idx stack (4,5,1) outer, T3 stack (2,3) inner
+        >>> print(entries.shape)               # frame-inner: idx stack (4,5,1) outer, T3 stack (2,3) inner
         (4, 5, 1, 2, 3)
         >>> ii, jj = 1, 2          # T3 stack index (inner)
         >>> ll, mm, nn =  3, 2, 0  # index stack (outer)
@@ -3415,7 +3415,7 @@ class TuckerTensorTrain:
         -------
         NDArray or scalar
             Result of contracting ``self`` with the vectors in all indices. Scalar if ``vecs``
-            elements are vectors; ``NDArray`` with ``shape=vec_stack_shape+t3_stack_shape`` (base-inner:
+            elements are vectors; ``NDArray`` with ``shape=vec_stack_shape+t3_stack_shape`` (frame-inner:
             vec stack outer, T3 stack inner) if ``vecs`` elements are matrices and/or the T3 is stacked.
 
         Raises
@@ -3443,7 +3443,7 @@ class TuckerTensorTrain:
         >>> print(np.allclose(result, result2))
         True
 
-        Apply to stacked vectors and stacked T3s (vectorized) -- output is base-inner
+        Apply to stacked vectors and stacked T3s (vectorized) -- output is frame-inner
         ``vec_stack_shape + t3_stack_shape``:
 
         >>> import numpy as np
@@ -3455,7 +3455,7 @@ class TuckerTensorTrain:
         >>> vec_stack_shape = (4,5,1)
         >>> vecs = [randn(*(vec_stack_shape+(14,))), randn(*(vec_stack_shape+(15,))), randn(*(vec_stack_shape+(16,)))]
         >>> result = x.apply(vecs)
-        >>> print(result.shape)                # base-inner: vec stack (4,5,1) outer, T3 stack (2,3) inner
+        >>> print(result.shape)                # frame-inner: vec stack (4,5,1) outer, T3 stack (2,3) inner
         (4, 5, 1, 2, 3)
         >>> ii, jj = 1, 2 # T3 stack index (inner)
         >>> ll, mm, nn =  3, 2, 0 # vectors stack index (outer)
@@ -3496,7 +3496,7 @@ class TuckerTensorTrain:
     def probe(
         self,
         ww: Sequence[NDArray],  # len=d, elm_shape=W+(Ni,)
-    ) -> Sequence[NDArray]:     # zz, len=d, elm_shape=X+W+(Ni,)
+    ) -> Sequence[NDArray]:     # zz, len=d, elm_shape=W+C+(Ni,)  (frame-inner: probe stack W outer, T3 stack C inner)
         """Probe a TuckerTensorTrain.
 
         Parameters
@@ -3536,7 +3536,7 @@ class TuckerTensorTrain:
         >>> print(np.allclose(zz[0], zz0_true), np.allclose(zz[1], zz1_true), np.allclose(zz[2], zz2_true))
         True True True
 
-        Probe with stacked vectors and stacked T3s -- each probe is base-inner ``W + C + (Ni,)``:
+        Probe with stacked vectors and stacked T3s -- each probe is frame-inner ``W + C + (Ni,)``:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3

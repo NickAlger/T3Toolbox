@@ -58,8 +58,12 @@ Semantics:
   value.
 - Chunking engages **only on the uniform + JAX path** (a stacked supercore under `jit`), because only
   there does the sequential `lax.scan`/`lax.map` actually force the intermediates to be freed one slice
-  at a time. On the ragged path or with NumPy, arrays are freed eagerly and the call falls back to the
-  dense assembly regardless of `chunk_size`.
+  at a time. On the ragged path the call falls back to the dense assembly regardless of `chunk_size`; on
+  a uniform NumPy supercore the chunk loop does run (harmless, but no memory win -- NumPy frees eagerly).
+- The memory bound is the **summed** path's (`sum_over_probes=True`, the Gauss-Newton transpose), and it
+  needs at least three full chunks: with exactly two (e.g. the default `chunk_size=100` at
+  `W ∈ [200, 299]`) the scan carry is as large as the dense assembly, and the **kept** path
+  (`sum_over_probes=False`) materializes its full `W`-indexed output anyway.
 
 ### A fixed `chunk_size` bounds the chunk *count*, not the bytes
 

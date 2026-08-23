@@ -232,7 +232,7 @@ def t3_norm(
         Gf = x[1][-1].sum(axis=-1)
         norm_sq = (Gf*Gf).sum(axis=(-2,-1)) # Don't sum over stacked axes
     else:
-        norm_sq = t3_inner_product(x, x)
+        norm_sq = t3_inner_product(x, x, use_orthogonalization=False)   # honor the flag: the raw zipper
 
     return xnp.sqrt(xnp.abs(norm_sq))
 

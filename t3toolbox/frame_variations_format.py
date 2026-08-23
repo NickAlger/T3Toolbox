@@ -38,8 +38,9 @@ __all__ = [
 ]
 
 
-@dataclass(frozen=True, eq=False)  # eq=False -> identity __hash__/__eq__, so a T3Frame can be
-class T3Frame:                     # jax aux_data (it holds arrays; value hash/eq is impossible).
+@dataclass(frozen=True, eq=False)  # eq=False -> identity __hash__/__eq__ (it holds arrays, so value hash/eq is
+class T3Frame:                     # impossible); a frame flows through jit as a pytree LEAF, and 'same frame'
+                                   # is the NUMERICAL safety.frames_equal, never object identity.
     """Frame for frame-variations representation of TuckerTensorTrains
 
     Often, one works with TuckerTensorTrains of the following forms::

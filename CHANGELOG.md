@@ -195,7 +195,15 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   `sharing.md`'s "closure state", six `dev/regularization_design.md` paths (now in `dev/archive/`), the
   `t3m_methods.md` boundary-bond sentence, the `weighting.md` recipes and "same operations" claim, the
   `GeometryOps` name in the project guide, `backend.geometry` and `corewise` in the API reference, and the
-  `save`/`load` doctests, which now write into a temporary directory instead of the working directory.
+  `save`/`load` doctests, which now write into a temporary directory instead of the working directory;
+  and, found by the same review: `truncated_svd`'s documented truncation rule (it is the tail-Frobenius
+  TT-SVD rule, not a per-singular-value cut), the `Geometry` protocol's member list, the `shared(…).frame`
+  contract row and the rank-deficient-frame retraction caveat in `numerical_contracts.md`, the corewise
+  transpose's description in `transposes.md` (a pullback, not a projection), the λ-vs-`draw` scaling
+  note, the chunking memory caveats (two-chunk and kept-path regimes), the `resize` call in the uniform
+  continuation loop, the retired identity-guard wording on `T3Tangent`, and `t3_norm(use_orthogonalization=False)`,
+  which orthogonalized anyway (it now honors the flag; stack-shape mismatches in `+`/`inner` are
+  `ValueError`s, as documented).
 
 ### Performance
 

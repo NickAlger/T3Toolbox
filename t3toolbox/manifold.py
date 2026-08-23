@@ -111,7 +111,8 @@ class T3Tangent:
     :py:class:`~t3toolbox.frame_variations_format.T3Variations` (the tangent direction in that
     frame). Bundling them makes "which tangent space" a checkable property: linear algebra between
     two tangent vectors is only defined when they live in the same tangent space, which here means
-    they hold the **same** ``T3Frame`` object (identity, not merely numerically-equal cores).
+    their frames are the **same frame** -- numerically equal cores (``safety.frames_equal``, with an
+    ``is``-identity fast path), not object identity: a jit round-trip reconstructs an equal frame.
 
     The metric lives on the *geometry*, not here: :py:meth:`ManifoldGeometry.inner` / ``norm`` are the
     Hilbert-Schmidt inner product / norm (which check the orthogonal-frame + gauged preconditions in safe
@@ -377,12 +378,12 @@ class T3Tangent:
             )
 
     def __add__(self, other: 'T3Tangent') -> 'T3Tangent':
-        """Add tangent vectors. Requires both to share the same T3Frame object."""
+        """Add tangent vectors. Requires both to live at the same frame (numerically equal cores)."""
         self._check_same_tangent_space(other)
         return T3Tangent(self.frame, bvf.T3Variations(*cw.corewise_add(self.variations.data, other.variations.data)))
 
     def __sub__(self, other: 'T3Tangent') -> 'T3Tangent':
-        """Subtract tangent vectors. Requires both to share the same T3Frame object."""
+        """Subtract tangent vectors. Requires both to live at the same frame (numerically equal cores)."""
         self._check_same_tangent_space(other)
         return T3Tangent(self.frame, bvf.T3Variations(*cw.corewise_sub(self.variations.data, other.variations.data)))
 
@@ -1546,7 +1547,8 @@ if jax_available:
 
     # Register the stateless geometry singletons as ZERO-LEAF pytrees (no array leaves, aux=None): they
     # carry no data, so they pass through jit/vmap transparently as ordinary args and reconstruct to an
-    # equivalent stateless instance (all instances of a geometry are interchangeable). This is purely
+    # equivalent stateless instance (its own methods work on any instance; the fitting factories and
+    # shared() identify geometries by the singletons, so pass MANIFOLD / COREWISE there). This is purely
     # for ergonomics -- geometries are normally closed over -- but it removes the "cannot interpret
     # ManifoldGeometry as an abstract value" footgun. (The GaussNewtonModel is registered in fitting.py
     # with all-leaf data + geometry/kind as aux; with frame-as-leaf there is no aux/recompile dilemma, so

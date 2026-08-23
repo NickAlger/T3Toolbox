@@ -34,8 +34,10 @@ The other two transposes are *that same object, **projected** onto a smaller spa
 
 The relationships:
 
-- **corewise** = the ambient back-projection **projected onto the core-parametrized tangent space** at
-  `X` (the span of single-core perturbations).
+- **corewise** = the **pullback** `𝒥ᵀ` of the residual through the core parametrization at `X` -- the
+  gradient with respect to the raw cores (the Section 6.3 substitution `P,Q,O → G`). It is *not* a
+  projection of the ambient back-projection (the core parametrization is not an isometry, so the
+  two differ by the cores' Gram factors).
 - **tangent** = the ambient back-projection **projected onto the gauged manifold tangent space** at `X`.
 
 Everything below is identical for `entries` (`entries_ambient_transpose`,

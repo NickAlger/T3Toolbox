@@ -253,8 +253,9 @@ def _minibatch_step_problem(
     the regularizer scaled by ``batch/n``. The minibatch data gradient is a ``batch/n`` estimate of the
     full-data gradient, so scaling the (deterministic) regularizer to match keeps ``λ``'s meaning the same
     as in the full-batch optimizers (``dev/archive/regularization_design.md`` §8.1). No-op when unregularized. The
-    **full-batch** stop/loss keeps the full-strength ``problem.regularizer``. (Assumes the nominal ``batch``
-    size; a custom ``draw`` of a different size may want ``λ`` retuned.)"""
+    **full-batch** stop/loss keeps the full-strength ``problem.regularizer``. The factor is ``batch/n`` for
+    the NOMINAL ``batch`` -- ``batch`` is not ignored when a custom ``draw`` is given: a draw of another size
+    gets a mismatched factor, so pass ``batch`` equal to the size your ``draw`` produces."""
     if problem.regularizer is None:
         return problem
     n = problem.kind.n_measurements(problem.sample)

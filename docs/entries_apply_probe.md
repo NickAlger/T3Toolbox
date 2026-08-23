@@ -139,8 +139,8 @@ guide live in **[`docs/transposes.md`](transposes.md)**; the quick map:
 
 | op | forward | tangent `𝒥ᵀ` (`T3Tangent` → tangent) | corewise (`TuckerTensorTrain` → core grads) | ambient (`TuckerTensorTrain` → CP factors) |
 |---|---|---|---|---|
-| entries | `entries(index)` | `entries_transpose(c, index, frame, …)` | `entries_corewise_transpose(c, index, …)` | `entries_ambient_transpose(c, index, shape, …)` |
-| apply   | `apply(ww)`      | `apply_transpose(c, ww, frame, …)`      | `apply_corewise_transpose(c, ww, …)`      | `apply_ambient_transpose(c, ww, …)`            |
+| entries | `entries(index)` | `T3Tangent.entries_transpose(c, index, frame, …)` | `entries_corewise_transpose(c, index, …)` | `entries_ambient_transpose(c, index, shape, …)` |
+| apply   | `apply(ww)`      | `T3Tangent.apply_transpose(c, ww, frame, …)`      | `apply_corewise_transpose(c, ww, …)`      | `apply_ambient_transpose(c, ww, …)`            |
 | probe   | `probe(ww)`      | `probe_transpose(ztildes, ww, frame, …)` | `probe_corewise_transpose(ztildes, ww, …)` | `probe_ambient_transpose(ztildes, ww, …)`      |
 
 Notes:

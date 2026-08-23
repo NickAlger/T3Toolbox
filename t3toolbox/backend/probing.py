@@ -217,7 +217,7 @@ def _mu_step(
 
 
 def compute_mu(
-        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d-1, elm_shape=C+(rLi,nUi,rL(i+1))
+        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rLi,nUi,rL(i+1)) (the last core is not swept)
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+C+(nUi,)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # mus. len=d, elm_shape=W+C+(rLi,)
     '''Compute leftward edge variables associated with edges between adjacent TT-cores.

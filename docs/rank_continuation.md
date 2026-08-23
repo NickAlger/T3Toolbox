@@ -176,7 +176,7 @@ for level in range(max_levels):
     new_tucker, new_tt = x.continuation_ranks()
     if (new_tucker, new_tt) == (x.tucker_ranks, x.tt_ranks):
         break                                             # nothing left to grow
-    x = x.resize(new_tucker, new_tt)
+    x = x.resize(x.shape, new_tucker, new_tt)
 ```
 
 `examples/fit_hilbert_uniform_newton_cg.py` runs this end to end.

@@ -225,9 +225,11 @@ shared-factor submanifold, and every optimizer works on it unchanged. See [`shar
   object is hashed or compared.
   Deriving a variant by copying an existing kind and swapping a function is prevented outright: a
   variant is a subclass, hence a distinct type.
-- **`Geometry`** (`manifold.py` `MANIFOLD`/`COREWISE`; `backend/geometry.py`) — `frame(x)` (the frame),
-  `project` (the gauge `Π`), `retract`, plus the Hilbert-Schmidt `inner`/`norm`, and an optional
-  `precompute(frame)` returning a per-frame **geometry aux** that `project`/`retract` then receive. The
+- **`Geometry`** (`manifold.py` `MANIFOLD`/`COREWISE`; `backend/geometry.py`) — the nine members the
+  `Geometry` protocol in `backend/optimizers.py` declares: `frame(x)`, `base_point(frame)`,
+  `stack_shape(x)`, `project` (the gauge `Π`), `retract`, the coordinate `inner`, `point_norm_sq` /
+  `point_tangent` (the regularizer's hooks), and `precompute(frame)` returning a per-frame **geometry
+  aux** that `project`/`retract` then receive. The
   aux exists so a geometry with per-frame setup pays for it once per local model rather than once per
   matvec (the shared-factor wrapper's SVD companion is the motivating case); it is `None` for
   `MANIFOLD`/`COREWISE`, and a custom geometry need only accept and ignore `aux=None`. It is

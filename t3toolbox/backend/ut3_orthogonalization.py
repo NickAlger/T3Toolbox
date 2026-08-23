@@ -138,7 +138,7 @@ def up_orthogonalize_tt_supercores(
     """Bare batched TT-up SVD on supercores (assumes masked input): the TT mode index becomes orthonormal
     over the bonds, the remainder pushed down into the Tucker core. The SVD core of
     :py:func:`ut3_up_orthogonalize_tt_cores`; also reused by the orthogonal-representation sweep
-    (``backend/orthogonal_representations.py``), which manages its own ranks/masks afterward."""
+    (``fv_conversions.t3_orthogonal_representations`` via ``ufv_conversions``), which manages its own ranks/masks afterward."""
     use_jax = tree_contains_jax((tucker_supercore, tt_supercore))
     xnp, _, _ = get_backend(True, use_jax)
     d = tt_supercore.shape[0]

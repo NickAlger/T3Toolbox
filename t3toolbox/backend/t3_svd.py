@@ -458,8 +458,6 @@ def dense_tucker_svd(
         Relative tolerance for truncation.
     atol: float
         Absolute tolerance for truncation.
-    xnp:
-        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------
@@ -568,8 +566,6 @@ def dense_ttsvd(
         Relative tolerance for truncation.
     atol: float
         Absolute tolerance for truncation.
-    xnp:
-        Linear algebra backend. Default: np (numpy)
 
     Returns
     -------

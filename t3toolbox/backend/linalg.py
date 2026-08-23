@@ -78,8 +78,8 @@ def truncated_svd(
         A: NDArray, # shape=(...,N,M)
         min_rank: int = None,  # 1 <= min_rank <= max_rank <= minimum(N, M)
         max_rank: int = None,  # 1 <= min_rank <= max_rank <= minimum(N, M)
-        rtol: float = None,  # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
-        atol: float = None,  # removes singular values satisfying sigma < maximum(atol, rtol*sigma1)
+        rtol: float = None,  # tail-Frobenius rule: keep the smallest r with ||sigma[r:]||_2 < max(atol, rtol*||sigma||_2)
+        atol: float = None,  # (the TT-SVD truncation criterion; NOT a per-singular-value threshold)
 ) -> typ.Tuple[
     NDArray, # U, shape=(...,N,r)
     NDArray, # ss, shape=(...,r)
@@ -99,10 +99,13 @@ def truncated_svd(
     min_rank: int
         Maximum rank for truncation. Should have 1 <= min_rank <= max_rank <= minimum(N, M).
     rtol: float
-        Relative tolerance for truncation. Remove singular values satisfying sigma < maximum(atol, rtol*sigma1).
+        Relative tolerance for truncation: keep the smallest rank ``r`` whose discarded tail satisfies
+        ``||sigma[r:]||_2 < max(atol, rtol * ||sigma||_2)`` (the tail-Frobenius / TT-SVD rule, so the
+        truncation error of the whole matrix is bounded by the tolerance -- NOT a per-singular-value cut).
         Cannot be used for stacked A (len(A.shape) > 2).
     atol: float
-        Absolute tolerance for truncation. Remove singular values satisfying sigma < maximum(atol, rtol*sigma1).
+        Absolute tolerance for truncation, the same tail-Frobenius rule with ``atol`` in place of
+        ``rtol * ||sigma||_2``.
         Cannot be used for stacked A (len(A.shape) > 2).
 
     Returns
@@ -146,7 +149,7 @@ def truncated_svd(
     >>> print(U.shape, ss.shape, Vt.shape)               # r capped at 5
     (2, 3, 4, 55, 5) (2, 3, 4, 5) (2, 3, 4, 5, 70)
 
-    ``rtol`` drops singular values below ``rtol * sigma1`` -- a deliberate approximation, so we show
+    ``rtol`` bounds the Frobenius norm of the discarded tail by ``rtol * ||sigma||_2`` -- an approximation, so we show
     the kept rank and assert the accuracy bound rather than equality. Feed a graded spectrum (a
     Hilbert-like matrix) so the tolerance actually truncates; ``rtol``/``atol`` require an unstacked
     ``A``:

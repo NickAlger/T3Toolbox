@@ -170,7 +170,7 @@ class SharedGeometry:
         (:py:func:`~t3toolbox.backend.sharing.t3_tie_tucker_factors` / its uniform twin) -- the frame of
         a shared geometry describes a point on the shared set, so entering the format is this method's
         job rather than the caller's. An already-tied point is a bitwise fixed point, so the ordinary
-        path is unchanged. This is what makes an untied initial guess a non-event for the optimizers,
+        path is unchanged. This is what makes an untied initial guess a non-event for the frontend optimizers (which build their frames through this wrapper),
         and it also absorbs the slow drift a long run of low-precision first-order steps can produce."""
         self.groups(x.shape)                                     # structural validation
         if self.is_uniform:
