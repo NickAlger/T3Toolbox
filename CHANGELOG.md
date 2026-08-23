@@ -68,6 +68,14 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   (+ the `ut3svd_` twin, both exported at the root) returns `(frame, variations, T3Weights)` from ONE SVD
   with the frame built `already_left_orthogonal=True`, so its Tucker basis is the singular basis; the recipe
   and the `from_t3svd` docstring now say so.
+- **The shared-factor companion was wrong on a frame converted between layers.** `fv_shared_frame_data`
+  recomputed the centers by re-running the SVD sweep that built the frame, which reproduces the
+  construction's sign choices only when it is the same SVD on the same arrays; on a `UT3Frame.to_t3frame()`
+  leaf -- the route `UniformManifoldGeometry.project_ambient` recommends for dense gradients -- the tied
+  projection was silently 30% off (the group spectrum, being gauge-invariant, looked right). The centers
+  are now the zipper of the stored chains (`H_i = L_i Z_{i+1}`, no SVD), exact and gauge-consistent for a
+  frame built by either layer; the uniform twin masks first, and the "frames packed from ragged are not
+  guaranteed" caveat is gone.
 - **`backend.optimizers.Problem.objective(x, data=…)` / `.local_model(x, data=…)` ignored `data`** when
   `sample` was omitted, silently scoring the training data; `sample=` alone crashed with a bare `TypeError`.
   The pair now goes together or not at all (a structural error otherwise).
@@ -161,6 +169,13 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   gave 28.825722). Unrepresentable now — a variant is a subclass, hence a distinct type.
 
 ### Documentation
+
+- **`rank_adjustment_sweep`'s orthogonality is conditional**, and the docs said so unconditionally: the
+  sweep re-SVDs the TT cores and bonds and *preserves* Tucker orthonormality but never creates it, so its
+  result is right-/left-orthogonal in the full sense only when the input's Tucker cores were already
+  orthonormal (any `t3svd` result) -- the documented precondition, now stated at every site. The one real
+  gap behind "compose both directions for guaranteed minimal ranks" -- a Tucker rank above its mode size
+  (`n_i > N_i`), which no TT-side step can reduce -- is closed by a Tucker up-SVD at the start of the sweep.
 
 - A sweep of doc ↔ code mismatches found by the 2026-08-22 review: the README / user-guide core diagram
   and frame-core listings (`d` cores, not `d+1`; `up_tucker_cores`), the Tucker-rank tuple, the uniform

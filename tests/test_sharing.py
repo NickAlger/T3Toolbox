@@ -489,7 +489,7 @@ class TestSharedFrameData(unittest.TestCase):
                     HH = variations_d[1]                     # the construction's center cores
                     for gi, group in enumerate(sharing.nontrivial_groups(groups)):
                         for jj, ii in enumerate(group):
-                            self.assertTrue(np.array_equal(np.asarray(sfd.centers[gi][jj]),
+                            self.assertTrue(np.allclose(np.asarray(sfd.centers[gi][jj]),
                                                            np.asarray(HH[ii])))
 
     def test_s_factor_identities(self):
@@ -1709,6 +1709,34 @@ class TestUniformShared(unittest.TestCase):
         with safety.unsafe():
             u2.t3svd(sharing=spec)
 
+
+
+class TestCompanionAcrossLayers(unittest.TestCase):
+    """Review 2026-08-22 (S9): the shared companion -- hence the tied projection -- is the same whether
+    the frame was built by the ragged layer, the uniform layer, or converted between them."""
+
+    def test_tied_projection_through_a_converted_frame(self):
+        import t3toolbox.uniform_manifold as ut3m
+        np.random.seed(61)
+        shape, tr, ttr, spec = (5, 5, 4), (2, 2, 2), (1, 2, 2, 1), (0, 0, 1)
+        x = t3.TuckerTensorTrain.randn(shape, tr, ttr).share(spec)
+        z = t3.TuckerTensorTrain.randn(shape, tr, ttr)
+        GR = sg.shared_manifold(spec)
+        GU = sg.shared(ut3m.UNIFORM_MANIFOLD, spec)
+        truth = np.asarray(GR.project_ambient(GR.frame(x), z).to_dense())
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        uframe = GU.frame(ux)
+        via_uniform = np.asarray(GU.project_ambient(uframe, ut3.UniformTuckerTensorTrain.from_t3(z)).to_dense())
+        leaf = uframe.to_t3frame()                                  # the cross-layer route
+        via_leaf = np.asarray(GR.project_ambient(leaf, z).to_dense())
+        scale = np.linalg.norm(truth)
+        self.assertLess(np.linalg.norm(via_uniform - truth) / scale, 1e-9)
+        self.assertLess(np.linalg.norm(via_leaf - truth) / scale, 1e-9)
+        # and a frame packed FROM ragged into uniform works too (the former 'not guaranteed' direction)
+        import t3toolbox.uniform_frame_variations_format as ubvf
+        packed = ubvf.UT3Frame.from_t3frame(GR.frame(x))
+        via_packed = np.asarray(GU.project_ambient(packed, ut3.UniformTuckerTensorTrain.from_t3(z, N=packed.N)).to_dense())
+        self.assertLess(np.linalg.norm(via_packed - truth) / scale, 1e-9)
 
 if __name__ == '__main__':
     unittest.main()

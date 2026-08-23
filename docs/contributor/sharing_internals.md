@@ -12,7 +12,7 @@
 > whose Algorithm 1 and Theorem 5 are implemented here (generalized to arbitrary partitions).
 > Both are listed in full in the user guide's literature section.
 
-## The `S_i` machinery: recompute by re-sweep, never retain, never re-SVD
+## The `S_i` machinery: recompute by zipper, never retain, never re-SVD
 
 The tied tangent subspace at a shared point is basis-free: per group, `V_i = S_iᵀ U̇` for one common
 gauged ambient `U̇`, where `S_i = W2_i O2_iᵀ` is the small factor the frame construction itself
@@ -21,14 +21,18 @@ exactly). Three decisions:
 
 1. **Derived on demand, never stored.** `SharedFrameData` (the companion) is computed from a frame
    when needed — frames stay minimal dataclasses.
-2. **Recomputed by RE-SWEEP, not by a zipper and not by a re-SVD.** The companion re-runs
-   `tt_right_orthogonalize(left_tt_cores, return_variation_cores=True)` — the *same function on the
-   same stored arrays* that produced the centers at construction, hence **bit-identical** (measured,
-   float64 and jax float32). A re-SVD would face sign/degenerate-block hazards (symmetric tensors
-   have repeated `Γ` eigenvalues); the stored-`O` pairing is immune. The zipper
-   (`H_i = Z_i R_i`, GEMM-only) measured fine — flat ~5·eps32 even at `κ_TT ~ 1e6`, because the
-   operands are orthogonal — and stays a documented alternative if the SVD-based re-sweep ever
-   shows up in a GPU profile.
+2. **Recomputed by the ZIPPER of the stored chains, not by a re-sweep and not by a re-SVD.** The
+   centers are `H_i = L_i Z_{i+1}`, with `Z_{i+1}` the right-to-left zipper of the left chain against
+   the right chain (`tt_zipper_right_to_left`): GEMM-only, exact to roundoff (≤ 4.5e-15 float64,
+   ≤ 3.2e-7 float32, flat in `d` and `κ_TT` because the operands are orthogonal), and gauge-consistent
+   with the stored `O_i`/`R_i` *whatever built the frame*. A re-SVD would face sign/degenerate-block
+   hazards (symmetric tensors have repeated `Γ` eigenvalues). **History (2026-08-22 review, S9):** the
+   first design re-ran `tt_right_orthogonalize(left_tt_cores, return_variation_cores=True)` — the same
+   SVD sweep on the same stored arrays as the construction, hence bit-identical *when it was the same
+   SVD on the same arrays*. On a `UT3Frame.to_t3frame()` leaf it was not (a padded batched SVD vs a
+   sliced per-core SVD choose different signs), and the tied projection through the cross-layer route
+   `UniformManifoldGeometry.project_ambient`'s docstring recommends was silently 30% off. The zipper
+   has no such dependence.
 3. **The companion holds a thin SVD of the stacked `M_g = concat_i(S_iᵀ)` — never a Cholesky/Gram.**
    Measured in jax float32 on a graded spectrum (`s_min/s_max ≈ 1e-4`): the trailing spectrum level
    comes out at relative error **7.5e-5** from the SVD vs **3.1e-1** from a Gram-eigh (squaring
@@ -40,8 +44,8 @@ Selected measurements on file (design round):
 
 | claim | measured |
 |---|---|
-| re-sweep recompute vs construction | bit-identical (float64 and jax float32) |
-| zipper recompute vs construction | ≤ 4.5e-15 (float64), ≤ 3.2e-7 (float32), flat in `d`, `κ_TT` |
+| re-sweep recompute vs construction (the former design) | bit-identical on the SAME arrays; wrong on a converted frame |
+| zipper recompute vs construction (current) | ≤ 4.5e-15 (float64), ≤ 3.2e-7 (float32), flat in `d`, `κ_TT` |
 | group spectrum trailing level, float32 | SVD 7.5e-5 vs Gram-eigh 3.1e-1 |
 | tied post-pass vs dense orthogonal projection | 1.6e-13 |
 | multi-group dimension formula vs dense tangent rank | 44 == 44 (unshared reduction gives 42) |
@@ -131,14 +135,14 @@ segment-sums; masks multiply, nothing is sliced), sized by the grouped multi-pas
 `compute_raw_sweep_ranks(sharing=)` recurrence — pinned equal to the ragged grouped output ranks
 over randomized structures/caps *before* implementation. Two lessons that cost real debugging:
 
-1. **The uniform companion must re-sweep the frame's supercores AS STORED — not re-masked.** The
-   stored padding slots carry the construction's arbitrary orthonormal completions; masking them
-   first changes the padded SVDs' sign choices and breaks the `⟨O_i, H_i⟩` pairing (one flipped
-   bond column destroyed a group spectrum in test). The stored padding is harmless — completion
-   rows are orthogonal to the centers' row space, so the padded `S_iᵀ` rows vanish to roundoff.
-   Contract: companions belong to frames built by `ut3_orthogonal_representations`; a
-   `t3frame_to_ut3frame`-packed *ragged* frame is not guaranteed (the padded re-sweep can flip
-   signs against the unpadded construction).
+1. **The uniform companion masks the frame's supercores first** (since 2026-08-22; the opposite of the
+   original rule). With the zipper construction there is no SVD to keep in sync, and the stored padding
+   slots — the construction's arbitrary orthonormal completions — must not contract against each
+   other. The original re-sweep design had to see the arrays *as stored* to reproduce the
+   construction's SVD signs (one flipped bond column destroyed a group spectrum in test), which is
+   exactly why it broke on a frame that was built elsewhere (a `to_t3frame()` leaf). The padded `S_iᵀ`
+   rows still vanish to roundoff (completion rows are orthogonal to the centers' row space), and the
+   companion is now exact for a frame built by either layer or converted between them.
 2. **Cross-layer comparisons must be gauge-invariant and start shared-minimal.** Each layer's frame
    construction chooses its own SVD sign gauge (padding changes LAPACK's choices), so tests compare
    represented *dense* tangents/points and the invariant group spectrum — never raw coordinates.

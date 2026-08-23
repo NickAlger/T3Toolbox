@@ -27,6 +27,7 @@ import typing as typ
 from dataclasses import dataclass
 
 import t3toolbox.backend.tt_orthogonalization as tt_orthogonalization
+import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ufv_masking as ufv_masking
 from t3toolbox.backend.common import *
@@ -487,10 +488,14 @@ def fv_shared_frame_data(
 
     Three steps, all exact by construction rather than by tolerance:
 
-    1. **Re-sweep** the frame's stored left chain
-       (``tt_right_orthogonalize(left_tt_cores, return_variation_cores=True)``) -- the SAME
-       computation, on the SAME arrays, that produced the center cores ``H_i`` at frame
-       construction, so the centers here reproduce the constructed ones exactly.
+    1. The centers ``H_i = L_i Z_{i+1}`` from the STORED cores, with ``Z_{i+1}`` the right-to-left
+       zipper of the left chain against the right chain (``tt_zipper_right_to_left``): GEMM-only, no
+       SVD, and gauge-consistent with the stored ``R`` by construction -- the identities below need the
+       ``H_i`` that pair with the frame's ``O_i``/``R_i``, which these are, whatever built the frame.
+       (Until 2026-08-22 the centers came from RE-SWEEPING the left chain with fresh SVDs, which
+       reproduces the construction's ``H_i`` only when the same SVD ran on the same arrays; on a
+       ``UT3Frame.to_t3frame()`` leaf -- padded batched SVD vs sliced per-core SVD -- the signs differed
+       and the tied projection was silently 30% off, review S9.)
     2. Per mode of each nontrivial group, ``S_i^T = <O_i, H_i>`` against the frame's STORED
        down core (``S_i S_i^T = Gamma_i`` and ``W2_i = S_i O2_i`` hold by the construction's
        own factorization; no re-SVD, so no sign/degenerate-block hazards).
@@ -523,7 +528,7 @@ def fv_shared_frame_data(
     >>> sfd = sharing.fv_shared_frame_data(frame.data, groups)
     >>> print(len(sfd.centers[0]), sfd.svd_s[0].shape, sfd.row_splits[0])
     3 (3,) (0, 2, 5, 7)
-    >>> print(all(np.array_equal(np.asarray(H), np.asarray(V))
+    >>> print(all(np.allclose(np.asarray(H), np.asarray(V))
     ...           for H, V in zip(sfd.centers[0], variations.tt_variations)))
     True
     >>> Xd = np.asarray(x.to_dense())
@@ -536,10 +541,11 @@ def fv_shared_frame_data(
     use_jax = tree_contains_jax(frame_data)
     xnp, _, _ = get_backend(False, use_jax)
 
-    # Re-sweep: the centers H_i, by the construction's own computation on the frame's stored
-    # left chain (exact reproduction; the zipper H_i = Z_i R_i is a measured-viable GEMM-only
-    # alternative if the SVD-based sweep ever shows up in a GPU profile).
-    _, HH = tt_orthogonalization.tt_right_orthogonalize(left_tt_cores, return_variation_cores=True)
+    # The centers from the stored cores: H_i = L_i Z_{i+1}, Z the right-to-left zipper of the left chain
+    # against the right chain (the environment to the right of core i). Exact, GEMM-only, and consistent
+    # with the stored R whatever built the frame (no fresh SVD, so no sign/degenerate-block hazard).
+    ZZ = tt_operations.tt_zipper_right_to_left(left_tt_cores, right_tt_cores)
+    HH = tuple(xnp.einsum('...aib,...bc->...aic', L, ZZ[ii + 1]) for ii, L in enumerate(left_tt_cores))
 
     centers, row_splits, svd_U, svd_s, svd_Vt = [], [], [], [], []
     for group in nontrivial_groups(groups):
@@ -871,26 +877,27 @@ def ufv_shared_frame_data(
         groups:     typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition (validate_sharing)
 ) -> 'SharedFrameData':
     '''The uniform twin of :py:func:`fv_shared_frame_data`: the IDENTICAL polymorphic derivation
-    (the right re-sweep, ``S_i^T = <O_i, H_i>`` batched over the mode axis, one batched thin SVD per
-    group of the statically-gathered concatenation) on the frame's supercores.
+    (the centers ``H_i = L_i Z_{i+1}`` from the zipper of the stored chains, ``S_i^T = <O_i, H_i>``
+    batched over the mode axis, one batched thin SVD per group of the statically-gathered
+    concatenation) on the frame's MASKED supercores.
 
-    The re-sweep runs on the frame's stored left supercore AS STORED -- deliberately NOT re-masked:
-    the companion's exactness rests on reproducing the construction's own sweep on the SAME arrays
-    (bit-identical, so the ``<O_i, H_i>`` pairing inherits the construction's SVD gauge). The stored
-    padding slots carry the construction's arbitrary orthonormal completions (the equivalence
-    contract's honest caveat); masking them first changes the sweep's SVD sign choices and BREAKS the
-    pairing (measured: a flipped bond column destroys the group spectrum). The padded rows of each
-    ``S_i^T`` vanish to roundoff anyway (completion rows are orthogonal to the center's row space),
-    so every consumer stays padding-transparent. Contract: the frame's chains must be the polymorphic
-    sweep's own output at these padded dims (a frame built by ``ut3_orthogonal_representations``); a
-    ``t3frame_to_ut3frame``-packed RAGGED frame is NOT guaranteed (the padded re-sweep can flip signs
-    against the unpadded construction).
+    Masked first: the zipper contracts the left chain against the right chain over bonds and modes, and
+    the padded slots hold the construction's arbitrary orthonormal completions, which must not pair up.
+    (Until 2026-08-22 the centers came from RE-SWEEPING the stored left supercore with fresh SVDs, which
+    had to see the arrays AS STORED to reproduce the construction's sign choices; the constraint, and
+    the 'frames packed from ragged are not guaranteed' caveat, went with it -- review S9.) The padded
+    rows of each ``S_i^T`` vanish to roundoff (completion rows are orthogonal to the center's row space),
+    so every consumer stays padding-transparent.
 
     Container reuse: the returned :py:class:`SharedFrameData` holds SUPERCORE SLICES at the padded
     dims (frame stack ``C`` leading; ``row_splits`` are multiples of the padded ``nD``).
     '''
     up_sc, down_sc, left_sc, right_sc = frame_data[0], frame_data[1], frame_data[2], frame_data[3]
-    return fv_shared_frame_data((up_sc, down_sc, left_sc, right_sc), groups)
+    # Mask first: the centers are a zipper of the stored chains (no SVD), so the padded slots -- which hold
+    # the construction's orthonormal completions -- must not contract against each other. (The former
+    # RE-SWEEP had to see the arrays AS STORED to reproduce the construction's SVD signs; that constraint
+    # went with it, review S9.)
+    return fv_shared_frame_data(tuple(ufv_masking.ufv_apply_frame_masks(frame_data)), groups)
 
 
 def ufv_share_tucker_variations(
