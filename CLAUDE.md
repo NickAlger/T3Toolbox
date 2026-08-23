@@ -431,6 +431,12 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
   per-mode residual weight). (Build history: the archived plans in
   `dev/archive/` — `uniform_fix_plan`, `uniform_optimizers_plan`, `naming_pass_plan`,
   `docs_pass_plan`, `docs_split_plan`.)
+- **Whole-library pre-release review (2026-08-22) — landed, one item open.** 19-lane review, 186 findings
+  (ledger + repros: `dev/review_2026-08-22/`); every silent-wrong-answer and crash cluster is fixed with a
+  regression test except **S1b** (the uniform frame on a *numerically* rank-deficient train — the SVD's
+  completion can land in padded slots; root cause pinned, fix designed in `dev/HANDOFF.md`). Rulings worth
+  knowing are listed in the HANDOFF; the behavioural changes are in the CHANGELOG's `[2026.2.0]` Fixed /
+  Changed sections (jax-absent → warn; `d = 1` degenerate; per-mode weight rows; adam-on-manifold warning).
 - **Optimization layer restructured (2026-08-21; in 2026.2.0).** The geometry, the sampling kind and the local model are frozen
   dataclasses whose **parameters are fields**, not records of closures, so they hash/compare by value
   and are stable jax `aux_data`. New `backend/geometry.py`; `SamplingKind` is a class hierarchy;
