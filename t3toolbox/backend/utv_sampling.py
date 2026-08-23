@@ -425,16 +425,8 @@ def _gauge_masks_over_Knew(
     ``K_new`` -- the leading stack of the transpose output minus the frame stack ``C``. ``sum_over_probes``
     determines ``K_new`` (``W+K`` kept / ``K`` summed); we read it off the output supercore rather than
     re-deriving it. Masks are host numpy (static aux), so this stays on ``np``."""
-    gauge = ufv_masking.ufv_variation_masks(frame_data[5])   # length-d variation masks, stack C
-    C = frame_data[0].shape[1:-2]                 # frame stack C (up supercore is (d,)+C+(nU,N))
-    out_stack = out_supercore.shape[1:-2]         # K_new + C
-    K_new = out_stack[:len(out_stack) - len(C)]
-
-    def b(m):  # (d,)+C+(size,) -> (d,)+K_new+C+(size,)
-        return np.broadcast_to(m.reshape(m.shape[:1] + (1,) * len(K_new) + m.shape[1:]),
-                               m.shape[:1] + K_new + m.shape[1:])
-
-    return tuple(b(m) for m in gauge)
+    return ufv_masking.ufv_variation_masks_over_stack(frame_data[5], frame_data[0].shape[1:-2],
+                                                      out_supercore.shape[1:-2])
 
 
 def utv_probe_transpose(

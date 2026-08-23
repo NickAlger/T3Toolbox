@@ -109,6 +109,10 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   and `MANIFOLD.transport` raised an `IndexError` (an empty TT chain has no zipper); `dense_probe` raised on a
   one-mode tensor with a probe stack. A one-mode T3 is a vector; these now degenerate to that case like
   everything else.
+- **`UNIFORM_MANIFOLD.transport` / `project_ambient` crashed on a `K`-stacked tangent or gradient** (the
+  frame's `C`-stack gauge masks were handed to `K+C` variations and failed in a reshape); the ragged twins
+  accepted `K`. The masks are now broadcast over `K` (new `ufv_masking.ufv_variation_masks_over_stack`, the
+  same rule the sampling transposes already used).
 - **`stack()` was not jittable** (`TuckerTensorTrain.stack`, `T3Frame.stack`, `T3Tangent.stack_tangents`, the
   uniform twins): `moveaxis` was given an `arange` source, which is a tracer under `jit`.
 - **`adam` on a ragged manifold with a non-minimal-rank `x0` crashed at step 2** (its moment trees were

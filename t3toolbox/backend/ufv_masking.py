@@ -17,6 +17,7 @@ from t3toolbox.backend.common import *
 __all__ = [
     'ufv_make_frame_masks',
     'ufv_variation_masks',
+    'ufv_variation_masks_over_stack',
     'ufv_apply_frame_masks',
     'ufv_apply_variations_masks',
 ]
@@ -164,3 +165,25 @@ def ufv_apply_variations_masks(
 
 
 
+
+
+def ufv_variation_masks_over_stack(
+        frame_masks,        # the frame's (up, down, frame_left, frame_right) masks, each (len,)+C+(size,)
+        frame_stack,        # C, the frame stack
+        out_stack,          # K + C, the stack of the variations the masks are for (K leading, possibly empty)
+):                          # -> the 4 variation masks, each (d,)+K+C+(size,), HOST numpy
+    """The frame's gauge-shifted variation masks (:py:func:`ufv_variation_masks`) broadcast (constant) over
+    an extra leading tangent stack ``K`` -- the masks a ``K``-stack of tangents at one ``C``-stacked frame
+    carries. Every op that produces variations with a stack wider than the frame's needs this: the
+    sampling transposes (``K_new`` = the kept probe/tangent stack), the ambient projection of a
+    ``K``-stacked gradient, hence ``transport`` of a ``K``-stacked tangent (the last two used to hand a
+    ``C``-stack mask to ``K+C`` variations and fail in a reshape, review C3). Host numpy: static structure."""
+    gauge = ufv_variation_masks(frame_masks)
+    K = tuple(out_stack[:len(out_stack) - len(frame_stack)])
+    if tuple(out_stack[len(K):]) != tuple(frame_stack):
+        raise ValueError('variation stack %s does not end with the frame stack %s' % (tuple(out_stack), tuple(frame_stack)))
+
+    def b(m):  # (d,)+C+(size,) -> (d,)+K+C+(size,)
+        return np.broadcast_to(m.reshape(m.shape[:1] + (1,) * len(K) + m.shape[1:]), m.shape[:1] + K + m.shape[1:])
+
+    return tuple(b(m) for m in gauge)

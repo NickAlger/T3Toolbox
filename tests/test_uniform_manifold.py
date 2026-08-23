@@ -1273,5 +1273,33 @@ class TestUniformGaugeResidualIsRelative(unittest.TestCase):
         with self.assertRaises(ValueError):
             ut3m.UNIFORM_MANIFOLD.norm(u)
 
+
+
+class TestKStackedTransportAndProjection(unittest.TestCase):
+    """Review 2026-08-22 (C3): a K-stack of tangents at one frame transports / projects like the ragged twin."""
+
+    def test_k_stacked_transport_and_project_ambient_match_ragged(self):
+        import t3toolbox.tucker_tensor_train as t3
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        np.random.seed(71)
+        for C in [(), (2,)]:
+            with self.subTest(stack=C):
+                x = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1), stack_shape=C)
+                y = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1), stack_shape=C)
+                fr, fr2 = t3m.MANIFOLD.frame(x), t3m.MANIFOLD.frame(y)
+                ux, uy = ut3.UniformTuckerTensorTrain.from_t3(x), ut3.UniformTuckerTensorTrain.from_t3(y)
+                ufr, ufr2 = ut3m.UNIFORM_MANIFOLD.frame(ux), ut3m.UNIFORM_MANIFOLD.frame(uy)
+                v = t3m.MANIFOLD.randn(fr, stack_shape=(3,))                    # K = 3 tangents at fr
+                # the same K-stacked ambient gradient on both layers: projected, then transported
+                grad = v.to_t3()                                                   # K+C stacked T3
+                ugrad = ut3.UniformTuckerTensorTrain.from_t3(grad, N=ufr.N)
+                p_r = t3m.MANIFOLD.project_ambient(fr, grad)
+                p_u = ut3m.UNIFORM_MANIFOLD.project_ambient(ufr, ugrad)
+                self.assertEqual(p_u.variations.stack_shape, (3,) + C)
+                self.assertLess(float(np.max(np.abs(np.asarray(p_u.to_dense()) - np.asarray(p_r.to_dense())))), 1e-9)
+                t_r = t3m.MANIFOLD.transport(p_r, fr2)
+                t_u = ut3m.UNIFORM_MANIFOLD.transport(p_u, ufr2)
+                self.assertLess(float(np.max(np.abs(np.asarray(t_u.to_dense()) - np.asarray(t_r.to_dense())))), 1e-9)
+
 if __name__ == '__main__':
     unittest.main()

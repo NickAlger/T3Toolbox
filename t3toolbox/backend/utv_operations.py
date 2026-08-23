@@ -554,8 +554,8 @@ def utv_gauge_residual(
 
 def utv_project_ut3_onto_tangent_space(
         frame_data,  # UT3Frame .data (an orthogonal frame), supercore stack = C
-        x_data,      # UniformTuckerTensorTrain .data to project, supercore stack = C
-):  # -> gauged variations .data (the orthogonal projection of x onto the tangent space at the frame)
+        x_data,      # UniformTuckerTensorTrain .data to project, supercore stack = K + C (K tangents at the frame)
+):  # -> gauged variations .data (the orthogonal projection of x onto the tangent space at the frame); stack K + C
     """Orthogonal projection of a uniform Tucker tensor train onto the tangent space at an orthogonal frame
     (the uniform mirror of :py:func:`tv_operations.tv_project_t3_onto_tangent_space`). Returns gauged
     variations representing the projection of ``x`` *directly* onto the tangent space (the linear subspace;
@@ -587,7 +587,10 @@ def utv_project_ut3_onto_tangent_space(
     dB = xnp.einsum('d...ij,d...io->d...jo', M, other_tk)                      # tucker variation, (d,)+stack+(nD, N)
 
     # Gauge the ungauged variations (they carry the frame's gauge-shifted masks).
-    gauge_masks = ufv_masking.ufv_variation_masks((up_mask, down_mask, frame_left_mask, frame_right_mask))
+    # the gauge masks over the projected tensor's stack K + C (C = the frame's; the einsums above broadcast
+    # a C-stacked frame over x's extra leading K for free because C is innermost)
+    gauge_masks = ufv_masking.ufv_variation_masks_over_stack(
+        (up_mask, down_mask, frame_left_mask, frame_right_mask), frame_data[0].shape[1:-2], dB.shape[1:-2])
     return utv_orthogonal_gauge_projection(frame_data, (dB, dG, shape, gauge_masks))
 
 
