@@ -18,3 +18,8 @@ masks rely on -- but the sigma = 0 block is one degenerate eigenspace that mixes
 directions with the padded ones, and the uniform layer lets the completion land in the latter.
 Candidate fix sketched in dev/HANDOFF.md (masked orthonormal completion after each uniform SVD step);
 Nick suspects a more elegant solution -- pending.
+- `s1b_t3svd.py`, `s1b_t3svd_sweep.py` — the same question for the uniform T3-SVD and the retraction: over 60
+  random zero-padded continuation starts the tensor is exact in all 60 (t3svd and retract), the FRAME is
+  non-orthonormal in 60/60, and the t3svd OUTPUT carries a padded completion (not left-orthogonal / masked
+  block rank-deficient) in 40/60 -- the same mechanism, harmless for the tensor because a completion column
+  is multiplied by sigma = 0, harmful only once a consumer reads the column itself as a direction (the frame).
