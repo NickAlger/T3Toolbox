@@ -54,3 +54,9 @@ directions explicitly, or pads and never asks the padded slots to be orthonormal
   arbitrary bases of the corresponding subspaces" and that "different hardware and software may compute
   different singular vectors"; TensorLy `pad_tt_rank` zero-pads "without changing the reconstruction" and is
   silent on orthogonality; JAX's ragged-data guidance is pad + mask, nothing SVD-specific.
+- `s1b_gsvd.py` — Nick's GSVD idea checked on the walkthrough's 9x3 unfolding: the GSVD of the pair
+  `(M^T, I_real)` (computed as the CS decomposition of the stacked `[M^T; I_real]`, rank-revealing) and the
+  augmented SVD of `[M | eps I_real]` give the SAME basis: the sigma > 0 vectors exactly (overlap 1 -- the
+  pair `(M M^T, P_real)` commutes), the real-complement completion identical (overlap 1.000, in the real row
+  `(a=2,b=0)`), the padded rows as the common null space. The augmentation is the GSVD with `B` scaled by
+  `eps`, computed through one ordinary (batchable) SVD.
