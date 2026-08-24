@@ -2114,6 +2114,19 @@ class TuckerTensorTrain:
             kw['oversample'] = oversample
         return TuckerTensorTrain(*backend(self.data, other.data, **kw))
 
+    __rmul__ = __mul__      # scalar * x == x * scalar (elementwise * commutes; review R1-12)
+
+    def __truediv__(
+            self,
+            s,  # scalar divisor
+    ) -> 'TuckerTensorTrain':
+        """Scale by ``1/s`` (scalar only) -- ``x / 2 == x * 0.5``. For elementwise division by a
+        tensor there is no T3 operation (ranks are unbounded); go dense."""
+        if np.ndim(s) != 0:
+            raise TypeError('TuckerTensorTrain.__truediv__ takes a SCALAR divisor; got %s'
+                            % type(s).__name__)
+        return self * (1.0 / s)
+
     def __neg__(
             self,
     ) -> 'TuckerTensorTrain':

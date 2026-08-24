@@ -254,6 +254,13 @@ class UniformTuckerTensorTrain:
 
     __rmul__ = __mul__
 
+    def __truediv__(self, s) -> 'UniformTuckerTensorTrain':
+        """Scale by ``1/s`` (scalar only; the ``__mul__`` guard rejects the rest) -- review R1-12."""
+        if np.ndim(s) != 0:
+            raise TypeError('UniformTuckerTensorTrain.__truediv__ takes a SCALAR divisor; got %s'
+                            % type(s).__name__)
+        return self * (1.0 / s)
+
     def __neg__(self) -> 'UniformTuckerTensorTrain':
         return self * (-1.0)
 

@@ -1060,6 +1060,17 @@ class TestCorewiseRetractFrameGuard(unittest.TestCase):
         s2 = t3m.T3Tangent.stack_tangents([v, v])              # matching K still stacks
         self.assertEqual(s2.tangent_stack_shape, (2,))
 
+    def test_tangent_truediv(self):
+        """R1-12: v / 2 == v * 0.5 (new); array divisors raise."""
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 3), (1, 2, 3, 1))
+        v = t3m.MANIFOLD.randn(bvf.t3_orthogonal_representations(x)[0])
+        got = (v / 2.0).corewise_norm()
+        ref = (v * 0.5).corewise_norm()
+        self.assertLess(abs(float(got) - float(ref)), 1e-12 * (abs(float(ref)) + 1))
+        with self.assertRaises(TypeError):
+            v / np.ones(3)
+
     def test_corewise_tangent_still_retracts(self):
         np.random.seed(0)
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 3), (1, 2, 3, 1))

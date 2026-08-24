@@ -3193,3 +3193,18 @@ class TestRankAdjustmentSweepTuckerAboveModeSize(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 
+
+
+class TestScalarOperatorSymmetry(unittest.TestCase):
+    """Review R1-12 / H4-8: scalar-left multiplication and scalar division work on the ragged class
+    (the uniform class and T3Tangent already had __rmul__; __truediv__ is new on all three)."""
+
+    def test_rmul_and_truediv(self):
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
+        dense = np.asarray(x.to_dense())
+        self.assertTrue(np.allclose(np.asarray((2.0 * x).to_dense()), 2.0 * dense))
+        self.assertTrue(np.allclose(np.asarray((np.float64(2.0) * x).to_dense()), 2.0 * dense))
+        self.assertTrue(np.allclose(np.asarray((x / 2.0).to_dense()), dense / 2.0))
+        with self.assertRaises(TypeError):
+            x / np.ones(3)

@@ -687,6 +687,14 @@ class TestStructuralGuards(unittest.TestCase):
         s2 = ut3.UniformTuckerTensorTrain.stack([self.ux, self.ux])    # matching layouts still fine
         self.assertEqual(s2.stack_shape, (2,))
 
+    def test_truediv_is_scalar_only(self):
+        """R1-12: x / 2 works (new on both layers); array divisors are named TypeErrors."""
+        y = self.ux / 2.0
+        self.assertTrue(np.allclose(np.asarray(y.to_t3().to_dense()),
+                                    np.asarray(self.x.to_dense()) / 2.0))
+        with self.assertRaises(TypeError):
+            self.ux / np.ones(3)
+
     def test_minimal_ranks_are_host_numpy(self):
         """R8-9: rank metadata is host numpy even on a jax-backed train (the masks/aux rule)."""
         try:

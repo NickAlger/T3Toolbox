@@ -393,6 +393,12 @@ class T3Tangent:
 
     __rmul__ = __mul__
 
+    def __truediv__(self, s) -> 'T3Tangent':
+        """Scale by ``1/s`` (scalar only) -- ``v / 2 == v * 0.5`` (review R1-12)."""
+        if np.ndim(s) != 0:
+            raise TypeError('T3Tangent.__truediv__ takes a SCALAR divisor; got %s' % type(s).__name__)
+        return self * (1.0 / s)
+
     def __neg__(self) -> 'T3Tangent':
         return self * (-1.0)
 
