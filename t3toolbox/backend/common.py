@@ -436,9 +436,9 @@ def randn(*args, use_jax: bool):
 
 
 def tree_contains_jax(T):
-    if isinstance(T, typ.Sequence):
-        return any([tree_contains_jax(t) for t in T])
-    return is_jax_ndarray(T)
+    if isinstance(T, typ.Sequence) and not isinstance(T, (str, bytes)):   # str IS a Sequence of strs:
+        return any([tree_contains_jax(t) for t in T])                     # treat it as a leaf, not a
+    return is_jax_ndarray(T)                                              # branch (review R2-8)
 
 
 def tree_to_jax(T):
@@ -446,7 +446,7 @@ def tree_to_jax(T):
     structure; leaves already jax are a no-op (``jnp.asarray``). Numpy ``float64`` leaves become jax
     ``float32`` unless jax x64 is enabled -- the caller opts into jax precision. Without jax: numpy leaves
     and a one-time warning (the jax-absent policy, :py:func:`jax_or_warn`)."""
-    if isinstance(T, typ.Sequence):
+    if isinstance(T, typ.Sequence) and not isinstance(T, (str, bytes)):   # str = a leaf (review R2-8)
         return type(T)(tree_to_jax(t) for t in T)   # preserve list-vs-tuple
     return jnp.asarray(T) if jax_or_warn('tree_to_jax') else np.asarray(T)
 

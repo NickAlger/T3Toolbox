@@ -36,17 +36,23 @@ __all__ = [
 ]
 
 
+def _is_branch(t) -> bool:
+    """A tree BRANCH is a non-string sequence. ``str``/``bytes`` are sequences of themselves, so
+    treating them as branches recurses forever (review R2-8); every tree recursion here uses this."""
+    return isinstance(t, typ.Sequence) and not isinstance(t, (str, bytes))
+
+
 def tree_depth(
         t,  # nested tuples of leaves
 ) -> int:   # nesting depth (0 for a bare leaf)
-    if not isinstance(t, typ.Sequence):
+    if not _is_branch(t):
         return 0
     return tree_depth(t[0])+1
 
 def get_first_leaf(
         xx,  # nested tuples of leaves
 ):           # the first leaf, drilling down xx[0]...[0]
-    if not isinstance(xx, typ.Sequence):
+    if not _is_branch(xx):
         return xx
     return get_first_leaf(xx[0])
 
@@ -512,10 +518,13 @@ def tree_zip(
     >>> print(stacking.tree_zip(T1, T2))
     ((1, 'a'), ((2, 'b'), ((3, 'c'), (4, 'd'), (5, 'e'))), (((6, 'f'), (7, 'g')), (8, 'h')))
     """
-    if not isinstance(T1, typ.Sequence):
+    if not _is_branch(T1):
         return (T1, T2)
-
-    else:
-        return tuple(tree_zip(t1, t2) for t1, t2 in zip(T1, T2))
+    if not _is_branch(T2) or len(T1) != len(T2):
+        raise ValueError(
+            'tree_zip: trees differ in structure (a branch of length %d paired with %r) -- a silent '
+            'zip would truncate to the shorter branch (review R2-12)'
+            % (len(T1), ('a leaf' if not _is_branch(T2) else 'length %d' % len(T2))))
+    return tuple(tree_zip(t1, t2) for t1, t2 in zip(T1, T2))
 
 

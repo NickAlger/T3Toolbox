@@ -210,6 +210,10 @@ def truncated_svd(
         tol = xnp.maximum(total_fronorm * rtol1, atol1)
         K = int(xnp.sum(tail_fronorms >= tol))
 
+    if min_rank is not None and max_rank is not None and min_rank > max_rank:
+        raise ValueError(
+            'truncated_svd: min_rank=%d > max_rank=%d -- the contract is 1 <= min_rank <= max_rank '
+            '(min_rank used to silently win; review R3-6)' % (min_rank, max_rank))
     max_rank = K if max_rank is None else min(K, max_rank)
     min_rank = 1 if min_rank is None else max(1, min_rank)
     r = max(max_rank, min_rank)
