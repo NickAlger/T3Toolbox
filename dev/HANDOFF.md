@@ -30,14 +30,30 @@ suite into a 30-min reporting crawl (diagnosed with a SIGABRT faulthandler dump)
 had deselected exactly that test, so a guard-adding commit should run the full file of any test that
 sweeps the guarded parameter.
 
-**Next (queued): cluster 3** -- the jit/value-hash contract items (H1-5 aliased writeable masks,
-H1-6/R2-7 mixin hash-eq cracks, R1-13 `eq=True` over arrays, R1-17/R10-5 `stack∘unstack` under jit,
-H2-8 SharedGeometry raw-label keys, R7-13 subclass-dropping unflatten), plan agreed 2026-08-24 with
-two rulings PENDING from Nick: (i) `TuckerTensorTrain`/`T3Weights` equality -- identity (`eq=False`,
-recommended) vs value-based; (ii) blessing the key-based bitwise-strict `__eq__` unification of the
-two mixins (eq defined through the hash key; -0.0 != 0.0, dtype counts -- strictly stricter, worst
-case a spurious recompile). Then clusters 4 (safety internals) and 5 (docstring sweep), and Phase D
-test hardening.
+**Cluster 3 — DONE (2026-08-24), the equality + jit/value-hash contract.** Nick's ruling (after an
+ecosystem survey, the T3Frame `eq=False` archaeology, and a greenfield analysis): **`==` raises** a
+directive TypeError (identity-True fast path) and **`hash` raises** on ALL twelve runtime
+array-carrying classes -- there is no cross-library convention to lean on (numpy elementwise,
+torch/TF identity-or-elementwise, sympy structural), so the user must say what they mean. The named
+checks: **`allclose`** (mathematical, per-stack-element bool array -- `C` for trains/frames/weights,
+`K+C` for tangents/variations; formed as `norm(A - B) <= atol + rtol*max(norm A, norm B)` via our own
+subtraction/orthogonalized norm, stable when A ~ B, which optimization makes routine; default rtol =
+`safety.comparison_rtol`, jax-aware) and **`corewise_equal`** (representational, bitwise, single
+bool, never raises). Frames: `allclose` = same BASE POINT (gauge-invariant); the same-tangent-space
+question stays `safety.frames_equal`. The T3Frame identity-`eq=False` was archaeology-confirmed
+obsolete (it served the pre-S4 aux_data guard). Also in the cluster: the ValueHashed mixins'
+hash/eq now derive from ONE content key (dtype-strict, length-safe; jax fields raise); the mask
+holders and geometry/kind `from_point` sites store defensive READ-ONLY mask copies; `shared(...)`
+keys identity + jit aux on the canonical partition (label-spelling-independent, subclass-preserving
+round-trip); the `stack(unstack(x))`-under-jit E-items were verified already fixed (Phase C's
+static-axes moveaxis) and pinned by a dispatch regression test. Commits `707653d8` (allclose family),
+`6385de36` (the ==/hash flip), `e475449c` (3b-3e); new `tests/test_equality_semantics.py` +
+`TestAuxKeyHygiene`; gate: full suite 849 passed / 29,294 subtests + module and doc-page doctests,
+2026-08-24. CHANGELOG carries the breaking-change entry.
+
+**Next (queued): cluster 4** -- safety internals (H6-12 trace detector, H5-5 `frames_equal` padding,
+`set_default_safety` thread docs); then cluster 5 (the ~20-item docstring/stale-text sweep), the
+R2-12 deferred sub-items, and Phase D test hardening.
 
 **What happened.** Nick asked for an in-depth review of the whole library (bugs first, doc/code mismatches
 second) before cutting 2026.2.0, because the 2026.1/2.0 work had kept turning up pre-existing bugs. The
