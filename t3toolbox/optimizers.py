@@ -252,8 +252,9 @@ def gradient_descent(
     representation is inferred from ``x0`` and returned in kind. Pass ``regularizer`` (e.g.
     ``optimizers.IdentityRegularizer(λ)``) to add ``ρ(x)`` to the objective (either representation).
     **Eager only**: there is no ``use_jit`` here (that kwarg lives on :py:func:`mc_sgd` / :py:func:`adam` /
-    :py:func:`newton_cg`); this is the reference/pedagogical optimizer, ``newton_cg`` the performance path. See
-    :py:func:`t3toolbox.backend.optimizers.gradient_descent`."""
+    :py:func:`newton_cg`); this is the reference/pedagogical optimizer, ``newton_cg`` the performance path.
+    ``on_line_search_failure`` ('stop' default / 'accept') controls Armijo-exhaustion behavior as in
+    :py:func:`newton_cg`. See :py:func:`t3toolbox.backend.optimizers.gradient_descent`."""
     problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size)
     x_cores, stats = bopt.gradient_descent(problem, init, **kwargs)
     return rewrap(x_cores), stats

@@ -165,6 +165,16 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   already defaulted `False`; the fitting kinds pass `True` explicitly). Breaking only for raw-backend
   callers that relied on the old uniform default: pass `sum_over_probes=True` explicitly.
 
+- **A failed Armijo line search stops `newton_cg` / `gradient_descent` instead of silently accepting
+  an ascent** (review R7-7). Exhausting every halving (40 / 50) used to accept the last trial anyway --
+  measured objective *increases* accepted at the precision floor, ~2×40 objective evaluations per
+  stagnant iteration -- and the recorded `alpha` was one halving past the step actually taken, so that
+  row's `delta_f` / `rho` / `step_rel` described a step never tried. Now: the default
+  `on_line_search_failure='stop'` rejects the step and terminates; `'accept'` opts into the old
+  take-the-step behavior as a deliberate escape mode (it can bump a stagnant iterate loose);
+  `NewtonInfo` / `stats['history']` gain `ls_failed`, `gradient_descent`'s stats gain
+  `'line_search_failed'`, and `alpha` now records the last trial actually evaluated.
+
 - **The ragged backend geometries' `inner` / `point_norm_sq` are per-element over the frame stack,
   matching the uniform twins and the frontend** (review H3-5). `ManifoldGeometryOps.inner`,
   `CorewiseGeometryOps.inner` / `point_norm_sq`, and `t3_left_orthogonal_norm_sq` used to collapse the

@@ -388,6 +388,7 @@ def gradient_descent(
         n_iter:   int   = 100,
         gtol_rel: float = 1e-8,   # stop when ‖g‖ <= gtol_rel * ‖g_0‖
         c_armijo: float = 1e-4,   # Armijo sufficient-decrease constant
+        on_line_search_failure: str = 'stop',  # Armijo exhausted (50 halvings): 'stop' = reject + terminate; 'accept' = take the last trial and continue
 ) -> typ.Tuple[Tangent, dict]:    # (x_cores, stats)
     """Steepest descent with a Cauchy initial step and an **Armijo backtracking line search**. The step
     length starts at the Cauchy value ``α = ‖g‖² / ‖𝒥g‖²`` (the 1D minimizer of the local GN quadratic
@@ -395,10 +396,19 @@ def gradient_descent(
     on any geometry, including the additive corewise chart where a bare Cauchy step overshoots the
     high-degree objective. Exercises the whole backend-first stack (``gradient`` / ``gn_quadratic`` /
     ``objective`` / ``retract``). **Eager only, deliberately** -- the reference implementation of the
-    backend-first stack; ``use_jit`` lives on ``mc_sgd`` / ``adam`` / ``newton_cg``."""
+    backend-first stack; ``use_jit`` lives on ``mc_sgd`` / ``adam`` / ``newton_cg``.
+
+    ``on_line_search_failure``: as in :py:func:`newton_cg` -- exhausting all 50 halvings means the
+    objective's floor; ``'stop'`` (default) rejects the step and terminates, ``'accept'`` takes the
+    last trial and keeps going (the deliberate escape mode). ``stats['line_search_failed']`` reports
+    whether an exhaustion occurred."""
     _require_unstacked(problem.geom, x0, 'gradient_descent')
+    olsf = str(on_line_search_failure).lower()
+    if olsf not in ('stop', 'accept'):
+        raise ValueError("on_line_search_failure must be 'stop' or 'accept'; got %r" % (on_line_search_failure,))
     x = x0
     losses = []
+    any_ls_failed = False
     g0norm = None
     for it in range(n_iter):
         lm = problem.local_model(x)
@@ -412,13 +422,20 @@ def gradient_descent(
             break
         alpha = gg / max(float(lm.gn_quadratic(g)), 1e-30 * gg)   # Cauchy initial step
         x_trial = x
+        ls_failed = True
         for _bt in range(50):                               # Armijo backtracking
             x_trial = lm.retract(cw.corewise_scale(g, -alpha))
             if float(problem.objective(x_trial)) <= f - c_armijo * alpha * gg:
+                ls_failed = False
                 break
-            alpha *= 0.5
+            if _bt < 49:
+                alpha *= 0.5        # halve BETWEEN trials only (review R7-7)
+        if ls_failed:
+            any_ls_failed = True
+            if olsf == 'stop':
+                break                                        # reject the step: x unchanged
         x = x_trial
-    return x, {'losses': losses, 'n_iter': len(losses)}
+    return x, {'losses': losses, 'n_iter': len(losses), 'line_search_failed': any_ls_failed}
 
 
 def mc_sgd(
@@ -605,8 +622,9 @@ class NewtonInfo:
     cg_resid:     typ.Optional[float] = None           # achieved ‖H p + g‖ (CG residual)
     cg_converged: typ.Optional[bool]  = None           # CG hit its tolerance (not maxiter / not truncated)
     cg_truncated: typ.Optional[bool]  = None           # CG stopped on nonpositive curvature (gauge-singular H)
-    ls_steps:     typ.Optional[int]   = None           # Armijo backtracks (0 = full step; α = 2^-ls_steps)
-    alpha:        typ.Optional[float] = None           # accepted step length
+    ls_steps:     typ.Optional[int]   = None           # Armijo backtracks (0 = full step; 40 = exhausted)
+    ls_failed:    typ.Optional[bool]  = None           # Armijo exhausted all 40 halvings ('stop' rejected the step; 'accept' took it)
+    alpha:        typ.Optional[float] = None           # step length of the LAST TRIAL (= the step taken, unless ls_failed under 'stop')
     slope:        typ.Optional[float] = None           # gᵀp (the directional derivative along the step)
     pHp:          typ.Optional[float] = None           # pᵀHp = ‖𝒥p‖² (for the predicted reduction)
     delta_f:      typ.Optional[float] = None           # actual objective change f_new − f
@@ -630,6 +648,7 @@ def newton_cg(
         gtol_rel:         float = 1e-8,   # stop when ‖g‖ <= gtol_rel * ‖g0‖  (‖g0‖ = g0norm_newton or the initial ‖g‖)
         cg_maxiter:       int   = 200,
         c_armijo:         float = 1e-4,
+        on_line_search_failure: str = 'stop',  # Armijo exhausted (40 halvings): 'stop' = reject the step and terminate; 'accept' = take the last trial and continue
         g0norm_newton:    typ.Optional[float] = None,  # ‖g0‖ for the Newton stop; default = initial ‖g‖. Also feeds CG unless g0norm_cg set.
         g0norm_cg:        typ.Optional[float] = None,  # ‖g0‖ for the CG forcing term; default = g0norm_newton (else initial ‖g‖)
         cg_forcing_power: float = 0.5,                 # η = min(0.5, (‖g‖/‖g0‖)**power); larger => tighter CG, fewer Newton steps
@@ -659,12 +678,25 @@ def newton_cg(
     it on the manifold when the retraction is expensive relative to a Hessian-apply. The ``min(0.5, …)``
     cap on ``η`` is retained regardless.
 
+    **Line-search exhaustion** (``on_line_search_failure``). If all 40 Armijo halvings fail, the
+    objective's floor has been reached (typically deep in a continuation run). The default ``'stop'``
+    rejects the step and terminates -- the conventional reading, and it stops the ~2×40 objective
+    evaluations per stagnant iteration. ``'accept'`` instead takes the last (smallest) trial step and
+    keeps iterating even though it may climb -- a deliberate escape mode: on some landscapes the small
+    non-descent step bumps the iterate out of a stagnant region, after which convergence resumes.
+    Either way the iteration's :py:class:`NewtonInfo` row carries ``ls_failed=True`` and ``alpha`` is
+    the step of the last trial actually evaluated (``2^-39``), so ``delta_f`` / ``rho`` / ``step_rel``
+    describe a step that was genuinely tried.
+
     ``callback``, if given, is called with a :py:class:`NewtonInfo` each iteration (including the final
     converged line) -- the hook for a live diagnostic display; it runs **host-side** (it reads the concrete
     residual), so it composes with ``use_jit`` (only the inner CG jits) but not with a hypothetical
     fully-jitted outer loop. Ready-made displays: :py:func:`t3toolbox.backend.optimizer_display.make_newton_display`.
     ``stats`` always carries ``'history'`` -- one :py:func:`_newton_scalar_record` per iteration."""
     _require_unstacked(problem.geom, x0, 'newton_cg')
+    olsf = str(on_line_search_failure).lower()
+    if olsf not in ('stop', 'accept'):
+        raise ValueError("on_line_search_failure must be 'stop' or 'accept'; got %r" % (on_line_search_failure,))
     x0, problem = _prepare_jit_inputs(use_jit, x0, problem)             # auto-convert to jax when jitting
     x = x0
     computed_g0norm = None                                              # the initial ‖g‖ -- the default reference
@@ -703,13 +735,15 @@ def newton_cg(
         pHp = float(lm.gn_quadratic(p))                                  # pᵀHp = ‖𝒥p‖² (for ρ)
         alpha, ls_steps, f_new = 1.0, 40, f
         x_trial = x
+        ls_failed = True
         for bt in range(40):                                             # Armijo backtracking
             x_trial = lm.retract(cw.corewise_scale(p, alpha))
             f_new = float(problem.objective(x_trial))
             if f_new <= f + c_armijo * alpha * slope:
-                ls_steps = bt
+                ls_steps, ls_failed = bt, False
                 break
-            alpha *= 0.5
+            if bt < 39:
+                alpha *= 0.5        # halve BETWEEN trials only: alpha stays the last trial's step (review R7-7)
         delta_f = f_new - f
         predicted = alpha * slope + 0.5 * alpha * alpha * pHp            # GN-model change along αp
         rho = (delta_f / predicted) if predicted != 0.0 else float('nan')
@@ -722,12 +756,14 @@ def newton_cg(
                           forcing_eta=eta, cg_tol=cg_tol, cg_iters=cg_iters,
                           cg_maxiter=cg_maxiter,
                           cg_resid=cg_rs ** 0.5, cg_converged=cg_converged, cg_truncated=cg_truncated,
-                          ls_steps=ls_steps, alpha=alpha, slope=slope, pHp=pHp, delta_f=delta_f,
-                          rho=rho, step_rel=step_rel, wall_time=t_now - t_prev)
+                          ls_steps=ls_steps, ls_failed=ls_failed, alpha=alpha, slope=slope, pHp=pHp,
+                          delta_f=delta_f, rho=rho, step_rel=step_rel, wall_time=t_now - t_prev)
         t_prev = t_now
         if callback is not None:
             callback(info)
         history.append(_newton_scalar_record(info))
+        if ls_failed and olsf == 'stop':
+            break                                                        # reject the step: x unchanged (review R7-7)
         x = x_trial
     return x, {'losses': losses, 'newton': newton_iters, 'history': history}
 

@@ -137,7 +137,8 @@ def _format_header(info: "bopt.NewtonInfo", obj_unweighted: typ.Optional[float])
     sym = "✓" if info.cg_converged else ("⌇" if info.cg_truncated else "⋯")   # tol / truncated / maxiter
     parts.append("CG %d/%d tol %.1e resid %.1e %s"
                  % (info.cg_iters, info.cg_maxiter, info.cg_tol, info.cg_resid, sym))
-    parts.append("ls %d α %.2e ‖Δx‖/‖x‖ %.1e" % (info.ls_steps, info.alpha, info.step_rel))
+    parts.append("ls %d%s α %.2e ‖Δx‖/‖x‖ %.1e" % (
+        info.ls_steps, '!' if getattr(info, 'ls_failed', False) else '', info.alpha, info.step_rel))
     parts.append("Δf %+.2e ρ %.2f" % (info.delta_f, info.rho))
     parts.append("%.2fs" % info.wall_time)
     return " | ".join(parts)

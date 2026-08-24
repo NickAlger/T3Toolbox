@@ -470,6 +470,14 @@ repo, maintainer-local):
   alone touches only CG. Separately, `cg_forcing_power` (default `0.5`) trades CG effort for Newton
   steps: a **larger** power (`0.75`, `1.0`) tightens CG per step — worth it on the manifold when the
   retraction is expensive relative to a Hessian-apply.
+- **A failed line search now stops the run (or, on request, pushes through).** If `newton_cg`'s
+  Armijo search exhausts all 40 halvings, the objective's floor has been reached; the default
+  `on_line_search_failure='stop'` rejects the step and terminates (the iteration's history row carries
+  `ls_failed=True`, and `alpha` is the step of the last trial actually evaluated). Pass
+  `'accept'` to take the last (smallest) trial step and keep iterating even though it may climb — a
+  deliberate escape hatch: on some landscapes that small non-descent step bumps the iterate out of a
+  stagnant region and convergence resumes. Same option on `gradient_descent`
+  (`stats['line_search_failed']`).
 - **When the data only constrains a structured subspace** (e.g. symmetric tensors), the fit fills
   the unconstrained null space with a large "halo" — **project/symmetrize the fitted tensor** to
   read off the meaningful part.

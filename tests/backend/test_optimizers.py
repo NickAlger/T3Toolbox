@@ -357,6 +357,58 @@ class TestBackendOptimizers(unittest.TestCase):
                 self.assertAlmostEqual(float(bgeo.ManifoldGeometryOps().point_norm_sq((frame[0], frame[2]))) ** 0.5,
                                        float(np.linalg.norm(Xd)), places=5)                          # ‖X‖=‖P_last‖
 
+    def test_newton_cg_line_search_exhaustion(self):
+        """R7-7: exhausting the Armijo search stops the run by default (rejecting the step) and is
+        flagged ls_failed; alpha records the LAST TRIAL actually evaluated (2^-39, not one halving
+        past it); 'accept' opts into taking the step and continuing (the escape mode)."""
+        rng = np.random.default_rng(7)
+        ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
+        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
+
+        # default 'stop': the run terminates AT the first exhaustion, with the honest alpha
+        x, stats = opt.newton_cg(pm, x0, max_newton=60, gtol_rel=1e-30)
+        hist = stats['history']
+        failed = [row for row in hist if row.get('ls_failed')]
+        self.assertEqual(len(failed), 1, 'expected exactly one failed row (the stop)')
+        self.assertTrue(hist[-1]['ls_failed'])                     # ... and it is the last row
+        self.assertLess(len(hist), 61)                             # terminated early
+        self.assertEqual(hist[-1]['ls_steps'], 40)
+        self.assertEqual(hist[-1]['alpha'], 2.0 ** -39)            # the last TRIAL's step (was 2^-40)
+        for row in hist[:-1]:
+            if row.get('ls_steps') is not None and not row.get('ls_failed'):
+                self.assertEqual(row['alpha'], 2.0 ** -row['ls_steps'])   # alpha = 2^-ls_steps invariant
+
+        # 'accept': the failed step is taken and iteration continues past it
+        n_stop = len(hist)
+        x2, stats2 = opt.newton_cg(pm, x0, max_newton=n_stop + 3, gtol_rel=1e-30,
+                                   on_line_search_failure='accept')
+        hist2 = stats2['history']
+        self.assertGreater(len(hist2), n_stop)                     # kept going past the exhaustion
+        self.assertTrue(any(row.get('ls_failed') for row in hist2[:-1]))   # a failed row that is NOT last
+
+        with self.assertRaises(ValueError):
+            opt.newton_cg(pm, x0, on_line_search_failure='explode')
+
+    def test_gradient_descent_line_search_exhaustion(self):
+        """R7-7 (gradient_descent): from a floored point the default stops with the flag set;
+        'accept' runs on."""
+        rng = np.random.default_rng(8)
+        ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
+        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
+        x_floor, _ = opt.newton_cg(pm, x0, max_newton=60, gtol_rel=1e-30)   # drive to the floor
+
+        x, stats = opt.gradient_descent(pm, x_floor, n_iter=10, gtol_rel=1e-30)
+        self.assertTrue(stats['line_search_failed'])
+        self.assertLess(stats['n_iter'], 10)                       # stopped at the exhaustion
+
+        x2, stats2 = opt.gradient_descent(pm, x_floor, n_iter=5, gtol_rel=1e-30,
+                                          on_line_search_failure='accept')
+        self.assertEqual(stats2['n_iter'], 5)                      # pushed through
+        with self.assertRaises(ValueError):
+            opt.gradient_descent(pm, x_floor, on_line_search_failure='explode')
+
     def test_regularized_newton_cg_shrinks(self):
         """Regularized manifold Newton-CG: λ=0 recovers the exact tensor; a larger λ (ridge) shrinks ‖x‖
         monotonically toward 0 while still converging. Corewise weight-decay likewise biases + converges."""
