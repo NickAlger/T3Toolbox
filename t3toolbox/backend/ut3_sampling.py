@@ -243,6 +243,7 @@ def ut3_probe_corewise_derivatives_transpose(
         data:    UT3Data,
         order:   int,
         sum_over_probes: bool = False,
+        chunk_size: typ.Optional[int] = sampling_derivatives.DEFAULT_CHUNK_SIZE,  # W-chunk size; None -> dense. docs/chunking.md
 ) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
     """Corewise transpose of :py:func:`ut3_probe_derivatives`: gradient w.r.t. the frame supercores.
     ``ztildes``/``ww``/``pp`` packed to N."""
@@ -252,4 +253,4 @@ def ut3_probe_corewise_derivatives_transpose(
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
     return sampling_derivatives.t3_probe_corewise_derivatives_transpose(
-        packed_z, packed_ww, packed_pp, masked, order, sum_over_probes=sum_over_probes)
+        packed_z, packed_ww, packed_pp, masked, order, sum_over_probes=sum_over_probes, chunk_size=chunk_size)

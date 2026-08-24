@@ -134,7 +134,7 @@ def compute_minimal_ranks(
         rL  = new_tt_ranks[ii]
         rR  = new_tt_ranks[ii+1]
 
-        new_tt_ranks[ii] = np.minimum(rL, n*rR)
+        new_tt_ranks[ii] = xnp.minimum(rL, n*rR)
 
     new_tt_ranks[0] = xnp.ones(tt_ranks.shape[1:], dtype=int)
     if groups is None:
@@ -143,8 +143,8 @@ def compute_minimal_ranks(
             rL  = new_tt_ranks[ii]
             rR  = new_tt_ranks[ii+1]
 
-            n = np.minimum(n, rL*rR)
-            rR = np.minimum(rR, rL*n)
+            n = xnp.minimum(n, rL*rR)
+            rR = xnp.minimum(rR, rL*n)
             new_tucker_ranks[ii] = n
             new_tt_ranks[ii+1] = rR
     else:

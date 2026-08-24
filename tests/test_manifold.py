@@ -879,14 +879,18 @@ class TestManifold(unittest.TestCase):
                           t3m.MANIFOLD.project_ambient(frame_nm, Z).to_dense())
 
     def test_riemannian_gradient(self):
-        # Riemannian gradient = tangent-space projection of the Euclidean gradient (dense -> F, T3 -> project).
+        # Riemannian gradient = tangent-space projection of the Euclidean gradient. Oracle: the explicit
+        # dense projector Pr, applied to a dense Z and to a T3 g's dense form -- so the dense-input and
+        # T3-input routes of project_ambient are both checked against ground truth (review O1-5: the
+        # old body compared each expression with itself, vacuously).
         STR_P = ((6, 7, 5), (2, 2, 2), (1, 2, 2, 1))
         frame, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STR_P))
+        Pr = _dense_tangent_projector(frame)
         Z = np.random.randn(*STR_P[0])
-        self.check_relerr(t3m.MANIFOLD.project_ambient(frame, Z).to_dense(),
+        self.check_relerr((Pr @ Z.reshape(-1)).reshape(STR_P[0]),
                           t3m.MANIFOLD.project_ambient(frame, Z).to_dense())
         g = t3.TuckerTensorTrain.randn((6, 7, 5), (3, 4, 3), (1, 2, 2, 1))
-        self.check_relerr(t3m.MANIFOLD.project_ambient(frame, g).to_dense(),
+        self.check_relerr((Pr @ g.to_dense().reshape(-1)).reshape(STR_P[0]),
                           t3m.MANIFOLD.project_ambient(frame, g).to_dense())
 
     def test_transport(self):

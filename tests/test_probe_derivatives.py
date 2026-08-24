@@ -12,6 +12,7 @@ import t3toolbox.backend.probing as t3p
 import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
 import t3toolbox.backend.sampling_derivatives as pd
+import t3toolbox.uniform_tucker_tensor_train as ut3
 
 np.random.seed(0)
 tol = 1e-9
@@ -27,6 +28,25 @@ class TestProbeDerivatives(unittest.TestCase):
             self.assertLessEqual(norm(actual), tol)
         else:
             self.assertLessEqual(norm(actual - expected) / denom, tol)
+
+    def test_frontend_corewise_transpose_chunk_size(self):
+        # review R9-10: chunk_size threads through BOTH frontends' probe_corewise_derivatives_transpose
+        # (and the uniform backend wrapper), and a chunked assembly equals the dense (chunk_size=None) one.
+        STRUCT = ((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
+        x = t3.TuckerTensorTrain.randn(*STRUCT)
+        ww = tuple(np.random.randn(3, n) for n in STRUCT[0])
+        pp = tuple(np.random.randn(3, n) for n in STRUCT[0])
+        ztildes = x.probe_derivatives(ww, pp, 2)
+        g_dense = x.probe_corewise_derivatives_transpose(ztildes, ww, pp, 2, chunk_size=None)
+        g_chunk = x.probe_corewise_derivatives_transpose(ztildes, ww, pp, 2, chunk_size=2)
+        for a, b in zip(g_dense[0] + g_dense[1], g_chunk[0] + g_chunk[1]):
+            self.check_relerr(a, b)
+        u = ut3.UniformTuckerTensorTrain.from_t3(x)
+        zu = u.probe_derivatives(ww, pp, 2)
+        gu_dense = u.probe_corewise_derivatives_transpose(zu, ww, pp, 2, chunk_size=None)
+        gu_chunk = u.probe_corewise_derivatives_transpose(zu, ww, pp, 2, chunk_size=2)
+        self.check_relerr(gu_dense[0], gu_chunk[0])
+        self.check_relerr(gu_dense[1], gu_chunk[1])
 
     def test_probe_derivatives_match_dense(self):
         # y_i^(k) = d^k/ds^k y_i(X + s P)|_0 matches the exact multilinear subset-expansion oracle,

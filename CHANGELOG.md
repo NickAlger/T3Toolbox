@@ -44,6 +44,14 @@ All notable changes to T3Toolbox are documented here. The format follows
 
 _The items below came out of the 2026-08-22 whole-library review (`dev/review_2026-08-22/`)._
 
+- **Small ergonomics from the review's E list** (R9-10, R7-11, R3-7): ``chunk_size`` now threads
+  through both frontends' ``probe_corewise_derivatives_transpose`` (and the uniform backend wrapper) --
+  it existed only on the ragged backend and the tangent-level transposes; ``chunk_size='auto'``
+  resolution reads supercore shapes without pulling the arrays to host, and the fallback chunk size is
+  the single ``backend.sampling_derivatives.DEFAULT_CHUNK_SIZE`` constant; the minimal-rank recurrence
+  in ``backend.ranks`` uses the dispatched backend throughout (three stray ``np.minimum`` calls made it
+  jit-hostile).
+
 - **jit cache-key hygiene on the value-hashed aux family** (reviews H1-5, H1-6, R2-7, H2-8, R7-13).
   The mask holders' `hash` and `==` now derive from one content key (they could disagree on dtype and
   silently zip-truncate on length); a jax-array field in a `ValueHashedFields` aux raises a directive

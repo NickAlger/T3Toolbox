@@ -658,12 +658,13 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
             pp:      Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
             order:   int,                # highest derivative order
             sum_over_probes: bool = False,
+            chunk_size: Optional[int] = 100,  # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
     ) -> Tuple[NDArray, NDArray]:        # (tucker_grad, tt_grad) supercores
         """Corewise transpose of :py:meth:`probe_derivatives`: gradient w.r.t. the supercores. See
         :py:meth:`apply_corewise_derivatives_transpose`."""
         sampling_derivatives.check_perturbation_vectors(ww, pp)
         return ut3_sampling.ut3_probe_corewise_derivatives_transpose(
-            ztildes, ww, pp, self.data, order, sum_over_probes=sum_over_probes)
+            ztildes, ww, pp, self.data, order, sum_over_probes=sum_over_probes, chunk_size=chunk_size)
 
     def sum(self, axis=None) -> NDArray:
         """Sum the represented tensor over all physical modes (shape=stack_shape). A partial sum (``axis``

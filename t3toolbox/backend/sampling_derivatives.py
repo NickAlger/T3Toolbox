@@ -25,6 +25,8 @@ from t3toolbox.backend.probing import compute_xi
 from t3toolbox.backend.entries import _entry_xis, _onehot_vectors
 from t3toolbox.backend.common import *
 
+DEFAULT_CHUNK_SIZE = 100   # default W-chunk size for the chunkable probe gradient assemblies (docs/chunking.md)
+
 # Symmetric derivatives of probing.
 #
 # Probing maps a collection of input vectors X = (x_0, ..., x_{d-1}) to its actions
@@ -1717,7 +1719,7 @@ def assemble_tucker_variation_jets_trs(
 
 def assemble_tucker_variation_jets(
         ztildes, dxi_tildes, ww, pp, etas, n_probe, sum_over_probes,
-        chunk_size: typ.Optional[int] = 100,   # W-chunk size; None (or >= W) -> dense. See docs/chunking.md
+        chunk_size: typ.Optional[int] = DEFAULT_CHUNK_SIZE,   # W-chunk size; None (or >= W) -> dense. See docs/chunking.md
 ) -> NDArray:
     '''Assemble the Tucker variation gradient (standard W-chunked form; dense reference
     :py:func:`assemble_tucker_variation_jets_trs`). The milder assembly (two legs nO,N -- the dense
@@ -1947,7 +1949,7 @@ def assemble_tt_variation_jets(
         trs:            NDArray,
         n_probe:        int,
         sum_over_probes: bool,
-        chunk_size:     typ.Optional[int] = 100,    # W-chunk size; None (or >= W) -> dense. See docs/chunking.md
+        chunk_size:     typ.Optional[int] = DEFAULT_CHUNK_SIZE,    # W-chunk size; None (or >= W) -> dense. See docs/chunking.md
 ) -> NDArray:                                        # dG_tildes supercore, [W+]C+(rLi,nUi,rRi)
     '''Assemble the TT variation gradient (standard W-chunked form; dense reference
     :py:func:`assemble_tt_variation_jets_trs`).
@@ -2142,7 +2144,7 @@ def tv_probe_transpose_derivatives_from_sweep(
         ],                                  # = tv_precompute_probe_frame_sweep_jets(frame, ww, pp, order)
         order:      int,                    # highest derivative order
         sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
-        chunk_size: typ.Optional[int] = 100,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
+        chunk_size: typ.Optional[int] = DEFAULT_CHUNK_SIZE,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # dU_tildes (Tucker variation gradient)
     typ.Tuple[NDArray, ...],  # dG_tildes (TT variation gradient)
@@ -2178,7 +2180,7 @@ def tv_probe_derivatives_transpose(
         ],                                  # = T3Frame.data = (U, O, P, Q)
         order:      int,                    # highest derivative order
         sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
-        chunk_size: typ.Optional[int] = 100,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
+        chunk_size: typ.Optional[int] = DEFAULT_CHUNK_SIZE,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # dU_tildes (Tucker variation gradient)
     typ.Tuple[NDArray, ...],  # dG_tildes (TT variation gradient)
@@ -2480,7 +2482,7 @@ def t3_probe_corewise_derivatives_transpose(
         ],                                  # = TuckerTensorTrain.data
         order:      int,                    # highest derivative order
         sum_over_probes: bool = False,      # True: sum the sample stack W (the gradient J^T r)
-        chunk_size: typ.Optional[int] = 100,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
+        chunk_size: typ.Optional[int] = DEFAULT_CHUNK_SIZE,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # tucker-core gradients, same shapes as tucker_cores
     typ.Tuple[NDArray, ...],  # tt-core gradients,     same shapes as tt_cores

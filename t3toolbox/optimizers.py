@@ -156,11 +156,11 @@ def _resolve_chunk_size(chunk_size, kind, x0, sample, order, batch=None):
     try:
         import jax  # noqa: F401  -- the estimator measures peak scratch via a compile
     except ImportError:
-        return 100
-    import numpy as np
-    tsc, qsc = np.asarray(x0.tucker_supercore), np.asarray(x0.tt_supercore)  # (d,nU,N) ; (d,r,nU,r)
-    d, nU, r = tsc.shape[0], int(tsc.shape[-2]), int(qsc.shape[-1])
-    full_W = int(np.prod(np.asarray(sample[0][0]).shape[:-1]))
+        return _bfit_pd().DEFAULT_CHUNK_SIZE
+    import math
+    tsc, qsc = x0.tucker_supercore, x0.tt_supercore  # (d,nU,N) ; (d,r,nU,r) -- shapes/dtype only, no host pull
+    d, nU, r = int(tsc.shape[0]), int(tsc.shape[-2]), int(qsc.shape[-1])
+    full_W = math.prod(sample[0][0].shape[:-1])
     w = min(int(batch), full_W) if batch else full_W
     return _bfit_pd().estimate_chunk_size(tuple(x0.shape), (nU,) * d, (r,) * (d + 1), order, w, dtype=tsc.dtype)
 

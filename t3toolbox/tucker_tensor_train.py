@@ -3437,6 +3437,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> df_diff = (get_entry_123(t3.TuckerTensorTrain(*A1)) - f0) / s # finite difference
         >>> print(bool(np.allclose(df, df_diff, rtol=1e-5)))
         True
+        >>> jax.config.update("jax_enable_x64", False)  # restore the default (no leak into later doctests)
         '''
         if len(index) != self.d:
             raise ValueError(
@@ -3999,6 +4000,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
             pp:      Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
             order:   int,                # highest derivative order
             sum_over_probes: bool = False,
+            chunk_size: typ.Optional[int] = 100,  # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
     ) -> Tuple[
         Tuple[NDArray, ...],  # tucker-core gradients, same shapes as self.tucker_cores
         Tuple[NDArray, ...],  # tt-core gradients,     same shapes as self.tt_cores
@@ -4019,7 +4021,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         """
         sampling_derivatives.check_perturbation_vectors(ww, pp)
         return sampling_derivatives.t3_probe_corewise_derivatives_transpose(
-            ztildes, ww, pp, self.data, order, sum_over_probes=sum_over_probes)
+            ztildes, ww, pp, self.data, order, sum_over_probes=sum_over_probes, chunk_size=chunk_size)
 
     def apply_corewise_derivatives_transpose(
             self:   'TuckerTensorTrain',
