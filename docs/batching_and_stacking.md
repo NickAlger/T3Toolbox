@@ -361,6 +361,17 @@ can be `jit`/`vmap`/`grad`-ed:
     ambiguous, so they stay identity-hashed — but the frame is a **leaf-bearing pytree node**, not
     `aux_data`.
 
+- **The uniform layer does not `vmap` — by construction, and loudly.** A stacked
+  `UniformTuckerTensorTrain` cannot be `vmap`-ed over its stack with *any* `in_axes`: axis 0 slices the
+  **mode axis** `d` (the supercore layout is `(d,) + stack_shape + (...)`) and `validate` rejects the
+  wreckage; axis 1 — the actual stack axis — *also* fails, because the rank masks ride as static
+  `aux_data` with their own per-element stack axes and `vmap` cannot slice aux. Every route errors at
+  validation; nothing convention-violating comes out. This is not a gap to fix: batching over uniform
+  objects is what the native `C` stack with packed contractions is *for*. The one legitimate `vmap`
+  pattern is at the raw-supercore level — map over the stack axis of the bare arrays and construct an
+  unstacked object inside with the (shared) unstacked masks. Ragged objects `vmap` fine with default
+  axes (their cores carry the stack leading).
+
 `vmap`/`jit` invocation across the ops is checked cheaply in `tests/test_dispatch.py` (a `jit`-compile
 of an op proves no hidden numpy — a stray `np.*` on a tracer raises).
 

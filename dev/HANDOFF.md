@@ -75,9 +75,29 @@ $K \to m$ ($J^m$ jets), running $k \to t$, binomial $j \to r$ -- unifying the de
 with the note's own trs/adjoint sections, which already used t/r/s; mode dummies stayed $j$ (a
 $j \to r$ there would collide with rank subscripts $r_i$). Builds warning-free.
 
-**Next (queued): cluster 4** -- safety internals (H6-12 trace detector, H5-5 `frames_equal` padding,
-`set_default_safety` thread docs); then Phase D test hardening, the R2-12 deferred sub-items, and
-the 2026.2.0 tag steps (twine check, numpy-only venv smoke, tag).
+**Cluster 4 -- DONE (2026-08-24), safety internals.** One of its three queued items was already
+closed (the `set_default_safety` validation + thread-scope docs landed with cluster 1; only its
+Phase-D test remains). The two real items, both ruled by Nick:
+- **H5-5** (commit `9f5555ad`): the uniform same-frame guard masks the frame supercores
+  (`ufv_apply_frame_masks`) before `safety.frames_equal_or_skip` -- padding is don't-care, the
+  tangent space depends only on real content. `safety.frames_equal` stays representation-agnostic;
+  its docstring states the caller-passes-real-content contract (Nick's question "should safety.py
+  mask?" -- answered as a layering argument: safety takes plain array trees; ragged data IS real
+  content; the mask-supercore pairing is the uniform layer's knowledge).
+- **H6-12**: `_inside_jax_trace` is the committed-array probe ALONE -- `jax.core.trace_state_clean`
+  does not exist in jax 0.10 (every check on jax inputs paid a raise/catch), and the docstring now
+  says what the probe delivers: jit-only detection; under grad/vmap with concrete operands the
+  checks just run, harmlessly. **The vmap-over-UT3 investigation Nick requested** (his concern:
+  batch axes landing before the mode axis): verified 2026-08-24 that a stacked UT3 cannot be
+  vmap-ed with ANY in_axes -- axis 0 slices the mode axis d (validate rejects), axis 1 fails too
+  because the rank masks are static aux with per-element stack axes and vmap cannot slice aux.
+  Every route errors loudly at validation; nothing convention-violating comes out. Recorded in
+  `docs/batching_and_stacking.md` §7 and `docs/contributor/uniform_pytree_composition.md`
+  (repro: scratchpad `vmap_ut3_probe.py`). Batching uniform objects = the native C stack.
+
+**Next (queued):** Phase D test hardening (incl. the R4-15 untested-name list and
+`set_default_safety`'s test), the R2-12 deferred sub-items, and the 2026.2.0 tag steps
+(twine check, numpy-only venv smoke, tag).
 
 **What happened.** Nick asked for an in-depth review of the whole library (bugs first, doc/code mismatches
 second) before cutting 2026.2.0, because the 2026.1/2.0 work had kept turning up pre-existing bugs. The

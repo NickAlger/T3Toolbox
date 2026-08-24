@@ -72,6 +72,11 @@ and the sizes are not stored redundantly). The same mixin is reused by the frame
   be concrete host arrays because their *values* are read (`int(mask.sum())`), recomputed into aux, and now
   **value-hashed** (`tobytes`) as the jit cache key — all of which a tracer breaks. See *Masks are numpy
   (host) — the jit story* below.
+- **`vmap` cannot batch a UT3 — and fails loudly (verified 2026-08-24).** `vmap` slices leaves, never
+  `aux_data`; the masks are aux with per-element stack axes, so `in_axes=1` (the stack axis) leaves a
+  reconstructed element with unstacked supercores but stacked masks — `validate` rejects it — and
+  `in_axes=0` slices the mode axis `d`, also rejected. Batch over uniform objects with the native `C`
+  stack (packed contractions), or `vmap` the raw supercore arrays and construct inside.
 - **The backend is unaffected (raw arrays).** The holder is a frontend/pytree concern; backend functions
   take **raw arrays** in a layout that mirrors the fields — `.data = (tucker_supercore, tt_supercore,
   shape, (tucker_edge_mask, tt_edge_mask))`, supercores flat, then the static `shape` int tuple, then the

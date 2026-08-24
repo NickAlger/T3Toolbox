@@ -44,6 +44,14 @@ All notable changes to T3Toolbox are documented here. The format follows
 
 _The items below came out of the 2026-08-22 whole-library review (`dev/review_2026-08-22/`)._
 
+- **The safe-mode trace detector is the committed-array probe alone** (review H6-12). The old primary
+  detector, `jax.core.trace_state_clean`, does not exist in jax 0.10 -- every check on jax inputs paid a
+  raise/catch before falling back -- and its docstring promised any-transform detection the probe never
+  delivered. Behavior under jit is unchanged (checks skip); under `grad`/`vmap` with concrete operands
+  the checks run, as they always effectively did -- harmless and now documented. The batching docs also
+  record why a stacked `UniformTuckerTensorTrain` cannot be `vmap`-ed at all (masks are static aux; use
+  the native `C` stack).
+
 - **The uniform same-frame guard compares real (masked) content only** (review H5-5). Two frames
   identical up to the don't-care padding now count as the SAME frame -- the tangent space depends only
   on the real content -- so `UT3Tangent` arithmetic / `stack_tangents` between a frame and a re-padded

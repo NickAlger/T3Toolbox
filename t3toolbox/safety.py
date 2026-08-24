@@ -168,31 +168,34 @@ _trace_probe = None  # a committed jax array; lazily built (fallback trace detec
 
 
 def _inside_jax_trace():
-    '''True iff we are currently inside *any* jax transform (jit / grad / vmap), independent of the inputs.
+    '''True iff we are inside a **jit** trace, independent of the inputs (the committed-array probe).
 
-    Needed because a numerical check can operate on **closed-over concrete** arrays (not tracers): inside a
-    trace, even a jnp op on a committed array yields a (constant) tracer, so ``bool(...)`` on the result
-    still fails. Inspecting only the passed arrays (``is_tracing``'s fast path) misses this. Uses jax's
-    ``trace_state_clean`` when available, falling back to the version-stable probe: a committed-array op is
-    a tracer iff we are tracing.'''
+    Needed because a numerical check can operate on **closed-over concrete** arrays (not tracers): inside
+    a jit trace, even a jnp op on a committed array yields a (constant) tracer, so ``bool(...)`` on the
+    result would fail. Inspecting only the passed arrays (``is_tracing``'s fast path) misses this. The
+    probe: an op on a committed array is a tracer iff we are jit-tracing.
+
+    Deliberately jit-only (review H6-12): under ``grad``/``vmap`` with concrete operands the probe returns
+    False and the checks simply run -- harmless, since concrete operands mean ``bool(...)`` works, and the
+    checks pass or fail on their merits. (The old primary detector, ``jax.core.trace_state_clean``, does
+    not exist in jax 0.10; it cost a raise/catch per check and promised any-transform detection the
+    fallback never delivered.)'''
     if not jax_available:
         return False
     import jax
+    global _trace_probe
     try:
-        return not jax.core.trace_state_clean()
+        if _trace_probe is None:
+            _trace_probe = jax.numpy.zeros(1)
+        return isinstance(_trace_probe + _trace_probe, jax.core.Tracer)
     except Exception:
-        global _trace_probe
-        try:
-            if _trace_probe is None:
-                _trace_probe = jax.numpy.zeros(1)
-            return isinstance(_trace_probe + _trace_probe, jax.core.Tracer)
-        except Exception:
-            return False
+        return False
 
 
 def is_tracing(*arrays):
-    '''True if we are inside a jax transform (jit / grad / vmap): any argument is a tracer, **or** we are
-    globally under a trace (the closed-over-concrete-operand case -- see :py:func:`_inside_jax_trace`).'''
+    '''True if we are inside a jax transform: any argument is a tracer (catches jit / grad / vmap
+    operands), **or** we are inside a jit trace with only closed-over concrete operands (the probe --
+    see :py:func:`_inside_jax_trace`).'''
     if not jax_available:
         return False
     import jax
