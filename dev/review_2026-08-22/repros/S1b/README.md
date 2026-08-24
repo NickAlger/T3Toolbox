@@ -65,3 +65,13 @@ directions explicitly, or pads and never asks the padded slots to be orthonormal
   `n` left singular vectors, remainder `U^T M`. Over 400 random cases (incl. N_i < n and numerical rank 0):
   orthonormal (1e-15), the n_i real columns real-supported (0.0 on padded rows), range(M) ⊆ range(U) so the
   tensor is exact (1e-15), sigma > 0 vectors unperturbed (7e-16). Cost O(N n^2): no N^3 anywhere.
+
+## 2026-08-23 — Nick's pad-safe SVD packet (Method D)
+
+Nick workshopped the problem externally and delivered `packet/` (algorithm spec, LaTeX derivation of
+five methods A–D, NumPy + static-shape JAX implementations, pytest suite). Method D (sketch–project)
+is the recommended algorithm. Verified here: the packet's own demos + 7 tests green in the project
+env (jax jit cache stays 1 across mask patterns), and `s1b_packet_integration.py` runs it on the real
+case-B (`resize` warm start) sweep unfoldings — the interior-pad TT up-orth site loses a direction
+under the plain SVD and pad_safe_svd recovers it, bitwise-clean pads, σ's exactly the unpadded
+block's. Assessment + integration design: the OPEN_QUESTION note.

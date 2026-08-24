@@ -1,0 +1,642 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage[colorlinks=true,linkcolor=blue]{hyperref}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\Apad}{A_{\mathrm{pad}}}
+\newcommand{\Aaug}{A_{\mathrm{aug}}}
+\newcommand{\norm}[1]{\left\lVert #1 \right\rVert}
+
+\title{SVD of Zero-Padded Matrices via Mask Augmentation}
+\author{}
+\date{August 2026}
+
+\begin{document}
+\maketitle
+
+\section{Problem setup and notation}
+
+Let $A \in \R^{n \times m}$ (with $m$ small, $n$ possibly large) be embedded into a
+fixed-shape padded matrix
+\[
+  \Apad \in \R^{N \times M}, \qquad N = n + P_r, \quad M = m + P_c,
+\]
+where $P_r$ row positions and $P_c$ column positions --- at \emph{arbitrary}
+(possibly interior) locations --- are identically zero padding. Denote by
+$\mathcal{S}_r \subset \{1,\dots,N\}$, $|\mathcal{S}_r| = P_r$, the set of pad-row
+indices and $\mathcal{S}_c \subset \{1,\dots,M\}$, $|\mathcal{S}_c| = P_c$, the set
+of pad-column indices. In a batched (JAX) setting, $P_r$ and $P_c$ are the
+\emph{maximum} pad counts across the batch, so all shapes below are static; the
+masks $\mathcal{S}_r, \mathcal{S}_c$ are runtime data (boolean vectors of static
+length) and cause no recompilation.
+
+\paragraph{The failure mode.} If $A$ has numerical rank $k < m$, the left null
+space of $\Apad$ contains both genuine null directions of $A$ and the pad
+coordinates $\operatorname{span}\{e_i : i \in \mathcal{S}_r\}$. A black-box SVD
+returns an arbitrary orthonormal basis of this degenerate subspace, so the
+null-space columns of $U$ generically place mass on pad rows; restricted to the
+data rows, $U$ is then non-orthonormal and possibly rank deficient.
+
+\paragraph{The output contract.} The correct requirement is
+\[
+  \texttt{pad} \to \texttt{svd} \to \texttt{unpad}
+  \;\;\equiv\;\;
+  \texttt{svd of the unpadded } A,
+\]
+where \texttt{unpad} slices with the masks in their \emph{original} (possibly
+interior) locations. Concretely: the \emph{first $m$ triplets} of the returned
+factorization must be a valid economy SVD of $A$ --- $k$ positive triplets
+plus $m-k$ data-null ones --- with $U[:, :m]$ zero on pad rows and
+$V[:, :m]$ zero on pad-column coordinates; the remaining $M - m$
+\emph{don't-care} triplets carry $\sigma = 0$ and may fill the pad region (or
+data rows) freely, provided the full output is still a genuine SVD of
+$\Apad$. Two consequences. First, feasibility requires only $n \ge m$ ---
+exactly the condition the unpadded economy SVD needs --- so $n < M$ (more
+total columns than data rows) is a supported regime, not a failure mode.
+Demanding instead that \emph{all} $M$ columns of $U$ avoid pads would require
+$n \ge M$; that stronger contract is what early drafts of Method~D assumed,
+and it is both unnecessary and unachievable in general. Second, since any
+valid economy SVD of $A$ has arbitrary orthonormal completions in its null
+slots, the contract constrains null columns only in support and orthonormality,
+never in direction.
+
+\paragraph{Five methods.} All fixes below hand the pad masks to the computation
+\emph{as data}, with all shapes static. \textbf{Method A (augmentation,
+\S\ref{sec:aug}--\ref{sec:aug-alg})} breaks the degeneracy inside the SVD by
+pinning pad coordinates to a separated singular value; it is clean and
+tolerance-free but its cost grows with the pad count, so it suits
+$P_r, P_c \ll n$. \textbf{Method B (post-hoc masked completion,
+\S\ref{sec:completion})} leaves the SVD untouched and rebuilds only the
+degenerate columns afterward; its cost is independent of the pad count, making
+it the right choice when $P_r \sim N$ is possible, at the price of an explicit
+rank tolerance. \textbf{Method C (masked noise, \S\ref{sec:noise})} and its
+refinement \textbf{C$'$ (\S\ref{sec:refine})} trade exactness for simplicity:
+a controlled, precision-dependent error of order $\sqrt{\varepsilon}$
+(respectively $\varepsilon^{2/3}$) in exchange for minimal code changes, with
+the side benefit of regularizing the SVD derivative in differentiable
+pipelines. \textbf{Method D (sketch--project, \S\ref{sec:methodD})} combines
+the strengths of A and B --- exact, tolerance-free, pad-count-independent ---
+by exploiting the fact that matrix--vector products with $\Apad$ are
+structurally blind to pad rows; it is the recommended default.
+
+\section{Method A: the augmented matrix}\label{sec:aug}
+
+Choose a separation constant
+\[
+  c \;=\; 4\,\norm{\Apad}_F
+  \qquad \text{(any bound with margin on both sides of the filter works).}
+\]
+\textbf{Warning on the margin:} the natural-looking choice $c = 2\norm{\Apad}_2$
+is \emph{fragile}: the filter threshold $c/2$ then sits exactly at
+$\sigma_{\max}$, and a computed $\sigma_{\max}$ one ulp high is misclassified
+as a pinned triplet --- silently deleting the largest singular value. A rank-1
+matrix with a cleanly representable norm triggers this deterministically. With
+$c = 4\norm{\Apad}_F$ the threshold $c/2 = 2\norm{\Apad}_F$ has
+$\norm{A}$-sized margins to both the data spectrum and the pins.
+Define the one-hot mask matrices
+\begin{align*}
+  E_r &\in \R^{N \times P_r}, & (E_r)_{i\ell} &= 1 \iff i = \text{$\ell$-th pad row},\\
+  E_c &\in \R^{M \times P_c}, & (E_c)_{j\ell} &= 1 \iff j = \text{$\ell$-th pad column}.
+\end{align*}
+(If an instance has fewer pads than the static maximum, surplus columns of
+$E_r, E_c$ are zero; they contribute harmless exact-zero singular triplets.)
+The \textbf{two-sided augmented matrix} is
+\[
+  \Aaug \;=\;
+  \begin{bmatrix}
+    \Apad & c\,E_r \\[2pt]
+    c\,E_c^{\!\top} & 0
+  \end{bmatrix}
+  \;\in\; \R^{(N + P_c)\,\times\,(M + P_r)} .
+\]
+For the row-pads-only case simply drop the second block row:
+$\Aaug = [\,\Apad \;\; c\,E_r\,] \in \R^{N \times (M + P_r)}$.
+
+\subsection*{Shape summary}
+
+Assume $m$ small, $n$ large, $P_r, P_c$ small. All matrices are tall--skinny or
+small--square; \emph{no $n \times n$ object is ever formed}.
+
+\begin{center}
+\begin{tabular}{@{}llll@{}}
+\toprule
+Matrix & Shape & Size regime & Role \\
+\midrule
+$\Apad$            & $N \times M$                        & $n \times m$            & padded input \\
+$E_r$              & $N \times P_r$                      & $n \times \text{small}$ & row-pad mask (one-hot) \\
+$E_c$              & $M \times P_c$                      & $m \times \text{small}$ & column-pad mask (one-hot) \\
+$\Aaug$            & $(N{+}P_c) \times (M{+}P_r)$        & $\sim n \times (m{+}\text{small})$ & augmented input \\
+$Q$                & $(N{+}P_c) \times (M{+}P_r)$        & $\sim n \times (m{+}\text{small})$ & economy QR factor \\
+$R$                & $(M{+}P_r) \times (M{+}P_r)$        & small square            & SVD is computed here \\
+$U_R, \Sigma, V$   & $(M{+}P_r) \times (M{+}P_r)$        & small square            & SVD of $R$ \\
+$U = Q\,U_R$       & $(N{+}P_c) \times (M{+}P_r)$        & $\sim n \times (m{+}\text{small})$ & left vectors, pre-filtering \\
+$U, V$ (final)     & $(N{+}P_c) \times M$,\; $(M{+}P_r) \times M$ & tall/small     & after dropping $c$-triplets \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Why it works}
+
+Because pad rows of $\Apad$ are zero, $\operatorname{col}(\Apad) \perp e_i$ for
+every $i \in \mathcal{S}_r$, and symmetrically for pad columns. Direct
+verification then shows that each pad row $i$ (paired with its one-hot column in
+$E_r$) forms an \emph{exact} singular triplet of $\Aaug$ with singular value $c$,
+and likewise each pad column. Thus:
+\begin{enumerate}[itemsep=1pt]
+  \item The pad coordinates constitute the invariant subspace attached to the
+        singular value $c$, which is separated from the data spectrum
+        ($\sigma_{\max}(\Apad) \le c/2$).
+  \item Every remaining singular vector --- \emph{including the $\sigma \approx 0$
+        null-space columns that caused the original problem} --- is orthogonal to
+        the $c$-cluster, hence supported on data rows/columns, up to a rounding
+        error of order $\varepsilon\, c / (c - \sigma_{\max}) \sim \varepsilon$.
+  \item The degeneracy is broken \emph{by construction}, for arbitrary pad
+        positions, with no permutation bookkeeping and no branching on $n$.
+\end{enumerate}
+
+\section{Method A: complete algorithm}\label{sec:aug-alg}
+
+\begin{enumerate}[label=\textbf{Step \arabic*.}, leftmargin=2.2cm, itemsep=3pt]
+  \item \textbf{Masks.} From the runtime pad masks build $E_r$ ($N \times P_r$)
+        and $E_c$ ($M \times P_c$), e.g.\ by \texttt{argsort} of the boolean mask
+        followed by one-hot encoding; zero out surplus columns when an instance
+        has fewer pads than the static maximum.
+  \item \textbf{Scale.} Set $c = 4\norm{\Apad}_F$ (see the margin warning in
+        \S\ref{sec:aug}; $2\norm{\Apad}$ puts the filter exactly at
+        $\sigma_{\max}$). If $\Apad = 0$ is possible in the batch, use
+        $c = 4\norm{\Apad}_F + \delta$ with a fixed $\delta > 0$ to keep $c > 0$.
+  \item \textbf{Augment.} Form $\Aaug$ as above,
+        shape $(N + P_c) \times (M + P_r)$.
+  \item \textbf{QR (Chan step).} Compute the economy QR factorization
+        $\Aaug = QR$, with $Q$ of shape $(N+P_c) \times (M+P_r)$ and $R$ square
+        of side $M + P_r$. Cost $O\!\big(N (M{+}P_r)^2\big)$.
+  \item \textbf{Small SVD.} Compute $R = U_R \Sigma V^{\top}$
+        (\texttt{full\_matrices=false}); this is a dense SVD of a small,
+        statically-shaped square matrix. Cost $O\!\big((M{+}P_r)^3\big)$.
+  \item \textbf{Recombine.} $U = Q\,U_R$. Cost $O\!\big(N (M{+}P_r)^2\big)$.
+  \item \textbf{Filter.} Identify the pad triplets by $\sigma_i > c/2$; the data
+        triplets satisfy $\sigma_i \le c/2$. Discard the pad triplets and, if
+        desired, \texttt{argsort} the survivors by $\sigma$ and gather with
+        \texttt{take\_along\_axis}. Exactly $M$ triplets survive per instance
+        (statically), yielding $U \in \R^{(N+P_c) \times M}$,
+        $\Sigma \in \R^{M}$, $V \in \R^{(M+P_r) \times M}$.
+  \item \textbf{Restrict (optional).} Rows of $U$ indexed by $\mathcal{S}_r$ and
+        rows of $V$ indexed by $\mathcal{S}_c$ are zero to $O(\varepsilon)$;
+        restricting $U$ to data rows gives an orthonormal (to $O(\varepsilon)$)
+        matrix of left singular vectors of $A$, including well-behaved null-space
+        columns. Note that among the $M$ surviving triplets, $P_c$ correspond to
+        the zero columns of $\Apad$ (they have $\sigma = 0$ and right vectors
+        supported on pad columns); drop these too if only the $m$-column SVD of
+        $A$ is wanted.
+\end{enumerate}
+
+\paragraph{Costs.} Total flops
+$O\!\big(N(M{+}P_r)^2 + (M{+}P_r)^3\big)$, linear in $n$; peak memory is one
+tall--skinny matrix of width $M + P_r$ plus small squares. All shapes are static
+across the batch, so JAX compiles once and \texttt{vmap}s cleanly.
+
+\paragraph{Caveat: cost scales with the pad count.} Static shapes force
+$P_r, P_c$ to be the \emph{worst-case} pad counts over the batch, and the
+augmentation width cannot be compressed: the degenerate subspace being pinned
+has dimension exactly $P_r$, so any spectral-separation construction needs
+$P_r$ extra columns. If batch sizes vary by a factor of two, $P_r \sim N/2$ is
+routine, and the QR of an $N \times (M + N/2)$ matrix costs $O(N^3)$ versus
+$O(NM^2)$ for the unaugmented problem. The asymmetry is that row-padding
+$\Apad$ itself is cheap (linear in the tall dimension) while augmentation
+converts a \emph{row}-pad count into extra \emph{columns}, which is quadratic.
+In that regime use Method B.
+
+\section{Method B: post-hoc masked completion}\label{sec:completion}
+
+\subsection*{Key observation}
+
+For every singular triplet with $\sigma > 0$, the left vector is determined by
+$u = \Apad v / \sigma$, and since the pad rows of $\Apad$ are bitwise zero,
+those entries of $u$ are \emph{exactly} zero --- at any $\sigma$, however tiny.
+Contamination therefore lives only in the $\sigma \approx 0$ columns, and those
+are an arbitrary orthonormal completion that need not come from the SVD at all:
+we may discard them and construct our own completion that respects the mask,
+after the fact, at width $M$.
+
+\subsection*{Algorithm}
+
+Fix a rank tolerance $\tau \sim \varepsilon N \norm{\Apad}$ (the standard SVD
+truncation threshold). All shapes below are static; the per-instance number of
+valid columns $k$ lives entirely inside \texttt{argsort} permutations.
+
+\begin{enumerate}[label=\textbf{Step \arabic*.}, leftmargin=2.2cm, itemsep=3pt]
+  \item \textbf{SVD as usual.} Economy SVD of $\Apad$ (optionally Chan: QR then
+        SVD of the $M \times M$ factor $R$). Keep $\Sigma$ and $V$; the shapes
+        are exactly those of the unaugmented pipeline. Cost $O(NM^2 + M^3)$.
+  \item \textbf{Recompute valid columns.}
+        $U_{\mathrm{valid}} = \Apad V \cdot
+        \operatorname{diag}(\sigma_i^{-1}\,[\sigma_i > \tau])$, i.e.\ safe
+        division with columns $\sigma_i \le \tau$ zeroed. (For
+        $\sigma \in (0,\tau]$ the direction of $\Apad v/\sigma$ is
+        noise-dominated even though its support is clean, so those columns are
+        replaced as well.) The surviving $k$ columns have exactly zero pad rows
+        and are orthonormal to working accuracy. Cost $O(NM^2)$.
+  \item \textbf{Masked random block.} Draw $G \in \R^{N \times M}$ from a fixed
+        PRNG key (deterministic, traceable) and zero its pad rows; optionally
+        also zero numerically-tiny data rows to enforce the stronger
+        ``avoid all zero rows'' policy.
+  \item \textbf{Assemble and permute.} Form
+        $X = [\,U_{\mathrm{valid}} \;\; G\,] \in \R^{N \times 2M}$, with the
+        invalid (zeroed) columns of $U_{\mathrm{valid}}$ moved behind $G$ via
+        \texttt{argsort} on the validity flag, so the leading columns are the
+        $k$ good ones, then the $M$ random ones, then zeros.
+  \item \textbf{Orthonormalize.} Economy QR of $X$; take the first $M$ columns
+        of $Q$ as the final $U$. Cost $O(NM^2)$.
+  \item \textbf{Columns / $V$.} Column pads get the mirror treatment on $V$
+        (with $A_{\mathrm{pad}}^{\top}$ and the column mask); the two sides are
+        independent, so no pairing of $P_r$ and $P_c$ is needed.
+\end{enumerate}
+
+\subsection*{Why it works}
+
+Every leading column of $X$ has exactly zero pad rows, so the Householder
+reflectors of the QR have zero pad entries, and the first $k + M$ columns of
+$Q$ are exactly zero on pads --- including the $M - k$ completion columns.
+Those completion columns land in the left null space of $\Apad$ automatically:
+they are orthogonal to
+$\operatorname{col}(U_{\mathrm{valid}}) = \operatorname{col}(\Apad)$
+and supported on data rows, and any data-supported vector orthogonal to the
+column space is left-null.
+
+\subsection*{Cost and caveats}
+
+Total cost is one extra $N \times 2M$ QR and a matmul beyond the baseline SVD,
+$O(NM^2)$ overall --- the same order as the unaugmented pipeline and, crucially,
+\emph{independent of $P_r$}. Two caveats:
+\begin{enumerate}[itemsep=1pt]
+  \item \textbf{Feasibility.} Under the output contract, only the $m$ genuine
+        triplets must be data-row-supported, which requires $n \ge m$ --- the
+        unpadded problem's own condition. The masked completion is applied to
+        those slots; the $M - m$ don't-care slots may be completed without the
+        mask. (Demanding all $M$ columns pad-free would require $n \ge M$.)
+  \item \textbf{Rank tolerance.} Unlike Method A, the valid/invalid split
+        reintroduces a threshold $\tau$. It is the standard truncation
+        threshold applied downstream anyway, and misclassification is graceful:
+        a borderline column replaced by completion still yields a legitimate
+        orthonormal basis of the same near-null subspace.
+\end{enumerate}
+
+\section{Method C: masked noise injection}\label{sec:noise}
+
+Methods A and B are (essentially) exact. Method C accepts a controlled,
+tunable error in exchange for maximal simplicity: one masked addition, an
+unmodified SVD call, no post-processing.
+
+\subsection*{Construction}
+
+Let $G \in \R^{N \times M}$ be i.i.d.\ standard Gaussian from a fixed PRNG key,
+\emph{with its pad rows and pad columns zeroed} --- unmasked noise would lift
+the pad coordinates too and make the contamination deterministic, so this
+method needs the mask as data just like Methods A and B. Compute the SVD of
+\[
+  A' \;=\; \Apad + \eta\, G_{\mathrm{masked}},
+  \qquad t := \eta\sqrt{n} \ \ \text{(the noise floor).}
+\]
+For $n \ge M$ the data block is now generically full column rank: the true
+triplets are perturbed by at most $t$ (Weyl), and the $M - k$ formerly-zero
+values lift into a cluster at level $\sim t$. (For $m \le n < M$ the lift
+reaches only rank $n$; the residual $M - n$ exact zeros are junk under the
+output contract, and sorting by $\sigma$ still places the $m$ genuine
+triplets --- data-nulls lifted to $\sim t > 0$ --- ahead of them.)
+Every left singular vector with $\sigma > 0$ is determined and equals
+$A'v/\sigma$, which has exactly zero pad rows in exact arithmetic.
+
+\subsection*{Error channels}
+
+\begin{enumerate}[itemsep=1pt]
+  \item \textbf{Singular values:} $|\sigma_i(A') - \sigma_i(A)| \le t$,
+        uniformly. Values $\sigma_i \lesssim t$ are erased: $t$ acts as a hard
+        effective-rank threshold.
+  \item \textbf{Data singular vectors:} rotation $\sim t / \mathrm{gap}_i$;
+        clustered triplets are accurate only at the subspace level (as always).
+  \item \textbf{Pad contamination:} the computed factors are exact for
+        $A' + \Delta$ with $\norm{\Delta} \sim \varepsilon \norm{A}$, and
+        $\Delta$ ignores the mask; the computed left subspace tilts into the
+        null space (which contains the pads) by
+        $\sin\theta \sim \varepsilon \norm{A} / t$.
+\end{enumerate}
+
+Channels 1 and 3 trade off with fixed product
+$\varepsilon \norm{A}^2$. Balancing gives
+$t^\star = \sqrt{\varepsilon}\,\norm{A}$ and \emph{both} errors
+$\sim \sqrt{\varepsilon}\,\norm{A}$ --- the same half-precision loss as the
+Gram-matrix route, and for the same reason: the information distinguishing
+``zero'' from ``pad'' has been compressed to a scale that rounding can reach.
+If tolerances are asymmetric (pad mass below $\delta$, best possible
+$\sigma$), set $t = \varepsilon\norm{A}/\delta$.
+
+\begin{center}
+\begin{tabular}{@{}llll@{}}
+\toprule
+Precision & $\varepsilon$ & Balanced error, plain (C) & With refinement (\S\ref{sec:refine}) \\
+\midrule
+float64  & $\sim 1.1\cdot10^{-16}$ & $\sim 10^{-8}\,\norm{A}$          & $\sim 2\cdot10^{-11}\,\norm{A}$ \\
+float32  & $\sim 6\cdot10^{-8}$    & $\sim 2.4\cdot10^{-4}\,\norm{A}$  & $\sim 1.5\cdot10^{-5}\,\norm{A}$ \\
+bfloat16 & $\sim 3.9\cdot10^{-3}$  & $\sim 6\cdot10^{-2}\,\norm{A}$    & $\sim 2.5\cdot10^{-2}\,\norm{A}$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{Caveats}
+
+\begin{enumerate}[itemsep=1pt]
+  \item \textbf{Near-square data blocks.} The bounds assume the data block is
+        genuinely tall. If $n - k \approx M - k$, the smallest lifted value
+        behaves like $\eta/\sqrt{n}$ rather than $\eta\sqrt{n}$
+        (Rudelson--Vershynin small-ball:
+        $\Pr[\sigma_{\min} \le s\,\eta/\sqrt{n}] \lesssim s$), degrading
+        channel 3 by a factor $\sim n$ with small but nonnegligible
+        probability. Batches containing square-ish stragglers are exactly where
+        this bites; inflate $\eta$ or handle them separately.
+  \item \textbf{Lifted vectors are only a subspace.} Their internal gaps are
+        tiny ($\sim t/(M-k)$ at best), so individual lifted columns churn from
+        run to run; downstream code must consume them only as a basis of the
+        near-null subspace.
+  \item \textbf{Differentiability bonus.} Inside a differentiable pipeline the
+        lifting also regularizes the SVD derivative (the subgradient blowup at
+        repeated $\sigma$ is tamed by the same mechanism) --- arguably the
+        strongest genuine argument for Method C, since A and B do not help
+        there.
+\end{enumerate}
+
+\section{Method C$'$: Rayleigh--Ritz refinement of the noisy SVD}\label{sec:refine}
+
+\subsection*{Construction}
+
+After the noisy SVD $A' = U S V^{\top}$, stop trusting $U, V$ as singular
+vectors and treat them only as orthonormal bases whose spans approximately
+capture the row/column spaces of $\Apad$. Project the \emph{clean} matrix into
+those bases,
+\[
+  B \;=\; U^{\top} \Apad V \;\in\; \R^{M \times M},
+  \qquad
+  B = \bar{U} \bar{\Sigma} \bar{V}^{\top},
+\]
+and output $U_{\mathrm{final}} = U\bar U$, $\Sigma = \bar\Sigma$,
+$V_{\mathrm{final}} = V\bar V$, so that
+$\Apad \approx U_{\mathrm{final}} \bar\Sigma V_{\mathrm{final}}^{\top}$.
+Extra cost: two tall--skinny matmuls and one $M \times M$ SVD,
+$O(NM^2 + M^3)$ --- negligible over the baseline.
+
+\subsection*{Error analysis}
+
+Writing $\Apad = U^*\Sigma^* V^{*\top}$ exactly, one has
+$B = (U^{\top}U^*)\,\Sigma^*\,(V^{*\top}V)$ with outer factors having singular
+values in $[\cos\theta_{\max}, 1]$, giving the uniform \emph{relative} bound
+\[
+  |\sigma_i(B) - \sigma_i| \;\lesssim\; \sigma_i\,(\theta_u^2 + \theta_v^2)
+  \;+\; \varepsilon\norm{A},
+  \qquad \sin\theta \le t/\sigma,
+\]
+the $\varepsilon\norm{A}$ floor coming from forming $B$ in floating point.
+Projection errors are \emph{quadratic} in the subspace angles: the
+singular-value error drops from $\sim t$ (Weyl, additive) to
+$\sim t^2/\sigma_i + \varepsilon\norm{A}$, and data singular vectors improve
+similarly (one projection step roughly squares the angle, up to gap factors).
+
+\textbf{What does not improve:} $U_{\mathrm{final}} = U\bar U$ applies an
+$M \times M$ rotation to the columns of $U$, which can redistribute pad-row
+mass among columns but not remove it --- channel 3 is invariant at
+$\sim \varepsilon\norm{A}/t$. Likewise, values $\sigma_i \lesssim t$ remain
+unresolvable: their directions were scrambled into the lifted cluster before
+projection.
+
+\subsection*{The improved tradeoff}
+
+With $\sigma_i \sim \norm{A}$, balance $t^2/\norm{A}$ against
+$\varepsilon\norm{A}/t$: the optimum is $t^\star = \varepsilon^{1/3}\norm{A}$
+with \emph{both} errors $\sim \varepsilon^{2/3}\norm{A}$ (table above). The
+uncertainty product improves from $\varepsilon$ to $\varepsilon^{4/3}$. Since
+the $\sigma$ error is quadratic in $t$, coarse noise is affordable when only
+singular values matter, paying only in pad cleanliness.
+
+Two remarks. (i) The step can be iterated --- it is one step of subspace
+iteration with the clean matrix, so angles keep squaring until the
+$\varepsilon/\mathrm{gap}$ floor --- but the pad-mass floor
+$\varepsilon\norm{A}/t$ and the $\sigma \lesssim t$ resolution limit are set at
+the noisy step and do not improve. (ii) If one additionally recomputes
+$U_{\mathrm{final}} = \Apad V_{\mathrm{final}} \bar\Sigma^{-1}$ (safe division)
+for $\bar\sigma > \tau$ and completes the null columns by masked
+orthonormalization, one reconstructs Method B with its random completion
+generated through an SVD instead of a QR: noise + refinement sits on a
+continuum between Method C and Method B.
+
+\section{Method D: sketch--project}\label{sec:methodD}
+
+\subsection*{The matvec principle}
+
+Any algorithm that touches $\Apad$ only through products $\Apad x$ and
+$\Apad^{\top} y$ never sees the pad rows at all: $\Apad x$ has \emph{bitwise}
+zero pad entries for every $x$, and $\Apad^{\top} y$ ignores the pad rows of
+$y$. Matrix-free methods (Lanczos/Golub--Kahan, LSQR, subspace iteration,
+randomized SVD) therefore generate left vectors in
+$\operatorname{col}(\Apad) \perp \{e_i : i \in \mathcal{S}_r\}$ by
+construction. Methods B and C$'$ are special cases of this observation;
+Method D is its direct use.
+
+\subsection*{Construction (final, static-shape form)}
+
+Draw a fixed Haar-orthonormal sketch $\Omega \in \R^{M \times M}$ (QR of a
+fixed-seed Gaussian; $\kappa(\Omega)=1$). Because $\Omega$ is square and
+invertible (probability 1), the sketch captures the column space
+\emph{exactly}, $\operatorname{col}(\Apad\Omega) = \operatorname{col}(\Apad)$
+--- randomized SVD with the approximation removed, which is why no
+oversampling parameter appears. Since
+$\operatorname{col}(\Apad) \subseteq \operatorname{span}(Q)$ implies
+$\Apad = Q\,Q^{\top}\Apad$, the SVD of the $M \times M$ projection
+$B = Q^{\top}\Apad$ already carries $\Sigma$ and $V$; no second sketch is
+needed. All mask-dependent operations below (\texttt{argsort}, gathers,
+diagonal indicators) are \emph{traced runtime data with static shapes}: in
+JAX they compile once and never retrigger on a new mask pattern.
+
+\begin{enumerate}[label=\textbf{Step \arabic*.}, leftmargin=2.2cm, itemsep=3pt]
+  \item \textbf{Left basis.} $Y = \Apad \Omega$ ($N \times M$; pad rows
+        bitwise zero for any $\Omega$). Permute pad rows to the bottom
+        (\texttt{argsort} of the mask), economy QR, un-permute $\to Q$.
+        If $n \ge M$, all pivots are data rows and every column of $Q$ is
+        bitwise zero on pads. If $n < M$, the degradation is \emph{graceful}:
+        the first $n$ pivots are data rows; from step $n+1$ the entire
+        trailing submatrix lives on pad rows, hence is bitwise zero, hence
+        $H = I$ throughout --- so $Q$ splits bitwise into $n$ data-supported
+        columns (a full orthonormal basis of the data-row subspace) followed
+        by $M - n$ \emph{exact} pad coordinate vectors. The surplus is
+        flagged by the bitwise indicator
+        $t_i = \norm{Q[\mathcal{S}_r, i]} \in \{0, 1\}$.
+  \item \textbf{One augmented SVD, statically shaped.} Form the
+        $M \times 2M$ matrix $[\,B,\; c\,\mathrm{diag}(t)\,]$ with
+        $c = 4\norm{\Apad}_F$ (margin warning of \S\ref{sec:aug} applies) and
+        take its economy SVD, $W_1 \Sigma_a \,\cdot\,$. The static
+        $\mathrm{diag}(t)$ block replaces the dynamic-width augmentation:
+        where $t_i = 1$ it pins the surplus coordinate at $\sigma = c$
+        exactly (row $i$ of $B$ is bitwise zero); where $t_i = 0$ it
+        contributes a zero column, which is harmless because zero columns
+        pollute only the \emph{right} factor of this SVD --- which is never
+        used. The left null space of $[B, c\,\mathrm{diag}(t)]$ is exactly
+        the data-left-null (the diagonal block annihilates surplus
+        components), so \emph{every} kept left vector is clean, including the
+        $\sigma = 0$ ones.
+  \item \textbf{Sort and assemble $U$, $S$.} Order triplets by (pinned last,
+        $\sigma$ descending) via one \texttt{argsort} of the key
+        $\mathrm{where}(\sigma > c/2,\, -1,\, \sigma)$; zero the
+        (exact-arithmetic-zero, $O(\varepsilon)$ in practice) surplus
+        coordinates of the kept columns of $W_1$; set $U = Q W_1$ and
+        $S = \mathrm{where}(i < m,\, \sigma_i,\, 0)$, with $m = M - p_c$
+        known from the column mask. The first $m$ columns of $U$ are bitwise
+        zero on pad rows; the pinned columns come out as pure pad coordinate
+        vectors (ideal don't-care fill).
+  \item \textbf{Rebuild $V$ from $U$.} Form $W = \Apad^{\top} U$. Every
+        column is bitwise supported on data columns (pad columns of $\Apad$
+        annihilate those rows), and $W = V\Sigma$ \emph{exactly}, with
+        $\Sigma$ decreasing. The permuted QR of $W$ (pad columns to trailing
+        pivots) therefore \emph{is} the factorization $V\Sigma$ up to column
+        signs, recovered from $\mathrm{sign}(\mathrm{diag}\,R)$: the leading
+        columns are the true right vectors --- exactly, even through
+        repeated-$\sigma$ clusters, since orthonormal-times-diagonal is
+        already in QR form --- the middle columns are data-supported null
+        completions (reflections of $\varepsilon$-level data-column content),
+        and the trailing columns are exact pad coordinate vectors ($H = I$ on
+        the bitwise-zero trailing block). This is the whole final $V$, in
+        order, with no tolerance: it is Method B's completion realized
+        through the permutation rule instead of a threshold.
+\end{enumerate}
+
+\paragraph{Counting theorem.} Under $n \ge m$, the kept ($\sigma \le c/2$)
+triplets sorted descending contain the economy SVD of $A$ in their first $m$
+slots: the augmented SVD returns $M$ triplets, $p_\ell = \max(0, M-n)$ are
+pinned, and the $M - p_\ell = \min(n, M) \ge m$ survivors are the SVD of the
+data block --- $k$ positive values followed by exact-arithmetic zeros whose
+left vectors fill the data-left-null. No tolerance decides any count; $m$
+comes from the column mask, $p_\ell$ from the bitwise indicator.
+
+\paragraph{Superseded variant.} An earlier form of Method D used a second
+sketch $Q_2$ for the row space and a two-sided core
+$C = Q^{\top}\Apad Q_2$ with Method-A augmentation appended for both the
+surplus row coordinates and the pad column coordinates. It is correct, and
+its core-level structure (the bitwise column split of $Q_2$, the exact
+alignment that makes core augmentation a clean scalpel) remains instructive
+--- but the static-shape constraint exposed it as unnecessary: rebuilding $V$
+from $U$ via Step 4 removes the second sketch, the core rotation, and the
+completion QR entirely. The static requirement \emph{simplified} the
+algorithm.
+
+No rank tolerance appears anywhere; the only mask-dependent runtime
+quantities are permutations and the bitwise indicator $t$. Cost:
+$O(NM^2 + M^3)$, independent of the pad count.
+
+\paragraph{The unified permutation rule.} \emph{Before any Householder
+factorization, permute pad coordinates to the trailing pivot positions.} The
+reflector at step $i$ is $v = x \mp \norm{x} e_i$: its entries at zero rows of
+$x$ vanish \emph{except at the pivot position $i$}, which receives
+$\pm\norm{x}$. An in-place pad row can therefore become a pivot; then either
+the trailing block is exactly zero and $H = I$ emits $q = e_{\mathrm{pad}}$
+--- a null column sitting $100\%$ on a pad, deterministically --- or the
+trailing block is $\varepsilon$-level roundoff and the normalized reflector
+places an $O(1)$-direction entry at the pad coordinate. Permutation ensures
+all pivots are data coordinates, making every exactness claim above reduce to
+``$0 - 0\cdot x = 0$''. This is the load-bearing step, not decoration, and it
+applies identically on both sides.
+
+\subsection*{Worked example: the core is blind to the contamination}
+
+Take $N = 5$, $M = 3$, pad rows $\{3, 5\}$ (interior), pad column $\{3\}$,
+rank-1 data including a \emph{numerically} zero data row (row 4):
+\[
+  \Apad =
+  \begin{pmatrix}
+    3 & 6 & 0\\ 4 & 8 & 0\\ 0 & 0 & 0\\ 0 & 0 & 0\\ 0 & 0 & 0
+  \end{pmatrix}
+  \begin{matrix} \text{\footnotesize data}\\ \text{\footnotesize data}\\
+  \text{\footnotesize pad}\\ \text{\footnotesize data (zero)}\\
+  \text{\footnotesize pad}\end{matrix}
+\]
+(entries chosen so that the QR is exact in floating point:
+$\norm{(3,4)} = 5$). Take $\Omega_1 = I$ for exposition. \emph{With}
+permutation (row order $1,2,4,3,5$): step 1 gives
+$q_1 = (0.6, 0.8, 0, 0, 0)^{\top}$; the trailing block is then exactly zero
+(rank 1, and column 2 is exactly twice column 1), so $H = I$ emits
+$q_2 = H_1 e_2 = (0.8, -0.6, 0, 0, 0)^{\top}$ and $q_3 = H_1 e_3 = e_4$
+--- the numerically-zero \emph{data} row, which is permitted (the requirement
+is one-sided: avoid pads, not all zero rows). All three columns bitwise zero
+on rows 3 and 5. \emph{Without} permutation: $q_1, q_2$ identical, but the
+third pivot is position 3 --- a pad row --- and $H = I$ emits
+$q_3 = e_3$ exactly: total contamination, deterministically.
+
+Now project: in \emph{both} cases, bit for bit,
+\[
+  B = Q^{\top}\Apad =
+  \begin{pmatrix} 5 & 10 & 0\\ 0 & 0 & 0\\ 0 & 0 & 0 \end{pmatrix},
+\]
+since $q_2^{\top}\Apad = 0.8\,r_1 - 0.6\,r_2 = 0$ exactly, and $q_3^{\top}\Apad$
+is a zero row of $\Apad$ under either labeling. This is the key picture: the
+outer pad structure reaches the core through two different channels. The pad
+\emph{column} passes through faithfully (column 3 of $B$ is bitwise zero
+because column 3 of $\Apad$ is), which is why right-side core work is safe.
+But a zero \emph{row} of $B$ says only ``this column of $Q$ is orthogonal to
+$\operatorname{col}(\Apad)$'' --- it is blind to whether that column lives on
+data rows ($q_3 = e_4$, fine) or on a pad ($q_3 = e_3$, poisoned). The
+contamination lives entirely in $Q$, upstream of anything the core SVD sees.
+Consequently, core-level repair of a bad $Q$ is impossible (the core contains
+no signal to act on, and $U = Q\bar U$ can only rotate pad mass among columns,
+not remove it): prevention by permutation at $O(NM)$ beats any repair.
+
+\subsection*{Robustness}
+
+$M > \operatorname{rank}(A)$ is the design case, not an adversarial one:
+capture is exact for any rank (square invertible $\Omega$), the trailing QR
+columns are clean for any $k$ (either exact $H{=}I$ coordinate vectors, or
+reflections of data-supported roundoff), and nothing branches on $k$.
+$\Apad = 0$ yields coordinate-vector $Q$ and $B = 0$, consistently (guard
+$c > 0$). The Haar choice of $\Omega$ removes the mildly heavy-tailed
+$\sigma_{\min}$ of a square Gaussian ($\kappa(\Omega) = 1$). The only
+genuine failure boundary is $n < m$: fewer data rows than data columns is
+where the \emph{unpadded} economy SVD is itself infeasible, and it is
+pleasingly also exactly where the counting theorem's inequality
+$p_\ell \le p_c$ would fail. (The earlier claim that $n < M$ was the
+boundary was an artifact of the stronger all-columns-pad-free contract; see
+the output contract above.)
+
+\paragraph{Companion code.} Two implementations accompany this note.
+\texttt{pad\_safe\_svd.py}: a NumPy reference with an adversarial demo
+(interior pads inside the first $M$ rows, rank-deficient data, a
+numerically-zero data row, and an $n < M$ case) and hard structural
+assertions --- bitwise-zero pad rows of $U[:, :m]$, exact coordinate pad
+slots of $V$, unpad-equivalence against \texttt{numpy.linalg.svd} of the
+unpadded $A$. \texttt{pad\_safe\_svd\_jax.py}: the static-shape JAX form of
+the final pipeline above, verified inside a \texttt{jit}-compiled
+\texttt{lax.scan} over a batch with a \emph{different} mask pattern per
+element; the scan traces its body exactly once, and the jit cache size stays
+at $1$ across calls with new patterns --- the structural proof that mask
+patterns are runtime data, not compile-time shape.
+
+\section{Choosing between the methods}
+
+\begin{center}
+\footnotesize
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}llllll@{}}
+\toprule
+ & A (augment) & B (completion) & C (noise) & C$'$ (C + refine) & D (sketch--project) \\
+\midrule
+Cost & $O\!\big(N(M{+}P_r)^2\big)$ & $O(NM^2)$ & $O(NM^2)$ & $O(NM^2)$ & $O(NM^2)$ \\
+Depends on pad count & yes & no & no & no & no \\
+Exact (up to $\varepsilon$) & yes & yes & no & no & yes \\
+Error level & $\sim\varepsilon$ & $\sim\varepsilon$ & $\sim\sqrt{\varepsilon}$ & $\sim\varepsilon^{2/3}$ & $\sim\varepsilon$ \\
+Rank tolerance & no & yes ($\tau$) & no ($t$ implicit) & no ($t$ implicit) & no \\
+Full SVD of big matrix & yes & yes & yes & yes & no (core only) \\
+Post-processing & filter & QR completion & none & small SVD & QR of $A^{\top}U$ \\
+Pad rows of final $U$ & $O(\varepsilon)$ & exactly $0$ & $O(\varepsilon\norm{A}/t)$ & $O(\varepsilon\norm{A}/t)$ & exactly $0$ \\
+Helps SVD derivative & no & no & yes & yes & no \\
+Best regime & $P_r \ll n$ & any $P_r$ & fp64, loose tol & fp64/fp32, simple & default choice \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}

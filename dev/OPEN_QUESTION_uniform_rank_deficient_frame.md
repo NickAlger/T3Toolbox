@@ -139,6 +139,49 @@ Treats the deficient point as lower-rank; continuation then cannot grow into the
 | C, random noise | to η | `O(η/gap)` | yes | **no** | η | 1× | yes |
 | D, post-pass | yes | untouched | yes | yes | τ + bookkeeping | ~2–3× | yes, more code |
 
+## 2026-08-23 — RESOLUTION DIRECTION: Nick's pad-safe SVD packet (Method D, sketch–project)
+
+Nick worked the problem through on paper (workshopped externally) and delivered a packet — spec
+(`ALGORITHM.md`), 10-page derivation (`padded_svd.tex`: Methods A–D with error analysis), NumPy + JAX
+implementations, pytest suite — stored at `dev/review_2026-08-22/repros/S1b/packet/`. **Method D
+supersedes every option above**: exact, tolerance-free (no ε, η, or τ anywhere — every count comes from
+masks or bitwise {0,1} indicators), `O(N M² + M³)` independent of pad counts, static shapes with masks
+as traced runtime data (one jit compile across mask patterns, verified), arbitrary *interior* pads on
+both sides — so ONE primitive serves all four sweep sites, including the Kronecker-interleaved
+rank-product rows that the thin-`C` variant of option A special-cased around.
+
+The algorithm, in one paragraph: sketch `Y = A_pad Ω` (pad rows bitwise zero for any `Ω`; fixed Haar
+`Ω`), permute pad rows to the trailing pivots and QR — Householder reflectors then never touch pad
+rows, so `Q` splits bitwise into data-supported columns and exact pad coordinate vectors (flagged by a
+bitwise indicator `t`); one SVD of the small augmented core `[QᵀA_pad | c·diag(t)]` (option A's
+augmentation, applied where it costs `M³` instead of `N·…`) pins the surplus at `σ = c = 4‖A‖_F` and
+makes every kept left vector data-supported, including the σ = 0 completions; `V` is rebuilt from
+`W = A_padᵀU = VΣ`, whose permuted QR *is* `V` up to column signs. The load-bearing pieces: the
+pads-to-trailing-pivots permutation rule, the 4× margin in `c`, and Householder-QR semantics.
+
+Verified here (2026-08-23): packet demos + all 7 tests green in the project env; and
+`s1b_packet_integration.py` runs it on the REAL case-B warm-start unfoldings — the interior-pad TT
+up-orth site loses a direction under today's plain SVD, `pad_safe_svd` recovers it, pads bitwise zero
+(= the library's canonical clean-padding prefix form for free), σ's exactly the unpadded block's,
+reconstruction 1e-15. The earlier cost worry is moot: it replaces one `N×M` SVD with tall-skinny
+QR/matmuls + an `M×2M` SVD — same order, and the Chan-style big-QR-small-SVD split typically *beats*
+a big SVD on GPU.
+
+Open implementation questions (the remaining decisions):
+1. **Where the primitive lives** — proposal: backend-agnostic `pad_safe_svd` in `backend/linalg.py`
+   (xnp, masks as data), swapped into the uniform sweep sites (`ut3_orthogonalization` + the uniform
+   branches of the TT sweeps). The frame, `ut3svd`, and retraction all route through those; retraction
+   additionally gains a guarantee that a truncated prefix is real-supported.
+2. **Feasibility corner** — the contract needs per-element `n ≥ m` (real rows ≥ real cols). Always true
+   at minimal ranks; a structurally non-minimal *wide* slot (S1's supported case) needs the transposed
+   call or the mask recurrence's existing `min` cap deciding which side gets the completion.
+3. **`Ω` handling** — one Haar sketch per site width `M`, drawn host-side from a fixed seed and closed
+   over (a jit constant; plays fine with the value-hashed cache keys).
+4. **float32** — the uniform jax path defaults to f32; bitwise claims are precision-independent, test
+   tolerances loosen to ~1e-5 (packet README §6).
+5. **Packet nit** — the NumPy reference computes `c` from the spectral norm (`norm(A_pad, 2)`), the JAX
+   version and the spec from Frobenius; port the Frobenius form (cheaper, and the documented margin).
+
 ## What would settle it
 
 1. **A measurement** of the frame sweep's share of a uniform Newton-CG iteration at realistic `(N, n, r, W)`,
