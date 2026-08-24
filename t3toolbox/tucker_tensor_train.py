@@ -4863,11 +4863,18 @@ def t3_absorb_weights(x: 'TuckerTensorTrain', weights: T3Weights) -> 'TuckerTens
     return TuckerTensorTrain(*ragged_operations.t3_absorb_weights(x.data, weights.data))
 
 
-def t3_weighted_norm(x: 'TuckerTensorTrain', weights: T3Weights) -> NDArray:
+def t3_weighted_norm(
+        x:       'TuckerTensorTrain',
+        weights: T3Weights,
+
+        use_orthogonalization: bool = True,   # for numerical stability (as the backend / uniform twins)
+) -> NDArray:
     """Weighted Hilbert-Schmidt norm ``||absorb_weights(x, weights)||`` (returns an array of shape
-    ``stack_shape``; a scalar when unstacked)."""
+    ``stack_shape``; a scalar when unstacked). ``use_orthogonalization`` passes through to the backend
+    (the kwarg its backend and uniform twins always had -- review H2-6)."""
     _require_t3_weights_consistent(x, weights, 't3_weighted_norm')
-    return ragged_linalg.t3_weighted_norm(x.data, weights.data)
+    return ragged_linalg.t3_weighted_norm(x.data, weights.data,
+                                          use_orthogonalization=use_orthogonalization)
 
 
 def t3_weighted_inner(
@@ -4875,13 +4882,16 @@ def t3_weighted_inner(
         weights_A: T3Weights,
         x_B:       'TuckerTensorTrain',
         weights_B: T3Weights,
+
+        use_orthogonalization: bool = True,   # for numerical stability (as the backend / uniform twins)
 ) -> NDArray:  # weighted HS inner product, shape=stack_shape
     """Weighted Hilbert-Schmidt inner product of two weighted Tucker tensor trains
     ``<absorb_weights(x_A, weights_A), absorb_weights(x_B, weights_B)>``. Operands share physical shape;
     ranks/weights may differ (each pair checked separately)."""
     _require_t3_weights_consistent(x_A, weights_A, 't3_weighted_inner (A side)')
     _require_t3_weights_consistent(x_B, weights_B, 't3_weighted_inner (B side)')
-    return ragged_linalg.t3_weighted_inner(x_A.data, weights_A.data, x_B.data, weights_B.data)
+    return ragged_linalg.t3_weighted_inner(x_A.data, weights_A.data, x_B.data, weights_B.data,
+                                           use_orthogonalization=use_orthogonalization)
 
 
 if common.jax_available:

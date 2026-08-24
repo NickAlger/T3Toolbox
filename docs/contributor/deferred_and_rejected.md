@@ -32,6 +32,14 @@ cross-references.)
 
 ## Deferred (would be built if the need materializes)
 
+- **Per-axis uniform `sum_stack(axis=)`** (review H2-7; ruled defer + document, 2026-08-24). Ragged
+  `sum_stack` takes an axis subset; the uniform twin sums the whole stack only. The gap is the mask
+  algebra: a subset sum multiplies ranks by the summed sizes per element while keeping the other
+  stack axes' rank variation, so the S-fold concat/gappy-mask machinery of `+` must be applied along
+  a kept/summed axis split. Reachable from the existing primitives; meanwhile the ragged detour
+  (`to_t3()` → `sum_stack(axis)` → `from_t3`) or unstack/restack covers it. The `sum_stack`
+  docstring states the asymmetry.
+
 - **A guard that a sampling kind and a geometry were built at the same rank.** Both now carry `shape`
   and `masks` as comparable fields, but nothing compares them. Pairing a kind built at one rank with a
   geometry at another — reachable when the two ranks have identical *padded* shapes, so no shape error

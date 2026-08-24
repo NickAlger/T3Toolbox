@@ -13,6 +13,12 @@ rebuilt kind of the same rank is the same jax cache key
 :py:func:`uniform_least_squares_problem` packs the loop-invariant sample + data ONCE and returns the
 shared backend ``Problem``, so the optimizers run fully packed -- no per-matvec pack/unpack. The
 **geometry** half lives in :py:mod:`t3toolbox.backend.geometry`.
+
+**Protocol note (review H2-9, ruled keep + document):** the kinds' ``forward`` / ``transpose`` keep
+the ragged Kind protocol's ``(v, sample, frame_data, sweep)`` signature even though the packed
+``sweep`` already carries the sample and the frame -- the extra arguments are deliberately unread.
+Protocol uniformity is the point: generic code (the shared ``LocalModel``) calls every kind the same
+way, ragged or uniform.
 """
 import dataclasses as dc
 import typing as typ

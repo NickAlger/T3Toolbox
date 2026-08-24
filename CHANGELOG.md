@@ -276,6 +276,14 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
 
 ### Added
 
+- **Scalar-left multiplication and scalar division on the point/tangent classes** (review R1-12 /
+  H4-8): `TuckerTensorTrain` gains `__rmul__` (`2.0 * x` used to raise while `x * 2.0` worked), and
+  `TuckerTensorTrain` / `UniformTuckerTensorTrain` / `T3Tangent` all gain scalar-only `__truediv__`
+  (`x / 2`). The ragged weighted frontends `t3_weighted_norm` / `t3_weighted_inner` gain the
+  `use_orthogonalization` kwarg their backend and uniform twins always had (review H2-6), and
+  `check_fw_pair` is exported as the docs already said (review R10-7). Per-axis uniform
+  `sum_stack(axis=)` is deferred-and-documented (review H2-7; `contributor/deferred_and_rejected.md`).
+
 - **`backend.linalg.pad_safe_svd`** -- the mask-aware SVD of a zero-padded matrix: the first
   `min(n, m)` triplets are exactly the economy SVD of the unpadded real block, **bitwise** zero on
   the padding, with no rank tolerance anywhere and one jit compile across mask patterns (masks are

@@ -33,6 +33,7 @@ __all__ = [
     'T3FrameWeights',
     'fv_absorb_weights',
     'fv_to_t3',
+    'check_fw_pair',
     't3_orthogonal_representations',
     't3svd_orthogonal_representations',
 ]

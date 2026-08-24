@@ -284,7 +284,12 @@ class UniformTuckerTensorTrain:
 
     def sum_stack(self) -> 'UniformTuckerTensorTrain':
         """Sum the represented tensors over the entire stack -> one unstacked uniform T3 (genuine tensor
-        sum, not corewise)."""
+        sum, not corewise).
+
+        Unlike ragged ``sum_stack(axis=)``, there is no per-axis form here -- a **documented deferred
+        asymmetry** (ruled 2026-08-24): a subset sum needs the S-fold rank-mask algebra per kept/summed
+        axis split. Meanwhile: sum a subset on the ragged side (``.to_t3()`` -> ``sum_stack(axis)`` ->
+        ``from_t3``), or ``unstack``/restack. See ``docs/contributor/deferred_and_rejected.md``."""
         return _from_data(ut3_operations.ut3_squash_tails(ut3_linalg.ut3_sum_stack(self.data)))
 
     def inner(self, other: 'UniformTuckerTensorTrain', use_orthogonalization: bool = True):

@@ -456,6 +456,16 @@ class TestWeightsConsistencyGuards(unittest.TestCase):
             with self.assertRaises(ValueError):
                 op()
 
+    def test_use_orthogonalization_kwarg_parity(self):
+        """H2-6 / R10-7: the ragged weighted frontends take use_orthogonalization (backend/uniform
+        parity), and check_fw_pair is exported."""
+        a = float(t3.t3_weighted_norm(self.x, self.W))
+        b = float(t3.t3_weighted_norm(self.x, self.W, use_orthogonalization=False))
+        self.assertLess(abs(a - b), 1e-8 * (abs(a) + 1))
+        c = float(t3.t3_weighted_inner(self.x, self.W, self.x, self.W, use_orthogonalization=False))
+        self.assertLess(abs(c - a * a), 1e-6 * (a * a + 1))
+        self.assertIn('check_fw_pair', bvf.__all__)
+
     def test_stack_mismatch_raises_but_broadcast_is_kept(self):
         x3 = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 3), (1, 2, 3, 1), stack_shape=(3,))
         y = t3.t3_absorb_weights(x3, self.W)                 # () weights broadcast over the stack: kept
