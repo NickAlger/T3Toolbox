@@ -430,6 +430,32 @@ class TestUT3WeightsFromSvd(unittest.TestCase):
                     for a, b in zip(fam_got, fam_ref):
                         self.assertTrue(np.allclose(np.abs(a), np.abs(b), atol=1e-10))
 
+    def test_from_ut3svd_padded_above(self):
+        """R10-4: on a train padded ABOVE its minimal ranks (the continuation warm start), n=/r=
+        make the weights pair with the train itself, so the headline GK route needs no ragged
+        detour. The default stays tight (pairs with the t3svd result); shrinking pads raises."""
+        import t3toolbox.uniform_frame_variations_format as ubvf
+        import t3toolbox.uniform_manifold as ut3m
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 3), (1, 2, 3, 1))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x, n=4, r=4)          # padded above minimal
+        W = ut3.UT3Weights.from_ut3svd(ux, n=ux.n, r=ux.r)
+        self.assertTrue(W.is_consistent_with(ux))
+        got = float(ut3.ut3_weighted_norm(ux, W))
+        detour = ut3.UT3Weights.from_t3weights(                          # the old working route
+            t3.T3Weights.from_t3svd(ux.to_t3()), n=ux.n, r=ux.r)
+        ref = float(ut3.ut3_weighted_norm(ux, detour))
+        self.assertLess(abs(got - ref), 1e-9 * (abs(ref) + 1))
+        frame, _ = ubvf.ut3_orthogonal_representations(ux)               # the headline GK route
+        gk = ubvf.UT3FrameWeights.from_ut3weights(W).reciprocal()
+        v = ut3m.UNIFORM_COREWISE.randn(frame)
+        self.assertTrue(np.isfinite(float(v.weighted_norm(gk))))
+        W0 = ut3.UT3Weights.from_ut3svd(ux)                              # default: tight, unchanged
+        xs, _, _ = ux.t3svd()
+        self.assertTrue(W0.is_consistent_with(xs))
+        with self.assertRaises(ValueError):                              # padding only grows
+            ut3.UT3Weights.from_ut3svd(ux, n=1)
+
     def test_from_ut3svd_reciprocal_is_the_gk_metric(self):
         """The headline path end-to-end: sigmas -> reciprocal -> weighted norm, finite and matching
         ragged. This is the composition that motivated the reciprocal padding guard."""

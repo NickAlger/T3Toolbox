@@ -178,7 +178,10 @@ Three differences from ragged are worth knowing, and none of them are ports-in-p
 
 - **The masks must match.** Ragged catches a rank mismatch as a shape error; uniform pads both sides to a
   common width, so a mismatched weight would *silently* zero a real slot. Hence `is_consistent_with`, and
-  every `(train, weights)` op enforces it — the one precondition uniform adds.
+  every `(train, weights)` op enforces it — the one precondition uniform adds. For a train padded *above*
+  its minimal ranks (the rank-continuation warm start), build the weights at the train's own widths —
+  `UT3Weights.from_ut3svd(ux, n=ux.n, r=ux.r)`, mirroring `from_t3weights` — since the default pads
+  tightly to the t3svd result and would be rejected against `ux` and its frame.
 - **`reciprocal` guards the padding.** The padding is a canonical zero, and `1/0 = inf` would poison every
   masked reduction downstream (`0 × inf = nan`). Real-slot zeros are deliberately *not* guarded: a zero
   singular value is real data, and clamping it would hide a rank-deficient point.

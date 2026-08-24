@@ -1151,19 +1151,51 @@ class UT3Weights:
 
     # ----------------------------------------------------------------- constructors
     @classmethod
-    def from_ut3svd(cls, x: 'UniformTuckerTensorTrain', **kwargs) -> 'UT3Weights':
+    def from_ut3svd(
+            cls,
+            x: 'UniformTuckerTensorTrain',
+
+            n: Optional[int] = None,   # padded Tucker width of the result; must be >= the t3svd result's (only grows)
+            r: Optional[int] = None,   # padded TT width of the result;     e.g. n=x.n, r=x.r to pair with x itself
+            **kwargs,                  # passed to UniformTuckerTensorTrain.t3svd (max_*_ranks, sharing, ...)
+    ) -> 'UT3Weights':
         """The singular values of ``x`` as a weight object -- the canonical (unmodified) sigmas, so
         ``from_ut3svd(x).reciprocal()`` is the inverse-sigma (Grasedyck-Kramer) weighting. Uniform twin of
         :py:meth:`~t3toolbox.tucker_tensor_train.T3Weights.from_t3svd`.
 
-        ``**kwargs`` pass to :py:meth:`UniformTuckerTensorTrain.t3svd`. The weights carry the **t3svd
-        result's** masks, so they pair with that result -- which is ``x`` itself only when ``x`` already
-        has minimal ranks and tight padding. Otherwise weight the returned train, not the original:
+        By default the weights carry the **t3svd result's** (tight) masks, so they pair with that
+        result -- which is ``x`` itself only when ``x`` already has minimal ranks and tight padding:
 
             ``xs, _, _ = x.t3svd(); W = UT3Weights.from_ut3svd(x); absorb_weights(xs, W)``
+
+        On a train padded ABOVE its minimal ranks -- the rank-continuation warm start -- pass
+        ``n``/``r`` (typically ``n=x.n, r=x.r``, mirroring :py:meth:`from_t3weights`) to zero-pad the
+        weights to the train's own widths, so ``W.is_consistent_with(x)`` holds and the headline GK
+        route ``UT3FrameWeights.from_ut3weights(W).reciprocal()`` pairs with ``x``'s frame with no
+        ragged detour (review R10-4). Padding only grows: smaller-than-tight ``n``/``r`` raise.
         """
         new_x, tucker_svals, tt_svals = x.t3svd(**kwargs)
-        return cls(tucker_svals, tt_svals, new_x.masks)
+        masks = new_x.masks
+        if n is not None or r is not None:
+            n2 = new_x.n if n is None else int(n)
+            r2 = new_x.r if r is None else int(r)
+            if n2 < new_x.n or r2 < new_x.r:
+                raise ValueError(
+                    'from_ut3svd: n/r must be >= the t3svd result\'s padded widths (%d, %d); got (%d, %d). '
+                    'These kwargs only GROW the padding (e.g. n=x.n, r=x.r to pair with a padded-above train).'
+                    % (new_x.n, new_x.r, n2, r2))
+            xnp, _, _ = common.get_backend(False, common.tree_contains_jax((tucker_svals, tt_svals)))
+            if n2 > new_x.n:
+                tucker_svals = xnp.concatenate(
+                    [tucker_svals, xnp.zeros(tucker_svals.shape[:-1] + (n2 - new_x.n,))], axis=-1)
+            if r2 > new_x.r:
+                tt_svals = xnp.concatenate(
+                    [tt_svals, xnp.zeros(tt_svals.shape[:-1] + (r2 - new_x.r,))], axis=-1)
+            tkm, ttm = masks.data                    # HOST bool; padded with False (still prefix form)
+            masks = UT3Masks(
+                np.concatenate([tkm, np.zeros(tkm.shape[:-1] + (n2 - new_x.n,), dtype=bool)], axis=-1),
+                np.concatenate([ttm, np.zeros(ttm.shape[:-1] + (r2 - new_x.r,), dtype=bool)], axis=-1))
+        return cls(tucker_svals, tt_svals, masks)
 
     # ----------------------------------------------------------------- ragged <-> uniform conversions
     @staticmethod
