@@ -394,7 +394,8 @@ def gradient_descent(
     along ``−g``) and backtracks (``α ← α/2``) until ``f(retract(−α g)) ≤ f − c·α‖g‖²`` -- so it descends
     on any geometry, including the additive corewise chart where a bare Cauchy step overshoots the
     high-degree objective. Exercises the whole backend-first stack (``gradient`` / ``gn_quadratic`` /
-    ``objective`` / ``retract``). (Eager; the jit kernel + the `xwhile` line search come in G3.3/G3.4.)"""
+    ``objective`` / ``retract``). **Eager only, deliberately** -- the reference implementation of the
+    backend-first stack; ``use_jit`` lives on ``mc_sgd`` / ``adam`` / ``newton_cg``."""
     _require_unstacked(problem.geom, x0, 'gradient_descent')
     x = x0
     losses = []
