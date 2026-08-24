@@ -114,3 +114,36 @@ class TestNamedEqualityChecks(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestExplicitEqOperator(unittest.TestCase):
+    """Part 2: == is intentionally undefined on every runtime array-carrying class -- identity-True,
+    else a directive TypeError naming the named checks -- and the classes are unhashable (the ruling
+    of 2026-08-24; hash/eq belongs to the jit-cache-key aux objects only)."""
+
+    def test_eq_raises_hash_raises_identity_holds(self):
+        objs = _fixtures()
+        self.assertEqual(len(objs), 12)
+        for obj in objs:
+            with self.subTest(cls=type(obj).__name__):
+                self.assertTrue(obj == obj)                      # identity fast path
+                self.assertFalse(obj != obj)
+                with self.assertRaises(TypeError) as cm:
+                    obj == 0
+                msg = str(cm.exception)
+                self.assertIn('allclose', msg)
+                self.assertIn('corewise_equal', msg)
+                with self.assertRaises(TypeError):
+                    hash(obj)
+
+    def test_value_equal_copies_still_raise(self):
+        """The silent-False footgun is gone: a value-equal distinct object raises, directing to the
+        named checks, instead of quietly comparing False (identity) or crashing ambiguously (the old
+        dataclass eq=True)."""
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn((4, 5), (2, 2), (1, 2, 1))
+        y = t3.TuckerTensorTrain(*x.data)
+        with self.assertRaises(TypeError):
+            x == y
+        self.assertTrue(bool(x.allclose(y)))                     # ... and the named check answers
+        self.assertTrue(x.corewise_equal(y))

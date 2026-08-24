@@ -68,8 +68,8 @@ class UT3Masks(common.ValueHashedMasks):  # eq=True would fail on arrays). See V
         return self.tucker_edge_mask, self.tt_edge_mask
 
 
-@dataclass(frozen=True)
-class UniformTuckerTensorTrain:
+@dataclass(frozen=True, eq=False)   # eq=False -> the ExplicitEquality mixin stands
+class UniformTuckerTensorTrain(common.ExplicitEquality):
     """A uniform Tucker tensor train: two supercores (the data) + a :py:class:`UT3Masks` holder (the
     static structure).
 
@@ -1023,8 +1023,8 @@ def _from_data(
 ###########################################
 
 
-@dataclass(frozen=True)
-class UT3Weights:
+@dataclass(frozen=True, eq=False)   # eq=False -> the ExplicitEquality mixin stands
+class UT3Weights(common.ExplicitEquality):
     """Diagonal weights on the internal edges of a :py:class:`UniformTuckerTensorTrain` -- the uniform
     twin of :py:class:`~t3toolbox.tucker_tensor_train.T3Weights`.
 

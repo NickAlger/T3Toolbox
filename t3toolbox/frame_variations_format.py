@@ -12,6 +12,7 @@ the frontend objects; the same-named backend function (``backend.fv_conversions`
 import math
 import numpy as np
 import typing as typ
+import t3toolbox.backend.common as common
 import t3toolbox.safety as safety
 import functools as ft
 from dataclasses import dataclass
@@ -40,9 +41,10 @@ __all__ = [
 ]
 
 
-@dataclass(frozen=True, eq=False)  # eq=False -> identity __hash__/__eq__ (it holds arrays, so value hash/eq is
-class T3Frame:                     # impossible); a frame flows through jit as a pytree LEAF, and 'same frame'
-                                   # is the NUMERICAL safety.frames_equal, never object identity.
+@dataclass(frozen=True, eq=False)   # eq=False -> the ExplicitEquality mixin stands. (Until 2026-08-24
+class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed while the frame rode as jax
+                                          # aux_data; the frame is a pytree LEAF since the safety redesign,
+                                          # so == now raises like every runtime class -- see the mixin.)
     """Frame for frame-variations representation of TuckerTensorTrains
 
     Often, one works with TuckerTensorTrains of the following forms::
@@ -722,8 +724,8 @@ class T3Frame:                     # impossible); a frame flows through jit as a
 
 
 
-@dataclass(frozen=True)
-class T3Variations:
+@dataclass(frozen=True, eq=False)   # eq=False -> the ExplicitEquality mixin stands
+class T3Variations(common.ExplicitEquality):
     """
     Tuple containing variation cores for frame-variation representations of TuckerTensorTrains.
 
@@ -1014,10 +1016,12 @@ class T3Variations:
             rtol = safety.comparison_rtol(self.data, other.data)
         atol = 0.0 if atol is None else atol
         n_stack = np.ndim(self.data[0][0]) - 2                  # tucker variation core = stack+(nD, N)
+        use_jax = common.tree_contains_jax((self.data, other.data))
+        xnp, _, _ = common.get_backend(False, use_jax)
         diff = cw.corewise_sub(self.data, other.data)
         dn = cw.corewise_stack_dot(diff, diff, n_stack) ** 0.5
-        rn = np.maximum(cw.corewise_stack_dot(self.data, self.data, n_stack),
-                        cw.corewise_stack_dot(other.data, other.data, n_stack)) ** 0.5
+        rn = xnp.maximum(cw.corewise_stack_dot(self.data, self.data, n_stack),
+                         cw.corewise_stack_dot(other.data, other.data, n_stack)) ** 0.5
         return dn <= atol + rtol * rn
 
     def corewise_equal(
@@ -1375,8 +1379,8 @@ def t3_orthogonal_representations(
     return T3Frame(*result[0]), T3Variations(*result[1])
 
 
-@dataclass(frozen=True)
-class T3FrameWeights:
+@dataclass(frozen=True, eq=False)   # eq=False -> the ExplicitEquality mixin stands
+class T3FrameWeights(common.ExplicitEquality):
     """Diagonal weights defining a **metric on the tangent coordinates** -- a Grasedyck-Kramer-style
     reweighting of the ``d`` variation directions (penalise poorly-informed ones with e.g. ``1/sigma``).
 
@@ -1418,10 +1422,12 @@ class T3FrameWeights:
             rtol = safety.comparison_rtol(self.data, other.data)
         atol = 0.0 if atol is None else atol
         n_stack = np.ndim(self.up_weights[0]) - 1
+        use_jax = common.tree_contains_jax((self.data, other.data))
+        xnp, _, _ = common.get_backend(False, use_jax)
         diff = cw.corewise_sub(self.data, other.data)
         dn = cw.corewise_stack_dot(diff, diff, n_stack) ** 0.5
-        rn = np.maximum(cw.corewise_stack_dot(self.data, self.data, n_stack),
-                        cw.corewise_stack_dot(other.data, other.data, n_stack)) ** 0.5
+        rn = xnp.maximum(cw.corewise_stack_dot(self.data, self.data, n_stack),
+                         cw.corewise_stack_dot(other.data, other.data, n_stack)) ** 0.5
         return dn <= atol + rtol * rn
 
     def corewise_equal(

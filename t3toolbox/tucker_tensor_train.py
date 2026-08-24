@@ -53,8 +53,8 @@ __all__ = [
 ###########################################
 
 
-@dataclass(frozen=True)
-class TuckerTensorTrain:
+@dataclass(frozen=True, eq=False)   # eq=False -> the ExplicitEquality mixin stands
+class TuckerTensorTrain(common.ExplicitEquality):
     """
     Tucker tensor train with non-uniform (ragged) shape and ranks.
 
@@ -4712,8 +4712,8 @@ class TuckerTensorTrain:
 ###########################################
 
 
-@dataclass(frozen=True)
-class T3Weights:
+@dataclass(frozen=True, eq=False)   # eq=False -> the ExplicitEquality mixin stands
+class T3Weights(common.ExplicitEquality):
     """Diagonal weights on the internal edges of a :py:class:`TuckerTensorTrain` -- one vector per edge.
 
     A weight is a diagonal matrix inserted on a network edge (stored as its diagonal vector). Two edge
@@ -4846,10 +4846,12 @@ class T3Weights:
             rtol = safety.comparison_rtol(self.data, other.data)
         atol = 0.0 if atol is None else atol
         n_stack = np.ndim(self.tucker_weights[0]) - 1
+        use_jax = common.tree_contains_jax((self.data, other.data))
+        xnp, _, _ = common.get_backend(False, use_jax)
         diff = corewise.corewise_sub(self.data, other.data)
         dn = corewise.corewise_stack_dot(diff, diff, n_stack) ** 0.5
-        rn = np.maximum(corewise.corewise_stack_dot(self.data, self.data, n_stack),
-                        corewise.corewise_stack_dot(other.data, other.data, n_stack)) ** 0.5
+        rn = xnp.maximum(corewise.corewise_stack_dot(self.data, self.data, n_stack),
+                         corewise.corewise_stack_dot(other.data, other.data, n_stack)) ** 0.5
         return dn <= atol + rtol * rn
 
     def corewise_equal(

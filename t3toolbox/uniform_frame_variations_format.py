@@ -61,8 +61,8 @@ class UT3FrameMasks(common.ValueHashedMasks):
         return self.up_mask, self.down_mask, self.frame_left_mask, self.frame_right_mask
 
 
-@dataclass(frozen=True)
-class UT3Frame:
+@dataclass(frozen=True, eq=False)   # eq=False -> the ExplicitEquality mixin stands
+class UT3Frame(common.ExplicitEquality):
     """Frame (orthogonal frame) for the frame-variations representation of uniform Tucker tensor trains.
 
     Uniform analog of :py:class:`~t3toolbox.frame_variations_format.T3Frame`: four padded supercores
@@ -271,8 +271,10 @@ class UT3Frame:
         a, b = self.to_ut3(), other.to_ut3()
         if rtol is None:
             rtol = safety_mod.comparison_rtol(a.supercores + b.supercores)
+        use_jax = common.tree_contains_jax(a.supercores + b.supercores)
+        xnp, _, _ = common.get_backend(True, use_jax)
         dn = (a - b).norm()
-        rn = np.maximum(np.asarray(a.norm()), np.asarray(b.norm()))
+        rn = xnp.maximum(a.norm(), b.norm())                    # xnp: jit-safe (traced norms)
         return dn <= atol + rtol * rn
 
     # ------------------------------------------------------------- ragged <-> uniform conversions
@@ -491,8 +493,8 @@ class UT3VariationsMasks(common.ValueHashedMasks):
                 self.variations_left_mask, self.variations_right_mask)
 
 
-@dataclass(frozen=True)
-class UT3Variations:
+@dataclass(frozen=True, eq=False)   # eq=False -> the ExplicitEquality mixin stands
+class UT3Variations(common.ExplicitEquality):
     """Variation cores for the frame-variations representation of uniform Tucker tensor trains.
 
     Uniform analog of :py:class:`~t3toolbox.frame_variations_format.T3Variations`: two padded supercores
@@ -1114,8 +1116,8 @@ def ut3_orthogonal_representations(
 ###########################################
 
 
-@dataclass(frozen=True)
-class UT3FrameWeights:
+@dataclass(frozen=True, eq=False)   # eq=False -> the ExplicitEquality mixin stands
+class UT3FrameWeights(common.ExplicitEquality):
     """Diagonal weights defining a **metric on the tangent coordinates** of a :py:class:`UT3Frame` -- the
     uniform twin of :py:class:`~t3toolbox.frame_variations_format.T3FrameWeights`.
 

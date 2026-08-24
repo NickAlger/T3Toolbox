@@ -169,6 +169,23 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
 
 ### Changed
 
+- **`==` and `hash` are now explicit-only on every runtime array-carrying class** (review R1-13
+  extended; ruled 2026-08-24). `TuckerTensorTrain`, `T3Weights`, `T3Frame`, `T3Variations`,
+  `T3FrameWeights`, `T3Tangent` and their six uniform twins refuse `==` with a TypeError naming the
+  named checks (`x == x` stays True via the identity fast path) and are **unhashable** -- the
+  equality of a floating-point tensor representation is not a well-posed operator question, so the
+  user says which equality they mean: `a.allclose(b[, rtol=, atol=])` for what the objects
+  REPRESENT (numerical, per stack element; gauge/padding-invariant for trains; the BASE POINT for
+  frames, with `safety.frames_equal` answering the same-FRAME question), `a.corewise_equal(b)` for
+  the bitwise representation, `a is b` for identity. Previously `==` raised numpy's ambiguous-truth
+  error (`T3Frame`: silently compared identity -- a vestige of the pre-safety-redesign aux_data era,
+  per its own history). Value-based hash/eq remains exactly where jit needs it: the aux_data family
+  (mask holders, geometries, kinds). Rule + rationale: `backend.common.ExplicitEquality`. The
+  pre-existing `allclose` methods (`T3Tangent` / `UT3Tangent` / `UT3Frame`) are unified into the
+  family: default `rtol` is now the ambient safety default (same value on numpy float64), the
+  reference is the symmetric `max(||a||, ||b||)` (was `||other||`), and the tangent twins now CHECK
+  the same-frame precondition they used to assume.
+
 - **Citing T3Toolbox means citing the software, not the T4S paper.** `CITATION.cff`'s
   `preferred-citation` used to redirect citations to the research preprint the library grew out of;
   the library is a general-purpose T3 toolkit and is cited as software. The paper moved to the CFF
@@ -281,6 +298,13 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
 ## [2026.1.0] — 2026-08-20
 
 ### Added
+
+- **The explicit equality checks**: `allclose(other, rtol=, atol=)` and `corewise_equal(other)` on
+  all twelve runtime classes (see the `==` entry under Changed), `corewise.corewise_equal` (the
+  bitwise tree comparison underneath), and `safety.comparison_rtol` (the ambient jax-aware default
+  tolerance for pure comparisons; mode-agnostic, like `frames_equal`). Train `allclose` compares the
+  represented TENSORS by `norm(a - b)` -- the difference train through the orthogonalized norm,
+  numerically stable exactly in the `a ~= b` optimization-residual case.
 
 - **Scalar-left multiplication and scalar division on the point/tangent classes** (review R1-12 /
   H4-8): `TuckerTensorTrain` gains `__rmul__` (`2.0 * x` used to raise while `x * 2.0` worked), and

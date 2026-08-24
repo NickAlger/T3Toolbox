@@ -51,6 +51,7 @@ __all__ = [
     'xappend',
     'xprepend',
     'tree_contains_jax',
+    'ExplicitEquality',
     'tree_to_jax',
     'items_are_uniform',
     #
@@ -504,6 +505,44 @@ def load_core_families(
                     key=lambda k: int(k.split('_', 1)[1]))
         return tuple(npz[k] for k in ks)
     return tuple(fam(fi) for fi in range(num_families))
+
+
+class ExplicitEquality:
+    """Mixin making ``==`` a directed error and the class unhashable: equality must be EXPLICIT.
+
+    The library's equality rule (ruled 2026-08-24, review R1-13 extended): **hash/eq belongs to the
+    jit-cache-key objects only** (the aux_data family -- mask holders, geometries, sampling kinds --
+    which hash by VALUE because their equality decides compiled-program reuse). Every runtime
+    array-carrying class (trains, weights, frames, variations, tangents) instead REFUSES ``==``:
+    the arithmetic dunders act on the represented mathematical objects, but Python's ``==`` carries
+    container/hashing/bool obligations no float-representation equality can honestly satisfy --
+    exact mathematical equality is not a well-posed float predicate for implicit representations
+    (two representations of the same tensor differ in the last ulp), and a tolerance-based ``==``
+    is not an equivalence relation. So the user says which equality they mean:
+
+    - ``a.allclose(b[, rtol=, atol=])`` -- numerical equality of what the objects REPRESENT
+      (per stack element; for frames: the base point, with ``safety.frames_equal`` answering the
+      same-FRAME question);
+    - ``a.corewise_equal(b)`` -- bitwise equality of the stored representation;
+    - ``a is b`` -- object identity (``x == x`` is True via the identity fast path).
+
+    Consequences: instances are **unhashable** (no dict keys / sets -- key by ``id(obj)`` and keep
+    the object alive, as for numpy arrays), and ``x in list`` works only up to the first non-
+    identical element (Python's containment calls ``==``). Subclasses must be
+    ``@dataclass(frozen=True, eq=False)`` so this ``__eq__`` stands.
+    """
+
+    def __eq__(self, other):
+        if self is other:
+            return True
+        raise TypeError(
+            '%s does not define ==: say which equality you mean. a.allclose(b[, rtol=, atol=]) '
+            'compares what the objects REPRESENT (numerically, per stack element); '
+            'a.corewise_equal(b) compares the stored representation bitwise; `a is b` is object '
+            'identity. (Unhashable for the same reason -- key by id(obj) if you must.)'
+            % type(self).__name__)
+
+    __hash__ = None
 
 
 class ValueHashedMasks:

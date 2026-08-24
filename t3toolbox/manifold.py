@@ -15,6 +15,7 @@ from __future__ import annotations
 import math
 import numpy as np
 import typing as typ
+import t3toolbox.backend.common as common
 import functools as ft
 from dataclasses import dataclass
 
@@ -102,8 +103,8 @@ def manifold_dim(
     return ranks.compute_manifold_dim(s[0], s[1], s[2], sharing=sharing)
 
 
-@dataclass(frozen=True)
-class T3Tangent:
+@dataclass(frozen=True, eq=False)   # eq=False -> the ExplicitEquality mixin stands
+class T3Tangent(common.ExplicitEquality):
     """Tangent vector to the manifold of fixed-rank Tucker tensor trains.
 
     A ``T3Tangent`` bundles a :py:class:`~t3toolbox.frame_variations_format.T3Frame` (the frame at
@@ -522,8 +523,10 @@ class T3Tangent:
         defined -- say which you mean."""
         if rtol is None:
             rtol = safety.comparison_rtol(self.variations.data, other.variations.data)
+        use_jax = common.tree_contains_jax((self.variations.data, other.variations.data))
+        xnp, _, _ = common.get_backend(False, use_jax)
         dn = (self - other).corewise_norm()
-        rn = np.maximum(self.corewise_norm(), other.corewise_norm())
+        rn = xnp.maximum(self.corewise_norm(), other.corewise_norm())   # xnp: jit-safe
         return dn <= atol + rtol * rn
 
     ############################################

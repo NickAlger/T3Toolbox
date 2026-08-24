@@ -19,6 +19,30 @@ The classic example: orthogonality/gaugedness is a **caveat** for a raw coordina
 `inner`/`norm` live on the `MANIFOLD` geometry (where the properties are preconditions) while
 `T3Tangent.corewise_inner`/`corewise_norm` are the raw coordinate ops (no HS claim, no check).
 
+## Equality is explicit
+
+`==` is intentionally **not defined** on the runtime classes (`TuckerTensorTrain`, weights, frames,
+variations, tangents, and their uniform twins): it raises a TypeError directing you to say which
+equality you mean (`x == x` is True by identity; the classes are unhashable -- key caches by
+`id(obj)` and keep the object alive). The reason is honesty, not laziness: the arithmetic operators
+act on the represented tensors, but exact mathematical equality is not a well-posed floating-point
+predicate for an implicit representation (two representations of the same tensor differ in the last
+ulp), and a tolerance inside `==` would not be an equivalence relation. The named checks are:
+
+- **`a.allclose(b, rtol=, atol=)`** -- numerical equality of what the objects *represent*, per
+  stack element (reduce with `.all()`), via `‖a − b‖ ≤ atol + rtol·max(‖a‖, ‖b‖)` with the
+  difference formed in the representation and its norm taken through orthogonalization (stable
+  exactly when `a ≈ b`). For trains this is gauge- and padding-invariant tensor equality; for
+  frames it is the **base point** (gauge-invariant) -- the same-FRAME / same-tangent-space question
+  is `safety.frames_equal`; for tangents it checks the same-frame precondition first. Default
+  `rtol` is the ambient jax-aware tolerance (`safety.comparison_rtol`).
+- **`a.corewise_equal(b)`** -- bitwise equality of the stored representation (shape, masks, and
+  cores exactly; `False` on any mismatch, never raises).
+
+Value-based `hash`/`eq` exists exactly where jit requires it: the aux_data family (mask holders,
+geometries, sampling kinds), whose equality decides compiled-program reuse
+(`backend.common.ExplicitEquality` records the rule).
+
 ## The numerical properties and their checkers
 
 | property | meaning | checker |

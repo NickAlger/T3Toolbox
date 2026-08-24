@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import numpy as np
 import typing as typ
+import t3toolbox.backend.common as common
 import functools as ft
 from dataclasses import dataclass
 
@@ -85,8 +86,8 @@ def _flatten_tangents(tree) -> typ.List['UT3Tangent']:
     return out
 
 
-@dataclass(frozen=True)
-class UT3Tangent:
+@dataclass(frozen=True, eq=False)   # eq=False -> the ExplicitEquality mixin stands
+class UT3Tangent(common.ExplicitEquality):
     """Tangent vector to the uniform manifold of fixed-rank Tucker tensor trains (uniform analog of
     :py:class:`~t3toolbox.manifold.T3Tangent`).
 
@@ -344,8 +345,10 @@ class UT3Tangent:
         not defined -- say which you mean."""
         if rtol is None:
             rtol = safety.comparison_rtol(self.variations.supercores + other.variations.supercores)
+        use_jax = common.tree_contains_jax(self.variations.supercores + other.variations.supercores)
+        xnp, _, _ = common.get_backend(True, use_jax)
         dn = (self - other).corewise_norm()
-        rn = np.maximum(np.asarray(self.corewise_norm()), np.asarray(other.corewise_norm()))
+        rn = xnp.maximum(self.corewise_norm(), other.corewise_norm())   # xnp: jit-safe
         return dn <= atol + rtol * rn
 
     # ------------------------------------------------------------- validity checkers (delegate to UT3Frame)
