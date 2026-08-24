@@ -1408,7 +1408,8 @@ class TestTuckerTensorTrain(unittest.TestCase):
             for RTOL in [5e-1, 5e-2, 5e-3, 5e-4]:
                 for ATOL in [5e-1, 5e-2, 5e-3, 5e-4]:
                     for MIN_RANK in [1,2,3,4,5,6,7]:
-                        for MAX_RANK in [1,2,3,4,5,6,7]:
+                        for MAX_RANK in range(MIN_RANK, 8):   # min > max now raises (review R3-6;
+                                                              # the guard is pinned in tests/backend/test_linalg.py)
                             for CORE_IND in range(len(shape)):
                                 with self.subTest(
                                         STRUCTURE=STRUCTURE,
@@ -1515,7 +1516,8 @@ class TestTuckerTensorTrain(unittest.TestCase):
             for RTOL in [5e-1, 5e-2, 5e-3, 5e-4]:
                 for ATOL in [5e-1, 5e-2, 5e-3, 5e-4]:
                     for MIN_RANK in [1,2,3,4,5,6,7]:
-                        for MAX_RANK in [1,2,3,4,5,6,7]:
+                        for MAX_RANK in range(MIN_RANK, 8):   # min > max now raises (review R3-6;
+                                                              # the guard is pinned in tests/backend/test_linalg.py)
                             for CORE_IND in range(len(shape)):
                                 with self.subTest(
                                         STRUCTURE=STRUCTURE,
@@ -1626,7 +1628,8 @@ class TestTuckerTensorTrain(unittest.TestCase):
             for RTOL in [5e-1, 5e-2, 5e-3, 5e-4]:
                 for ATOL in [5e-1, 5e-2, 5e-3, 5e-4]:
                     for MIN_RANK in [1,2,3,4,5,6,7]:
-                        for MAX_RANK in [1,2,3,4,5,6,7]:
+                        for MAX_RANK in range(MIN_RANK, 8):   # min > max now raises (review R3-6;
+                                                              # the guard is pinned in tests/backend/test_linalg.py)
                             for CORE_IND in range(len(shape)):
                                 with self.subTest(
                                         STRUCTURE=STRUCTURE,
@@ -1737,7 +1740,8 @@ class TestTuckerTensorTrain(unittest.TestCase):
             for RTOL in [5e-1, 5e-2, 5e-3, 5e-4]:
                 for ATOL in [5e-1, 5e-2, 5e-3, 5e-4]:
                     for MIN_RANK in [1,2,3,4,5,6,7]:
-                        for MAX_RANK in [1,2,3,4,5,6,7]:
+                        for MAX_RANK in range(MIN_RANK, 8):   # min > max now raises (review R3-6;
+                                                              # the guard is pinned in tests/backend/test_linalg.py)
                             for CORE_IND in range(len(shape)):
                                 with self.subTest(
                                         STRUCTURE=STRUCTURE,
