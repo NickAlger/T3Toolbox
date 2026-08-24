@@ -151,6 +151,24 @@ which layer you are holding.
   `ut3_norm_orthogonalized` (always orthogonalizes). The uniform twin is not renamed to match
   the ragged name when it genuinely supports less.
 
+## Index letters: stacks vs derivative order
+
+The batching convention ([`batching_and_stacking.md`](batching_and_stacking.md)) reserves the
+UPPERCASE letters **`C`** (frame/core stack), **`W`** (probe stack) and **`K`** (tangent stack) for
+the three batch blocks, and lowercase letters for single axes in contraction strings.
+
+**Derivative order has no letter in code and docs: the scalar is spelled `order`.** The
+*order/jet axis* (length `order + 1`) is lowercase **`t`** in contraction strings and shape
+comments, with **`r`, `s`** the two input-order axes of the binomial tensor `trs`
+(`trs[t,r,s] = C(t,r)·[r+s=t]`). `K` means the tangent stack *only* -- a 2026-08-24 ruling: the
+sampling-derivatives docstrings used to gloss the max order as `K`, colliding with the
+tangent-stack letter in the very functions that carry both.
+
+The math note `docs/symmetric_probe_derivatives.tex` writes the max order as **$m$** (the jet-bundle
+$J^m$ precedent) with running index $t = 0, \dots, m$ and binomial split $\binom{t}{r}$ -- the same
+letters as the code's `trs` contractions, so the derivation and the implementation read in one
+notation. ($j$ there is a plain mode dummy, and $r_i$ with a subscript is a TT rank, as everywhere.)
+
 ## Why "frame", not "basis"
 
 The orthogonal representation of a tangent space (`T3Frame`, the `fv_`/`ufv_` families) is

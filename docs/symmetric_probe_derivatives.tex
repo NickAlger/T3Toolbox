@@ -22,7 +22,7 @@
 \usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
 
 \newcommand{\R}{\mathbb{R}}
-\newcommand{\jet}[1]{[\![ #1 ]\!]}   % order-K jet (double square brackets, no stmaryrd dependency)
+\newcommand{\jet}[1]{[\![ #1 ]\!]}   % order-m jet (double square brackets, no stmaryrd dependency)
 \newcommand{\dd}[1]{\,\mathrm{d}#1}
 \DeclareMathOperator{\diag}{diag}
 
@@ -45,7 +45,7 @@
 Probing a Tucker tensor train (T3) evaluates its actions: contracting the tensor with a
 collection of vectors in all modes but one. We derive the \emph{symmetric} directional
 derivatives of this map --- the derivatives obtained by perturbing every input vector in the
-\emph{same} direction $\mathbf P$, repeated $k$ times --- and show they are computed by a single
+\emph{same} direction $\mathbf P$, repeated $t$ times --- and show they are computed by a single
 probing-style sweep that carries an extra Taylor-jet axis. The whole construction follows from one
 Leibniz rule for jets: because each input vector enters affinely, its jet truncates at order one,
 and every quantity built from it is assembled by a binomial convolution of jets. This note records
@@ -103,16 +103,16 @@ to \emph{project} the probe \eqref{eq:xi} and to \emph{lift} the result \eqref{e
 
 \paragraph{Goal.}
 Fix a direction $\mathbf P = (\mathbf p_1, \dots, \mathbf p_d)$, $\mathbf p_i \in \R^{N_i}$. We seek
-the \emph{symmetric directional derivatives} of each action with respect to the inputs, taken $k$
+the \emph{symmetric directional derivatives} of each action with respect to the inputs, taken $t$
 times in the single repeated direction $\mathbf P$:
 \begin{equation}
   \label{eq:goal}
-  \mathbf z_i^{(k)} \;:=\; \frac{\dd{^k}}{\dd s^k}\, \mathbf z_i(\mathbf W + s\mathbf P)\Big|_{s=0}
-  \;=\; D^k \mathbf z_i(\mathbf W)\,\mathbf P^{k},
-  \qquad k = 0, 1, \dots, K.
+  \mathbf z_i^{(t)} \;:=\; \frac{\dd{^t}}{\dd s^t}\, \mathbf z_i(\mathbf W + s\mathbf P)\Big|_{s=0}
+  \;=\; D^t \mathbf z_i(\mathbf W)\,\mathbf P^{t},
+  \qquad t = 0, 1, \dots, m.
 \end{equation}
-Order $k=0$ is the ordinary probe. The point is that the \emph{same} direction is fed into all $k$
-slots; this is what makes the whole family $k=0,\dots,K$ computable in a single sweep.
+Order $t=0$ is the ordinary probe. The point is that the \emph{same} direction is fed into all $t$
+slots; this is what makes the whole family $t=0,\dots,m$ computable in a single sweep.
 
 \section{Jets and the Leibniz rule}
 \label{sec:jets}
@@ -122,14 +122,14 @@ $\mathbf W + s\mathbf P$ and tracking its Taylor data.
 
 \begin{definition}[Jet]
 \label{def:jet}
-Let $q$ be a quantity that depends smoothly on the inputs $\mathbf W$. Its \emph{order-$K$ jet}
+Let $q$ be a quantity that depends smoothly on the inputs $\mathbf W$. Its \emph{order-$m$ jet}
 (along $\mathbf P$, at $\mathbf W$) is the tuple of symmetric derivatives
 \[
-  \jet{q} \;=\; \big(q^{(0)}, q^{(1)}, \dots, q^{(K)}\big),
+  \jet{q} \;=\; \big(q^{(0)}, q^{(1)}, \dots, q^{(m)}\big),
   \qquad
-  q^{(k)} := \frac{\dd{^k}}{\dd s^k}\, q(\mathbf W + s\mathbf P)\Big|_{s=0}.
+  q^{(t)} := \frac{\dd{^t}}{\dd s^t}\, q(\mathbf W + s\mathbf P)\Big|_{s=0}.
 \]
-So $q^{(0)} = q(\mathbf W)$ is the base value and $q^{(k)}$ is the quantity \eqref{eq:goal} sought
+So $q^{(0)} = q(\mathbf W)$ is the base value and $q^{(t)}$ is the quantity \eqref{eq:goal} sought
 for $q = \mathbf z_i$.
 \end{definition}
 
@@ -160,15 +160,15 @@ smoothly on $s$. Then the jet of $s \mapsto B(a(s), b(s))$ is the binomial convo
 $a$ and $b$:
 \begin{equation}
   \label{eq:leibniz}
-  \big[B(a,b)\big]^{(k)} \;=\; \sum_{j=0}^{k} \binom{k}{j}\, B\!\big(a^{(j)},\, b^{(k-j)}\big),
-  \qquad k = 0, 1, \dots, K.
+  \big[B(a,b)\big]^{(t)} \;=\; \sum_{r=0}^{t} \binom{t}{r}\, B\!\big(a^{(r)},\, b^{(t-r)}\big),
+  \qquad t = 0, 1, \dots, m.
 \end{equation}
 \end{lemma}
 
 \begin{proof}
 By bilinearity, $\tfrac{\dd}{\dd s} B(a,b) = B(a',b) + B(a,b')$. This is the ordinary product rule
-for the bilinear pairing $B$, so the general Leibniz rule for the $k$th derivative of a product gives
-\eqref{eq:leibniz}; the binomial coefficients count how the $k$ differentiations are distributed
+for the bilinear pairing $B$, so the general Leibniz rule for the $t$th derivative of a product gives
+\eqref{eq:leibniz}; the binomial coefficients count how the $t$ differentiations are distributed
 between the two arguments. Evaluating at $s=0$ replaces each derivative by the corresponding jet
 component.
 \end{proof}
@@ -177,14 +177,14 @@ Lemma~\ref{lem:leibniz} is the only engine we need. Every edge variable in
 \eqref{eq:xi}--\eqref{eq:z} is built from the inputs by a chain of bilinear pairings (and one final
 linear map), so its jet is obtained by applying \eqref{eq:leibniz} at each pairing. The two regimes
 that occur differ only in how many jet components the second argument has: \emph{the input jet has
-just two} (Lemma~\ref{lem:affine}), while \emph{a pushthrough jet has all $K{+}1$}.
+just two} (Lemma~\ref{lem:affine}), while \emph{a pushthrough jet has all $m{+}1$}.
 
 \begin{remark}[Jets as a truncated algebra]
 \label{rem:algebra}
-Equivalently, identify $\jet{q}$ with the truncated Taylor polynomial $\sum_{k} \tfrac{1}{k!}
-q^{(k)} s^{k} \pmod{s^{K+1}}$. Then \eqref{eq:leibniz} is exactly multiplication in the algebra
-$\R[s]/(s^{K+1})$ (the Cauchy product, with the $\tfrac1{k!}$ normalisation absorbed into the
-binomial weights). We keep the unnormalised derivatives $q^{(k)}$ rather than Taylor coefficients
+Equivalently, identify $\jet{q}$ with the truncated Taylor polynomial $\sum_{t} \tfrac{1}{t!}
+q^{(t)} s^{t} \pmod{s^{m+1}}$. Then \eqref{eq:leibniz} is exactly multiplication in the algebra
+$\R[s]/(s^{m+1})$ (the Cauchy product, with the $\tfrac1{t!}$ normalisation absorbed into the
+binomial weights). We keep the unnormalised derivatives $q^{(t)}$ rather than Taylor coefficients
 because the binomial form maps directly onto integer-exact arithmetic in the implementation.
 \end{remark}
 
@@ -197,72 +197,72 @@ edge variables.
 
 \begin{theorem}[Pushthrough jets]
 \label{thm:push}
-The left and right pushthrough jets satisfy, for $k = 1, \dots, K$,
+The left and right pushthrough jets satisfy, for $t = 1, \dots, m$,
 \begin{align}
-  \big(\boldsymbol\mu_i^{(k)}\big)^\top
-    &= \big(\boldsymbol\mu_{i-1}^{(k)}\big)^\top \mathbf G_i(\boldsymbol\xi_i)
-     \;+\; k\,\big(\boldsymbol\mu_{i-1}^{(k-1)}\big)^\top \mathbf G_i(\delta\boldsymbol\xi_i),
+  \big(\boldsymbol\mu_i^{(t)}\big)^\top
+    &= \big(\boldsymbol\mu_{i-1}^{(t)}\big)^\top \mathbf G_i(\boldsymbol\xi_i)
+     \;+\; t\,\big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \mathbf G_i(\delta\boldsymbol\xi_i),
     \label{eq:dmu}\\[2pt]
-  \boldsymbol\nu_i^{(k)}
-    &= \mathbf G_{i+1}(\boldsymbol\xi_{i+1})\, \boldsymbol\nu_{i+1}^{(k)}
-     \;+\; k\,\mathbf G_{i+1}(\delta\boldsymbol\xi_{i+1})\, \boldsymbol\nu_{i+1}^{(k-1)},
+  \boldsymbol\nu_i^{(t)}
+    &= \mathbf G_{i+1}(\boldsymbol\xi_{i+1})\, \boldsymbol\nu_{i+1}^{(t)}
+     \;+\; t\,\mathbf G_{i+1}(\delta\boldsymbol\xi_{i+1})\, \boldsymbol\nu_{i+1}^{(t-1)},
     \label{eq:dnu}
 \end{align}
 with base values $\boldsymbol\mu_i^{(0)} = \boldsymbol\mu_i$, $\boldsymbol\nu_i^{(0)} =
-\boldsymbol\nu_i$, and boundary jets $\boldsymbol\mu_0^{(0)} = 1$, $\boldsymbol\mu_0^{(k)} = 0$
-($k>0$), $\boldsymbol\nu_d^{(0)} = 1$, $\boldsymbol\nu_d^{(k)} = 0$ ($k>0$).
+\boldsymbol\nu_i$, and boundary jets $\boldsymbol\mu_0^{(0)} = 1$, $\boldsymbol\mu_0^{(t)} = 0$
+($t>0$), $\boldsymbol\nu_d^{(0)} = 1$, $\boldsymbol\nu_d^{(t)} = 0$ ($t>0$).
 \end{theorem}
 
 \begin{proof}
 The recursion \eqref{eq:mu} reads $\boldsymbol\mu_i^\top = B(\boldsymbol\mu_{i-1},
-\boldsymbol\xi_i)$ with the bilinear map $B(\mathbf m, \mathbf v) = \mathbf m^\top \mathbf G_i(\mathbf
-v)$ (linear in $\mathbf m$, and linear in $\mathbf v$ since $\mathbf G_i(\cdot)$ is). Apply
+\boldsymbol\xi_i)$ with the bilinear map $B(\mathbf u, \mathbf v) = \mathbf u^\top \mathbf G_i(\mathbf
+v)$ (linear in $\mathbf u$, and linear in $\mathbf v$ since $\mathbf G_i(\cdot)$ is). Apply
 Lemma~\ref{lem:leibniz}:
 \[
-  \big(\boldsymbol\mu_i^{(k)}\big)^\top
-  = \sum_{j=0}^{k} \binom{k}{j}\, \big(\boldsymbol\mu_{i-1}^{(j)}\big)^\top
-      \mathbf G_i\!\big(\boldsymbol\xi_i^{(k-j)}\big).
+  \big(\boldsymbol\mu_i^{(t)}\big)^\top
+  = \sum_{r=0}^{t} \binom{t}{r}\, \big(\boldsymbol\mu_{i-1}^{(r)}\big)^\top
+      \mathbf G_i\!\big(\boldsymbol\xi_i^{(t-r)}\big).
 \]
-By Lemma~\ref{lem:affine}, $\boldsymbol\xi_i^{(k-j)}$ is nonzero only for $k-j \in \{0,1\}$, i.e.\
-$j \in \{k, k-1\}$, leaving the two terms of \eqref{eq:dmu} with weights $\binom{k}{k}=1$ and
-$\binom{k}{k-1}=k$. The boundary jet $\jet{\boldsymbol\mu_0}$ is constant ($\boldsymbol\mu_0 \equiv
+By Lemma~\ref{lem:affine}, $\boldsymbol\xi_i^{(t-r)}$ is nonzero only for $t-r \in \{0,1\}$, i.e.\
+$r \in \{t, t-1\}$, leaving the two terms of \eqref{eq:dmu} with weights $\binom{t}{t}=1$ and
+$\binom{t}{t-1}=t$. The boundary jet $\jet{\boldsymbol\mu_0}$ is constant ($\boldsymbol\mu_0 \equiv
 1$), so all its derivatives above order $0$ vanish. Equation \eqref{eq:dnu} is identical with the
 train reversed.
 \end{proof}
 
-Equation~\eqref{eq:dmu} is a \emph{bidiagonal} recursion in the order index $k$: the order is
+Equation~\eqref{eq:dmu} is a \emph{bidiagonal} recursion in the order index $t$: the order is
 preserved when the core is fed the base projection $\boldsymbol\xi_i$ and raised by one (with weight
-$k$) when it is fed the direction $\delta\boldsymbol\xi_i$. The bidiagonal (only two-term) shape is
+$t$) when it is fed the direction $\delta\boldsymbol\xi_i$. The bidiagonal (only two-term) shape is
 exactly the statement that the input jet stops at order one.
 
 \begin{theorem}[Action jets]
 \label{thm:action}
-For $i = 1, \dots, d$ and $k = 0, 1, \dots, K$,
+For $i = 1, \dots, d$ and $t = 0, 1, \dots, m$,
 \begin{align}
-  \boldsymbol\eta_i^{(k)}
-    &= \sum_{j=0}^{k} \binom{k}{j}\,
-       \big(\boldsymbol\mu_{i-1}^{(j)}\big)^\top \mathbf G_i\, \boldsymbol\nu_i^{(k-j)},
+  \boldsymbol\eta_i^{(t)}
+    &= \sum_{r=0}^{t} \binom{t}{r}\,
+       \big(\boldsymbol\mu_{i-1}^{(r)}\big)^\top \mathbf G_i\, \boldsymbol\nu_i^{(t-r)},
     \label{eq:deta}\\[2pt]
-  \mathbf z_i^{(k)} &= \mathbf U_i^\top \boldsymbol\eta_i^{(k)}.
+  \mathbf z_i^{(t)} &= \mathbf U_i^\top \boldsymbol\eta_i^{(t)}.
     \label{eq:dz}
 \end{align}
 \end{theorem}
 
 \begin{proof}
 The combine \eqref{eq:eta} is $\boldsymbol\eta_i = B(\boldsymbol\mu_{i-1}, \boldsymbol\nu_i)$ with the
-bilinear map $B(\mathbf m, \mathbf n) = \mathbf m^\top \mathbf G_i \mathbf n$ (mode $i$ free), so
+bilinear map $B(\mathbf u, \mathbf v) = \mathbf u^\top \mathbf G_i \mathbf v$ (mode $i$ free), so
 \eqref{eq:deta} is Lemma~\ref{lem:leibniz} verbatim. Unlike the pushthrough, \emph{both} arguments
-carry full jets, so the sum runs over all $j = 0, \dots, k$. Finally \eqref{eq:z} is the fixed
+carry full jets, so the sum runs over all $r = 0, \dots, t$. Finally \eqref{eq:z} is the fixed
 linear map $\boldsymbol\eta_i \mapsto \mathbf U_i^\top \boldsymbol\eta_i$, whose jet acts
-componentwise: $\mathbf z_i^{(k)} = \mathbf U_i^\top \boldsymbol\eta_i^{(k)}$.
+componentwise: $\mathbf z_i^{(t)} = \mathbf U_i^\top \boldsymbol\eta_i^{(t)}$.
 \end{proof}
 
-\begin{remark}[The full sum, $j = 0$ to $k$]
+\begin{remark}[The full sum, $r = 0$ to $t$]
 \label{rem:fullsum}
-The action sum \eqref{eq:deta} runs over the \emph{full} range $j = 0, \dots, k$; both endpoints
-($\boldsymbol\mu_{i-1}^{(0)} = \boldsymbol\mu_{i-1}$ paired with $\boldsymbol\nu_i^{(k)}$, and
-$\boldsymbol\mu_{i-1}^{(k)}$ paired with $\boldsymbol\nu_i^{(0)} = \boldsymbol\nu_i$) are genuine
-product-rule terms. An earlier unpublished draft wrote this sum starting at $j=1$; that is an error.
+The action sum \eqref{eq:deta} runs over the \emph{full} range $r = 0, \dots, t$; both endpoints
+($\boldsymbol\mu_{i-1}^{(0)} = \boldsymbol\mu_{i-1}$ paired with $\boldsymbol\nu_i^{(t)}$, and
+$\boldsymbol\mu_{i-1}^{(t)}$ paired with $\boldsymbol\nu_i^{(0)} = \boldsymbol\nu_i$) are genuine
+product-rule terms. An earlier unpublished draft wrote this sum starting at $r=1$; that is an error.
 The forms above are verified against a dense oracle (Section~\ref{sec:impl}).
 \end{remark}
 
@@ -270,14 +270,14 @@ The forms above are verified against a dense oracle (Section~\ref{sec:impl}).
 \label{sec:algo}
 
 Theorems~\ref{thm:push}--\ref{thm:action} give an algorithm that produces the entire derivative
-family $\{\mathbf z_i^{(k)}\}_{i,k}$ in two sweeps, exactly mirroring ordinary probing but carrying
-the order index $k$.
+family $\{\mathbf z_i^{(t)}\}_{i,t}$ in two sweeps, exactly mirroring ordinary probing but carrying
+the order index $t$.
 
 \begin{algorithm}[h]
 \caption{Symmetric probe derivatives of a Tucker tensor train}
 \label{alg:sweep}
 \begin{algorithmic}[1]
-\Require T3 $\big((\mathbf U_i),(\mathbf G_i)\big)$; inputs $\mathbf W$; direction $\mathbf P$; order $K$
+\Require T3 $\big((\mathbf U_i),(\mathbf G_i)\big)$; inputs $\mathbf W$; direction $\mathbf P$; order $m$
 \Ensure derivative jets $\jet{\mathbf z_i}$ for $i=1,\dots,d$
 \For{$i = 1,\dots,d$} \Comment{project, forming the order-one input jets}
   \State $\boldsymbol\xi_i \gets \mathbf U_i \mathbf w_i$,\quad
@@ -285,27 +285,27 @@ the order index $k$.
 \EndFor
 \State $\jet{\boldsymbol\mu_0} \gets (1,0,\dots,0)$
 \For{$i = 1,\dots,d$} \Comment{left sweep, Eq.~\eqref{eq:dmu}}
-  \State $\boldsymbol\mu_i^{(k)} \gets \boldsymbol\mu_{i-1}^{(k)}\mathbf G_i(\boldsymbol\xi_i)
-         + k\,\boldsymbol\mu_{i-1}^{(k-1)}\mathbf G_i(\delta\boldsymbol\xi_i)$ \textbf{ for } $k=0,\dots,K$
+  \State $\boldsymbol\mu_i^{(t)} \gets \boldsymbol\mu_{i-1}^{(t)}\mathbf G_i(\boldsymbol\xi_i)
+         + t\,\boldsymbol\mu_{i-1}^{(t-1)}\mathbf G_i(\delta\boldsymbol\xi_i)$ \textbf{ for } $t=0,\dots,m$
 \EndFor
 \State $\jet{\boldsymbol\nu_d} \gets (1,0,\dots,0)$
 \For{$i = d,\dots,1$} \Comment{right sweep, Eq.~\eqref{eq:dnu}}
-  \State $\boldsymbol\nu_{i-1}^{(k)} \gets \mathbf G_i(\boldsymbol\xi_i)\boldsymbol\nu_i^{(k)}
-         + k\,\mathbf G_i(\delta\boldsymbol\xi_i)\boldsymbol\nu_i^{(k-1)}$ \textbf{ for } $k=0,\dots,K$
+  \State $\boldsymbol\nu_{i-1}^{(t)} \gets \mathbf G_i(\boldsymbol\xi_i)\boldsymbol\nu_i^{(t)}
+         + t\,\mathbf G_i(\delta\boldsymbol\xi_i)\boldsymbol\nu_i^{(t-1)}$ \textbf{ for } $t=0,\dots,m$
 \EndFor
 \For{$i = 1,\dots,d$} \Comment{combine and lift, Eqs.~\eqref{eq:deta}--\eqref{eq:dz}}
-  \State $\boldsymbol\eta_i^{(k)} \gets \sum_{j=0}^{k}\binom{k}{j}
-         \big(\boldsymbol\mu_{i-1}^{(j)}\big)^\top \mathbf G_i\,\boldsymbol\nu_i^{(k-j)}$ \textbf{ for } $k=0,\dots,K$
-  \State $\mathbf z_i^{(k)} \gets \mathbf U_i^\top \boldsymbol\eta_i^{(k)}$ \textbf{ for } $k=0,\dots,K$
+  \State $\boldsymbol\eta_i^{(t)} \gets \sum_{r=0}^{t}\binom{t}{r}
+         \big(\boldsymbol\mu_{i-1}^{(r)}\big)^\top \mathbf G_i\,\boldsymbol\nu_i^{(t-r)}$ \textbf{ for } $t=0,\dots,m$
+  \State $\mathbf z_i^{(t)} \gets \mathbf U_i^\top \boldsymbol\eta_i^{(t)}$ \textbf{ for } $t=0,\dots,m$
 \EndFor
 \end{algorithmic}
 \end{algorithm}
 
 \paragraph{Cost.}
-Relative to a single probe, the pushthrough sweeps carry an order axis of length $K+1$, each step
-combining only the orders $k$ and $k-1$ (the input jet is order one), so they cost a factor $O(K)$
-more. The combine \eqref{eq:deta} is a length-$(K{+}1)$ binomial convolution at each free mode, an
-$O(K^2)$ factor over a single combine. There are no other changes: the algorithm is the ordinary
+Relative to a single probe, the pushthrough sweeps carry an order axis of length $m+1$, each step
+combining only the orders $t$ and $t-1$ (the input jet is order one), so they cost a factor $O(m)$
+more. The combine \eqref{eq:deta} is a length-$(m{+}1)$ binomial convolution at each free mode, an
+$O(m^2)$ factor over a single combine. There are no other changes: the algorithm is the ordinary
 probing pipeline with the order axis threaded through.
 
 \section{The unifying view and the implementation}
@@ -351,10 +351,10 @@ directions at one point one repeats that point across the stack.
 
 \paragraph{Verification.}
 Each action is multilinear in the off-mode inputs, so $\mathbf z_i(\mathbf W + s\mathbf P)$ is a
-polynomial in $s$ and the $k$th derivative is exact:
+polynomial in $s$ and the $t$th derivative is exact:
 \begin{equation}
   \label{eq:oracle}
-  \mathbf z_i^{(k)} \;=\; k!\!\!\sum_{\substack{S \subseteq \{1,\dots,d\}\setminus\{i\}\\ |S| = k}}
+  \mathbf z_i^{(t)} \;=\; t!\!\!\sum_{\substack{S \subseteq \{1,\dots,d\}\setminus\{i\}\\ |S| = t}}
   T\big(\dots\big),
 \end{equation}
 the inner contraction feeding $\mathbf p_j$ in the modes $j \in S$ and $\mathbf w_j$ elsewhere. The
@@ -408,13 +408,13 @@ order-one input jets $\jet{\boldsymbol\xi_i} = (\boldsymbol\xi_i, \mathbf U_i\ma
 and $\jet{\delta\boldsymbol\xi_i} = (\delta\boldsymbol\xi_i, \delta\mathbf U_i\mathbf p_i, 0, \dots)$,
 \eqref{eq:rsigma} becomes the bidiagonal recursion
 \begin{align}
-  \big(\boldsymbol\sigma_i^{(k)}\big)^\top
-  &= \big(\boldsymbol\sigma_{i-1}^{(k)}\big)^\top \mathbf Q_i(\boldsymbol\xi_i)
-   + k \big(\boldsymbol\sigma_{i-1}^{(k-1)}\big)^\top \mathbf Q_i(\mathbf U_i\mathbf p_i) \nonumber\\
-  &\;+ \big(\boldsymbol\mu_{i-1}^{(k)}\big)^\top \delta\mathbf G_i(\boldsymbol\xi_i)
-     + k \big(\boldsymbol\mu_{i-1}^{(k-1)}\big)^\top \delta\mathbf G_i(\mathbf U_i\mathbf p_i) \nonumber\\
-  &\;+ \big(\boldsymbol\mu_{i-1}^{(k)}\big)^\top \mathbf O_i(\delta\boldsymbol\xi_i)
-     + k \big(\boldsymbol\mu_{i-1}^{(k-1)}\big)^\top \mathbf O_i(\delta\mathbf U_i\mathbf p_i),
+  \big(\boldsymbol\sigma_i^{(t)}\big)^\top
+  &= \big(\boldsymbol\sigma_{i-1}^{(t)}\big)^\top \mathbf Q_i(\boldsymbol\xi_i)
+   + t \big(\boldsymbol\sigma_{i-1}^{(t-1)}\big)^\top \mathbf Q_i(\mathbf U_i\mathbf p_i) \nonumber\\
+  &\;+ \big(\boldsymbol\mu_{i-1}^{(t)}\big)^\top \delta\mathbf G_i(\boldsymbol\xi_i)
+     + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \delta\mathbf G_i(\mathbf U_i\mathbf p_i) \nonumber\\
+  &\;+ \big(\boldsymbol\mu_{i-1}^{(t)}\big)^\top \mathbf O_i(\delta\boldsymbol\xi_i)
+     + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \mathbf O_i(\delta\mathbf U_i\mathbf p_i),
   \label{eq:rdsigma}
 \end{align}
 and $\boldsymbol\tau$, $\delta\boldsymbol\eta$, $\mathbf z$ likewise (the combine \eqref{eq:rdeta} and
@@ -433,8 +433,8 @@ only the variation-derived edge variables and so needs asymmetric three-block co
 \section{The transpose, by a jet-ified adjoint Lagrangian}
 \label{sec:transpose}
 
-The map $\delta\mathbb V \mapsto \{\mathbf z_i^{(k)}\}$ of Section~\ref{sec:riem} is \emph{linear} in
-the variation. Fitting needs its transpose: given residual jets $\mathbf r = \{\mathbf r_i^{(k)}\}$ in
+The map $\delta\mathbb V \mapsto \{\mathbf z_i^{(t)}\}$ of Section~\ref{sec:riem} is \emph{linear} in
+the variation. Fitting needs its transpose: given residual jets $\mathbf r = \{\mathbf r_i^{(t)}\}$ in
 the action-jet space, return the variation gradient $\big((\delta\widetilde{\mathbf U}_i),
 (\delta\widetilde{\mathbf G}_i)\big)$. We obtain it by the adjoint-state method, jet-ified.
 
@@ -612,8 +612,8 @@ binomial weight and exhibits them as an ordinary convolution and its adjoint cor
   r!\,c^{(r)} \;=\; \sum_{s \ge 0} \hat b^{(s)} \hat z^{(r+s)} .
   \label{eq:egf}
 \end{equation}
-Both are $O(K^2)$ in the order and admit no cheaper closed form --- a cumulative-sum shortcut linearises
-the correlation only when the kernel $\hat b$ is constant, which is degenerate. Since $K \le d$ this is
+Both are $O(m^2)$ in the order and admit no cheaper closed form --- a cumulative-sum shortcut linearises
+the correlation only when the kernel $\hat b$ is constant, which is degenerate. Since $m \le d$ this is
 negligible; the binding cost is memory.
 
 \paragraph{Memory: scan the summed axes.}
@@ -621,7 +621,7 @@ The dense \texttt{trs} contraction holds a spatial intermediate for \emph{every}
 order axis is only summed, each operation is instead realised as a \emph{scan} over an input order: the
 convolution \eqref{eq:conv-fwd} scans $r$, forming one order-slice of the spatial product and folding in
 the second jet in a single contraction; the correlation \eqref{eq:conv-rev} scans the full jet's order
-likewise. One order slice is resident --- an $(K{+}1)\times$ reduction --- and it composes with the
+likewise. One order slice is resident --- an $(m{+}1)\times$ reduction --- and it composes with the
 outer core sweep (also a scan). On the packed (uniform) backend these dispatch to
 \texttt{jax.lax.scan}/\texttt{lax.map}, which \emph{force} the sequential freeing; an unrolled loop lets
 the compiler keep every slice live, so the scan primitive is essential rather than cosmetic.

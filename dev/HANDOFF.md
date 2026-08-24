@@ -51,9 +51,33 @@ static-axes moveaxis) and pinned by a dispatch regression test. Commits `707653d
 `TestAuxKeyHygiene`; gate: full suite 849 passed / 29,294 subtests + module and doc-page doctests,
 2026-08-24. CHANGELOG carries the breaking-change entry.
 
+**Cluster 5 -- DONE (2026-08-24), the docstring/stale-text sweep** (taken before cluster 4 at Nick's
+request). Three commits: `c6657acb` (the text sweep: every `dev/` path in shipped docstrings/comments
+retargeted to its durable `docs/` counterpart per Nick's rule -- archive refs only while a thread is
+open; retired letters/terms -- tv_operations' V/G -> K/C, `base-inner` -> `frame-inner` library-wide,
+the 3b-*/uniform-fix build-slice tags dropped; T3Base/T3Variation -> real class names; dead
+conditionals, rRi bond normalization, `jax.linear_transpose` claims trimmed to the adjoint identity
+the tests actually enforce -- ruling: an adjoint-identity check suffices, and `test_probe_derivatives`
+has real ones; api_reference's module-level names; the contract catalog's 'Sign-off questions'
+replaced with the recorded resolutions), `cbd552c5` (code stragglers: `chunk_size` threaded through
+both frontends' `probe_corewise_derivatives_transpose`, no-host-pull `'auto'` resolution +
+`DEFAULT_CHUNK_SIZE`, jit-safe `compute_minimal_ranks`, a real oracle for the vacuous
+`test_riemannian_gradient`, the `to_jax` doctest x64 leak), and the notation commit (see below).
+Deferred, recorded here: R2-13's minor backend ergonomics (t3_inner_product list concat, ndarray-axis
+`t3_sum`), R2-12's stacking malformed-tree sub-items (already in the backlog), and the no-test items
+(R2-9, R8-10, R4-15) -> Phase D.
+
+**The derivative-order letter ruling (R6-7, Nick 2026-08-24; recorded in
+`docs/naming_conventions.md` §"Index letters"):** the scalar is spelled `order` (no letter); the
+order/jet axis is lowercase `t` with `r`,`s` the binomial-split axes (the `trs` tensor); `K` is the
+tangent stack ONLY. The math note `symmetric_probe_derivatives.tex` renamed to match: max order
+$K \to m$ ($J^m$ jets), running $k \to t$, binomial $j \to r$ -- unifying the derivation sections
+with the note's own trs/adjoint sections, which already used t/r/s; mode dummies stayed $j$ (a
+$j \to r$ there would collide with rank subscripts $r_i$). Builds warning-free.
+
 **Next (queued): cluster 4** -- safety internals (H6-12 trace detector, H5-5 `frames_equal` padding,
-`set_default_safety` thread docs); then cluster 5 (the ~20-item docstring/stale-text sweep), the
-R2-12 deferred sub-items, and Phase D test hardening.
+`set_default_safety` thread docs); then Phase D test hardening, the R2-12 deferred sub-items, and
+the 2026.2.0 tag steps (twine check, numpy-only venv smoke, tag).
 
 **What happened.** Nick asked for an in-depth review of the whole library (bugs first, doc/code mismatches
 second) before cutting 2026.2.0, because the 2026.1/2.0 work had kept turning up pre-existing bugs. The
