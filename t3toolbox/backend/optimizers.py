@@ -87,11 +87,11 @@ class Geometry(typ.Protocol):
     def retract(self, frame, variations, aux=None):    # chart step -> new x_cores
         ...
 
-    def inner(self, a, b):                             # coordinate <.,.> on tangents
-        ...
+    def inner(self, a, b):                             # coordinate <.,.> on tangents; PER-ELEMENT over
+        ...                                            #   leading stacks (0-d scalar unstacked)
 
-    def point_norm_sq(self, x_cores):                  # ‖X‖² in the coordinate metric (regularizer)
-        ...
+    def point_norm_sq(self, x_cores):                  # ‖X‖² in the coordinate metric (regularizer);
+        ...                                            #   per-element over the stack C
 
     def point_tangent(self, frame):                    # X as a gauged tangent v_X (regularizer)
         ...

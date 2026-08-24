@@ -36,6 +36,55 @@ def uniform_point(shape=SHAPE, tucker=TUCKER, tt=TT, sharing=None, seed=0):
     return uf.uniform_minimal(ut3.UniformTuckerTensorTrain.from_t3(A), sharing=sharing)
 
 
+class TestGeometryStackSemantics(unittest.TestCase):
+    """Review H3-5: the ragged geometries' inner / point_norm_sq are PER-ELEMENT over the frame
+    stack C (shape = C; 0-d scalar unstacked), matching the uniform twins and the frontend --
+    they used to collapse C to a scalar, a silent cross-layer asymmetry for raw-.data loops."""
+
+    def test_ragged_manifold_inner_and_norm_are_per_element(self):
+        import t3toolbox.corewise as cw
+        import t3toolbox.frame_variations_format as bvf
+        np.random.seed(0)
+        shape, nn, rr = (5, 6, 7), (2, 3, 3), (1, 2, 3, 1)
+        x3 = t3.TuckerTensorTrain.randn(shape, nn, rr, stack_shape=(3,))
+        geom = bgeo.ManifoldGeometryOps()
+        fr3 = geom.frame(x3.data)
+        v = t3m.MANIFOLD.randn(bvf.T3Frame(*fr3))
+        got = geom.inner(v.variations.data, v.variations.data)
+        self.assertEqual(np.shape(got), (3,))
+        for i in range(3):
+            sl = tuple(tuple(c[i] for c in fam) for fam in v.variations.data)
+            ref = float(cw.corewise_dot(sl, sl))
+            self.assertLess(abs(float(got[i]) - ref), 1e-9 * (abs(ref) + 1))
+        pn = geom.point_norm_sq(x3.data)
+        self.assertEqual(np.shape(pn), (3,))
+        for i in range(3):
+            xi = t3.TuckerTensorTrain(tuple(c[i] for c in x3.data[0]), tuple(c[i] for c in x3.data[1]))
+            ref = float(xi.norm()) ** 2
+            self.assertLess(abs(float(pn[i]) - ref), 1e-8 * (abs(ref) + 1))
+        # unstacked: still a scalar-shaped result
+        x1 = t3.TuckerTensorTrain.randn(shape, nn, rr)
+        self.assertEqual(np.shape(geom.point_norm_sq(x1.data)), ())
+
+    def test_ragged_corewise_inner_and_norm_are_per_element(self):
+        import t3toolbox.corewise as cw
+        np.random.seed(1)
+        shape, nn, rr = (5, 6, 7), (2, 3, 3), (1, 2, 3, 1)
+        x3 = t3.TuckerTensorTrain.randn(shape, nn, rr, stack_shape=(3,))
+        geom = bgeo.CorewiseGeometryOps()
+        got = geom.inner(x3.data, x3.data)
+        pn = geom.point_norm_sq(x3.data)
+        self.assertEqual(np.shape(got), (3,))
+        self.assertEqual(np.shape(pn), (3,))
+        for i in range(3):
+            sl = tuple(tuple(c[i] for c in fam) for fam in x3.data)
+            ref = float(cw.corewise_dot(sl, sl))
+            self.assertLess(abs(float(got[i]) - ref), 1e-9 * (abs(ref) + 1))
+            self.assertLess(abs(float(pn[i]) - ref), 1e-9 * (abs(ref) + 1))
+        x1 = t3.TuckerTensorTrain.randn(shape, nn, rr)
+        self.assertEqual(np.shape(geom.inner(x1.data, x1.data)), ())
+
+
 class TestGeometryValueIdentity(unittest.TestCase):
     """A geometry rides as jax ``aux_data``; equal parameters must mean an equal cache key."""
 

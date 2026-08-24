@@ -72,7 +72,7 @@ canonical_groups = sharing_module.canonical_groups   # re-exported: the geometry
 # --------------------------------------------------------------------------------------------------
 def t3_left_orthogonal_norm_sq(
         x_cores:  typ.Tuple,   # (tucker_cores, tt_cores) -- a LEFT-orthogonal T3 (a frame's (U,P), or a retracted point)
-) -> NDArray:                  # ‖X‖²_HS (scalar for stack C=())
+) -> NDArray:                  # ‖X‖²_HS, shape = stack C (a 0-d scalar for C=()); PER-ELEMENT over the stack
     """``‖X‖²_HS = ‖last TT core‖²`` -- exact for a left-orthogonal T3 (the frame's ``(U,P)`` or a
     ``t3svd`` retraction output), so no dense tensor and no re-orthogonalization. The left-orthogonal
     precondition is check-free here (backend) and is the caller's responsibility: on a raw point the value
@@ -80,9 +80,9 @@ def t3_left_orthogonal_norm_sq(
     :py:meth:`ManifoldGeometryOps.point_norm_sq` for an arbitrary point; verify a point with
     :py:func:`t3toolbox.backend.t3_orthogonalization.t3_orthogonality_residual`.
     (``dev/archive/regularization_design.md`` §4a.)"""
-    last = x_cores[1][-1]
+    last = x_cores[1][-1]                                    # stack + (rL, n, rR)
     xnp, _, _ = get_backend(False, tree_contains_jax(x_cores))
-    return xnp.sum(last * last)
+    return xnp.sum(last * last, axis=(-3, -2, -1))           # per stack element (review H3-5)
 
 
 def fv_base_point_tangent(
@@ -216,11 +216,14 @@ class ManifoldGeometryOps(ValueHashedFields):
             frame, variations, shared_data=aux if aux is not None else self.precompute(frame))
 
     def inner(self, a, b):
-        """The coordinate ``<.,.>`` on tangents (Hilbert-Schmidt on an orthonormal, gauged frame)."""
-        return cw.corewise_dot(a, b)
+        """The coordinate ``<.,.>`` on tangents (Hilbert-Schmidt on an orthonormal, gauged frame),
+        **per-element over the leading stacks** (``K+C``) -- shape = stack, a 0-d scalar unstacked,
+        matching the uniform twin and the frontend ``MANIFOLD.inner`` (review H3-5)."""
+        return cw.corewise_stack_dot(a, b, a[0][0].ndim - 2)     # Tucker variation core = stack+(nD, N)
 
     def point_norm_sq(self, x_cores):
-        """``‖X‖²_HS`` -- the regularizer's objective term. Exact for ANY point: left-orthogonalizes first
+        """``‖X‖²_HS`` -- the regularizer's objective term; **per-element over the stack ``C``**
+        (shape = ``C``, a 0-d scalar unstacked). Exact for ANY point: left-orthogonalizes first
         (Tucker up-orth + one left TT sweep, no ``W`` factor -- negligible beside the misfit evaluation it
         always sits next to), then reads ``‖last TT core‖²``. The uniform twin does the same. The check-free
         fast path for a point known to be left-orthogonal is :py:func:`t3_left_orthogonal_norm_sq`."""
@@ -291,12 +294,14 @@ class CorewiseGeometryOps(ValueHashedFields):
         return (t3_alias_tied_tucker_factors(new[0], self.groups), new[1])
 
     def inner(self, a, b):
-        """The Euclidean coordinate ``<.,.>`` (a layer-agnostic tree dot)."""
-        return cw.corewise_dot(a, b)
+        """The Euclidean coordinate ``<.,.>`` -- **per-element over the leading stacks** (shape =
+        stack, a 0-d scalar unstacked), matching the uniform twin (review H3-5)."""
+        return cw.corewise_stack_dot(a, b, a[0][0].ndim - 2)     # Tucker core = stack+(n, N)
 
     def point_norm_sq(self, x_cores):
-        """``Σ‖core_i‖²`` -- weight decay on the raw cores. Collapses every axis, stacks included."""
-        return cw.corewise_dot(x_cores, x_cores)
+        """``Σ‖core_i‖²`` -- weight decay on the raw cores, **per-element over the stack ``C``**
+        (shape = ``C``, a 0-d scalar unstacked)."""
+        return cw.corewise_stack_dot(x_cores, x_cores, x_cores[0][0].ndim - 2)
 
     def point_tangent(self, frame):
         """The cores ``(U, G)`` as a tangent (the projection is the identity here; ``X_ref = 0``)."""

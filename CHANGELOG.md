@@ -165,6 +165,14 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   already defaulted `False`; the fitting kinds pass `True` explicitly). Breaking only for raw-backend
   callers that relied on the old uniform default: pass `sum_over_probes=True` explicitly.
 
+- **The ragged backend geometries' `inner` / `point_norm_sq` are per-element over the frame stack,
+  matching the uniform twins and the frontend** (review H3-5). `ManifoldGeometryOps.inner`,
+  `CorewiseGeometryOps.inner` / `point_norm_sq`, and `t3_left_orthogonal_norm_sq` used to collapse the
+  stack `C` to a scalar while `UniformManifoldGeometryOps.inner` and `MANIFOLD.inner` returned shape
+  `C` -- a silent cross-layer asymmetry for a raw-`.data` user composing a stacked loop. Unstacked
+  behavior is unchanged (a 0-d scalar); shipped optimizer paths reject stacked points up front and are
+  unaffected.
+
 - **The uniform manifold frame is gauge-equivalent to ragged, no longer bit-identical.** The old
   bit-equality was an accident of both layers feeding the same matrices to the same LAPACK kernel;
   the pad-safe sweep (previous section) computes the same subspaces and singular values through a
