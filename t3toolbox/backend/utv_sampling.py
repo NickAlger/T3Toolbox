@@ -191,7 +191,7 @@ def utv_entries_jacobian_from_sweep(
 def utv_apply_transpose_from_sweep(
         residual,     # apply residual, shape=W+K+C (a scalar per stack element)
         frame_sweep,   # = utv_precompute_apply_frame_sweep(...)
-        sum_over_probes=True,
+        sum_over_probes=False,   # matches the ragged twin (review H2-4)
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
     """Transpose ``𝒥ᵀ`` of the all-modes apply reusing the frame sweep (the bare adjoint; no gauge ``Π`` --
     the geometry projects). Shares :py:func:`apply.tv_apply_transpose_from_sweep`; returns the bare gradient
@@ -203,7 +203,7 @@ def utv_apply_transpose_from_sweep(
 def utv_probe_transpose_from_sweep(
         ztildes,      # probe residuals, len=d, ith elm_shape=W+K+C+(Ni,)
         frame_sweep,   # = utv_precompute_probe_frame_sweep(...)
-        sum_over_probes=True,
+        sum_over_probes=False,   # matches the ragged twin (review H2-4)
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
     """Transpose ``𝒥ᵀ`` of the probe reusing the frame sweep (the bare adjoint): pack the residuals to ``N``,
     share :py:func:`probing.tv_probe_transpose_from_sweep`. Returns the bare gradient supercores."""
@@ -215,7 +215,7 @@ def utv_probe_transpose_from_sweep(
 def utv_entries_transpose_from_sweep(
         residual,     # entries residual, shape=W+K+C
         frame_sweep,   # = utv_precompute_entries_frame_sweep(...)
-        sum_over_probes=True,
+        sum_over_probes=False,   # matches the ragged twin (review H2-4)
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
     """Transpose ``𝒥ᵀ`` of the all-modes entries reusing the frame sweep (scatter ``residual`` at the sweep's
     ``index``). Shares :py:func:`entries.tv_entries_transpose_from_sweep`; returns the bare gradient supercores."""
@@ -322,7 +322,7 @@ def utv_apply_transpose_derivatives_from_sweep(
         residual,     # apply residual jet (scalar), shape=(order+1,)+W+K+C
         frame_sweep,   # = utv_precompute_apply_frame_sweep_jets(...)
         order,        # highest derivative order
-        sum_over_probes=True,
+        sum_over_probes=False,   # matches the ragged twin (review H2-4)
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
     """Transpose ``𝒥ᵀ`` of the apply-derivatives reusing the jet sweep (the bare adjoint; sums the order
     axis in assembly). Shares :py:func:`sampling_derivatives.tv_apply_transpose_derivatives_from_sweep`."""
@@ -335,7 +335,7 @@ def utv_probe_transpose_derivatives_from_sweep(
         ztildes,      # probe residual jets, len=d, ith elm_shape=(order+1,)+W+K+C+(Ni,)
         frame_sweep,   # = utv_precompute_probe_frame_sweep_jets(...)
         order,        # highest derivative order
-        sum_over_probes=True,
+        sum_over_probes=False,   # matches the ragged twin (review H2-4)
         chunk_size=100,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
     """Transpose ``𝒥ᵀ`` of the probe-derivatives reusing the jet sweep (the bare adjoint): pack the residual
@@ -351,7 +351,7 @@ def utv_entries_transpose_derivatives_from_sweep(
         residual,     # entries residual jet (scalar), shape=(order+1,)+W+K+C
         frame_sweep,   # = utv_precompute_entries_frame_sweep_jets(...)
         order,        # highest derivative order
-        sum_over_probes=True,
+        sum_over_probes=False,   # matches the ragged twin (review H2-4)
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
     """Transpose ``𝒥ᵀ`` of the entries-derivatives reusing the jet sweep (scatter at the sweep's ``index``).
     Shares :py:func:`sampling_derivatives.tv_entries_transpose_derivatives_from_sweep`."""

@@ -333,6 +333,34 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
                 self.assertTrue(np.allclose(np.asarray(clean), np.asarray(dirty)))   # scalar / packed array
 
 
+class TestSplitSeamDefaultParity(unittest.TestCase):
+    """Review H2-4: the six utv_*_transpose_from_sweep hooks must carry the SAME sum_over_probes
+    default as the ragged functions they share -- a differing default silently changes the result
+    shape for a raw-.data user porting code across the seam."""
+
+    def test_sum_over_probes_defaults_match_ragged(self):
+        import inspect
+        import t3toolbox.backend.utv_sampling as utvs
+        import t3toolbox.backend.apply as bapply_
+        import t3toolbox.backend.entries as bentries
+        import t3toolbox.backend.probing as bprobing
+        import t3toolbox.backend.sampling_derivatives as bsd
+        pairs = [
+            (utvs.utv_apply_transpose_from_sweep, bapply_.tv_apply_transpose_from_sweep),
+            (utvs.utv_entries_transpose_from_sweep, bentries.tv_entries_transpose_from_sweep),
+            (utvs.utv_probe_transpose_from_sweep, bprobing.tv_probe_transpose_from_sweep),
+            (utvs.utv_apply_transpose_derivatives_from_sweep, bsd.tv_apply_transpose_derivatives_from_sweep),
+            (utvs.utv_entries_transpose_derivatives_from_sweep, bsd.tv_entries_transpose_derivatives_from_sweep),
+            (utvs.utv_probe_transpose_derivatives_from_sweep, bsd.tv_probe_transpose_derivatives_from_sweep),
+        ]
+        for uf_, rf_ in pairs:
+            with self.subTest(hook=uf_.__name__):
+                du = inspect.signature(uf_).parameters['sum_over_probes'].default
+                dr = inspect.signature(rf_).parameters['sum_over_probes'].default
+                self.assertEqual(du, dr, f'{uf_.__name__} default differs from {rf_.__name__}')
+                self.assertIs(du, False)
+
+
 class TestUniformProblem(unittest.TestCase):
     """U4: the uniform least-squares Problem (fully packed) reproduces the ragged backend Problem's
     LocalModel -- objective, gradient (via <g, p>), and gn_quadratic(p) -- on the equivalent (up to

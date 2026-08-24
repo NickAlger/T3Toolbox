@@ -158,6 +158,13 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
 
 ### Changed
 
+- **The six `utv_*_transpose_from_sweep` hooks now default `sum_over_probes=False`, matching their
+  ragged twins** (review H2-4). Each says it "shares" the ragged function, but the uniform defaults
+  summed the probe stack `W` while ragged kept it -- so a raw-`.data` user porting ragged split-seam
+  code to uniform silently got a different result shape. No shipped path changes (both frontends
+  already defaulted `False`; the fitting kinds pass `True` explicitly). Breaking only for raw-backend
+  callers that relied on the old uniform default: pass `sum_over_probes=True` explicitly.
+
 - **The uniform manifold frame is gauge-equivalent to ragged, no longer bit-identical.** The old
   bit-equality was an accident of both layers feeding the same matrices to the same LAPACK kernel;
   the pad-safe sweep (previous section) computes the same subspaces and singular values through a
