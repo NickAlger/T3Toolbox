@@ -1181,6 +1181,12 @@ class TestUniformSharedTangent(unittest.TestCase):
                 d_u = self._tvdense(ufvc.ut3frame_to_t3frame(frame_u),
                                     ufvc.ut3variations_to_t3variations(proj_u))
                 self.assertLess(float(np.linalg.norm(d_u - d_r)), 1e-9 * np.linalg.norm(d_r))
+                # threading: project with shared_data= == project then the post-pass (review R9-11:
+                # the raw-.data route must reach the tied projection in one call, like the ragged twin)
+                proj_direct = utvo.utv_project_ut3_onto_tangent_space(frame_u, zu.data,
+                                                                      shared_data=sfd_u)
+                self.assertTrue(np.allclose(np.asarray(proj_direct[0]), np.asarray(proj_u[0])))
+                self.assertTrue(np.allclose(np.asarray(proj_direct[1]), np.asarray(proj_u[1])))
                 # threading: gauge projection with shared_data == gauge then the post-pass
                 gauged_then_tied = utvo.utv_orthogonal_gauge_projection(frame_u, raw_u,
                                                                         shared_data=sfd_u)

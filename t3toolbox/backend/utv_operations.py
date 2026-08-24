@@ -555,11 +555,15 @@ def utv_gauge_residual(
 def utv_project_ut3_onto_tangent_space(
         frame_data,  # UT3Frame .data (an orthogonal frame), supercore stack = C
         x_data,      # UniformTuckerTensorTrain .data to project, supercore stack = K + C (K tangents at the frame)
+
+        shared_data: typ.Optional['sharing_module.SharedFrameData'] = None,  # tied post-pass (SF-T3)
 ):  # -> gauged variations .data (the orthogonal projection of x onto the tangent space at the frame); stack K + C
     """Orthogonal projection of a uniform Tucker tensor train onto the tangent space at an orthogonal frame
     (the uniform mirror of :py:func:`tv_operations.tv_project_t3_onto_tangent_space`). Returns gauged
     variations representing the projection of ``x`` *directly* onto the tangent space (the linear subspace;
     it does NOT subtract the base point). The frame must be orthogonal (minimal rank not required).
+    ``shared_data`` (SF-T3): tie the projection onto the SHARED tangent space, exactly as the ragged twin
+    does -- without it a raw-``.data`` user of a shared frame gets an untied projection (review R9-11).
 
     Mask-once up front, then: re-express ``x``'s TT cores in the frame's up-Tucker basis (a per-core map
     vectorized over ``d``); accumulate the left/right TT environments with the polymorphic
@@ -591,7 +595,7 @@ def utv_project_ut3_onto_tangent_space(
     # a C-stacked frame over x's extra leading K for free because C is innermost)
     gauge_masks = ufv_masking.ufv_variation_masks_over_stack(
         (up_mask, down_mask, frame_left_mask, frame_right_mask), frame_data[0].shape[1:-2], dB.shape[1:-2])
-    return utv_orthogonal_gauge_projection(frame_data, (dB, dG, shape, gauge_masks))
+    return utv_orthogonal_gauge_projection(frame_data, (dB, dG, shape, gauge_masks), shared_data=shared_data)
 
 
 def ufv_weighted_norm(
