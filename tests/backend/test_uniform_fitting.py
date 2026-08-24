@@ -335,7 +335,8 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
 
 class TestUniformProblem(unittest.TestCase):
     """U4: the uniform least-squares Problem (fully packed) reproduces the ragged backend Problem's
-    LocalModel -- objective, gradient (via <g, p>), and gn_quadratic(p) -- on the equivalent frame, for
+    LocalModel -- objective, gradient (via <g, p>), and gn_quadratic(p) -- on the equivalent (up to
+    gauge) frame, for
     every sampling kind and both geometries. This certifies the Problem factory's sample/data packing and
     the reused LocalModel wiring."""
     _GEOMS = [('manifold', bgeo.ManifoldGeometryOps(), t3m.MANIFOLD), ('corewise', bgeo.CorewiseGeometryOps(), t3m.COREWISE)]
@@ -351,8 +352,20 @@ class TestUniformProblem(unittest.TestCase):
         self.trial = {}
         for name, _bg, fg in self._GEOMS:
             p = fg.randn(fg.frame(self.x0))
-            self.trial[name] = (p.variations.data,
-                                ubv.UT3Variations.from_t3variations(p.variations).supercores)
+            if name == 'manifold':
+                # The uniform manifold frame is gauge-EQUIVALENT to ragged, not bit-identical (the
+                # pad-safe sweep, review S1b), so the same coordinate array means a DIFFERENT tangent
+                # at the uniform frame. Transport p through the ambient embedding instead: project
+                # p's doubled-rank T3 onto the tangent space at the frame the uniform problem builds
+                # (exact -- p already lies in that tangent space, which is gauge-independent).
+                uframe = ubv.UT3Frame.from_ut3(self.ux0)
+                proj = utv_operations.utv_project_ut3_onto_tangent_space(
+                    uframe.data, ut3.UniformTuckerTensorTrain.from_t3(p.to_t3()).data)
+                p_u = (proj[0], proj[1])
+            else:
+                # corewise: the "frame" is the point's own cores -- identical across representations
+                p_u = ubv.UT3Variations.from_t3variations(p.variations).supercores
+            self.trial[name] = (p.variations.data, p_u)
 
     def _check(self, geom, bgeom, kind_name, ragged_kind, sample, data, order=None, weight=None):
         p_r, p_u = self.trial[geom]
