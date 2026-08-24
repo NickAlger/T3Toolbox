@@ -5,9 +5,11 @@
 """Dense linear-algebra primitives shared by the orthogonalization and SVD sweeps.
 
 ``truncated_svd``, the directional ``left/right/up_svd`` and ``*_svd_pair`` factorizations
-(directions match the core-unfolding conventions), and ``pad_or_truncate``. Pure array-in,
-array-out helpers with no T3 semantics.
+(directions match the core-unfolding conventions), ``pad_safe_svd`` (the mask-aware SVD of a
+zero-padded matrix -- the uniform layer's replacement for a black-box SVD), and
+``pad_or_truncate``. Pure array-in, array-out helpers with no T3 semantics.
 """
+import functools
 import typing as typ
 import numpy as np
 
@@ -16,6 +18,7 @@ from t3toolbox.backend.common import *
 __all__ = [
     'pad_or_truncate',
     'truncated_svd',
+    'pad_safe_svd',
     'left_svd',
     'right_svd',
     'up_svd',
@@ -528,3 +531,177 @@ def down_svd_pair(
 
 
 
+
+
+######################################
+########    Pad-safe SVD    ##########
+######################################
+
+@functools.lru_cache(maxsize=None)
+def _haar_sketch(M: int) -> np.ndarray:
+    '''Fixed Haar-orthonormal sketch, one per width ``M`` (host numpy, fixed seed -- a jit constant).
+
+    The QR sign fix makes the distribution Haar; Haar (``kappa = 1``) rather than plain Gaussian
+    avoids the mildly heavy-tailed ``sigma_min`` of a square Gaussian sketch. Drawn ONCE per width
+    from a fixed seed and cached: per-call randomness buys nothing, and a fixed sketch keeps
+    ``pad_safe_svd`` deterministic (same input -> same output, across calls and processes).
+    '''
+    Q, R = np.linalg.qr(np.random.default_rng(0).standard_normal((M, M)))
+    d = np.sign(np.diag(R))
+    return Q * np.where(d == 0.0, 1.0, d)
+
+
+def pad_safe_svd(
+        A:        NDArray, # shape=(...,N,M); padded rows/columns identically zero
+        row_mask: NDArray, # bool, shape=broadcastable to (...,N); True = REAL row, False = padded
+        col_mask: NDArray, # bool, shape=broadcastable to (...,M); True = REAL column, False = padded
+) -> typ.Tuple[
+    NDArray, # U,  shape=(...,N,K), K=minimum(N,M); first q=minimum(n,m) columns bitwise zero on padded rows
+    NDArray, # ss, shape=(...,K);   ss[q:] == 0 exactly
+    NDArray, # Vt, shape=(...,K,M); first q rows bitwise zero on padded columns
+]:
+    '''SVD of a zero-padded matrix whose null-space vectors are forced OFF the padding.
+
+    A black-box SVD of a padded matrix is wrong when the real block is numerically rank-deficient:
+    the sigma ~= 0 left singular vectors are an arbitrary basis of a degenerate subspace that
+    contains the pad coordinates, so they generically land on padded rows -- and a downstream mask
+    then erases them (a lost direction: sliced to its real rows, ``U`` is non-orthonormal and
+    rank-deficient). ``pad_safe_svd`` takes the real/pad partition as data and realizes the contract
+
+        ``pad -> svd -> unpad  ==  svd of the unpadded n x m real block``
+
+    with ``n = row_mask.sum()``, ``m = col_mask.sum()`` and ``q = minimum(n, m)``:
+
+    * ``A == U @ diag(ss) @ Vt`` -- a genuine economy SVD of the padded matrix;
+    * the first ``q`` triplets are a valid economy SVD of the real block: its positive singular
+      values, then real-supported null completions, with ``U[..., :q]`` **bitwise** zero on padded
+      rows and ``Vt[..., :q, :]`` **bitwise** zero on padded columns (exact ``== 0.0``, not small);
+    * the remaining ``K - q`` don't-care triplets carry ``ss == 0`` exactly;
+    * **no rank tolerance is used anywhere** -- every count comes from the masks or from bitwise
+      {0, 1} indicators, so exact and roundoff-level zeros need no distinction.
+
+    Any real ``(n, m)`` is supported -- tall, wide, or mixed across a batch -- and pads may sit at
+    arbitrary (interior) positions. Masks are runtime data of static length: under jax they may be
+    traced (or host-numpy constants), and one jit compile covers every mask pattern. The only
+    branch is on the static padded shape (``N < M`` transposes internally).
+
+    Algorithm (Method D, "sketch-project", from the pad-safe SVD design packet; record:
+    ``dev/review_2026-08-22/repros/S1b/packet/``). Load-bearing details -- do not "simplify":
+
+    * pad rows are permuted to the TRAILING pivot positions before the QR (Householder reflectors
+      then never place mass on a padded row; the surplus columns come out as exact pad coordinate
+      vectors, flagged by the bitwise indicator ``t``);
+    * the separation constant is ``c = 4 * ||A||_F`` (Frobenius, per batch element). The filter
+      ``sigma > c/2`` then has ``||A||``-sized margins on both sides. ``c = 2 * sigma_max`` is
+      fragile: the threshold sits exactly at ``sigma_max`` and one-ulp rounding deletes the largest
+      triplet (~38%% of generic rank-1 matrices, measured);
+    * the augmented SVD's right factor is discarded (zero columns where ``t = 0`` pollute only it);
+    * ``Vt`` is rebuilt from ``A.T @ U == V @ diag(ss)`` -- exactly its own QR up to column signs.
+
+    The bitwise-zero guarantees rest on Householder-QR semantics (true for LAPACK, cuSOLVER, and
+    jax's ``qr`` lowering on all backends; the big matrix never sees an SVD -- only the small
+    augmented core does). They hold in float32 as well; only orthonormality/sigma accuracy scales
+    with precision.
+
+    Cost ``O(N M^2 + M^3)``, independent of the pad counts; no ``(N, N)`` intermediate exists.
+
+    Examples
+    --------
+    The failure this exists for: a zero-padded warm start (interior pad rows, and a real column
+    that is exactly zero -- the padding of a rank-continuation restart). A black-box SVD puts
+    null-space mass on the padded rows, so the masked real block is no longer orthonormal:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.linalg as linalg
+    >>> np.random.seed(0)
+    >>> row_mask = np.array([True, False, True, True, False, True])   # pads at rows 1, 4 (interior)
+    >>> col_mask = np.array([True, True, True, False])                # 3 real columns of 4
+    >>> A = np.zeros((6, 4))
+    >>> A[np.ix_(row_mask, col_mask)] = np.hstack([np.random.randn(4, 2), np.zeros((4, 1))])
+    >>> U0, ss0, _ = np.linalg.svd(A, full_matrices=False)            # black-box SVD:
+    >>> print(bool(np.all(U0[~row_mask][:, :3] == 0.0)))              #   pad rows contaminated
+    False
+    >>> Ur0 = U0[row_mask][:, :3]
+    >>> print(float(np.round(np.linalg.norm(Ur0.T @ Ur0 - np.eye(3)), 2)))   # real block skewed
+    0.26
+
+    ``pad_safe_svd`` takes the masks (``True`` = real, the library polarity) and returns clean
+    factors -- bitwise-zero pads, the real block orthonormal at full mask rank, singular values
+    exactly those of the unpadded block:
+
+    >>> U, ss, Vt = linalg.pad_safe_svd(A, row_mask, col_mask)
+    >>> print(bool(np.all(U[~row_mask][:, :3] == 0.0)), bool(np.all(Vt[:3, ~col_mask] == 0.0)))
+    True True
+    >>> Ur = U[row_mask][:, :3]
+    >>> print(np.allclose(Ur.T @ Ur, np.eye(3)))                      # no lost directions
+    True
+    >>> print(np.allclose(ss[:3], np.linalg.svd(A[np.ix_(row_mask, col_mask)], compute_uv=False)))
+    True
+    >>> print(np.allclose(np.einsum('ix,x,xj->ij', U, ss, Vt), A), float(ss[3]))
+    True 0.0
+
+    A wide real block (``n < m``) needs no transpose by the caller -- the contract is symmetric
+    in ``min(n, m)`` (here 2) -- and a statically wide matrix (``N < M``) transposes internally:
+
+    >>> B = np.zeros((3, 5)); B[:2, :4] = np.random.randn(2, 4)
+    >>> Uw, sw, Vtw = linalg.pad_safe_svd(B, np.array([1, 1, 0], bool), np.array([1, 1, 1, 1, 0], bool))
+    >>> print(Uw.shape, sw.shape, Vtw.shape)                          # K = min(N, M) = 3 triplets
+    (3, 3) (3,) (3, 5)
+    >>> print(np.allclose(sw[:2], np.linalg.svd(B[:2, :4], compute_uv=False)), bool(np.all(sw[2:] == 0.0)))
+    True True
+    '''
+    use_jax = tree_contains_jax((A, row_mask, col_mask))
+    xnp, _, _ = get_backend(False, use_jax)
+
+    A = xnp.asarray(A)
+    N, M = A.shape[-2:]
+    if N < M:  # static branch on concrete padded shapes: run tall, swap the factors back
+        U_T, ss, Vt_T = pad_safe_svd(A.swapaxes(-2, -1), col_mask, row_mask)
+        return Vt_T.swapaxes(-2, -1), ss, U_T.swapaxes(-2, -1)
+
+    # broadcast the masks over the leading batch axes up front (take_along_axis needs full ndim)
+    lead = np.broadcast_shapes(A.shape[:-2], np.shape(row_mask)[:-1], np.shape(col_mask)[:-1])
+    A = xnp.broadcast_to(A, lead + (N, M))
+    row_mask = xnp.broadcast_to(xnp.asarray(row_mask).astype(bool), lead + (N,))
+    col_mask = xnp.broadcast_to(xnp.asarray(col_mask).astype(bool), lead + (M,))
+
+    # -- left basis: sketch, permute pads to the trailing pivots, QR, un-permute ------------------
+    Omega = xnp.asarray(_haar_sketch(M), dtype=A.dtype)
+    Y_nk = xnp.einsum('...nm,mk->...nk', A, Omega)                  # padded rows bitwise zero for any Omega
+    key_n = xnp.where(row_mask, 0, N) + xnp.arange(N)               # distinct ints: real rows first,
+    pr = xnp.argsort(key_n, axis=-1)                                #   original order (sort-stable by key)
+    inv_pr = xnp.argsort(pr, axis=-1)
+    Qp_nx, _ = xnp.linalg.qr(xnp.take_along_axis(Y_nk, pr[..., :, None], axis=-2))
+    Q_nx = xnp.take_along_axis(Qp_nx, inv_pr[..., :, None], axis=-2)
+    # bitwise split of Q's columns: data-supported | exact pad coordinate vectors (the surplus)
+    t_x = xnp.max(xnp.abs(Q_nx) * (~row_mask)[..., :, None], axis=-2) > 0.5
+
+    # -- one SVD of the small augmented core (static (M, 2M)) -------------------------------------
+    B_xm = xnp.einsum('...nx,...nm->...xm', Q_nx, A)                # surplus rows bitwise zero
+    normA = xnp.sqrt(xnp.sum(A * A, axis=(-2, -1)))
+    c = 4.0 * normA + (normA == 0.0)                                # 4x margin -- load-bearing, see above
+    pin_block = c[..., None, None] * (t_x[..., :, None] * xnp.eye(M, dtype=A.dtype))
+    W1_xk, Sa_k, _ = xnp.linalg.svd(xnp.concatenate([B_xm, pin_block], axis=-1), full_matrices=False)
+
+    # -- classify {pin, data} with margin, sort kept descending + pins last, assemble U and ss ----
+    pinned_k = Sa_k > c[..., None] / 2.0
+    order = xnp.argsort(xnp.where(pinned_k, -1.0, Sa_k), axis=-1)[..., ::-1]
+    W1_xk = xnp.take_along_axis(W1_xk, order[..., None, :], axis=-1)
+    So_k = xnp.take_along_axis(Sa_k, order, axis=-1)
+    pino_k = xnp.take_along_axis(pinned_k, order, axis=-1)
+    W1_xk = xnp.where(t_x[..., :, None] & ~pino_k[..., None, :], 0.0, W1_xk)   # exact-arithmetic-zero dirt
+    U_nk = xnp.einsum('...nx,...xk->...nk', Q_nx, W1_xk)            # first q columns bitwise clean
+    q = xnp.minimum(xnp.sum(row_mask, axis=-1), xnp.sum(col_mask, axis=-1))
+    ss_k = xnp.where(pino_k, 0.0, So_k)                             # zero pins BY FLAG (n < m support),
+    ss_k = xnp.where(xnp.arange(M) < q[..., None], ss_k, 0.0)       #   then the sigma ~= 0 tail exactly
+
+    # -- rebuild the right factor: A^T @ U == V @ diag(ss), already its own QR up to column signs --
+    W_mk = xnp.einsum('...nm,...nk->...mk', A, U_nk)                # padded-column rows bitwise zero
+    key_m = xnp.where(col_mask, 0, M) + xnp.arange(M)
+    pc = xnp.argsort(key_m, axis=-1)
+    inv_pc = xnp.argsort(pc, axis=-1)
+    Vq_mk, R_kk = xnp.linalg.qr(xnp.take_along_axis(W_mk, pc[..., :, None], axis=-2))
+    V_mk = xnp.take_along_axis(Vq_mk, inv_pc[..., :, None], axis=-2)
+    d_k = xnp.sign(xnp.diagonal(R_kk, axis1=-2, axis2=-1))
+    V_mk = V_mk * xnp.where(d_k == 0.0, 1.0, d_k)[..., None, :]
+    return U_nk, ss_k, V_mk.swapaxes(-2, -1)

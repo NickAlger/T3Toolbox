@@ -106,6 +106,37 @@ class TestDispatch(unittest.TestCase):
         if returns_ut3:
             self.assert_concrete_masks(out)
 
+    # ---------------------------------------------------- jit bucket: pad-safe SVD (linalg)
+    def test_jit_pad_safe_svd(self):
+        """The uniform sweeps' mask-aware SVD: masks are runtime data with static shapes, so ONE
+        compile must cover every mask pattern, and the bitwise pad-zero guarantee survives jit."""
+        N, M = 8, 4
+
+        def case(seed):
+            r = np.random.default_rng(seed)
+            rm = r.random(N) > 0.3
+            cm = r.random(M) > 0.3
+            n, m = int(rm.sum()), int(cm.sum())
+            k = max(min(n, m) - 1, 0)
+            A = np.zeros((N, M))
+            if k:
+                A[np.ix_(rm, cm)] = r.standard_normal((n, k)) @ r.standard_normal((k, m))
+            return A, rm, cm
+
+        f = jax.jit(linalg.pad_safe_svd)
+        for seed in range(4):                                           # 4 different mask patterns
+            A, rm, cm = case(seed)
+            out = f(jnp.asarray(A), jnp.asarray(rm), jnp.asarray(cm))   # masks as TRACED jax arrays
+            self._leaves_all_jax(out)
+            U, ss, Vt = map(np.asarray, out)
+            q = min(int(rm.sum()), int(cm.sum()))
+            self.assertTrue(np.all(U[~rm][:, :q] == 0.0), "bitwise pad-zero lost under jit")
+            self.assertTrue(np.all(Vt[:q, :][:, ~cm] == 0.0), "bitwise pad-zero lost under jit (Vt)")
+            _, ss_np, _ = linalg.pad_safe_svd(A, rm, cm)                # numpy-path agreement smoke
+            self.assertTrue(np.allclose(ss, ss_np, atol=tol))
+        if hasattr(f, '_cache_size'):
+            self.assertEqual(f._cache_size(), 1, "a mask pattern triggered a recompile")
+
     # ---------------------------------------------------- jit bucket: TuckerTensorTrain
     def test_jit_tucker_tensor_train(self):
         vecs = tuple(jnp.ones(N) for N in STRUCT[0])
