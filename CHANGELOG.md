@@ -44,6 +44,14 @@ All notable changes to T3Toolbox are documented here. The format follows
 
 _The items below came out of the 2026-08-22 whole-library review (`dev/review_2026-08-22/`)._
 
+- **The uniform same-frame guard compares real (masked) content only** (review H5-5). Two frames
+  identical up to the don't-care padding now count as the SAME frame -- the tangent space depends only
+  on the real content -- so `UT3Tangent` arithmetic / `stack_tangents` between a frame and a re-padded
+  copy of it works instead of raising "different tangent spaces". `safety.frames_equal` itself stays
+  representation-agnostic; its contract is now explicit: callers pass real content, and the uniform
+  call sites mask their supercores first. (This also makes `UT3Frame`'s documented "frames_equal on
+  the masked supercores" true.)
+
 - **Small ergonomics from the review's E list** (R9-10, R7-11, R3-7): ``chunk_size`` now threads
   through both frontends' ``probe_corewise_derivatives_transpose`` (and the uniform backend wrapper) --
   it existed only on the ragged backend and the tangent-level transposes; ``chunk_size='auto'``

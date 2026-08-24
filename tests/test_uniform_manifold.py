@@ -220,6 +220,23 @@ class TestVectorSpace(unittest.TestCase):
         with safety.unsafe():                                 # numerical check skipped -> no raise
             _ = v + v2
 
+    def test_same_frame_ignores_padding(self):
+        # review H5-5: the same-frame guard compares REAL (masked) content only -- two frames identical
+        # up to don't-care padding are the same frame, so tangent arithmetic between them works.
+        import t3toolbox.backend.ufv_masking as ufv_masking
+        x = t3.TuckerTensorTrain.randn(*_STRUCT)
+        B, V = _uniform_frame(x)
+        ones = tuple(np.ones_like(c) for c in B.data[:4])
+        ind = ufv_masking.ufv_apply_frame_masks(ones + (B.shape, B.masks.data))   # 1 on real slots, 0 on pad
+        garbage = tuple(c * i + 999.0 * (1.0 - i) for c, i in zip(B.data[:4], ind))
+        B2 = ubv.UT3Frame(*garbage, B.shape, B.masks)
+        v = ut3m.UT3Tangent(B, V)
+        v2 = ut3m.UT3Tangent(B2, V.copy())
+        w = v + v2                                            # same real content -> same frame -> no raise
+        self.assertTrue(w.allclose(2.0 * v).all())
+        s = ut3m.UT3Tangent.stack_tangents([v, v2])           # stack_tangents guard masked too
+        self.assertEqual(s.tangent_stack_shape, (2,))
+
     def test_add_requires_same_stack(self):
         x = t3.TuckerTensorTrain.randn(*_STRUCT)
         B, V = _uniform_frame(x)

@@ -26,6 +26,7 @@ import functools as ft
 from dataclasses import dataclass
 
 import t3toolbox.uniform_frame_variations_format as ubv
+import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.manifold as t3m
 import t3toolbox.frame_variations_format as bvf
@@ -215,11 +216,13 @@ class UT3Tangent(common.ExplicitEquality):
                 'Tangent vectors have different rank masks (different strata of the determinantal '
                 'variety, i.e. different tangent spaces).')
         # NUMERICAL (skippable): are these the same frame? The `is` fast-path keeps the common eager case
-        # O(1); the value compare (frame supercores only -- data[:4]; the full .data carries the int-tuple
-        # `shape`, which safety's array compare cannot take) runs only when the objects differ, e.g. a jit
-        # round-trip reconstructs a value-equal frame. Skips under safety.unsafe() and under a jax trace.
+        # O(1); the value compare runs only when the objects differ, e.g. a jit round-trip reconstructs a
+        # value-equal frame. Skips under safety.unsafe() and under a jax trace. The supercores are MASKED
+        # first (review H5-5): the tangent space depends only on real content, so frames identical up to
+        # don't-care padding are the SAME frame -- safety.frames_equal only ever sees real content.
         if not (self.frame is other.frame
-                or safety.frames_equal_or_skip(self.frame.data[:4], other.frame.data[:4])):
+                or safety.frames_equal_or_skip(ufv_masking.ufv_apply_frame_masks(self.frame.data),
+                                               ufv_masking.ufv_apply_frame_masks(other.frame.data))):
             raise ValueError(
                 'Tangent vectors are in different tangent spaces (their frames are not the same frame).\n'
                 'Linear algebra between tangent vectors requires the same frame; run inside '
@@ -913,7 +916,8 @@ class UT3Tangent(common.ExplicitEquality):
         leaves = _flatten_tangents(tree)
         frame = leaves[0].frame
         for t in leaves[1:]:
-            if not (t.frame is frame or safety.frames_equal_or_skip(t.frame.data[:4], frame.data[:4])):
+            if not (t.frame is frame or safety.frames_equal_or_skip(       # masked: padding is don't-care
+                    ufv_masking.ufv_apply_frame_masks(t.frame.data), ufv_masking.ufv_apply_frame_masks(frame.data))):
                 raise ValueError(
                     'stack_tangents requires every tangent to be at the same frame -- they must live in the '
                     'same tangent space. To stack tangents at *different* base points, use stack_frame. '

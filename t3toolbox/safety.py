@@ -225,7 +225,10 @@ def frames_equal(data1, data2, rtol=None):
 
     The honest "same tangent space" test: two frames are the same iff their cores are equal. It accepts
     the value-equal-but-different-object frames a jit round-trip produces, while rejecting a genuinely
-    different frame. ``rtol`` defaults to the ambient jax-aware tolerance (falling back to the defaults if
+    different frame. Contract: callers pass **real content only** -- a padded representation (the
+    uniform layer) masks its supercores first (``ufv_apply_frame_masks``), so don't-care padding never
+    participates; this function itself is representation-agnostic and mask-ignorant.
+    ``rtol`` defaults to the ambient jax-aware tolerance (falling back to the defaults if
     unsafe -- this is a pure comparison, mode-agnostic).'''
     if rtol is None:
         tols = _safety.get() or _DEFAULT
