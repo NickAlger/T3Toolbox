@@ -7,6 +7,10 @@
 Holds the t3 + tv ops, the ambient/tangent/corewise transposes, and the frame sweeps for entry
 sampling. The most-special case of probe ⊃ apply ⊃ entries; imports the general machinery from
 ``probing``, never the reverse. See ``docs/entries_apply_probe.md``.
+
+Index semantics are numpy's throughout (forward and all transposes): a negative index wraps; an
+out-of-range index raises under numpy but **clamps silently under jax** (gather semantics) --
+validate indices yourself on the jax path.
 """
 import numpy as np
 import typing as typ
@@ -59,21 +63,18 @@ def t3_entries(
             typ.Tuple[NDArray, NDArray], # (tucker_supercore, tt_supercore)
         ],
         index: NDArray, # dtype=int, shape=(d,)+vsw. (or convertible to int array of this shape)
-) -> NDArray: # shape=vsw+vsc (W + C, base-inner)
+) -> NDArray: # shape=vsw+vsc (W + C, frame-inner)
     '''Compute entries of a Tucker tensor train.
     '''
     use_jax = tree_contains_jax((x, index))
     is_uniform = is_ndarray(x[0])
     xnp, _, xscan = get_backend(is_uniform, use_jax)
 
-    #
-    index = xnp.array(index)
-
     tucker_cores, tt_cores = x
     vsc = x[0][0].shape[:-2]
     index = xnp.array(index)
 
-    vsw = index.shape[1:]    # index stack W (base-inner: W outer, C inner)
+    vsw = index.shape[1:]    # index stack W (frame-inner: W outer, C inner)
 
     mu_WCa = xnp.ones(vsw + vsc + (tt_cores[0].shape[-3],))   # W + C
     ind_B_G = (index, tucker_cores, tt_cores)

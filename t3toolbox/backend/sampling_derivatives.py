@@ -49,7 +49,7 @@ from t3toolbox.backend.common import *
 # long ago). It is reconstructed from an old, unvetted derivation and will be written up afresh in a
 # project note; the recursions here have been verified against a dense oracle, not against the paper.
 #
-# STACKING: the SAME three blocks as plain probing (base-inner W + K + C), plus the convolved order
+# STACKING: the SAME three blocks as plain probing (frame-inner W + K + C), plus the convolved order
 # axis t. See docs/batching_and_stacking.md.
 #   - sample stack W: on the inputs ww/pp -- each sample is a paired (X, P) (duplicate a point across W
 #     to sweep many directions at it). This IS the probing probe stack W.
@@ -57,7 +57,7 @@ from t3toolbox.backend.common import *
 #     (Riemannian only). Rides the variation-derived jets (sigma/tau/deta/dxi), not the frame jets.
 #   - frame/core stack C: on the cores -- a batch of T3s.
 # The order axis t (the derivative orders, convolved by the binomial tensor trs) is placed OUTERMOST;
-# the passive blocks are base-inner W + K + C. So frame jets carry order + W + C, variation jets carry
+# the passive blocks are frame-inner W + K + C. So frame jets carry order + W + C, variation jets carry
 # order + W + K + C, and outputs are order + W + (K) + C + (Ni,). Any block may be empty. The
 # contractions self-infer the W/K/C split from operand shapes, so nothing here threads it (a
 # variation-core-only term takes n_frame = len(C); the n_probe precedent).
@@ -138,14 +138,14 @@ def t3_probe_derivatives(
             typ.Sequence[NDArray],      # tucker_cores. len=d, elm_shape=C+(nUi,Ni)
             typ.Sequence[NDArray],      # tt_cores.     len=d, elm_shape=C+(rLi,nUi,rR(i+1))
         ],                              # = TuckerTensorTrain.data
-        order:  int,                    # highest derivative order K
+        order:  int,                    # highest derivative order
 ) -> typ.Tuple[NDArray, ...]:           # z_jets. len=d, elm_shape=(order+1,)+W+C+(Ni,)
     '''Symmetric derivatives of probing a Tucker tensor train, in one repeated direction.
 
-    Returns, for each mode ``i``, the stack ``y_i^(t) = d^t/ds^t y_i(X + s P)|_0`` for ``t=0..K``,
+    Returns, for each mode ``i``, the stack ``y_i^(t) = d^t/ds^t y_i(X + s P)|_0`` for ``t=0..order``,
     where ``y_i`` is the ``i``-th probing action. Index ``0`` is the ordinary probe ``t3_probe``.
 
-    Two independent stacks ride through, base-inner as in plain probing: a sample stack ``W`` on the
+    Two independent stacks ride through, frame-inner as in plain probing: a sample stack ``W`` on the
     input vectors (each sample a paired ``(X, P)`` -- repeat a point across ``W`` to sweep many
     directions at it) and a frame/core stack ``C`` on the cores (a batch of T3s probed by the same
     samples). Outputs are ``order + W + C + (Ni,)`` (``W`` outer, ``C`` inner); either may be empty.
@@ -236,7 +236,7 @@ def check_perturbation_index(
 
 
 def binomial_combine_tensor(
-        order:  int,        # highest derivative order K
+        order:  int,        # highest derivative order
 ) -> NDArray:               # trs. shape=(order+1,order+1,order+1). trs[t,r,s] = C(t,r) if r+s==t else 0
     '''Binomial tensor driving every jet convolution.
 
@@ -246,9 +246,8 @@ def binomial_combine_tensor(
     the combine (full ``s``). Pure structure (exact integer binomials), so always numpy -- it folds
     into the compiled program as a device constant on the jax path, like the uniform masks.
     '''
-    K = order
-    trs = np.zeros((K + 1, K + 1, K + 1))
-    for t in range(K + 1):
+    trs = np.zeros((order + 1, order + 1, order + 1))
+    for t in range(order + 1):
         for r in range(t + 1):
             trs[t, r, t - r] = math.comb(t, r)
     return trs
@@ -335,7 +334,7 @@ def compute_mu_jets_trs(
 # These are the default implementations wired into the sampling-derivative call sites; each has a dense
 # `*_trs` twin (above/below) kept as a reference -- numerically equal to tolerance, occasionally faster
 # in tiny / memory-abundant regimes, and the oracle in tests/test_jet_recurrence.py. The design question
-# that motivates the recurrence form is dev/archive/OPEN_QUESTION_contractions_architecture_RESOLVED_2026-07-17.md.
+# that motivates the recurrence form is recorded in ``docs/contributor/contractions_internals.md``.
 #
 # The idea: a trs binomial tensor is a sparse convolution tensor, so contracting it as a DENSE einsum
 # operand is the wrong handling -- it is what makes _pairwise_path degenerate (the trs operand shares
@@ -467,7 +466,7 @@ def compute_eta_jets_trs(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        # d-prefixed jet combine (3b-6'a), vectorized over the core index d; the ragged xmap below is the
+        # d-prefixed jet combine, vectorized over the core index d; the ragged xmap below is the
         # oracle. mu/nu jets are (d,)+(order,)+W+C+(r,); the tt supercore is (d,)+C+(rL,nO,rR) (C-only).
         eta_jets = contractions.contract('trs,drWCa,dCaib,dsWCb->dtWCi', trs, mu_jets, tt_cores, nu_jets)
     else:
@@ -576,7 +575,7 @@ def assemble_z_jets(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        # d-prefixed jet lift (3b-6'a); the ragged xmap below is the oracle. The order axis rides passively
+        # d-prefixed jet lift; the ragged xmap below is the oracle. The order axis rides passively
         # through the C-only tucker supercore, keeping its own einsum letter (never folded into W).
         z_jets = contractions.contract('dtWCi,dCio->dtWCo', eta_jets, tucker_cores)
     else:
@@ -726,7 +725,7 @@ def tv_precompute_probe_frame_sweep_jets(
 # the 2-block (W,C) order-threaded contractions; the variation sweep (dxi, sigma, tau, deta) carries
 # the tangent stack K, so it uses the order-threaded THREE-block (W,K,C) contractions, exactly as
 # tv_probe's perturbation sweep does (K on the variation cores; n_frame = len(C) where the only
-# core operand is a variation core). Stacks t + W + K + C, base-inner. The transpose is a separate slice.
+# core operand is a variation core). Stacks t + W + K + C, frame-inner. The transpose is a separate slice.
 
 
 def _zero_jet(
@@ -855,7 +854,7 @@ def compute_deta_jets_trs(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        # d-prefixed jet combines (3b-6'a), vectorized over d; the ragged xmap below is the oracle. sigma/tau
+        # d-prefixed jet combines, vectorized over d; the ragged xmap below is the oracle. sigma/tau
         # jets carry K (W+K+C); mu/nu are W+C; P/Q are C-only supercores; term2's only core is dG (K+C), so
         # len(C) = n_frame, read off the C-only Q supercore (d,)+C+(rR,nU,rR).
         n_frame = right_tt_cores.ndim - 4
@@ -1075,7 +1074,7 @@ def assemble_tangent_z_jets(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        # d-prefixed jet lifts (3b-6'a); the ragged xmap below is the oracle. deta carries K (lifted via the
+        # d-prefixed jet lifts; the ragged xmap below is the oracle. deta carries K (lifted via the
         # C-only U supercore, where W and K ride passively); eta is W+C lifted through the K+C variation core dU,
         # so the eta-lift needs len(C) = n_frame, read off the C-only U supercore (d,)+C+(nU,N).
         n_frame = tucker_cores.ndim - 3
@@ -1102,7 +1101,7 @@ def tv_probe_jacobian_derivatives_from_sweep(
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = tv_precompute_probe_frame_sweep_jets(frame, ww, pp, order)
-        order:      int,                    # highest derivative order K
+        order:      int,                    # highest derivative order
 ) -> typ.Tuple[NDArray, ...]:               # z_jets. len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
     '''Variation half of :py:func:`tv_probe_derivatives` from a precomputed frame ``sweep``: the
     variation sweep (sigma/tau/deta jets via the variation cores) + the lift, reusing the frame
@@ -1132,16 +1131,16 @@ def tv_probe_derivatives(
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
         ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
-        order:      int,                    # highest derivative order K
+        order:      int,                    # highest derivative order
 ) -> typ.Tuple[NDArray, ...]:               # z_jets. len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
     '''Symmetric derivatives of probing a tangent vector, in one repeated direction (Riemannian J^(s)).
 
     The probe-derivative analog of :py:func:`probing.tv_probe`: returns, for each mode ``i``, the
-    stack ``y_i^(t) = d^t/ds^t [J^(s) v]_i (X + s P)|_0`` for ``t=0..K``, where ``v`` is the tangent
+    stack ``y_i^(t) = d^t/ds^t [J^(s) v]_i (X + s P)|_0`` for ``t=0..order``, where ``v`` is the tangent
     vector represented by ``(frame, variation)``. Index ``0`` is the ordinary tangent probe.
 
     Identical structure to :py:func:`t3_probe_derivatives` but on the tangent calculus: a frame sweep
-    (frame cores) and a variation sweep. Full ``order + W + K + C`` stacking (base-inner, mirroring
+    (frame cores) and a variation sweep. Full ``order + W + K + C`` stacking (frame-inner, mirroring
     tv_probe): sample stack ``W``, tangent stack ``K`` (a batch of tangents sharing the frame, on
     the variation cores), frame stack ``C``; any may be empty.
 
@@ -1421,9 +1420,9 @@ def tv_entries_derivatives(
 # the verified non-derivative transpose (probing.compute_*_tildes / assemble_*) with each contraction
 # swapped for its ADJOINT-HOOKED trs version (same trs tensor, transposed legs: the multiplier's order
 # is summed, the swept order is freed) for the sweeps, and the ORDER-LESS trs (TT, 3 edges) / plain
-# order-sum (Tucker, 1 edge) for the assembly. Stacks (base-inner W + C, as in plain probing): sample
+# order-sum (Tucker, 1 edge) for the assembly. Stacks (frame-inner W + C, as in plain probing): sample
 # stack W on the inputs, frame stack C on the cores; sum_over_probes sums W (the J^T r back-projection)
-# else keeps it (W rides into the variation stack). Verified against jax.linear_transpose + the
+# else keeps it (W rides into the variation stack). Verified against the
 # adjoint identity. The named contractions live in contractions.py (the *_to_sWCb / *_to_uWCi sweeps,
 # the order-less *_to_[W]Caib / *_to_[W]Cao assembly).
 
@@ -1448,7 +1447,7 @@ def compute_deta_tilde_jets(
     xnp, xmap, _ = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        # d-prefixed adjoint lift (3b-6'a); the ragged xmap is the oracle. The order axis rides passively
+        # d-prefixed adjoint lift; the ragged xmap is the oracle. The order axis rides passively
         # through the C-only U supercore, keeping its own einsum letter (t, W and K are never folded).
         deta_tildes = contractions.contract('dtWKCo,dCio->dtWKCi', ztildes, up_tucker_cores)
     else:
@@ -1643,7 +1642,7 @@ def compute_dxi_tilde_jets(
     xnp, xmap, _ = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        # d-prefixed adjoint combines (3b-6'a); the ragged xmap is the oracle. tau/sigma_tilde carry K; mu/nu
+        # d-prefixed adjoint combines; the ragged xmap is the oracle. tau/sigma_tilde carry K; mu/nu
         # are W+C; O is the C-only down supercore. Both self-infer the W/K/C split.
         from_tau = contractions.contract('trs,dtWKCa,dCaib,dsWCb->drWKCi', trs, tau_tildes, down_tt_cores, nu_jets)
         from_sig = contractions.contract('trs,drWCa,dCaib,dtWKCb->dsWKCi', trs, mu_jets, down_tt_cores, sigma_tildes)
@@ -1703,7 +1702,7 @@ def assemble_tucker_variation_jets_trs(
     # Three-group (W,K,C): the residual-derived operands (ztilde, dxi_tilde) carry K, eta is frame; the
     # eta (x) r term takes n_probe (C from eta), the dxi (x) w_jet term self-pins W from the W-only w_jet.
     if is_uniform:
-        # d-prefixed assembly (3b-6'a); the order axis is at supercore axis 1, so the w/dxi order-slice is
+        # d-prefixed assembly; the order axis is at supercore axis 1, so the w/dxi order-slice is
         # [:, :s_size] (NOT [:s_size], which would slice the leading core axis d). Ragged xmap is the oracle.
         eta_r = 'dtWCa,dtWKCo->dKCao' if sum_over_probes else 'dtWCa,dtWKCo->dWKCao'
         dxi_w = 'duWKCa,duWo->dKCao' if sum_over_probes else 'duWKCa,duWo->dWKCao'
@@ -1805,7 +1804,7 @@ def assemble_tt_variation_jets_trs(
     # sigma_tilde on b (f_sig), tau_tilde on a (f_tau), deta_tilde on i (f_det); the frame xi/mu/nu do
     # not. K kept always; W summed (sum_over_probes -> KCaib) or kept (WKCaib). n_probe = len(W).
     if is_uniform:
-        # d-prefixed dG assembly (3b-6'a); the xi order-slice is [:, :s_size] (order at supercore axis 1).
+        # d-prefixed dG assembly; the xi order-slice is [:, :s_size] (order at supercore axis 1).
         # trs is shared (no d), so its slices are unchanged. Ragged xmap is the oracle.
         if sum_over_probes:
             f_sig, f_tau, f_det = ('trs,drWCa,dsWCi,dtWKCb->dKCaib',
@@ -2063,7 +2062,7 @@ def estimate_chunk_size(
         mode_shapes:    typ.Sequence[int],  # (N_1..N_d)   ambient dims (as passed to TuckerTensorTrain.randn)
         tucker_ranks:   typ.Sequence[int],  # (nU_1..nU_d) Tucker ranks
         tt_ranks:       typ.Sequence[int],  # (r_0..r_d)   the d+1 TT bonds
-        order:          int,                # highest derivative order K
+        order:          int,                # highest derivative order
         n_probes:       int,                # |W|, the number of probes (global; divided by n_shards)
         *,
         n_tangent:      int = 1,            # tangent stack K (a batch of tangents sharing the frame)
@@ -2104,7 +2103,7 @@ def max_chunk_size_within(
         mode_shapes:    typ.Sequence[int],  # (N_1..N_d)   ambient dims
         tucker_ranks:   typ.Sequence[int],  # (nU_1..nU_d) Tucker ranks
         tt_ranks:       typ.Sequence[int],  # (r_0..r_d)   the d+1 TT bonds
-        order:          int,                # highest derivative order K
+        order:          int,                # highest derivative order
         n_probes:       int,                # |W| (global; divided by n_shards)
         target_bytes:   float,              # absolute peak-memory cap for the assembly (per device)
         *,
@@ -2141,7 +2140,7 @@ def tv_probe_transpose_derivatives_from_sweep(
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = tv_precompute_probe_frame_sweep_jets(frame, ww, pp, order)
-        order:      int,                    # highest derivative order K
+        order:      int,                    # highest derivative order
         sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
         chunk_size: typ.Optional[int] = 100,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
 ) -> typ.Tuple[
@@ -2177,7 +2176,7 @@ def tv_probe_derivatives_transpose(
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (U, O, P, Q)
-        order:      int,                    # highest derivative order K
+        order:      int,                    # highest derivative order
         sum_over_probes: bool = False,      # True: sum the sample stack W (the J^T r back-projection)
         chunk_size: typ.Optional[int] = 100,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
 ) -> typ.Tuple[
@@ -2189,12 +2188,12 @@ def tv_probe_derivatives_transpose(
     every forward contraction is swapped for its ``trs`` version, then stationarity of the Lagrangian
     gives the adjoint sweeps (``sigma/tau/dxi_tilde`` jets) and the order-less gradient assembly.
 
-    Full ``W + K + C`` stacking, base-inner as in plain probing: the residual jets ``ztildes`` carry the
+    Full ``W + K + C`` stacking, frame-inner as in plain probing: the residual jets ``ztildes`` carry the
     sample stack ``W``, the tangent stack ``K`` (the forward output's ``K``), and the frame stack ``C``.
     The tangent batch ``K`` always rides through to the variation gradient. With ``sum_over_probes=False``
     the sample stack ``W`` rides through into the variation stack too; with ``True`` it is summed (the
     ``J^T r`` back-projection used for fitting), ``K``/``C`` always kept. Verified against the dense
-    adjoint identity ``<r, J v> = <J^T r, v>`` and ``jax.linear_transpose``.
+    adjoint identity ``<r, J v> = <J^T r, v>``.
 
     ``chunk_size`` bounds the peak memory of the (uniform+jax) gradient assembly by processing the
     sample stack ``W`` in slices of that size; ``None`` (or ``>= W``) runs the dense assembly. The
@@ -2219,7 +2218,7 @@ def tv_probe_derivatives_transpose(
 # adjoint sweep via Q, no deta_tilde source. The gradient is then dG_tilde = mu (x) xi (x) sigma_hat
 # and dU_tilde = dxi_hat (x) w_jet, with dxi_hat = mu * O * sigma_hat. Half the work of the probe
 # transpose (one adjoint sweep, single-term assembly, no nu/eta). Reuses the order-threaded 3-block
-# adjoint contractions; full W + K + C, base-inner. Verified vs the adjoint identity + jax.linear_transpose.
+# adjoint contractions; full W + K + C, frame-inner. Verified vs the adjoint identity.
 
 
 def _sigma_hat_jets_step(
@@ -2319,7 +2318,7 @@ def _apply_derivatives_transpose_from_jets(
     sigma_hats = compute_sigma_hat_jets(right_tt_cores, xi_jets, c, trs)   # polymorphic
 
     if is_uniform:
-        # d-prefixed adjoint combine + single-term assembly (3b-6'a); the w/dxi order-slice is [:, :s_size]
+        # d-prefixed adjoint combine + single-term assembly; the w/dxi order-slice is [:, :s_size]
         # (order at supercore axis 1). trs is shared (no d). Ragged xmap is the oracle.
         dxi_hats = contractions.contract('trs,drWCa,dCaib,dtWKCb->dsWKCi', trs, mu_jets, down_tt_cores, sigma_hats)
         dG = 'trs,drWCa,dsWCi,dtWKCb->dKCaib' if sum_over_probes else 'trs,drWCa,dsWCi,dtWKCb->dWKCaib'
@@ -2388,7 +2387,7 @@ def tv_apply_derivatives_transpose(
     half the probe transpose. Full ``W + K + C`` stacking: ``c`` carries the tangent stack ``K``, which
     rides to the variation gradient; ``sum_over_probes`` sums (``True``, the Gauss-Newton ``J^T r``) or
     keeps (``False``, ``W`` rides into the variation stack) the sample stack ``W``; ``K``/``C`` always
-    kept. Verified vs the dense adjoint identity ``<c, J v> = <J^T c, v>`` and ``jax.linear_transpose``.
+    kept. Verified vs the dense adjoint identity ``<c, J v> = <J^T c, v>``.
 
     See Also
     --------
@@ -2535,7 +2534,7 @@ def dense_probe_derivatives(
         ww:     typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=(Ni,)
         pp:     typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=(Ni,)
         T:      NDArray,                # dense tensor, shape=(N0,...,N(d-1))
-        order:  int,                    # highest derivative order K
+        order:  int,                    # highest derivative order
 ) -> typ.List[NDArray]:                 # z_jets. len=d, elm_shape=(K+1,Ni)
     '''Exact dense symmetric probe derivatives, by the multilinear subset expansion (test oracle).
 

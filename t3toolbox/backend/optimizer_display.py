@@ -20,7 +20,7 @@ Two layers, so the pure algorithm modules stay pure and the I/O is isolated:
 
 The relative-error table is ``‖r_ij‖ / ‖y_ij‖`` from the kind's UNWEIGHTED :py:meth:`block_sumsq` (D2) --
 the honest per-block recovery error, independent of any residual weight ``ω``. The **layout follows the
-kind's axes** (``dev/newton_display_plan.md`` §2a): ``probe_derivatives`` (mode × order) -> mode rows,
+kind's axes**: ``probe_derivatives`` (mode × order) -> mode rows,
 order cols, ``train|val`` cells; a single data axis (plain ``probe`` = mode, ``apply/entries_derivatives``
 = order) -> dataset rows, that axis in columns; a scalar (plain ``apply/entries``) -> a one-liner. The
 stored matrices are always canonical ``(n_mode, n_order)`` -- the layout is cosmetic.

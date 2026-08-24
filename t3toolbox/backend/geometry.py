@@ -79,7 +79,7 @@ def t3_left_orthogonal_norm_sq(
     is simply wrong (measured 3 vs 1400 on a ``randn`` point -- the 2026-08-22 review). Use
     :py:meth:`ManifoldGeometryOps.point_norm_sq` for an arbitrary point; verify a point with
     :py:func:`t3toolbox.backend.t3_orthogonalization.t3_orthogonality_residual`.
-    (``dev/archive/regularization_design.md`` §4a.)"""
+    (``docs/contributor/fitting_internals.md`` §"The base point as a tangent".)"""
     last = x_cores[1][-1]                                    # stack + (rL, n, rR)
     xnp, _, _ = get_backend(False, tree_contains_jax(x_cores))
     return xnp.sum(last * last, axis=(-3, -2, -1))           # per stack element (review H3-5)
@@ -94,7 +94,7 @@ def fv_base_point_tangent(
     ambient projection nor a gauge projection: ``dense(v_X) = X`` and ``‖v_X‖_coord = ‖X‖_HS`` exactly.
     (It equals ``tv_project_t3_onto_tangent_space(frame, (U, P))`` -- verified -- but avoids that roundabout
     computation, whose environment contractions all collapse since the projected T3 IS the frame's own
-    cores. See ``dev/archive/regularization_design.md`` §12.)"""
+    cores. See ``docs/contributor/fitting_internals.md`` §Regularization.)"""
     up, _down, left, _right = frame
     stack = up[0].shape[:-2]                                         # the frame stack C
     tucker_var, tt_var = fv_operations.fv_variations_zeros(

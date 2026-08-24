@@ -4,7 +4,9 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """The shared-Tucker-factors (SF-T3) geometry wrapper: ``shared(base, sharing)``.
 
-Wraps :py:data:`~t3toolbox.manifold.MANIFOLD` or :py:data:`~t3toolbox.manifold.COREWISE` so every
+Wraps :py:data:`~t3toolbox.manifold.MANIFOLD` / :py:data:`~t3toolbox.manifold.COREWISE` (or their
+uniform twins :py:data:`~t3toolbox.uniform_manifold.UNIFORM_MANIFOLD` /
+:py:data:`~t3toolbox.uniform_manifold.UNIFORM_COREWISE`) so every
 projection lands on the TIED tangent subspace (one Tucker factor per sharing group) and the
 retraction stays on the shared set. One principle, two formulas -- each geometry ties by
 orthogonal projection onto ITS tied subspace in ITS metric on ITS coordinates: the manifold

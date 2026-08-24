@@ -6,7 +6,7 @@
 A thin wrapper over :py:mod:`t3toolbox.backend.optimizers` (where the algorithms live -- check-free, so a
 raw-``.data`` user can call them directly). This layer (1) maps the frontend geometry singletons and the
 sampling-kind name to the backend geometry / ``SamplingKind``, (2) calls the backend optimizer on the
-raw cores, and (3) re-wraps the result. Design: ``dev/archive/optimizers_plan.md``.
+raw cores, and (3) re-wraps the result. Design: ``docs/contributor/fitting_internals.md`` §"Backend-first".
 
 **Two representations, inferred from** ``x0`` (the library-wide ragged/uniform dispatch; ``_setup``):
 
@@ -45,7 +45,7 @@ import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
 
 # Regularizers live in the backend (check-free; a raw-.data user constructs them directly) and are
-# re-exported here for frontend convenience -- neither user is privileged (dev/archive/regularization_design.md §5a).
+# re-exported here for frontend convenience -- neither user is privileged (``docs/contributor/fitting_internals.md`` §Regularization).
 from t3toolbox.backend.regularization import Regularizer, IdentityRegularizer
 
 __all__ = [

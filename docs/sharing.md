@@ -19,7 +19,7 @@ tensor; `('a', 'b', 'a', 'b')` ties non-adjacent pairs; group modes must have eq
 ## The format: an ordinary T3, with tied factors
 
 A shared T3 is **not a new class** — it is a `TuckerTensorTrain` whose group factors are equal (the
-same array at every group mode). The storage is deliberately redundant: the paper's memory saving is
+same array at every group mode). The storage is deliberately redundant: the SF-ETT paper's memory saving is
 forgone so the whole existing API keeps working on shared points unchanged; what sharing buys here is
 **fewer optimization parameters and one jointly-informed basis**, not a smaller object.
 

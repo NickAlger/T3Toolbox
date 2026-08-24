@@ -360,7 +360,7 @@ def utv_entries_transpose_derivatives_from_sweep(
         residual, index, packed_pp, mb, psweep, order, sum_over_probes=sum_over_probes)
 
 
-# ----------------------------------------------------------------- derivative sampling (jets 𝒥; 3b-6'b)
+# ----------------------------------------------------------------- derivative sampling (jets 𝒥)
 # The symmetric-directional-derivative twins of utv_probe / apply / entries (the forward Riemannian
 # Jacobian derivatives). Same boundary work: mask-once frame+variations, pack ww AND pp (entries slices
 # fibers -> only pp packed), share sampling_derivatives.*_tangent_derivatives, unpack the probe output (which
@@ -415,7 +415,7 @@ def utv_entries_derivatives(
     return sampling_derivatives.tv_entries_derivatives(index, packed_pp, mv, mb, order)
 
 
-# ----------------------------------------------------------------- the transpose 𝒥ᵀ (probe; 3b-6c)
+# ----------------------------------------------------------------- the transpose 𝒥ᵀ (probe)
 def _gauge_masks_over_Knew(
         frame_data,      # UT3Frame .data
         out_supercore,   # a transpose-output variation supercore (d,)+K_new+C+(...), pins the stack
@@ -438,7 +438,7 @@ def utv_probe_transpose(
     """Apply the transpose ``𝒥ᵀ`` of the probe map to residuals (the bare adjoint; no gauge projector).
 
     Mask-once the frame, pack both the residuals and the probe vectors, share
-    ``probing.tv_probe_transpose`` (which routes through the 3b-6a d-prefixed WKC contractions), and
+    ``probing.tv_probe_transpose`` (which routes through the d-prefixed WKC contractions), and
     attach the result variation masks: the frame's gauge masks broadcast over the new tangent stack
     ``K_new`` (``W+K`` if ``sum_over_probes=False``, ``K`` if ``True``). The bare ``𝒥ᵀ``."""
     mb = ufv_masking.ufv_apply_frame_masks(frame_data)
@@ -484,7 +484,7 @@ def utv_entries_transpose(
     return (dU_tilde, dG_tilde, frame_data[4], masks)
 
 
-# ----------------------------------------------------------------- the transpose 𝒥ᵀ derivatives (jets; 3b-6'c)
+# ----------------------------------------------------------------- the transpose 𝒥ᵀ derivatives (jets)
 # The jet-ified twins of the transpose wrappers above: back-project residual JETS (which carry the leading
 # order axis) into a SINGLE variation gradient (the transpose sums the order axis in the assembly, so the
 # output has no order axis -- structurally identical to the plain transpose). Mask-once, pack ww AND pp

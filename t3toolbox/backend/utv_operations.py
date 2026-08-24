@@ -2,7 +2,7 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
-"""Stateless tangent-stack reshuffles for the uniform tangent layer (UT3Tangent), uniform-fix 3b-1b.
+"""Stateless tangent-stack reshuffles for the uniform tangent layer (UT3Tangent).
 
 The uniform mirror of the ragged ``tv_operations`` stack/unstack helpers, for the ``.data`` layout
 ``(*supercores, shape, masks)`` with a leading mode index ``d`` and the stack at axes ``1 ..``. A uniform
@@ -141,7 +141,7 @@ def utv_stack_frame_stack(
 ):  # -> (frame_data [stack C], variations_data [stack K + C])
     """Stack a ``C``-shaped tree of ``(frame_data, variations_data)`` pairs over the frame stack ``C``.
 
-    The frame stack is placed *innermost* (the variation stack becomes ``K + C``), matching the base-inner
+    The frame stack is placed *innermost* (the variation stack becomes ``K + C``), matching the frame-inner
     convention. Frames of DIFFERENT ranks stack into one batch (varying-``C`` -- the per-element masks just
     ride along); the shared requirement is only matching padded dims and tangent stack ``K``. Takes exactly
     the layout :py:func:`utv_unstack_frame_stack` produces (its inverse)."""
@@ -192,7 +192,7 @@ def utv_to_ut3(
     The uniform mirror of :py:func:`tv_operations.tv_to_t3` (equations (50)-(53) / Figure 20,
     Appendix A.3.1 of Alger et al. 2026). The Tucker supercore becomes ``[U ; V]`` (concat along the
     Tucker-rank axis); the TT supercore is the block-bidiagonal embedding, uniform-padded to bonds
-    ``rL+rR`` for every core with the **base-inner ``[R, L]`` bond order** (mirroring the ragged build).
+    ``rL+rR`` for every core with the **frame-inner ``[R, L]`` bond order** (mirroring the ragged build).
     The doubled rank masks are concatenations of the existing masks (the **#1 trap**: the appended boundary
     slots are FULL ``ones`` -- the supercore is zero there, so to_dense's mask-then-contract is unaffected):
     ``tucker_mask = concat([up, down])``; ``tt_mask = concat([right_ext, left_ext])`` with

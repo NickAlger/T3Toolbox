@@ -325,7 +325,7 @@ def t3_sum(
 
 def t3_absorb_weights(
         x0:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
-        weights: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
+        weights: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights len=d, tt_weights len=d+1)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # weighted tucker_cores, len=d,   elm_shape=stack_shape+(ni, Ni)
     typ.Tuple[NDArray, ...],  # weighted tt_cores,     len=d,   elm_shape=stack_shape+(ri, ni, r(i+1))
@@ -363,7 +363,7 @@ def t3_absorb_weights(
 
 def t3_weights_consistent(
         x0:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
-        weights: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
+        weights: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights len=d, tt_weights len=d+1)
 ) -> bool:                                                                 # True iff shape-consistent
     """True iff the weight tuple's lengths, per-edge ranks, and stack_shape match the T3 ``x0``
     (a non-raising structural shape predicate)."""
@@ -385,8 +385,8 @@ def t3_weights_consistent(
 
 
 def t3_concatenate_weights(
-        weights_A: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
-        weights_B: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
+        weights_A: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights len=d, tt_weights len=d+1)
+        weights_B: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights len=d, tt_weights len=d+1)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # concatenated tucker_weights, ranks add
     typ.Tuple[NDArray, ...],  # concatenated tt_weights,     ranks add
@@ -401,8 +401,8 @@ def t3_concatenate_weights(
 
 
 def t3_kronecker_weights(
-        weights_A: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
-        weights_B: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
+        weights_A: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights len=d, tt_weights len=d+1)
+        weights_B: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights len=d, tt_weights len=d+1)
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # Kronecker tucker_weights, ranks multiply
     typ.Tuple[NDArray, ...],  # Kronecker tt_weights,     ranks multiply

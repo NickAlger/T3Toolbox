@@ -94,7 +94,7 @@ def ut3_full_sum(
     return apply.t3_apply(masked, xnp.ones((d, N)))
 
 
-# ----------------------------------------------------------------- corewise (non-manifold) transposes (3b-6c)
+# ----------------------------------------------------------------- corewise (non-manifold) transposes
 # Gradient of a sampling op w.r.t. the frame's own supercores (the Section 6.3 (P,Q,O)->G substitution, via
 # the now-polymorphic probing.*_corewise_transpose -- the tangent transpose at the frame (U, G, G, G)). For
 # a uniform core-wise optimizer (Adam, L-BFGS). Mask-once + pack at the boundary; return the RAW gradient
@@ -143,7 +143,7 @@ def ut3_probe_corewise_transpose(
     return probing.t3_probe_corewise_transpose(packed_z, packed_ww, masked, sum_over_probes=sum_over_probes)
 
 
-# ----------------------------------------------------------------- derivative sampling (jets; 3b-6'b)
+# ----------------------------------------------------------------- derivative sampling (jets)
 # The symmetric-directional-derivative twins of ut3_probe / ut3_apply / ut3_entries: mask-once, pack the
 # probe vectors ww AND the perturbation direction pp (entries slices fibers, so only pp is packed), share
 # the polymorphic sampling_derivatives.t3_*_derivatives, and unpack the probe output (which now carries a
@@ -197,7 +197,7 @@ def ut3_entries_derivatives(
     return sampling_derivatives.t3_entries_derivatives(index, packed_pp, masked, order)
 
 
-# ----------------------------------------------------------- corewise derivative transposes (jets; 3b-6'c)
+# ----------------------------------------------------------- corewise derivative transposes (jets)
 # The jet-ified twins of the corewise transposes above: gradient of a plain-T3 derivative sampling op w.r.t.
 # the frame's own supercores (the §6.3 (P,Q,O)->G substitution, via the now-polymorphic
 # sampling_derivatives.*_corewise_derivatives_transpose). Mask-once + pack ww/pp (entries: pp only) at the

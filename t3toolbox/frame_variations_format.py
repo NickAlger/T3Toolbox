@@ -128,9 +128,9 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
     See Also
     --------
     T3Variations
-    check_t3_frame
+    check_fv_pair
     t3_orthogonal_representations
-    oblique_gauge_projection
+    t3svd_orthogonal_representations
 
     Examples
     --------
@@ -415,10 +415,6 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
     def validate(self) -> None:
         '''Check rank and shape consistency of Tucker tensor train frame (`T3Frame`).
 
-        Parameters
-        ----------
-        x : T3Frame
-
         Raises
         ------
         ValueError
@@ -510,17 +506,17 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
             if D.shape[-3] != L.shape[-3]:
                 raise ValueError(
                     'Inconsistent T3Frame.\n'
-                    + 'Down TT core left rank mismatch at index' + str(ii)
+                    + 'Down TT core left rank mismatch at index ' + str(ii)
                     + ': D.shape[-3]=' + str(D.shape[-3])
-                    + '!= L.shape[-3]=' + str(L.shape[-3])
+                    + ' != L.shape[-3]=' + str(L.shape[-3])
                 )
 
             if D.shape[-1] != R.shape[-1]:
                 raise ValueError(
-                    'Inconsistent T3Base.\n'
-                    + 'Down TT core right rank mismatch at index' + str(ii)
+                    'Inconsistent T3Frame.\n'
+                    + 'Down TT core right rank mismatch at index ' + str(ii)
                     + ': D.shape[-1]=' + str(D.shape[-1])
-                    + '!= R.shape[-1]=' + str(R.shape[-1])
+                    + ' != R.shape[-1]=' + str(R.shape[-1])
                 )
 
     def __post_init__(self):
@@ -891,7 +887,7 @@ class T3Variations(common.ExplicitEquality):
 
         if not (tucker_stack_shapes == tt_stack_shapes == (self.stack_shape,)*self.d):
             raise ValueError(
-                'Inconsistent T3Frame.\n'
+                'Inconsistent T3Variations.\n'
                 + str(tucker_stack_shapes) + ' = tucker_stack_shapes.\n'
                 + str(tt_stack_shapes) + ' = tt_stack_shapes.\n'
             )
@@ -933,7 +929,7 @@ class T3Variations(common.ExplicitEquality):
     def stack(
             xx, # Array-like tree of T3Variations
     ):
-        """Stack array-like tree of T3Variations into a single T3Variation.
+        """Stack array-like tree of T3Variations into a single T3Variations.
 
         Examples
         --------
@@ -1115,7 +1111,7 @@ def check_fv_pair(
     """Check rank and shape consistency between T3Frame and T3Variations.
 
     This ensures that the variation cores (V, H) have the correct dimensions to interface with the
-    frame cores (U, L, R, O), and that their stacks are compatible.
+    frame cores (U, O, P, Q), and that their stacks are compatible.
 
     Stacking: a variation may carry extra *outer* tangent-stack axes -- a batch of tangent vectors
     sharing the same base point -- so its ``stack_shape`` is ``tangent_stack_shape + frame_stack_shape``
@@ -1341,10 +1337,10 @@ def t3_orthogonal_representations(
 
     Returns
     -------
-    T3Base
+    T3Frame
         Orthogonal frame for frame-variation representations of x.
-    T3Variation
-        Variation for frame-variation representaions of x.
+    T3Variations
+        Variations for frame-variation representations of x.
 
     Examples
     --------

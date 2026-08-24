@@ -1090,10 +1090,10 @@ def ut3_orthogonal_representations(
 
     Returns
     -------
-    T3Base
+    UT3Frame
         Orthogonal frame for frame-variation representations of x.
-    T3Variation
-        Variation for frame-variation representaions of x.
+    UT3Variations
+        Variations for frame-variation representations of x.
 
     Examples
     --------
@@ -1125,7 +1125,7 @@ def ut3_orthogonal_representations(
 
 # (`ufv_to_ut3` -- the uniform analog of `fv_to_t3`, substituting one variation core into the frame -- was
 # dropped: the left/right subchains become differently-shaped supercores glued by the variation, with no
-# clean single uniform supercore op. Low importance. See dev/archive/uniform_fix_plan.md "Refinements (round 2)".)
+# clean single uniform supercore op. Low importance.)
 
 
 

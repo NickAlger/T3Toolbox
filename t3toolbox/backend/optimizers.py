@@ -7,7 +7,7 @@ These operate on **raw cores / tangent tuples** via backend functions only -- no
 (no ``TuckerTensorTrain`` / ``T3Tangent`` / ``GaussNewtonModel`` / geometry classes). A raw-``.data``
 user can call them directly; the frontend ``optimizers.py`` is a thin adapter that validates the input
 once and assembles the ``Problem`` oracle from the same backend functions (design:
-``dev/archive/optimizers_plan.md``).
+``docs/contributor/fitting_internals.md`` §"Backend-first").
 
 Because the numerical safety preconditions live only in the frontend, this layer is **check-free** of
 them (structural shape guards inside the backend functions remain, and are jit-safe). So ``jit`` needs no
@@ -54,6 +54,7 @@ __all__ = [
 ]
 
 Tangent = typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]   # (tucker_variations, tt_variations)
+Cores = typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]     # (tucker_cores, tt_cores) -- a point
 
 
 class Geometry(typ.Protocol):
@@ -156,7 +157,7 @@ class LocalModel:
             Hp = cw.corewise_add(Hp, self.regularizer.hessian(self.geom, self.frame, p, aux=self.geom_aux))
         return Hp
 
-    def retract(self, p: Tangent) -> Tangent:            # chart step from this frame -> new x_cores
+    def retract(self, p: Tangent) -> Cores:              # chart step from this frame -> new x_cores
         return self.geom.retract(self.frame, p, aux=self.geom_aux)
 
 
@@ -203,7 +204,7 @@ class Problem:
         """``½‖S(x)-data‖²`` (+ ``ρ(x)`` if regularized) on the full data (``sample=None``) or an explicit
         minibatch; no frame sweep (cheap -- for the line search / the full-batch stop signal). The reg term
         reads ``x_cores`` directly through ``geom.point_norm_sq`` (exact for any point;
-        ``dev/archive/regularization_design.md`` §4a). ``sample`` and ``data`` go together: one without the
+        ``docs/contributor/fitting_internals.md`` §"The base point as a tangent"). ``sample`` and ``data`` go together: one without the
         other is a structural error (the data used to be silently ignored when only it was passed)."""
         sample, data = self._sample_and_data(sample, data, 'Problem.objective')
         if self.regularizer is not None:
@@ -252,7 +253,7 @@ def _minibatch_step_problem(
     """The problem the **stochastic** per-step kernel linearizes against: identical to ``problem`` but with
     the regularizer scaled by ``batch/n``. The minibatch data gradient is a ``batch/n`` estimate of the
     full-data gradient, so scaling the (deterministic) regularizer to match keeps ``λ``'s meaning the same
-    as in the full-batch optimizers (``dev/archive/regularization_design.md`` §8.1). No-op when unregularized. The
+    as in the full-batch optimizers (``docs/contributor/fitting_internals.md`` §"Stochastic scaling"). No-op when unregularized. The
     **full-batch** stop/loss keeps the full-strength ``problem.regularizer``. The factor is ``batch/n`` for
     the NOMINAL ``batch`` -- ``batch`` is not ignored when a custom ``draw`` is given: a draw of another size
     gets a mismatched factor, so pass ``batch`` equal to the size your ``draw`` produces."""
@@ -455,7 +456,8 @@ def mc_sgd(
     retraction makes the raw Cauchy step stable; on the additive corewise chart use ``adam``). Stops on an
     exponentially-smoothed **full-batch** loss with an **absolute-iteration window** (``plateau_lag *
     check_every`` iterations) -- decoupled from batch size (the epoch-based window made small batches
-    fragile; findings in a separate research repo, maintainer-local). ``use_jit`` jits the per-step kernel (the host loop
+    fragile; findings in a separate research repo, maintainer-local). ``stats['losses']`` records the
+    **smoothed** check values (the stop signal), not the raw full-batch losses. ``use_jit`` jits the per-step kernel (the host loop
     draws minibatches; the full-batch stop check stays on the host), auto-converting numpy inputs to jax
     first (:py:func:`_prepare_jit_inputs`) -- so the **default** ``flat_draw`` then slices the on-device
     ``sample`` / ``data`` (a custom ``draw`` should return jax minibatches to stay on device)."""

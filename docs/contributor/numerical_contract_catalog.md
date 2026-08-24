@@ -179,14 +179,14 @@ frames). Naming convention: bare `minimal_ranks` = structural; `numerically_mini
   constant tracer. `safety.is_tracing` detects the global trace state (`jax.core.trace_state_clean`, with a
   committed-array-probe fallback), not just whether the passed arrays are tracers.
 
-## Sign-off questions for Nick
+## Sign-off resolutions (Nick, 2026-06-19 — recorded here so the questions don't look open)
 
-1. **`retract` precondition = ORTH only** (not GAUGE)? My read: yes — retract is gauge-invariant; gauge
-   only relabels the variations, not the represented step. Confirm.
-2. **`MANIFOLD.inner` should check both operands GAUGE + the frame ORTH** (3 checks) — accept the cost in
-   safe mode (mitigated by caching), or check only SF + GAUGE and treat ORTH as a frame-construction
-   invariant (since `MANIFOLD.frame` guarantees it)? Leaning: check all three for honesty, cache the frame
-   ones.
-3. **Backend-level enforcement** for raw-`.data` users (ORTH/GAUGE checks in `tv_operations`), or
-   frontend-only for now? Leaning: frontend-first (S3–S5), backend mirror later.
-4. Any op above you'd reclassify (precondition ⇄ caveat)?
+1. **`retract` precondition = ORTH only** — confirmed. Retract is gauge-invariant (gauge relabels the
+   variations, not the represented step); GAUGE is not checked there.
+2. **`MANIFOLD.inner`/`norm` check all three** (same-frame + both operands GAUGE + frame ORTH), with the
+   frame/tangent residuals cached (`orthogonality_residual` / `gauge_residual`) so a fixed frame in an
+   inner loop is contracted once.
+3. **Frontend-only enforcement** — the backend stays check-free; a backend mirror for raw-`.data` users
+   is deferred (the checkers themselves are public, so a backend user self-guards with the same tools).
+4. No reclassifications. The shipped state is the user page
+   [`../numerical_contracts.md`](../numerical_contracts.md).

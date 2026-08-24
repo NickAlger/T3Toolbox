@@ -141,7 +141,7 @@ def t3_probe(
     >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zz, zz_dense)])
     [True, True, True]
 
-    Vectorize over probes AND T3s: both stacks ride through, base-inner ``elm_shape = W + C + (Ni,)``:
+    Vectorize over probes AND T3s: both stacks ride through, frame-inner ``elm_shape = W + C + (Ni,)``:
 
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
@@ -255,7 +255,7 @@ def compute_nu(
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
     is_uniform = is_ndarray(right_tt_cores)
-    reverse = tt_operations.tt_reverse if is_uniform else tt_operations.tt_reverse
+    reverse = tt_operations.tt_reverse
 
     rev_nus = compute_mu(reverse(right_tt_cores), xis[::-1])
     return rev_nus[::-1]
@@ -390,7 +390,7 @@ def _sigma_sweep_step(
 def compute_sigma(
         var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
         right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
-        down_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+        down_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi),
         dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
         mus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rLi)
@@ -427,7 +427,7 @@ def compute_sigma(
 def compute_tau(
         var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
         left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rL(i+1))
-        down_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+        down_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
         xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi),
         dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
         nus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
@@ -450,7 +450,7 @@ def compute_tau(
     tv_probe
     '''
     is_uniform = is_ndarray(var_tt_cores)
-    reverse = tt_operations.tt_reverse if is_uniform else tt_operations.tt_reverse
+    reverse = tt_operations.tt_reverse
 
     rev_taus = compute_sigma(
         reverse(var_tt_cores), reverse(left_tt_cores), reverse(down_tt_cores),
@@ -506,7 +506,7 @@ def compute_deta(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        # d-prefixed WKC contractions (3b-6a): sigmas/taus carry K (W+K+C); mus/nus and the frame
+        # d-prefixed WKC contractions: sigmas/taus carry K (W+K+C); mus/nus and the frame
         # supercores are W+C / C-only; the variation supercore var_tt_cores is K+C. n_frame = len(C),
         # read off the C-only frame supercore (d,)+C+(rR,nU,rR). The ragged xmap branch below is the oracle.
         n_frame = right_tt_cores.ndim - 4
@@ -563,7 +563,7 @@ def assemble_tangent_z(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        # d-prefixed (3b-6a): lift the edge vars through the tucker supercores. detas is W+K+C, lifted
+        # d-prefixed: lift the edge vars through the tucker supercores. detas is W+K+C, lifted
         # through the C-only frame tucker core (W and K ride passively there, so no split is needed); etas
         # is W+C, lifted through the K+C variation tucker core (n_frame = len(C)). Ragged xmap is the oracle.
         n_frame = tucker_cores.ndim - 3
@@ -579,7 +579,7 @@ def assemble_tangent_z(
 def tv_probe_jacobian_from_sweep(
         variation:  typ.Tuple[
             typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nUi,rRi)
+            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
         ],
         ww:         typ.Sequence[NDArray],  # probe vectors, len=d, elm_shape=W+(Ni,) -- for the variation's dxis
         frame:       typ.Tuple[
@@ -618,7 +618,7 @@ def tv_probe(
         variation:  typ.Union[
             typ.Tuple[
                 typ.Sequence[NDArray],  # var_tucker_cores. len=d, elm_shape=(nOi,Ni)
-                typ.Sequence[NDArray],  # var_tt_cores.     len=d, elm_shape=(rLi,nUi,rRi)
+                typ.Sequence[NDArray],  # var_tt_cores.     len=d, elm_shape=(rLi,nUi,rR(i+1))
             ],
             typ.Tuple[
                 NDArray,  # var_tucker_supercore.
@@ -823,7 +823,7 @@ def compute_sigma_hat(
     Right-to-left via ``tt_reverse`` (mirroring the forward ``nu`` sweep's reversal).'''
     use_jax = tree_contains_jax((right_tt_cores, xis, c))
     is_uniform = is_ndarray(right_tt_cores)
-    reverse = tt_operations.tt_reverse if is_uniform else tt_operations.tt_reverse
+    reverse = tt_operations.tt_reverse
     xnp, _, xscan = get_backend(is_uniform, use_jax)
 
     rev_Q = reverse(right_tt_cores)
@@ -940,7 +940,7 @@ def compute_sigma_tilde(
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
     is_uniform = is_ndarray(deta_tildes)
-    reverse = tt_operations.tt_reverse if is_uniform else tt_operations.tt_reverse
+    reverse = tt_operations.tt_reverse
 
     return compute_tau_tilde(
         deta_tildes[::-1], reverse(right_tt_cores), xis[::-1], nus[::-1],
@@ -981,7 +981,7 @@ def compute_dxi_tilde(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        # d-prefixed WKC (3b-6a): tau_tildes/sigma_tildes carry K (W+K+C); mus/nus are W+C; the frame
+        # d-prefixed WKC: tau_tildes/sigma_tildes carry K (W+K+C); mus/nus are W+C; the frame
         # supercore down_tt_cores (O) is C-only. Mirrors the ragged calls; the ragged xmap is the oracle.
         term1 = contractions.contract('dWKCa,dCaib,dWCb->dWKCi', tau_tildes, down_tt_cores, nus)
         term2 = contractions.contract('dWCa,dCaib,dWKCb->dWKCi', mus, down_tt_cores, sigma_tildes)
@@ -1052,7 +1052,7 @@ def assemble_tucker_variations(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        # d-prefixed (3b-6a): ztildes/dxi_tildes carry K; etas is W+C; ww is the W-only packed probe
+        # d-prefixed: ztildes/dxi_tildes carry K; etas is W+C; ww is the W-only packed probe
         # supercore (d,)+W+(N,) -> n_probe = len(W). The ragged xmap below is the oracle.
         n_probe = ww.ndim - 2
         if sum_over_probes:
@@ -1123,7 +1123,7 @@ def assemble_tt_variations(
         nus:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rR(i+1))
         sum_over_probes: bool = False,
         n_probe: int = 0,  # number of trailing probe-stack axes; only used when sum_over_probes
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dG_tildes. len=d, elm_shape=(...,rLi,nUi,rRi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dG_tildes. len=d, elm_shape=(...,rLi,nUi,rR(i+1))
     '''Assemble TT core variations, delta_G_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
 
@@ -1138,7 +1138,7 @@ def assemble_tt_variations(
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        # d-prefixed WKC triple outer products (3b-6a): K rides on the residual-derived edge var of each
+        # d-prefixed WKC triple outer products: K rides on the residual-derived edge var of each
         # term (sigma_tilde on j, tau_tilde on i, deta_tilde on a); the frame edge vars xi/mu/nu are W+C.
         # n_probe = len(W) (supplied). The ragged xmap below is the oracle.
         if sum_over_probes:
@@ -1218,18 +1218,18 @@ def tv_probe_transpose(
 ) -> typ.Union[
     typ.Tuple[
         typ.Tuple[NDArray,...], # dU_tildes. len=d, elm_shape=(...,nOi,Ni)
-        typ.Tuple[NDArray,...], # dG_tildes. len=d, elm_shape=(...,rLi,nUi,rRi)
+        typ.Tuple[NDArray,...], # dG_tildes. len=d, elm_shape=(...,rLi,nUi,rR(i+1))
     ],
     typ.Tuple[
         NDArray,  # dU_tildes. shape=(d, ..., nOi, Ni)
-        NDArray,  # dG_tildes. shape=(d, ..., rLi, nUi, rRi)
+        NDArray,  # dG_tildes. shape=(d, ..., rLi, nUi, rR(i+1))
     ],
 ]:
     '''Apply the transpose of the map from a tangent vector to its probes (apply (J^(s))^T to ztildes).
 
     Stacking (handled by the W/C custom contractions in ``contractions.py``): the residuals
     ``ztildes`` live in the forward probe space, ``elm_shape = W + C + (Ni,)`` (probe stack W
-    outermost, T3 stack C innermost -- base-inner), while ``ww`` carries only the probe stack W. With
+    outermost, T3 stack C innermost -- frame-inner), while ``ww`` carries only the probe stack W. With
     ``sum_over_probes=False`` the resulting variations keep both stacks (``W + C + ...``, the probe
     stack W becoming the tangent stack K); with ``sum_over_probes=True`` the probe stack W is summed
     and the T3 stack C is kept (``C + ...``).
@@ -1437,12 +1437,12 @@ def dense_probe(
 
     Parameters
     ----------
-    T: NDArray
-        Tensor to be probed. shape=C+(N0,...,N(d-1))
     vectors: typ.Sequence[NDArray]
         Probing input vectors.
         len=d.
         elm_shape=W+(Ni,)
+    T: NDArray
+        Tensor to be probed. shape=C+(N0,...,N(d-1))
 
     Returns
     -------
@@ -1486,7 +1486,7 @@ def dense_probe(
     >>> print([bool(np.allclose(y, ref)) for y, ref in zip(yy, (y0, y1, y2))])
     [True, True, True]
 
-    Vectorize over probing vectors AND a stacked (big) tensor: base-inner ``elm_shape = W + C + (Ni,)``:
+    Vectorize over probing vectors AND a stacked (big) tensor: frame-inner ``elm_shape = W + C + (Ni,)``:
 
     >>> import numpy as np
     >>> import t3toolbox.backend.probing as t3p

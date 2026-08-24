@@ -76,7 +76,7 @@ True
 >>> w_order = [1.0, 0.5, 0.25]                          # ω, shape (K+1,) -- per order
 >>> x_mc, stats = topt.mc_sgd(t3m.MANIFOLD, 'apply_derivatives', (ww, pp), jets, x0,
 ...                           rng, 20, order=K, weight=w_order, max_iter=60, check_every=20)
->>> bool(stats['losses'][-1] < stats['losses'][0])      # the full-batch loss checks descend
+>>> bool(stats['losses'][-1] < stats['losses'][0])      # the (EMA-smoothed) full-batch loss checks descend
 True
 
 >>> # fit from probes with a PER-MODE weight (discount a noisier mode; probe-only, see §4.6):

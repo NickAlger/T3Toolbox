@@ -626,7 +626,7 @@ def t3_plus_scalar(
 
 def t3_weighted_norm(
         x0:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_cores, tt_cores)
-        weights: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
+        weights: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights len=d, tt_weights len=d+1)
         use_orthogonalization: bool = True,                                # for numerical stability
 ) -> NDArray:                                                              # weighted HS norm, shape=stack_shape
     """Weighted Hilbert-Schmidt norm of a Tucker tensor train: ``t3_norm(absorb(x0, weights))`` -- the norm

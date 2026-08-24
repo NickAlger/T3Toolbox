@@ -696,7 +696,7 @@ class T3Tangent(common.ExplicitEquality):
         >>> print(bool(abs(lhs - float(JTz.corewise_inner(v))) < 1e-9))
         True
 
-        Without summing, the result is a tangent-stacked T3Tangent (V = the probe stack):
+        Without summing, the result is a tangent-stacked T3Tangent (the tangent stack = the probe stack ``W``):
 
         >>> JTz_batch = t3m.T3Tangent.probe_transpose(z, ww, frame)  # sum_over_probes=False
         >>> print(JTz_batch.tangent_stack_shape, JTz_batch.frame_stack_shape)
@@ -1581,7 +1581,7 @@ if jax_available:
     # of false-failing, and under a trace it simply skips. Two by-design consequences: autodiff/tree_map
     # now see the frame too -- to grad w.r.t. the variations only, close the frame over
     # (`g = lambda v: f(T3Tangent(b, v)); jax.grad(g)`), and grad-w.r.t.-the-frame is now available. Full
-    # rationale: dev/archive/safe_unsafe_mode_plan.md.
+    # rationale: docs/batching_and_stacking.md (the frame as a pytree leaf).
     jax.tree_util.register_pytree_node(
         T3Tangent,
         lambda x: ((x.frame, x.variations), None),

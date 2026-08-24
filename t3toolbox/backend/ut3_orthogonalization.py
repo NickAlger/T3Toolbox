@@ -71,7 +71,7 @@ def ut3_orthogonality_residual(
 
 # Each function re-masks on entry; the SVD remainder R = ss.Vt has ss=0 in padded slots, so no garbage
 # propagates. Ranks shrink to the structural minimum the SVD produces, and the masks are recomputed to
-# match (minimal-for-free). See dev/archive/uniform_port_plan.md (slice 2).
+# match (minimal-for-free). See docs/contributor/uniform_svd_prefix_orthogonalization.md.
 #
 # All rank recurrences / mask builders below use np (host), NOT xnp: masks are static structure (a jax
 # mask is a tracer under jit -> leaks into aux_data). The mask `np.*` is intentional; see

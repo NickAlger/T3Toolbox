@@ -2,7 +2,7 @@
 # Copyright: MIT License (2026)
 # Github: https://github.com/NickAlger/T3Toolbox
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
-"""Uniform tangent + manifold layer (the uniform-fix 1.0 centerpiece, increment 3b).
+"""Uniform tangent + manifold layer.
 
 Mirrors the ragged :py:mod:`t3toolbox.manifold` on the uniform (stacked-supercore + boolean-mask)
 representation. Holds:
@@ -11,7 +11,7 @@ representation. Holds:
   inferred from the pair), the vector-space ops, the raw coordinate inner/norm, the (delegating) validity
   checkers, the constructors, ``reverse``, the doubled-rank ``to_ut3``/``to_dense``, ``gauge_residual`` /
   ``is_gauged``, the cross-layer converters, and the stack/unstack tree conversions;
-- :py:class:`UniformManifoldGeometry` / :py:class:`UniformCorewiseGeometry` (3b-5) -- the stateless
+- :py:class:`UniformManifoldGeometry` / :py:class:`UniformCorewiseGeometry` -- the stateless
   geometry bundles (``frame`` / ``randn`` / ``project`` / ``inner`` / ``norm`` / ``retract`` ...) mirroring
   the ragged ``MANIFOLD`` / ``COREWISE``, behind the per-element safe-mode preconditions, with the module
   singletons :py:data:`UNIFORM_MANIFOLD` / :py:data:`UNIFORM_COREWISE`.
@@ -486,7 +486,7 @@ class UT3Tangent(common.ExplicitEquality):
         recomputing the orthogonal representation."""
         return UT3Tangent(self.frame.reverse(), self.variations.reverse())
 
-    # ------------------------------------------------------------- sampling (the bare Jacobian 𝒥; 3b-6b)
+    # ------------------------------------------------------------- sampling (the bare Jacobian 𝒥)
     def probe(
             self,
             ww:  typ.Sequence[NDArray],  # probe vectors, len=d, ith elm_shape=W+(Ni,)
@@ -560,7 +560,7 @@ class UT3Tangent(common.ExplicitEquality):
         """
         return utv_sampling.utv_entries(index, self.frame.data, self.variations.data)
 
-    # --------------------------------------------------------------- derivative sampling (jets 𝒥; 3b-6'b)
+    # --------------------------------------------------------------- derivative sampling (jets 𝒥)
     def probe_derivatives(
             self,
             ww:     typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
@@ -740,7 +740,7 @@ class UT3Tangent(common.ExplicitEquality):
             c, index, frame.data, sum_over_probes=sum_over_probes)
         return UT3Tangent(frame, _ut3variations_from_data(vd))
 
-    # --------------------------------------------------------- derivative transpose 𝒥ᵀ (jets; 3b-6'c)
+    # --------------------------------------------------------- derivative transpose 𝒥ᵀ (jets)
     @staticmethod
     def probe_derivatives_transpose(
             ztildes,                   # probe residual jets, len=d, ith elm_shape=(order+1,)+W+K+C+(Ni,)

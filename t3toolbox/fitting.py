@@ -27,7 +27,7 @@ perturbation; see :py:class:`~t3toolbox.manifold.CorewiseGeometry`). Build trial
 The frame sweep (the frame-and-data edge variables) is computed once by the factory and stored as the
 ``sweep`` field, reused across every ``gradient`` / ``gn_hessian`` / ``evaluate`` -- in an inner CG the
 frame is fixed, so the sweep is computed once, not once per matrix-vector product. See
-:py:mod:`t3toolbox.backend.fitting` and ``dev/archive/geometry_refactor_plan.md``.
+:py:mod:`t3toolbox.backend.fitting` and ``docs/fitting_and_optimization.md`` §4.3.
 
 Jitting an optimizer
 --------------------
@@ -443,7 +443,7 @@ def ragged_backend_geometry(geometry, shape=None):
 
 def _backend_geometry_ops(geometry, shape=None):
     '''The ragged backend geometry for the regularizer, which lives in the backend and leans on
-    ``point_norm_sq`` / ``point_tangent`` / ``project`` / ``inner`` (dev/archive/regularization_design.md §5a).'''
+    ``point_norm_sq`` / ``point_tangent`` / ``project`` / ``inner`` (``docs/contributor/fitting_internals.md`` §Regularization).'''
     ops = ragged_backend_geometry(geometry, shape)
     if ops is None:
         raise ValueError("regularization requires a ragged geometry (manifold.MANIFOLD / COREWISE, "
@@ -628,7 +628,7 @@ def probe_model(
 # Derivative sampling models (the symmetric directional-derivative jets of apply/entries/probe). Same
 # GaussNewtonModel, a parameterized derivative kind (order + the per-order residual weight ω): the
 # measurement is a jet (a leading order axis), the sample is the paired (ww/index, pp), and `residual`
-# is RAW (r = S(x) − y); ω weights the objective ½‖ω⊙r‖² inside the kind. See dev/archive/derivative_fitting_plan.md.
+# is RAW (r = S(x) − y); ω weights the objective ½‖ω⊙r‖² inside the kind. See docs/fitting_and_optimization.md §4.6.
 # --------------------------------------------------------------------------------------------------
 def apply_derivatives_model(
         geometry,                            # MANIFOLD / COREWISE

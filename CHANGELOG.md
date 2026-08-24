@@ -298,8 +298,8 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
 ### Performance
 
 - **The inner CG compiles once per fitting run instead of once per Newton iteration** (measured
-  1 → 0 compiles per iteration on the uniform `probe_derivatives` path, warm). `_cg_solve` is jitted as
-  a whole function of `(local_model, rhs, tol, maxiter)`, so the cache key is the model's pytree
+  1 → 0 compiles per iteration on the uniform `probe_derivatives` path, warm). `_cg_solve(local_model, rhs, tol, maxiter, use_jit)` dispatches
+  to one function compiled over `(local_model, rhs, tol, maxiter)`, so the cache key is the model's pytree
   treedef — value-based, thanks to the change above.
 - **`mc_sgd` / `adam` per-step kernels compile once per shape signature**, process-wide, rather than
   once per optimizer call: the kernels are module-level functions and the jit wrapper is memoized on

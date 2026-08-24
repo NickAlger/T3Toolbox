@@ -66,7 +66,7 @@ def t3_apply(
     #
 
     vsc = tucker_cores[0].shape[:-2] # core/frame stack C (the batch of T3s)
-    vsw = vecs[0].shape[:-1]         # vec stack W (the probe-like vectors), base-inner: W outer, C inner
+    vsw = vecs[0].shape[:-1]         # vec stack W (the probe-like vectors), frame-inner: W outer, C inner
 
     mu_WCa = xnp.ones(vsw + vsc + (tt_cores[0].shape[-3],))   # W + C
     v_B_G = (vecs, tucker_cores, tt_cores)
@@ -170,7 +170,7 @@ def tv_apply(
 
 
 def tv_apply_transpose(
-        c:          NDArray,                # residual, shape = W + C (one per probe-set, per base point)
+        c:          NDArray,                # residual, shape = W + K + C (K optional; one per probe-set, per base point)
         ww:         typ.Sequence[NDArray],  # the apply vectors, len=d, elm_shape=W+(Ni,)
         frame:       typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
                               typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
@@ -373,7 +373,7 @@ def _apply_transpose_adjoint(c, ww, xis, mus, down_tt_cores, right_tt_cores, sum
     sigma_hats = compute_sigma_hat(right_tt_cores, xis, c)               # polymorphic reverse sweep
 
     if is_uniform:
-        # d-prefixed WKC (3b-6a/c), vectorized over the core index d (NOT a per-core loop -> no jit
+        # d-prefixed WKC, vectorized over the core index d (NOT a per-core loop -> no jit
         # unroll). ww is the packed apply/one-hot probe supercore (d,)+W+(N,) -> n_probe = len(W). The
         # ragged loop below is the oracle.
         n_probe = ww.ndim - 2

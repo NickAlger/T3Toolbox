@@ -589,8 +589,8 @@ def pad_safe_svd(
     traced (or host-numpy constants), and one jit compile covers every mask pattern. The only
     branch is on the static padded shape (``N < M`` transposes internally).
 
-    Algorithm (Method D, "sketch-project", from the pad-safe SVD design packet; record:
-    ``dev/review_2026-08-22/repros/S1b/packet/``). Load-bearing details -- do not "simplify":
+    Algorithm (Method D, "sketch-project", from the pad-safe SVD design record:
+    ``docs/pad_safe_svd.tex``). Load-bearing details -- do not "simplify":
 
     * pad rows are permuted to the TRAILING pivot positions before the QR (Householder reflectors
       then never place mass on a padded row; the surplus columns come out as exact pad coordinate

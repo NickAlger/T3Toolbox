@@ -18,7 +18,8 @@ Everything below is importable directly from ``t3toolbox``.
 - :py:class:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain` -- the keystone class (ragged);
   ``.data = (tucker_cores, tt_cores)``.
 - :py:class:`~t3toolbox.uniform_tucker_tensor_train.UniformTuckerTensorTrain` -- the uniform
-  (supercores + masks) mirror.
+  (supercores + masks) mirror; its masks holder :py:class:`~t3toolbox.uniform_tucker_tensor_train.UT3Masks`
+  is module-level (not at the root).
 
 **Frames, variations, tangents**
 
@@ -33,6 +34,10 @@ Everything below is importable directly from ``t3toolbox``.
   :py:class:`~t3toolbox.uniform_frame_variations_format.UT3Variations`,
   :py:func:`~t3toolbox.uniform_frame_variations_format.ut3_orthogonal_representations`,
   :py:class:`~t3toolbox.uniform_manifold.UT3Tangent` -- the uniform mirrors.
+- Module-level (not at the root): the pair guards ``check_fv_pair`` / ``check_ufv_pair`` /
+  ``check_fw_pair`` / ``check_ufw_pair``, and
+  :py:func:`~t3toolbox.frame_variations_format.fv_to_t3` (substitute one variation core into the
+  frame -- the single-term tangent word).
 
 **Geometries**
 
@@ -44,6 +49,12 @@ Everything below is importable directly from ``t3toolbox``.
   :py:func:`~t3toolbox.shared_geometry.shared_manifold` /
   :py:func:`~t3toolbox.shared_geometry.shared_corewise` -- wrap any of the four geometries to
   constrain the Tucker factors equal within groups of modes (:doc:`sharing`).
+- Module-level (not at the root): the classes behind the singletons and ``shared(...)`` --
+  :py:class:`~t3toolbox.manifold.ManifoldGeometry` / :py:class:`~t3toolbox.manifold.CorewiseGeometry`,
+  :py:class:`~t3toolbox.uniform_manifold.UniformManifoldGeometry` /
+  :py:class:`~t3toolbox.uniform_manifold.UniformCorewiseGeometry`,
+  :py:class:`~t3toolbox.shared_geometry.SharedGeometry` -- and
+  :py:func:`~t3toolbox.manifold.manifold_dim` (the tangent-space dimension).
 
 **Weights**
 
@@ -79,6 +90,9 @@ Everything below is importable directly from ``t3toolbox``.
 
 - :py:mod:`~t3toolbox.safety` with the :py:func:`~t3toolbox.safety.safe` /
   :py:func:`~t3toolbox.safety.unsafe` context managers -- the ambient numerical-precondition mode.
+  Module-level helpers: ``SafetyTolerances``, ``set_default_safety``, ``current_safety``,
+  ``effective_rtol``, ``comparison_rtol``, ``checks_active``, ``require``, ``frames_equal``,
+  ``frames_equal_or_skip``, ``is_tracing``, and the ``DEFAULT_RTOL_*`` constants.
 
 The backend surface
 -------------------

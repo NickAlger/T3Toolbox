@@ -250,10 +250,10 @@ def tv_to_t3(
     xnp, _, _ = get_backend(False, use_jax)
 
     # The output is a single uniformly-stacked doubled-rank T3 (one per (v, g) pair). Its full stack
-    # V+G comes from the variations; the frame cores carry only G (the shared base point), so broadcast
-    # every frame-derived core up to V+G -- replicating the base point over the tangent stack V -- so
+    # K+C comes from the variations; the frame cores carry only C (the shared base point), so broadcast
+    # every frame-derived core up to K+C -- replicating the base point over the tangent stack K -- so
     # each concatenated doubled-rank core is uniformly stacked. No-op when V=() (the plain G-stack).
-    ss = tucker_variations[0].shape[:-2]  # stack_shape = V + G
+    ss = tucker_variations[0].shape[:-2]  # stack_shape = K + C
     bcast2 = lambda C: xnp.broadcast_to(C, ss + C.shape[-2:])  # tucker-shaped frame core (..., n, N)
     bcast3 = lambda C: xnp.broadcast_to(C, ss + C.shape[-3:])  # tt-shaped frame core (..., rL, n, rR)
     up_tucker_cores = [bcast2(U) for U in up_tucker_cores]
@@ -502,25 +502,25 @@ def tv_project_dense_onto_tangent_space(
 
 def _tangent_stack_split(
         frame,       # (UU, DD, LL, RR), each core stack = G
-        variations,  # (VV, HH), each core stack = V + G
-) -> typ.Tuple[int, int]:  # (|V|, |G|)
+        variations,  # (VV, HH), each core stack = K + C
+) -> typ.Tuple[int, int]:  # (|K|, |C|)
     """Recover the tangent-stack / frame-stack split from a (frame, variations) data pair.
 
-    The frame cores carry only the frame stack G; the variation cores carry the full stack V + G (the
-    extra tangent stack V outermost). So |G| comes from a frame core and |V| is the remainder.
+    The frame cores carry only the frame stack C; the variation cores carry the full stack K + C (the
+    extra tangent stack K outermost). So |C| comes from a frame core and |K| is the remainder.
     """
-    n_frame = len(frame[0][0].shape) - 2       # |G|   (up core: stack + (nU, N))
-    n_full = len(variations[0][0].shape) - 2  # |V+G| (tucker variation: stack + (nD, N))
+    n_frame = len(frame[0][0].shape) - 2       # |C|   (up core: stack + (nU, N))
+    n_full = len(variations[0][0].shape) - 2  # |K+C| (tucker variation: stack + (nD, N))
     return n_full - n_frame, n_frame
 
 
 def _pair_frame_leaves(
-        frame_tree,        # G-shaped tree of frame-data tuples,      n_frame levels deep
-        variations_tree,   # G-shaped tree of variations-data tuples, n_frame levels deep
-        n_frame:     int,   # frame-stack depth |G|
-):  # -> G-shaped tree of (frame_data, variations_data) pairs
-    """Pair a frame-data tree and a variations-data tree (same G-shaped outer structure, n_frame axes
-    deep) leaf-by-leaf into one G-shaped tree of ``(frame_data, variations_data)`` pairs.
+        frame_tree,        # C-shaped tree of frame-data tuples,      n_frame levels deep
+        variations_tree,   # C-shaped tree of variations-data tuples, n_frame levels deep
+        n_frame:     int,   # frame-stack depth |C|
+):  # -> C-shaped tree of (frame_data, variations_data) pairs
+    """Pair a frame-data tree and a variations-data tree (same C-shaped outer structure, n_frame axes
+    deep) leaf-by-leaf into one C-shaped tree of ``(frame_data, variations_data)`` pairs.
 
     Not a :py:func:`stacking.tree_zip`: the data-tuple leaves are themselves sequences, so tree_zip
     would recurse into the cores. We stop at the known frame-stack depth ``n_frame`` instead.
@@ -532,10 +532,10 @@ def _pair_frame_leaves(
 
 
 def _unpair_frame_leaves(
-        paired_tree,       # G-shaped tree of (frame_data, variations_data) pairs
-        n_frame:     int,   # frame-stack depth |G|
-):  # -> (frame_tree, variations_tree), each G-shaped
-    """Inverse of :py:func:`_pair_frame_leaves`: split a G-shaped tree of ``(frame_data,
+        paired_tree,       # C-shaped tree of (frame_data, variations_data) pairs
+        n_frame:     int,   # frame-stack depth |C|
+):  # -> (frame_tree, variations_tree), each C-shaped
+    """Inverse of :py:func:`_pair_frame_leaves`: split a C-shaped tree of ``(frame_data,
     variations_data)`` pairs back into a ``(frame_tree, variations_tree)``.
     """
     if n_frame == 0:
@@ -546,9 +546,9 @@ def _unpair_frame_leaves(
 
 def tv_unstack_tangent_stack(
         frame,       # (UU, DD, LL, RR), each core stack = G
-        variations,  # (VV, HH), each core stack = V + G
+        variations,  # (VV, HH), each core stack = K + C
 ):  # -> array-like tree (shape V) of variations-data tuples (each stack = G)
-    """Peel the tangent stack V off the variations, returning a V-shaped tree of variation-data.
+    """Peel the tangent stack K off the variations, returning a K-shaped tree of variation-data.
 
     The base point is shared across V, so the frame cores are untouched (the caller pairs the same
     frame with every leaf). Inverse of :py:func:`tv_stack_tangent_stack`.
@@ -559,8 +559,8 @@ def tv_unstack_tangent_stack(
 
 def tv_stack_tangent_stack(
         variations_tree,  # array-like tree (shape V) of variations-data tuples (each stack = G)
-):  # -> variations-data tuple (stack = V + G)
-    """Stack a V-shaped tree of variation-data over the tangent stack V (outermost).
+):  # -> variations-data tuple (stack = K + C)
+    """Stack a K-shaped tree of variation-data over the tangent stack K (outermost).
 
     Inverse of :py:func:`tv_unstack_tangent_stack`.
     """
@@ -569,13 +569,13 @@ def tv_stack_tangent_stack(
 
 def tv_unstack_frame_stack(
         frame,       # (UU, DD, LL, RR), each core stack = G
-        variations,  # (VV, HH), each core stack = V + G
+        variations,  # (VV, HH), each core stack = K + C
 ):  # -> array-like tree (shape G) of (frame_data, variations_data) pairs
-    """Peel the frame stack G off both the frame and the variations, returning a G-shaped tree whose
+    """Peel the frame stack C off both the frame and the variations, returning a C-shaped tree whose
     leaves are ``(frame_data, variations_data)`` pairs -- one single-base-point tangent per leaf.
 
-    Each frame-data leaf has stack () (a single base point); each variations-data leaf has stack V.
-    The frame stack is the *inner* part of the variation stack (V + G), so it is peeled from the
+    Each frame-data leaf has stack () (a single base point); each variations-data leaf has stack K.
+    The frame stack is the *inner* part of the variation stack (K + C), so it is peeled from the
     interior axes of the variation cores. The frame and variation leaves are paired for you (a plain
     :py:func:`stacking.tree_zip` cannot do it -- it would recurse into the data-tuple leaves -- so a
     backend user would otherwise have to hand-roll a depth-aware zip). Inverse of
@@ -591,18 +591,18 @@ def tv_stack_frame_stack(
         paired_tree,  # array-like tree (shape G) of (frame_data, variations_data) pairs
 ):  # -> (
     #        frame-data,       # stack = G
-    #        variations-data,  # stack = V + G
+    #        variations-data,  # stack = K + C
     #    )
-    """Stack a G-shaped tree of ``(frame_data, variations_data)`` pairs over the frame stack G.
+    """Stack a C-shaped tree of ``(frame_data, variations_data)`` pairs over the frame stack C.
 
-    The frame stack is placed *innermost* (the variation stack becomes V + G), matching the base-inner
+    The frame stack is placed *innermost* (the variation stack becomes K + C), matching the frame-inner
     convention. Takes exactly the paired-tree layout that :py:func:`tv_unstack_frame_stack` produces (its
     inverse), so a backend user round-trips without splitting the pairs by hand.
     """
-    n_frame = stacking.tree_depth(paired_tree) - 3   # |G|; a (frame_data, variations_data) leaf is 3 levels deep
+    n_frame = stacking.tree_depth(paired_tree) - 3   # |C|; a (frame_data, variations_data) leaf is 3 levels deep
     frame_tree, variations_tree = _unpair_frame_leaves(paired_tree, n_frame)
     frame = stacking.basic_ragged_stack(frame_tree)                      # G at leading -> stack = G
-    n_tangent = len(stacking.get_first_leaf(variations_tree).shape) - 2  # |V| (a tucker variation leaf)
+    n_tangent = len(stacking.get_first_leaf(variations_tree).shape) - 2  # |K| (a tucker variation leaf)
     variations = stacking.stack(variations_tree, axes=tuple(range(n_tangent, n_tangent + n_frame)))
     return frame, variations
 

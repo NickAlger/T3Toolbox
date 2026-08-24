@@ -405,7 +405,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         """Probe: contract all-but-one mode, for each mode (leaving mode ``i`` free), without forming the
         dense tensor (shares :py:func:`~t3toolbox.backend.ut3_sampling.ut3_probe`).
 
-        The probe stack ``W`` (on ``ww``) is base-inner with the T3 stack: each probe is ``W + stack_shape +
+        The probe stack ``W`` (on ``ww``) is frame-inner with the T3 stack: each probe is ``W + stack_shape +
         (Ni,)``. Precondition-free. Uniform mirror of
         :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.probe`.
 
@@ -431,7 +431,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         """
         return ut3_sampling.ut3_probe(ww, self.data)
 
-    # --------------------------------------------------------------- derivative sampling (jets; 3b-6'b)
+    # --------------------------------------------------------------- derivative sampling (jets)
     def probe_derivatives(
             self,
             ww:     Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
@@ -532,7 +532,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         sampling_derivatives.check_perturbation_index(index, pp, self.shape)
         return ut3_sampling.ut3_entries_derivatives(index, pp, self.data, order)
 
-    # --------------------------------------------------------- corewise (non-manifold) sampling transposes (3b-6c)
+    # --------------------------------------------------------- corewise (non-manifold) sampling transposes
     def apply_corewise_transpose(
             self,
             c:    NDArray,            # residual, shape=W+stack_shape (a scalar per stack element)
@@ -594,7 +594,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         :py:meth:`apply_corewise_transpose` for the return contract and ``sum_over_probes``."""
         return ut3_sampling.ut3_probe_corewise_transpose(ztildes, ww, self.data, sum_over_probes=sum_over_probes)
 
-    # ------------------------------------------------- corewise (non-manifold) derivative transposes (3b-6'c)
+    # ------------------------------------------------- corewise (non-manifold) derivative transposes
     def apply_corewise_derivatives_transpose(
             self,
             c:      NDArray,            # residual jet (scalar), shape=(order+1,)+W+stack_shape
