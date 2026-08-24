@@ -15,6 +15,7 @@ import t3toolbox.backend.tt_orthogonalization as orth
 import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
 import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.ut3_masking as ut3_masking
+import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.sharing as sharing_module
 from t3toolbox.backend.common import *
@@ -95,12 +96,14 @@ def ut3svd(
     cap_masks = ut3_masking.ut3_make_masks(capped_tucker, capped_tt, n, r)
     if groups is None:
         (out_tucker, out_tt), ss_tucker, ss_tt = ut3svd_supercores(
-            (masked_tucker, masked_tt), cap_masks, skip_orthogonalization=assume_orthogonal)
+            (masked_tucker, masked_tt), cap_masks, skip_orthogonalization=assume_orthogonal,
+            content=(shape, tucker_mask, tt_mask))
         raw_tucker, raw_tt = ranks.compute_raw_sweep_ranks(
             shape, tucker_mask.sum(axis=-1), tt_mask.sum(axis=-1), capped_tucker, capped_tt)
     else:
         (out_tucker, out_tt), ss_tucker, ss_tt = _ut3svd_shared_supercores(
-            (masked_tucker, masked_tt), cap_masks, groups, skip_orthogonalization=assume_orthogonal)
+            (masked_tucker, masked_tt), cap_masks, groups, skip_orthogonalization=assume_orthogonal,
+            content=(shape, tucker_mask, tt_mask))
         # the grouped recurrence also validates within-group equality of the input ranks AND the caps
         raw_tucker, raw_tt = ranks.compute_raw_sweep_ranks(
             shape, tucker_mask.sum(axis=-1), tt_mask.sum(axis=-1), capped_tucker, capped_tt,
@@ -176,10 +179,12 @@ def _reduce_left_to_right(
     min_masks = ut3_masking.ut3_make_masks(min_tucker, min_tt, n, r)
     if groups is None:
         (out_tucker, out_tt), _, _ = ut3svd_supercores(
-            (masked_tucker, masked_tt), min_masks, skip_orthogonalization=True)
+            (masked_tucker, masked_tt), min_masks, skip_orthogonalization=True,
+            content=(shape, tucker_mask, tt_mask))
     else:
         (out_tucker, out_tt), _, _ = _ut3svd_shared_supercores(
-            (masked_tucker, masked_tt), min_masks, groups, skip_orthogonalization=True)
+            (masked_tucker, masked_tt), min_masks, groups, skip_orthogonalization=True,
+            content=(shape, tucker_mask, tt_mask))
 
     n2 = int(np.max(min_tucker))
     r2 = int(np.max(min_tt))
@@ -230,6 +235,89 @@ def _ut3svd_step(
     return Y_next, (new_B, new_G, ss_frame, ss_tt)
 
 
+def _ut3svd_step_pad_safe(
+        carry: NDArray,        # Y: stack_shape+(r,r), the running bond factor
+        x:     typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray, NDArray, NDArray, NDArray],
+               # (B, G, frame_mask, tt_mask_i, row1, col1, row2, col2) -- one mode; the last four are
+               # the pad-safe content masks (HOST, from the raw-sweep recurrence)
+) -> typ.Tuple[
+        NDArray,               # Y_next: stack_shape+(r,r)
+        typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (new_B, new_G, ss_frame, ss_tt)
+]:
+    """Pad-safe twin of :py:func:`_ut3svd_step` (review S1b): both kept-basis SVDs go through
+    :py:func:`~t3toolbox.backend.linalg.pad_safe_svd`, so at a numerically rank-deficient point the
+    sigma~0 completion columns stay OFF the padded slots -- which matters when the output cores
+    become a FRAME (``ut3svd_orthogonal_representations`` / ``already_left_orthogonal=True``).
+    Closure-free scan body; masks ride the scan ``xs`` as HOST arrays (constants under jit)."""
+    xnp, _, _ = get_backend(True, tree_contains_jax((carry, x)))
+    Y = carry  # (r, r)
+    B, G, frame_mask, tt_mask_i, row1, col1, row2, col2 = x
+    stack_shape = carry.shape[:-2]
+    r = carry.shape[-1]
+    n = G.shape[-2]                                    # before the einsum below rebinds G
+
+    G = xnp.einsum('...ij,...jak->...iak', Y, G)
+    M = G.swapaxes(-2, -1).reshape(stack_shape + (r * r, n))
+    U, ss_frame, Vt = linalg.pad_safe_svd(M, row1, col1)         # K = min(r*r, n) columns
+    nb = ss_frame.shape[-1]
+    U = xnp.concatenate([U, xnp.zeros(stack_shape + (r * r, n - nb))], axis=-1)
+    ss_frame = xnp.concatenate([ss_frame, xnp.zeros(stack_shape + (n - nb,))], axis=-1)
+    Vt = xnp.concatenate([Vt, xnp.zeros(stack_shape + (n - nb, n))], axis=-2)
+    U = U * frame_mask.reshape(stack_shape + (1, -1))
+    ss_frame = ss_frame * frame_mask
+    Vt = Vt * frame_mask.reshape(stack_shape + (-1, 1))
+
+    new_B = xnp.einsum('...ij,...jk->...ik', Vt, B)
+
+    M = xnp.einsum('...ij,...j->...ij', U, ss_frame).reshape(
+        stack_shape + (r, r, n)).swapaxes(-1, -2).reshape(stack_shape + (r * n, r))
+    U, ss_tt, Vt = linalg.pad_safe_svd(M, row2, col2)
+    U = U * tt_mask_i.reshape(stack_shape + (1, -1))
+    ss_tt = ss_tt * tt_mask_i
+    Vt = Vt * tt_mask_i.reshape(stack_shape + (-1, 1))
+
+    new_G = U.reshape(stack_shape + (r, n, r))
+    Y_next = xnp.einsum('...i,...ij->...ij', ss_tt, Vt)
+    return Y_next, (new_B, new_G, ss_frame, ss_tt)
+
+
+def _raw_sweep_step_masks(
+        shape,          # static int tuple, len=d
+        tkm,            # HOST bool (d,)+stack+(n,)   -- input content masks (post entry-masking)
+        ttm_sq,         # HOST bool (d+1,)+stack+(r,) -- input content masks, POST-SQUASH boundaries
+        cap_tkm,        # HOST bool (d,)+stack+(n,)   -- the truncation cap masks
+        cap_ttm,        # HOST bool (d+1,)+stack+(r,)
+):
+    """Per-step pad-safe masks for the (unshared) ut3svd scan: the raw-sweep rank recurrence
+    (:py:func:`~t3toolbox.backend.ranks.compute_raw_sweep_ranks`), evaluated stepwise on the host.
+    Returns stacked (d, ...) arrays (row1, col1, row2, col2) plus the pre-scan content ranks
+    (n0, rr) the pre-orthogonalization needs."""
+    d = tkm.shape[0]
+    n_w = tkm.shape[-1]
+    r_w = ttm_sq.shape[-1]
+    shape_col = np.asarray(shape).reshape((d,) + (1,) * (tkm.ndim - 2))
+    n0 = np.minimum(tkm.sum(axis=-1), shape_col)               # after down-orthogonalization
+    rr = ttm_sq.sum(axis=-1).copy()                            # after right-orthogonalization
+    for ii in range(d - 1, 0, -1):
+        rr[ii] = np.minimum(rr[ii], n0[ii] * rr[ii + 1])
+    cap_n = cap_tkm.sum(axis=-1)
+    cap_r = cap_ttm.sum(axis=-1)
+    rin = rr[0]                                                # evolving capped left bond
+    row1 = []; col1 = []; row2 = []; col2 = []
+    for ii in range(d):
+        lm = prefix_mask(rin, r_w)
+        rm = prefix_mask(rr[ii + 1], r_w)
+        k2 = lm[..., :, None] & rm[..., None, :]
+        row1.append(k2.reshape(k2.shape[:-2] + (-1,)))
+        col1.append(prefix_mask(n0[ii], n_w))
+        nS = np.minimum(np.minimum(n0[ii], rin * rr[ii + 1]), cap_n[ii])
+        k2 = lm[..., :, None] & prefix_mask(nS, n_w)[..., None, :]
+        row2.append(k2.reshape(k2.shape[:-2] + (-1,)))
+        col2.append(rm)
+        rin = np.minimum(np.minimum(rin * nS, rr[ii + 1]), cap_r[ii + 1])
+    return ((np.stack(row1), np.stack(col1), np.stack(row2), np.stack(col2)), n0, rr)
+
+
 def ut3svd_supercores(
         cores: typ.Tuple[
             NDArray,  # tucker_supercore (assumed masked)
@@ -241,6 +329,10 @@ def ut3svd_supercores(
         ],
         squash_tails_first: bool = True,
         skip_orthogonalization: bool = False,  # assume input already right-orthogonal (Tucker down + TT right)
+
+        content: typ.Optional[typ.Tuple[typ.Sequence[int], NDArray, NDArray]] = None,
+                 # (shape, tucker_edge_mask, tt_edge_mask) of the INPUT -- HOST. Given -> every
+                 # kept-basis SVD (pre-orthogonalization + scan) is PAD-SAFE (review S1b).
 ) -> typ.Tuple[
     typ.Tuple[NDArray, NDArray],  # (tucker_supercore, tt_supercore) at the INPUT padded (n, r)
     NDArray,  # frame_singular_values, shape=(d,)+stack+(n,)
@@ -269,10 +361,31 @@ def ut3svd_supercores(
     n, N = frame_supercore.shape[-2:]
     r = tt_supercore.shape[-1]
 
+    step_masks = None
+    if content is not None:
+        shape_c, tkm_c, ttm_c = content
+        stack_c = tkm_c.shape[1:-1]
+        one_r = prefix_mask(np.ones((1,) + stack_c, dtype=int), r)     # squash -> boundary rank 1
+        ttm_sq = np.concatenate([one_r, ttm_c[1:-1], one_r], axis=0) if squash_tails_first else ttm_c
+        step_masks, n0_c, rr_c = _raw_sweep_step_masks(shape_c, tkm_c, ttm_sq, frame_masks, tt_masks)
+
     if not skip_orthogonalization:
-        frame_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
-            frame_supercore, tt_supercore)
-        tt_supercore = orth.tt_right_orthogonalize(tt_supercore)
+        if content is None:
+            frame_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
+                frame_supercore, tt_supercore)
+            tt_supercore = orth.tt_right_orthogonalize(tt_supercore)
+        else:
+            shape_col = np.asarray(shape_c).reshape((d,) + (1,) * len(stack_c))
+            frame_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
+                frame_supercore, tt_supercore,
+                row_mask=prefix_mask(shape_col, N), col_mask=tkm_c,
+                out_mask=prefix_mask(n0_c, min(n, N)))
+            n0_masks = prefix_mask(n0_c, tt_supercore.shape[-2])
+            bond_in = prefix_mask(ttm_sq.sum(axis=-1), r)
+            tt_supercore = orth.tt_right_orthogonalize(
+                tt_supercore,
+                pad_masks=ut3_orthogonalization._tt_left_sweep_pad_masks(
+                    bond_in[::-1], n0_masks[::-1], rr_c[::-1]))
 
     # keep everything the same shape, for consistency with masks
     n2 = frame_supercore.shape[-2]
@@ -287,8 +400,13 @@ def ut3svd_supercores(
     if stack_shape:
         Y0 = xnp.tensordot(xnp.ones(stack_shape), Y0, axes=[(), ()])
 
-    Yf, (new_frame_cores, new_tt_cores, frame_singular_values, tt_singular_values0) = xscan(
-        _ut3svd_step, Y0, (frame_supercore, tt_supercore, frame_masks, tt_masks[1:]))
+    if step_masks is None:
+        Yf, (new_frame_cores, new_tt_cores, frame_singular_values, tt_singular_values0) = xscan(
+            _ut3svd_step, Y0, (frame_supercore, tt_supercore, frame_masks, tt_masks[1:]))
+    else:
+        Yf, (new_frame_cores, new_tt_cores, frame_singular_values, tt_singular_values0) = xscan(
+            _ut3svd_step_pad_safe, Y0,
+            (frame_supercore, tt_supercore, frame_masks, tt_masks[1:]) + step_masks)
 
     G_last = xnp.einsum('d...iaj,...jk->d...iak', new_tt_cores[-1:], Yf)
     new_tt_cores = xnp.concatenate([new_tt_cores[:-1], G_last], axis=0)
@@ -325,6 +443,35 @@ def _ut3svd_shared_step(
     return Y_next, (new_G, ss)
 
 
+def _ut3svd_shared_step_pad_safe(
+        carry: NDArray,                      # Y: stack_shape+(r,r), the running bond factor
+        x:     typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (G, tt_mask_i, row1, col1), one mode
+) -> typ.Tuple[
+        NDArray,                             # Y_next: stack_shape+(r,r)
+        typ.Tuple[NDArray, NDArray],         # (new_G, ss)
+]:
+    """Pad-safe twin of :py:func:`_ut3svd_shared_step` (review S1b): the bond-rounding SVD goes
+    through :py:func:`~t3toolbox.backend.linalg.pad_safe_svd`. Closure-free scan body; masks ride
+    the scan ``xs`` as HOST arrays."""
+    xnp, _, _ = get_backend(True, tree_contains_jax((carry, x)))
+    Y = carry  # (r, r)
+    G, tt_mask_i, row1, col1 = x
+    stack_shape = carry.shape[:-2]
+    r = carry.shape[-1]
+    n = G.shape[-2]                                    # before the einsum below rebinds G
+
+    G = xnp.einsum('...ij,...jak->...iak', Y, G)
+    M = G.reshape(stack_shape + (r * n, r))
+    U, ss, Vt = linalg.pad_safe_svd(M, row1, col1)       # thin: exactly r columns (r <= r*n)
+    U = U * tt_mask_i.reshape(stack_shape + (1, -1))
+    ss = ss * tt_mask_i
+    Vt = Vt * tt_mask_i.reshape(stack_shape + (-1, 1))
+
+    new_G = U.reshape(stack_shape + (r, n, r))
+    Y_next = xnp.einsum('...i,...ij->...ij', ss, Vt)
+    return Y_next, (new_G, ss)
+
+
 def _ut3svd_shared_supercores(
         cores: typ.Tuple[
             NDArray,  # tucker_supercore (assumed masked; factors tied within groups on real content)
@@ -336,6 +483,10 @@ def _ut3svd_shared_supercores(
         ],
         groups: typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition with >= 1 real group
         skip_orthogonalization: bool = False,  # assume input already right-orthogonal (Tucker down + TT right)
+
+        content: typ.Optional[typ.Tuple[typ.Sequence[int], NDArray, NDArray]] = None,
+                 # (shape, tucker_edge_mask, tt_edge_mask) of the INPUT -- HOST. Given -> every
+                 # kept-basis SVD (pre-orthogonalization + all four phases) is PAD-SAFE (review S1b).
 ) -> typ.Tuple[
     typ.Tuple[NDArray, NDArray],  # (tucker_supercore, tt_supercore) at the INPUT padded (n, r)
     NDArray,  # frame_singular_values, shape=(d,)+stack+(n,); group modes carry the group spectrum s_g
@@ -367,10 +518,61 @@ def _ut3svd_shared_supercores(
     n, N = frame_supercore.shape[-2:]
     r = tt_supercore.shape[-1]
 
+    # -- pad-safe content recurrences (HOST; review S1b), phase by phase --
+    ph = None
+    if content is not None:
+        shape_c, tkm_c, ttm_c = content
+        stack_c = tkm_c.shape[1:-1]
+        one_r = prefix_mask(np.ones((1,) + stack_c, dtype=int), r)     # squash -> boundary rank 1
+        ttm_sq = np.concatenate([one_r, ttm_c[1:-1], one_r], axis=0)
+        shape_col = np.asarray(shape_c).reshape((d,) + (1,) * len(stack_c))
+        n0 = np.minimum(tkm_c.sum(axis=-1), shape_col)                 # after down-orth
+        rr = ttm_sq.sum(axis=-1).copy()                                # after right-orth
+        for ii in range(d - 1, 0, -1):
+            rr[ii] = np.minimum(rr[ii], n0[ii] * rr[ii + 1])
+        n0m = prefix_mask(n0, n)
+        cap_r = tt_masks.sum(axis=-1)
+        rin = list(rr)                                                 # phase 1: capped bond rounding
+        for ii in range(d - 1):
+            rin[ii + 1] = np.minimum(np.minimum(rin[ii + 1], rin[ii] * n0[ii]), cap_r[ii + 1])
+        row1 = []; col1 = []
+        for ii in range(d):
+            k2 = prefix_mask(rin[ii], r)[..., :, None] & n0m[ii][..., None, :]
+            row1.append(k2.reshape(k2.shape[:-2] + (-1,)))
+            col1.append(prefix_mask(rr[ii + 1], r))
+        r2 = list(rin)                                                 # phase 2: lossless right sweep
+        for ii in range(d - 1, 0, -1):
+            r2[ii] = np.minimum(rin[ii], n0[ii] * r2[ii + 1])
+        cap_n = frame_masks.sum(axis=-1)
+        n3 = [None] * d                                                # phase 3: group truncations
+        for group in groups:
+            cols_g = sum(r2[ii] * r2[ii + 1] for ii in group)
+            n_g = np.minimum(np.minimum(n0[group[0]], cols_g), cap_n[group[0]])
+            for ii in group:
+                n3[ii] = n_g
+        r4 = list(r2)                                                  # phase 4: lossless left sweep
+        for ii in range(d - 1):
+            r4[ii + 1] = np.minimum(r4[ii + 1], r4[ii] * n3[ii])
+        ph = dict(n0=n0, n0m=n0m, rr=rr, rin=np.stack(rin), r2=np.stack(r2),
+                  n3=np.stack(n3), r4=np.stack(r4),
+                  row1=np.stack(row1), col1=np.stack(col1), ttm_sq=ttm_sq, shape_col=shape_col)
+
     if not skip_orthogonalization:
-        frame_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
-            frame_supercore, tt_supercore)
-        tt_supercore = orth.tt_right_orthogonalize(tt_supercore)
+        if ph is None:
+            frame_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
+                frame_supercore, tt_supercore)
+            tt_supercore = orth.tt_right_orthogonalize(tt_supercore)
+        else:
+            frame_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
+                frame_supercore, tt_supercore,
+                row_mask=prefix_mask(ph['shape_col'], N), col_mask=tkm_c,
+                out_mask=prefix_mask(ph['n0'], min(n, N)))
+            n0m_now = prefix_mask(ph['n0'], tt_supercore.shape[-2])
+            bond_in = prefix_mask(ph['ttm_sq'].sum(axis=-1), r)
+            tt_supercore = orth.tt_right_orthogonalize(
+                tt_supercore,
+                pad_masks=ut3_orthogonalization._tt_left_sweep_pad_masks(
+                    bond_in[::-1], n0m_now[::-1], ph['rr'][::-1]))
 
     # keep everything the same shape, for consistency with masks
     n2 = frame_supercore.shape[-2]
@@ -394,12 +596,24 @@ def _ut3svd_shared_supercores(
     Y0 = xnp.eye(r)
     if stack_shape:
         Y0 = xnp.tensordot(xnp.ones(stack_shape), Y0, axes=[(), ()])
-    Yf, (rounded_tt, ss_tt_scan) = xscan(_ut3svd_shared_step, Y0, (tt_supercore, tt_masks[1:]))
+    if ph is None:
+        Yf, (rounded_tt, ss_tt_scan) = xscan(_ut3svd_shared_step, Y0, (tt_supercore, tt_masks[1:]))
+    else:
+        Yf, (rounded_tt, ss_tt_scan) = xscan(
+            _ut3svd_shared_step_pad_safe, Y0,
+            (tt_supercore, tt_masks[1:], ph['row1'], ph['col1']))
     G_last = xnp.einsum('d...iaj,...jk->d...iak', rounded_tt[-1:], Yf)
     rounded_tt = xnp.concatenate([rounded_tt[:-1], G_last], axis=0)
 
     # ---- phase 2: collect every mode's center of the TT-rounded tensor (lossless) ----
-    right_tt, HH = orth.tt_right_orthogonalize(rounded_tt, return_variation_cores=True)
+    if ph is None:
+        right_tt, HH = orth.tt_right_orthogonalize(rounded_tt, return_variation_cores=True)
+    else:
+        rin_m = prefix_mask(ph['rin'], r)
+        right_tt, HH = orth.tt_right_orthogonalize(
+            rounded_tt, return_variation_cores=True,
+            pad_masks=ut3_orthogonalization._tt_left_sweep_pad_masks(
+                rin_m[::-1], ph['n0m'][::-1], ph['r2'][::-1]))
 
     # ---- phase 3: all Tucker truncations at once, per group (static gathers, no segment sums) ----
     new_tucker_modes = [None] * d
@@ -408,7 +622,16 @@ def _ut3svd_shared_supercores(
     for group in groups:
         mats = [HH[ii].swapaxes(-3, -2).reshape(stack_shape + (n, r * r)) for ii in group]
         M = xnp.concatenate(mats, axis=-1)      # the group concatenation [W2_i1 | ... | W2_ik]
-        Y, ss, _ = xnp.linalg.svd(M, full_matrices=False)
+        if ph is None:
+            Y, ss, _ = xnp.linalg.svd(M, full_matrices=False)
+        else:
+            col_blocks = []
+            for ii in group:                     # per-mode kron of the phase-2 bond masks
+                k2 = (prefix_mask(ph['r2'][ii], r)[..., :, None]
+                      & prefix_mask(ph['r2'][ii + 1], r)[..., None, :])
+                col_blocks.append(k2.reshape(k2.shape[:-2] + (-1,)))
+            Y, ss, _ = linalg.pad_safe_svd(
+                M, ph['n0m'][group[0]], np.concatenate(col_blocks, axis=-1))
         q = ss.shape[-1]
         Y = xnp.concatenate([Y, xnp.zeros(stack_shape + (n, n - q))], axis=-1)
         ss = xnp.concatenate([ss, xnp.zeros(stack_shape + (n - q,))], axis=-1)
@@ -425,7 +648,13 @@ def _ut3svd_shared_supercores(
     frame_singular_values = xnp.stack(ss_tucker_modes, axis=0)
 
     # ---- phase 4: restore the left-orthogonal output contract (lossless) ----
-    new_tt_cores = orth.tt_left_orthogonalize(new_tt_cores)
+    if ph is None:
+        new_tt_cores = orth.tt_left_orthogonalize(new_tt_cores)
+    else:
+        new_tt_cores = orth.tt_left_orthogonalize(
+            new_tt_cores,
+            pad_masks=ut3_orthogonalization._tt_left_sweep_pad_masks(
+                prefix_mask(ph['r2'], r), prefix_mask(ph['n3'], n), ph['r4']))
 
     # boundary norm at the right edge (of the FINAL tensor), as the ragged sweep reports it
     _, ss_last0, _ = xnp.linalg.svd(new_tt_cores[-1].reshape(stack_shape + (r * n, r)), full_matrices=False)
