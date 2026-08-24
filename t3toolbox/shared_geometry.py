@@ -173,6 +173,17 @@ class SharedGeometry:
         path is unchanged. This is what makes an untied initial guess a non-event for the frontend optimizers (which build their frames through this wrapper),
         and it also absorbs the slow drift a long run of low-precision first-order steps can produce."""
         self.groups(x.shape)                                     # structural validation
+        if self.is_uniform and not isinstance(x, ut3.UniformTuckerTensorTrain):
+            raise TypeError(
+                'this SharedGeometry wraps the UNIFORM base %s: frame() takes a '
+                'UniformTuckerTensorTrain, got %s -- build the geometry from the ragged base '
+                '(shared(MANIFOLD/COREWISE, ...)) for ragged points (review R9-9)'
+                % (self.base_name, type(x).__name__))
+        if not self.is_uniform and not isinstance(x, t3.TuckerTensorTrain):
+            raise TypeError(
+                'this SharedGeometry wraps the RAGGED base %s: frame() takes a TuckerTensorTrain, '
+                'got %s -- use shared(UNIFORM_MANIFOLD/UNIFORM_COREWISE, ...) for uniform points '
+                '(review R9-9)' % (self.base_name, type(x).__name__))
         if self.is_uniform:
             return self.base.frame(um._ut3_from_data(
                 backend_sharing.ut3_tie_tucker_factors(x.data, self.sharing)))
@@ -185,6 +196,12 @@ class SharedGeometry:
 
         ``svd_s`` is the group spectrum ``s_g`` -- the continuation/aptness statistic, free at
         every frame. Manifold bases only (the corewise post-pass needs no companion)."""
+        if self.is_uniform and not isinstance(frame, ubv.UT3Frame):
+            raise TypeError('this SharedGeometry wraps the UNIFORM base %s: expected a UT3Frame, got %s '
+                            '(review R9-9)' % (self.base_name, type(frame).__name__))
+        if not self.is_uniform and not isinstance(frame, bvf.T3Frame):
+            raise TypeError('this SharedGeometry wraps the RAGGED base %s: expected a T3Frame, got %s '
+                            '(review R9-9)' % (self.base_name, type(frame).__name__))
         if self.is_uniform:
             return backend_sharing.ufv_shared_frame_data(frame.data, self.groups(frame.shape))
         return backend_sharing.fv_shared_frame_data(frame.data, self.groups(frame.shape))

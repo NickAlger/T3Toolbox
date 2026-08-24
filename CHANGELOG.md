@@ -44,6 +44,17 @@ All notable changes to T3Toolbox are documented here. The format follows
 
 _The items below came out of the 2026-08-22 whole-library review (`dev/review_2026-08-22/`)._
 
+- **Obscure errors on malformed inputs became structural guards** (the review's E-cluster sweep,
+  2026-08-24: R2-8, R2-12, R2-13, R3-6, H3-7, R8-6, R8-9, R1-15, R10-6, H3-8, R9-9). Str leaves no
+  longer recurse the tree helpers forever; `tree_zip` rejects structure mismatches instead of
+  silently truncating; `truncated_svd(min_rank > max_rank)` raises (min used to silently win);
+  `t3_inner_product` takes list/tuple mixes and `t3_sum_stack` an ndarray axis; uniform `*` is
+  scalar-only with a clear TypeError, uniform `stack` validates the static layout, and uniform
+  `minimal_ranks` stays host numpy on jax-backed trains; the ragged tensor-weight ops check
+  rank/stack consistency (one-metric broadcast still allowed); `COREWISE.retract` rejects a
+  detectable manifold-frame tangent; `SharedGeometry` names a wrong-layer point/frame. One
+  regression test per finding.
+
 - **The uniform frame at a numerically rank-deficient point loses no tangent directions** (review
   S1b -- the last open review item). Every kept-basis SVD in the uniform orthogonalization and
   T3-SVD sweeps now goes through the new mask-aware `backend.linalg.pad_safe_svd`, so the

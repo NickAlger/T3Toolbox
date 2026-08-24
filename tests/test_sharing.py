@@ -1746,3 +1746,27 @@ class TestCompanionAcrossLayers(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestSharedGeometryLayerGuards(unittest.TestCase):
+    """Review R9-9: a wrong-LAYER point/frame to a SharedGeometry used to fail deep inside with an
+    obscure unpack error; now a TypeError naming the base's layer and the fix."""
+
+    def test_wrong_layer_point_and_frame_raise(self):
+        import t3toolbox.shared_geometry as sgm
+        import t3toolbox.uniform_manifold as um
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn((5, 5, 7), (2, 2, 2), (1, 2, 2, 1))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        ragged_geom = sgm.shared(t3m.MANIFOLD, (0, 0, 1))
+        uniform_geom = sgm.shared(um.UNIFORM_MANIFOLD, (0, 0, 1))
+        with self.assertRaises(TypeError):
+            ragged_geom.frame(ux)
+        with self.assertRaises(TypeError):
+            uniform_geom.frame(x)
+        rf = ragged_geom.frame(x)                              # right layers still work ...
+        uf = uniform_geom.frame(ux)
+        with self.assertRaises(TypeError):
+            ragged_geom.shared_frame_data(uf)                  # ... and wrong-layer FRAMES are named too
+        with self.assertRaises(TypeError):
+            uniform_geom.shared_frame_data(rf)

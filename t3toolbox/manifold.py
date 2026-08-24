@@ -1117,6 +1117,13 @@ class T3Tangent:
                     'the same tangent space. To stack tangents at *different* base points, use '
                     'stack_frame. (Run inside safety.unsafe() to skip this numerical check.)'
                 )
+        kk = {tuple(t.tangent_stack_shape) for t in leaves}
+        if len(kk) > 1:
+            raise ValueError(
+                'stack_tangents: every leaf must carry the same tangent stack K to stack into one '
+                'outer level; got K shapes %s. Stack the K=() leaves separately, or unstack the '
+                'K-stacked one first (unstack_tangents). (Used to die inside numpy with an '
+                'inhomogeneous-shape error -- review H3-6.)' % sorted(kk))
         variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
         variations_data = tv_operations.tv_stack_tangent_stack(variations_tree)
         return T3Tangent(frame, bvf.T3Variations(*variations_data))
@@ -1500,7 +1507,20 @@ class CorewiseGeometry:
 
         Recovers the point ``(U, G)`` from ``p.frame`` (which :py:meth:`frame` built as ``(U, G, G, G)``)
         and adds the variations. ``p`` must be a corewise tangent (a frame from :py:meth:`frame`).
+
+        A MANIFOLD-frame tangent is rejected whenever that is structurally detectable (its down/left
+        slots hold different cores, e.g. a slack frame with ``nD != nU`` -- review H3-8); when the
+        manifold frame happens to have identically-shaped slots the two frame kinds are structurally
+        indistinguishable, and pairing each geometry with its own frames is the caller's contract.
         """
+        down_shapes = tuple(np.shape(c) for c in p.frame.down_tt_cores)
+        left_shapes = tuple(np.shape(c) for c in p.frame.left_tt_cores)
+        if down_shapes != left_shapes:
+            raise ValueError(
+                'COREWISE.retract needs a tangent at a COREWISE frame (COREWISE.frame(x) / .randn), '
+                'whose down/left/right slots hold the SAME cores (U, G, G, G); this tangent lives at a '
+                'MANIFOLD frame (down core shapes %s vs left core shapes %s) -- use MANIFOLD.retract.'
+                % (down_shapes, left_shapes))
         x_data = (p.frame.up_tucker_cores, p.frame.left_tt_cores)  # (U, G) from the (U, G, G, G) frame
         new = cw.corewise_add(x_data, p.variations.data)
         return t3.TuckerTensorTrain(*new)

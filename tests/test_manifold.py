@@ -1032,3 +1032,37 @@ class TestGaugeResidualIsRelative(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestCorewiseRetractFrameGuard(unittest.TestCase):
+    """Review H3-8: COREWISE.retract on a MANIFOLD-frame tangent used to die in a broadcast error on
+    a slack frame (nD != nU); now a structural ValueError naming the frame-kind mismatch. The
+    corewise path itself is unchanged."""
+
+    def test_manifold_frame_tangent_is_rejected_when_detectable(self):
+        np.random.seed(0)
+        xs = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 4), (1, 2, 3, 1))   # slack: nD != nU
+        fr_s = bvf.t3_orthogonal_representations(xs)[0]
+        v = t3m.MANIFOLD.randn(fr_s)
+        with self.assertRaises(ValueError):
+            t3m.COREWISE.retract(v)
+
+    def test_stack_tangents_mixed_K_raises_structurally(self):
+        """H3-6: stacking a K=() tangent with a K=(2,) tangent used to die inside numpy with an
+        inhomogeneous-shape error; now a ValueError naming the mismatched K shapes."""
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 3), (1, 2, 3, 1))
+        fr = bvf.t3_orthogonal_representations(x)[0]
+        v = t3m.MANIFOLD.randn(fr)
+        vk = t3m.MANIFOLD.randn(fr, stack_shape=(2,))
+        with self.assertRaises(ValueError):
+            t3m.T3Tangent.stack_tangents([v, vk])
+        s2 = t3m.T3Tangent.stack_tangents([v, v])              # matching K still stacks
+        self.assertEqual(s2.tangent_stack_shape, (2,))
+
+    def test_corewise_tangent_still_retracts(self):
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 3), (1, 2, 3, 1))
+        p = t3m.COREWISE.randn(t3m.COREWISE.frame(x))
+        y = t3m.COREWISE.retract(p)
+        self.assertEqual(y.shape, x.shape)
