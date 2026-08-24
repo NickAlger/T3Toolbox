@@ -657,3 +657,44 @@ class TestReviewC13Uniform(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestStructuralGuards(unittest.TestCase):
+    """Review cluster-1 (frontend, uniform): malformed inputs fail with structural errors naming the
+    problem, not deep numpy errors (H3-7, R8-6), and rank metadata stays host numpy (R8-9)."""
+
+    def setUp(self):
+        np.random.seed(0)
+        self.x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))
+        self.ux = ut3.UniformTuckerTensorTrain.from_t3(self.x)
+
+    def test_mul_is_scalar_only(self):
+        """H3-7: UT3 * UT3 used to die inside numpy; now a TypeError naming the ragged route."""
+        uy = ut3.UniformTuckerTensorTrain.from_t3(self.x)
+        with self.assertRaises(TypeError):
+            self.ux * uy
+        with self.assertRaises(TypeError):
+            self.ux * np.ones(3)
+        y = self.ux * 2.0                                   # scalars still fine (incl. 0-d arrays)
+        self.assertTrue(np.allclose(np.asarray(y.to_t3().to_dense()),
+                                    2.0 * np.asarray(self.x.to_dense())))
+
+    def test_stack_rejects_mismatched_pads(self):
+        """R8-6: stacking leaves with different padded sizes used to die inside numpy."""
+        uz = ut3.UniformTuckerTensorTrain.from_t3(self.x, n=4, r=4)
+        with self.assertRaises(ValueError):
+            ut3.UniformTuckerTensorTrain.stack([self.ux, uz])
+        s2 = ut3.UniformTuckerTensorTrain.stack([self.ux, self.ux])    # matching layouts still fine
+        self.assertEqual(s2.stack_shape, (2,))
+
+    def test_minimal_ranks_are_host_numpy(self):
+        """R8-9: rank metadata is host numpy even on a jax-backed train (the masks/aux rule)."""
+        try:
+            import jax  # noqa: F401
+        except ImportError:
+            self.skipTest('jax not installed')
+        mn = self.ux.to_jax().minimal_ranks
+        import t3toolbox.backend.common as common
+        for fam in mn:
+            self.assertTrue(common.is_numpy_ndarray(np.asarray(fam)))
+            self.assertFalse(common.tree_contains_jax((fam,)))

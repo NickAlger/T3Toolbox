@@ -242,7 +242,14 @@ class UniformTuckerTensorTrain:
 
     # ----------------------------------------------------------------- linear algebra
     def __mul__(self, s) -> 'UniformTuckerTensorTrain':
-        """Scale by a scalar."""
+        """Scale by a scalar. (Scalar-only: the elementwise/Hadamard product of two trains is a ragged
+        operation -- convert with ``.to_t3()`` and use ragged ``*``; review H3-7.)"""
+        if isinstance(s, UniformTuckerTensorTrain) or np.ndim(s) != 0:
+            raise TypeError(
+                'UniformTuckerTensorTrain.__mul__ takes a SCALAR (got %s). The elementwise product of '
+                'two trains is not implemented on the uniform layer: convert with .to_t3() and use the '
+                'ragged * (its result generally needs re-padding anyway -- ranks multiply).'
+                % type(s).__name__)
         return _from_data(ut3_linalg.ut3_scale(self.data, s))
 
     __rmul__ = __mul__
@@ -648,9 +655,10 @@ class UniformTuckerTensorTrain:
 
     @property
     def minimal_ranks(self) -> Tuple[NDArray, NDArray]:
-        """Structural minimal ranks ``(min_tucker_ranks, min_tt_ranks)`` for this UT3's shape/ranks."""
-        use_jax = self.contains_jax
-        return ranks.compute_minimal_ranks(self.shape, self.tucker_ranks, self.tt_ranks, use_jax=use_jax)
+        """Structural minimal ranks ``(min_tucker_ranks, min_tt_ranks)`` for this UT3's shape/ranks.
+        HOST numpy always, like all uniform rank metadata (masks/ranks are static structure; a jax rank
+        array would leak tracers into ``aux_data`` -- review R8-9)."""
+        return ranks.compute_minimal_ranks(self.shape, self.tucker_ranks, self.tt_ranks, use_jax=False)
 
     @property
     def has_minimal_ranks(self) -> NDArray:  # bool array, shape = stack_shape (per element; uniform ranks vary)
@@ -772,8 +780,23 @@ class UniformTuckerTensorTrain:
 
     @staticmethod
     def stack(uxx) -> 'UniformTuckerTensorTrain':
-        """Stack an array-like tree of UT3s into one stacked UT3."""
-        data_tree = stacking.apply_func_to_leaf_subtrees(uxx, lambda u: u.data, None)
+        """Stack an array-like tree of UT3s into one stacked UT3.
+
+        Every leaf must share the SAME static layout -- ``shape`` and padded ``(N, n, r)`` (ranks/masks
+        may differ; that is the point of a uniform stack). A mismatched pad used to die inside numpy
+        with an inhomogeneous-shape error (review R8-6); re-pad first (``from_t3(x, n=, r=)`` /
+        ``backend.ut3_operations.ut3_pad_ranks``)."""
+        layouts = set()
+        def _collect(u):
+            layouts.add((tuple(u.shape), u.d, u.N, u.n, u.r))
+            return u.data
+        data_tree = stacking.apply_func_to_leaf_subtrees(uxx, _collect, None)
+        if len(layouts) > 1:
+            raise ValueError(
+                'UniformTuckerTensorTrain.stack: every leaf must share the same static layout '
+                '(shape, d, N, n, r); got %s. Ranks may vary, padded sizes may not -- re-pad first '
+                '(from_t3(x, n=, r=) or backend.ut3_operations.ut3_pad_ranks).'
+                % sorted(layouts))
         tk, tt, shape, masks = ut3_operations.ut3_stack(data_tree)
         return UniformTuckerTensorTrain(tk, tt, shape, UT3Masks(*masks))
 
