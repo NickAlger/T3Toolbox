@@ -605,6 +605,10 @@ def pad_safe_svd(
 
     Cost ``O(N M^2 + M^3)``, independent of the pad counts; no ``(N, N)`` intermediate exists.
 
+    The complete derivation -- the problem and contract, why each step works, the two-sided
+    separation-constant measurements, and every alternative considered (augmentation/GSVD, post-hoc
+    completion, masked noise, ...) -- is ``docs/pad_safe_svd.tex`` (+pdf).
+
     Examples
     --------
     The failure this exists for: a zero-padded warm start (interior pad rows, and a real column
