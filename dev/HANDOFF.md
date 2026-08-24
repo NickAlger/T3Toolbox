@@ -64,10 +64,9 @@ phase (Phase D: the uniform prongs missing in `test_uniform_frame_variations_for
 ~25 ops, promoting the oracle sweeps). Nick's standing rule for any further agent work: Sonnet at medium
 effort for bounded verify/test tasks, no maps in the prompt, a `+Nk` hard ceiling; Fable only for discovery.
 
-**Gates on the finished tree (2026-08-23, post-S1b):** full suite **808 passed / 42,696 subtests**
-(7:51; run at the slice-2b tree -- the later additions are the `TestPadSafeFrame` class, the
-`pad_safe_svd` suite in `tests/backend/test_linalg.py`, and doc/record edits, each green standalone,
-and a final full rerun accompanies the wrap-up); module doctests green; quickstart + every doc-page
+**Gates on the finished tree (2026-08-23, post-S1b):** full suite **813 passed / 42,708 subtests**
+(7:20, on the final tree incl. `TestPadSafeFrame` and the `pad_safe_svd` suite in
+`tests/backend/test_linalg.py`; the slice-2b tree had separately passed 808/42,696); module doctests green; quickstart + every doc-page
 doctest green (the CI command, both checked also on numpy 1.22 for the new module); `sphinx -W`
 clean; the uniform continuation, uniform probe-derivatives, and shared-factors examples pass end to
 end. The knowledge record is `docs/pad_safe_svd.tex` (+pdf), linked from the docstrings. The
