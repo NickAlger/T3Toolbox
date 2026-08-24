@@ -2127,6 +2127,41 @@ class TuckerTensorTrain:
                             % type(s).__name__)
         return self * (1.0 / s)
 
+    def allclose(
+            self,
+            other: 'TuckerTensorTrain',
+
+            rtol:  typ.Optional[float] = None,  # None: the ambient jax-aware default (safety.comparison_rtol)
+            atol:  typ.Optional[float] = None,  # None: 0.0
+    ) -> NDArray:  # bool, shape=stack_shape (0-d unstacked); reduce with .all()
+        """True where the REPRESENTED tensors are numerically equal, per stack element:
+        ``||self - other|| <= atol + rtol * max(||self||, ||other||)``.
+
+        The mathematical (tensor-level) equality check. The difference is formed as a T3 (ranks add)
+        and its norm taken through orthogonalization -- numerically stable exactly when
+        ``self ~= other``, the optimization-residual case. Structural mismatches (shape / d / stack)
+        raise, as for subtraction. The representation-level (bitwise) check is
+        :py:meth:`corewise_equal`; ``==`` is intentionally not defined -- say which you mean.
+        """
+        if rtol is None:
+            rtol = safety.comparison_rtol(self.data, other.data)
+        atol = 0.0 if atol is None else atol
+        diff = (self - other).norm()
+        use_jax = common.tree_contains_jax((self.data, other.data))
+        xnp, _, _ = common.get_backend(False, use_jax)
+        ref = xnp.maximum(self.norm(), other.norm())
+        return diff <= atol + rtol * ref
+
+    def corewise_equal(
+            self,
+            other: 'TuckerTensorTrain',
+    ) -> bool:  # single bool: bitwise-identical representations
+        """Bitwise equality of the REPRESENTATIONS: the same core structure and every stored core
+        ``np.array_equal``. ``False`` on any mismatch, never raises. Two different representations
+        of the same tensor (e.g. before/after ``t3svd``) are NOT corewise-equal -- for tensor-level
+        equality use :py:meth:`numerically_equal`."""
+        return type(other) is type(self) and corewise.corewise_equal(self.data, other.data)
+
     def __neg__(
             self,
     ) -> 'TuckerTensorTrain':
@@ -4795,6 +4830,34 @@ class T3Weights:
     def reverse(self) -> 'T3Weights':
         """Reverse the mode order (reverses both edge-vector tuples), matching ``TuckerTensorTrain.reverse``."""
         return T3Weights(self.tucker_weights[::-1], self.tt_weights[::-1])
+
+    def allclose(
+            self,
+            other: 'T3Weights',
+
+            rtol:  typ.Optional[float] = None,  # None: the ambient jax-aware default (safety.comparison_rtol)
+            atol:  typ.Optional[float] = None,  # None: 0.0
+    ) -> NDArray:  # bool, shape=stack_shape (0-d unstacked); reduce with .all()
+        """True where the edge-weight vectors are numerically equal, per stack element:
+        ``||self - other|| <= atol + rtol * max(||self||, ||other||)`` over the concatenated edge
+        vectors (the weights ARE the mathematical object). Structural mismatches raise. Bitwise:
+        :py:meth:`corewise_equal`; ``==`` is intentionally not defined -- say which you mean."""
+        if rtol is None:
+            rtol = safety.comparison_rtol(self.data, other.data)
+        atol = 0.0 if atol is None else atol
+        n_stack = np.ndim(self.tucker_weights[0]) - 1
+        diff = corewise.corewise_sub(self.data, other.data)
+        dn = corewise.corewise_stack_dot(diff, diff, n_stack) ** 0.5
+        rn = np.maximum(corewise.corewise_stack_dot(self.data, self.data, n_stack),
+                        corewise.corewise_stack_dot(other.data, other.data, n_stack)) ** 0.5
+        return dn <= atol + rtol * rn
+
+    def corewise_equal(
+            self,
+            other: 'T3Weights',
+    ) -> bool:
+        """Bitwise equality of the stored edge vectors (``False`` on mismatch, never raises)."""
+        return type(other) is type(self) and corewise.corewise_equal(self.data, other.data)
 
     def concatenate(self, other: 'T3Weights') -> 'T3Weights':
         """Per-edge concatenation with ``other`` -- the ``+`` / direct-sum combine (ranks add)."""

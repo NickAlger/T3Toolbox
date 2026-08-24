@@ -399,6 +399,16 @@ class T3Tangent:
             raise TypeError('T3Tangent.__truediv__ takes a SCALAR divisor; got %s' % type(s).__name__)
         return self * (1.0 / s)
 
+
+    def corewise_equal(
+            self,
+            other: 'T3Tangent',
+    ) -> bool:
+        """Bitwise equality of the whole representation -- frame cores AND variation cores
+        (``False`` on any mismatch, never raises)."""
+        return (type(other) is type(self) and self.frame.corewise_equal(other.frame)
+                and cw.corewise_equal(self.variations.data, other.variations.data))
+
     def __neg__(self) -> 'T3Tangent':
         return self * (-1.0)
 
@@ -498,18 +508,22 @@ class T3Tangent:
 
     def allclose(
             self,
-            other:  'T3Tangent',  # compared at the SAME base point (corewise, like __sub__)
-            rtol:   float = 1e-9,
+            other:  'T3Tangent',  # at the SAME frame (checked, like __sub__)
+
+            rtol:   typ.Optional[float] = None,  # None: the ambient jax-aware default (safety.comparison_rtol)
             atol:   float = 0.0,
     ) -> NDArray:  # bool array, shape = stack_shape (K+C); scalar when unstacked
         """``True`` (per stack element) if ``other`` is the same tangent vector as ``self`` at the same frame.
 
-        Checks ``||self - other|| <= atol + rtol * ||other||`` via :py:meth:`corewise_norm`, **per stacked
-        element** (reduce with ``.all()`` for a single verdict). Assumes a shared base point (compares
-        corewise on the variations, like :py:meth:`__sub__`); for tangents at different bases compare dense.
-        """
+        Checks ``||self - other|| <= atol + rtol * max(||self||, ||other||)`` via
+        :py:meth:`corewise_norm`, **per stacked element** (reduce with ``.all()``). The same-frame
+        precondition is checked (by ``-``, as for arithmetic); for tangents at different bases compare
+        dense. Bitwise (frame AND variations): :py:meth:`corewise_equal`; ``==`` is intentionally not
+        defined -- say which you mean."""
+        if rtol is None:
+            rtol = safety.comparison_rtol(self.variations.data, other.variations.data)
         dn = (self - other).corewise_norm()
-        rn = other.corewise_norm()
+        rn = np.maximum(self.corewise_norm(), other.corewise_norm())
         return dn <= atol + rtol * rn
 
     ############################################

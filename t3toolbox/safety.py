@@ -78,6 +78,7 @@ __all__ = [
     'current_safety',
     'set_default_safety',
     'effective_rtol',
+    'comparison_rtol',
     'is_tracing',
     'checks_active',
     'require',
@@ -151,6 +152,15 @@ def effective_rtol(*inputs):
     tols = _safety.get()
     if tols is None:
         return None
+    return tols.rtol_jax if tree_contains_jax(inputs) else tols.rtol_numpy
+
+
+def comparison_rtol(*inputs):
+    '''The default tolerance for the named equality checks (``numerically_equal`` and friends): the
+    ambient jax-aware tolerance, falling back to the defaults in unsafe mode. A pure comparison is
+    mode-agnostic (like :py:func:`frames_equal`), so unlike :py:func:`effective_rtol` this never
+    returns ``None``.'''
+    tols = _safety.get() or _DEFAULT
     return tols.rtol_jax if tree_contains_jax(inputs) else tols.rtol_numpy
 
 

@@ -10,6 +10,7 @@ asymmetries vs the ragged classes (e.g. no ``save``/``to_vector``) are deliberat
 """
 import numpy as np
 import typing as typ
+import t3toolbox.safety as safety_mod
 import functools as ft
 from dataclasses import dataclass
 
@@ -254,12 +255,24 @@ class UT3Frame:
         right_ut3 = self.to_ut3()
         return (left_ut3 - right_ut3).norm() <= rtol * right_ut3.norm()
 
-    def allclose(self, other: 'UT3Frame', rtol: float = 1e-9, atol: float = 0.0) -> NDArray:  # bool array, stack
-        """``True`` (per stack element) if ``other`` represents the same base point as ``self``
-        (gauge-invariant): ``||self.to_ut3() - other.to_ut3()|| <= atol + rtol * ||other.to_ut3()||`` in
-        the dense Frobenius norm. Reduce with ``.all()`` for a single verdict."""
-        dn = (self.to_ut3() - other.to_ut3()).norm()
-        rn = other.to_ut3().norm()
+    def allclose(
+            self,
+            other: 'UT3Frame',
+
+            rtol:  typ.Optional[float] = None,  # None: the ambient jax-aware default (safety.comparison_rtol)
+            atol:  float = 0.0,
+    ) -> NDArray:  # bool array, shape = stack_shape; scalar unstacked; reduce with .all()
+        """``True`` (per stack element) if ``other`` represents the same BASE POINT as ``self``
+        (gauge-invariant): ``||self.to_ut3() - other.to_ut3()|| <= atol + rtol * max(norms)``. Three
+        distinct equality questions exist for a frame; say which you mean: this method (same base
+        point, any gauge); ``safety.frames_equal`` on the masked supercores (the same-FRAME /
+        same-tangent-space question); :py:meth:`corewise_equal` (bitwise incl. padding). ``==`` is
+        intentionally not defined."""
+        a, b = self.to_ut3(), other.to_ut3()
+        if rtol is None:
+            rtol = safety_mod.comparison_rtol(a.supercores + b.supercores)
+        dn = (a - b).norm()
+        rn = np.maximum(np.asarray(a.norm()), np.asarray(b.norm()))
         return dn <= atol + rtol * rn
 
     # ------------------------------------------------------------- ragged <-> uniform conversions
@@ -280,6 +293,17 @@ class UT3Frame:
         uc, dc, lc, rc, shape, masks = ufv_conversions.t3frame_to_ut3frame(
             frame.data, N=N, nU=nU, nD=nD, rL=rL, rR=rR)
         return UT3Frame(uc, dc, lc, rc, shape, UT3FrameMasks(*masks))
+
+
+    def corewise_equal(
+            self,
+            other: 'UT3Frame',
+    ) -> bool:
+        """Bitwise equality of the whole stored representation -- shape, rank masks, and raw
+        supercores including padding (``False`` on any mismatch, never raises)."""
+        return (type(other) is type(self) and self.shape == other.shape
+                and cw.corewise_equal(self.masks.data, other.masks.data)
+                and cw.corewise_equal(self.data[:4], other.data[:4]))
 
     def to_t3frame(self):  # -> bvf.T3Frame, or a nested tree (shaped like stack_shape) of them if stacked
         """Convert to a ragged :py:class:`~t3toolbox.frame_variations_format.T3Frame` (or, if stacked, an
@@ -590,6 +614,42 @@ class UT3Variations:
         typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (variations up, down, left, right masks)
     ]:
         return (self.tucker_variations, self.tt_variations, self.shape, self.masks.data)
+
+    def allclose(
+            self,
+            other: 'UT3Variations',
+
+            rtol:  typ.Optional[float] = None,  # None: the ambient jax-aware default (safety.comparison_rtol)
+            atol:  typ.Optional[float] = None,  # None: 0.0
+    ) -> NDArray:  # bool, shape = stack_shape (K+C); scalar unstacked; reduce with .all()
+        """True where the MASKED variation supercores are numerically equal (coordinate-level,
+        padding don't-care), per stack element (norm-based ``atol + rtol * max`` reference).
+        Different shape or rank masks raise. Bitwise incl. padding: :py:meth:`corewise_equal`;
+        ``==`` is undefined."""
+        if self.shape != other.shape or not cw.corewise_equal(self.masks.data, other.masks.data):
+            raise ValueError('UT3Variations.allclose: different shape or rank masks')
+        if rtol is None:
+            rtol = safety_mod.comparison_rtol(self.supercores + other.supercores)
+        atol = 0.0 if atol is None else atol
+        use_jax = common.tree_contains_jax(self.supercores + other.supercores)
+        xnp, _, _ = common.get_backend(True, use_jax)
+        def sq(pair):   # (tucker (d,)+stack+(nD,N), tt (d,)+stack+(rL,nU,rR)) -> stack
+            tk, tt = pair
+            return (xnp.sum(tk * tk, axis=(0, -2, -1)) + xnp.sum(tt * tt, axis=(0, -3, -2, -1)))
+        a, b = self.apply_masks().supercores, other.apply_masks().supercores
+        dn = sq(tuple(x - y for x, y in zip(a, b))) ** 0.5
+        rn = xnp.maximum(sq(a), sq(b)) ** 0.5
+        return dn <= atol + rtol * rn
+
+    def corewise_equal(
+            self,
+            other: 'UT3Variations',
+    ) -> bool:
+        """Bitwise equality of the whole stored representation -- shape, masks, raw supercores
+        including padding (``False`` on any mismatch, never raises)."""
+        return (type(other) is type(self) and self.shape == other.shape
+                and cw.corewise_equal(self.masks.data, other.masks.data)
+                and cw.corewise_equal(self.supercores, other.supercores))
 
     def apply_masks(self) -> 'UT3Variations':
         """Apply masks to the variation supercores, zeroing out unmasked entries."""
@@ -1246,6 +1306,40 @@ class UT3FrameWeights:
         """
         return _frame_weights_from_data(
             ufv_conversions.t3frameweights_to_ut3frameweights(weights.data, nU=nU, nD=nD, rL=rL, rR=rR))
+
+    def allclose(
+            self,
+            other: 'UT3FrameWeights',
+
+            rtol:  typ.Optional[float] = None,  # None: the ambient jax-aware default (safety.comparison_rtol)
+            atol:  typ.Optional[float] = None,  # None: 0.0
+    ) -> NDArray:  # bool, shape = stack_shape (C); scalar unstacked; reduce with .all()
+        """True where the MASKED weight supercores are numerically equal, per stack element
+        (norm-based ``atol + rtol * max`` reference). Different masks raise. Bitwise incl. padding:
+        :py:meth:`corewise_equal`; ``==`` is undefined."""
+        if not cw.corewise_equal(self.masks.data, other.masks.data):
+            raise ValueError('UT3FrameWeights.allclose: different rank masks')
+        if rtol is None:
+            rtol = safety_mod.comparison_rtol(self.supercores + other.supercores)
+        atol = 0.0 if atol is None else atol
+        use_jax = common.tree_contains_jax(self.supercores + other.supercores)
+        xnp, _, _ = common.get_backend(True, use_jax)
+        masked = lambda w: tuple(sc * m for sc, m in zip(w.supercores, w.masks.data))
+        sq = lambda fams: sum(xnp.sum(a * a, axis=(0, -1)) for a in fams)   # (d,)+stack+(w,) -> stack
+        a, b = masked(self), masked(other)
+        dn = sq(tuple(x - y for x, y in zip(a, b))) ** 0.5
+        rn = xnp.maximum(sq(a), sq(b)) ** 0.5
+        return dn <= atol + rtol * rn
+
+    def corewise_equal(
+            self,
+            other: 'UT3FrameWeights',
+    ) -> bool:
+        """Bitwise equality of the stored representation -- masks and raw supercores including
+        padding (``False`` on any mismatch, never raises)."""
+        return (type(other) is type(self)
+                and cw.corewise_equal(self.masks.data, other.masks.data)
+                and cw.corewise_equal(self.supercores, other.supercores))
 
     def to_t3frameweights(self):  # -> T3FrameWeights (unstacked) or a nested tree (shaped like C) of them
         """Convert back to ragged form. Unstacked: one

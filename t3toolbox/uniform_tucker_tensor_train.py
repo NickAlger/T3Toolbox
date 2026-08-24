@@ -33,6 +33,7 @@ import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.sharing as backend_sharing
 import t3toolbox.backend.common as common
 import t3toolbox.safety as safety
+import t3toolbox.corewise as cw
 from t3toolbox.backend.common import NDArray
 
 if common.jax_available:
@@ -260,6 +261,40 @@ class UniformTuckerTensorTrain:
             raise TypeError('UniformTuckerTensorTrain.__truediv__ takes a SCALAR divisor; got %s'
                             % type(s).__name__)
         return self * (1.0 / s)
+
+    def allclose(
+            self,
+            other: 'UniformTuckerTensorTrain',
+
+            rtol:  typ.Optional[float] = None,  # None: the ambient jax-aware default (safety.comparison_rtol)
+            atol:  typ.Optional[float] = None,  # None: 0.0
+    ) -> NDArray:  # bool, shape=stack_shape (0-d unstacked); reduce with .all()
+        """True where the REPRESENTED tensors are numerically equal, per stack element:
+        ``||self - other|| <= atol + rtol * max(||self||, ||other||)`` (the uniform twin of
+        :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.numerically_equal`; the
+        difference-and-orthogonalized-norm route, stable when ``self ~= other``). Structural
+        mismatches (shape / d / stack) raise, as for subtraction; padded widths need not match.
+        The bitwise representation check is :py:meth:`corewise_equal`; ``==`` is intentionally
+        not defined."""
+        if rtol is None:
+            rtol = safety.comparison_rtol(self.supercores + other.supercores)
+        atol = 0.0 if atol is None else atol
+        diff = (self - other).norm()
+        use_jax = common.tree_contains_jax(self.supercores + other.supercores)
+        xnp, _, _ = common.get_backend(False, use_jax)
+        ref = xnp.maximum(self.norm(), other.norm())
+        return diff <= atol + rtol * ref
+
+    def corewise_equal(
+            self,
+            other: 'UniformTuckerTensorTrain',
+    ) -> bool:  # single bool: bitwise-identical representations (supercores, shape, AND masks)
+        """Bitwise equality of the REPRESENTATIONS: same ``shape``, bitwise-equal rank masks, and
+        bitwise-equal supercores (padding included). ``False`` on any mismatch, never raises. For
+        tensor-level equality (padding and gauge don't matter) use :py:meth:`numerically_equal`."""
+        return (type(other) is type(self) and self.shape == other.shape
+                and cw.corewise_equal(self.masks.data, other.masks.data)
+                and cw.corewise_equal(self.supercores, other.supercores))
 
     def __neg__(self) -> 'UniformTuckerTensorTrain':
         return self * (-1.0)
@@ -1183,6 +1218,41 @@ class UT3Weights:
         ``{a*nB + b}`` over the *padded* width), which is correct; see
         :py:func:`~t3toolbox.backend.ut3_operations.ut3_kronecker_weights`."""
         return _weights_from_data(ut3_operations.ut3_kronecker_weights(self.data, other.data))
+
+    def allclose(
+            self,
+            other: 'UT3Weights',
+
+            rtol:  typ.Optional[float] = None,  # None: the ambient jax-aware default (safety.comparison_rtol)
+            atol:  typ.Optional[float] = None,  # None: 0.0
+    ) -> NDArray:  # bool, shape=stack_shape (0-d unstacked); reduce with .all()
+        """True where the MASKED edge-weight vectors are numerically equal, per stack element
+        (padding is don't-care; norm-based ``atol + rtol * max`` reference). Different rank masks
+        raise. Bitwise incl. padding: :py:meth:`corewise_equal`; ``==`` is intentionally not
+        defined."""
+        if not cw.corewise_equal(self.masks.data, other.masks.data):
+            raise ValueError('UT3Weights.allclose: different rank masks')
+        if rtol is None:
+            rtol = safety.comparison_rtol(self.supercores + other.supercores)
+        atol = 0.0 if atol is None else atol
+        use_jax = common.tree_contains_jax(self.supercores + other.supercores)
+        xnp, _, _ = common.get_backend(True, use_jax)
+        masked = lambda w: tuple(sc * m for sc, m in zip(w.supercores, w.masks.data))
+        sq = lambda pair: sum(xnp.sum(a * a, axis=(0, -1)) for a in pair)   # (d,)+stack+(w,) -> stack
+        a, b = masked(self), masked(other)
+        dn = sq(tuple(x - y for x, y in zip(a, b))) ** 0.5
+        rn = xnp.maximum(sq(a), sq(b)) ** 0.5
+        return dn <= atol + rtol * rn
+
+    def corewise_equal(
+            self,
+            other: 'UT3Weights',
+    ) -> bool:
+        """Bitwise equality of the stored representation -- masks and raw supercores including
+        padding (``False`` on any mismatch, never raises)."""
+        return (type(other) is type(self)
+                and cw.corewise_equal(self.masks.data, other.masks.data)
+                and cw.corewise_equal(self.supercores, other.supercores))
 
     # ----------------------------------------------------------------- constructors
     @classmethod

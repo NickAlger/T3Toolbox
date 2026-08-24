@@ -12,6 +12,7 @@ the frontend objects; the same-named backend function (``backend.fv_conversions`
 import math
 import numpy as np
 import typing as typ
+import t3toolbox.safety as safety
 import functools as ft
 from dataclasses import dataclass
 
@@ -641,6 +642,28 @@ class T3Frame:                     # impossible); a frame flows through jit as a
         redundant L/R store makes this exact with no re-orthogonalization."""
         return T3Frame(*fv_operations.fv_frame_reverse(self.data))
 
+    def allclose(
+            self,
+            other: 'T3Frame',
+
+            rtol:  typ.Optional[float] = None,  # None: the ambient jax-aware default (safety.comparison_rtol)
+            atol:  typ.Optional[float] = None,  # None: 0.0
+    ) -> NDArray:  # bool, shape=stack_shape (0-d unstacked); reduce with .all()
+        """True where ``other`` represents the same BASE POINT as ``self`` (gauge-invariant), per
+        stack element -- the ragged twin of :py:meth:`UT3Frame.allclose`, via ``to_t3()`` difference
+        norms. Three distinct equality questions exist for a frame; say which you mean: this method
+        (same base point, any gauge); ``safety.frames_equal(a.data, b.data)`` (the same-FRAME /
+        same-tangent-space question, gauge included); :py:meth:`corewise_equal` (bitwise
+        representation). ``==`` is intentionally not defined."""
+        return self.to_t3().allclose(other.to_t3(), rtol=rtol, atol=atol)
+
+    def corewise_equal(
+            self,
+            other: 'T3Frame',
+    ) -> bool:
+        """Bitwise equality of the stored frame cores (``False`` on any mismatch, never raises)."""
+        return type(other) is type(self) and cw.corewise_equal(self.data, other.data)
+
     def to_t3(self) -> 't3.TuckerTensorTrain':
         """The base point this frame represents, as a :py:class:`TuckerTensorTrain` (natural ranks).
 
@@ -976,6 +999,33 @@ class T3Variations:
     def zeros_like(x) -> 'T3Variations':
         """Zero variations matching the structure (shapes + stack) of ``x`` (a T3Frame or T3Variations)."""
         return T3Variations.zeros(x.variation_shapes, stack_shape=x.stack_shape, use_jax=x.contains_jax)
+
+    def allclose(
+            self,
+            other: 'T3Variations',
+
+            rtol:  typ.Optional[float] = None,  # None: the ambient jax-aware default (safety.comparison_rtol)
+            atol:  typ.Optional[float] = None,  # None: 0.0
+    ) -> NDArray:  # bool, shape = stack_shape (K+C); scalar unstacked; reduce with .all()
+        """True where the variation cores are numerically equal (coordinate-level), per stack
+        element: ``||self - other|| <= atol + rtol * max(||self||, ||other||)`` in the corewise
+        norm. Structural mismatches raise. Bitwise: :py:meth:`corewise_equal`; ``==`` is undefined."""
+        if rtol is None:
+            rtol = safety.comparison_rtol(self.data, other.data)
+        atol = 0.0 if atol is None else atol
+        n_stack = np.ndim(self.data[0][0]) - 2                  # tucker variation core = stack+(nD, N)
+        diff = cw.corewise_sub(self.data, other.data)
+        dn = cw.corewise_stack_dot(diff, diff, n_stack) ** 0.5
+        rn = np.maximum(cw.corewise_stack_dot(self.data, self.data, n_stack),
+                        cw.corewise_stack_dot(other.data, other.data, n_stack)) ** 0.5
+        return dn <= atol + rtol * rn
+
+    def corewise_equal(
+            self,
+            other: 'T3Variations',
+    ) -> bool:
+        """Bitwise equality of the stored variation cores (``False`` on mismatch, never raises)."""
+        return type(other) is type(self) and cw.corewise_equal(self.data, other.data)
 
     @staticmethod
     def randn_like(x) -> 'T3Variations':
@@ -1353,6 +1403,33 @@ class T3FrameWeights:
     @ft.cached_property
     def data(self) -> typ.Tuple[typ.Tuple[NDArray, ...], ...]:  # (up, down, left, right)
         return self.up_weights, self.down_weights, self.left_weights, self.right_weights
+
+    def allclose(
+            self,
+            other: 'T3FrameWeights',
+
+            rtol:  typ.Optional[float] = None,  # None: the ambient jax-aware default (safety.comparison_rtol)
+            atol:  typ.Optional[float] = None,  # None: 0.0
+    ) -> NDArray:  # bool, shape = stack_shape (C); scalar unstacked; reduce with .all()
+        """True where the four weight families are numerically equal, per stack element (norm-based:
+        ``atol + rtol * max(||self||, ||other||)``). Structural mismatches raise. Bitwise:
+        :py:meth:`corewise_equal`; ``==`` is undefined."""
+        if rtol is None:
+            rtol = safety.comparison_rtol(self.data, other.data)
+        atol = 0.0 if atol is None else atol
+        n_stack = np.ndim(self.up_weights[0]) - 1
+        diff = cw.corewise_sub(self.data, other.data)
+        dn = cw.corewise_stack_dot(diff, diff, n_stack) ** 0.5
+        rn = np.maximum(cw.corewise_stack_dot(self.data, self.data, n_stack),
+                        cw.corewise_stack_dot(other.data, other.data, n_stack)) ** 0.5
+        return dn <= atol + rtol * rn
+
+    def corewise_equal(
+            self,
+            other: 'T3FrameWeights',
+    ) -> bool:
+        """Bitwise equality of the stored weight vectors (``False`` on mismatch, never raises)."""
+        return type(other) is type(self) and cw.corewise_equal(self.data, other.data)
 
     @ft.cached_property
     def d(self) -> int:

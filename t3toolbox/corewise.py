@@ -15,6 +15,7 @@ import numpy as np
 from t3toolbox.backend.common import *
 
 __all__ = [
+    'corewise_equal',
     'NDArrayTree',
     'corewise_add',
     'corewise_sub',
@@ -395,4 +396,21 @@ def corewise_logical_not(X: NDArrayTree) -> NDArrayTree:
             return tuple([corewise_logical_not(x) for x in X])
     else:
         return xnp.logical_not(X)
+
+
+
+def corewise_equal(
+        X:  NDArrayTree,  # tree of arrays
+        Y:  NDArrayTree,  # tree to compare against
+) -> bool:                # single bool: bitwise-identical trees
+    """Bitwise equality of two array trees: the same nesting structure and every leaf
+    ``np.array_equal`` (shape and values exactly). Returns ``False`` on ANY mismatch -- structure,
+    shape, or values -- and never raises: representational equality is a total question (the
+    ``np.array_equal`` convention). The representation-level half of the library's explicit equality
+    checks (the numerical half is each class's ``allclose``)."""
+    if isinstance(X, typ.Sequence) != isinstance(Y, typ.Sequence):
+        return False
+    if isinstance(X, typ.Sequence):
+        return len(X) == len(Y) and all(corewise_equal(x, y) for x, y in zip(X, Y))
+    return bool(np.array_equal(np.asarray(X), np.asarray(Y)))
 
