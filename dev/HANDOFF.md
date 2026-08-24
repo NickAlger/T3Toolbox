@@ -7,9 +7,11 @@ and why it is the way it is is `docs/`. This file is where-we-are + what's next,
 
 ## Newest thread — the whole-library pre-release review (2026-08-22)
 
-**Where it stands:** `main` carries the 2026.2.0 release commit plus **24 review commits** on top of it, all
-local-and-pushed state per `git log --oneline 657f6001..`; **not tagged**. Before tagging, one design slice
-remains (S1b, below) and the final gates must be re-run on the finished tree.
+**Where it stands:** `main` carries the 2026.2.0 release commit plus the review commits AND the S1b
+pad-safe-SVD slices on top of it; **not tagged, not pushed**. Every S and C cluster is now fixed,
+S1b included. Before tagging: re-run the final gates on the finished tree (suite / doctests / docs
+doctests / sphinx -W / examples are green as of 2026-08-23), then Nick's one-way steps (push, wheel
+check, tag).
 
 **What happened.** Nick asked for an in-depth review of the whole library (bugs first, doc/code mismatches
 second) before cutting 2026.2.0, because the 2026.1/2.0 work had kept turning up pre-existing bugs. The
@@ -32,24 +34,29 @@ on entry; geometry/kind strings are case-insensitive; the `rank_adjustment_sweep
 the raw zipper by default (precision), its *derivative* does (through a `custom_jvp`); the uniform frame
 must support non-minimal ranks, structural (done, S1a) and numerical (S1b, open) by orthonormal completion.
 
-**Open — S1b, the one remaining S item.** The uniform frame of a *numerically* rank-deficient train (zero
-singular values: the zero-padded `resize` warm start of `docs/rank_continuation.md`, or `x + x`) is not
-orthonormal: the SVD's null-space completion can land in **padded** slots, which the masks erase
-(observed on the last core's down step, `dev/review_2026-08-22/` + the `s1b_*` scratch scripts). Safe mode
-rejects such a frame loudly; under `unsafe()`/the optimizers the first step runs in a reduced tangent space
-(the continuation escape still happens through the TT channel, as the sharing note describes). The fix is a
-masked orthonormal completion after each uniform SVD step — Tucker down-orth, both TT sweeps, the down step —
-restricted to the real rows and orthogonal to the σ>0 columns: deterministic and batchable (project the
-first `2n` real coordinate vectors onto the complement, one small SVD; `2n` candidates suffice because at
-most `rank` of them can lie in the kept span). It needs the row masks plumbed into the polymorphic sweep
-(`fv_conversions.t3_orthogonal_representations` → the uniform step functions and the scan body), so it is
-a half-day slice with its own tests (zero-padded `resize` start: frame orthogonal; uniform `newton_cg` from
-that start matches ragged's convergence). Zero-detection of padded rows is NOT a substitute (a `zeros`
-start has no nonzero rows and is a documented manifold start).
+**S1b — FIXED (2026-08-23), the last S item.** The uniform frame of a *numerically* rank-deficient
+train (the zero-padded `resize` warm start, `x + x`) used to lose tangent directions: the SVD's
+null-space completion could land in **padded** slots, which the masks erase. Nick resolved the design
+externally and delivered the **pad-safe SVD packet** (Method D, "sketch–project" — exact,
+tolerance-free, one jit compile across mask patterns; the packet + verification record live in
+`dev/review_2026-08-22/repros/S1b/`, incl. `packet/`). Implemented in three slices:
 
-The design discussion since (GSVD-with-the-mask-as-second-matrix, the ragged round-trip, dumb noise, and
-the cost question) is written up as a standing question, **`dev/OPEN_QUESTION_uniform_rank_deficient_frame.md`**
--- read that, not the paragraph above, for the current state; it is not to be archived until resolved.
+- `backend.linalg.pad_safe_svd` (the primitive; symmetric `min(n, m)` contract, Frobenius `c = 4‖A‖_F`
+  with the load-bearing 4× margin, fixed Haar sketch) + `tests/backend/test_linalg.py` + a
+  `test_dispatch` jit bucket;
+- the uniform frame sweep: masks threaded through `t3_orthogonal_representations`'s uniform path (the
+  evolved per-site recurrences, host-precomputed), the pad-safe scan step in `tt_orthogonalization`,
+  mask-aware `down/up_orthogonalize_*_supercores`;
+- `ut3svd`'s own sweep (unshared + SF-T3 shared), so the t3svd-gauge frame
+  (`ut3svd_orthogonal_representations`) and retraction are covered too.
+
+All six S1b cases report **0 lost directions** on both frame paths (`s1b_cases.py`, the
+`TestPadSafeFrame` regression class). **The one behavioural consequence:** the uniform manifold frame
+is now gauge-EQUIVALENT to ragged, no longer bit-identical (the old bit-equality was a LAPACK
+accident); every gauge-invariant quantity still matches ragged exactly. Contract statement:
+`docs/uniform_equivalence_contract.md` §"Gauge-carrying operations"; CHANGELOG `[2026.2.0]`
+Fixed/Changed/Added. The standing question `dev/OPEN_QUESTION_uniform_rank_deficient_frame.md` is
+resolved and archived (`dev/archive/OPEN_QUESTION_uniform_rank_deficient_frame_2026-08-23_resolved.md`).
 
 **Also deferred, by the budget plan:** the E list in the ledger (`findings_compact.md`), and the test-hardening
 phase (Phase D: the uniform prongs missing in `test_uniform_frame_variations_format` / the `_CONFIGS` matrix in
@@ -57,13 +64,16 @@ phase (Phase D: the uniform prongs missing in `test_uniform_frame_variations_for
 ~25 ops, promoting the oracle sweeps). Nick's standing rule for any further agent work: Sonnet at medium
 effort for bounded verify/test tasks, no maps in the prompt, a `+Nk` hard ceiling; Fable only for discovery.
 
-**Gates on the review tree (2026-08-22):** full suite **799 passed / 42,222 subtests** (7:44; run at the
-S11 commit — the later doc-sweep commit's two behavioural changes, `t3_norm(use_orthogonalization=False)`
-honoring its flag and `+`/`inner` stack mismatches raising `ValueError`, were covered by targeted runs of
-their test files); module doctests 193 passed; quickstart + every doc page doctest clean; `sphinx -W`
-clean after the doc sweep; all 14 examples pass. The previous release gates (wheel
-`twine check`, the numpy-only venv smoke) have **not** been re-run since the review commits and must be,
-per `dev/archive/release_plan_2026-07-13.md` REL-2, before tagging.
+**Gates on the finished tree (2026-08-23, post-S1b):** full suite **808 passed / 42,696 subtests**
+(7:51; run at the slice-2b tree -- the later additions are the `TestPadSafeFrame` class, the
+`pad_safe_svd` suite in `tests/backend/test_linalg.py`, and doc/record edits, each green standalone,
+and a final full rerun accompanies the wrap-up); module doctests green; quickstart + every doc-page
+doctest green (the CI command, both checked also on numpy 1.22 for the new module); `sphinx -W`
+clean; the uniform continuation, uniform probe-derivatives, and shared-factors examples pass end to
+end. The knowledge record is `docs/pad_safe_svd.tex` (+pdf), linked from the docstrings. The
+previous release gates (wheel `twine check`, the numpy-only venv smoke) have **not** been re-run
+since the review commits and must be, per `dev/archive/release_plan_2026-07-13.md` REL-2, before
+tagging.
 
 ### The optimization-layer restructuring (2026-08-21) — merged, in 2026.2.0
 

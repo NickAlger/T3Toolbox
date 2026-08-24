@@ -11,6 +11,10 @@ import unittest
 import numpy as np
 
 import t3toolbox.uniform_frame_variations_format as ubv
+import t3toolbox.tucker_tensor_train as t3
+import t3toolbox.uniform_tucker_tensor_train as ut3
+import t3toolbox.frame_variations_format as bvf
+import t3toolbox.backend.ufv_masking as ufv_masking
 
 try:
     import jax
@@ -866,3 +870,102 @@ class TestNonMinimalUniformFrame(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestPadSafeFrame(unittest.TestCase):
+    """Review S1b: the uniform frame at a numerically rank-deficient point. The sweep's SVDs are
+    pad-safe (``linalg.pad_safe_svd``), so the sigma~0 completion columns stay OFF the padding and
+    the masked real block keeps FULL mask rank -- no lost tangent directions. Before the fix, a
+    zero-padded ``resize`` warm start (THE rank-continuation restart) lost directions in 60/60
+    trials: the frame LOOKED orthonormal but was rank-deficient on the real block, silently losing
+    exactly the directions continuation needs to grow into.
+
+    The uniform frame is gauge-EQUIVALENT to ragged (same tangent space and singular values), not
+    bit-identical -- compare subspaces/invariants across representations, never cores entrywise
+    (docs/uniform_equivalence_contract.md, "Gauge-carrying operations")."""
+
+    @staticmethod
+    def _lost_directions(uframe):
+        """Mask rank minus numerical rank of the masked real block, summed over cores/families."""
+        mup, mdown, mleft, mright = ufv_masking.ufv_apply_frame_masks(uframe.data)
+        um, dm, lm, rm = uframe.data[5]
+        d = mup.shape[0]
+        tot = 0
+        for i in range(d):
+            tot += int(um[i].sum()) - np.linalg.matrix_rank(np.asarray(mup[i]), tol=1e-10)
+            tot += int(dm[i].sum()) - np.linalg.matrix_rank(
+                np.moveaxis(np.asarray(mdown[i]), 1, 0).reshape(mdown.shape[-2], -1), tol=1e-10)
+        for i in range(d - 1):
+            tot += int(lm[i + 1].sum()) - np.linalg.matrix_rank(
+                np.asarray(mleft[i]).reshape(-1, mleft.shape[-1]), tol=1e-10)
+        for i in range(1, d):
+            tot += int(rm[i].sum()) - np.linalg.matrix_rank(
+                np.asarray(mright[i]).reshape(mright.shape[-3], -1), tol=1e-10)
+        return tot
+
+    def _cases(self):
+        np.random.seed(0)
+        x0 = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))
+        return {
+            'control randn':         t3.TuckerTensorTrain.randn((5, 6, 7), (3, 3, 3), (1, 3, 3, 1)),
+            'resize warm start':     x0.resize((5, 6, 7), (3, 3, 3), (1, 3, 3, 1)),
+            'struct non-minimal':    t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 3, 1)),
+            'x0 + x0':               x0 + x0,
+            'tucker-only deficient': x0.resize((5, 6, 7), (3, 3, 3), (1, 2, 2, 1)),
+            'tt-only deficient':     x0.resize((5, 6, 7), (2, 2, 2), (1, 3, 3, 1)),
+        }
+
+    def test_frame_full_rank_on_real_block(self):
+        """The sweep frame (UT3Frame.from_ut3): orthonormal AND no lost directions, all six cases."""
+        for name, x in self._cases().items():
+            with self.subTest(case=name):
+                uf = ubv.UT3Frame.from_ut3(ut3.UniformTuckerTensorTrain.from_t3(x))
+                self.assertLess(float(np.max(np.asarray(uf.orthogonality_residual))), 1e-12)
+                self.assertEqual(self._lost_directions(uf), 0)
+
+    def test_t3svd_gauge_frame_full_rank_on_real_block(self):
+        """The t3svd-gauge frame (ut3svd_orthogonal_representations: already_left_orthogonal, through
+        ut3svd's own sweep)."""
+        for name, x in self._cases().items():
+            with self.subTest(case=name):
+                u = ut3.UniformTuckerTensorTrain.from_t3(x)
+                frame, variations, w = ubv.ut3svd_orthogonal_representations(u)
+                self.assertLess(float(np.max(np.asarray(frame.orthogonality_residual))), 1e-12)
+                self.assertEqual(self._lost_directions(frame), 0)
+
+    def test_shared_t3svd_gauge_frame(self):
+        """The SF-T3 (shared) sweep on a numerically deficient tied warm start."""
+        np.random.seed(0)
+        y0 = t3.TuckerTensorTrain.randn((6, 6, 6), (2, 2, 2), (1, 2, 2, 1)).share((0, 0, 0))
+        yB = y0.resize((6, 6, 6), (3, 3, 3), (1, 3, 3, 1)).share((0, 0, 0))
+        u = ut3.UniformTuckerTensorTrain.from_t3(yB)
+        frame, variations, w = ubv.ut3svd_orthogonal_representations(u, sharing=(0, 0, 0))
+        self.assertLess(float(np.max(np.asarray(frame.orthogonality_residual))), 1e-12)
+        self.assertEqual(self._lost_directions(frame), 0)
+
+    def test_frame_gauge_equivalent_to_ragged(self):
+        """Cross-representation: at a FULL-RANK point the up-core spans equal ragged's (projector
+        comparison per mode -- the gauges legitimately differ, the subspaces cannot). At a
+        numerically DEFICIENT point no such equality holds or should: the sigma~0 completion
+        directions are a CHOICE (both layers' choices are valid escape directions -- ragged takes
+        LAPACK's, uniform takes the pad-safe real-supported one), so only full-rank spans and
+        gauge-invariant quantities are comparable across representations."""
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 3, 3), (1, 3, 3, 1))   # numerically full rank
+        rframe, _ = bvf.t3_orthogonal_representations(x)
+        uf = ubv.UT3Frame.from_ut3(ut3.UniformTuckerTensorTrain.from_t3(x))
+        mup = ufv_masking.ufv_apply_frame_masks(uf.data)[0]
+        for i, U_r in enumerate(rframe.data[0]):             # up_tucker_cores, (n_i, N_i) each
+            U_u = np.asarray(mup[i])[: U_r.shape[0], : U_r.shape[1]]
+            self.assertTrue(np.allclose(U_r.T @ U_r, U_u.T @ U_u, atol=1e-10),
+                            "mode %d up-space differs from ragged" % i)
+
+    def test_deterministic(self):
+        """The pad-safe sweep is deterministic (fixed sketch): same input -> bitwise same frame."""
+        np.random.seed(0)
+        x0 = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))
+        u = ut3.UniformTuckerTensorTrain.from_t3(x0.resize((5, 6, 7), (3, 3, 3), (1, 3, 3, 1)))
+        f1 = ubv.UT3Frame.from_ut3(u)
+        f2 = ubv.UT3Frame.from_ut3(u)
+        for a, b in zip(f1.data[:4], f2.data[:4]):
+            self.assertTrue(np.array_equal(np.asarray(a), np.asarray(b)))

@@ -55,16 +55,29 @@ SVD gives the prefix-mask design exactly the two things it needs:
    are loop-invariant and neither the backend (close-over) nor the frontend (value-hashed holder) path
    recompiles. Under pivoted QR the masks would shift each iteration and you would recompile *regardless*.
 
-## Honest caveat (not a bug)
+## The completion at zero-σ slots (pad-safe since 2026-08)
 
-When the **structural** rank exceeds the **numerical** rank, SVD completes the prefix with *arbitrary*
-orthonormal vectors at the zero-σ slots. This is intentional — it is how a rank-deficient frame escapes its
-stratum (the examples' "completes the rank-deficient frame with orthonormal vectors"). The completion
-vectors are non-unique, but they are **traced data, not the jit cache key**, so their wobble is invisible
-to jit; and the mask still marks them real (they are legitimate orthonormal frame directions).
+When the **structural** rank exceeds the **numerical** rank, the SVD completes the prefix with
+orthonormal vectors at the zero-σ slots. This is intentional — it is how a rank-deficient frame escapes
+its stratum (the examples' "completes the rank-deficient frame with orthonormal vectors"). The
+completion vectors are non-unique, but they are **traced data, not the jit cache key**, so their wobble
+is invisible to jit.
+
+For the mask to mark them real, though, they must actually **live in the real slots** — and a black-box
+SVD does not promise that: the zero-σ eigenspace *contains the pad coordinates*, and LAPACK may place
+the completion there, which the masks then erase — a silently lost tangent direction (review S1b; it hit
+every zero-padded `resize` warm start). Since 2026-08 every kept-basis SVD in the sweeps is therefore
+the **pad-safe** one (`backend.linalg.pad_safe_svd`): the masks are handed to the factorization as
+data, the completion is confined to the real rows bitwise, and the prefix property and the
+real-support property are enforced by the same mechanism. Deterministic (fixed sketch), one jit
+compile across mask patterns.
 
 ## Code
 
-SVD throughout: `backend/ut3_orthogonalization.py` and `backend/t3_orthogonalization.py` use
-`xnp.linalg.svd`; the functions are named `down_svd_*` / `left_svd_*` / `right_svd_*`. There is **no QR**
-in any orthogonalization path — by design, per this note.
+SVD throughout: `backend/ut3_orthogonalization.py` and `backend/t3_orthogonalization.py`; the uniform
+mask-aware sites route through `backend.linalg.pad_safe_svd`, the rest through `xnp.linalg.svd`; the
+functions are named `down_svd_*` / `left_svd_*` / `right_svd_*`; the pad-safe SVD's full
+derivation is [`../pad_safe_svd.tex`](../pad_safe_svd.tex) (+pdf). There is **no QR** in any
+orthogonalization path in the sense of this note — `pad_safe_svd` uses Householder QR *internally*
+(pads permuted to the trailing pivots), but its output contract is the SVD's (sorted σ, prefix
+content), which is what the mask design needs.

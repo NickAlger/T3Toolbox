@@ -159,13 +159,13 @@ in the ledger's order of severity:
 | S11 | ut3_norm / ut3_inner with a custom_jvp (no SVD in the derivative) | fixed |
 | substantive D | truncation rule, Geometry protocol, contracts rows, transposes, chunking regimes, … | fixed |
 
-**Open:** **S1b** — the uniform frame on a *numerically* rank-deficient train (zero singular values: the
-zero-padded `resize` warm start, `x + x`). Root cause pinned (not where the lane guessed): the SVD's
-null-space completion can land in the **padded** bond/mode slots, which the masks then erase; observed
-on the TT up-orthogonalization of the last core (`pin2` script). The fix is a masked orthonormal
-completion after each uniform SVD step (Tucker down-orth, both TT sweeps, the down step), restricted to
-the real rows and orthogonal to the σ>0 columns — deterministic and batchable (project the first `2n`
-real coordinate vectors, one small SVD). It needs the masks plumbed into the polymorphic sweep, so it is
-a half-day design slice, scheduled next. Until then: safe mode rejects such a frame (loudly), and the
-documented uniform rank-continuation loop works in a reduced tangent space on the very first step only.
+**S1b — FIXED (2026-08-23).** The uniform frame on a *numerically* rank-deficient train (the
+zero-padded `resize` warm start, `x + x`): the SVD's null-space completion could land in the
+**padded** bond/mode slots, which the masks then erase. Fixed by Nick's pad-safe SVD design
+(Method D, "sketch–project"; packet + verification: `repros/S1b/packet/`): the new
+`backend.linalg.pad_safe_svd` replaces every kept-basis SVD in the uniform sweeps (frame sweep AND
+`ut3svd`'s, unshared + shared), with the mask recurrences threaded per step. 0 lost directions on
+all six cases, both frame paths; regression class `TestPadSafeFrame`; behavioural note (frame now
+gauge-equivalent, not bit-identical, to ragged) in the CHANGELOG and
+`docs/uniform_equivalence_contract.md`.
 Also open: the E list and the test-hardening phase (Phase D), deferred to later sessions per the budget plan.

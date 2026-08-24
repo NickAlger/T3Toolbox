@@ -44,8 +44,8 @@ threads interleave), sweep superseded notes into `dev/archive/` as dated files, 
 Current-state pointer accurate. **Exception: a `dev/OPEN_QUESTION_*.md` note is a standing question, not
 a thread — it is unresolved, not superseded, and must NOT be archived until resolved.** (None open
 today; the `contractions.py` architecture question was resolved 2026-07-17 — the grouped-einsum
-interpreter — and archived with its resolution banner. **Open now:** `dev/OPEN_QUESTION_uniform_rank_deficient_frame.md`,
-the uniform frame at a rank-deficient point — review S1b, 2026-08-23.)
+interpreter — and the uniform-frame-at-rank-deficiency question was resolved 2026-08-23 — the
+pad-safe SVD, review S1b; both archived with resolution banners.)
 
 ## The paper (`t4s.pdf` in repo root)
 
@@ -434,10 +434,12 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
   `docs_pass_plan`, `docs_split_plan`.)
 - **Whole-library pre-release review (2026-08-22) — landed, one item open.** 19-lane review, 186 findings
   (ledger + repros: `dev/review_2026-08-22/`); every silent-wrong-answer and crash cluster is fixed with a
-  regression test except **S1b** (the uniform frame on a *numerically* rank-deficient train — the SVD's
-  completion can land in padded slots; root cause pinned, fix designed in `dev/HANDOFF.md`). Rulings worth
-  knowing are listed in the HANDOFF; the behavioural changes are in the CHANGELOG's `[2026.2.0]` Fixed /
-  Changed sections (jax-absent → warn; `d = 1` degenerate; per-mode weight rows; adam-on-manifold warning).
+  regression test, **S1b included** (2026-08-23: the uniform frame at a *numerically* rank-deficient point —
+  fixed by the mask-aware `backend.linalg.pad_safe_svd` threaded through every uniform sweep; the frame is
+  now gauge-EQUIVALENT to ragged, no longer bit-identical — `docs/uniform_equivalence_contract.md`
+  §"Gauge-carrying operations"). Rulings worth knowing are listed in the HANDOFF; the behavioural changes
+  are in the CHANGELOG's `[2026.2.0]` Fixed / Changed sections (jax-absent → warn; `d = 1` degenerate;
+  per-mode weight rows; adam-on-manifold warning; the frame gauge).
 - **Optimization layer restructured (2026-08-21; in 2026.2.0).** The geometry, the sampling kind and the local model are frozen
   dataclasses whose **parameters are fields**, not records of closures, so they hash/compare by value
   and are stable jax `aux_data`. New `backend/geometry.py`; `SamplingKind` is a class hierarchy;

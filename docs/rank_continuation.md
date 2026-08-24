@@ -165,7 +165,9 @@ inherently a stack, and `continuation_ranks` already refuses a stacked ragged po
 — different stack elements would continue to different ranks.
 
 The shipped pattern is therefore a round trip: keep the cheap bookkeeping on the ragged point, and drop
-into the uniform layer only for the fit, one continuation level at a time.
+into the uniform layer only for the fit, one continuation level at a time. (The zero-padded warm start
+is numerically rank-deficient, and the uniform frame handles that safely: the sweep's pad-safe SVDs
+keep every tangent direction — see `uniform_equivalence_contract.md`, "Gauge-carrying operations".)
 
 ```python
 x = x0                                        # ragged

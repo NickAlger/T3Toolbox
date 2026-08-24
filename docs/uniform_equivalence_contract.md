@@ -33,6 +33,30 @@ move each one."
 The contract holds on **non-minimal-rank input too**: a uniform op does whatever the ragged op does
 there (see the contributor notes for how that case is pinned down and tested).
 
+## Gauge-carrying operations
+
+Operations whose output includes a **choice of orthonormal basis** — the orthogonalization sweeps,
+`t3svd`, and the frame construction built on them — satisfy the contract **up to gauge**: the uniform
+result spans the same subspaces, carries the same singular values, and represents the same tensor as
+the ragged result, but the basis vectors themselves may differ by the SVD's inherent gauge freedom
+(column signs; rotations within an equal-σ cluster; the choice of null-space completion at a
+numerically rank-deficient point). Everything gauge-invariant matches exactly, element-wise:
+`to_dense`, objectives, gradient and residual norms, optimizer trajectories, retracted points.
+
+Until 2026-08 the uniform frame happened to match ragged **bitwise**, because both layers fed the same
+matrices to the same LAPACK kernel. That was never the contract, and it could not survive the S1b fix:
+at a numerically rank-deficient point LAPACK's null-space completion may live in the *padded* slots, so
+the uniform sweep MUST choose a different — real-supported — completion there
+(`backend.linalg.pad_safe_svd`, derived in [`pad_safe_svd.tex`](pad_safe_svd.tex); the sweep is
+still fully deterministic: the same input always produces the same frame). At such a point the completion directions are a *choice* in both layers, so even their
+spans legitimately differ; at a numerically full-rank point the spans coincide and only the gauge
+differs.
+
+When comparing ragged and uniform results across the seam, compare gauge-invariant quantities (norms,
+matched inner products, dense tensors, projectors `UᵀU`), or transport coordinates through the ambient
+embedding (`T3Tangent.to_t3` → `utv_project_ut3_onto_tangent_space`) — never compare gauge-carrying
+cores entrywise across representations (`contributor/testing_strategy.md`).
+
 ## The vector I/O boundary — packedness mirror
 
 The sampling ops (`probe` / `apply` / `entries` and their derivatives) take mode-**vectors** across the

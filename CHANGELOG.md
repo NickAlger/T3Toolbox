@@ -44,6 +44,17 @@ All notable changes to T3Toolbox are documented here. The format follows
 
 _The items below came out of the 2026-08-22 whole-library review (`dev/review_2026-08-22/`)._
 
+- **The uniform frame at a numerically rank-deficient point loses no tangent directions** (review
+  S1b -- the last open review item). Every kept-basis SVD in the uniform orthogonalization and
+  T3-SVD sweeps now goes through the new mask-aware `backend.linalg.pad_safe_svd`, so the
+  `sigma ~= 0` completion columns stay OFF the padding instead of landing in padded slots that the
+  masks then erase. Before the fix, a zero-padded `resize` warm start -- the rank-continuation
+  restart -- produced a uniform frame whose masked real block was genuinely rank-deficient (60/60
+  trials), silently losing exactly the tangent directions continuation needs to grow into. Affects
+  `UT3Frame.from_ut3` / `ut3_orthogonal_representations`, the per-core `ut3_*_orthogonalize_*` ops,
+  and `ut3svd` / `ut3_rank_adjustment_sweep` / `ut3svd_orthogonal_representations` (unshared and
+  SF-T3 shared). Regression tests: `TestPadSafeFrame` in `tests/test_uniform_frame_variations_format.py`.
+
 - **Uniform `+`, `-`, `squash_tails` and `sum_stack` read padding garbage.** `ut3_squash_tails` summed
   the leading/trailing TT bond over *every* slot, including the padded ones the equivalence contract
   declares don't-care -- and a corewise gradient step (`adam(UNIFORM_COREWISE, …)`, `UNIFORM_COREWISE.retract`)
@@ -147,6 +158,15 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
 
 ### Changed
 
+- **The uniform manifold frame is gauge-equivalent to ragged, no longer bit-identical.** The old
+  bit-equality was an accident of both layers feeding the same matrices to the same LAPACK kernel;
+  the pad-safe sweep (previous section) computes the same subspaces and singular values through a
+  different -- still fully deterministic -- factorization route, so gauge-carrying cores agree with
+  ragged only up to the SVD's inherent gauge freedom (column signs, rotations within equal-`sigma`
+  clusters, the choice of null-space completion). Every gauge-invariant quantity -- objectives,
+  gradient norms, optimizer trajectories, represented tensors -- still matches ragged exactly.
+  The contract statement for gauge-carrying operations is now in `docs/uniform_equivalence_contract.md`.
+
 - **jax requested but not installed: run on numpy and warn, never raise.** `TuckerTensorTrain.randn(use_jax=True)`
   / `UniformTuckerTensorTrain.randn(use_jax=True)` used to die with a bare `NameError`, `to_jax()` /
   `load(use_jax=True)` silently returned numpy, and the optimizers' `use_jit=True` raised. The policy is now one
@@ -219,6 +239,18 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
 ## [2026.1.0] — 2026-08-20
 
 ### Added
+
+- **`backend.linalg.pad_safe_svd`** -- the mask-aware SVD of a zero-padded matrix: the first
+  `min(n, m)` triplets are exactly the economy SVD of the unpadded real block, **bitwise** zero on
+  the padding, with no rank tolerance anywhere and one jit compile across mask patterns (masks are
+  runtime data). Batched, backend-agnostic, symmetric in `(n, m)` (wide real blocks need no
+  caller-side transpose), deterministic (fixed Haar sketch per width). The algorithm is Method D
+  ("sketch-project") of the pad-safe SVD design packet, `dev/review_2026-08-22/repros/S1b/packet/`:
+  pads are permuted to the trailing QR pivots (Householder reflectors then never touch a padded
+  row), one small augmented SVD pins the surplus, and the right factor is rebuilt from
+  `A^T U = V diag(ss)`. The uniform sweeps use it wherever an SVD produces kept basis columns.
+  The complete derivation note -- problem, contract, algorithm, measurements, and the
+  alternatives considered -- is `docs/pad_safe_svd.tex` (+pdf).
 
 - **Shared Tucker factors (SF-T3)** — optimize over Tucker tensor trains whose Tucker factors are
   constrained equal within user-specified groups of modes (the SF-ETT decomposition of Molozhavenko &

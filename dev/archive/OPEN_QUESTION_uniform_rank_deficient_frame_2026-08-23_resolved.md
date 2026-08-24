@@ -1,5 +1,16 @@
 # OPEN QUESTION — the uniform frame at a numerically rank-deficient point (review S1b)
 
+> **RESOLVED 2026-08-23.** Nick's pad-safe SVD packet (Method D, sketch–project) was implemented:
+> `backend.linalg.pad_safe_svd` plus the mask-threaded uniform sweeps — the frame sweep AND
+> `ut3svd`'s own sweep, unshared and SF-T3 shared. All six S1b cases report 0 lost directions on
+> both frame paths; regression tests `tests/backend/test_linalg.py` and `TestPadSafeFrame` in
+> `tests/test_uniform_frame_variations_format.py`. The uniform frame is now gauge-equivalent (no
+> longer bit-identical) to ragged — recorded in `docs/uniform_equivalence_contract.md`
+> §"Gauge-carrying operations" and the CHANGELOG. The measured answers to the note's open points:
+> the ε·c accuracy worry was refuted (`s1b_c_study.py` — pins occupy bitwise-zero rows, the
+> augmented core is bitwise block-diagonal), and the `n ≥ m` feasibility corner dissolved (the
+> symmetric `min(n, m)` contract needs no runtime transpose — `s1b_sym_variant.py`).
+
 _Opened 2026-08-23 (Nick + Claude, during the 2026.2.0 pre-release review). Unresolved: nothing here is
 implemented. A standing question — not a thread; do not archive until resolved. Measurements and scripts:
 `dev/review_2026-08-22/repros/S1b/` (see its README for the prior-art survey with sources)._
