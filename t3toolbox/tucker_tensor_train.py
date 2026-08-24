@@ -4819,16 +4819,41 @@ class T3Weights:
         return cls(tuple(tucker_svals), tuple(tt_svals))
 
 
+def _require_t3_weights_consistent(x: 'TuckerTensorTrain', weights: T3Weights, op_name: str) -> None:
+    """Structural guard: ``weights`` must carry one vector per edge at ``x``'s ranks, and its stack
+    must be ``x``'s (or ``()`` -- one metric broadcast over the stack). A mismatch used to surface as
+    a deep einsum broadcast error, or to broadcast silently (review R1-15 / R10-6)."""
+    d = x.d
+    tw, ttw = weights.tucker_weights, weights.tt_weights
+    if len(tw) != d or len(ttw) != d + 1:
+        raise ValueError('%s: weights carry %d tucker / %d tt edge vectors; the train has d=%d '
+                         '(needs d and d+1)' % (op_name, len(tw), len(ttw), d))
+    w_tucker = tuple(int(w.shape[-1]) for w in tw)
+    w_tt = tuple(int(w.shape[-1]) for w in ttw)
+    if w_tucker != tuple(x.tucker_ranks) or w_tt != tuple(x.tt_ranks):
+        raise ValueError('%s: weight widths do not match the train ranks: tucker %s vs %s, '
+                         'tt %s vs %s' % (op_name, w_tucker, tuple(x.tucker_ranks),
+                                          w_tt, tuple(x.tt_ranks)))
+    w_stack = tuple(tw[0].shape[:-1])
+    if w_stack not in ((), tuple(x.stack_shape)):
+        raise ValueError('%s: weights stack_shape %s must equal the train stack_shape %s, or be () '
+                         '(one metric broadcast over the whole stack)'
+                         % (op_name, w_stack, tuple(x.stack_shape)))
+
+
 def t3_absorb_weights(x: 'TuckerTensorTrain', weights: T3Weights) -> 'TuckerTensorTrain':
     """Contract diagonal edge weights into ``x``'s cores (shape-preserving): the returned
-    ``TuckerTensorTrain`` represents the fully-weighted network. See
+    ``TuckerTensorTrain`` represents the fully-weighted network. ``weights`` must match ``x``'s ranks;
+    its stack must equal ``x``'s or be ``()`` (broadcast). See
     :py:func:`t3toolbox.backend.t3_operations.t3_absorb_weights` for the side-conventions."""
+    _require_t3_weights_consistent(x, weights, 't3_absorb_weights')
     return TuckerTensorTrain(*ragged_operations.t3_absorb_weights(x.data, weights.data))
 
 
 def t3_weighted_norm(x: 'TuckerTensorTrain', weights: T3Weights) -> NDArray:
     """Weighted Hilbert-Schmidt norm ``||absorb_weights(x, weights)||`` (returns an array of shape
     ``stack_shape``; a scalar when unstacked)."""
+    _require_t3_weights_consistent(x, weights, 't3_weighted_norm')
     return ragged_linalg.t3_weighted_norm(x.data, weights.data)
 
 
@@ -4840,7 +4865,9 @@ def t3_weighted_inner(
 ) -> NDArray:  # weighted HS inner product, shape=stack_shape
     """Weighted Hilbert-Schmidt inner product of two weighted Tucker tensor trains
     ``<absorb_weights(x_A, weights_A), absorb_weights(x_B, weights_B)>``. Operands share physical shape;
-    ranks/weights may differ."""
+    ranks/weights may differ (each pair checked separately)."""
+    _require_t3_weights_consistent(x_A, weights_A, 't3_weighted_inner (A side)')
+    _require_t3_weights_consistent(x_B, weights_B, 't3_weighted_inner (B side)')
     return ragged_linalg.t3_weighted_inner(x_A.data, weights_A.data, x_B.data, weights_B.data)
 
 

@@ -436,3 +436,35 @@ class TestT3svdFrameGauge(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestWeightsConsistencyGuards(unittest.TestCase):
+    """Review R1-15 / R10-6: a mismatched T3Weights fails with a structural ValueError naming the
+    ranks/stacks, instead of a deep einsum broadcast error or a silent mis-stacked broadcast. The
+    documented broadcast -- ONE unstacked metric over a stacked train -- still works."""
+
+    def setUp(self):
+        np.random.seed(0)
+        self.x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 3), (1, 2, 3, 1))
+        self.W = t3.T3Weights.from_t3svd(self.x)
+
+    def test_wrong_ranks_raise_structurally(self):
+        xbad = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 3, 3), (1, 3, 3, 1))
+        for op in (lambda: t3.t3_absorb_weights(xbad, self.W),
+                   lambda: t3.t3_weighted_norm(xbad, self.W),
+                   lambda: t3.t3_weighted_inner(self.x, self.W, xbad, self.W)):
+            with self.assertRaises(ValueError):
+                op()
+
+    def test_stack_mismatch_raises_but_broadcast_is_kept(self):
+        x3 = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 3), (1, 2, 3, 1), stack_shape=(3,))
+        y = t3.t3_absorb_weights(x3, self.W)                 # () weights broadcast over the stack: kept
+        self.assertEqual(y.stack_shape, (3,))
+        n3 = t3.t3_weighted_norm(x3, self.W)
+        self.assertEqual(np.shape(n3), (3,))
+        x2 = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 3), (1, 2, 3, 1), stack_shape=(2,))
+        W2 = t3.T3Weights.from_t3svd(x2)                     # stack (2,) weights ...
+        with self.assertRaises(ValueError):
+            t3.t3_absorb_weights(x3, W2)                     # ... on a stack (3,) train: structural error
+        with self.assertRaises(ValueError):
+            t3.t3_weighted_norm(x3, W2)
