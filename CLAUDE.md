@@ -432,14 +432,21 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
   per-mode residual weight). (Build history: the archived plans in
   `dev/archive/` — `uniform_fix_plan`, `uniform_optimizers_plan`, `naming_pass_plan`,
   `docs_pass_plan`, `docs_split_plan`.)
-- **Whole-library pre-release review (2026-08-22) — landed, one item open.** 19-lane review, 186 findings
-  (ledger + repros: `dev/review_2026-08-22/`); every silent-wrong-answer and crash cluster is fixed with a
-  regression test, **S1b included** (2026-08-23: the uniform frame at a *numerically* rank-deficient point —
-  fixed by the mask-aware `backend.linalg.pad_safe_svd` threaded through every uniform sweep; the frame is
-  now gauge-EQUIVALENT to ragged, no longer bit-identical — `docs/uniform_equivalence_contract.md`
-  §"Gauge-carrying operations"). Rulings worth knowing are listed in the HANDOFF; the behavioural changes
-  are in the CHANGELOG's `[2026.2.0]` Fixed / Changed sections (jax-absent → warn; `d = 1` degenerate;
-  per-mode weight rows; adam-on-manifold warning; the frame gauge).
+- **Whole-library pre-release review (2026-08-22) — FULLY landed (fix phase complete 2026-08-24; Phase D
+  test hardening remains).** 19-lane review, 186 findings (ledger + repros: `dev/review_2026-08-22/`);
+  every silent-wrong-answer and crash cluster is fixed with a regression test, **S1b included**
+  (2026-08-23: the uniform frame at a *numerically* rank-deficient point — fixed by the mask-aware
+  `backend.linalg.pad_safe_svd` threaded through every uniform sweep; the frame is now gauge-EQUIVALENT
+  to ragged, no longer bit-identical — `docs/uniform_equivalence_contract.md` §"Gauge-carrying
+  operations"), **and the deferred E-clusters worked through with Nick's rulings 2026-08-23/24**:
+  explicit equality (`==`/hash raise on all twelve runtime classes; `allclose` + `corewise_equal`),
+  jit cache-key hygiene, the docstring/stale-text sweep (no `dev/` paths in shipped text; derivative
+  order is spelled `order`, axis letter `t`, `K` = tangent stack only — `docs/naming_conventions.md`
+  §"Index letters"), the masked uniform same-frame guard, and the probe-only trace detector (+ the
+  finding that a stacked UT3 cannot `vmap` — masks are static aux; `batching_and_stacking.md` §7).
+  Rulings worth knowing are listed in the HANDOFF; the behavioural changes are in the CHANGELOG's
+  `[2026.2.0]` Fixed / Changed sections (jax-absent → warn; `d = 1` degenerate; per-mode weight rows;
+  adam-on-manifold warning; the frame gauge; the equality flip).
 - **Optimization layer restructured (2026-08-21; in 2026.2.0).** The geometry, the sampling kind and the local model are frozen
   dataclasses whose **parameters are fields**, not records of closures, so they hash/compare by value
   and are stable jax `aux_data`. New `backend/geometry.py`; `SamplingKind` is a class hierarchy;
