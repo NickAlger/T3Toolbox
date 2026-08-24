@@ -1,5 +1,10 @@
 cff-version: 1.2.0
-message: "If you use T3Toolbox, please cite the software and the paper below (preferred-citation)."
+message: >-
+  If you use T3Toolbox, please cite the software itself, using the metadata in this file.
+  T3Toolbox is a general-purpose library for Tucker-tensor-train (T3) computation; it grew out of
+  the research paper listed under `references` below, but is not that paper's artifact. Cite the
+  paper when you build on its specific research contributions (the Taylor-series surrogates and
+  their analysis), not as the citation for the library.
 title: "T3Toolbox"
 type: software
 authors:
@@ -11,18 +16,18 @@ repository-code: "https://github.com/NickAlger/T3Toolbox"
 url: "https://nickalger.github.io/T3Toolbox/"
 license: MIT
 version: 2026.2.0
-preferred-citation:
-  type: article
-  title: "Tucker Tensor Train Taylor Series"
-  authors:
-    - family-names: Alger
-      given-names: Nick
-    - family-names: Christierson
-      given-names: Blake
-    - family-names: Chen
-      given-names: Peng
-    - family-names: Ghattas
-      given-names: Omar
-  year: 2026
-  journal: "arXiv preprint arXiv:2603.21141"
-  url: "https://arxiv.org/abs/2603.21141"
+references:
+  - type: article
+    title: "Tucker Tensor Train Taylor Series"
+    authors:
+      - family-names: Alger
+        given-names: Nick
+      - family-names: Christierson
+        given-names: Blake
+      - family-names: Chen
+        given-names: Peng
+      - family-names: Ghattas
+        given-names: Omar
+    year: 2026
+    journal: "arXiv preprint arXiv:2603.21141"
+    url: "https://arxiv.org/abs/2603.21141"

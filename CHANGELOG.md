@@ -169,6 +169,12 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
 
 ### Changed
 
+- **Citing T3Toolbox means citing the software, not the T4S paper.** `CITATION.cff`'s
+  `preferred-citation` used to redirect citations to the research preprint the library grew out of;
+  the library is a general-purpose T3 toolkit and is cited as software. The paper moved to the CFF
+  `references` list (cite it when building on its research contributions); README / docs wording
+  aligned.
+
 - **The six `utv_*_transpose_from_sweep` hooks now default `sum_over_probes=False`, matching their
   ragged twins** (review H2-4). Each says it "shares" the ragged function, but the uniform defaults
   summed the probe stack `W` while ragged kept it -- so a raw-`.data` user porting ragged split-seam

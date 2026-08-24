@@ -138,5 +138,7 @@ examples live in [`examples/`](examples/). Contributing? Start with the
 * Nick Alger (nalger225@gmail.com)
 * Blake Christierson (bechristierson@utexas.edu)
 
-MIT License. The algorithms are described in *Alger, Christierson, Chen & Ghattas (2026), "Tucker
-Tensor Train Taylor Series"*, [arXiv:2603.21141](https://arxiv.org/abs/2603.21141).
+MIT License. To cite T3Toolbox, cite the software itself ([`CITATION.cff`](CITATION.cff)). The
+library grew out of the research in *Alger, Christierson, Chen & Ghattas (2026), "Tucker Tensor
+Train Taylor Series"*, [arXiv:2603.21141](https://arxiv.org/abs/2603.21141), where many of the core
+algorithms are described — cite that paper when you build on its research contributions.

@@ -61,9 +61,11 @@ Authors
 * Nick Alger (nalger225@gmail.com)
 * Blake Christierson (bechristierson@utexas.edu)
 
-MIT License. The algorithms are described in *Alger, Christierson, Chen & Ghattas (2026),
-"Tucker Tensor Train Taylor Series"* (`arXiv:2603.21141 <https://arxiv.org/abs/2603.21141>`_);
-see :ref:`relevant-literature` for the wider background.
+MIT License. To cite T3Toolbox, cite the software itself (the repository's ``CITATION.cff``). The
+library grew out of the research in *Alger, Christierson, Chen & Ghattas (2026),
+"Tucker Tensor Train Taylor Series"* (`arXiv:2603.21141 <https://arxiv.org/abs/2603.21141>`_), where
+many of the core algorithms are described — cite that paper when you build on its research
+contributions; see :ref:`relevant-literature` for the wider background.
 
 
 Indices
