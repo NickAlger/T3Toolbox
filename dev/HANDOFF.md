@@ -7,11 +7,37 @@ and why it is the way it is is `docs/`. This file is where-we-are + what's next,
 
 ## Newest thread — the whole-library pre-release review (2026-08-22)
 
-**Where it stands:** `main` carries the 2026.2.0 release commit plus the review commits AND the S1b
-pad-safe-SVD slices on top of it; **not tagged, not pushed**. Every S and C cluster is now fixed,
-S1b included. Before tagging: re-run the final gates on the finished tree (suite / doctests / docs
-doctests / sphinx -W / examples are green as of 2026-08-23), then Nick's one-way steps (push, wheel
-check, tag).
+**Where it stands:** `main` carries the 2026.2.0 release commit, the review commits, and the S1b
+pad-safe-SVD slices (all **pushed 2026-08-23**, CI green), plus the **review-continuation commits of
+2026-08-24** (below; push pending their gate); **not tagged**. Every S and C cluster is fixed; the E
+list is being worked through in clusters. Before tagging: Nick's one-way steps (wheel `twine check`,
+the numpy-only venv smoke, tag).
+
+**Review continuation (2026-08-24) — the E list, in clusters.** Triage: the E findings grouped into
+six work clusters (session record; `findings_compact.md` is the frozen Phase-A list). Done and
+committed: **cluster 6** (the design rulings: Armijo exhaustion `on_line_search_failure='stop'|'accept'`
+with honest `alpha` + `ls_failed`; per-element ragged geometry `inner`/`point_norm_sq`;
+`sum_over_probes` default parity; `from_ut3svd(n=, r=)`; `shared_data=` on the uniform projection; GD
+documented eager-only), **cluster 1** (obscure errors -> structural guards: str-leaf tree recursion,
+`tree_zip` mismatch, `truncated_svd` min>max, uniform scalar-only `*` / layout-checked `stack` /
+host-numpy `minimal_ranks`, weighted rank/stack consistency, `COREWISE.retract` frame-kind guard,
+`stack_tangents` mixed-K, `SharedGeometry` layer checks), **cluster 2** (`__rmul__`/`__truediv__`;
+`use_orthogonalization` parity; `check_fw_pair` export; uniform `sum_stack(axis=)` DEFERRED +
+documented in the ledger; the kinds' unread protocol args documented), plus the **citation policy**
+(CITATION.cff cites the software; T4S under `references`). Lesson recorded: the R3-6 guard's blast
+radius included a test that deliberately swept min>max combos -- ~4000 failing subTests turned the
+suite into a 30-min reporting crawl (diagnosed with a SIGABRT faulthandler dump); targeted `-k` runs
+had deselected exactly that test, so a guard-adding commit should run the full file of any test that
+sweeps the guarded parameter.
+
+**Next (queued): cluster 3** -- the jit/value-hash contract items (H1-5 aliased writeable masks,
+H1-6/R2-7 mixin hash-eq cracks, R1-13 `eq=True` over arrays, R1-17/R10-5 `stack∘unstack` under jit,
+H2-8 SharedGeometry raw-label keys, R7-13 subclass-dropping unflatten), plan agreed 2026-08-24 with
+two rulings PENDING from Nick: (i) `TuckerTensorTrain`/`T3Weights` equality -- identity (`eq=False`,
+recommended) vs value-based; (ii) blessing the key-based bitwise-strict `__eq__` unification of the
+two mixins (eq defined through the hash key; -0.0 != 0.0, dtype counts -- strictly stricter, worst
+case a spurious recompile). Then clusters 4 (safety internals) and 5 (docstring sweep), and Phase D
+test hardening.
 
 **What happened.** Nick asked for an in-depth review of the whole library (bugs first, doc/code mismatches
 second) before cutting 2026.2.0, because the 2026.1/2.0 work had kept turning up pre-existing bugs. The
