@@ -55,6 +55,14 @@ class UT3FrameMasks(common.ValueHashedMasks):
     frame_left_mask:  NDArray  # dtype=bool, (d+1,)+stack_shape+(rL,)
     frame_right_mask: NDArray  # dtype=bool, (d+1,)+stack_shape+(rR,)
 
+    def __post_init__(self):
+        # Defensive READ-ONLY copies: the value key is cached on this frozen holder, so an aliased
+        # writeable caller array mutated in place would leave a stale jit cache key (review H1-5).
+        for _f in ('up_mask', 'down_mask', 'frame_left_mask', 'frame_right_mask'):
+            _m = np.array(getattr(self, _f), copy=True)
+            _m.setflags(write=False)
+            object.__setattr__(self, _f, _m)
+
     @property
     def data(self) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:
         """The four raw rank-mask arrays, ``(up_mask, down_mask, frame_left_mask, frame_right_mask)``."""
@@ -485,6 +493,14 @@ class UT3VariationsMasks(common.ValueHashedMasks):
     variations_down_mask:  NDArray  # dtype=bool, (d,)+stack_shape+(nD,)
     variations_left_mask:  NDArray  # dtype=bool, (d,)+stack_shape+(rL,)
     variations_right_mask: NDArray  # dtype=bool, (d,)+stack_shape+(rR,)
+
+    def __post_init__(self):
+        # Defensive READ-ONLY copies: the value key is cached on this frozen holder, so an aliased
+        # writeable caller array mutated in place would leave a stale jit cache key (review H1-5).
+        for _f in ('variations_up_mask', 'variations_down_mask', 'variations_left_mask', 'variations_right_mask'):
+            _m = np.array(getattr(self, _f), copy=True)
+            _m.setflags(write=False)
+            object.__setattr__(self, _f, _m)
 
     @property
     def data(self) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:

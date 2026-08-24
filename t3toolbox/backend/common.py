@@ -52,6 +52,7 @@ __all__ = [
     'xprepend',
     'tree_contains_jax',
     'ExplicitEquality',
+    'readonly_mask_copies',
     'tree_to_jax',
     'items_are_uniform',
     #
@@ -507,6 +508,18 @@ def load_core_families(
     return tuple(fam(fi) for fi in range(num_families))
 
 
+def readonly_mask_copies(masks):
+    """Defensive READ-ONLY numpy copies of a mask tuple, for storage in value-hashed aux objects:
+    an aliased writeable caller array mutated in place would leave a stale cached jit key
+    (review H1-5; the ``_weight_matrix`` precedent)."""
+    out = []
+    for m in masks:
+        c = np.array(m, copy=True)
+        c.setflags(write=False)
+        out.append(c)
+    return tuple(out)
+
+
 class ExplicitEquality:
     """Mixin making ``==`` a directed error and the class unhashable: equality must be EXPLICIT.
 
@@ -564,19 +577,21 @@ class ValueHashedMasks:
     """
 
     @ft.cached_property
-    def _content_hash(self) -> int:
-        # shape + dtype + bytes so distinct-shape/dtype masks never collide; masks are HOST numpy.
-        return hash(tuple((m.shape, m.dtype.str, m.tobytes()) for m in self.data))
+    def _content_key(self) -> typ.Tuple:
+        # shape + dtype + bytes: the ONE key both __hash__ and __eq__ use, so the hash/eq contract
+        # (a == b => hash(a) == hash(b)) holds BY CONSTRUCTION -- the old pair (bytes-based hash,
+        # dtype-blind array_equal eq that also zip-truncated) could disagree (review H1-6 / R2-7).
+        return tuple((m.shape, m.dtype.str, m.tobytes()) for m in self.data)
 
     def __hash__(self) -> int:
-        return self._content_hash
+        return hash(self._content_key)
 
     def __eq__(self, other) -> bool:
         if self is other:
             return True
         if type(other) is not type(self):
             return NotImplemented
-        return all(np.array_equal(a, b) for a, b in zip(self.data, other.data))
+        return self._content_key == other._content_key
 
 
 class ValueHashedFields:
@@ -606,6 +621,11 @@ class ValueHashedFields:
         recursively; anything else by itself (it must already hash by value)."""
         if isinstance(v, np.ndarray):
             return ('__array__', v.shape, v.dtype.str, v.tobytes())
+        if is_ndarray(v):
+            raise TypeError(
+                'a ValueHashedFields field holds a non-numpy array (%s): aux fields must be HOST '
+                'data -- a device array belongs in the traced leaves, not the jit cache key '
+                '(review R2-7)' % type(v).__name__)
         if isinstance(v, (tuple, list)):
             return tuple(ValueHashedFields._value_key(x) for x in v)
         return v

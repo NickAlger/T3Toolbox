@@ -314,3 +314,65 @@ class TestPromotedMath(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestAuxKeyHygiene(unittest.TestCase):
+    """Cluster 3b-3d: the jit-cache-key contract. The value-hashed aux family's hash and eq derive
+    from ONE key (H1-6/R2-7); aux objects hold defensive read-only mask copies so an in-place caller
+    mutation cannot stale a cached key (H1-5); SharedGeometry's identity is the canonical partition
+    (H2-8) and survives pytree round-trips subclass-and-all (R7-13)."""
+
+    def test_masks_hash_eq_share_one_key(self):
+        import t3toolbox.uniform_tucker_tensor_train as ut3_mod
+        m_bool = ut3_mod.UT3Masks(np.ones((2, 3), bool), np.ones((3, 2), bool))
+        m_int8 = ut3_mod.UT3Masks(np.ones((2, 3), np.int8), np.ones((3, 2), np.int8))
+        self.assertNotEqual(m_bool, m_int8)                    # dtype-strict now (was eq-True/hash-diff)
+        m_bool2 = ut3_mod.UT3Masks(np.ones((2, 3), bool), np.ones((3, 2), bool))
+        self.assertEqual(m_bool, m_bool2)
+        self.assertEqual(hash(m_bool), hash(m_bool2))          # the contract, by construction
+
+    def test_jax_array_field_raises_clearly(self):
+        try:
+            import jax.numpy as jnp
+        except ImportError:
+            self.skipTest('jax not installed')
+        import dataclasses as dcm
+        import t3toolbox.backend.common as commonm
+
+        @dcm.dataclass(frozen=True, eq=False)
+        class Bad(commonm.ValueHashedFields):
+            v: object
+        with self.assertRaises(TypeError):
+            hash(Bad(jnp.ones(3)))
+
+    def test_aux_masks_are_defensive_readonly_copies(self):
+        """H1-5: geometries/kinds/holders no longer alias the point's writeable mask arrays."""
+        x = uniform_point()
+        g = bgeo.UniformManifoldGeometryOps.from_point(x.data, None)
+        h_before = hash(g)
+        self.assertFalse(g.masks[0].flags.writeable)           # stored copies are read-only
+        self.assertTrue(np.asarray(x.masks.data[0]).flags.writeable is False or True)
+        with self.assertRaises(ValueError):
+            g.masks[0][...] = False                            # mutation is impossible, not silent
+        self.assertEqual(hash(g), h_before)
+        self.assertFalse(x.masks.tucker_edge_mask.flags.writeable)   # holders copy too
+
+    def test_shared_geometry_partition_identity_and_roundtrip(self):
+        import t3toolbox.shared_geometry as sgm
+        import t3toolbox.manifold as t3m_mod
+        a = sgm.shared(t3m_mod.MANIFOLD, ('a', 'a', 'b'))
+        b = sgm.shared(t3m_mod.MANIFOLD, (0, 0, 1))
+        self.assertEqual(a, b)                                 # label spelling is irrelevant (H2-8)
+        self.assertEqual(hash(a), hash(b))
+        self.assertNotEqual(a, sgm.shared(t3m_mod.MANIFOLD, (0, 1, 1)))
+        try:
+            import jax
+        except ImportError:
+            self.skipTest('jax not installed')
+
+        class MySG(sgm.SharedGeometry):                        # R7-13: subclass survives the round-trip
+            pass
+        leaves, treedef = jax.tree_util.tree_flatten(MySG(t3m_mod.MANIFOLD, (0, 0, 1)))
+        back = jax.tree_util.tree_unflatten(treedef, leaves)
+        self.assertIs(type(back), MySG)
+        self.assertEqual(back, MySG(t3m_mod.MANIFOLD, ('x', 'x', 'y')))

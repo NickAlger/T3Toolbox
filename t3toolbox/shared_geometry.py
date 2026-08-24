@@ -126,6 +126,10 @@ class SharedGeometry:
                 hash(label)
             except TypeError:
                 raise ValueError('sharing labels must be hashable; got %r at mode %d' % (label, ii))
+        # The canonical partition IS the identity: two wrappers over the same partition with
+        # different label spellings are the same geometry (and the same jit cache key), matching
+        # the backend geometries' canonical_groups keys (review H2-8).
+        self._partition = backend_sharing._groups_from_labels(self.sharing, len(self.sharing))
 
     # ---- static identity (a stable jit-aux key: rebuilt-equal wrappers are the same geometry) ----
     @property
@@ -149,10 +153,10 @@ class SharedGeometry:
         # subclass with different math compare and hash EQUAL to the plain wrapper, so whichever was
         # compiled first served both -- a silent wrong answer for the un-subclassed object.
         return (type(other) is type(self) and other.base is self.base
-                and other.sharing == self.sharing)
+                and other._partition == self._partition)   # canonical: label spelling is irrelevant (H2-8)
 
     def __hash__(self) -> int:
-        return hash((type(self), self.base_name, self.sharing))
+        return hash((type(self), self.base_name, self._partition))
 
     def __repr__(self) -> str:
         return 'SharedGeometry(%s, sharing=%r)' % (self.base_name.upper(), self.sharing)
@@ -404,8 +408,24 @@ if jax_available:
     _BASES_BY_NAME = {'manifold': t3m.MANIFOLD, 'corewise': t3m.COREWISE,
                       'uniform_manifold': um.UNIFORM_MANIFOLD,
                       'uniform_corewise': um.UNIFORM_COREWISE}
+    def _labels_from_partition(partition, d):
+        # canonical labels: group index per mode; untied modes get fresh singleton labels
+        labels = [None] * d
+        for gi, group in enumerate(partition):
+            for m in group:
+                labels[m] = 'g%d' % gi
+        nxt = len(partition)
+        for m in range(d):
+            if labels[m] is None:
+                labels[m] = 'g%d' % nxt
+                nxt += 1
+        return tuple(labels)
+
     jax.tree_util.register_pytree_node(
         SharedGeometry,
-        lambda g: ((), (g.base_name, g.sharing)),
-        lambda aux, children: SharedGeometry(_BASES_BY_NAME[aux[0]], aux[1]),
+        # aux carries the TYPE (a subclass survives the round-trip -- review R7-13) and the CANONICAL
+        # partition (label spelling never splits the jit cache -- review H2-8). The reconstructed
+        # wrapper carries canonicalized labels: same geometry by __eq__, possibly different repr.
+        lambda g: ((), (type(g), g.base_name, g._partition, len(g.sharing))),
+        lambda aux, children: aux[0](_BASES_BY_NAME[aux[1]], _labels_from_partition(aux[2], aux[3])),
     )

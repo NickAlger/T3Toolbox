@@ -343,7 +343,7 @@ class UniformManifoldGeometryOps(ValueHashedFields):
         (``docs/contributor/uniform_svd_prefix_orthogonalization.md``)."""
         _tk_sc, _tt_sc, shape, base_masks = x0_data
         _frame, variation_data = ufv_conversions.ut3_orthogonal_representations(x0_data)
-        return cls(tuple(shape), tuple(base_masks), tuple(variation_data[3]),
+        return cls(tuple(shape), readonly_mask_copies(base_masks), readonly_mask_copies(variation_data[3]),
                    canonical_groups(sharing, tuple(shape)))
 
     def with_sharing(self, sharing) -> 'UniformManifoldGeometryOps':
@@ -444,7 +444,7 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
     ) -> 'UniformCorewiseGeometryOps':
         """The geometry at ``x0``'s fixed rank."""
         _tk_sc, _tt_sc, shape, base_masks = x0_data
-        return cls(tuple(shape), tuple(base_masks), canonical_groups(sharing, tuple(shape)))
+        return cls(tuple(shape), readonly_mask_copies(base_masks), canonical_groups(sharing, tuple(shape)))
 
     def with_sharing(self, sharing) -> 'UniformCorewiseGeometryOps':
         """This geometry restricted to tied Tucker factors (``sharing=None`` gives it back unshared)."""

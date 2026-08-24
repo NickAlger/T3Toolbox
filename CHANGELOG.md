@@ -44,6 +44,17 @@ All notable changes to T3Toolbox are documented here. The format follows
 
 _The items below came out of the 2026-08-22 whole-library review (`dev/review_2026-08-22/`)._
 
+- **jit cache-key hygiene on the value-hashed aux family** (reviews H1-5, H1-6, R2-7, H2-8, R7-13).
+  The mask holders' `hash` and `==` now derive from one content key (they could disagree on dtype and
+  silently zip-truncate on length); a jax-array field in a `ValueHashedFields` aux raises a directive
+  TypeError (device arrays belong in leaves); the aux objects (mask holders, uniform geometries and
+  kinds) store defensive **read-only copies** of their mask arrays, so mutating a caller's mask in
+  place can no longer stale a cached cache key -- in-place writes to stored masks now raise;
+  `shared(...)` geometries key their identity (and jit aux) on the **canonical partition**, so label
+  spellings of the same partition share one compiled program, and a `SharedGeometry` subclass now
+  survives the jit round-trip as itself. The `stack(unstack(x))`-under-jit findings were verified
+  already fixed by the review's static-axes `moveaxis` and are pinned by a regression test.
+
 - **Obscure errors on malformed inputs became structural guards** (the review's E-cluster sweep,
   2026-08-24: R2-8, R2-12, R2-13, R3-6, H3-7, R8-6, R8-9, R1-15, R10-6, H3-8, R9-9). Str leaves no
   longer recurse the tree helpers forever; `tree_zip` rejects structure mismatches instead of

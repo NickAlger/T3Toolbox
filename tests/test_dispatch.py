@@ -1101,6 +1101,20 @@ class TestDispatch(unittest.TestCase):
 class TestJitStack(unittest.TestCase):
     """Review 2026-08-22 (C4): stack() inside jit (moveaxis used to get a traced arange as its source)."""
 
+    def test_jit_stack_unstack_roundtrip(self):
+        """R1-17 / R10-5 (fixed by the static-axes moveaxis of the review; pinned here):
+        stack(unstack(x)) traces under jit for the train and the weight classes."""
+        np.random.seed(0)
+        x = t3.TuckerTensorTrain.randn((4, 5), (2, 2), (1, 2, 1), stack_shape=(3,)).to_jax()
+        out = jax.jit(lambda a: t3.TuckerTensorTrain.stack(a.unstack()).data)(x)
+        self.assertTrue(all(common.is_jax_ndarray(l) for l in jax.tree_util.tree_leaves(out)))
+        W = t3.T3Weights.from_t3svd(t3.TuckerTensorTrain.randn((4, 5), (2, 2), (1, 2, 1),
+                                                              stack_shape=(3,)))
+        outw = jax.jit(lambda w: t3.T3Weights.stack(w.unstack()).data)(
+            t3.T3Weights(tuple(jnp.asarray(a) for a in W.tucker_weights),
+                         tuple(jnp.asarray(a) for a in W.tt_weights)))
+        self.assertTrue(all(common.is_jax_ndarray(l) for l in jax.tree_util.tree_leaves(outw)))
+
     def test_jit_stack_and_stack_tangents(self):
         import jax
         np.random.seed(9)

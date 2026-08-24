@@ -26,6 +26,7 @@ import typing as typ
 import numpy as np
 
 from t3toolbox.backend import optimizers as bopt
+from t3toolbox.backend.common import readonly_mask_copies
 from t3toolbox.backend import fitting as bfit
 from t3toolbox.backend import geometry as geometry_module
 from t3toolbox.backend import ufv_conversions
@@ -77,7 +78,7 @@ class _UniformKind:
     def from_point(cls, x0_data, **parameters):
         """The kind at ``x0``'s fixed rank; ``parameters`` are the kind's own (order / weight / chunk)."""
         _tk_sc, _tt_sc, shape, base_masks = x0_data
-        return cls(shape=tuple(shape), masks=tuple(base_masks), **parameters)
+        return cls(shape=tuple(shape), masks=readonly_mask_copies(base_masks), **parameters)
 
     @property
     def _point(self):

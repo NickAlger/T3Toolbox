@@ -62,6 +62,14 @@ class UT3Masks(common.ValueHashedMasks):  # eq=True would fail on arrays). See V
     tucker_edge_mask: NDArray  # HOST bool, static, shape=(d,)   + stack_shape + (n,)
     tt_edge_mask:     NDArray  # HOST bool, static, shape=(d+1,) + stack_shape + (r,)
 
+    def __post_init__(self):
+        # Defensive READ-ONLY copies: the value key is cached on this frozen holder, so an aliased
+        # writeable caller array mutated in place would leave a stale jit cache key (review H1-5).
+        for _f in ('tucker_edge_mask', 'tt_edge_mask'):
+            _m = np.array(getattr(self, _f), copy=True)
+            _m.setflags(write=False)
+            object.__setattr__(self, _f, _m)
+
     @property
     def data(self) -> Tuple[NDArray, NDArray]:
         """The two raw rank-mask arrays, ``(tucker_edge_mask, tt_edge_mask)``."""
