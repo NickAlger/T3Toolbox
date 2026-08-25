@@ -862,3 +862,50 @@ class TestExactOutputMasks(unittest.TestCase):
                 self.assertEqual(tuple(u3.masks.data[1][:, i].sum(-1).tolist()), tuple(r.tt_ranks))
                 self.assertLessEqual(relerr(u3.to_dense()[i], r.to_dense()), 1e-8)
         self.assertLessEqual(relerr(ust.sum_stack().to_dense(), xa.to_dense() + xb.to_dense()), TOL)
+
+
+class TestUt3svdSupercores(unittest.TestCase):
+    """Direct test for the exported-but-uncalled ``ut3svd_supercores`` (Phase D of the 2026-08-22
+    review, finding R8-10; promoted from ``repros/R8/misc_checks.py``): the raw-supercore T3-SVD --
+    dense reproduced at the input padding, real-slot singular values equal the ragged ``t3svd``'s
+    with the extra cap-width slots exactly zero, and the ``skip_orthogonalization`` /
+    ``squash_tails_first=False`` paths exact."""
+
+    def setUp(self):
+        np.random.seed(0)
+        import t3toolbox.backend.ut3_svd as usvd
+        import t3toolbox.backend.ut3_masking as um
+        import t3toolbox.backend.ut3_conversions as uc
+        self.usvd, self.um, self.uc = usvd, um, uc
+
+    def test_direct_call_matches_ragged(self):
+        x = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 3, 2), (1, 2, 3, 1))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x, n=4, r=4)
+        masked = self.um.ut3_apply_masks(ux.data)
+        caps = self.um.ut3_make_masks(ux.tucker_ranks, ux.tt_ranks, ux.n, ux.r)
+        (tk, tt), sk, st = self.usvd.ut3svd_supercores(masked, caps)
+        self.assertEqual(tk.shape, ux.tucker_supercore.shape)     # keeps the input padding
+        self.assertEqual(tt.shape, ux.tt_supercore.shape)
+        self.assertLessEqual(relerr(self.uc.ut3_to_dense((tk, tt, ux.shape, caps)), x.to_dense()), TOL)
+        _, rsk, rst = x.t3svd()
+        for i in range(3):                                        # real-slot svals == ragged
+            self.assertLessEqual(relerr(np.asarray(sk[i])[caps[0][i]], rsk[i]), 1e-7)
+        for i in range(4):                                        # cap-width tt slots: real == ragged, rest 0
+            got = np.asarray(st[i])[caps[1][i]]
+            self.assertLessEqual(relerr(got[:len(rst[i])], rst[i]), 1e-7)
+            self.assertLessEqual(float(np.abs(got[len(rst[i]):]).max(initial=0.0)), 1e-12)
+
+    def test_skip_orthogonalization_and_no_squash(self):
+        x = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 3, 2), (1, 2, 3, 1))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x, n=4, r=4)
+        ro = ux.down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()
+        (tk2, tt2), _, _ = self.usvd.ut3svd_supercores(
+            self.um.ut3_apply_masks(ro.data),
+            self.um.ut3_make_masks(ro.tucker_ranks, ro.tt_ranks, ro.n, ro.r),
+            skip_orthogonalization=True)
+        self.assertLessEqual(relerr(
+            self.uc.ut3_to_dense((tk2, tt2, ro.shape, ro.masks.data)), x.to_dense()), TOL)
+        masked = self.um.ut3_apply_masks(ux.data)
+        caps = self.um.ut3_make_masks(ux.tucker_ranks, ux.tt_ranks, ux.n, ux.r)
+        (tk3, tt3), _, _ = self.usvd.ut3svd_supercores(masked, caps, squash_tails_first=False)
+        self.assertLessEqual(relerr(self.uc.ut3_to_dense((tk3, tt3, ux.shape, caps)), x.to_dense()), TOL)
