@@ -706,3 +706,159 @@ class TestStructuralGuards(unittest.TestCase):
         for fam in mn:
             self.assertTrue(common.is_numpy_ndarray(np.asarray(fam)))
             self.assertFalse(common.tree_contains_jax((fam,)))
+
+
+# ---------------------------------------------------------------------- exact-mask / stack-matrix prongs
+# The `(C, force_pad)` config matrix of `docs/contributor/testing_strategy.md` for this file, plus the
+# varying-rank stack (the determinantal variety). Promoted from the 2026-08-22 review's
+# `repros/H5/repro_exact_masks.py` and `repros/R8/three_prong_sweep.py` (Phase D).
+_CONFIGS = [((), False), ((2,), False), ((), True), ((2,), True), ((2, 3), False), ((2, 3), True)]
+_PAD = dict(N=9, n=5, r=5)         # forced-larger padding: EVERY core gets a padded region
+_STRUCT_ASYM = ((5, 7, 6), (2, 3, 2), (1, 2, 2, 1))   # distinct mode sizes (asymmetric)
+
+
+def _prefix(ranks, size):  # host bool mask: arange(size) < ranks[..., None]
+    return np.arange(size) < np.asarray(ranks)[..., None]
+
+
+def _is_prefix(mask):
+    return bool(np.array_equal(mask, _prefix(mask.sum(axis=-1), mask.shape[-1])))
+
+
+def _varying_stack():
+    """A (2,)-stack whose elements have DIFFERENT ranks (clean padding); returns (stacked, [xa, xb])."""
+    xa = t3.TuckerTensorTrain.randn((6, 7, 5), (2, 3, 2), (1, 2, 2, 1))
+    xb = t3.TuckerTensorTrain.randn((6, 7, 5), (4, 2, 3), (1, 3, 2, 1))
+    ua = ut3.UniformTuckerTensorTrain.from_t3(xa, N=7, n=4, r=3)
+    ub = ut3.UniformTuckerTensorTrain.from_t3(xb, N=7, n=4, r=3)
+    return ut3.UniformTuckerTensorTrain.stack([ua, ub]), [xa, xb]
+
+
+class TestExactOutputMasks(unittest.TestCase):
+    """Prong 2 of ``docs/contributor/testing_strategy.md``: EXACT output masks, derived NON-circularly
+    from the ragged twin's ranks (never from the object's own construction). Dense-vs-ragged alone is
+    blind to a too-permissive (phantom-rank) mask, because clean padding makes the extra slots zero."""
+
+    def setUp(self):
+        np.random.seed(0)
+
+    def _pair(self, ss, fp):
+        shape, tr, ttr = _STRUCT_ASYM
+        x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x, **(_PAD if fp else {}))
+        return x, ux
+
+    def _assert_masks(self, u, tucker_ranks, tt_ranks):
+        # expected: prefix masks of the (non-circular) expected ranks, broadcast over the stack
+        exp_tk = np.broadcast_to(np.asarray(tucker_ranks).reshape((u.d,) + (1,) * len(u.stack_shape)),
+                                 (u.d,) + u.stack_shape)
+        exp_tt = np.broadcast_to(np.asarray(tt_ranks).reshape((u.d + 1,) + (1,) * len(u.stack_shape)),
+                                 (u.d + 1,) + u.stack_shape)
+        self.assertTrue(np.array_equal(u.masks.data[0], _prefix(exp_tk, u.n)))
+        self.assertTrue(np.array_equal(u.masks.data[1], _prefix(exp_tt, u.r)))
+
+    def test_t3svd_and_sweep_masks_match_ragged(self):
+        shape, tr, ttr = _STRUCT_ASYM
+        caps_tk = tuple(max(1, n - 1) for n in tr)
+        caps_tt = (1,) + tuple(max(1, r - 1) for r in ttr[1:-1]) + (1,)
+        for ss, fp in _CONFIGS:
+            with self.subTest(ss=ss, fp=fp):
+                x, ux = self._pair(ss, fp)
+                xr = x.t3svd()[0]
+                u = ux.t3svd()[0]
+                self._assert_masks(u, xr.tucker_ranks, xr.tt_ranks)
+                self.assertLessEqual(relerr(u.to_dense(), xr.to_dense()), TOL)
+                xr2 = x.t3svd(max_tucker_ranks=caps_tk, max_tt_ranks=caps_tt)[0]
+                u2 = ux.t3svd(max_tucker_ranks=caps_tk, max_tt_ranks=caps_tt)[0]
+                self._assert_masks(u2, xr2.tucker_ranks, xr2.tt_ranks)
+                self.assertLessEqual(relerr(u2.to_dense(), xr2.to_dense()), 1e-8)
+                xr3 = xr2.rank_adjustment_sweep('right_to_left')
+                u3 = u2.rank_adjustment_sweep('right_to_left')
+                self._assert_masks(u3, xr3.tucker_ranks, xr3.tt_ranks)
+                self.assertLessEqual(relerr(u3.to_dense(), xr3.to_dense()), TOL)
+
+    def test_orthogonalization_masks_match_ragged(self):
+        for ss, fp in _CONFIGS:
+            x, ux = self._pair(ss, fp)
+            for op in ('down_orthogonalize_tucker_cores', 'up_orthogonalize_tt_cores',
+                       'left_orthogonalize_tt_cores', 'right_orthogonalize_tt_cores'):
+                with self.subTest(ss=ss, fp=fp, op=op):
+                    a, b = getattr(ux, op)(), getattr(x, op)()
+                    self._assert_masks(a, b.tucker_ranks, b.tt_ranks)
+                    self.assertLessEqual(relerr(a.to_dense(), b.to_dense()), TOL)
+                    # no real content outside the mask (re-masking must not change the tensor)
+                    self.assertLessEqual(relerr(a.apply_masks().to_dense(), a.to_dense()), TOL)
+
+    def test_add_masks_exact_concatenation(self):
+        # + concatenates the edge masks (interior), boundary bonds -> [True, False, ...] (rank 1); the
+        # result may be GAPPY (working form) -- to_t3 must still be exact and t3svd re-canonicalizes.
+        for ss, fp in _CONFIGS:
+            with self.subTest(ss=ss, fp=fp):
+                x, ux = self._pair(ss, fp)
+                y, uy = self._pair(ss, fp)
+                s, sr = ux + uy, x + y
+                self.assertLessEqual(relerr(s.to_dense(), sr.to_dense()), TOL)
+                tkm_e = np.concatenate([ux.masks.data[0], uy.masks.data[0]], axis=-1)
+                ttm_e = np.concatenate([ux.masks.data[1], uy.masks.data[1]], axis=-1)
+                b = np.zeros_like(ttm_e[0]); b[..., 0] = True
+                ttm_e[0] = b; ttm_e[-1] = b
+                self.assertTrue(np.array_equal(s.masks.data[0], tkm_e))
+                self.assertTrue(np.array_equal(s.masks.data[1], ttm_e))
+                self.assertLessEqual(relerr(s.to_t3().to_dense() if not ss else
+                                            np.asarray([e.to_dense() for e in np.asarray(s.to_t3(), dtype=object).reshape(-1)]),
+                                            sr.to_dense().reshape((-1,) + x.shape) if ss else sr.to_dense()), TOL)
+                sc = s.t3svd()[0]
+                self.assertTrue(all(_is_prefix(np.asarray(m)) for m in sc.masks.data))
+                self.assertLessEqual(relerr(sc.to_dense(), sr.to_dense()), TOL)
+
+    def test_sum_stack_masks_match_ragged(self):
+        # sum_stack routes through + so its masks are in GAPPY working form (uniform_masks_vs_ranks.md);
+        # the non-circular contract is: per-slot rank COUNTS == the ragged sum's ranks, and t3svd
+        # re-canonicalizes to prefix masks with the ragged svd ranks.
+        for ss, fp in [c for c in _CONFIGS if c[0]]:
+            with self.subTest(ss=ss, fp=fp):
+                x, ux = self._pair(ss, fp)
+                u, r = ux.sum_stack(), x.sum_stack()
+                self.assertLessEqual(relerr(u.to_dense(), r.to_dense()), TOL)
+                self.assertEqual(tuple(u.masks.data[0].sum(-1).tolist()), tuple(r.tucker_ranks))
+                self.assertEqual(tuple(u.masks.data[1].sum(-1).tolist()), tuple(r.tt_ranks))
+                uc, rc = u.t3svd()[0], r.t3svd()[0]
+                self.assertTrue(all(_is_prefix(np.asarray(m)) for m in uc.masks.data))
+                self._assert_masks(uc, rc.tucker_ranks, rc.tt_ranks)
+                self.assertLessEqual(relerr(uc.to_dense(), rc.to_dense()), TOL)
+
+    def test_varying_rank_stack_per_element_masks(self):
+        # per-element ranks over a varying-rank C stack == each element's own ragged ranks
+        ust, (xa, xb) = _varying_stack()
+        u = ust.t3svd()[0]
+        for i, r in enumerate((xa.t3svd()[0], xb.t3svd()[0])):
+            with self.subTest(elem=i, op='t3svd'):
+                self.assertEqual(tuple(u.masks.data[0][:, i].sum(-1).tolist()), tuple(r.tucker_ranks))
+                self.assertEqual(tuple(u.masks.data[1][:, i].sum(-1).tolist()), tuple(r.tt_ranks))
+                self.assertLessEqual(relerr(u.to_dense()[i], r.to_dense()), TOL)
+        u2 = u.rank_adjustment_sweep('right_to_left')
+        for i, r in enumerate((xa.t3svd()[0].rank_adjustment_sweep('right_to_left'),
+                               xb.t3svd()[0].rank_adjustment_sweep('right_to_left'))):
+            with self.subTest(elem=i, op='rank_adjustment_sweep'):
+                self.assertEqual(tuple(u2.masks.data[0][:, i].sum(-1).tolist()), tuple(r.tucker_ranks))
+                self.assertEqual(tuple(u2.masks.data[1][:, i].sum(-1).tolist()), tuple(r.tt_ranks))
+                self.assertLessEqual(relerr(u2.to_dense()[i], r.to_dense()), TOL)
+        for op in ('down_orthogonalize_tucker_cores', 'up_orthogonalize_tt_cores',
+                   'left_orthogonalize_tt_cores', 'right_orthogonalize_tt_cores'):
+            a = getattr(ust, op)()
+            for i, xx in enumerate((xa, xb)):
+                b = getattr(xx, op)()
+                with self.subTest(elem=i, op=op):
+                    self.assertEqual(tuple(a.masks.data[0][:, i].sum(-1).tolist()), tuple(b.tucker_ranks))
+                    self.assertEqual(tuple(a.masks.data[1][:, i].sum(-1).tolist()), tuple(b.tt_ranks))
+                    self.assertLessEqual(relerr(a.to_dense()[i], b.to_dense()), TOL)
+        # per-ELEMENT caps (arrays over the stack) truncate each element like its own ragged capped svd
+        caps_tk = np.array([[2, 3], [2, 2], [2, 2]]); caps_tt = np.array([[1, 1], [2, 2], [2, 2], [1, 1]])
+        u3 = ust.t3svd(max_tucker_ranks=caps_tk, max_tt_ranks=caps_tt)[0]
+        for i, xx in enumerate((xa, xb)):
+            r = xx.t3svd(max_tucker_ranks=tuple(caps_tk[:, i]), max_tt_ranks=tuple(caps_tt[:, i]))[0]
+            with self.subTest(elem=i, op='t3svd(per-element caps)'):
+                self.assertEqual(tuple(u3.masks.data[0][:, i].sum(-1).tolist()), tuple(r.tucker_ranks))
+                self.assertEqual(tuple(u3.masks.data[1][:, i].sum(-1).tolist()), tuple(r.tt_ranks))
+                self.assertLessEqual(relerr(u3.to_dense()[i], r.to_dense()), 1e-8)
+        self.assertLessEqual(relerr(ust.sum_stack().to_dense(), xa.to_dense() + xb.to_dense()), TOL)

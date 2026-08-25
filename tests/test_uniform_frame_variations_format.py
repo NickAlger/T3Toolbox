@@ -969,3 +969,78 @@ class TestPadSafeFrame(unittest.TestCase):
         f2 = ubv.UT3Frame.from_ut3(u)
         for a, b in zip(f1.data[:4], f2.data[:4]):
             self.assertTrue(np.array_equal(np.asarray(a), np.asarray(b)))
+
+
+# ------------------------------------------------------------------- garbage-padded-input robustness
+def _relerr(a, b):
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    return float(np.linalg.norm((a - b).reshape(-1)) / max(np.linalg.norm(b.reshape(-1)), 1e-300))
+
+
+def _corrupt(obj, scale=1e3):
+    """Add ``scale`` * garbage to EVERY padded slot (real region unchanged). A correct (mask-once) op
+    must be UNAFFECTED (``docs/uniform_equivalence_contract.md``; the pattern of
+    ``test_uniform_manifold.TestGarbageInputRobustness``)."""
+    scs = obj.supercores
+    ind = type(obj)(*([np.ones_like(s) for s in scs] + [obj.shape, obj.masks])).apply_masks().supercores
+    new = [sc + scale * (1.0 - i) for sc, i in zip(scs, ind)]
+    return type(obj)(*(new + [obj.shape, obj.masks]))
+
+
+class TestGarbageInputRobustness(unittest.TestCase):
+    """The garbage prong of ``docs/contributor/testing_strategy.md`` for the frame/variations-format
+    layer: garbage in the masked-out padding is don't-care, so every op must give the IDENTICAL result
+    on a garbage-padded input as on a clean one (Phase D of the 2026-08-22 review; promoted from
+    ``repros/H5/repro_tangent.py``)."""
+    _CONFIGS = [((), False), ((2,), False), ((), True), ((2,), True), ((2, 3), False)]
+    _STRUCT = ((5, 7, 6), (2, 3, 2), (1, 2, 2, 1))    # asymmetric mode sizes
+
+    def setUp(self):
+        np.random.seed(0)
+
+    def _ux(self, ss, fp):
+        x = t3.TuckerTensorTrain.randn(*self._STRUCT, stack_shape=ss)
+        return ut3.UniformTuckerTensorTrain.from_t3(x, **(dict(N=9, n=5, r=5) if fp else {}))
+
+    def test_orthogonal_representations_garbage_robust(self):
+        for ss, fp in self._CONFIGS:
+            with self.subTest(ss=ss, fp=fp):
+                ux = self._ux(ss, fp)
+                B, V = ubv.ut3_orthogonal_representations(ux)
+                Bg, Vg = ubv.ut3_orthogonal_representations(_corrupt(ux))
+                self.assertEqual(B.masks, Bg.masks)
+                self.assertEqual(V.masks, Vg.masks)
+                for a, b in zip(Bg.apply_masks().supercores, B.apply_masks().supercores):
+                    self.assertLessEqual(_relerr(a, b), 1e-12)
+                for a, b in zip(Vg.apply_masks().supercores, V.apply_masks().supercores):
+                    self.assertLessEqual(_relerr(a, b), 1e-12)
+                ubv.check_ufv_pair(Bg, Vg)                      # outputs are a consistent pair
+
+    def test_frame_methods_garbage_robust(self):
+        for ss, fp in self._CONFIGS:
+            with self.subTest(ss=ss, fp=fp):
+                B, _ = ubv.ut3_orthogonal_representations(self._ux(ss, fp))
+                Bg = _corrupt(B)
+                self.assertTrue(bool(np.asarray(Bg.is_orthogonal()).all()))
+                self.assertTrue(bool(np.asarray(Bg.is_consistent()).all()))
+                self.assertLessEqual(_relerr(Bg.to_dense(), B.to_dense()), 1e-9)
+                for a, b in zip(Bg.apply_masks().supercores, B.apply_masks().supercores):
+                    self.assertLessEqual(_relerr(a, b), 1e-12)
+                if not ss:                                     # cross-layer converter on a dirty frame
+                    self.assertLessEqual(_relerr(Bg.to_t3frame().to_dense(), B.to_t3frame().to_dense()), 1e-9)
+
+    def test_frame_to_t3frame_stacked_garbage_robust(self):
+        B, _ = ubv.ut3_orthogonal_representations(self._ux((2,), False))
+        tree_c, tree_g = B.to_t3frame(), _corrupt(B).to_t3frame()
+        for i in range(2):
+            self.assertLessEqual(_relerr(tree_g[i].to_dense(), tree_c[i].to_dense()), 1e-9)
+
+    def test_variations_garbage_robust(self):
+        for ss, fp in self._CONFIGS:
+            with self.subTest(ss=ss, fp=fp):
+                B, V = ubv.ut3_orthogonal_representations(self._ux(ss, fp))
+                Vg = _corrupt(V)
+                self.assertTrue(bool(np.asarray(Vg.allclose(V)).all()))
+                for a, b in zip(Vg.apply_masks().supercores, V.apply_masks().supercores):
+                    self.assertLessEqual(_relerr(a, b), 1e-12)
+                ubv.check_ufv_pair(_corrupt(B), Vg)            # the pair guard ignores padding
