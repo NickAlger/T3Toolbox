@@ -1208,3 +1208,65 @@ class TestTracedMaskGuard(unittest.TestCase):
         masked = jax.jit(lambda up, dn, lf, rt: ufv_masking.ufv_apply_frame_masks(
             (up, dn, lf, rt, shape, masks)))(*frame.supercores)
         self.assertTrue(all(common.is_jax_ndarray(a) for a in masked))
+
+
+class TestJitUniformWeighted(unittest.TestCase):
+    """Positive jit coverage for the uniform weighted layer (Phase D of the 2026-08-22 review; the
+    HANDOFF gap 'the uniform weighted layer has zero positive jit coverage in test_dispatch' -- it
+    appeared only in the negative traced-mask test), plus the T3-SVD-gauge representations (S14's
+    additions). Supercores traced, masks host aux."""
+
+    def setUp(self):
+        np.random.seed(0)
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.uniform_frame_variations_format as ubv
+        self.ut3m, self.ubv = ut3m, ubv
+        self.x = t3.TuckerTensorTrain.randn(*STRUCT, use_jax=True)
+        self.ux = ut3.UniformTuckerTensorTrain.from_t3(self.x)
+        self.W = ut3.UT3Weights.from_ut3svd(self.ux)
+        self.frame = ut3m.UNIFORM_MANIFOLD.frame(self.ux)
+        self.v = ut3m.UNIFORM_MANIFOLD.randn(self.frame)
+        self.w2 = ut3m.UNIFORM_MANIFOLD.randn(self.frame)
+        self.Wf = ubv.UT3FrameWeights.from_ut3weights(self.W)
+
+    def _leaves_all_jax(self, out):
+        leaves = jax.tree_util.tree_leaves(out)
+        self.assertTrue(len(leaves) > 0)
+        for leaf in leaves:
+            self.assertTrue(common.is_jax_ndarray(leaf), type(leaf))
+
+    def assert_jit_jax(self, fn, *args):
+        self._leaves_all_jax(jax.jit(fn)(*args))
+
+    def test_jit_uniform_tensor_weights(self):
+        self.assert_jit_jax(lambda u, w: ut3.ut3_absorb_weights(u, w), self.ux, self.W)
+        self.assert_jit_jax(lambda u, w: ut3.ut3_weighted_norm(u, w), self.ux, self.W)
+        self.assert_jit_jax(lambda u, w: ut3.ut3_weighted_norm(u, w, use_orthogonalization=False),
+                            self.ux, self.W)
+        self.assert_jit_jax(lambda u, wu, y, wy: ut3.ut3_weighted_inner(u, wu, y, wy),
+                            self.ux, self.W, self.ux, self.W)
+        self.assert_jit_jax(lambda w1, w2: w1.concatenate(w2), self.W, self.W)
+        self.assert_jit_jax(lambda w1, w2: w1.kronecker(w2), self.W, self.W)
+        self.assert_jit_jax(lambda w: w.sqrt(), self.W)
+        self.assert_jit_jax(lambda w: w.reciprocal(), self.W)
+        self.assert_jit_jax(lambda w: self.ubv.UT3FrameWeights.from_ut3weights(w), self.W)
+
+    def test_jit_uniform_tangent_metric(self):
+        self.assert_jit_jax(lambda a, w: a.weighted_norm(w), self.v, self.Wf)
+        self.assert_jit_jax(lambda a, b, w: a.weighted_inner(b, w), self.v, self.w2, self.Wf)
+        self.assert_jit_jax(lambda a, w: a.absorb_weights(w), self.v, self.Wf)
+
+    def test_jit_svd_gauge_representations(self):
+        # the S14 additions: the frame in the T3-SVD gauge, with its singular-value weights
+        out = jax.jit(lambda a: bvf.t3svd_orthogonal_representations(a))(self.x)
+        self._leaves_all_jax(out)
+        outu = jax.jit(lambda u: self.ubv.ut3svd_orthogonal_representations(u))(self.ux)
+        self._leaves_all_jax(outu)
+        for m in outu[0].masks.data:                            # masks must stay HOST numpy aux
+            self.assertTrue(common.is_numpy_ndarray(np.asarray(m)))
+            self.assertFalse(common.tree_contains_jax((m,)))
+
+    def test_jit_uniform_frame_helpers(self):
+        import t3toolbox.backend.ufv_operations as ubvo
+        self.assert_jit_jax(lambda b: b.reverse(), self.frame)
+        self.assert_jit_jax(lambda b: ubvo.ufv_frame_orthogonality_residual(b.data), self.frame)
