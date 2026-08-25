@@ -62,6 +62,9 @@ def _slice_variations(var, idx):
 
 
 class TestFrameVariationsFormat(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)
+
     frame_structures = [
         #  (shape,             up_ranks,      down_ranks,    left_ranks,        right_ranks)
         ((14,),                (4,),          (3,),          (1, 1),            (1, 1)),
@@ -535,6 +538,9 @@ class TestFrameVariationsFormat(unittest.TestCase):
 
 
 class TestReviewC13Frames(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)
+
     def test_check_fv_pair_rejects_a_d_mismatch(self):
         np.random.seed(3)
         x3 = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))

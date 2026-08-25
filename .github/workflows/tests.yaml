@@ -43,11 +43,11 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - name: Install
-        run: pip install "${{ matrix.numpy }}" "${{ matrix.jax }}" pytest pytest-subtests
+        run: pip install "${{ matrix.numpy }}" "${{ matrix.jax }}" pytest pytest-subtests pytest-xdist
       - name: Versions
         run: python -c "import sys, numpy, jax; print(sys.version.split()[0], 'numpy', numpy.__version__, 'jax', jax.__version__)"
       - name: Test suite
-        run: pytest tests/ -q
+        run: pytest tests/ -q -n auto
       - name: Module doctests
         run: pytest --doctest-modules t3toolbox -q
       - name: Quickstart doctest

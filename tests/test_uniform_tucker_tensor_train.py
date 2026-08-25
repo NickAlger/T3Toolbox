@@ -25,6 +25,9 @@ def relerr(a, b):
 
 
 class TestUniformTuckerTensorTrain(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)
+
     def _cases(self):
         for shape, tr, ttr in STRUCTURES:
             for ss in STACK_SHAPES:
@@ -599,6 +602,9 @@ def _corrupt(ux, scale=1e3):
 class TestUniformGarbageAndDegenerate(unittest.TestCase):
     """The garbage-padded-input prong (``docs/contributor/testing_strategy.md``) for the structural
     arithmetic, and the ``d = 1`` degenerate case -- both regressions from the 2026-08-22 review."""
+    def setUp(self):
+        np.random.seed(0)
+
 
     def test_squash_and_arithmetic_are_garbage_robust(self):
         # ut3_squash_tails used to sum the UNMASKED boundary bonds, so garbage in a padded boundary-bond
@@ -645,6 +651,9 @@ class TestUniformGarbageAndDegenerate(unittest.TestCase):
 
 
 class TestReviewC13Uniform(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)
+
     def test_padded_width_mismatch_is_a_structural_error(self):
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 4, 2), (1, 3, 2, 1))
         a = ut3.UniformTuckerTensorTrain.from_t3(x)

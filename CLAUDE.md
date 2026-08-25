@@ -361,7 +361,10 @@ The dividing line is **structural vs numerical**:
   it.** Full convention + exemplar (`manifold.py`): **[`docs/contributor/doctest_style.md`](docs/contributor/doctest_style.md)**.
   (Supersedes the old "illustrative captured values" convention.)
 - **Running tests/scripts**: use the project's env Python with `PYTHONPATH=$PWD`, e.g.
-  `PYTHONPATH=$PWD <env-python> -m pytest tests/ -q`. The optax example needs `jax`+`optax` installed.
+  `PYTHONPATH=$PWD <env-python> -m pytest tests/ -q -n auto` (tests are per-test seeded and
+  order-independent; CI runs `-n auto` too). The review's oracle sweeps are permanent two-tier tests
+  (`tests/test_oracle_sweep.py`): always-on plus `T3TOOLBOX_SLOW_TESTS=1` for the full optimizer
+  matrix -- the slow tier is a REQUIRED release-gate step. The optax example needs `jax`+`optax` installed.
   (The maintainer's exact env path lives in personal `~/.claude/`.)
 
 ## Workflow
@@ -393,7 +396,8 @@ project engineering practices below are shared.)*
 2026-07-13; the checklist both followed is `dev/archive/release_plan_2026-07-13.md`; live status:
 `dev/HANDOFF.md`). "Tested" = *numerical correctness in numpy* (vs dense ground truth) **plus** *jax
 dispatch* covered by `tests/test_dispatch.py` (jit each op; a stray `np.*` on a tracer raises) — not a
-duplicate numerical sweep. Full suite green (748 tests / 42,002 subtests; ~6 min in the current env);
+duplicate numerical sweep. Full suite green (899 tests / 42,539 subtests; ~7 min with ``pytest -n auto``, ~14 min serial --
+tests are per-test seeded and order-independent, Phase D);
 docs at zero warnings with `-W` in CI; doctests CI-enforced on both numpy generations — **module
 doctests, `getting_started.rst`, AND every `docs/*.md` + `docs/contributor/*.md` page** (the one
 exclusion is `doctest_style.md`, whose fragments are illustrative).
@@ -432,8 +436,8 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
   per-mode residual weight). (Build history: the archived plans in
   `dev/archive/` — `uniform_fix_plan`, `uniform_optimizers_plan`, `naming_pass_plan`,
   `docs_pass_plan`, `docs_split_plan`.)
-- **Whole-library pre-release review (2026-08-22) — FULLY landed (fix phase complete 2026-08-24; Phase D
-  test hardening remains).** 19-lane review, 186 findings (ledger + repros: `dev/review_2026-08-22/`);
+- **Whole-library pre-release review (2026-08-22) — FULLY landed AND test-hardened (fix phase complete
+  2026-08-24; Phase D complete 2026-08-25).** 19-lane review, 186 findings (ledger + repros: `dev/review_2026-08-22/`);
   every silent-wrong-answer and crash cluster is fixed with a regression test, **S1b included**
   (2026-08-23: the uniform frame at a *numerically* rank-deficient point — fixed by the mask-aware
   `backend.linalg.pad_safe_svd` threaded through every uniform sweep; the frame is now gauge-EQUIVALENT

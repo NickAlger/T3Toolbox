@@ -62,6 +62,9 @@ def _random_preconditioned_t3(shape, tucker_ranks, tt_ranks, stack_shape=()):
 
 
 class TestTuckerTensorTrain(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)
+
     def check_relerr(self, xtrue, x):
         self.assertLessEqual(norm(xtrue - x), tol * norm(xtrue))
 
@@ -3080,6 +3083,9 @@ class TestEntriesIndexSemantics(unittest.TestCase):
     """Review 2026-08-22 (S5): all four entries ops follow numpy index semantics -- the ambient transpose
     used to build its one-hots with ``arange(N) == idx``, which matched nothing for a negative index and
     silently returned zero factors (breaking its defining adjoint identity)."""
+    def setUp(self):
+        np.random.seed(0)
+
 
     def test_negative_indices_agree_across_all_entries_ops(self):
         np.random.seed(11)
@@ -3147,6 +3153,9 @@ class TestEntriesIndexSemantics(unittest.TestCase):
 
 
 class TestDenseProbeD1(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)
+
     def test_dense_probe_with_probe_stack_at_d1(self):
         # Review 2026-08-22 (C1): the W letters appeared only in the einsum output at d = 1.
         import t3toolbox.backend.probing as probing
@@ -3161,6 +3170,9 @@ class TestDenseProbeD1(unittest.TestCase):
 
 
 class TestReviewC13Tucker(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)
+
     def test_entries_wrong_length_list_is_a_value_error(self):
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
         with self.assertRaises(ValueError):
@@ -3182,6 +3194,9 @@ class TestReviewC13Tucker(unittest.TestCase):
 
 
 class TestRankAdjustmentSweepTuckerAboveModeSize(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)
+
     def test_composed_sweeps_reach_minimal_ranks_when_n_exceeds_N(self):
         # Review 2026-08-22 (S4 / R3-2): a Tucker rank above its mode size is invisible to the TT-side
         # steps; the sweep now opens with a Tucker up-SVD, so "compose both directions" is minimal.
@@ -3202,6 +3217,9 @@ if __name__ == '__main__':
 class TestScalarOperatorSymmetry(unittest.TestCase):
     """Review R1-12 / H4-8: scalar-left multiplication and scalar division work on the ragged class
     (the uniform class and T3Tangent already had __rmul__; __truediv__ is new on all three)."""
+    def setUp(self):
+        np.random.seed(0)
+
 
     def test_rmul_and_truediv(self):
         np.random.seed(0)

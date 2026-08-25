@@ -84,6 +84,9 @@ def _dense_tangent_projector(frame):
 
 
 class TestManifold(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)
+
     t3_structures = [
         #  (shape,            tucker_ranks,   tt_ranks)
         ((10,),               (3,),           (1, 1)),
@@ -966,6 +969,9 @@ class TestStructuralTangentMismatch(unittest.TestCase):
     """Review 2026-08-22 (S12): tangents at frames of DIFFERENT rank structure are a structural error in
     every mode -- the numerical same-frame guard (skipped under unsafe()/jit) used to be the only check,
     and with broadcastable holes `a + b` silently returned a tangent of a's structure."""
+    def setUp(self):
+        np.random.seed(0)
+
 
     def test_different_structure_raises_even_in_unsafe_mode(self):
         np.random.seed(21)
@@ -995,6 +1001,9 @@ class TestStructuralTangentMismatch(unittest.TestCase):
 class TestD1Degenerate(unittest.TestCase):
     """Review 2026-08-22 (C1): a one-mode T3 is a vector; the T3-gradient projection and transport used
     to index an empty TT chain (IndexError) while every other d = 1 op worked."""
+    def setUp(self):
+        np.random.seed(0)
+
 
     def test_project_ambient_t3_and_transport_at_d1(self):
         np.random.seed(31)
@@ -1017,6 +1026,9 @@ class TestD1Degenerate(unittest.TestCase):
 class TestGaugeResidualIsRelative(unittest.TestCase):
     """Review 2026-08-22 (C7): the gauge residual is scale-free, so safe mode neither rejects a large
     gauged tangent nor accepts a tiny ungauged one."""
+    def setUp(self):
+        np.random.seed(0)
+
 
     def test_scale_invariance_and_tiny_ungauged(self):
         np.random.seed(41)
@@ -1042,6 +1054,9 @@ class TestCorewiseRetractFrameGuard(unittest.TestCase):
     """Review H3-8: COREWISE.retract on a MANIFOLD-frame tangent used to die in a broadcast error on
     a slack frame (nD != nU); now a structural ValueError naming the frame-kind mismatch. The
     corewise path itself is unchanged."""
+    def setUp(self):
+        np.random.seed(0)
+
 
     def test_manifold_frame_tangent_is_rejected_when_detectable(self):
         np.random.seed(0)

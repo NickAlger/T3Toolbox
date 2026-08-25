@@ -1720,6 +1720,9 @@ class TestUniformShared(unittest.TestCase):
 class TestCompanionAcrossLayers(unittest.TestCase):
     """Review 2026-08-22 (S9): the shared companion -- hence the tied projection -- is the same whether
     the frame was built by the ragged layer, the uniform layer, or converted between them."""
+    def setUp(self):
+        np.random.seed(0)
+
 
     def test_tied_projection_through_a_converted_frame(self):
         import t3toolbox.uniform_manifold as ut3m
@@ -1751,6 +1754,9 @@ if __name__ == '__main__':
 class TestSharedGeometryLayerGuards(unittest.TestCase):
     """Review R9-9: a wrong-LAYER point/frame to a SharedGeometry used to fail deep inside with an
     obscure unpack error; now a TypeError naming the base's layer and the fix."""
+    def setUp(self):
+        np.random.seed(0)
+
 
     def test_wrong_layer_point_and_frame_raise(self):
         import t3toolbox.shared_geometry as sgm

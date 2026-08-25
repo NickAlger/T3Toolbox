@@ -20,6 +20,9 @@ norm = np.linalg.norm
 
 
 class TestProbeDerivatives(unittest.TestCase):
+    def setUp(self):
+        np.random.seed(0)
+
     def check_relerr(self, expected, actual):
         expected = np.asarray(expected)
         actual = np.asarray(actual)

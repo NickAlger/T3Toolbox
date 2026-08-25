@@ -95,9 +95,40 @@ Phase-D test remains). The two real items, both ruled by Nick:
   `docs/batching_and_stacking.md` §7 and `docs/contributor/uniform_pytree_composition.md`
   (repro: scratchpad `vmap_ut3_probe.py`). Batching uniform objects = the native C stack.
 
-**Next (queued):** Phase D test hardening (incl. the R4-15 untested-name list and
-`set_default_safety`'s test), the R2-12 deferred sub-items, and the 2026.2.0 tag steps
-(twine check, numpy-only venv smoke, tag).
+**Phase D test hardening -- DONE (2026-08-25).** Plan: `~/.claude/plans/` (approved 2026-08-25;
+inline sequential slices, oracle sweeps preserved in full, seeding + `-n auto` in scope). Eight
+slices, one commit each, full-suite gate per slice:
+1. `41b38d02` uniform structural prongs -- TestExactOutputMasks (non-circular ragged-rank oracles,
+   the `(C, force_pad)` matrix + varying-rank stacks) in `test_uniform_tucker_tensor_train`; the
+   garbage prong for `test_uniform_frame_variations_format` (the one uniform file that had none).
+2. `5062e464` stacked tied-tangent coverage (C=(2,), K=(3,)) in `test_sharing`, per element vs the
+   ragged tied twin; the frontend shared(UNIFORM_MANIFOLD) surface at stacks.
+3. `fce46b58` the never-tested names: new `tests/backend/test_{t3_orthogonalization,tv_operations,
+   fv_operations}.py` + `tests/test_corewise.py` + `TestUt3svdSupercores` (from the review's repro
+   scripts r2_04, r4_02/03/04, R8/misc).
+4. `45ca184a` the nD == nU degeneracy broken: TestAsymmetricGenericFrame (forward jets vs dense +
+   adjoint identities at a fully asymmetric generic frame) + the over-ranked jet-recurrence row.
+5. `61560eb8` dispatch: positive jit coverage for the uniform weighted layer + the T3-SVD-gauge
+   representations (the archived ~25-op list re-derived fresh; the rest host-side or covered).
+6. `56b27a2b` the frame-sweep reuse contract: all 12 ragged from_sweep hooks == direct; the 6 plain
+   uniform hooks per element vs ragged.
+7. `881fe595` the oracle sweeps, permanent and two-tier: verbatim copies in `tests/oracle_sweeps/`,
+   always-on = full O1 + full O2 models + pairwise optimizer subset (~3.5 min);
+   `T3TOOLBOX_SLOW_TESTS=1` = the full optimizer matrix (verified green, 352 cases) -- a REQUIRED
+   release-gate step. Red-sanity: an injected sign error -> 648 failing subtests. Known-caveat row
+   policies documented in the file (non-minimal-shared retract FD; h^2 ratio >= 2.5).
+   **Follow-up recorded**: the six `u_*_corewise_transpose_vs_ragged` harness checks were broken in
+   the review harness itself (archived results carry the same EXC rows -- the slicing uses structure
+   ranks that share()/padding outgrow); excluded from assertion, repairable later.
+8. seeding + `-n auto` (this commit): per-test seeding in the six module-level-seeded files (AST
+   insertion; inherited setUp never shadowed), `pytest-xdist` in the env + CI, CI runs `-n auto`.
+   Suite: 899 tests / 42,539 subtests; **6:51 wall at `-n auto`** (14:08 serial), green at `-n auto`
+   and `-n 3` (order-independence shaken out; zero flakes).
+
+**Next (queued):** the R2-12 deferred sub-items (backlog), the oracle-harness corewise-transpose
+comparison repair (optional), and the 2026.2.0 tag steps -- twine check, numpy-only venv smoke,
+**`T3TOOLBOX_SLOW_TESTS=1 pytest tests/test_oracle_sweep.py` (the full optimizer matrix)**, tag,
+then sweep `dev/review_2026-08-22/` into `dev/archive/`.
 
 **What happened.** Nick asked for an in-depth review of the whole library (bugs first, doc/code mismatches
 second) before cutting 2026.2.0, because the 2026.1/2.0 work had kept turning up pre-existing bugs. The
