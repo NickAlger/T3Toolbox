@@ -338,7 +338,7 @@ class TestGaussNewtonModel(unittest.TestCase):
         relerr = lambda a, b: float(cw.corewise_norm(cw.corewise_sub(a, b)) / cw.corewise_norm(b))
         for geom_f, geom_b in [(t3m.MANIFOLD, bgeo.ManifoldGeometryOps()), (t3m.COREWISE, bgeo.CorewiseGeometryOps())]:
             for name, factory, fargs, bkind, sample, Sx in cases:
-                with self.subTest(geom=geom_f, kind=name):
+                with self.subTest(geom=type(geom_f).__name__, kind=name):   # name, not the object -- xdist reports must serialize (execnet)
                     r = [np.asarray(z) for z in Sx] if isinstance(Sx, list) else Sx
                     data = [np.zeros_like(z) for z in r] if isinstance(r, list) else np.zeros_like(r)
                     fmodel = factory(geom_f, *fargs, r, weight=omega)
@@ -438,7 +438,7 @@ class TestResidualWeighting(unittest.TestCase):
         rng = np.random.default_rng(1)
         W = rng.uniform(0.2, 2.0, size=(d, order + 1))           # a genuine full matrix
         for geom in (t3m.MANIFOLD, t3m.COREWISE):
-            with self.subTest(geom=geom):
+            with self.subTest(geom=type(geom).__name__):   # name, not the object -- xdist reports must serialize (execnet)
                 w = fitting.probe_derivatives_model(geom, s['x'], s['ww'], s['pp'], order, s['r_probe'], weight=W)
                 self.assertTrue(np.allclose(float(w.objective_value),
                                             self._probe_obj_oracle(s['r_probe'], W, order)))
@@ -504,7 +504,7 @@ class TestResidualWeighting(unittest.TestCase):
         d = len(SHAPE)
         omega = np.array([0.5, 2.0, 1.3])[:d]
         for geom in (t3m.MANIFOLD, t3m.COREWISE):
-            with self.subTest(geom=geom):
+            with self.subTest(geom=type(geom).__name__):   # name, not the object -- xdist reports must serialize (execnet)
                 frame = geom.frame(x)
                 kind = fb.probe_kind(omega)
                 w = fitting.GaussNewtonModel(geom, frame, kind, ww, r, kind.precompute(frame.data, ww))
