@@ -24,7 +24,8 @@ class TestMuJetsBanded(unittest.TestCase):
         ((4, 5),        (2, 3),       (1, 2, 1)),
         ((4, 5, 6),     (2, 3, 2),    (1, 2, 2, 1)),
         ((5, 4, 6, 5),  (2, 3, 2, 3), (1, 2, 3, 2, 1)),
-    ]
+        ((6, 6, 6),     (4, 4, 4),    (1, 2, 2, 1)),     # over-ranked Tucker: nU != nD frame slack
+    ]                                                     # (review R6-8: break the nD == nU degeneracy)
 
     def _mu_inputs(self, STRUCT, W, C, ORDER, rng):
         """Reproduce t3_probe_derivatives' construction up to compute_mu_jets_trs: a genuinely C-stacked

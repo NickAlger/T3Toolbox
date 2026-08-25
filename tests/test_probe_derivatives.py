@@ -455,3 +455,101 @@ class TestProbeDerivatives(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestAsymmetricGenericFrame(unittest.TestCase):
+    """The derivative sweeps at a fully ASYMMETRIC generic frame -- distinct mode sizes, nD != nU,
+    rL != rR, non-palindromic bonds (review R6-8: every other tangent-derivative test uses one
+    palindromic nD == nU structure, the degeneracy class that hides transposition bugs; builders
+    ported from ``repros/R6/common_r6.py``). The ops are precondition-free (exact for any cores), so
+    a raw random frame is legitimate. Forward jets vs the dense oracle; adjoint identities for all
+    three transposes, K-stacked included."""
+    # d=3: N, nU, nD, rL (len d+1), rR (len d+1)
+    _N, _NU, _ND = (3, 5, 4), (2, 3, 2), (3, 2, 4)
+    _RL, _RR = (1, 2, 4, 1), (1, 3, 2, 1)
+
+    def setUp(self):
+        np.random.seed(0)
+        import t3toolbox.backend.tv_operations as tvo
+        self.tvo = tvo
+
+    def check_relerr(self, expected, actual):
+        expected, actual = np.asarray(expected), np.asarray(actual)
+        denom = norm(expected)
+        if denom == 0.0:
+            self.assertLessEqual(norm(actual), tol)
+        else:
+            self.assertLessEqual(norm(actual - expected) / denom, tol)
+
+    def _frame(self, C=()):
+        R = np.random.randn
+        d = len(self._N)
+        up = tuple(R(*C, self._NU[i], self._N[i]) for i in range(d))
+        down = tuple(R(*C, self._RL[i], self._ND[i], self._RR[i + 1]) for i in range(d))
+        left = tuple(R(*C, self._RL[i], self._NU[i], self._RL[i + 1]) for i in range(d))
+        right = tuple(R(*C, self._RR[i], self._NU[i], self._RR[i + 1]) for i in range(d))
+        return (up, down, left, right)
+
+    def _var(self, K=(), C=()):
+        R = np.random.randn
+        d = len(self._N)
+        dU = tuple(R(*K, *C, self._ND[i], self._N[i]) for i in range(d))
+        dG = tuple(R(*K, *C, self._RL[i], self._NU[i], self._RR[i + 1]) for i in range(d))
+        return (dU, dG)
+
+    def test_forward_jets_match_dense_oracle(self):
+        d = len(self._N)
+        for W, K, C in [((2,), (), ()), ((2,), (2,), ()), ((2,), (), (2,))]:
+            for ORDER in [1, 3]:
+                with self.subTest(W=W, K=K, C=C, ORDER=ORDER):
+                    frame, var = self._frame(C), self._var(K, C)
+                    Vd = self.tvo.tv_to_dense(frame, var)                  # (K+C)+shape (the tangent)
+                    ww = [np.random.randn(*(W + (N,))) for N in self._N]
+                    pp = [np.random.randn(*(W + (N,))) for N in self._N]
+                    z = pd.tv_probe_derivatives(ww, pp, var, frame, ORDER)
+                    self.assertEqual(np.asarray(z[0]).shape,
+                                     (ORDER + 1,) + W + K + C + (self._N[0],))
+                    for w in np.ndindex(*W):
+                        wws = [a[w] for a in ww]
+                        pps = [a[w] for a in pp]
+                        for kc in np.ndindex(*(K + C)):
+                            zd = pd.dense_probe_derivatives(wws, pps, Vd[kc], ORDER)
+                            for i in range(d):
+                                self.check_relerr(zd[i],
+                                                  np.asarray(z[i])[(slice(None),) + w + kc])
+
+    def test_adjoint_identities(self):
+        d = len(self._N)
+        for kind in ['probe', 'apply', 'entries']:
+            for W, K, C in [((2,), (), ()), ((), (3,), ()), ((2,), (3,), (2,))]:
+                for ORDER in [0, 1, 3]:
+                    if kind == 'probe' and not W:
+                        continue
+                    with self.subTest(kind=kind, W=W, K=K, C=C, ORDER=ORDER):
+                        frame, var = self._frame(C), self._var(K, C)
+                        dU_v, dG_v = var
+                        pp = [np.random.randn(*(W + (N,))) for N in self._N]
+                        if kind == 'probe':
+                            ww = [np.random.randn(*(W + (N,))) for N in self._N]
+                            z = pd.tv_probe_derivatives(ww, pp, var, frame, ORDER)
+                            r = [np.random.randn(*np.asarray(zi).shape) for zi in z]
+                            dU, dG = pd.tv_probe_derivatives_transpose(
+                                r, ww, pp, frame, ORDER, sum_over_probes=True)
+                            lhs = sum(float(np.sum(r[i] * np.asarray(z[i]))) for i in range(d))
+                        elif kind == 'apply':
+                            ww = [np.random.randn(*(W + (N,))) for N in self._N]
+                            Jv = pd.tv_apply_derivatives(ww, pp, var, frame, ORDER)
+                            c = np.random.randn(*np.asarray(Jv).shape)
+                            dU, dG = pd.tv_apply_derivatives_transpose(
+                                c, ww, pp, frame, ORDER, sum_over_probes=True)
+                            lhs = float(np.sum(c * np.asarray(Jv)))
+                        else:
+                            index = np.stack([np.random.randint(0, N, size=W) for N in self._N], axis=0)
+                            Jv = pd.tv_entries_derivatives(index, pp, var, frame, ORDER)
+                            c = np.random.randn(*np.asarray(Jv).shape)
+                            dU, dG = pd.tv_entries_derivatives_transpose(
+                                c, index, pp, frame, ORDER, sum_over_probes=True)
+                            lhs = float(np.sum(c * np.asarray(Jv)))
+                        rhs = (sum(float(np.sum(np.asarray(dU[i]) * dU_v[i])) for i in range(d))
+                               + sum(float(np.sum(np.asarray(dG[i]) * dG_v[i])) for i in range(d)))
+                        self.assertLessEqual(abs(lhs - rhs) / abs(lhs), tol)
