@@ -60,6 +60,14 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   call sites mask their supercores first. (This also makes `UT3Frame`'s documented "frames_equal on
   the masked supercores" true.)
 
+- **The review's oracle sweeps are permanent tests** (Phase D): `tests/test_oracle_sweep.py` runs the
+  O1 sampling/tangent sweep (dense einsum + exact combinatorial jet oracles + adjoint identities,
+  ragged and uniform incl. varying-rank stacks) and the O2 fitting sweep (polynomial-interpolation
+  oracle vs `GaussNewtonModel`; optimizer trajectories vs hand recomputation, ragged == uniform) from
+  verbatim copies of the review scripts in `tests/oracle_sweeps/`. Two tiers: always-on (full O1 + full
+  O2 models + a pairwise-covering optimizer subset) and `T3TOOLBOX_SLOW_TESTS=1` for the full optimizer
+  matrix -- a required release-gate step, so nothing the review matrix covered stops being enforced.
+
 - **Small ergonomics from the review's E list** (R9-10, R7-11, R3-7): ``chunk_size`` now threads
   through both frontends' ``probe_corewise_derivatives_transpose`` (and the uniform backend wrapper) --
   it existed only on the ragged backend and the tangent-level transposes; ``chunk_size='auto'``
