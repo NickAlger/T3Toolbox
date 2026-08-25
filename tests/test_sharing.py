@@ -1770,3 +1770,169 @@ class TestSharedGeometryLayerGuards(unittest.TestCase):
             ragged_geom.shared_frame_data(uf)                  # ... and wrong-layer FRAMES are named too
         with self.assertRaises(TypeError):
             uniform_geom.shared_frame_data(rf)
+
+
+class TestUniformSharedTangentStacked(unittest.TestCase):
+    """The tied-tangent ops with REAL stacks -- frame stack ``C=(2,)`` and tangent stack ``K=(3,)`` --
+    per element vs the ragged tied twin (Phase D of the 2026-08-22 review; the HANDOFF gap "uniform
+    tied-tangent ops are tested unstacked only"; promoted from ``repros/R9/A_shared_stacked.py``).
+    The companion carries ``C`` on every array, so the stacked path is real code, and ``K`` rides on
+    the variations only (broadcast over the shared companion)."""
+    _SHAPE, _N, _R, _SPEC = (5, 6, 5, 6), (2, 3, 2, 3), (1, 2, 3, 2, 1), ('a', 'b', 'a', 'b')
+    _C, _K = (2,), (3,)
+
+    def setUp(self):
+        np.random.seed(0)
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.backend.utv_operations as utvo
+        import t3toolbox.backend.ufv_conversions as ufvc
+        self.ut3m, self.utvo, self.ufvc = ut3m, utvo, ufvc
+        self.groups = sharing.validate_sharing(self._SPEC, self._SHAPE)
+        leaves = tuple(_tied_t3(self._SHAPE, self._N, self._R, self._SPEC)
+                       for _ in range(int(np.prod(self._C))))
+        x = t3.TuckerTensorTrain.stack(leaves)
+        self.u = ut3.UniformTuckerTensorTrain.from_t3(x)
+        frame_data, _ = ufvc.ut3_orthogonal_representations(self.u.data)
+        import t3toolbox.uniform_frame_variations_format as ubv
+        self.ubv = ubv
+        self.frame_u = ubv.UT3Frame(*frame_data[:4], frame_data[4], ubv.UT3FrameMasks(*frame_data[5]))
+        self.sfd_u = sharing.ufv_shared_frame_data(self.frame_u.data, self.groups)
+        self.frames_r = self.frame_u.to_t3frame()               # tuple over C, same gauge (sliced content)
+        self.sfd_r = [sharing.fv_shared_frame_data(fr.data, self.groups) for fr in self.frames_r]
+        self.v_raw = ut3m.UNIFORM_COREWISE.randn(self.frame_u, stack_shape=self._K)   # K+C variations
+
+    def _ragged_leaves(self, vu):    # UT3Tangent (K+C) -> dict[(k, c)] -> T3Variations
+        out = {}
+        for k, tk_ in enumerate(vu.unstack_tangents()):
+            for c, leaf in enumerate(tk_.unstack_frame()):
+                out[(k, c)] = leaf.variations.to_t3variations()
+        return out
+
+    def _tangent(self, var_data):
+        return self.ut3m.UT3Tangent(self.frame_u, self.ut3m._ut3variations_from_data(var_data))
+
+    def _tied_projection(self):
+        return self.utvo.utv_orthogonal_gauge_projection(
+            self.frame_u.data, self.v_raw.variations.data, shared_data=self.sfd_u)
+
+    def test_tied_projection_stacked_matches_ragged(self):
+        proj_u = self._tied_projection()
+        tu = self._tangent(proj_u)
+        dense_u = np.asarray(tu.to_dense())                     # (K+C)+shape
+        for (k, c), vr in self._ragged_leaves(self.v_raw).items():
+            pr = tvo.tv_orthogonal_gauge_projection(self.frames_r[c].data, vr.data,
+                                                    shared_data=self.sfd_r[c])
+            dr = np.asarray(t3m.T3Tangent(self.frames_r[c], bvf.T3Variations(*pr)).to_dense())
+            with self.subTest(k=k, c=c):
+                self.assertLess(float(np.linalg.norm(dense_u[k, c] - dr)), 1e-10 * np.linalg.norm(dr))
+        res = np.asarray(sharing.ufv_tied_variations_residual(proj_u, self.sfd_u))
+        self.assertEqual(res.shape, self._K + self._C)          # per (k, c) element
+        self.assertLess(float(res.max()), 1e-10)
+        res_raw = np.asarray(sharing.ufv_tied_variations_residual(self.v_raw.variations.data, self.sfd_u))
+        self.assertGreater(float(res_raw.min()), 1e-3)          # sanity: raw variations are untied
+        self.assertTrue(all(np.array_equal(a, b)
+                            for a, b in zip(proj_u[3], self.v_raw.variations.masks.data)))
+        self.assertLess(float(np.asarray(self.utvo.utv_gauge_residual(self.frame_u.data, proj_u)).max()),
+                        1e-10)
+
+    def test_tied_retract_stacked_matches_ragged(self):
+        from t3toolbox.uniform_tucker_tensor_train import _from_data
+        proj_u = self._tied_projection()
+        ret_u = self.utvo.utv_retract(self.frame_u.data, proj_u, shared_data=self.sfd_u)
+        ru = _from_data(ret_u)
+        rd = np.asarray(ru.to_dense())
+        for (k, c), vr in self._ragged_leaves(self._tangent(proj_u)).items():
+            cores = tvo.tv_retract(self.frames_r[c].data, vr.data, shared_data=self.sfd_r[c])
+            dr = np.asarray(t3.TuckerTensorTrain(*cores).to_dense())
+            with self.subTest(k=k, c=c):
+                self.assertLess(float(np.linalg.norm(rd[k, c] - dr)), 1e-9 * np.linalg.norm(dr))
+        d = len(self._SHAPE)
+        is_prefix = lambda m: bool(np.array_equal(m, np.arange(m.shape[-1]) < m.sum(axis=-1)[..., None]))
+        self.assertTrue(is_prefix(ret_u[3][0]) and is_prefix(ret_u[3][1]))
+        self.assertTrue(np.array_equal(                          # output ranks = frame ranks, bcast over K
+            ret_u[3][0].sum(-1),
+            np.broadcast_to(self.frame_u.masks.up_mask.sum(-1)[:, None], (d,) + self._K + self._C)))
+        self.assertTrue(np.array_equal(
+            ret_u[3][1].sum(-1),
+            np.broadcast_to(self.frame_u.masks.frame_left_mask.sum(-1)[:, None], (d + 1,) + self._K + self._C)))
+        self.assertTrue(bool(np.all(np.asarray(ru.has_shared_tucker_factors(self._SPEC)))))
+
+    def test_tied_embedding_stacked_matches_ragged(self):
+        proj_u = self._tied_projection()
+        tied_leaves = self._ragged_leaves(self._tangent(proj_u))
+        for shift in (False, True):
+            emb = self.utvo.utv_to_ut3(self.frame_u.data, proj_u, include_shift=shift,
+                                       shared_data=self.sfd_u)
+            de = np.asarray(self.ut3m._ut3_from_data(emb).to_dense())
+            for (k, c), vr in tied_leaves.items():
+                dr = np.asarray(t3.TuckerTensorTrain(*tvo.tv_to_t3(
+                    self.frames_r[c].data, vr.data, include_shift=shift,
+                    shared_data=self.sfd_r[c])).to_dense())
+                with self.subTest(shift=shift, k=k, c=c):
+                    self.assertLess(float(np.linalg.norm(de[k, c] - dr)), 1e-10 * np.linalg.norm(dr))
+
+    def test_corewise_tied_post_pass_stacked_matches_ragged(self):
+        cf = self.ut3m.UNIFORM_COREWISE.frame(self.u)
+        vc = self.ut3m.UNIFORM_COREWISE.randn(cf, stack_shape=self._K)
+        tied = sharing.ufv_share_tucker_variations_corewise(vc.variations.data, self.groups)
+        uv_tree = self.ut3m._ut3variations_from_data(tied).to_t3variations()
+        for (k, c), vr in self._ragged_leaves(vc).items():
+            ref = sharing.fv_share_tucker_variations_corewise(vr.data, self.groups)
+            with self.subTest(k=k, c=c):
+                for a, b in zip(uv_tree[k][c].tucker_variations, ref[0]):
+                    self.assertLess(float(np.linalg.norm(np.asarray(a) - np.asarray(b))), 1e-12)
+
+    def test_garbage_robust_stacked(self):
+        # garbage in the K+C VARIATION padding must not change the tied projection / retract / residual
+        v, ubv = self.v_raw.variations, self.ubv
+        ind = ubv.UT3Variations(*[np.ones_like(s) for s in v.supercores], v.shape,
+                                v.masks).apply_masks().supercores
+        dirty = ubv.UT3Variations(*[sc + 1e3 * (1.0 - i) for sc, i in zip(v.supercores, ind)],
+                                  v.shape, v.masks)
+        pc = self._tied_projection()
+        pg = self.utvo.utv_orthogonal_gauge_projection(self.frame_u.data, dirty.data,
+                                                       shared_data=self.sfd_u)
+        dc, dg = np.asarray(self._tangent(pc).to_dense()), np.asarray(self._tangent(pg).to_dense())
+        self.assertTrue(np.allclose(dg, dc, atol=1e-9))
+        rc = self.utvo.utv_retract(self.frame_u.data, pc, shared_data=self.sfd_u)
+        rg = self.utvo.utv_retract(self.frame_u.data, pg, shared_data=self.sfd_u)
+        self.assertTrue(np.allclose(np.asarray(rg[0]), np.asarray(rc[0]), atol=1e-8))
+        self.assertTrue(np.allclose(np.asarray(rg[1]), np.asarray(rc[1]), atol=1e-8))
+        resg = np.asarray(sharing.ufv_tied_variations_residual(
+            ubv.UT3Variations(*[sc + 1e3 * (1.0 - i) for sc, i in
+                                zip(self._tangent(pc).variations.supercores, ind)],
+                              v.shape, v.masks).data, self.sfd_u))
+        self.assertLess(float(resg.max()), 1e-9)
+
+    def test_frontend_shared_geometry_stacked(self):
+        G = sg.shared(self.ut3m.UNIFORM_MANIFOLD, self._SPEC)   # the UNIFORM base (R9-9 guard)
+        z = ut3.UniformTuckerTensorTrain.from_t3(
+            t3.TuckerTensorTrain.randn(self._SHAPE, self._N, self._R, stack_shape=self._C),
+            n=self.u.tucker_supercore.shape[-2], r=self.u.tt_supercore.shape[-1])
+        pa = G.project_ambient(self.frame_u, z)                  # C-stacked dense gradient route
+        res_pa = np.asarray(sharing.ufv_tied_variations_residual(pa.variations.data, self.sfd_u))
+        self.assertLess(float(res_pa.max()), 1e-10)              # output is TIED
+        pa_d = np.asarray(pa.to_dense())
+        zr = z.to_t3()
+        for c in range(self._C[0]):
+            vr = tvo.tv_project_t3_onto_tangent_space(self.frames_r[c].data, zr[c].data,
+                                                      shared_data=self.sfd_r[c])
+            dr = np.asarray(t3m.T3Tangent(self.frames_r[c], bvf.T3Variations(*vr)).to_dense())
+            with self.subTest(c=c):
+                self.assertLess(float(np.linalg.norm(pa_d[c] - dr)), 1e-9 * np.linalg.norm(dr))
+        # transport of a tied K+C tangent to a second tied base stays tied (per element)
+        tu = self._tangent(self._tied_projection())
+        x2 = t3.TuckerTensorTrain.stack(tuple(_tied_t3(self._SHAPE, self._N, self._R, self._SPEC)
+                                              for _ in range(self._C[0])))
+        frame2 = G.frame(ut3.UniformTuckerTensorTrain.from_t3(x2))
+        tr = G.transport(tu, frame2)
+        sfd2 = sharing.ufv_shared_frame_data(frame2.data, self.groups)
+        res_tr = np.asarray(sharing.ufv_tied_variations_residual(tr.variations.data, sfd2))
+        self.assertEqual(res_tr.shape, self._K + self._C)
+        self.assertLess(float(res_tr.max()), 1e-10)
+        # frontend retract at K+C == the backend tied retract
+        rr = G.retract(tu)
+        ret_u = self.utvo.utv_retract(self.frame_u.data, tu.variations.data, shared_data=self.sfd_u)
+        from t3toolbox.uniform_tucker_tensor_train import _from_data
+        self.assertTrue(np.allclose(np.asarray(rr.to_dense()),
+                                    np.asarray(_from_data(ret_u).to_dense())))
