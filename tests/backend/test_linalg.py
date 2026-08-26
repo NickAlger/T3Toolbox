@@ -8,7 +8,7 @@ downstream orthogonalization/SVD test; what needs its own suite is ``pad_safe_sv
 guarantees -- BITWISE pad avoidance, tolerance-free counting, the symmetric ``min(n, m)``
 contract -- are exactly the properties nothing downstream would pin precisely.)
 
-The invariants follow the pad-safe SVD design packet (``dev/review_2026-08-22/repros/S1b/packet/``):
+The invariants follow the pad-safe SVD design packet (``dev/archive/review_2026-08-22/repros/S1b/packet/``):
 
   1. ``U[pad_rows][:, :q] == 0.0`` and ``Vt[:q, :][:, pad_cols] == 0.0`` -- **bitwise**, not small;
   2. all ``K`` columns of ``U`` / rows of ``Vt`` orthonormal to ~1e-14 (float64);
@@ -17,7 +17,7 @@ The invariants follow the pad-safe SVD design packet (``dev/review_2026-08-22/re
   5. the real block of ``U[:, :q]`` is orthonormal at full ``q`` -- NO lost directions (the S1b
      failure mode this function exists to fix);
   6. the ``c = 4||A||_F`` margin keeps the largest triplet on generic rank-1 data (``c = 2 sigma_max``
-     deletes it in ~38%% of cases -- ``dev/review_2026-08-22/repros/S1b/s1b_c_study.py``).
+     deletes it in ~38%% of cases -- ``dev/archive/review_2026-08-22/repros/S1b/s1b_c_study.py``).
 
 numpy-only (house testing strategy); jit dispatch + the compile-once-across-mask-patterns property
 are covered in ``tests/test_dispatch.py``.

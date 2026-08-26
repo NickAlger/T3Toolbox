@@ -125,10 +125,18 @@ slices, one commit each, full-suite gate per slice:
    Suite: 899 tests / 42,539 subtests; **6:51 wall at `-n auto`** (14:08 serial), green at `-n auto`
    and `-n 3` (order-independence shaken out; zero flakes).
 
+**2026.2.0 SHIPPED to PyPI (2026-08-25).** The release ritual, as run: CHANGELOG re-dated; fresh
+build, `twine check` PASSED, wheel inspected (53 modules, no strays); numpy-only venv smoke (probe
+fit from a zero start to 1.3e-10; jax-absent `use_jit` warned + ran eager); `[jax]` venv ran
+`fit_hilbert_tensor_newton_cg.py` end-to-end from the wheel; the slow-tier oracle gate green (full
+352-case optimizer matrix); TestPyPI dry run via the `v2026.2.0-rc1` tag (web-UI Release object
+deleted, bare tag kept, matching prior rc practice); `v2026.2.0` tagged + deployment approved;
+clean-venv install from real PyPI verified (recovery 1.3e-10). CI note: the first `-n auto` CI run
+surfaced an execnet DumpError -- subTest params must be PRIMITIVES under xdist (fixed `4f95f349`;
+AST-audited all files). The review record now lives at `dev/archive/review_2026-08-22/`.
+
 **Next (queued):** the R2-12 deferred sub-items (backlog), the oracle-harness corewise-transpose
-comparison repair (optional), and the 2026.2.0 tag steps -- twine check, numpy-only venv smoke,
-**`T3TOOLBOX_SLOW_TESTS=1 pytest tests/test_oracle_sweep.py` (the full optimizer matrix)**, tag,
-then sweep `dev/review_2026-08-22/` into `dev/archive/`.
+comparison repair (optional), and the deferred niceties (`test_dispatch` jit-time trim).
 
 **What happened.** Nick asked for an in-depth review of the whole library (bugs first, doc/code mismatches
 second) before cutting 2026.2.0, because the 2026.1/2.0 work had kept turning up pre-existing bugs. The

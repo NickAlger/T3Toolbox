@@ -392,8 +392,8 @@ project engineering practices below are shared.)*
 
 ## Current state
 
-**2026.1.0 is SHIPPED to PyPI (2026-08-20) — `pip install t3toolbox`** (2026.0.0 shipped
-2026-07-13; the checklist both followed is `dev/archive/release_plan_2026-07-13.md`; live status:
+**2026.2.0 is SHIPPED to PyPI (2026-08-25) — `pip install t3toolbox`** (2026.1.0 shipped
+2026-08-20, 2026.0.0 2026-07-13; the checklist both followed is `dev/archive/release_plan_2026-07-13.md`; live status:
 `dev/HANDOFF.md`). "Tested" = *numerical correctness in numpy* (vs dense ground truth) **plus** *jax
 dispatch* covered by `tests/test_dispatch.py` (jit each op; a stray `np.*` on a tracer raises) — not a
 duplicate numerical sweep. Full suite green (899 tests / 42,539 subtests; ~7 min with ``pytest -n auto``, ~14 min serial --
@@ -437,7 +437,7 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
   `dev/archive/` — `uniform_fix_plan`, `uniform_optimizers_plan`, `naming_pass_plan`,
   `docs_pass_plan`, `docs_split_plan`.)
 - **Whole-library pre-release review (2026-08-22) — FULLY landed AND test-hardened (fix phase complete
-  2026-08-24; Phase D complete 2026-08-25).** 19-lane review, 186 findings (ledger + repros: `dev/review_2026-08-22/`);
+  2026-08-24; Phase D complete 2026-08-25).** 19-lane review, 186 findings (ledger + repros: `dev/archive/review_2026-08-22/`);
   every silent-wrong-answer and crash cluster is fixed with a regression test, **S1b included**
   (2026-08-23: the uniform frame at a *numerically* rank-deficient point — fixed by the mask-aware
   `backend.linalg.pad_safe_svd` threaded through every uniform sweep; the frame is now gauge-EQUIVALENT
