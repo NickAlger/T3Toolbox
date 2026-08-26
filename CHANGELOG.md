@@ -3,7 +3,7 @@
 All notable changes to T3Toolbox are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); versions are `YYYY.MINOR.PATCH`.
 
-## [2026.2.0] — 2026-08-22
+## [2026.2.0] — 2026-08-25
 
 ### Changed — breaking
 
