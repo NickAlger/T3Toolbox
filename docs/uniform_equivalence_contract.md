@@ -41,7 +41,42 @@ result spans the same subspaces, carries the same singular values, and represent
 the ragged result, but the basis vectors themselves may differ by the SVD's inherent gauge freedom
 (column signs; rotations within an equal-σ cluster; the choice of null-space completion at a
 numerically rank-deficient point). Everything gauge-invariant matches exactly, element-wise:
-`to_dense`, objectives, gradient and residual norms, optimizer trajectories, retracted points.
+`to_dense`, objectives, gradient and residual norms, optimizer trajectories, retracted points —
+**at a numerically full-rank point**. The qualifier is load-bearing; see the next subsection.
+
+### The full-rank qualifier (measured 2026-08-27)
+
+At a numerically **rank-deficient** point the completion directions are a genuine *choice*, and the two
+layers are **required** to choose differently — ragged takes whatever LAPACK returns, the uniform sweep
+must exclude the padded slots (`pad_safe_svd`). So their spans legitimately differ, the tangent space
+at such a point differs with them, and *anything downstream of the tangent space* — the Newton
+direction, the retracted point, the whole trajectory — differs too. `retract` is additionally **not
+first-order accurate** there (`numerical_contracts.md`), so the step is not even faithful to whichever
+tangent space was chosen.
+
+Measured on a fixed-rank fit, same problem, same ranks, same Newton budget, both backends, varying
+only the start (T3Polynomial `scripts/x01_backend_divergence_probe.py`), compared on the
+gauge-invariant per-iteration objective:
+
+| start | agreement after 1 Newton step | after 11 |
+|---|---|---|
+| numerically full rank | `0.0e+00` | `7.0e-10` |
+| rank-deficient (zero-padded) | `3.1e-04` | `5.6e-01` |
+
+Nine orders of magnitude, from the start's numerical rank alone. `uniform` and `uniform_jax` stay
+bit-identical to each other throughout, so this is the ragged/uniform seam, not a jax effect; and
+neither layer is systematically better, which is what an arbitrary-but-valid choice looks like.
+
+**Why this matters more than it sounds:** a zero-padded `resize` warm start *is* rank-deficient, so
+**every level of a rank continuation begins at exactly such a point** — the library's headline use
+case. Read the element-wise claim above as holding within a level once the iterates leave the
+deficient start, not across a continuation. It is not a defect in either layer: in exact arithmetic
+the two would still differ there, because the completion is a choice and the layers must make it
+differently.
+
+**Consequence for testing.** Cross-representation equality tests must either start from a numerically
+full-rank point, or compare only quantities that survive a different completion — never per-iteration
+trajectories seeded from a padded restart.
 
 Until 2026-08 the uniform frame happened to match ragged **bitwise**, because both layers fed the same
 matrices to the same LAPACK kernel. That was never the contract, and it could not survive the S1b fix:
