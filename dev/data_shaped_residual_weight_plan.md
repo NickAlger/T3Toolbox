@@ -1,7 +1,17 @@
 # Data-shaped residual weighting — plan
 
-> **STATUS: PLANNED (2026-09-03), nothing implemented.** Design settled with Nick (T3Polynomial's
-> eigenproblem detour, 2026-09-03; survey record in T3Polynomial
+> **STATUS: DEFERRED (Nick, 2026-09-03) — do not implement from this v1.** Two independent reviews
+> found v1's "single mechanism, clean cut" wrong against its own decisions in two places (a shipped
+> example breaks; a silent positional mis-bind downstream) and its breaking surface much larger than
+> assumed. The consolidated findings and the revised recommendation — a SEPARATE kwarg for the
+> data-shaped weight, the `(mode, order)` matrix left exactly as it is, the effective weight their
+> product, shipped as a non-breaking `### Added` — are in
+> `dev/data_shaped_residual_weight_reviews.md` §1–§3. Pick up there; §3–§10 below remain the
+> reference for the canonical form, the leaf plumbing, validation, tests and docs, re-cut per the
+> reviews.
+>
+> *v1 status line, kept for the record:* PLANNED (2026-09-03), nothing implemented. Design settled with
+> Nick (T3Polynomial's eigenproblem detour, 2026-09-03; survey record in T3Polynomial
 > `dev/t3toolbox-upstream-notes.md`, 2026-09-03 section). Decisions: **single mechanism, clean cut**
 > (breaking at the backend surface, non-breaking at the frontend); the residual weight becomes a
 > **traced leaf** shaped like the data; the `ω[mode, order]` matrix survives as frontend sugar.
