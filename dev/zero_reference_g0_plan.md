@@ -216,3 +216,24 @@ decrease at that rank was 3e-5 (1e-4 relative) and the test error did not move. 
 correction's payoff is a *terminating* level and a short tail, not accuracy; the cheap version
 (structured secant on the two r-proportional terms, or the FD action for a final polish) is the one
 worth having, and an objective-decrement stop remains the right primary termination.
+
+**Implementation route for the second-order correction without differentiating an SVD** (Novikov,
+Rakhuba, Oseledets, "Automatic differentiation for Riemannian optimization on low-rank matrix and
+tensor-train manifolds", SISC 44(2) 2022): the Riemannian gradient as reverse-mode AD of
+g = f ∘ 𝒯_X, where 𝒯_X maps the tangent delta terms to the doubled-rank TT with block cores built
+from X's orthogonal cores (their Alg. 5.1) — the orthogonalization happens ONCE outside the AD trace,
+the trace passes only through f on a doubled-rank tensor, then the gauge post-processing (their
+5.11); and the *approximate* Riemannian Hessian-vector product H_X[Z] = P_X∇²f(X)Z as a second AD
+pass over w = ⟨P_{c(X)}∇f, Z⟩ with a stop-gradient on the projector (their §6). Their approximate
+Hessian includes the residual second-derivative term Σ rᵢ∇²rᵢ (which our GN omits) and omits only
+the Weingarten/curvature term, for which they point to Psenka & Boumal, arXiv:2011.13395
+("Second-order optimization for tensors with fixed tensor-train rank") — the TT-specific extrinsic
+formula. In T3Toolbox the pieces exist: `T3Tangent.to_t3(include_shift=True)` is 𝒯_X, the sampling
+kinds evaluate f on any T3, `project` is the gauge step — so f ∘ 𝒯_X and jax AD through it (contractions
+and squares only, on the uniform backend) give the Riemannian gradient as a cross-check of the sweeps
+and the approximate Hessian action at ~GN cost; the curvature term from Psenka–Boumal or from the
+downstream FD action. Measured downstream with the FD full Hessian in a Hessian-free Newton-CG: a
+converged inner solve contracts ‖g‖ ~10× per step (η = 0.1), but unpreconditioned CG stalls on the
+near-singular Hessian of a large-residual minimum (the weakly constrained asymmetric input-mode
+directions), so the second-order method also needs a preconditioner (the GN operator) or a Steihaug
+trust region, and remains a termination/speed item, not an accuracy one.
