@@ -183,3 +183,24 @@ default swap, or the swap makes continuation ~2× slower at a fixed cap.
 - **A nonzero-start fit with `gtol_rel` tuned against the start-point reference** (any user script)
   changes its stopping point under the default swap — the one genuine behavioural break; the
   `'start'` spelling and the CHANGELOG entry are the mitigation.
+
+## 6. Addendum (2026-09-03, late): the "plateau" is Gauss–Newton's linear rate on a large residual
+
+Nick's hypothesis, checked against the downstream Newton diagnostics: ρ = actual / GN-predicted decrease
+starts at 0.6–0.9 and decays to 0.01–0.1 by the end of every continuation level (100-iteration runs
+included), with α = 1 always accepted and the objective decrements shrinking geometrically at
+0.90–0.99 per iteration; the gradient keeps decreasing slowly (to ~1e-2 of the zero reference)
+rather than stopping. That is the textbook signature of GN on a nonzero-residual problem: the omitted
+Σᵢ rᵢ∇²rᵢ (plus the manifold curvature term) dominates late, the model over-predicts 10–100×, and
+convergence is linear at a rate set by the omitted term. Consequences for this plan:
+
+- **Stopping.** A relative-gradient test is the wrong primary stop in continuation regardless of
+  the reference (the gradient decays slowly by construction). Add an objective-decrement test —
+  relative decrease over k iterations — and consider making it ρ-aware (stop when ρ has collapsed
+  and the decrement is below tolerance). The zero reference stays right for the *forcing term* and
+  for reading ratios across levels.
+- **Rate.** The fix is a second-order correction to GN: a full Riemannian Newton step (needs the
+  Hessian of the residual and the curvature term) or a structured quasi-Newton secant for
+  Σ rᵢ∇²rᵢ (Dennis–Gay–Welsch / NL2SOL style) added to JᵀJ inside the same CG. The display already
+  prints ρ; the extrapolated remaining decrease at fixed rank downstream was ≤ 0.1–1%, so the payoff
+  is a faster, well-terminated level, not a different answer.
