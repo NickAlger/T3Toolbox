@@ -27,8 +27,23 @@ tolerance stated against the warm start therefore means nothing consistent acros
 library default `gtol_rel = 1e-8` is unreachable and every level runs to `max_newton` — and the CG
 forcing term η = min(½, √(‖g‖/g₀)) is referenced to a shrinking number. With 100 iterations instead of
 30 the weighted validation misfit moved by < 1% at every level (the objective plateaus by iteration
-~20), so the budget was never the issue; the reference was. A warm-start-vs-zero A/B at 30
-iterations on the same data is queued downstream (`scripts/e01_g0_ab.sh`) and will be added here.
+~20), so the budget was never the issue.
+
+**The warm-start-vs-zero A/B (same cell, same data, 30 iterations, `gtol_rel` 1e-3 against each
+reference):** identical accuracy at every level (q 0.0792 vs 0.0784), the deflation measured directly
+(warm-start g₀ 1.55 vs zero-tensor g₀ 27.3 at rank 17), and **1.9× the wall time for the zero
+reference** (3,179 s vs 1,681 s): neither arm reaches its stop above rank 3, so both run to the cap,
+and the only operative difference is the forcing term η = min(½, √(‖g‖/g₀)) — loose (η ≈ 0.4, 8–9 CG
+steps) against the deflated warm start, tight (η ≈ 0.11, 22 CG steps) against the zero reference,
+with the loose solves just as effective per Newton step here. Also measured: the zero-referenced
+ratio at the objective plateau varies from 5e-3 (rank 17) to 6e-2 (ranks 7–9) across levels, so no
+single `gtol_rel` tracks the plateau. Consequences for §4: (a) the zero reference is the right
+*reference* (its ratios are comparable across levels; the warm start's are not); (b) a
+relative-gradient stop alone is a poor stopping rule in continuation — an **objective-plateau
+criterion** (relative decrease over k iterations; the library has none) is the needed complement;
+(c) the forcing term's dependence on g₀ means the reference choice also sets the CG work — an η
+floor (≈ 0.3–0.4 lost nothing here) or a smaller `cg_forcing_power` should ship alongside the
+default swap, or the swap makes continuation ~2× slower at a fixed cap.
 
 ## 1. Inventory — every place a reference gradient norm enters
 
@@ -145,6 +160,12 @@ iterations on the same data is queued downstream (`scripts/e01_g0_ab.sh`) and wi
    downstream A/B when it lands.
 
 ## 5. Risks / open questions
+
+- **The forcing term and the reference are coupled** (§0's A/B): switching the default reference
+  tightens CG ~2× at high rank for the same accuracy at a fixed cap. Ship an η floor or a lower
+  `cg_forcing_power` default with the swap, and add an objective-plateau stop (`ftol`-style:
+  relative decrease of the objective over k iterations) so levels can terminate where the objective
+  actually flattens — the gradient ratio at the plateau spans an order of magnitude across ranks.
 
 - **`g0norm_cg` inherits `g0norm_newton`** by the chained fallback (L718): `g0norm_newton='zero'`
   alone changes BOTH tests; `g0norm_cg='zero'` alone leaves the Newton stop on the old reference
