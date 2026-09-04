@@ -204,3 +204,15 @@ convergence is linear at a rate set by the omitted term. Consequences for this p
   Σ rᵢ∇²rᵢ (Dennis–Gay–Welsch / NL2SOL style) added to JᵀJ inside the same CG. The display already
   prints ρ; the extrapolated remaining decrease at fixed rank downstream was ≤ 0.1–1%, so the payoff
   is a faster, well-terminated level, not a different answer.
+
+**Measured downstream (2026-09-03, T3Polynomial `scripts/x06_hessian_fd_probe.py`, `x07_hessian_free_newton.py`,
+eigen note §8.5):** at a near-converged continuation level (rank 17, ρ 0.06) the true Riemannian
+curvature along the GN direction is 1.95× the GN curvature (the neglected terms equal the GN action
+there; 9% along random tangents), which reproduces ρ ≈ 0.05 exactly; the T3-SVD retraction is
+second order tangentially (acceleration ∝ t², ⟨grad f, R″⟩ negligible); and a Hessian-free
+Riemannian Newton-CG (central differences of the projected gradient along the retraction) has
+ρ = 1.00 at every step and cuts ‖grad f‖ 10× in ten iterations — while the entire remaining
+decrease at that rank was 3e-5 (1e-4 relative) and the test error did not move. So the second-order
+correction's payoff is a *terminating* level and a short tail, not accuracy; the cheap version
+(structured secant on the two r-proportional terms, or the FD action for a final polish) is the one
+worth having, and an objective-decrement stop remains the right primary termination.
