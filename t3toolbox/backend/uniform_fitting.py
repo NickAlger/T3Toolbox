@@ -63,7 +63,8 @@ __all__ = [
 #
 # Each carries the fixed rank it is built at (`shape` + the plain-UT3 `masks`) as FIELDS, so a rebuilt
 # kind of the same rank is the same jax cache key (the same rule as backend.geometry). `forward` derives
-# the variation masks from the frame it is handed, so the kinds stay geometry-agnostic; only
+# the variation masks from the frame it is handed, and `transpose` re-masks its output with the same masks
+# (broadcast over the residual's tangent stack), so the kinds stay geometry-agnostic; only
 # `point_forward` (the S(x) op on the plain-UT3 point) needs the held shape + masks.
 # --------------------------------------------------------------------------------------------------
 @dc.dataclass(frozen=True, eq=False)
@@ -90,6 +91,16 @@ class _UniformKind:
         """A bare variation supercore pair as variation ``.data``, masked by the frame's gauge shift."""
         return (v_sc[0], v_sc[1], frame_data[4], ufv_masking.ufv_variation_masks(frame_data[5]))
 
+    @staticmethod
+    def _remask(v_sc, frame_data):
+        """Re-mask a ``transpose`` output (a bare variation supercore pair, stack ``K+C``) with the frame's
+        gauge-shifted variation masks broadcast over the tangent stack ``K``, so its padding is exactly
+        zero instead of the raw seam's garbage. One multiply by a host mask: the real block is unchanged
+        bit for bit, and under jit the masks are folded constants."""
+        masks = ufv_masking.ufv_variation_masks_over_stack(
+            frame_data[5], frame_data[0].shape[1:-2], v_sc[0].shape[1:-2])
+        return ufv_masking.ufv_apply_variations_masks((v_sc[0], v_sc[1], frame_data[4], masks))
+
 
 @dc.dataclass(frozen=True, eq=False)
 class UniformApplyKind(_UniformKind, bfit.ApplyKind):
@@ -102,7 +113,8 @@ class UniformApplyKind(_UniformKind, bfit.ApplyKind):
         return utv_sampling.utv_apply_jacobian_from_sweep(self._variations(v_sc, frame_data), sweep)
 
     def transpose(self, r, ww, frame_data, sweep):
-        return utv_sampling.utv_apply_transpose_from_sweep(r, sweep, sum_over_probes=True)
+        v_sc = utv_sampling.utv_apply_transpose_from_sweep(r, sweep, sum_over_probes=True)
+        return self._remask(v_sc, frame_data)
 
     def point_forward(self, x_sc, ww):
         return ut3_sampling.ut3_apply(self._point(x_sc), ww)
@@ -122,7 +134,8 @@ class UniformEntriesKind(_UniformKind, bfit.EntriesKind):
         return utv_sampling.utv_entries_jacobian_from_sweep(self._variations(v_sc, frame_data), sweep)
 
     def transpose(self, r, index, frame_data, sweep):
-        return utv_sampling.utv_entries_transpose_from_sweep(r, sweep, sum_over_probes=True)
+        v_sc = utv_sampling.utv_entries_transpose_from_sweep(r, sweep, sum_over_probes=True)
+        return self._remask(v_sc, frame_data)
 
     def point_forward(self, x_sc, index):
         return ut3_sampling.ut3_entries(self._point(x_sc), index)
@@ -149,8 +162,9 @@ class UniformProbeKind(_UniformKind, bfit.ProbeKind):
         return utv_sampling.utv_probe_jacobian_from_sweep(self._variations(v_sc, frame_data), sweep)
 
     def transpose(self, r, ww, frame_data, sweep):
-        return utv_sampling.utv_probe_transpose_from_sweep(self._apply_weight(r, 2), sweep,
+        v_sc = utv_sampling.utv_probe_transpose_from_sweep(self._apply_weight(r, 2), sweep,
                                                            sum_over_probes=True)
+        return self._remask(v_sc, frame_data)
 
     def point_forward(self, x_sc, ww):
         return ut3_sampling.ut3_probe(ww, self._point(x_sc))
@@ -171,8 +185,9 @@ class UniformApplyDerivativesKind(_UniformKind, bfit.ApplyDerivativesKind):
             self._variations(v_sc, frame_data), sweep, self.order)
 
     def transpose(self, r, s, frame_data, sweep):
-        return utv_sampling.utv_apply_transpose_derivatives_from_sweep(
+        v_sc = utv_sampling.utv_apply_transpose_derivatives_from_sweep(
             self._apply_weight(r, 2), sweep, self.order, sum_over_probes=True)
+        return self._remask(v_sc, frame_data)
 
     def point_forward(self, x_sc, s):
         return ut3_sampling.ut3_apply_derivatives(s[0], s[1], self._point(x_sc), self.order)
@@ -193,8 +208,9 @@ class UniformEntriesDerivativesKind(_UniformKind, bfit.EntriesDerivativesKind):
             self._variations(v_sc, frame_data), sweep, self.order)
 
     def transpose(self, r, s, frame_data, sweep):
-        return utv_sampling.utv_entries_transpose_derivatives_from_sweep(
+        v_sc = utv_sampling.utv_entries_transpose_derivatives_from_sweep(
             self._apply_weight(r, 2), sweep, self.order, sum_over_probes=True)
+        return self._remask(v_sc, frame_data)
 
     def point_forward(self, x_sc, s):
         return ut3_sampling.ut3_entries_derivatives(s[0], s[1], self._point(x_sc), self.order)
@@ -222,9 +238,10 @@ class UniformProbeDerivativesKind(_UniformKind, bfit.ProbeDerivativesKind):
             self._variations(v_sc, frame_data), sweep, self.order)
 
     def transpose(self, r, s, frame_data, sweep):
-        return utv_sampling.utv_probe_transpose_derivatives_from_sweep(
+        v_sc = utv_sampling.utv_probe_transpose_derivatives_from_sweep(
             self._apply_weight(r, 2), sweep, self.order, sum_over_probes=True,
             chunk_size=self.chunk_size)
+        return self._remask(v_sc, frame_data)
 
     def point_forward(self, x_sc, s):
         return ut3_sampling.ut3_probe_derivatives(s[0], s[1], self._point(x_sc), self.order)

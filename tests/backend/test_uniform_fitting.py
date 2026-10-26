@@ -22,6 +22,7 @@ import t3toolbox.backend.apply as bapply
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
 import t3toolbox.backend.utv_operations as utv_operations
+import t3toolbox.backend.utv_sampling as utv_sampling
 import t3toolbox.backend.ut3_operations as uops
 
 _STRUCT = ((10, 11, 12), (2, 4, 2), (1, 2, 2, 1))   # (shape, tucker, tt); MINIMAL ranks (tucker capped by
@@ -331,6 +332,137 @@ class TestUniformDerivativeSamplingKind(unittest.TestCase):
                 garb = (ck_tkv + 1e6 * (1.0 - m_tkv), ck_ttv + 1e6 * (1.0 - m_ttv))
                 dirty = kind_u.forward(garb, sample, self.frame.data, sw)
                 self.assertTrue(np.allclose(np.asarray(clean), np.asarray(dirty)))   # scalar / packed array
+
+
+def _prefix(ranks, size):   # int ranks -> boolean prefix mask of width `size` (canonical form)
+    return np.arange(size) < np.asarray(ranks)[..., None]
+
+
+def _corrupt(obj, scale):
+    """``obj`` (a UT3Frame) with ``scale * (1 - mask)`` added to its padding; the real region unchanged."""
+    scs = obj.supercores
+    ind = type(obj)(*([np.ones_like(s) for s in scs] + [obj.shape, obj.masks])).apply_masks().supercores
+    return type(obj)(*([sc + scale * (1.0 - i) for sc, i in zip(scs, ind)] + [obj.shape, obj.masks]))
+
+
+def _expected_gauge_indicator(rframes, uframe, K):
+    """Real-slot indicators of a kind-transpose output ``(dU, dG)``, stack ``K+C``, derived from the RAGGED
+    frame(s)' core shapes (one per ``C`` element, or one shared by all) -- never from a uniform mask, so the
+    check is not circular. A variation of core i spans ``(rL_i, nU_i, rR_(i+1))`` (the gauge shift)."""
+    C, d = tuple(uframe.stack_shape), len(uframe.shape)
+    def fam(ranks_of, size):   # (d,)+K+C+(size,)
+        R = np.asarray([ranks_of(f) for f in rframes]).T
+        R = np.broadcast_to(R.reshape((d,) + (C if R.shape[1] > 1 else (1,) * len(C))), (d,) + C)
+        m = _prefix(R, size)
+        return np.broadcast_to(m.reshape((d,) + (1,) * len(K) + m.shape[1:]), (d,) + tuple(K) + m.shape[1:])
+    up = fam(lambda f: [U.shape[-2] for U in f.up_tucker_cores], uframe.nU)
+    down = fam(lambda f: [O.shape[-2] for O in f.down_tt_cores], uframe.nD)
+    left = fam(lambda f: [P.shape[-3] for P in f.left_tt_cores], uframe.rL)
+    right = fam(lambda f: [Q.shape[-1] for Q in f.right_tt_cores], uframe.rR)
+    sm = _prefix(np.asarray(uframe.shape), uframe.N).reshape((d,) + (1,) * (len(K) + len(C)) + (1, uframe.N))
+    return (down[..., :, None] & sm,
+            left[..., :, None, None] & up[..., None, :, None] & right[..., None, None, :])
+
+
+class TestKindTransposeOutputHygiene(unittest.TestCase):
+    """S0c: each uniform kind's ``transpose`` RE-MASKS its output with the frame's gauge-shifted variation
+    masks (broadcast over the residual's tangent stack ``K``), so the padding comes back as exact zeros
+    instead of the raw seam's garbage. Over all six kinds, both geometries' frames, C and K stacks, forced
+    padding, a varying-rank C stack and a non-minimal (TT-slack) frame, whose variation masks are a strict
+    subset of the point's (the expected extent is read off the ragged frame, so it is the frame's):
+
+    (a)+(c) every slot outside the expected real extent (derived from the ragged frames) is exactly zero;
+    (b) the real block is BITWISE the pre-S0c value -- the bare ``*_from_sweep`` seam on the same residual
+        (the old ``transpose`` body, frozen here);
+    (d) garbage (``1e6 * (1 - mask)``) in the frame's padding, swept again, leaves the output unchanged.
+    Non-vacuous: the bare seam's padding is nonzero for every kind."""
+
+    _ORDER = 2
+    _W = 6
+    # name -> the pre-S0c transpose body: the bare seam on the (weighted) residual
+    _SEAMS = {
+        'apply': lambda k, r, sw: utv_sampling.utv_apply_transpose_from_sweep(r, sw, sum_over_probes=True),
+        'entries': lambda k, r, sw: utv_sampling.utv_entries_transpose_from_sweep(r, sw, sum_over_probes=True),
+        'probe': lambda k, r, sw: utv_sampling.utv_probe_transpose_from_sweep(
+            k._apply_weight(r, 2), sw, sum_over_probes=True),
+        'apply_derivatives': lambda k, r, sw: utv_sampling.utv_apply_transpose_derivatives_from_sweep(
+            k._apply_weight(r, 2), sw, k.order, sum_over_probes=True),
+        'entries_derivatives': lambda k, r, sw: utv_sampling.utv_entries_transpose_derivatives_from_sweep(
+            k._apply_weight(r, 2), sw, k.order, sum_over_probes=True),
+        'probe_derivatives': lambda k, r, sw: utv_sampling.utv_probe_transpose_derivatives_from_sweep(
+            k._apply_weight(r, 2), sw, k.order, sum_over_probes=True, chunk_size=k.chunk_size),
+    }
+
+    def _points(self):
+        """(label, uniform point, the ragged point(s) it represents)."""
+        np.random.seed(21)
+        pts = []
+        for C in [(), (2,)]:
+            x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=C)
+            pts.append(('C=%s' % (C,), ut3.UniformTuckerTensorTrain.from_t3(x), [x]))
+            pts.append(('C=%s forced pad' % (C,), ut3.UniformTuckerTensorTrain.from_t3(x, N=13, n=5, r=3), [x]))
+        xs = [t3.TuckerTensorTrain.randn(*_STRUCT), t3.TuckerTensorTrain.randn((10, 11, 12), (3, 2, 2), (1, 3, 2, 1))]
+        pts.append(('varying C', ut3.UniformTuckerTensorTrain.stack(
+            [ut3.UniformTuckerTensorTrain.from_t3(x, N=12, n=4, r=3) for x in xs]), xs))
+        xn = t3.TuckerTensorTrain.randn((10, 11, 12), (2, 3, 2), (1, 2, 3, 1))   # TT slack: r2 = 3 > n2 * r3 = 2
+        self.assertFalse(bool(np.all(xn.has_minimal_ranks)))
+        pts.append(('non-minimal', ut3.UniformTuckerTensorTrain.from_t3(xn), [xn]))
+        return pts
+
+    def _kind_and_sample(self, name, xu):
+        np.random.seed(22)
+        shape, W = xu.shape, self._W
+        ww = [np.random.randn(W, n) for n in shape]
+        pp = [np.random.randn(W, n) for n in shape]
+        idx = np.stack([np.random.randint(0, n, size=W) for n in shape], axis=0)
+        if name in ('apply', 'entries'):
+            return uf.uniform_sampling_kind(name, xu.data), (ww if name == 'apply' else idx)
+        if name == 'probe':
+            return uf.uniform_sampling_kind(name, xu.data, weight=[1.0, 0.5, 0.25]), ww
+        kind = uf.uniform_derivatives_kind(name, xu.data, self._ORDER, [1.0, 0.5, 0.25])
+        return kind, ((idx if name == 'entries_derivatives' else ww), pp)
+
+    def _residual(self, name, xu, K):
+        """A random residual of the kind's packed layout with a tangent stack K after W: lead + W+K+C + tail.
+        Probe residuals keep the packed convention's zero mode padding."""
+        d, O, C = len(xu.shape), self._ORDER + 1, tuple(xu.stack_shape)
+        lead = {'apply': (), 'entries': (), 'probe': (d,), 'apply_derivatives': (O,),
+                'entries_derivatives': (O,), 'probe_derivatives': (d, O)}[name]
+        packed = name in ('probe', 'probe_derivatives')
+        r = np.random.randn(*(lead + (self._W,) + tuple(K) + C + ((xu.N,) if packed else ())))
+        if packed:
+            sm = _prefix(np.asarray(xu.shape), xu.N)
+            r = r * sm.reshape((d,) + (1,) * (r.ndim - 2) + (xu.N,))
+        return r
+
+    def test_kind_transposes(self):
+        seen = {}
+        for label, xu, xs in self._points():
+            for geom_name, ugeom, rgeom in (('manifold', ut3m.UNIFORM_MANIFOLD, t3m.MANIFOLD),
+                                            ('corewise', ut3m.UNIFORM_COREWISE, t3m.COREWISE)):
+                frame = ugeom.frame(xu)
+                rframes = [rgeom.frame(x) for x in xs]
+                dirty = _corrupt(frame, 1e6)
+                for name, seam in self._SEAMS.items():
+                    kind, sample = self._kind_and_sample(name, xu)
+                    sw, dsw = kind.precompute(frame.data, sample), kind.precompute(dirty.data, sample)
+                    for K in [(), (3,)]:
+                        with self.subTest(case=label, geometry=geom_name, kind=name, K=K):
+                            np.random.seed(23)
+                            r = self._residual(name, xu, K)
+                            out = kind.transpose(r, sample, frame.data, sw)
+                            bare = seam(kind, r, sw)
+                            ind = _expected_gauge_indicator(rframes, frame, K)
+                            dout = kind.transpose(r, sample, dirty.data, dsw)
+                            for j in range(2):
+                                o, b = np.asarray(out[j]), np.asarray(bare[j])
+                                self.assertEqual(o.shape, ind[j].shape)
+                                self.assertTrue(np.all(o[~ind[j]] == 0), 'padding not zero')              # (a)+(c)
+                                self.assertEqual(o[ind[j]].tobytes(), b[ind[j]].tobytes(), 'real block')  # (b)
+                                self.assertTrue(np.array_equal(np.asarray(dout[j]), o), 'garbage leaked')  # (d)
+                                seen[name] = max(seen.get(name, 0.0), float(np.abs(b[~ind[j]]).max(initial=0.0)))
+        for name, worst in seen.items():
+            self.assertGreater(worst, 0.0, '%s: the bare seam left no padding garbage to re-mask' % name)
 
 
 class TestSplitSeamDefaultParity(unittest.TestCase):

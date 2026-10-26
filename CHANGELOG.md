@@ -3,6 +3,23 @@
 All notable changes to T3Toolbox are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); versions are `YYYY.MINOR.PATCH`.
 
+## [2026.3.0] — unreleased
+
+### Changed — breaking
+
+- **Uniform transposes return clean padding.** Every uniform transpose wrapper that holds the frame's or
+  the point's masks now re-masks its output, so the padded slots come back as exact zeros instead of the
+  raw sweep's garbage (the boundary-bond squash broadcasts the gradient into the padded boundary slots;
+  measured up to ~3e12 on a moderate case). That covers the six uniform kinds' `transpose`
+  (`backend.uniform_fitting.Uniform*Kind`), the public `utv_{probe,apply,entries}_transpose` and
+  `utv_*_derivatives_transpose` (and so `UT3Tangent.*_transpose`), and `ut3_*_corewise_transpose` /
+  `ut3_*_corewise_derivatives_transpose` (and so `UniformTuckerTensorTrain.*_corewise_*transpose`). This
+  is numerical hygiene, not a change of numerics: the real block is **bit-identical** (one multiply by a
+  host mask, which under jit is a folded constant), so every result that honours the equivalence
+  contract's "padding is don't-care" is unchanged, and a new consumer -- the CG state included -- no
+  longer has to remember to mask on entry. It breaks only code that read the padding. The bare
+  `utv_*_transpose_from_sweep` seam halves stay bare by contract; their callers, the kinds, re-mask.
+
 ## [2026.2.0] — 2026-08-25
 
 ### Changed — breaking

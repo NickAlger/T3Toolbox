@@ -28,7 +28,14 @@ schedule correct a priori. The schedule adopted, as the simplest that satisfies 
 
 - **mask on entry** — zero the garbage so it cannot flow into a real result through a contraction;
 - **re-mask after any step that writes garbage back into the padding** — chiefly an SVD, whose
-  padded columns get filled with arbitrary orthonormal completions.
+  padded columns get filled with arbitrary orthonormal completions;
+- **re-mask the output of every transpose wrapper that holds the masks** (2026.3.0) — an adjoint
+  sweep writes garbage into the padding too (the boundary-bond squash broadcasts its gradient into
+  the padded boundary slots; measured up to ~3e12), so the uniform kinds' `transpose`, the
+  `utv_*_transpose` family and the `ut3_*_corewise_*transpose` family zero it on exit, and every
+  consumer (the CG state included) sees clean padding by construction. One multiply by a host mask:
+  the real block is bit-identical. The bare `utv_*_transpose_from_sweep` seam halves are the
+  deliberate exception; their only callers, the kinds, re-mask.
 
 Between those points the data stays put (no compaction — `../uniform_masks_vs_ranks.md`). Whether
 the schedule is exactly right in a given op is decided by the round-trip test, not by hand.

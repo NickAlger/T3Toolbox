@@ -6,7 +6,8 @@
 
 Grouped by OBJECT type, deliberately asymmetric with the ragged by-sampling-type modules: each
 function here is a thin wrapper -- mask once, pack, delegate to the shared polymorphic ragged
-machinery -- so it lives with the object it wraps. The algorithm story is in
+machinery (the corewise transposes then re-mask their output) -- so it lives with the object it
+wraps. The algorithm story is in
 ``probing``/``apply``/``entries``/``sampling_derivatives`` (``docs/naming_conventions.md``).
 """
 import numpy as np
@@ -99,10 +100,21 @@ def ut3_full_sum(
 # the now-polymorphic probing.*_corewise_transpose -- the tangent transpose at the frame (U, G, G, G)). For
 # a uniform core-wise optimizer (Adam, L-BFGS). Mask-once + pack at the boundary; return the RAW gradient
 # supercores (dU, dG) -- the uniform mirror of the ragged TuckerTensorTrain.*_corewise_transpose raw-tuple
-# return. The padding of the result is NOT guaranteed clean: the boundary-bond squash is a sum over the whole
-# bond, so its gradient broadcasts into the padded boundary-bond slots too. That is don't-care by the
-# equivalence contract (every consumer masks on entry -- ut3_squash_tails included, since 2026-08-22), and
-# the masks, not the values, govern rank.
+# return -- RE-MASKED on exit with the same point masks that masked the input. The raw padding is not clean
+# (the boundary-bond squash is a sum over the whole bond, so its gradient broadcasts into the padded
+# boundary-bond slots too); the re-mask zeroes it, so a consumer gets exact zeros there. The equivalence
+# contract still declares the padding don't-care (every consumer masks on entry -- ut3_squash_tails
+# included, since 2026-08-22), and the masks, not the values, govern rank.
+
+def _remasked_core_gradient(
+        grads:  typ.Tuple[NDArray, NDArray],  # raw (tucker grad, tt grad) supercores, stack [W+]K+C
+        data:   UT3Data,                      # the point; its C-stacked masks broadcast over [W+]K
+) -> typ.Tuple[NDArray, NDArray]:             # the same pair, padding exactly zero
+    """Re-mask a corewise-transpose output with the point's own masks (:py:func:`ut3_masking.ut3_apply_masks`;
+    its ``'...'`` einsums broadcast the ``C``-stacked masks over a kept ``W`` / tangent ``K`` stack). One
+    multiply by a host mask: the real block is unchanged bit for bit."""
+    return ut3_masking.ut3_apply_masks((grads[0], grads[1], data[2], data[3]))
+
 
 def ut3_apply_corewise_transpose(
         c:    NDArray,                # residual, shape=W+K+C
@@ -113,7 +125,8 @@ def ut3_apply_corewise_transpose(
     """Corewise transpose of :py:func:`ut3_apply`: gradient w.r.t. the frame supercores. ``ww`` packed to N."""
     masked = ut3_masking.ut3_apply_masks(data)
     packed = ut3_operations.pack_if_ragged(ww, masked[0].shape[-1])
-    return apply.t3_apply_corewise_transpose(c, packed, masked, sum_over_probes=sum_over_probes)
+    grads = apply.t3_apply_corewise_transpose(c, packed, masked, sum_over_probes=sum_over_probes)
+    return _remasked_core_gradient(grads, data)
 
 
 def ut3_entries_corewise_transpose(
@@ -125,7 +138,8 @@ def ut3_entries_corewise_transpose(
     """Corewise transpose of :py:func:`ut3_entries`: gradient w.r.t. the frame supercores (index unpacked --
     the one-hot vectors are built packed inside ``entries._onehot_vectors``)."""
     masked = ut3_masking.ut3_apply_masks(data)
-    return entries.t3_entries_corewise_transpose(c, index, masked, sum_over_probes=sum_over_probes)
+    grads = entries.t3_entries_corewise_transpose(c, index, masked, sum_over_probes=sum_over_probes)
+    return _remasked_core_gradient(grads, data)
 
 
 def ut3_probe_corewise_transpose(
@@ -140,7 +154,8 @@ def ut3_probe_corewise_transpose(
     N = masked[0].shape[-1]
     packed_z = ut3_operations.pack_if_ragged(ztildes, N)
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
-    return probing.t3_probe_corewise_transpose(packed_z, packed_ww, masked, sum_over_probes=sum_over_probes)
+    grads = probing.t3_probe_corewise_transpose(packed_z, packed_ww, masked, sum_over_probes=sum_over_probes)
+    return _remasked_core_gradient(grads, data)
 
 
 # ----------------------------------------------------------------- derivative sampling (jets)
@@ -201,7 +216,8 @@ def ut3_entries_derivatives(
 # The jet-ified twins of the corewise transposes above: gradient of a plain-T3 derivative sampling op w.r.t.
 # the frame's own supercores (the §6.3 (P,Q,O)->G substitution, via the now-polymorphic
 # sampling_derivatives.*_corewise_derivatives_transpose). Mask-once + pack ww/pp (entries: pp only) at the
-# boundary; return the RAW gradient supercores (dU, dG), clean-padded. For a uniform core-wise optimizer.
+# boundary; return the RAW gradient supercores (dU, dG), re-masked on exit (clean padding, as above). For a
+# uniform core-wise optimizer.
 
 def ut3_apply_corewise_derivatives_transpose(
         c:     NDArray,                # residual jet (scalar), shape=(order+1,)+W+K+C
@@ -216,8 +232,9 @@ def ut3_apply_corewise_derivatives_transpose(
     N = masked[0].shape[-1]
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
-    return sampling_derivatives.t3_apply_corewise_derivatives_transpose(
+    grads = sampling_derivatives.t3_apply_corewise_derivatives_transpose(
         c, packed_ww, packed_pp, masked, order, sum_over_probes=sum_over_probes)
+    return _remasked_core_gradient(grads, data)
 
 
 def ut3_entries_corewise_derivatives_transpose(
@@ -232,8 +249,9 @@ def ut3_entries_corewise_derivatives_transpose(
     (``pp`` packed, ``index`` unpacked)."""
     masked = ut3_masking.ut3_apply_masks(data)
     packed_pp = ut3_operations.pack_if_ragged(pp, masked[0].shape[-1])
-    return sampling_derivatives.t3_entries_corewise_derivatives_transpose(
+    grads = sampling_derivatives.t3_entries_corewise_derivatives_transpose(
         c, index, packed_pp, masked, order, sum_over_probes=sum_over_probes)
+    return _remasked_core_gradient(grads, data)
 
 
 def ut3_probe_corewise_derivatives_transpose(
@@ -252,5 +270,6 @@ def ut3_probe_corewise_derivatives_transpose(
     packed_z = ut3_operations.pack_if_ragged(ztildes, N)
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
-    return sampling_derivatives.t3_probe_corewise_derivatives_transpose(
+    grads = sampling_derivatives.t3_probe_corewise_derivatives_transpose(
         packed_z, packed_ww, packed_pp, masked, order, sum_over_probes=sum_over_probes, chunk_size=chunk_size)
+    return _remasked_core_gradient(grads, data)

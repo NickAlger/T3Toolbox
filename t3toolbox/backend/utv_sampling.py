@@ -17,6 +17,9 @@ The uniform mirror of the ragged ``T3Tangent`` sampling frontend, sharing the po
    nothing to unpack).
 
 These are the bare Jacobian ``𝒥`` (no gauge projector ``Π``); the transpose ``𝒥ᵀ`` is the last section of this module.
+The transposes **re-mask their output** with the variation masks they attach, so the padded slots come back as
+exact zeros (one multiply by a host mask; the real block is unchanged bit for bit). The ``*_transpose_from_sweep``
+seam halves stay bare: their callers, the uniform fitting kinds, re-mask.
 """
 import numpy as np
 
@@ -119,7 +122,9 @@ def utv_entries(
 #     uniform_sweep = (masked_frame_4tuple, packed_ww_or_index, shape, probing_frame_sweep)
 #
 # The from_sweep halves mask-once their variation / residual operands and call the polymorphic probing
-# from_sweep functions. These are the bare 𝒥 / 𝒥ᵀ (no gauge projector Π); the geometry supplies Π.
+# from_sweep functions. These are the bare 𝒥 / 𝒥ᵀ (no gauge projector Π); the geometry supplies Π. The
+# transpose halves return BARE supercores whose padding is not re-masked -- by contract: their callers (the
+# uniform fitting kinds' `transpose`) re-mask with the frame's variation masks.
 
 def utv_precompute_apply_frame_sweep(
         frame_data,  # UT3Frame .data (an orthogonal frame), supercore stack = C
@@ -195,7 +200,7 @@ def utv_apply_transpose_from_sweep(
 ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
     """Transpose ``𝒥ᵀ`` of the all-modes apply reusing the frame sweep (the bare adjoint; no gauge ``Π`` --
     the geometry projects). Shares :py:func:`apply.tv_apply_transpose_from_sweep`; returns the bare gradient
-    supercores ``(dU_tilde, dG_tilde)`` (the caller's ``project`` attaches the variation masks)."""
+    supercores ``(dU_tilde, dG_tilde)``, padding NOT re-masked (the calling kind's ``transpose`` re-masks it)."""
     mb, packed_ww, _shape, psweep = frame_sweep
     return apply.tv_apply_transpose_from_sweep(residual, packed_ww, mb, psweep, sum_over_probes=sum_over_probes)
 
@@ -429,6 +434,20 @@ def _gauge_masks_over_Knew(
                                                       out_supercore.shape[1:-2])
 
 
+def _remasked_transpose_output(
+        frame_data,   # UT3Frame .data
+        dU_tilde,     # bare transpose-output tucker variation supercore, (d,)+K_new+C+(nD, N)
+        dG_tilde,     # bare transpose-output tt variation supercore,     (d,)+K_new+C+(rL, nU, rR)
+):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks), padding exactly zero
+    """Attach the result tangent's variation masks (:py:func:`_gauge_masks_over_Knew`) AND re-mask the
+    supercores with them, so the padded slots come back as exact zeros rather than the raw sweep's garbage
+    (the boundary-bond squash, for one, broadcasts into the padded boundary slots). One multiply by a host
+    mask: the real block is unchanged bit for bit, and under jit the masks are folded constants."""
+    masks = _gauge_masks_over_Knew(frame_data, dU_tilde)
+    dU_tilde, dG_tilde = ufv_masking.ufv_apply_variations_masks((dU_tilde, dG_tilde, frame_data[4], masks))
+    return (dU_tilde, dG_tilde, frame_data[4], masks)
+
+
 def utv_probe_transpose(
         ztildes,          # probe residuals, len=d, ith elm_shape=W+K+C+(Ni,)
         ww,               # probe vectors,   len=d, ith elm_shape=W+(Ni,)
@@ -440,15 +459,15 @@ def utv_probe_transpose(
     Mask-once the frame, pack both the residuals and the probe vectors, share
     ``probing.tv_probe_transpose`` (which routes through the d-prefixed WKC contractions), and
     attach the result variation masks: the frame's gauge masks broadcast over the new tangent stack
-    ``K_new`` (``W+K`` if ``sum_over_probes=False``, ``K`` if ``True``). The bare ``𝒥ᵀ``."""
+    ``K_new`` (``W+K`` if ``sum_over_probes=False``, ``K`` if ``True``). The output is re-masked with
+    those masks, so its padding is exactly zero (the real block is unchanged). The bare ``𝒥ᵀ``."""
     mb = ufv_masking.ufv_apply_frame_masks(frame_data)
     N = mb[0].shape[-1]
     packed_z = ut3_operations.pack_if_ragged(ztildes, N)
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     dU_tilde, dG_tilde = probing.tv_probe_transpose(
         packed_z, packed_ww, mb, sum_over_probes=sum_over_probes)
-    masks = _gauge_masks_over_Knew(frame_data, dU_tilde)
-    return (dU_tilde, dG_tilde, frame_data[4], masks)
+    return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
 
 
 def utv_apply_transpose(
@@ -459,13 +478,12 @@ def utv_apply_transpose(
 ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
     """Apply the transpose ``𝒥ᵀ`` of the all-modes apply (the bare adjoint; the adjoint-state method).
     Mask-once the frame, pack ``ww``, share ``apply.tv_apply_transpose``, attach the gauge masks
-    over the new tangent stack ``K_new``."""
+    over the new tangent stack ``K_new`` and re-mask the output with them (clean padding)."""
     mb = ufv_masking.ufv_apply_frame_masks(frame_data)
     packed_ww = ut3_operations.pack_if_ragged(ww, mb[0].shape[-1])
     dU_tilde, dG_tilde = apply.tv_apply_transpose(
         c, packed_ww, mb, sum_over_probes=sum_over_probes)
-    masks = _gauge_masks_over_Knew(frame_data, dU_tilde)
-    return (dU_tilde, dG_tilde, frame_data[4], masks)
+    return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
 
 
 def utv_entries_transpose(
@@ -476,12 +494,11 @@ def utv_entries_transpose(
 ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
     """Apply the transpose ``𝒥ᵀ`` of the all-modes entries (scatter ``c`` at ``index``). Like
     :py:func:`utv_apply_transpose` with the apply vectors replaced by the one-hot ``e_index`` (built
-    packed inside ``entries._onehot_vectors``), so ``index`` needs no packing."""
+    packed inside ``entries._onehot_vectors``), so ``index`` needs no packing. Re-masked output."""
     mb = ufv_masking.ufv_apply_frame_masks(frame_data)
     dU_tilde, dG_tilde = entries.tv_entries_transpose(
         c, index, mb, sum_over_probes=sum_over_probes)
-    masks = _gauge_masks_over_Knew(frame_data, dU_tilde)
-    return (dU_tilde, dG_tilde, frame_data[4], masks)
+    return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
 
 
 # ----------------------------------------------------------------- the transpose 𝒥ᵀ derivatives (jets)
@@ -489,7 +506,8 @@ def utv_entries_transpose(
 # order axis) into a SINGLE variation gradient (the transpose sums the order axis in the assembly, so the
 # output has no order axis -- structurally identical to the plain transpose). Mask-once, pack ww AND pp
 # (entries: pp only), share sampling_derivatives.*_tangent_derivatives_transpose, attach the gauge masks over
-# the new tangent stack K_new (the same _gauge_masks_over_Knew as the plain transpose). The bare 𝒥ᵀ.
+# the new tangent stack K_new and re-mask the output with them (the same _remasked_transpose_output as the
+# plain transpose). The bare 𝒥ᵀ.
 
 def utv_probe_derivatives_transpose(
         ztildes,          # probe residual jets, len=d, ith elm_shape=(order+1,)+W+K+C+(Ni,)
@@ -502,7 +520,7 @@ def utv_probe_derivatives_transpose(
 ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
     """Apply the transpose ``𝒥ᵀ`` of the probe-derivative map to residual jets (the bare adjoint). Mask-once,
     pack the residual jets + ``ww`` + ``pp``, share ``sampling_derivatives.tv_probe_derivatives_transpose``,
-    attach the gauge masks over the new tangent stack ``K_new``."""
+    attach the gauge masks over the new tangent stack ``K_new`` and re-mask the output with them."""
     mb = ufv_masking.ufv_apply_frame_masks(frame_data)
     N = mb[0].shape[-1]
     packed_z = ut3_operations.pack_if_ragged(ztildes, N)
@@ -510,8 +528,7 @@ def utv_probe_derivatives_transpose(
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
     dU_tilde, dG_tilde = sampling_derivatives.tv_probe_derivatives_transpose(
         packed_z, packed_ww, packed_pp, mb, order, sum_over_probes=sum_over_probes, chunk_size=chunk_size)
-    masks = _gauge_masks_over_Knew(frame_data, dU_tilde)
-    return (dU_tilde, dG_tilde, frame_data[4], masks)
+    return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
 
 
 def utv_apply_derivatives_transpose(
@@ -522,15 +539,15 @@ def utv_apply_derivatives_transpose(
         order,            # highest derivative order
         sum_over_probes=False,
 ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
-    """Apply the transpose ``𝒥ᵀ`` of the all-modes apply-derivative (the bare adjoint-state method)."""
+    """Apply the transpose ``𝒥ᵀ`` of the all-modes apply-derivative (the bare adjoint-state method).
+    Re-masked output (clean padding)."""
     mb = ufv_masking.ufv_apply_frame_masks(frame_data)
     N = mb[0].shape[-1]
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
     dU_tilde, dG_tilde = sampling_derivatives.tv_apply_derivatives_transpose(
         c, packed_ww, packed_pp, mb, order, sum_over_probes=sum_over_probes)
-    masks = _gauge_masks_over_Knew(frame_data, dU_tilde)
-    return (dU_tilde, dG_tilde, frame_data[4], masks)
+    return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
 
 
 def utv_entries_derivatives_transpose(
@@ -542,10 +559,9 @@ def utv_entries_derivatives_transpose(
         sum_over_probes=False,
 ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
     """Apply the transpose ``𝒥ᵀ`` of the all-modes entry-derivative (scatter ``c`` at ``index``; ``pp`` packed,
-    ``index`` unpacked -- the one-hots are built packed inside ``entries._onehot_vectors``)."""
+    ``index`` unpacked -- the one-hots are built packed inside ``entries._onehot_vectors``). Re-masked output."""
     mb = ufv_masking.ufv_apply_frame_masks(frame_data)
     packed_pp = ut3_operations.pack_if_ragged(pp, mb[0].shape[-1])
     dU_tilde, dG_tilde = sampling_derivatives.tv_entries_derivatives_transpose(
         c, index, packed_pp, mb, order, sum_over_probes=sum_over_probes)
-    masks = _gauge_masks_over_Knew(frame_data, dU_tilde)
-    return (dU_tilde, dG_tilde, frame_data[4], masks)
+    return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
