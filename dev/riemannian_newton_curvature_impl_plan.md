@@ -225,6 +225,9 @@ F1–F25 are unchanged from v4. F26–F35 are new; see the table above.
 6. Frontend: `LocalModel` exact mode, the factories, and `optimizers.newton_cg` wiring; `_bgeom → from_frame`.
 7. Minimal diagnostics (I-13).
 8. Tests, docs, CHANGELOG, the research-repo measurement plan (S0a / S0b), and **the T3Polynomial update (§K)**.
+9. **At the very end (S15): a terse math note** `docs/exact_hessian_two_hole.tex` (+ `.pdf`) — the exact Hessian and
+   the two-hole sweep *as implemented*, with equations, algorithm boxes, tensor-network diagrams and references to the
+   code (Nick, 2026-10-26; I-32). Not detailed or reviewed here.
 
 **Non-goals.**
 
@@ -1403,6 +1406,17 @@ the g0 default (C.15 audit). Only `sweep_models.py`'s docstring changes, for the
   `fit_hilbert_uniform_newton_cg.py:158`, `fit_hilbert_uniform_probe_derivatives_newton_cg.py:177`. The hand-rolled
   `fit_varied_rank_tensor_newton_cg.py:207/255/291` uses its own dict and is renamed for consistency.
 
+**The math note (S15, I-32).** `docs/exact_hessian_two_hole.tex` + `.pdf`, in the style of `docs/shared_t3_math.tex`
+and `docs/symmetric_probe_derivatives.tex`: a terse write-up of (i) the exact Riemannian Hessian — the Weingarten
+term as `⟨N, D²Φ⟩`, the lift through `S_i`/`T_i`, the Lagrangian form, the level-1/level-2 distinction and the
+second-order T3-SVD retraction; (ii) the two-hole sweep as implemented — the dotted forward and adjoint sweeps, the
+two-index jets, the product-rule (factored) assembly, the T3–T3 term and the uniform masking rule; (iii) the
+canonical zero-point frame. Equations, algorithm boxes (one per sweep, in the paper's Algorithm style) and
+tensor-network diagrams (one-hole vs two-hole; the pair intermediates), each box citing the function that
+implements it (`sampling_derivatives.py`, `tv_operations.py`, `fv_operations.py`, `t3_linalg.py`,
+`backend/optimizers.py`). Written last, from the shipped code, so that the references are to real names; not
+detailed or reviewed in this plan.
+
 **Contributor docs.**
 
 - **New `docs/contributor/curvature_internals.md`** (in the `contributor_guide.rst` toctree):
@@ -1506,10 +1520,12 @@ uniform_jax, both unshared and shared.
 | S12 | apply/entries derivatives; **delete the `_UniformKind` stub and `_UNIFORM_HESSIAN_SLICE`** | T5, T6, T11, T17, T23 (window cases removed) |
 | S13 | docs, the final CHANGELOG, release notes, doctests, `sweep_exact.py`, the jvp oracle, **T28** (jax-absent construction), the `dev/` archive, HANDOFF / CLAUDE.md | the full release gate incl. `T3TOOLBOX_SLOW_TESTS=1` |
 | **S14** (T3Polynomial repo) | §K, against the release candidate | T3Polynomial's suite |
+| **S15** | the math note `docs/exact_hessian_two_hole.tex` + `.pdf` (§G): equations, algorithm boxes, tensor-network diagrams, code references — written at the very end, from the shipped code | the PDF builds; every code reference resolves to a real name at the release tag |
 
 - S0c–S0e change behaviour only as the CHANGELOG lists. S1–S3 are pure additions. S4 is the first curvature
   consumer change, and GN stays the default throughout.
 - **No release before S13.** T3Polynomial (S14) updates against the tagged release candidate.
+- **S15 follows S14**: the note documents what shipped, so it is written after the release tag and the downstream update.
 
 ---
 
@@ -1551,6 +1567,7 @@ uniform_jax, both unshared and shared.
 | **I-29** (was O-6; Nick, 2026-10-26) | the canonical zero-point frame behind the default reference | **Adopted: the seeded, keyed, nested Haar recipe with a fixed seed** (C.2, F37): layer-independent (F31), never collapses (F32), nested across levels, reproducible to ~1e-15. It shifts every manifold `newton_cg` stop by an O(1) factor relative to today, zero starts included (C.15); that is accepted. **It must be documented** (ruling): the user-facing statement in `docs/fitting_and_optimization.md` §5 and `docs/rank_continuation.md` (what the reference is, that it is a convention good to an O(1) factor, why it is a Haar completion and not a coordinate-aligned one — the exact-zero trap, F32 — and that it is identical across the ragged and uniform layers and nested across levels), the caveat row in `docs/numerical_contracts.md`, and the recipe itself with its three properties in `docs/contributor/curvature_internals.md` (§G). The alternatives considered — (a) a coordinate-aligned completion, rejected for the exact-zero collapse; (b) `'warm_start'` as the default with `'zero'` opt-in, rejected because it keeps the continuation deflation G0P was written to remove; (c) per-mode seeds, equivalent to the adopted per-group keying — go to `deferred_and_rejected.md`. A possible later refinement, not planned: averaging the reference over a few seeds (each a one-sweep estimate of a frame-averaged norm; the O(1) seed spread is sampling variance) |
 | **I-30** (Nick, 2026-10-26) | `optimizers.least_squares_problem`'s return | a **named result** `LeastSquaresSetup(problem, x0_cores, rewrap)` (C.16), not a bare 3-tuple |
 | **I-31** (Nick, 2026-10-26) | zero *starts* and the canonical frame (J.13) | **left as is**: a zero `x0` keeps `geom.frame(x0)`'s completion for its first step; only the *reference* uses the canonical frame. Noted as a possibility to investigate later (J.13) |
+| **I-32** (Nick, 2026-10-26) | a math note in `docs/` | **At the very end (S15)**, a terse `docs/exact_hessian_two_hole.tex` + `.pdf`: the exact Hessian and the two-hole sweep as implemented — equations, algorithm boxes, tensor-network diagrams, references to the code (§G). Not detailed or reviewed now |
 
 ### Genuinely open
 
