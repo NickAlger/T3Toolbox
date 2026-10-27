@@ -534,7 +534,14 @@ def t3_probe_corewise_derivatives_hessian_from_sweep(
 ) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple[NDArray, ...]]:
 ```
 
-**The production standard (P5, settled as the house applies it).** Each dotted kernel takes the **form of the GN
+> **SUPERSEDED 2026-10-27 (Nick; slice S3b, I-33).** The paragraph below relaxed Nick's rule to "the GN kernel's form, dense
+> `trs` otherwise" after the critic's P5 pre-check found 19 dense-`trs` contractions already in production GN code. A
+> survey (`dev/curvature_impl_review/slices/trs_survey.md`) showed those are the remnant of a performance refactor that
+> stopped halfway, not a design. **The hard rule stands: production kernels are recurrences / scans; dense binomial
+> tensors survive only as `_trs` reference twins in tests.** S3b (§H) converts the pre-existing GN sites AND S3's dotted
+> twins together, before S5. §C.5 and §L.5 are amended accordingly; the paragraph is kept as the record of what S3 shipped.
+
+**The production standard as S3 shipped it (P5; superseded above).** Each dotted kernel takes the **form of the GN
 kernel it differentiates** (`deferred_and_rejected.md:85-96`):
 
 - a fused bidiagonal recurrence where the input jet is affine (`compute_mu_jets`, `compute_sigma_jets`);
@@ -594,6 +601,9 @@ The composition, step by step (F13 is the math; F33 the form):
 job (C.10).
 
 ### C.5 Plain probe, apply/entries, apply/entries derivatives (S10–S12)
+
+> **Amended 2026-10-27 (I-33):** S10–S12 follow the hard recurrence rule, not "the GN counterpart's form"; after S3b the
+> GN counterparts are recurrences anyway, so the two coincide.
 
 As in v4 (F9–F11):
 
@@ -1508,6 +1518,7 @@ uniform_jax, both unshared and shared.
 | S1 | `filtered_reciprocal` / `damped_pseudo_inverse`; `fv_center_factors` (+ the `fv_shared_frame_data` refactor, bit-identical); `LiftFactors` (+ `if jax_available:` registration), `fv_lift_factors`; `tv_corewise_lift[_transpose]`; **`AXIS_SIZE.update({'l': 4, 'n': 6, 'x': 7, 'z': 5})`** in `tests/test_contractions_interpreter.py` with the S1 rows (M5) | T1–T4; the sharing tests unchanged; the contraction suite (existing rows unchanged, F36) |
 | S2 | move `_inner_product_frame_transpose` to `t3_linalg` (bit-identical); `t3_inner_product_corewise_transpose`; `tt_zipper_tangent_*`; the T3–T3 two-hole | T5 (T3–T3), T6, T20 (backend half) |
 | **S3** | **the probe_derivatives two-hole, ragged, in the GN forms** (C.4): the `_trs` reference twins in the test helper; `_adj_tilde_tangent_step` (recurrence + order scan); the dotted dx̃i; the **factored** TT assembly, chunked; HISTORICAL rows; memory and **cost re-measure (gate ≤ 3.5×)** | T5 (orders 0–3, K = (2,3), d = 1; production == `_trs` twins), T6, T11 |
+| **S3b** (added 2026-10-27, I-33) | **recurrence conversion of every production dense-`trs` contraction** — the 19 pre-existing GN sites (apply/entries-derivative forward + transpose, the probe transpose's `dx̃i` combine, the TT assembly `_tt_variation_jets_trs_core` on every branch, the three scan-weight sites) and S3's 20 dotted twins (dotted `dx̃i`, the factored assembly's pair builds) — into scan/recurrence forms (`_mu_jets_step` / `_sigma_banded_step` for the forward pushes, the prop half of `_adj_tilde_step` for the reverse, `pair()`/`stacked()` for the pairs, new scan forms for the `dx̃i` correlation and the `t_det`-type term); **`dx̃i` returns only the two rows that are read** (Nick, 2026-10-27; a private jet-API shape-contract change, every consumer updated); the current dense kernels become the `_trs` reference twins the ledger always claimed; the chunk-size estimator re-pointed at the real kernels; the ledger (`deferred_and_rejected.md:85-96`), `naming_conventions.md:144-149` and the 2026.1.0 CHANGELOG claim corrected; documented exceptions only where the convolution axis has length ≤ 2 (order ≤ 1 / the input jet's {0,1} axis) and the scan-weight sites if measured ≤ 2 % | T5/T6/T11 against the twins (≤ 1e-14), `test_jet_recurrence` + `test_probe_derivatives` + the uniform/jit sweeps unchanged in value; cost/memory re-measured (expect the exact/GN ratio and the assembly peak to drop) |
 | S4 | the protocols: `SamplingKind.corewise_hessian` (sixth operation, `@abc.abstractmethod` marker) + `ProbeDerivativesKind`'s implementation + the **`_UniformKind` raising stub**; the Geometry exact members and `DEFAULT_CURVATURE_DAMPING`; `ManifoldCurvatureData` / `CurvatureState` (+ registrations); backend `LocalModel` exact mode; `Problem.local_model(hessian, curvature_damping)` | T7–T10, T13, T20, **T23**; dispatch: exact hvp jit and one cache key |
 | S5 | Steihaug body and state; `_cg_core` / `_cg_solve` 5-tuple (and its 3 call sites); `step_control` / `tr_radius0`; the TR loop, floor rule and dtype ε; TR bookkeeping; the `NewtonInfo` TR / exact fields; the `cg_truncated` redefinition; the **`step` display segment**; `hessian` / `curvature_damping` on backend `newton_cg` | T14–T16 (constants re-pinned here), T19, T21 (ragged), **T25** (ragged); `test_cg_radius_is_not_stale`; existing GN tests and O2 unchanged |
 | S6a | `UniformManifoldGeometryOps.from_frame`; `_bgeom` → `from_frame` (GN path) | T18 (mask equality); uniform GN tests unchanged |
@@ -1567,6 +1578,7 @@ uniform_jax, both unshared and shared.
 | **I-29** (was O-6; Nick, 2026-10-26) | the canonical zero-point frame behind the default reference | **Adopted: the seeded, keyed, nested Haar recipe with a fixed seed** (C.2, F37): layer-independent (F31), never collapses (F32), nested across levels, reproducible to ~1e-15. It shifts every manifold `newton_cg` stop by an O(1) factor relative to today, zero starts included (C.15); that is accepted. **It must be documented** (ruling): the user-facing statement in `docs/fitting_and_optimization.md` §5 and `docs/rank_continuation.md` (what the reference is, that it is a convention good to an O(1) factor, why it is a Haar completion and not a coordinate-aligned one — the exact-zero trap, F32 — and that it is identical across the ragged and uniform layers and nested across levels), the caveat row in `docs/numerical_contracts.md`, and the recipe itself with its three properties in `docs/contributor/curvature_internals.md` (§G). The alternatives considered — (a) a coordinate-aligned completion, rejected for the exact-zero collapse; (b) `'warm_start'` as the default with `'zero'` opt-in, rejected because it keeps the continuation deflation G0P was written to remove; (c) per-mode seeds, equivalent to the adopted per-group keying — go to `deferred_and_rejected.md`. A possible later refinement, not planned: averaging the reference over a few seeds (each a one-sweep estimate of a frame-averaged norm; the O(1) seed spread is sampling variance) |
 | **I-30** (Nick, 2026-10-26) | `optimizers.least_squares_problem`'s return | a **named result** `LeastSquaresSetup(problem, x0_cores, rewrap)` (C.16), not a bare 3-tuple |
 | **I-31** (Nick, 2026-10-26) | zero *starts* and the canonical frame (J.13) | **left as is**: a zero `x0` keeps `geom.frame(x0)`'s completion for its first step; only the *reference* uses the canonical frame. Noted as a possibility to investigate later (J.13) |
+| **I-33** (Nick, 2026-10-27) | dense binomial (`trs`) contractions in production | **Hard rule, no relaxation: production kernels are recurrences / scan-based convolutions and correlations; dense `trs` tensors live only in `_trs` test twins.** The 19 pre-existing GN sites are a half-finished performance refactor (Nick: the formulas were derived with `trs` contractions and first implemented that way; the change to recurrences was decided later and stopped partway). Fixed as slice **S3b** before S5 (uniform twins then written once in S8). `dx̃i` returns the two rows that are read. Survey: `dev/curvature_impl_review/slices/trs_survey.md` |
 | **I-32** (Nick, 2026-10-26) | a math note in `docs/` | **At the very end (S15)**, a terse `docs/exact_hessian_two_hole.tex` + `.pdf`: the exact Hessian and the two-hole sweep as implemented — equations, algorithm boxes, tensor-network diagrams, references to the code (§G). Not detailed or reviewed now |
 
 ### Genuinely open
@@ -1708,11 +1720,11 @@ and the lift does broadcast over K for free. The grouped string says *which* blo
 searchable by `TestVocabularyCompleteness`, and costs nothing (F35: identifiable with no supplement). That is the
 intent behind both machineries: say what the batch is.
 
-**L.5 GN-form kernels vs "banded recurrences only" (P5).** The intent of Nick's rule is that **small-scale dense timings
-must not choose production forms**. The house already applies that rule as "the right form per convolution type"
-(`deferred_and_rejected.md:85-96`). Holding each dotted kernel to its GN counterpart's form satisfies the intent
-exactly. Demanding more would make the derivative faster than the operator it differentiates, with no evidence it is
-needed.
+**L.5 GN-form kernels vs "banded recurrences only" (P5) — WITHDRAWN 2026-10-27.** This section argued that holding
+each dotted kernel to its GN counterpart's form satisfied the intent of Nick's rule. It did not: the GN counterparts
+themselves contained 19 production dense-`trs` contractions left over from a half-finished performance refactor, and
+`deferred_and_rejected.md:85-96` never contained a "dense otherwise" leg — the ledger states the recurrence rule, which
+the code had stopped honouring. The rule is Nick's as stated (I-33); S3b fixes the GN sites and the dotted twins.
 
 **L.6 No alias for the rename.** The 2026.2.0 precedent ("deliberately not aliased") exists so that a breaking release
 breaks loudly once, rather than carrying two names indefinitely. The downstream update (§K) is in scope.
