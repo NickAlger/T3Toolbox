@@ -141,12 +141,13 @@ which layer you are holding.
     `ranks.frame_has_minimal_ranks`. The paired *residual* — the continuous quantity the boolean
     thresholds — takes the same stem with `_residual` (`t3_sharing_residual`,
     `fv_tied_variations_residual`), and both keep the stack.
-- **`_trs` suffix** (sampling-derivative jets) — the *dense binomial-tensor* implementation, kept as a
-  reference twin of the standard recurrence/scan form that owns the bare name. `compute_mu_jets` (the
-  standard, memory-lean, call-site-wired form) vs `compute_mu_jets_trs` (contracts the `trs` binomial
-  tensor as a dense einsum operand: numerically equal to tolerance, higher peak memory, occasionally
-  faster in tiny/memory-abundant regimes). The bare name is always the recommended default; `_trs` is
-  opt-in. (`trs` = the binomial convolution tensor `trs[t,r,s] = C(t,r)·[r+s=t]`, the module's own term.)
+- **`_trs` suffix** (sampling-derivative jets) — names a *dense binomial-tensor* reference twin, and those
+  live only in the test suite (`tests/_jet_trs_twins.py`, `tests/backend/_curvature_oracles.py`): the
+  shipped kernel owns the bare name and is always a banded recurrence or an order scan, never a contraction
+  against the binomial tensor, so there is no `_trs` function in the package. `compute_mu_jets` (shipped)
+  vs the test twin `compute_mu_jets_trs` (contracts `trs` as a dense einsum operand: numerically equal to
+  ~1e-15, the slower, memory-hungrier oracle). (`trs` = the binomial convolution tensor
+  `trs[t,r,s] = C(t,r)·[r+s=t]`, the derivation's term.)
 - **Capability-honest tails** — `ut3_full_sum` (all modes only, vs ragged `t3_sum(axis=...)`),
   `ut3_norm_orthogonalized` (always orthogonalizes). The uniform twin is not renamed to match
   the ragged name when it genuinely supports less.
@@ -159,14 +160,15 @@ the three batch blocks, and lowercase letters for single axes in contraction str
 
 **Derivative order has no letter in code and docs: the scalar is spelled `order`.** The
 *order/jet axis* (length `order + 1`) is lowercase **`t`** in contraction strings and shape
-comments, with **`r`, `s`** the two input-order axes of the binomial tensor `trs`
-(`trs[t,r,s] = C(t,r)·[r+s=t]`). `K` means the tangent stack *only* -- a 2026-08-24 ruling: the
+comments, with **`r`, `s`** the two input-order axes of a binomial convolution (the derivation's
+`trs[t,r,s] = C(t,r)·[r+s=t]`), and **`k`, `u`** the length-2 pair axis of a banded recurrence (an input
+jet's two orders; the two read rows of `dx̃i`). `K` means the tangent stack *only* -- a 2026-08-24 ruling: the
 sampling-derivatives docstrings used to gloss the max order as `K`, colliding with the
 tangent-stack letter in the very functions that carry both.
 
 The math note `docs/symmetric_probe_derivatives.tex` writes the max order as **$m$** (the jet-bundle
 $J^m$ precedent) with running index $t = 0, \dots, m$ and binomial split $\binom{t}{r}$ -- the same
-letters as the code's `trs` contractions, so the derivation and the implementation read in one
+letters as the code's jet contractions, so the derivation and the implementation read in one
 notation. ($j$ there is a plain mode dummy, and $r_i$ with a subscript is a TT rank, as everywhere.)
 
 ## Why "frame", not "basis"

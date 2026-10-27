@@ -280,6 +280,33 @@ HISTORICAL = {
     'dtWCai,dtWKCb->dKCaib': 'W',
     'dsWKCai,dsWCb->dKCaib': 'W',
     'dsWCai,dsWKCb->dKCaib': 'W',
+    # S3b (2026.3.0): every production jet kernel a recurrence / scan, the binomial tensor test-only (its
+    # dense-trs rows above stay as history; the twins in tests/_jet_trs_twins.py still use them). The
+    # two-row dxi~ correlation per order slice (mu O and O nu, and the dotted terms; the tilde pair carries u):
+    'Caib,WCb->WCai': '',
+    'Caib,WKCb->WKCai': '',
+    'KCaib,WCb->WKCai': 'C',
+    'WCib,uWKCb->uWKCi': 'C',
+    'WKCib,uWCb->uWKCi': 'C',
+    'uWKCa,WCai->uWKCi': 'C',
+    'uWCa,WKCai->uWKCi': 'C',
+    # ... the TT assemblies' banded sigma~ / tau~ pairs (k = the input jet's {0,1} leg) and their finals
+    'krWCb,rWCa->kWCab': '',
+    'krWCb,rWKCa->kWKCab': 'W',
+    'krWKCb,rWCa->kWKCab': 'W',
+    'ksWCa,sWCb->kWCab': '',
+    'ksWCa,sWKCb->kWKCab': 'W',
+    'ksWKCa,sWCb->kWKCab': 'W',
+    'kWKCab,kWCi->KCaib': 'W',
+    'kWKCab,kWCi->WKCaib': 'W',
+    'kWCab,kWKCi->KCaib': 'W',
+    # ... and the deta~ group's lag scan: fold the shifted deta~ against nu, then the outer product with mu^(r)
+    'sWCi,sWCb->WCib': '',
+    'sWKCi,sWCb->WKCib': 'W',
+    'sWCi,sWKCb->WKCib': 'W',
+    'WCa,WKCib->KCaib': 'W',
+    'WCa,WKCib->WKCaib': 'W',
+    'WKCa,WCib->KCaib': 'W',
 }
 
 SUBS_RE = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')

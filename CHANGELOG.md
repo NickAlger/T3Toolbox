@@ -66,6 +66,47 @@ All notable changes to T3Toolbox are documented here. The format follows
   option is in its signature and its docs. A misspelt option raises `TypeError` at the call, before the
   problem is built (it used to be forwarded, and the backend call rejected it after the setup work).
   Every valid call is unchanged. (`gradient_descent` / `mc_sgd` / `adam` still forward `**kwargs`.)
+- **Every production jet kernel is now a recurrence or an order scan; the binomial tensor is test-only**
+  (`backend.sampling_derivatives`; performance and memory, numerics equal to ~1e-15 relative -- not bitwise,
+  the summation order changed). 2026.1.0's move off the dense `trs[t,r,s] = C(t,r)·[r+s=t]` contraction had
+  stopped partway: the apply/entries-derivative forward and transpose, the probe transpose's `dx̃i` combine
+  and the TT gradient assembly (on every branch -- the W-chunked form only wrapped the dense kernel) still
+  contracted `trs` or a slice of it, and the order scans applied `(order+1)²` weight slices. Now an affine
+  factor gives a banded two-term recurrence, and a full convolution is an order scan whose binomial weights
+  come from a shift recurrence on a carried jet. Measured (CPU, float32 `memory_analysis`, per W-row, uniform,
+  unchunked): the TT assembly 4-8× less scratch, `dx̃i` 13-15×, the exact Hessian's two-hole TT assembly
+  5-14×; the jitted uniform probe-derivative transpose 4.3× and the two-hole 6.4× less temporary (d=4,
+  r=16, order 3, W=2000). Time: the ragged-numpy GN probe-derivative transpose 2.3× faster there, the
+  apply-derivative transpose 2×; small jitted uniform problems pay the sequential scans' latency (~1.6× at
+  d=5, r=8, W=300). Breaking, for backend callers of the jet kernels:
+  - **`trs` arguments are gone.** `compute_mu_jets` / `compute_nu_jets` take `order` in its place (their
+    input jets stop at order 1); `compute_eta_jets`, `compute_{sigma,tau,deta}_jets`,
+    `compute_{tau,sigma}_tilde_jets`, `compute_dxi_tilde_jets`, `compute_sigma_hat_jets`,
+    `assemble_tt_variation_jets`, `compute_{tau,sigma}_tilde_tangent_jets`, `compute_dxi_tilde_tangent_jets`
+    and `assemble_tt_tangent_variation_jets` drop it (the order is read off their jets).
+  - **`compute_dxi_tilde_jets` / `compute_dxi_tilde_tangent_jets` return only the two rows that are read**:
+    `(2,)+W+K+C+(nOi,)` (rows `u = 0, 1`; row 1 is zero at order 0), not `(order+1,)+...`;
+    `assemble_tucker_variation_jets` / `assemble_tucker_tangent_variation_jets` take that two-row jet.
+  - **Removed** (not aliased): `binomial_combine_tensor` and the dense `*_trs` twins
+    (`compute_{mu,nu,eta}_jets_trs`, `compute_{sigma,tau,deta}_jets_trs`, `compute_{tau,sigma}_tilde_jets_trs`,
+    `assemble_tt_variation_jets_trs`) -- they are the test suite's reference forms now (`tests/_jet_trs_twins.py`);
+    `assemble_tucker_variation_jets_trs` (which contracted no `trs`) is private -- pass `chunk_size=None` for
+    the unchunked assembly.
+  - **`estimate_chunk_size` / `max_chunk_size_within` measure the running program**: the per-row cost is
+    now the slope in `chunk_size` of the compiled chunked transpose (and, for `hessian='exact'`, of the
+    two-hole) -- the assemblies plus the chunk's slices of their input jets -- where it was one dense kernel
+    lowered alone. The answers grow with the smaller cost: rank 128, order 5, a 16 MiB budget gives 195 (was
+    2); the balanced policy now admits the whole `W` in the usual case (the assemblies cost less per row
+    than the resident jets), so `chunk_size='auto'` fits chunk less or not at all.
+
+### Fixed
+
+- **Jet outputs keep their inputs' dtype.** A float32 jet pipeline (`*_derivatives` forwards, transposes and
+  the two-hole) now stays float32 under `jax_enable_x64` and on numpy alike. The sweeps' scan inits (the
+  order-0 ones, the zero boundary jets, the adjoint zeros, the inner-scan accumulators, the entries one-hots)
+  were built in the default dtype and promoted every float32 jet to float64 -- 2026.2.0 did the same. The
+  plain `probe` / `apply` / `entries` ops still build default-dtype inits and still promote (recorded for a
+  follow-up).
 
 ### Added
 
@@ -120,9 +161,9 @@ All notable changes to T3Toolbox are documented here. The format follows
   `compute_tau_tilde_tangent_jets` / `compute_sigma_tilde_tangent_jets` (the dotted adjoint sweeps),
   `compute_dxi_tilde_tangent_jets`, `assemble_tucker_tangent_variation_jets` and
   `assemble_tt_tangent_variation_jets` (factored by the product rule). `estimate_chunk_size` and
-  `max_chunk_size_within` take the solver's mode vocabulary, `hessian='gauss_newton'` (the default, whose
-  answer is unchanged) or `'exact'` (case-insensitive; anything else raises `ValueError`); `'exact'` sizes the
-  chunk so that the two-hole's assemblies, whose per-row scratch is ~2-3.5× the transpose's, also fit.
+  `max_chunk_size_within` take the solver's mode vocabulary, `hessian='gauss_newton'` (the default, the
+  transpose-only answer) or `'exact'` (case-insensitive; anything else raises `ValueError`); `'exact'` sizes the
+  chunk so that the two-hole, whose chunk costs ~1.3-2.2× the transpose's per row, also fits.
 
 ## [2026.2.0] — 2026-08-25
 
@@ -679,6 +720,7 @@ _The items below came out of the 2026-08-22 whole-library review (`dev/review_20
   reference twins (numerically equal, and the test oracle). Under `jit` on the uniform layer this is
   a large memory win at unchanged accuracy — measured at rank 128, `W`=32000: ~14–28× less XLA
   temporary for the `eta` jets and 168 GB → 2.63 GB (64×) for the TT-core variation assembly.
+  *(Not all of them, as shipped: several kernels kept dense `trs` contractions until 2026.3.0 -- see there.)*
 
 ### Changed
 

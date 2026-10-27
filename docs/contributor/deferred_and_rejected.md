@@ -82,18 +82,40 @@ cross-references.)
   diagnostic display, which reads the concrete residual host-side (`jax.debug.callback` is the likely
   route). Its own decision, deliberately kept out of the jit-boundary work.
 
-- **The bidiagonal-`trs` jet optimization — deferred, then BUILT; now the standard form.** The
-  pushthrough/assembly contractions convolve a full-order jet with the input/perturbation jet, which
-  is capped at 2 orders (`s ∈ {0,1}`), so `trs[t,r,s]` is nonzero only at `r ∈ {t, t−1}` —
-  bidiagonal, `O(K)` where the dense `(K+1)×(K+1)` einsum is `O(K²)`. Deferred at design time
-  (training cost secondary, `K ≤ d` small); the measurement that motivated it (W=300, ranks 4):
-  derivative apply forward ~32× the plain op at order 4, transpose ~78×. It was built afterwards as
-  the recurrence/scan forms in `backend/sampling_derivatives.py` — `compute_mu_jets` is a fused
-  two-term recurrence with no `trs` operand at all, and the genuinely-full convolutions
-  (`eta`/`deta`/tilde) scan the summed order axis instead. Those are the **defaults** at every call
-  site; the dense binomial forms survive as the `*_trs` reference twins (`compute_mu_jets_trs`,
-  `compute_eta_jets_trs`, …), the oracle in `tests/test_jet_recurrence.py`. Source:
-  `dev/archive/derivatives_mirror_plan.md` §"Future-work / perf optimization".
+- **The bidiagonal-`trs` jet optimization — deferred, then BUILT; finished in 2026.3.0 (no production
+  kernel contracts the binomial tensor).** The pushthrough/assembly contractions convolve a full-order jet
+  with the input/perturbation jet, which is capped at 2 orders (`s ∈ {0,1}`), so `trs[t,r,s]` is nonzero
+  only at `r ∈ {t, t−1}` — bidiagonal, `O(order)` where the dense `(order+1)×(order+1)` einsum is
+  `O(order²)`. Deferred at design time (training cost secondary, `order ≤ d` small); the measurement that
+  motivated it (W=300, ranks 4): derivative apply forward ~32× the plain op at order 4, transpose ~78×.
+  It was built afterwards (2026.1.0) as the recurrence/scan forms in `backend/sampling_derivatives.py`,
+  **but only partway**: the mu/nu/sigma/tau pushthroughs, the eta/deta combines and the tilde sweeps
+  became recurrences and order scans, while 19 production contractions kept the dense `trs` operand or a
+  slice of it — the apply/entries-derivative forward and transpose, the probe transpose's `dx̃i` combine,
+  and the TT gradient assembly on every branch (the W-chunked form only wrapped the dense kernel) — and the
+  order scans applied `(order+1)²` weight slices per step. 2026.3.0 finished it, the standing rule now:
+  **production kernels are recurrences / scan-based convolutions and correlations; dense `trs` forms live
+  only in test twins.** One factor affine → a banded recurrence over the shifted pair `[x^(t), t·x^(t−1)]`
+  (forward) / `[x^(s), (s+1)·x^(s+1)]` (reverse), contracted against the input jet in one GEMM — this covers
+  the pushthroughs, the adjoint propagation and the TT assembly's sigma~/tau~ groups; the two-row `dx̃i`
+  correlation (which now returns only the two rows the Tucker assembly reads) is that pair met by a diagonal
+  order scan, for memory. Both factors full → an order scan whose binomial weights come from a shift
+  recurrence on a carried jet (`D^r x = r!·C(t,r)·x^(t−r)`, `D x = t·x^(t−1)`), never a weight matrix. The
+  dense binomial forms survive only as the `*_trs` reference twins in the test suite
+  (`tests/_jet_trs_twins.py`, `tests/backend/_curvature_oracles.py`), never imported by the package —
+  the oracle in `tests/test_jet_recurrence.py` and `tests/backend/test_curvature.py`. Measured on the change
+  (uniform, CPU float32, per W-row): TT assembly scratch 4–8× smaller, `dx̃i` 13–15×, the exact Hessian's
+  two-hole assembly 5–14×. Source: `dev/archive/derivatives_mirror_plan.md` §"Future-work / perf
+  optimization".
+- **Small-problem latency of the scanned jet kernels — recorded, accepted (2026.3.0).** The order scans run
+  per core (`xmap` over the cores of an inner order scan) where the dense forms were one einsum vectorized over
+  the cores, so a small jitted problem pays the sequential steps: at d=5, r=8, order 2, W=300 the jitted
+  `dx̃i` kernel went 1.08 → 3.88 ms (d·(order+1) = 15 steps; eta 0.52 → 0.86 ms), the GN probe transpose
+  5.5 → 8.6 ms, while large problems got faster and leaner (the TT assembly 6× faster on numpy; 4–6× less
+  temporary jitted). Not a reason for a dense contraction: `dx̃i`'s length-2 axis (its two rows) is already one
+  fused GEMM, and the scan is what keeps the `(order+1)·W·r·n` slice of `mu O` off the peak (12.6 GB per core
+  at r=128, W=32000, order 5). The lever, if latency ever matters, is a layout one: one order scan whose bodies
+  are vectorized over the cores (`d·W·r·n` per slice) instead of a map over cores of scans.
 - **Structured tangent stacks (`K`) — open idea** (Nick, 2026-06-12). When the `K` tangent vectors
   carry special structure — e.g. an orthonormal block within one tangent space `T_x M` — can
   `𝒥⁽ˢ⁾` be applied more cheaply than the general 3-group sweep? Plausible angles: shared

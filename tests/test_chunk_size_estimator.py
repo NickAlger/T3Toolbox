@@ -43,10 +43,15 @@ class TestChunkSizeEstimator(unittest.TestCase):
 
     def test_budget_is_respected(self):
         per_row = _per_row(self.MS, self.TR, self.TT, self.ORDER)
+        W = 32000
         for target in (1e9, 4e9, 16e9):
-            cs = pd.max_chunk_size_within(self.MS, self.TR, self.TT, self.ORDER, 32000, target)
-            self.assertLessEqual(cs * per_row, target)                    # within budget
-            self.assertGreater((cs + 1) * per_row, target - per_row)      # and near-maximal
+            with self.subTest(target=target):
+                cs = pd.max_chunk_size_within(self.MS, self.TR, self.TT, self.ORDER, W, target)
+                self.assertLessEqual(cs * per_row, target)                    # within budget
+                if cs < W:
+                    self.assertGreater((cs + 1) * per_row, target - per_row)  # and near-maximal
+                else:
+                    self.assertLessEqual(W * per_row, target)                 # ... or the whole W fits (16e9 here)
 
     def test_sharding_sizes_the_local_shard(self):
         # n_shards divides |W|, so the per-device chunk shrinks ~proportionally
@@ -59,21 +64,40 @@ class TestChunkSizeEstimator(unittest.TestCase):
         cs = pd.estimate_chunk_size((10, 11, 12), (5, 6, 4), (1, 2, 3, 1), 2, 50)
         self.assertEqual(cs, 50)
 
+    def test_per_row_cost_is_independent_of_x64(self):
+        # dtype=float32 means float32 whatever the global jax_enable_x64 says: the measured program must not
+        # be promoted to float64 by default-dtype scan inits (it was, so a full suite -- where test_dispatch
+        # turns x64 on -- saw different answers from this file run alone). Bypass the cache: measure twice.
+        ms, tr, tt, order, f32 = (10, 11, 12), (5, 6, 4), (1, 2, 3, 1), 2, np.dtype('float32')
+        before = jax.config.read('jax_enable_x64')
+        got = {}
+        try:
+            for x64 in (False, True):
+                jax.config.update('jax_enable_x64', x64)
+                got[x64] = (pd._assembly_per_row_bytes.__wrapped__(ms, tr, tt, order, 1, f32),
+                            pd._two_hole_assembly_per_row_bytes.__wrapped__(ms, tr, tt, order, 1, f32))
+        finally:
+            jax.config.update('jax_enable_x64', before)
+        self.assertEqual(got[False], got[True])
+
     def test_returns_plain_int(self):
         cs = pd.estimate_chunk_size(self.MS, self.TR, self.TT, self.ORDER, 5000)
         self.assertIsInstance(cs, int)
 
     def test_frame_stack_shrinks_the_budget_chunk(self):
-        # Every edge-variable jet carries the frame stack C, so the assembly costs prod(C) times more --
-        # while an absolute target_bytes does not scale at all. The budget policy must therefore return a
-        # prod(C)-times smaller chunk; ignoring C is how it would hand back a chunk that OOMs.
-        ms, tr, tt, order, W, target = (12,) * 3, (6,) * 3, (1, 6, 6, 1), 2, 8192, 2.0 ** 24
+        # Every edge-variable jet carries the frame stack C, so the transpose's chunk costs nearly prod(C) times
+        # more (not exactly: the probe vectors ww/pp carry no C) -- while an absolute target_bytes does not scale
+        # at all. The budget policy must therefore return a ~prod(C)-times smaller chunk (measured 3.4x for
+        # C = (4,) here); ignoring C is how it would hand back a chunk that OOMs.
+        ms, tr, tt, order, W, target = (12,) * 3, (6,) * 3, (1, 6, 6, 1), 2, 8192, 2.0 ** 22   # free chunk < W
         free = pd.max_chunk_size_within(ms, tr, tt, order, W, target)
         for stack_shape in ((2,), (4,), (2, 2)):
             with self.subTest(stack_shape=stack_shape):
                 got = pd.max_chunk_size_within(ms, tr, tt, order, W, target, stack_shape=stack_shape)
                 self.assertLess(got, free)
-                self.assertEqual(round(free / got), math.prod(stack_shape))
+                c = math.prod(stack_shape)
+                self.assertGreater(free / got, 0.6 * c)             # shrinks ~prod(C) ...
+                self.assertLessEqual(free / got, 1.05 * c)          # ... and no more
                 per_row = pd._assembly_per_row_bytes(ms, tr, tt, order, 1, np.dtype('float32'),
                                                      tuple(stack_shape))
                 self.assertLessEqual(got * per_row, target)          # still within the real budget
@@ -96,21 +120,22 @@ class TestChunkSizeEstimator(unittest.TestCase):
         self.assertGreater(c8 * 8, c1)          # far less than the 8x a pure prod(C) scaling would give
 
     def test_hessian_also_bounds_the_two_hole(self):
-        # An exact-Hessian fit runs the probe-derivative two-hole with the same chunk_size; its factored TT
-        # assembly holds pair intermediates, so its per-row scratch is the larger. hessian='exact' must keep BOTH
-        # assemblies within their jet floors (balanced) / within the cap (budget); 'gauss_newton' (the default)
-        # is unchanged.
+        # An exact-Hessian fit runs the probe-derivative two-hole with the same chunk_size; its chunk costs the
+        # more per row (dotted companions of every pair). hessian='exact' must keep BOTH programs within their jet
+        # floors (balanced) / within the cap (budget); 'gauss_newton' (the default) is unchanged. (Balanced, both
+        # clamp at |W| here: since the assemblies became recurrences their in-situ per-row cost is below the
+        # resident jets', so the balance admits the whole W; the budget policy is where 'exact' binds.)
         ms, tr, tt, order, W = (24,) * 4, (16,) * 4, (1, 16, 16, 16, 1), 3, 32000
         f32 = np.dtype('float32')
         gn = pd._assembly_per_row_bytes(ms, tr, tt, order, 1, f32)
         th = pd._two_hole_assembly_per_row_bytes(ms, tr, tt, order, 1, f32)
-        self.assertGreater(th, 1.5 * gn)                       # why the argument exists (measured ~3.3x here)
+        self.assertGreater(th, 1.5 * gn)                       # why the argument exists (measured ~2.0x here)
         plain = pd.estimate_chunk_size(ms, tr, tt, order, W)
         self.assertEqual(plain, pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='gauss_newton'))
         self.assertEqual(plain, pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='Gauss_Newton'))
         cs = pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='exact')
         self.assertEqual(cs, pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='EXACT'))   # case-insensitive
-        self.assertLess(cs, plain)
+        self.assertLessEqual(cs, plain)
         self.assertLessEqual(cs * th, pd._two_hole_jet_floor_bytes(ms, tr, tt, order, W, 1, 4))
         self.assertLessEqual(cs * gn, pd._jet_floor_bytes(ms, tr, tt, order, W, 1, 4))
         target = 2.0 ** 26
@@ -132,6 +157,43 @@ class TestChunkSizeEstimator(unittest.TestCase):
                     pd.estimate_chunk_size(*args, hessian=bad)
                 with self.assertRaisesRegex(ValueError, "hessian must be 'gauss_newton' or 'exact'"):
                     pd.max_chunk_size_within(*args, 2.0 ** 26, hessian=bad)
+
+
+@unittest.skipUnless(_HAVE_JAX, "the in-situ check compiles via jax")
+class TestBudgetHoldsInTheCompiledProgram(unittest.TestCase):
+    """The budget policy's promise checked against the compiled programs the chunk size drives, not against the
+    estimator's own per-row number (every test above compares the estimate with itself): at the chunk
+    ``max_chunk_size_within`` returns, the chunk-dependent scratch of the real chunked programs -- the one-shot
+    transpose, the transpose from a precomputed sweep (the fitting path), and for ``hessian='exact'`` the two-hole
+    -- stays within ``target_bytes``. A Tucker-dominated shape: where a per-kernel measurement (inputs as
+    parameters, so the chunk's slices of them unseen) under-estimated the running program by ~1.2-1.5x."""
+
+    def test_chunk_dependent_peak_within_the_budget(self):
+        S = lambda *s: jax.ShapeDtypeStruct(s, np.float32)
+        temp = lambda f, args: jax.jit(f).lower(*args).compile().memory_analysis().temp_size_in_bytes
+        d, n, r, N, order, target, c0 = 3, 4, 8, 64, 3, 2.0 ** 21, 8
+        ms, tr, tt = (N,) * d, (n,) * d, (1,) + (r,) * (d - 1) + (1,)
+        frame = (S(d, n, N), S(d, r, n, r), S(d, r, n, r), S(d, r, n, r))           # uniform: every bond at r
+        theta, dirs = (S(d, n, N), S(d, r, n, r)), (S(d, n, N), S(d, r, n, r))
+        for hessian in ('gauss_newton', 'exact'):
+            cs = pd.max_chunk_size_within(ms, tr, tt, order, 10 ** 6, target, hessian=hessian)
+            W = 8 * cs                                     # a multiple of cs and of c0: no remainder chunk
+            z, ww, pp = S(d, order + 1, W, N), S(d, W, N), S(d, W, N)
+            sweep = (S(d, 2, W, n), S(d, order + 1, W, r), S(d, order + 1, W, r), S(d, order + 1, W, n))
+            programs = {
+                'transpose': (lambda c: lambda a, b, e, f: pd.tv_probe_derivatives_transpose(
+                    a, b, e, f, order, sum_over_probes=True, chunk_size=c), (z, ww, pp, frame)),
+                'transpose_from_sweep': (lambda c: lambda a, b, e, f, sw: pd.tv_probe_transpose_derivatives_from_sweep(
+                    a, b, e, f, sw, order, sum_over_probes=True, chunk_size=c), (z, ww, pp, frame, sweep)),
+            }
+            if hessian == 'exact':
+                programs = {'two_hole': (lambda c: lambda a, b, e, th, dd: pd.t3_probe_corewise_derivatives_hessian(
+                    a, b, e, th, dd, order, chunk_size=c), (z, ww, pp, theta, dirs))}
+            for name, (make, args) in programs.items():
+                with self.subTest(hessian=hessian, program=name, chunk_size=cs):
+                    self.assertGreater(cs, 4 * c0)                 # the budget binds (no clamp at |W|)
+                    slope = (temp(make(cs), args) - temp(make(c0), args)) / (cs - c0)   # bytes per probe in the chunk
+                    self.assertLessEqual(cs * slope, target)       # the chunk's share of the peak fits the budget
 
 
 @unittest.skipUnless(_HAVE_JAX, "the 'auto' resolver estimates via jax")

@@ -14,8 +14,9 @@ fall into two very different per-`W`-row costs:
 - **The edge-variable jets** (`mu`, `nu`, `sigma_tilde`, `tau_tilde`, `deta_tilde`, …) — resident
   arrays with per-row cost `~ (order+1)·K·r`. This is the necessary floor: it *is* the data.
 - **The assembly intermediate** — the only stage whose per-row cost is **super-linear in the ranks**:
-  it forms frame-pairwise products (`mu ⊗ xi`, `xi ⊗ nu`, `mu ⊗ nu`), each `~ (order+1)²·(rank·rank)`.
-  That `(order+1)²·r²` factor is what turns a few-GB pipeline into hundreds of GB.
+  it forms frame-pairwise products (`mu ⊗ sigma_tilde`, `tau_tilde ⊗ nu`, `deta_tilde ⊗ nu`, summed over
+  the orders -- banded pairs or one order slice at a time), each `~ K·rank·rank` per row. That `r²` factor
+  (against the jets' `(order+1)·r`) is what turns a few-GB pipeline into tens or hundreds of GB.
 
 So the assembly is the only thing that runs out of memory, and `chunk_size` is the only knob that
 touches it. (The *forward* `𝒥` assembles via a plain lift with no `r²` blow-up, so it needs no
@@ -67,7 +68,7 @@ Semantics:
 
 ### A fixed `chunk_size` bounds the chunk *count*, not the bytes
 
-Peak memory is `chunk_size · (per-row bytes)`, and the per-row bytes grow like `(order+1)²·r²` (TT
+Peak memory is `chunk_size · (per-row bytes)`, and the per-row bytes grow like `K·r²` (TT
 gradient) or `(order+1)·nU·N` (Tucker gradient, the term that dominates when the ambient dimension
 `N ≫ n`). So a single fixed default is only "safe for moderate problems": comfortable at `r = 128`,
 but heavier at large ranks or large `N`. To actually **bound the memory**, choose `chunk_size` from the
@@ -82,10 +83,11 @@ This is device-agnostic: it needs no knowledge of the device's memory, only the 
 
 **The estimator.** Rather than guess, call `estimate_chunk_size` once (eagerly, outside `jit`) with the
 same shapes you used to build the problem, and pass the integer it returns as `chunk_size`. It measures
-the assembly's true per-row cost with XLA's own scratch accounting (`memory_analysis`) — no ~20×-off
+what one more probe in a chunk costs **in the compiled chunked transpose itself** with XLA's own scratch
+accounting (`memory_analysis`) — the assemblies' scratch plus the chunk's slices of their input jets; no
 analytic formula — and returns the largest chunk whose peak stays comparable to the resident jets.
-(The measurement lowers a real kernel, so **`estimate_chunk_size` and `max_chunk_size_within` need jax
-installed** — as does chunking itself. The value they return is machine-dependent.)
+(The measurement lowers the real transpose, so **`estimate_chunk_size` and `max_chunk_size_within` need
+jax installed** — as does chunking itself. The value they return is machine-dependent.)
 
 ```python
 >>> from t3toolbox.backend.sampling_derivatives import estimate_chunk_size, max_chunk_size_within
@@ -128,16 +130,16 @@ True
 ```
 
 **If the frame is a batch of base points, pass `stack_shape`** (the frame stack `C`). Every
-edge-variable jet carries `C`, so the assembly costs `prod(C)` times more — while a `target_bytes`
-budget does not scale at all. Omitting it on a stacked frame therefore makes
-`max_chunk_size_within` return a chunk up to `prod(C)` times too large, which is the
-out-of-memory that policy exists to prevent:
+edge-variable jet carries `C`, so the assembly costs nearly `prod(C)` times more (the probe vectors
+`ww`/`pp` do not carry it) — while a `target_bytes` budget does not scale at all. Omitting it on a
+stacked frame therefore makes `max_chunk_size_within` return a chunk up to `prod(C)` times too large,
+which is the out-of-memory that policy exists to prevent:
 
 ```python
->>> free    = max_chunk_size_within(**shapes, n_probes=8192, target_bytes=2**24)
->>> stacked = max_chunk_size_within(**shapes, n_probes=8192, target_bytes=2**24, stack_shape=(4,))
->>> round(free / stacked)              # the same budget buys a 4x smaller chunk on a 4-point batch
-4
+>>> free    = max_chunk_size_within(**shapes, n_probes=8192, target_bytes=2**22)
+>>> stacked = max_chunk_size_within(**shapes, n_probes=8192, target_bytes=2**22, stack_shape=(4,))
+>>> bool(2.5 < free / stacked <= 4)    # the same budget buys a ~4x smaller chunk on a 4-point batch
+True
 
 ```
 

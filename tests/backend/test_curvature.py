@@ -17,8 +17,9 @@
   the tangent zippers against finite differences.
 * **T5 two-holes (probe derivatives)** -- ``t3_probe_corewise_derivatives_hessian[_from_sweep]`` at orders
   0-3 against the block-sum oracle (``d`` = 4, 3, 1, slack frames, raw unsquashed cores) and a finite
-  difference of the one-hole, and **the shipped (GN-form) kernels against the dense-``trs`` reference twins**
-  of ``_curvature_oracles.py``, whole and piece by piece, to 1e-14 (observed <= 4.5e-16); the model's sweep
+  difference of the one-hole, and **the shipped (recurrence) kernels against the dense-``trs`` reference twins**
+  of ``_curvature_oracles.py`` (orders 0-4), whole and piece by piece, to 1e-14 relative (observed <= 4.4e-16;
+  not bitwise -- the summation order differs); the model's sweep
   is reused bitwise; stacked == per element (multi-axis ``W``, ``K``, ``C``); uniform supercores == ragged,
   chunked or not.
 * **T6 symmetry** -- ``<a, K b> = <b, K a>`` per ``C`` element (a ``K``-stack Gram matrix is symmetric), for
@@ -639,21 +640,33 @@ class TestProbeDerivativesTwoHole(unittest.TestCase):
                     self.assertLess(_relerr_tree(got, fd), 1e-6)
 
     def test_production_equals_the_trs_twins(self):
-        """The shipped kernels (recurrence / order scan / factored assembly) == the dense-trs twins, whole and
-        piece by piece (each piece fed the twin's own inputs). Observed <= 4.5e-16; the bar is 1e-14, not the
-        plan's 1e-15, because the two forms sum in different orders and CI runs two numpy generations (other
-        einsum / BLAS orders) -- a ~2x margin would be flaky. It loses no sensitivity: a dropped or rescaled
-        product-rule term moves the result by O(1e-2..1)."""
+        """The shipped kernels (banded recurrences / order scans with a carried shifted jet; never the binomial
+        tensor) == the dense-trs twins, whole and piece by piece (each piece fed the twin's own inputs), at orders
+        0..4, a single and a multi-axis sample stack W, d in {1, 3, 4}. Observed <= 4.4e-16; the bar is 1e-14
+        relative -- NOT bitwise: the recurrences sum in a different order from the dense einsums, and CI runs two
+        numpy generations (other einsum / BLAS orders), so a ~2x margin would be flaky. It loses no
+        sensitivity: a dropped or rescaled product-rule term moves the result by O(1e-2..1). The dotted dxi~ is
+        formed only on its two read rows (the twin computes all ``order+1``), so it is compared on those; the
+        TT assembly is checked against both the nine-term twin and the factored dense form S3 shipped."""
         rng = np.random.default_rng(15)
         worst = 0.0
         for name, struct in _PD_STRUCTURES.items():
-            for order in _PD_ORDERS:
-                for K, C in _PD_STACKS:
-                    with self.subTest(structure=name, order=order, K=K, C=C):
-                        _, theta, ww, pp, zt, dirs = _pd_problem(struct, order, K, C, (5,), rng)
+            for order in range(5):
+                for (K, C), W in [(kc, (5,)) for kc in _PD_STACKS] + [(((2,), (2,)), (2, 3)), (((2, 3), ()), (2, 3))]:
+                    with self.subTest(structure=name, order=order, K=K, C=C, W=W):
+                        _, theta, ww, pp, zt, dirs = _pd_problem(struct, order, K, C, W, rng)
                         st = oracles.probe_derivatives_two_hole_states_trs(zt, ww, pp, theta, dirs, order)
                         G, Gd = theta[1], dirs[1]
-                        trs = st['trs']
+                        s2 = min(2, order + 1)
+                        dxi_got = sd.compute_dxi_tilde_tangent_jets(
+                            G, Gd, st['mu'], st['mud'], st['nu'], st['nud'], st['sigma_t'], st['sigma_td'],
+                            st['tau_t'], st['tau_td'])
+                        self.assertEqual([np.shape(g)[0] for g in dxi_got], [2] * len(dxi_got))   # the two-row contract
+                        if order == 0:
+                            self.assertTrue(all(np.all(g[1] == 0) for g in dxi_got))         # row 1 is zero at order 0
+                        tt_args = (st['sigma_t'], st['sigma_td'], st['tau_t'], st['tau_td'], st['deta_t'],
+                                   st['deta_td'], st['xi'], st['xid'], st['mu'], st['mud'], st['nu'], st['nud'])
+                        tt_got = sd.assemble_tt_tangent_variation_jets(*tt_args, len(W))
                         pieces = {
                             'whole': (sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, dirs, order),
                                       (st['dU'], st['dG'])),
@@ -661,19 +674,16 @@ class TestProbeDerivativesTwoHole(unittest.TestCase):
                                                st['deta_td']),
                             'tau_tilde_dot': (sd.compute_tau_tilde_tangent_jets(
                                 G, Gd, st['xi'], st['xid'], st['deta_t'], st['deta_td'], st['mu'], st['mud'],
-                                st['tau_t'], trs), st['tau_td']),
+                                st['tau_t']), st['tau_td']),
                             'sigma_tilde_dot': (sd.compute_sigma_tilde_tangent_jets(
                                 G, Gd, st['xi'], st['xid'], st['deta_t'], st['deta_td'], st['nu'], st['nud'],
-                                st['sigma_t'], trs), st['sigma_td']),
-                            'dxi_tilde_dot': (sd.compute_dxi_tilde_tangent_jets(
-                                G, Gd, st['mu'], st['mud'], st['nu'], st['nud'], st['sigma_t'], st['sigma_td'],
-                                st['tau_t'], st['tau_td'], trs), st['dxi_td']),
+                                st['sigma_t']), st['sigma_td']),
+                            'dxi_tilde_dot': (tuple(g[:s2] for g in dxi_got), tuple(r[:2] for r in st['dxi_td'])),
                             'tucker_assembly': (sd.assemble_tucker_tangent_variation_jets(
-                                zt, st['dxi_td'], ww, pp, st['etad'], 1), st['dU']),
-                            'tt_assembly': (sd.assemble_tt_tangent_variation_jets(
-                                st['sigma_t'], st['sigma_td'], st['tau_t'], st['tau_td'], st['deta_t'],
-                                st['deta_td'], st['xi'], st['xid'], st['mu'], st['mud'], st['nu'], st['nud'],
-                                trs, 1), st['dG']),
+                                zt, tuple(r[:2] for r in st['dxi_td']), ww, pp, st['etad'], len(W)), st['dU']),
+                            'tt_assembly': (tt_got, st['dG']),
+                            'tt_assembly_vs_factored': (tt_got, oracles.tt_tangent_assembly_factored_trs(
+                                *tt_args, st['trs'], st['n_frame'])),
                         }
                         self.assertGreater(_norm_flat((st['dU'], st['dG'])), 1e-3)
                         for piece, (got, ref) in pieces.items():

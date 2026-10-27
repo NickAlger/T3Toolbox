@@ -22,16 +22,22 @@ Two oracles, each independent of the kernel it checks:
 
 A third family is not an oracle but a **reference twin**: the dense-``trs`` forms of the probe-derivative
 two-hole (:py:func:`probe_derivatives_two_hole_trs` and its pieces). The shipped kernels in
-``sampling_derivatives`` take the form of the Gauss-Newton kernel each one differentiates (a recurrence
-where the input jet is affine, an order scan where the convolution is full, a factored assembly); the twins
-are the same mathematics written as one dense binomial contraction per product-rule term, built from the
-existing ``*_trs`` twins wherever one exists. They live only here -- never called in production -- and the
-shipped kernels agree with them to ~1e-15 (pinned at 1e-14 in ``test_curvature.py``), as
-``tests/test_jet_recurrence.py`` pins the standard jet kernels to theirs.
+``sampling_derivatives`` are the product rule of the Gauss-Newton kernel each one differentiates, in its form
+(a banded recurrence where a factor is an input jet, an order scan with a carried shifted jet where the
+convolution is full, a factored assembly) and never contract the binomial tensor; the twins are the same
+mathematics written as one dense binomial contraction per product-rule term, built from the GN twins of
+``tests/_jet_trs_twins.py`` wherever one exists. :py:func:`tt_tangent_assembly_factored_trs` is the dense
+factored assembly the two-hole shipped with before the kernels became recurrences (S3b), kept as a second
+reference. They live only in the test suite -- never imported by the package -- and the shipped kernels agree
+with them to ~1e-15 (pinned at 1e-14 in ``test_curvature.py``), as ``tests/test_jet_recurrence.py`` pins the
+GN jet kernels to theirs.
 
 All functions take unstacked data unless stated; the tests loop over stack elements. Every random draw
 is the caller's (a seeded ``np.random.Generator``).
 """
+import os
+import sys
+
 import numpy as np
 
 import t3toolbox.backend.fv_conversions as fvc
@@ -41,6 +47,9 @@ import t3toolbox.backend.t3_conversions as t3c
 import t3toolbox.backend.tt_operations as tto
 import t3toolbox.backend.tv_operations as tv
 from t3toolbox.backend.contractions import contract
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # tests/: the GN twins
+import _jet_trs_twins as twins
 
 
 def doubled(theta, theta_hat):
@@ -204,7 +213,7 @@ def _w_c_counts(xi_jets, frame_core):
 
 
 def adjoint_sweep_tangent_trs(P, Pd, xi, xid, deta, detd, edge, edged, tildes, trs):
-    """The derivative of ``sd._adj_sweep`` (the dense adjoint sweep ``tilde' = prop(tilde, P, xi) +
+    """The derivative of ``twins._adj_sweep`` (the dense adjoint sweep ``tilde' = prop(tilde, P, xi) +
     src(edge, P, deta)``) along the dotted operands: six dense-trs terms per core, K on the dotted operand
     of each (carry / core / xi ; edge / core / deta). ``tildes`` are the undotted sweep's outputs (the carry
     entering each core). Returns the dotted tildes, len=d, elm_shape=(order+1,)+W+K+C+(rL_i,)."""
@@ -243,8 +252,9 @@ def deta_tilde_tangent_jets_trs(Ud, ztildes, n_frame):
 
 
 def dxi_tilde_tangent_jets_trs(G, Gd, mu, mud, nu, nud, sigma_tildes, sigma_tildes_d, tau_tildes, tau_tildes_d, trs):
-    """Reference twin of ``sd.compute_dxi_tilde_tangent_jets``: the six-term product rule of
-    ``sd._dxi_tilde_jets_step`` at ``O = G``."""
+    """Reference twin of ``sd.compute_dxi_tilde_tangent_jets``: the six-term product rule of the dense dxi~
+    combine (``twins.compute_dxi_tilde_jets_trs``) at ``O = G``, ALL ``order+1`` rows (the shipped kernel forms
+    only the two read rows ``u in {0, 1}``; compare ``[:2]``)."""
     n_probe, n_frame = _w_c_counts(mu, G[0])           # mu (order+1,)+W+C+(r,): the same W + C layout as xi
     kw = dict(len_W=n_probe, len_C=n_frame)
     out = []
@@ -291,6 +301,38 @@ def tt_tangent_assembly_trs(sigma_tildes, sigma_tildes_d, tau_tildes, tau_tildes
     return tuple(out)
 
 
+def tt_tangent_assembly_factored_trs(sigma_tildes, sigma_tildes_d, tau_tildes, tau_tildes_d, deta_tildes,
+                                     deta_tildes_d, xi, xid, mu, mud, nu, nud, trs, n_frame):
+    """The factored dense-trs TT tangent assembly (W summed) -- the per-core kernel the two-hole shipped with in
+    S3, before S3b made every production kernel a recurrence: each group's undotted pair and its dotted twin
+    formed once with the binomial weights folded into one factor (``M[t,s] = sum_r trs[t,r,s] mu^(r)``,
+    ``N[r,s] = sum_t trs[t,r,s] tau~^(t)``), the tau~ and deta~ groups sharing their remaining factor ``nu``.
+    A second reference beside the nine-term :py:func:`tt_tangent_assembly_trs`."""
+    s2 = min(2, trs.shape[0])
+    t_tau = trs[:, :s2, :]
+    nW = xi[0].ndim - 2 - n_frame
+    out = []
+    for k in range(len(xi)):
+        xs, xsd = xi[k][:s2], xid[k][:s2]
+        M = contract('trs,rWCa->tsWCa', trs, mu[k])
+        Md = contract('trs,rWKCa->tsWKCa', trs, mud[k], len_W=nW)
+        N = contract('trs,tWCa->rsWCa', t_tau, tau_tildes[k])
+        Nd = contract('trs,tWKCa->rsWKCa', t_tau, tau_tildes_d[k], len_W=nW)
+        P = contract('tsWCa,sWCi->tWCai', M[:, :s2], xs)
+        Pd = (contract('tsWKCa,sWCi->tWKCai', Md[:, :s2], xs, len_W=nW)
+              + contract('tsWCa,sWKCi->tWKCai', M[:, :s2], xsd, len_W=nW))
+        Q = contract('rsWCa,rWCi->sWCai', N, xs) + contract('tsWCa,tWCi->sWCai', M, deta_tildes[k])
+        Qd = (contract('rsWKCa,rWCi->sWKCai', Nd, xs, len_W=nW)
+              + contract('rsWCa,rWKCi->sWKCai', N, xsd, len_W=nW)
+              + contract('tsWKCa,tWCi->sWKCai', Md, deta_tildes[k], len_W=nW)
+              + contract('tsWCa,tWKCi->sWKCai', M, deta_tildes_d[k], len_W=nW))
+        out.append(contract('tWKCai,tWCb->KCaib', Pd, sigma_tildes[k], len_W=nW)
+                   + contract('tWCai,tWKCb->KCaib', P, sigma_tildes_d[k], len_W=nW)
+                   + contract('sWKCai,sWCb->KCaib', Qd, nu[k], len_W=nW)
+                   + contract('sWCai,sWKCb->KCaib', Q, nud[k], len_W=nW))
+    return tuple(out)
+
+
 def probe_derivatives_two_hole_states_trs(ztildes, ww, pp, core_pair, core_directions, order, frame_sweep=None):
     """Every intermediate of the dense-trs two-hole, as a dict (the per-piece twins' inputs and outputs).
 
@@ -300,21 +342,21 @@ def probe_derivatives_two_hole_states_trs(ztildes, ww, pp, core_pair, core_direc
     U, G = core_pair
     Ud, Gd = core_directions
     n_frame = U[0].ndim - 2
-    trs = sd.binomial_combine_tensor(order)
+    trs = twins.binomial_combine_tensor(order)
     if frame_sweep is None:
         xi = sd.build_input_jets(probing.compute_xi(U, ww), probing.compute_xi(U, pp))
-        mu = sd.compute_mu_jets_trs(G, xi, trs)
+        mu = twins.compute_mu_jets_trs(G, xi, trs)
     else:
         xi, mu = frame_sweep[0], frame_sweep[1]
     st = dict(trs=trs, n_frame=n_frame, xi=xi, mu=mu)
-    st['nu'] = sd.compute_nu_jets_trs(G, xi, trs)
+    st['nu'] = twins.compute_nu_jets_trs(G, xi, trs)
     st['deta_t'] = sd.compute_deta_tilde_jets(U, ztildes)
-    st['tau_t'] = sd.compute_tau_tilde_jets_trs(G, xi, st['deta_t'], mu, trs)
-    st['sigma_t'] = sd.compute_sigma_tilde_jets_trs(G, xi, st['deta_t'], st['nu'], trs)
+    st['tau_t'] = twins.compute_tau_tilde_jets_trs(G, xi, st['deta_t'], mu, trs)
+    st['sigma_t'] = twins.compute_sigma_tilde_jets_trs(G, xi, st['deta_t'], st['nu'], trs)
     st['xid'] = sd.build_input_jets(probing.compute_xi(Ud, ww), probing.compute_xi(Ud, pp))
-    st['mud'] = sd.compute_sigma_jets_trs(Gd, G, G, xi, st['xid'], mu, trs)
-    st['nud'] = sd.compute_tau_jets_trs(Gd, G, G, xi, st['xid'], st['nu'], trs)
-    st['etad'] = sd.compute_deta_jets_trs(Gd, G, G, mu, st['nu'], st['mud'], st['nud'], trs)
+    st['mud'] = twins.compute_sigma_jets_trs(Gd, G, G, xi, st['xid'], mu, trs)
+    st['nud'] = twins.compute_tau_jets_trs(Gd, G, G, xi, st['xid'], st['nu'], trs)
+    st['etad'] = twins.compute_deta_jets_trs(Gd, G, G, mu, st['nu'], st['mud'], st['nud'], trs)
     st['deta_td'] = deta_tilde_tangent_jets_trs(Ud, ztildes, n_frame)
     st['tau_td'] = tau_tilde_tangent_jets_trs(G, Gd, xi, st['xid'], st['deta_t'], st['deta_td'], mu, st['mud'],
                                               st['tau_t'], trs)

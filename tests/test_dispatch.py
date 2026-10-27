@@ -14,6 +14,8 @@ from the data) cannot be jitted, so they get a weaker jax-in -> jax-out output c
 numerical smoke tests guard against subtle backend divergence on the most complex ops.
 """
 import dataclasses as dc
+import os
+import sys
 import numpy as np
 import unittest
 
@@ -35,6 +37,9 @@ import t3toolbox.backend.probing as probing
 import t3toolbox.backend.sharing as bsharing
 import t3toolbox.shared_geometry as sgm
 import t3toolbox.fitting as fitting
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _jet_trs_twins as twins      # the binomial tensor: test-only (the package never contracts it)
 
 try:
     import jax
@@ -270,8 +275,9 @@ class TestDispatch(unittest.TestCase):
             lambda cc, w, p: pd.t3_probe_derivatives(w, p, cc, 3),
             xc.data, list(self.ww), list(self.zz))
         # the grouped-einsum interpreter directly: ndim solve + expansion at trace time (static
-        # string/lens); a 4-operand trs combine, an order-broadcast lift, and a summed-W assemble
-        trs = pd.binomial_combine_tensor(3)
+        # string/lens); a 4-operand trs combine (the dense twins' form), an order-broadcast lift, and a
+        # summed-W assemble
+        trs = twins.binomial_combine_tensor(3)
         mu = jnp.ones((4, 2, 5)); G = jnp.ones((5, 4, 6)); xij = jnp.ones((2, 2, 4)); nu = jnp.ones((4, 2, 6))
         self.assert_jit_jax(lambda a, b, c, e: contractions.contract('trs,rWCa,Caib,sWCi->tWCb', a, b, c, e),
                             trs[:, :, :2], mu, G, xij)
@@ -1276,6 +1282,50 @@ class TestJitStack(unittest.TestCase):
         a, b = t3m.MANIFOLD.randn(frame), t3m.MANIFOLD.randn(frame)
         out = jax.jit(lambda p, q: t3m.T3Tangent.stack_tangents((p, q)).variations.data)(a, b)
         self.assertEqual(tuple(out[0][0].shape)[:1], (2,))
+
+
+@unittest.skipUnless(HAS_JAX, "jax not available")
+class TestJetDtypeUnderX64(unittest.TestCase):
+    """A float32 jet pipeline stays float32 with jax_enable_x64 on (this module turns it on at import). The
+    sweeps' scan inits (the order-0 ones, the zero boundary jets, the adjoint and accumulator zeros) are built
+    in their operands' dtype; built in the default dtype they promoted every float32 jet to float64 under x64
+    (and every numpy float32 jet to float64 always) -- 2026.2.0 did, which also made the chunk-size estimator
+    depend on the global x64 flag. Uniform supercores (eager and jitted) and ragged numpy float32."""
+
+    def test_float32_in_float32_out(self):
+        import t3toolbox.backend.sampling_derivatives as sd
+        rng = np.random.default_rng(0)
+        d, n, r, N, order, W = 3, 3, 3, 5, 2, 8
+        for xnp_ in (jnp, np):
+            R = lambda *s: xnp_.asarray(rng.standard_normal(s), xnp_.float32)
+            frame = (R(d, n, N), R(d, r, n, r), R(d, r, n, r), R(d, r, n, r))
+            var = (R(d, n, N), R(d, r, n, r))
+            zt, ww, pp, c = R(d, order + 1, W, N), R(d, W, N), R(d, W, N), R(order + 1, W)
+            idx = xnp_.asarray(rng.integers(0, N, (d, W)))
+            ops = {
+                't3_probe_derivatives': lambda: sd.t3_probe_derivatives(ww, pp, (frame[0], frame[2]), order),
+                'tv_probe_derivatives': lambda: sd.tv_probe_derivatives(ww, pp, var, frame, order),
+                'tv_probe_derivatives_transpose': lambda: sd.tv_probe_derivatives_transpose(
+                    zt, ww, pp, frame, order, sum_over_probes=True, chunk_size=3),
+                'two_hole': lambda: sd.t3_probe_corewise_derivatives_hessian(
+                    zt, ww, pp, (frame[0], frame[2]), var, order, chunk_size=3),
+                'tv_apply_derivatives': lambda: sd.tv_apply_derivatives(ww, pp, var, frame, order),
+                'tv_apply_derivatives_transpose': lambda: sd.tv_apply_derivatives_transpose(c, ww, pp, frame, order, True),
+                'tv_entries_derivatives_transpose': lambda: sd.tv_entries_derivatives_transpose(
+                    c, idx, pp, frame, order, True),
+            }
+            for name, op in ops.items():
+                runs = [op()] + ([jax.jit(op)()] if xnp_ is jnp else [])
+                for k, out in enumerate(runs):
+                    with self.subTest(op=name, backend=xnp_.__name__, jit=bool(k)):
+                        self.assertEqual({str(l.dtype) for l in jax.tree_util.tree_leaves(out)}, {'float32'})
+            ragged = lambda a: tuple(np.asarray(x) for x in a)                     # ragged numpy float32 too
+            if xnp_ is np:
+                with self.subTest(op='tv_probe_derivatives_transpose', backend='ragged numpy'):
+                    out = sd.tv_probe_derivatives_transpose(ragged(zt), ragged(ww), ragged(pp),
+                                                            tuple(ragged(f) for f in frame), order, sum_over_probes=True)
+                    self.assertEqual({str(l.dtype) for l in jax.tree_util.tree_leaves(out)}, {'float32'})
+
 
 if __name__ == "__main__":
     unittest.main()
