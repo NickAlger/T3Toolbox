@@ -222,6 +222,26 @@ class TestFittingChunkSizeWiring(unittest.TestCase):
         self.assertEqual(opt._resolve_chunk_size(7, 'probe_derivatives', xu, s, 2), 7)               # int passthrough
         self.assertEqual(opt._resolve_chunk_size('auto', 'probe_derivatives', xu, s, 2, batch=40),   # minibatch caps W
                          opt._resolve_chunk_size('auto', 'probe_derivatives', xu, self._probes(40), 2))
+        # The solver's hessian mode reaches the estimator, so an exact fit's chunk also bounds the two-hole. The two
+        # ANSWERS cannot be told apart through the resolver: it sizes one CG direction (n_tangent = 1), where the
+        # measured balance admits all of W in both modes -- jet floor / per-row cost >= 2.0 for the transpose and
+        # the two-hole alike over 12 measured shapes (d = 3-5, order 0-6, ranks to 36, N to 1000; e.g. this STRUCT
+        # at order 2: 2.89 GN, 2.55 exact) -- so both return W = 40000 here. The pass-through is pinned directly
+        # instead: the forwarded mode (a spy), the estimator's own validation reached through the resolver, and
+        # equality with a direct estimator call.
+        from unittest import mock
+        big = self._probes(40000)
+        with mock.patch.object(pd, 'estimate_chunk_size', wraps=pd.estimate_chunk_size) as spy:
+            exact = opt._resolve_chunk_size('auto', 'probe_derivatives', xu, big, 2, hessian='exact')
+            gn = opt._resolve_chunk_size('auto', 'probe_derivatives', xu, big, 2)
+        self.assertEqual([c.kwargs['hessian'] for c in spy.call_args_list], ['exact', 'gauss_newton'])
+        with self.assertRaisesRegex(ValueError, "hessian must be 'gauss_newton' or 'exact'"):
+            opt._resolve_chunk_size('auto', 'probe_derivatives', xu, big, 2, hessian='newton')
+        d, nU, r = 3, int(xu.tucker_supercore.shape[-2]), int(xu.tt_supercore.shape[-1])
+        for mode, got in (('exact', exact), ('gauss_newton', gn)):
+            self.assertEqual(got, pd.estimate_chunk_size(self.STRUCT[0], (nU,) * d, (r,) * (d + 1), 2, 40000,
+                                                         dtype=xu.tucker_supercore.dtype, hessian=mode))
+        self.assertIsNone(opt._resolve_chunk_size('auto', 'probe_derivatives', xr, big, 2, hessian='exact'))  # ragged
 
     def test_newton_cg_exact_across_chunk_size(self):
         # chunk_size is an exact reorganization -> the fit is identical up to float rounding, for any

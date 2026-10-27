@@ -32,6 +32,16 @@ restricts every projection to the TIED tangent subspace and keeps the retraction
 (SF-T3; ``docs/sharing.md``). One class, one code path. Build the canonical partition with
 :py:func:`~t3toolbox.backend.sharing.validate_sharing`, or use the ``from_point`` /
 ``with_sharing`` constructors here.
+
+**The exact Hessian's members** (``hessian='exact'`` only; a Gauss-Newton fit never calls them).
+``curvature_precompute`` builds the per-frame curvature data once per local model -- on the manifold the
+lift factors, ``grad f`` as a doubled-rank T3 and its inner-product sweep
+(:py:class:`ManifoldCurvatureData`); ``lift`` / ``lift_transpose`` map coordinates to raw core variations
+and back (:py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift`); ``tangential_curvature`` is the
+``K_{grad f}`` term (:py:func:`~t3toolbox.backend.t3_linalg.t3_inner_product_corewise_hessian_from_sweep`).
+The corewise geometries need neither a lift nor a tangential term. The lift's damping is a solver option
+(``curvature_damping``), not a geometry field: ``None`` resolves to :py:data:`DEFAULT_CURVATURE_DAMPING`
+here, and a value where there is no lift to damp raises.
 """
 import dataclasses as dc
 import typing as typ
@@ -46,6 +56,7 @@ from t3toolbox.backend import fv_operations
 from t3toolbox.backend import ufv_operations
 from t3toolbox.backend import ufv_masking
 from t3toolbox.backend import sharing as sharing_module
+from t3toolbox.backend import t3_linalg
 from t3toolbox.backend import t3_orthogonalization as ragged_orth
 from t3toolbox.backend import tt_operations
 from t3toolbox.backend.fv_conversions import t3_orthogonal_representations, t3_corewise_frame
@@ -56,6 +67,8 @@ __all__ = [
     'CorewiseGeometryOps',
     'UniformManifoldGeometryOps',
     'UniformCorewiseGeometryOps',
+    'ManifoldCurvatureData',
+    'DEFAULT_CURVATURE_DAMPING',
     'canonical_groups',
     'fv_base_point_tangent',
     'ufv_base_point_tangent',
@@ -65,6 +78,8 @@ __all__ = [
 
 
 canonical_groups = sharing_module.canonical_groups   # re-exported: the geometry's `groups` field is exactly this
+
+DEFAULT_CURVATURE_DAMPING = 1e-6    # the exact Hessian's lift damping, RELATIVE to ||X||_HS (curvature_damping=None)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -138,6 +153,40 @@ def t3_alias_tied_tucker_factors(
         for member in group[1:]:
             out[member] = out[group[0]]
     return tuple(out)
+
+
+# --------------------------------------------------------------------------------------------------
+# The exact Hessian's per-frame curvature data (hessian='exact')
+# --------------------------------------------------------------------------------------------------
+@dc.dataclass(frozen=True, eq=False)   # eq=False -> identity hash/eq: array fields (the LiftFactors precedent)
+class ManifoldCurvatureData:
+    """The per-frame data of the exact Riemannian Hessian's curvature term on the manifold geometry, built
+    by :py:meth:`ManifoldGeometryOps.curvature_precompute` once per local model (beside the sampling sweep).
+
+    As a jax pytree every array is a leaf (the treedef's aux is the value-hashed static skeleton), so a new
+    frame, a new gradient or a new damping changes leaf values only -- never the compilation key."""
+    lift_factors:  fv_operations.LiftFactors   # the frame's damped lift factors (fv_lift_factors); eps a leaf
+    z:             typ.Tuple                   # grad f as a doubled-rank T3: tv_to_t3(frame, misfit_gradient)
+    z_sweep:       typ.Tuple                   # t3_precompute_inner_product_sweep(z, base_point)
+    sigma_min:     NDArray                     # the smallest lift singular value (Tucker and bond), shape=C
+
+
+def _manifold_curvature_data(
+        frame:              typ.Tuple,   # (U, O, P, Q) -- an orthogonal frame
+        misfit_gradient:    typ.Tuple,   # gauged coordinates of grad f (the misfit's Riemannian gradient), stack C
+        curvature_damping:  float,       # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
+) -> ManifoldCurvatureData:
+    """:py:meth:`ManifoldGeometryOps.curvature_precompute`'s body, without its ``d = 1`` shortcut (at
+    ``d = 1`` the normal space is trivial and the term this data feeds is exactly zero)."""
+    lift_factors = fv_operations.fv_lift_factors(frame, curvature_damping)
+    z = tops.tv_to_t3(frame, misfit_gradient)
+    z_sweep = t3_linalg.t3_precompute_inner_product_sweep(z, (frame[0], frame[2]))
+    xnp, _, _ = get_backend(False, tree_contains_jax(lift_factors.tucker_svals))
+    per_factor = [xnp.min(s, axis=-1) for s in lift_factors.tucker_svals + lift_factors.bond_svals]
+    sigma_min = per_factor[0]
+    for s in per_factor[1:]:
+        sigma_min = xnp.minimum(sigma_min, s)
+    return ManifoldCurvatureData(lift_factors, z, z_sweep, sigma_min)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -244,6 +293,52 @@ class ManifoldGeometryOps(ValueHashedFields):
         factor per sharing group: :py:func:`~t3toolbox.backend.fv_operations.fv_zero_point_frame`."""
         return fv_operations.fv_zero_point_frame(frame, self.groups)
 
+    # ---- the exact Hessian (hessian='exact' only) -------------------------------------------------
+    def curvature_precompute(
+            self,
+            frame:              typ.Tuple,                   # (U, O, P, Q)
+            misfit_gradient:    typ.Tuple,                   # Pi J^T omega^2 r: the model's ONE misfit transpose
+            aux:                typ.Any,                     # self.precompute(frame)
+            curvature_damping:  typ.Optional[float],         # RELATIVE to ||X||_HS; None -> DEFAULT_CURVATURE_DAMPING
+    ) -> typ.Optional[ManifoldCurvatureData]:                # None iff the curvature term vanishes here (d = 1)
+        """The per-frame curvature data of the exact Riemannian Hessian
+        ``H p = Pi J^T omega^2 J Pi p + Pi L^T (K_{A^T omega^2 r} - K_{grad f}) L Pi p``: the lift ``L``'s
+        damped factors at ``eps = curvature_damping * ||X||_HS``
+        (:py:func:`~t3toolbox.backend.fv_operations.fv_lift_factors`), the misfit gradient as a doubled-rank
+        T3 ``z`` and its inner-product sweep at the base point (the tangential term ``K_{grad f}``), and the
+        smallest lift singular value (a diagnostic).
+
+        ``None`` at ``d = 1``: there every slot is at maximal rank, the representable set is open in ``R^N``
+        (flat), and the curvature term is exactly zero, so the work is skipped -- a cost shortcut; the formula
+        needs no special case and gives zero there numerically. Sharing's tied lift is not built yet (a
+        structural ``NotImplementedError``)."""
+        if self.groups:
+            raise NotImplementedError("ManifoldGeometryOps.curvature_precompute: the exact Hessian on a shared "
+                                      "geometry (the tied lift) lands in slice S7")
+        cd = DEFAULT_CURVATURE_DAMPING if curvature_damping is None else float(curvature_damping)
+        if not cd >= 0.0:
+            raise ValueError('curvature_damping must be >= 0 (it is relative to ||X||_HS); got %r'
+                             % (curvature_damping,))
+        if len(frame[0]) == 1:
+            return None
+        return _manifold_curvature_data(frame, misfit_gradient, cd)
+
+    def lift(self, frame, variations, curvature_data):
+        """Gauged (or not) coordinates -> raw core variations of the base point ``(U, P)``, ``theta_hat = L v``
+        (:py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift`); stack ``K + C``."""
+        return tops.tv_corewise_lift(frame, variations, curvature_data.lift_factors)
+
+    def lift_transpose(self, frame, core_variations, curvature_data):
+        """Raw core variations -> UNGAUGED coordinates, ``L^T y`` (the exact adjoint of :py:meth:`lift`)."""
+        return tops.tv_corewise_lift_transpose(frame, core_variations, curvature_data.lift_factors)
+
+    def tangential_curvature(self, frame, core_directions, curvature_data):
+        """``K_{grad f} theta_hat``: the core-coordinate Hessian of ``theta -> <grad f, Phi(theta)>`` along the
+        directions, at the base point -- the term that turns the ambient curvature into its normal part
+        (:py:func:`~t3toolbox.backend.t3_linalg.t3_inner_product_corewise_hessian_from_sweep`)."""
+        return t3_linalg.t3_inner_product_corewise_hessian_from_sweep(
+            curvature_data.z, self.base_point(frame), core_directions, curvature_data.z_sweep)
+
 
 @dc.dataclass(frozen=True, eq=False)
 class CorewiseGeometryOps(ValueHashedFields):
@@ -320,6 +415,27 @@ class CorewiseGeometryOps(ValueHashedFields):
         """``None``: this geometry has no zero-point reference. The objective is multilinear in the cores,
         so the zero cores are a critical point of every corewise objective and the gradient there is exactly
         zero -- the default Newton reference on a corewise geometry is therefore the warm start."""
+        return None
+
+    # ---- the exact Hessian (hessian='exact' only) -------------------------------------------------
+    def curvature_precompute(self, frame, misfit_gradient, aux, curvature_damping):
+        """``()``: the corewise exact Hessian is ``J^T omega^2 J + K_{A^T omega^2 r}`` (the full Hessian of
+        ``f o Phi``), with no lift and no tangential term, so there is no per-frame data -- and nothing for a
+        ``curvature_damping`` to damp (a non-``None`` value raises, rather than being silently ignored)."""
+        if curvature_damping is not None:
+            raise ValueError("curvature_damping has no effect on a corewise geometry (there is no lift to damp)")
+        return ()
+
+    def lift(self, frame, variations, curvature_data):
+        """The identity: the corewise coordinates ARE raw core variations."""
+        return variations
+
+    def lift_transpose(self, frame, core_variations, curvature_data):
+        """The identity (see :py:meth:`lift`)."""
+        return core_variations
+
+    def tangential_curvature(self, frame, core_directions, curvature_data) -> None:
+        """``None``: no tangential term (the corewise Hessian is the plain Hessian of ``f o Phi``)."""
         return None
 
 
@@ -540,3 +656,19 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
         """``None``: no zero-point reference on a corewise geometry (see
         :py:meth:`CorewiseGeometryOps.zero_point_frame`)."""
         return None
+
+
+if jax_available:
+    import jax
+
+    # The curvature data is a jax pytree whose arrays are all LEAVES (the lift factors, grad f's doubled-rank
+    # cores and its sweep, sigma_min); the aux is the value-hashed static skeleton of `partition_static`, which
+    # keeps any static structure static (a uniform twin's shape ints and host masks) -- so a new frame, gradient
+    # or damping changes leaf values only, never the jit cache key.
+    def _flatten_curvature_data(c):
+        return partition_static((c.lift_factors, c.z, c.z_sweep, c.sigma_min))
+
+    def _unflatten_curvature_data(skeleton, children):
+        return ManifoldCurvatureData(*rebuild_static(children, skeleton))
+
+    jax.tree_util.register_pytree_node(ManifoldCurvatureData, _flatten_curvature_data, _unflatten_curvature_data)

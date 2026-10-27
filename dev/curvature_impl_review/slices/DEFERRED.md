@@ -19,3 +19,6 @@
 | S3b review | The `shard_map` recipe in `docs/chunking.md` fails jax 0.12's default `check_vma` (pre-existing on a62e621) and its `in_specs` is wrong; the new sharding smoke test shows the working form | S13 |
 | S3b review M3 | When S4 is un-parked: `test_resolver`'s `assertLess(exact, gn)` now fails because both chunk sizes clamp at W = 40000 — re-pin on a larger-rank problem; the two CHANGELOG hunks conflict with S3b's | S4 un-park |
 | S3b | Small jitted uniform problems ~1.6× slower after the conversion (mostly the `dx̃i` kernel, 1.08 → 3.88 ms; its length-2 axis is already one fused GEMM) — accepted, recorded in `deferred_and_rejected.md` | — |
+| S4 handoff / review | Plan amendment: C.16's `least_squares_problem` must gain `hessian=` (and C.13's `newton_cg` pass it) so the resolved `chunk_size='auto'` reaches the estimator in exact mode — the mode currently reaches it only through the private `_resolve_chunk_size` | S6 |
+| S4 handoff | `dev/OPEN_QUESTION_extension_surface.md`: append the "sixth required operation" text from plan C.6 and bump its stub count (nine → ten) | S13 |
+| S4 implementer | Shared-MANIFOLD exact mode raises `NotImplementedError` naming S7; shared-COREWISE exact mode is live and verified (Π H Π to 1e-13) | S7 |

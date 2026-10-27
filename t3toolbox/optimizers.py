@@ -151,13 +151,14 @@ def _n_modes(kind: str, sample: typ.Any) -> int:
     return s.shape[0] if kind.startswith('entries') else len(s)
 
 
-def _resolve_chunk_size(chunk_size, kind, x0, sample, order, batch=None):
+def _resolve_chunk_size(chunk_size, kind, x0, sample, order, batch=None, hessian='gauss_newton'):
     """Resolve ``chunk_size='auto'`` to a memory-balanced value for a uniform **probe_derivatives** fit
     (:py:func:`~t3toolbox.backend.sampling_derivatives.estimate_chunk_size`, measured eagerly from the
     supercore shapes); ints / ``None`` pass through unchanged. Only probe_derivatives has a chunkable
     ``𝒥ᵀ`` assembly, so every other kind (and the ragged path, which frees eagerly) resolves to ``None``
-    -- a no-op. For minibatch optimizers the transpose sees ``batch`` probes, not the full ``|W|``. See
-    :doc:`/chunking`."""
+    -- a no-op. For minibatch optimizers the transpose sees ``batch`` probes, not the full ``|W|``.
+    ``hessian`` is the solver's mode, passed straight to the estimator: with ``'exact'`` the same chunk also
+    drives the exact Hessian's two-hole assemblies, so it is sized for those too. See :doc:`/chunking`."""
     if chunk_size != 'auto':
         return chunk_size
     if kind != 'probe_derivatives' or not isinstance(x0, ut3.UniformTuckerTensorTrain):
@@ -171,7 +172,8 @@ def _resolve_chunk_size(chunk_size, kind, x0, sample, order, batch=None):
     d, nU, r = int(tsc.shape[0]), int(tsc.shape[-2]), int(qsc.shape[-1])
     full_W = math.prod(sample[0][0].shape[:-1])
     w = min(int(batch), full_W) if batch else full_W
-    return _bfit_pd().estimate_chunk_size(tuple(x0.shape), (nU,) * d, (r,) * (d + 1), order, w, dtype=tsc.dtype)
+    return _bfit_pd().estimate_chunk_size(tuple(x0.shape), (nU,) * d, (r,) * (d + 1), order, w, dtype=tsc.dtype,
+                                          hessian=hessian)
 
 
 def _bfit_pd():

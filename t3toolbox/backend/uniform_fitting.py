@@ -3,7 +3,7 @@
 # Github: https://github.com/NickAlger/T3Toolbox
 """Uniform-layer fitting: the packed ``SamplingKind`` classes and the least-squares ``Problem``.
 
-The uniform twins of :py:mod:`t3toolbox.backend.fitting`'s kinds -- subclasses that override the five
+The uniform twins of :py:mod:`t3toolbox.backend.fitting`'s kinds -- subclasses that override the
 layer-specific operations and, for the probe kinds, where ``omega``'s axes sit in the PACKED output.
 Each carries the fixed rank it was built at (``shape`` + the plain-UT3 ``masks``) as FIELDS, so a
 rebuilt kind of the same rank is the same jax cache key
@@ -20,6 +20,7 @@ the ragged Kind protocol's ``(v, sample, frame_data, sweep)`` signature even tho
 Protocol uniformity is the point: generic code (the shared ``LocalModel``) calls every kind the same
 way, ragged or uniform.
 """
+import abc
 import dataclasses as dc
 import typing as typ
 
@@ -56,9 +57,9 @@ __all__ = [
 
 
 # --------------------------------------------------------------------------------------------------
-# The uniform sampling kinds -- subclasses of the ragged ones (backend.fitting) that override exactly
-# the five layer-specific operations (precompute / forward / transpose / point_forward / take) and, for
-# the probe kinds, where omega's axes sit in the PACKED output. The layer-agnostic half -- the
+# The uniform sampling kinds -- subclasses of the ragged ones (backend.fitting) that override the six
+# layer-specific operations (precompute / forward / transpose / point_forward / take / corewise_hessian)
+# and, for the probe kinds, where omega's axes sit in the PACKED output. The layer-agnostic half -- the
 # reductions, the sample layout, the residual-weight machinery, and the value identity -- is inherited.
 #
 # Each carries the fixed rank it is built at (`shape` + the plain-UT3 `masks`) as FIELDS, so a rebuilt
@@ -66,7 +67,23 @@ __all__ = [
 # the variation masks from the frame it is handed, and `transpose` re-masks its output with the same masks
 # (broadcast over the residual's tangent stack), so the kinds stay geometry-agnostic; only
 # `point_forward` (the S(x) op on the plain-UT3 point) needs the held shape + masks.
+#
+# `corewise_hessian` (the sixth, hessian='exact' only) is not yet overridden: each uniform kind's masked
+# two-hole lands in its own slice. Until it does, `_UniformKind` -- which precedes the ragged kind in every
+# uniform kind's MRO -- carries a raising stub, so a uniform kind can never inherit the ragged (mask-free)
+# method and run it on padded supercores; the stub's abstractmethod marker makes
+# `Problem.local_model(hessian='exact')` reject it structurally before any work.
 # --------------------------------------------------------------------------------------------------
+_UNIFORM_HESSIAN_SLICE = {                      # where each uniform kind's masked corewise_hessian lands
+    'UniformProbeDerivativesKind':   'S8',
+    'UniformProbeKind':              'S10',
+    'UniformApplyKind':              'S11',
+    'UniformEntriesKind':            'S11',
+    'UniformApplyDerivativesKind':   'S12',
+    'UniformEntriesDerivativesKind': 'S12',
+}
+
+
 @dc.dataclass(frozen=True, eq=False)
 class _UniformKind:
     """The fixed rank a uniform kind is built at. Defaults so the field ordering works alongside the
@@ -100,6 +117,11 @@ class _UniformKind:
         masks = ufv_masking.ufv_variation_masks_over_stack(
             frame_data[5], frame_data[0].shape[1:-2], v_sc[0].shape[1:-2])
         return ufv_masking.ufv_apply_variations_masks((v_sc[0], v_sc[1], frame_data[4], masks))
+
+    @abc.abstractmethod     # the same marker as the base: hessian='exact' rejects the kind structurally, up front
+    def corewise_hessian(self, *args, **kwargs):     # until this class's masked override lands (the table above)
+        raise NotImplementedError("%s.corewise_hessian: the masked uniform two-hole lands in slice %s"
+                                  % (type(self).__name__, _UNIFORM_HESSIAN_SLICE.get(type(self).__name__, '?')))
 
 
 @dc.dataclass(frozen=True, eq=False)

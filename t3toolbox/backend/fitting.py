@@ -22,6 +22,7 @@ case. The objective constant ``c = ½‖r‖²`` is just ``½ · sumsq(r)`` (the
 quadratic term ``½‖𝒥Πp‖²``), so the kind needs no separate objective function.
 '''
 
+import abc
 import functools as ft
 import math
 import typing as typ
@@ -299,8 +300,9 @@ def _make_weight(
 #   * output shape  -- scalar (apply/entries) vs a per-mode vector (probe): the `sumsq` / `block_sumsq`
 #                      reductions, supplied by ScalarOutputKind / ProbeOutputKind.
 #   * derivative or not -- `has_order`, which adds a leading order axis to the data and one to `n_w`.
-#   * layer         -- ragged here, uniform in `uniform_fitting`, which overrides exactly five methods
-#                      (precompute / forward / transpose / point_forward / take) and the weight axes.
+#   * layer         -- ragged here, uniform in `uniform_fitting`, which overrides the layer-specific
+#                      operations (precompute / forward / transpose / point_forward / take, and
+#                      corewise_hessian as each kind's masked uniform two-hole lands) and the weight axes.
 # --------------------------------------------------------------------------------------------------
 @dataclass(frozen=True, eq=False)   # eq=False + ValueHashedFields: value hash/eq over the fields
 class SamplingKind(ValueHashedFields):
@@ -316,9 +318,12 @@ class SamplingKind(ValueHashedFields):
     :py:class:`EntriesDerivativesKind`, :py:class:`ProbeDerivativesKind`. The uniform twins are in
     :py:mod:`t3toolbox.backend.uniform_fitting`.
 
-    **Writing your own.** Subclass and supply the five operation methods; you get value identity for free
+    **Writing your own.** Subclass and supply the six operation methods; you get value identity for free
     provided your parameters are dataclass fields (that is the point -- a kind whose parameters hide in
-    closures cannot be compared, and silently recompiles).
+    closures cannot be compared, and silently recompiles). The sixth, :py:meth:`corewise_hessian` (the
+    derivative of ``transpose``'s corewise form), is needed only for the exact Hessian
+    (``hessian='exact'``): a kind without it keeps working with the default ``hessian='gauss_newton'``,
+    and ``Problem.local_model(hessian='exact')`` rejects it up front with a structural error.
     """
 
     name:              typ.ClassVar[str] = 'sampling'
@@ -327,7 +332,7 @@ class SamplingKind(ValueHashedFields):
     #                                                a kind that does not gets the friendly guard in
     #                                                optimizer_display rather than a bare NotImplementedError
 
-    # ---- the five operations a layer supplies -------------------------------------------------
+    # ---- the six operations a layer supplies --------------------------------------------------
     def precompute(self, frame, sample):
         """The reusable frame sweep at ``frame`` for ``sample`` (computed once per local model)."""
         raise NotImplementedError(
@@ -362,6 +367,38 @@ class SamplingKind(ValueHashedFields):
             "%s does not implement take(): the minibatch gather. Subclass a concrete kind (ApplyKind, ProbeKind, "
             "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
             "are writing a new operator from scratch." % type(self).__name__)
+
+    @abc.abstractmethod     # the stdlib "unimplemented" marker: Problem.local_model(hessian='exact') reads it
+    def corewise_hessian(
+            self,
+            core_directions,   # theta_hat = (Udot, Gdot) at base_point; elm_shape=K+C+(...) (raw core shapes)
+            residual,          # RAW r = S(x) - data, as transpose receives it; omega^2 is applied HERE
+            sample,            # as forward / transpose take it
+            frame,             # this model's frame -- the slot forward / transpose take
+            sweep,             # this model's precompute(frame, sample); its xi / mu half is what is reused
+            base_point,        # theta = geom.base_point(frame): the raw cores the directions vary
+    ):                         # -> raw (dU, dG), stack K+C, sample stack W summed; MASK-FREE by contract
+        """The derivative of :py:meth:`transpose`'s **corewise** form along a core direction.
+
+        ``K_r theta_hat = d/ds grad_theta <omega^2 r, S(Phi(theta + s theta_hat))> |_{s=0}`` at
+        ``theta = base_point`` -- the core-coordinate Hessian of ``theta -> <omega^2 r, S(Phi(theta))>``
+        applied to ``theta_hat``, with the residual ``r`` held fixed (raw, weighted here exactly as
+        ``transpose`` weights it). It is the sampling half of the exact Hessian's curvature term; the
+        geometry lifts a tangent to ``theta_hat`` and maps the result back.
+
+        Needed **only** for ``hessian='exact'``. Raw ``(dU, dG)`` shaped like the directions (``K + C``),
+        ``W`` summed. Mask-free by contract: on the uniform layer the kind's own override masks ``theta``
+        and ``theta_hat`` with the frame's masks and re-masks the output.
+
+        The base method is marked with :py:func:`abc.abstractmethod` (the class is not an ``ABC``, so the
+        marker changes nothing about instantiation): ``Problem.local_model(hessian='exact')`` reads the marker
+        to reject a kind that does not implement it before any work, while the Gauss-Newton path never
+        consults it."""
+        raise NotImplementedError(
+            "%s does not implement corewise_hessian(): the directional derivative of the corewise transpose, "
+            "which hessian='exact' needs. Subclass a concrete kind (ApplyKind, ProbeKind, the *DerivativesKind) "
+            "to inherit it, or implement it for a new operator; a kind without it still works with "
+            "hessian='gauss_newton'." % type(self).__name__)
 
     # ---- sample layout ------------------------------------------------------------------------
     def w_axes(self, sample):
@@ -650,6 +687,13 @@ class ProbeDerivativesKind(_WwPpSample, ProbeOutputKind, _DerivativesKind):
 
     def take(self, sample, data, idx):
         return _take_deriv_probe(sample, data, idx)
+
+    def corewise_hessian(self, core_directions, r, s, frame, sweep, base_point):
+        # the sweep's xi / mu are base_point's own: the manifold frame (U, O, L, R) sweeps xi through U and mu
+        # through L, and the corewise frame (U, G, G, G) through U and G -- base_point is (U, L) / (U, G)
+        return pd.t3_probe_corewise_derivatives_hessian_from_sweep(
+            self._apply_weight(r, 2), s[0], s[1], base_point, core_directions, self.order, sweep,
+            chunk_size=self.chunk_size)
 
 
 APPLY = ApplyKind()      # the plain module singletons

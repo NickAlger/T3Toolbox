@@ -99,6 +99,12 @@ All notable changes to T3Toolbox are documented here. The format follows
     2); the balanced policy now admits the whole `W` in the usual case (the assemblies cost less per row
     than the resident jets), so `chunk_size='auto'` fits chunk less or not at all.
 
+- **`SamplingKind` has a sixth operation, `corewise_hessian`**, needed only for the exact Hessian
+  (`hessian='exact'`). A kind written against the five-operation recipe keeps working with the default
+  Gauss-Newton model; `Problem.local_model(..., hessian='exact')` rejects it up front with a structural
+  `ValueError` naming the missing operation (the base method carries the stdlib `abc.abstractmethod`
+  marker, which the check reads; the class is not an `ABC`, so instantiation is unaffected).
+
 ### Fixed
 
 - **Jet outputs keep their inputs' dtype.** A float32 jet pipeline (`*_derivatives` forwards, transposes and
@@ -164,6 +170,22 @@ All notable changes to T3Toolbox are documented here. The format follows
   `max_chunk_size_within` take the solver's mode vocabulary, `hessian='gauss_newton'` (the default, the
   transpose-only answer) or `'exact'` (case-insensitive; anything else raises `ValueError`); `'exact'` sizes the
   chunk so that the two-hole, whose chunk costs ~1.3-2.2× the transpose's per row, also fits.
+- **The exact Riemannian Hessian in the backend local model** (not yet wired into an optimizer: `newton_cg`
+  still builds the Gauss-Newton model): `backend.optimizers.Problem.local_model(x, sample, data,
+  hessian='gauss_newton' | 'exact', curvature_damping=None)`. An exact model's `hvp` is
+  `Π[𝒥ᵀω²𝒥Πp + Lᵀ(K_{Aᵀω²r} − K_{grad f})LΠp] (+ H_R p)` -- the Gauss-Newton term plus the Weingarten
+  curvature, through the lift `L`, the kind's `corewise_hessian` and the inner product's two-hole at the misfit
+  gradient -- equal to the second derivative of the objective along the T3-SVD retraction; on a corewise
+  geometry it is the plain Hessian of `f ∘ Φ`. New on `backend.optimizers.LocalModel`: `curvature` (a
+  `CurvatureState`: the model's one misfit gradient and the geometry's per-frame curvature data, pytree leaves,
+  so a rebuilt model or a new damping does not recompile), the derived `is_exact`, `curvature_hvp`,
+  `quadratic` and `curvature_quadratic`; `gradient`, `gn_quadratic`, `jacobian` and `retract` are unchanged
+  (an exact model's gradient is the Gauss-Newton one, bit for bit). The geometries gain the four exact-mode
+  members `curvature_precompute` / `lift` / `lift_transpose` / `tangential_curvature` (optional for a custom
+  geometry: only `hessian='exact'` checks for them), with `backend.geometry.ManifoldCurvatureData` and
+  `DEFAULT_CURVATURE_DAMPING = 1e-6` (relative to `‖X‖_HS`; `curvature_damping` raises with the Gauss-Newton
+  model and on a corewise geometry, where nothing would read it). `ProbeDerivativesKind` implements
+  `corewise_hessian`; the other kinds, the uniform layer and the shared manifold's tied lift follow.
 
 ## [2026.2.0] — 2026-08-25
 

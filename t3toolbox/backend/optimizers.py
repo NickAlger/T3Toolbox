@@ -19,8 +19,9 @@ The oracle:
 
 * ``Problem``     -- (geometry ops, sampling kind, sample, data); builds per-point ``LocalModel``
   objects and retracts.
-* ``LocalModel``  -- the GN model linearized at a point (``.gradient`` / ``.objective`` /
-  ``.hvp`` / ``.gn_quadratic`` / ``.retract``), the backend twin of the frontend ``fitting.LocalModel``.
+* ``LocalModel``  -- the local model linearized at a point (``.gradient`` / ``.objective`` /
+  ``.hvp`` / ``.gn_quadratic`` / ``.retract``; Gauss-Newton by default, the exact Riemannian Hessian with
+  ``Problem.local_model(..., hessian='exact')``), the backend twin of the frontend ``fitting.LocalModel``.
 * ``Geometry``    -- the *where you optimize* axis: frame / project / retract / inner on raw data.
   This module declares only the **protocol** it needs; the T3 implementations live in
   :py:mod:`t3toolbox.backend.geometry`, so nothing here depends on the T3 representation.
@@ -43,6 +44,7 @@ import t3toolbox.corewise as cw
 __all__ = [
     'Problem',
     'LocalModel',
+    'CurvatureState',
     'NewtonInfo',
     'Regularizer',
     'IdentityRegularizer',
@@ -78,7 +80,21 @@ class Geometry(typ.Protocol):
       ``None`` if this geometry has none. It is where ``newton_cg`` / ``gradient_descent`` evaluate the
       default Newton reference ``‖g(0)‖`` (``g0_reference``). The manifold geometries define one; the
       corewise geometries return ``None`` (the zero cores are a critical point there); a geometry without
-      the member, or one returning ``None``, gets the warm-start reference by default."""
+      the member, or one returning ``None``, gets the warm-start reference by default.
+
+    **The exact-mode members** -- needed **only** for ``hessian='exact'``.
+    ``Problem.local_model(hessian='exact')`` checks that all four exist (a structural ``ValueError`` naming
+    the missing ones), so a Gauss-Newton-only custom geometry keeps working:
+
+    * ``curvature_precompute(frame, misfit_gradient, aux, curvature_damping)`` -- the per-frame curvature
+      data, built once per local model from the model's one misfit gradient ``Pi J^T omega^2 r``, this frame's
+      ``aux`` and the solver's ``curvature_damping`` (a relative float, or ``None`` for the geometry's own
+      default; passed through opaquely); returns ``None`` iff the curvature term vanishes at this frame.
+    * ``lift(frame, variations, curvature_data)`` -- tangent coordinates -> raw core variations of
+      ``base_point(frame)`` (stack ``K + C``).
+    * ``lift_transpose(frame, core_variations, curvature_data)`` -- its adjoint, raw -> UNGAUGED coordinates.
+    * ``tangential_curvature(frame, core_directions, curvature_data)`` -- the raw ``K_{grad f} theta_hat`` term
+      subtracted from the sampling curvature, or ``None`` when there is none (a corewise geometry)."""
 
     def frame(self, x_cores):                          # x_cores -> the linearization frame
         ...
@@ -112,11 +128,81 @@ class Geometry(typ.Protocol):
 # --------------------------------------------------------------------------------------------------
 # The problem oracle
 # --------------------------------------------------------------------------------------------------
+_HESSIAN_MODES = ('gauss_newton', 'exact')
+_EXACT_GEOMETRY_MEMBERS = ('curvature_precompute', 'lift', 'lift_transpose', 'tangential_curvature')
+
+
+def _check_hessian(
+        hessian:  str,          # 'gauss_newton' | 'exact' (case-insensitive)
+        who:      str,          # the caller, for the message
+) -> str:                       # the lower-cased mode
+    """Validate a ``hessian`` mode selector (structural: anything else raises, a ``bool`` included -- the
+    keyword is the solver's string mode everywhere, as in ``sampling_derivatives.estimate_chunk_size``)."""
+    if not isinstance(hessian, str) or hessian.lower() not in _HESSIAN_MODES:
+        raise ValueError("%s: hessian must be 'gauss_newton' or 'exact' (case-insensitive); got %r"
+                         % (who, hessian))
+    return hessian.lower()
+
+
+def _require_exact_capable(
+        kind,       # the problem's SamplingKind
+        geom,       # the problem's Geometry
+) -> None:
+    """The structural checks of ``hessian='exact'``, run before any work: the kind implements the sixth
+    operation ``corewise_hessian`` and the geometry has the four exact-mode members.
+
+    "Implements" means the method the kind would run is not an unimplemented stub -- one carrying the stdlib
+    :py:func:`abc.abstractmethod` marker, as the ``SamplingKind`` base method (and any interim stub) does.
+    Reading the marker keeps this module free of T3-specific imports; for a kind that does not re-declare a
+    marked stub it agrees exactly with ``type(kind).corewise_hessian is SamplingKind.corewise_hessian``."""
+    method = getattr(type(kind), 'corewise_hessian', None)
+    if method is None or getattr(method, '__isabstractmethod__', False):
+        raise ValueError("%s does not implement corewise_hessian(), which hessian='exact' needs; it still "
+                         "works with hessian='gauss_newton'" % type(kind).__name__)
+    missing = [name for name in _EXACT_GEOMETRY_MEMBERS if not callable(getattr(geom, name, None))]
+    if missing:
+        raise ValueError("%s does not implement %s, which hessian='exact' needs (the exact-mode geometry "
+                         "members: %s); it still works with hessian='gauss_newton'"
+                         % (type(geom).__name__, ', '.join(missing), ', '.join(_EXACT_GEOMETRY_MEMBERS)))
+
+
+@dc.dataclass(frozen=True, eq=False)   # eq=False -> identity hash/eq: array fields (a leaf container)
+class CurvatureState:
+    """The exact-mode companion of a :py:class:`~t3toolbox.backend.optimizers.LocalModel` (``hessian='exact'``):
+    a pytree LEAF beside ``sweep`` / ``geom_aux``, built once per model by
+    :py:meth:`~t3toolbox.backend.optimizers.Problem.local_model`.
+
+    ``misfit_gradient`` is the misfit's Riemannian gradient ``Pi J^T omega^2 r`` -- computed ONCE per model
+    and read by both :py:attr:`~t3toolbox.backend.optimizers.LocalModel.gradient` and the geometry's curvature
+    data, so exact mode costs no second transpose. ``geometry_data`` is ``geom.curvature_precompute(...)``;
+    ``None`` means the curvature term vanishes at this frame (the manifold at ``d = 1``), and ``hvp`` is then
+    the Gauss-Newton one."""
+    misfit_gradient:  typ.Any   # Pi J^T omega^2 r (no regularizer): the model's one misfit transpose
+    geometry_data:    typ.Any   # geom.curvature_precompute(frame, misfit_gradient, aux, curvature_damping)
+
+
 @dc.dataclass(frozen=True)
 class LocalModel:
-    """The local model linearized at a point (Gauss-Newton curvature) -- the backend twin of the frontend
+    """The local model linearized at a point -- the backend twin of the frontend
     :py:class:`t3toolbox.fitting.LocalModel` (same name, one level down).
-    Built by ``Problem.local_model``; the frame sweep is computed once and reused by every method below."""
+    Built by ``Problem.local_model``; the frame sweep is computed once and reused by every method below.
+
+    **Two modes**, derived rather than stored (:py:attr:`is_exact` is ``curvature is not None``):
+
+    * **Gauss-Newton** (``hessian='gauss_newton'``, the default): ``hvp(p) = Pi J^T omega^2 J Pi p (+ H_R p)``.
+    * **Exact** (``hessian='exact'``): the exact Riemannian Hessian,
+
+      ``hvp(p) = Pi [J^T omega^2 J Pi p + L^T (K_{A^T omega^2 r} - K_{grad f}) L Pi p] (+ H_R p)``,
+
+      with ``L`` the geometry's lift from coordinates to raw core variations, ``K_{A^T omega^2 r}`` the
+      kind's :py:meth:`~t3toolbox.backend.fitting.SamplingKind.corewise_hessian` (the derivative of the
+      corewise transpose at the fixed residual) and ``K_{grad f}`` the geometry's tangential curvature
+      (Absil, Mahony & Trumpf (2013), "An extrinsic look at the Riemannian Hessian": the Weingarten term as
+      ``<N, D^2 Phi>`` with ``N`` the normal part of ``A^T omega^2 r``). On a corewise geometry it is the
+      plain Hessian of ``f o Phi`` (no lift, no tangential term).
+
+    ``gn_quadratic`` / ``jacobian`` / ``retract`` mean the same in both modes (``gn_quadratic`` is always
+    ``‖ω J Pi p‖² (+ <p, H_R p>)``); ``quadratic`` is the mode's model ``<p, H p>``."""
     geom:     typ.Any        # a Geometry (backend.geometry.*GeometryOps); aux_data, so it must hash by VALUE
     kind:     typ.Any        # backend fitting.SamplingKind (forward / transpose / sumsq / w_axes)
     sample:   typ.Any        # ww (probe/apply) or index (entries)
@@ -127,6 +213,20 @@ class LocalModel:
 
     regularizer: typ.Any = None   # optional backend.regularization.Regularizer; ρ folded into obj/grad/gn_quadratic/hvp
     geom_aux:    typ.Any = None   # = geom.precompute(frame) (per-frame companion, e.g. SF-T3); a leaf, like sweep
+    curvature:   typ.Any = None   # CurvatureState in exact mode, else None; a leaf, like sweep
+
+    @property
+    def is_exact(self) -> bool:                          # exact mode (hessian='exact'): derived, never stored
+        return self.curvature is not None
+
+    @property
+    def _has_curvature_term(self) -> bool:               # exact AND the term does not vanish at this frame
+        return self.curvature is not None and self.curvature.geometry_data is not None
+
+    def _require_exact(self, who: str) -> None:
+        if self.curvature is None:
+            raise ValueError("LocalModel.%s needs an exact-mode model (Problem.local_model(..., "
+                             "hessian='exact')); this one is Gauss-Newton" % who)
 
     @property
     def misfit(self):                                    # ½‖ω⊙r‖²  (the weighted data misfit alone)
@@ -144,8 +244,11 @@ class LocalModel:
 
     @property
     def gradient(self) -> Tangent:                       # g = Π 𝒥ᵀ r  (+ g_R)
-        g = self.geom.project(self.frame, self.kind.transpose(self.residual, self.sample, self.frame, self.sweep),
-                              aux=self.geom_aux)
+        if self.curvature is not None:                   # exact: the model's one misfit transpose, already done
+            g = self.curvature.misfit_gradient           #   (by the same expression -- bit-identical to GN's)
+        else:
+            g = self.geom.project(self.frame, self.kind.transpose(self.residual, self.sample, self.frame,
+                                                                  self.sweep), aux=self.geom_aux)
         if self.regularizer is not None:
             g = cw.corewise_add(g, self.regularizer.gradient(self.geom, self.frame, aux=self.geom_aux))
         return g
@@ -160,13 +263,50 @@ class LocalModel:
             q = q + self.regularizer.quadratic(self.geom, self.frame, p, aux=self.geom_aux)
         return q
 
-    def hvp(self, p: Tangent) -> Tangent:                # H p = Π 𝒥ᵀ 𝒥 Π p  (+ H_R p)
-        z = self.jacobian(p)
-        Hp = self.geom.project(self.frame, self.kind.transpose(z, self.sample, self.frame, self.sweep),
-                               aux=self.geom_aux)
+    def hvp(self, p: Tangent) -> Tangent:                # GN: H p = Π 𝒥ᵀ 𝒥 Π p  (+ H_R p)
+        if not self._has_curvature_term:                 # exact: Π [𝒥ᵀ𝒥 Πp + Lᵀ K_N L Πp]  (+ H_R p)
+            z = self.jacobian(p)
+            Hp = self.geom.project(self.frame, self.kind.transpose(z, self.sample, self.frame, self.sweep),
+                                   aux=self.geom_aux)
+        else:
+            pp = self.geom.project(self.frame, p, aux=self.geom_aux)
+            z = self.kind.forward(pp, self.sample, self.frame, self.sweep)
+            y = self._curvature_block(pp)
+            Hp = self.geom.project(self.frame, cw.corewise_add(
+                self.kind.transpose(z, self.sample, self.frame, self.sweep), y), aux=self.geom_aux)
         if self.regularizer is not None:
             Hp = cw.corewise_add(Hp, self.regularizer.hessian(self.geom, self.frame, p, aux=self.geom_aux))
         return Hp
+
+    def _curvature_block(self, pp: Tangent) -> Tangent:  # Lᵀ (K_{Aᵀω²r} − K_{grad f}) L pp -- UNGAUGED, K+C
+        geom, data = self.geom, self.curvature.geometry_data
+        theta_hat = geom.lift(self.frame, pp, data)                               # raw core directions
+        K = self.kind.corewise_hessian(theta_hat, self.residual, self.sample, self.frame, self.sweep,
+                                       geom.base_point(self.frame))               # K_{Aᵀω²r} θ̂ (ω² inside)
+        K_grad = geom.tangential_curvature(self.frame, theta_hat, data)           # K_{grad f} θ̂, or None
+        if K_grad is not None:
+            K = cw.corewise_sub(K, K_grad)
+        return geom.lift_transpose(self.frame, K, data)
+
+    def curvature_hvp(self, p: Tangent) -> Tangent:      # Π Lᵀ K_N L Π p -- the exact Hessian's curvature term alone
+        self._require_exact('curvature_hvp')
+        pp = self.geom.project(self.frame, p, aux=self.geom_aux)
+        if self.curvature.geometry_data is None:         # the term vanishes at this frame
+            return cw.corewise_zeros_like(pp)
+        return self.geom.project(self.frame, self._curvature_block(pp), aux=self.geom_aux)
+
+    def quadratic(self, p: Tangent):                     # <p, H p> of this mode: gn_quadratic (+ curvature_quadratic)
+        q = self.gn_quadratic(p)
+        if self._has_curvature_term:
+            q = q + self.curvature_quadratic(p)
+        return q
+
+    def curvature_quadratic(self, p: Tangent):           # <Π p, Lᵀ K_N L Π p>, per K+C element
+        self._require_exact('curvature_quadratic')
+        pp = self.geom.project(self.frame, p, aux=self.geom_aux)
+        if self.curvature.geometry_data is None:         # the term vanishes: an exact 0 of the stack's shape
+            return self.geom.inner(pp, cw.corewise_zeros_like(pp))
+        return self.geom.inner(pp, self._curvature_block(pp))
 
     def retract(self, p: Tangent) -> Cores:              # chart step from this frame -> new x_cores
         return self.geom.retract(self.frame, p, aux=self.geom_aux)
@@ -198,9 +338,61 @@ class Problem:
                              % (where, 'None' if sample is None else 'given', 'None' if data is None else 'given'))
         return sample, data
 
-    def local_model(self, x_cores: Tangent, sample=None, data=None) -> LocalModel:
+    def local_model(
+            self,
+            x_cores:            Cores,                   # the point to linearize at
+            sample:             typ.Any = None,          # an explicit minibatch sample (with data), or None
+            data:               typ.Any = None,          # its observed data (with sample), or None
+            hessian:            str = 'gauss_newton',    # or 'exact' (case-insensitive): the model's Hessian
+            curvature_damping:  typ.Optional[float] = None,  # exact only: the lift damping; None -> the geometry's
+    ) -> LocalModel:
         """Linearize at ``x_cores`` on the full data (``sample=None``) or an explicit minibatch
-        (``sample`` AND ``data`` -- passing one without the other is a structural error)."""
+        (``sample`` AND ``data`` -- passing one without the other is a structural error).
+
+        ``hessian='exact'`` builds the exact-mode model (:py:class:`~t3toolbox.backend.optimizers.LocalModel`): it
+        checks, structurally and before any work, that the kind implements ``corewise_hessian`` and the geometry
+        the four exact-mode members (see :py:class:`~t3toolbox.backend.optimizers.Geometry`), then does the
+        model's ONE misfit transpose and the geometry's per-frame curvature data. ``curvature_damping``
+        (relative to ``‖X‖_HS``) is handed to the geometry unread; ``None`` means the geometry's own default,
+        and a value with ``hessian='gauss_newton'`` -- where nothing would read it -- raises.
+
+        Examples
+        --------
+        The exact model's quadratic form is the objective's second derivative along the retraction (the T3-SVD
+        retraction is second order), where the Gauss-Newton one misses the curvature term:
+
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.corewise as cw
+        >>> import t3toolbox.backend.fitting as bfit
+        >>> import t3toolbox.backend.geometry as bgeo
+        >>> import t3toolbox.backend.optimizers as bopt
+        >>> import t3toolbox.backend.sampling_derivatives as sd
+        >>> np.random.seed(0)
+        >>> shape, ranks = (4, 5, 6), ((2, 2, 2), (1, 2, 2, 1))
+        >>> ww = [np.random.randn(20, N) for N in shape]
+        >>> pp = [np.random.randn(20, N) for N in shape]
+        >>> data = sd.t3_probe_derivatives(ww, pp, t3.TuckerTensorTrain.randn(shape, *ranks).data, 1)
+        >>> problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.ProbeDerivativesKind(order=1),
+        ...                                      (ww, pp), data)
+        >>> x = t3.TuckerTensorTrain.randn(shape, *ranks).data
+        >>> gn, exact = problem.local_model(x), problem.local_model(x, hessian='exact')
+        >>> gn.is_exact, exact.is_exact
+        (False, True)
+        >>> g = exact.gradient                                         # the Gauss-Newton gradient, bit for bit
+        >>> p = cw.corewise_scale(g, 1.0 / float(problem.geom.inner(g, g)) ** 0.5)
+        >>> f = lambda t: float(problem.objective(exact.retract(cw.corewise_scale(p, t))))
+        >>> fd = (f(1e-3) - 2 * f(0.0) + f(-1e-3)) / 1e-6
+        >>> bool(abs(float(exact.quadratic(p)) - fd) < 1e-4 * abs(fd))
+        True
+        >>> bool(abs(float(gn.quadratic(p)) - fd) < 1e-2 * abs(fd))
+        False
+        """
+        exact = _check_hessian(hessian, 'Problem.local_model') == 'exact'
+        if curvature_damping is not None and not exact:
+            raise ValueError("Problem.local_model: curvature_damping is only meaningful with hessian='exact'")
+        if exact:
+            _require_exact_capable(self.kind, self.geom)
         sample, data = self._sample_and_data(sample, data, 'Problem.local_model')
         if self.regularizer is not None:
             require_unstacked_for_regularizer(self.geom.stack_shape(x_cores), 'Problem.local_model')
@@ -208,8 +400,14 @@ class Problem:
         sweep = self.kind.precompute(frame, sample)
         geom_aux = self.geom.precompute(frame)        # None when the geometry has no companion
         residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
+        curvature = None
+        if exact:                                     # the one misfit transpose (LocalModel.gradient reads it)
+            misfit_gradient = self.geom.project(frame, self.kind.transpose(residual, sample, frame, sweep),
+                                                aux=geom_aux)
+            curvature = CurvatureState(misfit_gradient, self.geom.curvature_precompute(
+                frame, misfit_gradient, geom_aux, curvature_damping))
         return LocalModel(self.geom, self.kind, sample, frame, sweep, residual, self.kind.w_axes(sample),
-                          self.regularizer, geom_aux)
+                          self.regularizer, geom_aux, curvature)
 
     def objective(self, x_cores: Tangent, sample=None, data=None):
         """``½‖S(x)-data‖²`` (+ ``ρ(x)`` if regularized) on the full data (``sample=None``) or an explicit
@@ -981,13 +1179,24 @@ if jax_available:
         sample, data = rebuild_static(children, aux[3])
         return Problem(aux[0], aux[1], sample, data, aux[2])
 
+    # The exact-mode companion rides in the same tuple: its arrays are leaves, and its PRESENCE (curvature is
+    # None or not; geometry_data None or not) is tree structure, so the mode is static under the treedef --
+    # there is no mode aux to carry.
     def _flatten_local_model(m):
-        dyn, skel = partition_static((m.sample, m.frame, m.sweep, m.residual, m.geom_aux))
+        dyn, skel = partition_static((m.sample, m.frame, m.sweep, m.residual, m.geom_aux, m.curvature))
         return dyn, (m.geom, m.kind, m.n_w, m.regularizer, skel)
 
     def _unflatten_local_model(aux, children):
-        sample, frame, sweep, residual, geom_aux = rebuild_static(children, aux[4])
-        return LocalModel(aux[0], aux[1], sample, frame, sweep, residual, aux[2], aux[3], geom_aux)
+        sample, frame, sweep, residual, geom_aux, curvature = rebuild_static(children, aux[4])
+        return LocalModel(aux[0], aux[1], sample, frame, sweep, residual, aux[2], aux[3], geom_aux,
+                          curvature=curvature)
+
+    def _flatten_curvature_state(c):
+        return partition_static((c.misfit_gradient, c.geometry_data))
+
+    def _unflatten_curvature_state(skeleton, children):
+        return CurvatureState(*rebuild_static(children, skeleton))
 
     jax.tree_util.register_pytree_node(Problem, _flatten_problem, _unflatten_problem)
     jax.tree_util.register_pytree_node(LocalModel, _flatten_local_model, _unflatten_local_model)
+    jax.tree_util.register_pytree_node(CurvatureState, _flatten_curvature_state, _unflatten_curvature_state)

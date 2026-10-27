@@ -710,6 +710,70 @@ class TestDispatch(unittest.TestCase):
         masks = [l for l in leaves if hasattr(l, 'dtype') and np.asarray(l).dtype == bool]
         self.assertEqual(masks, [], "rank masks must stay in the aux, never among the traced leaves")
 
+    def _probe_derivatives_problem_jax(self, geom, seed=0):
+        """A ragged probe_derivatives problem on jax data (order 1, a full omega[mode, order]) and a start point."""
+        SH, TK, TT = STRUCT
+        order, W = 1, 9
+        rng = np.random.default_rng(seed)
+        np.random.seed(seed)
+        x_true = t3.TuckerTensorTrain.randn(SH, TK, TT)
+        ww = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
+        pp = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
+        data = [jnp.asarray(z) + 0.1 for z in pd.t3_probe_derivatives(ww, pp, x_true.to_jax().data, order)]
+        kind = bfit.ProbeDerivativesKind(order=order, weight=np.linspace(0.3, 1.5, len(SH) * (order + 1))
+                                         .reshape(len(SH), order + 1))
+        x0 = t3.TuckerTensorTrain.randn(SH, TK, TT).to_jax().data
+        return bopt.least_squares_problem(geom, kind, (ww, pp), data), x0
+
+    def test_jit_exact_local_model(self):
+        """The exact-mode backend LocalModel (hessian='exact') -- hvp, quadratic, curvature_hvp, curvature_quadratic,
+        gradient -- jits to pure jax with the model as an ARGUMENT (CurvatureState and ManifoldCurvatureData flatten
+        to leaves), on the manifold and corewise geometries; the inner CG loop compiles with it as loop state."""
+        for geom in (bgeo.ManifoldGeometryOps(), bgeo.CorewiseGeometryOps()):
+            with self.subTest(geometry=type(geom).__name__):
+                problem, x0 = self._probe_derivatives_problem_jax(geom)
+                lm = problem.local_model(x0, hessian='exact')
+                self.assertTrue(lm.is_exact)
+                p = _cw.corewise_scale(lm.gradient, 1.0)
+                pk = (tuple(jnp.stack([a, 2.0 * a]) for a in p[0]), tuple(jnp.stack([a, -a]) for a in p[1]))  # K=(2,)
+                every = lambda m, q: (m.hvp(q), m.quadratic(q), m.curvature_hvp(q), m.curvature_quadratic(q),
+                                      m.gradient)                      # one compile per stack shape
+                self.assert_jit_jax(every, lm, pk)
+                jitted = jax.jit(every)(lm, p)
+                self._leaves_all_jax(jitted)
+                eager = lm.hvp(p)
+                for a, b in zip(eager[0] + eager[1], jitted[0][0] + jitted[0][1]):     # jit == eager
+                    self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-12 * max(norm(np.asarray(a)), 1.0))
+                if isinstance(geom, bgeo.ManifoldGeometryOps):                 # the CG loop carries the model
+                    neg_g = _cw.corewise_scale(lm.gradient, -1.0)
+                    gnorm = float(problem.geom.inner(lm.gradient, lm.gradient)) ** 0.5
+                    self._leaves_all_jax(bopt._cg_solve(lm, neg_g, 0.1 * gnorm, 20, True)[0])
+
+    def test_exact_local_model_rebuilt_each_step_is_one_jit_cache_key(self):
+        """The exact model is rebuilt every Newton step, at a new point, and its damping may change: the curvature
+        companion's arrays (lift factors with eps, grad f's doubled-rank T3 and its sweep, sigma_min) are LEAVES,
+        so the hvp compiles ONCE across points and curvature_damping values; the mode is static structure (a GN
+        model of the same problem is a different treedef, hence its own compile)."""
+        problem, x0 = self._probe_derivatives_problem_jax(bgeo.ManifoldGeometryOps())
+        traces = [0]
+
+        @jax.jit
+        def hvp(model, q):
+            traces[0] += 1                       # +1 per TRACE (compile), not per call
+            return model.hvp(q)
+
+        points = [x0] + [t3.TuckerTensorTrain.randn(*STRUCT).to_jax().data for _ in range(2)]
+        for x, cd in zip(points, (None, 1e-3, 0.0)):
+            lm = problem.local_model(x, hessian='exact', curvature_damping=cd)
+            jax.block_until_ready(hvp(lm, lm.gradient))
+        self.assertEqual(traces[0], 1, "the exact LocalModel recompiled across points / dampings")
+        leaves, treedef = jax.tree_util.tree_flatten(problem.local_model(x0, hessian='exact'))
+        self.assertEqual([l for l in leaves if np.asarray(l).dtype == bool], [], "no static structure among the leaves")
+        gn_treedef = jax.tree_util.tree_structure(problem.local_model(x0))
+        self.assertNotEqual(treedef, gn_treedef)                               # the mode is tree structure
+        jax.block_until_ready(hvp(problem.local_model(x0), problem.local_model(x0).gradient))
+        self.assertEqual(traces[0], 2)
+
     def test_cg_tolerance_is_not_stale(self):
         """The CG tolerance changes every Newton iteration (it is the forcing term). A `lax.while_loop`
         body caches on its own identity, so a stable body READING a changed Python value would silently
