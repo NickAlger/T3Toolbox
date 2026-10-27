@@ -87,7 +87,11 @@ what one more probe in a chunk costs **in the compiled chunked transpose itself*
 accounting (`memory_analysis`) — the assemblies' scratch plus the chunk's slices of their input jets; no
 analytic formula — and returns the largest chunk whose peak stays comparable to the resident jets.
 (The measurement lowers the real transpose, so **`estimate_chunk_size` and `max_chunk_size_within` need
-jax installed** — as does chunking itself. The value they return is machine-dependent.)
+jax installed** — as does chunking itself. The value they return is machine-dependent, and depends on the
+jax/XLA release too: releases pack the chunk loop's scratch differently. On jaxlib 0.4.30 one more probe
+costs about one jet slice, because XLA fits the assemblies into the space the earlier `W`-sized stages
+free; on current releases it costs the whole assembly row, ~5-15× more over ranks 8-128. Each figure is what
+that release's program really allocates, so size on the jax you run.)
 
 ```python
 >>> from t3toolbox.backend.sampling_derivatives import estimate_chunk_size, max_chunk_size_within
@@ -136,9 +140,10 @@ stacked frame therefore makes `max_chunk_size_within` return a chunk up to `prod
 which is the out-of-memory that policy exists to prevent:
 
 ```python
->>> free    = max_chunk_size_within(**shapes, n_probes=8192, target_bytes=2**22)
->>> stacked = max_chunk_size_within(**shapes, n_probes=8192, target_bytes=2**22, stack_shape=(4,))
->>> bool(2.5 < free / stacked <= 4)    # the same budget buys a ~4x smaller chunk on a 4-point batch
+>>> W = 10**6                          # large enough that the budget, not |W|, binds
+>>> free    = max_chunk_size_within(**shapes, n_probes=W, target_bytes=2**22)
+>>> stacked = max_chunk_size_within(**shapes, n_probes=W, target_bytes=2**22, stack_shape=(4,))
+>>> bool(2.5 < free / stacked < 4.5)   # the same budget buys a ~4x smaller chunk on a 4-point batch
 True
 
 ```

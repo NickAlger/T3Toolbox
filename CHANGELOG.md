@@ -98,7 +98,9 @@ All notable changes to T3Toolbox are documented here. The format follows
     two-hole) -- the assemblies plus the chunk's slices of their input jets -- where it was one dense kernel
     lowered alone. The answers grow with the smaller cost: rank 128, order 5, a 16 MiB budget gives 195 (was
     2); the balanced policy now admits the whole `W` in the usual case (the assemblies cost less per row
-    than the resident jets), so `chunk_size='auto'` fits chunk less or not at all.
+    than the resident jets), so `chunk_size='auto'` fits chunk less or not at all. The measured cost is the
+    jax release's own (figures above: current jax): jaxlib 0.4.30 packs the chunk loop into memory the
+    earlier stages free, about one jet slice per row (~5-15× less), so its budget chunks are that much larger.
 
 - **`SamplingKind` has a sixth operation, `corewise_hessian`**, needed only for the exact Hessian
   (`hessian='exact'`). A kind written against the five-operation recipe keeps working with the default

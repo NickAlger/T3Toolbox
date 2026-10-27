@@ -1851,6 +1851,11 @@ def _assembly_per_row_bytes(mode_shapes, tucker_ranks, tt_ranks, order, n_tangen
     program never forms (over-estimating large ones ~4x). An analytic formula is further off still. jax-only
     (the chunking path is uniform+jax); a few seconds of abstract compiles, cached by shape signature.
 
+    The slope is the compiler's, not the math's: XLA releases pack the chunk loop differently. jaxlib 0.4.30
+    fits the assemblies' chunk scratch into the space the earlier ``W``-sized stages free, leaving about one
+    jet slice (``d*(order+1)*r*itemsize``) per row; current releases charge the whole assembly row (~5-15x
+    more over ranks 8-128). Each matches the resident memory its program really allocates.
+
     The frame stack ``C`` is put into the operand *shapes* rather than multiplied onto the result,
     because the scaling is not always ``prod(C)``: it is exactly linear when the peak is driven by
     jets (which all carry ``C``) and sub-linear when the C-free ``ww``/``pp`` dominate. Measuring is
@@ -1944,10 +1949,10 @@ def estimate_chunk_size(
     Pass ``hessian='exact'`` (the solver's mode vocabulary, case-insensitive; ``'gauss_newton'`` is the
     default) when the same ``chunk_size`` also drives the exact Hessian's probe-derivative two-hole
     (:py:func:`t3_probe_corewise_derivatives_hessian`). Its chunk costs ``~1.3-2.2x`` the transpose's per
-    row (the dotted companion of every pair; measured in its own compiled program), against a jet floor
-    ``~1.1-1.6x`` the transpose's; the result is the smaller of the two balanced chunks, so both programs stay
-    within their floors. ``n_tangent`` is then also the two-hole's direction stack (one in a
-    CG solve).
+    row on current jax (the dotted companion of every pair; measured in its own compiled program; ``~1x`` on
+    jaxlib 0.4.30, whose chunk cost is one jet slice in both), against a jet floor ``~1.1-1.6x`` the
+    transpose's; the result is the smaller of the two balanced chunks, so both programs stay within their
+    floors. ``n_tangent`` is then also the two-hole's direction stack (one in a CG solve).
     '''
     exact = _check_hessian_mode(hessian, 'estimate_chunk_size') == 'exact'
     dtype = np.dtype(np.float32 if dtype is None else dtype)

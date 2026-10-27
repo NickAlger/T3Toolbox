@@ -9,9 +9,18 @@ measured cost: BALANCED keeps the assembly peak near the resident edge-jet floor
 an absolute cap. Plus sharding (n_shards divides W), the frame stack C (which multiplies the assembly but
 not an absolute budget, so it shrinks the BUDGET chunk by prod(C) and the BALANCED one barely at all),
 and the dense fallback for small problems.
+
+The measured per-row cost is the COMPILER's, not a constant of the math: XLA releases pack the chunk loop
+differently. On jaxlib 0.4.30 (the CI floor) buffer assignment fits the assemblies' chunk scratch into the
+space the earlier W-sized stages free, so one more probe costs about one jet slice, d*(order+1)*r*itemsize
+(384 B at the in-situ shape below); on current releases it costs the whole assembly row (5664 B there). Both
+match the resident memory the program really allocates (checked against RSS, 2026-10-27). So these tests
+pin the POLICIES against whatever slope is measured -- never a slope, a slope ratio, or a budget sized for
+one compiler's slope (each of those broke the floor leg once).
 """
 import math
 import unittest
+from unittest import mock
 import numpy as np
 
 import t3toolbox.backend.sampling_derivatives as pd
@@ -32,14 +41,24 @@ class TestChunkSizeEstimator(unittest.TestCase):
     MS, TR, TT, ORDER = (128,) * 6, (128,) * 6, (128,) * 7, 5
 
     def test_balanced_tracks_the_jet_floor(self):
-        # the balanced chunk makes the assembly peak comparable to (and not exceeding) the resident jets
+        # the balanced chunk is the largest whose assembly peak does not exceed the resident jets -- or all of W
+        # when even that fits (here on every measured compiler: floor / per-row-cost is ~1.7 W on current XLA and
+        # ~8 W on jaxlib 0.4.30, and that ratio is W-independent, so no W makes the balance bind)
+        per_row = _per_row(self.MS, self.TR, self.TT, self.ORDER)
         for W in (3000, 32000):
+            with self.subTest(W=W):
+                cs = pd.estimate_chunk_size(self.MS, self.TR, self.TT, self.ORDER, W)
+                self.assertTrue(1 <= cs <= W)
+                floor = pd._jet_floor_bytes(self.MS, self.TR, self.TT, self.ORDER, W, 1, 4)
+                self.assertLessEqual(cs * per_row, floor)              # never taller than the floor
+                if cs < W:
+                    self.assertGreater((cs + 1) * per_row, floor)      # and maximal (not needlessly tiny)
+        # ... so pin the binding branch with a stand-in cost 4x the jets' per row: a chunk of ~W/4, maximal
+        W = 32000
+        floor = pd._jet_floor_bytes(self.MS, self.TR, self.TT, self.ORDER, W, 1, 4)
+        with mock.patch.object(pd, '_assembly_per_row_bytes', return_value=4.0 * floor / W):
             cs = pd.estimate_chunk_size(self.MS, self.TR, self.TT, self.ORDER, W)
-            self.assertTrue(1 <= cs <= W)
-            floor = pd._jet_floor_bytes(self.MS, self.TR, self.TT, self.ORDER, W, 1, 4)
-            peak = cs * _per_row(self.MS, self.TR, self.TT, self.ORDER)
-            self.assertLessEqual(peak, floor)                 # never taller than the floor
-            self.assertGreater(peak, 0.5 * floor)             # but comparable (not needlessly tiny)
+        self.assertEqual(cs, W // 4)
 
     def test_budget_is_respected(self):
         per_row = _per_row(self.MS, self.TR, self.TT, self.ORDER)
@@ -87,9 +106,11 @@ class TestChunkSizeEstimator(unittest.TestCase):
     def test_frame_stack_shrinks_the_budget_chunk(self):
         # Every edge-variable jet carries the frame stack C, so the transpose's chunk costs nearly prod(C) times
         # more (not exactly: the probe vectors ww/pp carry no C) -- while an absolute target_bytes does not scale
-        # at all. The budget policy must therefore return a ~prod(C)-times smaller chunk (measured 3.4x for
-        # C = (4,) here); ignoring C is how it would hand back a chunk that OOMs.
-        ms, tr, tt, order, W, target = (12,) * 3, (6,) * 3, (1, 6, 6, 1), 2, 8192, 2.0 ** 22   # free chunk < W
+        # at all. The budget policy must therefore return a ~prod(C)-times smaller chunk (measured for C = (4,)
+        # here: 3.4x on current XLA; 4.0x on jaxlib 0.4.30, whose chunk cost is jet slices only, all carrying C);
+        # ignoring C is how it would hand back a chunk that OOMs. W is large so the budget, not |W|, binds on
+        # every compiler (the free chunk is ~2800 on current XLA but ~19400 on jaxlib 0.4.30).
+        ms, tr, tt, order, W, target = (12,) * 3, (6,) * 3, (1, 6, 6, 1), 2, 10 ** 6, 2.0 ** 22   # free chunk < W
         free = pd.max_chunk_size_within(ms, tr, tt, order, W, target)
         for stack_shape in ((2,), (4,), (2, 2)):
             with self.subTest(stack_shape=stack_shape):
@@ -120,31 +141,36 @@ class TestChunkSizeEstimator(unittest.TestCase):
         self.assertGreater(c8 * 8, c1)          # far less than the 8x a pure prod(C) scaling would give
 
     def test_hessian_also_bounds_the_two_hole(self):
-        # An exact-Hessian fit runs the probe-derivative two-hole with the same chunk_size; its chunk costs the
-        # more per row (dotted companions of every pair). hessian='exact' must keep BOTH programs within their jet
-        # floors (balanced) / within the cap (budget); 'gauss_newton' (the default) is unchanged. (Balanced, both
-        # clamp at |W| here: since the assemblies became recurrences their in-situ per-row cost is below the
-        # resident jets', so the balance admits the whole W; the budget policy is where 'exact' binds.)
+        # An exact-Hessian fit runs the probe-derivative two-hole with the same chunk_size. hessian='exact' must
+        # keep BOTH programs within their jet floors (balanced) / within the cap (budget), sizing by whichever
+        # costs more per row; 'gauss_newton' (the default) is unchanged. Which one that is, is the compiler's: the
+        # two-hole's dotted companions make it ~2.0x the transpose here on current XLA (why the argument exists),
+        # but ~1.0x on jaxlib 0.4.30, whose chunk cost is one jet slice in both programs -- so pin the policy, not
+        # the ratio. (Balanced, both clamp at |W| here: the in-situ per-row costs are below the resident jets'.)
         ms, tr, tt, order, W = (24,) * 4, (16,) * 4, (1, 16, 16, 16, 1), 3, 32000
         f32 = np.dtype('float32')
         gn = pd._assembly_per_row_bytes(ms, tr, tt, order, 1, f32)
         th = pd._two_hole_assembly_per_row_bytes(ms, tr, tt, order, 1, f32)
-        self.assertGreater(th, 1.5 * gn)                       # why the argument exists (measured ~2.0x here)
+        floor_gn = pd._jet_floor_bytes(ms, tr, tt, order, W, 1, 4)
+        floor_th = pd._two_hole_jet_floor_bytes(ms, tr, tt, order, W, 1, 4)
         plain = pd.estimate_chunk_size(ms, tr, tt, order, W)
         self.assertEqual(plain, pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='gauss_newton'))
         self.assertEqual(plain, pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='Gauss_Newton'))
         cs = pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='exact')
         self.assertEqual(cs, pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='EXACT'))   # case-insensitive
+        self.assertEqual(cs, max(1, min(W, int(floor_gn // gn), int(floor_th // th))))      # the smaller balance
         self.assertLessEqual(cs, plain)
-        self.assertLessEqual(cs * th, pd._two_hole_jet_floor_bytes(ms, tr, tt, order, W, 1, 4))
-        self.assertLessEqual(cs * gn, pd._jet_floor_bytes(ms, tr, tt, order, W, 1, 4))
-        target = 2.0 ** 26
+        self.assertLessEqual(cs * th, floor_th)
+        self.assertLessEqual(cs * gn, floor_gn)
+        W, target = 10 ** 6, 2.0 ** 26                         # the budget, not |W|, binds on every compiler
         free = pd.max_chunk_size_within(ms, tr, tt, order, W, target)
         self.assertEqual(free, pd.max_chunk_size_within(ms, tr, tt, order, W, target, hessian='gauss_newton'))
         capped = pd.max_chunk_size_within(ms, tr, tt, order, W, target, hessian='exact')
-        self.assertLess(capped, free)
-        self.assertLessEqual(capped * th, target)
-        self.assertGreater((capped + 1) * th, target - th)     # and near-maximal
+        worst = max(gn, th)
+        self.assertEqual(capped, int(target // worst))         # sized by the costlier program (binds where th > gn)
+        self.assertLessEqual(capped, free)
+        self.assertLessEqual(capped * worst, target)
+        self.assertGreater((capped + 1) * worst, target)       # and maximal
 
     def test_hessian_mode_is_the_solver_vocabulary(self):
         # The keyword means the solver's string mode everywhere ('gauss_newton' | 'exact'), so a pass-through
@@ -166,7 +192,15 @@ class TestBudgetHoldsInTheCompiledProgram(unittest.TestCase):
     ``max_chunk_size_within`` returns, the chunk-dependent scratch of the real chunked programs -- the one-shot
     transpose, the transpose from a precomputed sweep (the fitting path), and for ``hessian='exact'`` the two-hole
     -- stays within ``target_bytes``. A Tucker-dominated shape: where a per-kernel measurement (inputs as
-    parameters, so the chunk's slices of them unseen) under-estimated the running program by ~1.2-1.5x."""
+    parameters, so the chunk's slices of them unseen) under-estimated the running program by ~1.2-1.5x.
+
+    Within ``PACKING_RTOL``: XLA's heap-packed scratch is affine in the chunk size only up to its buffer packing,
+    so the slope measured here (over ``[c0, cs]``) and the estimator's (over ``_SLOPE_CHUNKS``) differ by ~0.1%
+    -- measured +0.08% on jaxlib 0.4.30 and -0.14% on current XLA for the transpose -- and the estimator returns
+    the MAXIMAL chunk under its slope, so a hard ``<=`` flips on that noise alone. 1% is ~10x the packing noise
+    and far below the overshoot this test exists to catch."""
+
+    PACKING_RTOL = 0.01
 
     def test_chunk_dependent_peak_within_the_budget(self):
         S = lambda *s: jax.ShapeDtypeStruct(s, np.float32)
@@ -193,7 +227,7 @@ class TestBudgetHoldsInTheCompiledProgram(unittest.TestCase):
                 with self.subTest(hessian=hessian, program=name, chunk_size=cs):
                     self.assertGreater(cs, 4 * c0)                 # the budget binds (no clamp at |W|)
                     slope = (temp(make(cs), args) - temp(make(c0), args)) / (cs - c0)   # bytes per probe in the chunk
-                    self.assertLessEqual(cs * slope, target)       # the chunk's share of the peak fits the budget
+                    self.assertLessEqual(cs * slope, (1 + self.PACKING_RTOL) * target)   # the chunk's share fits
 
 
 @unittest.skipUnless(_HAVE_JAX, "the 'auto' resolver estimates via jax")
