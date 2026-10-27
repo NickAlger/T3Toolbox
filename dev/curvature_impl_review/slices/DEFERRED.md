@@ -11,3 +11,6 @@
 | S0e review | A variant of the `docs/conf.py` xref transform would also fix dead `:py:func:` links on ~90 pages while staying `-W` clean | optional docs commit, S13 |
 | S1S2 review | The slow-tier O2 oracle sweep is flaky (draws from the unseeded global RNG; one run failed `grad_fd` at 1.05e-6 / 4.9e-6 against a `< 1e-6` bar, on base and final alike). Seed it | before the S13 release gate |
 | S1S2 handoff | Plan M5 names only `AXIS_SIZE`; `tests/test_contractions_sharding.py` has its own size table and needed l/n/x/z too (done in S1) | plan text amended at S13 |
+| S3 review (**for Nick**) | Memory gate: with `estimate_chunk_size(hessian='exact')` the two-hole's TT-assembly peak is **1.25–1.61× the GN assembly** (balanced against the exact sweep's own larger jet floor) — near, not strictly under, the plan's 1.5× gate. The plan's remedy is in; whether 1.5× must be strict is Nick's call. Also: on jax CPU the two-step pair intermediates cost +25 % time for −9 % memory | Nick, before S13 |
+| S3 review | `_wchunked_sum` roughly doubles the peak when W leaves a near-full remainder chunk — pre-existing, affects GN too | backlog |
+| S3 implementer | S4/S6 must pass `hessian='exact'` when resolving `chunk_size='auto'` in exact mode (the estimators now take the solver's string vocabulary) | S4 / S6 |

@@ -219,6 +219,67 @@ HISTORICAL = {
     'KCazb,Caub->KCzu': '',
     'Cazb,KCaub->KCzu': '',
     'KCzu,Czn->KCun': '',
+    # ... the probe-derivative two-hole (sampling_derivatives): K rides on the dotted operand of each term.
+    # The dotted adjoint-up lift (Udot z~), ragged and d-prefixed: no C-only operand, so len_C.
+    'tWCo,KCio->tWKCi': 'C',
+    'dtWCo,dKCio->dtWKCi': 'C',
+    # the dotted adjoint step (_adj_tilde_tangent_step): the d(P xi) pair, the undotted-carry recurrence
+    # GEMM (and its order-0 form), and the src fold of the undotted deta~ against d(edge P)
+    'KCaib,kWCi->kWKCab': 'C',
+    'Caib,kWKCi->kWKCab': '',
+    'ksWCa,kWKCab->sWKCb': 'C',
+    'sWCa,WKCab->sWKCb': 'C',
+    'WKCib,tWCi->tWKCb': 'C',
+    # the dotted dxi~ (the four new terms of its six; ragged and d-prefixed)
+    'trs,tWCa,KCaib,sWCb->rWKCi': 'C',
+    'trs,tWCa,Caib,sWKCb->rWKCi': '',
+    'trs,rWKCa,Caib,tWCb->sWKCi': '',
+    'trs,rWCa,KCaib,tWCb->sWKCi': 'C',
+    'trs,dtWCa,dKCaib,dsWCb->drWKCi': 'C',
+    'trs,dtWCa,dCaib,dsWKCb->drWKCi': '',
+    'trs,drWKCa,dCaib,dtWCb->dsWKCi': '',
+    'trs,drWCa,dKCaib,dtWCb->dsWKCi': 'C',
+    # the Tucker tangent assembly's etadot (x) z~ term (W summed; len_W, as its GN twin)
+    'tWKCa,tWCo->KCao': 'W',
+    'dtWKCa,dtWCo->dKCao': 'W',
+    # the factored TT tangent assembly. The binomial weights folded into one factor (M = trs.mu,
+    # N = trs.tau~), the W-batched pair intermediates and their dotted twins, the W-summed finals. W and C
+    # never separate except where K sits between them; the call sites pass len_W (the chunked path pins it
+    # to 1 after merging W, as the GN assembly does).
+    'trs,rWCa->tsWCa': '',
+    'trs,rWKCa->tsWKCa': '',
+    'trs,tWCa->rsWCa': '',
+    'trs,tWKCa->rsWKCa': '',
+    'tsWCa,sWCi->tWCai': '',
+    'tsWKCa,sWCi->tWKCai': 'W',
+    'tsWCa,sWKCi->tWKCai': 'W',
+    'rsWCa,rWCi->sWCai': '',
+    'rsWKCa,rWCi->sWKCai': 'W',
+    'rsWCa,rWKCi->sWKCai': 'W',
+    'tsWCa,tWCi->sWCai': '',
+    'tsWKCa,tWCi->sWKCai': 'W',
+    'tsWCa,tWKCi->sWKCai': 'W',
+    'tWKCai,tWCb->KCaib': 'W',
+    'tWCai,tWKCb->KCaib': 'W',
+    'sWKCai,sWCb->KCaib': 'W',
+    'sWCai,sWKCb->KCaib': 'W',
+    'trs,drWCa->dtsWCa': '',
+    'trs,drWKCa->dtsWKCa': '',
+    'trs,dtWCa->drsWCa': '',
+    'trs,dtWKCa->drsWKCa': '',
+    'dtsWCa,dsWCi->dtWCai': '',
+    'dtsWKCa,dsWCi->dtWKCai': 'W',
+    'dtsWCa,dsWKCi->dtWKCai': 'W',
+    'drsWCa,drWCi->dsWCai': '',
+    'drsWKCa,drWCi->dsWKCai': 'W',
+    'drsWCa,drWKCi->dsWKCai': 'W',
+    'dtsWCa,dtWCi->dsWCai': '',
+    'dtsWKCa,dtWCi->dsWKCai': 'W',
+    'dtsWCa,dtWKCi->dsWKCai': 'W',
+    'dtWKCai,dtWCb->dKCaib': 'W',
+    'dtWCai,dtWKCb->dKCaib': 'W',
+    'dsWKCai,dsWCb->dKCaib': 'W',
+    'dsWCai,dsWKCb->dKCaib': 'W',
 }
 
 SUBS_RE = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')

@@ -20,14 +20,27 @@ Two oracles, each independent of the kernel it checks:
   :py:func:`dense_inner_product_gradient`), and the full core-coordinate Lagrangian Hessian of
   ``f(Phi(theta)) - <G, Phi(theta)>`` for a dense least-squares ``f``, :py:func:`dense_lagrangian_hessian`.
 
+A third family is not an oracle but a **reference twin**: the dense-``trs`` forms of the probe-derivative
+two-hole (:py:func:`probe_derivatives_two_hole_trs` and its pieces). The shipped kernels in
+``sampling_derivatives`` take the form of the Gauss-Newton kernel each one differentiates (a recurrence
+where the input jet is affine, an order scan where the convolution is full, a factored assembly); the twins
+are the same mathematics written as one dense binomial contraction per product-rule term, built from the
+existing ``*_trs`` twins wherever one exists. They live only here -- never called in production -- and the
+shipped kernels agree with them to ~1e-15 (pinned at 1e-14 in ``test_curvature.py``), as
+``tests/test_jet_recurrence.py`` pins the standard jet kernels to theirs.
+
 All functions take unstacked data unless stated; the tests loop over stack elements. Every random draw
 is the caller's (a seeded ``np.random.Generator``).
 """
 import numpy as np
 
 import t3toolbox.backend.fv_conversions as fvc
+import t3toolbox.backend.probing as probing
+import t3toolbox.backend.sampling_derivatives as sd
 import t3toolbox.backend.t3_conversions as t3c
+import t3toolbox.backend.tt_operations as tto
 import t3toolbox.backend.tv_operations as tv
+from t3toolbox.backend.contractions import contract
 
 
 def doubled(theta, theta_hat):
@@ -175,3 +188,149 @@ def vertical_direction(theta, rng):
         dG[i] += np.einsum('aib,bc->aic', G[i], B)
         dG[i + 1] -= np.einsum('bc,cid->bid', B, G[i + 1])
     return tuple(dU), tuple(dG)
+
+
+# ------------------------------------------------------------------------------------------------------
+# The probe-derivative two-hole: dense-trs reference twins (stack-aware: W + K + C, ragged)
+# ------------------------------------------------------------------------------------------------------
+# Notation: a trailing ``d`` is the derivative along theta_hat (it carries the tangent stack K); the undotted
+# operands carry W + C only (the residual jets z~ have no K). theta = (U, G) is the corewise point, so its
+# corewise frame is (U, G, G, G): every frame core of the GN transpose is G and its derivative is Gd.
+
+def _w_c_counts(xi_jets, frame_core):
+    """(n_probe, n_frame) from an undotted input jet (2,)+W+C+(n,) and a C-only frame core C+(a,i,b)."""
+    n_frame = frame_core.ndim - 3
+    return xi_jets[0].ndim - 2 - n_frame, n_frame
+
+
+def adjoint_sweep_tangent_trs(P, Pd, xi, xid, deta, detd, edge, edged, tildes, trs):
+    """The derivative of ``sd._adj_sweep`` (the dense adjoint sweep ``tilde' = prop(tilde, P, xi) +
+    src(edge, P, deta)``) along the dotted operands: six dense-trs terms per core, K on the dotted operand
+    of each (carry / core / xi ; edge / core / deta). ``tildes`` are the undotted sweep's outputs (the carry
+    entering each core). Returns the dotted tildes, len=d, elm_shape=(order+1,)+W+K+C+(rL_i,)."""
+    n_probe, n_frame = _w_c_counts(xi, P[0])
+    kw = dict(len_W=n_probe, len_C=n_frame)
+    s2 = min(2, trs.shape[0])
+    trs_xi = trs[:, :s2, :]
+    cd = np.zeros((trs.shape[0],) + xid[0].shape[1:-1] + (P[0].shape[-3],))
+    out = []
+    for k in range(len(P)):
+        out.append(cd)
+        cd = (contract('trs,tWKCa,Caib,rWCi->sWKCb', trs_xi, cd,        P[k],  xi[k][:s2],  **kw)
+              + contract('trs,tWCa,KCaib,rWCi->sWKCb', trs_xi, tildes[k], Pd[k], xi[k][:s2],  **kw)
+              + contract('trs,tWCa,Caib,rWKCi->sWKCb', trs_xi, tildes[k], P[k],  xid[k][:s2], **kw)
+              + contract('trs,rWKCa,Caib,tWCi->sWKCb', trs, edged[k], P[k],  deta[k], **kw)
+              + contract('trs,rWCa,KCaib,tWCi->sWKCb', trs, edge[k],  Pd[k], deta[k], **kw)
+              + contract('trs,rWCa,Caib,tWKCi->sWKCb', trs, edge[k],  P[k],  detd[k], **kw))
+    return tuple(out)
+
+
+def tau_tilde_tangent_jets_trs(G, Gd, xi, xid, deta, detd, mu, mud, tau_tildes, trs):
+    """Reference twin of ``sd.compute_tau_tilde_tangent_jets``."""
+    return adjoint_sweep_tangent_trs(G, Gd, xi, xid, deta, detd, mu, mud, tau_tildes, trs)
+
+
+def sigma_tilde_tangent_jets_trs(G, Gd, xi, xid, deta, detd, nu, nud, sigma_tildes, trs):
+    """Reference twin of ``sd.compute_sigma_tilde_tangent_jets`` (the reversed sweep)."""
+    rv = tto.tt_reverse
+    return adjoint_sweep_tangent_trs(rv(G), rv(Gd), xi[::-1], xid[::-1], deta[::-1], detd[::-1],
+                                     nu[::-1], nud[::-1], sigma_tildes[::-1], trs)[::-1]
+
+
+def deta_tilde_tangent_jets_trs(Ud, ztildes, n_frame):
+    """Reference twin of ``sd.compute_deta_tilde_tangent_jets``: ``Udot_i z~_i`` per core."""
+    return tuple(contract('tWCo,KCio->tWKCi', z, u, len_C=n_frame) for z, u in zip(ztildes, Ud))
+
+
+def dxi_tilde_tangent_jets_trs(G, Gd, mu, mud, nu, nud, sigma_tildes, sigma_tildes_d, tau_tildes, tau_tildes_d, trs):
+    """Reference twin of ``sd.compute_dxi_tilde_tangent_jets``: the six-term product rule of
+    ``sd._dxi_tilde_jets_step`` at ``O = G``."""
+    n_probe, n_frame = _w_c_counts(mu, G[0])           # mu (order+1,)+W+C+(r,): the same W + C layout as xi
+    kw = dict(len_W=n_probe, len_C=n_frame)
+    out = []
+    for k in range(len(G)):
+        out.append(contract('trs,tWKCa,Caib,sWCb->rWKCi', trs, tau_tildes_d[k], G[k],  nu[k],  **kw)
+                   + contract('trs,tWCa,KCaib,sWCb->rWKCi', trs, tau_tildes[k],  Gd[k], nu[k],  **kw)
+                   + contract('trs,tWCa,Caib,sWKCb->rWKCi', trs, tau_tildes[k],  G[k],  nud[k], **kw)
+                   + contract('trs,rWKCa,Caib,tWCb->sWKCi', trs, mud[k], G[k],  sigma_tildes[k],   **kw)
+                   + contract('trs,rWCa,KCaib,tWCb->sWKCi', trs, mu[k],  Gd[k], sigma_tildes[k],   **kw)
+                   + contract('trs,rWCa,Caib,tWKCb->sWKCi', trs, mu[k],  G[k],  sigma_tildes_d[k], **kw))
+    return tuple(out)
+
+
+def tucker_tangent_assembly_trs(ztildes, dxi_tildes_d, ww, pp, eta_jets_d, n_frame):
+    """Reference twin of ``sd.assemble_tucker_tangent_variation_jets`` (W summed):
+    ``sum_t etadot^(t) (x) z~^(t) + sum_u dxi~dot^(u) (x) w^(u)``."""
+    s2 = min(2, eta_jets_d[0].shape[0])
+    kw = dict(len_W=ww[0].ndim - 1, len_C=n_frame)
+    return tuple(contract('tWKCa,tWCo->KCao', ed, z, **kw)
+                 + contract('uWKCa,uWo->KCao', dxd[:s2], np.stack([w, p])[:s2], **kw)
+                 for z, dxd, w, p, ed in zip(ztildes, dxi_tildes_d, ww, pp, eta_jets_d))
+
+
+def tt_tangent_assembly_trs(sigma_tildes, sigma_tildes_d, tau_tildes, tau_tildes_d, deta_tildes, deta_tildes_d,
+                            xi, xid, mu, mud, nu, nud, trs, n_frame):
+    """Reference twin of ``sd.assemble_tt_tangent_variation_jets`` (W summed): the nine-term product rule of
+    the GN assembly's three dense-trs outer products, one term per (group, dotted factor) -- the unfactored
+    form the shipped kernel factors into pair intermediates."""
+    s2 = min(2, trs.shape[0])
+    t_sig, t_tau = trs[:, :, :s2], trs[:, :s2, :]
+    kw = dict(len_W=xi[0].ndim - 2 - n_frame, len_C=n_frame)
+    out = []
+    for k in range(len(xi)):
+        x, xd = xi[k][:s2], xid[k][:s2]
+        out.append(contract('trs,rWKCa,sWCi,tWCb->KCaib', t_sig, mud[k], x,  sigma_tildes[k],   **kw)
+                   + contract('trs,rWCa,sWKCi,tWCb->KCaib', t_sig, mu[k],  xd, sigma_tildes[k],   **kw)
+                   + contract('trs,rWCa,sWCi,tWKCb->KCaib', t_sig, mu[k],  x,  sigma_tildes_d[k], **kw)
+                   + contract('trs,tWKCa,rWCi,sWCb->KCaib', t_tau, tau_tildes_d[k], x,  nu[k],  **kw)
+                   + contract('trs,tWCa,rWKCi,sWCb->KCaib', t_tau, tau_tildes[k],   xd, nu[k],  **kw)
+                   + contract('trs,tWCa,rWCi,sWKCb->KCaib', t_tau, tau_tildes[k],   x,  nud[k], **kw)
+                   + contract('trs,rWKCa,tWCi,sWCb->KCaib', trs, mud[k], deta_tildes[k],   nu[k],  **kw)
+                   + contract('trs,rWCa,tWKCi,sWCb->KCaib', trs, mu[k],  deta_tildes_d[k], nu[k],  **kw)
+                   + contract('trs,rWCa,tWCi,sWKCb->KCaib', trs, mu[k],  deta_tildes[k],   nud[k], **kw))
+    return tuple(out)
+
+
+def probe_derivatives_two_hole_states_trs(ztildes, ww, pp, core_pair, core_directions, order, frame_sweep=None):
+    """Every intermediate of the dense-trs two-hole, as a dict (the per-piece twins' inputs and outputs).
+
+    The undotted state is the corewise frame's (xi, mu reused from ``frame_sweep`` when given, else built
+    from ``core_pair``; nu re-swept through G), with the undotted tildes; the dotted forward is the GN
+    tangent forward at ``Q = O = P = G`` along ``(Ud, Gd)``. Every jet kernel here is a dense ``*_trs`` twin."""
+    U, G = core_pair
+    Ud, Gd = core_directions
+    n_frame = U[0].ndim - 2
+    trs = sd.binomial_combine_tensor(order)
+    if frame_sweep is None:
+        xi = sd.build_input_jets(probing.compute_xi(U, ww), probing.compute_xi(U, pp))
+        mu = sd.compute_mu_jets_trs(G, xi, trs)
+    else:
+        xi, mu = frame_sweep[0], frame_sweep[1]
+    st = dict(trs=trs, n_frame=n_frame, xi=xi, mu=mu)
+    st['nu'] = sd.compute_nu_jets_trs(G, xi, trs)
+    st['deta_t'] = sd.compute_deta_tilde_jets(U, ztildes)
+    st['tau_t'] = sd.compute_tau_tilde_jets_trs(G, xi, st['deta_t'], mu, trs)
+    st['sigma_t'] = sd.compute_sigma_tilde_jets_trs(G, xi, st['deta_t'], st['nu'], trs)
+    st['xid'] = sd.build_input_jets(probing.compute_xi(Ud, ww), probing.compute_xi(Ud, pp))
+    st['mud'] = sd.compute_sigma_jets_trs(Gd, G, G, xi, st['xid'], mu, trs)
+    st['nud'] = sd.compute_tau_jets_trs(Gd, G, G, xi, st['xid'], st['nu'], trs)
+    st['etad'] = sd.compute_deta_jets_trs(Gd, G, G, mu, st['nu'], st['mud'], st['nud'], trs)
+    st['deta_td'] = deta_tilde_tangent_jets_trs(Ud, ztildes, n_frame)
+    st['tau_td'] = tau_tilde_tangent_jets_trs(G, Gd, xi, st['xid'], st['deta_t'], st['deta_td'], mu, st['mud'],
+                                              st['tau_t'], trs)
+    st['sigma_td'] = sigma_tilde_tangent_jets_trs(G, Gd, xi, st['xid'], st['deta_t'], st['deta_td'], st['nu'],
+                                                  st['nud'], st['sigma_t'], trs)
+    st['dxi_td'] = dxi_tilde_tangent_jets_trs(G, Gd, mu, st['mud'], st['nu'], st['nud'], st['sigma_t'],
+                                              st['sigma_td'], st['tau_t'], st['tau_td'], trs)
+    st['dU'] = tucker_tangent_assembly_trs(ztildes, st['dxi_td'], ww, pp, st['etad'], n_frame)
+    st['dG'] = tt_tangent_assembly_trs(st['sigma_t'], st['sigma_td'], st['tau_t'], st['tau_td'], st['deta_t'],
+                                       st['deta_td'], xi, st['xid'], mu, st['mud'], st['nu'], st['nud'], trs,
+                                       n_frame)
+    return st
+
+
+def probe_derivatives_two_hole_trs(ztildes, ww, pp, core_pair, core_directions, order, frame_sweep=None):
+    """The dense-trs reference twin of ``sd.t3_probe_corewise_derivatives_hessian[_from_sweep]`` (ragged):
+    ``K_z theta_hat = d/ds grad_theta <z~, S(Phi(theta + s theta_hat))>``, W summed, raw K + C."""
+    st = probe_derivatives_two_hole_states_trs(ztildes, ww, pp, core_pair, core_directions, order, frame_sweep)
+    return st['dU'], st['dG']

@@ -95,6 +95,44 @@ class TestChunkSizeEstimator(unittest.TestCase):
         self.assertLessEqual(c8, c1)
         self.assertGreater(c8 * 8, c1)          # far less than the 8x a pure prod(C) scaling would give
 
+    def test_hessian_also_bounds_the_two_hole(self):
+        # An exact-Hessian fit runs the probe-derivative two-hole with the same chunk_size; its factored TT
+        # assembly holds pair intermediates, so its per-row scratch is the larger. hessian='exact' must keep BOTH
+        # assemblies within their jet floors (balanced) / within the cap (budget); 'gauss_newton' (the default)
+        # is unchanged.
+        ms, tr, tt, order, W = (24,) * 4, (16,) * 4, (1, 16, 16, 16, 1), 3, 32000
+        f32 = np.dtype('float32')
+        gn = pd._assembly_per_row_bytes(ms, tr, tt, order, 1, f32)
+        th = pd._two_hole_assembly_per_row_bytes(ms, tr, tt, order, 1, f32)
+        self.assertGreater(th, 1.5 * gn)                       # why the argument exists (measured ~3.3x here)
+        plain = pd.estimate_chunk_size(ms, tr, tt, order, W)
+        self.assertEqual(plain, pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='gauss_newton'))
+        self.assertEqual(plain, pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='Gauss_Newton'))
+        cs = pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='exact')
+        self.assertEqual(cs, pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='EXACT'))   # case-insensitive
+        self.assertLess(cs, plain)
+        self.assertLessEqual(cs * th, pd._two_hole_jet_floor_bytes(ms, tr, tt, order, W, 1, 4))
+        self.assertLessEqual(cs * gn, pd._jet_floor_bytes(ms, tr, tt, order, W, 1, 4))
+        target = 2.0 ** 26
+        free = pd.max_chunk_size_within(ms, tr, tt, order, W, target)
+        self.assertEqual(free, pd.max_chunk_size_within(ms, tr, tt, order, W, target, hessian='gauss_newton'))
+        capped = pd.max_chunk_size_within(ms, tr, tt, order, W, target, hessian='exact')
+        self.assertLess(capped, free)
+        self.assertLessEqual(capped * th, target)
+        self.assertGreater((capped + 1) * th, target - th)     # and near-maximal
+
+    def test_hessian_mode_is_the_solver_vocabulary(self):
+        # The keyword means the solver's string mode everywhere ('gauss_newton' | 'exact'), so a pass-through
+        # from newton_cg is right by construction; a bool (whose 'gauss_newton'-is-truthy reading would hand
+        # every GN fit the smaller two-hole chunk), a typo or None is a structural error, in both estimators.
+        args = ((24,) * 4, (16,) * 4, (1, 16, 16, 16, 1), 3, 32000)
+        for bad in (True, False, None, 1, 'newton', 'gn', ''):
+            with self.subTest(hessian=bad):
+                with self.assertRaisesRegex(ValueError, "hessian must be 'gauss_newton' or 'exact'"):
+                    pd.estimate_chunk_size(*args, hessian=bad)
+                with self.assertRaisesRegex(ValueError, "hessian must be 'gauss_newton' or 'exact'"):
+                    pd.max_chunk_size_within(*args, 2.0 ** 26, hessian=bad)
+
 
 @unittest.skipUnless(_HAVE_JAX, "the 'auto' resolver estimates via jax")
 class TestFittingChunkSizeWiring(unittest.TestCase):

@@ -109,6 +109,20 @@ All notable changes to T3Toolbox are documented here. The format follows
   applied to a stack of directions, by a two-hole sweep), and the tangent zippers
   `backend.tt_operations.tt_zipper_tangent_left_to_right` / `_right_to_left`.
   `tv_project_t3_onto_tangent_space` now gauges that shared kernel (bit-identical).
+- **The probe-derivative transpose's derivative in the cores** (backend; the exact Hessian's sampling term
+  for `probe_derivatives`, not yet wired into an optimizer):
+  `backend.sampling_derivatives.t3_probe_corewise_derivatives_hessian` and its `_from_sweep` variant -- the
+  core-coordinate Hessian of `θ ↦ ⟨z̃, S(Φ(θ))⟩` applied to a stack of directions (`S` the probe-derivative
+  jets, `z̃` fixed residual jets, `ω²` already applied), the derivative of
+  `t3_probe_corewise_derivatives_transpose`, by a hand-written two-hole sweep; exact and symmetric, ragged or
+  on uniform supercores, its assemblies W-chunked by `chunk_size` like the transpose's. Its pieces are public
+  beside the Gauss-Newton kernels they differentiate: `compute_deta_tilde_tangent_jets`,
+  `compute_tau_tilde_tangent_jets` / `compute_sigma_tilde_tangent_jets` (the dotted adjoint sweeps),
+  `compute_dxi_tilde_tangent_jets`, `assemble_tucker_tangent_variation_jets` and
+  `assemble_tt_tangent_variation_jets` (factored by the product rule). `estimate_chunk_size` and
+  `max_chunk_size_within` take the solver's mode vocabulary, `hessian='gauss_newton'` (the default, whose
+  answer is unchanged) or `'exact'` (case-insensitive; anything else raises `ValueError`); `'exact'` sizes the
+  chunk so that the two-hole's assemblies, whose per-row scratch is ~2-3.5× the transpose's, also fit.
 
 ## [2026.2.0] — 2026-08-25
 

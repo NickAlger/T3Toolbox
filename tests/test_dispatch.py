@@ -490,6 +490,51 @@ class TestDispatch(unittest.TestCase):
             self._leaves_all_jax(out)
         self.assertEqual(traces[0], 1, "the two-hole recompiled on a new point")
 
+    def test_jit_probe_derivatives_two_hole(self):
+        """The probe-derivative two-hole (one-shot and from a sweep) jits to pure jax, ragged and on packed
+        uniform supercores (the scanned dotted adjoint step, the d-prefixed dxi~ and assemblies); the
+        from-sweep kernel compiles ONCE across two points (the sweep and the cores are leaves); and with the
+        chunked assemblies engaged (uniform + jax, W = 7 at chunk_size 2: three full chunks through the
+        lax.scan plus a remainder) it jits clean and matches the dense assembly."""
+        import t3toolbox.backend.ut3_conversions as u3c
+        import t3toolbox.backend.ut3_operations as u3o
+        order, W = 2, 7
+        rnd = lambda *s: jnp.asarray(np.random.randn(*s))
+        fd = self.frame.data
+        theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (U, L)
+        ww = tuple(rnd(W, N) for N in STRUCT[0])
+        pp = tuple(rnd(W, N) for N in STRUCT[0])
+        zt = tuple(rnd(order + 1, W, N) for N in STRUCT[0])                      # residual jets, no K
+        dirs = (tuple(rnd(3, *U.shape) for U in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
+        self.assert_jit_jax(lambda z, w, p, th, dd: pd.t3_probe_corewise_derivatives_hessian(z, w, p, th, dd, order),
+                            zt, ww, pp, theta, dirs)
+
+        traces = [0]
+
+        @jax.jit
+        def two_hole(z, w, p, th, dd, sweep):
+            traces[0] += 1
+            return pd.t3_probe_corewise_derivatives_hessian_from_sweep(z, w, p, th, dd, order, sweep)
+
+        other = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT).to_jax())[0].data
+        for f in (fd, other):                                                    # a new point, same shapes
+            out = two_hole(zt, ww, pp, (tuple(f[0]), tuple(f[2])), dirs,
+                           pd.tv_precompute_probe_frame_sweep_jets(f, ww, pp, order))
+            self._leaves_all_jax(out)
+        self.assertEqual(traces[0], 1, "the probe-derivative two-hole recompiled on a new point")
+
+        N, n, r = max(STRUCT[0]), max(STRUCT[1]), max(STRUCT[2])
+        th_u = u3c.t3_to_ut3(theta, N=N, n=n, r=r, squash_tails=False)[:2]
+        dir_u = u3c.t3_to_ut3(dirs, N=N, n=n, r=r, squash_tails=False)[:2]
+        packed = tuple(u3o.pack_vectors(v, N) for v in (zt, ww, pp))
+        uniform = lambda cs: jax.jit(lambda z, w, p, th, dd: pd.t3_probe_corewise_derivatives_hessian(
+            z, w, p, th, dd, order, chunk_size=cs))
+        chunked = uniform(2)(*packed, th_u, dir_u)
+        self._leaves_all_jax(chunked)
+        dense = uniform(None)(*packed, th_u, dir_u)
+        for a, b in zip(chunked, dense):
+            self.assertLess(norm(a - b), 1e-12 * norm(b))
+
     def test_jit_shared_geometry_fitting(self):
         # a SharedGeometry model: the wrapper is value-hashed aux, the companion a leaf; the
         # matvec (tied projections on both sides) compiles clean

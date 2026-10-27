@@ -126,6 +126,16 @@ __all__ = [
     't3_probe_corewise_derivatives_transpose',
     't3_apply_corewise_derivatives_transpose',
     't3_entries_corewise_derivatives_transpose',
+    # Corewise two-hole: the derivative of the corewise transpose along core directions (the exact
+    # Hessian's sampling term). Each piece is the derivative of the GN-transpose kernel named after it.
+    't3_probe_corewise_derivatives_hessian',
+    't3_probe_corewise_derivatives_hessian_from_sweep',
+    'compute_deta_tilde_tangent_jets',
+    'compute_tau_tilde_tangent_jets',
+    'compute_sigma_tilde_tangent_jets',
+    'compute_dxi_tilde_tangent_jets',
+    'assemble_tucker_tangent_variation_jets',
+    'assemble_tt_tangent_variation_jets',
     # Dense oracle
     'dense_probe_derivatives',
     'dense_apply_derivatives',
@@ -1996,7 +2006,23 @@ def assemble_tt_variation_jets(
 #   max_chunk_size_within -- BUDGET:   the largest chunk whose assembly peak fits an absolute byte cap.
 # Both size the LARGER of the two gradient assemblies (TT-core r^2 legs vs Tucker nO/N legs; the latter
 # dominates when N >> n), and divide W by n_shards so the chunk sizes each device's shard (docs/chunking.md
-# sharding section). Uniform+jax only -- numpy/ragged free eagerly and never chunk.
+# sharding section). Uniform+jax only -- numpy/ragged free eagerly and never chunk. hessian='exact' also
+# sizes the exact Hessian's probe-derivative two-hole, which shares the chunk_size and has the larger assembly.
+
+
+_HESSIAN_MODES = ('gauss_newton', 'exact')
+
+
+def _check_hessian_mode(
+        hessian:  str,          # 'gauss_newton' | 'exact' (case-insensitive) -- the solver's own vocabulary
+        who:      str,          # the function name, for the message
+) -> str:                       # the lower-cased mode
+    '''Validate a ``hessian`` mode selector (structural: anything else raises, a ``bool`` included -- the
+    keyword means the solver's string mode everywhere, so ``True`` / ``False`` is a misuse, not a shorthand).'''
+    if not isinstance(hessian, str) or hessian.lower() not in _HESSIAN_MODES:
+        raise ValueError("%s: hessian must be 'gauss_newton' or 'exact' (case-insensitive); got %r"
+                         % (who, hessian))
+    return hessian.lower()
 
 
 def _jet_floor_bytes(mode_shapes, tucker_ranks, tt_ranks, order, W, n_tangent, itemsize,
@@ -2060,6 +2086,57 @@ def _assembly_per_row_bytes(mode_shapes, tucker_ranks, tt_ranks, order, n_tangen
     return max(per_tt, per_tk, 1.0)
 
 
+def _two_hole_jet_floor_bytes(mode_shapes, tucker_ranks, tt_ranks, order, W, n_tangent, itemsize,
+                              stack_shape=()):
+    '''The probe-derivative two-hole's analog of :py:func:`_jet_floor_bytes`: the resident jets its assemblies
+    read -- the undotted state (``xi``, ``mu``, the re-swept ``nu``, the three tildes and the residual, all
+    without ``K``) and the dotted companions (``K``), including ``eta_dot`` and ``dxi~_dot``.'''
+    d, op, K = len(mode_shapes), order + 1, n_tangent
+    r, nU, N = max(tt_ranks), max(tucker_ranks), max(mode_shapes)
+    nO = nU                                         # down-core mode ~ the Tucker rank
+    C = math.prod(tuple(stack_shape))               # frame stack: on the jets only
+    per_core_row = (C * (2 * nU + op * (4 * r + nU + N)              # xi ; mu, nu, sigma~, tau~ ; deta~ ; z~
+                         + K * (2 * nU + op * (4 * r + nU + 2 * nO)))  # their dots ; eta_dot, dxi~_dot
+                    + 2 * N)                                           # ww, pp -- probe vectors, W only
+    return d * W * per_core_row * itemsize
+
+
+@functools.lru_cache(maxsize=None)
+def _two_hole_assembly_per_row_bytes(mode_shapes, tucker_ranks, tt_ranks, order, n_tangent, dtype,
+                                     stack_shape=()):
+    '''Measured peak scratch (bytes) per W-row of the probe-derivative two-hole's dense assemblies, the MAX over
+    the factored TT one and the Tucker one -- the measurement of :py:func:`_assembly_per_row_bytes` applied to
+    :py:func:`assemble_tt_tangent_variation_jets` / :py:func:`assemble_tucker_tangent_variation_jets` (whose
+    pair intermediates make the TT one ~2-3.5x the transpose's). jax-only; cached by shape signature.'''
+    import jax
+    d, op = len(mode_shapes), order + 1
+    r, nU, N = max(tt_ranks), max(tucker_ranks), max(mode_shapes)
+    nO = nU
+    kax = (n_tangent,) if n_tangent > 1 else ()      # K axis present only when batching directions
+    cax = tuple(stack_shape)
+
+    def _structs(W):
+        S = lambda *shape: jax.ShapeDtypeStruct(shape, dtype)
+        und = lambda leg: S(d, op, W, *cax, leg)               # an undotted jet: W + C
+        dot = lambda leg: S(d, op, W, *kax, *cax, leg)         # its derivative: W + K + C
+        tt = (und(r), dot(r), und(r), dot(r), und(nU), dot(nU),                    # sigma~, tau~, deta~ (+ dots)
+              S(d, 2, W, *cax, nU), S(d, 2, W, *kax, *cax, nU),                    # xi (+ dot)
+              und(r), dot(r), und(r), dot(r),                                      # mu, nu (+ dots)
+              S(op, op, op))                                                       # trs
+        tk = (und(N), dot(nO), S(d, W, N), S(d, W, N), dot(nO))                   # z~, dxi~_dot, ww, pp, eta_dot
+        return tt, tk
+
+    def _temp(f, args):
+        return jax.jit(f).lower(*args).compile().memory_analysis().temp_size_in_bytes
+
+    f_tt = lambda *a: _assemble_tt_tangent_variation_jets_dense(*a, 1)
+    f_tk = lambda *a: _assemble_tucker_tangent_variation_jets_dense(*a, 1)
+    (tt1, tk1), (tt2, tk2) = _structs(256), _structs(512)
+    per_tt = (_temp(f_tt, tt2) - _temp(f_tt, tt1)) / 256.0
+    per_tk = (_temp(f_tk, tk2) - _temp(f_tk, tk1)) / 256.0
+    return max(per_tt, per_tk, 1.0)
+
+
 def estimate_chunk_size(
         mode_shapes:    typ.Sequence[int],  # (N_1..N_d)   ambient dims (as passed to TuckerTensorTrain.randn)
         tucker_ranks:   typ.Sequence[int],  # (nU_1..nU_d) Tucker ranks
@@ -2071,6 +2148,7 @@ def estimate_chunk_size(
         stack_shape:    typ.Sequence[int] = (),  # frame stack C (a batch of base points); () = unstacked
         n_shards:       int = 1,            # W split across this many devices -> chunk sizes the LOCAL shard
         dtype:          typ.Any = None,     # array dtype; default float32 (jax default). float64 under x64
+        hessian:        str = 'gauss_newton',  # or 'exact': also bound the exact Hessian's two-hole assemblies
 ) -> int:                                   # a memory-balanced chunk_size for tv_probe_derivatives_transpose
     '''A memory-**balanced** ``chunk_size`` for the probe-derivative transpose assembly, from the problem
     shapes -- call it once (eagerly, outside ``jit``) and pass the int as ``chunk_size``.
@@ -2091,14 +2169,28 @@ def estimate_chunk_size(
     sensitive to it -- the probe vectors ``ww``/``pp`` carry no ``C``, so the two sides do not scale
     quite together -- but :py:func:`max_chunk_size_within` is *very* sensitive, since its budget is an
     absolute byte count that does not scale at all.
+
+    Pass ``hessian='exact'`` (the solver's mode vocabulary, case-insensitive; ``'gauss_newton'`` is the
+    default) when the same ``chunk_size`` also drives the exact Hessian's probe-derivative two-hole
+    (:py:func:`t3_probe_corewise_derivatives_hessian`). Its factored TT assembly holds pair
+    intermediates, ``~2-3.5x`` the transpose assembly's scratch per row, against a jet floor ``~1.1-1.6x`` the
+    transpose's (the dotted companions); the result is the smaller of the two balanced chunks, so both
+    assemblies stay within their floors. ``n_tangent`` is then also the two-hole's direction stack (one in a
+    CG solve).
     '''
+    exact = _check_hessian_mode(hessian, 'estimate_chunk_size') == 'exact'
     dtype = np.dtype(np.float32 if dtype is None else dtype)
     ms, tr, tt = tuple(mode_shapes), tuple(tucker_ranks), tuple(tt_ranks)
     cs = tuple(int(c) for c in stack_shape)
     w_local = max(1, int(n_probes) // max(1, int(n_shards)))
     budget = _jet_floor_bytes(ms, tr, tt, order, w_local, n_tangent, dtype.itemsize, cs)
     per_row = _assembly_per_row_bytes(ms, tr, tt, order, n_tangent, dtype, cs)
-    return max(1, min(w_local, int(budget // per_row)))
+    chunk = int(budget // per_row)
+    if exact:
+        budget_h = _two_hole_jet_floor_bytes(ms, tr, tt, order, w_local, n_tangent, dtype.itemsize, cs)
+        per_row_h = _two_hole_assembly_per_row_bytes(ms, tr, tt, order, n_tangent, dtype, cs)
+        chunk = min(chunk, int(budget_h // per_row_h))
+    return max(1, min(w_local, chunk))
 
 
 def max_chunk_size_within(
@@ -2113,6 +2205,7 @@ def max_chunk_size_within(
         stack_shape:    typ.Sequence[int] = (),  # frame stack C (a batch of base points); () = unstacked
         n_shards:       int = 1,
         dtype:          typ.Any = None,
+        hessian:        str = 'gauss_newton',  # or 'exact': the exact Hessian's two-hole assemblies must fit too
 ) -> int:                                   # the largest chunk_size whose assembly peak fits target_bytes
     '''The largest ``chunk_size`` whose gradient-assembly peak stays within ``target_bytes`` (per device)
     -- the "use my whole device" policy: pass an absolute byte budget (e.g. a fraction of device memory).
@@ -2121,12 +2214,19 @@ def max_chunk_size_within(
     **Pass ``stack_shape`` if the frame is a batch of base points** (the frame stack ``C``). The budget
     is an absolute byte count and does not scale with ``C``, while the assembly does -- so omitting it
     on a stacked frame returns a chunk up to ``prod(C)`` times too large, which is exactly the
-    out-of-memory this policy exists to prevent.'''
+    out-of-memory this policy exists to prevent.
+
+    ``hessian='exact'`` (the same ``chunk_size`` also drives the exact Hessian's probe-derivative two-hole): the
+    cap must also hold for the two-hole's assemblies, whose per-row scratch is the larger (see
+    :py:func:`estimate_chunk_size`), so it sizes by the larger of the two.'''
+    exact = _check_hessian_mode(hessian, 'max_chunk_size_within') == 'exact'
     dtype = np.dtype(np.float32 if dtype is None else dtype)
     ms, tr, tt = tuple(mode_shapes), tuple(tucker_ranks), tuple(tt_ranks)
     cs = tuple(int(c) for c in stack_shape)
     w_local = max(1, int(n_probes) // max(1, int(n_shards)))
     per_row = _assembly_per_row_bytes(ms, tr, tt, order, n_tangent, dtype, cs)
+    if exact:
+        per_row = max(per_row, _two_hole_assembly_per_row_bytes(ms, tr, tt, order, n_tangent, dtype, cs))
     return max(1, min(w_local, int(float(target_bytes) // per_row)))
 
 
@@ -2526,6 +2626,634 @@ def t3_entries_corewise_derivatives_transpose(
     '''
     return tv_entries_derivatives_transpose(
         c, index, pp, fv_conversions.t3_corewise_frame(core_pair), order, sum_over_probes=sum_over_probes)
+
+
+###############################################################
+####    Corewise two-hole: the probe-derivative Hessian    ####
+###############################################################
+#
+# The derivative of the corewise transpose above along a direction in the cores. For a fixed residual
+# jet z~ (omega^2 applied) the corewise transpose is the gradient of theta -> <z~, S(Phi(theta))>, so its
+# derivative along theta_hat is that function's core-coordinate Hessian applied to theta_hat -- the
+# "two-hole" sweep (two cores replaced at once), the sampling half of the exact Riemannian Hessian's
+# curvature term K_z theta_hat = d/ds grad_theta <z~, S(Phi(theta + s theta_hat))>.
+#
+# Every quantity of the GN transpose's Lagrangian is multilinear in (cores, vectors), so its derivative
+# along theta_hat is the product rule over its factors: each edge variable gains a DOTTED companion
+# carrying the tangent stack K (the directions' stack), while the undotted state carries W + C only
+# (the residual has no K). At the corewise frame (U, G, G, G) of theta = (U, G):
+#
+#   1. undotted state: xi, mu (reused from the model's sweep -- identical at the manifold and corewise
+#      frames of the base point), nu re-swept through G, and the adjoint tildes deta~, tau~, sigma~;
+#   2. dotted forward = the GN tangent forward at Q = O = P = G along (Udot, Gdot): xidot = Udot (w, p),
+#      mudot / nudot = the sigma / tau jets, etadot = the deta jets;
+#   3. dotted adjoint-up lift deta~dot = Udot z~;
+#   4. dotted adjoint sweeps tau~dot / sigma~dot: the product rule of _adj_tilde_step;
+#   5. dotted dxi~: the product rule of _dxi_tilde_jets_step;
+#   6. assemblies: Tucker etadot (x) z~ + dxi~dot (x) w; TT factored by the product rule.
+#
+# No corewise eta and no corewise dxi~ is ever formed: the Hessian needs only their derivatives.
+# Each dotted kernel takes the FORM of the GN kernel it differentiates (a fused recurrence where the input
+# jet is affine, an order scan where the convolution is full, dense trs where the GN kernel is dense trs);
+# the one-dense-contraction-per-term twins exist only as test references
+# (tests/backend/_curvature_oracles.py). Stacks: z~ and the undotted jets W + C, the directions and every
+# dotted quantity K + C (W + K + C on the jets), the output K + C (W summed). Polymorphic: ragged tuples or
+# uniform supercores (a uniform caller masks theta and theta_hat once, packs, delegates here, and re-masks
+# the output -- the kernel itself is mask-free).
+
+
+def _deta_tilde_tangent_jets_step(
+        data: typ.Tuple[NDArray, NDArray, NDArray],  # (U, Udot, ztilde) for one core
+) -> typ.Tuple[NDArray]:                             # (deta_tilde_dot,) elm_shape=(order+1,)+W+K+C+(nUi,)
+    '''One core of :py:func:`compute_deta_tilde_tangent_jets` (ragged path only). The C-only ``U`` is
+    passed only to recover ``len(C)``. Closure-free map body -- ``docs/contributor/scan_body_principles.md``.'''
+    U, Ud, zt = data
+    return (contractions.contract('tWCo,KCio->tWKCi', zt, Ud, len_C=U.ndim - 2),)
+
+
+def compute_deta_tilde_tangent_jets(
+        up_tucker_cores:        typ.Sequence[NDArray],  # U.    len=d, elm_shape=C+(nUi,Ni)
+        up_tucker_cores_dot:    typ.Sequence[NDArray],  # Udot. len=d, elm_shape=K+C+(nUi,Ni)
+        ztildes:                typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+C+(Ni,)
+) -> typ.Tuple[NDArray, ...]:                           # deta_tildes_dot. len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
+    '''The derivative of :py:func:`compute_deta_tilde_jets` along the Tucker directions:
+    ``deta_tilde_dot_i = Udot_i z~_i`` (the residual is fixed, so only the core moves). The order axis
+    rides through; the tangent stack ``K`` comes from ``Udot``.'''
+    use_jax = tree_contains_jax((up_tucker_cores, up_tucker_cores_dot, ztildes))
+    is_uniform = is_ndarray(up_tucker_cores)
+    xnp, xmap, _ = get_backend(is_uniform, use_jax)
+    if is_uniform:
+        return contractions.contract('dtWCo,dKCio->dtWKCi', ztildes, up_tucker_cores_dot,
+                                     len_C=up_tucker_cores.ndim - 3)
+    (deta_tildes_dot,) = xmap(_deta_tilde_tangent_jets_step, (up_tucker_cores, up_tucker_cores_dot, ztildes))
+    return deta_tildes_dot
+
+
+def _adj_tilde_tangent_step(
+        carry_dot:      NDArray,    # dotted tilde entering this core, (order+1,)+W+K+C+(rLi,)
+        carry:          NDArray,    # undotted tilde entering this core, (order+1,)+W+C+(rLi,)
+        P:              NDArray,    # frame core,        C+(rLi,nUi,rL(i+1))
+        P_dot:          NDArray,    # its direction,   K+C+(rLi,nUi,rL(i+1))
+        xi:             NDArray,    # input jet,        (2,)+W+C+(nUi,)
+        xi_dot:         NDArray,    # its derivative,   (2,)+W+K+C+(nUi,)
+        deta_t:         NDArray,    # adjoint-up jet,   (order+1,)+W+C+(nUi,)
+        deta_t_dot:     NDArray,    # its derivative,   (order+1,)+W+K+C+(nUi,)
+        edge:           NDArray,    # frame edge jet,   (order+1,)+W+C+(rLi,)
+        edge_dot:       NDArray,    # its derivative,   (order+1,)+W+K+C+(rLi,)
+        trs_r:          NDArray,    # binomial tensor led by the edge order r, (order+1,)*3
+        n_frame:        int,        # len(C): no operand of the K-on-core terms pins it
+        is_uniform:     bool,       # inner-scan backend (a real lax.scan on the uniform path)
+) -> NDArray:                       # next dotted tilde, (order+1,)+W+K+C+(rL(i+1),)
+    '''One step of the dotted adjoint sweep: the product rule of :py:func:`_adj_tilde_step`, in its form.
+
+    ``_adj_tilde_step`` is ``prop(carry; P xi) + src(edge P; deta)``, each bilinear in a pair of factors,
+    so its derivative is ``prop(carry_dot; P xi) + prop(carry; d(P xi)) + src(d(edge P); deta) +
+    src(edge P; deta_dot)`` with ``d(P xi) = P_dot xi + P xi_dot`` and ``d(edge P) = edge_dot P + edge
+    P_dot`` -- the six dotted terms (K on the carry / core / xi ; edge / core / deta), paired by shared
+    factor:
+
+    - **prop** stays the two-term REVERSE recurrence of the affine input jet, fused into one GEMM per
+      factor pair (two GEMMs: the dotted carry against ``P xi``; the undotted carry against ``d(P xi)``);
+    - **src** stays the full reverse convolution, an inner order scan over the edge order ``r`` whose live
+      slice is ``W*K*r^2`` (``_adj_tilde_step``'s ``W*r^2``, times ``K``).
+
+    ``n_frame`` is an argument because the K-on-core contractions have no C-only operand to pin it, and the
+    production step's own inference (from a C-only ``P``) cannot be reused term by term. The callers (the
+    two scan-body variants) read it off the C-only frame core.'''
+    xnp, _, xscan = get_backend(is_uniform, tree_contains_jax(
+        (carry_dot, carry, P, P_dot, xi, xi_dot, deta_t, deta_t_dot, edge, edge_dot, trs_r)))
+    order = carry_dot.shape[0] - 1             # the carries are stacked over derivative orders
+    s_size = min(2, order + 1)                 # affine input jet (xi): orders {0, 1}
+    nf = n_frame
+    b = P.shape[-1]
+    nW = xi.ndim - 2 - nf
+    W_shape = xi.shape[1:1 + nW]
+    K_shape = carry_dot.shape[1 + nW:carry_dot.ndim - 1 - nf]
+    C_shape = P.shape[:-3]
+
+    # --- prop: two-term reverse recurrence per factor pair. prop^(s) = c^(s) . Pxi^(0) + (s+1) c^(s+1) . Pxi^(1)
+    Pxi = contractions.contract('Caib,kWCi->kWCab', P, xi[:s_size])                         # (k, W, C, a, b)
+    dPxi = (contractions.contract('KCaib,kWCi->kWKCab', P_dot, xi[:s_size], len_C=nf)         # K on the core
+            + contractions.contract('Caib,kWKCi->kWKCab', P, xi_dot[:s_size]))                # K on the input
+    if s_size > 1:
+        def pair(jet):        # (order+1,...) -> (k=2,)+... = [jet^(s), (s+1) jet^(s+1)] -- the reverse shift
+            sp1 = (xnp.arange(order + 1) + 1).reshape((order + 1,) + (1,) * (jet.ndim - 1))
+            up = xnp.concatenate([jet[1:], xnp.zeros_like(jet[:1])], axis=0)
+            return xnp.stack([jet, sp1 * up], axis=0)
+        prop = (contractions.contract('ksWKCa,kWCab->sWKCb', pair(carry_dot), Pxi, len_C=nf)   # K on the carry
+                + contractions.contract('ksWCa,kWKCab->sWKCb', pair(carry), dPxi, len_C=nf))
+    else:                                       # order 0: only k = 0 survives
+        prop = (contractions.contract('sWKCa,WCab->sWKCb', carry_dot, Pxi[0], len_C=nf)
+                + contractions.contract('sWCa,WKCab->sWKCb', carry, dPxi[0], len_C=nf))
+
+    # --- src: full reverse convolution -- inner scan over the edge order r, live slice W*K*r^2.
+    # The inner order-scan body stays inline: it captures P/P_dot/deta_t/deta_t_dot, and on a cache hit this
+    # core's Python never re-runs, so the closure is never rebuilt (as in _adj_tilde_step).
+    def _src_step(acc, xr):
+        edge_r, edge_dot_r, trsr = xr                                                   # (W,C,a) ; (W,K,C,a) ; (t,s)
+        ep = contractions.contract('WCa,Caib->WCib', edge_r, P)                         # edge^(r) P
+        dep = (contractions.contract('WKCa,Caib->WKCib', edge_dot_r, P)                 # d(edge^(r) P): K on the edge
+               + contractions.contract('WCa,KCaib->WKCib', edge_r, P_dot, len_C=nf))    # ... and on the core
+        epd = (contractions.contract('WKCib,tWCi->tWKCb', dep, deta_t, len_C=nf)        # fold all t (deta full)
+               + contractions.contract('WCib,tWKCi->tWKCb', ep, deta_t_dot, len_C=nf))  # K on deta
+        return acc + contractions.contract('ts,tWKCb->sWKCb', trsr, epd), ()
+
+    src0 = xnp.zeros((order + 1,) + W_shape + K_shape + C_shape + (b,), carry_dot.dtype)
+    src, _ = xscan(_src_step, src0, (edge, edge_dot, trs_r))
+
+    return prop + src
+
+
+def _adj_tangent_sweep_scanned_step_uniform(
+        carry_dot:  NDArray,        # (order+1,)+W+K+C+(rLi,); axis 0 is the order axis
+        data:       typ.Tuple[NDArray, ...],    # (P, P_dot, xi, xi_dot, deta_t, deta_t_dot, edge, edge_dot, carry, trs_r), one core
+) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:    # (next carry, (carry_dot,))
+    '''Uniform variant of :py:func:`_adj_tilde_tangent_step` as a closure-free scan body: the inner order
+    loop is a real scan. ``len(C)`` is read off the C-only frame core.
+    ``docs/contributor/scan_body_principles.md``.'''
+    P, P_dot, xi, xi_dot, deta_t, deta_t_dot, edge, edge_dot, carry, trs_r = data
+    return _adj_tilde_tangent_step(carry_dot, carry, P, P_dot, xi, xi_dot, deta_t, deta_t_dot, edge, edge_dot,
+                                   trs_r, P.ndim - 3, True), (carry_dot,)
+
+
+def _adj_tangent_sweep_scanned_step_ragged(
+        carry_dot:  NDArray,        # (order+1,)+W+K+C+(rLi,); axis 0 is the order axis
+        data:       typ.Tuple[NDArray, ...],    # (P, P_dot, xi, xi_dot, deta_t, deta_t_dot, edge, edge_dot, carry, trs_r), one core
+) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:    # (next carry, (carry_dot,))
+    '''Ragged variant of :py:func:`_adj_tilde_tangent_step` as a closure-free scan body: the inner order
+    loop is a Python loop. ``docs/contributor/scan_body_principles.md``.'''
+    P, P_dot, xi, xi_dot, deta_t, deta_t_dot, edge, edge_dot, carry, trs_r = data
+    return _adj_tilde_tangent_step(carry_dot, carry, P, P_dot, xi, xi_dot, deta_t, deta_t_dot, edge, edge_dot,
+                                   trs_r, P.ndim - 3, False), (carry_dot,)
+
+
+def _adj_tangent_sweep_scanned(P_cores, P_cores_dot, xi_jets, xi_jets_dot, deta_tildes, deta_tildes_dot,
+                               edge_jets, edge_jets_dot, tildes, trs):
+    '''The derivative of :py:func:`_adj_sweep_scanned` along the dotted operands (module-private): the same
+    left-to-right core sweep, its carry the dotted tilde, with the undotted ``tildes`` (the carry entering
+    each core) riding as scan data. Shared by :py:func:`compute_tau_tilde_tangent_jets` /
+    :py:func:`compute_sigma_tilde_tangent_jets`.'''
+    use_jax = tree_contains_jax((P_cores, P_cores_dot, xi_jets, xi_jets_dot, deta_tildes, deta_tildes_dot,
+                                 edge_jets, edge_jets_dot, tildes, trs))
+    is_uniform = is_ndarray(P_cores)
+    xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+    order = trs.shape[0] - 1
+    d = len(P_cores)
+
+    trs_r = xnp.moveaxis(trs, 1, 0)                             # binomial CONSTANT; the inner scan leads on the edge order r
+    trs_rs = xnp.broadcast_to(trs_r, (d,) + trs_r.shape) if is_uniform else (trs_r,) * d
+    step = _adj_tangent_sweep_scanned_step_uniform if is_uniform else _adj_tangent_sweep_scanned_step_ragged
+
+    # the dotted carry is W+K+C; deta_tildes_dot carries K, so it supplies the init's leading stack
+    rL0 = P_cores[0].shape[-3]
+    init = xnp.zeros((order + 1,) + deta_tildes_dot[0].shape[1:-1] + (rL0,))
+    _, (tildes_dot,) = xscan(step, init, (P_cores, P_cores_dot, xi_jets, xi_jets_dot, deta_tildes,
+                                          deta_tildes_dot, edge_jets, edge_jets_dot, tildes, trs_rs))
+    return tildes_dot
+
+
+def compute_tau_tilde_tangent_jets(
+        left_tt_cores:      typ.Sequence[NDArray],  # P.        len=d, elm_shape=C+(rLi,nUi,rL(i+1))
+        left_tt_cores_dot:  typ.Sequence[NDArray],  # P_dot.    len=d, elm_shape=K+C+(rLi,nUi,rL(i+1))
+        xi_jets:            typ.Sequence[NDArray],  # len=d, elm_shape=(2,)+W+C+(nUi,)
+        xi_jets_dot:        typ.Sequence[NDArray],  # len=d, elm_shape=(2,)+W+K+C+(nUi,)
+        deta_tildes:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(nUi,)
+        deta_tildes_dot:    typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
+        mu_jets:            typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
+        mu_jets_dot:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rLi,)
+        tau_tildes:         typ.Sequence[NDArray],  # = compute_tau_tilde_jets(P, xi, deta~, mu). len=d, elm_shape=(order+1,)+W+C+(rLi,)
+        trs:                NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
+) -> typ.Tuple[NDArray, ...]:                       # tau_tildes_dot. len=d, elm_shape=(order+1,)+W+K+C+(rLi,)
+    '''The derivative of :py:func:`compute_tau_tilde_jets` along ``(P_dot, xi_dot, deta~_dot, mu_dot)``, in
+    its standard form (the product rule of the scanned adjoint step: a fused reverse recurrence plus an inner
+    order scan; see :py:func:`_adj_tilde_tangent_step`). The undotted operands carry ``W + C``, the dotted
+    ``W + K + C``. Dense reference: the six-term dense-``trs`` twin in the test helper (equal to ~1e-15).'''
+    return _adj_tangent_sweep_scanned(left_tt_cores, left_tt_cores_dot, xi_jets, xi_jets_dot, deta_tildes,
+                                      deta_tildes_dot, mu_jets, mu_jets_dot, tau_tildes, trs)
+
+
+def compute_sigma_tilde_tangent_jets(
+        right_tt_cores:     typ.Sequence[NDArray],  # Q.        len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+        right_tt_cores_dot: typ.Sequence[NDArray],  # Q_dot.    len=d, elm_shape=K+C+(rRi,nUi,rR(i+1))
+        xi_jets:            typ.Sequence[NDArray],  # len=d, elm_shape=(2,)+W+C+(nUi,)
+        xi_jets_dot:        typ.Sequence[NDArray],  # len=d, elm_shape=(2,)+W+K+C+(nUi,)
+        deta_tildes:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(nUi,)
+        deta_tildes_dot:    typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
+        nu_jets:            typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
+        nu_jets_dot:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
+        sigma_tildes:       typ.Sequence[NDArray],  # = compute_sigma_tilde_jets(Q, xi, deta~, nu). len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
+        trs:                NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
+) -> typ.Tuple[NDArray, ...]:                       # sigma_tildes_dot. len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
+    '''The derivative of :py:func:`compute_sigma_tilde_jets` (standard form) -- the reverse of
+    :py:func:`compute_tau_tilde_tangent_jets`: ``tt_reverse`` the cores and their directions, reverse the
+    jet sequences, run the sweep, reverse the result.'''
+    reverse = tt_operations.tt_reverse
+    rev = _adj_tangent_sweep_scanned(reverse(right_tt_cores), reverse(right_tt_cores_dot), xi_jets[::-1],
+                                     xi_jets_dot[::-1], deta_tildes[::-1], deta_tildes_dot[::-1], nu_jets[::-1],
+                                     nu_jets_dot[::-1], sigma_tildes[::-1], trs)
+    return rev[::-1]
+
+
+def _dxi_tilde_tangent_jets_step(
+        data: typ.Tuple[NDArray, ...],  # (O, O_dot, mu, mu_dot, nu, nu_dot, sigma~, sigma~_dot, tau~, tau~_dot, trs), one core
+) -> typ.Tuple[NDArray]:                # (dxi_tilde_dot,) elm_shape=(order+1,)+W+K+C+(nOi,)
+    '''One core of :py:func:`compute_dxi_tilde_tangent_jets` (ragged path only): the six-term product rule
+    of :py:func:`_dxi_tilde_jets_step`. Closure-free map body -- ``docs/contributor/scan_body_principles.md``.'''
+    O, Od, mu, mud, nu, nud, st, std, tt, ttd, trs = data
+    # K rides on the dotted operand of each term; the K-on-core terms need len(C), read off the C-only O.
+    nf = O.ndim - 3
+    from_tau = (contractions.contract('trs,tWKCa,Caib,sWCb->rWKCi', trs, ttd, O, nu)
+                + contractions.contract('trs,tWCa,KCaib,sWCb->rWKCi', trs, tt, Od, nu, len_C=nf)
+                + contractions.contract('trs,tWCa,Caib,sWKCb->rWKCi', trs, tt, O, nud))
+    from_sig = (contractions.contract('trs,rWKCa,Caib,tWCb->sWKCi', trs, mud, O, st)
+                + contractions.contract('trs,rWCa,KCaib,tWCb->sWKCi', trs, mu, Od, st, len_C=nf)
+                + contractions.contract('trs,rWCa,Caib,tWKCb->sWKCi', trs, mu, O, std))
+    return (from_tau + from_sig,)
+
+
+def compute_dxi_tilde_tangent_jets(
+        down_tt_cores:      typ.Sequence[NDArray],  # O.        len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+        down_tt_cores_dot:  typ.Sequence[NDArray],  # O_dot.    len=d, elm_shape=K+C+(rLi,nOi,rR(i+1))
+        mu_jets:            typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
+        mu_jets_dot:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rLi,)
+        nu_jets:            typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
+        nu_jets_dot:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
+        sigma_tildes:       typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
+        sigma_tildes_dot:   typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
+        tau_tildes:         typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
+        tau_tildes_dot:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rLi,)
+        trs:                NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
+) -> typ.Tuple[NDArray, ...]:                       # dxi_tildes_dot. len=d, elm_shape=(order+1,)+W+K+C+(nOi,)
+    '''The derivative of :py:func:`compute_dxi_tilde_jets`: the product rule of its two adjoint-hooked
+    combines (``tau~ O nu`` and ``mu O sigma~``), six terms with ``K`` on the dotted factor of each. Dense
+    ``trs``, the form of the GN kernel it differentiates.'''
+    use_jax = tree_contains_jax((down_tt_cores, down_tt_cores_dot, mu_jets, mu_jets_dot, nu_jets, nu_jets_dot,
+                                 sigma_tildes, sigma_tildes_dot, tau_tildes, tau_tildes_dot, trs))
+    is_uniform = is_ndarray(down_tt_cores)
+    xnp, xmap, _ = get_backend(is_uniform, use_jax)
+
+    if is_uniform:
+        # d-prefixed six-term combine; the ragged xmap is the oracle. len(C) from the C-only O supercore.
+        nf = down_tt_cores.ndim - 4
+        O, Od = down_tt_cores, down_tt_cores_dot
+        from_tau = (contractions.contract('trs,dtWKCa,dCaib,dsWCb->drWKCi', trs, tau_tildes_dot, O, nu_jets)
+                    + contractions.contract('trs,dtWCa,dKCaib,dsWCb->drWKCi', trs, tau_tildes, Od, nu_jets, len_C=nf)
+                    + contractions.contract('trs,dtWCa,dCaib,dsWKCb->drWKCi', trs, tau_tildes, O, nu_jets_dot))
+        from_sig = (contractions.contract('trs,drWKCa,dCaib,dtWCb->dsWKCi', trs, mu_jets_dot, O, sigma_tildes)
+                    + contractions.contract('trs,drWCa,dKCaib,dtWCb->dsWKCi', trs, mu_jets, Od, sigma_tildes, len_C=nf)
+                    + contractions.contract('trs,drWCa,dCaib,dtWKCb->dsWKCi', trs, mu_jets, O, sigma_tildes_dot))
+        return from_tau + from_sig
+    (dxi_tildes_dot,) = xmap(_dxi_tilde_tangent_jets_step, (
+        down_tt_cores, down_tt_cores_dot, mu_jets, mu_jets_dot, nu_jets, nu_jets_dot, sigma_tildes,
+        sigma_tildes_dot, tau_tildes, tau_tildes_dot, (trs,) * len(down_tt_cores)))
+    return dxi_tildes_dot
+
+
+def _tucker_tangent_variation_jets_step(
+        x: typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (ztilde, dxi_tilde_dot, eta_dot, w_jet), one core
+) -> typ.Tuple[NDArray]:                                   # (dU,) K+C+(nOi,Ni), W summed
+    '''One core of :py:func:`_assemble_tucker_tangent_variation_jets_dense` (ragged path only).
+    Closure-free map body -- ``docs/contributor/scan_body_principles.md``.'''
+    zt, dxtd, etad, wj = x
+    s_size = min(2, etad.shape[0])          # the w input jet carries orders {0, 1}, capped at order
+    n_probe = wj.ndim - 2                   # len(W), off the W-only ambient jet (2,)+W+(Ni,)
+    return (contractions.contract('tWKCa,tWCo->KCao', etad, zt, len_W=n_probe)
+            + contractions.contract('uWKCa,uWo->KCao', dxtd[:s_size], wj[:s_size]),)
+
+
+def _assemble_tucker_tangent_variation_jets_dense(ztildes, dxi_tildes_dot, ww, pp, eta_jets_dot, n_probe):
+    '''The dense (unchunked) Tucker assembly of :py:func:`assemble_tucker_tangent_variation_jets`, W summed:
+    the per-chunk kernel of the chunked path (``n_probe = 1`` there).'''
+    use_jax = tree_contains_jax((ztildes, dxi_tildes_dot, ww, pp, eta_jets_dot))
+    is_uniform = is_ndarray(eta_jets_dot)
+    _, xmap, _ = get_backend(is_uniform, use_jax)
+    w_jets = build_input_jets(ww, pp)          # ambient input jets (value, direction): the dU leg
+    s_size = min(2, eta_jets_dot[0].shape[0])
+    if is_uniform:
+        # d-prefixed; the order axis sits at supercore axis 1, so the order-<=1 slice is [:, :s_size]
+        return (contractions.contract('dtWKCa,dtWCo->dKCao', eta_jets_dot, ztildes, len_W=n_probe)
+                + contractions.contract('duWKCa,duWo->dKCao', dxi_tildes_dot[:, :s_size], w_jets[:, :s_size]))
+    (dU,) = xmap(_tucker_tangent_variation_jets_step, (ztildes, dxi_tildes_dot, eta_jets_dot, w_jets))
+    return dU
+
+
+def _tucker_tangent_chunk_summed(co, extra):    # extra unused; the common chunk-fn signature
+    '''One W-chunk of the Tucker tangent assembly at the chunked path's pinned ``n_probe = 1``.'''
+    return _assemble_tucker_tangent_variation_jets_dense(*co, 1)
+
+
+def assemble_tucker_tangent_variation_jets(
+        ztildes:            typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+C+(Ni,)
+        dxi_tildes_dot:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(nOi,)
+        ww:                 typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
+        pp:                 typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        eta_jets_dot:       typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(nOi,)
+        n_probe:            int,                    # len(W)
+        chunk_size:         typ.Optional[int] = DEFAULT_CHUNK_SIZE,   # W-chunk size; None (or >= W) -> dense
+) -> typ.Tuple[NDArray, ...]:                       # dU. len=d, elm_shape=K+C+(nOi,Ni) (W summed)
+    '''The derivative of the Tucker variation-gradient assembly (W summed): ``sum_t etadot^(t) (x) z~^(t) +
+    sum_u dxi~dot^(u) (x) w^(u)`` (the residual and the ambient input jet are fixed). W-chunked exactly as
+    :py:func:`assemble_tucker_variation_jets` (on the uniform path -- a ``lax.scan`` on jax, where the memory
+    win is, an eager loop on numpy; ragged, ``None`` and ``W <= chunk_size`` run dense); see :doc:`/chunking`.'''
+    ops = (ztildes, dxi_tildes_dot, ww, pp, eta_jets_dot)
+    w_axes = (2, 2, 1, 1, 2)                          # per-operand W axis (ww/pp carry no order axis)
+    dense = lambda: _assemble_tucker_tangent_variation_jets_dense(*ops, n_probe)
+    if chunk_size is None or not is_ndarray(eta_jets_dot):
+        return dense()
+    use_jax = tree_contains_jax(ops)
+    W = math.prod(eta_jets_dot.shape[2:2 + n_probe])
+    if W <= chunk_size:
+        return dense()
+    ops, w_axes = _flatten_w(ops, w_axes, n_probe)     # -> one probe super-axis; n_probe == 1 holds
+    return _wchunked_sum(_tucker_tangent_chunk_summed, None, ops, w_axes, W, chunk_size, use_jax)
+
+
+def _tt_tangent_variation_jets_core(
+        x:          typ.Tuple[NDArray, ...],  # (xi, xi_dot, mu, mu_dot, nu, nu_dot, sigma~, sigma~_dot, tau~, tau~_dot, deta~, deta~_dot, trs), one core
+        n_probe:    int,                      # len(W); no operand is W-only or C-only
+) -> typ.Tuple[NDArray]:                      # (dG,) K+C+(rLi,nUi,rRi), W summed
+    '''One core of the factored TT tangent assembly (ragged; the uniform branch is its d-prefixed twin).
+
+    The GN assembly is three trilinear outer products ``f(a, b, c)`` -- ``mu (x) xi (x) sigma~``,
+    ``tau~ (x) xi (x) nu`` and ``mu (x) deta~ (x) nu`` -- so its derivative is, per group, ``d(a.b) (x) c +
+    (a.b) (x) c_dot``. Form each undotted pair intermediate and its dotted twin once, by dense ``trs`` over
+    the order axes (the GN assembly's form), then contract with the remaining factor summing ``W`` and the
+    order. The tau~ and deta~ groups share their remaining factor ``nu`` (both pairs are indexed by its order
+    ``s``), so their pairs are summed before the final: four W-summed finals in all, against the nine of the
+    unfactored product rule.
+
+    Each pair is built in two steps, the binomial weights first (``M[t,s] = sum_r trs[t,r,s] mu^(r)``, one
+    small contraction shared by the sigma~ and deta~ groups; ``N`` likewise for tau~), then the W-batched
+    product with the second factor. In one three-operand string the numpy pairwise path would contract the
+    two order-carrying factors first -- they share ``W`` and ``C`` -- and materialize their full
+    ``(order+1)*2*W*r*n`` outer product before the binomial weights reduce it (measured ~10x slower).'''
+    xi, xid, mu, mud, nu, nud, st, std, tt, ttd, dt, dtd, trs = x
+    s_size = min(2, trs.shape[0])       # the xi input jet carries orders {0, 1}, capped at order
+    t_tau = trs[:, :s_size, :]
+    xs, xsd = xi[:s_size], xid[:s_size]
+    nW = n_probe
+    # the binomial weights folded into one factor: M[t,s] = sum_r trs[t,r,s] mu^(r) ; N[r,s] = sum_t trs[t,r,s] tau~^(t)
+    M = contractions.contract('trs,rWCa->tsWCa', trs, mu)
+    Md = contractions.contract('trs,rWKCa->tsWKCa', trs, mud)
+    N = contractions.contract('trs,tWCa->rsWCa', t_tau, tt)
+    Nd = contractions.contract('trs,tWKCa->rsWKCa', t_tau, ttd)
+    # sigma~ group: P_t = sum_{s<2} M[t,s] xi^(s), paired with sigma~^(t)
+    P = contractions.contract('tsWCa,sWCi->tWCai', M[:, :s_size], xs)
+    Pd = (contractions.contract('tsWKCa,sWCi->tWKCai', Md[:, :s_size], xs, len_W=nW)
+          + contractions.contract('tsWCa,sWKCi->tWKCai', M[:, :s_size], xsd, len_W=nW))
+    # tau~ + deta~ groups: Q_s = sum_{r<2} N[r,s] xi^(r) + sum_t M[t,s] deta~^(t), paired with nu^(s)
+    Q = (contractions.contract('rsWCa,rWCi->sWCai', N, xs)
+         + contractions.contract('tsWCa,tWCi->sWCai', M, dt))
+    Qd = (contractions.contract('rsWKCa,rWCi->sWKCai', Nd, xs, len_W=nW)
+          + contractions.contract('rsWCa,rWKCi->sWKCai', N, xsd, len_W=nW)
+          + contractions.contract('tsWKCa,tWCi->sWKCai', Md, dt, len_W=nW)
+          + contractions.contract('tsWCa,tWKCi->sWKCai', M, dtd, len_W=nW))
+    return (contractions.contract('tWKCai,tWCb->KCaib', Pd, st, len_W=nW)
+            + contractions.contract('tWCai,tWKCb->KCaib', P, std, len_W=nW)
+            + contractions.contract('sWKCai,sWCb->KCaib', Qd, nu, len_W=nW)
+            + contractions.contract('sWCai,sWKCb->KCaib', Q, nud, len_W=nW),)
+
+
+def _tt_tangent_variation_jets_step(x):    # closure-free map body -- docs/contributor/scan_body_principles.md
+    '''Ragged map body of :py:func:`_tt_tangent_variation_jets_core`; ``n_probe`` rides as the last map
+    operand (per-call data, not structure).'''
+    return _tt_tangent_variation_jets_core(x[:-1], x[-1])
+
+
+def _assemble_tt_tangent_variation_jets_dense(sigma_tildes, sigma_tildes_dot, tau_tildes, tau_tildes_dot,
+                                              deta_tildes, deta_tildes_dot, xi_jets, xi_jets_dot, mu_jets,
+                                              mu_jets_dot, nu_jets, nu_jets_dot, trs, n_probe):
+    '''The dense (unchunked) factored TT assembly of :py:func:`assemble_tt_tangent_variation_jets`, W summed:
+    the per-chunk kernel of the chunked path (``n_probe = 1`` there).'''
+    ops = (xi_jets, xi_jets_dot, mu_jets, mu_jets_dot, nu_jets, nu_jets_dot, sigma_tildes, sigma_tildes_dot,
+           tau_tildes, tau_tildes_dot, deta_tildes, deta_tildes_dot)
+    use_jax = tree_contains_jax(ops + (trs,))
+    is_uniform = is_ndarray(xi_jets)
+    _, xmap, _ = get_backend(is_uniform, use_jax)
+    if is_uniform:
+        return _tt_tangent_variation_jets_uniform(ops, trs, n_probe)
+    d = len(xi_jets)
+    (dG,) = xmap(_tt_tangent_variation_jets_step, tuple(ops) + ((trs,) * d, (n_probe,) * d))
+    return dG
+
+
+def _tt_tangent_variation_jets_uniform(ops, trs, n_probe):
+    '''The d-prefixed twin of :py:func:`_tt_tangent_variation_jets_core` (every core at once; the order axis
+    at supercore axis 1, so the xi order-slice is ``[:, :s_size]``). The ragged map is the oracle.'''
+    xi, xid, mu, mud, nu, nud, st, std, tt, ttd, dt, dtd = ops
+    s_size = min(2, trs.shape[0])
+    t_tau = trs[:, :s_size, :]
+    xs, xsd = xi[:, :s_size], xid[:, :s_size]
+    nW = n_probe
+    M = contractions.contract('trs,drWCa->dtsWCa', trs, mu)
+    Md = contractions.contract('trs,drWKCa->dtsWKCa', trs, mud)
+    N = contractions.contract('trs,dtWCa->drsWCa', t_tau, tt)
+    Nd = contractions.contract('trs,dtWKCa->drsWKCa', t_tau, ttd)
+    P = contractions.contract('dtsWCa,dsWCi->dtWCai', M[:, :, :s_size], xs)
+    Pd = (contractions.contract('dtsWKCa,dsWCi->dtWKCai', Md[:, :, :s_size], xs, len_W=nW)
+          + contractions.contract('dtsWCa,dsWKCi->dtWKCai', M[:, :, :s_size], xsd, len_W=nW))
+    Q = (contractions.contract('drsWCa,drWCi->dsWCai', N, xs)
+         + contractions.contract('dtsWCa,dtWCi->dsWCai', M, dt))
+    Qd = (contractions.contract('drsWKCa,drWCi->dsWKCai', Nd, xs, len_W=nW)
+          + contractions.contract('drsWCa,drWKCi->dsWKCai', N, xsd, len_W=nW)
+          + contractions.contract('dtsWKCa,dtWCi->dsWKCai', Md, dt, len_W=nW)
+          + contractions.contract('dtsWCa,dtWKCi->dsWKCai', M, dtd, len_W=nW))
+    return (contractions.contract('dtWKCai,dtWCb->dKCaib', Pd, st, len_W=nW)
+            + contractions.contract('dtWCai,dtWKCb->dKCaib', P, std, len_W=nW)
+            + contractions.contract('dsWKCai,dsWCb->dKCaib', Qd, nu, len_W=nW)
+            + contractions.contract('dsWCai,dsWKCb->dKCaib', Q, nud, len_W=nW))
+
+
+def _tt_tangent_chunk_summed(co, trs):
+    '''One W-chunk of the factored TT tangent assembly. ``trs`` arrives as an argument, not a capture
+    (docs/contributor/scan_body_principles.md).'''
+    return _assemble_tt_tangent_variation_jets_dense(*co, trs, 1)
+
+
+def assemble_tt_tangent_variation_jets(
+        sigma_tildes:       typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
+        sigma_tildes_dot:   typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
+        tau_tildes:         typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
+        tau_tildes_dot:     typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rLi,)
+        deta_tildes:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(nUi,)
+        deta_tildes_dot:    typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
+        xi_jets:            typ.Sequence[NDArray],  # len=d, elm_shape=(2,)+W+C+(nUi,)
+        xi_jets_dot:        typ.Sequence[NDArray],  # len=d, elm_shape=(2,)+W+K+C+(nUi,)
+        mu_jets:            typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rLi,)
+        mu_jets_dot:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rLi,)
+        nu_jets:            typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
+        nu_jets_dot:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)
+        trs:                NDArray,                # binomial tensor, shape=(order+1,order+1,order+1)
+        n_probe:            int,                    # len(W)
+        chunk_size:         typ.Optional[int] = DEFAULT_CHUNK_SIZE,   # W-chunk size; None (or >= W) -> dense
+) -> typ.Tuple[NDArray, ...]:                       # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1)) (W summed)
+    '''The derivative of the TT variation-gradient assembly (W summed), factored by the product rule.
+
+    The GN assembly (:py:func:`assemble_tt_variation_jets`) sums three trilinear outer products; differentiating
+    each factor gives nine terms. Here every group's undotted pair intermediate and its dotted twin are formed
+    once (dense ``trs``, the GN assembly's form) and contracted with the remaining factor -- four ``W``-summed
+    finals (the tau~ and deta~ groups share ``nu``); see :py:func:`_tt_tangent_variation_jets_core`. Equal to
+    the nine-term form to ~1e-15. W-chunked exactly as the GN assembly (on the uniform path -- a ``lax.scan``
+    on jax, an eager loop on numpy; ragged, ``None`` and ``W <= chunk_size`` run dense): on jax only one chunk's
+    pair intermediates, ``(order+1)*W_chunk*K*r*n`` per core, are live. See :doc:`/chunking`.'''
+    ops = (sigma_tildes, sigma_tildes_dot, tau_tildes, tau_tildes_dot, deta_tildes, deta_tildes_dot,
+           xi_jets, xi_jets_dot, mu_jets, mu_jets_dot, nu_jets, nu_jets_dot)
+    w_axes = (2,) * len(ops)
+    dense = lambda: _assemble_tt_tangent_variation_jets_dense(*ops, trs, n_probe)
+    if chunk_size is None or not is_ndarray(xi_jets):
+        return dense()
+    use_jax = tree_contains_jax(ops + (trs,))
+    W = math.prod(xi_jets.shape[2:2 + n_probe])       # uniform supercore: (d, order, W..., ...)
+    if W <= chunk_size:
+        return dense()
+    ops, w_axes = _flatten_w(ops, w_axes, n_probe)     # -> one probe super-axis; n_probe == 1 holds
+    return _wchunked_sum(_tt_tangent_chunk_summed, trs, ops, w_axes, W, chunk_size, use_jax)
+
+
+def t3_probe_corewise_derivatives_hessian_from_sweep(
+        ztildes:            typ.Sequence[NDArray],  # residual jets (omega^2 applied), len=d, elm_shape=(order+1,)+W+C+(Ni,)
+        ww:                 typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
+        pp:                 typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        core_pair:          typ.Tuple[
+            typ.Sequence[NDArray],                  # tucker_cores of theta. len=d, elm_shape=C+(ni,Ni)
+            typ.Sequence[NDArray],                  # tt_cores of theta.     len=d, elm_shape=C+(ri,ni,r(i+1))
+        ],                                          # = TuckerTensorTrain.data
+        core_directions:    typ.Tuple[
+            typ.Sequence[NDArray],                  # Tucker directions theta_hat. len=d, elm_shape=K+C+(ni,Ni)
+            typ.Sequence[NDArray],                  # TT directions theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+        ],
+        order:              int,                    # highest derivative order
+        frame_sweep:        typ.Tuple[typ.Sequence[NDArray], ...],  # (xi, mu[, nu, eta]) jets; only xi, mu are read
+        chunk_size:         typ.Optional[int] = DEFAULT_CHUNK_SIZE,  # W-chunk size of the assemblies; None -> dense
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],                        # Tucker block of K theta_hat. len=d, elm_shape=K+C+(ni,Ni)
+    typ.Tuple[NDArray, ...],                        # TT block of K theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+]:
+    ''':py:func:`t3_probe_corewise_derivatives_hessian` reusing a precomputed ``frame_sweep``'s ``xi`` and
+    ``mu`` jets -- the reuse hook for a local model, whose probe sweep at the manifold frame ``(U, O, L, R)``
+    carries exactly the corewise frame's ``xi`` (through ``U``) and ``mu`` (through ``L``) when
+    ``core_pair = (U, L)``, the geometry's base point.
+
+    ``frame_sweep`` is :py:func:`tv_precompute_probe_frame_sweep_jets` at that frame (its ``nu`` and ``eta``
+    belong to the manifold frame and are not read: ``nu`` is re-swept here through ``G``), or the lean
+    ``(xi, mu)`` pair of :py:func:`tv_precompute_apply_frame_sweep_jets` at the corewise frame. Either way its
+    ``xi``/``mu`` must be ``core_pair``'s own; nothing here checks that.'''
+    tucker_cores, tt_cores = core_pair
+    tucker_dirs, tt_dirs = core_directions
+    xi_jets, mu_jets = frame_sweep[0], frame_sweep[1]
+    trs = binomial_combine_tensor(order)
+    n_probe = ww[0].ndim - 1   # number of sample-stack (W) axes (ww carries W, no C)
+
+    # 1. the undotted state at the corewise frame (U, G, G, G): nu re-swept through G; the adjoint tildes.
+    #    No corewise eta and no corewise dxi~: the Hessian needs only their derivatives.
+    nu_jets = compute_nu_jets(tt_cores, xi_jets, trs)
+    deta_tildes = compute_deta_tilde_jets(tucker_cores, ztildes)
+    tau_tildes = compute_tau_tilde_jets(tt_cores, xi_jets, deta_tildes, mu_jets, trs)
+    sigma_tildes = compute_sigma_tilde_jets(tt_cores, xi_jets, deta_tildes, nu_jets, trs)
+
+    # 2. the dotted forward: the GN tangent forward at Q = O = P = G along (Udot, Gdot) -- its sigma / tau /
+    #    deta jets ARE the derivatives of mu / nu / eta along theta_hat.
+    xi_jets_dot = build_input_jets(compute_xi(tucker_dirs, ww), compute_xi(tucker_dirs, pp))
+    mu_jets_dot = compute_sigma_jets(tt_dirs, tt_cores, tt_cores, xi_jets, xi_jets_dot, mu_jets, trs)
+    nu_jets_dot = compute_tau_jets(tt_dirs, tt_cores, tt_cores, xi_jets, xi_jets_dot, nu_jets, trs)
+    eta_jets_dot = compute_deta_jets(tt_dirs, tt_cores, tt_cores, mu_jets, nu_jets, mu_jets_dot, nu_jets_dot, trs)
+
+    # 3. the dotted adjoint-up lift; 4. the dotted adjoint sweeps; 5. the dotted dxi~
+    deta_tildes_dot = compute_deta_tilde_tangent_jets(tucker_cores, tucker_dirs, ztildes)
+    tau_tildes_dot = compute_tau_tilde_tangent_jets(tt_cores, tt_dirs, xi_jets, xi_jets_dot, deta_tildes,
+                                                    deta_tildes_dot, mu_jets, mu_jets_dot, tau_tildes, trs)
+    sigma_tildes_dot = compute_sigma_tilde_tangent_jets(tt_cores, tt_dirs, xi_jets, xi_jets_dot, deta_tildes,
+                                                        deta_tildes_dot, nu_jets, nu_jets_dot, sigma_tildes, trs)
+    dxi_tildes_dot = compute_dxi_tilde_tangent_jets(tt_cores, tt_dirs, mu_jets, mu_jets_dot, nu_jets, nu_jets_dot,
+                                                    sigma_tildes, sigma_tildes_dot, tau_tildes, tau_tildes_dot, trs)
+
+    # 6. the assemblies (W summed, chunked)
+    dU = assemble_tucker_tangent_variation_jets(ztildes, dxi_tildes_dot, ww, pp, eta_jets_dot, n_probe,
+                                                chunk_size=chunk_size)
+    dG = assemble_tt_tangent_variation_jets(sigma_tildes, sigma_tildes_dot, tau_tildes, tau_tildes_dot,
+                                            deta_tildes, deta_tildes_dot, xi_jets, xi_jets_dot, mu_jets,
+                                            mu_jets_dot, nu_jets, nu_jets_dot, trs, n_probe, chunk_size=chunk_size)
+    return dU, dG
+
+
+def t3_probe_corewise_derivatives_hessian(
+        ztildes:            typ.Sequence[NDArray],  # residual jets (omega^2 applied), len=d, elm_shape=(order+1,)+W+C+(Ni,)
+        ww:                 typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
+        pp:                 typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        core_pair:          typ.Tuple[
+            typ.Sequence[NDArray],                  # tucker_cores of theta. len=d, elm_shape=C+(ni,Ni)
+            typ.Sequence[NDArray],                  # tt_cores of theta.     len=d, elm_shape=C+(ri,ni,r(i+1))
+        ],                                          # = TuckerTensorTrain.data
+        core_directions:    typ.Tuple[
+            typ.Sequence[NDArray],                  # Tucker directions theta_hat. len=d, elm_shape=K+C+(ni,Ni)
+            typ.Sequence[NDArray],                  # TT directions theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+        ],
+        order:              int,                    # highest derivative order
+        chunk_size:         typ.Optional[int] = DEFAULT_CHUNK_SIZE,  # W-chunk size of the assemblies; None -> dense
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],                        # Tucker block of K theta_hat. len=d, elm_shape=K+C+(ni,Ni)
+    typ.Tuple[NDArray, ...],                        # TT block of K theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+]:
+    '''The derivative of :py:func:`t3_probe_corewise_derivatives_transpose` along core directions: the
+    core-coordinate Hessian of ``theta -> <z~, S(Phi(theta))>`` applied to ``theta_hat``,
+
+        ``K_z theta_hat = d/ds grad_theta <z~, S(Phi(theta + s theta_hat))> |_{s=0}``,
+
+    for ``S`` the probe-derivative jets (orders ``0..order``) and fixed residual jets ``z~``. This is the
+    sampling half of the exact Riemannian Hessian's curvature term (with ``z~ = omega^2 r``, the weighted
+    residual the Gauss-Newton transpose receives), by a hand-written "two-hole" sweep -- two cores replaced
+    at once -- rather than automatic differentiation; it is exact (no finite differences) and symmetric.
+
+    Stacks: the residual jets and ``core_pair`` carry ``W + C`` / ``C``; the directions carry a tangent
+    stack ``K`` (``K + C``), and the output is raw core variations shaped like the directions, the sample
+    stack ``W`` summed. Polymorphic over ragged tuples and uniform supercores (packed ``ztildes``/``ww``/
+    ``pp``). ``chunk_size`` W-chunks the assemblies on the uniform path (bounding their peak memory on jax)
+    exactly as in :py:func:`tv_probe_derivatives_transpose` (:doc:`/chunking`).
+
+    **Mask-free by contract.** It assumes ``theta`` and ``theta_hat`` arrive with their padded slots already
+    zero: a uniform caller masks both once up front with ``theta``'s masks, so the shared algorithm runs
+    mask-free. A second derivative multiplies a direction's padded slot into real slots, so an unmasked
+    ``theta_hat`` corrupts the real block; masking is the uniform wrapper's job.
+
+    The pieces: :py:func:`compute_deta_tilde_tangent_jets`, :py:func:`compute_tau_tilde_tangent_jets`,
+    :py:func:`compute_sigma_tilde_tangent_jets`, :py:func:`compute_dxi_tilde_tangent_jets`,
+    :py:func:`assemble_tucker_tangent_variation_jets`, :py:func:`assemble_tt_tangent_variation_jets`; the
+    precomputed-sweep variant is :py:func:`t3_probe_corewise_derivatives_hessian_from_sweep`.
+
+    Examples
+    --------
+    The two-hole is the directional derivative of the corewise transpose (a polynomial in ``s``, so a central
+    difference is accurate to ``O(h^2)``), and a symmetric operator:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.t3_constructors as t3k
+    >>> import t3toolbox.backend.sampling_derivatives as sd
+    >>> np.random.seed(0)                                                  # t3_corewise_randn draws from it
+    >>> rng = np.random.default_rng(0)
+    >>> shape, order, W = (4, 5, 3), 2, 6
+    >>> theta = t3k.t3_corewise_randn(shape, (2, 3, 2), (1, 2, 2, 1))
+    >>> ww = [rng.standard_normal((W, N)) for N in shape]
+    >>> pp = [rng.standard_normal((W, N)) for N in shape]
+    >>> zt = [rng.standard_normal((order + 1, W, N)) for N in shape]       # residual jets, (order+1)+W+(Ni,)
+    >>> dirs = (tuple(rng.standard_normal((2,) + u.shape) for u in theta[0]),   # a tangent stack K = (2,)
+    ...         tuple(rng.standard_normal((2,) + g.shape) for g in theta[1]))
+    >>> KU, KG = sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, dirs, order)
+    >>> [k.shape for k in KG]                                              # K + the TT core shapes
+    [(2, 1, 2, 2), (2, 2, 3, 2), (2, 2, 2, 1)]
+    >>> one = lambda cores: sd.t3_probe_corewise_derivatives_transpose(zt, ww, pp, cores, order,
+    ...                                                                sum_over_probes=True)
+    >>> shift = lambda h: tuple(tuple(c + h * dc[0] for c, dc in zip(cs, dcs)) for cs, dcs in zip(theta, dirs))
+    >>> fd = [(a - b) / 2e-4 for a, b in zip(sum(one(shift(1e-4)), ()), sum(one(shift(-1e-4)), ()))]
+    >>> got = [k[0] for k in KU + KG]
+    >>> bool(max(np.linalg.norm(g - f) / np.linalg.norm(f) for g, f in zip(got, fd)) < 1e-6)
+    True
+    >>> gram = sum(a.reshape(2, -1) @ b.reshape(2, -1).T for a, b in zip(dirs[0] + dirs[1], KU + KG))
+    >>> bool(abs(gram[0, 1] - gram[1, 0]) < 1e-12 * abs(gram).max())     # <a, K b> = <b, K a>
+    True
+    '''
+    frame_sweep = tv_precompute_apply_frame_sweep_jets(fv_conversions.t3_corewise_frame(core_pair), ww, pp, order)
+    return t3_probe_corewise_derivatives_hessian_from_sweep(
+        ztildes, ww, pp, core_pair, core_directions, order, frame_sweep, chunk_size=chunk_size)
 
 
 #####################################################
