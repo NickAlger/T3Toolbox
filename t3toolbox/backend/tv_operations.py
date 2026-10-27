@@ -6,8 +6,9 @@
 
 ``tv_to_t3`` (the tangent SUM over variation terms -- vs ``fv_conversions.fv_to_t3``'s single
 term), ``tv_to_dense``, the orthogonal/oblique gauge projections, the tangent-space projections
-of t3/dense operands, ``tv_retract``, ``tv_gauge_residual``, and the tangent/frame stack
-converters.
+of t3/dense operands, ``tv_retract``, ``tv_gauge_residual``, the lift of frame coordinates to raw
+core variations and its transpose (``tv_corewise_lift[_transpose]``, the exact Hessian's), and the
+tangent/frame stack converters.
 """
 from __future__ import annotations
 
@@ -17,7 +18,9 @@ import numpy as np
 
 import t3toolbox.backend.t3_conversions as t3_conversions
 import t3toolbox.backend.tt_operations as tt_operations
+import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.fv_conversions as fv_conversions
+import t3toolbox.backend.fv_operations as fv_operations
 import t3toolbox.backend.t3_operations as ragged_operations
 import t3toolbox.backend.ut3_operations as uniform_operations
 import t3toolbox.backend.t3_svd as ragged_t3svd
@@ -33,6 +36,8 @@ __all__ = [
     'tv_oblique_gauge_projection',
     'tv_project_t3_onto_tangent_space',
     'tv_project_dense_onto_tangent_space',
+    'tv_corewise_lift',
+    'tv_corewise_lift_transpose',
     'tv_unstack_tangent_stack',
     'tv_stack_tangent_stack',
     'tv_unstack_frame_stack',
@@ -498,6 +503,159 @@ def tv_project_dense_onto_tangent_space(
         frame, (tuple(ungauged_tucker_variations), tuple(ungauged_tt_variations)),
         shared_data=shared_data,
     )
+
+
+def _check_lift_lengths(
+        frame,                                  # (U, O, L, R), len=d each
+        variations,                             # (tucker, tt) variations, len=d each
+        lift_factors:   fv_operations.LiftFactors,
+        caller:         str,
+) -> int:                                       # d
+    """Structural guard of the lift pair: one factor per mode (d Tucker, d-1 bond) and d variations."""
+    d = len(frame[0])
+    if not (len(variations[0]) == len(variations[1]) == len(lift_factors.tucker_pinvs) == d
+            and len(lift_factors.bond_pinvs) == d - 1):
+        raise ValueError('%s: the frame (d=%d), the variations (%d Tucker, %d TT) and the lift factors '
+                         '(%d Tucker, %d bond; expected d and d-1) disagree on the number of modes'
+                         % (caller, d, len(variations[0]), len(variations[1]),
+                            len(lift_factors.tucker_pinvs), len(lift_factors.bond_pinvs)))
+    return d
+
+
+def tv_corewise_lift(
+        frame:          typ.Tuple[
+            typ.Sequence[NDArray],              # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+            typ.Sequence[NDArray],              # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+            typ.Sequence[NDArray],              # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+            typ.Sequence[NDArray],              # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+        ],
+        variations:     typ.Tuple[
+            typ.Sequence[NDArray],              # tucker_variations. len=d, elm_shape=K+C+(nDi, Ni)
+            typ.Sequence[NDArray],              # tt_variations.     len=d, elm_shape=K+C+(rLi, nUi, rR(i+1))
+        ],
+        lift_factors:   fv_operations.LiftFactors,  # the frame's, fv_operations.fv_lift_factors; stack C
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],                    # Udot. len=d, elm_shape=K+C+(nUi, Ni)
+    typ.Tuple[NDArray, ...],                    # Gdot. len=d, elm_shape=K+C+(rLi, nUi, rL(i+1))
+]:
+    '''Lift frame coordinates to raw core variations: ``theta_hat = L v``.
+
+    ``Udot_i = (S_i^T)^{+eps} V_i``,   ``Gdot_i = H_i x_3 T_i^{+eps}`` (``i <= d-2``),   ``Gdot_{d-1} = H_{d-1}``,
+
+    with the frame's damped pseudo-inverses ``lift_factors``
+    (:py:func:`~t3toolbox.backend.fv_operations.fv_lift_factors`). The output is a variation of the frame's
+    own raw cores ``theta = (U, L)`` (the base point in its left-canonical gauge): at ``eps = 0``,
+
+    ``tv_to_dense(t3_corewise_frame((U, L)), L v) == tv_to_dense(frame, v)``
+
+    for **any** coordinates ``v`` -- gauged or not -- on every numerically full-rank frame
+    ``t3_orthogonal_representations`` builds, minimal or not (the pseudo-inverses are exact one-sided inverses
+    there); at a rank-deficient point the clipped directions drop out, ``DPhi[L v] = E(Q v)`` (see
+    :py:func:`~t3toolbox.backend.fv_operations.fv_lift_factors`). This is how a tangent
+    direction reaches the core parametrization ``Phi``: the second derivative of ``Phi`` along
+    ``theta_hat`` is what carries the curvature (Weingarten) term of the Riemannian Hessian (Absil, Mahony &
+    Trumpf (2013), "An extrinsic look at the Riemannian Hessian").
+
+    The last TT slot passes through **undamped**: ``H_{d-1}`` multiplies no inverse. A damping ``eps > 0``
+    bounds every other slot by ``1/(2 eps)`` near a rank drop; the identity then holds to
+    ``O(eps^2 / sigma^2)`` on the well-conditioned directions. The transpose
+    :py:func:`tv_corewise_lift_transpose` uses the SAME factors, so ``L^T K L`` is symmetric for every
+    ``eps``.
+
+    Batching: the factors carry the frame stack ``C``; the variations carry ``K + C`` -- one lift per
+    tangent at the shared frame, the factors broadcast over ``K`` (grouped contractions, ``C`` pinned by
+    the factors). ``frame`` is not read by the arithmetic -- the factors carry everything -- but keeps the
+    ``(frame, variations)`` calling convention, and the mode counts are checked against it (structural).
+
+    Examples
+    --------
+    A stack of three tangents at one frame, lifted exactly (``curvature_damping = 0``):
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.fv_operations as fvo
+    >>> import t3toolbox.backend.tv_operations as tvo
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, _ = fvc.t3_orthogonal_representations(x.data)
+    >>> v = fvo.fv_variations_randn(fvo.fv_variation_shapes(frame), (3,))     # K = (3,), ungauged
+    >>> theta_hat = tvo.tv_corewise_lift(frame, v, fvo.fv_lift_factors(frame, 0.0))
+    >>> print([U.shape for U in theta_hat[0]], [G.shape for G in theta_hat[1]])
+    [(3, 2, 5), (3, 3, 6), (3, 2, 7)] [(3, 1, 2, 2), (3, 2, 3, 2), (3, 2, 2, 1)]
+    >>> corewise_frame = fvc.t3_corewise_frame((frame[0], frame[2]))           # theta = (U, L)
+    >>> print(np.allclose(tvo.tv_to_dense(corewise_frame, theta_hat), tvo.tv_to_dense(frame, v)))
+    True
+    '''
+    tucker_variations, tt_variations = variations
+    d = _check_lift_lengths(frame, variations, lift_factors, 'tv_corewise_lift')
+
+    Udot = tuple(contractions.contract('Cux,KCxn->KCun', lift_factors.tucker_pinvs[ii], tucker_variations[ii])
+                 for ii in range(d))
+    Gdot = tuple(contractions.contract('KCaib,Cbc->KCaic', tt_variations[ii], lift_factors.bond_pinvs[ii])
+                 for ii in range(d - 1)) + (tt_variations[d - 1],)        # the last TT slot: undamped
+    return Udot, Gdot
+
+
+def tv_corewise_lift_transpose(
+        frame:              typ.Tuple[
+            typ.Sequence[NDArray],              # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+            typ.Sequence[NDArray],              # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+            typ.Sequence[NDArray],              # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+            typ.Sequence[NDArray],              # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+        ],
+        core_variations:    typ.Tuple[
+            typ.Sequence[NDArray],              # raw Tucker-core variations. len=d, elm_shape=K+C+(nUi, Ni)
+            typ.Sequence[NDArray],              # raw TT-core variations.     len=d, elm_shape=K+C+(rLi, nUi, rL(i+1))
+        ],
+        lift_factors:       fv_operations.LiftFactors,  # the frame's, fv_operations.fv_lift_factors; stack C
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],                    # UNGAUGED tucker_variations. len=d, elm_shape=K+C+(nDi, Ni)
+    typ.Tuple[NDArray, ...],                    # UNGAUGED tt_variations.     len=d, elm_shape=K+C+(rLi, nUi, rR(i+1))
+]:
+    '''The transpose of :py:func:`tv_corewise_lift`: raw core variations back to frame coordinates.
+
+    ``V_i = ((S_i^T)^{+eps})^T Udot_i``,   ``H_i = Gdot_i x_3 (T_i^{+eps})^T`` (``i <= d-2``),
+    ``H_{d-1} = Gdot_{d-1}``,
+
+    the exact adjoint of the lift in the coordinate (corewise) inner products,
+    ``<L v, y>_raw == <v, L^T y>_frame`` per ``K + C`` element, for every damping -- the same
+    ``lift_factors`` serve both directions, which is what keeps ``L^T K L`` symmetric. The result is
+    **ungauged**: compose with :py:func:`tv_orthogonal_gauge_projection` for gauged coordinates (the
+    Riemannian Hessian applies the projection outside, ``Pi L^T K L Pi``).
+
+    Batching as the lift: factors ``C``, variations ``K + C``. ``frame`` keeps the calling convention and
+    is checked structurally (mode counts), not read.
+
+    Examples
+    --------
+    The adjoint identity, at a damping where the lift is no longer an exact inverse:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.corewise as cw
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.fv_operations as fvo
+    >>> import t3toolbox.backend.tv_operations as tvo
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, _ = fvc.t3_orthogonal_representations(x.data)
+    >>> lf = fvo.fv_lift_factors(frame, 1e-2)
+    >>> v = fvo.fv_variations_randn(fvo.fv_variation_shapes(frame), ())
+    >>> y = (tuple(np.random.randn(*U.shape) for U in frame[0]),                 # raw, shaped like (U, L)
+    ...      tuple(np.random.randn(*G.shape) for G in frame[2]))
+    >>> Lv, LTy = tvo.tv_corewise_lift(frame, v, lf), tvo.tv_corewise_lift_transpose(frame, y, lf)
+    >>> print(bool(np.isclose(cw.corewise_dot(Lv, y), cw.corewise_dot(v, LTy))))
+    True
+    '''
+    Udot, Gdot = core_variations
+    d = _check_lift_lengths(frame, core_variations, lift_factors, 'tv_corewise_lift_transpose')
+
+    V = tuple(contractions.contract('Cux,KCun->KCxn', lift_factors.tucker_pinvs[ii], Udot[ii])
+              for ii in range(d))
+    H = tuple(contractions.contract('KCaic,Cbc->KCaib', Gdot[ii], lift_factors.bond_pinvs[ii])
+              for ii in range(d - 1)) + (Gdot[d - 1],)                    # the last TT slot: undamped
+    return V, H
 
 
 def _tangent_stack_split(

@@ -93,6 +93,16 @@ All notable changes to T3Toolbox are documented here. The format follows
   **`optimizers.LeastSquaresSetup`**, a frozen dataclass with `.problem`, `.x0_cores` (the backend
   starting cores, reduced to minimal ranks where the optimizers reduce them) and `.rewrap` (backend cores
   -> the frontend tensor). Module-level only, not re-exported at the root.
+- **The lift from frame coordinates to raw core variations** (backend; a building block of the exact
+  Hessian, not yet wired into an optimizer): `backend.linalg.filtered_reciprocal` and
+  `damped_pseudo_inverse` (the clipped, optionally Tikhonov-damped reciprocal of a spectrum, and the
+  pseudo-inverse built on it); `backend.fv_operations.fv_center_factors` (a frame's centers `H_i`, Tucker
+  factors `S_iᵀ` and bond factors `T_i`, recomputed by zipper), `LiftFactors` and
+  `fv_lift_factors(frame, curvature_damping)` (damping relative to `‖X‖_HS`);
+  `backend.tv_operations.tv_corewise_lift` / `tv_corewise_lift_transpose`, exact at zero damping on every
+  numerically full-rank orthogonal frame, minimal or not (at a rank-deficient point the clipped directions
+  drop out). `fv_shared_frame_data` now takes its centers from
+  `fv_center_factors` (bit-identical).
 
 ## [2026.2.0] — 2026-08-25
 

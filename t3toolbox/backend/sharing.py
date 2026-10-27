@@ -28,6 +28,7 @@ from dataclasses import dataclass
 
 import t3toolbox.backend.tt_orthogonalization as tt_orthogonalization
 import t3toolbox.backend.tt_operations as tt_operations
+import t3toolbox.backend.fv_operations as fv_operations
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ufv_masking as ufv_masking
 from t3toolbox.backend.common import *
@@ -537,21 +538,17 @@ def fv_shared_frame_data(
     >>> print(bool(np.allclose(np.asarray(sfd.svd_s[0]), s_dense[:3])))
     True
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame_data
     use_jax = tree_contains_jax(frame_data)
     xnp, _, _ = get_backend(False, use_jax)
 
-    # The centers from the stored cores: H_i = L_i Z_{i+1}, Z the right-to-left zipper of the left chain
-    # against the right chain (the environment to the right of core i). Exact, GEMM-only, and consistent
-    # with the stored R whatever built the frame (no fresh SVD, so no sign/degenerate-block hazard).
-    ZZ = tt_operations.tt_zipper_right_to_left(left_tt_cores, right_tt_cores)
-    HH = tuple(xnp.einsum('...aib,...bc->...aic', L, ZZ[ii + 1]) for ii, L in enumerate(left_tt_cores))
+    # Steps 1-2, the centers H_i = L_i Z_{i+1} and S_i^T = <O_i, H_i> from the stored cores (Z the
+    # right-to-left zipper of the left chain against the right chain): exact, GEMM-only, and consistent
+    # with the stored O/R whatever built the frame (no fresh SVD, so no sign/degenerate-block hazard).
+    HH, SS_T, _ = fv_operations.fv_center_factors(frame_data)
 
     centers, row_splits, svd_U, svd_s, svd_Vt = [], [], [], [], []
     for group in nontrivial_groups(groups):
-        SS_gT = tuple(
-            xnp.einsum('...axb,...aub->...xu', down_tt_cores[ii], HH[ii])  # S_i^T, C+(nDi, nU)
-            for ii in group)
+        SS_gT = tuple(SS_T[ii] for ii in group)                           # S_i^T, C+(nDi, nU)
         splits = (0,)
         for S_T in SS_gT:
             splits = splits + (splits[-1] + S_T.shape[-2],)

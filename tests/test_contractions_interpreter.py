@@ -48,6 +48,10 @@ from t3toolbox.backend.contractions import contract
 # single-axis sizes, shared across all operands of a contraction (same letter = same size)
 AXIS_SIZE = {'d': 2, 't': 3, 'r': 3, 's': 2, 'u': 3, 'k': 2, 'a': 2, 'i': 3, 'b': 4, 'o': 5,
              'j': 2, 'c': 3}
+# The exact Hessian's kernels (2026.3.0) also name the mode axis `n`/`x`, the Z-operand rank `z` and a
+# fourth bond `l`; each new size differs from every other letter in the strings that use it, so a
+# transposed new axis is a shape error, not only a value mismatch.
+AXIS_SIZE.update({'l': 4, 'n': 6, 'x': 7, 'z': 5})
 
 # (W_shape, K_shape, C_shape): empty / single / multi-axis blocks, where the bookkeeping bites
 SHAPE_MATRIX = [
@@ -191,6 +195,14 @@ HISTORICAL = {
     'ts,tWKCb->sWKCb': '',
     'uWKCa,uWo->KCao': '',
     'uWKCa,uWo->WKCao': '',
+    # The exact Hessian (2026.3.0). The lift and its transpose: C-only factors pin C, variations K+C.
+    'Cux,KCxn->KCun': '',
+    'KCaib,Cbc->KCaic': '',
+    'Cux,KCun->KCxn': '',
+    'KCaic,Cbc->KCaib': '',
+    # ... the frame's center factors (C only): H = L x3 T, S^T = <O, H>
+    'Caib,Cbc->Caic': '',
+    'Caxb,Caub->Cxu': '',
 }
 
 SUBS_RE = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')

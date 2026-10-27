@@ -60,7 +60,8 @@ class TestInterpreterAnyAxisSharding(unittest.TestCase):
     """
 
     SINGLE = {'d': 2, 't': 3, 'r': 3, 's': 2, 'u': 3, 'k': 2, 'a': 2, 'i': 3, 'b': 3, 'o': 3,
-              'j': 2, 'c': 3}
+              'j': 2, 'c': 3,
+              'l': 4, 'n': 6, 'x': 7, 'z': 5}   # the exact Hessian's mode / Z-rank / fourth-bond letters
 
     @classmethod
     def setUpClass(cls):

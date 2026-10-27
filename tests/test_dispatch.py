@@ -409,6 +409,48 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(_tied_projection, stk[0], stt[0], stt[1],
                             jnp.asarray(np.random.randn(6, 6)))
 
+    # ---------------------------------------------------- jit bucket: the exact Hessian's lift
+    def test_jit_curvature_lift(self):
+        """The filters, the frame factors, the lift factors, the lift and its transpose jit to pure jax.
+        ``LiftFactors`` is a pytree of leaves only (no aux; eps is a leaf), so a new frame or a new
+        (traced) curvature_damping reuses ONE compile."""
+        fd = self.frame.data
+        spectrum = jnp.array([3.0, 1.0, 1e-20])
+        self.assert_jit_jax(lambda s: linalg.filtered_reciprocal(s, None), spectrum)
+        self.assert_jit_jax(lambda s, e: linalg.filtered_reciprocal(s, e), spectrum, jnp.array(0.1))
+        self.assert_jit_jax(lambda m, e: linalg.damped_pseudo_inverse(m, e),
+                            jnp.asarray(np.random.randn(2, 4, 3)), jnp.array([0.0, 0.5]))
+        self.assert_jit_jax(lambda f: fv_operations.fv_center_factors(f), fd)
+        self.assert_jit_jax(lambda f: fv_operations.fv_lift_factors(f, 1e-6), fd)
+        vk = self.v_vstack.variations.data                                       # K = (3,)
+        self.assert_jit_jax(lambda f, v: tops.tv_corewise_lift(f, v, fv_operations.fv_lift_factors(f, 1e-6)),
+                            fd, vk)
+        y = (tuple(jnp.asarray(np.random.randn(3, *U.shape)) for U in fd[0]),
+             tuple(jnp.asarray(np.random.randn(3, *L.shape)) for L in fd[2]))
+        self.assert_jit_jax(lambda f, yy: tops.tv_corewise_lift_transpose(
+            f, yy, fv_operations.fv_lift_factors(f, 1e-6)), fd, y)
+
+        lf = fv_operations.fv_lift_factors(fd, 1e-6)
+        leaves, treedef = jax.tree_util.tree_flatten(lf)
+        self.assertEqual(len(leaves), 4 * len(fd[0]) - 1)                       # every array a leaf
+        self.assertIsInstance(jax.tree_util.tree_unflatten(treedef, leaves), fv_operations.LiftFactors)
+
+        traces = [0]
+
+        @jax.jit
+        def factors_and_lift(f, cd, v):
+            traces[0] += 1                                                       # +1 per TRACE
+            factors = fv_operations.fv_lift_factors(f, cd)
+            return factors, tops.tv_corewise_lift(f, v, factors)
+
+        other = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT).to_jax())[0].data
+        for f in (fd, other):                                                    # a new frame ...
+            for cd in (0.0, 1e-6, 1e-2):                                         # ... and a new damping
+                out_lf, out_lift = factors_and_lift(f, jnp.asarray(cd), vk)
+                self.assertIsInstance(out_lf, fv_operations.LiftFactors)
+                self._leaves_all_jax((out_lf, out_lift))
+        self.assertEqual(traces[0], 1, "the lift recompiled on a new frame or damping")
+
     def test_jit_shared_geometry_fitting(self):
         # a SharedGeometry model: the wrapper is value-hashed aux, the companion a leaf; the
         # matvec (tied projections on both sides) compiles clean

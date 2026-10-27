@@ -6,8 +6,10 @@
 
 ``truncated_svd``, the directional ``left/right/up_svd`` and ``*_svd_pair`` factorizations
 (directions match the core-unfolding conventions), ``pad_safe_svd`` (the mask-aware SVD of a
-zero-padded matrix -- the uniform layer's replacement for a black-box SVD), and
-``pad_or_truncate``. Pure array-in, array-out helpers with no T3 semantics.
+zero-padded matrix -- the uniform layer's replacement for a black-box SVD), the clipped and damped
+reciprocal of a spectrum with its pseudo-inverse (``filtered_reciprocal``,
+``damped_pseudo_inverse``), and ``pad_or_truncate``. Pure array-in, array-out helpers with no T3
+semantics.
 """
 import functools
 import typing as typ
@@ -19,6 +21,8 @@ __all__ = [
     'pad_or_truncate',
     'truncated_svd',
     'pad_safe_svd',
+    'filtered_reciprocal',
+    'damped_pseudo_inverse',
     'left_svd',
     'right_svd',
     'up_svd',
@@ -713,3 +717,103 @@ def pad_safe_svd(
     d_k = xnp.sign(xnp.diagonal(R_kk, axis1=-2, axis2=-1))
     V_mk = V_mk * xnp.where(d_k == 0.0, 1.0, d_k)[..., None, :]
     return U_nk, ss_k, V_mk.swapaxes(-2, -1)
+
+
+def filtered_reciprocal(
+        s:      NDArray,                     # singular values, shape=C+(k,), descending
+        eps:    typ.Optional[NDArray],       # damping, shape=C (broadcast over k); None -> exact clipped 1/s
+        rcond:  typ.Optional[float] = None,  # relative clip vs s[..., :1]; None -> dtype eps * k
+) -> NDArray:                                # f(s), shape=C+(k,); 0 where clipped
+    '''The clipped, optionally damped reciprocal of a spectrum: ``f(s) = s / (s^2 + eps^2)``.
+
+    Every ``s`` at or below the clip ``rcond * s[..., :1]`` (relative to the largest value, so the
+    spectrum must be descending, as an SVD returns it) maps to **exactly 0**, whatever ``eps`` is:
+
+    * ``eps=None`` -- the exact clipped reciprocal ``1/s``, the filter of a minimum-norm
+      pseudo-inverse. It is the same two branch-free ``where`` steps as the shared geometry's
+      clipped group solve, so given the same ``rcond`` the two agree bit for bit;
+    * ``eps`` given (one value per stack element, broadcast over the ``k`` values) -- the Tikhonov
+      filter ``s / (s^2 + eps^2)``: ``~1/s`` for ``s >> eps``, ``~s/eps^2`` for ``s << eps``, and never
+      above ``1/(2 eps)``. ``eps = 0`` is the exact reciprocal up to rounding (``s/s^2``).
+
+    The clip is what makes ``eps = 0`` safe at a zero-padded rank-continuation restart, whose padded
+    singular values come back from LAPACK at roundoff (~1e-17) rather than at an exact zero; a zero
+    spectrum (the zero tensor) is clipped entirely, so ``f`` is identically 0 there. Both guards are a
+    double ``where`` (no division by zero is ever evaluated on a selected branch), so the result is
+    finite everywhere and jit-safe. Dispatch is inferred from ``s`` and ``eps``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.backend.linalg as linalg
+    >>> s = np.array([4.0, 2.0, 1e-20])                      # the last value is a roundoff "zero"
+    >>> linalg.filtered_reciprocal(s, None).tolist()         # exact 1/s, roundoff clipped to 0
+    [0.25, 0.5, 0.0]
+    >>> f = linalg.filtered_reciprocal(s, np.array(1.0))     # damped: s / (s^2 + 1)
+    >>> print(np.allclose(f, [4 / 17, 2 / 5, 0.0]))
+    True
+
+    A spectrum stack carries one damping per element (shape ``C``), broadcast over its values:
+
+    >>> S = np.array([[4.0, 2.0], [1.0, 0.5]])                # C = (2,), k = 2
+    >>> print(linalg.filtered_reciprocal(S, np.array([0.0, 1.0])).round(3).tolist())
+    [[0.25, 0.5], [0.5, 0.4]]
+    '''
+    use_jax = tree_contains_jax((s, eps))
+    xnp, _, _ = get_backend(False, use_jax)
+
+    s = xnp.asarray(s)
+    eff_rcond = float(np.finfo(s.dtype).eps) * s.shape[-1] if rcond is None else rcond
+    keep = s > eff_rcond * s[..., :1]                                  # relative clip against s_1
+    if eps is None:
+        return xnp.where(keep, 1.0 / xnp.where(keep, s, 1.0), 0.0)     # branch-free clipped 1/s
+    eps_C1 = xnp.asarray(eps)[..., None]                               # C -> C+(1,): broadcast over k
+    return xnp.where(keep, s / xnp.where(keep, s * s + eps_C1 * eps_C1, 1.0), 0.0)
+
+
+def damped_pseudo_inverse(
+        M:      NDArray,                     # shape=C+(m, n)
+        eps:    typ.Optional[NDArray],       # damping, shape=C; None -> the clipped (minimum-norm) pinv
+        rcond:  typ.Optional[float] = None,  # relative clip; None -> dtype eps * max(m, n)
+) -> typ.Tuple[
+        NDArray,                             # M^{+eps}, shape=C+(n, m)
+        NDArray,                             # s, the singular values of M, shape=C+(min(m, n),), descending
+]:
+    '''The damped pseudo-inverse ``M^{+eps} = V f(S) U^T`` of a (stack of) matrices, and its spectrum.
+
+    One thin batched SVD ``M = U S V^T`` and the filter :py:func:`filtered_reciprocal` on ``S``.
+    ``eps=None`` gives the clipped minimum-norm pseudo-inverse (``numpy.linalg.pinv``'s, with the same
+    default relative clip ``dtype eps * max(m, n)``); a damping ``eps`` gives the Tikhonov-regularized
+    inverse ``(M^T M + eps^2 I)^{-1} M^T``, which stays bounded (by ``1/(2 eps)`` in norm) however small
+    ``M``'s singular values are.
+
+    No basis is kept -- only the product ``V f(S) U^T`` -- so the result does not depend on how the SVD
+    picks the singular vectors of a degenerate or zero block (the clipped values multiply them by 0).
+    That is what makes it transparent to zero padding, and why it is a plain SVD rather than
+    :py:func:`pad_safe_svd` (which exists for consumers that DO keep the basis). Returns the singular
+    values too, for diagnostics (the smallest real one is the conditioning the damping guards).
+    Stack-aware (one opaque batch ``C``); dispatch is inferred.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.backend.linalg as linalg
+    >>> np.random.seed(0)
+    >>> M = np.random.randn(4, 3)
+    >>> Mp, s = linalg.damped_pseudo_inverse(M, None)
+    >>> print(Mp.shape, s.shape, np.allclose(Mp, np.linalg.pinv(M)))
+    (3, 4) (3,) True
+    >>> Mp_eps, _ = linalg.damped_pseudo_inverse(M, np.array(0.5))         # Tikhonov
+    >>> print(np.allclose(Mp_eps, np.linalg.solve(M.T @ M + 0.25 * np.eye(3), M.T)))
+    True
+    '''
+    use_jax = tree_contains_jax((M, eps))
+    xnp, _, _ = get_backend(False, use_jax)
+
+    M = xnp.asarray(M)
+    m, n = M.shape[-2:]
+    eff_rcond = float(np.finfo(M.dtype).eps) * max(m, n) if rcond is None else rcond
+    U_mk, s_k, Vt_kn = xnp.linalg.svd(M, full_matrices=False)
+    f_k = filtered_reciprocal(s_k, eps, eff_rcond)
+    M_pinv = xnp.einsum('...kn,...k,...mk->...nm', Vt_kn, f_k, U_mk)  # V diag(f) U^T
+    return M_pinv, s_k

@@ -5,18 +5,23 @@
 """Operations on raw (frame, variations) data: variation constructors, frame ops, residuals.
 
 ``fv_variations_{zeros,randn,unit,from_vector}`` build variation tuples for a given frame;
-``fv_frame_reverse`` and the ``fv_frame_*_residual`` checkers operate on the frame alone, and
-``fv_zero_point_frame`` builds the canonical frame at the zero tensor from a frame's structure. The
+``fv_frame_reverse`` and the ``fv_frame_*_residual`` checkers operate on the frame alone,
+``fv_zero_point_frame`` builds the canonical frame at the zero tensor from a frame's structure, and
+``fv_center_factors`` / ``fv_lift_factors`` derive the small per-mode factors that relate the frame
+coordinates to raw core variations (the lift of the exact Riemannian Hessian). The
 ``fv_*_weights`` functions are the weighted-layer tangent metric (absorb into the variation cores).
 """
 from __future__ import annotations
 
+import dataclasses as dc
 import math
 import typing as typ
 import numpy as np
 
 import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.t3_operations as t3_operations
+import t3toolbox.backend.contractions as contractions
+import t3toolbox.backend.linalg as linalg
 from t3toolbox.backend.common import *
 import t3toolbox.backend.t3_conversions as t3_conversions
 import t3toolbox.corewise as corewise
@@ -31,6 +36,9 @@ __all__ = [
     'fv_frame_orthogonality_residual',
     'fv_frame_consistency_residual',
     'fv_zero_point_frame',
+    'fv_center_factors',
+    'LiftFactors',
+    'fv_lift_factors',
     'fv_absorb_weights',
     'fv_weights_consistent',
     'fv_concatenate_weights',
@@ -422,6 +430,185 @@ def fv_zero_point_frame(
     return up_out, tuple(down_out), tuple(left_out), tuple(right_out)
 
 
+# --------------------------------------------------------------------------------------------------
+# The frame's center factors, and the lift factors of the exact Riemannian Hessian
+# --------------------------------------------------------------------------------------------------
+def fv_center_factors(
+        frame:  typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+            typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+        ],
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],        # centers H_i = L_i T_i.  len=d,   elm_shape=C+(rLi, nUi, rR(i+1))
+    typ.Tuple[NDArray, ...],        # tucker factors S_i^T.   len=d,   elm_shape=C+(nDi, nUi)
+    typ.Tuple[NDArray, ...],        # bond factors T_i.       len=d-1, elm_shape=C+(rL(i+1), rR(i+1))
+]:
+    '''The small per-mode factors that an orthogonal frame's construction produces and discards.
+
+    Recomputed from the STORED cores, by contraction only (no SVD):
+
+    - the **bond factors** ``T_i`` (``i <= d-2``): the right-to-left zipper of the left chain against the
+      right chain at bond ``i+1`` (:py:func:`~t3toolbox.backend.tt_operations.tt_zipper_right_to_left`).
+      Because the base point is ``X = L_{<i} L_i T_i R_{>i}``, ``T_i = <L_i, H_i>`` and its singular values
+      are the TT singular values of ``X`` at bond ``i+1``;
+    - the **centers** ``H_i = L_i T_i`` (at the last mode the zipper is the boundary ones matrix -- ``[[1]]``
+      on the usual squashed frame -- so ``H_{d-1} = L_{d-1}``): the base point's core when the orthogonality
+      center sits at mode ``i`` -- the construction's own TT variations of the point;
+    - the **Tucker factors** ``S_i^T = <O_i, H_i>`` (shape ``nDi x nUi``): the base point's Tucker variation
+      is ``V_i = S_i^T U_i``, and the singular values of ``S_i`` are the mode-``i`` Tucker singular values of
+      ``X``. In particular ``||X||^2 = sum(sigma(S_0)^2) = ||S_0^T||_F^2``.
+
+    The zipper recompute is GEMM-only, exact to roundoff, and consistent with the stored ``O``/``R``
+    whatever built the frame; nothing is re-SVD'd, so no sign or degenerate-block choice is made here
+    (the measurements are in the sharing design record, ``docs/contributor/sharing_internals.md``). The
+    identities above presume an **orthogonal** frame (as from ``t3_orthogonal_representations``); like
+    every backend function this one is check-free.
+
+    Polymorphic: ``frame`` may also be the four uniform supercores (``(d,)+C+(...)``), indexed per mode --
+    the uniform shared-frame companion relies on this. Two consumers: the shared geometry's companion
+    (:py:func:`~t3toolbox.backend.sharing.fv_shared_frame_data`, the centers and ``S_i^T``) and the
+    exact Hessian's lift (:py:func:`fv_lift_factors`, ``S_i^T`` and ``T_i``).
+
+    Examples
+    --------
+    The centers are the construction's own, and the factors carry the dense tensor's spectra:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.fv_operations as fvo
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, variations = fvc.t3_orthogonal_representations(x.data)
+    >>> centers, tucker_factors_T, bond_factors = fvo.fv_center_factors(frame)
+    >>> print([S.shape for S in tucker_factors_T], [T.shape for T in bond_factors])
+    [(2, 2), (3, 3), (2, 2)] [(2, 2), (2, 2)]
+    >>> print(all(np.allclose(H, H0) for H, H0 in zip(centers, variations[1])))
+    True
+    >>> X = x.to_dense()
+    >>> X1 = np.moveaxis(X, 1, 0).reshape(6, -1)                        # the mode-1 unfolding
+    >>> s_tucker = np.linalg.svd(tucker_factors_T[1], compute_uv=False)
+    >>> print(np.allclose(s_tucker, np.linalg.svd(X1, compute_uv=False)[:3]))
+    True
+    >>> s_bond = np.linalg.svd(bond_factors[1], compute_uv=False)       # bond 2: modes (0,1) | (2,)
+    >>> print(np.allclose(s_bond, np.linalg.svd(X.reshape(30, 7), compute_uv=False)[:2]))
+    True
+    '''
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    d = len(up_tucker_cores)
+
+    ZZ = tt_operations.tt_zipper_right_to_left(left_tt_cores, right_tt_cores)   # len=d+1, C+(rLi, rRi)
+    centers = tuple(contractions.contract('Caib,Cbc->Caic', left_tt_cores[ii], ZZ[ii + 1])
+                    for ii in range(d))
+    tucker_factors_T = tuple(contractions.contract('Caxb,Caub->Cxu', down_tt_cores[ii], centers[ii])
+                             for ii in range(d))
+    bond_factors = tuple(ZZ[ii + 1] for ii in range(d - 1))
+    return centers, tucker_factors_T, bond_factors
+
+
+@dc.dataclass(frozen=True, eq=False)   # eq=False -> identity hash/eq: array fields (the SharedFrameData precedent)
+class LiftFactors:
+    '''The per-frame factors of the lift ``L`` from frame coordinates to raw core variations, built by
+    :py:func:`fv_lift_factors` (never stored on a frame).
+
+    Every field is an array (or a tuple of arrays) carrying the frame stack ``C`` leading; as a jax
+    pytree all of them are LEAVES and there is no aux, so a new frame -- or a new damping -- changes leaf
+    values only, never a compilation key. ``eps`` is the ABSOLUTE damping actually used (``C``-shaped),
+    kept beside the factors so the lift and its transpose cannot disagree about it.
+    '''
+    tucker_pinvs:  typ.Tuple[NDArray, ...]  # (S_i^T)^{+eps}. len=d,   elm_shape=C+(nUi, nDi)
+    bond_pinvs:    typ.Tuple[NDArray, ...]  # T_i^{+eps}.     len=d-1, elm_shape=C+(rR(i+1), rL(i+1))
+    tucker_svals:  typ.Tuple[NDArray, ...]  # sigma(S_i).     len=d,   elm_shape=C+(nDi,)
+    bond_svals:    typ.Tuple[NDArray, ...]  # sigma(T_i).     len=d-1, elm_shape=C+(rR(i+1),)
+    eps:           NDArray                  # absolute damping used, shape=C
+
+
+def fv_lift_factors(
+        frame:              typ.Tuple[
+            typ.Sequence[NDArray],                  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+            typ.Sequence[NDArray],                  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+            typ.Sequence[NDArray],                  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+            typ.Sequence[NDArray],                  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+        ],
+        curvature_damping:  typ.Union[float, NDArray],  # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
+        rcond:              typ.Optional[float] = None, # relative clip (linalg.damped_pseudo_inverse)
+) -> LiftFactors:
+    '''The damped pseudo-inverses that lift frame coordinates to raw core variations.
+
+    At an orthogonal frame of ``X = Phi(theta)``, with ``theta = (U, L)`` the frame's own raw cores (the
+    left-canonical gauge of the base point), a gauged-or-not coordinate ``v = (V_i, H_i)`` and a raw
+    variation ``theta_hat = (Udot_i, Gdot_i)`` represent the same tangent vector,
+    ``DPhi(theta)[theta_hat] = E v``, when
+
+    ``Udot_i = (S_i^T)^+ V_i``,   ``Gdot_i = H_i x_3 T_i^+`` (``i <= d-2``),   ``Gdot_{d-1} = H_{d-1}``,
+
+    with ``S_i^T`` and ``T_i`` the center factors (:py:func:`fv_center_factors`). This function returns
+    those pseudo-inverses, damped by the Tikhonov filter ``sigma / (sigma^2 + eps^2)``
+    (:py:func:`~t3toolbox.backend.linalg.damped_pseudo_inverse`), with the absolute damping
+
+    ``eps = curvature_damping * ||X||_HS``,   ``||X||_HS^2 = sum(sigma(S_0)^2)``,
+
+    so ``curvature_damping`` is scale-free. The lift itself is
+    :py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift`.
+
+    - **Exactness.** At ``eps = 0`` the lift is exact on every *numerically full-rank* frame from
+      ``t3_orthogonal_representations``, minimal or not: a Tucker-slack ``S_i^T`` is wide (``nDi < nUi``) and a
+      TT-slack ``T_i`` is tall (``rR < rL``), and on both the pseudo-inverse is an exact one-sided inverse. At a
+      rank-deficient point (a zero-padded restart) the clipped directions drop out: the lift then satisfies
+      ``DPhi[L v] = E(Q v)`` with ``Q`` the projection off the clipped directions, not ``DPhi[L v] = E v``.
+    - **Rank-deficient points.** The filter clips (to exactly 0) every singular value below
+      ``rcond * sigma_max``, so a zero-padded rank-continuation restart -- whose padded singular values are
+      roundoff -- gives finite factors at any ``eps``, ``eps = 0`` included. At the zero tensor everything is
+      clipped: the lift is zero except the undamped last TT slot.
+    - **Why it exists.** The lift is the only place an inverse singular value enters the exact Hessian
+      (the Weingarten term of Absil, Mahony & Trumpf (2013), "An extrinsic look at the Riemannian
+      Hessian"; the TT analogue of Psenka & Boumal (2020), arXiv:2011.13395, ``R_k^{-1}``). The damping
+      bounds it by ``1/(2 eps)`` near a rank drop.
+
+    Requires an orthogonal frame (the identities presume it; check-free, like all backend functions).
+    Stack-aware: the factors and ``eps`` carry the frame stack ``C``; they broadcast over a tangent stack
+    ``K`` in the lift. Dispatch is inferred.
+
+    Examples
+    --------
+    The absolute damping is relative to the tensor's norm, and at ``curvature_damping = 0`` the factors
+    are the exact pseudo-inverses:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.fv_operations as fvo
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, _ = fvc.t3_orthogonal_representations(x.data)
+    >>> lf = fvo.fv_lift_factors(frame, 1e-6)
+    >>> print(bool(np.isclose(lf.eps, 1e-6 * np.linalg.norm(x.to_dense()))))
+    True
+    >>> lf0 = fvo.fv_lift_factors(frame, 0.0)
+    >>> _, tucker_factors_T, bond_factors = fvo.fv_center_factors(frame)
+    >>> print(np.allclose(lf0.tucker_pinvs[1], np.linalg.pinv(tucker_factors_T[1])),
+    ...       np.allclose(lf0.bond_pinvs[0], np.linalg.pinv(bond_factors[0])))
+    True True
+    '''
+    if isinstance(curvature_damping, (int, float)) and curvature_damping < 0:
+        raise ValueError('fv_lift_factors: curvature_damping must be >= 0 (it is relative to ||X||_HS); '
+                         'got %r' % (curvature_damping,))
+    _, tucker_factors_T, bond_factors = fv_center_factors(frame)
+
+    xnp, _, _ = get_backend(False, tree_contains_jax((tucker_factors_T, curvature_damping)))
+    S0T = tucker_factors_T[0]
+    norm_X = xnp.sqrt(xnp.sum(S0T * S0T, axis=(-2, -1)))       # ||X||_HS = ||S_0^T||_F, shape=C
+    eps = curvature_damping * norm_X
+
+    tucker = tuple(linalg.damped_pseudo_inverse(S_T, eps, rcond) for S_T in tucker_factors_T)
+    bond = tuple(linalg.damped_pseudo_inverse(T, eps, rcond) for T in bond_factors)
+    return LiftFactors(tucker_pinvs=tuple(p for p, _ in tucker), bond_pinvs=tuple(p for p, _ in bond),
+                       tucker_svals=tuple(s for _, s in tucker), bond_svals=tuple(s for _, s in bond),
+                       eps=eps)
+
+
 def fv_absorb_weights(
         variations: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_variations V, tt_variations H)
         weights:    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
@@ -554,3 +741,17 @@ def fv_weighted_inner(
     twin of ``T3Tangent.weighted_inner``."""
     return corewise.corewise_stack_dot(fv_absorb_weights(variations_A, weights),
                                        fv_absorb_weights(variations_B, weights), n_stack)
+
+
+if jax_available:
+    import jax
+
+    # The lift factors are a jax pytree whose every array is a LEAF (the per-frame pseudo-inverses, their
+    # spectra and the absolute damping eps flow as traced data beside the frame) with no aux: a new frame,
+    # or a new curvature_damping, changes leaf values only -- never the jit cache key.
+    jax.tree_util.register_pytree_node(
+        LiftFactors,
+        lambda f: ((f.tucker_pinvs, f.bond_pinvs, f.tucker_svals, f.bond_svals, f.eps), None),
+        lambda _, ch: LiftFactors(tucker_pinvs=ch[0], bond_pinvs=ch[1], tucker_svals=ch[2],
+                                  bond_svals=ch[3], eps=ch[4]),
+    )
