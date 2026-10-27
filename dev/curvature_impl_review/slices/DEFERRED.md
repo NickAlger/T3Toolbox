@@ -9,3 +9,5 @@
 | S0e handoff | `dev/paper_scope.md` still says `GaussNewtonModel` (dev/ is not edited by slice agents) | S13 (dev archive / HANDOFF pass) |
 | S0e review | Plan C.16's comment "reduced to minimal ranks on manifold geometries" is wrong: today's `_setup` reduces a uniform `x0` on BOTH geometries and a ragged `x0` only on manifold geometries; the `least_squares_problem` docstring states the truth | plan text amended at S13's archive pass |
 | S0e review | A variant of the `docs/conf.py` xref transform would also fix dead `:py:func:` links on ~90 pages while staying `-W` clean | optional docs commit, S13 |
+| S1S2 review | The slow-tier O2 oracle sweep is flaky (draws from the unseeded global RNG; one run failed `grad_fd` at 1.05e-6 / 4.9e-6 against a `< 1e-6` bar, on base and final alike). Seed it | before the S13 release gate |
+| S1S2 handoff | Plan M5 names only `AXIS_SIZE`; `tests/test_contractions_sharding.py` has its own size table and needed l/n/x/z too (done in S1) | plan text amended at S13 |
