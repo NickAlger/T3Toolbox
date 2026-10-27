@@ -31,9 +31,12 @@ Tangent vectors are raw ``(tucker_var, tt_var)`` tuples; vector arithmetic is th
 import dataclasses as dc
 import functools as ft
 import math
+import sys
 import time
 import typing as typ
 import warnings
+
+import numpy as np
 
 from t3toolbox.backend.common import *
 from t3toolbox.backend.regularization import Regularizer, IdentityRegularizer   # re-exported for backend users
@@ -90,6 +93,9 @@ class Geometry(typ.Protocol):
       data, built once per local model from the model's one misfit gradient ``Pi J^T omega^2 r``, this frame's
       ``aux`` and the solver's ``curvature_damping`` (a relative float, or ``None`` for the geometry's own
       default; passed through opaquely); returns ``None`` iff the curvature term vanishes at this frame.
+      The returned data may carry two read-only diagnostics, ``sigma_min`` (the smallest lift singular
+      value) and ``eps`` (the absolute damping used), which ``newton_cg`` reports as ``lift_sigma_min`` /
+      ``lift_eps`` (looked up duck-typed; absent means ``None``).
     * ``lift(frame, variations, curvature_data)`` -- tangent coordinates -> raw core variations of
       ``base_point(frame)`` (stack ``K + C``).
     * ``lift_transpose(frame, core_variations, curvature_data)`` -- its adjoint, raw -> UNGAUGED coordinates.
@@ -856,33 +862,51 @@ def adam(
 # loop-carried invariant like a constant, so this costs nothing (measured in the tier-2 chunking work).
 # --------------------------------------------------------------------------------------------------
 def _cg_cond(
-        state:  typ.Tuple,   # (p, r, d, rs, i, ok, local_model, tol2, maxiter)
+        state:  typ.Tuple,   # (p, r, d, rs, i, ok, local_model, tol2, maxiter, radius, boundary)
 ) -> NDArray:                # 0-d bool: keep iterating
-    """Continue while the residual is above tolerance, the cap is unreached, and curvature stayed positive."""
-    _p, _r, _d, rs, i, ok, _lm, tol2, maxiter = state
-    return (rs > tol2) & (i < maxiter) & ok
+    """Continue while the residual is above tolerance, the cap is unreached, curvature stayed positive, and
+    the iterate has not stopped on the trust-region boundary."""
+    _p, _r, _d, rs, i, ok, _lm, tol2, maxiter, _radius, boundary = state
+    return (rs > tol2) & (i < maxiter) & ok & ~boundary
 
 
 def _cg_body(
-        state:  typ.Tuple,   # (p, r, d, rs, i, ok, local_model, tol2, maxiter)
+        state:  typ.Tuple,   # (p, r, d, rs, i, ok, local_model, tol2, maxiter, radius, boundary)
 ) -> typ.Tuple:              # the same, advanced one CG iteration
-    """One CG iteration. **Backend-agnostic and branch-free** -- the curvature guard is an ``xnp.where``,
-    so a nonpositive ``dᵀHd`` (a gauge direction of the singular corewise ``H``) takes a zero step and
-    clears ``ok``, which stops the loop: truncated CG. The same body therefore drives the eager Python
-    loop and ``lax.while_loop``."""
-    p, r, d, rs, i, ok, lm, tol2, maxiter = state
+    """One Steihaug-Toint CG iteration (Steihaug 1983; Nocedal & Wright, *Numerical Optimization*, Alg. 7.2).
+    **Backend-agnostic and branch-free** -- every branch is an ``xnp.where``, so the same body drives the eager
+    Python loop and ``lax.while_loop``.
+
+    * Inside the trust region it is a plain CG step.
+    * If the step would leave the region (``‖p + αd‖ > Δ``), or ``dᵀHd ≤ 0`` with a **finite** radius, it
+      steps to the boundary instead -- ``p + τd`` with ``τ ≥ 0`` and ``‖p + τd‖ = Δ`` -- and sets
+      ``boundary``, which stops the loop.
+    * ``dᵀHd ≤ 0`` with ``radius = inf`` (no trust region) takes a zero step and clears ``ok``, which stops
+      the loop: truncated CG, exactly the pre-trust-region behaviour (a gauge direction of the singular
+      corewise ``H``). With ``radius = inf`` the selected arithmetic is the plain CG body's, bit for bit.
+
+    No ``inf`` enters any arithmetic: the boundary test compares a finite norm against the radius, and the
+    boundary length ``τ`` is computed from a radius that is ``where``-replaced by 0 wherever it is unused."""
+    p, r, d, rs, i, ok, lm, tol2, maxiter, radius, boundary = state
     xnp, _, _ = get_backend(False, tree_contains_jax(r))
     inner = lm.geom.inner
     Hd = lm.hvp(d)
     dHd = inner(d, Hd)
     pos = dHd > 0.0
     alpha = xnp.where(pos, rs / xnp.where(pos, dHd, 1.0), 0.0)        # 0 step on nonpositive curvature
-    p = cw.corewise_add(p, cw.corewise_scale(d, alpha))
-    r = cw.corewise_sub(r, cw.corewise_scale(Hd, alpha))
+    pp, pd, dd = inner(p, p), inner(p, d), inner(d, d)
+    outside = xnp.sqrt(xnp.maximum(pp + 2.0 * alpha * pd + alpha * alpha * dd, 0.0)) > radius  # ‖p+αd‖ > Δ
+    to_boundary = (pos & outside) | (~pos & xnp.isfinite(radius))
+    rad = xnp.where(to_boundary, radius, 0.0)                          # finite wherever it is read
+    dd_safe = xnp.where(dd > 0.0, dd, 1.0)
+    tau = (-pd + xnp.sqrt(xnp.maximum(pd * pd + dd * (rad * rad - pp), 0.0))) / dd_safe   # ‖p + τd‖ = Δ, τ ≥ 0
+    step = xnp.where(to_boundary, tau, alpha)
+    p = cw.corewise_add(p, cw.corewise_scale(d, step))
+    r = cw.corewise_sub(r, cw.corewise_scale(Hd, step))
     rs_new = inner(r, r)
     beta = xnp.where(pos, rs_new / rs, 0.0)
     d = cw.corewise_add(r, cw.corewise_scale(d, beta))
-    return (p, r, d, rs_new, i + 1, pos, lm, tol2, maxiter)
+    return (p, r, d, rs_new, i + 1, pos, lm, tol2, maxiter, radius, boundary | to_boundary)
 
 
 def _cg_core(
@@ -891,30 +915,43 @@ def _cg_core(
         tol:      typ.Any,      # stop at ‖H p − rhs‖ ≤ tol
         maxiter:  typ.Any,      # iteration cap
         use_jit:  bool,         # STATIC: selects lax.while_loop vs the eager Python loop
-) -> typ.Tuple:                 # (p, i, rs, ok)
-    """Solve ``H p = rhs`` by conjugate gradients (``H`` symmetric PSD) to residual ``‖r‖ ≤ tol``.
+        radius:   typ.Any,      # the trust-region radius Δ (‖p‖ ≤ Δ); inf = none (plain truncated CG)
+) -> typ.Tuple[
+    Tangent,                    # p: the (approximate) solution, ‖p‖ ≤ radius
+    typ.Any,                    # i: CG iterations run
+    typ.Any,                    # rs: the residual² ‖H p − rhs‖² at p
+    typ.Any,                    # ok: the last curvature dᵀHd was positive (False: stopped on nonpositive curvature)
+    typ.Any,                    # boundary: stopped on the trust-region boundary ‖p‖ = Δ
+]:
+    """Solve ``H p = rhs`` by Steihaug-Toint conjugate gradients to residual ``‖r‖ ≤ tol`` inside the trust
+    region ``‖p‖ ≤ radius`` (``H`` symmetric; indefinite allowed with a finite radius).
 
-    Returns the solution plus the loop state the caller needs for diagnostics: the iteration count ``i``,
-    the residual² ``rs = ‖H p − rhs‖²``, and the positive-curvature flag ``ok`` (``False`` == stopped on a
-    truncation). Converged / truncated / hit-maxiter are derived from ``(rs, i, ok)``."""
+    Returns the solution plus the loop state the caller needs for diagnostics. The outcome is derived from
+    ``(rs, i, ok, boundary)``: on the boundary (``boundary``), converged (``rs ≤ tol²``), truncated on
+    nonpositive curvature (``not ok``, only with ``radius = inf``), or the iteration cap. With
+    ``radius = inf`` it is the plain truncated CG, bit for bit on eager numpy."""
+    xnp, _, _ = get_backend(False, tree_contains_jax(rhs))
     rs0 = local_model.geom.inner(rhs, rhs)
     tol2 = tol * tol
-    state0 = (cw.corewise_zeros_like(rhs), rhs, rhs, rs0, 0, rs0 > tol2, local_model, tol2, maxiter)
-    p, _r, _d, rs, i, ok, _lm, _tol2, _maxiter = xwhile(_cg_cond, _cg_body, state0, use_jit)
-    return p, i, rs, ok
+    radius = xnp.asarray(radius, dtype=xnp.result_type(rs0))           # the iterate's dtype (a float32 solve stays float32)
+    state0 = (cw.corewise_zeros_like(rhs), rhs, rhs, rs0, 0, rs0 > tol2, local_model, tol2, maxiter,
+              radius, xnp.asarray(rs0 < 0.0))                          # boundary0: False, as a 0-d bool array
+    p, _r, _d, rs, i, ok, _lm, _tol2, _maxiter, _radius, boundary = xwhile(_cg_cond, _cg_body, state0, use_jit)
+    return p, i, rs, ok, boundary
 
 
-def _cg_solve(local_model, rhs, tol, maxiter, use_jit):
+def _cg_solve(local_model, rhs, tol, maxiter, use_jit, radius=math.inf):
     """Dispatch CG to the compiled or the eager path -- the SAME core either way.
 
-    Under jit the whole solve is one compiled function of ``(local_model, rhs, tol, maxiter)``, so the
-    cache key is jax's own: the model's pytree structure (its geometry and kind ride as **value-hashed**
-    aux) plus the argument shapes. ``tol`` and ``maxiter`` are traced arguments, so a Newton loop that
-    tightens the forcing term every iteration reuses one compiled program instead of recompiling -- and
-    cannot go stale."""
+    Under jit the whole solve is one compiled function of ``(local_model, rhs, tol, maxiter, radius)``, so
+    the cache key is jax's own: the model's pytree structure (its geometry and kind ride as
+    **value-hashed** aux) plus the argument shapes. ``tol``, ``maxiter`` and ``radius`` are traced
+    arguments, so a Newton loop that tightens the forcing term (or moves the trust region) every iteration
+    reuses one compiled program instead of recompiling -- and cannot go stale. Returns
+    ``(p, i, rs, ok, boundary)`` (:py:func:`_cg_core`)."""
     if use_jit and jax_available and tree_contains_jax(rhs):
-        return _jitted(_cg_core, (4,))(local_model, rhs, tol, maxiter, True)
-    return _cg_core(local_model, rhs, tol, maxiter, False)
+        return _jitted(_cg_core, (4,))(local_model, rhs, tol, maxiter, True, radius)
+    return _cg_core(local_model, rhs, tol, maxiter, False, radius)
 
 
 @dc.dataclass(frozen=True)
@@ -927,7 +964,7 @@ class NewtonInfo:
     **converged** line (no CG / line search ran). The scalar subset (all but ``x_cores`` / ``lm``) is what
     lands in ``stats['history']``.
 
-    Four run-level strings (2026.3.0): ``newton_cg`` sets the first three on every row it emits, so a
+    Five run-level strings (2026.3.0): ``newton_cg`` sets the first four on every row it emits, so a
     history consumer can filter by them, and ``stop_reason`` on its last row. All default to ``None``, so a
     hand-built row (a display test) needs none of them:
 
@@ -936,10 +973,23 @@ class NewtonInfo:
       ``‖g‖``), or ``'override'`` (``g0norm_newton`` was given).
     * ``cg_reference`` -- the CG forcing term's reference: ``'override'`` iff ``g0norm_cg`` was given, else
       equal to ``g0_reference`` (CG inherits the Newton reference).
-    * ``step_control`` -- the step-acceptance mode; ``'line_search'`` (Armijo backtracking).
+    * ``step_control`` -- the step-acceptance mode: ``'line_search'`` (Armijo backtracking along the
+      retraction) or ``'trust_region'`` (one trial at ``α = 1``, accepted on the ratio ``ρ``; Steihaug CG).
+    * ``hessian`` -- the local model's Hessian: ``'gauss_newton'`` or ``'exact'``.
     * ``stop_reason`` -- set on the run's **last** row only (``None`` before it): ``'gradient'`` (the
-      relative stop fired: the converged row), ``'max_newton'`` (the iteration cap), or ``'line_search'``
-      (Armijo exhausted under ``on_line_search_failure='stop'``); the same value as ``stats['stop_reason']``."""
+      relative stop fired: the converged row), ``'max_newton'`` (the iteration cap), ``'line_search'``
+      (Armijo exhausted under ``on_line_search_failure='stop'``), ``'objective_floor'`` (a rejected
+      trust-region step whose predicted change is below the objective's floating-point resolution -- the
+      attainable accuracy is reached; **not a failure**) or ``'trust_region_floor'`` (rejections drove the
+      radius below ``1e-12`` of its initial value); the same value as ``stats['stop_reason']``.
+
+    **Mode-dependent fields.** A line-search row has ``ls_steps`` / ``ls_failed`` set and ``tr_*`` ``None``; a
+    trust-region row has ``tr_radius`` (the radius this trial was bounded by) and ``tr_accepted`` set,
+    ``ls_steps = ls_failed = None`` and ``alpha = 1.0``. A rejected trust-region row keeps ``x_cores``
+    (the next row starts from the same point, with the same local model). ``pKp`` / ``lift_sigma_min`` /
+    ``lift_eps`` are set only with ``hessian='exact'`` (the last two only on a geometry whose curvature data
+    carries them, i.e. the manifold one at ``d > 1``). The CG outcome is exactly one of ``cg_converged``,
+    ``cg_boundary``, ``cg_truncated`` or (none of them) the iteration cap."""
     iteration:    int              # Newton iteration index (0-based)
     objective:    float            # total objective ½‖ω⊙r‖² + ρ(X) at x (= misfit + regularization; = lm.objective)
     gnorm:        float            # ‖g‖ (Riemannian gradient norm, geom.inner)
@@ -954,21 +1004,28 @@ class NewtonInfo:
     cg_iters:     typ.Optional[int]   = None           # CG iterations run
     cg_maxiter:   typ.Optional[int]   = None           # CG iteration cap (for the "iters/maxiter" display)
     cg_resid:     typ.Optional[float] = None           # achieved ‖H p + g‖ (CG residual)
-    cg_converged: typ.Optional[bool]  = None           # CG hit its tolerance (not maxiter / not truncated)
-    cg_truncated: typ.Optional[bool]  = None           # CG stopped on nonpositive curvature (gauge-singular H)
-    ls_steps:     typ.Optional[int]   = None           # Armijo backtracks (0 = full step; 40 = exhausted)
-    ls_failed:    typ.Optional[bool]  = None           # Armijo exhausted all 40 halvings ('stop' rejected the step; 'accept' took it)
-    alpha:        typ.Optional[float] = None           # step length of the LAST TRIAL (= the step taken, unless ls_failed under 'stop')
+    cg_converged: typ.Optional[bool]  = None           # CG hit its tolerance inside the region (not boundary / truncated / maxiter)
+    cg_truncated: typ.Optional[bool]  = None           # CG stopped on nonpositive curvature with no trust region (gauge-singular H)
+    ls_steps:     typ.Optional[int]   = None           # Armijo backtracks (0 = full step; 40 = exhausted); None in trust-region mode
+    ls_failed:    typ.Optional[bool]  = None           # Armijo exhausted all 40 halvings ('stop' rejected the step; 'accept' took it); None in TR mode
+    alpha:        typ.Optional[float] = None           # step length of the LAST TRIAL (= the step taken, unless ls_failed under 'stop'); 1.0 in TR mode
     slope:        typ.Optional[float] = None           # gᵀp (the directional derivative along the step)
-    pHp:          typ.Optional[float] = None           # pᵀHp = ‖𝒥p‖² (for the predicted reduction)
+    pHp:          typ.Optional[float] = None           # pᵀHp of the mode's model (GN: ‖𝒥p‖² (+ reg); exact: + pKp)
     delta_f:      typ.Optional[float] = None           # actual objective change f_new − f
-    rho:          typ.Optional[float] = None           # actual / predicted reduction (GN-model trust)
+    rho:          typ.Optional[float] = None           # actual / predicted reduction (model trust)
     step_rel:     typ.Optional[float] = None           # ‖αp‖ / ‖x‖ (coordinate norms; relative step size)
     wall_time:    typ.Optional[float] = None           # seconds spent in this iteration (host clock)
     g0_reference: typ.Optional[str]   = None           # the Newton-stop reference: 'zero' | 'warm_start' | 'override'
     cg_reference: typ.Optional[str]   = None           # the CG-forcing reference: 'override' iff g0norm_cg, else = g0_reference
-    step_control: typ.Optional[str]   = None           # 'line_search'
-    stop_reason:  typ.Optional[str]   = None           # last row only: 'gradient' | 'max_newton' | 'line_search'
+    step_control: typ.Optional[str]   = None           # 'line_search' | 'trust_region'
+    stop_reason:  typ.Optional[str]   = None           # last row only: 'gradient' | 'max_newton' | 'line_search' | 'objective_floor' | 'trust_region_floor'
+    hessian:      typ.Optional[str]   = None           # 'gauss_newton' | 'exact'
+    tr_radius:    typ.Optional[float] = None           # trust-region radius Δ this trial was bounded by (TR mode)
+    tr_accepted:  typ.Optional[bool]  = None           # the trial was accepted (ρ > 0.1); False keeps x (TR mode)
+    cg_boundary:  typ.Optional[bool]  = None           # CG stopped on the trust-region boundary ‖p‖ = Δ (Steihaug)
+    pKp:          typ.Optional[float] = None           # ⟨p, Lᵀ K_N L p⟩: the curvature term's part of pHp (exact mode)
+    lift_sigma_min: typ.Optional[float] = None         # the smallest lift singular value at this frame (exact mode)
+    lift_eps:     typ.Optional[float] = None           # the absolute lift damping ε at this frame (exact mode)
 
 
 _NEWTON_SCALAR_FIELDS = tuple(f.name for f in dc.fields(NewtonInfo) if f.name not in ('x_cores', 'lm'))
@@ -979,14 +1036,97 @@ def _newton_scalar_record(info: NewtonInfo) -> dict:
     return {k: getattr(info, k) for k in _NEWTON_SCALAR_FIELDS}
 
 
+# --------------------------------------------------------------------------------------------------
+# Newton-CG: step control (line search / trust region) and its constants
+# --------------------------------------------------------------------------------------------------
+_STEP_CONTROLS = ('line_search', 'trust_region')
+
+# The trust-region policy (Nocedal & Wright, Alg. 4.1, with Steihaug CG). Module constants, not options.
+_TR_ACCEPT = 0.1               # accept the trial iff ρ > this
+_TR_SHRINK_BELOW = 0.25        # ρ below this, or non-finite: Δ ← _TR_SHRINK·‖p‖
+_TR_SHRINK = 0.25
+_TR_EXPAND_ABOVE = 0.75        # ρ above this on a boundary step: Δ ← min(_TR_EXPAND·Δ, Δ_max)
+_TR_EXPAND = 2.0
+_TR_RADIUS_MAX_REL = 1e4       # Δ_max = this·Δ0
+_TR_RESOLUTION_FACTOR = 10     # objective_floor iff |pred| ≤ this·ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)  (rejection only)
+_TR_RADIUS_FLOOR_REL = 1e-12   # trust_region_floor iff Δ < this·Δ0                         (rejection only)
+
+
+def _check_step_control(
+        step_control:  typ.Optional[str],   # None | 'line_search' | 'trust_region' (case-insensitive)
+        hessian:       str,                 # the validated mode: sets the default
+) -> str:                                   # the lower-cased step control
+    """Validate ``step_control``; ``None`` is the mode's default -- ``'line_search'`` with the Gauss-Newton
+    Hessian (positive semidefinite: Armijo along the retraction suffices), ``'trust_region'`` with the
+    exact one (indefinite away from a minimizer: the region bounds the step)."""
+    if step_control is None:
+        return 'trust_region' if hessian == 'exact' else 'line_search'
+    if not isinstance(step_control, str) or step_control.lower() not in _STEP_CONTROLS:
+        raise ValueError("newton_cg: step_control must be None, 'line_search' or 'trust_region' "
+                         "(case-insensitive); got %r" % (step_control,))
+    return step_control.lower()
+
+
+def _floating_dtypes(tree) -> typ.Iterator:
+    """The dtypes of a tree's floating leaves (nested tuples / lists of arrays), read off the leaves only."""
+    if isinstance(tree, typ.Sequence) and not isinstance(tree, (str, bytes)):
+        for t in tree:
+            yield from _floating_dtypes(t)
+        return
+    dtype = getattr(tree, 'dtype', None)
+    if dtype is not None and np.issubdtype(dtype, np.inexact):
+        yield dtype
+
+
+def _resolution_eps(
+        residual,                    # the local model's residual tree (numpy or jax leaves)
+) -> float:                          # np.finfo(dtype).eps, maximised over the floating leaves
+    """The machine epsilon of the residual -- host-side and **dtype-only** (no array is read, so no device
+    sync): the largest ``np.finfo(dtype).eps`` over the residual's floating leaves, so a mixed float32 /
+    float64 tree is judged at float32's resolution. ``float64``'s eps if there is no floating leaf."""
+    eps = [float(np.finfo(dtype).eps) for dtype in _floating_dtypes(residual)]
+    return max(eps) if eps else float(np.finfo(np.float64).eps)
+
+
+def _initial_radius(
+        lm:     LocalModel,          # iteration 0's local model
+        g:      Tangent,             # its gradient
+        gnorm:  float,               # ‖g‖ > 0
+) -> float:                          # Δ0 > 0
+    """The default initial trust-region radius: the length of the Gauss-Newton Cauchy step,
+    ``‖g‖³ / ⟨g, H_GN g⟩`` (the minimizer of the GN model along ``−g``), whatever the Hessian; ``‖g‖`` when
+    that is not a positive finite number (a vanishing or non-finite ``⟨g, H_GN g⟩``)."""
+    q = float(lm.gn_quadratic(g))
+    radius0 = (gnorm * gnorm * gnorm) / max(q, sys.float_info.min)     # products, not **: inf, never OverflowError
+    return radius0 if (math.isfinite(radius0) and radius0 > 0.0) else gnorm
+
+
+def _lift_diagnostics(
+        lm: LocalModel,              # an exact- or GN-mode model
+) -> typ.Tuple[
+    typ.Optional[float],             # lift_sigma_min, or None
+    typ.Optional[float],             # lift_eps, or None
+]:
+    """The exact-mode lift diagnostics, read duck-typed off the geometry's curvature data (its optional
+    ``sigma_min`` / ``eps`` attributes; :py:class:`Geometry`). ``None`` in Gauss-Newton mode, where the data
+    has none (corewise), or where the curvature term vanishes (``geometry_data is None``)."""
+    data = lm.curvature.geometry_data if lm.curvature is not None else None
+    sigma_min, eps = getattr(data, 'sigma_min', None), getattr(data, 'eps', None)
+    return (None if sigma_min is None else float(sigma_min)), (None if eps is None else float(eps))
+
+
 def newton_cg(
         problem:          Problem,    # the fixed-rank least-squares problem
         x0:               Tangent,    # initial cores (U, G)
-        max_newton:       int   = 30,
+        max_newton:       int   = 30,     # Newton iterations (history rows) -- rejected trust-region trials included
         gtol_rel:         float = 1e-8,   # stop when ‖g‖ <= gtol_rel * ‖g0‖  (‖g0‖: g0norm_newton, else the g0_reference)
         cg_maxiter:       int   = 200,
-        c_armijo:         float = 1e-4,
+        c_armijo:         float = 1e-4,   # Armijo constant (line search only)
         on_line_search_failure: str = 'stop',  # Armijo exhausted (40 halvings): 'stop' = reject the step and terminate; 'accept' = take the last trial and continue
+        hessian:          str   = 'gauss_newton',             # or 'exact' (case-insensitive): the local model's Hessian
+        curvature_damping: typ.Optional[float] = None,        # exact only: the lift damping, relative to ‖X‖; None = the geometry's default
+        step_control:     typ.Optional[str]   = None,         # None = 'line_search' (GN) / 'trust_region' (exact); either works with either
+        tr_radius0:       typ.Optional[float] = None,         # trust region only: Δ0 > 0; None = the GN Cauchy length ‖g‖³/⟨g, H_GN g⟩
         g0_reference:     typ.Optional[str]   = None,  # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start'
         g0norm_newton:    typ.Optional[float] = None,  # explicit ‖g0‖ for the Newton stop (wins; > 0). Also feeds CG unless g0norm_cg set.
         g0norm_cg:        typ.Optional[float] = None,  # explicit ‖g0‖ for the CG forcing term (wins for CG; > 0); default = the Newton reference
@@ -994,14 +1134,42 @@ def newton_cg(
         use_jit:          bool  = False,  # jit the inner CG (lax.while_loop) when the inputs are jax; else eager
         callback:         typ.Optional[typ.Callable] = None,  # callback(NewtonInfo) each iteration (host-side; e.g. a display)
 ) -> typ.Tuple[Tangent, dict]:      # (x_cores, stats)
-    """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse (the gauged ``H``
-    is positive-definite there). Each Newton step builds the local GN model once, solves ``H p = −g`` by
-    CG to an inexact forcing-term tolerance (the inner loop -- jit-able via :py:func:`_cg_solve`), then
-    backtracks along ``retract(α p)``. The CG truncates on the gauge-singular corewise ``H``; the outer
-    line search keeps it robust regardless. ``use_jit`` jits only the inner CG (the outer loop, line
-    search, and convergence test stay on the host), auto-converting numpy inputs to jax first
-    (:py:func:`_prepare_jit_inputs`) -- so a ``use_jit=True`` call on numpy data returns a jax-backed
-    result (jax's default float32 unless x64 is enabled); if jax is not installed it runs eager with a warning.
+    """Inexact Riemannian Newton-CG -- the manifold workhorse. Each Newton step builds the local model once,
+    solves ``H p = −g`` by (Steihaug) CG to an inexact forcing-term tolerance (the inner loop -- jit-able via
+    :py:func:`_cg_solve`), then controls the step by a line search or a trust region. ``use_jit`` jits only
+    the inner CG (the outer loop, step control, and convergence test stay on the host), auto-converting
+    numpy inputs to jax first (:py:func:`_prepare_jit_inputs`) -- so a ``use_jit=True`` call on numpy data
+    returns a jax-backed result (jax's default float32 unless x64 is enabled); if jax is not installed it
+    runs eager with a warning.
+
+    **The Hessian** (``hessian``). ``'gauss_newton'`` (default): ``H = Π 𝒥ᵀω²𝒥 Π`` (+ the regularizer's),
+    positive semidefinite -- the gauged ``H`` is positive-definite on the manifold, and CG truncates on the
+    gauge-singular corewise ``H``. ``'exact'``: the exact Riemannian Hessian, which adds the curvature term
+    ``Π Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π`` (:py:meth:`Problem.local_model`; it needs a kind implementing
+    ``corewise_hessian`` and a geometry with the four exact-mode members). Gauss-Newton converges linearly at
+    a rate set by that missing term (``|1 − ρ|`` measures it); the exact Hessian gives the superlinear Newton
+    tail -- q-quadratic with ``cg_forcing_power=1.0``, order about 1.5 at the default ``0.5``. It costs a
+    few times a Gauss-Newton Hessian-apply. ``curvature_damping`` (exact only; a value with Gauss-Newton
+    raises) is the lift's damping relative to ``‖X‖``, ``None`` for the geometry's own default.
+
+    **Step control** (``step_control``; the default follows the Hessian, and either combines with either):
+
+    * ``'line_search'`` (the Gauss-Newton default): plain truncated CG, then Armijo backtracking along
+      ``retract(α p)``.
+    * ``'trust_region'`` (the exact default -- the exact ``H`` is indefinite away from a minimizer):
+      Steihaug-Toint CG inside ``‖p‖ ≤ Δ`` (it steps to the boundary on nonpositive curvature or when it
+      would leave the region), then **one** trial ``retract(p)``, accepted iff the ratio of the actual to the
+      model's predicted change ``ρ = Δf / (gᵀp + ½ pᵀHp)`` exceeds ``0.1``. ``Δ ← ¼‖p‖`` when ``ρ < 0.25`` (or
+      not finite); ``Δ ← min(2Δ, 10⁴Δ0)`` when ``ρ > 0.75`` on a boundary step. ``Δ0 = tr_radius0``, by
+      default the Gauss-Newton Cauchy length ``‖g‖³ / ⟨g, H_GN g⟩``. A rejected trial keeps ``x`` -- and the
+      local model, which is rebuilt only after an accepted step -- emits its own history row
+      (``tr_accepted=False``) and counts toward ``max_newton``. Two **floors**, checked only after a rejection
+      (an accepted step never stops the run): ``'objective_floor'`` when the predicted change is below the
+      objective's floating-point resolution, ``|pred| ≤ 10·ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)`` with ``ε`` the residual
+      dtype's machine epsilon -- the attainable accuracy is reached, which is **not a failure** (``converged``
+      stays ``False`` because the gradient test did not fire); else ``'trust_region_floor'`` when ``Δ`` has
+      fallen below ``10⁻¹²·Δ0``. ``tr_radius0`` with ``'line_search'`` raises, as does
+      ``on_line_search_failure='accept'`` with ``'trust_region'`` (neither would have an effect).
 
     **The reference gradient norm ‖g0‖** (``g0_reference`` / ``g0norm_newton`` / ``g0norm_cg`` /
     ``cg_forcing_power``). Both stopping tests are *relative* to a reference ‖g0‖: the Newton stop is
@@ -1028,10 +1196,11 @@ def newton_cg(
     so with ``g0norm_newton`` given the zero reference is not computed at all); ``g0norm_cg`` alone sets
     only the CG reference. A non-positive override raises ``ValueError``. Every history row records the
     kinds (``g0_reference``, ``cg_reference``; ``'override'`` for an explicit value).
-    ``cg_forcing_power`` (default ``0.5``, the conventional Eisenstat-Walker value) tunes CG effort per
-    Newton step: since ``‖g‖/‖g0‖ < 1`` near the solution, a **larger** power (``0.75``, ``1.0``) tightens
-    CG -> more CG iterations but fewer Newton steps -- worth it on the manifold when the retraction is
-    expensive relative to a Hessian-apply. The ``min(0.5, …)`` cap on ``η`` is retained regardless.
+    ``cg_forcing_power`` (default ``0.5``, the conventional Eisenstat-Walker value, in both modes) tunes CG
+    effort per Newton step: since ``‖g‖/‖g0‖ < 1`` near the solution, a **larger** power (``0.75``, ``1.0``)
+    tightens CG -> more CG iterations but fewer Newton steps -- worth it on the manifold when the retraction
+    is expensive relative to a Hessian-apply, and ``1.0`` is what makes the exact Hessian's tail
+    q-quadratic. The ``min(0.5, …)`` cap on ``η`` is retained regardless.
 
     **Line-search exhaustion** (``on_line_search_failure``). If all 40 Armijo halvings fail, the
     objective's floor has been reached (typically deep in a continuation run). The default ``'stop'``
@@ -1050,32 +1219,81 @@ def newton_cg(
 
     ``stats`` is ``{'losses', 'newton_steps', 'newton_accepted', 'stop_reason', 'history'}``:
     ``newton_steps`` counts the CG solves (the history rows that took a step), ``newton_accepted`` the steps
-    taken (``newton_steps`` minus an Armijo-exhausted rejection under ``'stop'``), ``stop_reason`` is
-    ``'gradient'`` / ``'max_newton'`` / ``'line_search'`` (see :py:class:`NewtonInfo`), and ``history`` is
-    one :py:func:`_newton_scalar_record` per iteration (``losses[k] == history[k]['objective']``). (The
-    2026.2.0 ``stats['newton']`` is removed; it is ``newton_steps``.)"""
+    taken (``newton_steps`` minus the rejections: an Armijo-exhausted one under ``'stop'``, or the rejected
+    trust-region trials), ``stop_reason`` is ``'gradient'`` / ``'max_newton'`` / ``'line_search'`` /
+    ``'objective_floor'`` / ``'trust_region_floor'`` (see :py:class:`NewtonInfo`), and ``history`` is one
+    :py:func:`_newton_scalar_record` per iteration (``losses[k] == history[k]['objective']``). (The 2026.2.0
+    ``stats['newton']`` is removed; it is ``newton_steps``.)
+
+    Examples
+    --------
+    The exact Hessian with its default trust region, against Gauss-Newton with its default line search, on
+    a noisy probe-derivative fit warm-started near the solution:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.fitting as bfit
+    >>> import t3toolbox.backend.geometry as bgeo
+    >>> import t3toolbox.backend.optimizers as bopt
+    >>> np.random.seed(0)
+    >>> shape, rng = (5, 5, 5), np.random.default_rng(0)
+    >>> ww, pp = ([rng.standard_normal((40, n)) for n in shape] for _ in range(2))
+    >>> kind = bfit.ProbeDerivativesKind(order=1)
+    >>> target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1)).data
+    >>> data = [z + 0.01 * rng.standard_normal(z.shape) for z in kind.point_forward(target, (ww, pp))]
+    >>> problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
+    >>> x0, _ = bopt.newton_cg(problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data,
+    ...                        max_newton=5)
+    >>> _, gn = bopt.newton_cg(problem, x0, max_newton=40, g0_reference='warm_start', gtol_rel=1e-10)
+    >>> _, ex = bopt.newton_cg(problem, x0, max_newton=40, g0_reference='warm_start', gtol_rel=1e-10,
+    ...                        hessian='exact', cg_forcing_power=1.0)
+    >>> ex['history'][0]['step_control'], ex['stop_reason']
+    ('trust_region', 'gradient')
+    >>> gn['newton_steps'] > 2 * ex['newton_steps']
+    True
+    """
     _require_unstacked(problem.geom, x0, 'newton_cg')
     olsf = str(on_line_search_failure).lower()
     if olsf not in ('stop', 'accept'):
         raise ValueError("on_line_search_failure must be 'stop' or 'accept'; got %r" % (on_line_search_failure,))
+    hessian = _check_hessian(hessian, 'newton_cg')
+    exact = hessian == 'exact'
+    if curvature_damping is not None and not exact:
+        raise ValueError("newton_cg: curvature_damping is only meaningful with hessian='exact'")
+    step_control = _check_step_control(step_control, hessian)
+    trust_region = step_control == 'trust_region'
+    if tr_radius0 is not None:
+        if not trust_region:
+            raise ValueError("newton_cg: tr_radius0 is only meaningful with step_control='trust_region'")
+        if not (math.isfinite(float(tr_radius0)) and float(tr_radius0) > 0.0):
+            raise ValueError("newton_cg: tr_radius0 must be a finite number > 0; got %r" % (tr_radius0,))
+    if trust_region and olsf == 'accept':
+        raise ValueError("newton_cg: on_line_search_failure='accept' has no effect with "
+                         "step_control='trust_region' (there is no line search)")
     ref_selector = _check_g0_reference(g0_reference, 'newton_cg')
     _check_positive_reference('g0norm_newton', g0norm_newton)
     _check_positive_reference('g0norm_cg', g0norm_cg)
     x0, problem = _prepare_jit_inputs(use_jit, x0, problem)             # auto-convert to jax when jitting
+    model_options = dict(hessian='exact', curvature_damping=curvature_damping) if exact else {}
     x = x0
+    lm = None                                                           # rebuilt only after an accepted step
     newton_ref = cg_ref = None                                          # resolved once, at iteration 0
     g0_ref_kind = cg_ref_kind = None
+    radius = radius0 = radius_max = None                                # trust region: set at the first step
+    data_norm = None                                                    # ‖ω⊙y‖: once, at the first rejection
     losses, newton_steps, newton_accepted, history = [], 0, 0, []
     stop_reason = 'max_newton'
     t_prev = time.perf_counter()
     for it in range(max_newton):
-        lm = problem.local_model(x)
-        misfit = float(lm.misfit)
-        reg_val = float(lm.regularization) if lm.regularizer is not None else None   # None: no regularizer attached
-        f = misfit + (reg_val or 0.0)
+        if lm is None:                                                  # a new point: linearize there
+            lm = problem.local_model(x, **model_options)
+            misfit = float(lm.misfit)
+            reg_val = float(lm.regularization) if lm.regularizer is not None else None   # None: no regularizer attached
+            f = misfit + (reg_val or 0.0)
+            g = lm.gradient
+            gnorm = float(problem.geom.inner(g, g)) ** 0.5
+            lift_sigma_min, lift_eps = _lift_diagnostics(lm)
         losses.append(f)
-        g = lm.gradient
-        gnorm = float(problem.geom.inner(g, g)) ** 0.5
         if newton_ref is None:                                           # iteration 0: resolve the references
             ref, zero_ref = _resolve_g0_reference(problem, lm.frame, x0, ref_selector, g0norm_newton is None,
                                                   'newton_cg', "g0_reference='warm_start' or g0norm_newton")
@@ -1089,7 +1307,8 @@ def newton_cg(
                 cg_ref, cg_ref_kind = g0norm_cg, 'override'
             else:
                 cg_ref, cg_ref_kind = newton_ref, g0_ref_kind            # CG inherits the Newton reference
-        run_fields = dict(g0_reference=g0_ref_kind, cg_reference=cg_ref_kind, step_control='line_search')
+        run_fields = dict(g0_reference=g0_ref_kind, cg_reference=cg_ref_kind, step_control=step_control,
+                          hessian=hessian, lift_sigma_min=lift_sigma_min, lift_eps=lift_eps)
         if gnorm <= gtol_rel * newton_ref:                               # converged -- final line, no step
             stop_reason = 'gradient'
             info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=newton_ref, converged=True,
@@ -1103,35 +1322,73 @@ def newton_cg(
         eta = min(0.5, (gnorm / cg_ref) ** cg_forcing_power)             # inexact-Newton (Eisenstat-Walker) forcing term
         cg_tol = eta * gnorm
         neg_g = cw.corewise_scale(g, -1.0)
-        p, cg_i, cg_rs, cg_ok = _cg_solve(lm, neg_g, cg_tol, cg_maxiter, use_jit)
-        cg_iters, cg_rs, cg_ok = int(cg_i), float(cg_rs), bool(cg_ok)
-        cg_converged = cg_rs <= cg_tol * cg_tol
-        cg_truncated = (not cg_converged) and (not cg_ok)
+        if trust_region and radius is None:                              # the first step: the initial radius
+            radius0 = float(tr_radius0) if tr_radius0 is not None else _initial_radius(lm, g, gnorm)
+            radius, radius_max = radius0, _TR_RADIUS_MAX_REL * radius0
+        tr_radius = radius if trust_region else None                     # the radius THIS trial is bounded by
+        p, cg_i, cg_rs, cg_ok, cg_hit = _cg_solve(lm, neg_g, cg_tol, cg_maxiter, use_jit,
+                                                  radius if trust_region else math.inf)
+        cg_iters, cg_rs, cg_ok, cg_boundary = int(cg_i), float(cg_rs), bool(cg_ok), bool(cg_hit)
+        cg_converged = (cg_rs <= cg_tol * cg_tol) and not cg_boundary
+        cg_truncated = (not cg_converged) and (not cg_ok) and (not cg_boundary)
+        on_boundary = cg_boundary                                        # the step was limited by Δ
         slope = float(problem.geom.inner(g, p))
         if (not math.isfinite(slope)) or slope >= 0.0:                   # ensure a descent direction
-            p, slope = neg_g, -gnorm * gnorm
-        pHp = float(lm.gn_quadratic(p))                                  # pᵀHp = ‖𝒥p‖² (for ρ)
-        alpha, ls_steps, f_new = 1.0, 40, f
-        x_trial = x
-        ls_failed = True
-        for bt in range(40):                                             # Armijo backtracking
-            x_trial = lm.retract(cw.corewise_scale(p, alpha))
-            f_new = float(problem.objective(x_trial))
-            if f_new <= f + c_armijo * alpha * slope:
-                ls_steps, ls_failed = bt, False
-                break
-            if bt < 39:
-                alpha *= 0.5        # halve BETWEEN trials only: alpha stays the last trial's step (review R7-7)
-        delta_f = f_new - f
-        predicted = alpha * slope + 0.5 * alpha * alpha * pHp            # GN-model change along αp
-        rho = (delta_f / predicted) if predicted != 0.0 else float('nan')
+            if trust_region:                                             #   ... inside the region
+                scale = min(1.0, radius / gnorm)
+                p, slope, on_boundary = cw.corewise_scale(g, -scale), -scale * gnorm * gnorm, scale < 1.0
+            else:
+                p, slope = neg_g, -gnorm * gnorm
+        if exact:                                                        # pᵀHp = GN part + curvature part (once each)
+            pKp = lm.curvature_quadratic(p)
+            pHp = float(lm.gn_quadratic(p) + pKp)                        # == lm.quadratic(p)
+            pKp = float(pKp)
+        else:
+            pHp, pKp = float(lm.quadratic(p)), None                      # pᵀHp = ‖𝒥p‖² (+ reg) (for ρ)
         p_norm = float(problem.geom.inner(p, p)) ** 0.5
+        stop_now = False
+        if not trust_region:                                             # ---- Armijo line search
+            alpha, ls_steps, f_new = 1.0, 40, f
+            x_trial = x
+            ls_failed = True
+            for bt in range(40):                                         # Armijo backtracking
+                x_trial = lm.retract(cw.corewise_scale(p, alpha))
+                f_new = float(problem.objective(x_trial))
+                if f_new <= f + c_armijo * alpha * slope:
+                    ls_steps, ls_failed = bt, False
+                    break
+                if bt < 39:
+                    alpha *= 0.5        # halve BETWEEN trials only: alpha stays the last trial's step (review R7-7)
+            delta_f = f_new - f
+            predicted = alpha * slope + 0.5 * alpha * alpha * pHp        # the model's change along αp
+            rho = (delta_f / predicted) if predicted != 0.0 else float('nan')
+            accepted = not (ls_failed and olsf == 'stop')                # 'stop' rejects: x unchanged (review R7-7)
+            if not accepted:
+                stop_reason, stop_now = 'line_search', True
+            tr_accepted = None
+        else:                                                            # ---- trust region: one trial at α = 1
+            alpha, ls_steps, ls_failed = 1.0, None, None
+            x_trial = lm.retract(p)
+            f_new = float(problem.objective(x_trial))
+            delta_f = f_new - f
+            predicted = slope + 0.5 * pHp                                # the model's change along p (< 0 expected)
+            rho = (delta_f / predicted) if predicted < 0.0 else float('nan')
+            accepted = tr_accepted = math.isfinite(rho) and rho > _TR_ACCEPT
+            if (not math.isfinite(rho)) or rho < _TR_SHRINK_BELOW:
+                radius = _TR_SHRINK * p_norm
+            elif rho > _TR_EXPAND_ABOVE and on_boundary:
+                radius = min(_TR_EXPAND * radius, radius_max)
+            if not accepted:                                             # the floors: on a rejection ONLY
+                if data_norm is None:
+                    data_norm = float(problem.kind.sumsq(problem.data, lm.n_w)) ** 0.5
+                resolution = _resolution_eps(lm.residual) * (data_norm * math.sqrt(2.0 * misfit) + abs(f))
+                if abs(predicted) <= _TR_RESOLUTION_FACTOR * resolution:
+                    stop_reason, stop_now = 'objective_floor', True      # the model change is below f's resolution
+                elif radius < _TR_RADIUS_FLOOR_REL * radius0:
+                    stop_reason, stop_now = 'trust_region_floor', True
         x_norm = float(cw.corewise_norm(x))                             # coordinate norm (ragged-exact; uniform: D6)
         step_rel = (alpha * p_norm / x_norm) if x_norm > 0 else float('nan')
-        rejected = ls_failed and olsf == 'stop'                          # reject the step: x unchanged (review R7-7)
-        if rejected:
-            stop_reason = 'line_search'
-        last_row = rejected or it == max_newton - 1
+        last_row = stop_now or it == max_newton - 1
         t_now = time.perf_counter()
         info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=newton_ref, converged=False,
                           x_cores=x, lm=lm, misfit=misfit, regularization=reg_val,
@@ -1140,15 +1397,17 @@ def newton_cg(
                           cg_resid=cg_rs ** 0.5, cg_converged=cg_converged, cg_truncated=cg_truncated,
                           ls_steps=ls_steps, ls_failed=ls_failed, alpha=alpha, slope=slope, pHp=pHp,
                           delta_f=delta_f, rho=rho, step_rel=step_rel, wall_time=t_now - t_prev,
-                          stop_reason=stop_reason if last_row else None, **run_fields)
+                          stop_reason=stop_reason if last_row else None, tr_radius=tr_radius,
+                          tr_accepted=tr_accepted, cg_boundary=cg_boundary, pKp=pKp, **run_fields)
         t_prev = t_now
         if callback is not None:
             callback(info)
         history.append(_newton_scalar_record(info))
-        if rejected:
+        if stop_now:
             break
-        newton_accepted += 1
-        x = x_trial
+        if accepted:
+            newton_accepted += 1
+            x, lm = x_trial, None                                        # the next row linearizes at the new point
     return x, {'losses': losses, 'newton_steps': newton_steps, 'newton_accepted': newton_accepted,
                'stop_reason': stop_reason, 'history': history}
 

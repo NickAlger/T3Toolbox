@@ -2,10 +2,13 @@
 
 Correctness gold standard: the check-free backend oracle (`backend.optimizers`) must reproduce the
 frontend `fitting.LocalModel` exactly (it is the same math through the same backend functions).
-Plus: the optimizers descend. numpy-only (jit dispatch is covered separately in test_dispatch)."""
-import unittest
-
+Plus: the optimizers descend; T14 (Steihaug-Toint CG, `TestSteihaugCG`) and T15 (newton_cg's trust-region loop
+and its floors, `TestTrustRegionNewton`). numpy-only (jit dispatch is covered separately in test_dispatch)."""
+import dataclasses as dc
+import math
 import types
+import unittest
+import unittest.mock
 
 import numpy as np
 
@@ -44,6 +47,139 @@ def dense_probe(A, ww):
 def unit_vecs(M, shape, rng):
     ww = [rng.standard_normal((M, N)) for N in shape]
     return [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
+
+
+class _ToyModel:
+    """The whole interface CG needs of a local model: `hvp` and `geom.inner`. A toy diagonal operator on a
+    `(tucker=[vec], tt=[])` tangent tree exercises every CG branch deterministically."""
+    def __init__(self, diagonal):
+        self.diagonal = np.asarray(diagonal, dtype=float)
+        self.geom = types.SimpleNamespace(inner=cw.corewise_dot)
+
+    def hvp(self, t):
+        return ([self.diagonal * t[0][0]], [])
+
+
+def _toy_rhs(n=3):
+    return ([np.ones(n)], [])
+
+
+def _plain_cg_reference(lm, rhs, tol, maxiter):
+    """FROZEN copy of the pre-trust-region (2026.2.0) eager CG -- the arithmetic `_cg_solve` with
+    `radius = inf` must reproduce bit for bit (I-5). Do not modernize."""
+    inner = lm.geom.inner
+    rs0 = inner(rhs, rhs)
+    tol2 = tol * tol
+    p, r, d, rs, i, ok = cw.corewise_zeros_like(rhs), rhs, rhs, rs0, 0, rs0 > tol2
+    while bool((rs > tol2) & (i < maxiter) & ok):
+        Hd = lm.hvp(d)
+        dHd = inner(d, Hd)
+        pos = dHd > 0.0
+        alpha = np.where(pos, rs / np.where(pos, dHd, 1.0), 0.0)
+        p = cw.corewise_add(p, cw.corewise_scale(d, alpha))
+        r = cw.corewise_sub(r, cw.corewise_scale(Hd, alpha))
+        rs_new = inner(r, r)
+        beta = np.where(pos, rs_new / rs, 0.0)
+        d = cw.corewise_add(r, cw.corewise_scale(d, beta))
+        rs, i, ok = rs_new, i + 1, pos
+    return p, i, rs, ok
+
+
+def _tree_bytes(t):
+    return [np.asarray(a).tobytes() for a in list(t[0]) + list(t[1])]
+
+
+def _toy_quadratic(lm, rhs, p):
+    """The CG model value q(p) = ½⟨p, Hp⟩ − ⟨rhs, p⟩ (Steihaug decreases it monotonically)."""
+    return 0.5 * float(cw.corewise_dot(p, lm.hvp(p))) - float(cw.corewise_dot(rhs, p))
+
+
+class TestSteihaugCG(unittest.TestCase):
+    """T14: Steihaug-Toint CG (`_cg_solve(..., radius)`) on the toy diagonal operator and a real local model."""
+
+    def test_indefinite_operator_stops_on_the_boundary(self):
+        """`dᵀHd ≤ 0` with a finite radius steps to the boundary (‖p‖ = Δ) instead of truncating with a zero
+        step; `ok` reports the nonpositive curvature, `boundary` the stop."""
+        rhs = _toy_rhs()
+        for diag, radius in (([-1.0, -2.0, -3.0], 0.5), ([2.0, -1.0, 3.0], 10.0), ([1.0, 1.0, -1e-3], 1e3)):
+            with self.subTest(diagonal=diag, radius=radius):
+                lm = _ToyModel(diag)
+                p, i, rs, ok, boundary = opt._cg_solve(lm, rhs, 1e-12, 50, False, radius)
+                self.assertTrue(bool(boundary))
+                self.assertFalse(bool(ok))                                       # stopped ON nonpositive curvature
+                self.assertAlmostEqual(float(cw.corewise_norm(p)), radius, delta=1e-13 * radius)
+                self.assertLess(_toy_quadratic(lm, rhs, p), 0.0)                 # a model decrease
+                self.assertGreater(float(cw.corewise_dot(rhs, p)), 0.0)          # a descent direction for −rhs
+        # first-iteration case: p is exactly the boundary point along the steepest-descent direction
+        p, i, rs, ok, boundary = opt._cg_solve(_ToyModel([-1.0, -2.0, -3.0]), rhs, 1e-12, 50, False, 0.5)
+        self.assertEqual(int(i), 1)
+        self.assertTrue(np.allclose(p[0][0], 0.5 / np.sqrt(3.0) * np.ones(3), rtol=1e-14, atol=0.0))
+
+    def test_positive_definite_operator_with_a_small_radius_stops_on_the_boundary(self):
+        """A PD operator whose Newton step is longer than Δ: the CG iterate that would leave the region is
+        clipped to ‖p‖ = Δ (`ok` stays True); with Δ above the Newton step's length CG converges inside."""
+        rhs = _toy_rhs()
+        lm = _ToyModel([2.0, 3.0, 5.0])
+        newton = 1.0 / lm.diagonal                                               # ‖newton‖ ≈ 0.62
+        for radius in (0.05, 0.3, 0.6):
+            with self.subTest(radius=radius):
+                p, i, rs, ok, boundary = opt._cg_solve(lm, rhs, 1e-12, 50, False, radius)
+                self.assertTrue(bool(boundary) and bool(ok))
+                self.assertAlmostEqual(float(cw.corewise_norm(p)), radius, delta=1e-13 * radius)
+                self.assertLess(_toy_quadratic(lm, rhs, p), 0.0)
+        p, i, rs, ok, boundary = opt._cg_solve(lm, rhs, 1e-12, 50, False, 0.7)
+        self.assertFalse(bool(boundary))
+        self.assertTrue(np.allclose(p[0][0], newton, rtol=1e-12, atol=0.0))
+        self.assertLessEqual(float(rs) ** 0.5, 1e-12)
+
+    def test_infinite_radius_is_the_plain_cg_bit_for_bit(self):
+        """I-5: `radius = inf` (the default, and the line-search mode) is the pre-trust-region CG, BIT FOR BIT
+        on eager numpy -- the solution, the iteration count, the residual and the curvature flag -- on PD and
+        indefinite toys and on a real Gauss-Newton local model (where the Steihaug arithmetic also runs)."""
+        rng = np.random.default_rng(0)
+        np.random.seed(0)
+        ww = unit_vecs(60, SHAPE, rng)
+        A = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT)
+        data = dense_probe(A.to_dense(), ww)
+        cases = [('pd_toy', _ToyModel([2.0, 3.0, 5.0, 7.0, 0.5]), _toy_rhs(5), 1e-9),
+                 ('indefinite_toy', _ToyModel([2.0, -1.0, 3.0]), _toy_rhs(), 1e-12)]
+        for gname, geom in (('manifold', bgeo.ManifoldGeometryOps()), ('corewise', bgeo.CorewiseGeometryOps())):
+            pr = opt.least_squares_problem(geom, bfit.PROBE, ww, data)
+            lm = pr.local_model(t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data)
+            g = lm.gradient
+            cases.append((gname, lm, cw.corewise_scale(g, -1.0), 1e-3 * float(geom.inner(g, g)) ** 0.5))
+        for name, lm, rhs, tol in cases:
+            with self.subTest(case=name):
+                p0, i0, rs0, ok0 = _plain_cg_reference(lm, rhs, tol, 40)
+                for p, i, rs, ok, boundary in (opt._cg_solve(lm, rhs, tol, 40, False),
+                                               opt._cg_solve(lm, rhs, tol, 40, False, math.inf)):
+                    self.assertEqual(_tree_bytes(p), _tree_bytes(p0))
+                    self.assertEqual((int(i), np.float64(rs).tobytes(), bool(ok)),
+                                     (int(i0), np.float64(rs0).tobytes(), bool(ok0)))
+                    self.assertFalse(bool(boundary))
+
+    def test_cg_truncated_excludes_boundary_stops(self):
+        """`cg_truncated = (not cg_converged) and (not cg_ok) and (not cg_boundary)`: a Steihaug stop on
+        nonpositive curvature (ok False) is a BOUNDARY stop, not a truncation. On the indefinite exact corewise
+        Hessian with a trust region the boundary stops occur; every row's CG outcome is exactly one of
+        converged / boundary / truncated / the cap, and the boundary rows are never `cg_truncated`."""
+        rng = np.random.default_rng(1)
+        np.random.seed(1)
+        ww, pp = unit_vecs(30, SHAPE, rng), unit_vecs(30, SHAPE, rng)
+        target = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
+        kind = bfit.probe_derivatives_kind(1)
+        pr = opt.least_squares_problem(bgeo.CorewiseGeometryOps(), kind, (ww, pp), kind.point_forward(target, (ww, pp)))
+        x0 = t3.TuckerTensorTrain.randn(SHAPE, TUCKER, TT).data
+        _, stats = opt.newton_cg(pr, x0, max_newton=8, hessian='exact')
+        rows = [r for r in stats['history'] if not r['converged']]
+        for r in rows:
+            cap = not (r['cg_converged'] or r['cg_boundary'] or r['cg_truncated'])
+            self.assertEqual(sum([r['cg_converged'], r['cg_boundary'], r['cg_truncated'], cap]), 1, r)
+            if r['cg_boundary']:
+                self.assertFalse(r['cg_truncated'])
+        _, i, _, ok, boundary = opt._cg_solve(_ToyModel([-1.0, -2.0, -3.0]), _toy_rhs(), 1e-12, 50, False, 0.5)
+        self.assertTrue(bool(boundary) and not bool(ok))          # not ok AND boundary: the case the redefinition is for
+        self.assertTrue(any(r['cg_boundary'] for r in rows), 'expected a trust-region boundary stop in this run')
 
 
 class TestBackendOptimizers(unittest.TestCase):
@@ -200,29 +336,21 @@ class TestBackendOptimizers(unittest.TestCase):
                 self.assertEqual(is_jax_ndarray(x[0][0]), use_jit)   # use_jit auto-converts numpy -> jax-backed
 
     def test_cg_solve_reports_state(self):
-        """D1: `_cg_solve` returns `(p, iters, resid², ok)` -- converges to the exact solution on a PD
-        operator (`ok` True, `resid ≤ tol`), and truncates on a nonpositive-curvature direction (`ok`
-        False). A toy diagonal operator wrapped as a `(tucker, tt)` tree exercises the branch deterministically."""
-        rhs = ([np.array([1.0, 1.0, 1.0])], [])                     # a (tucker=[vec], tt=[]) tangent tree
-
-        class ToyModel:
-            """The whole interface CG needs of a local model: `hvp` and `geom.inner`. A toy diagonal
-            operator exercises the curvature branch deterministically."""
-            def __init__(self, diagonal):
-                self.diagonal = diagonal
-                self.geom = types.SimpleNamespace(inner=cw.corewise_dot)
-
-            def hvp(self, t):
-                return ([self.diagonal * t[0][0]], [])
-
+        """D1: `_cg_solve` returns `(p, iters, resid², ok, boundary)` -- converges to the exact solution on a
+        PD operator (`ok` True, `resid ≤ tol`), and truncates on a nonpositive-curvature direction (`ok`
+        False) when there is no trust region. A toy diagonal operator wrapped as a `(tucker, tt)` tree
+        exercises the branch deterministically."""
+        rhs = _toy_rhs()
         # PD: CG converges to D^-1 rhs, ok stays True, residual under tol
-        p, i, rs, ok = opt._cg_solve(ToyModel(np.array([2.0, 3.0, 5.0])), rhs, 1e-10, 50, False)
+        p, i, rs, ok, boundary = opt._cg_solve(_ToyModel([2.0, 3.0, 5.0]), rhs, 1e-10, 50, False)
         self.assertTrue(bool(ok))
+        self.assertFalse(bool(boundary))
         self.assertLessEqual(float(rs) ** 0.5, 1e-10)
         self.assertTrue(np.allclose(p[0][0], 1.0 / np.array([2.0, 3.0, 5.0])))
         # indefinite (negative-definite here): dᵀHd < 0 on the first direction -> immediate truncation
-        p2, i2, rs2, ok2 = opt._cg_solve(ToyModel(np.array([-1.0, -2.0, -3.0])), rhs, 1e-10, 50, False)
+        p2, i2, rs2, ok2, boundary2 = opt._cg_solve(_ToyModel([-1.0, -2.0, -3.0]), rhs, 1e-10, 50, False)
         self.assertFalse(bool(ok2))                                 # truncated on nonpositive curvature
+        self.assertFalse(bool(boundary2))                           # ... with no trust region: not a boundary stop
         self.assertGreater(float(rs2) ** 0.5, 1e-10)               # did NOT reach the tolerance
 
     def test_newton_cg_diagnostics(self):
@@ -654,6 +782,330 @@ class TestBackendOptimizers(unittest.TestCase):
             common.jax_available = saved
             common._JAX_WARNED.discard('use_jit=True')
 
+
+
+# ---------------------------------------------------------------------------------------------------
+# T15: the trust-region loop of newton_cg (step_control='trust_region', the exact Hessian's default)
+# ---------------------------------------------------------------------------------------------------
+_EPS64 = float(np.finfo(np.float64).eps)
+_PD_SHAPE = (6, 6, 6)
+
+
+def _pd_problem(seed, target_ranks=((3, 3, 3), (1, 3, 3, 1)), W=60, order=1, noise=0.01):
+    """A probe-derivative fit (the kind with an exact Hessian) on the manifold: data from a target T3 plus
+    relative noise ``noise`` (0 = noise-free)."""
+    rng = np.random.default_rng(seed)
+    np.random.seed(seed)
+    target = t3.TuckerTensorTrain.randn(_PD_SHAPE, *target_ranks).data
+    ww = [rng.standard_normal((W, n)) for n in _PD_SHAPE]
+    pp = [rng.standard_normal((W, n)) for n in _PD_SHAPE]
+    kind = bfit.ProbeDerivativesKind(order=order)
+    data = [z + noise * np.linalg.norm(z) / math.sqrt(z.size) * rng.standard_normal(z.shape)
+            for z in kind.point_forward(target, (ww, pp))]
+    return opt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
+
+
+def _rank2_start(seed=5):
+    np.random.seed(seed)
+    return t3.TuckerTensorTrain.randn(_PD_SHAPE, (2, 2, 2), (1, 2, 2, 1)).data
+
+
+def _pred(row):
+    """The trust-region model change of a history row, gᵀp + ½pᵀHp (α = 1)."""
+    return row['slope'] + 0.5 * row['pHp']
+
+
+def _resolution(problem, row):
+    """ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|) at a row's point: the objective's floating-point resolution (float64)."""
+    y = math.sqrt(float(problem.kind.sumsq(problem.data, problem.kind.w_axes(problem.sample))))
+    return _EPS64 * (y * math.sqrt(2.0 * row['misfit']) + abs(row['objective']))
+
+
+@dc.dataclass(frozen=True)
+class _OffsetProblem(opt.Problem):
+    """A Problem whose OBJECTIVE (the one the trial step is scored with) is shifted by a constant the local
+    model does not see: every trial step then looks like an ascent, so every one is rejected while the model
+    stays accurate -- the only way to drive the radius to its floor with |pred| far above the resolution."""
+    offset: float = 0.0
+
+    def objective(self, x_cores, sample=None, data=None):
+        return super().objective(x_cores, sample, data) + self.offset
+
+
+def _restart_problem(W=60, order=1):
+    """E2's degenerate restart (c21 case A, on probe derivatives): noise-free data of a rank-2 target, fitted
+    at rank 2 to 1e-10, then zero-padded to rank 3 -- the start is already at the objective's floor, a few
+    steps from its resolution."""
+    rng = np.random.default_rng(7)
+    np.random.seed(7)
+    target = t3.TuckerTensorTrain.randn(_PD_SHAPE, (2, 2, 2), (1, 2, 2, 1))
+    ww = [rng.standard_normal((W, n)) for n in _PD_SHAPE]
+    pp = [rng.standard_normal((W, n)) for n in _PD_SHAPE]
+    kind = bfit.ProbeDerivativesKind(order=order)
+    problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp),
+                                        kind.point_forward(target.data, (ww, pp)))
+    x1, _ = opt.newton_cg(problem, t3.TuckerTensorTrain.randn(_PD_SHAPE, (2, 2, 2), (1, 2, 2, 1)).data,
+                          max_newton=80, gtol_rel=1e-10)
+    return problem, t3.TuckerTensorTrain(*x1).resize(_PD_SHAPE, (3, 3, 3), (1, 3, 3, 1)).data
+
+
+class TestTrustRegionNewton(unittest.TestCase):
+    """T15: the trust-region loop -- rejection keeps x and the model, the radius rules (incl. Δ_max), the
+    descent guard, the bookkeeping, and the two floors (a)-(e)."""
+
+    def check_bookkeeping(self, stats, exact=True):
+        """`losses[k] == history[k]['objective']`; newton_steps = the CG solves; newton_accepted = the accepted
+        trials; stop_reason on the last row only; trust-region rows carry tr_* and no line-search fields."""
+        h = stats['history']
+        self.assertEqual(set(stats), {'losses', 'newton_steps', 'newton_accepted', 'stop_reason', 'history'})
+        self.assertEqual(stats['losses'], [row['objective'] for row in h])
+        stepped = [row for row in h if not row['converged']]
+        self.assertEqual(stats['newton_steps'], len(stepped))
+        self.assertEqual(stats['newton_accepted'], sum(row['tr_accepted'] is True for row in stepped))
+        self.assertEqual(h[-1]['stop_reason'], stats['stop_reason'])
+        self.assertTrue(all(row['stop_reason'] is None for row in h[:-1]))
+        for row in h:
+            self.assertEqual((row['step_control'], row['hessian']), ('trust_region', 'exact' if exact else 'gauss_newton'))
+        for row in stepped:
+            self.assertIsNone(row['ls_steps']); self.assertIsNone(row['ls_failed'])
+            self.assertEqual(row['alpha'], 1.0)
+            self.assertIsInstance(row['tr_accepted'], bool)
+            self.assertGreater(row['tr_radius'], 0.0)
+            self.assertEqual(row['pKp'] is not None, exact)
+            self.assertEqual(row['tr_accepted'], math.isfinite(row['rho']) and row['rho'] > 0.1)
+            if exact:                                                               # the manifold d = 3 lift diagnostics
+                self.assertGreaterEqual(row['lift_sigma_min'], 0.0)                 # 0 at a zero-padded restart
+                self.assertGreater(row['lift_eps'], 0.0)
+
+    def test_rejection_keeps_x_and_reuses_the_model(self):
+        """A rejected trial emits its own row (tr_accepted=False), keeps x and the local model -- the next row
+        starts from the SAME point object with the SAME model object, and counts toward max_newton; an accepted
+        trial moves x and rebuilds the model."""
+        problem = _pd_problem(0)
+        seen = []
+        x, stats = opt.newton_cg(problem, _rank2_start(), max_newton=10, hessian='exact', tr_radius0=1e3,
+                                 callback=seen.append)
+        self.check_bookkeeping(stats)
+        self.assertEqual(len(seen), 10)                                              # rejections count toward the cap
+        self.assertEqual(stats['stop_reason'], 'max_newton')
+        rejected = [k for k in range(len(seen) - 1) if seen[k].tr_accepted is False]
+        accepted = [k for k in range(len(seen) - 1) if seen[k].tr_accepted is True]
+        self.assertTrue(rejected and accepted)
+        for k in rejected:
+            self.assertIs(seen[k + 1].x_cores, seen[k].x_cores)
+            self.assertIs(seen[k + 1].lm, seen[k].lm)
+            self.assertEqual((seen[k + 1].objective, seen[k + 1].gnorm), (seen[k].objective, seen[k].gnorm))
+        for k in accepted:
+            self.assertIsNot(seen[k + 1].x_cores, seen[k].x_cores)
+            self.assertIsNot(seen[k + 1].lm, seen[k].lm)
+        self.assertEqual(len({id(info.lm) for info in seen}), 1 + len(accepted))     # one model per accepted point
+
+    def test_radius_rules(self):
+        """Δ ← ¼‖p‖ when ρ < 0.25 (or not finite); Δ ← min(2Δ, Δ_max) when ρ > 0.75 on a boundary step;
+        unchanged otherwise. Δ_max = 1e4·Δ0 caps a long run of expansions from a tiny Δ0; the default Δ0 is the
+        Gauss-Newton Cauchy length ‖g‖³/⟨g, H_GN g⟩."""
+        problem = _pd_problem(0)
+        x0 = _rank2_start()
+        lm = problem.local_model(x0)
+        g = lm.gradient
+        gnorm = float(problem.geom.inner(g, g)) ** 0.5
+        cauchy = gnorm ** 3 / float(lm.gn_quadratic(g))
+        cases = {'default': dict(), 'large': dict(tr_radius0=1e3), 'tiny': dict(tr_radius0=1e-6 * cauchy)}
+        for name, kw in cases.items():
+            with self.subTest(radius0=name):
+                seen = []
+                _, stats = opt.newton_cg(problem, x0, max_newton=18 if name == 'tiny' else 10, hessian='exact',
+                                         callback=seen.append, **kw)
+                self.check_bookkeeping(stats)
+                r0 = kw.get('tr_radius0', cauchy)
+                self.assertAlmostEqual(seen[0].tr_radius, r0, delta=1e-12 * r0)
+                rules = set()
+                for a, b in zip(seen, seen[1:]):
+                    p_norm = a.step_rel * float(cw.corewise_norm(a.x_cores))           # ‖p‖ = step_rel·‖x‖ (α = 1)
+                    if (not math.isfinite(a.rho)) or a.rho < 0.25:
+                        expected, rule = 0.25 * p_norm, 'shrink'
+                    elif a.rho > 0.75 and a.cg_boundary:
+                        expected, rule = min(2.0 * a.tr_radius, 1e4 * r0), 'expand'
+                    else:
+                        expected, rule = a.tr_radius, 'keep'
+                    rules.add(rule)
+                    self.assertAlmostEqual(b.tr_radius, expected, delta=1e-12 * expected)
+                    self.assertLessEqual(b.tr_radius, 1e4 * r0)
+                if name == 'large':
+                    self.assertEqual(rules, {'shrink', 'expand', 'keep'})
+                if name == 'tiny':                                                  # expansions, then the cap
+                    self.assertEqual(stats['newton_accepted'], len(seen))
+                    self.assertEqual(seen[-1].tr_radius, 1e4 * r0)
+                    self.assertTrue(all(b.tr_radius == 2.0 * a.tr_radius for a, b in zip(seen[:13], seen[1:14])))
+
+    def test_descent_guard(self):
+        """If CG returns a non-descent direction, the trust-region step is −g scaled into the region:
+        p = −g·min(1, Δ/‖g‖) (and the line-search step is −g, as before). CG is replaced by an ascent stub."""
+        problem = _pd_problem(0)
+        x0 = _rank2_start()
+        g = problem.local_model(x0).gradient
+        gnorm = float(problem.geom.inner(g, g)) ** 0.5
+        x_norm = float(cw.corewise_norm(x0))
+
+        def ascent(lm, rhs, tol, maxiter, use_jit, radius=math.inf):         # p = +g: slope ≥ 0 -> the guard fires
+            return cw.corewise_scale(rhs, -1.0), 1, 0.0, True, False
+
+        for step_control, r0 in (('trust_region', 0.1 * gnorm), ('trust_region', 10.0 * gnorm), ('line_search', None)):
+            with self.subTest(step_control=step_control, radius0=r0):
+                with unittest.mock.patch.object(opt, '_cg_solve', ascent):
+                    _, stats = opt.newton_cg(problem, x0, max_newton=1, step_control=step_control, tr_radius0=r0)
+                row = stats['history'][0]
+                scale = min(1.0, r0 / gnorm) if r0 is not None else 1.0
+                self.assertAlmostEqual(row['slope'], -scale * gnorm ** 2, delta=1e-12 * gnorm ** 2)
+                step = row['step_rel'] * x_norm / row['alpha']                       # ‖p‖ (the LS α is 2^-ls_steps)
+                self.assertAlmostEqual(step, scale * gnorm, delta=1e-10 * scale * gnorm)
+        # A guard step shortened to the region (scale < 1) is limited by Δ, so it counts as a boundary step for
+        # the expansion rule (CG's own cg_boundary flag stays False): ρ > 0.75 doubles Δ on the next row.
+        real, calls = opt._cg_solve, []
+
+        def ascent_once(lm, rhs, tol, maxiter, use_jit, radius=math.inf):    # the stub on the first solve only
+            calls.append(radius)
+            return (ascent if len(calls) == 1 else real)(lm, rhs, tol, maxiter, use_jit, radius)
+
+        with unittest.mock.patch.object(opt, '_cg_solve', ascent_once):
+            _, stats = opt.newton_cg(problem, x0, max_newton=2, step_control='trust_region', tr_radius0=1e-5 * gnorm)
+        first, second = stats['history'][:2]
+        self.assertTrue(first['tr_accepted'] and first['rho'] > 0.75 and not first['cg_boundary'], first)
+        self.assertEqual(second['tr_radius'], 2.0 * first['tr_radius'])
+
+    def test_shrink_is_a_quarter_of_the_step_not_of_the_radius(self):
+        """Δ ← ¼‖p‖, not ¼Δ: after a rejected INTERIOR step (CG converged well inside a large region) the next
+        radius is a quarter of that step's length, far below a quarter of the old radius."""
+        base = _pd_problem(0)
+        problem = _OffsetProblem(base.geom, base.kind, base.sample, base.data, None,
+                                 10.0 * float(base.objective(_rank2_start())))   # every trial is rejected
+        _, stats = opt.newton_cg(problem, _rank2_start(), max_newton=2, step_control='trust_region', tr_radius0=1e3)
+        first, second = stats['history']
+        p_norm = first['step_rel'] * float(cw.corewise_norm(_rank2_start()))
+        self.assertFalse(first['tr_accepted'] or first['cg_boundary'])
+        self.assertLess(p_norm, 0.5 * first['tr_radius'])                                   # an interior step
+        self.assertAlmostEqual(second['tr_radius'], 0.25 * p_norm, delta=1e-12 * p_norm)
+
+    def test_floor_a_degenerate_restart(self):
+        """(a) E2's degenerate restart: accepted steps first, then the first rejection's predicted change is below
+        the objective's resolution -> 'objective_floor' (converged=False: not the gradient test, not a failure)."""
+        problem, x = _restart_problem()
+        _, stats = opt.newton_cg(problem, x, max_newton=40, hessian='exact', g0_reference='warm_start')
+        self.check_bookkeeping(stats)
+        h = stats['history']
+        self.assertEqual(stats['stop_reason'], 'objective_floor')
+        self.assertGreaterEqual(stats['newton_accepted'], 1)
+        self.assertFalse(h[-1]['converged'])
+        self.assertIs(h[-1]['tr_accepted'], False)
+        self.assertTrue(all(row['tr_accepted'] for row in h[:-1]))                  # the floor fired at the FIRST rejection
+        self.assertLessEqual(abs(_pred(h[-1])), 10.0 * _resolution(problem, h[-1]))
+
+    def test_floor_b_near_stationary_start(self):
+        """(b) A misspecified fit already at its floor: the first trial is rejected and its predicted change is
+        below the resolution -> 'objective_floor' at once."""
+        problem = _pd_problem(1, noise=0.01)
+        x, _ = opt.newton_cg(problem, _rank2_start(), max_newton=40, gtol_rel=0.0)    # GN to the floor
+        _, stats = opt.newton_cg(problem, x, max_newton=10, hessian='exact', g0_reference='warm_start', gtol_rel=1e-14)
+        self.check_bookkeeping(stats)
+        h = stats['history']
+        self.assertEqual(stats['stop_reason'], 'objective_floor')
+        self.assertIs(h[-1]['tr_accepted'], False)
+        self.assertEqual(stats['newton_accepted'], len(h) - 1)
+        self.assertLessEqual(abs(_pred(h[-1])), 10.0 * _resolution(problem, h[-1]))
+
+    def test_floor_c_accepted_steps_below_the_resolution_never_stop(self):
+        """(c) The floor is checked on REJECTIONS only. A forced-tiny Δ0 (set so the first predicted change is
+        ~5x the resolution) gives accepted steps whose |pred| is within the objective_floor bound -- a rule
+        checked on every step would stop at row 0; this one keeps going and expands Δ."""
+        problem = _pd_problem(0)
+        x0 = _rank2_start()
+        lm = problem.local_model(x0)
+        g = lm.gradient
+        gnorm = float(problem.geom.inner(g, g)) ** 0.5
+        row0 = dict(misfit=float(lm.misfit), objective=float(lm.objective))
+        _, stats = opt.newton_cg(problem, x0, max_newton=4, hessian='exact',
+                                 tr_radius0=5.0 * _resolution(problem, row0) / gnorm)
+        self.check_bookkeeping(stats)
+        h = stats['history']
+        self.assertEqual((stats['stop_reason'], len(h), stats['newton_accepted']), ('max_newton', 4, 4))
+        self.assertLessEqual(abs(_pred(h[0])), 10.0 * _resolution(problem, h[0]))     # would have been a floor stop
+        self.assertTrue(all(b['tr_radius'] == 2.0 * a['tr_radius'] for a, b in zip(h, h[1:])))
+
+    def test_floor_d_trust_region_floor(self):
+        """(d) 'trust_region_floor' fires only after rejections drive Δ below 1e-12·Δ0 -- here every trial is
+        rejected (the scored objective carries an offset the model does not see) while |pred| stays far above
+        the resolution, so the objective floor never applies; with GN + trust region too."""
+        base = _pd_problem(0)
+        f0 = float(base.objective(_rank2_start()))
+        problem = _OffsetProblem(base.geom, base.kind, base.sample, base.data, None, 10.0 * f0)
+        for hessian in ('exact', 'gauss_newton'):
+            with self.subTest(hessian=hessian):
+                _, stats = opt.newton_cg(problem, _rank2_start(), max_newton=60, hessian=hessian,
+                                         step_control='trust_region')
+                self.check_bookkeeping(stats, exact=hessian == 'exact')
+                h = stats['history']
+                self.assertEqual(stats['stop_reason'], 'trust_region_floor')
+                self.assertEqual(stats['newton_accepted'], 0)
+                r0 = h[0]['tr_radius']
+                for row, nxt in zip(h, h[1:]):
+                    self.assertGreaterEqual(nxt['tr_radius'], 1e-12 * r0)                 # not yet below the floor
+                    self.assertLessEqual(nxt['tr_radius'], 0.25 * row['tr_radius'] * (1 + 1e-12))
+                p_last = h[-1]['step_rel'] * float(cw.corewise_norm(_rank2_start()))
+                self.assertLess(0.25 * p_last, 1e-12 * r0)                                 # ... and now it is
+                for row in h:
+                    self.assertGreater(abs(_pred(row)), 10.0 * _resolution(problem, row))
+
+    def test_floor_e_resolution_eps(self):
+        """(e) The resolution's ε is the residual DTYPE's machine epsilon (host-side, no array read), the
+        largest over the floating leaves of a mixed tree; float64's when there is none. (The float32 end-to-end
+        run, use_jit=True with x64 off, is in tests/test_dispatch.py: it is a jit compile.)"""
+        f32, f64 = np.zeros(3, np.float32), np.zeros(3, np.float64)
+        e32, e64 = float(np.finfo(np.float32).eps), float(np.finfo(np.float64).eps)
+        self.assertEqual(opt._resolution_eps(f64), e64)
+        self.assertEqual(opt._resolution_eps(f32), e32)
+        self.assertEqual(opt._resolution_eps([f64, (f64, f64)]), e64)
+        self.assertEqual(opt._resolution_eps([f64, (f32, f64)]), e32)                 # mixed: the coarser one
+        self.assertEqual(opt._resolution_eps((np.zeros(2, np.int64), f64)), e64)       # integer leaves ignored
+        self.assertEqual(opt._resolution_eps(()), e64)
+
+    def test_option_validation(self):
+        """The new keywords' structural errors (n16: an option with no effect raises)."""
+        problem = _pd_problem(0)
+        x0 = _rank2_start()
+        bad = [dict(hessian='newton'), dict(hessian=True), dict(step_control='dogleg'),
+               dict(curvature_damping=1e-3),                                       # GN: no lift to damp
+               dict(tr_radius0=1.0),                                               # GN default: line search
+               dict(hessian='exact', step_control='line_search', tr_radius0=1.0),
+               dict(hessian='exact', tr_radius0=0.0), dict(hessian='exact', tr_radius0=float('inf')),
+               dict(hessian='exact', on_line_search_failure='accept')]             # no line search to accept
+        for kw in bad:
+            with self.subTest(**{k: repr(v) for k, v in kw.items()}):
+                with self.assertRaises(ValueError):
+                    opt.newton_cg(problem, x0, max_newton=1, **kw)
+        for kw, mode in ((dict(), 'line_search'), (dict(hessian='EXACT'), 'trust_region'),
+                         (dict(hessian='exact', step_control='Line_Search'), 'line_search'),
+                         (dict(step_control='trust_region'), 'trust_region')):
+            with self.subTest(**kw):
+                _, stats = opt.newton_cg(problem, x0, max_newton=2, **kw)
+                self.assertEqual(stats['history'][0]['step_control'], mode)
+
+    def test_exact_line_search_and_gauss_newton_trust_region(self):
+        """Both step controls combine with both Hessians: exact + line search records the curvature (pKp, the
+        lift diagnostics) on Armijo rows; Gauss-Newton + trust region has no exact fields."""
+        problem = _pd_problem(0)
+        x0 = _rank2_start()
+        _, ls = opt.newton_cg(problem, x0, max_newton=4, hessian='exact', step_control='line_search')
+        for row in ls['history']:
+            self.assertEqual((row['hessian'], row['step_control']), ('exact', 'line_search'))
+            if not row['converged']:
+                self.assertIsInstance(row['ls_steps'], int)
+                self.assertIsNone(row['tr_radius']); self.assertIsNone(row['tr_accepted'])
+                self.assertIsInstance(row['pKp'], float)
+                self.assertFalse(row['cg_boundary'])                                # no trust region, no boundary
+        _, tr = opt.newton_cg(problem, x0, max_newton=4, step_control='trust_region')
+        self.check_bookkeeping(tr, exact=False)
+        for row in tr['history']:
+            self.assertIsNone(row['pKp']); self.assertIsNone(row['lift_sigma_min']); self.assertIsNone(row['lift_eps'])
 
 
 class TestProblemContracts(unittest.TestCase):

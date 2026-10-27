@@ -184,14 +184,17 @@ everywhere.
 
 **Where jitting the caller IS the right remedy** — and the one case in the library where it was.
 `optimizers._cg_solve` closes over the model's Hessian-apply, the geometry's inner product, the CG
-tolerance and the iteration cap. Two of those change every Newton iteration, so principle 5 applies;
-but hoisting is not enough on its own, because the *cache* the body would hit is keyed on identity.
+tolerance, the iteration cap and (since the trust region, 2026.3.0) the Steihaug radius. Three of those
+change every Newton iteration, so principle 5 applies; but hoisting is not enough on its own, because
+the *cache* the body would hit is keyed on identity.
 
 The resolution was to move the boundary rather than only the body: `_cg_solve` became a plain
-function of `(local_model, rhs, tol, maxiter)`, jitted whole. Now the cache key is jax's own — the
-model's pytree structure, whose aux is value-hashed — and `tol` / `maxiter` are traced arguments, so
-they cannot go stale by construction. The bodies were hoisted too, so the same closure-free pair
-drives the eager loop.
+function of `(local_model, rhs, tol, maxiter, radius)`, jitted whole. Now the cache key is jax's own —
+the model's pytree structure, whose aux is value-hashed — and `tol` / `maxiter` / `radius` are traced
+arguments, so they cannot go stale by construction. The bodies were hoisted too, so the same
+closure-free pair drives the eager loop: its state is `(p, r, d, rs, i, ok, local_model, tol2, maxiter,
+radius, boundary)`, every branch a `where` (a boundary step, a nonpositive-curvature stop), and a radius
+of `inf` reduces it to the plain CG (bit for bit on the eager path; to rounding under jit).
 
 The general shape: **when the values a body reads are awkward to defunctionalize, put the jit
 boundary where a value-based cache already exists, instead of hand-defunctionalizing to make an

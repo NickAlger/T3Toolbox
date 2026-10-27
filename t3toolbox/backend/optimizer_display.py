@@ -121,8 +121,49 @@ def _format_table(train_err: NDArray, val_err: typ.Optional[NDArray], fmt: str) 
 _REFERENCE_NAMES = {'zero': 'zero tensor', 'warm_start': 'warm start', 'override': 'override'}   # NewtonInfo.g0_reference
 
 
+def _num(value: typ.Optional[float], fmt: str) -> str:
+    """A number in ``fmt``, or ``—`` for ``None`` / non-finite (an unpadded :py:func:`_cell`)."""
+    return _cell(value, fmt, 0)
+
+
+def _cg_symbol(info: "bopt.NewtonInfo") -> str:
+    """How CG stopped: ``✓`` tolerance, ``∂`` the trust-region boundary, ``⌇`` truncated (nonpositive
+    curvature, no trust region), ``⋯`` the iteration cap."""
+    if info.cg_converged:
+        return "✓"
+    if getattr(info, 'cg_boundary', None):
+        return "∂"
+    return "⌇" if info.cg_truncated else "⋯"
+
+
+def _step_segment(info: "bopt.NewtonInfo") -> str:
+    """The step-control segment: ``ls k α … ‖Δx‖/‖x‖ …`` (line search; the 2026.2.0 text, byte for byte) or
+    ``TR Δ … ✓/✗ ‖Δx‖/‖x‖ …`` (trust region: the radius this trial was bounded by, accepted or rejected)."""
+    if getattr(info, 'step_control', None) == 'trust_region' or getattr(info, 'tr_radius', None) is not None:
+        verdict = {True: "✓", False: "✗"}.get(getattr(info, 'tr_accepted', None), "—")
+        return "TR Δ %s %s ‖Δx‖/‖x‖ %s" % (_num(info.tr_radius, "%.2e"), verdict, _num(info.step_rel, "%.1e"))
+    return "ls %d%s α %.2e ‖Δx‖/‖x‖ %.1e" % (
+        info.ls_steps, '!' if getattr(info, 'ls_failed', False) else '', info.alpha, info.step_rel)
+
+
+def _curvature_segment(info: "bopt.NewtonInfo") -> typ.Optional[str]:
+    """The exact-Hessian cells (``None`` on a Gauss-Newton row): ``κ = pKp / (pHp − pKp)``, the curvature
+    term's share of the model's quadratic relative to the Gauss-Newton part (``—`` on a zero denominator);
+    ``σ``, the smallest lift singular value; ``ε``, the lift damping."""
+    pKp = getattr(info, 'pKp', None)
+    if pKp is None:
+        return None
+    kappa = None
+    if info.pHp is not None and math.isfinite(float(pKp)) and math.isfinite(float(info.pHp)):
+        gn_part = float(info.pHp) - float(pKp)
+        kappa = float(pKp) / gn_part if gn_part != 0.0 else None
+    return "κ %s σ %s ε %s" % (_num(kappa, "%+.1e"), _num(getattr(info, 'lift_sigma_min', None), "%.1e"),
+                                _num(getattr(info, 'lift_eps', None), "%.1e"))
+
+
 def _format_header(info: "bopt.NewtonInfo", obj_unweighted: typ.Optional[float]) -> str:
-    """The one-line per-iteration scalar header (a shorter form on the converged final line)."""
+    """The one-line per-iteration scalar header (a shorter form on the converged final line). A run's last
+    row names its ``stop_reason`` when that is not the gradient test (the converged line says so already)."""
     obj = "obj %.3e" % info.objective
     if info.regularization is not None and info.misfit is not None:   # regularizer attached -> obj = misfit + reg
         misfit_str = "%.3e" % info.misfit
@@ -138,13 +179,17 @@ def _format_header(info: "bopt.NewtonInfo", obj_unweighted: typ.Optional[float])
         ref = _REFERENCE_NAMES.get(getattr(info, 'g0_reference', None))   # None (a hand-built row): unnamed
         parts.append("converged (‖g‖ ≤ gtol·‖g₀‖%s)" % (", g₀ = " + ref if ref else ""))
         return " | ".join(parts)
-    sym = "✓" if info.cg_converged else ("⌇" if info.cg_truncated else "⋯")   # tol / truncated / maxiter
     parts.append("CG %d/%d tol %.1e resid %.1e %s"
-                 % (info.cg_iters, info.cg_maxiter, info.cg_tol, info.cg_resid, sym))
-    parts.append("ls %d%s α %.2e ‖Δx‖/‖x‖ %.1e" % (
-        info.ls_steps, '!' if getattr(info, 'ls_failed', False) else '', info.alpha, info.step_rel))
+                 % (info.cg_iters, info.cg_maxiter, info.cg_tol, info.cg_resid, _cg_symbol(info)))
+    parts.append(_step_segment(info))
     parts.append("Δf %+.2e ρ %.2f" % (info.delta_f, info.rho))
     parts.append("%.2fs" % info.wall_time)
+    curvature = _curvature_segment(info)
+    if curvature is not None:
+        parts.append(curvature)
+    stop = getattr(info, 'stop_reason', None)
+    if stop is not None and stop != 'gradient':
+        parts.append("stop: %s" % stop)
     return " | ".join(parts)
 
 
@@ -197,6 +242,21 @@ def format_newton_iter(
     >>> print(disp.format_newton_iter(info, np.array([[2.0e-5]])))
     iter  7 | obj 1.200e-09  ‖g‖ 3.10e-07 (7.0e-09·g₀) | converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = zero tensor)
       rel err   2.0e-05
+
+    A trust-region row of the exact Hessian (``hessian='exact'``): CG stopped on the region's boundary (``∂``),
+    the trial was rejected (``✗``; the next row keeps ``x`` and a quarter of the step length as ``Δ``), and the
+    exact cells give ``κ`` (the curvature term's share of ``pᵀHp``, relative to the Gauss-Newton part), the
+    smallest lift singular value ``σ`` and the lift damping ``ε``:
+
+    >>> info = bopt.NewtonInfo(iteration=4, objective=2.31e-3, gnorm=7.2e-4, g0norm=5.1e1, converged=False,
+    ...                        cg_iters=6, cg_maxiter=200, cg_tol=1.9e-5, cg_resid=3.3e-5, cg_converged=False,
+    ...                        cg_truncated=False, cg_boundary=True, alpha=1.0, step_rel=4.0e-2, delta_f=6.1e-5,
+    ...                        rho=-0.52, wall_time=0.12, step_control='trust_region', hessian='exact',
+    ...                        tr_radius=3.1e-2, tr_accepted=False, pHp=8.0e-4, pKp=-2.0e-4,
+    ...                        lift_sigma_min=4.2e-1, lift_eps=1.3e-5)
+    >>> print(disp.format_newton_iter(info, np.array([[2.0e-3]])))
+    iter  4 | obj 2.310e-03  ‖g‖ 7.20e-04 (1.4e-05·g₀) | CG 6/200 tol 1.9e-05 resid 3.3e-05 ∂ | TR Δ 3.10e-02 ✗ ‖Δx‖/‖x‖ 4.0e-02 | Δf +6.10e-05 ρ -0.52 | 0.12s | κ -2.0e-01 σ 4.2e-01 ε 1.3e-05
+      rel err   2.0e-03
     """
     return _format_header(info, obj_unweighted) + "\n" + _format_table(train_err, val_err, fmt)
 
@@ -218,7 +278,11 @@ def make_newton_display(
     denominators). Each call: recomputes the residual block norms, forms the train (and, if ``val_data``
     is given, validation -- one extra ``point_forward``, no transpose/sweep) relative-error matrices,
     prints via ``print_fn``, and appends a self-contained record (the scalar fields + ``train_err`` /
-    ``val_err``). Requires ``problem.kind.has_block_sumsq`` (all built-in kinds have it)."""
+    ``val_err``). After a **rejected** trust-region trial (``tr_accepted is False``) the next row starts from
+    the same point with the same local model, so it reuses that row's tables -- no second validation
+    forward for an unchanged ``x``. (Reuse is keyed on that model object, so a callback shared by several
+    runs, e.g. continuation levels, recomputes the next run's first row even after a run that ended on a
+    rejected trial.) Requires ``problem.kind.has_block_sumsq`` (all built-in kinds have it)."""
     kind = problem.kind
     if not kind.has_block_sumsq:
         raise ValueError("this sampling kind has no block_sumsq -- the relative-error table needs it "
@@ -234,15 +298,21 @@ def make_newton_display(
     n_w_val = kind.w_axes(val_sample) if have_val else None
     val_data_bs = np.asarray(kind.block_sumsq(val_data, n_w_val), dtype=float) if have_val else None
     records: list = []
+    previous = {'lm': None}              # the last row's model if it was a rejected TR trial, and its tables
 
     def callback(info):
-        res_bs = np.asarray(kind.block_sumsq(info.lm.residual, n_w), dtype=float)
-        train_err = relative_errors(res_bs, data_bs)
-        val_err = None
-        if have_val:
-            r_val = _cw.corewise_sub(kind.point_forward(info.x_cores, val_sample), val_data)
-            val_err = relative_errors(kind.block_sumsq(r_val, n_w_val), val_data_bs)
-        obj_unweighted = 0.5 * float(res_bs.sum())
+        if previous['lm'] is not None and info.lm is previous['lm']:   # a rejected trial keeps x and its model:
+            train_err, val_err, obj_unweighted = previous['tables']     #   the tables are unchanged
+        else:
+            res_bs = np.asarray(kind.block_sumsq(info.lm.residual, n_w), dtype=float)
+            train_err = relative_errors(res_bs, data_bs)
+            val_err = None
+            if have_val:
+                r_val = _cw.corewise_sub(kind.point_forward(info.x_cores, val_sample), val_data)
+                val_err = relative_errors(kind.block_sumsq(r_val, n_w_val), val_data_bs)
+            obj_unweighted = 0.5 * float(res_bs.sum())
+        previous['lm'] = info.lm if getattr(info, 'tr_accepted', None) is False else None   # the SAME model next row
+        previous['tables'] = (train_err, val_err, obj_unweighted)                          # (not a reused callback's next run)
         if print_fn is not None:
             print_fn(format_newton_iter(info, train_err, val_err, obj_unweighted, fmt))
         if record:

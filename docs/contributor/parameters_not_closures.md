@@ -98,9 +98,9 @@ Applying the rule surfaced four duplications, and each convention now has one ho
 
 Making a `scan`/`while_loop` body closure-free is the body-level remedy
 ([`scan_body_principles.md`](scan_body_principles.md)). It is not always the cheapest one. `_cg_solve`
-closes over the Hessian-apply, the inner product, the CG tolerance and the iteration cap, and two of
-those change every Newton iteration — so the body-level rule applies, but the cache it would hit is
-still keyed on identity.
+closes over the Hessian-apply, the inner product, the CG tolerance, the iteration cap and the
+trust-region radius, and three of those change every Newton iteration — so the body-level rule applies,
+but the cache it would hit is still keyed on identity.
 
 The resolution generalizes:
 
@@ -108,9 +108,10 @@ The resolution generalizes:
 > value-based cache already exists, rather than hand-defunctionalizing to make an identity-based cache
 > behave like a value-based one.**
 
-`_cg_solve` became a plain function of `(local_model, rhs, tol, maxiter)`, jitted whole. The cache key
-is jax's own — the model's pytree treedef, whose aux is value-hashed — and `tol` / `maxiter` are traced
-arguments, so they cannot go stale. That only works because the objects crossing the boundary hash by
+`_cg_solve` became a plain function of `(local_model, rhs, tol, maxiter, radius)`, jitted whole. The
+cache key is jax's own — the model's pytree treedef, whose aux is value-hashed — and `tol` / `maxiter` /
+`radius` are traced arguments, so they cannot go stale (`test_cg_tolerance_is_not_stale`,
+`test_cg_radius_is_not_stale`). That only works because the objects crossing the boundary hash by
 value, which is the whole point of the decision above.
 
 One wrinkle worth knowing: raw backend data tuples mix arrays with static structure (a uniform frame is

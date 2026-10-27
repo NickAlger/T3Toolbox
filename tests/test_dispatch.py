@@ -788,10 +788,81 @@ class TestDispatch(unittest.TestCase):
 
         counts = []
         for frac in (0.5, 0.1, 0.02, 0.005):                      # progressively tighter
-            _p, i, _rs, _ok = bopt._cg_solve(lm, neg_g, frac * gnorm, 200, True)
+            _p, i, _rs, _ok, _boundary = bopt._cg_solve(lm, neg_g, frac * gnorm, 200, True)
             counts.append(int(i))
         self.assertEqual(counts, sorted(counts), f"iterations must grow as tol tightens; got {counts}")
         self.assertGreater(counts[-1], counts[0], f"tolerance ignored (stale): {counts}")
+
+    def test_cg_radius_is_not_stale(self):
+        """The trust-region radius changes every Newton step, so -- like the tolerance -- it rides in the CG loop
+        state as a TRACED argument: one compiled program serves every radius, and each solve honours its own
+        (a stale radius would leave ‖p‖ at the first one). Steihaug stops on the boundary, ‖p‖ = Δ, for every Δ
+        below the Newton step's length; Δ = inf is the plain CG (no boundary), equal to the eager solve."""
+        problem, _solution = self._apply_problem_jax()
+        np.random.seed(1)
+        lm = problem.local_model(t3.TuckerTensorTrain.randn(*STRUCT).to_jax().data)   # away from the solution
+        neg_g = _cw.corewise_scale(lm.gradient, -1.0)
+        gnorm = float(problem.geom.inner(lm.gradient, lm.gradient)) ** 0.5
+        cg = bopt._jitted(bopt._cg_core, (4,))
+        p_full, _i, _rs, _ok, boundary = bopt._cg_solve(lm, neg_g, 1e-8 * gnorm, 200, True, float('inf'))
+        self.assertFalse(bool(boundary))
+        full = float(problem.geom.inner(p_full, p_full)) ** 0.5
+        p_eager = bopt._cg_solve(lm, neg_g, 1e-8 * gnorm, 200, False)[0]
+        self.assertLess(norm(np.concatenate([np.ravel(np.asarray(a) - np.asarray(b))
+                                             for a, b in zip(p_full[0] + p_full[1], p_eager[0] + p_eager[1])])),
+                        1e-6 * full)                                     # jit == eager (CG to 1e-8: rounding)
+        n_compiled = cg._cache_size() if hasattr(cg, '_cache_size') else None
+        for frac in (0.5, 0.1, 0.02, 0.005):                         # progressively smaller regions
+            radius = frac * full
+            p, _i, _rs, _ok, boundary = bopt._cg_solve(lm, neg_g, 1e-8 * gnorm, 200, True, radius)
+            self.assertTrue(bool(boundary), f"radius {radius} ignored (stale)")
+            self.assertAlmostEqual(float(problem.geom.inner(p, p)) ** 0.5, radius, delta=1e-9 * radius)
+        if n_compiled is not None:
+            self.assertEqual(cg._cache_size(), n_compiled, "a new radius recompiled the CG")
+
+    def test_exact_newton_cg_jit_compiles_the_cg_once_and_floors_at_float32(self):
+        """Exact newton_cg(use_jit=True) with x64 OFF (the auto-convert makes the problem float32):
+
+        * the inner Steihaug CG compiles at most ONCE across two whole runs at the same structure (several CG
+          solves, each with its own tolerance and radius, and a model rebuilt at every accepted point);
+        * T15(e): E2's degenerate restart (noise-free rank-2 data, the rank-2 fit zero-padded to rank 3) sits at
+          float32's resolution, so the run stops 'objective_floor' at its FIRST rejection -- the pinned bound: no
+          accepted step, one row, |pred| within 10x the float32 resolution (and far outside float64's)."""
+        SH = STRUCT[0]
+        rng = np.random.default_rng(7)
+        np.random.seed(7)
+        target = t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1))
+        ww = [rng.standard_normal((20, n)) for n in SH]
+        pp = [rng.standard_normal((20, n)) for n in SH]
+        kind = bfit.ProbeDerivativesKind(order=1)
+        data = kind.point_forward(target.data, (ww, pp))
+        problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
+        x1, _ = bopt.newton_cg(problem, t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1)).data,
+                               max_newton=80, gtol_rel=1e-10)               # eager float64: the level-1 fit
+        restart = t3.TuckerTensorTrain(*x1).resize(SH, (3, 3, 3), (1, 3, 3, 1)).data
+        start = t3.TuckerTensorTrain.randn(SH, (3, 3, 3), (1, 3, 3, 1)).data
+        x64 = jax.config.read('jax_enable_x64')
+        jax.config.update('jax_enable_x64', False)
+        try:
+            cg = bopt._jitted(bopt._cg_core, (4,))
+            before = cg._cache_size() if hasattr(cg, '_cache_size') else None
+            _, far = bopt.newton_cg(problem, start, max_newton=6, hessian='exact', use_jit=True)
+            _, floor = bopt.newton_cg(problem, restart, max_newton=10, hessian='exact', g0_reference='warm_start',
+                                      use_jit=True)
+            after = cg._cache_size() if before is not None else None
+        finally:
+            jax.config.update('jax_enable_x64', x64)
+        self.assertGreaterEqual(far['newton_steps'], 3)
+        if before is not None:
+            self.assertLessEqual(after - before, 1, "the exact CG recompiled within / across runs")
+        h = floor['history']
+        self.assertEqual(floor['stop_reason'], 'objective_floor')
+        self.assertEqual((len(h), floor['newton_accepted']), (1, 0))
+        y = float(np.sqrt(sum(np.sum(np.asarray(z, dtype=float) ** 2) for z in data)))
+        pred = abs(h[0]['slope'] + 0.5 * h[0]['pHp'])
+        scale = y * np.sqrt(2.0 * h[0]['misfit']) + abs(h[0]['objective'])
+        self.assertLessEqual(pred, 10.0 * float(np.finfo(np.float32).eps) * scale)
+        self.assertGreater(pred, 10.0 * float(np.finfo(np.float64).eps) * scale)
 
     def test_a_derived_kind_does_not_inherit_its_parents_cache_key(self):
         """A kind with DIFFERENT math must not share a jit cache key with the one it derives from.

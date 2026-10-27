@@ -104,6 +104,19 @@ All notable changes to T3Toolbox are documented here. The format follows
   Gauss-Newton model; `Problem.local_model(..., hessian='exact')` rejects it up front with a structural
   `ValueError` naming the missing operation (the base method carries the stdlib `abc.abstractmethod`
   marker, which the check reads; the class is not an `ABC`, so instantiation is unaffected).
+- **`NewtonInfo.cg_truncated` excludes trust-region boundary stops**: it is now `(not cg_converged) and (not
+  cg_ok) and (not cg_boundary)` -- a Steihaug stop on nonpositive curvature is a boundary step, not a
+  truncation -- and `cg_converged` is `False` on a boundary stop, so a row's CG outcome is exactly one of
+  converged / boundary / truncated / the cap. With the default line search there is no boundary, so both are
+  unchanged there.
+- **Trust-region rows have no line-search fields**: with `step_control='trust_region'` (below) a
+  `NewtonInfo` row has `ls_steps = ls_failed = None` and `alpha = 1.0` (filter history rows on
+  `step_control`); `newton_accepted` also excludes rejected trust-region trials.
+- **The backend's private CG `_cg_solve` returns a 5-tuple** `(p, iters, resid², ok, boundary)` and takes a
+  trailing `radius` (default `inf`: the plain CG, bit for bit). Internal, listed for scripts that called it.
+- **Display only, numerics unchanged:** a `verbose=True` / `make_newton_display` run's last row names its stop
+  when that is not the gradient test (`| stop: max_newton`, `line_search`, `objective_floor`,
+  `trust_region_floor`); the Gauss-Newton line-search rows are otherwise byte-identical.
 
 ### Fixed
 
@@ -141,7 +154,7 @@ All notable changes to T3Toolbox are documented here. The format follows
   starting cores, reduced to minimal ranks where the optimizers reduce them) and `.rewrap` (backend cores
   -> the frontend tensor). Module-level only, not re-exported at the root.
 - **The lift from frame coordinates to raw core variations** (backend; a building block of the exact
-  Hessian, not yet wired into an optimizer): `backend.linalg.filtered_reciprocal` and
+  Hessian): `backend.linalg.filtered_reciprocal` and
   `damped_pseudo_inverse` (the clipped, optionally Tikhonov-damped reciprocal of a spectrum, and the
   pseudo-inverse built on it); `backend.fv_operations.fv_center_factors` (a frame's centers `H_i`, Tucker
   factors `S_iᵀ` and bond factors `T_i`, recomputed by zipper), `LiftFactors` and
@@ -157,7 +170,7 @@ All notable changes to T3Toolbox are documented here. The format follows
   `backend.tt_operations.tt_zipper_tangent_left_to_right` / `_right_to_left`.
   `tv_project_t3_onto_tangent_space` now gauges that shared kernel (bit-identical).
 - **The probe-derivative transpose's derivative in the cores** (backend; the exact Hessian's sampling term
-  for `probe_derivatives`, not yet wired into an optimizer):
+  for `probe_derivatives`):
   `backend.sampling_derivatives.t3_probe_corewise_derivatives_hessian` and its `_from_sweep` variant -- the
   core-coordinate Hessian of `θ ↦ ⟨z̃, S(Φ(θ))⟩` applied to a stack of directions (`S` the probe-derivative
   jets, `z̃` fixed residual jets, `ω²` already applied), the derivative of
@@ -170,8 +183,8 @@ All notable changes to T3Toolbox are documented here. The format follows
   `max_chunk_size_within` take the solver's mode vocabulary, `hessian='gauss_newton'` (the default, the
   transpose-only answer) or `'exact'` (case-insensitive; anything else raises `ValueError`); `'exact'` sizes the
   chunk so that the two-hole, whose chunk costs ~1.3-2.2× the transpose's per row, also fits.
-- **The exact Riemannian Hessian in the backend local model** (not yet wired into an optimizer: `newton_cg`
-  still builds the Gauss-Newton model): `backend.optimizers.Problem.local_model(x, sample, data,
+- **The exact Riemannian Hessian in the backend local model** (driven by the backend `newton_cg`'s
+  `hessian='exact'`, below; the frontend follows): `backend.optimizers.Problem.local_model(x, sample, data,
   hessian='gauss_newton' | 'exact', curvature_damping=None)`. An exact model's `hvp` is
   `Π[𝒥ᵀω²𝒥Πp + Lᵀ(K_{Aᵀω²r} − K_{grad f})LΠp] (+ H_R p)` -- the Gauss-Newton term plus the Weingarten
   curvature, through the lift `L`, the kind's `corewise_hessian` and the inner product's two-hole at the misfit
@@ -186,6 +199,28 @@ All notable changes to T3Toolbox are documented here. The format follows
   `DEFAULT_CURVATURE_DAMPING = 1e-6` (relative to `‖X‖_HS`; `curvature_damping` raises with the Gauss-Newton
   model and on a corewise geometry, where nothing would read it). `ProbeDerivativesKind` implements
   `corewise_hessian`; the other kinds, the uniform layer and the shared manifold's tied lift follow.
+- **Exact Newton with a trust region in the backend `newton_cg`**: `backend.optimizers.newton_cg(...,
+  hessian='gauss_newton' | 'exact', curvature_damping=None, step_control=None, tr_radius0=None)` (explicit
+  keywords; the frontend `optimizers.newton_cg` follows). `hessian='exact'` solves with the exact Riemannian
+  Hessian above -- the superlinear Newton tail where Gauss-Newton is linear on a nonzero-residual fit
+  (q-quadratic with `cg_forcing_power=1.0`; the default stays `0.5` in both modes) -- and `curvature_damping`
+  (exact only; a value with Gauss-Newton raises) sets the lift's damping relative to `‖X‖_HS`.
+  `step_control` is `'line_search'` (Armijo along the retraction; the Gauss-Newton default, unchanged bit for
+  bit) or `'trust_region'` (the exact default; either combines with either Hessian): Steihaug-Toint CG in
+  `‖p‖ ≤ Δ` -- it steps to the boundary on nonpositive curvature or when it would leave the region -- then one
+  trial `retract(p)`, accepted iff `ρ = Δf / (gᵀp + ½pᵀHp) > 0.1`; `Δ ← ¼‖p‖` when `ρ < 0.25`, `Δ ← min(2Δ,
+  10⁴Δ0)` when `ρ > 0.75` on a boundary step; `Δ0 = tr_radius0`, by default the Gauss-Newton Cauchy length
+  `‖g‖³/⟨g, H_GN g⟩` (`tr_radius0` with the line search raises, as does `on_line_search_failure='accept'`
+  with the trust region). A rejected trial keeps `x` and its local model and counts toward `max_newton`. Two
+  new `stop_reason` values, checked only after a rejection: **`'objective_floor'`** -- the predicted change is
+  below the objective's floating-point resolution, `|pred| ≤ 10·ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)` with `ε` the residual
+  dtype's machine epsilon: the attainable accuracy is reached, **not a failure** -- and
+  **`'trust_region_floor'`** (`Δ < 10⁻¹²·Δ0`). New `NewtonInfo` fields, all defaulting to `None`: `hessian`,
+  `tr_radius`, `tr_accepted`, `cg_boundary`, `pKp` (the curvature term's part of `pHp`), `lift_sigma_min`,
+  `lift_eps`; `step_control` gains `'trust_region'`. The display's `step` segment reads `TR Δ … ✓/✗` on a
+  trust-region row, CG's symbol `∂` on a boundary stop, and an exact row appends `κ σ ε` (`κ = pKp/(pHp −
+  pKp)`, the smallest lift singular value, the lift damping). A curvature-data object may carry the
+  diagnostics `sigma_min` / `eps` (`backend.geometry.ManifoldCurvatureData` gains the `eps` property).
 
 ## [2026.2.0] — 2026-08-25
 

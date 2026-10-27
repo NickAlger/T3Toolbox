@@ -45,6 +45,14 @@ The exact local model, ``Problem.local_model(hessian='exact')``:
 * **T23** -- ``corewise_hessian`` is the required sixth operation: a five-operation kind works for Gauss-Newton
   and is rejected for exact (the marker and the identity forms agree); the uniform kinds' window stub.
 
+Exact Newton end to end, ``newton_cg(hessian='exact')`` with its trust region (S5):
+
+* **T16** -- the local rate: q-quadratic at ``cg_forcing_power=1.0``, superlinear of order ~1.5 at the default
+  0.5, Gauss-Newton linear; ``rho`` ~ 1 on the asymptotic steps.
+* **T21** -- a zero-padded continuation restart converges on the gradient test with at most two rejections.
+* **T25** -- from Tucker-slack and TT-slack points (no minimal reduction): the slack frame, and the same
+  trajectory as from the minimal-rank tensor.
+
 Stacks: none, ``C``, ``K``, ``K + C`` and multi-axis ``K = (2, 2)``, ``C = (2, 3)``. Per-test seeded.
 """
 import dataclasses as dc
@@ -1532,6 +1540,192 @@ class TestRequiredSixthOperation(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'does not implement curvature_precompute, lift, lift_transpose, '
                                                 'tangential_curvature'):
             duck.local_model(x, hessian='exact')
+
+
+# ---------------------------------------------------------------------------------------------------
+# S5: exact Newton end to end -- newton_cg(hessian='exact') with its trust region (T16, T21, T25)
+# ---------------------------------------------------------------------------------------------------
+_EPS64 = float(np.finfo(np.float64).eps)
+
+
+def _data_norm(problem):
+    return float(problem.kind.sumsq(problem.data, problem.kind.w_axes(problem.sample))) ** 0.5
+
+
+def _newton_steps(problem, stats):
+    """Per accepted step of a trust-region run: (e_k, e_{k+1}, ρ, |pred|/res), with e = ‖g‖/‖g₀‖ and
+    res = ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|) the objective's resolution at the step's point."""
+    y = _data_norm(problem)
+    h = stats['history']
+    out = []
+    for row, nxt in zip(h, h[1:]):
+        if row['tr_accepted']:
+            pred = row['slope'] + 0.5 * row['pHp']
+            res = _EPS64 * (y * (2.0 * row['misfit']) ** 0.5 + abs(row['objective']))
+            out.append((row['gnorm'] / row['g0norm'], nxt['gnorm'] / nxt['g0norm'], row['rho'], abs(pred) / res))
+    return out
+
+
+def _t16_problem(seed):
+    """T16's problem (F22, re-calibrated on probe derivatives in S5): a rank-2 fit of a rank-4 target on
+    (6,6,6) -- misspecified, so the residual and with it the curvature term are O(1) and Gauss-Newton is
+    linear -- probe derivatives of order 1, |W| = 200, 1 % noise; the start is 6 Gauss-Newton steps from a
+    random point (more would leave only one or two steps between the start and the objective's resolution)."""
+    rng = np.random.default_rng(seed)
+    np.random.seed(seed)
+    shape = (6, 6, 6)
+    target = t3.TuckerTensorTrain.randn(shape, (4, 4, 4), (1, 4, 4, 1))
+    ww = [rng.standard_normal((200, N)) for N in shape]
+    pp = [rng.standard_normal((200, N)) for N in shape]
+    kind = bfit.ProbeDerivativesKind(order=1)
+    data = [z + 0.01 * np.linalg.norm(z) / z.size ** 0.5 * rng.standard_normal(z.shape)
+            for z in kind.point_forward(target.data, (ww, pp))]
+    problem = bopt.least_squares_problem(_MANIFOLD, kind, (ww, pp), data)
+    x, _ = bopt.newton_cg(problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data,
+                          max_newton=6, gtol_rel=0.0)
+    return problem, x
+
+
+class TestExactNewtonRate(unittest.TestCase):
+    """T16 (F22, F24, F29): the local rate of newton_cg(hessian='exact') on a misspecified fit, against
+    Gauss-Newton's linear rate. e_k = ‖g_k‖/‖g_0‖ (the warm-start reference); the asymptotic steps are those
+    with e_k < 1e-1 AND |pred| > 1e3·res (the n15 criterion: it excludes the steps that are dominated by the
+    objective's floating-point resolution, where no rate is measurable). Constants run-and-paste (S5):
+
+    * power 1.0: e_{k+1}/e_k² = 0.234, 0.768 (seed 1); 0.538, 1.02, 0.813 (seed 2) -- C = 2;
+    * power 0.5: e_{k+1}/e_k^1.5 = 0.605, 0.754, 0.706 (seed 1); 0.320, 0.407, 0.692 (seed 2) -- C = 2,
+      while e_{k+1}/e_k² reaches 18.2 / 5.95 (superlinear, not q-quadratic);
+    * |1 - ρ| <= 1.6e-3 on every such step; both stop 'objective_floor' within 7 rows;
+    * Gauss-Newton + line search: ratios e_{k+1}/e_k in [0.45, 0.68] (linear) in e in [1e-10, 1e-1]."""
+
+    def _run(self, seed, power):
+        problem, x = _t16_problem(seed)
+        _, stats = bopt.newton_cg(problem, x, max_newton=30, gtol_rel=1e-12, g0_reference='warm_start',
+                                  hessian='exact', cg_forcing_power=power)
+        self.assertIn(stats['stop_reason'], ('gradient', 'objective_floor'))
+        window = [s for s in _newton_steps(problem, stats) if s[0] < 1e-1 and s[3] > 1e3]
+        for e_k, e_next, rho, _ in window:
+            self.assertLess(abs(1.0 - rho), 0.1)
+        return window
+
+    def test_power_one_is_q_quadratic(self):
+        for seed in (1, 2):
+            with self.subTest(seed=seed):
+                window = self._run(seed, 1.0)
+                self.assertGreaterEqual(len(window), 2)
+                for e_k, e_next, _, _ in window:
+                    self.assertLessEqual(e_next, 2.0 * e_k ** 2)
+
+    def test_power_half_is_superlinear_of_order_one_and_a_half(self):
+        for seed in (1, 2):
+            with self.subTest(seed=seed):
+                window = self._run(seed, 0.5)
+                self.assertGreaterEqual(len(window), 2)
+                for e_k, e_next, _, _ in window:
+                    self.assertLessEqual(e_next, 2.0 * e_k ** 1.5)
+                self.assertTrue(any(e_next > 2.0 * e_k ** 2 for e_k, e_next, _, _ in window))   # not q-quadratic
+
+    def test_gauss_newton_control_is_linear(self):
+        for seed in (1, 2):
+            with self.subTest(seed=seed):
+                problem, x = _t16_problem(seed)
+                _, stats = bopt.newton_cg(problem, x, max_newton=25, gtol_rel=1e-12, g0_reference='warm_start')
+                e = [row['gnorm'] / row['g0norm'] for row in stats['history']]
+                ratios = [b / a for a, b in zip(e, e[1:]) if 1e-10 < a < 1e-1]
+                self.assertGreaterEqual(len(ratios), 10)
+                for r in ratios:
+                    self.assertTrue(0.3 < r < 0.9, ratios)
+
+
+class TestExactNewtonRestart(unittest.TestCase):
+    """T21 (E2 / F19 / F26, ragged): exact newton_cg from a zero-padded continuation restart -- the frame
+    is rank-deficient there (σ_min = 0 on the padded slots, the damped lift keeps it finite) -- converges on the
+    gradient test with at most two rejections. c24's template on probe derivatives (order 2, ω = [1, .5, .25],
+    5 % noise, target rank 4, level 1 at rank 2 fitted to 1e-10, restart at rank 3); |W| = 60 here.
+    Observed (S5, defaults: zero reference, power 0.5): 8 outer steps, 0 rejected, against 28 for Gauss-Newton +
+    Armijo; at c24's |W| = 120: 9 / 0 (zero reference), 10 outer and 28 CG iterations (warm start; F19/F26:
+    10 / 28)."""
+
+    def test_zero_padded_restart_converges(self):
+        rng = np.random.default_rng(7)
+        np.random.seed(7)
+        shape, W = (6, 6, 6), 60
+        target = t3.TuckerTensorTrain.randn(shape, (4, 4, 4), (1, 4, 4, 1))
+        ww = [rng.standard_normal((W, N)) for N in shape]
+        pp = [rng.standard_normal((W, N)) for N in shape]
+        kind = bfit.probe_derivatives_kind(2, np.array([1.0, 0.5, 0.25]))
+        data = [z + 0.05 * np.linalg.norm(z) / z.size ** 0.5 * rng.standard_normal(z.shape)
+                for z in kind.point_forward(target.data, (ww, pp))]
+        problem = bopt.least_squares_problem(_MANIFOLD, kind, (ww, pp), data)
+        x1, _ = bopt.newton_cg(problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data,
+                               max_newton=80, gtol_rel=1e-10)
+        restart = t3.TuckerTensorTrain(*x1).resize(shape, (3, 3, 3), (1, 3, 3, 1)).data
+        _, stats = bopt.newton_cg(problem, restart, max_newton=40, hessian='exact')
+        h = stats['history']
+        self.assertEqual(stats['stop_reason'], 'gradient')
+        self.assertLessEqual(sum(row['tr_accepted'] is False for row in h), 2)
+        self.assertEqual(h[0]['lift_sigma_min'], 0.0)                       # the padded slots: a singular lift
+        self.assertTrue(all(np.isfinite(row['pKp']) for row in h if not row['converged']))
+        self.assertLessEqual(stats['newton_steps'], 12)
+
+
+def _slack_problem(W, order, x_ranks):
+    """c42's set-up on probe derivatives: a rank-3 target on (6,6,6), 2 % noise, and a start point of the
+    (non-minimal) ranks ``x_ranks``."""
+    rng = np.random.default_rng(11)
+    np.random.seed(11)
+    shape = (6, 6, 6)
+    target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
+    ww = [rng.standard_normal((W, N)) for N in shape]
+    pp = [rng.standard_normal((W, N)) for N in shape]
+    kind = bfit.ProbeDerivativesKind(order=order)
+    data = [z + 0.02 * np.linalg.norm(z) / z.size ** 0.5 * rng.standard_normal(z.shape)
+            for z in kind.point_forward(target.data, (ww, pp))]
+    return bopt.least_squares_problem(_MANIFOLD, kind, (ww, pp), data), t3.TuckerTensorTrain.randn(shape, *x_ranks)
+
+
+class TestExactNewtonFromNonMinimalPoints(unittest.TestCase):
+    """T25 (I-23, F28 / F38, ragged): exact newton_cg runs from a NON-minimal point with no minimal reduction --
+    the first local model's frame is the slack one ``t3_orthogonal_representations`` gives -- and converges on the
+    gradient test in the same number of outer (and accepted) steps as the same run from the tensor reduced to its
+    minimal ranks, along the same trajectory (the objective row by row to 1e-8; observed <= 3.6e-10). (The final
+    ‖g‖/‖g₀‖ sits at round-off, 1e-12, so it is compared only through the stop.) Observed (S5): Tucker slack 14
+    outer / 1 rejected, both starts, and curvature_damping 0 the same; TT slack 22 / 6.
+    (Gauss-Newton's behaviour from a TT-slack start is a property of the problem, not of the frame: E11.)"""
+
+    def _check(self, problem, x0, up, down, left, right, outer, curvature_dampings=(None,)):
+        frame = problem.local_model(x0.data, hessian='exact').frame
+        reference = fvc.t3_orthogonal_representations(x0.data)[0]
+        self.assertEqual([a.shape for a in sum(map(tuple, frame), ())], [a.shape for a in sum(map(tuple, reference), ())])
+        U, O, L, R = frame
+        self.assertEqual(([u.shape[0] for u in U], [o.shape[1] for o in O]), (up, down))
+        self.assertEqual(([L[0].shape[0]] + [l.shape[2] for l in L], [R[0].shape[0]] + [r.shape[2] for r in R]),
+                         (left, right))
+        y, _, _ = x0.t3svd()
+        minimal = y.rank_adjustment_sweep('right_to_left')
+        runs = {}
+        for name, start in (('slack', x0.data), ('minimal', minimal.data)):
+            for cd in curvature_dampings:
+                _, stats = bopt.newton_cg(problem, start, max_newton=80, hessian='exact', curvature_damping=cd)
+                self.assertEqual(stats['stop_reason'], 'gradient', (name, cd))
+                runs[name, cd] = stats
+        reference = runs['slack', None]
+        self.assertEqual(reference['newton_steps'], outer)
+        for key, stats in runs.items():
+            with self.subTest(run=key):
+                self.assertEqual((stats['newton_steps'], stats['newton_accepted']),
+                                 (reference['newton_steps'], reference['newton_accepted']))
+                worst = max(abs(a - b) / abs(b) for a, b in zip(stats['losses'], reference['losses']))
+                self.assertLess(worst, 1e-8)                                # the same trajectory (observed <= 3.6e-10)
+
+    def test_tucker_slack(self):
+        problem, x0 = _slack_problem(100, 1, ((4, 4, 4), (1, 2, 2, 1)))
+        self._check(problem, x0, up=[4, 4, 4], down=[2, 4, 2], left=[1, 2, 2, 1], right=[1, 2, 2, 1], outer=14,
+                    curvature_dampings=(None, 0.0))
+
+    def test_tt_slack(self):
+        problem, x0 = _slack_problem(200, 0, ((4, 4, 4), (1, 9, 9, 1)))
+        self._check(problem, x0, up=[4, 4, 4], down=[4, 4, 4], left=[1, 4, 9, 1], right=[1, 4, 4, 1], outer=22)
 
 
 if __name__ == '__main__':

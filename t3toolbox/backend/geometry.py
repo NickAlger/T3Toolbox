@@ -170,6 +170,10 @@ class ManifoldCurvatureData:
     z_sweep:       typ.Tuple                   # t3_precompute_inner_product_sweep(z, base_point)
     sigma_min:     NDArray                     # the smallest lift singular value (Tucker and bond), shape=C
 
+    @property
+    def eps(self) -> NDArray:                  # the absolute lift damping used, shape=C (a diagnostic; newton_cg's lift_eps)
+        return self.lift_factors.eps
+
 
 def _manifold_curvature_data(
         frame:              typ.Tuple,   # (U, O, P, Q) -- an orthogonal frame

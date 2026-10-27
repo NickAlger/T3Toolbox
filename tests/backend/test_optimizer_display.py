@@ -131,6 +131,60 @@ class TestFormatter(unittest.TestCase):
         h = bdisp._format_header(_info(cg_converged=False, cg_truncated=True), None)
         self.assertIn("⌇", h)
 
+    # The 2026.2.0 header text, captured from the pre-trust-region formatter (fffdfde) for these rows: the
+    # line-search `step` segment -- and every non-final Gauss-Newton row -- must stay byte-identical.
+    _LS_ROWS_2026_2 = [
+        (dict(),
+         'iter  3 | obj 5.230e-04 (unwt 1.70e-04)  ‖g‖ 1.44e-03 (2.1e-02·g₀) | CG 14/200 tol 3.0e-04 resid 8.7e-05 ✓ '
+         '| ls 2 α 2.50e-01 ‖Δx‖/‖x‖ 3.0e-02 | Δf -1.20e-04 ρ 0.98 | 0.31s'),
+        (dict(ls_failed=True, ls_steps=40, alpha=2.0 ** -39, cg_converged=False, cg_truncated=True),
+         'iter  3 | obj 5.230e-04 (unwt 1.70e-04)  ‖g‖ 1.44e-03 (2.1e-02·g₀) | CG 14/200 tol 3.0e-04 resid 8.7e-05 ⌇ '
+         '| ls 40! α 1.82e-12 ‖Δx‖/‖x‖ 3.0e-02 | Δf -1.20e-04 ρ 0.98 | 0.31s'),
+        (dict(cg_converged=False, step_rel=float('nan'), rho=float('nan'), misfit=1e-4, regularization=4.23e-4),
+         'iter  3 | obj 5.230e-04 = misfit 1.000e-04 (unwt 1.70e-04) + reg 4.230e-04  ‖g‖ 1.44e-03 (2.1e-02·g₀) '
+         '| CG 14/200 tol 3.0e-04 resid 8.7e-05 ⋯ | ls 2 α 2.50e-01 ‖Δx‖/‖x‖ nan | Δf -1.20e-04 ρ nan | 0.31s'),
+        (dict(cg_converged=False, g0_reference='zero'),
+         'iter  3 | obj 5.230e-04 (unwt 1.70e-04)  ‖g‖ 1.44e-03 (2.1e-02·g₀) | CG 14/200 tol 3.0e-04 resid 8.7e-05 ⋯ '
+         '| ls 2 α 2.50e-01 ‖Δx‖/‖x‖ 3.0e-02 | Δf -1.20e-04 ρ 0.98 | 0.31s'),
+    ]
+
+    def test_line_search_rows_are_byte_identical(self):
+        """C.14: the line-search `step` segment is the 2026.2.0 text byte for byte (a Gauss-Newton row of
+        newton_cg also carries step_control / hessian / cg_boundary=False now -- none of which shows)."""
+        for kw, expected in self._LS_ROWS_2026_2:
+            for extra in (dict(), dict(step_control='line_search', hessian='gauss_newton', cg_boundary=False)):
+                with self.subTest(row=kw, extra=extra):
+                    self.assertEqual(bdisp._format_header(_info(**kw, **extra), obj_unweighted=1.7e-4), expected)
+
+    def test_exact_mode_header(self):
+        """T19: the trust-region `step` segment (`TR Δ … ✓/✗`), the boundary symbol `∂`, the exact cells
+        `κ σ ε` (κ guarded against a zero denominator, σ / ε `—` when absent), and the stop reason on a run's
+        last row (not on the converged line, which says so already)."""
+        tr = dict(step_control='trust_region', hessian='exact', ls_steps=None, ls_failed=None, alpha=1.0,
+                  tr_radius=3.1e-2, tr_accepted=True, pHp=8.0e-4, pKp=-2.0e-4, lift_sigma_min=4.2e-1,
+                  lift_eps=1.3e-5)
+        accepted = bdisp._format_header(_info(**tr), None)
+        self.assertIn("| TR Δ 3.10e-02 ✓ ‖Δx‖/‖x‖ 3.0e-02 |", accepted)
+        self.assertNotIn("ls ", accepted)
+        self.assertTrue(accepted.endswith("| 0.31s | κ -2.0e-01 σ 4.2e-01 ε 1.3e-05"), accepted)   # κ = pKp/(pHp − pKp)
+        self.assertIn("TR Δ 3.10e-02 ✗", bdisp._format_header(_info(**dict(tr, tr_accepted=False)), None))
+        boundary = bdisp._format_header(_info(**dict(tr, cg_converged=False, cg_boundary=True)), None)
+        self.assertIn("resid 8.7e-05 ∂ |", boundary)
+        self.assertIn(" κ — ", bdisp._format_header(_info(**dict(tr, pKp=8.0e-4)), None))         # pHp − pKp = 0
+        self.assertIn(" κ — ", bdisp._format_header(_info(**dict(tr, pKp=float('nan'))), None))
+        absent = bdisp._format_header(_info(**dict(tr, lift_sigma_min=None, lift_eps=None)), None)
+        self.assertTrue(absent.endswith("κ -2.0e-01 σ — ε —"), absent)                               # corewise / d = 1
+        nan_radius = bdisp._format_header(_info(**dict(tr, tr_radius=float('nan'), step_rel=float('inf'))), None)
+        self.assertIn("TR Δ — ✓ ‖Δx‖/‖x‖ — |", nan_radius)
+        self.assertNotIn("κ", bdisp._format_header(_info(**dict(tr, hessian='gauss_newton', pKp=None)), None))
+        for reason in ('objective_floor', 'trust_region_floor', 'max_newton', 'line_search'):
+            with self.subTest(stop_reason=reason):
+                self.assertTrue(bdisp._format_header(_info(**dict(tr, stop_reason=reason)), None)
+                                .endswith("| stop: %s" % reason))
+        conv = bdisp._format_header(_info(converged=True, cg_iters=None, stop_reason='gradient', g0_reference='zero',
+                                          hessian='exact', step_control='trust_region'), None)
+        self.assertTrue(conv.endswith("| converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = zero tensor)"), conv)
+
 
 class TestMakeNewtonDisplay(unittest.TestCase):
     def _probe_problem(self, M=120):
@@ -168,6 +222,49 @@ class TestMakeNewtonDisplay(unittest.TestCase):
             self.assertTrue(np.all(np.asarray(rec['train_err']) >= 0))
         # the fit improves -> final train error below the initial
         self.assertLess(float(records[-1]['train_err'].mean()), float(records[0]['train_err'].mean()))
+
+    def test_rows_after_a_rejection_reuse_the_tables(self):
+        """n14: a rejected trust-region trial keeps x (and its model), so the NEXT row reuses that row's error
+        tables -- no validation forward for an unchanged point. The validation forwards counted on an exact run
+        with rejections equal the number of distinct points shown."""
+        import unittest.mock
+        rng = np.random.default_rng(0)
+        np.random.seed(0)
+        shape = (6, 6, 6)
+        target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1)).data
+        ww, pp, wv, pv = ([rng.standard_normal((n_w, n)) for n in shape] for n_w in (40, 40, 15, 15))
+        kind = bfit.ProbeDerivativesKind(order=1)
+        prob = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), kind.point_forward(target, (ww, pp)))
+        val_sample = (wv, pv)
+        cb, records = bdisp.make_newton_display(prob, val_sample, kind.point_forward(target, val_sample), print_fn=None)
+        np.random.seed(5)
+        x0 = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data
+        original = bfit.ProbeDerivativesKind.point_forward
+        with unittest.mock.patch.object(bfit.ProbeDerivativesKind, 'point_forward', autospec=True,
+                                        side_effect=original) as spy:
+            _, stats = bopt.newton_cg(prob, x0, max_newton=10, hessian='exact', tr_radius0=1e3, callback=cb)
+        val_forwards = sum(1 for call in spy.call_args_list if call.args[2] is val_sample)
+        rows = stats['history']
+        after_rejection = [k for k in range(1, len(rows)) if rows[k - 1]['tr_accepted'] is False]
+        self.assertTrue(after_rejection, 'expected a rejected trial in this run')
+        self.assertEqual(val_forwards, len(rows) - len(after_rejection))
+        for k in after_rejection:
+            self.assertIs(records[k]['train_err'], records[k - 1]['train_err'])
+            self.assertIs(records[k]['val_err'], records[k - 1]['val_err'])
+        for k in set(range(1, len(rows))) - set(after_rejection):
+            self.assertIsNot(records[k]['val_err'], records[k - 1]['val_err'])
+        # One callback shared by two runs (e.g. continuation levels): the first run ENDS on a rejected trial (as a
+        # floor stop always does); the second run's first row is a new point and recomputes its tables.
+        first_rejection = after_rejection[0]                                     # rows[first_rejection - 1] is rejected
+        cb2, records2 = bdisp.make_newton_display(prob, val_sample, kind.point_forward(target, val_sample),
+                                                  print_fn=None)
+        bopt.newton_cg(prob, x0, max_newton=first_rejection, hessian='exact', tr_radius0=1e3, callback=cb2)
+        self.assertIs(records2[-1]['tr_accepted'], False)
+        np.random.seed(6)
+        bopt.newton_cg(prob, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data, max_newton=1,
+                       callback=cb2)
+        self.assertIsNot(records2[-1]['train_err'], records2[-2]['train_err'])
+        self.assertFalse(np.allclose(records2[-1]['val_err'], records2[-2]['val_err']))
 
     def test_needs_block_sumsq(self):
         """A kind that does not provide block_sumsq raises a clear error (all built-in kinds do).
