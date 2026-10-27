@@ -34,6 +34,33 @@ wrong place breaks the execution model. So the design question is never "should 
    content) — rejected outright; hashing costs what it saves, float-equality semantics are a swamp,
    and reuse should follow provenance, not value coincidence.
 
+**The one seeded cache (2026-10-27, ruling I-38).** `T3Tangent._gauge_scale` / `UT3Tangent._gauge_scale`
+is a mechanism-1 slot whose value is *not* derivable from the object alone: tangent arithmetic
+(`±`, scalar `*`, `stack_tangents`) writes its operands' scale into the RESULT's cached-property slot,
+so the safe-mode gauge check measures a cancellation `a − b` against `max(‖a‖, ‖b‖)` rather than its own
+tiny norm ([`numerical_contracts.md`](../numerical_contracts.md)). In form that is mechanism 3, and it is
+admissible only because it has the three properties that make hidden state harmless — a candidate
+missing any of them belongs in mechanism 2:
+
+- **correctness-neutral** — it feeds a safe-mode *check*, never a computed number;
+- **conservative on loss** — a dropped value (a pytree round trip, any rebuild) reverts the check to
+  self-relative, which can only be *stricter*, never blind;
+- **never traced** — it is recorded only with checks active (safe mode, eager), so no tracer lands in
+  it, and it is neither a pytree leaf nor aux: recompile keys and the dataclass's cores-only contract
+  are untouched.
+
+Its price is eager, and paid in safe mode only: every `±` computes both operands' coordinate norms
+whether or not the result is ever checked (measured 2026-10-27 on numpy: a safe-mode add of two
+mid-size leaf tangents cost ~4–6× the bare add; unchanged under `unsafe()`). The optimizers' inner
+loops run on backend `.data` and never pay it; frontend tangent arithmetic does.
+
+The alternatives were weighed and rejected: a dataclass field (breaks cores-only and enters the pytree),
+pre-seeding the cached `gauge_residual` itself (a gauge contraction per arithmetic op instead of a norm,
+and eager where the residual is lazy), a lazy thunk over the operands (retains every operand of a chain —
+an iterate loop would hold its whole history), and the sum rule `‖a‖ + ‖b‖` (the honest roundoff bound,
+but not the ruling; the floor under the result's own norm already removes the max rule's one oddity, a
+check stricter than self-relative).
+
 ## The scope ladder
 
 Match each cached object to the widest scope whose invalidation is *structural* — keyed by an

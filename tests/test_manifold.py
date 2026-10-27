@@ -12,6 +12,7 @@ import t3toolbox.safety as safety
 import t3toolbox.backend.probing as t3p
 import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
+import t3toolbox.backend.tv_operations as tv_operations
 
 np.random.seed(0)
 tol = 1e-9
@@ -1096,3 +1097,182 @@ class TestCorewiseRetractFrameGuard(unittest.TestCase):
         p = t3m.COREWISE.randn(t3m.COREWISE.frame(x))
         y = t3m.COREWISE.retract(p)
         self.assertEqual(y.shape, x.shape)
+
+
+def _leaf_tangent(frame, vdata):
+    """A LEAF tangent (no recorded operand scale) from raw variation data."""
+    return t3m.T3Tangent(frame, bvf.T3Variations(*vdata))
+
+
+def _with_roundoff(t, eps, seed):
+    """``t`` plus ``eps * ||t||`` (per stack element) of raw, ungauged noise, as a LEAF: the roundoff-level gauge
+    violation a computed gauged tangent carries (a hessian(p), a projection)."""
+    np.random.seed(seed)
+    noise = t3m.COREWISE.randn(t.frame, stack_shape=t.tangent_stack_shape).normalized()   # unit per element
+    nd = cw.corewise_stack_scale(noise.variations.data, eps * np.asarray(t.corewise_norm()))
+    return _leaf_tangent(t.frame, cw.corewise_add(t.variations.data, nd))
+
+
+def _near_pair(frame, K, agree=1e-8, eps=1e-15, seed=0):
+    """Two gauged LEAF tangents agreeing to ``agree`` (relative), each carrying ``eps``-level gauge noise -- the
+    S0b finite-difference pattern ``H_fd`` vs ``hessian(p)`` in miniature."""
+    np.random.seed(seed)
+    a0 = t3m.MANIFOLD.randn(frame, stack_shape=K)
+    w = t3m.MANIFOLD.randn(frame, stack_shape=K)
+    b0 = _leaf_tangent(frame, cw.corewise_add(a0.variations.data, cw.corewise_scale(w.variations.data, agree)))
+    return _with_roundoff(a0, eps, seed + 1), _with_roundoff(b0, eps, seed + 2)
+
+
+class TestGaugeOperandScale(unittest.TestCase):
+    """S7b (I-38): a tangent built by ``+``/``-``/scalar ``*``/``stack_tangents`` has its safe-mode gauge
+    residual measured against its OPERANDS' scale (``max(||a||, ||b||)``, ``|c| ||a||``, per ``K+C`` element),
+    so the near-cancelling difference of two gauged tangents (the finite-difference check) no longer
+    false-fails; a leaf keeps the self-relative check, and a genuinely ungauged difference is still caught."""
+
+    _STACKS = [((), ()), ((2,), ()), ((), (3,)), ((2,), (3,)), ((2, 2), (2,))]   # (K, C)
+
+    def setUp(self):
+        np.random.seed(0)
+
+    def _frame(self, C):
+        return t3m.MANIFOLD.frame(t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1), stack_shape=C))
+
+    def test_near_cancelling_difference_passes_safe_mode(self):
+        for K, C in self._STACKS:
+            frame = self._frame(C)
+            a, b = _near_pair(frame, K)
+            for d in (a - b, b - a, (a - b) * 1e8, (a - b) / 1e-8):
+                with self.subTest(K=K, C=C):
+                    # discriminating: measured against its OWN norm the difference looks ungauged (S0b's raise)
+                    self.assertGreater(float(np.min(tv_operations.tv_gauge_residual(frame.data, d.variations.data))), 1e-9)
+                    self.assertTrue(bool(np.all(d.is_gauged())))
+                    self.assertLess(float(np.max(d.gauge_residual)), 1e-13)
+                    self.assertTrue(np.allclose(t3m.MANIFOLD.norm(d), d.corewise_norm()))   # safe mode: no raise
+                    t3m.MANIFOLD.inner(d, d)
+            self.assertTrue(np.all(np.asarray(t3m.MANIFOLD.norm(a - b) / a.corewise_norm()) < 1e-7))
+
+    def test_ungauged_tangents_still_fail(self):
+        for K, C in self._STACKS:
+            frame = self._frame(C)
+            a, _ = _near_pair(frame, K)
+            with self.subTest(K=K, C=C, case='tiny ungauged leaf'):
+                u = _leaf_tangent(frame, cw.corewise_scale(t3m.COREWISE.randn(frame, stack_shape=K).variations.data, 1e-12))
+                self.assertFalse(bool(np.any(u.is_gauged())))
+                with self.assertRaises(ValueError):
+                    t3m.MANIFOLD.norm(u)
+            with self.subTest(K=K, C=C, case='tiny ungauged difference'):
+                u = 1e-6 * t3m.COREWISE.randn(frame, stack_shape=K)      # a scaled leaf is still a leaf
+                self.assertIsNone(u._gauge_scale)
+                d = (a + u) - a                                         # ~u, measured against ||a||
+                expected = tv_operations.tv_gauge_residual(frame.data, u.variations.data, scale=a.corewise_norm())
+                self.assertTrue(np.allclose(d.gauge_residual, expected, rtol=1e-4, atol=0.0))   # not blinded
+                self.assertFalse(bool(np.any(d.is_gauged())))
+                with self.assertRaises(ValueError):
+                    t3m.MANIFOLD.norm(d)
+                with self.assertRaises(ValueError):
+                    t3m.MANIFOLD.inner(a, d)
+        # per element: one near-cancelling and one ungauged difference in one stack -> [True, False]
+        frame = self._frame(())
+        a, b = _near_pair(frame, ())
+        bad = (a + 1e-6 * t3m.COREWISE.randn(frame)) - a
+        s = t3m.T3Tangent.stack_tangents([a - b, bad])
+        self.assertEqual(np.asarray(s.is_gauged()).tolist(), [True, False])
+
+    def test_propagation_rules_per_element(self):
+        for K, C in self._STACKS:
+            frame = self._frame(C)
+            a, b = _near_pair(frame, K)
+            na, nb = np.asarray(a.corewise_norm()), np.asarray(b.corewise_norm())
+            d = a - b
+            with self.subTest(K=K, C=C):
+                self.assertIsNone(a._gauge_scale)                                   # leaves
+                self.assertEqual(np.shape(d._gauge_scale), K + C)
+                self.assertTrue(np.array_equal(d._gauge_scale, np.maximum(na, nb)))   # max(scale(a), scale(b))
+                self.assertTrue(np.array_equal((a + b)._gauge_scale, np.maximum(na, nb)))
+                for c in (-2.5, 3.0):                                            # |c| scale(a), both sides
+                    self.assertTrue(np.array_equal((c * d)._gauge_scale, abs(c) * d._gauge_scale))
+                    self.assertTrue(np.array_equal((d * c)._gauge_scale, abs(c) * d._gauge_scale))
+                self.assertTrue(np.array_equal((-d)._gauge_scale, d._gauge_scale))
+                self.assertTrue(np.allclose((d / 4.0)._gauge_scale, 0.25 * d._gauge_scale, rtol=1e-15, atol=0.0))
+                self.assertTrue(np.array_equal((d + a)._gauge_scale, np.maximum(d._gauge_scale, na)))   # recursive
+                for leafy in (2.0 * a, a * 2.0, -a, a / 2.0):                    # a scaled leaf stays a leaf
+                    self.assertIsNone(leafy._gauge_scale)
+                # the residual per element == the backend on the sliced tangent with that element's scale
+                res = np.asarray(d.gauge_residual)
+                own = np.asarray(d.corewise_norm())
+                selfrel = tv_operations.tv_gauge_residual(frame.data, d.variations.data)
+                self.assertTrue(np.allclose(res, selfrel * own / np.maximum(own, d._gauge_scale), rtol=1e-12, atol=0.0))
+                for idx in np.ndindex(*(K + C)):
+                    leaf = _slice_tangent(frame, d.variations, idx, len(C))
+                    self.assertTrue(np.allclose(
+                        res[idx], tv_operations.tv_gauge_residual(leaf.frame.data, leaf.variations.data,
+                                                                  scale=d._gauge_scale[idx]), rtol=1e-12, atol=0.0))
+
+    def test_stack_tangents_stacks_the_scales(self):
+        for K, C in self._STACKS:
+            frame = self._frame(C)
+            a, b = _near_pair(frame, K)
+            d, d2 = a - b, 3.0 * (b - a)
+            with self.subTest(K=K, C=C):
+                self.assertIsNone(t3m.T3Tangent.stack_tangents([a, b])._gauge_scale)   # all leaves: self-relative
+                s = t3m.T3Tangent.stack_tangents([d, a, d2])
+                self.assertEqual(np.shape(s._gauge_scale), (3,) + K + C)
+                for i, scale in enumerate((d._gauge_scale, a.corewise_norm(), d2._gauge_scale)):
+                    self.assertTrue(np.array_equal(s._gauge_scale[i], scale))
+                for i, t in enumerate((d, a, d2)):
+                    self.assertTrue(np.allclose(np.asarray(s.gauge_residual)[i], t.gauge_residual, rtol=1e-12, atol=1e-300))
+                self.assertTrue(bool(np.all(s.is_gauged())))
+                nested = t3m.T3Tangent.stack_tangents(((d, a), (d2, d)))             # row-major K_outer = (2, 2)
+                self.assertEqual(np.shape(nested._gauge_scale), (2, 2) + K + C)
+                self.assertTrue(np.array_equal(nested._gauge_scale[1, 0], d2._gauge_scale))
+                self.assertTrue(np.array_equal(nested._gauge_scale[0, 1], a.corewise_norm()))
+
+    def test_not_recorded_without_active_checks(self):
+        frame = self._frame((2,))
+        a, b = _near_pair(frame, ())
+        with safety.unsafe():
+            d = a - b
+        self.assertIsNone(d._gauge_scale)                                        # unsafe(): conservative leaf
+        self.assertFalse(bool(np.any(d.is_gauged())))
+
+    def test_not_recorded_under_a_trace(self):
+        # (review S7b) nothing is recorded inside a jit trace -- traced operands, or a closed-over RECORDED tangent
+        # scaled/stacked by a Python constant (the global-trace probe) -- so no tracer lands in a Python-side slot
+        try:
+            import jax
+        except ImportError:
+            self.skipTest('jax not installed')
+        frame = self._frame(())
+        a, b = _near_pair(frame, ())
+        d = a - b
+        self.assertIsNotNone(d._gauge_scale)
+        seen = []
+
+        def f(x, y):
+            outs = (x - y, x + y, 2.0 * d, -d, t3m.T3Tangent.stack_tangents([d, a]))
+            seen.extend('_gauge_scale' not in vars(t) for t in outs)
+            return outs[0].gauge_residual
+        jax.jit(f)(a, b)
+        self.assertEqual(seen, [True] * 5)
+
+    def test_jax_round_trip_reverts_to_self_relative(self):
+        try:
+            import jax
+        except ImportError:
+            self.skipTest('jax not installed')
+        frame = self._frame((2,))
+        a, b = _near_pair(frame, (2,))
+        d = a - b
+        self.assertTrue(bool(np.all(d.is_gauged())))
+        leaves, treedef = jax.tree_util.tree_flatten(d)
+        self.assertEqual(len(leaves), len(jax.tree_util.tree_leaves((frame, d.variations))))   # no extra leaf
+        d2 = jax.tree_util.tree_unflatten(treedef, leaves)
+        self.assertIsNot(d2, d)
+        self.assertIsNone(d2._gauge_scale)                                       # the cache is not pytree state
+        self.assertTrue(np.array_equal(d2.gauge_residual,
+                                       tv_operations.tv_gauge_residual(frame.data, d.variations.data)))
+        self.assertFalse(bool(np.any(d2.is_gauged())))                           # documented: self-relative again
+        with self.assertRaises(TypeError):                                       # equality rules untouched
+            d == d2
+        with self.assertRaises(TypeError):
+            hash(d)

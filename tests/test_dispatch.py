@@ -242,6 +242,12 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda a, b: a + b, self.v, self.w)
         self.assert_jit_jax(lambda a, b: a - b, self.v, self.w)
         self.assert_jit_jax(lambda a: 2.5 * a, self.v)
+        # S7b: arithmetic records no operand scale under a trace (checks inactive) -> the self-relative residual
+        # jits; eagerly (safe mode) the recorded scale is jax for jax operands, and so is the residual
+        self.assert_jit_jax(lambda a, b: (2.5 * (a - b)).gauge_residual, self.v, self.w)
+        self.assert_eager_jax(lambda a, b: (2.5 * (a - b))._gauge_scale, self.v, self.w)
+        self.assert_eager_jax(lambda a, b: t3m.T3Tangent.stack_tangents([a - b, a])._gauge_scale, self.v, self.w)
+        self.assert_eager_jax(lambda a, b: (2.5 * (a - b)).gauge_residual, self.v, self.w)
         self.assert_jit_jax(lambda a: t3m.MANIFOLD.project(a), self.v)
         self.assert_jit_jax(lambda a: t3m.MANIFOLD.project_oblique(a), self.v)
         self.assert_jit_jax(lambda xx: t3m.MANIFOLD.project_ambient(frame, xx), self.x_other)
@@ -384,6 +390,9 @@ class TestDispatch(unittest.TestCase):
         self.assert_jit_jax(lambda b: fv_operations.fv_frame_orthogonality_residual(b), self.frame.data)
         self.assert_jit_jax(lambda b: fv_operations.fv_frame_consistency_residual(b), self.frame.data)
         self.assert_jit_jax(lambda b, v: tops.tv_gauge_residual(b, v), self.frame.data, self.var.data)
+        # S7b: the operand-scaled gauge residual (a traced per-element scale; jax in -> jax out)
+        self.assert_jit_jax(lambda b, v, s: tops.tv_gauge_residual(b, v, scale=s),
+                            self.frame.data, self.var.data, jnp.asarray(3.0))
         # sharing residual / checker / mean-repair (sharing.py); `sharing` is static, closed over
         stk = (jnp.asarray(np.random.randn(3, 6)),) * 2
         stt = (jnp.asarray(np.random.randn(1, 3, 2)), jnp.asarray(np.random.randn(2, 3, 1)))
@@ -1299,6 +1308,13 @@ class TestDispatch(unittest.TestCase):
         # scalar metrics + ambient projection + transport (all -> jax, preconditions skip under trace)
         self.assert_jit_jax(lambda a, b: M.inner(a, b), v, v)
         self.assert_jit_jax(lambda t: M.norm(t), v)
+        # S7b: the uniform operand-scaled gauge residual (traced scale) + the arithmetic path, jit and eager jax
+        import t3toolbox.backend.utv_operations as utvo
+        self.assert_jit_jax(lambda t, s: utvo.utv_gauge_residual(t.frame.data, t.variations.data, scale=s),
+                            v, jnp.asarray(3.0))
+        self.assert_jit_jax(lambda a, b: (2.5 * (a - b)).gauge_residual, v, v)
+        self.assert_eager_jax(lambda a, b: (-(a - b))._gauge_scale, v, v)
+        self.assert_eager_jax(lambda a, b: (2.5 * (a - b)).gauge_residual, v, v)
         self.assert_jit_jax(lambda a, b: C.inner(a, b), cv, cv)
         self.assert_jit_jax(lambda b, gg: M.project_ambient(b, gg).to_dense(), frame, g)
         self.assert_jit_jax(lambda t, b: M.transport(t, b).to_dense(), v, frame)

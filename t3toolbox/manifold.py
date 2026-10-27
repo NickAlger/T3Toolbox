@@ -379,18 +379,26 @@ class T3Tangent(common.ExplicitEquality):
             )
 
     def __add__(self, other: 'T3Tangent') -> 'T3Tangent':
-        """Add tangent vectors. Requires both to live at the same frame (numerically equal cores)."""
+        """Add tangent vectors. Requires both to live at the same frame (numerically equal cores).
+
+        The sum records its operands' scale for the safe-mode gauge check (:py:attr:`gauge_residual`)."""
         self._check_same_tangent_space(other)
-        return T3Tangent(self.frame, bvf.T3Variations(*cw.corewise_add(self.variations.data, other.variations.data)))
+        out = T3Tangent(self.frame, bvf.T3Variations(*cw.corewise_add(self.variations.data, other.variations.data)))
+        return _record_sum_gauge_scale(out, self, other)
 
     def __sub__(self, other: 'T3Tangent') -> 'T3Tangent':
-        """Subtract tangent vectors. Requires both to live at the same frame (numerically equal cores)."""
+        """Subtract tangent vectors. Requires both to live at the same frame (numerically equal cores).
+
+        The difference records its operands' scale for the safe-mode gauge check, so a near-cancelling
+        ``a - b`` of gauged tangents is not judged against its own tiny norm (:py:attr:`gauge_residual`)."""
         self._check_same_tangent_space(other)
-        return T3Tangent(self.frame, bvf.T3Variations(*cw.corewise_sub(self.variations.data, other.variations.data)))
+        out = T3Tangent(self.frame, bvf.T3Variations(*cw.corewise_sub(self.variations.data, other.variations.data)))
+        return _record_sum_gauge_scale(out, self, other)
 
     def __mul__(self, scalar) -> 'T3Tangent':
-        """Scale a tangent vector by a scalar."""
-        return T3Tangent(self.frame, bvf.T3Variations(*cw.corewise_scale(self.variations.data, scalar)))
+        """Scale a tangent vector by a scalar (carrying a recorded operand scale along, times ``|scalar|``)."""
+        out = T3Tangent(self.frame, bvf.T3Variations(*cw.corewise_scale(self.variations.data, scalar)))
+        return _record_scaled_gauge_scale(out, self, scalar)
 
     __rmul__ = __mul__
 
@@ -568,14 +576,60 @@ class T3Tangent(common.ExplicitEquality):
         return self.frame.is_orthogonal(atol=atol)
 
     @ft.cached_property
+    def _gauge_scale(self) -> typ.Optional[NDArray]:  # shape = variation stack K+C; None = a leaf (self-relative)
+        """The **operand scale** :py:attr:`gauge_residual` is measured against, or ``None`` for a leaf.
+
+        Not a field (the dataclass holds only the cores): ``+``/``-``, scalar ``*`` and
+        :py:meth:`stack_tangents` write it into the RESULT's cached-property slot when they run with checks
+        active -- ``max(scale(a), scale(b))`` for ``a +- b``, ``|c| scale(a)`` for ``c a`` (only when ``a``
+        carries one), the leaves' scales stacked for a stack, where ``scale(leaf) = ||leaf||``. Anything else
+        (a projection, a retraction, a constructor, a jax pytree round-trip) is a leaf: ``None``."""
+        return None
+
+    @ft.cached_property
     def gauge_residual(self) -> NDArray:  # shape = variation stack K+C (scalar/0-d when unstacked)
-        """Max absolute gauge-condition violation, **per stack element** (shape = variation stack ``K+C``;
-        atol-independent; **cached**).
+        """Max gauge-condition violation **relative to the tangent's scale**, per stack element (shape =
+        variation stack ``K+C``; atol-independent; **cached**).
 
         The expensive part of :py:meth:`is_gauged` -- a fixed tangent reused across an inner loop (e.g.
         the safe-mode GAUGE precondition of :py:meth:`ManifoldGeometry.inner`) is contracted **once**.
+
+        **The scale.** A tangent computed directly (a projection, a gradient, a constructor) is measured
+        against its own coordinate norm. A tangent built by arithmetic is measured against its **operands'**
+        scale (``max(||a||, ||b||)`` for ``a +- b``, ``|c| ||a||`` for ``c a``, per stack element, recursively;
+        :py:meth:`stack_tangents` stacks them) -- the floor ``max(||v||, operand scale)``, so it is never
+        stricter than self-relative. That is the yardstick roundoff obeys: ``a - b`` of two gauged tangents
+        agreeing to ``1e-8`` (a finite-difference check) inherits each operand's ``~1e-16 ||a||`` gauge noise
+        over a norm of only ``~1e-8 ||a||``, which self-relative would call ungauged. A tiny tangent that is
+        ungauged by itself (not by cancellation) is still caught when checked itself; inside an arithmetic
+        result the yardstick is the operands' (a division by a small step scales it up too), so certify a
+        computed tangent's gauge on that tangent, not on a difference. The operand scale is recorded only
+        when the arithmetic runs with checks active (safe mode, eager) and it is not part of the jax pytree: a tangent
+        built under ``safety.unsafe()``/a trace, or rebuilt by ``jax.tree_util`` (a jit round-trip), is
+        measured self-relative -- the conservative default. Backend twin:
+        :py:func:`~t3toolbox.backend.tv_operations.tv_gauge_residual` (its ``scale=``).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.manifold as t3m
+        >>> np.random.seed(0)
+        >>> frame = t3m.MANIFOLD.frame(t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1)))
+        >>> a = t3m.MANIFOLD.randn(frame)
+        >>> b = a + 1e-8 * t3m.MANIFOLD.randn(frame)       # agrees with a to 1e-8, both gauged
+        >>> print(bool(t3m.MANIFOLD.norm(b - a) < 1e-7))   # safe mode accepts the near-cancelling difference
+        True
+        >>> print(bool((b - a).gauge_residual < 1e-14))    # gauged to roundoff, relative to the operands
+        True
+
+        A tiny tangent that is ungauged in its own right still fails:
+
+        >>> u = 1e-6 * t3m.COREWISE.randn(frame)          # raw coordinates: not gauged
+        >>> print(bool(u.is_gauged()), bool((a + u - a).is_gauged()))
+        False False
         """
-        return tv_operations.tv_gauge_residual(self.frame.data, self.variations.data)
+        return tv_operations.tv_gauge_residual(self.frame.data, self.variations.data, scale=self._gauge_scale)
 
     def is_gauged(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = variation stack K+C (scalar unstacked)
         """True (per stack element) if the variations are gauged with respect to the frame.
@@ -1129,7 +1183,8 @@ class T3Tangent(common.ExplicitEquality):
         Inverse of :py:meth:`unstack_tangents`. Requires every leaf to be at the **same frame** (the
         same-frame numerical check, as in :py:meth:`corewise_inner` / :py:meth:`__add__`): the tangents
         being stacked must live in the same tangent space. The first leaf's frame is reused and the
-        variations are stacked over the new outer tangent stack ``K``.
+        variations are stacked over the new outer tangent stack ``K``. Leaves built by arithmetic keep
+        their operand scales per element (:py:attr:`gauge_residual`).
         """
         leaves = _flatten_tangents(tree)
         frame = leaves[0].frame
@@ -1149,7 +1204,7 @@ class T3Tangent(common.ExplicitEquality):
                 'inhomogeneous-shape error -- review H3-6.)' % sorted(kk))
         variations_tree = stacking.apply_func_to_leaf_subtrees(tree, lambda t: t.variations.data, None)
         variations_data = tv_operations.tv_stack_tangent_stack(variations_tree)
-        return T3Tangent(frame, bvf.T3Variations(*variations_data))
+        return _record_stacked_gauge_scale(T3Tangent(frame, bvf.T3Variations(*variations_data)), leaves)
 
     @staticmethod
     def stack_frame(tree) -> 'T3Tangent':
@@ -1572,6 +1627,56 @@ def _flatten_tangents(tree) -> typ.List['T3Tangent']:
     return out
 
 
+# ---- The operand scale of the safe-mode gauge check (I-38). Shared with the uniform twin (UT3Tangent): both
+# classes expose `_gauge_scale` (the cached-property slot, None = a leaf), `corewise_norm()` (per K+C element;
+# masked for uniform) and `.variations.data[:2]` (the variation arrays). The scale is RECORDED into the result's
+# instance __dict__ -- the slot functools.cached_property itself fills, which a frozen dataclass permits -- so the
+# dataclass stays cores-only and the scale is neither a pytree leaf nor aux (a jax round-trip drops it: the
+# rebuilt tangent is a leaf, measured self-relative -- conservative). Recorded only with checks active (safe
+# mode, eager): it serves the safe-mode check alone, so unsafe()/a trace pays nothing.
+
+def _operand_gauge_scale(t) -> NDArray:  # shape = t.stack_shape (K+C)
+    """The scale ``t`` contributes as an operand: its recorded operand scale, or (a leaf) its own norm."""
+    s = t._gauge_scale
+    return t.corewise_norm() if s is None else s
+
+
+def _record_gauge_scale(t, scale):
+    """Write ``scale`` into ``t``'s (fresh, still unread) ``_gauge_scale`` cached-property slot; return ``t``."""
+    vars(t)['_gauge_scale'] = scale
+    return t
+
+
+def _record_sum_gauge_scale(out, a, b):
+    """``out = a +- b``: record ``max(scale(a), scale(b))`` per ``K+C`` element on ``out``."""
+    if safety.checks_active(a.variations.data[:2], b.variations.data[:2]):
+        sa, sb = _operand_gauge_scale(a), _operand_gauge_scale(b)
+        xnp, _, _ = get_backend(False, tree_contains_jax((sa, sb)))
+        _record_gauge_scale(out, xnp.maximum(sa, sb))
+    return out
+
+
+def _record_scaled_gauge_scale(out, a, c):
+    """``out = c a``: record ``|c| scale(a)`` -- only when ``a`` carries an operand scale (a scaled leaf is a leaf:
+    its own norm is exactly ``|c| ||a||``) and ``c`` is a scalar."""
+    s = a._gauge_scale
+    if s is not None and np.ndim(c) == 0 and safety.checks_active(a.variations.data[:2], c):
+        _record_gauge_scale(out, abs(c) * s)
+    return out
+
+
+def _record_stacked_gauge_scale(out, leaves):
+    """``out = stack_tangents(leaves)``: stack the leaves' operand scales into ``out``'s ``K+C`` (row-major, the
+    leaves' flatten order) -- only when some leaf carries one (an all-leaf stack stays self-relative per element,
+    exactly as before)."""
+    if (any(t._gauge_scale is not None for t in leaves)
+            and safety.checks_active(*(t.variations.data[:2] for t in leaves))):
+        scales = [_operand_gauge_scale(t) for t in leaves]
+        xnp, _, _ = get_backend(False, tree_contains_jax(scales))
+        _record_gauge_scale(out, xnp.reshape(xnp.stack(scales), out.stack_shape))
+    return out
+
+
 if jax_available:
     import jax
 
@@ -1584,7 +1689,9 @@ if jax_available:
     # of false-failing, and under a trace it simply skips. Two by-design consequences: autodiff/tree_map
     # now see the frame too -- to grad w.r.t. the variations only, close the frame over
     # (`g = lambda v: f(T3Tangent(b, v)); jax.grad(g)`), and grad-w.r.t.-the-frame is now available. Full
-    # rationale: docs/batching_and_stacking.md (the frame as a pytree leaf).
+    # rationale: docs/batching_and_stacking.md (the frame as a pytree leaf). The cached properties -- incl. the
+    # recorded operand scale of the gauge check (`_gauge_scale`) -- are NOT children or aux: unflatten builds a
+    # fresh tangent with empty caches, so a round-tripped tangent is a leaf of the gauge check (self-relative).
     jax.tree_util.register_pytree_node(
         T3Tangent,
         lambda x: ((x.frame, x.variations), None),

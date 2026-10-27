@@ -1318,5 +1318,189 @@ class TestKStackedTransportAndProjection(unittest.TestCase):
                 t_u = ut3m.UNIFORM_MANIFOLD.transport(p_u, ufr2)
                 self.assertLess(float(np.max(np.abs(np.asarray(t_u.to_dense()) - np.asarray(t_r.to_dense())))), 1e-9)
 
+
+def _utv_gauge_residual_b6ad78b(frame_data, variations_data):
+    """Reference implementation: the pre-S7b ``utv_gauge_residual`` body (b6ad78b, numpy branch). The
+    ``scale=None`` path must match it to roundoff (bitwise at S7b, checked once out-of-tree; a permanent bitwise
+    test would pin the float summation order and fail on any harmless refactor)."""
+    import t3toolbox.backend.ufv_masking as ufv_masking
+    up_sc, _down, left_sc, _right = ufv_masking.ufv_apply_frame_masks(frame_data)
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
+    xnp = np
+    g_tk = xnp.einsum('d...ia,d...ja->d...ij', up_sc, tkv)
+    dev_tk = xnp.max(xnp.abs(g_tk), axis=(-2, -1))
+    g_tt = xnp.einsum('d...abi,d...abj->d...ij', left_sc, ttv)
+    dev_tt = xnp.max(xnp.abs(g_tt), axis=(-2, -1))
+    norm_sq = xnp.sum(tkv * tkv, axis=(0, -2, -1)) + xnp.sum(ttv * ttv, axis=(0, -3, -2, -1))
+    scale = xnp.maximum(xnp.sqrt(norm_sq), np.finfo(float).tiny)
+    devs = xnp.concatenate([dev_tk, dev_tt[:-1]], axis=0)
+    return xnp.max(devs, axis=0) / scale
+
+
+def _u_leaf(frame, tkv, ttv, like):
+    """A LEAF UT3Tangent (no recorded operand scale) from supercores, with ``like``'s shape and masks."""
+    return ut3m.UT3Tangent(frame, ubv.UT3Variations(tkv, ttv, like.variations.shape, like.variations.masks))
+
+
+def _u_stack_scale(sc, s, n_stack):  # supercore (d,)+stack+core scaled per stack element by s (shape = stack)
+    s = np.asarray(s)
+    return sc * s.reshape((1,) + s.shape + (1,) * (sc.ndim - 1 - n_stack))
+
+
+def _u_near_pair(frame, K, agree=1e-8, eps=1e-15, seed=0):
+    """Uniform twin of the ragged ``_near_pair``: two gauged LEAF tangents agreeing to ``agree``, each with
+    ``eps``-level raw gauge noise (relative, per element)."""
+    np.random.seed(seed)
+    M, CW = ut3m.UNIFORM_MANIFOLD, ut3m.UNIFORM_COREWISE
+    a0, w = M.randn(frame, stack_shape=K), M.randn(frame, stack_shape=K)
+    n = len(a0.stack_shape)
+
+    def noisy(t):
+        z = CW.randn(frame, stack_shape=K).normalized()
+        s = eps * np.asarray(t.corewise_norm())
+        return _u_leaf(frame, *(x + _u_stack_scale(y, s, n) for x, y in zip(t.variations.supercores, z.variations.supercores)), t)
+
+    b0 = _u_leaf(frame, *(x + agree * y for x, y in zip(a0.variations.supercores, w.variations.supercores)), a0)
+    return noisy(a0), noisy(b0)
+
+
+class TestUniformGaugeOperandScale(unittest.TestCase):
+    """S7b (I-38), the uniform twin: ``utv_gauge_residual(..., scale=None)`` is bitwise unchanged; a
+    ``UT3Tangent`` built by ``+``/``-``/scalar ``*``/``stack_tangents`` is gauge-checked against its operands'
+    MASKED scale, per ``K+C`` element (varying ranks across ``C`` included); garbage padding is don't-care."""
+
+    def setUp(self):
+        np.random.seed(0)
+
+    def _frames(self):  # (label, frame, K): the _CONFIGS structures + a varying-rank C stack
+        out = []
+        for ss, K, fp in _CONFIGS:
+            np.random.seed(1)
+            out.append(('%s/%s/%s' % (ss, K, fp), _frame(t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss), force_pad=fp)[0], K))
+        out.append(('hetero-C', ut3m.UT3Tangent.stack_frame(_hetero_tangents()[0]).frame, ()))
+        out.append(('hetero-C/K', ut3m.UT3Tangent.stack_frame(_hetero_tangents()[0]).frame, (2,)))
+        return out
+
+    def test_scale_none_is_the_pre_s7b_residual(self):
+        for ss, K, fp in _CONFIGS:
+            for which in ('manifold', 'corewise', 'zeros'):
+                v = _make_tangent(ss, K, fp)
+                if which == 'manifold':
+                    v = ut3m.UNIFORM_MANIFOLD.project(v)
+                elif which == 'zeros':
+                    v = ut3m.UT3Tangent.zeros(v.frame, stack_shape=K)
+                with self.subTest(ss=ss, K=K, fp=fp, which=which):
+                    ref = _utv_gauge_residual_b6ad78b(v.frame.data, v.variations.data)
+                    default = utv_operations.utv_gauge_residual(v.frame.data, v.variations.data)
+                    self.assertEqual(np.shape(default), v.stack_shape)
+                    self.assertTrue(np.allclose(default, ref, rtol=1e-13, atol=0.0))
+                    for got in (utv_operations.utv_gauge_residual(v.frame.data, v.variations.data, scale=None),
+                                v.gauge_residual):                          # a leaf tangent: the same code path
+                        self.assertEqual(np.asarray(got).tobytes(), np.asarray(default).tobytes())
+
+    def test_explicit_scale_floor_and_shape_check(self):
+        v = _make_tangent((2,), (3,), True)                                      # K+C = (3, 2), forced pad
+        fd, vd = v.frame.data, v.variations.data
+        default = utv_operations.utv_gauge_residual(fd, vd)
+        own = np.asarray(v.corewise_norm())
+        self.assertTrue(np.array_equal(utv_operations.utv_gauge_residual(fd, vd, scale=0.0), default))
+        self.assertTrue(np.array_equal(utv_operations.utv_gauge_residual(fd, vd, scale=0.5 * own), default))
+        big = 1e6 * own
+        self.assertTrue(np.allclose(utv_operations.utv_gauge_residual(fd, vd, scale=big), default * own / big,
+                                    rtol=1e-12, atol=0.0))
+        self.assertTrue(np.array_equal(utv_operations.utv_gauge_residual(fd, vd, scale=np.full((2,), 1e6)),
+                                       utv_operations.utv_gauge_residual(fd, vd, scale=np.full((3, 2), 1e6))))
+        for bad in (np.ones(3), np.ones((4, 3, 2))):
+            with self.subTest(shape=bad.shape):
+                with self.assertRaises(ValueError):
+                    utv_operations.utv_gauge_residual(fd, vd, scale=bad)
+
+    def test_near_cancelling_difference_passes_safe_mode(self):
+        M = ut3m.UNIFORM_MANIFOLD
+        for label, frame, K in self._frames():
+            a, b = _u_near_pair(frame, K)
+            d = a - b
+            with self.subTest(case=label):
+                self.assertGreater(float(np.min(utv_operations.utv_gauge_residual(frame.data, d.variations.data))), 1e-9)
+                self.assertTrue(bool(np.all(d.is_gauged())))
+                self.assertLess(float(np.max(d.gauge_residual)), 1e-13)
+                self.assertTrue(np.allclose(M.norm(d), d.corewise_norm()))         # safe mode: no raise
+                M.inner(d, d)
+                M.norm(-(d * 1e8))
+
+    def test_ungauged_difference_still_fails(self):
+        M = ut3m.UNIFORM_MANIFOLD
+        for label, frame, K in self._frames():
+            a, _ = _u_near_pair(frame, K)
+            u = 1e-6 * ut3m.UNIFORM_COREWISE.randn(frame, stack_shape=K)
+            self.assertIsNone(u._gauge_scale)
+            d = (a + u) - a
+            with self.subTest(case=label):
+                expected = utv_operations.utv_gauge_residual(frame.data, u.variations.data, scale=a.corewise_norm())
+                self.assertTrue(np.allclose(d.gauge_residual, expected, rtol=1e-4, atol=0.0))
+                self.assertFalse(bool(np.any(d.is_gauged())))
+                with self.assertRaises(ValueError):
+                    M.norm(d)
+                self.assertFalse(bool(np.any((u * 1e-6).is_gauged())))           # a tiny ungauged leaf fails
+
+    def test_propagation_rules_per_element_vs_ragged(self):
+        for label, frame, K in self._frames():
+            a, b = _u_near_pair(frame, K)
+            na, nb = np.asarray(a.corewise_norm()), np.asarray(b.corewise_norm())   # MASKED norms
+            d = a - b
+            with self.subTest(case=label):
+                self.assertTrue(np.array_equal(d._gauge_scale, np.maximum(na, nb)))
+                self.assertTrue(np.array_equal((a + b)._gauge_scale, np.maximum(na, nb)))
+                self.assertTrue(np.array_equal((-2.5 * d)._gauge_scale, 2.5 * d._gauge_scale))
+                self.assertTrue(np.array_equal((d * 3.0)._gauge_scale, 3.0 * d._gauge_scale))
+                self.assertTrue(np.array_equal((-d)._gauge_scale, d._gauge_scale))
+                for leafy in (2.0 * a, -a):
+                    self.assertIsNone(leafy._gauge_scale)
+                # per element: the uniform scale == the ragged twin's (the masked norm == the ragged norm), and
+                # an ungauged difference's residual matches the ragged one (the near-cancel residuals are noise)
+                bad = (a + 1e-6 * ut3m.UNIFORM_COREWISE.randn(frame, stack_shape=K)) - a
+                for (ua, ub, ubad), idx in zip(zip(_full_unstack(a), _full_unstack(b), _full_unstack(bad)),
+                                               np.ndindex(*a.stack_shape)):
+                    ra, rb = ua.to_t3tangent(), ub.to_t3tangent()
+                    self.assertTrue(np.allclose(d._gauge_scale[idx], (ra - rb)._gauge_scale, rtol=1e-12, atol=0.0))
+                    rbad = ubad.to_t3tangent()
+                    rd = _ragged_leaf_with_scale(rbad, bad._gauge_scale[idx])
+                    self.assertTrue(np.allclose(np.asarray(bad.gauge_residual)[idx], rd, rtol=1e-8, atol=0.0))
+
+    def test_stack_tangents_and_garbage_padding(self):
+        for label, frame, K in self._frames():
+            a, b = _u_near_pair(frame, K)
+            d = a - b
+            with self.subTest(case=label):
+                self.assertIsNone(ut3m.UT3Tangent.stack_tangents([a, b])._gauge_scale)
+                s = ut3m.UT3Tangent.stack_tangents([d, a])
+                self.assertEqual(np.shape(s._gauge_scale), (2,) + a.stack_shape)
+                self.assertTrue(np.array_equal(s._gauge_scale[0], d._gauge_scale))
+                self.assertTrue(np.array_equal(s._gauge_scale[1], a.corewise_norm()))
+                self.assertTrue(bool(np.all(s.is_gauged())))
+                # garbage in the padding is don't-care: the recorded scale and the residual are unchanged
+                ac, bc = ut3m.UT3Tangent(frame, _corrupt(a.variations)), ut3m.UT3Tangent(frame, _corrupt(b.variations))
+                dc = ac - bc
+                self.assertTrue(np.allclose(dc._gauge_scale, d._gauge_scale, rtol=1e-12, atol=0.0))
+                self.assertTrue(bool(np.all(dc.is_gauged())))
+
+    @unittest.skipUnless(HAS_JAX, "jax not installed")
+    def test_jax_round_trip_reverts_to_self_relative(self):
+        label, frame, K = self._frames()[3]
+        a, b = _u_near_pair(frame, K)
+        d = a - b
+        self.assertTrue(bool(np.all(d.is_gauged())))
+        d2 = jax.tree_util.tree_unflatten(*reversed(jax.tree_util.tree_flatten(d)))
+        self.assertIsNone(d2._gauge_scale)
+        self.assertFalse(bool(np.any(d2.is_gauged())))
+        with safety.unsafe():
+            self.assertIsNone((a - b)._gauge_scale)
+
+
+def _ragged_leaf_with_scale(t, scale):  # a ragged leaf's backend residual at an explicit operand scale
+    import t3toolbox.backend.tv_operations as tv_operations
+    return float(tv_operations.tv_gauge_residual(t.frame.data, t.variations.data, scale=scale))
+
+
 if __name__ == '__main__':
     unittest.main()

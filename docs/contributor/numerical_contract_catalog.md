@@ -174,6 +174,13 @@ frames). Naming convention: bare `minimal_ranks` = structural; `numerically_mini
   `T3Frame.orthogonality_residual` and `T3Tangent.gauge_residual` are `@cached_property`s, and
   `is_orthogonal(atol)`/`is_gauged(atol)` compare against them. A fixed frame/tangent in an inner loop is
   contracted once; the atol stays a free parameter.
+- **Operand-scaled GAUGE (2026-10-27, ruling I-38):** the GAUGE residual of a tangent built by
+  `±`/scalar `*`/`stack_tangents` is relative to its operands' scale (`max(‖a‖, ‖b‖)`, `|c|·‖a‖`, per
+  stack element, as a floor under its own norm) — a near-cancelling difference of gauged tangents (the
+  finite-difference check `H_fd − hessian(p)`) used to false-fail against its own tiny norm. Backend:
+  `tv_gauge_residual`/`utv_gauge_residual(..., scale=)`; the frontend records the scale in a cached
+  slot ([`precompute_and_caching.md`](precompute_and_caching.md), "The one seeded cache"). Still a
+  precondition, still checked; only the yardstick moved.
 - **Trace detection (done in S5):** the eager-only skip must fire even when the checked operand is a
   *closed-over concrete* array (not a tracer) while globally inside a trace — a jnp op then still yields a
   constant tracer. `safety.is_tracing` detects the global trace state (`jax.core.trace_state_clean`, with a

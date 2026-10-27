@@ -762,6 +762,8 @@ def tv_gauge_residual(
             typ.Sequence[NDArray],  # tucker_variations
             typ.Sequence[NDArray],  # tt_variations
         ],
+
+        scale:      typ.Optional[NDArray] = None,  # operand scale, broadcastable to K+C (trailing axes), >= 0; None = own norm
 ) -> NDArray:  # shape = variation stack_shape (K+C); per stack element (scalar/0-d when unstacked)
     '''Max violation of the gauge conditions for a tangent vector, **per stack element**.
 
@@ -774,14 +776,53 @@ def tv_gauge_residual(
     variation stack ``K+C``); a caller thresholds it against a RELATIVE tolerance. (Until 2026-08-22 this
     was the absolute ``max|U^T V|``, which scales with the tangent: a correctly gauged tangent of norm
     ``>~1e8`` -- or ``>~50`` on jax float32 -- failed the safe-mode check, and a tiny ungauged one passed.)
+
+    **The operand scale** (``scale``). Relative-to-itself is the right yardstick for a tangent computed
+    directly (a projection, a gradient), but not for one formed by **cancellation**: ``a - b`` of two gauged
+    tangents that agree to ``1e-8`` (the finite-difference check ``H_fd - H p``) carries each operand's
+    roundoff gauge violation, ``~1e-16 * ||a||``, over a norm of only ``~1e-8 * ||a||`` -- self-relative
+    ``~1e-8``, a false failure at a ``1e-9`` tolerance. Pass the operands' scale -- ``max(||a||, ||b||)`` for
+    ``a +- b``, ``|c| * ||a||`` for ``c * a`` (per stack element; the norms from
+    :py:func:`~t3toolbox.corewise.corewise_stack_norm`) -- and the grams are divided by
+    ``max(||v||, scale)`` instead: a **floor** on the denominator, so passing a scale never makes the check
+    stricter than the default and ``scale = 0`` is the default. ``scale`` is broadcast against the stack
+    ``K+C`` by numpy's trailing-axis rule (a scalar, a ``C``-shaped or a ``K+C``-shaped array); any other
+    shape raises. ``scale=None`` (the default) is the self-relative residual, unchanged. The frontend
+    ``T3Tangent`` tracks this for you (:py:attr:`~t3toolbox.manifold.T3Tangent.gauge_residual`).
+
+    Examples
+    --------
+    Two gauged tangents that agree to ``1e-8``: their difference is gauged to roundoff relative to the
+    operands, not relative to its own tiny norm:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.corewise as cw
+    >>> import t3toolbox.backend.tv_operations as tvo
+    >>> np.random.seed(0)
+    >>> frame = t3m.MANIFOLD.frame(t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1)))
+    >>> a = t3m.MANIFOLD.randn(frame).variations.data                          # gauged to roundoff
+    >>> b = cw.corewise_add(a, cw.corewise_scale(t3m.MANIFOLD.randn(frame).variations.data, 1e-8))
+    >>> diff = cw.corewise_sub(a, b)                                            # norm ~1e-8 * ||a||
+    >>> print(float(tvo.tv_gauge_residual(frame.data, diff)) > 1e-9)          # self-relative: noise / tiny norm
+    True
+    >>> s = np.maximum(cw.corewise_stack_norm(a, 0), cw.corewise_stack_norm(b, 0))
+    >>> print(float(tvo.tv_gauge_residual(frame.data, diff, scale=s)) < 1e-14)   # relative to the operands
+    True
     '''
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
     tucker_variations, tt_variations = variations
-    xnp, _, _ = get_backend(False, tree_contains_jax((frame, variations)))
+    xnp, _, _ = get_backend(False, tree_contains_jax((frame, variations, scale)))
     # the tangent's coordinate norm per stack element (all cores), the scale the grams are relative to
     norm_sq = sum(xnp.sum(V * V, axis=(-2, -1)) for V in tucker_variations) \
         + sum(xnp.sum(H * H, axis=(-3, -2, -1)) for H in tt_variations)
-    scale = xnp.maximum(xnp.sqrt(norm_sq), np.finfo(float).tiny)
+    if scale is None:
+        denominator = xnp.maximum(xnp.sqrt(norm_sq), np.finfo(float).tiny)
+    else:
+        own_norm = xnp.sqrt(norm_sq)
+        _check_gauge_scale_shape(scale, own_norm.shape, 'tv_gauge_residual')
+        denominator = xnp.maximum(xnp.maximum(own_norm, scale), np.finfo(float).tiny)   # the operands' floor
     devs = []
     for U, V in zip(up_tucker_cores, tucker_variations):
         g = xnp.einsum('...ia,...ja->...ij', U, V)
@@ -789,7 +830,24 @@ def tv_gauge_residual(
     for L, H in zip(left_tt_cores[:-1], tt_variations[:-1]):
         g = xnp.einsum('...abi,...abj->...ij', L, H)
         devs.append(xnp.max(xnp.abs(g), axis=(-2, -1)))
-    return xnp.max(xnp.stack(devs), axis=0) / scale   # max over the checks, keep stack_shape; relative
+    return xnp.max(xnp.stack(devs), axis=0) / denominator   # max over the checks, keep stack_shape; relative
+
+
+def _check_gauge_scale_shape(
+        scale,                                  # the operand scale passed to a *_gauge_residual
+        stack_shape:    typ.Tuple[int, ...],    # the variation stack K+C
+        who:            str,
+) -> None:
+    '''Structural check (always on): ``scale`` must broadcast against the variation stack ``K+C`` by numpy's
+    trailing-axis rule WITHOUT growing it (a scalar, ``C``, or ``K+C``). Shared with the uniform twin.'''
+    try:
+        out = np.broadcast_shapes(tuple(np.shape(scale)), tuple(stack_shape))
+    except ValueError:
+        out = None
+    if out != tuple(stack_shape):
+        raise ValueError('%s: scale of shape %s does not broadcast against the variation stack K+C = %s '
+                         '(pass a scalar, a C-shaped or a K+C-shaped array)'
+                         % (who, tuple(np.shape(scale)), tuple(stack_shape)))
 
 
 def tv_retract(

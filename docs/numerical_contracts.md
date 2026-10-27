@@ -49,7 +49,7 @@ geometries, sampling kinds), whose equality decides compiled-program reuse
 |---|---|---|
 | **same-frame** (`SF`) | two tangents share one tangent space — their frames are *numerically equal* (`safety.frames_equal`, with an object-identity fast path; a jit round-trip of the same frame passes) | built into the checked ops |
 | **orthogonal** (`ORTH`) | the frame is orthonormal (U/O/L/R conditions) | `T3Frame.is_orthogonal(atol)` |
-| **gauged** (`GAUGE`) | the variations satisfy the gauge conditions (48)–(49) | `T3Tangent.is_gauged(atol)` |
+| **gauged** (`GAUGE`) | the variations satisfy the gauge conditions (48)–(49), relative to the tangent's scale (its operands' for an arithmetic result — [below](#the-gauge-check-scale-own-norm-or-operand-scale)) | `T3Tangent.is_gauged(atol)` |
 | **minimal rank** | no stored rank is redundant | `has_minimal_ranks` (structural) / `has_numerically_minimal_ranks` (numerical) — **diagnostic only, never enforced** (see the verdict below) |
 | **tied factors** (`TIED`) | the Tucker factors are numerically equal within each sharing group ([`sharing.md`](sharing.md)) | `has_shared_tucker_factors(sharing, rtol)` (ragged and uniform; the residual is `backend.sharing.t3_sharing_residual` / `ut3_sharing_residual`) |
 
@@ -59,6 +59,64 @@ residuals (`T3Frame.orthogonality_residual`, `T3Tangent.gauge_residual`) are cac
 objects, so a fixed frame or tangent reused across an inner loop is contracted once. The tolerance
 is jax-aware (`rtol_jax`, looser, when any operand is a jax array — jax defaults to float32 — else
 `rtol_numpy`).
+
+### The gauge-check scale: own norm or operand scale
+
+The gauge residual is **relative** — the gauge grams `Uᵀ δU`, `Lᵀ δG` over a scale — so a correctly
+gauged tangent passes at any magnitude and a tiny ungauged one fails. *Which* scale matters for one
+pattern. A tangent computed directly (a projection, a gradient, a constructor) is measured against
+its **own** coordinate norm. A tangent built by arithmetic is measured against its **operands'**:
+`max(‖a‖, ‖b‖)` for `a ± b`, `|c|·‖a‖` for `c·a` (per stack element, recursively;
+`stack_tangents` stacks them), as a floor under its own norm, so it is never stricter than the
+self-relative check. That is the yardstick floating point obeys: `a − b` inherits each operand's
+roundoff gauge violation, `~1e-16·‖a‖`, so when `a` and `b` agree to `1e-8` — the
+finite-difference check of a Hessian — the difference is gauged to `1e-16` of its operands but only
+to `1e-8` of itself, and a self-relative check at the `1e-9` tolerance would reject it. A tangent
+ungauged in its own right is still caught when it is checked itself, or inside a sum whose operands
+are of its own size. The yardstick follows the arithmetic, though: dividing by the step (the
+`/ (2 * h)` below) divides the recorded scale too, so `H_fd − Hp` is checked only to the tolerance
+times `‖grad‖ / (2h)` — the finite difference's own roundoff level, which can dwarf `‖Hp‖`. To
+certify a computed tangent's gauge, check that tangent (`Hp.is_gauged()`), not a difference.
+
+```python
+>>> import numpy as np
+>>> import t3toolbox.tucker_tensor_train as t3
+>>> import t3toolbox.manifold as t3m
+>>> import t3toolbox.fitting as fitting
+>>> import t3toolbox.backend.tv_operations as tvo
+>>> M = t3m.MANIFOLD
+>>> np.random.seed(0)
+>>> shape, ranks = (4, 5, 6), ((2, 2, 2), (1, 2, 2, 1))
+>>> ww, pp = [np.random.randn(20, N) for N in shape], [np.random.randn(20, N) for N in shape]
+>>> y = t3.TuckerTensorTrain.randn(shape, *ranks).probe_derivatives(ww, pp, 1)
+>>> def model_at(x, hessian='gauss_newton'):
+...     r = [z - yi for z, yi in zip(x.probe_derivatives(ww, pp, 1), y)]
+...     return fitting.probe_derivatives_model(M, x, ww, pp, 1, r, hessian=hessian)
+>>> model = model_at(t3.TuckerTensorTrain.randn(shape, *ranks), hessian='exact')
+>>> p = M.randn(model.frame)
+>>> p = p / float(M.norm(p))
+>>> grad_at = lambda t: M.project_ambient(model.frame, model_at(M.retract(p * t)).gradient.to_t3())
+>>> h = 1e-5
+>>> H_fd = (grad_at(h) - grad_at(-h)) / (2 * h)     # central difference of the Riemannian gradient
+>>> Hp = model.hessian(p)
+>>> print(bool(M.norm(H_fd - Hp) < 1e-6 * M.norm(Hp)))   # safe mode accepts the near-cancelling difference
+True
+>>> D = H_fd - Hp
+>>> print(bool(tvo.tv_gauge_residual(model.frame.data, D.variations.data) > 1e-9))   # vs its own tiny norm
+True
+>>> print(bool(D.gauge_residual < 1e-13))                                           # vs its operands'
+True
+
+```
+
+The operand scale is recorded on the result when the arithmetic runs with checks active (safe mode,
+eagerly) — a cached value; the tangent classes still hold only their cores — and it is not part of
+the jax pytree. A tangent built under `safety.unsafe()` or a trace, or rebuilt by `jax.tree_util` (a
+jit round-trip), is measured against its own norm: the conservative default. The price is paid in
+safe mode only: each `±` computes its operands' coordinate norms (one pass over each operand's
+cores), a few times the cost of the bare addition at small sizes. Raw-`.data` users pass
+the operand scale themselves, `tv_gauge_residual(frame, variations, scale=...)`
+(`utv_gauge_residual` for the uniform layer).
 
 ## What each surface checks in safe mode
 

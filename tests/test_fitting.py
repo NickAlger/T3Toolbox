@@ -1208,5 +1208,45 @@ class TestExactLocalModel(unittest.TestCase):
         self.assertTrue(all(not np.any(a) for a in _flat(m.curvature_hessian(p).variations.data)))
 
 
+
+class TestFiniteDifferenceHessianCheckInSafeMode(unittest.TestCase):
+    """S7b (I-38, the S0b report's section 5 finding): ``MANIFOLD.norm(H_fd - hessian(p))`` -- the
+    finite-difference verification of the exact Hessian along the retraction -- used to raise in safe mode,
+    because the near-cancelling difference was gauge-checked against its own tiny norm. Measured against its
+    operands' scale it passes, at every step size."""
+
+    def setUp(self):
+        np.random.seed(0)
+
+    def test_fd_minus_exact_hessian_passes_safe_mode(self):
+        import t3toolbox.safety as safety
+        import t3toolbox.backend.tv_operations as tvo
+        M = t3m.MANIFOLD
+        np.random.seed(0)
+        shape, ranks = (4, 5, 6), ((2, 2, 2), (1, 2, 2, 1))
+        ww, pp = [np.random.randn(20, N) for N in shape], [np.random.randn(20, N) for N in shape]
+        y = t3.TuckerTensorTrain.randn(shape, *ranks).probe_derivatives(ww, pp, 1)
+
+        def model_at(x, hessian='gauss_newton'):
+            r = [z - yi for z, yi in zip(x.probe_derivatives(ww, pp, 1), y)]
+            return fitting.probe_derivatives_model(M, x, ww, pp, 1, r, hessian=hessian)
+
+        mx = model_at(t3.TuckerTensorTrain.randn(shape, *ranks), 'exact')
+        self.assertIsNotNone(safety.current_safety())                            # safe mode (the default)
+        for name, p in (('steepest', mx.gradient * -1.0), ('random', M.randn(mx.frame))):
+            p = p * (1.0 / float(M.norm(p)))
+            Hp = mx.hessian(p)
+            for h in (1e-4, 1e-6):
+                with self.subTest(direction=name, h=h):
+                    gp = M.project_ambient(mx.frame, model_at(M.retract(p * h)).gradient.to_t3())
+                    gm = M.project_ambient(mx.frame, model_at(M.retract(p * (-h))).gradient.to_t3())
+                    D = (gp - gm) * (1.0 / (2 * h)) - Hp
+                    self.assertLess(float(D.corewise_norm() / Hp.corewise_norm()), 1e-5)     # FD agrees
+                    # discriminating: self-relative, the difference looks ungauged (the pre-S7b raise)
+                    self.assertGreater(float(tvo.tv_gauge_residual(mx.frame.data, D.variations.data)), 1e-9)
+                    self.assertLess(float(D.gauge_residual), 1e-13)
+                    self.assertTrue(np.isclose(float(M.norm(D)), float(D.corewise_norm())))   # no raise
+
+
 if __name__ == '__main__':
     unittest.main()

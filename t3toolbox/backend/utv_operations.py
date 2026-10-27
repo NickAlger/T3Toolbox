@@ -526,6 +526,8 @@ def utv_oblique_gauge_projection(
 def utv_gauge_residual(
         frame_data,       # UT3Frame .data
         variations_data,  # UT3Variations .data
+
+        scale:  typ.Optional[NDArray] = None,  # operand scale, broadcastable to K+C (trailing axes), >= 0; None = own norm
 ) -> NDArray:  # shape = variation stack (K+C); per stack element (scalar/0-d when unstacked)
     """Max violation of the gauge conditions for a uniform tangent vector, **per stack element** (the
     uniform mirror of :py:func:`tv_operations.tv_gauge_residual`).
@@ -535,10 +537,17 @@ def utv_gauge_residual(
     over ``d``, max-abs reduced over the gram axes (keeping the stack), then the max over all checks (the
     last TT core is excluded -- the ``[:-1]`` boundary). **Relative**, like the ragged twin: the max gram is
     divided by the coordinate norm of the whole (masked) tangent per stack element, so the result is in
-    ``[0, 1]`` and scale-free; a caller thresholds it against a relative tolerance."""
+    ``[0, 1]`` and scale-free; a caller thresholds it against a relative tolerance.
+
+    ``scale`` is the **operand scale** of the ragged twin (a tangent formed by cancellation, ``a - b``, is
+    measured against ``max(||a||, ||b||)`` rather than its own tiny norm): the grams are divided by
+    ``max(||v||, scale)``, a floor that never makes the check stricter; ``None`` (the default) is the
+    self-relative residual, unchanged. Per stack element, broadcast against ``K+C`` by the trailing-axis rule
+    (a scalar, ``C`` or ``K+C``; any other shape raises); the norms are the MASKED coordinate norms
+    (:py:func:`utv_corewise_inner`), padding don't-care. See :py:func:`tv_operations.tv_gauge_residual`."""
     up_sc, _down, left_sc, _right = ufv_masking.ufv_apply_frame_masks(frame_data)
     tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
-    xnp, _, _ = get_backend(True, tree_contains_jax((up_sc, left_sc, tkv, ttv)))
+    xnp, _, _ = get_backend(True, tree_contains_jax((up_sc, left_sc, tkv, ttv, scale)))
 
     g_tk = xnp.einsum('d...ia,d...ja->d...ij', up_sc, tkv)                     # U^T dU,        (d,)+stack+(nU, nD)
     dev_tk = xnp.max(xnp.abs(g_tk), axis=(-2, -1))                             # (d,)+stack
@@ -546,10 +555,15 @@ def utv_gauge_residual(
     dev_tt = xnp.max(xnp.abs(g_tt), axis=(-2, -1))                             # (d,)+stack
     # the tangent's coordinate norm per stack element (all cores): the scale the grams are relative to
     norm_sq = xnp.sum(tkv * tkv, axis=(0, -2, -1)) + xnp.sum(ttv * ttv, axis=(0, -3, -2, -1))
-    scale = xnp.maximum(xnp.sqrt(norm_sq), np.finfo(float).tiny)
+    if scale is None:
+        denominator = xnp.maximum(xnp.sqrt(norm_sq), np.finfo(float).tiny)
+    else:
+        own_norm = xnp.sqrt(norm_sq)
+        tv_operations._check_gauge_scale_shape(scale, own_norm.shape, 'utv_gauge_residual')
+        denominator = xnp.maximum(xnp.maximum(own_norm, scale), np.finfo(float).tiny)   # the operands' floor
 
     devs = xnp.concatenate([dev_tk, dev_tt[:-1]], axis=0)                      # d Tucker + (d-1) interior TT
-    return xnp.max(devs, axis=0) / scale                                      # max over checks, keep the stack; relative
+    return xnp.max(devs, axis=0) / denominator                                # max over checks, keep the stack; relative
 
 
 def utv_project_ut3_onto_tangent_space(

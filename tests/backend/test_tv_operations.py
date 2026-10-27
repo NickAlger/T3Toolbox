@@ -135,3 +135,90 @@ class TestObliqueGaugeProjection(unittest.TestCase):
                     self.assertLess(float(np.max(np.abs(tv.tv_to_dense(fd, gd)))), 1e-9 * max(gnorm, 1.0))
                     self.assertLess(float(cw.corewise_norm(tv.tv_oblique_gauge_projection(fd, gd))),
                                     1e-9 * gnorm)
+
+
+def _tv_gauge_residual_b6ad78b(frame, variations):
+    """Reference implementation: the pre-S7b ``tv_gauge_residual`` body (b6ad78b, numpy branch). The
+    ``scale=None`` path must match it to roundoff (bitwise at S7b, checked once out-of-tree; a permanent bitwise
+    test would pin the float summation order and fail on any harmless refactor)."""
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    tucker_variations, tt_variations = variations
+    xnp = np
+    norm_sq = sum(xnp.sum(V * V, axis=(-2, -1)) for V in tucker_variations) \
+        + sum(xnp.sum(H * H, axis=(-3, -2, -1)) for H in tt_variations)
+    scale = xnp.maximum(xnp.sqrt(norm_sq), np.finfo(float).tiny)
+    devs = []
+    for U, V in zip(up_tucker_cores, tucker_variations):
+        g = xnp.einsum('...ia,...ja->...ij', U, V)
+        devs.append(xnp.max(xnp.abs(g), axis=(-2, -1)))
+    for L, H in zip(left_tt_cores[:-1], tt_variations[:-1]):
+        g = xnp.einsum('...abi,...abj->...ij', L, H)
+        devs.append(xnp.max(xnp.abs(g), axis=(-2, -1)))
+    return xnp.max(xnp.stack(devs), axis=0) / scale
+
+
+class TestGaugeResidualScale(unittest.TestCase):
+    """S7b (I-38): ``tv_gauge_residual(frame, variations, scale=None)``. ``None`` is the self-relative residual,
+    bitwise unchanged; an explicit operand ``scale`` (per ``K+C`` element, trailing-axis broadcast) is a FLOOR on
+    the denominator -- the grams over ``max(||v||, scale)``."""
+
+    def setUp(self):
+        np.random.seed(0)
+
+    _STACKS = [((), ()), ((2,), ()), ((), (3,)), ((2,), (3,)), ((2, 3), (2,))]   # (K, C)
+
+    def _tangents(self, K, C, struct=_STRUCT):
+        frame = t3m.MANIFOLD.frame(t3.TuckerTensorTrain.randn(*struct, stack_shape=C))
+        return frame, (t3m.MANIFOLD.randn(frame, stack_shape=K), t3m.COREWISE.randn(frame, stack_shape=K),
+                       t3m.MANIFOLD.randn(frame, stack_shape=K) * 1e10, t3m.T3Tangent.zeros(frame, stack_shape=K))
+
+    def test_scale_none_is_the_pre_s7b_residual(self):
+        for struct in (_STRUCT, _NONMIN):
+            for K, C in self._STACKS:
+                frame, vs = self._tangents(K, C, struct)
+                for i, v in enumerate(vs):
+                    with self.subTest(struct=struct, K=K, C=C, i=i):
+                        ref = _tv_gauge_residual_b6ad78b(frame.data, v.variations.data)
+                        default = tv.tv_gauge_residual(frame.data, v.variations.data)
+                        self.assertEqual(np.shape(default), K + C)
+                        self.assertTrue(np.allclose(default, ref, rtol=1e-13, atol=0.0))
+                        for got in (tv.tv_gauge_residual(frame.data, v.variations.data, scale=None),
+                                    v.gauge_residual):                      # a leaf tangent: the same code path
+                            self.assertEqual(np.asarray(got).tobytes(), np.asarray(default).tobytes())
+
+    def test_explicit_scale_is_a_floor(self):
+        for K, C in self._STACKS:
+            frame, (_, v, _, _) = self._tangents(K, C)                     # ungauged: residual O(1)
+            fd, vd = frame.data, v.variations.data
+            own = cw.corewise_stack_norm(vd, len(K + C))
+            default = tv.tv_gauge_residual(fd, vd)
+            with self.subTest(K=K, C=C):
+                # a floor below the tangent's own norm changes nothing (bitwise): scale = 0, or half the norm
+                self.assertTrue(np.array_equal(tv.tv_gauge_residual(fd, vd, scale=0.0), default))
+                self.assertTrue(np.array_equal(tv.tv_gauge_residual(fd, vd, scale=0.5 * own), default))
+                # a floor above it divides by the floor instead (per element)
+                big = 1e6 * own * (1.0 + np.random.rand(*own.shape))
+                self.assertTrue(np.allclose(tv.tv_gauge_residual(fd, vd, scale=big), default * own / big,
+                                            rtol=1e-13, atol=0.0))
+
+    def test_scale_broadcasts_over_the_stack(self):
+        for K, C in self._STACKS:
+            frame, (_, v, _, _) = self._tangents(K, C)
+            fd, vd = frame.data, v.variations.data
+            full = np.broadcast_to(7.5e3, K + C)
+            ref = tv.tv_gauge_residual(fd, vd, scale=full)
+            with self.subTest(K=K, C=C):
+                self.assertTrue(np.array_equal(tv.tv_gauge_residual(fd, vd, scale=7.5e3), ref))      # scalar
+                self.assertTrue(np.array_equal(tv.tv_gauge_residual(fd, vd, scale=np.full(C, 7.5e3)), ref))  # C
+                for idx in np.ndindex(*(K + C)):                         # per element == the sliced tangent
+                    fi = _slice_tree(fd, idx[len(K):])
+                    vi = _slice_tree(vd, idx)
+                    self.assertTrue(np.allclose(tv.tv_gauge_residual(fi, vi, scale=full[idx]), ref[idx],
+                                                rtol=1e-13, atol=0.0))
+
+    def test_bad_scale_shape_raises(self):
+        frame, (_, v, _, _) = self._tangents((2,), (3,))                 # K + C = (2, 3)
+        for bad in (np.ones(2), np.ones((4, 2, 3)), np.ones((2, 3, 1)), np.ones(5)):
+            with self.subTest(shape=bad.shape):
+                with self.assertRaises(ValueError):
+                    tv.tv_gauge_residual(frame.data, v.variations.data, scale=bad)

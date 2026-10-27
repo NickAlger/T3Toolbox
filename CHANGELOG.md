@@ -123,6 +123,16 @@ All notable changes to T3Toolbox are documented here. The format follows
 
 ### Fixed
 
+- **The safe-mode gauge check no longer rejects a near-cancelling difference of gauged tangents.**
+  `MANIFOLD.norm` / `inner` (and the uniform twins) measured `a - b` against its own norm, so the
+  finite-difference check of a Hessian, `MANIFOLD.norm(H_fd - hessian(p))` with the two agreeing to `1e-8`,
+  raised on each operand's `1e-16` roundoff gauge violation. A tangent built by `+` / `-` / scalar `*` /
+  `stack_tangents` is now measured against its operands' scale (`max(‖a‖, ‖b‖)`, `|c|·‖a‖`, per stack
+  element, recursively) as a floor under its own norm, so the check is never stricter than before; a tangent
+  computed directly (a projection, a gradient) keeps the self-relative check, and one ungauged in its own
+  right still fails when checked itself. The scale is recorded only in safe mode, eagerly, and is not jax
+  pytree state, so a jit round-trip measures self-relative again. Backend: `tv_gauge_residual` /
+  `utv_gauge_residual` take `scale=` (default `None`: unchanged, bitwise). `docs/numerical_contracts.md`.
 - **Jet outputs keep their inputs' dtype.** A float32 jet pipeline (`*_derivatives` forwards, transposes and
   the two-hole) now stays float32 under `jax_enable_x64` and on numpy alike. The sweeps' scan inits (the
   order-0 ones, the zero boundary jets, the adjoint zeros, the inner-scan accumulators, the entries one-hots)
