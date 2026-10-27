@@ -10,6 +10,7 @@ import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.manifold as t3m
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.optimizers as topt
+from t3toolbox.backend.common import jax_available
 
 SHAPE, TUCKER, TT = (8, 8, 8), (3, 3, 3), (1, 3, 3, 1)
 
@@ -364,7 +365,8 @@ class TestLeastSquaresProblemAndKeywords(unittest.TestCase):
 
     # The keywords T3Polynomial passes to the frontend newton_cg (plan §K) -- all must be explicit.
     T3POLYNOMIAL_KEYS = ('order', 'weight', 'max_newton', 'verbose', 'val_sample', 'val_data',
-                         'g0norm_newton', 'gtol_rel', 'use_jit', 'g0_reference')
+                         'g0norm_newton', 'gtol_rel', 'use_jit', 'g0_reference', 'chunk_size', 'callback',
+                         'hessian')
 
     def setUp(self):
         np.random.seed(7)
@@ -451,9 +453,8 @@ class TestLeastSquaresProblemAndKeywords(unittest.TestCase):
         front = inspect.signature(topt.newton_cg).parameters
         back = inspect.signature(bopt.newton_cg).parameters
         self.assertFalse(any(p.kind is inspect.Parameter.VAR_KEYWORD for p in front.values()))
-        not_yet_frontend = ('hessian', 'curvature_damping', 'step_control', 'tr_radius0')   # S5 backend-only; S6 adds them (and drops this)
         for name, p in back.items():
-            if name in ('problem', 'x0') + not_yet_frontend:
+            if name in ('problem', 'x0'):
                 continue
             with self.subTest(name=name):
                 self.assertIn(name, front)
@@ -467,12 +468,193 @@ class TestLeastSquaresProblemAndKeywords(unittest.TestCase):
         import t3toolbox.backend.optimizers as bopt
         opts = dict(max_newton=7, gtol_rel=3e-5, cg_maxiter=11, c_armijo=2e-3, on_line_search_failure='accept',
                     g0_reference='warm_start', g0norm_newton=5.0, g0norm_cg=4.0, cg_forcing_power=0.75,
-                    use_jit=False)
+                    use_jit=False, hessian='exact', curvature_damping=1e-4, step_control='trust_region',
+                    tr_radius0=0.5)
         cb = lambda info: None
         with mock.patch.object(bopt, 'newton_cg', side_effect=lambda problem, x0, **kw: (x0, {})) as spy:
             topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, callback=cb, **opts)
         self.assertEqual(spy.call_count, 1)
         self.assertEqual(spy.call_args.kwargs, dict(opts, callback=cb))
+        with mock.patch.object(topt, 'least_squares_problem', wraps=topt.least_squares_problem) as lsp, \
+                mock.patch.object(bopt, 'newton_cg', side_effect=lambda problem, x0, **kw: (x0, {})):
+            topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, hessian='Exact')
+            topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0)
+        self.assertEqual([c.kwargs['hessian'] for c in lsp.call_args_list],
+                         ['Exact', 'gauss_newton'])                      # for the problem's 'auto' chunk
+
+
+def _histories_equal(h1, h2, skip=('wall_time',)):
+    """Two newton_cg histories equal field by field (NaN == NaN), ignoring the wall clock."""
+    import math
+    if len(h1) != len(h2):
+        return False
+    for a, b in zip(h1, h2):
+        if a.keys() != b.keys():
+            return False
+        for k in a:
+            if k in skip:
+                continue
+            u, v = a[k], b[k]
+            if isinstance(u, float) and isinstance(v, float) and math.isnan(u) and math.isnan(v):
+                continue
+            if u != v:
+                return False
+    return True
+
+
+def _restart_problem(W):
+    """T21's set-up (tests/backend/test_curvature.py, c24's template): probe derivatives of order 2 with
+    omega = [1, .5, .25], 5 % noise, a rank-4 target; level 1 fitted at rank 2 to 1e-10, then zero-padded to rank 3."""
+    import t3toolbox.backend.optimizers as bopt
+    import t3toolbox.backend.fitting as bfit
+    import t3toolbox.backend.geometry as bgeo
+    rng = np.random.default_rng(7)
+    np.random.seed(7)
+    shape = (6, 6, 6)
+    target = t3.TuckerTensorTrain.randn(shape, (4, 4, 4), (1, 4, 4, 1))
+    ww = [rng.standard_normal((W, N)) for N in shape]
+    pp = [rng.standard_normal((W, N)) for N in shape]
+    weight = np.array([1.0, 0.5, 0.25])
+    kind = bfit.probe_derivatives_kind(2, weight)
+    data = [z + 0.05 * np.linalg.norm(z) / z.size ** 0.5 * rng.standard_normal(z.shape)
+            for z in kind.point_forward(target.data, (ww, pp))]
+    problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
+    x1, _ = bopt.newton_cg(problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data,
+                           max_newton=80, gtol_rel=1e-10)
+    return (ww, pp), data, weight, t3.TuckerTensorTrain(*x1).resize(shape, (3, 3, 3), (1, 3, 3, 1))
+
+
+class TestFrontendExactNewton(unittest.TestCase):
+    """S6: exact Newton through the frontend ``optimizers.newton_cg`` -- the keywords reach the backend loop, the
+    run is bit-identical to the backend run on ``least_squares_problem``'s problem (every history field but the
+    wall clock, every loss, the final cores), T21 reproduces through the frontend, ``chunk_size='auto'`` is sized
+    for the exact mode, and the layers / geometries not built yet raise their structural errors."""
+
+    def test_frontend_is_the_backend_run_bitwise(self):
+        """The frontend newton_cg is the backend newton_cg on ``least_squares_problem(..., hessian=)``'s problem
+        and x0, bit for bit, for the exact Hessian with each step control, a damping, a radius and a forcing
+        power, and for Gauss-Newton; and the uniform Gauss-Newton run likewise."""
+        import t3toolbox.backend.optimizers as bopt
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        sample, data, weight, restart = _restart_problem(40)
+        runs = [dict(hessian='exact'),
+                dict(hessian='exact', curvature_damping=0.0, cg_forcing_power=1.0, tr_radius0=0.3),
+                dict(hessian='exact', step_control='line_search', g0_reference='warm_start'),
+                dict(step_control='trust_region'),
+                {}]
+        for kw in runs:
+            with self.subTest(**{k: str(v) for k, v in kw.items()}):
+                xf, sf = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', sample, data, restart, order=2,
+                                        weight=weight, max_newton=12, **kw)
+                setup = topt.least_squares_problem(t3m.MANIFOLD, 'probe_derivatives', sample, data, restart,
+                                                   order=2, weight=weight, hessian=kw.get('hessian', 'gauss_newton'))
+                xb, sb = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=12, **kw)
+                self.assertEqual(sf['losses'], sb['losses'])
+                self.assertTrue(_histories_equal(sf['history'], sb['history']))
+                self.assertEqual((sf['newton_steps'], sf['newton_accepted'], sf['stop_reason']),
+                                 (sb['newton_steps'], sb['newton_accepted'], sb['stop_reason']))
+                self.assertTrue(all(np.array_equal(a, b) for a, b in zip(xf.data[0] + xf.data[1], xb[0] + xb[1])))
+                self.assertEqual(sf['history'][0]['hessian'], kw.get('hessian', 'gauss_newton'))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(restart)
+        xf, sf = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', sample, data, ux, order=2,
+                                weight=weight, max_newton=6, chunk_size=None)
+        setup = topt.least_squares_problem(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', sample, data, ux, order=2,
+                                           weight=weight, chunk_size=None)
+        xb, sb = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=6)
+        self.assertEqual(sf['losses'], sb['losses'])
+        self.assertTrue(_histories_equal(sf['history'], sb['history']))
+        self.assertTrue(np.array_equal(xf.data[0], xb[0]) and np.array_equal(xf.data[1], xb[1]))
+
+    def test_zero_padded_restart_through_the_frontend(self):
+        """T21 through the frontend: from the zero-padded rank-3 restart the exact Hessian (defaults: the zero
+        reference, the trust region, power 0.5) converges on the gradient test with no rejection, in a fraction
+        of Gauss-Newton + Armijo's steps -- observed 8 outer steps against 28, the S5 backend numbers (the run
+        is the backend's bit for bit: ``test_frontend_is_the_backend_run_bitwise``); ``verbose=True`` prints the
+        trust-region rows and keeps the diagnostics."""
+        import contextlib
+        import io
+        sample, data, weight, restart = _restart_problem(60)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            _, ex = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', sample, data, restart, order=2, weight=weight,
+                                   max_newton=40, hessian='exact', verbose=True)
+        _, gn = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', sample, data, restart, order=2, weight=weight,
+                               max_newton=40)
+        h = ex['history']
+        self.assertEqual(ex['stop_reason'], 'gradient')
+        self.assertEqual(sum(row['tr_accepted'] is False for row in h), 0)
+        self.assertLessEqual(ex['newton_steps'], 10)                  # observed 8 (S5's backend T21: 8, 0 rejected)
+        self.assertGreater(gn['newton_steps'], 2 * ex['newton_steps'])   # observed 28
+        self.assertEqual(gn['stop_reason'], 'gradient')
+        self.assertEqual(h[0]['lift_sigma_min'], 0.0)                 # the padded slots: a singular lift
+        self.assertTrue(all(row['step_control'] == 'trust_region' for row in h))
+        self.assertIn('TR Δ', buf.getvalue())
+        self.assertEqual(len(ex['diagnostics']), len(h))
+
+    @unittest.skipUnless(jax_available, "chunk_size='auto' resolves through the jax-measured estimator")
+    def test_chunk_size_auto_is_sized_for_the_exact_mode(self):
+        """S4 review m6: ``least_squares_problem(hessian=)`` hands the solver's mode to the ``'auto'`` resolution
+        (the estimator then sizes the chunk for the exact two-hole too), and ``newton_cg`` passes its own; the
+        resolved chunk is the kind's field. A bad mode raises before any work."""
+        from unittest import mock
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.backend.sampling_derivatives as sd
+        sample, data, weight, restart = _restart_problem(30)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(restart)
+        with mock.patch.object(sd, 'estimate_chunk_size', side_effect=lambda *a, **k: 7) as spy:
+            setup = topt.least_squares_problem(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', sample, data, ux,
+                                               order=2, weight=weight, hessian='EXACT')
+            self.assertEqual(setup.problem.kind.chunk_size, 7)
+            topt.least_squares_problem(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', sample, data, ux, order=2)
+            with self.assertRaisesRegex(ValueError, 'UniformProbeDerivativesKind does not implement corewise_hessian'):
+                topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', sample, data, ux, order=2,
+                               weight=weight, hessian='exact')                   # the uniform two-hole is S8's
+            topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', sample, data, ux, order=2, weight=weight,
+                           max_newton=1)
+            topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', sample, data, restart, order=2, weight=weight,
+                           max_newton=1, hessian='exact')                        # ragged: no estimate
+        self.assertEqual([c.kwargs['hessian'] for c in spy.call_args_list],
+                         ['exact', 'gauss_newton', 'exact', 'gauss_newton'])
+        with mock.patch.object(topt, '_resolve_chunk_size') as resolve, \
+                mock.patch.object(topt, '_ragged_minimal') as reduce_:
+            for bad in ('newton', True, None):
+                with self.subTest(hessian=bad):
+                    with self.assertRaisesRegex(ValueError, "least_squares_problem: hessian must be"):
+                        topt.least_squares_problem(t3m.MANIFOLD, 'probe_derivatives', sample, data, restart,
+                                                   order=2, hessian=bad)
+        resolve.assert_not_called()
+        reduce_.assert_not_called()
+
+    def test_options_with_no_effect_and_unbuilt_geometries_raise(self):
+        """The backend's structural rules, through the frontend: ``curvature_damping`` with Gauss-Newton or on a
+        corewise geometry, ``tr_radius0`` with the line search, an unknown ``step_control``; the exact Hessian
+        on a shared manifold (the tied lift is not built yet) raises ``NotImplementedError``, on a shared
+        corewise geometry it runs."""
+        import t3toolbox.shared_geometry as sg
+        import t3toolbox.backend.sharing as bsharing
+        sample, data, weight, restart = _restart_problem(30)
+        call = lambda geom, x, **kw: topt.newton_cg(geom, 'probe_derivatives', sample, data, x, order=2,
+                                                    weight=weight, max_newton=3, **kw)
+        with self.assertRaisesRegex(ValueError, "curvature_damping is only meaningful with hessian='exact'"):
+            call(t3m.MANIFOLD, restart, curvature_damping=1e-6)
+        with self.assertRaisesRegex(ValueError, 'no effect on a corewise geometry'):
+            call(t3m.COREWISE, restart, hessian='exact', curvature_damping=1e-6)
+        with self.assertRaisesRegex(ValueError, "tr_radius0 is only meaningful with step_control='trust_region'"):
+            call(t3m.MANIFOLD, restart, tr_radius0=1.0)
+        with self.assertRaisesRegex(ValueError, 'step_control'):
+            call(t3m.MANIFOLD, restart, hessian='exact', step_control='dogleg')
+        from unittest import mock
+        with mock.patch.object(topt, 'least_squares_problem') as setup:
+            with self.assertRaisesRegex(ValueError, "newton_cg: hessian must be 'gauss_newton' or 'exact'"):
+                call(t3m.MANIFOLD, restart, hessian='newton')
+        setup.assert_not_called()
+        tied = t3.TuckerTensorTrain(*bsharing.t3_tie_tucker_factors(restart.data, (0, 0, 1)))
+        with self.assertRaisesRegex(NotImplementedError, 'S7'):
+            call(sg.shared_manifold((0, 0, 1)), tied, hessian='exact')
+        _, stats = call(sg.shared_corewise((0, 0, 1)), tied, hessian='exact')
+        self.assertEqual(stats['history'][0]['hessian'], 'exact')
 
 
 if __name__ == "__main__":

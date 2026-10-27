@@ -55,14 +55,15 @@ All notable changes to T3Toolbox are documented here. The format follows
 - **`fitting.GaussNewtonModel` is renamed `fitting.LocalModel`** (also `t3toolbox.LocalModel`), mirroring
   the backend class it wraps, `backend.optimizers.LocalModel`. It is **not aliased** -- the old name is
   gone, as `UniformGaussNewtonModel` went in 2026.2.0 -- so a breaking release breaks loudly once rather
-  than carrying two names. The six `*_model` factories keep their names, and the class's methods and
-  fields are unchanged.
+  than carrying two names. The six `*_model` factories keep their names, and the rename leaves the class's
+  methods and fields as they were (the exact mode adds to them, under Added).
 - **The private `optimizers._setup` is removed**, replaced by the public `optimizers.least_squares_problem`
-  (below), which takes the same arguments and returns a named `LeastSquaresSetup` rather than a 3-tuple.
-  Not aliased.
+  (below), which takes the same arguments (plus `hessian`, the mode the problem will be solved in) and
+  returns a named `LeastSquaresSetup` rather than a 3-tuple. Not aliased.
 - **`optimizers.newton_cg` no longer takes `**kwargs`.** Its options are explicit keywords --
   `max_newton`, `gtol_rel`, `cg_maxiter`, `c_armijo`, `on_line_search_failure`, `g0norm_newton`,
-  `g0norm_cg` and `cg_forcing_power`, beside the existing ones -- with the backend's defaults, so every
+  `g0norm_cg` and `cg_forcing_power`, beside the existing ones, and the exact-Hessian options `hessian`,
+  `curvature_damping`, `step_control` and `tr_radius0` (below) -- with the backend's defaults, so every
   option is in its signature and its docs. A misspelt option raises `TypeError` at the call, before the
   problem is built (it used to be forwarded, and the backend call rejected it after the setup work).
   Every valid call is unchanged. (`gradient_descent` / `mc_sgd` / `adam` still forward `**kwargs`.)
@@ -126,6 +127,9 @@ All notable changes to T3Toolbox are documented here. The format follows
   were built in the default dtype and promoted every float32 jet to float64 -- 2026.2.0 did the same. The
   plain `probe` / `apply` / `entries` ops still build default-dtype inits and still promote (recorded for a
   follow-up).
+- **A uniform `fitting.LocalModel` keeps its static structure out of the traced leaves.** Its jax flatten
+  traced the frame sweep's mode sizes (Python ints) as leaves, so under `jit` they became tracers; it now
+  partitions them into the treedef like the backend `LocalModel` (`backend.common.partition_static`).
 
 ### Added
 
@@ -146,10 +150,12 @@ All notable changes to T3Toolbox are documented here. The format follows
   `'override'`), `cg_reference` (the CG-forcing one), `step_control` (`'line_search'`) and `stop_reason`
   (on the last row), all defaulting to `None`; they ride in `stats['history']`.
 - **`optimizers.least_squares_problem(geometry, kind, sample, data, x0, order, weight, regularizer,
-  chunk_size, batch)`**, the frontend twin of `backend.optimizers.least_squares_problem`: it builds the
+  chunk_size, batch, hessian)`**, the frontend twin of `backend.optimizers.least_squares_problem`: it builds the
   backend `Problem` from the frontend vocabulary (a geometry singleton or `SharedGeometry`, a kind name,
   `order` / `weight`, a ragged or uniform `x0`) -- the constructor the four optimizers use, now public
-  for scripts that build local models or drive a backend optimizer directly. It returns
+  for scripts that build local models or drive a backend optimizer directly. `hessian` (`'gauss_newton'`
+  default, or `'exact'`) is the mode the problem will be solved in: it does not fix the mode, it sizes
+  `chunk_size='auto'` for the exact Hessian's two-hole too (`newton_cg` passes its own). It returns
   **`optimizers.LeastSquaresSetup`**, a frozen dataclass with `.problem`, `.x0_cores` (the backend
   starting cores, reduced to minimal ranks where the optimizers reduce them) and `.rewrap` (backend cores
   -> the frontend tensor). Module-level only, not re-exported at the root.
@@ -184,7 +190,8 @@ All notable changes to T3Toolbox are documented here. The format follows
   transpose-only answer) or `'exact'` (case-insensitive; anything else raises `ValueError`); `'exact'` sizes the
   chunk so that the two-hole, whose chunk costs ~1.3-2.2× the transpose's per row, also fits.
 - **The exact Riemannian Hessian in the backend local model** (driven by the backend `newton_cg`'s
-  `hessian='exact'`, below; the frontend follows): `backend.optimizers.Problem.local_model(x, sample, data,
+  `hessian='exact'`, below; the frontend `fitting.LocalModel` twin is further below):
+  `backend.optimizers.Problem.local_model(x, sample, data,
   hessian='gauss_newton' | 'exact', curvature_damping=None)`. An exact model's `hvp` is
   `Π[𝒥ᵀω²𝒥Πp + Lᵀ(K_{Aᵀω²r} − K_{grad f})LΠp] (+ H_R p)` -- the Gauss-Newton term plus the Weingarten
   curvature, through the lift `L`, the kind's `corewise_hessian` and the inner product's two-hole at the misfit
@@ -201,7 +208,7 @@ All notable changes to T3Toolbox are documented here. The format follows
   `corewise_hessian`; the other kinds, the uniform layer and the shared manifold's tied lift follow.
 - **Exact Newton with a trust region in the backend `newton_cg`**: `backend.optimizers.newton_cg(...,
   hessian='gauss_newton' | 'exact', curvature_damping=None, step_control=None, tr_radius0=None)` (explicit
-  keywords; the frontend `optimizers.newton_cg` follows). `hessian='exact'` solves with the exact Riemannian
+  keywords, the same on the frontend `optimizers.newton_cg`, below). `hessian='exact'` solves with the exact Riemannian
   Hessian above -- the superlinear Newton tail where Gauss-Newton is linear on a nonzero-residual fit
   (q-quadratic with `cg_forcing_power=1.0`; the default stays `0.5` in both modes) -- and `curvature_damping`
   (exact only; a value with Gauss-Newton raises) sets the lift's damping relative to `‖X‖_HS`.
@@ -221,6 +228,26 @@ All notable changes to T3Toolbox are documented here. The format follows
   trust-region row, CG's symbol `∂` on a boundary stop, and an exact row appends `κ σ ε` (`κ = pKp/(pHp −
   pKp)`, the smallest lift singular value, the lift damping). A curvature-data object may carry the
   diagnostics `sigma_min` / `eps` (`backend.geometry.ManifoldCurvatureData` gains the `eps` property).
+- **The exact Hessian on the frontend.** The six `fitting.*_model` factories take `hessian='gauss_newton' |
+  'exact'` (case-insensitive) and `curvature_damping=None`: `hessian='exact'` builds the exact-mode
+  `fitting.LocalModel`, whose new `curvature` field (the backend `CurvatureState`, a jax leaf) holds the model's
+  one misfit transpose and the geometry's curvature data. The mode is derived, not stored: the read-only
+  property `is_exact`. New methods, in both modes: `hessian(p)` and `quadratic(p)` (the mode's Hessian action and
+  form -- `gn_hessian` / `gn_quadratic` on a Gauss-Newton model, plus the curvature term on an exact one) and
+  `retract(p)` (`geometry.retract(p)` at the model's frame, with the shared manifold's stored companion -- the
+  twin of `backend.optimizers.LocalModel.retract`); on an exact model only (a Gauss-Newton one raises),
+  `curvature_hessian(p)` / `curvature_quadratic(p)`, the curvature term alone. `evaluate(p)` is mode-aware (the
+  Gauss-Newton value is unchanged) and an exact model's `gradient` is the Gauss-Newton one, bit for bit. The
+  rules are the backend's: `curvature_damping` with Gauss-Newton or on a corewise geometry raises, and a kind
+  without `corewise_hessian` (every kind but `probe_derivatives` so far), the uniform layer and a shared
+  manifold geometry raise a structural error at construction. The frontend `optimizers.newton_cg` takes
+  `hessian`, `curvature_damping`, `step_control` and `tr_radius0` with the backend's defaults, and passes
+  `hessian` to `least_squares_problem` so `chunk_size='auto'` is sized for the exact mode. The frontend run is
+  the backend run, bit for bit.
+- **`backend.geometry.UniformManifoldGeometryOps.from_frame(frame_data, plain_masks, sharing)`**: the uniform
+  manifold geometry from a frame already in hand -- its variation masks are the frame's own, gauge-shifted --
+  the same geometry as `from_point` without re-orthogonalizing. The uniform `fitting.LocalModel` builds its
+  backend geometry this way (one orthogonalization fewer per regularized or exact model).
 
 ## [2026.2.0] — 2026-08-25
 

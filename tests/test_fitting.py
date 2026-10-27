@@ -22,6 +22,7 @@ import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.fitting as fb
 import t3toolbox.backend.geometry as bgeo
+import t3toolbox.backend.sharing as bsharing
 import t3toolbox.fitting as fitting
 import t3toolbox.corewise as cw
 
@@ -690,6 +691,463 @@ class TestFactoryValidation(unittest.TestCase):
         fitting.apply_derivatives_model(t3m.MANIFOLD, x, ww, pp, 2, jets)
         with self.assertRaises(ValueError):
             fitting.apply_derivatives_model(t3m.MANIFOLD, x, ww, pp, 2, jets[:2])     # order axis
+
+
+# ---------------------------------------------------------------------------------------------------
+# 2026.3.0 (S6a / S6): the uniform backend geometry from the frame, and the frontend exact mode (T18)
+# ---------------------------------------------------------------------------------------------------
+_EX_MINIMAL = ((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+_EX_TUCKER_SLACK = ((6, 6, 6), (4, 4, 4), (1, 2, 2, 1))     # frame down ranks (2, 4, 2) < up (4, 4, 4)
+_EX_TT_SLACK = ((6, 6, 6), (4, 4, 4), (1, 9, 9, 1))         # frame left ranks != right ranks
+_EX_D4 = ((4, 5, 4, 5), (2, 3, 3, 2), (1, 2, 3, 2, 1))
+_EX_SHAREABLE = ((5, 5, 7), (2, 2, 2), (1, 2, 2, 1))        # modes 0 and 1 can share a factor
+
+
+def _ex_unit_point(struct):
+    '''A random T3 with ``||X||_HS = 1`` (so finite differences are well scaled).'''
+    x = t3.TuckerTensorTrain.randn(*struct)
+    tk, tt = x.data
+    return t3.TuckerTensorTrain(tuple(tk), tuple(tt[:-1]) + (tt[-1] / float(np.linalg.norm(x.to_dense())),))
+
+
+def _ex_problem(struct, order, W, rng, weight=None, sharing=None):
+    '''A probe-derivative fit whose data come from ANOTHER unit point plus 10 % noise (an O(1) residual, so the
+    curvature term is O(1)): the point x, the sample, the data, and the canonical weight.'''
+    x, other = _ex_unit_point(struct), _ex_unit_point(struct)
+    if sharing is not None:                                   # a tied point (the shared geometries' set)
+        x = t3.TuckerTensorTrain(*bsharing.t3_tie_tucker_factors(x.data, sharing))
+    ww = [rng.standard_normal((W, N)) for N in struct[0]]
+    pp = [rng.standard_normal((W, N)) for N in struct[0]]
+    data = [z + 0.1 * rng.standard_normal(z.shape) for z in other.probe_derivatives(ww, pp, order)]
+    return x, (ww, pp), data
+
+
+def _ex_residual(x, sample, data, order):
+    return [z - y for z, y in zip(x.probe_derivatives(*sample, order), data)]
+
+
+def _flat(tree):
+    '''Every array of a (nested tuple of) core tuple(s), in order.'''
+    if isinstance(tree, (tuple, list)):
+        return [a for t in tree for a in _flat(t)]
+    return [np.asarray(tree)]
+
+
+def _bitwise(a, b):
+    fa, fb_ = _flat(a), _flat(b)
+    return len(fa) == len(fb_) and all(u.shape == v.shape and np.array_equal(u, v) for u, v in zip(fa, fb_))
+
+
+def _relerr_trees(a, b):
+    fa, fb_ = _flat(a), _flat(b)
+    num = np.sqrt(sum(float(np.sum((u - v) ** 2)) for u, v in zip(fa, fb_)))
+    return num / np.sqrt(sum(float(np.sum(v ** 2)) for v in fb_))
+
+
+class TestUniformBackendGeometryFromFrame(unittest.TestCase):
+    '''S6a (X13): the frontend model's uniform backend geometry is built from the frame it already holds
+    (``UniformManifoldGeometryOps.from_frame``), not re-orthogonalized from the base point -- the SAME geometry
+    as ``from_point`` (value equality over every field, the variation masks included), so the Gauss-Newton
+    numbers are unchanged; on minimal, Tucker-slack and TT-slack points, a C-stacked point and a shared one.'''
+
+    def setUp(self):
+        np.random.seed(61)
+
+    def test_from_frame_is_from_point_without_the_orthogonalization(self):
+        from unittest import mock
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.shared_geometry as sg
+        import t3toolbox.backend.ufv_conversions as ufc
+        rng = np.random.default_rng(61)
+        cases = [('minimal', _EX_MINIMAL, (), None), ('tucker_slack', _EX_TUCKER_SLACK, (), None),
+                 ('tt_slack', _EX_TT_SLACK, (), None), ('stacked', _EX_MINIMAL, (2,), None),
+                 ('shared', _EX_SHAREABLE, (), (0, 0, 1))]
+        for name, struct, C, sharing in cases:
+            with self.subTest(case=name):
+                x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*struct, stack_shape=C))
+                geom = ut3m.UNIFORM_MANIFOLD if sharing is None else sg.shared(ut3m.UNIFORM_MANIFOLD, sharing)
+                ww = [rng.standard_normal((6, N)) for N in struct[0]]
+                r = [rng.standard_normal((6,) + C + (N,)) for N in struct[0]]
+                m = fitting.probe_model(geom, x, ww, r)
+                with mock.patch.object(ufc, 'ut3_orthogonal_representations',
+                                       wraps=ufc.ut3_orthogonal_representations) as spy:
+                    built = m._bgeom
+                self.assertEqual(spy.call_count, 0)                           # no re-orthogonalization
+                self.assertIsInstance(built, bgeo.UniformManifoldGeometryOps)
+                x0_data = (m.frame.data[0], m.frame.data[2], m.kind.shape, m.kind.masks)
+                reference = bgeo.UniformManifoldGeometryOps.from_point(x0_data, sharing)
+                self.assertEqual(built, reference)                             # value equality: every field
+                self.assertEqual(hash(built), hash(reference))
+                for a, b in zip(built.var_masks + built.masks, reference.var_masks + reference.masks):
+                    self.assertEqual(a.shape, b.shape)
+                    self.assertTrue(np.array_equal(a, b))
+                self.assertEqual(built.groups, reference.groups)
+                direct = bgeo.UniformManifoldGeometryOps.from_frame(m.frame.data, m.kind.masks, sharing)
+                self.assertEqual(direct, reference)
+
+    def test_gauss_newton_regularized_numbers_unchanged(self):
+        '''The geometry feeds the regularizer: the uniform regularized model's objective, gradient and
+        quadratic are those computed with the ``from_point`` geometry, bit for bit.'''
+        import t3toolbox.backend.optimizers as bopt
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        rng = np.random.default_rng(62)
+        R = bopt.IdentityRegularizer(0.4)
+        x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*_EX_MINIMAL))
+        ww = [rng.standard_normal((9, N)) for N in _EX_MINIMAL[0]]
+        r = [rng.standard_normal((9, N)) for N in _EX_MINIMAL[0]]
+        m = fitting.probe_model(ut3m.UNIFORM_MANIFOLD, x, ww, r, regularizer=R)
+        ref = bgeo.UniformManifoldGeometryOps.from_point((m.frame.data[0], m.frame.data[2], m.kind.shape,
+                                                          m.kind.masks))
+        p = ut3m.UNIFORM_MANIFOLD.randn(m.frame)
+        c = 0.5 * m.kind.sumsq(m.residual, m._n_w) + R.value(ref, (m.frame.data[0], m.frame.data[2]))
+        self.assertEqual(float(m.objective_value), float(c))
+        q = m.kind.sumsq(m.jacobian(p), m._n_w) + R.quadratic(ref, m.frame.data, p.variations.supercores)
+        self.assertEqual(float(m.gn_quadratic(p)), float(q))
+        g_reg = R.gradient(ref, m.frame.data)
+        g = m.gradient.variations.supercores
+        g_mis = m._wrap(m.kind.transpose(m.residual, m.sample, m.frame.data, m.sweep)).variations.supercores
+        self.assertTrue(_bitwise(g, tuple(a + b for a, b in zip(g_mis, g_reg))))
+
+
+class TestExactLocalModel(unittest.TestCase):
+    '''T18: the frontend exact mode. ``fitting.LocalModel`` built with ``hessian='exact'`` equals the backend
+    ``Problem.local_model(hessian='exact')`` on the same data; ``is_exact`` is derived (no ``hessian`` field);
+    the exact gradient is the Gauss-Newton one bit for bit; ``hessian`` / ``quadratic`` / ``evaluate`` are
+    mode-dependent and the ``curvature_*`` actions exist only in exact mode; ``retract`` is the geometry's
+    (a shared model's with its companion) and the backend model's; ``curvature_damping`` reaches the lift and
+    raises where it does nothing; the structural errors of the kinds and layers not built yet; and the exact
+    Hessian against a finite difference of the Riemannian gradient along the retraction (the T3Polynomial
+    ``x07`` cross-check).'''
+
+    def setUp(self):
+        np.random.seed(71)
+
+    @staticmethod
+    def _backend_twin(geom_ops, x, sample, data, order, weight, regularizer=None, hessian='gauss_newton',
+                      curvature_damping=None):
+        import t3toolbox.backend.optimizers as bopt
+        wm = fitting._canonical_weight(weight, 'probe_derivatives', len(sample[0]), order)
+        kind = fb.probe_derivatives_kind(order, wm)
+        prob = bopt.least_squares_problem(geom_ops, kind, sample, data, regularizer=regularizer)
+        return prob.local_model(x.data, hessian=hessian, curvature_damping=curvature_damping)
+
+    def test_mode_is_derived(self):
+        '''``is_exact`` is ``curvature is not None`` -- False for a Gauss-Newton model, True for
+        ``hessian='exact'`` (case-insensitive); there is no ``hessian`` field or attribute other than the
+        method; an unknown mode raises.'''
+        import dataclasses
+        import t3toolbox.backend.optimizers as bopt
+        rng = np.random.default_rng(71)
+        x, sample, data = _ex_problem(_EX_MINIMAL, 1, 8, rng)
+        r = _ex_residual(x, sample, data, 1)
+        gn = fitting.probe_derivatives_model(t3m.MANIFOLD, x, *sample, 1, r)
+        ex = fitting.probe_derivatives_model(t3m.MANIFOLD, x, *sample, 1, r, hessian='EXACT')
+        self.assertFalse(gn.is_exact)
+        self.assertIsNone(gn.curvature)
+        self.assertTrue(ex.is_exact)
+        self.assertIsInstance(ex.curvature, bopt.CurvatureState)
+        names = [f.name for f in dataclasses.fields(fitting.LocalModel)]
+        self.assertIn('curvature', names)
+        self.assertNotIn('hessian', names)
+        self.assertNotIn('is_exact', names)
+        self.assertNotIn('hessian', vars(ex))                                  # no instance attribute
+        self.assertTrue(callable(ex.hessian) and callable(gn.hessian))        # the method, in both modes
+        self.assertIsInstance(vars(fitting.LocalModel)['is_exact'], property)  # read-only, derived
+        with self.assertRaises(AttributeError):
+            ex.is_exact = False
+        self.assertFalse(fitting.probe_derivatives_model(t3m.MANIFOLD, x, *sample, 1, r,
+                                                         hessian='Gauss_Newton').is_exact)
+        for bad in (True, None, 'newton', 'Gauss-Newton', ''):
+            with self.subTest(hessian=bad):
+                with self.assertRaisesRegex(ValueError, "hessian must be 'gauss_newton' or 'exact'"):
+                    fitting.probe_derivatives_model(t3m.MANIFOLD, x, *sample, 1, r, hessian=bad)
+        p = t3m.MANIFOLD.randn(gn.frame)
+        for method in ('curvature_hessian', 'curvature_quadratic'):
+            with self.subTest(method=method):
+                with self.assertRaisesRegex(ValueError, 'needs an exact-mode model'):
+                    getattr(gn, method)(p)
+
+    def test_matches_the_backend_exact_local_model(self):
+        '''Every action of the exact frontend model equals the backend exact model's on the same data: the
+        gradient and the curvature actions bit for bit (the same code on the same arrays), ``hessian`` /
+        ``quadratic`` to rounding (the frontend sums its two gauged halves, the backend projects once). Ragged
+        manifold (minimal, Tucker slack, TT slack, d = 4, a full ω matrix, a regularizer) and corewise, a
+        tangent stack K included.'''
+        import t3toolbox.backend.optimizers as bopt
+        rng = np.random.default_rng(72)
+        man, cwg = bgeo.ManifoldGeometryOps(), bgeo.CorewiseGeometryOps()
+        cases = [('minimal', _EX_MINIMAL, 1, None, None, t3m.MANIFOLD, man),
+                 ('tucker_slack', _EX_TUCKER_SLACK, 1, None, None, t3m.MANIFOLD, man),
+                 ('tt_slack', _EX_TT_SLACK, 0, None, None, t3m.MANIFOLD, man),
+                 ('d4_omega', _EX_D4, 2, 'matrix', None, t3m.MANIFOLD, man),
+                 ('regularized', _EX_MINIMAL, 2, 'row', bopt.IdentityRegularizer(0.3), t3m.MANIFOLD, man),
+                 ('corewise', _EX_MINIMAL, 1, 'row', None, t3m.COREWISE, cwg)]
+        for name, struct, order, wkind, reg, geom, geom_ops in cases:
+            with self.subTest(case=name):
+                x, sample, data = _ex_problem(struct, order, 7, rng)
+                d = len(struct[0])
+                w = {None: None, 'row': rng.uniform(0.3, 2.0, order + 1),
+                     'matrix': rng.uniform(0.3, 2.0, (d, order + 1))}[wkind]
+                blm = self._backend_twin(geom_ops, x, sample, data, order, w, reg, hessian='exact')
+                m = fitting.probe_derivatives_model(geom, x, *sample, order, blm.residual, weight=w,
+                                                    regularizer=reg, hessian='exact')
+                self.assertTrue(_bitwise(m.frame.data, blm.frame))
+                self.assertEqual(float(m.objective_value), float(blm.objective))
+                self.assertTrue(_bitwise(m.gradient.variations.data, blm.gradient))
+                self.assertTrue(_bitwise(m.curvature.misfit_gradient, blm.curvature.misfit_gradient))
+                for K in ((), (2,)):
+                    p = geom.randn(m.frame, stack_shape=K)
+                    raw = p.variations.data
+                    self.assertTrue(_bitwise(m.curvature_hessian(p).variations.data, blm.curvature_hvp(raw)))
+                    self.assertTrue(np.array_equal(np.asarray(m.curvature_quadratic(p)),
+                                                   np.asarray(blm.curvature_quadratic(raw))))
+                    self.assertTrue(np.array_equal(np.asarray(m.quadratic(p)), np.asarray(blm.quadratic(raw))))
+                    self.assertLess(_relerr_trees(m.hessian(p).variations.data, blm.hvp(raw)), 1e-12)
+                    self.assertTrue(np.array_equal(np.asarray(m.gn_quadratic(p)), np.asarray(blm.gn_quadratic(raw))))
+
+    def test_gradient_is_the_gauss_newton_gradient_bitwise(self):
+        '''m27: the exact model's gradient is the Gauss-Newton model's, bit for bit (with and without a
+        regularizer), because it IS the same misfit transpose -- done once, at construction, and read.'''
+        from unittest import mock
+        import t3toolbox.backend.optimizers as bopt
+        rng = np.random.default_rng(73)
+        x, sample, data = _ex_problem(_EX_MINIMAL, 2, 8, rng)
+        r = _ex_residual(x, sample, data, 2)
+        for reg in (None, bopt.IdentityRegularizer(0.3)):
+            for geom in (t3m.MANIFOLD, t3m.COREWISE):
+                with self.subTest(regularizer=reg is not None, geometry=type(geom).__name__):
+                    gn = fitting.probe_derivatives_model(geom, x, *sample, 2, r, weight=[1.0, 0.5, 0.25],
+                                                         regularizer=reg)
+                    with mock.patch.object(fb.ProbeDerivativesKind, 'transpose', autospec=True,
+                                           side_effect=fb.ProbeDerivativesKind.transpose) as spy:
+                        ex = fitting.probe_derivatives_model(geom, x, *sample, 2, r, weight=[1.0, 0.5, 0.25],
+                                                             regularizer=reg, hessian='exact')
+                        self.assertEqual(spy.call_count, 1)                    # the one misfit transpose
+                        g_ex = ex.gradient
+                        self.assertEqual(spy.call_count, 1)                    # read, not recomputed
+                    self.assertTrue(_bitwise(g_ex.variations.data, gn.gradient.variations.data))
+
+    def test_hessian_quadratic_and_evaluate_are_mode_dependent(self):
+        '''Gauss-Newton: ``hessian`` / ``quadratic`` ARE ``gn_hessian`` / ``gn_quadratic`` and ``evaluate`` is
+        unchanged. Exact: ``hessian = gn_hessian + curvature_hessian``, ``quadratic = gn_quadratic +
+        curvature_quadratic = ⟨p, hessian(p)⟩``, ``evaluate(p) = c + ⟨g, p⟩ + ½ quadratic(p)``; the Gauss-Newton
+        members mean the same in both modes.'''
+        import t3toolbox.backend.optimizers as bopt
+        rng = np.random.default_rng(74)
+        x, sample, data = _ex_problem(_EX_MINIMAL, 1, 8, rng)
+        r = _ex_residual(x, sample, data, 1)
+        R = bopt.IdentityRegularizer(0.2)
+        gn = fitting.probe_derivatives_model(t3m.MANIFOLD, x, *sample, 1, r, regularizer=R)
+        ex = fitting.probe_derivatives_model(t3m.MANIFOLD, x, *sample, 1, r, regularizer=R, hessian='exact')
+        p = t3m.MANIFOLD.randn(gn.frame)
+        self.assertTrue(_bitwise(gn.hessian(p).variations.data, gn.gn_hessian(p).variations.data))
+        self.assertEqual(float(gn.quadratic(p)), float(gn.gn_quadratic(p)))
+        self.assertEqual(float(gn.evaluate(p)), float(gn.objective_value + gn.gradient.corewise_inner(p)
+                                                      + 0.5 * gn.kind.sumsq(gn.jacobian(p), gn._n_w)
+                                                      + 0.5 * R.quadratic(gn._bgeom, gn.frame.data,
+                                                                          p.variations.data)))
+        for member in ('gn_hessian', 'jacobian'):
+            self.assertTrue(_bitwise(getattr(ex, member)(p) if member == 'jacobian'
+                                     else getattr(ex, member)(p).variations.data,
+                                     getattr(gn, member)(p) if member == 'jacobian'
+                                     else getattr(gn, member)(p).variations.data))
+        self.assertEqual(float(ex.gn_quadratic(p)), float(gn.gn_quadratic(p)))
+        self.assertEqual(float(ex.objective_value), float(gn.objective_value))
+        Hp = ex.hessian(p)
+        self.assertTrue(_bitwise(Hp.variations.data, (ex.gn_hessian(p) + ex.curvature_hessian(p)).variations.data))
+        q = float(ex.quadratic(p))
+        self.assertEqual(q, float(ex.gn_quadratic(p) + ex.curvature_quadratic(p)))
+        self.assertAlmostEqual(q, float(p.corewise_inner(Hp)), delta=1e-12 * abs(q))
+        self.assertGreater(abs(q - float(gn.quadratic(p))), 1e-3 * abs(q))     # the curvature term is there
+        self.assertAlmostEqual(float(ex.evaluate(p)),
+                               float(ex.objective_value + ex.gradient.corewise_inner(p)) + 0.5 * q,
+                               delta=1e-12 * abs(float(ex.evaluate(p))))
+
+    def test_hessian_against_a_finite_difference_of_the_riemannian_gradient(self):
+        '''The ``x07`` cross-check, numpy: ``hessian(p)`` is ``d/dt P_x grad f(R_x(t p))`` at ``t = 0`` -- the
+        Riemannian gradient at the retracted point, as an ambient T3 projected onto the tangent space at ``x``,
+        differenced centrally along the retraction (exact for any retraction: the Riemannian Hessian of an
+        embedded submanifold is ``P_x D(grad f)(x)[p]``). The Gauss-Newton Hessian misses it.'''
+        import t3toolbox.backend.optimizers as bopt
+        rng = np.random.default_rng(75)
+        for name, struct, order, reg in (('minimal', _EX_MINIMAL, 1, None), ('d4', _EX_D4, 2, None),
+                                         ('regularized', _EX_MINIMAL, 1, bopt.IdentityRegularizer(0.5))):
+            with self.subTest(case=name):
+                x, sample, data = _ex_problem(struct, order, 8, rng)
+
+                def model_at(y, hessian='gauss_newton'):
+                    return fitting.probe_derivatives_model(t3m.MANIFOLD, y, *sample, order,
+                                                           _ex_residual(y, sample, data, order),
+                                                           regularizer=reg, hessian=hessian)
+
+                m = model_at(x, 'exact')
+                p = t3m.MANIFOLD.randn(m.frame)
+                p = p * (1.0 / float(t3m.MANIFOLD.norm(p)))
+                h = 0.05 * min(float(np.min(m.curvature.geometry_data.sigma_min)), 1.0) * 1e-2
+
+                def grad_at(t):                     # P_x grad f(R_x(t p)), as gauged coordinates at x's frame
+                    g = model_at(m.retract(p * t)).gradient
+                    return t3m.MANIFOLD.project_ambient(m.frame, g.to_t3())
+
+                fd = (grad_at(h) - grad_at(-h)) * (1.0 / (2.0 * h))
+                exact_err = _relerr_trees(m.hessian(p).variations.data, fd.variations.data)
+                gn_err = _relerr_trees(m.gn_hessian(p).variations.data, fd.variations.data)
+                self.assertLess(exact_err, 1e-5)
+                self.assertGreater(gn_err, 1e3 * exact_err)
+
+    def test_retract_is_the_geometrys_and_the_backend_models(self):
+        '''m38: ``retract(p)`` is ``geometry.retract(p)`` at this frame -- a shared manifold model's passes its
+        companion (no rebuild) -- and equals the backend ``LocalModel.retract`` bit for bit; the same in both
+        modes; ragged and uniform; a trial step at another frame is rejected.'''
+        from unittest import mock
+        import t3toolbox.shared_geometry as sg
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.backend.optimizers as bopt
+        import t3toolbox.backend.uniform_fitting as uf
+        rng = np.random.default_rng(76)
+        shape = _EX_SHAREABLE[0]
+        cases = [('manifold', t3m.MANIFOLD, bgeo.ManifoldGeometryOps(), None),
+                 ('corewise', t3m.COREWISE, bgeo.CorewiseGeometryOps(), None),
+                 ('shared_manifold', sg.shared_manifold((0, 0, 1)),
+                  bgeo.ManifoldGeometryOps().with_sharing((0, 0, 1), shape), (0, 0, 1)),
+                 ('shared_corewise', sg.shared_corewise((0, 0, 1)),
+                  bgeo.CorewiseGeometryOps().with_sharing((0, 0, 1), shape), (0, 0, 1))]
+        for name, geom, geom_ops, sharing in cases:
+            with self.subTest(case=name):
+                x, sample, data = _ex_problem(_EX_SHAREABLE, 1, 7, rng, sharing=(0, 0, 1))
+                blm = self._backend_twin(geom_ops, x, sample, data, 1, None)
+                m = fitting.probe_derivatives_model(geom, x, *sample, 1, blm.residual)
+                p = geom.randn(m.frame) * 0.1
+                with mock.patch.object(sg.SharedGeometry, 'shared_frame_data',
+                                       wraps=sg.SharedGeometry.shared_frame_data, autospec=True) as spy:
+                    y = m.retract(p)
+                self.assertEqual(spy.call_count, 0)                                   # the stored companion
+                self.assertIsInstance(y, t3.TuckerTensorTrain)
+                self.assertTrue(_bitwise(y.data, geom.retract(p).data))
+                self.assertTrue(_bitwise(y.data, blm.retract(p.variations.data)))
+                if name != 'shared_manifold':                                         # shared manifold exact: S7
+                    ex = fitting.probe_derivatives_model(geom, x, *sample, 1, blm.residual, hessian='exact')
+                    self.assertTrue(_bitwise(ex.retract(p).data, y.data))
+        other = t3m.MANIFOLD.randn(t3m.MANIFOLD.frame(t3.TuckerTensorTrain.randn(*_EX_SHAREABLE)))
+        with self.assertRaises(ValueError):
+            m.retract(other)
+        # uniform: the uniform geometry's retract, and the backend uniform model's
+        x, sample, data = _ex_problem(_EX_MINIMAL, 1, 7, rng)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        ulm = uf.uniform_least_squares_problem('manifold', 'probe_derivatives', ux, sample, data, 1
+                                               ).local_model((ux.data[0], ux.data[1]))
+        um = fitting.probe_derivatives_model(ut3m.UNIFORM_MANIFOLD, ux, *sample, 1, ulm.residual)
+        up = ut3m.UNIFORM_MANIFOLD.randn(um.frame) * 0.1
+        uy = um.retract(up)
+        self.assertIsInstance(uy, ut3.UniformTuckerTensorTrain)
+        self.assertTrue(_bitwise(uy.data[:2], ut3m.UNIFORM_MANIFOLD.retract(up).data[:2]))
+        self.assertTrue(_bitwise(uy.data[:2], ulm.retract(up.variations.supercores)))
+
+    def test_curvature_damping_reaches_the_lift_and_is_rejected_where_it_does_nothing(self):
+        '''The damping is handed to the backend geometry unread: the exact model's lift factors are a direct
+        ``fv_lift_factors(frame, value)`` call's, bit for bit (``None`` -> ``DEFAULT_CURVATURE_DAMPING``); a value
+        with ``hessian='gauss_newton'`` raises with the backend's message, as does one on a corewise geometry
+        (shared included) and a negative one.'''
+        import t3toolbox.shared_geometry as sg
+        import t3toolbox.backend.fv_operations as fvo
+        rng = np.random.default_rng(77)
+        x, sample, data = _ex_problem(_EX_MINIMAL, 1, 8, rng)
+        r = _ex_residual(x, sample, data, 1)
+        for cd, ref in ((0.0, 0.0), (1e-3, 1e-3), (None, bgeo.DEFAULT_CURVATURE_DAMPING)):
+            with self.subTest(curvature_damping=cd):
+                m = fitting.probe_derivatives_model(t3m.MANIFOLD, x, *sample, 1, r, hessian='exact',
+                                                    curvature_damping=cd)
+                lf, direct = m.curvature.geometry_data.lift_factors, fvo.fv_lift_factors(m.frame.data, ref)
+                self.assertTrue(_bitwise(lf.tucker_pinvs + lf.bond_pinvs + (lf.eps,),
+                                         direct.tucker_pinvs + direct.bond_pinvs + (direct.eps,)))
+        for geom in (t3m.MANIFOLD, t3m.COREWISE):
+            with self.subTest(gauss_newton=type(geom).__name__):
+                with self.assertRaisesRegex(ValueError, "probe_derivatives_model: curvature_damping is only "
+                                                        "meaningful with hessian='exact'"):
+                    fitting.probe_derivatives_model(geom, x, *sample, 1, r, curvature_damping=1e-6)
+        with self.assertRaisesRegex(ValueError, 'curvature_damping must be >= 0'):
+            fitting.probe_derivatives_model(t3m.MANIFOLD, x, *sample, 1, r, hessian='exact', curvature_damping=-1.0)
+        xs, ssample, sdata = _ex_problem(_EX_SHAREABLE, 1, 8, rng, sharing=(0, 0, 1))
+        rs = _ex_residual(xs, ssample, sdata, 1)
+        for name, geom, xx, ss, rr in (('corewise', t3m.COREWISE, x, sample, r),
+                                       ('shared_corewise', sg.shared_corewise((0, 0, 1)), xs, ssample, rs)):
+            with self.subTest(exact=name):
+                self.assertTrue(fitting.probe_derivatives_model(geom, xx, *ss, 1, rr, hessian='exact').is_exact)
+                for cd in (0.0, 1e-6):
+                    with self.assertRaisesRegex(ValueError, 'no effect on a corewise geometry'):
+                        fitting.probe_derivatives_model(geom, xx, *ss, 1, rr, hessian='exact', curvature_damping=cd)
+
+    def test_shared_corewise_matches_the_backend(self):
+        '''Shared COREWISE exact mode is live (the tied Hessian): the frontend model equals the backend one.'''
+        import t3toolbox.shared_geometry as sg
+        rng = np.random.default_rng(78)
+        x, sample, data = _ex_problem(_EX_SHAREABLE, 1, 8, rng, sharing=(0, 0, 1))
+        blm = self._backend_twin(bgeo.CorewiseGeometryOps().with_sharing((0, 0, 1), _EX_SHAREABLE[0]),
+                                 x, sample, data, 1, None, hessian='exact')
+        m = fitting.probe_derivatives_model(sg.shared_corewise((0, 0, 1)), x, *sample, 1, blm.residual,
+                                            hessian='exact')
+        p = sg.shared_corewise((0, 0, 1)).randn(m.frame)
+        self.assertTrue(_bitwise(m.gradient.variations.data, blm.gradient))
+        self.assertLess(_relerr_trees(m.hessian(p).variations.data, blm.hvp(p.variations.data)), 1e-12)
+        self.assertTrue(np.array_equal(np.asarray(m.quadratic(p)), np.asarray(blm.quadratic(p.variations.data))))
+
+    def test_structural_errors_where_the_exact_hessian_is_not_built_yet(self):
+        '''The kinds without ``corewise_hessian`` raise the backend's structural ``ValueError`` at construction
+        (naming the kind); the uniform layer surfaces its kind's interim stub the same way; the shared manifold
+        (the tied lift) raises ``NotImplementedError``. Gauss-Newton is unaffected.'''
+        import t3toolbox.shared_geometry as sg
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        rng = np.random.default_rng(79)
+        x = t3.TuckerTensorTrain.randn(*_EX_MINIMAL)
+        ww = [rng.standard_normal((6, N)) for N in x.shape]
+        pp = [rng.standard_normal((6, N)) for N in x.shape]
+        idx = np.stack([rng.integers(0, N, size=6) for N in x.shape])
+        builds = {'apply': (fitting.apply_model, (ww, x.apply(ww)), 'ApplyKind'),
+                  'entries': (fitting.entries_model, (idx, x.entries(idx)), 'EntriesKind'),
+                  'probe': (fitting.probe_model, (ww, x.probe(ww)), 'ProbeKind'),
+                  'apply_derivatives': (fitting.apply_derivatives_model,
+                                        (ww, pp, 1, x.apply_derivatives(ww, pp, 1)), 'ApplyDerivativesKind'),
+                  'entries_derivatives': (fitting.entries_derivatives_model,
+                                          (idx, pp, 1, x.entries_derivatives(idx, pp, 1)), 'EntriesDerivativesKind')}
+        for name, (factory, args, kind_name) in builds.items():
+            with self.subTest(kind=name):
+                self.assertFalse(factory(t3m.MANIFOLD, x, *args).is_exact)
+                with self.assertRaisesRegex(ValueError, kind_name + ' does not implement corewise_hessian'):
+                    factory(t3m.MANIFOLD, x, *args, hessian='exact')
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        r = x.probe_derivatives(ww, pp, 1)
+        for geom in (ut3m.UNIFORM_MANIFOLD, ut3m.UNIFORM_COREWISE):
+            with self.subTest(uniform=type(geom).__name__):
+                self.assertFalse(fitting.probe_derivatives_model(geom, ux, ww, pp, 1, r).is_exact)
+                with self.assertRaisesRegex(ValueError, 'UniformProbeDerivativesKind does not implement '
+                                                        'corewise_hessian'):
+                    fitting.probe_derivatives_model(geom, ux, ww, pp, 1, r, hessian='exact')
+        xs, ssample, sdata = _ex_problem(_EX_SHAREABLE, 1, 8, rng, sharing=(0, 0, 1))
+        rs = _ex_residual(xs, ssample, sdata, 1)
+        geom = sg.shared_manifold((0, 0, 1))
+        self.assertFalse(fitting.probe_derivatives_model(geom, xs, *ssample, 1, rs).is_exact)
+        with self.assertRaisesRegex(NotImplementedError, 'S7'):
+            fitting.probe_derivatives_model(geom, xs, *ssample, 1, rs, hessian='exact')
+
+    def test_d1_manifold_is_gauss_newton(self):
+        '''At d = 1 the manifold's curvature term vanishes (every slot is at maximal rank): the exact model is
+        exact, with no curvature data, and its hessian / quadratic are the Gauss-Newton ones.'''
+        rng = np.random.default_rng(80)
+        x, sample, data = _ex_problem(((5,), (3,), (1, 1)), 1, 8, rng)
+        m = fitting.probe_derivatives_model(t3m.MANIFOLD, x, *sample, 1, _ex_residual(x, sample, data, 1),
+                                            hessian='exact')
+        self.assertTrue(m.is_exact)
+        self.assertIsNone(m.curvature.geometry_data)
+        p = t3m.MANIFOLD.randn(m.frame)
+        self.assertTrue(_bitwise(m.hessian(p).variations.data, m.gn_hessian(p).variations.data))
+        self.assertEqual(float(m.quadratic(p)), float(m.gn_quadratic(p)))
+        self.assertEqual(float(m.curvature_quadratic(p)), 0.0)
+        self.assertTrue(all(not np.any(a) for a in _flat(m.curvature_hessian(p).variations.data)))
+
 
 if __name__ == '__main__':
     unittest.main()

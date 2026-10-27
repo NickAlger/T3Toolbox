@@ -6,7 +6,9 @@
 A :py:class:`~t3toolbox.fitting.LocalModel` is the local model of a least-squares objective
 ``½‖F(X) − y‖²`` at a fixed point, linearized through a **geometry**: it exposes the objective value
 ``c = ½‖r‖²``, the gradient ``g``, the Gauss-Newton Hessian action ``H p = JᵀJ p``, and the
-quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p``. It is the frontend twin of the backend
+quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p``. Built with ``hessian='exact'`` its
+:py:meth:`~LocalModel.hessian` is the **exact** Riemannian Hessian instead (the Gauss-Newton term plus the
+curvature term). It is the frontend twin of the backend
 :py:class:`~t3toolbox.backend.optimizers.LocalModel` (same name, one level up). The model is generic over
 two independent choices:
 
@@ -34,7 +36,8 @@ frame is fixed, so the sweep is computed once, not once per matrix-vector produc
 Jitting an optimizer
 --------------------
 ``LocalModel`` **is** a registered jax pytree (the data -- ``frame``, ``sweep``, ``sample``,
-``residual`` -- are leaves; ``geometry`` / ``kind`` are static aux). Crucially the frame flows as a *leaf*,
+``residual``, and an exact model's ``curvature`` -- are leaves; ``geometry`` / ``kind`` are static aux).
+Crucially the frame flows as a *leaf*,
 not aux (the same is true of :py:class:`~t3toolbox.manifold.T3Tangent`'s frame), so a model or tangent
 that **crosses a jit boundary does NOT recompile when the frame changes** -- the per-frame recompile that
 frame-as-aux used to force is gone. So you can jit the frontend matvec directly:
@@ -65,6 +68,7 @@ a matvec output combines with the eager CG iterates freely. The geometry singlet
 
 from __future__ import annotations
 
+import dataclasses as dc
 import functools as ft
 import typing as typ
 from dataclasses import dataclass
@@ -81,6 +85,7 @@ import t3toolbox.shared_geometry as sg
 import t3toolbox.safety as safety
 import t3toolbox.backend.fitting as fb
 import t3toolbox.backend.geometry as bgeo
+import t3toolbox.backend.optimizers as bopt         # exact mode: its checks, CurvatureState, the backend LocalModel
 import t3toolbox.backend.regularization as breg    # the backend geometry a Regularizer leans on (no cycle: backend never imports fitting)
 import t3toolbox.backend.uniform_fitting as ufit
 from t3toolbox.backend.common import *
@@ -196,6 +201,21 @@ class LocalModel:
     ``index``), and the data residual ``r = F(X) − y``. The frame sweep, objective value, and gradient are
     cached on first use.
 
+    **Two modes**, chosen by the factory's ``hessian`` argument and derived rather than stored
+    (:py:attr:`is_exact` is ``curvature is not None``):
+
+    * **Gauss-Newton** (``hessian='gauss_newton'``, the default): :py:meth:`hessian` / :py:meth:`quadratic`
+      are :py:meth:`gn_hessian` / :py:meth:`gn_quadratic`.
+    * **Exact** (``hessian='exact'``): :py:meth:`hessian` is the exact Riemannian Hessian -- the Gauss-Newton
+      term plus the curvature term :py:meth:`curvature_hessian` (``Π Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π``; see
+      :py:meth:`t3toolbox.backend.optimizers.Problem.local_model`), and :py:meth:`quadratic` likewise. The
+      model's one misfit transpose is done at construction (``curvature``), so :py:attr:`gradient` is the
+      Gauss-Newton gradient bit for bit. Only ``probe_derivatives`` implements it so far; the other kinds,
+      the uniform layer and the shared manifold raise a structural error at construction.
+
+    ``gradient``, ``jacobian``, ``gn_hessian``, ``gn_quadratic``, ``objective_value`` and :py:meth:`retract`
+    mean the same in both modes.
+
     **One class, both representations.** The factories dispatch on ``x``: a ragged
     ``TuckerTensorTrain`` gives a model on a ``T3Frame``, whose gradient and Hessian actions are of type
     ``T3Tangent``; a ``UniformTuckerTensorTrain`` gives one on a ``UT3Frame``, running on the packed
@@ -284,11 +304,35 @@ class LocalModel:
 
     regularizer: typ.Any = None    # optional backend.regularization.Regularizer; ρ folded into obj/grad/hessian/quadratic/evaluate
     geometry_aux: typ.Any = None   # per-frame geometry companion (e.g. the SF-T3 SharedFrameData); a jax LEAF
+    curvature:    typ.Any = None   # exact mode: the backend CurvatureState; a jax LEAF (None: Gauss-Newton)
 
 
     def __post_init__(self):
         if self.regularizer is not None:
             breg.require_unstacked_for_regularizer(self.frame.stack_shape, 'LocalModel')
+
+    @property
+    def is_exact(self) -> bool:
+        '''Whether this model's Hessian is the exact one (built with ``hessian='exact'``) rather than
+        Gauss-Newton. Derived, never stored: ``curvature is not None``.'''
+        return self.curvature is not None
+
+    @property
+    def _has_curvature_term(self) -> bool:      # exact AND the term does not vanish at this frame (d = 1 manifold)
+        return self.curvature is not None and self.curvature.geometry_data is not None
+
+    def _require_exact(self, who: str) -> None:
+        if self.curvature is None:
+            raise ValueError("LocalModel.%s needs an exact-mode model (a *_model factory with hessian='exact'); "
+                             "this one is Gauss-Newton" % who)
+
+    @ft.cached_property
+    def _blm(self):
+        """This model as the backend :py:class:`~t3toolbox.backend.optimizers.LocalModel` -- the same frame,
+        sweep, sample, residual, companions and curvature, on raw ``.data``. The curvature actions delegate
+        to it, so the frontend runs the backend's own code for them."""
+        return bopt.LocalModel(self._bgeom, self.kind, self.sample, self.frame.data, self.sweep, self.residual,
+                               self._n_w, self.regularizer, self.geometry_aux, self.curvature)
 
     def _project(self, v):                       # Pi, with the once-per-model geometry companion
         if self.geometry_aux is not None:
@@ -303,20 +347,23 @@ class LocalModel:
 
     @ft.cached_property
     def _bgeom(self):
-        """The backend geometry for this model -- the primitives the regularizer leans on.
+        """The backend geometry for this model -- the primitives the regularizer and the exact mode lean on.
 
         On the uniform layer it is built at this model's fixed rank, whose ``(shape, masks)`` the sampling
-        kind already carries as fields; that is what retired the model's own ``x0_masks`` shadow field."""
+        kind already carries as fields; that is what retired the model's own ``x0_masks`` shadow field. The
+        manifold one is built from the frame already in hand
+        (:py:meth:`~t3toolbox.backend.geometry.UniformManifoldGeometryOps.from_frame`: its variation masks
+        are the frame's own), not re-orthogonalized from the base point."""
         if not _is_uniform_frame(self.frame):
             return _backend_geometry_ops(self.geometry, self.frame.shape)
         if isinstance(self.geometry, sg.SharedGeometry):
             base, sharing_spec = self.geometry.base, self.geometry.sharing
         else:
             base, sharing_spec = self.geometry, None
+        if base is ut3m.UNIFORM_MANIFOLD:
+            return bgeo.UniformManifoldGeometryOps.from_frame(self.frame.data, self.kind.masks, sharing_spec)
         x0_data = (self.frame.data[0], self.frame.data[2], self.kind.shape, self.kind.masks)
-        return (bgeo.UniformManifoldGeometryOps.from_point(x0_data, sharing_spec)
-                if base is ut3m.UNIFORM_MANIFOLD
-                else bgeo.UniformCorewiseGeometryOps.from_point(x0_data, sharing_spec))
+        return bgeo.UniformCorewiseGeometryOps.from_point(x0_data, sharing_spec)   # no orthogonalization there
 
     @ft.cached_property
     def _n_w(self) -> int:  # number of leading sample-stack (W) axes
@@ -337,8 +384,12 @@ class LocalModel:
         plus the regularizer gradient ``g_R`` when set.
 
         On the manifold geometry this is the gauged Riemannian gradient; on the corewise geometry it is
-        the raw core gradient ``𝒥ᵀr`` (a tangent at ``(U,G,G,G)``, no ``Π``).'''
-        g = self._wrap(self.kind.transpose(self.residual, self.sample, self.frame.data, self.sweep))
+        the raw core gradient ``𝒥ᵀr`` (a tangent at ``(U,G,G,G)``, no ``Π``). The same in both modes: an
+        exact model did its one misfit transpose at construction and reads it here, bit for bit.'''
+        if self.curvature is not None:           # exact: the misfit gradient, already computed (by _wrap)
+            g = _tangent_at(self.frame, self.curvature.misfit_gradient)
+        else:
+            g = self._wrap(self.kind.transpose(self.residual, self.sample, self.frame.data, self.sweep))
         if self.regularizer is not None:
             g = g + self._reg_tangent(self.regularizer.gradient(self._bgeom, self.frame.data,
                                                                 aux=self.geometry_aux))
@@ -391,12 +442,49 @@ class LocalModel:
                                                                  _coordinates_of(p), aux=self.geometry_aux))
         return Hp
 
+    def hessian(self, p):
+        '''The Hessian action of this model's mode, a tangent at frame: :py:meth:`gn_hessian` on a
+        Gauss-Newton model; on an exact one (``hessian='exact'``) the exact Riemannian Hessian
+        ``gn_hessian(p) + curvature_hessian(p)``. Symmetric in both modes; the exact one is indefinite away
+        from a minimizer.'''
+        Hp = self.gn_hessian(p)
+        if self._has_curvature_term:
+            Hp = Hp + self.curvature_hessian(p)
+        return Hp
+
+    def quadratic(self, p) -> NDArray:  # pᵀ H p of this mode, shape K+C
+        '''The quadratic form ``pᵀ H p`` of this model's mode: :py:meth:`gn_quadratic` on a Gauss-Newton
+        model; ``gn_quadratic(p) + curvature_quadratic(p)`` on an exact one -- the objective's second
+        derivative along the retraction (the T3-SVD retraction is second order).'''
+        q = self.gn_quadratic(p)
+        if self._has_curvature_term:
+            q = q + self.curvature_quadratic(p)
+        return q
+
+    def curvature_hessian(self, p):
+        '''The exact Hessian's curvature term alone, ``Π Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π p`` -- a gauged tangent
+        at frame (zero where the term vanishes, the manifold at ``d = 1``). Exact models only: on a
+        Gauss-Newton one it raises (structural). The backend's own code
+        (:py:meth:`t3toolbox.backend.optimizers.LocalModel.curvature_hvp`) on this model's data.'''
+        self._require_exact('curvature_hessian')
+        _require_at_frame(self.frame, p)
+        return _tangent_at(self.frame, self._blm.curvature_hvp(_coordinates_of(p)))
+
+    def curvature_quadratic(self, p) -> NDArray:  # ⟨Πp, Lᵀ K_N L Πp⟩, shape K+C
+        '''The curvature term's quadratic form ``⟨Π p, Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π p⟩`` (the part of
+        :py:meth:`quadratic` that Gauss-Newton drops); it can be negative. Exact models only: on a
+        Gauss-Newton one it raises (structural).'''
+        self._require_exact('curvature_quadratic')
+        _require_at_frame(self.frame, p)
+        return self._blm.curvature_quadratic(_coordinates_of(p))
+
     def evaluate(self, p) -> NDArray:  # m(p), shape C
-        '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` with ``H = JᵀJ``, reusing the cached
-        ``c`` and ``g`` and one **forward** apply: the quadratic term needs only ``½ pᵀ H p = ½‖𝒥 Π p‖²``,
-        not a Hessian apply. ``p`` is projected here, shared by the linear term ``⟨g, Πp⟩`` and the
-        quadratic. Equals ``½‖r + 𝒥 Π p‖²`` exactly (the objective is quadratic in the ambient tensor).
-        With a ``regularizer``, ``c`` and ``g`` already carry ``ρ`` / ``g_R``, so only the quadratic
+        '''The quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p`` of this model's mode, reusing the cached
+        ``c`` and ``g``. Gauss-Newton (``H = JᵀJ``): one **forward** apply -- the quadratic term needs only
+        ``½ pᵀ H p = ½‖𝒥 Π p‖²``, not a Hessian apply -- and the value equals ``½‖r + 𝒥 Π p‖²`` exactly
+        (the objective is quadratic in the ambient tensor). Exact: plus ``½`` :py:meth:`curvature_quadratic`.
+        ``p`` is projected here, shared by the linear term ``⟨g, Πp⟩`` and the quadratic. With a
+        ``regularizer``, ``c`` and ``g`` already carry ``ρ`` / ``g_R``, so only the quadratic
         ``½⟨p, H_R p⟩`` is added here.'''
         _require_at_frame(self.frame, p)
         Pp = self._project(p)
@@ -405,7 +493,22 @@ class LocalModel:
         if self.regularizer is not None:
             m = m + 0.5 * self.regularizer.quadratic(self._bgeom, self.frame.data, _coordinates_of(p),
                                                      aux=self.geometry_aux)
+        if self._has_curvature_term:
+            m = m + 0.5 * self.curvature_quadratic(p)
         return m
+
+    def retract(self, p):
+        '''The point reached by the step ``p`` from this model's frame: ``geometry.retract(p)``, with the
+        once-per-model companion on a shared manifold geometry -- a ``TuckerTensorTrain`` (ragged) or a
+        ``UniformTuckerTensorTrain`` (uniform). The same retraction in both modes; on the manifold it is the
+        T3-SVD retraction, second order on a minimal, numerically full-rank frame, which is what makes the
+        exact model's :py:meth:`quadratic` the objective's second derivative along it. The frontend twin of
+        :py:meth:`t3toolbox.backend.optimizers.LocalModel.retract`; ``p`` is retracted as given (not
+        projected), and the geometry's safe-mode preconditions apply.'''
+        _require_at_frame(self.frame, p)
+        if self.geometry_aux is not None:
+            return self.geometry.retract(p, shared_data=self.geometry_aux)
+        return self.geometry.retract(p)
 
 
 def _ragged_frame(geometry, x: t3.TuckerTensorTrain) -> bvf.T3Frame:
@@ -456,15 +559,48 @@ def _backend_geometry_ops(geometry, shape=None):
     return ops
 
 
+def _with_curvature(
+        model:              LocalModel,           # the Gauss-Newton model a factory just built
+        hessian:            str,                  # 'gauss_newton' | 'exact' (case-insensitive)
+        curvature_damping:  typ.Optional[float],  # exact only: relative to ‖X‖_HS; None = the geometry's default
+        who:                str,                  # the factory, for the messages
+) -> LocalModel:                                  # model itself (Gauss-Newton), or its exact-mode twin
+    '''The factories' one exact-mode step: ``hessian='gauss_newton'`` returns ``model`` unchanged;
+    ``'exact'`` returns it with the ``curvature`` child -- the backend
+    :py:class:`~t3toolbox.backend.optimizers.CurvatureState` of the model's ONE misfit transpose (the
+    Gauss-Newton gradient's own expression, so :py:attr:`LocalModel.gradient` is bit-identical) and the
+    backend geometry's per-frame curvature data at ``curvature_damping``.
+
+    The rules are the backend's (:py:meth:`t3toolbox.backend.optimizers.Problem.local_model`), with its
+    checks and messages: an unknown mode raises; a ``curvature_damping`` with Gauss-Newton raises (nothing
+    would read it), as it does on a corewise geometry (no lift to damp); a kind without ``corewise_hessian``
+    or a geometry without the exact-mode members raises structurally, naming what is missing -- which is
+    how the uniform layer's interim kind stub surfaces.'''
+    exact = bopt._check_hessian(hessian, who) == 'exact'
+    if curvature_damping is not None and not exact:
+        raise ValueError("%s: curvature_damping is only meaningful with hessian='exact'" % who)
+    if not exact:
+        return model
+    geom = model._bgeom
+    bopt._require_exact_capable(model.kind, geom)
+    misfit_gradient = _coordinates_of(model._wrap(model.kind.transpose(model.residual, model.sample,
+                                                                       model.frame.data, model.sweep)))
+    geometry_data = geom.curvature_precompute(model.frame.data, misfit_gradient, model.geometry_aux,
+                                              curvature_damping)
+    return dc.replace(model, curvature=bopt.CurvatureState(misfit_gradient, geometry_data))
+
+
 def _uniform_model(
-        geometry,                            # UNIFORM_MANIFOLD / UNIFORM_COREWISE (required for a uniform x)
-        x:          ut3.UniformTuckerTensorTrain,
-        kind_name:  str,                     # 'apply'/'entries'/'probe' (+'_derivatives')
-        sample:     typ.Any,                 # ragged or packed (packed once here, mirror-tolerant)
-        residual:   typ.Any,                 # ragged or packed r = S(x) − y
-        order:      typ.Optional[int] = None,
-        weight:     typ.Optional[NDArray] = None,   # canonical 2-D ω[m,o] (from _canonical_weight), or None
-        regularizer: typ.Any = None,                # optional backend.regularization.Regularizer
+        geometry,                                   # UNIFORM_MANIFOLD / UNIFORM_COREWISE (required for a uniform x)
+        x:                  ut3.UniformTuckerTensorTrain,
+        kind_name:          str,                    # 'apply'/'entries'/'probe' (+'_derivatives')
+        sample:             typ.Any,                # ragged or packed (packed once here, mirror-tolerant)
+        residual:           typ.Any,                # ragged or packed r = S(x) − y
+        order:              typ.Optional[int] = None,
+        weight:             typ.Optional[NDArray] = None,   # canonical 2-D ω[m,o] (from _canonical_weight), or None
+        regularizer:        typ.Any = None,                 # optional backend.regularization.Regularizer
+        hessian:            str = 'gauss_newton',           # or 'exact' (see _with_curvature)
+        curvature_damping:  typ.Optional[float] = None,     # exact only; None = the geometry's default
 ) -> LocalModel:
     '''Assemble the uniform :py:class:`~t3toolbox.fitting.LocalModel`: build the frame, pack the
     loop-invariant sample + residual once (:py:func:`~t3toolbox.backend.uniform_fitting.pack_sample` /
@@ -489,8 +625,9 @@ def _uniform_model(
     kind = (ufit.uniform_sampling_kind(kind_name, x0_data, weight) if order is None
             else ufit.uniform_derivatives_kind(kind_name, x0_data, order, weight))
     sweep = kind.precompute(frame.data, packed_sample)
-    return LocalModel(geometry, frame, kind, packed_sample, packed_residual, sweep,
-                      regularizer, geometry_aux)
+    return _with_curvature(LocalModel(geometry, frame, kind, packed_sample, packed_residual, sweep,
+                                      regularizer, geometry_aux),
+                           hessian, curvature_damping, kind_name + '_model')
 
 
 def _check_ragged_sample(x, kind_name, sample, residual, order=0):
@@ -537,52 +674,69 @@ def _check_ragged_sample(x, kind_name, sample, residual, order=0):
 
 
 def apply_model(
-        geometry,                            # MANIFOLD / COREWISE (or the UNIFORM_* twin for a uniform x)
-        x:          typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],   # the current point
-        ww:         typ.Sequence[NDArray],   # sample vectors, len=d, elm_shape=W+(Ni,)
-        residual:   NDArray,                 # r = apply(x) − y, shape W+C
-        regularizer: typ.Any = None,         # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+        geometry,                                    # MANIFOLD / COREWISE (or the UNIFORM_* twin for a uniform x)
+        x:                  typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],   # the current point
+        ww:                 typ.Sequence[NDArray],   # sample vectors, len=d, elm_shape=W+(Ni,)
+        residual:           NDArray,                 # r = apply(x) − y, shape W+C
+        regularizer:        typ.Any = None,          # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+
+        hessian:            str = 'gauss_newton',            # or 'exact' (case-insensitive): the model's mode
+        curvature_damping:  typ.Optional[float] = None,      # exact only: the lift damping; None = the geometry's
 ) -> LocalModel:
     '''The local model of an all-modes ``apply`` least-squares objective at ``x``, on ``geometry``.
 
     Accepts a ragged ``TuckerTensorTrain`` (-> :py:class:`~t3toolbox.fitting.LocalModel`) or a uniform
     ``UniformTuckerTensorTrain``; the representation is inferred
-    from ``x`` and the geometry must match. ``regularizer`` adds ``ρ(x)`` to the model (ragged or uniform).'''
+    from ``x`` and the geometry must match. ``regularizer`` adds ``ρ(x)`` to the model (ragged or uniform).
+    ``hessian`` / ``curvature_damping`` choose the model's mode (:py:class:`LocalModel`); the exact
+    Hessian needs the kind's ``corewise_hessian``, which ``apply`` does not implement yet, so
+    ``hessian='exact'`` raises a structural ``ValueError`` here (see :py:func:`probe_derivatives_model`).'''
     if isinstance(x, ut3.UniformTuckerTensorTrain):
-        return _uniform_model(geometry, x, 'apply', ww, residual, regularizer=regularizer)
+        return _uniform_model(geometry, x, 'apply', ww, residual, regularizer=regularizer,
+                              hessian=hessian, curvature_damping=curvature_damping)
     _check_ragged_sample(x, 'apply', ww, residual)
     frame = _ragged_frame(geometry, x)
-    return LocalModel(geometry, frame, fb.APPLY, ww, residual, fb.APPLY.precompute(frame.data, ww),
-                      regularizer, _ragged_geometry_aux(geometry, frame))
+    return _with_curvature(LocalModel(geometry, frame, fb.APPLY, ww, residual, fb.APPLY.precompute(frame.data, ww),
+                                      regularizer, _ragged_geometry_aux(geometry, frame)),
+                           hessian, curvature_damping, 'apply_model')
 
 
 def entries_model(
-        geometry,                            # MANIFOLD / COREWISE (or the UNIFORM_* twin for a uniform x)
-        x:          typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],   # the current point
-        index:      NDArray,                 # int, shape=(d,)+W -- the grid points
-        residual:   NDArray,                 # r = entries(x) − y, shape W+C
-        regularizer: typ.Any = None,         # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+        geometry,                                    # MANIFOLD / COREWISE (or the UNIFORM_* twin for a uniform x)
+        x:                  typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],   # the current point
+        index:              NDArray,                 # int, shape=(d,)+W -- the grid points
+        residual:           NDArray,                 # r = entries(x) − y, shape W+C
+        regularizer:        typ.Any = None,          # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+
+        hessian:            str = 'gauss_newton',            # or 'exact' (case-insensitive): the model's mode
+        curvature_damping:  typ.Optional[float] = None,      # exact only: the lift damping; None = the geometry's
 ) -> LocalModel:
     '''The local model of an all-modes ``entries`` least-squares objective at ``x``, on ``geometry``.
 
     Identical to :py:func:`apply_model` but the measurements are tensor **entries** at integer grid points
-    ``index`` (shape ``(d,)+W``) rather than applies against probe vectors.'''
+    ``index`` (shape ``(d,)+W``) rather than applies against probe vectors. (``hessian='exact'`` is not
+    implemented for ``entries`` yet: a structural ``ValueError``.)'''
     if isinstance(x, ut3.UniformTuckerTensorTrain):
-        return _uniform_model(geometry, x, 'entries', index, residual, regularizer=regularizer)
+        return _uniform_model(geometry, x, 'entries', index, residual, regularizer=regularizer,
+                              hessian=hessian, curvature_damping=curvature_damping)
     _check_ragged_sample(x, 'entries', index, residual)
     frame = _ragged_frame(geometry, x)
-    return LocalModel(geometry, frame, fb.ENTRIES, index, residual,
-                      fb.ENTRIES.precompute(frame.data, index), regularizer,
-                      _ragged_geometry_aux(geometry, frame))
+    return _with_curvature(LocalModel(geometry, frame, fb.ENTRIES, index, residual,
+                                      fb.ENTRIES.precompute(frame.data, index), regularizer,
+                                      _ragged_geometry_aux(geometry, frame)),
+                           hessian, curvature_damping, 'entries_model')
 
 
 def probe_model(
-        geometry,                            # MANIFOLD / COREWISE (or the UNIFORM_* twin for a uniform x)
-        x:          typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],   # the current point
-        ww:         typ.Sequence[NDArray],   # probe vectors, len=d, elm_shape=W+(Ni,)
-        residual:   typ.Sequence[NDArray],   # r = probe(x) − y, len=d, elm_shape=W+C+(Ni,)
-        weight:     typ.Optional[typ.Any] = None,   # per-mode residual weight ω, 1-D (d,); None = 1 (unweighted)
-        regularizer: typ.Any = None,         # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+        geometry,                                    # MANIFOLD / COREWISE (or the UNIFORM_* twin for a uniform x)
+        x:                  typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],   # the current point
+        ww:                 typ.Sequence[NDArray],   # probe vectors, len=d, elm_shape=W+(Ni,)
+        residual:           typ.Sequence[NDArray],   # r = probe(x) − y, len=d, elm_shape=W+C+(Ni,)
+        weight:             typ.Optional[typ.Any] = None,    # per-mode residual weight ω, 1-D (d,); None = 1 (unweighted)
+        regularizer:        typ.Any = None,          # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+
+        hessian:            str = 'gauss_newton',            # or 'exact' (case-insensitive): the model's mode
+        curvature_damping:  typ.Optional[float] = None,      # exact only: the lift damping; None = the geometry's
 ) -> LocalModel:
     '''The local model of a ``probe`` least-squares objective at ``x``, on ``geometry``.
 
@@ -591,7 +745,8 @@ def probe_model(
     weighted: the objective is ``½ Σ_i ‖ω_i r_i‖²`` over the ``d`` per-mode probe residuals, so a 1-D
     weight ``ω`` of shape ``(d,)`` up- or down-weights each mode's data (e.g. inverse-scale / inverse-noise
     balancing). Plain probe has no order axis, so ``weight`` is a **1-D** per-mode vector (a 2-D ``(d, 1)``
-    is rejected); for per-order weighting use :py:func:`probe_derivatives_model`.
+    is rejected); for per-order weighting use :py:func:`probe_derivatives_model`. (``hessian='exact'`` is
+    not implemented for plain ``probe`` yet: a structural ``ValueError``; see :py:func:`apply_model`.)
 
     Examples
     --------
@@ -621,12 +776,14 @@ def probe_model(
     '''
     wm = _canonical_weight(weight, 'probe', len(ww), 0)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
-        return _uniform_model(geometry, x, 'probe', ww, residual, weight=wm, regularizer=regularizer)
+        return _uniform_model(geometry, x, 'probe', ww, residual, weight=wm, regularizer=regularizer,
+                              hessian=hessian, curvature_damping=curvature_damping)
     _check_ragged_sample(x, 'probe', ww, residual)
     frame = _ragged_frame(geometry, x)
     kind = fb.probe_kind(wm)
-    return LocalModel(geometry, frame, kind, ww, residual, kind.precompute(frame.data, ww),
-                      regularizer, _ragged_geometry_aux(geometry, frame))
+    return _with_curvature(LocalModel(geometry, frame, kind, ww, residual, kind.precompute(frame.data, ww),
+                                      regularizer, _ragged_geometry_aux(geometry, frame)),
+                           hessian, curvature_damping, 'probe_model')
 
 
 # --------------------------------------------------------------------------------------------------
@@ -636,21 +793,25 @@ def probe_model(
 # is RAW (r = S(x) − y); ω weights the objective ½‖ω⊙r‖² inside the kind. See docs/fitting_and_optimization.md §4.6.
 # --------------------------------------------------------------------------------------------------
 def apply_derivatives_model(
-        geometry,                            # MANIFOLD / COREWISE
-        x:          t3.TuckerTensorTrain,    # the current point
-        ww:         typ.Sequence[NDArray],   # probe vectors X,        len=d, elm_shape=W+(Ni,)
-        pp:         typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        order:      int,                     # highest derivative order
-        residual:   NDArray,                 # RAW r = apply_derivatives(x) − y, shape (order+1)+W+C
-        weight:     typ.Optional[typ.Any] = None,  # ORDER-only residual weight ω, (order+1,); None = 1
-        regularizer: typ.Any = None,         # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+        geometry,                                    # MANIFOLD / COREWISE
+        x:                  t3.TuckerTensorTrain,    # the current point
+        ww:                 typ.Sequence[NDArray],   # probe vectors X,        len=d, elm_shape=W+(Ni,)
+        pp:                 typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        order:              int,                     # highest derivative order
+        residual:           NDArray,                 # RAW r = apply_derivatives(x) − y, shape (order+1)+W+C
+        weight:             typ.Optional[typ.Any] = None,    # ORDER-only residual weight ω, (order+1,); None = 1
+        regularizer:        typ.Any = None,          # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+
+        hessian:            str = 'gauss_newton',            # or 'exact' (case-insensitive): the model's mode
+        curvature_damping:  typ.Optional[float] = None,      # exact only: the lift damping; None = the geometry's
 ) -> LocalModel:
     '''The local model of an ``apply``-**derivatives** least-squares objective at ``x``: the
     symmetric directional derivatives (orders ``0..order``) of the all-modes apply, in direction ``P``.
 
     The all-modes apply contracts every mode into a scalar, so ``weight`` is **order-only** (a per-mode
     weight is a structural error -- mode weighting is defined only for probe; see
-    :py:func:`probe_derivatives_model`).
+    :py:func:`probe_derivatives_model`). (``hessian='exact'`` is not implemented for
+    ``apply_derivatives`` yet: a structural ``ValueError``.)
 
     Examples
     --------
@@ -677,62 +838,127 @@ def apply_derivatives_model(
     '''
     wm = _canonical_weight(weight, 'apply_derivatives', len(ww), order)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
-        return _uniform_model(geometry, x, 'apply_derivatives', (ww, pp), residual, order, wm, regularizer=regularizer)
+        return _uniform_model(geometry, x, 'apply_derivatives', (ww, pp), residual, order, wm, regularizer=regularizer,
+                              hessian=hessian, curvature_damping=curvature_damping)
     _check_ragged_sample(x, 'apply_derivatives', (ww, pp), residual, order)
     kind = fb.apply_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
-    return LocalModel(geometry, frame, kind, (ww, pp), residual,
-                      kind.precompute(frame.data, (ww, pp)), regularizer,
-                      _ragged_geometry_aux(geometry, frame))
+    return _with_curvature(LocalModel(geometry, frame, kind, (ww, pp), residual,
+                                      kind.precompute(frame.data, (ww, pp)), regularizer,
+                                      _ragged_geometry_aux(geometry, frame)),
+                           hessian, curvature_damping, 'apply_derivatives_model')
 
 
 def entries_derivatives_model(
-        geometry,                            # MANIFOLD / COREWISE (or the UNIFORM_* twin for a uniform x)
-        x:          typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],   # the current point
-        index:      NDArray,                 # int, shape=(d,)+W -- the grid points
-        pp:         typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        order:      int,
-        residual:   NDArray,                 # RAW r = entries_derivatives(x) − y, shape (order+1)+W+C
-        weight:     typ.Optional[typ.Any] = None,  # ORDER-only residual weight ω, (order+1,); None = 1
-        regularizer: typ.Any = None,         # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+        geometry,                                    # MANIFOLD / COREWISE (or the UNIFORM_* twin for a uniform x)
+        x:                  typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],   # the current point
+        index:              NDArray,                 # int, shape=(d,)+W -- the grid points
+        pp:                 typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        order:              int,
+        residual:           NDArray,                 # RAW r = entries_derivatives(x) − y, shape (order+1)+W+C
+        weight:             typ.Optional[typ.Any] = None,    # ORDER-only residual weight ω, (order+1,); None = 1
+        regularizer:        typ.Any = None,          # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+
+        hessian:            str = 'gauss_newton',            # or 'exact' (case-insensitive): the model's mode
+        curvature_damping:  typ.Optional[float] = None,      # exact only: the lift damping; None = the geometry's
 ) -> LocalModel:
     '''The ``entries``-derivatives local model -- like :py:func:`apply_derivatives_model` at integer
-    grid points ``index``. Order-only ``weight`` (no mode axis -- mode weighting is probe-only).'''
+    grid points ``index``. Order-only ``weight`` (no mode axis -- mode weighting is probe-only).
+    (``hessian='exact'`` is not implemented for ``entries_derivatives`` yet: a structural ``ValueError``.)'''
     wm = _canonical_weight(weight, 'entries_derivatives', index.shape[0], order)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
-        return _uniform_model(geometry, x, 'entries_derivatives', (index, pp), residual, order, wm, regularizer=regularizer)
+        return _uniform_model(geometry, x, 'entries_derivatives', (index, pp), residual, order, wm,
+                              regularizer=regularizer, hessian=hessian, curvature_damping=curvature_damping)
     _check_ragged_sample(x, 'entries_derivatives', (index, pp), residual, order)
     kind = fb.entries_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
-    return LocalModel(geometry, frame, kind, (index, pp), residual,
-                      kind.precompute(frame.data, (index, pp)), regularizer,
-                      _ragged_geometry_aux(geometry, frame))
+    return _with_curvature(LocalModel(geometry, frame, kind, (index, pp), residual,
+                                      kind.precompute(frame.data, (index, pp)), regularizer,
+                                      _ragged_geometry_aux(geometry, frame)),
+                           hessian, curvature_damping, 'entries_derivatives_model')
 
 
 def probe_derivatives_model(
-        geometry,                            # MANIFOLD / COREWISE (or the UNIFORM_* twin for a uniform x)
-        x:          typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],   # the current point
-        ww:         typ.Sequence[NDArray],   # probe vectors X,        len=d, elm_shape=W+(Ni,)
-        pp:         typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        order:      int,
-        residual:   typ.Sequence[NDArray],   # RAW r = probe_derivatives(x) − y, len=d, elm_shape=(order+1)+W+C+(Ni,)
-        weight:     typ.Optional[typ.Any] = None,  # residual weight ω[mode,order], (d,order+1) broadcast; None = 1
-        regularizer: typ.Any = None,         # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+        geometry,                                    # MANIFOLD / COREWISE (or the UNIFORM_* twin for a uniform x)
+        x:                  typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],   # the current point
+        ww:                 typ.Sequence[NDArray],   # probe vectors X,        len=d, elm_shape=W+(Ni,)
+        pp:                 typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        order:              int,
+        residual:           typ.Sequence[NDArray],   # RAW r = probe_derivatives(x) − y, len=d, elm_shape=(order+1)+W+C+(Ni,)
+        weight:             typ.Optional[typ.Any] = None,    # residual weight ω[mode,order], (d,order+1) broadcast; None = 1
+        regularizer:        typ.Any = None,          # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+
+        hessian:            str = 'gauss_newton',            # or 'exact' (case-insensitive): the model's mode
+        curvature_damping:  typ.Optional[float] = None,      # exact only: the lift damping; None = the geometry's
 ) -> LocalModel:
     '''The ``probe``-derivatives local model -- vector-valued (one free mode per probe), so
     ``residual`` is a sequence of ``d`` jets. Probe has both a mode and an order axis, so ``weight`` is the
     full ``ω[mode, order]`` matrix ``(d, order+1)``: a bare row ``(order+1,)`` = per-order (broadcast over
     modes), a column ``(d, 1)`` = per-mode (broadcast over orders), a matrix = both. The objective is
-    ``½ Σ_i ‖ω_i ⊙ r_i‖²`` over the ``d`` per-mode residual jets.'''
+    ``½ Σ_i ‖ω_i ⊙ r_i‖²`` over the ``d`` per-mode residual jets.
+
+    ``hessian='exact'`` builds the exact-Hessian model (:py:class:`LocalModel`): :py:meth:`LocalModel.hessian`
+    adds the curvature term to the Gauss-Newton one. ``curvature_damping`` (exact only) is the damping of
+    the lift from frame coordinates to core variations, relative to ``‖X‖_HS`` -- ``None`` for the
+    geometry's default (``backend.geometry.DEFAULT_CURVATURE_DAMPING``); a value with ``hessian='gauss_newton'``
+    or on a corewise geometry raises, as nothing would read it. The ragged manifold and corewise geometries
+    (and a shared corewise one) support it; the uniform layer and a shared manifold geometry raise a
+    structural error at construction for now.
+
+    Examples
+    --------
+    On a noisy fit the exact model's quadratic form is the objective's second derivative along the
+    retraction, where the Gauss-Newton one misses the curvature term:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.fitting as fitting
+    >>> np.random.seed(0)
+    >>> shape, ranks = (4, 5, 6), ((2, 2, 2), (1, 2, 2, 1))
+    >>> ww, pp = [np.random.randn(20, N) for N in shape], [np.random.randn(20, N) for N in shape]
+    >>> y = t3.TuckerTensorTrain.randn(shape, *ranks).probe_derivatives(ww, pp, 1)   # data from another tensor
+    >>> def model_at(x, hessian='gauss_newton'):
+    ...     r = [z - yi for z, yi in zip(x.probe_derivatives(ww, pp, 1), y)]
+    ...     return fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, 1, r, hessian=hessian)
+    >>> x = t3.TuckerTensorTrain.randn(shape, *ranks)
+    >>> gn, exact = model_at(x), model_at(x, hessian='exact')
+    >>> gn.is_exact, exact.is_exact
+    (False, True)
+    >>> p = exact.gradient * (1.0 / float(t3m.MANIFOLD.norm(exact.gradient)))          # a unit tangent
+    >>> f = lambda t: float(model_at(exact.retract(p * t)).objective_value)
+    >>> fd = (f(1e-3) - 2 * f(0.0) + f(-1e-3)) / 1e-6                                   # d²/dt² f(retract(t p))
+    >>> bool(np.isclose(float(exact.quadratic(p)), fd, rtol=1e-4))
+    True
+    >>> bool(np.isclose(float(gn.quadratic(p)), fd, rtol=1e-2))
+    False
+
+    ``hessian(p)`` is the matching action (``⟨p, H p⟩ == quadratic(p)``), the Gauss-Newton one plus the
+    curvature term:
+
+    >>> bool(np.isclose(float(p.corewise_inner(exact.hessian(p))), float(exact.quadratic(p))))
+    True
+    >>> bool(np.allclose(float(p.corewise_inner(exact.hessian(p) - exact.gn_hessian(p))),
+    ...                  float(exact.curvature_quadratic(p))))
+    True
+
+    The curvature term exists only on an exact model:
+
+    >>> gn.curvature_quadratic(p)   # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+    ValueError: LocalModel.curvature_quadratic needs an exact-mode model
+    '''
     wm = _canonical_weight(weight, 'probe_derivatives', len(ww), order)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
-        return _uniform_model(geometry, x, 'probe_derivatives', (ww, pp), residual, order, wm, regularizer=regularizer)
+        return _uniform_model(geometry, x, 'probe_derivatives', (ww, pp), residual, order, wm,
+                              regularizer=regularizer, hessian=hessian, curvature_damping=curvature_damping)
     _check_ragged_sample(x, 'probe_derivatives', (ww, pp), residual, order)
     kind = fb.probe_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
-    return LocalModel(geometry, frame, kind, (ww, pp), residual,
-                      kind.precompute(frame.data, (ww, pp)), regularizer,
-                      _ragged_geometry_aux(geometry, frame))
+    return _with_curvature(LocalModel(geometry, frame, kind, (ww, pp), residual,
+                                      kind.precompute(frame.data, (ww, pp)), regularizer,
+                                      _ragged_geometry_aux(geometry, frame)),
+                           hessian, curvature_damping, 'probe_derivatives_model')
 
 
 if jax_available:
@@ -750,10 +976,17 @@ if jax_available:
     # parameters are fields (backend/fitting.py), so a kind rebuilt per model is the same cache key. The
     # uniform kind also carries this model's fixed rank, which is why the model needs no mask field of its
     # own. See test_dispatch.test_jit_ragged_local_model_parameterized_kind.
-    jax.tree_util.register_pytree_node(
-        LocalModel,
-        lambda m: ((m.frame, m.sweep, m.sample, m.residual, m.geometry_aux),
-                   (m.geometry, m.kind, m.regularizer)),
-        lambda aux, children: LocalModel(aux[0], children[0], aux[1], children[2], children[3],
-                                         children[1], aux[2], children[4]),
-    )
+    # The children are partitioned like the backend LocalModel's (`partition_static`): a uniform sweep
+    # carries the mode sizes as Python ints, which stay static structure in the aux instead of being traced.
+    # An exact model's `curvature` (a backend CurvatureState, itself a registered pytree) rides as one more
+    # child: its arrays are leaves, and its PRESENCE is tree structure, so the mode is static under the
+    # treedef with no mode aux -- a new frame or damping changes leaf values only.
+    def _flatten_local_model(m):
+        dyn, skel = partition_static((m.frame, m.sweep, m.sample, m.residual, m.geometry_aux, m.curvature))
+        return dyn, (m.geometry, m.kind, m.regularizer, skel)
+
+    def _unflatten_local_model(aux, children):
+        frame, sweep, sample, residual, geometry_aux, curvature = rebuild_static(children, aux[3])
+        return LocalModel(aux[0], frame, aux[1], sample, residual, sweep, aux[2], geometry_aux, curvature)
+
+    jax.tree_util.register_pytree_node(LocalModel, _flatten_local_model, _unflatten_local_model)

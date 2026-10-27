@@ -481,6 +481,26 @@ class UniformManifoldGeometryOps(ValueHashedFields):
         return cls(tuple(shape), readonly_mask_copies(base_masks), readonly_mask_copies(variation_data[3]),
                    canonical_groups(sharing, tuple(shape)))
 
+    @classmethod
+    def from_frame(
+            cls,
+            frame_data:   typ.Tuple,                          # uniform frame .data = (U, O, P, Q, shape, masks)
+            plain_masks:  typ.Tuple,                          # the point's plain-UT3 (tucker, tt) masks; HOST bool
+            sharing:      typ.Optional[typ.Sequence] = None,  # len=d group labels; None = unshared
+    ) -> 'UniformManifoldGeometryOps':
+        """The geometry at the fixed rank of a frame already in hand -- :py:meth:`from_point` without the
+        orthogonalization. The variation masks are the frame's own, gauge-shifted
+        (:py:func:`~t3toolbox.backend.ufv_masking.ufv_variation_masks`): the frame IS the orthogonal
+        representation ``from_point`` would recompute, so the two agree whenever ``frame_data`` is the frame
+        of a point with ``plain_masks`` (one sweep, a few SVDs and a TT orthogonalization saved per call).
+
+        For a caller that already holds the frame -- a local model building its backend geometry once per
+        frame -- rather than a point."""
+        shape = tuple(frame_data[4])
+        return cls(shape, readonly_mask_copies(plain_masks),
+                   readonly_mask_copies(ufv_masking.ufv_variation_masks(frame_data[5])),
+                   canonical_groups(sharing, shape))
+
     def with_sharing(self, sharing) -> 'UniformManifoldGeometryOps':
         """This geometry restricted to tied Tucker factors (``sharing=None`` gives it back unshared)."""
         return dc.replace(self, groups=canonical_groups(sharing, self.shape))

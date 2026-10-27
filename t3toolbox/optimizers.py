@@ -206,6 +206,7 @@ def least_squares_problem(
         regularizer: typ.Any = None,                # optional, e.g. optimizers.IdentityRegularizer(λ)
         chunk_size:  typ.Any = 'auto',              # probe_derivatives 𝒥ᵀ memory chunk (docs/chunking.md)
         batch:       typ.Optional[int] = None,      # minibatch W (mc_sgd / adam), for chunk_size='auto'
+        hessian:     str = 'gauss_newton',          # the solve's mode, for chunk_size='auto': or 'exact'
 ) -> LeastSquaresSetup:  # .problem, .x0_cores, .rewrap
     """Build the backend least-squares problem from the frontend vocabulary -- the constructor the four
     optimizers use, public for scripts that drive the backend directly.
@@ -226,6 +227,12 @@ def least_squares_problem(
     uniform path needs a minimal-rank frame), so a frontend user never meets that requirement. A uniform
     ``rewrap`` carries the reduced point's ``shape`` + ``masks``. ``chunk_size`` and ``batch`` are as in
     the optimizers (:doc:`/chunking`).
+
+    ``hessian`` (``'gauss_newton'`` or ``'exact'``, case-insensitive) is the mode the problem will be
+    solved in. It does not fix the mode -- that is the local model's and the solver's own ``hessian``
+    argument -- it sizes ``chunk_size='auto'``: the chunk is a field of the sampling kind, fixed here, and
+    with the exact Hessian the same chunk also drives its two-hole assemblies, so it is sized for those
+    too. Pass the solver's value (:py:func:`newton_cg` does).
 
     Examples
     --------
@@ -257,6 +264,16 @@ def least_squares_problem(
     >>> bool(np.linalg.norm(x_opt.to_dense() - A.to_dense()) < 1e-6 * np.linalg.norm(A.to_dense()))
     True
 
+    For exact Newton pass the mode to both -- here on ``probe_derivatives``, which implements the exact
+    Hessian (the solver's trust region is its default step control there):
+
+    >>> pp = [np.random.randn(30, N) for N in (4, 5, 6)]
+    >>> esetup = optimizers.least_squares_problem(t3m.MANIFOLD, 'probe_derivatives', (ww, pp),
+    ...                                           A.probe_derivatives(ww, pp, 1), x0, order=1, hessian='exact')
+    >>> x_cores, stats = bopt.newton_cg(esetup.problem, esetup.x0_cores, max_newton=40, hessian='exact')
+    >>> stats['history'][0]['step_control'], stats['stop_reason']
+    ('trust_region', 'gradient')
+
     A uniform ``x0`` (with a uniform geometry) gives the packed problem; ``x0_cores`` is then the bare
     supercore pair:
 
@@ -276,6 +293,7 @@ def least_squares_problem(
     """
     kind = kind.lower()                                           # 'Probe', 'PROBE_DERIVATIVES', ... accepted
     _check_kind(kind, order)
+    hessian = bopt._check_hessian(hessian, 'least_squares_problem')   # structural, before any work
     if weight is not None and kind in ('apply', 'entries'):      # plain apply/entries: no axis to weight
         raise ValueError(f"the plain '{kind}' kind takes no residual weight (no mode or order axis); "
                          "per-mode weighting is defined for probe, per-order for the derivative kinds.")
@@ -284,7 +302,7 @@ def least_squares_problem(
     if isinstance(x0, ut3.UniformTuckerTensorTrain):
         geom_name, sharing_spec = _uniform_geometry_name(geometry)
         x0m = uf.uniform_minimal(x0, sharing=sharing_spec)   # transparent SHARED-minimal reduction (no-op if minimal)
-        cs = _resolve_chunk_size(chunk_size, kind, x0m, sample, order, batch)   # 'auto' -> balanced (probe only)
+        cs = _resolve_chunk_size(chunk_size, kind, x0m, sample, order, batch, hessian)   # 'auto' -> balanced
         problem = uf.uniform_least_squares_problem(geom_name, kind, x0m, sample, data, order, wm, regularizer,
                                                    chunk_size=cs, sharing=sharing_spec)
         init = (x0m.tucker_supercore, x0m.tt_supercore)  # optimizer state = the bare supercore pair
@@ -297,7 +315,7 @@ def least_squares_problem(
         if kind in _KIND:                                # plain kinds: only probe is weightable (per-mode)
             bk = bfit.probe_kind(wm) if kind == 'probe' and wm is not None else _KIND[kind]
         elif kind == 'probe_derivatives':                # the only derivative kind with a chunkable 𝒥ᵀ assembly
-            cs = _resolve_chunk_size(chunk_size, kind, x0, sample, order, batch)   # ragged -> None (no-op)
+            cs = _resolve_chunk_size(chunk_size, kind, x0, sample, order, batch, hessian)   # ragged -> None (no-op)
             bk = _DERIV_KIND[kind](order, wm, chunk_size=cs)
         else:
             bk = _DERIV_KIND[kind](order, wm)
@@ -424,14 +442,32 @@ def newton_cg(
         g0norm_cg:        typ.Optional[float] = None,  # explicit ‖g0‖ for the CG forcing term (wins for CG; > 0); default = the Newton reference
 
         cg_forcing_power: float = 0.5,   # η = min(0.5, (‖g‖/‖g0‖)**power); larger => tighter CG, fewer Newton steps
-        max_newton:       int   = 30,    # Newton-iteration cap
+        max_newton:       int   = 30,    # Newton-iteration cap (rejected trust-region trials included)
         gtol_rel:         float = 1e-8,  # stop when ‖g‖ <= gtol_rel * ‖g0‖
         cg_maxiter:       int   = 200,   # inner CG iteration cap per Newton step
-        c_armijo:         float = 1e-4,  # Armijo sufficient-decrease constant
+        c_armijo:         float = 1e-4,  # Armijo sufficient-decrease constant (line search only)
         on_line_search_failure: str = 'stop',  # Armijo exhausted: 'stop' = reject the step and terminate; 'accept' = take the last trial
+
+        hessian:          str = 'gauss_newton',               # or 'exact' (case-insensitive): the local model's Hessian
+        curvature_damping: typ.Optional[float] = None,        # exact only: lift damping, relative to ‖X‖; None = the default
+        step_control:     typ.Optional[str]   = None,         # None = 'line_search' (GN) / 'trust_region' (exact)
+        tr_radius0:       typ.Optional[float] = None,         # trust region only: Δ0 > 0; None = the GN Cauchy length
 ) -> typ.Tuple[Point, dict]:
-    """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse. Ragged or uniform
-    ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
+    """Inexact Riemannian Newton-CG with a line search or a trust region -- the manifold workhorse. Ragged or
+    uniform ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
+
+    ``hessian`` picks the local model's Hessian: ``'gauss_newton'`` (the default) or ``'exact'``, the exact
+    Riemannian Hessian -- the Gauss-Newton term plus the curvature term the Gauss-Newton model drops, which
+    gives the superlinear Newton tail on a nonzero-residual fit (q-quadratic with ``cg_forcing_power=1.0``)
+    at a few times the cost of a Gauss-Newton Hessian-apply. Its default step control is a trust region
+    (``step_control='trust_region'``: Steihaug-Toint CG, one trial retraction per step, accepted on the
+    model's predicted decrease), the Gauss-Newton one the Armijo line search; either combines with either.
+    ``tr_radius0`` is the initial trust radius and ``curvature_damping`` the exact Hessian's lift damping
+    (relative to ``‖X‖``; ``None`` = the geometry's default); each raises where it would have no effect. The
+    exact Hessian is implemented for ``probe_derivatives`` on the ragged ``MANIFOLD`` / ``COREWISE`` (and a
+    shared corewise) geometry so far; elsewhere ``hessian='exact'`` raises a structural error before the first
+    step. ``hessian`` also sizes ``chunk_size='auto'`` (:py:func:`least_squares_problem`). Details,
+    stop reasons and the trust-region rules: the backend :py:func:`t3toolbox.backend.optimizers.newton_cg`.
 
     Both stopping tests are relative to a reference ‖g0‖. By default (``g0_reference=None``) a manifold
     geometry uses the gradient norm at the **zero tensor of x0's ranks** -- the right scale after a
@@ -441,9 +477,10 @@ def newton_cg(
     steps (all detailed on the backend; ``docs/fitting_and_optimization.md`` §5).
 
     The solver options -- ``max_newton``, ``gtol_rel``, ``cg_maxiter``, ``c_armijo``,
-    ``on_line_search_failure``, the references above and ``cg_forcing_power`` -- are the backend's, with
-    the backend's defaults, passed straight through. They are explicit keywords (there is no ``**kwargs``
-    pass-through), so a misspelt option raises ``TypeError`` at the call, before the problem is built.
+    ``on_line_search_failure``, the references above, ``cg_forcing_power``, ``hessian``,
+    ``curvature_damping``, ``step_control`` and ``tr_radius0`` -- are the backend's, with the backend's
+    defaults, passed straight through. They are explicit keywords (there is no ``**kwargs`` pass-through),
+    so a misspelt option raises ``TypeError`` at the call, before the problem is built.
 
     ``verbose=True`` prints a per-iteration diagnostic block (objective / gradient, CG stats, line search,
     and the per-``(mode, order)`` relative-error table); pass ``val_sample`` / ``val_data`` to add a
@@ -488,6 +525,29 @@ def newton_cg(
     For a **ragged** fit pass ``t3m.MANIFOLD`` and a ``TuckerTensorTrain`` ``x0`` instead; the call is
     otherwise identical.
 
+    **The exact Hessian.** On a noisy ``probe_derivatives`` fit warm-started near the solution, the exact
+    Hessian (with its default trust region, and ``cg_forcing_power=1.0`` for the q-quadratic tail) reaches
+    the gradient test in a fraction of the steps Gauss-Newton takes (linear there, it ends here on its line
+    search, short of this tight ``gtol_rel``):
+
+    >>> import t3toolbox.manifold as t3m
+    >>> np.random.seed(0)
+    >>> shape, rng = (5, 5, 5), np.random.default_rng(0)
+    >>> ww, pp = ([rng.standard_normal((40, n)) for n in shape] for _ in range(2))
+    >>> target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
+    >>> data = [z + 0.01 * rng.standard_normal(z.shape) for z in target.probe_derivatives(ww, pp, 1)]
+    >>> x0, _ = optimizers.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data,
+    ...                              t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)), order=1,
+    ...                              max_newton=5)
+    >>> opts = dict(order=1, max_newton=40, g0_reference='warm_start', gtol_rel=1e-10)
+    >>> _, gn = optimizers.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data, x0, **opts)
+    >>> _, ex = optimizers.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data, x0, hessian='exact',
+    ...                              cg_forcing_power=1.0, **opts)
+    >>> ex['history'][0]['step_control'], ex['stop_reason']
+    ('trust_region', 'gradient')
+    >>> gn['newton_steps'] > 2 * ex['newton_steps']
+    True
+
     **Precision — jit runs in jax's default float32.** ``use_jit=True`` opts into jax world, whose default
     dtype is float32. Fit a small exact-rank tensor three ways; the giveaway throughout is the returned
     core's dtype. First set up the problem:
@@ -525,7 +585,9 @@ def newton_cg(
     >>> dtype_x64, ok_x64
     ('float64', True)
     """
-    setup = least_squares_problem(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size)
+    bopt._check_hessian(hessian, 'newton_cg')            # structural, named for the caller, before the setup work
+    setup = least_squares_problem(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size,
+                                  hessian=hessian)
     records = None
     if (val_sample is None) != (val_data is None):
         raise ValueError("newton_cg: pass val_sample and val_data together, or neither (val_sample=%s, "
@@ -541,7 +603,9 @@ def newton_cg(
                                     max_newton=max_newton, gtol_rel=gtol_rel, cg_maxiter=cg_maxiter,
                                     c_armijo=c_armijo, on_line_search_failure=on_line_search_failure,
                                     g0_reference=g0_reference, g0norm_newton=g0norm_newton, g0norm_cg=g0norm_cg,
-                                    cg_forcing_power=cg_forcing_power, use_jit=use_jit, callback=callback)
+                                    cg_forcing_power=cg_forcing_power, use_jit=use_jit, callback=callback,
+                                    hessian=hessian, curvature_damping=curvature_damping,
+                                    step_control=step_control, tr_radius0=tr_radius0)
     if records is not None:
         stats['diagnostics'] = records
     return setup.rewrap(x_cores), stats

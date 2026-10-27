@@ -1376,7 +1376,10 @@ class ManifoldGeometry:
 
         Forms ``base point + p`` and truncates back to ``p``'s frame ranks via the implicit T3-SVD
         (Algorithm 10). The current point is carried by ``p.frame`` (its orthonormal frame), so no
-        separate point argument is needed.
+        separate point argument is needed. It is **second order** on a minimal, numerically full-rank
+        frame (it agrees with the exponential map to second order), which is what makes the exact Hessian's
+        quadratic model (``fitting.LocalModel`` with ``hessian='exact'``) the objective's second derivative
+        along it.
 
         **Safe mode** requires ``p``'s frame to be **orthogonal** (raises otherwise); skipped under
         ``safety.unsafe()`` / a jax trace. ORTH only -- retract is gauge-invariant. Minimal rank is a

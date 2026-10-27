@@ -37,6 +37,7 @@ import t3toolbox.backend.probing as probing
 import t3toolbox.backend.sharing as bsharing
 import t3toolbox.shared_geometry as sgm
 import t3toolbox.fitting as fitting
+import t3toolbox.optimizers as topt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _jet_trs_twins as twins      # the binomial tensor: test-only (the package never contracts it)
@@ -773,6 +774,78 @@ class TestDispatch(unittest.TestCase):
         self.assertNotEqual(treedef, gn_treedef)                               # the mode is tree structure
         jax.block_until_ready(hvp(problem.local_model(x0), problem.local_model(x0).gradient))
         self.assertEqual(traces[0], 2)
+
+    def test_jit_exact_frontend_local_model(self):
+        """The frontend exact model (``fitting.probe_derivatives_model(..., hessian='exact')``) with the model AS
+        AN ARGUMENT: every exact action -- hessian, quadratic, curvature_hessian, curvature_quadratic, evaluate,
+        gradient -- jits to pure jax, ONCE across models rebuilt at new points with new dampings (the
+        ``curvature`` child's arrays are leaves); jit == eager; the mode is tree structure; and since the
+        frontend flatten partitions statics, a uniform model's mode sizes are aux, not traced leaves."""
+        import t3toolbox.uniform_manifold as ut3m
+        SH, TK, TT = STRUCT
+        W, ORDER = 9, 1
+        rng = np.random.default_rng(3)
+        ww = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
+        pp = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
+        target = t3.TuckerTensorTrain.randn(*STRUCT).to_jax()
+        data = [z + 0.1 for z in target.probe_derivatives(ww, pp, ORDER)]
+
+        def build(seed, cd, hessian='exact'):
+            np.random.seed(seed)
+            x = t3.TuckerTensorTrain.randn(*STRUCT).to_jax()
+            r = [z - y for z, y in zip(x.probe_derivatives(ww, pp, ORDER), data)]
+            if hessian != 'exact':
+                return fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, ORDER, r)
+            return fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, ORDER, r, hessian=hessian,
+                                                   curvature_damping=cd)
+
+        traces = [0]
+
+        @jax.jit
+        def every(m, p):
+            traces[0] += 1                                      # +1 per TRACE (compile), not per call
+            return (m.hessian(p), m.quadratic(p), m.curvature_hessian(p), m.curvature_quadratic(p),
+                    m.evaluate(p), m.gradient)
+
+        for seed, cd in ((1, None), (2, 1e-3), (3, 0.0)):
+            m = build(seed, cd)
+            self.assertTrue(m.is_exact)
+            p = t3m.MANIFOLD.randn(m.frame)
+            out = every(m, p)
+            jax.block_until_ready(out[1])
+        self.assertEqual(traces[0], 1, "the exact frontend LocalModel recompiled across points / dampings")
+        self._leaves_all_jax(out)
+        eager = m.hessian(p)
+        for a, b in zip(jax.tree_util.tree_leaves(eager.variations), jax.tree_util.tree_leaves(out[0].variations)):
+            self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-12 * max(norm(np.asarray(a)), 1.0))
+        self.assertNotEqual(jax.tree_util.tree_structure(m),
+                            jax.tree_util.tree_structure(build(1, None, 'gauss_newton')))   # the mode is structure
+        leaves = jax.tree_util.tree_leaves(m)
+        self.assertTrue(all(hasattr(l, 'dtype') and np.asarray(l).dtype != bool for l in leaves))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*STRUCT)).to_jax()
+        ur = [jnp.asarray(rng.standard_normal((ORDER + 1, W, n))) for n in SH]
+        um = fitting.probe_derivatives_model(ut3m.UNIFORM_MANIFOLD, ux, ww, pp, ORDER, ur)
+        uleaves = jax.tree_util.tree_leaves(um)
+        self.assertEqual([l for l in uleaves if not hasattr(l, 'dtype')], [], "a Python int traced as a leaf")
+        self.assertEqual([l for l in uleaves if np.asarray(l).dtype == bool], [], "a mask traced as a leaf")
+
+    def test_frontend_exact_newton_cg_use_jit(self):
+        """The frontend ``newton_cg(hessian='exact', use_jit=True)``: the keywords pass through, the inner
+        Steihaug CG jits with the exact model as loop state, and the result is jax-backed."""
+        SH, TK, TT = STRUCT
+        W, ORDER = 9, 1
+        rng = np.random.default_rng(4)
+        ww = [rng.standard_normal((W, n)) for n in SH]
+        pp = [rng.standard_normal((W, n)) for n in SH]
+        np.random.seed(4)
+        data = [np.asarray(z) + 0.01 for z in t3.TuckerTensorTrain.randn(*STRUCT).probe_derivatives(ww, pp, ORDER)]
+        x0 = t3.TuckerTensorTrain.randn(*STRUCT)
+        x, stats = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data, x0, order=ORDER, max_newton=3,
+                                  hessian='exact', curvature_damping=1e-5, use_jit=True)
+        self._leaves_all_jax(x)
+        self.assertEqual(stats['history'][0]['hessian'], 'exact')
+        self.assertEqual(stats['history'][0]['step_control'], 'trust_region')
+        self.assertEqual(len(stats['losses']), len(stats['history']))
 
     def test_cg_tolerance_is_not_stale(self):
         """The CG tolerance changes every Newton iteration (it is the forcing term). A `lax.while_loop`
