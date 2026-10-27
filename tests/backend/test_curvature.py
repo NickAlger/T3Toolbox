@@ -12,6 +12,13 @@
 * **T3 lift adjoint** -- ``<L v, y> == <v, L^T y>`` per ``K + C`` element, at several dampings.
 * **T4 damping** -- ``eps -> 0`` continuity; finite at a zero-padded restart; zero at the zero point
   except the last TT slot; the filters themselves.
+* **T5 two-holes (T3-T3)** -- ``t3_inner_product_corewise_hessian`` against the block-sum oracle, the dense
+  multilinear Hessian and a finite difference of the one-hole; the one-hole against the dense gradient;
+  the tangent zippers against finite differences.
+* **T6 symmetry** -- ``<a, K b> = <b, K a>`` per ``C`` element (a ``K``-stack Gram matrix is symmetric).
+* **T20 flat slots, backend half** -- at maximal rank and at ``d = 1`` the normal space is trivial, so the
+  T3-T3 term at ``Z = P_X R`` cancels the dense ``K_R`` on a lifted tangent; and at a generic point the
+  normal curvature ``K_{R - P_X R}`` annihilates vertical (gauge) directions (the Lagrangian null space).
 
 Stacks: none, ``C``, ``K``, ``K + C`` and multi-axis ``K = (2, 2)``, ``C = (2, 3)``. Per-test seeded.
 """
@@ -26,6 +33,10 @@ import t3toolbox.backend.fv_conversions as fvc
 import t3toolbox.backend.fv_operations as fvo
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.sharing as sharing
+import t3toolbox.backend.t3_constructors as t3k
+import t3toolbox.backend.t3_conversions as t3c
+import t3toolbox.backend.t3_linalg as t3la
+import t3toolbox.backend.tt_operations as tto
 import t3toolbox.backend.tv_operations as tv
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -368,6 +379,263 @@ class TestDamping(unittest.TestCase):
             self.assertTrue(np.all(np.isfinite(Ap)))
         Zp, sZ = linalg.damped_pseudo_inverse(np.zeros((3, 2)), None)               # the zero matrix
         self.assertTrue(np.array_equal(Zp, np.zeros((2, 3))) and np.array_equal(sZ, np.zeros(2)))
+
+
+
+# ---------------------------------------------------------------------------------------------------
+# S2: the T3-T3 two-hole
+# ---------------------------------------------------------------------------------------------------
+# (theta structure, z structure): d = 1..4, rank-1 bonds, and an UNSQUASHED leading/trailing bond
+_T3T3_CASES = {
+    'd1':         (((5,), (3,), (1, 1)),                        ((5,), (2,), (1, 1))),
+    'd2':         (((5, 6), (3, 3), (1, 3, 1)),                 ((5, 6), (2, 4), (1, 2, 1))),
+    'd3':         ((_MINIMAL),                                  ((5, 6, 7), (3, 3, 3), (1, 3, 3, 1))),
+    'd4':         ((_D4),                                       ((4, 5, 4, 5), (3, 2, 2, 3), (1, 3, 2, 3, 1))),
+    'rank1':      ((_RANK1),                                    ((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))),
+    'unsquashed': (((5, 6, 7), (2, 3, 2), (2, 2, 2, 3)),        ((5, 6, 7), (3, 2, 3), (2, 3, 2, 2))),
+}
+
+
+def _directions(theta, K, rng):
+    """Random raw directions at theta: the tangent stack K prepended to theta's own core shapes (C included)."""
+    U, G = theta
+    return (tuple(rng.standard_normal(K + u.shape) for u in U), tuple(rng.standard_normal(K + g.shape) for g in G))
+
+
+def _norm_flat(a):
+    return float(np.sqrt(sum(np.sum(np.asarray(c) ** 2) for c in a[0] + a[1])))
+
+
+def _relerr_tree(a, b):
+    num = float(np.sqrt(sum(np.sum((np.asarray(p) - np.asarray(q)) ** 2) for p, q in zip(a[0] + a[1], b[0] + b[1]))))
+    return num / max(_norm_flat(b), 1e-300)
+
+
+class TestTangentZipper(unittest.TestCase):
+    """The tangent zippers: the product rule of the zipper, both directions, both representations."""
+
+    def setUp(self):
+        np.random.seed(5)
+
+    def test_against_finite_differences_and_the_polymorphic_path(self):
+        rng = np.random.default_rng(5)
+        shapes_A, shapes_B = [(1, 3, 2), (2, 4, 3), (3, 2, 2), (2, 3, 1)], [(1, 3, 3), (3, 4, 2), (2, 2, 2), (2, 3, 1)]
+        for K, C in [((), ()), ((2,), ()), ((2,), (3,)), ((2, 2), (2, 3))]:
+            with self.subTest(K=K, C=C):
+                A = tuple(rng.standard_normal(C + s) for s in shapes_A)
+                B = tuple(rng.standard_normal(C + s) for s in shapes_B)
+                Ad = tuple(rng.standard_normal(K + C + s) for s in shapes_A)
+                Bd = tuple(rng.standard_normal(K + C + s) for s in shapes_B)
+                for name, zipper, tangent in (
+                        ('left_to_right', tto.tt_zipper_left_to_right, tto.tt_zipper_tangent_left_to_right),
+                        ('right_to_left', tto.tt_zipper_right_to_left, tto.tt_zipper_tangent_right_to_left)):
+                    Zd = tangent(A, B, Ad, Bd)
+                    self.assertEqual(len(Zd), 5)
+                    Zd2 = tangent(A, B, Ad, Bd, zippers=zipper(A, B))          # precomputed zippers
+                    self.assertTrue(all(np.array_equal(p, q) for p, q in zip(Zd, Zd2)))
+                    edge = 0 if name == 'left_to_right' else -1
+                    self.assertTrue(np.all(Zd[edge] == 0.0))                   # the boundary does not move
+                    for kk in np.ndindex(*K):
+                        h = 1e-4
+                        at = lambda t: zipper([a + t * ad[kk] for a, ad in zip(A, Ad)],
+                                              [b + t * bd[kk] for b, bd in zip(B, Bd)])
+                        for z, p, m in zip(Zd, at(h), at(-h)):
+                            fd = (p - m) / (2 * h)
+                            self.assertLess(np.linalg.norm(z[kk] - fd), 1e-6 * max(np.linalg.norm(fd), 1.0), name)
+        # uniform supercores (equal core shapes) give the ragged answer
+        A = tuple(rng.standard_normal((2, 3, 2)) for _ in range(3))
+        B = tuple(rng.standard_normal((2, 3, 2)) for _ in range(3))
+        Ad = tuple(rng.standard_normal((4, 2, 3, 2)) for _ in range(3))
+        Bd = tuple(rng.standard_normal((4, 2, 3, 2)) for _ in range(3))
+        for tangent in (tto.tt_zipper_tangent_left_to_right, tto.tt_zipper_tangent_right_to_left):
+            ragged = tangent(A, B, Ad, Bd)
+            uniform = tangent(np.stack(A), np.stack(B), np.stack(Ad), np.stack(Bd))
+            self.assertTrue(all(np.allclose(p, q, rtol=1e-14, atol=1e-14) for p, q in zip(ragged, uniform)))
+
+
+class TestInnerProductTwoHole(unittest.TestCase):
+    """T5 (T3-T3 part): the one-hole and the two-hole of theta -> <z, Phi(theta)>."""
+
+    def setUp(self):
+        np.random.seed(6)
+
+    def test_one_hole_against_the_dense_gradient(self):
+        for name, (th_struct, z_struct) in _T3T3_CASES.items():
+            with self.subTest(case=name):
+                theta = t3k.t3_corewise_randn(*th_struct)
+                z = t3k.t3_corewise_randn(*z_struct)
+                got = t3la.t3_inner_product_corewise_transpose(z, theta)
+                ref = oracles.dense_inner_product_gradient(np.asarray(t3c.t3_to_dense(z)), theta)
+                self.assertLess(_relerr_tree(got, ref), 1e-13)
+
+    def test_two_hole_against_the_block_sum_oracle(self):
+        rng = np.random.default_rng(6)
+        for name, (th_struct, z_struct) in _T3T3_CASES.items():
+            for K, C in _STACKS:
+                with self.subTest(case=name, K=K, C=C):
+                    theta = t3k.t3_corewise_randn(*th_struct, stack_shape=C)
+                    z = t3k.t3_corewise_randn(*z_struct, stack_shape=C)
+                    dirs = _directions(theta, K, rng)
+                    got = t3la.t3_inner_product_corewise_hessian(z, theta, dirs)
+                    for blk, ref_c in zip(got[0] + got[1], dirs[0] + dirs[1]):
+                        self.assertEqual(blk.shape, ref_c.shape)
+                    for kk in np.ndindex(*K):
+                        for cc in np.ndindex(*C):
+                            th_c, z_c = _elem(theta, cc), _elem(z, cc)
+                            dir_kc = _elem(dirs, kk + cc)
+                            ref = oracles.blocksum(
+                                t3la.t3_inner_product_corewise_transpose(z_c, oracles.doubled(th_c, dir_kc)), th_c)
+                            self.assertLess(_relerr_tree(_elem(got, kk + cc), ref), 1e-13)
+
+    def test_two_hole_against_the_dense_hessian_and_finite_differences(self):
+        rng = np.random.default_rng(7)
+        for name, (th_struct, z_struct) in _T3T3_CASES.items():
+            with self.subTest(case=name):
+                theta = t3k.t3_corewise_randn(*th_struct)
+                z = t3k.t3_corewise_randn(*z_struct)
+                dirs = _directions(theta, (), rng)
+                got = t3la.t3_inner_product_corewise_hessian(z, theta, dirs)
+                ref = oracles.dense_inner_product_hessian(np.asarray(t3c.t3_to_dense(z)), theta, dirs)
+                self.assertLess(_relerr_tree(got, ref), 1e-12)
+                # the derivative of the one-hole: a polynomial along the line, central difference O(h^2)
+                h = 1e-4
+                shift = lambda t: cw.corewise_add(theta, cw.corewise_scale(dirs, t))
+                fd = cw.corewise_scale(cw.corewise_sub(t3la.t3_inner_product_corewise_transpose(z, shift(h)),
+                                                       t3la.t3_inner_product_corewise_transpose(z, shift(-h))),
+                                       0.5 / h)
+                self.assertLess(_relerr_tree(got, fd), 1e-6)
+
+    def test_from_sweep_is_the_one_shot_and_is_reusable(self):
+        rng = np.random.default_rng(8)
+        theta = t3k.t3_corewise_randn(*_D4, stack_shape=(2,))
+        z = t3k.t3_corewise_randn((4, 5, 4, 5), (3, 2, 2, 3), (1, 3, 2, 3, 1), stack_shape=(2,))
+        sweep = t3la.t3_precompute_inner_product_sweep(z, theta)
+        BU, G2, ZL, ZR, env = sweep
+        self.assertEqual(tuple(len(p) for p in sweep), (4, 4, 4, 4, 4))
+        self.assertEqual(env[1].shape, (2,) + theta[1][1].shape[-3:-2] + z[0][1].shape[-2:-1] + theta[1][1].shape[-1:])
+        # the sweep IS the gradient's intermediates: dG_i = env_i x_2 BU_i
+        grad = t3la.t3_inner_product_corewise_transpose(z, theta)
+        for i in range(4):
+            self.assertTrue(np.allclose(np.einsum('...azb,...zu->...aub', env[i], BU[i]), grad[1][i]))
+        for K in [(), (3,)]:
+            dirs = _directions(theta, K, rng)
+            one = t3la.t3_inner_product_corewise_hessian(z, theta, dirs)
+            two = t3la.t3_inner_product_corewise_hessian_from_sweep(z, theta, dirs, sweep)
+            self.assertTrue(all(np.array_equal(p, q) for p, q in zip(one[0] + one[1], two[0] + two[1])))
+
+    def test_symmetry(self):
+        """T6: the K-stack Gram matrix <dir_k, K dir_l> is symmetric, per C element."""
+        rng = np.random.default_rng(9)
+        for name, (th_struct, z_struct) in _T3T3_CASES.items():
+            for C in [(), (2,), (2, 3)]:
+                with self.subTest(case=name, C=C):
+                    theta = t3k.t3_corewise_randn(*th_struct, stack_shape=C)
+                    z = t3k.t3_corewise_randn(*z_struct, stack_shape=C)
+                    n_dir = 4
+                    dirs = _directions(theta, (n_dir,), rng)
+                    Kd = t3la.t3_inner_product_corewise_hessian(z, theta, dirs)
+                    c = 'abcdef'[:len(C)]
+                    gram = sum(np.einsum('k%sx,l%sx->kl%s' % (c, c, c),                # (k, l) + C
+                                         a.reshape((n_dir,) + C + (-1,)), b.reshape((n_dir,) + C + (-1,)))
+                               for a, b in zip(dirs[0] + dirs[1], Kd[0] + Kd[1]))
+                    asym = np.abs(gram - np.swapaxes(gram, 0, 1)).max()
+                    self.assertLess(asym, 1e-12 * np.abs(gram).max())
+
+
+class TestFlatSlotsAndVerticalDirections(unittest.TestCase):
+    """T20 (backend half) and the Lagrangian null space (F7), through the lift and the T3-T3 term against
+    the dense multilinear Hessian of an ambient R (standing in for A^T r)."""
+
+    def setUp(self):
+        np.random.seed(10)
+
+    @staticmethod
+    def _setup(struct, rng):
+        x = t3.TuckerTensorTrain.randn(*struct)
+        frame, _ = fvc.t3_orthogonal_representations(x.data)
+        theta = (tuple(frame[0]), tuple(frame[2]))                 # the frame's own raw cores (U, L)
+        R = rng.standard_normal(struct[0])                         # an ambient tensor (A^T r)
+        g = tv.tv_project_dense_onto_tangent_space(frame, R)       # P_X R, gauged coordinates
+        Zg = tv.tv_to_t3(frame, g)                                 # ... as a doubled-rank T3
+        return frame, theta, R, Zg
+
+    def test_normal_curvature_vanishes_on_flat_structures(self):
+        rng = np.random.default_rng(10)
+        flat = {'maximal': _MAXIMAL, 'maximal_d4': ((2, 2, 2, 2), (2, 2, 2, 2), (1, 2, 4, 2, 1)),
+                'd1': _D1, 'd1_rank1': ((7,), (1,), (1, 1))}
+        for name, struct in flat.items():
+            with self.subTest(structure=name):
+                frame, theta, R, Zg = self._setup(struct, rng)
+                self.assertLess(np.linalg.norm(tv.tv_to_dense(frame, tv.tv_project_dense_onto_tangent_space(frame, R)) - R),
+                                1e-12 * np.linalg.norm(R))          # flat: the tangent space is everything
+                lf = fvo.fv_lift_factors(frame, 0.0)
+                p = tv.tv_orthogonal_gauge_projection(frame, _random_variations(frame, ()))
+                theta_hat = tv.tv_corewise_lift(frame, p, lf)
+                K_R = oracles.dense_inner_product_hessian(R, theta, theta_hat)
+                K_g = t3la.t3_inner_product_corewise_hessian(Zg, theta, theta_hat)
+                K_N = cw.corewise_sub(K_R, K_g)
+                self.assertLess(_norm_flat(K_N), 1e-12 * _norm_flat(K_R))
+                LT_KN = tv.tv_corewise_lift_transpose(frame, K_N, lf)
+                LT_KR = tv.tv_corewise_lift_transpose(frame, K_R, lf)
+                self.assertLess(_norm_flat(LT_KN), 1e-12 * _norm_flat(LT_KR))
+
+    def test_normal_curvature_annihilates_vertical_directions(self):
+        rng = np.random.default_rng(11)
+        for struct in (_MINIMAL, _D4, _D2):
+            with self.subTest(shape=struct[0]):
+                frame, theta, R, Zg = self._setup(struct, rng)
+                U, O, L, Rr = frame
+                d = len(U)
+                # (a) a frame-coordinate vertical p (E p = 0), lifted; (b) a raw gauge direction
+                VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(O, U)]
+                HH = [np.zeros(h) for h in fvo.fv_variation_shapes(frame)[1]]
+                for i in range(d):
+                    X = rng.standard_normal((O[i].shape[-2], U[i].shape[-2]))
+                    VV[i] += X @ U[i]
+                    HH[i] -= np.einsum('aib,ij->ajb', O[i], X)
+                for i in range(d - 1):
+                    Y = rng.standard_normal((L[i].shape[-1], Rr[i + 1].shape[-3]))
+                    HH[i] += np.einsum('iaj,jk->iak', L[i], Y)
+                    HH[i + 1] -= np.einsum('jk,kbl->jbl', Y, Rr[i + 1])
+                p_vert = (tuple(VV), tuple(HH))
+                self.assertLess(np.linalg.norm(tv.tv_to_dense(frame, p_vert)), 1e-12 * _norm_flat(p_vert))
+                lifted = tv.tv_corewise_lift(frame, p_vert, fvo.fv_lift_factors(frame, 0.0))
+                for which, theta_hat in (('lifted', lifted), ('raw gauge', oracles.vertical_direction(theta, rng))):
+                    corewise_frame = fvc.t3_corewise_frame(theta)
+                    self.assertLess(np.linalg.norm(tv.tv_to_dense(corewise_frame, theta_hat)),
+                                    1e-12 * _norm_flat(theta_hat), which)       # DPhi[theta_hat] = 0
+                    K_R = oracles.dense_inner_product_hessian(R, theta, theta_hat)
+                    K_g = t3la.t3_inner_product_corewise_hessian(Zg, theta, theta_hat)
+                    self.assertGreater(_norm_flat(K_R), 1e-3)                    # not trivially zero
+                    self.assertLess(_norm_flat(cw.corewise_sub(K_R, K_g)), 1e-11 * _norm_flat(K_R), which)
+
+    def test_dense_lagrangian_hessian_has_the_vertical_null_space(self):
+        """The helper's full Lagrangian Hessian (validating the oracle itself): at G = P_X A^T r the
+        vertical directions are null; at G = 0 (the plain Hessian of f o Phi) they are not."""
+        rng = np.random.default_rng(12)
+        struct = ((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+        x = t3.TuckerTensorTrain.randn(*struct)
+        frame, _ = fvc.t3_orthogonal_representations(x.data)
+        theta = (tuple(frame[0]), tuple(frame[2]))
+        A = rng.standard_normal((40, 60))
+        y = rng.standard_normal(40)
+        r = A @ np.asarray(t3c.t3_to_dense(theta)).ravel() - y
+        Atr = (A.T @ r).reshape(struct[0])
+        G = tv.tv_to_dense(frame, tv.tv_project_dense_onto_tangent_space(frame, Atr))
+        theta_vert = oracles.vertical_direction(theta, rng)
+        lag = oracles.dense_lagrangian_hessian(A, y, theta, theta_vert, G)
+        plain = oracles.dense_lagrangian_hessian(A, y, theta, theta_vert, np.zeros(struct[0]))
+        self.assertGreater(_norm_flat(plain), 1e-3)
+        self.assertLess(_norm_flat(lag), 1e-11 * _norm_flat(plain))
+        # and its curvature part is the T3-T3 term at Z = P_X A^T r beside the dense one at A^T r
+        Zg = tv.tv_to_t3(frame, tv.tv_project_dense_onto_tangent_space(frame, Atr))
+        a = _directions(theta, (), rng)
+        J = oracles.dense_core_jacobian(theta)
+        gn = J.T @ (A.T @ (A @ (J @ oracles.flatten(a))))
+        curv = oracles.flatten(cw.corewise_sub(oracles.dense_inner_product_hessian(Atr, theta, a),
+                                               t3la.t3_inner_product_corewise_hessian(Zg, theta, a)))
+        full = oracles.flatten(oracles.dense_lagrangian_hessian(A, y, theta, a, G))
+        self.assertLess(np.linalg.norm(gn + curv - full), 1e-11 * np.linalg.norm(full))
 
 
 if __name__ == '__main__':

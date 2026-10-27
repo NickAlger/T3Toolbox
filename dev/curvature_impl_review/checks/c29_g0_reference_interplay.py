@@ -11,7 +11,7 @@ Measures:
 import sys, os, math, io, contextlib
 sys.path.insert(0, __import__("os").getcwd()); sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 SCR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-src = open(os.path.join(SCR, 'check_restart_tr2.py')).read()
+src = open(os.path.join(SCR, 'critic_checks', 'check_restart_tr2.py')).read()
 ns = {}
 exec(compile(src[:src.index('def scenario(')], 'check_restart_tr2_defs', 'exec'), ns)
 np, t3, t3m, topt, bopt, bgeo, bfit, cw, tv, fvc = (ns[k] for k in ('np', 't3', 't3m', 'topt', 'bopt', 'bgeo', 'bfit', 'cw', 'tv', 'fvc'))

@@ -5,7 +5,7 @@ import sys; sys.path.insert(0, __import__("os").getcwd())
 import numpy as np
 import t3toolbox.backend.fv_conversions as fvc
 import t3toolbox.backend.tt_operations as tto
-import t3toolbox.backend.tv_operations as tv
+import t3toolbox.backend.tv_operations as tv; import t3toolbox.backend.t3_linalg as t3_linalg
 import t3toolbox.backend.apply as ap
 import t3toolbox.backend.t3_conversions as t3c
 from t3toolbox.backend.common import get_backend
@@ -64,10 +64,10 @@ def ungauged_inner_grad(th, z):
     ztk, ztt = z
     ztt = tto.tt_squash_tails(ztt)
     _, xmap, _ = get_backend(False, False)
-    (o2,) = xmap(tv._project_t3_rebasis_step, (ztt, ztk, up))
+    (o2,) = xmap(t3_linalg._inner_product_rebasis_step, (ztt, ztk, up))
     zl = tto.tt_zipper_left_to_right(o2[:-1], left[:-1])
     zr = tto.tt_zipper_right_to_left(o2[1:], right[1:])
-    dG, dB = xmap(tv._project_t3_variations_step, (zl, zr, ztt, ztk, down, up))
+    dG, dB = xmap(t3_linalg._inner_product_variations_step, (zl, zr, ztt, ztk, down, up))
     return (tuple(dB), tuple(dG))
 
 

@@ -451,6 +451,45 @@ class TestDispatch(unittest.TestCase):
                 self._leaves_all_jax((out_lf, out_lift))
         self.assertEqual(traces[0], 1, "the lift recompiled on a new frame or damping")
 
+    # ---------------------------------------------------- jit bucket: the exact Hessian's T3-T3 term
+    def test_jit_inner_product_two_hole(self):
+        """The inner product's core gradient, its sweep and two-hole Hessian (one-shot and from the sweep),
+        the tangent zippers (ragged and uniform-scan), and the projection that now delegates to the moved
+        kernel, all jit to pure jax; a new (z, theta) reuses the from-sweep compile; d = 1 jits too."""
+        import t3toolbox.backend.t3_linalg as t3la
+        import t3toolbox.backend.tt_operations as tto
+        rnd = lambda *s: jnp.asarray(np.random.randn(*s))
+        theta = (tuple(self.x.tucker_cores), tuple(self.x.tt_cores))
+        z = (tuple(self.x_other.tucker_cores), tuple(self.x_other.tt_cores))
+        dirs = (tuple(rnd(3, *U.shape) for U in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
+        self.assert_jit_jax(t3la.t3_inner_product_corewise_transpose, z, theta)
+        self.assert_jit_jax(t3la.t3_precompute_inner_product_sweep, z, theta)
+        self.assert_jit_jax(t3la.t3_inner_product_corewise_hessian, z, theta, dirs)
+        self.assert_jit_jax(lambda zz, th: tops.tv_project_t3_onto_tangent_space(self.frame.data, zz), z, theta)
+        A = tuple(rnd(2, 3, 2) for _ in range(3))
+        Ad = tuple(rnd(4, 2, 3, 2) for _ in range(3))
+        for tangent in (tto.tt_zipper_tangent_left_to_right, tto.tt_zipper_tangent_right_to_left):
+            self.assert_jit_jax(tangent, A, A, Ad, Ad)                                    # ragged
+            self.assert_jit_jax(lambda a, ad: tangent(a, a, ad, ad), jnp.stack(A), jnp.stack(Ad))  # uniform scan
+        d1_theta = ((rnd(3, 5),), (rnd(1, 3, 1),))
+        d1_z = ((rnd(2, 5),), (rnd(1, 2, 1),))
+        self.assert_jit_jax(t3la.t3_inner_product_corewise_hessian, d1_z, d1_theta,
+                            ((rnd(2, 3, 5),), (rnd(2, 1, 3, 1),)))
+
+        traces = [0]
+
+        @jax.jit
+        def two_hole(zz, th, dd, sweep):
+            traces[0] += 1
+            return t3la.t3_inner_product_corewise_hessian_from_sweep(zz, th, dd, sweep)
+
+        other_theta = t3.TuckerTensorTrain.randn(*STRUCT).to_jax()
+        other_theta = (tuple(other_theta.tucker_cores), tuple(other_theta.tt_cores))
+        for th in (theta, other_theta):
+            out = two_hole(z, th, dirs, t3la.t3_precompute_inner_product_sweep(z, th))
+            self._leaves_all_jax(out)
+        self.assertEqual(traces[0], 1, "the two-hole recompiled on a new point")
+
     def test_jit_shared_geometry_fitting(self):
         # a SharedGeometry model: the wrapper is value-hashed aux, the companion a leaf; the
         # matvec (tied projections on both sides) compiles clean

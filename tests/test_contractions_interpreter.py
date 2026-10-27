@@ -203,6 +203,22 @@ HISTORICAL = {
     # ... the frame's center factors (C only): H = L x3 T, S^T = <O, H>
     'Caib,Cbc->Caic': '',
     'Caxb,Caub->Cxu': '',
+    # ... the tangent zipper's three product-rule terms (carry, A-direction, B-direction)
+    'KCij,Ciak,Cjal->KCkl': '',
+    'Cij,KCiak,Cjal->KCkl': '',
+    'Cij,Ciak,KCjal->KCkl': '',
+    # ... the T3-T3 sweep (C only: BU, G2, the one-hole environment) and its dotted two-hole terms
+    'Czn,Cun->Czu': '',
+    'Cazb,Czu->Caub': '',
+    'Cxa,Cxzc,Ccb->Cazb': '',
+    'Czn,KCun->KCzu': '',
+    'Cazb,KCzu->KCaub': '',
+    'KCazb,Czu->KCaub': '',
+    'KCxa,Cxzc,Ccb->KCazb': '',
+    'Cxa,Cxzc,KCcb->KCazb': '',
+    'KCazb,Caub->KCzu': '',
+    'Cazb,KCaub->KCzu': '',
+    'KCzu,Czn->KCun': '',
 }
 
 SUBS_RE = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')

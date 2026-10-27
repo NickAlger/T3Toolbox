@@ -5,7 +5,7 @@ ranks reach the same objective (and, where both converge, the same tensor up to 
 import sys, os, math
 sys.path.insert(0, __import__("os").getcwd())
 SCR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-src = open(os.path.join(SCR, 'check_restart_tr2.py')).read(); ns = {}
+src = open(os.path.join(SCR, 'critic_checks', 'check_restart_tr2.py')).read(); ns = {}
 exec(compile(src[:src.index('def scenario(')], 'check_restart_tr2_defs', 'exec'), ns)
 np, t3, bopt, bgeo, bfit, fvc, run = (ns[k] for k in ('np', 't3', 'bopt', 'bgeo', 'bfit', 'fvc', 'run'))
 cw = ns['cw']

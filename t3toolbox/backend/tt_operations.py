@@ -14,6 +14,7 @@ import numpy as np
 import typing as typ
 
 from t3toolbox.backend.common import *
+import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.linalg as linalg
 
 __all__ = [
@@ -22,6 +23,8 @@ __all__ = [
     'tt_change_core_shapes',
     'tt_zipper_left_to_right',
     'tt_zipper_right_to_left',
+    'tt_zipper_tangent_left_to_right',
+    'tt_zipper_tangent_right_to_left',
 ]
 
 
@@ -197,3 +200,97 @@ def tt_zipper_right_to_left(
     :py:func:`tt_reverse` (ragged core tuple or uniform supercore)."""
     rev = tt_zipper_left_to_right(tt_reverse(coresA), tt_reverse(coresB))
     return rev[::-1]
+
+
+def _tt_zipper_tangent_step(
+        Zdot:   NDArray,                    # carry: K+C+(rAi, rBi)
+        data:   typ.Tuple[NDArray, NDArray, NDArray,
+                          NDArray, NDArray],  # (Z_i, A_i, B_i, Adot_i, Bdot_i): C ; C ; C ; K+C ; K+C
+) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:  # (next carry, (Zdot,))
+    '''One core of :py:func:`tt_zipper_tangent_left_to_right`: the product rule of
+    ``Z_(i+1) = Z_i A_i B_i`` (carry, A-direction and B-direction terms). Closure-free scan body --
+    ``docs/contributor/scan_body_principles.md`` (``contract`` dispatches on its own operands).'''
+    Z, A, B, Adot, Bdot = data
+    Zdot_next = (contractions.contract('KCij,Ciak,Cjal->KCkl', Zdot, A, B)
+                 + contractions.contract('Cij,KCiak,Cjal->KCkl', Z, Adot, B)
+                 + contractions.contract('Cij,Ciak,KCjal->KCkl', Z, A, Bdot))
+    return Zdot_next, (Zdot,)
+
+
+def tt_zipper_tangent_left_to_right(
+        coresA:     typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=C+(rAi, ni, rA(i+1))
+        coresB:     typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=C+(rBi, ni, rB(i+1))
+        coresA_dot: typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=K+C+(rAi, ni, rA(i+1))
+        coresB_dot: typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=K+C+(rBi, ni, rB(i+1))
+
+        zippers:    typ.Optional[typ.Sequence[NDArray]] = None,  # len=d+1, elm_shape=C+(rAi, rBi); None -> computed
+) -> typ.Tuple[NDArray, ...]:  # zipper tangents, len=d+1, elm_shape=K+C+(rAi, rBi); the first is 0
+    """The directional derivative of :py:func:`tt_zipper_left_to_right` along both chains.
+
+    With ``Z = tt_zipper_left_to_right(A, B)`` (``Z_0`` the boundary ones, ``Z_(i+1) = Z_i A_i B_i``), this
+    returns ``Zdot_i = d/ds Z_i(A + s Adot, B + s Bdot)`` at ``s = 0``: ``Zdot_0 = 0`` and, by the product
+    rule, ``Zdot_(i+1) = Zdot_i A_i B_i + Z_i Adot_i B_i + Z_i A_i Bdot_i`` -- one scan, three grouped terms
+    per core. It is the "exactly one core replaced" companion of a zipper that a two-hole (second
+    directional derivative) sweep carries beside the one-hole environment.
+
+    Batching: the chains and the zippers carry ``C``; the two direction chains carry the same ``K + C``
+    (a stack of directions at one point), which the tangents inherit. ``zippers`` may be passed when the
+    caller already holds them (a precomputed sweep); ``None`` computes them.
+
+    **Polymorphic over the representation**, like its parent: a ragged core tuple or a uniform TT
+    supercore (``(d,)+stack+(r, n, r)``). Named like its parent too -- the chain helpers keep descriptive
+    names (a cataloged exception, ``docs/naming_conventions.md``).
+
+    Examples
+    --------
+    The tangent agrees with a central difference of the zipper (to the difference's ``O(h^2)``):
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.tt_operations as tto
+    >>> np.random.seed(0)
+    >>> shapes_A, shapes_B = [(1, 3, 2), (2, 4, 3), (3, 2, 1)], [(1, 3, 3), (3, 4, 2), (2, 2, 1)]
+    >>> A = tuple(np.random.randn(*s) for s in shapes_A)
+    >>> B = tuple(np.random.randn(*s) for s in shapes_B)
+    >>> Ad = tuple(np.random.randn(5, *s) for s in shapes_A)              # K = (5,) directions
+    >>> Bd = tuple(np.random.randn(5, *s) for s in shapes_B)
+    >>> Zdot = tto.tt_zipper_tangent_left_to_right(A, B, Ad, Bd)
+    >>> print([z.shape for z in Zdot])
+    [(5, 1, 1), (5, 2, 3), (5, 3, 2), (5, 1, 1)]
+    >>> h = 1e-3
+    >>> zipper_at = lambda t: tto.tt_zipper_left_to_right([a + t * ad[0] for a, ad in zip(A, Ad)],
+    ...                                                   [b + t * bd[0] for b, bd in zip(B, Bd)])
+    >>> print(all(np.allclose(zd[0], (p - m) / (2 * h))
+    ...           for zd, p, m in zip(Zdot, zipper_at(h), zipper_at(-h))))
+    True
+    """
+    is_uniform = is_ndarray(coresA)   # uniform: ONE supercore; ragged: a tuple of cores
+    use_jax = tree_contains_jax((coresA, coresB, coresA_dot, coresB_dot, zippers))
+    xnp, _, xscan = get_backend(is_uniform, use_jax)
+
+    if zippers is None:
+        zippers = tt_zipper_left_to_right(coresA, coresB)
+    d = len(coresA)
+    zippers_in = xnp.stack(tuple(zippers[:d])) if is_uniform else tuple(zippers[:d])
+
+    ss = np.broadcast_shapes(coresA_dot[0].shape[:-3], coresB_dot[0].shape[:-3])   # K + C
+    Zdot0 = xnp.zeros(ss + (coresA[0].shape[-3], coresB[0].shape[-3]))
+    Zdot_f, (ZZdot_first,) = xscan(_tt_zipper_tangent_step, Zdot0,
+                                   (zippers_in, coresA, coresB, coresA_dot, coresB_dot))
+    return tuple(ZZdot_first) + (Zdot_f,)
+
+
+def tt_zipper_tangent_right_to_left(
+        coresA:     typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=C+(rAi, ni, rA(i+1))
+        coresB:     typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=C+(rBi, ni, rB(i+1))
+        coresA_dot: typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=K+C+(rAi, ni, rA(i+1))
+        coresB_dot: typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=K+C+(rBi, ni, rB(i+1))
+
+        zippers:    typ.Optional[typ.Sequence[NDArray]] = None,  # len=d+1, elm_shape=C+(rA(i+1), rB(i+1)); None -> computed
+) -> typ.Tuple[NDArray, ...]:  # zipper tangents, len=d+1, elm_shape=K+C+(rA(i+1), rB(i+1)); the last is 0
+    """As :py:func:`tt_zipper_tangent_left_to_right`, for :py:func:`tt_zipper_right_to_left` (``zippers``
+    are that function's output). Polymorphic via :py:func:`tt_reverse`."""
+    rev = tt_reverse
+    rev_zippers = None if zippers is None else tuple(zippers)[::-1]
+    out = tt_zipper_tangent_left_to_right(rev(coresA), rev(coresB), rev(coresA_dot), rev(coresB_dot),
+                                          zippers=rev_zippers)
+    return out[::-1]

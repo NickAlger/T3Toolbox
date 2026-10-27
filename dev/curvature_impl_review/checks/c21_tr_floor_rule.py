@@ -7,7 +7,7 @@ Cases: (A) E2's noise-free over-ranked zero-padded restart (f ~ 1e-22); (B) a ne
 import sys, os, math, io, contextlib
 sys.path.insert(0, __import__("os").getcwd())
 SCR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-src = open(os.path.join(SCR, 'check_restart_tr2.py')).read()
+src = open(os.path.join(SCR, 'critic_checks', 'check_restart_tr2.py')).read()
 ns = {}
 exec(compile(src[:src.index('def scenario(')], 'check_restart_tr2_defs', 'exec'), ns)
 np, t3, t3m, topt, bopt, bgeo, bfit, cw = ns['np'], ns['t3'], ns['t3m'], ns['topt'], ns['bopt'], ns['bgeo'], ns['bfit'], ns['cw']

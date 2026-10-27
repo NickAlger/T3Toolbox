@@ -31,4 +31,5 @@ the tree. Scripts that need the repo's tests or oracle sweeps reference `tests/`
 cross-import each other by file name within their folder; the critic's scripts reach the writer's through
 `../checks`. Expected output and tolerances are quoted next to each fact in the plan's "Verified facts" table.
 
-They were run against `main` @ `920d776`; after the plan's slices land some will need the function names updated.
+They were run against `main` @ `920d776`. As slices land the scripts are kept runnable: S2 moved the private
+`tv._project_t3_*` kernels to `t3_linalg._inner_product_*` and the scripts were updated to the new names.

@@ -103,6 +103,12 @@ All notable changes to T3Toolbox are documented here. The format follows
   numerically full-rank orthogonal frame, minimal or not (at a rank-deficient point the clipped directions
   drop out). `fv_shared_frame_data` now takes its centers from
   `fv_center_factors` (bit-identical).
+- **The inner product's derivatives in the cores** (backend; the exact Hessian's T3-to-T3 term):
+  `backend.t3_linalg.t3_inner_product_corewise_transpose` (the gradient of `θ ↦ ⟨z, Φ(θ)⟩`),
+  `t3_precompute_inner_product_sweep` and `t3_inner_product_corewise_hessian[_from_sweep]` (its Hessian
+  applied to a stack of directions, by a two-hole sweep), and the tangent zippers
+  `backend.tt_operations.tt_zipper_tangent_left_to_right` / `_right_to_left`.
+  `tv_project_t3_onto_tangent_space` now gauges that shared kernel (bit-identical).
 
 ## [2026.2.0] — 2026-08-25
 

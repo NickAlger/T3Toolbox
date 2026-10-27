@@ -5,7 +5,7 @@ e_{k+1}/e_k^2 and e_{k+1}/e_k^1.5 inside [1e-8, 1e-1]."""
 import sys, os, math, io, contextlib
 sys.path.insert(0, __import__("os").getcwd())
 SCR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-src = open(os.path.join(SCR, 'check_restart_tr2.py')).read()
+src = open(os.path.join(SCR, 'critic_checks', 'check_restart_tr2.py')).read()
 ns = {}
 exec(compile(src[:src.index('def scenario(')], 'check_restart_tr2_defs', 'exec'), ns)
 np, t3, t3m, topt, bopt, bgeo, bfit, cw = (ns[k] for k in ('np', 't3', 't3m', 'topt', 'bopt', 'bgeo', 'bfit', 'cw'))

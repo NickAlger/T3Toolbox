@@ -7,7 +7,10 @@
 ``t3_add``/``t3_scale``/``t3_inner_product``/``t3_norm``/``t3_mult`` and the ``t3m_*`` forms
 simulate operations on the dense tensor, using the cores only as a computational device (add
 concatenates ranks; nothing here is corewise). ``t3_sum_stack`` is the rank-growing tensor sum
-over a stack -- not the rank-preserving corewise core sum.
+over a stack -- not the rank-preserving corewise core sum. The exception, marked by its name, is the
+inner product's derivatives in the cores: ``t3_inner_product_corewise_transpose`` (the gradient of
+``theta -> <z, Phi(theta)>``) and ``t3_inner_product_corewise_hessian[_from_sweep]`` (its Hessian applied to
+directions, the exact Riemannian Hessian's T3-T3 term), with ``t3_precompute_inner_product_sweep``.
 """
 import numpy as np
 import typing as typ
@@ -16,6 +19,8 @@ import math
 from t3toolbox.backend.t3_operations import tt_squash_tails
 import t3toolbox.backend.t3_constructors as t3_constructors
 import t3toolbox.backend.tt_operations as tt_operations
+import t3toolbox.backend.contractions as contractions
+import t3toolbox.backend.fv_conversions as fv_conversions
 import t3toolbox.backend.t3_orthogonalization as ragged_orth
 import t3toolbox.backend.t3_operations as t3_ops
 import t3toolbox.backend.t3_svd as ragged_t3svd
@@ -37,6 +42,10 @@ __all__ = [
     't3_plus_scalar',
     't3_weighted_norm',
     't3_weighted_inner',
+    't3_inner_product_corewise_transpose',
+    't3_precompute_inner_product_sweep',
+    't3_inner_product_corewise_hessian',
+    't3_inner_product_corewise_hessian_from_sweep',
 ]
 
 
@@ -647,3 +656,311 @@ def t3_weighted_inner(
     return t3_inner_product(t3_ops.t3_absorb_weights(x0_A, weights_A),
                             t3_ops.t3_absorb_weights(x0_B, weights_B),
                             use_orthogonalization=use_orthogonalization)
+
+
+# --------------------------------------------------------------------------------------------------
+# The inner product <z, Phi(theta)> as a function of the cores: its gradient and Hessian
+# (the T3-T3 term of the exact Riemannian Hessian)
+# --------------------------------------------------------------------------------------------------
+def _inner_product_rebasis_step(
+        x: typ.Tuple[NDArray, NDArray, NDArray],   # (G_z, B_z, U): C+(rZi,nZi,rZ(i+1)) ; C+(nZi,Ni) ; C+(nUi,Ni)
+) -> typ.Tuple[NDArray]:                           # (G_z2,): C+(rZi,nUi,rZ(i+1))
+    """Re-express one TT core of ``z`` in the frame's up-Tucker basis, for
+    :py:func:`_inner_product_frame_transpose`. Closure-free map body --
+    ``docs/contributor/scan_body_principles.md``."""
+    G_other, B_other, U = x
+    xnp, _, _ = get_backend(False, tree_contains_jax(x))
+    BU = xnp.einsum('...iz,...xz->...ix', B_other, U)
+    G_other2 = xnp.einsum('...aib,...ix->...axb', G_other, BU)
+    return (G_other2,)
+
+
+def _inner_product_variations_step(
+        x: typ.Tuple[NDArray, NDArray, NDArray,
+                     NDArray, NDArray, NDArray],   # (ZL, ZR, G_z, B_z, O, U)
+) -> typ.Tuple[
+    NDArray,  # dG. ungauged tt variation,     C+(rLi,nUi,rR(i+1))
+    NDArray,  # dB. ungauged tucker variation, C+(nOi,Ni)
+]:
+    """One core of :py:func:`_inner_product_frame_transpose`. Closure-free map body --
+    ``docs/contributor/scan_body_principles.md``."""
+    ZL, ZR, G, B, O, U = x
+    xnp, _, _ = get_backend(False, tree_contains_jax(x))
+    env = xnp.einsum('...ax,...aib,...by->...xiy', ZL, G, ZR)
+    BU = xnp.einsum('...io,...jo->...ij', B, U)
+    dG = xnp.einsum('...xiy,...ij->...xjy', env, BU)
+    M = xnp.einsum('...xiy,...xjy->...ij', env, O)
+    dB = xnp.einsum('...ij,...io->...jo', M, B)
+    return dG, dB
+
+
+def _inner_product_frame_transpose(
+        frame:  typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+            typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+        ],
+        z:      typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores of z. len=d, elm_shape=K+C+(nZi, Ni); K may be empty
+            typ.Sequence[NDArray],  # tt_cores of z.     len=d, elm_shape=K+C+(rZi, nZi, rZ(i+1))
+        ],
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],        # UNGAUGED tucker_variations. len=d, elm_shape=K+C+(nDi, Ni)
+    typ.Tuple[NDArray, ...],        # UNGAUGED tt_variations.     len=d, elm_shape=K+C+(rLi, nUi, rR(i+1))
+]:
+    """The frame transpose of the inner product with ``z``: ``E^T z``, the coordinates of ``<z, term>``
+    against every single-core-replacement term of the frame (``E`` maps variations to the tangent sum).
+
+    Gauged, at an orthogonal frame, this is the orthogonal tangent-space projection of ``z``
+    (:py:func:`~t3toolbox.backend.tv_operations.tv_project_t3_onto_tangent_space`); at the corewise
+    frame ``(U, G, G, G)`` it is the core gradient of ``<z, Phi(theta)>``
+    (:py:func:`t3_inner_product_corewise_transpose`). Algorithm: re-express ``z``'s TT cores in the frame's
+    up basis, zip them against the left/right chains, and contract each one-hole environment with the
+    core's two variation slots. ``z`` may carry an extra leading stack ``K`` over the frame's ``C`` (one
+    projection per stacked ``z``): the ``'...'`` einsums broadcast the frame over it.
+    """
+    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    outer_tt_cores = down_tt_cores
+
+    other_tucker_cores, other_tt_cores = z
+    other_tt_cores = tt_operations.tt_squash_tails(other_tt_cores)
+
+    use_jax = tree_contains_jax((frame, z))
+    xnp, xmap, _ = get_backend(False, use_jax)
+
+    # Re-express the other T3's TT cores in the frame's up-Tucker basis.
+    (other_tt_cores2,) = xmap(
+        _inner_product_rebasis_step, (other_tt_cores, other_tucker_cores, up_tucker_cores),
+    )
+
+    if len(other_tt_cores2) == 1:
+        # d = 1: no chain on either side of the single core -- the environments are the boundary ones
+        # matrices (an empty zipper cannot read the stack/bond sizes off an empty tuple).
+        ss = other_tt_cores2[0].shape[:-3]
+        zipper_left2right = (xnp.ones(ss + (other_tt_cores2[0].shape[-3], left_tt_cores[0].shape[-3])),)
+        zipper_right2left = (xnp.ones(ss + (other_tt_cores2[0].shape[-1], right_tt_cores[0].shape[-1])),)
+    else:
+        zipper_left2right = tt_operations.tt_zipper_left_to_right(other_tt_cores2[:-1], left_tt_cores[:-1])
+        zipper_right2left = tt_operations.tt_zipper_right_to_left(other_tt_cores2[1:], right_tt_cores[1:])
+
+    ungauged_tt_variations, ungauged_tucker_variations = xmap(
+        _inner_product_variations_step,
+        (zipper_left2right, zipper_right2left, other_tt_cores, other_tucker_cores, outer_tt_cores, up_tucker_cores),
+    )
+    return ungauged_tucker_variations, ungauged_tt_variations
+
+
+def t3_inner_product_corewise_transpose(
+        z:          typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores of z. len=d, elm_shape=C+(nZi, Ni)
+            typ.Sequence[NDArray],  # tt_cores of z.     len=d, elm_shape=C+(rZi, nZi, rZ(i+1))
+        ],
+        core_pair:  typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores of theta. len=d, elm_shape=C+(ni, Ni)
+            typ.Sequence[NDArray],  # tt_cores of theta.     len=d, elm_shape=C+(ri, ni, r(i+1))
+        ],
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],        # tucker gradients. len=d, elm_shape=C+(ni, Ni)
+    typ.Tuple[NDArray, ...],        # tt gradients.     len=d, elm_shape=C+(ri, ni, r(i+1))
+]:
+    """The gradient of ``theta -> <z, Phi(theta)>`` with respect to the raw cores ``theta = core_pair``.
+
+    The corewise transpose of the inner product: the frame transpose of ``<z, .>`` at the corewise frame
+    ``(U, G, G, G)`` -- the Section 6.3 substitution ``(P, Q, O) -> G`` of Alger et al. (2026), "Tucker
+    Tensor Train Taylor Series" (arXiv:2603.21141), applied to the T3-to-T3 tangent projection. The
+    result has the shapes of ``theta``'s cores (a raw tuple, a gradient -- not a tensor). In the exact
+    Riemannian Hessian it is the one-hole of the term ``-<grad f, Phi(theta)>``, whose derivative
+    :py:func:`t3_inner_product_corewise_hessian` is. Stack ``C`` on both operands.
+
+    Examples
+    --------
+    Every core enters ``Phi`` exactly once, so ``<z, Phi(theta)>`` is homogeneous of degree ``2d`` in the
+    cores and Euler's identity pins the gradient: ``<grad, theta> = 2d <z, Phi(theta)>``.
+
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
+    >>> import t3toolbox.backend.t3_constructors as t3k
+    >>> import t3toolbox.backend.t3_linalg as t3la
+    >>> np.random.seed(0)
+    >>> theta = t3k.t3_corewise_randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+    >>> z = t3k.t3_corewise_randn((5, 6, 7), (3, 3, 3), (1, 3, 3, 1))
+    >>> grad = t3la.t3_inner_product_corewise_transpose(z, theta)
+    >>> print([g.shape for g in grad[0]], [g.shape for g in grad[1]])
+    [(2, 5), (3, 6), (2, 7)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
+    >>> print(bool(np.isclose(cw.corewise_dot(grad, theta), 6 * t3la.t3_inner_product(z, theta))))
+    True
+    """
+    return _inner_product_frame_transpose(fv_conversions.t3_corewise_frame(core_pair), z)
+
+
+def t3_precompute_inner_product_sweep(
+        z:          typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores of z. len=d, elm_shape=C+(nZi, Ni)
+            typ.Sequence[NDArray],  # tt_cores of z.     len=d, elm_shape=C+(rZi, nZi, rZ(i+1))
+        ],
+        core_pair:  typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores of theta. len=d, elm_shape=C+(ni, Ni)
+            typ.Sequence[NDArray],  # tt_cores of theta.     len=d, elm_shape=C+(ri, ni, r(i+1))
+        ],
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],        # BU.  len=d, elm_shape=C+(nZi, ni):          z's Tucker cores against theta's
+    typ.Tuple[NDArray, ...],        # G2.  len=d, elm_shape=C+(rZi, ni, rZ(i+1)): z's TT cores in theta's basis
+    typ.Tuple[NDArray, ...],        # ZL.  len=d, elm_shape=C+(rZi, ri):          left environments
+    typ.Tuple[NDArray, ...],        # ZR.  len=d, elm_shape=C+(rZ(i+1), r(i+1)):  right environments
+    typ.Tuple[NDArray, ...],        # env. len=d, elm_shape=C+(ri, nZi, r(i+1)):  one-hole environments
+]:
+    """The ``(z, theta)``-dependent part of :py:func:`t3_inner_product_corewise_hessian`, computed once.
+
+    ``BU_i = B_z,i U_i^T``; ``G2_i = G_z,i x_2 BU_i`` (``z``'s TT cores re-expressed in ``theta``'s Tucker
+    basis, tails squashed); ``ZL`` / ``ZR`` the left-to-right / right-to-left zippers of ``G2`` against
+    ``theta``'s TT chain (``ZL_i`` is everything left of core ``i``, ``ZR_i`` everything right of it); and
+    ``env_i = ZL_i G_z,i ZR_i``, the one-hole environment of core ``i``. These are exactly the
+    intermediates of the gradient :py:func:`t3_inner_product_corewise_transpose`
+    (``dG_i = env_i x_2 BU_i``, ``dU_i = <env_i, G_i>^T B_z,i``); the Hessian differentiates each of them
+    along a direction. In a Newton-CG inner solve ``z`` and ``theta`` are fixed while the direction varies,
+    so this is the per-frame sweep and only the dotted terms are per matvec. Stack ``C``.
+    """
+    z_tucker, z_tt = z
+    z_tt = tt_operations.tt_squash_tails(z_tt)
+    tucker_cores, tt_cores = core_pair
+    d = len(tucker_cores)
+
+    BU = tuple(contractions.contract('Czn,Cun->Czu', z_tucker[ii], tucker_cores[ii]) for ii in range(d))
+    G2 = tuple(contractions.contract('Cazb,Czu->Caub', z_tt[ii], BU[ii]) for ii in range(d))
+    if d == 1:      # no chain on either side: the boundary ones environments (as in the gradient)
+        xnp, _, _ = get_backend(False, tree_contains_jax((z, core_pair)))
+        ss = G2[0].shape[:-3]
+        ZL = (xnp.ones(ss + (G2[0].shape[-3], tt_cores[0].shape[-3])),)
+        ZR = (xnp.ones(ss + (G2[0].shape[-1], tt_cores[0].shape[-1])),)
+    else:
+        ZL = tt_operations.tt_zipper_left_to_right(G2[:-1], tt_cores[:-1])
+        ZR = tt_operations.tt_zipper_right_to_left(G2[1:], tt_cores[1:])
+    env = tuple(contractions.contract('Cxa,Cxzc,Ccb->Cazb', ZL[ii], z_tt[ii], ZR[ii]) for ii in range(d))
+    return BU, G2, ZL, ZR, env
+
+
+def t3_inner_product_corewise_hessian(
+        z:                  typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores of z. len=d, elm_shape=C+(nZi, Ni)
+            typ.Sequence[NDArray],  # tt_cores of z.     len=d, elm_shape=C+(rZi, nZi, rZ(i+1))
+        ],
+        core_pair:          typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores of theta. len=d, elm_shape=C+(ni, Ni)
+            typ.Sequence[NDArray],  # tt_cores of theta.     len=d, elm_shape=C+(ri, ni, r(i+1))
+        ],
+        core_directions:    typ.Tuple[
+            typ.Sequence[NDArray],  # Tucker directions theta_hat. len=d, elm_shape=K+C+(ni, Ni)
+            typ.Sequence[NDArray],  # TT directions theta_hat.     len=d, elm_shape=K+C+(ri, ni, r(i+1))
+        ],
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],        # Tucker block of K_z theta_hat. len=d, elm_shape=K+C+(ni, Ni)
+    typ.Tuple[NDArray, ...],        # TT block of K_z theta_hat.     len=d, elm_shape=K+C+(ri, ni, r(i+1))
+]:
+    """The core-coordinate Hessian of ``theta -> <z, Phi(theta)>`` applied to ``theta_hat``:
+
+    ``K_z theta_hat = d/ds grad_theta <z, Phi(theta + s theta_hat)> |_{s=0}``,
+
+    the derivative of :py:func:`t3_inner_product_corewise_transpose` along the directions. A **two-hole**
+    sweep: every environment of the gradient gains its "exactly one core replaced by its direction"
+    companion (the tangent zippers :py:func:`~t3toolbox.backend.tt_operations.tt_zipper_tangent_left_to_right`
+    / ``_right_to_left``, and ``BU``, ``G2`` along the Tucker directions), and each output block takes the
+    product rule. Exact (no finite differences), symmetric (``<a, K_z b> = <b, K_z a>``: it is a Hessian),
+    linear in ``z``, and of the cost of a few gradients per direction.
+
+    In the exact Riemannian Hessian it is the tangential-curvature term: with ``z = grad f`` (a
+    doubled-rank T3) and ``theta_hat`` a lifted tangent, ``K_{grad f}`` is what turns the ambient
+    second-order term ``<A^T r, D^2 Phi>`` into its normal part (the Weingarten map; Absil, Mahony &
+    Trumpf (2013), "An extrinsic look at the Riemannian Hessian", via the second-fundamental-form identity
+    ``<W(xi, N), eta> = <N, D^2 Phi[xi_hat, eta_hat]>``). This one-shot form computes the per-``(z, theta)``
+    sweep itself; reuse it across directions with :py:func:`t3_precompute_inner_product_sweep` +
+    :py:func:`t3_inner_product_corewise_hessian_from_sweep`.
+
+    Batching: ``z`` and ``theta`` carry ``C``; the directions (and the result) ``K + C`` -- one
+    Hessian-vector product per direction at the shared point.
+
+    Examples
+    --------
+    The Hessian is the derivative of the gradient (a polynomial along the line, so a central difference
+    agrees to ``O(h^2)``), and it is symmetric:
+
+    >>> import numpy as np
+    >>> import t3toolbox.corewise as cw
+    >>> import t3toolbox.backend.t3_constructors as t3k
+    >>> import t3toolbox.backend.t3_linalg as t3la
+    >>> np.random.seed(0)
+    >>> theta = t3k.t3_corewise_randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+    >>> z = t3k.t3_corewise_randn((5, 6, 7), (3, 3, 3), (1, 3, 3, 1))
+    >>> a, b = (t3k.t3_corewise_randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1)) for _ in range(2))
+    >>> Ka = t3la.t3_inner_product_corewise_hessian(z, theta, a)
+    >>> h = 1e-4
+    >>> shift = lambda s: cw.corewise_add(theta, cw.corewise_scale(a, s))
+    >>> fd = cw.corewise_scale(cw.corewise_sub(t3la.t3_inner_product_corewise_transpose(z, shift(h)),
+    ...                                        t3la.t3_inner_product_corewise_transpose(z, shift(-h))), 0.5 / h)
+    >>> print(bool(cw.corewise_norm(cw.corewise_sub(Ka, fd)) < 1e-6 * cw.corewise_norm(Ka)))
+    True
+    >>> Kb = t3la.t3_inner_product_corewise_hessian(z, theta, b)
+    >>> print(bool(np.isclose(cw.corewise_dot(b, Ka), cw.corewise_dot(a, Kb))))
+    True
+    """
+    sweep = t3_precompute_inner_product_sweep(z, core_pair)
+    return t3_inner_product_corewise_hessian_from_sweep(z, core_pair, core_directions, sweep)
+
+
+def t3_inner_product_corewise_hessian_from_sweep(
+        z:                  typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores of z. len=d, elm_shape=C+(nZi, Ni)
+            typ.Sequence[NDArray],  # tt_cores of z.     len=d, elm_shape=C+(rZi, nZi, rZ(i+1))
+        ],
+        core_pair:          typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores of theta. len=d, elm_shape=C+(ni, Ni)
+            typ.Sequence[NDArray],  # tt_cores of theta.     len=d, elm_shape=C+(ri, ni, r(i+1))
+        ],
+        core_directions:    typ.Tuple[
+            typ.Sequence[NDArray],  # Tucker directions theta_hat. len=d, elm_shape=K+C+(ni, Ni)
+            typ.Sequence[NDArray],  # TT directions theta_hat.     len=d, elm_shape=K+C+(ri, ni, r(i+1))
+        ],
+        sweep:              typ.Tuple[typ.Tuple[NDArray, ...], ...],  # t3_precompute_inner_product_sweep(z, core_pair)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],        # Tucker block of K_z theta_hat. len=d, elm_shape=K+C+(ni, Ni)
+    typ.Tuple[NDArray, ...],        # TT block of K_z theta_hat.     len=d, elm_shape=K+C+(ri, ni, r(i+1))
+]:
+    """:py:func:`t3_inner_product_corewise_hessian` with the ``(z, theta)`` sweep precomputed
+    (:py:func:`t3_precompute_inner_product_sweep`): only the direction-dependent (dotted) terms run here.
+
+    Per core ``i``, with dots the derivatives along ``theta_hat``:
+    ``BUdot_i = B_z,i Udot_i^T``, ``G2dot_i = G_z,i x_2 BUdot_i``; the tangent zippers ``ZLdot``, ``ZRdot``
+    of ``(G2, G)`` along ``(G2dot, Gdot)``; ``envdot_i = ZLdot_i G_z,i ZR_i + ZL_i G_z,i ZRdot_i``; then
+    ``(K theta_hat)_{G_i} = envdot_i x_2 BU_i + env_i x_2 BUdot_i`` and
+    ``(K theta_hat)_{U_i} = (<envdot_i, G_i> + <env_i, Gdot_i>)^T B_z,i``.
+    """
+    BU, G2, ZL, ZR, env = sweep
+    z_tucker, z_tt = z
+    z_tt = tt_operations.tt_squash_tails(z_tt)
+    tucker_cores, tt_cores = core_pair
+    tucker_dirs, tt_dirs = core_directions
+    d = len(tucker_cores)
+
+    BUd = tuple(contractions.contract('Czn,KCun->KCzu', z_tucker[ii], tucker_dirs[ii]) for ii in range(d))
+    G2d = tuple(contractions.contract('Cazb,KCzu->KCaub', z_tt[ii], BUd[ii]) for ii in range(d))
+    if d == 1:      # no chain: the boundary environments do not move
+        xnp, _, _ = get_backend(False, tree_contains_jax((z, core_pair, core_directions)))
+        ss = tucker_dirs[0].shape[:-2]
+        ZLd = (xnp.zeros(ss + ZL[0].shape[-2:]),)
+        ZRd = (xnp.zeros(ss + ZR[0].shape[-2:]),)
+    else:
+        ZLd = tt_operations.tt_zipper_tangent_left_to_right(G2[:-1], tt_cores[:-1], G2d[:-1], tt_dirs[:-1],
+                                                            zippers=ZL)
+        ZRd = tt_operations.tt_zipper_tangent_right_to_left(G2[1:], tt_cores[1:], G2d[1:], tt_dirs[1:],
+                                                            zippers=ZR)
+
+    tucker_out, tt_out = [], []
+    for ii in range(d):
+        envd = (contractions.contract('KCxa,Cxzc,Ccb->KCazb', ZLd[ii], z_tt[ii], ZR[ii])
+                + contractions.contract('Cxa,Cxzc,KCcb->KCazb', ZL[ii], z_tt[ii], ZRd[ii]))
+        tt_out.append(contractions.contract('KCazb,Czu->KCaub', envd, BU[ii])
+                      + contractions.contract('Cazb,KCzu->KCaub', env[ii], BUd[ii]))
+        Md = (contractions.contract('KCazb,Caub->KCzu', envd, tt_cores[ii])
+              + contractions.contract('Cazb,KCaub->KCzu', env[ii], tt_dirs[ii]))
+        tucker_out.append(contractions.contract('KCzu,Czn->KCun', Md, z_tucker[ii]))
+    return tuple(tucker_out), tuple(tt_out)
