@@ -2951,8 +2951,10 @@ def assemble_tucker_tangent_variation_jets(
         n_probe:            int,                    # len(W)
         chunk_size:         typ.Optional[int] = DEFAULT_CHUNK_SIZE,   # W-chunk size; None (or >= W) -> dense
 ) -> typ.Tuple[NDArray, ...]:                       # dU. len=d, elm_shape=K+C+(nOi,Ni) (W summed)
-    '''The derivative of the Tucker variation-gradient assembly (W summed): ``sum_t etadot^(t) (x) z~^(t) +
-    sum_u dxi~dot^(u) (x) w^(u)`` (the residual and the ambient input jet are fixed). W-chunked exactly as
+    '''The derivative of the Tucker variation-gradient assembly (W summed).
+
+    ``sum_t etadot^(t) (x) z~^(t) + sum_u dxi~dot^(u) (x) w^(u)`` (the residual and the ambient input jet are
+    fixed; the autosummary first line above stays literal-free on purpose). W-chunked exactly as
     :py:func:`assemble_tucker_variation_jets` (on the uniform path -- a ``lax.scan`` on jax, where the memory
     win is, an eager loop on numpy; ragged, ``None`` and ``W <= chunk_size`` run dense); see :doc:`/chunking`.'''
     ops = (ztildes, dxi_tildes_dot, ww, pp, eta_jets_dot)

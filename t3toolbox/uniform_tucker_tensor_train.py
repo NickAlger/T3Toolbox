@@ -1091,8 +1091,10 @@ class UT3Weights(common.ExplicitEquality):
 
     @cached_property
     def data(self) -> Tuple[NDArray, NDArray, Tuple[NDArray, NDArray]]:
-        """Raw-array view, mirroring the fields: ``(tucker_weight_supercore, tt_weight_supercore,
-        (2 rank masks))``. Backend ``ut3_*_weights`` functions take this layout. Note it is a **3-tuple**,
+        """Raw-array view, mirroring the fields.
+
+        ``(tucker_weight_supercore, tt_weight_supercore, (2 rank masks))``. Backend ``ut3_*_weights``
+        functions take this layout. Note it is a **3-tuple**,
         one shorter than ``UniformTuckerTensorTrain.data`` -- there is no ``shape`` slot."""
         return self.tucker_weight_supercore, self.tt_weight_supercore, self.masks.data
 
