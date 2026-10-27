@@ -183,7 +183,8 @@ the behaviour this refactor removed. Parameterize by data where you can.
 - **Sharing as a wrapper class in the backend.** It is a `groups` field on the geometry instead, so
   shared and unshared are one code path and value identity falls out. The public frontend
   `SharedGeometry` stays as the user-facing constructor.
-- **Aliasing `UniformGaussNewtonModel = GaussNewtonModel`** for compatibility. That would make
+- **Aliasing `UniformGaussNewtonModel = GaussNewtonModel`** (the merged class; `fitting.LocalModel` since
+  2026.3.0) for compatibility. That would make
   `isinstance(ragged_model, UniformGaussNewtonModel)` true, which is worse than an `ImportError`.
 
 ## A verification note

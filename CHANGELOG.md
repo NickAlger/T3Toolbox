@@ -52,6 +52,20 @@ All notable changes to T3Toolbox are documented here. The format follows
 - **Display only, numerics unchanged:** the `verbose=True` converged line names its reference --
   `converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = zero tensor)` / `warm start` / `override`. A hand-built `NewtonInfo`
   row (no reference kind) prints exactly as before.
+- **`fitting.GaussNewtonModel` is renamed `fitting.LocalModel`** (also `t3toolbox.LocalModel`), mirroring
+  the backend class it wraps, `backend.optimizers.LocalModel`. It is **not aliased** -- the old name is
+  gone, as `UniformGaussNewtonModel` went in 2026.2.0 -- so a breaking release breaks loudly once rather
+  than carrying two names. The six `*_model` factories keep their names, and the class's methods and
+  fields are unchanged.
+- **The private `optimizers._setup` is removed**, replaced by the public `optimizers.least_squares_problem`
+  (below), which takes the same arguments and returns a named `LeastSquaresSetup` rather than a 3-tuple.
+  Not aliased.
+- **`optimizers.newton_cg` no longer takes `**kwargs`.** Its options are explicit keywords --
+  `max_newton`, `gtol_rel`, `cg_maxiter`, `c_armijo`, `on_line_search_failure`, `g0norm_newton`,
+  `g0norm_cg` and `cg_forcing_power`, beside the existing ones -- with the backend's defaults, so every
+  option is in its signature and its docs. A misspelt option raises `TypeError` at the call, before the
+  problem is built (it used to be forwarded, and the backend call rejected it after the setup work).
+  Every valid call is unchanged. (`gradient_descent` / `mc_sgd` / `adam` still forward `**kwargs`.)
 
 ### Added
 
@@ -71,6 +85,14 @@ All notable changes to T3Toolbox are documented here. The format follows
 - **`NewtonInfo` fields** `g0_reference` (the Newton-stop reference: `'zero'` / `'warm_start'` /
   `'override'`), `cg_reference` (the CG-forcing one), `step_control` (`'line_search'`) and `stop_reason`
   (on the last row), all defaulting to `None`; they ride in `stats['history']`.
+- **`optimizers.least_squares_problem(geometry, kind, sample, data, x0, order, weight, regularizer,
+  chunk_size, batch)`**, the frontend twin of `backend.optimizers.least_squares_problem`: it builds the
+  backend `Problem` from the frontend vocabulary (a geometry singleton or `SharedGeometry`, a kind name,
+  `order` / `weight`, a ragged or uniform `x0`) -- the constructor the four optimizers use, now public
+  for scripts that build local models or drive a backend optimizer directly. It returns
+  **`optimizers.LeastSquaresSetup`**, a frozen dataclass with `.problem`, `.x0_cores` (the backend
+  starting cores, reduced to minimal ranks where the optimizers reduce them) and `.rewrap` (backend cores
+  -> the frontend tensor). Module-level only, not re-exported at the root.
 
 ## [2026.2.0] — 2026-08-25
 

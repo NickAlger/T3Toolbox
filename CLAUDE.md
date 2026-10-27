@@ -297,7 +297,7 @@ The dividing line is **structural vs numerical**:
     correct *as computed*, the property only governs what the result *means* (e.g. "this coordinate dot
     equals Hilbert–Schmidt") — is **never** enforced; it would reject legitimate use. The enforced
     preconditions are concentrated in the manifold/tangent surface: **same-frame** (`T3Tangent`
-    `+`/`-`/`stack_tangents`, `GaussNewtonModel` matvecs), **orthogonal frame**
+    `+`/`-`/`stack_tangents`, `fitting.LocalModel` matvecs), **orthogonal frame**
     (`MANIFOLD.project`/`project_oblique`/`retract`/`project_ambient`/`transport`), **gauged variations**
     (`MANIFOLD.inner`/`norm`). `TuckerTensorTrain` / `corewise` / `probing` are **precondition-free**
     (exact for any cores). The check sites use `safety.checks_active(*operand_data)` (safe **and** not
@@ -311,7 +311,7 @@ The dividing line is **structural vs numerical**:
     fast path) — **not** object identity. The old `self.frame is other.frame` identity guard was a
     numerical check faked as structural; it forced `T3Tangent`'s frame to be jax **aux_data** (→ jit
     recompiled on every frame change) and false-failed on a jit round-trip. The numerical guard let the
-    frame become a pytree **leaf** (frame flows as traced data → no recompile). Likewise `GaussNewtonModel`
+    frame become a pytree **leaf** (frame flows as traced data → no recompile). Likewise `fitting.LocalModel`
     is a registered pytree (frame/sweep/sample/residual leaves; geometry/kind aux) — you can `jit` the
     frontend matvec directly and it compiles **once** across all bases.
 
@@ -405,7 +405,7 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
 - **The shipped surface (all solid/tested):** `TuckerTensorTrain` + backend (arithmetic,
   `to_dense`, `t3svd`, `t3m`, save/load; the three sampling ops + their symmetric derivatives +
   the ambient/corewise/tangent transposes); `frame_variations_format`; `manifold` (`T3Tangent`,
-  `MANIFOLD`/`COREWISE`) + safe/unsafe mode; the geometry-generic `GaussNewtonModel` + the four
+  `MANIFOLD`/`COREWISE`) + safe/unsafe mode; the geometry-generic `fitting.LocalModel` (renamed from `GaussNewtonModel` in 2026.3.0) + the four
   optimizers + fitting from all sampling kinds and their derivatives, with an optional **`ω[mode,order]`
   residual-weight matrix** in the objective `½‖ω⊙r‖²` (per-**order** for the derivative kinds — the
   Gauss-Newton conditioner; per-**mode** for probe — probe is the only kind with a per-mode axis, so
@@ -454,7 +454,7 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
 - **Optimization layer restructured (2026-08-21; in 2026.2.0).** The geometry, the sampling kind and the local model are frozen
   dataclasses whose **parameters are fields**, not records of closures, so they hash/compare by value
   and are stable jax `aux_data`. New `backend/geometry.py`; `SamplingKind` is a class hierarchy;
-  `UniformGaussNewtonModel` merged into `GaussNewtonModel`; sharing is a `groups` field.
+  `UniformGaussNewtonModel` merged into `GaussNewtonModel` (now `fitting.LocalModel`, 2026.3.0); sharing is a `groups` field.
   `backend/optimizers.py` now imports no T3-specific module. Inner CG compiles **once per fitting run
   instead of once per Newton iteration**. Fixed along the way: a silent miscompile where a
   `dc.replace`-derived kind reused its parent's compiled program, and a stacked+regularized fit that

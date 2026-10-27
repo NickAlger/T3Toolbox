@@ -142,8 +142,45 @@ def _skip_duplicate_bindings(app, what, name, obj, skip, options):
     return None
 
 
+# -- Module context for type cross-references on the per-object pages -----------
+# autoapi writes a same-module annotation bare (``-> LocalModel``), relying on Sphinx to resolve it against
+# the current module. The per-object pages (autoapi_own_page_level = 'method') set no module context, so
+# Sphinx resolves the type references (the signature's, and the "Return type" / parameter-type fields)
+# by a fuzzy search over every module: fine while the name is unique, ambiguous once two modules define
+# it (``fitting.LocalModel`` and ``backend.optimizers.LocalModel``, the frontend/backend twin pair). This
+# post-transform gives each such reference the module (and class) of the object it describes -- the scope
+# the source resolves the name in. Only the fuzzy-searched type references (those carrying
+# ``refspecific``) that have no module are touched; displayed text and object ids are unchanged.
+from sphinx import addnodes as _addnodes
+from sphinx.transforms.post_transforms import SphinxPostTransform
+
+
+class _ObjectModuleContext(SphinxPostTransform):
+    default_priority = 5          # before the ReferencesResolver (priority 10)
+
+    def run(self, **kwargs):
+        modules = self.env.domains['py'].modules
+        for desc in reversed(list(self.document.findall(_addnodes.desc))):   # innermost objects first
+            if desc.get('domain') != 'py':
+                continue
+            sig = next(iter(desc.findall(_addnodes.desc_signature)), None)
+            if sig is None or sig.get('module') or not sig.get('fullname'):
+                continue
+            parts = sig['fullname'].split('.')
+            cut = next((k for k in range(len(parts) - 1, 0, -1) if '.'.join(parts[:k]) in modules), None)
+            if cut is None:
+                continue
+            modname, clsname = '.'.join(parts[:cut]), '.'.join(parts[cut:-1]) or None
+            for ref in desc.findall(_addnodes.pending_xref):
+                if ref.get('refdomain') == 'py' and ref.hasattr('refspecific') and not ref.get('py:module'):
+                    ref['py:module'] = modname
+                    if clsname and not ref.get('py:class'):
+                        ref['py:class'] = clsname
+
+
 def setup(app):
     app.connect('autoapi-skip-member', _skip_duplicate_bindings)
+    app.add_post_transform(_ObjectModuleContext)
 
 
 def autoapi_prepare_jinja_env(jinja_env):

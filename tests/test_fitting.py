@@ -1,6 +1,6 @@
 '''Tests for the geometry-generic Gauss-Newton fitting model (``fitting.py`` + ``backend/fitting.py``).
 
-One ``GaussNewtonModel`` is parameterized over the **sampling kind** (apply / entries / probe) AND the
+One ``fitting.LocalModel`` is parameterized over the **sampling kind** (apply / entries / probe) AND the
 **geometry** (manifold / corewise). The headline oracle is **exact dense ground truth**: because the
 sampling forward is linear in the ambient tensor, the least-squares objective is exactly quadratic, so the
 Gauss-Newton model is the exact restriction of the objective to the affine tangent space ``r +
@@ -112,7 +112,7 @@ def _raw_step(s):
     return t3m.COREWISE.randn(s['frame'])
 
 
-class TestGaussNewtonModel(unittest.TestCase):
+class TestLocalModel(unittest.TestCase):
     '''The generic GN model, parameterized over the sampling kind, the geometry, and the frame stack C.'''
 
     def test_dense_truth(self):
@@ -140,7 +140,7 @@ class TestGaussNewtonModel(unittest.TestCase):
                         self.assertTrue(np.allclose(model.evaluate(p), two_form, rtol=RTOL, atol=ATOL))
 
     def test_regularizer(self):
-        '''An IdentityRegularizer folds ρ=½λ‖X‖² into the frontend GaussNewtonModel on all kinds/geometries:
+        '''An IdentityRegularizer folds ρ=½λ‖X‖² into the frontend LocalModel on all kinds/geometries:
         the two-form identity `m(p)=c+⟨g,p⟩+½⟨p,Hp⟩` and `gn_quadratic==pᵀHp` still hold (reg folded
         consistently across all five methods) and the objective gains ρ.'''
         import t3toolbox.backend.optimizers as bopt
@@ -507,11 +507,11 @@ class TestResidualWeighting(unittest.TestCase):
             with self.subTest(geom=type(geom).__name__):   # name, not the object -- xdist reports must serialize (execnet)
                 frame = geom.frame(x)
                 kind = fb.probe_kind(omega)
-                w = fitting.GaussNewtonModel(geom, frame, kind, ww, r, kind.precompute(frame.data, ww))
+                w = fitting.LocalModel(geom, frame, kind, ww, r, kind.precompute(frame.data, ww))
                 obj_oracle = 0.5 * sum((omega[i] ** 2) * np.sum(r[i] ** 2) for i in range(d))
                 self.assertTrue(np.allclose(float(w.objective_value), obj_oracle))
                 r2 = [(omega[i] ** 2) * r[i] for i in range(d)]  # explicit ω²⊙r
-                u = fitting.GaussNewtonModel(geom, frame, fb.PROBE, ww, r2, fb.PROBE.precompute(frame.data, ww))
+                u = fitting.LocalModel(geom, frame, fb.PROBE, ww, r2, fb.PROBE.precompute(frame.data, ww))
                 self.assertTrue(w.gradient.allclose(u.gradient, rtol=1e-9, atol=1e-11).all())
                 p = t3m.COREWISE.randn(frame)
                 self.assertTrue(np.allclose(float(w.gn_quadratic(p)), float(p.corewise_inner(w.gn_hessian(p)))))
@@ -519,8 +519,8 @@ class TestResidualWeighting(unittest.TestCase):
         k1 = fb.probe_kind(omega)
         k2 = fb.probe_kind(omega.reshape(d, 1))
         fr = t3m.MANIFOLD.frame(x); sw = k1.precompute(fr.data, ww)
-        m1 = fitting.GaussNewtonModel(t3m.MANIFOLD, fr, k1, ww, r, sw)
-        m2 = fitting.GaussNewtonModel(t3m.MANIFOLD, fr, k2, ww, r, sw)
+        m1 = fitting.LocalModel(t3m.MANIFOLD, fr, k1, ww, r, sw)
+        m2 = fitting.LocalModel(t3m.MANIFOLD, fr, k2, ww, r, sw)
         self.assertTrue(np.allclose(float(m1.objective_value), float(m2.objective_value)))
 
 
@@ -553,9 +553,9 @@ class TestPerModeWeightRowCount(unittest.TestCase):
             bfit.probe_kind(weight=self.w5[:2]).sumsq(self.r, 1)
 
 
-class TestUniformLayerGaussNewtonModel(unittest.TestCase):
+class TestUniformLayerLocalModel(unittest.TestCase):
     '''U7b: the uniform roll-your-own surface. ``fitting.apply_model`` &c. dispatch a
-    ``UniformTuckerTensorTrain`` x to a ``GaussNewtonModel`` on a UT3Frame (UT3Tangent-valued gradient /
+    ``UniformTuckerTensorTrain`` x to a ``fitting.LocalModel`` on a UT3Frame (UT3Tangent-valued gradient /
     Hessian) -- one model class serves both representations.
     Oracle: the tested backend ``LocalModel`` (== ragged) -- objective / gradient / gn_quadratic /
     gn_hessian agree to ~machine precision (both run the SAME packed kind + gauge projection). We feed the
@@ -604,7 +604,7 @@ class TestUniformLayerGaussNewtonModel(unittest.TestCase):
                     lm = prob.local_model((x.data[0], x.data[1]))
                     kw = {'weight': w} if w is not None else {}
                     fmodel = factory(geom, x, *fargs, lm.residual, **kw)   # lm.residual is packed -> mirror no-op
-                    self.assertIsInstance(fmodel, fitting.GaussNewtonModel)
+                    self.assertIsInstance(fmodel, fitting.LocalModel)
                     self.assertIsInstance(fmodel.frame, ubv.UT3Frame)   # the uniform layer, one model class
                     self.assertTrue(np.allclose(float(fmodel.objective_value), float(lm.objective)))
                     self.assertLess(self._relerr(fmodel.gradient.variations.supercores, lm.gradient), 1e-10)

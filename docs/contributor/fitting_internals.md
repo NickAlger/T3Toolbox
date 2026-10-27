@@ -38,9 +38,9 @@ order-combines; the fix is 11–19× on them, numerically identical.
 
 ## Design-rationale tails (history and naming)
 
-- **Geometry as a bundle** was the geometry refactor's core move: one geometry-generic
-  `GaussNewtonModel`/`Problem`, so optimizers are written *once, not per geometry* (six classes
-  collapsed to one model + two geometries).
+- **Geometry as a bundle** was the geometry refactor's core move: one geometry-generic local model
+  and `Problem` (today `fitting.LocalModel` / `backend.optimizers.Problem`), so optimizers are written
+  *once, not per geometry* (six classes collapsed to one model + two geometries).
 - **The `precompute` / `*_from_sweep` split** is deliberately *named and public* in the backend
   (rather than a private cache) so a raw-`.data` user composes public functions with docstrings —
   the razor's "capability, not line count" corollary.
@@ -50,7 +50,7 @@ order-combines; the fix is 11–19× on them, numerically identical.
 
 ## Regularization
 
-A `regularizer` is an **objective term** `ρ(x)` folded into the backend `LocalModel`
+A `regularizer` is an **objective term** `ρ(x)` folded into the backend `optimizers.LocalModel`
 (`objective`/`gradient`/`gn_quadratic`/`hvp`) and `Problem.objective`, so it reaches **every** optimizer and
 kind for free (they only ever touch those surfaces). It is **backend-homed** (`backend/regularization.py`,
 check-free) and re-exported, so a raw-`.data` user attaches it with the same one kwarg as the frontend.
@@ -118,7 +118,7 @@ keeps full-strength reg. A custom `draw` of a non-nominal batch size may want `�
 - **Grasedyck–Kramer regularization** — a `SingularValueRegularizer` implementing the same four
   `Regularizer` methods with a frame-dependent SPD `M` built from the cores' unfolding singular values
   (penalize poorly-determined, small-σ directions more). Drops in with **no** change to
-  `Problem`/`LocalModel`/optimizers/kinds — the payoff of designing the protocol now — and is the sharper
+  `Problem`/`backend.optimizers.LocalModel`/optimizers/kinds — the payoff of designing the protocol now — and is the sharper
   tool for denoising a *good* fit (where identity λ is only a modest secondary knob; user doc §5). Reuses
   `point_tangent`/`project` composed with an `M`-apply on tangents.
 - **Base-point-as-tangent as a public op.** Representing `X` as its gauged tangent `v_X` (last TT variation

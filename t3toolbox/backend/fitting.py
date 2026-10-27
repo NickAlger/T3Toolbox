@@ -12,7 +12,7 @@ The Gauss-Newton model ``m(p) = c + gᵀp + ½ pᵀ(JᵀJ)p`` of a least-squares
 This module supplies the **kind** half: a :py:class:`SamplingKind` descriptor bundling the bare probing
 primitives + the reduction per kind (:py:data:`APPLY` / :py:data:`ENTRIES` / :py:data:`PROBE`). The
 **geometry** half lives in the geometry (:py:data:`t3toolbox.manifold.MANIFOLD` /
-:py:data:`~t3toolbox.manifold.COREWISE`); the frontend :py:class:`t3toolbox.fitting.GaussNewtonModel`
+:py:data:`~t3toolbox.manifold.COREWISE`); the frontend :py:class:`t3toolbox.fitting.LocalModel`
 composes the two. The §6.3 corewise substitution ``(U,O,P,Q) -> (U,G,G,G)`` is now nothing but
 ``CorewiseGeometry.frame`` -- there is no separate corewise backend.
 

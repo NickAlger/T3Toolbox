@@ -819,7 +819,7 @@ class TestSharedGeometry(unittest.TestCase):
 
     def test_gradient_consistency(self):
         # matrix test 8: finite differences of f(retract(x, t*xi)) at t=0 vs inner(grad, xi),
-        # through GaussNewtonModel, both geometries
+        # through fitting.LocalModel, both geometries
         x, spec, _ = self._tied_point(SHARED_STRUCTURES[1])
         ww = [np.random.randn(40, N) for N in x.shape]
         ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]

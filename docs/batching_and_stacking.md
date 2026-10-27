@@ -354,7 +354,7 @@ can be `jit`/`vmap`/`grad`-ed:
     round-trip (a reconstructed, value-equal frame passes instead of false-failing) and `inner`/`+` jit
     cleanly.
   - **Payoff: NO per-frame recompile.** Because the frame is a leaf (traced data, not a compile-time aux
-    constant), a tangent or `GaussNewtonModel` crossing a `jit` boundary compiles **once across all
+    constant), a tangent or `fitting.LocalModel` crossing a `jit` boundary compiles **once across all
     bases** (`traces=1`) — you jit the frontend matvec directly. To grad *w.r.t. the variations only*,
     close the frame over; grad-w.r.t.-the-frame is also available (the frame is a leaf).
   - `T3Frame` / `T3Tangent` are `@dataclass(frozen=True, eq=False)`: value hash/eq on ndarray fields is

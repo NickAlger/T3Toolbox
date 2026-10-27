@@ -3,7 +3,7 @@
 # https://github.com/NickAlger/T3Toolbox
 """The promoted oracle sweeps (Phase D of the 2026-08-22 review) -- the review's O1 (sampling/tangent:
 dense einsum + exact combinatorial jet oracles + adjoint identities, ragged and uniform incl.
-varying-rank stacks) and O2 (fitting: polynomial-interpolation oracle vs GaussNewtonModel; optimizer
+varying-rank stacks) and O2 (fitting: polynomial-interpolation oracle vs fitting.LocalModel; optimizer
 trajectories vs hand recomputation, ragged == uniform) sweeps, run from verbatim copies in
 ``tests/oracle_sweeps/``.
 

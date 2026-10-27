@@ -203,8 +203,9 @@ shared-factor submanifold, and every optimizer works on it unchanged. See [`shar
 ## 3. The pieces (structure)
 
 ```
-        t3toolbox/optimizers.py   (frontend adapter: kind-string + order/weight/draw -> TuckerTensorTrain)
-        t3toolbox/fitting.py      (frontend: GaussNewtonModel + *_model factories; T3Tangent in/out)
+        t3toolbox/optimizers.py   (frontend adapter: kind-string + order/weight/draw -> TuckerTensorTrain;
+                                   least_squares_problem -> the backend Problem)
+        t3toolbox/fitting.py      (frontend: LocalModel + *_model factories; T3Tangent in/out)
    ─────────────────────────────  the backend razor: a raw-.data user runs the SAME check-free code ──────
         backend/optimizers.py     (algorithms; Problem/LocalModel oracle; flat_draw) -- no T3 imports
         backend/geometry.py       (the T3 geometries: Manifold/Corewise + their uniform twins)
@@ -242,16 +243,23 @@ shared-factor submanifold, and every optimizer works on it unchanged. See [`shar
   aux exists so a geometry with per-frame setup pays for it once per local model rather than once per
   matvec (the shared-factor wrapper's SVD companion is the motivating case); it is `None` for
   `MANIFOLD`/`COREWISE`, and a custom geometry need only accept and ignore `aux=None`. It is
-  carried as a leaf on `LocalModel` (`geom_aux`) and on `GaussNewtonModel` (`geometry_aux`) —
-  [`contributor/precompute_and_caching.md`](contributor/precompute_and_caching.md). One more member is
+  carried as a leaf on `backend.optimizers.LocalModel` (`geom_aux`) and on `fitting.LocalModel`
+  (`geometry_aux`) — [`contributor/precompute_and_caching.md`](contributor/precompute_and_caching.md). One more member is
   **optional** (looked up duck-typed): `zero_point_frame(frame)`, the canonical frame at the zero tensor
   where the default Newton reference is evaluated (§5). The manifold geometries define it, the corewise
   ones return `None`, and a custom geometry without it gets the warm-start reference.
-- **`Problem` + `LocalModel`** (`backend/optimizers.py`) — the backend oracle. `Problem(geom, kind, sample,
-  data)` is **layout-agnostic**: `local_model(x [, sample_B, data_B])` linearizes at a point on the full
-  data or an explicit minibatch, returning a `LocalModel` with `.gradient` / `.objective` / `.hvp` /
-  `.gn_quadratic` / `.retract`. The frame sweep is computed once and shared. **`GaussNewtonModel`**
-  (`fitting.py`) is its interactive frontend twin (`T3Tangent` in/out), verified bit-identical.
+- **`Problem` + `backend.optimizers.LocalModel`** (`backend/optimizers.py`) — the backend oracle.
+  `Problem(geom, kind, sample, data)` is **layout-agnostic**: `local_model(x [, sample_B, data_B])`
+  linearizes at a point on the full data or an explicit minibatch, returning a
+  `backend.optimizers.LocalModel` with `.gradient` / `.objective` / `.hvp` / `.gn_quadratic` /
+  `.retract`. The frame sweep is computed once and shared. **`fitting.LocalModel`** (`fitting.py`) is
+  its interactive frontend twin (same name, one level up; `T3Tangent` in/out), verified bit-identical.
+  To get a `Problem` from the frontend vocabulary (a geometry singleton, a kind name, `order` / `weight`,
+  a ragged or uniform `x0`) — say, to drive a backend optimizer or build local models in a research
+  script — call **`optimizers.least_squares_problem(geometry, kind, sample, data, x0, ...)`**, the
+  constructor the four frontend optimizers use. It returns a `LeastSquaresSetup` with `.problem`, the
+  backend starting cores `.x0_cores` (reduced to minimal ranks where the optimizers would reduce them),
+  and `.rewrap` (backend cores → the frontend tensor).
 - **The optimizers** (`backend/optimizers.py`) consume the oracle hooks + (for the stochastic ones) a
   `draw`. `flat_draw(problem, batch)` builds the default minibatch draw.
 
@@ -432,7 +440,7 @@ directions); on `COREWISE` it is weight decay `½λ Σ_c ‖core_c‖²`.
 
 A **stacked** point carries a batch of base points `C`, and every objective is then an array of shape
 `C` — one value per element. The Gauss-Newton model handles that fine: `Problem.local_model` and the
-frontend `GaussNewtonModel` accept a stacked point and return a shape-`C` `objective` with a matching
+frontend `fitting.LocalModel` accept a stacked point and return a shape-`C` `objective` with a matching
 per-element gradient, so **driving your own loop over a stacked problem works**.
 
 The four library optimizers do **not** support it, and raise `NotImplementedError` if you try. Their

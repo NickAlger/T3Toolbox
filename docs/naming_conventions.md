@@ -207,7 +207,9 @@ T4S paper names the object neither way, so there is no paper conflict to worry a
   - **Sharing a name with the backend twin is fine, and intended** — `t3_orthogonal_representations`
     exists in *both* `frame_variations_format` (objects) and `backend/fv_conversions` (raw `.data`).
     Same operation, two levels; the module namespace tells them apart, and the backend is never
-    re-exported flat, so they never meet.
+    re-exported flat, so they never meet. Likewise the fitting pairs `fitting.LocalModel` /
+    `backend.optimizers.LocalModel` and `optimizers.least_squares_problem` /
+    `backend.optimizers.least_squares_problem`; where a page mentions both levels, qualify each.
   - **The prefix is what makes the root export possible.** Ragged/uniform × tensor/tangent gives
     **four** distinct "absorb the weights" operations; unprefixed they would all be `absorb_weights`
     and could not coexist in `t3toolbox/__init__.py` (the second import would silently shadow the

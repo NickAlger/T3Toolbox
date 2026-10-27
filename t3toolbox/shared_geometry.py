@@ -151,7 +151,7 @@ class SharedGeometry:
 
     def __eq__(self, other) -> bool:
         # type(self), NOT the hardcoded class: a SUBCLASS is a different geometry, and this pair is a jit
-        # cache key (a SharedGeometry rides in GaussNewtonModel's aux). Hardcoding the name made a
+        # cache key (a SharedGeometry rides in fitting.LocalModel's aux). Hardcoding the name made a
         # subclass with different math compare and hash EQUAL to the plain wrapper, so whichever was
         # compiled first served both -- a silent wrong answer for the un-subclassed object.
         return (type(other) is type(self) and other.base is self.base

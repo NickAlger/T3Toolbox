@@ -1593,7 +1593,7 @@ if jax_available:
     # equivalent stateless instance (its own methods work on any instance; the fitting factories and
     # shared() identify geometries by the singletons, so pass MANIFOLD / COREWISE there). This is purely
     # for ergonomics -- geometries are normally closed over -- but it removes the "cannot interpret
-    # ManifoldGeometry as an abstract value" footgun. (The GaussNewtonModel is registered in fitting.py
+    # ManifoldGeometry as an abstract value" footgun. (fitting.LocalModel is registered in fitting.py
     # with all-leaf data + geometry/kind as aux; with frame-as-leaf there is no aux/recompile dilemma, so
     # jitting the frontend matvec directly no longer recompiles -- see fitting.py "Jitting an optimizer".)
     jax.tree_util.register_pytree_node(

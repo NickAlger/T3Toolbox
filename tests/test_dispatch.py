@@ -512,8 +512,8 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(traces[0], 1, "uniform whole-step jit recompiled -- masks must be closed-over host np")
         self._leaves_all_jax(ut3.UniformTuckerTensorTrain(sc[0], sc[1], ux0.shape, ux0.masks))
 
-    def test_jit_uniform_gauss_newton_model(self):
-        # U7b (the roll-your-own surface): a UniformGaussNewtonModel matvec `jit(lambda m, p: m.gn_hessian(p))`
+    def test_jit_uniform_local_model(self):
+        # U7b (the roll-your-own surface): a uniform fitting.LocalModel matvec `jit(lambda m, p: m.gn_hessian(p))`
         # -- model AS AN ARGUMENT -- must compile ONCE across REBUILT models of the same rank. This exercises
         # the value-hashed aux design: the model's aux is (geometry, kind_name, x0_masks, order, weight) -- all
         # value-hashable -- and the packed kind is rebuilt lazily from it (a fresh-closure kind stored as aux
@@ -540,7 +540,7 @@ class TestDispatch(unittest.TestCase):
             p = ut3m.UNIFORM_MANIFOLD.randn(m.frame)
             hp = Hmatvec(m, p)
             jax.block_until_ready(hp.variations.supercores)
-        self.assertEqual(traces[0], 1, "UniformGaussNewtonModel matvec recompiled -- aux must be value-hashed "
+        self.assertEqual(traces[0], 1, "uniform fitting.LocalModel matvec recompiled -- aux must be value-hashed "
                                        "(kind rebuilt lazily, not stored as a fresh closure)")
         self._leaves_all_jax(hp)
 
@@ -554,7 +554,7 @@ class TestDispatch(unittest.TestCase):
         return bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.APPLY, ww, b), cores
 
     def test_local_model_rebuilt_each_step_is_one_jit_cache_key(self):
-        """A LocalModel is rebuilt at every Newton iteration by construction. It must flatten to the SAME
+        """A backend LocalModel is rebuilt at every Newton iteration by construction. It must flatten to the SAME
         treedef each time, or the inner CG recompiles per iteration -- which is exactly what it did before
         slices 1-3 (measured: 1 compile per Newton iteration on the probe_derivatives path).
 
@@ -604,7 +604,7 @@ class TestDispatch(unittest.TestCase):
         lambdas plus a hand-maintained ``identity`` tuple, and ``dataclasses.replace`` copied that tuple
         unchanged -- so ``dc.replace(APPLY, forward=<something else>)`` compared EQUAL to ``APPLY``,
         jax reused ``APPLY``'s compiled program, and jit returned the unscaled answer while eager
-        returned the scaled one (measured on the GaussNewtonModel docstring's fixture: 115.302888 vs
+        returned the scaled one (measured on the fitting.LocalModel docstring's fixture: 115.302888 vs
         28.825722; this fixture is smaller, but the failure is the same).
 
         Parameters are fields now and behaviour is methods, so the failure is unrepresentable: a variant
@@ -636,8 +636,8 @@ class TestDispatch(unittest.TestCase):
         self.assertAlmostEqual(q_derived, float(derived.gn_quadratic(p0)), places=10)  # jit == eager
         self.assertNotAlmostEqual(q_derived, q_plain, places=6)                        # and NOT the parent's
 
-    def test_jit_ragged_gauss_newton_model_parameterized_kind(self):
-        # The ragged twin of the test above, for the PARAMETERIZED kinds. A GaussNewtonModel carries its
+    def test_jit_ragged_local_model_parameterized_kind(self):
+        # The ragged twin of the test above, for the PARAMETERIZED kinds. A fitting.LocalModel carries its
         # SamplingKind as jax aux_data, and jax keys the compilation cache on the aux. APPLY/ENTRIES/PROBE
         # are module singletons, so they were always one object and always one compile -- but the derivative
         # and weighted kinds are BUILT PER MODEL, out of fresh closures, so under dataclass field equality
@@ -671,7 +671,7 @@ class TestDispatch(unittest.TestCase):
                     hp = Hmatvec(m, t3m.MANIFOLD.randn(m.frame))
                     jax.block_until_ready(hp.variations.tucker_variations[0])
                 self.assertEqual(traces[0], 1,
-                                 'GaussNewtonModel matvec recompiled on rebuild -- SamplingKind must '
+                                 'fitting.LocalModel matvec recompiled on rebuild -- SamplingKind must '
                                  'compare by identity (parameters), not by its closure fields')
 
         # ... and a genuinely different kind MUST still get its own compile
@@ -684,7 +684,7 @@ class TestDispatch(unittest.TestCase):
         Hmatvec2(build(1, weight), t3m.MANIFOLD.randn(build(1, weight).frame))
         self.assertEqual(traces[0], 2, 'different residual weights must not share a compilation')
 
-    def test_jit_shared_uniform_gauss_newton_model(self):
+    def test_jit_shared_uniform_local_model(self):
         # The SHARED uniform model (slice 11): SharedGeometry(UNIFORM_MANIFOLD, sharing) is value-hashed
         # aux, the SF-T3 companion rides as the geometry_aux LEAF, and the tied matvec (companion-fed
         # projections on both sides) compiles ONCE across rebuilt same-rank models.
@@ -714,12 +714,12 @@ class TestDispatch(unittest.TestCase):
             p = geom.randn(m.frame)
             hp = Hmatvec(m, p)
             jax.block_until_ready(hp.variations.supercores)
-        self.assertEqual(traces[0], 1, "shared UniformGaussNewtonModel matvec recompiled -- the wrapper "
+        self.assertEqual(traces[0], 1, "shared uniform fitting.LocalModel matvec recompiled -- the wrapper "
                                        "must be value-hashed aux and the companion a leaf")
         self._leaves_all_jax(hp)
 
     def test_jit_uniform_weighted_gn_model(self):
-        # A WEIGHTED UniformGaussNewtonModel (per-mode plain probe + full ω[mode,order] probe_derivatives)
+        # A WEIGHTED uniform fitting.LocalModel (per-mode plain probe + full ω[mode,order] probe_derivatives)
         # must keep compile-once across rebuilds: the ω matrix rides in the value-hashed aux as a nested
         # tuple (a numpy-array aux would be unhashable / a fresh object each rebuild -> a recompile).
         import t3toolbox.uniform_manifold as ut3m
@@ -753,7 +753,7 @@ class TestDispatch(unittest.TestCase):
                 p = ut3m.UNIFORM_MANIFOLD.randn(m.frame)
                 hp = Hmatvec(m, p)
                 jax.block_until_ready(hp.variations.supercores)
-            self.assertEqual(traces[0], 1, "weighted UniformGaussNewtonModel recompiled -- the ω matrix aux "
+            self.assertEqual(traces[0], 1, "weighted uniform fitting.LocalModel recompiled -- the ω matrix aux "
                                            "must be a hashable nested tuple, value-hashed like the unweighted model")
             self._leaves_all_jax(hp)
 

@@ -8,7 +8,8 @@ raw-``.data`` user can call them directly). This layer (1) maps the frontend geo
 sampling-kind name to the backend geometry / ``SamplingKind``, (2) calls the backend optimizer on the
 raw cores, and (3) re-wraps the result. Design: ``docs/contributor/fitting_internals.md`` §"Backend-first".
 
-**Two representations, inferred from** ``x0`` (the library-wide ragged/uniform dispatch; ``_setup``):
+**Two representations, inferred from** ``x0`` (the library-wide ragged/uniform dispatch;
+:py:func:`least_squares_problem`):
 
 * a **ragged** ``TuckerTensorTrain`` x0 with a ragged geometry (``manifold.MANIFOLD`` / ``COREWISE``) --
   the optimizer runs on the raw cores; the frame is re-orthogonalized internally each step.
@@ -28,7 +29,12 @@ runs eager on numpy with a one-time warning (the jax-absent policy, ``backend.co
 
     >>> # x_opt, stats = optimizers.gradient_descent(MANIFOLD, 'probe', ww, data, x0)           # ragged
     >>> # x_opt, stats = optimizers.newton_cg(UNIFORM_MANIFOLD, 'probe', ww, data, ux0)         # uniform
+
+The four optimizers build their backend problem with :py:func:`least_squares_problem`, which is public: a
+script that wants the backend :py:class:`~t3toolbox.backend.optimizers.Problem` (to build local models, or to
+call a backend optimizer directly) builds it from the same frontend vocabulary.
 """
+import dataclasses as dc
 import typing as typ
 import warnings
 
@@ -53,6 +59,8 @@ __all__ = [
     'mc_sgd',
     'adam',
     'newton_cg',
+    'least_squares_problem',
+    'LeastSquaresSetup',
     'Regularizer',
     'IdentityRegularizer',
 ]
@@ -63,7 +71,8 @@ _DERIV_KIND = {'apply_derivatives':   bfit.apply_derivatives_kind,
                'probe_derivatives':   bfit.probe_derivatives_kind}
 
 # A frontend point in either representation. The four optimizers infer ragged (TuckerTensorTrain) vs
-# uniform (UniformTuckerTensorTrain) from x0's type, and require a matching geometry singleton -- see _setup.
+# uniform (UniformTuckerTensorTrain) from x0's type, and require a matching geometry singleton -- see
+# least_squares_problem.
 Point = typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain]
 
 
@@ -171,30 +180,97 @@ def _bfit_pd():
     return pd
 
 
-def _setup(
-        geometry,           # ragged (t3m.MANIFOLD/COREWISE) or uniform (ut3m.UNIFORM_MANIFOLD/COREWISE) singleton
-        kind:   str,        # 'apply' / 'entries' / 'probe' (+ '_derivatives')
-        sample,             # ww / index (regular) or (ww, pp) / (index, pp) (derivatives)
-        data,               # observed S(x_true) (+ noise)
-        x0,                 # TuckerTensorTrain (ragged) or UniformTuckerTensorTrain (uniform)
-        order:  typ.Optional[int] = None,  # derivative kinds only: highest order (required)
-        weight: typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
-        regularizer: typ.Any = None,       # optional backend.regularization.Regularizer (ragged or uniform)
-        chunk_size: typ.Any = 'auto',      # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
-        batch:  typ.Optional[int] = None,  # minibatch size (mc_sgd/adam): the W the transpose sees, for 'auto'
-) -> typ.Tuple[
-        bopt.Problem,       # the fixed-rank least-squares problem
-        typ.Any,            # initial optimizer state: x0.data (ragged) or the bare supercore pair (uniform)
-        typ.Callable,       # rewrap: backend result cores -> the frontend tensor of the same representation
-]:
-    """Build the backend ``(problem, initial state, rewrap)`` for either representation.
+@dc.dataclass(frozen=True, eq=False)   # eq=False: identity eq/hash (array data + a callable; value-eq is ill-posed)
+class LeastSquaresSetup:
+    """What :py:func:`~t3toolbox.optimizers.least_squares_problem` returns: the backend problem, the backend starting cores, and
+    the map from backend cores back to a frontend tensor.
+
+    A named result, not a bare tuple, so that the frontend constructor's three outputs are not mistaken
+    for the backend :py:func:`t3toolbox.backend.optimizers.least_squares_problem`'s single ``Problem``."""
+    problem:  bopt.Problem    # the backend problem: .local_model(x_cores) / .objective(x_cores) / .geom
+    x0_cores: typ.Any         # x0 as backend cores, maybe rank-reduced: x0.data (ragged) / the supercore pair (uniform)
+    rewrap:   typ.Callable    # backend cores -> the frontend tensor, in x0's representation
+
+
+def least_squares_problem(
+        geometry,               # MANIFOLD / COREWISE / UNIFORM_* / a SharedGeometry over one
+        kind:        str,       # 'apply' / 'entries' / 'probe' (+ '_derivatives'), case-insensitive
+        sample:      typ.Any,   # ww / index, or (ww, pp) / (index, pp) for derivatives
+        data:        typ.Any,   # observed S(x_true) (+ noise)
+        x0:          Point,     # ragged or uniform: picks the representation
+
+        order:       typ.Optional[int] = None,      # derivative kinds only: highest order (required)
+        weight:      typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order]
+        regularizer: typ.Any = None,                # optional, e.g. optimizers.IdentityRegularizer(λ)
+        chunk_size:  typ.Any = 'auto',              # probe_derivatives 𝒥ᵀ memory chunk (docs/chunking.md)
+        batch:       typ.Optional[int] = None,      # minibatch W (mc_sgd / adam), for chunk_size='auto'
+) -> LeastSquaresSetup:  # .problem, .x0_cores, .rewrap
+    """Build the backend least-squares problem from the frontend vocabulary -- the constructor the four
+    optimizers use, public for scripts that drive the backend directly.
+
+    The frontend twin of :py:func:`t3toolbox.backend.optimizers.least_squares_problem`: that one takes
+    backend objects (a backend geometry, a ``SamplingKind``) and returns a bare ``Problem``; this one takes
+    what the frontend optimizers take -- a geometry singleton (or a ``SharedGeometry``), the kind's name,
+    ``order`` / ``weight`` -- and returns a :py:class:`LeastSquaresSetup` ``(problem, x0_cores, rewrap)``.
+    ``problem`` builds local models and evaluates the objective at backend cores, and can be handed with
+    ``x0_cores`` to a backend optimizer (:py:func:`t3toolbox.backend.optimizers.newton_cg` and the
+    others); ``rewrap`` turns the backend result back into a frontend tensor.
 
     The representation is **inferred from** ``x0``'s type (like the library-wide ragged/uniform dispatch);
-    the geometry must match -- a ``UniformTuckerTensorTrain`` x0 pairs with a uniform geometry singleton, a
-    ``TuckerTensorTrain`` x0 with a ragged one -- else a structural error. The uniform path reduces ``x0`` to
-    minimal ranks (:py:func:`~t3toolbox.backend.uniform_fitting.uniform_minimal`) transparently, so a
-    frontend user never meets the minimal-rank requirement, and rewraps the optimizer's bare supercore pair
-    with the frame's held ``shape`` + ``masks``.
+    the geometry must match -- a ``UniformTuckerTensorTrain`` x0 pairs with a uniform geometry, a
+    ``TuckerTensorTrain`` x0 with a ragged one -- else a structural error. ``x0_cores`` may have smaller
+    ranks than ``x0`` (the same tensor): on a manifold geometry a ragged ``x0`` is reduced to minimal ranks,
+    and a uniform ``x0`` always is (:py:func:`~t3toolbox.backend.uniform_fitting.uniform_minimal`; the
+    uniform path needs a minimal-rank frame), so a frontend user never meets that requirement. A uniform
+    ``rewrap`` carries the reduced point's ``shape`` + ``masks``. ``chunk_size`` and ``batch`` are as in
+    the optimizers (:doc:`/chunking`).
+
+    Examples
+    --------
+    Build the problem of a ragged ``probe`` fit, take the backend local model at the start, and read off
+    its gradient -- raw ``(tucker_variations, tt_variations)`` tuples, shaped like the frame's cores:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.optimizers as optimizers
+    >>> np.random.seed(0)
+    >>> A = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
+    >>> ww = [np.random.randn(30, N) for N in (4, 5, 6)]
+    >>> x0 = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
+    >>> setup = optimizers.least_squares_problem(t3m.MANIFOLD, 'probe', ww, A.probe(ww), x0)
+    >>> type(setup.problem).__name__
+    'Problem'
+    >>> g_tucker, g_tt = setup.problem.local_model(setup.x0_cores).gradient
+    >>> [V.shape for V in g_tucker], [H.shape for H in g_tt]
+    ([(2, 4), (2, 5), (2, 6)], [(1, 2, 2), (2, 2, 2), (2, 2, 1)])
+
+    The same ``problem`` drives a backend optimizer, and ``rewrap`` returns its result as a frontend tensor:
+
+    >>> import t3toolbox.backend.optimizers as bopt
+    >>> x_cores, stats = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=20)
+    >>> x_opt = setup.rewrap(x_cores)
+    >>> type(x_opt).__name__, stats['stop_reason']
+    ('TuckerTensorTrain', 'gradient')
+    >>> bool(np.linalg.norm(x_opt.to_dense() - A.to_dense()) < 1e-6 * np.linalg.norm(A.to_dense()))
+    True
+
+    A uniform ``x0`` (with a uniform geometry) gives the packed problem; ``x0_cores`` is then the bare
+    supercore pair:
+
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.uniform_manifold as ut3m
+    >>> usetup = optimizers.least_squares_problem(ut3m.UNIFORM_MANIFOLD, 'probe', ww, A.probe(ww),
+    ...                                           ut3.UniformTuckerTensorTrain.from_t3(x0))
+    >>> [sc.shape for sc in usetup.x0_cores], type(usetup.rewrap(usetup.x0_cores)).__name__
+    ([(3, 2, 6), (3, 2, 2, 2)], 'UniformTuckerTensorTrain')
+
+    A geometry of the other representation is a structural error:
+
+    >>> ux0 = ut3.UniformTuckerTensorTrain.from_t3(x0)
+    >>> optimizers.least_squares_problem(t3m.MANIFOLD, 'probe', ww, A.probe(ww), ux0)   # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+    ValueError: a UniformTuckerTensorTrain x0 requires a uniform geometry
     """
     kind = kind.lower()                                           # 'Probe', 'PROBE_DERIVATIVES', ... accepted
     _check_kind(kind, order)
@@ -210,7 +286,8 @@ def _setup(
         problem = uf.uniform_least_squares_problem(geom_name, kind, x0m, sample, data, order, wm, regularizer,
                                                    chunk_size=cs, sharing=sharing_spec)
         init = (x0m.tucker_supercore, x0m.tt_supercore)  # optimizer state = the bare supercore pair
-        return problem, init, lambda sc: ut3.UniformTuckerTensorTrain(sc[0], sc[1], x0m.shape, x0m.masks)
+        return LeastSquaresSetup(problem, init,
+                                 lambda sc: ut3.UniformTuckerTensorTrain(sc[0], sc[1], x0m.shape, x0m.masks))
 
     if isinstance(x0, t3.TuckerTensorTrain):
         if _is_manifold_geometry(geometry):
@@ -224,7 +301,7 @@ def _setup(
             bk = _DERIV_KIND[kind](order, wm)
         problem = bopt.least_squares_problem(_geometry_ops(geometry, x0.shape), bk, sample, data,
                                              regularizer=regularizer)
-        return problem, x0.data, lambda cores: t3.TuckerTensorTrain(*cores)
+        return LeastSquaresSetup(problem, x0.data, lambda cores: t3.TuckerTensorTrain(*cores))
 
     raise TypeError(f"x0 must be a TuckerTensorTrain or UniformTuckerTensorTrain, got {type(x0).__name__}")
 
@@ -258,9 +335,9 @@ def gradient_descent(
     :py:func:`newton_cg`, and ``g0_reference`` picks the reference ``‖g0‖`` of the relative stop as there
     (by default the zero tensor of ``x0``'s ranks on a manifold geometry). See
     :py:func:`t3toolbox.backend.optimizers.gradient_descent`."""
-    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size)
-    x_cores, stats = bopt.gradient_descent(problem, init, g0_reference=g0_reference, **kwargs)
-    return rewrap(x_cores), stats
+    setup = least_squares_problem(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size)
+    x_cores, stats = bopt.gradient_descent(setup.problem, setup.x0_cores, g0_reference=g0_reference, **kwargs)
+    return setup.rewrap(x_cores), stats
 
 
 def mc_sgd(
@@ -282,9 +359,10 @@ def mc_sgd(
     """Manifold Cauchy SGD -- minibatched, tuning-free Cauchy step. Ragged or uniform ``x0`` (see
     :py:func:`gradient_descent`). A ``regularizer`` is scaled by ``batch/n`` per step so
     ``λ`` matches the full-batch optimizers. See :py:func:`t3toolbox.backend.optimizers.mc_sgd`."""
-    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size, batch=batch)
-    x_cores, stats = bopt.mc_sgd(problem, init, rng, batch, draw=draw, use_jit=use_jit, **kwargs)
-    return rewrap(x_cores), stats
+    setup = least_squares_problem(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size,
+                                  batch=batch)
+    x_cores, stats = bopt.mc_sgd(setup.problem, setup.x0_cores, rng, batch, draw=draw, use_jit=use_jit, **kwargs)
+    return setup.rewrap(x_cores), stats
 
 
 def adam(
@@ -313,28 +391,42 @@ def adam(
                       "representation (measured ~1e-2 between numpy, jax and uniform). It runs, but COREWISE "
                       "is the intended geometry for adam; mc_sgd / newton_cg are the gauge-invariant "
                       "manifold optimizers.", RuntimeWarning, stacklevel=2)
-    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size, batch=batch)
-    x_cores, stats = bopt.adam(problem, init, rng, batch, draw=draw, use_jit=use_jit, **kwargs)
-    return rewrap(x_cores), stats
+    setup = least_squares_problem(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size,
+                                  batch=batch)
+    x_cores, stats = bopt.adam(setup.problem, setup.x0_cores, rng, batch, draw=draw, use_jit=use_jit, **kwargs)
+    return setup.rewrap(x_cores), stats
 
 
 def newton_cg(
-        geometry,                       # ragged/uniform MANIFOLD (intended) / COREWISE (must match x0)
-        kind:     str,                  # 'apply' / 'entries' / 'probe' (+ '_derivatives')
-        sample:   typ.Any,              # ww / index, or (ww, pp) / (index, pp) for derivatives
-        data:     typ.Any,             # observed values to fit
-        x0:       Point,                # initial point (zero is fine on the manifold)
-        order:    typ.Optional[int] = None,
-        weight:   typ.Optional[typ.Any] = None,   # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
-        verbose:  bool = False,                   # print per-iteration diagnostics (a relative-error table + more)
-        val_sample: typ.Any = None,               # optional validation sample (same layout as `sample`) -> a train|val table
-        val_data:   typ.Any = None,               # optional validation data (both given adds the val column)
-        callback:   typ.Optional[typ.Callable] = None,  # custom callback(NewtonInfo) each iter (overrides `verbose`)
-        use_jit:    bool = False,               # jit the inner CG: auto-converts x0/sample/data to jax -> a jax-backed float32 result; warns + runs eager if jax absent
-        regularizer: typ.Any = None,            # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
-        chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
-        g0_reference: typ.Optional[str] = None,   # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start'
-        **kwargs,                       # forwarded to backend.optimizers.newton_cg (max_newton, gtol_rel, g0norm_newton, ...)
+        geometry,                   # ragged/uniform MANIFOLD (intended) / COREWISE (must match x0)
+        kind:             str,      # 'apply' / 'entries' / 'probe' (+ '_derivatives')
+        sample:           typ.Any,  # ww / index, or (ww, pp) / (index, pp) for derivatives
+        data:             typ.Any,  # observed values to fit
+        x0:               Point,    # initial point (zero is fine on the manifold)
+
+        order:            typ.Optional[int] = None,      # derivative kinds: highest order (required)
+        weight:           typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
+
+        verbose:          bool = False,    # print per-iteration diagnostics (a relative-error table + more)
+        val_sample:       typ.Any = None,  # optional validation sample (same layout as `sample`) -> a train|val table
+        val_data:         typ.Any = None,  # optional validation data (both given adds the val column)
+
+        callback:         typ.Optional[typ.Callable] = None,  # custom callback(NewtonInfo) each iter (overrides `verbose`)
+
+        use_jit:          bool = False,      # jit the inner CG: auto-converts x0/sample/data to jax -> a jax-backed float32 result; warns + runs eager if jax absent
+        regularizer:      typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+        chunk_size:       typ.Any = 'auto',  # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
+
+        g0_reference:     typ.Optional[str]   = None,  # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start'
+        g0norm_newton:    typ.Optional[float] = None,  # explicit ‖g0‖ for the Newton stop (wins; > 0); also feeds CG unless g0norm_cg is given
+        g0norm_cg:        typ.Optional[float] = None,  # explicit ‖g0‖ for the CG forcing term (wins for CG; > 0); default = the Newton reference
+
+        cg_forcing_power: float = 0.5,   # η = min(0.5, (‖g‖/‖g0‖)**power); larger => tighter CG, fewer Newton steps
+        max_newton:       int   = 30,    # Newton-iteration cap
+        gtol_rel:         float = 1e-8,  # stop when ‖g‖ <= gtol_rel * ‖g0‖
+        cg_maxiter:       int   = 200,   # inner CG iteration cap per Newton step
+        c_armijo:         float = 1e-4,  # Armijo sufficient-decrease constant
+        on_line_search_failure: str = 'stop',  # Armijo exhausted: 'stop' = reject the step and terminate; 'accept' = take the last trial
 ) -> typ.Tuple[Point, dict]:
     """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse. Ragged or uniform
     ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
@@ -343,9 +435,13 @@ def newton_cg(
     geometry uses the gradient norm at the **zero tensor of x0's ranks** -- the right scale after a
     warm start, whose own initial gradient is deflated -- and a corewise geometry the warm-start ‖g(x0)‖;
     ``g0_reference='warm_start'`` keeps the 2026.2.0 behaviour. The explicit overrides ``g0norm_newton`` /
-    ``g0norm_cg`` (forwarded via ``**kwargs``) win, and ``cg_forcing_power`` trades more CG iterations per
-    Newton step for fewer Newton steps (all detailed on the backend; ``docs/fitting_and_optimization.md``
-    §5).
+    ``g0norm_cg`` win, and ``cg_forcing_power`` trades more CG iterations per Newton step for fewer Newton
+    steps (all detailed on the backend; ``docs/fitting_and_optimization.md`` §5).
+
+    The solver options -- ``max_newton``, ``gtol_rel``, ``cg_maxiter``, ``c_armijo``,
+    ``on_line_search_failure``, the references above and ``cg_forcing_power`` -- are the backend's, with
+    the backend's defaults, passed straight through. They are explicit keywords (there is no ``**kwargs``
+    pass-through), so a misspelt option raises ``TypeError`` at the call, before the problem is built.
 
     ``verbose=True`` prints a per-iteration diagnostic block (objective / gradient, CG stats, line search,
     and the per-``(mode, order)`` relative-error table); pass ``val_sample`` / ``val_data`` to add a
@@ -427,7 +523,7 @@ def newton_cg(
     >>> dtype_x64, ok_x64
     ('float64', True)
     """
-    problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size)
+    setup = least_squares_problem(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size)
     records = None
     if (val_sample is None) != (val_data is None):
         raise ValueError("newton_cg: pass val_sample and val_data together, or neither (val_sample=%s, "
@@ -438,9 +534,12 @@ def newton_cg(
         if isinstance(x0, ut3.UniformTuckerTensorTrain) and val_data is not None:
             vs = uf.pack_sample(kind, val_sample, x0.N)   # pack validation to the packed kind's width
             vd = uf.pack_data(kind, val_data, x0.N)
-        callback, records = bdisp.make_newton_display(problem, val_sample=vs, val_data=vd)
-    x_cores, stats = bopt.newton_cg(problem, init, callback=callback, use_jit=use_jit, g0_reference=g0_reference,
-                                    **kwargs)
+        callback, records = bdisp.make_newton_display(setup.problem, val_sample=vs, val_data=vd)
+    x_cores, stats = bopt.newton_cg(setup.problem, setup.x0_cores,
+                                    max_newton=max_newton, gtol_rel=gtol_rel, cg_maxiter=cg_maxiter,
+                                    c_armijo=c_armijo, on_line_search_failure=on_line_search_failure,
+                                    g0_reference=g0_reference, g0norm_newton=g0norm_newton, g0norm_cg=g0norm_cg,
+                                    cg_forcing_power=cg_forcing_power, use_jit=use_jit, callback=callback)
     if records is not None:
         stats['diagnostics'] = records
-    return rewrap(x_cores), stats
+    return setup.rewrap(x_cores), stats

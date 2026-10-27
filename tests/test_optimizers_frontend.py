@@ -1,6 +1,6 @@
 """Frontend optimizer adapter (t3toolbox/optimizers.py) -- end-to-end: it returns a TuckerTensorTrain,
 the loss descends, and the fit recovers a low-rank target. The heavy correctness check (backend oracle ==
-GaussNewtonModel) lives in tests/backend/test_optimizers.py."""
+fitting.LocalModel) lives in tests/backend/test_optimizers.py."""
 import unittest
 
 import numpy as np
@@ -76,9 +76,10 @@ class TestFrontendOptimizers(unittest.TestCase):
         self.assertIsInstance(x, t3.TuckerTensorTrain)
         self.assertLess(self._true_err(x), 1e-3)
 
-    def test_newton_cg_g0norm_kwargs_forward(self):
+    def test_newton_cg_g0norm_keywords_forward(self):
         """The warm-start reference overrides (g0norm_newton / g0norm_cg / cg_forcing_power) forward through
-        the adapter's **kwargs to the backend loop -- verified via the reported reference + η in NewtonInfo."""
+        the adapter's explicit keywords to the backend loop -- verified via the reported reference + η in
+        NewtonInfo."""
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)
         seen = []
         topt.newton_cg(t3m.MANIFOLD, 'probe', self.ww, self.data, x0,
@@ -184,7 +185,7 @@ class TestFrontendOptimizers(unittest.TestCase):
         """Plain apply/entries take no residual weight (no mode/order axis); a per-mode weight to plain
         probe must be 1-D (a 2-D (d,1) is rejected)."""
         x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT)
-        with self.assertRaises(ValueError):    # plain apply: no axis to weight (raised early in _setup)
+        with self.assertRaises(ValueError):    # plain apply: no axis to weight (raised early, in least_squares_problem)
             topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, np.ones(len(self.data[0])), x0,
                            weight=[1.0], max_newton=1)
         with self.assertRaises(ValueError):    # plain probe: a 2-D (d,1) is rejected (no order axis)
@@ -354,6 +355,124 @@ class TestReview20260822Frontend(unittest.TestCase):
         a, _ = topt.newton_cg(t3m.MANIFOLD, 'Apply', self.ww, self.b, self.x_true, max_newton=1)
         b, _ = topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x_true, max_newton=1)
         self.assertLess(float(np.linalg.norm(a.to_dense() - b.to_dense())), 1e-12)
+
+
+class TestLeastSquaresProblemAndKeywords(unittest.TestCase):
+    """2026.3.0 (S0e): the public ``optimizers.least_squares_problem`` (which replaced the private
+    ``_setup``), its named result, the ``GaussNewtonModel`` -> ``LocalModel`` rename (not aliased), and
+    ``newton_cg``'s explicit keywords (no ``**kwargs`` pass-through)."""
+
+    # The keywords T3Polynomial passes to the frontend newton_cg (plan §K) -- all must be explicit.
+    T3POLYNOMIAL_KEYS = ('order', 'weight', 'max_newton', 'verbose', 'val_sample', 'val_data',
+                         'g0norm_newton', 'gtol_rel', 'use_jit', 'g0_reference')
+
+    def setUp(self):
+        np.random.seed(7)
+        self.x_true = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+        self.ww = tuple(np.random.randn(12, n) for n in self.x_true.shape)
+        self.b = self.x_true.apply(self.ww)
+        self.x0 = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+
+    def test_named_result(self):
+        import t3toolbox.backend.optimizers as bopt
+        setup = topt.least_squares_problem(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0)
+        self.assertIsInstance(setup, topt.LeastSquaresSetup)
+        self.assertIsInstance(setup.problem, bopt.Problem)
+        with self.assertRaises(TypeError):             # a named result, not a tuple: no unpacking, no [0]
+            problem, x0_cores, rewrap = setup
+        with self.assertRaises(TypeError):
+            setup[0]
+        x = setup.rewrap(setup.x0_cores)               # a minimal ragged start: the same cores back
+        self.assertIsInstance(x, t3.TuckerTensorTrain)
+        self.assertTrue(x.corewise_equal(self.x0))
+
+    def test_x0_cores_minimal_on_manifold_only(self):
+        """On a manifold geometry a non-minimal ragged x0 comes back at minimal ranks (the same tensor); on
+        corewise it is untouched."""
+        x0 = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 3, 2), (1, 2, 1, 1))
+        self.assertFalse(x0.has_minimal_ranks)
+        xm = topt.least_squares_problem(t3m.MANIFOLD, 'apply', self.ww, self.b, x0)
+        xm = xm.rewrap(xm.x0_cores)
+        self.assertTrue(xm.has_minimal_ranks)
+        self.assertLess(float(np.linalg.norm(xm.to_dense() - x0.to_dense())),
+                        1e-12 * float(np.linalg.norm(x0.to_dense())))                # the same tensor
+        xc = topt.least_squares_problem(t3m.COREWISE, 'apply', self.ww, self.b, x0)
+        self.assertTrue(xc.rewrap(xc.x0_cores).corewise_equal(x0))
+
+    def test_gradient_matches_frontend_local_model(self):
+        """The constructor's problem linearizes to the same gradient as the frontend fitting.LocalModel."""
+        import t3toolbox.fitting as fitting
+        setup = topt.least_squares_problem(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0)
+        g_tucker, g_tt = setup.problem.local_model(setup.x0_cores).gradient
+        model = fitting.apply_model(t3m.MANIFOLD, self.x0, self.ww, self.x0.apply(self.ww) - self.b)
+        self.assertIsInstance(model, fitting.LocalModel)
+        f_tucker, f_tt = model.gradient.variations.data
+        for a, b in zip(tuple(g_tucker) + tuple(g_tt), tuple(f_tucker) + tuple(f_tt)):
+            self.assertTrue(np.allclose(a, b, rtol=1e-12, atol=1e-14))
+
+    def test_the_four_optimizers_build_through_it(self):
+        from unittest import mock
+        with mock.patch.object(topt, 'least_squares_problem', wraps=topt.least_squares_problem) as spy:
+            topt.gradient_descent(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, n_iter=1)
+            topt.mc_sgd(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, np.random.default_rng(0), batch=6,
+                        max_iter=1)
+            topt.adam(t3m.COREWISE, 'apply', self.ww, self.b, self.x0, np.random.default_rng(0), batch=6,
+                      max_iter=1)
+            topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, max_newton=1)
+        self.assertEqual(spy.call_count, 4)
+
+    def test_removed_and_public_names(self):
+        import t3toolbox
+        import t3toolbox.fitting as fitting
+        self.assertFalse(hasattr(topt, '_setup'))                       # removed, not aliased
+        self.assertFalse(hasattr(fitting, 'GaussNewtonModel'))          # renamed, not aliased
+        self.assertFalse(hasattr(t3toolbox, 'GaussNewtonModel'))
+        self.assertIs(t3toolbox.LocalModel, fitting.LocalModel)         # the frontend class at the root
+        self.assertIn('LocalModel', t3toolbox.__all__)
+        self.assertIn('least_squares_problem', topt.__all__)
+        self.assertIn('LeastSquaresSetup', topt.__all__)
+        self.assertFalse(hasattr(t3toolbox, 'least_squares_problem'))   # module-level only, not at the root
+        self.assertNotIn('ragged_backend_geometry', fitting.__all__)
+
+    def test_newton_cg_misspelt_option_raises_before_setup(self):
+        """A misspelt option is a TypeError at the frontend call: the problem is never built (it used to
+        be forwarded and rejected by the backend loop, after the setup work)."""
+        from unittest import mock
+        with mock.patch.object(topt, 'least_squares_problem') as spy:
+            with self.assertRaises(TypeError):
+                topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, max_newtn=3)
+        spy.assert_not_called()
+
+    def test_newton_cg_keywords_mirror_backend(self):
+        """Every backend newton_cg option is an explicit frontend keyword with the backend's default, and
+        every keyword T3Polynomial passes is among them."""
+        import inspect
+        import t3toolbox.backend.optimizers as bopt
+        front = inspect.signature(topt.newton_cg).parameters
+        back = inspect.signature(bopt.newton_cg).parameters
+        self.assertFalse(any(p.kind is inspect.Parameter.VAR_KEYWORD for p in front.values()))
+        for name, p in back.items():
+            if name in ('problem', 'x0'):
+                continue
+            with self.subTest(name=name):
+                self.assertIn(name, front)
+                self.assertEqual(front[name].default, p.default)
+        for name in self.T3POLYNOMIAL_KEYS:
+            self.assertIn(name, front)
+
+    def test_newton_cg_forwards_each_keyword(self):
+        """Each solver keyword reaches the backend loop with the value passed (none dropped or swapped)."""
+        from unittest import mock
+        import t3toolbox.backend.optimizers as bopt
+        opts = dict(max_newton=7, gtol_rel=3e-5, cg_maxiter=11, c_armijo=2e-3, on_line_search_failure='accept',
+                    g0_reference='warm_start', g0norm_newton=5.0, g0norm_cg=4.0, cg_forcing_power=0.75,
+                    use_jit=False)
+        cb = lambda info: None
+        with mock.patch.object(bopt, 'newton_cg', side_effect=lambda problem, x0, **kw: (x0, {})) as spy:
+            topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, callback=cb, **opts)
+        self.assertEqual(spy.call_count, 1)
+        self.assertEqual(spy.call_args.kwargs, dict(opts, callback=cb))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -21,7 +21,7 @@ wrong place breaks the execution model. So the design question is never "should 
    because mutation is impossible. Safe, but limited to things derivable from one object alone.
 2. **Explicit aux threading at scope boundaries** — compute X at the moment its inputs settle and
    pass it along as a value: the sampling `sweep`, the SF-T3 companion (the geometry's `precompute` →
-   `LocalModel.geom_aux` / the frontend models' `geometry_aux`), the packed sample. This is the
+   `backend.optimizers.LocalModel.geom_aux` / the frontend `fitting.LocalModel.geometry_aux`), the packed sample. This is the
    functionally *pure* form of caching: reuse follows **provenance** (the same object flowing
    through the loop), invalidation is structural (a new frame simply *is* a new aux), and it
    composes with jit (the aux is a pytree **leaf**, like `sweep`).
@@ -60,7 +60,7 @@ geometries that recomputed the whole companion (a lossless right sweep + `d` sma
 group SVDs) **per matvec** — exactly the serial-small-SVDs pattern `precompute` exists to avoid,
 leaking back through one seam. (The original "accepted cost" note was mis-scoped: acceptable per
 *model*, not per *matvec*.) The protocol now threads `aux=None` through
-`gradient`/`hessian`/`quadratic`, the backend `LocalModel` and both frontend models pass their
+`gradient`/`hessian`/`quadratic`, the backend `optimizers.LocalModel` and the frontend `fitting.LocalModel` pass their
 stored companion, and a regression test asserts zero companion rebuilds across repeated regularized
 matvecs. This also pre-builds the channel a future shared-geometry Grasedyck–Kramer
 `SingularValueRegularizer` needs — its natural input *is* the companion's `svd_s`, a fourth

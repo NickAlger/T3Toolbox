@@ -1,7 +1,7 @@
 """Tests for the backend-first optimizers (dev/archive/optimizers_plan.md, G3).
 
 Correctness gold standard: the check-free backend oracle (`backend.optimizers`) must reproduce the
-frontend `fitting.GaussNewtonModel` exactly (it is the same math through the same backend functions).
+frontend `fitting.LocalModel` exactly (it is the same math through the same backend functions).
 Plus: the optimizers descend. numpy-only (jit dispatch is covered separately in test_dispatch)."""
 import unittest
 
@@ -59,7 +59,7 @@ class TestBackendOptimizers(unittest.TestCase):
     _BKIND = {'apply': bfit.APPLY, 'entries': bfit.ENTRIES, 'probe': bfit.PROBE}
 
     def _problem_and_frontend(self, geom_b, geom_f, kind_name, M=60):
-        """Build a `Problem` (backend geometry) and the matching frontend `GaussNewtonModel` (at self.X)."""
+        """Build a `Problem` (backend geometry) and the matching frontend `fitting.LocalModel` (at self.X)."""
         rng, A, X = self.rng, self.A, self.X
         if kind_name == 'apply':
             sample = unit_vecs(M, SHAPE, rng); data = dense_apply(A, sample); r = np.asarray(X.apply(sample)) - data
@@ -74,8 +74,9 @@ class TestBackendOptimizers(unittest.TestCase):
         return problem, fmodel
 
     def test_oracle_matches_frontend(self):
-        """The backend LocalModel reproduces GaussNewtonModel's gradient / objective / gn_quadratic / hvp,
-        for every (geometry, sampling-kind) pair -- it is the same math through the same backend functions."""
+        """The backend LocalModel reproduces the frontend fitting.LocalModel's gradient / objective /
+        gn_quadratic / hvp, for every (geometry, sampling-kind) pair -- it is the same math through the same
+        backend functions."""
         for gname, geom_b, geom_f in self.GEOMS:
             for kind in ('apply', 'entries', 'probe'):
                 with self.subTest(geometry=gname, kind=kind):

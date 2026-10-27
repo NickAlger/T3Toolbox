@@ -68,8 +68,9 @@ Everything below is importable directly from ``t3toolbox``.
 
 **Fitting and optimization**
 
-- :py:class:`~t3toolbox.fitting.GaussNewtonModel` -- the geometry-generic local model
-  (one class for both the ragged and the uniform representation).
+- :py:class:`~t3toolbox.fitting.LocalModel` -- the geometry-generic local model
+  (one class for both the ragged and the uniform representation); the frontend twin of the backend
+  :py:class:`t3toolbox.backend.optimizers.LocalModel`.
 - The six model factories (in :py:mod:`~t3toolbox.fitting`):
   :py:func:`~t3toolbox.fitting.entries_model`, :py:func:`~t3toolbox.fitting.apply_model`,
   :py:func:`~t3toolbox.fitting.probe_model`,
@@ -80,6 +81,10 @@ Everything below is importable directly from ``t3toolbox``.
   :py:func:`~t3toolbox.optimizers.gradient_descent`, :py:func:`~t3toolbox.optimizers.mc_sgd`,
   :py:func:`~t3toolbox.optimizers.adam`, :py:func:`~t3toolbox.optimizers.newton_cg`.
   Ragged vs uniform is inferred from the initial guess ``x0``.
+- Module-level (not at the root): :py:func:`~t3toolbox.optimizers.least_squares_problem` -- the
+  constructor the four optimizers use, public for scripts that drive the backend directly: it builds the
+  backend :py:class:`~t3toolbox.backend.optimizers.Problem` from the frontend vocabulary and returns a
+  :py:class:`~t3toolbox.optimizers.LeastSquaresSetup` (``.problem``, ``.x0_cores``, ``.rewrap``).
 - ``Regularizer`` / ``IdentityRegularizer`` -- the optional objective term ``ρ(x)``
   (:doc:`fitting_and_optimization` §4.9). These are the one exception to the rule above: they are
   **not** re-exported at the package root, so import them from the module --

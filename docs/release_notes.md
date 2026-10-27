@@ -5,6 +5,26 @@ The full changelog is reproduced below, newest first; the format follows
 then a minor number that increments with each release of that year). Start with the upgrade notes if
 you are moving an existing codebase forward.
 
+## Upgrading from 2026.2.0
+
+**`fitting.GaussNewtonModel` is now `fitting.LocalModel`** (and `t3toolbox.LocalModel` at the root).
+It is renamed, not aliased, so the old name raises `AttributeError` / `ImportError`; rename it where you
+spell it. The six `*_model` factories, the model's methods and its fields are unchanged, so code that
+only calls the factories needs no change. The new name mirrors the backend class it wraps,
+`backend.optimizers.LocalModel`.
+
+**`optimizers._setup` is gone; use `optimizers.least_squares_problem`.** It takes the same arguments
+(`geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size, batch`) and returns a named
+`LeastSquaresSetup` instead of a 3-tuple, so read its fields rather than unpacking:
+
+```python
+setup = optimizers.least_squares_problem(geometry, kind, sample, data, x0, order=order, weight=weight)
+lm = setup.problem.local_model(setup.x0_cores)       # was: problem, init, rewrap = optimizers._setup(...)
+```
+
+`setup.problem.geom` is the backend geometry that the private `optimizers._geometry_ops(...)` used to
+give you; `_geometry_ops` stays private.
+
 ## Upgrading from 2026.1.0
 
 The optimization layer's axis objects became classes. Everything here raises rather than failing
@@ -39,7 +59,8 @@ behaviour exactly. The full surface is the `Geometry` protocol in `backend/optim
 the easier route. The four **ragged** constructors (`probe_kind`, the three `*_derivatives_kind`) keep
 both their positional and their `weight=` keyword spellings.
 
-**`fitting.UniformGaussNewtonModel` is gone.** One `GaussNewtonModel` now serves both representations,
+**`fitting.UniformGaussNewtonModel` is gone.** One `GaussNewtonModel` (renamed `LocalModel` in 2026.3.0,
+above) now serves both representations,
 and the `*_model` factories still dispatch on `x`, so `fitting.apply_model(UNIFORM_MANIFOLD, ux, ...)`
 returns what it always did -- just of the merged type. If you were checking
 `isinstance(m, UniformGaussNewtonModel)`, check the frame instead:

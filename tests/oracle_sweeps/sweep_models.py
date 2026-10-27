@@ -1,4 +1,4 @@
-"""O2 oracle sweep, part 1: GaussNewtonModel vs dense ground truth, over representation x geometry x
+"""O2 oracle sweep, part 1: fitting.LocalModel vs dense ground truth, over representation x geometry x
 kind x order x weight x regularizer x W-layout. Every check is against oracle.py (no library jet code)."""
 import itertools, sys, traceback, time
 import numpy as np

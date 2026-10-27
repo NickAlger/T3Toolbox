@@ -4,7 +4,7 @@
 """Backend-first optimization algorithms for fixed-rank T3 least-squares fitting.
 
 These operate on **raw cores / tangent tuples** via backend functions only -- no frontend imports
-(no ``TuckerTensorTrain`` / ``T3Tangent`` / ``GaussNewtonModel`` / geometry classes). A raw-``.data``
+(no ``TuckerTensorTrain`` / ``T3Tangent`` / ``fitting.LocalModel`` / geometry classes). A raw-``.data``
 user can call them directly; the frontend ``optimizers.py`` is a thin adapter that validates the input
 once and assembles the ``Problem`` oracle from the same backend functions (design:
 ``docs/contributor/fitting_internals.md`` §"Backend-first").
@@ -20,7 +20,7 @@ The oracle:
 * ``Problem``     -- (geometry ops, sampling kind, sample, data); builds per-point ``LocalModel``
   objects and retracts.
 * ``LocalModel``  -- the GN model linearized at a point (``.gradient`` / ``.objective`` /
-  ``.hvp`` / ``.gn_quadratic`` / ``.retract``), the backend twin of ``fitting.GaussNewtonModel``.
+  ``.hvp`` / ``.gn_quadratic`` / ``.retract``), the backend twin of the frontend ``fitting.LocalModel``.
 * ``Geometry``    -- the *where you optimize* axis: frame / project / retract / inner on raw data.
   This module declares only the **protocol** it needs; the T3 implementations live in
   :py:mod:`t3toolbox.backend.geometry`, so nothing here depends on the T3 representation.
@@ -114,7 +114,8 @@ class Geometry(typ.Protocol):
 # --------------------------------------------------------------------------------------------------
 @dc.dataclass(frozen=True)
 class LocalModel:
-    """The Gauss-Newton model linearized at a point -- the backend twin of ``fitting.GaussNewtonModel``.
+    """The local model linearized at a point (Gauss-Newton curvature) -- the backend twin of the frontend
+    :py:class:`t3toolbox.fitting.LocalModel` (same name, one level down).
     Built by ``Problem.local_model``; the frame sweep is computed once and reused by every method below."""
     geom:     typ.Any        # a Geometry (backend.geometry.*GeometryOps); aux_data, so it must hash by VALUE
     kind:     typ.Any        # backend fitting.SamplingKind (forward / transpose / sumsq / w_axes)
@@ -290,7 +291,7 @@ def _require_unstacked(
     logging first fires, tens of iterations in. Raise at entry instead.
 
     Fit the stack elements separately (``backend.stacking.unstack``), or build the local model directly
-    -- :py:meth:`Problem.local_model` and the frontend ``GaussNewtonModel`` DO support a stacked point
+    -- :py:meth:`Problem.local_model` and the frontend ``fitting.LocalModel`` DO support a stacked point
     and return a shape-``C`` objective, so rolling your own loop over a stacked problem works. It is only
     the library optimizers' scalar reductions that do not. (A **regularizer** on a stacked point is a
     separate matter and raises on that path too --
@@ -304,7 +305,7 @@ def _require_unstacked(
             "%s: optimizing a STACKED point (stack C = %r) is not supported. The objective is an array "
             "of shape C -- one value per stack element -- and the optimizers' convergence tests and line "
             "searches reduce it to a scalar. Fit the elements separately (backend.stacking.unstack), or "
-            "drive your own loop from Problem.local_model / fitting.GaussNewtonModel, which do support a "
+            "drive your own loop from Problem.local_model / fitting.LocalModel, which do support a "
             "stacked point." % (who, stack))
 
 

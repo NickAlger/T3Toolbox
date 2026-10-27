@@ -1,12 +1,14 @@
 # Authors: Nick Alger and Blake Christierson
 # Copyright: MIT License (2026)
 # https://github.com/NickAlger/T3Toolbox
-'''Frontend for the least-squares fitting layer: one geometry-generic Gauss-Newton model.
+'''Frontend for the least-squares fitting layer: one geometry-generic local model.
 
-A :py:class:`GaussNewtonModel` is the local Gauss-Newton model of a least-squares objective
+A :py:class:`~t3toolbox.fitting.LocalModel` is the local model of a least-squares objective
 ``½‖F(X) − y‖²`` at a fixed point, linearized through a **geometry**: it exposes the objective value
 ``c = ½‖r‖²``, the gradient ``g``, the Gauss-Newton Hessian action ``H p = JᵀJ p``, and the
-quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p``. The model is generic over two independent choices:
+quadratic-model value ``m(p) = c + gᵀp + ½ pᵀ H p``. It is the frontend twin of the backend
+:py:class:`~t3toolbox.backend.optimizers.LocalModel` (same name, one level up). The model is generic over
+two independent choices:
 
   * the **geometry** -- :py:data:`~t3toolbox.manifold.MANIFOLD` (optimize on the fixed-rank manifold;
     the gauge projection ``Π`` makes ``g`` / ``H`` Riemannian) or
@@ -31,7 +33,7 @@ frame is fixed, so the sweep is computed once, not once per matrix-vector produc
 
 Jitting an optimizer
 --------------------
-``GaussNewtonModel`` **is** a registered jax pytree (the data -- ``frame``, ``sweep``, ``sample``,
+``LocalModel`` **is** a registered jax pytree (the data -- ``frame``, ``sweep``, ``sample``,
 ``residual`` -- are leaves; ``geometry`` / ``kind`` are static aux). Crucially the frame flows as a *leaf*,
 not aux (the same is true of :py:class:`~t3toolbox.manifold.T3Tangent`'s frame), so a model or tangent
 that **crosses a jit boundary does NOT recompile when the frame changes** -- the per-frame recompile that
@@ -83,13 +85,13 @@ import t3toolbox.backend.regularization as breg    # the backend geometry a Regu
 import t3toolbox.backend.uniform_fitting as ufit
 from t3toolbox.backend.common import *
 
-__all__ = ['GaussNewtonModel',
+__all__ = ['LocalModel',
            'apply_model', 'entries_model', 'probe_model',
            'apply_derivatives_model', 'entries_derivatives_model', 'probe_derivatives_model']
 
 
 # --------------------------------------------------------------------------------------------------
-# Layer dispatch for the model. ONE GaussNewtonModel serves both representations; these three helpers
+# Layer dispatch for the model. ONE LocalModel serves both representations; these three helpers
 # are everything that differs, and each is a question about the FRAME's layer -- so they dispatch on the
 # frame type, the library's usual "infer from the input" rule. (The geometry could answer instead, but a
 # SharedGeometry wraps either layer and would have to forward all three; the frame always knows.)
@@ -182,8 +184,11 @@ def _canonical_weight(
 
 
 @dataclass(frozen=True)
-class GaussNewtonModel:
-    '''The local Gauss-Newton model of a least-squares objective at ``frame``, generic over the geometry.
+class LocalModel:
+    '''The local model of a least-squares objective at ``frame``, generic over the geometry: the objective
+    value, the gradient, and the curvature actions there (the Gauss-Newton ``H = JᵀJ``: :py:meth:`gn_hessian`
+    / :py:meth:`gn_quadratic`). The frontend twin of the backend
+    :py:class:`~t3toolbox.backend.optimizers.LocalModel`, with ``T3Tangent`` / ``UT3Tangent`` in and out.
 
     Built by a sampling-kind factory (:py:func:`apply_model` / :py:func:`entries_model` /
     :py:func:`probe_model`), not directly. Holds the geometry, the frame ``frame = geometry.frame(X)``, the
@@ -254,7 +259,7 @@ class GaussNewtonModel:
     >>> ux = ut3.UniformTuckerTensorTrain.from_t3(x)
     >>> umodel = fitting.apply_model(ut3m.UNIFORM_MANIFOLD, ux, ww, r)
     >>> type(umodel).__name__, type(umodel.gradient).__name__
-    ('GaussNewtonModel', 'UT3Tangent')
+    ('LocalModel', 'UT3Tangent')
     >>> print(bool(umodel.gradient.is_gauged().all()))
     True
     >>> up = ut3m.UNIFORM_MANIFOLD.randn(umodel.frame)
@@ -283,7 +288,7 @@ class GaussNewtonModel:
 
     def __post_init__(self):
         if self.regularizer is not None:
-            breg.require_unstacked_for_regularizer(self.frame.stack_shape, 'GaussNewtonModel')
+            breg.require_unstacked_for_regularizer(self.frame.stack_shape, 'LocalModel')
 
     def _project(self, v):                       # Pi, with the once-per-model geometry companion
         if self.geometry_aux is not None:
@@ -460,10 +465,10 @@ def _uniform_model(
         order:      typ.Optional[int] = None,
         weight:     typ.Optional[NDArray] = None,   # canonical 2-D ω[m,o] (from _canonical_weight), or None
         regularizer: typ.Any = None,                # optional backend.regularization.Regularizer
-) -> GaussNewtonModel:
-    '''Assemble the uniform :py:class:`GaussNewtonModel`: build the frame, pack the loop-invariant sample
-    + residual once (:py:func:`~t3toolbox.backend.uniform_fitting.pack_sample` / ``pack_data``), and
-    precompute the frame sweep.
+) -> LocalModel:
+    '''Assemble the uniform :py:class:`~t3toolbox.fitting.LocalModel`: build the frame, pack the
+    loop-invariant sample + residual once (:py:func:`~t3toolbox.backend.uniform_fitting.pack_sample` /
+    ``pack_data``), and precompute the frame sweep.
 
     The packed kind is stored directly. It used to be reconstructed on demand from four shadow fields
     (``kind_name`` / ``x0_masks`` / ``order`` / ``weight``) because a kind built out of closures could not
@@ -484,8 +489,8 @@ def _uniform_model(
     kind = (ufit.uniform_sampling_kind(kind_name, x0_data, weight) if order is None
             else ufit.uniform_derivatives_kind(kind_name, x0_data, order, weight))
     sweep = kind.precompute(frame.data, packed_sample)
-    return GaussNewtonModel(geometry, frame, kind, packed_sample, packed_residual, sweep,
-                            regularizer, geometry_aux)
+    return LocalModel(geometry, frame, kind, packed_sample, packed_residual, sweep,
+                      regularizer, geometry_aux)
 
 
 def _check_ragged_sample(x, kind_name, sample, residual, order=0):
@@ -537,18 +542,18 @@ def apply_model(
         ww:         typ.Sequence[NDArray],   # sample vectors, len=d, elm_shape=W+(Ni,)
         residual:   NDArray,                 # r = apply(x) − y, shape W+C
         regularizer: typ.Any = None,         # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
-) -> GaussNewtonModel:
-    '''The Gauss-Newton model of an all-modes ``apply`` least-squares objective at ``x``, on ``geometry``.
+) -> LocalModel:
+    '''The local model of an all-modes ``apply`` least-squares objective at ``x``, on ``geometry``.
 
-    Accepts a ragged ``TuckerTensorTrain`` (-> :py:class:`GaussNewtonModel`) or a uniform
+    Accepts a ragged ``TuckerTensorTrain`` (-> :py:class:`~t3toolbox.fitting.LocalModel`) or a uniform
     ``UniformTuckerTensorTrain``; the representation is inferred
     from ``x`` and the geometry must match. ``regularizer`` adds ``ρ(x)`` to the model (ragged or uniform).'''
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'apply', ww, residual, regularizer=regularizer)
     _check_ragged_sample(x, 'apply', ww, residual)
     frame = _ragged_frame(geometry, x)
-    return GaussNewtonModel(geometry, frame, fb.APPLY, ww, residual, fb.APPLY.precompute(frame.data, ww),
-                            regularizer, _ragged_geometry_aux(geometry, frame))
+    return LocalModel(geometry, frame, fb.APPLY, ww, residual, fb.APPLY.precompute(frame.data, ww),
+                      regularizer, _ragged_geometry_aux(geometry, frame))
 
 
 def entries_model(
@@ -557,8 +562,8 @@ def entries_model(
         index:      NDArray,                 # int, shape=(d,)+W -- the grid points
         residual:   NDArray,                 # r = entries(x) − y, shape W+C
         regularizer: typ.Any = None,         # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
-) -> GaussNewtonModel:
-    '''The Gauss-Newton model of an all-modes ``entries`` least-squares objective at ``x``, on ``geometry``.
+) -> LocalModel:
+    '''The local model of an all-modes ``entries`` least-squares objective at ``x``, on ``geometry``.
 
     Identical to :py:func:`apply_model` but the measurements are tensor **entries** at integer grid points
     ``index`` (shape ``(d,)+W``) rather than applies against probe vectors.'''
@@ -566,9 +571,9 @@ def entries_model(
         return _uniform_model(geometry, x, 'entries', index, residual, regularizer=regularizer)
     _check_ragged_sample(x, 'entries', index, residual)
     frame = _ragged_frame(geometry, x)
-    return GaussNewtonModel(geometry, frame, fb.ENTRIES, index, residual,
-                            fb.ENTRIES.precompute(frame.data, index), regularizer,
-                            _ragged_geometry_aux(geometry, frame))
+    return LocalModel(geometry, frame, fb.ENTRIES, index, residual,
+                      fb.ENTRIES.precompute(frame.data, index), regularizer,
+                      _ragged_geometry_aux(geometry, frame))
 
 
 def probe_model(
@@ -578,8 +583,8 @@ def probe_model(
         residual:   typ.Sequence[NDArray],   # r = probe(x) − y, len=d, elm_shape=W+C+(Ni,)
         weight:     typ.Optional[typ.Any] = None,   # per-mode residual weight ω, 1-D (d,); None = 1 (unweighted)
         regularizer: typ.Any = None,         # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
-) -> GaussNewtonModel:
-    '''The Gauss-Newton model of a ``probe`` least-squares objective at ``x``, on ``geometry``.
+) -> LocalModel:
+    '''The local model of a ``probe`` least-squares objective at ``x``, on ``geometry``.
 
     Like :py:func:`apply_model` but the measurements are **probes** -- vector-valued (one free mode each),
     so ``residual`` is a sequence of ``d`` arrays (``elm_shape = W+C+(Ni,)``). Optionally **per-mode**
@@ -620,13 +625,13 @@ def probe_model(
     _check_ragged_sample(x, 'probe', ww, residual)
     frame = _ragged_frame(geometry, x)
     kind = fb.probe_kind(wm)
-    return GaussNewtonModel(geometry, frame, kind, ww, residual, kind.precompute(frame.data, ww),
-                            regularizer, _ragged_geometry_aux(geometry, frame))
+    return LocalModel(geometry, frame, kind, ww, residual, kind.precompute(frame.data, ww),
+                      regularizer, _ragged_geometry_aux(geometry, frame))
 
 
 # --------------------------------------------------------------------------------------------------
 # Derivative sampling models (the symmetric directional-derivative jets of apply/entries/probe). Same
-# GaussNewtonModel, a parameterized derivative kind (order + the per-order residual weight ω): the
+# LocalModel, a parameterized derivative kind (order + the per-order residual weight ω): the
 # measurement is a jet (a leading order axis), the sample is the paired (ww/index, pp), and `residual`
 # is RAW (r = S(x) − y); ω weights the objective ½‖ω⊙r‖² inside the kind. See docs/fitting_and_optimization.md §4.6.
 # --------------------------------------------------------------------------------------------------
@@ -639,8 +644,8 @@ def apply_derivatives_model(
         residual:   NDArray,                 # RAW r = apply_derivatives(x) − y, shape (order+1)+W+C
         weight:     typ.Optional[typ.Any] = None,  # ORDER-only residual weight ω, (order+1,); None = 1
         regularizer: typ.Any = None,         # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
-) -> GaussNewtonModel:
-    '''The Gauss-Newton model of an ``apply``-**derivatives** least-squares objective at ``x``: the
+) -> LocalModel:
+    '''The local model of an ``apply``-**derivatives** least-squares objective at ``x``: the
     symmetric directional derivatives (orders ``0..order``) of the all-modes apply, in direction ``P``.
 
     The all-modes apply contracts every mode into a scalar, so ``weight`` is **order-only** (a per-mode
@@ -676,9 +681,9 @@ def apply_derivatives_model(
     _check_ragged_sample(x, 'apply_derivatives', (ww, pp), residual, order)
     kind = fb.apply_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
-    return GaussNewtonModel(geometry, frame, kind, (ww, pp), residual,
-                            kind.precompute(frame.data, (ww, pp)), regularizer,
-                            _ragged_geometry_aux(geometry, frame))
+    return LocalModel(geometry, frame, kind, (ww, pp), residual,
+                      kind.precompute(frame.data, (ww, pp)), regularizer,
+                      _ragged_geometry_aux(geometry, frame))
 
 
 def entries_derivatives_model(
@@ -690,8 +695,8 @@ def entries_derivatives_model(
         residual:   NDArray,                 # RAW r = entries_derivatives(x) − y, shape (order+1)+W+C
         weight:     typ.Optional[typ.Any] = None,  # ORDER-only residual weight ω, (order+1,); None = 1
         regularizer: typ.Any = None,         # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
-) -> GaussNewtonModel:
-    '''The ``entries``-derivatives Gauss-Newton model -- like :py:func:`apply_derivatives_model` at integer
+) -> LocalModel:
+    '''The ``entries``-derivatives local model -- like :py:func:`apply_derivatives_model` at integer
     grid points ``index``. Order-only ``weight`` (no mode axis -- mode weighting is probe-only).'''
     wm = _canonical_weight(weight, 'entries_derivatives', index.shape[0], order)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
@@ -699,9 +704,9 @@ def entries_derivatives_model(
     _check_ragged_sample(x, 'entries_derivatives', (index, pp), residual, order)
     kind = fb.entries_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
-    return GaussNewtonModel(geometry, frame, kind, (index, pp), residual,
-                            kind.precompute(frame.data, (index, pp)), regularizer,
-                            _ragged_geometry_aux(geometry, frame))
+    return LocalModel(geometry, frame, kind, (index, pp), residual,
+                      kind.precompute(frame.data, (index, pp)), regularizer,
+                      _ragged_geometry_aux(geometry, frame))
 
 
 def probe_derivatives_model(
@@ -713,8 +718,8 @@ def probe_derivatives_model(
         residual:   typ.Sequence[NDArray],   # RAW r = probe_derivatives(x) − y, len=d, elm_shape=(order+1)+W+C+(Ni,)
         weight:     typ.Optional[typ.Any] = None,  # residual weight ω[mode,order], (d,order+1) broadcast; None = 1
         regularizer: typ.Any = None,         # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
-) -> GaussNewtonModel:
-    '''The ``probe``-derivatives Gauss-Newton model -- vector-valued (one free mode per probe), so
+) -> LocalModel:
+    '''The ``probe``-derivatives local model -- vector-valued (one free mode per probe), so
     ``residual`` is a sequence of ``d`` jets. Probe has both a mode and an order axis, so ``weight`` is the
     full ``ω[mode, order]`` matrix ``(d, order+1)``: a bare row ``(order+1,)`` = per-order (broadcast over
     modes), a column ``(d, 1)`` = per-mode (broadcast over orders), a matrix = both. The objective is
@@ -725,15 +730,15 @@ def probe_derivatives_model(
     _check_ragged_sample(x, 'probe_derivatives', (ww, pp), residual, order)
     kind = fb.probe_derivatives_kind(order, wm)
     frame = _ragged_frame(geometry, x)
-    return GaussNewtonModel(geometry, frame, kind, (ww, pp), residual,
-                            kind.precompute(frame.data, (ww, pp)), regularizer,
-                            _ragged_geometry_aux(geometry, frame))
+    return LocalModel(geometry, frame, kind, (ww, pp), residual,
+                      kind.precompute(frame.data, (ww, pp)), regularizer,
+                      _ragged_geometry_aux(geometry, frame))
 
 
 if jax_available:
     import jax
 
-    # Register GaussNewtonModel as a jax pytree: the data (frame, sweep, sample, residual) are LEAVES, the
+    # Register LocalModel as a jax pytree: the data (frame, sweep, sample, residual) are LEAVES, the
     # statics (geometry, kind) are aux_data. Because T3Tangent's frame is now a leaf too (see manifold.py),
     # nothing carries a frame as aux_data, so a model crossing a jit boundary does NOT recompile when the
     # frame changes -- `jit(lambda model, p: model.gn_hessian(p))(model, p)` compiles once and reuses across
@@ -744,11 +749,11 @@ if jax_available:
     # The kind sits in the aux, so it must be VALUE-comparable. It is: kinds are frozen dataclasses whose
     # parameters are fields (backend/fitting.py), so a kind rebuilt per model is the same cache key. The
     # uniform kind also carries this model's fixed rank, which is why the model needs no mask field of its
-    # own. See test_dispatch.test_jit_ragged_gauss_newton_model_parameterized_kind.
+    # own. See test_dispatch.test_jit_ragged_local_model_parameterized_kind.
     jax.tree_util.register_pytree_node(
-        GaussNewtonModel,
+        LocalModel,
         lambda m: ((m.frame, m.sweep, m.sample, m.residual, m.geometry_aux),
                    (m.geometry, m.kind, m.regularizer)),
-        lambda aux, children: GaussNewtonModel(aux[0], children[0], aux[1], children[2], children[3],
-                                               children[1], aux[2], children[4]),
+        lambda aux, children: LocalModel(aux[0], children[0], aux[1], children[2], children[3],
+                                         children[1], aux[2], children[4]),
     )

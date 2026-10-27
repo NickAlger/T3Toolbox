@@ -102,7 +102,7 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 | `MANIFOLD.randn`/`random_orthogonal`/`randn_like` | **ORTH** (via `project`) | minimal (for a *true* Gaussian on `T_xM`) | docstring already careful: "for a non-orthogonal frame it is merely gauged" |
 | `MANIFOLD.frame`, `COREWISE.frame`, `COREWISE.{randn,project,retract,randn_like}` | — | — | `frame` *produces* the frame; corewise ops are gauge-free by design |
 
-### `GaussNewtonModel` (fitting)
+### `LocalModel` (fitting)
 | op | precondition | note |
 |---|---|---|
 | `gradient`, `gn_hessian(p)`, `jacobian(p)`, `gn_quadratic(p)`, `evaluate(p)` | **SF** (`p` vs `model.frame`) | today `_require_at_frame` identity → `same_frame`. The frame's ORTH (manifold) is guaranteed by `geometry.frame(x)` at construction — a *construction invariant*, not a per-op check. `evaluate`/two-form use `corewise_inner` (coordinate metric), so **SF**, not HS. |

@@ -47,7 +47,7 @@ the **Cauchy rule** ``alpha = ||g||^2 / ||J g||^2`` -- the exact 1D minimizer of
 quadratic model along ``-g``. That costs one extra forward Jacobian-vector product ``J g`` and needs **no
 learning-rate schedule** (the "Cauchy" in MC-SGD; "manifold" because we retract). The step is
 ``X <- retract(-alpha * g)``, and a fixed-rank stage stops when an exponentially-smoothed minibatch loss
-stops decreasing. (``g`` and ``||J g||^2`` are exactly ``fitting.GaussNewtonModel.gradient`` /
+stops decreasing. (``g`` and ``||J g||^2`` are exactly ``fitting.LocalModel.gradient`` /
 ``.gn_quadratic``; this example inlines them against the apply-derivative closures.)
 
 Rank continuation starts from the zero tensor and grows rank by zero-padding (warm start); validation
@@ -163,8 +163,8 @@ def apply_derivative_operator(ww, pp, order, s_vec):
 #   * step and retract:  X <- retract(-alpha * g).
 # We stop a fixed-rank stage when an exponentially-smoothed FULL-batch loss stops decreasing (checked
 # once per epoch -- the single-minibatch loss is too noisy a stop signal; see below).
-# (The same g and ‖J g‖² are exactly what fitting.GaussNewtonModel.gradient / .gn_quadratic compute;
-# we inline them here against the apply-derivative closures, which have no GaussNewtonModel yet.)
+# (The same g and ‖J g‖² are exactly what fitting.LocalModel.gradient / .gn_quadratic compute -- the model
+# fitting.apply_derivatives_model builds; we inline them here against the apply-derivative closures.)
 def manifold_cauchy_sgd(X0, ww, pp, b, order, s_vec, rng,
                         n_x_batch=N_X_BATCH, max_iter=MCSGD_MAXITER,
                         c_tau=MCSGD_C_TAU, c_t=MCSGD_C_T):
