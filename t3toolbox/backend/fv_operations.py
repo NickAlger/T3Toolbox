@@ -513,16 +513,26 @@ class LiftFactors:
     '''The per-frame factors of the lift ``L`` from frame coordinates to raw core variations, built by
     :py:func:`fv_lift_factors` (never stored on a frame).
 
-    Every field is an array (or a tuple of arrays) carrying the frame stack ``C`` leading; as a jax
-    pytree all of them are LEAVES and there is no aux, so a new frame -- or a new damping -- changes leaf
-    values only, never a compilation key. ``eps`` is the ABSOLUTE damping actually used (``C``-shaped),
-    kept beside the factors so the lift and its transpose cannot disagree about it.
+    Every array field carries the frame stack ``C`` leading; as a jax pytree all of them are LEAVES, so a
+    new frame -- or a new damping -- changes leaf values only, never a compilation key. ``eps`` is the
+    ABSOLUTE damping actually used (``C``-shaped), kept beside the factors so the lift and its transpose
+    cannot disagree about it.
+
+    **Shared (tied) points.** :py:func:`~t3toolbox.backend.sharing.fv_tied_lift_factors` adds the frame's
+    SF-T3 companion (``shared_data``, whose sharing partition stays static structure under jax) and one
+    damped filter of the group spectrum per nontrivial group (``tied_filters``); the lift then lifts each
+    group's Tucker slots to ONE factor direction, solved against the companion's stacked-``S`` SVD, and the
+    group modes' entries of ``tucker_pinvs`` / ``tucker_svals`` go unused. Unshared, they are ``None`` /
+    ``()``.
     '''
     tucker_pinvs:  typ.Tuple[NDArray, ...]  # (S_i^T)^{+eps}. len=d,   elm_shape=C+(nUi, nDi)
     bond_pinvs:    typ.Tuple[NDArray, ...]  # T_i^{+eps}.     len=d-1, elm_shape=C+(rR(i+1), rL(i+1))
     tucker_svals:  typ.Tuple[NDArray, ...]  # sigma(S_i).     len=d,   elm_shape=C+(nDi,)
     bond_svals:    typ.Tuple[NDArray, ...]  # sigma(T_i).     len=d-1, elm_shape=C+(rR(i+1),)
     eps:           NDArray                  # absolute damping used, shape=C
+
+    shared_data:   typ.Any = None                 # shared points: the frame's SF-T3 companion (sharing.SharedFrameData)
+    tied_filters:  typ.Tuple[NDArray, ...] = ()   # per nontrivial group: f(s_g) at eps, elm_shape=C+(q_g,)
 
 
 def fv_lift_factors(
@@ -551,7 +561,9 @@ def fv_lift_factors(
     ``eps = curvature_damping * ||X||_HS``,   ``||X||_HS^2 = sum(sigma(S_0)^2)``,
 
     so ``curvature_damping`` is scale-free. The lift itself is
-    :py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift`.
+    :py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift`; at a shared point (tied Tucker factors) build
+    the factors with :py:func:`~t3toolbox.backend.sharing.fv_tied_lift_factors` instead, which lifts each
+    sharing group to one factor direction.
 
     - **Exactness.** At ``eps = 0`` the lift is exact on every *numerically full-rank* frame from
       ``t3_orthogonal_representations``, minimal or not: a Tucker-slack ``S_i^T`` is wide (``nDi < nUi``) and a
@@ -747,11 +759,14 @@ if jax_available:
     import jax
 
     # The lift factors are a jax pytree whose every array is a LEAF (the per-frame pseudo-inverses, their
-    # spectra and the absolute damping eps flow as traced data beside the frame) with no aux: a new frame,
-    # or a new curvature_damping, changes leaf values only -- never the jit cache key.
+    # spectra, the absolute damping eps and, at a shared point, the companion's arrays and the tied filters
+    # flow as traced data beside the frame) with no aux of their own: the companion carries its sharing
+    # partition as ITS aux, so the structure stays static. A new frame, or a new curvature_damping, changes
+    # leaf values only -- never the jit cache key.
     jax.tree_util.register_pytree_node(
         LiftFactors,
-        lambda f: ((f.tucker_pinvs, f.bond_pinvs, f.tucker_svals, f.bond_svals, f.eps), None),
+        lambda f: ((f.tucker_pinvs, f.bond_pinvs, f.tucker_svals, f.bond_svals, f.eps, f.shared_data,
+                    f.tied_filters), None),
         lambda _, ch: LiftFactors(tucker_pinvs=ch[0], bond_pinvs=ch[1], tucker_svals=ch[2],
-                                  bond_svals=ch[3], eps=ch[4]),
+                                  bond_svals=ch[3], eps=ch[4], shared_data=ch[5], tied_filters=ch[6]),
     )

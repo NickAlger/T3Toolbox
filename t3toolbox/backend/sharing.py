@@ -12,7 +12,9 @@ is the plain per-group mean (drift repair for nearly-tied POINTS -- never the me
 projection of a tangent, which is geometry-specific and lives with the shared geometry).
 ``fv_shared_frame_data`` derives the :py:class:`SharedFrameData` companion from an
 orthogonal frame -- the per-group center cores and the thin SVD of the stacked ``S`` factors
-that the shared geometry's projection, retraction, and spectrum diagnostics consume.
+that the shared geometry's projection, retraction, and spectrum diagnostics consume -- and
+``fv_tied_lift_factors`` turns it into the exact Hessian's TIED lift (one group factor, solved
+against the same SVD with a damped filter).
 
 A shared T3 is an ordinary Tucker tensor train whose Tucker factors are equal within
 user-specified groups of modes -- the SF-ETT decomposition of Molozhavenko & Rakhuba (2026),
@@ -24,11 +26,14 @@ shared-factor format originates with SF-Tucker: Peshekhonov, Arzhantsev & Rakhub
 """
 import numpy as np
 import typing as typ
+import dataclasses as dc
 from dataclasses import dataclass
 
 import t3toolbox.backend.tt_orthogonalization as tt_orthogonalization
 import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.fv_operations as fv_operations
+import t3toolbox.backend.linalg as linalg
+import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ufv_masking as ufv_masking
 from t3toolbox.backend.common import *
@@ -48,6 +53,7 @@ __all__ = [
     'fv_share_tucker_variations_corewise',
     'fv_tied_variations_residual',
     'fv_tied_ambient_directions',
+    'fv_tied_lift_factors',
     'ut3_sharing_residual',
     'ut3_tucker_factors_shared',
     'ufv_shared_frame_data',
@@ -626,7 +632,7 @@ def fv_share_tucker_variations(
 
     new_tucker = list(tucker_variations)
     for gi, group in enumerate(nontrivial_groups(shared_data.groups)):
-        Udot = _tied_solve(shared_data, gi, tucker_variations, rcond, xnp)
+        Udot = _tied_filtered_solve(shared_data, gi, tucker_variations, _tied_filter(shared_data, gi, None, rcond))
         # R = M_g @ Udot: the tied coordinates of every group mode in one stack
         U_M, s_g, Vt_M = shared_data.svd_U[gi], shared_data.svd_s[gi], shared_data.svd_Vt[gi]
         splits = shared_data.row_splits[gi]
@@ -638,27 +644,61 @@ def fv_share_tucker_variations(
     return tuple(new_tucker), tuple(tt_variations)
 
 
-def _tied_solve(
-        shared_data:        'SharedFrameData',
-        gi:                 int,      # index into the companion's nontrivial-group tuples
-        tucker_variations:  typ.Sequence[NDArray],  # len=d, elm_shape=(K+C)+(nDi, Ni)
-        rcond:              typ.Optional[float],   # relative clip; None -> dtype eps * max dim
-        xnp,                                        # the array backend (numpy / jax.numpy)
-) -> NDArray:  # Udot: the common gauged ambient direction, (K+C)+(n_g, N)
-    '''The clipped least-squares solve ``Udot = M_g^+ [stacked V_i]`` against the companion's
-    stacked-``S`` SVD (minimum-norm at rank-deficient points; sensitivity ``kappa_g``).'''
-    group = nontrivial_groups(shared_data.groups)[gi]
-    U_M, s_g, Vt_M = shared_data.svd_U[gi], shared_data.svd_s[gi], shared_data.svd_Vt[gi]
-    splits = shared_data.row_splits[gi]
+def _tied_filter(
+        shared_data:  SharedFrameData,
+        gi:           int,                       # index into the companion's nontrivial-group tuples
+        eps:          typ.Optional[NDArray],     # damping, shape=C; None -> the exact clipped reciprocal
+        rcond:        typ.Optional[float],       # relative clip; None -> dtype eps * max(sum nD_i, n_g)
+) -> NDArray:                                    # f(s_g), shape=C+(q,); 0 where clipped
+    '''The filter of group ``gi``'s tied solve: :py:func:`~t3toolbox.backend.linalg.filtered_reciprocal` of
+    the group spectrum ``s_g``, with the solve's default clip ``dtype eps * max(sum_i nD_i, n_g)`` --
+    ``numpy.linalg.pinv``'s for the stacked ``M_g``. ``eps=None`` is the clipped pseudo-inverse of the tied
+    projection, bit for bit the filter it always used; a damping ``eps`` is the exact Hessian's tied lift.'''
+    s_g, Vt_M, splits = shared_data.svd_s[gi], shared_data.svd_Vt[gi], shared_data.row_splits[gi]
     eff_rcond = (float(np.finfo(s_g.dtype).eps) * max(splits[-1], Vt_M.shape[-1])
                  if rcond is None else rcond)
-    keep = s_g > eff_rcond * s_g[..., :1]                     # relative clip against s_{g,1}
-    s_inv = xnp.where(keep, 1.0 / xnp.where(keep, s_g, 1.0), 0.0)   # branch-free clipped pinv
+    return linalg.filtered_reciprocal(s_g, eps, eff_rcond)
 
-    Vstack = xnp.concatenate([tucker_variations[ii] for ii in group], axis=-2)  # (K+C)+(sum nD, N)
+
+def _tied_filtered_solve(
+        shared_data:        SharedFrameData,
+        gi:                 int,                    # index into the companion's nontrivial-group tuples
+        tucker_variations:  typ.Sequence[NDArray],  # len=d, elm_shape=(K+C)+(nDi, Ni); the group's are read
+        s_filter:           NDArray,                # f(s_g), shape=C+(q,) (_tied_filter)
+) -> NDArray:                                       # Udot = Vt_M^T f(s_g) U_M^T [V_i1; ...], (K+C)+(n_g, N)
+    '''The filtered least-squares solve ``Udot = M_g^{+f} [stacked V_i]`` against the companion's stacked-``S``
+    SVD ``M_g = U_M diag(s_g) Vt_M`` (sensitivity ``kappa_g``, never the normal equations' ``kappa_g^2``).
+
+    With the clipped filter (``_tied_filter(..., eps=None, ...)``) it is the minimum-norm solve of the tied
+    projection and retraction; with a damped one it is the exact Hessian's tied lift of the group factor.
+    Exactly :py:func:`_tied_filtered_solve_transpose`'s adjoint.'''
+    group = nontrivial_groups(shared_data.groups)[gi]
+    U_M, Vt_M = shared_data.svd_U[gi], shared_data.svd_Vt[gi]
+    Vgroup = [tucker_variations[ii] for ii in group]
+    xnp, _, _ = get_backend(False, tree_contains_jax((Vgroup, U_M, Vt_M, s_filter)))
+
+    Vstack = xnp.concatenate(Vgroup, axis=-2)                 # (K+C)+(sum nD, N)
     t = xnp.einsum('...xw,...xn->...wn', U_M, Vstack)         # U_M^T Vstack, (K+C)+(q, N)
-    t = xnp.einsum('...w,...wn->...wn', s_inv, t)             # clipped pinv apply
+    t = xnp.einsum('...w,...wn->...wn', s_filter, t)          # the filter
     return xnp.einsum('...wy,...wn->...yn', Vt_M, t)          # Udot, (K+C)+(n_g, N)
+
+
+def _tied_filtered_solve_transpose(
+        shared_data:  SharedFrameData,
+        gi:           int,                     # index into the companion's nontrivial-group tuples
+        Udot:         NDArray,                 # elm_shape=(K+C)+(n_g, N): a direction on the group factor
+        s_filter:     NDArray,                 # f(s_g), shape=C+(q,) (_tied_filter)
+) -> typ.Tuple[NDArray, ...]:                  # per group mode: (U_M f(s_g) Vt_M Udot) row block, (K+C)+(nDi, N)
+    '''The adjoint of :py:func:`_tied_filtered_solve` -- ``(M_g^{+f})^T Udot = U_M diag(f(s_g)) Vt_M Udot``,
+    split into the group modes' row blocks by ``row_splits`` -- in the coordinate inner product, per ``K + C``
+    element: ``<solve(V), Y> == sum_i <V_i, transpose(Y)_i>``. The same filter serves both directions, so
+    ``L^T K L`` stays symmetric at every damping.'''
+    U_M, Vt_M = shared_data.svd_U[gi], shared_data.svd_Vt[gi]
+    splits = shared_data.row_splits[gi]
+    t_KCan = contractions.contract('Cau,KCun->KCan', Vt_M, Udot)            # Vt_M Udot, (K+C)+(q, N)
+    t_KCan = contractions.contract('Ca,KCan->KCan', s_filter, t_KCan)       # the filter
+    V_KCxn = contractions.contract('Cxa,KCan->KCxn', U_M, t_KCan)           # (K+C)+(sum nD, N)
+    return tuple(V_KCxn[..., splits[jj]:splits[jj + 1], :] for jj in range(len(splits) - 1))
 
 
 def fv_tied_ambient_directions(
@@ -677,10 +717,88 @@ def fv_tied_ambient_directions(
     shared retraction uses this to build the TIED doubled-rank embedding
     (``[U_g | Udot]`` per group, with the center cores as the paired blocks).'''
     tucker_variations, _ = variations_data
-    use_jax = tree_contains_jax(variations_data)
-    xnp, _, _ = get_backend(False, use_jax)
-    return tuple(_tied_solve(shared_data, gi, tucker_variations, rcond, xnp)
+    return tuple(_tied_filtered_solve(shared_data, gi, tucker_variations, _tied_filter(shared_data, gi, None, rcond))
                  for gi in range(len(nontrivial_groups(shared_data.groups))))
+
+
+def fv_tied_lift_factors(
+        frame:              typ.Tuple[
+            typ.Sequence[NDArray],                  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+            typ.Sequence[NDArray],                  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+            typ.Sequence[NDArray],                  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+            typ.Sequence[NDArray],                  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+        ],
+        curvature_damping:  typ.Union[float, NDArray],  # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
+        shared_data:        SharedFrameData,            # the frame's companion (fv_shared_frame_data)
+        rcond:              typ.Optional[float] = None, # relative clip, per mode and per group
+) -> fv_operations.LiftFactors:                         # with shared_data and one tied filter per nontrivial group
+    '''The lift factors of a SHARED point -- :py:func:`~t3toolbox.backend.fv_operations.fv_lift_factors` plus,
+    per nontrivial sharing group, the damped filter of the group's tied solve -- so that
+    :py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift` lifts the group's Tucker slots TIED.
+
+    On the shared set the point is ``Phi(T theta_sh)``, with ``T`` copying each group's factor to all its modes,
+    and a tied coordinate ``V_i = S_i^T Udot`` has ONE raw factor direction per group. The lift recovers it
+    from all the group's coordinates at once,
+
+    ``Udot_g = M_g^{+eps} [V_i1; ...; V_ik]``,  ``M_g = [S_i1^T; ...; S_ik^T]`` (the companion's stacked SVD),
+
+    and puts it at every group mode; singleton modes and every TT slot lift as unshared. The group filter
+    ``f(s_g) = s_g / (s_g^2 + eps^2)``, clipped (:py:func:`~t3toolbox.backend.linalg.filtered_reciprocal`), uses
+    the same absolute ``eps = curvature_damping * ||X||_HS`` as the per-mode factors and the same SVD as the
+    tied projection, so the two agree about the tied subspace. The per-mode Tucker factors of a group mode are
+    still built but not used: ``M_g`` is what the tied lift inverts, so ``s_g`` (not a group mode's own
+    spectrum) is the lift's singular value there -- the per-mode ``S_i^T`` can be rank-deficient on a perfectly
+    regular shared point, when the group rank exceeds a mode's own ceiling.
+
+    - **Exactness.** At ``eps = 0`` the tied lift satisfies ``DPhi[L v] = E v`` on tied coordinates wherever
+      the stacked ``M_g`` has full column rank, which is the shared analogue of a numerically full-rank frame
+      (the group spectrum ``s_g`` is the Jacobian spectrum of the shared factor, ``docs/sharing.md``).
+    - **Padded restarts.** A zero-padded shared restart's new ``s_g`` levels are zero, so their filter is
+      exactly 0: the gated tied channel gets no curvature in the new directions, as it gets no first-order
+      motion; the escape through the TT variations (their per-bond lift) is untouched.
+
+    Requires an orthogonal frame and its own companion (check-free). Stack-aware (frame stack ``C``);
+    dispatch is inferred.
+
+    Examples
+    --------
+    The tied lift of a tied tangent is one factor direction per group, and it represents the tangent:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.fv_operations as fvo
+    >>> import t3toolbox.backend.tv_operations as tvo
+    >>> import t3toolbox.backend.sharing as sharing
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 6, 4), (4, 4, 2), (1, 2, 2, 1))
+    >>> x = t3.TuckerTensorTrain(*sharing.t3_tie_tucker_factors(x.data, (0, 0, 1)))      # a tied point
+    >>> frame, _ = fvc.t3_orthogonal_representations(x.data)
+    >>> sfd = sharing.fv_shared_frame_data(frame, sharing.validate_sharing((0, 0, 1), x.shape))
+    >>> v = tvo.tv_orthogonal_gauge_projection(frame, fvo.fv_variations_randn(fvo.fv_variation_shapes(frame)),
+    ...                                        shared_data=sfd)                 # a tied, gauged tangent
+    >>> lf = sharing.fv_tied_lift_factors(frame, 0.0, sfd)
+    >>> Udot, Gdot = tvo.tv_corewise_lift(frame, v, lf)
+    >>> print(Udot[0] is Udot[1], [U.shape for U in Udot])
+    True [(4, 6), (4, 6), (2, 4)]
+    >>> corewise_frame = fvc.t3_corewise_frame((frame[0], frame[2]))
+    >>> print(np.allclose(tvo.tv_to_dense(corewise_frame, (Udot, Gdot)), tvo.tv_to_dense(frame, v)))
+    True
+
+    Mode 0's own ``S_0^T`` is ``2 x 4`` here (the group rank 4 exceeds the mode's ceiling ``1 * 2``), so the
+    per-mode lift -- a minimum-norm solve per mode -- still represents the tangent but is not TIED: it is no
+    direction of the shared parametrization, and its second derivative (the curvature) is not the shared
+    manifold's:
+
+    >>> Udot_pm, Gdot_pm = tvo.tv_corewise_lift(frame, v, fvo.fv_lift_factors(frame, 0.0))
+    >>> print(frame[1][0].shape[-2], np.allclose(tvo.tv_to_dense(corewise_frame, (Udot_pm, Gdot_pm)),
+    ...                                          tvo.tv_to_dense(frame, v)), np.allclose(Udot_pm[0], Udot_pm[1]))
+    2 True False
+    '''
+    lift_factors = fv_operations.fv_lift_factors(frame, curvature_damping, rcond)
+    tied_filters = tuple(_tied_filter(shared_data, gi, lift_factors.eps, rcond)
+                         for gi in range(len(nontrivial_groups(shared_data.groups))))
+    return dc.replace(lift_factors, shared_data=shared_data, tied_filters=tied_filters)
 
 
 def fv_share_tucker_variations_corewise(

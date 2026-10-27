@@ -19,6 +19,10 @@ Two oracles, each independent of the kernel it checks:
   and shares nothing with the sweeps. :py:func:`dense_inner_product_hessian` (with the gradient,
   :py:func:`dense_inner_product_gradient`), and the full core-coordinate Lagrangian Hessian of
   ``f(Phi(theta)) - <G, Phi(theta)>`` for a dense least-squares ``f``, :py:func:`dense_lagrangian_hessian`.
+* **The tied lift** of a shared point, from dense pseudo-inverses of the stacked ``S_i^T`` (no shared-companion
+  SVD, no production lift): :py:func:`tied_lift` / :py:func:`tied_lift_transpose`. With the dense Lagrangian
+  Hessian it gives the shared manifold's exact Hessian independently of the tied-lift code (the Hessian of
+  ``Phi o T``, ``T`` copying the group factor).
 
 A third family is not an oracle but a **reference twin**: the dense-``trs`` forms of the probe-derivative
 two-hole (:py:func:`probe_derivatives_two_hole_trs` and its pieces). The shipped kernels in
@@ -176,6 +180,54 @@ def dense_lagrangian_hessian(A, y, theta, theta_hat, G_dense):
     Atr = (A.T @ r).reshape(X.shape)
     curv = flatten(dense_inner_product_hessian(Atr - G_dense, theta, theta_hat))
     return unflatten(gn + curv, theta)
+
+
+def _tied_lift_matrices(frame, groups):
+    """The eps = 0 lift's matrices by plain ``numpy.linalg.pinv`` (unstacked): per nontrivial sharing group the
+    pseudo-inverse of the stacked ``M_g = [S_i1^T; ...]`` with its row splits, per other mode ``(S_i^T)^+``, per
+    bond ``T_i^+``. The center factors are ``fv_center_factors``'s (pinned to the dense spectra in T1)."""
+    import t3toolbox.backend.fv_operations as fvo
+    _, STs, Ts = fvo.fv_center_factors(frame)
+    tied = [g for g in groups if len(g) > 1]
+    group_pinvs = []
+    for g in tied:
+        M = np.concatenate([np.asarray(STs[i]) for i in g], axis=0)
+        group_pinvs.append((g, np.linalg.pinv(M), np.cumsum([0] + [STs[i].shape[0] for i in g])))
+    mode_pinvs = [np.linalg.pinv(np.asarray(S)) for S in STs]
+    bond_pinvs = [np.linalg.pinv(np.asarray(T)) for T in Ts]
+    return group_pinvs, mode_pinvs, bond_pinvs
+
+
+def tied_lift(frame, groups, v):
+    """An independent TIED lift at eps = 0 (unstacked coordinates ``v``): one factor direction per nontrivial group,
+    ``Udot_g = pinv(M_g) [V_i1; ...]``, copied to the group's modes; the per-mode and bond lifts elsewhere -- the
+    lift of the tied parametrization ``Phi(T theta_sh)``, built from dense pseudo-inverses (no SVD of the shared
+    companion, no ``tv_corewise_lift``)."""
+    group_pinvs, mode_pinvs, bond_pinvs = _tied_lift_matrices(frame, groups)
+    V, H = v
+    d = len(V)
+    Ud = [mode_pinvs[i] @ np.asarray(V[i]) for i in range(d)]
+    for g, Mp, _ in group_pinvs:
+        Ug = Mp @ np.concatenate([np.asarray(V[i]) for i in g], axis=0)
+        for i in g:
+            Ud[i] = Ug
+    Gd = [np.einsum('aib,bc->aic', np.asarray(H[i]), bond_pinvs[i]) for i in range(d - 1)] + [np.asarray(H[-1])]
+    return tuple(Ud), tuple(Gd)
+
+
+def tied_lift_transpose(frame, groups, y):
+    """The adjoint of :py:func:`tied_lift` (unstacked raw ``y``): each group's copies summed, then ``pinv(M_g)^T``
+    split by the row splits; the per-mode and bond transposes elsewhere."""
+    group_pinvs, mode_pinvs, bond_pinvs = _tied_lift_matrices(frame, groups)
+    Y, Z = y
+    d = len(Y)
+    V = [mode_pinvs[i].T @ np.asarray(Y[i]) for i in range(d)]
+    for g, Mp, splits in group_pinvs:
+        Vs = Mp.T @ sum(np.asarray(Y[i]) for i in g)
+        for jj, i in enumerate(g):
+            V[i] = Vs[splits[jj]:splits[jj + 1]]
+    H = [np.einsum('aic,bc->aib', np.asarray(Z[i]), bond_pinvs[i]) for i in range(d - 1)] + [np.asarray(Z[-1])]
+    return tuple(V), tuple(H)
 
 
 def vertical_direction(theta, rng):

@@ -524,6 +524,31 @@ def _restart_problem(W):
     return (ww, pp), data, weight, t3.TuckerTensorTrain(*x1).resize(shape, (3, 3, 3), (1, 3, 3, 1))
 
 
+def _shared_restart_problem(W):
+    """T22's set-up (tests/backend/test_curvature.py): ``_restart_problem`` on ``shared_manifold((0, 0, 1))`` -- a
+    tied rank-4 target, a shared rank-2 fit (30 Gauss-Newton steps), zero-padded to rank 3 with ``resize(...,
+    sharing=)``."""
+    import t3toolbox.backend.optimizers as bopt
+    import t3toolbox.backend.fitting as bfit
+    import t3toolbox.backend.geometry as bgeo
+    import t3toolbox.backend.sharing as bsharing
+    rng = np.random.default_rng(7)
+    np.random.seed(7)
+    shape, labels = (6, 6, 6), (0, 0, 1)
+    target = t3.TuckerTensorTrain(*bsharing.t3_tie_tucker_factors(
+        t3.TuckerTensorTrain.randn(shape, (4, 4, 4), (1, 4, 4, 1)).data, labels))
+    ww = [rng.standard_normal((W, N)) for N in shape]
+    pp = [rng.standard_normal((W, N)) for N in shape]
+    weight = np.array([1.0, 0.5, 0.25])
+    kind = bfit.probe_derivatives_kind(2, weight)
+    data = [z + 0.05 * np.linalg.norm(z) / z.size ** 0.5 * rng.standard_normal(z.shape)
+            for z in kind.point_forward(target.data, (ww, pp))]
+    problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps().with_sharing(labels, shape), kind, (ww, pp), data)
+    x0 = bsharing.t3_tie_tucker_factors(t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data, labels)
+    x1, _ = bopt.newton_cg(problem, x0, max_newton=30, gtol_rel=1e-10)
+    return (ww, pp), data, weight, t3.TuckerTensorTrain(*x1).resize(shape, (3, 3, 3), (1, 3, 3, 1), sharing=labels)
+
+
 class TestFrontendExactNewton(unittest.TestCase):
     """S6: exact Newton through the frontend ``optimizers.newton_cg`` -- the keywords reach the backend loop, the
     run is bit-identical to the backend run on ``least_squares_problem``'s problem (every history field but the
@@ -630,8 +655,7 @@ class TestFrontendExactNewton(unittest.TestCase):
     def test_options_with_no_effect_and_unbuilt_geometries_raise(self):
         """The backend's structural rules, through the frontend: ``curvature_damping`` with Gauss-Newton or on a
         corewise geometry, ``tr_radius0`` with the line search, an unknown ``step_control``; the exact Hessian
-        on a shared manifold (the tied lift is not built yet) raises ``NotImplementedError``, on a shared
-        corewise geometry it runs."""
+        runs on both shared geometries (the shared manifold's tied lift: S7)."""
         import t3toolbox.shared_geometry as sg
         import t3toolbox.backend.sharing as bsharing
         sample, data, weight, restart = _restart_problem(30)
@@ -651,10 +675,37 @@ class TestFrontendExactNewton(unittest.TestCase):
                 call(t3m.MANIFOLD, restart, hessian='newton')
         setup.assert_not_called()
         tied = t3.TuckerTensorTrain(*bsharing.t3_tie_tucker_factors(restart.data, (0, 0, 1)))
-        with self.assertRaisesRegex(NotImplementedError, 'S7'):
-            call(sg.shared_manifold((0, 0, 1)), tied, hessian='exact')
-        _, stats = call(sg.shared_corewise((0, 0, 1)), tied, hessian='exact')
-        self.assertEqual(stats['history'][0]['hessian'], 'exact')
+        for geom in (sg.shared_manifold((0, 0, 1)), sg.shared_corewise((0, 0, 1))):
+            with self.subTest(geometry=repr(geom)):
+                _, stats = call(geom, tied, hessian='exact')
+                self.assertEqual(stats['history'][0]['hessian'], 'exact')
+        with self.assertRaisesRegex(ValueError, 'curvature_damping must be >= 0'):
+            call(sg.shared_manifold((0, 0, 1)), tied, hessian='exact', curvature_damping=-1.0)
+
+    def test_zero_padded_shared_restart_through_the_frontend(self):
+        """T22 through the frontend (S7): ``newton_cg(shared_manifold((0, 0, 1)), ..., hessian='exact')`` from a
+        zero-padded SHARED restart converges on the gradient test with no rejection, its first row reporting the
+        zero group-spectrum level (``lift_sigma_min == 0``), every iterate tied; the run is the backend run on
+        ``least_squares_problem``'s problem, bit for bit. |W| = 40 here (the backend T22 uses 60); observed 8
+        outer steps, 0 rejected, 31 CG iterations."""
+        import t3toolbox.backend.optimizers as bopt
+        import t3toolbox.shared_geometry as sg
+        sample, data, weight, restart = _shared_restart_problem(40)
+        geom = sg.shared_manifold((0, 0, 1))
+        xf, sf = topt.newton_cg(geom, 'probe_derivatives', sample, data, restart, order=2, weight=weight,
+                                max_newton=40, hessian='exact')
+        h = sf['history']
+        self.assertEqual(sf['stop_reason'], 'gradient')
+        self.assertEqual(sum(row['tr_accepted'] is False for row in h), 0)
+        self.assertLessEqual(sf['newton_steps'], 12)
+        self.assertEqual(h[0]['lift_sigma_min'], 0.0)
+        self.assertTrue(bool(np.all(xf.has_shared_tucker_factors((0, 0, 1)))))
+        setup = topt.least_squares_problem(geom, 'probe_derivatives', sample, data, restart, order=2, weight=weight,
+                                           hessian='exact')
+        xb, sb = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=40, hessian='exact')
+        self.assertEqual(sf['losses'], sb['losses'])
+        self.assertTrue(_histories_equal(sf['history'], sb['history']))
+        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(xf.data[0] + xf.data[1], xb[0] + xb[1])))
 
 
 if __name__ == "__main__":

@@ -106,7 +106,13 @@ paired with the deterministically-completed factor columns — measured to activ
 directions within two Newton steps; `κ_g` is transiently large afterwards and the clipped solve
 handles it. Consequences wired into the code: the projection solve is a clipped pseudoinverse
 (mandatory), and **full shared rank is a diagnostic, never an enforced precondition** — enforcing
-it would reject every restart. (ε-inflation of the new slots is a documented fallback only.)
+it would reject every restart. (ε-inflation of the new slots is a documented fallback only.) The
+exact Hessian's tied lift (`fv_tied_lift_factors`, 2026.3.0) is the same solve with a damped filter
+`f(s_g) = s_g/(s_g² + ε²)`, clipped: the new levels filter to exactly 0, so the gated channel gets no
+curvature either, and the per-bond TT lift (the escape) is untouched. It must be the *tied* solve, not
+a per-mode one: where a group's rank exceeds a member's own ceiling that member's `S_iᵀ` is wide, and
+its minimum-norm per-mode lift represents the tangent but is not a tied direction — the curvature then
+misses the shared manifold's own second fundamental form.
 
 The end-to-end continuation loop needs a Newton reference that is not the padded restart's deflated
 warm-start gradient ([`rank_continuation.md`](../rank_continuation.md)): with the warm start as the

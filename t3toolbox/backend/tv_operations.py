@@ -466,6 +466,19 @@ def _check_lift_lengths(
     return d
 
 
+def _tied_lift_groups(
+        lift_factors:   fv_operations.LiftFactors,
+) -> typ.Tuple[typ.Tuple[int, ...], ...]:      # the nontrivial sharing groups the lift ties; () unshared
+    """The groups whose Tucker slots the lift ties (one per tied filter), checked against the filters."""
+    if lift_factors.shared_data is None:
+        return ()
+    groups = sharing_module.nontrivial_groups(lift_factors.shared_data.groups)
+    if len(groups) != len(lift_factors.tied_filters):
+        raise ValueError('the lift factors carry %d tied filters for %d nontrivial sharing groups -- build them '
+                         'with sharing.fv_tied_lift_factors' % (len(lift_factors.tied_filters), len(groups)))
+    return groups
+
+
 def tv_corewise_lift(
         frame:          typ.Tuple[
             typ.Sequence[NDArray],              # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
@@ -506,8 +519,14 @@ def tv_corewise_lift(
     :py:func:`tv_corewise_lift_transpose` uses the SAME factors, so ``L^T K L`` is symmetric for every
     ``eps``.
 
+    **Shared points.** With tied lift factors (:py:func:`~t3toolbox.backend.sharing.fv_tied_lift_factors`) each
+    nontrivial sharing group's Tucker slots lift to ONE factor direction, ``Udot_g = M_g^{+eps} [V_i1; ...]``
+    against the stacked ``M_g = [S_i1^T; ...]``, the same array at every group mode -- the lift of the tied
+    parametrization ``Phi(T theta_sh)``, ``T`` copying the group factor; singleton modes and the TT slots lift
+    as above.
+
     Batching: the factors carry the frame stack ``C``; the variations carry ``K + C`` -- one lift per
-    tangent at the shared frame, the factors broadcast over ``K`` (grouped contractions, ``C`` pinned by
+    tangent at the common frame, the factors broadcast over ``K`` (grouped contractions, ``C`` pinned by
     the factors). ``frame`` is not read by the arithmetic -- the factors carry everything -- but keeps the
     ``(frame, variations)`` calling convention, and the mode counts are checked against it (structural).
 
@@ -533,12 +552,20 @@ def tv_corewise_lift(
     '''
     tucker_variations, tt_variations = variations
     d = _check_lift_lengths(frame, variations, lift_factors, 'tv_corewise_lift')
+    groups = _tied_lift_groups(lift_factors)
 
-    Udot = tuple(contractions.contract('Cux,KCxn->KCun', lift_factors.tucker_pinvs[ii], tucker_variations[ii])
-                 for ii in range(d))
+    tied_modes = set(ii for group in groups for ii in group)
+    Udot = [None if ii in tied_modes else
+            contractions.contract('Cux,KCxn->KCun', lift_factors.tucker_pinvs[ii], tucker_variations[ii])
+            for ii in range(d)]
+    for gi, group in enumerate(groups):                                   # the tied lift: Udot_g = M_g^{+eps} [V_i]
+        Udot_g = sharing_module._tied_filtered_solve(lift_factors.shared_data, gi, tucker_variations,
+                                                     lift_factors.tied_filters[gi])
+        for ii in group:
+            Udot[ii] = Udot_g                                             # ONE array per group (T copies it)
     Gdot = tuple(contractions.contract('KCaib,Cbc->KCaic', tt_variations[ii], lift_factors.bond_pinvs[ii])
                  for ii in range(d - 1)) + (tt_variations[d - 1],)        # the last TT slot: undamped
-    return Udot, Gdot
+    return tuple(Udot), Gdot
 
 
 def tv_corewise_lift_transpose(
@@ -568,6 +595,10 @@ def tv_corewise_lift_transpose(
     **ungauged**: compose with :py:func:`tv_orthogonal_gauge_projection` for gauged coordinates (the
     Riemannian Hessian applies the projection outside, ``Pi L^T K L Pi``).
 
+    With tied lift factors (a shared point) each group's raw Tucker variations are summed over the group's
+    copies (``T^T``) and mapped back by the tied solve's adjoint, ``[V_i1; ...] = (M_g^{+eps})^T sum_i Udot_i``;
+    the result is ungauged and untied -- the shared Hessian's ``Pi_sh`` ties it.
+
     Batching as the lift: factors ``C``, variations ``K + C``. ``frame`` keeps the calling convention and
     is checked structurally (mode counts), not read.
 
@@ -594,12 +625,23 @@ def tv_corewise_lift_transpose(
     '''
     Udot, Gdot = core_variations
     d = _check_lift_lengths(frame, core_variations, lift_factors, 'tv_corewise_lift_transpose')
+    groups = _tied_lift_groups(lift_factors)
 
-    V = tuple(contractions.contract('Cux,KCun->KCxn', lift_factors.tucker_pinvs[ii], Udot[ii])
-              for ii in range(d))
+    tied_modes = set(ii for group in groups for ii in group)
+    V = [None if ii in tied_modes else
+         contractions.contract('Cux,KCun->KCxn', lift_factors.tucker_pinvs[ii], Udot[ii])
+         for ii in range(d)]
+    for gi, group in enumerate(groups):                                   # T^T, then the tied solve's adjoint
+        Y_g = Udot[group[0]]
+        for ii in group[1:]:
+            Y_g = Y_g + Udot[ii]                                          # Y_g = sum over the group's copies
+        blocks = sharing_module._tied_filtered_solve_transpose(lift_factors.shared_data, gi, Y_g,
+                                                               lift_factors.tied_filters[gi])
+        for ii, V_i in zip(group, blocks):
+            V[ii] = V_i
     H = tuple(contractions.contract('KCaic,Cbc->KCaib', Gdot[ii], lift_factors.bond_pinvs[ii])
               for ii in range(d - 1)) + (Gdot[d - 1],)                    # the last TT slot: undamped
-    return V, H
+    return tuple(V), H
 
 
 def _tangent_stack_split(

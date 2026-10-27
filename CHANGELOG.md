@@ -205,7 +205,7 @@ All notable changes to T3Toolbox are documented here. The format follows
   geometry: only `hessian='exact'` checks for them), with `backend.geometry.ManifoldCurvatureData` and
   `DEFAULT_CURVATURE_DAMPING = 1e-6` (relative to `‖X‖_HS`; `curvature_damping` raises with the Gauss-Newton
   model and on a corewise geometry, where nothing would read it). `ProbeDerivativesKind` implements
-  `corewise_hessian`; the other kinds, the uniform layer and the shared manifold's tied lift follow.
+  `corewise_hessian`; the other kinds and the uniform layer follow (the shared manifold's tied lift: below).
 - **Exact Newton with a trust region in the backend `newton_cg`**: `backend.optimizers.newton_cg(...,
   hessian='gauss_newton' | 'exact', curvature_damping=None, step_control=None, tr_radius0=None)` (explicit
   keywords, the same on the frontend `optimizers.newton_cg`, below). `hessian='exact'` solves with the exact Riemannian
@@ -239,11 +239,28 @@ All notable changes to T3Toolbox are documented here. The format follows
   `curvature_hessian(p)` / `curvature_quadratic(p)`, the curvature term alone. `evaluate(p)` is mode-aware (the
   Gauss-Newton value is unchanged) and an exact model's `gradient` is the Gauss-Newton one, bit for bit. The
   rules are the backend's: `curvature_damping` with Gauss-Newton or on a corewise geometry raises, and a kind
-  without `corewise_hessian` (every kind but `probe_derivatives` so far), the uniform layer and a shared
-  manifold geometry raise a structural error at construction. The frontend `optimizers.newton_cg` takes
+  without `corewise_hessian` (every kind but `probe_derivatives` so far) and the uniform layer raise a
+  structural error at construction. The frontend `optimizers.newton_cg` takes
   `hessian`, `curvature_damping`, `step_control` and `tr_radius0` with the backend's defaults, and passes
   `hessian` to `least_squares_problem` so `chunk_size='auto'` is sized for the exact mode. The frontend run is
   the backend run, bit for bit.
+- **The exact Hessian on the shared manifold** (`shared_manifold(...)` / `ManifoldGeometryOps` with `groups`;
+  ragged): `hessian='exact'` now runs there too -- `newton_cg`, the `*_model` factories and
+  `Problem.local_model`. The shared set is the tied
+  parametrization `Φ(Tθ)` (`T` copies each group's factor to its modes), so the curvature term goes through
+  a **tied lift**: each sharing group's coordinates lift to ONE raw factor direction,
+  `U̇_g = M_g^{+ε}[V_i₁; …]`, solved against the same stacked-`S` SVD the tied projection uses (the group
+  spectrum `s_g`, damped by the same `curvature_damping`), and its transpose sums the group's copies; the
+  normal part is taken against the shared (tied) misfit gradient, and `hvp`'s outer projection ties the
+  result. At a zero-padded shared restart the new `s_g` levels filter to exactly 0 -- the gated tied
+  channel gets no curvature, the TT variations carry the escape -- and `lift_sigma_min` reads each
+  group's `s_g` in place of its modes' own spectra. The shared retraction is second order as measured
+  (O(h²) finite differences), not proven. New: `backend.sharing.fv_tied_lift_factors(frame,
+  curvature_damping, shared_data)`, the lift factors of a shared point; `fv_operations.LiftFactors` gains
+  `shared_data` / `tied_filters` (default `None` / `()`, pytree leaves -- the partition stays static), with
+  which `tv_corewise_lift` / `tv_corewise_lift_transpose` tie the group slots. The tied projection and
+  retraction now share the filtered solve with the lift (bit-identical). The shared corewise geometry's
+  exact Hessian (the per-group mean of the plain Hessian) was already live.
 - **`backend.geometry.UniformManifoldGeometryOps.from_frame(frame_data, plain_masks, sharing)`**: the uniform
   manifold geometry from a frame already in hand -- its variation masks are the frame's own, gauge-shifted --
   the same geometry as `from_point` without re-orthogonalizing. The uniform `fitting.LocalModel` builds its

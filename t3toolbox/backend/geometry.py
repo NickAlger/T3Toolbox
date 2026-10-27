@@ -168,29 +168,52 @@ class ManifoldCurvatureData:
     lift_factors:  fv_operations.LiftFactors   # the frame's damped lift factors (fv_lift_factors); eps a leaf
     z:             typ.Tuple                   # grad f as a doubled-rank T3: tv_to_t3(frame, misfit_gradient)
     z_sweep:       typ.Tuple                   # t3_precompute_inner_product_sweep(z, base_point)
-    sigma_min:     NDArray                     # the smallest lift singular value (Tucker and bond), shape=C
+    sigma_min:     NDArray                     # the smallest lift singular value (Tucker, bond; s_g if shared), shape=C
 
     @property
     def eps(self) -> NDArray:                  # the absolute lift damping used, shape=C (a diagnostic; newton_cg's lift_eps)
         return self.lift_factors.eps
 
 
+def _lift_sigma_min(
+        lift_factors:  fv_operations.LiftFactors,   # the lift's factors, stack C (tied at a shared point)
+) -> NDArray:                                       # shape=C: the smallest singular value the lift inverts
+    """The smallest singular value the lift inverts, per frame element: every bond spectrum ``sigma(T_i)``, the
+    Tucker spectrum ``sigma(S_i)`` of every mode the lift does not tie, and -- at a shared point -- each
+    nontrivial group's spectrum ``s_g`` in place of its modes' own (the tied lift inverts the stacked ``M_g``,
+    not a group mode's ``S_i^T``, which can be rank-deficient on a regular shared point)."""
+    spectra = list(lift_factors.bond_svals)
+    tied = ()
+    if lift_factors.shared_data is not None:
+        tied = sharing_module.nontrivial_groups(lift_factors.shared_data.groups)
+        spectra += list(lift_factors.shared_data.svd_s)
+    tied_modes = set(ii for group in tied for ii in group)
+    spectra += [s for ii, s in enumerate(lift_factors.tucker_svals) if ii not in tied_modes]
+    xnp, _, _ = get_backend(False, tree_contains_jax(spectra))
+    sigma_min = xnp.min(spectra[0], axis=-1)
+    for s in spectra[1:]:
+        sigma_min = xnp.minimum(sigma_min, xnp.min(s, axis=-1))
+    return sigma_min
+
+
 def _manifold_curvature_data(
         frame:              typ.Tuple,   # (U, O, P, Q) -- an orthogonal frame
         misfit_gradient:    typ.Tuple,   # gauged coordinates of grad f (the misfit's Riemannian gradient), stack C
         curvature_damping:  float,       # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
+        shared_data:        typ.Optional[sharing_module.SharedFrameData] = None,   # shared: the frame's companion
 ) -> ManifoldCurvatureData:
     """:py:meth:`ManifoldGeometryOps.curvature_precompute`'s body, without its ``d = 1`` shortcut (at
-    ``d = 1`` the normal space is trivial and the term this data feeds is exactly zero)."""
-    lift_factors = fv_operations.fv_lift_factors(frame, curvature_damping)
+    ``d = 1`` the normal space is trivial and the term this data feeds is exactly zero). With ``shared_data``
+    the lift is the TIED one (:py:func:`~t3toolbox.backend.sharing.fv_tied_lift_factors`) and
+    ``misfit_gradient`` is the shared (tied) gradient, so ``z`` is the shared ``grad f`` and the normal part
+    ``A^T r - grad f`` is the shared manifold's."""
+    if shared_data is None:
+        lift_factors = fv_operations.fv_lift_factors(frame, curvature_damping)
+    else:
+        lift_factors = sharing_module.fv_tied_lift_factors(frame, curvature_damping, shared_data)
     z = tops.tv_to_t3(frame, misfit_gradient)
     z_sweep = t3_linalg.t3_precompute_inner_product_sweep(z, (frame[0], frame[2]))
-    xnp, _, _ = get_backend(False, tree_contains_jax(lift_factors.tucker_svals))
-    per_factor = [xnp.min(s, axis=-1) for s in lift_factors.tucker_svals + lift_factors.bond_svals]
-    sigma_min = per_factor[0]
-    for s in per_factor[1:]:
-        sigma_min = xnp.minimum(sigma_min, s)
-    return ManifoldCurvatureData(lift_factors, z, z_sweep, sigma_min)
+    return ManifoldCurvatureData(lift_factors, z, z_sweep, _lift_sigma_min(lift_factors))
 
 
 # --------------------------------------------------------------------------------------------------
@@ -314,22 +337,31 @@ class ManifoldGeometryOps(ValueHashedFields):
 
         ``None`` at ``d = 1``: there every slot is at maximal rank, the representable set is open in ``R^N``
         (flat), and the curvature term is exactly zero, so the work is skipped -- a cost shortcut; the formula
-        needs no special case and gives zero there numerically. Sharing's tied lift is not built yet (a
-        structural ``NotImplementedError``)."""
-        if self.groups:
-            raise NotImplementedError("ManifoldGeometryOps.curvature_precompute: the exact Hessian on a shared "
-                                      "geometry (the tied lift) lands in slice S7")
+        needs no special case and gives zero there numerically.
+
+        **Shared** (``groups``): the shared set is parametrized as ``Phi(T theta_sh)``, ``T`` copying each
+        group's factor, so its Hessian is the same formula through the TIED lift -- one factor direction per
+        group, ``Udot_g = M_g^{+eps} [V_i1; ...]`` against ``aux``'s stacked-``S`` SVD
+        (:py:func:`~t3toolbox.backend.sharing.fv_tied_lift_factors`), its adjoint summing the group's copies --
+        with ``misfit_gradient`` the TIED gradient (what :py:meth:`project` with ``aux`` returns), so the
+        normal part is the shared manifold's; ``hvp``'s outer projection ties the result. The smallest lift
+        singular value then reads each group's spectrum ``s_g`` in place of its modes' own. A zero-padded
+        restart's new ``s_g`` levels filter to exactly 0, so the gated tied channel gets no curvature."""
         cd = DEFAULT_CURVATURE_DAMPING if curvature_damping is None else float(curvature_damping)
         if not cd >= 0.0:
             raise ValueError('curvature_damping must be >= 0 (it is relative to ||X||_HS); got %r'
                              % (curvature_damping,))
         if len(frame[0]) == 1:
             return None
-        return _manifold_curvature_data(frame, misfit_gradient, cd)
+        if not self.groups:
+            return _manifold_curvature_data(frame, misfit_gradient, cd)
+        return _manifold_curvature_data(frame, misfit_gradient, cd,
+                                        shared_data=aux if aux is not None else self.precompute(frame))
 
     def lift(self, frame, variations, curvature_data):
         """Gauged (or not) coordinates -> raw core variations of the base point ``(U, P)``, ``theta_hat = L v``
-        (:py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift`); stack ``K + C``."""
+        (:py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift`; tied -- one factor direction per sharing
+        group -- on a shared geometry); stack ``K + C``."""
         return tops.tv_corewise_lift(frame, variations, curvature_data.lift_factors)
 
     def lift_transpose(self, frame, core_variations, curvature_data):

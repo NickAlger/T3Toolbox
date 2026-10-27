@@ -210,8 +210,9 @@ class LocalModel:
       term plus the curvature term :py:meth:`curvature_hessian` (``Π Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π``; see
       :py:meth:`t3toolbox.backend.optimizers.Problem.local_model`), and :py:meth:`quadratic` likewise. The
       model's one misfit transpose is done at construction (``curvature``), so :py:attr:`gradient` is the
-      Gauss-Newton gradient bit for bit. Only ``probe_derivatives`` implements it so far; the other kinds,
-      the uniform layer and the shared manifold raise a structural error at construction.
+      Gauss-Newton gradient bit for bit. Only ``probe_derivatives`` implements it so far; the other kinds and
+      the uniform layer raise a structural error at construction. On a shared manifold geometry the
+      curvature goes through the tied lift (one factor direction per sharing group).
 
     ``gradient``, ``jacobian``, ``gn_hessian``, ``gn_quadratic``, ``objective_value`` and :py:meth:`retract`
     mean the same in both modes.
@@ -902,8 +903,8 @@ def probe_derivatives_model(
     the lift from frame coordinates to core variations, relative to ``‖X‖_HS`` -- ``None`` for the
     geometry's default (``backend.geometry.DEFAULT_CURVATURE_DAMPING``); a value with ``hessian='gauss_newton'``
     or on a corewise geometry raises, as nothing would read it. The ragged manifold and corewise geometries
-    (and a shared corewise one) support it; the uniform layer and a shared manifold geometry raise a
-    structural error at construction for now.
+    and their shared wrappers support it (on a shared manifold the curvature goes through the tied lift);
+    the uniform layer raises a structural error at construction for now.
 
     Examples
     --------

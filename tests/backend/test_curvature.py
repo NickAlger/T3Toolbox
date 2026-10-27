@@ -53,6 +53,16 @@ Exact Newton end to end, ``newton_cg(hessian='exact')`` with its trust region (S
 * **T25** -- from Tucker-slack and TT-slack points (no minimal reduction): the slack frame, and the same
   trajectory as from the minimal-rank tensor.
 
+The shared manifold (S7):
+
+* **T12** -- the tied lift (one raw factor direction per sharing group) represents a tied tangent, its transpose is
+  the exact adjoint; the exact model against the second derivative along the shared retraction (measured O(h^2),
+  F14), the derivative of the projected shared gradient (exact for any retraction) and the dense Lagrangian of
+  ``Phi o T`` through an independent dense tied lift; gauge laws, symmetry, stacks; ``sigma_min`` reads ``s_g``; a
+  zero-padded shared restart gates the new ``s_g`` level. Every model check also catches the per-mode lift on
+  structures where a group's rank exceeds a member's ceiling.
+* **T22** -- exact newton_cg from a zero-padded shared restart converges on the gradient test.
+
 Stacks: none, ``C``, ``K``, ``K + C`` and multi-axis ``K = (2, 2)``, ``C = (2, 3)``. Per-test seeded.
 """
 import dataclasses as dc
@@ -360,7 +370,10 @@ class TestDamping(unittest.TestCase):
         self.assertTrue(np.array_equal(linalg.filtered_reciprocal(s, None, rcond=1e-2)[1], [1.0, 0.0, 0.0, 0.0]))
 
     def test_filtered_reciprocal_reproduces_the_tied_solve_filter_bitwise(self):
-        """eps=None is the shared geometry's clipped group solve, bit for bit (given its rcond)."""
+        """eps=None is the shared geometry's clipped group solve, bit for bit (given its rcond): the refactored
+        solve (``_tied_filtered_solve`` at ``_tied_filter(eps=None)``, S7) equals the pre-S7 ``_tied_solve`` --
+        frozen here verbatim: its own double-``where`` filter and its three einsums -- through both public
+        callers (the tied ambient directions, and the tied projection's redistribution)."""
         np.random.seed(0)
         cases = [((6, 6, 6), (3, 3, 3), (1, 2, 2, 1), (0, 0, 0)),
                  ((6, 6, 7), (4, 4, 2), (1, 3, 2, 1), (0, 0, 1))]
@@ -383,16 +396,26 @@ class TestDamping(unittest.TestCase):
                     frame, _ = fvc.t3_orthogonal_representations(x.data)
                     sfd = sharing.fv_shared_frame_data(frame, groups)
                     vs = fvo.fv_variations_randn(fvo.fv_variation_shapes(frame), (2,))
+                    udots = sharing.fv_tied_ambient_directions(vs, sfd)
+                    tied, _ = sharing.fv_share_tucker_variations(vs, sfd)
                     for gi, group in enumerate(sharing.nontrivial_groups(groups)):
                         U_M, s_g, Vt_M = sfd.svd_U[gi], sfd.svd_s[gi], sfd.svd_Vt[gi]
-                        rcond = np.finfo(s_g.dtype).eps * max(sfd.row_splits[gi][-1], Vt_M.shape[-1])
-                        s_inv = linalg.filtered_reciprocal(s_g, None, rcond)
+                        splits = sfd.row_splits[gi]
+                        # the pre-S7 _tied_solve(sfd, gi, V, rcond=None, np), verbatim
+                        eff_rcond = float(np.finfo(s_g.dtype).eps) * max(splits[-1], Vt_M.shape[-1])
+                        keep = s_g > eff_rcond * s_g[..., :1]
+                        s_inv = np.where(keep, 1.0 / np.where(keep, s_g, 1.0), 0.0)
+                        self.assertTrue(np.array_equal(linalg.filtered_reciprocal(s_g, None, eff_rcond), s_inv))
+                        self.assertTrue(np.array_equal(sharing._tied_filter(sfd, gi, None, None), s_inv))
                         Vstack = np.concatenate([vs[0][ii] for ii in group], axis=-2)
                         t = np.einsum('...xw,...xn->...wn', U_M, Vstack)
                         t = np.einsum('...w,...wn->...wn', s_inv, t)
-                        mine = np.einsum('...wy,...wn->...yn', Vt_M, t)
-                        theirs = sharing._tied_solve(sfd, gi, vs[0], None, np)
-                        self.assertTrue(np.array_equal(mine, theirs))
+                        frozen = np.einsum('...wy,...wn->...yn', Vt_M, t)
+                        self.assertTrue(np.array_equal(udots[gi], frozen))
+                        r = np.einsum('...w,...wn->...wn', s_g, np.einsum('...wy,...yn->...wn', Vt_M, frozen))
+                        R = np.einsum('...xw,...wn->...xn', U_M, r)                   # the redistribution
+                        for jj, ii in enumerate(group):
+                            self.assertTrue(np.array_equal(tied[ii], R[..., splits[jj]:splits[jj + 1], :]))
 
     def test_damped_pseudo_inverse(self):
         rng = np.random.default_rng(5)
@@ -1316,13 +1339,22 @@ class TestExactLocalModel(unittest.TestCase):
         for cd in (0.0, 1e-6):
             with self.assertRaisesRegex(ValueError, 'no effect on a corewise geometry'):
                 cprob.local_model(cx, hessian='exact', curvature_damping=cd)
-        # shared (tied) exact mode -- the tied lift -- is a later slice: a structural error, not a wrong answer
-        sprob, sx = _pd_fit(((5, 5, 7), (2, 2, 2), (1, 2, 2, 1)), 1, (8,), rng,
-                            geom=_MANIFOLD.with_sharing((0, 0, 1), (5, 5, 7)))
+        # shared (tied) exact mode (S7): the damping reaches the TIED lift factors, built on the model's companion
+        sgeom = _MANIFOLD.with_sharing((0, 0, 1), (5, 5, 7))
+        sprob, sx = _pd_fit(((5, 5, 7), (2, 2, 2), (1, 2, 2, 1)), 1, (8,), rng, geom=sgeom)
         sx = ((sx[0][0], sx[0][0], sx[0][2]), sx[1])
         self.assertFalse(sprob.local_model(sx).is_exact)
-        with self.assertRaisesRegex(NotImplementedError, 'lands in slice S7'):
-            sprob.local_model(sx, hessian='exact')
+        for cd, ref in ((0.0, 0.0), (1e-3, 1e-3), (None, bgeo.DEFAULT_CURVATURE_DAMPING)):
+            with self.subTest(shared_curvature_damping=cd):
+                slm = sprob.local_model(sx, hessian='exact', curvature_damping=cd)
+                lf = slm.curvature.geometry_data.lift_factors
+                self.assertIs(lf.shared_data, slm.geom_aux)                      # the model's companion, reused
+                direct = sharing.fv_tied_lift_factors(slm.frame, ref, slm.geom_aux)
+                for a, b in zip(lf.tucker_pinvs + lf.bond_pinvs + lf.tied_filters + (lf.eps,),
+                                direct.tucker_pinvs + direct.bond_pinvs + direct.tied_filters + (direct.eps,)):
+                    self.assertTrue(np.array_equal(a, b))
+        with self.assertRaisesRegex(ValueError, 'curvature_damping must be >= 0'):
+            sprob.local_model(sx, hessian='exact', curvature_damping=-1e-6)
 
     def test_the_kind_operation_weights_the_residual_and_passes_the_chunk_size(self):
         """``ProbeDerivativesKind.corewise_hessian`` is the shipped two-hole at ``omega^2 r`` with the model's sweep
@@ -1726,6 +1758,436 @@ class TestExactNewtonFromNonMinimalPoints(unittest.TestCase):
     def test_tt_slack(self):
         problem, x0 = _slack_problem(200, 0, ((4, 4, 4), (1, 9, 9, 1)))
         self._check(problem, x0, up=[4, 4, 4], down=[4, 4, 4], left=[1, 4, 9, 1], right=[1, 4, 4, 1], outer=22)
+
+
+# ---------------------------------------------------------------------------------------------------
+# S7: the exact Hessian on the SHARED manifold -- the tied lift (T12, T22)
+# ---------------------------------------------------------------------------------------------------
+# (structure, sharing labels). On 'minimal' every group mode's S_i^T is square, so the tied lift equals the
+# per-mode one; on the others a group's rank exceeds some member's own ceiling (its down rank), S_i^T is wide
+# there, and the per-mode lift -- a minimum-norm solve per mode -- is not TIED: no direction of the shared
+# parametrization Phi(T theta_sh), and the wrong curvature (these structures discriminate the two).
+_SH_MINIMAL = (((5, 5, 6), (2, 2, 2), (1, 2, 2, 1)), (0, 0, 1))
+_SH_CEILING = (((6, 6, 4), (4, 4, 2), (1, 2, 2, 1)), (0, 0, 1))                # mode 0: down rank 2 < 4
+_SH_TWO_GROUPS = (((5, 6, 5, 6), (3, 2, 3, 2), (1, 2, 3, 2, 1)), (0, 1, 0, 1))  # mode 0: down rank 2 < 3
+_SH_ONE_GROUP = (((5, 5, 5), (3, 3, 3), (1, 2, 2, 1)), (0, 0, 0))               # modes 0, 2: down rank 2 < 3
+_SH_STRUCTURES = {'minimal': _SH_MINIMAL, 'ceiling': _SH_CEILING, 'two_groups': _SH_TWO_GROUPS,
+                  'one_group': _SH_ONE_GROUP}
+
+
+def _shared_unit_point(struct, labels, C=()):
+    """A random TIED T3 (one factor array per sharing group) scaled to ``||X||_HS = 1`` per stack element."""
+    x = t3.TuckerTensorTrain.randn(*struct, stack_shape=C)
+    tk, tt = sharing.t3_tie_tucker_factors(x.data, labels)
+    X = np.asarray(t3c.t3_to_dense((tk, tt)))
+    nrm = np.asarray(np.sqrt(np.sum(X ** 2, axis=tuple(range(len(C), X.ndim)))))
+    return tuple(tk), tuple(tt[:-1]) + (tt[-1] / nrm[..., None, None, None],)
+
+
+def _shared_fit(struct, labels, order, W, rng, C=(), weight=None, regularizer=None):
+    """:py:func:`_pd_fit` on the shared manifold: data from another tied unit point (plus noise), a tied ``x``."""
+    geom = _MANIFOLD.with_sharing(labels, struct[0])
+    x, other = _shared_unit_point(struct, labels, C), _shared_unit_point(struct, labels, C)
+    ww = [rng.standard_normal(W + (N,)) for N in struct[0]]
+    pp = [rng.standard_normal(W + (N,)) for N in struct[0]]
+    data = [z + 0.1 * rng.standard_normal(z.shape) for z in sd.t3_probe_derivatives(ww, pp, other, order)]
+    kind = bfit.ProbeDerivativesKind(order=order, weight=weight)
+    return bopt.least_squares_problem(geom, kind, (ww, pp), data, regularizer=regularizer), x
+
+
+def _per_mode_twin(lm):
+    """The same exact model with the UNTIED (per-mode) lift factors: what the shared Hessian would be without the
+    tied lift -- the mutation every T12 check must catch on the discriminating structures."""
+    data = lm.curvature.geometry_data
+    untied = dc.replace(data, lift_factors=fvo.fv_lift_factors(lm.frame, 0.0))
+    return dc.replace(lm, curvature=bopt.CurvatureState(lm.curvature.misfit_gradient, untied))
+
+
+def _groups_of(labels, shape):
+    return sharing.nontrivial_groups(sharing.validate_sharing(labels, shape))
+
+
+class TestSharedExactLift(unittest.TestCase):
+    """T12, the lift: the TIED lift (``fv_tied_lift_factors`` + ``tv_corewise_lift``) represents a tied tangent
+    through the core parametrization with ONE factor direction per group, and its transpose is the exact
+    adjoint at every damping -- (0, 0, 1), a two-group partition and an all-mode group; K, C and K + C stacks."""
+
+    def setUp(self):
+        np.random.seed(51)
+
+    def test_tied_lift_identity_and_tie(self):
+        """``DPhi[L v] == E v`` at eps = 0 (to roundoff), the group's raw factor directions one array; the per-mode
+        lift represents ``v`` too but is untied on the discriminating structures (and equals the tied one where
+        every group mode's ``S_i^T`` is square)."""
+        for name, (struct, labels) in _SH_STRUCTURES.items():
+            groups = _groups_of(labels, struct[0])
+            for K, C in (((), ()), ((3,), ()), ((), (2,)), ((2,), (2,))):
+                with self.subTest(structure=name, K=K, C=C):
+                    x = _shared_unit_point(struct, labels, C)
+                    frame, _ = fvc.t3_orthogonal_representations(x)
+                    sfd = sharing.fv_shared_frame_data(frame, sharing.validate_sharing(labels, struct[0]))
+                    v = tv.tv_orthogonal_gauge_projection(frame, _random_variations(frame, K + C), shared_data=sfd)
+                    th = tv.tv_corewise_lift(frame, v, sharing.fv_tied_lift_factors(frame, 0.0, sfd))
+                    corewise_frame = fvc.t3_corewise_frame((frame[0], frame[2]))
+                    n = len(K + C)
+                    self.assertLess(_relerr_per_element(tv.tv_to_dense(corewise_frame, th),
+                                                        tv.tv_to_dense(frame, v), n), 1e-12)
+                    for group in groups:
+                        for ii in group[1:]:
+                            self.assertIs(th[0][ii], th[0][group[0]])
+                    pm = tv.tv_corewise_lift(frame, v, fvo.fv_lift_factors(frame, 0.0))
+                    self.assertLess(_relerr_per_element(tv.tv_to_dense(corewise_frame, pm),
+                                                        tv.tv_to_dense(frame, v), n), 1e-12)
+                    untied = max(_relerr_per_element(pm[0][ii], pm[0][g[0]], n) for g in groups for ii in g[1:])
+                    if name == 'minimal':
+                        self.assertLess(_relerr_tree(pm, th), 1e-12)
+                    else:
+                        self.assertGreater(untied, 1e-2)
+
+    def test_tied_lift_adjoint(self):
+        """``<L v, y> == <v, L^T y>`` per K + C element for ANY coordinates and raw directions, at dampings 0 to
+        10 -- the group's copies summed (``T^T``), then the tied solve's adjoint."""
+        rng = np.random.default_rng(52)
+        for name in ('ceiling', 'two_groups', 'one_group'):
+            struct, labels = _SH_STRUCTURES[name]
+            for K, C in (((), ()), ((3,), ()), ((2,), (2,))):
+                for cd in (0.0, 1e-2, 0.3, 10.0):
+                    with self.subTest(structure=name, K=K, C=C, curvature_damping=cd):
+                        frame, _ = fvc.t3_orthogonal_representations(_shared_unit_point(struct, labels, C))
+                        sfd = sharing.fv_shared_frame_data(frame, sharing.validate_sharing(labels, struct[0]))
+                        lf = sharing.fv_tied_lift_factors(frame, cd, sfd)
+                        v = _random_variations(frame, K + C)
+                        y = _raw_like_frame_cores(frame, K + C, rng)
+                        Lv, LTy = tv.tv_corewise_lift(frame, v, lf), tv.tv_corewise_lift_transpose(frame, y, lf)
+                        for Vt, V in zip(LTy[0] + LTy[1], v[0] + v[1]):
+                            self.assertEqual(Vt.shape, V.shape)
+                        n = len(K + C)
+                        lhs = np.asarray(cw.corewise_stack_dot(Lv, y, n))
+                        rhs = np.asarray(cw.corewise_stack_dot(v, LTy, n))
+                        scale = np.asarray(cw.corewise_stack_norm(Lv, n)) * np.asarray(cw.corewise_stack_norm(y, n))
+                        self.assertTrue(np.all(np.abs(lhs - rhs) <= 1e-12 * np.maximum(scale, 1e-300)))
+
+    def test_the_tied_filter_at_no_damping_is_the_projections(self):
+        """The damped tied filter is ``filtered_reciprocal`` of the group spectrum at the per-mode factors' own
+        absolute ``eps``; at ``curvature_damping = 0`` it is the tied projection's clipped filter, and the lift
+        of a tied tangent recovers exactly the ambient direction the retraction's tied embedding uses."""
+        struct, labels = _SH_CEILING
+        frame, _ = fvc.t3_orthogonal_representations(_shared_unit_point(struct, labels))
+        sfd = sharing.fv_shared_frame_data(frame, sharing.validate_sharing(labels, struct[0]))
+        for cd in (0.0, 1e-3):
+            lf = sharing.fv_tied_lift_factors(frame, cd, sfd)
+            plain = fvo.fv_lift_factors(frame, cd)
+            self.assertTrue(all(np.array_equal(a, b) for a, b in zip(
+                lf.tucker_pinvs + lf.bond_pinvs + (lf.eps,), plain.tucker_pinvs + plain.bond_pinvs + (plain.eps,))))
+            self.assertIs(lf.shared_data, sfd)
+            self.assertEqual(len(lf.tied_filters), 1)
+            s_g = sfd.svd_s[0]
+            self.assertTrue(np.array_equal(lf.tied_filters[0], linalg.filtered_reciprocal(
+                s_g, lf.eps, np.finfo(float).eps * max(sfd.row_splits[0][-1], sfd.svd_Vt[0].shape[-1]))))
+        lf0 = sharing.fv_tied_lift_factors(frame, 0.0, sfd)
+        self.assertTrue(np.allclose(lf0.tied_filters[0], sharing._tied_filter(sfd, 0, None, None), rtol=1e-15, atol=0))
+        v = tv.tv_orthogonal_gauge_projection(frame, _random_variations(frame, ()), shared_data=sfd)
+        self.assertLess(_relerr_tree(tv.tv_corewise_lift(frame, v, lf0)[0][0],
+                                     sharing.fv_tied_ambient_directions(v, sfd)[0]), 1e-13)
+        with self.assertRaisesRegex(ValueError, 'tied filters'):
+            tv.tv_corewise_lift(frame, v, dc.replace(lf0, tied_filters=()))
+
+
+class TestSharedExactLocalModel(unittest.TestCase):
+    """T12, the exact model on the shared manifold: ``Pi_sh [J^T J + L^T K_N L] Pi_sh`` with ``L`` the tied lift and
+    ``N = A^T omega^2 r - grad_sh f`` (the TIED misfit gradient). Oracles: the second derivative along the shared
+    retraction (measured second order, F14 -- O(h^2), not proven), the derivative of the projected shared gradient
+    along it (exact for any retraction), and the dense Lagrangian Hessian of ``Phi o T`` through an independent
+    dense tied lift. Every check also catches the per-mode lift on the discriminating structures."""
+
+    def setUp(self):
+        np.random.seed(53)
+
+    def test_quadratic_form_is_the_second_derivative_along_the_shared_retraction(self):
+        """``<p, H p> == d^2/dt^2 f(R_sh(t p))`` to the finite difference's resolution, which also separates it from
+        Gauss-Newton and from the per-mode-lift twin; orders 0-2 with the weight shapes, both dampings."""
+        rng = np.random.default_rng(53)
+        cases = {'minimal': (_SH_MINIMAL, 2, [1.0, 0.5, 0.25]), 'ceiling': (_SH_CEILING, 1, None),
+                 'ceiling_matrix': (_SH_CEILING, 2, rng.uniform(0.3, 2.0, (3, 3))),
+                 'two_groups': (_SH_TWO_GROUPS, 1, [[1.0], [0.4], [2.0], [0.7]]), 'one_group': (_SH_ONE_GROUP, 0, None)}
+        for name, ((struct, labels), order, weight) in cases.items():
+            for cd in (0.0, None):
+                with self.subTest(case=name, curvature_damping=cd):
+                    prob, x = _shared_fit(struct, labels, order, (12,), rng, weight=weight)
+                    lm = prob.local_model(x, hessian='exact', curvature_damping=cd)
+                    v = _unit_tangent(prob.geom, lm.frame)
+                    q, q_gn = float(lm.quadratic(v)), float(lm.gn_quadratic(v))
+                    self.assertLess(abs(float(prob.geom.inner(v, lm.hvp(v))) - q), 1e-12 * abs(q))
+                    fd = _second_derivative(lambda t: float(prob.objective(lm.retract(cw.corewise_scale(v, t)))),
+                                            _fd_step(lm))
+                    self.assertLess(abs(fd - q), 1e-5 * max(abs(q), abs(q_gn)))
+                    self.assertLess(abs(fd - q), 1e-3 * abs(q - q_gn))
+                    if name != 'minimal' and cd == 0.0:
+                        q_pm = float(_per_mode_twin(lm).quadratic(v))
+                        self.assertGreater(abs(fd - q_pm), 1e3 * abs(fd - q))
+
+    def test_the_shared_retraction_is_second_order_here(self):
+        """F14 (``c15_shared_exact``'s set-up, seed 5; measured, not proven): the plain central second difference
+        along the shared retraction converges to the exact model's ``<v, H v>`` at O(h^2) -- the error falls ~4x per
+        halving (observed ratios 4.0, 4.1 over h = 2e-2, 1e-2, 5e-3, from 1.1e-4) -- while Gauss-Newton is off by
+        0.16 (observed here: GN 1058.03248707, exact 1058.19431605; the values depend on LAPACK's frame signs, so
+        only the convergence is asserted)."""
+        np.random.seed(5)
+        rng = np.random.default_rng(5)
+        shape, labels = (5, 5, 6), (0, 0, 1)
+        x = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
+        x = x.share(labels, max_tucker_ranks=(2, 2, 2), max_tt_ranks=(1, 2, 2, 1))
+        x = x.rank_adjustment_sweep('right_to_left', sharing=labels)
+        geom = _MANIFOLD.with_sharing(labels, shape)
+        frame = geom.frame(x.data)
+        aux = geom.precompute(frame)
+        ww = [rng.standard_normal((60, N)) for N in shape]
+        pp = [rng.standard_normal((60, N)) for N in shape]
+        kind = bfit.probe_derivatives_kind(2, None)
+        data = [z + 0.3 * rng.standard_normal(z.shape) for z in kind.point_forward(x.data, (ww, pp))]
+        prob = bopt.least_squares_problem(geom, kind, (ww, pp), data)
+        U, O, L, _ = frame
+        raw = (tuple(rng.standard_normal(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(O, U)),
+               tuple(rng.standard_normal(l.shape) for l in L))
+        v = geom.project(frame, raw, aux)
+        v = cw.corewise_scale(v, 1.0 / np.linalg.norm(tv.tv_to_dense(frame, v)))
+        lm = prob.local_model(x.data, hessian='exact', curvature_damping=0.0)
+        q, q_gn = float(lm.quadratic(v)), float(lm.gn_quadratic(v))
+        f0 = float(prob.objective(x.data))
+        errors = []
+        for h in (2e-2, 1e-2, 5e-3):
+            fp = float(prob.objective(lm.retract(cw.corewise_scale(v, h))))
+            fm = float(prob.objective(lm.retract(cw.corewise_scale(v, -h))))
+            errors.append(abs((fp - 2.0 * f0 + fm) / h ** 2 - q))
+        for e_h, e_half in zip(errors, errors[1:]):
+            self.assertTrue(3.0 < e_h / e_half < 5.0, errors)
+        self.assertLess(errors[-1], 1e-3 * abs(q - q_gn))
+
+    def test_hvp_is_the_derivative_of_the_projected_shared_gradient(self):
+        """``H v == d/dt P_x grad_sh f(R_sh(t v))`` at 0 -- the Riemannian Hessian of an embedded submanifold is the
+        projected derivative of the gradient along ANY curve with velocity ``v``, so this oracle needs no second-order
+        retraction. Central difference at h = 1e-4 (observed <= 4e-7 relative); GN and the per-mode twin miss it."""
+        rng = np.random.default_rng(54)
+        for name, (struct, labels) in _SH_STRUCTURES.items():
+            with self.subTest(structure=name):
+                prob, x = _shared_fit(struct, labels, 2, (12,), rng, weight=[1.0, 0.5, 0.25])
+                lm = prob.local_model(x, hessian='exact', curvature_damping=0.0)
+                geom, frame, aux = prob.geom, lm.frame, lm.geom_aux
+                v = _unit_tangent(geom, frame)
+
+                def grad_at(t):                    # P_x grad_sh f(R(t v)): the ambient gradient, projected at x
+                    y = lm.retract(cw.corewise_scale(v, t))
+                    lm_y = prob.local_model(y)
+                    return tv.tv_project_t3_onto_tangent_space(frame, tv.tv_to_t3(lm_y.frame, lm_y.gradient),
+                                                                shared_data=aux)
+
+                h = 1e-4
+                fd = cw.corewise_scale(cw.corewise_sub(grad_at(h), grad_at(-h)), 0.5 / h)
+                err = _relerr_tree(lm.hvp(v), fd)
+                self.assertLess(err, 1e-5)
+                self.assertGreater(_relerr_tree(prob.local_model(x).hvp(v), fd), 1e2 * err)
+                if name != 'minimal':
+                    self.assertGreater(_relerr_tree(_per_mode_twin(lm).hvp(v), fd), 1e2 * err)
+
+    def test_against_the_dense_lagrangian_hessian(self):
+        """``Pi_sh L^T H_lag L Pi_sh`` with ``H_lag`` the exact dense core-coordinate Hessian of the Lagrangian
+        ``f(Phi(theta)) - <grad_sh f, Phi(theta)>`` and ``L`` the INDEPENDENT dense tied lift (pinv of the stacked
+        ``S_i^T``) -- the Hessian of ``Phi o T`` with none of the production tied-lift code -- on (0, 0, 1) and a
+        two-group partition, both past a member's ceiling (and below the mode size: a group at rank ``N`` has no
+        Tucker variation, so the tied and per-mode lifts would coincide)."""
+        rng = np.random.default_rng(55)
+        for name, struct, labels, order, weight in (
+                ('ceiling', ((4, 4, 3), (3, 3, 2), (1, 2, 2, 1)), (0, 0, 1), 2, [1.0, 0.5, 0.25]),
+                ('two_groups', ((4, 4, 4, 4), (3, 2, 3, 2), (1, 2, 2, 2, 1)), (0, 1, 0, 1), 1, [[1.0, 0.7]] * 4)):
+            with self.subTest(structure=name):
+                shape = struct[0]
+                prob, x = _shared_fit(struct, labels, order, (4,), rng, weight=weight)
+                kind, (ww, pp) = prob.kind, prob.sample
+                lm = prob.local_model(x, hessian='exact', curvature_damping=0.0)
+                frame, aux = lm.frame, lm.geom_aux
+                self.assertLess(min(o.shape[-2] for o in frame[1]), max(u.shape[-2] for u in frame[0]))
+                omega = kind.weight
+
+                def measure(cores):                                               # omega (.) S(X), flattened
+                    out = sd.t3_probe_derivatives(ww, pp, cores, order)
+                    return np.concatenate([(z * omega[i if omega.shape[0] > 1 else 0].reshape(-1, 1, 1)).ravel()
+                                           for i, z in enumerate(out)])
+                cols = []
+                for idx in np.ndindex(*shape):
+                    unit = (tuple(np.eye(N)[j][None, :] for N, j in zip(shape, idx)),
+                            tuple(np.ones((1, 1, 1)) for _ in shape))
+                    cols.append(measure(unit))
+                A = np.stack(cols, axis=1)
+                y = A @ np.asarray(t3c.t3_to_dense(x)).ravel() - np.concatenate(
+                    [(r * omega[i if omega.shape[0] > 1 else 0].reshape(-1, 1, 1)).ravel()
+                     for i, r in enumerate(lm.residual)])
+                theta = (tuple(frame[0]), tuple(frame[2]))
+                G = tv.tv_to_dense(frame, lm.curvature.misfit_gradient)          # grad_sh f, dense
+                groups = sharing.validate_sharing(labels, shape)
+                for _ in range(2):
+                    p = fvo.fv_variations_randn(fvo.fv_variation_shapes(frame))
+                    pg = prob.geom.project(frame, p, aux)
+                    H_theta = oracles.dense_lagrangian_hessian(A, y, theta, oracles.tied_lift(frame, groups, pg), G)
+                    ref = prob.geom.project(frame, oracles.tied_lift_transpose(frame, groups, H_theta), aux)
+                    err = _relerr_tree(lm.hvp(p), ref)
+                    self.assertLess(err, 1e-10)
+                    self.assertGreater(_relerr_tree(_per_mode_twin(lm).hvp(p), ref), 1e4 * err)
+
+    def test_gauge_laws_symmetry_and_stacks(self):
+        """``hvp(p) == hvp(Pi_sh p)``, ``Pi_sh hvp == hvp`` and the output TIED; the K-stack Gram matrix symmetric;
+        a C-stacked shared model's hvp / quadratic per element (K + C)."""
+        rng = np.random.default_rng(56)
+        for name in ('ceiling', 'two_groups', 'one_group'):
+            struct, labels = _SH_STRUCTURES[name]
+            with self.subTest(structure=name):
+                prob, x = _shared_fit(struct, labels, 2, (8,), rng)
+                lm = prob.local_model(x, hessian='exact')
+                geom, frame, aux = prob.geom, lm.frame, lm.geom_aux
+                p = fvo.fv_variations_randn(fvo.fv_variation_shapes(frame))           # ungauged, untied
+                Hp = lm.hvp(p)
+                self.assertLess(_relerr_tree(lm.hvp(geom.project(frame, p, aux)), Hp), 1e-12)
+                self.assertLess(_relerr_tree(geom.project(frame, Hp, aux), Hp), 1e-12)
+                self.assertLess(float(sharing.fv_tied_variations_residual(Hp, aux)), 1e-12)
+                self.assertLess(float(sharing.fv_tied_variations_residual(lm.curvature_hvp(p), aux)), 1e-12)
+                n_dir = 4
+                P = _unit_tangent(geom, frame, K=(n_dir,))
+                HP = lm.hvp(P)
+                gram = sum(a.reshape(n_dir, -1) @ b.reshape(n_dir, -1).T for a, b in zip(P[0] + P[1], HP[0] + HP[1]))
+                self.assertLess(np.abs(gram - gram.T).max(), 1e-12 * np.abs(gram).max())
+                self.assertTrue(np.allclose(np.asarray(lm.quadratic(P)), np.diag(gram), rtol=1e-12, atol=0))
+        K, C = (2,), (2,)
+        struct, labels = _SH_CEILING
+        prob, x = _shared_fit(struct, labels, 1, (6,), rng, C=C)
+        lm = prob.local_model(x, hessian='exact')
+        p = _unit_tangent(prob.geom, lm.frame, K=K, C=C)
+        Hp, q = lm.hvp(p), np.asarray(lm.quadratic(p))
+        self.assertEqual(q.shape, K + C)
+        for cc in np.ndindex(*C):
+            data_c = [z[(slice(None),) * 2 + cc] for z in prob.data]
+            lm_c = dc.replace(prob, data=data_c).local_model(_elem(x, cc), hessian='exact')
+            for kk in np.ndindex(*K):
+                p_kc = _elem(p, kk + cc)
+                self.assertLess(_relerr_tree(_elem(Hp, kk + cc), lm_c.hvp(p_kc)), 1e-12)
+                self.assertAlmostEqual(float(q[kk + cc]), float(lm_c.quadratic(p_kc)), delta=1e-11 * abs(q[kk + cc]))
+
+    def test_sigma_min_reads_the_group_spectrum(self):
+        """``sigma_min`` (shape C) is the smallest singular value the TIED lift inverts: the bond spectra, the Tucker
+        spectra of the untied modes and each group's spectrum ``s_g`` -- not a group mode's own ``S_i^T`` spectrum,
+        which can be tiny on a regular shared point (here mode 1 barely uses the group's third basis row, which
+        mode 2 uses fully: its own spectrum reaches ~1e-2 while every lift singular value is O(1))."""
+        labels, shape = (0, 1, 1, 2), (4, 5, 5, 4)
+        geom = _MANIFOLD.with_sharing(labels, shape)
+        for seed, C in ((0, ()), (1, ()), (2, (2,))):
+            with self.subTest(seed=seed, C=C):
+                np.random.seed(seed)
+                x = t3.TuckerTensorTrain.randn(shape, (2, 3, 3, 2), (1, 2, 3, 2, 1), stack_shape=C)
+                tk, tt = sharing.t3_tie_tucker_factors(x.data, labels)
+                G1 = np.array(tt[1])
+                G1[..., 2, :] *= 1e-3
+                x = (tk, (tt[0], G1) + tuple(tt[2:]))
+                frame = geom.frame(x)
+                aux = geom.precompute(frame)
+                g = fvo.fv_variations_zeros(fvo.fv_variation_shapes(frame), C, False)
+                data = geom.curvature_precompute(frame, g, aux, 0.0)
+                lf = data.lift_factors
+                spectra = list(lf.bond_svals) + [lf.tucker_svals[0], lf.tucker_svals[3]] + list(aux.svd_s)
+                ref = np.min([np.min(s, axis=-1) for s in spectra], axis=0)
+                self.assertEqual(np.shape(data.sigma_min), C)
+                self.assertTrue(np.array_equal(np.asarray(data.sigma_min), ref))
+                own = np.min([np.min(s, axis=-1) for s in lf.tucker_svals], axis=0)
+                self.assertTrue(np.all(own < 1e-1 * ref))                    # a per-mode reading would be caught
+
+    def test_padded_shared_restart(self):
+        """A zero-padded shared restart (``resize(..., sharing=)``) sits on the lower shared-rank stratum: the new
+        ``s_g`` level is zero and its tied filter exactly 0 at every damping, so the gated tied channel gets no
+        curvature -- the lift's group direction has no component in ``M_g``'s null space and the transpose ignores
+        it -- while the TT variations (the escape) and the untied mode lift as unshared, bit for bit;
+        ``sigma_min`` reports the zero level; the exact model stays finite and symmetric there."""
+        rng = np.random.default_rng(57)
+        np.random.seed(57)
+        shape, labels = (6, 6, 6), (0, 0, 1)
+        geom = _MANIFOLD.with_sharing(labels, shape)
+        level1 = t3.TuckerTensorTrain(*_shared_unit_point((shape, (2, 2, 2), (1, 2, 2, 1)), labels))
+        restart = level1.t3svd(sharing=labels)[0].resize(shape, (3, 3, 3), (1, 3, 3, 1), sharing=labels)
+        self.assertTrue(bool(np.all(restart.has_shared_tucker_factors(labels))))
+        frame = geom.frame(restart.data)
+        aux = geom.precompute(frame)
+        _, STs, _ = fvo.fv_center_factors(frame)
+        _, s_M, Vt_M = np.linalg.svd(np.concatenate([STs[0], STs[1]], axis=0))
+        null = Vt_M[s_M <= 1e-12 * s_M[0]]                                 # M_g's null space: the gated levels
+        self.assertEqual(null.shape[0], 1)
+        for cd in (0.0, 1e-6):
+            with self.subTest(curvature_damping=cd):
+                lf = sharing.fv_tied_lift_factors(frame, cd, aux)
+                f = lf.tied_filters[0]
+                self.assertEqual(int(np.sum(f == 0.0)), 1)                     # the new level: exactly 0
+                self.assertTrue(np.all(f[:-1] > 0.0))
+                v = _random_variations(frame, (3,))
+                th = tv.tv_corewise_lift(frame, v, lf)
+                self.assertLess(np.abs(np.einsum('ju,kun->kjn', null, th[0][0])).max(),
+                                1e-14 * np.abs(th[0][0]).max())
+                plain = tv.tv_corewise_lift(frame, v, fvo.fv_lift_factors(frame, cd))
+                self.assertTrue(all(np.array_equal(a, b) for a, b in zip(th[1] + (th[0][2],), plain[1] + (plain[0][2],))))
+                y = _raw_like_frame_cores(frame, (3,), rng)
+                y_gated = ((y[0][0] + np.einsum('ju,kjn->kun', null, rng.standard_normal((3, 1, 6))),) + y[0][1:], y[1])
+                a, b = tv.tv_corewise_lift_transpose(frame, y, lf), tv.tv_corewise_lift_transpose(frame, y_gated, lf)
+                self.assertLess(_relerr_tree(b, a), 1e-14)
+        ww = [rng.standard_normal((10, N)) for N in shape]
+        pp = [rng.standard_normal((10, N)) for N in shape]
+        data = [z + 0.1 for z in sd.t3_probe_derivatives(ww, pp, _shared_unit_point((shape, (3, 3, 3), (1, 3, 3, 1)),
+                                                                                    labels), 1)]
+        prob = bopt.least_squares_problem(geom, bfit.ProbeDerivativesKind(order=1), (ww, pp), data)
+        lm = prob.local_model(restart.data, hessian='exact')
+        cdata = lm.curvature.geometry_data
+        self.assertEqual(float(cdata.sigma_min), float(np.min(aux.svd_s[0])))
+        self.assertLess(float(cdata.sigma_min), 1e-12)
+        P = _unit_tangent(geom, lm.frame, K=(3,))
+        HP = lm.hvp(P)
+        self.assertTrue(all(np.all(np.isfinite(a)) for a in HP[0] + HP[1]))
+        gram = sum(a.reshape(3, -1) @ b.reshape(3, -1).T for a, b in zip(P[0] + P[1], HP[0] + HP[1]))
+        self.assertLess(np.abs(gram - gram.T).max(), 1e-12 * np.abs(gram).max())
+
+
+class TestSharedExactNewtonRestart(unittest.TestCase):
+    """T22 (F19 on the shared manifold, ``shared_manifold((0, 0, 1))``): exact newton_cg from a zero-padded SHARED
+    continuation restart converges on the gradient test with at most two rejections -- the tied lift's zero ``s_g``
+    level is clipped, the TT variations carry the escape. c24's template, tied: probe derivatives of order 2,
+    ω = [1, .5, .25], 5 % noise, a tied target of rank 4, level 1 at shared rank 2 (30 Gauss-Newton steps), the
+    restart at rank 3; |W| = 60. Observed (defaults: zero reference, trust region, power 0.5): 10 outer steps,
+    0 rejected, 41 CG iterations (F19's unshared problem: 8-10 outer, 23-28 CG), against Gauss-Newton + Armijo,
+    which has not converged after 25 steps (40: still 7e-6)."""
+
+    def test_zero_padded_shared_restart_converges(self):
+        problem, restart = _shared_restart_problem(60)
+        _, stats = bopt.newton_cg(problem, restart.data, max_newton=40, hessian='exact')
+        h = stats['history']
+        self.assertEqual(stats['stop_reason'], 'gradient')
+        self.assertLessEqual(sum(row['tr_accepted'] is False for row in h), 2)
+        self.assertEqual(h[0]['lift_sigma_min'], 0.0)                 # the zero s_g level: a singular tied lift
+        self.assertTrue(all(np.isfinite(row['pKp']) for row in h if not row['converged']))
+        self.assertLessEqual(stats['newton_steps'], 14)
+        _, gn = bopt.newton_cg(problem, restart.data, max_newton=25)
+        self.assertEqual(gn['stop_reason'], 'max_newton')
+
+
+def _shared_restart_problem(W):
+    """T22's problem: c24 on ``shared_manifold((0, 0, 1))`` -- a tied rank-4 target, a shared rank-2 fit (30
+    Gauss-Newton steps) zero-padded to rank 3 with ``resize(..., sharing=)``. Returns the backend problem and the
+    tied restart."""
+    rng = np.random.default_rng(7)
+    np.random.seed(7)
+    shape, labels = (6, 6, 6), (0, 0, 1)
+    target = t3.TuckerTensorTrain(*sharing.t3_tie_tucker_factors(
+        t3.TuckerTensorTrain.randn(shape, (4, 4, 4), (1, 4, 4, 1)).data, labels))
+    ww = [rng.standard_normal((W, N)) for N in shape]
+    pp = [rng.standard_normal((W, N)) for N in shape]
+    kind = bfit.probe_derivatives_kind(2, np.array([1.0, 0.5, 0.25]))
+    data = [z + 0.05 * np.linalg.norm(z) / z.size ** 0.5 * rng.standard_normal(z.shape)
+            for z in kind.point_forward(target.data, (ww, pp))]
+    problem = bopt.least_squares_problem(_MANIFOLD.with_sharing(labels, shape), kind, (ww, pp), data)
+    x0 = sharing.t3_tie_tucker_factors(t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data, labels)
+    x1, _ = bopt.newton_cg(problem, x0, max_newton=30, gtol_rel=1e-10)
+    return problem, t3.TuckerTensorTrain(*x1).resize(shape, (3, 3, 3), (1, 3, 3, 1), sharing=labels)
 
 
 if __name__ == '__main__':

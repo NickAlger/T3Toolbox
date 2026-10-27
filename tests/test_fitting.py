@@ -1028,9 +1028,13 @@ class TestExactLocalModel(unittest.TestCase):
                 self.assertIsInstance(y, t3.TuckerTensorTrain)
                 self.assertTrue(_bitwise(y.data, geom.retract(p).data))
                 self.assertTrue(_bitwise(y.data, blm.retract(p.variations.data)))
-                if name != 'shared_manifold':                                         # shared manifold exact: S7
-                    ex = fitting.probe_derivatives_model(geom, x, *sample, 1, blm.residual, hessian='exact')
-                    self.assertTrue(_bitwise(ex.retract(p).data, y.data))
+                ex = fitting.probe_derivatives_model(geom, x, *sample, 1, blm.residual, hessian='exact')
+                with mock.patch.object(sg.SharedGeometry, 'shared_frame_data',
+                                       wraps=sg.SharedGeometry.shared_frame_data, autospec=True) as spy:
+                    y_ex = ex.retract(p)
+                self.assertEqual(spy.call_count, 0)
+                self.assertTrue(_bitwise(y_ex.data, y.data))
+                self.assertTrue(_bitwise(y_ex.data, ex._blm.retract(p.variations.data)))
         other = t3m.MANIFOLD.randn(t3m.MANIFOLD.frame(t3.TuckerTensorTrain.randn(*_EX_SHAREABLE)))
         with self.assertRaises(ValueError):
             m.retract(other)
@@ -1096,8 +1100,8 @@ class TestExactLocalModel(unittest.TestCase):
 
     def test_structural_errors_where_the_exact_hessian_is_not_built_yet(self):
         '''The kinds without ``corewise_hessian`` raise the backend's structural ``ValueError`` at construction
-        (naming the kind); the uniform layer surfaces its kind's interim stub the same way; the shared manifold
-        (the tied lift) raises ``NotImplementedError``. Gauss-Newton is unaffected.'''
+        (naming the kind); the uniform layer surfaces its kind's interim stub the same way. Gauss-Newton is
+        unaffected. (The shared manifold's exact mode -- the tied lift -- is built: S7.)'''
         import t3toolbox.shared_geometry as sg
         import t3toolbox.uniform_tucker_tensor_train as ut3
         import t3toolbox.uniform_manifold as ut3m
@@ -1130,8 +1134,63 @@ class TestExactLocalModel(unittest.TestCase):
         rs = _ex_residual(xs, ssample, sdata, 1)
         geom = sg.shared_manifold((0, 0, 1))
         self.assertFalse(fitting.probe_derivatives_model(geom, xs, *ssample, 1, rs).is_exact)
-        with self.assertRaisesRegex(NotImplementedError, 'S7'):
-            fitting.probe_derivatives_model(geom, xs, *ssample, 1, rs, hessian='exact')
+        self.assertTrue(fitting.probe_derivatives_model(geom, xs, *ssample, 1, rs, hessian='exact').is_exact)
+
+    def test_shared_manifold_matches_the_backend(self):
+        '''S7 (the DEFERRED S6 gate): the exact frontend model on a shared MANIFOLD geometry is the backend exact
+        model on the same data -- ``gradient``, ``curvature_hessian``, ``curvature_quadratic``, ``quadratic`` and
+        ``evaluate`` bit for bit, ``hessian`` to rounding (two gauged halves vs one projection), ``retract`` the
+        backend's -- and its backend view runs on the model's ONE companion (``_blm.geom_aux`` is
+        ``geometry_aux``): no curvature action rebuilds it. On the group-ceiling structure (mode 0's own ``S_0^T``
+        wide) the tied lift is load-bearing, so a model whose curvature used the per-mode lift would differ.'''
+        import dataclasses
+        from unittest import mock
+        import t3toolbox.shared_geometry as sg
+        rng = np.random.default_rng(81)
+        cases = [('shareable', _EX_SHAREABLE, (0, 0, 1), 1, None),
+                 ('ceiling', ((6, 6, 4), (4, 4, 2), (1, 2, 2, 1)), (0, 0, 1), 2, 'row'),
+                 ('all_modes', ((5, 5, 5), (3, 3, 3), (1, 2, 2, 1)), (0, 0, 0), 1, None)]
+        for name, struct, labels, order, wkind in cases:
+            with self.subTest(case=name):
+                x, sample, data = _ex_problem(struct, order, 7, rng, sharing=labels)
+                w = None if wkind is None else rng.uniform(0.3, 2.0, order + 1)
+                geom = sg.shared_manifold(labels)
+                blm = self._backend_twin(bgeo.ManifoldGeometryOps().with_sharing(labels, struct[0]),
+                                         x, sample, data, order, w, hessian='exact')
+                m = fitting.probe_derivatives_model(geom, x, *sample, order, blm.residual, weight=w, hessian='exact')
+                self.assertTrue(m.is_exact)
+                self.assertIs(m._blm.geom_aux, m.geometry_aux)
+                self.assertIs(m.curvature.geometry_data.lift_factors.shared_data, m.geometry_aux)
+                self.assertTrue(_bitwise(m.frame.data, blm.frame))
+                self.assertTrue(_bitwise(m.gradient.variations.data, blm.gradient))
+                self.assertTrue(_bitwise(m.curvature.misfit_gradient, blm.curvature.misfit_gradient))
+                for K in ((), (2,)):
+                    p = geom.randn(m.frame, stack_shape=K)
+                    raw = p.variations.data
+                    with mock.patch.object(bsharing, 'fv_shared_frame_data',
+                                           wraps=bsharing.fv_shared_frame_data) as spy:
+                        Hc, qc, q = m.curvature_hessian(p), m.curvature_quadratic(p), m.quadratic(p)
+                        H = m.hessian(p)
+                        ev = m.evaluate(p) if K == () else None                    # evaluate is unstacked in p
+                    self.assertEqual(spy.call_count, 0)                                # the stored companion
+                    self.assertTrue(_bitwise(Hc.variations.data, blm.curvature_hvp(raw)))
+                    self.assertTrue(np.array_equal(np.asarray(qc), np.asarray(blm.curvature_quadratic(raw))))
+                    self.assertTrue(np.array_equal(np.asarray(q), np.asarray(blm.quadratic(raw))))
+                    self.assertLess(_relerr_trees(H.variations.data, blm.hvp(raw)), 1e-12)
+                    if ev is not None:
+                        self.assertAlmostEqual(float(ev), float(m.objective_value + m.gradient.corewise_inner(p))
+                                               + 0.5 * float(q), delta=1e-12 * abs(float(ev)))
+                p = geom.randn(m.frame) * 0.1
+                self.assertTrue(_bitwise(m.retract(p).data, blm.retract(p.variations.data)))
+                if name == 'ceiling':                                                   # the tied lift matters
+                    import t3toolbox.backend.fv_operations as fvo
+                    import t3toolbox.backend.optimizers as bopt
+                    gd = blm.curvature.geometry_data
+                    untied = dataclasses.replace(blm, curvature=bopt.CurvatureState(blm.curvature.misfit_gradient,
+                        dataclasses.replace(gd, lift_factors=fvo.fv_lift_factors(blm.frame, 0.0))))
+                    p = geom.randn(m.frame)
+                    self.assertGreater(_relerr_trees(m.curvature_hessian(p).variations.data,
+                                                     untied.curvature_hvp(p.variations.data)), 1e-3)
 
     def test_d1_manifold_is_gauss_newton(self):
         '''At d = 1 the manifold's curvature term vanishes (every slot is at maximal rank): the exact model is

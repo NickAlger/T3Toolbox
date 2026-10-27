@@ -149,6 +149,20 @@ Swapping the formulas would give wrong projections in both directions; the wrapp
 never have to. Inner products are untouched (the tied subspace is linear — the restricted metric
 *is* the metric), and `IdentityRegularizer` and the residual weights compose unchanged.
 
+**The exact Hessian** (`newton_cg(..., hessian='exact')`, ragged) works on both shared geometries.
+On `shared_corewise` it is the plain Hessian of the objective in the tied cores, tied by the same
+per-group mean. On `shared_manifold` the curvature term needs the *tied lift*: the shared set is the
+tied parametrization (one factor per group, copied to the group's modes), so each group's tied
+coordinates lift to **one** raw factor direction, `U̇ = M_g⁺ [V_{i₁}; …]` — the same stacked-`S` solve
+the projection uses, damped like the rest of the lift — and the normal part of the curvature is taken
+against the *shared* gradient. A per-mode lift would represent the same tangent but not a tied
+direction, and its curvature would be wrong wherever a group's rank exceeds one of its modes' own
+ceilings. At a zero-padded restart the new levels of `s_g` are zero and the solve filters them to
+exactly 0: the gated tied channel gets no curvature, just as it gets no first-order motion, while the
+TT variations carry the escape; the diagnostics' smallest lift singular value (`lift_sigma_min`)
+reports `s_g` there. The shared retraction's second order, which makes the exact model's predicted
+decrease meaningful along it, is measured (finite differences converge at O(h²)) rather than proven.
+
 ## Rank machinery: minimal ranks, dimension, continuation
 
 **Minimal ranks.** A shared basis column is useless only if it is useless for *every* mode of the

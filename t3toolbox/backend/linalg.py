@@ -730,8 +730,8 @@ def filtered_reciprocal(
     spectrum must be descending, as an SVD returns it) maps to **exactly 0**, whatever ``eps`` is:
 
     * ``eps=None`` -- the exact clipped reciprocal ``1/s``, the filter of a minimum-norm
-      pseudo-inverse. It is the same two branch-free ``where`` steps as the shared geometry's
-      clipped group solve, so given the same ``rcond`` the two agree bit for bit;
+      pseudo-inverse -- the shared geometry's clipped group solve (its tied projection and
+      retraction) uses exactly this, bit for bit what it always computed;
     * ``eps`` given (one value per stack element, broadcast over the ``k`` values) -- the Tikhonov
       filter ``s / (s^2 + eps^2)``: ``~1/s`` for ``s >> eps``, ``~s/eps^2`` for ``s << eps``, and never
       above ``1/(2 eps)``. ``eps = 0`` is the exact reciprocal up to rounding (``s/s^2``).

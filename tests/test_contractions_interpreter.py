@@ -200,6 +200,10 @@ HISTORICAL = {
     'KCaib,Cbc->KCaic': '',
     'Cux,KCun->KCxn': '',
     'KCaic,Cbc->KCaib': '',
+    # ... the tied lift's transpose (sharing): the companion's C-only SVD factors and filter pin C
+    'Cau,KCun->KCan': '',
+    'Ca,KCan->KCan': '',
+    'Cxa,KCan->KCxn': '',
     # ... the frame's center factors (C only): H = L x3 T, S^T = <O, H>
     'Caib,Cbc->Caic': '',
     'Caxb,Caub->Cxu': '',

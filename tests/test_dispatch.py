@@ -829,6 +829,80 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual([l for l in uleaves if not hasattr(l, 'dtype')], [], "a Python int traced as a leaf")
         self.assertEqual([l for l in uleaves if np.asarray(l).dtype == bool], [], "a mask traced as a leaf")
 
+    def test_jit_shared_exact_local_model(self):
+        """S7, the exact Hessian on the SHARED manifold: the tied lift factors (the companion and the tied filters
+        are leaves, the partition the companion's aux), the tied lift and its transpose, and the shared exact
+        model's hvp / curvature_quadratic / gradient jit to pure jax (jit == eager), ONCE across models rebuilt at
+        new points and dampings (K = (2,)); and so does the frontend model's curvature_quadratic."""
+        SH, TK, TT = (5, 5, 6), (2, 2, 2), (1, 2, 2, 1)
+        labels = (0, 0, 1)
+        order, W = 1, 9
+        rng = np.random.default_rng(11)
+        np.random.seed(11)
+
+        def tied_point():
+            x = t3.TuckerTensorTrain.randn(SH, TK, TT)
+            return t3.TuckerTensorTrain(*bsharing.t3_tie_tucker_factors(x.data, labels)).to_jax()
+
+        ww = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
+        pp = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
+        data = [z + 0.1 for z in tied_point().probe_derivatives(ww, pp, order)]
+        geom = bgeo.ManifoldGeometryOps().with_sharing(labels, SH)
+        problem = bopt.least_squares_problem(geom, bfit.ProbeDerivativesKind(order=order), (ww, pp), data)
+        x0 = tied_point()
+        fd = geom.frame(x0.data)
+        sfd = geom.precompute(fd)
+        self.assert_jit_jax(lambda f, s: bsharing.fv_tied_lift_factors(f, 1e-6, s), fd, sfd)
+        lf = bsharing.fv_tied_lift_factors(fd, 1e-6, sfd)
+        leaves, treedef = jax.tree_util.tree_flatten(lf)
+        self.assertTrue(all(hasattr(l, 'dtype') for l in leaves))                    # partition: aux, not a leaf
+        self.assertIsInstance(jax.tree_util.tree_unflatten(treedef, leaves), fv_operations.LiftFactors)
+        vk = geom.project(fd, fv_operations.fv_variations_randn(fv_operations.fv_variation_shapes(fd), (3,)), sfd)
+        vk = jax.tree_util.tree_map(jnp.asarray, vk)
+        self.assert_jit_jax(lambda f, v, s: tops.tv_corewise_lift(f, v, bsharing.fv_tied_lift_factors(f, 1e-6, s)),
+                            fd, vk, sfd)
+        y = (tuple(jnp.asarray(np.random.randn(3, *U.shape)) for U in fd[0]),
+             tuple(jnp.asarray(np.random.randn(3, *L.shape)) for L in fd[2]))
+        self.assert_jit_jax(lambda f, yy, s: tops.tv_corewise_lift_transpose(
+            f, yy, bsharing.fv_tied_lift_factors(f, 1e-6, s)), fd, y, sfd)
+
+        traces = [0]
+
+        @jax.jit
+        def every(model, q):                                     # (quadratic / curvature_hvp: the same curvature
+            traces[0] += 1                                       #  block, compiled in test_jit_exact_local_model)
+            return model.hvp(q), model.curvature_quadratic(q), model.gradient
+
+        for x, cd in ((x0, None), (tied_point(), 1e-3), (tied_point(), 0.0)):
+            lm = problem.local_model(x.data, hessian='exact', curvature_damping=cd)
+            q = geom.project(lm.frame, fv_operations.fv_variations_randn(fv_operations.fv_variation_shapes(lm.frame),
+                                                                          (2,)), lm.geom_aux)
+            q = jax.tree_util.tree_map(jnp.asarray, q)                                     # K = (2,)
+            out = every(lm, q)
+            jax.block_until_ready(out[1])
+        self.assertEqual(traces[0], 1, "the shared exact LocalModel recompiled across points / dampings")
+        self._leaves_all_jax(out)
+        to_np = lambda tree: jax.tree_util.tree_map(np.asarray, tree)     # eager on numpy (eager jax is op-by-op slow)
+        eager = to_np(lm).hvp(to_np(q))
+        for a, b in zip(eager[0] + eager[1], out[0][0] + out[0][1]):                     # jit == eager
+            self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-12 * max(norm(np.asarray(a)), 1.0))
+
+        ftraces = [0]
+
+        @jax.jit
+        def fcurvature(model, q):
+            ftraces[0] += 1
+            return model.curvature_quadratic(q)
+
+        sgeom = sgm.shared_manifold(labels)
+        for x, cd in ((x0, None), (tied_point(), 1e-3)):
+            r = [z - yy for z, yy in zip(x.probe_derivatives(ww, pp, order), data)]
+            fm = fitting.probe_derivatives_model(sgeom, x, ww, pp, order, r, hessian='exact', curvature_damping=cd)
+            fout = fcurvature(fm, sgeom.randn(fm.frame))
+            jax.block_until_ready(fout)
+        self.assertEqual(ftraces[0], 1, "the shared exact frontend LocalModel recompiled across points / dampings")
+        self._leaves_all_jax(fout)
+
     def test_frontend_exact_newton_cg_use_jit(self):
         """The frontend ``newton_cg(hessian='exact', use_jit=True)``: the keywords pass through, the inner
         Steihaug CG jits with the exact model as loop state, and the result is jax-backed."""
