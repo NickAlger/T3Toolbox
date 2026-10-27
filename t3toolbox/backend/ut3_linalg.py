@@ -6,8 +6,10 @@
 
 ``ut3_scale``/``ut3_add``/``ut3_sum_stack``/``ut3_inner_product``/``ut3_norm_orthogonalized``, plus the
 weighted-layer ``ut3_weighted_norm``/``ut3_weighted_inner`` (uniform twins of ``t3_weighted_norm``/
-``t3_weighted_inner``). Output masks follow the rank recurrences (add = mask concatenation) on the host
-(``np``), while the supercores flow through ``xnp`` (``docs/uniform_masks_vs_ranks.md``).
+``t3_weighted_inner``), and the uniform twins of the core-coordinate gradient and Hessian of
+``<z, Phi(theta)>`` (``ut3_inner_product_corewise_*``, the exact Riemannian Hessian's T3-T3 term). Output
+masks follow the rank recurrences (add = mask concatenation) on the host (``np``), while the supercores flow
+through ``xnp`` (``docs/uniform_masks_vs_ranks.md``).
 """
 import numpy as np
 import typing as typ
@@ -18,6 +20,7 @@ import t3toolbox.backend.ut3_masking as ut3_masking
 import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.ut3_orthogonalization as ut3_orthogonalization
 import t3toolbox.backend.t3_operations as t3_operations
+import t3toolbox.backend.t3_linalg as t3_linalg
 from t3toolbox.backend.common import *
 
 if jax_available:          # the custom_jvp rules below need jax itself, not only jnp
@@ -33,6 +36,10 @@ __all__ = [
     'ut3_inner',
     'ut3_weighted_norm',
     'ut3_weighted_inner',
+    'ut3_inner_product_corewise_transpose',
+    'ut3_precompute_inner_product_sweep',
+    'ut3_inner_product_corewise_hessian',
+    'ut3_inner_product_corewise_hessian_from_sweep',
 ]
 
 # A uniform-T3 .data tuple: (tucker_supercore, tt_supercore, shape, (tucker_edge_mask, tt_edge_mask)).
@@ -313,3 +320,115 @@ def ut3_weighted_inner(
     weighted_A = ut3_operations.ut3_absorb_weights(x_A, weights_A)
     weighted_B = ut3_operations.ut3_absorb_weights(x_B, weights_B)
     return ut3_inner(weighted_A, weighted_B, use_orthogonalization)
+
+
+# --------------------------------------------------------------------------------------------------
+# The inner product <z, Phi(theta)> as a function of the cores: its gradient and Hessian (the T3-T3 term
+# of the exact Riemannian Hessian). The uniform twins of t3_linalg's: mask z and theta (and the direction
+# theta_hat, with theta's masks) on entry, delegate to the polymorphic ragged kernels, re-mask the output.
+# --------------------------------------------------------------------------------------------------
+def _masked_core_pair(
+        data:  UT3Data,                   # a uniform T3's .data
+) -> typ.Tuple[NDArray, NDArray]:         # its masked (tucker_supercore, tt_supercore)
+    return tuple(ut3_masking.ut3_apply_masks(data))
+
+
+def _masked_directions(
+        core_directions:  typ.Tuple[NDArray, NDArray],   # bare raw direction supercores, stack K + C
+        theta:            UT3Data,                       # the point the directions are at (its C masks)
+) -> typ.Tuple[NDArray, NDArray]:                        # the directions masked with THETA's masks (broadcast over K)
+    return tuple(ut3_masking.ut3_apply_masks((core_directions[0], core_directions[1], theta[2], theta[3])))
+
+
+def ut3_inner_product_corewise_transpose(
+        z:      UT3Data,                  # the fixed uniform T3, stack C
+        theta:  UT3Data,                  # the point (its raw cores are the variables), stack C
+) -> typ.Tuple[
+    NDArray,                              # tucker gradient supercore, (d,)+C+(n, N)
+    NDArray,                              # tt gradient supercore,     (d,)+C+(r, n, r)
+]:
+    """The uniform twin of :py:func:`~t3toolbox.backend.t3_linalg.t3_inner_product_corewise_transpose`: the
+    gradient of ``theta -> <z, Phi(theta)>`` with respect to ``theta``'s raw supercores. ``z`` and ``theta`` are
+    masked on entry with their own masks; the output is re-masked with ``theta``'s, so its padding is exactly
+    zero. Per stack element, the real block is the ragged gradient of the real blocks."""
+    use_jax = tree_contains_jax((z[:2], theta[:2]))
+    xnp, _, _ = get_backend(True, use_jax)
+    grad_tk, grad_tt = t3_linalg.t3_inner_product_corewise_transpose(_masked_core_pair(z), _masked_core_pair(theta))
+    grads = (xnp.stack(tuple(grad_tk), axis=0), xnp.stack(tuple(grad_tt), axis=0))
+    return tuple(ut3_masking.ut3_apply_masks((grads[0], grads[1], theta[2], theta[3])))
+
+
+def ut3_precompute_inner_product_sweep(
+        z:      UT3Data,                  # the fixed uniform T3, stack C
+        theta:  UT3Data,                  # the point, stack C
+) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray]:   # (BU, G2, ZL, ZR, env) supercores, (d,)+C+(...)
+    """The uniform twin of :py:func:`~t3toolbox.backend.t3_linalg.t3_precompute_inner_product_sweep`: the
+    ``(z, theta)``-dependent intermediates of the T3-T3 two-hole, once per frame -- ``z`` and ``theta`` masked on
+    entry, then the polymorphic sweep (``d``-prefixed contractions, the zippers' uniform scan). Pass the result to
+    :py:func:`ut3_inner_product_corewise_hessian_from_sweep` with the same ``z`` and ``theta``."""
+    return t3_linalg.t3_precompute_inner_product_sweep(_masked_core_pair(z), _masked_core_pair(theta))
+
+
+def ut3_inner_product_corewise_hessian_from_sweep(
+        z:                UT3Data,                         # the fixed uniform T3, stack C
+        theta:            UT3Data,                         # the point, stack C
+        core_directions:  typ.Tuple[NDArray, NDArray],     # bare raw direction supercores theta_hat, stack K + C
+        sweep:            typ.Tuple,                       # ut3_precompute_inner_product_sweep(z, theta)
+) -> typ.Tuple[
+    NDArray,                                               # Tucker block of K_z theta_hat, (d,)+K+C+(n, N)
+    NDArray,                                               # TT block of K_z theta_hat,     (d,)+K+C+(r, n, r)
+]:
+    """The uniform twin of :py:func:`~t3toolbox.backend.t3_linalg.t3_inner_product_corewise_hessian_from_sweep`:
+    the core-coordinate Hessian of ``theta -> <z, Phi(theta)>`` applied to ``theta_hat``, on supercores.
+
+    ``z`` and ``theta`` are masked with their own masks and **``theta_hat`` with ``theta``'s** (a ``K + C``
+    direction broadcasts against the ``C`` masks): a second derivative multiplies a direction's padded slot into
+    real slots, so garbage there would corrupt the real block. The output is re-masked with ``theta``'s masks
+    (exactly-zero padding). Per stack element the real block is the ragged two-hole of the real blocks.
+
+    Examples
+    --------
+    On a varying-rank stack (two elements of different ranks) with forced padding, every element's real block
+    is the ragged two-hole's, and the padding is exactly zero:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.t3_constructors as t3k
+    >>> import t3toolbox.backend.t3_linalg as t3la
+    >>> import t3toolbox.backend.ut3_linalg as ut3la
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> np.random.seed(0)
+    >>> shape = (4, 5, 6)
+    >>> ranks = [((2, 3, 2), (1, 2, 2, 1)), ((3, 2, 2), (1, 3, 2, 1))]   # the two stack elements' ranks
+    >>> thetas = [t3k.t3_corewise_randn(shape, *rk) for rk in ranks]
+    >>> zs = [t3k.t3_corewise_randn(shape, (3, 3, 3), (1, 3, 3, 1)) for _ in thetas]
+    >>> dirs = [t3k.t3_corewise_randn(shape, *rk) for rk in ranks]
+    >>> pack = lambda xs: ut3.UniformTuckerTensorTrain.stack(
+    ...     [ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain(*x), N=7, n=4, r=4) for x in xs]).data
+    >>> Z, TH, D = pack(zs), pack(thetas), pack(dirs)
+    >>> sweep = ut3la.ut3_precompute_inner_product_sweep(Z, TH)
+    >>> KU, KG = ut3la.ut3_inner_product_corewise_hessian_from_sweep(Z, TH, D[:2], sweep)
+    >>> KU.shape, KG.shape                                        # (d,)+C+(n, N), (d,)+C+(r, n, r)
+    ((3, 2, 4, 7), (3, 2, 4, 4, 4))
+    >>> ok = []
+    >>> for c in range(2):
+    ...     ref = t3la.t3_inner_product_corewise_hessian(zs[c], thetas[c], dirs[c])
+    ...     ok += [np.allclose(KG[i, c][:G.shape[0], :G.shape[1], :G.shape[2]], G) for i, G in enumerate(ref[1])]
+    ...     ok += [np.allclose(KU[i, c][:U.shape[0], :U.shape[1]], U) for i, U in enumerate(ref[0])]
+    >>> all(ok), float(np.abs(KG[0, 0, 1:]).max())                # real blocks; a padded boundary slot
+    (True, 0.0)
+    """
+    grads = t3_linalg.t3_inner_product_corewise_hessian_from_sweep(
+        _masked_core_pair(z), _masked_core_pair(theta), _masked_directions(core_directions, theta), sweep)
+    return tuple(ut3_masking.ut3_apply_masks((grads[0], grads[1], theta[2], theta[3])))
+
+
+def ut3_inner_product_corewise_hessian(
+        z:                UT3Data,                         # the fixed uniform T3, stack C
+        theta:            UT3Data,                         # the point, stack C
+        core_directions:  typ.Tuple[NDArray, NDArray],     # bare raw direction supercores theta_hat, stack K + C
+) -> typ.Tuple[NDArray, NDArray]:                          # (Tucker, TT) blocks of K_z theta_hat, K + C, re-masked
+    """The uniform twin of :py:func:`~t3toolbox.backend.t3_linalg.t3_inner_product_corewise_hessian` (the one-shot
+    form: the sweep computed here); see :py:func:`ut3_inner_product_corewise_hessian_from_sweep`."""
+    return ut3_inner_product_corewise_hessian_from_sweep(z, theta, core_directions,
+                                                         ut3_precompute_inner_product_sweep(z, theta))

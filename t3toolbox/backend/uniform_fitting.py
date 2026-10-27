@@ -68,14 +68,14 @@ __all__ = [
 # (broadcast over the residual's tangent stack), so the kinds stay geometry-agnostic; only
 # `point_forward` (the S(x) op on the plain-UT3 point) needs the held shape + masks.
 #
-# `corewise_hessian` (the sixth, hessian='exact' only) is not yet overridden: each uniform kind's masked
-# two-hole lands in its own slice. Until it does, `_UniformKind` -- which precedes the ragged kind in every
-# uniform kind's MRO -- carries a raising stub, so a uniform kind can never inherit the ragged (mask-free)
-# method and run it on padded supercores; the stub's abstractmethod marker makes
-# `Problem.local_model(hessian='exact')` reject it structurally before any work.
+# `corewise_hessian` (the sixth, hessian='exact' only) is overridden per kind as each uniform kind's masked
+# two-hole lands in its own slice (UniformProbeDerivativesKind has it). Until then, `_UniformKind` -- which
+# precedes the ragged kind in every uniform kind's MRO -- carries a raising stub, so a uniform kind can never
+# inherit the ragged (mask-free) method and run it on padded supercores; the stub's abstractmethod marker makes
+# `Problem.local_model(hessian='exact')` reject it structurally before any work. An override masks theta and
+# theta_hat with the masks of the FRAME it is handed (frame_data[5]: up and left) and re-masks its output.
 # --------------------------------------------------------------------------------------------------
-_UNIFORM_HESSIAN_SLICE = {                      # where each uniform kind's masked corewise_hessian lands
-    'UniformProbeDerivativesKind':   'S8',
+_UNIFORM_HESSIAN_SLICE = {                      # where each remaining uniform kind's masked corewise_hessian lands
     'UniformProbeKind':              'S10',
     'UniformApplyKind':              'S11',
     'UniformEntriesKind':            'S11',
@@ -105,8 +105,12 @@ class _UniformKind:
 
     @staticmethod
     def _variations(v_sc, frame_data):
-        """A bare variation supercore pair as variation ``.data``, masked by the frame's gauge shift."""
-        return (v_sc[0], v_sc[1], frame_data[4], ufv_masking.ufv_variation_masks(frame_data[5]))
+        """A bare variation supercore pair as variation ``.data``, masked by the frame's gauge shift broadcast
+        over the variation's tangent stack ``K`` (``K + C`` variations at a ``C`` frame -- a stack of trial
+        tangents, as the exact Hessian's matvecs carry), as :py:meth:`_remask` does for the output."""
+        masks = ufv_masking.ufv_variation_masks_over_stack(
+            frame_data[5], frame_data[0].shape[1:-2], v_sc[0].shape[1:-2])
+        return (v_sc[0], v_sc[1], frame_data[4], masks)
 
     @staticmethod
     def _remask(v_sc, frame_data):
@@ -270,6 +274,17 @@ class UniformProbeDerivativesKind(_UniformKind, bfit.ProbeDerivativesKind):
 
     def take(self, sample, data, idx):
         return _ptake_deriv_probe(sample, data, idx)
+
+    def corewise_hessian(self, core_directions, r, s, frame_data, sweep, base_point):
+        """The masked uniform two-hole at ``omega^2 r``
+        (:py:func:`~t3toolbox.backend.ut3_sampling.ut3_probe_corewise_derivatives_hessian_from_sweep`),
+        reusing the model sweep's packed sample and ``xi`` / ``mu`` jets. ``theta`` (the base
+        point's bare supercores) and ``theta_hat`` are masked with the FRAME's ``(up, left)`` masks -- read off
+        ``frame_data``, the frame this model's sweep was built at, not ``self.masks`` (the point's, a strict
+        superset at TT slack) and not the sweep (bare supercores) -- and the output is re-masked with them."""
+        theta = (base_point[0], base_point[1], tuple(frame_data[4]), (frame_data[5][0], frame_data[5][2]))
+        return ut3_sampling.ut3_probe_corewise_derivatives_hessian_from_sweep(
+            self._apply_weight(r, 2), theta, core_directions, self.order, sweep, chunk_size=self.chunk_size)
 
 
 _SAMPLING_KIND = {'apply': UniformApplyKind, 'entries': UniformEntriesKind, 'probe': UniformProbeKind}

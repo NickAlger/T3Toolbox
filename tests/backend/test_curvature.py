@@ -1533,10 +1533,12 @@ class TestRequiredSixthOperation(unittest.TestCase):
         self.assertIsInstance(_FiveOperationApplyKind(), bfit.SamplingKind)
 
     def test_the_uniform_window_stub(self):
-        """Each uniform kind resolves corewise_hessian to the _UniformKind stub -- which precedes the ragged kind in
-        the MRO, so a uniform kind cannot inherit the ragged (mask-free) method -- and is rejected structurally.
-        (Mutation check, verified by hand: deleting the stub makes UniformProbeDerivativesKind inherit
-        ProbeDerivativesKind.corewise_hessian, the marker check passes, and these assertions fail.)"""
+        """Each uniform kind still in the window resolves corewise_hessian to the _UniformKind stub -- which precedes
+        the ragged kind in the MRO, so a uniform kind cannot inherit the ragged (mask-free) method -- and is rejected
+        structurally; UniformProbeDerivativesKind has left it (S8: its masked two-hole overrides the stub, and the
+        exact model builds). (Mutation check, verified by hand: deleting the stub makes UniformApplyDerivativesKind
+        inherit ApplyDerivativesKind.corewise_hessian -- the base's marked stub, still rejected -- and makes each
+        window kind's identity assertion below fail.)"""
         import t3toolbox.backend.uniform_fitting as uf
         import t3toolbox.uniform_tucker_tensor_train as ut3
         for cls, ragged in ((uf.UniformApplyKind, bfit.ApplyKind), (uf.UniformEntriesKind, bfit.EntriesKind),
@@ -1547,21 +1549,26 @@ class TestRequiredSixthOperation(unittest.TestCase):
             with self.subTest(kind=cls.__name__):
                 mro = cls.__mro__
                 self.assertLess(mro.index(uf._UniformKind), mro.index(ragged))
-                self.assertIs(cls.corewise_hessian, uf._UniformKind.corewise_hessian)
-                self.assertTrue(getattr(cls.corewise_hessian, '__isabstractmethod__', False))
-                self.assertIn(cls.__name__, uf._UNIFORM_HESSIAN_SLICE)
+                in_window = cls is not uf.UniformProbeDerivativesKind
+                self.assertEqual(cls.corewise_hessian is uf._UniformKind.corewise_hessian, in_window)
+                self.assertEqual(getattr(cls.corewise_hessian, '__isabstractmethod__', False), in_window)
+                self.assertEqual(cls.__name__ in uf._UNIFORM_HESSIAN_SLICE, in_window)
+                self.assertIsNot(cls.corewise_hessian, ragged.corewise_hessian)   # never the ragged (mask-free) one
         rng = np.random.default_rng(46)
         ux0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain(*_unit_point(_MINIMAL)))
         ww = [rng.standard_normal((10, N)) for N in _MINIMAL[0]]
         pp = [rng.standard_normal((10, N)) for N in _MINIMAL[0]]
-        data = sd.t3_probe_derivatives(ww, pp, _unit_point(_MINIMAL), 1)
-        prob = uf.uniform_least_squares_problem('manifold', 'probe_derivatives', ux0, (ww, pp), data, order=1)
         sc = (ux0.data[0], ux0.data[1])
+        data = bfit.ApplyDerivativesKind(order=1).point_forward(_unit_point(_MINIMAL), (ww, pp))
+        prob = uf.uniform_least_squares_problem('manifold', 'apply_derivatives', ux0, (ww, pp), data, order=1)
         self.assertIsInstance(prob.local_model(sc).hvp(prob.local_model(sc).gradient), tuple)    # GN still runs
-        with self.assertRaisesRegex(ValueError, 'UniformProbeDerivativesKind does not implement corewise_hessian'):
+        with self.assertRaisesRegex(ValueError, 'UniformApplyDerivativesKind does not implement corewise_hessian'):
             prob.local_model(sc, hessian='exact')
-        with self.assertRaisesRegex(NotImplementedError, 'lands in slice S8'):
+        with self.assertRaisesRegex(NotImplementedError, 'lands in slice S12'):
             prob.kind.corewise_hessian(None, None, None, None, None, None)
+        data = sd.t3_probe_derivatives(ww, pp, _unit_point(_MINIMAL), 1)                     # out of the window
+        prob = uf.uniform_least_squares_problem('manifold', 'probe_derivatives', ux0, (ww, pp), data, order=1)
+        self.assertTrue(prob.local_model(sc, hessian='exact').is_exact)
 
     def test_a_geometry_without_the_exact_members_works_for_gauss_newton_and_is_rejected_for_exact(self):
         rng = np.random.default_rng(47)

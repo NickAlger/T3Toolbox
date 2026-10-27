@@ -907,6 +907,47 @@ class TestExactLocalModel(unittest.TestCase):
                     self.assertLess(_relerr_trees(m.hessian(p).variations.data, blm.hvp(raw)), 1e-12)
                     self.assertTrue(np.array_equal(np.asarray(m.gn_quadratic(p)), np.asarray(blm.gn_quadratic(raw))))
 
+    def test_uniform_matches_the_backend_exact_local_model(self):
+        '''S8 (the DEFERRED S6 gate): the exact frontend model on the UNIFORM layer is the backend exact model of
+        ``uniform_least_squares_problem`` on the same supercores -- its ``_blm`` runs on the 6-tuple frame and
+        ``_tangent_at`` wraps bare supercores: ``gradient``, the misfit gradient, ``curvature_hessian``,
+        ``curvature_quadratic`` and ``quadratic`` bit for bit, ``hessian`` to rounding (two gauged halves vs one
+        projection), on both uniform geometries, a tangent stack K included; and the uniform m27 -- the exact
+        gradient IS the Gauss-Newton gradient, bit for bit, masks included.'''
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.backend.uniform_fitting as ufit
+        rng = np.random.default_rng(74)
+        for struct, order in ((_EX_MINIMAL, 1), (_EX_D4, 2)):
+            x, sample, data = _ex_problem(struct, order, 7, rng)
+            ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+            w = rng.uniform(0.3, 2.0, (len(struct[0]), order + 1))
+            for geom, name in ((ut3m.UNIFORM_MANIFOLD, 'manifold'), (ut3m.UNIFORM_COREWISE, 'corewise')):
+                with self.subTest(struct=struct, geometry=name):
+                    prob = ufit.uniform_least_squares_problem(name, 'probe_derivatives', ux, sample, data, order=order,
+                                                              weight=w)
+                    blm = prob.local_model((ux.data[0], ux.data[1]), hessian='exact')
+                    m = fitting.probe_derivatives_model(geom, ux, *sample, order, blm.residual, weight=w,
+                                                        hessian='exact')
+                    gn = fitting.probe_derivatives_model(geom, ux, *sample, order, blm.residual, weight=w)
+                    self.assertTrue(m.is_exact)
+                    self.assertTrue(_bitwise(m.frame.data[:4], blm.frame[:4]))
+                    self.assertEqual(float(m.objective_value), float(blm.objective))
+                    self.assertTrue(_bitwise(m.gradient.variations.supercores, blm.gradient))
+                    self.assertTrue(_bitwise(m.curvature.misfit_gradient, blm.curvature.misfit_gradient))
+                    self.assertTrue(_bitwise(m.gradient.variations.supercores, gn.gradient.variations.supercores))
+                    self.assertTrue(all(np.array_equal(a, b) for a, b in zip(m.gradient.variations.masks.data,
+                                                                             gn.gradient.variations.masks.data)))
+                    for K in ((), (2,)):
+                        p = geom.randn(m.frame, stack_shape=K)
+                        raw = p.variations.supercores
+                        self.assertTrue(_bitwise(m.curvature_hessian(p).variations.supercores, blm.curvature_hvp(raw)))
+                        self.assertTrue(np.array_equal(np.asarray(m.curvature_quadratic(p)),
+                                                       np.asarray(blm.curvature_quadratic(raw))))
+                        self.assertTrue(np.array_equal(np.asarray(m.quadratic(p)), np.asarray(blm.quadratic(raw))))
+                        self.assertLess(_relerr_trees(m.hessian(p).variations.supercores, blm.hvp(raw)), 1e-12)
+                        self.assertEqual(np.shape(m.quadratic(p)), K)
+
     def test_gradient_is_the_gauss_newton_gradient_bitwise(self):
         '''m27: the exact model's gradient is the Gauss-Newton model's, bit for bit (with and without a
         regularizer), because it IS the same misfit transpose -- done once, at construction, and read.'''
@@ -1100,8 +1141,9 @@ class TestExactLocalModel(unittest.TestCase):
 
     def test_structural_errors_where_the_exact_hessian_is_not_built_yet(self):
         '''The kinds without ``corewise_hessian`` raise the backend's structural ``ValueError`` at construction
-        (naming the kind); the uniform layer surfaces its kind's interim stub the same way. Gauss-Newton is
-        unaffected. (The shared manifold's exact mode -- the tied lift -- is built: S7.)'''
+        (naming the kind). Gauss-Newton is unaffected. (The shared manifold's exact mode -- the tied lift -- is
+        built: S7; the unshared uniform layer's -- the masked uniform two-hole -- S8, while a SHARED uniform
+        geometry raises the next slice's ``NotImplementedError``.)'''
         import t3toolbox.shared_geometry as sg
         import t3toolbox.uniform_tucker_tensor_train as ut3
         import t3toolbox.uniform_manifold as ut3m
@@ -1127,9 +1169,21 @@ class TestExactLocalModel(unittest.TestCase):
         for geom in (ut3m.UNIFORM_MANIFOLD, ut3m.UNIFORM_COREWISE):
             with self.subTest(uniform=type(geom).__name__):
                 self.assertFalse(fitting.probe_derivatives_model(geom, ux, ww, pp, 1, r).is_exact)
-                with self.assertRaisesRegex(ValueError, 'UniformProbeDerivativesKind does not implement '
-                                                        'corewise_hessian'):
-                    fitting.probe_derivatives_model(geom, ux, ww, pp, 1, r, hessian='exact')
+                self.assertTrue(fitting.probe_derivatives_model(geom, ux, ww, pp, 1, r, hessian='exact').is_exact)
+        with self.assertRaisesRegex(ValueError, 'UniformApplyDerivativesKind does not implement corewise_hessian'):
+            fitting.apply_derivatives_model(ut3m.UNIFORM_MANIFOLD, ux, ww, pp, 1, x.apply_derivatives(ww, pp, 1),
+                                            hessian='exact')
+        xt = t3.TuckerTensorTrain(*bsharing.t3_tie_tucker_factors(
+            t3.TuckerTensorTrain.randn(*_EX_SHAREABLE).data, (0, 0, 1)))
+        uxt = ut3.UniformTuckerTensorTrain.from_t3(xt)
+        wws, pps = [rng.standard_normal((6, N)) for N in xt.shape], [rng.standard_normal((6, N)) for N in xt.shape]
+        rt = xt.probe_derivatives(wws, pps, 1)
+        for base in (ut3m.UNIFORM_MANIFOLD, ut3m.UNIFORM_COREWISE):
+            with self.subTest(shared_uniform=type(base).__name__):
+                ugeom = sg.shared(base, (0, 0, 1))
+                self.assertFalse(fitting.probe_derivatives_model(ugeom, uxt, wws, pps, 1, rt).is_exact)
+                with self.assertRaisesRegex(NotImplementedError, 'lands in slice S9'):
+                    fitting.probe_derivatives_model(ugeom, uxt, wws, pps, 1, rt, hessian='exact')
         xs, ssample, sdata = _ex_problem(_EX_SHAREABLE, 1, 8, rng, sharing=(0, 0, 1))
         rs = _ex_residual(xs, ssample, sdata, 1)
         geom = sg.shared_manifold((0, 0, 1))

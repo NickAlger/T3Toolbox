@@ -820,23 +820,37 @@ def t3_precompute_inner_product_sweep(
     (``dG_i = env_i x_2 BU_i``, ``dU_i = <env_i, G_i>^T B_z,i``); the Hessian differentiates each of them
     along a direction. In a Newton-CG inner solve ``z`` and ``theta`` are fixed while the direction varies,
     so this is the per-frame sweep and only the dotted terms are per matvec. Stack ``C``.
+
+    **Polymorphic** over ragged core tuples and uniform supercores (``(d,)+C+(...)``: ``d``-prefixed grouped
+    contractions, the zippers' uniform scan; each returned family is then one supercore). Mask-free by
+    contract: a uniform caller masks ``z`` and ``theta`` first
+    (:py:func:`~t3toolbox.backend.ut3_linalg.ut3_precompute_inner_product_sweep`).
     """
     z_tucker, z_tt = z
     z_tt = tt_operations.tt_squash_tails(z_tt)
     tucker_cores, tt_cores = core_pair
+    is_uniform = is_ndarray(tucker_cores)          # uniform: supercores, d-prefixed contractions
+    xnp, _, _ = get_backend(is_uniform, tree_contains_jax((z, core_pair)))
     d = len(tucker_cores)
 
-    BU = tuple(contractions.contract('Czn,Cun->Czu', z_tucker[ii], tucker_cores[ii]) for ii in range(d))
-    G2 = tuple(contractions.contract('Cazb,Czu->Caub', z_tt[ii], BU[ii]) for ii in range(d))
+    if is_uniform:
+        BU = contractions.contract('dCzn,dCun->dCzu', z_tucker, tucker_cores)
+        G2 = contractions.contract('dCazb,dCzu->dCaub', z_tt, BU)
+    else:
+        BU = tuple(contractions.contract('Czn,Cun->Czu', z_tucker[ii], tucker_cores[ii]) for ii in range(d))
+        G2 = tuple(contractions.contract('Cazb,Czu->Caub', z_tt[ii], BU[ii]) for ii in range(d))
     if d == 1:      # no chain on either side: the boundary ones environments (as in the gradient)
-        xnp, _, _ = get_backend(False, tree_contains_jax((z, core_pair)))
         ss = G2[0].shape[:-3]
         ZL = (xnp.ones(ss + (G2[0].shape[-3], tt_cores[0].shape[-3])),)
         ZR = (xnp.ones(ss + (G2[0].shape[-1], tt_cores[0].shape[-1])),)
     else:
         ZL = tt_operations.tt_zipper_left_to_right(G2[:-1], tt_cores[:-1])
         ZR = tt_operations.tt_zipper_right_to_left(G2[1:], tt_cores[1:])
-    env = tuple(contractions.contract('Cxa,Cxzc,Ccb->Cazb', ZL[ii], z_tt[ii], ZR[ii]) for ii in range(d))
+    if is_uniform:
+        ZL, ZR = xnp.stack(ZL, axis=0), xnp.stack(ZR, axis=0)
+        env = contractions.contract('dCxa,dCxzc,dCcb->dCazb', ZL, z_tt, ZR)
+    else:
+        env = tuple(contractions.contract('Cxa,Cxzc,Ccb->Cazb', ZL[ii], z_tt[ii], ZR[ii]) for ii in range(d))
     return BU, G2, ZL, ZR, env
 
 
@@ -933,18 +947,28 @@ def t3_inner_product_corewise_hessian_from_sweep(
     of ``(G2, G)`` along ``(G2dot, Gdot)``; ``envdot_i = ZLdot_i G_z,i ZR_i + ZL_i G_z,i ZRdot_i``; then
     ``(K theta_hat)_{G_i} = envdot_i x_2 BU_i + env_i x_2 BUdot_i`` and
     ``(K theta_hat)_{U_i} = (<envdot_i, G_i> + <env_i, Gdot_i>)^T B_z,i``.
+
+    **Polymorphic** like the sweep (uniform supercores in, supercores out, every core in one ``d``-prefixed
+    contraction). Mask-free by contract: a second derivative multiplies a direction's padded slot into real
+    slots, so a uniform caller masks ``z``, ``theta`` AND ``theta_hat`` first and re-masks the output
+    (:py:func:`~t3toolbox.backend.ut3_linalg.ut3_inner_product_corewise_hessian_from_sweep`).
     """
     BU, G2, ZL, ZR, env = sweep
     z_tucker, z_tt = z
     z_tt = tt_operations.tt_squash_tails(z_tt)
     tucker_cores, tt_cores = core_pair
     tucker_dirs, tt_dirs = core_directions
+    is_uniform = is_ndarray(tucker_cores)          # uniform: supercores, d-prefixed contractions
+    xnp, _, _ = get_backend(is_uniform, tree_contains_jax((z, core_pair, core_directions)))
     d = len(tucker_cores)
 
-    BUd = tuple(contractions.contract('Czn,KCun->KCzu', z_tucker[ii], tucker_dirs[ii]) for ii in range(d))
-    G2d = tuple(contractions.contract('Cazb,KCzu->KCaub', z_tt[ii], BUd[ii]) for ii in range(d))
+    if is_uniform:
+        BUd = contractions.contract('dCzn,dKCun->dKCzu', z_tucker, tucker_dirs)
+        G2d = contractions.contract('dCazb,dKCzu->dKCaub', z_tt, BUd)
+    else:
+        BUd = tuple(contractions.contract('Czn,KCun->KCzu', z_tucker[ii], tucker_dirs[ii]) for ii in range(d))
+        G2d = tuple(contractions.contract('Cazb,KCzu->KCaub', z_tt[ii], BUd[ii]) for ii in range(d))
     if d == 1:      # no chain: the boundary environments do not move
-        xnp, _, _ = get_backend(False, tree_contains_jax((z, core_pair, core_directions)))
         ss = tucker_dirs[0].shape[:-2]
         ZLd = (xnp.zeros(ss + ZL[0].shape[-2:]),)
         ZRd = (xnp.zeros(ss + ZR[0].shape[-2:]),)
@@ -953,6 +977,16 @@ def t3_inner_product_corewise_hessian_from_sweep(
                                                             zippers=ZL)
         ZRd = tt_operations.tt_zipper_tangent_right_to_left(G2[1:], tt_cores[1:], G2d[1:], tt_dirs[1:],
                                                             zippers=ZR)
+
+    if is_uniform:                                 # the same product rule, every core at once
+        ZLd, ZRd = xnp.stack(ZLd, axis=0), xnp.stack(ZRd, axis=0)
+        envd = (contractions.contract('dKCxa,dCxzc,dCcb->dKCazb', ZLd, z_tt, ZR)
+                + contractions.contract('dCxa,dCxzc,dKCcb->dKCazb', ZL, z_tt, ZRd))
+        tt_out = (contractions.contract('dKCazb,dCzu->dKCaub', envd, BU)
+                  + contractions.contract('dCazb,dKCzu->dKCaub', env, BUd))
+        Md = (contractions.contract('dKCazb,dCaub->dKCzu', envd, tt_cores)
+              + contractions.contract('dCazb,dKCaub->dKCzu', env, tt_dirs))
+        return contractions.contract('dKCzu,dCzn->dKCun', Md, z_tucker), tt_out
 
     tucker_out, tt_out = [], []
     for ii in range(d):

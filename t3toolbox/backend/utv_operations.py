@@ -30,6 +30,7 @@ import t3toolbox.backend.ut3_svd as ut3_svd
 import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.tv_operations as tv_operations
 import t3toolbox.backend.sharing as sharing_module
+import t3toolbox.backend.contractions as contractions
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -41,6 +42,8 @@ __all__ = [
     'utv_oblique_gauge_projection',
     'utv_gauge_residual',
     'utv_project_ut3_onto_tangent_space',
+    'utv_corewise_lift',
+    'utv_corewise_lift_transpose',
     'utv_unstack_tangent_stack',
     'utv_stack_tangent_stack',
     'utv_unstack_frame_stack',
@@ -610,6 +613,95 @@ def utv_project_ut3_onto_tangent_space(
     gauge_masks = ufv_masking.ufv_variation_masks_over_stack(
         (up_mask, down_mask, frame_left_mask, frame_right_mask), frame_data[0].shape[1:-2], dB.shape[1:-2])
     return utv_orthogonal_gauge_projection(frame_data, (dB, dG, shape, gauge_masks), shared_data=shared_data)
+
+
+def _check_uniform_lift_factors(
+        frame_data,                     # uniform frame .data
+        lift_factors,                   # fv_operations.LiftFactors from ufv_lift_factors
+        caller:  str,
+) -> None:
+    """Structural guard: supercore-valued, unshared lift factors with one slot per mode (``d`` Tucker, ``d`` bond
+    -- the last the boundary pass-through), as :py:func:`~t3toolbox.backend.ufv_operations.ufv_lift_factors`
+    builds them."""
+    d = frame_data[0].shape[0]
+    if not (is_ndarray(lift_factors.tucker_pinvs) and is_ndarray(lift_factors.bond_pinvs)
+            and lift_factors.tucker_pinvs.shape[0] == d and lift_factors.bond_pinvs.shape[0] == d):
+        raise ValueError('%s: the lift factors must be the uniform frame\'s supercore-valued ones, d=%d slots each '
+                         '(build them with ufv_operations.ufv_lift_factors)' % (caller, d))
+    if lift_factors.shared_data is not None:
+        raise NotImplementedError('%s: tied (shared) uniform lift factors are not implemented yet' % caller)
+
+
+def utv_corewise_lift(
+        frame_data,         # UT3Frame .data (an orthogonal frame), supercore stack = C
+        variations_data,    # UT3Variations .data, supercore stack = K + C (masks over K + C)
+        lift_factors,       # fv_operations.LiftFactors of the frame, ufv_operations.ufv_lift_factors; stack C
+):  # -> plain-UT3 .data of the raw direction theta_hat = (Udot, Gdot, shape, (up, left) masks over K + C)
+    """The uniform twin of :py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift`: frame coordinates ->
+    raw core variations of the base point ``(U, P)``, ``theta_hat = L v``,
+
+    ``Udot_i = (S_i^T)^{+eps} V_i``,   ``Gdot_i = H_i x_3 T_i^{+eps}`` (``i <= d-2``),   ``Gdot_{d-1} = H_{d-1}``,
+
+    as two ``d``-prefixed grouped contractions over the whole supercores (the last TT slot is the factors'
+    boundary pass-through slice, so it needs no special case). The variations are masked on entry with their
+    own masks, and the output carries the frame's ``(up, left)`` masks -- the base point's -- broadcast over
+    ``K``, re-masked with them, so its padding is exactly zero. Per stack element, the real block is the ragged
+    lift of the real blocks (``to_uniform -> lift -> to_ragged == lift``).
+
+    Batching: factors ``C``; variations and output ``K + C`` (the factors broadcast over ``K``).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.fv_operations as fvo
+    >>> import t3toolbox.backend.tv_operations as tvo
+    >>> import t3toolbox.backend.ufv_conversions as ufc
+    >>> import t3toolbox.backend.ufv_masking as ufm
+    >>> import t3toolbox.backend.ufv_operations as ufo
+    >>> import t3toolbox.backend.utv_operations as utvo
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, _ = fvc.t3_orthogonal_representations(x.data)
+    >>> v = fvo.fv_variations_randn(fvo.fv_variation_shapes(frame), ())
+    >>> uframe = ufc.t3frame_to_ut3frame(frame, N=8, nU=4, nD=4, rL=3, rR=3)
+    >>> uv = ufc.t3variations_to_ut3variations(v, N=8, nU=4, nD=4, rL=3, rR=3)
+    >>> theta_hat = utvo.utv_corewise_lift(uframe, uv, ufo.ufv_lift_factors(uframe, 0.0))
+    >>> ragged = tvo.tv_corewise_lift(frame, v, fvo.fv_lift_factors(frame, 0.0))
+    >>> theta_hat[0].shape, theta_hat[1].shape                       # (d,)+(nU, N), (d,)+(rL, nU, rL)
+    ((3, 4, 8), (3, 3, 4, 3))
+    >>> all(np.allclose(theta_hat[1][i][:G.shape[0], :G.shape[1], :G.shape[2]], G) for i, G in enumerate(ragged[1]))
+    True
+    """
+    _check_uniform_lift_factors(frame_data, lift_factors, 'utv_corewise_lift')
+    tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)            # mask on entry (own masks)
+    shape = tuple(frame_data[4])
+    Udot = contractions.contract('dCux,dKCxn->dKCun', lift_factors.tucker_pinvs, tkv)
+    Gdot = contractions.contract('dKCaib,dCbc->dKCaic', ttv, lift_factors.bond_pinvs)
+    up_mask, _down, left_mask, _right = frame_data[5]
+    masks = ufv_masking._masks_over_stack((up_mask, left_mask), frame_data[0].shape[1:-2], tkv.shape[1:-2])
+    return tuple(ut3_masking.ut3_apply_masks((Udot, Gdot, shape, masks))) + (shape, masks)
+
+
+def utv_corewise_lift_transpose(
+        frame_data,         # UT3Frame .data (an orthogonal frame), supercore stack = C
+        core_variations,    # plain-UT3 .data of raw core variations (Udot, Gdot, shape, masks), stack K + C
+        lift_factors,       # fv_operations.LiftFactors of the frame, ufv_operations.ufv_lift_factors; stack C
+):  # -> UNGAUGED UT3Variations .data (V, H, shape, the frame's variation masks over K + C)
+    """The uniform twin of :py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift_transpose`: raw core
+    variations back to frame coordinates, ``V_i = ((S_i^T)^{+eps})^T Udot_i``, ``H_i = Gdot_i x_3 (T_i^{+eps})^T``
+    (the last TT slot through the boundary pass-through), the exact adjoint of :py:func:`utv_corewise_lift` in the
+    masked coordinate inner products, per ``K + C`` element, at every damping. The input is masked on entry
+    with its own masks (``ut3_apply_masks`` broadcasts ``C`` masks over ``K``); the output carries the frame's
+    gauge-shifted variation masks over ``K + C``, re-masked with them. Ungauged, as the ragged twin."""
+    _check_uniform_lift_factors(frame_data, lift_factors, 'utv_corewise_lift_transpose')
+    Ud, Gd = ut3_masking.ut3_apply_masks(core_variations)                          # mask on entry (own masks)
+    shape = tuple(frame_data[4])
+    V = contractions.contract('dCux,dKCun->dKCxn', lift_factors.tucker_pinvs, Ud)
+    H = contractions.contract('dKCaic,dCbc->dKCaib', Gd, lift_factors.bond_pinvs)
+    masks = ufv_masking.ufv_variation_masks_over_stack(frame_data[5], frame_data[0].shape[1:-2], Ud.shape[1:-2])
+    return tuple(ufv_masking.ufv_apply_variations_masks((V, H, shape, masks))) + (shape, masks)
 
 
 def ufv_weighted_norm(

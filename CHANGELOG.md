@@ -139,6 +139,12 @@ All notable changes to T3Toolbox are documented here. The format follows
   were built in the default dtype and promoted every float32 jet to float64 -- 2026.2.0 did the same. The
   plain `probe` / `apply` / `entries` ops still build default-dtype inits and still promote (recorded for a
   follow-up).
+- **Uniform tangent stacks reach the local model.** A uniform kind's `forward` (hence a Gauss-Newton or exact
+  `hvp`), the uniform geometries' `project` and `inner`, and the uniform `fitting.LocalModel`'s
+  actions took a `K`-stacked trial tangent's coordinates (a stack of tangents at one frame) with the frame's
+  `C`-stacked masks and failed in a reshape; the masks are now broadcast over `K`, as the ragged layer and the
+  uniform transposes already did. The uniform geometries' `inner` keeps the whole `K + C` stack per element, as
+  the ragged twin (it kept only `|C|` leading axes -- `K`'s, on a stacked pair -- unreachable until now).
 - **A uniform `fitting.LocalModel` keeps its static structure out of the traced leaves.** Its jax flatten
   traced the frame sweep's mode sizes (Python ints) as leaves, so under `jit` they became tracers; it now
   partitions them into the treedef like the backend `LocalModel` (`backend.common.partition_static`).
@@ -217,7 +223,7 @@ All notable changes to T3Toolbox are documented here. The format follows
   geometry: only `hessian='exact'` checks for them), with `backend.geometry.ManifoldCurvatureData` and
   `DEFAULT_CURVATURE_DAMPING = 1e-6` (relative to `‖X‖_HS`; `curvature_damping` raises with the Gauss-Newton
   model and on a corewise geometry, where nothing would read it). `ProbeDerivativesKind` implements
-  `corewise_hessian`; the other kinds and the uniform layer follow (the shared manifold's tied lift: below).
+  `corewise_hessian`; the other kinds follow (the shared manifold's tied lift and the uniform layer: below).
 - **Exact Newton with a trust region in the backend `newton_cg`**: `backend.optimizers.newton_cg(...,
   hessian='gauss_newton' | 'exact', curvature_damping=None, step_control=None, tr_radius0=None)` (explicit
   keywords, the same on the frontend `optimizers.newton_cg`, below). `hessian='exact'` solves with the exact Riemannian
@@ -251,8 +257,8 @@ All notable changes to T3Toolbox are documented here. The format follows
   `curvature_hessian(p)` / `curvature_quadratic(p)`, the curvature term alone. `evaluate(p)` is mode-aware (the
   Gauss-Newton value is unchanged) and an exact model's `gradient` is the Gauss-Newton one, bit for bit. The
   rules are the backend's: `curvature_damping` with Gauss-Newton or on a corewise geometry raises, and a kind
-  without `corewise_hessian` (every kind but `probe_derivatives` so far) and the uniform layer raise a
-  structural error at construction. The frontend `optimizers.newton_cg` takes
+  without `corewise_hessian` (every kind but `probe_derivatives` so far) raises a structural error at
+  construction. The frontend `optimizers.newton_cg` takes
   `hessian`, `curvature_damping`, `step_control` and `tr_radius0` with the backend's defaults, and passes
   `hessian` to `least_squares_problem` so `chunk_size='auto'` is sized for the exact mode. The frontend run is
   the backend run, bit for bit.
@@ -273,6 +279,28 @@ All notable changes to T3Toolbox are documented here. The format follows
   which `tv_corewise_lift` / `tv_corewise_lift_transpose` tie the group slots. The tied projection and
   retraction now share the filtered solve with the lift (bit-identical). The shared corewise geometry's
   exact Hessian (the per-group mean of the plain Hessian) was already live.
+- **The exact Hessian on the uniform layer** (`UNIFORM_MANIFOLD` / `UNIFORM_COREWISE`, unshared; ragged and
+  uniform now both run `newton_cg(hessian='exact')`, the `*_model` factories' `hessian='exact'` and
+  `Problem.local_model(hessian='exact')` for `probe_derivatives`, `use_jit` included). Per stack element the
+  uniform exact model is the ragged one (the equivalence contract): every padded slot of a direction is masked
+  before the second derivative sees it -- a direction's padding multiplies into real slots there, so the
+  masks are load-bearing, not hygiene -- and every output is re-masked. From a numerically full-rank start a
+  uniform exact run is the ragged run (counts and objective row by row); from a zero-padded restart the two
+  layers' frames legitimately differ (`docs/uniform_equivalence_contract.md`) and each converges on its own.
+  New backend functions, each the uniform twin of the ragged one it names:
+  `backend.ufv_operations.ufv_lift_factors` (the lift factors on supercores: one batched damped pseudo-inverse
+  per family, each block clipped at its REAL dimensions, the padded singular values exactly 0, the last TT
+  slot's pass-through as one more bond slot), `backend.utv_operations.utv_corewise_lift` /
+  `utv_corewise_lift_transpose`, `backend.ut3_linalg.ut3_inner_product_corewise_transpose` /
+  `ut3_precompute_inner_product_sweep` / `ut3_inner_product_corewise_hessian[_from_sweep]` (the T3-to-T3
+  term; the ragged `t3_precompute_inner_product_sweep` / `t3_inner_product_corewise_hessian_from_sweep` are now
+  polymorphic over supercores, `d`-prefixed contractions) and
+  `backend.ut3_sampling.ut3_probe_corewise_derivatives_hessian[_from_sweep]` (theta and the direction masked
+  with theta's masks, the output re-masked). `UniformProbeDerivativesKind.corewise_hessian` replaces its interim
+  stub (it masks with the masks of the FRAME it is handed, a strict subset of the point's at TT slack), and the
+  uniform geometries gain the four exact-mode members (the curvature data's `sigma_min` reads real slots only).
+  A shared uniform geometry raises `NotImplementedError` for `hessian='exact'` until its tied lift lands; the
+  other kinds' uniform twins keep their stub.
 - **`backend.geometry.UniformManifoldGeometryOps.from_frame(frame_data, plain_masks, sharing)`**: the uniform
   manifold geometry from a frame already in hand -- its variation masks are the frame's own, gauge-shifted --
   the same geometry as `from_point` without re-orthogonalizing. The uniform `fitting.LocalModel` builds its

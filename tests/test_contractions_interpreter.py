@@ -311,6 +311,27 @@ HISTORICAL = {
     'WCa,WKCib->KCaib': 'W',
     'WCa,WKCib->WKCaib': 'W',
     'WKCa,WCib->KCaib': 'W',
+    # S8 (2026.3.0): the uniform exact Hessian -- the d-prefixed twins of the lift, the center factors and the
+    # T3-T3 sweep / two-hole above. As there, a C-only operand (the factors, z, theta) pins C, and K is the rest
+    # of the direction operand; the d axis is one more single letter on every operand, so nothing changes.
+    'dCux,dKCxn->dKCun': '',
+    'dKCaib,dCbc->dKCaic': '',
+    'dCux,dKCun->dKCxn': '',
+    'dKCaic,dCbc->dKCaib': '',
+    'dCaib,dCbc->dCaic': '',
+    'dCaxb,dCaub->dCxu': '',
+    'dCzn,dCun->dCzu': '',
+    'dCazb,dCzu->dCaub': '',
+    'dCxa,dCxzc,dCcb->dCazb': '',
+    'dCzn,dKCun->dKCzu': '',
+    'dCazb,dKCzu->dKCaub': '',
+    'dKCxa,dCxzc,dCcb->dKCazb': '',
+    'dCxa,dCxzc,dKCcb->dKCazb': '',
+    'dKCazb,dCzu->dKCaub': '',
+    'dCazb,dKCzu->dKCaub': '',
+    'dKCazb,dCaub->dKCzu': '',
+    'dCazb,dKCaub->dKCzu': '',
+    'dKCzu,dCzn->dKCun': '',
 }
 
 SUBS_RE = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')

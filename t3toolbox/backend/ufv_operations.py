@@ -10,6 +10,10 @@ both carry the SAME 4-tuple of rank masks). The stack lives at axes ``1 .. len(s
 the mode index ``d``, NOT a stack axis); the supercores and all four masks unstack along it, while the
 int-tuple ``shape`` is shared and woven onto every leaf. The masks' differing leading axis (``d`` vs
 ``d+1``) is irrelevant -- only axes ``1..k`` are sliced.
+
+It also holds the uniform twins of the frame-level constructions of
+:py:mod:`~t3toolbox.backend.fv_operations` that the optimizers need: the canonical zero-point frame
+(``ufv_zero_point_frame``) and the exact Hessian's lift factors (``ufv_lift_factors``).
 """
 import numpy as np
 import typing as typ
@@ -20,6 +24,8 @@ import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.backend.fv_operations as fv_operations
 import t3toolbox.backend.ufv_conversions as ufv_conversions
+import t3toolbox.backend.contractions as contractions
+import t3toolbox.backend.linalg as linalg
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -35,6 +41,7 @@ __all__ = [
     'ufv_load',
     'ufv_frame_orthogonality_residual',
     'ufv_zero_point_frame',
+    'ufv_lift_factors',
     'ufv_absorb_weights',
     'ufv_weights_consistent',
     'ufv_weights_from_ut3_weights',
@@ -341,6 +348,139 @@ def ufv_zero_point_frame(
                          "from ut3_orthogonal_representations has them); the packed zero-point frame "
                          "cannot carry them")
     return packed[:5] + (masks,)
+
+
+def _real_rcond(
+        rows:   NDArray,   # HOST bool row masks of a factor family, (slots,)+C+(m,)
+        cols:   NDArray,   # HOST bool column masks,                 (slots,)+C+(n,)
+        dtype,             # the factors' dtype
+) -> NDArray:              # HOST float, (slots,)+C+(1,): dtype eps * max(m_real, n_real) per slot and element
+    """``numpy.linalg.pinv``'s default relative clip, ``dtype eps * max(m, n)``, evaluated at each block's REAL
+    dimensions -- the ragged lift's clip, slot by slot and stack element by stack element, so the uniform
+    lift keeps exactly the singular values the ragged one keeps (the padded dimensions would loosen it)."""
+    real = np.maximum(np.sum(rows, axis=-1), np.sum(cols, axis=-1))
+    return (float(np.finfo(dtype).eps) * real)[..., None]
+
+
+def _real_values(
+        rows:   NDArray,   # HOST bool row masks of a factor family, (slots,)+C+(m,)
+        cols:   NDArray,   # HOST bool column masks,                 (slots,)+C+(n,)
+        k:      int,       # the padded spectrum length, min(m_pad, n_pad)
+) -> NDArray:              # HOST bool, (slots,)+C+(k,): True on the min(m_real, n_real) leading (real) values
+    """Which entries of a padded block's descending spectrum are its real block's: the first ``min(m, n)`` at the
+    real dimensions (the masked block's padded singular values are exactly 0 and sort last)."""
+    q = np.minimum(np.sum(rows, axis=-1), np.sum(cols, axis=-1))
+    return np.arange(k) < q[..., None]
+
+
+def ufv_lift_factors(
+        frame_data:         typ.Tuple[
+            NDArray,                                    # up_tucker_supercore,  (d,)+C+(nU, N)
+            NDArray,                                    # down_tt_supercore,    (d,)+C+(rL, nD, rR)
+            NDArray,                                    # left_tt_supercore,    (d,)+C+(rL, nU, rL)
+            NDArray,                                    # right_tt_supercore,   (d,)+C+(rR, nU, rR)
+            typ.Tuple[int, ...],                        # shape
+            typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, frame_left, frame_right) masks; HOST bool
+        ],
+        curvature_damping:  typ.Union[float, NDArray],  # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
+        rcond:              typ.Optional[float] = None, # relative clip; None -> the ragged default per REAL block
+) -> fv_operations.LiftFactors:                         # SUPERCORE-valued, stack C (the field shapes below)
+    '''The uniform twin of :py:func:`~t3toolbox.backend.fv_operations.fv_lift_factors`: the damped
+    pseudo-inverses that lift a uniform frame's coordinates to raw core variations of its base point.
+
+    The frame is masked once (its padded slots hold the construction's orthonormal completions, which must
+    not pair up), then the same derivation runs on the supercores: the right-to-left zipper of the left chain
+    against the right chain (:py:func:`~t3toolbox.backend.tt_operations.tt_zipper_right_to_left`, a scan over
+    the mode axis), the centers ``H_i = L_i T_i`` and the Tucker factors ``S_i^T = <O_i, H_i>`` as ``d``-prefixed
+    grouped contractions, and ONE batched damped pseudo-inverse per family
+    (:py:func:`~t3toolbox.backend.linalg.damped_pseudo_inverse`). The returned
+    :py:class:`~t3toolbox.backend.fv_operations.LiftFactors` holds supercores where the ragged one holds tuples:
+
+    - ``tucker_pinvs`` ``(d,)+C+(nU, nD)`` and ``tucker_svals`` ``(d,)+C+(min(nD, nU),)``;
+    - ``bond_pinvs`` ``(d,)+C+(rR, rL)``: the ``d - 1`` bond factors ``T_i^{+eps}`` and, in the last slot, the
+      boundary pass-through (``1`` at the real ``(0, 0)`` entry), so the undamped last TT slot
+      ``Gdot_{d-1} = H_{d-1}`` is one more slice of the same contraction;
+    - ``bond_svals`` ``(d-1,)+C+(min(rL, rR),)`` and ``eps`` ``C``, as the ragged twin.
+
+    **Padding.** A masked factor is the real block bordered by exact zeros, so its padded singular values are
+    exactly 0 and the clip maps them to a filter of exactly 0 (``padded sigma = 0 -> f = 0``); the pinvs are
+    re-masked with the frame's masks as well, so their padding is exactly zero whatever the SVD's singular
+    vectors hold there. ``rcond=None`` clips each block at its REAL dimensions (the ragged default,
+    ``dtype eps * max(m, n)``, per slot and stack element), so a varying-rank stack keeps exactly the singular
+    values the ragged lift keeps. The padded singular values are reported as exactly 0 (zeroed by the host
+    masks): a consumer reading the smallest one must restrict to the real slots (the geometry's ``sigma_min``
+    does, from the same masks).
+
+    Requires an orthogonal frame (check-free, like all backend functions). Dispatch is inferred; the masks
+    stay host numpy.
+
+    Examples
+    --------
+    On a frame packed from a ragged one -- with padding forced on every family -- the real blocks are the
+    ragged factors, and the padding is exactly zero:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.fv_operations as fvo
+    >>> import t3toolbox.backend.ufv_conversions as ufc
+    >>> import t3toolbox.backend.ufv_operations as ufo
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+    >>> frame, _ = fvc.t3_orthogonal_representations(x.data)
+    >>> uframe = ufc.t3frame_to_ut3frame(frame, N=8, nU=4, nD=4, rL=3, rR=3)
+    >>> lf, ulf = fvo.fv_lift_factors(frame, 1e-3), ufo.ufv_lift_factors(uframe, 1e-3)
+    >>> ulf.tucker_pinvs.shape, ulf.bond_pinvs.shape
+    ((3, 4, 4), (3, 3, 3))
+    >>> all(np.allclose(ulf.tucker_pinvs[i][:P.shape[0], :P.shape[1]], P) for i, P in enumerate(lf.tucker_pinvs))
+    True
+    >>> all(np.allclose(ulf.bond_pinvs[i][:P.shape[0], :P.shape[1]], P) for i, P in enumerate(lf.bond_pinvs))
+    True
+    >>> float(np.abs(ulf.tucker_pinvs[1][3:, :]).max()), ulf.bond_pinvs[2].tolist()   # padding; the boundary slot
+    (0.0, [[1.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]])
+    >>> bool(np.isclose(ulf.eps, lf.eps))
+    True
+    '''
+    if isinstance(curvature_damping, (int, float)) and curvature_damping < 0:
+        raise ValueError('ufv_lift_factors: curvature_damping must be >= 0 (it is relative to ||X||_HS); '
+                         'got %r' % (curvature_damping,))
+    up_mask, down_mask, left_mask, right_mask = frame_data[5]
+    up_sc, down_sc, left_sc, right_sc = ufv_masking.ufv_apply_frame_masks(frame_data)   # guards: host masks
+    xnp, _, _ = get_backend(True, tree_contains_jax((up_sc, down_sc, left_sc, right_sc, curvature_damping)))
+    d, C = up_sc.shape[0], tuple(up_sc.shape[1:-2])
+    rL, rR = left_sc.shape[-1], right_sc.shape[-1]
+
+    # the center factors (fv_center_factors, on the supercores): T_i = Z_(i+1), H_i = L_i T_i, S_i^T = <O_i, H_i>
+    ZZ = tt_operations.tt_zipper_right_to_left(left_sc, right_sc)          # len=d+1, elm_shape=C+(rL, rR)
+    Z_sc = xnp.stack(ZZ[1:], axis=0)                                      # (d,)+C+(rL, rR); the last: boundary ones
+    centers = contractions.contract('dCaib,dCbc->dCaic', left_sc, Z_sc)
+    tucker_factors_T = contractions.contract('dCaxb,dCaub->dCxu', down_sc, centers)   # (d,)+C+(nD, nU)
+
+    S0T = tucker_factors_T[0]
+    norm_X = xnp.sqrt(xnp.sum(S0T * S0T, axis=(-2, -1)))                  # ||X||_HS = ||S_0^T||_F, shape=C
+    eps = curvature_damping * norm_X
+
+    dtype = tucker_factors_T.dtype
+    tk_rcond = _real_rcond(down_mask, up_mask, dtype) if rcond is None else rcond
+    tucker_pinvs, tucker_svals = linalg.damped_pseudo_inverse(tucker_factors_T, eps, tk_rcond)
+    tucker_pinvs = tucker_pinvs * (up_mask[..., :, None] & down_mask[..., None, :])   # (d,)+C+(nU, nD)
+    tucker_svals = tucker_svals * _real_values(down_mask, up_mask, tucker_svals.shape[-1])
+
+    boundary = np.zeros((1,) + C + (rR, rL))
+    boundary[..., 0, 0] = 1.0                                             # Gdot_{d-1} = H_{d-1}: the real (0, 0)
+    if d == 1:
+        bond_pinvs = xnp.asarray(boundary, dtype=dtype)
+        bond_svals = xnp.zeros((0,) + C + (min(rL, rR),), dtype=dtype)
+    else:
+        bonds = Z_sc[:-1]                                                 # (d-1,)+C+(rL, rR): T_i at bond i+1
+        rows, cols = left_mask[1:-1], right_mask[1:-1]
+        bd_rcond = _real_rcond(rows, cols, dtype) if rcond is None else rcond
+        bond_pinvs, bond_svals = linalg.damped_pseudo_inverse(bonds, eps, bd_rcond)
+        bond_pinvs = bond_pinvs * (cols[..., :, None] & rows[..., None, :])           # (d-1,)+C+(rR, rL)
+        bond_svals = bond_svals * _real_values(rows, cols, bond_svals.shape[-1])
+        bond_pinvs = xnp.concatenate([bond_pinvs, xnp.asarray(boundary, dtype=bond_pinvs.dtype)], axis=0)
+    return fv_operations.LiftFactors(tucker_pinvs=tucker_pinvs, bond_pinvs=bond_pinvs, tucker_svals=tucker_svals,
+                                     bond_svals=bond_svals, eps=eps)
 
 
 def ufv_absorb_weights(

@@ -6,8 +6,8 @@
 
 Grouped by OBJECT type, deliberately asymmetric with the ragged by-sampling-type modules: each
 function here is a thin wrapper -- mask once, pack, delegate to the shared polymorphic ragged
-machinery (the corewise transposes then re-mask their output) -- so it lives with the object it
-wraps. The algorithm story is in
+machinery (the corewise transposes and the probe-derivative two-hole then re-mask their output) -- so it
+lives with the object it wraps. The algorithm story is in
 ``probing``/``apply``/``entries``/``sampling_derivatives`` (``docs/naming_conventions.md``).
 """
 import numpy as np
@@ -35,6 +35,8 @@ __all__ = [
     'ut3_apply_corewise_derivatives_transpose',
     'ut3_entries_corewise_derivatives_transpose',
     'ut3_probe_corewise_derivatives_transpose',
+    'ut3_probe_corewise_derivatives_hessian',
+    'ut3_probe_corewise_derivatives_hessian_from_sweep',
 ]
 
 # All re-mask first (so the padded "garbage" contributes nothing), then call the SHARED, already-
@@ -272,4 +274,100 @@ def ut3_probe_corewise_derivatives_transpose(
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
     grads = sampling_derivatives.t3_probe_corewise_derivatives_transpose(
         packed_z, packed_ww, packed_pp, masked, order, sum_over_probes=sum_over_probes, chunk_size=chunk_size)
+    return _remasked_core_gradient(grads, data)
+
+
+# ----------------------------------------------------------- corewise two-hole: the probe-derivative Hessian
+# The derivative of ut3_probe_corewise_derivatives_transpose along raw core directions (the exact Riemannian
+# Hessian's sampling term). The kernel is mask-free by contract and a second derivative multiplies a
+# direction's padded slot into real slots, so the wrapper masks theta with ITS masks and theta_hat with the
+# SAME masks (a K + C direction broadcasts against the C masks), packs, delegates to the polymorphic kernel,
+# and re-masks the output (exactly-zero padding, as the one-hole transposes above).
+
+def ut3_probe_corewise_derivatives_hessian(
+        ztildes:          typ.Sequence[NDArray],   # residual jets (omega^2 applied), len=d, elm_shape=(order+1,)+W+C+(Ni,)
+        ww:               typ.Sequence[NDArray],   # probe vectors X,        len=d, elm_shape=W+(Ni,)
+        pp:               typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+        data:             UT3Data,                 # the point theta, stack C
+        core_directions:  typ.Tuple[NDArray, NDArray],  # bare raw direction supercores theta_hat, (d,)+K+C+(...)
+        order:            int,                     # highest derivative order
+        chunk_size:       typ.Optional[int] = sampling_derivatives.DEFAULT_CHUNK_SIZE,  # W-chunk size; None -> dense
+) -> typ.Tuple[NDArray, NDArray]:                  # (Tucker, TT) blocks of K theta_hat, (d,)+K+C+(...), W summed
+    """The uniform twin of :py:func:`~t3toolbox.backend.sampling_derivatives.t3_probe_corewise_derivatives_hessian`:
+    the core-coordinate Hessian of ``theta -> <z~, S(Phi(theta))>`` applied to ``theta_hat``, for ``S`` the
+    probe-derivative jets, on supercores.
+
+    ``theta`` is masked with its masks, ``theta_hat`` with the SAME masks, ``ztildes`` / ``ww`` / ``pp`` packed to
+    ``N``; the polymorphic kernel runs on the supercores (its ``chunk_size`` W-chunks the assemblies), and the
+    output is re-masked with ``theta``'s masks. Per stack element the real block is the ragged two-hole of the real
+    blocks, whatever the padding of ``theta``, ``theta_hat``, the residual or the sample holds.
+
+    Examples
+    --------
+    With garbage in every padded slot of the direction, the real block is the ragged two-hole's and the padding
+    is exactly zero; the bare kernel on the unmasked direction is not (the mask is load-bearing):
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.backend.sampling_derivatives as sd
+    >>> import t3toolbox.backend.ut3_masking as ut3m
+    >>> import t3toolbox.backend.ut3_sampling as ut3s
+    >>> np.random.seed(0)
+    >>> rng = np.random.default_rng(0)
+    >>> shape, order, W = (4, 5, 3), 2, 6
+    >>> theta, direction = (t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1)) for _ in range(2))
+    >>> ww, pp = ([rng.standard_normal((W, N)) for N in shape] for _ in range(2))
+    >>> zt = [rng.standard_normal((order + 1, W, N)) for N in shape]
+    >>> u = ut3.UniformTuckerTensorTrain.from_t3(theta, N=6, n=4, r=4).data
+    >>> ud = ut3.UniformTuckerTensorTrain.from_t3(direction, N=6, n=4, r=4).data
+    >>> pad = [1.0 - m for m in ut3m.ut3_apply_masks((np.ones_like(ud[0]), np.ones_like(ud[1]), ud[2], ud[3]))]
+    >>> dirty = (ud[0] + 1e3 * pad[0], ud[1] + 1e3 * pad[1])               # garbage in the direction's padding
+    >>> KU, KG = ut3s.ut3_probe_corewise_derivatives_hessian(zt, ww, pp, u, dirty, order)
+    >>> ref = sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta.data, direction.data, order)
+    >>> all(np.allclose(KG[i][:G.shape[0], :G.shape[1], :G.shape[2]], G) for i, G in enumerate(ref[1]))
+    True
+    >>> float(np.abs(KG * pad[1]).max()), float(np.abs(KU * pad[0]).max())   # the padding: exactly zero
+    (0.0, 0.0)
+    >>> import t3toolbox.backend.ut3_operations as ut3o
+    >>> pk = lambda v: ut3o.pack_if_ragged(v, 6)
+    >>> bare = sd.t3_probe_corewise_derivatives_hessian(pk(zt), pk(ww), pk(pp), ut3m.ut3_apply_masks(u), dirty, order)
+    >>> all(np.allclose(bare[1][i][:G.shape[0], :G.shape[1], :G.shape[2]], G) for i, G in enumerate(ref[1]))
+    False
+    """
+    masked = ut3_masking.ut3_apply_masks(data)
+    directions = ut3_masking.ut3_apply_masks((core_directions[0], core_directions[1], data[2], data[3]))
+    N = masked[0].shape[-1]
+    packed_z = ut3_operations.pack_if_ragged(ztildes, N)
+    packed_ww = ut3_operations.pack_if_ragged(ww, N)
+    packed_pp = ut3_operations.pack_if_ragged(pp, N)
+    grads = sampling_derivatives.t3_probe_corewise_derivatives_hessian(
+        packed_z, packed_ww, packed_pp, masked, directions, order, chunk_size=chunk_size)
+    return _remasked_core_gradient(grads, data)
+
+
+def ut3_probe_corewise_derivatives_hessian_from_sweep(
+        ztildes:          typ.Union[typ.Sequence[NDArray], NDArray],  # residual jets (omega^2 applied); ragged, or
+                                                   #   packed (d,)+(order+1,)+W+C+(N,)
+        data:             UT3Data,                 # the point theta = the sweep frame's base point, stack C
+        core_directions:  typ.Tuple[NDArray, NDArray],  # bare raw direction supercores theta_hat, (d,)+K+C+(...)
+        order:            int,                     # highest derivative order
+        frame_sweep:      typ.Tuple,               # a uniform jet sweep at a frame whose base point is theta
+        chunk_size:       typ.Optional[int] = sampling_derivatives.DEFAULT_CHUNK_SIZE,  # W-chunk size; None -> dense
+) -> typ.Tuple[NDArray, NDArray]:                  # (Tucker, TT) blocks of K theta_hat, (d,)+K+C+(...), W summed
+    """:py:func:`ut3_probe_corewise_derivatives_hessian` reusing a uniform jet sweep's packed sample and its
+    ``xi`` / ``mu`` jets -- the reuse hook for a uniform local model, the twin of
+    :py:func:`~t3toolbox.backend.sampling_derivatives.t3_probe_corewise_derivatives_hessian_from_sweep`.
+
+    ``frame_sweep`` is :py:func:`~t3toolbox.backend.utv_sampling.utv_precompute_probe_frame_sweep_jets` at the
+    manifold frame ``(U, O, P, Q)`` of ``theta = (U, P)`` (or the apply sweep at the corewise frame): its masked
+    frame's ``U`` and ``P`` are ``theta`` masked with the frame's ``(up, left)`` masks, so ``data`` must carry those
+    masks (a uniform kind reads them off the frame it is handed; at TT slack the point's own masks are a strict
+    superset). ``theta`` and ``theta_hat`` are masked with ``data``'s masks, and the output is re-masked."""
+    _mb, packed_ww, packed_pp, _shape, psweep = frame_sweep
+    masked = ut3_masking.ut3_apply_masks(data)
+    directions = ut3_masking.ut3_apply_masks((core_directions[0], core_directions[1], data[2], data[3]))
+    packed_z = ut3_operations.pack_if_ragged(ztildes, masked[0].shape[-1])
+    grads = sampling_derivatives.t3_probe_corewise_derivatives_hessian_from_sweep(
+        packed_z, packed_ww, packed_pp, masked, directions, order, psweep, chunk_size=chunk_size)
     return _remasked_core_gradient(grads, data)

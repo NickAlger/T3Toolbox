@@ -633,9 +633,9 @@ class TestFrontendExactNewton(unittest.TestCase):
                                                order=2, weight=weight, hessian='EXACT')
             self.assertEqual(setup.problem.kind.chunk_size, 7)
             topt.least_squares_problem(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', sample, data, ux, order=2)
-            with self.assertRaisesRegex(ValueError, 'UniformProbeDerivativesKind does not implement corewise_hessian'):
-                topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', sample, data, ux, order=2,
-                               weight=weight, hessian='exact')                   # the uniform two-hole is S8's
+            _, st = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', sample, data, ux, order=2,
+                                   weight=weight, max_newton=1, hessian='exact')   # sized for the exact two-hole
+            self.assertEqual(st['history'][0]['hessian'], 'exact')
             topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', sample, data, ux, order=2, weight=weight,
                            max_newton=1)
             topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', sample, data, restart, order=2, weight=weight,

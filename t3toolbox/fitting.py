@@ -130,10 +130,14 @@ def _tangent_at(frame, raw):
 
     Ragged: a ``(tucker_variations, tt_variations)`` core-tuple pair -> :py:class:`~t3toolbox.manifold.T3Tangent`.
     Uniform: a bare supercore pair -> :py:class:`~t3toolbox.uniform_manifold.UT3Tangent`, carrying the
-    frame's gauge-shifted variation masks.'''
+    frame's gauge-shifted variation masks -- broadcast over a tangent stack ``K`` when the pair carries one
+    (``K + C`` coordinates at a ``C`` frame, as a ``K``-stacked trial tangent's actions return).'''
     if _is_uniform_frame(frame):
-        return ut3m.UT3Tangent(frame, ubv.UT3Variations(raw[0], raw[1], frame.shape,
-                                                        ubv.UT3Variations._variation_masks_of(frame)))
+        masks = ubv.UT3Variations._variation_masks_of(frame)
+        K = tuple(raw[0].shape[1:raw[0].ndim - 2 - len(frame.stack_shape)])
+        if K:
+            masks = ut3m._broadcast_variation_masks_over_K(masks, K)
+        return ut3m.UT3Tangent(frame, ubv.UT3Variations(raw[0], raw[1], frame.shape, masks))
     return t3m.T3Tangent(frame, bvf.T3Variations(*raw))
 
 
@@ -210,9 +214,10 @@ class LocalModel:
       term plus the curvature term :py:meth:`curvature_hessian` (``Π Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π``; see
       :py:meth:`t3toolbox.backend.optimizers.Problem.local_model`), and :py:meth:`quadratic` likewise. The
       model's one misfit transpose is done at construction (``curvature``), so :py:attr:`gradient` is the
-      Gauss-Newton gradient bit for bit. Only ``probe_derivatives`` implements it so far; the other kinds and
-      the uniform layer raise a structural error at construction. On a shared manifold geometry the
-      curvature goes through the tied lift (one factor direction per sharing group).
+      Gauss-Newton gradient bit for bit. Only ``probe_derivatives`` implements it so far, ragged and uniform;
+      the other kinds raise a structural error at construction. On a shared manifold geometry the curvature
+      goes through the tied lift (one factor direction per sharing group); a shared uniform geometry does not
+      support it yet (``NotImplementedError``).
 
     ``gradient``, ``jacobian``, ``gn_hessian``, ``gn_quadratic``, ``objective_value`` and :py:meth:`retract`
     mean the same in both modes.
@@ -576,7 +581,7 @@ def _with_curvature(
     checks and messages: an unknown mode raises; a ``curvature_damping`` with Gauss-Newton raises (nothing
     would read it), as it does on a corewise geometry (no lift to damp); a kind without ``corewise_hessian``
     or a geometry without the exact-mode members raises structurally, naming what is missing -- which is
-    how the uniform layer's interim kind stub surfaces.'''
+    how the uniform kinds' interim stub surfaces (every uniform kind but ``probe_derivatives``'s).'''
     exact = bopt._check_hessian(hessian, who) == 'exact'
     if curvature_damping is not None and not exact:
         raise ValueError("%s: curvature_damping is only meaningful with hessian='exact'" % who)
@@ -903,8 +908,9 @@ def probe_derivatives_model(
     the lift from frame coordinates to core variations, relative to ``‖X‖_HS`` -- ``None`` for the
     geometry's default (``backend.geometry.DEFAULT_CURVATURE_DAMPING``); a value with ``hessian='gauss_newton'``
     or on a corewise geometry raises, as nothing would read it. The ragged manifold and corewise geometries
-    and their shared wrappers support it (on a shared manifold the curvature goes through the tied lift);
-    the uniform layer raises a structural error at construction for now.
+    and their shared wrappers support it (on a shared manifold the curvature goes through the tied lift), and
+    so do the uniform ones (a uniform ``x``; per stack element the ragged model's), unshared -- a shared
+    uniform geometry raises ``NotImplementedError`` for now.
 
     Examples
     --------

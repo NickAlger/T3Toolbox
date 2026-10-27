@@ -524,6 +524,11 @@ class LiftFactors:
     group's Tucker slots to ONE factor direction, solved against the companion's stacked-``S`` SVD, and the
     group modes' entries of ``tucker_pinvs`` / ``tucker_svals`` go unused. Unshared, they are ``None`` /
     ``()``.
+
+    **Uniform frames.** :py:func:`~t3toolbox.backend.ufv_operations.ufv_lift_factors` fills the same fields with
+    SUPERCORES (mode index ``d`` leading, then ``C``) where this one holds per-mode tuples, at the frame's padded
+    sizes with exactly-zero padding; its ``bond_pinvs`` carries one more slot, the last TT slot's boundary
+    pass-through, so it has ``d`` slots (``bond_svals`` keeps ``d - 1``).
     '''
     tucker_pinvs:  typ.Tuple[NDArray, ...]  # (S_i^T)^{+eps}. len=d,   elm_shape=C+(nUi, nDi)
     bond_pinvs:    typ.Tuple[NDArray, ...]  # T_i^{+eps}.     len=d-1, elm_shape=C+(rR(i+1), rL(i+1))

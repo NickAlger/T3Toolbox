@@ -912,6 +912,157 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(ftraces[0], 1, "the shared exact frontend LocalModel recompiled across points / dampings")
         self._leaves_all_jax(fout)
 
+    def _uniform_pd_problem_jax(self, geometry, seed=0, W=9, order=1, chunk_size=100):
+        """A uniform probe_derivatives problem on jax data (a full omega[mode, order]) and its jax start
+        supercores; the masks stay host numpy."""
+        import t3toolbox.backend.uniform_fitting as uf
+        SH, TK, TT = STRUCT
+        rng = np.random.default_rng(seed)
+        np.random.seed(seed)
+        ww = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
+        pp = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
+        data = [jnp.asarray(z) + 0.1 for z in pd.t3_probe_derivatives(ww, pp, t3.TuckerTensorTrain.randn(*STRUCT)
+                                                                     .to_jax().data, order)]
+        weight = np.linspace(0.3, 1.5, len(SH) * (order + 1)).reshape(len(SH), order + 1)
+        ux0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(SH, TK, TT)).to_jax()
+        prob = uf.uniform_least_squares_problem(geometry, 'probe_derivatives', ux0, (ww, pp), data, order=order,
+                                                weight=weight, chunk_size=chunk_size)
+        return prob, (ux0.data[0], ux0.data[1]), (ww, pp), data, weight, ux0
+
+    def test_jit_uniform_exact_ops(self):
+        """S8: every uniform exact-mode op jits to pure jax with the masks closed over (host constants, never
+        traced) -- the lift factors, the lift and its transpose (K = (2,)), the T3-T3 one-hole / sweep / two-hole,
+        the probe-derivative two-hole one-shot and from a sweep with its W-chunked assemblies ENGAGED (W = 7 at
+        chunk 2: three full chunks through the lax.scan plus a remainder), the uniform kind's corewise_hessian and
+        the geometry's four exact members; and the jitted two-hole equals the eager numpy one."""
+        import t3toolbox.backend.ufv_operations as ufo
+        import t3toolbox.backend.ufv_masking as ufm
+        import t3toolbox.backend.utv_operations as utvo
+        import t3toolbox.backend.ut3_linalg as ut3la
+        import t3toolbox.backend.ut3_sampling as ut3s
+        import t3toolbox.backend.ut3_operations as ut3o
+        order, W = 1, 7
+        prob, sc, (ww, pp), _data, _w, _ux = self._uniform_pd_problem_jax('manifold', seed=5, W=W, order=order,
+                                                                           chunk_size=2)
+        frame = prob.geom.frame(sc)
+        sc4, shape, fmasks = tuple(frame[:4]), tuple(frame[4]), frame[5]
+        tmasks = (fmasks[0], fmasks[2])
+        F = lambda s4: tuple(s4) + (shape, fmasks)
+        rng = np.random.default_rng(6)
+        self.assert_jit_jax(lambda s4: ufo.ufv_lift_factors(F(s4), 1e-6), sc4)
+        lf = ufo.ufv_lift_factors(frame, 1e-6)
+        tk_shape, tt_shape = ufo.ufv_variation_shapes(frame)
+        v = (jnp.asarray(rng.standard_normal(tk_shape[:1] + (2,) + tk_shape[1:])),
+             jnp.asarray(rng.standard_normal(tt_shape[:1] + (2,) + tt_shape[1:])))
+        vmK = ufm.ufv_variation_masks_over_stack(fmasks, (), (2,))
+        self.assert_jit_jax(lambda s4, a, b, l: utvo.utv_corewise_lift(F(s4), (a, b, shape, vmK), l)[:2], sc4, *v, lf)
+        D = (jnp.asarray(rng.standard_normal(frame[0].shape[:1] + (2,) + frame[0].shape[1:])),
+             jnp.asarray(rng.standard_normal(frame[2].shape[:1] + (2,) + frame[2].shape[1:])))
+        self.assert_jit_jax(lambda s4, a, b, l: utvo.utv_corewise_lift_transpose(F(s4), (a, b, shape, tmasks), l)[:2],
+                            sc4, *D, lf)
+        g = prob.local_model(sc).gradient
+        z = utvo.utv_to_ut3(frame, (g[0], g[1], shape, ufm.ufv_variation_masks(fmasks)))
+        Z = lambda z0, z1: (z0, z1, z[2], z[3])
+        TH = lambda u, l: (u, l, shape, tmasks)
+        self.assert_jit_jax(lambda z0, z1, u, l: ut3la.ut3_inner_product_corewise_transpose(Z(z0, z1), TH(u, l)),
+                            z[0], z[1], frame[0], frame[2])
+        self.assert_jit_jax(lambda z0, z1, u, l: ut3la.ut3_precompute_inner_product_sweep(Z(z0, z1), TH(u, l)),
+                            z[0], z[1], frame[0], frame[2])
+        self.assert_jit_jax(lambda z0, z1, u, l, a, b: ut3la.ut3_inner_product_corewise_hessian(
+            Z(z0, z1), TH(u, l), (a, b)), z[0], z[1], frame[0], frame[2], *D)
+        N = frame[0].shape[-1]
+        zt = ut3o.pack_if_ragged([jnp.asarray(rng.standard_normal((order + 1, W, n))) for n in shape], N)
+        pww, ppp = ut3o.pack_if_ragged(ww, N), ut3o.pack_if_ragged(pp, N)
+        two_hole = lambda zz, a1, a2, u, l, a, b: ut3s.ut3_probe_corewise_derivatives_hessian(
+            zz, a1, a2, TH(u, l), (a, b), order, chunk_size=2)
+        jitted = jax.jit(two_hole)(zt, pww, ppp, frame[0], frame[2], *D)
+        self._leaves_all_jax(jitted)
+        eager = two_hole(*(np.asarray(t) for t in (zt, pww, ppp, frame[0], frame[2]) + D))
+        for a, b in zip(jitted, eager):
+            self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+        sweep = prob.kind.precompute(frame, prob.sample)
+        self.assert_jit_jax(lambda zz, u, l, a, b, sw: ut3s.ut3_probe_corewise_derivatives_hessian_from_sweep(
+            zz, TH(u, l), (a, b), order, (sw[0], sw[1], sw[2], shape, sw[4]), chunk_size=2),
+            zt, frame[0], frame[2], *D, (sweep[0], sweep[1], sweep[2], None, sweep[4]))
+        r = jnp.asarray(rng.standard_normal((len(shape), order + 1, W, N)))
+        self.assert_jit_jax(lambda a, b, rr, s4, sw: prob.kind.corewise_hessian(
+            (a, b), rr, prob.sample, F(s4), (sw[0], sw[1], sw[2], shape, sw[4]), (s4[0], s4[2])),
+            *D, r, sc4, (sweep[0], sweep[1], sweep[2], None, sweep[4]))
+        geom = prob.geom
+        self.assert_jit_jax(lambda s4, g0, g1: geom.curvature_precompute(F(s4), (g0, g1), None, 1e-6), sc4, *g)
+        cd = geom.curvature_precompute(frame, g, None, 1e-6)
+        self.assert_jit_jax(lambda s4, a, b, c: geom.lift(F(s4), (a, b), c), sc4, *v, cd)
+        self.assert_jit_jax(lambda s4, a, b, c: geom.lift_transpose(F(s4), (a, b), c), sc4, *D, cd)
+        self.assert_jit_jax(lambda s4, a, b, c: geom.tangential_curvature(F(s4), (a, b), c), sc4, *D, cd)
+
+    def test_jit_uniform_exact_local_model_is_one_cache_key(self):
+        """S8: the uniform exact backend LocalModel -- hvp, quadratic, curvature_hvp, curvature_quadratic,
+        gradient -- jits with the model AS AN ARGUMENT to pure jax, ONCE across models rebuilt at new base points
+        (each re-orthogonalizes its frame: new mask arrays, identical values -- the value-hashed static skeleton
+        keeps one cache key) and dampings, on both uniform geometries, with a tangent stack K = (2,); jit == eager;
+        no mask or int among the leaves; the CG loop carries the model."""
+        for geometry, dampings in (('manifold', (None, 1e-3, 0.0)), ('corewise', (None, None, None))):
+            with self.subTest(geometry=geometry):
+                prob, sc0, _sample, _data, _w, _ux = self._uniform_pd_problem_jax(geometry, seed=7)
+                traces = [0]
+
+                @jax.jit
+                def every(model, q):
+                    traces[0] += 1                                      # +1 per TRACE (compile), not per call
+                    return (model.hvp(q), model.quadratic(q), model.curvature_hvp(q), model.curvature_quadratic(q),
+                            model.gradient)
+
+                points = [sc0] + [tuple(jnp.asarray(a) for a in ut3.UniformTuckerTensorTrain.from_t3(
+                    t3.TuckerTensorTrain.randn(*STRUCT)).data[:2]) for _ in range(2)]
+                for x, cd in zip(points, dampings):
+                    lm = prob.local_model(x, hessian='exact', curvature_damping=cd)
+                    q = prob.geom.project(lm.frame, tuple(jnp.stack([a, -2.0 * a], axis=1) for a in lm.gradient))
+                    out = every(lm, q)
+                    jax.block_until_ready(out[1])
+                self.assertEqual(traces[0], 1, "the uniform exact LocalModel recompiled across points / dampings")
+                self._leaves_all_jax(out)
+                leaves = jax.tree_util.tree_leaves(lm)
+                self.assertTrue(all(hasattr(l, 'dtype') and np.asarray(l).dtype != bool for l in leaves))
+                to_np = lambda tree: jax.tree_util.tree_map(np.asarray, tree)
+                eager = to_np(lm).hvp(to_np(q))
+                for a, b in zip(eager, out[0]):                                  # jit == eager (numpy)
+                    self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-12 * max(norm(np.asarray(a)), 1.0))
+                neg_g = _cw.corewise_scale(lm.gradient, -1.0)
+                gnorm = float(prob.geom.inner(lm.gradient, lm.gradient)) ** 0.5
+                self._leaves_all_jax(bopt._cg_solve(lm, neg_g, 0.1 * gnorm, 20, True)[0])
+
+    def test_uniform_exact_newton_cg_use_jit(self):
+        """S8: ``newton_cg(hessian='exact', use_jit=True)`` on a uniform x0 -- backend, with the W-chunked two-hole
+        engaged (W = 7 at chunk 2) -- compiles the Steihaug CG body at most ONCE per structure, across a run's
+        several solves and a second run from another point; the frontend run with ``chunk_size='auto'`` resolves the
+        chunk for the exact mode and is jax-backed. Compile time (a first run in a fresh process, CPU, x64): ~15 s
+        for this structure and for (6,6,6,6) at |W| = 200, order 2, against ~9.5 s for the same Gauss-Newton runs --
+        inside the GN uniform jit tests' 11-43 s band; the bound below is a 20x guard, not a benchmark."""
+        import time
+        import t3toolbox.uniform_manifold as ut3m
+        prob, sc, sample, data, weight, ux0 = self._uniform_pd_problem_jax('manifold', seed=9, W=7, chunk_size=2)
+        cg = bopt._jitted(bopt._cg_core, (4,))
+        before = cg._cache_size() if hasattr(cg, '_cache_size') else None
+        t0 = time.perf_counter()
+        x, stats = bopt.newton_cg(prob, sc, max_newton=4, hessian='exact', use_jit=True)
+        first = time.perf_counter() - t0
+        mid = cg._cache_size() if before is not None else None
+        other = tuple(jnp.asarray(a) for a in ut3.UniformTuckerTensorTrain.from_t3(
+            t3.TuckerTensorTrain.randn(*STRUCT)).data[:2])
+        _, stats2 = bopt.newton_cg(prob, other, max_newton=3, hessian='exact', use_jit=True)
+        self._leaves_all_jax(x)
+        self.assertGreaterEqual(stats['newton_steps'], 2)
+        self.assertGreaterEqual(sum(row['cg_iters'] or 0 for row in stats['history'] + stats2['history']), 4)
+        if before is not None:
+            self.assertLessEqual(mid - before, 1, "the uniform exact CG recompiled within a run")
+            self.assertEqual(cg._cache_size(), mid, "the uniform exact CG recompiled across runs")
+        self.assertLess(first, 300.0)
+        xf, fst = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', sample, data, ux0, order=1,
+                                 weight=weight, max_newton=2, hessian='exact', use_jit=True, chunk_size='auto')
+        self._leaves_all_jax(xf)
+        self.assertEqual(fst['history'][0]['hessian'], 'exact')
+        self.assertEqual(fst['history'][0]['step_control'], 'trust_region')
+
     def test_frontend_exact_newton_cg_use_jit(self):
         """The frontend ``newton_cg(hessian='exact', use_jit=True)``: the keywords pass through, the inner
         Steihaug CG jits with the exact model as loop state, and the result is jax-backed."""

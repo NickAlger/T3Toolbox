@@ -178,12 +178,23 @@ def ufv_variation_masks_over_stack(
     sampling transposes (``K_new`` = the kept probe/tangent stack), the ambient projection of a
     ``K``-stacked gradient, hence ``transport`` of a ``K``-stacked tangent (the last two used to hand a
     ``C``-stack mask to ``K+C`` variations and fail in a reshape, review C3). Host numpy: static structure."""
-    gauge = ufv_variation_masks(frame_masks)
+    return _masks_over_stack(ufv_variation_masks(frame_masks), frame_stack, out_stack)
+
+
+def _masks_over_stack(
+        masks,              # a family of masks, each (len,)+C+(size,), HOST numpy
+        frame_stack,        # C, the stack the masks carry
+        out_stack,          # K + C, the stack of the arrays the masks are for (K leading, possibly empty)
+):                          # -> the same family, each (len,)+K+C+(size,), HOST numpy (a read-only broadcast view)
+    """Broadcast a mask family (constant) over an extra leading tangent stack ``K`` -- the shared half of
+    :py:func:`ufv_variation_masks_over_stack`, for masks that are already gauge-shifted (a geometry's held
+    variation masks) or that need no shift (a point's ``(up, left)`` pair). ``K = ()`` returns views of the
+    same values. Host numpy: static structure."""
     K = tuple(out_stack[:len(out_stack) - len(frame_stack)])
     if tuple(out_stack[len(K):]) != tuple(frame_stack):
         raise ValueError('variation stack %s does not end with the frame stack %s' % (tuple(out_stack), tuple(frame_stack)))
 
-    def b(m):  # (d,)+C+(size,) -> (d,)+K+C+(size,)
+    def b(m):  # (len,)+C+(size,) -> (len,)+K+C+(size,)
         return np.broadcast_to(m.reshape(m.shape[:1] + (1,) * len(K) + m.shape[1:]), m.shape[:1] + K + m.shape[1:])
 
-    return tuple(b(m) for m in gauge)
+    return tuple(b(m) for m in masks)
