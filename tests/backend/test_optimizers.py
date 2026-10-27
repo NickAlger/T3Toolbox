@@ -235,7 +235,11 @@ class TestBackendOptimizers(unittest.TestCase):
         seen = []
         x, stats = opt.newton_cg(pm, x0, max_newton=15, callback=seen.append)
 
-        self.assertIn('losses', stats); self.assertIn('newton', stats)         # backward compat
+        self.assertIn('losses', stats)
+        self.assertNotIn('newton', stats)                                      # removed in 2026.3.0, not aliased
+        for key in ('newton_steps', 'newton_accepted', 'stop_reason'):
+            self.assertIn(key, stats)
+        self.assertEqual(stats['stop_reason'], 'gradient')
         self.assertEqual(len(stats['history']), len(seen))                     # one record per callback
         self.assertGreater(len(seen), 1)
         for info in seen:
@@ -274,27 +278,41 @@ class TestBackendOptimizers(unittest.TestCase):
             opt.newton_cg(pm, x0, callback=seen.append, **kw)
             return seen
 
-        # --- baseline: the reference is the computed initial gradient norm (== the first iterate's ‖g‖) ---
-        base = run()
+        # --- baseline (warm start): the reference is the computed initial gradient norm (== the first ‖g‖) ---
+        base = run(g0_reference='warm_start')
         g0 = base[0].gnorm
         self.assertGreater(g0, 0.0)
         for info in base:
             self.assertAlmostEqual(info.g0norm, g0, places=12)              # reported reference == computed norm
+            self.assertEqual((info.g0_reference, info.cg_reference), ('warm_start', 'warm_start'))
         BIG = 1.0e3 * g0                                                    # a much larger (warm-start-scale) reference
+
+        # --- the default on the manifold: the zero reference, at the canonical zero-point frame ---
+        zero = run()
+        geom = pm.geom
+        F0 = geom.zero_point_frame(pm.local_model(x0).frame)
+        gz = geom.project(F0, pm.kind.transpose(cw.corewise_scale(data, -1.0), ww, F0, pm.kind.precompute(F0, ww)))
+        z0 = float(geom.inner(gz, gz)) ** 0.5                               # hand-built: ‖Π 𝒥ᵀ(0 − data)‖ at F0
+        for info in zero:
+            self.assertAlmostEqual(info.g0norm, z0, delta=1e-12 * z0)
+            self.assertEqual((info.g0_reference, info.cg_reference), ('zero', 'zero'))
+        self.assertAlmostEqual(zero[0].forcing_eta, min(0.5, (zero[0].gnorm / z0) ** 0.5), places=12)
 
         # --- g0norm_newton only: BOTH tests use BIG (CG inherits the Newton reference) ---
         n_only = run(g0norm_newton=BIG)
         for info in n_only:
             self.assertAlmostEqual(info.g0norm, BIG, places=6)             # Newton reference is BIG
+            self.assertEqual((info.g0_reference, info.cg_reference), ('override', 'override'))
         s = n_only[0]
         self.assertFalse(s.converged)
         self.assertLess(s.forcing_eta, 0.5)                                # uncapped (gnorm/BIG tiny)
         self.assertAlmostEqual(s.forcing_eta, (s.gnorm / BIG) ** 0.5, places=10)   # CG inherited BIG
 
         # --- g0norm_cg only: CG uses BIG, the Newton reference is UNCHANGED ---
-        c_only = run(g0norm_cg=BIG)
+        c_only = run(g0norm_cg=BIG, g0_reference='warm_start')
         for info in c_only:
             self.assertAlmostEqual(info.g0norm, g0, places=12)             # Newton reference still the computed norm
+            self.assertEqual((info.g0_reference, info.cg_reference), ('warm_start', 'override'))
         s = c_only[0]                                                       # iter 0: ‖g‖ == g0 (same start)
         self.assertAlmostEqual(s.forcing_eta, (g0 / BIG) ** 0.5, places=10)
 
@@ -309,6 +327,64 @@ class TestBackendOptimizers(unittest.TestCase):
         self.assertAlmostEqual(half.forcing_eta, (g0 / BIG) ** 0.5, places=10)
         self.assertAlmostEqual(one.forcing_eta,  (g0 / BIG) ** 1.0, places=10)
         self.assertLess(one.forcing_eta, half.forcing_eta)                 # power 1.0 => tighter CG than 0.5
+
+        # --- non-positive overrides are structural errors (0.0 used to crash in the forcing term) ---
+        for kw in (dict(g0norm_newton=0.0), dict(g0norm_cg=-1.0), dict(g0norm_newton=float('nan'))):
+            with self.subTest(**{k: repr(v) for k, v in kw.items()}):
+                with self.assertRaises(ValueError):
+                    run(**kw)
+
+    def test_newton_cg_stats_contract(self):
+        """T29: `stats` is {losses, newton_steps, newton_accepted, stop_reason, history} with no `newton`;
+        every row carries step_control='line_search' and the reference kinds; `stop_reason` sits on the last
+        row only, with the same value as `stats['stop_reason']`; line-search rows have int `ls_steps`; and
+        `losses[k] == history[k]['objective']`. The three stop reasons are each driven once."""
+        rng = np.random.default_rng(4)
+        ww = unit_vecs(200, SHAPE, rng); data = dense_probe(self.A, ww)
+        x0 = t3.TuckerTensorTrain.zeros(SHAPE, TUCKER, TT).data
+        pm = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), bfit.PROBE, ww, data)
+
+        def check_common(stats):
+            self.assertEqual(set(stats), {'losses', 'newton_steps', 'newton_accepted', 'stop_reason', 'history'})
+            h = stats['history']
+            self.assertEqual(stats['losses'], [row['objective'] for row in h])
+            self.assertEqual(stats['newton_steps'], sum(row['cg_iters'] is not None for row in h))
+            for row in h:
+                self.assertEqual(row['step_control'], 'line_search')
+                self.assertEqual((row['g0_reference'], row['cg_reference']), ('zero', 'zero'))
+                if not row['converged']:
+                    self.assertIsInstance(row['ls_steps'], int)
+            self.assertEqual(h[-1]['stop_reason'], stats['stop_reason'])
+            self.assertTrue(all(row['stop_reason'] is None for row in h[:-1]))
+
+        cases = {
+            'gradient':    dict(max_newton=15),                                  # converges
+            'max_newton':  dict(max_newton=2),                                   # the cap
+            'line_search': dict(max_newton=5, c_armijo=10.0),                    # Armijo cannot be met
+        }
+        for reason, kw in cases.items():
+            with self.subTest(stop_reason=reason):
+                x, stats = opt.newton_cg(pm, x0, **kw)
+                check_common(stats)
+                self.assertEqual(stats['stop_reason'], reason)
+                h = stats['history']
+                if reason == 'gradient':
+                    self.assertTrue(h[-1]['converged'])
+                    self.assertEqual(stats['newton_steps'], len(h) - 1)
+                    self.assertEqual(stats['newton_accepted'], stats['newton_steps'])
+                elif reason == 'max_newton':
+                    self.assertEqual(len(h), 2)
+                    self.assertEqual((stats['newton_steps'], stats['newton_accepted']), (2, 2))
+                else:                                                        # rejected, x unchanged
+                    self.assertEqual((stats['newton_steps'], stats['newton_accepted']), (1, 0))
+                    self.assertTrue(h[-1]['ls_failed'])
+                    self.assertTrue(all(a is b for a, b in zip(x[0] + x[1], x0[0] + x0[1])))
+        # 'accept' takes the exhausted trial step: it counts as accepted, and the run ends on the cap
+        _, stats = opt.newton_cg(pm, x0, max_newton=2, c_armijo=10.0, on_line_search_failure='accept')
+        check_common(stats)
+        self.assertEqual((stats['stop_reason'], stats['newton_steps'], stats['newton_accepted']),
+                         ('max_newton', 2, 2))
+        self.assertTrue(all(row['ls_failed'] for row in stats['history']))
 
     def test_identity_regularizer_contributions(self):
         """IdentityRegularizer folds ρ=½λ‖X‖² into the local model on both geometries: `value` = ½λ‖X‖²

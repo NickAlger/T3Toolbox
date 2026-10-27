@@ -33,8 +33,9 @@ this example changes the question, not the machinery.
 The comparison: same data, two geometries
 -----------------------------------------
 Both runs use the identical noisy training data, validation split, per-order weight, adaptive
-rank-continuation policy (``continuation_ranks`` + zero-padded ``resize`` warm starts, with the
-``g0norm_newton`` pin of ``docs/rank_continuation.md``), and Newton budget. The only difference:
+rank-continuation policy (``continuation_ranks`` + zero-padded ``resize`` warm starts, each level's
+Newton stop referenced to the zero tensor of its ranks -- the library default, ``docs/rank_continuation.md``),
+and Newton budget. The only difference:
 
 * **shared**   -- ``shared_manifold((0,0,0,1,1))``, with ``sharing=`` threaded through
   ``continuation_ranks`` / ``resize`` (a group's Tucker edges are ONE edge: one condition number
@@ -121,16 +122,12 @@ def continuation_fit(geometry, sharing, label, T, T_norm, ww_tr, pp_tr, data_tr,
     print(header)
     print("-" * len(header))
     X = t3.TuckerTensorTrain.zeros(SHAPE, (1,) * len(SHAPE), (1,) * (len(SHAPE) + 1))
-    g0 = None
     records = []
     for level in range(MAX_LEVELS):
-        kwargs = dict(max_newton=MAX_NEWTON)
-        if g0 is not None:
-            kwargs['g0norm_newton'] = g0          # pin the Newton reference across warm starts
+        # No reference bookkeeping: each level's Newton stop is relative to the gradient at the zero tensor
+        # of that level's ranks (the default g0_reference), not to the deflated warm-start gradient.
         X, stats = optimizers.newton_cg(geometry, 'probe_derivatives', (ww_tr, pp_tr),
-                                        data_tr, X, order=ORDER, weight=omega, **kwargs)
-        if g0 is None:
-            g0 = stats['history'][0]['gnorm']
+                                        data_tr, X, order=ORDER, weight=omega, max_newton=MAX_NEWTON)
         dof = t3m.manifold_dim((SHAPE, X.tucker_ranks, X.tt_ranks), sharing=sharing)
         tr_e = weighted_misfit([np.asarray(z) for z in X.probe_derivatives(ww_tr, pp_tr, ORDER)],
                                data_tr, omega)

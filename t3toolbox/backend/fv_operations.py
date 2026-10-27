@@ -5,7 +5,8 @@
 """Operations on raw (frame, variations) data: variation constructors, frame ops, residuals.
 
 ``fv_variations_{zeros,randn,unit,from_vector}`` build variation tuples for a given frame;
-``fv_frame_reverse`` and the ``fv_frame_*_residual`` checkers operate on the frame alone. The
+``fv_frame_reverse`` and the ``fv_frame_*_residual`` checkers operate on the frame alone, and
+``fv_zero_point_frame`` builds the canonical frame at the zero tensor from a frame's structure. The
 ``fv_*_weights`` functions are the weighted-layer tangent metric (absorb into the variation cores).
 """
 from __future__ import annotations
@@ -29,6 +30,7 @@ __all__ = [
     'fv_frame_reverse',
     'fv_frame_orthogonality_residual',
     'fv_frame_consistency_residual',
+    'fv_zero_point_frame',
     'fv_absorb_weights',
     'fv_weights_consistent',
     'fv_concatenate_weights',
@@ -241,6 +243,183 @@ def fv_frame_consistency_residual(
     num = xnp.sqrt(xnp.sum((left - right) ** 2, axis=mode_axes))   # Frobenius over modes -> stack_shape
     den = xnp.sqrt(xnp.sum(right ** 2, axis=mode_axes))
     return num / xnp.maximum(1.0, den)
+
+
+# --------------------------------------------------------------------------------------------------
+# The canonical zero-point frame (the default Newton reference; docs/fitting_and_optimization.md §5)
+# --------------------------------------------------------------------------------------------------
+ZERO_FRAME_SEED = 0   # the Haar draws' seed: a fixed CONVENTION, not a tunable
+
+
+def _identity_prefix(
+        rows:  int,
+        cols:  int,
+) -> NDArray:          # HOST float64, shape=(rows, cols): ones on the leading diagonal, zeros elsewhere
+    """The ``rows x cols`` matrix with ones on its leading diagonal -- orthonormal rows when
+    ``rows <= cols``, orthonormal columns when ``rows >= cols``."""
+    out = np.zeros((rows, cols))
+    k = min(rows, cols)
+    out[np.arange(k), np.arange(k)] = 1.0
+    return out
+
+
+def _haar_rows(
+        n:     int,    # the number of rows (the group's Tucker rank), n <= N
+        N:     int,    # the mode size
+        key:   int,    # the stream key: the group's first mode index
+        seed:  int,
+) -> NDArray:          # HOST float64, shape=(n, N): orthonormal rows, Haar-distributed, sign-fixed
+    """``n`` Haar-distributed orthonormal rows in ``R^N``, from the keyed legacy stream
+    ``RandomState([seed, key])`` -- rank-independent and nested by construction (see
+    :py:func:`fv_zero_point_frame`)."""
+    G = np.random.RandomState([seed, key]).standard_normal((n, N))   # row-major: row j is the same for every n > j
+    Q, R = np.linalg.qr(G.T)                                         # reduced QR, Q: (N, n)
+    return (Q * np.where(np.diag(R) >= 0, 1.0, -1.0)).T              # sign-fixed: unique given G
+
+
+def fv_zero_point_frame(
+        frame: typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=(nUi, Ni)
+            typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=(rLi, nDi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=(rLi, nUi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=(rRi, nUi, rR(i+1))
+        ],
+        groups:  typ.Tuple[typ.Tuple[int, ...], ...] = (),  # sharing partition (canonical_groups); () = unshared
+        seed:    int = ZERO_FRAME_SEED,                      # the Haar stream seed: a fixed convention
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # up:    seeded Haar rows, one draw per group.     len=d, elm_shape=(nUi, Ni)
+    typ.Tuple[NDArray, ...],  # down:  identity-prefix, orthonormal.             len=d, elm_shape=(rLi, nDi, rR(i+1))
+    typ.Tuple[NDArray, ...],  # left:  identity-prefix, left-orthogonal; L[d-1] = 0
+    typ.Tuple[NDArray, ...],  # right: identity-prefix, right-orthogonal; R[0] = 0
+]:
+    '''The canonical orthonormal frame **at the zero tensor**, with ``frame``'s structure (its core shapes).
+
+    At ``X = 0`` every orthonormal completion is a valid frame, and the Riemannian gradient's norm there
+    depends on which one is chosen. This function fixes the choice by a convention, so that the zero-tensor
+    gradient norm -- the default Newton reference of ``backend.optimizers.newton_cg``
+    (``g0_reference='zero'``) -- is a deterministic number. Only the frame's **shapes** are read; its values
+    are not, so any frame with the right ranks gives the same result.
+
+    The construction:
+
+    - **Tucker factors** (``up``): per sharing group ``g`` (an unshared mode is its own group), with key
+      ``k_g = min(g)``, draw ``G = RandomState([seed, k_g]).standard_normal((n_g, N_g))``, take the
+      sign-fixed reduced QR of ``G.T``, and set ``U_g = Q.T``: Haar-distributed orthonormal rows, the same
+      array for every mode of the group.
+    - **TT cores** (``down`` / ``left`` / ``right``): identity prefixes -- exactly orthonormal, no draw --
+      with ``left[d-1] = right[0] = 0``, so both base-point reconstructions are the zero tensor.
+
+    Three properties follow, and are what the reference relies on:
+
+    - **Rank independence.** Each group draws from its own keyed stream, so changing one mode's rank or
+      size leaves every other mode's factor bit-identical.
+    - **Nesting.** QR column ``j`` depends only on draw rows ``<= j``, so the factor at rank ``r`` is the
+      leading ``r``-row block of the factor at rank ``r + 1``: across rank-continuation levels the
+      reference frames are nested subspaces.
+    - **Layer independence.** The uniform twin
+      (:py:func:`~t3toolbox.backend.ufv_operations.ufv_zero_point_frame`) builds the same real blocks, so
+      the reference is identical on the ragged and uniform layers.
+
+    **Why Haar, and only for the Tucker factors.** The Tucker factor is the only part of the frame that
+    meets the data. A coordinate-aligned factor (an identity prefix, or LAPACK's completion of a zero core)
+    gives a reference of **exactly zero** whenever the data have no energy on its leading coordinates; a
+    Haar factor is generic. The TT cores act on rank indices, which carry no data orientation. The seed is a
+    convention, not a parameter worth tuning: another seed moves the reference by an O(1) factor, which is
+    harmless for a relative stopping test. ``RandomState``'s legacy stream is frozen across numpy versions;
+    the QR is reproducible to ~1e-15 across BLAS builds.
+
+    The result has the template's dtype and backend (numpy or jax, inferred). The draws themselves are
+    host numpy by design -- a convention, not data. A **stacked** template (stack ``C != ()``) raises
+    ``NotImplementedError``: the zero-point frame exists for the optimizers' reference, and the optimizers
+    take an unstacked point (``backend.optimizers._require_unstacked``).
+
+    Examples
+    --------
+    The zero-point frame of a rank-``(2, 3, 2)`` structure is orthonormal, sits at the zero tensor, and
+    copies the template's core shapes:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.fv_operations as fvo
+    >>> import t3toolbox.backend.t3_conversions as t3c
+    >>> def structure(tucker_ranks, tt_ranks):       # any frame with these ranks; only its shapes are read
+    ...     x = t3.TuckerTensorTrain.zeros((5, 6, 7), tucker_ranks, tt_ranks)
+    ...     return fvc.t3_orthogonal_representations(x.data)[0]
+    >>> template = structure((2, 3, 2), (1, 2, 2, 1))
+    >>> up, down, left, right = fvo.fv_zero_point_frame(template)
+    >>> print([u.shape for u in up], [g.shape for g in left])
+    [(2, 5), (3, 6), (2, 7)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
+    >>> bool(fvo.fv_frame_orthogonality_residual((up, down, left, right)) < 1e-14)
+    True
+    >>> print(float(np.abs(t3c.t3_to_dense((up, left))).max()))   # the base point is the zero tensor
+    0.0
+
+    Nested across ranks, and independent of the other modes' ranks:
+
+    >>> up_more = fvo.fv_zero_point_frame(structure((3, 3, 2), (1, 3, 2, 1)))[0]
+    >>> bool(np.allclose(up_more[0][:2], up[0]))       # mode 0 at rank 3 extends mode 0 at rank 2
+    True
+    >>> bool(np.array_equal(up_more[2], up[2]))        # mode 2 is untouched by mode 0's rank
+    True
+
+    With sharing, one factor per group:
+
+    >>> template = fvc.t3_orthogonal_representations(
+    ...     t3.TuckerTensorTrain.zeros((6, 6, 7), (3, 3, 2), (1, 3, 2, 1)).data)[0]
+    >>> up_shared = fvo.fv_zero_point_frame(template, groups=((0, 1), (2,)))[0]
+    >>> bool(np.array_equal(up_shared[0], up_shared[1]))
+    True
+    '''
+    up, down, left, right = frame
+    d = len(up)
+    stack = tuple(up[0].shape[:-2])
+    if stack:
+        raise NotImplementedError(
+            "fv_zero_point_frame: a STACKED template (stack C = %r) is not supported. The zero-point frame "
+            "exists for the optimizers' Newton reference, and the optimizers take an unstacked point "
+            "(backend.optimizers._require_unstacked); build it per stack element." % (stack,))
+
+    key = list(range(d))                                   # the stream key of each mode: its group's first mode
+    for group in groups:
+        if len({tuple(up[i].shape) for i in group}) != 1:
+            raise ValueError("fv_zero_point_frame: sharing group %r has unequal Tucker-factor shapes %r; a "
+                             "shared factor needs one (rank, size) per group"
+                             % (tuple(group), [tuple(up[i].shape) for i in group]))
+        for i in group:
+            key[i] = min(group)
+
+    for i in range(d):                                     # structural: the shapes must admit an orthonormal frame
+        (nU, N), (rL, nD, rR) = up[i].shape, down[i].shape
+        admissible = (nU <= N and nD <= rL * rR
+                      and (i == d - 1 or left[i].shape[2] <= left[i].shape[0] * left[i].shape[1])
+                      and (i == 0 or right[i].shape[0] <= right[i].shape[1] * right[i].shape[2]))
+        if not admissible:
+            raise ValueError("fv_zero_point_frame: the template's core shapes at mode %d admit no orthonormal "
+                             "frame (up %r, down %r, left %r, right %r)"
+                             % (i, up[i].shape, down[i].shape, left[i].shape, right[i].shape))
+
+    xnp, _, _ = get_backend(False, tree_contains_jax(frame))
+    dtype = up[0].dtype
+
+    drawn = {}                                             # one cast Haar factor per group, replicated
+    for i in range(d):
+        if key[i] not in drawn:
+            drawn[key[i]] = xnp.asarray(_haar_rows(up[i].shape[0], up[i].shape[1], key[i], seed), dtype=dtype)
+    up_out = tuple(drawn[key[i]] for i in range(d))
+
+    down_out, left_out, right_out = [], [], []
+    for i in range(d):
+        rL, nD, rR = down[i].shape
+        D = np.moveaxis(_identity_prefix(nD, rL * rR).reshape(nD, rL, rR), 0, 1)   # orthonormal over nD
+        a, n, b = left[i].shape
+        L = _identity_prefix(a * n, b).reshape(a, n, b) if i < d - 1 else np.zeros((a, n, b))
+        a, n, b = right[i].shape
+        R = _identity_prefix(a, n * b).reshape(a, n, b) if i > 0 else np.zeros((a, n, b))
+        down_out.append(xnp.asarray(D, dtype=dtype))
+        left_out.append(xnp.asarray(L, dtype=dtype))
+        right_out.append(xnp.asarray(R, dtype=dtype))
+    return up_out, tuple(down_out), tuple(left_out), tuple(right_out)
 
 
 def fv_absorb_weights(

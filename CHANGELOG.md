@@ -19,6 +19,58 @@ All notable changes to T3Toolbox are documented here. The format follows
   contract's "padding is don't-care" is unchanged, and a new consumer -- the CG state included -- no
   longer has to remember to mask on entry. It breaks only code that read the padding. The bare
   `utv_*_transpose_from_sweep` seam halves stay bare by contract; their callers, the kinds, re-mask.
+- **The default Newton reference is the zero tensor of the level's ranks, on the manifold geometries.**
+  `newton_cg`'s relative stop `‖g‖ ≤ gtol_rel·‖g₀‖` and its CG forcing term, and `gradient_descent`'s
+  stop, used the warm-start `‖g(x0)‖` as `‖g₀‖`. After a zero-padded continuation restart that gradient
+  is deflated, so the stop was unreachable at the default `gtol_rel` and every level ran to its cap. Now
+  `g0_reference=None` means the geometry's own reference: on `MANIFOLD` / `UNIFORM_MANIFOLD` and their
+  shared wrappers, the gradient norm at the zero tensor of `x0`'s ranks; on the corewise geometries (where
+  the zero cores are a critical point) the warm start, as before. The reference is evaluated at a
+  canonical zero-point frame (below), so it is a deterministic convention good to an O(1) factor, the same
+  on the ragged and uniform layers, and nested across continuation levels. It moves every manifold stop
+  by an O(1) factor relative to 2026.2.0, **zero starts included** (the old reference sat at the start's
+  LAPACK completion). Pass `g0_reference='warm_start'` to keep the old reference; the explicit
+  `g0norm_newton` / `g0norm_cg` overrides still win. The downstream measurement behind the change
+  (T3Polynomial, 30 Newton iterations per continuation level):
+
+  | level | dof | `‖g₀‖` at the zero tensor | warm start / zero |
+  |---|---|---|---|
+  | 1 | 417 | 10.0 | 1.03 |
+  | 3 | 1617 | 14.4 | 0.37 |
+  | 5 | 4609 | 17.7 | 0.21 |
+  | 7 | 10545 | 22.2 | 0.13 |
+  | 9 | 17917 | 27.3 | 0.053 |
+
+  The zero reference also tightens the CG forcing term (~2× more CG work per step at high rank there, for
+  the same accuracy). Continuation loops that carried `stats['history'][0]['gnorm']` into `g0norm_newton`
+  can drop that bookkeeping.
+- **`newton_cg`'s `stats['newton']` is replaced** by `stats['newton_steps']` (the same count: CG solves),
+  `stats['newton_accepted']` (steps taken) and `stats['stop_reason']` (`'gradient'` / `'max_newton'` /
+  `'line_search'`). It is removed, not aliased: it overloaded "solves" and "steps".
+- **A non-positive `g0norm_newton` / `g0norm_cg` raises `ValueError`.** `0.0` used to crash with a
+  `ZeroDivisionError` in the forcing term.
+- **Display only, numerics unchanged:** the `verbose=True` converged line names its reference --
+  `converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = zero tensor)` / `warm start` / `override`. A hand-built `NewtonInfo`
+  row (no reference kind) prints exactly as before.
+
+### Added
+
+- **`g0_reference`** on `newton_cg` and `gradient_descent` (frontend and backend): `None` (the geometry's
+  own), `'zero'` or `'warm_start'`, case-insensitive. An explicit `'zero'` on a geometry with no zero-point
+  frame (a corewise one) is a `ValueError`; a vanishing zero reference (e.g. all-zero data) falls back to
+  the warm start with a `RuntimeWarning` by default and raises when `'zero'` was asked for explicitly.
+- **The canonical zero-point frame**: `backend.fv_operations.fv_zero_point_frame(frame, groups, seed)` and
+  its uniform twin `backend.ufv_operations.ufv_zero_point_frame`, with the fixed seed
+  `fv_operations.ZERO_FRAME_SEED = 0`. Seeded Haar Tucker factors (one per sharing group, from a stream
+  keyed by the group's first mode) and identity-prefix TT cores: rank-independent, nested, and the same
+  real blocks on both layers. A Haar completion because a coordinate-aligned one gives a reference of
+  exactly 0 on data with no energy on its leading coordinates.
+- **`Geometry.zero_point_frame(frame)`**, an **optional**, duck-typed member: the four backend geometries
+  define it (`None` on the corewise ones). A custom geometry without it keeps working, with the warm-start
+  reference as its default.
+- **`NewtonInfo` fields** `g0_reference` (the Newton-stop reference: `'zero'` / `'warm_start'` /
+  `'override'`), `cg_reference` (the CG-forcing one), `step_control` (`'line_search'`) and `stop_reason`
+  (on the last row), all defaulting to `None`; they ride in `stats['history']`.
 
 ## [2026.2.0] — 2026-08-25
 

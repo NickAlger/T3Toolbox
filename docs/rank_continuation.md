@@ -100,13 +100,25 @@ Two standard outer-loop choices live in *your* loop, not the library: **terminat
 would become underdetermined (training data over manifold dimension falls below a threshold, `tau_data`
 above), and **select** the rank level that minimized a held-out validation error.
 
-> **Warm-start gotcha for the inner `newton_cg` fit.** Because each `fixed_rank_fit` after the first is
-> warm-started (zero-padded from the converged lower-rank iterate), its **initial** gradient norm is
-> already small — and `newton_cg`'s stopping tests are *relative* to it, so the Newton stop over-tightens
-> and CG slackens. Pin the reference to the problem's true gradient scale via `g0norm_newton` /
-> `g0norm_cg` (e.g. reuse the initial `‖g‖` from the first continuation stage), and optionally raise
-> `cg_forcing_power` above `0.5` to spend more CG per Newton step when the retraction is expensive. See
-> [`fitting_and_optimization.md`](fitting_and_optimization.md) §5.
+> **The inner `newton_cg` fit needs no reference bookkeeping.** Each `fixed_rank_fit` after the first is
+> warm-started (zero-padded from the converged lower-rank iterate), so its **initial** gradient is
+> already small. `newton_cg`'s stopping tests are *relative*, and on a manifold geometry their default
+> reference (`g0_reference=None`, resolved to `'zero'`) is the gradient norm at the **zero tensor of the
+> level's own ranks**, not that deflated warm-start gradient. Each level therefore gets a reference at its
+> own scale — it grows with the ranks — with nothing to carry between levels. (Before 2026.3.0 the
+> reference was the warm start, and the advice was to pin `g0norm_newton` to the first stage's `‖g‖`;
+> pass `g0_reference='warm_start'` for that old behaviour.)
+>
+> The reference is a **convention**, fixed so that it is reproducible: it is evaluated at a canonical
+> zero-point frame with seeded Haar-random Tucker factors and identity-prefix TT cores. That makes it a
+> deterministic data-gradient scale at the level's ranks, good to an O(1) factor — harmless for a
+> relative stop. It is Haar rather than coordinate-aligned because an aligned completion gives exactly 0
+> on data with no energy on its leading coordinates. It is identical on the ragged and uniform layers,
+> and **nested across levels** (a mode's level-`r` factor is the leading block of its level-`r + 1`
+> factor), so the per-level references are consistent along the ladder. Details, and the explicit
+> `g0norm_newton` / `g0norm_cg` overrides (which still win), in
+> [`fitting_and_optimization.md`](fitting_and_optimization.md) §5. Optionally raise `cg_forcing_power`
+> above `0.5` to spend more CG per Newton step when the retraction is expensive.
 
 `continuation_ranks` returns the **current** ranks unchanged when continuation should stop — either the
 structure is already maximal, or every edge is too ill conditioned to grow safely (see `kappa_guard`
@@ -153,8 +165,10 @@ True True
 
 A freshly padded shared point has exactly-zero new spectrum levels (the tied Tucker channel is
 momentarily gated; the escape runs through the TT variations within the first steps), which is why
-full shared rank is never enforced anywhere. The warm-start `g0norm_newton` guidance above matters
-doubly here — without the pin, the fit stalls at the target level and continuation over-grows.
+full shared rank is never enforced anywhere. The reference above matters doubly here: with the old
+warm-start reference the fit stalled at the target level and continuation over-grew. The default zero
+reference is taken at the zero tensor of the **group** ranks, in the shared geometry (one Haar factor per
+group, so the zero point is exactly tied), and needs no pin.
 
 ## On the uniform layer
 
@@ -173,7 +187,7 @@ keep every tangent direction — see `uniform_equivalence_contract.md`, "Gauge-c
 x = x0                                        # ragged
 for level in range(max_levels):
     ux = UniformTuckerTensorTrain.from_t3(x)              # pack for the fit
-    ux, stats = newton_cg(UNIFORM_MANIFOLD, kind, sample, data, ux, g0norm_newton=g0)
+    ux, stats = newton_cg(UNIFORM_MANIFOLD, kind, sample, data, ux)   # zero reference at this level's ranks
     x = ux.to_t3()                                        # back to ragged for the bookkeeping
     new_tucker, new_tt = x.continuation_ranks()
     if (new_tucker, new_tt) == (x.tucker_ranks, x.tt_ranks):
@@ -181,7 +195,9 @@ for level in range(max_levels):
     x = x.resize(x.shape, new_tucker, new_tt)
 ```
 
-`examples/fit_hilbert_uniform_newton_cg.py` runs this end to end.
+`examples/fit_hilbert_uniform_newton_cg.py` runs this end to end. Each level's reference is computed on
+the uniform layer itself, and equals the ragged one (the canonical zero-point frame has the same real
+blocks on both layers), so the round trip does not change where a level stops.
 
 > **Do not feed `ut3svd` singular values to `compute_continuation_ranks`.** It infers the current
 > ranks from `len(s[i])`, and uniform spectra are padded to the *nominal* rank — so every length is

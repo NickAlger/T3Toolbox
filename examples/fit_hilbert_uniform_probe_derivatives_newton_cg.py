@@ -162,6 +162,7 @@ def main():
 
         X0 = X.resize(SHAPE, tucker_ranks, tt_ranks)         # ragged: zero-pad the previous solution
         ux0 = ut3.UniformTuckerTensorTrain.from_t3(X0)       # -> uniform for the fit
+        # (no reference bookkeeping: each level's Newton stop is relative to the zero tensor of its ranks)
         ux, stats = optimizers.newton_cg(
             ut3m.UNIFORM_MANIFOLD, "probe_derivatives", (ww_tr, pp_tr), data_tr, ux0,
             order=ORDER, weight=omega, max_newton=MAX_NEWTON)
@@ -174,7 +175,7 @@ def main():
         true_e = float(np.linalg.norm(X.to_dense() - A)) / A_norm
         records.append(dict(level=r, dof=dof, val=val_e, true=true_e))
 
-        print(f"{r:>5} {f'{tucker_ranks} {tt_ranks}':>22} {dof:>5} {stats['newton']:>6} "
+        print(f"{r:>5} {f'{tucker_ranks} {tt_ranks}':>22} {dof:>5} {stats['newton_steps']:>6} "
               f"{train_e:>11.3e} {val_e:>11.3e} {true_e:>9.3e}")
 
     # ---- model selection by validation ------------------------------------------------------------

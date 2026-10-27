@@ -108,10 +108,14 @@ handles it. Consequences wired into the code: the projection solve is a clipped 
 (mandatory), and **full shared rank is a diagnostic, never an enforced precondition** — enforcing
 it would reject every restart. (ε-inflation of the new slots is a documented fallback only.)
 
-The end-to-end continuation loop needs the documented warm-start guidance
-([`rank_continuation.md`](../rank_continuation.md)): pin `g0norm_newton` across levels — without
-the pin the fit stalls at the target level and continuation over-grows (reproduced, then fixed, in
-the tests).
+The end-to-end continuation loop needs a Newton reference that is not the padded restart's deflated
+warm-start gradient ([`rank_continuation.md`](../rank_continuation.md)): with the warm start as the
+reference the fit stalled at the target level and continuation over-grew (observed during the 2026-08 build).
+Through 2026.2.0 the fix was to pin `g0norm_newton` across levels; since 2026.3.0 the default
+`g0_reference` does it — the zero tensor of each level's group ranks, at a canonical zero-point frame
+with one Haar factor per group (`fv_zero_point_frame`), so the zero point is exactly tied and the
+reference is taken in the shared geometry. The test (`test_end_to_end_continuation_reaches_true_shared_ranks`)
+now runs on the default, with no pin.
 
 ## The geometry `precompute` slot
 

@@ -243,6 +243,7 @@ def gradient_descent(
         weight:   typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
         chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
+        g0_reference: typ.Optional[str] = None,   # the stop's ‖g0‖: None = the geometry's own ('zero' on manifolds); 'zero' | 'warm_start'
         **kwargs,                       # forwarded to backend.optimizers.gradient_descent (n_iter, gtol_rel, ...)
 ) -> typ.Tuple[Point, dict]:            # (x_opt, stats)
     """Fit ``x`` to ``data`` by steepest descent (Cauchy step + Armijo line search) on ``geometry``.
@@ -254,9 +255,11 @@ def gradient_descent(
     **Eager only**: there is no ``use_jit`` here (that kwarg lives on :py:func:`mc_sgd` / :py:func:`adam` /
     :py:func:`newton_cg`); this is the reference/pedagogical optimizer, ``newton_cg`` the performance path.
     ``on_line_search_failure`` ('stop' default / 'accept') controls Armijo-exhaustion behavior as in
-    :py:func:`newton_cg`. See :py:func:`t3toolbox.backend.optimizers.gradient_descent`."""
+    :py:func:`newton_cg`, and ``g0_reference`` picks the reference ``‖g0‖`` of the relative stop as there
+    (by default the zero tensor of ``x0``'s ranks on a manifold geometry). See
+    :py:func:`t3toolbox.backend.optimizers.gradient_descent`."""
     problem, init, rewrap = _setup(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size)
-    x_cores, stats = bopt.gradient_descent(problem, init, **kwargs)
+    x_cores, stats = bopt.gradient_descent(problem, init, g0_reference=g0_reference, **kwargs)
     return rewrap(x_cores), stats
 
 
@@ -330,16 +333,19 @@ def newton_cg(
         use_jit:    bool = False,               # jit the inner CG: auto-converts x0/sample/data to jax -> a jax-backed float32 result; warns + runs eager if jax absent
         regularizer: typ.Any = None,            # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
         chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
+        g0_reference: typ.Optional[str] = None,   # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start'
         **kwargs,                       # forwarded to backend.optimizers.newton_cg (max_newton, gtol_rel, g0norm_newton, ...)
 ) -> typ.Tuple[Point, dict]:
     """Inexact Riemannian Newton-CG with an Armijo line search -- the manifold workhorse. Ragged or uniform
     ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
 
-    In a **warm-start continuation loop** the initial gradient norm ‖g0‖ is misleadingly small, which
-    over-tightens the Newton stop and slackens CG; pass ``g0norm_newton`` / ``g0norm_cg`` (forwarded via
-    ``**kwargs``) to override the reference norm the two relative stopping tests use, and
-    ``cg_forcing_power`` to trade more CG iterations per Newton step for fewer Newton steps (all detailed
-    on the backend).
+    Both stopping tests are relative to a reference ‖g0‖. By default (``g0_reference=None``) a manifold
+    geometry uses the gradient norm at the **zero tensor of x0's ranks** -- the right scale after a
+    warm start, whose own initial gradient is deflated -- and a corewise geometry the warm-start ‖g(x0)‖;
+    ``g0_reference='warm_start'`` keeps the 2026.2.0 behaviour. The explicit overrides ``g0norm_newton`` /
+    ``g0norm_cg`` (forwarded via ``**kwargs``) win, and ``cg_forcing_power`` trades more CG iterations per
+    Newton step for fewer Newton steps (all detailed on the backend; ``docs/fitting_and_optimization.md``
+    §5).
 
     ``verbose=True`` prints a per-iteration diagnostic block (objective / gradient, CG stats, line search,
     and the per-``(mode, order)`` relative-error table); pass ``val_sample`` / ``val_data`` to add a
@@ -433,7 +439,8 @@ def newton_cg(
             vs = uf.pack_sample(kind, val_sample, x0.N)   # pack validation to the packed kind's width
             vd = uf.pack_data(kind, val_data, x0.N)
         callback, records = bdisp.make_newton_display(problem, val_sample=vs, val_data=vd)
-    x_cores, stats = bopt.newton_cg(problem, init, callback=callback, use_jit=use_jit, **kwargs)
+    x_cores, stats = bopt.newton_cg(problem, init, callback=callback, use_jit=use_jit, g0_reference=g0_reference,
+                                    **kwargs)
     if records is not None:
         stats['diagnostics'] = records
     return rewrap(x_cores), stats

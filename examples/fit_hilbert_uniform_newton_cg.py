@@ -144,6 +144,7 @@ def main():
 
         X0 = X.resize(SHAPE, tucker_ranks, tt_ranks)         # ragged: zero-pad the previous solution
         ux0 = ut3.UniformTuckerTensorTrain.from_t3(X0)       # ------> UNIFORM start point   (diff #1)
+        # (no reference bookkeeping: each level's Newton stop is relative to the zero tensor of its ranks)
         ux, stats = optimizers.newton_cg(
             ut3m.UNIFORM_MANIFOLD, "apply", ww_train, b_train, ux0, max_newton=MAX_NEWTON)  # UNIFORM geometry (diff #2)
         X = ux.to_t3()                                       # ragged again, for the next resize
@@ -155,7 +156,7 @@ def main():
         records.append(dict(level=r, dof=dof, val=val_e, true=true_e))
 
         rank_str = f"{tucker_ranks} {tt_ranks}"
-        print(f"{r:>5} {rank_str:>26} {dof:>5} {stats['newton']:>6} "
+        print(f"{r:>5} {rank_str:>26} {dof:>5} {stats['newton_steps']:>6} "
               f"{train_e:>9.3e} {val_e:>9.3e} {true_e:>9.3e} {oracle_e:>9.3e}")
 
     # ---- model selection by validation ------------------------------------------------------------

@@ -167,7 +167,12 @@ def _tangent_cg(H, rhs, frame, tol, maxiter):
 def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
                          max_newton=MAX_NEWTON, gtol_rel=GTOL_REL, cg_maxiter=CG_MAXITER,
                          c_armijo=1e-4):
-    """Fit X to data b by minimizing 1/2 ||forward(X) - b||^2 on the fixed-rank manifold."""
+    """Fit X to data b by minimizing 1/2 ||forward(X) - b||^2 on the fixed-rank manifold.
+
+    A hand-rolled loop, written out for reading: it does NOT inherit the library ``newton_cg``'s fixes.
+    In particular its relative stop uses the warm-start ``‖g(x0)‖``, which a zero-padded continuation
+    restart deflates; the library's default reference is the gradient at the zero tensor of the level's
+    ranks (``g0_reference``, ``docs/rank_continuation.md``)."""
     X = X0
     g0norm = None
     newton_iters = 0
@@ -204,7 +209,7 @@ def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
             alpha *= 0.5
         X = X_trial
 
-    return X, dict(newton=newton_iters)
+    return X, dict(newton_steps=newton_iters)   # the library's stats key (2026.3.0)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -252,7 +257,7 @@ def adaptive_continuation(shape, fwd_train, builder_train, mdot, b_train, fwd_va
         e = _errors(X, A, A_norm, fwd_train, b_train, b_rms, fwd_val, b_val)
         oracle_e = oracle_relerr(A, tucker_ranks, tt_ranks)
         records.append(dict(level=level, tucker=tucker_ranks, tt=tt_ranks, dof=dof, **e))
-        print(_row(level, tucker_ranks, tt_ranks, dof, stats['newton'], e, oracle_e))
+        print(_row(level, tucker_ranks, tt_ranks, dof, stats['newton_steps'], e, oracle_e))
 
         new_tucker, new_tt = X.continuation_ranks(tau=TAU, n_chunk=N_CHUNK)
         if (new_tucker, new_tt) == (tucker_ranks, tt_ranks):
@@ -288,7 +293,7 @@ def uniform_continuation(shape, fwd_train, builder_train, mdot, b_train, fwd_val
         e = _errors(X, A, A_norm, fwd_train, b_train, b_rms, fwd_val, b_val)
         oracle_e = oracle_relerr(A, tucker_ranks, tt_ranks)
         records.append(dict(level=level, tucker=tucker_ranks, tt=tt_ranks, dof=dof, **e))
-        print(_row(level, tucker_ranks, tt_ranks, dof, stats['newton'], e, oracle_e))
+        print(_row(level, tucker_ranks, tt_ranks, dof, stats['newton_steps'], e, oracle_e))
     return records
 
 

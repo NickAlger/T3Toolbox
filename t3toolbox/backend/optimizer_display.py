@@ -118,6 +118,9 @@ def _format_table(train_err: NDArray, val_err: typ.Optional[NDArray], fmt: str) 
     return legend + "\n" + _grid(col_labels, row_labels, cells)
 
 
+_REFERENCE_NAMES = {'zero': 'zero tensor', 'warm_start': 'warm start', 'override': 'override'}   # NewtonInfo.g0_reference
+
+
 def _format_header(info: "bopt.NewtonInfo", obj_unweighted: typ.Optional[float]) -> str:
     """The one-line per-iteration scalar header (a shorter form on the converged final line)."""
     obj = "obj %.3e" % info.objective
@@ -132,7 +135,8 @@ def _format_header(info: "bopt.NewtonInfo", obj_unweighted: typ.Optional[float])
     obj += "  ‖g‖ %.2e (%.1e·g₀)" % (info.gnorm, rel_g)
     parts = ["iter %2d" % info.iteration, obj]
     if info.converged:
-        parts.append("converged (‖g‖ ≤ gtol·‖g₀‖)")
+        ref = _REFERENCE_NAMES.get(getattr(info, 'g0_reference', None))   # None (a hand-built row): unnamed
+        parts.append("converged (‖g‖ ≤ gtol·‖g₀‖%s)" % (", g₀ = " + ref if ref else ""))
         return " | ".join(parts)
     sym = "✓" if info.cg_converged else ("⌇" if info.cg_truncated else "⋯")   # tol / truncated / maxiter
     parts.append("CG %d/%d tol %.1e resid %.1e %s"
@@ -184,6 +188,15 @@ def format_newton_iter(
     >>> print(disp.format_newton_iter(info, np.array([[3.7e-1]])))
     iter  3 | obj 6.003e+01 = misfit 5.974e+01 + reg 2.900e-01  ‖g‖ 1.60e+00 (1.5e-01·g₀) | CG 8/200 tol 6.2e-01 resid 4.9e-01 ✓ | ls 0 α 1.00e+00 ‖Δx‖/‖x‖ 1.2e+00 | Δf -2.22e+00 ρ 0.07 | 0.03s
       rel err   3.7e-01
+
+    A row from ``newton_cg`` carries its reference kind (``NewtonInfo.g0_reference``), and the converged
+    line names it -- here the default zero-tensor reference:
+
+    >>> info = bopt.NewtonInfo(iteration=7, objective=1.2e-9, gnorm=3.1e-7, g0norm=4.4e1, converged=True,
+    ...                        g0_reference='zero')
+    >>> print(disp.format_newton_iter(info, np.array([[2.0e-5]])))
+    iter  7 | obj 1.200e-09  ‖g‖ 3.10e-07 (7.0e-09·g₀) | converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = zero tensor)
+      rel err   2.0e-05
     """
     return _format_header(info, obj_unweighted) + "\n" + _format_table(train_err, val_err, fmt)
 

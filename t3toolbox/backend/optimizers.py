@@ -32,6 +32,7 @@ import functools as ft
 import math
 import time
 import typing as typ
+import warnings
 
 from t3toolbox.backend.common import *
 from t3toolbox.backend.regularization import Regularizer, IdentityRegularizer   # re-exported for backend users
@@ -68,7 +69,16 @@ class Geometry(typ.Protocol):
 
     Implementations should hash and compare **by value** (their parameters, not their identity) --
     a geometry rides as jax ``aux_data``, so identity semantics recompile on every rebuild. See
-    :py:class:`~t3toolbox.backend.common.ValueHashedFields`."""
+    :py:class:`~t3toolbox.backend.common.ValueHashedFields`.
+
+    **Optional member** (looked up duck-typed, ``getattr(geom, 'zero_point_frame', None)``; a geometry
+    without it keeps working):
+
+    * ``zero_point_frame(frame)`` -- the canonical frame at the zero tensor with ``frame``'s structure, or
+      ``None`` if this geometry has none. It is where ``newton_cg`` / ``gradient_descent`` evaluate the
+      default Newton reference ``‖g(0)‖`` (``g0_reference``). The manifold geometries define one; the
+      corewise geometries return ``None`` (the zero cores are a critical point there); a geometry without
+      the member, or one returning ``None``, gets the warm-start reference by default."""
 
     def frame(self, x_cores):                          # x_cores -> the linearization frame
         ...
@@ -383,6 +393,107 @@ def _adam_step(
     return lm.retract(cw.corewise_scale(update, -1.0)), m, v
 
 
+# --------------------------------------------------------------------------------------------------
+# The reference gradient norm ‖g0‖ of the relative stopping tests (g0_reference; the zero reference)
+# --------------------------------------------------------------------------------------------------
+_G0_REFERENCES = ('zero', 'warm_start')
+
+
+def _check_g0_reference(
+        g0_reference:  typ.Optional[str],   # None | 'zero' | 'warm_start' (case-insensitive)
+        who:           str,                 # the optimizer name, for the message
+) -> typ.Optional[str]:                     # the lower-cased selector, or None
+    """Validate the ``g0_reference`` selector (structural: an unknown string raises in both modes)."""
+    if g0_reference is None:
+        return None
+    ref = str(g0_reference).lower()
+    if ref not in _G0_REFERENCES:
+        raise ValueError("%s: g0_reference must be None (the geometry's own reference), 'zero' or "
+                         "'warm_start'; got %r" % (who, g0_reference))
+    return ref
+
+
+def _check_positive_reference(
+        name:   str,                        # 'g0norm_newton' / 'g0norm_cg'
+        value:  typ.Optional[float],        # the explicit override, or None
+) -> None:
+    """A reference gradient norm override must be ``> 0``: the stop and the forcing term divide by it
+    (``g0norm_*=0.0`` used to crash with ``ZeroDivisionError`` in the forcing term)."""
+    if value is not None and not float(value) > 0.0:
+        raise ValueError("%s must be > 0 (a reference gradient norm the relative tests divide by); got %r"
+                         % (name, value))
+
+
+def _zero_reference_gnorm(
+        problem:  'Problem',   # the level's own Problem (its kind carries the resolved chunk_size)
+        frame0:   typ.Any,     # geom.zero_point_frame(frame): the canonical frame at the zero tensor
+        x0:       Cores,       # the start point (only its STRUCTURE is used: the zero tensor at its ranks)
+) -> float:                    # ‖Π 𝒥ᵀ r(0)‖ at frame0 -- the zero reference
+    """The gradient norm at the zero tensor of ``x0``'s ranks, evaluated at the canonical zero-point frame.
+
+    One frame sweep plus one transpose -- the cost of one Newton gradient -- on the level's own problem.
+    The residual is ``point_forward(0) - data`` (``Problem.local_model``'s formula, so a custom kind with
+    ``S(0) != 0`` is handled; for the built-in kinds it is ``-data``). A regularizer is not included: its
+    gradient vanishes at the zero tensor, so the reference is the data-gradient scale alone."""
+    geom, kind, sample = problem.geom, problem.kind, problem.sample
+    sweep0 = kind.precompute(frame0, sample)
+    r0 = cw.corewise_sub(kind.point_forward(cw.corewise_zeros_like(x0), sample), problem.data)
+    g = geom.project(frame0, kind.transpose(r0, sample, frame0, sweep0), aux=geom.precompute(frame0))
+    return float(geom.inner(g, g)) ** 0.5
+
+
+def _resolve_g0_reference(
+        problem:       'Problem',           # the level's own Problem
+        frame:         typ.Any,             # iteration 0's local-model frame (its structure is copied)
+        x0:            Cores,               # the start point
+        g0_reference:  typ.Optional[str],   # the validated selector (_check_g0_reference)
+        compute:       bool,                # False when g0norm_newton is given: both references are fixed
+        who:           str,                 # the optimizer name, for the messages
+        hint:          str,                 # what to pass instead, for the explicit-zero ValueError
+) -> typ.Tuple[
+    typ.Optional[str],                      # 'zero' | 'warm_start', or None (nothing to resolve: compute=False)
+    typ.Optional[float],                    # the zero reference when resolved to 'zero' and computed, else None
+]:
+    """Resolve which reference ``‖g0‖`` the relative tests use (``docs/fitting_and_optimization.md`` §5).
+
+    ``None`` means the geometry's own: ``'zero'`` when it has a zero-point frame (the manifold
+    geometries), else ``'warm_start'`` (the corewise geometries, and a custom geometry without the
+    optional ``zero_point_frame`` member). An explicit ``'zero'`` with no zero-point frame is a structural
+    error. A vanishing zero reference is never silently replaced: by default it falls back to the warm
+    start with a ``RuntimeWarning``; an explicit ``'zero'`` raises."""
+    zpf = getattr(problem.geom, 'zero_point_frame', None)
+    if g0_reference == 'warm_start':
+        return 'warm_start', None
+    if g0_reference is None and not compute:
+        return None, None                   # the overrides fix both references: nothing to resolve
+    explicit = g0_reference == 'zero'
+    if zpf is None:
+        if explicit:
+            raise ValueError("%s: g0_reference='zero' needs a geometry with a zero_point_frame member; %s "
+                             "has none (pass g0_reference='warm_start', or give the geometry a "
+                             "zero_point_frame)" % (who, type(problem.geom).__name__))
+        return 'warm_start', None
+    frame0 = zpf(frame)
+    if frame0 is None:
+        if explicit:
+            raise ValueError("%s: g0_reference='zero' has no meaning on %s, which defines no zero-point frame "
+                             "(on a corewise geometry the zero cores are a critical point, so the reference "
+                             "would be exactly 0); pass g0_reference='warm_start' or None"
+                             % (who, type(problem.geom).__name__))
+        return 'warm_start', None
+    if not compute:
+        return 'zero', None
+    zero_ref = _zero_reference_gnorm(problem, frame0, x0)
+    if zero_ref > 0.0:
+        return 'zero', zero_ref
+    if explicit:
+        raise ValueError("%s: the zero-tensor reference is 0 at these ranks; pass %s" % (who, hint))
+    warnings.warn("%s: the zero-tensor reference vanishes at these ranks (the data gradient at the zero "
+                  "tensor is 0, e.g. all-zero data); using the warm-start reference" % (who,),
+                  RuntimeWarning, stacklevel=3)
+    return 'warm_start', None
+
+
 def gradient_descent(
         problem:  Problem,    # the fixed-rank least-squares problem
         x0:       Tangent,    # initial cores (U, G)
@@ -390,6 +501,7 @@ def gradient_descent(
         gtol_rel: float = 1e-8,   # stop when ‖g‖ <= gtol_rel * ‖g_0‖
         c_armijo: float = 1e-4,   # Armijo sufficient-decrease constant
         on_line_search_failure: str = 'stop',  # Armijo exhausted (50 halvings): 'stop' = reject + terminate; 'accept' = take the last trial and continue
+        g0_reference: typ.Optional[str] = None,  # ‖g_0‖ for the stop: None = the geometry's own ('zero' on manifolds); 'zero' | 'warm_start'
 ) -> typ.Tuple[Tangent, dict]:    # (x_cores, stats)
     """Steepest descent with a Cauchy initial step and an **Armijo backtracking line search**. The step
     length starts at the Cauchy value ``α = ‖g‖² / ‖𝒥g‖²`` (the 1D minimizer of the local GN quadratic
@@ -402,11 +514,16 @@ def gradient_descent(
     ``on_line_search_failure``: as in :py:func:`newton_cg` -- exhausting all 50 halvings means the
     objective's floor; ``'stop'`` (default) rejects the step and terminates, ``'accept'`` takes the
     last trial and keeps going (the deliberate escape mode). ``stats['line_search_failed']`` reports
-    whether an exhaustion occurred."""
+    whether an exhaustion occurred.
+
+    ``g0_reference``: the reference ``‖g_0‖`` of the relative stop, resolved exactly as in
+    :py:func:`newton_cg` -- by default the gradient norm at the zero tensor of ``x0``'s ranks on a manifold
+    geometry, the warm-start ``‖g(x0)‖`` on a corewise one."""
     _require_unstacked(problem.geom, x0, 'gradient_descent')
     olsf = str(on_line_search_failure).lower()
     if olsf not in ('stop', 'accept'):
         raise ValueError("on_line_search_failure must be 'stop' or 'accept'; got %r" % (on_line_search_failure,))
+    ref_selector = _check_g0_reference(g0_reference, 'gradient_descent')
     x = x0
     losses = []
     any_ls_failed = False
@@ -417,8 +534,10 @@ def gradient_descent(
         losses.append(f)
         g = lm.gradient
         gg = float(problem.geom.inner(g, g))                # ‖g‖²
-        if g0norm is None:
-            g0norm = gg ** 0.5 if gg > 0 else 1.0
+        if g0norm is None:                                  # iteration 0: resolve the reference (once)
+            ref, zero_ref = _resolve_g0_reference(problem, lm.frame, x0, ref_selector, True, 'gradient_descent',
+                                                  "g0_reference='warm_start'")
+            g0norm = zero_ref if ref == 'zero' else (gg ** 0.5 if gg > 0 else 1.0)
         if gg ** 0.5 <= gtol_rel * g0norm:                  # converged
             break
         alpha = gg / max(float(lm.gn_quadratic(g)), 1e-30 * gg)   # Cauchy initial step
@@ -607,11 +726,25 @@ class NewtonInfo:
     (its :py:class:`LocalModel` -- residual / sample / frame) are carried so a callback can compute
     per-block errors or evaluate a validation forward. The step-related fields are ``None`` on the final
     **converged** line (no CG / line search ran). The scalar subset (all but ``x_cores`` / ``lm``) is what
-    lands in ``stats['history']``."""
+    lands in ``stats['history']``.
+
+    Four run-level strings (2026.3.0): ``newton_cg`` sets the first three on every row it emits, so a
+    history consumer can filter by them, and ``stop_reason`` on its last row. All default to ``None``, so a
+    hand-built row (a display test) needs none of them:
+
+    * ``g0_reference`` -- which **Newton-stop** reference ``g0norm`` is: ``'zero'`` (the gradient norm at
+      the zero tensor of these ranks, at the canonical zero-point frame), ``'warm_start'`` (the initial
+      ``‖g‖``), or ``'override'`` (``g0norm_newton`` was given).
+    * ``cg_reference`` -- the CG forcing term's reference: ``'override'`` iff ``g0norm_cg`` was given, else
+      equal to ``g0_reference`` (CG inherits the Newton reference).
+    * ``step_control`` -- the step-acceptance mode; ``'line_search'`` (Armijo backtracking).
+    * ``stop_reason`` -- set on the run's **last** row only (``None`` before it): ``'gradient'`` (the
+      relative stop fired: the converged row), ``'max_newton'`` (the iteration cap), or ``'line_search'``
+      (Armijo exhausted under ``on_line_search_failure='stop'``); the same value as ``stats['stop_reason']``."""
     iteration:    int              # Newton iteration index (0-based)
     objective:    float            # total objective ½‖ω⊙r‖² + ρ(X) at x (= misfit + regularization; = lm.objective)
     gnorm:        float            # ‖g‖ (Riemannian gradient norm, geom.inner)
-    g0norm:       float            # ‖g₀‖ Newton-stop reference (the initial ‖g‖, or the g0norm_newton override)
+    g0norm:       float            # ‖g₀‖ Newton-stop reference in effect (its kind: g0_reference)
     converged:    bool             # gnorm <= gtol_rel*g0norm -- this is the final line (step fields None)
     x_cores:      typ.Any = None                       # the point BEFORE the step (for a val forward)
     lm:           typ.Any = None                       # the LocalModel at x (residual/sample/frame)
@@ -633,6 +766,10 @@ class NewtonInfo:
     rho:          typ.Optional[float] = None           # actual / predicted reduction (GN-model trust)
     step_rel:     typ.Optional[float] = None           # ‖αp‖ / ‖x‖ (coordinate norms; relative step size)
     wall_time:    typ.Optional[float] = None           # seconds spent in this iteration (host clock)
+    g0_reference: typ.Optional[str]   = None           # the Newton-stop reference: 'zero' | 'warm_start' | 'override'
+    cg_reference: typ.Optional[str]   = None           # the CG-forcing reference: 'override' iff g0norm_cg, else = g0_reference
+    step_control: typ.Optional[str]   = None           # 'line_search'
+    stop_reason:  typ.Optional[str]   = None           # last row only: 'gradient' | 'max_newton' | 'line_search'
 
 
 _NEWTON_SCALAR_FIELDS = tuple(f.name for f in dc.fields(NewtonInfo) if f.name not in ('x_cores', 'lm'))
@@ -647,12 +784,13 @@ def newton_cg(
         problem:          Problem,    # the fixed-rank least-squares problem
         x0:               Tangent,    # initial cores (U, G)
         max_newton:       int   = 30,
-        gtol_rel:         float = 1e-8,   # stop when ‖g‖ <= gtol_rel * ‖g0‖  (‖g0‖ = g0norm_newton or the initial ‖g‖)
+        gtol_rel:         float = 1e-8,   # stop when ‖g‖ <= gtol_rel * ‖g0‖  (‖g0‖: g0norm_newton, else the g0_reference)
         cg_maxiter:       int   = 200,
         c_armijo:         float = 1e-4,
         on_line_search_failure: str = 'stop',  # Armijo exhausted (40 halvings): 'stop' = reject the step and terminate; 'accept' = take the last trial and continue
-        g0norm_newton:    typ.Optional[float] = None,  # ‖g0‖ for the Newton stop; default = initial ‖g‖. Also feeds CG unless g0norm_cg set.
-        g0norm_cg:        typ.Optional[float] = None,  # ‖g0‖ for the CG forcing term; default = g0norm_newton (else initial ‖g‖)
+        g0_reference:     typ.Optional[str]   = None,  # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start'
+        g0norm_newton:    typ.Optional[float] = None,  # explicit ‖g0‖ for the Newton stop (wins; > 0). Also feeds CG unless g0norm_cg set.
+        g0norm_cg:        typ.Optional[float] = None,  # explicit ‖g0‖ for the CG forcing term (wins for CG; > 0); default = the Newton reference
         cg_forcing_power: float = 0.5,                 # η = min(0.5, (‖g‖/‖g0‖)**power); larger => tighter CG, fewer Newton steps
         use_jit:          bool  = False,  # jit the inner CG (lax.while_loop) when the inputs are jax; else eager
         callback:         typ.Optional[typ.Callable] = None,  # callback(NewtonInfo) each iteration (host-side; e.g. a display)
@@ -666,19 +804,35 @@ def newton_cg(
     (:py:func:`_prepare_jit_inputs`) -- so a ``use_jit=True`` call on numpy data returns a jax-backed
     result (jax's default float32 unless x64 is enabled); if jax is not installed it runs eager with a warning.
 
-    **Overriding the reference gradient norm ‖g0‖** (``g0norm_newton`` / ``g0norm_cg`` /
+    **The reference gradient norm ‖g0‖** (``g0_reference`` / ``g0norm_newton`` / ``g0norm_cg`` /
     ``cg_forcing_power``). Both stopping tests are *relative* to a reference ‖g0‖: the Newton stop is
-    ``‖g‖ ≤ gtol_rel·‖g0‖`` and the CG forcing term is ``η = min(0.5, (‖g‖/‖g0‖)**cg_forcing_power)``. By
-    default ‖g0‖ is the initial gradient norm -- but in a **warm-start continuation loop** that norm is
-    misleadingly small (the guess is already near the solution), which over-tightens the Newton stop and
-    slackens CG. Pass a reference reflecting the problem's true gradient scale (e.g. the initial ‖g‖ from
-    the first continuation stage) to restore the intended behavior. Resolution is a chained fallback:
-    ``g0norm_newton`` sets the Newton reference (and CG inherits it unless ``g0norm_cg`` is also given);
-    ``g0norm_cg`` alone sets only the CG reference. ``cg_forcing_power`` (default ``0.5``, the conventional
-    Eisenstat-Walker value) tunes CG effort per Newton step: since ``‖g‖/‖g0‖ < 1`` near the solution, a
-    **larger** power (``0.75``, ``1.0``) tightens CG -> more CG iterations but fewer Newton steps -- worth
-    it on the manifold when the retraction is expensive relative to a Hessian-apply. The ``min(0.5, …)``
-    cap on ``η`` is retained regardless.
+    ``‖g‖ ≤ gtol_rel·‖g0‖`` and the CG forcing term is ``η = min(0.5, (‖g‖/‖g0‖)**cg_forcing_power)``.
+    Which reference, resolved once at iteration 0 (``docs/fitting_and_optimization.md`` §5):
+
+    * ``g0_reference=None`` (default) -- **the geometry's own**: ``'zero'`` on a manifold geometry (one
+      with a ``zero_point_frame``), ``'warm_start'`` on a corewise one (the zero cores are a critical point
+      there, so the zero reference would be exactly 0) and on a custom geometry without the member.
+    * ``'zero'`` -- the gradient norm at the **zero tensor of x0's ranks**, evaluated at the canonical
+      zero-point frame (:py:func:`~t3toolbox.backend.fv_operations.fv_zero_point_frame`): one extra sweep
+      and transpose on this problem. A deterministic data-gradient scale at these ranks, fixed by
+      convention and good to an O(1) factor -- comparable across rank-continuation levels and identical on
+      the ragged and uniform layers. It is the right reference after a **warm start**, whose initial
+      gradient is deflated (the guess is already near the solution). An explicit ``'zero'`` on a geometry
+      with no zero-point frame raises ``ValueError``.
+    * ``'warm_start'`` -- the initial gradient norm ``‖g(x0)‖`` (the 2026.2.0 default; ``1.0`` if it is 0,
+      when x0 is stationary and the stop fires at once).
+
+    A **vanishing** zero reference (the data gradient at the zero tensor is 0, e.g. all-zero data) is never
+    silently replaced by a constant: by default it falls back to the warm start with a ``RuntimeWarning``;
+    an explicit ``'zero'`` raises ``ValueError``. The explicit overrides then win, with a chained fallback:
+    ``g0norm_newton`` sets the Newton reference (and CG inherits it unless ``g0norm_cg`` is also given --
+    so with ``g0norm_newton`` given the zero reference is not computed at all); ``g0norm_cg`` alone sets
+    only the CG reference. A non-positive override raises ``ValueError``. Every history row records the
+    kinds (``g0_reference``, ``cg_reference``; ``'override'`` for an explicit value).
+    ``cg_forcing_power`` (default ``0.5``, the conventional Eisenstat-Walker value) tunes CG effort per
+    Newton step: since ``‖g‖/‖g0‖ < 1`` near the solution, a **larger** power (``0.75``, ``1.0``) tightens
+    CG -> more CG iterations but fewer Newton steps -- worth it on the manifold when the retraction is
+    expensive relative to a Hessian-apply. The ``min(0.5, …)`` cap on ``η`` is retained regardless.
 
     **Line-search exhaustion** (``on_line_search_failure``). If all 40 Armijo halvings fail, the
     objective's floor has been reached (typically deep in a continuation run). The default ``'stop'``
@@ -694,15 +848,26 @@ def newton_cg(
     converged line) -- the hook for a live diagnostic display; it runs **host-side** (it reads the concrete
     residual), so it composes with ``use_jit`` (only the inner CG jits) but not with a hypothetical
     fully-jitted outer loop. Ready-made displays: :py:func:`t3toolbox.backend.optimizer_display.make_newton_display`.
-    ``stats`` always carries ``'history'`` -- one :py:func:`_newton_scalar_record` per iteration."""
+
+    ``stats`` is ``{'losses', 'newton_steps', 'newton_accepted', 'stop_reason', 'history'}``:
+    ``newton_steps`` counts the CG solves (the history rows that took a step), ``newton_accepted`` the steps
+    taken (``newton_steps`` minus an Armijo-exhausted rejection under ``'stop'``), ``stop_reason`` is
+    ``'gradient'`` / ``'max_newton'`` / ``'line_search'`` (see :py:class:`NewtonInfo`), and ``history`` is
+    one :py:func:`_newton_scalar_record` per iteration (``losses[k] == history[k]['objective']``). (The
+    2026.2.0 ``stats['newton']`` is removed; it is ``newton_steps``.)"""
     _require_unstacked(problem.geom, x0, 'newton_cg')
     olsf = str(on_line_search_failure).lower()
     if olsf not in ('stop', 'accept'):
         raise ValueError("on_line_search_failure must be 'stop' or 'accept'; got %r" % (on_line_search_failure,))
+    ref_selector = _check_g0_reference(g0_reference, 'newton_cg')
+    _check_positive_reference('g0norm_newton', g0norm_newton)
+    _check_positive_reference('g0norm_cg', g0norm_cg)
     x0, problem = _prepare_jit_inputs(use_jit, x0, problem)             # auto-convert to jax when jitting
     x = x0
-    computed_g0norm = None                                              # the initial ‖g‖ -- the default reference
-    losses, newton_iters, history = [], 0, []
+    newton_ref = cg_ref = None                                          # resolved once, at iteration 0
+    g0_ref_kind = cg_ref_kind = None
+    losses, newton_steps, newton_accepted, history = [], 0, 0, []
+    stop_reason = 'max_newton'
     t_prev = time.perf_counter()
     for it in range(max_newton):
         lm = problem.local_model(x)
@@ -712,18 +877,30 @@ def newton_cg(
         losses.append(f)
         g = lm.gradient
         gnorm = float(problem.geom.inner(g, g)) ** 0.5
-        if computed_g0norm is None:
-            computed_g0norm = gnorm if gnorm > 0 else 1.0
-        newton_ref = g0norm_newton if g0norm_newton is not None else computed_g0norm   # Newton-stop ‖g0‖
-        cg_ref     = g0norm_cg     if g0norm_cg     is not None else newton_ref         # CG-forcing ‖g0‖ (inherits Newton's)
+        if newton_ref is None:                                           # iteration 0: resolve the references
+            ref, zero_ref = _resolve_g0_reference(problem, lm.frame, x0, ref_selector, g0norm_newton is None,
+                                                  'newton_cg', "g0_reference='warm_start' or g0norm_newton")
+            if g0norm_newton is not None:
+                newton_ref, g0_ref_kind = g0norm_newton, 'override'
+            elif ref == 'zero':
+                newton_ref, g0_ref_kind = zero_ref, 'zero'
+            else:
+                newton_ref, g0_ref_kind = (gnorm if gnorm > 0 else 1.0), 'warm_start'   # the initial ‖g‖
+            if g0norm_cg is not None:
+                cg_ref, cg_ref_kind = g0norm_cg, 'override'
+            else:
+                cg_ref, cg_ref_kind = newton_ref, g0_ref_kind            # CG inherits the Newton reference
+        run_fields = dict(g0_reference=g0_ref_kind, cg_reference=cg_ref_kind, step_control='line_search')
         if gnorm <= gtol_rel * newton_ref:                               # converged -- final line, no step
+            stop_reason = 'gradient'
             info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=newton_ref, converged=True,
-                              x_cores=x, lm=lm, misfit=misfit, regularization=reg_val)
+                              x_cores=x, lm=lm, misfit=misfit, regularization=reg_val,
+                              stop_reason=stop_reason, **run_fields)
             if callback is not None:
                 callback(info)
             history.append(_newton_scalar_record(info))
             break
-        newton_iters += 1
+        newton_steps += 1
         eta = min(0.5, (gnorm / cg_ref) ** cg_forcing_power)             # inexact-Newton (Eisenstat-Walker) forcing term
         cg_tol = eta * gnorm
         neg_g = cw.corewise_scale(g, -1.0)
@@ -752,6 +929,10 @@ def newton_cg(
         p_norm = float(problem.geom.inner(p, p)) ** 0.5
         x_norm = float(cw.corewise_norm(x))                             # coordinate norm (ragged-exact; uniform: D6)
         step_rel = (alpha * p_norm / x_norm) if x_norm > 0 else float('nan')
+        rejected = ls_failed and olsf == 'stop'                          # reject the step: x unchanged (review R7-7)
+        if rejected:
+            stop_reason = 'line_search'
+        last_row = rejected or it == max_newton - 1
         t_now = time.perf_counter()
         info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=newton_ref, converged=False,
                           x_cores=x, lm=lm, misfit=misfit, regularization=reg_val,
@@ -759,15 +940,18 @@ def newton_cg(
                           cg_maxiter=cg_maxiter,
                           cg_resid=cg_rs ** 0.5, cg_converged=cg_converged, cg_truncated=cg_truncated,
                           ls_steps=ls_steps, ls_failed=ls_failed, alpha=alpha, slope=slope, pHp=pHp,
-                          delta_f=delta_f, rho=rho, step_rel=step_rel, wall_time=t_now - t_prev)
+                          delta_f=delta_f, rho=rho, step_rel=step_rel, wall_time=t_now - t_prev,
+                          stop_reason=stop_reason if last_row else None, **run_fields)
         t_prev = t_now
         if callback is not None:
             callback(info)
         history.append(_newton_scalar_record(info))
-        if ls_failed and olsf == 'stop':
-            break                                                        # reject the step: x unchanged (review R7-7)
+        if rejected:
+            break
+        newton_accepted += 1
         x = x_trial
-    return x, {'losses': losses, 'newton': newton_iters, 'history': history}
+    return x, {'losses': losses, 'newton_steps': newton_steps, 'newton_accepted': newton_accepted,
+               'stop_reason': stop_reason, 'history': history}
 
 
 if jax_available:

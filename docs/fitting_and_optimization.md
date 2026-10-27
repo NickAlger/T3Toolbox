@@ -96,7 +96,16 @@ True
 
 - **Optimizers:** `gradient_descent` (Cauchy + Armijo), `mc_sgd` (Manifold Cauchy SGD — tuning-free
   stochastic), `adam` (corewise first-order), `newton_cg` (inexact Riemannian, 2nd-order). All return
-  `(x_opt: TuckerTensorTrain, stats: dict)`.
+  `(x_opt: TuckerTensorTrain, stats: dict)`. `newton_cg`'s `stats`:
+
+  | key | meaning |
+  |---|---|
+  | `losses` | the objective at each iterate (`losses[k] == history[k]['objective']`) |
+  | `newton_steps` | CG solves — the history rows that took a step (named `newton` before 2026.3.0) |
+  | `newton_accepted` | steps taken (`newton_steps`, minus an Armijo-exhausted rejection under `on_line_search_failure='stop'`) |
+  | `stop_reason` | `'gradient'` (the relative stop fired), `'max_newton'` (the cap), or `'line_search'` (Armijo exhausted) |
+  | `history` | one scalar row per iteration (`backend.optimizers.NewtonInfo`), including the reference kinds `g0_reference` / `cg_reference` (§5), `step_control`, and `stop_reason` on the last row |
+
 - **Live diagnostics (`newton_cg`):** `newton_cg(..., verbose=True)` prints a per-iteration block —
   objective / gradient norm, CG iterations / tolerance / status, line search, the actual-vs-predicted
   reduction `ρ`, and a per-`(mode, order)` **relative-error table** (`‖S(x)_ij − y_ij‖/‖y_ij‖`); pass
@@ -234,7 +243,10 @@ shared-factor submanifold, and every optimizer works on it unchanged. See [`shar
   matvec (the shared-factor wrapper's SVD companion is the motivating case); it is `None` for
   `MANIFOLD`/`COREWISE`, and a custom geometry need only accept and ignore `aux=None`. It is
   carried as a leaf on `LocalModel` (`geom_aux`) and on `GaussNewtonModel` (`geometry_aux`) —
-  [`contributor/precompute_and_caching.md`](contributor/precompute_and_caching.md).
+  [`contributor/precompute_and_caching.md`](contributor/precompute_and_caching.md). One more member is
+  **optional** (looked up duck-typed): `zero_point_frame(frame)`, the canonical frame at the zero tensor
+  where the default Newton reference is evaluated (§5). The manifold geometries define it, the corewise
+  ones return `None`, and a custom geometry without it gets the warm-start reference.
 - **`Problem` + `LocalModel`** (`backend/optimizers.py`) — the backend oracle. `Problem(geom, kind, sample,
   data)` is **layout-agnostic**: `local_model(x [, sample_B, data_B])` linearizes at a point on the full
   data or an explicit minibatch, returning a `LocalModel` with `.gradient` / `.objective` / `.hvp` /
@@ -445,7 +457,8 @@ zero, ragged reached `8.8e-16` where uniform stalled at `8.49`; from a small ran
 
 So "a zero start is fine on the manifold" — true, and still the simplest thing to do — is a statement
 about one layer at a time, not a promise that the two layers will track each other. If you are comparing
-representations, start nonzero.
+representations, start nonzero. (The optimizers' *reference* `‖g₀‖` is not part of this divergence: it
+is evaluated at a canonical zero-point frame whose real blocks are the same on both layers — §5.)
 
 ---
 
@@ -461,15 +474,63 @@ repo, maintainer-local):
 - **Rank continuation alone suffices** (constant seed, rank-1-first, warm-started by zero-padding —
   see [`rank_continuation.md`](rank_continuation.md)); order continuation added nothing in the
   studies.
-- **In a warm-start continuation loop, pin the reference gradient norm.** `newton_cg`'s Newton stop
-  (`‖g‖ ≤ gtol_rel·‖g0‖`) and CG forcing term (`η = min(0.5, (‖g‖/‖g0‖)**cg_forcing_power)`) are both
-  *relative* to a reference `‖g0‖` that defaults to the **initial** gradient norm. After a warm start
-  that norm is already small, so the Newton stop over-tightens and CG slackens. Pass `g0norm_newton` /
-  `g0norm_cg` a reference reflecting the problem's true gradient scale (e.g. the initial `‖g‖` from the
-  first continuation stage) — `g0norm_newton` also feeds CG unless `g0norm_cg` is given; `g0norm_cg`
-  alone touches only CG. Separately, `cg_forcing_power` (default `0.5`) trades CG effort for Newton
-  steps: a **larger** power (`0.75`, `1.0`) tightens CG per step — worth it on the manifold when the
-  retraction is expensive relative to a Hessian-apply.
+- **The relative stop is referenced to the zero tensor of the level's ranks.** `newton_cg`'s Newton stop
+  (`‖g‖ ≤ gtol_rel·‖g₀‖`) and CG forcing term (`η = min(0.5, (‖g‖/‖g₀‖)**cg_forcing_power)`) are both
+  *relative* to a reference `‖g₀‖`, chosen by `g0_reference` (`gradient_descent` takes it too):
+
+  | `g0_reference` | the reference `‖g₀‖` |
+  |---|---|
+  | `None` (default) | the geometry's own: `'zero'` on `MANIFOLD` / `UNIFORM_MANIFOLD` and their shared wrappers, `'warm_start'` on the corewise geometries |
+  | `'zero'` | the gradient norm at the **zero tensor of `x0`'s ranks** (one extra sweep and transpose per run) |
+  | `'warm_start'` | the initial gradient norm `‖g(x0)‖` — the 2026.2.0 default |
+
+  *Why the zero tensor.* After a warm start — a zero-padded `resize` in rank continuation — the initial
+  gradient is already small (the guess is near the solution), so a warm-start reference over-tightens
+  the Newton stop (the default `gtol_rel = 1e-8` becomes unreachable and every level runs to
+  `max_newton`) and slackens CG. The zero-tensor gradient measures the data's pull at the level's ranks
+  regardless of how good the guess is, and it grows with the ranks, so ratios against it are comparable
+  across continuation levels. On a corewise geometry the zero cores are a critical point (the gradient
+  there is exactly 0), so the default stays the warm start there, and an explicit `'zero'` raises.
+
+  *What exactly the reference is: a convention.* At `X = 0` every orthonormal frame completion is valid,
+  and the gradient's norm depends on which one is chosen. The library fixes the choice — the **canonical
+  zero-point frame** (`backend.fv_operations.fv_zero_point_frame`): seeded Haar-random Tucker factors, one
+  per sharing group, drawn from a stream keyed by the group's first mode with the fixed seed
+  `ZERO_FRAME_SEED = 0`, and identity-prefix TT cores. So the zero reference is a deterministic
+  data-gradient scale at these ranks, **good to an O(1) factor** (another seed, or a rotation of the
+  problem, moved it by up to ~1.7× in the measured cases) — harmless for a relative stop, but not an
+  intrinsic property of the problem. Three properties make it a good convention:
+  - **It is not coordinate-aligned.** A coordinate-aligned completion — an identity prefix, or LAPACK's
+    completion of a zero core — gives a reference of **exactly 0** whenever the data have no energy on
+    its leading coordinates. A Haar completion is generic (the exact-zero trap does not occur).
+  - **It is identical on the ragged and uniform layers.** The uniform frame has the same real blocks, so
+    a ragged fit and its uniform twin are referenced to the same number (the start's own frame at a zero
+    `x0` is another matter, §4.11).
+  - **It is nested across rank-continuation levels.** A mode's factor at rank `r` is the leading block of
+    its factor at rank `r + 1`, and is unchanged when another mode's rank grows.
+
+  A **vanishing** zero reference (e.g. all-zero data) is never replaced silently: by default it falls
+  back to the warm start with a `RuntimeWarning`, and an explicit `'zero'` raises. Every history row
+  records which reference was used:
+
+  ```python
+  >>> _, st = topt.newton_cg(t3m.MANIFOLD, 'apply', ww, data, x0, max_newton=30)
+  >>> st['history'][0]['g0_reference'], st['stop_reason']     # the default on the manifold
+  ('zero', 'gradient')
+  >>> _, st = topt.newton_cg(t3m.COREWISE, 'apply', ww, data, x0c, max_newton=2)
+  >>> st['history'][0]['g0_reference']                         # ... and on corewise
+  'warm_start'
+
+  ```
+
+  *Overriding it.* `g0norm_newton` / `g0norm_cg` pass an explicit reference (it must be `> 0`) and win
+  over `g0_reference`: `g0norm_newton` sets both tests (CG inherits it, and the zero reference is then not
+  computed at all), `g0norm_cg` alone touches only CG (`cg_reference='override'`). Separately,
+  `cg_forcing_power` (default `0.5`) trades CG effort for Newton steps: a **larger** power (`0.75`, `1.0`)
+  tightens CG per step — worth it on the manifold when the retraction is expensive relative to a
+  Hessian-apply. The zero reference makes `η` tighter than a deflated warm start does (downstream
+  continuation measured ~2× more CG work per step at high rank, for the same accuracy); that trade is
+  accepted, and an `η` floor or an objective-plateau stop remain open questions.
 - **A failed line search now stops the run (or, on request, pushes through).** If `newton_cg`'s
   Armijo search exhausts all 40 halvings, the objective's floor has been reached; the default
   `on_line_search_failure='stop'` rejects the step and terminates (the iteration's history row carries

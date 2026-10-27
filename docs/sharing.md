@@ -185,7 +185,11 @@ pads the group factor once (the same array at every mode) for the zero-padded wa
 padded shared point sits *on* the lower-rank stratum — the new levels of `s_g` are exactly zero and
 the tied Tucker channel is momentarily gated — but the escape runs through the unrestricted TT
 variations within the first optimization steps, which is why full shared rank is a **diagnostic,
-never a precondition** anywhere in the library.
+never a precondition** anywhere in the library. The loop needs no reference bookkeeping either: on the
+shared manifold, `newton_cg`'s default Newton reference is the gradient at the zero tensor of the level's
+**group** ranks, taken in the shared geometry at a canonical zero-point frame with one Haar factor per
+group (so the zero point is exactly tied), not the deflated warm-start gradient of the padded restart
+([`fitting_and_optimization.md`](fitting_and_optimization.md) §5).
 
 ## Batching
 

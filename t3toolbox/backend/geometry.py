@@ -235,6 +235,15 @@ class ManifoldGeometryOps(ValueHashedFields):
         """The attachment point as a gauged tangent ``v_X`` -- the regularizer's gradient direction."""
         return fv_base_point_tangent(frame)
 
+    def zero_point_frame(
+            self,
+            frame:  typ.Tuple,   # (U, O, P, Q) -- a frame of this geometry: the STRUCTURE to copy
+    ) -> typ.Tuple:              # (U, O, P, Q) -- the canonical orthonormal frame at the zero tensor
+        """The canonical frame at the zero tensor with ``frame``'s ranks -- where the default Newton
+        reference ``‖g(0)‖`` is evaluated (``newton_cg(g0_reference='zero')``). One seeded Haar Tucker
+        factor per sharing group: :py:func:`~t3toolbox.backend.fv_operations.fv_zero_point_frame`."""
+        return fv_operations.fv_zero_point_frame(frame, self.groups)
+
 
 @dc.dataclass(frozen=True, eq=False)
 class CorewiseGeometryOps(ValueHashedFields):
@@ -306,6 +315,12 @@ class CorewiseGeometryOps(ValueHashedFields):
     def point_tangent(self, frame):
         """The cores ``(U, G)`` as a tangent (the projection is the identity here; ``X_ref = 0``)."""
         return self.base_point(frame)
+
+    def zero_point_frame(self, frame) -> None:
+        """``None``: this geometry has no zero-point reference. The objective is multilinear in the cores,
+        so the zero cores are a critical point of every corewise objective and the gradient there is exactly
+        zero -- the default Newton reference on a corewise geometry is therefore the warm start."""
+        return None
 
 
 # --------------------------------------------------------------------------------------------------
@@ -421,6 +436,15 @@ class UniformManifoldGeometryOps(ValueHashedFields):
         """The attachment point as a gauged tangent ``v_X`` (the direct construction)."""
         return ufv_base_point_tangent(frame_data)
 
+    def zero_point_frame(
+            self,
+            frame_data:  typ.Tuple,   # uniform frame .data of this geometry: the STRUCTURE to copy
+    ) -> typ.Tuple:                   # uniform frame .data at the zero tensor (the template's masks)
+        """The canonical frame at the zero tensor (see :py:meth:`ManifoldGeometryOps.zero_point_frame`).
+        Its real blocks are the ragged construction's, so the reference is layer-independent:
+        :py:func:`~t3toolbox.backend.ufv_operations.ufv_zero_point_frame`. Host-side and eager."""
+        return ufv_operations.ufv_zero_point_frame(frame_data, self.groups)
+
 
 @dc.dataclass(frozen=True, eq=False)
 class UniformCorewiseGeometryOps(ValueHashedFields):
@@ -511,3 +535,8 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
     def point_tangent(self, frame_data):
         """The cores ``(U, G)`` as a tangent (the projection is the identity here)."""
         return self.base_point(frame_data)
+
+    def zero_point_frame(self, frame_data) -> None:
+        """``None``: no zero-point reference on a corewise geometry (see
+        :py:meth:`CorewiseGeometryOps.zero_point_frame`)."""
+        return None

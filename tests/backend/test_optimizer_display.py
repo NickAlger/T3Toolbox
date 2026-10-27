@@ -96,6 +96,18 @@ class TestFormatter(unittest.TestCase):
         conv = bdisp._format_header(_info(converged=True, cg_iters=None, cg_converged=None), None)
         self.assertIn("converged", conv); self.assertNotIn("CG ", conv)
 
+    def test_converged_line_names_its_reference(self):
+        """T29 / C.14: the converged line names the Newton-stop reference (`NewtonInfo.g0_reference`); a
+        hand-built row with no reference kind prints exactly as in 2026.2.0 (a display change only)."""
+        conv = dict(converged=True, cg_iters=None, cg_converged=None)
+        self.assertTrue(bdisp._format_header(_info(**conv), None).endswith("| converged (‖g‖ ≤ gtol·‖g₀‖)"))
+        for kind, name in (('zero', 'zero tensor'), ('warm_start', 'warm start'), ('override', 'override')):
+            with self.subTest(g0_reference=kind):
+                line = bdisp._format_header(_info(g0_reference=kind, **conv), None)
+                self.assertTrue(line.endswith("| converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = %s)" % name), line)
+        stepped = bdisp._format_header(_info(g0_reference='zero'), None)     # a stepped row: no reference text
+        self.assertNotIn("g₀ =", stepped)
+
     def test_header_unweighted_shown_only_when_differs(self):
         """`(unwt …)` appears next to the objective only when the unweighted value differs (ω ≠ 1)."""
         self.assertNotIn("unwt", bdisp._format_header(_info(objective=1.0), obj_unweighted=1.0))

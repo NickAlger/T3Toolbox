@@ -223,7 +223,7 @@ def riemannian_newton_cg(X0, forward, model_builder, meas_dot, b,
             alpha *= 0.5
         X = X_trial
 
-    return X, dict(newton=newton_iters, cg=cg_total)
+    return X, dict(newton_steps=newton_iters, cg=cg_total)   # the library's stats key (2026.3.0)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -299,7 +299,7 @@ def main():
         records.append(dict(level=r, dof=dof, val=val_e, true=true_e))
 
         rank_str = f"{tucker_ranks} {tt_ranks}"
-        print(f"{r:>5} {rank_str:>24} {dof:>5} {stats['newton']:>5} "
+        print(f"{r:>5} {rank_str:>24} {dof:>5} {stats['newton_steps']:>5} "
               f"{train_e:>9.3e} {val_e:>9.3e} {true_e:>9.3e} {oracle_e:>9.3e}")
 
     # ---- model selection by validation ------------------------------------------------------------

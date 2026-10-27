@@ -1075,8 +1075,9 @@ class TestSharedContinuation(unittest.TestCase):
 
     def test_end_to_end_continuation_reaches_true_shared_ranks(self):
         # 14h: the full outer loop -- fit, grow (grouped), zero-padded tied restart -- recovers a tied
-        # target at exactly its true shared ranks. g0norm_newton is pinned across levels per the
-        # docs/rank_continuation.md warm-start guidance (a padded restart's initial gradient is small).
+        # target at exactly its true shared ranks. No manual reference bookkeeping: each level's Newton
+        # stop is relative to the zero tensor of its (group) ranks, the default g0_reference (a padded
+        # restart's own initial gradient is deflated; docs/rank_continuation.md).
         shape, spec = (6, 6, 5), (0, 0, 1)
         A = self._tied_target(shape, (3, 3, 3), (1, 3, 3, 1), ((0, 1),))
         Ad = np.asarray(A.to_dense())
@@ -1084,15 +1085,10 @@ class TestSharedContinuation(unittest.TestCase):
         ww = [w / np.linalg.norm(w, axis=1, keepdims=True) for w in ww]
         b = A.apply(ww)
         X = t3.TuckerTensorTrain.zeros(shape, (1, 1, 1), (1, 1, 1, 1))
-        g0 = None
         rel = np.inf
         for level in range(6):
-            kwargs = dict(max_newton=30)
-            if g0 is not None:
-                kwargs['g0norm_newton'] = g0
-            X, stats = optimizers.newton_cg(sg.shared_manifold(spec), 'apply', ww, b, X, **kwargs)
-            if g0 is None:
-                g0 = stats['history'][0]['gnorm']
+            X, stats = optimizers.newton_cg(sg.shared_manifold(spec), 'apply', ww, b, X, max_newton=30)
+            self.assertEqual(stats['history'][0]['g0_reference'], 'zero')
             self.assertTrue(bool(np.all(np.asarray(X.has_shared_tucker_factors(spec)))))
             rel = float(np.linalg.norm(np.asarray(X.to_dense()) - Ad) / np.linalg.norm(Ad))
             if rel < 1e-8:

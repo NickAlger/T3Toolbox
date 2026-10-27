@@ -1069,6 +1069,30 @@ class TestDispatch(unittest.TestCase):
         frame_np = self.frame.to_numpy()
         self._leaves_all_jax(t3m.MANIFOLD.project_ambient(frame_np, dense).variations)
 
+    def test_zero_point_frame_dispatch(self):
+        # The canonical zero-point frame is HOST-side and eager by design (a convention built from the
+        # template's shapes, never traced), so it gets the jax-in -> jax-out check, not a jit: a jax template
+        # gives a jax frame on both layers (the uniform masks stay host numpy), and newton_cg(use_jit=True)
+        # resolves the zero reference eagerly, to the numpy run's value (x64 is on in this module).
+        import t3toolbox.backend.ufv_operations as ufv_operations
+        geom = bgeo.ManifoldGeometryOps()
+        self.assert_eager_jax(fv_operations.fv_zero_point_frame, self.frame.data)
+        self.assert_eager_jax(geom.zero_point_frame, self.frame.data)
+        ugeom = bgeo.UniformManifoldGeometryOps.from_point(self.ux.data)
+        uframe = ugeom.frame((self.ux.data[0], self.ux.data[1]))
+        uzero = ufv_operations.ufv_zero_point_frame(uframe)
+        self._leaves_all_jax(uzero[:4])
+        self.assertTrue(all(common.is_numpy_ndarray(m) for m in uzero[5]))
+        self._leaves_all_jax(ugeom.zero_point_frame(uframe)[:4])
+        ww = [np.random.randn(30, N) for N in STRUCT[0]]
+        data = np.asarray(self.x_np.apply(ww))
+        x0 = t3.TuckerTensorTrain.zeros(*STRUCT).data
+        problem = bopt.least_squares_problem(geom, bfit.APPLY, ww, data)
+        row_np = bopt.newton_cg(problem, x0, max_newton=1)[1]['history'][0]
+        row_jit = bopt.newton_cg(problem, x0, max_newton=1, use_jit=True)[1]['history'][0]
+        self.assertEqual((row_np['g0_reference'], row_jit['g0_reference']), ('zero', 'zero'))
+        self.assertAlmostEqual(row_jit['g0norm'], row_np['g0norm'], delta=1e-10 * row_np['g0norm'])
+
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):
         # A few complex ops: jax must agree with numpy (guards subtle backend divergence).

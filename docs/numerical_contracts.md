@@ -121,6 +121,12 @@ would silently discard the differences), so safe mode checks it at the entry poi
 |---|---|
 | `gradient`, `gn_hessian(p)`, `jacobian(p)`, `gn_quadratic(p)`, `evaluate(p)` | **SF** — `p` must live at the model's frame (checked numerically, identity fast path). The frame's orthogonality is a construction invariant (`geometry.frame(x)` produces it), not a per-op check. |
 
+### The optimizers' relative stop
+
+| op | precondition | caveat (never checked) |
+|---|---|---|
+| `newton_cg` / `gradient_descent` with the zero reference (`g0_reference='zero'`, the default on the manifold geometries) | — (an explicit `'zero'` on a geometry with no zero-point frame, a vanishing explicit `'zero'`, and a non-positive `g0norm_*` are **structural** errors) | the zero reference is a **convention**: the gradient norm at the zero tensor of `x0`'s ranks, evaluated at the canonical zero-point frame (seeded Haar Tucker factors) — a deterministic data-gradient scale at these ranks, **good to an O(1) factor** (another seed or a rotation of the problem moved it by up to ~1.7× in the measured cases), not an intrinsic quantity; harmless for a relative stop ([`fitting_and_optimization.md`](fitting_and_optimization.md) §5) |
+
 ### Precondition-free surfaces
 
 | surface | why |

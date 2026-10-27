@@ -18,6 +18,8 @@ import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ut3_operations as ut3_operations
 import t3toolbox.backend.ufv_masking as ufv_masking
+import t3toolbox.backend.fv_operations as fv_operations
+import t3toolbox.backend.ufv_conversions as ufv_conversions
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -32,6 +34,7 @@ __all__ = [
     'ufv_save',
     'ufv_load',
     'ufv_frame_orthogonality_residual',
+    'ufv_zero_point_frame',
     'ufv_absorb_weights',
     'ufv_weights_consistent',
     'ufv_weights_from_ut3_weights',
@@ -283,6 +286,61 @@ def ufv_frame_orthogonality_residual(data):  # UT3Frame .data -> max orthogonali
         devs.append(dev(xnp.einsum('...iaj,...iak->...jk', mleft[:-1], mleft[:-1]), lm[1:-1], rL))   # outgoing edges 1..d-1
         devs.append(dev(xnp.einsum('...iaj,...kaj->...ik', mright[1:], mright[1:]), rm[1:-1], rR))   # incoming edges 1..d-1
     return xnp.max(xnp.stack(devs), axis=0)   # max over the four senses, keep stack_shape
+
+
+def ufv_zero_point_frame(
+        frame_data:  typ.Tuple,                                   # uniform frame .data = (up, down, left, right, shape, masks); stack C = ()
+        groups:      typ.Tuple[typ.Tuple[int, ...], ...] = (),    # sharing partition (canonical_groups); () = unshared
+        seed:        int = fv_operations.ZERO_FRAME_SEED,         # the Haar stream seed: a fixed convention
+) -> typ.Tuple:                                                   # uniform frame .data at the zero tensor; the template's masks
+    """The uniform twin of :py:func:`~t3toolbox.backend.fv_operations.fv_zero_point_frame`: the canonical
+    orthonormal frame at the zero tensor, with ``frame_data``'s structure.
+
+    It unpacks the template's real blocks (:py:func:`~t3toolbox.backend.ufv_conversions.ut3frame_to_t3frame`),
+    builds the ragged canonical frame from their shapes, and packs it back at the template's own padded
+    sizes (:py:func:`~t3toolbox.backend.ufv_conversions.t3frame_to_ut3frame`). So its real blocks are the
+    ragged construction's exactly, and the zero-tensor reference built on it is the same number on both
+    layers. The output masks are the template's; the padding is zero.
+
+    **Host-side and eager by design**: it reads the masks (host numpy) to unpack, so it is never traced. The
+    optimizers call it once per ``newton_cg`` / ``gradient_descent`` run, outside any jit. A stacked
+    template raises ``NotImplementedError``, as the ragged function does.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.fv_operations as fvo
+    >>> import t3toolbox.backend.ufv_conversions as ufc
+    >>> import t3toolbox.backend.ufv_operations as ufo
+    >>> x = t3.TuckerTensorTrain.zeros((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
+    >>> uframe = ufc.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x).data)[0]
+    >>> zframe = ufo.ufv_zero_point_frame(uframe)
+    >>> ragged = fvo.fv_zero_point_frame(fvc.t3_orthogonal_representations(x.data)[0])
+    >>> all(np.allclose(a, b) for fa, fb in zip(ufc.ut3frame_to_t3frame(zframe), ragged)
+    ...     for a, b in zip(fa, fb))                     # the same real blocks as the ragged construction
+    True
+    >>> zframe[5] is uframe[5]                           # the template's masks
+    True
+    """
+    up_sc, down_sc, left_sc, right_sc, _shape, masks = frame_data
+    require_concrete_masks(*masks)                        # host: the unpack reads the masks
+    stack = tuple(up_sc.shape[1:-2])
+    if stack:
+        raise NotImplementedError(
+            "ufv_zero_point_frame: a STACKED template (stack C = %r) is not supported. The zero-point frame "
+            "exists for the optimizers' Newton reference, and the optimizers take an unstacked point "
+            "(backend.optimizers._require_unstacked)." % (stack,))
+    ragged = fv_operations.fv_zero_point_frame(ufv_conversions.ut3frame_to_t3frame(frame_data), groups, seed)
+    packed = ufv_conversions.t3frame_to_ut3frame(
+        ragged, N=up_sc.shape[-1], nU=up_sc.shape[-2], nD=down_sc.shape[-2], rL=left_sc.shape[-1], rR=right_sc.shape[-1])
+    if not all(np.array_equal(a, b) for a, b in zip(packed[5], masks)):
+        raise ValueError("ufv_zero_point_frame: the template's frame masks are not prefix masks (every frame "
+                         "from ut3_orthogonal_representations has them); the packed zero-point frame "
+                         "cannot carry them")
+    return packed[:5] + (masks,)
 
 
 def ufv_absorb_weights(
