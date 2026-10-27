@@ -948,6 +948,66 @@ class TestExactLocalModel(unittest.TestCase):
                         self.assertLess(_relerr_trees(m.hessian(p).variations.supercores, blm.hvp(raw)), 1e-12)
                         self.assertEqual(np.shape(m.quadratic(p)), K)
 
+    def test_shared_uniform_matches_the_backend_exact_local_model(self):
+        '''S9: the exact frontend model on a SHARED uniform geometry (``shared(UNIFORM_MANIFOLD / UNIFORM_COREWISE,
+        ...)``) is the backend exact model of ``uniform_least_squares_problem(..., sharing=)`` on the same supercores
+        -- ``gradient`` (the tied one), the misfit gradient, ``curvature_hessian``, ``curvature_quadratic`` and
+        ``quadratic`` bit for bit, ``hessian`` to rounding, a tangent stack K included -- and on the manifold its
+        backend view runs on the model's ONE uniform companion (``_blm.geom_aux`` is ``geometry_aux``, the tied lift
+        factors carry it, no curvature action rebuilds it). On the group-ceiling structure the tied lift is
+        load-bearing: the per-mode lift would differ.'''
+        import dataclasses
+        from unittest import mock
+        import t3toolbox.shared_geometry as sg
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.backend.optimizers as bopt
+        import t3toolbox.backend.ufv_operations as ufo
+        import t3toolbox.backend.uniform_fitting as ufit
+        rng = np.random.default_rng(82)
+        cases = [('ceiling', ((6, 6, 4), (4, 4, 2), (1, 2, 2, 1)), (0, 0, 1), 2, 'row'),
+                 ('all_modes', ((5, 5, 5), (3, 3, 3), (1, 2, 2, 1)), (0, 0, 0), 1, None)]
+        for name, struct, labels, order, wkind in cases:
+            x, sample, data = _ex_problem(struct, order, 7, rng, sharing=labels)
+            ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+            w = None if wkind is None else rng.uniform(0.3, 2.0, order + 1)
+            for base, gname in ((ut3m.UNIFORM_MANIFOLD, 'manifold'), (ut3m.UNIFORM_COREWISE, 'corewise')):
+                with self.subTest(case=name, geometry=gname):
+                    geom = sg.shared(base, labels)
+                    prob = ufit.uniform_least_squares_problem(gname, 'probe_derivatives', ux, sample, data,
+                                                              order=order, weight=w, sharing=labels)
+                    blm = prob.local_model((ux.data[0], ux.data[1]), hessian='exact')
+                    m = fitting.probe_derivatives_model(geom, ux, *sample, order, blm.residual, weight=w,
+                                                        hessian='exact')
+                    self.assertTrue(m.is_exact)
+                    self.assertTrue(_bitwise(m.frame.data[:4], blm.frame[:4]))
+                    self.assertTrue(_bitwise(m.gradient.variations.supercores, blm.gradient))
+                    self.assertTrue(_bitwise(m.curvature.misfit_gradient, blm.curvature.misfit_gradient))
+                    if gname == 'manifold':
+                        self.assertIs(m._blm.geom_aux, m.geometry_aux)
+                        self.assertIs(m.curvature.geometry_data.lift_factors.shared_data, m.geometry_aux)
+                    for K in ((), (2,)):
+                        p = geom.randn(m.frame, stack_shape=K)
+                        raw = p.variations.supercores
+                        with mock.patch.object(bsharing, 'ufv_shared_frame_data',
+                                               wraps=bsharing.ufv_shared_frame_data) as spy:
+                            Hc, qc, q = m.curvature_hessian(p), m.curvature_quadratic(p), m.quadratic(p)
+                            H = m.hessian(p)
+                        self.assertEqual(spy.call_count, 0)                            # the stored companion
+                        self.assertTrue(_bitwise(Hc.variations.supercores, blm.curvature_hvp(raw)))
+                        self.assertTrue(np.array_equal(np.asarray(qc), np.asarray(blm.curvature_quadratic(raw))))
+                        self.assertTrue(np.array_equal(np.asarray(q), np.asarray(blm.quadratic(raw))))
+                        self.assertLess(_relerr_trees(H.variations.supercores, blm.hvp(raw)), 1e-12)
+                        self.assertEqual(np.shape(q), K)
+                    if name == 'ceiling' and gname == 'manifold':                     # the tied lift matters
+                        gd = blm.curvature.geometry_data
+                        untied = dataclasses.replace(blm, curvature=bopt.CurvatureState(
+                            blm.curvature.misfit_gradient,
+                            dataclasses.replace(gd, lift_factors=ufo.ufv_lift_factors(blm.frame, 1e-6))))
+                        p = geom.randn(m.frame)
+                        self.assertGreater(_relerr_trees(m.curvature_hessian(p).variations.supercores,
+                                                         untied.curvature_hvp(p.variations.supercores)), 1e-3)
+
     def test_gradient_is_the_gauss_newton_gradient_bitwise(self):
         '''m27: the exact model's gradient is the Gauss-Newton model's, bit for bit (with and without a
         regularizer), because it IS the same misfit transpose -- done once, at construction, and read.'''
@@ -1142,8 +1202,8 @@ class TestExactLocalModel(unittest.TestCase):
     def test_structural_errors_where_the_exact_hessian_is_not_built_yet(self):
         '''The kinds without ``corewise_hessian`` raise the backend's structural ``ValueError`` at construction
         (naming the kind). Gauss-Newton is unaffected. (The shared manifold's exact mode -- the tied lift -- is
-        built: S7; the unshared uniform layer's -- the masked uniform two-hole -- S8, while a SHARED uniform
-        geometry raises the next slice's ``NotImplementedError``.)'''
+        built: S7; the unshared uniform layer's -- the masked uniform two-hole -- S8; the SHARED uniform
+        geometries' -- the uniform tied lift -- S9.)'''
         import t3toolbox.shared_geometry as sg
         import t3toolbox.uniform_tucker_tensor_train as ut3
         import t3toolbox.uniform_manifold as ut3m
@@ -1182,8 +1242,7 @@ class TestExactLocalModel(unittest.TestCase):
             with self.subTest(shared_uniform=type(base).__name__):
                 ugeom = sg.shared(base, (0, 0, 1))
                 self.assertFalse(fitting.probe_derivatives_model(ugeom, uxt, wws, pps, 1, rt).is_exact)
-                with self.assertRaisesRegex(NotImplementedError, 'lands in slice S9'):
-                    fitting.probe_derivatives_model(ugeom, uxt, wws, pps, 1, rt, hessian='exact')
+                self.assertTrue(fitting.probe_derivatives_model(ugeom, uxt, wws, pps, 1, rt, hessian='exact').is_exact)
         xs, ssample, sdata = _ex_problem(_EX_SHAREABLE, 1, 8, rng, sharing=(0, 0, 1))
         rs = _ex_residual(xs, ssample, sdata, 1)
         geom = sg.shared_manifold((0, 0, 1))

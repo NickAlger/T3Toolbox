@@ -1063,6 +1063,102 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(fst['history'][0]['hessian'], 'exact')
         self.assertEqual(fst['history'][0]['step_control'], 'trust_region')
 
+    def test_jit_shared_uniform_exact(self):
+        """S9, the exact Hessian on the SHARED uniform layer: the uniform tied lift factors (the uniform companion and
+        the tied filters are leaves, the masks host constants -- never leaves), the tied lift and its transpose
+        (K = (2,)) and the geometry's curvature data jit to pure jax; the shared uniform exact LocalModel -- hvp,
+        quadratic, curvature_hvp, curvature_quadratic, gradient -- jits ONCE across models rebuilt at new tied points
+        (re-orthogonalized frames, new companions) and dampings, on both shared uniform geometries, jit == eager; and
+        ``newton_cg(hessian='exact', use_jit=True)`` compiles the Steihaug CG body at most once across two runs, the
+        result jax-backed and tied, on the backend and through the frontend."""
+        import t3toolbox.backend.ufv_operations as ufo
+        import t3toolbox.backend.ufv_masking as ufm
+        import t3toolbox.backend.utv_operations as utvo
+        import t3toolbox.backend.uniform_fitting as uf
+        import t3toolbox.uniform_manifold as ut3m
+        SH, TK, TT = (5, 5, 6), (2, 2, 2), (1, 2, 2, 1)
+        labels, order, W = (0, 0, 1), 1, 9
+        rng = np.random.default_rng(13)
+        np.random.seed(13)
+
+        def tied_ragged():
+            return t3.TuckerTensorTrain(*bsharing.t3_tie_tucker_factors(t3.TuckerTensorTrain.randn(SH, TK, TT).data,
+                                                                        labels))
+
+        def tied_point():
+            return ut3.UniformTuckerTensorTrain.from_t3(tied_ragged()).to_jax()
+
+        ww = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
+        pp = [jnp.asarray(rng.standard_normal((W, n))) for n in SH]
+        data = [jnp.asarray(z) + 0.1 for z in pd.t3_probe_derivatives(ww, pp, tied_ragged().to_jax().data, order)]
+        ux0 = tied_point()
+        prob = uf.uniform_least_squares_problem('manifold', 'probe_derivatives', ux0, (ww, pp), data, order=order,
+                                                sharing=labels)
+        frame = prob.geom.frame((ux0.data[0], ux0.data[1]))
+        sfd = prob.geom.precompute(frame)
+        sc4, shape, fmasks = tuple(frame[:4]), tuple(frame[4]), frame[5]
+        F = lambda s4: tuple(s4) + (shape, fmasks)
+        self.assert_jit_jax(lambda s4, s: ufo.ufv_tied_lift_factors(F(s4), 1e-6, s), sc4, sfd)
+        lf = ufo.ufv_tied_lift_factors(frame, 1e-6, sfd)
+        self.assertTrue(all(hasattr(l, 'dtype') and np.asarray(l).dtype != bool for l in jax.tree_util.tree_leaves(lf)))
+        tk_shape, tt_shape = ufo.ufv_variation_shapes(frame)
+        v = (jnp.asarray(rng.standard_normal(tk_shape[:1] + (2,) + tk_shape[1:])),
+             jnp.asarray(rng.standard_normal(tt_shape[:1] + (2,) + tt_shape[1:])))
+        vmK = ufm.ufv_variation_masks_over_stack(fmasks, (), (2,))
+        self.assert_jit_jax(lambda s4, a, b, l: utvo.utv_corewise_lift(F(s4), (a, b, shape, vmK), l)[:2], sc4, *v, lf)
+        D = (jnp.asarray(rng.standard_normal(frame[0].shape[:1] + (2,) + frame[0].shape[1:])),
+             jnp.asarray(rng.standard_normal(frame[2].shape[:1] + (2,) + frame[2].shape[1:])))
+        self.assert_jit_jax(lambda s4, a, b, l: utvo.utv_corewise_lift_transpose(
+            F(s4), (a, b, shape, (fmasks[0], fmasks[2])), l)[:2], sc4, *D, lf)
+        g = prob.local_model((ux0.data[0], ux0.data[1])).gradient
+        self.assert_jit_jax(lambda s4, g0, g1, s: prob.geom.curvature_precompute(F(s4), (g0, g1), s, 1e-6),
+                            sc4, *g, sfd)
+
+        for geometry, dampings in (('manifold', (None, 1e-3, 0.0)), ('corewise', (None, None, None))):
+            with self.subTest(geometry=geometry):
+                gprob = uf.uniform_least_squares_problem(geometry, 'probe_derivatives', ux0, (ww, pp), data,
+                                                         order=order, sharing=labels)
+                traces = [0]
+
+                @jax.jit
+                def every(model, q):
+                    traces[0] += 1                                      # +1 per TRACE (compile), not per call
+                    return (model.hvp(q), model.quadratic(q), model.curvature_hvp(q), model.curvature_quadratic(q),
+                            model.gradient)
+
+                for ux, cd in zip((ux0, tied_point(), tied_point()), dampings):
+                    lm = gprob.local_model((ux.data[0], ux.data[1]), hessian='exact', curvature_damping=cd)
+                    q = gprob.geom.project(lm.frame, tuple(jnp.stack([a, -2.0 * a], axis=1) for a in lm.gradient),
+                                           lm.geom_aux)
+                    out = every(lm, q)
+                    jax.block_until_ready(out[1])
+                self.assertEqual(traces[0], 1,
+                                 "the shared uniform exact LocalModel recompiled across points / dampings")
+                self._leaves_all_jax(out)
+                to_np = lambda tree: jax.tree_util.tree_map(np.asarray, tree)
+                eager = to_np(lm).hvp(to_np(q))
+                for a, b in zip(eager, out[0]):                                  # jit == eager (numpy)
+                    self.assertLess(norm(np.asarray(a) - np.asarray(b)), 1e-12 * max(norm(np.asarray(a)), 1.0))
+
+        cg = bopt._jitted(bopt._cg_core, (4,))
+        before = cg._cache_size() if hasattr(cg, '_cache_size') else None
+        x, stats = bopt.newton_cg(prob, (ux0.data[0], ux0.data[1]), max_newton=4, hessian='exact', use_jit=True)
+        mid = cg._cache_size() if before is not None else None
+        other = tied_point()
+        _, stats2 = bopt.newton_cg(prob, (other.data[0], other.data[1]), max_newton=3, hessian='exact', use_jit=True)
+        self._leaves_all_jax(x)
+        self.assertGreaterEqual(sum(row['cg_iters'] or 0 for row in stats['history'] + stats2['history']), 4)
+        if before is not None:
+            self.assertLessEqual(mid - before, 1, "the shared uniform exact CG recompiled within a run")
+            self.assertEqual(cg._cache_size(), mid, "the shared uniform exact CG recompiled across runs")
+        self.assertTrue(bool(np.all(bsharing.ut3_tucker_factors_shared(
+            (np.asarray(x[0]), np.asarray(x[1])) + ux0.data[2:], labels))))
+        xf, fst = topt.newton_cg(sgm.shared(ut3m.UNIFORM_MANIFOLD, labels), 'probe_derivatives', (ww, pp), data, ux0,
+                                 order=order, max_newton=2, hessian='exact', use_jit=True, chunk_size=None)
+        self._leaves_all_jax(xf)
+        self.assertEqual(fst['history'][0]['hessian'], 'exact')
+        self.assertTrue(bool(np.all(xf.has_shared_tucker_factors(labels))))
+
     def test_frontend_exact_newton_cg_use_jit(self):
         """The frontend ``newton_cg(hessian='exact', use_jit=True)``: the keywords pass through, the inner
         Steihaug CG jits with the exact model as loop state, and the result is jax-backed."""

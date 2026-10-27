@@ -758,7 +758,7 @@ def fv_tied_lift_factors(
       motion; the escape through the TT variations (their per-bond lift) is untouched.
 
     Requires an orthogonal frame and its own companion (check-free). Stack-aware (frame stack ``C``);
-    dispatch is inferred.
+    dispatch is inferred. The uniform twin is :py:func:`~t3toolbox.backend.ufv_operations.ufv_tied_lift_factors`.
 
     Examples
     --------
@@ -1001,8 +1001,11 @@ def ufv_shared_frame_data(
     (Until 2026-08-22 the centers came from RE-SWEEPING the stored left supercore with fresh SVDs, which
     had to see the arrays AS STORED to reproduce the construction's sign choices; the constraint, and
     the 'frames packed from ragged are not guaranteed' caveat, went with it -- review S9.) The padded
-    rows of each ``S_i^T`` vanish to roundoff (completion rows are orthogonal to the center's row space),
-    so every consumer stays padding-transparent.
+    rows and columns of each ``S_i^T`` are then exact zeros. The SVD of the zero-bordered stacked ``M_g`` is
+    not exact there: ``svd_U``'s padded rows and the padded levels of ``svd_s`` come back at roundoff, so
+    its consumers re-mask (:py:func:`ufv_share_tucker_variations`) or zero by the masks (the uniform tied
+    lift, :py:func:`~t3toolbox.backend.ufv_operations.ufv_tied_lift_factors`, which also clips at the
+    group's REAL dimensions).
 
     Container reuse: the returned :py:class:`SharedFrameData` holds SUPERCORE SLICES at the padded
     dims (frame stack ``C`` leading; ``row_splits`` are multiples of the padded ``nD``).
@@ -1022,14 +1025,17 @@ def ufv_share_tucker_variations(
 ):  # -> tied variations .data (same masks; padded rows come back exactly zero)
     '''The uniform twin of :py:func:`fv_share_tucker_variations` (the manifold tied post-pass):
     mask the variation supercores, delegate to the polymorphic ragged solve on the mode slices,
-    re-stack. The companion's masked ``U_M`` zeroes every padded row of the redistribution, so the
-    output is masked-clean and the masks are unchanged.'''
+    re-stack, re-mask. The redistribution ``U_M diag(s_g) Vt_M Udot`` reaches the padded rows only through
+    ``U_M``'s padded-row entries, which the SVD leaves at roundoff (~1e-16), not at an exact zero; the
+    re-mask makes the output masked-clean (the real blocks are untouched, bit for bit), with the masks
+    unchanged.'''
     tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
     shape, masks = variations_data[2], variations_data[3]
     use_jax = tree_contains_jax(variations_data[:2])
     xnp, _, _ = get_backend(True, use_jax)
     new_tk_slices, _ = fv_share_tucker_variations((tkv, ttv), shared_data, rcond=rcond)
-    return xnp.stack(list(new_tk_slices), axis=0), ttv, shape, masks
+    tied_tk, ttv = ufv_masking.ufv_apply_variations_masks((xnp.stack(list(new_tk_slices), axis=0), ttv, shape, masks))
+    return tied_tk, ttv, shape, masks
 
 
 def ufv_share_tucker_variations_corewise(

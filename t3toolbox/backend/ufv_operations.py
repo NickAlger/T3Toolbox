@@ -13,8 +13,10 @@ int-tuple ``shape`` is shared and woven onto every leaf. The masks' differing le
 
 It also holds the uniform twins of the frame-level constructions of
 :py:mod:`~t3toolbox.backend.fv_operations` that the optimizers need: the canonical zero-point frame
-(``ufv_zero_point_frame``) and the exact Hessian's lift factors (``ufv_lift_factors``).
+(``ufv_zero_point_frame``) and the exact Hessian's lift factors (``ufv_lift_factors``; at a shared point
+``ufv_tied_lift_factors``).
 """
+import dataclasses as dc
 import numpy as np
 import typing as typ
 
@@ -26,6 +28,7 @@ import t3toolbox.backend.fv_operations as fv_operations
 import t3toolbox.backend.ufv_conversions as ufv_conversions
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.linalg as linalg
+import t3toolbox.backend.sharing as sharing_module
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -42,6 +45,7 @@ __all__ = [
     'ufv_frame_orthogonality_residual',
     'ufv_zero_point_frame',
     'ufv_lift_factors',
+    'ufv_tied_lift_factors',
     'ufv_absorb_weights',
     'ufv_weights_consistent',
     'ufv_weights_from_ut3_weights',
@@ -481,6 +485,98 @@ def ufv_lift_factors(
         bond_pinvs = xnp.concatenate([bond_pinvs, xnp.asarray(boundary, dtype=bond_pinvs.dtype)], axis=0)
     return fv_operations.LiftFactors(tucker_pinvs=tucker_pinvs, bond_pinvs=bond_pinvs, tucker_svals=tucker_svals,
                                      bond_svals=bond_svals, eps=eps)
+
+
+def _real_group_levels(
+        frame_masks:  typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # the frame's (up, down, left, right); HOST bool
+        group:        typ.Tuple[int, ...],                             # one nontrivial sharing group
+        k:            int,                                             # the padded group spectrum length q
+) -> typ.Tuple[
+    NDArray,                                                           # HOST bool, C+(k,): the REAL levels of s_g
+    NDArray,                                                           # HOST float, C+(1,): max(sum_i nD_i, nU), real
+]:
+    """Which levels of a uniform group spectrum ``s_g`` are the group's real ones, and the real dimensions its clip
+    is taken at. The uniform companion's stacked ``M_g = [S_i1^T; ...]`` is the real block (``sum_i nD_i`` rows,
+    the group's ``nU`` columns, per stack element) bordered by exact zeros, so its real levels are the first
+    ``min(sum_i nD_i, nU)`` of its descending spectrum; the rest are padded levels at roundoff. Returns that mask
+    and ``max(sum_i nD_i, nU)`` (the ragged tied solve's clip is ``dtype eps`` times it), read off the host masks."""
+    up, down = frame_masks[0], frame_masks[1]
+    rows = sum(np.sum(down[ii], axis=-1) for ii in group)                  # C: sum_i nD_i (real)
+    cols = np.sum(up[group[0]], axis=-1)                                    # C: the group's real nU
+    real = np.arange(k) < np.minimum(rows, cols)[..., None]
+    return real, np.maximum(rows, cols)[..., None].astype(float)
+
+
+def ufv_tied_lift_factors(
+        frame_data:         typ.Tuple[
+            NDArray,                                    # up_tucker_supercore,  (d,)+C+(nU, N)
+            NDArray,                                    # down_tt_supercore,    (d,)+C+(rL, nD, rR)
+            NDArray,                                    # left_tt_supercore,    (d,)+C+(rL, nU, rL)
+            NDArray,                                    # right_tt_supercore,   (d,)+C+(rR, nU, rR)
+            typ.Tuple[int, ...],                        # shape
+            typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, frame_left, frame_right) masks; HOST bool
+        ],
+        curvature_damping:  typ.Union[float, NDArray],  # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
+        shared_data:        sharing_module.SharedFrameData,  # the frame's UNIFORM companion (ufv_shared_frame_data)
+        rcond:              typ.Optional[float] = None, # relative clip; None -> the ragged default per REAL block
+) -> fv_operations.LiftFactors:                         # supercore-valued; shared_data + one tied filter per group
+    '''The uniform twin of :py:func:`~t3toolbox.backend.sharing.fv_tied_lift_factors`: the lift factors of a uniform
+    SHARED point -- :py:func:`ufv_lift_factors` plus, per nontrivial sharing group, the damped filter of the group's
+    tied solve -- so that :py:func:`~t3toolbox.backend.utv_operations.utv_corewise_lift` lifts each group's Tucker
+    slots to ONE factor direction, ``Udot_g = M_g^{+eps} [V_i1; ...]``, solved against the companion's stacked-``S``
+    SVD (:py:func:`~t3toolbox.backend.sharing.ufv_shared_frame_data`).
+
+    **The padded levels.** The uniform companion is built on the frame's padded supercores, so its group spectrum
+    ``s_g`` carries, beyond the group's real levels, padded levels that the SVD does not guarantee to be exact
+    zeros (roundoff, or garbage in a hand-built companion). The filter ``f(s_g) = s_g / (s_g^2 + eps^2)``
+    (:py:func:`~t3toolbox.backend.linalg.filtered_reciprocal`) is therefore zeroed on every padded level by the
+    host masks (the group's real level count is ``min(sum_i nD_i, nU)`` per stack element), not only by its
+    relative clip; and the clip itself
+    (``rcond=None``) is the ragged one, ``dtype eps * max(sum_i nD_i, nU)``, at the REAL dimensions. So per stack
+    element the filter is the ragged filter on the real levels and exactly 0 beyond them, and the tied lift is the
+    ragged one. A real level that is zero -- a zero-padded restart's new level -- is clipped to 0 like the ragged
+    one, and stays a real level (the smallest lift singular value reports it).
+
+    The per-mode fields are :py:func:`ufv_lift_factors`'s, bit for bit (a group mode's entries go unused). Requires
+    an orthogonal frame and its own uniform companion (check-free; the lift checks the companion's layout).
+    Dispatch is inferred; the masks stay host numpy.
+
+    Examples
+    --------
+    On a frame packed from a ragged shared one, the filter is the ragged filter on the real levels and exactly 0 on
+    the padded ones, and the lift ties the group's slices:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.sharing as sharing
+    >>> import t3toolbox.backend.ufv_conversions as ufc
+    >>> import t3toolbox.backend.ufv_operations as ufo
+    >>> import t3toolbox.backend.utv_operations as utvo
+    >>> np.random.seed(0)
+    >>> x = t3.TuckerTensorTrain.randn((6, 6, 4), (4, 4, 2), (1, 2, 2, 1))
+    >>> x = sharing.t3_tie_tucker_factors(x.data, (0, 0, 1))                      # a tied point
+    >>> frame, v = fvc.t3_orthogonal_representations(x)
+    >>> groups = sharing.validate_sharing((0, 0, 1), (6, 6, 4))
+    >>> lf = sharing.fv_tied_lift_factors(frame, 1e-3, sharing.fv_shared_frame_data(frame, groups))
+    >>> uframe = ufc.t3frame_to_ut3frame(frame, N=7, nU=5, nD=5, rL=3, rR=3)       # padding on every edge
+    >>> ulf = ufo.ufv_tied_lift_factors(uframe, 1e-3, sharing.ufv_shared_frame_data(uframe, groups))
+    >>> f, uf = lf.tied_filters[0], ulf.tied_filters[0]
+    >>> f.shape, uf.shape, bool(np.allclose(uf[:4], f)), uf[4:].tolist()
+    ((4,), (5,), True, [0.0])
+    >>> uv = ufc.t3variations_to_ut3variations(v, N=7, nU=5, nD=5, rL=3, rR=3)
+    >>> theta_hat = utvo.utv_corewise_lift(uframe, uv, ulf)
+    >>> bool(np.array_equal(theta_hat[0][0], theta_hat[0][1]))                   # one factor direction per group
+    True
+    '''
+    lift_factors = ufv_lift_factors(frame_data, curvature_damping, rcond)
+    frame_masks = frame_data[5]
+    tied_filters = []
+    for gi, group in enumerate(sharing_module.nontrivial_groups(shared_data.groups)):
+        real, dims = _real_group_levels(frame_masks, group, shared_data.svd_s[gi].shape[-1])
+        eff_rcond = float(np.finfo(shared_data.svd_s[gi].dtype).eps) * dims if rcond is None else rcond
+        tied_filters.append(sharing_module._tied_filter(shared_data, gi, lift_factors.eps, eff_rcond) * real)
+    return dc.replace(lift_factors, shared_data=shared_data, tied_filters=tuple(tied_filters))
 
 
 def ufv_absorb_weights(

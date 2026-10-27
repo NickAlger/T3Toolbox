@@ -148,6 +148,10 @@ All notable changes to T3Toolbox are documented here. The format follows
 - **A uniform `fitting.LocalModel` keeps its static structure out of the traced leaves.** Its jax flatten
   traced the frame sweep's mode sizes (Python ints) as leaves, so under `jit` they became tracers; it now
   partitions them into the treedef like the backend `LocalModel` (`backend.common.partition_static`).
+- **The uniform tied projection's padding is exactly zero.** `backend.sharing.ufv_share_tucker_variations` (the
+  shared uniform manifold's `project`) left roundoff (~1e-16 relative) in the padded rows of the group modes'
+  Tucker variations -- the companion SVD's `U_M` is not exactly zero there -- so its output was not masked-clean
+  as documented; it is now re-masked. The real blocks, and every fit, are unchanged bit for bit.
 
 ### Added
 
@@ -299,8 +303,23 @@ All notable changes to T3Toolbox are documented here. The format follows
   with theta's masks, the output re-masked). `UniformProbeDerivativesKind.corewise_hessian` replaces its interim
   stub (it masks with the masks of the FRAME it is handed, a strict subset of the point's at TT slack), and the
   uniform geometries gain the four exact-mode members (the curvature data's `sigma_min` reads real slots only).
-  A shared uniform geometry raises `NotImplementedError` for `hessian='exact'` until its tied lift lands; the
-  other kinds' uniform twins keep their stub.
+  The other kinds' uniform twins keep their stub.
+- **The exact Hessian on the shared uniform geometries** (`shared(UNIFORM_MANIFOLD, ...)` /
+  `shared(UNIFORM_COREWISE, ...)`, `UniformManifoldGeometryOps` / `UniformCorewiseGeometryOps` with `groups`): with
+  it, `probe_derivatives` runs `hessian='exact'` on every geometry and representation -- ragged, uniform and
+  uniform on jax, unshared and shared. On the shared uniform manifold the curvature term goes through the ragged
+  tied lift on the supercores, per stack element the ragged one: each sharing group's coordinates lift to ONE
+  raw factor direction, written into every group mode's slice, and the transpose sums the group's slices. The
+  uniform companion's group spectrum `s_g` carries padded levels that are not guaranteed to be exact zeros, so
+  each group's damped filter is zeroed on them by the frame's masks (not only by its relative clip) and clipped at
+  the group's REAL dimensions; `lift_sigma_min` reads each group's real `s_g` levels in place of its modes' own
+  spectra. The shared uniform corewise geometry's exact Hessian (the per-group mean of the plain one) runs as
+  well. From a numerically full-rank shared start a uniform exact run is the ragged run (counts and objective row
+  by row); from a zero-padded shared restart the layers' frames legitimately differ and each converges to the
+  same minimizer. New: `backend.ufv_operations.ufv_tied_lift_factors(frame_data, curvature_damping,
+  shared_data)`, the uniform twin of `backend.sharing.fv_tied_lift_factors`, with which
+  `utv_corewise_lift` / `utv_corewise_lift_transpose` tie the group slots (a companion of another layout is a
+  structural error).
 - **`backend.geometry.UniformManifoldGeometryOps.from_frame(frame_data, plain_masks, sharing)`**: the uniform
   manifold geometry from a frame already in hand -- its variation masks are the frame's own, gauge-shifted --
   the same geometry as `from_point` without re-orthogonalizing. The uniform `fitting.LocalModel` builds its

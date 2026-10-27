@@ -151,8 +151,18 @@ over randomized structures/caps *before* implementation. Two lessons that cost r
    other. The original re-sweep design had to see the arrays *as stored* to reproduce the
    construction's SVD signs (one flipped bond column destroyed a group spectrum in test), which is
    exactly why it broke on a frame that was built elsewhere (a `to_t3frame()` leaf). The padded `S_iᵀ`
-   rows still vanish to roundoff (completion rows are orthogonal to the centers' row space), and the
-   companion is now exact for a frame built by either layer or converted between them.
+   rows and columns are then exact zeros, and the companion is exact for a frame built by either layer or
+   converted between them. **Its SVD is not exact in the padding** (2026.3.0): the batched SVD of the
+   zero-bordered `M_g` leaves roundoff in `U_M`'s padded rows (up to ~2e-15 against the real levels, in
+   a 300-point survey), and does not guarantee exact zeros at the padded levels of `s_g` (there they came
+   back exactly 0 in all but 5 of 1362, the rest at ≤ 3e-17·s_1). So the consumers do not trust the padding:
+   the tied projection re-masks its output; the uniform tied lift (`ufv_tied_lift_factors`) zeroes its
+   damped filter on the padded levels **by the masks** — the relative clip alone would keep a padded level
+   lifted above it (by garbage; the survey's roundoff stayed below 5% of the clip) — and clips at the
+   group's *real* dimensions, `eps·max(Σ_i nD_i, n_g)`, as the ragged solve does (a clip at the padded
+   dimensions is higher, and can drop a real level the ragged solve keeps); and `lift_sigma_min` reads only
+   the real levels (else every varying-rank stack would report a padded 0). A zero-padded restart's new
+   level is a *real* level: it filters to 0 by the clip and is what `lift_sigma_min` reports.
 2. **Cross-layer comparisons must be gauge-invariant and start shared-minimal.** Each layer's frame
    construction chooses its own SVD sign gauge (padding changes LAPACK's choices), so tests compare
    represented *dense* tangents/points and the invariant group spectrum — never raw coordinates.

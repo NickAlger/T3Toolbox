@@ -215,9 +215,8 @@ class LocalModel:
       :py:meth:`t3toolbox.backend.optimizers.Problem.local_model`), and :py:meth:`quadratic` likewise. The
       model's one misfit transpose is done at construction (``curvature``), so :py:attr:`gradient` is the
       Gauss-Newton gradient bit for bit. Only ``probe_derivatives`` implements it so far, ragged and uniform;
-      the other kinds raise a structural error at construction. On a shared manifold geometry the curvature
-      goes through the tied lift (one factor direction per sharing group); a shared uniform geometry does not
-      support it yet (``NotImplementedError``).
+      the other kinds raise a structural error at construction. On a shared manifold geometry, ragged or
+      uniform, the curvature goes through the tied lift (one factor direction per sharing group).
 
     ``gradient``, ``jacobian``, ``gn_hessian``, ``gn_quadratic``, ``objective_value`` and :py:meth:`retract`
     mean the same in both modes.
@@ -907,10 +906,9 @@ def probe_derivatives_model(
     adds the curvature term to the Gauss-Newton one. ``curvature_damping`` (exact only) is the damping of
     the lift from frame coordinates to core variations, relative to ``‖X‖_HS`` -- ``None`` for the
     geometry's default (``backend.geometry.DEFAULT_CURVATURE_DAMPING``); a value with ``hessian='gauss_newton'``
-    or on a corewise geometry raises, as nothing would read it. The ragged manifold and corewise geometries
-    and their shared wrappers support it (on a shared manifold the curvature goes through the tied lift), and
-    so do the uniform ones (a uniform ``x``; per stack element the ragged model's), unshared -- a shared
-    uniform geometry raises ``NotImplementedError`` for now.
+    or on a corewise geometry raises, as nothing would read it. The ragged manifold and corewise geometries,
+    the uniform ones (a uniform ``x``; per stack element the ragged model's) and the shared wrappers of all
+    four support it (on a shared manifold the curvature goes through the tied lift).
 
     Examples
     --------

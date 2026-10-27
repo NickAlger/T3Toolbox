@@ -617,19 +617,49 @@ def utv_project_ut3_onto_tangent_space(
 
 def _check_uniform_lift_factors(
         frame_data,                     # uniform frame .data
-        lift_factors,                   # fv_operations.LiftFactors from ufv_lift_factors
+        lift_factors,                   # fv_operations.LiftFactors from ufv_lift_factors / ufv_tied_lift_factors
         caller:  str,
-) -> None:
-    """Structural guard: supercore-valued, unshared lift factors with one slot per mode (``d`` Tucker, ``d`` bond
-    -- the last the boundary pass-through), as :py:func:`~t3toolbox.backend.ufv_operations.ufv_lift_factors`
-    builds them."""
-    d = frame_data[0].shape[0]
+) -> typ.Tuple[typ.Tuple[int, ...], ...]:   # the nontrivial sharing groups the lift ties; () unshared
+    """Structural guard: supercore-valued lift factors with one slot per mode (``d`` Tucker, ``d`` bond -- the last
+    the boundary pass-through), as :py:func:`~t3toolbox.backend.ufv_operations.ufv_lift_factors` builds them; tied
+    ones (:py:func:`~t3toolbox.backend.ufv_operations.ufv_tied_lift_factors`) carry one filter per nontrivial group
+    and the frame's UNIFORM companion, whose stacked rows are the group modes' padded ``nD`` blocks."""
+    d, nD = frame_data[0].shape[0], frame_data[1].shape[-2]
     if not (is_ndarray(lift_factors.tucker_pinvs) and is_ndarray(lift_factors.bond_pinvs)
             and lift_factors.tucker_pinvs.shape[0] == d and lift_factors.bond_pinvs.shape[0] == d):
         raise ValueError('%s: the lift factors must be the uniform frame\'s supercore-valued ones, d=%d slots each '
                          '(build them with ufv_operations.ufv_lift_factors)' % (caller, d))
-    if lift_factors.shared_data is not None:
-        raise NotImplementedError('%s: tied (shared) uniform lift factors are not implemented yet' % caller)
+    groups = tv_operations._tied_lift_groups(lift_factors)
+    for group, splits in zip(groups, lift_factors.shared_data.row_splits if groups else ()):
+        if tuple(splits) != tuple(jj * nD for jj in range(len(group) + 1)):
+            raise ValueError('%s: the tied lift factors\' companion is not this uniform frame\'s (its stacked row '
+                             'splits %r are not the padded nD=%d blocks of group %r; build it with '
+                             'sharing.ufv_shared_frame_data)' % (caller, tuple(splits), nD, group))
+    return groups
+
+
+def _tie_group_slices(
+        sc,             # a supercore (d,)+K+C+(...): the per-mode lift (or transpose) of every slot
+        groups,         # the nontrivial sharing groups the lift ties
+        group_blocks,   # per group: per group mode, the tied block, (K+C)+(...)
+):                      # -> the supercore with each group mode's slice replaced by its tied block
+    """Write each sharing group's tied blocks into the group modes' slices of a supercore: one supercore slice per
+    group mode, rebuilt by a stack (no in-place write, so numpy and jax alike)."""
+    if not groups:
+        return sc
+    xnp, _, _ = get_backend(True, tree_contains_jax((sc, group_blocks)))
+    slices = [sc[ii] for ii in range(sc.shape[0])]
+    for group, blocks in zip(groups, group_blocks):
+        for ii, block in zip(group, blocks):
+            slices[ii] = block
+    return xnp.stack(slices, axis=0)
+
+
+def _group_sum(sc, group):   # (d,)+K+C+(...) -> (K+C)+(...): the sum of a group's slices (T^T), in the ragged order
+    total = sc[group[0]]
+    for ii in group[1:]:
+        total = total + sc[ii]
+    return total
 
 
 def utv_corewise_lift(
@@ -647,6 +677,12 @@ def utv_corewise_lift(
     own masks, and the output carries the frame's ``(up, left)`` masks -- the base point's -- broadcast over
     ``K``, re-masked with them, so its padding is exactly zero. Per stack element, the real block is the ragged
     lift of the real blocks (``to_uniform -> lift -> to_ragged == lift``).
+
+    **Shared points.** With tied lift factors (:py:func:`~t3toolbox.backend.ufv_operations.ufv_tied_lift_factors`)
+    each nontrivial sharing group's Tucker slots lift to ONE factor direction, ``Udot_g = M_g^{+eps} [V_i1; ...]``
+    against the companion's stacked ``M_g`` (the ragged tied solve, on the masked supercore slices), written into
+    every group mode's slice -- the same values at each, as the ragged lift's one array per group -- then re-masked
+    with the rest.
 
     Batching: factors ``C``; variations and output ``K + C`` (the factors broadcast over ``K``).
 
@@ -674,10 +710,13 @@ def utv_corewise_lift(
     >>> all(np.allclose(theta_hat[1][i][:G.shape[0], :G.shape[1], :G.shape[2]], G) for i, G in enumerate(ragged[1]))
     True
     """
-    _check_uniform_lift_factors(frame_data, lift_factors, 'utv_corewise_lift')
+    groups = _check_uniform_lift_factors(frame_data, lift_factors, 'utv_corewise_lift')
     tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)            # mask on entry (own masks)
     shape = tuple(frame_data[4])
     Udot = contractions.contract('dCux,dKCxn->dKCun', lift_factors.tucker_pinvs, tkv)
+    Udot = _tie_group_slices(Udot, groups, [                                      # the tied lift: Udot_g at each
+        (sharing_module._tied_filtered_solve(lift_factors.shared_data, gi, tkv, lift_factors.tied_filters[gi]),)
+        * len(group) for gi, group in enumerate(groups)])
     Gdot = contractions.contract('dKCaib,dCbc->dKCaic', ttv, lift_factors.bond_pinvs)
     up_mask, _down, left_mask, _right = frame_data[5]
     masks = ufv_masking._masks_over_stack((up_mask, left_mask), frame_data[0].shape[1:-2], tkv.shape[1:-2])
@@ -694,11 +733,17 @@ def utv_corewise_lift_transpose(
     (the last TT slot through the boundary pass-through), the exact adjoint of :py:func:`utv_corewise_lift` in the
     masked coordinate inner products, per ``K + C`` element, at every damping. The input is masked on entry
     with its own masks (``ut3_apply_masks`` broadcasts ``C`` masks over ``K``); the output carries the frame's
-    gauge-shifted variation masks over ``K + C``, re-masked with them. Ungauged, as the ragged twin."""
-    _check_uniform_lift_factors(frame_data, lift_factors, 'utv_corewise_lift_transpose')
+    gauge-shifted variation masks over ``K + C``, re-masked with them. Ungauged, as the ragged twin. With tied lift
+    factors each group's raw Tucker variations are summed over the group modes' slices (``T^T``) and mapped back by
+    the tied solve's adjoint into the group modes' slices; the result is untied, as the ragged twin's."""
+    groups = _check_uniform_lift_factors(frame_data, lift_factors, 'utv_corewise_lift_transpose')
     Ud, Gd = ut3_masking.ut3_apply_masks(core_variations)                          # mask on entry (own masks)
     shape = tuple(frame_data[4])
     V = contractions.contract('dCux,dKCun->dKCxn', lift_factors.tucker_pinvs, Ud)
+    V = _tie_group_slices(V, groups, [                                            # T^T, then the solve's adjoint
+        sharing_module._tied_filtered_solve_transpose(lift_factors.shared_data, gi, _group_sum(Ud, group),
+                                                      lift_factors.tied_filters[gi])
+        for gi, group in enumerate(groups)])
     H = contractions.contract('dKCaic,dCbc->dKCaib', Gd, lift_factors.bond_pinvs)
     masks = ufv_masking.ufv_variation_masks_over_stack(frame_data[5], frame_data[0].shape[1:-2], Ud.shape[1:-2])
     return tuple(ufv_masking.ufv_apply_variations_masks((V, H, shape, masks))) + (shape, masks)

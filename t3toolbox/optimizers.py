@@ -464,9 +464,9 @@ def newton_cg(
     model's predicted decrease), the Gauss-Newton one the Armijo line search; either combines with either.
     ``tr_radius0`` is the initial trust radius and ``curvature_damping`` the exact Hessian's lift damping
     (relative to ``‖X‖``; ``None`` = the geometry's default); each raises where it would have no effect. The
-    exact Hessian is implemented for ``probe_derivatives`` on the ragged ``MANIFOLD`` / ``COREWISE`` geometries
-    and their shared wrappers so far; elsewhere ``hessian='exact'`` raises a structural error before the
-    first step. ``hessian`` also sizes ``chunk_size='auto'`` (:py:func:`least_squares_problem`). Details,
+    exact Hessian is implemented for ``probe_derivatives`` so far, on every geometry (``MANIFOLD`` /
+    ``COREWISE``, their uniform twins, and the shared wrappers of all four); for the other kinds
+    ``hessian='exact'`` raises a structural error before the first step. ``hessian`` also sizes ``chunk_size='auto'`` (:py:func:`least_squares_problem`). Details,
     stop reasons and the trust-region rules: the backend :py:func:`t3toolbox.backend.optimizers.newton_cg`.
 
     Both stopping tests are relative to a reference ‖g0‖. By default (``g0_reference=None``) a manifold

@@ -149,7 +149,7 @@ Swapping the formulas would give wrong projections in both directions; the wrapp
 never have to. Inner products are untouched (the tied subspace is linear — the restricted metric
 *is* the metric), and `IdentityRegularizer` and the residual weights compose unchanged.
 
-**The exact Hessian** (`newton_cg(..., hessian='exact')`, ragged) works on both shared geometries.
+**The exact Hessian** (`newton_cg(..., hessian='exact')`, ragged and uniform) works on both shared geometries.
 On `shared_corewise` it is the plain Hessian of the objective in the tied cores, tied by the same
 per-group mean. On `shared_manifold` the curvature term needs the *tied lift*: the shared set is the
 tied parametrization (one factor per group, copied to the group's modes), so each group's tied

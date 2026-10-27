@@ -21,7 +21,7 @@ Pieces (T17): ``ufv_lift_factors``; ``utv_corewise_lift[_transpose]`` (+ the adj
 stacks); the T3-T3 two-hole ``ut3_inner_product_corewise_*``; the probe-derivative two-hole
 ``ut3_probe_corewise_derivatives_hessian[_from_sweep]`` (+ chunked); ``UniformProbeDerivativesKind.corewise_hessian``
 (T24: the theta_hat mask, the masks read off the FRAME at TT slack, T23 after the override); the uniform
-geometries' exact members (``d = 1`` -> ``None``; shared -> the next slice's structural error); the backend exact
+geometries' exact members (``d = 1`` -> ``None``; shared -> the tied lift on the companion); the backend exact
 ``LocalModel`` (hvp / curvature_hvp / quadratic / curvature_quadratic / gradient, ``K`` stacks) per element and,
 through ``uniform_least_squares_problem``, against the ragged problem's dense actions; the Gauss-Newton forward and
 hvp on a ``K`` stack (the S0c m1 gap); the uniform m27 (the exact gradient IS the Gauss-Newton one); T20 (flat
@@ -29,21 +29,30 @@ slots). End to end (T21 / T25): exact ``newton_cg`` from slack starts (reduced t
 frontend row by row equal to the ragged runs; from a zero-padded restart (rank-deficient: the layers' frames
 legitimately differ there) each converges to the ragged run's minimizer, and the frontend IS the backend run.
 The full-length T21 / TT-slack runs are slow-tier (``T3TOOLBOX_SLOW_TESTS=1``).
+
+S9, the SHARED uniform layer (T12's uniform twin under the T17 rules, T22): the uniform tied lift factors / lift /
+transpose and the shared exact model per element vs the ragged shared ones, tied outputs, garbage in the
+companion's padding included; the FD and dense-Lagrangian oracles on the uniform Problem path; the zero-padded and
+group-ceiling restarts end to end, and the full-rank group-ceiling start row by row equal to the ragged run.
 """
 import dataclasses as dc
 import os
+import sys
 import unittest
 
 import numpy as np
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
+import t3toolbox.corewise as cw
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.fv_conversions as fvc
 import t3toolbox.backend.fv_operations as fvo
 import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.optimizers as bopt
 import t3toolbox.backend.sampling_derivatives as sd
+import t3toolbox.backend.sharing as sharing
+import t3toolbox.backend.t3_conversions as t3c
 import t3toolbox.backend.t3_linalg as t3la
 import t3toolbox.backend.tv_operations as tvo
 import t3toolbox.backend.ufv_conversions as ufc
@@ -57,6 +66,9 @@ import t3toolbox.backend.ut3_operations as ut3o
 import t3toolbox.backend.ut3_sampling as ut3s
 import t3toolbox.backend.utv_operations as utvo
 import t3toolbox.backend.utv_sampling as utvs
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _curvature_oracles as oracles
 
 # Per case: the ragged structures of the stack elements (one -> C = (); two, of different ranks -> C = (2,)).
 _CASES = {
@@ -554,20 +566,23 @@ class TestUniformKindCorewiseHessian(unittest.TestCase):
 # ---------------------------------------------------------------------------------------------------
 def _uniform_exact_model(uframe, plain_masks, kind, sample, residual, curvature_damping=None, geom=None):
     """A backend exact LocalModel AT A GIVEN uniform frame (``Problem.local_model`` builds its own frame, which is
-    only gauge-equivalent to the ragged one): so the coordinates match the ragged model's slot for slot."""
+    only gauge-equivalent to the ragged one): so the coordinates match the ragged model's slot for slot. A shared
+    geometry's companion is built once, as ``Problem.local_model`` does (``None`` unshared)."""
     geom = geom or bgeo.UniformManifoldGeometryOps.from_frame(uframe, plain_masks)
+    aux = geom.precompute(uframe)
     sweep = kind.precompute(uframe, sample)
-    mg = geom.project(uframe, kind.transpose(residual, sample, uframe, sweep))
-    cd = geom.curvature_precompute(uframe, mg, None, curvature_damping)
-    return bopt.LocalModel(geom, kind, sample, uframe, sweep, residual, kind.w_axes(sample), None, None,
+    mg = geom.project(uframe, kind.transpose(residual, sample, uframe, sweep), aux)
+    cd = geom.curvature_precompute(uframe, mg, aux, curvature_damping)
+    return bopt.LocalModel(geom, kind, sample, uframe, sweep, residual, kind.w_axes(sample), None, aux,
                            bopt.CurvatureState(mg, cd))
 
 
 def _ragged_exact_model(rframe, kind, sample, residual, curvature_damping=None, geom=_MANIFOLD):
+    aux = geom.precompute(rframe)
     sweep = kind.precompute(rframe, sample)
-    mg = geom.project(rframe, kind.transpose(residual, sample, rframe, sweep))
-    cd = geom.curvature_precompute(rframe, mg, None, curvature_damping)
-    return bopt.LocalModel(geom, kind, sample, rframe, sweep, residual, kind.w_axes(sample), None, None,
+    mg = geom.project(rframe, kind.transpose(residual, sample, rframe, sweep), aux)
+    cd = geom.curvature_precompute(rframe, mg, aux, curvature_damping)
+    return bopt.LocalModel(geom, kind, sample, rframe, sweep, residual, kind.w_axes(sample), None, aux,
                            bopt.CurvatureState(mg, cd))
 
 
@@ -575,8 +590,8 @@ class TestUniformGeometryExactMembers(unittest.TestCase):
     """The uniform geometries' four exact-mode members per element vs the ragged geometry's, on a frame packed
     from the ragged one: the curvature data (``grad f`` as a doubled-rank T3, densely; the real-slot sigma_min;
     eps), the lift, its transpose and the tangential term; ``d = 1`` gives ``None``; a shared uniform geometry
-    raises the next slice's structural error, before any work; the corewise geometry's are the identity / ``()``
-    / ``None`` and reject a damping."""
+    builds the TIED lift on its companion (S9; the shared classes below test it); the corewise geometry's are the
+    identity / ``()`` / ``None`` and reject a damping."""
 
     def test_manifold_members_per_element(self):
         rng = np.random.default_rng(19)
@@ -665,13 +680,21 @@ class TestUniformGeometryExactMembers(unittest.TestCase):
         np.random.seed(23)
         x = t3.TuckerTensorTrain.randn((5, 5, 6), (2, 2, 2), (1, 2, 2, 1))
         ux = ut3.UniformTuckerTensorTrain.from_t3(x)
-        for base in (bgeo.UniformManifoldGeometryOps.from_point(ux.data),
+        for base in (bgeo.UniformManifoldGeometryOps.from_point(ux.data),          # S9: shared runs (was S8's NIE)
                      bgeo.UniformCorewiseGeometryOps.from_point(ux.data)):
             with self.subTest(shared=type(base).__name__):
                 shared = base.with_sharing((0, 0, 1))
                 f = shared.frame((ux.data[0], ux.data[1]))
-                with self.assertRaisesRegex(NotImplementedError, 'lands in slice S9'):
-                    shared.curvature_precompute(f, None, None, None)
+                aux = shared.precompute(f)
+                mg = shared.project(f, _random_variation_sc(f, (), rng), aux)
+                data = shared.curvature_precompute(f, mg, aux, None)
+                if isinstance(base, bgeo.UniformCorewiseGeometryOps):
+                    self.assertEqual(data, ())
+                    continue
+                self.assertIs(data.lift_factors.shared_data, aux)                     # the TIED lift, on the companion
+                self.assertEqual(len(data.lift_factors.tied_filters), 1)
+                again = shared.curvature_precompute(f, mg, None, None)                # aux=None: recomputed, equal
+                self.assertTrue(np.array_equal(again.lift_factors.tied_filters[0], data.lift_factors.tied_filters[0]))
         cgeo = bgeo.UniformCorewiseGeometryOps.from_point(ux.data)
         f = cgeo.frame((ux.data[0], ux.data[1]))
         self.assertEqual(cgeo.curvature_precompute(f, None, None, None), ())
@@ -1013,6 +1036,745 @@ class TestUniformExactNewton(unittest.TestCase):
         _, uni = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', (ww, pp), data, ux0, order=order,
                                 max_newton=max_newton, hessian='exact', chunk_size=kind.chunk_size)
         _same_run(self, uni, ragged)
+
+
+# ---------------------------------------------------------------------------------------------------
+# S9: the exact Hessian on the SHARED uniform layer -- the uniform tied lift (T12's uniform twin, T22)
+# ---------------------------------------------------------------------------------------------------
+# Per case: the ragged structures of the stack elements, tied by the labels. Every case but 'minimal' is
+# group-ceiling in at least one element -- a group's rank exceeds a member's own ceiling, so that member's S_i^T is
+# wide and the per-mode lift is NOT the tied one (on 'minimal' every group S_i^T is square and the two agree); the
+# two-element stacks differ in rank per element, and padding is forced on every family (_frame_dims).
+_SH_CASES = {
+    'ceiling varying': ([((6, 6, 4), (4, 4, 2), (1, 2, 2, 1)), ((6, 6, 4), (3, 3, 2), (1, 3, 2, 1))], (0, 0, 1)),
+    'two groups varying': ([((5, 6, 5, 6), (3, 2, 3, 2), (1, 2, 3, 2, 1)),
+                            ((5, 6, 5, 6), (2, 3, 2, 3), (1, 2, 2, 2, 1))], (0, 1, 0, 1)),
+    'one group': ([((5, 5, 5), (3, 3, 3), (1, 2, 2, 1))], (0, 0, 0)),
+    'minimal': ([((5, 5, 6), (2, 2, 2), (1, 2, 2, 1))], (0, 0, 1)),
+}
+_SH_DISCRIMINATING = ('ceiling varying', 'two groups varying', 'one group')
+
+
+def _shared_unit_point(struct, labels):
+    """A random TIED T3 (one factor array per group) scaled to ``||X||_HS = 1``."""
+    tk, tt = sharing.t3_tie_tucker_factors(t3.TuckerTensorTrain.randn(*struct).data, labels)
+    nrm = float(np.linalg.norm(np.asarray(t3c.t3_to_dense((tk, tt)))))
+    return tuple(tk), tuple(tt[:-1]) + (tt[-1] / nrm,)
+
+
+def _shared_case(name, seed):
+    """(ragged tied points, their ragged frames, the packed uniform frame, the canonical groups, n_elements)."""
+    np.random.seed(seed)
+    structs, labels = _SH_CASES[name]
+    points = [_shared_unit_point(s, labels) for s in structs]
+    rframes = [fvc.t3_orthogonal_representations(x)[0] for x in points]
+    return (points, rframes, _pack_frames(rframes, _frame_dims(rframes)),
+            sharing.validate_sharing(labels, structs[0][0]), len(structs))
+
+
+def _compare_levels(test, u, refs, n, label, tol=_TOL):
+    """A uniform group-spectrum-shaped array ``C+(q,)`` against per-element ragged ``(q_c,)`` arrays: equal on the
+    first ``q_c`` levels (``q_c`` from the RAGGED array's length, not a uniform mask), exactly 0 beyond them."""
+    u = np.asarray(u)
+    for c in range(n):
+        uc, r = (u[c] if n > 1 else u), np.asarray(refs[c])
+        test.assertLess(float(np.max(np.abs(uc[:r.shape[-1]] - r)) / np.max(np.abs(r))), tol, label)
+        test.assertTrue(np.all(uc[r.shape[-1]:] == 0.0), '%s: a padded level is not exactly 0' % label)
+
+
+def _ragged_tied_factors(rframes, groups, cd):
+    return [sharing.fv_tied_lift_factors(f, cd, sharing.fv_shared_frame_data(f, groups)) for f in rframes]
+
+
+def _dirty_companion(sfd, rframes, nD_pad, seed=0, scale=1e3):
+    """The uniform companion with finite garbage in every PADDED slot: ``U_M``'s padded rows (beyond each group
+    mode's real ``nD``) and padded-level columns, ``s_g``'s padded levels (positive, far above any clip), ``Vt_M``'s
+    padded-level rows and padded ``nU`` columns -- the real extents read off the RAGGED frames' shapes."""
+    rng = np.random.default_rng(seed)
+    n = len(rframes)
+    out = ([], [], [])
+    for gi, group in enumerate(sharing.nontrivial_groups(sfd.groups)):
+        U, s, Vt = (np.array(a, copy=True) for a in (sfd.svd_U[gi], sfd.svd_s[gi], sfd.svd_Vt[gi]))
+        rows = np.zeros((n, U.shape[-2]), bool)
+        levels = np.zeros((n, s.shape[-1]), bool)
+        cols = np.zeros((n, Vt.shape[-1]), bool)
+        for c, f in enumerate(rframes):
+            nDs = [f[1][ii].shape[-2] for ii in group]
+            for jj, nd in enumerate(nDs):
+                rows[c, jj * nD_pad: jj * nD_pad + nd] = True
+            levels[c, :min(sum(nDs), f[0][group[0]].shape[-2])] = True
+            cols[c, :f[0][group[0]].shape[-2]] = True
+        if n == 1:
+            rows, levels, cols = rows[0], levels[0], cols[0]
+        U += scale * (1.0 - (rows[..., :, None] & levels[..., None, :])) * rng.standard_normal(U.shape)
+        s += (1.0 - levels) * scale * (1.0 + np.abs(rng.standard_normal(s.shape)))
+        Vt += scale * (1.0 - (levels[..., :, None] & cols[..., None, :])) * rng.standard_normal(Vt.shape)
+        for acc, a in zip(out, (U, s, Vt)):
+            acc.append(a)
+    return dc.replace(sfd, svd_U=tuple(out[0]), svd_s=tuple(out[1]), svd_Vt=tuple(out[2]))
+
+
+class TestUniformSharedTiedLift(unittest.TestCase):
+    """T12's uniform twin, the lift (``ufv_tied_lift_factors`` + ``utv_corewise_lift[_transpose]``): per element the
+    ragged tied factors / lift / transpose (<= 1e-13) on varying-rank shared stacks with forced padding, the group
+    modes' slices one value, exact output masks, the adjoint identity on K and C stacks at dampings 0 to 10, and the
+    tied lift identity ``DPhi[L v] == E v``. The uniform companion's padded ``s_g`` levels filter to exactly 0 BY THE
+    MASKS, not only by the clip -- finite garbage in every padded slot of the companion leaves the factors, the lift
+    and its transpose bitwise unchanged, where the clip-only filter picks it up -- and ``sigma_min`` reads the REAL
+    ``s_g`` levels only. A companion of another layout is a structural error."""
+
+    def test_tied_lift_factors_per_element(self):
+        for name in _SH_CASES:
+            for cd in (0.0, 1e-3):
+                with self.subTest(case=name, curvature_damping=cd):
+                    _pts, rframes, uframe, groups, n = _shared_case(name, 61)
+                    usfd = sharing.ufv_shared_frame_data(uframe, groups)
+                    ulf = ufo.ufv_tied_lift_factors(uframe, cd, usfd)
+                    plain = ufo.ufv_lift_factors(uframe, cd)
+                    for a, b in zip((ulf.tucker_pinvs, ulf.bond_pinvs, ulf.tucker_svals, ulf.bond_svals, ulf.eps),
+                                    (plain.tucker_pinvs, plain.bond_pinvs, plain.tucker_svals, plain.bond_svals,
+                                     plain.eps)):
+                        self.assertTrue(np.array_equal(a, b))                     # the per-mode fields, bit for bit
+                    self.assertIs(ulf.shared_data, usfd)
+                    rlf = _ragged_tied_factors(rframes, groups, cd)
+                    self.assertEqual(len(ulf.tied_filters), len(rlf[0].tied_filters))
+                    for gi in range(len(ulf.tied_filters)):
+                        _compare_levels(self, ulf.tied_filters[gi], [lf.tied_filters[gi] for lf in rlf], n,
+                                        'tied filter %d' % gi)
+                    sig = np.asarray(bgeo._uniform_lift_sigma_min(ulf, uframe[5])).reshape(-1)
+                    self.assertTrue(np.allclose(sig, [float(bgeo._lift_sigma_min(lf)) for lf in rlf], rtol=_TOL,
+                                                atol=0.0), sig)
+                    self.assertTrue(np.all(sig > 0.0))                            # never a padded level's 0
+                    dirty = _dirty_frame(uframe, seed=62)
+                    dlf = ufo.ufv_tied_lift_factors(dirty, cd, sharing.ufv_shared_frame_data(dirty, groups))
+                    self.assertTrue(all(np.array_equal(a, b) for a, b in zip(dlf.tied_filters, ulf.tied_filters)))
+
+    def test_lift_and_transpose_per_element(self):
+        rng = np.random.default_rng(63)
+        for name in _SH_CASES:
+            for K in _KS:
+                with self.subTest(case=name, K=K):
+                    _pts, rframes, uframe, groups, n = _shared_case(name, 64)
+                    ulf = ufo.ufv_tied_lift_factors(uframe, 1e-3, sharing.ufv_shared_frame_data(uframe, groups))
+                    rlf = _ragged_tied_factors(rframes, groups, 1e-3)
+                    shape = tuple(uframe[4])
+                    vmasks = ufm.ufv_variation_masks_over_stack(uframe[5], uframe[0].shape[1:-2],
+                                                                tuple(K) + uframe[0].shape[1:-2])
+                    v_sc = _random_variation_sc(uframe, K, rng)                   # garbage padding
+                    v_r = [tuple(_ragged_slices(v_sc[j], K, n, lambda c, j=j: _var_shapes(rframes[c])[j])[c]
+                                 for j in range(2)) for c in range(n)]
+                    out = utvo.utv_corewise_lift(uframe, v_sc + (shape, vmasks), ulf)
+                    ref = [tvo.tv_corewise_lift(rframes[c], v_r[c], rlf[c]) for c in range(n)]
+                    for j in range(2):
+                        _compare(self, out[j], lambda c, j=j: ref[c][j], K, n, 'lift %d' % j)
+                    for group in sharing.nontrivial_groups(groups):               # ONE factor direction per group
+                        for ii in group[1:]:
+                            self.assertTrue(np.array_equal(out[0][ii], out[0][group[0]]))
+                    again = utvo.utv_corewise_lift(_dirty_frame(uframe), v_sc + (shape, vmasks), ulf)
+                    self.assertTrue(all(np.array_equal(a, b) for a, b in zip(out[:2], again[:2])))
+                    y_sc = _random_theta_sc(uframe, K, rng)                       # raw, garbage padding
+                    y_r = [tuple(_ragged_slices(y_sc[j], K, n, lambda c, j=j: _theta_shapes(rframes[c])[j])[c]
+                                 for j in range(2)) for c in range(n)]
+                    tout = utvo.utv_corewise_lift_transpose(uframe, y_sc + _theta_data(uframe)[2:], ulf)
+                    tref = [tvo.tv_corewise_lift_transpose(rframes[c], y_r[c], rlf[c]) for c in range(n)]
+                    for j in range(2):
+                        _compare(self, tout[j], lambda c, j=j: tref[c][j], K, n, 'transpose %d' % j)
+
+    def test_adjoint_identity_on_K_and_C_stacks(self):
+        rng = np.random.default_rng(65)
+        for name in _SH_DISCRIMINATING:
+            for K in ((), (3,), (2, 2)):
+                for cd in (0.0, 1e-2, 10.0):
+                    with self.subTest(case=name, K=K, curvature_damping=cd):
+                        _pts, _rf, uframe, groups, _n = _shared_case(name, 66)
+                        ulf = ufo.ufv_tied_lift_factors(uframe, cd, sharing.ufv_shared_frame_data(uframe, groups))
+                        shape = tuple(uframe[4])
+                        KC = tuple(K) + uframe[0].shape[1:-2]
+                        vmasks = ufm.ufv_variation_masks_over_stack(uframe[5], uframe[0].shape[1:-2], KC)
+                        v, y = _random_variation_sc(uframe, K, rng), _random_theta_sc(uframe, K, rng)
+                        Lv = utvo.utv_corewise_lift(uframe, v + (shape, vmasks), ulf)
+                        LTy = utvo.utv_corewise_lift_transpose(uframe, y + _theta_data(uframe)[2:], ulf)
+                        mv = ufm.ufv_apply_variations_masks(v + (shape, vmasks))
+                        my = ut3mask.ut3_apply_masks(y + _theta_data(uframe)[2:])
+                        axes = lambda a: (0,) + tuple(range(1 + len(KC), a.ndim))
+                        lhs = sum(np.sum(a * b, axis=axes(a)) for a, b in zip(Lv[:2], my))
+                        rhs = sum(np.sum(a * b, axis=axes(a)) for a, b in zip(mv, LTy[:2]))
+                        self.assertEqual(np.shape(lhs), KC)                       # one identity per K + C element
+                        scale = np.sqrt(sum(np.sum(a * a, axis=axes(a)) for a in Lv[:2])
+                                        * sum(np.sum(b * b, axis=axes(b)) for b in my))
+                        self.assertTrue(np.all(np.abs(lhs - rhs) <= 1e-12 * scale))
+
+    def test_the_tied_lift_represents_a_tied_tangent(self):
+        """``DPhi[L v] == E v`` at eps = 0 per element, for a tied gauged tangent (the uniform shared geometry's own
+        projection): the lift, read back on each element's real blocks, represents the same dense tangent through the
+        core parametrization at the base point."""
+        rng = np.random.default_rng(67)
+        for name in _SH_CASES:
+            for K in _KS:
+                with self.subTest(case=name, K=K):
+                    _pts, rframes, uframe, groups, n = _shared_case(name, 68)
+                    geom = bgeo.UniformManifoldGeometryOps.from_frame(uframe, (uframe[5][0], uframe[5][2]),
+                                                                      _SH_CASES[name][1])
+                    aux = geom.precompute(uframe)
+                    v = geom.project(uframe, _random_variation_sc(uframe, K, rng), aux)
+                    shape = tuple(uframe[4])
+                    vmasks = ufm.ufv_variation_masks_over_stack(uframe[5], uframe[0].shape[1:-2],
+                                                                tuple(K) + uframe[0].shape[1:-2])
+                    th = utvo.utv_corewise_lift(uframe, v + (shape, vmasks),
+                                                ufo.ufv_tied_lift_factors(uframe, 0.0, aux))
+                    for c in range(n):
+                        v_r = tuple(_ragged_slices(v[j], K, n, lambda cc, j=j: _var_shapes(rframes[cc])[j])[c]
+                                    for j in range(2))
+                        th_r = tuple(_ragged_slices(th[j], K, n, lambda cc, j=j: _theta_shapes(rframes[cc])[j])[c]
+                                     for j in range(2))
+                        Dth = tvo.tv_to_dense(fvc.t3_corewise_frame((rframes[c][0], rframes[c][2])), th_r)
+                        Dv = tvo.tv_to_dense(rframes[c], v_r)
+                        self.assertLess(np.linalg.norm(Dth - Dv) / np.linalg.norm(Dv), 1e-12)
+
+    def test_garbage_in_the_companion_padding(self):
+        """The padded ``s_g`` levels are zeroed by the masks: finite garbage in every padded slot of the uniform
+        companion (``_dirty_companion``) leaves the tied filters, ``sigma_min``, the lift and its transpose bitwise
+        unchanged. Negative control: the clip-only filter of the dirty companion is nonzero on the garbage levels,
+        and the lift built on it moves."""
+        rng = np.random.default_rng(69)
+        for name in _SH_DISCRIMINATING:
+            with self.subTest(case=name):
+                _pts, rframes, uframe, groups, n = _shared_case(name, 70)
+                usfd = sharing.ufv_shared_frame_data(uframe, groups)
+                dirty = _dirty_companion(usfd, rframes, uframe[1].shape[-2], seed=71)
+                self.assertGreater(max(float(np.abs(np.asarray(a) - np.asarray(b)).max())
+                                       for a, b in zip(dirty.svd_s, usfd.svd_s)), 1e3)
+                clean_lf = ufo.ufv_tied_lift_factors(uframe, 1e-3, usfd)
+                dirty_lf = ufo.ufv_tied_lift_factors(uframe, 1e-3, dirty)
+                self.assertTrue(all(np.array_equal(a, b) for a, b in zip(clean_lf.tied_filters, dirty_lf.tied_filters)))
+                self.assertTrue(np.array_equal(bgeo._uniform_lift_sigma_min(clean_lf, uframe[5]),
+                                               bgeo._uniform_lift_sigma_min(dirty_lf, uframe[5])))
+                K = (2,)
+                shape = tuple(uframe[4])
+                vmasks = ufm.ufv_variation_masks_over_stack(uframe[5], uframe[0].shape[1:-2],
+                                                            K + uframe[0].shape[1:-2])
+                v, y = _random_variation_sc(uframe, K, rng), _random_theta_sc(uframe, K, rng)
+                for lift in (lambda lf: utvo.utv_corewise_lift(uframe, v + (shape, vmasks), lf),
+                             lambda lf: utvo.utv_corewise_lift_transpose(uframe, y + _theta_data(uframe)[2:], lf)):
+                    self.assertTrue(all(np.array_equal(a, b) for a, b in zip(lift(clean_lf)[:2], lift(dirty_lf)[:2])))
+                bare = tuple(sharing._tied_filter(dirty, gi, dirty_lf.eps, None) for gi in range(len(dirty.svd_s)))
+                self.assertGreater(max(float(np.abs(np.asarray(b) - np.asarray(f)).max())
+                                       for b, f in zip(bare, clean_lf.tied_filters)), 1e-6)
+                moved = utvo.utv_corewise_lift(uframe, v + (shape, vmasks), dc.replace(dirty_lf, tied_filters=bare))
+                self.assertGreater(_pair_relerr(moved[:2], utvo.utv_corewise_lift(uframe, v + (shape, vmasks),
+                                                                                  clean_lf)[:2]), 1e-3)
+
+    def test_the_group_clip_is_at_the_real_dimensions(self):
+        """The clip decision on the group spectrum: a tied point whose group has a second level at ~1.8e-15 of the
+        first -- above the ragged clip ``eps * max(sum_i nD_i, n_g)`` (4 eps, real dims) and below a clip at the
+        padded dimensions (16 eps, padding forced to 8) -- keeps that level on both layers: the undamped filter is
+        ~4e14 there, ragged and uniform alike (a clip at the padded dimensions would drop it to 0)."""
+        np.random.seed(0)
+        shape, labels = (5, 5, 7), (0, 0, 1)
+        x1, x2 = (t3.TuckerTensorTrain(*sharing.t3_tie_tucker_factors(
+            t3.TuckerTensorTrain.randn(shape, (1, 1, 1), (1, 1, 1, 1)).data, labels)) for _ in range(2))
+        x = x1 * (1.0 / float(np.linalg.norm(x1.to_dense()))) + x2 * (2.5e-15 / float(np.linalg.norm(x2.to_dense())))
+        frame = fvc.t3_orthogonal_representations(sharing.t3_tie_tucker_factors(x.data, labels))[0]
+        groups = sharing.validate_sharing(labels, shape)
+        sfd = sharing.fv_shared_frame_data(frame, groups)
+        eps = np.finfo(float).eps
+        ratio = float(sfd.svd_s[0][1] / sfd.svd_s[0][0])
+        self.assertTrue(4 * eps < ratio < 16 * eps, ratio)                      # between the two clips
+        f = sharing.fv_tied_lift_factors(frame, 0.0, sfd).tied_filters[0]
+        uframe = ufc.t3frame_to_ut3frame(frame, N=8, nU=8, nD=8, rL=8, rR=8)
+        uf_ = np.asarray(ufo.ufv_tied_lift_factors(uframe, 0.0, sharing.ufv_shared_frame_data(uframe, groups))
+                         .tied_filters[0])
+        self.assertGreater(float(f[1]), 1e14)                                   # kept by the ragged clip
+        self.assertLess(abs(float(uf_[1]) / float(f[1]) - 1.0), 1e-2)          # ... and by the uniform one
+        self.assertTrue(np.all(uf_[2:] == 0.0))
+
+    def test_a_companion_of_another_layout_is_a_structural_error(self):
+        _pts, rframes, uframe, groups, _n = _shared_case('one group', 72)
+        rng = np.random.default_rng(72)
+        ragged = sharing.fv_tied_lift_factors(rframes[0], 0.0, sharing.fv_shared_frame_data(rframes[0], groups))
+        tied = ufo.ufv_tied_lift_factors(uframe, 0.0, sharing.ufv_shared_frame_data(uframe, groups))
+        wrong = dc.replace(tied, shared_data=ragged.shared_data, tied_filters=ragged.tied_filters)
+        v = _random_variation_sc(uframe, (), rng) + (tuple(uframe[4]), ufm.ufv_variation_masks(uframe[5]))
+        y = _random_theta_sc(uframe, (), rng) + _theta_data(uframe)[2:]
+        with self.assertRaisesRegex(ValueError, "companion is not this uniform frame's"):
+            utvo.utv_corewise_lift(uframe, v, wrong)
+        with self.assertRaisesRegex(ValueError, "companion is not this uniform frame's"):
+            utvo.utv_corewise_lift_transpose(uframe, y, wrong)
+        with self.assertRaisesRegex(ValueError, 'tied filters'):
+            utvo.utv_corewise_lift(uframe, v, dc.replace(tied, tied_filters=()))
+
+
+def _shared_exact_models(name, seed, rng, geometry='manifold', order=1, W=7, weight=(1.0, 0.5), cd=1e-4):
+    """The shared twin of :py:func:`_exact_models`: the uniform shared exact model at the frame packed from the
+    ragged ones (its companion built once), the ragged shared exact models per element, the uniform frame, the
+    per-element variation shapes, n_elements, and the damping; residual and sample garbage-padded."""
+    _pts, rframes, uframe, groups, n = _shared_case(name, seed)
+    labels = _SH_CASES[name][1]
+    shape = tuple(uframe[4])
+    ww, pp, _ = _pd_sample(shape, W, order, n, rng)
+    r = [rng.standard_normal((order + 1, W) + ((n,) if n > 1 else ()) + (N,)) for N in shape]
+    N = uframe[0].shape[-1]
+    rp = _dirty_packed_vectors(ut3o.pack_if_ragged(r, N), shape, 31)        # garbage beyond N_i
+    sample = (_dirty_packed_vectors(ut3o.pack_if_ragged(ww, N), shape, 32),
+              _dirty_packed_vectors(ut3o.pack_if_ragged(pp, N), shape, 33))
+    masks = (uframe[5][0], uframe[5][2])
+    kind = uf.UniformProbeDerivativesKind.from_point((None, None, shape, masks), order=order,
+                                                     weight=list(weight), chunk_size=None)
+    rkind = bfit.ProbeDerivativesKind(order=order, weight=list(weight), chunk_size=None)
+    r_c = lambda c: [z[..., c, :] for z in r] if n > 1 else r
+    if geometry == 'manifold':
+        geom = bgeo.UniformManifoldGeometryOps.from_frame(uframe, masks, labels)
+        lm = _uniform_exact_model(uframe, masks, kind, sample, rp, cd, geom=geom)
+        rgeom = _MANIFOLD.with_sharing(labels, shape)
+        rlm = [_ragged_exact_model(rframes[c], rkind, (ww, pp), r_c(c), cd, geom=rgeom) for c in range(n)]
+        vshapes = lambda c: _var_shapes(rframes[c])
+    else:
+        cframe = ufc.ut3_corewise_frame(_theta_data(uframe))
+        geom = bgeo.UniformCorewiseGeometryOps(shape, masks, bgeo.canonical_groups(labels, shape))
+        lm = _uniform_exact_model(cframe, masks, kind, sample, rp, None, geom=geom)
+        rcf = [fvc.t3_corewise_frame((f[0], f[2])) for f in rframes]
+        rgeom = _COREWISE.with_sharing(labels, shape)
+        rlm = [_ragged_exact_model(rcf[c], rkind, (ww, pp), r_c(c), None, geom=rgeom) for c in range(n)]
+        vshapes = lambda c: _var_shapes(rcf[c])
+        uframe = cframe
+    return lm, rlm, uframe, vshapes, n
+
+
+def _uniform_per_mode_twin(lm, cd):
+    """The same uniform exact model with the UNTIED (per-mode) lift factors -- the mutation the tied lift exists to
+    prevent (the uniform twin of test_curvature's ``_per_mode_twin``)."""
+    data = lm.curvature.geometry_data
+    untied = dc.replace(data, lift_factors=ufo.ufv_lift_factors(lm.frame, cd))
+    return dc.replace(lm, curvature=bopt.CurvatureState(lm.curvature.misfit_gradient, untied))
+
+
+def _shared_second_derivative(f, h):
+    """``f''(0)`` by the central second difference with one Richardson step (test_curvature's helper)."""
+    f0 = f(0.0)
+    d2 = lambda s: (f(s) - 2.0 * f0 + f(-s)) / (s * s)
+    return (4.0 * d2(0.5 * h) - d2(h)) / 3.0
+
+
+class TestUniformSharedExactModel(unittest.TestCase):
+    """T12's uniform twin, the exact model on the SHARED uniform geometries (T17 rules): every exact action per
+    element equal to the ragged shared model's (<= 1e-13; varying-rank stacks, forced padding, garbage-padded
+    residual / sample / trial tangents, ``K`` stacks), the outputs tied, exact output masks; garbage in the frame's
+    padding (and at TT slack, between the frame's and the point's extents: m29) leaves everything bitwise
+    unchanged; the per-mode lift would be caught. Oracles on the uniform Problem path: the second derivative along
+    the SHARED uniform retraction (O(h^2), measured as in F14) and the dense Lagrangian Hessian of ``Phi o T``; the
+    zero-padded shared restart (the zero ``s_g`` level filtered to exactly 0 on both layers, ``sigma_min`` the real
+    zero level); the shared corewise exact Hessian is the per-group mean of the plain one (``project`` around it)."""
+
+    def test_every_exact_action_per_element(self):
+        rng = np.random.default_rng(75)
+        for geometry in ('manifold', 'corewise'):
+            for name in _SH_CASES:
+                for K in _KS:
+                    with self.subTest(geometry=geometry, case=name, K=K):
+                        lm, rlm, uframe, vshapes, n = _shared_exact_models(name, 76, rng, geometry)
+                        p = _random_variation_sc(uframe, K, rng)
+                        p_r = [tuple(_ragged_slices(p[j], K, n, lambda cc, j=j: vshapes(cc)[j])[c] for j in range(2))
+                               for c in range(n)]
+                        for label, act in (('hvp', lambda m, q: m.hvp(q)),
+                                           ('curvature_hvp', lambda m, q: m.curvature_hvp(q))):
+                            out = act(lm, p)
+                            refs = [act(rlm[c], p_r[c]) for c in range(n)]
+                            for j in range(2):
+                                _compare(self, out[j], lambda c, j=j: refs[c][j], K, n, '%s %d' % (label, j))
+                            if geometry == 'manifold':                          # the output is TIED
+                                vm = ufm.ufv_variation_masks_over_stack(uframe[5], uframe[0].shape[1:-2],
+                                                                        tuple(K) + uframe[0].shape[1:-2])
+                                res = sharing.ufv_tied_variations_residual(
+                                    (out[0], out[1], tuple(uframe[4]), vm), lm.geom_aux)
+                                self.assertLess(float(np.max(res)), 1e-12)
+                            else:                                               # the per-group mean: one slice
+                                for group in lm.geom.groups:
+                                    for ii in group[1:]:
+                                        self.assertTrue(np.array_equal(out[0][ii], out[0][group[0]]))
+                        for label, act in (('quadratic', lambda m, q: m.quadratic(q)),
+                                           ('curvature_quadratic', lambda m, q: m.curvature_quadratic(q))):
+                            got = np.asarray(act(lm, p))
+                            self.assertEqual(got.shape, tuple(K) + ((n,) if n > 1 else ()))
+                            for c in range(n):
+                                want = np.asarray(act(rlm[c], p_r[c]))
+                                g = got[..., c] if n > 1 else got
+                                self.assertLess(float(np.max(np.abs(g - want) / np.abs(want))), _TOL, label)
+                        for j in range(2):
+                            _compare(self, lm.gradient[j], lambda c, j=j: rlm[c].gradient[j], (), n, 'gradient')
+                        if geometry == 'manifold' and name in _SH_DISCRIMINATING:   # the tied lift is load-bearing
+                            pm = _uniform_per_mode_twin(lm, 1e-4).curvature_hvp(p)
+                            self.assertGreater(_pair_relerr(pm, lm.curvature_hvp(p)), 1e-3)
+
+    def test_garbage_in_the_frame_padding(self):
+        """Garbage in EVERY padded slot of the frame's four supercores (the companion is rebuilt from the dirty frame
+        -- masked first) leaves every exact action bit-identical, on both shared uniform geometries."""
+        rng = np.random.default_rng(77)
+        for geometry in ('manifold', 'corewise'):
+            with self.subTest(geometry=geometry):
+                lm, _rlm, uframe, _vs, n = _shared_exact_models('ceiling varying', 78, rng, geometry)
+                dirty = _dirty_frame(uframe, seed=79)
+                if geometry == 'corewise':                     # (U, G, G, G): ONE garbage-padded G, three times
+                    dirty = (dirty[0], dirty[2], dirty[2], dirty[2]) + tuple(uframe[4:])
+                lmd = _uniform_exact_model(dirty, (uframe[5][0], uframe[5][2]), lm.kind, lm.sample, lm.residual,
+                                           1e-4 if geometry == 'manifold' else None, geom=lm.geom)
+                p = _random_variation_sc(uframe, (2,), rng)
+                for act in (lambda m: m.hvp(p), lambda m: m.curvature_hvp(p), lambda m: m.gradient,
+                            lambda m: (m.quadratic(p), m.curvature_quadratic(p))):
+                    self.assertTrue(all(np.array_equal(a, b) for a, b in zip(act(lm), act(lmd))))
+
+    def test_the_frame_masks_at_tt_slack_through_the_model(self):
+        """m29 on the shared geometry: at a TIED TT-slack point the kind and the geometry hold the POINT's masks (a
+        strict superset of the frame's) while the frame carries garbage in every slot outside its own extent; hvp
+        and curvature_hvp are bit-identical to the clean frame's and, per element, the ragged shared model's."""
+        rng = np.random.default_rng(81)
+        np.random.seed(82)
+        labels = (0, 0, 1)
+        x = t3.TuckerTensorTrain(*sharing.t3_tie_tucker_factors(
+            t3.TuckerTensorTrain.randn((6, 6, 6), (4, 4, 4), (1, 9, 9, 1)).data, labels))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        rframe = fvc.t3_orthogonal_representations(x.data)[0]
+        nn, rr = ux.data[0].shape[-2], ux.data[1].shape[-1]
+        frame = ufc.t3frame_to_ut3frame(rframe, N=ux.N, nU=nn, nD=nn, rL=rr, rR=rr)
+        shape, order, W = x.shape, 1, 6
+        ww = [rng.standard_normal((W, N)) for N in shape]
+        pp = [rng.standard_normal((W, N)) for N in shape]
+        r = [rng.standard_normal((order + 1, W, N)) for N in shape]
+        kind = uf.UniformProbeDerivativesKind.from_point(ux.data, order=order, weight=[1.0, 0.5], chunk_size=None)
+        sample = uf.pack_sample('probe_derivatives', (ww, pp), ux.N)
+        rp = uf.pack_data('probe_derivatives', r, ux.N)
+        geom = bgeo.UniformManifoldGeometryOps.from_frame(frame, ux.data[3], labels)    # held masks: the POINT's
+        self.assertFalse(np.array_equal(geom.masks[1], frame[5][2]))
+        clean = _uniform_exact_model(frame, ux.data[3], kind, sample, rp, 1e-5, geom=geom)
+        dirty = _uniform_exact_model(_dirty_frame(frame, seed=83), ux.data[3], kind, sample, rp, 1e-5, geom=geom)
+        rkind = bfit.ProbeDerivativesKind(order=order, weight=[1.0, 0.5], chunk_size=None)
+        ragged = _ragged_exact_model(rframe, rkind, (ww, pp), r, 1e-5, geom=_MANIFOLD.with_sharing(labels, shape))
+        for K in _KS:
+            with self.subTest(K=K):
+                p = _random_variation_sc(frame, K, rng)
+                p_r = tuple(_ragged_slices(p[j], K, 1, lambda c, j=j: _var_shapes(rframe)[j])[0] for j in range(2))
+                for label, act in (('hvp', lambda m, q: m.hvp(q)), ('curvature_hvp', lambda m, q: m.curvature_hvp(q))):
+                    out = act(dirty, p)
+                    self.assertTrue(all(np.array_equal(a, b) for a, b in zip(out, act(clean, p))), label)
+                    ref = act(ragged, p_r)
+                    for j in range(2):
+                        _compare(self, out[j], lambda c, j=j: ref[j], K, 1, '%s %d' % (label, j), tol=1e-12)
+
+    def test_padded_shared_restart(self):
+        """A zero-padded shared restart that grows ONLY the group's rank (``(2,2,2) -> (3,3,2)``, TT ranks kept, so
+        the new ``s_g`` level is the point's only zero singular value): on a frame packed from the ragged one the
+        tied filter is the ragged one -- the new real level exactly 0 at every damping, the padded levels exactly 0
+        -- and ``sigma_min`` the ragged ~0; on a frame built ON the uniform layer the new level sits at roundoff
+        while the padded levels are exactly 0, and ``sigma_min`` reads the REAL level (not a padded 0), whose filter
+        is 0; the exact model there is finite, symmetric and, per element, the ragged one."""
+        rng = np.random.default_rng(85)
+        np.random.seed(85)
+        shape, labels = (6, 6, 6), (0, 0, 1)
+        groups = sharing.validate_sharing(labels, shape)
+        level1 = t3.TuckerTensorTrain(*_shared_unit_point((shape, (2, 2, 2), (1, 2, 2, 1)), labels))
+        restart = level1.t3svd(sharing=labels)[0].resize(shape, (3, 3, 2), (1, 2, 2, 1), sharing=labels)
+        self.assertTrue(bool(np.all(restart.has_shared_tucker_factors(labels))))
+        rframe = fvc.t3_orthogonal_representations(restart.data)[0]
+        dims = _frame_dims([rframe])
+        uframe = _pack_frames([rframe], dims)
+        rsfd, usfd = sharing.fv_shared_frame_data(rframe, groups), sharing.ufv_shared_frame_data(uframe, groups)
+        q = rsfd.svd_s[0].shape[-1]                                              # the real level count (ragged)
+        self.assertLess(float(rsfd.svd_s[0][-1]), 1e-12 * float(rsfd.svd_s[0][0]))   # the new level: zero
+        for cd in (0.0, 1e-6):
+            with self.subTest(curvature_damping=cd):
+                ulf = ufo.ufv_tied_lift_factors(uframe, cd, usfd)
+                rlf = sharing.fv_tied_lift_factors(rframe, cd, rsfd)
+                _compare_levels(self, ulf.tied_filters[0], [rlf.tied_filters[0]], 1, 'restart filter', tol=1e-12)
+                f = np.asarray(ulf.tied_filters[0])
+                self.assertEqual(int(np.sum(f[:q] == 0.0)), 1)                   # the new real level: exactly 0
+                self.assertTrue(np.all(f[:q - 1] > 0.0))
+                sig_u = float(bgeo._uniform_lift_sigma_min(ulf, uframe[5]))
+                self.assertLess(abs(sig_u - float(bgeo._lift_sigma_min(rlf))), 1e-14)
+                self.assertLess(sig_u, 1e-12)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(restart, N=dims[0], n=dims[1], r=dims[3])
+        uframe2 = ufc.ut3_orthogonal_representations(ux.data)[0]                 # built on the uniform layer
+        usfd2 = sharing.ufv_shared_frame_data(uframe2, groups)
+        lf2 = ufo.ufv_tied_lift_factors(uframe2, 0.0, usfd2)
+        s2 = np.asarray(usfd2.svd_s[0])
+        self.assertGreater(s2.shape[-1], q)                                      # padded levels exist
+        # the smallest lift singular value is the new REAL level (observed 2.4e-31 here, the padded ones 0.0), never
+        # a padded one; its filter is exactly 0
+        self.assertEqual(float(bgeo._uniform_lift_sigma_min(lf2, uframe2[5])), float(np.min(s2[:q])))
+        self.assertEqual(float(np.asarray(lf2.tied_filters[0])[q - 1]), 0.0)
+        self.assertTrue(np.all(np.asarray(lf2.tied_filters[0])[q:] == 0.0))
+        ww = [rng.standard_normal((8, N)) for N in shape]
+        pp = [rng.standard_normal((8, N)) for N in shape]
+        r = [rng.standard_normal((2, 8, N)) for N in shape]
+        N = uframe[0].shape[-1]
+        masks = (uframe[5][0], uframe[5][2])
+        kind = uf.UniformProbeDerivativesKind.from_point((None, None, shape, masks), order=1, chunk_size=None)
+        geom = bgeo.UniformManifoldGeometryOps.from_frame(uframe, masks, labels)
+        lm = _uniform_exact_model(uframe, masks, kind, (ut3o.pack_if_ragged(ww, N), ut3o.pack_if_ragged(pp, N)),
+                                  ut3o.pack_if_ragged(r, N), None, geom=geom)
+        rlm = _ragged_exact_model(rframe, bfit.ProbeDerivativesKind(order=1, chunk_size=None), (ww, pp), r, None,
+                                  geom=_MANIFOLD.with_sharing(labels, shape))
+        P = _random_variation_sc(uframe, (3,), rng)
+        HP = lm.hvp(P)
+        self.assertTrue(all(np.all(np.isfinite(a)) for a in HP))
+        P_r = tuple(_ragged_slices(P[j], (3,), 1, lambda c, j=j: _var_shapes(rframe)[j])[0] for j in range(2))
+        ref = rlm.hvp(P_r)
+        for j in range(2):
+            _compare(self, HP[j], lambda c, j=j: ref[j], (3,), 1, 'restart hvp %d' % j, tol=1e-12)
+        PP = geom.project(uframe, P, lm.geom_aux)
+        vm = ufm.ufv_variation_masks_over_stack(uframe[5], (), (3,))
+        a = ufm.ufv_apply_variations_masks((PP[0], PP[1], shape, vm))
+        b = ufm.ufv_apply_variations_masks(tuple(lm.hvp(PP)) + (shape, vm))
+        gram = sum(np.einsum('dkx,dlx->kl', s.reshape(s.shape[:2] + (-1,)), t.reshape(t.shape[:2] + (-1,)))
+                   for s, t in zip(a, b))
+        self.assertLess(np.abs(gram - gram.T).max(), 1e-12 * np.abs(gram).max())
+
+    def test_quadratic_form_is_the_second_derivative_along_the_shared_retraction(self):
+        """On the uniform Problem path (``uniform_least_squares_problem(..., sharing=)``, its own frame):
+        ``<p, H p> == d^2/dt^2 f(R_sh(t p))`` along the SHARED uniform retraction to the finite difference's
+        resolution, which also separates it from Gauss-Newton and from the per-mode-lift twin; orders 0-2."""
+        rng = np.random.default_rng(87)
+        cases = {'ceiling': ((((6, 6, 4), (4, 4, 2), (1, 2, 2, 1)), (0, 0, 1)), 1, [1.0, 0.5]),
+                 'two_groups': ((((5, 6, 5, 6), (3, 2, 3, 2), (1, 2, 3, 2, 1)), (0, 1, 0, 1)), 0, None),
+                 'one_group': ((((5, 5, 5), (3, 3, 3), (1, 2, 2, 1)), (0, 0, 0)), 2, [1.0, 0.5, 0.25])}
+        for name, ((struct, labels), order, weight) in cases.items():
+            for cd in (0.0, None):
+                with self.subTest(case=name, curvature_damping=cd):
+                    np.random.seed(88)
+                    x, other = _shared_unit_point(struct, labels), _shared_unit_point(struct, labels)
+                    ww = [rng.standard_normal((12, N)) for N in struct[0]]
+                    pp = [rng.standard_normal((12, N)) for N in struct[0]]
+                    data = [z + 0.1 * rng.standard_normal(z.shape) for z in sd.t3_probe_derivatives(ww, pp, other,
+                                                                                                    order)]
+                    ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain(*x))
+                    prob = uf.uniform_least_squares_problem('manifold', 'probe_derivatives', ux, (ww, pp), data,
+                                                            order=order, weight=weight, chunk_size=None,
+                                                            sharing=labels)
+                    lm = prob.local_model((ux.data[0], ux.data[1]), hessian='exact', curvature_damping=cd)
+                    v = prob.geom.project(lm.frame, _random_variation_sc(lm.frame, (), rng), lm.geom_aux)
+                    v = cw.corewise_scale(v, 1.0 / float(prob.geom.inner(v, v)) ** 0.5)
+                    q, q_gn = float(lm.quadratic(v)), float(lm.gn_quadratic(v))
+                    self.assertLess(abs(float(prob.geom.inner(v, lm.hvp(v))) - q), 1e-12 * abs(q))
+                    h = 0.05 * min(float(lm.curvature.geometry_data.sigma_min), 1.0)
+                    fd = _shared_second_derivative(
+                        lambda t: float(prob.objective(lm.retract(cw.corewise_scale(v, t)))), h)
+                    self.assertLess(abs(fd - q), 1e-5 * max(abs(q), abs(q_gn)))
+                    self.assertLess(abs(fd - q), 1e-3 * abs(q - q_gn))
+                    if cd == 0.0:
+                        q_pm = float(_uniform_per_mode_twin(lm, 0.0).quadratic(v))
+                        self.assertGreater(abs(fd - q_pm), 1e3 * abs(fd - q))
+
+    def test_the_shared_retraction_is_second_order_here(self):
+        """F14 (``c15_shared_exact``'s set-up, seed 5) on the uniform layer: the plain central second difference along
+        the SHARED uniform retraction converges to the exact model's ``<v, H v>`` at O(h^2) -- the error falls ~4x
+        per halving -- while Gauss-Newton is off by far more (the values depend on the frame's SVD signs, so only the
+        convergence is asserted, as on the ragged layer)."""
+        np.random.seed(5)
+        rng = np.random.default_rng(5)
+        shape, labels = (5, 5, 6), (0, 0, 1)
+        x = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
+        x = x.share(labels, max_tucker_ranks=(2, 2, 2), max_tt_ranks=(1, 2, 2, 1))
+        x = x.rank_adjustment_sweep('right_to_left', sharing=labels)
+        ww = [rng.standard_normal((60, N)) for N in shape]
+        pp = [rng.standard_normal((60, N)) for N in shape]
+        data = [z + 0.3 * rng.standard_normal(z.shape) for z in sd.t3_probe_derivatives(ww, pp, x.data, 2)]
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+        prob = uf.uniform_least_squares_problem('manifold', 'probe_derivatives', ux, (ww, pp), data, order=2,
+                                                chunk_size=None, sharing=labels)
+        sc = (ux.data[0], ux.data[1])
+        lm = prob.local_model(sc, hessian='exact', curvature_damping=0.0)
+        v = prob.geom.project(lm.frame, _random_variation_sc(lm.frame, (), rng), lm.geom_aux)
+        v = cw.corewise_scale(v, 1.0 / float(prob.geom.inner(v, v)) ** 0.5)
+        q, q_gn = float(lm.quadratic(v)), float(lm.gn_quadratic(v))
+        f0 = float(prob.objective(sc))
+        errors = []
+        for h in (2e-2, 1e-2, 5e-3):
+            fp = float(prob.objective(lm.retract(cw.corewise_scale(v, h))))
+            fm = float(prob.objective(lm.retract(cw.corewise_scale(v, -h))))
+            errors.append(abs((fp - 2.0 * f0 + fm) / h ** 2 - q))
+        for e_h, e_half in zip(errors, errors[1:]):
+            self.assertTrue(3.0 < e_h / e_half < 5.0, errors)
+        self.assertLess(errors[-1], 1e-3 * abs(q - q_gn))
+
+    def test_against_the_dense_lagrangian_hessian(self):
+        """``Pi_sh L^T H_lag L Pi_sh`` with ``H_lag`` the exact dense core-coordinate Hessian of the Lagrangian
+        ``f(Phi(theta)) - <grad_sh f, Phi(theta)>`` and ``L`` the INDEPENDENT dense tied lift (pinv of the stacked
+        ``S_i^T``; tests/backend/_curvature_oracles.py) at the ragged frame -- against the uniform shared model at
+        that frame packed with padding (garbage-padded tangent, residual and sample), read back on the real blocks;
+        a group-ceiling structure, where the per-mode lift is off by orders of magnitude."""
+        rng = np.random.default_rng(89)
+        np.random.seed(89)
+        struct, labels, order, weight, W = ((4, 4, 3), (3, 3, 2), (1, 2, 2, 1)), (0, 0, 1), 2, [1.0, 0.5, 0.25], 4
+        shape = struct[0]
+        x, other = _shared_unit_point(struct, labels), _shared_unit_point(struct, labels)
+        ww = [rng.standard_normal((W, N)) for N in shape]
+        pp = [rng.standard_normal((W, N)) for N in shape]
+        data = [z + 0.1 * rng.standard_normal(z.shape) for z in sd.t3_probe_derivatives(ww, pp, other, order)]
+        rgeom = _MANIFOLD.with_sharing(labels, shape)
+        rprob = bopt.least_squares_problem(rgeom, bfit.ProbeDerivativesKind(order=order, weight=weight,
+                                                                            chunk_size=None), (ww, pp), data)
+        rlm = rprob.local_model(x, hessian='exact', curvature_damping=0.0)
+        rframe, aux = rlm.frame, rlm.geom_aux
+        uframe = _pack_frames([rframe], _frame_dims([rframe]))
+        N = uframe[0].shape[-1]
+        masks = (uframe[5][0], uframe[5][2])
+        ukind = uf.UniformProbeDerivativesKind.from_point((None, None, shape, masks), order=order, weight=weight,
+                                                          chunk_size=None)
+        usample = (_dirty_packed_vectors(ut3o.pack_if_ragged(ww, N), shape, 90),
+                   _dirty_packed_vectors(ut3o.pack_if_ragged(pp, N), shape, 91))
+        ur = _dirty_packed_vectors(ut3o.pack_if_ragged(rlm.residual, N), shape, 92)
+        ulm = _uniform_exact_model(uframe, masks, ukind, usample, ur, 0.0,
+                                   geom=bgeo.UniformManifoldGeometryOps.from_frame(uframe, masks, labels))
+        omega = rprob.kind.weight
+
+        def measure(cores):                                               # omega (.) S(X), flattened
+            out = sd.t3_probe_derivatives(ww, pp, cores, order)
+            return np.concatenate([(z * omega[i if omega.shape[0] > 1 else 0].reshape(-1, 1, 1)).ravel()
+                                   for i, z in enumerate(out)])
+        cols = []
+        for idx in np.ndindex(*shape):
+            unit = (tuple(np.eye(Ni)[j][None, :] for Ni, j in zip(shape, idx)),
+                    tuple(np.ones((1, 1, 1)) for _ in shape))
+            cols.append(measure(unit))
+        A = np.stack(cols, axis=1)
+        y = A @ np.asarray(t3c.t3_to_dense(x)).ravel() - np.concatenate(
+            [(r * omega[i if omega.shape[0] > 1 else 0].reshape(-1, 1, 1)).ravel() for i, r in enumerate(rlm.residual)])
+        theta = (tuple(rframe[0]), tuple(rframe[2]))
+        G = tvo.tv_to_dense(rframe, rlm.curvature.misfit_gradient)              # grad_sh f, dense
+        groups = sharing.validate_sharing(labels, shape)
+        for _ in range(2):
+            p = _random_variation_sc(uframe, (), rng)                            # garbage padding
+            p_r = tuple(_ragged_slices(p[j], (), 1, lambda c, j=j: _var_shapes(rframe)[j])[0] for j in range(2))
+            pg = rgeom.project(rframe, p_r, aux)
+            H_theta = oracles.dense_lagrangian_hessian(A, y, theta, oracles.tied_lift(rframe, groups, pg), G)
+            ref = rgeom.project(rframe, oracles.tied_lift_transpose(rframe, groups, H_theta), aux)
+            got = ulm.hvp(p)
+            err = max(_compare(self, got[j], lambda c, j=j: ref[j], (), 1, 'hvp %d' % j, tol=1e-10) for j in range(2))
+            pm = _uniform_per_mode_twin(ulm, 0.0).hvp(p)
+            pm_err = max(np.linalg.norm(np.asarray(pm[j])[(i,) + tuple(slice(0, s) for s in R.shape)] - R)
+                         / np.linalg.norm(R) for j in range(2) for i, R in enumerate(ref[j]))
+            self.assertGreater(pm_err, 1e4 * max(err, 1e-16))
+
+    def test_m27_the_exact_gradient_is_the_gauss_newton_gradient(self):
+        """Through ``uniform_least_squares_problem(..., sharing=)``: the shared exact model's gradient is the
+        Gauss-Newton model's (the TIED gradient), bit for bit, on both shared uniform geometries."""
+        rng = np.random.default_rng(93)
+        np.random.seed(94)
+        struct, labels = ((6, 6, 4), (4, 4, 2), (1, 2, 2, 1)), (0, 0, 1)
+        ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain(*_shared_unit_point(struct, labels)))
+        ww, pp, _ = _pd_sample(struct[0], 9, 2, 1, rng)
+        data = sd.t3_probe_derivatives(ww, pp, _shared_unit_point(struct, labels), 2)
+        for geometry in ('manifold', 'corewise'):
+            with self.subTest(geometry=geometry):
+                prob = uf.uniform_least_squares_problem(geometry, 'probe_derivatives', ux, (ww, pp), data, order=2,
+                                                        weight=[1.0, 0.5, 0.25], sharing=labels)
+                sc = (ux.data[0], ux.data[1])
+                gn, ex = prob.local_model(sc), prob.local_model(sc, hessian='exact')
+                self.assertTrue(ex.is_exact)
+                self.assertTrue(all(np.array_equal(a, b) for a, b in zip(gn.gradient, ex.gradient)))
+
+
+def _shared_restart_template(shape, level1, restart, target, W, seed=7):
+    """T22's template (tests/backend/test_curvature.py ``_shared_restart_problem``), parametrized by structure:
+    probe derivatives of order 2, omega = [1, .5, .25], 5 % noise, a TIED target, a shared fit at the level-1 ranks
+    (30 Gauss-Newton steps) zero-padded to the restart ranks with ``resize(..., sharing=)``. Returns the ragged
+    problem, the sample, the data, the weight and the tied restart."""
+    rng = np.random.default_rng(seed)
+    np.random.seed(seed)
+    labels = (0, 0, 1)
+    tgt = t3.TuckerTensorTrain(*sharing.t3_tie_tucker_factors(t3.TuckerTensorTrain.randn(shape, *target).data, labels))
+    ww = [rng.standard_normal((W, N)) for N in shape]
+    pp = [rng.standard_normal((W, N)) for N in shape]
+    weight = np.array([1.0, 0.5, 0.25])
+    kind = bfit.probe_derivatives_kind(2, weight)
+    data = [z + 0.05 * np.linalg.norm(z) / z.size ** 0.5 * rng.standard_normal(z.shape)
+            for z in kind.point_forward(tgt.data, (ww, pp))]
+    problem = bopt.least_squares_problem(_MANIFOLD.with_sharing(labels, shape), kind, (ww, pp), data)
+    x0 = sharing.t3_tie_tucker_factors(t3.TuckerTensorTrain.randn(shape, *level1).data, labels)
+    x1, _ = bopt.newton_cg(problem, x0, max_newton=30, gtol_rel=1e-10)
+    return problem, (ww, pp), data, weight, t3.TuckerTensorTrain(*x1).resize(shape, *restart, sharing=labels)
+
+
+_T22 = ((6, 6, 6), ((2, 2, 2), (1, 2, 2, 1)), ((3, 3, 3), (1, 3, 3, 1)), ((4, 4, 4), (1, 4, 4, 1)), 60)
+_CEILING_RESTART = ((7, 7, 4), ((3, 3, 2), (1, 2, 2, 1)), ((4, 4, 2), (1, 2, 2, 1)), ((5, 5, 3), (1, 3, 3, 1)), 60)
+
+
+def _uniform_shared_problem(problem, sample, data, weight, x):
+    ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+    uprob = uf.uniform_least_squares_problem('manifold', 'probe_derivatives', ux, sample, data, order=2, weight=weight,
+                                             chunk_size=problem.kind.chunk_size, sharing=(0, 0, 1))
+    return uprob, ux
+
+
+class TestUniformSharedExactNewton(unittest.TestCase):
+    """T22 on the SHARED uniform layer, to the equivalence contract (``docs/uniform_equivalence_contract.md``
+    §"The full-rank qualifier", S8's T21 ruling). From a zero-padded shared restart the start is rank-DEFICIENT and
+    the two layers' frames legitimately pick different completions, so their trajectories differ by design: the
+    uniform run must meet T22 itself -- converge on the gradient test with at most two rejections, its first row
+    reporting the zero ``s_g`` level -- reach the ragged run's minimizer, and stay tied; the frontend run IS the
+    backend run. From a numerically FULL-RANK shared start the uniform run IS the ragged run (the same outer /
+    accepted / CG counts, the objective row by row). Observed (S9): T22 ragged 10 / 0 / 41 outer / rejected / CG,
+    uniform 13 / 0 / 40, the same final objective to the last bit. The group-ceiling restart (``(7,7,4)``, shared
+    rank ``(3,3,2) -> (4,4,2)``, target ``(5,5,3)/(1,3,3,1)``; mode 0's ``S_0^T`` wide) discriminates the lift end to
+    end: uniform tied 7 / 0 / 24 (ragged 7 / 0 / 28), the per-mode lift 12 / 0 / 59; from a full-rank start at those
+    ranks the uniform run is the ragged run, 9 / 0 / 28 (per-mode 14 / 0 / 63)."""
+
+    def test_zero_padded_shared_restart(self):
+        problem, sample, data, weight, restart = _shared_restart_template(*_T22)
+        _, ragged = bopt.newton_cg(problem, restart.data, max_newton=40, hessian='exact')
+        self.assertEqual(ragged['stop_reason'], 'gradient')
+        uprob, ux = _uniform_shared_problem(problem, sample, data, weight, restart)
+        xu, ub = bopt.newton_cg(uprob, (ux.data[0], ux.data[1]), max_newton=40, hessian='exact')
+        h = ub['history']
+        self.assertEqual(ub['stop_reason'], 'gradient')
+        self.assertLessEqual(sum(row['tr_accepted'] is False for row in h), 2)
+        self.assertLess(h[0]['lift_sigma_min'], 1e-12)                       # the zero s_g level: a singular tied lift
+        self.assertTrue(all(np.isfinite(row['pKp']) for row in h if not row['converged']))
+        self.assertLessEqual(ub['newton_steps'], 16)
+        self.assertLess(abs(ub['losses'][-1] - ragged['losses'][-1]) / ragged['losses'][-1], 1e-9)   # same minimizer
+        self.assertTrue(bool(np.all(sharing.ut3_tucker_factors_shared((xu[0], xu[1]) + ux.data[2:], (0, 0, 1)))))
+
+    def test_group_ceiling_restart_backend_and_frontend(self):
+        import t3toolbox.optimizers as topt
+        import t3toolbox.shared_geometry as sg
+        import t3toolbox.uniform_manifold as ut3m
+        problem, sample, data, weight, restart = _shared_restart_template(*_CEILING_RESTART)
+        _, ragged = bopt.newton_cg(problem, restart.data, max_newton=40, hessian='exact')
+        uprob, ux = _uniform_shared_problem(problem, sample, data, weight, restart)
+        xb, ub = bopt.newton_cg(uprob, (ux.data[0], ux.data[1]), max_newton=40, hessian='exact')
+        self.assertEqual(ub['stop_reason'], 'gradient')
+        self.assertLessEqual(sum(row['tr_accepted'] is False for row in ub['history']), 2)
+        self.assertLessEqual(ub['newton_steps'], 9)                          # the per-mode lift needs 12 here
+        self.assertLess(abs(ub['losses'][-1] - ragged['losses'][-1]) / ragged['losses'][-1], 1e-9)
+        xf, uf_ = topt.newton_cg(sg.shared(ut3m.UNIFORM_MANIFOLD, (0, 0, 1)), 'probe_derivatives', sample, data, ux,
+                                 order=2, weight=weight, max_newton=40, hessian='exact',
+                                 chunk_size=problem.kind.chunk_size)
+        self.assertEqual(uf_['losses'], ub['losses'])                       # the frontend IS the backend run
+        self.assertEqual([row['cg_iters'] for row in uf_['history']], [row['cg_iters'] for row in ub['history']])
+        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(xf.data[:2], xb)))
+        self.assertTrue(bool(np.all(xf.has_shared_tucker_factors((0, 0, 1)))))
+
+    def test_group_ceiling_full_rank_start_is_the_ragged_run(self):
+        shape, _level1, restart_ranks, target, W = _CEILING_RESTART
+        rng = np.random.default_rng(7)
+        np.random.seed(7)
+        labels = (0, 0, 1)
+        tgt = t3.TuckerTensorTrain(*sharing.t3_tie_tucker_factors(t3.TuckerTensorTrain.randn(shape, *target).data,
+                                                                   labels))
+        ww = [rng.standard_normal((W, N)) for N in shape]
+        pp = [rng.standard_normal((W, N)) for N in shape]
+        weight = np.array([1.0, 0.5, 0.25])
+        kind = bfit.probe_derivatives_kind(2, weight)
+        data = [z + 0.05 * np.linalg.norm(z) / z.size ** 0.5 * rng.standard_normal(z.shape)
+                for z in kind.point_forward(tgt.data, (ww, pp))]
+        problem = bopt.least_squares_problem(_MANIFOLD.with_sharing(labels, shape), kind, (ww, pp), data)
+        np.random.seed(3)
+        x0 = t3.TuckerTensorTrain(*sharing.t3_tie_tucker_factors(t3.TuckerTensorTrain.randn(shape, *restart_ranks).data,
+                                                                 labels)).t3svd(sharing=labels)[0]
+        _, ragged = bopt.newton_cg(problem, x0.data, max_newton=40, hessian='exact')
+        self.assertEqual(ragged['stop_reason'], 'gradient')
+        uprob, ux = _uniform_shared_problem(problem, (ww, pp), data, weight, x0)
+        _, ub = bopt.newton_cg(uprob, (ux.data[0], ux.data[1]), max_newton=40, hessian='exact')
+        _same_run(self, ub, ragged)
+
 
 if __name__ == '__main__':
     unittest.main()

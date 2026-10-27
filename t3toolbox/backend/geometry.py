@@ -45,7 +45,8 @@ here, and a value where there is no lift to damp raises. The uniform geometries 
 supercores (:py:func:`~t3toolbox.backend.ufv_operations.ufv_lift_factors`,
 :py:func:`~t3toolbox.backend.utv_operations.utv_corewise_lift`,
 :py:func:`~t3toolbox.backend.ut3_linalg.ut3_inner_product_corewise_hessian_from_sweep`), masking with the frame's
-own masks; their shared (``groups``) exact mode is not built yet.
+own masks -- shared (``groups``) included, through the uniform tied lift
+(:py:func:`~t3toolbox.backend.ufv_operations.ufv_tied_lift_factors`).
 """
 import dataclasses as dc
 import typing as typ
@@ -509,20 +510,30 @@ def _uniform_point(
 
 
 def _uniform_lift_sigma_min(
-        lift_factors:  fv_operations.LiftFactors,   # supercore-valued (ufv_lift_factors), stack C
+        lift_factors:  fv_operations.LiftFactors,   # supercore-valued (ufv_[tied_]lift_factors), stack C
         frame_masks:   typ.Tuple,                   # the frame's (up, down, left, right) masks; HOST bool
 ) -> NDArray:                                       # shape=C: the smallest REAL singular value the lift inverts
     """The uniform twin of :py:func:`_lift_sigma_min`: the minimum over every REAL singular value of the
-    Tucker factors ``S_i^T`` and the bond factors ``T_i``, per frame element. A padded slot's singular value is
-    0 by construction and must not count, or every point of a varying-rank stack would report 0: the real
-    count of each spectrum is ``min`` of its matrix's real dimensions, read off the host masks."""
+    Tucker factors ``S_i^T`` of the modes the lift does not tie, the bond factors ``T_i`` and -- at a shared point --
+    each nontrivial group's spectrum ``s_g`` in place of its modes' own, per frame element. A padded slot's (or
+    padded level's) singular value is 0 or roundoff by construction and must not count, or every point of a
+    varying-rank stack would report 0: the real count of each spectrum is ``min`` of its matrix's real dimensions,
+    read off the host masks (``min(sum_i nD_i, nU)`` for a group's stacked ``M_g``)."""
     up, down, left, right = frame_masks
     q_tucker = np.minimum(np.sum(down, axis=-1), np.sum(up, axis=-1))                     # (d,)+C
     q_bond = np.minimum(np.sum(left[1:-1], axis=-1), np.sum(right[1:-1], axis=-1))        # (d-1,)+C
     xnp, _, _ = get_backend(True, tree_contains_jax(lift_factors.tucker_svals))
+    groups = () if lift_factors.shared_data is None else \
+        sharing_module.nontrivial_groups(lift_factors.shared_data.groups)
+    for group in groups:                                     # a tied mode's own S_i^T is never inverted
+        q_tucker[list(group)] = 0
     spectra = [(lift_factors.tucker_svals, q_tucker)]
     if q_bond.shape[0] > 0:
         spectra.append((lift_factors.bond_svals, q_bond))
+    for gi, group in enumerate(groups):                      # s_g, one "slot": (1,)+C+(q,)
+        s_g = lift_factors.shared_data.svd_s[gi]
+        real, _ = ufv_operations._real_group_levels(frame_masks, group, s_g.shape[-1])
+        spectra.append((s_g[None], np.sum(real, axis=-1)[None]))
     sigma_min = None
     for s, q in spectra:
         real = np.arange(s.shape[-1]) < q[..., None]                                       # (slots,)+C+(k,)
@@ -535,26 +546,24 @@ def _uniform_manifold_curvature_data(
         frame_data:         typ.Tuple,   # uniform frame .data -- an orthogonal frame, stack C
         misfit_gradient:    typ.Tuple,   # bare gauged variation supercore pair of grad f, stack C
         curvature_damping:  float,       # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
+        shared_data:        typ.Optional[sharing_module.SharedFrameData] = None,   # shared: the UNIFORM companion
 ) -> ManifoldCurvatureData:
     """:py:meth:`UniformManifoldGeometryOps.curvature_precompute`'s body (no ``d = 1`` shortcut): the uniform
-    lift factors (:py:func:`~t3toolbox.backend.ufv_operations.ufv_lift_factors`), ``grad f`` as a doubled-rank
-    uniform T3 ``z`` (masked once) and its inner-product sweep at the base point, and the real-slot ``sigma_min``.
-    The fields are the ragged :py:class:`ManifoldCurvatureData`'s, supercore-valued; ``z`` is plain-UT3 ``.data``
-    (its masks ride as static structure under jax)."""
-    lift_factors = ufv_operations.ufv_lift_factors(frame_data, curvature_damping)
+    lift factors (:py:func:`~t3toolbox.backend.ufv_operations.ufv_lift_factors`; with ``shared_data`` the TIED ones,
+    :py:func:`~t3toolbox.backend.ufv_operations.ufv_tied_lift_factors`, and ``misfit_gradient`` the tied gradient),
+    ``grad f`` as a doubled-rank uniform T3 ``z`` (masked once) and its inner-product sweep at the base point, and
+    the real-slot ``sigma_min``. The fields are the ragged :py:class:`ManifoldCurvatureData`'s, supercore-valued;
+    ``z`` is plain-UT3 ``.data`` (its masks ride as static structure under jax)."""
+    if shared_data is None:
+        lift_factors = ufv_operations.ufv_lift_factors(frame_data, curvature_damping)
+    else:
+        lift_factors = ufv_operations.ufv_tied_lift_factors(frame_data, curvature_damping, shared_data)
     variations = (misfit_gradient[0], misfit_gradient[1], tuple(frame_data[4]),
                   ufv_masking.ufv_variation_masks(frame_data[5]))
     z = utv_ops.utv_to_ut3(frame_data, variations)
     z = tuple(ut3_masking.ut3_apply_masks(z)) + (z[2], z[3])
     z_sweep = ut3_linalg.ut3_precompute_inner_product_sweep(z, _uniform_point(frame_data))
     return ManifoldCurvatureData(lift_factors, z, z_sweep, _uniform_lift_sigma_min(lift_factors, frame_data[5]))
-
-
-def _uniform_shared_exact_error(geometry) -> NotImplementedError:
-    return NotImplementedError(
-        "%s: hessian='exact' on a SHARED uniform geometry (groups=%r) is not implemented yet -- the uniform tied "
-        "lift lands in slice S9. The unshared uniform geometries and every ragged geometry, shared included, "
-        "support it; hessian='gauss_newton' works here." % (type(geometry).__name__, geometry.groups))
 
 
 @dc.dataclass(frozen=True, eq=False)
@@ -713,17 +722,22 @@ class UniformManifoldGeometryOps(ValueHashedFields):
         singular value (padded slots excluded through the frame's host masks). ``None`` at ``d = 1`` (the flat
         case, a cost shortcut). The masks every piece uses are the frame's own (``frame_data[5]``).
 
-        **Shared** (``groups``): not implemented on the uniform layer yet (its tied lift is the next slice) --
-        a ``NotImplementedError``, raised here, before any work; Gauss-Newton is unaffected."""
+        **Shared** (``groups``): the ragged geometry's tied lift on the supercores
+        (:py:func:`~t3toolbox.backend.ufv_operations.ufv_tied_lift_factors`, against ``aux``, the frame's uniform
+        companion), with ``misfit_gradient`` the tied gradient; each group's filter is zeroed on the companion's
+        padded ``s_g`` levels by the frame's masks (an SVD does not guarantee exact zeros there), and
+        ``sigma_min`` reads the group's REAL ``s_g`` levels in place of its modes' own spectra. A zero-padded
+        restart's new levels are real and filter to exactly 0, as on the ragged layer."""
         cd = DEFAULT_CURVATURE_DAMPING if curvature_damping is None else float(curvature_damping)
         if not cd >= 0.0:
             raise ValueError('curvature_damping must be >= 0 (it is relative to ||X||_HS); got %r'
                              % (curvature_damping,))
-        if self.groups:
-            raise _uniform_shared_exact_error(self)
         if frame_data[0].shape[0] == 1:
             return None
-        return _uniform_manifold_curvature_data(frame_data, misfit_gradient, cd)
+        if not self.groups:
+            return _uniform_manifold_curvature_data(frame_data, misfit_gradient, cd)
+        return _uniform_manifold_curvature_data(frame_data, misfit_gradient, cd,
+                                                shared_data=aux if aux is not None else self.precompute(frame_data))
 
     def lift(self, frame_data, var_sc, curvature_data):
         """Coordinates -> raw core variations of the base point ``(U, P)``, ``theta_hat = L v``, on bare supercore
@@ -849,12 +863,10 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
     # ---- the exact Hessian (hessian='exact' only) -------------------------------------------------
     def curvature_precompute(self, frame_data, misfit_gradient, aux, curvature_damping):
         """``()``, as :py:meth:`CorewiseGeometryOps.curvature_precompute` (no lift, no tangential term; a
-        non-``None`` ``curvature_damping`` raises). Shared (``groups``): not implemented on the uniform layer
-        yet -- a ``NotImplementedError`` (the next slice)."""
+        non-``None`` ``curvature_damping`` raises). Shared (``groups``) as well: the exact Hessian is then the
+        per-group mean of the plain one -- the model's outer :py:meth:`project` -- with nothing per frame."""
         if curvature_damping is not None:
             raise ValueError("curvature_damping has no effect on a corewise geometry (there is no lift to damp)")
-        if self.groups:
-            raise _uniform_shared_exact_error(self)
         return ()
 
     def lift(self, frame_data, var_sc, curvature_data):

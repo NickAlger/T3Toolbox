@@ -655,7 +655,7 @@ class TestFrontendExactNewton(unittest.TestCase):
     def test_options_with_no_effect_and_unbuilt_geometries_raise(self):
         """The backend's structural rules, through the frontend: ``curvature_damping`` with Gauss-Newton or on a
         corewise geometry, ``tr_radius0`` with the line search, an unknown ``step_control``; the exact Hessian
-        runs on both shared geometries (the shared manifold's tied lift: S7)."""
+        runs on both shared geometries (the shared manifold's tied lift: S7) and on their uniform twins (S9)."""
         import t3toolbox.shared_geometry as sg
         import t3toolbox.backend.sharing as bsharing
         sample, data, weight, restart = _restart_problem(30)
@@ -675,12 +675,21 @@ class TestFrontendExactNewton(unittest.TestCase):
                 call(t3m.MANIFOLD, restart, hessian='newton')
         setup.assert_not_called()
         tied = t3.TuckerTensorTrain(*bsharing.t3_tie_tucker_factors(restart.data, (0, 0, 1)))
-        for geom in (sg.shared_manifold((0, 0, 1)), sg.shared_corewise((0, 0, 1))):
+        utied = ut3.UniformTuckerTensorTrain.from_t3(tied)
+        for geom, x in ((sg.shared_manifold((0, 0, 1)), tied), (sg.shared_corewise((0, 0, 1)), tied),
+                        (sg.shared(ut3m.UNIFORM_MANIFOLD, (0, 0, 1)), utied),
+                        (sg.shared(ut3m.UNIFORM_COREWISE, (0, 0, 1)), utied)):
             with self.subTest(geometry=repr(geom)):
-                _, stats = call(geom, tied, hessian='exact')
+                _, stats = call(geom, x, hessian='exact', chunk_size=None)      # (uniform: skip the 'auto' estimate)
                 self.assertEqual(stats['history'][0]['hessian'], 'exact')
         with self.assertRaisesRegex(ValueError, 'curvature_damping must be >= 0'):
             call(sg.shared_manifold((0, 0, 1)), tied, hessian='exact', curvature_damping=-1.0)
+        with self.assertRaisesRegex(ValueError, 'curvature_damping must be >= 0'):
+            call(sg.shared(ut3m.UNIFORM_MANIFOLD, (0, 0, 1)), utied, hessian='exact', curvature_damping=-1.0,
+                 chunk_size=None)
+        with self.assertRaisesRegex(ValueError, 'no effect on a corewise geometry'):
+            call(sg.shared(ut3m.UNIFORM_COREWISE, (0, 0, 1)), utied, hessian='exact', curvature_damping=1e-6,
+                 chunk_size=None)
 
     def test_zero_padded_shared_restart_through_the_frontend(self):
         """T22 through the frontend (S7): ``newton_cg(shared_manifold((0, 0, 1)), ..., hessian='exact')`` from a
@@ -706,6 +715,38 @@ class TestFrontendExactNewton(unittest.TestCase):
         self.assertEqual(sf['losses'], sb['losses'])
         self.assertTrue(_histories_equal(sf['history'], sb['history']))
         self.assertTrue(all(np.array_equal(a, b) for a, b in zip(xf.data[0] + xf.data[1], xb[0] + xb[1])))
+
+    def test_zero_padded_shared_restart_through_the_uniform_frontend(self):
+        """T22 through the frontend on the SHARED UNIFORM layer (S9): ``newton_cg(shared(UNIFORM_MANIFOLD, (0, 0, 1)),
+        ..., hessian='exact')`` from the zero-padded shared restart (as a uniform point) converges on the gradient test
+        with no more than two rejections, its first row reporting the zero group-spectrum level (the real level, not a
+        padded one), every iterate tied; the run is the backend uniform run on ``least_squares_problem``'s problem, bit
+        for bit. Its trajectory is not the ragged run's -- a padded restart is rank-deficient, where the two layers'
+        frames legitimately differ (``docs/uniform_equivalence_contract.md``) -- but it reaches the same minimizer.
+        |W| = 40 (the ragged frontend twin above); observed 11 outer steps, 0 rejected, 44 CG iterations (ragged
+        8 / 0 / 31), the same final objective."""
+        import t3toolbox.backend.optimizers as bopt
+        import t3toolbox.shared_geometry as sg
+        sample, data, weight, restart = _shared_restart_problem(40)
+        urestart = ut3.UniformTuckerTensorTrain.from_t3(restart)
+        geom = sg.shared(ut3m.UNIFORM_MANIFOLD, (0, 0, 1))
+        xf, sf = topt.newton_cg(geom, 'probe_derivatives', sample, data, urestart, order=2, weight=weight,
+                                max_newton=40, hessian='exact', chunk_size=None)
+        h = sf['history']
+        self.assertEqual(sf['stop_reason'], 'gradient')
+        self.assertLessEqual(sum(row['tr_accepted'] is False for row in h), 2)
+        self.assertLessEqual(sf['newton_steps'], 14)
+        self.assertLess(h[0]['lift_sigma_min'], 1e-12)
+        self.assertTrue(bool(np.all(xf.has_shared_tucker_factors((0, 0, 1)))))
+        setup = topt.least_squares_problem(geom, 'probe_derivatives', sample, data, urestart, order=2, weight=weight,
+                                           hessian='exact', chunk_size=None)
+        xb, sb = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=40, hessian='exact')
+        self.assertEqual(sf['losses'], sb['losses'])
+        self.assertTrue(_histories_equal(sf['history'], sb['history']))
+        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(xf.data[:2], xb)))
+        _, sr = topt.newton_cg(sg.shared_manifold((0, 0, 1)), 'probe_derivatives', sample, data, restart, order=2,
+                               weight=weight, max_newton=40, hessian='exact', chunk_size=None)
+        self.assertLess(abs(sf['losses'][-1] - sr['losses'][-1]) / sr['losses'][-1], 1e-9)   # the same minimizer
 
 
 if __name__ == "__main__":
