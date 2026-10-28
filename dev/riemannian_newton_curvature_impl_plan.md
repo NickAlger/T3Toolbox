@@ -10,7 +10,7 @@
 > `dev/curvature_impl_review/`. The mathematics it implements is `dev/riemannian_newton_curvature_plan.md`, which §G
 > archives at S13.
 >
-> **Rulings added 2026-10-27 (Nick, after S5/S6/S0b): I-34–I-38** (§I) and the slice **S7b** (§H): T16's two powers keep distinct purposes; the `stop:` cell stays; the Newton schedule (GN vs exact default, when to switch) is an empirical A/B question for after implementation, with **user-override hooks required now**; cold/zero starts stay a user option (S14); the gauge check is scaled by the operands (S7b).
+> **Rulings added 2026-10-27 (Nick, after S5/S6/S0b): I-34–I-38** (§I) and the slice **S7b** (§H): T16's two powers keep distinct purposes; the `stop:` cell stays; the Newton schedule (GN vs exact default, when to switch) is an empirical A/B question for after implementation, with **user-override hooks required now**; cold/zero starts stay a user option (S14); the gauge check is scaled by the operands (S7b). **2026-10-27 19:00 (Nick): a post-curvature REORGANIZATION phase (§H row R, `dev/reorg_scope.md`) runs after S12 and before S13's release gate — not now.**
 
 **v6, 2026-10-26. Writer revision after the round-5 review (`critique_v5.md`: REVISE, with 1 BLOCKER, 3 MAJOR, 8
 MINOR and 4 NIT; no settled ruling reopened). v5 folded Nick's round-5 rulings into a first-principles restructure for
@@ -1532,6 +1532,7 @@ uniform_jax, both unshared and shared.
 | S10 | plain probe (ragged + uniform override) | T5, T6, T11, T17, T23 |
 | S11 | apply + entries | T5, T6, T17, T23 |
 | S12 | apply/entries derivatives; **delete the `_UniformKind` stub and `_UNIFORM_HESSIAN_SLICE`** | T5, T6, T11, T17, T23 (window cases removed) |
+| **R** (added 2026-10-27, Nick) | **post-curvature reorganization — AFTER S12, BEFORE the release gate**: the sampling / jetted-sampling module layout (`sampling_derivatives.py`), the fitting layer, and the optimization layer (decoupling from the tensor-network structure; a typed point / tangent / covector system with explicit no-op raising and lowering). Scope note: `dev/reorg_scope.md`. Planned by a writer/critic round, adjudicated by Nick; S13 then documents the final layout once | its own plan |
 | S13 | docs, the final CHANGELOG, release notes, doctests, `sweep_exact.py`, the jvp oracle, **T28** (jax-absent construction), the `dev/` archive, HANDOFF / CLAUDE.md | the full release gate incl. `T3TOOLBOX_SLOW_TESTS=1` |
 | **S14** (T3Polynomial repo) | §K, against the release candidate | T3Polynomial's suite |
 | **S15** | the math note `docs/exact_hessian_two_hole.tex` + `.pdf` (§G): equations, algorithm boxes, tensor-network diagrams, code references — written at the very end, from the shipped code | the PDF builds; every code reference resolves to a real name at the release tag |

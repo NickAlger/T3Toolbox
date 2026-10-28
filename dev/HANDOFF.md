@@ -1,9 +1,25 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-08-22._ _Previously updated 2026-08-21 and 2026-08-20, just after the 2026.1.0 release. The per-thread history of everything that went
+_Updated 2026-10-27 (the curvature thread; the 2026-08-22 review thread below is unchanged)._ _Previously 2026-08-22._ _Previously updated 2026-08-21 and 2026-08-20, just after the 2026.1.0 release. The per-thread history of everything that went
 into 2026.0.0 and 2026.1.0 is archived at `dev/archive/handoff_2026-08-20_pre-2026.1.0.md` (and, for
 1.0, `dev/archive/handoff_2026-07-12_1.0_complete.md`); what each release contains is the CHANGELOG,
 and why it is the way it is is `docs/`. This file is where-we-are + what's next, nothing else._
+
+## Newest thread — the exact Riemannian Hessian for `newton_cg` (2026-10-25 → , toward 2026.3.0)
+
+**Where it stands (2026-10-27 evening):** slices S0c–S9 of `dev/riemannian_newton_curvature_impl_plan.md` are
+**committed and pushed** (one implementer + one independent reviewer per slice, records in
+`dev/curvature_impl_review/slices/`; deferred items in `slices/DEFERRED.md`): `hessian='exact'` runs end to end for
+`probe_derivatives` on every geometry × representation (ragged / uniform / uniform-jax, MANIFOLD / COREWISE, unshared /
+shared) — Steihaug–Toint CG + trust region, the zero reference, the operand-scaled gauge check (S7b, I-38). **In
+flight: S10+S11** (plain probe, apply, entries two-holes). Then S12 (the derivative kinds; delete the uniform window
+stub). CI: the jax-0.4.30 floor leg was red from S3b to S8 (compiler-dependent chunk costs; fixed 4c7616f) — every
+slice now also runs the estimator/dispatch tests on a jax-0.4.30 venv.
+
+**Then (Nick, 2026-10-27): the post-curvature REORGANIZATION phase, `dev/reorg_scope.md`** — sampling / jetted-sampling
+layout, the fitting layer, the optimization layer (decoupling + a typed point / tangent / covector system) — *after S12,
+before S13's release gate*. S13 (docs, CHANGELOG, release gate incl. the slow tier **and
+`tests/backend/test_uniform_curvature.py`**), S14 (T3Polynomial §K), S15 (the math note) follow.
 
 ## Newest thread — the whole-library pre-release review (2026-08-22)
 
