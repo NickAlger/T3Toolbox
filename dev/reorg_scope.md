@@ -32,6 +32,16 @@
   half is "mask on entry, pack, delegate, re-mask". Worth asking how much of the twin surface can become one
   polymorphic kernel plus a thin masking wrapper (the equivalence contract already says the uniform layer is a *faster
   ragged layer*).
+  - **Nick (2026-10-27): quite a bit, but not all, of the pre-existing code is already polymorphic, and the
+    non-polymorphic parts fall into two classes that must be told apart.** (i) **Sweeps** were good to make
+    polymorphic because the supercore layout puts the core index `d` first (`docs/uniform_supercore_layout.md`), so a
+    sweep over cores is the same code on a tuple of cores and on a supercore. (ii) **Operations that are parallel
+    across cores** were *intentionally* left non-polymorphic: on the uniform layer they are ONE big contraction over
+    all cores at once (the `d`-prefixed grouped string), which is better than the same small contraction mapped or
+    scanned over the cores — so there a polymorphic sweep-style kernel would be a regression. (iii) Elsewhere the code
+    is non-polymorphic for no good reason. **The planners' first job on this item is the audit that sorts every twin
+    into (i)/(ii)/(iii)** — collapse (iii), keep (ii) as deliberate (and document it where it isn't), and treat (i) as
+    the already-done pattern to copy.
 - **The `_from_sweep` twins** (`*_corewise_transpose` vs `*_corewise_transpose_from_sweep`, the two-holes likewise)
   and the precompute/sweep objects: the fitting layer's thorniness is partly this seam — the sampling kinds own the
   sweep, the model owns the frame, the geometry owns the base point/aux. A typed `Point`/`Tangent`/`Cotangent` layer
