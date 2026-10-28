@@ -27,11 +27,17 @@
   ``K``) and a finite difference of the one-hole; each probe piece against a finite difference of the GN kernel it
   differentiates; the factored TT assemblies against their unfactored product rule (there is no order axis, so no
   binomial structure and no ``_trs`` twin); sweep reuse bitwise; stacked == per element; uniform supercores.
+* **T5 two-holes (apply / entries derivatives, S12)** -- ``sd.t3_{apply,entries}_corewise_derivatives_hessian
+  [_from_sweep]`` at orders 0-3 against the block-sum oracle and an exact (Richardson) finite difference of the
+  one-hole; the shipped kernels against their dense-``trs`` twins, whole and piece by piece, orders 0-4, to 1e-14;
+  order 0 is the plain two-hole; the containments (entries == apply at the one-hot vectors, bitwise; apply ==
+  probe derivatives at the paired residual jets); sweep reuse bitwise; stacked == per element; uniform supercores.
 * **T6 symmetry** -- ``<a, K b> = <b, K a>`` per ``C`` element (a ``K``-stack Gram matrix is symmetric), for
-  the T3-T3, the probe-derivative and the plain kinds' two-holes.
+  the T3-T3, the probe-derivative, the plain kinds' and the apply / entries derivative two-holes.
 * **T11 weights** -- the probe-derivative two-hole at ``z~ = omega^2 r`` (per-order, per-mode and full
   ``omega[mode, order]``) is the curvature of ``1/2 ||omega (.) r||^2``: a finite difference of its gradient
-  minus the Gauss-Newton term; for plain probe the per-mode weight row (apply / entries carry no weight).
+  minus the Gauss-Newton term; for plain probe the per-mode weight row (apply / entries carry no weight); for the
+  apply / entries derivatives the per-order row (a per-mode one is their structural error).
 * **T20 flat slots, backend half** -- at maximal rank and at ``d = 1`` the normal space is trivial, so the
   T3-T3 term at ``Z = P_X R`` cancels the dense ``K_R`` on a lifted tangent; and at a generic point the
   normal curvature ``K_{R - P_X R}`` annihilates vertical (gauge) directions (the Lagrangian null space).
@@ -48,11 +54,13 @@ The exact local model, ``Problem.local_model(hessian='exact')``:
 * **T20, the model half** -- the manifold ``d = 1`` model is Gauss-Newton; at maximal rank and ``d = 1`` (the
   shortcut bypassed) ``L^T K_N L Pi p`` vanishes; corewise ``d = 1`` runs exact.
 * **T23** -- ``corewise_hessian`` is the required sixth operation: a five-operation kind works for Gauss-Newton
-  and is rejected for exact (the marker and the identity forms agree); the uniform kinds' window stub (left by
-  the probe-derivative, probe, apply and entries twins).
+  and is rejected for exact (the marker and the identity forms agree); every built-in kind implements it, every
+  uniform kind on its own class (the S4-S12 window stub is gone), and every uniform kind builds exact.
 * **The plain kinds through the model (S10 / S11)** -- T7 (the retraction's second derivative), T8 (``K_N L
   p_vert = 0`` through each kind), T13 (corewise), the full-hvp symmetry and stacks, and each kind's
   ``corewise_hessian`` (``omega^2 r``, the model's sweep reused).
+* **The apply / entries derivative kinds through the model (S12)** -- the same, at orders 0-2 with per-order
+  weights, plus one ragged SHARED subcase per kind (the hvp is the derivative of the projected shared gradient).
 
 Exact Newton end to end, ``newton_cg(hessian='exact')`` with its trust region (S5):
 
@@ -1169,6 +1177,342 @@ class TestPlainKindsTwoHole(unittest.TestCase):
                     self.assertGreater(_relerr_tree(unweighted, curv_fd), 1e-2)       # the weight is not a no-op
 
 
+# ---------------------------------------------------------------------------------------------------
+# The apply / entries derivative two-holes (S12)
+# ---------------------------------------------------------------------------------------------------
+_DERIV_KINDS = ('apply_derivatives', 'entries_derivatives')
+
+
+def _deriv_ops(kind, order):
+    """(two-hole, two-hole from a sweep, the one-hole -- the W-summed corewise derivative transpose, the sweep
+    builder at a frame) for a derivative kind at ``order``, in the plain kinds' call shape: ``sample`` is ``(ww, pp)``
+    (apply) or ``(index, pp)`` (entries), the residual a jet ``(order+1,)+W+C``."""
+    if kind == 'apply_derivatives':
+        return (lambda c, s, th, dd: sd.t3_apply_corewise_derivatives_hessian(c, s[0], s[1], th, dd, order),
+                lambda c, s, th, dd, sw: sd.t3_apply_corewise_derivatives_hessian_from_sweep(
+                    c, s[0], s[1], th, dd, order, sw),
+                lambda c, s, th: sd.t3_apply_corewise_derivatives_transpose(c, s[0], s[1], th, order,
+                                                                            sum_over_probes=True),
+                lambda f, s: sd.tv_precompute_apply_frame_sweep_jets(f, s[0], s[1], order))
+    return (lambda c, s, th, dd: sd.t3_entries_corewise_derivatives_hessian(c, s[0], s[1], th, dd, order),
+            lambda c, s, th, dd, sw: sd.t3_entries_corewise_derivatives_hessian_from_sweep(
+                c, s[0], s[1], th, dd, order, sw),
+            lambda c, s, th: sd.t3_entries_corewise_derivatives_transpose(c, s[0], s[1], th, order,
+                                                                          sum_over_probes=True),
+            lambda f, s: sd.tv_precompute_entries_frame_sweep_jets(f, s[0], s[1], order))
+
+
+def _deriv_sample(kind, shape, W, rng):
+    """The paired sample: ``(ww, pp)`` or ``(index, pp)``."""
+    if kind == 'entries_derivatives':
+        first = np.stack([np.asarray(rng.integers(0, N, size=W)) for N in shape])    # (d,)+W
+    else:
+        first = [rng.standard_normal(W + (N,)) for N in shape]
+    return first, [rng.standard_normal(W + (N,)) for N in shape]
+
+
+def _deriv_problem(kind, struct, order, K, C, W, rng, raw=False):
+    """theta (a frame's base point (U, L), or -- raw -- unconstrained corewise cores), the paired sample, the residual
+    jet (no K) and the directions (K + C), as :py:func:`_pd_problem`."""
+    if raw:
+        theta = t3k.t3_corewise_randn(*struct, stack_shape=C)
+        frame = None
+    else:
+        _, frame, _ = _point_and_frame(struct, C)
+        theta = (tuple(frame[0]), tuple(frame[2]))
+    sample = _deriv_sample(kind, struct[0], W, rng)
+    c = rng.standard_normal((order + 1,) + W + C)
+    return frame, theta, sample, c, _directions(theta, K, rng)
+
+
+def _deriv_residual_at(c, nW, cc):
+    """The residual jet of one C element ``cc``."""
+    return c[(slice(None),) * (1 + nW) + cc]
+
+
+class TestDerivativeKindsTwoHole(unittest.TestCase):
+    """T5 / T6 / T11 for the apply / entries derivative two-holes (S12): ``sd.t3_{apply,entries}_corewise_derivatives_
+    hessian[_from_sweep]`` at orders 0-3 against the block-sum oracle (``d`` = 4, 3, 1, slack frames, raw unsquashed
+    cores, ``K = (2, 3)`` and ``C`` stacks) and an exact (Richardson) finite difference of the one-hole; **the shipped
+    (recurrence) kernels against the dense-``trs`` reference twins** of ``_curvature_oracles.py``, whole and piece by
+    piece, at orders 0-4 to 1e-14; order 0 is the plain two-hole; the containments ``entries_derivatives ==
+    apply_derivatives`` at the one-hot vectors and ``apply_derivatives == probe_derivatives`` at the residual jets
+    ``z~_i^(t) = alpha_i (c^(t) w_i + (t+1) c^(t+1) p_i)``; sweep reuse bitwise; stacked == per element; uniform
+    supercores; symmetry; the per-order weight (``omega^2 r``)."""
+
+    def setUp(self):
+        np.random.seed(71)
+
+    def test_against_the_block_sum_oracle(self):
+        rng = np.random.default_rng(71)
+        cases = [(name, struct, False) for name, struct in _PD_STRUCTURES.items()]
+        cases += [('tucker_slack', _TUCKER_SLACK, False), ('tt_slack', _TT_SLACK, False),
+                  ('raw_unsquashed', ((4, 5, 3), (2, 3, 2), (2, 2, 2, 3)), True),
+                  ('raw_d1_unsquashed', ((5,), (3,), (2, 3)), True)]
+        for kind in _DERIV_KINDS:
+            for name, struct, raw in cases:
+                for order in _PD_ORDERS:
+                    hess, _, one, _ = _deriv_ops(kind, order)
+                    for K, C in _PD_STACKS:
+                        if name not in _PD_STRUCTURES and (K, C) != ((2,), (2,)):
+                            continue                                    # the extra structures at one stack
+                        with self.subTest(kind=kind, structure=name, order=order, K=K, C=C):
+                            _, theta, sample, c, dirs = _deriv_problem(kind, struct, order, K, C, (5,), rng, raw)
+                            got = hess(c, sample, theta, dirs)
+                            for blk, ref_c in zip(got[0] + got[1], dirs[0] + dirs[1]):
+                                self.assertEqual(blk.shape, ref_c.shape)
+                            for kk in np.ndindex(*K):
+                                for cc in np.ndindex(*C):
+                                    th_c = _elem(theta, cc)
+                                    ref = oracles.blocksum(one(_deriv_residual_at(c, 1, cc), sample,
+                                                               oracles.doubled(th_c, _elem(dirs, kk + cc))), th_c)
+                                    self.assertGreater(_norm_flat(ref), 1e-3)
+                                    self.assertLess(_relerr_tree(_elem(got, kk + cc), ref), 1e-13)
+
+    def test_against_a_finite_difference_of_the_one_hole(self):
+        """The one-hole along ``theta + s theta_hat`` is a polynomial in ``s`` of degree ``<= 2d - 1`` (the jets are
+        linear in ``Phi``, which is multilinear in the ``2d`` cores), so the Richardson-eliminated central difference
+        is its derivative exactly up to rounding (as for the plain kinds): the two-hole matches to <= 1e-12."""
+        rng = np.random.default_rng(72)
+        for kind in _DERIV_KINDS:
+            for name, struct in _PD_STRUCTURES.items():
+                for order in (0, 2):
+                    hess, _, one, _ = _deriv_ops(kind, order)
+                    with self.subTest(kind=kind, structure=name, order=order):
+                        _, theta, sample, c, dirs = _deriv_problem(kind, struct, order, (), (), (6,), rng)
+                        got = hess(c, sample, theta, dirs)
+                        d = len(struct[0])
+                        hs = [0.1 / 2 ** k for k in range(d)]
+                        weights = np.linalg.solve(np.array([[h ** (2 * j) for j in range(d)] for h in hs]).T,
+                                                  np.eye(d)[0])
+                        g = lambda t: one(c, sample, cw.corewise_add(theta, cw.corewise_scale(dirs, t)))
+                        fd = None
+                        for w, h in zip(weights, hs):
+                            term = cw.corewise_scale(cw.corewise_sub(g(h), g(-h)), w * 0.5 / h)
+                            fd = term if fd is None else cw.corewise_add(fd, term)
+                        self.assertLess(_relerr_tree(got, fd), 1e-12)
+
+    def test_production_equals_the_trs_twins(self):
+        """The shipped kernels (banded recurrences / order scans; never the binomial tensor) == the dense-trs twins,
+        whole and piece by piece (each piece fed the twin's own inputs), at orders 0..4, a single and a multi-axis
+        sample stack W, d in {1, 3, 4}, to 1e-14 relative (not bitwise: the summation order differs; as for the
+        probe-derivative twins). The dotted dxi^ is formed only on its two read rows (the twin computes all
+        ``order+1``), so it is compared on those; the TT assembly (factored: two finals) against the unfactored
+        three-term twin."""
+        rng = np.random.default_rng(73)
+        worst = 0.0
+        for kind in _DERIV_KINDS:
+            entries = kind == 'entries_derivatives'
+            for name, struct in _PD_STRUCTURES.items():
+                for order in range(5):
+                    for (K, C), W in [(kc, (5,)) for kc in _PD_STACKS] + [(((2,), (2,)), (2, 3)),
+                                                                          (((2, 3), ()), (2, 3))]:
+                        with self.subTest(kind=kind, structure=name, order=order, K=K, C=C, W=W):
+                            _, theta, sample, c, dirs = _deriv_problem(kind, struct, order, K, C, W, rng)
+                            st = oracles.apply_derivatives_two_hole_states_trs(c, sample[0], sample[1], theta, dirs,
+                                                                              order, entries=entries)
+                            G, Gd = theta[1], dirs[1]
+                            s2 = min(2, order + 1)
+                            dxi_core = (sd._dxi_hat_tangent_jets_step_ragged((G[i], Gd[i], st['mu'][i], st['mud'][i],
+                                                                              st['sigma_hat'][i],
+                                                                              st['sigma_hat_d'][i]))[0]
+                                        for i in range(len(G)))
+                            dxi_got = tuple(dxi_core)
+                            self.assertEqual([np.shape(g)[0] for g in dxi_got], [2] * len(dxi_got))  # two rows
+                            if order == 0:
+                                self.assertTrue(all(np.all(g[1] == 0) for g in dxi_got))      # row 1 is zero
+                            asm = tuple(zip(*(sd._apply_tangent_assemble_step(
+                                (st['xi'][i], st['xid'][i], st['mu'][i], st['mud'][i], st['sigma_hat'][i],
+                                 st['sigma_hat_d'][i], st['dxi_hat_d'][i][:2], st['w'][i])) for i in range(len(G)))))
+                            pieces = {
+                                'whole': (_deriv_ops(kind, order)[0](c, sample, theta, dirs), (st['dU'], st['dG'])),
+                                'sigma_hat': (sd.compute_sigma_hat_jets(G, st['xi'], c), st['sigma_hat']),
+                                'sigma_hat_dot': (sd.compute_sigma_hat_tangent_jets(G, Gd, st['xi'], st['xid'],
+                                                                                    st['sigma_hat']),
+                                                  st['sigma_hat_d']),
+                                'dxi_hat_dot': (tuple(g[:s2] for g in dxi_got),
+                                                tuple(r[:s2] for r in st['dxi_hat_d'])),
+                                'tucker_assembly': (asm[0], st['dU']),
+                                'tt_assembly': (asm[1], st['dG']),
+                            }
+                            self.assertGreater(_norm_flat((st['dU'], st['dG'])), 1e-3)
+                            for piece, (got, ref) in pieces.items():
+                                if piece == 'whole':
+                                    got, ref = got[0] + got[1], ref[0] + ref[1]
+                                self.assertEqual([np.shape(g) for g in got], [np.shape(r) for r in ref], piece)
+                                err = _tree_relerr(got, ref)
+                                worst = max(worst, err)
+                                self.assertLess(err, 1e-14, piece)
+        self.assertLess(worst, 1e-14)
+
+    def test_order_zero_is_the_plain_two_hole(self):
+        """At ``order = 0`` the derivative two-holes ARE the plain apply / entries two-holes (to rounding: the jet
+        kernels take their order-0 branches, the plain ones plain probing's kernels -- observed <= 3.2e-16)."""
+        rng = np.random.default_rng(74)
+        plain = {'apply_derivatives': lambda c, s, th, dd: bapply.t3_apply_corewise_hessian(c, s[0], th, dd),
+                 'entries_derivatives': lambda c, s, th, dd: bentries.t3_entries_corewise_hessian(c, s[0], th, dd)}
+        for kind in _DERIV_KINDS:
+            for name, struct in _PD_STRUCTURES.items():
+                for K, C in _PD_STACKS:
+                    with self.subTest(kind=kind, structure=name, K=K, C=C):
+                        _, theta, sample, c, dirs = _deriv_problem(kind, struct, 0, K, C, (5,), rng)
+                        got = _deriv_ops(kind, 0)[0](c, sample, theta, dirs)
+                        ref = plain[kind](c[0], sample, theta, dirs)
+                        self.assertLess(_tree_relerr(got[0] + got[1], ref[0] + ref[1]), 1e-14)
+
+    def test_containment(self):
+        """The sampling containments, at the two-hole level (the functions ``theta -> <c, S(Phi(theta))>`` coincide, so
+        their Hessians do): (a) ``entries_derivatives(c, index, P) == apply_derivatives(c, e_index, P)`` -- bitwise
+        (a fiber slice IS the contraction with a one-hot, exactly); (b) ``apply_derivatives(c, w, P) ==
+        probe_derivatives(z~)`` at ``z~_i^(t) = alpha_i (c^(t) w_i + (t+1) c^(t+1) p_i)`` (``c^(order+1) = 0``) for any
+        ``alpha`` summing to one -- the apply jet is ``<w_i + s p_i, Y_i(s)>`` for every mode ``i``, whose Taylor
+        coefficients pair ``c`` with the probe jets ``Y_i`` exactly so."""
+        rng = np.random.default_rng(75)
+        for name, struct in _PD_STRUCTURES.items():
+            shape = struct[0]
+            d = len(shape)
+            for order in _PD_ORDERS:
+                for K, C in _PD_STACKS:
+                    with self.subTest(structure=name, order=order, K=K, C=C):
+                        _, theta, (index, pp), c, dirs = _deriv_problem('entries_derivatives', struct, order, K, C,
+                                                                        (6,), rng)
+                        onehot = [np.eye(N)[index[i]] for i, N in enumerate(shape)]
+                        ent = sd.t3_entries_corewise_derivatives_hessian(c, index, pp, theta, dirs, order)
+                        app = sd.t3_apply_corewise_derivatives_hessian(c, onehot, pp, theta, dirs, order)
+                        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(ent[0] + ent[1], app[0] + app[1])))
+                        ww = [rng.standard_normal((6, N)) for N in shape]
+                        alpha = rng.uniform(0.2, 1.0, d)
+                        alpha = alpha / alpha.sum()
+                        c_up = np.concatenate([c[1:], np.zeros_like(c[:1])], axis=0)        # c^(t+1), zero at order
+                        t1 = np.arange(1, order + 2).reshape((order + 1,) + (1,) * (c.ndim - 1))
+                        bc = lambda v: v.reshape((1, 6) + (1,) * len(C) + v.shape[-1:])     # W + (N,) -> jet layout
+                        zt = [a * (c[..., None] * bc(w) + (t1 * c_up)[..., None] * bc(p))
+                              for a, w, p in zip(alpha, ww, pp)]
+                        app = sd.t3_apply_corewise_derivatives_hessian(c, ww, pp, theta, dirs, order)
+                        prb = sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, dirs, order)
+                        self.assertLess(_tree_relerr(app[0] + app[1], prb[0] + prb[1]), 1e-13)
+
+    def test_from_sweep_reuses_the_model_sweep(self):
+        """The manifold model's lean jet sweep at the frame (U, O, L, R) carries the corewise xi / mu of its base point
+        (U, L): from_sweep with it -- or with the sweep at the corewise frame -- is the one-shot, bitwise; one sweep
+        serves every direction."""
+        rng = np.random.default_rng(76)
+        for kind in _DERIV_KINDS:
+            for order in (0, 2):
+                hess, from_sweep, _, precompute = _deriv_ops(kind, order)
+                for C in [(), (2,)]:
+                    frame, theta, sample, c, _ = _deriv_problem(kind, _D4, order, (), C, (5,), rng)
+                    for sweep_name, sweep in (('model', precompute(frame, sample)),
+                                              ('corewise', precompute(fvc.t3_corewise_frame(theta), sample))):
+                        for K in [(), (3,)]:
+                            with self.subTest(kind=kind, order=order, C=C, sweep=sweep_name, K=K):
+                                dirs = _directions(theta, K, rng)
+                                one = hess(c, sample, theta, dirs)
+                                two = from_sweep(c, sample, theta, dirs, sweep)
+                                self.assertTrue(all(np.array_equal(p, q) for p, q in zip(one[0] + one[1],
+                                                                                         two[0] + two[1])))
+
+    def test_stacked_equals_per_element(self):
+        """Multi-axis W, K and C (and an empty W -- one sample): each stack element is the unstacked result."""
+        rng = np.random.default_rng(77)
+        for kind in _DERIV_KINDS:
+            for order in (0, 2):
+                hess = _deriv_ops(kind, order)[0]
+                for W, K, C in [((2, 3), (2, 2), (2, 3)), ((), (2,), (2,)), ((4,), (), ())]:
+                    with self.subTest(kind=kind, order=order, W=W, K=K, C=C):
+                        _, theta, sample, c, dirs = _deriv_problem(kind, _MINIMAL, order, K, C, W, rng)
+                        got = hess(c, sample, theta, dirs)
+                        for cc in np.ndindex(*C):
+                            c_c = _deriv_residual_at(c, len(W), cc)
+                            for kk in np.ndindex(*K):
+                                ref = hess(c_c, sample, _elem(theta, cc), _elem(dirs, kk + cc))
+                                self.assertLess(_relerr_tree(_elem(got, kk + cc), ref), 1e-13)
+
+    def test_uniform_supercores(self):
+        """The kernels are polymorphic: packed uniform supercores (clean padding) give the ragged real block."""
+        import t3toolbox.backend.ut3_conversions as u3c
+        import t3toolbox.backend.ut3_operations as u3o
+        rng = np.random.default_rng(78)
+        for kind in _DERIV_KINDS:
+            hess = _deriv_ops(kind, 2)[0]
+            for name, struct in _PD_STRUCTURES.items():
+                for K, C in [((2,), ()), ((2, 3), (2,))]:
+                    with self.subTest(kind=kind, structure=name, K=K, C=C):
+                        shape, tr, ttr = struct
+                        d = len(shape)
+                        _, theta, sample, c, dirs = _deriv_problem(kind, struct, 2, K, C, (7,), rng)
+                        rag = hess(c, sample, theta, dirs)
+                        N, n, r = max(shape), max(tr) + 1, max(ttr) + 1      # forced-larger padding everywhere
+                        th_u = u3c.t3_to_ut3(theta, N=N, n=n, r=r, squash_tails=False)[:2]
+                        dir_u = u3c.t3_to_ut3(dirs, N=N, n=n, r=r, squash_tails=False)[:2]
+                        first = sample[0] if kind == 'entries_derivatives' else u3o.pack_vectors(sample[0], N)
+                        oU, oG = hess(c, (first, u3o.pack_vectors(sample[1], N)), th_u, dir_u)
+                        self.assertEqual(oU.shape, (d,) + K + C + (n, N))
+                        self.assertEqual(oG.shape, (d,) + K + C + (r, n, r))
+                        real = ([oU[i][..., :tr[i], :shape[i]] for i in range(d)],
+                                [oG[i][..., :ttr[i], :tr[i], :ttr[i + 1]] for i in range(d)])
+                        self.assertLess(_relerr_tree(real, rag), 1e-13)
+
+    def test_symmetry(self):
+        """T6: the K-stack Gram matrix <dir_k, K dir_l> is symmetric, per C element."""
+        rng = np.random.default_rng(79)
+        for kind in _DERIV_KINDS:
+            for name, struct in _PD_STRUCTURES.items():
+                for order in _PD_ORDERS:
+                    hess = _deriv_ops(kind, order)[0]
+                    for C in [(), (2,)]:
+                        with self.subTest(kind=kind, structure=name, order=order, C=C):
+                            n_dir = 4
+                            _, theta, sample, c, dirs = _deriv_problem(kind, struct, order, (n_dir,), C, (5,), rng)
+                            Kd = hess(c, sample, theta, dirs)
+                            cl = 'abcdef'[:len(C)]
+                            gram = sum(np.einsum('k%sx,l%sx->kl%s' % (cl, cl, cl),
+                                                 a.reshape((n_dir,) + C + (-1,)), b.reshape((n_dir,) + C + (-1,)))
+                                       for a, b in zip(dirs[0] + dirs[1], Kd[0] + Kd[1]))
+                            asym = np.abs(gram - np.swapaxes(gram, 0, 1)).max()
+                            self.assertGreater(np.abs(gram).max(), 1e-3)
+                            self.assertLess(asym, 1e-12 * np.abs(gram).max())
+
+    def test_residual_weights(self):
+        """T11: with the kind's ``omega^2`` (a per-ORDER row: apply / entries have no mode axis) applied to the
+        residual, the two-hole is the curvature part of the Hessian of ``f(theta) = 1/2 sum_t omega_t^2
+        ||S^(t)(Phi(theta)) - y^(t)||^2`` -- a central difference of ``grad f = J^T (omega^2 r)`` along theta_hat, minus
+        the Gauss-Newton term ``J^T (omega^2 J theta_hat)``; and the kind operation weights it so (a per-mode weight is
+        the kinds' structural error)."""
+        rng = np.random.default_rng(80)
+        struct, order, W = _MINIMAL, 2, (6,)
+        for kind in _DERIV_KINDS:
+            hess, _, one, _ = _deriv_ops(kind, order)
+            cls = bfit.ApplyDerivativesKind if kind == 'apply_derivatives' else bfit.EntriesDerivativesKind
+            for label, w in (('per_order', [1.0, 0.5, 0.25]), ('none', None)):
+                with self.subTest(kind=kind, weight=label):
+                    _, theta, sample, _, dirs = _deriv_problem(kind, struct, order, (), (), W, rng)
+                    bkind = cls(order=order, weight=w)
+                    fwd = lambda cores: bkind.point_forward(cores, sample)
+                    y = fwd(_unit_point(struct))
+                    w2 = lambda r: bkind._apply_weight(r, 2)
+                    grad = lambda cores: one(w2(fwd(cores) - y), sample, cores)
+                    h = 2e-5                            # a polynomial in h: central difference O(h^2)
+                    shift = lambda t: cw.corewise_add(theta, cw.corewise_scale(dirs, t))
+                    fd_hess = cw.corewise_scale(cw.corewise_sub(grad(shift(h)), grad(shift(-h))), 0.5 / h)
+                    gn = one(w2(fwd(oracles.doubled(theta, dirs))), sample, theta)        # J theta_hat = S(Y)
+                    curv_fd = cw.corewise_sub(fd_hess, gn)
+                    r = fwd(theta) - y
+                    got = hess(w2(r), sample, theta, dirs)
+                    self.assertLess(_relerr_tree(got, curv_fd), 1e-6)
+                    frame = fvc.t3_corewise_frame(theta)
+                    op = bkind.corewise_hessian(dirs, r, sample, frame, bkind.precompute(frame, sample), theta)
+                    self.assertTrue(all(np.array_equal(a, b) for a, b in zip(op[0] + op[1], got[0] + got[1])))
+                    if w is not None:
+                        self.assertGreater(_relerr_tree(hess(r, sample, theta, dirs), curv_fd), 1e-2)   # not a no-op
+            with self.subTest(kind=kind, weight='per_mode'):
+                with self.assertRaisesRegex(ValueError, 'no mode axis'):
+                    bk = cls(order=order, weight=[[1.0, 0.5, 0.25], [0.3, 0.2, 0.1], [2.0, 1.0, 0.5]])
+                    _, theta, sample, c, dirs = _deriv_problem(kind, struct, order, (), (), W, rng)
+                    frame = fvc.t3_corewise_frame(theta)
+                    bk.corewise_hessian(dirs, c, sample, frame, bk.precompute(frame, sample), theta)
+
+
 class TestFlatSlotsAndVerticalDirections(unittest.TestCase):
     """T20 (backend half) and the Lagrangian null space (F7), through the lift and the T3-T3 term against
     the dense multilinear Hessian of an ambient R (standing in for A^T r)."""
@@ -1850,6 +2194,193 @@ class TestPlainKindsExactLocalModel(unittest.TestCase):
                 self.assertIs(spy.call_args.args[4], lm.sweep)                    # the model's sweep, reused
 
 
+def _deriv_kind(kind, order, weight=None):
+    return (bfit.ApplyDerivativesKind if kind == 'apply_derivatives' else bfit.EntriesDerivativesKind)(
+        order=order, weight=weight)
+
+
+def _deriv_fit(kind, struct, order, W, rng, C=(), weight=None, geom=_MANIFOLD, noise=0.1, labels=None):
+    """A derivative-kind least-squares problem (apply / entries derivatives) whose data come from ANOTHER unit point
+    plus noise -- so the residual, hence the curvature term, is O(1) -- and the point ``x`` to linearize at; with
+    ``labels``, both points tied (for a shared geometry)."""
+    point = _unit_point if labels is None else (lambda s, cc: _shared_unit_point(s, labels, cc))
+    x, other = point(struct, C), point(struct, C)
+    sample = _deriv_sample(kind, struct[0], W, rng)
+    bkind = _deriv_kind(kind, order, weight)
+    clean = bkind.point_forward(other, sample)
+    return bopt.least_squares_problem(geom, bkind, sample, clean + noise * rng.standard_normal(clean.shape)), x
+
+
+def _deriv_fit_away_from_singular(test, kind, struct, order, W, seed, weight=None, cd=None):
+    """:py:func:`_deriv_fit` drawn until the exact model's smallest lift singular value exceeds 1e-3 (deterministic:
+    the first passing seed from ``seed``) -- the retraction's finite difference resolves the curvature term only away
+    from a near-singular lift (E1; the S10 / S11 review's recommendation over a bare assert)."""
+    for s in range(seed, seed + 20):
+        np.random.seed(s)
+        prob, x = _deriv_fit(kind, struct, order, W, np.random.default_rng(s), weight=weight)
+        lm = prob.local_model(x, hessian='exact', curvature_damping=cd)
+        if float(np.min(lm.curvature.geometry_data.sigma_min)) > 1e-3:
+            return prob, x
+    test.fail('no draw with sigma_min > 1e-3 in 20 seeds from %d' % seed)
+
+
+class TestDerivativeKindsExactLocalModel(unittest.TestCase):
+    """``Problem.local_model(hessian='exact')`` for the apply / entries derivative kinds (S12), through their shipped
+    ``corewise_hessian``: T7 (``<p, H p>`` is the second derivative along the T3-SVD retraction, resolving the curvature
+    term itself; orders 0-2, a per-order weight), T8 (``K_N L p_vert = 0`` through each kind), T13 (corewise: GN + the
+    block-sum, and the derivative of the gradient), the full-hvp symmetry, stacks, the kind operation (``omega^2 r``,
+    the model's sweep reused, bitwise), and one SHARED subcase per kind (the hvp is the derivative of the projected
+    shared gradient; the output tied; the per-mode lift misses)."""
+
+    def setUp(self):
+        np.random.seed(81)
+
+    def test_quadratic_form_is_the_second_derivative_along_the_retraction(self):
+        cases = {'d3_order2': (_MINIMAL, 2, [1.0, 0.5, 0.25]), 'd4_order1': (_D4, 1, None), 'd2_order0': (_D2, 0, None),
+                 'tucker_slack': (_TUCKER_SLACK, 1, [1.0, 0.5]), 'tt_slack': (_TT_SLACK, 1, None)}
+        for k, kind in enumerate(_DERIV_KINDS):
+            for j, (name, (struct, order, weight)) in enumerate(cases.items()):
+                for cd in (0.0, None):
+                    with self.subTest(kind=kind, case=name, curvature_damping=cd):
+                        prob, x = _deriv_fit_away_from_singular(self, kind, struct, order, (40,),
+                                                                810 + 100 * k + 10 * j + 5 * (cd is None),
+                                                                weight=weight, cd=cd)
+                        TestExactLocalModel._check_retraction_fd(self, prob, x, cd)
+
+    def test_normal_curvature_annihilates_a_lifted_vertical_direction(self):
+        """T8 through each kind: the kind's two-hole at ``omega^2 r`` minus the geometry's tangential term vanishes on a
+        lifted vertical (gauge) direction, while the two-hole alone does not."""
+        rng = np.random.default_rng(82)
+        for kind in _DERIV_KINDS:
+            for name, struct in (('d3', _MINIMAL), ('d4', _D4), ('tt_slack', _TT_SLACK)):
+                with self.subTest(kind=kind, structure=name):
+                    prob, x = _deriv_fit(kind, struct, 2, (20,), rng, weight=[1.0, 0.5, 0.25])
+                    lm = prob.local_model(x, hessian='exact', curvature_damping=0.0)
+                    geom, frame, data = prob.geom, lm.frame, lm.curvature.geometry_data
+                    U, O, L, R = frame
+                    VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(O, U)]
+                    HH = [np.zeros(h) for h in fvo.fv_variation_shapes(frame)[1]]
+                    for i in range(len(U)):
+                        X = rng.standard_normal((O[i].shape[-2], U[i].shape[-2]))
+                        VV[i] += X @ U[i]
+                        HH[i] -= np.einsum('aib,ij->ajb', O[i], X)
+                    for i in range(len(U) - 1):
+                        Y = rng.standard_normal((L[i].shape[-1], R[i + 1].shape[-3]))
+                        HH[i] += np.einsum('iaj,jk->iak', L[i], Y)
+                        HH[i + 1] -= np.einsum('jk,kbl->jbl', Y, R[i + 1])
+                    theta_hat = geom.lift(frame, (tuple(VV), tuple(HH)), data)
+                    K_r = lm.kind.corewise_hessian(theta_hat, lm.residual, lm.sample, frame, lm.sweep,
+                                                   geom.base_point(frame))
+                    K_N = cw.corewise_sub(K_r, geom.tangential_curvature(frame, theta_hat, data))
+                    self.assertGreater(_norm_flat(K_r), 1e-3)
+                    self.assertLess(_norm_flat(K_N), 1e-11 * _norm_flat(K_r))
+
+    def test_corewise_is_the_plain_hessian(self):
+        """T13: GN + the block-sum ``K_{A^T omega^2 r}``, and the (Richardson) derivative of the corewise gradient."""
+        rng = np.random.default_rng(83)
+        for kind in _DERIV_KINDS:
+            for name, struct, order in (('d3', _MINIMAL, 2), ('d4', _D4, 1), ('d1', _D1, 1), ('tt_slack', _TT_SLACK, 0)):
+                with self.subTest(kind=kind, structure=name, order=order):
+                    w = [1.0] + [0.5] * order
+                    prob, x = _deriv_fit(kind, struct, order, (12,), rng, geom=_COREWISE, weight=w)
+                    lm, gn = prob.local_model(x, hessian='exact'), prob.local_model(x)
+                    self.assertEqual(lm.curvature.geometry_data, ())
+                    p = (tuple(rng.standard_normal(u.shape) for u in x[0]),
+                         tuple(rng.standard_normal(g.shape) for g in x[1]))
+                    Hp = lm.hvp(p)
+                    one = _deriv_ops(kind, order)[2]
+                    K = oracles.blocksum(one(lm.kind._apply_weight(lm.residual, 2), prob.sample,
+                                             oracles.doubled(x, p)), x)
+                    self.assertLess(_relerr_tree(Hp, cw.corewise_add(gn.hvp(p), K)), 1e-12)
+                    grad = lambda t: prob.local_model(cw.corewise_add(x, cw.corewise_scale(p, t))).gradient
+                    d1 = lambda h: cw.corewise_scale(cw.corewise_sub(grad(h), grad(-h)), 0.5 / h)
+                    h = 1e-3
+                    fd = cw.corewise_sub(cw.corewise_scale(d1(0.5 * h), 4.0 / 3.0), cw.corewise_scale(d1(h), 1.0 / 3.0))
+                    self.assertLess(_relerr_tree(Hp, fd), 1e-8)
+                    self.assertGreater(_relerr_tree(gn.hvp(p), fd), 1e-3)            # the curvature term matters
+
+    def test_symmetry_and_stacks(self):
+        """T6 on the full hvp (manifold and corewise), and K + C stacks per element."""
+        rng = np.random.default_rng(84)
+        for kind in _DERIV_KINDS:
+            for geom_name, geom in (('manifold', _MANIFOLD), ('corewise', _COREWISE)):
+                with self.subTest(kind=kind, geometry=geom_name):
+                    prob, x = _deriv_fit(kind, _D4, 2, (16,), rng, geom=geom, weight=[1.0, 0.5, 0.25])
+                    lm = prob.local_model(x, hessian='exact')
+                    n_dir = 4
+                    p = _unit_tangent(geom, lm.frame, K=(n_dir,))
+                    Hp = lm.hvp(p)
+                    gram = sum(a.reshape(n_dir, -1) @ b.reshape(n_dir, -1).T for a, b in zip(p[0] + p[1], Hp[0] + Hp[1]))
+                    self.assertLess(np.abs(gram - gram.T).max(), 1e-12 * np.abs(gram).max())
+                    self.assertTrue(np.allclose(np.asarray(lm.quadratic(p)), np.diag(gram), rtol=1e-12, atol=0))
+            with self.subTest(kind=kind, stacks='K+C'):
+                K, C = (2,), (2,)
+                prob, x = _deriv_fit(kind, _MINIMAL, 1, (8,), rng, C=C, weight=[1.0, 0.5])
+                lm = prob.local_model(x, hessian='exact')
+                p = _unit_tangent(prob.geom, lm.frame, K=K, C=C)
+                Hp, q = lm.hvp(p), np.asarray(lm.quadratic(p))
+                self.assertEqual(q.shape, K + C)
+                for cc in np.ndindex(*C):
+                    lm_c = dc.replace(prob, data=_deriv_residual_at(prob.data, 1, cc)).local_model(
+                        _elem(x, cc), hessian='exact')
+                    for kk in np.ndindex(*K):
+                        p_kc = _elem(p, kk + cc)
+                        self.assertLess(_relerr_tree(_elem(Hp, kk + cc), lm_c.hvp(p_kc)), 1e-12)
+                        self.assertAlmostEqual(float(q[kk + cc]), float(lm_c.quadratic(p_kc)),
+                                               delta=1e-11 * abs(q[kk + cc]))
+
+    def test_the_kind_operation_weights_the_residual_and_reuses_the_model_sweep(self):
+        """Each derivative kind's ``corewise_hessian`` is its shipped two-hole at ``omega^2 r`` (a per-order row) on
+        the model's own lean jet sweep, bitwise, and the model's hvp calls it once with that sweep."""
+        from unittest import mock
+        rng = np.random.default_rng(85)
+        fname = {'apply_derivatives': 't3_apply_corewise_derivatives_hessian_from_sweep',
+                 'entries_derivatives': 't3_entries_corewise_derivatives_hessian_from_sweep'}
+        for kind in _DERIV_KINDS:
+            with self.subTest(kind=kind):
+                prob, x = _deriv_fit(kind, _MINIMAL, 2, (8,), rng, weight=[1.0, 0.3, 2.0])
+                lm = prob.local_model(x, hessian='exact')
+                th = _raw_like_frame_cores(lm.frame, (2,), rng)
+                base = _MANIFOLD.base_point(lm.frame)
+                got = lm.kind.corewise_hessian(th, lm.residual, lm.sample, lm.frame, lm.sweep, base)
+                ref = _deriv_ops(kind, 2)[0](lm.kind._apply_weight(lm.residual, 2), lm.sample, base, th)
+                self.assertTrue(all(np.array_equal(a, b) for a, b in zip(got[0] + got[1], ref[0] + ref[1])))
+                unweighted = _deriv_ops(kind, 2)[0](lm.residual, lm.sample, base, th)
+                self.assertGreater(_relerr_tree(unweighted, got), 1e-2)                 # the weight is not a no-op
+                with mock.patch.object(sd, fname[kind], wraps=getattr(sd, fname[kind])) as spy:
+                    lm.hvp(_unit_tangent(prob.geom, lm.frame))
+                self.assertEqual(spy.call_count, 1)
+                self.assertIs(spy.call_args.args[6], lm.sweep)                    # the model's sweep, reused
+
+    def test_shared_subcase(self):
+        """One SHARED subcase per kind (ragged; the group-ceiling structure, where the tied lift differs from the
+        per-mode one): ``H v == d/dt P_x grad_sh f(R_sh(t v))`` at 0 (exact for any retraction), the output tied,
+        Gauss-Newton and the per-mode-lift twin off."""
+        rng = np.random.default_rng(86)
+        struct, labels = _SH_CEILING
+        geom = _MANIFOLD.with_sharing(labels, struct[0])
+        for kind in _DERIV_KINDS:
+            with self.subTest(kind=kind):
+                prob, x = _deriv_fit(kind, struct, 2, (12,), rng, weight=[1.0, 0.5, 0.25], geom=geom, labels=labels)
+                lm = prob.local_model(x, hessian='exact', curvature_damping=0.0)
+                frame, aux = lm.frame, lm.geom_aux
+                v = _unit_tangent(geom, frame)
+
+                def grad_at(t):                    # P_x grad_sh f(R(t v)): the ambient gradient, projected at x
+                    lm_y = prob.local_model(lm.retract(cw.corewise_scale(v, t)))
+                    return tv.tv_project_t3_onto_tangent_space(frame, tv.tv_to_t3(lm_y.frame, lm_y.gradient),
+                                                                shared_data=aux)
+
+                h = 1e-4
+                fd = cw.corewise_scale(cw.corewise_sub(grad_at(h), grad_at(-h)), 0.5 / h)
+                Hv = lm.hvp(v)
+                err = _relerr_tree(Hv, fd)
+                self.assertLess(err, 1e-5)
+                self.assertGreater(_relerr_tree(prob.local_model(x).hvp(v), fd), 1e2 * err)
+                self.assertGreater(_relerr_tree(_per_mode_twin(lm).hvp(v), fd), 1e2 * err)
+                self.assertLess(float(np.max(sharing.fv_tied_variations_residual(Hv, aux))), 1e-12)
+
+
 class TestCorewiseExact(unittest.TestCase):
     """T13: on the corewise geometry the exact model is the plain Hessian of ``theta -> f(Phi(theta))``,
     ``J^T omega^2 J + K_{A^T omega^2 r}`` -- no lift, no tangential term."""
@@ -1967,7 +2498,7 @@ class TestFlatSlotsModel(unittest.TestCase):
 class TestRequiredSixthOperation(unittest.TestCase):
     """T23: ``corewise_hessian`` is a required sixth ``SamplingKind`` operation, checked structurally (by the
     stdlib abstractmethod marker) in ``Problem.local_model(hessian='exact')`` before any work; Gauss-Newton never
-    consults it. The uniform kinds carry a raising, marked stub until their masked two-holes land."""
+    consults it. Every built-in kind implements it, and every uniform kind on its own class (no window stub remains)."""
 
     def setUp(self):
         np.random.seed(45)
@@ -2001,24 +2532,26 @@ class TestRequiredSixthOperation(unittest.TestCase):
                 identity = type(kind).corewise_hessian is bfit.SamplingKind.corewise_hessian
                 marker = getattr(type(kind).corewise_hessian, '__isabstractmethod__', False)
                 self.assertEqual(identity, marker)
-        for implemented in (bfit.ProbeDerivativesKind, bfit.ProbeKind, bfit.ApplyKind, bfit.EntriesKind):   # S4, S10, S11
+        for implemented in (bfit.ProbeDerivativesKind, bfit.ProbeKind, bfit.ApplyKind, bfit.EntriesKind,
+                            bfit.ApplyDerivativesKind, bfit.EntriesDerivativesKind):        # S4, S10, S11, S12: all six
             self.assertFalse(getattr(implemented.corewise_hessian, '__isabstractmethod__', False))
             self.assertIsNot(implemented.corewise_hessian, bfit.SamplingKind.corewise_hessian)
-        for pending in (bfit.ApplyDerivativesKind, bfit.EntriesDerivativesKind):                             # S12
-            self.assertIs(pending.corewise_hessian, bfit.SamplingKind.corewise_hessian)
+            self.assertIn('corewise_hessian', vars(implemented))                       # its own, not inherited
         # and instantiation is unaffected (a plain dataclass, not an ABC)
         self.assertIsInstance(_FiveOperationApplyKind(), bfit.SamplingKind)
 
-    def test_the_uniform_window_stub(self):
-        """Each uniform kind still in the window resolves corewise_hessian to the _UniformKind stub -- which precedes
-        the ragged kind in the MRO, so a uniform kind cannot inherit the ragged (mask-free) method -- and is rejected
-        structurally; UniformProbeDerivativesKind (S8), UniformProbeKind (S10) and UniformApplyKind /
-        UniformEntriesKind (S11) have left it (their masked two-holes override the stub, and the exact model builds).
-        (Mutation check, verified by hand: deleting the stub makes UniformApplyDerivativesKind inherit
-        ApplyDerivativesKind.corewise_hessian -- the base's marked stub, still rejected -- and makes each window
-        kind's identity assertion below fail; deleting a landed override makes that kind fall back to the stub.)"""
+    def test_no_uniform_stub_remains(self):
+        """After S12 every uniform kind implements ``corewise_hessian`` ON ITS OWN CLASS: the S4-S12 window stub and its
+        slice table are gone, the uniform-layer mixin (which precedes the ragged kind in the MRO) defines no
+        ``corewise_hessian``, and none is marked abstract -- so each uniform kind's method is its own masked override,
+        never the ragged (mask-free) one. (Mutation check, verified by hand: deleting a uniform override makes that kind
+        inherit the ragged method -- the own-class and not-the-ragged assertions below fail.) Every uniform kind builds
+        an exact local model."""
         import t3toolbox.backend.uniform_fitting as uf
         import t3toolbox.uniform_tucker_tensor_train as ut3
+        self.assertFalse(hasattr(uf, '_UNIFORM_HESSIAN_SLICE'))
+        self.assertFalse(hasattr(uf, '_UniformKind'))
+        self.assertNotIn('corewise_hessian', vars(uf._UniformLayerMixin))
         for cls, ragged in ((uf.UniformApplyKind, bfit.ApplyKind), (uf.UniformEntriesKind, bfit.EntriesKind),
                             (uf.UniformProbeKind, bfit.ProbeKind),
                             (uf.UniformApplyDerivativesKind, bfit.ApplyDerivativesKind),
@@ -2026,34 +2559,26 @@ class TestRequiredSixthOperation(unittest.TestCase):
                             (uf.UniformProbeDerivativesKind, bfit.ProbeDerivativesKind)):
             with self.subTest(kind=cls.__name__):
                 mro = cls.__mro__
-                self.assertLess(mro.index(uf._UniformKind), mro.index(ragged))
-                in_window = cls not in (uf.UniformProbeDerivativesKind, uf.UniformProbeKind, uf.UniformApplyKind,
-                                        uf.UniformEntriesKind)
-                self.assertEqual(cls.corewise_hessian is uf._UniformKind.corewise_hessian, in_window)
-                self.assertEqual(getattr(cls.corewise_hessian, '__isabstractmethod__', False), in_window)
-                self.assertEqual(cls.__name__ in uf._UNIFORM_HESSIAN_SLICE, in_window)
-                self.assertIsNot(cls.corewise_hessian, ragged.corewise_hessian)   # never the ragged (mask-free) one
+                self.assertLess(mro.index(uf._UniformLayerMixin), mro.index(ragged))
+                self.assertIn('corewise_hessian', vars(cls))                         # its own masked override
+                self.assertIsNot(cls.corewise_hessian, ragged.corewise_hessian)      # never the ragged (mask-free) one
+                self.assertFalse(getattr(cls.corewise_hessian, '__isabstractmethod__', False))
         rng = np.random.default_rng(46)
         ux0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain(*_unit_point(_MINIMAL)))
         ww = [rng.standard_normal((10, N)) for N in _MINIMAL[0]]
         pp = [rng.standard_normal((10, N)) for N in _MINIMAL[0]]
-        sc = (ux0.data[0], ux0.data[1])
-        data = bfit.ApplyDerivativesKind(order=1).point_forward(_unit_point(_MINIMAL), (ww, pp))
-        prob = uf.uniform_least_squares_problem('manifold', 'apply_derivatives', ux0, (ww, pp), data, order=1)
-        self.assertIsInstance(prob.local_model(sc).hvp(prob.local_model(sc).gradient), tuple)    # GN still runs
-        with self.assertRaisesRegex(ValueError, 'UniformApplyDerivativesKind does not implement corewise_hessian'):
-            prob.local_model(sc, hessian='exact')
-        with self.assertRaisesRegex(NotImplementedError, 'lands in slice S12'):
-            prob.kind.corewise_hessian(None, None, None, None, None, None)
-        data = sd.t3_probe_derivatives(ww, pp, _unit_point(_MINIMAL), 1)                     # out of the window
-        prob = uf.uniform_least_squares_problem('manifold', 'probe_derivatives', ux0, (ww, pp), data, order=1)
-        self.assertTrue(prob.local_model(sc, hessian='exact').is_exact)
         index = np.stack([rng.integers(0, N, size=10) for N in _MINIMAL[0]])
-        for name, sample in (('probe', ww), ('apply', ww), ('entries', index)):                # out of it too (S10/S11)
-            with self.subTest(left_the_window=name):
-                rk = {'probe': bfit.PROBE, 'apply': bfit.APPLY, 'entries': bfit.ENTRIES}[name]
-                prob = uf.uniform_least_squares_problem('manifold', name, ux0, sample,
-                                                        rk.point_forward(_unit_point(_MINIMAL), sample))
+        sc = (ux0.data[0], ux0.data[1])
+        other = _unit_point(_MINIMAL)
+        for name, sample, order in (('probe', ww, None), ('apply', ww, None), ('entries', index, None),
+                                    ('apply_derivatives', (ww, pp), 1), ('entries_derivatives', (index, pp), 1),
+                                    ('probe_derivatives', (ww, pp), 1)):
+            with self.subTest(builds=name):
+                rk = ({'probe': bfit.PROBE, 'apply': bfit.APPLY, 'entries': bfit.ENTRIES}[name] if order is None else
+                      {'apply_derivatives': bfit.ApplyDerivativesKind, 'entries_derivatives': bfit.EntriesDerivativesKind,
+                       'probe_derivatives': bfit.ProbeDerivativesKind}[name](order=order))
+                prob = uf.uniform_least_squares_problem('manifold', name, ux0, sample, rk.point_forward(other, sample),
+                                                        order=order)
                 self.assertTrue(prob.local_model(sc, hessian='exact').is_exact)
 
     def test_a_geometry_without_the_exact_members_works_for_gauss_newton_and_is_rejected_for_exact(self):

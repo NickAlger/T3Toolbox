@@ -214,10 +214,9 @@ class LocalModel:
       term plus the curvature term :py:meth:`curvature_hessian` (``Π Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π``; see
       :py:meth:`t3toolbox.backend.optimizers.Problem.local_model`), and :py:meth:`quadratic` likewise. The
       model's one misfit transpose is done at construction (``curvature``), so :py:attr:`gradient` is the
-      Gauss-Newton gradient bit for bit. ``probe``, ``apply``, ``entries`` and ``probe_derivatives`` implement
-      it, ragged and uniform; ``apply_derivatives`` / ``entries_derivatives`` raise a structural error at
-      construction. On a shared manifold geometry, ragged or
-      uniform, the curvature goes through the tied lift (one factor direction per sharing group).
+      Gauss-Newton gradient bit for bit. Every sampling kind implements it, ragged and uniform. On a shared
+      manifold geometry, ragged or uniform, the curvature goes through the tied lift (one factor direction per
+      sharing group).
 
     ``gradient``, ``jacobian``, ``gn_hessian``, ``gn_quadratic``, ``objective_value`` and :py:meth:`retract`
     mean the same in both modes.
@@ -580,8 +579,8 @@ def _with_curvature(
     The rules are the backend's (:py:meth:`t3toolbox.backend.optimizers.Problem.local_model`), with its
     checks and messages: an unknown mode raises; a ``curvature_damping`` with Gauss-Newton raises (nothing
     would read it), as it does on a corewise geometry (no lift to damp); a kind without ``corewise_hessian``
-    or a geometry without the exact-mode members raises structurally, naming what is missing -- which is
-    how the uniform kinds' interim stub surfaces (the ``apply_derivatives`` / ``entries_derivatives`` twins).'''
+    (a user-written one: every built-in kind implements it) or a geometry without the exact-mode members raises
+    structurally, naming what is missing.'''
     exact = bopt._check_hessian(hessian, who) == 'exact'
     if curvature_damping is not None and not exact:
         raise ValueError("%s: curvature_damping is only meaningful with hessian='exact'" % who)
@@ -816,8 +815,9 @@ def apply_derivatives_model(
 
     The all-modes apply contracts every mode into a scalar, so ``weight`` is **order-only** (a per-mode
     weight is a structural error -- mode weighting is defined only for probe; see
-    :py:func:`probe_derivatives_model`). (``hessian='exact'`` is not implemented for
-    ``apply_derivatives`` yet: a structural ``ValueError``.)
+    :py:func:`probe_derivatives_model`). ``hessian='exact'`` builds the exact model, its curvature term the
+    apply-derivative two-hole at ``omega^2 r``
+    (:py:func:`~t3toolbox.backend.sampling_derivatives.t3_apply_corewise_derivatives_hessian`).
 
     Examples
     --------
@@ -870,7 +870,8 @@ def entries_derivatives_model(
 ) -> LocalModel:
     '''The ``entries``-derivatives local model -- like :py:func:`apply_derivatives_model` at integer
     grid points ``index``. Order-only ``weight`` (no mode axis -- mode weighting is probe-only).
-    (``hessian='exact'`` is not implemented for ``entries_derivatives`` yet: a structural ``ValueError``.)'''
+    ``hessian='exact'`` as there
+    (:py:func:`~t3toolbox.backend.sampling_derivatives.t3_entries_corewise_derivatives_hessian`).'''
     wm = _canonical_weight(weight, 'entries_derivatives', index.shape[0], order)
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'entries_derivatives', (index, pp), residual, order, wm,

@@ -158,7 +158,7 @@ def _require_exact_capable(
     operation ``corewise_hessian`` and the geometry has the four exact-mode members.
 
     "Implements" means the method the kind would run is not an unimplemented stub -- one carrying the stdlib
-    :py:func:`abc.abstractmethod` marker, as the ``SamplingKind`` base method (and any interim stub) does.
+    :py:func:`abc.abstractmethod` marker, as the ``SamplingKind`` base method (or a stub a subclass re-declares) does.
     Reading the marker keeps this module free of T3-specific imports; for a kind that does not re-declare a
     marked stub it agrees exactly with ``type(kind).corewise_hessian is SamplingKind.corewise_hessian``."""
     method = getattr(type(kind), 'corewise_hessian', None)

@@ -276,6 +276,14 @@ class TestFittingChunkSizeWiring(unittest.TestCase):
             self.assertEqual(got, pd.estimate_chunk_size(self.STRUCT[0], (nU,) * d, (r,) * (d + 1), 2, 40000,
                                                          dtype=xu.tucker_supercore.dtype, hessian=mode))
         self.assertIsNone(opt._resolve_chunk_size('auto', 'probe_derivatives', xr, big, 2, hessian='exact'))  # ragged
+        # S12: the other kinds' exact programs (the apply / entries (derivative) two-holes) are unchunked, as their GN
+        # transposes are -- 'auto' resolves to None in BOTH modes without reaching the estimator.
+        with mock.patch.object(pd, 'estimate_chunk_size') as spy:
+            for kind in ('apply', 'entries', 'probe', 'apply_derivatives', 'entries_derivatives'):
+                for mode in ('gauss_newton', 'exact'):
+                    with self.subTest(kind=kind, hessian=mode):
+                        self.assertIsNone(opt._resolve_chunk_size('auto', kind, xu, s, 2, hessian=mode))
+        spy.assert_not_called()
 
     def test_newton_cg_exact_across_chunk_size(self):
         # chunk_size is an exact reorganization -> the fit is identical up to float rounding, for any

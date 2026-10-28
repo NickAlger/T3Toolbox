@@ -25,7 +25,8 @@ Two oracles, each independent of the kernel it checks:
   ``Phi o T``, ``T`` copying the group factor).
 
 A third family is not an oracle but a **reference twin**: the dense-``trs`` forms of the probe-derivative
-two-hole (:py:func:`probe_derivatives_two_hole_trs` and its pieces). The shipped kernels in
+two-hole (:py:func:`probe_derivatives_two_hole_trs` and its pieces) and of the apply / entries derivative two-holes
+(:py:func:`apply_derivatives_two_hole_states_trs` and its pieces). The shipped kernels in
 ``sampling_derivatives`` are the product rule of the Gauss-Newton kernel each one differentiates, in its form
 (a banded recurrence where a factor is an input jet, an order scan with a carried shifted jet where the
 convolution is full, a factored assembly) and never contract the binomial tensor; the twins are the same
@@ -46,6 +47,7 @@ import sys
 
 import numpy as np
 
+import t3toolbox.backend.entries as bentries
 import t3toolbox.backend.fv_conversions as fvc
 import t3toolbox.backend.probing as probing
 import t3toolbox.backend.sampling_derivatives as sd
@@ -460,3 +462,85 @@ def probe_derivatives_two_hole_trs(ztildes, ww, pp, core_pair, core_directions, 
     ``K_z theta_hat = d/ds grad_theta <z~, S(Phi(theta + s theta_hat))>``, W summed, raw K + C."""
     st = probe_derivatives_two_hole_states_trs(ztildes, ww, pp, core_pair, core_directions, order, frame_sweep)
     return st['dU'], st['dG']
+
+
+# ------------------------------------------------------------------------------------------------------
+# The apply / entries derivative two-holes: dense-trs reference twins (stack-aware: W + K + C, ragged)
+# ------------------------------------------------------------------------------------------------------
+# The derivative of the adjoint-state GN transpose (``twins.apply_derivatives_transpose_trs``) at the corewise frame
+# (U, G, G, G) along (Ud, Gd), the residual jet c fixed (W + C, no K): one dense binomial contraction per product-rule
+# term, as for the probe-derivative twins above.
+
+def sigma_hat_tangent_jets_trs(G, Gd, xi, xid, sigma_hats, trs):
+    """Reference twin of ``sd.compute_sigma_hat_tangent_jets``: the derivative of the dense seeded propagation sweep
+    (``twins.compute_sigma_hat_jets_trs``) -- three dense-trs terms per core, K on the dotted carry / core / xi; the
+    seed c is fixed, so the dotted carry starts from zero. Returns len=d, elm_shape=(order+1,)+W+K+C+(rR(i+1),)."""
+    n_probe, n_frame = _w_c_counts(xi, G[0])
+    kw = dict(len_W=n_probe, len_C=n_frame)
+    s2 = min(2, trs.shape[0])
+    trs_xi = trs[:, :s2, :]
+    rv = tto.tt_reverse
+    rG, rGd, rxi, rxid, rsh = rv(G), rv(Gd), xi[::-1], xid[::-1], sigma_hats[::-1]
+    cd = np.zeros((trs.shape[0],) + xid[0].shape[1:-1] + (G[-1].shape[-1],))
+    out = []
+    for k in range(len(G)):
+        out.append(cd)
+        cd = (contract('trs,tWKCa,Caib,rWCi->sWKCb', trs_xi, cd,     rG[k],  rxi[k][:s2],  **kw)
+              + contract('trs,tWCa,KCaib,rWCi->sWKCb', trs_xi, rsh[k], rGd[k], rxi[k][:s2],  **kw)
+              + contract('trs,tWCa,Caib,rWKCi->sWKCb', trs_xi, rsh[k], rG[k],  rxid[k][:s2], **kw))
+    return tuple(out)[::-1]
+
+
+def dxi_hat_tangent_jets_trs(G, Gd, mu, mud, sigma_hats, sigma_hats_d, trs):
+    """Reference twin of the dotted two-row dxi^ of the apply / entries two-holes: the three-term product rule of the
+    dense combine ``mu O sigma^`` at ``O = G``, ALL ``order+1`` rows (the shipped kernel forms only ``u in {0, 1}``)."""
+    n_probe, n_frame = _w_c_counts(mu, G[0])
+    kw = dict(len_W=n_probe, len_C=n_frame)
+    return tuple(contract('trs,rWKCa,Caib,tWCb->sWKCi', trs, mud[k], G[k],  sigma_hats[k],   **kw)
+                 + contract('trs,rWCa,KCaib,tWCb->sWKCi', trs, mu[k],  Gd[k], sigma_hats[k],   **kw)
+                 + contract('trs,rWCa,Caib,tWKCb->sWKCi', trs, mu[k],  G[k],  sigma_hats_d[k], **kw)
+                 for k in range(len(G)))
+
+
+def apply_derivatives_tangent_assembly_trs(xi, xid, mu, mud, sigma_hats, sigma_hats_d, dxi_hats_d, w_jets, trs,
+                                           n_frame):
+    """Reference twin of the apply / entries two-holes' assemblies (W summed): the unfactored three-term product rule
+    of the dense ``dG = mu (x) xi (x) sigma^`` (one dense-trs term per dotted factor) and ``dU = dxi^_dot (x) w``."""
+    s2 = min(2, trs.shape[0])
+    t_sig = trs[:, :, :s2]
+    kw = dict(len_W=w_jets[0].ndim - 2, len_C=n_frame)
+    dU = tuple(contract('uWKCa,uWo->KCao', dxd[:s2], wj[:s2], **kw) for dxd, wj in zip(dxi_hats_d, w_jets))
+    dG = tuple(contract('trs,rWKCa,sWCi,tWCb->KCaib', t_sig, mud[k], xi[k][:s2],  sigma_hats[k],   **kw)
+               + contract('trs,rWCa,sWKCi,tWCb->KCaib', t_sig, mu[k],  xid[k][:s2], sigma_hats[k],   **kw)
+               + contract('trs,rWCa,sWCi,tWKCb->KCaib', t_sig, mu[k],  xi[k][:s2],  sigma_hats_d[k], **kw)
+               for k in range(len(xi)))
+    return dU, dG
+
+
+def apply_derivatives_two_hole_states_trs(c, first, pp, core_pair, core_directions, order, entries=False):
+    """Every intermediate of the dense-trs apply- (``entries=False``: ``first`` = ww) or entries- (``first`` = the
+    index grid) derivative two-hole, as a dict. The undotted state is the corewise frame's: xi, the dense mu, the
+    dense seeded sigma^ through G; the dotted forward is the dense GN tangent forward at ``Q = O = G``."""
+    U, G = core_pair
+    Ud, Gd = core_directions
+    n_frame = U[0].ndim - 2
+    trs = twins.binomial_combine_tensor(order)
+    if entries:
+        up = lambda cores: bentries._entry_xis(cores, first)
+        w = bentries._onehot_vectors(first, U)
+    else:
+        up = lambda cores: probing.compute_xi(cores, first)
+        w = first
+    st = dict(trs=trs, n_frame=n_frame)
+    st['xi'] = sd.build_input_jets(up(U), probing.compute_xi(U, pp))
+    st['xid'] = sd.build_input_jets(up(Ud), probing.compute_xi(Ud, pp))
+    st['w'] = tuple(np.stack([wi, pi]) for wi, pi in zip(w, pp))
+    st['mu'] = twins.compute_mu_jets_trs(G, st['xi'], trs)
+    st['mud'] = twins.compute_sigma_jets_trs(Gd, G, G, st['xi'], st['xid'], st['mu'], trs)
+    st['sigma_hat'] = twins.compute_sigma_hat_jets_trs(G, st['xi'], c, trs)
+    st['sigma_hat_d'] = sigma_hat_tangent_jets_trs(G, Gd, st['xi'], st['xid'], st['sigma_hat'], trs)
+    st['dxi_hat_d'] = dxi_hat_tangent_jets_trs(G, Gd, st['mu'], st['mud'], st['sigma_hat'], st['sigma_hat_d'], trs)
+    st['dU'], st['dG'] = apply_derivatives_tangent_assembly_trs(st['xi'], st['xid'], st['mu'], st['mud'],
+                                                                st['sigma_hat'], st['sigma_hat_d'], st['dxi_hat_d'],
+                                                                st['w'], trs, n_frame)
+    return st

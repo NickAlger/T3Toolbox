@@ -301,8 +301,8 @@ def _make_weight(
 #                      reductions, supplied by ScalarOutputKind / ProbeOutputKind.
 #   * derivative or not -- `has_order`, which adds a leading order axis to the data and one to `n_w`.
 #   * layer         -- ragged here, uniform in `uniform_fitting`, which overrides the layer-specific
-#                      operations (precompute / forward / transpose / point_forward / take, and
-#                      corewise_hessian as each kind's masked uniform two-hole lands) and the weight axes.
+#                      operations (precompute / forward / transpose / point_forward / take, and the
+#                      masked corewise_hessian) and the weight axes.
 # --------------------------------------------------------------------------------------------------
 @dataclass(frozen=True, eq=False)   # eq=False + ValueHashedFields: value hash/eq over the fields
 class SamplingKind(ValueHashedFields):
@@ -652,6 +652,12 @@ class ApplyDerivativesKind(_WwPpSample, ScalarOutputKind, _DerivativesKind):
     def take(self, sample, data, idx):
         return _take_deriv_apply(sample, data, idx)
 
+    def corewise_hessian(self, core_directions, r, s, frame, sweep, base_point):
+        # the lean sweep's xi / mu jets are base_point's own (xi through U, mu through L at the manifold frame
+        # (U, O, L, R); through U and G at the corewise frame); omega^2 r, exactly as transpose weights it
+        return pd.t3_apply_corewise_derivatives_hessian_from_sweep(
+            self._apply_weight(r, 2), s[0], s[1], base_point, core_directions, self.order, sweep)
+
 
 @dataclass(frozen=True, eq=False)
 class EntriesDerivativesKind(_IndexPpSample, ScalarOutputKind, _DerivativesKind):
@@ -674,6 +680,11 @@ class EntriesDerivativesKind(_IndexPpSample, ScalarOutputKind, _DerivativesKind)
 
     def take(self, sample, data, idx):
         return _take_deriv_entries(sample, data, idx)
+
+    def corewise_hessian(self, core_directions, r, s, frame, sweep, base_point):
+        # as ApplyDerivativesKind's: the lean (fiber-sliced) jet sweep is base_point's own
+        return pd.t3_entries_corewise_derivatives_hessian_from_sweep(
+            self._apply_weight(r, 2), s[0], s[1], base_point, core_directions, self.order, sweep)
 
 
 @dataclass(frozen=True, eq=False)

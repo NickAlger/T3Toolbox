@@ -264,8 +264,8 @@ def least_squares_problem(
     >>> bool(np.linalg.norm(x_opt.to_dense() - A.to_dense()) < 1e-6 * np.linalg.norm(A.to_dense()))
     True
 
-    For exact Newton pass the mode to both -- here on ``probe_derivatives``, which implements the exact
-    Hessian (the solver's trust region is its default step control there):
+    For exact Newton pass the mode to both -- here on ``probe_derivatives`` (the solver's trust region is the
+    exact Hessian's default step control):
 
     >>> pp = [np.random.randn(30, N) for N in (4, 5, 6)]
     >>> esetup = optimizers.least_squares_problem(t3m.MANIFOLD, 'probe_derivatives', (ww, pp),
@@ -464,9 +464,9 @@ def newton_cg(
     model's predicted decrease), the Gauss-Newton one the Armijo line search; either combines with either.
     ``tr_radius0`` is the initial trust radius and ``curvature_damping`` the exact Hessian's lift damping
     (relative to ``‖X‖``; ``None`` = the geometry's default); each raises where it would have no effect. The
-    exact Hessian is implemented for ``probe``, ``apply``, ``entries`` and ``probe_derivatives``, on every
-    geometry (``MANIFOLD`` / ``COREWISE``, their uniform twins, and the shared wrappers of all four); for the
-    other derivative kinds ``hessian='exact'`` raises a structural error before the first step. ``hessian`` also sizes ``chunk_size='auto'`` (:py:func:`least_squares_problem`). Details,
+    exact Hessian is implemented for every sampling kind, on every geometry (``MANIFOLD`` / ``COREWISE``, their
+    uniform twins, and the shared wrappers of all four). ``hessian`` also sizes ``chunk_size='auto'``
+    (:py:func:`least_squares_problem`). Details,
     stop reasons and the trust-region rules: the backend :py:func:`t3toolbox.backend.optimizers.newton_cg`.
 
     Both stopping tests are relative to a reference ‖g0‖. By default (``g0_reference=None``) a manifold

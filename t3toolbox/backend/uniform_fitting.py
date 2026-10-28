@@ -20,7 +20,6 @@ the ragged Kind protocol's ``(v, sample, frame_data, sweep)`` signature even tho
 Protocol uniformity is the point: generic code (the shared ``LocalModel``) calls every kind the same
 way, ragged or uniform.
 """
-import abc
 import dataclasses as dc
 import typing as typ
 
@@ -68,20 +67,12 @@ __all__ = [
 # (broadcast over the residual's tangent stack), so the kinds stay geometry-agnostic; only
 # `point_forward` (the S(x) op on the plain-UT3 point) needs the held shape + masks.
 #
-# `corewise_hessian` (the sixth, hessian='exact' only) is overridden per kind as each uniform kind's masked
-# two-hole lands in its own slice (UniformProbeDerivativesKind, UniformProbeKind, UniformApplyKind and
-# UniformEntriesKind have it). Until then, `_UniformKind` -- which
-# precedes the ragged kind in every uniform kind's MRO -- carries a raising stub, so a uniform kind can never
-# inherit the ragged (mask-free) method and run it on padded supercores; the stub's abstractmethod marker makes
-# `Problem.local_model(hessian='exact')` reject it structurally before any work. An override masks theta and
-# theta_hat with the masks of the FRAME it is handed (frame_data[5]: up and left) and re-masks its output.
+# `corewise_hessian` (the sixth, hessian='exact' only) is overridden by EVERY uniform kind, on its own class:
+# `_UniformLayerMixin` precedes the ragged kind in the MRO but defines no corewise_hessian, so a uniform kind that
+# did not override it would inherit the ragged (mask-free) method and run it on padded supercores -- a second
+# derivative multiplies a direction's padded slot into real slots. Each override masks theta and theta_hat with
+# the masks of the FRAME it is handed (frame_data[5]: up and left) and re-masks its output.
 # --------------------------------------------------------------------------------------------------
-_UNIFORM_HESSIAN_SLICE = {                      # where each remaining uniform kind's masked corewise_hessian lands
-    'UniformApplyDerivativesKind':   'S12',
-    'UniformEntriesDerivativesKind': 'S12',
-}
-
-
 def _frame_theta(
         frame_data:  typ.Tuple,                       # the uniform frame the model's sweep was built at
         base_point:  typ.Tuple[NDArray, NDArray],     # its base point's bare supercores (up, left)
@@ -94,9 +85,11 @@ def _frame_theta(
 
 
 @dc.dataclass(frozen=True, eq=False)
-class _UniformKind:
-    """The fixed rank a uniform kind is built at. Defaults so the field ordering works alongside the
-    inherited defaulted parameters (Python 3.9 has no ``kw_only``); use :py:meth:`from_point`."""
+class _UniformLayerMixin:
+    """The uniform layer's half of a uniform kind: the fixed rank it is built at (``shape`` + the plain-UT3
+    ``masks``, as fields) and the packed-layout helpers (the point shim, the frame-derived variation masks, the
+    output re-mask). Defaults so the field ordering works alongside the inherited defaulted parameters (Python 3.9
+    has no ``kw_only``); use :py:meth:`from_point`."""
 
     shape:  typ.Tuple[int, ...] = ()   # the mode sizes
     masks:  typ.Tuple = ()             # plain-UT3 (tucker_edge_mask, tt_edge_mask); HOST numpy
@@ -131,14 +124,9 @@ class _UniformKind:
             frame_data[5], frame_data[0].shape[1:-2], v_sc[0].shape[1:-2])
         return ufv_masking.ufv_apply_variations_masks((v_sc[0], v_sc[1], frame_data[4], masks))
 
-    @abc.abstractmethod     # the same marker as the base: hessian='exact' rejects the kind structurally, up front
-    def corewise_hessian(self, *args, **kwargs):     # until this class's masked override lands (the table above)
-        raise NotImplementedError("%s.corewise_hessian: the masked uniform two-hole lands in slice %s"
-                                  % (type(self).__name__, _UNIFORM_HESSIAN_SLICE.get(type(self).__name__, '?')))
-
 
 @dc.dataclass(frozen=True, eq=False)
-class UniformApplyKind(_UniformKind, bfit.ApplyKind):
+class UniformApplyKind(_UniformLayerMixin, bfit.ApplyKind):
     """The uniform twin of :py:data:`~t3toolbox.backend.fitting.APPLY`."""
 
     def precompute(self, frame_data, ww):
@@ -167,7 +155,7 @@ class UniformApplyKind(_UniformKind, bfit.ApplyKind):
 
 
 @dc.dataclass(frozen=True, eq=False)
-class UniformEntriesKind(_UniformKind, bfit.EntriesKind):
+class UniformEntriesKind(_UniformLayerMixin, bfit.EntriesKind):
     """The uniform twin of :py:data:`~t3toolbox.backend.fitting.ENTRIES`."""
 
     def precompute(self, frame_data, index):
@@ -194,7 +182,7 @@ class UniformEntriesKind(_UniformKind, bfit.EntriesKind):
 
 
 @dc.dataclass(frozen=True, eq=False)
-class UniformProbeKind(_UniformKind, bfit.ProbeKind):
+class UniformProbeKind(_UniformLayerMixin, bfit.ProbeKind):
     """The uniform twin of :py:class:`~t3toolbox.backend.fitting.ProbeKind`.
 
     The forward / residual are the **packed** probe output ``(d,)+W+C+(N,)`` -- mode index ``d`` at axis
@@ -231,7 +219,7 @@ class UniformProbeKind(_UniformKind, bfit.ProbeKind):
 
 
 @dc.dataclass(frozen=True, eq=False)
-class UniformApplyDerivativesKind(_UniformKind, bfit.ApplyDerivativesKind):
+class UniformApplyDerivativesKind(_UniformLayerMixin, bfit.ApplyDerivativesKind):
     """The uniform twin of :py:class:`~t3toolbox.backend.fitting.ApplyDerivativesKind`."""
 
     def precompute(self, frame_data, s):
@@ -252,9 +240,17 @@ class UniformApplyDerivativesKind(_UniformKind, bfit.ApplyDerivativesKind):
     def take(self, sample, data, idx):
         return _ptake_deriv_apply(sample, data, idx)
 
+    def corewise_hessian(self, core_directions, r, s, frame_data, sweep, base_point):
+        """The masked uniform two-hole at ``omega^2 r``
+        (:py:func:`~t3toolbox.backend.ut3_sampling.ut3_apply_corewise_derivatives_hessian_from_sweep`), reusing the
+        model sweep's packed sample and lean ``(xi, mu)`` jets, masked with the FRAME's ``(up, left)`` masks -- as
+        :py:meth:`UniformProbeDerivativesKind.corewise_hessian`."""
+        return ut3_sampling.ut3_apply_corewise_derivatives_hessian_from_sweep(
+            self._apply_weight(r, 2), _frame_theta(frame_data, base_point), core_directions, self.order, sweep)
+
 
 @dc.dataclass(frozen=True, eq=False)
-class UniformEntriesDerivativesKind(_UniformKind, bfit.EntriesDerivativesKind):
+class UniformEntriesDerivativesKind(_UniformLayerMixin, bfit.EntriesDerivativesKind):
     """The uniform twin of :py:class:`~t3toolbox.backend.fitting.EntriesDerivativesKind`."""
 
     def precompute(self, frame_data, s):
@@ -275,9 +271,16 @@ class UniformEntriesDerivativesKind(_UniformKind, bfit.EntriesDerivativesKind):
     def take(self, sample, data, idx):
         return _ptake_deriv_entries(sample, data, idx)
 
+    def corewise_hessian(self, core_directions, r, s, frame_data, sweep, base_point):
+        """The masked uniform two-hole at ``omega^2 r``
+        (:py:func:`~t3toolbox.backend.ut3_sampling.ut3_entries_corewise_derivatives_hessian_from_sweep`), masked with
+        the FRAME's ``(up, left)`` masks -- as :py:meth:`UniformApplyDerivativesKind.corewise_hessian`."""
+        return ut3_sampling.ut3_entries_corewise_derivatives_hessian_from_sweep(
+            self._apply_weight(r, 2), _frame_theta(frame_data, base_point), core_directions, self.order, sweep)
+
 
 @dc.dataclass(frozen=True, eq=False)
-class UniformProbeDerivativesKind(_UniformKind, bfit.ProbeDerivativesKind):
+class UniformProbeDerivativesKind(_UniformLayerMixin, bfit.ProbeDerivativesKind):
     """The uniform twin of :py:class:`~t3toolbox.backend.fitting.ProbeDerivativesKind`.
 
     The forward / residual are the packed jets ``(d,)+(order+1,)+W+C+(N,)`` -- order at axis 1, after the
