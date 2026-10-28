@@ -3,7 +3,8 @@
 > **Status: QUEUED, not started.** Nick's instruction: *do not do this while the exact-Hessian implementation is in
 > flight.* **Sequencing (Nick, 2026-10-27 19:33): R goes at the VERY END of the slices, after a PAUSE** — the
 > exact-Hessian arc (S10–S13: every kind exact, docs, CHANGELOG, the full gate, the `dev/` archive, no tag) completes
-> first and we stop there; then R, then S14 (T3Polynomial), then the release tag, then S15 (the math note). 2026.3.0 is
+> first — including a PRELIMINARY math note (S15a) — and we stop there; then R, then S14 (T3Polynomial), then the
+> final math-note + CHANGELOG pass for R's renames (S15b), then the release tag. 2026.3.0 is
 > already a major breaking release, so this is the moment to re-organize, streamline and simplify before it ships. Planning will follow the same
 > writer/critic process the curvature plan used (`dev/curvature_impl_review/`), with Nick adjudicating.
 
@@ -60,7 +61,7 @@
 
 ## Sequencing
 
-`S10`/`S11` (in flight) → `S12` → `S13` (docs + CHANGELOG + the full gate + the `dev/` archive; **no tag**) → **PAUSE**
-(the curvature arc is complete; hand off) → **R: reorganization (plan → adjudicate → slices)** → `S14` T3Polynomial →
-**release tag** → `S15` math note (against the final layout). S13's user docs will need a pass after R for whatever R
-renames; that pass is part of R's own plan.
+`S10`/`S11` (in flight) → `S12` → `S13` (docs + CHANGELOG + the full gate + the `dev/` archive; **no tag**) → `S15a`
+(a PRELIMINARY math note) → **PAUSE** (the curvature arc is complete; hand off) → **R: reorganization (plan →
+adjudicate → slices)** → `S14` T3Polynomial → `S15b` (the math note's code references + the CHANGELOG updated for
+R's renames) → **release tag**. S13's user docs will need the same pass after R; that pass is part of R's own plan.

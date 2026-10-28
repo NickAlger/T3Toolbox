@@ -17,10 +17,11 @@ stub). CI: the jax-0.4.30 floor leg was red from S3b to S8 (compiler-dependent c
 slice now also runs the estimator/dispatch tests on a jax-0.4.30 venv.
 
 **Order (Nick, 2026-10-27 19:33):** S12 → S13 (docs, CHANGELOG, the full gate incl. the slow tier **and
-`tests/backend/test_uniform_curvature.py`** + the jax-0.4.30 floor leg, the `dev/` archive; **no tag**) → **PAUSE: the
+`tests/backend/test_uniform_curvature.py`** + the jax-0.4.30 floor leg, the `dev/` archive; **no tag**) → S15a (a PRELIMINARY math note) → **PAUSE: the
 curvature arc is complete, stop and hand off** → **R, the post-curvature REORGANIZATION (`dev/reorg_scope.md`:**
 sampling / jetted-sampling layout, the fitting layer, the optimization layer — decoupling + a typed point / tangent /
-covector system) → S14 (T3Polynomial §K) → the release tag → S15 (the math note).
+covector system) → S14 (T3Polynomial §K) → S15b (the math note's code references + the CHANGELOG updated for R)
+→ the release tag.
 
 ## Newest thread — the whole-library pre-release review (2026-08-22)
 
