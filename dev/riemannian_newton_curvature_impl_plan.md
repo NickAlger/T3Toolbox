@@ -1,7 +1,12 @@
 # Implementation plan — the exact Riemannian Hessian (curvature term) for `newton_cg`
 
-> **STATUS: ADJUDICATED BY NICK, 2026-10-26 — the implementation record for 2026.3.0. Nothing implemented yet; work
-> starts at S0a / S0c (§H).** This is v6 of a six-round writer/critic plan (two Opus 5.5 agents, 2026-10-25/26; the
+> **STATUS 2026-10-28, after S13: the curvature arc is COMPLETE** — S0c–S13 implemented and independently reviewed
+> (records in `curvature_impl_review/slices/`; `hessian='exact'` for every kind × geometry × representation). Next S15a
+> (a preliminary math note), then the PAUSE. **The plan stays LIVE** because it still sequences R (`dev/reorg_scope.md`),
+> S14 (§K) and S15b before the tag; it and `dev/curvature_impl_review/` are archived together at the release. The DP and
+> G0P are archived (`dev/archive/*_2026-10-27_implemented.md`); the durable record is `docs/fitting_and_optimization.md`
+> §4.12 + `docs/contributor/curvature_internals.md` + `docs/contributor/verification_records.md`. *(Original banner:)*
+> **ADJUDICATED BY NICK, 2026-10-26 — the implementation record for 2026.3.0.** This is v6 of a six-round writer/critic plan (two Opus 5.5 agents, 2026-10-25/26; the
 > critic's final verdict was AGREE, `curvature_impl_review/critique_v6.md`). Every design ruling is SETTLED in §I. The
 > last three rulings (2026-10-26 16:00) are folded in: **O-6 → I-29** (the canonical zero-point frame, Haar recipe with
 > a fixed seed, adopted — *and it must be documented*, C.15/G), **`optimizers.least_squares_problem` returns a named
@@ -1803,3 +1808,50 @@ T28 constructs each one in the jax-hidden subprocess.
 | **X16** | G0P §3–§4: compute the zero reference "in the same layer/geometry as the level's fit"; §4.2 "intrinsic data-gradient scale" | same-layer LAPACK frames differ across layers (P1c, F30), collapse on aligned data (F32), and the scale is convention-dependent (P1b) | a canonical, layer-independent, generic zero-point frame (C.15); the wording softened |
 | **X17** | G0P §4.2: the default `'zero'` for every geometry | zero on corewise is exactly 0 (P1a) | the geometry chooses (`zero_point_frame` → `None` on corewise ⇒ warm start) |
 | **X18** | G0P §4.1: a string spelling `g0norm_newton='zero'` | a float-or-string parameter overloads one argument | a separate `g0_reference` selector; `g0norm_*` stay float overrides |
+
+---
+
+## O. Post-implementation amendments (applied 2026-10-28, after S13)
+
+The sections above are the adjudicated plan as implemented; where a slice's implementer or reviewer found the text
+wrong, out of date, or superseded by a later ruling, the correction is recorded HERE (collected from
+`curvature_impl_review/slices/DEFERRED.md` and the S13 handoff; each row names the slice that established it) rather
+than rewriting the section in place. Read a section together with its rows below. The S13 reviewer approved all 14,
+with the additions to 12 and 14 noted.
+
+1 C.16: `_setup`/least_squares_problem reduces a UNIFORM x0 on both geometries, a ragged one only on manifolds.
+2 M5: tests/test_contractions_sharding.py has its own size table (l/n/x/z added in S1).
+3 C.14 n14/T19: reuse the error tables when the previous row was rejected AND `info.lm is` that row's model.
+4 C.14 (I-35): `| stop: <reason>` also prints on a non-gradient final GN row (display only).
+5 C.9 step 6: pHp = gn_quadratic + curvature_quadratic with ONE two-hole (== lm.quadratic); cg_converged = rs<=tol²
+  ∧ ¬boundary; 'accept'+TR raises; tr_radius0 finite > 0; a descent-guard step with scale < 1 is a boundary step.
+6 T16/T21/T25 re-based (S5): probe_derivatives o1, W=200, 6 GN warm steps, ≥2 window pts/seed; T21 W=60; T25 14/1, 22/6.
+7 C.13/T18: frontend exact hessian(p) == backend hvp to rounding (≤1e-12), curvature actions/gradient/quadratic bitwise;
+  `_with_curvature(model, hessian, curvature_damping, who)` via dc.replace.
+8 C.11/C.7/I-13 (S7): lift_sigma_min uses s_g IN PLACE OF the group modes' own spectra; §M sharing -> contractions;
+  C.2 LiftFactors.shared_data / tied_filters, builder sharing.fv_tied_lift_factors; T12 group-ceiling + the
+  retraction-free oracle; T22 non-discriminating for the lift type.
+9 §H S7b: floor max(own, scale); recursion max(‖a‖,‖b‖), |c|·‖a‖ through * and /, stack_tangents; scope; F1; F2.
+10 §M (S8): ut3_linalg -> t3_linalg, ufv_operations -> contractions, utv_operations -> contractions, geometry ->
+  ut3_masking; T21/T25 uniform assert own properties; C.10 uniform LiftFactors d bond slots, rcond per REAL block;
+  m29 extends to lift / lift_transpose / tangential_curvature; "garbage" = finite garbage.
+11 §M (S9): ufv_operations -> sharing; ufv_tied_lift_factors lives in ufv_operations; REAL-dim clip × real-level
+  mask; T12 uniform twin with companion garbage; T22 ceiling restart (7,7,4)(3,3,2)->(4,4,2); padded s_g mostly
+  EXACTLY 0 (1357/1362) -- "sit at roundoff" overstated.
+12 F27 (S10S11): library == critic harness row for row; E2 = ONE unseeded draw (cite tr2/c29b); chunk 'auto' -> None
+  for the five other kinds both modes; T11 vacuous for apply/entries; assemblies factored (9->4, 3->2).
+13 S12: F28 reproduced EXACTLY (+ apply_derivatives o1 17/4/56, 31/10/240); F22/F29 state the GN warm-up's
+  reference (warm_start -> 0.917; zero -> 0.941); F11 superseded; twins' homes; window/stub history; §E ~2× GN peak,
+  no W-chunk path; an apply_derivatives T16 draws by predicate; bitwise garbage for equal (C-contiguous) layouts.
+14 S13: §F oracle sweeps -- sweep_exact.py is a dense extrinsic oracle (always-on 720 cases, slow 8000), group-ceiling
+  shared point; the jvp oracle lives in test_dispatch (TestCurvatureJvpOracle), not a separate file; §G "dotted
+  kernels hold the GN standard" -> "are recurrences" (I-33); §G dev routing paths (archive names above) -- the plan's
+  own references at :10, :21-22, :1499 point to the old paths; CHANGELOG: the sixth op is under "Changed" (S5 n3).
+   (12, addition) — the `apply`/`entries` plain two-holes have no W-chunked path because their GN transposes never
+   chunked either; the exact peak is ~2× the GN transpose, the same ratio as probe_derivatives.
+   (14, addition) — `dev/curvature_impl_review/` (plans, critiques, checks, slices, `s0b/`, `shared_exp/`) is archived
+   together with this plan at the release; the contributor pages that point into it are re-targeted then (HANDOFF item).
+
+**Still for Nick** (no ruling recorded): the S3 memory gate (the two-hole's TT-assembly peak at 1.25–1.61× the GN
+assembly vs the plan's 1.5× — must 1.5× be strict?) and S7b F1 (accept the documented limit of the operand-scaled
+gauge check — `MANIFOLD.norm(H_fd − hessian(p))` certifies the gauge of the *difference* only — or tighten?).

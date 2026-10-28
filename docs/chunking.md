@@ -2,25 +2,33 @@
 
 The probe-derivative **transpose** `𝒥ᵀ` (back-projecting residual jets into a variation gradient —
 `tv_probe_derivatives_transpose`, `T3Tangent.probe_derivatives_transpose`, their uniform twins, and
-the fitting `𝒥ᵀr` step) has one stage whose peak memory can dwarf everything else: the **variation
-gradient assembly**. The `chunk_size` parameter bounds that peak. This note explains the memory model,
-how to set `chunk_size`, and how it composes with multi-device sharding.
+the fitting `𝒥ᵀr` step) and its derivative, the exact Hessian's **two-hole** sweep
+(`t3_probe_corewise_derivatives_hessian`, the `hessian='exact'` curvature term), each have one stage whose
+memory grows faster with the ranks than everything else: the **variation gradient assembly**. The
+`chunk_size` parameter bounds that stage's peak. This note explains the memory model, how to set
+`chunk_size`, and how it composes with multi-device sharding.
 
-## Why the assembly is the bottleneck
+## Where the memory goes
 
 Every stage of the transpose is linear in the sample-stack size `|W|` (the number of probes), but they
-fall into two very different per-`W`-row costs:
+fall into two different per-`W`-row costs:
 
 - **The edge-variable jets** (`mu`, `nu`, `sigma_tilde`, `tau_tilde`, `deta_tilde`, …) — resident
   arrays with per-row cost `~ (order+1)·K·r`. This is the necessary floor: it *is* the data.
-- **The assembly intermediate** — the only stage whose per-row cost is **super-linear in the ranks**:
-  it forms frame-pairwise products (`mu ⊗ sigma_tilde`, `tau_tilde ⊗ nu`, `deta_tilde ⊗ nu`, summed over
-  the orders -- banded pairs or one order slice at a time), each `~ K·rank·rank` per row. That `r²` factor
-  (against the jets' `(order+1)·r`) is what turns a few-GB pipeline into tens or hundreds of GB.
+- **The assembly** — the stage whose per-row cost is **super-linear in the ranks**: it forms
+  frame-pairwise products (`mu ⊗ sigma_tilde`, `tau_tilde ⊗ nu`, `deta_tilde ⊗ nu`, summed over the orders
+  by banded recurrences, never as a dense binomial tensor), each `~ K·rank·rank` per row. The two-hole's
+  factored assembly forms the same pairs and their product-rule twins.
 
-So the assembly is the only thing that runs out of memory, and `chunk_size` is the only knob that
-touches it. (The *forward* `𝒥` assembles via a plain lift with no `r²` blow-up, so it needs no
-chunking — `chunk_size` is a transpose-only concept.)
+Since the 2026.3.0 recurrence kernels the assembly costs **less per row than the resident jets** on the
+usual problems (a single tangent, moderate ranks): it is no longer the bottleneck, and the balanced policy
+below then returns the whole `|W|` — `chunk_size='auto'` does not chunk. It still matters, and
+`chunk_size` is the knob, when the assembly's `K·r²` outgrows the jets: a **tangent batch** (`K` tangents at
+one frame — in a measured case the balanced chunk was about a quarter of `|W|` at `K = 4` and 4 % at
+`K = 8`), large ranks, a **frame stack** `C`, a fixed device budget (`max_chunk_size_within`), and the
+exact Hessian's two-hole, whose chunk costs more per row than the transpose's. (The *forward* `𝒥`
+assembles via a plain lift with no `r²` term, so it needs no chunking — `chunk_size` is a concept of the
+transpose and its derivative.)
 
 ## What `chunk_size` does
 
@@ -116,9 +124,19 @@ True
 ```
 
 It sizes the **larger** of the TT-core (`r²` legs) and Tucker (`nO`, `N` legs) gradients, so it stays
-safe when `N ≫ n`; and when the whole assembly already fits the balance it returns `chunk_size = |W|`
-(the transpose then runs dense, no chunking overhead). The first call compiles (~2 s); results are cached
-by shape.
+safe when `N ≫ n`; and when the whole assembly already fits the balance — the usual case for a single
+tangent, as here — it returns `chunk_size = |W|` (the transpose then runs dense, no chunking overhead).
+Pass `hessian='exact'` (the solver's mode vocabulary; the default is `'gauss_newton'`) to size the chunk so
+that the exact Hessian's two-hole fits as well; it never returns a larger chunk than the Gauss-Newton
+answer. The first call compiles (~2 s); results are cached by shape.
+
+```python
+>>> cs_exact = estimate_chunk_size(**dict(mode_shapes=shape, tucker_ranks=tucker_ranks, tt_ranks=tt_ranks,
+...                                       order=order), n_probes=512, hessian='exact')
+>>> bool(1 <= cs_exact <= cs)                         # the two-hole's chunk is never larger
+True
+
+```
 
 If instead you want to fill a known device — the "use my whole GPU" policy — use
 `max_chunk_size_within(..., target_bytes=...)`, which returns the largest `chunk_size` whose assembly
@@ -164,8 +182,11 @@ True
 take a `chunk_size` argument defaulting to `'auto'` (the backend `probe_derivatives_kind` itself takes an
 `int` or `None`, default `100`; `'auto'` is resolved by the frontend): for a uniform
 `probe_derivatives` fit they call `estimate_chunk_size` once with the shapes read off `x0` (and the
-minibatch size for the minibatch optimizers), so a large-`|W|` fit stops OOMing with no action from you.
-Pass an `int` or `None` to override; ragged and non-`probe_derivatives` fits ignore it (nothing to chunk).
+minibatch size for the minibatch optimizers), so a large-`|W|` fit stops OOMing with no action from you;
+`newton_cg(..., hessian='exact')` passes its mode, so the chunk fits the two-hole too.
+Pass an `int` or `None` to override; ragged and non-`probe_derivatives` fits ignore it — the other five
+kinds have no chunked transpose or two-hole, in either mode (their exact two-holes peak at about twice
+their unchunked transpose).
 
 ## Sharding over `W`
 
@@ -176,7 +197,9 @@ compose — but *only* through `shard_map`, and the reason is worth understandin
 map-reduce over `W` (independent per-probe work, then a sum), which is exactly the `shard_map` shape:
 
 Only the `W`-carrying arrays go through `shard_map`; the replicated frame and the scalar `order` are
-closed over (a scalar cannot take a `PartitionSpec`):
+closed over (a scalar cannot take a `PartitionSpec`). Each spec names **where `W` sits** in its array —
+chunking engages on the uniform (packed) layout, where `ztildes` is `(d, order+1)+W+(N,)` and `ww` / `pp`
+are `(d,)+W+(N,)`:
 
 ```python
 import jax
@@ -184,15 +207,25 @@ from functools import partial
 from jax.sharding import PartitionSpec as P
 
 @partial(jax.shard_map, mesh=mesh,
-         in_specs=(P('w', None),   # ztildes: W sharded
-                   P('w', None),   # ww:      W sharded
-                   P('w', None)),  # pp:      W sharded
-         out_specs=P())            # summed gradient: replicated
+         in_specs=(P(None, None, 'w', None),   # ztildes (d, order+1, W, N): W sharded
+                   P(None, 'w', None),         # ww      (d, W, N):          W sharded
+                   P(None, 'w', None)),        # pp      (d, W, N):          W sharded
+         out_specs=P(),                        # summed gradient: replicated
+         check_vma=False)                      # see below
 def jtr(ztildes, ww, pp):
     dU, dG = tv_probe_derivatives_transpose(          # frame (replicated), order: closed over
-        ztildes, ww, pp, frame, order, sum_over_probes=True)   # chunk_size chunks the LOCAL shard
+        ztildes, ww, pp, frame, order, sum_over_probes=True, chunk_size=cs)   # chunks the LOCAL shard
     return jax.tree.map(lambda a: jax.lax.psum(a, 'w'), (dU, dG))   # finish the W-sum across shards
 ```
+
+The same body runs the exact Hessian's two-hole (`t3_probe_corewise_derivatives_hessian(ztildes, ww, pp,
+theta, directions, order, chunk_size=cs)`, with `theta` / `directions` closed over). `check_vma=False`
+switches off `shard_map`'s varying-axes check, which rejects the kernels' scan carries: they start from
+constants (zeros, the order-0 ones) and the check wants them to vary over `'w'` like the step's output. The
+numerics and the compiled program are unaffected (it is the same check under its jax-0.4 name,
+`check_rep=False`, in `jax.experimental.shard_map`). The compiled program contains the `psum`'s all-reduce
+and **no all-gather** — the kernels move data only along the order axis — which the library's sharding
+test asserts, on both the transpose and the two-hole.
 
 Inside `shard_map` the body sees each device's **local** shard as an ordinary array, so `chunk_size`
 chunks the local `W` with no cross-device traffic, and the `add`-reducer for `sum_over_probes=True`

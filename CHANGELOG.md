@@ -5,20 +5,20 @@ All notable changes to T3Toolbox are documented here. The format follows
 
 ## [2026.3.0] — unreleased
 
+The headline is **the exact Riemannian Hessian for `newton_cg`** (`hessian='exact'`): the Gauss-Newton term
+plus the manifold's curvature, under a Steihaug–Toint trust region — the superlinear Newton tail on a
+nonzero-residual fit, for every sampling kind on every geometry and representation. It comes with a
+breaking-release groundwork: a zero-tensor default for the Newton reference, new `stats` keys, a public
+problem constructor, the `GaussNewtonModel` → `LocalModel` rename, clean uniform padding, and recurrence
+jet kernels. Upgrade notes: `docs/release_notes.md`, "Upgrading from 2026.2.0".
+
 ### Changed — breaking
 
-- **Uniform transposes return clean padding.** Every uniform transpose wrapper that holds the frame's or
-  the point's masks now re-masks its output, so the padded slots come back as exact zeros instead of the
-  raw sweep's garbage (the boundary-bond squash broadcasts the gradient into the padded boundary slots;
-  measured up to ~3e12 on a moderate case). That covers the six uniform kinds' `transpose`
-  (`backend.uniform_fitting.Uniform*Kind`), the public `utv_{probe,apply,entries}_transpose` and
-  `utv_*_derivatives_transpose` (and so `UT3Tangent.*_transpose`), and `ut3_*_corewise_transpose` /
-  `ut3_*_corewise_derivatives_transpose` (and so `UniformTuckerTensorTrain.*_corewise_*transpose`). This
-  is numerical hygiene, not a change of numerics: the real block is **bit-identical** (one multiply by a
-  host mask, which under jit is a folded constant), so every result that honours the equivalence
-  contract's "padding is don't-care" is unchanged, and a new consumer -- the CG state included -- no
-  longer has to remember to mask on entry. It breaks only code that read the padding. The bare
-  `utv_*_transpose_from_sweep` seam halves stay bare by contract; their callers, the kinds, re-mask.
+- **`fitting.GaussNewtonModel` is renamed `fitting.LocalModel`** (also `t3toolbox.LocalModel`), mirroring
+  the backend class it wraps, `backend.optimizers.LocalModel`. It is **not aliased** -- the old name is
+  gone, as `UniformGaussNewtonModel` went in 2026.2.0 -- so a breaking release breaks loudly once rather
+  than carrying two names. The six `*_model` factories keep their names, and the rename leaves the class's
+  methods and fields as they were (the exact mode adds to them, under Added).
 - **The default Newton reference is the zero tensor of the level's ranks, on the manifold geometries.**
   `newton_cg`'s relative stop `‖g‖ ≤ gtol_rel·‖g₀‖` and its CG forcing term, and `gradient_descent`'s
   stop, used the warm-start `‖g(x0)‖` as `‖g₀‖`. After a zero-padded continuation restart that gradient
@@ -26,10 +26,10 @@ All notable changes to T3Toolbox are documented here. The format follows
   `g0_reference=None` means the geometry's own reference: on `MANIFOLD` / `UNIFORM_MANIFOLD` and their
   shared wrappers, the gradient norm at the zero tensor of `x0`'s ranks; on the corewise geometries (where
   the zero cores are a critical point) the warm start, as before. The reference is evaluated at a
-  canonical zero-point frame (below), so it is a deterministic convention good to an O(1) factor, the same
-  on the ragged and uniform layers, and nested across continuation levels. It moves every manifold stop
-  by an O(1) factor relative to 2026.2.0, **zero starts included** (the old reference sat at the start's
-  LAPACK completion). Pass `g0_reference='warm_start'` to keep the old reference; the explicit
+  canonical zero-point frame (under Added), so it is a deterministic convention good to an O(1) factor, the
+  same on the ragged and uniform layers, and nested across continuation levels. It moves every manifold
+  stop by an O(1) factor relative to 2026.2.0, **zero starts included** (the old reference sat at the
+  start's LAPACK completion). Pass `g0_reference='warm_start'` to keep the old reference; the explicit
   `g0norm_newton` / `g0norm_cg` overrides still win. The downstream measurement behind the change
   (T3Polynomial, 30 Newton iterations per continuation level):
 
@@ -45,28 +45,35 @@ All notable changes to T3Toolbox are documented here. The format follows
   the same accuracy). Continuation loops that carried `stats['history'][0]['gnorm']` into `g0norm_newton`
   can drop that bookkeeping.
 - **`newton_cg`'s `stats['newton']` is replaced** by `stats['newton_steps']` (the same count: CG solves),
-  `stats['newton_accepted']` (steps taken) and `stats['stop_reason']` (`'gradient'` / `'max_newton'` /
-  `'line_search'`). It is removed, not aliased: it overloaded "solves" and "steps".
+  `stats['newton_accepted']` (steps taken: `newton_steps` minus the rejections -- an Armijo-exhausted step
+  under `on_line_search_failure='stop'`, or a rejected trust-region trial) and `stats['stop_reason']`
+  (`'gradient'` / `'max_newton'` / `'line_search'`, and with the trust region `'objective_floor'` /
+  `'trust_region_floor'`). It is removed, not aliased: it overloaded "solves" and "steps".
 - **A non-positive `g0norm_newton` / `g0norm_cg` raises `ValueError`.** `0.0` used to crash with a
   `ZeroDivisionError` in the forcing term.
-- **Display only, numerics unchanged:** the `verbose=True` converged line names its reference --
-  `converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = zero tensor)` / `warm start` / `override`. A hand-built `NewtonInfo`
-  row (no reference kind) prints exactly as before.
-- **`fitting.GaussNewtonModel` is renamed `fitting.LocalModel`** (also `t3toolbox.LocalModel`), mirroring
-  the backend class it wraps, `backend.optimizers.LocalModel`. It is **not aliased** -- the old name is
-  gone, as `UniformGaussNewtonModel` went in 2026.2.0 -- so a breaking release breaks loudly once rather
-  than carrying two names. The six `*_model` factories keep their names, and the rename leaves the class's
-  methods and fields as they were (the exact mode adds to them, under Added).
 - **The private `optimizers._setup` is removed**, replaced by the public `optimizers.least_squares_problem`
-  (below), which takes the same arguments (plus `hessian`, the mode the problem will be solved in) and
-  returns a named `LeastSquaresSetup` rather than a 3-tuple. Not aliased.
+  (under Added), which takes the same arguments (plus `hessian`, the mode the problem will be solved in)
+  and returns a named `LeastSquaresSetup` rather than a 3-tuple. Not aliased.
 - **`optimizers.newton_cg` no longer takes `**kwargs`.** Its options are explicit keywords --
-  `max_newton`, `gtol_rel`, `cg_maxiter`, `c_armijo`, `on_line_search_failure`, `g0norm_newton`,
-  `g0norm_cg` and `cg_forcing_power`, beside the existing ones, and the exact-Hessian options `hessian`,
-  `curvature_damping`, `step_control` and `tr_radius0` (below) -- with the backend's defaults, so every
-  option is in its signature and its docs. A misspelt option raises `TypeError` at the call, before the
-  problem is built (it used to be forwarded, and the backend call rejected it after the setup work).
-  Every valid call is unchanged. (`gradient_descent` / `mc_sgd` / `adam` still forward `**kwargs`.)
+  `max_newton`, `gtol_rel`, `cg_maxiter`, `c_armijo`, `on_line_search_failure`, `g0_reference`,
+  `g0norm_newton`, `g0norm_cg` and `cg_forcing_power`, beside the existing ones, and the exact-Hessian
+  options `hessian`, `curvature_damping`, `step_control` and `tr_radius0` (under Added) -- with the
+  backend's defaults, so every option is in its signature and its docs. A misspelt option raises
+  `TypeError` at the call, before the problem is built (it used to be forwarded, and the backend call
+  rejected it after the setup work). Every valid call is unchanged. (`gradient_descent` / `mc_sgd` /
+  `adam` still forward `**kwargs`.)
+- **Uniform transposes return clean padding.** Every uniform transpose wrapper that holds the frame's or
+  the point's masks now re-masks its output, so the padded slots come back as exact zeros instead of the
+  raw sweep's garbage (the boundary-bond squash broadcasts the gradient into the padded boundary slots;
+  measured up to ~3e12 on a moderate case). That covers the six uniform kinds' `transpose`
+  (`backend.uniform_fitting.Uniform*Kind`), the public `utv_{probe,apply,entries}_transpose` and
+  `utv_*_derivatives_transpose` (and so `UT3Tangent.*_transpose`), and `ut3_*_corewise_transpose` /
+  `ut3_*_corewise_derivatives_transpose` (and so `UniformTuckerTensorTrain.*_corewise_*transpose`). This
+  is numerical hygiene, not a change of numerics: the real block is **bit-identical** (one multiply by a
+  host mask, which under jit is a folded constant), so every result that honours the equivalence
+  contract's "padding is don't-care" is unchanged, and a new consumer -- the CG state included -- no
+  longer has to remember to mask on entry. It breaks only code that read the padding. The bare
+  `utv_*_transpose_from_sweep` seam halves stay bare by contract; their callers, the kinds, re-mask.
 - **Every production jet kernel is now a recurrence or an order scan; the binomial tensor is test-only**
   (`backend.sampling_derivatives`; performance and memory, numerics equal to ~1e-15 relative -- not bitwise,
   the summation order changed). 2026.1.0's move off the dense `trs[t,r,s] = C(t,r)·[r+s=t]` contraction had
@@ -102,24 +109,34 @@ All notable changes to T3Toolbox are documented here. The format follows
     jax release's own (figures above: current jax): jaxlib 0.4.30 packs the chunk loop into memory the
     earlier stages free, about one jet slice per row (~5-15× less), so its budget chunks are that much larger.
 
+### Changed
+
 - **`SamplingKind` has a sixth operation, `corewise_hessian`**, needed only for the exact Hessian
-  (`hessian='exact'`). A kind written against the five-operation recipe keeps working with the default
-  Gauss-Newton model; `Problem.local_model(..., hessian='exact')` rejects it up front with a structural
-  `ValueError` naming the missing operation (the base method carries the stdlib `abc.abstractmethod`
-  marker, which the check reads; the class is not an `ABC`, so instantiation is unaffected).
+  (`hessian='exact'`): the derivative of `transpose` along raw core directions. A kind written against the
+  five-operation recipe keeps working with the default Gauss-Newton model; `Problem.local_model(...,
+  hessian='exact')` (and so `newton_cg` and the `*_model` factories in exact mode) rejects it up front with
+  a structural `ValueError` naming the missing operation (the base method carries the stdlib
+  `abc.abstractmethod` marker, which the check reads; the class is not an `ABC`, so instantiation is
+  unaffected). Every built-in kind and its `Uniform*` twin implements it. Likewise a custom geometry needs
+  the four exact-mode members (under Added) only for `hessian='exact'`, and `zero_point_frame` is optional.
 - **`NewtonInfo.cg_truncated` excludes trust-region boundary stops**: it is now `(not cg_converged) and (not
   cg_ok) and (not cg_boundary)` -- a Steihaug stop on nonpositive curvature is a boundary step, not a
   truncation -- and `cg_converged` is `False` on a boundary stop, so a row's CG outcome is exactly one of
-  converged / boundary / truncated / the cap. With the default line search there is no boundary, so both are
-  unchanged there.
-- **Trust-region rows have no line-search fields**: with `step_control='trust_region'` (below) a
-  `NewtonInfo` row has `ls_steps = ls_failed = None` and `alpha = 1.0` (filter history rows on
-  `step_control`); `newton_accepted` also excludes rejected trust-region trials.
+  converged / boundary / truncated / the cap. With the default line search there is no boundary, so both
+  are unchanged there.
+- **Display only, numerics unchanged:** the `verbose=True` / `make_newton_display` converged line names its
+  reference -- `converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = zero tensor)` / `warm start` / `override` (a hand-built
+  `NewtonInfo` row with no reference kind prints exactly as before) -- and a run's last row names its stop
+  when that is not the gradient test (`| stop: max_newton`, `line_search`, `objective_floor`,
+  `trust_region_floor`). The Gauss-Newton line-search rows are otherwise byte-identical.
 - **The backend's private CG `_cg_solve` returns a 5-tuple** `(p, iters, resid², ok, boundary)` and takes a
   trailing `radius` (default `inf`: the plain CG, bit for bit). Internal, listed for scripts that called it.
-- **Display only, numerics unchanged:** a `verbose=True` / `make_newton_display` run's last row names its stop
-  when that is not the gradient test (`| stop: max_newton`, `line_search`, `objective_floor`,
-  `trust_region_floor`); the Gauss-Newton line-search rows are otherwise byte-identical.
+- **Bit-identical refactors** the exact Hessian reuses: `backend.sharing.fv_shared_frame_data` takes its
+  centers from the new `fv_operations.fv_center_factors`; `backend.tv_operations.tv_project_t3_onto_tangent_space`
+  gauges the shared T3-to-T3 kernel `t3_linalg.t3_inner_product_corewise_transpose`; the shared manifold's
+  tied projection and retraction share the filtered solve with the tied lift; the ragged
+  `t3_precompute_inner_product_sweep` / `t3_inner_product_corewise_hessian_from_sweep` are polymorphic over
+  supercores (`d`-prefixed contractions).
 
 ### Fixed
 
@@ -131,8 +148,10 @@ All notable changes to T3Toolbox are documented here. The format follows
   element, recursively) as a floor under its own norm, so the check is never stricter than before; a tangent
   computed directly (a projection, a gradient) keeps the self-relative check, and one ungauged in its own
   right still fails when checked itself. The scale is recorded only in safe mode, eagerly, and is not jax
-  pytree state, so a jit round-trip measures self-relative again. Backend: `tv_gauge_residual` /
-  `utv_gauge_residual` take `scale=` (default `None`: unchanged, bitwise). `docs/numerical_contracts.md`.
+  pytree state, so a jit round-trip measures self-relative again. Its limit, documented: dividing a
+  finite-difference quotient by its step divides the recorded scale too, so to certify a computed tangent's
+  gauge, check that tangent itself. Backend: `tv_gauge_residual` / `utv_gauge_residual` take `scale=`
+  (default `None`: unchanged, bitwise). `docs/numerical_contracts.md`.
 - **Jet outputs keep their inputs' dtype.** A float32 jet pipeline (`*_derivatives` forwards, transposes and
   the two-hole) now stays float32 under `jax_enable_x64` and on numpy alike. The sweeps' scan inits (the
   order-0 ones, the zero boundary jets, the adjoint zeros, the inner-scan accumulators, the entries one-hots)
@@ -152,9 +171,119 @@ All notable changes to T3Toolbox are documented here. The format follows
   shared uniform manifold's `project`) left roundoff (~1e-16 relative) in the padded rows of the group modes'
   Tucker variations -- the companion SVD's `U_M` is not exactly zero there -- so its output was not masked-clean
   as documented; it is now re-masked. The real blocks, and every fit, are unchanged bit for bit.
+- **`estimate_chunk_size` / `max_chunk_size_within` no longer warn on a float64 `dtype` with x64 off.** jax
+  truncated the requested float64 to float32 with a `UserWarning` on every lowering (so `chunk_size='auto'`
+  warned for every numpy-float64 uniform fit); the measurement now requests the canonical dtype itself --
+  the same float32 program, the same answer, silently.
 
 ### Added
 
+- **The exact Riemannian Hessian** -- `hessian='gauss_newton' | 'exact'` (case-insensitive; Gauss-Newton
+  stays the default) on `newton_cg` (frontend and backend), the six `fitting.*_model` factories and the
+  backend `Problem.local_model(x, sample, data, hessian, curvature_damping)`. An exact model's Hessian action
+  is `Π[𝒥ᵀω²𝒥Πp + Lᵀ(K_{Aᵀω²r} − K_{grad f})LΠp] (+ H_R p)` -- the Gauss-Newton term plus the Weingarten
+  curvature (Absil, Mahony & Trumpf 2013), through the lift `L` from gauged coordinates to raw core
+  directions, the kind's `corewise_hessian` at the weighted residual and the inner product's two-hole at the
+  misfit gradient -- equal to the second derivative of the objective along the T3-SVD retraction (second
+  order on a minimal, numerically full-rank frame); on a corewise geometry it is the plain Hessian of
+  `f ∘ Φ` in the cores. It runs for **every sampling kind** (`apply`, `entries`, `probe` and their
+  `*_derivatives`), on **every geometry and representation** -- `MANIFOLD` / `COREWISE`, `UNIFORM_MANIFOLD` /
+  `UNIFORM_COREWISE` and the `shared(...)` wrappers of all four -- `use_jit` included; per stack element the
+  uniform exact model is the ragged one. It gives the superlinear Newton tail where Gauss-Newton is linear on
+  a nonzero-residual fit (q-quadratic with `cg_forcing_power=1.0`; the default stays `0.5` in both modes),
+  at about 3-4× the cost of a Gauss-Newton Hessian-apply (measured 2.8-3.9× on numpy CPU across the six kinds;
+  the two-hole's memory peak is ~2× the Gauss-Newton transpose's). Per Newton step the model does one misfit
+  transpose, shared by the gradient (an exact model's gradient is the Gauss-Newton one, bit for bit) and the
+  curvature term. `curvature_damping` (default `None` = `backend.geometry.DEFAULT_CURVATURE_DAMPING = 1e-6`,
+  relative to `‖X‖_HS`) damps the lift's pseudo-inverses; it raises with the Gauss-Newton model and on a
+  corewise geometry, where nothing would read it. Where the representable set is flat (a slot at maximal
+  rank; every slot at `d = 1`) the curvature term vanishes by itself, and the manifold `d = 1` model skips
+  it. At a zero-padded continuation restart the clipped lift drops the new zero-singular-value directions
+  from the curvature (no special case); on the shared manifold the lift is **tied** -- each sharing group's
+  coordinates lift to ONE raw factor direction, `U̇_g = M_g^{+ε}[V_i₁; …]`, against the same stacked-`S` SVD
+  the tied projection uses, its transpose summing the group's copies -- the normal part is taken against the
+  shared misfit gradient, a padded restart's zero `s_g` levels filter to exactly 0, and the shared retraction
+  is second order as measured (O(h²)), not proven. On the uniform layer every padded slot of a direction is
+  masked (with the masks of the FRAME, a strict subset of the point's at TT slack) before the second
+  derivative sees it -- the masks are load-bearing there, not hygiene -- and every output is re-masked; from a
+  numerically full-rank start a uniform exact run is the ragged run (counts and objective row by row), from a
+  zero-padded restart the two layers' frames legitimately differ and each converges on its own.
+  `docs/fitting_and_optimization.md` §4.12.
+- **Trust-region step control in `newton_cg`** (both layers): `step_control='line_search' | 'trust_region'`
+  (`None`: the line search with Gauss-Newton, unchanged bit for bit; the trust region with the exact Hessian;
+  either combines with either) and `tr_radius0`. Steihaug-Toint CG inside `‖p‖ ≤ Δ` -- it steps to the boundary
+  on nonpositive curvature or when it would leave the region -- then one trial `retract(p)`, accepted iff
+  `ρ = Δf / (gᵀp + ½pᵀHp) > 0.1`; `Δ ← ¼‖p‖` when `ρ < 0.25`, `Δ ← min(2Δ, 10⁴Δ0)` when `ρ > 0.75` on a
+  boundary step; `Δ0 = tr_radius0`, by default the Gauss-Newton Cauchy length `‖g‖³/⟨g, H_GN g⟩`
+  (`tr_radius0` with the line search raises, as does `on_line_search_failure='accept'` with the trust region).
+  A rejected trial keeps `x` and its local model and counts toward `max_newton`. Two new `stop_reason` values,
+  checked only after a rejection: **`'objective_floor'`** -- the predicted change is below the objective's
+  floating-point resolution, `|pred| ≤ 10·ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)` with `ε` the residual dtype's machine
+  epsilon: the attainable accuracy is reached, **not a failure** -- and **`'trust_region_floor'`**
+  (`Δ < 10⁻¹²·Δ0`). A trust-region `NewtonInfo` row has `ls_steps = ls_failed = None` and `alpha = 1.0`
+  (filter history rows on `step_control`).
+- **`NewtonInfo` fields**, all defaulting to `None` (so a hand-built row needs none) and carried in
+  `stats['history']`: `g0_reference` (the Newton-stop reference: `'zero'` / `'warm_start'` / `'override'`),
+  `cg_reference` (the CG-forcing one), `step_control`, `hessian`, `stop_reason` (on the last row), and the
+  trust-region / exact ones `tr_radius`, `tr_accepted`, `cg_boundary`, `pKp` (the curvature term's part of
+  `pHp`), `lift_sigma_min` (the smallest lift singular value; a shared group's `s_g` in place of its modes'
+  own), `lift_eps` (the absolute lift damping). The display's `step` segment reads `TR Δ … ✓/✗` on a
+  trust-region row, CG's symbol `∂` on a boundary stop, and an exact row appends `κ σ ε` (`κ = pKp/(pHp −
+  pKp)`).
+- **The frontend exact model**: `fitting.LocalModel` gains the `curvature` field (the backend
+  `CurvatureState`, a jax leaf: a rebuilt model or a new damping does not recompile) and the derived read-only
+  `is_exact`; new methods, in both modes, `hessian(p)` / `quadratic(p)` (the mode's Hessian action and form --
+  `gn_hessian` / `gn_quadratic` on a Gauss-Newton model, plus the curvature term on an exact one) and
+  `retract(p)` (`geometry.retract(p)` at the model's frame, with the shared manifold's stored companion -- the
+  twin of `backend.optimizers.LocalModel.retract`); on an exact model only (a Gauss-Newton one raises),
+  `curvature_hessian(p)` / `curvature_quadratic(p)`, the curvature term alone. `evaluate(p)` is mode-aware (the
+  Gauss-Newton value is unchanged). The frontend run is the backend run, bit for bit; the exact `hessian(p)`
+  sums its two gauged halves and so equals the backend `hvp` to rounding.
+- **The exact mode's backend surface.** `backend.optimizers.LocalModel` gains `curvature`, `is_exact`,
+  `curvature_hvp`, `quadratic` and `curvature_quadratic` (`gradient`, `gn_quadratic`, `jacobian` and `retract`
+  are unchanged); `backend.optimizers.CurvatureState` (the model's one misfit gradient and the geometry's
+  per-frame curvature data, pytree leaves). The geometries gain four exact-mode members --
+  `curvature_precompute`, `lift`, `lift_transpose`, `tangential_curvature` -- with
+  `backend.geometry.ManifoldCurvatureData` (diagnostics `sigma_min` / `eps`) and `DEFAULT_CURVATURE_DAMPING`;
+  the kinds gain `corewise_hessian` (under Changed). The building blocks, each a standalone backend function
+  (ragged ones polymorphic over uniform supercores; uniform `ut3_` / `utv_` / `ufv_` twins mask their inputs
+  with the point's or frame's masks and re-mask their outputs):
+  - **the lift** -- `backend.linalg.filtered_reciprocal` / `damped_pseudo_inverse` (the clipped, optionally
+    Tikhonov-damped reciprocal of a spectrum, and the pseudo-inverse built on it);
+    `backend.fv_operations.fv_center_factors` (a frame's centers `H_i`, Tucker factors `S_iᵀ` and bond factors
+    `T_i`, recomputed by zipper), `LiftFactors` and `fv_lift_factors(frame, curvature_damping)`;
+    `backend.sharing.fv_tied_lift_factors` (a shared point's tied lift factors; `LiftFactors` gains
+    `shared_data` / `tied_filters`); `backend.tv_operations.tv_corewise_lift` / `tv_corewise_lift_transpose`,
+    exact at zero damping on every numerically full-rank orthogonal frame, minimal or not; the uniform
+    `ufv_operations.ufv_lift_factors` / `ufv_tied_lift_factors` and `utv_operations.utv_corewise_lift[_transpose]`
+    (each block clipped at its REAL dimensions; padded singular values exactly 0);
+  - **the T3-to-T3 term** -- `backend.t3_linalg.t3_inner_product_corewise_transpose` (the gradient of
+    `θ ↦ ⟨z, Φ(θ)⟩`), `t3_precompute_inner_product_sweep` and `t3_inner_product_corewise_hessian[_from_sweep]`
+    (its Hessian on a stack of directions, by a two-hole sweep), the tangent zippers
+    `backend.tt_operations.tt_zipper_tangent_left_to_right` / `_right_to_left`, and the uniform
+    `ut3_linalg.ut3_inner_product_corewise_transpose` / `ut3_precompute_inner_product_sweep` /
+    `ut3_inner_product_corewise_hessian[_from_sweep]`;
+  - **the sampling terms** -- per kind, the derivative of its corewise transpose along raw core directions by a
+    hand-written two-hole sweep (exact, symmetric; the weight enters as `ω²r`, as in the gradient):
+    `backend.sampling_derivatives.t3_probe_corewise_derivatives_hessian[_from_sweep]` (its assemblies W-chunked
+    by `chunk_size` like the transpose's) with its public pieces `compute_deta_tilde_tangent_jets`,
+    `compute_tau_tilde_tangent_jets` / `compute_sigma_tilde_tangent_jets` (the dotted adjoint sweeps),
+    `compute_dxi_tilde_tangent_jets`, `assemble_tucker_tangent_variation_jets` and
+    `assemble_tt_tangent_variation_jets` (factored by the product rule);
+    `backend.probing.t3_probe_corewise_hessian[_from_sweep]` (with `compute_deta_tilde_tangent`,
+    `compute_tau_tilde_tangent` / `compute_sigma_tilde_tangent`, `compute_dxi_tilde_tangent`,
+    `assemble_tucker_tangent_variations`, `assemble_tt_tangent_variations`);
+    `backend.apply.t3_apply_corewise_hessian[_from_sweep]` and
+    `backend.entries.t3_entries_corewise_hessian[_from_sweep]` (the residual-seeded right context swept through
+    the cores); `sampling_derivatives.t3_apply_corewise_derivatives_hessian[_from_sweep]` /
+    `t3_entries_corewise_derivatives_hessian[_from_sweep]` (with `compute_sigma_hat_tangent_jets`, beside
+    `compute_sigma_hat_jets`); and their uniform twins `backend.ut3_sampling.ut3_{probe,apply,entries}_corewise_hessian[_from_sweep]`,
+    `ut3_probe_corewise_derivatives_hessian[_from_sweep]` and `ut3_{apply,entries}_corewise_derivatives_hessian[_from_sweep]`;
+  - **chunk sizing** -- `estimate_chunk_size` / `max_chunk_size_within` take `hessian='gauss_newton'` (the
+    default, the transpose-only answer) or `'exact'` (anything else raises `ValueError`); `'exact'` sizes the
+    chunk so that the two-hole, whose chunk costs ~1.3-2.2× the transpose's per row, also fits.
+    `chunk_size='auto'` resolves to `None` for the five kinds other than `probe_derivatives` in both modes, as
+    their transposes do not chunk.
 - **`g0_reference`** on `newton_cg` and `gradient_descent` (frontend and backend): `None` (the geometry's
   own), `'zero'` or `'warm_start'`, case-insensitive. An explicit `'zero'` on a geometry with no zero-point
   frame (a corewise one) is a `ValueError`; a vanishing zero reference (e.g. all-zero data) falls back to
@@ -168,9 +297,6 @@ All notable changes to T3Toolbox are documented here. The format follows
 - **`Geometry.zero_point_frame(frame)`**, an **optional**, duck-typed member: the four backend geometries
   define it (`None` on the corewise ones). A custom geometry without it keeps working, with the warm-start
   reference as its default.
-- **`NewtonInfo` fields** `g0_reference` (the Newton-stop reference: `'zero'` / `'warm_start'` /
-  `'override'`), `cg_reference` (the CG-forcing one), `step_control` (`'line_search'`) and `stop_reason`
-  (on the last row), all defaulting to `None`; they ride in `stats['history']`.
 - **`optimizers.least_squares_problem(geometry, kind, sample, data, x0, order, weight, regularizer,
   chunk_size, batch, hessian)`**, the frontend twin of `backend.optimizers.least_squares_problem`: it builds the
   backend `Problem` from the frontend vocabulary (a geometry singleton or `SharedGeometry`, a kind name,
@@ -181,168 +307,6 @@ All notable changes to T3Toolbox are documented here. The format follows
   **`optimizers.LeastSquaresSetup`**, a frozen dataclass with `.problem`, `.x0_cores` (the backend
   starting cores, reduced to minimal ranks where the optimizers reduce them) and `.rewrap` (backend cores
   -> the frontend tensor). Module-level only, not re-exported at the root.
-- **The lift from frame coordinates to raw core variations** (backend; a building block of the exact
-  Hessian): `backend.linalg.filtered_reciprocal` and
-  `damped_pseudo_inverse` (the clipped, optionally Tikhonov-damped reciprocal of a spectrum, and the
-  pseudo-inverse built on it); `backend.fv_operations.fv_center_factors` (a frame's centers `H_i`, Tucker
-  factors `S_iᵀ` and bond factors `T_i`, recomputed by zipper), `LiftFactors` and
-  `fv_lift_factors(frame, curvature_damping)` (damping relative to `‖X‖_HS`);
-  `backend.tv_operations.tv_corewise_lift` / `tv_corewise_lift_transpose`, exact at zero damping on every
-  numerically full-rank orthogonal frame, minimal or not (at a rank-deficient point the clipped directions
-  drop out). `fv_shared_frame_data` now takes its centers from
-  `fv_center_factors` (bit-identical).
-- **The inner product's derivatives in the cores** (backend; the exact Hessian's T3-to-T3 term):
-  `backend.t3_linalg.t3_inner_product_corewise_transpose` (the gradient of `θ ↦ ⟨z, Φ(θ)⟩`),
-  `t3_precompute_inner_product_sweep` and `t3_inner_product_corewise_hessian[_from_sweep]` (its Hessian
-  applied to a stack of directions, by a two-hole sweep), and the tangent zippers
-  `backend.tt_operations.tt_zipper_tangent_left_to_right` / `_right_to_left`.
-  `tv_project_t3_onto_tangent_space` now gauges that shared kernel (bit-identical).
-- **The probe-derivative transpose's derivative in the cores** (backend; the exact Hessian's sampling term
-  for `probe_derivatives`):
-  `backend.sampling_derivatives.t3_probe_corewise_derivatives_hessian` and its `_from_sweep` variant -- the
-  core-coordinate Hessian of `θ ↦ ⟨z̃, S(Φ(θ))⟩` applied to a stack of directions (`S` the probe-derivative
-  jets, `z̃` fixed residual jets, `ω²` already applied), the derivative of
-  `t3_probe_corewise_derivatives_transpose`, by a hand-written two-hole sweep; exact and symmetric, ragged or
-  on uniform supercores, its assemblies W-chunked by `chunk_size` like the transpose's. Its pieces are public
-  beside the Gauss-Newton kernels they differentiate: `compute_deta_tilde_tangent_jets`,
-  `compute_tau_tilde_tangent_jets` / `compute_sigma_tilde_tangent_jets` (the dotted adjoint sweeps),
-  `compute_dxi_tilde_tangent_jets`, `assemble_tucker_tangent_variation_jets` and
-  `assemble_tt_tangent_variation_jets` (factored by the product rule). `estimate_chunk_size` and
-  `max_chunk_size_within` take the solver's mode vocabulary, `hessian='gauss_newton'` (the default, the
-  transpose-only answer) or `'exact'` (case-insensitive; anything else raises `ValueError`); `'exact'` sizes the
-  chunk so that the two-hole, whose chunk costs ~1.3-2.2× the transpose's per row, also fits.
-- **The exact Riemannian Hessian in the backend local model** (driven by the backend `newton_cg`'s
-  `hessian='exact'`, below; the frontend `fitting.LocalModel` twin is further below):
-  `backend.optimizers.Problem.local_model(x, sample, data,
-  hessian='gauss_newton' | 'exact', curvature_damping=None)`. An exact model's `hvp` is
-  `Π[𝒥ᵀω²𝒥Πp + Lᵀ(K_{Aᵀω²r} − K_{grad f})LΠp] (+ H_R p)` -- the Gauss-Newton term plus the Weingarten
-  curvature, through the lift `L`, the kind's `corewise_hessian` and the inner product's two-hole at the misfit
-  gradient -- equal to the second derivative of the objective along the T3-SVD retraction; on a corewise
-  geometry it is the plain Hessian of `f ∘ Φ`. New on `backend.optimizers.LocalModel`: `curvature` (a
-  `CurvatureState`: the model's one misfit gradient and the geometry's per-frame curvature data, pytree leaves,
-  so a rebuilt model or a new damping does not recompile), the derived `is_exact`, `curvature_hvp`,
-  `quadratic` and `curvature_quadratic`; `gradient`, `gn_quadratic`, `jacobian` and `retract` are unchanged
-  (an exact model's gradient is the Gauss-Newton one, bit for bit). The geometries gain the four exact-mode
-  members `curvature_precompute` / `lift` / `lift_transpose` / `tangential_curvature` (optional for a custom
-  geometry: only `hessian='exact'` checks for them), with `backend.geometry.ManifoldCurvatureData` and
-  `DEFAULT_CURVATURE_DAMPING = 1e-6` (relative to `‖X‖_HS`; `curvature_damping` raises with the Gauss-Newton
-  model and on a corewise geometry, where nothing would read it). `ProbeDerivativesKind` implements
-  `corewise_hessian`; so do the other five built-in kinds (below), and the shared manifold's tied lift and the
-  uniform layer follow (below).
-- **Exact Newton with a trust region in the backend `newton_cg`**: `backend.optimizers.newton_cg(...,
-  hessian='gauss_newton' | 'exact', curvature_damping=None, step_control=None, tr_radius0=None)` (explicit
-  keywords, the same on the frontend `optimizers.newton_cg`, below). `hessian='exact'` solves with the exact Riemannian
-  Hessian above -- the superlinear Newton tail where Gauss-Newton is linear on a nonzero-residual fit
-  (q-quadratic with `cg_forcing_power=1.0`; the default stays `0.5` in both modes) -- and `curvature_damping`
-  (exact only; a value with Gauss-Newton raises) sets the lift's damping relative to `‖X‖_HS`.
-  `step_control` is `'line_search'` (Armijo along the retraction; the Gauss-Newton default, unchanged bit for
-  bit) or `'trust_region'` (the exact default; either combines with either Hessian): Steihaug-Toint CG in
-  `‖p‖ ≤ Δ` -- it steps to the boundary on nonpositive curvature or when it would leave the region -- then one
-  trial `retract(p)`, accepted iff `ρ = Δf / (gᵀp + ½pᵀHp) > 0.1`; `Δ ← ¼‖p‖` when `ρ < 0.25`, `Δ ← min(2Δ,
-  10⁴Δ0)` when `ρ > 0.75` on a boundary step; `Δ0 = tr_radius0`, by default the Gauss-Newton Cauchy length
-  `‖g‖³/⟨g, H_GN g⟩` (`tr_radius0` with the line search raises, as does `on_line_search_failure='accept'`
-  with the trust region). A rejected trial keeps `x` and its local model and counts toward `max_newton`. Two
-  new `stop_reason` values, checked only after a rejection: **`'objective_floor'`** -- the predicted change is
-  below the objective's floating-point resolution, `|pred| ≤ 10·ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)` with `ε` the residual
-  dtype's machine epsilon: the attainable accuracy is reached, **not a failure** -- and
-  **`'trust_region_floor'`** (`Δ < 10⁻¹²·Δ0`). New `NewtonInfo` fields, all defaulting to `None`: `hessian`,
-  `tr_radius`, `tr_accepted`, `cg_boundary`, `pKp` (the curvature term's part of `pHp`), `lift_sigma_min`,
-  `lift_eps`; `step_control` gains `'trust_region'`. The display's `step` segment reads `TR Δ … ✓/✗` on a
-  trust-region row, CG's symbol `∂` on a boundary stop, and an exact row appends `κ σ ε` (`κ = pKp/(pHp −
-  pKp)`, the smallest lift singular value, the lift damping). A curvature-data object may carry the
-  diagnostics `sigma_min` / `eps` (`backend.geometry.ManifoldCurvatureData` gains the `eps` property).
-- **The exact Hessian on the frontend.** The six `fitting.*_model` factories take `hessian='gauss_newton' |
-  'exact'` (case-insensitive) and `curvature_damping=None`: `hessian='exact'` builds the exact-mode
-  `fitting.LocalModel`, whose new `curvature` field (the backend `CurvatureState`, a jax leaf) holds the model's
-  one misfit transpose and the geometry's curvature data. The mode is derived, not stored: the read-only
-  property `is_exact`. New methods, in both modes: `hessian(p)` and `quadratic(p)` (the mode's Hessian action and
-  form -- `gn_hessian` / `gn_quadratic` on a Gauss-Newton model, plus the curvature term on an exact one) and
-  `retract(p)` (`geometry.retract(p)` at the model's frame, with the shared manifold's stored companion -- the
-  twin of `backend.optimizers.LocalModel.retract`); on an exact model only (a Gauss-Newton one raises),
-  `curvature_hessian(p)` / `curvature_quadratic(p)`, the curvature term alone. `evaluate(p)` is mode-aware (the
-  Gauss-Newton value is unchanged) and an exact model's `gradient` is the Gauss-Newton one, bit for bit. The
-  rules are the backend's: `curvature_damping` with Gauss-Newton or on a corewise geometry raises, and a kind
-  without `corewise_hessian` (a user-written one: every built-in kind has it, below) raises a structural error at
-  construction. The frontend `optimizers.newton_cg` takes
-  `hessian`, `curvature_damping`, `step_control` and `tr_radius0` with the backend's defaults, and passes
-  `hessian` to `least_squares_problem` so `chunk_size='auto'` is sized for the exact mode. The frontend run is
-  the backend run, bit for bit.
-- **The exact Hessian on the shared manifold** (`shared_manifold(...)` / `ManifoldGeometryOps` with `groups`;
-  ragged): `hessian='exact'` now runs there too -- `newton_cg`, the `*_model` factories and
-  `Problem.local_model`. The shared set is the tied
-  parametrization `Φ(Tθ)` (`T` copies each group's factor to its modes), so the curvature term goes through
-  a **tied lift**: each sharing group's coordinates lift to ONE raw factor direction,
-  `U̇_g = M_g^{+ε}[V_i₁; …]`, solved against the same stacked-`S` SVD the tied projection uses (the group
-  spectrum `s_g`, damped by the same `curvature_damping`), and its transpose sums the group's copies; the
-  normal part is taken against the shared (tied) misfit gradient, and `hvp`'s outer projection ties the
-  result. At a zero-padded shared restart the new `s_g` levels filter to exactly 0 -- the gated tied
-  channel gets no curvature, the TT variations carry the escape -- and `lift_sigma_min` reads each
-  group's `s_g` in place of its modes' own spectra. The shared retraction is second order as measured
-  (O(h²) finite differences), not proven. New: `backend.sharing.fv_tied_lift_factors(frame,
-  curvature_damping, shared_data)`, the lift factors of a shared point; `fv_operations.LiftFactors` gains
-  `shared_data` / `tied_filters` (default `None` / `()`, pytree leaves -- the partition stays static), with
-  which `tv_corewise_lift` / `tv_corewise_lift_transpose` tie the group slots. The tied projection and
-  retraction now share the filtered solve with the lift (bit-identical). The shared corewise geometry's
-  exact Hessian (the per-group mean of the plain Hessian) was already live.
-- **The exact Hessian on the uniform layer** (`UNIFORM_MANIFOLD` / `UNIFORM_COREWISE`, unshared; ragged and
-  uniform now both run `newton_cg(hessian='exact')`, the `*_model` factories' `hessian='exact'` and
-  `Problem.local_model(hessian='exact')` for `probe_derivatives`, `use_jit` included). Per stack element the
-  uniform exact model is the ragged one (the equivalence contract): every padded slot of a direction is masked
-  before the second derivative sees it -- a direction's padding multiplies into real slots there, so the
-  masks are load-bearing, not hygiene -- and every output is re-masked. From a numerically full-rank start a
-  uniform exact run is the ragged run (counts and objective row by row); from a zero-padded restart the two
-  layers' frames legitimately differ (`docs/uniform_equivalence_contract.md`) and each converges on its own.
-  New backend functions, each the uniform twin of the ragged one it names:
-  `backend.ufv_operations.ufv_lift_factors` (the lift factors on supercores: one batched damped pseudo-inverse
-  per family, each block clipped at its REAL dimensions, the padded singular values exactly 0, the last TT
-  slot's pass-through as one more bond slot), `backend.utv_operations.utv_corewise_lift` /
-  `utv_corewise_lift_transpose`, `backend.ut3_linalg.ut3_inner_product_corewise_transpose` /
-  `ut3_precompute_inner_product_sweep` / `ut3_inner_product_corewise_hessian[_from_sweep]` (the T3-to-T3
-  term; the ragged `t3_precompute_inner_product_sweep` / `t3_inner_product_corewise_hessian_from_sweep` are now
-  polymorphic over supercores, `d`-prefixed contractions) and
-  `backend.ut3_sampling.ut3_probe_corewise_derivatives_hessian[_from_sweep]` (theta and the direction masked
-  with theta's masks, the output re-masked). `UniformProbeDerivativesKind` implements `corewise_hessian` (it masks
-  with the masks of the FRAME it is handed, a strict subset of the point's at TT slack), and the uniform geometries
-  gain the four exact-mode members (the curvature data's `sigma_min` reads real slots only).
-- **The exact Hessian on the shared uniform geometries** (`shared(UNIFORM_MANIFOLD, ...)` /
-  `shared(UNIFORM_COREWISE, ...)`, `UniformManifoldGeometryOps` / `UniformCorewiseGeometryOps` with `groups`): with
-  it, `probe_derivatives` runs `hessian='exact'` on every geometry and representation -- ragged, uniform and
-  uniform on jax, unshared and shared. On the shared uniform manifold the curvature term goes through the ragged
-  tied lift on the supercores, per stack element the ragged one: each sharing group's coordinates lift to ONE
-  raw factor direction, written into every group mode's slice, and the transpose sums the group's slices. The
-  uniform companion's group spectrum `s_g` carries padded levels that are not guaranteed to be exact zeros, so
-  each group's damped filter is zeroed on them by the frame's masks (not only by its relative clip) and clipped at
-  the group's REAL dimensions; `lift_sigma_min` reads each group's real `s_g` levels in place of its modes' own
-  spectra. The shared uniform corewise geometry's exact Hessian (the per-group mean of the plain one) runs as
-  well. From a numerically full-rank shared start a uniform exact run is the ragged run (counts and objective row
-  by row); from a zero-padded shared restart the layers' frames legitimately differ and each converges to the
-  same minimizer. New: `backend.ufv_operations.ufv_tied_lift_factors(frame_data, curvature_damping,
-  shared_data)`, the uniform twin of `backend.sharing.fv_tied_lift_factors`, with which
-  `utv_corewise_lift` / `utv_corewise_lift_transpose` tie the group slots (a companion of another layout is a
-  structural error).
-- **The exact Hessian for every sampling kind** -- `probe`, `apply`, `entries` and the `apply_derivatives` /
-  `entries_derivatives` kinds join `probe_derivatives` above, on every geometry and representation:
-  `newton_cg(..., hessian='exact')`, the six `*_model` factories' `hessian='exact'` and
-  `Problem.local_model(hessian='exact')` run for all six kinds -- ragged and uniform, unshared and shared, `use_jit`
-  included; per stack element the uniform exact model is the ragged one. Each kind's sampling term is the derivative
-  of its corewise transpose along raw core directions, by a hand-written two-hole sweep (exact and symmetric; a
-  per-mode `probe` weight and the derivative kinds' per-order weight enter as `ω²r`, as in the gradient):
-  `backend.probing.t3_probe_corewise_hessian[_from_sweep]` (the order-0 case of the probe-derivative two-hole, in
-  plain probing's kernels; its pieces are public beside the Gauss-Newton kernels they differentiate:
-  `compute_deta_tilde_tangent`, `compute_tau_tilde_tangent` / `compute_sigma_tilde_tangent`,
-  `compute_dxi_tilde_tangent`, `assemble_tucker_tangent_variations` and `assemble_tt_tangent_variations`, factored
-  by the product rule), `backend.apply.t3_apply_corewise_hessian[_from_sweep]` and
-  `backend.entries.t3_entries_corewise_hessian[_from_sweep]` (the adjoint-state transpose's derivative: the
-  residual-seeded right context swept through the cores, no `nu` / `eta`),
-  `backend.sampling_derivatives.t3_apply_corewise_derivatives_hessian[_from_sweep]` and
-  `t3_entries_corewise_derivatives_hessian[_from_sweep]` (the same for the jets: the residual-jet-seeded `sigma^`
-  sweep and its derivative, `compute_sigma_hat_tangent_jets`, public beside `compute_sigma_hat_jets`; the
-  all-modes special case of the probe-derivative two-hole, and at order 0 the plain apply / entries one), and
-  their uniform twins `backend.ut3_sampling.ut3_{probe,apply,entries}_corewise_hessian[_from_sweep]` and
-  `ut3_{apply,entries}_corewise_derivatives_hessian[_from_sweep]` (theta and the direction masked with theta's
-  masks, the output re-masked). Every built-in kind and its `Uniform*` twin implements `corewise_hessian` (the
-  uniform ones mask with the frame's masks); `chunk_size='auto'` resolves to `None` for the five kinds other than
-  `probe_derivatives` in both modes, as their transposes do not chunk.
 - **`backend.geometry.UniformManifoldGeometryOps.from_frame(frame_data, plain_masks, sharing)`**: the uniform
   manifold geometry from a frame already in hand -- its variation masks are the frame's own, gauge-shifted --
   the same geometry as `from_point` without re-orthogonalizing. The uniform `fitting.LocalModel` builds its

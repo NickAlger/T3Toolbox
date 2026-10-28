@@ -178,6 +178,23 @@ would silently discard the differences), so safe mode checks it at the entry poi
 | op | precondition |
 |---|---|
 | `gradient`, `gn_hessian(p)`, `jacobian(p)`, `gn_quadratic(p)`, `evaluate(p)` | **SF** — `p` must live at the model's frame (checked numerically, identity fast path). The frame's orthogonality is a construction invariant (`geometry.frame(x)` produces it), not a per-op check. |
+| `hessian(p)`, `quadratic(p)`, `curvature_hessian(p)`, `curvature_quadratic(p)`, `retract(p)` | **SF** (the same check). `curvature_*` on a Gauss-Newton model is a **structural** error, as is building an exact model from a kind without `corewise_hessian` or a geometry without the four exact-mode members. `retract` adds the geometry's own preconditions. |
+
+### The exact Hessian (`hessian='exact'`)
+
+No new enforced precondition: every new error is structural (an unknown `hessian` / `step_control` /
+`g0_reference` string; an option where it would have no effect — `curvature_damping` with Gauss-Newton or
+on a corewise geometry, `tr_radius0` with the line search, `on_line_search_failure='accept'` with the trust
+region; a non-positive `g0norm_*`). What the result *means* carries caveats, never checked:
+
+| caveat | what it says |
+|---|---|
+| exactness vs damping | The Hessian is exact at `curvature_damping=0` on a numerically full-rank point. The default damping `ε = 1e-6·‖X‖_HS` leaves directions with lift singular value `σ ≫ ε` exact and damps those with `σ ≲ ε` toward Gauss-Newton (a zero-padded restart's new directions get no curvature at all). |
+| non-minimal frames | On every frame `t3_orthogonal_representations` builds — minimal or with Tucker / TT slack — the lift is an exact one-sided inverse, so the Hessian is exact there. Only a hand-built frame whose bond factor is *wide* gives a least-squares lift. |
+| shared factors | On a shared manifold the tied lift is exact where the group spectrum `s_g > 0`; a zero `s_g` level (a padded shared restart) gets no curvature. |
+| flat slots | The curvature term has no component on a slot at maximal rank, and none at all at `d = 1` (the representable set is flat there); the formula gives zero by itself, and the manifold `d = 1` model skips the work. |
+| `objective_floor` | A resolution limit, not a convergence certificate: the predicted change of a rejected trust-region step fell below the objective's floating-point resolution. |
+| the retraction | The exact model's `quadratic(p)` is the objective's second derivative along the T3-SVD retraction because that retraction is second order on a minimal, numerically full-rank frame (on a shared one, measured O(h²) rather than proven). |
 
 ### The optimizers' relative stop
 

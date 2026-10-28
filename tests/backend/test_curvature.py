@@ -2052,6 +2052,19 @@ def _plain_fit(kind, struct, W, rng, C=(), weight=None, geom=_MANIFOLD, noise=0.
     return bopt.least_squares_problem(geom, bkind, sample, data), x
 
 
+def _plain_fit_away_from_singular(test, kind, struct, W, seed, weight=None, cd=None):
+    """:py:func:`_plain_fit` drawn until the exact model's smallest lift singular value exceeds 1e-3 (deterministic:
+    the first passing seed from ``seed``) -- the retraction's finite difference resolves the curvature term only away
+    from a near-singular lift (E1; ~4 % of random draws fall below, so a bare assert would fail on some reseed)."""
+    for s in range(seed, seed + 20):
+        np.random.seed(s)
+        prob, x = _plain_fit(kind, struct, W, np.random.default_rng(s), weight=weight)
+        lm = prob.local_model(x, hessian='exact', curvature_damping=cd)
+        if float(np.min(lm.curvature.geometry_data.sigma_min)) > 1e-3:
+            return prob, x
+    test.fail('no draw with sigma_min > 1e-3 in 20 seeds from %d' % seed)
+
+
 class TestPlainKindsExactLocalModel(unittest.TestCase):
     """``Problem.local_model(hessian='exact')`` for the plain kinds, through their shipped ``corewise_hessian``: T7
     (``<p, H p>`` is the second derivative along the T3-SVD retraction, resolving the curvature term itself), T8
@@ -2068,9 +2081,9 @@ class TestPlainKindsExactLocalModel(unittest.TestCase):
     def test_quadratic_form_is_the_second_derivative_along_the_retraction(self):
         """T7 per kind. The finite difference resolves the curvature term only where the quadratic model's validity
         radius (~ the smallest lift singular value, E1) leaves room for a step well above rounding, so each case
-        draws its own point and asserts it is not near-singular (``sigma_min > 1e-3``): a random Tucker-slack point
-        can have ``sigma_min ~ 2e-4``, where the second difference is rounding-dominated (observed 3.7e-5 of the
-        scale on numpy 1.26) -- a property of the FD, not of the Hessian."""
+        draws its own point until it is not near-singular (``sigma_min > 1e-3``; :py:func:`_plain_fit_away_from_singular`):
+        a random Tucker-slack point can have ``sigma_min ~ 2e-4``, where the second difference is rounding-dominated
+        (observed 3.7e-5 of the scale on numpy 1.26) -- a property of the FD, not of the Hessian."""
         cases = {'d3': (_MINIMAL, None), 'd4': (_D4, None), 'd2': (_D2, None), 'tucker_slack': (_TUCKER_SLACK, None),
                  'tt_slack': (_TT_SLACK, None), 'd3_per_mode': (_MINIMAL, [1.0, 0.4, 2.0])}
         for k, kind in enumerate(_PLAIN_KINDS):
@@ -2079,11 +2092,9 @@ class TestPlainKindsExactLocalModel(unittest.TestCase):
                     continue                                     # only probe is weightable (per mode)
                 for cd in (0.0, None):
                     with self.subTest(kind=kind, case=name, curvature_damping=cd):
-                        np.random.seed(610 + 20 * k + 2 * j + (cd is None))
-                        rng = np.random.default_rng(610 + 20 * k + 2 * j + (cd is None))
-                        prob, x = _plain_fit(kind, struct, (40,), rng, weight=weight)
-                        lm = prob.local_model(x, hessian='exact', curvature_damping=cd)
-                        self.assertGreater(float(np.min(lm.curvature.geometry_data.sigma_min)), 1e-3)
+                        prob, x = _plain_fit_away_from_singular(self, kind, struct, (40,),
+                                                                610 + 20 * k + 2 * j + (cd is None), weight=weight,
+                                                                cd=cd)
                         self._check_retraction_fd(prob, x, cd)
 
     def test_normal_curvature_annihilates_a_lifted_vertical_direction(self):
@@ -2659,6 +2670,8 @@ class TestExactNewtonRate(unittest.TestCase):
         return window
 
     def test_power_one_is_q_quadratic(self):
+        """Power 1.0 must be q-QUADRATIC: its job is to catch any bug that loses the exact Hessian's asymptotic rate
+        (I-34; a wrong curvature term still converges, but only linearly)."""
         for seed in (1, 2):
             with self.subTest(seed=seed):
                 window = self._run(seed, 1.0)
@@ -2667,6 +2680,8 @@ class TestExactNewtonRate(unittest.TestCase):
                     self.assertLessEqual(e_next, 2.0 * e_k ** 2)
 
     def test_power_half_is_superlinear_of_order_one_and_a_half(self):
+        """Power 0.5 -- the production default -- must be SUPERLINEAR: its job is to stress the method end to end on
+        the default the users run (I-34), not to pin the asymptotic order."""
         for seed in (1, 2):
             with self.subTest(seed=seed):
                 window = self._run(seed, 0.5)
@@ -3114,6 +3129,34 @@ class TestSharedExactLocalModel(unittest.TestCase):
                 self.assertTrue(np.array_equal(np.asarray(data.sigma_min), ref))
                 own = np.min([np.min(s, axis=-1) for s in lf.tucker_svals], axis=0)
                 self.assertTrue(np.all(own < 1e-1 * ref))                    # a per-mode reading would be caught
+
+    def test_curvature_precompute_without_the_companion_builds_it(self):
+        """``curvature_precompute(frame, g, aux=None, cd)`` on a shared geometry builds the companion itself
+        (``self.precompute(frame)``) and returns the same data, leaf for leaf and bitwise, as with the companion
+        passed in -- the fallback a caller without a stored ``aux`` takes."""
+        labels, shape = (0, 1, 1, 2), (4, 5, 5, 4)
+        geom = _MANIFOLD.with_sharing(labels, shape)
+
+        def leaves(t):
+            if dc.is_dataclass(t) and not isinstance(t, type):
+                return [a for f in dc.fields(t) for a in leaves(getattr(t, f.name))]
+            if isinstance(t, (tuple, list)):
+                return [a for u in t for a in leaves(u)]
+            return [t] if isinstance(t, np.ndarray) else []
+
+        for C in ((), (2,)):
+            with self.subTest(C=C):
+                np.random.seed(7)
+                x = t3.TuckerTensorTrain.randn(shape, (2, 3, 3, 2), (1, 2, 3, 2, 1), stack_shape=C)
+                frame = geom.frame(sharing.t3_tie_tucker_factors(x.data, labels))
+                aux = geom.precompute(frame)
+                g = geom.project(frame, fvo.fv_variations_randn(fvo.fv_variation_shapes(frame), C), aux)
+                for cd in (0.0, 1e-3):
+                    a = leaves(geom.curvature_precompute(frame, g, aux, cd))
+                    b = leaves(geom.curvature_precompute(frame, g, None, cd))
+                    self.assertGreater(len(a), 0)
+                    self.assertEqual(len(a), len(b))
+                    self.assertTrue(all(np.array_equal(u, v) for u, v in zip(a, b)))
 
     def test_padded_shared_restart(self):
         """A zero-padded shared restart (``resize(..., sharing=)``) sits on the lower shared-rank stratum: the new

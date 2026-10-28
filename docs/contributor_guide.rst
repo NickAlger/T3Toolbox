@@ -29,6 +29,7 @@ Design-decision records
    contributor/batching_internals
    contributor/contractions_internals
    contributor/fitting_internals
+   contributor/curvature_internals
    contributor/weighted_internals
    contributor/sharing_internals
    contributor/precompute_and_caching

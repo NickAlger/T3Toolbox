@@ -72,6 +72,23 @@ large garbage into the masked-out region). This catches two things at once:
 (The phantom *boundary* mask is a constructed-zero region, not input-derived, so input-garbage alone does
 not reach it — that one needs the exact-mask assertion. The two tools are complementary, not redundant.)
 
+Three precisions, all learned on the exact Hessian's uniform twins (2026.3.0):
+
+- **"Garbage" means FINITE garbage.** The masks act by multiplication, so a NaN or inf in a padded slot
+  survives as `0·NaN = NaN` (library-wide, pre-existing); the contract is "finite garbage is don't-care".
+  Garbage includes **derived containers**, not only the op's direct inputs — the exact Hessian's tests also
+  corrupt a hand-built shared companion's padded levels and every edge of the direction `θ̂`, including the
+  corewise boundary-bond slots.
+- **"Bitwise invariant" holds for equal (C-contiguous) layouts.** numpy orders a reduction's sums by stride,
+  so the same masked values in a differently-strided array can move the result by ≤ 4e-16 even though every
+  masked kernel input is bitwise equal (pre-existing, the Gauss-Newton transposes too). Write the garbage
+  into a copy of the clean array's own layout, and assert bitwise there.
+- **Where a direction's padding meets real slots, the masks are load-bearing.** In a *second* derivative a
+  direction's padded slot multiplies into real slots (the two-hole's `θ̂`; an unmasked one corrupted the real
+  block by 2.6e3), so the garbage prong there is a correctness test, not hygiene; pair it with a mutation
+  check that removes the mask and must turn the suite red. Take the masks from the object the op is defined
+  at — the frame, not a superset of it (a TT-slack frame's masks are a strict subset of its point's).
+
 ## The stack matrix
 
 Batching/stacking is the most error-prone part of the library (`batching_and_stacking.md`). Every op test is
@@ -155,3 +172,9 @@ When adding a uniform operation, write:
 
 Numbers 2 and 3 are the ones that distinguish a *correct* uniform object from a merely *numerically
 plausible* one. Do not skip them.
+
+For a **fitting / Hessian** op, also add it to the dense oracle sweeps (`tests/oracle_sweeps/`): the O2 model
+and optimizer sweeps for Gauss-Newton quantities, `sweep_exact.py` for the exact Hessian (a dense extrinsic
+oracle — the Weingarten form through the parametrization's exact Jacobians — over every kind × geometry ×
+representation × sharing). Seed every case (`np.random.seed` and `default_rng`): an unseeded global stream
+made one O2 bar flaky, and a per-case seed also keeps a case independent of which cases ran before it.

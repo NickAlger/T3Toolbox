@@ -460,7 +460,8 @@ class LocalModel:
     def quadratic(self, p) -> NDArray:  # pᵀ H p of this mode, shape K+C
         '''The quadratic form ``pᵀ H p`` of this model's mode: :py:meth:`gn_quadratic` on a Gauss-Newton
         model; ``gn_quadratic(p) + curvature_quadratic(p)`` on an exact one -- the objective's second
-        derivative along the retraction (the T3-SVD retraction is second order).'''
+        derivative along the retraction (the T3-SVD retraction is second order on a minimal, numerically
+        full-rank frame).'''
         q = self.gn_quadratic(p)
         if self._has_curvature_term:
             q = q + self.curvature_quadratic(p)

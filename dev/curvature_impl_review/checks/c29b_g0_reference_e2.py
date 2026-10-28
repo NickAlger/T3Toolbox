@@ -1,3 +1,4 @@
+# PREDATES the 2026.3.0 stats keys: reads `stats['newton']`, which S0d replaced by `stats['newton_steps']` / `'newton_accepted'` / `'stop_reason'`; kept as the plan-time record, not rewritten.
 """Read-only plan check (v5): the g0_reference interplay on E2's three apply restart scenarios (critic's
 check_restart_tr2 harness, exact eps = 1e-6|X|, forcing power 1.0 as in E2): zero-tensor reference vs warm start."""
 import sys, os, math, io, contextlib

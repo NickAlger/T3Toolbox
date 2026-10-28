@@ -161,7 +161,11 @@ ceilings. At a zero-padded restart the new levels of `s_g` are zero and the solv
 exactly 0: the gated tied channel gets no curvature, just as it gets no first-order motion, while the
 TT variations carry the escape; the diagnostics' smallest lift singular value (`lift_sigma_min`)
 reports `s_g` there. The shared retraction's second order, which makes the exact model's predicted
-decrease meaningful along it, is measured (finite differences converge at O(h²)) rather than proven.
+decrease meaningful along it, is measured (finite differences converge at O(h²)) rather than proven. On
+measured continuation restarts the exact Hessian's gain over Gauss-Newton was the same size shared or
+unshared — 3.5–5× fewer Newton steps — and tying more factors into one group did not change Gauss-Newton's
+linear rate ([`fitting_and_optimization.md`](fitting_and_optimization.md) §4.12;
+[`contributor/verification_records.md`](contributor/verification_records.md)).
 
 ## Rank machinery: minimal ranks, dimension, continuation
 

@@ -1,3 +1,4 @@
+# PREDATES the 2026.3.0 stats keys: reads `stats['newton']`, which S0d replaced by `stats['newton_steps']` / `'newton_accepted'` / `'stop_reason'`; kept as the plan-time record, not rewritten.
 """Critic experiment (read-only): exact-Hessian Steihaug trust-region Newton from a ZERO-PADDED continuation restart,
 vs GN, with several lift-damping rules. The exact hvp is assembled from EXISTING library kernels + the block-sum
 oracle (the writer's c4 construction); the GN parts, gradient, retraction and objective are the library's backend

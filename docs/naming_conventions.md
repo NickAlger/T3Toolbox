@@ -148,6 +148,21 @@ which layer you are holding.
   vs the test twin `compute_mu_jets_trs` (contracts `trs` as a dense einsum operand: numerically equal to
   ~1e-15, the slower, memory-hungrier oracle). (`trs` = the binomial convolution tensor
   `trs[t,r,s] = C(t,r)·[r+s=t]`, the derivation's term.)
+- **`_hessian`** (the exact Hessian's kernels, 2026.3.0) — the derivative of the same-stem corewise transpose
+  along raw core directions: `t3_<kind>_corewise_hessian` is `d/dθ̂` of `t3_<kind>_corewise_transpose`
+  (`<kind>` = `probe` / `apply` / `entries`), `t3_<kind>_corewise_derivatives_hessian` of
+  `t3_<kind>_corewise_derivatives_transpose`, `t3_inner_product_corewise_hessian` of
+  `t3_inner_product_corewise_transpose`; a `_from_sweep` tail reuses a precomputed frame sweep, and the
+  uniform wrappers are `ut3_*` (masking in, re-masking out). The ragged name is polymorphic over
+  supercores, as everywhere. On the kind protocol the operation is `SamplingKind.corewise_hessian`.
+- **`_tangent` stem** (dotted twins) — a kernel's directional derivative carries `_tangent` before its tail:
+  `compute_tau_tilde_tangent_jets` is the derivative of `compute_tau_tilde_jets`, `assemble_tt_tangent_variation_jets`
+  of `assemble_tt_variation_jets`, `tt_zipper_tangent_left_to_right` of `tt_zipper_left_to_right`, the plain
+  probe pieces likewise without `_jets` (`compute_dxi_tilde_tangent`). They are public beside the
+  Gauss-Newton kernels they differentiate (the razor: the product-rule bookkeeping is easy to get wrong).
+- **`lift`** — `tv_corewise_lift` maps gauged frame coordinates to raw core variations of the base point
+  (`θ̂ = L v`), `tv_corewise_lift_transpose` is its exact adjoint; the per-frame factors are `LiftFactors`
+  (`fv_lift_factors`, the tied `sharing.fv_tied_lift_factors`, uniform `ufv_*`).
 - **Capability-honest tails** — `ut3_full_sum` (all modes only, vs ragged `t3_sum(axis=...)`),
   `ut3_norm_orthogonalized` (always orthogonalizes). The uniform twin is not renamed to match
   the ragged name when it genuinely supports less.

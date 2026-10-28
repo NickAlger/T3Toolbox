@@ -68,8 +68,9 @@ Everything below is importable directly from ``t3toolbox``.
 
 **Fitting and optimization**
 
-- :py:class:`~t3toolbox.fitting.LocalModel` -- the geometry-generic local model
-  (one class for both the ragged and the uniform representation); the frontend twin of the backend
+- :py:class:`t3toolbox.fitting.LocalModel` -- the geometry-generic local model
+  (one class for both the ragged and the uniform representation; Gauss-Newton by default, the exact
+  Riemannian Hessian with ``hessian='exact'``); the frontend twin of the backend
   :py:class:`t3toolbox.backend.optimizers.LocalModel`.
 - The six model factories (in :py:mod:`~t3toolbox.fitting`):
   :py:func:`~t3toolbox.fitting.entries_model`, :py:func:`~t3toolbox.fitting.apply_model`,
@@ -80,7 +81,8 @@ Everything below is importable directly from ``t3toolbox``.
 - The four optimizers (in :py:mod:`~t3toolbox.optimizers`):
   :py:func:`~t3toolbox.optimizers.gradient_descent`, :py:func:`~t3toolbox.optimizers.mc_sgd`,
   :py:func:`~t3toolbox.optimizers.adam`, :py:func:`~t3toolbox.optimizers.newton_cg`.
-  Ragged vs uniform is inferred from the initial guess ``x0``.
+  Ragged vs uniform is inferred from the initial guess ``x0``. ``newton_cg(..., hessian='exact')`` solves
+  with the exact Riemannian Hessian under a trust region (:doc:`fitting_and_optimization` §4.12).
 - Module-level (not at the root): :py:func:`~t3toolbox.optimizers.least_squares_problem` -- the
   constructor the four optimizers use, public for scripts that drive the backend directly: it builds the
   backend :py:class:`~t3toolbox.backend.optimizers.Problem` from the frontend vocabulary and returns a

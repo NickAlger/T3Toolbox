@@ -1870,7 +1870,7 @@ def _assembly_per_row_bytes(mode_shapes, tucker_ranks, tt_ranks, order, n_tangen
     r, nU, N = max(tt_ranks), max(tucker_ranks), max(mode_shapes)
     kax = (n_tangent,) if n_tangent > 1 else ()      # K axis present only when batching tangents
     cax = tuple(stack_shape)                         # C axis/axes -- frame-inner, so after K
-    S = lambda *shape: jax.ShapeDtypeStruct(shape, dtype)
+    S = lambda *shape: jax.ShapeDtypeStruct(shape, jax.dtypes.canonicalize_dtype(dtype))   # x64 off: float32, silently
     W = 4 * _SLOPE_CHUNKS[1]
     frame = (S(d, *cax, nU, N), S(d, *cax, r, nU, r), S(d, *cax, r, nU, r), S(d, *cax, r, nU, r))   # (U, O, P, Q)
     args = (S(d, op, W, *kax, *cax, N), S(d, W, N), S(d, W, N), frame)                            # ztildes, ww, pp
@@ -1906,7 +1906,7 @@ def _two_hole_assembly_per_row_bytes(mode_shapes, tucker_ranks, tt_ranks, order,
     r, nU, N = max(tt_ranks), max(tucker_ranks), max(mode_shapes)
     kax = (n_tangent,) if n_tangent > 1 else ()      # K axis present only when batching directions
     cax = tuple(stack_shape)
-    S = lambda *shape: jax.ShapeDtypeStruct(shape, dtype)
+    S = lambda *shape: jax.ShapeDtypeStruct(shape, jax.dtypes.canonicalize_dtype(dtype))   # x64 off: float32, silently
     W = 4 * _SLOPE_CHUNKS[1]
     theta = (S(d, *cax, nU, N), S(d, *cax, r, nU, r))
     dirs = (S(d, *kax, *cax, nU, N), S(d, *kax, *cax, r, nU, r))

@@ -1,3 +1,4 @@
+# PREDATES the S3b API (2026-10-27): written against the dense `trs` jet kernels (`trs=` arguments, `sd.binomial_combine_tensor`, the `*_trs` twins), which S3b removed (now `tests/_jet_trs_twins.py`); kept as the record of the plan-time evidence, not rewritten. The shipped kernels are pinned by tests/backend/test_curvature.py.
 """Read-only plan check (v2): the corewise-frame (U,L,L,L) probe sweep and adjoint state are CHEAP
 TRANSFORMS of the manifold-frame (U,O,L,R) ones, by the exact identities L_{>i} = T_i R_{>i} (left-canonical
 tail) and H_i = O_i x_2 S_i^T:   nu_c = T nu,  eta_c = S eta,  sigma~_c = T sigma~,  dxi~_c = S dxi~

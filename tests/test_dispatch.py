@@ -2164,3 +2164,91 @@ class TestJitUniformWeighted(unittest.TestCase):
         import t3toolbox.backend.ufv_operations as ubvo
         self.assert_jit_jax(lambda b: b.reverse(), self.frame)
         self.assert_jit_jax(lambda b: ubvo.ufv_frame_orthogonality_residual(b.data), self.frame)
+
+
+@unittest.skipUnless(HAS_JAX, "jax not available")
+class TestCurvatureJvpOracle(unittest.TestCase):
+    """The jvp oracle (2026.3.0): every two-hole is the DERIVATIVE of its corewise transpose along raw core
+    directions, so forward-mode autodiff of the shipped one-hole -- ``jax.jvp`` through the Gauss-Newton kernels,
+    independent of the hand-written two-hole sweeps -- must reproduce it. float64 (x64 is on in this module), raw
+    unsquashed cores (``TuckerTensorTrain.randn``: boundary bonds of size 1, no orthogonality), a ``K = (2,)``
+    direction stack (one ``jvp`` per direction), ``W`` summed. The seven ragged two-holes (the six kinds and the
+    T3-to-T3 inner product) and the uniform probe-derivative one (whose transpose masks theta, so the jvp along an
+    UNMASKED direction is the masked one the two-hole computes)."""
+
+    def setUp(self):
+        np.random.seed(97)
+
+    def _check(self, name, transpose, hessian, core_pair, directions):
+        """``jvp(transpose)(core_pair; directions[k]) == hessian(core_pair, directions)[k]`` for every ``k``."""
+        got = hessian(core_pair, directions)
+        flat = lambda t: jax.tree_util.tree_leaves(t)
+        for k in range(2):
+            dk = jax.tree_util.tree_map(lambda a: a[k], directions)
+            _, jvp = jax.jvp(transpose, (core_pair,), (dk,))
+            ref = flat(jvp)
+            out = [a[k] for a in flat(got)]
+            self.assertEqual(len(out), len(ref))
+            num = np.sqrt(sum(norm(np.asarray(a) - np.asarray(b)) ** 2 for a, b in zip(out, ref)))
+            den = np.sqrt(sum(norm(np.asarray(b)) ** 2 for b in ref))
+            with self.subTest(two_hole=name, k=k):
+                self.assertGreater(den, 1e-3)
+                self.assertLess(num / den, 1e-12)
+
+    def test_every_two_hole_is_the_jvp_of_its_transpose(self):
+        import t3toolbox.backend.apply as bapply
+        import t3toolbox.backend.entries as bentries
+        import t3toolbox.backend.t3_linalg as t3la
+        W, order = 6, 2
+        rnd = lambda *s: jnp.asarray(np.random.randn(*s))
+        x = t3.TuckerTensorTrain.randn(*STRUCT).to_jax()
+        core_pair = x.data
+        dirs = (tuple(rnd(2, *U.shape) for U in core_pair[0]), tuple(rnd(2, *G.shape) for G in core_pair[1]))
+        ww = tuple(rnd(W, N) for N in STRUCT[0])
+        pp = tuple(rnd(W, N) for N in STRUCT[0])
+        index = jnp.asarray(np.stack([np.random.randint(0, N, size=W) for N in STRUCT[0]]))
+        zt = tuple(rnd(W, N) for N in STRUCT[0])
+        zt_jets = tuple(rnd(order + 1, W, N) for N in STRUCT[0])
+        c, c_jets = rnd(W), rnd(order + 1, W)
+        z = t3.TuckerTensorTrain.randn((4, 5, 6), (3, 2, 3), (1, 3, 2, 1)).to_jax().data      # the T3-T3 operand
+        cases = {
+            'probe': (lambda th: probing.t3_probe_corewise_transpose(zt, ww, th, sum_over_probes=True),
+                      lambda th, dd: probing.t3_probe_corewise_hessian(zt, ww, th, dd)),
+            'apply': (lambda th: bapply.t3_apply_corewise_transpose(c, ww, th, sum_over_probes=True),
+                      lambda th, dd: bapply.t3_apply_corewise_hessian(c, ww, th, dd)),
+            'entries': (lambda th: bentries.t3_entries_corewise_transpose(c, index, th, sum_over_probes=True),
+                        lambda th, dd: bentries.t3_entries_corewise_hessian(c, index, th, dd)),
+            'probe_derivatives': (
+                lambda th: pd.t3_probe_corewise_derivatives_transpose(zt_jets, ww, pp, th, order, sum_over_probes=True,
+                                                                      chunk_size=None),
+                lambda th, dd: pd.t3_probe_corewise_derivatives_hessian(zt_jets, ww, pp, th, dd, order, chunk_size=None)),
+            'apply_derivatives': (
+                lambda th: pd.t3_apply_corewise_derivatives_transpose(c_jets, ww, pp, th, order, sum_over_probes=True),
+                lambda th, dd: pd.t3_apply_corewise_derivatives_hessian(c_jets, ww, pp, th, dd, order)),
+            'entries_derivatives': (
+                lambda th: pd.t3_entries_corewise_derivatives_transpose(c_jets, index, pp, th, order,
+                                                                        sum_over_probes=True),
+                lambda th, dd: pd.t3_entries_corewise_derivatives_hessian(c_jets, index, pp, th, dd, order)),
+            'inner_product': (lambda th: t3la.t3_inner_product_corewise_transpose(z, th),
+                              lambda th, dd: t3la.t3_inner_product_corewise_hessian(z, th, dd))}
+        for name, (transpose, hessian) in cases.items():
+            self._check(name, transpose, hessian, core_pair, dirs)
+
+    def test_uniform_probe_derivatives_two_hole_is_the_jvp_of_its_transpose(self):
+        import t3toolbox.backend.ut3_sampling as ut3s
+        W, order = 6, 2
+        rnd = lambda *s: jnp.asarray(np.random.randn(*s))
+        ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 3, 1)))
+        Usc, Gsc, shape, masks = ux.data
+        ww = tuple(rnd(W, N) for N in shape)
+        pp = tuple(rnd(W, N) for N in shape)
+        zt = tuple(rnd(order + 1, W, N) for N in shape)
+        dirs = (rnd(*((Usc.shape[0], 2) + Usc.shape[1:])), rnd(*((Gsc.shape[0], 2) + Gsc.shape[1:])))  # garbage pad
+        transpose = lambda th: ut3s.ut3_probe_corewise_derivatives_transpose(
+            zt, ww, pp, (th[0], th[1], shape, masks), order, sum_over_probes=True, chunk_size=None)
+        hessian = lambda th, dd: tuple(jnp.moveaxis(a, 1, 0) for a in ut3s.ut3_probe_corewise_derivatives_hessian(
+            zt, ww, pp, (th[0], th[1], shape, masks), dd, order, chunk_size=None))     # (d, K, ...) -> (K, d, ...)
+        dirs_k = tuple(jnp.moveaxis(a, 1, 0) for a in dirs)                            # K leading, for _check
+        self._check('uniform probe_derivatives', transpose,
+                    lambda th, dd: hessian(th, tuple(jnp.moveaxis(a, 0, 1) for a in dd)),
+                    (jnp.asarray(Usc), jnp.asarray(Gsc)), dirs_k)

@@ -1,3 +1,4 @@
+# NOTE (S5 review, 2026-10-27): the GN warm-up here goes through the frontend `newton_cg`, whose default reference became the zero tensor in S0d; pass `g0_reference='warm_start'` to reproduce the plan-time numbers (c20's x15 otherwise differs by 1e-9 / 2.5e-2 / 0.83 across its three problems). Not rewritten.
 """Read-only plan check (v5, I-7): T16's problem (c20: (6,6,6), target (4,4,4), fit rank 2, apply, W = 200, 1% noise,
 start = 15 GN steps) with the exact Hessian + Steihaug/TR at cg_forcing_power 0.5 (v5's single default) vs 1.0 (the
 documented choice for a q-quadratic tail). Reports e_k = |g_k|/|g_0| on accepted steps and the rate constants

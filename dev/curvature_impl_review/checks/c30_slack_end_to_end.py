@@ -1,3 +1,4 @@
+# PREDATES the 2026.3.0 stats keys: reads `stats['newton']`, which S0d replaced by `stats['newton_steps']` / `'newton_accepted'` / `'stop_reason'`; kept as the plan-time record, not rewritten.
 """Read-only plan check (v5, I-23): a FULL exact Newton + Steihaug/TR run started from a NON-minimal point -- Tucker
 slack and TT slack -- with no minimal-rank reduction (the backend Problem; the frontend's _ragged_minimal is not
 applied). Prototype exact hvp = the critic's E2 construction (apply kind; lift with pinv/filter; block-sum

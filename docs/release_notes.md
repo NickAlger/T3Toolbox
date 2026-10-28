@@ -7,6 +7,27 @@ you are moving an existing codebase forward.
 
 ## Upgrading from 2026.2.0
 
+Most code runs unchanged; the exact Hessian is opt-in (`newton_cg(..., hessian='exact')`, Gauss-Newton stays
+the default). What can break, roughly by how likely you are to meet it:
+
+**The default Newton reference moved** (manifold geometries). `newton_cg`'s relative stop and CG forcing
+term, and `gradient_descent`'s stop, are now relative to the gradient norm at the **zero tensor of `x0`'s
+ranks** (`g0_reference=None`, resolved to `'zero'`), not the warm-start `‖g(x0)‖`. Every manifold run stops
+at a slightly different point -- an O(1) factor in the reference, zero starts included. To keep the
+2026.2.0 behaviour pass `g0_reference='warm_start'`; the explicit `g0norm_newton` / `g0norm_cg` overrides
+still win (and must now be `> 0`: a non-positive value raises `ValueError`). Corewise geometries keep the
+warm start.
+
+**Delete your reference bookkeeping.** A continuation loop that carried `stats['history'][0]['gnorm']` from
+one level into the next level's `g0norm_newton` can drop it: the default reference is already per level
+and at the level's own scale. If a loop passed `g0norm_newton=None` *meaning* "use the warm start", that now
+gets the zero reference -- say `g0_reference='warm_start'` instead. A **cold start** at zero
+(`TuckerTensorTrain.zeros(...)` as `x0`) remains available at every level, in either Hessian mode; its
+default reference is the same as the warm start's at those ranks.
+
+**`stats['newton']` is gone; read `stats['newton_steps']`** (the same count: CG solves). Beside it are
+`stats['newton_accepted']` (steps taken) and `stats['stop_reason']`.
+
 **`fitting.GaussNewtonModel` is now `fitting.LocalModel`** (and `t3toolbox.LocalModel` at the root).
 It is renamed, not aliased, so the old name raises `AttributeError` / `ImportError`; rename it where you
 spell it. The six `*_model` factories, the model's methods and its fields are unchanged, so code that
@@ -14,8 +35,8 @@ only calls the factories needs no change. The new name mirrors the backend class
 `backend.optimizers.LocalModel`.
 
 **`optimizers._setup` is gone; use `optimizers.least_squares_problem`.** It takes the same arguments
-(`geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size, batch`) and returns a named
-`LeastSquaresSetup` instead of a 3-tuple, so read its fields rather than unpacking:
+(`geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size, batch`, plus `hessian`) and
+returns a named `LeastSquaresSetup` instead of a 3-tuple, so read its fields rather than unpacking:
 
 ```python
 setup = optimizers.least_squares_problem(geometry, kind, sample, data, x0, order=order, weight=weight)
@@ -24,6 +45,25 @@ lm = setup.problem.local_model(setup.x0_cores)       # was: problem, init, rewra
 
 `setup.problem.geom` is the backend geometry that the private `optimizers._geometry_ops(...)` used to
 give you; `_geometry_ops` stays private.
+
+**`optimizers.newton_cg` takes explicit keywords only.** Every valid call is unchanged; a misspelt option
+now raises `TypeError` at the call instead of failing later inside the backend.
+
+**Custom kinds and geometries keep working for Gauss-Newton.** To use them with `hessian='exact'`, a
+`SamplingKind` adds the sixth operation `corewise_hessian` (the derivative of its `transpose` along raw
+core directions), and a geometry the four exact-mode members `curvature_precompute`, `lift`,
+`lift_transpose` and `tangential_curvature` (the `Geometry` protocol in `backend/optimizers.py`); without
+them an exact model raises a structural error naming what is missing. A geometry **may** also add
+`zero_point_frame` (optional, looked up duck-typed): without it the default reference is the warm start, as
+in 2026.2.0.
+
+**Backend callers of the jet kernels** (`backend.sampling_derivatives`): the `trs` arguments are gone (the
+order is read off the jets, or passed as `order`), `compute_dxi_tilde_jets` returns only its two read rows,
+and `binomial_combine_tensor` and the dense `*_trs` kernels are removed. Code that only calls the
+transposes, the forwards or the optimizers is unaffected.
+
+**Uniform transposes return exact zeros in their padding.** Results that respect "padding is don't-care"
+are bit-identical; only code that read the padded slots sees a difference.
 
 ## Upgrading from 2026.1.0
 

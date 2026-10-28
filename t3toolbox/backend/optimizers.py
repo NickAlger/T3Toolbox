@@ -31,7 +31,6 @@ Tangent vectors are raw ``(tucker_var, tt_var)`` tuples; vector arithmetic is th
 import dataclasses as dc
 import functools as ft
 import math
-import sys
 import time
 import typing as typ
 import warnings
@@ -365,7 +364,8 @@ class Problem:
         Examples
         --------
         The exact model's quadratic form is the objective's second derivative along the retraction (the T3-SVD
-        retraction is second order), where the Gauss-Newton one misses the curvature term:
+        retraction is second order on a minimal, numerically full-rank frame, as here), where the Gauss-Newton one
+        misses the curvature term:
 
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
@@ -1067,7 +1067,9 @@ def _check_step_control(
     return step_control.lower()
 
 
-def _floating_dtypes(tree) -> typ.Iterator:
+def _floating_dtypes(
+        tree:  typ.Any,              # a residual tree: nested tuples / lists of numpy or jax arrays
+) -> typ.Iterator[np.dtype]:         # the dtype of each floating leaf, in tree order
     """The dtypes of a tree's floating leaves (nested tuples / lists of arrays), read off the leaves only."""
     if isinstance(tree, typ.Sequence) and not isinstance(tree, (str, bytes)):
         for t in tree:
@@ -1079,13 +1081,16 @@ def _floating_dtypes(tree) -> typ.Iterator:
 
 
 def _resolution_eps(
-        residual,                    # the local model's residual tree (numpy or jax leaves)
+        residual:  typ.Any,          # the local model's residual tree (numpy or jax leaves)
 ) -> float:                          # np.finfo(dtype).eps, maximised over the floating leaves
     """The machine epsilon of the residual -- host-side and **dtype-only** (no array is read, so no device
     sync): the largest ``np.finfo(dtype).eps`` over the residual's floating leaves, so a mixed float32 /
     float64 tree is judged at float32's resolution. ``float64``'s eps if there is no floating leaf."""
     eps = [float(np.finfo(dtype).eps) for dtype in _floating_dtypes(residual)]
     return max(eps) if eps else float(np.finfo(np.float64).eps)
+
+
+_TINY = float(np.finfo(np.float64).tiny)   # the smallest positive normal float (== sys.float_info.min)
 
 
 def _initial_radius(
@@ -1097,7 +1102,7 @@ def _initial_radius(
     ``‖g‖³ / ⟨g, H_GN g⟩`` (the minimizer of the GN model along ``−g``), whatever the Hessian; ``‖g‖`` when
     that is not a positive finite number (a vanishing or non-finite ``⟨g, H_GN g⟩``)."""
     q = float(lm.gn_quadratic(g))
-    radius0 = (gnorm * gnorm * gnorm) / max(q, sys.float_info.min)     # products, not **: inf, never OverflowError
+    radius0 = (gnorm * gnorm * gnorm) / max(q, _TINY)     # products, not **: inf, never OverflowError
     return radius0 if (math.isfinite(radius0) and radius0 > 0.0) else gnorm
 
 
@@ -1116,23 +1121,28 @@ def _lift_diagnostics(
 
 
 def newton_cg(
-        problem:          Problem,    # the fixed-rank least-squares problem
-        x0:               Tangent,    # initial cores (U, G)
-        max_newton:       int   = 30,     # Newton iterations (history rows) -- rejected trust-region trials included
-        gtol_rel:         float = 1e-8,   # stop when ‖g‖ <= gtol_rel * ‖g0‖  (‖g0‖: g0norm_newton, else the g0_reference)
-        cg_maxiter:       int   = 200,
-        c_armijo:         float = 1e-4,   # Armijo constant (line search only)
+        problem:                Problem,  # the fixed-rank least-squares problem
+        x0:                     Tangent,  # initial cores (U, G)
+
+        max_newton:             int   = 30,    # Newton iterations (history rows) -- rejected trust-region trials included
+        gtol_rel:               float = 1e-8,  # stop when ‖g‖ <= gtol_rel * ‖g0‖  (‖g0‖: g0norm_newton, else the g0_reference)
+        cg_maxiter:             int   = 200,
+        c_armijo:               float = 1e-4,  # Armijo constant (line search only)
         on_line_search_failure: str = 'stop',  # Armijo exhausted (40 halvings): 'stop' = reject the step and terminate; 'accept' = take the last trial and continue
-        hessian:          str   = 'gauss_newton',             # or 'exact' (case-insensitive): the local model's Hessian
-        curvature_damping: typ.Optional[float] = None,        # exact only: the lift damping, relative to ‖X‖; None = the geometry's default
-        step_control:     typ.Optional[str]   = None,         # None = 'line_search' (GN) / 'trust_region' (exact); either works with either
-        tr_radius0:       typ.Optional[float] = None,         # trust region only: Δ0 > 0; None = the GN Cauchy length ‖g‖³/⟨g, H_GN g⟩
-        g0_reference:     typ.Optional[str]   = None,  # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start'
-        g0norm_newton:    typ.Optional[float] = None,  # explicit ‖g0‖ for the Newton stop (wins; > 0). Also feeds CG unless g0norm_cg set.
-        g0norm_cg:        typ.Optional[float] = None,  # explicit ‖g0‖ for the CG forcing term (wins for CG; > 0); default = the Newton reference
-        cg_forcing_power: float = 0.5,                 # η = min(0.5, (‖g‖/‖g0‖)**power); larger => tighter CG, fewer Newton steps
-        use_jit:          bool  = False,  # jit the inner CG (lax.while_loop) when the inputs are jax; else eager
-        callback:         typ.Optional[typ.Callable] = None,  # callback(NewtonInfo) each iteration (host-side; e.g. a display)
+
+        hessian:                str   = 'gauss_newton',      # or 'exact' (case-insensitive): the local model's Hessian
+        curvature_damping:      typ.Optional[float] = None,  # exact only: the lift damping, relative to ‖X‖; None = the geometry's default
+        step_control:           typ.Optional[str]   = None,  # None = 'line_search' (GN) / 'trust_region' (exact); either works with either
+        tr_radius0:             typ.Optional[float] = None,  # trust region only: Δ0 > 0; None = the GN Cauchy length ‖g‖³/⟨g, H_GN g⟩
+
+        g0_reference:           typ.Optional[str]   = None,  # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start'
+        g0norm_newton:          typ.Optional[float] = None,  # explicit ‖g0‖ for the Newton stop (wins; > 0). Also feeds CG unless g0norm_cg set.
+        g0norm_cg:              typ.Optional[float] = None,  # explicit ‖g0‖ for the CG forcing term (wins for CG; > 0); default = the Newton reference
+
+        cg_forcing_power:       float = 0.5,    # η = min(0.5, (‖g‖/‖g0‖)**power); larger => tighter CG, fewer Newton steps
+        use_jit:                bool  = False,  # jit the inner CG (lax.while_loop) when the inputs are jax; else eager
+
+        callback:               typ.Optional[typ.Callable] = None,  # callback(NewtonInfo) each iteration (host-side; e.g. a display)
 ) -> typ.Tuple[Tangent, dict]:      # (x_cores, stats)
     """Inexact Riemannian Newton-CG -- the manifold workhorse. Each Newton step builds the local model once,
     solves ``H p = −g`` by (Steihaug) CG to an inexact forcing-term tolerance (the inner loop -- jit-able via

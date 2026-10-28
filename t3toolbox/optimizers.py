@@ -419,39 +419,39 @@ def adam(
 
 def newton_cg(
         geometry,                   # ragged/uniform MANIFOLD (intended) / COREWISE (must match x0)
-        kind:             str,      # 'apply' / 'entries' / 'probe' (+ '_derivatives')
-        sample:           typ.Any,  # ww / index, or (ww, pp) / (index, pp) for derivatives
-        data:             typ.Any,  # observed values to fit
-        x0:               Point,    # initial point (zero is fine on the manifold)
+        kind:                   str,      # 'apply' / 'entries' / 'probe' (+ '_derivatives')
+        sample:                 typ.Any,  # ww / index, or (ww, pp) / (index, pp) for derivatives
+        data:                   typ.Any,  # observed values to fit
+        x0:                     Point,    # initial point (zero is fine on the manifold)
 
-        order:            typ.Optional[int] = None,      # derivative kinds: highest order (required)
-        weight:           typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
+        order:                  typ.Optional[int] = None,      # derivative kinds: highest order (required)
+        weight:                 typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
 
-        verbose:          bool = False,    # print per-iteration diagnostics (a relative-error table + more)
-        val_sample:       typ.Any = None,  # optional validation sample (same layout as `sample`) -> a train|val table
-        val_data:         typ.Any = None,  # optional validation data (both given adds the val column)
+        verbose:                bool = False,    # print per-iteration diagnostics (a relative-error table + more)
+        val_sample:             typ.Any = None,  # optional validation sample (same layout as `sample`) -> a train|val table
+        val_data:               typ.Any = None,  # optional validation data (both given adds the val column)
 
-        callback:         typ.Optional[typ.Callable] = None,  # custom callback(NewtonInfo) each iter (overrides `verbose`)
+        callback:               typ.Optional[typ.Callable] = None,  # custom callback(NewtonInfo) each iter (overrides `verbose`)
 
-        use_jit:          bool = False,      # jit the inner CG: auto-converts x0/sample/data to jax -> a jax-backed float32 result; warns + runs eager if jax absent
-        regularizer:      typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
-        chunk_size:       typ.Any = 'auto',  # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
+        use_jit:                bool = False,      # jit the inner CG: auto-converts x0/sample/data to jax -> a jax-backed float32 result; warns + runs eager if jax absent
+        regularizer:            typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
+        chunk_size:             typ.Any = 'auto',  # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
 
-        g0_reference:     typ.Optional[str]   = None,  # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start'
-        g0norm_newton:    typ.Optional[float] = None,  # explicit ‖g0‖ for the Newton stop (wins; > 0); also feeds CG unless g0norm_cg is given
-        g0norm_cg:        typ.Optional[float] = None,  # explicit ‖g0‖ for the CG forcing term (wins for CG; > 0); default = the Newton reference
+        g0_reference:           typ.Optional[str]   = None,  # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start'
+        g0norm_newton:          typ.Optional[float] = None,  # explicit ‖g0‖ for the Newton stop (wins; > 0); also feeds CG unless g0norm_cg is given
+        g0norm_cg:              typ.Optional[float] = None,  # explicit ‖g0‖ for the CG forcing term (wins for CG; > 0); default = the Newton reference
 
-        cg_forcing_power: float = 0.5,   # η = min(0.5, (‖g‖/‖g0‖)**power); larger => tighter CG, fewer Newton steps
-        max_newton:       int   = 30,    # Newton-iteration cap (rejected trust-region trials included)
-        gtol_rel:         float = 1e-8,  # stop when ‖g‖ <= gtol_rel * ‖g0‖
-        cg_maxiter:       int   = 200,   # inner CG iteration cap per Newton step
-        c_armijo:         float = 1e-4,  # Armijo sufficient-decrease constant (line search only)
+        cg_forcing_power:       float = 0.5,   # η = min(0.5, (‖g‖/‖g0‖)**power); larger => tighter CG, fewer Newton steps
+        max_newton:             int   = 30,    # Newton-iteration cap (rejected trust-region trials included)
+        gtol_rel:               float = 1e-8,  # stop when ‖g‖ <= gtol_rel * ‖g0‖
+        cg_maxiter:             int   = 200,   # inner CG iteration cap per Newton step
+        c_armijo:               float = 1e-4,  # Armijo sufficient-decrease constant (line search only)
         on_line_search_failure: str = 'stop',  # Armijo exhausted: 'stop' = reject the step and terminate; 'accept' = take the last trial
 
-        hessian:          str = 'gauss_newton',               # or 'exact' (case-insensitive): the local model's Hessian
-        curvature_damping: typ.Optional[float] = None,        # exact only: lift damping, relative to ‖X‖; None = the default
-        step_control:     typ.Optional[str]   = None,         # None = 'line_search' (GN) / 'trust_region' (exact)
-        tr_radius0:       typ.Optional[float] = None,         # trust region only: Δ0 > 0; None = the GN Cauchy length
+        hessian:                str = 'gauss_newton',        # or 'exact' (case-insensitive): the local model's Hessian
+        curvature_damping:      typ.Optional[float] = None,  # exact only: lift damping, relative to ‖X‖; None = the default
+        step_control:           typ.Optional[str]   = None,  # None = 'line_search' (GN) / 'trust_region' (exact)
+        tr_radius0:             typ.Optional[float] = None,  # trust region only: Δ0 > 0; None = the GN Cauchy length
 ) -> typ.Tuple[Point, dict]:
     """Inexact Riemannian Newton-CG with a line search or a trust region -- the manifold workhorse. Ragged or
     uniform ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.newton_cg`.

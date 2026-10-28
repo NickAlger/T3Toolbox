@@ -1,3 +1,4 @@
+# PREDATES the S3b API (2026-10-27): written against the dense `trs` jet kernels (`trs=` arguments, `sd.binomial_combine_tensor`, the `*_trs` twins), which S3b removed (now `tests/_jet_trs_twins.py`); kept as the record of the plan-time evidence, not rewritten. The shipped kernels are pinned by tests/backend/test_curvature.py.
 """Read-only plan check (v3, m26 + E): wall-clock of the probe_derivatives two-hole (dense-trs PROTOTYPE, numpy,
 CPU) vs the GN matvec (library forward + transpose from the stored sweep), and the share of the nu re-sweep
 through G inside the two-hole vs the nu = T nu transform. Indicative only (prototype, not the scan-form kernel)."""

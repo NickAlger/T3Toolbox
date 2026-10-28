@@ -27,7 +27,7 @@ without delivering it.
 **The price, itemized.** Every one of these exists to serve open subclassing, and would mostly evaporate
 under a closed set of kinds with explicit registration for a genuinely new operator:
 
-- nine abstract stubs on `SamplingKind`, each needing a message;
+- ten abstract stubs on `SamplingKind`, each needing a message (nine until 2026.3.0 added `corewise_hessian`);
 - the mixin lattice (`ScalarOutputKind` / `ProbeOutputKind` × the four sample-layout mixins ×
   `_DerivativesKind`) — which exists to factor behaviour across the six built-ins, not for users;
 - `has_block_sumsq`, a flag declaring whether a method is implemented, because Python has no way to say
@@ -134,5 +134,12 @@ unease is about.
   slightly: `ScalarOutputKind` / `ProbeOutputKind` became public, because the documented "write your own"
   recipe was wrong without them (it said five operations; there are nine). That was a correctness fix to
   the docs, but it is also a wider promise.
+- **2026.3.0 adds a sixth required operation, `corewise_hessian`** (the derivative of the corewise
+  transpose, for `hessian='exact'`), so the stub count is ten. Kinds without it keep working for
+  Gauss-Newton and fail early, with a structural error, for `hessian='exact'`; the early check reads the
+  stdlib `abc.abstractmethod` marker on the base method (the class is not an `ABC`), which is one more
+  piece of the open surface's price. A custom geometry likewise needs four more members
+  (`curvature_precompute`, `lift`, `lift_transpose`, `tangential_curvature`) for exact mode only, and may
+  add the optional, duck-typed `zero_point_frame`.
 - If a downstream need turns out to be for a new *geometry* rather than a new *kind*, the answers may
   differ: geometries have four implementations and a much smaller surface.

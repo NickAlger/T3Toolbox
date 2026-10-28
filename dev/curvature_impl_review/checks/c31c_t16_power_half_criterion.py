@@ -1,3 +1,4 @@
+# NOTE (S5 review, 2026-10-27): the GN warm-up here goes through the frontend `newton_cg`, whose default reference became the zero tensor in S0d; pass `g0_reference='warm_start'` to reproduce the plan-time numbers (c20's x15 otherwise differs by 1e-9 / 2.5e-2 / 0.83 across its three problems). Not rewritten.
 """Read-only plan check (v6, n19): T16 at power 0.5, seeds 1 and 2 -- per accepted step, e_k, |pred|/res and the
 rate constant e_{k+1}/e_k^1.5: does the n15 criterion (|pred| > 1e3*res) separate the resolution-floor steps?"""
 import sys, os, math, io, contextlib

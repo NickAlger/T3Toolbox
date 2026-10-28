@@ -4,7 +4,8 @@ The implementation plan for the exact Riemannian Hessian (`hessian='exact'`) was
 of two Opus 5.5 agents over six rounds (2026-10-25/26), relayed by Claude and adjudicated by Nick twice (after v4
 and after v6). This folder is the record: it exists so that every `[V]` and `[E]` claim in the plan can be re-run,
 and so that the reasoning behind each settled decision is not lost. It is ephemeral in the `dev/` sense — sweep it
-into `dev/archive/` when the plan's slice S13 archives the plan.
+into `dev/archive/` together with the implementation plan, which stays live after S13 (it sequences R / S14 / S15b)
+and is archived at the release (S13 archived only the design plan, the G0 plan and `curvature_oracles/`).
 
 | file(s) | what |
 |---|---|
@@ -32,4 +33,7 @@ cross-import each other by file name within their folder; the critic's scripts r
 `../checks`. Expected output and tolerances are quoted next to each fact in the plan's "Verified facts" table.
 
 They were run against `main` @ `920d776`. As slices land the scripts are kept runnable: S2 moved the private
-`tv._project_t3_*` kernels to `t3_linalg._inner_product_*` and the scripts were updated to the new names.
+`tv._project_t3_*` kernels to `t3_linalg._inner_product_*` and the scripts were updated to the new names. From S3b on
+they are kept as the plan-time record instead: a script on a removed API (the dense `trs` jet kernels, S3b;
+`stats['newton']`, S0d) or whose warm-up now resolves a different default reference (S0d) carries a one-line
+banner at its top saying so (S13), and is not rewritten.

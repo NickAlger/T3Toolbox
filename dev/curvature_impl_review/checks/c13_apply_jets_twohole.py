@@ -1,3 +1,4 @@
+# PREDATES the S3b API (2026-10-27): written against the dense `trs` jet kernels (`trs=` arguments, `sd.binomial_combine_tensor`, the `*_trs` twins), which S3b removed (now `tests/_jet_trs_twins.py`); kept as the record of the plan-time evidence, not rewritten. The shipped kernels are pinned by tests/backend/test_curvature.py.
 """Read-only plan check: the apply_derivatives two-hole (two-index jet: vector order t <= order, core order 1)
 composed from EXISTING jet kernels (build_input_jets, compute_sigma_jets at the corewise frame) + ONE new
 3-term adjoint-wired scan step (sigma_hat_dot) + the dotted assemblies; vs the block-sum oracle. K and C stacked."""

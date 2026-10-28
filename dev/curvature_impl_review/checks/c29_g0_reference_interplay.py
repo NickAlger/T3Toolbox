@@ -1,3 +1,4 @@
+# PREDATES the 2026.3.0 stats keys: reads `stats['newton']`, which S0d replaced by `stats['newton_steps']` / `'newton_accepted'` / `'stop_reason'`; kept as the plan-time record, not rewritten.
 """Read-only plan check (v5): the g0_reference='zero' interplay on F19's problem (E2 on probe_derivatives, order 2,
 omega weight, zero-padded restart rank 2 -> 3, target 4, 5% noise) and the I-7 change (cg_forcing_power 0.5 for
 exact mode too, was 1.0 in v4's F19 numbers).

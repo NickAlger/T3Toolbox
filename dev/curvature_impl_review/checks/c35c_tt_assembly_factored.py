@@ -1,3 +1,4 @@
+# PREDATES the S3b API (2026-10-27): written against the dense `trs` jet kernels (`trs=` arguments, `sd.binomial_combine_tensor`, the `*_trs` twins), which S3b removed (now `tests/_jet_trs_twins.py`); kept as the record of the plan-time evidence, not rewritten. The shipped kernels are pinned by tests/backend/test_curvature.py.
 """Read-only plan check (v5): the dotted TT assembly is the two-hole's hot spot (c35b: 31-55%). Product-rule
 factoring: for each of the three trilinear groups f(a, b, c), form the pair intermediate P = (a.b) and its dotted twin
 Pd = (a_dot.b + a.b_dot) once, then dG = Pd.c + P.c_dot -- 6 W-summed final contractions instead of 9. Equal to the

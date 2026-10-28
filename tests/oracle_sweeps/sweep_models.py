@@ -124,6 +124,7 @@ def tangent_ragged(v):
 
 
 def run_case(d, rep, geom_name, shared, kind, order, wspec, regspec, W, seed):
+    np.random.seed(seed)    # local change (2026.3.0): the global stream (geom.randn, randn shapes) is seeded per case
     x, sharing = build_point(d, shared, seed)
     rng = np.random.default_rng(seed + 1)
     shape = x.shape

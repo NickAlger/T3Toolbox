@@ -95,7 +95,7 @@ memory-vs-compute adjoint-state choice.*
 ### Group 7 — Fitting & optimization
 *Geometry-generic Gauss–Newton on the manifold; least-squares from any sampling op **and its
 derivatives**; the four optimizers; the probing-fit recipe.*
-- **Algorithm content:** `GaussNewtonModel` (`objective_value`, `gradient=Π𝒥ᵀr`, `jacobian`,
+- **Algorithm content:** `LocalModel` (`fitting.LocalModel`, named `GaussNewtonModel` before 2026.3.0; `objective_value`, `gradient=Π𝒥ᵀr`, `jacobian`,
   `gn_quadratic`, `gn_hessian`, `evaluate`); builders `{apply,entries,probe}_model` +
   `*_derivatives_model`; optimizers `gradient_descent`/`mc_sgd`/`adam`/`newton_cg`.
 

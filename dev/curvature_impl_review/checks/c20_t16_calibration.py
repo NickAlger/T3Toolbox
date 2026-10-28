@@ -1,3 +1,4 @@
+# NOTE (S5 review, 2026-10-27): the GN warm-up here goes through the frontend `newton_cg`, whose default reference became the zero tensor in S0d; pass `g0_reference='warm_start'` to reproduce the plan-time numbers (c20's x15 otherwise differs by 1e-9 / 2.5e-2 / 0.83 across its three problems). Not rewritten.
 """Read-only plan check (v3, m28): calibrate T16 on T16's OWN problem. Reuses the critic's exact-TR harness
 (SCR/check_restart_tr2.py: library GN pieces + block-sum exact curvature + Steihaug TR) by exec'ing its definitions.
 Problem: (6,6,6), fit ranks (2,2,2)/(1,2,2,1), apply, W = 200, data = target + 1% noise, start = 15 GN steps.

@@ -120,6 +120,14 @@ variables. Returns a **raw tuple** `(tucker_grads, tt_grads)` whose arrays have 
 - **Returns a raw tuple, not a `TuckerTensorTrain`,** on purpose: the result is a *gradient*, not a
   tensor. Wrapping it in a `TuckerTensorTrain` would invite `X − lr·grad`, which silently does
   tensor-space arithmetic (rank concatenation), not the core-wise step you want.
+- **Its derivative is the exact Hessian's sampling term.** Differentiating the corewise transpose along a
+  core direction `θ̂` — the core-coordinate Hessian of `θ ↦ ⟨c, apply(Φ(θ))⟩` applied to `θ̂` — is
+  `backend.apply.t3_apply_corewise_hessian(c, ww, cores, directions)` (and `t3_entries_…`,
+  `t3_probe_…`, `t3_*_corewise_derivatives_hessian` for the jets, each with a `_from_sweep` variant and a
+  uniform `ut3_*` twin): a hand-written **two-hole** sweep, two cores replaced at a time, exact and
+  symmetric. The exact Riemannian Hessian (`newton_cg(..., hessian='exact')`) lifts tangent coordinates to
+  raw core directions and applies it there ([`fitting_and_optimization.md`](fitting_and_optimization.md)
+  §4.12; the derivation and the kernels: [`contributor/curvature_internals.md`](contributor/curvature_internals.md)).
 - **Caveat (from §6.3):** the cores are a *representation*, not an intrinsic object, so a corewise
   gradient is meaningful only at the base point where it was taken. Combining corewise gradients from
   different base points (as L-BFGS history does) is, strictly, ill-defined from the manifold viewpoint.

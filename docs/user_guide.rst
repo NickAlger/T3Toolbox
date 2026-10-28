@@ -348,14 +348,19 @@ The fitting layer solves least-squares problems over the fixed-rank T3 manifold 
 given samples of an unknown tensor -- entries, applies, probes, or their symmetric derivatives --
 find a T3 of the chosen ranks that matches them.
 
-- ``LocalModel`` is the geometry-generic local model: gradient, Gauss-Newton
-  Hessian-vector products, and retraction at a base point, over either the ``MANIFOLD`` or
-  ``COREWISE`` geometry. One class serves both representations -- hand it a ragged
-  ``TuckerTensorTrain`` and its gradient is a ``T3Tangent``, hand it a
-  ``UniformTuckerTensorTrain`` and you get a ``UT3Tangent``.
+- ``fitting.LocalModel`` is the geometry-generic local model: gradient, Hessian-vector products --
+  Gauss-Newton by default, the exact Riemannian Hessian with ``hessian='exact'`` -- and retraction at a
+  base point, over either the ``MANIFOLD`` or ``COREWISE`` geometry. One class serves both
+  representations -- hand it a ragged ``TuckerTensorTrain`` and its gradient is a ``T3Tangent``, hand it
+  a ``UniformTuckerTensorTrain`` and you get a ``UT3Tangent``. (Its backend twin, which works on raw
+  ``.data`` tuples, is ``backend.optimizers.LocalModel``.)
 - The six factories -- ``entries_model`` / ``apply_model`` / ``probe_model`` and their
   ``*_derivatives_model`` twins -- assemble the model from sample data.
 - The four optimizers -- ``gradient_descent``, ``mc_sgd``, ``adam``, ``newton_cg`` -- drive it.
+  ``newton_cg(..., hessian='exact')`` adds the manifold's curvature to the Newton steps and controls
+  them by a trust region: the superlinear Newton tail on a fit whose residual does not vanish.
+- ``optimizers.least_squares_problem`` builds the backend ``Problem`` the optimizers use from the same
+  frontend vocabulary, for scripts that build local models or drive a backend optimizer directly.
 
 Ragged vs uniform is **inferred from the initial guess** ``x0``: pass a ``TuckerTensorTrain`` and
 everything runs ragged; pass a ``UniformTuckerTensorTrain`` (with a uniform geometry singleton) and

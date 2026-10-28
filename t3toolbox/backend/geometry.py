@@ -575,7 +575,9 @@ class UniformManifoldGeometryOps(ValueHashedFields):
     structure the operations need -- the mode ``shape``, the plain-UT3 ``masks``, and the variation
     ``var_masks`` -- lives here instead, loop-invariant and value-hashed
     (``docs/uniform_backend_jit_recipe.md``: hold the masks as state, trace only the supercores). Build
-    it from the point you are about to optimize with :py:meth:`from_point`.
+    it from the point you are about to optimize with :py:meth:`from_point`, or -- with a frame of that point
+    already in hand, as the frontend local model has -- with :py:meth:`from_frame` (the same geometry, no
+    re-orthogonalization).
 
     The uniform layer requires a **minimal-rank** start (:py:func:`~t3toolbox.backend.uniform_fitting.uniform_minimal`):
     from a non-minimal frame the retraction truncates to the realizable rank, which no longer matches the

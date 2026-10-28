@@ -27,6 +27,12 @@ results carry the same EXC rows, so these checks never delivered coverage. The o
 dedicated per-element uniform-vs-ragged tests (``test_uniform_manifold``, ``test_uniform_probing``)
 and jit entries in ``test_dispatch``. Repairing the harness comparison is a recorded follow-up.
 
+THE EXACT-HESSIAN SWEEP (2026.3.0, ``sweep_exact.py``; new, not a review copy): the exact Hessian action of
+``fitting.LocalModel(hessian='exact')`` against a dense extrinsic oracle (the Weingarten form of the Riemannian
+Hessian through the parametrization's exact Jacobians; the plain Hessian of ``f o Phi`` on corewise) -- every kind x
+geometry x representation x sharing x weight x regularizer, d in {3, 2, 1}. Always-on: the whole matrix at one seed,
+``W = (12,)``, orders 1-2 (~25 s). Slow: four seeds, ``W = (12,)`` and the multi-axis ``(3, 4)``, orders 1-3.
+
 KNOWN CAVEAT rows (documented, not failures): ``retract_fd_jacobian`` / ``u_retract_fd_jacobian`` on
 the SHARING structures probe the retraction at a non-minimal shared frame, where the FD ladder is
 legitimately flat (the review's resolved D-item: retract preserves frame ranks only on a minimal
@@ -85,6 +91,25 @@ class TestO1UniformOracleSweep(_SweepCase):
                 o1_uniform.sweep(sname, o1_common.STRUCTS[sname], o1_common.SHARING.get(sname), fp)
         o1_uniform.varying_rank()
         self._assert_results()
+
+
+class TestExactHessianOracleSweep(unittest.TestCase):
+    def test_full_sweep(self):
+        import sweep_exact
+        sweep_exact.failures.clear()
+        sweep_exact.rows.clear()
+        sweep_exact.main()
+        self.assertGreater(len(sweep_exact.rows), 0)
+        self.assertEqual(sweep_exact.failures, [])
+
+    @unittest.skipUnless(os.environ.get('T3TOOLBOX_SLOW_TESTS'),
+                         'seeds x sample layouts x order 3: set T3TOOLBOX_SLOW_TESTS=1 (required at release)')
+    def test_seeds_layouts_and_order_three_slow(self):
+        import sweep_exact
+        sweep_exact.failures.clear()
+        sweep_exact.rows.clear()
+        sweep_exact.main(seeds=(13, 29, 47, 71), Ws=((12,), (3, 4)), orders=(1, 2, 3))
+        self.assertEqual(sweep_exact.failures, [])
 
 
 class TestO2ModelOracleSweep(unittest.TestCase):

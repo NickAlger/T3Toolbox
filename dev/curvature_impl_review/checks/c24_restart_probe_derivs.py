@@ -1,3 +1,4 @@
+# PREDATES the 2026.3.0 stats keys: reads `stats['newton']`, which S0d replaced by `stats['newton_steps']` / `'newton_accepted'` / `'stop_reason'`; kept as the plan-time record, not rewritten.
 """Read-only plan check (v3): E2's zero-padded-restart experiment on T3Polynomial's kind -- probe_derivatives
 (order 2, omega[mode, order] weight) -- with the exact curvature from the v3 recipe (c22.two_hole_v3, fed by
 the manifold model's stored sweep, nu = T nu) + the T3-T3 block-sum, through the critic's Steihaug/TR loop logic.

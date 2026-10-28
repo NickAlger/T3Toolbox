@@ -1,3 +1,4 @@
+# NOTE (S5 review, 2026-10-27): the GN warm-up here goes through the frontend `newton_cg`, whose default reference became the zero tensor in S0d; pass `g0_reference='warm_start'` to reproduce the plan-time numbers (c20's x15 otherwise differs by 1e-9 / 2.5e-2 / 0.83 across its three problems). Not rewritten.
 """Read-only plan check (v3, m22): the v3 trust-region floor rule on the two degenerate cases.
 v3 rule, tested ONLY on the rejection branch (after Delta was shrunk): (1) 'objective_floor' iff
 |pred| <= C_RES * eps_mach * ||w*y|| * ||w*r|| (f's evaluation resolution, from kind.sumsq -- geometry/T3-agnostic);

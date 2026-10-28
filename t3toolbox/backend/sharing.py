@@ -752,7 +752,10 @@ def fv_tied_lift_factors(
 
     - **Exactness.** At ``eps = 0`` the tied lift satisfies ``DPhi[L v] = E v`` on tied coordinates wherever
       the stacked ``M_g`` has full column rank, which is the shared analogue of a numerically full-rank frame
-      (the group spectrum ``s_g`` is the Jacobian spectrum of the shared factor, ``docs/sharing.md``).
+      (the group spectrum ``s_g`` is the Jacobian spectrum of the shared factor, ``docs/sharing.md``). That is
+      sufficient, not necessary: the group part stays exact at a zero-padded restart too (a tied tangent's group
+      coordinates lie in the range of ``M_g``, so the filter's zeros lose nothing; measured 8.8e-16), while the
+      singleton Tucker and TT slots carry the unshared lift's caveat (exact on a numerically full-rank frame).
     - **Padded restarts.** A zero-padded shared restart's new ``s_g`` levels are zero, so their filter is
       exactly 0: the gated tied channel gets no curvature in the new directions, as it gets no first-order
       motion; the escape through the TT variations (their per-bond lift) is untouched.

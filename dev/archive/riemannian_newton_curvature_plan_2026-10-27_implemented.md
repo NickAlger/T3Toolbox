@@ -1,3 +1,15 @@
+> **RESOLVED — IMPLEMENTED in 2026.3.0 (slices S0c–S13, 2026-10-25 → 2026-10-27); archived at S13.** This is the
+> design plan ("DP") the implementation plan `dev/riemannian_newton_curvature_impl_plan.md` built on: the target it
+> proposed — level 2, the exact Riemannian Hessian by a hand-written two-hole sweep — is what shipped, as
+> `newton_cg(hessian='exact')` with a Steihaug–Toint trust region, for every sampling kind on every geometry and
+> representation. Where it and the code disagreed, the implementation plan's "Conflicts" table (X1–X18) records the
+> resolution (notably: DP §4.6's "hvp of pure gauge = 0" is false under the orthogonal Π, F8; the cost is ≈ 3× GN, not
+> 2–2.5×; jvp/FD are oracles only). The durable record is `docs/fitting_and_optimization.md` §4.12 (users) and
+> `docs/contributor/curvature_internals.md` (contributors); the measurements are in
+> `docs/contributor/verification_records.md`. Its dense oracles (`dev/curvature_oracles/`) are archived beside it as
+> `dev/archive/curvature_oracles_2026-10-27/` (folded into T7 / T9 and the exact oracle sweep). Line references below
+> are to `45c6742` and are historical.
+
 # Curvature in the Newton subproblem — from Riemannian Gauss–Newton to Riemannian Newton on the T3 manifold
 
 > **STATUS: PROPOSED (2026-10-25). Nothing implemented.** Decision with Nick (2026-10-25): the target is

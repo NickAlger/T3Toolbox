@@ -1,3 +1,4 @@
+# PREDATES the S3b API (2026-10-27): written against the dense `trs` jet kernels (`trs=` arguments, `sd.binomial_combine_tensor`, the `*_trs` twins), which S3b removed (now `tests/_jet_trs_twins.py`); kept as the record of the plan-time evidence, not rewritten. The shipped kernels are pinned by tests/backend/test_curvature.py.
 """Read-only plan check (v5, P5): the probe_derivatives exact/GN cost with every dotted kernel in the HOUSE-STANDARD form
 of its GN counterpart: (a) dotted adjoint sweep = the product rule of `_adj_tilde_step` (prop as the two-term reverse
 recurrence, src as the order scan) -- three calls of the production step per core (K squeezed so the production step

@@ -56,6 +56,7 @@ def geometry_for(rep, geom_name, shared, sharing):
 
 
 def run_case(d, rep, geom_name, shared, kind, order, wspec, regspec, seed=11):
+    np.random.seed(seed)    # local change (2026.3.0): the global stream (geom.randn, randn shapes) is seeded per case
     x, sharing, sample, weight, y = setup(d, shared, kind, order, wspec, seed)
     reg = IdentityRegularizer(LAM) if regspec else None
     geom = geometry_for(rep, geom_name, shared, sharing)

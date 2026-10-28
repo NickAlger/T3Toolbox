@@ -1,3 +1,12 @@
+> **ARCHIVED at S13 (2026-10-27) — folded into the test suite.** The dense oracles below backed the design plan
+> (now `dev/archive/riemannian_newton_curvature_plan_2026-10-27_implemented.md`). The library's exact Hessian is now
+> pinned by tests against the real `MANIFOLD` / `tv_retract` surface: T7 (`<p, H p>` is the second derivative along the
+> T3-SVD retraction — the second-order property `check_t3svd_retraction_second_order.py` establishes) and T9 (the dense
+> Lagrangian Hessian) in `tests/backend/test_curvature.py`, the shared retraction's measured second order there too, and
+> `tests/oracle_sweeps/sweep_exact.py` (the extrinsic Weingarten form through exact Jacobians — the dense
+> generalization of `check_tucker_weingarten.py`). The scripts still run standalone (no t3toolbox import); paths in
+> them and below are as they were.
+
 # `dev/curvature_oracles/` — dense oracles for the curvature (Weingarten) term
 
 Standalone numpy scripts (no `t3toolbox` import, no jax) backing the derivations in

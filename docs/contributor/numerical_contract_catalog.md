@@ -106,6 +106,7 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 | op | precondition | note |
 |---|---|---|
 | `gradient`, `gn_hessian(p)`, `jacobian(p)`, `gn_quadratic(p)`, `evaluate(p)` | **SF** (`p` vs `model.frame`) | today `_require_at_frame` identity → `same_frame`. The frame's ORTH (manifold) is guaranteed by `geometry.frame(x)` at construction — a *construction invariant*, not a per-op check. `evaluate`/two-form use `corewise_inner` (coordinate metric), so **SF**, not HS. |
+| `hessian(p)`, `quadratic(p)`, `curvature_hessian(p)`, `curvature_quadratic(p)`, `retract(p)` (2026.3.0) | **SF** | no new enforced precondition; `curvature_*` on a Gauss-Newton model and a kind / geometry without the exact-mode members are **structural** errors. The exact Hessian's caveats (never checked): exact at ε = 0 on numerically full-rank points, damped toward Gauss-Newton for σ ≲ ε; a hand-built wide `T_i` gives a least-squares lift (every `t3_orthogonal_representations` frame gives an exact one-sided one); shared: exact where `s_g > 0`; `N ≡ 0` on flat slots; `objective_floor` is a resolution limit, not a convergence certificate; the zero reference is a convention good to an O(1) factor. User statement: `numerical_contracts.md` §"The exact Hessian". |
 
 ### `TuckerTensorTrain`, `corewise`, `probing` — **precondition-free**
 | surface | precondition | why |

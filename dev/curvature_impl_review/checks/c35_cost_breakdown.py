@@ -1,3 +1,4 @@
+# PREDATES the S3b API (2026-10-27): written against the dense `trs` jet kernels (`trs=` arguments, `sd.binomial_combine_tensor`, the `*_trs` twins), which S3b removed (now `tests/_jet_trs_twins.py`); kept as the record of the plan-time evidence, not rewritten. The shipped kernels are pinned by tests/backend/test_curvature.py.
 """Read-only plan check (v5, P5 / F20 re-basing): where the prototype two-hole's time goes, by FORM. Only the dotted
 adjoint sweeps differ in form from the house standard (prototype: dense trs on all six terms; standard: the GN
 counterpart's form -- prop as a two-term reverse recurrence, src as an order scan, `_adj_sweep_scanned`). The dotted

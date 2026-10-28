@@ -30,6 +30,37 @@ cross-references.)
   which is what the `use_jit` per-optimizer parameters and the close-over recipe deliver. Source:
   `dev/archive/jit_oo_handoff.md`.
 
+- **The exact Hessian by automatic differentiation** (2026.3.0). Rejected as the shipped route, kept as an
+  oracle. Differentiating *through the T3-SVD* (the "level 3" Hessian of `f ∘ R`) is expensive, numerically
+  fragile at the near-degenerate points continuation lives at, and unnecessary: the T3-SVD retraction is
+  second order, so the Riemannian Hessian is the Lagrangian form the hand-written two-hole sweeps compute
+  exactly. A `jax.jvp` of the corewise transpose and a polynomial finite difference are the **test oracles**
+  (`TestCurvatureJvpOracle` in `tests/test_dispatch.py`; the block-sum and dense oracles of
+  `tests/backend/_curvature_oracles.py`), never a production path — the jvp would make the numpy path
+  jax-dependent and give up the factored, chunked assemblies. Source: the implementation plan's non-goals and
+  X6 (`dev/riemannian_newton_curvature_impl_plan.md`, live until the release).
+- **A capability flag for the exact Hessian (`has_corewise_hessian`)**. Rejected (I-14): `corewise_hessian`
+  is not optional for the feature that uses it — it is the derivative of `transpose`, part of what a kind
+  *is* once exact Newton exists — so it is a **required sixth operation** with the same `NotImplementedError`
+  guidance as the other five, checked structurally and early (the stdlib `abc.abstractmethod` marker) by
+  `Problem.local_model(hessian='exact')`. The house's one capability flag, `has_block_sumsq`, gates a display
+  that can degrade gracefully, which the exact mode cannot.
+- **A `LocalContext` bundle of the kind-operation arguments** (for now). `forward` / `transpose` /
+  `corewise_hessian` keep their positional `(…, sample, frame, sweep[, base_point])` arguments; bundling them
+  is a later rethink of the kind protocol (Nick, 2026-10-26), not part of the exact Hessian.
+- **The damping as a geometry field.** Rejected (I-22): it changes how the solver approaches the problem,
+  not the set optimized over, so it is a solver option threaded to the call that reads it
+  ([`parameters_not_closures.md`](parameters_not_closures.md) §"Options are not parameters").
+- **Other completions for the zero-reference frame** (I-29, adopted the seeded, keyed, nested Haar recipe —
+  [`curvature_internals.md`](curvature_internals.md)). (a) A coordinate-aligned completion (an identity
+  prefix, or LAPACK's completion of a zero core): rejected, because it gives a reference of **exactly 0**
+  on data with no energy on the leading coordinates. (b) `'warm_start'` as the default with `'zero'` opt-in:
+  rejected, because it keeps the continuation deflation the zero reference was introduced to remove (every
+  warm-started level ran to its cap at the default `gtol_rel`). (c) Per-mode seeds: equivalent to the
+  adopted per-group keying (a singleton group is its mode). A possible later refinement, not planned:
+  averaging the reference over a few seeds (each draw is a one-sweep estimate of a frame-averaged norm; the
+  O(1) seed spread is that estimate's sampling variance).
+
 ## Deferred (would be built if the need materializes)
 
 - **Per-axis uniform `sum_stack(axis=)`** (review H2-7; ruled defer + document, 2026-08-24). Ragged
@@ -161,3 +192,65 @@ cross-references.)
   `_ut3_left_orthogonalized` helper, so filling the gap means promoting that helper into real
   `ut3_norm`/`ut3_inner` and having the frontend + weighted twins delegate. Source:
   `weighted_internals.md` (S1), `backend/ut3_linalg.py`.
+
+- **Normal-space sector norms — deferred** (I-13, Nick 2026-10-26). The curvature term's normal-space operand Z
+  (the misfit gradient's ambient lift) splits into 2^d sectors `E_S = ⊗_k (U_k^⊥ if k ∈ S else U_k)`. The tangent
+  space sees `∅` (the core) and the singletons `{k}` (the Tucker slots). So the normal part decomposes as
+  `‖N_core‖² = ‖P_∅Z‖² − ‖H^grad‖²`, `‖N_k‖² = ‖P_{k}Z‖² − ‖V_k^grad‖²`, and `‖N_{≥2}‖²` as the remainder. Per
+  sector, they would say where the data pull leaves the manifold: a rank-continuation signal and a curvature
+  diagnostic. Two routes: an exact Gram route, `O(m²dN)`, for apply/entries; and unbiased rank-one Gaussian
+  probing, `E[⟨Z, P_S(⊗y_j)⟩²] = ‖P_S Z‖²`, for every kind. Deferred because the always-on diagnostics (Δ, ρ, κ,
+  σ_min) cover the solver's needs, and rank continuation already reads the t3svd unfolding condition numbers.
+- **The Newton schedule — an open, empirical question** (I-36, Nick 2026-10-27). Gauss-Newton vs the exact
+  Hessian as the continuation default, when to switch between them, the forcing power: to be settled by an
+  A/B run over a battery of examples, after the implementation. Nick leans **exact with the warm start** (a
+  warm-started level starts much closer to the quadratic basin than the cold starts S0b measured); still
+  missing are GPU timings and the Hessian-apply cost weighed against the per-iteration retraction and frame
+  construction. **Built now: the override hooks** — every schedule knob is a per-call `newton_cg` keyword, so a
+  continuation loop (and a future `fit(...)` facade) can run a per-level schedule; cold / zero starts remain a
+  user option (I-37). The inputs gathered so far (records in `dev/curvature_impl_review/shared_exp/`, numbers
+  in [`verification_records.md`](verification_records.md)): on the restart template Gauss-Newton's rate
+  constant `ρ(H_GN⁻¹K)` at the minimizer is ≈ 0.7 shared or unshared, exact's gain is the same size either way
+  (3.5–5× fewer outer steps, 5–6.6× fewer CG, 1.6–2× wall), and tying more factors leaves the rate flat;
+  downstream (T3Polynomial) exact is superlinear in the tail (6 vs 30+ steps) but from zero-padded *cold*
+  starts it can pick a worse basin and is radius-limited early. Thin: one setup, numpy, a handful of seeds.
+- **Exact-Newton refinements** (2026.3.0; each reachable from the shipped pieces). *Storing* the
+  residual-dependent curvature state per model instead of recomputing it per Hessian-apply (I-11: ~+60 % of the
+  jet sweep resident for ~10–15 % of the two-hole; the T/S transforms of
+  [`curvature_internals.md`](curvature_internals.md) are how); a **preconditioner** for the inner CG, LM damping
+  or an NL2SOL-style β (the trust region bounds the step, not the CG count; 3–8 Hessian-applies per step were
+  measured); a **per-mode** lift damping `ε`; reusing the shared companion's **centers** across the projection
+  and the lift (I-21: not reused, recomputed by zipper); a **curvature-carrying regularizer hook** (m19: the
+  curvature uses the misfit gradient because `∇ρ` is tangent for ridge and weight decay; a Grasedyck–Kramer
+  prior would need an optional `Regularizer.normal_gradient`); an **η floor** and an **objective-plateau stop**
+  (J-12: the trust region's `objective_floor` covers the resolution limit, not a slow plateau); `tr_radius0`
+  carried across continuation levels (today each level recomputes `Δ0`); a zero **start** using the canonical
+  zero-point frame too (J.13 / I-31: it would make zero-start trajectories layer-independent, but changes
+  today's zero-start numerics — left as is, to investigate); routing the frontend exact `hessian(p)` through
+  the backend `hvp` (one projection instead of two: bitwise equal to the backend instead of to rounding).
+- **No W-chunked path for the apply / entries (and their derivative) transposes and two-holes** (2026.3.0).
+  `chunk_size='auto'` resolves to `None` for the five kinds other than `probe_derivatives`, in both modes: their
+  Gauss-Newton transposes have no chunked path, so neither do their exact two-holes, which peak at ~2× the
+  unchunked transpose (jax uniform f32, measured 1.85–2.1×). The probe-derivative chunking pattern
+  (`_wchunked_sum` over module-level chunk bodies) is the recipe if a large-`|W|` apply fit ever needs it.
+- **Chunk-estimator edges** (backlog). `_wchunked_sum` roughly doubles the peak when `W` leaves a near-full
+  remainder chunk (pre-existing, Gauss-Newton too); and on current XLA a leftover chunk (`W` not a multiple of
+  `chunk_size`) is allocated on top of the full chunk, so `max_chunk_size_within` can overshoot its budget by up
+  to ~2× (found on the jax-0.4.30 CI leg). The balanced policy is unaffected in the usual case (it returns `W`).
+- **The uniform tied projection's clip** (S9, a follow-up slice). `ufv_share_tucker_variations` — the shared
+  uniform manifold's Gauss-Newton `project` — still clips at the PADDED dims and does not mask padded `s_g`
+  levels, unlike the tied lift (which clips at the REAL dims × the group rank mask). A level between the two
+  clips (~1e-15 relative) is kept by the lift and the ragged layer but dropped by the projection — 17 % off
+  ragged at a near-singular point, which the equivalence contract exempts — and the projection is not robust
+  to garbage in a *hand-built* companion's padded levels (no library path builds one; at the default damping
+  the Hessian cannot see the difference). Deferred because the fix touches Gauss-Newton code and needs its own
+  bit-identity run.
+- **The operand-scaled gauge check's follow-ups** (S7b; [`curvature_internals.md`](curvature_internals.md)).
+  Carry the operand scale through `normalized` / `sum_tangents` / `unstack_tangents`; give `UT3Tangent` a
+  `__truediv__` (ragged has `/`); and a faster `corewise_stack_norm` would remove most of the safe-mode `±`
+  cost (a leaf add 55 → 314 µs at 3.2k dof).
+- **Small dtype / dispatch leftovers** (backlog). The plain `probe` / `apply` / `entries` ops still build
+  default-dtype scan inits and promote float32 inputs to float64 under x64 (the jet kernels were fixed in
+  2026.3.0); `sharing.fv_share_tucker_variations` infers the redistribution's backend from the variations only
+  but the solve's from all inputs (a mixed numpy / jax call returns numpy through a jax float32 solve —
+  harmless, but the two should agree).

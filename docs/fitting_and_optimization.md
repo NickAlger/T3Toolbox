@@ -101,10 +101,10 @@ True
   | key | meaning |
   |---|---|
   | `losses` | the objective at each iterate (`losses[k] == history[k]['objective']`) |
-  | `newton_steps` | CG solves — the history rows that took a step (named `newton` before 2026.3.0) |
-  | `newton_accepted` | steps taken (`newton_steps`, minus an Armijo-exhausted rejection under `on_line_search_failure='stop'`) |
-  | `stop_reason` | `'gradient'` (the relative stop fired), `'max_newton'` (the cap), or `'line_search'` (Armijo exhausted) |
-  | `history` | one scalar row per iteration (`backend.optimizers.NewtonInfo`), including the reference kinds `g0_reference` / `cg_reference` (§5), `step_control`, and `stop_reason` on the last row |
+  | `newton_steps` | CG solves — the history rows that took a step, rejected trust-region trials included (named `newton` before 2026.3.0) |
+  | `newton_accepted` | steps taken: `newton_steps` minus the rejections (an Armijo-exhausted step under `on_line_search_failure='stop'`, or a rejected trust-region trial) |
+  | `stop_reason` | `'gradient'` (the relative stop fired), `'max_newton'` (the cap), `'line_search'` (Armijo exhausted), or — trust region only, §4.12 — `'objective_floor'` (the attainable accuracy is reached: **not a failure**) / `'trust_region_floor'` (the radius collapsed) |
+  | `history` | one scalar row per iteration (`backend.optimizers.NewtonInfo`), including the reference kinds `g0_reference` / `cg_reference` (§5), `hessian`, `step_control`, the trust-region fields (`tr_radius`, `tr_accepted`, `cg_boundary`), the exact-mode diagnostics (`pKp`, `lift_sigma_min`, `lift_eps`; §4.12), and `stop_reason` on the last row |
 
 - **Live diagnostics (`newton_cg`):** `newton_cg(..., verbose=True)` prints a per-iteration block —
   objective / gradient norm, CG iterations / tolerance / status, line search, the actual-vs-predicted
@@ -112,7 +112,7 @@ True
   `val_sample`/`val_data` to add a validation column. The records are also returned in
   `stats['diagnostics']`. The table layout follows the kind's axes — plain probe has modes in columns,
   `probe_derivatives` has modes × orders. Worked demo (both layouts): `examples/fit_probe_display.py`.
-  Backend users get the identical display via `backend.optimizer_display.make_newton_display` +
+  An exact-Hessian run adds its trust-region and curvature columns (§4.12). Backend users get the identical display via `backend.optimizer_display.make_newton_display` +
   `backend.optimizers.newton_cg(..., callback=...)`.
 - **Kind** is a string: `'apply'` / `'entries'` / `'probe'`, or `'apply_derivatives'` /
   `'entries_derivatives'` / `'probe_derivatives'`.
@@ -128,8 +128,11 @@ True
   is `½λ‖x‖²`, and composes with every optimizer / geometry / kind.
 - **Derivative kinds** take keyword `order` (highest derivative order). `mc_sgd`/`adam` also take `draw`
   (§2.3).
+- **`hessian='exact'`** (`newton_cg` only) solves with the exact Riemannian Hessian under a trust region
+  instead of Gauss-Newton under a line search — the superlinear Newton tail on a nonzero-residual fit
+  (§4.12).
 
-### 2.2 Build the Gauss-Newton model (roll your own optimizer)
+### 2.2 Build the local model (roll your own optimizer)
 
 If you want to write your own iteration (a custom trust region, a different line search), grab the model:
 
@@ -157,6 +160,31 @@ additionally take `order` + optional `weight`; see §4.6). The model is generic 
 `t3m.MANIFOLD` or `t3m.COREWISE`. Everything in
 and out is a `T3Tangent` at `model.frame`. The frame sweep is computed once and reused across every
 `gradient`/`gn_hessian`/`evaluate` (so an inner CG pays for it once, not per matvec).
+
+Every factory also takes `hessian='gauss_newton'` (the default) or `'exact'`, and the model it returns is a
+`fitting.LocalModel` in that **mode** — derived, never stored: `model.is_exact`. The exact model adds the
+curvature term of §4.12 to the Hessian actions and leaves everything else as it was:
+
+| member | Gauss-Newton model | exact model (`hessian='exact'`) |
+|---|---|---|
+| `objective_value`, `gradient`, `jacobian(p)` | `½‖ω⊙r‖²` (+ `ρ`), `Π𝒥ᵀω²r` (+ `g_R`), `𝒥Πp` | the same (the gradient bit for bit) |
+| `gn_hessian(p)`, `gn_quadratic(p)` | the Gauss-Newton action / form | the same — the Gauss-Newton term alone |
+| `hessian(p)`, `quadratic(p)` | `gn_hessian(p)`, `gn_quadratic(p)` | plus the curvature term: the exact Riemannian Hessian |
+| `curvature_hessian(p)`, `curvature_quadratic(p)` | raise (structural) | the curvature term alone (it can be negative) |
+| `evaluate(p)` | `c + gᵀp + ½ gn_quadratic(p)` | `c + gᵀp + ½ quadratic(p)` |
+| `retract(p)` | `geometry.retract(p)` at the model's frame | the same |
+
+```python
+>>> emodel = fitting.apply_model(t3m.MANIFOLD, x, ww, residual, hessian='exact')
+>>> emodel.is_exact, model.is_exact
+(True, False)
+>>> bool(np.allclose(float(emodel.quadratic(v)),                    # exact = Gauss-Newton + curvature
+...                  float(emodel.gn_quadratic(v) + emodel.curvature_quadratic(v))))
+True
+>>> bool(np.allclose(float(emodel.quadratic(v)), float(v.corewise_inner(emodel.hessian(v)))))
+True
+
+```
 
 ### 2.3 Custom minibatching — the `draw`
 
@@ -226,7 +254,10 @@ shared-factor submanifold, and every optimizer works on it unchanged. See [`shar
   concrete kind (`ApplyKind`, `ProbeKind`, a `*DerivativesKind`) you override only what differs; from
   `ScalarOutputKind` or `ProbeOutputKind` — pick the one matching your output shape, and you inherit the
   `‖·‖²` reductions — you supply the five operations plus `w_axes` / `n_measurements`; from bare
-  `SamplingKind` you supply all nine. Each unimplemented one raises with a message saying so.
+  `SamplingKind` you supply all nine. Each unimplemented one raises with a message saying so. A sixth
+  operation, `corewise_hessian` (the derivative of `transpose` in the raw cores — §4.12), is needed only for
+  `hessian='exact'`: a kind without it works for Gauss-Newton, and an exact model rejects it up front with a
+  structural error naming the operation.
   Keep your parameters as dataclass **fields**: a kind rides as jax `aux_data`, so its hash/eq are part
   of the compilation cache key, and fields give you value identity (a rebuilt kind is the *same* key, a
   differently-parameterized one is not) for free. A parameter stashed on the instance instead of
@@ -247,13 +278,20 @@ shared-factor submanifold, and every optimizer works on it unchanged. See [`shar
   (`geometry_aux`) — [`contributor/precompute_and_caching.md`](contributor/precompute_and_caching.md). One more member is
   **optional** (looked up duck-typed): `zero_point_frame(frame)`, the canonical frame at the zero tensor
   where the default Newton reference is evaluated (§5). The manifold geometries define it, the corewise
-  ones return `None`, and a custom geometry without it gets the warm-start reference.
+  ones return `None`, and a custom geometry without it gets the warm-start reference. The exact Hessian
+  (§4.12) needs four more, checked only when `hessian='exact'` asks for them: `curvature_precompute`, `lift`,
+  `lift_transpose` and `tangential_curvature` (the `Geometry` protocol documents them); the four built-in
+  geometries, and their shared wrappers, have them.
 - **`Problem` + `backend.optimizers.LocalModel`** (`backend/optimizers.py`) — the backend oracle.
   `Problem(geom, kind, sample, data)` is **layout-agnostic**: `local_model(x [, sample_B, data_B])`
   linearizes at a point on the full data or an explicit minibatch, returning a
   `backend.optimizers.LocalModel` with `.gradient` / `.objective` / `.hvp` / `.gn_quadratic` /
-  `.retract`. The frame sweep is computed once and shared. **`fitting.LocalModel`** (`fitting.py`) is
-  its interactive frontend twin (same name, one level up; `T3Tangent` in/out), verified bit-identical.
+  `.retract` / `.quadratic` (the mode's form; built with `hessian='exact'` it adds the curvature term, and
+  `.curvature_hvp` / `.curvature_quadratic` give that term alone; §4.12). The frame sweep is computed once and shared. **`fitting.LocalModel`** (`fitting.py`) is its
+  interactive frontend twin (same name, one level up; `T3Tangent` in/out), verified bit-identical — except
+  the exact `hessian(p)`, which sums its two gauged halves (`gn_hessian(p) + curvature_hessian(p)`) where
+  the backend `hvp` projects once, so the two agree to rounding (~1e-12), not bitwise; the curvature actions,
+  the gradient and the quadratic forms are bitwise.
   To get a `Problem` from the frontend vocabulary (a geometry singleton, a kind name, `order` / `weight`,
   a ragged or uniform `x0`) — say, to drive a backend optimizer or build local models in a research
   script — call **`optimizers.least_squares_problem(geometry, kind, sample, data, x0, ...)`**, the
@@ -285,6 +323,11 @@ to the affine tangent space `x + T_xM`, not a second-order approximation. Two pr
 consequences: the only approximation in a Newton-CG fit is the manifold linearization itself (the
 model is trustworthy at any step size the retraction tolerates), and dense ground-truth oracles can
 check the model to machine precision (~1e-13) — which is how the fitting layer is verified.
+
+**The qualifier:** the Gauss-Newton model is exact on the *affine tangent space*, not on the manifold. The
+manifold curves away from its tangent space, and where the residual is nonzero that curvature is a
+genuine second-order term of the objective along the retraction; Gauss-Newton drops it, and converges
+linearly at a rate it sets. `hessian='exact'` adds it (§4.12).
 
 ### 4.3 Frame-sweep reuse: inner iterations are cheap
 
@@ -468,6 +511,122 @@ about one layer at a time, not a promise that the two layers will track each oth
 representations, start nonzero. (The optimizers' *reference* `‖g₀‖` is not part of this divergence: it
 is evaluated at a canonical zero-point frame whose real blocks are the same on both layers — §5.)
 
+### 4.12 The exact Hessian and the trust region
+
+`newton_cg(..., hessian='exact')` solves each Newton step with the **exact Riemannian Hessian**,
+
+```
+H p = Π𝒥ᵀω²𝒥Π p  +  Π Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π p  (+ H_R p)
+```
+
+the Gauss-Newton term plus the manifold's curvature (the Weingarten term of Absil, Mahony & Trumpf 2013):
+`L` lifts the gauged frame coordinates to raw core directions, `K_{Aᵀω²r}` is the kind's
+`corewise_hessian` (the derivative of its corewise transpose at the fixed weighted residual) and
+`K_{grad f}` the same second derivative of `⟨grad f, Φ(θ)⟩` at the misfit gradient — together, the
+residual's normal part paired with the manifold's second fundamental form. On a corewise geometry it is
+the plain Hessian of `f ∘ Φ` in the cores (no lift, no gradient term). Every sampling kind implements it,
+on every geometry and representation — `MANIFOLD` / `COREWISE`, the uniform twins and the shared wrappers
+of all four. The same `hessian='exact'` builds an exact `fitting.LocalModel` from any `*_model` factory
+(§2.2) or an exact backend model from `Problem.local_model`.
+
+**When it helps.** On a **nonzero-residual** fit — noisy data, or a target the ranks cannot represent —
+Gauss-Newton converges linearly, at a rate set by the term it drops (on the history rows, `|1 − ρ|` and the
+ratio of successive gradient norms both measure it), while the exact Hessian gives the Newton tail. On a
+probe-derivative continuation restart (orders 0–2, 5 % noise, rank 2 → 3), Gauss-Newton with its line
+search took 39 steps and 130 Hessian-applies, the exact Hessian with its trust region 10 and 28; on a
+seeded set of shared and unshared restarts of one such problem, 3.5–5× fewer outer steps and 5–6.6× fewer
+CG iterations, 1.6–2× less wall time. Where the residual vanishes at the solution (noise-free data at the
+true ranks) Gauss-Newton is already fast and the curvature term only adds cost. Far from a minimizer — a
+cold zero start, or the first steps after a zero-padded restart — the exact Hessian can be indefinite, so
+the trust region limits the early steps, and it can settle in a different local minimum than Gauss-Newton
+would (measured downstream from a zero-padded restart: a verified minimum about 12 % above Gauss-Newton's).
+A Gauss-Newton warm start followed by exact steps is the natural pattern — the schedule is yours to choose
+(every knob is a `newton_cg` keyword, per call).
+
+```python
+>>> np.random.seed(1)
+>>> target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))     # rank 3: our rank-2 fit cannot match it
+>>> y = [z + 0.01 * np.random.randn(*z.shape) for z in target.probe_derivatives(ww3, pp3, 1)]
+>>> xw, _ = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww3, pp3), y, x0, order=1, max_newton=8)
+>>> kw = dict(order=1, max_newton=60, gtol_rel=1e-10, g0_reference='warm_start')   # a tight stop, from xw
+>>> _, gn = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww3, pp3), y, xw, **kw)
+>>> _, ex = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww3, pp3), y, xw, hessian='exact',
+...                        cg_forcing_power=1.0, **kw)
+>>> gn['stop_reason'], ex['stop_reason']          # Gauss-Newton stalls on its line search, linear to the end
+('line_search', 'gradient')
+>>> ex['newton_steps'] < gn['newton_steps'] / 2
+True
+>>> row = ex['history'][0]
+>>> row['hessian'], row['step_control'], row['tr_accepted']
+('exact', 'trust_region', True)
+
+```
+
+**The API.** Four `newton_cg` keywords, the same on the frontend and the backend:
+
+| keyword | default | meaning |
+|---|---|---|
+| `hessian` | `'gauss_newton'` | `'exact'` for the exact Riemannian Hessian (case-insensitive) |
+| `step_control` | `None` | `'line_search'` (Armijo along the retraction; the Gauss-Newton default) or `'trust_region'` (the exact default, since the exact Hessian is indefinite away from a minimizer); either works with either Hessian |
+| `tr_radius0` | `None` | the initial trust radius `Δ0`; `None` is the Gauss-Newton Cauchy step length `‖g‖³/⟨g, H_GN g⟩` |
+| `curvature_damping` | `None` | the lift's damping `ε`, relative to `‖X‖_HS`; `None` is the geometry's default `1e-6` |
+
+An option where it would have no effect raises (structural): `tr_radius0` with the line search,
+`on_line_search_failure='accept'` with the trust region, `curvature_damping` with Gauss-Newton or on a
+corewise geometry. The trust region is Steihaug–Toint: CG inside `‖p‖ ≤ Δ` steps to the boundary on
+nonpositive curvature or when it would leave the region, then **one** trial retraction is accepted iff
+the actual-over-predicted decrease `ρ > 0.1`; `Δ` shrinks to `¼‖p‖` when `ρ < 0.25` and doubles (capped at
+`10⁴·Δ0`) when `ρ > 0.75` on a boundary step. A rejected trial keeps `x` and its local model, and counts
+toward `max_newton`.
+
+**The forcing power.** `cg_forcing_power` is `0.5` by default in **both** modes. With `hessian='exact'`,
+`cg_forcing_power=1.0` gives the **q-quadratic** tail (measured: `e_{k+1} ≤ 0.92·e_k²` over the asymptotic
+steps), and `0.5` a superlinear one of order about 1.5 — less CG per step, a step or two more.
+
+**Cost.** An exact Hessian-apply costs about 3–4× a Gauss-Newton one (measured 2.8–3.9× on numpy CPU
+across the six kinds and two problem sizes; 1.9–3.5× on downstream probe-derivative fits); its memory peak
+is about twice the Gauss-Newton transpose's. Per Newton step the model does **one** misfit transpose
+(shared by the gradient and the curvature term) plus one small T3-to-T3 sweep and `d` small SVDs; it adds
+no `W`-sized state. Under `use_jit=True` the exact CG compiles once per run, like Gauss-Newton's (about
+1.5× the compile time). For a uniform `probe_derivatives` fit — the one chunked path — `chunk_size='auto'`
+sizes the chunk so the exact Hessian's assembly fits too ([`chunking.md`](chunking.md)); ragged fits and the
+other five kinds do not chunk, in either mode.
+
+**Restarts need nothing special.** From a zero-padded continuation restart ([`rank_continuation.md`](rank_continuation.md))
+the new directions have zero singular values; the lift's clipped pseudo-inverse drops them (the Hessian
+is Gauss-Newton in those directions, while the gradient still moves along them) and the trust region
+bounds the step, so exact mode runs from the restart as from any other point (on a shared geometry, see
+[`sharing.md`](sharing.md)); it can still settle in a different local minimum than Gauss-Newton from
+there ("When it helps" above). The exact model is also exact at frames that are not minimal (Tucker or TT
+slack), and the backend `newton_cg` runs from them without reducing them (the frontend reduces a ragged
+manifold `x0` to minimal ranks first, in either mode).
+
+**Reading the display.** With `verbose=True` an exact trust-region row prints its step segment as
+`TR Δ … ✓` (accepted) or `✗` (rejected — the next row starts from the same point), CG's status `∂` for a
+boundary stop, and appends `κ σ ε`:
+
+- `κ = pKp / (pHp − pKp)` — the curvature term's curvature along the step relative to the Gauss-Newton
+  term's (`pKp` in the history; `pHp − pKp` is the Gauss-Newton part). Near 0, Gauss-Newton would have predicted the step well; `|κ|` of order 1 or more is where
+  the exact Hessian earns its cost.
+- `σ` (`lift_sigma_min`) — the smallest singular value the lift inverts (the bond and Tucker spectra; a
+  shared group's spectrum `s_g` in place of its modes' own). The curvature term carries `1/σ`, so the
+  quadratic model's validity radius is about `σ`: a small `σ` means a nearly rank-deficient point, where
+  the Hessian is strongly indefinite and the trust region stays small.
+- `ε` (`lift_eps`) — the absolute lift damping, `curvature_damping · ‖X‖_HS`: the Hessian is exact in the
+  directions with `σ ≫ ε` and damped toward Gauss-Newton in those with `σ ≲ ε`.
+
+The last row reads `| stop: <reason>` when the run did not end on the gradient test. **`objective_floor`
+is not a failure**: a rejected trial predicted a change below the objective's floating-point resolution,
+so the attainable accuracy is reached (the gradient test simply cannot fire at that tolerance);
+`trust_region_floor` means rejections drove `Δ` below `10⁻¹²·Δ0`.
+
+**Where the curvature vanishes.** The curvature term lives where the representable set is curved. At a
+slot of **maximal** rank (a Tucker rank equal to its mode size, a TT rank equal to the product of its
+neighbours) the set is flat in that slot's directions and the term has no component there; at `d = 1`
+every slot is maximal, so on the manifold geometries the exact model *is* Gauss-Newton (it skips the
+work), while the corewise `d = 1` exact Hessian is still the plain Hessian of `f ∘ Φ`. No special case
+is needed in between: the formula gives zero there by itself.
+
 ---
 
 ## 5. Practical guidance from the field
@@ -539,6 +698,11 @@ repo, maintainer-local):
   Hessian-apply. The zero reference makes `η` tighter than a deflated warm start does (downstream
   continuation measured ~2× more CG work per step at high rank, for the same accuracy); that trade is
   accepted, and an `η` floor or an objective-plateau stop remain open questions.
+- **The Newton schedule is yours.** Gauss-Newton (the default) or the exact Hessian (§4.12), the forcing
+  power, the reference, the caps — every knob is a per-call `newton_cg` keyword, so a continuation loop can
+  run each level with its own schedule (e.g. Gauss-Newton until the step stalls, then exact; or exact at
+  every warm-started level). Which default is best is an open, empirical question; on the measured
+  restarts the exact Hessian paid off whenever the fit had a nonzero residual.
 - **A failed line search now stops the run (or, on request, pushes through).** If `newton_cg`'s
   Armijo search exhausts all 40 halvings, the objective's floor has been reached; the default
   `on_line_search_failure='stop'` rejects the step and terminates (the iteration's history row carries
@@ -578,6 +742,7 @@ repo, maintainer-local):
   [`rank_continuation.md`](rank_continuation.md) (growing ranks during a fit),
   [`sharing.md`](sharing.md) (the shared-factor geometries), [`weighting.md`](weighting.md) (edge
   weights and the Grasedyck–Kramer tangent metric), [`chunking.md`](chunking.md) (`chunk_size` for the
-  probe-derivative transpose).
+  probe-derivative transpose and its exact Hessian).
 - **Implementation rationale** (memory tradeoffs, einsum paths, deferred work):
-  [`contributor/fitting_internals.md`](contributor/fitting_internals.md).
+  [`contributor/fitting_internals.md`](contributor/fitting_internals.md); for the exact Hessian (the lift,
+  the two-hole sweeps, the masking rules, the measurements) [`contributor/curvature_internals.md`](contributor/curvature_internals.md).

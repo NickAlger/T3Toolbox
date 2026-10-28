@@ -120,6 +120,31 @@ above), and **select** the rank level that minimized a held-out validation error
 > [`fitting_and_optimization.md`](fitting_and_optimization.md) §5. Optionally raise `cg_forcing_power`
 > above `0.5` to spend more CG per Newton step when the retraction is expensive.
 
+**The per-level schedule is yours too.** Every Newton knob is a per-call `newton_cg` keyword, so the loop
+can give each level its own: `hessian='exact'` (the exact Riemannian Hessian with its trust region,
+[`fitting_and_optimization.md`](fitting_and_optimization.md) §4.12), `cg_forcing_power`, `max_newton`,
+`gtol_rel`, the reference. The exact mode needs **nothing special at a zero-padded restart**: the restart's
+new directions have zero singular values, the lift's clipped pseudo-inverse drops them from the curvature
+term (the Hessian is Gauss-Newton there, and the gradient still moves along them), and the trust region
+bounds the step — on a measured probe-derivative restart it took 10 steps where Gauss-Newton took 39 (from
+a zero-padded restart it can also settle in a different local minimum than Gauss-Newton would, §4.12). A
+sketch, with the schedule a function of the level (which schedule is the best default is still an open,
+empirical question):
+
+```python
+def schedule(level):                                       # your choice, per level
+    return dict(hessian='gauss_newton', max_newton=20) if level == 0 else dict(hessian='exact', max_newton=30)
+
+for level in range(max_levels):
+    X, stats = optimizers.newton_cg(t3m.MANIFOLD, kind, sample, data, X, **schedule(level))
+    ...                                                    # continuation_ranks / resize as above
+```
+
+A **cold start** stays available at every level: pass the zero tensor of the level's ranks
+(`TuckerTensorTrain.zeros(shape, new_tucker, new_tt)`) as `x0` instead of the `resize` warm start, in
+either mode. The default reference does not change — it depends only on the level's ranks, not on `x0` —
+so a cold and a warm start at the same level are measured against the same `‖g₀‖`.
+
 `continuation_ranks` returns the **current** ranks unchanged when continuation should stop — either the
 structure is already maximal, or every edge is too ill conditioned to grow safely (see `kappa_guard`
 below). Test for that as the loop does above.

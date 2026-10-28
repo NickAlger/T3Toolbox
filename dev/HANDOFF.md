@@ -1,27 +1,65 @@
 # T3Toolbox — current handoff
 
-_Updated 2026-10-27 (the curvature thread; the 2026-08-22 review thread below is unchanged)._ _Previously 2026-08-22._ _Previously updated 2026-08-21 and 2026-08-20, just after the 2026.1.0 release. The per-thread history of everything that went
+_Updated 2026-10-27, end of S13 (the curvature thread; the 2026-08-22 review thread below is unchanged)._ _Previously 2026-08-22._ _Previously updated 2026-08-21 and 2026-08-20, just after the 2026.1.0 release. The per-thread history of everything that went
 into 2026.0.0 and 2026.1.0 is archived at `dev/archive/handoff_2026-08-20_pre-2026.1.0.md` (and, for
 1.0, `dev/archive/handoff_2026-07-12_1.0_complete.md`); what each release contains is the CHANGELOG,
 and why it is the way it is is `docs/`. This file is where-we-are + what's next, nothing else._
 
-## Newest thread — the exact Riemannian Hessian for `newton_cg` (2026-10-25 → , toward 2026.3.0)
+## Newest thread — the exact Riemannian Hessian for `newton_cg` (2026-10-25 → 2026-10-27, toward 2026.3.0)
 
-**Where it stands (2026-10-27 evening):** slices S0c–S9 of `dev/riemannian_newton_curvature_impl_plan.md` are
-**committed and pushed** (one implementer + one independent reviewer per slice, records in
-`dev/curvature_impl_review/slices/`; deferred items in `slices/DEFERRED.md`): `hessian='exact'` runs end to end for
-`probe_derivatives` on every geometry × representation (ragged / uniform / uniform-jax, MANIFOLD / COREWISE, unshared /
-shared) — Steihaug–Toint CG + trust region, the zero reference, the operand-scaled gauge check (S7b, I-38). **In
-flight: S10+S11** (plain probe, apply, entries two-holes). Then S12 (the derivative kinds; delete the uniform window
-stub). CI: the jax-0.4.30 floor leg was red from S3b to S8 (compiler-dependent chunk costs; fixed 4c7616f) — every
-slice now also runs the estimator/dispatch tests on a jax-0.4.30 venv.
+**Where it stands (2026-10-27, end of S13): the curvature arc is COMPLETE through S13; next is S15a, then the PAUSE.**
+Slices S0c–S13 of `dev/riemannian_newton_curvature_impl_plan.md` are done (one implementer + one independent
+reviewer per slice; records in `dev/curvature_impl_review/slices/`, deferred items in `slices/DEFERRED.md`, every
+S13-tagged row disposed): `hessian='exact'` — the exact Riemannian Hessian under a Steihaug–Toint trust region — runs
+for **every sampling kind on every geometry × representation** (ragged / uniform / uniform-jax, MANIFOLD / COREWISE,
+unshared / shared), with the zero-tensor Newton reference, the operand-scaled gauge check (S7b), the `stats` keys, the
+public `optimizers.least_squares_problem` and the `LocalModel` rename. S13 wrote the arc's release-quality docs (user
+§4.12 in `docs/fitting_and_optimization.md`; the new contributor record `docs/contributor/curvature_internals.md`; the
+ledger, verification records, release notes; the consolidated CHANGELOG `[2026.3.0]`), the remaining tests (T28 in
+`tests/test_jax_absent.py`; `tests/oracle_sweeps/sweep_exact.py`, a dense extrinsic oracle in both tiers; the jvp
+oracle in `tests/test_dispatch.py`), and the `dev/` archive (the design plan, the G0 plan and `curvature_oracles/` are
+in `dev/archive/` with resolution banners). **No tag, no version bump** (CHANGELOG says `[2026.3.0] — unreleased`).
 
-**Order (Nick, 2026-10-27 19:33):** S12 → S13 (docs, CHANGELOG, the full gate incl. the slow tier **and
-`tests/backend/test_uniform_curvature.py`** + the jax-0.4.30 floor leg, the `dev/` archive; **no tag**) → S15a (a PRELIMINARY math note) → **PAUSE: the
-curvature arc is complete, stop and hand off** → **R, the post-curvature REORGANIZATION (`dev/reorg_scope.md`:**
-sampling / jetted-sampling layout, the fitting layer, the optimization layer — decoupling + a typed point / tangent /
-covector system) → S14 (T3Polynomial §K) → S15b (the math note's code references + the CHANGELOG updated for R)
-→ the release tag.
+**Release gate for this release** (CLAUDE.md names it): the full suite, module + page doctests on both numpy
+generations, `sphinx -W`, and the slow tier SERIALLY —
+`T3TOOLBOX_SLOW_TESTS=1 pytest tests/test_oracle_sweep.py tests/backend/test_uniform_curvature.py -q -p no:cacheprovider`
+— plus the jax-0.4.30 floor leg (the measured chunk costs depend on the jax release; the CI floor leg does not run the
+doc doctests when its test step fails, so run `docs/chunking.md` there by hand): on the py3.11 / numpy 1.26 / jax 0.4.30
+env, `PYTHONPATH=$PWD <floor-python> -m pytest tests/ -q -n auto -p no:cacheprovider` (the full suite; the quick
+targeted form is `tests/test_chunk_size_estimator.py tests/test_dispatch.py tests/backend/test_curvature.py
+tests/backend/test_uniform_curvature.py tests/test_jax_absent.py tests/test_oracle_sweep.py`), then
+`<floor-python> -m doctest $(ls docs/*.md docs/contributor/*.md | grep -v doctest_style.md)` and
+`docs/getting_started.rst`.
+
+**Order from here (Nick, 2026-10-27 19:33 / 19:37):** **S15a** (a PRELIMINARY math note `docs/exact_hessian_two_hole.tex`
++ `.pdf`, written from the code as it stands, a separate agent) → **PAUSE: stop and hand off** → **R**, the
+post-curvature REORGANIZATION (`dev/reorg_scope.md`: the sampling / jetted-sampling layout, the fitting layer, the
+optimization layer — decoupling + a typed point / tangent / covector system; planned by a writer/critic round,
+adjudicated by Nick) → **S14** (T3Polynomial, plan §K, against the post-R release candidate) → **S15b** (the math
+note's code references and the CHANGELOG `[2026.3.0]` updated for everything R renamed or moved) → the release tag.
+
+**What R / S14 / S15b need to know.**
+- **Live, not archived:** the implementation plan (it still sequences R / S14 / S15b) and `dev/curvature_impl_review/`
+  (the slice records, the S0b report — §K's call sites checked in its §1, what S14 must change in its §6 — and the two Newton-schedule experiment records
+  in `shared_exp/`). The plan-text amendments the slice reviews collected are applied by the orchestrator, not by the
+  slice agents. **When they are archived (at the release),** retarget the shipped contributor pages that point into
+  them: `docs/contributor/deferred_and_rejected.md` (the exact-Hessian AD item cites the live plan; the I-36 item cites
+  `dev/curvature_impl_review/shared_exp/`) and `docs/contributor/verification_records.md` (its exact-Hessian intro and
+  the Newton-schedule heading).
+- **S14 (T3Polynomial):** `stats['newton']` → `['newton_steps']` (KeyError after level 0 in every ladder script);
+  the `g0norm_newton=None` opt-out must become `g0_reference='warm_start'` (else it silently runs on the zero
+  reference); x07's GN control needs `gtol_rel`; the library zero reference is NOT a drop-in for T3Polynomial's
+  `_zero_gradient_norm` (ratios 2.18 / 0.73 / 0.94 / 0.97 by level on e01); s05 is missing from §K; b01's callback
+  appends `info.ls_steps`, which is `None` on trust-region rows. **I-36 / I-37:** a per-level `newton_kwargs` /
+  schedule callable in the ladder, and the cold / zero start kept as an option.
+- **Open for Nick (no ruling recorded):** the S3 memory gate (the exact two-hole's chunked assembly peaks at
+  1.25–1.61× the GN assembly vs the plan's 1.5×); S7b F1 (the gauge check on an FD quotient certifies only to
+  `1e-9·‖grad‖/(2h)` — documented; accept or tighten). The I-36 Newton-schedule default is an A/B question for after R.
+- **Backlog the arc leaves** (all in `docs/contributor/deferred_and_rejected.md`): the uniform tied projection's clip
+  (S9), the chunk-estimator edges (near-full remainder; leftover-chunk overshoot), the gauge-scale follow-ups (S7b), the
+  plain-kind default-dtype inits, the exact-Newton refinements (store variant, preconditioner, per-mode ε, the η floor
+  / plateau stop). Test-budget notes: the frontend T21 (~3.1 s) and the frontend-vs-backend bitwise test (~6 s) are
+  candidates for the slow tier if the suite budget tightens.
 
 ## Newest thread — the whole-library pre-release review (2026-08-22)
 

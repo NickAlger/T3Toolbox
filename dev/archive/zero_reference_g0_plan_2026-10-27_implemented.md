@@ -1,3 +1,15 @@
+> **RESOLVED — IMPLEMENTED in 2026.3.0 (slice S0d, folded into the curvature implementation plan as its C.15);
+> archived at S13.** The zero tensor of the level's ranks is the default Newton reference on the manifold geometries
+> (`newton_cg` / `gradient_descent`'s `g0_reference=None` → `'zero'`; `'warm_start'` keeps the 2026.2.0 behaviour; the
+> `g0norm_*` overrides still win and must be > 0). Two adjustments from the implementation review: the reference is
+> evaluated at a **canonical zero-point frame** (seeded, keyed, nested Haar Tucker factors — `fv_zero_point_frame`,
+> I-29), not "in the same layer as the level's fit" (§3–§4 here), because per-layer LAPACK frames differ across layers
+> and collapse to 0 on aligned data; and the corewise geometries keep the warm start (their zero reference is
+> identically 0). The wording "intrinsic data-gradient scale" was softened to "a convention, good to an O(1) factor".
+> The open items of §5 (an η floor, an objective-plateau stop) are recorded in
+> `docs/contributor/deferred_and_rejected.md`. User statement: `docs/fitting_and_optimization.md` §5,
+> `docs/rank_continuation.md`.
+
 # The Newton termination reference in rank continuation — make the equal-ranks zero tensor the default
 
 > **STATUS: PROPOSED (2026-09-03), for the next breaking change.** Nick's position, from long

@@ -1,3 +1,4 @@
+# PREDATES the 2026.3.0 stats keys (reads `stats['newton']`, now `stats['newton_steps']`), and its E2 numbers are ONE UNSEEDED DRAW (`TuckerTensorTrain.randn` uses the never-seeded legacy np.random stream): irreproducible at any commit; cite the seeded c29b / tr2 rows. Kept as the plan-time record, not rewritten.
 """Critic experiment (read-only): exact-Hessian Steihaug trust-region Newton from a ZERO-PADDED continuation restart,
 vs GN, with several lift-damping rules. The exact hvp is assembled from EXISTING library kernels + the block-sum
 oracle (the writer's c4 construction); the GN parts, gradient, retraction and objective are the library's backend

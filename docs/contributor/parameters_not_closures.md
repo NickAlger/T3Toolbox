@@ -94,6 +94,28 @@ Applying the rule surfaced four duplications, and each convention now has one ho
 | frame → variation shapes | frontend property only | `fv_variation_shapes` / `ufv_variation_shapes` |
 | the sharing-partition normalization | open-coded | `sharing.canonical_groups` |
 
+## Options are not parameters
+
+The rule is about objects that **ride as jit `aux_data`**, whose hash/eq *is* the compilation cache key —
+it is not a rule about where every number lives. A value is a **parameter** of an axis object when it
+changes *what* is being computed: the set optimized over (a geometry's sharing `groups`, its rank masks),
+the measurement operator (a kind's `order`, `weight`, `chunk_size`). Those are fields, and they hash. A
+value is a **solver option** when it changes only *how* the solver approaches the same problem — a CG
+forcing power, an LM λ, a trust radius, a step-control mode — and those stay plain keyword arguments of
+the solver, threaded down to the call that reads them.
+
+The exact Hessian's lift damping is the worked case (2026.3.0, I-22). It is not a property of the
+manifold: changing it does not change the set being optimized over (unlike `groups`), so it is not
+geometry identity. So it is **not** a geometry field: `newton_cg(hessian='exact', curvature_damping=…)` →
+`Problem.local_model(x, hessian, curvature_damping)` → `geom.curvature_precompute(frame, misfit_gradient,
+aux, curvature_damping)`, which resolves `None` to `backend.geometry.DEFAULT_CURVATURE_DAMPING` (the only
+T3-specific thing, kept out of `backend/optimizers.py`, which stays T3-free — a float passing through
+imports nothing). It reaches the computation only as the traced `LiftFactors.eps` leaf, so it never
+enters any aux, cannot go stale, and a different damping does not recompile (`test_dispatch` asserts it).
+A non-`None` value where nothing would read it (Gauss-Newton, a corewise geometry) is a structural error,
+not a silent no-op. The same reasoning made `hessian` / `step_control` / `tr_radius0` / `g0_reference`
+explicit solver keywords rather than fields of anything.
+
 ## Where to put a jit boundary
 
 Making a `scan`/`while_loop` body closure-free is the body-level remedy

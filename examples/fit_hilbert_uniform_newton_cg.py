@@ -34,9 +34,12 @@ the ranks with fixed masks, so we keep the cheap continuation bookkeeping (``res
 
 A zero-padded start is numerically rank-deficient but **structurally** minimal (its nominal ranks are
 realizable), so ``uniform_minimal`` leaves it alone and the first gradient step grows the padding into the
-new rank block -- exactly as in the ragged example (the fitted ranks come out minimal at every level, and
-the errors match the ragged run to numerical tolerance). We track the held-out **validation** misfit and
-pick the rank level that minimizes it.
+new rank block -- exactly as in the ragged example (the fitted ranks come out minimal at every level). The
+errors match the ragged run to the printed digits at the levels the fit converges (here up to the selected
+level); beyond it both runs stop at the Newton cap from a zero-padded restart, where the two layers' frames
+legitimately differ (``docs/uniform_equivalence_contract.md``, "Gauge-carrying operations") and the
+unconverged errors agree only to a few percent. We track the held-out **validation** misfit and pick the
+rank level that minimizes it.
 
 Run from the repo root:  ``python examples/fit_hilbert_uniform_newton_cg.py``
 """
@@ -165,9 +168,10 @@ def main():
     print(f"\nNoise floor (relative): {NOISE_LEVEL:.1e}")
     print(f"Best ranks by validation error: level {best['level']}  "
           f"(val {best['val']:.3e}, true error {best['true']:.3e}, DOF {best['dof']}).")
-    print("The fitted tensor is a UniformTuckerTensorTrain; the true errors match the ragged "
-          "fit_hilbert_tensor_newton_cg.py run to numerical tolerance -- the uniform layer is a faster "
-          "representation of the same computation.")
+    print("The fitted tensor is a UniformTuckerTensorTrain. Where the fit converges, the errors match the ragged "
+          "fit_hilbert_tensor_newton_cg.py run to the printed digits; at the capped levels beyond the selected "
+          "one, the two layers start from legitimately different frames (a zero-padded restart) and agree to a "
+          "few percent.")
 
 
 if __name__ == "__main__":

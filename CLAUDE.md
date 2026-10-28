@@ -363,8 +363,14 @@ The dividing line is **structural vs numerical**:
 - **Running tests/scripts**: use the project's env Python with `PYTHONPATH=$PWD`, e.g.
   `PYTHONPATH=$PWD <env-python> -m pytest tests/ -q -n auto` (tests are per-test seeded and
   order-independent; CI runs `-n auto` too). The review's oracle sweeps are permanent two-tier tests
-  (`tests/test_oracle_sweep.py`): always-on plus `T3TOOLBOX_SLOW_TESTS=1` for the full optimizer
-  matrix -- the slow tier is a REQUIRED release-gate step. The optax example needs `jax`+`optax` installed.
+  (`tests/test_oracle_sweep.py`; 2026.3.0 added `tests/oracle_sweeps/sweep_exact.py`, the exact Hessian
+  against a dense extrinsic oracle): always-on plus `T3TOOLBOX_SLOW_TESTS=1` for the full optimizer
+  matrix, the exact sweep's seeds × layouts × order 3, and the full-length uniform exact runs -- the slow
+  tier is a REQUIRED release-gate step, run SERIALLY:
+  `T3TOOLBOX_SLOW_TESTS=1 PYTHONPATH=$PWD <env-python> -m pytest tests/test_oracle_sweep.py tests/backend/test_uniform_curvature.py -q -p no:cacheprovider`.
+  Also at a release: the full suite on the **jax-0.4.30 / numpy-1.26 floor** (the measured chunk costs depend
+  on the jax release, and the CI floor leg skips the doc doctests when its test step fails, so run
+  `docs/chunking.md` there by hand). The optax example needs `jax`+`optax` installed.
   (The maintainer's exact env path lives in personal `~/.claude/`.)
 
 ## Workflow
@@ -394,9 +400,12 @@ project engineering practices below are shared.)*
 
 **2026.2.0 is SHIPPED to PyPI (2026-08-25) — `pip install t3toolbox`** (2026.1.0 shipped
 2026-08-20, 2026.0.0 2026-07-13; the checklist both followed is `dev/archive/release_plan_2026-07-13.md`; live status:
-`dev/HANDOFF.md`). "Tested" = *numerical correctness in numpy* (vs dense ground truth) **plus** *jax
+`dev/HANDOFF.md`). **2026.3.0 is in progress, unreleased:** the exact-Hessian curvature arc is complete through
+its docs/tests slice (S13, 2026-10-27; plan `dev/riemannian_newton_curvature_impl_plan.md`, still live); next a
+preliminary math note (S15a), then a PAUSE, then the reorganization R (`dev/reorg_scope.md`), the T3Polynomial update
+(S14), the math note's / CHANGELOG's final pass for R (S15b), and the tag. "Tested" = *numerical correctness in numpy* (vs dense ground truth) **plus** *jax
 dispatch* covered by `tests/test_dispatch.py` (jit each op; a stray `np.*` on a tracer raises) — not a
-duplicate numerical sweep. Full suite green (899 tests / 42,539 subtests; ~7 min with ``pytest -n auto``, ~14 min serial --
+duplicate numerical sweep. Full suite green (1,170 tests / 46,364 subtests at S13, 2026-10-27; ~7 min with ``pytest -n auto`` on 4+ cores --
 tests are per-test seeded and order-independent, Phase D);
 docs at zero warnings with `-W` in CI; doctests CI-enforced on both numpy generations — **module
 doctests, `getting_started.rst`, AND every `docs/*.md` + `docs/contributor/*.md` page** (the one
@@ -451,6 +460,22 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
   Rulings worth knowing are listed in the HANDOFF; the behavioural changes are in the CHANGELOG's
   `[2026.2.0]` Fixed / Changed sections (jax-absent → warn; `d = 1` degenerate; per-mode weight rows;
   adam-on-manifold warning; the frame gauge; the equality flip).
+- **The exact Riemannian Hessian — BUILT for every kind × geometry × representation (2026-10-25 → 27; in 2026.3.0,
+  unreleased).** `newton_cg(..., hessian='exact')` (and the `*_model` factories, `Problem.local_model`): the
+  Gauss-Newton term plus the Weingarten curvature `Π Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π` — the lift `L` to raw core
+  directions, the kind's two-hole `corewise_hessian` (the **required sixth `SamplingKind` operation**, checked
+  structurally only in exact mode), the T3-to-T3 two-hole at the misfit gradient — under a Steihaug–Toint
+  **trust region** (`step_control`, `tr_radius0`, `stop_reason` incl. `'objective_floor'` = not a failure);
+  `curvature_damping` is a solver option (never a geometry field). **Durable rules:** the two-hole is the required
+  sixth `SamplingKind` operation, checked structurally and only in exact mode; a uniform two-hole masks θ̂ with the
+  FRAME's masks (never the sweep's or the kind's own, which is a superset at TT slack); jet kernels are
+  recurrences only (dense `trs` forms are test twins — I-33); the Newton reference defaults to the canonical seeded
+  Haar zero-point frame (`g0_reference`); the gauge check is scaled by the operands (I-38). Everything else that
+  changed in this release (the renames, the stats keys, `least_squares_problem`, the explicit `newton_cg`
+  keywords, the uniform padding hygiene) is the CHANGELOG's `[2026.3.0]` entry. User doc
+  `docs/fitting_and_optimization.md` §4.12; design record
+  **[`docs/contributor/curvature_internals.md`](docs/contributor/curvature_internals.md)** (the lift, the two-hole
+  rules, the zero-point frame, the tied lift); measurements `docs/contributor/verification_records.md`.
 - **Optimization layer restructured (2026-08-21; in 2026.2.0).** The geometry, the sampling kind and the local model are frozen
   dataclasses whose **parameters are fields**, not records of closures, so they hash/compare by value
   and are stable jax `aux_data`. New `backend/geometry.py`; `SamplingKind` is a class hierarchy;

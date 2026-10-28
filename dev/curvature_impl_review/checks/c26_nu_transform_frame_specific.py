@@ -1,3 +1,4 @@
+# PREDATES the S3b API (2026-10-27): written against the dense `trs` jet kernels (`trs=` arguments, `sd.binomial_combine_tensor`, the `*_trs` twins), which S3b removed (now `tests/_jet_trs_twins.py`); kept as the record of the plan-time evidence, not rewritten. The shipped kernels are pinned by tests/backend/test_curvature.py.
 """Read-only plan check (v3, m26 pushback): nu_c = T nu (F16) is a MANIFOLD-frame identity -- T is the geometry's
 bond factor (zipper of the orthogonal L against R). At a COREWISE frame (U,G,G,G) the stored nu already runs through
 G, and applying the 'T' built from that frame is wrong. So a geometry-agnostic kind cannot use the transform without a

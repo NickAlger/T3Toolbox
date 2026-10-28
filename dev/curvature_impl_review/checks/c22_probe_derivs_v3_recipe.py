@@ -1,3 +1,4 @@
+# PREDATES the S3b API (2026-10-27): written against the dense `trs` jet kernels (`trs=` arguments, `sd.binomial_combine_tensor`, the `*_trs` twins), which S3b removed (now `tests/_jet_trs_twins.py`); kept as the record of the plan-time evidence, not rewritten. The shipped kernels are pinned by tests/backend/test_curvature.py.
 """Read-only plan check (v3, m26 + n9): the probe_derivatives two-hole with the v3 RECOMPUTE recipe, fed from the
 MANIFOLD model's stored sweep (as LocalModel will):
   - xi_j, mu_j reused from the manifold sweep (identical at both frames, F9);
