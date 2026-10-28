@@ -56,6 +56,16 @@
   regularizers are three different "weight" notions; a typed covector/metric vocabulary (3b) could name them properly.
 - **Constructor `use_jax` flags vs inferred dispatch** (the documented exception) and the `safety` contextvar — small,
   but a breaking release is when to settle them.
+- **Random number generation — update the legacy `np.random` usage (Nick, 2026-10-27 20:10).** The library's random
+  constructors (`TuckerTensorTrain.randn`, `t3_corewise_randn`, `common.randn`, the oracle sweeps' draws, …) draw from
+  the legacy global `np.random` stream (`np.random.seed` / `np.random.randn`), while newer code and the tests use
+  `np.random.default_rng` / `Generator` objects and jax keys. This bit us twice in the curvature arc: the plan's E2
+  restart numbers were one unseeded draw, irreproducible at any commit (`check_restart_tr.py` seeded only its
+  `default_rng(7)`, not the global stream `randn` uses — S10/S11 review), and the slow-tier O2 oracle sweep was flaky
+  under `-n 2` for the same reason (S1/S2 review). R should move the library to explicit `Generator` / jax-key
+  arguments (`rng=` on every random constructor, the canonical zero-point frame's keyed `RandomState` recipe reviewed
+  for the same treatment while keeping its pinned values), with the legacy global stream used nowhere.
+
 - **Test organization:** `tests/_jet_trs_twins.py`, the two contraction tables (interpreter + sharding) that must be
   kept in step, the oracle sweeps — whatever the module split becomes, the tests should split with it.
 
