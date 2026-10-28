@@ -16,10 +16,11 @@ flight: S10+S11** (plain probe, apply, entries two-holes). Then S12 (the derivat
 stub). CI: the jax-0.4.30 floor leg was red from S3b to S8 (compiler-dependent chunk costs; fixed 4c7616f) — every
 slice now also runs the estimator/dispatch tests on a jax-0.4.30 venv.
 
-**Then (Nick, 2026-10-27): the post-curvature REORGANIZATION phase, `dev/reorg_scope.md`** — sampling / jetted-sampling
-layout, the fitting layer, the optimization layer (decoupling + a typed point / tangent / covector system) — *after S12,
-before S13's release gate*. S13 (docs, CHANGELOG, release gate incl. the slow tier **and
-`tests/backend/test_uniform_curvature.py`**), S14 (T3Polynomial §K), S15 (the math note) follow.
+**Order (Nick, 2026-10-27 19:33):** S12 → S13 (docs, CHANGELOG, the full gate incl. the slow tier **and
+`tests/backend/test_uniform_curvature.py`** + the jax-0.4.30 floor leg, the `dev/` archive; **no tag**) → **PAUSE: the
+curvature arc is complete, stop and hand off** → **R, the post-curvature REORGANIZATION (`dev/reorg_scope.md`:**
+sampling / jetted-sampling layout, the fitting layer, the optimization layer — decoupling + a typed point / tangent /
+covector system) → S14 (T3Polynomial §K) → the release tag → S15 (the math note).
 
 ## Newest thread — the whole-library pre-release review (2026-08-22)
 
