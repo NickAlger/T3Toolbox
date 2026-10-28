@@ -227,7 +227,8 @@ All notable changes to T3Toolbox are documented here. The format follows
   geometry: only `hessian='exact'` checks for them), with `backend.geometry.ManifoldCurvatureData` and
   `DEFAULT_CURVATURE_DAMPING = 1e-6` (relative to `‖X‖_HS`; `curvature_damping` raises with the Gauss-Newton
   model and on a corewise geometry, where nothing would read it). `ProbeDerivativesKind` implements
-  `corewise_hessian`; the other kinds follow (the shared manifold's tied lift and the uniform layer: below).
+  `corewise_hessian`; so do `ProbeKind`, `ApplyKind` and `EntriesKind` (below), and the shared manifold's
+  tied lift and the uniform layer follow (below).
 - **Exact Newton with a trust region in the backend `newton_cg`**: `backend.optimizers.newton_cg(...,
   hessian='gauss_newton' | 'exact', curvature_damping=None, step_control=None, tr_radius0=None)` (explicit
   keywords, the same on the frontend `optimizers.newton_cg`, below). `hessian='exact'` solves with the exact Riemannian
@@ -261,7 +262,7 @@ All notable changes to T3Toolbox are documented here. The format follows
   `curvature_hessian(p)` / `curvature_quadratic(p)`, the curvature term alone. `evaluate(p)` is mode-aware (the
   Gauss-Newton value is unchanged) and an exact model's `gradient` is the Gauss-Newton one, bit for bit. The
   rules are the backend's: `curvature_damping` with Gauss-Newton or on a corewise geometry raises, and a kind
-  without `corewise_hessian` (every kind but `probe_derivatives` so far) raises a structural error at
+  without `corewise_hessian` (`apply_derivatives` / `entries_derivatives` for now) raises a structural error at
   construction. The frontend `optimizers.newton_cg` takes
   `hessian`, `curvature_damping`, `step_control` and `tr_radius0` with the backend's defaults, and passes
   `hessian` to `least_squares_problem` so `chunk_size='auto'` is sized for the exact mode. The frontend run is
@@ -303,7 +304,7 @@ All notable changes to T3Toolbox are documented here. The format follows
   with theta's masks, the output re-masked). `UniformProbeDerivativesKind.corewise_hessian` replaces its interim
   stub (it masks with the masks of the FRAME it is handed, a strict subset of the point's at TT slack), and the
   uniform geometries gain the four exact-mode members (the curvature data's `sigma_min` reads real slots only).
-  The other kinds' uniform twins keep their stub.
+  The uniform `apply_derivatives` / `entries_derivatives` kinds keep their stub.
 - **The exact Hessian on the shared uniform geometries** (`shared(UNIFORM_MANIFOLD, ...)` /
   `shared(UNIFORM_COREWISE, ...)`, `UniformManifoldGeometryOps` / `UniformCorewiseGeometryOps` with `groups`): with
   it, `probe_derivatives` runs `hessian='exact'` on every geometry and representation -- ragged, uniform and
@@ -320,6 +321,23 @@ All notable changes to T3Toolbox are documented here. The format follows
   shared_data)`, the uniform twin of `backend.sharing.fv_tied_lift_factors`, with which
   `utv_corewise_lift` / `utv_corewise_lift_transpose` tie the group slots (a companion of another layout is a
   structural error).
+- **The exact Hessian for `probe`, `apply` and `entries`** (every geometry and representation, as for
+  `probe_derivatives` above): `newton_cg(..., hessian='exact')`, the `probe_model` / `apply_model` /
+  `entries_model` factories' `hessian='exact'` and `Problem.local_model(hessian='exact')` now run for the three
+  plain kinds -- ragged and uniform, unshared and shared, `use_jit` included; per stack element the uniform exact
+  model is the ragged one. Each kind's sampling term is the derivative of its corewise transpose along raw core
+  directions, by a hand-written two-hole sweep (exact and symmetric; a per-mode `probe` weight enters as `ω²r`, as
+  in the gradient): `backend.probing.t3_probe_corewise_hessian[_from_sweep]` (the order-0 case of the
+  probe-derivative two-hole, in plain probing's kernels; its pieces are public beside the Gauss-Newton kernels they
+  differentiate: `compute_deta_tilde_tangent`, `compute_tau_tilde_tangent` / `compute_sigma_tilde_tangent`,
+  `compute_dxi_tilde_tangent`, `assemble_tucker_tangent_variations` and `assemble_tt_tangent_variations`, factored
+  by the product rule), `backend.apply.t3_apply_corewise_hessian[_from_sweep]` and
+  `backend.entries.t3_entries_corewise_hessian[_from_sweep]` (the adjoint-state transpose's derivative: the
+  residual-seeded right context swept through the cores, no `nu` / `eta`), and their uniform twins
+  `backend.ut3_sampling.ut3_{probe,apply,entries}_corewise_hessian[_from_sweep]` (theta and the direction masked
+  with theta's masks, the output re-masked). `ProbeKind`, `ApplyKind`, `EntriesKind` and their `Uniform*` twins
+  implement `corewise_hessian` (the uniform ones mask with the frame's masks); `chunk_size='auto'` resolves to
+  `None` for them in both modes, as their transposes do not chunk.
 - **`backend.geometry.UniformManifoldGeometryOps.from_frame(frame_data, plain_masks, sharing)`**: the uniform
   manifold geometry from a frame already in hand -- its variation masks are the frame's own, gauge-shifted --
   the same geometry as `from_point` without re-orthogonalizing. The uniform `fitting.LocalModel` builds its

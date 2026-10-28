@@ -540,6 +540,11 @@ class ApplyKind(_WwSample, ScalarOutputKind):
     def take(self, sample, data, idx):
         return _take_apply(sample, data, idx)
 
+    def corewise_hessian(self, core_directions, r, ww, frame, sweep, base_point):
+        # the lean sweep's xi / mu are base_point's own (xi through U, mu through L at the manifold frame
+        # (U, O, L, R); through U and G at the corewise frame) -- unweighted, so the residual is r itself
+        return bapply.t3_apply_corewise_hessian_from_sweep(r, ww, base_point, core_directions, sweep)
+
 
 @dataclass(frozen=True, eq=False)
 class EntriesKind(_IndexSample, ScalarOutputKind):
@@ -561,6 +566,10 @@ class EntriesKind(_IndexSample, ScalarOutputKind):
 
     def take(self, sample, data, idx):
         return _take_entries(sample, data, idx)
+
+    def corewise_hessian(self, core_directions, r, index, frame, sweep, base_point):
+        # as ApplyKind's: the lean (fiber-sliced) sweep is base_point's own
+        return bentries.t3_entries_corewise_hessian_from_sweep(r, index, base_point, core_directions, sweep)
 
 
 @dataclass(frozen=True, eq=False)
@@ -596,6 +605,12 @@ class ProbeKind(_WwSample, ProbeOutputKind):
 
     def take(self, sample, data, idx):
         return _take_probe(sample, data, idx)
+
+    def corewise_hessian(self, core_directions, r, ww, frame, sweep, base_point):
+        # the probe sweep's xi / mu are base_point's own (its nu belongs to the manifold frame's R and is re-swept
+        # through G by the kernel); omega^2 r, exactly as transpose weights it
+        return probing.t3_probe_corewise_hessian_from_sweep(self._apply_weight(r, 2), ww, base_point,
+                                                            core_directions, sweep)
 
 
 @dataclass(frozen=True, eq=False)

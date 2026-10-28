@@ -749,5 +749,72 @@ class TestFrontendExactNewton(unittest.TestCase):
         self.assertLess(abs(sf['losses'][-1] - sr['losses'][-1]) / sr['losses'][-1], 1e-9)   # the same minimizer
 
 
+def _plain_fit_problem(kind, W=60, seed=13):
+    """A misspecified plain-kind fit (S10 / S11): rank-2 fits of a rank-3 target on (6, 6, 6), 5 % noise, from a
+    random start; the sample is ww (probe / apply) or an index grid (entries)."""
+    rng = np.random.default_rng(seed)
+    np.random.seed(seed)
+    shape = (6, 6, 6)
+    target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
+    if kind == 'entries':
+        sample = np.stack([rng.integers(0, N, size=3 * W) for N in shape])
+        clean = np.asarray(target.entries(sample))
+    else:
+        sample = [rng.standard_normal((W, N)) for N in shape]
+        clean = np.asarray(target.apply(sample)) if kind == 'apply' else target.probe(sample)
+    noisy = lambda z: z + 0.05 * np.linalg.norm(z) / z.size ** 0.5 * rng.standard_normal(z.shape)
+    data = [noisy(np.asarray(z)) for z in clean] if kind == 'probe' else noisy(clean)
+    return sample, data, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
+
+
+class TestFrontendExactNewtonPlainKinds(unittest.TestCase):
+    """S10 / S11 through the frontend: ``optimizers.newton_cg(geometry, 'probe' | 'apply' | 'entries', ...,
+    hessian='exact')`` converges on the gradient test in fewer outer steps than Gauss-Newton on a misspecified fit,
+    and is the backend run on ``least_squares_problem``'s problem bit for bit -- ragged and uniform (where
+    ``chunk_size='auto'`` resolves to None for these kinds, in both modes: their transposes do not chunk)."""
+
+    def test_probe(self):
+        self._converges_and_is_the_backend_run('probe')
+
+    def test_apply(self):
+        self._converges_and_is_the_backend_run('apply')
+
+    def test_entries(self):
+        self._converges_and_is_the_backend_run('entries')
+
+    def _converges_and_is_the_backend_run(self, kind):
+        from unittest import mock
+        import t3toolbox.backend.optimizers as bopt
+        import t3toolbox.backend.sampling_derivatives as sd
+        sample, data, x0 = _plain_fit_problem(kind)
+        weight = [0.5, 1.0, 2.0] if kind == 'probe' else None
+        with self.subTest(kind=kind, layer='ragged'):
+            xf, ex = topt.newton_cg(t3m.MANIFOLD, kind, sample, data, x0, weight=weight, max_newton=60,
+                                    hessian='exact')
+            _, gn = topt.newton_cg(t3m.MANIFOLD, kind, sample, data, x0, weight=weight, max_newton=40)
+            self.assertEqual(ex['stop_reason'], 'gradient')
+            self.assertLess(ex['newton_steps'], gn['newton_steps'])     # observed probe 13 / 24, apply 24 / >= 40,
+            #                                                           # entries 16 / 36 (exact / Gauss-Newton)
+            setup = topt.least_squares_problem(t3m.MANIFOLD, kind, sample, data, x0, weight=weight,
+                                               hessian='exact')
+            xb, sb = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=60, hessian='exact')
+            self.assertEqual(ex['losses'], sb['losses'])
+            self.assertTrue(_histories_equal(ex['history'], sb['history']))
+            self.assertTrue(all(np.array_equal(a, b) for a, b in zip(xf.data[0] + xf.data[1], xb[0] + xb[1])))
+        with self.subTest(kind=kind, layer='uniform'):
+            ux = ut3.UniformTuckerTensorTrain.from_t3(x0)
+            with mock.patch.object(sd, 'estimate_chunk_size') as spy:
+                xu, uf_ = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, kind, sample, data, ux, weight=weight,
+                                         max_newton=8, hessian='exact', chunk_size='auto')
+                setup = topt.least_squares_problem(ut3m.UNIFORM_MANIFOLD, kind, sample, data, ux, weight=weight,
+                                                   hessian='exact', chunk_size='auto')
+            spy.assert_not_called()
+            xb, sb = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=8, hessian='exact')
+            self.assertEqual(uf_['losses'], sb['losses'])
+            self.assertTrue(_histories_equal(uf_['history'], sb['history']))
+            self.assertTrue(np.array_equal(xu.data[0], xb[0]) and np.array_equal(xu.data[1], xb[1]))
+            self.assertEqual(uf_['history'][0]['hessian'], 'exact')
+
+
 if __name__ == "__main__":
     unittest.main()

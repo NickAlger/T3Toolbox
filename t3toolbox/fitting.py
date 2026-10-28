@@ -214,8 +214,9 @@ class LocalModel:
       term plus the curvature term :py:meth:`curvature_hessian` (``Π Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π``; see
       :py:meth:`t3toolbox.backend.optimizers.Problem.local_model`), and :py:meth:`quadratic` likewise. The
       model's one misfit transpose is done at construction (``curvature``), so :py:attr:`gradient` is the
-      Gauss-Newton gradient bit for bit. Only ``probe_derivatives`` implements it so far, ragged and uniform;
-      the other kinds raise a structural error at construction. On a shared manifold geometry, ragged or
+      Gauss-Newton gradient bit for bit. ``probe``, ``apply``, ``entries`` and ``probe_derivatives`` implement
+      it, ragged and uniform; ``apply_derivatives`` / ``entries_derivatives`` raise a structural error at
+      construction. On a shared manifold geometry, ragged or
       uniform, the curvature goes through the tied lift (one factor direction per sharing group).
 
     ``gradient``, ``jacobian``, ``gn_hessian``, ``gn_quadratic``, ``objective_value`` and :py:meth:`retract`
@@ -580,7 +581,7 @@ def _with_curvature(
     checks and messages: an unknown mode raises; a ``curvature_damping`` with Gauss-Newton raises (nothing
     would read it), as it does on a corewise geometry (no lift to damp); a kind without ``corewise_hessian``
     or a geometry without the exact-mode members raises structurally, naming what is missing -- which is
-    how the uniform kinds' interim stub surfaces (every uniform kind but ``probe_derivatives``'s).'''
+    how the uniform kinds' interim stub surfaces (the ``apply_derivatives`` / ``entries_derivatives`` twins).'''
     exact = bopt._check_hessian(hessian, who) == 'exact'
     if curvature_damping is not None and not exact:
         raise ValueError("%s: curvature_damping is only meaningful with hessian='exact'" % who)
@@ -693,9 +694,8 @@ def apply_model(
     Accepts a ragged ``TuckerTensorTrain`` (-> :py:class:`~t3toolbox.fitting.LocalModel`) or a uniform
     ``UniformTuckerTensorTrain``; the representation is inferred
     from ``x`` and the geometry must match. ``regularizer`` adds ``ρ(x)`` to the model (ragged or uniform).
-    ``hessian`` / ``curvature_damping`` choose the model's mode (:py:class:`LocalModel`); the exact
-    Hessian needs the kind's ``corewise_hessian``, which ``apply`` does not implement yet, so
-    ``hessian='exact'`` raises a structural ``ValueError`` here (see :py:func:`probe_derivatives_model`).'''
+    ``hessian`` / ``curvature_damping`` choose the model's mode (:py:class:`LocalModel`): ``hessian='exact'``
+    adds the curvature term, on every geometry and representation (see :py:func:`probe_derivatives_model`).'''
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'apply', ww, residual, regularizer=regularizer,
                               hessian=hessian, curvature_damping=curvature_damping)
@@ -719,8 +719,8 @@ def entries_model(
     '''The local model of an all-modes ``entries`` least-squares objective at ``x``, on ``geometry``.
 
     Identical to :py:func:`apply_model` but the measurements are tensor **entries** at integer grid points
-    ``index`` (shape ``(d,)+W``) rather than applies against probe vectors. (``hessian='exact'`` is not
-    implemented for ``entries`` yet: a structural ``ValueError``.)'''
+    ``index`` (shape ``(d,)+W``) rather than applies against probe vectors. ``hessian`` /
+    ``curvature_damping`` as there.'''
     if isinstance(x, ut3.UniformTuckerTensorTrain):
         return _uniform_model(geometry, x, 'entries', index, residual, regularizer=regularizer,
                               hessian=hessian, curvature_damping=curvature_damping)
@@ -750,8 +750,9 @@ def probe_model(
     weighted: the objective is ``½ Σ_i ‖ω_i r_i‖²`` over the ``d`` per-mode probe residuals, so a 1-D
     weight ``ω`` of shape ``(d,)`` up- or down-weights each mode's data (e.g. inverse-scale / inverse-noise
     balancing). Plain probe has no order axis, so ``weight`` is a **1-D** per-mode vector (a 2-D ``(d, 1)``
-    is rejected); for per-order weighting use :py:func:`probe_derivatives_model`. (``hessian='exact'`` is
-    not implemented for plain ``probe`` yet: a structural ``ValueError``; see :py:func:`apply_model`.)
+    is rejected); for per-order weighting use :py:func:`probe_derivatives_model`. ``hessian`` /
+    ``curvature_damping`` as in :py:func:`apply_model` (the exact model's curvature term uses ``ω²r``, as the
+    Gauss-Newton gradient does).
 
     Examples
     --------

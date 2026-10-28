@@ -332,6 +332,25 @@ HISTORICAL = {
     'dKCazb,dCaub->dKCzu': '',
     'dCazb,dKCaub->dKCzu': '',
     'dKCzu,dCzn->dKCun': '',
+    # S10 / S11 (2026.3.0): the plain probe / apply / entries two-holes (no order axis). The dotted adjoint-up lift
+    # Udot z~ (z~ is W + C, the direction K + C: neither pins C alone, so C is supplied, as for its jet twin
+    # 'tWCo,KCio->tWKCi'); the Tucker term z~ (x) eta_dot (W + C against W + K + C: the W | C split is free, so W);
+    # and the factored TT assemblies' pair intermediates xi (x) sigma~ / deta~ (x) nu / xi (x) sigma_hat -- the
+    # undotted pair co-travels W, C on both operands ('') and the dotted pairs carry K on one side (W) -- whose
+    # finals reuse the jet assembly's 'WKCa,WCib->KCaib' / 'WCa,WKCib->KCaib'. The d-prefixed twins are the uniform
+    # (supercore) path; the d axis is one more single letter, so the supplements are the same.
+    'WCo,KCio->WKCi': 'C',
+    'WCo,WKCa->KCao': 'W',
+    'WCi,WCb->WCib': '',
+    'WKCi,WCb->WKCib': 'W',
+    'WCi,WKCb->WKCib': 'W',
+    'dWCo,dKCio->dWKCi': 'C',
+    'dWCo,dWKCa->dKCao': 'W',
+    'dWCi,dWCb->dWCib': '',
+    'dWKCi,dWCb->dWKCib': 'W',
+    'dWCi,dWKCb->dWKCib': 'W',
+    'dWKCa,dWCib->dKCaib': 'W',
+    'dWCa,dWKCib->dKCaib': 'W',
 }
 
 SUBS_RE = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')

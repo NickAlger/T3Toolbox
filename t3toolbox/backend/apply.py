@@ -4,7 +4,8 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """The ``apply`` sampling type: contract a T3 with vectors in ALL modes -> one scalar per sample.
 
-Holds the t3 + tv ops, the ambient/tangent/corewise transposes, and the frame sweeps for applies.
+Holds the t3 + tv ops, the ambient/tangent/corewise transposes, the corewise transpose's derivative in the
+cores (the exact Hessian's sampling term), and the frame sweeps for applies.
 Specializes the general probing machinery (containment probe ⊃ apply ⊃ entries; this module
 imports from ``probing``, never the reverse). Costs and the role in Riemannian least-squares:
 ``docs/entries_apply_probe.md``.
@@ -29,6 +30,8 @@ __all__ = [
     'tv_apply_jacobian_from_sweep',
     'tv_apply_transpose_from_sweep',
     't3_apply_corewise_transpose',
+    't3_apply_corewise_hessian',
+    't3_apply_corewise_hessian_from_sweep',
 ]
 
 def _t3_apply_step(
@@ -328,6 +331,106 @@ def t3_apply_corewise_transpose(
     )
 
 
+def t3_apply_corewise_hessian_from_sweep(
+        c:                  NDArray,                # residual (omega^2 applied), shape=W+C
+
+        ww:                 typ.Union[typ.Sequence[NDArray], NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
+
+        core_pair:          typ.Tuple[
+            typ.Sequence[NDArray],                  # tucker_cores of theta. len=d, elm_shape=C+(ni,Ni)
+            typ.Sequence[NDArray],                  # tt_cores of theta.     len=d, elm_shape=C+(ri,ni,r(i+1))
+        ],                                          # = TuckerTensorTrain.data
+        core_directions:    typ.Tuple[
+            typ.Sequence[NDArray],                  # Tucker directions theta_hat. len=d, elm_shape=K+C+(ni,Ni)
+            typ.Sequence[NDArray],                  # TT directions theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+        ],
+
+        frame_sweep:        typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (xis, mus) of theta
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],                        # Tucker block of K theta_hat. len=d, elm_shape=K+C+(ni,Ni)
+    typ.Tuple[NDArray, ...],                        # TT block of K theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+]:
+    ''':py:func:`t3_apply_corewise_hessian` reusing a precomputed lean ``frame_sweep`` -- the reuse hook for a local
+    model. :py:func:`tv_precompute_apply_frame_sweep` is the same at the manifold frame ``(U, O, L, R)`` and at the
+    corewise frame ``(U, L, L, L)`` of its base point ``theta = (U, L)`` (``xi`` through ``U``, ``mu`` through
+    ``L``), so the model's own sweep is reused; it must be ``core_pair``'s own, which nothing here checks.'''
+    _, tt_cores = core_pair
+    tucker_dirs, tt_dirs = core_directions
+    xis, mus = frame_sweep
+    xis_dot = compute_dxi(tucker_dirs, ww)                                       # xi_dot = Udot w
+    mus_dot = probing.compute_sigma(tt_dirs, tt_cores, tt_cores, xis, xis_dot, mus)   # mu_dot, through G
+    return _apply_corewise_hessian_adjoint(c, ww, xis, xis_dot, mus, mus_dot, tt_cores, tt_dirs)
+
+
+def t3_apply_corewise_hessian(
+        c:                  NDArray,                # residual (omega^2 applied), shape=W+C
+
+        ww:                 typ.Union[typ.Sequence[NDArray], NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
+
+        core_pair:          typ.Tuple[
+            typ.Sequence[NDArray],                  # tucker_cores of theta. len=d, elm_shape=C+(ni,Ni)
+            typ.Sequence[NDArray],                  # tt_cores of theta.     len=d, elm_shape=C+(ri,ni,r(i+1))
+        ],                                          # = TuckerTensorTrain.data
+        core_directions:    typ.Tuple[
+            typ.Sequence[NDArray],                  # Tucker directions theta_hat. len=d, elm_shape=K+C+(ni,Ni)
+            typ.Sequence[NDArray],                  # TT directions theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+        ],
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],                        # Tucker block of K theta_hat. len=d, elm_shape=K+C+(ni,Ni)
+    typ.Tuple[NDArray, ...],                        # TT block of K theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+]:
+    '''The derivative of :py:func:`t3_apply_corewise_transpose` along core directions: the core-coordinate Hessian
+    of ``theta -> <c, apply(Phi(theta))>`` applied to ``theta_hat``,
+
+        ``K_c theta_hat = d/ds grad_theta <c, apply(Phi(theta + s theta_hat))> |_{s=0}``,
+
+    for a fixed residual ``c``. The sampling half of the exact Riemannian Hessian's curvature term for ``apply``,
+    by a hand-written "two-hole" sweep -- exact and symmetric. It differentiates the transpose's adjoint-state
+    form (:py:func:`_apply_transpose_adjoint` at the corewise frame ``(U, G, G, G)``) by the product rule: the
+    residual-seeded right context ``sigma_hat`` is swept through ``G`` (there is no ``nu`` or ``eta``), then its
+    derivative and those of ``xi`` and ``mu`` -- the GN tangent forward's ``compute_dxi`` / ``compute_sigma`` and
+    ``compute_tau`` -- feed the derivatives of the single-term assemblies. :py:func:`t3_entries_corewise_hessian`
+    is the same with fiber-sliced ``xi`` and one-hot apply vectors.
+
+    Stacks: ``c`` and ``core_pair`` carry ``W + C`` / ``C``; the directions carry a tangent stack ``K``; the output
+    is raw core variations shaped like the directions, ``W`` summed. Polymorphic over ragged tuples and uniform
+    supercores (packed ``ww``). **Mask-free by contract** (as :py:func:`~t3toolbox.backend.probing.t3_probe_corewise_hessian`):
+    a uniform caller masks ``theta`` and ``theta_hat`` with ``theta``'s masks
+    (:py:func:`~t3toolbox.backend.ut3_sampling.ut3_apply_corewise_hessian`).
+
+    Examples
+    --------
+    The directional derivative of the corewise transpose (a central difference is accurate to ``O(h^2)``), and
+    symmetric:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.t3_constructors as t3k
+    >>> import t3toolbox.backend.apply as t3a
+    >>> np.random.seed(0)                                                  # t3_corewise_randn draws from it
+    >>> rng = np.random.default_rng(0)
+    >>> shape, W = (4, 5, 3), 6
+    >>> theta = t3k.t3_corewise_randn(shape, (2, 3, 2), (1, 2, 2, 1))
+    >>> ww = [rng.standard_normal((W, N)) for N in shape]
+    >>> c = rng.standard_normal(W)                                         # one residual per apply
+    >>> dirs = (tuple(rng.standard_normal((2,) + u.shape) for u in theta[0]),   # a tangent stack K = (2,)
+    ...         tuple(rng.standard_normal((2,) + g.shape) for g in theta[1]))
+    >>> KU, KG = t3a.t3_apply_corewise_hessian(c, ww, theta, dirs)
+    >>> [k.shape for k in KU]                                              # K + the Tucker core shapes
+    [(2, 2, 4), (2, 3, 5), (2, 2, 3)]
+    >>> one = lambda cores: t3a.t3_apply_corewise_transpose(c, ww, cores, sum_over_probes=True)
+    >>> shift = lambda h: tuple(tuple(x + h * dx[0] for x, dx in zip(xs, dxs)) for xs, dxs in zip(theta, dirs))
+    >>> fd = [(a - b) / 2e-4 for a, b in zip(sum(one(shift(1e-4)), ()), sum(one(shift(-1e-4)), ()))]
+    >>> bool(max(np.linalg.norm(k[0] - f) / np.linalg.norm(f) for k, f in zip(KU + KG, fd)) < 1e-6)
+    True
+    >>> gram = sum(a.reshape(2, -1) @ b.reshape(2, -1).T for a, b in zip(dirs[0] + dirs[1], KU + KG))
+    >>> bool(abs(gram[0, 1] - gram[1, 0]) < 1e-12 * abs(gram).max())     # <a, K b> = <b, K a>
+    True
+    '''
+    return t3_apply_corewise_hessian_from_sweep(
+        c, ww, core_pair, core_directions,
+        tv_precompute_apply_frame_sweep(fv_conversions.t3_corewise_frame(core_pair), ww))
+
+
 def _apply_from_xis_step(
         sigma: NDArray,   # carry: W+K+C+(rRi,)
         x:     typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray, NDArray],  # (Q, O, dG, xi, dxi, mu)
@@ -398,3 +501,45 @@ def _apply_transpose_adjoint(c, ww, xis, mus, down_tt_cores, right_tt_cores, sum
                           for mu, xi, sh in zip(mus, xis, sigma_hats))
         dU_tildes = tuple(contractions.contract('Wo,WKCa->WKCao', w, dxh) for w, dxh in zip(ww, dxi_hats))
     return dU_tildes, dG_tildes   # (var_tucker, var_tt) = T3Variations.data
+
+
+def _apply_corewise_hessian_adjoint(c, ww, xis, xis_dot, mus, mus_dot, tt_cores, tt_dirs):
+    '''The derivative of :py:func:`_apply_transpose_adjoint` (``sum_over_probes=True``) at the corewise frame
+    ``(U, G, G, G)`` along ``(Udot, Gdot)``, shared by :py:func:`t3_apply_corewise_hessian_from_sweep` and
+    :py:func:`~t3toolbox.backend.entries.t3_entries_corewise_hessian_from_sweep` (which differ only in how
+    ``xi`` / ``xi_dot`` and the apply vectors ``ww`` are formed). With the residual ``c`` fixed (``W + C``; no
+    ``K``):
+
+        sigma_hat       = the c-seeded reverse sweep through G                (compute_sigma_hat)
+        sigma_hat_dot   = its derivative: the reverse GN tangent sweep        (compute_tau(Gdot, G, G, xi, xi_dot, sigma_hat))
+        dxi_hat_dot     = d(mu G sigma_hat)                                    (compute_deta(Gdot, G, G, mu, sigma_hat, mu_dot, sigma_hat_dot))
+        dU              = sum_W  w (x) dxi_hat_dot
+        dG              = sum_W  mu_dot . E + mu . E_dot,  E = xi (x) sigma_hat,  E_dot = xi_dot (x) sigma_hat + xi (x) sigma_hat_dot
+
+    -- the single-term assemblies' product rule, ``dG``'s three terms grouped by their common factor ``mu`` (two
+    W-summed finals). Polymorphic: ``d``-prefixed contractions on the uniform path, a per-core loop on ragged.'''
+    is_uniform = is_ndarray(mus)
+    sigma_hats = compute_sigma_hat(tt_cores, xis, c)                                   # W+C (c has no K)
+    sigma_hats_dot = probing.compute_tau(tt_dirs, tt_cores, tt_cores, xis, xis_dot, sigma_hats)
+    dxi_hats_dot = probing.compute_deta(tt_dirs, tt_cores, tt_cores, mus, sigma_hats, mus_dot, sigma_hats_dot)
+
+    if is_uniform:
+        n_probe = ww.ndim - 2                     # ww is the W-only packed apply / one-hot supercore (d,)+W+(N,)
+        dU = contractions.contract('dWo,dWKCa->dKCao', ww, dxi_hats_dot)
+        E = contractions.contract('dWCi,dWCb->dWCib', xis, sigma_hats)
+        E_dot = (contractions.contract('dWKCi,dWCb->dWKCib', xis_dot, sigma_hats, len_W=n_probe)
+                 + contractions.contract('dWCi,dWKCb->dWKCib', xis, sigma_hats_dot, len_W=n_probe))
+        dG = (contractions.contract('dWKCa,dWCib->dKCaib', mus_dot, E, len_W=n_probe)
+              + contractions.contract('dWCa,dWKCib->dKCaib', mus, E_dot, len_W=n_probe))
+        return dU, dG
+
+    n_probe = ww[0].ndim - 1
+    dU = tuple(contractions.contract('Wo,WKCa->KCao', w, dxd) for w, dxd in zip(ww, dxi_hats_dot))
+    dG = []
+    for mu, mud, xi, xid, sh, shd in zip(mus, mus_dot, xis, xis_dot, sigma_hats, sigma_hats_dot):
+        E = contractions.contract('WCi,WCb->WCib', xi, sh)
+        E_dot = (contractions.contract('WKCi,WCb->WKCib', xid, sh, len_W=n_probe)
+                 + contractions.contract('WCi,WKCb->WKCib', xi, shd, len_W=n_probe))
+        dG.append(contractions.contract('WKCa,WCib->KCaib', mud, E, len_W=n_probe)
+                  + contractions.contract('WCa,WKCib->KCaib', mu, E_dot, len_W=n_probe))
+    return dU, tuple(dG)

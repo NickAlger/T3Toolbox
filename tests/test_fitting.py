@@ -1199,11 +1199,76 @@ class TestExactLocalModel(unittest.TestCase):
         self.assertLess(_relerr_trees(m.hessian(p).variations.data, blm.hvp(p.variations.data)), 1e-12)
         self.assertTrue(np.array_equal(np.asarray(m.quadratic(p)), np.asarray(blm.quadratic(p.variations.data))))
 
+    def test_plain_kinds_match_the_backend_exact_local_model(self):
+        '''S10 / S11: the exact frontend ``probe_model`` / ``apply_model`` / ``entries_model`` is the backend exact model
+        on the same data -- ``gradient``, the misfit gradient, ``curvature_hessian``, ``curvature_quadratic`` and
+        ``quadratic`` bit for bit, ``hessian`` to rounding (two gauged halves vs one projection), a tangent stack K
+        included -- on the ragged manifold and corewise geometries, the uniform twins (``uniform_least_squares_problem``
+        on the same supercores) and a shared uniform manifold. Probe with a per-mode weight.'''
+        import t3toolbox.shared_geometry as sg
+        import t3toolbox.uniform_tucker_tensor_train as ut3
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.backend.optimizers as bopt
+        import t3toolbox.backend.uniform_fitting as ufit
+        rng = np.random.default_rng(84)
+        factories = {'apply': fitting.apply_model, 'entries': fitting.entries_model, 'probe': fitting.probe_model}
+        for kind in ('apply', 'entries', 'probe'):
+            for struct, labels in ((_EX_MINIMAL, None), (_EX_SHAREABLE, (0, 0, 1))):
+                x, other = _ex_unit_point(struct), _ex_unit_point(struct)
+                if labels is not None:
+                    x = t3.TuckerTensorTrain(*bsharing.t3_tie_tucker_factors(x.data, labels))
+                d = len(struct[0])
+                if kind == 'entries':
+                    sample = np.stack([rng.integers(0, N, size=9) for N in struct[0]])
+                    data = other.entries(sample) + 0.1 * rng.standard_normal(9)
+                else:
+                    sample = [rng.standard_normal((9, N)) for N in struct[0]]
+                    data = (other.apply(sample) + 0.1 * rng.standard_normal(9) if kind == 'apply'
+                            else [z + 0.1 * rng.standard_normal(z.shape) for z in other.probe(sample)])
+                w = list(np.linspace(0.5, 2.0, d)) if kind == 'probe' else None
+                wkw = {'weight': w} if kind == 'probe' else {}
+                bkind = fb.probe_kind(fitting._canonical_weight(w, 'probe', d, 0)) if kind == 'probe' else \
+                    {'apply': fb.APPLY, 'entries': fb.ENTRIES}[kind]
+                ux = ut3.UniformTuckerTensorTrain.from_t3(x)
+                if labels is None:
+                    setups = [('ragged manifold', t3m.MANIFOLD, x, bgeo.ManifoldGeometryOps(), None),
+                              ('ragged corewise', t3m.COREWISE, x, bgeo.CorewiseGeometryOps(), None),
+                              ('uniform manifold', ut3m.UNIFORM_MANIFOLD, ux, 'manifold', None),
+                              ('uniform corewise', ut3m.UNIFORM_COREWISE, ux, 'corewise', None)]
+                else:
+                    setups = [('shared uniform manifold', sg.shared(ut3m.UNIFORM_MANIFOLD, labels), ux, 'manifold',
+                               labels)]
+                for name, geom, xx, bgeom, sharing in setups:
+                    with self.subTest(kind=kind, setup=name):
+                        if isinstance(bgeom, str):
+                            prob = ufit.uniform_least_squares_problem(bgeom, kind, ux, sample, data, weight=w,
+                                                                      sharing=sharing)
+                            blm = prob.local_model((ux.data[0], ux.data[1]), hessian='exact')
+                            grad_of = lambda t: t.variations.supercores
+                        else:
+                            prob = bopt.least_squares_problem(bgeom, bkind, sample, data)
+                            blm = prob.local_model(x.data, hessian='exact')
+                            grad_of = lambda t: t.variations.data
+                        m = factories[kind](geom, xx, sample, blm.residual, hessian='exact', **wkw)
+                        self.assertTrue(m.is_exact)
+                        self.assertTrue(_bitwise(grad_of(m.gradient), blm.gradient))
+                        self.assertTrue(_bitwise(m.curvature.misfit_gradient, blm.curvature.misfit_gradient))
+                        for K in ((), (2,)):
+                            p = geom.randn(m.frame, stack_shape=K)
+                            raw = grad_of(p)
+                            self.assertTrue(_bitwise(grad_of(m.curvature_hessian(p)), blm.curvature_hvp(raw)))
+                            self.assertTrue(np.array_equal(np.asarray(m.curvature_quadratic(p)),
+                                                           np.asarray(blm.curvature_quadratic(raw))))
+                            self.assertTrue(np.array_equal(np.asarray(m.quadratic(p)), np.asarray(blm.quadratic(raw))))
+                            self.assertLess(_relerr_trees(grad_of(m.hessian(p)), blm.hvp(raw)), 1e-12)
+                            self.assertGreater(float(np.max(np.abs(np.asarray(m.curvature_quadratic(p))))), 0.0)
+
     def test_structural_errors_where_the_exact_hessian_is_not_built_yet(self):
-        '''The kinds without ``corewise_hessian`` raise the backend's structural ``ValueError`` at construction
-        (naming the kind). Gauss-Newton is unaffected. (The shared manifold's exact mode -- the tied lift -- is
-        built: S7; the unshared uniform layer's -- the masked uniform two-hole -- S8; the SHARED uniform
-        geometries' -- the uniform tied lift -- S9.)'''
+        '''The kinds without ``corewise_hessian`` (the apply / entries derivatives, S12) raise the backend's
+        structural ``ValueError`` at construction (naming the kind); Gauss-Newton is unaffected. The plain probe /
+        apply / entries kinds build (S10 / S11; their frontend == backend test is below). (The shared manifold's exact
+        mode -- the tied lift -- is built: S7; the unshared uniform layer's -- the masked uniform two-hole -- S8; the
+        SHARED uniform geometries' -- the uniform tied lift -- S9.)'''
         import t3toolbox.shared_geometry as sg
         import t3toolbox.uniform_tucker_tensor_train as ut3
         import t3toolbox.uniform_manifold as ut3m
@@ -1212,10 +1277,7 @@ class TestExactLocalModel(unittest.TestCase):
         ww = [rng.standard_normal((6, N)) for N in x.shape]
         pp = [rng.standard_normal((6, N)) for N in x.shape]
         idx = np.stack([rng.integers(0, N, size=6) for N in x.shape])
-        builds = {'apply': (fitting.apply_model, (ww, x.apply(ww)), 'ApplyKind'),
-                  'entries': (fitting.entries_model, (idx, x.entries(idx)), 'EntriesKind'),
-                  'probe': (fitting.probe_model, (ww, x.probe(ww)), 'ProbeKind'),
-                  'apply_derivatives': (fitting.apply_derivatives_model,
+        builds = {'apply_derivatives': (fitting.apply_derivatives_model,
                                         (ww, pp, 1, x.apply_derivatives(ww, pp, 1)), 'ApplyDerivativesKind'),
                   'entries_derivatives': (fitting.entries_derivatives_model,
                                           (idx, pp, 1, x.entries_derivatives(idx, pp, 1)), 'EntriesDerivativesKind')}
@@ -1224,6 +1286,11 @@ class TestExactLocalModel(unittest.TestCase):
                 self.assertFalse(factory(t3m.MANIFOLD, x, *args).is_exact)
                 with self.assertRaisesRegex(ValueError, kind_name + ' does not implement corewise_hessian'):
                     factory(t3m.MANIFOLD, x, *args, hessian='exact')
+        for name, (factory, args) in {'apply': (fitting.apply_model, (ww, x.apply(ww))),
+                                      'entries': (fitting.entries_model, (idx, x.entries(idx))),
+                                      'probe': (fitting.probe_model, (ww, x.probe(ww)))}.items():
+            with self.subTest(built=name):
+                self.assertTrue(factory(t3m.MANIFOLD, x, *args, hessian='exact').is_exact)
         ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         r = x.probe_derivatives(ww, pp, 1)
         for geom in (ut3m.UNIFORM_MANIFOLD, ut3m.UNIFORM_COREWISE):

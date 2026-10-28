@@ -34,7 +34,9 @@ mathematics written as one dense binomial contraction per product-rule term, bui
 factored assembly the two-hole shipped with before the kernels became recurrences (S3b), kept as a second
 reference. They live only in the test suite -- never imported by the package -- and the shipped kernels agree
 with them to ~1e-15 (pinned at 1e-14 in ``test_curvature.py``), as ``tests/test_jet_recurrence.py`` pins the
-GN jet kernels to theirs.
+GN jet kernels to theirs. The plain kinds' two-holes (no order axis, so no binomial structure and no twin) have
+unfactored references for their factored TT assemblies instead: :py:func:`tt_tangent_assembly_nine_term` (probe)
+and :py:func:`apply_tt_tangent_assembly_three_term` (apply / entries).
 
 All functions take unstacked data unless stated; the tests loop over stack elements. Every random draw
 is the caller's (a seeded ``np.random.Generator``).
@@ -421,6 +423,36 @@ def probe_derivatives_two_hole_states_trs(ztildes, ww, pp, core_pair, core_direc
                                        st['deta_td'], xi, st['xid'], mu, st['mud'], st['nu'], st['nud'], trs,
                                        n_frame)
     return st
+
+
+def tt_tangent_assembly_nine_term(sigma_tildes, sigma_tildes_d, tau_tildes, tau_tildes_d, deta_tildes, deta_tildes_d,
+                                  xi, xid, mu, mud, nu, nud, n_probe):
+    """Reference for ``probing.assemble_tt_tangent_variations`` (the plain probe two-hole's TT assembly, W summed):
+    the nine-term product rule of ``probing.assemble_tt_variations``' three trilinear outer products, one direct
+    three-operand contraction per (group, dotted factor) -- the unfactored form the shipped kernel groups into four
+    finals. (No binomial structure: plain probing has no order axis, so this is a reference for the factoring, not a
+    dense-``trs`` twin.)"""
+    kw = dict(len_W=n_probe)
+    trilinear = lambda a, b, c, k: contract(('WKCi,WCa,WCj->KCiaj', 'WCi,WKCa,WCj->KCiaj', 'WCi,WCa,WKCj->KCiaj')[k],
+                                            a, b, c, **kw)
+    out = []
+    for k in range(len(xi)):
+        out.append(trilinear(mud[k], xi[k], sigma_tildes[k], 0) + trilinear(mu[k], xid[k], sigma_tildes[k], 1)
+                   + trilinear(mu[k], xi[k], sigma_tildes_d[k], 2)
+                   + trilinear(tau_tildes_d[k], xi[k], nu[k], 0) + trilinear(tau_tildes[k], xid[k], nu[k], 1)
+                   + trilinear(tau_tildes[k], xi[k], nud[k], 2)
+                   + trilinear(mud[k], deta_tildes[k], nu[k], 0) + trilinear(mu[k], deta_tildes_d[k], nu[k], 1)
+                   + trilinear(mu[k], deta_tildes[k], nud[k], 2))
+    return tuple(out)
+
+
+def apply_tt_tangent_assembly_three_term(mu, mud, xi, xid, sigma_hat, sigma_hat_d, n_probe):
+    """Reference for the apply / entries two-hole's TT assembly (W summed): the three-term product rule of the
+    transpose's single trilinear ``mu (x) xi (x) sigma_hat``, unfactored."""
+    kw = dict(len_W=n_probe)
+    return tuple(contract('WKCa,WCi,WCb->KCaib', md, x, s, **kw) + contract('WCa,WKCi,WCb->KCaib', m, xd, s, **kw)
+                 + contract('WCa,WCi,WKCb->KCaib', m, x, sd, **kw)
+                 for m, md, x, xd, s, sd in zip(mu, mud, xi, xid, sigma_hat, sigma_hat_d))
 
 
 def probe_derivatives_two_hole_trs(ztildes, ww, pp, core_pair, core_directions, order, frame_sweep=None):

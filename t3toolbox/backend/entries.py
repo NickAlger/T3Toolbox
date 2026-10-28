@@ -4,9 +4,10 @@
 # Documentation: https://nickalger.github.io/T3Toolbox/index.html
 """The ``entries`` sampling type: evaluate individual T3 entries (one-hot probes) -> scalars.
 
-Holds the t3 + tv ops, the ambient/tangent/corewise transposes, and the frame sweeps for entry
-sampling. The most-special case of probe ⊃ apply ⊃ entries; imports the general machinery from
-``probing``, never the reverse. See ``docs/entries_apply_probe.md``.
+Holds the t3 + tv ops, the ambient/tangent/corewise transposes, the corewise transpose's derivative in the
+cores (the exact Hessian's sampling term), and the frame sweeps for entry sampling. The most-special case of
+probe ⊃ apply ⊃ entries; imports the general machinery from ``probing``, never the reverse. See
+``docs/entries_apply_probe.md``.
 
 Index semantics are numpy's throughout (forward and all transposes): a negative index wraps; an
 out-of-range index raises under numpy but **clamps silently under jax** (gather semantics) --
@@ -22,7 +23,7 @@ from t3toolbox.backend.common import *
 import math
 import t3toolbox.backend.probing as probing
 from t3toolbox.backend.probing import compute_mu
-from t3toolbox.backend.apply import _apply_from_xis, _apply_transpose_adjoint
+from t3toolbox.backend.apply import _apply_from_xis, _apply_transpose_adjoint, _apply_corewise_hessian_adjoint
 
 __all__ = [
     't3_entries',
@@ -33,6 +34,8 @@ __all__ = [
     'tv_entries_jacobian_from_sweep',
     'tv_entries_transpose_from_sweep',
     't3_entries_corewise_transpose',
+    't3_entries_corewise_hessian',
+    't3_entries_corewise_hessian_from_sweep',
 ]
 
 
@@ -259,6 +262,82 @@ def t3_entries_corewise_transpose(
     return tv_entries_transpose(
         c, index, fv_conversions.t3_corewise_frame(core_pair), sum_over_probes=sum_over_probes,
     )
+
+
+def t3_entries_corewise_hessian_from_sweep(
+        c:                  NDArray,                # residual (omega^2 applied), shape=W+C
+        index:              NDArray,                # int, shape=(d,)+W
+        core_pair:          typ.Tuple[
+            typ.Sequence[NDArray],                  # tucker_cores of theta. len=d, elm_shape=C+(ni,Ni)
+            typ.Sequence[NDArray],                  # tt_cores of theta.     len=d, elm_shape=C+(ri,ni,r(i+1))
+        ],                                          # = TuckerTensorTrain.data
+        core_directions:    typ.Tuple[
+            typ.Sequence[NDArray],                  # Tucker directions theta_hat. len=d, elm_shape=K+C+(ni,Ni)
+            typ.Sequence[NDArray],                  # TT directions theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+        ],
+
+        frame_sweep:        typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (xis, mus) of theta
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],                        # Tucker block of K theta_hat. len=d, elm_shape=K+C+(ni,Ni)
+    typ.Tuple[NDArray, ...],                        # TT block of K theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+]:
+    ''':py:func:`t3_entries_corewise_hessian` reusing a precomputed lean ``frame_sweep``
+    (:py:func:`tv_precompute_entries_frame_sweep`, the same at the manifold frame and at the corewise frame of its
+    base point ``theta = (U, L)``) -- the reuse hook for a local model; it must be ``core_pair``'s own.'''
+    tucker_cores, tt_cores = core_pair
+    tucker_dirs, tt_dirs = core_directions
+    xis, mus = frame_sweep
+    xis_dot = _entry_xis(tucker_dirs, index)                                     # xi_dot = Udot[..., index] (fiber slice)
+    mus_dot = probing.compute_sigma(tt_dirs, tt_cores, tt_cores, xis, xis_dot, mus)
+    ww = _onehot_vectors(index, tucker_cores)                                    # the one-hot "apply vectors"
+    return _apply_corewise_hessian_adjoint(c, ww, xis, xis_dot, mus, mus_dot, tt_cores, tt_dirs)
+
+
+def t3_entries_corewise_hessian(
+        c:                  NDArray,                # residual (omega^2 applied), shape=W+C
+        index:              NDArray,                # int, shape=(d,)+W
+        core_pair:          typ.Tuple[
+            typ.Sequence[NDArray],                  # tucker_cores of theta. len=d, elm_shape=C+(ni,Ni)
+            typ.Sequence[NDArray],                  # tt_cores of theta.     len=d, elm_shape=C+(ri,ni,r(i+1))
+        ],                                          # = TuckerTensorTrain.data
+        core_directions:    typ.Tuple[
+            typ.Sequence[NDArray],                  # Tucker directions theta_hat. len=d, elm_shape=K+C+(ni,Ni)
+            typ.Sequence[NDArray],                  # TT directions theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+        ],
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],                        # Tucker block of K theta_hat. len=d, elm_shape=K+C+(ni,Ni)
+    typ.Tuple[NDArray, ...],                        # TT block of K theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
+]:
+    '''The derivative of :py:func:`t3_entries_corewise_transpose` along core directions: the core-coordinate
+    Hessian of ``theta -> <c, entries(Phi(theta), index)>`` applied to ``theta_hat`` -- the exact Hessian's sampling
+    term for ``entries``. Identical to :py:func:`~t3toolbox.backend.apply.t3_apply_corewise_hessian` with the
+    up-index ``xi`` / ``xi_dot`` from slicing Tucker-core fibers at ``index`` and the apply vectors replaced by the
+    unit vectors ``e_index`` (so the Tucker block is the entry scatter). Stacks, polymorphism and the mask-free
+    contract as there; index semantics are numpy's (the module note).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.backend.t3_constructors as t3k
+    >>> import t3toolbox.backend.entries as t3e
+    >>> np.random.seed(0)                                                  # t3_corewise_randn draws from it
+    >>> rng = np.random.default_rng(0)
+    >>> shape, W = (4, 5, 3), 6
+    >>> theta = t3k.t3_corewise_randn(shape, (2, 3, 2), (1, 2, 2, 1))
+    >>> index = np.stack([rng.integers(0, N, size=W) for N in shape])     # (d,)+W grid points
+    >>> c = rng.standard_normal(W)
+    >>> dirs = (tuple(rng.standard_normal((2,) + u.shape) for u in theta[0]),
+    ...         tuple(rng.standard_normal((2,) + g.shape) for g in theta[1]))
+    >>> KU, KG = t3e.t3_entries_corewise_hessian(c, index, theta, dirs)
+    >>> one = lambda cores: t3e.t3_entries_corewise_transpose(c, index, cores, sum_over_probes=True)
+    >>> shift = lambda h: tuple(tuple(x + h * dx[0] for x, dx in zip(xs, dxs)) for xs, dxs in zip(theta, dirs))
+    >>> fd = [(a - b) / 2e-4 for a, b in zip(sum(one(shift(1e-4)), ()), sum(one(shift(-1e-4)), ()))]
+    >>> bool(max(np.linalg.norm(k[0] - f) / np.linalg.norm(f) for k, f in zip(KU + KG, fd)) < 1e-6)
+    True
+    '''
+    return t3_entries_corewise_hessian_from_sweep(
+        c, index, core_pair, core_directions,
+        tv_precompute_entries_frame_sweep(fv_conversions.t3_corewise_frame(core_pair), index))
 
 
 def _entry_xis(tucker_cores, index):

@@ -562,6 +562,169 @@ class TestUniformKindCorewiseHessian(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------------------------------
+# The plain kinds' uniform two-holes (S10 / S11): probe, apply, entries
+# ---------------------------------------------------------------------------------------------------
+_PLAIN_KINDS = ('probe', 'apply', 'entries')
+_PLAIN_UNIFORM = {'probe': (ut3s.ut3_probe_corewise_hessian, ut3s.ut3_probe_corewise_hessian_from_sweep,
+                            utvs.utv_precompute_probe_frame_sweep),
+                  'apply': (ut3s.ut3_apply_corewise_hessian, ut3s.ut3_apply_corewise_hessian_from_sweep,
+                            utvs.utv_precompute_apply_frame_sweep),
+                  'entries': (ut3s.ut3_entries_corewise_hessian, ut3s.ut3_entries_corewise_hessian_from_sweep,
+                              utvs.utv_precompute_entries_frame_sweep)}
+
+
+def _plain_ragged_hessian(kind):
+    import t3toolbox.backend.apply as bapply
+    import t3toolbox.backend.entries as bentries
+    import t3toolbox.backend.probing as probing
+    return {'probe': probing.t3_probe_corewise_hessian, 'apply': bapply.t3_apply_corewise_hessian,
+            'entries': bentries.t3_entries_corewise_hessian}[kind]
+
+
+def _plain_sample(kind, shape, W, n, rng):
+    """A ragged sample (ww, or an index grid for entries) and a residual with the C axis (n > 1) in the kind's own
+    layout, plus the per-element residual ``r_of(c)``."""
+    C = (n,) if n > 1 else ()
+    s = (np.stack([rng.integers(0, N, size=W) for N in shape]) if kind == 'entries'
+         else [rng.standard_normal((W, N)) for N in shape])
+    if kind == 'probe':
+        z = [rng.standard_normal((W,) + C + (N,)) for N in shape]
+        return s, z, (lambda c: [zi[..., c, :] for zi in z] if n > 1 else z)
+    z = rng.standard_normal((W,) + C)
+    return s, z, (lambda c: z[..., c] if n > 1 else z)
+
+
+class TestUniformPlainKindsTwoHole(unittest.TestCase):
+    """``ut3_{probe,apply,entries}_corewise_hessian[_from_sweep]`` (T17): per element the ragged two-hole (``K``
+    stacks, ``d`` = 1, 3, 4, varying ranks, TT slack), exact output masks, and garbage in the padding of theta,
+    theta_hat, the residual and the vectors ignored (bitwise); the sweep-reusing form equals the one-shot form; and the
+    direction mask is load-bearing (the theta_hat-mask-removed mutant corrupts the real block)."""
+
+    def test_per_element_vs_ragged(self):
+        rng = np.random.default_rng(91)
+        W = 7
+        for kind in _PLAIN_KINDS:
+            hess, from_sweep, precompute = _PLAIN_UNIFORM[kind]
+            ragged_hess = _plain_ragged_hessian(kind)
+            for name in _CASES:
+                for K in _KS:
+                    with self.subTest(kind=kind, case=name, K=K):
+                        _points, rframes, uframe, _dims, n = _case(name, 92)
+                        shape = tuple(uframe[4])
+                        s, z, z_of = _plain_sample(kind, shape, W, n, rng)
+                        theta = _theta_data(uframe)
+                        D = _random_theta_sc(uframe, K, rng)
+                        D_r = [tuple(_ragged_slices(D[j], K, n, lambda cc, j=j: _theta_shapes(rframes[cc])[j])[c]
+                                     for j in range(2)) for c in range(n)]
+                        out = hess(z, s, theta, D)
+                        ref = [ragged_hess(z_of(c), s, (rframes[c][0], rframes[c][2]), D_r[c]) for c in range(n)]
+                        for j in range(2):
+                            _compare(self, out[j], lambda c, j=j: ref[c][j], K, n, 'two-hole %d' % j)
+                        # garbage everywhere padded: theta (the frame), the residual and the vectors (beyond N_i)
+                        N = uframe[0].shape[-1]
+                        dirty_theta = _dirty_ut3(theta[:2], theta[2], theta[3], seed=3) + theta[2:]
+                        pk = lambda v, sd_: _dirty_packed_vectors(ut3o.pack_if_ragged(v, N), shape, sd_)
+                        dz = pk(z, 4) if kind == 'probe' else z
+                        ds = s if kind == 'entries' else pk(s, 5)
+                        again = hess(dz, ds, dirty_theta, D)
+                        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(out, again)), 'garbage leaked')
+                        sweep = precompute(ufc.ut3_corewise_frame(theta), s)
+                        reuse = from_sweep(z, theta, D, sweep)
+                        self.assertLess(_pair_relerr(reuse, out), _TOL)
+
+    def test_the_direction_mask_is_load_bearing(self):
+        """Negative control, per kind (F15 / F18): the kernel on the masked theta but the UNmasked direction corrupts
+        the real block -- what the wrapper's second mask prevents (even re-masked, the real block is off)."""
+        rng = np.random.default_rng(93)
+        for kind in _PLAIN_KINDS:
+            with self.subTest(kind=kind):
+                _points, rframes, uframe, _dims, n = _case('d3', 94)
+                shape = tuple(uframe[4])
+                s, z, _ = _plain_sample(kind, shape, 6, n, rng)
+                theta = _theta_data(uframe)
+                D = _random_theta_sc(uframe, (), rng)
+                good = _PLAIN_UNIFORM[kind][0](z, s, theta, D)
+                N = uframe[0].shape[-1]
+                pk = lambda v: ut3o.pack_if_ragged(v, N)
+                bare = _plain_ragged_hessian(kind)(pk(z) if kind == 'probe' else z, s if kind == 'entries' else pk(s),
+                                                   ut3mask.ut3_apply_masks(theta), D)
+                bare = ut3mask.ut3_apply_masks(bare + theta[2:])
+                self.assertGreater(np.linalg.norm(bare[1] - good[1]), 1e-3 * np.linalg.norm(good[1]))
+
+
+class TestUniformPlainKindCorewiseHessian(unittest.TestCase):
+    """``UniformProbeKind`` / ``UniformApplyKind`` / ``UniformEntriesKind.corewise_hessian`` (T23 after the override,
+    T24, m29), in the S8 shape: each replaces the ``_UniformKind`` stub; its masks are the FRAME's ``(up, left)`` -- at
+    TT slack ``frame[5]`` is a strict subset of ``self.masks``, and the point masks give a different answer (the
+    ``self.masks``-instead-of-frame mutant); garbage in theta_hat's padded slots == zeroed padding, bitwise."""
+
+    _UKIND = {'probe': lambda d: uf.UniformProbeKind.from_point(d, weight=[0.5, 1.0, 2.0]),
+              'apply': lambda d: uf.UniformApplyKind.from_point(d),
+              'entries': lambda d: uf.UniformEntriesKind.from_point(d)}
+    _RKIND = {'probe': lambda: bfit.ProbeKind(weight=[0.5, 1.0, 2.0]), 'apply': lambda: bfit.APPLY,
+              'entries': lambda: bfit.ENTRIES}
+
+    def test_the_override_replaces_the_stub(self):
+        for cls, ragged in ((uf.UniformProbeKind, bfit.ProbeKind), (uf.UniformApplyKind, bfit.ApplyKind),
+                            (uf.UniformEntriesKind, bfit.EntriesKind)):
+            with self.subTest(kind=cls.__name__):
+                self.assertIsNot(cls.corewise_hessian, uf._UniformKind.corewise_hessian)
+                self.assertIsNot(cls.corewise_hessian, ragged.corewise_hessian)      # never the mask-free ragged one
+                self.assertFalse(getattr(cls.corewise_hessian, '__isabstractmethod__', False))
+                self.assertNotIn(cls.__name__, uf._UNIFORM_HESSIAN_SLICE)
+                mro = cls.__mro__
+                self.assertLess(mro.index(uf._UniformKind), mro.index(ragged))      # still precedes
+
+    def test_masks_from_the_frame_at_tt_slack(self):
+        rng = np.random.default_rng(95)
+        x, ux, rframe, frame = _tt_slack_uniform(96)
+        point_up, point_left = ux.data[3]
+        self.assertTrue(np.all(frame[5][2] <= point_left) and not np.array_equal(frame[5][2], point_left))   # F23
+        shape, W = x.shape, 8
+        base = (frame[0], frame[2])
+        for kind in _PLAIN_KINDS:
+            ukind, rkind = self._UKIND[kind](ux.data), self._RKIND[kind]()
+            s, z, _ = _plain_sample(kind, shape, W, 1, rng)
+            sample = uf.pack_sample(kind, s, ux.N)
+            sweep = ukind.precompute(frame, sample)
+            zp = uf.pack_data(kind, z, ux.N)
+            rsweep = rkind.precompute(rframe, s)
+            for K in _KS:
+                with self.subTest(kind=kind, K=K):
+                    D = _random_theta_sc(frame, K, rng)
+                    out = ukind.corewise_hessian(D, zp, sample, frame, sweep, base)
+                    D_r = tuple(_ragged_slices(D[j], K, 1, lambda c, j=j: _theta_shapes(rframe)[j])[0] for j in range(2))
+                    ref = rkind.corewise_hessian(D_r, z, s, rframe, rsweep, (rframe[0], rframe[2]))
+                    for j in range(2):                     # the extent is the FRAME's (the ragged frame's shapes)
+                        _compare(self, out[j], lambda c, j=j: ref[j], K, 1, 'kind %d' % j)
+                    wrong = _PLAIN_UNIFORM[kind][1](                                    # the point's masks instead
+                        ukind._apply_weight(zp, 2), (base[0], base[1], ux.data[2], ux.data[3]), D, sweep)
+                    self.assertFalse(np.allclose(wrong[1], out[1]), 'the point masks gave the same answer')
+
+    def test_theta_hat_masking_unit(self):
+        """T24: garbage in theta_hat's padded slots (every edge padded) gives the zeroed-padding answer, bitwise."""
+        rng = np.random.default_rng(97)
+        _points, rframes, uframe, _dims, n = _case('d3 varying', 98)
+        shape, W = tuple(uframe[4]), 5
+        masks = (uframe[5][0], uframe[5][2])
+        for m in masks:                                                  # every edge has padding
+            self.assertTrue(np.all(~m[..., -1]))
+        for kind in _PLAIN_KINDS:
+            with self.subTest(kind=kind):
+                ukind = self._UKIND[kind]((None, None, shape, masks))
+                s, z, _ = _plain_sample(kind, shape, W, n, rng)
+                sample = uf.pack_sample(kind, s, uframe[0].shape[-1])
+                zp = uf.pack_data(kind, z, uframe[0].shape[-1])
+                sweep = ukind.precompute(uframe, sample)
+                D = _random_theta_sc(uframe, (2,), rng)
+                clean = ut3mask.ut3_apply_masks(D + (shape, masks))
+                a = ukind.corewise_hessian(D, zp, sample, uframe, sweep, (uframe[0], uframe[2]))
+                b = ukind.corewise_hessian(tuple(clean), zp, sample, uframe, sweep, (uframe[0], uframe[2]))
+                self.assertTrue(all(np.array_equal(p, q) for p, q in zip(a, b)))
+                self.assertGreater(min(np.abs(np.asarray(D[j]) - np.asarray(clean[j])).max() for j in range(2)), 1.0)
+
+
+# ---------------------------------------------------------------------------------------------------
 # The uniform geometries' exact members and the exact LocalModel
 # ---------------------------------------------------------------------------------------------------
 def _uniform_exact_model(uframe, plain_masks, kind, sample, residual, curvature_damping=None, geom=None):
@@ -706,33 +869,58 @@ class TestUniformGeometryExactMembers(unittest.TestCase):
         self.assertIsNone(cgeo.tangential_curvature(f, v, ()))
 
 
-def _exact_models(name, seed, rng, geometry='manifold', order=1, W=7, weight=(1.0, 0.5)):
+def _kind_setup(kind, shape, W, n, rng, masks, N, order=1, weight=(1.0, 0.5)):
+    """The uniform and ragged kinds of ``kind`` at the frame masks ``masks``, the ragged sample, the packed sample and
+    residual (garbage-padded beyond each N_i where they are packed), and the per-element ragged residual ``r_of(c)``.
+    ``weight`` is the derivative kinds' per-order row; plain probe takes a per-mode row (its first d entries of
+    ``(0.5, ..., 2.0)``); apply / entries are unweighted."""
+    C = (n,) if n > 1 else ()
+    if kind == 'probe_derivatives':                  # (the original S8 draw order, so its tests are unchanged)
+        ww, pp, _ = _pd_sample(shape, W, order, n, rng)
+        r = [rng.standard_normal((order + 1, W) + C + (N_,)) for N_ in shape]
+        rp = _dirty_packed_vectors(ut3o.pack_if_ragged(r, N), shape, 31)        # garbage beyond N_i
+        sample = (_dirty_packed_vectors(ut3o.pack_if_ragged(ww, N), shape, 32),
+                  _dirty_packed_vectors(ut3o.pack_if_ragged(pp, N), shape, 33))
+        ukind = uf.UniformProbeDerivativesKind.from_point((None, None, shape, masks), order=order,
+                                                          weight=list(weight), chunk_size=None)
+        rkind = bfit.ProbeDerivativesKind(order=order, weight=list(weight), chunk_size=None)
+        return ukind, rkind, (ww, pp), sample, rp, (lambda c: [z[..., c, :] for z in r] if n > 1 else r)
+    if kind == 'entries':
+        rsample = np.stack([rng.integers(0, N_, size=W) for N_ in shape])
+        sample = rsample                                                         # an integer grid: never packed
+    else:
+        rsample = [rng.standard_normal((W, N_)) for N_ in shape]
+        sample = _dirty_packed_vectors(ut3o.pack_if_ragged(rsample, N), shape, 32)
+    if kind == 'probe':
+        w = list(np.linspace(0.5, 2.0, len(shape)))                              # per mode
+        r = [rng.standard_normal((W,) + C + (N_,)) for N_ in shape]
+        rp = _dirty_packed_vectors(ut3o.pack_if_ragged(r, N), shape, 31)
+        return (uf.UniformProbeKind.from_point((None, None, shape, masks), weight=w), bfit.ProbeKind(weight=w),
+                rsample, sample, rp, (lambda c: [z[..., c, :] for z in r] if n > 1 else r))
+    r = rng.standard_normal((W,) + C)
+    ukind = (uf.UniformApplyKind if kind == 'apply' else uf.UniformEntriesKind).from_point((None, None, shape, masks))
+    return ukind, (bfit.APPLY if kind == 'apply' else bfit.ENTRIES), rsample, sample, r, (
+        lambda c: r[..., c] if n > 1 else r)
+
+
+def _exact_models(name, seed, rng, geometry='manifold', order=1, W=7, weight=(1.0, 0.5), kind='probe_derivatives'):
     """(uniform exact model at a frame packed from the ragged ones, the ragged exact models per element,
     the uniform frame, the per-element variation shapes, n_elements): residual and sample garbage-padded."""
     _points, rframes, uframe, dims, n = _case(name, seed)
     shape = tuple(uframe[4])
-    ww, pp, _ = _pd_sample(shape, W, order, n, rng)
-    r = [rng.standard_normal((order + 1, W) + ((n,) if n > 1 else ()) + (N,)) for N in shape]
     N = uframe[0].shape[-1]
-    rp = _dirty_packed_vectors(ut3o.pack_if_ragged(r, N), shape, 31)        # garbage beyond N_i
-    sample = (_dirty_packed_vectors(ut3o.pack_if_ragged(ww, N), shape, 32),
-              _dirty_packed_vectors(ut3o.pack_if_ragged(pp, N), shape, 33))
     masks = (uframe[5][0], uframe[5][2])
-    kind = uf.UniformProbeDerivativesKind.from_point((None, None, shape, masks), order=order,
-                                                     weight=list(weight), chunk_size=None)
-    rkind = bfit.ProbeDerivativesKind(order=order, weight=list(weight), chunk_size=None)
+    ukind, rkind, rsample, sample, rp, r_of = _kind_setup(kind, shape, W, n, rng, masks, N, order, weight)
     if geometry == 'manifold':
-        lm = _uniform_exact_model(uframe, masks, kind, sample, rp, 1e-4)
-        rlm = [_ragged_exact_model(rframes[c], rkind, (ww, pp), [z[..., c, :] for z in r] if n > 1 else r, 1e-4)
-               for c in range(n)]
+        lm = _uniform_exact_model(uframe, masks, ukind, sample, rp, 1e-4)
+        rlm = [_ragged_exact_model(rframes[c], rkind, rsample, r_of(c), 1e-4) for c in range(n)]
         vshapes = lambda c: _var_shapes(rframes[c])
     else:
         cframe = ufc.ut3_corewise_frame(_theta_data(uframe))
         geom = bgeo.UniformCorewiseGeometryOps(shape, masks)
-        lm = _uniform_exact_model(cframe, masks, kind, sample, rp, None, geom=geom)
+        lm = _uniform_exact_model(cframe, masks, ukind, sample, rp, None, geom=geom)
         rcf = [fvc.t3_corewise_frame((f[0], f[2])) for f in rframes]
-        rlm = [_ragged_exact_model(rcf[c], rkind, (ww, pp), [z[..., c, :] for z in r] if n > 1 else r, None,
-                                   geom=_COREWISE) for c in range(n)]
+        rlm = [_ragged_exact_model(rcf[c], rkind, rsample, r_of(c), None, geom=_COREWISE) for c in range(n)]
         vshapes = lambda c: _var_shapes(rcf[c])
         uframe = cframe
     return lm, rlm, uframe, vshapes, n
@@ -904,6 +1092,89 @@ class TestUniformKStackedGaussNewton(unittest.TestCase):
                 for j in range(2):
                     _compare(self, Hp[j], lambda c, j=j: refs[c][j], K, n, 'gn hvp %d' % j)
                 self.assertEqual(np.shape(gn.geom.inner(p, p)), K + ((n,) if n > 1 else ()))
+
+
+class TestUniformPlainKindsExactLocalModel(unittest.TestCase):
+    """The backend exact ``LocalModel`` for the plain kinds (S10 / S11) on the uniform layer, at a frame packed from
+    the ragged one: every exact action per element equal to the ragged model's on both uniform geometries
+    (varying-rank stacks, forced padding, garbage-padded residual / sample / trial tangents, ``K`` stacks), exact
+    output masks; garbage in every padded slot of the frame -- on the corewise frame ``(U, G, G, G)`` the point's
+    padded boundary-bond slots included -- leaves every action bitwise unchanged; and one SHARED-uniform subcase per
+    kind (the tied lift on the companion, per element the ragged shared model, the output tied)."""
+
+    def _per_element(self, lm, rlm, uframe, vshapes, n, K, rng):
+        p = _random_variation_sc(uframe, K, rng)
+        p_r = [tuple(_ragged_slices(p[j], K, n, lambda cc, j=j: vshapes(cc)[j])[c] for j in range(2)) for c in range(n)]
+        for label, act in (('hvp', lambda m, q: m.hvp(q)), ('curvature_hvp', lambda m, q: m.curvature_hvp(q))):
+            out = act(lm, p)
+            refs = [act(rlm[c], p_r[c]) for c in range(n)]
+            for j in range(2):
+                _compare(self, out[j], lambda c, j=j: refs[c][j], K, n, '%s %d' % (label, j))
+        for label, act in (('quadratic', lambda m, q: m.quadratic(q)),
+                           ('curvature_quadratic', lambda m, q: m.curvature_quadratic(q))):
+            got = np.asarray(act(lm, p))
+            self.assertEqual(got.shape, tuple(K) + ((n,) if n > 1 else ()))
+            for c in range(n):
+                want = np.asarray(act(rlm[c], p_r[c]))
+                g = got[..., c] if n > 1 else got
+                # a quadratic form sums signed terms (the curvature form can cancel well below its terms' scale):
+                # 1e-12 relative, where the vector actions above hold 1e-13 (observed <= 1.3e-13)
+                self.assertLess(float(np.max(np.abs(g - want) / np.abs(want))), 1e-12, label)
+        for j in range(2):
+            _compare(self, lm.gradient[j], lambda c, j=j: rlm[c].gradient[j], (), n, 'gradient')
+        return out
+
+    def test_every_exact_action_per_element(self):
+        rng = np.random.default_rng(101)
+        for kind in _PLAIN_KINDS:
+            for geometry in ('manifold', 'corewise'):
+                for name in ('d3 varying', 'd4 varying', 'd1 varying', 'tt slack'):
+                    if name == 'd1 varying' and geometry == 'manifold':
+                        continue                                  # d = 1: no curvature data on the manifold (T20)
+                    for K in _KS:
+                        with self.subTest(kind=kind, geometry=geometry, case=name, K=K):
+                            lm, rlm, uframe, vshapes, n = _exact_models(name, 102, rng, geometry, kind=kind)
+                            self._per_element(lm, rlm, uframe, vshapes, n, K, rng)
+
+    def test_garbage_in_the_frame_padding(self):
+        rng = np.random.default_rng(103)
+        for kind in _PLAIN_KINDS:
+            for geometry in ('manifold', 'corewise'):
+                with self.subTest(kind=kind, geometry=geometry):
+                    lm, _rlm, uframe, _vs, n = _exact_models('d3 varying', 104, rng, geometry, kind=kind)
+                    dirty = _dirty_frame(uframe, seed=105)
+                    if geometry == 'corewise':                 # (U, G, G, G): ONE garbage-padded G, three times
+                        dirty = (dirty[0], dirty[2], dirty[2], dirty[2]) + tuple(uframe[4:])
+                        left = uframe[5][2]
+                        self.assertTrue(np.all(~left[0][..., 1:]) and np.all(~left[-1][..., 1:]))   # the boundary pads
+                        self.assertGreater(float(np.abs(dirty[2][0][..., 1:, :, :]).max()), 1.0)    # ... hold garbage
+                    lmd = _uniform_exact_model(dirty, (uframe[5][0], uframe[5][2]), lm.kind, lm.sample, lm.residual,
+                                               1e-4 if geometry == 'manifold' else None,
+                                               geom=None if geometry == 'manifold' else lm.geom)
+                    p = _random_variation_sc(uframe, (2,), rng)
+                    for act in (lambda m: m.hvp(p), lambda m: m.curvature_hvp(p), lambda m: m.gradient,
+                                lambda m: (m.quadratic(p), m.curvature_quadratic(p))):
+                        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(act(lm), act(lmd))))
+
+    def test_shared_uniform_subcase(self):
+        rng = np.random.default_rng(106)
+        for kind in _PLAIN_KINDS:
+            for geometry in ('manifold', 'corewise'):
+                with self.subTest(kind=kind, geometry=geometry):
+                    lm, rlm, uframe, vshapes, n = _shared_exact_models('ceiling varying', 107, rng, geometry, kind=kind)
+                    out = self._per_element(lm, rlm, uframe, vshapes, n, (2,), rng)
+                    if geometry == 'manifold':                             # the output is TIED
+                        vm = ufm.ufv_variation_masks_over_stack(uframe[5], uframe[0].shape[1:-2],
+                                                                (2,) + uframe[0].shape[1:-2])
+                        res = sharing.ufv_tied_variations_residual((out[0], out[1], tuple(uframe[4]), vm), lm.geom_aux)
+                        self.assertLess(float(np.max(res)), 1e-12)
+                        q = _random_variation_sc(uframe, (), rng)                 # the tied lift is load-bearing
+                        pm = _uniform_per_mode_twin(lm, 1e-4).curvature_hvp(q)
+                        self.assertGreater(_pair_relerr(pm, lm.curvature_hvp(q)), 1e-3)
+                    else:                                                  # the per-group mean: one slice
+                        for group in lm.geom.groups:
+                            for ii in group[1:]:
+                                self.assertTrue(np.array_equal(out[0][ii], out[0][group[0]]))
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -1304,37 +1575,30 @@ class TestUniformSharedTiedLift(unittest.TestCase):
             utvo.utv_corewise_lift(uframe, v, dc.replace(tied, tied_filters=()))
 
 
-def _shared_exact_models(name, seed, rng, geometry='manifold', order=1, W=7, weight=(1.0, 0.5), cd=1e-4):
+def _shared_exact_models(name, seed, rng, geometry='manifold', order=1, W=7, weight=(1.0, 0.5), cd=1e-4,
+                         kind='probe_derivatives'):
     """The shared twin of :py:func:`_exact_models`: the uniform shared exact model at the frame packed from the
     ragged ones (its companion built once), the ragged shared exact models per element, the uniform frame, the
     per-element variation shapes, n_elements, and the damping; residual and sample garbage-padded."""
     _pts, rframes, uframe, groups, n = _shared_case(name, seed)
     labels = _SH_CASES[name][1]
     shape = tuple(uframe[4])
-    ww, pp, _ = _pd_sample(shape, W, order, n, rng)
-    r = [rng.standard_normal((order + 1, W) + ((n,) if n > 1 else ()) + (N,)) for N in shape]
     N = uframe[0].shape[-1]
-    rp = _dirty_packed_vectors(ut3o.pack_if_ragged(r, N), shape, 31)        # garbage beyond N_i
-    sample = (_dirty_packed_vectors(ut3o.pack_if_ragged(ww, N), shape, 32),
-              _dirty_packed_vectors(ut3o.pack_if_ragged(pp, N), shape, 33))
     masks = (uframe[5][0], uframe[5][2])
-    kind = uf.UniformProbeDerivativesKind.from_point((None, None, shape, masks), order=order,
-                                                     weight=list(weight), chunk_size=None)
-    rkind = bfit.ProbeDerivativesKind(order=order, weight=list(weight), chunk_size=None)
-    r_c = lambda c: [z[..., c, :] for z in r] if n > 1 else r
+    ukind, rkind, rsample, sample, rp, r_of = _kind_setup(kind, shape, W, n, rng, masks, N, order, weight)
     if geometry == 'manifold':
         geom = bgeo.UniformManifoldGeometryOps.from_frame(uframe, masks, labels)
-        lm = _uniform_exact_model(uframe, masks, kind, sample, rp, cd, geom=geom)
+        lm = _uniform_exact_model(uframe, masks, ukind, sample, rp, cd, geom=geom)
         rgeom = _MANIFOLD.with_sharing(labels, shape)
-        rlm = [_ragged_exact_model(rframes[c], rkind, (ww, pp), r_c(c), cd, geom=rgeom) for c in range(n)]
+        rlm = [_ragged_exact_model(rframes[c], rkind, rsample, r_of(c), cd, geom=rgeom) for c in range(n)]
         vshapes = lambda c: _var_shapes(rframes[c])
     else:
         cframe = ufc.ut3_corewise_frame(_theta_data(uframe))
         geom = bgeo.UniformCorewiseGeometryOps(shape, masks, bgeo.canonical_groups(labels, shape))
-        lm = _uniform_exact_model(cframe, masks, kind, sample, rp, None, geom=geom)
+        lm = _uniform_exact_model(cframe, masks, ukind, sample, rp, None, geom=geom)
         rcf = [fvc.t3_corewise_frame((f[0], f[2])) for f in rframes]
         rgeom = _COREWISE.with_sharing(labels, shape)
-        rlm = [_ragged_exact_model(rcf[c], rkind, (ww, pp), r_c(c), None, geom=rgeom) for c in range(n)]
+        rlm = [_ragged_exact_model(rcf[c], rkind, rsample, r_of(c), None, geom=rgeom) for c in range(n)]
         vshapes = lambda c: _var_shapes(rcf[c])
         uframe = cframe
     return lm, rlm, uframe, vshapes, n

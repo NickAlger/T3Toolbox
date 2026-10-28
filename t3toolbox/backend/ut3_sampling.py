@@ -6,7 +6,7 @@
 
 Grouped by OBJECT type, deliberately asymmetric with the ragged by-sampling-type modules: each
 function here is a thin wrapper -- mask once, pack, delegate to the shared polymorphic ragged
-machinery (the corewise transposes and the probe-derivative two-hole then re-mask their output) -- so it
+machinery (the corewise transposes and the two-holes then re-mask their output) -- so it
 lives with the object it wraps. The algorithm story is in
 ``probing``/``apply``/``entries``/``sampling_derivatives`` (``docs/naming_conventions.md``).
 """
@@ -37,6 +37,12 @@ __all__ = [
     'ut3_probe_corewise_derivatives_transpose',
     'ut3_probe_corewise_derivatives_hessian',
     'ut3_probe_corewise_derivatives_hessian_from_sweep',
+    'ut3_probe_corewise_hessian',
+    'ut3_probe_corewise_hessian_from_sweep',
+    'ut3_apply_corewise_hessian',
+    'ut3_apply_corewise_hessian_from_sweep',
+    'ut3_entries_corewise_hessian',
+    'ut3_entries_corewise_hessian_from_sweep',
 ]
 
 # All re-mask first (so the padded "garbage" contributes nothing), then call the SHARED, already-
@@ -370,4 +376,149 @@ def ut3_probe_corewise_derivatives_hessian_from_sweep(
     packed_z = ut3_operations.pack_if_ragged(ztildes, masked[0].shape[-1])
     grads = sampling_derivatives.t3_probe_corewise_derivatives_hessian_from_sweep(
         packed_z, packed_ww, packed_pp, masked, directions, order, psweep, chunk_size=chunk_size)
+    return _remasked_core_gradient(grads, data)
+
+
+# ----------------------------------------------------------- corewise two-holes: the plain kinds' Hessians
+# The same wrapper, for the plain probe / apply / entries two-holes (the derivatives of ut3_*_corewise_transpose
+# along raw core directions): theta masked with its masks, theta_hat with the SAME masks, the residual and the
+# vectors packed (entries: the integer index is not packed -- the one-hots are built packed inside the kernel),
+# the polymorphic kernel run on the supercores, the output re-masked.
+
+def _masked_point_and_directions(
+        data:             UT3Data,                       # the point theta, stack C
+        core_directions:  typ.Tuple[NDArray, NDArray],   # bare raw direction supercores, (d,)+K+C+(...)
+) -> typ.Tuple[
+    typ.Tuple[NDArray, NDArray],                         # theta's supercores, masked with its masks
+    typ.Tuple[NDArray, NDArray],                         # theta_hat's supercores, masked with THETA's masks
+]:
+    """The two masks every uniform two-hole needs: ``theta`` with its own masks and ``theta_hat`` with the SAME
+    masks (a ``K + C`` direction broadcasts against the ``C`` masks). The kernel downstream is mask-free, and a
+    second derivative multiplies a direction's padded slot into real slots -- so the second mask is load-bearing."""
+    masked = ut3_masking.ut3_apply_masks(data)
+    directions = ut3_masking.ut3_apply_masks((core_directions[0], core_directions[1], data[2], data[3]))
+    return masked, directions
+
+
+def ut3_probe_corewise_hessian(
+        ztildes:          typ.Union[typ.Sequence[NDArray], NDArray],  # residuals (omega^2 applied), len=d, elm_shape=W+C+(Ni,); or packed
+        ww:               typ.Union[typ.Sequence[NDArray], NDArray],  # probe vectors, len=d, elm_shape=W+(Ni,); or packed
+
+        data:             UT3Data,                       # the point theta, stack C
+        core_directions:  typ.Tuple[NDArray, NDArray],   # bare raw direction supercores theta_hat, (d,)+K+C+(...)
+) -> typ.Tuple[NDArray, NDArray]:                        # (Tucker, TT) blocks of K theta_hat, (d,)+K+C+(...), W summed
+    """The uniform twin of :py:func:`~t3toolbox.backend.probing.t3_probe_corewise_hessian`: the core-coordinate
+    Hessian of ``theta -> <z~, probe(Phi(theta))>`` applied to ``theta_hat``, on supercores. ``theta`` is masked with
+    its masks, ``theta_hat`` with the SAME masks, ``ztildes`` / ``ww`` packed to ``N``, and the output re-masked; per
+    stack element the real block is the ragged two-hole of the real blocks, whatever the padding holds.
+
+    Examples
+    --------
+    With garbage in every padded slot of the direction, the real block is the ragged two-hole's and the padding is
+    exactly zero:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.backend.probing as t3p
+    >>> import t3toolbox.backend.ut3_masking as ut3m
+    >>> import t3toolbox.backend.ut3_sampling as ut3s
+    >>> np.random.seed(0)
+    >>> rng = np.random.default_rng(0)
+    >>> shape, W = (4, 5, 3), 6
+    >>> theta, direction = (t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1)) for _ in range(2))
+    >>> ww, zt = ([rng.standard_normal((W, N)) for N in shape] for _ in range(2))
+    >>> u = ut3.UniformTuckerTensorTrain.from_t3(theta, N=6, n=4, r=4).data
+    >>> ud = ut3.UniformTuckerTensorTrain.from_t3(direction, N=6, n=4, r=4).data
+    >>> pad = [1.0 - m for m in ut3m.ut3_apply_masks((np.ones_like(ud[0]), np.ones_like(ud[1]), ud[2], ud[3]))]
+    >>> dirty = (ud[0] + 1e3 * pad[0], ud[1] + 1e3 * pad[1])               # garbage in the direction's padding
+    >>> KU, KG = ut3s.ut3_probe_corewise_hessian(zt, ww, u, dirty)
+    >>> ref = t3p.t3_probe_corewise_hessian(zt, ww, theta.data, direction.data)
+    >>> all(np.allclose(KG[i][:G.shape[0], :G.shape[1], :G.shape[2]], G) for i, G in enumerate(ref[1]))
+    True
+    >>> float(np.abs(KG * pad[1]).max()), float(np.abs(KU * pad[0]).max())   # the padding: exactly zero
+    (0.0, 0.0)
+    """
+    masked, directions = _masked_point_and_directions(data, core_directions)
+    N = masked[0].shape[-1]
+    grads = probing.t3_probe_corewise_hessian(ut3_operations.pack_if_ragged(ztildes, N),
+                                              ut3_operations.pack_if_ragged(ww, N), masked, directions)
+    return _remasked_core_gradient(grads, data)
+
+
+def ut3_probe_corewise_hessian_from_sweep(
+        ztildes:          typ.Union[typ.Sequence[NDArray], NDArray],  # residuals (omega^2 applied); ragged, or packed (d,)+W+C+(N,)
+
+        data:             UT3Data,                       # the point theta = the sweep frame's base point, stack C
+        core_directions:  typ.Tuple[NDArray, NDArray],   # bare raw direction supercores theta_hat, (d,)+K+C+(...)
+        frame_sweep:      typ.Tuple,                     # a uniform probe (or apply) sweep at a frame whose base point is theta
+) -> typ.Tuple[NDArray, NDArray]:                        # (Tucker, TT) blocks of K theta_hat, (d,)+K+C+(...), W summed
+    """:py:func:`ut3_probe_corewise_hessian` reusing a uniform sweep's packed vectors and its ``xi`` / ``mu`` -- the
+    reuse hook for a uniform local model, the twin of
+    :py:func:`~t3toolbox.backend.probing.t3_probe_corewise_hessian_from_sweep`. ``frame_sweep`` is
+    :py:func:`~t3toolbox.backend.utv_sampling.utv_precompute_probe_frame_sweep` at the manifold frame ``(U, O, P, Q)``
+    of ``theta = (U, P)`` (or a sweep at the corewise frame), so ``data`` must carry that frame's ``(up, left)`` masks
+    (a uniform kind reads them off the frame it is handed); ``theta`` and ``theta_hat`` are masked with them and the
+    output is re-masked."""
+    _mb, packed_ww, _shape, psweep = frame_sweep
+    masked, directions = _masked_point_and_directions(data, core_directions)
+    packed_z = ut3_operations.pack_if_ragged(ztildes, masked[0].shape[-1])
+    grads = probing.t3_probe_corewise_hessian_from_sweep(packed_z, packed_ww, masked, directions, psweep)
+    return _remasked_core_gradient(grads, data)
+
+
+def ut3_apply_corewise_hessian(
+        c:                NDArray,                       # residual (omega^2 applied), shape=W+C
+
+        ww:               typ.Union[typ.Sequence[NDArray], NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,); or packed
+
+        data:             UT3Data,                       # the point theta, stack C
+        core_directions:  typ.Tuple[NDArray, NDArray],   # bare raw direction supercores theta_hat, (d,)+K+C+(...)
+) -> typ.Tuple[NDArray, NDArray]:                        # (Tucker, TT) blocks of K theta_hat, (d,)+K+C+(...), W summed
+    """The uniform twin of :py:func:`~t3toolbox.backend.apply.t3_apply_corewise_hessian` (``theta`` and ``theta_hat``
+    masked with ``theta``'s masks, ``ww`` packed, the output re-masked), as :py:func:`ut3_probe_corewise_hessian`."""
+    masked, directions = _masked_point_and_directions(data, core_directions)
+    grads = apply.t3_apply_corewise_hessian(c, ut3_operations.pack_if_ragged(ww, masked[0].shape[-1]), masked,
+                                            directions)
+    return _remasked_core_gradient(grads, data)
+
+
+def ut3_apply_corewise_hessian_from_sweep(
+        c:                NDArray,                       # residual (omega^2 applied), shape=W+C
+        data:             UT3Data,                       # the point theta = the sweep frame's base point, stack C
+        core_directions:  typ.Tuple[NDArray, NDArray],   # bare raw direction supercores theta_hat, (d,)+K+C+(...)
+        frame_sweep:      typ.Tuple,                     # utv_precompute_apply_frame_sweep at a frame whose base point is theta
+) -> typ.Tuple[NDArray, NDArray]:                        # (Tucker, TT) blocks of K theta_hat, (d,)+K+C+(...), W summed
+    """:py:func:`ut3_apply_corewise_hessian` reusing a uniform apply sweep's packed vectors and lean ``(xi, mu)``
+    (``data`` carries the sweep frame's ``(up, left)`` masks, as :py:func:`ut3_probe_corewise_hessian_from_sweep`)."""
+    _mb, packed_ww, _shape, psweep = frame_sweep
+    masked, directions = _masked_point_and_directions(data, core_directions)
+    grads = apply.t3_apply_corewise_hessian_from_sweep(c, packed_ww, masked, directions, psweep)
+    return _remasked_core_gradient(grads, data)
+
+
+def ut3_entries_corewise_hessian(
+        c:                NDArray,                       # residual (omega^2 applied), shape=W+C
+        index:            NDArray,                       # int, shape=(d,)+W
+        data:             UT3Data,                       # the point theta, stack C
+        core_directions:  typ.Tuple[NDArray, NDArray],   # bare raw direction supercores theta_hat, (d,)+K+C+(...)
+) -> typ.Tuple[NDArray, NDArray]:                        # (Tucker, TT) blocks of K theta_hat, (d,)+K+C+(...), W summed
+    """The uniform twin of :py:func:`~t3toolbox.backend.entries.t3_entries_corewise_hessian` (``index`` unpacked -- the
+    one-hot vectors are built packed inside the kernel), as :py:func:`ut3_apply_corewise_hessian`."""
+    masked, directions = _masked_point_and_directions(data, core_directions)
+    grads = entries.t3_entries_corewise_hessian(c, index, masked, directions)
+    return _remasked_core_gradient(grads, data)
+
+
+def ut3_entries_corewise_hessian_from_sweep(
+        c:                NDArray,                       # residual (omega^2 applied), shape=W+C
+        data:             UT3Data,                       # the point theta = the sweep frame's base point, stack C
+        core_directions:  typ.Tuple[NDArray, NDArray],   # bare raw direction supercores theta_hat, (d,)+K+C+(...)
+        frame_sweep:      typ.Tuple,                     # utv_precompute_entries_frame_sweep at a frame whose base point is theta
+) -> typ.Tuple[NDArray, NDArray]:                        # (Tucker, TT) blocks of K theta_hat, (d,)+K+C+(...), W summed
+    """:py:func:`ut3_entries_corewise_hessian` reusing a uniform entries sweep's index and lean (fiber-sliced)
+    ``(xi, mu)`` (``data`` carries the sweep frame's ``(up, left)`` masks)."""
+    _mb, index, _shape, psweep = frame_sweep
+    masked, directions = _masked_point_and_directions(data, core_directions)
+    grads = entries.t3_entries_corewise_hessian_from_sweep(c, index, masked, directions, psweep)
     return _remasked_core_gradient(grads, data)

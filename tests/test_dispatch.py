@@ -551,6 +551,80 @@ class TestDispatch(unittest.TestCase):
         for a, b in zip(chunked, dense):
             self.assertLess(norm(a - b), 1e-12 * norm(b))
 
+    def test_jit_plain_kind_two_holes(self):
+        """S10 / S11: the plain probe / apply / entries two-holes jit to pure jax -- ragged (one-shot and from a
+        sweep, which compiles ONCE across two points: the sweep and the cores are leaves) and through the uniform
+        wrappers on packed supercores (the masks closed over as host constants), jit == eager; and the exact local
+        model of each kind, ragged and uniform, jits its hvp with the model as an ARGUMENT once across points."""
+        import t3toolbox.backend.apply as bapply
+        import t3toolbox.backend.entries as bentries
+        import t3toolbox.backend.ut3_sampling as ut3s
+        import t3toolbox.backend.uniform_fitting as uf
+        W = 7
+        rnd = lambda *s: jnp.asarray(np.random.randn(*s))
+        fd = self.frame.data
+        theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (U, L)
+        dirs = (tuple(rnd(3, *U.shape) for U in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
+        ww = tuple(rnd(W, N) for N in STRUCT[0])
+        index = jnp.asarray(np.stack([np.random.randint(0, N, size=W) for N in STRUCT[0]]))
+        other = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT).to_jax())[0].data
+        ux = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*STRUCT)).to_jax()
+        u_dirs = (rnd(*((ux.data[0].shape[0], 2) + ux.data[0].shape[1:])),
+                  rnd(*((ux.data[1].shape[0], 2) + ux.data[1].shape[1:])))
+        kinds = {
+            'probe': (tuple(rnd(W, N) for N in STRUCT[0]), ww, probing.t3_probe_corewise_hessian,
+                      probing.t3_probe_corewise_hessian_from_sweep, probing.tv_precompute_probe_frame_sweep,
+                      ut3s.ut3_probe_corewise_hessian, bfit.ProbeKind(weight=[0.5, 1.0, 2.0])),
+            'apply': (rnd(W), ww, bapply.t3_apply_corewise_hessian, bapply.t3_apply_corewise_hessian_from_sweep,
+                      bapply.tv_precompute_apply_frame_sweep, ut3s.ut3_apply_corewise_hessian, bfit.APPLY),
+            'entries': (rnd(W), index, bentries.t3_entries_corewise_hessian,
+                        bentries.t3_entries_corewise_hessian_from_sweep, bentries.tv_precompute_entries_frame_sweep,
+                        ut3s.ut3_entries_corewise_hessian, bfit.ENTRIES)}
+        for name, (z, s, hess, from_sweep, precompute, uhess, kind) in kinds.items():
+            with self.subTest(kind=name):
+                self.assert_jit_jax(lambda zz, th, dd: hess(zz, s, th, dd), z, theta, dirs)
+                traces = [0]
+
+                @jax.jit
+                def two_hole(zz, th, dd, sweep):
+                    traces[0] += 1
+                    return from_sweep(zz, s, th, dd, sweep)
+
+                for f in (fd, other):                                            # a new point, same shapes
+                    self._leaves_all_jax(two_hole(z, (tuple(f[0]), tuple(f[2])), dirs, precompute(f, s)))
+                self.assertEqual(traces[0], 1, "the %s two-hole recompiled on a new point" % name)
+                u = lambda a, b: (a, b, ux.data[2], ux.data[3])                  # masks: host constants, closed over
+                jitted = jax.jit(lambda zz, a, b, da, db: uhess(zz, s, u(a, b), (da, db)))(z, *ux.data[:2], *u_dirs)
+                self._leaves_all_jax(jitted)
+                to_np = lambda t: jax.tree_util.tree_map(np.asarray, t)
+                eager = uhess(to_np(z), to_np(s) if name != 'entries' else np.asarray(s),
+                              (np.asarray(ux.data[0]), np.asarray(ux.data[1]), ux.data[2], ux.data[3]), to_np(u_dirs))
+                for a, b in zip(jitted, eager):
+                    self.assertLess(norm(np.asarray(a) - b), 1e-12 * norm(b))
+                # the exact local model, ragged and uniform: one cache key across points
+                data = kind.point_forward(t3.TuckerTensorTrain.randn(*STRUCT).to_jax().data, s)
+                data = [d + 0.1 for d in data] if name == 'probe' else data + 0.1
+                problems = ((bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, s, data),
+                             [t3.TuckerTensorTrain.randn(*STRUCT).to_jax().data for _ in range(2)]),
+                            (uf.uniform_least_squares_problem('manifold', name, ux, s, data,
+                                                              weight=[0.5, 1.0, 2.0] if name == 'probe' else None),
+                             [tuple(jnp.asarray(a) for a in ut3.UniformTuckerTensorTrain.from_t3(
+                                 t3.TuckerTensorTrain.randn(*STRUCT)).data[:2]) for _ in range(2)]))
+                for prob, points in problems:
+                    mtraces = [0]
+
+                    @jax.jit
+                    def hvp(model, q):
+                        mtraces[0] += 1
+                        return model.hvp(q), model.curvature_quadratic(q)
+
+                    for x in points:
+                        lm = prob.local_model(x, hessian='exact')
+                        out = hvp(lm, lm.gradient)
+                        jax.block_until_ready(out[1])
+                    self._leaves_all_jax(out)
+                    self.assertEqual(mtraces[0], 1, "the %s exact LocalModel recompiled across points" % name)
+
     def test_jit_shared_geometry_fitting(self):
         # a SharedGeometry model: the wrapper is value-hashed aux, the companion a leaf; the
         # matvec (tied projections on both sides) compiles clean
