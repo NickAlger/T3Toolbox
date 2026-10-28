@@ -169,10 +169,11 @@ def _dirty_frame(frame_data, seed=0):
         tuple(frame_data[4:])
 
 
-def _compare(test, u, ragged_of, K, n_elements, label, tol=_TOL):
+def _compare(test, u, ragged_of, K, n_elements, label, tol=_TOL, scale_of=None):
     """Per element vs ragged, and the exact output mask: ``u`` (a supercore ``(d,)+K+C+trail``) equals
     ``ragged_of(c)`` (a ``K``-stacked tuple of ``d`` ragged arrays) on each element's real blocks -- whose extents
-    come from the RAGGED arrays' shapes -- and is exactly zero everywhere else."""
+    come from the RAGGED arrays' shapes -- and is exactly zero everywhere else. The error is relative to the
+    family's own norm, or to ``scale_of(c, k)`` when given (an output that is a cancelled sum: ``_hvp_term_scale``)."""
     u = np.asarray(u)
     ind = np.zeros(u.shape, bool)
     worst = 0.0
@@ -186,6 +187,8 @@ def _compare(test, u, ragged_of, K, n_elements, label, tol=_TOL):
                 ind[sl] = True
                 num += float(np.sum((u[sl] - Rk) ** 2))
                 den += float(np.sum(Rk ** 2))
+            if scale_of is not None:
+                den = float(scale_of(c, k)) ** 2
             worst = max(worst, (num / max(den, 1e-300)) ** 0.5)
     test.assertTrue(np.all(u[~ind] == 0.0), '%s: a padded slot is not exactly zero' % label)
     test.assertLess(worst, tol, label)
@@ -197,6 +200,30 @@ def _pair_relerr(a, b):
     num = sum(float(np.sum((np.asarray(x) - np.asarray(y)) ** 2)) for x, y in zip(a, b))
     den = sum(float(np.sum(np.asarray(y) ** 2)) for y in b)
     return (num / den) ** 0.5
+
+
+def _hvp_term_scale(m, p, K, curvature_only=False):
+    """The rounding scale of the ragged model ``m``'s exact ``hvp(p)`` (``curvature_only``: ``curvature_hvp(p)``),
+    per ``K`` element: the sum of the norms of the terms it adds, each over the whole tangent (Tucker + TT) --
+    ``|GN| + |L^T K_a th| + |L^T K_g th|``, ``th = L Pi p``, ``K_a`` the kind's two-hole at the residual, ``K_g`` the
+    tangential curvature. The sum cancels: at the CI failure (entries, manifold, 'd3 varying', K = (2,); element 0,
+    k = 0) the TT block of ``H p`` is 26 against TT terms of 208 and 198 (raw ``K_a th``, ``K_g th`` 144 each) and a
+    Tucker block of 261, so a TT error set by those terms is ~25x its own norm; relative to it, a BLAS-order change
+    moved the error 3.9e-14 -> 1.2e-13 (numpy 2.5 -> 2.4). Against this scale that subtest is 7e-15 and every one
+    is <= 1.3e-14 (numpy 1.26) / 8.5e-15 (2.x): the rest is the lift's conditioning (|th| / |Pi p| ~ 125 there)."""
+    geom, data = m.geom, m.curvature.geometry_data
+    pp = geom.project(m.frame, p, aux=m.geom_aux)
+    terms = [] if curvature_only else [
+        m.kind.transpose(m.kind.forward(pp, m.sample, m.frame, m.sweep), m.sample, m.frame, m.sweep)]
+    if data is not None:
+        th = geom.lift(m.frame, pp, data)
+        k_g = geom.tangential_curvature(m.frame, th, data)
+        terms += [geom.lift_transpose(m.frame, kt, data) for kt in (
+            m.kind.corewise_hessian(th, m.residual, m.sample, m.frame, m.sweep, geom.base_point(m.frame)), k_g)
+            if kt is not None]
+    knorm = lambda t: np.sqrt(sum(np.sum(np.asarray(a) ** 2, axis=tuple(range(len(K), np.ndim(a))))
+                                  for a in t[0] + t[1]))
+    return sum((knorm(t) for t in terms), np.zeros(K))
 
 
 def _case(name, seed, K=()):
@@ -1290,8 +1317,11 @@ class TestUniformPlainKindsExactLocalModel(unittest.TestCase):
         for label, act in (('hvp', lambda m, q: m.hvp(q)), ('curvature_hvp', lambda m, q: m.curvature_hvp(q))):
             out = act(lm, p)
             refs = refs_of[label] = [act(rlm[c], p_r[c]) for c in range(n)]
+            # an exact hvp is a cancelled sum, so its error is relative to its terms' scale (_hvp_term_scale)
+            scales = [_hvp_term_scale(rlm[c], p_r[c], K, curvature_only=label == 'curvature_hvp') for c in range(n)]
             for j in range(2):
-                _compare(self, out[j], lambda c, j=j: refs[c][j], K, n, '%s %d' % (label, j))
+                _compare(self, out[j], lambda c, j=j: refs[c][j], K, n, '%s %d' % (label, j),
+                         scale_of=lambda c, k: scales[c][k])
         knorm = lambda t: np.sqrt(sum(np.sum(np.asarray(a) ** 2, axis=tuple(range(len(K), np.ndim(a))))
                                       for a in t[0] + t[1]))                     # per K element
         for label, act, hv in (('quadratic', lambda m, q: m.quadratic(q), 'hvp'),
