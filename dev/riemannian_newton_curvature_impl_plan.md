@@ -1859,5 +1859,5 @@ TT-assembly peak at 1.25–1.61× the GN assembly against the plan's 1.5× is ac
 strict gate; the measured ratios stand in `verification_records.md`); **I-40** S7b F1 — the documented limit of the
 operand-scaled gauge check (`MANIFOLD.norm(H_fd − hessian(p))` certifies the gauge of the *difference* only; to certify
 `hessian(p)`'s gauge, check `hessian(p)` itself) is accepted; `docs/numerical_contracts.md` already says so. Also
-2026-10-29: the T4S paper for S15b's number check is the arXiv version, https://arxiv.org/pdf/2603.21141 (Nick), and
+2026-10-29: the T4S paper for S15b's number check is the arXiv version, https://arxiv.org/pdf/2603.21141 — **Nick (2026-10-29): the linked arXiv version is UPDATED and CURRENT; it is THE reference** (so CLAUDE.md's "the local `t4s.pdf` is newer than arXiv" note is stale and S15b fixes it), and
 the CHANGELOG must *note* the breaking changes (it does).
