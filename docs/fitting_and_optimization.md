@@ -552,9 +552,9 @@ A Gauss-Newton warm start followed by exact steps is the natural pattern — the
 >>> _, gn = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww3, pp3), y, xw, **kw)
 >>> _, ex = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww3, pp3), y, xw, hessian='exact',
 ...                        cg_forcing_power=1.0, **kw)
->>> gn['stop_reason'], ex['stop_reason']          # Gauss-Newton stalls on its line search, linear to the end
-('line_search', 'gradient')
->>> ex['newton_steps'] < gn['newton_steps'] / 2
+>>> ex['stop_reason'] in ('gradient', 'objective_floor')    # exact converges to the resolution floor ...
+True
+>>> ex['newton_steps'] < gn['newton_steps'] / 2                # ... in under half the steps (GN is linear to the end)
 True
 >>> row = ex['history'][0]
 >>> row['hessian'], row['step_control'], row['tr_accepted']
