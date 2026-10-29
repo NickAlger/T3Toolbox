@@ -16,11 +16,17 @@ representation (ragged / uniform / uniform-jax, MANIFOLD / COREWISE, unshared / 
 py3.13 / numpy 2.5 / jax 0.12 and the py3.11 / numpy 1.26 / jax 0.4.30 floor: 1,170 tests / 46,364 subtests, the slow
 tier serial (66, twice), the floor leg, 225 module doctests, every doc page, `sphinx -W`. 2026.3.0 is UNRELEASED.
 
-**Next, in order (plan §H):** the reorganization **R** (`dev/reorg_scope.md`: Nick's three areas + the candidate list +
-the legacy-RNG item; planned by a writer/critic round, adjudicated by Nick) → **S14** T3Polynomial (§K; the S0b report
-`dev/curvature_impl_review/s0b/` lists what breaks and the P3 opt-out fix, keeping the cold/zero start — I-37) →
-**S15b** (the math note's code references re-checked after R + every T4S number verified against `t4s.pdf`, the two
-"d small SVDs" doc lines fixed to 2d−1, the CHANGELOG `[2026.3.0]` updated for R) → the **release tag**.
+**Resumed 2026-10-29 — R CANCELLED (Nick: "the organization is actually fine; code churn for no good reason").**
+**Close-out, in order (plan §H):** **S13b** a final review by one or two medium-effort Opus agents — bugs, logical
+errors, code↔doc inconsistencies, clear errors only, no design re-litigation — then fixes → **S14** T3Polynomial (§K;
+the S0b report `dev/curvature_impl_review/s0b/` lists what breaks and the P3 opt-out fix, keeping the cold/zero start —
+I-37) → **S15b + release prep** (the math note's final pass: preliminary box dropped, T4S numbers vs `t4s.pdf`, code
+refs re-checked, the two "d small SVDs" doc lines → 2d−1; CHANGELOG + release notes finalised; version bump; the
+release checklist; the `dev/` archive) → the **tag `v2026.3.0`**. CI note (2026-10-28): the runner's BLAS differs from
+ours — two doc/test tolerances were BLAS-pinned (14848f2, a2d39c8); the CI current leg is py3.11 / numpy 2.4 /
+**jax 0.10.2** (jax 0.12 needs py ≥ 3.12), so a py3.11 twin venv is the right local check, not the system python.
+**Backlog from the cancelled R:** move the random constructors off the legacy global `np.random` stream (explicit
+`Generator` / jax-key arguments; the E2 and O2 flakes were this).
 
 **Open for Nick (no ruling recorded):** the S3 memory gate (the two-hole's TT-assembly peak 1.25–1.61× the GN assembly
 vs the plan's 1.5× — strict?) and S7b F1 (accept the documented limit of the operand-scaled gauge check?). Both in the

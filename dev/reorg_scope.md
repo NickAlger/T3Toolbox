@@ -1,4 +1,11 @@
-# Post-curvature reorganization — scope note (Nick, 2026-10-27)
+# Post-curvature reorganization — scope note (Nick, 2026-10-27) — **CANCELLED 2026-10-29**
+
+> **CANCELLED (Nick, 2026-10-29):** after looking over the code during the pause, Nick concluded the organization is
+> fine and the reorganization would be code churn for no good reason. **Slice R is not happening.** The note is kept as a
+> record; the one item in it that is a real backlog item — moving the random constructors off the legacy global
+> `np.random` stream (explicit `Generator` / jax-key arguments) — moves to the HANDOFF backlog as a standalone small
+> change. The release follows the close-out below instead: a final bug/consistency review, fixes, the T3Polynomial
+> update, the CHANGELOG, the tag.
 
 > **Status: QUEUED, not started.** Nick's instruction: *do not do this while the exact-Hessian implementation is in
 > flight.* **Sequencing (Nick, 2026-10-27 19:33): R goes at the VERY END of the slices, after a PAUSE** — the

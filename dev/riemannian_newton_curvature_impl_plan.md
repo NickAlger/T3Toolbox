@@ -1,9 +1,10 @@
 # Implementation plan — the exact Riemannian Hessian (curvature term) for `newton_cg`
 
 > **STATUS 2026-10-28, after S13: the curvature arc is COMPLETE** — S0c–S13 implemented and independently reviewed
-> (records in `curvature_impl_review/slices/`; `hessian='exact'` for every kind × geometry × representation). Next S15a
-> (a preliminary math note), then the PAUSE. **The plan stays LIVE** because it still sequences R (`dev/reorg_scope.md`),
-> S14 (§K) and S15b before the tag; it and `dev/curvature_impl_review/` are archived together at the release. The DP and
+> (records in `curvature_impl_review/slices/`; `hessian='exact'` for every kind × geometry × representation). S15a (the preliminary
+> math note) landed 2026-10-28 and the thread PAUSED. **Resumed 2026-10-29 with R CANCELLED** (Nick): the close-out is
+> S13b (final review + fixes) → S14 (T3Polynomial) → S15b + release prep → the tag `v2026.3.0`. **The plan stays LIVE**
+> until the tag; it and `dev/curvature_impl_review/` are archived together at the release. The DP and
 > G0P are archived (`dev/archive/*_2026-10-27_implemented.md`); the durable record is `docs/fitting_and_optimization.md`
 > §4.12 + `docs/contributor/curvature_internals.md` + `docs/contributor/verification_records.md`. *(Original banner:)*
 > **ADJUDICATED BY NICK, 2026-10-26 — the implementation record for 2026.3.0.** This is v6 of a six-round writer/critic plan (two Opus 5.5 agents, 2026-10-25/26; the
@@ -1540,9 +1541,10 @@ uniform_jax, both unshared and shared.
 | S13 | docs, the final CHANGELOG, release notes, doctests, `sweep_exact.py`, the jvp oracle, **T28** (jax-absent construction), the `dev/` archive, HANDOFF / CLAUDE.md | the full release gate incl. `T3TOOLBOX_SLOW_TESTS=1` |
 | **S15a** (Nick, 2026-10-27 19:37: a PRELIMINARY version BEFORE the pause) | the math note `docs/exact_hessian_two_hole.tex` + `.pdf` (§G): equations, algorithm boxes, tensor-network diagrams, code references — the preliminary version is written from the code as it stands at the end of the curvature arc | the PDF builds; every code reference resolves to a real name at S13 |
 | **PAUSE** (Nick, 2026-10-27 19:33) | **the exact-Hessian curvature arc ends here** — S10–S13 complete (every kind exact on every geometry × representation; docs, CHANGELOG, the full gate incl. the slow tier + the jax-0.4.30 floor leg; the `dev/` archive) but **no tag / release yet**. Stop and hand off | — |
-| **R** (added 2026-10-27, Nick; moved to the END at 19:33) | **post-curvature reorganization** — the sampling / jetted-sampling module layout (`sampling_derivatives.py`), the fitting layer, the optimization layer (decoupling; a typed point / tangent / covector system with explicit no-op raising and lowering). Scope note: `dev/reorg_scope.md`. Planned by a writer/critic round, adjudicated by Nick | its own plan |
-| **S14** (T3Polynomial repo; AFTER R, 2026-10-27 19:33) | §K, against the post-reorganization release candidate; then the **release tag** | T3Polynomial's suite |
-| **S15b + CHANGELOG** (Nick, 2026-10-27 19:37: AFTER R, BEFORE the release) | update the math note's code references and the CHANGELOG `[2026.3.0]` for everything R renamed or moved; then the **release tag** | the PDF builds; every code reference resolves at the release tag; the CHANGELOG describes the final layout |
+| ~~**R**~~ **CANCELLED (Nick, 2026-10-29)** | the post-curvature reorganization is not happening ("the organization is actually fine; code churn for no good reason"; `dev/reorg_scope.md` keeps the record) | — |
+| **S13b** (Nick, 2026-10-29) | **final review:** one or two medium-effort Opus agents review the arc's code and documents for bugs, logical errors, code↔doc inconsistencies and other clear errors — **clear errors only, no re-litigating the design**; then fix what is found | the full gate on all three local environments + CI green |
+| **S14** (T3Polynomial repo; after S13b) | §K, against the release candidate (the S0b report `curvature_impl_review/s0b/` lists what breaks) | T3Polynomial's suite |
+| **S15b + release prep** (Nick, 2026-10-29) | the math note's final pass (drop the preliminary box; the T4S numbers against `t4s.pdf`; code references re-checked); the CHANGELOG `[2026.3.0]` + release notes finalised; the version bump; the release checklist (`dev/archive/release_plan_2026-07-13.md`); the `dev/` archive (this plan + `curvature_impl_review/`); HANDOFF / CLAUDE.md; then the **tag `v2026.3.0`** (the release workflow publishes to PyPI via trusted publishing; an `-rc` tag first dry-runs TestPyPI) | the PDF builds; every code reference resolves at the release tag; the CHANGELOG describes the final layout |
 
 - S0c–S0e change behaviour only as the CHANGELOG lists. S1–S3 are pure additions. S4 is the first curvature
   consumer change, and GN stays the default throughout.
