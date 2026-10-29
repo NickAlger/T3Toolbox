@@ -527,7 +527,9 @@ residual's normal part paired with the manifold's second fundamental form. On a 
 the plain Hessian of `f ∘ Φ` in the cores (no lift, no gradient term). Every sampling kind implements it,
 on every geometry and representation — `MANIFOLD` / `COREWISE`, the uniform twins and the shared wrappers
 of all four. The same `hessian='exact'` builds an exact `fitting.LocalModel` from any `*_model` factory
-(§2.2) or an exact backend model from `Problem.local_model`.
+(§2.2) or an exact backend model from `Problem.local_model`. The derivation is the math note
+[`exact_hessian_two_hole.pdf`](exact_hessian_two_hole.pdf); the design record is
+[`contributor/curvature_internals.md`](contributor/curvature_internals.md).
 
 **When it helps.** On a **nonzero-residual** fit — noisy data, or a target the ranks cannot represent —
 Gauss-Newton converges linearly, at a rate set by the term it drops (on the history rows, `|1 − ρ|` and the

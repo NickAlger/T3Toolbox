@@ -42,8 +42,9 @@ open** (Nick's rule, 2026-07-12):
 **Handoff ritual:** when wrapping up, refresh `dev/HANDOFF.md` (one living doc by default; more when
 threads interleave), sweep superseded notes into `dev/archive/` as dated files, and keep this file's
 Current-state pointer accurate. **Exception: a `dev/OPEN_QUESTION_*.md` note is a standing question, not
-a thread — it is unresolved, not superseded, and must NOT be archived until resolved.** (None open
-today; the `contractions.py` architecture question was resolved 2026-07-17 — the grouped-einsum
+a thread — it is unresolved, not superseded, and must NOT be archived until resolved.** (One open
+today: `dev/OPEN_QUESTION_extension_surface.md`, what extension the fitting layer is meant to support,
+opened 2026-08-21. The `contractions.py` architecture question was resolved 2026-07-17 — the grouped-einsum
 interpreter — and the uniform-frame-at-rank-deficiency question was resolved 2026-08-23 — the
 pad-safe SVD, review S1b; both archived with resolution banners.)
 
@@ -403,16 +404,15 @@ project engineering practices below are shared.)*
 
 ## Current state
 
-**2026.2.0 is SHIPPED to PyPI (2026-08-25) — `pip install t3toolbox`** (2026.1.0 shipped
-2026-08-20, 2026.0.0 2026-07-13; the checklist both followed is `dev/archive/release_plan_2026-07-13.md`; live status:
-`dev/HANDOFF.md`). **2026.3.0 is in progress, unreleased:** the exact-Hessian curvature arc is complete through
-its docs/tests slice (S13, 2026-10-27; plan `dev/riemannian_newton_curvature_impl_plan.md`, still live), plus the
-preliminary math note (S15a, 2026-10-28). The reorganization R was **cancelled** (Nick, 2026-10-29), so the arc's code
-is final; the close-out: the final review S13b (done 2026-10-29, its fixes landed) and the math note's final pass
-S15b (done 2026-10-29) → S14 (the T3Polynomial update) → release prep (CHANGELOG / release notes, version bump,
-checklist, `dev/` archive) → the tag `v2026.3.0`. "Tested" = *numerical correctness in numpy* (vs dense ground truth) **plus** *jax
+**2026.3.0 is SHIPPED to PyPI (2026-10-29) — `pip install t3toolbox`** (2026.2.0 shipped 2026-08-25, 2026.1.0
+2026-08-20, 2026.0.0 2026-07-13; the checklist all four followed is `dev/archive/release_plan_2026-07-13.md`; live
+status and the post-release backlog: `dev/HANDOFF.md`). Its headline is the exact Riemannian Hessian for `newton_cg`
+(below). The arc's build record is archived: the implementation plan
+`dev/archive/riemannian_newton_curvature_impl_plan_2026-10-29_shipped.md` and the per-slice implementer / reviewer
+records in `dev/archive/curvature_impl_review_2026-10-29/` (the reorganization R was cancelled, 2026-10-29; its scope
+is archived beside them). "Tested" = *numerical correctness in numpy* (vs dense ground truth) **plus** *jax
 dispatch* covered by `tests/test_dispatch.py` (jit each op; a stray `np.*` on a tracer raises) — not a
-duplicate numerical sweep. Full suite green (1,170 tests / 46,364 subtests at S13, 2026-10-27; ~7 min with ``pytest -n auto`` on 4+ cores --
+duplicate numerical sweep. Full suite green (1,170 tests / 46,364 subtests, counted 2026-10-27; ~7 min with ``pytest -n auto`` on 4+ cores --
 tests are per-test seeded and order-independent, Phase D);
 docs at zero warnings with `-W` in CI; doctests CI-enforced on both numpy generations — **module
 doctests, `getting_started.rst`, AND every `docs/*.md` + `docs/contributor/*.md` page** (the one
@@ -467,8 +467,8 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
   Rulings worth knowing are listed in the HANDOFF; the behavioural changes are in the CHANGELOG's
   `[2026.2.0]` Fixed / Changed sections (jax-absent → warn; `d = 1` degenerate; per-mode weight rows;
   adam-on-manifold warning; the frame gauge; the equality flip).
-- **The exact Riemannian Hessian — BUILT for every kind × geometry × representation (2026-10-25 → 27; in 2026.3.0,
-  unreleased).** `newton_cg(..., hessian='exact')` (and the `*_model` factories, `Problem.local_model`): the
+- **The exact Riemannian Hessian — BUILT for every kind × geometry × representation (2026-10-25 → 27; shipped in
+  2026.3.0).** `newton_cg(..., hessian='exact')` (and the `*_model` factories, `Problem.local_model`): the
   Gauss-Newton term plus the Weingarten curvature `Π Lᵀ(K_{Aᵀω²r} − K_{grad f}) L Π` — the lift `L` to raw core
   directions, the kind's two-hole `corewise_hessian` (the **required sixth `SamplingKind` operation**, checked
   structurally only in exact mode), the T3-to-T3 two-hole at the misfit gradient — under a Steihaug–Toint
@@ -482,7 +482,8 @@ exclusion is `doctest_style.md`, whose fragments are illustrative).
   keywords, the uniform padding hygiene) is the CHANGELOG's `[2026.3.0]` entry. User doc
   `docs/fitting_and_optimization.md` §4.12; design record
   **[`docs/contributor/curvature_internals.md`](docs/contributor/curvature_internals.md)** (the lift, the two-hole
-  rules, the zero-point frame, the tied lift); measurements `docs/contributor/verification_records.md`.
+  rules, the zero-point frame, the tied lift); measurements `docs/contributor/verification_records.md`; the
+  mathematics in full, the math note `docs/exact_hessian_two_hole.tex` (+pdf).
 - **Optimization layer restructured (2026-08-21; in 2026.2.0).** The geometry, the sampling kind and the local model are frozen
   dataclasses whose **parameters are fields**, not records of closures, so they hash/compare by value
   and are stable jax `aux_data`. New `backend/geometry.py`; `SamplingKind` is a class hierarchy;

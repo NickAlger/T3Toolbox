@@ -28,6 +28,13 @@ default reference is the same as the warm start's at those ranks.
 **`stats['newton']` is gone; read `stats['newton_steps']`** (the same count: CG solves). Beside it are
 `stats['newton_accepted']` (steps taken) and `stats['stop_reason']`.
 
+**Two `stats['history']` fields read differently under the trust region.** A trust-region row
+(`step_control='trust_region'`, the default with `hessian='exact'`) has `ls_steps = ls_failed = None` and
+`alpha = 1.0`, so code that sums `ls_steps` should filter rows on `step_control`. `cg_truncated` no longer
+counts a trust-region boundary stop (a Steihaug stop on nonpositive curvature is a boundary step, reported in
+the new `cg_boundary`). With the default line search there is no boundary, so Gauss-Newton runs read both
+fields exactly as before.
+
 **`fitting.GaussNewtonModel` is now `fitting.LocalModel`** (and `t3toolbox.LocalModel` at the root).
 It is renamed, not aliased, so the old name raises `AttributeError` / `ImportError`; rename it where you
 spell it. The six `*_model` factories, the model's methods and its fields are unchanged, so code that
@@ -60,10 +67,21 @@ in 2026.2.0.
 **Backend callers of the jet kernels** (`backend.sampling_derivatives`): the `trs` arguments are gone (the
 order is read off the jets, or passed as `order`), `compute_dxi_tilde_jets` returns only its two read rows,
 and `binomial_combine_tensor` and the dense `*_trs` kernels are removed. Code that only calls the
-transposes, the forwards or the optimizers is unaffected.
+transposes, the forwards or the optimizers is unaffected. `estimate_chunk_size` / `max_chunk_size_within`
+now measure the compiled chunked program, so they return larger chunks and `chunk_size='auto'` chunks less.
 
 **Uniform transposes return exact zeros in their padding.** Results that respect "padding is don't-care"
 are bit-identical; only code that read the padded slots sees a difference.
+
+**The safe-mode gauge check is scaled by the operands.** `MANIFOLD.norm(a - b)` / `inner` (and the uniform
+twins) no longer reject a near-cancelling difference of gauged tangents, such as a finite-difference check
+of a Hessian. A tangent built by `+` / `-` / scalar `*` / `stack_tangents` is checked against its operands'
+scale; a tangent computed directly (a projection, a gradient) keeps the self-relative check, so the check
+is never stricter than before. Its documented limit: dividing a finite-difference quotient by its step
+divides the recorded scale too, so to certify a computed tangent's gauge, check that tangent itself (see
+[`numerical_contracts.md`](numerical_contracts.md#the-gauge-check-scale-own-norm-or-operand-scale)).
+Backend callers of `tv_gauge_residual` / `utv_gauge_residual` get the old behaviour bit for bit unless they
+pass the new `scale=`.
 
 ## Upgrading from 2026.1.0
 

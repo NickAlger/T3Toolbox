@@ -1,3 +1,10 @@
+> **SHIPPED in 2026.3.0 (tag `v2026.3.0`, 2026-10-29); archived at the release.** The durable record is
+> `docs/fitting_and_optimization.md` §4.12 (users), `docs/contributor/curvature_internals.md` (the design record),
+> `docs/contributor/verification_records.md` (the measurements) and the math note `docs/exact_hessian_two_hole.tex`
+> (+pdf); the slice records (implementer handoffs, independent reviews, the deferred ledger) are in
+> `dev/archive/curvature_impl_review_2026-10-29/`. Paths in the text below are as they were while the plan was live
+> (`dev/curvature_impl_review/` is now that archived directory).
+
 # Implementation plan — the exact Riemannian Hessian (curvature term) for `newton_cg`
 
 > **STATUS 2026-10-28, after S13: the curvature arc is COMPLETE** — S0c–S13 implemented and independently reviewed

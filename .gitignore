@@ -152,7 +152,7 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 .idea/
 
-# The local T4S preprint (newer than the public arXiv version) -- deliberately untracked
+# An optional local copy of the T4S preprint (arXiv:2603.21141 is the reference) -- deliberately untracked
 /t4s.pdf
 
 # Scratch array artifacts written by tests/examples (regenerable, never fixtures)

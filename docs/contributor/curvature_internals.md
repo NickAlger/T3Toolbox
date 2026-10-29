@@ -3,8 +3,10 @@
 The design record behind `hessian='exact'` (2026.3.0): how the exact Riemannian Hessian is assembled from
 the library's own sweeps, the rules each piece obeys, and the measurements the design rests on. The user
 story — when to use it, the API, reading the display — is
-[`../fitting_and_optimization.md`](../fitting_and_optimization.md) §4.12. Read this before touching the
-lift, a two-hole kernel, the curvature companions or the trust region.
+[`../fitting_and_optimization.md`](../fitting_and_optimization.md) §4.12; the mathematics in full (the
+derivations, the two-hole sweep as algorithms, the verification) is the math note
+[`../exact_hessian_two_hole.pdf`](../exact_hessian_two_hole.pdf) (source `docs/exact_hessian_two_hole.tex`).
+Read this before touching the lift, a two-hole kernel, the curvature companions or the trust region.
 
 ## The formula, and where each piece lives
 

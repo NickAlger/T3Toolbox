@@ -6,7 +6,7 @@
 # One-time setup (Nick): pending publishers on pypi.org and test.pypi.org
 # (project `t3toolbox`, owner NickAlger, repo T3Toolbox, workflow release.yaml,
 # environments `pypi` / `testpypi`), and the two GitHub environments.
-# Full walkthrough: dev/release_plan.md REL-3.
+# Full walkthrough: dev/archive/release_plan_2026-07-13.md REL-3.
 name: release
 
 on:

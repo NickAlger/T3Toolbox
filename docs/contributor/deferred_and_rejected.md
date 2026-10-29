@@ -38,7 +38,7 @@ cross-references.)
   (`TestCurvatureJvpOracle` in `tests/test_dispatch.py`; the block-sum and dense oracles of
   `tests/backend/_curvature_oracles.py`), never a production path — the jvp would make the numpy path
   jax-dependent and give up the factored, chunked assemblies. Source: the implementation plan's non-goals and
-  X6 (`dev/riemannian_newton_curvature_impl_plan.md`, live until the release).
+  X6 (the plan, archived under `dev/archive/` with the 2026.3.0 release).
 - **A capability flag for the exact Hessian (`has_corewise_hessian`)**. Rejected (I-14): `corewise_hessian`
   is not optional for the feature that uses it — it is the derivative of `transpose`, part of what a kind
   *is* once exact Newton exists — so it is a **required sixth operation** with the same `NotImplementedError`
@@ -208,7 +208,7 @@ cross-references.)
   missing are GPU timings and the Hessian-apply cost weighed against the per-iteration retraction and frame
   construction. **Built now: the override hooks** — every schedule knob is a per-call `newton_cg` keyword, so a
   continuation loop (and a future `fit(...)` facade) can run a per-level schedule; cold / zero starts remain a
-  user option (I-37). The inputs gathered so far (records in `dev/curvature_impl_review/shared_exp/`, numbers
+  user option (I-37). The inputs gathered so far (the experiment records, archived under `dev/archive/`; numbers
   in [`verification_records.md`](verification_records.md)): on the restart template Gauss-Newton's rate
   constant `ρ(H_GN⁻¹K)` at the minimizer is ≈ 0.7 shared or unshared, exact's gain is the same size either way
   (3.5–5× fewer outer steps, 5–6.6× fewer CG, 1.6–2× wall), and tying more factors leaves the rate flat;

@@ -53,7 +53,7 @@ try:
     from importlib.metadata import version as _pkg_version
     __version__ = _pkg_version('t3toolbox')
 except Exception:  # not installed (e.g. PYTHONPATH use) -- keep in sync with pyproject.toml
-    __version__ = '2026.2.0'
+    __version__ = '2026.3.0'
 
 __all__ = [
     # tensors

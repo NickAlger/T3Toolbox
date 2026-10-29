@@ -3,14 +3,16 @@
 All notable changes to T3Toolbox are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); versions are `YYYY.MINOR.PATCH`.
 
-## [2026.3.0] — unreleased
+## [2026.3.0] — 2026-10-29
 
 The headline is **the exact Riemannian Hessian for `newton_cg`** (`hessian='exact'`): the Gauss-Newton term
 plus the manifold's curvature, under a Steihaug–Toint trust region — the superlinear Newton tail on a
 nonzero-residual fit, for every sampling kind on every geometry and representation. It comes with a
 breaking-release groundwork: a zero-tensor default for the Newton reference, new `stats` keys, a public
 problem constructor, the `GaussNewtonModel` → `LocalModel` rename, clean uniform padding, and recurrence
-jet kernels. Upgrade notes: `docs/release_notes.md`, "Upgrading from 2026.2.0".
+jet kernels. The mathematics -- the lift, the two-hole sweep, the canonical zero-point frame, the trust region
+and their verification -- is written up in the math note `docs/exact_hessian_two_hole.pdf` (source
+`docs/exact_hessian_two_hole.tex`). Upgrade notes: `docs/release_notes.md`, "Upgrading from 2026.2.0".
 
 ### Changed — breaking
 

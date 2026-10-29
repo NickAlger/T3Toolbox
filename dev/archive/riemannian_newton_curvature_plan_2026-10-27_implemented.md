@@ -1,5 +1,5 @@
 > **RESOLVED — IMPLEMENTED in 2026.3.0 (slices S0c–S13, 2026-10-25 → 2026-10-27); archived at S13.** This is the
-> design plan ("DP") the implementation plan `dev/riemannian_newton_curvature_impl_plan.md` built on: the target it
+> design plan ("DP") the implementation plan (`dev/archive/riemannian_newton_curvature_impl_plan_2026-10-29_shipped.md`) built on: the target it
 > proposed — level 2, the exact Riemannian Hessian by a hand-written two-hole sweep — is what shipped, as
 > `newton_cg(hessian='exact')` with a Steihaug–Toint trust region, for every sampling kind on every geometry and
 > representation. Where it and the code disagreed, the implementation plan's "Conflicts" table (X1–X18) records the

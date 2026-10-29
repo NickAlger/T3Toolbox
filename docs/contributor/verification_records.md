@@ -26,7 +26,7 @@ suites (`tests/test_fitting.py`, `tests/test_manifold.py`).
 (Stated qualitatively in `../fitting_and_optimization.md` §4.12; the design and the facts table are
 [`curvature_internals.md`](curvature_internals.md).) The measurements below come from the writer/critic
 verification scripts of the implementation plan and from each implementation slice's handoff and
-independent review (`dev/curvature_impl_review/`). The automated guarantees are
+independent review (the slice records, archived under `dev/archive/`). The automated guarantees are
 `tests/backend/test_curvature.py`, `tests/backend/test_uniform_curvature.py`, the exact oracle sweep
 (`tests/oracle_sweeps/sweep_exact.py`) and the dispatch tests.
 
@@ -113,7 +113,7 @@ independent review (`dev/curvature_impl_review/`). The automated guarantees are
   radius-limited for ~13 early steps (Δ0 = the Cauchy length, doubling per boundary step). On the small-residual
   b01 toy exact took 27/26/15 steps vs GN's 20/17/10 at 2.4× the wall.
 
-### The Newton-schedule experiments (I-36 inputs; records in `dev/curvature_impl_review/shared_exp/`)
+### The Newton-schedule experiments (I-36 inputs; the records are archived under `dev/archive/`)
 
 - **Shared vs unshared** (probe derivatives order 2, d = 4, shape `(6,6,6,6)`, W = 60, 9 seeds (+3 at W = 120), a
   heavily misspecified high-residual target): Gauss-Newton's rate constant `ρ(H_GN⁻¹K)` at the minimizer is ≈ 0.7
