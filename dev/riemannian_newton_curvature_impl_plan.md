@@ -1854,6 +1854,10 @@ with the additions to 12 and 14 noted.
    (14, addition) — `dev/curvature_impl_review/` (plans, critiques, checks, slices, `s0b/`, `shared_exp/`) is archived
    together with this plan at the release; the contributor pages that point into it are re-targeted then (HANDOFF item).
 
-**Still for Nick** (no ruling recorded): the S3 memory gate (the two-hole's TT-assembly peak at 1.25–1.61× the GN
-assembly vs the plan's 1.5× — must 1.5× be strict?) and S7b F1 (accept the documented limit of the operand-scaled
-gauge check — `MANIFOLD.norm(H_fd − hessian(p))` certifies the gauge of the *difference* only — or tighten?).
+**Ruled by Nick, 2026-10-29 — both ACCEPTED as documented:** **I-39** the S3 memory gate — the two-hole's
+TT-assembly peak at 1.25–1.61× the GN assembly against the plan's 1.5× is accepted (the 1.5× was a target, not a
+strict gate; the measured ratios stand in `verification_records.md`); **I-40** S7b F1 — the documented limit of the
+operand-scaled gauge check (`MANIFOLD.norm(H_fd − hessian(p))` certifies the gauge of the *difference* only; to certify
+`hessian(p)`'s gauge, check `hessian(p)` itself) is accepted; `docs/numerical_contracts.md` already says so. Also
+2026-10-29: the T4S paper for S15b's number check is the arXiv version, https://arxiv.org/pdf/2603.21141 (Nick), and
+the CHANGELOG must *note* the breaking changes (it does).
