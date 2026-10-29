@@ -8,8 +8,10 @@ CHANGELOG; why it is the way it is, `docs/`. This file is where-we-are + what's 
 
 ## Where we are
 
-**2026.3.0 — tag pending; the orchestrator flips this line after the tag** (to "2026.3.0 SHIPPED to PyPI
-(2026-10-29)"). 2026.2.0 shipped 2026-08-25, 2026.1.0 2026-08-20, 2026.0.0 2026-07-13. Release prep is done
+**2026.3.0 SHIPPED to PyPI (2026-10-29)** — tag `v2026.3.0` at `ad578f6` (rc1 dry-run on TestPyPI first), published
+via trusted publishing, verified from clean venvs (numpy-only: import, GN + exact fits, the jax-absent warn-and-run;
+`[jax]`: the quickstart 81/81 against the installed package). The GitHub Release object is created by Nick (the session
+cannot create releases). 2026.2.0 shipped 2026-08-25, 2026.1.0 2026-08-20, 2026.0.0 2026-07-13. Release prep is done
 (2026-10-29): the three version sites bumped, the CHANGELOG stamped `[2026.3.0] — 2026-10-29`, the release notes'
 "Upgrading from 2026.2.0" complete, the wheel smoke test passed (`twine check` PASSED; the wheel holds the 53 package
 modules and nothing else; a numpy-only py3.11 venv runs the quickstart, an exact-Hessian fit to 1.5e-12 and the
