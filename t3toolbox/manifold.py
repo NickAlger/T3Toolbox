@@ -122,7 +122,7 @@ class T3Tangent(common.ExplicitEquality):
     orthonormal, gauged frame -- see :py:meth:`is_orthogonal` / :py:meth:`is_gauged` and the contract
     catalog; minimal rank is *not* required), with no HS claim.
 
-    A tangent vector is the sum of 2d single-core variation terms -- equation (47), Appendix A.3, of
+    A tangent vector is the sum of 2d single-core variation terms -- equation (46), Appendix A.3, of
     Alger, Christierson, Chen & Ghattas (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
 
     Examples
@@ -256,7 +256,7 @@ class T3Tangent(common.ExplicitEquality):
         The Tucker and TT ranks are (roughly) doubled. With ``include_shift=True`` the result
         represents ``base point + v`` (the standard shifted embedding used by :py:meth:`retract`).
 
-        This is the doubled-rank representation of Appendix A.3.1 (equations (50)-(53) and Figure 20)
+        This is the doubled-rank representation of Appendix A.3.1 (equations (49)-(52) and Figure 22)
         in Alger et al. (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
         cores = tv_operations.tv_to_t3(
@@ -640,7 +640,7 @@ class T3Tangent(common.ExplicitEquality):
         - ``einsum('...ia,...ja->...ij', U_i, V_i) = 0`` for all i (Tucker variations ⟂ U).
         - ``einsum('...abi,...abj->...ij', L_i, H_i) = 0`` for i = 0..d-2 (TT variations ⟂ L).
 
-        These are the gauge conditions (48)-(49), Appendix A.3, of Alger et al. (2026),
+        These are the gauge conditions (47)-(48), Appendix A.3, of Alger et al. (2026),
         "Tucker Tensor Train Taylor Series" (arXiv:2603.21141). **Per-stack-element bool array** (shape =
         variation stack ``K+C``; scalar when unstacked); reduce with ``.all()`` for a single verdict.
         """
@@ -1350,7 +1350,7 @@ class ManifoldGeometry:
         """The gauge projection ``Pi``: raw cotangent -> Riemannian gradient (orthogonal gauge).
 
         Orthogonally projects ``v``'s variations onto the gauged tangent space (the gauge conditions
-        (48)-(49), Appendix A.3). Represents a DIFFERENT tangent vector than ``v``. This is the map
+        (47)-(48), Appendix A.3). Represents a DIFFERENT tangent vector than ``v``. This is the map
         that turns a bare adjoint ``J^T r`` into the Riemannian gradient. For the vector-preserving
         gauge fix see :py:meth:`project_oblique`.
 

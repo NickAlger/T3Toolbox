@@ -554,7 +554,10 @@ A Gauss-Newton warm start followed by exact steps is the natural pattern — the
 ...                        cg_forcing_power=1.0, **kw)
 >>> ex['stop_reason'] in ('gradient', 'objective_floor')    # exact converges to the resolution floor ...
 True
->>> ex['newton_steps'] < gn['newton_steps'] / 2                # ... in under half the steps (GN is linear to the end)
+>>> ex['newton_steps'] <= 10 and ex['newton_steps'] < gn['newton_steps']    # ... in fewer steps ...
+True
+>>> rel = lambda st, k: st['history'][k]['gnorm'] / st['history'][0]['gnorm']
+>>> rel(ex, 5) < 1e-8 < rel(gn, 5)    # ... because GN is linear to the end: five steps in, exact is at the floor
 True
 >>> row = ex['history'][0]
 >>> row['hessian'], row['step_control'], row['tr_accepted']
@@ -586,11 +589,12 @@ steps), and `0.5` a superlinear one of order about 1.5 — less CG per step, a s
 **Cost.** An exact Hessian-apply costs about 3–4× a Gauss-Newton one (measured 2.8–3.9× on numpy CPU
 across the six kinds and two problem sizes; 1.9–3.5× on downstream probe-derivative fits); its memory peak
 is about twice the Gauss-Newton transpose's. Per Newton step the model does **one** misfit transpose
-(shared by the gradient and the curvature term) plus one small T3-to-T3 sweep and `d` small SVDs; it adds
-no `W`-sized state. Under `use_jit=True` the exact CG compiles once per run, like Gauss-Newton's (about
-1.5× the compile time). For a uniform `probe_derivatives` fit — the one chunked path — `chunk_size='auto'`
-sizes the chunk so the exact Hessian's assembly fits too ([`chunking.md`](chunking.md)); ragged fits and the
-other five kinds do not chunk, in either mode.
+(shared by the gradient and the curvature term) plus one small T3-to-T3 sweep and `2d − 1` small SVDs (the
+lift's `d` Tucker and `d − 1` bond pseudo-inverses); it adds no `W`-sized state. Under `use_jit=True` the
+exact CG compiles once per run, like Gauss-Newton's (about 1.5× the compile time). For a uniform
+`probe_derivatives` fit — the one chunked path — `chunk_size='auto'` sizes the chunk so the exact Hessian's
+assembly fits too ([`chunking.md`](chunking.md)); ragged fits and the other five kinds do not chunk, in
+either mode.
 
 **Restarts need nothing special.** From a zero-padded continuation restart ([`rank_continuation.md`](rank_continuation.md))
 the new directions have zero singular values; the lift's clipped pseudo-inverse drops them (the Hessian

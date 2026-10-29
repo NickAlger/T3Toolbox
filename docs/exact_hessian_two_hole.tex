@@ -9,8 +9,9 @@
 %  algpseudocode, booktabs, tikz, url, hyperref, geometry -- all standard):
 %      latexmk -pdf exact_hessian_two_hole.tex
 %
-%  PRELIMINARY (slice S15a): every code reference resolves at commit f739085;
-%  they are re-checked after the reorganization (slice S15b).
+%  Every code reference resolves at commit 76aa37f (the 2026.3.0 code); T4S is cited as
+%  arXiv:2603.21141v2. T4S citations verified against arXiv v2 (2603.21141v2) on 2026-10-29; 3 fixed
+%  (eqs (47)->(46), (48)-(49)->(47)-(48), (50)-(53)->(49)-(52); Algs 5-8, 10, 11 and App. A matched).
 % ---------------------------------------------------------------------------
 
 \usepackage[margin=1in]{geometry}
@@ -73,20 +74,11 @@
 }
 
 \title{\bfseries The exact Riemannian Hessian of a T3 fit\\ and the two-hole sweep}
-\author{T3Toolbox notes --- N.\ Alger, B.\ Christierson \&\ collaborators}
+\author{T3Toolbox notes --- N.\ Alger, B.\ Christierson \&\ collaborators\\ co-authored by Claude Fable 5.1}
 \date{\today}
 
 \begin{document}
 \maketitle
-
-\begin{center}
-\fbox{\parbox{0.92\textwidth}{\small
-\textbf{Preliminary version (slice S15a).} Every code reference in this note is a real name at commit
-\texttt{f739085} (the end of the exact-Hessian arc, release 2026.3.0, unreleased). The module layout is about to
-be reorganized; the references are re-checked, and renamed where needed, in the final pass (S15b) before the
-release. Equation and algorithm numbers of the T4S paper are those the code's docstrings cite (the local
-\texttt{t4s.pdf}, newer than arXiv); they too are re-verified in S15b.}}
-\end{center}
 
 \begin{abstract}
 \noindent
@@ -129,7 +121,7 @@ orthonormal over its middle index ($n^D_i\le n_i$; $n^D_i<n_i$ is \emph{Tucker s
 The base point in its left-canonical gauge is $\th=(U,P)$ (\code{ManifoldGeometryOps.base_point}).
 A tangent vector has gauged coordinates $v=(\delta U_i,\delta G_i)$, $\delta U_i\in\R^{n^D_i\times N_i}$,
 $\delta G_i\in\R^{r^L_{i-1}\times n_i\times r^R_i}$ (code: \code{tucker_variations} $V$, \code{tt_variations} $H$),
-and represents (T4S eq.~(47); \code{tv_to_dense})
+and represents (T4S eq.~(46); \code{tv_to_dense})
 \begin{equation}
   \label{eq:E}
   \Emap v = \sum_i \big[P_{<i}\,\delta G_i\,Q_{>i}\big]\times_j U_j
@@ -137,7 +129,7 @@ and represents (T4S eq.~(47); \code{tv_to_dense})
 \end{equation}
 where $P_{<i}=P_1\cdots P_{i-1}$ and $Q_{>i}=Q_{i+1}\cdots Q_d$ are TT chains, and $C\times_kM$ contracts
 index $k$ of a core $C$ with the \emph{rows} of a matrix $M$ (so $\Phi(\th)=\mathrm{TT}(G)\times_1U_1\cdots$). The gauge conditions
-$\delta U_i U_i^\T=0$ and $(P_i^{\langle 2\rangle})^\T\delta G_i^{\langle 2\rangle}=0$ ($i<d$; T4S (48)--(49)) are
+$\delta U_i U_i^\T=0$ and $(P_i^{\langle 2\rangle})^\T\delta G_i^{\langle 2\rangle}=0$ ($i<d$; T4S (47)--(48)) are
 imposed by the coordinate-orthogonal projection $\Pi$ (\code{tv_orthogonal_gauge_projection}); on gauged
 coordinates $\Emap$ is an isometry, so the coordinate dot product \emph{is} the Hilbert--Schmidt metric. The
 tangent \emph{sampling Jacobian} is $\Jac = A\circ\Emap$ (\code{SamplingKind.forward}, T4S Algorithms 6--7), its
@@ -254,7 +246,7 @@ $\sum_{b\neq a}\nabla_{\th_a}\ip{Z}{\Phi(\th;\,b\leftarrow\thh_b)}$ --- one core
   \item $Z=\nabla f=A^\T(\omega^2\odot r)$: $\nabla_\th\ip{Z}{\Phi(\th)}$ is the kind's \emph{corewise transpose}
     at the weighted residual $c=\omega^2\odot r$, so $\K_{A^\T\omega^2r}$ is its directional derivative, the
     \emph{two-hole sweep} of Section~\ref{sec:twohole} (\code{SamplingKind.corewise_hessian});
-  \item $Z=\grad f$, a doubled-rank T3 (\code{tv_to_t3}$(\text{frame},g)$; T4S App.~A.3.1, (50)--(53)): the
+  \item $Z=\grad f$, a doubled-rank T3 (\code{tv_to_t3}$(\text{frame},g)$; T4S App.~A.3.1, (49)--(52)): the
     T3-to-T3 two-hole of Section~\ref{sec:t3t3} (\code{ManifoldGeometryOps.tangential_curvature}).
 \end{itemize}
 Writing $\K_N := \K_{A^\T\omega^2r}-\K_{\grad f}$, \eqref{eq:hess} reads
@@ -1008,7 +1000,7 @@ with Armijo 39 steps / 130 Hessian-applies, exact with the trust region 8 / 23 a
 \section{Verification}
 \label{sec:verify}
 
-Every displayed identity was checked against the library at \texttt{f739085} by a scratch script (numpy float64;
+Every displayed identity was checked against the library at commit \texttt{76aa37f} (the 2026.3.0 code) by a scratch script (numpy float64;
 jax float64 for the Lagrangian; complex-step derivatives, which are exact, for the two-holes); Table~\ref{tab:checks}
 lists the relative residuals.
 \begin{table}[t]
@@ -1036,7 +1028,7 @@ C13 & zero frame: nested, rank-independent, base point 0, the recipe by hand (or
 C14 & $\Hop=$ GN $+$ \code{curvature_hvp}; quadratic split; exact gradient $\equiv$ GN gradient; default $\eps$ & $\le4.4{\times}10^{-16}$\\
 \bottomrule
 \end{tabular}
-\caption{The equation checks (scratch script against \texttt{f739085}; relative residuals).}
+\caption{The equation checks (scratch script against \texttt{76aa37f}; relative residuals).}
 \label{tab:checks}
 \end{table}
 At C8 the point was far from a minimizer: the exact quadratic form was $-5449.96$ against the Gauss--Newton $30.33$,
@@ -1055,7 +1047,7 @@ memory peak about twice the GN transpose's; the uniform exact CG compiles once p
 \begin{thebibliography}{9}
 \setlength{\itemsep}{1pt}
 \bibitem{T4S} N.~Alger, B.~Christierson, P.~Chen, O.~Ghattas, \emph{Tucker Tensor Train Taylor Series},
-  arXiv:2603.21141 (2026); App.~A for the frame, gauge, tangent space and T3-SVD; \S6 for probing.
+  arXiv preprint arXiv:2603.21141v2, 2026. \url{https://arxiv.org/abs/2603.21141v2}
 \bibitem{AMT13} P.-A.~Absil, R.~Mahony, J.~Trumpf, \emph{An extrinsic look at the Riemannian Hessian}, GSI 2013.
 \bibitem{PB20} M.~Psenka, N.~Boumal, \emph{Second-order optimization for tensors with fixed tensor-train rank},
   arXiv:2011.13395 (2020) --- the TT Weingarten map with $R_k^{-1}$, the analogue of $T_i^{+}$.

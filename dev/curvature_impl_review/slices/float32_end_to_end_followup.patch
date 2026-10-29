@@ -1,0 +1,261 @@
+--- base76/t3toolbox/backend/apply.py	2026-10-29 14:54:51.000000000 -0500
++++ exp/t3toolbox/backend/apply.py	2026-10-29 15:01:43.416068230 -0500
+@@ -71,7 +71,7 @@
+     vsc = tucker_cores[0].shape[:-2] # core/frame stack C (the batch of T3s)
+     vsw = vecs[0].shape[:-1]         # vec stack W (the probe-like vectors), frame-inner: W outer, C inner
+ 
+-    mu_WCa = xnp.ones(vsw + vsc + (tt_cores[0].shape[-3],))   # W + C
++    mu_WCa = xnp.ones(vsw + vsc + (tt_cores[0].shape[-3],), dtype=xnp.result_type(vecs[0], tucker_cores[0], tt_cores[0]))   # W + C
+     v_B_G = (vecs, tucker_cores, tt_cores)
+     mu_WCz, _ = xscan(_t3_apply_step, mu_WCa, v_B_G)
+ 
+@@ -452,7 +452,7 @@
+ 
+     # carry sigma is W+K+C; take the leading stack from dxis (carries K), not xis (W+C only).
+     rR0 = right_tt_cores[0].shape[-3]
+-    init = xnp.zeros(dxis[0].shape[:-1] + (rR0,))
++    init = xnp.zeros(dxis[0].shape[:-1] + (rR0,), dtype=xnp.result_type(dxis[0], right_tt_cores[0]))
+     sigma_terminal, _ = xscan(_apply_from_xis_step, init, (right_tt_cores, down_tt_cores, var_tt_cores, xis, dxis, mus))
+     return xnp.sum(sigma_terminal, axis=-1)   # contract the terminal bond -> W + K + C
+ 
+--- base76/t3toolbox/backend/entries.py	2026-10-29 14:54:51.000000000 -0500
++++ exp/t3toolbox/backend/entries.py	2026-10-29 15:03:17.422119649 -0500
+@@ -79,7 +79,7 @@
+ 
+     vsw = index.shape[1:]    # index stack W (frame-inner: W outer, C inner)
+ 
+-    mu_WCa = xnp.ones(vsw + vsc + (tt_cores[0].shape[-3],))   # W + C
++    mu_WCa = xnp.ones(vsw + vsc + (tt_cores[0].shape[-3],), dtype=xnp.result_type(tucker_cores[0], tt_cores[0]))   # W + C
+     ind_B_G = (index, tucker_cores, tt_cores)
+     mu_WCz, _ = xscan(_t3_entries_step, mu_WCa, ind_B_G)
+ 
+@@ -384,5 +384,5 @@
+         # each real index_i < Ni <= N puts the 1 in the real region (the padding stays zero -> contracts
+         # to zero against the masked supercore).
+         N = up_tucker_cores.shape[-1]
+-        return xnp.eye(N)[index]
+-    return tuple(xnp.eye(B.shape[-1])[index[i]] for i, B in enumerate(up_tucker_cores))
++        return xnp.eye(N, dtype=up_tucker_cores.dtype)[index]
++    return tuple(xnp.eye(B.shape[-1], dtype=B.dtype)[index[i]] for i, B in enumerate(up_tucker_cores))
+--- base76/t3toolbox/backend/probing.py	2026-10-29 14:54:51.000000000 -0500
++++ exp/t3toolbox/backend/probing.py	2026-10-29 15:03:17.423259104 -0500
+@@ -245,7 +245,7 @@
+ 
+     # carry has the same leading stack as the edge variables (order-agnostic), plus the left bond
+     r0 = left_tt_cores[0].shape[-3]
+-    init = xnp.ones(xis[0].shape[:-1] + (r0,))
++    init = xnp.ones(xis[0].shape[:-1] + (r0,), dtype=xnp.result_type(xis[0], left_tt_cores[0]))
+ 
+     last_mu, (mus,) = xscan(_mu_step, init, (left_tt_cores, xis))
+     return mus
+@@ -428,7 +428,7 @@
+ 
+     # carry sigma is W+K+C; take the leading stack from dxis (which carries K), not xis (W+C only)
+     rR0 = right_tt_cores[0].shape[-3]
+-    init = xnp.zeros(dxis[0].shape[:-1] + (rR0,))
++    init = xnp.zeros(dxis[0].shape[:-1] + (rR0,), dtype=xnp.result_type(dxis[0], right_tt_cores[0]))
+ 
+     last_sigma, (sigmas,) = xscan(_sigma_sweep_step, init, (right_tt_cores, down_tt_cores, var_tt_cores, xis, dxis, mus))
+     return sigmas
+@@ -928,7 +928,7 @@
+     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
+ 
+     # carry tau_tilde is W+K+C; take the leading stack from deta_tildes (carries K), not mus (W+C).
+-    init = xnp.zeros(deta_tildes[0].shape[:-1] + (left_tt_cores[0].shape[-3],))
++    init = xnp.zeros(deta_tildes[0].shape[:-1] + (left_tt_cores[0].shape[-3],), dtype=xnp.result_type(deta_tildes[0], left_tt_cores[0]))
+ 
+     last_tau_tilde, (tau_tildes,) = xscan(_tau_tilde_step, init, (left_tt_cores, xis, deta_tildes, mus))
+     return tau_tildes
+--- base76/t3toolbox/backend/t3_conversions.py	2026-10-29 14:54:51.000000000 -0500
++++ exp/t3toolbox/backend/t3_conversions.py	2026-10-29 15:03:17.423752419 -0500
+@@ -77,8 +77,8 @@
+         T = T_a_b_c_xyzlm.reshape(vs + ts + ts2)
+ 
+     if squash_tails:
+-        mu_L = xnp.ones(big_tt_cores[0].shape[-3])
+-        mu_R = xnp.ones(big_tt_cores[-1].shape[-1])
++        mu_L = xnp.ones(big_tt_cores[0].shape[-3], dtype=T.dtype)
++        mu_R = xnp.ones(big_tt_cores[-1].shape[-1], dtype=T.dtype)
+ 
+         T = xnp.tensordot(T, mu_R, axes=1)
+         T = xnp.tensordot(mu_L, T, axes=((0,), (len(vs),)))
+--- base76/t3toolbox/backend/tt_operations.py	2026-10-29 14:54:51.000000000 -0500
++++ exp/t3toolbox/backend/tt_operations.py	2026-10-29 15:01:43.419981429 -0500
+@@ -75,12 +75,12 @@
+     tt_cores = tuple(tt_cores)
+ 
+     G0 = tt_cores[0]
+-    G0 = xnp.einsum('az,...aib->...zib', xnp.ones((G0.shape[-3],1)), G0)
++    G0 = xnp.einsum('az,...aib->...zib', xnp.ones((G0.shape[-3],1), dtype=G0.dtype), G0)
+ 
+     tt_cores = (G0,) + tt_cores[1:]
+ 
+     Gf = tt_cores[-1]
+-    Gf = xnp.einsum('...aib,bz->...aiz', Gf, xnp.ones((Gf.shape[-1],1)))
++    Gf = xnp.einsum('...aib,bz->...aiz', Gf, xnp.ones((Gf.shape[-1],1), dtype=Gf.dtype))
+ 
+     tt_cores = tt_cores[:-1] + (Gf,)
+ 
+@@ -103,13 +103,13 @@
+     def squash_left(G):                                               # (1,)+stack+(r,n,r)
+         return xnp.concatenate([
+             xnp.sum(G, axis=-3, keepdims=True),                       # (1,)+stack+(1,n,r)
+-            xnp.zeros((1,) + stack_shape + (r - 1, n, r)),
++            xnp.zeros((1,) + stack_shape + (r - 1, n, r), dtype=G.dtype),
+         ], axis=-3)
+ 
+     def squash_right(G):                                              # (1,)+stack+(r,n,r)
+         return xnp.concatenate([
+             xnp.sum(G, axis=-1, keepdims=True),                       # (1,)+stack+(r,n,1)
+-            xnp.zeros((1,) + stack_shape + (r, n, r - 1)),
++            xnp.zeros((1,) + stack_shape + (r, n, r - 1), dtype=G.dtype),
+         ], axis=-1)
+ 
+     if tt_supercore.shape[0] == 1:
+@@ -187,7 +187,7 @@
+     xnp, _, xscan = get_backend(is_uniform, use_jax)
+ 
+     ss = coresA[0].shape[:-3]
+-    Z0 = xnp.ones(ss + (coresA[0].shape[-3], coresB[0].shape[-3]))
++    Z0 = xnp.ones(ss + (coresA[0].shape[-3], coresB[0].shape[-3]), dtype=xnp.result_type(coresA[0], coresB[0]))
+     Zf, (ZZ_first,) = xscan(_tt_zipper_step, Z0, (coresA, coresB))
+     return tuple(ZZ_first) + (Zf,)
+ 
+@@ -273,7 +273,7 @@
+     zippers_in = xnp.stack(tuple(zippers[:d])) if is_uniform else tuple(zippers[:d])
+ 
+     ss = np.broadcast_shapes(coresA_dot[0].shape[:-3], coresB_dot[0].shape[:-3])   # K + C
+-    Zdot0 = xnp.zeros(ss + (coresA[0].shape[-3], coresB[0].shape[-3]))
++    Zdot0 = xnp.zeros(ss + (coresA[0].shape[-3], coresB[0].shape[-3]), dtype=xnp.result_type(coresA[0], coresB[0], coresA_dot[0], coresB_dot[0]))
+     Zdot_f, (ZZdot_first,) = xscan(_tt_zipper_tangent_step, Zdot0,
+                                    (zippers_in, coresA, coresB, coresA_dot, coresB_dot))
+     return tuple(ZZdot_first) + (Zdot_f,)
+--- base76/t3toolbox/backend/tv_operations.py	2026-10-29 14:54:51.000000000 -0500
++++ exp/t3toolbox/backend/tv_operations.py	2026-10-29 15:01:43.422049041 -0500
+@@ -292,7 +292,7 @@
+     dU = tt_variations[0]
+     O = down_tt_cores[0]
+     L = left_tt_cores[0]
+-    Z = xnp.zeros(ss + (O.shape[-3], O.shape[-2], L.shape[-1]))
++    Z = xnp.zeros(ss + (O.shape[-3], O.shape[-2], L.shape[-1]), dtype=O.dtype)
+     G_top = xnp.concatenate([dU, L], axis=-1)
+     G_bot = xnp.concatenate([O, Z], axis=-1)
+     G = xnp.concatenate([G_top, G_bot], axis=-2)
+@@ -304,10 +304,10 @@
+         R = right_tt_cores[ii]
+         O = down_tt_cores[ii]
+         dU = tt_variations[ii]
+-        Z001 = xnp.zeros(ss + (R.shape[-3], dU.shape[-2], L.shape[-1]))
+-        Z100 = xnp.zeros(ss + (R.shape[-3], O.shape[-2], R.shape[-1]))
+-        Z101 = xnp.zeros(ss + (R.shape[-3], O.shape[-2], L.shape[-1]))
+-        Z111 = xnp.zeros(ss + (L.shape[-3], O.shape[-2], L.shape[-1]))
++        Z001 = xnp.zeros(ss + (R.shape[-3], dU.shape[-2], L.shape[-1]), dtype=O.dtype)
++        Z100 = xnp.zeros(ss + (R.shape[-3], O.shape[-2], R.shape[-1]), dtype=O.dtype)
++        Z101 = xnp.zeros(ss + (R.shape[-3], O.shape[-2], L.shape[-1]), dtype=O.dtype)
++        Z111 = xnp.zeros(ss + (L.shape[-3], O.shape[-2], L.shape[-1]), dtype=O.dtype)
+         G_top = xnp.concatenate([
+             xnp.concatenate([R, Z001], axis=-1),
+             xnp.concatenate([dU, L], axis=-1),
+@@ -323,7 +323,7 @@
+     dU = tt_variations[-1]
+     R = right_tt_cores[-1]
+     O = down_tt_cores[-1]
+-    Z = xnp.zeros(ss + (R.shape[-3], O.shape[-2], R.shape[-1]))
++    Z = xnp.zeros(ss + (R.shape[-3], O.shape[-2], R.shape[-1]), dtype=O.dtype)
+     if include_shift:
+         Lf = left_tt_cores[-1]
+         G_top = xnp.concatenate([R, Lf + dU], axis=-3)
+--- base76/t3toolbox/backend/ut3_svd.py	2026-10-29 14:54:51.000000000 -0500
++++ exp/t3toolbox/backend/ut3_svd.py	2026-10-29 15:04:05.438110621 -0500
+@@ -260,9 +260,9 @@
+     M = G.swapaxes(-2, -1).reshape(stack_shape + (r * r, n))
+     U, ss_frame, Vt = linalg.pad_safe_svd(M, row1, col1)         # K = min(r*r, n) columns
+     nb = ss_frame.shape[-1]
+-    U = xnp.concatenate([U, xnp.zeros(stack_shape + (r * r, n - nb))], axis=-1)
+-    ss_frame = xnp.concatenate([ss_frame, xnp.zeros(stack_shape + (n - nb,))], axis=-1)
+-    Vt = xnp.concatenate([Vt, xnp.zeros(stack_shape + (n - nb, n))], axis=-2)
++    U = xnp.concatenate([U, xnp.zeros(stack_shape + (r * r, n - nb), dtype=U.dtype)], axis=-1)
++    ss_frame = xnp.concatenate([ss_frame, xnp.zeros(stack_shape + (n - nb,), dtype=ss_frame.dtype)], axis=-1)
++    Vt = xnp.concatenate([Vt, xnp.zeros(stack_shape + (n - nb, n), dtype=Vt.dtype)], axis=-2)
+     U = U * frame_mask.reshape(stack_shape + (1, -1))
+     ss_frame = ss_frame * frame_mask
+     Vt = Vt * frame_mask.reshape(stack_shape + (-1, 1))
+@@ -389,14 +389,14 @@
+ 
+     # keep everything the same shape, for consistency with masks
+     n2 = frame_supercore.shape[-2]
+-    frame_supercore = xnp.concatenate([frame_supercore, xnp.zeros((d,) + stack_shape + (n - n2, N))], axis=-2)
+-    tt_supercore = xnp.concatenate([tt_supercore, xnp.zeros((d,) + stack_shape + (r, n - n2, r))], axis=-2)
++    frame_supercore = xnp.concatenate([frame_supercore, xnp.zeros((d,) + stack_shape + (n - n2, N), dtype=frame_supercore.dtype)], axis=-2)
++    tt_supercore = xnp.concatenate([tt_supercore, xnp.zeros((d,) + stack_shape + (r, n - n2, r), dtype=tt_supercore.dtype)], axis=-2)
+ 
+     _, ss_tt00, _ = xnp.linalg.svd(tt_supercore[0].reshape(stack_shape + (r, n * r)), full_matrices=False)
+-    ss_tt0 = xnp.concatenate([ss_tt00, xnp.zeros(stack_shape + (r - ss_tt00.shape[-1],))], axis=-1)
++    ss_tt0 = xnp.concatenate([ss_tt00, xnp.zeros(stack_shape + (r - ss_tt00.shape[-1],), dtype=ss_tt00.dtype)], axis=-1)
+     ss_tt0 = ss_tt0 * tt_masks[0]
+ 
+-    Y0 = xnp.eye(r)
++    Y0 = xnp.eye(r, dtype=tt_supercore.dtype)
+     if stack_shape:
+         Y0 = xnp.tensordot(xnp.ones(stack_shape), Y0, axes=[(), ()])
+ 
+@@ -576,8 +576,8 @@
+ 
+     # keep everything the same shape, for consistency with masks
+     n2 = frame_supercore.shape[-2]
+-    frame_supercore = xnp.concatenate([frame_supercore, xnp.zeros((d,) + stack_shape + (n - n2, N))], axis=-2)
+-    tt_supercore = xnp.concatenate([tt_supercore, xnp.zeros((d,) + stack_shape + (r, n - n2, r))], axis=-2)
++    frame_supercore = xnp.concatenate([frame_supercore, xnp.zeros((d,) + stack_shape + (n - n2, N), dtype=frame_supercore.dtype)], axis=-2)
++    tt_supercore = xnp.concatenate([tt_supercore, xnp.zeros((d,) + stack_shape + (r, n - n2, r), dtype=tt_supercore.dtype)], axis=-2)
+ 
+     # tie insurance (the ragged re-assign, as a static gather): copy the group reference factor to
+     # every group mode -- exact on tied input, roundoff repair otherwise
+@@ -589,11 +589,11 @@
+ 
+     # boundary spectrum of the right-orthogonalized tensor's first core (as the ragged sweep reports)
+     _, ss_tt00, _ = xnp.linalg.svd(tt_supercore[0].reshape(stack_shape + (r, n * r)), full_matrices=False)
+-    ss_tt0 = xnp.concatenate([ss_tt00, xnp.zeros(stack_shape + (r - ss_tt00.shape[-1],))], axis=-1)
++    ss_tt0 = xnp.concatenate([ss_tt00, xnp.zeros(stack_shape + (r - ss_tt00.shape[-1],), dtype=ss_tt00.dtype)], axis=-1)
+     ss_tt0 = ss_tt0 * tt_masks[0]
+ 
+     # ---- phase 1: TT-bond rounding scan (Tucker steps deliberately skipped) ----
+-    Y0 = xnp.eye(r)
++    Y0 = xnp.eye(r, dtype=tt_supercore.dtype)
+     if stack_shape:
+         Y0 = xnp.tensordot(xnp.ones(stack_shape), Y0, axes=[(), ()])
+     if ph is None:
+@@ -633,8 +633,8 @@
+             Y, ss, _ = linalg.pad_safe_svd(
+                 M, ph['n0m'][group[0]], np.concatenate(col_blocks, axis=-1))
+         q = ss.shape[-1]
+-        Y = xnp.concatenate([Y, xnp.zeros(stack_shape + (n, n - q))], axis=-1)
+-        ss = xnp.concatenate([ss, xnp.zeros(stack_shape + (n - q,))], axis=-1)
++        Y = xnp.concatenate([Y, xnp.zeros(stack_shape + (n, n - q), dtype=Y.dtype)], axis=-1)
++        ss = xnp.concatenate([ss, xnp.zeros(stack_shape + (n - q,), dtype=ss.dtype)], axis=-1)
+         group_mask = frame_masks[group[0]]      # the cap mask; equal at every group mode (validated)
+         Y = Y * group_mask.reshape(stack_shape + (1, -1))
+         ss = ss * group_mask
+--- base76/t3toolbox/backend/utv_operations.py	2026-10-29 14:54:51.000000000 -0500
++++ exp/t3toolbox/backend/utv_operations.py	2026-10-29 15:04:05.439071672 -0500
+@@ -244,10 +244,10 @@
+             else:
+                 v = tkv[ii]
+                 tkv_slices.append(xnp.concatenate(
+-                    [v, xnp.zeros(v.shape[:-2] + (pad, v.shape[-1]))], axis=-2))
++                    [v, xnp.zeros(v.shape[:-2] + (pad, v.shape[-1]), dtype=v.dtype)], axis=-2))
+                 O = down_sc[ii]
+                 down_slices.append(xnp.concatenate(
+-                    [O, xnp.zeros(O.shape[:-2] + (pad, O.shape[-1]))], axis=-2))
++                    [O, xnp.zeros(O.shape[:-2] + (pad, O.shape[-1]), dtype=O.dtype)], axis=-2))
+                 block_masks.append(np.concatenate(
+                     [var_down_mask[ii], np.zeros(var_down_mask[ii].shape[:-1] + (pad,), bool)], axis=-1))
+         tkv = xnp.stack(tkv_slices, axis=0)                 # (d,)+K+C+(nU, N)
+@@ -266,7 +266,7 @@
+                                 sc.shape[:1] + tuple(ss[:n_K]) + sc.shape[1:])
+ 
+     U = bcast(up_sc); O = bcast(down_sc); L = bcast(left_sc); R = bcast(right_sc)
+-    Z = lambda nd, a, b, c: xnp.zeros((nd,) + ss + (a, b, c))   # nd cores of a (a, b, c) zero block
++    Z = lambda nd, a, b, c: xnp.zeros((nd,) + ss + (a, b, c), dtype=xnp.result_type(up_sc, tkv))   # nd cores of a (a, b, c) zero block
+ 
+     # ---- Tucker supercore: [U ; V] along the Tucker-rank axis (-2). Fully vectorized over d. ----
+     tucker_supercore = xnp.concatenate([U, tkv], axis=-2)       # (d,)+ss+(nU+nD, N)

@@ -115,7 +115,7 @@ def tv_orthogonal_gauge_projection(
     the orthogonal projection onto the TIED gauged tangent subspace, since the tied subspace is
     contained in the gauged one. Default ``None``: unchanged behavior.
 
-    Gauge conditions (48)-(49), Appendix A.3, of Alger et al. (2026), "Tucker Tensor Train
+    Gauge conditions (47)-(48), Appendix A.3, of Alger et al. (2026), "Tucker Tensor Train
     Taylor Series" (arXiv:2603.21141).
     """
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
@@ -165,7 +165,7 @@ def tv_oblique_gauge_projection(
     then the TT variations are made left-perpendicular (compensating through the right cores).
     Stack-aware. Uniform twin: :py:func:`~t3toolbox.backend.utv_operations.utv_oblique_gauge_projection`.
 
-    Enforces the gauge conditions (48)-(49), Appendix A.3, of Alger et al. (2026), "Tucker Tensor
+    Enforces the gauge conditions (47)-(48), Appendix A.3, of Alger et al. (2026), "Tucker Tensor
     Train Taylor Series" (arXiv:2603.21141).
     """
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
@@ -235,7 +235,7 @@ def tv_to_t3(
     ``V_i = S_i^T Udot`` differ across a group in value, and in shape when the ``nD_i``
     differ). Cf. the SF-ETT tangent representation, Molozhavenko & Rakhuba (2026) Sec. 5.2.
 
-    Equations (50)-(53) and Figure 20, Appendix A.3.1, of Alger et al. (2026),
+    Equations (49)-(52) and Figure 22, Appendix A.3.1, of Alger et al. (2026),
     "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
     """
     up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame

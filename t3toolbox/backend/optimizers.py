@@ -1254,12 +1254,12 @@ def newton_cg(
     >>> problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
     >>> x0, _ = bopt.newton_cg(problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data,
     ...                        max_newton=5)
-    >>> _, gn = bopt.newton_cg(problem, x0, max_newton=40, g0_reference='warm_start', gtol_rel=1e-10)
-    >>> _, ex = bopt.newton_cg(problem, x0, max_newton=40, g0_reference='warm_start', gtol_rel=1e-10,
+    >>> _, gn = bopt.newton_cg(problem, x0, max_newton=40, g0_reference='warm_start')
+    >>> _, ex = bopt.newton_cg(problem, x0, max_newton=40, g0_reference='warm_start',
     ...                        hessian='exact', cg_forcing_power=1.0)
-    >>> ex['history'][0]['step_control'], ex['stop_reason']
-    ('trust_region', 'gradient')
-    >>> gn['newton_steps'] > 2 * ex['newton_steps']
+    >>> ex['history'][0]['step_control'], ex['stop_reason'] in ('gradient', 'objective_floor')
+    ('trust_region', True)
+    >>> gn['newton_steps'] > 2 * ex['newton_steps']     # Gauss-Newton is linear here; exact has the Newton tail
     True
     """
     _require_unstacked(problem.geom, x0, 'newton_cg')

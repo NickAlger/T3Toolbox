@@ -436,7 +436,7 @@ class UT3Tangent(common.ExplicitEquality):
 
         Gauge conditions (needed for the manifold Hilbert-Schmidt inner product / norm to equal the
         coordinate ones; not enforced at construction): ``U_i^T dU_i = 0`` (all i) and
-        ``(P_i^L)^T dG_i^L = 0`` (i = 0..d-2) -- conditions (48)-(49), Appendix A.3 of Alger et al. (2026).
+        ``(P_i^L)^T dG_i^L = 0`` (i = 0..d-2) -- conditions (47)-(48), Appendix A.3 of Alger et al. (2026).
         **Per-stack-element bool array** (reduce with ``.all()`` for a single verdict)."""
         return self.gauge_residual <= atol
 
@@ -1113,7 +1113,7 @@ class UniformManifoldGeometry:
     ) -> UT3Tangent:  # gauged tangent at v's frame (a DIFFERENT vector)
         """The gauge projection ``Pi``: raw cotangent -> Riemannian gradient (orthogonal gauge).
 
-        Orthogonally projects ``v``'s variations onto the gauged tangent space (conditions (48)-(49),
+        Orthogonally projects ``v``'s variations onto the gauged tangent space (conditions (47)-(48),
         Appendix A.3). Represents a DIFFERENT tangent vector than ``v`` -- the map that turns a bare adjoint
         ``J^T r`` into the Riemannian gradient. For the vector-preserving fix see :py:meth:`project_oblique`.
         **Safe mode** requires ``v``'s frame orthogonal (raises otherwise; skipped under ``safety.unsafe()`` /

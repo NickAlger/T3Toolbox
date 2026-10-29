@@ -10,8 +10,7 @@
 
 Math reference: **§6.2.3** ("Transpose of tangent vector to probes map", Algorithm 8) and **§6.3**
 ("Corewise (non-manifold) simplification") of Alger, Christierson, Chen & Ghattas (2026), *"Tucker
-Tensor Train Taylor Series"* (arXiv:2603.21141). (As elsewhere, the local `t4s.pdf` numbering is newer
-than the public arXiv.)
+Tensor Train Taylor Series"* (arXiv:2603.21141).
 
 ---
 

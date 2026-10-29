@@ -249,8 +249,16 @@ cross-references.)
   Carry the operand scale through `normalized` / `sum_tangents` / `unstack_tangents`; give `UT3Tangent` a
   `__truediv__` (ragged has `/`); and a faster `corewise_stack_norm` would remove most of the safe-mode `±`
   cost (a leaf add 55 → 314 µs at 3.2k dof).
-- **Small dtype / dispatch leftovers** (backlog). The plain `probe` / `apply` / `entries` ops still build
-  default-dtype scan inits and promote float32 inputs to float64 under x64 (the jet kernels were fixed in
-  2026.3.0); `sharing.fv_share_tucker_variations` infers the redistribution's backend from the variations only
-  but the solve's from all inputs (a mixed numpy / jax call returns numpy through a jax float32 solve —
-  harmless, but the two should agree).
+- **Small dtype / dispatch leftovers** (backlog). **A float32 fit comes back float64** (numpy, or jax under
+  x64) on every `MANIFOLD` fit and most others, though the jet kernels preserve float32 since 2026.3.0: 38
+  default-dtype constructors in eight backend modules sit upstream of them -- the plain `probe` / `apply` /
+  `entries` scan inits, `tt_squash_tails`'s tail vectors (so `t3_orthogonal_representations` builds the frame
+  in float64), the TT zipper boundaries, the tangent-to-T3 block builders, the uniform T3-SVD and
+  shared-retraction paddings, `to_dense`'s tail vectors. Passing the operands' dtype at each site keeps a
+  float32 numpy fit float32 end to end (checked 2026-10-29 over the six kinds × both layouts × manifold /
+  corewise / shared × both Hessians) and leaves float64 bit for bit; it is its own slice because each scan
+  init must take the dtype of ALL its scan's operands (a jax carry may not change type under x64 with
+  mixed-precision inputs), which wants a mixed-dtype jax test per site. Separately,
+  `sharing.fv_share_tucker_variations` infers the redistribution's backend from the variations only but the
+  solve's from all inputs (a mixed numpy / jax call returns numpy through a jax float32 solve — harmless,
+  but the two should agree).

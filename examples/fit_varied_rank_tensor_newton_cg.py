@@ -1,5 +1,5 @@
 """Fit a Tucker tensor train to "apply" probes of a tensor with **deliberately varied ranks**, using
-Riemannian Newton-CG with the **condition-number rank continuation of Section 5.4.1** (t4s.pdf).
+Riemannian Newton-CG with the **condition-number rank continuation of Section 5.4.1** (T4S, arXiv:2603.21141).
 
 What this example adds over ``fit_hilbert_tensor_newton_cg.py``
 --------------------------------------------------------------

@@ -106,9 +106,11 @@ for the full tour with verified outputs.
   `T3Variations`, `T3Tangent`), gauge projections, retraction, and two geometries — the
   Hilbert-Schmidt `MANIFOLD` and the Euclidean-coordinate `COREWISE`.
 - **Least-squares fitting** from any of the sampling operations or their derivatives
-  (Gauss-Newton models) with four optimizers: `gradient_descent`, `mc_sgd`, `adam`, `newton_cg` —
-  with optional residual weighting, Tikhonov regularization, live Newton-CG diagnostics, and
-  rank continuation.
+  (Gauss-Newton or exact-Hessian local models) with four optimizers: `gradient_descent`, `mc_sgd`,
+  `adam`, `newton_cg` — with optional residual weighting, Tikhonov regularization, live Newton-CG
+  diagnostics, and rank continuation. `newton_cg(..., hessian='exact')` solves each Newton step with
+  the exact Riemannian Hessian under a trust region, for a Newton tail on noisy or unrepresentable
+  targets where Gauss-Newton is only linear.
 - **Shared Tucker factors (SF-T3)**: optimize over T3s whose Tucker factors are constrained equal
   within user-specified groups of modes — `shared(MANIFOLD, sharing)` wraps any geometry, and the
   grouped T3-SVD, rank bookkeeping and continuation follow.

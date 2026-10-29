@@ -648,12 +648,16 @@ def _tied_filter(
         shared_data:  SharedFrameData,
         gi:           int,                       # index into the companion's nontrivial-group tuples
         eps:          typ.Optional[NDArray],     # damping, shape=C; None -> the exact clipped reciprocal
-        rcond:        typ.Optional[float],       # relative clip; None -> dtype eps * max(sum nD_i, n_g)
+
+        rcond:        typ.Optional[typ.Union[float, NDArray]],  # relative clip: a scalar, or broadcastable to C+(1,);
+                                                                #   None -> dtype eps * max(sum nD_i, n_g)
 ) -> NDArray:                                    # f(s_g), shape=C+(q,); 0 where clipped
     '''The filter of group ``gi``'s tied solve: :py:func:`~t3toolbox.backend.linalg.filtered_reciprocal` of
     the group spectrum ``s_g``, with the solve's default clip ``dtype eps * max(sum_i nD_i, n_g)`` --
     ``numpy.linalg.pinv``'s for the stacked ``M_g``. ``eps=None`` is the clipped pseudo-inverse of the tied
-    projection, bit for bit the filter it always used; a damping ``eps`` is the exact Hessian's tied lift.'''
+    projection, bit for bit the filter it always used; a damping ``eps`` is the exact Hessian's tied lift.
+    A per-element ``rcond`` array (the uniform tied lift's clip at each stack element's REAL group
+    dimensions) broadcasts against ``s_g[..., :1]``.'''
     s_g, Vt_M, splits = shared_data.svd_s[gi], shared_data.svd_Vt[gi], shared_data.row_splits[gi]
     eff_rcond = (float(np.finfo(s_g.dtype).eps) * max(splits[-1], Vt_M.shape[-1])
                  if rcond is None else rcond)

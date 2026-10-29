@@ -144,7 +144,7 @@ def apply_derivative_operator(ww, pp, order, s_vec):
 
 
 # --------------------------------------------------------------------------------------------------
-# Manifold Cauchy SGD (MC-SGD), t4s.pdf Section 5.3.2 -- FLAT (X,P)-pair minibatching
+# Manifold Cauchy SGD (MC-SGD), T4S (arXiv:2603.21141) Section 5.3.2 -- FLAT (X,P)-pair minibatching
 # --------------------------------------------------------------------------------------------------
 # Same tuning-free Cauchy-step method as the reference example; the minibatch is the difference. Each
 # iteration:

@@ -121,7 +121,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
     (add, scale, dot product, etc) with the variations, and those core faithfully correspond
     to linear algebra with the N1 x ... x Nd tangent vectors represented by the variations.
 
-    The orthogonal representations (45)-(46) and gauge conditions (48)-(49) are defined in Appendix
+    The orthogonal representations (44)-(45) and gauge conditions (47)-(48) are defined in Appendix
     A.3 of Alger, Christierson, Chen & Ghattas (2026), "Tucker Tensor Train Taylor Series"
     (arXiv:2603.21141).
 
@@ -1218,7 +1218,7 @@ def fv_to_t3(
              U0    U1   (V2)   U3
              |     |     |     |
 
-    These are the single-core variation terms summed in equation (47), Appendix A.3, of Alger et al.
+    These are the single-core variation terms summed in equation (46), Appendix A.3, of Alger et al.
     (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
 
     Parameters
@@ -1322,7 +1322,7 @@ def t3_orthogonal_representations(
         - tt_variations     = (H0, H1, H2, H3)
 
     Implements the sweeping orthogonalization (Algorithm 11), producing the representations
-    (45)-(46), in Appendix A.3 of Alger et al. (2026), "Tucker Tensor Train Taylor Series"
+    (44)-(45), in Appendix A.3 of Alger et al. (2026), "Tucker Tensor Train Taylor Series"
     (arXiv:2603.21141). NOTE: the left/right orthogonalization sweep order here differs from
     Algorithm 11 (left-then-right vs the paper's right-then-left); the resulting orthogonal
     representations are equivalent.

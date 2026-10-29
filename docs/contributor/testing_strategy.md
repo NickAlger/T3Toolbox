@@ -38,7 +38,7 @@ rank-controlled optimization) silently does the wrong thing.
 
 **This is not hypothetical.** `utv_to_ut3` once built the doubled-rank tensor with `ones` boundary
 masks (claiming `rR+rL` rank at a boundary whose supercore is rank-1-and-zeros). Every dense test passed at
-~1e-16. Only re-deriving the construction from the paper (Appendix A.3.1, eqs 50–53) caught it; the fix is
+~1e-16. Only re-deriving the construction from the paper (Appendix A.3.1, eqs 49–52) caught it; the fix is
 the honest `zeros` boundaries that respect the block structure.
 
 ## The two tools that close it

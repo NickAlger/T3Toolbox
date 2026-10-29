@@ -1219,7 +1219,7 @@ def tv_entries_derivatives(
 ###############################################################
 #
 # The transpose of tv_probe_derivatives (linear in the variation): residual jets r -> variation
-# gradient (dU_tilde, dG_tilde). Derived as the jet-ified adjoint-state Lagrangian (t4s.pdf Thm 7):
+# gradient (dU_tilde, dG_tilde). Derived as the jet-ified adjoint-state Lagrangian (T4S Thm 7, Alg. 8):
 # every forward contraction in the Lagrangian is replaced by its binomial jet convolution, and
 # stationarity d L / d (state, variation) = 0 gives the adjoint sweeps and the gradient assembly --
 # which is exactly the verified non-derivative transpose (probing.compute_*_tildes / assemble_*) with
@@ -2066,7 +2066,7 @@ def tv_probe_derivatives_transpose(
     typ.Tuple[NDArray, ...],  # dG_tildes (TT variation gradient)
 ]:                                          # = T3Variations.data
     '''Transpose of :py:func:`tv_probe_derivatives`: back-project residual jets ``ztildes`` into a
-    variation gradient ``(dU_tildes, dG_tildes)``. The jet-ified adjoint-state method (t4s.pdf Thm 7):
+    variation gradient ``(dU_tildes, dG_tildes)``. The jet-ified adjoint-state method (T4S Thm 7, Alg. 8):
     every forward contraction is swapped for its binomial jet convolution, then stationarity of the
     Lagrangian gives the adjoint sweeps (``sigma/tau/dxi_tilde`` jets) and the order-less gradient
     assembly -- banded recurrences and order scans throughout, no binomial tensor.

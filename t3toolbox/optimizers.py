@@ -526,9 +526,9 @@ def newton_cg(
     otherwise identical.
 
     **The exact Hessian.** On a noisy ``probe_derivatives`` fit warm-started near the solution, the exact
-    Hessian (with its default trust region, and ``cg_forcing_power=1.0`` for the q-quadratic tail) reaches
-    the gradient test in a fraction of the steps Gauss-Newton takes (linear there, it ends here on its line
-    search, short of this tight ``gtol_rel``):
+    Hessian (with its default trust region, and ``cg_forcing_power=1.0`` for the q-quadratic tail) converges
+    in a fraction of the steps Gauss-Newton takes (Gauss-Newton is linear there, about halving ``‖g‖`` per
+    step; where its tail ends -- the gradient test or a failed line search -- depends on the BLAS's rounding):
 
     >>> import t3toolbox.manifold as t3m
     >>> np.random.seed(0)
@@ -539,12 +539,12 @@ def newton_cg(
     >>> x0, _ = optimizers.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data,
     ...                              t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)), order=1,
     ...                              max_newton=5)
-    >>> opts = dict(order=1, max_newton=40, g0_reference='warm_start', gtol_rel=1e-10)
+    >>> opts = dict(order=1, max_newton=40, g0_reference='warm_start')
     >>> _, gn = optimizers.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data, x0, **opts)
     >>> _, ex = optimizers.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data, x0, hessian='exact',
     ...                              cg_forcing_power=1.0, **opts)
-    >>> ex['history'][0]['step_control'], ex['stop_reason']
-    ('trust_region', 'gradient')
+    >>> ex['history'][0]['step_control'], ex['stop_reason'] in ('gradient', 'objective_floor')
+    ('trust_region', True)
     >>> gn['newton_steps'] > 2 * ex['newton_steps']
     True
 

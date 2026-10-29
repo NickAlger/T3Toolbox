@@ -192,7 +192,7 @@ def utv_to_ut3(
 ):  # -> doubled-rank UniformTuckerTensorTrain .data: (tucker_supercore, tt_supercore, shape, (tucker_mask, tt_mask))
     """Doubled-rank uniform Tucker tensor train representing a uniform frame-variations tangent vector.
 
-    The uniform mirror of :py:func:`tv_operations.tv_to_t3` (equations (50)-(53) / Figure 20,
+    The uniform mirror of :py:func:`tv_operations.tv_to_t3` (equations (49)-(52) / Figure 22,
     Appendix A.3.1 of Alger et al. 2026). The Tucker supercore becomes ``[U ; V]`` (concat along the
     Tucker-rank axis); the TT supercore is the block-bidiagonal embedding, uniform-padded to bonds
     ``rL+rR`` for every core with the **frame-inner ``[R, L]`` bond order** (mirroring the ragged build).
@@ -312,7 +312,7 @@ def utv_to_ut3(
     tt_supercore = xnp.concatenate(blocks, axis=0)                             # (d,)+ss+(rR+rL, nU+nD, rR+rL)
 
     # ---- Doubled rank masks (HOST numpy; carry K+C from the variation masks). The order respects the
-    # block structure (eqs 50-53): Tucker axis [U | dU] = [up | down]; the TT bond is [Q | P] = [R | L], so
+    # block structure (T4S (49)-(52)): Tucker axis [U | dU] = [up | down]; the TT bond is [Q | P] = [R | L], so
     # the right-chain mask sits in the Q block and the left-chain mask in the P block -- the unique
     # concatenation where each diagonal mask multiplies the core block it belongs to. At the two boundary
     # bonds the global "1" sits in the CONTENT block (P at bond 0, Q at bond d); the opposite (free) block
@@ -446,7 +446,7 @@ def utv_orthogonal_gauge_projection(
     """Orthogonally project the variations onto the gauge-satisfying subspace (the uniform mirror of
     :py:func:`tv_operations.tv_orthogonal_gauge_projection`). Removes the component of each Tucker
     variation parallel to its up-core ``U`` and of each left-interior TT variation parallel to its
-    left-core ``P`` -- the gauge conditions (48)-(49), Appendix A.3 of Alger et al. (2026). The
+    left-core ``P`` -- the gauge conditions (47)-(48), Appendix A.3 of Alger et al. (2026). The
     represented tangent vector CHANGES (orthogonal, not oblique).
 
     Mask-once up front (the frame and variation padding zeroed), then mask-agnostic einsums vectorized over
@@ -502,7 +502,7 @@ def utv_oblique_gauge_projection(
     forward to the next core (a left-to-right sweep), implemented as an ``xscan`` over ``d`` -- NOT a Python
     loop: an unrolled loop bakes ``d`` copies of the step into the jit graph (compile time superlinear in
     the tensor order ``d``), while a scan compiles the body once. Mask-once up front. Enforces the gauge
-    conditions (48)-(49), Appendix A.3 of Alger et al. (2026)."""
+    conditions (47)-(48), Appendix A.3 of Alger et al. (2026)."""
     up_sc, down_sc, left_sc, right_sc = ufv_masking.ufv_apply_frame_masks(frame_data)
     tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
     _tkv0, _ttv0, shape, masks = variations_data

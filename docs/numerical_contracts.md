@@ -49,7 +49,7 @@ geometries, sampling kinds), whose equality decides compiled-program reuse
 |---|---|---|
 | **same-frame** (`SF`) | two tangents share one tangent space — their frames are *numerically equal* (`safety.frames_equal`, with an object-identity fast path; a jit round-trip of the same frame passes) | built into the checked ops |
 | **orthogonal** (`ORTH`) | the frame is orthonormal (U/O/L/R conditions) | `T3Frame.is_orthogonal(atol)` |
-| **gauged** (`GAUGE`) | the variations satisfy the gauge conditions (48)–(49), relative to the tangent's scale (its operands' for an arithmetic result — [below](#the-gauge-check-scale-own-norm-or-operand-scale)) | `T3Tangent.is_gauged(atol)` |
+| **gauged** (`GAUGE`) | the variations satisfy the gauge conditions (47)–(48), relative to the tangent's scale (its operands' for an arithmetic result — [below](#the-gauge-check-scale-own-norm-or-operand-scale)) | `T3Tangent.is_gauged(atol)` |
 | **minimal rank** | no stored rank is redundant | `has_minimal_ranks` (structural) / `has_numerically_minimal_ranks` (numerical) — **diagnostic only, never enforced** (see the verdict below) |
 | **tied factors** (`TIED`) | the Tucker factors are numerically equal within each sharing group ([`sharing.md`](sharing.md)) | `has_shared_tucker_factors(sharing, rtol)` (ragged and uniform; the residual is `backend.sharing.t3_sharing_residual` / `ut3_sharing_residual`) |
 

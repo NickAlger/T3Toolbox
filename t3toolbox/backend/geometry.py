@@ -41,8 +41,10 @@ and back (:py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift`); ``tange
 ``K_{grad f}`` term (:py:func:`~t3toolbox.backend.t3_linalg.t3_inner_product_corewise_hessian_from_sweep`).
 The corewise geometries need neither a lift nor a tangential term. The lift's damping is a solver option
 (``curvature_damping``), not a geometry field: ``None`` resolves to :py:data:`DEFAULT_CURVATURE_DAMPING`
-here, and a value where there is no lift to damp raises. The uniform geometries carry the same members on
-supercores (:py:func:`~t3toolbox.backend.ufv_operations.ufv_lift_factors`,
+here, and a value on a corewise geometry (which has no lift to damp) raises; on the manifold at ``d = 1`` the
+curvature data is ``None`` (the curvature term is exactly zero there), so a value is validated (``>= 0``) but
+unused. The uniform geometries carry the same members on supercores
+(:py:func:`~t3toolbox.backend.ufv_operations.ufv_lift_factors`,
 :py:func:`~t3toolbox.backend.utv_operations.utv_corewise_lift`,
 :py:func:`~t3toolbox.backend.ut3_linalg.ut3_inner_product_corewise_hessian_from_sweep`), masking with the frame's
 own masks -- shared (``groups``) included, through the uniform tied lift
@@ -233,7 +235,8 @@ class ManifoldGeometryOps(ValueHashedFields):
     """The fixed-rank T3 manifold geometry on raw ``(tucker_cores, tt_cores)`` data -- the check-free twin
     of :py:data:`t3toolbox.manifold.MANIFOLD`.
 
-    ``frame`` is the orthonormal frame (Algorithm 11), ``project`` the gauge projection ``Pi``, ``retract``
+    ``frame`` is the orthonormal frame (T4S Algorithm 11, swept left-then-right; the paper sweeps
+    right-then-left -- equivalent frames), ``project`` the gauge projection ``Pi``, ``retract``
     the implicit truncated T3-SVD retraction, and ``inner`` the ragged coordinate dot (equal to
     Hilbert-Schmidt on an orthonormal, gauged frame). With a non-empty ``groups`` this is the SF-T3
     geometry: ``precompute`` derives the per-frame companion

@@ -47,7 +47,7 @@ today; the `contractions.py` architecture question was resolved 2026-07-17 — t
 interpreter — and the uniform-frame-at-rank-deficiency question was resolved 2026-08-23 — the
 pad-safe SVD, review S1b; both archived with resolution banners.)
 
-## The paper (`t4s.pdf` in repo root)
+## The paper (T4S, arXiv:2603.21141)
 
 > **Two distinct papers — don't conflate them.** *This* section is about the **T4S paper** (the research
 > preprint below). A **separate** software / algorithms **reference paper for the toolbox itself** is being
@@ -56,8 +56,8 @@ pad-safe SVD, review S1b; both archived with resolution banners.)
 > paper," check which: **T4S** = the research preprint here; the **toolbox paper** = the new library reference.
 
 **Status: a reference, not the goal.** The T4S paper is an **arXiv preprint** — not yet
-journal-published, and still getting minor revisions (an example, some added detail). It sits in the
-repo only as the reference for the *algorithms* and as context for why this code exists. It is **not**
+journal-published. It is the reference only for the *algorithms* and context for why this code
+exists. It is **not**
 the target of this work and **not** authoritative for API or design decisions — when the paper's
 specific usage and good general-purpose library design conflict, library design wins (see "What this
 is"). Use it to understand the math, not to decide what the library should do.
@@ -68,10 +68,12 @@ Notation map (paper ↔ code): `U`=up_tucker, `P`=left_tt, `Q`=right_tt, `O`=dow
 `δU`=tucker_variations (V), `δG`=tt_variations (H). The code matches the appendix; the one known
 divergence is the **Algorithm-11 orthogonalization sweep order** (code does left-then-right; the
 paper does right-then-left) — the resulting orthogonal representations are equivalent. When code
-implements a numbered equation/algorithm, cite it in the docstring — but note **the local `t4s.pdf` is
-newer than the public arXiv version**: the numbering differs and some boxes (e.g. the probing
-algorithms) aren't on arXiv yet. Cite numbers as they appear in the local `t4s.pdf`; arXiv will be
-updated to this version by the time the package is released.
+implements a numbered equation/algorithm, cite it in the docstring **by the arXiv version's numbering**:
+the arXiv version (https://arxiv.org/abs/2603.21141) is updated, current and **THE reference** (Nick,
+2026-10-29). A local `t4s.pdf` copy is optional and no longer newer than arXiv — cite arXiv, never "the
+local `t4s.pdf`". All citations in the tree were verified against arXiv v2 (2026-10-29): the gauge conditions
+are eqs (47)–(48), the doubled-rank tangent representation (49)–(52), T3-SVD is Algorithm 9 (dense) / 10
+(implicit), the orthogonalization sweep Algorithm 11, derivative probing Theorem 7 / Algorithm 8.
 
 ## Architecture
 
@@ -370,7 +372,10 @@ The dividing line is **structural vs numerical**:
   `T3TOOLBOX_SLOW_TESTS=1 PYTHONPATH=$PWD <env-python> -m pytest tests/test_oracle_sweep.py tests/backend/test_uniform_curvature.py -q -p no:cacheprovider`.
   Also at a release: the full suite on the **jax-0.4.30 / numpy-1.26 floor** (the measured chunk costs depend
   on the jax release, and the CI floor leg skips the doc doctests when its test step fails, so run
-  `docs/chunking.md` there by hand). The optax example needs `jax`+`optax` installed.
+  `docs/chunking.md` there by hand). The right local check of the CI **current** leg is a **py3.11 / numpy 2.4 /
+  jax 0.10.2** twin — what that leg's `numpy>=2` + `jax` actually resolve to on py3.11; jax 0.12 needs py ≥ 3.12,
+  so a newer local Python (e.g. 3.13 / numpy 2.5 / jax 0.12) runs ahead of anything CI sees (BLAS-dependent stop
+  reasons and step counts have differed between the two). The optax example needs `jax`+`optax` installed.
   (The maintainer's exact env path lives in personal `~/.claude/`.)
 
 ## Workflow
@@ -401,9 +406,11 @@ project engineering practices below are shared.)*
 **2026.2.0 is SHIPPED to PyPI (2026-08-25) — `pip install t3toolbox`** (2026.1.0 shipped
 2026-08-20, 2026.0.0 2026-07-13; the checklist both followed is `dev/archive/release_plan_2026-07-13.md`; live status:
 `dev/HANDOFF.md`). **2026.3.0 is in progress, unreleased:** the exact-Hessian curvature arc is complete through
-its docs/tests slice (S13, 2026-10-27; plan `dev/riemannian_newton_curvature_impl_plan.md`, still live); next a
-preliminary math note (S15a), then a PAUSE, then the reorganization R (`dev/reorg_scope.md`), the T3Polynomial update
-(S14), the math note's / CHANGELOG's final pass for R (S15b), and the tag. "Tested" = *numerical correctness in numpy* (vs dense ground truth) **plus** *jax
+its docs/tests slice (S13, 2026-10-27; plan `dev/riemannian_newton_curvature_impl_plan.md`, still live), plus the
+preliminary math note (S15a, 2026-10-28). The reorganization R was **cancelled** (Nick, 2026-10-29), so the arc's code
+is final; the close-out: the final review S13b (done 2026-10-29, its fixes landed) and the math note's final pass
+S15b (done 2026-10-29) → S14 (the T3Polynomial update) → release prep (CHANGELOG / release notes, version bump,
+checklist, `dev/` archive) → the tag `v2026.3.0`. "Tested" = *numerical correctness in numpy* (vs dense ground truth) **plus** *jax
 dispatch* covered by `tests/test_dispatch.py` (jit each op; a stray `np.*` on a tracer raises) — not a
 duplicate numerical sweep. Full suite green (1,170 tests / 46,364 subtests at S13, 2026-10-27; ~7 min with ``pytest -n auto`` on 4+ cores --
 tests are per-test seeded and order-independent, Phase D);

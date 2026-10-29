@@ -18,7 +18,7 @@ H p = Π 𝒥ᵀω²𝒥 Π p  +  Π Lᵀ (K_{Aᵀω²r} − K_{grad f}) L Π p 
 
 the Gauss-Newton term plus the Weingarten term (Absil, Mahony & Trumpf 2013, "An extrinsic look at the
 Riemannian Hessian"): the residual's normal part paired with the second fundamental form, written as a
-Lagrangian Hessian `f∘Φ − ⟨grad f, Φ⟩` pulled back through the lift. Reference: the local `t4s.pdf`
+Lagrangian Hessian `f∘Φ − ⟨grad f, Φ⟩` pulled back through the lift. Reference: T4S (arXiv:2603.21141)
 App. A for the frame and gauge, Psenka–Boumal (arXiv:2011.13395) for the second-order retraction.
 
 | math | code | notes |
@@ -140,7 +140,7 @@ its precomputed sweep, and the two-hole through the dotted zippers `tt_zipper_ta
 `g = Π 𝒥ᵀω²r` once, stores it in `CurvatureState.misfit_gradient`, and both `LocalModel.gradient` (plus
 `g_R`) and the geometry's `curvature_precompute` read it. So an exact model's gradient is the
 Gauss-Newton one **bit for bit**, and the per-Newton-step overhead is the `Z` build, one T3-to-T3 sweep and
-`d` small SVDs.
+`2d − 1` small SVDs (the lift's `d` Tucker and `d − 1` bond pseudo-inverses).
 
 **The companion pytree rule** (M3). `LiftFactors`, `ManifoldCurvatureData` and `CurvatureState` are
 registered pytrees (each under `if jax_available:` in its defining module) whose flatten runs
@@ -318,7 +318,7 @@ the dispatch tests).
 | F25 | the frame argument reaches the real extent (m29); numpy float32 → float64 residual (m30) | — |
 | F26 | g₀ interplay on F19's problem: zero 7.01e4 vs warm start 2.07e4; GN 36 vs 39 steps; exact + TR 9/27 vs 10/28 (power 0.5), 7/24 vs 8/23 (1.0); COREWISE zero reference 0.0; `g0norm_newton=0.0` used to raise `ZeroDivisionError` | — |
 | F27 | E2's three apply restarts under each reference: warm/zero 1.9e-2, 1.6e-14, 3.1e-1; noise-free (B) the zero reference declares the start converged; above target (A) GN never reaches 1e-8 | S11: the library's exact `newton_cg` reproduces the critic harness row for row (A 18/1/117 at 1e-8, 17/1/92 at 1e-3; B 4/1/12 `objective_floor`; C 11/1/53, 10/1/33) |
-| F28, F38 | full exact + TR from non-minimal points, no reduction: Tucker slack 20 outer / 4 rejected / 78 hvps; TT slack 34 / 9 / 272 → 2.2e-12; the same counts from the minimal-rank tensor; `ε = 0` ≡ `1e-6‖X‖` | reproduced **exactly** by the library on plain `apply` (S12); `apply_derivatives` order 1: 17/4/56, 31/10/240 |
+| F28, F38 | full exact + TR from non-minimal points, no reduction: Tucker slack 20 outer / 4 rejected / 78 CG iterations (one Hessian-apply each; the per-step `pᵀHp` is extra) → 2.6e-9; TT slack 34 / 9 / 272 → 2.2e-12; the same counts from the minimal-rank tensor; `ε = 0` ≡ `1e-6‖X‖` | reproduced **exactly** by the library on plain `apply` (S12); `apply_derivatives` order 1: 17/4/56, 31/10/240 |
 | F30 | per-layer LAPACK zero references diverge 0.56–1.93×; 6 / 16 pairs drift; with one reference 0 / 16 | — |
 | F31, F37 | the canonical frame is valid at d = 1, 3, 4 and shared; layer-independent to ≤ 3.9e-16; rank-independent, nested (error 0.0 over r = 1…7); 44 O2 pairs agree to 3.5e-12 | T26 |
 | F32 | on data with no energy on the leading coordinates, aligned completions give exactly 0; Haar seeds 0–5 give 9.5–24 | T26 (e) |

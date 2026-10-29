@@ -9,8 +9,7 @@
 
 Math reference: **Section 6.2 (Algorithms 5–8)** of Alger, Christierson, Chen & Ghattas (2026),
 *"Tucker Tensor Train Taylor Series"* (arXiv:2603.21141) — probing and its Riemannian Jacobian — and
-**Appendix A.3** for the tangent/manifold picture. (As elsewhere, the local `t4s.pdf` numbering is
-newer than the public arXiv.)
+**Appendix A.3** for the tangent/manifold picture.
 
 ---
 
@@ -228,10 +227,10 @@ sum-of-products: `Σ aᵢbᵢ` for the scalar cases, `Σ_modes Σ a[m]·b[m]` fo
 
 ## 8. Paper ↔ code map (probing, T4S §6)
 
-How `backend/probing.py` maps to Section 6 of the paper (page/algorithm numbers per the local
-`t4s.pdf`). The Riemannian least-squares operators factor as **`J = 𝒥 ∘ Π`** and **`Jᵀ = Π ∘ 𝒥ᵀ`**:
+How `backend/probing.py` maps to Section 6 of the paper (algorithm numbers per the arXiv version,
+which is current). The Riemannian least-squares operators factor as **`J = 𝒥 ∘ Π`** and **`Jᵀ = Π ∘ 𝒥ᵀ`**:
 `Π` is the orthogonal gauge projector (`MANIFOLD.project`; backend `tv_orthogonal_gauge_projection`,
-enforcing gauge conditions (48)–(49)), and `𝒥` is the bare tangent sampling op below.
+enforcing gauge conditions (47)–(48)), and `𝒥` is the bare tangent sampling op below.
 Notation: hat `^` = base-point quantities, `δ` = perturbation, tilde `~` = adjoint (transpose sweep).
 
 **A probe (§6.2.1, Algorithm 5)** — the `i`-th probe contracts with all probing vectors except the

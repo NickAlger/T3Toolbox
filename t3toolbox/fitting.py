@@ -799,8 +799,8 @@ def probe_model(
 # is RAW (r = S(x) − y); ω weights the objective ½‖ω⊙r‖² inside the kind. See docs/fitting_and_optimization.md §4.6.
 # --------------------------------------------------------------------------------------------------
 def apply_derivatives_model(
-        geometry,                                    # MANIFOLD / COREWISE
-        x:                  t3.TuckerTensorTrain,    # the current point
+        geometry,                                    # MANIFOLD / COREWISE (or the UNIFORM_* twin for a uniform x)
+        x:                  typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain],   # the current point
         ww:                 typ.Sequence[NDArray],   # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:                 typ.Sequence[NDArray],   # perturbation vectors P, len=d, elm_shape=W+(Ni,)
         order:              int,                     # highest derivative order

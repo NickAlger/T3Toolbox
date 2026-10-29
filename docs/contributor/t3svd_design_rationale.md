@@ -39,7 +39,7 @@ re-tighten inside `t3svd` at all**. We chose the latter.
 
 ## The decision: separate the basic algorithm from minimization
 
-- **`t3svd`** is the basic algorithm (Algorithm 10 / Oseledets' TT-SVD): orthogonalize + one
+- **`t3svd`** is the basic algorithm (Algorithm 10, the implicit T3-SVD — the T3 analogue of Oseledets' TT-SVD): orthogonalize + one
   left-to-right truncating sweep. It is **always left-orthogonal** and returns the raw sweep ranks, with
   **no minimal-rank guarantee** under truncation. One job, predictable gauge, no hidden sweeps.
 - **`rank_adjustment_sweep(direction)`** is a separate, **opt-in** lossless reduction that drops

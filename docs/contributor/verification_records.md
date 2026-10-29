@@ -59,7 +59,7 @@ independent review (`dev/curvature_impl_review/`). The automated guarantees are
   exact `newton_cg` reproduces the critic harness row for row (outer / rejected / CG): A 18/1/117 at `gtol_rel`
   1e-8, 17/1/92 at 1e-3; B 4/1/12 (`objective_floor`, noise-free: the zero reference declares the start
   converged); C 11/1/53 and 10/1/33.
-- **F28 / F38 (no minimal reduction):** Tucker slack 20 outer / 4 rejected / 78 CG → 2.6e-9; TT slack
+- **F28 / F38 (no minimal reduction):** Tucker slack 20 outer / 4 rejected / 78 CG iterations → 2.6e-9; TT slack
   34 / 9 / 272 → 2.2e-12; the same counts from the same tensor at minimal ranks; `ε = 0` ≡ `1e-6‖X‖`;
   reproduced **exactly** by the library on plain `apply`; `apply_derivatives` order 1: 17/4/56 (2.3e-9),
   31/10/240 (2.0e-9). (Gauss-Newton + Armijo's 80-step stall from the TT-slack start is a property of the

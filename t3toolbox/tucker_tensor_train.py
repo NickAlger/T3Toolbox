@@ -209,7 +209,8 @@ class TuckerTensorTrain(common.ExplicitEquality):
         - Minimal TT ranks are equal to the ranks of ``(N0*...*Ni) x (N(i+1)*...*N(d-1))`` matrix unfoldings.
         - Minimal Tucker ranks are equal to the ranks of ``Ni x (N0*...*N(i-1)*N(i+1)*...*N(d-1))`` matricizations.
 
-    More details on the connection between minimal ranks and unfoldings/matricizations are given in Section 2.3 of [1]_.
+    More details on the connection between minimal ranks and unfoldings/matricizations are given in Section 3.2
+    and Appendix A.2 of [1]_.
 
     Example:
 

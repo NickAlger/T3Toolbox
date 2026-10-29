@@ -54,7 +54,7 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 |---|---|---|---|---|
 | **same-frame** | two tangents share one frame (= same tangent space) | *new* `same_frame(b1,b2)` | **O(1) common case** | `b1 is b2 or frames_equal(b1.data,b2.data, rtol)` — identity is the fast sufficient path; `frames_equal` (a value compare) is the complete fallback that also accepts the jit round-trip. |
 | **orthogonal** | the frame is orthonormal (U/O/L/R conditions) | `T3Frame.is_orthogonal()` | contractions | a `@cached_property` candidate (frame is frozen → check once). |
-| **gauged** | variations satisfy the gauge conditions (48)–(49) | `T3Tangent.is_gauged()` | contractions | per (frame,variations) pair; cacheable. |
+| **gauged** | variations satisfy the gauge conditions (47)–(48) | `T3Tangent.is_gauged()` | contractions | per (frame,variations) pair; cacheable. |
 | **minimal rank** | structurally-and-numerically minimal ranks | `has_minimal_ranks` (structural) | SVD (numerical) | **numerical check intentionally skipped** (§ "Minimal ranks"). |
 
 > **Checkers are per-stack-element.** Every checker/residual above returns one verdict per stack element

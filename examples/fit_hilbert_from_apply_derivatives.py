@@ -150,7 +150,7 @@ def apply_derivative_operator(ww, pp, order, s_vec):
 
 
 # --------------------------------------------------------------------------------------------------
-# Manifold Cauchy SGD (MC-SGD), t4s.pdf Section 5.3.2
+# Manifold Cauchy SGD (MC-SGD), T4S (arXiv:2603.21141) Section 5.3.2
 # --------------------------------------------------------------------------------------------------
 # A tuning-free stochastic Riemannian method. Each iteration:
 #   * draw a fresh minibatch of base points X (a few X, with ALL their directions P -- the cheap,

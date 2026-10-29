@@ -98,8 +98,9 @@ jet kernels. Upgrade notes: `docs/release_notes.md`, "Upgrading from 2026.2.0".
   - **Removed** (not aliased): `binomial_combine_tensor` and the dense `*_trs` twins
     (`compute_{mu,nu,eta}_jets_trs`, `compute_{sigma,tau,deta}_jets_trs`, `compute_{tau,sigma}_tilde_jets_trs`,
     `assemble_tt_variation_jets_trs`) -- they are the test suite's reference forms now (`tests/_jet_trs_twins.py`);
-    `assemble_tucker_variation_jets_trs` (which contracted no `trs`) is private -- pass `chunk_size=None` for
-    the unchunked assembly.
+    `assemble_tucker_variation_jets_trs` (which contracted no `trs`) is removed too -- it lives on privately as
+    `_assemble_tucker_variation_jets_dense`; pass `chunk_size=None` to `assemble_tucker_variation_jets` for the
+    unchunked assembly.
   - **`estimate_chunk_size` / `max_chunk_size_within` measure the running program**: the per-row cost is
     now the slope in `chunk_size` of the compiled chunked transpose (and, for `hessian='exact'`, of the
     two-hole) -- the assemblies plus the chunk's slices of their input jets -- where it was one dense kernel
@@ -152,12 +153,13 @@ jet kernels. Upgrade notes: `docs/release_notes.md`, "Upgrading from 2026.2.0".
   finite-difference quotient by its step divides the recorded scale too, so to certify a computed tangent's
   gauge, check that tangent itself. Backend: `tv_gauge_residual` / `utv_gauge_residual` take `scale=`
   (default `None`: unchanged, bitwise). `docs/numerical_contracts.md`.
-- **Jet outputs keep their inputs' dtype.** A float32 jet pipeline (`*_derivatives` forwards, transposes and
-  the two-hole) now stays float32 under `jax_enable_x64` and on numpy alike. The sweeps' scan inits (the
-  order-0 ones, the zero boundary jets, the adjoint zeros, the inner-scan accumulators, the entries one-hots)
-  were built in the default dtype and promoted every float32 jet to float64 -- 2026.2.0 did the same. The
-  plain `probe` / `apply` / `entries` ops still build default-dtype inits and still promote (recorded for a
-  follow-up).
+- **Jet outputs keep their inputs' dtype.** Each jet kernel (the `*_derivatives` forwards, transposes and the
+  two-hole) now preserves float32, under `jax_enable_x64` and on numpy alike. Their scan inits (the order-0
+  ones, the zero boundary jets, the adjoint zeros, the inner-scan accumulators, the entries one-hots) were
+  built in the default dtype and promoted every float32 jet to float64 -- 2026.2.0 did the same. A float32
+  *fit* can still come back float64 (every manifold fit does): the frame build
+  (`t3_orthogonal_representations`), the plain `probe` / `apply` / `entries` ops and a few uniform paddings
+  still build default-dtype arrays upstream of the kernels (recorded in the deferred ledger for a follow-up).
 - **Uniform tangent stacks reach the local model.** A uniform kind's `forward` (hence a Gauss-Newton or exact
   `hvp`), the uniform geometries' `project` and `inner`, and the uniform `fitting.LocalModel`'s
   actions took a `K`-stacked trial tangent's coordinates (a stack of tangents at one frame) with the frame's

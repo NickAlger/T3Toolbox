@@ -1,7 +1,7 @@
 # T3-SVD ranks: why `t3svd` may return non-minimal ranks, and how to minimize
 
 A short note for anyone wondering about the ranks that come back from `TuckerTensorTrain.t3svd`. The
-short version: **`t3svd` is the basic algorithm (Algorithm 10 / Oseledets' TT-SVD); under truncation it
+short version: **`t3svd` is the basic algorithm (Algorithm 10, the implicit T3-SVD — the T3 analogue of Oseledets' TT-SVD); under truncation it
 does *not* guarantee minimal ranks.** It always returns a **left-orthogonal** result, and to reduce to
 minimal ranks you call the separate `rank_adjustment_sweep`. This note explains what "minimal" means,
 why the truncating sweep can leave non-minimal ranks, and why one `rank_adjustment_sweep` fixes it only

@@ -722,12 +722,16 @@ def pad_safe_svd(
 def filtered_reciprocal(
         s:      NDArray,                     # singular values, shape=C+(k,), descending
         eps:    typ.Optional[NDArray],       # damping, shape=C (broadcast over k); None -> exact clipped 1/s
-        rcond:  typ.Optional[float] = None,  # relative clip vs s[..., :1]; None -> dtype eps * k
+
+        rcond:  typ.Optional[typ.Union[float, NDArray]] = None,  # relative clip vs s[..., :1]: a scalar, or
+                                                                 #   broadcastable to C+(1,); None -> dtype eps * k
 ) -> NDArray:                                # f(s), shape=C+(k,); 0 where clipped
     '''The clipped, optionally damped reciprocal of a spectrum: ``f(s) = s / (s^2 + eps^2)``.
 
     Every ``s`` at or below the clip ``rcond * s[..., :1]`` (relative to the largest value, so the
-    spectrum must be descending, as an SVD returns it) maps to **exactly 0**, whatever ``eps`` is:
+    spectrum must be descending, as an SVD returns it) maps to **exactly 0**, whatever ``eps`` is.
+    ``rcond`` is one scalar for the whole stack, or an array broadcastable to ``C+(1,)`` -- one clip per
+    stack element (the uniform lift passes each padded block's clip at its REAL dimensions this way):
 
     * ``eps=None`` -- the exact clipped reciprocal ``1/s``, the filter of a minimum-norm
       pseudo-inverse -- the shared geometry's clipped group solve (its tied projection and
@@ -774,7 +778,9 @@ def filtered_reciprocal(
 def damped_pseudo_inverse(
         M:      NDArray,                     # shape=C+(m, n)
         eps:    typ.Optional[NDArray],       # damping, shape=C; None -> the clipped (minimum-norm) pinv
-        rcond:  typ.Optional[float] = None,  # relative clip; None -> dtype eps * max(m, n)
+
+        rcond:  typ.Optional[typ.Union[float, NDArray]] = None,  # relative clip: a scalar, or broadcastable to
+                                                                 #   C+(1,); None -> dtype eps * max(m, n)
 ) -> typ.Tuple[
         NDArray,                             # M^{+eps}, shape=C+(n, m)
         NDArray,                             # s, the singular values of M, shape=C+(min(m, n),), descending
