@@ -27,9 +27,33 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
-**State.** S1–S3 committed (primitives + `oversampled_ranks`; `fv_padded_frame` hint-free AND hinted — the
-construction is complete; full suite 1,218 passed / 47,987 subtests). First review stop reported to Nick. S4 next
-(the uniform geometry member's explicit conversion). Update this line at every commit.
+**State (2026-11-02, late). IMPLEMENTATION PAUSED BY NICK at the S3 review stop — architectural style problem.**
+S1–S3 are committed (b14f56eb, 2562264a, 92640502; the construction `fv_padded_frame` is algorithmically complete
+and oracle-verified). S4 (the uniform geometry member `UniformManifoldGeometryOps.padded_frame`, its tests) is BUILT
+but UNCOMMITTED and UNREVIEWED in the working tree (`backend/geometry.py`, `tests/backend/test_padded_frame.py`,
+`tests/test_dispatch.py`, `dev/padded_frame_slices/S4_handoff.md`); do not commit it as is. Both agents are holding.
+
+**Why paused (Nick's ruling, verbatim in spirit).** The backend implements PURE MATHEMATICAL FUNCTIONS: inputs and
+outputs are immutable objects composed of basic types (arrays, tuples of arrays, integers, ...), and the code closely
+follows the math. This was relaxed a little for the fitting/optimization layers only, and remains the goal even there.
+`TuckerTensorTrain` / `UniformTuckerTensorTrain` and the backend functions they call are the GOLD STANDARD. The new
+code violates this: `fv_padded_frame` takes a "template" FRAME only to read its shapes (an expensive orthogonalization
+to obtain integers that `ranks.compute_orthogonal_representation_ranks(shape, tucker, tt)` already gives, statically);
+`_frame_stores` returns a mutable dict of shapes (opaque, untyped) instead of enumerated immutable integers; the plan's
+`padded_structures` orthogonalizes a zero tensor to get a template. Root cause: this "shapes-only template frame"
+pattern entered with `fv_zero_point_frame` in commit 3e5bc922 (2026-10-26, exact-Hessian arc S0d); the plan copied it
+as a precedent and the reviewers accepted it as such. Nick considers the problem broader than these two symptoms (a
+misunderstanding of the programming style) and will go through the code himself.
+
+**Next steps (agreed with Nick).** (1) The session studies the gold standard: trace ~5 methods each of
+`TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
+basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
+REPAIR PLAN with Nick: redesign the structure input of `fv_padded_frame` (integers, e.g. `(shape, tucker_ranks,
+tt_ranks)` or a frozen validated `FrameStructure` of ints; dtype/backend explicit or inferred from array inputs), delete
+`_frame_stores`, make `padded_structures` return integer structures, audit S2–S4 (and the plan's §3.2/§3.4/§5.2/§5.4)
+against the style; decide what to do about `fv_zero_point_frame`'s same defect (public signature; non-breaking release).
+Judgment calls: `dev/padded_frame_cone_judgment_calls_2026_11.md` (J-1..J-6; add J-7 for this). The plan file stays the
+authority for the mathematics; its code-shape sections are under repair.
 
 **How to resume after compaction.** Read this block, the plan's §8 slice table and the slice's §4/§5/§6 entries, the
 latest `dev/padded_frame_slices/S*_handoff.md` / `S*_review.md`, the judgment-calls file, and `git log --oneline -15`;
