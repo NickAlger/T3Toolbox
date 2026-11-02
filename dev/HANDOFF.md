@@ -55,6 +55,11 @@ the critic reviews the delta; Nick signs off; (3) one corrective slice S2′ ref
 uncommitted member (S3's oracle tests carry over unchanged); (4) S4–S13 continue as planned. `fv_zero_point_frame` and
 the codebase-wide style audit/refactor are a SEPARATE later arc (Nick's own read first; breaking release).
 
+**Nick's round-10 decisions (2026-11-02):** padded-frame code in a NEW `backend/padded_frames.py` (all imports
+downward); `compute_orthogonal_representation_ranks` stays in `ranks` (the `ranks` → `sharing` dependence is a code
+smell for the drift-fix arc); no `dtype` argument anywhere in the feature; add the `with_ranks` test. Plan delta round
+10 in progress → critic re-check → Nick's sign-off → corrective slice S2′.
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
