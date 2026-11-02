@@ -27,8 +27,9 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
-**State.** S1 committed (primitives, `oversampled_ranks`, tests; full suite 1,187 passed / 47,570 subtests);
-S2 in progress (hint-free `fv_padded_frame`). Update this line at every commit.
+**State.** S1 and S2 committed (primitives + `oversampled_ranks`; the hint-free `fv_padded_frame`; full suite
+1,203 passed / 47,604 subtests); S3 in progress (the hinted path; first review stop after it). Update this line at
+every commit.
 
 **How to resume after compaction.** Read this block, the plan's §8 slice table and the slice's §4/§5/§6 entries, the
 latest `dev/padded_frame_slices/S*_handoff.md` / `S*_review.md`, the judgment-calls file, and `git log --oneline -15`;

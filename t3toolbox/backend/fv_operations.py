@@ -6,7 +6,8 @@
 
 ``fv_variations_{zeros,randn,unit,from_vector}`` build variation tuples for a given frame;
 ``fv_frame_reverse`` and the ``fv_frame_*_residual`` checkers operate on the frame alone,
-``fv_zero_point_frame`` builds the canonical frame at the zero tensor from a frame's structure, and
+``fv_zero_point_frame`` builds the canonical frame at the zero tensor from a frame's structure,
+``fv_padded_frame`` the frame of a point at a zero-padded rank increase (its generalization), and
 ``fv_center_factors`` / ``fv_lift_factors`` derive the small per-mode factors that relate the frame
 coordinates to raw core variations (the lift of the exact Riemannian Hessian). The
 ``fv_*_weights`` functions are the weighted-layer tangent metric (absorb into the variation cores).
@@ -36,6 +37,7 @@ __all__ = [
     'fv_frame_orthogonality_residual',
     'fv_frame_consistency_residual',
     'fv_zero_point_frame',
+    'fv_padded_frame',
     'fv_center_factors',
     'LiftFactors',
     'fv_lift_factors',
@@ -378,6 +380,9 @@ def fv_zero_point_frame(
     >>> up_shared = fvo.fv_zero_point_frame(template, groups=((0, 1), (2,)))[0]
     >>> bool(np.array_equal(up_shared[0], up_shared[1]))
     True
+
+    See also :py:func:`fv_padded_frame`, the frame at a zero-padded rank increase of a nonzero point, of
+    which this is the ``old_frame=None`` case.
     '''
     up, down, left, right = frame
     d = len(up)
@@ -429,6 +434,316 @@ def fv_zero_point_frame(
         right_out.append(xnp.asarray(R, dtype=dtype))
     return up_out, tuple(down_out), tuple(left_out), tuple(right_out)
 
+
+# --------------------------------------------------------------------------------------------------
+# The padded frame: the frame of X_old at a zero-padded rank increase (structural, delta-free)
+# --------------------------------------------------------------------------------------------------
+_STORE_NAMES = ('up', 'down', 'left', 'right')
+
+
+def _frame_stores(
+        frame:  typ.Tuple,   # (U, O, L, R), stack C on every core
+        name:   str,         # 'template' | 'old_frame', for the messages
+) -> typ.Tuple[
+    typ.Tuple[int, ...],     # C, the frame stack
+    typ.Dict[str, typ.Tuple[int, ...]],   # the stores: N, nU, nD (len=d), rL, rR (len=d+1)
+]:
+    '''Read a frame's stack and rank stores from its core shapes, checking that the shapes are consistent
+    (structural; each failure a ``ValueError`` naming the store and mode).'''
+    if len(frame) != 4:
+        raise ValueError('%s must be a 4-tuple (up, down, left, right); got length %d' % (name, len(frame)))
+    up, down, left, right = frame
+    d = len(up)
+    if d == 0 or not (len(down) == len(left) == len(right) == d):
+        raise ValueError('%s: the four stores must have one core per mode; got lengths %r'
+                         % (name, tuple(len(x) for x in frame)))
+    C = tuple(up[0].shape[:-2])
+    nC = len(C)
+    for store, cores, ndim in zip(_STORE_NAMES, frame, (2, 3, 3, 3)):
+        for i, core in enumerate(cores):
+            if core.ndim != nC + ndim or tuple(core.shape[:nC]) != C:
+                raise ValueError('%s %s[%d] has shape %r; expected stack C=%r followed by %d core axes'
+                                 % (name, store, i, tuple(core.shape), C, ndim))
+    N = tuple(int(u.shape[-1]) for u in up)
+    nU = tuple(int(u.shape[-2]) for u in up)
+    nD = tuple(int(o.shape[-2]) for o in down)
+    rL = tuple(int(g.shape[-3]) for g in left) + (int(left[-1].shape[-1]),)
+    rR = tuple(int(g.shape[-3]) for g in right) + (int(right[-1].shape[-1]),)
+    for i in range(d):
+        expected = {'down': (rL[i], nD[i], rR[i + 1]), 'left': (rL[i], nU[i], rL[i + 1]),
+                    'right': (rR[i], nU[i], rR[i + 1])}
+        for store, cores in zip(_STORE_NAMES[1:], frame[1:]):
+            if tuple(cores[i].shape[nC:]) != expected[store]:
+                raise ValueError('%s %s[%d] has core shape %r; the neighbouring cores give %r'
+                                 % (name, store, i, tuple(cores[i].shape[nC:]), expected[store]))
+    for i in range(d):                                 # the shapes must admit an orthonormal frame
+        checks = (('up', nU[i] <= N[i]), ('down', nD[i] <= rL[i] * rR[i + 1]),
+                  ('left', i == d - 1 or rL[i + 1] <= rL[i] * nU[i]),
+                  ('right', i == 0 or rR[i] <= nU[i] * rR[i + 1]))
+        for store, ok in checks:
+            if not ok:
+                raise ValueError('%s %s[%d]: the core shapes admit no orthonormal frame (up %r, down %r, left '
+                                 '%r, right %r)' % (name, store, i, up[i].shape, down[i].shape,
+                                                    left[i].shape, right[i].shape))
+    return C, {'N': N, 'nU': nU, 'nD': nD, 'rL': rL, 'rR': rR}
+
+
+def _empty_old_frame(
+        N:      typ.Sequence[int],   # len=d, the mode sizes
+        C:      typ.Tuple[int, ...],  # the stack
+        dtype,
+        xnp,
+) -> typ.Tuple:                      # (U, O, L, R) with the zero tensor's stores
+    '''The old frame of the zero tensor: Tucker stores 0, bond stores ``(1, 0, ..., 0, 1)`` -- every core
+    has a zero-size axis, so ``s = 0`` needs no separate code path.'''
+    d = len(N)
+    sB = (1,) + (0,) * (d - 1) + (1,)
+    up = tuple(xnp.zeros(C + (0, N[i]), dtype=dtype) for i in range(d))
+    down = tuple(xnp.zeros(C + (sB[i], 0, sB[i + 1]), dtype=dtype) for i in range(d))
+    left = tuple(xnp.zeros(C + (sB[i], 0, sB[i + 1]), dtype=dtype) for i in range(d))
+    right = tuple(xnp.zeros(C + (sB[i], 0, sB[i + 1]), dtype=dtype) for i in range(d))
+    return up, down, left, right
+
+
+def _embed(
+        A:      NDArray,              # C+(a1, ..., ak)
+        shape:  typ.Sequence[int],    # (t1, ..., tk), each t >= a
+) -> NDArray:                         # C+(t1, ..., tk): A in the leading slots, zeros elsewhere
+    '''The old block in the leading slots of a larger core, zeros elsewhere (a pad, not a contraction).'''
+    nC = A.ndim - len(shape)
+    return linalg.pad_or_truncate(A, [(0, 0)] * nC + [(0, t - a) for t, a in zip(shape, A.shape[nC:])])
+
+
+def _broadcast_C(
+        A:    NDArray,                # host or xnp array, shape=S
+        C:    typ.Tuple[int, ...],
+        xnp,
+        dtype,
+) -> NDArray:                         # C+S, an xnp array of dtype (a copy when C is non-empty)
+    A = xnp.asarray(A, dtype=dtype)
+    return xnp.array(xnp.broadcast_to(A, C + tuple(A.shape))) if C else A
+
+
+def _outside_first(
+        old_C_xyc:  NDArray,   # C+(q1, q2, c): the old core, its two unfolding row axes first, its c old columns last
+        p1:         int,       # the core's unfolding row axes, (p1, p2) >= (q1, q2), row-major order
+        p2:         int,
+        count:      int,       # the new columns wanted
+        xnp,
+        dtype,
+) -> NDArray:                  # C+(p1, p2, count): orthonormal, orthogonal to the embedded old columns
+    '''The hint-free TT / down completion of one core unfolding: unit vectors at the coordinates outside the
+    old block (row-major order), then, if those run out, the completion of the old columns inside the old
+    block from its coordinate directions in index order (the seeds that make the completion covariant under
+    a sign gauge of the old frame).'''
+    C = tuple(old_C_xyc.shape[:-3])
+    q1, q2, c = (int(x) for x in old_C_xyc.shape[-3:])
+    qq1, qq2 = (q1, q2) if c else (0, 0)          # no old columns: nothing to avoid, every coordinate is outside
+    outside = np.ones((p1, p2), dtype=bool)
+    outside[:qq1, :qq2] = False
+    idx = np.flatnonzero(outside)                  # row-major index order
+    t = min(count, idx.size)
+    units = np.zeros((p1 * p2, t))
+    units[idx[:t], np.arange(t)] = 1.0             # host constants: exactly orthonormal, disjoint from the block
+    parts = [_broadcast_C(units.reshape(p1, p2, t), C, xnp, dtype)]
+    k_in = count - t
+    if k_in:                                       # outside exhausted: complete inside the old block
+        P_Cxc = old_C_xyc.reshape(C + (q1 * q2, c))
+        E_Cxk = _broadcast_C(np.eye(q1 * q2)[:, :k_in], C, xnp, dtype)
+        new_Cxk = linalg.pinned_completion(P_Cxc, E_Cxk, k_in)
+        parts.append(_embed(new_Cxk.reshape(C + (q1, q2, k_in)), (p1, p2, k_in)))
+    return xnp.concatenate(parts, axis=-1)
+
+
+def fv_padded_frame(
+        frame:      typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+            typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+        ],                                                    # the TEMPLATE: only its shapes and dtype are read
+        old_frame:  typ.Optional[typ.Tuple] = None,           # (U, O, L, R) of X_old, stack C, stores <= the template's; None = the zero tensor
+        hint:       typ.Optional[typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores. len=d, elm_shape=C+(mi, Ni)   -- the hint's own Tucker ranks m
+            typ.Sequence[NDArray],  # tt_cores.     len=d, elm_shape=C+(zi, mi, z(i+1)) -- its own TT ranks z
+        ]] = None,                                            # a ragged T3 at the template's mode sizes, any ranks; None = hint-free
+        groups:     typ.Tuple[typ.Tuple[int, ...], ...] = (),  # sharing partition (canonical_groups); () = unshared
+        seed:       int = ZERO_FRAME_SEED,                     # the hint-free draws' seed: a convention; tunable per call
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],  # up:    U°_i in the leading rows, then the completion.  len=d, elm_shape=C+(nUi, Ni)
+    typ.Tuple[NDArray, ...],  # down:  O°_i embedded, then the completion.             len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+    typ.Tuple[NDArray, ...],  # left:  L°_k embedded, then the completion; L[d-1] = L°[d-1] embedded (the carrier)
+    typ.Tuple[NDArray, ...],  # right: R°_k embedded, then the completion; R[0] = R°[0] embedded (the carrier)
+]:
+    '''The orthonormal frame of ``X_old`` at a **zero-padded rank increase**: ``X_old``'s own frame embedded in
+    the leading slots of a larger structure, and the new slots completed. Structural and delta-free: the
+    counts come from the stores, no threshold is used, and no content is added to the point.
+
+    ``X_old``'s frame ``(U°, O°, L°, R°)`` has stores ``(s, sD, sL, sR)``; the template's are
+    ``(nU, nD, rL, rR)``, at least as large mode by mode. The result ``(U, O, L, R)`` has the template's shapes
+    and dtype, and:
+
+    - **the old block embedded** (a copy): ``U[i][:s_i] = U°_i``; ``L[k]``'s first ``sL_{k+1}`` columns are
+      ``L°_k`` in the leading ``(sL_k, s_k)`` slots and zero elsewhere; likewise ``R[k]``'s first rows and
+      ``O[i]``'s first down rows;
+    - **the carriers** ``L[d-1]`` and ``R[0]`` hold only the old content (zero on every new index), so both
+      base-point reconstructions, ``(U, L)`` and ``(U, R)``, are ``X_old``;
+    - **the new slots** are orthonormal completions: ``nU_i - s_i`` new Tucker rows orthogonal to ``U°_i``,
+      ``rL_{k+1} - sL_{k+1}`` new columns of ``L[k]`` in its ``(rL_k nU_k)`` unfolding, ``rR_k - sR_k`` new rows
+      of ``R[k]`` in its ``(nU_k rR_{k+1})`` unfolding, ``nD_i - sD_i`` new down rows of ``O[i]`` in its
+      ``(rL_i rR_{i+1})`` bond space.
+
+    So the result is an orthonormal frame at ``X_old`` with the larger ranks, whose tangent space contains
+    ``X_old``'s own (every completion does).
+
+    **The hint-free completion** (``hint=None``; the generalization of :py:func:`fv_zero_point_frame`):
+
+    - **Tucker**, per sharing group ``g`` with key ``k_g = min(g)``: the first ``nU_g - s_g`` rows of the keyed
+      stream ``RandomState([seed, k_g])``, made orthonormal against ``U°_g`` by
+      :py:func:`~t3toolbox.backend.linalg.pinned_completion` -- Haar-distributed in the complement of ``U°_g``,
+      nested in the count, and independent of the other modes. One factor per group (the group's old block is
+      read from its first mode).
+    - **TT and down cores**: unit vectors at the coordinates of the unfolding **outside** the old block, in
+      index order (``L``: ``(a, n)`` a-major; ``R``: ``(n, b)`` n-major; ``O``: ``(a, b)`` a-major). When those
+      run out (a bond grows while its neighbours do not), the rest is the completion of the old columns
+      **inside** the old block, seeded by the block's coordinate directions in index order. Coordinate seeds
+      make the construction covariant under a sign gauge of the old frame (two sign-gauge-equivalent old frames
+      give the same subspaces). If such a seed lies in the old columns' span (a coordinate-aligned old core),
+      the Householder completion still returns a valid column there.
+
+    With ``old_frame=None`` (the zero tensor) every coordinate is outside, and the result is exactly
+    :py:func:`fv_zero_point_frame`'s (the coordinate cores bitwise, the Haar factors to rounding), broadcast
+    over a stack.
+
+    **The hint** (an ambient T3 whose content steers the new slots) is reserved for the hinted construction,
+    which is not implemented yet: passing one raises ``NotImplementedError``.
+
+    **Preconditions** (numerical, never checked here): ``old_frame`` is orthonormal and, with ``groups``, its
+    Tucker factors are tied within each group. **Structural errors** (``ValueError``, naming the store and
+    mode): an inconsistent or inadmissible template or old frame, a different ``d``, mode sizes or stack, an
+    old store above the template's, or a sharing group whose members differ in ``(rank, size)``.
+
+    **Stacking**: the frame stack ``C`` is vectorized (one rank structure for the stack); the host draws and
+    coordinate sets broadcast over it. The backend is inferred from the inputs and the result follows the
+    template's dtype; the construction is ``jax.jit``-traceable (``groups`` and ``seed`` static).
+
+    **For raw uniform** ``.data`` (there is no uniform twin): unpack the template and the old frame with
+    ``ufv_conversions.ut3frame_to_t3frame``, call this function, and repack with
+    ``ufv_conversions.t3frame_to_ut3frame(..., N=, nU=, nD=, rL=, rR=)`` at the template's padded sizes, per
+    stack element.
+
+    Examples
+    --------
+    At the zero tensor (``old_frame=None``) it is the zero-point frame:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.backend.fv_conversions as fvc
+    >>> import t3toolbox.backend.fv_operations as fvo
+    >>> import t3toolbox.backend.t3_conversions as t3c
+    >>> np.random.seed(0)
+    >>> x_old = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 2, 2), (1, 2, 2, 1))
+    >>> x_new = x_old.resize((5, 6, 7), (3, 4, 3), (1, 3, 3, 1))      # the zero-padded rank increase
+    >>> template = fvc.t3_orthogonal_representations(x_new.data)[0]   # only its shapes are read
+    >>> zero = fvo.fv_zero_point_frame(template)
+    >>> padded0 = fvo.fv_padded_frame(template)
+    >>> coordinate = lambda f: f[1] + f[2] + f[3]                       # down, left, right: bitwise
+    >>> print(all(np.array_equal(a, b) for a, b in zip(coordinate(padded0), coordinate(zero))))
+    True
+    >>> print(max(float(np.max(np.abs(a - b))) for a, b in zip(padded0[0], zero[0])) < 1e-14)   # Haar
+    True
+
+    At ``X_old``: the old frame embedded (a copy), the result orthonormal, and both reconstructions ``X_old``:
+
+    >>> old = fvc.t3_orthogonal_representations(x_old.data)[0]
+    >>> up, down, left, right = fvo.fv_padded_frame(template, old)
+    >>> print([u.shape for u in up], [g.shape for g in left])
+    [(3, 5), (4, 6), (3, 7)] [(1, 3, 3), (3, 4, 3), (3, 3, 1)]
+    >>> print(np.array_equal(up[1][:2], old[0][1]), np.array_equal(left[1][:2, :2, :2], old[2][1]))
+    True True
+    >>> print(bool(fvo.fv_frame_orthogonality_residual((up, down, left, right)) < 1e-14))
+    True
+    >>> X_old = x_old.to_dense()
+    >>> for tt in (left, right):
+    ...     print(bool(np.linalg.norm(t3c.t3_to_dense((up, tt)) - X_old) < 1e-13 * np.linalg.norm(X_old)))
+    True
+    True
+    '''
+    if hint is not None:
+        raise NotImplementedError(
+            'fv_padded_frame: the hinted construction is not implemented yet (padded-frame slice S3); call '
+            'with hint=None for the hint-free completion')
+
+    C, new = _frame_stores(frame, 'template')
+    d = len(new['N'])
+    xnp, _, _ = get_backend(False, tree_contains_jax((frame, old_frame)))
+    dtype = frame[0][0].dtype
+
+    if old_frame is None:
+        old_frame = _empty_old_frame(new['N'], C, dtype, xnp)
+    C_old, old = _frame_stores(old_frame, 'old_frame')
+    if len(old['N']) != d:
+        raise ValueError('old_frame has d = %d modes, the template %d' % (len(old['N']), d))
+    if C_old != C:
+        raise ValueError('old_frame has stack C = %r, the template %r' % (C_old, C))
+    if old['N'] != new['N']:
+        raise ValueError('old_frame has mode sizes %r, the template %r' % (old['N'], new['N']))
+    for store in ('nU', 'nD', 'rL', 'rR'):
+        for i, (a, b) in enumerate(zip(old[store], new[store])):
+            if a > b:
+                raise ValueError('old_frame store %s[%d] = %d exceeds the template\'s %d (the template must be '
+                                 'at least the old structure)' % (store, i, a, b))
+    U0, O0, L0, R0 = (tuple(xnp.asarray(c, dtype=dtype) for c in cores) for cores in old_frame)
+
+    key = list(range(d))                               # each mode's stream key: its group's first mode
+    for group in groups:
+        for i in group:
+            if not 0 <= i < d:
+                raise ValueError('sharing group %r names mode %d outside 0..%d' % (tuple(group), i, d - 1))
+        for name, st in (('template', new), ('old_frame', old)):
+            sizes = {(st['nU'][i], st['N'][i]) for i in group}
+            if len(sizes) != 1:
+                raise ValueError('sharing group %r has unequal up (rank, size) in the %s: %r; a shared factor '
+                                 'needs one per group' % (tuple(group), name, sorted(sizes)))
+        for i in group:
+            key[i] = min(group)
+
+    # -- Tucker: one factor per group, the keyed Haar stream completed against the old block -------------
+    drawn = {}
+    for i in range(d):
+        k = key[i]
+        if k in drawn:
+            continue
+        s_g, n_g, N_g = old['nU'][k], new['nU'][k], new['N'][k]
+        if s_g == 0:                                   # fv_zero_point_frame's own draw
+            drawn[k] = _broadcast_C(_haar_rows(n_g, N_g, k, seed), C, xnp, dtype)
+        else:
+            G = np.random.RandomState([seed, k]).standard_normal((n_g - s_g, N_g))   # the stream's first kU rows
+            new_CNk = linalg.pinned_completion(U0[k].swapaxes(-2, -1), _broadcast_C(G.T, C, xnp, dtype), n_g - s_g)
+            drawn[k] = xnp.concatenate([U0[k], new_CNk.swapaxes(-2, -1)], axis=-2)
+    up_out = tuple(drawn[key[i]] for i in range(d))
+
+    # -- TT and down cores: the old block embedded, then outside-first coordinates ---------------------
+    nU, nD, rL, rR = new['nU'], new['nD'], new['rL'], new['rR']
+    sL, sR, sD = old['rL'], old['rR'], old['nD']
+    left_out, right_out, down_out = [], [], []
+    for i in range(d):
+        if i < d - 1:                                  # new columns in the (a, n) unfolding
+            emb = _embed(L0[i], (rL[i], nU[i], sL[i + 1]))
+            fresh = _outside_first(L0[i], rL[i], nU[i], rL[i + 1] - sL[i + 1], xnp, dtype)
+            left_out.append(xnp.concatenate([emb, fresh], axis=-1))
+        else:                                          # the carrier: the old content only
+            left_out.append(_embed(L0[i], (rL[i], nU[i], rL[i + 1])))
+        if i > 0:                                      # new rows in the (n, b) unfolding
+            emb = _embed(R0[i], (sR[i], nU[i], rR[i + 1]))
+            fresh = _outside_first(xnp.moveaxis(R0[i], -3, -1), nU[i], rR[i + 1], rR[i] - sR[i], xnp, dtype)
+            right_out.append(xnp.concatenate([emb, xnp.moveaxis(fresh, -1, -3)], axis=-3))
+        else:
+            right_out.append(_embed(R0[i], (rR[i], nU[i], rR[i + 1])))
+        emb = _embed(O0[i], (rL[i], sD[i], rR[i + 1]))   # new down rows in the (a, b) bond space
+        fresh = _outside_first(xnp.moveaxis(O0[i], -2, -1), rL[i], rR[i + 1], nD[i] - sD[i], xnp, dtype)
+        down_out.append(xnp.concatenate([emb, xnp.moveaxis(fresh, -1, -2)], axis=-2))
+    return up_out, tuple(down_out), tuple(left_out), tuple(right_out)
 
 # --------------------------------------------------------------------------------------------------
 # The frame's center factors, and the lift factors of the exact Riemannian Hessian

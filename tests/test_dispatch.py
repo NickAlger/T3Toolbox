@@ -143,6 +143,37 @@ class TestDispatch(unittest.TestCase):
         if hasattr(f, '_cache_size'):
             self.assertEqual(f._cache_size(), 1, "a mask pattern triggered a recompile")
 
+    # ---------------------------------------------------- jit bucket: pinned completions (linalg)
+    def test_pinned_primitives_dispatch(self):
+        """The padded frame's primitives: numpy in -> numpy out, jax in -> jax out, and both jit (k static)
+        to pure jax that agrees with the numpy path (x64 on in this module)."""
+        r = np.random.default_rng(0)
+        P = np.linalg.qr(r.standard_normal((2, 7, 2)))[0]                # C = (2,), n = 7, s = 2
+        A = r.standard_normal((2, 7, 4))                                 # generic: a degenerate seed's completion is
+                                                                         #   backend-deterministic, not cross-backend
+        for fn in (linalg.pinned_completion, linalg.pinned_leading_columns):
+            with self.subTest(fn=fn.__name__):
+                out_np = fn(P, A, 3)
+                self.assertTrue(common.is_numpy_ndarray(out_np))
+                self.assert_eager_jax(fn, jnp.asarray(P), jnp.asarray(A), 3)
+                f = jax.jit(fn, static_argnums=2)
+                out = f(jnp.asarray(P), jnp.asarray(A), 3)
+                self._leaves_all_jax(out)
+                self.assertLessEqual(norm(np.asarray(out) - out_np), 1e-12)
+                self.assertEqual(f(jnp.asarray(P), jnp.asarray(A), 0).shape, (2, 7, 0))
+        # "valid for any seeds" on jax's own QR (S3's jitted constructor runs this path): degenerate seeds give
+        # an orthonormal completion orthogonal to P under jit -- validity only, no numpy comparison
+        degenerate = {'all zero': np.zeros((2, 7, 3)), 'too few': A[..., :1],
+                      'in span(P)': P @ r.standard_normal((2, 2, 3)), 'none': np.zeros((2, 7, 0))}
+        for fn in (linalg.pinned_completion, linalg.pinned_leading_columns):
+            f = jax.jit(fn, static_argnums=2)
+            for kind, seeds in degenerate.items():
+                with self.subTest(fn=fn.__name__, seeds=kind):
+                    Q = np.asarray(f(jnp.asarray(P), jnp.asarray(seeds), 3))
+                    PQ = np.concatenate([P, Q], axis=-1)
+                    res = norm(np.swapaxes(PQ, -2, -1) @ PQ - np.eye(5), axis=(-2, -1))
+                    self.assertLessEqual(float(res.max()), 1e-14)
+
     # ---------------------------------------------------- jit bucket: TuckerTensorTrain
     def test_jit_tucker_tensor_train(self):
         vecs = tuple(jnp.ones(N) for N in STRUCT[0])
@@ -1918,6 +1949,26 @@ class TestDispatch(unittest.TestCase):
         row_jit = bopt.newton_cg(problem, x0, max_newton=1, use_jit=True)[1]['history'][0]
         self.assertEqual((row_np['g0_reference'], row_jit['g0_reference']), ('zero', 'zero'))
         self.assertAlmostEqual(row_jit['g0norm'], row_np['g0norm'], delta=1e-10 * row_np['g0norm'])
+
+    def test_padded_frame_dispatch(self):
+        """The hint-free padded frame: numpy in -> numpy out, jax in -> jax out, and it jits (groups, seed
+        static) to pure jax equal to the eager numpy result (x64 on in this module)."""
+        np.random.seed(1)
+        x_old = t3.TuckerTensorTrain.randn((4, 4, 4, 4), (2, 2, 2, 2), (1, 2, 2, 2, 1))
+        x_new = x_old.resize((4, 4, 4, 4), (2, 2, 2, 3), (1, 2, 3, 2, 1))    # L_1 in-block; U_3 Haar-completed
+        old = bvf.t3_orthogonal_representations(x_old)[0].data
+        template = bvf.t3_orthogonal_representations(x_new)[0].data
+        to_jax = lambda f: None if f is None else jax.tree_util.tree_map(jnp.asarray, f)
+        f = jax.jit(fv_operations.fv_padded_frame, static_argnames=('groups', 'seed'))
+        for old_frame, groups in ((None, ((0, 2), (1,), (3,))), (old, ())):    # the zero tensor shared; X_old untied
+            with self.subTest(at_zero=old_frame is None):
+                out_np = fv_operations.fv_padded_frame(template, old_frame, groups=groups, seed=3)
+                self.assertTrue(all(common.is_numpy_ndarray(c) for c in jax.tree_util.tree_leaves(out_np)))
+                self.assert_eager_jax(fv_operations.fv_padded_frame, to_jax(template), to_jax(old_frame))
+                out = f(to_jax(template), to_jax(old_frame), None, groups=groups, seed=3)
+                self._leaves_all_jax(out)
+                for a, b in zip(jax.tree_util.tree_leaves(out), jax.tree_util.tree_leaves(out_np)):
+                    self.assertLessEqual(norm(np.asarray(a) - b), 1e-12)
 
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):
