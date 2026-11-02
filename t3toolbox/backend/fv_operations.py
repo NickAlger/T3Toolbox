@@ -23,6 +23,8 @@ import t3toolbox.backend.tt_operations as tt_operations
 import t3toolbox.backend.t3_operations as t3_operations
 import t3toolbox.backend.contractions as contractions
 import t3toolbox.backend.linalg as linalg
+import t3toolbox.backend.t3_orthogonalization as t3_orthogonalization
+import t3toolbox.backend.tt_orthogonalization as tt_orthogonalization
 from t3toolbox.backend.common import *
 import t3toolbox.backend.t3_conversions as t3_conversions
 import t3toolbox.corewise as corewise
@@ -555,6 +557,168 @@ def _outside_first(
     return xnp.concatenate(parts, axis=-1)
 
 
+def _unfold(
+        A:  NDArray,   # C+(a1, ..., ak)
+        m:  int,       # the number of leading non-stack axes merged into the rows
+        nC: int,       # |C|
+) -> NDArray:          # C+(a1 ... am, a(m+1) ... ak): adjacent NON-stack axes merged, C kept leading
+    '''An SVD / QR input: merges adjacent non-stack axes only (no stack axis is merged or moved).'''
+    core = A.shape[nC:]
+    return A.reshape(A.shape[:nC] + (math.prod(core[:m]), math.prod(core[m:])))
+
+
+def _check_hint(
+        hint:  typ.Tuple,              # (tucker_cores, tt_cores)
+        C:     typ.Tuple[int, ...],    # the template's stack
+        N:     typ.Tuple[int, ...],    # the template's mode sizes
+) -> None:
+    '''The hint's structural checks: a consistent T3 at the template's mode sizes, with the template's stack.'''
+    if len(hint) != 2:
+        raise ValueError('hint must be a T3 .data pair (tucker_cores, tt_cores); got length %d' % len(hint))
+    tucker, tt = hint
+    d = len(N)
+    if len(tucker) != d or len(tt) != d:
+        raise ValueError('hint has %d Tucker and %d TT cores; the template has d = %d modes'
+                         % (len(tucker), len(tt), d))
+    nC = len(C)
+    for store, cores, ndim in (('tucker', tucker, 2), ('tt', tt, 3)):
+        for i, core in enumerate(cores):
+            if core.ndim != nC + ndim or tuple(core.shape[:nC]) != C:
+                raise ValueError(
+                    'hint %s[%d] has shape %r; expected the template\'s stack C=%r followed by %d core axes. One '
+                    'hint per frame: combine several hints into one T3 first (e.g. a T3 sum) -- that reduction is '
+                    'the caller\'s' % (store, i, tuple(core.shape), C, ndim))
+    for i in range(d):
+        if int(tucker[i].shape[-1]) != N[i]:
+            raise ValueError('hint tucker[%d] has mode size %d; the template %d' % (i, tucker[i].shape[-1], N[i]))
+        if int(tt[i].shape[-2]) != int(tucker[i].shape[-2]):
+            raise ValueError('hint tt[%d] has Tucker rank %d; its tucker[%d] has %d'
+                             % (i, tt[i].shape[-2], i, tucker[i].shape[-2]))
+        if i < d - 1 and int(tt[i].shape[-1]) != int(tt[i + 1].shape[-3]):
+            raise ValueError('hint tt[%d] and tt[%d] disagree on bond %d: %d vs %d'
+                             % (i, i + 1, i + 1, tt[i].shape[-1], tt[i + 1].shape[-3]))
+
+
+def _hint_coordinates(
+        hint:  typ.Tuple,   # (tucker_cores, tt_cores): C+(mi, Ni), C+(zi, mi, z(i+1)), any boundary bonds
+        U0:    typ.Sequence[NDArray],   # len=d, elm_shape=C+(si, Ni)
+        L0:    typ.Sequence[NDArray],   # len=d, elm_shape=C+(sLi, si, sL(i+1))
+        R0:    typ.Sequence[NDArray],   # len=d, elm_shape=C+(sRi, si, sR(i+1))
+) -> typ.Tuple:
+    '''The hint in its own orthogonal coordinates, and the old frame's overlaps with them:
+    ``W`` (``C+(wi, Ni)``, orthonormal rows), ``Ztt`` (the down-orthogonalized TT, boundary bonds 1), its left /
+    right orthogonalized chains ``ZL`` / ``ZR``, the old Tucker block ``A_i = U°_i W_iᵀ``, the old interfaces in
+    the chains' coordinates ``ΩL_k`` (``C+(sLk, zlk)``) / ``ΩR_k`` (``C+(sRk, zrk)``), and the chains' gauge
+    ``ZZ_k`` (``C+(zlk, zrk)``).'''
+    Z_G = tt_operations.tt_squash_tails(tuple(hint[1]))          # boundary bonds 1, the same tensor
+    W, Ztt = t3_orthogonalization.t3_down_orthogonalize_tucker_cores((tuple(hint[0]), Z_G))
+    ZL = tt_orthogonalization.tt_left_orthogonalize(Ztt)
+    ZR = tt_orthogonalization.tt_right_orthogonalize(Ztt)
+    A = tuple(contractions.contract('Czn,Cun->Czu', U0[i], W[i]) for i in range(len(W)))
+    Lh = tuple(contractions.contract('Cazb,Czu->Caub', L0[i], A[i]) for i in range(len(W)))
+    Rh = tuple(contractions.contract('Cazb,Czu->Caub', R0[i], A[i]) for i in range(len(W)))
+    OmL = tt_operations.tt_zipper_left_to_right(Lh, ZL)
+    OmR = tt_operations.tt_zipper_right_to_left(Rh, ZR)
+    ZZ = tt_operations.tt_zipper_right_to_left(ZL, ZR)
+    return W, Ztt, ZL, ZR, A, OmL, OmR, ZZ
+
+
+def _tucker_completion(
+        W:       typ.Sequence[NDArray],   # len=d, elm_shape=C+(wi, Ni)
+        ZL:      typ.Sequence[NDArray],   # len=d, elm_shape=C+(zli, wi, zl(i+1))
+        ZZ:      typ.Sequence[NDArray],   # len=d+1, elm_shape=C+(zlk, zrk)
+        OmL:     typ.Sequence[NDArray],   # len=d+1, elm_shape=C+(sLk, zlk)
+        OmR:     typ.Sequence[NDArray],   # len=d+1, elm_shape=C+(sRk, zrk)
+        U0:      typ.Sequence[NDArray],   # len=d, elm_shape=C+(si, Ni)
+        O0:      typ.Sequence[NDArray],   # len=d, elm_shape=C+(sLi, sDi, sR(i+1))
+        nU:      typ.Sequence[int],       # len=d, the template's Tucker store
+        key:     typ.Sequence[int],       # len=d, each mode's group key (min of its group)
+        xnp,
+) -> typ.Tuple[NDArray, ...]:             # up: len=d, elm_shape=C+(nUi, Ni); one array per group
+    '''The Tucker step (HOSVD-style, two-sided): per mode the hint's mixed-canonical center with ``X_old``'s
+    down rows removed on the column side, compressed by an SVD and mapped to ambient coordinates; per group the
+    concatenated contents' leading directions, pinned off ``U°_g``.'''
+    d = len(W)
+    Y = []
+    for i in range(d):
+        Ht_Cjxz = contractions.contract('Cxjb,Cbz->Cjxz', ZL[i], ZZ[i + 1])
+        E_Cixz = contractions.contract('Caib,Cax,Cbz->Cixz', O0[i], OmL[i], OmR[i + 1])
+        T_Cji = contractions.contract('Cjxz,Cixz->Cji', Ht_Cjxz, E_Cixz)
+        N_Cjxz = Ht_Cjxz - contractions.contract('Cji,Cixz->Cjxz', T_Cji, E_Cixz)
+        Uq_Cjc, sq_Cc, _ = xnp.linalg.svd(_unfold(N_Cjxz, 1, N_Cjxz.ndim - 3), full_matrices=False)
+        Y.append(contractions.contract('Cjn,Cjc->Cnc', W[i], Uq_Cjc * sq_Cc[..., None, :]))
+    up = {}
+    for i in range(d):
+        k = key[i]
+        if k in up:
+            continue
+        members = [j for j in range(d) if key[j] == k]
+        Y_g = xnp.concatenate([Y[j] for j in members], axis=-1)
+        new_CNk = linalg.pinned_leading_columns(U0[k].swapaxes(-2, -1), Y_g, nU[k] - U0[k].shape[-2])
+        up[k] = xnp.concatenate([U0[k], new_CNk.swapaxes(-2, -1)], axis=-2)
+    return tuple(up[key[i]] for i in range(d))
+
+
+def _pinned_left_sweep(
+        chain:   typ.Sequence[NDArray],   # len=d, elm_shape=C+(zri, wi, zr(i+1)): right-orthonormal but the first
+        Om:      typ.Sequence[NDArray],   # len=d+1, elm_shape=C+(sRk, zrk): the old far-side interfaces in chain's coordinates
+        B:       typ.Sequence[NDArray],   # len=d, elm_shape=C+(nUi, wi): the new Tucker basis in the hint's coordinates
+        old:     typ.Sequence[NDArray],   # len=d, elm_shape=C+(sLi, si, sL(i+1)): the old cores, pinned
+        rL:      typ.Sequence[int],       # len=d+1, the template's bond store
+        nU:      typ.Sequence[int],       # len=d, the template's Tucker store
+        xnp,
+) -> typ.Tuple[NDArray, ...]:             # len=d, elm_shape=C+(rLi, nUi, rL(i+1)): L[d-1] the embedded carrier
+    '''The pinned left TT-SVD of the hint, two-sided: at each bond the hint's content in the chosen left basis
+    and Tucker basis, with ``X_old``'s far-side interface removed on the column side, gives the new columns'
+    leading directions, pinned off the embedded old columns. Run on the reversed problem it is the right sweep.'''
+    d = len(chain)
+    C = tuple(B[0].shape[:-2])
+    nC = len(C)
+    Cv_Cxa = xnp.ones(C + (1, 1), dtype=B[0].dtype)
+    out = []
+    for k in range(d - 1):
+        sL1 = old[k].shape[-1]
+        Mb_Cxnb = contractions.contract('Cxa,Caib,Cni->Cxnb', Cv_Cxa, chain[k], B[k])
+        Mp_Cxnc = Mb_Cxnb - contractions.contract('Cxnb,Czb,Czc->Cxnc', Mb_Cxnb, Om[k + 1], Om[k + 1])
+        P_Cyc = _unfold(_embed(old[k], (rL[k], nU[k], sL1)), 2, nC)
+        new_Cyk = linalg.pinned_leading_columns(P_Cyc, _unfold(Mp_Cxnc, 2, nC), rL[k + 1] - sL1)
+        L_Cxnc = xnp.concatenate([P_Cyc, new_Cyk], axis=-1).reshape(C + (rL[k], nU[k], rL[k + 1]))
+        out.append(L_Cxnc)
+        Cv_Cxa = contractions.contract('Cxnc,Cxnb->Ccb', L_Cxnc, Mb_Cxnb)
+    out.append(_embed(old[d - 1], (rL[d - 1], nU[d - 1], rL[d])))
+    return tuple(out)
+
+
+def _down_completion(
+        Ztt:   typ.Sequence[NDArray],   # len=d, elm_shape=C+(zi, wi, z(i+1)): the hint TT, boundary bonds 1
+        B:     typ.Sequence[NDArray],   # len=d, elm_shape=C+(nUi, wi)
+        left:  typ.Sequence[NDArray],   # len=d, the final left chain
+        right: typ.Sequence[NDArray],   # len=d, the final right chain
+        O0:    typ.Sequence[NDArray],   # len=d, elm_shape=C+(sLi, sDi, sR(i+1))
+        s:     typ.Sequence[int],       # len=d, the old Tucker store
+        nD:    typ.Sequence[int],       # len=d, the template's down store
+        xnp,
+) -> typ.Tuple[NDArray, ...]:           # down: len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+    '''The down step: the hint's one-hole environment in the final bases, restricted to the NEW Tucker slots
+    (the two-sided cut: ``X_old``'s center lives on the old ones), gives the new down rows' leading
+    directions in the bond space, pinned off the embedded old down rows.'''
+    d = len(B)
+    C = tuple(B[0].shape[:-2])
+    nC = len(C)
+    G2 = tuple(contractions.contract('Cazb,Cuz->Caub', Ztt[i], B[i]) for i in range(d))
+    LamL = tt_operations.tt_zipper_left_to_right(G2, left)
+    LamR = tt_operations.tt_zipper_right_to_left(G2, right)
+    out = []
+    for i in range(d):
+        rLi, rRi = left[i].shape[-3], right[i].shape[-1]
+        env_Cabu = contractions.contract('Cxa,Cxzc,Ccb->Cabz', LamL[i], G2[i], LamR[i + 1])
+        Anew_Cyk = _unfold(env_Cabu[..., s[i]:], 2, nC)
+        sDi = O0[i].shape[-2]
+        P_Cym = _unfold(_embed(O0[i], (rLi, sDi, rRi)).swapaxes(-2, -1), 2, nC)
+        new_Cyk = linalg.pinned_leading_columns(P_Cym, Anew_Cyk, nD[i] - sDi)
+        out.append(xnp.concatenate([P_Cym, new_Cyk], axis=-1).reshape(C + (rLi, rRi, nD[i])).swapaxes(-2, -1))
+    return tuple(out)
+
 def fv_padded_frame(
         frame:      typ.Tuple[
             typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
@@ -615,13 +779,37 @@ def fv_padded_frame(
     :py:func:`fv_zero_point_frame`'s (the coordinate cores bitwise, the Haar factors to rounding), broadcast
     over a stack.
 
-    **The hint** (an ambient T3 whose content steers the new slots) is reserved for the hinted construction,
-    which is not implemented yet: passing one raises ``NotImplementedError``.
+    **The hinted completion** (``hint`` a T3 ``.data`` pair at the template's mode sizes, any ranks, stack ``C``):
+    the new slots are the **leading directions of the hint's normal content**, with the old block pinned -- a
+    pinned T3-SVD of the hint (:py:func:`~t3toolbox.backend.linalg.pinned_leading_columns` at every step):
+
+    - **Tucker**, per group: the hint's mode-``i`` unfolding against its own orthogonalized chains (HOSVD-style),
+      with ``X_old``'s down rows removed on the column side; the group's members' contents are concatenated, and
+      the leading directions are taken off ``U°_g``;
+    - **left bonds** ``L[k]``, a left-to-right sweep: the hint in the chosen left basis and Tucker basis, with
+      ``X_old``'s right interface at bond ``k + 1`` removed on the column side, pinned off the embedded ``L°_k``;
+    - **right bonds** ``R[k]``: the mirror image (the same sweep on the reversed problem), ``X_old``'s left
+      interface removed, pinned off ``R°_k``;
+    - **down cores** ``O[i]``: the hint's one-hole environment in the final bases, on the **new** Tucker slots
+      only (``X_old``'s center lives on the old ones), pinned off the embedded ``O°_i``.
+
+    The counts are the store differences; nothing is compared with a tolerance. A hint with fewer directions
+    than slots (a zero hint included) is completed by the Householder QR -- a valid frame, whose trailing new
+    directions are not determined by the hint. The hint can be any direction: a gradient embedded as a T3 by
+    :py:func:`~t3toolbox.backend.tv_operations.tv_to_t3` (the driver's choice), another level's search
+    direction, a sum of directions (a T3 sum; its boundary bonds are squashed here), or a data tensor. Each step
+    is the stated projection exactly when the hint's orthogonalized chains contain ``X_old``'s interfaces: true
+    for a gradient embedded at a frame containing ``X_old``'s subspaces, and obtained for any hint by adding
+    ``X_old`` to it (which changes no normal content). With any other hint the result is still a valid padded
+    frame of ``X_old`` (a caveat, not a precondition). The cost scales with the hint's ranks; a high-rank hint
+    can be compressed first (``t3svd``), at the price of the directions that drops.
 
     **Preconditions** (numerical, never checked here): ``old_frame`` is orthonormal and, with ``groups``, its
     Tucker factors are tied within each group. **Structural errors** (``ValueError``, naming the store and
     mode): an inconsistent or inadmissible template or old frame, a different ``d``, mode sizes or stack, an
-    old store above the template's, or a sharing group whose members differ in ``(rank, size)``.
+    old store above the template's, a sharing group whose members differ in ``(rank, size)``; for a hint, an
+    inconsistent T3 (bond or Tucker-rank mismatch), other mode sizes, or another stack than ``C`` (one hint per
+    frame: combining several hints into one T3 is the caller's reduction).
 
     **Stacking**: the frame stack ``C`` is vectorized (one rank structure for the stack); the host draws and
     coordinate sets broadcast over it. The backend is inferred from the inputs and the result follows the
@@ -668,15 +856,24 @@ def fv_padded_frame(
     ...     print(bool(np.linalg.norm(t3c.t3_to_dense((up, tt)) - X_old) < 1e-13 * np.linalg.norm(X_old)))
     True
     True
-    '''
-    if hint is not None:
-        raise NotImplementedError(
-            'fv_padded_frame: the hinted construction is not implemented yet (padded-frame slice S3); call '
-            'with hint=None for the hint-free completion')
 
+    Hinted: a gradient embedded as a T3 at a frame of the padded point (here the dense projection of a random
+    tensor), and an arbitrary T3 of unrelated ranks; either way a valid padded frame of ``X_old``:
+
+    >>> import t3toolbox.backend.tv_operations as tvo
+    >>> g = tvo.tv_project_dense_onto_tangent_space(template, np.random.randn(5, 6, 7))
+    >>> hints = (tvo.tv_to_t3(template, g), t3.TuckerTensorTrain.randn((5, 6, 7), (2, 5, 4), (1, 3, 4, 1)).data)
+    >>> for hint in hints:
+    ...     up, down, left, right = fvo.fv_padded_frame(template, old, hint)
+    ...     valid = fvo.fv_frame_orthogonality_residual((up, down, left, right)) < 1e-14
+    ...     same_point = np.linalg.norm(t3c.t3_to_dense((up, left)) - X_old) < 1e-13 * np.linalg.norm(X_old)
+    ...     print(bool(valid), bool(same_point), np.array_equal(up[1][:2], old[0][1]))
+    True True True
+    True True True
+    '''
     C, new = _frame_stores(frame, 'template')
     d = len(new['N'])
-    xnp, _, _ = get_backend(False, tree_contains_jax((frame, old_frame)))
+    xnp, _, _ = get_backend(False, tree_contains_jax((frame, old_frame, hint)))
     dtype = frame[0][0].dtype
 
     if old_frame is None:
@@ -707,6 +904,25 @@ def fv_padded_frame(
                                  'needs one per group' % (tuple(group), name, sorted(sizes)))
         for i in group:
             key[i] = min(group)
+
+    if hint is not None:                               # the hinted construction (the pinned T3-SVD of the hint)
+        _check_hint(hint, C, new['N'])
+        if new['rL'][0] != 1 or new['rR'][d] != 1:
+            raise ValueError('template boundary bonds (rL[0], rR[d]) = (%d, %d); the hinted construction needs '
+                             '1 (a squashed frame)' % (new['rL'][0], new['rR'][d]))
+        hint = (tuple(xnp.asarray(c, dtype=dtype) for c in hint[0]), tuple(xnp.asarray(c, dtype=dtype) for c in hint[1]))
+        W, Ztt, ZL, ZR, _, OmL, OmR, ZZ = _hint_coordinates(hint, U0, L0, R0)
+        up_out = _tucker_completion(W, ZL, ZZ, OmL, OmR, U0, O0, new['nU'], key, xnp)
+        B = tuple(contractions.contract('Czn,Cun->Czu', up_out[i], W[i]) for i in range(d))
+        left_out = _pinned_left_sweep(ZR, OmR, B, L0, new['rL'], new['nU'], xnp)
+        right_out = tt_operations.tt_reverse(_pinned_left_sweep(
+            tt_operations.tt_reverse(ZL), OmL[::-1], B[::-1], tt_operations.tt_reverse(R0),
+            new['rR'][::-1], new['nU'][::-1], xnp))
+        down_out = _down_completion(Ztt, B, left_out, right_out, O0, old['nU'], new['nD'], xnp)
+        # the result follows the template's dtype (library helpers may build float64 constants, e.g. under x64)
+        cast = {}                                      # one cast per array: a group's members stay one array
+        return tuple(tuple(cast.setdefault(id(c), c.astype(dtype)) for c in cores)
+                     for cores in (up_out, down_out, left_out, right_out))
 
     # -- Tucker: one factor per group, the keyed Haar stream completed against the old block -------------
     drawn = {}

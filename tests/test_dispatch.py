@@ -1970,6 +1970,43 @@ class TestDispatch(unittest.TestCase):
                 for a, b in zip(jax.tree_util.tree_leaves(out), jax.tree_util.tree_leaves(out_np)):
                     self.assertLessEqual(norm(np.asarray(a) - b), 1e-12)
 
+    def test_padded_frame_hinted_dispatch(self):
+        """The hinted padded frame (the pinned T3-SVD of a T3 hint): jax in -> jax out, and it jits to pure jax that
+        agrees with the eager numpy result -- gauge-invariantly, through the dense tangent projection P_{T_F} Y of a
+        fixed Y (a new column's sign follows its SVD's, which is backend-dependent): rtol 1e-12 in x64, 1e-5 for a
+        float32 run (whose result is float32). Hints with more directions than slots, so the subspaces are
+        determined by the content, not by roundoff."""
+        import t3toolbox.backend.t3_conversions as t3c
+        np.random.seed(2)
+        shape = (4, 5, 6, 3)
+        x_old = t3.TuckerTensorTrain.randn(shape, (2, 2, 2, 2), (1, 2, 2, 2, 1))
+        x_new = x_old.resize(shape, (3, 3, 4, 3), (1, 3, 4, 3, 1))
+        old = bvf.t3_orthogonal_representations(x_old)[0].data
+        template = bvf.t3_orthogonal_representations(x_new)[0].data
+        H = t3.TuckerTensorTrain.randn(shape, (4, 4, 5, 3), (1, 4, 4, 3, 1))
+        hints = {'external + X_old': (H + x_old).data,
+                 'gradient': tops.tv_to_t3(template, tops.tv_project_dense_onto_tangent_space(
+                     template, np.random.randn(*shape)))}
+        Y = np.random.randn(*shape)
+
+        def tangent_projection(frame):                                     # P_{T_F} Y, dense, in float64
+            frame = jax.tree_util.tree_map(lambda a: np.asarray(a, dtype=float), frame)
+            return t3c.t3_to_dense(tops.tv_to_t3(frame, tops.tv_project_dense_onto_tangent_space(frame, Y)))
+
+        cast = lambda f, dt: jax.tree_util.tree_map(lambda a: jnp.asarray(a, dtype=dt), f)
+        f = jax.jit(fv_operations.fv_padded_frame, static_argnames=('groups', 'seed'))
+        for kind, hint in hints.items():
+            with self.subTest(hint=kind):
+                ref = tangent_projection(fv_operations.fv_padded_frame(template, old, hint))
+                self.assert_eager_jax(fv_operations.fv_padded_frame, cast(template, jnp.float64),
+                                      cast(old, jnp.float64), cast(hint, jnp.float64))
+                out = f(cast(template, jnp.float64), cast(old, jnp.float64), cast(hint, jnp.float64))
+                self._leaves_all_jax(out)
+                self.assertLessEqual(norm(tangent_projection(out) - ref), 1e-12 * norm(ref))
+                out32 = f(cast(template, jnp.float32), cast(old, jnp.float32), cast(hint, jnp.float32))
+                self.assertTrue(all(a.dtype == jnp.float32 for a in jax.tree_util.tree_leaves(out32)))
+                self.assertLessEqual(norm(tangent_projection(out32) - ref), 1e-5 * norm(ref))
+
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):
         # A few complex ops: jax must agree with numpy (guards subtle backend divergence).

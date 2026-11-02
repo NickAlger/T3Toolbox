@@ -3,12 +3,20 @@
 # https://github.com/NickAlger/T3Toolbox
 """Tests for ``fv_operations.fv_padded_frame``, the frame of ``X_old`` at a zero-padded rank increase.
 
-So far T2 of the padded-frame plan, the hint-free construction:
+T2 of the padded-frame plan, the hint-free construction:
 
 (a) ``old_frame=None`` reproduces ``fv_zero_point_frame`` (the coordinate cores and zero carriers bitwise, the
     Haar factors to 1e-14); (b) a valid frame at ``resize``d points; (c) the in-block cases, whose columns come
     from coordinate seeds; (d) the Tucker completion is nested; (e) a stack ``C`` equals per-element calls;
     (f) sign-gauge covariance: gauge-equivalent old frames give the same subspaces (assembled projectors).
+
+T3, the hinted construction (the pinned T3-SVD of a hint T3): (a) valid frames for gradient hints (embedded by
+``tv_to_t3`` at the library frame of the padded point, at a padded frame) and a zero gradient; (b) the hint's
+internal coordinates (orthonormal overlaps for gradient hints, contractions otherwise); (c) the matrix fixed point;
+(d) the truncation (a working-frame hint, the target template); (e) sharing; (f) a stack ``C``; (g) structural
+errors; (h) the dense per-step oracle -- every new direction of every step against its dense definition; (i)
+``d = 1``; (j) an arbitrary external hint. Direction claims use hints with at least ``k`` directions per slot (a
+rank-deficient hint's trailing directions are roundoff-dependent); degenerate hints are asserted valid only.
 
 "Valid frame" means: orthogonality residual <= 1e-14; both base-point reconstructions within 1e-13 relative of
 ``X_old``; the old block present bitwise as a copy (a structural fact); the template's shapes. Computed arrays
@@ -16,6 +24,7 @@ are compared with stated tolerances, never ``np.allclose`` defaults; frame claim
 
 numpy-only (house testing strategy); jax dispatch is in ``tests/test_dispatch.py``.
 """
+import math
 import unittest
 
 import numpy as np
@@ -25,6 +34,7 @@ import t3toolbox.backend.fv_conversions as fvc
 import t3toolbox.backend.fv_operations as fvo
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.t3_conversions as t3c
+import t3toolbox.backend.tv_operations as tvo
 
 
 def frame_of(x):
@@ -309,10 +319,6 @@ class TestStructuralErrors(unittest.TestCase):
         self.x_old, self.old, self.template = padded_case((5, 6, 7), ((2, 2, 2), (1, 2, 2, 1)),
                                                           ((3, 4, 3), (1, 3, 3, 1)))
 
-    def test_hint_is_not_implemented_yet(self):
-        with self.assertRaises(NotImplementedError):
-            fvo.fv_padded_frame(self.template, self.old, self.x_old.data)
-
     def test_errors(self):
         up, down, left, right = self.template
         bigger = frame_of(t3.TuckerTensorTrain.zeros((5, 6, 7), (2, 2, 2), (1, 2, 2, 1)))
@@ -340,6 +346,350 @@ class TestStructuralErrors(unittest.TestCase):
         for got, want in zip(fvo.fv_padded_frame(noisy, self.old), fvo.fv_padded_frame(self.template, self.old)):
             self.assertTrue(all(np.array_equal(g, w) for g, w in zip(got, want)))
 
+
+# ---------------------------------------------------------------------------------------------------- T3: hinted
+def interfaces(frame):
+    """Dense left interfaces Phi[k] (prod N_<k, rL_k) and right interfaces Psi[k] (prod N_>=k, rR_k), k = 0..d."""
+    up, down, left, right = frame
+    d = len(up)
+    phi = [np.ones((1, left[0].shape[0]))]
+    for k in range(d):
+        phi.append(np.einsum('xa,ni,anb->xib', phi[k], up[k], left[k])
+                   .reshape(phi[k].shape[0] * up[k].shape[1], left[k].shape[2]))
+    psi = [None] * d + [np.ones((1, right[-1].shape[2]))]
+    for k in range(d - 1, -1, -1):
+        psi[k] = np.einsum('anb,ni,yb->aiy', right[k], up[k], psi[k + 1]) \
+            .reshape(right[k].shape[0], up[k].shape[1] * psi[k + 1].shape[0]).T
+    return phi, psi
+
+
+def embed(a, shape):
+    out = np.zeros(shape)
+    out[tuple(slice(0, n) for n in a.shape)] = a
+    return out
+
+
+def leading(P, M, count, scale):
+    """The leading left singular directions of (I - P P^T) M that are DETERMINED: the first r <= count, each with
+    singular value above 1e-8 * scale and separated from the next by 1e-6 * scale. Returns (basis, r)."""
+    A = M - P @ (P.T @ M)
+    U, s, _ = np.linalg.svd(A, full_matrices=False)
+    r = min(count, int(np.sum(s > 1e-8 * scale)))
+    while 0 < r < s.size and s[r - 1] - s[r] < 1e-6 * scale:
+        r -= 1
+    return U[:, :r], r
+
+
+def subspace_distance(A, B):
+    return np.linalg.norm(A @ A.T - B @ B.T)
+
+
+def oracle_distances(frame, old, Z, groups=()):
+    """T3(h), the dense per-step oracle (unstacked): for every step, (projector distance between the frame's first
+    r new directions and the oracle's leading r, r, the directions the content can supply: min(slot count, the
+    oracle matrix's columns)). Z is the dense hint.
+
+    Tucker i (per group): (I - P_{U°}) [Z_(i) (I - E^T E) for the members], E[m] = sum_ab O°[a, m, b] Phi°_i[a] (x)
+    Psi°_{i+1}[b]; L_k: (I - P P^T) M (I - Psi°_{k+1} Psi°_{k+1}^T), M = (Phi_k (x) U_k)^T Z_(..k | k+1..), P the
+    embedded L°_k; R_k: the mirror image; O_i: Z's coordinates in Phi_i (x) U_i (x) Psi_{i+1} on the new Tucker
+    slots, in the (a, b) bond space, pinned off the embedded O°_i."""
+    up, down, left, right = frame
+    U0, O0, L0, R0 = old
+    d, N, scale = len(up), Z.shape, np.linalg.norm(Z)
+    phi, psi = interfaces(frame)
+    phio, psio = interfaces(old)
+    out = {}
+    key = list(range(d))
+    for group in groups:
+        for i in group:
+            key[i] = min(group)
+    for kg in sorted(set(key)):
+        blocks = []
+        for i in [j for j in range(d) if key[j] == kg]:
+            Zi = np.moveaxis(Z, i, 0).reshape(N[i], -1)
+            E = np.einsum('amb,xa,yb->mxy', O0[i], phio[i], psio[i + 1]).reshape(O0[i].shape[1], Zi.shape[1])
+            blocks.append(Zi - (Zi @ E.T) @ E)
+        s, count = U0[kg].shape[0], up[kg].shape[0] - U0[kg].shape[0]
+        M = np.concatenate(blocks, axis=1)
+        Q, r = leading(U0[kg].T, M, count, scale)
+        out['U%d' % kg] = (subspace_distance(up[kg][s:s + r].T, Q), r, min(count, M.shape[1]))
+    for k in range(d - 1):
+        Zk = Z.reshape(math.prod(N[:k]), N[k], -1)
+        a, n, b = left[k].shape
+        M = np.einsum('xa,ni,xiy->any', phi[k], up[k], Zk).reshape(a * n, Zk.shape[2])
+        M = M - (M @ psio[k + 1]) @ psio[k + 1].T
+        sL1 = L0[k].shape[2]
+        P = embed(L0[k], (a, n, sL1)).reshape(a * n, sL1)
+        Q, r = leading(P, M, b - sL1, scale)
+        out['L%d' % k] = (subspace_distance(left[k].reshape(a * n, b)[:, sL1:sL1 + r], Q), r,
+                          min(b - sL1, M.shape[1]))
+    for k in range(1, d):
+        Zk = Z.reshape(math.prod(N[:k]), N[k], -1)
+        a, n, b = right[k].shape
+        M = np.einsum('ni,yb,xiy->nbx', up[k], psi[k + 1], Zk).reshape(n * b, Zk.shape[0])
+        M = M - (M @ phio[k]) @ phio[k].T
+        sR = R0[k].shape[0]
+        P = embed(R0[k], (sR, n, b)).reshape(sR, n * b).T
+        Q, r = leading(P, M, a - sR, scale)
+        out['R%d' % k] = (subspace_distance(right[k].reshape(a, n * b)[sR:sR + r].T, Q), r, min(a - sR, M.shape[1]))
+    for i in range(d):
+        Zi = Z.reshape(math.prod(N[:i]), N[i], -1)
+        core = np.einsum('xa,ni,yb,xiy->anb', phi[i], up[i], psi[i + 1], Zi)
+        s = U0[i].shape[0]
+        a, m, b = down[i].shape
+        A = np.moveaxis(core[:, s:, :], 1, 2).reshape(a * b, core.shape[1] - s)
+        sD = O0[i].shape[1]
+        P = np.moveaxis(embed(O0[i], (a, sD, b)), 1, 2).reshape(a * b, sD)
+        Q, r = leading(P, A, m - sD, scale)
+        new = np.moveaxis(down[i], 1, 2).reshape(a * b, m)[:, sD:sD + r]
+        out['O%d' % i] = (subspace_distance(new, Q), r, min(m - sD, A.shape[1]))
+    return out
+
+
+def gradient_hint(frame, G):
+    """The driver's hint shape: the projection of a dense G onto the frame's tangent space, embedded as a T3."""
+    return tvo.tv_to_t3(frame, tvo.tv_project_dense_onto_tangent_space(frame, G))
+
+
+def captured_norm(frame, Y):
+    """||P_{T_F} Y|| for an orthonormal frame: the norm of the gauged coordinates."""
+    tk, tt = tvo.tv_project_dense_onto_tangent_space(frame, Y)
+    return math.sqrt(sum(float(np.sum(v * v)) for v in tk + tt))
+
+
+def rich_hint(shape, new_ranks, stack_shape=()):
+    """A random T3 above the target ranks (Tucker +1, interior bonds +1, capped at the mode sizes / 4): at least
+    as many directions as every slot of the target."""
+    tucker = tuple(min(N, n + 1) for N, n in zip(shape, new_ranks[0]))
+    tt = tuple(r if j in (0, len(shape)) else min(r + 1, 4) for j, r in enumerate(new_ranks[1]))
+    return t3.TuckerTensorTrain.randn(shape, tucker, tt, stack_shape=stack_shape)
+
+
+HINTED_CASES = {
+    'joint d=3':     ((5, 6, 7), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1))),
+    'joint d=4':     ((4, 5, 6, 3), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((3, 3, 4, 3), (1, 3, 4, 3, 1))),
+    'in-block d=4':  ((4, 4, 4, 4), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((2, 2, 2, 3), (1, 2, 3, 2, 1))),
+    'tucker only':   ((5, 6, 7), ((2, 3, 2), (1, 2, 2, 1)), ((3, 4, 2), (1, 2, 2, 1))),
+}
+
+
+class TestHintedValid(PaddedFrameAsserts):
+    """T3(a), (d), (i): valid padded frames for gradient hints, a zero gradient, the truncation, and d = 1."""
+
+    def test_gradient_hints(self):
+        rng = np.random.default_rng(0)
+        for name, (shape, old_ranks, new_ranks) in HINTED_CASES.items():
+            x_old, old, template = padded_case(shape, old_ranks, new_ranks)
+            X_old = x_old.to_dense()
+            hint_free = fvo.fv_padded_frame(template, old)
+            G = rng.standard_normal(shape)
+            hints = {'at the library frame': gradient_hint(template, G),
+                     'at a padded frame':    gradient_hint(hint_free, G),
+                     'zero gradient':        gradient_hint(template, np.zeros(shape))}
+            for kind, hint in hints.items():
+                with self.subTest(case=name, hint=kind):
+                    self.assert_valid(fvo.fv_padded_frame(template, old, hint), old, template, X_old)
+
+    def test_truncation(self):
+        """A hint embedded at the WORKING (oversampled) frame, the TARGET template: a valid target frame."""
+        shape, old_ranks = (6, 7, 8), ((2, 2, 2), (1, 2, 2, 1))
+        x_old, old, target = padded_case(shape, old_ranks, ((3, 3, 3), (1, 3, 3, 1)))
+        _, _, working = padded_case(shape, old_ranks, ((5, 5, 5), (1, 5, 5, 1)))
+        F_w = fvo.fv_padded_frame(working, old)
+        hint = gradient_hint(F_w, np.random.default_rng(1).standard_normal(shape))
+        self.assert_valid(fvo.fv_padded_frame(target, old, hint), old, target, x_old.to_dense())
+
+    def test_d1(self):
+        x_old, old, template = padded_case((7,), ((2,), (1, 1)), ((4,), (1, 1)))
+        for hint in (gradient_hint(template, np.random.default_rng(2).standard_normal(7)),
+                     t3.TuckerTensorTrain.randn((7,), (3,), (1, 1)).data):
+            padded = fvo.fv_padded_frame(template, old, hint)
+            self.assert_valid(padded, old, template, x_old.to_dense())
+
+    def test_external_hints_are_valid(self):
+        """T3(j), validity: raw external hints -- Tucker ranks below the target's, and a T3 sum (boundary bonds 2,
+        squashed by the constructor) -- at s > 0 and at s = 0."""
+        for name, (shape, old_ranks, new_ranks) in HINTED_CASES.items():
+            x_old, old, template = padded_case(shape, old_ranks, new_ranks)
+            low = t3.TuckerTensorTrain.randn(shape, tuple(max(1, n - 1) for n in new_ranks[0]), new_ranks[1])
+            total = low + t3.TuckerTensorTrain.randn(shape, *new_ranks)
+            self.assertEqual((total.data[1][0].shape[0], total.data[1][-1].shape[-1]), (2, 2))
+            for kind, hint in (('low rank', low.data), ('T3 sum', total.data)):
+                with self.subTest(case=name, hint=kind):
+                    self.assert_valid(fvo.fv_padded_frame(template, old, hint), old, template, x_old.to_dense())
+                    at_zero = fvo.fv_padded_frame(template, None, hint)
+                    self.assertLessEqual(float(fvo.fv_frame_orthogonality_residual(at_zero)), 1e-14)
+                    self.assertEqual(float(np.abs(t3c.t3_to_dense((at_zero[0], at_zero[2]))).max()), 0.0)
+
+    def test_rank_deficient_and_zero_hints_are_valid(self):
+        """Fewer hint directions than slots (rank-1, zero): completed, still valid (directions not asserted)."""
+        for name, (shape, old_ranks, new_ranks) in HINTED_CASES.items():
+            x_old, old, template = padded_case(shape, old_ranks, new_ranks)
+            rank1 = t3.TuckerTensorTrain.randn(shape, (1,) * len(shape), (1,) * (len(shape) + 1))
+            zero = t3.TuckerTensorTrain.zeros(shape, new_ranks[0], new_ranks[1])
+            for kind, hint in (('rank 1', rank1.data), ('zero', zero.data), ('zero + X_old', (zero + x_old).data)):
+                with self.subTest(case=name, hint=kind):
+                    self.assert_valid(fvo.fv_padded_frame(template, old, hint), old, template, x_old.to_dense())
+
+
+class TestHintCoordinates(unittest.TestCase):
+    """T3(b): for gradient hints the old frame's overlaps with the hint's chains have orthonormal rows (the
+    exactness condition); for an arbitrary T3 hint they are contractions (norm <= 1)."""
+
+    def test_overlaps(self):
+        rng = np.random.default_rng(3)
+        for name, (shape, old_ranks, new_ranks) in HINTED_CASES.items():
+            x_old, old, template = padded_case(shape, old_ranks, new_ranks)
+            hint_free = fvo.fv_padded_frame(template, old)
+            G = rng.standard_normal(shape)
+            other = t3.TuckerTensorTrain.randn(shape, tuple(max(1, n - 1) for n in new_ranks[0]), new_ranks[1]).data
+            for kind, hint, exact in (('library frame', gradient_hint(template, G), True),
+                                      ('padded frame', gradient_hint(hint_free, G), True),
+                                      ('arbitrary T3', other, False)):
+                with self.subTest(case=name, hint=kind):
+                    _, _, _, _, A, OmL, OmR, _ = fvo._hint_coordinates(hint, old[0], old[2], old[3])
+                    for X in A + OmL[:-1] + OmR[1:]:        # the interfaces (the boundary zippers are scalars)
+                        if exact:
+                            self.assertLessEqual(np.linalg.norm(X @ X.T - np.eye(X.shape[0])), 1e-13)
+                        else:
+                            self.assertLessEqual(np.linalg.norm(X, 2) if X.size else 0.0, 1 + 1e-13)
+
+
+class TestDenseOracle(unittest.TestCase):
+    """T3(h): every step's new directions against their dense definition (projector distance < 1e-9), on hints with
+    at least k directions per slot -- unshared and shared, d = 3 and 4, C = () and (2,)."""
+
+    def check(self, frame, old, Z, groups=(), require_full=True):
+        res = oracle_distances(frame, old, Z, groups)
+        for step, (dist, r, count) in res.items():
+            with self.subTest(step=step):
+                if require_full:
+                    self.assertEqual(r, count, 'the oracle determines %d of %d directions of %s' % (r, count, step))
+                self.assertLess(dist, 1e-9)
+        return res
+
+    def test_gradient_hints(self):
+        """Gradient hints contain X_old's interfaces (exact); degenerate slots are compared where determined."""
+        rng = np.random.default_rng(4)
+        for name, (shape, old_ranks, new_ranks) in HINTED_CASES.items():
+            x_old, old, template = padded_case(shape, old_ranks, new_ranks)
+            hint = gradient_hint(template, rng.standard_normal(shape))
+            with self.subTest(case=name):
+                res = self.check(fvo.fv_padded_frame(template, old, hint), old, t3c.t3_to_dense(hint),
+                                 require_full=False)
+                self.assertGreater(sum(r for _, r, _ in res.values()), 0)
+
+    def test_external_hint_plus_x_old(self):
+        """An arbitrary T3 H made exact by adding X_old (T3(j)): the oracle with Z = H, every direction."""
+        for name, (shape, old_ranks, new_ranks) in HINTED_CASES.items():
+            x_old, old, template = padded_case(shape, old_ranks, new_ranks, seed=5)
+            H = rich_hint(shape, new_ranks)
+            with self.subTest(case=name):
+                self.check(fvo.fv_padded_frame(template, old, (H + x_old).data), old, H.to_dense())
+
+    def test_zero_tensor(self):
+        """s = 0 (old_frame=None): the pinned T3-SVD of H itself, every direction."""
+        for name, (shape, _, new_ranks) in HINTED_CASES.items():
+            template = frame_of(t3.TuckerTensorTrain.zeros(shape, *new_ranks))
+            H = rich_hint(shape, new_ranks)
+            empty = fvo._empty_old_frame(shape, (), np.float64, np)
+            with self.subTest(case=name):
+                self.check(fvo.fv_padded_frame(template, None, H.data), empty, H.to_dense())
+
+    def test_shared(self):
+        """T3(e): one U per group (the same array), and the group's new rows span the top eigenvectors of the
+        members' summed projected Grams."""
+        groups = ((0, 1), (2,))
+        x_old, old, template = padded_case((6, 6, 7), ((2, 2, 2), (1, 2, 2, 1)), ((5, 5, 3), (1, 4, 3, 1)),
+                                           sharing=(0, 0, 1))
+        H = rich_hint((6, 6, 7), ((5, 5, 3), (1, 4, 3, 1)))
+        padded = fvo.fv_padded_frame(template, old, (H + x_old).data, groups=groups)
+        self.assertIs(padded[0][0], padded[0][1])
+        PaddedFrameAsserts.assert_valid(self, padded, old, template, x_old.to_dense())
+        self.check(padded, old, H.to_dense(), groups)
+
+    def test_stacked(self):
+        """C = (2,): each element of the stacked call passes the oracle (and equals the per-element call, T3(f))."""
+        for name in ('joint d=3', 'joint d=4'):
+            shape, old_ranks, new_ranks = HINTED_CASES[name]
+            x_old, old, template = padded_case(shape, old_ranks, new_ranks, stack_shape=(2,))
+            H = rich_hint(shape, new_ranks, stack_shape=(2,))
+            padded = fvo.fv_padded_frame(template, old, (H + x_old).data)
+            for e in range(2):
+                with self.subTest(case=name, element=e):
+                    single = fvo.fv_padded_frame(take(template, e), take(old, e), take2((H + x_old).data, e))
+                    for got, want in zip(take(padded, e), single):
+                        for g, w in zip(got, want):
+                            self.assertLessEqual(np.max(np.abs(g - w)), 1e-12)
+                    self.check(single, take(old, e), H.to_dense()[e])
+
+
+def take2(t3_data, idx):
+    """The stack element ``idx`` of a stacked T3 .data pair."""
+    return tuple(tuple(c[idx] for c in cores) for cores in t3_data)
+
+
+class TestMatrixCase(unittest.TestCase):
+    """d = 2 with Tucker ranks = TT rank: the frame tangent space is the matrix one (T3(c), T3(j))."""
+
+    shape = (6, 7)
+
+    def setUp(self):
+        self.x_old, self.old, self.template = padded_case(self.shape, ((1, 1), (1, 1, 1)), ((3, 3), (1, 3, 1)), seed=6)
+        self.u, self.v = self.old[0][0], self.old[0][1]                  # X_old's row / column spaces (1 x N)
+
+    def normal_part(self, Y):
+        Pu, Pv = np.eye(6) - self.u.T @ self.u, np.eye(7) - self.v.T @ self.v
+        return Pu @ Y @ Pv
+
+    def test_external_hint_top_singular_subspaces(self):
+        """With H + X_old the new slots are the top-2 singular subspaces of P_u^perp H P_v^perp (< 1e-10)."""
+        H = t3.TuckerTensorTrain.randn(self.shape, (4, 5), (1, 4, 1))
+        up = fvo.fv_padded_frame(self.template, self.old, (H + self.x_old).data)[0]
+        Ul, _, Vt = np.linalg.svd(self.normal_part(H.to_dense()))
+        self.assertLess(subspace_distance(up[0][1:].T, Ul[:, :2]), 1e-10)
+        self.assertLess(subspace_distance(up[1][1:].T, Vt[:2].T), 1e-10)
+
+    def test_raw_external_hint_captures_at_least_the_library_frame(self):
+        """With the raw H (the caveat case) the frame is valid and captures at least the library frame's share."""
+        H = t3.TuckerTensorTrain.randn(self.shape, (4, 5), (1, 4, 1))
+        padded = fvo.fv_padded_frame(self.template, self.old, H.data)
+        PaddedFrameAsserts.assert_valid(self, padded, self.old, self.template, self.x_old.to_dense())
+        Hd = H.to_dense()
+        self.assertGreaterEqual(captured_norm(padded, Hd), captured_norm(self.template, Hd))
+
+    def test_fixed_point(self):
+        """T3(c): new slots aligned with the top singular subspaces of N, hint P_T G at that frame: the
+        constructor returns the same subspaces (< 1e-10)."""
+        G = np.random.default_rng(7).standard_normal(self.shape)
+        Ul, _, Vt = np.linalg.svd(self.normal_part(G))
+        up, down, left, right = fvo.fv_padded_frame(self.template, self.old)
+        aligned = ((np.concatenate([self.u, Ul[:, :2].T]), np.concatenate([self.v, Vt[:2]])), down, left, right)
+        self.assertLessEqual(float(fvo.fv_frame_orthogonality_residual(aligned)), 1e-14)
+        up2 = fvo.fv_padded_frame(self.template, self.old, gradient_hint(aligned, G))[0]
+        self.assertLess(subspace_distance(up2[0][1:].T, Ul[:, :2]), 1e-10)
+        self.assertLess(subspace_distance(up2[1][1:].T, Vt[:2].T), 1e-10)
+
+
+class TestHintStructuralErrors(unittest.TestCase):
+    """T3(g): each a ValueError naming the store."""
+
+    def test_errors(self):
+        x_old, old, template = padded_case((5, 6, 7), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1)))
+        Ht, Hg = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1)).data
+        stacked = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1), stack_shape=(3,)).data
+        other_N = t3.TuckerTensorTrain.randn((5, 6, 8), (2, 3, 2), (1, 2, 2, 1)).data
+        cases = {
+            'mode sizes':        (other_N, 'mode size'),
+            'bond mismatch':     ((Ht, (Hg[0], Hg[1][:, :, :1], Hg[2])), 'disagree on bond'),
+            'tucker mismatch':   ((Ht, (Hg[0], Hg[1][:, :2], Hg[2])), 'Tucker rank'),
+            'another stack':     (stacked, "caller's"),
+            'too few cores':     ((Ht[:2], Hg[:2]), 'd = 3'),
+            'not a pair':        ((Ht,), 'pair'),
+        }
+        for name, (hint, msg) in cases.items():
+            with self.subTest(case=name), self.assertRaisesRegex(ValueError, msg):
+                fvo.fv_padded_frame(template, old, hint)
 
 if __name__ == '__main__':
     unittest.main()
