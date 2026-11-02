@@ -58,7 +58,12 @@ the codebase-wide style audit/refactor are a SEPARATE later arc (Nick's own read
 **Nick's round-10 decisions (2026-11-02):** padded-frame code in a NEW `backend/padded_frames.py` (all imports
 downward); `compute_orthogonal_representation_ranks` stays in `ranks` (the `ranks` → `sharing` dependence is a code
 smell for the drift-fix arc); no `dtype` argument anywhere in the feature; add the `with_ranks` test. Plan delta rounds
-9–10 DONE and critic-approved (review_r7); awaiting Nick's sign-off → then the corrective slice S2′ (new
+9–10 DONE and critic-approved (review_r7); Nick OK'd them with changes (typ.Union annotations; no dtype) and
+raised a FURTHER issue → round 11: frontend/backend split and backend bloat. Most new backend functions need
+FRONTEND TWINS (methods of the appropriate classes or standalone functions, as the gold standard does it);
+detailed docstrings and doctests move from the backend to the frontend twins; most in-function argument validation
+moves from the backend to the frontend (backend functions keep one-line docstrings + shape comments, as
+`tucker_change_core_shapes` / `t3svd` do). Round 11 in progress → critic → Nick's sign-off → then the corrective slice S2′ (new
 `backend/padded_frames.py`; `fv_operations` back to efe5e3d; S4's uncommitted member refactored).
 
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
