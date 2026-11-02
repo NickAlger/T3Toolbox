@@ -57,8 +57,9 @@ the codebase-wide style audit/refactor are a SEPARATE later arc (Nick's own read
 
 **Nick's round-10 decisions (2026-11-02):** padded-frame code in a NEW `backend/padded_frames.py` (all imports
 downward); `compute_orthogonal_representation_ranks` stays in `ranks` (the `ranks` → `sharing` dependence is a code
-smell for the drift-fix arc); no `dtype` argument anywhere in the feature; add the `with_ranks` test. Plan delta round
-10 in progress → critic re-check → Nick's sign-off → corrective slice S2′.
+smell for the drift-fix arc); no `dtype` argument anywhere in the feature; add the `with_ranks` test. Plan delta rounds
+9–10 DONE and critic-approved (review_r7); awaiting Nick's sign-off → then the corrective slice S2′ (new
+`backend/padded_frames.py`; `fv_operations` back to efe5e3d; S4's uncommitted member refactored).
 
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of

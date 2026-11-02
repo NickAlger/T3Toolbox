@@ -1,8 +1,10 @@
 # Implementation plan — the padded frame, its subspace iteration, and the cone reference
 
-> **STATUS: round 7 (writer; revised after the critic's round-4 review `dev/padded_frame_cone_plan_review_r4.md`, which
-> follows Nick's rounds 5–6; earlier reviews `…_review_r1.md` … `…_review_r3.md`; the critic's notes `…_plan_q_old_point.md`,
-> `…_plan_q_vectorize.md`), 2026-11-02. Nothing is implemented.** A writer/critic plan in the
+> **STATUS: round 10 (writer; the fixes of the critic's round-6 review `dev/padded_frame_cone_plan_review_r6.md` of
+> the round-9 backend-style amendment, with Nick's round-10 decisions on I-32, `dtype` and the `with_ranks` test; round
+> 8 closed the critic's round-5 approval `…_review_r5.md`; earlier reviews `…_review_r1.md` … `…_review_r4.md`; the
+> critic's notes `…_plan_q_old_point.md`, `…_plan_q_vectorize.md`), 2026-11-02. Implementation paused at the slice
+> reached (see `dev/padded_frame_slices/`); it resumes with the corrective slice S2′ (§8).** A writer/critic plan in the
 > curvature-arc format (`dev/archive/riemannian_newton_curvature_impl_plan_2026-10-29_shipped.md`): the
 > critic reviews this file, the writer revises it in place and records each finding in the CHANGES table,
 > until the critic agrees; Nick and the orchestrating session then adjudicate the decisions table (§9).
@@ -81,6 +83,18 @@
 | 7 | **C** the exceptions to cross-layer agreement were listed five different ways, and "which the first hinted pass replaces" overstated | one canonical list E1–E4 in §3.3 (near-tie; degenerate hint; old frames differing by more than signs; an in-block coordinate seed in the old span), referenced by R5 and R10, quoted in the contract-doc paragraph and the internals page, pointed to from fitting §4.11 and `rank_continuation.md`; "whose effect the hinted passes damp but, at the default four, do not remove"; the rarity of E4 cited from the critic's probe | §3.3, §4.3, §7, R5, R10 |
 | 7 | **n1–n7** | n1: "each layer builds its **old** frame natively" in the three shipped sentences. n2: the backend's equal-padded-`N` check is dropped (the frontend keeps it for `allclose`), and the pre-existing `UniformTuckerTensorTrain.allclose` docstring mismatch becomes a separate ledger item. n3: G-nonbreaking also runs main's `tests/backend/test_*.py`. n4: the `working_ranks` example covers a uniform `x0` (`ranks.oversampled_ranks`). n5: T4(a) gains a non-minimal `x_old` / template row. n6: a code comment at the conditional forwarding. n7: a §3.8 caveat row for E4 | §3.4, §3.6, §3.8, §5.4, §5.7, §6, §7, I-37 |
 | 8 | **n8–n10** (review r5, approved) | n8: slice S5 no longer lists the dropped padded-`N` guard. n9: §3.8's frontend structural row gains the uniform padded-`N` check that the frontend's same-tensor `allclose` needs. n10: §1, the release notes and the pitfalls table now say "the pre-existing tests (frontend and backend) pass unmodified" | §1, §3.8, §7, §8, §12 |
+| 9 | **The backend style** (Nick: a style problem paused the implementation; option C — fix the construction's boundary first) | the gold standard studied and traced (`dev/padded_frame_slices/style_notes_writer.md`). `fv_padded_frame(shape, tucker_ranks, tt_ranks, old_frame, hint, groups, seed, stack_shape, dtype, use_jax)`: the structure as three int sequences; the stores derived inside by `ranks.compute_orthogonal_representation_ranks`; array shapes read inline; inline integer checks (no dict helper, no `_frame_stores`); dtype and backend from the arrays, or the array-free-constructor convention; the frame tuple returned; no template frame | §3.2, §5.2, §4.0, §4.2 |
+| 9 | **Integer structures in the members** | `padded_structures` returns `(shape, target ranks, working ranks)` — integers only, never a frame or an orthogonalized zero tensor. `padded_frame(shape, tucker, tt, x_old, hint, seed, …)` builds the old frame from the old point itself. A new member, `with_ranks(tucker, tt)` (ragged: `self`), builds the uniform geometry at other ranks from ints and masks (`ut3_make_masks`, `ufv_make_frame_masks`, `ufv_variation_masks`). The uniform conversion repacks with masks built from the integer stores | §3.1, §3.3, §3.4, §4.8, §5.4 |
+| 9 | **`fv_zero_point_frame`** | unchanged this release; its template pattern is ruled wrong and goes to a later audit arc (ledger, I-26); not a precedent | §3.2, §7, I-26 |
+| 9 | **The style rule in §12** | the rule verbatim, the gold standard as the only allowable precedent, "precedent outside the gold standard is not justification", and a pitfalls row | §12, I-42 |
+| 9 | **Flagged: I-32 reopened** | deriving the stores inside needs `ranks`, and `fv_operations → ranks → sharing → fv_operations` is a cycle. Options: (A) a new module `backend/padded_frames.py` (recommended); (B) a function-level import (contradicts G-acyclic); (C) the recurrence inline (duplicates). For Nick | §3.2, §5.2, I-32 |
+| 10 | **MINOR 1** (review r6): the template survived in normative text | every trace removed; the structure is `(shape, tucker_ranks, tt_ranks)` plus the stores `ranks.compute_orthogonal_representation_ranks` derives. §4.2 builds the empty old frame from integers; §5.2's raw-uniform recipe builds the old frame natively and takes integer ranks; T4(a) calls the member with `x_old=None`; T4(b) compares the masks with the native sweep's and the geometry's `var_masks`; the §6 preamble, §3.6 and the three pitfalls rows name the geometry's masks and padded sizes. Also swept: §2, §3.3 step 1, §3.8, §3.9, §4.0 (the reading rule replaced by a structure bullet), §4.9, T3(d)/(g), I-35 and Appendix B (the prototype takes the target stores as integers; the math is unchanged) | §2, §3.3, §3.6, §3.8, §3.9, §4.0, §4.2, §4.9, §5.2, §6, §12, I-35, App. B |
+| 10 | **I-32 settled: option A** (Nick; overrides the critic's option D) | `fv_padded_frame` and its private helpers go in a new module, `backend/padded_frames.py`. Its imports all point downward (`ranks`; `fv_operations` for `ZERO_FRAME_SEED`, `_haar_rows`, `_identity_prefix`; …), and only `geometry` imports it (AST check, acyclic). The justification is the import graph alone; the `utv_operations` citation is dropped (r6 NIT). `compute_orthogonal_representation_ranks` stays in `ranks`. D is recorded as not taken; B and C are rejected. A new ledger entry records `ranks`' dependence on `sharing` as a code smell for the later drift-fix arc; nothing changes now | §1, §3.1, §3.2, §5.2, §7, §12, I-32 |
+| 10 | **Slice S2′** (the handoff's corrective slice) | new row. S2′ creates `backend/padded_frames.py` and moves the S2/S3 code into it with the round-9 signature. `fv_operations` returns to its committed pre-arc form (`efe5e3d`); the new module imports its `_haar_rows` / `_identity_prefix`. S4's uncommitted member is brought to the integer form. S3's oracle tests carry over | §8 |
+| 10 | **J1: no `dtype`** (Nick) | dropped from `fv_padded_frame` and the geometry member. The dtype follows the arrays; an array-free call gives the backend's default float (float64 under numpy), as `t3_zeros`. There is no cast; §3.5 states the one consequence: the cone's passes run in float64 on float32 numpy data | §3.2, §3.4, §3.5, §4.2, §5.2, §5.4, §12, I-43 |
+| 10 | **J2: §12's scope** (the maintainer's relaxation) | the rule binds every backend function of the feature, including everything the cone path calls. In the driver and geometry (optimizer-layer) code it is the goal: that layer passes points | §12, I-44 |
+| 10 | **J3: `with_ranks`** (Nick) | §3.4 says why its hand-built masks are safe. New test T5(i): `with_ranks` of a geometry's own ranks reproduces its `masks` and `var_masks` exactly. `with_ranks` is added to §1's inventory and slice S5, and I-16 now names it as the working geometry's source (round 9 had changed §3.4 and §5.4 only) | §1, §3.4, §6, §8, I-16, I-45 |
+| 10 | **NIT** (review r6): §3.1 | the cone path is drawn, with the array-free call's `stack_shape` and `use_jax` taken from `x0`. The stack needed a source in a T3-free driver: `padded_structures` now also returns `x_cores`' stack `C` (integers) | §3.1, §3.4, §5.4 |
 
 ---
 
@@ -199,9 +213,10 @@ iteration reaching the tangent-cone value exactly in the matrix case.
 | file | what | where |
 |---|---|---|
 | `backend/linalg.py` | `pinned_completion`, `pinned_leading_columns` (the two factorization primitives, §4.1) | after `damped_pseudo_inverse` (`:778-825`); `__all__` `:20-33` |
-| `backend/fv_operations.py` | `fv_padded_frame` (public, in `__all__`) and its private helpers `_empty_old_frame`, `_embed`, `_outside_first`, `_hint_coordinates`, `_tucker_completion`, `_pinned_left_sweep`, `_down_completion` (§4.2–§4.7), beside `fv_zero_point_frame` (the recommended option of I-32); new module-level imports `t3_orthogonalization`, `tt_orthogonalization` (neither reaches `fv_operations`) | after `fv_zero_point_frame` (`:288-430`); `__all__` `:29-49`; imports `:21-27` |
+| `backend/padded_frames.py` (**new**; I-32, Nick, round 10) | `fv_padded_frame(shape, tucker_ranks, tt_ranks, …)` (public, in the module's `__all__`) and its private helpers `_empty_old_frame`, `_embed`, `_outside_first`, `_hint_coordinates`, `_tucker_completion`, `_pinned_left_sweep`, `_down_completion` (§4.2–§4.7). Imports, all downward: `ranks` (the store recurrence), `fv_operations` (`ZERO_FRAME_SEED`, `_haar_rows`, `_identity_prefix`), `t3_orthogonalization`, `tt_orthogonalization`, `tt_operations`, `contractions`, `linalg`, `common`. Only `geometry` imports it | new file |
+| `backend/fv_operations.py` | — | **unchanged** from `efe5e3d` (S2′ returns it to that form); the new module imports its `ZERO_FRAME_SEED`, `_haar_rows` and `_identity_prefix` |
 | `backend/ufv_operations.py` | — | **unchanged**: no uniform twin (item 7); the uniform conversion lives in `UniformManifoldGeometryOps.padded_frame` |
-| `backend/geometry.py` | five optional members on the two **manifold** geometry classes: `tangent_to_t3`, `padded_frame`, `padded_structures` (the old frame built natively from `x_old`; the uniform one from its own `.data` and masks), `oversampled_ranks` (delegates to the rank function), `require_frame_structure` (§3.4); new imports `ranks`, `t3_constructors`, `ut3_constructors`, `ut3_conversions` | `ManifoldGeometryOps` after `zero_point_frame` (`:326-333`); `UniformManifoldGeometryOps` after `:706-713`; imports `:58-72`; the corewise classes (`:392`, `:774`) unchanged |
+| `backend/geometry.py` | six optional members on the two **manifold** geometry classes: `tangent_to_t3`, `padded_frame` (the old frame built natively from `x_old`; the uniform one from its own `.data` and masks), `padded_structures` (integers only), `with_ranks` (ragged: `self`; uniform: from ints and masks), `oversampled_ranks` (delegates to the rank function), `require_frame_structure` (§3.4); new imports `ranks`, `padded_frames`, `ut3_conversions` | `ManifoldGeometryOps` after `zero_point_frame` (`:326-333`); `UniformManifoldGeometryOps` after `:706-713`; imports `:58-72`; the corewise classes (`:392`, `:774`) unchanged |
 | `backend/ranks.py` | `oversampled_ranks(shape, tucker_ranks, tt_ranks, p, sharing=None)` — the one home of the working-rank rule (§3.5) | beside `compute_minimal_ranks` (`:51`); `__all__` |
 | `backend/optimizers.py` | `PaddedStart`, `padded_start`, the constants `PADDED_START_PASSES` / `CONE_REFERENCE_PASSES` / `PADDED_FRAME_OVERSAMPLE`, `_cone_reference_gnorm` (§3.5, §3.7) | after `least_squares_problem` (`:434-444`); `__all__` `:46-59` |
 | `t3toolbox/optimizers.py` | frontend `padded_start` (§5.7) | after `least_squares_problem` (`:197-330`); `__all__` `:57-66` |
@@ -251,7 +266,7 @@ iteration reaching the tangent-cone value exactly in the matrix case.
 `docs/contributor/curvature_internals.md` (`:171-222`, `:307`); `docs/contributor/deferred_and_rejected.md`
 (`:54-62`, `:227-229`); `docs/contributor/verification_records.md` (`:91-102` + a section);
 `docs/contributor/sharing_internals.md` (`:98-122`); `docs/exact_hessian_two_hole.tex` (`:904-940`; `:937` the O(1)
-sentence); `docs/naming_conventions.md` (`:45-48`, only under I-32's alternative placement); new
+sentence); `docs/naming_conventions.md` (`:45-48`, the topic-module sentence, I-32); new
 `docs/contributor/padded_frame_internals.md`.
 
 ---
@@ -261,15 +276,15 @@ sentence); `docs/naming_conventions.md` (`:45-48`, only under I-32's alternative
 ### 2.1 Setting
 
 `X_old` is a T3 at ranks `(s, σ)` with an orthonormal frame `F_old = (U°, O°, L°, R°)` whose four rank stores
-are `(nU°, nD°, rL°, rR°)`; the target ranks `(r, ρ) ≥ (s, σ)` give the template stores `(nU, nD, rL, rR)` by
+are `(nU°, nD°, rL°, rR°)`; the target ranks `(r, ρ) ≥ (s, σ)` give the target stores `(nU, nD, rL, rR)` by
 the recurrence of `ranks.compute_orthogonal_representation_ranks` (`nU_i = min(r_i, N_i)`,
 `rL_{k+1} = min(rL_k nU_k, ρ_{k+1})`, `rR_k = min(rL_k, nU_k rR_{k+1})`, `nD_i = min(nU_i, rL_i rR_{i+1})`). Every
 step of the recurrence is monotone in its inputs, so `(r, ρ) ≥ (s, σ)` implies **old ≤ new in all four
 stores** — the embedding below always exists. (`s = 0` — no old block — is the zero tensor; its "old stores"
 are 0 except the boundary bonds.)
 
-A **padded frame** of `X_old` at `(r, ρ)` is an orthonormal frame `F = (U, O, L, R)` with the template's core
-shapes such that
+A **padded frame** of `X_old` at `(r, ρ)` is an orthonormal frame `F = (U, O, L, R)` with the target stores'
+core shapes such that
 
 - **the old block is embedded**: `U_i[:nU°_i] = U°_i`; `L_k[:rL°_k, :nU°_k, :rL°_{k+1}] = L°_k` with zeros in the
   rest of those columns; likewise `R_k` (old rows), `O_i` (old down rows);
@@ -335,7 +350,7 @@ Two consequences carry over to T3:
 
 ### 2.3 The pinned T3-SVD of a hint
 
-A **hint** is a T3 `Z` — any Tucker tensor train at the template's mode sizes, of any ranks (stack `C`). The
+A **hint** is a T3 `Z` — any Tucker tensor train at the mode sizes `shape`, of any ranks (stack `C`). The
 construction reads nothing but `Z`'s cores, so it is a function of an ambient tensor; no frame or tangent type is
 involved. That is the honest type, and it is general: the hint can be the gradient at the current padded frame (the
 driver's choice, §2.6), another level's search direction, a gradient from another data set or metric, a sum of such
@@ -542,18 +557,20 @@ escape route that section describes, now aimed.
  backend/ranks.py           oversampled_ranks(shape, tucker_ranks, tt_ranks, p, sharing)   ── THE "+p, minimal, never below" rule
  backend/linalg.py          pinned_completion, pinned_leading_columns          (factorizations; no T3 semantics)
           │
- backend/fv_operations.py   fv_padded_frame(frame, old_frame, hint, groups, seed)   ── the constructor (ragged, stack C);
-          │                 beside fv_zero_point_frame (its s = 0, hint-free case)     hint = any ragged T3 (cores)
-          │                          ▲ reused (module-level, all downward): t3_down_orthogonalize_tucker_cores,
-          │                            tt_*_orthogonalize, tt_zipper_*, tt_reverse, tt_squash_tails, contract,
-          │                            _haar_rows, _identity_prefix, pad_or_truncate
+ backend/padded_frames.py   fv_padded_frame(shape, tucker_ranks, tt_ranks, old_frame, hint, groups, seed)  ── the constructor (ragged, stack C);
+   (new, I-32)              fv_zero_point_frame (fv_operations) is its s = 0, hint-free case      hint = any ragged T3 (cores)
+          │                          ▲ reused (module-level, all downward): ranks.compute_orthogonal_representation_ranks,
+          │                            t3_down_orthogonalize_tucker_cores, tt_*_orthogonalize, tt_zipper_*, tt_reverse,
+          │                            tt_squash_tails, contract, fv_operations._haar_rows / _identity_prefix, pad_or_truncate
           │                 (no uniform twin: the uniform geometry member converts explicitly)
           │
  backend/geometry.py        ManifoldGeometryOps / UniformManifoldGeometryOps only (optional, duck-typed members):
                               tangent_to_t3(frame, tangent)            → the tangent as this layer's T3 (tv_to_t3 / utv_to_ut3)
-                              padded_frame(frame, old_frame, hint, seed) → fv_padded_frame with the geometry's groups
+                              padded_frame(shape, tucker, tt, x_old, hint, seed, stack_shape, use_jax)
+                                                                       → fv_padded_frame with the geometry's groups
                                                                          (uniform: unpack → fv_padded_frame → repack, host loop)
-                              padded_structures(x, x_old, working_ranks) → (old_frame, target, working, working_geometry)
+                              padded_structures(x, x_old, working_ranks) → (shape, C, target ranks, working ranks): ints only
+                              with_ranks(tucker, tt)                   → this geometry at those ranks (uniform: from ints and masks)
                               oversampled_ranks(x, p)                  → ranks.oversampled_ranks with the geometry's sharing
                               require_frame_structure(x, frame)
           │
@@ -574,15 +591,14 @@ escape route that section describes, now aimed.
 x0 (the new level's start: the same tensor as x_old at higher ranks, e.g. x_old.resize(...))
  └─ working = geom.oversampled_ranks(x0, PADDED_FRAME_OVERSAMPLE)          (the rank function; the only rank arithmetic)
  └─ padded_start(problem, x0, x_old, working, passes, seed, final_gradient=False)
-     ├─ geom.padded_structures(x0, x_old, working) ── old_frame: the frame of x_old, built by this layer from x_old's
-     │                                               own data (uniform: its own masks); target: a frame of x0's
-     │                                               structure; the working template + its geometry
+     ├─ shape, C, target, working = geom.padded_structures(x0, x_old, working) (integers only; the structural checks)
+     ├─ geom_w = geom.with_ranks(*working)                                       (uniform: built from ints and masks)
      ├─ r0 = kind.point_forward(x0, sample) − data             (once: the point never moves)
-     ├─ F = geom_w.padded_frame(working_template, old_frame, None, seed)       (the hint-free start)
+     ├─ F = geom_w.padded_frame(shape, *working, x_old, None, seed)            (the hint-free start; x_old's frame built inside)
      ├─ repeat passes − 1 times:  g = geom_w.project(F, kind.transpose(r0, sample, F, kind.precompute(F, sample)),
      │                                               aux=geom_w.precompute(F))
-     │                            F = geom_w.padded_frame(working_template, old_frame, geom_w.tangent_to_t3(F, g), seed)
-     └─ last pass: g at F (as above), then F = geom.padded_frame(target, old_frame, geom_w.tangent_to_t3(F, g), seed)
+     │                            F = geom_w.padded_frame(shape, *working, x_old, geom_w.tangent_to_t3(F, g), seed)
+     └─ last pass: g at F (as above), then F = geom.padded_frame(shape, *target, x_old, geom_w.tangent_to_t3(F, g), seed)
                                                                                     (the truncation)
  └─ lm0 = problem.local_model(x0, frame=F) → require_frame_structure(x0, F) → the model at F
  stats: 'start_frame_source' = 'padded' and 'padded_start_gnorms' = the per-pass norms — present only on such runs.
@@ -590,27 +606,71 @@ x0 (the new level's start: the same tensor as x_old at higher ranks, e.g. x_old.
  influences iteration 0 only.
 ```
 
+**`g0_reference='cone'`** (§3.7) — the feature's one array-free construction:
+
+```
+x0 (any point; only its structure, stack and backend are read)
+ └─ padded_start(problem, x0, None, geom.oversampled_ranks(x0, PADDED_FRAME_OVERSAMPLE), cone_passes, cone_seed)
+     ├─ shape, C, target, working = geom.padded_structures(x0, None, working)
+     ├─ geom_w = geom.with_ranks(*working)
+     ├─ r0 = kind.point_forward(corewise_zeros_like(x0), sample) − data      (the zero tensor of x0's ranks, s = 0)
+     ├─ F = geom_w.padded_frame(shape, *working, None, None, seed,
+     │                          stack_shape=C, use_jax=tree_contains_jax(x0)) (array-free: the default float, I-43)
+     └─ the passes as above with x_old = None; final_gradient=True, and .gnorm is the cone reference
+```
+
 ### 3.2 The constructor `fv_padded_frame`
 
-**Inputs.** A **template** frame at the new ranks (only its core shapes and dtype are read — the
-`fv_zero_point_frame` convention), the **old frame** (an orthonormal frame of `X_old`, or `None` for the zero
-tensor), an optional **hint** — a ragged T3 `.data` `(tucker_cores, tt_cores)` at the template's mode sizes, of any
-ranks, stack `C` (§2.3) — the sharing `groups`, and the `seed`.
+**Style (round 9).** The constructor is written in the gold-standard backend style (§12). It is a **pure
+mathematical function** on immutable basic types. The structure travels as **three int sequences**, `shape`,
+`tucker_ranks` and `tt_ranks`, as in `t3_zeros`, `compute_minimal_ranks` and `tt_change_core_shapes`. There is **no
+template frame**: no argument is passed to have its shapes read. There is **no dict-of-shapes helper**: integer checks
+sit inline, as in `tucker_change_core_shapes`. `fv_zero_point_frame`'s template-frame signature (commit 3e5bc922) is
+**not** a precedent — the maintainer has ruled it wrong — and is **not changed in this release**; its defect is
+recorded for a later audit arc (§7's ledger).
 
-**Output.** A padded frame of `X_old` (§2.1) with the template's core shapes and dtype, stack `C`, and the backend
-(numpy/jax) inferred from the array inputs.
+**Inputs.**
 
-**Structural** (checked always, both modes; each a `ValueError` naming the offending store and mode):
+- **The target structure:** `shape` (`len=d`), `tucker_ranks` (`len=d`), `tt_ranks` (`len=d+1`).
+- **The old frame:** an orthonormal frame of `X_old`, or `None` for the zero tensor.
+- **The hint** (optional): a ragged T3 `.data` `(tucker_cores, tt_cores)` at the mode sizes `shape`, of any ranks,
+  stack `C` (§2.3).
+- **The sharing `groups` and the `seed`.**
+- **For array-free calls only** (no old frame and no hint — the `s = 0` hint-free frame): `stack_shape=()` and
+  `use_jax=False`, by the convention of the array-free constructors (`t3_zeros(…, stack_shape=(), use_jax=False)`:
+  "no array inputs, so the flag chooses the output type"). There is **no `dtype`** (Nick, round 10; I-43): the dtype
+  follows the arrays, and an array-free call returns the backend's default float (float64 under numpy), as `t3_zeros`
+  does.
 
-- the template is admissible (`fv_zero_point_frame`'s check, `:379-388`);
-- the old frame's four stores are ≤ the template's, mode by mode;
-- the old frame's stack is the template's `C`;
+**Derived inside.** The four stores come from the rank recurrence, the one function the orthogonal representation and
+the uniform frame masks already use:
+
+```
+nU, nD, rL, rR = ranks.compute_orthogonal_representation_ranks(shape, tucker_ranks, tt_ranks)
+```
+
+The old frame's stores are read inline from its arrays (`[U.shape[-2] for U in old_frame[0]]`, …), and so are the
+hint's ranks and mode sizes (`[B.shape[-1] for B in hint[0]]`, …). The stack is `old_frame[0][0].shape[:-2]` or the
+hint's. The backend is `tree_contains_jax((old_frame, hint))`, and the dtype is `xnp.result_type` of the array
+inputs. With an array input present, the array-free parameters must keep their defaults (a structural error
+otherwise: the arrays decide).
+
+**Output.** A padded frame of `X_old` (§2.1): the frame tuple `(up, down, left, right)` with the derived stores, stack
+`C`, and the inputs' dtype and backend (array-free: the backend's default float).
+
+**Structural** (checked always, both modes; inline integer checks, each a `ValueError` naming the offending store and
+mode):
+
+- `len(shape) == len(tucker_ranks) == len(tt_ranks) − 1`, and `tt_ranks` has boundary 1;
+- the old frame's four stores are ≤ the derived stores, mode by mode;
+- the old frame's and the hint's stacks agree;
 - the hint is a consistent T3: `d` cores each; adjacent TT bonds agree; each TT core's middle axis equals its
-  Tucker core's rank. Its mode sizes are the template's and its stack is `C` — no comparison of its ranks with the
-  old frame's or the template's. A hint with any other stack (several hints stacked) is an error that names the
-  caller's reduction: combine the hints into one T3 first, for example by a T3 sum. Boundary bonds may exceed 1
-  (a T3 sum has boundary bonds 2): the hint's tails are squashed first (§4.4);
-- a sharing group's members have one `(rank, size)` in the template and the old frame; `d` agrees everywhere.
+  Tucker core's rank. Its mode sizes are `shape`, and its ranks are not compared with anything. A hint with another
+  stack (several hints stacked) is an error that names the caller's reduction: combine the hints into one T3 first,
+  for example by a T3 sum. Boundary bonds may exceed 1 (a T3 sum has boundary bonds 2): the hint's tails are squashed
+  first (§4.4);
+- a sharing group's members have equal `(tucker rank, size)` in `(tucker_ranks, shape)`, and the old frame's group
+  factors equal stores.
 
 **Numerical preconditions** (documented, never checked in the backend; the frontend checks what it builds): the old
 frame is orthonormal (ORTH), and with `groups` its Tucker factors are tied (TIED; the group's old block is read from
@@ -621,25 +681,44 @@ to be exact projections — true of the driver's gradient hints, and obtainable 
 pinned as old like the rest (the frontend reduces `x_old` structurally, §3.6).
 
 **Two paths.** `hint is None` → the hint-free completions (§4.3). Otherwise the hinted construction (§4.4–§4.7),
-which starts from the hint's cores. `old_frame is None` → the empty old block (`_empty_old_frame`), so `s = 0` is not
-a separate code path; the `s = 0`, hint-free, unstacked call reproduces `fv_zero_point_frame` (the coordinate cores
-exactly, the Haar factors to 1e-14 — §6's rule).
+which starts from the hint's cores. `old_frame is None` → the empty old block (`_empty_old_frame`, built from `shape`
+and the boundary ranks), so `s = 0` is not a separate code path. The `s = 0`, hint-free, unstacked, array-free call
+`fv_padded_frame(shape, tucker_ranks, tt_ranks)` reproduces `fv_zero_point_frame` on the frame of
+`t3_zeros(shape, tucker_ranks, tt_ranks)` — the test builds that frame, for `fv_zero_point_frame`'s sake only. The
+coordinate cores agree exactly and the Haar factors to 1e-14 (§6's rule).
 
-**Placement and imports** (I-32, settled by Nick: no cycle drives it since the hint became a T3). `fv_padded_frame`
-sits beside `fv_zero_point_frame` in `fv_operations`, with its private helpers nearby; there is no uniform twin (§3.3,
-item 7). The constructor no longer calls `tv_to_t3` — the driver
-embeds, through the geometry's `tangent_to_t3` (§3.4) — so its imports all point downward. It needs `tt_operations`,
-`t3_operations`, `contractions` and `linalg`, which `fv_operations` already imports (`:21-27`). The two new
-module-level edges are `t3_orthogonalization` and `tt_orthogonalization`; neither reaches a module that imports
-`fv_operations`. `geometry` gains `ranks`, `t3_constructors`, `ut3_constructors` and `ut3_conversions` (the uniform
-member's `ut3_to_t3`; `ut3_conversions` imports only `t3_conversions`, `tt_operations`, `t3_operations` and
-`ut3_masking`); none imports `geometry`. Gate G-acyclic (S3): the
-backend's import graph, built by an AST scan from every import node (module- and function-level), is acyclic, and
-the backend has no function-level import of a library module.
+**Placement and imports — I-32 (Nick, round 10: a new module).** The constructor and its private helpers live in a
+new module, **`backend/padded_frames.py`**. The reason is the import graph alone. The constructor derives its stores
+with `ranks.compute_orthogonal_representation_ranks`, and `fv_operations` cannot import `ranks`: `ranks` imports
+`sharing` (`ranks.py:16`), which imports `fv_operations` (`sharing.py:34`), so the edge would close the cycle
+`fv_operations → ranks → sharing → fv_operations`.
 
-**Traceability.** All shapes come from the template, the old frame and the hint; the Haar draws and the coordinate
-index sets are host numpy constants; every array operation is `xnp` / `contract` / `xnp.linalg`. So `fv_padded_frame`
-is `jax.jit`-traceable (T10) — a bonus, not a requirement: its consumers call it eagerly.
+The new module's imports all point downward: `ranks`, `fv_operations` (`ZERO_FRAME_SEED` and the private
+`_haar_rows`, `_identity_prefix`), `t3_orthogonalization`, `tt_orthogonalization`, `tt_operations`, `contractions`,
+`linalg`, `common`. Only `geometry` imports it. The writer's AST check of the pre-arc graph plus these edges finds no
+cycle (round 10). `fv_operations` returns to its committed pre-arc form (S2′, §8). The recurrence stays in `ranks`.
+That `ranks` depends on `sharing` at all is a code smell; it is recorded for the later drift-fix arc (§7's ledger)
+and not changed here.
+
+Not taken:
+
+- **(B)** a function-level import of `ranks` inside `fv_operations`. It breaks G-acyclic's "no function-level import
+  of a library module".
+- **(C)** the recurrence re-derived inline. That would be a third copy (`fv_conversions.py:206-214` already
+  re-derives it) of a recurrence with a documented order-sensitivity history (`ranks.py`'s docstring, review S1).
+- **(D)** the recurrence moved down to `fv_conversions`, with `ranks` keeping an alias (the critic's r6
+  recommendation). Nick keeps it in `ranks`.
+
+`docs/naming_conventions.md` gains one sentence beside the `sharing` example (`:45-48`): `padded_frames` is a topic
+module whose function carries its family prefix. `geometry` gains `ranks`, `padded_frames` and `ut3_conversions` (the
+uniform member's `ut3_to_t3`); none of them imports `geometry`. Gate G-acyclic (S3, rerun in S2′): the backend's
+import graph, built by an AST scan from every import node (module- and function-level), is acyclic, and the backend
+has no function-level import of a library module.
+
+**Traceability.** All shapes come from the three int sequences, the old frame and the hint; the Haar draws and the
+coordinate index sets are host numpy constants; every array operation is `xnp` / `contract` / `xnp.linalg`. So
+`fv_padded_frame` is `jax.jit`-traceable with the int sequences static (T10) — a bonus, not a requirement: its
+consumers call it eagerly.
 
 ### 3.3 The uniform layer: no twin, an explicit conversion; and the two layers
 
@@ -650,15 +729,18 @@ the conversion happens **explicitly at its one call site**, `UniformManifoldGeom
 docstring says in one line that the frame is built through the ragged constructor, host-side and eager. The member
 requires concrete masks, then for each element of a host loop over `C`:
 
-1. **Unpack.** The template and the old frame by `ufv_conversions.ut3frame_to_t3frame`, and the hint — a uniform T3
-   `.data` `(tucker_supercore, tt_supercore, shape, masks)` — by `ut3_conversions.ut3_to_t3`. `ut3_to_t3` returns
-   one ragged T3 per element and gathers through the masks (boolean index), so it handles gappy hint masks. The
-   driver's hints come from `utv_to_ut3`, which pads every bond to `rL + rR` with its own concatenated masks (the
-   appended boundary slots marked real, zero in the supercore); the gather takes exactly the real blocks.
-2. **Construct.** Run `fv_padded_frame`.
-3. **Repack.** Repack at the **template's** padded sizes with `ufv_conversions.t3frame_to_ut3frame(..., N=, nU=,
-   nD=, rL=, rR=)`. The repacked masks must equal the template's prefix masks (a structural error otherwise);
-   return the template's masks.
+1. **Unpack.** The old frame — built **natively** from `x_old`'s full `.data` by `ut3_orthogonal_representations`
+   — by `ufv_conversions.ut3frame_to_t3frame`, and the hint — a uniform T3 `.data` `(tucker_supercore, tt_supercore,
+   shape, masks)` — by `ut3_conversions.ut3_to_t3`. The target structure is the element's integer ranks (the member's
+   arguments). `ut3_to_t3` returns one ragged T3 per element and gathers through the masks (boolean index), so it
+   handles gappy hint masks. The driver's hints come from `utv_to_ut3`, which pads every bond to `rL + rR` with its
+   own concatenated masks (the appended boundary slots marked real, zero in the supercore); the gather takes exactly
+   the real blocks.
+2. **Construct.** Run `fv_padded_frame(shape, tucker_e, tt_e, old_frame_e, hint_e, self.groups, seed)`.
+3. **Repack.** Repack at **this geometry's** frame padded sizes with `ufv_conversions.t3frame_to_ut3frame(..., N=, nU=,
+   nD=, rL=, rR=)`. The masks are built from the integer stores, `ufv_make_frame_masks(*compute_orthogonal_representation_ranks(shape,
+   tucker, tt), nU, nD, rL, rR)` — the calls `ut3_orthogonal_representations` itself makes — and their variation
+   masks must equal the geometry's `var_masks` (a structural error otherwise).
 4. **Restack.** Restack with `ufv_stack`.
 
 The padding is exactly zero, and garbage in any input's padding is never read. On **identical inputs** the real
@@ -714,12 +796,23 @@ This is a statement about **subspaces** only. Tangent **coordinates** live in on
 entrywise same-frame guard for them (`safety.frames_equal`, `numerical_contracts.md` §"Equality is explicit") is
 correct and untouched: two gauge-equivalent frames are different frames for coordinates.
 
-### 3.4 Five optional geometry members
+### 3.4 Six optional geometry members
 
 Looked up duck-typed (the `zero_point_frame` precedent, `backend/optimizers.py:78-85`), defined on the two manifold
 geometries only. A geometry without them — the corewise ones (a corewise frame is the point itself: there is no
 completion to choose) and any custom geometry — keeps working; `padded_from`, `start_frame`, `local_model(frame=)`
 and `g0_reference='cone'` on it are structural errors naming the missing member.
+
+**Round 9 — structure as integers.** The members pass the structure as int sequences, like the gold-standard backend
+(§12):
+
+- `padded_structures` returns **integer structures only** — never a frame, never an orthogonalized zero tensor;
+- `padded_frame` takes the target `(shape, tucker_ranks, tt_ranks)` and the **old point**, and builds the old frame
+  itself;
+- the uniform members build from `(shape, ranks)` integers and masks.
+
+The round-6 table, which returned a target frame and a working template from `t3_orthogonal_representations(t3_zeros(...))`
+and a working geometry from `from_point(ut3_zeros(...))`, is withdrawn.
 
 **Why a separate `tangent_to_t3` member.** The driver's hint is the gradient embedded as a T3, and the embedding is a
 layer fact: `tv_to_t3` on the ragged layer, `utv_to_ut3` with the frame's variation masks on the uniform one. There
@@ -732,32 +825,49 @@ were two ways to supply it:
   would make `padded_frame` accept tangents again.
 
 No `shared_data` is passed: the untied embedding represents the same tensor as the tied one ("an exact rewrite",
-`tv_operations.py:230-236`), and the construction reads the hint only as a tensor. `oversampled_ranks` is a one-line
-adapter around the rank function (§3.5), so the T3-free driver can fill `working_ranks` without rank arithmetic of
-its own.
+`tv_operations.py:230-236`), and the construction reads the hint only as a tensor.
+
+`oversampled_ranks` is a one-line adapter around the rank function (§3.5), so the T3-free driver fills
+`working_ranks` without rank arithmetic of its own. `with_ranks` gives the geometry at another structure, which the
+uniform layer needs because its geometry holds masks; it mirrors the existing `with_sharing`. It is needed:
+`from_point` and `from_frame` take arrays, and building a zero point only to read its masks is the ruled-out pattern.
+
+`from_point`'s docstring warns against building masks by hand (`geometry.py:600-603`), and the uniform `with_ranks`
+does build them. Here that is safe, for three reasons:
+
+- its masks come from the recurrence and the mask builder that `ut3_orthogonal_representations` itself calls
+  (`ufv_conversions.py:111-115`), at the padded sizes that sweep produces (the min rules in the table below);
+- the conversion's frames are prefix by construction;
+- at the target, the integer-built masks are checked against the geometry's (§3.3 step 3).
+
+T5(i) guards the rest (Nick, round 10): `with_ranks` of a geometry's own ranks must reproduce its `masks` and
+`var_masks` exactly, so any drift from the sweep fails a test.
 
 | member | `ManifoldGeometryOps` | `UniformManifoldGeometryOps` |
 |---|---|---|
 | `tangent_to_t3(frame, tangent)` | `tv_operations.tv_to_t3(frame, tangent)` — the doubled-rank T3 cores (Tucker `nU + nD`, TT `rL + rR`) | `utv_operations.utv_to_ut3(frame, (tangent[0], tangent[1], shape, var masks))` with the variation masks of `frame` (`ufv_masking.ufv_variation_masks(frame[5])`) — a uniform T3 `.data`, bonds padded to `rL + rR` with its own concatenated masks |
-| `padded_frame(frame, old_frame, hint, seed)` | `fv_padded_frame(frame, old_frame, hint, self.groups, seed)`; `hint` a ragged T3 `.data` or `None` | the explicit conversion of §3.3 / §4.8 — unpack (`ut3frame_to_t3frame`, `ut3_to_t3`), `fv_padded_frame(..., self.groups, seed)`, repack (`t3frame_to_ut3frame` at the template's padded sizes and prefix masks), host loop over `C`; `hint` a uniform T3 `.data` or `None`; docstring: "built through the ragged constructor, host-side and eager" |
-| `padded_structures(x_cores, x_old, working_ranks)` | `old_frame = t3_orthogonal_representations(x_old)[0]` (`None` when `x_old is None`); `target = t3_orthogonal_representations(x_cores)[0]` (structure only); `working = t3_orthogonal_representations(t3_zeros(shape, *working_ranks, C))[0]` (`target` when `working_ranks is None`); returns `(old_frame, target, working, self)` | `old_frame = ut3_orthogonal_representations(x_old)[0]` — **natively**, from `x_old`'s full `.data` and its own masks (§3.3); `target = self.frame(x_sc)`; the working template **and its own geometry** from `ut3_zeros(shape, *working_ranks, C)` and `UniformManifoldGeometryOps.from_point(..., sharing)` (the geometry holds variation masks for one structure) |
-| `oversampled_ranks(x_cores, p)` | `ranks.oversampled_ranks(shape, *ranks of x_cores, p, sharing)` — unstacked | the same, from the point's masks (unstacked) |
-| `require_frame_structure(x_cores, frame)` | the frame's core shapes equal those of `x_cores`' orthogonal representation (`compute_orthogonal_representation_ranks`) + `C` | the frame's variation masks equal `self.var_masks` and its supercore shapes the expected padded ones |
+| `padded_frame(shape, tucker_ranks, tt_ranks, x_old, hint, seed, stack_shape, use_jax)` | `fv_padded_frame(shape, tucker_ranks, tt_ranks, old_frame, hint, self.groups, seed, …)` with `old_frame = t3_orthogonal_representations(x_old)[0]` (`None` when `x_old is None`); the array-free arguments are passed only when `x_old` and `hint` are both `None` | the explicit conversion of §3.3 / §4.8, from **ints and masks**. Per element of a host loop over `C`: the old frame **natively** from `x_old`'s full `.data` (`ut3_orthogonal_representations`, then `ut3frame_to_t3frame`); the hint by `ut3_to_t3`; `fv_padded_frame(shape, tucker_e, tt_e, …, self.groups, seed)`; repack with `t3frame_to_ut3frame` at **this geometry's** frame padded sizes; the frame masks built from the integer stores with `ufv_make_frame_masks(*compute_orthogonal_representation_ranks(shape, tucker, tt), nU, nD, rL, rR)` (the calls `ut3_orthogonal_representations` makes, `ufv_conversions.py:110-119`), which must equal the geometry's. Docstring: "built through the ragged constructor, host-side and eager" |
+| `padded_structures(x_cores, x_old, working_ranks)` | returns `(shape, stack_shape, target_ranks, working_ranks)` — **integers only**: `shape`, the stack `C` and the target ranks from `x_cores`' core shapes, inline (`[B.shape[-1] for B in tucker_cores]`, …); `working_ranks` validated (or the target when `None`) | the same from the geometry's held `shape` and masks (`masks[0].sum(-1)`, `masks[1].sum(-1)`; per-element arrays on a varying-rank stack); `C` from `x_cores`' supercores |
+| `with_ranks(tucker_ranks, tt_ranks)` | `self` (the ragged geometry holds no structure) | a new geometry at those ranks built from ints and masks: `masks = ut3_make_masks(tucker_ranks, tt_ranks, n, r)` with `n`, `r` the larger of this geometry's padded sizes and the ranks' maxima; `var_masks = ufv_variation_masks(ufv_make_frame_masks(*compute_orthogonal_representation_ranks(shape, tucker_ranks, tt_ranks), nU, nD, rL, rR))` with the frame padded sizes by the orthogonal sweep's min rules on `(n, r, N)` (`nU = min(n, N)`, `rL = rR = r`, `nD = min(nU, r²)`) — no orthogonalized zero tensor |
+| `oversampled_ranks(x_cores, p)` | `ranks.oversampled_ranks(shape, *target ranks, p, sharing)` — unstacked | the same, from the held masks (unstacked) |
+| `require_frame_structure(x_cores, frame)` | the frame's core shapes equal the stores `compute_orthogonal_representation_ranks` gives for `x_cores`' ranks, plus `C` | the frame's variation masks equal `self.var_masks`, and its supercore shapes the geometry's frame padded sizes |
 
-**`padded_structures`' structural checks** (both modes):
+**`padded_structures`' structural checks** (both modes; inline integer comparisons, no helper):
 
 - **Layer, shape and stack.** `x_old` is of `x_cores`' layer — the ragged cores pair, or the uniform full `.data`; a
   bare supercore pair is rejected, because the old frame needs `x_old`'s own masks — with the same shape and stack.
   (No padded-`N` requirement in the backend: the old frame unpacks through `x_old`'s own masks and the repack uses the
-  template's sizes. The frontend checks an equal padded `N`, because its same-tensor check subtracts — §3.6.)
-- **Stores.** `x_old`'s frame stores are ≤ `x_cores`'s, per store and stack element.
+  geometry's sizes. The frontend checks an equal padded `N`, because its same-tensor check subtracts — §3.6.)
+- **Stores.** `x_old`'s frame stores — `compute_orthogonal_representation_ranks` of its ranks, which are read from its
+  core shapes or its masks — are ≤ `x_cores`', per store and stack element.
 - **Working ranks.** `working_ranks`, when given, has lengths `d` / `d + 1` (or per-element `(d,)+C` / `(d+1,)+C` int
-  arrays on a varying-rank uniform stack), and its frame stores are ≥ the target's.
+  arrays on a varying-rank uniform stack), and its stores are ≥ the target's.
 
-There is no slice of `x_cores` and so no layout requirement: the old frame comes from the old point itself. That
-`x_cores` and `x_old` represent the **same tensor** is a numerical precondition, checked by the frontend in safe mode
-(§3.6). The ranks of `x_old` need not be minimal in the backend; the docstring carries the slack caveat of §3.2, and
-the frontend reduces `x_old` first.
+There is no slice of `x_cores` and so no layout requirement: the old frame comes from the old point itself, inside
+`padded_frame`. It is recomputed at each pass, a pure function of `x_old`: one orthogonalization at the old ranks per
+pass, small next to the pass's transpose. That `x_cores` and `x_old` represent the **same tensor** is a numerical
+precondition, checked by the frontend in safe mode (§3.6). The ranks of `x_old` need not be minimal in the backend; the
+docstring carries the slack caveat of §3.2, and the frontend reduces `x_old` first.
 
 Why members and not a T3-specific loop: the loop (§3.5) is generic — residual once, gradient per pass, one
 constructor call per pass — and only these facts are layer- and representation-specific. Keeping the loop in
@@ -791,6 +901,13 @@ padded_start(problem, x_cores, x_old=None, working_ranks=None, passes=PADDED_STA
     `corewise_zeros_like(x_cores)` (`_zero_reference_gnorm`'s formula) and the returned frame is the **cone frame
     at the zero tensor**. Its base point is 0 whatever `x_cores` holds, so it is a valid `start_frame` only for a
     zero `x0`.
+
+    Its first construction is the feature's only **array-free** call. `stack_shape` comes from
+    `padded_structures`, and `use_jax` from `tree_contains_jax(x_cores)`: the optimizer layer reads its point
+    (§12). There is no dtype (I-43), so the frame comes out in the backend's default float, as `t3_zeros`'s
+    output does. On float32 data under numpy, or under jax with x64 enabled, the passes therefore run in float64
+    by promotion. The cone value is unaffected. The docstring tells a caller who reuses such a frame as a float32
+    `start_frame` to cast it first.
 - **Working ranks, passes, seed.**
   - `working_ranks=None` means the target ranks, i.e. no oversampling. The convenience paths —
     `newton_cg(padded_from=…)` and the `'cone'` resolution — pass `geom.oversampled_ranks(x0,
@@ -862,11 +979,12 @@ so no existing positional call changes meaning (O-1; MINOR A of review r4).
     `tree_to_jax` on the dynamic leaves, then `rebuild_static` (a uniform frame's masks and `shape` stay host).
   - A `padded_from` frame is built eagerly from the converted inputs.
   - The start frame adds no compile: it enters the CG as the local model's leaf, and a uniform frame's masks —
-    value-hashed static aux — equal the template's.
+    value-hashed static aux — equal the problem geometry's frame masks.
 - **Scope.** The start frame influences **iteration 0 only**: the local model is rebuilt from the retracted point
   after the first accepted step (unchanged code); a rejected trust-region trial keeps the model, hence the start
-  frame. The reference templates (`'zero'`, `'cone'`) read iteration 0's frame for its structure only, so with a
-  start frame the default `'zero'` value is today's, unchanged (the same computation on the same structure).
+  frame. The `'zero'` reference reads iteration 0's frame for its structure only (unchanged code: `fv_zero_point_frame`
+  is untouched, I-26), so with a start frame the default `'zero'` value is today's, unchanged. The `'cone'` reference
+  is resolved from `x0` before the loop (§3.7) and does not read the frame.
 
 **Frontend `newton_cg`.**
 
@@ -934,7 +1052,7 @@ non-breaking).
 | how many new directions per slot | structural (rank differences) | `fv_padded_frame` | — (no decision is made) |
 | which directions (hint) | numerical content (the hint's orientation) | `pinned_leading_columns` | — (deterministic computation, no check) |
 | which directions (hint-free) | convention (seeded Haar for Tucker, coordinates for TT / down) | `_tucker_completion`, `_outside_first` | — |
-| old stores ≤ template stores; stacks (`C` everywhere, the hint included); the hint a consistent T3 at the template's mode sizes; groups; `d` | structural | `fv_padded_frame` (and the uniform member's repack-mask check) | both |
+| old stores ≤ the target stores derived from `(shape, tucker_ranks, tt_ranks)`; stacks (`C` everywhere, the hint included); the hint a consistent T3 at the mode sizes `shape`; groups; `d` | structural | `fv_padded_frame` (and the uniform member's repack-mask check) | both |
 | `x_old` of `x0`'s layer, shape, stack (uniform: full `.data`); `x_old`'s frame stores ≤ `x0`'s; `working_ranks` lengths and ≥ the target | structural | `padded_structures` | both |
 | an explicit frame at `x`'s structure | structural | `geom.require_frame_structure` via `Problem.local_model` | both |
 | `start_frame` with `padded_from`; `padded_passes` / `padded_seed` without `padded_from`; `cone_passes` / `cone_seed` without `'cone'`; invalid passes / seed values; a geometry without the members | structural | `newton_cg`, `padded_start` | both |
@@ -953,15 +1071,15 @@ non-breaking).
   index set is shared and every operation is a `C`-grouped `contract`, a batched `xnp.linalg.svd` / `qr`, or an
   elementwise op; the Haar seeds broadcast over `C`. At `s = 0` the hint-free result reproduces
   `fv_zero_point_frame`'s frame broadcast over `C` (`fv_zero_point_frame` itself keeps refusing stacks — unchanged).
-- **One hint per frame.** The hint is a T3 with the template's stack `C`. Several hints — a tangent stack, or
+- **One hint per frame.** The hint is a T3 with the frame's stack `C`. Several hints — a tangent stack, or
   directions of different origin — are combined by the caller into one T3 (a T3 sum, say) before the call; that
   reduction is the caller's policy.
 - **The uniform member: `C` by a host loop over the elements, by decision** — for uniform- and varying-rank stacks
   alike (Nick, round 6; the masked vectorization is rejected, §7's ledger entry):
   - it follows the `ufv_zero_point_frame` precedent (the zero-tensor, hint-free case of this construction, host-side
     and eager);
-  - a masked design would thread three structures (template, old point, hint), adding two masked primitives and five
-    masked steps — 250–400 lines against about 50;
+  - a masked design would thread three structures (the target structure, the old point, the hint), adding two
+    masked primitives and five masked steps — 250–400 lines against about 50;
   - it measured slower than the loop on CPU at ranks 30–50;
   - its degenerate-hint completions would diverge from the ragged ones;
   - the one consumer, `newton_cg`, is unstacked.
@@ -979,8 +1097,11 @@ non-breaking).
 
 ### 4.0 Notation and conventions for every step
 
+- **The target structure** is the three int sequences `(shape, tucker_ranks, tt_ranks)` and the four stores
+  `(nU, nD, rL, rR)` that `ranks.compute_orthogonal_representation_ranks` derives from them (§3.2 and §5.2 are
+  normative).
 - Every array carries the frame stack `C` as **leading** axes (`C = ()` for one frame). The old frame `(U°, O°, L°, R°)`
-  has stores `(s, sD, sL, sR)`; the template `(nU, nD, rL, rR)`. The **counts** are `kU_i = nU_i − s_i`,
+  has stores `(s, sD, sL, sR)`; the target `(nU, nD, rL, rR)`. The **counts** are `kU_i = nU_i − s_i`,
   `kD_i = nD_i − sD_i`, `kL_k = rL_k − sL_k`, `kR_k = rR_k − sR_k` (Python ints, ≥ 0 by §3.2's check).
 - `_embed(A, shape)` = `linalg.pad_or_truncate(A, [(0, 0)]*|C| + [(0, t − a) …])`: the old block in the leading
   slots, zeros elsewhere. A pad, not a contraction.
@@ -1028,11 +1149,15 @@ padding: the uniform layer unpacks first (§4.8), so `pad_safe_svd` is not invol
 
 ### 4.2 Set-up: validation, the empty old frame
 
-1. Read the template's stores and dtype; `xnp` from `tree_contains_jax((frame, old_frame, hint))`.
-2. `old_frame is None` → `_empty_old_frame(frame)`: `U°_i` `C+(0, N_i)`; `O°_i`, `L°_i`, `R°_i` with zero-size middle
-   axes and bond stores `sL = sR = (1, 0, …, 0, 1)` — the stores of the zero tensor. No separate `s = 0` path.
+1. Derive the stores from the three int sequences with `ranks.compute_orthogonal_representation_ranks`. Take `xnp`
+   and the dtype from the array inputs (`tree_contains_jax((old_frame, hint))`, `xnp.result_type`); on an array-free
+   call, take `xnp` from `use_jax` and the backend's default float (float64 under numpy), as `t3_zeros` does. There is
+   no `dtype` argument (I-43).
+2. `old_frame is None` → `_empty_old_frame(shape, C, xnp, dtype)`, with step 1's dtype, built from integers:
+   `U°_i` `C+(0, N_i)`; `O°_i`, `L°_i`, `R°_i` with zero-size middle axes and bond stores `sL = sR = (1, 0, …, 0, 1)`
+   — the stores of the zero tensor. No separate `s = 0` path.
 3. The structural checks of §3.2 (each a `ValueError` naming store and mode), the hint's included: a consistent T3,
-   the template's mode sizes, stack `C` (any other stack names the caller's reduction, §3.9).
+   the mode sizes `shape`, stack `C` (any other stack names the caller's reduction, §3.9).
 4. Group keys `k_g = min(g)` (the `fv_zero_point_frame` rule), the per-group members, and the group's old block
    `U°_g := U°_{k_g}` (TIED is the caller's precondition, §3.2).
 
@@ -1174,16 +1299,17 @@ The member (host, eager; `require_concrete_masks` first) does what §3.3 lists:
 
 1. Per element of the flattened stack: `ufv_unstack` for the frames, while `ut3_conversions.ut3_to_t3` returns the
    hint per element.
-   - Unpack the template and the old frame with `ufv_conversions.ut3frame_to_t3frame`, and the hint — a uniform T3
-     `.data` — with `ut3_to_t3`.
+   - Build the old frame natively from `x_old`'s full `.data` (`ut3_orthogonal_representations`), unpack it with
+     `ufv_conversions.ut3frame_to_t3frame`, and unpack the hint — a uniform T3 `.data` — with `ut3_to_t3`; the
+     target structure is the element's integer ranks.
    - `ut3_to_t3` gathers through the masks, gappy ones included; the driver's hints from `utv_to_ut3` pad every bond
      to `rL + rR` with concatenated masks.
    - Only real blocks are read, so padding garbage is never read, and each element may have its own ranks.
-2. Run `fv_padded_frame(...)` on the element, with the geometry's groups and the seed.
-3. Pack at the **template's** padded sizes (`t3frame_to_ut3frame(..., N=, nU=, nD=, rL=, rR=)`) and restack
+2. Run `fv_padded_frame(shape, tucker_e, tt_e, …)` on the element, with the geometry's groups and the seed.
+3. Pack at **this geometry's** frame padded sizes (`t3frame_to_ut3frame(..., N=, nU=, nD=, rL=, rR=)`) and restack
    (`ufv_stack`).
-4. Check that the packed masks equal the template's (prefix masks; a structural `ValueError` otherwise, the
-   `ufv_zero_point_frame` check), and return `packed[:5] + (template_masks,)`.
+4. Check that the packed masks equal those built from the integer stores (`ufv_make_frame_masks`) and the geometry's
+   (a structural `ValueError` otherwise), and return the frame with those masks.
 
 On identical inputs the real blocks match the ragged construction's to rounding (the same code on the same arrays;
 tested at `1e-14`). Across the layers each builds its old frame natively, and the padded frames agree up to gauge and
@@ -1197,8 +1323,8 @@ Exactly §3.5's loop:
 - the hint-free frame at the **working** structure — `working_ranks`, which the convenience paths fill with
   `ranks.oversampled_ranks(·, p = 5)` through `geom.oversampled_ranks`;
 - `passes − 1` hinted rebuilds at the working structure;
-- the last rebuild at the target structure — the truncation: the template is the target, and the hint is the working
-  frame's gradient embedded as a T3 by `geom_w.tangent_to_t3`.
+- the last rebuild at the target structure — the truncation: `padded_frame` is called with the target ranks, and
+  the hint is the working frame's gradient embedded as a T3 by `geom_w.tangent_to_t3`.
 
 The working-structure gradient is projected, normed and embedded with the **working** geometry (the uniform geometry
 holds its variation masks), and the final gradient with the target one. Every projection receives
@@ -1262,30 +1388,42 @@ def pinned_leading_columns(
 Doctests: orthonormality and `⊥ pinned` (`< 1e-14`), including all-zero seeds; a planted leading direction is
 recovered (`|⟨u, e⟩| > 1 − 1e-12`).
 
-### 5.2 `backend/fv_operations.py`: `fv_padded_frame` (in `__all__`; beside `fv_zero_point_frame` — I-32)
+### 5.2 `fv_padded_frame` (`backend/padded_frames.py`, in its `__all__`; I-32, §3.2)
 
 ```python
 def fv_padded_frame(
-        frame:      typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
-            typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
-            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
-            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
-        ],                                                    # the TEMPLATE: only its shapes and dtype are read
-        old_frame:  typ.Optional[typ.Tuple] = None,           # (U, O, L, R) of X_old, stack C, stores <= the template's; None = the zero tensor
-        hint:       typ.Optional[typ.Tuple[
-            typ.Sequence[NDArray],  # tucker_cores. len=d, elm_shape=C+(mi, Ni)   -- the hint's own Tucker ranks m
+        shape:         typ.Sequence[int],                   # len=d, the mode sizes (N0,...,N(d-1))
+        tucker_ranks:  typ.Sequence[int],                   # len=d, the target Tucker ranks
+        tt_ranks:      typ.Sequence[int],                   # len=d+1, the target TT ranks (boundary 1)
+        old_frame:     typ.Optional[typ.Tuple[
+            typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=C+(nU°i, Ni)
+            typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=C+(rL°i, nD°i, rR°(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rL°i, nU°i, rL°(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rR°i, nU°i, rR°(i+1))
+        ]] = None,                                          # the orthonormal frame of X_old; None = the zero tensor
+        hint:          typ.Optional[typ.Tuple[
+            typ.Sequence[NDArray],  # tucker_cores. len=d, elm_shape=C+(mi, Ni)       -- the hint's own Tucker ranks m
             typ.Sequence[NDArray],  # tt_cores.     len=d, elm_shape=C+(zi, mi, z(i+1)) -- its own TT ranks z
-        ]] = None,                                            # a ragged T3 at the template's mode sizes, any ranks; None = hint-free
-        groups:     typ.Tuple[typ.Tuple[int, ...], ...] = (),  # sharing partition (canonical_groups); () = unshared
-        seed:       int = ZERO_FRAME_SEED,                     # the hint-free draws' seed: a convention; tunable per call (padded_seed= / cone_seed= / seed=)
+        ]] = None,                                          # any ragged T3 at the mode sizes `shape`; None = hint-free
+        groups:        typ.Tuple[typ.Tuple[int, ...], ...] = (),  # sharing partition (canonical_groups); () = unshared
+        seed:          int = ZERO_FRAME_SEED,               # the hint-free draws' seed: a convention, tunable per call
+
+        stack_shape:   typ.Tuple[int, ...] = (),            # array-free calls only (no old_frame, no hint): the stack C
+        use_jax:       bool = False,                        # array-free calls only: no array inputs, so the flag chooses the output type
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # up:    U°_i in the leading rows, then the completion.  len=d, elm_shape=C+(nUi, Ni)
     typ.Tuple[NDArray, ...],  # down:  O°_i embedded, then the completion.             len=d, elm_shape=C+(rLi, nDi, rR(i+1))
     typ.Tuple[NDArray, ...],  # left:  L°_k embedded, then the completion; L[d-1] = L°[d-1] embedded (the carrier)
     typ.Tuple[NDArray, ...],  # right: R°_k embedded, then the completion; R[0] = R°[0] embedded (the carrier)
-]:
+]:                            # stores (nU, nD, rL, rR) = ranks.compute_orthogonal_representation_ranks(shape, tucker_ranks, tt_ranks)
 ```
+
+The body begins in the gold-standard way:
+
+- the stores come from `compute_orthogonal_representation_ranks`;
+- the old frame's stores, the hint's ranks and mode sizes, and the stack are read inline from array shapes;
+- the integer checks of §3.2 sit inline, with no helper and no dict;
+- `use_jax = tree_contains_jax((old_frame, hint))`, and `xnp` is chosen from it, unless the call is array-free.
 
 Docstring sections:
 
@@ -1297,17 +1435,25 @@ Docstring sections:
   first mode — and the caveat on the hint (§2.3: exact when its chains contain `X_old`'s interfaces; add `X_old` to an
   arbitrary hint to make it so), all unchecked here;
 - stacking: `C` vectorized; one hint per frame;
-- backend inferred; jit-traceable; `s = 0` hint-free = `fv_zero_point_frame`;
-- **for raw uniform `.data`** (no uniform twin, item 7), the three-call recipe: unpack the template and the old frame
-  with `ufv_conversions.ut3frame_to_t3frame` and the hint with `ut3_conversions.ut3_to_t3`; call `fv_padded_frame`;
-  repack with `ufv_conversions.t3frame_to_ut3frame(..., N=, nU=, nD=, rL=, rR=)` at the template's padded sizes, whose
-  prefix masks then equal the template's. Per stack element, or call `UniformManifoldGeometryOps.padded_frame`, which
-  does exactly this.
+- backend inferred from the arrays, or the array-free convention; jit-traceable with the int sequences static; the
+  array-free `s = 0` call reproduces `fv_zero_point_frame` on the frame of `t3_zeros(shape, tucker_ranks, tt_ranks)`;
+- **for raw uniform `.data`** (no uniform twin, item 7), the recipe, per stack element:
+  1. take the element's target ranks as integers (e.g. from the new point's masks, `masks[0].sum(-1)`,
+     `masks[1].sum(-1)`);
+  2. build the old point's frame natively (`ut3_orthogonal_representations`) and unpack it
+     (`ufv_conversions.ut3frame_to_t3frame`);
+  3. unpack the hint (`ut3_conversions.ut3_to_t3`);
+  4. call `fv_padded_frame(shape, tucker_e, tt_e, …)`;
+  5. repack with `ufv_conversions.t3frame_to_ut3frame(..., N=, nU=, nD=, rL=, rR=)` at the wanted padded sizes, and
+     build the masks from the integer stores with `ufv_make_frame_masks`.
+
+  `UniformManifoldGeometryOps.padded_frame` does exactly this.
 
 Doctests:
 
-- (a) the `s = 0` identity: the coordinate cores and zero carriers bitwise (`np.array_equal`), the Haar factors to
-  `1e-14` (`np.max(np.abs(...)) < 1e-14`);
+- (a) the `s = 0` identity — `fv_padded_frame(shape, tucker_ranks, tt_ranks)` against `fv_zero_point_frame` on the frame
+  of `t3_zeros(shape, tucker_ranks, tt_ranks)`: the coordinate cores and zero carriers bitwise (`np.array_equal`), the
+  Haar factors to `1e-14`;
 - (b) a `resize`d point: orthonormality residual `< 1e-14`, `(U, L)` reconstructs `X_old` within `1e-13` relative,
   the old block embedded as a copy, bitwise (`np.array_equal(U[i][:s_i], U°_i)`) — a structural fact;
 - (c) a hint embedded from the library gradient (`tv_to_t3(frame, g)`): still (b);
@@ -1334,11 +1480,16 @@ On `ManifoldGeometryOps` and `UniformManifoldGeometryOps` only (the corewise geo
 
     def padded_frame(
             self,
-            frame:      typ.Tuple,                  # the template: a frame at the structure to build (shapes read)
-            old_frame:  typ.Optional[typ.Tuple],    # a frame of X_old (from padded_structures), or None = the zero tensor
-            hint:       typ.Optional[typ.Tuple],    # this layer's T3 .data (any ranks, stack C), e.g. tangent_to_t3(F, g); or None
-            seed:       typ.Optional[int] = None,   # None = fv_operations.ZERO_FRAME_SEED
-    ) -> typ.Tuple:                                 # the padded frame (this layer's frame type)
+            shape:         typ.Sequence[int],          # len=d, the mode sizes
+            tucker_ranks:  typ.Any,                    # len=d ints (uniform stacks: (d,)+C host int array) — the structure to build
+            tt_ranks:      typ.Any,                    # len=d+1 ints (uniform stacks: (d+1,)+C host int array)
+            x_old:         typ.Optional[typ.Tuple],    # the old POINT (ragged cores / uniform full .data); its frame is built here; None = the zero tensor
+            hint:          typ.Optional[typ.Tuple],    # this layer's T3 .data (any ranks, stack C), e.g. tangent_to_t3(F, g); or None
+            seed:          typ.Optional[int] = None,   # None = fv_operations.ZERO_FRAME_SEED
+
+            stack_shape:   typ.Tuple[int, ...] = (),   # array-free calls only (x_old and hint both None): the stack C
+            use_jax:       bool = False,               # array-free calls only: the output type
+    ) -> typ.Tuple:                                    # the padded frame (this layer's frame type; uniform: this geometry's frame masks)
 
     def padded_structures(
             self,
@@ -1346,11 +1497,17 @@ On `ManifoldGeometryOps` and `UniformManifoldGeometryOps` only (the corewise geo
             x_old:          typ.Optional[typ.Tuple],    # the old point: ragged cores pair / uniform full .data (its own masks); None = the zero tensor
             working_ranks:  typ.Optional[typ.Tuple] = None,  # (tucker_ranks, tt_ranks) to iterate at; None = x_cores' ranks; uniform: (d,)+C / (d+1,)+C int arrays allowed
     ) -> typ.Tuple[
-        typ.Optional[typ.Tuple],  # old_frame:   the frame of x_old, built natively by this layer; None when x_old is None
-        typ.Tuple,                # target:      a frame with x_cores' structure (shapes only)
-        typ.Tuple,                # working:     a frame at working_ranks (shapes only); the target when working_ranks is None
-        typ.Any,                  # the geometry of the working structure (self on the ragged layer)
-    ]:
+        typ.Tuple[int, ...],      # shape.          len=d
+        typ.Tuple[int, ...],      # stack_shape.    C, x_cores' stack (for the array-free padded_frame call)
+        typ.Tuple[typ.Any, typ.Any],  # target ranks:  (tucker len=d, tt len=d+1), read from x_cores (uniform: from the held masks)
+        typ.Tuple[typ.Any, typ.Any],  # working ranks: validated >= the target; the target when working_ranks is None
+    ]:                            # INTEGERS ONLY — never a frame, never an orthogonalized zero tensor
+
+    def with_ranks(
+            self,
+            tucker_ranks:  typ.Any,                    # len=d ints (uniform stacks: (d,)+C host int array)
+            tt_ranks:      typ.Any,                    # len=d+1 ints (uniform stacks: (d+1,)+C host int array)
+    ) -> typ.Any:                                      # this geometry at those ranks: self (ragged); a uniform geometry built from ints and masks
 
     def oversampled_ranks(
             self,
@@ -1369,8 +1526,9 @@ On `ManifoldGeometryOps` and `UniformManifoldGeometryOps` only (the corewise geo
 ```
 
 `padded_structures` raises (structural) on an `x_old` of another layer, shape or stack (or a bare uniform supercore pair), on
-`x_old`'s frame stores above `x_cores`', and on `working_ranks` of the wrong length or below the target (§3.4). The
-`Geometry` protocol docstring (`backend/optimizers.py:78-85`) lists the five as optional members beside
+`x_old`'s stores above `x_cores`', and on `working_ranks` of the wrong length or below the target (§3.4); all inline
+integer comparisons. The uniform `padded_frame` raises if its integer ranks disagree with the geometry's masks. The
+`Geometry` protocol docstring (`backend/optimizers.py:78-85`) lists the six as optional members beside
 `zero_point_frame`, with what their absence means.
 
 **`backend/ranks.py`** (in `__all__`):
@@ -1523,7 +1681,7 @@ and `tests/backend/test_padded_start.py` (T5–T6); the rest extend the named fi
 **Bitwise vs tolerance** (Nick's rule, round 6):
 
 - **Bitwise (`np.array_equal`) only for structural facts.** These are the embedded old block (a copy), zero carriers,
-  zero padding, masks (and their identity, `out[5] is template[5]`), and the coordinate completions of the
+  zero padding, masks (equal to the geometry's frame masks), and the coordinate completions of the
   hint-free start (outside-first unit vectors, identity prefixes). Two invariance-of-the-default-path claims belong
   here too: the G-bit gate that default runs are unchanged, and T6(a) / T7(a), that passing the library's own frame
   explicitly takes the same code path. They are the G-bit kind of claim, so they stay bitwise.
@@ -1545,15 +1703,16 @@ and `tests/backend/test_padded_start.py` (T5–T6); the rest extend the named fi
   - per mode, the down core's row-space projector in the bond space (`O_i` as an `(rL·rR) × nD` matrix).
 
 "Valid frame" below means: orthogonality residual `≤ 1e-14`; both base-point reconstructions within `1e-13` relative of
-`X_old`; the old block present bitwise as a copy; the template's shapes.
+`X_old`; the old block present bitwise as a copy; the shapes of the target stores
+(`ranks.compute_orthogonal_representation_ranks(shape, tucker_ranks, tt_ranks)`).
 
 | # | file | asserts |
 |---|---|---|
 | T1 | `test_linalg.py` | (a) `pinned_completion`: orthonormal and `⊥ pinned` (`≤ 1e-14`) for random, rank-deficient (duplicated columns, seeds inside `span(pinned)`), all-zero and too-few (`m < k`) seeds; `k = 0` → `(n, 0)` without a factorization; `s + k > n` → `ValueError`; float32 in → float32 out. (b) `s = 0` with the keyed Gaussian seeds equals `_haar_rows(...).T` to `1e-14`. (c) `pinned_leading_columns`: a planted `A = P X + U_t diag(σ) V_tᵀ` with `U_t ⊥ P` and a gap returns `span(U_t[:, :k])` (projector distance `< 1e-12`); rank-deficient `A` is completed (still orthonormal, `⊥ P`, `≤ 1e-14`). (d) `C = (2,)` and `(2, 3)` stacks equal the per-element results to `1e-14`. |
 | T2 | `test_padded_frame.py` | hint-free `fv_padded_frame`: (a) `old_frame=None` reproduces `fv_zero_point_frame` — the coordinate cores and zero carriers **bitwise**, the Haar Tucker factors to `1e-14` — `d = 1, 3, 4`, unshared and `groups=((0, 1), (2,))`; (b) a valid frame at `resize`d points (Tucker-only, TT-only and joint increases); (c) the in-block cases (TT-only increase at bond 1; Tucker-only increase at saturated bonds) give valid frames and the structural counts; the in-block columns come from coordinate seeds; two calls agree to `1e-15`; (d) the Tucker completion is nested (`kU → kU + 1`: the leading rows agree to `1e-14`); (e) stacked `C` equals per-element calls to `1e-14`; (f) **sign-gauge covariance** (the property §3.3's cross-layer claim rests on): two sign-gauge-equivalent old frames give hint-free frames with equal assembled projectors (`≤ 1e-12`), an in-block case included (P17). |
-| T3 | `test_padded_frame.py` | hinted `fv_padded_frame` (the hint a T3; the gradient hints embedded by `tv_to_t3`, the driver's call shape): (a) valid frames for a gradient hint embedded at the library frame of the padded point, at a padded frame, and a **zero** gradient; (b) the internal coordinates (`_hint_coordinates`): for gradient hints `A_i`, `ΩL_k`, `ΩR_k` have orthonormal rows (`≤ 1e-13`), for an arbitrary T3 hint norms `≤ 1 + 1e-13`; (c) **matrix fixed point** (`d = 2`, Tucker ranks = TT rank): with new slots aligned with the top singular subspaces of the normal part `N` and the hint `P_T G` at that frame, the constructor returns the same subspaces (projector distance `< 1e-10`); (d) the truncation (a hint embedded at the working frame, target template) gives a valid target-structure frame; (e) sharing: one `U` per group (the members' factors bitwise equal — one array, a structural fact), and the group's new rows span the top eigenvectors of the summed projected Grams `Σ_m P⊥ W_mᵀ M_m M_mᵀ W_m P⊥` (projector oracle, `< 1e-10`); (f) stacked `C` equals per-element calls (`≤ 1e-12`); (g) structural errors — a hint with other mode sizes, an inconsistent hint T3 (bond or Tucker-rank mismatch), a hint with a stack other than `C` (the message names the caller's reduction), a template smaller than the old frame, mismatched `d` / shape / stack — each a `ValueError` naming the store; (h) **dense oracle per step** (the only test that sees a wrong-subspace bug in the sweeps or the down step): with `Z` the dense hint, `Φ_k` / `Ψ_k` the dense left/right bases of the constructed frame and `Φ°`, `Ψ°` the old ones, the new directions equal (projector distance `< 1e-9`, on generic data with gaps and `≥ k` hint directions) — Tucker `i`: the leading left singular vectors of `P_{U°_i}^⊥ Z_(i) (I − E_dᵀE_d)`, `E_d[m] = Σ_ab O°_i[a,m,b] Φ°_i[a] ⊗ Ψ°_{i+1}[b]`; `L_k`: of `(I − PPᵀ) M (I − Ψ°_{k+1}ᵀΨ°_{k+1})`, `M = (Φ_k ⊗ U_k)ᵀ Z_{(0..k ∣ k+1..)}`, `P` the embedded `L°_k`; `R_k`: the mirror image (the content in `U_k ⊗ Ψ_{k+1}`, columns projected off `Φ°_k`, pinned off the embedded `R°_k`); `O_i`: the leading bond-space directions of `Z`'s coordinates in `Φ_i ⊗ U_i ⊗ Ψ_{i+1}` on the new Tucker slots, pinned off the embedded `O°_i` — at `C = ()` and `(2,)`, unshared and shared, `d = 3` and `4`; (i) a `d = 1` hinted call (empty sweeps, zero-size `Ω`) gives a valid frame; (j) **an arbitrary external T3 hint** `H` (a `TuckerTensorTrain.randn` of ranks unrelated to the frame — some below the target's Tucker ranks — not a gradient; and a hint built by `+`, whose boundary bonds 2 the constructor squashes): the result is a valid padded frame at `s > 0`; at `s = 0`, and at `s > 0` with the augmented hint `H + X_old` (§2.3), its new directions capture `H`'s normal content — the dense per-step oracle of (h) with `Z = H` holds to `< 1e-9`, and in the matrix case (`d = 2`) the new slots are the top-`k` singular subspaces of `P_{U°}^⊥ H P_{V°}^⊥` (projector `< 1e-10`); with the raw `H` at `s > 0` the frame is valid and the captured norm `‖P_{T_F} H‖` is at least the library frame's. |
-| T4 | `test_padded_frame.py` | the uniform conversion, through **`UniformManifoldGeometryOps.padded_frame`** (no twin, item 7): (a) on identical inputs the real blocks equal `fv_padded_frame`'s to `1e-14` (hint-free and hinted, `s = 0` and `s > 0`, shared; the uniform hint a UT3 — from `from_t3` of a ragged hint, and from `utv_to_ut3` of a gradient, whose bond padding to `rL + rR` comes with its own concatenated masks — unpacked by `ut3_to_t3`; and a **non-minimal** `x_old` / template, which the contract requires to agree too); the member with `old_frame=None, hint=None` reproduces `ufv_zero_point_frame` (coordinates and masks bitwise, the Haar factors to `1e-14`); (b) `out[5] is template[5]`, padding exactly zero (structural, bitwise); (c) NaN-filled padding in every input (the hint's included) leaves the real blocks NaN-free and equal to the clean run's to `1e-14`; (d) a stack with per-element ranks equals per-element calls to `1e-14`; (e) the **native** uniform old frame (`ut3_orthogonal_representations(x_old.data)`) is gauge-equivalent to the ragged one — per-family projectors equal to `1e-12` — and a gappy `x_old` (from uniform `+`) gives the same projectors as its prefix-layout twin. |
-| T5 | `test_padded_start.py` | backend `padded_start` and the rank function: (a) **matrix oracle** (`d = 2`, `entries` kind with every entry observed, so the ambient gradient is the residual matrix): at `s = 0`, `gnorm → ‖G_r‖` and at `s > 0`, `gnorm → (‖P_{T_X}G‖² + ‖N_{r−s}‖²)^{1/2}` to rtol `1e-8` with `passes=40` and `working_ranks=None` on a planted gap; (b) a seeded regression on c11–c13: the final captured norm exceeds the first pass's by a stated margin (the per-pass sequences of P13 are recorded as observations); (c) the frame is a frame of `x_cores` at its structure (`require_frame_structure` passes, base point within `1e-13` relative); with `x_old=None` its base point is exactly 0 (zero carriers — structural); (d) `passes=1`, `working_ranks=None`, `final_gradient=False` (`gnorm is None`); (e) stacked `C`: per-element `gnorms` equal the unstacked runs to rtol `1e-12`; (f) ragged vs uniform, **gauge-invariant**: `gnorms` and `gnorm` equal to rtol `1e-10`, the frames' per-family projectors and their `P_{T_F} Y` equal to `1e-10` (at `s = 0` and `s > 0`, an in-block case included); (g) structural errors: corewise geometry, a geometry stub without the members, an `x_old` of another layer, shape or stack, a bare uniform supercore pair as `x_old`, `x_old`'s frame stores above `x_cores`', `working_ranks` of the wrong length or below the target — and acceptance: a **gappy** uniform `x_old` (from uniform `+`) is accepted and gives the same padded frame, gauge-invariantly, as its prefix-layout twin; (h) `ranks.oversampled_ranks`: `p = 0` returns a minimal input unchanged; the output is never below the input (a non-minimal input keeps its slack); with sharing a group keeps one rank; the frontend `TuckerTensorTrain.oversampled_ranks` and the geometry member agree with it. |
+| T3 | `test_padded_frame.py` | hinted `fv_padded_frame` (the hint a T3; the gradient hints embedded by `tv_to_t3`, the driver's call shape): (a) valid frames for a gradient hint embedded at the library frame of the padded point, at a padded frame, and a **zero** gradient; (b) the internal coordinates (`_hint_coordinates`): for gradient hints `A_i`, `ΩL_k`, `ΩR_k` have orthonormal rows (`≤ 1e-13`), for an arbitrary T3 hint norms `≤ 1 + 1e-13`; (c) **matrix fixed point** (`d = 2`, Tucker ranks = TT rank): with new slots aligned with the top singular subspaces of the normal part `N` and the hint `P_T G` at that frame, the constructor returns the same subspaces (projector distance `< 1e-10`); (d) the truncation (a hint embedded at the working frame, the target ranks) gives a valid target-structure frame; (e) sharing: one `U` per group (the members' factors bitwise equal — one array, a structural fact), and the group's new rows span the top eigenvectors of the summed projected Grams `Σ_m P⊥ W_mᵀ M_m M_mᵀ W_m P⊥` (projector oracle, `< 1e-10`); (f) stacked `C` equals per-element calls (`≤ 1e-12`); (g) structural errors — a hint with other mode sizes, an inconsistent hint T3 (bond or Tucker-rank mismatch), a hint with a stack other than `C` (the message names the caller's reduction), target ranks whose stores fall below the old frame's, mismatched `d` / shape / stack — each a `ValueError` naming the store; (h) **dense oracle per step** (the only test that sees a wrong-subspace bug in the sweeps or the down step): with `Z` the dense hint, `Φ_k` / `Ψ_k` the dense left/right bases of the constructed frame and `Φ°`, `Ψ°` the old ones, the new directions equal (projector distance `< 1e-9`, on generic data with gaps and `≥ k` hint directions) — Tucker `i`: the leading left singular vectors of `P_{U°_i}^⊥ Z_(i) (I − E_dᵀE_d)`, `E_d[m] = Σ_ab O°_i[a,m,b] Φ°_i[a] ⊗ Ψ°_{i+1}[b]`; `L_k`: of `(I − PPᵀ) M (I − Ψ°_{k+1}ᵀΨ°_{k+1})`, `M = (Φ_k ⊗ U_k)ᵀ Z_{(0..k ∣ k+1..)}`, `P` the embedded `L°_k`; `R_k`: the mirror image (the content in `U_k ⊗ Ψ_{k+1}`, columns projected off `Φ°_k`, pinned off the embedded `R°_k`); `O_i`: the leading bond-space directions of `Z`'s coordinates in `Φ_i ⊗ U_i ⊗ Ψ_{i+1}` on the new Tucker slots, pinned off the embedded `O°_i` — at `C = ()` and `(2,)`, unshared and shared, `d = 3` and `4`; (i) a `d = 1` hinted call (empty sweeps, zero-size `Ω`) gives a valid frame; (j) **an arbitrary external T3 hint** `H` (a `TuckerTensorTrain.randn` of ranks unrelated to the frame — some below the target's Tucker ranks — not a gradient; and a hint built by `+`, whose boundary bonds 2 the constructor squashes): the result is a valid padded frame at `s > 0`; at `s = 0`, and at `s > 0` with the augmented hint `H + X_old` (§2.3), its new directions capture `H`'s normal content — the dense per-step oracle of (h) with `Z = H` holds to `< 1e-9`, and in the matrix case (`d = 2`) the new slots are the top-`k` singular subspaces of `P_{U°}^⊥ H P_{V°}^⊥` (projector `< 1e-10`); with the raw `H` at `s > 0` the frame is valid and the captured norm `‖P_{T_F} H‖` is at least the library frame's. |
+| T4 | `test_padded_frame.py` | the uniform conversion, through **`UniformManifoldGeometryOps.padded_frame`** (no twin, item 7): (a) on identical inputs the real blocks equal `fv_padded_frame`'s to `1e-14` (hint-free and hinted, `s = 0` and `s > 0`, shared; the uniform hint a UT3 — from `from_t3` of a ragged hint, and from `utv_to_ut3` of a gradient, whose bond padding to `rL + rR` comes with its own concatenated masks — unpacked by `ut3_to_t3`; and a **non-minimal** `x_old` and target, which the contract requires to agree too); the member with `x_old=None, hint=None` (array-free) reproduces `ufv_zero_point_frame` on the native frame of `ut3_zeros` at the target ranks — the test builds that frame, for `ufv_zero_point_frame`'s sake only (coordinates and masks bitwise, the Haar factors to `1e-14`); (b) the masks: `out[5]` equals the frame masks of the native sweep at the target (`ut3_orthogonal_representations`), and `ufv_variation_masks(out[5])` equals the geometry's `var_masks` (`np.array_equal`, structural); the padding is exactly zero (bitwise); (c) NaN-filled padding in every input (the hint's included) leaves the real blocks NaN-free and equal to the clean run's to `1e-14`; (d) a stack with per-element ranks equals per-element calls to `1e-14`; (e) the **native** uniform old frame (`ut3_orthogonal_representations(x_old.data)`) is gauge-equivalent to the ragged one — per-family projectors equal to `1e-12` — and a gappy `x_old` (from uniform `+`) gives the same projectors as its prefix-layout twin. |
+| T5 | `test_padded_start.py` | backend `padded_start` and the rank function: (a) **matrix oracle** (`d = 2`, `entries` kind with every entry observed, so the ambient gradient is the residual matrix): at `s = 0`, `gnorm → ‖G_r‖` and at `s > 0`, `gnorm → (‖P_{T_X}G‖² + ‖N_{r−s}‖²)^{1/2}` to rtol `1e-8` with `passes=40` and `working_ranks=None` on a planted gap; (b) a seeded regression on c11–c13: the final captured norm exceeds the first pass's by a stated margin (the per-pass sequences of P13 are recorded as observations); (c) the frame is a frame of `x_cores` at its structure (`require_frame_structure` passes, base point within `1e-13` relative); with `x_old=None` its base point is exactly 0 (zero carriers — structural); (d) `passes=1`, `working_ranks=None`, `final_gradient=False` (`gnorm is None`); (e) stacked `C`: per-element `gnorms` equal the unstacked runs to rtol `1e-12`; (f) ragged vs uniform, **gauge-invariant**: `gnorms` and `gnorm` equal to rtol `1e-10`, the frames' per-family projectors and their `P_{T_F} Y` equal to `1e-10` (at `s = 0` and `s > 0`, an in-block case included); (g) structural errors: corewise geometry, a geometry stub without the members, an `x_old` of another layer, shape or stack, a bare uniform supercore pair as `x_old`, `x_old`'s frame stores above `x_cores`', `working_ranks` of the wrong length or below the target — and acceptance: a **gappy** uniform `x_old` (from uniform `+`) is accepted and gives the same padded frame, gauge-invariantly, as its prefix-layout twin; (h) `ranks.oversampled_ranks`: `p = 0` returns a minimal input unchanged; the output is never below the input (a non-minimal input keeps its slack); with sharing a group keeps one rank; the frontend `TuckerTensorTrain.oversampled_ranks` and the geometry member agree with it; (i) **`with_ranks`** (Nick, round 10): for uniform geometries built by `from_point` — unstacked, uniform- and varying-rank stacks, a non-minimal point, padded sizes above the ranks, unshared and shared (the groups carried over) — `geom.with_ranks(*the ranks read from geom.masks)` reproduces `geom.masks` and `geom.var_masks` exactly (`np.array_equal`, structural), so a drift of the hand-built masks from the sweep fails; the ragged `with_ranks` returns `self`. |
 | T6 | `test_padded_start.py` | `Problem.local_model(frame=)`: (a) `frame=geom.frame(x)` gives a model equal **bitwise** to the default (misfit, gradient, `hvp` on a fixed direction), GN and exact — the default-path claim; (b) at a padded frame: the misfit is bitwise the default's (the residual does not see the frame); `lm.retract` of the zero tangent returns `X_old` (within `1e-13` relative); (c) a wrong-structure frame → `ValueError` under `safety.safe()` and `safety.unsafe()`; a corewise geometry → `ValueError` naming `require_frame_structure`; (d) exact mode at a padded frame: builds, `lift_sigma_min` is at the clip (the new slots' zero singular values), `hvp` symmetric (the existing symmetry check, `1e-12`). |
 | T7 | `tests/backend/test_optimizers.py` (new test functions) | `newton_cg` seam: (a) the default `set(stats)` is unchanged (the existing pins at `:477`, `:860` stay as they are); `newton_cg(x0)` and `newton_cg(x0, start_frame=geom.frame(x0))` have bitwise equal histories (the default-path claim) and the second's `stats` differ only by `'start_frame_source': 'given'`; (b) `padded_from=x_old` (`x0 = x_old.resize(...)`): iteration 0's `info.lm.frame` equals `padded_start(problem, x0, x_old, geom.oversampled_ranks(x0, 5)).frame` to `1e-14`; `stats['start_frame_source'] == 'padded'`, `stats['padded_start_gnorms']` has `PADDED_START_PASSES` entries; the run converges (`stop_reason='gradient'`); (c) structural errors: `start_frame` with `padded_from`, `padded_passes` / `padded_seed` without `padded_from`, `cone_passes` / `cone_seed` without `'cone'`, passes `< 1`, a seed outside `[0, 2**32)`, `padded_from` / `start_frame` on corewise; (d) from the first accepted step on, `info.lm.frame` equals `geom.frame(info.x_cores)` to `1e-14` (iteration 0 only); every row at `x0` (rejected trust-region trials included) carries the start frame; (e) `use_jit=True` on numpy inputs with a numpy `start_frame` and a numpy `padded_from`: runs, the converted arrays are jax and uniform masks stay numpy; `bopt._jitted(bopt._cg_core, (4,))._cache_size()` grows by no more than the default run's (the `test_dispatch.py:1194-1207` pattern); (f) shared ragged and uniform geometries: `padded_from` runs, the start frame is tied; (g) `padded_from=x0` itself (zero counts everywhere): the start frame equals the library frame to `1e-14` on each layer (both build `x0`'s frame natively) and the run's objectives equal the default run's to rtol `1e-12`. |
 | T8 | `tests/backend/test_zero_reference.py` (new test functions) | `g0_reference='cone'`: (a) `d = 2` oracle: `padded_start(problem, x0, None, working_ranks=None, passes=40).gnorm` equals `‖G_r‖` (the cone value, **not** `‖G_{2r}‖`) to rtol `1e-8`, and the `'cone'` resolution at its defaults (working ranks `oversampled_ranks(x0, 5)`, 10 passes) to 2 %; (b) T3: within `[0.95, 1.10]×` the dense-frame value `‖P_{T_F}G‖` (`F` = frame of `dense_t3svd(G)`, zero carriers) on the two P12 problems; (c) ragged == uniform to rtol `1e-10`; (d) the default is unchanged (`'zero'` recorded); `'cone'` on corewise → `ValueError`; all-zero data → `ValueError`; with `g0norm_newton` it is not computed (spy on `padded_start`); (e) rows record `g0_reference='cone'`, `cg_reference='cone'`; the converged display line reads `g₀ = tangent cone`; (f) `gradient_descent(g0_reference='cone', cone_passes=..., cone_seed=...)`; (g) seeds 0–3 give cone references within 2 % of each other on a gapped problem; (h) the staggered completion (§2.2) is not a fixed point: at `d = 2`, `s = 0`, a frame with `U = u_1`, `V = v_2` captures `‖G_2‖` (to rtol `1e-12`), and one constructor pass from it returns the aligned frame (projector `< 1e-12`), which captures `‖G_1‖`. |
@@ -1686,7 +1845,7 @@ and G-bit plus G-nonbreaking (§6) make it a tested fact.
 > `L_{d−1}`, `R_0` holding only the old content — and **completes** the new slots with any orthonormal directions:
 > every completion is a valid frame (per-core orthonormality and the gauge are all the tangent machinery needs),
 > they all reconstruct the same point, and their tangent spaces differ. The library's sweep picks a completion
-> without looking at the data; `backend.fv_operations.fv_padded_frame` picks one structurally — counts from the
+> without looking at the data; `backend.padded_frames.fv_padded_frame` picks one structurally — counts from the
 > rank stores, no threshold — either by a seeded convention (`fv_zero_point_frame` is its zero-tensor case) or from
 > a hint, any Tucker tensor train (a gradient embedded as one, another direction, a sum of directions), taking the
 > leading directions of the hint's content that is new relative to the old point
@@ -1723,7 +1882,7 @@ directions. The old point's factors must be tied (TIED; safe mode checks it)."
 
 - **"Fitting and optimization".** Add `optimizers.padded_start` (module-level, not at the root), the `newton_cg`
   keywords sentence, and `TuckerTensorTrain.oversampled_ranks` beside `continuation_ranks`.
-- **The backend surface's frame-variations and rank areas.** Add `fv_operations.fv_padded_frame`,
+- **The backend surface's frame-variations and rank areas.** Add `padded_frames.fv_padded_frame` (a new module),
   `linalg.pinned_completion`, `linalg.pinned_leading_columns` and
   `ranks.oversampled_ranks`.
 
@@ -1731,7 +1890,9 @@ directions. The old point's factors must be tied (TIED; safe mode checks it)."
 Frame construction at a degenerate point is ragged by nature (it works on unpacked real blocks), and rank
 continuation is a ragged-layer activity; the uniform geometry's `padded_frame` member converts explicitly (built
 through `fv_padded_frame`, host-side and eager), and `fv_padded_frame`'s docstring gives the recipe for raw uniform
-`.data`. `ufv_zero_point_frame`, the same kind of wrapper, remains for now."
+`.data`. `ufv_zero_point_frame`, the same kind of wrapper, remains for now." And beside the `sharing` example
+(`:45-48`) one sentence: "`backend/padded_frames.py` is likewise a topic module: `fv_padded_frame` carries the
+family prefix of the frame it builds."
 
 **`docs/contributor/padded_frame_internals.md`** (new; in `contributor_guide.rst`'s toctree after
 `curvature_internals`): the design record.
@@ -1794,6 +1955,13 @@ Its opening paragraph links the math note (`../padded_frame_cone.pdf`, source `d
 - **New "Deferred" entries.**
   - `'cone'` or `padded_from` as library defaults (O-1).
   - Re-resolving `chunk_size` at the working ranks (O-7).
+  - **An audit arc for `fv_zero_point_frame`** (round 9): its template-frame signature ("a frame read only for its
+    shapes", commit 3e5bc922) is ruled wrong by the maintainer; it stays unchanged in this release, and the audit
+    moves it to the gold-standard style (structure as int sequences), together with `ufv_zero_point_frame`.
+  - **`ranks` imports `sharing`** (`ranks.py:16`; `sharing` imports `fv_operations`, `sharing.py:34`) — a code smell
+    (Nick, round 10): the integer rank arithmetic depends on the sharing module, so `fv_operations` cannot use the
+    rank recurrence without a cycle, which is why `fv_padded_frame` lives in `backend/padded_frames.py` (I-32).
+    Recorded for the later drift-fix arc; not changed here.
   - **A pre-existing docstring mismatch, recorded and not changed here:** `UniformTuckerTensorTrain.allclose` says
     padded widths need not match, but it raises on a different padded `N` (it works on different `n` / `r`; the r4
     critic's probe). Fix the docstring or re-pad in a later change.
@@ -1880,15 +2048,14 @@ Title: "Padded frames, the tangent cone, and the cone reference". Outline:
     | box | content | implementing functions | file |
     |---|---|---|---|
     | 1 | the pinned primitives | `linalg.pinned_completion`, `linalg.pinned_leading_columns` | `backend/linalg.py` |
-    | 2 | the hint-free construction | `fv_operations.fv_padded_frame` (`hint=None`), `fv_operations._outside_first`, `fv_operations._haar_rows` | `backend/fv_operations.py` |
-    | 3 | the hint's coordinates and the Tucker step | `fv_operations._hint_coordinates`, `fv_operations._tucker_completion`, `tt_operations.tt_squash_tails` | `backend/fv_operations.py`, `backend/tt_operations.py` |
-    | 4 | the pinned left sweep and the mirrored right sweep | `fv_operations._pinned_left_sweep`, `tt_operations.tt_reverse` | `backend/fv_operations.py`, `backend/tt_operations.py` |
-    | 5 | the down step | `fv_operations._down_completion` | `backend/fv_operations.py` |
+    | 2 | the hint-free construction | `padded_frames.fv_padded_frame` (`hint=None`), `padded_frames._outside_first`, `fv_operations._haar_rows` | `backend/padded_frames.py`, `backend/fv_operations.py` |
+    | 3 | the hint's coordinates and the Tucker step | `padded_frames._hint_coordinates`, `padded_frames._tucker_completion`, `tt_operations.tt_squash_tails` | `backend/padded_frames.py`, `backend/tt_operations.py` |
+    | 4 | the pinned left sweep and the mirrored right sweep | `padded_frames._pinned_left_sweep`, `tt_operations.tt_reverse` | `backend/padded_frames.py`, `backend/tt_operations.py` |
+    | 5 | the down step | `padded_frames._down_completion` | `backend/padded_frames.py` |
     | 6 | the uniform conversion (remark box: no twin) | `geometry.UniformManifoldGeometryOps.padded_frame`, `ufv_conversions.ut3frame_to_t3frame`, `ut3_conversions.ut3_to_t3`, `ufv_conversions.t3frame_to_ut3frame` | `backend/geometry.py`, `backend/ufv_conversions.py`, `backend/ut3_conversions.py` |
     | 7 | the pass loop, with oversampling and truncation | `optimizers.padded_start`, `ranks.oversampled_ranks`, and the geometry members `tangent_to_t3`, `padded_structures`, `padded_frame`, `oversampled_ranks` | `backend/optimizers.py`, `backend/ranks.py`, `backend/geometry.py` |
     | 8 | the cone reference | `optimizers._cone_reference_gnorm`, `optimizers.newton_cg` (`g0_reference='cone'`) | `backend/optimizers.py` |
 
-    If I-32 settles on a new module, the names follow it.
 11. **Numerical evidence.**
     - The plan's probes P1–P16: frame validity; the first-step and Newton tables; oversampling; the cone against
       the dense-frame value; the matrix oracle; the T3-hint and augmentation checks.
@@ -2003,10 +2170,11 @@ construction), S7 (the optimizer seam), S10 (the docs) and S12 (the math note) �
 | slice | content | files | gate |
 |---|---|---|---|
 | S1 | `pinned_completion`, `pinned_leading_columns`; HISTORICAL strings 1–2; `ranks.oversampled_ranks` | `backend/linalg.py`, `backend/ranks.py`, `tests/backend/test_linalg.py`, `tests/test_contractions_interpreter.py` | T1, T5(h) (the rank function's rows), T12 (partial), T10 (primitives) |
-| S2 | `fv_padded_frame`, hint-free path: `_empty_old_frame`, `_embed`, `_outside_first`, the in-block completion (coordinate seeds), validation | `backend/fv_operations.py`, `tests/backend/test_padded_frame.py` | T2 (incl. the gauge covariance T2(f)) |
-| S3 | the hinted path: `_hint_coordinates` (the tail squash), `_tucker_completion` (groups), `_pinned_left_sweep` (both chains), `_down_completion`; HISTORICAL 3–12 | `backend/fv_operations.py`, tests | T3 (incl. the dense oracle T3(h) and the external hint T3(j)), T10 (jit), T12, G-acyclic; P1/P3 re-measured through the function. **Review stop.** |
+| S2 | `fv_padded_frame`, hint-free path: `_empty_old_frame`, `_embed`, `_outside_first`, the in-block completion (coordinate seeds), validation | `backend/fv_operations.py` (moved to `padded_frames` by S2′), `tests/backend/test_padded_frame.py` | T2 (incl. the gauge covariance T2(f)) |
+| S3 | the hinted path: `_hint_coordinates` (the tail squash), `_tucker_completion` (groups), `_pinned_left_sweep` (both chains), `_down_completion`; HISTORICAL 3–12 | `backend/fv_operations.py` (moved to `padded_frames` by S2′), tests | T3 (incl. the dense oracle T3(h) and the external hint T3(j)), T10 (jit), T12, G-acyclic; P1/P3 re-measured through the function. **Review stop.** |
+| S2′ | **corrective** (rounds 9–10; the handoff's option C): create `backend/padded_frames.py` and move the S2/S3 code into it, in the round-9 signature `fv_padded_frame(shape, tucker_ranks, tt_ranks, old_frame=None, hint=None, groups=(), seed=ZERO_FRAME_SEED, stack_shape=(), use_jax=False)` — the stores from `ranks.compute_orthogonal_representation_ranks`, no template frame, `_frame_stores` deleted, no `dtype`; `fv_operations` returns to its committed pre-arc form, its `ZERO_FRAME_SEED`, `_haar_rows` and `_identity_prefix` imported by the new module; S4's uncommitted member brought to §3.3's integer form (S4 then lands as planned) | `backend/padded_frames.py` (new), `backend/fv_operations.py`, `tests/backend/test_padded_frame.py`; S4's working-tree `backend/geometry.py` | T2 and T3 on the new signature (S3's oracle tests carry over; only the calls change); `git diff efe5e3d -- t3toolbox/backend/fv_operations.py` empty; G-acyclic rerun |
 | S4 | the uniform conversion in `UniformManifoldGeometryOps.padded_frame` (unpack → `fv_padded_frame` → repack, host loop; no twin) | `backend/geometry.py`, tests | T4(a)–(d), T10 (uniform rows) |
-| S5 | the remaining geometry members on the two manifold classes (the ragged `padded_frame`, `tangent_to_t3`, `padded_structures`, `oversampled_ranks`, `require_frame_structure`): the native old frame from `x_old` (uniform: its own `.data` and masks); the structural guards (layer, shape, stack, `x_old`'s stores ≤ `x0`'s, working ranks ≥ target); `oversampled_ranks` delegating to the rank function; the protocol docstring | `backend/geometry.py`, `backend/optimizers.py:65-131` | T4(e), T5(g), member rows of T10, G-acyclic |
+| S5 | the remaining geometry members on the two manifold classes (the ragged `padded_frame`, `tangent_to_t3`, `padded_structures`, `with_ranks`, `oversampled_ranks`, `require_frame_structure`): the native old frame from `x_old` (uniform: its own `.data` and masks); the structural guards (layer, shape, stack, `x_old`'s stores ≤ `x0`'s, working ranks ≥ target); `oversampled_ranks` delegating to the rank function; the protocol docstring | `backend/geometry.py`, `backend/optimizers.py:65-131` | T4(e), T5(g), T5(i), member rows of T10, G-acyclic |
 | S6 | `PaddedStart`, `padded_start` (plain keywords, `working_ranks`), the constants; `Problem.local_model(frame=)` | `backend/optimizers.py`, `tests/backend/test_padded_start.py` | T5 (matrix oracle), T6 |
 | S7 | `newton_cg(start_frame=, padded_from=x_old, padded_passes=, padded_seed=)`, the working ranks through `geom.oversampled_ranks`, the `stats` keys (only when used), `_prepare_jit_frame` and the `padded_from` conversion | `backend/optimizers.py`, `tests/backend/test_optimizers.py` | T7, T11 (partial); G-bit (equal `stats` dicts); G-P4. **Review stop.** |
 | S8 | `g0_reference='cone'` with `cone_passes` / `cone_seed` (both optimizers), `_cone_reference_gnorm`, the display label | `backend/optimizers.py`, `backend/optimizer_display.py`, `tests/backend/test_zero_reference.py` | T8; G-P12 |
@@ -2021,15 +2189,18 @@ construction), S7 (the optimizer seam), S10 (the docs) and S12 (the math note) �
 
 ## 9. Decisions
 
-Nick's binding decisions are I-1–I-5. Since round 6 Nick has also settled I-3, I-13, I-32 and the open questions
-(§10). The remaining rows are the writer's judgment calls; the critic and Nick should weigh the ones marked
-**(weigh)**. History:
+Nick's binding decisions are I-1–I-5. Since round 6 Nick has also settled I-3, I-13 and the open questions (§10),
+and in round 10 I-32 and I-43–I-45. The remaining rows are the writer's judgment calls; the critic and Nick should
+weigh the ones marked **(weigh)**. History:
 
 - round 2 changed I-5, I-18 and I-21, and added I-28–I-33;
 - round 3 made I-32 a judgment call and added I-34;
 - round 5 rewrote I-5 and I-32, and added I-35 and I-36;
 - round 6 reverted I-28, removed I-34, rewrote I-3, I-11, I-20, I-29 and I-30, and added I-37–I-41;
-- round 7 made every new keyword keyword-only (I-40) and dropped the backend's padded-`N` guard (I-37).
+- round 7 made every new keyword keyword-only (I-40) and dropped the backend's padded-`N` guard (I-37);
+- round 9 rewrote I-26, reopened I-32 (the `ranks` import cycle) and added I-42 (the backend style);
+- round 10 settled I-32 (Nick: a new module), rewrote I-16 (the working geometry comes from `with_ranks`), and added
+  I-43–I-45 (Nick's calls on `dtype`, §12's scope and the `with_ranks` test).
 
 | I | decision | settled as |
 |---|---|---|
@@ -2048,7 +2219,7 @@ Nick's binding decisions are I-1–I-5. Since round 6 Nick has also settled I-3,
 | I-13 | passes and oversampling (Nick, round 6) | `passes` = gradient evaluations, the last construction truncates; **4 (start), 10 (cone), `p = 5`**; the Runpod run checks them at scale (§11) |
 | I-14 | the residual | once per call, at `x0` (or at zero); the misfit only — the regularizer's gradient is tangent to the old stratum and removed by the two-sided steps |
 | I-15 | where the loop lives | `backend/optimizers.py` (T3-free) with five optional duck-typed geometry members (`tangent_to_t3` embeds each pass's gradient as the T3 hint; `oversampled_ranks` adapts the rank function); a geometry without them keeps working |
-| I-16 | the working geometry | returned by `padded_structures` (the uniform geometry holds variation masks for one structure) |
+| I-16 | the working geometry | `with_ranks(*working)` (round 9; the uniform geometry holds variation masks for one structure, so the working structure needs its own) |
 | I-17 | `local_model(frame=)` | preconditions ORTH and "same tensor"; structural check always (`require_frame_structure`), the numerical ones in frontend safe mode only (house rule) |
 | I-18 | recording the start frame | `stats['start_frame_source']` (a label: `'given'` / `'padded'`) and `stats['padded_start_gnorms']` with `padded_from` — **only on runs that use a start frame**; no history field (decision 2) |
 | I-19 | the zero-tensor start | `padded_start(x_old=None)` + `start_frame=` (two calls; the returned frame is the cone frame at zero, a start frame for a zero `x0` only) |
@@ -2058,22 +2229,26 @@ Nick's binding decisions are I-1–I-5. Since round 6 Nick has also settled I-3,
 | I-23 | no `pad_safe_svd` | the uniform member unpacks real blocks, so no SVD of the construction ever sees padding |
 | I-24 | contractions | twelve new `C`-group strings, letters with distinct `AXIS_SIZE` sizes; two existing strings reused; reshapes only for SVD inputs, `C` leading |
 | I-25 | the O(1) claim | corrected in every doc that makes it, with the cone/Haar ratios (at least 15–76×: the dense `‖T3SVD_r G‖` is a lower bound on the cone value); CHANGELOG "Fixed (documentation)" |
-| I-26 | `fv_zero_point_frame` | untouched; the `s = 0` hint-free constructor reproduces it — coordinates bitwise, the Haar factors to `1e-14` (I-38) |
+| I-26 | `fv_zero_point_frame` | **not changed in this release**: its template-frame signature (commit 3e5bc922) is ruled wrong by the maintainer (round 9) and goes to a later audit arc (§7's ledger); it is not a precedent. The array-free `s = 0` constructor call reproduces it — coordinates bitwise, the Haar factors to `1e-14` (I-38) |
 | I-27 | unconverged levels | documented as neutral to worse (P11: up to 4 more Newton steps); the docs advise the padded start after converged levels; no automatic switch (that would be a numerical decision) |
 | I-28 | the two layers — **reverted** (Nick, round 6) | each layer builds its old frame **natively** from `x_old` (no ragged round trip); cross-layer agreement is gauge equivalence, "the same frame up to gauge and rounding", tested with projectors and a dense probe; a statement about subspaces only — `frames_equal` for tangent coordinates is untouched |
 | I-29 | working ranks (round 6) | the rule lives in one rank function, `ranks.oversampled_ranks(shape, tucker, tt, p, sharing)` (elementwise max of the input and `minimal(+p)`; frontend sibling `TuckerTensorTrain.oversampled_ranks`); `padded_start` / `padded_structures` take explicit `working_ranks=None` (= the target) and compute no ranks |
 | I-30 | the old point's slack (round 6) | the frontend reduces `x_old` structurally (`_ragged_minimal` / `uniform_minimal`, sharing-aware) before its frame; the backend accepts any `x_old` with a docstring caveat (numerically zero singular values and structural slack give arbitrary old directions) |
 | I-31 | corewise geometries | no padded-start members: a corewise frame is the point itself; every new keyword on corewise is a structural error |
-| I-32 | placement (Nick, round 6) | `fv_padded_frame` in `fv_operations`, helpers nearby (no cycle drives it since the hint became a T3); no uniform twin (I-41); G-acyclic checks the import graph |
+| I-32 | placement (Nick, round 10) | **a new module `backend/padded_frames.py`** (option A) holding `fv_padded_frame` and its private helpers. All its imports point downward (`ranks`; `fv_operations`'s `ZERO_FRAME_SEED`, `_haar_rows`, `_identity_prefix`; the orthogonalizations, `tt_operations`, `contractions`, `linalg`), and only `geometry` imports it. The justification is the import graph alone: `fv_operations` cannot import `ranks` (`ranks → sharing → fv_operations`). `compute_orthogonal_representation_ranks` stays in `ranks`; `ranks`' dependence on `sharing` is a code smell for the later drift-fix arc (ledger). Not taken: (B) a function-level import (it breaks G-acyclic); (C) the recurrence inline (a third copy); (D) the recurrence moved down behind an alias (the critic's r6 recommendation). `fv_operations` returns to its pre-arc form in S2′. No uniform twin (I-41); G-acyclic checks the result |
 | I-33 | version | 2026.4.0 (new public API; the house numbering increments the minor per release) |
 | I-34 | — | **removed** (round 6): the prefix-layout requirement disappears with the old point (I-37) |
-| I-35 | the hint's type (Nick, round 5) | a **T3** at the template's mode sizes, any ranks, stack `C`; the driver embeds each pass's gradient through `tangent_to_t3`; tails squashed (P16); exact when its chains contain `X_old`'s interfaces (gradient hints, or any hint plus `X_old`), valid otherwise; cost scales with the hint's ranks; the `K` lift withdrawn |
+| I-35 | the hint's type (Nick, round 5) | a **T3** at the mode sizes `shape`, any ranks, stack `C`; the driver embeds each pass's gradient through `tangent_to_t3`; tails squashed (P16); exact when its chains contain `X_old`'s interfaces (gradient hints, or any hint plus `X_old`), valid otherwise; cost scales with the hint's ranks; the `K` lift withdrawn |
 | I-36 | the math note (Nick, round 5) | `docs/padded_frame_cone.tex` + `.pdf`, written in S12 after the code, mirroring the 2026.3.0 note; a clean build plus a permanent reference test |
 | I-37 | `padded_from` takes the old **point** (Nick, round 6; the critic's note) | `newton_cg(x0, padded_from=x_old)`, `padded_start(problem, x_cores, x_old)`; uniform: `x_old` as its full `.data`, its frame built from its own masks (gappy masks fine); backend guards: same layer / shape / stack, `x_old`'s frame stores ≤ `x0`'s (the frontend adds an equal uniform padded `N` for its same-tensor check); safe mode: `x0.allclose(x_old)` at `effective_rtol` (the difference's norm through orthogonalization, never the inner-product formula), TIED `x_old`; no layout, prefix or minimal-old-ranks requirement |
 | I-38 | bitwise vs tolerance (Nick, round 6) | bitwise only for structural facts (old block copy, zero carriers / padding, masks, coordinate completions, the default-path claims G-bit / T6(a) / T7(a)); stated tolerances for everything computed; gauge-invariant projector and dense-probe checks for frame claims (§6's preamble) |
 | I-39 | acceptance (Nick, round 6) | laptop, autonomous: the restart arms and one ladder pair (the release gate); Runpod, manual: one 20 × 1000 ladder pair after the release (not a gate); 100 × 5000 deferred to the paper; each measurement tied to the decision it feeds (§11) |
 | I-40 | non-breaking release (O-1, Nick, round 6) | stated in the CHANGELOG and the release notes; every new keyword is **appended keyword-only** at the end of its signature (backend and frontend `newton_cg`, `gradient_descent`), so no positional call changes meaning (review r4, MINOR A — the alternative, grouping them with the reference block, would shift later positional parameters); the frontend forwards a new keyword only when it is set; G-bit plus G-nonbreaking (the pre-existing frontend and backend tests pass unmodified) |
 | I-41 | no uniform twin (Nick, round 6, item 7) | no `ufv_padded_frame`: the construction is ragged by nature and rank continuation is a ragged-layer activity; a `ufv_` name would hide a host round trip. `UniformManifoldGeometryOps.padded_frame` converts explicitly (unpack → `fv_padded_frame` → repack, host loop, one-line docstring); `fv_padded_frame`'s docstring gives the three-call recipe for raw uniform `.data`; the uniform equivalence tests target the member; the ledger records the exception to the twin symmetry, and `ufv_zero_point_frame` stays this release with the consistency question noted. No serious problem found: the razor holds (the math is standalone, the glue is a callable backend method plus a documented recipe), and the equivalence tests keep their content |
+| I-42 | the backend style (Nick, round 9) | the gold standard — `tucker_tensor_train.py`, `uniform_tucker_tensor_train.py` and the backend functions they trace to — is the only allowable precedent: pure mathematical functions on immutable basic types; structure as `Sequence[int]`; inline shape reading and integer checks; dispatch from the arrays. `fv_padded_frame(shape, tucker_ranks, tt_ranks, …)` derives its stores inside; no template frame; no dict helper; `padded_structures` returns integers only; the uniform members build from ints and masks (§3.2, §3.4, §5.2, §5.4, §12) |
+| I-43 | `dtype` (Nick, round 10) | **none**: no `dtype` argument anywhere in the feature. The dtype follows the arrays, and an array-free call returns the backend's default float (float64 under numpy), as the gold-standard constructors do (`t3_zeros`, `ut3_zeros`, `t3_corewise_randn`). The accepted consequence: on float32 data under numpy, or jax with x64, the cone's passes run in float64; the cone value is unaffected (§3.5) |
+| I-44 | §12's scope (the maintainer's relaxation, round 10) | the style rule **binds every backend function of the feature**, including everything the cone path calls. In the driver and geometry (optimizer-layer) code it is **the goal**: that layer passes points, its genuine inputs. `padded_start` reads `x_cores`' structure and stack through `padded_structures` and its backend through `tree_contains_jax`, and takes the cone's residual at `corewise_zeros_like(x_cores)`; the members never read a frame only for its shapes |
+| I-45 | `with_ranks`' hand-built masks (Nick, round 10) | kept: `from_point` and `from_frame` need arrays, and a zero point built only to read its masks is the ruled-out pattern. §3.4 gives the reason it is safe, and T5(i) guards it: `with_ranks` of a geometry's own ranks reproduces its `masks` and `var_masks` exactly |
 
 ---
 
@@ -2155,27 +2330,51 @@ The 100 × 5000 layout is deferred to the paper.
 
 ## 12. Pitfalls checklist
 
+**The backend style rule** (Nick, round 9 — verbatim): backend functions are PURE MATHEMATICAL FUNCTIONS whose inputs
+and outputs are immutable objects of basic types (arrays, tuples of arrays, ints, static int tuples, host bool masks),
+structure travels as `Sequence[int]` with `len=d` shape comments, bodies derive structure from array shapes inline and
+follow the math, dispatch is inferred from arrays, frontend methods only validate and rewrap.
+
+**The gold standard is the only allowable precedent:** `t3toolbox/tucker_tensor_train.py`,
+`t3toolbox/uniform_tucker_tensor_train.py`, and the backend functions they trace to (the traces:
+`dev/padded_frame_slices/style_notes_writer.md`). **Precedent outside the gold standard is not justification.** That
+excludes the geometry/optimizer layer, and `fv_zero_point_frame`, whose "template frame read only for its shapes"
+pattern (commit 3e5bc922) the maintainer has ruled wrong, together with the dict-of-shapes helper `_frame_stores`.
+
+**Scope** (round 10, the maintainer's relaxation; I-44). The rule **binds every backend function of the feature**:
+the constructor and its helpers in `padded_frames`, the `linalg` primitives, `ranks.oversampled_ranks`, and everything
+the cone path calls. The cone path builds its first frame by the array-free `fv_padded_frame`, not by
+`fv_zero_point_frame`. In the driver and geometry code — the optimizer layer: `padded_start`, the seam in
+`newton_cg`, `_cone_reference_gnorm`, the geometry members — the rule is **the goal**. That layer passes points, its
+genuine inputs:
+
+- `padded_start` reads `x_cores`' structure and stack through `padded_structures`, and its backend through
+  `tree_contains_jax`;
+- the cone path takes its residual at `corewise_zeros_like(x_cores)`;
+- the members take and return integers, points, frames and geometries, and never read a frame only for its shapes.
+
 | pitfall | how this plan handles it | where |
 |---|---|---|
+| **backend style — the gold standard** (Nick, round 9; scope and `dtype`, round 10) | `fv_padded_frame(shape, tucker_ranks, tt_ranks, old_frame, hint, groups, seed, stack_shape, use_jax)` takes the structure as three int sequences, derives the four stores with `ranks.compute_orthogonal_representation_ranks`, reads array shapes inline, checks integers inline (no helper, no dict), infers dispatch from its arrays (the array-free-constructor convention otherwise), and returns the frame tuple; no template frame anywhere; `padded_structures` returns integers only; the uniform members build from ints and masks (`ut3_make_masks`, `ufv_make_frame_masks`, `ufv_variation_masks`), never from an orthogonalized zero tensor; `fv_zero_point_frame` is unchanged this release and its defect goes to a later audit arc; no `dtype` (I-43); the rule binds the feature's backend functions and is the goal in the optimizer layer (I-44) | §3.2, §3.4, §5.2, §5.4, I-43, I-44 |
 | **Named contractions** (coordinator) | Every nontrivial contraction is a `contract(...)` call with the `C` group — the hint re-basis, the Tucker environment and its projection, the sweep's carry/projection/update, the down environments, the primitive's projection; twelve new strings with HISTORICAL `''`, two reused. Plain `xnp.linalg.qr/svd` only for factorizations; `concatenate`, `swapaxes`, `pad_or_truncate` where that is all that is needed. | §4.0–§4.10 |
 | **Sharding safety** (coordinator) | No reshape inside contractions; reshapes only to form SVD/QR inputs (merging adjacent non-stack rank axes) and to fold factors back; `C` always leading; no stack axis moved or merged. `test_contractions_sharding.py` sweeps the new strings automatically. | §4.0, §4.10 |
 | **bitwise vs tolerance** (Nick, round 6) | bitwise only for structural facts (the old block as a copy, zero carriers and padding, masks, coordinate completions, the default-path claims G-bit / T6(a) / T7(a)); stated tolerances (`1e-14` orthogonality, `1e-13` relative reconstruction, `1e-14` computed arrays, the safety rtol in safe-mode tests; never `np.allclose` defaults) for anything computed; frame claims through assembled projectors (`U_iᵀU_i`, each bond's interface projector, each down core's row-space projector) and a dense `P_{T_F} Y`; no "bit for bit" claim for a computed result anywhere in the plan | §6, I-38 |
 | batching / stacking (C/W/K, frame-inner) | `C` vectorized in the ragged constructor and the driver; `W` never appears (the constructor sees no samples; the kinds keep their own `W` handling); `K` never appears either — the hint is one T3 per frame, and several hints are combined by the caller; the uniform member a host loop for all stacks by decision; optimizers unstacked | §3.9, I-5 |
-| ragged / uniform split | no uniform twin (I-41): `UniformManifoldGeometryOps.padded_frame` unpacks, runs `fv_padded_frame`, repacks at the template's padded sizes, host loop; uniform masks stay host `np`, supercores `xnp`; the working uniform geometry is built for its own masks; each layer builds the old frame **natively** (the uniform one from `x_old`'s own `.data` and masks), and the layers agree up to gauge and rounding | §3.3, §3.4, §4.8, I-28, I-41 |
+| ragged / uniform split | no uniform twin (I-41): `UniformManifoldGeometryOps.padded_frame` unpacks, runs `fv_padded_frame`, repacks at the geometry's frame padded sizes, host loop; uniform masks stay host `np`, supercores `xnp`; the working uniform geometry is built for its own masks; each layer builds the old frame **natively** (the uniform one from `x_old`'s own `.data` and masks), and the layers agree up to gauge and rounding | §3.3, §3.4, §4.8, I-28, I-41 |
 | `pad_safe_svd` at masked SVDs | none needed: no SVD of the construction sees padded data (the uniform member unpacks); the native uniform old frame comes from `ut3_orthogonal_representations`, which uses `pad_safe_svd` itself | §3.3, I-23 |
-| numpy/jax dispatch | `xnp` from the array inputs (`tree_contains_jax`); host draws converted with `xnp.asarray(..., dtype)`; float sign literals cast to `Q`'s dtype; the result follows the template's dtype and the inputs' backend; `padded_from` converted like `x0` under `use_jit` | §3.2, §3.6, §4.1, T10 |
-| jittability | the constructor and primitives are traceable (static shapes and counts, host constants, no value-dependent branches); the uniform member and the driver are eager by design (masks, Python loop); a start frame enters the CG as a local-model leaf, its uniform masks value-equal to the template's (no recompile) | §3.2, §3.6, T7(e), T10 |
+| numpy/jax dispatch | `xnp` from the array inputs (`tree_contains_jax`); host draws converted with `xnp.asarray(..., dtype)`; float sign literals cast to `Q`'s dtype; the result follows the array inputs' dtype and backend — array-free, the backend's default float, as `t3_zeros` (no `dtype`, I-43); `padded_from` converted like `x0` under `use_jit` | §3.2, §3.6, §4.1, T10 |
+| jittability | the constructor and primitives are traceable (static shapes and counts, host constants, no value-dependent branches); the uniform member and the driver are eager by design (masks, Python loop); a start frame enters the CG as a local-model leaf, its uniform masks value-equal to the problem geometry's frame masks (no recompile) | §3.2, §3.6, T7(e), T10 |
 | numerical vs structural | structural checks always (shapes, counts, stacks, the old point's layer / shape / stack and stores (frontend: also the uniform padded `N`), working ranks, keyword validity, mutual exclusion, the reduced-`x0` structure of a start frame, corewise); numerical ones (`x0` equals `x_old`, ORTH and same tensor for a start frame, TIED) only in frontend safe mode, skipped under `unsafe()` and traces; the hint's chains and `x_old`'s zero singular values are caveats | §3.8 |
 | no numerical rank decision | counts are store differences; leading directions are taken in order and completed; no `σ` is compared with a tolerance anywhere | §2.8, §4.1 |
 | comment and signature style | one argument per line, aligned name · type · `#` shape contract, one return element per line with `len=d, elm_shape=C+(...)` | §5 |
 | backend/frontend razor | math in backend standalone functions and one rank function; the frontend adds types, the structural reduction of `x_old`, the minimal-structure and safe-mode checks, and the rank method's sibling; no frontend constructor (I-22) | §3.4, §5.7 |
 | sharing | one tied Tucker factor per group from the concatenated normal content, the old block read from the group's first mode under TIED (checked on `x_old`); hint-free draws keyed by `min(g)`; TT/down untied; the rank function's shared notion keeps a group's rank equal | §2.9, §4.5, T3(e), T13 |
 | safe mode | as "numerical vs structural"; the same-tensor check uses `allclose` (the difference's norm through orthogonalization) at `effective_rtol`, never the inner-product formula; the backend never runs a numerical check | §3.6 |
-| naming (`docs/naming_conventions.md`) | `fv_` / `ufv_` prefixes for the frame constructions beside the zero-point frames in the `fv` / `ufv` operations modules (I-32); unprefixed `linalg` primitives (as `pad_safe_svd`) and `ranks.oversampled_ranks` (as `compute_minimal_ranks`'s neighbour); `require_` for a raising structural member; plain keywords named per call site (`padded_passes`, `cone_seed`, …) | §3.2, §5, I-3, I-32 |
-| import acyclicity | the constructor imports only downward (no `tv_to_t3` since round 5); G-acyclic in S3: the backend import graph from every import node (AST scan, module- and function-level) is acyclic, and the backend has no function-level library import | §3.2, §6, I-32 |
+| naming (`docs/naming_conventions.md`) | the `fv_` prefix for the constructor in the topic module `padded_frames` — a feature module whose function carries its family prefix, as in `sharing` (I-32; one sentence in the naming page); unprefixed `linalg` primitives (as `pad_safe_svd`) and `ranks.oversampled_ranks` (as `compute_minimal_ranks`'s neighbour); `require_` for a raising structural member; plain keywords named per call site (`padded_passes`, `cone_seed`, …) | §3.2, §5, I-3, I-32 |
+| import acyclicity | the new module `padded_frames` imports only downward (`ranks`, `fv_operations`, …; no `tv_to_t3` since round 5), and only `geometry` imports it; `fv_operations` cannot import `ranks` (`ranks → sharing → fv_operations`, I-32); G-acyclic in S3: the backend import graph from every import node (AST scan, module- and function-level) is acyclic, and the backend has no function-level library import | §3.2, §6, I-32 |
 | doctests | every public function has an Examples section; amended docs carry `>>>` blocks; doctest margins wide enough for both numpy generations; T14 | §5, §7 |
 | CHANGELOG | a new section in the Keep-a-Changelog format of `[2026.3.0]`: "No breaking changes", Added, Fixed (documentation); no `dev/` citations in shipped text | §7 |
-| equivalence-contract obligations | through the uniform member, on identical inputs the real blocks match the ragged construction to `1e-14`, the masks equal the template's and garbage padding is never read (T4); the native uniform old frame is gauge-equivalent to the ragged one (T4(e)); gauge-invariant cross-layer comparisons of `padded_start` (T5(f)), the cone reference (T8(c)) and the padded-restart trajectory (T9(e)); the contract doc's new paragraph, scoped to subspaces (`frames_equal` for coordinates untouched) | §6, §7 |
+| equivalence-contract obligations | through the uniform member, on identical inputs the real blocks match the ragged construction to `1e-14`, the masks equal the native sweep's and match the geometry's `var_masks`, and garbage padding is never read (T4); the native uniform old frame is gauge-equivalent to the ragged one (T4(e)); gauge-invariant cross-layer comparisons of `padded_start` (T5(f)), the cone reference (T8(c)) and the padded-restart trajectory (T9(e)); the contract doc's new paragraph, scoped to subspaces (`frames_equal` for coordinates untouched) | §6, §7 |
 | bit-identical defaults, non-breaking | the default path executes the same statements; no new history field; `stats` keys only when used; the frontend forwards a new keyword only when set; T7(a); G-bit compares whole `stats` dicts; G-nonbreaking runs the pre-existing tests (frontend and backend) unmodified | §3.6, §6, I-2, I-18, I-40 |
 | options are not parameters | the padded-start knobs are per-call keywords (never a geometry or kind field); the defaults are module constants; `p` reaches the rank function from the call site | §5.5, I-3 |
 
@@ -2235,8 +2434,9 @@ def left_sweep(chainR, Om, B, oL, rL, nU, srL):      # §4.6: pinned left TT-SVD
     L.append(embed(oL[d - 1], (rL[d - 1], nU[d - 1], rL[d])))
     return L
 
-def padded_frame(template, old, Z):                   # design (d): §4.4-§4.7; Z = the hint, any T3 (tucker_cores, tt_cores)
-    nU, nD, rL, rR = stores(template); oU, oO, oL, oR = old; snU, snD, srL, srR = stores(old)
+def padded_frame(target, old, Z):                     # design (d): §4.4-§4.7; Z = the hint, any T3 (tucker_cores, tt_cores)
+    nU, nD, rL, rR = target                           # the target stores (ints): compute_orthogonal_representation_ranks
+    oU, oO, oL, oR = old; snU, snD, srL, srR = stores(old)
     d = len(nU)
     W, Ztt = t3_down_orthogonalize_tucker_cores(Z)
     ZR, ZL = tt_right_orthogonalize(Ztt), tt_left_orthogonalize(Ztt)
@@ -2266,11 +2466,11 @@ def padded_frame(template, old, Z):                   # design (d): §4.4-§4.7;
         O.append(np.transpose(Oi.reshape(rL[i], rR[i + 1], nD[i]), (0, 2, 1)))
     return tuple(U), tuple(O), tuple(L), tuple(R)
 
-def padded_start(grad, template, os_template, old, passes, hint_free_start):        # §4.9
-    F = hint_free_start(os_template, old)
+def padded_start(grad, target, working, old, passes, hint_free_start):              # §4.9; target, working: store tuples
+    F = hint_free_start(working, old)
     for j in range(passes):
         Z = tv_to_t3(F, grad(F))                                                     # the geometry's tangent_to_t3
-        F = padded_frame(template if j == passes - 1 else os_template, old, Z)
+        F = padded_frame(target if j == passes - 1 else working, old, Z)
     return F
 ```
 
