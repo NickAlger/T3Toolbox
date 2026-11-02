@@ -1,5 +1,40 @@
 # T3Toolbox — current handoff
 
+## ⚠ IN PROGRESS (2026-11-02): the padded frame / cone reference feature — read this block first
+
+**What.** The structural, δ-free frame at a zero-padded rank increase (Tucker + TT completions from a T3 hint by a
+pinned T3-SVD; seeded Haar / identity-prefix without a hint; `fv_zero_point_frame` is the s = 0 case), its subspace
+iteration (`padded_start`), the optimizer seam (`Problem.local_model(frame=)`, `newton_cg(start_frame=,
+padded_from=x_old, padded_passes=, padded_seed=, cone_passes=, cone_seed=)`, keyword-only, appended) and
+`g0_reference='cone'`. **The plan is signed off by Nick (2026-11-02) and is the authority:**
+`dev/padded_frame_cone_impl_plan_2026-11-02.md` (critic-approved after 5 review rounds + Nick's batch of changes;
+reviews `dev/padded_frame_cone_plan_review_r1-5.md`; design notes `..._q_old_point.md`, `..._q_vectorize.md`).
+Motivation and measurements: T3Polynomial `dev/zero_reference_cone_2026_11_02.md`.
+
+**Binding rules (Nick).** Additive, NON-BREAKING release 2026.4.0: no default changes, `g0_reference` default stays
+`'zero'`, `newton_cg` without the new keywords bit-identical incl. `stats`; the retraction and
+`t3_orthogonal_representations` untouched; structural (ranks known), never a numerical rank decision, no ε content;
+bitwise claims only for structural facts, tolerances + projector (gauge-invariant) checks otherwise; named
+contractions via `backend/contractions.py`; no `ufv_padded_frame` twin (the uniform geometry member converts
+explicitly); the optimizers unstacked, the constructor over `C`.
+
+**Process (Nick's instruction).** Two Opus agents at MEDIUM effort: an **implementer** implements one slice of plan §8
+and writes `dev/padded_frame_slices/S<n>_handoff.md`; a **reviewer** critiques it (`S<n>_review.md`,
+`VERDICT: APPROVE`/`REVISE`); they iterate until the reviewer is satisfied; the orchestrating session then checks the
+result (reads the diff, runs the full suite `PYTHONPATH=$PWD <env-python> -m pytest tests/ -q -n auto`), commits
+(stage by name; message ends with `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>` and the session line) and
+starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, continue unless he objects). Unforeseen
+issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
+decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
+
+**State.** S1 in progress (primitives `pinned_completion` / `pinned_leading_columns`, `ranks.oversampled_ranks`,
+HISTORICAL strings 1–2, tests T1 / T5(h) / T10 / T12). Update this line at every commit: `S<n> committed <hash>`.
+
+**How to resume after compaction.** Read this block, the plan's §8 slice table and the slice's §4/§5/§6 entries, the
+latest `dev/padded_frame_slices/S*_handoff.md` / `S*_review.md`, the judgment-calls file, and `git log --oneline -15`;
+then continue the loop at the slice named in **State**.
+
+
 _Updated 2026-10-29, at the 2026.3.0 release._ The previous handoff (the exact-Hessian thread through S13, the
 2026-08-22 whole-library review thread, the 2026.2 recon backlog) is archived verbatim at
 `dev/archive/handoff_2026-10-29_pre-2026.3.0.md`; older ones are `dev/archive/handoff_2026-08-21_optimization_layer.md`,
