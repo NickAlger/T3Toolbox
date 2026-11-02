@@ -63,7 +63,8 @@ raised a FURTHER issue → round 11: frontend/backend split and backend bloat. M
 FRONTEND TWINS (methods of the appropriate classes or standalone functions, as the gold standard does it);
 detailed docstrings and doctests move from the backend to the frontend twins; most in-function argument validation
 moves from the backend to the frontend (backend functions keep one-line docstrings + shape comments, as
-`tucker_change_core_shapes` / `t3svd` do). Round 11 in progress → critic → Nick's sign-off → then the corrective slice S2′ (new
+`tucker_change_core_shapes` / `t3svd` do). Doctests that cannot be moved STAY in the backend (never delete a
+backend doctest that has no frontend twin to move to). Round 11 in progress → critic → Nick's sign-off → then the corrective slice S2′ (new
 `backend/padded_frames.py`; `fv_operations` back to efe5e3d; S4's uncommitted member refactored).
 
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
