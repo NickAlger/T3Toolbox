@@ -381,8 +381,10 @@ the old directions are **held fixed** — they are not re-estimated from the hin
 - **Counts are structural**: `k = nU_i − nU°_i`, `rL_{k+1} − rL°_{k+1}`, `rR_k − rR°_k`, `nD_i − nD°_i`, read off
   the two rank sets; no singular value is compared with anything.
 - **A degenerate hint is completed, not thresholded**: if the hint has fewer directions than slots (or none —
-  `v = 0`), the trailing columns come from the Householder process against the pins and the leading ones —
-  a statement about the hint (it carries no information there), not about the data.
+  `v = 0`), the trailing columns are the SVD's remaining left singular directions of the projected content (noise-level
+  singular values: their orientation is not determined by the content and is roundoff- and backend-dependent),
+  re-orthogonalized against the pins and the leading ones by the Householder QR — always a valid completion, a
+  statement about the hint (it carries no information there), not about the data (S1 review, finding 1; R5/E1).
 - **The Tucker step is per mode, the TT steps are sweeps**, both chosen for the measured reasons in P6: the
   HOSVD-style Tucker step (each mode's full hint environment) is as good as the sequential one inside the
   left sweep, makes a sharing group's step one SVD of the group's concatenated normal contents
@@ -1017,8 +1019,10 @@ seeds it is `_haar_rows`' recipe exactly (transposed).
 4. return `pinned_completion(pinned, Uq, k)`.
 
 When `Aperp` has `≥ k` nonzero singular values the result spans its leading-`k` left singular subspace (the QR of
-an orthonormal `[P | U_k]` returns `U_k` up to column signs); otherwise the trailing columns are the Householder
-completion — the hint has no information there, and nothing is thresholded. The other LAPACK-dependent case is a
+an orthonormal `[P | U_k]` returns `U_k` up to column signs); otherwise the trailing columns are the SVD's noise-level
+left singular vectors of `Aperp`, re-orthogonalized against `P` by the QR — valid, but their orientation is decided by
+roundoff (it changes when content inside `span(P)` changes, and across backends), so projector-equality tests must
+use hints with at least `k` directions per slot; the hint has no information there, and nothing is thresholded. The other LAPACK-dependent case is a
 tie at the cut (`σ_k = σ_{k+1}`), where any basis of the tied subspace is a leading set. Neither primitive sees
 padding: the uniform layer unpacks first (§4.8), so `pad_safe_svd` is not involved anywhere in this feature.
 

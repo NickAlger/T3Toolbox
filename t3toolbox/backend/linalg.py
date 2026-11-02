@@ -8,14 +8,16 @@
 (directions match the core-unfolding conventions), ``pad_safe_svd`` (the mask-aware SVD of a
 zero-padded matrix -- the uniform layer's replacement for a black-box SVD), the clipped and damped
 reciprocal of a spectrum with its pseudo-inverse (``filtered_reciprocal``,
-``damped_pseudo_inverse``), and ``pad_or_truncate``. Pure array-in, array-out helpers with no T3
-semantics.
+``damped_pseudo_inverse``), the pinned completions (``pinned_completion``, ``pinned_leading_columns``:
+orthonormal columns continuing a fixed orthonormal block, tolerance-free), and ``pad_or_truncate``. Pure
+array-in, array-out helpers with no T3 semantics.
 """
 import functools
 import typing as typ
 import numpy as np
 
 from t3toolbox.backend.common import *
+import t3toolbox.backend.contractions as contractions
 
 __all__ = [
     'pad_or_truncate',
@@ -30,6 +32,8 @@ __all__ = [
     'right_svd_pair',
     'up_svd_pair',
     'down_svd_pair',
+    'pinned_completion',
+    'pinned_leading_columns',
 ]
 
 
@@ -823,3 +827,174 @@ def damped_pseudo_inverse(
     f_k = filtered_reciprocal(s_k, eps, eff_rcond)
     M_pinv = xnp.einsum('...kn,...k,...mk->...nm', Vt_kn, f_k, U_mk)  # V diag(f) U^T
     return M_pinv, s_k
+
+
+######################################
+#######    Pinned completions    #####
+######################################
+
+def _check_pinned_operands(
+        pinned:  NDArray,   # C+(n, s)
+        other:   NDArray,   # C+(n, m)
+        k:       int,
+        name:    str,       # the second operand's argument name, for the message
+) -> None:
+    '''The structural checks shared by the two pinned primitives (shapes and counts only).'''
+    if isinstance(k, bool) or not isinstance(k, (int, np.integer)) or k < 0:
+        raise ValueError('k must be a non-negative int, got %r' % (k,))
+    if pinned.ndim < 2 or other.ndim < 2:
+        raise ValueError('pinned and %s must be C+(n, .) arrays; got shapes %s and %s'
+                         % (name, pinned.shape, other.shape))
+    if pinned.shape[:-1] != other.shape[:-1]:
+        raise ValueError('pinned %s and %s %s must share the stack C and the row count n'
+                         % (pinned.shape, name, other.shape))
+    n, s = pinned.shape[-2:]
+    if s + k > n:
+        raise ValueError('s + k = %d + %d exceeds n = %d: no %d orthonormal columns complete %d pinned '
+                         'ones in R^%d' % (s, k, n, k, s, n))
+
+
+def pinned_completion(
+        pinned:  NDArray,   # C+(n, s): orthonormal columns, held fixed (s may be 0)
+        seeds:   NDArray,   # C+(n, m): directions to complete from, in order; m < k pads with zero columns
+        k:       int,       # completion columns; s + k <= n (structural)
+) -> NDArray:               # C+(n, k): orthonormal columns orthogonal to span(pinned); sign-fixed
+    '''The ``k`` columns that continue ``pinned`` to an orthonormal set, taken from ``seeds`` in order: the
+    sign-fixed Householder QR of ``[pinned | seeds[:k]]``, columns ``s..s+k-1``. Valid for any seeds (a seed in
+    the span of the earlier columns is completed deterministically); no threshold. ``s = 0`` with Gaussian
+    seeds is the Haar recipe of ``fv_operations._haar_rows``.
+
+    Column ``j`` of the result is seed ``j``'s direction orthogonalized against ``pinned`` and the
+    earlier completion columns (Gram--Schmidt order), with the sign that makes the QR's diagonal entry
+    non-negative. When a seed adds nothing new -- it lies in the span of the earlier columns, is zero, or
+    is missing (``m < k``) -- Householder QR still returns an orthonormal column there, chosen by the
+    reflectors (deterministic for a given backend). So the output is orthonormal and orthogonal to
+    ``span(pinned)`` for **every** input; nothing is compared with a tolerance. ``pinned`` is assumed
+    orthonormal (a caveat, not checked). The stack ``C`` is vectorized (one batched QR);
+    ``k = 0`` returns ``C+(n, 0)`` without factorizing. Structural errors (``s + k > n``, mismatched
+    ``C`` or ``n``, a negative ``k``) raise ``ValueError``. Dispatch is inferred from the inputs.
+
+    Examples
+    --------
+    Complete two orthonormal columns in ``R^5`` by two more, from random seeds:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.linalg as linalg
+    >>> np.random.seed(0)
+    >>> P, _ = np.linalg.qr(np.random.randn(5, 2))                    # pinned: n = 5, s = 2
+    >>> Q = linalg.pinned_completion(P, np.random.randn(5, 3), 2)     # m = 3 seeds, k = 2 used
+    >>> print(Q.shape)
+    (5, 2)
+    >>> PQ = np.concatenate([P, Q], axis=1)
+    >>> print(bool(np.linalg.norm(PQ.T @ PQ - np.eye(4)) < 1e-14))   # orthonormal, and orthogonal to P
+    True
+
+    Degenerate seeds are completed, not rejected: seeds inside ``span(pinned)``, all-zero seeds, or
+    fewer seeds than ``k`` (the missing ones are zero columns):
+
+    >>> for seeds in (P @ np.random.randn(2, 2), np.zeros((5, 2)), np.random.randn(5, 1)):
+    ...     PQ = np.concatenate([P, linalg.pinned_completion(P, seeds, 2)], axis=1)
+    ...     print(bool(np.linalg.norm(PQ.T @ PQ - np.eye(4)) < 1e-14))
+    True
+    True
+    True
+
+    A stack ``C`` is one batched call, and ``k = 0`` is an empty completion:
+
+    >>> Ps = np.linalg.qr(np.random.randn(2, 3, 6, 2))[0]             # C = (2, 3), n = 6, s = 2
+    >>> print(linalg.pinned_completion(Ps, np.random.randn(2, 3, 6, 4), 4).shape)
+    (2, 3, 6, 4)
+    >>> print(linalg.pinned_completion(P, np.random.randn(5, 3), 0).shape)
+    (5, 0)
+
+    ``s + k > n`` is structural:
+
+    >>> linalg.pinned_completion(P, np.random.randn(5, 4), 4)       # doctest: +IGNORE_EXCEPTION_DETAIL
+    Traceback (most recent call last):
+    ...
+    ValueError: s + k = 2 + 4 exceeds n = 5
+    '''
+    use_jax = tree_contains_jax((pinned, seeds))
+    xnp, _, _ = get_backend(False, use_jax)
+
+    pinned = xnp.asarray(pinned)
+    seeds = xnp.asarray(seeds)
+    _check_pinned_operands(pinned, seeds, k, 'seeds')
+    C = pinned.shape[:-2]
+    n, s = pinned.shape[-2:]
+    m = seeds.shape[-1]
+    dtype = xnp.result_type(pinned, seeds)
+    if k == 0:
+        return xnp.zeros(C + (n, 0), dtype=dtype)
+
+    if m >= k:
+        S_Cnk = seeds[..., :k]
+    else:   # missing seeds are zero columns: Householder completes them deterministically
+        S_Cnk = xnp.concatenate([seeds, xnp.zeros(C + (n, k - m), dtype=seeds.dtype)], axis=-1)
+    Q_Cnx, R_Cxx = xnp.linalg.qr(xnp.concatenate([pinned, S_Cnk], axis=-1))    # reduced Householder, x = s+k
+    diag_Ck = xnp.diagonal(R_Cxx, axis1=-2, axis2=-1)[..., s:s + k]
+    sg_Ck = xnp.where(diag_Ck >= 0, 1.0, -1.0).astype(Q_Cnx.dtype)   # the _haar_rows sign rule (float literals:
+    return Q_Cnx[..., :, s:s + k] * sg_Ck[..., None, :]              #   an int where would promote float32)
+
+
+def pinned_leading_columns(
+        pinned:  NDArray,   # C+(n, s): orthonormal columns, held fixed
+        A:       NDArray,   # C+(n, m): the content whose leading directions are wanted
+        k:       int,       # s + k <= n (structural)
+) -> NDArray:               # C+(n, k): the leading k left singular directions of (I - P P^T) A, completed against P
+    '''The pinned truncated SVD: the leading ``k`` left singular directions of ``A`` projected off
+    ``span(pinned)``, completed by :py:func:`pinned_completion` when the projection has rank ``< k``. The
+    count ``k`` is the caller's (structural); nothing is compared with a tolerance.
+
+    The steps: ``Aperp = A - P (P^T A)``; its thin SVD's left factor (descending); then
+    ``pinned_completion(pinned, U, k)``, whose QR of the orthonormal ``[P | U_k]`` returns ``U_k`` up to
+    column signs. When ``Aperp`` has at least ``k`` nonzero singular values the result spans its leading-``k``
+    left singular subspace. Otherwise the columns beyond that rank come from the SVD's trailing singular
+    vectors (zero or roundoff-level ``sigma``), orthogonalized against ``P`` and the leading columns by the
+    QR: always a valid orthonormal completion orthogonal to ``P``, deterministic for a given input and
+    backend, but **not determined by** ``A`` -- roundoff-level changes to ``A`` (e.g. its content inside
+    ``span(pinned)``) can rotate those columns by O(1), and backends may differ there. A tie at the cut (``sigma_k =
+    sigma_{k+1}``) returns some basis of the tied
+    subspace, as any truncated SVD does. ``pinned`` is assumed orthonormal (a caveat, not checked). The stack
+    ``C`` is vectorized; ``k = 0`` returns ``C+(n, 0)``; structural errors as :py:func:`pinned_completion`.
+
+    Examples
+    --------
+    A planted leading direction outside ``span(pinned)`` is recovered, whatever ``A`` holds inside it:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.linalg as linalg
+    >>> np.random.seed(0)
+    >>> P, _ = np.linalg.qr(np.random.randn(6, 2))                    # pinned: n = 6, s = 2
+    >>> B = np.linalg.qr(np.concatenate([P, np.random.randn(6, 2)], axis=1))[0]
+    >>> u, w = B[:, 2], B[:, 3]                                       # orthonormal, orthogonal to P
+    >>> A = 100.0 * P @ np.random.randn(2, 4) + 10.0 * np.outer(u, [1, 0, 0, 0]) + np.outer(w, [0, 1, 0, 0])
+    >>> U = linalg.pinned_leading_columns(P, A, 1)                    # off span(P): sigma = 10 (u), 1 (w)
+    >>> print(U.shape, bool(abs(U[:, 0] @ u) > 1 - 1e-12))
+    (6, 1) True
+
+    When the projected content has rank below ``k`` the rest is completed -- still orthonormal and
+    orthogonal to ``pinned``:
+
+    >>> A1 = P @ np.random.randn(2, 3) + np.outer(u, np.random.randn(3))   # rank 1 off span(P), k = 3
+    >>> PU = np.concatenate([P, linalg.pinned_leading_columns(P, A1, 3)], axis=1)
+    >>> print(bool(np.linalg.norm(PU.T @ PU - np.eye(5)) < 1e-14))
+    True
+    '''
+    use_jax = tree_contains_jax((pinned, A))
+    xnp, _, _ = get_backend(False, use_jax)
+
+    pinned = xnp.asarray(pinned)
+    A = xnp.asarray(A)
+    _check_pinned_operands(pinned, A, k, 'A')
+    C = pinned.shape[:-2]
+    n = pinned.shape[-2]
+    if k == 0:
+        return xnp.zeros(C + (n, 0), dtype=xnp.result_type(pinned, A))
+    if A.shape[-1] == 0:    # no content: the completion of zero seeds
+        return pinned_completion(pinned, A, k)
+
+    PtA_Cab = contractions.contract('Cia,Cib->Cab', pinned, A)
+    Aperp_Cib = A - contractions.contract('Cia,Cab->Cib', pinned, PtA_Cab)
+    U_Cix, _, _ = xnp.linalg.svd(Aperp_Cib, full_matrices=False)     # C+(n, min(n, m)), descending
+    return pinned_completion(pinned, U_Cix, k)

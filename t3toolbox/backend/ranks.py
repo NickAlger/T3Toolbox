@@ -8,6 +8,7 @@ Mostly cheap structural integer arithmetic -- bare ``minimal_ranks`` means the s
 per the naming convention; the SVD-based ``numerically_minimal`` checkers live with their
 operations -- plus edge condition-number diagnostics.
 """
+import operator
 import numpy as np
 import typing as typ
 
@@ -18,6 +19,7 @@ from t3toolbox.backend.common import *
 __all__ = [
     'compute_minimal_ranks',
     'compute_continuation_ranks',
+    'oversampled_ranks',
     'edge_condition_numbers',
     'compute_raw_sweep_ranks',
     'compute_orthogonal_representation_ranks',
@@ -171,6 +173,82 @@ def compute_minimal_ranks(
         new_tt_ranks = xnp.array(new_tt_ranks)
 
     return new_tucker_ranks, new_tt_ranks
+
+
+def oversampled_ranks(
+        shape:         typ.Sequence[int],                  # (N0, ..., N(d-1))
+        tucker_ranks:  typ.Sequence[int],                  # (n0, ..., n(d-1))
+        tt_ranks:      typ.Sequence[int],                  # (1, r1, ..., r(d-1), 1)
+        p:             int,                                # the rank increment, p >= 0 (structural)
+        sharing:       typ.Optional[typ.Sequence] = None,  # len=d group labels; None = unshared
+) -> typ.Tuple[
+    typ.Tuple[int, ...],  # tucker ranks: max(input, minimal(+p)); minimal for a minimal input
+    typ.Tuple[int, ...],  # tt ranks:     the same; boundary bonds as the input's (1 for a squashed T3)
+]:
+    '''Oversampled working ranks: ``+p`` on every Tucker rank and interior bond, structurally minimal,
+    never below the input.
+
+    Returns the elementwise maximum of the input ranks and
+    ``compute_minimal_ranks(shape, n + p, (1, r1 + p, ..., r(d-1) + p, 1), sharing)``. The reduction is the
+    structural one (integer arithmetic, no SVD), with the shared notion under ``sharing``, so a sharing group
+    keeps one Tucker rank. Consequences, all structural:
+
+    * a minimal input gives a minimal output (the reduction is monotone, so the maximum is the reduced
+      ``+p`` ranks), and ``p = 0`` returns a minimal input unchanged;
+    * the output is never below the input -- a non-minimal input keeps its slack, so a working structure
+      built from these ranks never undercuts the structure it oversamples.
+
+    This is the one home of the working-rank rule of the padded start (iterate at the oversampled ranks,
+    then truncate to the target). Integer sequences in, Python-int tuples out; stacked rank arrays are not
+    accepted (reduce per element). Boundary bonds above 1 (an unsquashed T3 sum) are kept as given, but the
+    interior caps are computed as for boundary bonds 1 -- conservative. A negative or non-integer ``p`` is a
+    ``ValueError``; the length checks
+    are :py:func:`compute_minimal_ranks`'s.
+
+    Examples
+    --------
+    ``+p`` where the structure has room for it, capped where it does not (``N0 = 3``; the last interior bond
+    is capped by ``N2 = 4`` through the boundary bond):
+
+    >>> import t3toolbox.backend.ranks as ranks
+    >>> ranks.oversampled_ranks((3, 10, 4), (2, 3, 2), (1, 2, 2, 1), 1)
+    ((3, 4, 3), (1, 3, 3, 1))
+    >>> ranks.oversampled_ranks((3, 10, 4), (2, 3, 2), (1, 2, 2, 1), 5)
+    ((3, 8, 4), (1, 3, 4, 1))
+
+    ``p = 0`` returns a minimal input unchanged, and a non-minimal input keeps its slack (here Tucker rank 5
+    at ``N0 = 3``) -- the output is never below the input:
+
+    >>> ranks.oversampled_ranks((3, 10, 4), (2, 3, 2), (1, 2, 2, 1), 0)
+    ((2, 3, 2), (1, 2, 2, 1))
+    >>> ranks.oversampled_ranks((3, 10, 4), (5, 3, 2), (1, 2, 2, 1), 1)
+    ((5, 4, 3), (1, 3, 3, 1))
+
+    With sharing, a group keeps one Tucker rank. Modes 0 and 2 tied: the group ceiling adds the per-mode
+    ceilings, so the tied rank grows to 3 although mode 0's bond product is ``1 * 2``; unshared, the same
+    input grows only to 2 there:
+
+    >>> ranks.oversampled_ranks((8, 3, 8), (2, 1, 2), (1, 1, 1, 1), 1, sharing=('a', 'b', 'a'))
+    ((3, 2, 3), (1, 2, 2, 1))
+    >>> ranks.oversampled_ranks((8, 3, 8), (2, 1, 2), (1, 1, 1, 1), 1)
+    ((2, 2, 2), (1, 2, 2, 1))
+    '''
+    if isinstance(p, bool) or not isinstance(p, (int, np.integer)) or p < 0:
+        raise ValueError('p must be a non-negative int, got %r' % (p,))
+    p = int(p)
+    tucker_ranks = tuple(operator.index(n) for n in tucker_ranks)
+    tt_ranks = tuple(operator.index(r) for r in tt_ranks)
+    d = len(shape)
+    if len(tucker_ranks) != d:
+        raise ValueError('len(tucker_ranks) = %d != d = %d' % (len(tucker_ranks), d))
+    if len(tt_ranks) != d + 1:
+        raise ValueError('len(tt_ranks) = %d != d + 1 = %d' % (len(tt_ranks), d + 1))
+
+    plus_tucker = tuple(n + p for n in tucker_ranks)
+    plus_tt = (1,) + tuple(r + p for r in tt_ranks[1:-1]) + (1,)
+    min_tucker, min_tt = compute_minimal_ranks(shape, plus_tucker, plus_tt, sharing=sharing)
+    return (tuple(max(a, b) for a, b in zip(tucker_ranks, min_tucker)),
+            tuple(max(a, b) for a, b in zip(tt_ranks, min_tt)))
 
 
 def _edge_condition_number(

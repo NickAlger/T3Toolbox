@@ -351,6 +351,11 @@ HISTORICAL = {
     'dWCi,dWKCb->dWKCib': 'W',
     'dWKCa,dWCib->dKCaib': 'W',
     'dWCa,dWKCib->dKCaib': 'W',
+    # The padded frame (2026.4.0): the pinned truncated SVD's projection off the pinned columns, P^T A and
+    # P (P^T A) (backend.linalg.pinned_leading_columns). One group C on every operand, fixed lowercase
+    # counts, so C is solved from any operand ('').
+    'Cia,Cib->Cab': '',
+    'Cia,Cab->Cib': '',
 }
 
 SUBS_RE = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')
