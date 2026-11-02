@@ -45,7 +45,17 @@ pattern entered with `fv_zero_point_frame` in commit 3e5bc922 (2026-10-26, exact
 as a precedent and the reviewers accepted it as such. Nick considers the problem broader than these two symptoms (a
 misunderstanding of the programming style) and will go through the code himself.
 
-**Next steps (agreed with Nick).** (1) The session studies the gold standard: trace ~5 methods each of
+**Decision (Nick, 2026-11-02): OPTION C.** Fix the construction's boundary BEFORE continuing the arc: (1) all four
+agents first study the gold standard (an assortment of `TuckerTensorTrain` / `UniformTuckerTensorTrain` methods traced
+to their backend functions; notes in `dev/padded_frame_slices/style_notes_*.md`) — these are the ONLY allowable
+precedent; (2) the writer amends the plan, DELTA ONLY (round 9: §3.2/§3.4/§5.2/§5.4 + §12): `fv_padded_frame(shape,
+tucker_ranks, tt_ranks, old_frame=None, hint=None, groups=(), seed, dtype, use_jax)`, stores via
+`compute_orthogonal_representation_ranks`, no template frame, no dict helper, `padded_structures` returns integers;
+the critic reviews the delta; Nick signs off; (3) one corrective slice S2′ refactors S2/S3's boundary and S4's
+uncommitted member (S3's oracle tests carry over unchanged); (4) S4–S13 continue as planned. `fv_zero_point_frame` and
+the codebase-wide style audit/refactor are a SEPARATE later arc (Nick's own read first; breaking release).
+
+**Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
 REPAIR PLAN with Nick: redesign the structure input of `fv_padded_frame` (integers, e.g. `(shape, tucker_ranks,
