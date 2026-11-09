@@ -1,7 +1,7 @@
 # Aligned padded frame — implementation plan (fresh plan, 2026-11-09)
 
 > **Status: APPROVED BY THE CRITIC (reviews r4 and r6, 2026-11-09) after five writer rounds
-> (`dev/aligned_padded_frame_plan_review_r{1,2,3,4}.md`). Round 4 (writer, CHANGES 4.1–4.3) then folded in the Newton
+> (`dev/aligned_padded_frame_plan_review_r{1,...,6}.md`). Rounds 4–5 (CHANGES 4.1–5.3) folded in the Newton
 > measurement (§0, §2.3, §11) and zero alignment passes (D-38). Awaiting Nick's and the session's review.** Then implementation
 > slice by slice (§8) with an implementer/reviewer pair at extra-high effort. Every agent first reads a handful of
 > `TuckerTensorTrain` / `UniformTuckerTensorTrain` methods and the backend functions they trace to
