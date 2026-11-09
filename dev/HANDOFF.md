@@ -95,6 +95,23 @@ ORACLE, not shipped code; prototype the T3 core form in the research repo first 
 directed edge, stacks are not covered by the note). The earlier "hint is a T3" decision is superseded. Round 12's
 pending twin question is moot until the new shape is settled. NOTHING is being implemented yet.
 
+**2026-11-09, API SHAPE SETTLED WITH NICK (new hinted path).** Backend, new `backend/padded_frames.py`, pure functions:
+`fv_padded_frame(shape, tucker_ranks, tt_ranks, old_frame=None, groups=(), seed=...) -> frame` (the seeded hint-free
+start; S2's function, integer structure); `tv_align_padded_frame(frame, variations, old_tucker_ranks, old_tt_ranks,
+tucker_ranks=None, tt_ranks=None, groups=()) -> (frame, residual)` (ONE step, the note's core form, UNROOTED rule,
+frame + variations in); `aligned_padded_frame(shape, tucker_ranks, tt_ranks, hint, project, old_frame=None, groups=(),
+oversampling=5, oversampled_passes=..., max_passes=..., tol=..., seed=...) -> (frame, residuals)` (the fixed-point loop:
+oversampled phase, then target ranks until the step's residual is small; lives in the FRAME module, not the optimizer
+layer, because aligning a frame to a hint is useful outside optimization). The projection is a plain function plus its
+data, never a closure: the loop calls `project(frame, hint)`; `hint` is opaque data handed to `project` unread. In the
+BACKEND `project` is REQUIRED — no dispatch on the hint's shape (a tuple of arrays cannot be known to be a T3;
+variations have the same nesting): raw users pass `tv_project_t3_onto_tangent_space` / `tv_project_dense_onto_tangent_space`
+/ their own. The FRONTEND twin dispatches on the hint's class (`TuckerTensorTrain`, ndarray; anything else needs
+`project`). The optimizer layer passes its own module-level projection and data (residual computed once). Backend takes
+the OLD FRAME (frontend takes the tensor); the committed S3 construction becomes the test ORACLE. NEXT: prototype the
+T3 step in the research repo against the oracle (open: sharing groups, unequal widths per directed edge at non-minimal
+ranks, stacks), THEN a writer/critic plan for the hinted path. Nothing implemented in the library yet.
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
