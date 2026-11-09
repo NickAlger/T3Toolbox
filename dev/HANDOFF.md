@@ -27,7 +27,16 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
-**State (2026-11-09, end). THE PLAN IS CRITIC-APPROVED (r6, after five writer rounds) AND NICK CONFIRMED THE FLAGGED REALIZATIONS; AWAITING HIS READ AND THE WORD TO START N1.** Round 4-5 folded in the Newton measurement (laptop: any injected generic frame roughly halves level-2 Newton counts vs the library's padded frame; alignment passes add no further Newton savings within noise; starts decide basins) with §0 rewritten to what was measured, and `max_passes=0` = the hint-free start (D-38; other schedule options then raise).
+**State (2026-11-10). PLAN APPROVED BY NICK ("The plan is good, and you can proceed"); IMPLEMENTATION STARTED.** Slice N1
+(cleanup + the ragged start in `backend/padded_frames.py`) is with an implementer agent (Opus, extra-high effort); a
+reviewer agent follows; the session checks diff + full suite, commits, starts N2. Handoffs and reviews per slice go to
+`dev/aligned_padded_frame_slices/`. In parallel (research only, T3Polynomial `scripts/g06*`): the Darcy ladder
+continued to higher ranks (11->16, 16->21) to see whether a generic completion captures less of the gradient near
+convergence (Nick's suspicion); results feed the plan's §2.3 / §11. Nick's framing for the feature's worth: it need not
+win big — independent value outside optimization, more principled, possibly more robust at higher ranks / worse
+conditioning.
+
+**Earlier (2026-11-09, end). THE PLAN WAS CRITIC-APPROVED (r6, after five writer rounds) AND NICK CONFIRMED THE FLAGGED REALIZATIONS.** Round 4-5 folded in the Newton measurement (laptop: any injected generic frame roughly halves level-2 Newton counts vs the library's padded frame; alignment passes add no further Newton savings within noise; starts decide basins) with §0 rewritten to what was measured, and `max_passes=0` = the hint-free start (D-38; other schedule options then raise).
 
 **Earlier (2026-11-09, late). THE FRESH PLAN WAS CRITIC-APPROVED (r4, after three writer rounds).** Three realizations of his rulings are flagged at the top of the plan for confirmation: one frontend loop twin per layer (import cycle; D-35), fourteen `newton_cg` keywords (D-33), no frontend `padded_start` twin (the backend one is public). Then implementation N1–N10. Still pending input: the Newton measurement.
 
