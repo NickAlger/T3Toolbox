@@ -128,6 +128,19 @@ uniform (masked) layer, tied projections via `shared_data`, GPU, a Darcy run. NE
 for the new hinted path (start / step / loop, `project` + `hint`), reusing S1 `pinned_completion` and S2's hint-free
 start; the committed S3 hinted path becomes the test oracle only.
 
+**2026-11-09, Nick on converting the prototype to library code:** (1) scans, not for loops; (2) named contractions,
+not raw einsums; (3) shape annotations on every signature; (4) make the step POLYMORPHIC between the ragged and uniform
+layers where possible (array(ragged_cores) = uniform supercore; ranks and shapes are static data); (5) his open
+concern: the QR-based orthogonalization does not put the top singular vectors first. Session's finding on (5): in the
+prototype the ordering is the small SVD's, not the QR's (truncating steps match the dense update); but a raw QR IS
+unsafe on zero-padded data. Tested replacement (research repo `check_pad_safe.py`): ONE call of the library's
+`pad_safe_svd` on `[A | Y/(4||Y||_F)]`, Y = the edge's normal content off the pinned block -- triplets come out ordered
+(pinned block, sigma = 1; content by singular value, sigma <= 1/4; real-supported completions), mutually orthogonal,
+pads bitwise zero; same spans as the prototype on every edge, also on interior-padded copies; valid for zero and
+rank-one hints. Caveats raised for polymorphism: the old/new block boundary differs per mode, so P-parts must be
+fixed-width WINDOWS at a per-mode static offset (full-width masks would lose the k-scaling); sharing groups make the
+up-edge update per group. The scan/polymorphic step itself is NOT prototyped yet.
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
