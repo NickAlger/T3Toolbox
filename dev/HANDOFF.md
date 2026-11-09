@@ -112,6 +112,22 @@ the OLD FRAME (frontend takes the tensor); the committed S3 construction becomes
 T3 step in the research repo against the oracle (open: sharing groups, unequal widths per directed edge at non-minimal
 ranks, stacks), THEN a writer/critic plan for the hinted path. Nothing implemented in the library yet.
 
+**2026-11-09: CORE-FORM PROTOTYPE DONE** (`nicks_research_experiments/tensor/aligned_padded_frame/`, README has
+every number). `tv_align_padded_frame` (one step, the note's section 10, unrooted) and `aligned_padded_frame` (the
+loop) for T3s, numpy/jax, stack-aware. Verified: one step equals the dense per-edge update to 3e-14 on all four stores
+(d = 2..5, truncating steps, tangent part 10x); non-minimal ranks (unequal widths per directed edge), sharing groups
+(one QR/SVD per group, block J), zero old point, stacks, ungauged variations all work WITHOUT changing the algorithm;
+the loop equals the dense loop to 1e-14 at every pass; the free residual tracks frame movement (ratio 0.3-1.2);
+jit-compiles. Findings for the plan: (1) the OLD BLOCK MUST RIDE IN THE QR (`[A | g_old | g_new]`, width r + 2k) --
+the note's cheaper projected form returns non-orthonormal frames on zero / rank-one hints; (2) the step can take old
+RANKS (a frame's own up/left widths reproduce its stores); (3) variations need not be gauged; (4) schedule on the note's
+test family: p = 5 for 2 passes then target-rank passes gives 97 % of the converged merit in 4 passes, 99.7 % in 6
+(p = 0: 76 %, 83 %); oversampling alone plateaus at 88 %; residual 0.05 ~ 99.5 %; (5) cost, numpy d = 5 k = 5: N=23
+11->16 13.5 ms vs 168 ms committed; N=64 41->46 72 ms vs 22.3 s committed (retraction 636 ms). NOT prototyped: the
+uniform (masked) layer, tied projections via `shared_data`, GPU, a Darcy run. NEXT (awaiting Nick): writer/critic plan
+for the new hinted path (start / step / loop, `project` + `hint`), reusing S1 `pinned_completion` and S2's hint-free
+start; the committed S3 hinted path becomes the test oracle only.
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
