@@ -267,6 +267,17 @@ budgets); the agent adding the two-colour option to the uniform step/loop. DECIS
 semantics (cap as the real default); start convention (gs / svd / Gaussian seeds everywhere); tie-break by the old
 completion on degenerate content; stacked stop = max over the stack.
 
+**2026-11-09, Nick's decisions on the two findings:** (1) TWO-COLOUR updates after the truncating pass: YES. (2) Stopping:
+the movement tolerance is an early exit, the pass cap (default 10) is the effective default; the cone reference is
+"the value after the default schedule", deterministic given the seed. (3) Start convention: UNDER DISCUSSION (Nick asked
+whether it concerns cold or warm starts; session's answer: both -- the start is F_0 of the loop in both; what is at
+stake is cross-layer identity of the start frame, which needs identical BASES upstream, not just spans; options: A =
+committed convention (Haar Tucker + coordinate TT/down) with a pad-safe Householder pinned completion as the uniform
+twin -- equals `fv_zero_point_frame` at s = 0; B = Gaussian seeds everywhere + SVD-only + a column sign rule; C =
+SVD-only with coordinate seeds -- rejected, tied clusters). (4) Degenerate content: ACCEPT arbitrary completions where
+the hint carries no information (the old plan's stance). (5) Stacked loop stops on the maximum movement over the stack:
+YES.
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
