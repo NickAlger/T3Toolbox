@@ -141,6 +141,19 @@ rank-one hints. Caveats raised for polymorphism: the old/new block boundary diff
 fixed-width WINDOWS at a per-mode static offset (full-width masks would lose the k-scaling); sharing groups make the
 up-edge update per group. The scan/polymorphic step itself is NOT prototyped yet.
 
+**2026-11-09, Nick's correction on the uniform layout.** The uniform layer does NOT enforce prefix form: real vs junk
+slots are defined only by the host edge masks (gappy after + and x, data never compacted); junk-last is what `ut3svd`
+and the SVD-based frame construction PRODUCE. Rule: a function may switch to its own junk-last layout internally and
+return it, but assumptions about junk locations must stay inside functions we control. Consequences for the uniform
+path of the alignment step (session's revised view, sent to Nick): (1) read inputs only through masks -- gather once at
+entry (as `ut3_to_t3` does), positions are ours only after that; return junk-last with masks built from the integer
+stores; (2) `pad_safe_svd` is the right factorization (pads at arbitrary positions in, junk-last triplets out); (3) by
+`docs/contributor/uniform_polymorphism.md` an op that returns a frame is uniform-specific -- the shared part is the
+message sweeps (polymorphic scans, mask once then mask-free), the gather / factorization / output masks are a uniform
+twin; (4) mask-once keeps full padded widths (cost scales with the full rank); keeping the k-scaling needs the entry
+gather to produce compact completion blocks; (5) open: how the pinned old block is named in the uniform layer (integer
+old ranks + "the first r real slots in mask order", or explicit pinned masks).
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
