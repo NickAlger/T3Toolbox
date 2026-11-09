@@ -181,6 +181,22 @@ measure is the completion's MOVEMENT `|P_old - P_new (P_new^T P_old)|_F`, which 
 15 % down to 1e-15 (use the direct form; `sqrt(k - |o|^2)` floors at 1e-8). The plan should be written from
 `core_form2.py` (ragged) and `uniform_form.py` (uniform).
 
+**2026-11-09: ALGORITHMS LOCKED IN (Nick).** Ragged = `core_form2.py` (no boundary cases, S1
+`pinned_leading_columns`, movement measure); uniform = `uniform_form.py` (block layout, scans, `pad_safe_svd`). Now
+under discussion: the UNIFORM GEOMETRY. Nick's lean: the geometry takes the frame's own masks. Facts found: (i) it
+partly exists -- `UniformManifoldGeometryOps.from_frame(frame_data, plain_masks)` builds the variation masks from the
+frame's own, the FRONTEND local model does this at every step (`fitting.py:369`), and `utv_retract` already reads its
+target ranks off the frame masks; only the BACKEND loop builds one geometry `from_point(x0)` and reuses it
+(`Problem.local_model` calls `self.geom.frame(x)`; `_variations` supplies `self.var_masks`). (ii) Prefix-from-ranks
+sufficed so far because every frame came from the SVD-based orthogonalization of a minimal-rank point. (iii) The one
+real downside: the geometry is value-hashed and part of the jit key, and every frame after the first is prefix again,
+so a start frame with different masks or padded widths compiles the step programs once more for ONE Newton step
+(T3Polynomial GPU runs: a level's compile is tens of seconds at rank ~20, 7-14 % of a large level). It arises only
+when OLD RANKS VARY ACROSS EDGES (with uniform old ranks the block layout is already prefix, same masks). Session's
+recommendation (sent): frame's-own-masks as the contract, plus the uniform loop returns its FINAL frame compacted to
+junk-last at the standard padded width (one batched gather per rank axis, static indices -- not prototyped), so
+nothing recompiles in practice. Awaiting Nick.
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
