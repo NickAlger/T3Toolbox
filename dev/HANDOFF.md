@@ -230,6 +230,17 @@ a vectorized uniform construction. Carried over: new module `backend/padded_fram
 doctests / validation in the frontend twins, non-breaking additive release, the standalone math note after the code
 (now based on Nick's note).
 
+**2026-11-09: PROCESS FROM HERE (Nick).** RUNNING NOW (background agents, research repos only, nothing committed by
+them): (a) an Opus max-effort agent prototyping the four remaining uniform pieces in
+`nicks_research_experiments/tensor/aligned_padded_frame/` (README section "The remaining uniform pieces"); (b) an Opus
+agent measuring the ragged prototype on the laptop Darcy ladder (`T3Polynomial/scripts/g06_*`, results in
+`T3Polynomial/data/g0_reference/`). Review of both: Nick and the session (no reviewer agent). THEN: (1) the SESSION
+writes the first draft of the FRESH plan (old plan archived); (2) a writer/critic pair of Opus 5.5 agents iterates on
+it until they agree; (3) Nick and the session review; (4) implementation with the implementer/reviewer pair per slice.
+Every plan and implementation agent runs at EXTRA HIGH effort and must first read a sampling of `TuckerTensorTrain`
+methods and the backend functions they trace to (the only allowable precedent). The start and the cone reference each
+get their own keyword group with the same defaults (session's choice; Nick may merge them).
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
