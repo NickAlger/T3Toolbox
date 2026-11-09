@@ -214,6 +214,22 @@ optimizer when old ranks are uniform). (4) Type A (`newton_cg`: host loop, eager
 frame is a different kernel, one extra compile per level, removable by carrying the frame in the kernel's state. (5)
 Type B's hint must be ONE fixed tensor: the full batch or one frozen minibatch, never a fresh draw per pass.
 
+**2026-11-09: NICK'S DECISIONS BEFORE THE NEW PLAN.** Scope: (1) the UNIFORM layer IS in this release; the four
+unprototyped uniform pieces (seeded start in block layout, compaction at loop exit, stack axes, sharing groups) are
+prototyped FIRST, by an Opus 5.5 max-effort agent in the research repo, no reviewer agent -- Nick and the session
+review; (2) NEWTON ONLY gets the aligned start (gradient-based loops later); (3) the committed hinted construction is
+DELETED from the library (tests use a dense per-edge reference); S1's two primitives and the hint-free start stay; the
+uncommitted S4 member is discarded. API: (4) `g0_reference='cone'` keeps the FRAME-GRADIENT NORM at the aligned frame;
+(5) loop defaults: oversampling 5, 2 oversampled passes, cap about 10, movement tolerance 0.05 -- ALL user-settable by
+kwargs; (6) frontend twins: drop the three geometry twins, defer `frame=` on the six fitting factories; (7) uniform
+geometry: CHECK-AND-REJECT a start frame whose masks differ from the level's (our loop returns matching masks).
+Process: (8) MEASURE on Darcy first (laptop, ragged prototype), but do not over-weight small laptop timings; (9) a
+FRESH plan, the old one archived; (10) superseded: "the hint is a T3" (now hint + project), "no uniform twin", the
+fixed pass counts (old I-13: 4 gradient evaluations for the padded start, 10 for the cone reference), the rejection of
+a vectorized uniform construction. Carried over: new module `backend/padded_frames.py`, no `dtype`, docstrings /
+doctests / validation in the frontend twins, non-breaking additive release, the standalone math note after the code
+(now based on Nick's note).
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
