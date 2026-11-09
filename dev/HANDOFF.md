@@ -197,6 +197,23 @@ recommendation (sent): frame's-own-masks as the contract, plus the uniform loop 
 junk-last at the standard padded width (one batched gather per rank axis, static indices -- not prototyped), so
 nothing recompiles in practice. Awaiting Nick.
 
+**2026-11-09, compile accounting (Nick's rules: recompile after a rank change fine; a small fixed number inside a
+loop tolerable; repeated recompiles never; loop types A = Newton and B = gradient-based within rank continuation; the
+alignment runs once per rank set).** Session's reading of the code (NOT measured): (1) nothing in the aligned start
+recompiles repeatedly -- the geometry is value-hashed and every frame after the first comes from the SVD
+orthogonalization with the same masks. (2) FOUND: `utv_retract` pads its output to the FRAME's padded widths
+(`ut3_pad_ranks(new_data, frame_data[0].shape[-2], frame_data[2].shape[-1])`), so an uncompacted block-layout start
+frame wider than the level's padding would inflate every array for the rest of the level and mismatch the backend
+loop's geometry at step 2 => the uniform loop MUST return its final frame at the level's padded width, junk-last (one
+batched gather per rank axis); with that the start frame's masks equal the level's and the frame's-own-masks contract
+costs nothing. (3) Fixed extra compiles per level: the alignment step and the gradient-at-a-frame programs at the
+oversampled structure (avoidable with oversampling 0) and at the block-layout target structure (shared with the
+optimizer when old ranks are uniform). (4) Type A (`newton_cg`: host loop, eager local model keyed on shapes,
+`_cg_core` keyed on the geometry aux): first step from the compacted frame compiles nothing new. Type B
+(`mc_sgd`/`adam`: one jitted per-step kernel that builds its frame from the point): the first step from a supplied
+frame is a different kernel, one extra compile per level, removable by carrying the frame in the kernel's state. (5)
+Type B's hint must be ONE fixed tensor: the full batch or one frozen minibatch, never a fresh draw per pass.
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
