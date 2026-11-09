@@ -27,7 +27,9 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
-**State (2026-11-09). THE FRESH PLAN IS DRAFTED; writer/critic rounds next.** The plan for the aligned padded frame is
+**State (2026-11-09, late). THE FRESH PLAN IS CRITIC-APPROVED (r4, after three writer rounds); AWAITING NICK'S REVIEW.** Three realizations of his rulings are flagged at the top of the plan for confirmation: one frontend loop twin per layer (import cycle; D-35), fourteen `newton_cg` keywords (D-33), no frontend `padded_start` twin (the backend one is public). Then implementation N1–N10. Still pending input: the Newton measurement.
+
+**Earlier (2026-11-09). THE FRESH PLAN IS DRAFTED; writer/critic rounds next.** The plan for the aligned padded frame is
 `dev/aligned_padded_frame_impl_plan_2026-11-09.md` (draft 0 by the session; the old plan, its reviews r1-r8, its two
 design notes and the S1-S4 slice handoffs are archived under `dev/archive/` with `_superseded` / `_2026-11` suffixes).
 Process from here (Nick): a writer/critic pair of Opus 5.5 agents at EXTRA HIGH effort iterates on the draft until
