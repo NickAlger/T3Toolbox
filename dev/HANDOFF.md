@@ -171,6 +171,16 @@ ragged 1.9, 3.1, 6.5 s. CPU run time at N=64, 41->46: uniform 169 ms vs ragged 4
 prototyped for uniform: the seeded start in block layout, stack axes, sharing groups, and how the uniform geometry
 consumes a block-layout frame (its masks are gappy by construction; `ufv_make_frame_masks` builds prefix masks).
 
+**2026-11-09, the ragged step revisited after the uniform one** (`core_form2.py`, verified equal to the first form
+to 1e-14 on all cases): (1) NO BOUNDARY CASES -- the edges past the two ends are zero-width completions, their
+messages zero-size arrays, every core runs the same body, both sweeps are folds with an initial carry (the scan form);
+(2) the edge's content is `Y = [g_old Phi_P + g_new | g_old Xi]` and the new columns are the library's own
+`linalg.pinned_leading_columns(old block, Y, k)` (S1) -- no hand-rolled QR, no matrix J; the seeded start is the
+sibling primitive with seeds as content (0-40 % slower than the QR form at the tested sizes); (3) the stopping
+measure is the completion's MOVEMENT `|P_old - P_new (P_new^T P_old)|_F`, which tracks the true frame movement within
+15 % down to 1e-15 (use the direct form; `sqrt(k - |o|^2)` floors at 1e-8). The plan should be written from
+`core_form2.py` (ragged) and `uniform_form.py` (uniform).
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
