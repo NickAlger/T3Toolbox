@@ -154,6 +154,23 @@ twin; (4) mask-once keeps full padded widths (cost scales with the full rank); k
 gather to produce compact completion blocks; (5) open: how the pinned old block is named in the uniform layer (integer
 old ranks + "the first r real slots in mask order", or explicit pinned masks).
 
+**2026-11-09, uniform layer: Nick's ruling and the uniform-first prototype.** Ruling: polymorphism is not reasonable
+here; a uniform version is wanted ONLY if it is truly uniform (no re-layout through ragged-like operations, no unrolled
+loop over modes); otherwise the user converts UT3 -> T3, runs the ragged operation, converts back. His suggestion:
+pad by ONE uniform old width and ONE uniform completion width (different r and k per edge under masks). PROTOTYPED
+(`nicks_research_experiments/tensor/aligned_padded_frame/uniform_form.py`, README section "A uniform-first step"):
+BLOCK LAYOUT -- every rank slot = [old block | completion block], each padded to one uniform width with its own mask;
+the old block is the old frame's supercore as given (gappy allowed, nothing moved), the completion block is appended
+(as under `+`); the only positional fact is the split point, one static integer for all modes. Sweeps = `lax.scan`
+with a shape-uniform body; up/down edges = one batched contraction + one batched factorization over the mode axis;
+factorization = `pad_safe_svd` on [old block | content/(4|content|)] with masks as data, completion triplets selected by
+a static one-hot at the pin count. Verified against the ragged step on real parts with gappy masks in both blocks and
+garbage in all junk: <= 1e-14 (also truncating, uneven increments, non-minimal ranks; valid on zero / rank-one hints;
+old block bitwise untouched); same under `jax.jit` + real scans. First jit call: uniform 1.6-1.7 s at d = 6, 12, 24;
+ragged 1.9, 3.1, 6.5 s. CPU run time at N=64, 41->46: uniform 169 ms vs ragged 47.5 ms (jax); no GPU number. NOT
+prototyped for uniform: the seeded start in block layout, stack axes, sharing groups, and how the uniform geometry
+consumes a block-layout frame (its masks are gappy by construction; `ufv_make_frame_masks` builds prefix masks).
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
