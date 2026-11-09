@@ -1,7 +1,8 @@
 # Aligned padded frame — implementation plan (fresh plan, 2026-11-09)
 
-> **Status: APPROVED BY THE CRITIC (review r4, 2026-11-09) after three writer rounds
-> (`dev/aligned_padded_frame_plan_review_r{1,2,3,4}.md`); awaiting Nick's and the session's review.** Then implementation
+> **Status: APPROVED BY THE CRITIC (reviews r4 and r6, 2026-11-09) after five writer rounds
+> (`dev/aligned_padded_frame_plan_review_r{1,2,3,4}.md`). Round 4 (writer, CHANGES 4.1–4.3) then folded in the Newton
+> measurement (§0, §2.3, §11) and zero alignment passes (D-38). Awaiting Nick's and the session's review.** Then implementation
 > slice by slice (§8) with an implementer/reviewer pair at extra-high effort. Every agent first reads a handful of
 > `TuckerTensorTrain` / `UniformTuckerTensorTrain` methods and the backend functions they trace to
 > (`docs/contributor/signature_style.md`, `naming_rules.md`). Those modules are the only allowable precedent for code shape.
@@ -27,8 +28,8 @@
 > references for the MATHEMATICS and the verification only. They are not references for code shape: they use for
 > loops, raw einsums, slicing and closure scan bodies.
 >
-> **For the maintainer.** None of D-1–D-19 is reopened. Two places where the plan realizes a ruling in a form you
-> should confirm:
+> **For the maintainer.** None of D-1–D-19 is reopened. Nick CONFIRMED the three realizations below (round 4).
+> New since then: D-38 (zero alignment passes as a documented spelling) and §0's measured motivation.
 > (1) **D-8's "standalone loop with class dispatch" becomes one twin per layer**:
 > `frame_variations_format.fv_aligned_padded_frame` and `uniform_frame_variations_format.ufv_aligned_padded_frame`.
 > Each dispatches on the hint's class (§3.6, D-35). One cross-layer function is not possible in `manifold.py`,
@@ -39,8 +40,8 @@
 > `PaddedFrameOptions` you rejected (superseded I-3).
 > (3) **No frontend `padded_start` twin** (D-35, following D-8's list). This costs one use case: the aligned frame
 > of a problem's gradient WITHOUT running Newton, e.g. for your own optimizer. That case goes through the public
-> backend `padded_start` (§3.5, with a doctest of the route `least_squares_problem` → `padded_start` → rewrap). Say
-> if you want the twin.
+> backend `padded_start` (§3.5, with a doctest of the route `least_squares_problem` → `padded_start` → rewrap).
+> Confirmed: no twin.
 
 ## CHANGES
 
@@ -88,42 +89,68 @@
 | 2 | 9 | critic r2 MINOR 9 | T14(d): `'cone'` with `cone_oversampling=0, cone_max_passes=0` equals `'zero'` to ≤ 1e-12 relative (the Tucker factors agree to 1e-14, not bitwise) | T14(d) |
 | 3 | 1 | critic r3 MINOR; orchestrator | **One rule for the zero old point, in all three places.** A tensor is STRUCTURALLY ZERO when any Tucker rank or any interior TT rank is 0. The critic checked that a partially-zero-rank `x_old` (Tucker `(0,2,2)`, TT `(1,0,2,1)`) has non-empty stores: the ragged member would pin arbitrary directions, and the uniform member would not recognise it. Now: the frontend converts any structurally-zero `x_old` to the canonical rank-0 tensor first; both backend members apply the same test and build the empty frame; T14(h) and T15 get the partial case | §3.5, §3.6, T14(h), T15, D-21 |
 | 3 | 2 | critic r3 NIT | §5.7's frontend return annotations written as `typ.Tuple[typ.Union[t3.TuckerTensorTrain, ut3.UniformTuckerTensorTrain], dict]`, the current form (the module's `Point` alias) | §5.7 |
+| 4 | 1 | orchestrator r4 (the Newton measurement) | The g06 Newton measurement added as a table to §2.3, with the plain reading, and as a baseline table in §11. Acceptance keeps the SHIPPED default; the 20×1000 run now has three arms (library / hint-free / default aligned) | §2.3, §10, §11 |
+| 4 | 2 | orchestrator r4 | §0 rewritten to what was measured. The established value is the data-independent seeded start frame plus the data-aware cone reference; the alignment's Newton value is unproven at laptop scale and is to be measured at 20×1000. The design and defaults are unchanged | §0, §10 |
+| 4 | 3 | orchestrator r4 | **Zero alignment passes** is a supported, documented spelling (D-38). `max_passes = 0` returns the hint-free start at the TARGET ranks, with oversampling ignored, no projection and empty movements. So `padded_max_passes=0` is the hint-free start, and `cone_max_passes=0` is the reference at the hint-free frame (= `'zero'` to rounding). Edge cases rechecked (`max_passes = 0 / 1`, working = / ≠ target, no-op level). The r1 rule "`max_passes = 0` only when working = target" is withdrawn | §2.3, §5.1, §7, T6, T14(d), D-36, D-38 |
+| 5 | 1 | critic r5 MINOR 1 | The level-2 reading is stated exactly. The hint-free start and every aligned start with oversampling: 49 → 21–33. The no-oversampling start: 42 and 29. The noise is sourced (about 5 iterations, the 2026-11-02 investigation's "Noise calibration"), and the table's seed spreads reach 13. §0's basin bullet carries the exception (one 4-pass aligned run ends in the other basin) | §0, §2.3, §11 |
+| 5 | 2 | critic r5 MINOR 2; orchestrator | Zero passes with other schedule options set RAISES in `newton_cg`, `gradient_descent` and `padded_start`, by D-33's rule. The message names the fix: remove the option or set a positive pass count. `*_seed` is read and allowed. The loops (literal defaults) document the unread values instead. §2.3's stale "only other place" sentence is replaced. D-38 and T14(d) updated | §2.3, T14(d), D-38 |
+| 5 | 3 | critic r5 NIT 3–5 | §11's duplicated bullet removed, and the no-oversampling row added to its baseline table. T14(d) compares the uniform iteration-0 frame with the COMPACTED start. §0 now calls the cone reference "the design's second deliverable", with its evidence cited (the 2026-11-02 investigation; D-5, D-7), not "established" | §0, §11, T14(d) |
 | 2 | 10 | critic r2 NIT 10–15 | Return tuples expanded one element per line. `_frame_theta` named correctly. The loop defaults are named once (`ALIGN_*` in `padded_frames.py`) and referenced everywhere; `padded_start` takes `None` and forwards only what is set. T18 builds the graph on module files. "`oversampled_passes` is then ignored" added. D-18 gains a bracketed gloss | §2.3, §3.5, §5, T18, D-18 |
 
 ## 0. Why, in one page
 
 At a rank increase in rank continuation, the converged point `X_old` is zero-padded to the new ranks. Its frame at
 the new ranks is the old frame, which must stay exactly as it is, plus a **completion**: new orthonormal directions
-in every store that the data do not determine. Today these are filled without looking at the data:
+in every store that the data do not determine. Today Newton starts from the frame `t3_orthogonal_representations`
+gives the zero-padded point, whose completion is whatever LAPACK's QR leaves at a numerically rank-deficient point.
+The relative stop is referenced to one seeded Haar frame at the zero tensor (2026.3.0).
 
-- `t3_orthogonal_representations` fills them with whatever LAPACK's QR leaves;
-- the 2026.3.0 zero-point frame fills them with a seeded Haar draw.
+**What was measured** (laptop Darcy ladder, exact Hessian, the same absolute stop for every start, two start seeds;
+table in §2.3):
 
-The first Newton steps at the new level are then spent discovering directions the gradient already knows.
+- **At level 2 a generic seeded start roughly halves the Newton count.** The hint-free start and every aligned
+  start WITH oversampling cut the library padded frame's 49 Newton iterations to 21–33. The no-oversampling
+  4-pass start gave 42 and 29.
+  - Noise: the 2026-11-02 investigation put single-trajectory noise at about 5 iterations on the e01 cell
+    (`T3Polynomial/dev/zero_reference_cone_2026_11_02.md`, "Noise calibration"). The seed spreads in this table
+    reach 13 (row (f), level 2: 42 vs 29).
+  - At level 1 the counts are within that spread.
+- **The alignment captures far more of the gradient**: 2–5× the frame-gradient norm of the hint-free frame (level
+  1: 8.4 → 36.4 after four passes, 40.3 after forty).
+- **It did not reduce Newton counts further** beyond the seed spread, at either level, at laptop scale.
+- **The start decides the basin.** At level 1 the aligned starts end at objective 3.3096 / test error 0.180, the
+  others at 3.2927 / 0.190. One of the two 4-pass aligned runs ends in the other basin.
 
-This feature **aligns the completion with the gradient** by a fixed-point loop
+**So the feature delivers two things:**
+
+1. **Established by the table: a data-independent, seeded generic start frame** at a rank increase. This is the
+   hint-free padded frame, i.e. zero alignment passes (`newton_cg(padded_from=x_old, padded_max_passes=0)`, D-38).
+2. **The design's second deliverable: a data-aware reference** gradient norm at the zero tensor,
+   `g0_reference='cone'`, like-for-like with the gradient norms the stop compares it to (D-5, D-7).
+   - Its motivation is the 2026-11-02 zero-reference investigation (`T3Polynomial/dev/zero_reference_cone_2026_11_02.md`).
+   - The Newton table does not compare it with `'zero'`: every arm used the cone as its absolute stop.
+
+The alignment's further value in Newton counts is **unproven at laptop scale**. It is to be measured at 20×1000
+(§11). The design ships it whole and with its defaults (D-6, D-7). It is cheap (≤ 10 % of a gradient per pass), it
+is what the cone reference is, and the laptop scale may be too small to show its effect.
+
+**The alignment.** The completion is aligned with the gradient by a fixed-point loop
 
     F  <-  align(F, project(F, hint)).
 
-- `project(F, hint)` is the orthogonal projection of one fixed tensor `S` onto the tangent space at the current padded
-  frame `F`. `S` is the gradient at `X_old`, or any tensor.
+- `project(F, hint)` is the orthogonal projection of one fixed tensor `S` onto the tangent space at the current
+  padded frame `F`. `S` is the gradient at `X_old`, or any tensor.
 - `align` replaces every completion by the leading new directions of that tangent vector, with the old blocks held
   fixed.
 
-The loop runs a few passes with the completion oversampled. It then runs passes at the target ranks, updating the
-two edge directions on alternate passes. It runs once per rank set, at the outset, in two places:
+The loop starts from the seeded hint-free padded frame. It runs a few passes with the completion oversampled, then
+passes at the target ranks, updating the two edge directions on alternate passes. It runs once per rank set, at the
+outset, in two places:
 
 - the Newton start, `newton_cg(..., padded_from=x_old)`;
-- a data-aware reference gradient norm at the zero tensor, `g0_reference='cone'`.
+- the reference at the zero tensor, `g0_reference='cone'`.
 
-**Measured on the laptop Darcy ladder, level 1** (frame-gradient norm `‖P_F G‖`; converged value about 40.5):
-
-| start | `‖P_F G‖` |
-|---|---|
-| hint-free start | 8.4 |
-| the library's own padded frame | 15.3 |
-| aligned start, four passes, simultaneous step (the g06 measurement) | 36.4 |
-| aligned start, four passes, two-colour default (`P/cycle/darcy_schemes.py`, seed 0) | 35.9 |
+Zero passes is a supported spelling: the start itself (D-38).
 
 **What changed since the superseded plan.**
 
@@ -254,8 +281,17 @@ completion, unlike the superseded dense form.
 
 Let `working = ranks.oversampled_ranks(shape, target, p, sharing)`, and `n_over = oversampled_passes` if working ≠
 target (for any stack element), else `0`. With `oversampling = 0` or maximal ranks there is no oversampled phase,
-and `oversampled_passes` is then ignored. The D-36 clamp below is the only other place a set value is not honoured;
-the user doc states both.
+and `oversampled_passes` is then ignored.
+
+The loops ignore an unread value in three places, all stated in the user doc:
+
+- this case;
+- the D-36 clamp below;
+- zero passes (D-38): `oversampling`, `oversampled_passes`, `tol` and `alternate` are not read.
+
+The loops cannot tell a set value from a default, because their defaults are the `ALIGN_*` constants. The
+optimizer-level keywords default to `None` and can: there, zero passes together with any other explicitly set option
+of its group, except `*_seed`, raises (D-33, D-38).
 
     F_0 = the start (§2.4) at the working ranks
     pass it = 0 .. n_over-1  : F <- step(F, project(F, hint)) at the working ranks, update 'ULRO'
@@ -274,9 +310,26 @@ When the target stores equal the old stores, there is nothing to complete. The l
 movements, without a pass. The ragged loop returns the old frame. The uniform loop returns
 `ufv_compact_frame(old_frame_data, level_widths)`, so its return contract (level widths, prefix masks) holds.
 
-**The cap counts the truncating pass.** If `oversampled_passes ≥ max_passes`, then `n_over = max_passes − 1`, so the
-last pass truncates. This departs from the prototypes, which ran an extra truncating pass. `max_passes ≥ 1` is
-required when working ≠ target. `max_passes = 0` is legal only when working = target, and returns the start.
+**The cap counts the truncating pass.** If `oversampled_passes ≥ max_passes ≥ 1`, then `n_over = max_passes − 1`,
+so the last pass truncates. This departs from the prototypes, which ran an extra truncating pass.
+
+**Zero passes (D-38).** `max_passes = 0` returns the start (§2.4) built AT THE TARGET RANKS: the seeded hint-free
+padded frame.
+
+- At the loop level, `oversampling` and `oversampled_passes` are then ignored, since there is nothing to truncate,
+  and `tol` and `alternate` are not read. The seed is read: it is the start's Haar stream.
+- Through `newton_cg`, `gradient_descent` and `padded_start`, `padded_max_passes=0` / `cone_max_passes=0` (or
+  `max_passes=0`) together with an explicitly set `*_oversampling`, `*_oversampled_passes`, `*_tol` or `*_alternate`
+  is a structural error. The message names the fix: remove the option, or set a positive pass count.
+- `project` is never called and `hint` is never read; movements are an empty tuple.
+- The uniform loop compacts the start to `level_widths` as usual.
+- With target stores equal to the old stores, it is the no-op return below, which is the same thing.
+
+`max_passes = 0` is never an error. Checked against the other edge cases:
+
+- `max_passes = 1` with working ≠ target runs one truncating pass from the working start (`n_over = 0`);
+- `max_passes = 1` with working = target runs one `'ULRO'` pass at the target;
+- the stop rule is never reached at `max_passes ≤ 1`.
 
 **`project(frame, hint) -> variations`** must be the orthogonal projection of ONE fixed tensor onto the tangent space
 at `frame`. Library choices: `tv_project_dense_onto_tangent_space`, `tv_project_t3_onto_tangent_space`,
@@ -300,10 +353,47 @@ only from the fourth pass on. Acceptance (N10) runs the shipped default.
 | The movement tracks the true frame movement within 15 % from 1 down to 1e-15. The shortcut `sqrt(k − ‖o‖²)` floors at 1e-8 | `P/check_v2.py` |
 | At d = 24 with a near-tied hint spectrum, the defaults do not converge in 10 passes in either layer | `P/check_uniform_loop.py` |
 | Uniform loop = ragged loop on generic hints: same pass counts, movements ≤ 2e-14, spans ≤ 3.7e-14. With rank-deficient content during oversampling, the layers' movements differ by 2e-2 (those completions are a choice); they agree to 3e-15 from the truncating pass on | `P/check_uniform_loop.py`, `P/check_uniform_groups.py` |
-| Newton from the aligned start (Darcy ladder): **pending**, the measurement is running (simultaneous step, fixed pass budgets) | `g06_aligned_frame.py` (`PART=newton`) |
+| Newton from each start on the Darcy ladder: the table below | `g06_aligned_frame.py` (`PART=newton`) |
 
 So: the pass cap is the effective stop, and the tolerance is an early exit. The `'cone'` reference is "the value
 after the default schedule", deterministic given the seed (D-7).
+
+**The Newton measurement** (`T3Polynomial/scripts/g06_aligned_frame.py`, `PART=newton`; data under
+`T3Polynomial/data/g0_reference/`).
+
+- Setup: laptop Darcy o01 ladder, exact Hessian with the trust region, the same absolute stop for every start
+  (`g0norm` = the cone reference, `gtol 3e-4`), levels 1 → 6 and 6 → 11, two start seeds. Injection of the start
+  frame was verified on every run.
+- Every aligned arm used the SIMULTANEOUS step, with fixed pass budgets and no movement stop. With p = 5 for 2
+  passes, two-colour differs from it only from the fourth pass on.
+- Cells: frame-gradient norm `‖P_F G‖` at the start · Newton iterations / CG iterations · final objective · test
+  error. Values are given per seed, separated by `/` or `,`; a single value is one run or two runs that agree to the
+  digits shown, and `—` was not reported.
+
+| start | level 1 (1 → 6) | level 2 (6 → 11) |
+|---|---|---|
+| (a) the library's padded frame (`t3_orthogonal_representations` of the zero-padded point; today's default) | 15.3 · 21/181 · 3.2927 · 0.190 | 5.47 · **49/1480** · 1.6706 · 0.1170 |
+| (b) the hint-free padded frame (§2.4; `padded_max_passes=0`) | 8.4 / 7.9 · 16/254, 19/197 · 3.2927 · 0.190 | 4.35 / 4.54 · 28/714, 24/687 · 1.6716 · 0.1168 / 0.1170 |
+| (c) aligned, p = 5 for 2 passes then target, 4 passes in all | 36.4 / 35.2 · 17/286, 11/109 · 3.3096 / 3.2927 · 0.180 / 0.190 | 15.5 · 22/648, 28/1031 · 1.6728 · 0.1143 |
+| (d) as (c), 6 passes | 37.2 / 36.5 · 15/175, 20/271 · — · — | 16.1 / 16.3 · 27/578, 30/665 · — · — |
+| (e) as (c), 10 passes (the default cap) | 37.6 / 37.7 · 20/273, 25/276 · 3.3095 · 0.181 | 16.6 / 16.7 · 28/1360, 33/873 · — · — |
+| (f) p = 0, 4 passes | 32.5 / 29.8 · 14/246, 24/504 · — · — | 13.1 / 12.5 · 42/1151, 29/758 · — · — |
+| (g) as (c), 40 passes | 40.3 · 16/181, 18/273 · 3.3096 · 0.180 | 16.8 · 21/729, 24/801 · 1.6732 · 0.1155 |
+
+The reading, stated plainly:
+
+- At level 2, the hint-free start (b) and every aligned start WITH oversampling (c, d, e, g) cut the library padded
+  frame's 49 Newton iterations to 21–33. The aligned start without oversampling (f, 4 passes) gave 42 and 29.
+- Noise: the 2026-11-02 investigation put single-trajectory noise at about 5 iterations on the e01 cell
+  (`T3Polynomial/dev/zero_reference_cone_2026_11_02.md`, "Noise calibration": 17 vs 22 at identical frames). The seed
+  spreads in this table reach 13 (row (f), level 2).
+- The alignment passes do not reduce Newton counts further beyond that spread, at either level.
+- The start decides the basin. At level 1 the aligned starts end at 3.3096 / 0.180 instead of 3.2927 / 0.190; one of
+  the two (c) runs ends in the other basin.
+- The aligned start captures 2–5× the frame-gradient norm of the hint-free one.
+
+The alignment's value in Newton counts is therefore unproven at laptop scale and is to be measured at 20×1000 (§11).
+The defaults (D-6) are unchanged by this measurement.
 
 ### 2.4 The start (the committed convention, both layers)
 
@@ -613,6 +703,8 @@ through their `groups`.
 - A geometry without the member raises `ValueError` naming it (corewise geometries; custom geometries).
 - Every option defaults to `None` and is forwarded only when set, so the member's `ALIGN_*` / `ZERO_FRAME_SEED`
   defaults apply. The optimizer layer cannot import `padded_frames`.
+- `max_passes=0` (D-38) returns the hint-free start at the target. The residual is still formed, one forward, so
+  there is one code path; it is never projected.
 - Its doctest shows the route for a frontend user who wants a problem's aligned frame without running Newton:
   `optimizers.least_squares_problem(...)` → `.problem`, `.x0_cores` → `padded_start(problem, x0_cores,
   x_old.data)` → rewrap the frame (`T3Frame(*frame)` / `UT3Frame`).
@@ -978,7 +1070,7 @@ def fv_aligned_padded_frame(
         sharing:             typ.Optional[typ.Sequence] = None,  # len=d group labels; None = unshared
         oversampling:        int   = ALIGN_OVERSAMPLING,         # p: working ranks = ranks.oversampled_ranks(shape, target, p, sharing)
         oversampled_passes:  int   = ALIGN_OVERSAMPLED_PASSES,   # passes at the working ranks before the truncating pass
-        max_passes:          int   = ALIGN_MAX_PASSES,           # passes in all, the truncating pass included; 0 only when working = target
+        max_passes:          int   = ALIGN_MAX_PASSES,           # passes in all, the truncating pass included; 0 = the hint-free start at the target (D-38)
         tol:                 float = ALIGN_TOL,                  # early exit on the movement
         alternate:           bool  = ALIGN_ALTERNATE,            # two-colour passes after the truncating pass
         seed:                int   = ZERO_FRAME_SEED,            # the start's Haar stream
@@ -1364,7 +1456,7 @@ masks, tied factors (one array), placed 0/1 seeds, gathers. Tolerances otherwise
 | T3 | same | Degenerate hints (zero, rank one, an information-free increase); structural rejections, each isolated: transport plus truncation, a bad `update`, old stores above the output stores, unequal group stores | valid frames (orthonormal, pinned, reconstructs); each a `ValueError` |
 | T4 | same (N3) | Two-colour = transport of the other stores (vs `select_pass`). The cycle regression on `tests/data/padded_frame_cycle_case.npz` (`S`, `X_old`'s cores, target ranks, seed; from `g06c_cycle_case.npz`): all-stores cycles (movement > 0.05 at pass 200); alternating converges (movement < 1e-8) | ≤ 1e-9 per pass; as stated |
 | T5 | same | `fv_padded_frame` vs S2 outputs frozen in N1 before deletion (`tests/data/padded_frame_s2_reference.npz`, the S2 tests' cases); vs `fv_zero_point_frame` at the empty frame (unstacked); convention properties | ≤ 1e-14; TT/down equal (placed 0/1), Tucker ≤ 1e-14; outside seeds placed exactly |
-| T6 | same | `fv_aligned_padded_frame` vs the dense loop with the same schedule (two-colour via `select_pass`; p = 0 and p = 5; 40 passes). Edge cases: working = target (no oversampled phase); `oversampled_passes ≥ max_passes` (the last pass truncates); `max_passes = 0` (start; raises when working ≠ target); target stores = old stores (no pass, empty movements, the old frame); the stop rule incl. the truncating-pass pair | ≤ 1e-9 per pass; pass counts as stated; movements a tuple of `C` arrays |
+| T6 | same | `fv_aligned_padded_frame` vs the dense loop with the same schedule (two-colour via `select_pass`; p = 0 and p = 5; 40 passes). Edge cases: working = target (no oversampled phase); `oversampled_passes ≥ max_passes` (the last pass truncates); `max_passes = 0` with p = 0 and p = 5 (the start at the TARGET ranks, equal to `fv_padded_frame(old_frame, target)` exactly since it is the same call; `project` never called, checked with a raising `project`; empty movements); `max_passes = 1` with working ≠ target (one truncating pass) and with working = target; target stores = old stores (no pass, empty movements, the old frame); the stop rule incl. the truncating-pass pair | ≤ 1e-9 per pass; pass counts as stated; movements a tuple of `C` arrays |
 | T7 | `tests/backend/test_linalg.py` | `pad_safe_pinned_completion` vs `pinned_completion` on the real block; interior pads in rows, pins and seeds; per-element `seed_mask` in a stack; offset masks (columns `t..t+k−1`); count rejection | ≤ 1e-14 on the real block (same sign rule); junk rows and unselected columns exactly 0 |
 | T8 | `tests/backend/test_uniform_padded_frame.py` | `ufv_padded_frame` vs `fv_padded_frame` through the scatter (8 cases incl. the empty frame, four old widths, groups). Exact output masks vs the independently derived `[A-mask as given | prefix(counts)]`. `ufv_empty_frame` = the scatter of `fv_empty_frame`. jit vs numpy | ≤ 1e-12; masks exact; junk exactly 0; jit ≤ 1e-12 |
 | T9 | same | `utv_align_padded_frame` vs `tv_align_padded_frame` (the T1 list incl. d = 1; two-colour; truncating). Exact output masks. Garbage robustness (clean vs dirty) | ≤ 1e-9; masks exact; clean == dirty bitwise (equal layouts) |
@@ -1372,7 +1464,7 @@ masks, tied factors (one array), placed 0/1 seeds, gathers. Tolerances otherwise
 | T11 | same | `ufv_compact_frame`: masks; real entries moved; junk zero; `utv_retract` of the zero tangent at the level returns X_old; `from_frame` variation masks == `from_point`'s | masks exact; gathers bitwise; ≤ 1e-12 |
 | T12 | same | `ufv_aligned_padded_frame` vs `fv_aligned_padded_frame` (defaults; tol 1e-10; the empty frame; non-minimal; p = 0; d = 2; alternate on/off), generic hints with movements away from `tol`. The no-op level (target stores = old stores) returns `ufv_compact_frame(old_frame_data, level_widths)`: prefix masks at `level_widths`, empty movements | same pass counts; movements ≤ 1e-12; spans ≤ 1e-9; the no-op's masks exact |
 | T13 | same + `tests/test_dispatch.py` | **Compile count:** an eager-jax uniform loop, d ≥ 3, ≥ 6 passes at fixed structure. After the first pass of each step variant, the step kernel's jit cache (`_cache_size()`, as the mask-pattern test) does not grow; a second loop at the same structure adds nothing. Jitted step and compaction equal numpy. First-call time at d = 6 and 24 (informational) | cache sizes as stated; ≤ 1e-12 |
-| T14 | `tests/backend/test_padded_start.py` | **Optimizer seam:** (a) `require_frame_structure` (through `local_model(frame=)` and the frontend `start_frame`) rejects, one family at a time with every other byte identical: each ragged store's shape; each uniform variation-mask family (up, down, left, right); each boundary entry (`left[d]`, `right[0]`); `shape`; a padded width. Plus a mutation check per family (deleting that comparison in the member turns the test red). It accepts the aligned frame and `geom.frame(x)`. A geometry without the member raises. (b) `newton_cg(padded_from=)` ≡ `newton_cg(start_frame=padded_start(...)[0])`. (c) G-bit: `set(stats)` and history keys unchanged without new keywords; the new keys only with them; a before/after equality of a seeded run recorded in the N7 handoff. (d) `'cone'`: deterministic given the seed; `cone_oversampling=0, cone_max_passes=0` equals `'zero'`; independent of `x0`'s values; corewise / no member / vanishing explicit / options without their group / `cone_*` with `g0norm_newton` raise; `'cone'` with `g0norm_newton` alone skips the loop; `gradient_descent` too. (e) **not verified before this test:** `padded_start` uniform vs ragged on `probe_derivatives`, d ≥ 3, by gauge-invariant quantities (per-pass `‖P_F g‖`, spans). (f) **not verified before this test:** a shared problem on both layers, one pass vs a dense tied-projection reference. (g1) **not verified before this test:** at a numerically full-rank `x` with a gauge-rotated frame `F` of `x` (same structure, accepted by the member), `local_model(x, frame=F, hessian='exact')` passes the `Problem.local_model` doctest's FD criterion along the retraction from `F`, and its quadratic of a matched direction equals the default frame's. (g2) **not verified before this test:** at the zero-padded `x0`, `newton_cg(hessian='exact', start_frame=F)` is finite and decreases the objective (FD is invalid there: the retraction is not first-order accurate at a numerically rank-deficient point). (h) `newton_cg(padded_from=<rank-0 tensor>)` and a partially-zero-rank `padded_from` (Tucker `(0,2,2)`, TT `(1,0,2,1)`), on both layers, through the frontend AND directly through the backend members. Both give the empty frame's start (equal to the canonical rank-0 case, ≤ 1e-14); a stack mixing zero and nonzero elements raises in the members | as stated; (d) `'cone'` = `'zero'` ≤ 1e-12 relative; (e) ≤ 1e-9 at tol 1e-10, ≤ 0.2 at the default stop; (f) ≤ 1e-9; (g1) ≤ 1e-4 relative to FD, matched quadratics ≤ 1e-10 relative; (g2) as stated |
+| T14 | `tests/backend/test_padded_start.py` | **Optimizer seam:** (a) `require_frame_structure` (through `local_model(frame=)` and the frontend `start_frame`) rejects, one family at a time with every other byte identical: each ragged store's shape; each uniform variation-mask family (up, down, left, right); each boundary entry (`left[d]`, `right[0]`); `shape`; a padded width. Plus a mutation check per family (deleting that comparison in the member turns the test red). It accepts the aligned frame and `geom.frame(x)`. A geometry without the member raises. (b) `newton_cg(padded_from=)` ≡ `newton_cg(start_frame=padded_start(...)[0])`. (c) G-bit: `set(stats)` and history keys unchanged without new keywords; the new keys only with them; a before/after equality of a seeded run recorded in the N7 handoff. (d) `'cone'`: deterministic given the seed; `cone_max_passes=0` (any `cone_oversampling`) equals `'zero'`; `padded_max_passes=0` starts Newton from the hint-free padded frame (the iteration-0 frame equals `fv_padded_frame(old_frame, target)` on the ragged layer and `ufv_compact_frame(ufv_padded_frame(...)[0], level_widths)` on the uniform one, ≤ 1e-14; no projection runs); zero passes with an explicitly set `*_oversampling` / `*_oversampled_passes` / `*_tol` / `*_alternate` raises in `newton_cg`, `gradient_descent` and `padded_start`, one option at a time (`*_seed` allowed); independent of `x0`'s values; corewise / no member / vanishing explicit / options without their group / `cone_*` with `g0norm_newton` raise; `'cone'` with `g0norm_newton` alone skips the loop; `gradient_descent` too. (e) **not verified before this test:** `padded_start` uniform vs ragged on `probe_derivatives`, d ≥ 3, by gauge-invariant quantities (per-pass `‖P_F g‖`, spans). (f) **not verified before this test:** a shared problem on both layers, one pass vs a dense tied-projection reference. (g1) **not verified before this test:** at a numerically full-rank `x` with a gauge-rotated frame `F` of `x` (same structure, accepted by the member), `local_model(x, frame=F, hessian='exact')` passes the `Problem.local_model` doctest's FD criterion along the retraction from `F`, and its quadratic of a matched direction equals the default frame's. (g2) **not verified before this test:** at the zero-padded `x0`, `newton_cg(hessian='exact', start_frame=F)` is finite and decreases the objective (FD is invalid there: the retraction is not first-order accurate at a numerically rank-deficient point). (h) `newton_cg(padded_from=<rank-0 tensor>)` and a partially-zero-rank `padded_from` (Tucker `(0,2,2)`, TT `(1,0,2,1)`), on both layers, through the frontend AND directly through the backend members. Both give the empty frame's start (equal to the canonical rank-0 case, ≤ 1e-14); a stack mixing zero and nonzero elements raises in the members | as stated; (d) `'cone'` = `'zero'` ≤ 1e-12 relative; (e) ≤ 1e-9 at tol 1e-10, ≤ 0.2 at the default stop; (f) ≤ 1e-9; (g1) ≤ 1e-4 relative to FD, matched quadratics ≤ 1e-10 relative; (g2) as stated |
 | T15 | frontend files: `test_frame_variations_format.py`, `test_uniform_frame_variations_format.py`, `test_manifold.py`, `test_uniform_manifold.py`, `test_tucker_tensor_train.py`, `test_uniform_tucker_tensor_train.py`, `test_optimizers_frontend.py` | Twins: each equals its backend call (no added arithmetic); hint-class dispatch; the `N` check; cross-layer hints; the rank-0 spelling and the conversion of a partially-zero-rank `x_old` to it; every §3.6 validation message; safe-mode checks (ORTH, TIED, same tensor) raise and are skipped under `safety.unsafe()`; doctests | array_equal; as stated |
 | T16 | `tests/test_dispatch.py` | Rows for every new backend function (numpy/jax in → out, ragged/uniform, stacked; uniform masks stay host) | all rows |
 | T17 | `tests/backend/test_uniform_padded_frame.py` | `ufv_frame_widths(N, n, r)` == the widths of `ut3_orthogonal_representations` over a sweep (n > N, r² < n, d = 1..4) | exact |
@@ -1385,7 +1477,8 @@ masks, tied factors (one array), placed 0/1 seeds, gathers. Tolerances otherwise
 
 - `docs/aligned_padded_frame.md` (user doc) covers:
   - what the aligned start is, and when to use `padded_from` and `'cone'` (`gtol_rel=1e-4` with `'cone'`, D-24);
-  - the schedule and its knobs;
+  - the schedule and its knobs, with zero passes (`padded_max_passes=0`, `cone_max_passes=0`) documented as the
+    cheap generic start / reference and the measured fact that it carried the laptop-scale Newton gain (D-38);
   - what the measurements showed (§2.3, with the simultaneous / two-colour distinction);
   - the zero point as a rank-0 tensor;
   - the uniform block layout as a user sees it;
@@ -1490,14 +1583,16 @@ Review stops (Nick + session) after N3, N6, N8 and N10.
 | D-33 | `newton_cg`: `start_frame`, `padded_from`, and two plain groups of six (`*_oversampling`, `*_oversampled_passes`, `*_max_passes`, `*_tol`, `*_alternate`, `*_seed`): fourteen keywords. `gradient_descent` gets the cone group. Option defaults are `None` = the D-6 value, so an option set without its group engaged raises (house rule). That includes `cone_*` set with `g0norm_newton` given (the cone is then not computed); `'cone'` itself stays legal there, as `'zero'` does (r2). A schedule record would be smaller but is the rejected `PaddedFrameOptions` (superseded I-3) | writer r1, for review; orchestrator r1 (every knob settable) |
 | D-34 | The uniform step's jit boundary: one module-level kernel; masks and shape via `partition_static`; every host-derived mask precomputed as host bool and the group tables as tuples of Python ints (never integer numpy arrays, which would be traced); split and `update` static arguments; the module's own `lru_cache`d jit getter; module-level, closure-free scan bodies | orchestrator r1 (critic M4) |
 | D-35 | The frontend loop: one twin per layer beside its frame class (`frame_variations_format.fv_aligned_padded_frame`, `uniform_frame_variations_format.ufv_aligned_padded_frame`), each dispatching on the hint's class. Reasons: `uniform_manifold` imports `manifold` (no cycle-free cross-layer home without a new module); D-15; the house's per-layer frontend free-function pairs (`t3_` / `ut3_orthogonal_representations`). The frontend `padded_start` twin is dropped: it is not in D-8, and `newton_cg(padded_from=)` is the user path. The one case it would serve, a problem's aligned frame without running Newton, goes through the PUBLIC backend `padded_start` (doctest: the `least_squares_problem` route). Flagged to Nick | writer r1; critic r2 agrees; correction r2 |
-| D-36 | The loop cap counts the truncating pass; `max_passes = 0` is legal only when working = target; movements are a tuple of `C` arrays in both layers | writer r1 (critic MINOR 13) |
+| D-36 | The loop cap counts the truncating pass; movements are a tuple of `C` arrays in both layers. (r1 also had "`max_passes = 0` only when working = target"; superseded by D-38) | writer r1 (critic MINOR 13) |
+| D-38 | **Zero alignment passes is a supported, documented spelling.** `max_passes = 0` returns the seeded hint-free padded frame at the TARGET ranks: no projection, empty movements; the loops do not read their other schedule options then.<br>Through the optimizers: `newton_cg(padded_from=x_old, padded_max_passes=0)` starts Newton from it. `g0_reference='cone', cone_max_passes=0` gives the reference at the hint-free frame of the zero tensor, i.e. `fv_zero_point_frame`'s frame (= `'zero'` to rounding).<br>By D-33's rule (an option nothing reads is a mistake), zero passes with an explicitly set `*_oversampling`, `*_oversampled_passes`, `*_tol` or `*_alternate` RAISES in `newton_cg`, `gradient_descent` and `padded_start`. The message names the fix: remove the option or set a positive pass count. `*_seed` is read and allowed.<br>Reason: the Newton measurement (§2.3) found the generic start frame carries the level-2 Newton gain, and the alignment adds nothing measurable beyond the seed spread at laptop scale. The defaults (D-6) are unchanged | orchestrator r4, r5 (from the Newton measurement; critic r5) |
 | D-37 | `Problem.local_model(frame=)` (and the frontend `start_frame`) checks structure through the member `require_frame_structure(x_cores, frame)`: integers and held masks only, never an orthogonalization. Ragged: the frame's core shapes against `compute_orthogonal_representation_ranks` of `x`'s ranks, plus `C` and `N`. Uniform: the frame's variation masks against `var_masks`, the boundary entries, `shape`, the widths. The r1 text (compare with `geom.frame(x)`) is withdrawn: it orthogonalized to read structure, the pattern the arc was paused for | orchestrator r2 (critic r2 M1) |
 
 ## 10. Risks and open questions
 
-- **Convergence is slow and seed-dependent on real problems.** The loop is a start-frame heuristic, not a solver;
-  the defaults are a budget. Whether more passes buy Newton iterations is being measured (§11), with the
-  simultaneous step.
+- **The alignment's Newton value is unproven.** At laptop scale the alignment passes bought no Newton iterations
+  beyond the generic start frame (§2.3); 20×1000 is to measure it (§11). The loop is a start-frame heuristic, not a
+  solver, slow and seed-dependent on real problems; the defaults are a budget. The start also decides the basin
+  (§2.3, level 1), in both directions.
 - **Not verified, with tests added:**
   - the uniform kinds' `precompute` / `transpose` at block-layout frames (T14(e));
   - the tied projection under sharing at padded frames, both layers (T14(f));
@@ -1517,14 +1612,32 @@ Review stops (Nick + session) after N3, N6, N8 and N10.
 
 ## 11. Downstream and acceptance
 
+**Baseline: the g06 Newton measurement** (prototype, simultaneous step; full table in §2.3). Newton / CG iterations
+per start seed:
+
+| start | level 1 | level 2 |
+|---|---|---|
+| library padded frame (today) | 21/181 | 49/1480 |
+| hint-free padded frame (`padded_max_passes=0`) | 16/254, 19/197 | 28/714, 24/687 |
+| aligned, 4 passes | 17/286, 11/109 | 22/648, 28/1031 |
+| aligned without oversampling, 4 passes | 14/246, 24/504 | 42/1151, 29/758 |
+| aligned, 10 passes (the default cap) | 20/273, 25/276 | 28/1360, 33/873 |
+| aligned, 40 passes | 16/181, 18/273 | 21/729, 24/801 |
+
+At level 2 the hint-free start and the aligned starts with oversampling cut 49 to 21–33; without oversampling, 42 and
+29. The alignment adds nothing measurable beyond the seed spread (up to 13) at this scale.
+
+**Acceptance (N10) runs the SHIPPED library code with the SHIPPED default schedule (two-colour):**
+
 - T3Polynomial adopts `padded_from` and `g0_reference='cone'` in its ladder (its own process; `t3polynomial/cone.py`
   retired).
 - Laptop: the Darcy o01 ladder, levels 1 → 6 and 6 → 11.
-  - Starts: library, hint-free, and aligned with the SHIPPED default schedule (two-colour) at 4 / 6 / 10 passes.
-    Also aligned without oversampling, and aligned at 40 passes.
+  - Starts: library; hint-free (`padded_max_passes=0`); aligned with the default schedule (10 passes), and at 4 and
+    40 passes; aligned without oversampling.
   - Measure: Newton and CG counts, objective, test error; two seeds; compile logging and peak memory on one level.
-  - The g06 Newton numbers (simultaneous step) go beside them when they arrive.
-- Runpod: one manual 20×1000 pair (library vs aligned), decoupled from the release.
+  - The baseline above goes beside them.
+- Runpod, 20×1000, decoupled from the release. It measures the alignment's value in Newton counts at scale, the
+  open question of §0: library vs hint-free (`padded_max_passes=0`) vs the default aligned start.
 
 ## 12. Pitfalls checklist (for every implementer and reviewer)
 

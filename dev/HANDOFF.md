@@ -27,7 +27,9 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
-**State (2026-11-09, late). THE FRESH PLAN IS CRITIC-APPROVED (r4, after three writer rounds); AWAITING NICK'S REVIEW.** Three realizations of his rulings are flagged at the top of the plan for confirmation: one frontend loop twin per layer (import cycle; D-35), fourteen `newton_cg` keywords (D-33), no frontend `padded_start` twin (the backend one is public). Then implementation N1–N10. Still pending input: the Newton measurement.
+**State (2026-11-09, end). THE PLAN IS CRITIC-APPROVED (r6, after five writer rounds) AND NICK CONFIRMED THE FLAGGED REALIZATIONS; AWAITING HIS READ AND THE WORD TO START N1.** Round 4-5 folded in the Newton measurement (laptop: any injected generic frame roughly halves level-2 Newton counts vs the library's padded frame; alignment passes add no further Newton savings within noise; starts decide basins) with §0 rewritten to what was measured, and `max_passes=0` = the hint-free start (D-38; other schedule options then raise).
+
+**Earlier (2026-11-09, late). THE FRESH PLAN WAS CRITIC-APPROVED (r4, after three writer rounds).** Three realizations of his rulings are flagged at the top of the plan for confirmation: one frontend loop twin per layer (import cycle; D-35), fourteen `newton_cg` keywords (D-33), no frontend `padded_start` twin (the backend one is public). Then implementation N1–N10. Still pending input: the Newton measurement.
 
 **Earlier (2026-11-09). THE FRESH PLAN IS DRAFTED; writer/critic rounds next.** The plan for the aligned padded frame is
 `dev/aligned_padded_frame_impl_plan_2026-11-09.md` (draft 0 by the session; the old plan, its reviews r1-r8, its two
