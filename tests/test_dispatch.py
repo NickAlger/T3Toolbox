@@ -24,6 +24,7 @@ import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.fv_operations as fv_operations
+import t3toolbox.backend.padded_frames as padded_frames
 import t3toolbox.corewise as _cw
 import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.optimizers as bopt
@@ -161,8 +162,9 @@ class TestDispatch(unittest.TestCase):
                 self._leaves_all_jax(out)
                 self.assertLessEqual(norm(np.asarray(out) - out_np), 1e-12)
                 self.assertEqual(f(jnp.asarray(P), jnp.asarray(A), 0).shape, (2, 7, 0))
-        # "valid for any seeds" on jax's own QR (S3's jitted constructor runs this path): degenerate seeds give
-        # an orthonormal completion orthogonal to P under jit -- validity only, no numpy comparison
+        # "valid for any seeds" on jax's own QR (the padded start's in-block completion runs this path under jit: its
+        # coordinate seeds can lie in span(P)): degenerate seeds give an orthonormal completion orthogonal to P under
+        # jit -- validity only, no numpy comparison
         degenerate = {'all zero': np.zeros((2, 7, 3)), 'too few': A[..., :1],
                       'in span(P)': P @ r.standard_normal((2, 2, 3)), 'none': np.zeros((2, 7, 0))}
         for fn in (linalg.pinned_completion, linalg.pinned_leading_columns):
@@ -1950,62 +1952,42 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual((row_np['g0_reference'], row_jit['g0_reference']), ('zero', 'zero'))
         self.assertAlmostEqual(row_jit['g0norm'], row_np['g0norm'], delta=1e-10 * row_np['g0norm'])
 
-    def test_padded_frame_dispatch(self):
-        """The hint-free padded frame: numpy in -> numpy out, jax in -> jax out, and it jits (groups, seed
-        static) to pure jax equal to the eager numpy result (x64 on in this module)."""
-        np.random.seed(1)
-        x_old = t3.TuckerTensorTrain.randn((4, 4, 4, 4), (2, 2, 2, 2), (1, 2, 2, 2, 1))
-        x_new = x_old.resize((4, 4, 4, 4), (2, 2, 2, 3), (1, 2, 3, 2, 1))    # L_1 in-block; U_3 Haar-completed
-        old = bvf.t3_orthogonal_representations(x_old)[0].data
-        template = bvf.t3_orthogonal_representations(x_new)[0].data
-        to_jax = lambda f: None if f is None else jax.tree_util.tree_map(jnp.asarray, f)
-        f = jax.jit(fv_operations.fv_padded_frame, static_argnames=('groups', 'seed'))
-        for old_frame, groups in ((None, ((0, 2), (1,), (3,))), (old, ())):    # the zero tensor shared; X_old untied
-            with self.subTest(at_zero=old_frame is None):
-                out_np = fv_operations.fv_padded_frame(template, old_frame, groups=groups, seed=3)
+    def test_empty_frame_dispatch(self):
+        """The zero tensor's frame, an array-free constructor: use_jax chooses the output type (numpy by default),
+        and it jits (all arguments static) to jax leaves."""
+        for C in ((), (2,)):
+            with self.subTest(C=C):
+                out_np = padded_frames.fv_empty_frame(STRUCT[0], C)
                 self.assertTrue(all(common.is_numpy_ndarray(c) for c in jax.tree_util.tree_leaves(out_np)))
-                self.assert_eager_jax(fv_operations.fv_padded_frame, to_jax(template), to_jax(old_frame))
-                out = f(to_jax(template), to_jax(old_frame), None, groups=groups, seed=3)
+                self._leaves_all_jax(padded_frames.fv_empty_frame(STRUCT[0], C, use_jax=True))
+                f = jax.jit(padded_frames.fv_empty_frame, static_argnums=(0, 1, 2))
+                out = f(STRUCT[0], C, True)
+                self._leaves_all_jax(out)
+                self.assertEqual([c.shape for c in jax.tree_util.tree_leaves(out)],
+                                 [c.shape for c in jax.tree_util.tree_leaves(out_np)])
+
+    def test_padded_frame_dispatch(self):
+        """The seeded padded frame: numpy in -> numpy out, jax in -> jax out, and it jits (ranks, sharing and seed
+        static) to pure jax equal to the eager numpy result (x64 on in this module): the zero tensor's empty frame
+        shared, a nonzero old frame with an in-block completion, and a stack C = (2,)."""
+        np.random.seed(1)
+        shape, old_ranks, new_ranks = (4, 4, 4, 4), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((2, 2, 2, 3), (1, 2, 3, 2, 1))
+        x_old = t3.TuckerTensorTrain.randn(shape, *old_ranks)                  # -> L_1 in-block; U_3 Haar-completed
+        x_old_C = t3.TuckerTensorTrain.randn(shape, *old_ranks, stack_shape=(2,))
+        to_jax = lambda f: jax.tree_util.tree_map(jnp.asarray, f)
+        f = jax.jit(padded_frames.fv_padded_frame, static_argnames=('tucker_ranks', 'tt_ranks', 'sharing', 'seed'))
+        cases = {'zero, shared': (padded_frames.fv_empty_frame(shape), (0, 1, 0, 2)),
+                 'old, unshared': (bvf.t3_orthogonal_representations(x_old)[0].data, None),
+                 'old, C = (2,)': (bvf.t3_orthogonal_representations(x_old_C)[0].data, None)}
+        for name, (old_frame, sharing) in cases.items():
+            with self.subTest(case=name):
+                out_np = padded_frames.fv_padded_frame(old_frame, *new_ranks, sharing=sharing, seed=3)
+                self.assertTrue(all(common.is_numpy_ndarray(c) for c in jax.tree_util.tree_leaves(out_np)))
+                self.assert_eager_jax(padded_frames.fv_padded_frame, to_jax(old_frame), *new_ranks)
+                out = f(to_jax(old_frame), tucker_ranks=new_ranks[0], tt_ranks=new_ranks[1], sharing=sharing, seed=3)
                 self._leaves_all_jax(out)
                 for a, b in zip(jax.tree_util.tree_leaves(out), jax.tree_util.tree_leaves(out_np)):
                     self.assertLessEqual(norm(np.asarray(a) - b), 1e-12)
-
-    def test_padded_frame_hinted_dispatch(self):
-        """The hinted padded frame (the pinned T3-SVD of a T3 hint): jax in -> jax out, and it jits to pure jax that
-        agrees with the eager numpy result -- gauge-invariantly, through the dense tangent projection P_{T_F} Y of a
-        fixed Y (a new column's sign follows its SVD's, which is backend-dependent): rtol 1e-12 in x64, 1e-5 for a
-        float32 run (whose result is float32). Hints with more directions than slots, so the subspaces are
-        determined by the content, not by roundoff."""
-        import t3toolbox.backend.t3_conversions as t3c
-        np.random.seed(2)
-        shape = (4, 5, 6, 3)
-        x_old = t3.TuckerTensorTrain.randn(shape, (2, 2, 2, 2), (1, 2, 2, 2, 1))
-        x_new = x_old.resize(shape, (3, 3, 4, 3), (1, 3, 4, 3, 1))
-        old = bvf.t3_orthogonal_representations(x_old)[0].data
-        template = bvf.t3_orthogonal_representations(x_new)[0].data
-        H = t3.TuckerTensorTrain.randn(shape, (4, 4, 5, 3), (1, 4, 4, 3, 1))
-        hints = {'external + X_old': (H + x_old).data,
-                 'gradient': tops.tv_to_t3(template, tops.tv_project_dense_onto_tangent_space(
-                     template, np.random.randn(*shape)))}
-        Y = np.random.randn(*shape)
-
-        def tangent_projection(frame):                                     # P_{T_F} Y, dense, in float64
-            frame = jax.tree_util.tree_map(lambda a: np.asarray(a, dtype=float), frame)
-            return t3c.t3_to_dense(tops.tv_to_t3(frame, tops.tv_project_dense_onto_tangent_space(frame, Y)))
-
-        cast = lambda f, dt: jax.tree_util.tree_map(lambda a: jnp.asarray(a, dtype=dt), f)
-        f = jax.jit(fv_operations.fv_padded_frame, static_argnames=('groups', 'seed'))
-        for kind, hint in hints.items():
-            with self.subTest(hint=kind):
-                ref = tangent_projection(fv_operations.fv_padded_frame(template, old, hint))
-                self.assert_eager_jax(fv_operations.fv_padded_frame, cast(template, jnp.float64),
-                                      cast(old, jnp.float64), cast(hint, jnp.float64))
-                out = f(cast(template, jnp.float64), cast(old, jnp.float64), cast(hint, jnp.float64))
-                self._leaves_all_jax(out)
-                self.assertLessEqual(norm(tangent_projection(out) - ref), 1e-12 * norm(ref))
-                out32 = f(cast(template, jnp.float32), cast(old, jnp.float32), cast(hint, jnp.float32))
-                self.assertTrue(all(a.dtype == jnp.float32 for a in jax.tree_util.tree_leaves(out32)))
-                self.assertLessEqual(norm(tangent_projection(out32) - ref), 1e-5 * norm(ref))
 
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):

@@ -1,12 +1,14 @@
 # Authors: Nick Alger and Blake Christierson
 # Copyright: MIT License (2026)
 # https://github.com/NickAlger/T3Toolbox
-"""Tests for the padded start (the padded-frame plan's T5).
+"""Tests for the padded start's working-rank rule and, later, its optimizer seam (the aligned-padded-frame plan's
+T19 and T14).
 
-So far the rank function's rows of T5(h): ``ranks.oversampled_ranks``, the one home of the working-rank
-rule ("``+p`` on every Tucker rank and interior bond, structurally minimal, never below the input"). The
-agreement rows with the frontend ``TuckerTensorTrain.oversampled_ranks`` and the geometry member
-``oversampled_ranks`` join when those exist (slices S5 and S9), and the driver ``padded_start``'s rows in S6.
+So far T19: ``ranks.oversampled_ranks``, the one home of the working-rank rule ("``+p`` on every Tucker rank and
+interior bond, structurally minimal, never below the input"), on integer sequences (Python-int tuples out) and on
+per-stack-element ``(d,)+C`` / ``(d+1,)+C`` rank arrays (each element its own sequence call). T14 -- the geometry
+members, ``Problem.local_model(frame=)``, ``padded_start``, the ``newton_cg`` keywords and ``g0_reference='cone'``
+-- joins with the optimizer seam.
 
 numpy-only: the rank function is host integer arithmetic on structure, never traced.
 """
@@ -119,6 +121,55 @@ class TestOversampledRanks(unittest.TestCase):
             ranks.oversampled_ranks((3, 10, 4), (2.0, 3, 2), (1, 2, 2, 1), 1)
         with self.assertRaisesRegex(ValueError, 'equal within a sharing group'):
             ranks.oversampled_ranks((3, 10, 3), (2, 3, 1), (1, 2, 2, 1), 1, sharing=(0, 1, 0))
+
+    def test_arrays_are_per_element_calls(self):
+        """T19: (d,)+C / (d+1,)+C integer arrays give HOST integer arrays of the same shapes, each stack element
+        equal to the sequence call on that element; with and without sharing."""
+        rng = np.random.default_rng(4)
+        for trial, C, p in itertools.product(range(20), [(), (3,), (2, 2)], (0, 1, 3)):
+            d = int(rng.integers(1, 6))
+            sharing = None if trial % 2 else tuple(int(g) for g in rng.integers(0, max(1, d - 1), size=d))
+            shape = tuple(int(N) for N in rng.integers(1, 8, size=d))
+            tucker = rng.integers(1, 9, size=(d,) + C)
+            tt = rng.integers(1, 9, size=(d + 1,) + C)
+            tt[0], tt[-1] = 1, 1
+            if sharing is not None:                               # a group shares one mode size and one rank
+                first = {}
+                for i, g in enumerate(sharing):
+                    j = first.setdefault(g, i)
+                    tucker[i] = tucker[j]
+                shape = tuple(shape[first[g]] for g in sharing)
+            with self.subTest(trial=trial, C=C, p=p, sharing=sharing, shape=shape):
+                out_tucker, out_tt = ranks.oversampled_ranks(shape, tucker, tt, p, sharing=sharing)
+                for out, inp in ((out_tucker, tucker), (out_tt, tt)):
+                    self.assertIsInstance(out, np.ndarray)
+                    self.assertTrue(np.issubdtype(out.dtype, np.integer))
+                    self.assertEqual(out.shape, inp.shape)
+                for idx in np.ndindex(*C):
+                    at = (slice(None),) + idx
+                    want = ranks.oversampled_ranks(shape, tuple(int(n) for n in tucker[at]),
+                                                   tuple(int(r) for r in tt[at]), p, sharing=sharing)
+                    self.assertEqual((tuple(out_tucker[at].tolist()), tuple(out_tt[at].tolist())), want)
+
+    def test_array_structural_errors(self):
+        shape = (3, 10, 4)
+        tucker = np.array([[2, 2], [3, 5], [2, 1]])
+        tt = np.array([[1, 1], [2, 2], [2, 1], [1, 1]])
+        ranks.oversampled_ranks(shape, tucker, tt, 1)                       # the good input
+        with self.assertRaisesRegex(ValueError, 'share one stack'):
+            ranks.oversampled_ranks(shape, tucker, tt[:, :1], 1)
+        with self.assertRaisesRegex(ValueError, 'share one stack'):        # a sequence beside a stacked array
+            ranks.oversampled_ranks(shape, (2, 3, 2), tt, 1)
+        with self.assertRaises(TypeError):                                  # integer arrays in
+            ranks.oversampled_ranks(shape, tucker.astype(float), tt, 1)
+        with self.assertRaisesRegex(ValueError, 'len\\(tucker_ranks\\)'):
+            ranks.oversampled_ranks(shape, tucker[:2], tt, 1)
+        with self.assertRaisesRegex(ValueError, 'len\\(tt_ranks\\)'):
+            ranks.oversampled_ranks(shape, tucker, tt[:3], 1)
+        with self.assertRaisesRegex(ValueError, 'len\\(tt_ranks\\)'):       # d = 1: checked before the boundary
+            ranks.oversampled_ranks((7,), np.array([[2, 3]]), np.array([[1, 1]]), 1)   # splice could lengthen it
+        with self.assertRaisesRegex(ValueError, 'non-negative int'):
+            ranks.oversampled_ranks(shape, tucker, tt, -1)
 
 
 if __name__ == '__main__':

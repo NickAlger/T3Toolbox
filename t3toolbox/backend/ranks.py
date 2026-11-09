@@ -176,14 +176,14 @@ def compute_minimal_ranks(
 
 
 def oversampled_ranks(
-        shape:         typ.Sequence[int],                  # (N0, ..., N(d-1))
-        tucker_ranks:  typ.Sequence[int],                  # (n0, ..., n(d-1))
-        tt_ranks:      typ.Sequence[int],                  # (1, r1, ..., r(d-1), 1)
-        p:             int,                                # the rank increment, p >= 0 (structural)
-        sharing:       typ.Optional[typ.Sequence] = None,  # len=d group labels; None = unshared
+        shape:         typ.Sequence[int],                               # len=d
+        tucker_ranks:  typ.Union[typ.Sequence[int], NDArray],           # len=d, or HOST int (d,)+C
+        tt_ranks:      typ.Union[typ.Sequence[int], NDArray],           # len=d+1, or HOST int (d+1,)+C
+        p:             int,                                             # the rank increment, p >= 0 (structural)
+        sharing:       typ.Optional[typ.Sequence] = None,               # len=d group labels; None = unshared
 ) -> typ.Tuple[
-    typ.Tuple[int, ...],  # tucker ranks: max(input, minimal(+p)); minimal for a minimal input
-    typ.Tuple[int, ...],  # tt ranks:     the same; boundary bonds as the input's (1 for a squashed T3)
+    typ.Union[typ.Tuple[int, ...], NDArray],   # tucker ranks: int tuple for sequences, HOST int (d,)+C for arrays
+    typ.Union[typ.Tuple[int, ...], NDArray],   # tt ranks:     int tuple for sequences, HOST int (d+1,)+C for arrays
 ]:
     '''Oversampled working ranks: ``+p`` on every Tucker rank and interior bond, structurally minimal,
     never below the input.
@@ -199,11 +199,12 @@ def oversampled_ranks(
       built from these ranks never undercuts the structure it oversamples.
 
     This is the one home of the working-rank rule of the padded start (iterate at the oversampled ranks,
-    then truncate to the target). Integer sequences in, Python-int tuples out; stacked rank arrays are not
-    accepted (reduce per element). Boundary bonds above 1 (an unsquashed T3 sum) are kept as given, but the
-    interior caps are computed as for boundary bonds 1 -- conservative. A negative or non-integer ``p`` is a
-    ``ValueError``; the length checks
-    are :py:func:`compute_minimal_ranks`'s.
+    then truncate to the target). Integer sequences give Python-int tuples. HOST integer arrays ``(d,)+C`` /
+    ``(d+1,)+C`` -- ranks per stack element, as :py:func:`compute_minimal_ranks` takes them -- give HOST integer
+    arrays of the same shapes, every element its own sequence call. Boundary bonds above 1 (an unsquashed T3
+    sum) are kept as given, but the interior caps are computed as for boundary bonds 1 -- conservative. A
+    negative or non-integer ``p`` is a ``ValueError``, as are wrong lengths and arrays of different stacks;
+    non-integer ranks are a ``TypeError``.
 
     Examples
     --------
@@ -232,23 +233,54 @@ def oversampled_ranks(
     ((3, 2, 3), (1, 2, 2, 1))
     >>> ranks.oversampled_ranks((8, 3, 8), (2, 1, 2), (1, 1, 1, 1), 1)
     ((2, 2, 2), (1, 2, 2, 1))
+
+    Ranks per stack element (columns of ``(d,)+C`` arrays, here ``C = (2,)``) are oversampled element by element:
+
+    >>> import numpy as np
+    >>> tucker, tt = ranks.oversampled_ranks((3, 10, 4), np.array([[2, 2], [3, 5], [2, 1]]),
+    ...                                      np.array([[1, 1], [2, 2], [2, 1], [1, 1]]), 1)
+    >>> print(tucker.tolist(), tt.tolist())
+    [[3, 3], [4, 6], [3, 2]] [[1, 1], [3, 3], [3, 2], [1, 1]]
+    >>> print(ranks.oversampled_ranks((3, 10, 4), (2, 5, 1), (1, 2, 1, 1), 1))     # the second column alone
+    ((3, 6, 2), (1, 3, 2, 1))
     '''
     if isinstance(p, bool) or not isinstance(p, (int, np.integer)) or p < 0:
         raise ValueError('p must be a non-negative int, got %r' % (p,))
     p = int(p)
-    tucker_ranks = tuple(operator.index(n) for n in tucker_ranks)
-    tt_ranks = tuple(operator.index(r) for r in tt_ranks)
     d = len(shape)
-    if len(tucker_ranks) != d:
-        raise ValueError('len(tucker_ranks) = %d != d = %d' % (len(tucker_ranks), d))
-    if len(tt_ranks) != d + 1:
-        raise ValueError('len(tt_ranks) = %d != d + 1 = %d' % (len(tt_ranks), d + 1))
+    if isinstance(tucker_ranks, typ.Sequence) and isinstance(tt_ranks, typ.Sequence):
+        tucker_ranks = tuple(operator.index(n) for n in tucker_ranks)
+        tt_ranks = tuple(operator.index(r) for r in tt_ranks)
+        if len(tucker_ranks) != d:
+            raise ValueError('len(tucker_ranks) = %d != d = %d' % (len(tucker_ranks), d))
+        if len(tt_ranks) != d + 1:
+            raise ValueError('len(tt_ranks) = %d != d + 1 = %d' % (len(tt_ranks), d + 1))
 
-    plus_tucker = tuple(n + p for n in tucker_ranks)
-    plus_tt = (1,) + tuple(r + p for r in tt_ranks[1:-1]) + (1,)
+        plus_tucker = tuple(n + p for n in tucker_ranks)
+        plus_tt = (1,) + tuple(r + p for r in tt_ranks[1:-1]) + (1,)
+        min_tucker, min_tt = compute_minimal_ranks(shape, plus_tucker, plus_tt, sharing=sharing)
+        return (tuple(max(a, b) for a, b in zip(tucker_ranks, min_tucker)),
+                tuple(max(a, b) for a, b in zip(tt_ranks, min_tt)))
+
+    tucker_ranks = np.asarray(tucker_ranks)                           # HOST: ranks are static structure
+    tt_ranks = np.asarray(tt_ranks)
+    for name, ranks_arr in (('tucker_ranks', tucker_ranks), ('tt_ranks', tt_ranks)):
+        if not np.issubdtype(ranks_arr.dtype, np.integer):
+            raise TypeError('%s must be integers; got dtype %s' % (name, ranks_arr.dtype))
+    if tucker_ranks.ndim == 0 or len(tucker_ranks) != d:             # before the boundaries are spliced below
+        raise ValueError('len(tucker_ranks) = %d != d = %d' % (tucker_ranks.size if tucker_ranks.ndim == 0
+                                                               else len(tucker_ranks), d))
+    if tt_ranks.ndim == 0 or len(tt_ranks) != d + 1:
+        raise ValueError('len(tt_ranks) = %d != d + 1 = %d' % (tt_ranks.size if tt_ranks.ndim == 0
+                                                               else len(tt_ranks), d + 1))
+    if tucker_ranks.shape[1:] != tt_ranks.shape[1:]:
+        raise ValueError('tucker_ranks %r and tt_ranks %r must share one stack C: shapes (d,)+C and (d+1,)+C'
+                         % (tucker_ranks.shape, tt_ranks.shape))
+
+    plus_tucker = tucker_ranks + p
+    plus_tt = np.concatenate([np.ones_like(tt_ranks[:1]), tt_ranks[1:-1] + p, np.ones_like(tt_ranks[-1:])], axis=0)
     min_tucker, min_tt = compute_minimal_ranks(shape, plus_tucker, plus_tt, sharing=sharing)
-    return (tuple(max(a, b) for a, b in zip(tucker_ranks, min_tucker)),
-            tuple(max(a, b) for a, b in zip(tt_ranks, min_tt)))
+    return np.maximum(tucker_ranks, min_tucker), np.maximum(tt_ranks, min_tt)
 
 
 def _edge_condition_number(

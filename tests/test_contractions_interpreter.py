@@ -356,22 +356,6 @@ HISTORICAL = {
     # counts, so C is solved from any operand ('').
     'Cia,Cib->Cab': '',
     'Cia,Cab->Cib': '',
-    # ... the hinted construction (backend.fv_operations.fv_padded_frame): the Tucker step (the hint's center, Tucker
-    # leg first; X_old's down rows in the hint environment; their overlap and removal; the compressed content to
-    # ambient), the pinned sweep (carry x hint core x Tucker basis; the projector onto the old far interface; the
-    # carry update) and the down step (the hint TT in the new Tucker basis; the one-hole environment in unfolding
-    # order). The hint re-basis reuses 'Czn,Cun->Czu' / 'Cazb,Czu->Caub'. One group C everywhere, fixed lowercase
-    # counts: ''.
-    'Cxjb,Cbz->Cjxz': '',
-    'Caib,Cax,Cbz->Cixz': '',
-    'Cjxz,Cixz->Cji': '',
-    'Cji,Cixz->Cjxz': '',
-    'Cjn,Cjc->Cnc': '',
-    'Cxa,Caib,Cni->Cxnb': '',
-    'Cxnb,Czb,Czc->Cxnc': '',
-    'Cxnc,Cxnb->Ccb': '',
-    'Cazb,Cuz->Caub': '',
-    'Cxa,Cxzc,Ccb->Cabz': '',
 }
 
 SUBS_RE = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')
