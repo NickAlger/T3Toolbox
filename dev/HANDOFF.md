@@ -241,6 +241,32 @@ Every plan and implementation agent runs at EXTRA HIGH effort and must first rea
 methods and the backend functions they trace to (the only allowable precedent). The start and the cone reference each
 get their own keyword group with the same defaults (session's choice; Nick may merge them).
 
+**2026-11-09, late: TWO FINDINGS FROM THE AGENTS (both verified by the session).** (A) THE LOOP CYCLES. On Darcy level 1
+(ranks 1->6, seed 0) the alignment loop never converges: period-2 cycle, consecutive frames differ by a sine of
+0.09-0.13, |P_F G| alternating by 8e-7 relative; reproduced on a 243-number case by the core form, by the dense
+per-edge reference, and by the session's dense version of the note's rooted variant. CAUSE (dense experiments,
+`nicks_research_experiments/tensor/aligned_padded_frame/cycle/`): updating every edge from ONE projection is a
+Jacobi-type simultaneous update of coupled edges and overshoots; the true stationary point (merit 0.22855) lies above
+the cycle (0.22712) and is not an attractor. FIX: TWO-COLOUR updates -- after the truncating pass, odd passes update
+the toward-root stores (up, left), even passes the away stores (right, down); non-updated edges are transported
+(content = g_old). Converges monotonically (0 merit decreases), no parameter; on the full Darcy level-1 gradient after
+p=5 for 2 passes it costs almost nothing early (35.9 vs 36.4 at pass 4, 37.0 vs 37.2 at 6) and its movement falls
+(5e-4 and falling vs stuck at 1e-2); on the toy family it is as fast as all-edges. Inertia (proximal weight) slows the
+real problem badly -- rejected. ALSO: on Darcy the movement reaches 0.05 only after 18-37 passes, values at 8-10
+passes are ~93 % of the 40-pass value, the long-run value is seed-dependent (36.1 / 40.5 / 41.7), and at d = 24 the
+defaults do not converge in 10 passes -- the cap is the effective stop. (B) UNIFORM PIECES DONE (agent; README section
+"The remaining uniform pieces"; files `uniform_form2.py`, `uniform_start.py`, `uniform_loop.py`, `ragged_loop.py`,
+`uniform_testing.py`, `check_uniform_{start,loop,stack,groups}.py`): start, loop + compaction, stacks, groups all
+verified against the ragged code with gappy masks + garbage (<= 4e-14), whole loop under one jit (6 s, flat in d).
+DEVIATION: the start that reproduces the committed ragged convention ('gs') needs a pad-safe Householder QR (the
+convention is BASIS-dependent: TT/down coordinate seeds index neighbours' completion slots); the SVD-only start ('svd')
+gives layer- and backend-dependent spans (loop output at the default stop differs by up to 0.19; the fixed point does
+not depend on it). Also: the locked core_form2 step moves the frame on a ZERO hint (arbitrary completion of zero
+content; core_form's QR form kept the old completion). PENDING: the Newton measurement (agent running, fixed pass
+budgets); the agent adding the two-colour option to the uniform step/loop. DECISIONS FOR NICK: two-colour; stopping
+semantics (cap as the real default); start convention (gs / svd / Gaussian seeds everywhere); tie-break by the old
+completion on degenerate content; stacked stop = max over the stack.
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
