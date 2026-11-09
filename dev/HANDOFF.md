@@ -80,6 +80,21 @@ TYPE (a T3, as planned, or a tangent = frame + variations, as the note) and whet
 implementation this release. Record + scripts: `nicks_research_experiments/tensor/padded_frame_vs_tree_completion/`.
 Nothing proceeds (no S2′) until Nick rules on both.
 
+**2026-11-09, later: DIRECTION CHANGE (Nick).** The plan's hinted path will be REPLACED by the efficient core form of
+the tree-completion note (frame + variation cores in, frame out; width-2k factorizations): "the R^2/k^2 cost is
+significant, and it is worth doing it right now". Nick is ambivalent on rooted vs unrooted. His structural API
+proposal: a loop `padded_frame(A, new_ranks, get_hint: Frame -> Variations) -> Frame` over a pure step
+`construct_hinted_frame(F, H) -> Frame`, any hint tensor supported through its projection. The session's assessment
+(awaiting Nick's reply): shape is right with changes — the step needs integers (old ranks, output ranks, groups) and
+returns a residual; the start is the seeded hint-free completion (S2's function), not a zero pad; the loop has an
+oversampled phase then a target-rank phase with a stopping residual; the frame is enough for the hint function and A
+must not be passed (residual hoisted out of the loop); the callable-taking loop lives in the optimizer layer + frontend,
+the backend keeps two pure functions; suggested names `fv_padded_frame` (start), `tv_align_padded_frame` (step),
+`aligned_padded_frame` (loop), `project` (the callable); unrooted rule; the committed S3 construction becomes the test
+ORACLE, not shipped code; prototype the T3 core form in the research repo first (sharing groups, unequal widths per
+directed edge, stacks are not covered by the note). The earlier "hint is a T3" decision is superseded. Round 12's
+pending twin question is moot until the new shape is settled. NOTHING is being implemented yet.
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
