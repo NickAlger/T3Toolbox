@@ -27,6 +27,20 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
+**State (2026-11-09). THE FRESH PLAN IS DRAFTED; writer/critic rounds next.** The plan for the aligned padded frame is
+`dev/aligned_padded_frame_impl_plan_2026-11-09.md` (draft 0 by the session; the old plan, its reviews r1-r8, its two
+design notes and the S1-S4 slice handoffs are archived under `dev/archive/` with `_superseded` / `_2026-11` suffixes).
+Process from here (Nick): a writer/critic pair of Opus 5.5 agents at EXTRA HIGH effort iterates on the draft until
+they agree; then Nick and the session review; then implementation with an implementer/reviewer pair per slice (N1-N10
+in the plan). Every agent first reads a handful of `TuckerTensorTrain` methods and the backend functions they trace
+to (the only allowable precedent). Shipped on main: S1 (`pinned_completion`, `pinned_leading_columns`,
+`oversampled_ranks`). To be DELETED by slice N1: the S2/S3 `fv_padded_frame` in `fv_operations.py` (restore efe5e3d),
+its tests and dispatch rows; the uncommitted S4 working tree (`geometry.py`, test files) is to be DISCARDED
+(`git checkout --`). Pending input: the Newton measurement (agent, `T3Polynomial/scripts/g06_aligned_frame.py
+PART=newton`) feeds §2.3 / §11 of the plan. Mathematics and verification: Nick's note + the research prototypes
+(`nicks_research_experiments/tensor/aligned_padded_frame/`, README). The decisions ledger is the plan's §9; the
+history of how they were reached is below (older first at the bottom).
+
 **State (2026-11-02, late). IMPLEMENTATION PAUSED BY NICK at the S3 review stop — architectural style problem.**
 S1–S3 are committed (b14f56eb, 2562264a, 92640502; the construction `fv_padded_frame` is algorithmically complete
 and oracle-verified). S4 (the uniform geometry member `UniformManifoldGeometryOps.padded_frame`, its tests) is BUILT
