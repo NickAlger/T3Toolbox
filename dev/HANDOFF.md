@@ -67,6 +67,19 @@ moves from the backend to the frontend (backend functions keep one-line docstrin
 backend doctest that has no frontend twin to move to). Round 11 in progress → critic → Nick's sign-off → then the corrective slice S2′ (new
 `backend/padded_frames.py`; `fv_operations` back to efe5e3d; S4's uncommitted member refactored).
 
+**2026-11-09: round 12 part 1 done; TWO decisions pending with Nick.** (1) Round 12 part 2: drop the three geometry
+twins and defer `frame=` on the six fitting factories (critic r8 + session recommend both). (2) NEW, raised by Nick's
+note "Completing frames by truncating A + εS, with projection-only access" (https://claude.ai/artifact/EvfyxaZKGuKUL5MdC6UfjD,
+a hinted completion for tree tensor networks): the session checked it against the committed construction — it is the
+SAME map (independent dense implementation: one pass agrees to 1e-13 on Tucker/left/right frames and on the down cores
+under the note's rooted rule; same fixed points to 3e-15), but the plan computes it on the doubled-rank hint treated as
+an opaque T3 (width-2R work), where the note's core form takes frame + variation cores and needs width-2k
+factorizations and k x R messages. Measured cost of the committed hinted construction, laptop Darcy 11→16: 179 ms
+(82 % einsum, 7 % SVD/QR) vs 196 ms gradient+frame and 11 ms retraction. Open design question for Nick: the hint's
+TYPE (a T3, as planned, or a tangent = frame + variations, as the note) and whether to keep the committed
+implementation this release. Record + scripts: `nicks_research_experiments/tensor/padded_frame_vs_tree_completion/`.
+Nothing proceeds (no S2′) until Nick rules on both.
+
 **Earlier next-steps note (superseded by the decision above).** (1) The session studies the gold standard: trace ~5 methods each of
 `TuckerTensorTrain` and `UniformTuckerTensorTrain` to their backend functions and characterize the style (signatures of
 basic immutable types, math-following bodies, shape comments, how structure/ranks are passed as integers). (2) Then a
