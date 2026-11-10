@@ -45,14 +45,15 @@ stop rule, NaN never stops the loop) -> N5 DONE (HEAD after N3b: `utv_align_padd
 first call ~9 s at d = 6 and 24; compaction pads first when the level is wider; stacked tolerance 1e-13; `functools.partial`
 binding inside the one jit accepted; the NaN-padded record cannot tell a NaN movement from an unrun pass -- N9 docs) ->
 SECOND REVIEW STOP DONE (Nick 2026-11-10: items 1-4 OK; the `functools.partial` binding is accepted IN THIS INSTANCE
-ONLY and establishes NO precedent -- the kernel docstring and the N9 scan-body note must say so) -> N7 BUILT, IN REVIEW (handoff written; the review must also root-cause T14(f): with sharing the uniform tied misfit
-gradient at a zero-padded frame differs 0.31 relative from the ragged one, suspected `sharing.ufv_shared_frame_data` at
-rank-deficient frames; test marked expected-failure). NICK 2026-11-10: if the sharing bug is nontrivial -- architectural or algorithmic -- DISCUSS
-WITH NICK BEFORE DECIDING, fix it properly, no band-aid; only a simple local defect may be fixed without asking. CI (2026-11-10): docs build had failed since N5 -- a duplicate
-`_unfold` in `uniform_padded_frames.py` shadowed the import and left AutoAPI an unresolved placeholder under `-W`; floor job
-failed on a 1e-14 stacked tolerance (CI BLAS 1.24e-14); both fixed in 2d686e2d. RULE FROM NOW ON: the implementer runs the
-docs build (or the AutoAPI placeholder replay) and the floor env before reporting; reviews check for dead/shadowed
-imports and duplicate definitions; cross-path tolerances of 1e-14 are suspect. Check `gh run list` after each push. -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
+ONLY and establishes NO precedent -- the kernel docstring and the N9 scan-body note must say so) -> N7 DONE (commit after 9573a4e5; T14(f) was NOT a bug: `share()` gives orthonormal Tucker factors, at that
+singular-value tie the two layers' orthogonal representations pick different bases, and the hint-free start reads
+coordinate seeds in those bases, so the layers' STARTS differ in span (0.27-1.00 on t3svd/shared points; 1e-15 on generic
+points); the aligned loop washes it out (final frames agree to 2e-5..5e-3 at the default tol, 3e-14..5e-10 at tol 1e-10);
+RECOMMENDATION to Nick: document, no code change; canonical bases at ties = a later audit item; NICK'S ANSWER PENDING --
+the N9 doc wording waits for it). CI: docs build and py3.11 green after 2d686e2d; the py3.9 floor job failed because
+ubuntu-latest moved to 26.04 (no Python 3.9 build) -- pinned to ubuntu-24.04 in 9573a4e5. RULE: the implementer runs the
+`-W` docs build (or the AutoAPI placeholder replay) and the floor env before reporting; reviews check for dead/shadowed
+imports and duplicate definitions; 1e-14 cross-path tolerances are suspect; check `gh run list` after each push. -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
 `Problem.local_model(frame=)`; `_misfit_gradient_at`; public `padded_start`; 14 `newton_cg` keywords + `use_jit`
 forwarded; `'cone'`) -> N8 (frontend twins; review stop) -> N9 (docs incl. the "jit or eager" section; "STORE" is already defined in `docs/frame_variations.md` § "Four rank stores" (Nick
 2026-11-10, fine as is) -- the feature's user doc and the `padded_frames.py` module docstring define it in one clause on first
