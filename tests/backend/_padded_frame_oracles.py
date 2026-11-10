@@ -123,25 +123,32 @@ def dense_pass(oldD, curD, Z, stores, update='ULRO', groups=()):
 def dense_loop(oldD, startD, S, working, target, oversampled_passes, max_passes, tol, alternate, groups=()):
     """The alignment loop's schedule (the plan's section 2.3) on the dense step: from the dense start ``startD`` at the
     ``working`` stores, ``n_over`` passes at the working stores, the truncating pass to the ``target`` stores, then
-    (``alternate``) passes updating 'UL' and 'RO' in turn, every pass against ``dense_project(D, S)``. Stops after a
-    pass whose movement (alternate: the last two passes' movements) is below ``tol``, at the earliest after the
-    truncating pass (alternate: after the pass that follows it), or at ``max_passes``. Returns the dense frames and the
-    movement after every pass."""
+    (``alternate``) ('UL', 'RO') pairs while a whole pair fits under ``max_passes``, stopping after a pair whose two
+    movements are below ``tol``, and one final 'UL' pass in a remaining slot unless stopped; or (not ``alternate``)
+    'ULRO' passes, stopping after the first pass from the truncating one on whose movement is below ``tol``. Every
+    pass is against ``dense_project(D, S)``. Returns the dense frames and the movement after every pass."""
     n_over = 0 if tuple(working) == tuple(target) else min(oversampled_passes, max_passes - 1)
-    D, frames, moves = startD, [], []
-    for it in range(max_passes):
-        stores = working if it < n_over else target
-        if it <= n_over or not alternate:
-            update = 'ULRO'
-        else:
-            update = 'UL' if (it - n_over) % 2 == 1 else 'RO'
-        D, movement = dense_pass(oldD, D, dense_project(D, S), stores, update, groups)
-        frames.append(D)
+    state = {'D': startD}
+    frames, moves = [], []
+
+    def run(stores, update):
+        state['D'], movement = dense_pass(oldD, state['D'], dense_project(state['D'], S), stores, update, groups)
+        frames.append(state['D'])
         moves.append(movement)
-        if alternate and it > n_over and max(moves[-2:]) < tol:
-            break
-        if not alternate and it >= n_over and movement < tol:
-            break
+
+    for it in range(n_over + 1):
+        run(working if it < n_over else target, 'ULRO')
+    if alternate:
+        stop = False
+        while not stop and len(moves) + 2 <= max_passes:
+            run(target, 'UL')
+            run(target, 'RO')
+            stop = max(moves[-2:]) < tol
+        if not stop and len(moves) < max_passes:
+            run(target, 'UL')
+    else:
+        while not moves[-1] < tol and len(moves) < max_passes:
+            run(target, 'ULRO')
     return frames, moves
 
 

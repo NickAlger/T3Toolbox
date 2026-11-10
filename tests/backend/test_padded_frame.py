@@ -37,10 +37,14 @@ T1-T3, the step ``tv_align_padded_frame``, against the dense per-edge reference 
 T4 and T6, the loop ``fv_aligned_padded_frame``:
 
 - **T6.** Pass by pass against the dense loop on the same schedule (``_padded_frame_oracles.dense_loop``): two-colour
-  with p = 0 and p = 5, 40 passes; the simultaneous schedule; the empty old frame; sharing. The schedule itself,
-  recorded call by call: no oversampled phase when working = target; the cap counting the truncating pass;
-  ``max_passes`` = 0 and 1; target stores = old stores; the stop rule on prescribed movements (the truncating-pass
-  pair, the stack maximum, the cap). Movements are a tuple of ``C`` arrays.
+  with p = 0 and p = 5, 40 passes; the simultaneous schedule; the empty old frame; sharing; and with the default
+  ``tol``, the same pass count. The schedule itself, recorded call by call: no oversampled phase when working =
+  target; the cap counting the truncating pass; ``max_passes`` = 0, 1 and 2; target stores = old stores; the PAIR
+  stop rule on prescribed movements (the stop tested only after a ``('UL', 'RO')`` pair, never on the truncating
+  pass nor across two pairs; an odd remainder running one final 'UL' only when not stopped; the stack maximum; the
+  cap). Movements are a tuple of ``C`` arrays. ``use_jit=True`` without jax warns once and runs eagerly on numpy
+  (the optimizers' jax-absent policy). Eager = jit and T13 (a), the compile count, need jax with x64 and live in
+  ``tests/test_dispatch.py`` (``TestAlignedLoopJit``).
 - **T4.** Two-colour is transport of the other stores, against the dense loop (in T6's two-colour rows); the cycle
   regression on the 243-number case of ``_padded_frame_cycle_case.py``: the simultaneous loop still moves by more than
   0.05 after 200 passes, the alternating loop's movement falls below 1e-8.
@@ -881,6 +885,29 @@ class TestLoopAgainstDense(StepAsserts):
                 stores = ranks.compute_orthogonal_representation_ranks(shape, *target)
                 self.assert_padded(F, old, X_old, stores, groups)
 
+    def test_the_default_tol_stops_both_at_the_same_pass(self):
+        """With the default tol and a cap of 40 the loop and the dense loop stop after the same pass (both rules written
+        from the plan's text, independently), early, with matching movements."""
+        for name in ('two-colour, p=5', 'simultaneous, p=5', 'sharing'):
+            shape, old_ranks, target, sharing, p, _, alternate = self.CASES[name]
+            passes = 40
+            with self.subTest(case=name):
+                old, _, _, _, S = step_case(shape, old_ranks, target, sharing=sharing, seed=7)
+                seen = []
+                _, movements = padded_frames.fv_aligned_padded_frame(
+                    old, *target, S, recording_project(seen), sharing=sharing, oversampling=p, max_passes=passes,
+                    alternate=alternate)
+                working = ranks.oversampled_ranks(shape, *target, p, sharing)
+                groups = () if sharing is None else sharing_module.canonical_groups(sharing, shape)
+                _, moves = oracles.dense_loop(
+                    oracles.dense_frames(old), oracles.dense_frames(seen[0]), S,
+                    ranks.compute_orthogonal_representation_ranks(shape, *working),
+                    ranks.compute_orthogonal_representation_ranks(shape, *target),
+                    padded_frames.ALIGN_OVERSAMPLED_PASSES, passes, padded_frames.ALIGN_TOL, alternate, groups)
+                self.assertEqual(len(movements), len(moves))
+                self.assertLess(len(movements), passes)                           # it did stop early
+                self.assertLessEqual(max(abs(float(a) - b) for a, b in zip(movements, moves)), 1e-9)
+
     def test_stacked(self):
         """A stack C = (2,): movements are a tuple of C arrays, and each element is the per-element loop."""
         shape, old_ranks, target = (4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1))
@@ -910,7 +937,7 @@ class TestLoopSchedule(unittest.TestCase):
         with unittest.mock.patch.object(padded_frames, 'tv_align_padded_frame',
                                         wraps=padded_frames.tv_align_padded_frame) as step:
             F, movements = padded_frames.fv_aligned_padded_frame(self.old, *self.target, self.S, self.project, **kw)
-        calls = [(c.kwargs['update'], c.args[4]) for c in step.call_args_list]
+        calls = [(c.args[7], c.args[4]) for c in step.call_args_list]    # positional: (update, output Tucker ranks)
         return F, movements, calls
 
     def test_working_equals_target_has_no_oversampled_phase(self):
@@ -927,6 +954,12 @@ class TestLoopSchedule(unittest.TestCase):
         self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('UL', t), ('RO', t), ('UL', t)])
         _, _, calls = self.run_recorded(max_passes=4, tol=0.0, alternate=False)
         self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('ULRO', t)])
+
+    def test_two_passes_at_working_equal_to_target(self):
+        """max_passes = 2 with no oversampled phase: the 'ULRO' pass, then one slot, no pair: the final 'UL'."""
+        _, movements, calls = self.run_recorded(oversampling=0, max_passes=2, tol=0.0)
+        self.assertEqual(calls, [('ULRO', self.target[0]), ('UL', self.target[0])])
+        self.assertEqual(len(movements), 2)
 
     def test_the_cap_counts_the_truncating_pass(self):
         F, movements, calls = self.run_recorded(oversampled_passes=5, max_passes=3, tol=0.0)
@@ -990,20 +1023,68 @@ class TestLoopSchedule(unittest.TestCase):
         return len(movements)
 
     def test_the_stop_rule(self):
-        """With the default two oversampled passes (pass 2 truncates) and tol 0.05: alternate stops after a pass
-        whose movement and the previous one's are below tol, never at the truncating pass itself; the pair may be
-        the truncating pass and the first 'UL' pass. Simultaneous: the first pass from the truncating one on below
-        tol. Oversampled passes never stop. The stack maximum decides; the cap stops."""
+        """The PAIR rule, with the default two oversampled passes (pass 2 truncates), cap 10 and tol 0.05: the passes
+        after the truncating one come in ('UL', 'RO') pairs (3-4, 5-6, 7-8) and the stop is tested after each pair,
+        both movements below tol; never on the truncating pass, never across two pairs; the odd slot left by the cap
+        (pass 9) runs one final 'UL' only when not stopped. Simultaneous: the first pass from the truncating one on
+        below tol. Oversampled passes never stop. The stack maximum decides; the cap stops."""
         lo, hi = 0.01, 0.9
-        self.assertEqual(self.stop_after([hi, hi, lo, lo, hi, hi]), 4)                  # the truncating pair
-        self.assertEqual(self.stop_after([hi, hi, lo, hi, lo, lo, hi]), 6)
-        self.assertEqual(self.stop_after([lo, lo, lo, lo, hi]), 4)                      # not during oversampling
-        self.assertEqual(self.stop_after([hi, lo, lo, hi], alternate=False), 3)
-        self.assertEqual(self.stop_after([lo, lo, hi, lo, hi], alternate=False), 4)
-        self.assertEqual(self.stop_after([hi, hi, lo, [lo, hi], lo, lo, hi]), 6)        # the max over the stack
-        self.assertEqual(self.stop_after([hi, hi, [lo, hi], lo, hi], alternate=False), 4)
-        self.assertEqual(self.stop_after([hi] * 10), 10)                                # the cap (default 10)
+        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi]), 5)                  # the first pair
+        self.assertEqual(self.stop_after([hi, hi, lo, lo, hi, lo, lo, hi]), 7)          # not the truncating pass
+        self.assertEqual(self.stop_after([hi, hi, hi, hi, lo, lo, hi, hi, hi, hi]), 10)  # not across pairs (4-5)
+        self.assertEqual(self.stop_after([lo, lo, lo, lo, lo, hi]), 5)                  # not during oversampling
+        self.assertEqual(self.stop_after([hi, hi, hi, [lo, hi], lo, lo, lo, hi]), 7)    # the max over the stack
+        self.assertEqual(self.stop_after([hi] * 9 + [lo]), 10)                          # the cap: 3 pairs, a final 'UL'
+        self.assertEqual(self.stop_after([hi] * 9, max_passes=9), 9)                    # an even cap: no final 'UL'
+        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi], max_passes=6), 5)    # stopped: no final 'UL'
+        self.assertEqual(self.stop_after([hi] * 6, max_passes=6), 6)                    # not stopped: the final 'UL'
         self.assertEqual(self.stop_after([hi] * 3, max_passes=3), 3)
+        self.assertEqual(self.stop_after([hi, lo, lo, hi], alternate=False), 3)        # simultaneous
+        self.assertEqual(self.stop_after([lo, lo, hi, lo, hi], alternate=False), 4)
+        self.assertEqual(self.stop_after([hi, hi, [lo, hi], lo, hi], alternate=False), 4)
+        nan = np.nan                                                                    # a NaN never stops,
+        self.assertEqual(self.stop_after([hi, hi, nan, lo, hi], alternate=False), 4)    #   in either place
+        self.assertEqual(self.stop_after([hi, hi, hi, nan, lo, hi], alternate=False), 5)
+        self.assertEqual(self.stop_after([hi, hi, hi, nan, lo, lo, lo, hi]), 7)         #   of a pair
+        self.assertEqual(self.stop_after([hi, hi, hi, lo, nan, lo, lo, hi]), 7)
+        self.assertEqual(self.stop_after([hi, hi, hi, [lo, nan], lo, lo, lo, hi]), 7)   #   or of a stack
+
+    def test_the_stopping_pass_types(self):
+        """Recorded: a stop after the first pair leaves (oversampled x2, truncating, 'UL', 'RO') and no more."""
+        moves = iter([0.9, 0.9, 0.9, 0.01, 0.01, 0.9])
+        updates = []
+
+        def fake(frame, variations, *args):
+            updates.append(args[5])
+            return frame, np.asarray(next(moves))
+        with unittest.mock.patch.object(padded_frames, 'tv_align_padded_frame', side_effect=fake):
+            padded_frames.fv_aligned_padded_frame(self.old, *self.target, None, lambda F, h: None)
+        self.assertEqual(updates, ['ULRO', 'ULRO', 'ULRO', 'UL', 'RO'])
+
+    def test_use_jit_without_jax(self):
+        """jax absent (simulated, as the optimizers' test does): use_jit=True warns once and runs eagerly on numpy,
+        the result the eager run's; use_jit=False does not warn."""
+        import warnings
+        import t3toolbox.backend.common as common
+        kw = dict(max_passes=4, tol=0.0)
+        F, movements = padded_frames.fv_aligned_padded_frame(self.old, *self.target, self.S, self.project, **kw)
+        saved = common.jax_available
+        common.jax_available = False
+        try:
+            for use_jit in (True, False):
+                with self.subTest(use_jit=use_jit):
+                    common._JAX_WARNED.discard('use_jit=True')
+                    with warnings.catch_warnings(record=True) as w:
+                        warnings.simplefilter('always')
+                        F_n, movements_n = padded_frames.fv_aligned_padded_frame(
+                            self.old, *self.target, self.S, self.project, use_jit=use_jit, **kw)
+                    self.assertEqual(any('use_jit=True' in str(m.message) for m in w), use_jit)
+                    self.assertTrue(all(isinstance(c, np.ndarray) for cores in F_n for c in cores))
+                    self.assertTrue(all(np.array_equal(a, b) for x, y in zip(F_n, F) for a, b in zip(x, y)))
+                    self.assertEqual([float(m) for m in movements_n], [float(m) for m in movements])
+        finally:
+            common.jax_available = saved
+            common._JAX_WARNED.discard('use_jit=True')
 
     def test_structural_errors(self):
         for kw, message in ((dict(max_passes=-1), 'max_passes'), (dict(max_passes=True), 'max_passes'),

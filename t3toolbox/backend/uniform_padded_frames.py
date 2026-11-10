@@ -107,10 +107,9 @@ def _coordinate_seeds(
     NDArray,   # inside seed mask. HOST bool, (M,)+C+(width,): columns t..count-1
     NDArray,   # the sub-grid's real rows. HOST bool, (M,)+C+(split_a*split_b,)
 ]:
-    """The hint-free convention's coordinate seeds, from the masks: the real rows outside the old block first, then the
-    old block's own, each in row-major slot order (the ragged order: the masks keep the real slots in order)."""
-    lead = rows_a.shape[:-1]
-    wa, wb, sa, sb = rows_a.shape[-1], rows_b.shape[-1], split_a, split_b
+    """The coordinate seeds from the masks: the real rows outside the old block, then inside it, in flat slot order."""
+    lead = rows_a.shape[:-1]                                               # flat slot order = the ragged row-major order:
+    wa, wb, sa, sb = rows_a.shape[-1], rows_b.shape[-1], split_a, split_b  #   the masks keep the real slots in order
     real = (rows_a[..., :, None] & rows_b[..., None, :]).reshape(lead + (wa * wb,))
     block = ((np.arange(wa) < sa)[:, None] & (np.arange(wb) < sb)[None, :]).reshape(wa * wb)
     outside = real & ~(block & has_old[..., None])
@@ -131,8 +130,7 @@ def _store_completion(
         count:        NDArray,   # HOST int, (M,)+C: the completion counts
         width:        int,       # the completion block's width
 ) -> NDArray:                    # (M,)+C+(wa*wb, width): the completion, real columns first, junk bitwise zero
-    """One store's completion, batched over its modes: unit vectors outside the old block, placed exactly, then the
-    old columns' pad-safe completion inside it from the block's coordinate seeds."""
+    """One store's completion, batched over its modes: the outside units placed exactly, then the in-block completion."""
     xnp, _, _ = get_backend(True, tree_contains_jax(P))
     lead = P.shape[:-2]
     wa, wb = rows_a.shape[-1], rows_b.shape[-1]
@@ -191,7 +189,8 @@ def ufv_padded_frame(
         old_frame_data:  UFrameData,                                  # the old frame at its own widths, any mask pattern, stack C
         tucker_ranks:    typ.Union[typ.Sequence[int], NDArray],       # len=d, or HOST int (d,)+C (per stack element)
         tt_ranks:        typ.Union[typ.Sequence[int], NDArray],       # len=d+1, or HOST int (d+1,)+C
-        sharing:        typ.Optional[typ.Sequence] = None,           # len=d group labels; None = unshared
+
+        sharing:         typ.Optional[typ.Sequence] = None,           # len=d group labels; None = unshared
         seed:            int = ZERO_FRAME_SEED,                       # the keyed Haar stream
 ) -> typ.Tuple[
     UFrameData,            # block layout: [A-block | P-block] per slot, old frame as given (junk zeroed), completions real-first

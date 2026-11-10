@@ -18,6 +18,7 @@ import os
 import sys
 import numpy as np
 import unittest
+import unittest.mock
 
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
@@ -2044,10 +2045,11 @@ class TestDispatch(unittest.TestCase):
                     self.assertLessEqual(norm(tangent_projection(element(F), Y) - ref), 1e-12 * norm(ref))
 
     def test_aligned_padded_frame_dispatch(self):
-        """The alignment loop (a host loop, so no jit variant): numpy in -> numpy out and jax in -> jax out through
-        the whole schedule, every leaf -- two oversampled passes, the truncating pass and one 'UL' / 'RO' pair (tol 0,
-        max_passes 5), at d = 2, with the dense projection of a hint of the matching array type. The jax run's
-        movements equal numpy's (x64 on in this module; they do not depend on the gauge)."""
+        """The alignment loop (a host loop): numpy in -> numpy out and jax in -> jax out through the whole schedule,
+        every leaf -- two oversampled passes, the truncating pass and one 'UL' / 'RO' pair (tol 0, max_passes 5), at
+        d = 2, with the dense projection of a hint of the matching array type -- eagerly, and with use_jit=True (the
+        memoized jitted step; numpy in is converted to jax, the numpy hint handed on as is, jax out). The movements
+        equal numpy's (x64 on in this module; they do not depend on the gauge)."""
         np.random.seed(5)
         x_old = t3.TuckerTensorTrain.randn((3, 4), (1, 1), (1, 1, 1))
         old = bvf.t3_orthogonal_representations(x_old)[0].data
@@ -2058,11 +2060,16 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(len(mv_np), 5)
         self.assertTrue(all(common.is_numpy_ndarray(c) for c in jax.tree_util.tree_leaves(F_np)))
         self.assertTrue(all(isinstance(m, (np.ndarray, np.generic)) for m in mv_np))   # C = (): numpy's scalars
-        F, mv = padded_frames.fv_aligned_padded_frame(jax.tree_util.tree_map(jnp.asarray, old), (2, 2), (1, 2, 1),
-                                                      jnp.asarray(S), project, **kw)
-        self.assertEqual(len(mv), 5)
-        self._leaves_all_jax((F, mv))
-        self.assertLessEqual(max(abs(float(a) - float(b)) for a, b in zip(mv, mv_np)), 1e-10)
+        for use_jit in (False, True):
+            with self.subTest(use_jit=use_jit):
+                F, mv = padded_frames.fv_aligned_padded_frame(jax.tree_util.tree_map(jnp.asarray, old), (2, 2),
+                                                              (1, 2, 1), jnp.asarray(S), project, use_jit=use_jit, **kw)
+                self.assertEqual(len(mv), 5)
+                self._leaves_all_jax((F, mv))
+                self.assertLessEqual(max(abs(float(a) - float(b)) for a, b in zip(mv, mv_np)), 1e-10)
+        F_n, mv_n = padded_frames.fv_aligned_padded_frame(old, (2, 2), (1, 2, 1), S, project, use_jit=True, **kw)
+        self._leaves_all_jax((F_n, mv_n))
+        self.assertLessEqual(max(abs(float(a) - float(b)) for a, b in zip(mv_n, mv_np)), 1e-12)
 
     # ---------------------------------------------------- the uniform padded frame
     def test_pad_safe_pinned_completion_dispatch(self):
@@ -2182,6 +2189,115 @@ class TestDispatch(unittest.TestCase):
         for a, b in zip(self.v.probe(self.ww), v_np.probe(ww_np)):           # probe
             close(a, b)
 
+
+
+@unittest.skipUnless(HAS_JAX, "jax not available")
+class TestAlignedLoopJit(unittest.TestCase):
+    """The ragged alignment loop under ``use_jit=True`` (the plan's T6 eager = jit and T13 (a); here because x64 is on
+    in this module). Frames are compared by the largest principal-angle sine per directed edge (the plan's measure):
+    the step's gauge follows its SVD's, and a column's sign may differ between the jitted and the eager kernels."""
+
+    # shape, old ranks (None: the zero tensor), target ranks, sharing, oversampling, alternate, tol -- T6's cases,
+    # capped at 12 passes: oversampled and truncating passes, pairs, the final 'UL' (12 = 3 + 4 pairs + 1 and
+    # 1 + 5 pairs + 1), early stops (d = 4 at 11, the simultaneous one at tol 0.1)
+    CASES = {
+        'two-colour, p=0':   ((4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1)), None, 0, True, 0.05),
+        'two-colour, p=5':   ((4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1)), None, 5, True, 0.05),
+        'simultaneous, p=5': ((4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1)), None, 5, False, 0.1),
+        'two-colour, d=4':   ((4, 5, 4, 3), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((3, 3, 3, 2), (1, 3, 3, 2, 1)), None, 5,
+                              True, 0.05),
+        'empty old frame':   ((4, 5, 4), None, ((2, 3, 2), (1, 2, 2, 1)), None, 5, True, 0.05),
+        'sharing':           ((4, 4, 5), ((2, 2, 2), (1, 2, 2, 1)), ((3, 3, 3), (1, 3, 3, 1)), (0, 0, 1), 0, True, 0.05),
+    }
+
+    @staticmethod
+    def case(shape, old_ranks, sharing=None, seed=7):
+        """(the old frame, a generic dense hint): a random point at old_ranks (shared under ``sharing``) or the zero
+        tensor."""
+        np.random.seed(seed)
+        if old_ranks is None:
+            old = padded_frames.fv_empty_frame(shape)
+        else:
+            x = t3.TuckerTensorTrain.randn(shape, *old_ranks)
+            if sharing is not None:
+                x = x.share(sharing, max_tucker_ranks=old_ranks[0], max_tt_ranks=old_ranks[1])
+            old = bvf.t3_orthogonal_representations(x)[0].data
+        return old, np.random.default_rng(seed).standard_normal(shape)
+
+    def test_eager_equals_jit(self):
+        """numpy eager vs use_jit=True on jax inputs (and, for one case, on numpy inputs, converted): the same passes;
+        frames to 1e-12; movements to 1e-10; every leaf of the jitted run jax."""
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
+        import _padded_frame_oracles as oracles
+        project = tops.tv_project_dense_onto_tangent_space
+        to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+        lengths = {}
+        for name, (shape, old_ranks, target, sharing, p, alternate, tol) in self.CASES.items():
+            old, S = self.case(shape, old_ranks, sharing)
+            kw = dict(sharing=sharing, oversampling=p, max_passes=12, alternate=alternate, tol=tol)
+            F, movements = padded_frames.fv_aligned_padded_frame(old, *target, S, project, **kw)
+            lengths[name] = len(movements)
+            inputs = [('jax', to_jax(old), jnp.asarray(S))] + ([('numpy', old, S)] if name == 'sharing' else [])
+            for kind, old_in, S_in in inputs:
+                with self.subTest(case=name, inputs=kind):
+                    F_j, movements_j = padded_frames.fv_aligned_padded_frame(old_in, *target, S_in, project,
+                                                                             use_jit=True, **kw)
+                    self.assertEqual(len(movements_j), len(movements))
+                    self.assertTrue(all(common.is_jax_ndarray(c) for c in jax.tree_util.tree_leaves((F_j, movements_j))))
+                    F_j = tuple(tuple(np.asarray(c) for c in cores) for cores in F_j)
+                    self.assertLessEqual(max(oracles.distances(oracles.dense_frames(F_j),
+                                                               oracles.dense_frames(F)).values()), 1e-12)
+                    self.assertLessEqual(max(abs(float(a) - float(b)) for a, b in zip(movements_j, movements)), 1e-10)
+        self.assertEqual((lengths['two-colour, p=5'], lengths['two-colour, p=0']), (12, 12))   # the final 'UL'
+        self.assertEqual((lengths['two-colour, d=4'], lengths['simultaneous, p=5']), (11, 8))   # early stops
+
+    def test_the_step_is_chosen_by_use_jit(self):
+        """use_jit=True takes the memoized jitted step (static: the old ranks, the output ranks, sharing, update) on jax
+        inputs and on numpy ones, converted to jax; without use_jit the step runs eagerly and nothing is jitted."""
+        old, _ = self.case((3, 4), ((1, 1), (1, 1, 1)))
+        seen = []
+
+        def fake_step(frame, variations, *args):
+            seen.append((args[5], common.is_jax_ndarray(frame[0][0])))
+            return frame, np.zeros(())
+        for inputs, use_jit in (('jax', True), ('numpy', True), ('jax', False), ('numpy', False)):
+            with self.subTest(inputs=inputs, use_jit=use_jit):
+                seen.clear()
+                frame = jax.tree_util.tree_map(jnp.asarray, old) if inputs == 'jax' else old
+                with unittest.mock.patch.object(padded_frames, 'tv_align_padded_frame', side_effect=fake_step) as step, \
+                        unittest.mock.patch.object(padded_frames, '_jitted', return_value=fake_step) as wrap:
+                    padded_frames.fv_aligned_padded_frame(frame, (2, 2), (1, 2, 1), None, lambda F, h: None,
+                                                          max_passes=4, tol=0.0, use_jit=use_jit)
+                on_jax = use_jit or inputs == 'jax'
+                self.assertEqual(seen, [(u, on_jax) for u in ('ULRO', 'ULRO', 'ULRO', 'UL')])
+                if use_jit:
+                    wrap.assert_called_once_with(step, padded_frames._STEP_STATICS)
+                else:
+                    wrap.assert_not_called()
+
+    def test_compile_count(self):
+        """T13 (a): a 10-pass jitted run (p = 5, so all four kinds of pass) compiles at most four step programs -- the
+        oversampled 'ULRO', the truncating 'ULRO', 'UL', 'RO' -- and a second run at the same structure, other values,
+        compiles none. A structure no other test uses, so the count is this run's. The wrapper is memoized (one
+        object), the house ``_jitted`` contract; jax 0.10 would share the programs across wrappers anyway."""
+        step = padded_frames._jitted(padded_frames.tv_align_padded_frame, padded_frames._STEP_STATICS)
+        self.assertIs(padded_frames._jitted(padded_frames.tv_align_padded_frame, padded_frames._STEP_STATICS), step)
+        if not hasattr(step, '_cache_size'):
+            self.skipTest("this jax has no jit _cache_size()")
+        shape, old_ranks, target = (3, 4, 5), ((1, 2, 2), (1, 1, 2, 1)), ((2, 3, 3), (1, 2, 3, 1))
+        project = tops.tv_project_dense_onto_tangent_space
+        counts = []
+        for seed in (11, 12):
+            old, S = self.case(shape, old_ranks, seed=seed)
+            before = step._cache_size()
+            _, movements = padded_frames.fv_aligned_padded_frame(jax.tree_util.tree_map(jnp.asarray, old), *target,
+                                                                 jnp.asarray(S), project, max_passes=10, tol=0.0,
+                                                                 use_jit=True)
+            self.assertEqual(len(movements), 10)
+            counts.append(step._cache_size() - before)
+        self.assertLessEqual(counts[0], 4)
+        self.assertGreater(counts[0], 0)
+        self.assertEqual(counts[1], 0)
 
 
 class TestJitStack(unittest.TestCase):

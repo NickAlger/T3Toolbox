@@ -9,9 +9,11 @@ leading slots of every store, and the new slots completed by a data-independent 
 ``tv_align_padded_frame`` is one alignment step: every completion replaced by the leading new directions of a tangent
 vector at the frame, the old blocks held fixed (unrooted message passing over the T3 tree's directed edges).
 ``fv_aligned_padded_frame`` is the loop: from the start at oversampled working ranks, steps against the projection of
-one fixed tensor, a truncating pass to the target ranks, then two-colour passes. The ``ALIGN_*`` constants are the
-loop's defaults, named once here.
+one fixed tensor, a truncating pass to the target ranks, then two-colour passes in ``('UL', 'RO')`` pairs. The
+``ALIGN_*`` constants are the loop's defaults, named once here. Everything runs eagerly unless the loop is asked for
+jit (``use_jit``): then the old frame goes to jax and the loop calls a memoized jitted step.
 """
+import functools as ft
 import typing as typ
 import numpy as np
 
@@ -685,6 +687,43 @@ def tv_align_padded_frame(
 # --------------------------------------------------------------------------------------------------
 # The loop: F <- align(F, project(F, hint)), on a fixed schedule
 # --------------------------------------------------------------------------------------------------
+@ft.lru_cache(maxsize=None)
+def _jitted(
+        fn:              typ.Callable,          # module-level, so a stable object (jax caches compiled programs on the wrapper)
+        static_argnums:  typ.Tuple[int, ...],
+) -> typ.Callable:
+    """``jax.jit(fn, static_argnums=...)``, memoized: one wrapper per function, so its programs persist across calls."""
+    import jax
+    return jax.jit(fn, static_argnums=static_argnums)
+
+
+_STEP_STATICS = (2, 3, 4, 5, 6, 7)   # tv_align_padded_frame's old ranks, output ranks, sharing and update
+
+
+def _aligning_pass(
+        step:       typ.Callable,                             # tv_align_padded_frame, or its jitted wrapper
+        frame:      FrameData,                                # stack C
+        hint:       typ.Any,                                  # handed to `project` unread
+        project:    typ.Callable,                             # project(frame, hint) -> VariationsData
+        old_ranks:  typ.Tuple[typ.Tuple[int, ...], ...],      # (old Tucker ranks len=d, old TT ranks len=d+1)
+        out_ranks:  typ.Tuple[typ.Optional[typ.Tuple[int, ...]], ...],   # (Tucker, TT) output ranks; (None, None) = the frame's own
+        sharing:    typ.Optional[typ.Tuple],                  # len=d group labels (hashable: static under jit)
+        update:     str,                                      # 'ULRO' | 'UL' | 'RO'
+) -> typ.Tuple[
+    FrameData,   # the frame after the pass
+    NDArray,     # its movement, shape=C
+]:
+    """One pass: project at the frame, then one step; the arguments positional, as the jitted step's statics are."""
+    return step(frame, project(frame, hint), *old_ranks, *out_ranks, sharing, update)
+
+
+def _peak(
+        movements:  typ.Sequence[NDArray],   # each shape=C
+) -> float:                                   # the largest movement, over the passes and the stack
+    """The stop test's quantity; a NaN propagates, so it never stops the loop."""
+    return float(np.max([np.max(np.asarray(m)) for m in movements]))
+
+
 def fv_aligned_padded_frame(
         old_frame:           FrameData,                          # the old frame, stack C (fv_empty_frame for the zero tensor)
         tucker_ranks:        typ.Sequence[int],                  # len=d, target
@@ -699,6 +738,7 @@ def fv_aligned_padded_frame(
         tol:                 float = ALIGN_TOL,                  # early exit on the movement
         alternate:           bool  = ALIGN_ALTERNATE,            # two-colour passes after the truncating pass
         seed:                int   = ZERO_FRAME_SEED,            # the start's Haar stream
+        use_jit:             bool  = False,                      # the old frame to jax, the host loop calling a memoized jitted step; else eager
 ) -> typ.Tuple[
     FrameData,                 # the aligned padded frame at the target ranks
     typ.Tuple[NDArray, ...],   # movements, one per pass, each shape=C
@@ -709,7 +749,10 @@ def fv_aligned_padded_frame(
         if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < 0:
             raise ValueError('%s must be a non-negative int, got %r' % (name, value))
     tucker_ranks, tt_ranks = tuple(int(n) for n in tucker_ranks), tuple(int(r) for r in tt_ranks)
-    old_stores = _frame_stores(old_frame, 'old_frame')
+    jitted = bool(use_jit) and jax_or_warn('use_jit=True')     # no jax: a warning, then eager on numpy
+    if jitted:                                                  # asking for jit opts into jax: the old frame is
+        old_frame = tree_to_jax(old_frame)                      #   converted (the optimizers' auto-convert); the
+    old_stores = _frame_stores(old_frame, 'old_frame')          #   hint is opaque and handed on as is
     old_tucker_ranks, old_tt_ranks = old_stores[0], old_stores[2]       # an orthogonal representation's own widths
     shape = tuple(int(U.shape[-1]) for U in old_frame[0])
     target_stores = _rank_stores(shape, tucker_ranks, tt_ranks, 'target')
@@ -720,21 +763,30 @@ def fv_aligned_padded_frame(
     working = ranks.oversampled_ranks(shape, tucker_ranks, tt_ranks, oversampling, sharing)
     n_over = 0 if _rank_stores(shape, *working, 'working') == target_stores else oversampled_passes
     n_over = min(n_over, max_passes - 1)                        # the cap counts the truncating pass (pass n_over)
+    step = _jitted(tv_align_padded_frame, _STEP_STATICS) if jitted else tv_align_padded_frame
+    old = (old_tucker_ranks, old_tt_ranks)
+    target = (tucker_ranks, tt_ranks)
+    sharing = None if sharing is None else tuple(sharing)       # hashable: a static argument of the jitted step
     frame = fv_padded_frame(old_frame, *working, sharing, seed)
     movements = []
-    for it in range(max_passes):
-        if it <= n_over or not alternate:
-            update = 'ULRO'
-        else:                                                   # two-colour: 'UL' first, then 'RO', alternating
-            update = 'UL' if (it - n_over) % 2 == 1 else 'RO'
-        out = (None, None) if it < n_over else (tucker_ranks, tt_ranks)
-        frame, movement = tv_align_padded_frame(frame, project(frame, hint), old_tucker_ranks, old_tt_ranks, *out,
-                                                sharing=sharing, update=update)
+    for it in range(n_over + 1):                                # the oversampled passes, then the truncating pass
+        out = (None, None) if it < n_over else target
+        frame, movement = _aligning_pass(step, frame, hint, project, old, out, sharing, 'ULRO')
         movements.append(movement)
-        if alternate:                                           # both colours below tol (the max over the stack)
-            done = it > n_over and max(float(np.max(np.asarray(m))) for m in movements[-2:]) < tol
-        else:
-            done = it >= n_over and float(np.max(np.asarray(movement))) < tol
-        if done:
-            break
+    if alternate:                                               # ('UL', 'RO') pairs while a whole pair fits; the stop
+        stop = False                                            #   is tested after each pair (both below tol)
+        while not stop and len(movements) + 2 <= max_passes:
+            for update in ('UL', 'RO'):
+                frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, update)
+                movements.append(movement)
+            stop = _peak(movements[-2:]) < tol
+        if not stop and len(movements) < max_passes:           # an odd remainder: one final 'UL' pass
+            frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, 'UL')
+            movements.append(movement)
+    else:                                                       # 'ULRO' passes, the stop tested after each (the
+        stop = _peak(movements[-1:]) < tol                      #   truncating pass included)
+        while not stop and len(movements) < max_passes:
+            frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, 'ULRO')
+            movements.append(movement)
+            stop = _peak([movement]) < tol
     return frame, tuple(movements)
