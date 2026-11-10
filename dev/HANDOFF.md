@@ -45,7 +45,13 @@ stop rule, NaN never stops the loop) -> N5 DONE (HEAD after N3b: `utv_align_padd
 first call ~9 s at d = 6 and 24; compaction pads first when the level is wider; stacked tolerance 1e-13; `functools.partial`
 binding inside the one jit accepted; the NaN-padded record cannot tell a NaN movement from an unrun pass -- N9 docs) ->
 SECOND REVIEW STOP DONE (Nick 2026-11-10: items 1-4 OK; the `functools.partial` binding is accepted IN THIS INSTANCE
-ONLY and establishes NO precedent -- the kernel docstring and the N9 scan-body note must say so) -> N7 (in progress) -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
+ONLY and establishes NO precedent -- the kernel docstring and the N9 scan-body note must say so) -> N7 BUILT, IN REVIEW (handoff written; the review must also root-cause T14(f): with sharing the uniform tied misfit
+gradient at a zero-padded frame differs 0.31 relative from the ragged one, suspected `sharing.ufv_shared_frame_data` at
+rank-deficient frames; test marked expected-failure). CI (2026-11-10): docs build had failed since N5 -- a duplicate
+`_unfold` in `uniform_padded_frames.py` shadowed the import and left AutoAPI an unresolved placeholder under `-W`; floor job
+failed on a 1e-14 stacked tolerance (CI BLAS 1.24e-14); both fixed in 2d686e2d. RULE FROM NOW ON: the implementer runs the
+docs build (or the AutoAPI placeholder replay) and the floor env before reporting; reviews check for dead/shadowed
+imports and duplicate definitions; cross-path tolerances of 1e-14 are suspect. Check `gh run list` after each push. -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
 `Problem.local_model(frame=)`; `_misfit_gradient_at`; public `padded_start`; 14 `newton_cg` keywords + `use_jit`
 forwarded; `'cone'`) -> N8 (frontend twins; review stop) -> N9 (docs incl. the "jit or eager" section; "STORE" is already defined in `docs/frame_variations.md` § "Four rank stores" (Nick
 2026-11-10, fine as is) -- the feature's user doc and the `padded_frames.py` module docstring define it in one clause on first
