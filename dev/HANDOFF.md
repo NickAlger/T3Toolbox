@@ -27,7 +27,18 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
-**State (2026-11-10). PLAN APPROVED BY NICK ("The plan is good, and you can proceed"); IMPLEMENTATION STARTED.** Slice N1
+**State (2026-11-10, later). SLICES N1-N3 COMMITTED (3f9679ef, 196fcfa2, N3 = HEAD); FIRST REVIEW STOP -- awaiting Nick.**
+The ragged layer is complete: `backend/padded_frames.py` has `fv_empty_frame`, `fv_padded_frame`, `tv_align_padded_frame`,
+`fv_aligned_padded_frame`; tests T1-T6, T16 rows, T18, T19; the dense per-edge reference `tests/backend/_padded_frame_oracles.py`;
+the cycle case as text `tests/backend/_padded_frame_cycle_case.py`. Handoffs and reviews per slice in
+`dev/aligned_padded_frame_slices/`. Items for Nick at this stop (from the N3 review): the plan's §2.3 should say "stores"
+(the oversampled phase is skipped when working and target STORES match; 40,000 random structures never disagreed
+with the ranks rule) and T4 / Appendix A still name an npz; small test data as a Python module of literals -- make it
+the convention?; should the dispatch-test requirement exclude host loops (the loop has no T16 row; its building blocks do)?;
+the eager first call of the step on jax arrays costs ~38 s (0.024 s numpy; 0.4 s after jit) -- decide before N8 how the
+twins/docs handle it. Next: N4 (uniform primitives and start) once Nick has looked.
+
+**Earlier (2026-11-10). PLAN APPROVED BY NICK ("The plan is good, and you can proceed"); IMPLEMENTATION STARTED.** Slice N1
 (cleanup + the ragged start in `backend/padded_frames.py`) is with an implementer agent (Opus, extra-high effort); a
 reviewer agent follows; the session checks diff + full suite, commits, starts N2. Handoffs and reviews per slice go to
 `dev/aligned_padded_frame_slices/`. In parallel (research only, T3Polynomial `scripts/g06*`): the Darcy ladder
