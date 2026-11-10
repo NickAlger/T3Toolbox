@@ -94,6 +94,17 @@ but stays 2.3-4.8x the generic one; at 11->16 the aligned start with >= 10 passe
 vs both generic starts (4 passes not enough there), where at levels 1-2 it had not. Research prototypes:
 `nicks_research_experiments/tensor/aligned_padded_frame/` (README).
 
+**N8b DONE (6079a465; review APPROVE). D-49 (Nick 2026-11-10): the Gaussian seeds are NOT sign-covariant -- a TT core's
+unfolding rows are neighbouring slots, a slot sign flip (arbitrary in an unfixed LAPACK SVD) flips those rows, the old block
+flips with them but the Gaussian seeds do not, so the completion's span changes (0.987 for one bond); hence the ragged and
+uniform starts of a generic point now differ by ~1.0 (the layers' representations pick different signs) and a hint-free
+start can differ across BLAS builds; Tucker completions are unaffected (physical rows). RULING: ACCEPT AND DOCUMENT (no
+local row-gauge rule, no representation-level sign canonicalization now; the latter stays with the canonical-bases audit
+item). N9 documents: the hint-free start is a function of the representation INCLUDING slot signs; the aligned loop's
+output is representation-independent to tol. Two edits for the plan at N9/N10: T20's 1e-3 pivot bound is a property of
+the chosen seeds, not a guarantee; D-41's "the zero-point frame changes" reads "the zero tensor's start changes";
+`fv_zero_point_frame` ('zero') unchanged, so `cone_max_passes=0` != 'zero' (amended D-38). NEXT: N9.**
+
 **DECISION D-41 (Nick 2026-11-10): GAUSSIAN SEEDS EVERYWHERE, slot-indexed -- slice N8b, BEFORE N9.** Root cause
 found by the floor CI job (numpy 1.26 / OpenBLAS): the hint-free start's Tucker seeds restart the keyed stream at row 0
 on every call, so a start-from-start chain reuses a seed that lies in the current span (pivot 1e-16; the completed column
