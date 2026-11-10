@@ -44,7 +44,8 @@ QUEUE: N4 DONE (39d80022; `linalg.pad_safe_pinned_completion`, `ufv_masking.ufv_
 stop rule, NaN never stops the loop) -> N5 DONE (HEAD after N3b: `utv_align_padded_frame`; no `out_widths` -- output widths are the counts' maxima; the uniform module shares seven private math helpers with `padded_frames`, accepted, plan §3.2 to say so) -> N6 DONE (HEAD after N5: `ufv_compact_frame`, `ufv_aligned_padded_frame`; whole-loop jit under `use_jit`,
 first call ~9 s at d = 6 and 24; compaction pads first when the level is wider; stacked tolerance 1e-13; `functools.partial`
 binding inside the one jit accepted; the NaN-padded record cannot tell a NaN movement from an unrun pass -- N9 docs) ->
-SECOND REVIEW STOP WITH NICK (pending) -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
+SECOND REVIEW STOP DONE (Nick 2026-11-10: items 1-4 OK; the `functools.partial` binding is accepted IN THIS INSTANCE
+ONLY and establishes NO precedent -- the kernel docstring and the N9 scan-body note must say so) -> N7 (in progress) -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
 `Problem.local_model(frame=)`; `_misfit_gradient_at`; public `padded_start`; 14 `newton_cg` keywords + `use_jit`
 forwarded; `'cone'`) -> N8 (frontend twins; review stop) -> N9 (docs incl. the "jit or eager" section; CHANGELOG; the
 math note from Nick's note; judgment calls J-7.. in `dev/padded_frame_cone_judgment_calls_2026_11.md`) -> N10
