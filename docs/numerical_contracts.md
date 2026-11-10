@@ -201,6 +201,15 @@ region; a non-positive `g0norm_*`). What the result *means* carries caveats, nev
 | op | precondition | caveat (never checked) |
 |---|---|---|
 | `newton_cg` / `gradient_descent` with the zero reference (`g0_reference='zero'`, the default on the manifold geometries) | — (an explicit `'zero'` on a geometry with no zero-point frame, a vanishing explicit `'zero'`, and a non-positive `g0norm_*` are **structural** errors) | the zero reference is a **convention**: the gradient norm at the zero tensor of `x0`'s ranks, evaluated at the canonical zero-point frame (seeded Haar Tucker factors) — a deterministic data-gradient scale at these ranks, **good to an O(1) factor** (another seed or a rotation of the problem moved it by up to ~1.7× in the measured cases), not an intrinsic quantity; harmless for a relative stop ([`fitting_and_optimization.md`](fitting_and_optimization.md) §5) |
+| `newton_cg` / `gradient_descent` with the cone reference (`g0_reference='cone'`) | — (a corewise geometry, a geometry without an `aligned_padded_frame` member, `cone_*` options together with `cone_max_passes=0` other than `cone_seed`, and a vanishing value are **structural** errors) | the cone reference is measured at the zero tensor on the frame aligned with the data gradient there: a fixed point of the loop reached from a seeded start (in the measurements, a **local** maximum of the loop's merit, one of many); `cone_max_passes=0` evaluates at the zero tensor's hint-free start, a different frame from `'zero'`'s, so the two references differ ([`aligned_padded_frame.md`](aligned_padded_frame.md)) |
+
+### The padded and aligned frames
+
+| op | precondition | contract |
+|---|---|---|
+| `T3Frame.padded` / `UT3Frame.padded`, `fv_aligned_padded_frame` / `ufv_aligned_padded_frame`, `newton_cg(padded_from=x_old)` | **TIED** for `x_old` under sharing (safe mode); `newton_cg` also checks that `x0` is `x_old` zero-padded (safe mode). Structural: the target ranks contain `x_old`'s structure; layer, shape, stack and padded `N` match | `x_old` is reduced to minimal ranks first. The old block of every store is `x_old`'s frame **bitwise**; the completions are orthonormal and **orthogonal to the old block**; the frame represents `x_old` zero-padded. A store whose content (or seed) has no information gives an **arbitrary valid completion** there (degenerate content). The hint-free start depends on the representation of `x_old`'s frame, slot signs included; the aligned output does not, to `tol` |
+| `T3Tangent.align_padded` / `UT3Tangent.align_padded` | the tangent's frame is a padded frame of the given old ranks (structural) | one pass; a store not in `update` is transported. Output ranks below the frame's truncate, and **no transport is allowed with truncation** (structural error) |
+| `newton_cg(start_frame=F)` | **ORTH** and **F represents `x0`** (safe mode; numerical); its structure is checked always (`require_frame_structure`: integers and held masks) | iteration 0's local model is built at `F` |
 
 ### Precondition-free surfaces
 

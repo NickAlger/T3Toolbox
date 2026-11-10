@@ -5,7 +5,8 @@
 """The padded frame at a zero-padded rank increase, on ragged frame data.
 
 ``fv_empty_frame`` is the frame of the zero tensor. ``fv_padded_frame`` is the seeded start: an old frame in the
-leading slots of every store, and the new slots completed by a data-independent convention.
+leading slots of every store (the four families of frame cores, up / down / left / right; :doc:`/frame_variations`,
+"Four rank stores"), and the new slots completed by a data-independent convention.
 ``tv_align_padded_frame`` is one alignment step: every completion replaced by the leading new directions of a tangent
 vector at the frame, the old blocks held fixed (unrooted message passing over the T3 tree's directed edges).
 ``fv_aligned_padded_frame`` is the loop: from the start at oversampled working ranks, steps against the projection of

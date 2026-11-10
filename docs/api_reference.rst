@@ -122,7 +122,8 @@ Backend modules follow the family-prefix grammar (``t3_`` ragged tensor, ``ut3_`
   :py:mod:`~t3toolbox.backend.fv_operations`, :py:mod:`~t3toolbox.backend.tv_operations`, and the
   uniform mirrors (:py:mod:`~t3toolbox.backend.ufv_conversions`,
   :py:mod:`~t3toolbox.backend.ufv_masking`, :py:mod:`~t3toolbox.backend.ufv_operations`,
-  :py:mod:`~t3toolbox.backend.utv_operations`).
+  :py:mod:`~t3toolbox.backend.utv_operations`); the padded and aligned frames,
+  :py:mod:`~t3toolbox.backend.padded_frames` and :py:mod:`~t3toolbox.backend.uniform_padded_frames`.
 - **Sampling** (grouped by sampling type, the deliberate exception):
   :py:mod:`~t3toolbox.backend.probing`, :py:mod:`~t3toolbox.backend.apply`,
   :py:mod:`~t3toolbox.backend.entries`, :py:mod:`~t3toolbox.backend.sampling_derivatives`, and the

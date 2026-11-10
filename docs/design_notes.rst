@@ -23,6 +23,7 @@ Core design
    sharing
    numerical_contracts
    rank_continuation
+   aligned_padded_frame
    naming_conventions
    reading_signatures
 

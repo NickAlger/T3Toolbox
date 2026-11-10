@@ -11,8 +11,8 @@ junk masked to zero once), then the completion, each padded to one width with it
 ``ufv_empty_frame`` is the frame of the zero tensor (``Na = 0``, ``Rb = 1``). ``ufv_padded_frame`` is the seeded start,
 the uniform twin of ``padded_frames.fv_padded_frame``: the same seeds (every store's slot-indexed rows of its keyed
 Gaussian stream, generated on the host at the ragged unfolding's size and placed at the real rows in their ragged
-row-major order), completed by ``linalg.pad_safe_pinned_completion``, one batched completion per store. ``utv_align_padded_frame`` is one alignment
-step, the uniform twin of ``padded_frames.tv_align_padded_frame``: the maps over modes are batched contractions, the
+row-major order), completed by ``linalg.pad_safe_pinned_completion``, one batched completion per store.
+``utv_align_padded_frame`` is one alignment step, the uniform twin of ``padded_frames.tv_align_padded_frame``: the maps over modes are batched contractions, the
 sweeps scans with module-level bodies, and every edge's completion one ``linalg.pad_safe_svd``. The host prepares the
 masks, selections and group tables; the arithmetic is one jittable kernel, run eagerly here.
 ``ufv_compact_frame`` gathers a frame junk-last at a level's widths. ``ufv_aligned_padded_frame`` is the loop, the

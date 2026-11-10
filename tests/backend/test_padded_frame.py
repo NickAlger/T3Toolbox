@@ -5,20 +5,17 @@
 
 The plan is ``dev/aligned_padded_frame_impl_plan_2026-11-09.md``; T1-T3 (the step) and T4, T6 (the loop) follow T5.
 
-T5, the start. The construction is the
-one it replaced (the template-signature ``fv_operations.fv_padded_frame`` of commit 92640502, hint-free path from
-2562264a), under the integer signature; that was checked once, bitwise on 30 cases, by
-``dev/aligned_padded_frame_slices/N1_check_s2_equivalence.py``. What is pinned here, platform-independently:
+T5, the start, on the D-41 convention (Gaussian seeds in every store, slot-indexed). What is pinned here,
+platform-independently:
 
-- **The zero tensor.** At the empty frame the start is ``fv_zero_point_frame``'s frame, bitwise: the same QR of the
-  same seeds in the same process.
-- **The Tucker completion at a nonzero old factor** is the keyed stream ``RandomState([seed, min(group)])``'s first
-  rows completed against the old rows, against an independent numpy QR (unshared and shared, two seeds).
-- **The convention's properties.** A valid frame (orthonormal, both base-point reconstructions ``X_old``, the old
-  block present bitwise with zeros beside it, the carriers zero on every new index); the outside seeds placed
-  exactly in row-major order; in-block columns from the block's coordinate seeds in index order; the Tucker
-  completion nested; a stack ``C`` equal to per-element calls; sign-gauge covariance; one Tucker array per sharing
-  group; the seed moving the Tucker completions only.
+- **The zero tensor.** At the empty frame the start is the convention's (no longer ``fv_zero_point_frame``'s frame);
+  a stack equals per-element calls, bitwise.
+- **The convention.** Every store's completion is the sign-fixed pinned QR of its keyed stream's slot-indexed rows,
+  against an independent numpy reference (unshared and shared, two seeds, a single-bond increase, d = 1); another
+  seed moves every completion and leaves the old blocks bitwise; the Tucker completion is nested; a stack ``C``
+  equals per-element calls; one Tucker array per sharing group.
+- **Validity at resized points.** Orthonormal, both base-point reconstructions ``X_old``, the old block present
+  bitwise with zeros beside it, the carriers zero on every new index.
 - **The empty frame** is the orthogonal representation of the rank-0 Tucker tensor train.
 - **Structural errors**, each isolated by its message.
 

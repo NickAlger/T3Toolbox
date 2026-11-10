@@ -85,6 +85,19 @@ class Geometry(typ.Protocol):
       corewise geometries return ``None`` (the zero cores are a critical point there); a geometry without
       the member, or one returning ``None``, gets the warm-start reference by default.
 
+    **The start-frame members** -- optional, looked up duck-typed, needed only by the features that use them (an
+    absent member raises a ``ValueError`` naming it); the manifold geometries define them, the corewise ones do not:
+
+    * ``with_frame(frame)`` -- this geometry at ``frame``'s structure (the uniform geometry's variation masks are
+      the frame's own; the ragged geometry returns itself).
+    * ``require_frame_structure(x_cores, frame)`` -- raises ``ValueError`` unless ``frame`` has the structure of
+      this geometry's frame at ``x_cores``, from integers and held masks only (never orthogonalizes); needed by
+      ``Problem.local_model(frame=)``.
+    * ``aligned_padded_frame(x0, x_old, project, hint, oversampling, oversampled_passes, max_passes, tol,
+      alternate, seed, use_jit)`` -- the padded frame of ``x0`` from ``x_old`` (``None``: the zero tensor) aligned
+      with ``hint`` through ``project(frame, hint)``, and the movements; needed by ``padded_start``,
+      ``newton_cg(padded_from=)`` and ``g0_reference='cone'``.
+
     **The exact-mode members** -- needed **only** for ``hessian='exact'``.
     ``Problem.local_model(hessian='exact')`` checks that all four exist (a structural ``ValueError`` naming
     the missing ones), so a Gauss-Newton-only custom geometry keeps working:
@@ -763,7 +776,8 @@ def padded_start(
     typ.Any,   # the aligned frame of x0 (ragged frame / uniform frame .data at the level's widths)
     typ.Any,   # movements, as the member returns them (ragged tuple; uniform NaN-padded array)
 ]:
-    """The frame of ``x0`` aligned with the problem's misfit gradient: the start of a Newton run after a rank increase.
+    """The frame of ``x0`` aligned with the problem's misfit gradient: the start of a Newton run after a rank increase
+    (the aligned padded frame with the misfit gradient as its hint; user guide :doc:`/aligned_padded_frame`).
 
     ``x0`` is the zero-padded point at the target ranks and ``x_old`` the old point (``None``: the zero tensor, the
     ``'cone'`` reference's frame). The alignment runs on the geometry's ``aligned_padded_frame`` member against

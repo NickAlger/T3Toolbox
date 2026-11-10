@@ -1,0 +1,487 @@
+\documentclass[11pt]{article}
+
+% ---------------------------------------------------------------------------
+%  The aligned padded frame of a Tucker tensor train and the cone reference:
+%  completing frames at a rank increase by truncating A + eps S with projection-only
+%  access to S, specialized to T3s -- the mathematical companion of the user guide
+%  docs/aligned_padded_frame.md and the design record
+%  docs/contributor/padded_frame_internals.md (2026.4.0).
+%
+%  Compile with pdflatex (needs: amsmath, amssymb, amsthm, mathtools, algorithm,
+%  algpseudocode, booktabs, url, hyperref, geometry -- all standard):
+%      latexmk -pdf padded_frame_cone.tex
+%
+%  It specializes the maintainer's note "Completing frames by truncating A + eps S, with
+%  projection-only access" (general trees) to T3s, and cites the implemented functions.
+% ---------------------------------------------------------------------------
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{mathtools}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
+
+\makeatletter
+\def\UrlBreaks{\do\_\do\.\do\/\do\(\do\,}
+\makeatother
+\Urlmuskip=0mu plus 2mu
+\DeclareUrlCommand\code{\urlstyle{tt}}
+
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\T}{\mathsf{T}}
+\newcommand{\Tc}{\mathcal{T}}
+\newcommand{\Nc}{\mathcal{N}}
+\newcommand{\Jac}{\mathcal{J}}
+\newcommand{\ip}[2]{\langle #1,\, #2\rangle}
+\newcommand{\eps}{\varepsilon}
+\newcommand{\Abar}{\bar A}
+\newcommand{\Impl}[1]{\Statex \hspace*{-\algorithmicindent}\parbox[t]{\dimexpr\linewidth+\algorithmicindent\relax}{\raggedright\textbf{Code:} #1}}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}
+\newtheorem{remark}{Remark}
+\theoremstyle{plain}
+\newtheorem{proposition}{Proposition}
+
+\title{The aligned padded frame of a Tucker tensor train,\\ and the cone reference}
+\author{T3Toolbox 2026.4.0}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+At a zero-padded rank increase, a Tucker tensor train (T3) keeps its value but its orthonormal frame gains new
+directions in every rank store, and nothing about the point determines them. We choose them from a \emph{hint} $S$,
+a tensor accessible only through projections onto tangent spaces (in a fit, the misfit gradient). The construction
+truncates $A+\eps S$ to leading order in a formal $\eps$, which fills the new directions from the normal blocks of
+$S$ and keeps $A$'s frames exactly; with projection-only access it becomes a fixed-point iteration whose step is
+unrooted message passing over the T3's directed edges, and whose factorizations are no wider than the old rank plus
+twice the increase. We state what its fixed points satisfy, why they are local and not global, and how the library
+implements the start, the step, the schedule and the cone reference $\|\Pi_{T(F)} \nabla f(0)\|$ of the Newton stop.
+\end{abstract}
+
+\tableofcontents
+
+% ===========================================================================
+\section{The problem}\label{sec:problem}
+
+Rank continuation fits a T3 $X_{\mathrm{old}}$ at some ranks, raises the ranks, and starts Newton at
+$X_0 = X_{\mathrm{old}}$ zero-padded. Newton linearizes at a frame of $X_0$: orthonormal frame cores in four
+\emph{stores} (up, down, left, right), whose tangent space $T(F)$ holds the first step. The old frame determines
+the leading slots of every store; the new slots are a free orthonormal completion, and the first step from $X_0$
+depends on it. A completion that ignores the data can leave the step blind to the directions the data want.
+
+Given a hint $S$ (a tensor; in a fit, the misfit gradient $\nabla f(X_0)$), we want completions whose tangent space
+holds much of $S$. The construction is that of the maintainer's note ``Completing frames by truncating $A+\eps S$, with
+projection-only access'' \cite{AlgerNote} (\emph{the note} below), written for general tree tensor networks; this
+document specializes it to T3s and to the library's implementation. The T3 frames, tangent spaces and variations are
+those of T4S \cite{T4S}. Two constraints shape the answer: $S$ is available only through projections
+$F\mapsto\Pi_{T(F)}S$, at the cost of one gradient each; and the old frames must survive bitwise, so that the frame
+still represents $X_0$.
+
+\paragraph{Notation.} $d$ modes $i=0,\dots,d-1$ of sizes $N_i$. $A=X_{\mathrm{old}}$, the old point. $T$ is the
+tangent space of the fixed-rank manifold at $A$, and $N=\Pi_{T^\perp}S$ the normal part of $S$. For a frame $F$ at
+the new ranks, $T(F)$ is its tangent space. $\|\cdot\|$ is the Frobenius norm.
+
+% ===========================================================================
+\section{Frames of a T3, and padded frames}\label{sec:frames}
+
+A T3 is a tree: Tucker leaves $\ell_i$ (physical size $N_i$) and TT cores $c_i$ in a chain (the orthogonal frame of a
+T3 is T4S \cite{T4S} App.~A.1, A.3, Algorithm~11). For a directed edge
+$x\to t$, the frame $U_{x\to t}$ is an orthonormal basis of the column space of the tensor unfolded with $x$'s side
+as rows. Frames are nested: $U_{x\to t}$ lies in $H_x\otimes\bigotimes_{y\in\mathrm{nb}(x)\setminus t}U_{y\to x}$,
+with $H_x$ the physical space at $x$ (trivial at a TT core). So one \emph{frame core} per directed edge stores the
+frame, and the four directions are exactly the library's four stores (Table~\ref{tab:stores}). The stores' widths
+are \code{ranks.compute_orthogonal_representation_ranks} of the ranks.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+directed edge & store & core & output slot \\
+\midrule
+$\ell_i\to c_i$ & \code{up[i]} & $U_i\in\R^{n_{U,i}\times N_i}$ & the Tucker index \\
+$c_i\to \ell_i$ & \code{down[i]} & $O_i\in\R^{r_{L,i}\times n_{D,i}\times r_{R,i+1}}$ & the down index \\
+$c_i\to c_{i+1}$ & \code{left[i]}, $i\le d-2$ & $L_i\in\R^{r_{L,i}\times n_{U,i}\times r_{L,i+1}}$ & bond $i+1$ \\
+$c_i\to c_{i-1}$ & \code{right[i]}, $i\ge 1$ & $R_i\in\R^{r_{R,i}\times n_{U,i}\times r_{R,i+1}}$ & bond $i$ \\
+\bottomrule
+\end{tabular}
+\caption{Directed edges of a T3 and the frame stores. $L_{d-1}$ and $R_0$ are the \emph{carriers} of the base
+point, not frame cores of an edge.}\label{tab:stores}
+\end{table}
+
+\begin{definition}[padded frame]
+A \emph{padded frame} of $A$ at larger stores has, in every store, the old frame core bitwise in the leading slots
+(the \emph{A-block}, $\Abar_{x\to t}$, of width $r_e$) and an orthonormal \emph{completion} $P_{x\to t}$ of width
+$k_e$ in the trailing slots (the \emph{P-block}). An A-block core is zero unless every input slot is in its
+A-part. The carriers hold $A$'s content only.
+\end{definition}
+
+Every padded frame represents $X_0$, whatever the completion: the two base-point chains run through A-parts only.
+The \emph{empty frame} (\code{padded_frames.fv_empty_frame}, \code{uniform_padded_frames.ufv_empty_frame}) is the
+orthogonal representation of the rank-0 T3, Tucker ranks $(0,\dots,0)$ and TT ranks $(1,0,\dots,0,1)$: zero-width
+rank axes except the boundary bonds. It is the old frame of the zero tensor, so a start or an alignment at the zero
+tensor is the general construction with no A-blocks, not a special case.
+
+% ===========================================================================
+\section{Completing frames by truncating \texorpdfstring{$A+\eps S$}{A + eps S}}\label{sec:truncation}
+
+Truncating $A$ to larger ranks completes its frames arbitrarily. Truncate $A+\eps S$ instead, with $\eps$ formal and
+the two parts stored separately, and keep leading orders: $S$ fills the missing directions at order $\eps$, and $A$'s
+frames survive exactly.
+
+\paragraph{Leading orders, and the tilt.} Dual numbers ($\eps^2=0$) do not suffice: the new basis vectors come out as
+$\eps v$ and cannot be normalized. Leading-order arithmetic does (write each quantity as $\eps^p(c+O(\eps))$, compare by
+$p$ and then $c$). One trap remains. For $A=U\Sigma V^\T$, the leading frame of $A+\eps S$ is
+$U+\eps(I-UU^\T)SV\Sigma^{-1}+O(\eps^2)$: the tangent part of $S$ \emph{tilts} $A$'s frame, and that tilt is not a
+new direction. The new directions must come from the normal block, with $A$'s frames removed on both sides,
+\begin{equation}\label{eq:fill}
+  \text{fill with } (I-UU^\T)\,S\,(I-VV^\T), \qquad\text{not with } (I-UU^\T)\,S .
+\end{equation}
+$\Sigma^{-1}$ cancels from the fill, so $A$'s singular values never enter and ill-conditioned edges of $A$ play no
+role. In the matrix case the left completion is the top $k$ left singular vectors of the normal part $N$, and the
+right one its top $k$ right singular vectors: the truncated SVD of $N$, which is optimal.
+
+\paragraph{The sweep on a tree.} In a leaves-to-root sweep where each edge sees the earlier truncations, every SVD
+step of the formal truncation reduces to an SVD of one normal block of $S$ with its rows restricted to the candidate
+space: at edge $x\to t$, the rows in $C'_{x\to t}\ominus U_{x\to t}$ with $C'$ built from the completed child frames,
+and the columns in the complement of $A$'s frame $U_{t\to x}$. Its completions depend on the root: each edge sees the
+choices made below it. On small test problems the five roots of a five-site TT captured between $0.47$ and $0.54$ of
+$\|N\|^2$, against $0.59$ for the best completion found. The loop of the next section removes that dependence.
+
+% ===========================================================================
+\section{Projection-only access: the alignment loop}\label{sec:loop}
+
+When $S$ can only be projected, run the formal truncation on $A+\eps Z$, where $Z=\Pi_{T(F)}S$ is the projection of
+$S$ onto the tangent space of the current padded frame, and repeat:
+\begin{equation}\label{eq:loop}
+  F \;\leftarrow\; \operatorname{step}\bigl(F,\;\Pi_{T(F)}S\bigr).
+\end{equation}
+Each iteration touches $S$ once; the step works on $Z$, a T3 tangent vector, through its gauged variation cores (T4S
+eqs.~(46)--(48)), never forming it as the doubled-rank T3 it is (T4S App.~A.3.1, eqs.~(49)--(52)).
+
+\paragraph{Why the two-sided tangent space.} Projecting $S$ onto the linear piece a rooted completion defines (write
+$A$ in the completed frames, vary one core at a time) returns the same completions: every frame set is a fixed point,
+and the loop stalls (measured: angles of $10^{-15}$). The tangent space $T(F)$ of the padded point also holds, at each
+edge, tensors whose far side lies in the \emph{far completion} $Q_e$ (the completion of $U_{t\to x}$). Through them
+the normal block of $S$ applied to $Q_e$ enters the step: information from outside the current completions.
+
+\paragraph{The matrix case.} With $P,Q$ completing $U,V$, the projection of $S$ onto $T(F)=\{U'X+YV'^\T\}$ has normal
+block $PP^\T N+(I-PP^\T)NQQ^\T$. The new $P$ is its top-$k$ left singular subspace, and the new $Q$ the top-$k$ right
+singular subspace of the captured part. This is a two-sided subspace iteration on $N$; its only stable fixed point is
+the top-$k$ singular pair, and the error contracts by about $\sigma_{k+1}/\sigma_k$ per iteration.
+
+% ===========================================================================
+\section{What the fixed points satisfy}\label{sec:fixed}
+
+\begin{definition}[fixed point]
+$F$ is a fixed point of \eqref{eq:loop} when the step returns the same completions: at every directed edge, the
+completion spans the leading new directions of its own content, given the other edges' completions.
+\end{definition}
+
+Equivalently (the note's stopping criterion), at every edge the content entering through the far completion already
+lies in the near completion, provided the $k\times k$ matrix $P_{a\to b}^\T S P_{b\to a}$ is invertible. In the
+library's terms: one more pass moves nothing, and a pass updating any one store alone (the others transported,
+\S\ref{sec:schedule}) moves nothing. The docstring of \code{fv_aligned_padded_frame} demonstrates both.
+
+\subsection{The captured energy: stationary, not maximal}
+
+\begin{proposition}[matrix case]\label{prop:matrix}
+Let $N=(I-UU^\T)S(I-VV^\T)$, and let $P\perp U$, $Q\perp V$ be completions of width $k$. Then
+\begin{equation}\label{eq:energy}
+  E(P,Q)\;:=\;\|\Pi_{T(F)}S\|^2 \;=\; \|S\|^2-\bigl\|(I-PP^\T)\,N\,(I-QQ^\T)\bigr\|^2 .
+\end{equation}
+If $\sigma_k>\sigma_{k+1}>0$, the fixed point $(P,Q)=$ the top-$k$ singular pair of $N$ is a stationary point of $E$
+and a saddle. Rotating $P$ alone (or $Q$ alone) out of its span never decreases $E$, and increases it at second order
+when the rotation has a component along some $u_j$ (or $v_j$), $j>k$; rotating both together toward the next singular
+pair decreases it at second order.
+\end{proposition}
+
+\begin{proof}
+$\Pi_{T(F)}=I-(I-U'U'^\T)(\cdot)(I-V'V'^\T)$ with $U'=[U\;P]$, $V'=[V\;Q]$, and
+$(I-U'U'^\T)S(I-V'V'^\T)=(I-PP^\T)N(I-QQ^\T)$ since $P\perp U$, $Q\perp V$; this gives \eqref{eq:energy}. With $Q$
+fixed at the top-$k$ right singular vectors, $M:=N(I-QQ^\T)=\sum_{j>k}\sigma_ju_jv_j^\T$ and
+$E=\|S\|^2-\|M\|^2+\|P^\T M\|^2$. At $P=[u_1\cdots u_k]$, $P^\T M=0$, the minimum of $\|P^\T M\|^2\ge 0$: so $E$ is
+stationary in $P$ and does not decrease under any rotation of $P$ alone. A rotation of $u_k$ by $h$ toward a unit
+vector $w\perp[U\;P]$ raises $\|P^\T M\|^2$ by $h^2\|w^\T M\|^2+O(h^3)$, which is positive when $w$ has a component
+along some $u_j$, $j>k$ (a $w$ in the left null space of $N$ leaves $E$ unchanged). Symmetrically in $Q$. For the
+paired rotation $u_k\to\cos\theta\,u_k+\sin\theta\,u_{k+1}$, $v_k\to\cos\theta\,v_k+\sin\theta\,v_{k+1}$, only the
+$2\times2$ block on $(u_k,u_{k+1})\times(v_k,v_{k+1})$ changes; there the residual is the outer product of the two
+complements, with coefficient $\sigma_k\sin^2\theta+\sigma_{k+1}\cos^2\theta$, so
+\begin{align*}
+  R(\theta):=\bigl\|(I-PP^\T)N(I-QQ^\T)\bigr\|^2
+  &=\sum_{j>k+1}\sigma_j^2+\bigl(\sigma_{k+1}+(\sigma_k-\sigma_{k+1})\sin^2\theta\bigr)^2\\
+  &= R(0)+2\sigma_{k+1}(\sigma_k-\sigma_{k+1})\,\theta^2+O(\theta^4).
+\end{align*}
+$R$ grows at second order, so $E$ falls, exactly when $\sigma_k>\sigma_{k+1}>0$; with $\sigma_{k+1}=0$ the decrease is
+only fourth order.
+\end{proof}
+
+$E$ counts content of rank up to $2k$ (its maximum puts $P$ and $Q$ on \emph{different} singular directions), so it
+is the wrong objective for a completion; the loop does not maximize it. What carries over to trees is stationarity
+(the \emph{Galerkin-type condition}): the completions are a stationary point of $E$, so rotating one store's
+completion out of its span changes the captured energy only at second order. Measured on a $d=4$ T3 at a converged
+fixed point (\code{fv_aligned_padded_frame} at $\mathrm{tol}=10^{-12}$): rotating any one of ten completed stores by
+$h=10^{-3}$ and $10^{-4}$ changed $E$ in the ratio $100.0$ (second order), and always upward, as in the matrix case.
+
+\subsection{The cone merit: local maxima}
+
+What the fixed points do maximize locally, in the measurements, is the note's \emph{merit}. For completions toward a root $c$, let $T_A(F)$ be the linear
+space through $A$ obtained by writing $A$ in the completed child frames and the old parent frame and varying one core
+at a time, and $\Nc_c(F)=T_A(F)\ominus T$. The merit is
+\begin{equation}\label{eq:merit}
+  m_c(F)=\frac{\|\Pi_{\Nc_c(F)}N\|^2}{\|N\|^2},
+\end{equation}
+the share of the normal part that the new directions represent on one side of every edge. Its best value is the
+same for every root, because the pieces $T_A(F)$ together fill the tangent cone at $A$. In the matrix case
+$m=\|P^\T N\|^2/\|N\|^2$, maximized by the top-$k$ singular subspace, with every other stationary point a saddle.
+
+On trees the fixed points of the loop are the stationary points of $m_c$ (the information entering through the far
+completions lies in the near ones, which is also the condition for $\nabla m_c=0$), so they do not depend on how the
+truncation inside the step is organized. Measured on small trees: gradients below $10^{-11}$ at every fixed point;
+from the same start, the unrooted step and steps rooted at different sites converged to the same frames to
+$10^{-15}$; the merit never decreased along the way.
+
+\paragraph{Summary.} At a fixed point, every store's completion spans the leading new directions of its own content,
+given the other stores' completions, so one more pass moves nothing. The completions are then a stationary point of
+the captured hint energy $\|\Pi_{T(F)}\,\mathrm{hint}\|^2$ (proved for matrices, measured on T3s) but generally not a
+maximum of it: rotating one store's completion alone never lowers that energy and generically raises it at second
+order. In measurements on small trees, they are a strict local maximum of the cone merit, one of many.
+
+\paragraph{Many strict local maxima.} Every stationary point the loop reached was a strict local maximum of the merit
+(negative definite Hessians on a slice transversal to the rotation symmetries), and there are many. Each edge spends
+$k$ directions, and the excursions of $N$ compete for them. An excursion across $L$ edges is captured only if all $L$
+completions align with it, so its captured energy is a product of $L$ alignment factors, of order $2L$ in the
+rotation angles. Near a configuration that ignores it, turning one edge toward it loses energy at second order and
+gains only at order $2L$: that configuration is a strict local maximum, however large the ignored excursion. The
+minimal example (three sites, $r=k=1$, short excursions of energy $\alpha^2$ and $\gamma^2$, a long one $\beta^2$):
+\begin{equation}
+  m(\theta,\varphi)=\alpha^2\cos^2\theta+\gamma^2\cos^2\varphi+\beta^2\sin^2\theta\,\sin^2\varphi ,
+\end{equation}
+where ``both short'' ($\theta=\varphi=0$) is always a local maximum, and ``long'' ($\theta=\varphi=\pi/2$) is one
+exactly when $\beta^2>\max(\alpha^2,\gamma^2)$. No local method leaves a wrong maximum, so the start decides.
+Oversampled completions see the energy of long excursions through each edge, which a random start does not; this is
+why the schedule oversamples first (\S\ref{sec:schedule}). Matrices have no spurious maxima (one edge).
+
+% ===========================================================================
+\section{One step on cores}\label{sec:step}
+
+The step replaces every completion by the leading new directions of the tangent's normal content at that edge, with
+the A-block pinned. It needs no factorization wider than the old width plus $2k$.
+
+\paragraph{Messages.} On each directed edge $a\to b$, with $Z=Z_{\mathrm{near}}+Z_{\mathrm{far}}$ split into the
+node terms on $a$'s side and on $b$'s side, $P$ the old completion and $P^+$ the new one:
+\begin{center}
+\begin{tabular}{@{}llll@{}}
+\toprule
+message & size & definition & built \\
+\midrule
+$\Phi_{a\to b}$ & $k\times R$ & $P_{a\to b}^\T Z_{\mathrm{far}}U'_{b\to a}$ & stage 1, far leaves inward\\
+$\Xi_{a\to b}$ & $k\times\cdot$ & $\Xi\Xi^\T=P_{a\to b}^\T Z_{\mathrm{far}}(I-U'_{b\to a}U'^\T_{b\to a})Z_{\mathrm{far}}^\T P_{a\to b}$ & stage 1, with $\Phi$\\
+$D_{a\to b}$ & $R\times k$ & $U'^{+\T}_{a\to b}Z_{\mathrm{near}}P_{b\to a}$ & stage 2, message order\\
+$o_{a\to b}$ & $k^+\times k$ & $P^{+\T}_{a\to b}P_{a\to b}$ & stage 2, with $D$\\
+\bottomrule
+\end{tabular}
+\end{center}
+$\Phi$ and $\Xi$ say what the far side sends through the old completion: the part inside the old far frame, and a
+square root of the rest (any factor; only $\Xi\Xi^\T$ enters). $D$ and $o$ carry the near side, already rotated into
+the new frames.
+
+\paragraph{The edge identity.} At $a\to b$, with $a$'s incoming slots in their new coordinates (the old block kept,
+the completion block multiplied by $o$), let $g_{\mathrm{old}}$ be the old completion and $g_{\mathrm{new}}$ the near
+content on the far completion. Then the edge's normal content factors as
+\begin{equation}\label{eq:edge}
+  Y=\bigl[\,g_{\mathrm{old}}\Phi_P+g_{\mathrm{new}}\;\big|\;g_{\mathrm{old}}\Xi\,\bigr]\,\Theta^\T ,
+\end{equation}
+with $\Theta$ orthonormal, so its left singular subspace is that of the bracket, of width at most $2k$ beside the
+A-block. The new completion is the leading $k^+$ left singular directions of $(I-\Abar\Abar^\T)Y$ completed against
+$\Abar$, and the edge's \emph{movement} is $\|g_{\mathrm{old}}-P^+P^{+\T}g_{\mathrm{old}}\|$: zero exactly when the
+completion did not turn.
+
+\begin{algorithm}[t]
+\caption{One alignment step (ragged)}\label{alg:step}
+\begin{algorithmic}[1]
+\Require padded frame $F$; variations $(V,H)$ of $Z$ at $F$; old ranks; output ranks; \code{update}
+\State Stage 1 (old frames): down messages; left messages from the far end; right messages from the near end; up
+messages; each $(\Phi,\Xi)$.
+\Impl{\code{_down_message}, \code{_left_message_step}, \code{_right_message_step} (scan bodies), \code{_up_message};
+$\Xi$ by \code{_root}, a factor from the thin SVD, never a Gram matrix.}
+\State Stage 2 (message order): up edges (one per sharing group, the members' contents side by side); the left sweep
+$i=0..d-2$; the right sweep $i=d-1..1$; down edges. At each: new coordinates, $Y$ by \eqref{eq:edge}, $P^+$, $o$, $D$,
+movement.
+\Impl{\code{_new_coordinates}, \code{_edge_content}, \code{_edge} $\to$ \code{linalg.pinned_leading_columns};
+\code{_up_edge}, \code{_left_edge_step}, \code{_right_edge_step}, \code{_down_edge}.}
+\State A store not in \code{update} is transported: $Y=g_{\mathrm{old}}$.
+\State Carriers: the old content, embedded. Return the frame and the largest movement.
+\Impl{\code{padded_frames.tv_align_padded_frame}; frontend one pass: \code{T3Tangent.align_padded}.}
+\end{algorithmic}
+\end{algorithm}
+
+The messages past the chain's ends are zero-size arrays, so every core runs the same body and both sweeps are scans.
+A pass that updates some stores and transports others may not also truncate a transported store: a transported
+completion can lose directions arbitrarily in a truncated neighbour's coordinates, so the step raises.
+
+\paragraph{The uniform twin.} \code{uniform_padded_frames.utv_align_padded_frame} computes the same step on padded
+supercores in block layout ($[\text{A-block}\mid\text{P-block}]$ per slot, the split $(N_a,R_b)$ static). The edge is
+one \code{linalg.pad_safe_svd} of $[\Abar\mid Y_\perp/(4\|Y_\perp\|)]$: the pins have singular value $1$ and the scaled
+content at most $1/4$, so the pins lead, and a host one-hot selects the $k^+$ triplets after them. Every count comes
+from the masks; no rank is decided from content.
+
+% ===========================================================================
+\section{The start}\label{sec:start}
+
+The loop starts from the hint-free padded frame. Every store's new slot $s$ is seeded by row $s$ of a keyed Gaussian
+stream, \code{RandomState([seed, store tag, key])} (tags up 0, down 1, left 2, right 3; the key is the mode, or a
+sharing group's first mode), with the ragged unfolding's row length; a start at old width $w$ uses rows
+$w,\dots,w+k-1$. The seeds are completed against the A-block in Gram--Schmidt order by the sign-fixed Householder
+QR of $[\Abar\mid\text{seeds}]$.
+
+\begin{algorithm}[t]
+\caption{The hint-free padded frame}\label{alg:start}
+\begin{algorithmic}[1]
+\Require old frame (or the empty frame); target ranks; \code{sharing}; \code{seed}
+\For{each store and core}
+  \State embed the old core in the leading slots; seeds $\gets$ rows $w..w+k-1$ of its keyed stream
+  \State completion $\gets$ \code{pinned_completion}$(\Abar, \text{seeds}, k)$
+\EndFor
+\Impl{\code{padded_frames.fv_padded_frame} (\code{_seed_rows}, \code{_padded_core}, \code{_padded_tucker_factor});
+uniform: \code{uniform_padded_frames.ufv_padded_frame}, the same rows placed at the real rows, completed by
+\code{linalg.pad_safe_pinned_completion}; frontend \code{T3Frame.padded}, \code{UT3Frame.padded}.}
+\end{algorithmic}
+\end{algorithm}
+
+The completion is a uniformly random subspace of the A-block's complement in distribution, the natural
+no-information choice, and its pivots are bounded away from zero with high probability. Because the seeds are
+slot-indexed, a start built from a start never reuses a seed.
+
+\paragraph{Representation dependence.} A TT or down seed row is read in the slot coordinates of the neighbours'
+frames, and a Gaussian row does not flip when a slot's sign does. So the start is a function of the old frame
+\emph{as represented}: bases chosen differently at singular-value ties, or a flipped slot sign (free in an
+unnormalized SVD), give different starts, all valid. The ragged and uniform orthogonalizations of one point choose
+differently, and their starts differ (span distances $0.95$--$1.00$ measured, at generic, \code{t3svd} and shared
+points), as can starts on different BLAS builds. Tucker completions are seeded in physical rows and are unaffected.
+The aligned output does not have this dependence, up to its tolerance (\S\ref{sec:measured}).
+
+% ===========================================================================
+\section{The schedule}\label{sec:schedule}
+
+\begin{algorithm}[t]
+\caption{The aligned padded frame}\label{alg:loop}
+\begin{algorithmic}[1]
+\Require old frame; target ranks; hint $S$ and \code{project}; $p$, $n_{\mathrm{over}}$, $\mathrm{cap}$, tol,
+\code{alternate}
+\State working $\gets$ \code{oversampled_ranks}(target, $p$); $n_{\mathrm{over}}\gets 0$ if the working stores equal
+the target stores; $n_{\mathrm{over}}\gets\min(n_{\mathrm{over}},\mathrm{cap}-1)$
+\State $F\gets$ the start (Algorithm~\ref{alg:start}) at the working ranks; \textbf{if} $\mathrm{cap}=0$ \textbf{return} it at the target
+\For{$n_{\mathrm{over}}$ passes} $F\gets\operatorname{step}(F,\Pi_{T(F)}S)$ at the working ranks, all stores \EndFor
+\State $F\gets\operatorname{step}(F,\Pi_{T(F)}S)$, output at the target ranks (truncating), all stores
+\While{a whole pair fits under the cap}
+  \State $F\gets$ step updating up and left (\code{'UL'}); $F\gets$ step updating right and down (\code{'RO'})
+  \State \textbf{if} both movements $<$ tol \textbf{then stop}
+\EndWhile
+\State \textbf{if} one slot is left and not stopped: one more \code{'UL'} step
+\Impl{\code{padded_frames.fv_aligned_padded_frame} (host loop; \code{use_jit}: a memoized jitted step);
+\code{uniform_padded_frames.ufv_aligned_padded_frame} (\code{use_jit}: the whole loop as one \code{jax.jit},
+compacted to the level's widths at exit); frontend \code{frame_variations_format.fv_aligned_padded_frame},
+\code{uniform_frame_variations_format.ufv_aligned_padded_frame}.}
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Oversample, then truncate.} Completions of width $k+p$ keep enough of $S$ that the loop settles near what a
+single sweep on $S$ itself would give, in a good basin (\S\ref{sec:fixed}); the truncating pass then drops to width $k$
+(the same step with fewer selected directions), and the passes after it climb to that basin's fixed point. On a toy
+family, $p=5$ for two passes reached $97\%$ of the converged merit in four passes and $99.7\%$ in six; oversampling
+alone plateaus at $88\%$.
+
+\paragraph{Two colours.} The simultaneous update (all stores per pass) can cycle with period~$2$: measured on a Darcy
+gradient from about pass $400$, and on a $243$-number case whose stationary point lies above the cycle and is not an
+attractor of that map. Updating the stores pointing toward the root $c_{d-1}$ (up, left) and then those pointing away
+(right, down), the other colour transported, is an alternating (Gauss--Seidel) update with a projection between the
+halves. Each updated store maximizes the captured energy $\|P^{+\T}Y\|^2$ of its own content $Y$ given the others;
+since $Y$ depends on the store's previous completion, this is a self-consistency condition, not ascent of one
+objective, and in particular not of $E$, which is a saddle at the fixed point (Proposition~\ref{prop:matrix}). The
+alternating update converged on the cycling case with no merit decrease. The stop is tested on pairs only, never on the truncating pass,
+and a NaN movement never stops the loop.
+
+\paragraph{Defaults.} $p=5$ for $2$ passes, cap $10$, tol $0.05$: two oversampled passes, the truncating pass, three
+pairs and a final \code{'UL'}. The movement tracks the true frame movement within $15\%$ from $1$ to $10^{-15}$. A pass
+costs at most about $10\%$ of a gradient.
+
+% ===========================================================================
+\section{The cone reference}\label{sec:cone}
+
+\code{newton_cg}'s relative stop $\|g\|\le\mathrm{gtol\_rel}\,\|g_0\|$ needs a reference scale. With
+\code{g0_reference='cone'} it is the frame-gradient norm at the zero tensor of $x_0$'s ranks, on the frame aligned
+with the data gradient there:
+\begin{equation}
+  \|g_0\| = \bigl\|\Pi_{T(F_0)}\nabla f(0)\bigr\|,\qquad F_0=\text{Algorithm~\ref{alg:loop} from the empty frame,
+  hint } \nabla f(0)=\Jac^\T r(0).
+\end{equation}
+It is like-for-like with the gradient norms the stop compares it to, depends only on $x_0$'s ranks, and excludes the
+regularizer (as the default \code{'zero'} reference does). The loop's frame approximates a local maximum of the merit, so the
+value is a data-aware scale, not an intrinsic constant. With zero passes it is evaluated at the zero tensor's
+hint-free start, a different frame from \code{'zero'}'s (\code{fv_zero_point_frame}), so the two values differ.
+
+\begin{algorithm}[h]
+\caption{The cone reference, and a problem's aligned start}\label{alg:cone}
+\begin{algorithmic}[1]
+\State $r_0\gets$ forward$(0)-$data
+\State $F_0\gets$ the geometry's \code{aligned_padded_frame} at $x_0$ from the zero tensor, with \code{project} $=$
+\code{_misfit_gradient_at} and hint $(\text{problem},r_0)$
+\State $g\gets$ \code{_misfit_gradient_at} at $F_0$; \Return $\ip{g}{g}_{F_0}^{1/2}$
+\Impl{\code{backend.optimizers._cone_reference}; the start after a rank increase (\code{padded_from=x_old}) is the
+same member call from $x_{\mathrm{old}}$ with the residual at $x_0$: \code{backend.optimizers.padded_start}.}
+\end{algorithmic}
+\end{algorithm}
+
+% ===========================================================================
+\section{Numerical notes}\label{sec:numerics}
+
+\begin{itemize}
+\item $A$ enters only through its orthonormal frame cores; its singular values never appear.
+\item The square-root form: $\Xi$ is a factor of the far remainder itself, and $Y$ is formed directly, so no Gram
+matrix is squared. Gram-matrix messages lose $u\,s^2$ when the hint's tangent part is $s$ times its normal part; the
+square-root form follows $u\max(1,s)$, the floor set by rounding $S$ itself (prototype, emulated low precision).
+\item \code{pinned_leading_columns} projects $Y$ off $\Abar$ once and takes the thin SVD; its pinned completion's QR of
+$[\Abar\mid U_k]$ then makes $P^+$ orthogonal to $\Abar$ to roundoff.
+\item No rank cutoff anywhere: when $Y$ has fewer than $k^+$ nonzero singular values the trailing directions are a
+valid, arbitrary completion (roundoff- and backend-dependent); they carry no content and are dropped at truncation.
+\item The step is invariant to the hint's scale ($10^{-14}$ to $10^{14}$ tested) and to the variations' gauge.
+\end{itemize}
+
+% ===========================================================================
+\section{What is measured, and what is open}\label{sec:measured}
+
+\paragraph{Measured.} The step agrees with the dense per-edge update to $3\cdot10^{-14}$ (prototype) and within the
+tests' $10^{-9}$ bar at $d\in\{1,2,3,5\}$, with sharing, truncation, stacks and the empty frame; the uniform twins equal
+the ragged ones per element to rounding. From starts differing by $0.95$--$1.00$ in span, the two layers' aligned frames
+agreed to $7\cdot10^{-4}$--$3\cdot10^{-2}$ at the default tol (equal pass counts) and to $8\cdot10^{-13}$--$6\cdot10^{-11}$
+at tol $10^{-10}$ ($d=4$, nine cases). On a Darcy rank-continuation ladder the alignment captured $2$--$5\times$ the
+frame-gradient norm of the hint-free frame, and at the higher-rank level $11\to16$ it cut Newton iterations by about
+$40\%$ and CG iterations by about $2.4\times$ (with at least ten passes).
+
+\paragraph{Open.}
+\begin{itemize}
+\item Proofs for trees: the match between fixed points and stationary points of the merit, and the merit's
+monotonicity, are measured, not proved.
+\item A guarantee that the oversampled phase lands in the best basin, and a rule for $p$ and the switch tied to the
+gaps of the normal blocks' spectra.
+\item Flat normal spectra converge slowly (the matrix rate is $\sigma_{k+1}/\sigma_k$); near-tied hint spectra at $d=24$
+did not converge in ten passes.
+\item Moves between basins: a discrete move rotating one direction on every edge of an excursion at once.
+\item Canonical bases for the representation, which would make the hint-free start representation-independent.
+\end{itemize}
+
+\begin{thebibliography}{9}
+\bibitem{AlgerNote} N.~Alger, \emph{Completing frames by truncating $A+\varepsilon S$, with projection-only access},
+  unpublished note, 2026.
+\bibitem{T4S} N.~Alger, B.~Christierson, P.~Chen, O.~Ghattas, \emph{Tucker Tensor Train Taylor Series},
+  arXiv preprint arXiv:2603.21141v2, 2026. \url{https://arxiv.org/abs/2603.21141v2}
+\end{thebibliography}
+
+\end{document}

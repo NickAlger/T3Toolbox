@@ -320,6 +320,13 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         tensor, whose frame is empty. The target ranks must contain ``x_old``'s structure. In safe mode, a shared
         ``x_old`` must have tied factors.
 
+        Each store's new slot ``s`` is seeded by row ``s`` of a keyed Gaussian stream. So the start is isotropic (a
+        random subspace of the old block's complement), well conditioned, and successive starts never reuse a seed.
+        It is a function of ``x_old``'s frame AS REPRESENTED, slot signs included: another basis of the same frame (at a
+        singular-value tie, or a flipped slot sign) gives another, equally valid start. Do not compare hint-free
+        starts across representations or BLAS builds; the aligned frames are comparable. See
+        :doc:`/aligned_padded_frame`.
+
         Examples
         --------
         >>> import numpy as np
@@ -1738,37 +1745,129 @@ def fv_aligned_padded_frame(
     'T3Frame',                 # the aligned padded frame at the target ranks
     typ.Tuple[NDArray, ...],   # movements, one per pass
 ]:
-    """The padded frame of ``x_old`` at larger ranks, its new slots aligned with the tangent of ``hint``.
+    """The padded frame of ``x_old`` at larger ranks, its new directions aligned with a hint.
 
-    The hint-free start (:py:meth:`T3Frame.padded`) is refined by alignment passes: each projects one fixed tensor
-    onto the tangent space at the current frame and replaces every new slot by the leading new directions of that
-    tangent vector, the old slots held fixed. A rank increase then starts Newton from a frame whose new directions
-    already point where the fit needs them (``optimizers.newton_cg(padded_from=...)`` runs this internally, with the
-    misfit gradient as the hint).
+    **Purpose.** At a zero-padded rank increase the point ``x_old`` gains zero slots, and its orthonormal frame needs
+    new directions in every rank store (the four families of frame cores; see :doc:`/frame_variations`, "Four rank
+    stores"). Any completion represents the same point, but the tangent space -- and so the first Newton step from it --
+    depends on the choice. This function biases the completion toward a HINT: a tensor whose tangent projection should
+    be as large as possible. ``optimizers.newton_cg(padded_from=x_old)`` uses the misfit gradient as the hint; here
+    the hint is yours. The user guide is :doc:`/aligned_padded_frame`.
+
+    **Method.** A fixed-point iteration on projections. It starts from the hint-free padded frame
+    (:py:meth:`T3Frame.padded`). Each pass projects the hint onto the current frame's tangent space and, at every store,
+    replaces the new slots by the leading new directions of that projection's content there, given the other stores'
+    current completions, with the old slots held fixed (:py:meth:`~t3toolbox.manifold.T3Tangent.align_padded` is one
+    pass). The schedule:
+
+    - ``oversampled_passes`` passes at the target ranks plus ``oversampling``;
+    - one truncating pass to the target;
+    - then two-colour pairs: a ``'UL'`` pass (up and left stores) and an ``'RO'`` pass (right and down), the other
+      colour transported. A simultaneous update can cycle with period 2, which the pairs avoid.
+
+    The loop stops after a pair whose two movements are both below ``tol``, or at ``max_passes`` in all. The movement
+    of a pass is how far the new slots turned: the largest, over the stores, of ``‖g_old − P⁺P⁺ᵀ g_old‖_F``.
+
+    **What the fixed point satisfies.** At a fixed point, every store's completion spans the leading new directions of
+    its own content, given the other stores' completions, so one more pass moves nothing. The completions are then a
+    stationary point of the captured hint energy ``‖Π_{T(F)} hint‖²`` (proved for matrices, measured on T3s) but
+    generally not a maximum of it: rotating one store's completion alone never lowers that energy and generically raises
+    it at second order. In measurements on small trees, they are a strict local maximum of the cone merit, one of many.
+    Updating any single store alone moves nothing either; the first example shows both. The cone merit is the share of
+    the hint's normal part that the new directions represent on one side of every edge; its best value does not depend
+    on which side. See the math note ``docs/padded_frame_cone.pdf``.
+
+    **Properties.**
+
+    - **No global guarantee.** The merit has many strict local maxima in the measurements (an excursion across several
+      edges is captured only when every edge it crosses is aligned with it), and the one reached depends on the start
+      and the schedule.
+      Oversampling sees such excursions through each edge and usually helps (see the second example).
+    - **Representation dependence.** The hint-free start is a function of ``x_old``'s frame AS REPRESENTED, slot signs
+      included: its Gaussian seeds do not flip with a slot's sign, and bases chosen differently at singular-value
+      ties (a ``t3svd`` output, a shared point) give different starts. Different BLAS builds can therefore give
+      different hint-free starts. The aligned output does not have this dependence, up to ``tol``.
+    - **Uninformative hints.** Where the hint has no content at an edge (its projection there has rank below the new
+      slots), the remaining directions are an arbitrary valid completion.
+    - The old slots are bitwise ``x_old``'s frame, and the frame represents ``x_old`` zero-padded.
+
+    **Parameters.**
 
     - ``hint``: a ``TuckerTensorTrain`` (projected by ``tv_project_t3_onto_tangent_space``) or a dense array of
-      ``x_old``'s shape (``tv_project_dense_onto_tangent_space``); anything else needs ``project(frame_data, hint)``,
-      which returns raw variation data. A ``UniformTuckerTensorTrain`` hint is converted with ``.to_t3()``.
-    - The schedule: ``oversampled_passes`` passes at the target ranks plus ``oversampling``, one truncating pass,
-      then two-colour ``('UL', 'RO')`` pairs (``alternate``) until both of a pair's movements are below ``tol``, at most
-      ``max_passes`` passes in all. ``max_passes=0`` returns the hint-free start. When the target adds nothing to
-      ``x_old``'s structure the frame is ``x_old``'s and there are no passes.
-    - ``use_jit``: with jax inputs (numpy ones are converted), each step is a memoized jitted program; the loop and
-      the projection stay on the host.
+      ``x_old``'s shape (``tv_project_dense_onto_tangent_space``). Anything else needs ``project(frame_data, hint)``,
+      returning raw variation data. A ``UniformTuckerTensorTrain`` hint must be converted first (``hint.to_t3()``);
+      passing one raises a ``TypeError`` naming the conversion.
+    - ``oversampling`` and ``oversampled_passes``: passes at wider working ranks before the truncation. The phase is
+      skipped when the working ranks give the target's stores.
+    - ``max_passes``: the cap, the truncating pass included. ``0`` returns the hint-free start.
+    - ``tol``: the pair stop. The default ``0.05`` is a coarse alignment; with a small ``tol`` the cap is often the
+      effective stop.
+    - ``alternate``: the two-colour switch. ``False`` runs simultaneous ``'ULRO'`` passes, stopping on one movement.
+    - ``seed``: the hint-free start's seed streams.
+    - ``use_jit``: see the gotchas.
+    - Returns ``(frame, movements)``: the aligned ``T3Frame`` and one movement per pass run (each of shape ``C``).
+      When the target adds nothing to ``x_old``'s structure, the frame is ``x_old``'s and there are no passes.
 
-    ``x_old`` is reduced to minimal ranks first; a structurally zero ``x_old`` is the zero tensor (empty frame).
+    **Gotchas.**
+
+    - **Eager jax is expensive.** On jax arrays without ``use_jit``, every new structure compiles hundreds of
+      operations one by one: about 22 s for the first step at d = 4, and 8,000–9,500 process memory mappings per
+      alignment. A rank continuation that aligns eagerly at every level can reach Linux's ``vm.max_map_count`` after
+      about seven levels and abort inside XLA. With jax inputs, pass ``use_jit=True``: each step becomes a memoized
+      jitted program, two to four per level. numpy inputs need nothing.
+    - ``max_passes`` counts the truncating pass, and the stop is tested on pairs only, never on the truncating pass.
+    - A NaN movement never stops the loop.
+    - Zero passes at the zero tensor give the hint-free start, which is not ``fv_zero_point_frame``'s frame. So in
+      ``newton_cg``, ``g0_reference='cone'`` with ``cone_max_passes=0`` is a different reference from ``'zero'``.
+
+    ``x_old`` is reduced to minimal ranks first. A structurally zero ``x_old`` (any Tucker or interior TT rank 0) is
+    the zero tensor, with an empty frame.
 
     Examples
     --------
+    Align a padded frame with a hint, and check what the fixed point satisfies:
+
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.frame_variations_format as bvf
+    >>> import t3toolbox.manifold as t3m
     >>> np.random.seed(0)
-    >>> x_old = t3.TuckerTensorTrain.randn((5, 6, 5), (2, 2, 2), (1, 2, 2, 1))
-    >>> hint = t3.TuckerTensorTrain.randn((5, 6, 5), (5, 6, 5), (1, 5, 5, 1))
-    >>> F, movements = bvf.fv_aligned_padded_frame(x_old, (3, 4, 3), (1, 3, 3, 1), hint, tol=1e-6, max_passes=60)
-    >>> F.up_ranks, float(movements[-1]) < 1e-6
-    ((3, 4, 3), True)
+    >>> shape, old, target = (5, 6, 5, 6), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((3, 4, 4, 3), (1, 3, 4, 3, 1))
+    >>> x_old = t3.TuckerTensorTrain.randn(shape, *old)
+    >>> hint = t3.TuckerTensorTrain.randn(shape, (5, 6, 5, 6), (1, 5, 25, 6, 1))
+    >>> captured = lambda F: float(t3m.MANIFOLD.norm(t3m.MANIFOLD.project_ambient(F, hint)))   # ‖Π_T(F) hint‖
+    >>> F, movements = bvf.fv_aligned_padded_frame(x_old, *target, hint, tol=1e-10, max_passes=300)
+    >>> F.up_ranks, len(movements) < 300                        # stopped on tol, not on the cap
+    ((3, 4, 4, 3), True)
+
+    One more pass moves nothing, and neither does a pass updating any one store alone (``align_padded`` is one pass;
+    the stores not in ``update`` are transported): each completion already spans the leading directions of its
+    content.
+
+    >>> tangent = t3m.MANIFOLD.project_ambient(F, hint)
+    >>> bool(float(tangent.align_padded(*old)[1]) < 1e-8)
+    True
+    >>> [bool(float(tangent.align_padded(*old, update=store)[1]) < 1e-8) for store in 'ULRO']
+    [True, True, True, True]
+
+    The aligned frame's tangent space holds far more of the hint than the hint-free start's:
+
+    >>> captured(F) > 2 * captured(bvf.T3Frame.padded(x_old, *target))
+    True
+
+    Oversampling helps at an equal (small) number of passes. Here, on a d = 5 point and a low-rank hint, two passes with
+    the first one oversampled capture well over 1.2 times what two passes at the target ranks capture (the margin
+    held for every start seed tried):
+
+    >>> np.random.seed(0)
+    >>> y_old = t3.TuckerTensorTrain.randn((5,) * 5, (2,) * 5, (1, 2, 2, 2, 2, 1))
+    >>> y_hint = t3.TuckerTensorTrain.randn((5,) * 5, (4,) * 5, (1, 4, 6, 6, 4, 1))
+    >>> y_target = ((3,) * 5, (1, 3, 3, 3, 3, 1))
+    >>> y_captured = lambda F: float(t3m.MANIFOLD.norm(t3m.MANIFOLD.project_ambient(F, y_hint)))
+    >>> F0, _ = bvf.fv_aligned_padded_frame(y_old, *y_target, y_hint, oversampling=0, max_passes=2, tol=0.0)
+    >>> F5, _ = bvf.fv_aligned_padded_frame(y_old, *y_target, y_hint, oversampling=5, max_passes=2, tol=0.0)
+    >>> y_captured(F5) > 1.2 * y_captured(F0)
+    True
     """
     old = _old_frame_data(x_old, sharing, 'fv_aligned_padded_frame')
     if project is None:

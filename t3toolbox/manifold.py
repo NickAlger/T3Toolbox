@@ -185,6 +185,9 @@ class T3Tangent(common.ExplicitEquality):
         how far the new slots turned (0 at a fixed point). ``update`` restricts the step to some stores, transporting
         the others (``'UL'`` / ``'RO'`` are the two colours of the loop); output ranks below the frame's truncate.
 
+        At a fixed point of the loop every store's completion spans the leading directions of its content, so one more
+        step moves nothing: the loop twin's docstring demonstrates it. See :doc:`/aligned_padded_frame`.
+
         Examples
         --------
         >>> import numpy as np

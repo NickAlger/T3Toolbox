@@ -278,7 +278,13 @@ shared-factor submanifold, and every optimizer works on it unchanged. See [`shar
   (`geometry_aux`) — [`contributor/precompute_and_caching.md`](contributor/precompute_and_caching.md). One more member is
   **optional** (looked up duck-typed): `zero_point_frame(frame)`, the canonical frame at the zero tensor
   where the default Newton reference is evaluated (§5). The manifold geometries define it, the corewise
-  ones return `None`, and a custom geometry without it gets the warm-start reference. The exact Hessian
+  ones return `None`, and a custom geometry without it gets the warm-start reference. Three more optional members
+  serve a start frame after a rank increase ([`aligned_padded_frame.md`](aligned_padded_frame.md)), defined on the
+  manifold geometries only: `with_frame(frame)`, the geometry at a frame's structure;
+  `require_frame_structure(x_cores, frame)`, a structural check from integers and held masks (needed by
+  `local_model(frame=)` and `start_frame`); and `aligned_padded_frame(x0, x_old, project, hint, ...)`, the frame of
+  `x0` aligned with a hint (needed by `padded_from` and `g0_reference='cone'`). An absent member raises a
+  `ValueError` naming it, only when its feature is asked for. The exact Hessian
   (§4.12) needs four more, checked only when `hessian='exact'` asks for them: `curvature_precompute`, `lift`,
   `lift_transpose` and `tangential_curvature` (the `Geometry` protocol documents them); the four built-in
   geometries, and their shared wrappers, have them.
@@ -655,7 +661,8 @@ repo, maintainer-local):
   |---|---|
   | `None` (default) | the geometry's own: `'zero'` on `MANIFOLD` / `UNIFORM_MANIFOLD` and their shared wrappers, `'warm_start'` on the corewise geometries |
   | `'zero'` | the gradient norm at the **zero tensor of `x0`'s ranks** (one extra sweep and transpose per run) |
-  | `'warm_start'` | the initial gradient norm `‖g(x0)‖` — the 2026.2.0 default |
+  | `'warm_start'` | the initial gradient norm `‖g(x0)‖` — the 2026.2.0 default; with a start frame (`start_frame` / `padded_from`), `‖g‖` at that frame |
+  | `'cone'` | the gradient norm at the zero tensor of `x0`'s ranks on the frame **aligned with the data gradient there** (options `cone_*`), like-for-like with the gradient norms the stop compares; use it with a looser `gtol_rel` (about `1e-4`). Manifold geometries only; [`aligned_padded_frame.md`](aligned_padded_frame.md) |
 
   *Why the zero tensor.* After a warm start — a zero-padded `resize` in rank continuation — the initial
   gradient is already small (the guess is near the solution), so a warm-start reference over-tightens
@@ -681,6 +688,12 @@ repo, maintainer-local):
     `x0` is another matter, §4.11).
   - **It is nested across rank-continuation levels.** A mode's factor at rank `r` is the leading block of
     its factor at rank `r + 1`, and is unchanged when another mode's rank grows.
+
+  *The start frame after a rank increase.* `newton_cg(..., padded_from=x_old)` starts from the frame of `x0`
+  (`x_old` zero-padded) whose new directions are aligned with the misfit gradient, and `start_frame=F` starts from
+  a frame you built; `cone_max_passes=0` / `padded_max_passes=0` use the hint-free padded frame instead. The
+  `'cone'` reference with zero passes is measured at a different frame from `'zero'`'s, so the two differ. See
+  [`aligned_padded_frame.md`](aligned_padded_frame.md).
 
   A **vanishing** zero reference (e.g. all-zero data) is never replaced silently: by default it falls
   back to the warm start with a `RuntimeWarning`, and an explicit `'zero'` raises. Every history row

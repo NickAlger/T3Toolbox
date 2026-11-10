@@ -42,6 +42,7 @@ Design-decision records
    contributor/uniform_pytree_composition
    contributor/uniform_rank_masks_rationale
    contributor/uniform_internals
+   contributor/padded_frame_internals
    contributor/uniform_polymorphism
    contributor/deferred_and_rejected
    contributor/verification_records

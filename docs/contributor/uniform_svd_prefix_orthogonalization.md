@@ -81,3 +81,11 @@ derivation is [`../pad_safe_svd.tex`](../pad_safe_svd.tex) (+pdf). There is **no
 orthogonalization path in the sense of this note — `pad_safe_svd` uses Householder QR *internally*
 (pads permuted to the trailing pivots), but its output contract is the SVD's (sorted σ, prefix
 content), which is what the mask design needs.
+
+One QR is used as such, and it is not an orthogonalization: the seeded completion of the hint-free padded frame
+(`backend.linalg.pad_safe_pinned_completion`, called by `backend.uniform_padded_frames.ufv_padded_frame`). It
+completes an already orthonormal old block with Gaussian seeds in Gram–Schmidt order, a convention defined by the
+ORDER of the seeds, which an SVD (ordering by singular value) would not reproduce. The ragged twin uses the same
+sign-fixed Householder completion (`pinned_completion`), so the layers' starts agree to rounding. Its padded form
+uses static host permutations from the masks (pins and selected seeds first, junk rows last), so no rank is ever
+decided from content ([`padded_frame_internals.md`](padded_frame_internals.md)).

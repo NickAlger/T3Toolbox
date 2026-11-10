@@ -3,6 +3,74 @@
 All notable changes to T3Toolbox are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); versions are `YYYY.MINOR.PATCH`.
 
+## [2026.4.0] — unreleased
+
+The headline is **the aligned padded frame**: after a zero-padded rank increase, `newton_cg` can start from a frame
+whose new directions are aligned with the misfit gradient (`padded_from=x_old`), and measure its relative stop
+against the gradient norm at the zero tensor on such a frame (`g0_reference='cone'`). The frame twins behind them
+are public on both layers. All of it is opt-in; no default changes. User guide: `docs/aligned_padded_frame.md`;
+mathematics: the math note `docs/padded_frame_cone.pdf` (source `docs/padded_frame_cone.tex`).
+
+### Added
+
+- **`newton_cg(..., start_frame=, padded_from=)`**, keyword-only. `start_frame=F` linearizes iteration 0 at a frame
+  of `x0` that you built (checked structurally always; orthonormal and representing `x0` in safe mode).
+  `padded_from=x_old` builds iteration 0's frame by aligning `x0`'s new directions with the misfit gradient, where
+  `x0` is `x_old` zero-padded; options `padded_oversampling`, `padded_oversampled_passes`, `padded_max_passes`,
+  `padded_tol`, `padded_alternate`, `padded_seed`. `padded_max_passes=0` is the cheap hint-free start.
+  `stats['start_frame']` (`'given'` / `'padded'`) and `stats['start_movements']` record it. Manifold geometries only.
+- **`g0_reference='cone'`** for `newton_cg` and `gradient_descent`: the gradient norm at the zero tensor of `x0`'s
+  ranks on the frame aligned with the data gradient there, like-for-like with the gradient norms the stop compares
+  (use it with `gtol_rel` near `1e-4`). Options `cone_oversampling`, `cone_oversampled_passes`, `cone_max_passes`,
+  `cone_tol`, `cone_alternate`, `cone_seed`; `stats['cone_movements']` records the passes. `cone_max_passes=0` is
+  the zero tensor's hint-free start, which is a different frame from `'zero'`'s.
+- **The frame twins**, ragged and uniform:
+  - `T3Frame.padded(x_old, tucker_ranks, tt_ranks, sharing=None, seed=0)` / `UT3Frame.padded(...)`: the hint-free
+    padded frame (`x_old`'s frame in the leading slots, Gaussian slot-indexed seeds completing the new ones; the
+    uniform twin returns the block layout and its split);
+  - `frame_variations_format.fv_aligned_padded_frame(x_old, tucker_ranks, tt_ranks, hint, ...)` /
+    `uniform_frame_variations_format.ufv_aligned_padded_frame(...)`: the aligned padded frame for any hint (a T3 or a
+    dense array, or a custom `project`), and the movement of every pass; the uniform twin returns the frame at a
+    level's widths;
+  - `T3Tangent.align_padded(...)` / `UT3Tangent.align_padded(...)`: one alignment pass (`update` selects the stores;
+    `'UL'` / `'RO'` are the two colours).
+- **`use_jit`** on the loops and on `padded_start`: a memoized jitted step inside the host loop (ragged) or the whole
+  loop as one `jax.jit` program (uniform). `newton_cg`'s own `use_jit` governs the alignment too. With jax inputs
+  pass `use_jit=True`: eager jax compiles every op of a new structure (about 22 s on the first step at d = 4) and
+  adds thousands of process memory mappings per alignment.
+- **`Problem.local_model(..., frame=F)`** and **`backend.optimizers.padded_start(problem, x0, x_old, ...)`**: a
+  problem's aligned frame without Newton, and a local model at it, for custom optimizers.
+- `TuckerTensorTrain.oversampled_ranks(p, sharing=None)` / `UniformTuckerTensorTrain.oversampled_ranks(...)` and
+  `backend.ranks.oversampled_ranks`: `+p` on every rank, structurally minimal, never below the input.
+- Backend: the modules `backend.padded_frames` (`fv_empty_frame`, `fv_padded_frame`, `tv_align_padded_frame`,
+  `fv_aligned_padded_frame`, the `ALIGN_*` defaults) and `backend.uniform_padded_frames` (`ufv_empty_frame`,
+  `ufv_padded_frame`, `utv_align_padded_frame`, `ufv_compact_frame`, `ufv_aligned_padded_frame`);
+  `backend.linalg.pinned_completion`, `pinned_leading_columns` and `pad_safe_pinned_completion`;
+  `backend.ufv_masking.ufv_frame_widths`; the optional geometry members `with_frame`, `require_frame_structure` and
+  `aligned_padded_frame` on the manifold geometries (the `Geometry` protocol documents them).
+
+### Changed
+
+- None. The default Newton reference stays `'zero'`, and `fv_zero_point_frame` is unchanged.
+
+### Removed
+
+- None released. (A template-signature `fv_operations.fv_padded_frame` existed during development and never shipped.)
+
+### Known limitations
+
+- The hint-free start is a function of the old frame's representation, slot signs included: the ragged and uniform
+  starts of one point differ, and a start can differ across BLAS builds. The aligned frame is
+  representation-independent up to `tol`.
+- At a fixed point, every store's completion spans the leading new directions of its own content, given the other
+  stores' completions, so one more pass moves nothing. The completions are then a stationary point of the captured hint
+  energy `‖Π_{T(F)} hint‖²` (proved for matrices, measured on T3s) but generally not a maximum of it: rotating one
+  store's completion alone never lowers that energy and generically raises it at second order. In measurements on small
+  trees, they are a strict local maximum of the cone merit, one of many. The one reached depends on the start and the
+  schedule. The cone merit is the share of the hint's normal part that the new directions represent on one side of every
+  edge; its best value does not depend on which side.
+- The uniform movement record is NaN after the last pass and cannot tell a NaN movement from an unrun pass.
+
 ## [2026.3.0] — 2026-10-29
 
 The headline is **the exact Riemannian Hessian for `newton_cg`** (`hessian='exact'`): the Gauss-Newton term

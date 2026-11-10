@@ -130,3 +130,45 @@ independent review (the slice records, archived under `dev/archive/`). The autom
   d = 6, ≈ 0.65 at d = 4); no single quantity explains it (R² ≤ 0.13). Untested hypothesis: the tied space
   shrinks 6–9 dimensions per tied factor, capping the top eigenvalue while the residual raises the average.
 - Both are thin: one setup each, numpy eager, a contended CPU, seed spreads (~0.3) larger than any effect.
+
+## The aligned padded frame (2026.4.0)
+
+(The user doc is [`../aligned_padded_frame.md`](../aligned_padded_frame.md); the internals are
+[`padded_frame_internals.md`](padded_frame_internals.md).) The measurements below come from the implementation plan's
+prototype scripts (a separate research repo, maintainer-local) and from each implementation slice's handoff and
+independent review. The automated guarantees are `tests/backend/test_padded_frame.py`,
+`tests/backend/test_uniform_padded_frame.py`, `tests/backend/test_padded_start.py`,
+`tests/test_aligned_padded_frame_frontend.py` and the dispatch tests.
+
+### The step and the loop (prototype facts)
+
+| check | result |
+|---|---|
+| one step vs the dense per-edge update, all four stores (d = 2..5, uneven increments, non-minimal ranks, a tangent part 10× the normal part, truncating steps, sharing groups, the zero old point, stacks) | ≤ 3e-14; frames orthonormal to 2e-15; the old block bitwise untouched |
+| ungauged vs gauged variations | the same frames to 5e-15 |
+| float32 | errors follow `u·max(1, s)`, `s` the tangent-to-normal ratio of the hint; the step is scale-invariant in the hint |
+| the movement vs the true frame movement | within 15 % from 1 down to 1e-15 |
+| the simultaneous update | **cycles** with period 2 (Darcy level 1 from about pass 400; a 243-number case), its stationary point not an attractor; two-colour converges on the same case with no merit decrease (0 of 299 passes) |
+| two-colour vs simultaneous on the Darcy level-1 gradient (p = 5 for 2) | −1.4 % at pass 4, −0.5 % at pass 6; its movement falls to 5e-4 at pass 150 where the simultaneous one sticks at 1e-2 |
+| toy family, p = 5 for 2 passes | 97 % of the converged merit in 4 passes, 99.7 % in 6; oversampling alone plateaus at 88 % |
+| cost per pass (ragged numpy) | ≤ 10 % of a gradient: 15 / 105 ms at Darcy level 1, 24–55 / 500–800 ms at level 2, 45 ms / 1.1 s at 11 → 16 |
+| d = 24 with a near-tied hint spectrum | the defaults do not converge in 10 passes in either layer |
+
+### The implementation (slice records)
+
+| check | result |
+|---|---|
+| the ragged step vs the dense oracle, d ∈ {1, 2, 3, 5} and the prototype list | T1: principal-angle sines and movements within 1e-9 (the bar); frames orthonormal to 1e-12; the old block bitwise; both base-point reconstructions to 1e-12 |
+| uniform vs ragged, per element (varying ranks, gappy masks, forced padding, `N` padded, stacks, sharing) | step, start and loop to rounding (stacked vs per-element 1e-13); junk bitwise zero |
+| uniform vs ragged loops on generic hints | the same pass counts; the captured energy equal to 1e-8 relative at `tol=1e-10` (the uniform docstring's example) |
+| the start's convention (D-41) | each store equals the seeded pinned QR of its keyed rows (T5); successive starts reuse no seed (T20, both layers) |
+| representation dependence (D-42, D-49; d = 4, generic, `t3svd` and shared points, three seeds each) | the layers' starts differ by 0.95–1.00 in span; the aligned frames by 7e-4–3e-2 at the default `tol` (equal pass counts) and 8e-13–6e-11 at `tol=1e-10` (pass counts within 2) |
+| eager vs jitted loops (ragged and uniform) | the same pass counts and frames to rounding; the ragged jitted loop compiles at most four step programs, the uniform whole loop one program per structure, and a second eager-jax run at the same structure none |
+| first-call times | ragged eager step at d = 4: 932 compilations, ~22 s (0.16 s after); jitted, one ~2 s compile. Uniform whole loop: 8.8 s at d = 6, 9.0 s at d = 24 (second call 0.02–0.08 s); eager jax 41.5 / 42.6 s (0.57 / 0.64 s after); numpy 0.2 / 0.6 s |
+| memory mappings | 8,000–9,500 per eager-jax alignment at a new structure (`vm.max_map_count` 65,530); `jax.clear_caches()` returns to ~900 |
+| mutation testing | every slice's mutants killed or shown equivalent (the pinned-mask mutant of the uniform step is equivalent) |
+
+### Acceptance
+
+The Darcy ladder baselines (hint-free and default aligned starts on the Gaussian convention, and the 20 × 1000 run)
+are recorded at acceptance (the plan's slice N10).

@@ -195,6 +195,19 @@ warm-start reference the fit stalled at the target level and continuation over-g
 reference is taken at the zero tensor of the **group** ranks, in the shared geometry (one Haar factor per
 group, so the zero point is exactly tied), and needs no pin.
 
+## The start frame after a rank increase
+
+A zero-padded `x0` is the old point, and its frame's new directions are a free choice that shapes the first Newton
+step. `newton_cg(..., padded_from=x_old)` builds that frame by aligning the new directions with the misfit gradient,
+and `g0_reference='cone'` gives the relative stop a reference measured on such a frame at the zero tensor. See
+[the aligned padded frame](aligned_padded_frame.md).
+
+```python
+x_old = x
+x = x.resize(x.shape, new_tucker, new_tt)
+x, stats = newton_cg(MANIFOLD, kind, sample, data, x, padded_from=x_old, g0_reference='cone', gtol_rel=1e-4)
+```
+
 ## On the uniform layer
 
 **Rank continuation is a ragged-layer activity, deliberately.** There is no uniform `resize` or
@@ -219,6 +232,11 @@ for level in range(max_levels):
         break                                             # nothing left to grow
     x = x.resize(x.shape, new_tucker, new_tt)
 ```
+
+The start frame's twins exist on both layers: inside this loop, `newton_cg(UNIFORM_MANIFOLD, ...,
+padded_from=ux_old)` takes the previous level's uniform point (same padded `N`) and aligns on the uniform layer,
+and `ufv_aligned_padded_frame` returns the frame at the level's widths. Only the bookkeeping (`continuation_ranks`,
+`resize`) stays ragged.
 
 `examples/fit_hilbert_uniform_newton_cg.py` runs this end to end. Each level's reference is computed on
 the uniform layer itself, and equals the ragged one (the canonical zero-point frame has the same real

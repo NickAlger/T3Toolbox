@@ -250,6 +250,11 @@ class UT3Frame(common.ExplicitEquality):
         :py:meth:`~t3toolbox.uniform_manifold.UT3Tangent.align_padded` needs. Target ranks may vary per stack element.
         ``x_old`` is reduced to minimal ranks first; a structurally zero ``x_old`` is the zero tensor (empty frame).
 
+        The completions use the same Gaussian, slot-indexed seeds as the ragged twin, so a start is a function of the
+        old frame's representation, slot signs included. The uniform and ragged representations of one point can
+        pick different signs, so their starts can differ, while the aligned loop's output agrees to its tolerance.
+        See :doc:`/aligned_padded_frame`.
+
         Examples
         --------
         >>> import numpy as np
@@ -1597,28 +1602,74 @@ def ufv_aligned_padded_frame(
     'UT3Frame',   # the aligned frame at level_widths, prefix masks (the level's frame structure for that padding)
     NDArray,      # movements, shape=(max_passes,)+C, NaN after the last pass
 ]:
-    """The uniform twin of :py:func:`~t3toolbox.frame_variations_format.fv_aligned_padded_frame`, compacted to a level.
+    """The uniform twin of :py:func:`~t3toolbox.frame_variations_format.fv_aligned_padded_frame`: a padded frame of
+    ``x_old`` whose new directions are aligned with a hint, returned at a level's padded widths.
 
-    The same schedule and stop rule; the frame is returned junk-last at ``level_widths`` with prefix masks -- the
-    structure of the frame ``ut3_orthogonal_representations`` gives a point padded to that level, so a Newton step
-    from it compiles nothing new. ``hint``: a ``UniformTuckerTensorTrain`` with ``x_old``'s padded ``N`` (projected
-    by ``utv_project_ut3_onto_tangent_space``), else ``project(frame_data, hint)`` on the raw block-layout frame.
-    Movements are a fixed-length ``(max_passes,)+C`` record, NaN after the last pass (a NaN movement is not told apart
-    from an unrun pass). ``use_jit=True`` runs the WHOLE loop as one ``jax.jit`` (numpy inputs are converted); a
-    custom ``project`` must then be traceable and module-level.
+    **Purpose, method, fixed point, properties** are those of the ragged twin, whose docstring explains them; the user
+    guide is :doc:`/aligned_padded_frame`. In short, it biases the new directions of every rank store toward the hint's tangent
+    projection. It does so by a fixed-point iteration (oversampled passes, a truncating pass, then two-colour
+    ``('UL', 'RO')`` pairs).
+
+    At a fixed point, every store's completion spans the leading new directions of its own content, given the other
+    stores' completions, so one more pass moves nothing. The completions are then a stationary point of the captured
+    hint energy ``‖Π_{T(F)} hint‖²`` (proved for matrices, measured on T3s) but generally not a maximum of it: rotating
+    one store's completion alone never lowers that energy and generically raises it at second order. In measurements on
+    small trees, they are a strict local maximum of the cone merit, one of many.
+
+    The hint-free start depends on the representation, slot signs included, and the aligned output does not, to ``tol``.
+
+    **What is uniform about it.**
+
+    - Internally every rank slot is ``[old block | new block]`` (block layout): the old frame as its masks give it
+      (gappy patterns are fine), then the completions. :py:meth:`UT3Frame.padded` returns that layout and its split.
+      This function returns the frame COMPACTED to ``level_widths``: real slots first, prefix masks. That is the
+      structure of the frame ``ut3_orthogonal_representations`` gives a point padded to that level, so Newton can
+      start from it without recompiling. ``level_widths=None`` uses ``ufv_frame_widths(x_old.N, max target Tucker
+      rank, max target TT rank)``.
+    - ``hint``: a ``UniformTuckerTensorTrain`` with ``x_old``'s padded ``N`` (``utv_project_ut3_onto_tangent_space``).
+      Otherwise pass ``project(frame_data, hint)``, which receives the raw block-layout frame data and returns raw
+      variation data.
+    - Target ranks may vary per stack element.
+    - Returns ``(frame, movements)``: the aligned ``UT3Frame`` at the level's widths, and **the movement record**, a
+      fixed-length ``(max_passes,)+C`` array, NaN after the last pass. The record cannot tell a NaN movement (which
+      never stops the loop) from an unrun pass.
+
+    **Jit.** ``use_jit=True`` runs the WHOLE loop -- the start, every pass, the projections and the compaction -- as one
+    ``jax.jit`` program. It compiles once per structure (about 9 s at d = 6 and d = 24); ``tol`` and the hint's
+    arrays are traced, so new values do not recompile. A custom ``project`` must then be traceable and module-level
+    (the library's projections and the optimizers' misfit gradient are). numpy inputs are converted to jax. Without
+    ``use_jit``, jax inputs run eagerly: their first run at a new structure compiles hundreds of operations and adds
+    thousands of process memory mappings (see the ragged twin and the user guide). Pass ``use_jit=True`` for jax.
 
     Examples
     --------
+    The two layers' hint-free starts generally differ (their orthogonal representations can pick different slot
+    signs), yet the uniform loop reaches the ragged loop's fixed point, with the same captured energy:
+
     >>> import numpy as np
     >>> import t3toolbox.tucker_tensor_train as t3
     >>> import t3toolbox.uniform_tucker_tensor_train as ut3
     >>> import t3toolbox.uniform_frame_variations_format as ubv
+    >>> import t3toolbox.frame_variations_format as bvf
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.uniform_manifold as ut3m
     >>> np.random.seed(0)
-    >>> x_old = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((5, 6, 5), (2, 2, 2), (1, 2, 2, 1)))
-    >>> hint = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((5, 6, 5), (5, 6, 5), (1, 5, 5, 1)))
-    >>> F, movements = ubv.ufv_aligned_padded_frame(x_old, (3, 4, 3), (1, 3, 3, 1), hint, tol=1e-6, max_passes=60)
-    >>> F.masks.up_mask.sum(axis=-1).tolist(), movements.shape
-    ([3, 4, 3], (60,))
+    >>> shape, old, target = (5, 6, 5, 6), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((3, 4, 4, 3), (1, 3, 4, 3, 1))
+    >>> x_old = t3.TuckerTensorTrain.randn(shape, *old)
+    >>> hint = t3.TuckerTensorTrain.randn(shape, (5, 6, 5, 6), (1, 5, 25, 6, 1))
+    >>> ux_old, uhint = ut3.UniformTuckerTensorTrain.from_t3(x_old), ut3.UniformTuckerTensorTrain.from_t3(hint)
+    >>> UF, movements = ubv.ufv_aligned_padded_frame(ux_old, *target, uhint, tol=1e-10, max_passes=300)
+    >>> F, _ = bvf.fv_aligned_padded_frame(x_old, *target, hint, tol=1e-10, max_passes=300)
+    >>> uniform = float(ut3m.UNIFORM_MANIFOLD.norm(ut3m.UNIFORM_MANIFOLD.project_ambient(UF, uhint)))
+    >>> ragged = float(t3m.MANIFOLD.norm(t3m.MANIFOLD.project_ambient(F, hint)))
+    >>> bool(abs(uniform - ragged) < 1e-8 * ragged)
+    True
+
+    The record: one entry per pass run, NaN after; the last pair below ``tol``:
+
+    >>> ran = movements[~np.isnan(movements)]
+    >>> movements.shape, len(ran) < 300, bool(np.all(ran[-2:] < 1e-10))
+    ((300,), True, True)
     """
     old = _old_frame_data(x_old, sharing, 'ufv_aligned_padded_frame')
     if project is None:

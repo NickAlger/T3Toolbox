@@ -131,6 +131,12 @@ device was default then — a constant built during a CPU call would be reused o
 `maxsize=None` it is pinned for the process lifetime. Building the array inside the body instead
 costs nothing (it is traced once and folded into the jaxpr) and removes the whole class of problem.
 
+A related pattern, not a precedent: the uniform aligned loop's whole-loop jit
+(`backend.uniform_padded_frames._ufv_aligned_loop_kernel`) binds its statics to its loop bodies with one
+`functools.partial` *inside* the single jit, where every binding is traced once per compile and no fresh object
+reaches a cache key. That binding is accepted in this instance only and sets no precedent for other loop bodies;
+new bodies follow principles 1–4.
+
 A second, quieter hazard: a factory parameter whose value varies with the data is not *incorrect* —
 `lru_cache` will key on it happily — but it grows the cache and the compile count without bound, one
 specialization per distinct value. Keys should be structural.

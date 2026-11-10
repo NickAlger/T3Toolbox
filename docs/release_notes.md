@@ -5,6 +5,12 @@ The full changelog is reproduced below, newest first; the format follows
 then a minor number that increments with each release of that year). Start with the upgrade notes if
 you are moving an existing codebase forward.
 
+## Upgrading from 2026.3.0
+
+Nothing breaks: every addition is opt-in, and no default changes. To try the aligned start in a rank continuation,
+pass the previous level's point to `newton_cg(..., padded_from=x_old)`, and consider `g0_reference='cone'` with
+`gtol_rel=1e-4`. With jax arrays, also pass `use_jit=True`. See [`aligned_padded_frame.md`](aligned_padded_frame.md).
+
 ## Upgrading from 2026.2.0
 
 Most code runs unchanged; the exact Hessian is opt-in (`newton_cg(..., hessian='exact')`, Gauss-Newton stays

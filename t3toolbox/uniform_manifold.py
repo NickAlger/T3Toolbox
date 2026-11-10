@@ -157,7 +157,8 @@ class UT3Tangent(common.ExplicitEquality):
         """One alignment step of this tangent's block-layout padded frame: the uniform twin of
         :py:meth:`~t3toolbox.manifold.T3Tangent.align_padded`. The old blocks are the leading ``split = (Na, Rb)``
         slots (:py:meth:`~t3toolbox.uniform_frame_variations_format.UT3Frame.padded` returns it); the new blocks come
-        out real-first at the output counts' widths.
+        out real-first at the output counts' widths. It works on block-layout frames only, where the old blocks are
+        the leading slots; a compacted frame (the loop twin's output) has no split. See :doc:`/aligned_padded_frame`.
 
         Examples
         --------
