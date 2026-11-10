@@ -60,7 +60,19 @@ jax workers reach 3-4 GB each), for the implementer, the reviewer and the sessio
 `Problem.local_model(frame=)`; `_misfit_gradient_at`; public `padded_start`; 14 `newton_cg` keywords + `use_jit`
 forwarded; `'cone'`) -> N8 DONE (commit after 3054a0a6; review APPROVE, 2 NITs: a decorator for the twelve `addCleanup` lines,
 the wrong-N message for stacked uniform hints; T15 in ONE file `tests/test_aligned_padded_frame_frontend.py`; a
-structurally-zero `padded_from` passes through uncanonicalized) -> THIRD REVIEW STOP WITH NICK (pending). FINDING FOR N9's
+structurally-zero `padded_from` passes through uncanonicalized) -> THIRD REVIEW STOP DONE (Nick 2026-11-10: 1. eager-jax risk = DOCUMENTATION ONLY, no warning; 2-4 OK). NICK'S
+N9 REQUIREMENT -- the frontend aligned-loop docstrings (both layers) get real content: the PURPOSE (bias a frame's
+completion toward a hint); a BRIEF method summary (a fixed-point iteration on projections: each pass fills the missing
+basis at every store from the hint's projection given the other stores' current completions; two-colour UL/RO ordering
+after truncation); WHAT the iteration solves (the Galerkin-type / merit-function statement: the fixed point is a
+stationary point of the captured hint energy ||Pi_T(F) g||^2 over the completions -- state precisely what holds and
+demonstrate it); PROPERTIES (many local maxima; no global guarantee; representation dependence of the hint-free start,
+loop output representation-independent to tol); an OVERVIEW of the parameters (oversampling + oversampled passes,
+max_passes, tol, alternate = the two-colour switch, use_jit, max_passes=0); a LINK to the user doc in docs/ for details.
+DOCTESTS that illustrate the properties: (a) the fixed-point / Galerkin property holds at convergence (e.g. one more
+pass moves nothing; the per-store completion equals the leading directions of its content); (b) oversampling on vs off
+at the SAME small pass count -- the oversampled run captures more / has less error. Doctests must be platform-stable
+(structural facts or inequalities, not printed floats). FINDING FOR N9's
 "jit or eager" section: each eager-jax alignment at a new structure compiles hundreds of executables and adds
 8,000-9,500 process memory mappings; an eager-jax rank continuation aligning at every level could pass vm.max_map_count
 (65,530) after ~7 levels and abort (`LLVM ERROR: Unable to allocate section memory!`, the failure
