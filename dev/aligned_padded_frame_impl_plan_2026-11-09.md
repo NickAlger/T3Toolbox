@@ -2,7 +2,9 @@
 
 > **Status: APPROVED BY THE CRITIC (reviews r4 and r6, 2026-11-09) after five writer rounds
 > (`dev/aligned_padded_frame_plan_review_r{1,...,6}.md`). Rounds 4–5 (CHANGES 4.1–5.3) folded in the Newton
-> measurement (§0, §2.3, §11) and zero alignment passes (D-38). Awaiting Nick's and the session's review.** Then implementation
+> measurement (§0, §2.3, §11) and zero alignment passes (D-38). Rounds 6–7 (no critic round, factual or Nick's
+> decision): the stores skip rule, the text cycle case, the higher-rank measurement (CHANGES 6.x); jit under user
+> control and the pair stop rule (D-39, CHANGES 7.x).** Then implementation
 > slice by slice (§8) with an implementer/reviewer pair at extra-high effort. Every agent first reads a handful of
 > `TuckerTensorTrain` / `UniformTuckerTensorTrain` methods and the backend functions they trace to
 > (`docs/contributor/signature_style.md`, `naming_rules.md`). Those modules are the only allowable precedent for code shape.
@@ -98,6 +100,10 @@
 | 6 | 1 | orchestrator (from N3) | The oversampled phase is skipped when the working and target STORES match (`compute_orthogonal_representation_ranks` of each), not the ranks: the `+p` ranks can reduce to the target's stores near the boundaries. As implemented in N3; the reviewer verified on 40,000 random structures that the two rules never disagree where it matters. The uniform loop (N6) uses the same rule | §2.3, §4.3, §4.6, T6 |
 | 6 | 2 | orchestrator (from N3) | The cycle case is a Python module of float literals (`tests/backend/_padded_frame_cycle_case.py`, checked bitwise against the source), because the repository forbids binary fixtures (`*.npz` is git-ignored). N3's review-stop clarification: T16 dispatch rows for every public backend function, host loops included | T4, T16, §8 N3, App. A |
 | 6 | 3 | orchestrator (the higher-rank Darcy measurement) | Added to §2.3 and §11. Capture fractions at 1→6 … 16→21. Newton at 11 → 16: the aligned start with ≥ 10 passes cuts Newton by about 40 % and CG by about 2.4× against both other starts; 4 passes do not, which supports the cap of 10. §0 and §10 updated for consistency: the alignment's Newton value appears with rank on the laptop ladder | §0, §2.3, §10, §11 |
+| 7 | 1 | Nick 2026-11-10 (via the orchestrator) | **Jit is under the user's control (D-39).** Backend functions stay eager; `use_jit=False` on both loops, the members, `padded_start` and the frontend twins. Ragged: a host loop around a memoized jitted step (static: old ranks, output ranks, `sharing`, `update`). Uniform: the whole loop as one `jax.jit` (`fori_loop`, a truncating call, a `(UL, RO)` `while_loop`, the compaction; static cap; `tol` and the hint traced; `project` traceable). "One jitted kernel" becomes "a jittable kernel, jitted only under `use_jit`". The measured reason (932 eager compilations, ~22 s at d = 4, against one ~2 s compile) is recorded in §2.3. `newton_cg`'s `use_jit` governs both CG and the alignment | §2.3, §3.1(6), §3.4, §3.5, §4.3, §4.4, §4.6, §5.1, §5.3, §5.5, §5.6, §5.7, D-20, D-34, D-39 |
+| 7 | 2 | writer, from (2) | **The pair stop rule.** A `while_loop` body of one `'UL'` then one `'RO'` pass cannot stop between them without a parity `cond`. So both layers stop only after a `(UL, RO)` pair, and an odd remainder runs one final `'UL'` under a cond on the STOP FLAG (not parity), keeping `max_passes` reachable. N3's per-pass rule changes in the follow-up slice N3b, so eager, jitted and cross-layer runs agree pass for pass. The uniform movements become a fixed-length NaN-padded array in both modes | §2.3, §8 N3b, T6, T12, D-36 |
+| 7 | 3 | writer, from (3) | `gradient_descent` has no `use_jit` (eager only, by design), so there is nothing to forward and its cone reference runs eagerly. This departs from the request's "likewise"; stated in §3.5, §7 and D-39 | §3.5, §7, D-39 |
+| 7 | 4 | Nick 2026-11-10 | Docs: a "jit or eager" user-doc section (the rule, the figures). Tests: T6 / T12 eager = jit; T13 compile counts (ragged jitted step ≤ 4 programs; uniform whole loop ONCE per structure, `tol` traced); T14(i), the problem's gradient inside the uniform whole-loop jit (**not verified** before it). Slices: N3b (ragged `use_jit`, pair rule), N6 (uniform whole-loop jit) | §6, §7, §8 |
 | 2 | 10 | critic r2 NIT 10–15 | Return tuples expanded one element per line. `_frame_theta` named correctly. The loop defaults are named once (`ALIGN_*` in `padded_frames.py`) and referenced everywhere; `padded_start` takes `None` and forwards only what is set. T18 builds the graph on module files. "`oversampled_passes` is then ignored" added. D-18 gains a bracketed gloss | §2.3, §3.5, §5, T18, D-18 |
 
 ## 0. Why, in one page
@@ -310,19 +316,30 @@ of its group, except `*_seed`, raises (D-33, D-38).
     F_0 = the start (§2.4) at the working ranks
     pass it = 0 .. n_over-1  : F <- step(F, project(F, hint)) at the working ranks, update 'ULRO'
     pass it = n_over         : the same, OUTPUT AT THE TARGET RANKS (truncating when working ≠ target), 'ULRO'
-    pass it > n_over         : alternate=True:  'UL' when (it − n_over) is odd, 'RO' when even
-                               alternate=False: 'ULRO'
-    stop after pass it when
-        alternate=True:  it > n_over and the movements of passes it−1 and it are both below tol
-                         (at it = n_over+1 the pair is the truncating pass and the first 'UL' pass)
-        alternate=False: it ≥ n_over and the movement of pass it is below tol
-        or it + 1 = max_passes
+    then, alternate=True:  PAIRS of passes ('UL' then 'RO') while a whole pair fits under max_passes;
+                           stop after a pair when both of its movements are below tol;
+                           if the cap leaves one pass slot and the loop has not stopped: one final 'UL' pass
+          alternate=False: single 'ULRO' passes while under max_passes; stop after a pass whose movement is below tol
     return F, (movement of every pass)
 
+**The pair rule (r7, D-39).** It makes the uniform whole-loop jit a `while_loop` whose body is one `'UL'` pass then
+one `'RO'` pass, with no `lax.cond` on parity, and the ragged loop follows it too, so the layers agree pass for pass.
+It changes the r1 rule (a stop test after every pass, the first pair being the truncating pass and the first `'UL'`)
+in two ways:
+
+- the stop is tested only on `(UL, RO)` pairs;
+- an odd remainder is used by one final `'UL'` pass, run only if the loop has not stopped. This is a test on the stop
+  flag, not on parity, so `max_passes` passes are still reached when nothing stops early.
+
+N3's ragged loop is adjusted in its follow-up slice. With the defaults (p = 5 for 2 passes, cap 10), the passes are:
+2 oversampled, 1 truncating, 3 pairs, and the final `'UL'`.
+
 The movement of a pass is its maximum over edges, and the stop compares the maximum over the stack too (D-13).
-When the target stores equal the old stores, there is nothing to complete. The loop returns an empty tuple of
-movements, without a pass. The ragged loop returns the old frame. The uniform loop returns
-`ufv_compact_frame(old_frame_data, level_widths)`, so its return contract (level widths, prefix masks) holds.
+When the target stores equal the old stores, there is nothing to complete: the loop runs no pass. The ragged loop
+returns the old frame and an empty tuple of movements. The uniform loop returns
+`ufv_compact_frame(old_frame_data, level_widths)`, so its return contract (level widths, prefix masks) holds, and
+movements all NaN. **The uniform movements are a fixed-length `(max_passes,)+C` array, NaN after the last pass, in
+both modes**, because the jitted loop needs a static shape (D-36, D-39).
 
 **The cap counts the truncating pass.** If `oversampled_passes ≥ max_passes ≥ 1`, then `n_over = max_passes − 1`,
 so the last pass truncates. This departs from the prototypes, which ran an extra truncating pass.
@@ -335,7 +352,7 @@ padded frame.
 - Through `newton_cg`, `gradient_descent` and `padded_start`, `padded_max_passes=0` / `cone_max_passes=0` (or
   `max_passes=0`) together with an explicitly set `*_oversampling`, `*_oversampled_passes`, `*_tol` or `*_alternate`
   is a structural error. The message names the fix: remove the option, or set a positive pass count.
-- `project` is never called and `hint` is never read; movements are an empty tuple.
+- `project` is never called and `hint` is never read; movements are empty (ragged: `()`; uniform: shape `(0,)+C`).
 - The uniform loop compacts the start to `level_widths` as usual.
 - With target stores equal to the old stores, it is the no-op return below, which is the same thing.
 
@@ -343,7 +360,8 @@ padded frame.
 
 - `max_passes = 1` with working ≠ target runs one truncating pass from the working start (`n_over = 0`);
 - `max_passes = 1` with working = target runs one `'ULRO'` pass at the target;
-- the stop rule is never reached at `max_passes ≤ 1`.
+- `max_passes = 2` with working = target runs the `'ULRO'` pass, then the final `'UL'` (one slot left, no pair);
+- the stop rule is never reached at `max_passes ≤ 2`.
 
 **`project(frame, hint) -> variations`** must be the orthogonal projection of ONE fixed tensor onto the tangent space
 at `frame`. Library choices: `tv_project_dense_onto_tangent_space`, `tv_project_t3_onto_tangent_space`,
@@ -368,6 +386,7 @@ only from the fourth pass on. Acceptance (N10) runs the shipped default.
 | At d = 24 with a near-tied hint spectrum, the defaults do not converge in 10 passes in either layer | `P/check_uniform_loop.py` |
 | Uniform loop = ragged loop on generic hints: same pass counts, movements ≤ 2e-14, spans ≤ 3.7e-14. With rank-deficient content during oversampling, the layers' movements differ by 2e-2 (those completions are a choice); they agree to 3e-15 from the truncating pass on | `P/check_uniform_loop.py`, `P/check_uniform_groups.py` |
 | Newton from each start on the Darcy ladder: the table below | `g06_aligned_frame.py` (`PART=newton`) |
+| **Eager jax is costly on first call; jit is under the user's control (D-39).** The ragged step's first EAGER call on jax arrays at d = 4 issues 932 op-by-op compilations (einsum 290, dynamic_slice 172, moveaxis 98, concatenate 84, reshape 48, subtract 42), about 22 s, then 0.16 s on the second call. Jitted, it is one ~2 s compile. The uniform whole loop under one `jax.jit` compiles in about 6 s at d = 6 and at d = 24 | measured at N3 (session); `P/check_uniform_loop.py` part E |
 
 So: the pass cap is the effective stop, and the tolerance is an early exit. The `'cone'` reference is "the value
 after the default schedule", deterministic given the seed (D-7).
@@ -516,7 +535,18 @@ one more projection. This is like-for-like with the gradient norms the stopping 
    - Every scan body is module-level and closure-free. Statics come from operand shapes (e.g. `Kb = o.shape[-1]`,
      `Rb = rT − Kb`) or from an `lru_cache` factory keyed on hashable ints and bools (`scan_body_principles.md`
      §2, §4), never on arrays.
-   - The uniform step runs through one module-level jitted kernel with explicit statics (§3.4, D-34).
+   - **Jit is under the user's control (D-39), as everywhere in the library.** Backend functions stay eager, and a
+     `use_jit: bool = False` keyword on the two loops selects jit (the `newton_cg` / `mc_sgd` / `adam` precedent).
+     Nothing jits unless asked.
+     - Ragged, `use_jit=True` with jax inputs: the HOST loop calls a memoized module-level jitted step (an
+       `lru_cache`d getter in `padded_frames.py`, the `_jitted` pattern). Its static arguments are the old ranks,
+       the output ranks, `sharing` and `update`, so a level compiles two to four step programs and nothing
+       recompiles across passes. The ragged loop is never jitted as a whole: its per-mode Python loops would unroll.
+     - Uniform, `use_jit=True`: the WHOLE loop is one `jax.jit` (§3.4).
+     - The uniform step is a JITTABLE module-level kernel with explicit statics (§3.4, D-34), jitted only under
+       `use_jit` (inside the whole-loop jit).
+     - The reason is measured (§2.3): an eager first step at d = 4 is about 22 s of op-by-op compilation against
+       one ~2 s compile jitted.
    - The uniform loop returns its frame at the level's padded widths, so the first Newton step compiles nothing new.
 
 ### 3.2 Modules and layering
@@ -612,7 +642,7 @@ mask:
   - structural: equal A-block up masks within each group.
 - Transported stores use `Y⊥ = (I − ĀĀᵀ) g_old`.
 - The output P-block widths are the maxima of the output counts (≤ the input widths; structural).
-- **Jit boundary (D-34).** The public function prepares all host data on the host, in forms `partition_static`
+- **The kernel and its statics (D-34, D-39).** The public function prepares all host data on the host, in forms `partition_static`
   keeps static:
   - every host-derived mask as a host BOOL array: the output P-masks (the counts' prefixes), the per-group A-masks,
     the edge row masks, and the one-hot selections;
@@ -620,15 +650,38 @@ mask:
     integer numpy array is traced by `partition_static` (`common._is_static_leaf`), so no host integer array crosses
     the boundary.
 
-  `partition_static` then splits `(frame_data, variations_data, host data)`, and the function calls ONE module-level
-  kernel `_utv_align_kernel(dynamic, skeleton, split, update)`. Inside the kernel the tuples become `np` index
-  arrays at trace time (host constants for the gathers).
-  - On numpy the kernel runs directly.
-  - On jax it runs through `_jitted_align_kernel()`, an `lru_cache`d module-level getter in
-    `uniform_padded_frames.py` that returns `jax.jit(_utv_align_kernel, static_argnums=(1, 2, 3))`.
-    `optimizers._jitted` is private to `backend/optimizers.py`, which this module must not import.
-  - The static arguments are `skeleton` (a value-hashed `StaticSkeleton`), `split` (an int tuple) and `update` (a
-    str). A pass at an already-seen structure therefore compiles nothing.
+  `partition_static` then splits `(frame_data, variations_data, host data)`. The function calls ONE **jittable**
+  module-level kernel `_utv_align_kernel(dynamic, skeleton, split, update)`, jitted only under `use_jit` (D-39).
+  Inside the kernel the tuples become `np` index arrays at trace time (host constants for the gathers).
+  - The public step function, and the uniform loop with `use_jit=False`, call the kernel EAGERLY (numpy, or eager
+    jax with module-level, closure-free scan bodies: each scan compiles once per body and shape).
+  - The loop with `use_jit=True` calls it inside the whole-loop jit below. Its statics are fixed at trace time:
+    `skeleton` (a value-hashed `StaticSkeleton`), `split` (an int tuple) and `update` (a str).
+- **The whole-loop jit** (`ufv_aligned_padded_frame(..., use_jit=True)`, D-39; prototyped in `P/uniform_loop.py`:
+  about 6 s of compile at d = 6 and 24). One module-level `_ufv_aligned_loop_kernel`, under an `lru_cache`d
+  `jax.jit` getter in `uniform_padded_frames.py`. `optimizers._jitted` is private to `backend/optimizers.py`, which
+  this module must not import.
+  - **Static arguments:** the old frame's skeleton (masks, `shape`); the hint's static part via `partition_static`;
+    `project` (a module-level function, hashed by identity); the per-element counts as host bool masks; the split;
+    `level_widths`; `sharing`; `oversampling`, `oversampled_passes`, `max_passes` (the cap is static); `alternate`;
+    `seed`.
+  - **Traced:** the old frame's supercores, the hint's arrays (and registered pytrees, such as the `Problem` in
+    `_misfit_gradient_at`'s hint), and `tol` (a value that may change between calls belongs in the state;
+    `scan_body_principles.md` §5).
+  - **Body:**
+    1. the start;
+    2. a `lax.fori_loop` for the oversampled passes, at the working shapes;
+    3. one truncating call;
+    4. a `lax.while_loop` for the target phase. Its body runs one `'UL'` pass then one `'RO'` pass, so there is no
+       `lax.cond` on parity, and its state carries the pass counter. The stop test is on the iteration's pair.
+       `alternate=False` uses a one-pass `'ULRO'` body;
+    5. the final `'UL'` pass for an odd remainder, under `lax.cond` on the stop flag (§2.3);
+    6. the compaction.
+  - **Returns** the frame and the `(max_passes,)+C` movements, NaN after the last pass.
+  - **`project` must be traceable** under `use_jit=True`. The library's projections are traceable; the problem's
+    gradient (`_misfit_gradient_at`) is designed to be, and is **not verified** inside a whole-loop jit (the
+    prototype jitted the loop with `utv_project_ut3_onto_tangent_space` only); T13 / T14 test it.
+  - The eager and jitted paths are tested for equality (same pass counts, frames to 1e-12; T12, T13).
 
 **Start** (`ufv_padded_frame`).
 
@@ -663,7 +716,8 @@ mask:
 
 **Loop** (`ufv_aligned_padded_frame`).
 
-- The ragged schedule (§2.3), as a host loop (D-20). `project` is called at block-layout frames.
+- The schedule of §2.3, as a host loop by default, or as one jitted program under `use_jit=True` (D-20, D-39).
+  `project` is called at block-layout frames.
 - The library's `utv_project_ut3_onto_tangent_space` accepts gappy block-layout frames, verified at 5e-16
   (`P/check_uniform_loop.py`). It requires the hint's padded `N` to equal the frame's.
 - **Not verified:** the uniform kinds' `precompute` / `transpose` at block-layout frames (the uniform
@@ -696,8 +750,8 @@ through their `groups`.
   no rank structure. Uniform: `from_frame(frame_data, (frame_data[5][0], frame_data[5][2]))` with this geometry's
   `groups`. The plain masks are the frame's own up and left masks, gappy at block-layout frames, as
   `uniform_fitting._frame_theta` reads them.
-- `aligned_padded_frame(x0, x_old, project, hint, oversampling, oversampled_passes, max_passes, tol, alternate, seed)`
-  runs the layer's loop.
+- `aligned_padded_frame(x0, x_old, project, hint, oversampling, oversampled_passes, max_passes, tol, alternate, seed,
+  use_jit)` runs the layer's loop, passing `use_jit` through.
   - Target ranks: from `x0`'s core shapes (ragged) or `self.masks` (uniform).
   - Old frame from `x_old`'s own data. One rule in both members: `x_old` is **structurally zero** when ANY Tucker
     rank or ANY interior TT rank is 0, read off the core shapes (ragged) or the mask sums (uniform). The test is per
@@ -750,6 +804,9 @@ through their `groups`.
 - A geometry without the member raises `ValueError` naming it (corewise geometries; custom geometries).
 - Every option defaults to `None` and is forwarded only when set, so the member's `ALIGN_*` / `ZERO_FRAME_SEED`
   defaults apply. The optimizer layer cannot import `padded_frames`.
+- `use_jit: bool = False` is forwarded to the member and so to the loop (D-39). On the uniform layer with
+  `use_jit=True`, `_misfit_gradient_at` runs inside the whole-loop jit: the `Problem` is a registered pytree, so its
+  arrays are traced and its kind and geometry are static aux. **Not verified** in the prototypes; T14(i).
 - `max_passes=0` (D-38) returns the hint-free start at the target. The residual is still formed, one forward, so
   there is one code path; it is never projected.
 - Its doctest shows the route for a frontend user who wants a problem's aligned frame without running Newton:
@@ -765,11 +822,15 @@ through their `groups`.
 
 **`newton_cg`.**
 
-- `padded_from=x_old` → `start_frame = padded_start(problem, x0, x_old, padded_*)[0]`.
+- `padded_from=x_old` → `start_frame = padded_start(problem, x0, x_old, padded_*, use_jit=use_jit)[0]`.
+- **One flag:** `newton_cg`'s existing `use_jit` governs both the CG core and the alignment (the padded start and the
+  cone), as its keyword doc states. No new keyword.
+- `gradient_descent` has no `use_jit` (eager only, by design: "the reference implementation of the backend-first
+  stack"), so its cone reference runs the loop eagerly.
 - `start_frame=F` → the iteration-0 model is `problem.local_model(x0, frame=F, …)`; a rejected trust-region trial
   keeps it, as today.
 - `'cone'` → `_resolve_g0_reference`:
-  - runs `padded_start(problem, x0, None, cone_*)`;
+  - runs `padded_start(problem, x0, None, cone_*, use_jit=use_jit)`;
   - reports `sqrt(inner(g, g))` with `g = _misfit_gradient_at(F, (problem, r0))` and `inner` from
     `problem.geom.with_frame(F)`;
   - it is not computed when `g0norm_newton` is given (as `'zero'`). `g0_reference='cone'` itself stays legal then,
@@ -778,23 +839,24 @@ through their `groups`.
 - **Stats** (D-27). With no new keyword, the whole `stats` dict is bit-identical (the five keys pinned at
   `tests/backend/test_optimizers.py:477, :860`). Otherwise:
   - `stats['start_frame'] = 'given' | 'padded'`;
-  - `stats['start_movements']` (padded only; a tuple of floats);
+  - `stats['start_movements']` (padded only; a tuple of floats, one per pass run; the uniform array's NaN tail
+    dropped);
   - `stats['cone_movements']` (`'cone'` only);
   - history rows carry `g0_reference='cone'` (an existing field, a new value, only when requested).
 - `NewtonInfo` is unchanged. Iteration 0's `gnorm` is the start's frame-gradient norm.
 
-**Compile accounting per level (host loops, uniform jax; all fixed, none repeated).** Not measured in the library;
-T13 counts it.
+**Compile accounting per level (jax inputs; all fixed, none repeated; D-39).** T13 counts it.
 
-- Step-kernel programs:
-  - `'ULRO'` at the working structure;
-  - `'ULRO'` truncating;
-  - `'UL'` and `'RO'` at the target structure;
-  - the same four again for `'cone'`, whose A-block widths differ (`Na = 0`, `Rb = 1`).
-- Gradient programs (eager kind/geometry code) at the working and target block widths, and again for `'cone'`.
-- The start and the compaction: eager, no scan.
-- The compacted start frame compiles nothing new for the first Newton step. Gradient-based loops are out of scope
-  (D-2).
+- `use_jit=False` (default): everything eager. jax's per-operation caches fill on the first pass, at a cost: an
+  eager first step at d = 4 is about 22 s, 932 op-by-op compilations (§2.3). Module-level scan bodies compile once
+  per body and shape. Nothing repeats across passes or levels of the same structure.
+- `use_jit=True`, ragged: two to four jitted step programs per level (`'ULRO'` working, `'ULRO'` truncating, `'UL'`,
+  `'RO'`), about 2 s each at d = 4. The same again for `'cone'` (other old ranks). The projection runs eagerly in
+  the host loop.
+- `use_jit=True`, uniform: ONE whole-loop program per level (about 6 s at d = 6 and 24), containing the start, every
+  pass, the projections and the compaction. One more for `'cone'` (other A-block widths: `Na = 0`, `Rb = 1`).
+- Either way the compacted start frame compiles nothing new for the first Newton step. Gradient-based loops are out
+  of scope (D-2).
 
 ### 3.6 Frontend twins (D-8, D-9, D-35)
 
@@ -986,7 +1048,9 @@ module-level), shared with the uniform start.
 1. `working = ranks.oversampled_ranks(shape, target, p, sharing)`. The oversampled phase is skipped when the working
    and target STORES match (§2.3); then the start is built at the target.
 2. The start at the working ranks.
-3. Every pass: one call of `project`, then one step. Old ranks come from the old frame's `(up, left)` widths.
+3. Every pass: one call of `project`, then one step. Old ranks come from the old frame's `(up, left)` widths. With
+   `use_jit=True` and jax inputs, the step is the memoized jitted step (static: old ranks, output ranks, `sharing`,
+   `update`); the host loop and `project` stay eager (D-39).
 4. Returns the movements as a tuple (each `C`).
 
 ### 4.4 Uniform step `utv_align_padded_frame`
@@ -1008,7 +1072,8 @@ module-level), shared with the uniform start.
 - **Groups** via host tables.
 - **Carriers.** The A-blocks of `L_{d−1}` and `R_0`, masked and zero-padded to the output widths.
 - **Output masks.** The A-block masks as given, followed by `prefix_mask(k¹, Ka1 | Kb1)`.
-- **Jit boundary.** All of the above runs inside `_utv_align_kernel` (D-34).
+- **Kernel.** All of the above runs inside `_utv_align_kernel`: jittable, and jitted only under `use_jit` (D-34,
+  D-39).
 
 ### 4.5 Uniform start `ufv_padded_frame`, compaction `ufv_compact_frame`, empty frame `ufv_empty_frame`
 
@@ -1045,7 +1110,10 @@ module-level), shared with the uniform start.
 3. Every pass: `project(frame_data, hint)` at the block-layout frame, then `utv_align_padded_frame`.
 4. `ufv_compact_frame(·, level_widths)` at exit. When there is nothing to complete (target stores = old stores), the
    loop skips steps 2–3 and returns `ufv_compact_frame(old_frame_data, level_widths)`.
-5. Returns `(frame_data, movements)`, movements as a tuple (each `C`).
+5. Returns `(frame_data, movements)`, with movements a `(max_passes,)+C` array, NaN after the last pass.
+6. With `use_jit=True`, steps 2–4 are the one jitted `_ufv_aligned_loop_kernel` of §3.4 (D-39). With
+   `use_jit=False` they are a host loop calling the kernel eagerly. Both follow the same pair schedule (§2.3), so
+   their pass counts agree.
 
 ### 4.7 The geometry members and the drivers
 
@@ -1123,6 +1191,7 @@ def fv_aligned_padded_frame(
         tol:                 float = ALIGN_TOL,                  # early exit on the movement
         alternate:           bool  = ALIGN_ALTERNATE,            # two-colour passes after the truncating pass
         seed:                int   = ZERO_FRAME_SEED,            # the start's Haar stream
+        use_jit:             bool  = False,                      # jax inputs: the host loop calls a memoized jitted step (D-39); else eager
 ) -> typ.Tuple[
     FrameData,                 # the aligned padded frame at the target ranks
     typ.Tuple[NDArray, ...],   # movements, one per pass, each shape=C
@@ -1203,19 +1272,20 @@ def ufv_aligned_padded_frame(
         tucker_ranks:        typ.Union[typ.Sequence[int], NDArray],   # len=d or HOST int (d,)+C, target
         tt_ranks:            typ.Union[typ.Sequence[int], NDArray],   # len=d+1 or HOST int (d+1,)+C, target
         hint:                typ.Any,                                 # opaque: handed to `project` unread
-        project:             typ.Callable,                            # project(frame_data, hint) -> UVariationsData (or the bare (V, H) pair)
+        project:             typ.Callable,                            # project(frame_data, hint) -> UVariationsData (or the bare (V, H) pair); traceable and module-level under use_jit
         level_widths:        typ.Tuple[int, int, int, int],           # (WU, WD, WL, WR): the compaction widths (the level's frame)
 
         sharing:             typ.Optional[typ.Sequence] = None,       # len=d group labels; None = unshared
         oversampling:        int   = ALIGN_OVERSAMPLING,              # as fv_aligned_padded_frame (constants from padded_frames)
         oversampled_passes:  int   = ALIGN_OVERSAMPLED_PASSES,
-        max_passes:          int   = ALIGN_MAX_PASSES,
-        tol:                 float = ALIGN_TOL,
+        max_passes:          int   = ALIGN_MAX_PASSES,                # static under use_jit (the movements' length)
+        tol:                 float = ALIGN_TOL,                       # traced under use_jit
         alternate:           bool  = ALIGN_ALTERNATE,
         seed:                int   = ZERO_FRAME_SEED,
+        use_jit:             bool  = False,                           # the WHOLE loop as one jax.jit (D-39); else a host loop, eager kernel
 ) -> typ.Tuple[
-    UFrameData,                # the aligned frame compacted to level_widths, prefix masks
-    typ.Tuple[NDArray, ...],   # movements, one per pass, each shape=C
+    UFrameData,   # the aligned frame compacted to level_widths, prefix masks
+    NDArray,      # movements, shape=(max_passes,)+C, NaN after the last pass (both modes)
 ]:
 
 # backend/ufv_masking.py
@@ -1267,9 +1337,10 @@ def oversampled_ranks(
             tol:                 float = ALIGN_TOL,
             alternate:           bool  = ALIGN_ALTERNATE,
             seed:                int   = ZERO_FRAME_SEED,
+            use_jit:             bool  = False,                       # passed to the loop (D-39)
     ) -> typ.Tuple[
-        typ.Tuple,                 # the aligned frame of x0 (uniform: at the widths of self.var_masks, prefix masks)
-        typ.Tuple[NDArray, ...],   # movements, one per pass
+        typ.Tuple,   # the aligned frame of x0 (uniform: at the widths of self.var_masks, prefix masks)
+        typ.Any,     # movements: ragged a tuple (each C); uniform (max_passes,)+C, NaN after the last pass
     ]:
 
     def require_frame_structure(
@@ -1310,13 +1381,14 @@ def padded_start(                                       # PUBLIC (__all__); doct
         tol:                 typ.Optional[float] = None,   # None = 0.05
         alternate:           typ.Optional[bool]  = None,   # None = True
         seed:                typ.Optional[int]   = None,   # None = ZERO_FRAME_SEED
+        use_jit:             bool = False,                 # forwarded to the loop (D-39); newton_cg passes its own use_jit
 ) -> typ.Tuple[
-    typ.Any,                   # the aligned frame of x0 (ragged frame / uniform frame .data at the level's widths)
-    typ.Tuple[NDArray, ...],   # movements, one per pass
+    typ.Any,   # the aligned frame of x0 (ragged frame / uniform frame .data at the level's widths)
+    typ.Any,   # movements, as the member returns them (ragged tuple; uniform NaN-padded array)
 ]:
 
 def newton_cg(
-        problem, x0, ..., callback=None,                       # unchanged
+        problem, x0, ..., use_jit=False, callback=None,        # unchanged; use_jit now also governs the alignment (D-39)
         *,
         start_frame:                typ.Any = None,             # a frame of x0 for iteration 0 (structurally checked)
         padded_from:                typ.Any = None,             # the old point: start_frame = padded_start(problem, x0, padded_from, padded_*)
@@ -1376,6 +1448,7 @@ def fv_aligned_padded_frame(                               # frame_variations_fo
         tol:                 float = ALIGN_TOL,
         alternate:           bool  = ALIGN_ALTERNATE,
         seed:                int   = ZERO_FRAME_SEED,
+        use_jit:             bool  = False,                # jax inputs: a memoized jitted step in the host loop (D-39)
 ) -> typ.Tuple[
     'T3Frame',                 # the aligned padded frame at the target ranks
     typ.Tuple[NDArray, ...],   # movements, one per pass
@@ -1411,9 +1484,10 @@ def ufv_aligned_padded_frame(                              # uniform_frame_varia
         tol:                 float = ALIGN_TOL,
         alternate:           bool  = ALIGN_ALTERNATE,
         seed:                int   = ZERO_FRAME_SEED,
+        use_jit:             bool  = False,                               # the whole loop as one jax.jit; `project` must then be traceable (D-39)
 ) -> typ.Tuple[
-    'UT3Frame',                # the aligned frame at level_widths, prefix masks (the level's frame structure for that padding)
-    typ.Tuple[NDArray, ...],   # movements, one per pass, each shape=C
+    'UT3Frame',   # the aligned frame at level_widths, prefix masks (the level's frame structure for that padding)
+    NDArray,      # movements, shape=(max_passes,)+C, NaN after the last pass
 ]:
 
 # manifold.py
@@ -1505,15 +1579,15 @@ masks, tied factors (one array), placed 0/1 seeds, gathers. Tolerances otherwise
 | T3 | same | Degenerate hints (zero, rank one, an information-free increase); structural rejections, each isolated: transport plus truncation, a bad `update`, old stores above the output stores, unequal group stores | valid frames (orthonormal, pinned, reconstructs); each a `ValueError` |
 | T4 | same (N3) | Two-colour = transport of the other stores (vs `select_pass`). The cycle regression on the 243-number case, stored as a Python module of float literals, `tests/backend/_padded_frame_cycle_case.py` (`S`, `X_old`'s cores, target ranks, seed; checked bitwise against the source `g06c_cycle_case.npz`). The repository forbids binary fixtures: `*.npz` is git-ignored, being platform- and version-dependent. all-stores cycles (movement > 0.05 at pass 200); alternating converges (movement < 1e-8) | ≤ 1e-9 per pass; as stated |
 | T5 | same | `fv_padded_frame` vs S2 outputs frozen in N1 before deletion (`tests/data/padded_frame_s2_reference.npz`, the S2 tests' cases); vs `fv_zero_point_frame` at the empty frame (unstacked); convention properties | ≤ 1e-14; TT/down equal (placed 0/1), Tucker ≤ 1e-14; outside seeds placed exactly |
-| T6 | same | `fv_aligned_padded_frame` vs the dense loop with the same schedule (two-colour via `select_pass`; p = 0 and p = 5; 40 passes). Edge cases: working stores = target stores, incl. `+p` ranks that reduce to the target's stores (no oversampled phase); `oversampled_passes ≥ max_passes` (the last pass truncates); `max_passes = 0` with p = 0 and p = 5 (the start at the TARGET ranks, equal to `fv_padded_frame(old_frame, target)` exactly since it is the same call; `project` never called, checked with a raising `project`; empty movements); `max_passes = 1` with working ≠ target (one truncating pass) and with working = target; target stores = old stores (no pass, empty movements, the old frame); the stop rule incl. the truncating-pass pair | ≤ 1e-9 per pass; pass counts as stated; movements a tuple of `C` arrays |
+| T6 | same | `fv_aligned_padded_frame` vs the dense loop with the same schedule (two-colour via `select_pass`; p = 0 and p = 5; 40 passes). Edge cases: working stores = target stores, incl. `+p` ranks that reduce to the target's stores (no oversampled phase); `oversampled_passes ≥ max_passes` (the last pass truncates); `max_passes = 0` with p = 0 and p = 5 (the start at the TARGET ranks, equal to `fv_padded_frame(old_frame, target)` exactly since it is the same call; `project` never called, checked with a raising `project`; empty movements); `max_passes = 1` with working ≠ target (one truncating pass) and with working = target; target stores = old stores (no pass, empty movements, the old frame); the PAIR stop rule (stop only after a `(UL, RO)` pair; an odd remainder runs one final `'UL'` only when not stopped); `max_passes = 2` at working = target. **Eager vs `use_jit=True`** on jax inputs (the memoized jitted step): same pass counts, frames ≤ 1e-12 | ≤ 1e-9 per pass; pass counts as stated; movements a tuple of `C` arrays; eager = jit as stated |
 | T7 | `tests/backend/test_linalg.py` | `pad_safe_pinned_completion` vs `pinned_completion` on the real block; interior pads in rows, pins and seeds; per-element `seed_mask` in a stack; offset masks (columns `t..t+k−1`); count rejection | ≤ 1e-14 on the real block (same sign rule); junk rows and unselected columns exactly 0 |
 | T8 | `tests/backend/test_uniform_padded_frame.py` | `ufv_padded_frame` vs `fv_padded_frame` through the scatter (8 cases incl. the empty frame, four old widths, groups). Exact output masks vs the independently derived `[A-mask as given | prefix(counts)]`. `ufv_empty_frame` = the scatter of `fv_empty_frame`. jit vs numpy | ≤ 1e-12; masks exact; junk exactly 0; jit ≤ 1e-12 |
 | T9 | same | `utv_align_padded_frame` vs `tv_align_padded_frame` (the T1 list incl. d = 1; two-colour; truncating). Exact output masks. Garbage robustness (clean vs dirty) | ≤ 1e-9; masks exact; clean == dirty bitwise (equal layouts) |
 | T10 | same | Stacks: C = (3,) with different ranks per element, C = (2, 2); stacked = per element (step and start in N5, loop in N6) | ≤ 1e-14 |
 | T11 | same | `ufv_compact_frame`: masks; real entries moved; junk zero; `utv_retract` of the zero tangent at the level returns X_old; `from_frame` variation masks == `from_point`'s | masks exact; gathers bitwise; ≤ 1e-12 |
-| T12 | same | `ufv_aligned_padded_frame` vs `fv_aligned_padded_frame` (defaults; tol 1e-10; the empty frame; non-minimal; p = 0; d = 2; alternate on/off), generic hints with movements away from `tol`. The no-op level (target stores = old stores) returns `ufv_compact_frame(old_frame_data, level_widths)`: prefix masks at `level_widths`, empty movements | same pass counts; movements ≤ 1e-12; spans ≤ 1e-9; the no-op's masks exact |
-| T13 | same + `tests/test_dispatch.py` | **Compile count:** an eager-jax uniform loop, d ≥ 3, ≥ 6 passes at fixed structure. After the first pass of each step variant, the step kernel's jit cache (`_cache_size()`, as the mask-pattern test) does not grow; a second loop at the same structure adds nothing. Jitted step and compaction equal numpy. First-call time at d = 6 and 24 (informational) | cache sizes as stated; ≤ 1e-12 |
-| T14 | `tests/backend/test_padded_start.py` | **Optimizer seam:** (a) `require_frame_structure` (through `local_model(frame=)` and the frontend `start_frame`) rejects, one family at a time with every other byte identical: each ragged store's shape; each uniform variation-mask family (up, down, left, right); each boundary entry (`left[d]`, `right[0]`); `shape`; a padded width. Plus a mutation check per family (deleting that comparison in the member turns the test red). It accepts the aligned frame and `geom.frame(x)`. A geometry without the member raises. (b) `newton_cg(padded_from=)` ≡ `newton_cg(start_frame=padded_start(...)[0])`. (c) G-bit: `set(stats)` and history keys unchanged without new keywords; the new keys only with them; a before/after equality of a seeded run recorded in the N7 handoff. (d) `'cone'`: deterministic given the seed; `cone_max_passes=0` (any `cone_oversampling`) equals `'zero'`; `padded_max_passes=0` starts Newton from the hint-free padded frame (the iteration-0 frame equals `fv_padded_frame(old_frame, target)` on the ragged layer and `ufv_compact_frame(ufv_padded_frame(...)[0], level_widths)` on the uniform one, ≤ 1e-14; no projection runs); zero passes with an explicitly set `*_oversampling` / `*_oversampled_passes` / `*_tol` / `*_alternate` raises in `newton_cg`, `gradient_descent` and `padded_start`, one option at a time (`*_seed` allowed); independent of `x0`'s values; corewise / no member / vanishing explicit / options without their group / `cone_*` with `g0norm_newton` raise; `'cone'` with `g0norm_newton` alone skips the loop; `gradient_descent` too. (e) **not verified before this test:** `padded_start` uniform vs ragged on `probe_derivatives`, d ≥ 3, by gauge-invariant quantities (per-pass `‖P_F g‖`, spans). (f) **not verified before this test:** a shared problem on both layers, one pass vs a dense tied-projection reference. (g1) **not verified before this test:** at a numerically full-rank `x` with a gauge-rotated frame `F` of `x` (same structure, accepted by the member), `local_model(x, frame=F, hessian='exact')` passes the `Problem.local_model` doctest's FD criterion along the retraction from `F`, and its quadratic of a matched direction equals the default frame's. (g2) **not verified before this test:** at the zero-padded `x0`, `newton_cg(hessian='exact', start_frame=F)` is finite and decreases the objective (FD is invalid there: the retraction is not first-order accurate at a numerically rank-deficient point). (h) `newton_cg(padded_from=<rank-0 tensor>)` and a partially-zero-rank `padded_from` (Tucker `(0,2,2)`, TT `(1,0,2,1)`), on both layers, through the frontend AND directly through the backend members. Both give the empty frame's start (equal to the canonical rank-0 case, ≤ 1e-14); a stack mixing zero and nonzero elements raises in the members | as stated; (d) `'cone'` = `'zero'` ≤ 1e-12 relative; (e) ≤ 1e-9 at tol 1e-10, ≤ 0.2 at the default stop; (f) ≤ 1e-9; (g1) ≤ 1e-4 relative to FD, matched quadratics ≤ 1e-10 relative; (g2) as stated |
+| T12 | same | `ufv_aligned_padded_frame` vs `fv_aligned_padded_frame` (defaults; tol 1e-10; the empty frame; non-minimal; p = 0; d = 2; alternate on/off), generic hints with movements away from `tol`. The no-op level (target stores = old stores) returns `ufv_compact_frame(old_frame_data, level_widths)`: prefix masks at `level_widths`, all-NaN movements. **Eager vs `use_jit=True`** (the whole-loop jit) on the same cases, incl. the pair rule's odd-remainder final pass and an early stop | same pass counts; movements ≤ 1e-12 (NaN at the same positions); spans ≤ 1e-9; the no-op's masks exact; eager = jit: same pass counts, frames ≤ 1e-12 |
+| T13 | same + `tests/backend/test_padded_frame.py` + `tests/test_dispatch.py` | **Compile counts** (`_cache_size()` on the memoized wrappers, as the mask-pattern test; d ≥ 3). (a) Ragged `use_jit=True`, ≥ 6 passes at fixed structure: the jitted step's cache holds at most four programs after the loop, and a second loop at the same structure adds none. (b) Uniform `use_jit=True`: the whole-loop jit compiles ONCE per structure. A second call at the same structure, with another `tol` (traced) or another hint of the same shapes, adds nothing; another `max_passes` (static) adds one. (c) Uniform `use_jit=False` on jax: no scan body recompiles across passes (module-level bodies). First-call times at d = 6 and 24, eager and jitted (informational, beside §2.3's figures) | cache sizes as stated |
+| T14 | `tests/backend/test_padded_start.py` | **Optimizer seam:** (a) `require_frame_structure` (through `local_model(frame=)` and the frontend `start_frame`) rejects, one family at a time with every other byte identical: each ragged store's shape; each uniform variation-mask family (up, down, left, right); each boundary entry (`left[d]`, `right[0]`); `shape`; a padded width. Plus a mutation check per family (deleting that comparison in the member turns the test red). It accepts the aligned frame and `geom.frame(x)`. A geometry without the member raises. (b) `newton_cg(padded_from=)` ≡ `newton_cg(start_frame=padded_start(...)[0])`. (c) G-bit: `set(stats)` and history keys unchanged without new keywords; the new keys only with them; a before/after equality of a seeded run recorded in the N7 handoff. (d) `'cone'`: deterministic given the seed; `cone_max_passes=0` (any `cone_oversampling`) equals `'zero'`; `padded_max_passes=0` starts Newton from the hint-free padded frame (the iteration-0 frame equals `fv_padded_frame(old_frame, target)` on the ragged layer and `ufv_compact_frame(ufv_padded_frame(...)[0], level_widths)` on the uniform one, ≤ 1e-14; no projection runs); zero passes with an explicitly set `*_oversampling` / `*_oversampled_passes` / `*_tol` / `*_alternate` raises in `newton_cg`, `gradient_descent` and `padded_start`, one option at a time (`*_seed` allowed); independent of `x0`'s values; corewise / no member / vanishing explicit / options without their group / `cone_*` with `g0norm_newton` raise; `'cone'` with `g0norm_newton` alone skips the loop; `gradient_descent` too. (e) **not verified before this test:** `padded_start` uniform vs ragged on `probe_derivatives`, d ≥ 3, by gauge-invariant quantities (per-pass `‖P_F g‖`, spans). (f) **not verified before this test:** a shared problem on both layers, one pass vs a dense tied-projection reference. (g1) **not verified before this test:** at a numerically full-rank `x` with a gauge-rotated frame `F` of `x` (same structure, accepted by the member), `local_model(x, frame=F, hessian='exact')` passes the `Problem.local_model` doctest's FD criterion along the retraction from `F`, and its quadratic of a matched direction equals the default frame's. (g2) **not verified before this test:** at the zero-padded `x0`, `newton_cg(hessian='exact', start_frame=F)` is finite and decreases the objective (FD is invalid there: the retraction is not first-order accurate at a numerically rank-deficient point). (h) `newton_cg(padded_from=<rank-0 tensor>)` and a partially-zero-rank `padded_from` (Tucker `(0,2,2)`, TT `(1,0,2,1)`), on both layers, through the frontend AND directly through the backend members. Both give the empty frame's start (equal to the canonical rank-0 case, ≤ 1e-14); a stack mixing zero and nonzero elements raises in the members. (i) **not verified before this test:** `newton_cg(..., use_jit=True, padded_from=...)` and `g0_reference='cone'` on the UNIFORM layer run `_misfit_gradient_at` inside the whole-loop jit (the problem's gradient traced). Equal to `use_jit=False` (same pass counts, the iteration-0 frame ≤ 1e-12 relative to its scale, the cone value ≤ 1e-12 relative); one flag governs CG and the alignment | as stated; (d) `'cone'` = `'zero'` ≤ 1e-12 relative; (e) ≤ 1e-9 at tol 1e-10, ≤ 0.2 at the default stop; (f) ≤ 1e-9; (g1) ≤ 1e-4 relative to FD, matched quadratics ≤ 1e-10 relative; (g2) as stated |
 | T15 | frontend files: `test_frame_variations_format.py`, `test_uniform_frame_variations_format.py`, `test_manifold.py`, `test_uniform_manifold.py`, `test_tucker_tensor_train.py`, `test_uniform_tucker_tensor_train.py`, `test_optimizers_frontend.py` | Twins: each equals its backend call (no added arithmetic); hint-class dispatch; the `N` check; cross-layer hints; the rank-0 spelling and the conversion of a partially-zero-rank `x_old` to it; every §3.6 validation message; safe-mode checks (ORTH, TIED, same tensor) raise and are skipped under `safety.unsafe()`; doctests | array_equal; as stated |
 | T16 | `tests/test_dispatch.py` | Rows for every new PUBLIC backend function, host loops included (`fv_aligned_padded_frame`, `ufv_aligned_padded_frame`, `padded_start`): numpy/jax in → out, ragged/uniform, stacked; uniform masks stay host | all rows |
 | T17 | `tests/backend/test_uniform_padded_frame.py` | `ufv_frame_widths(N, n, r)` == the widths of `ut3_orthogonal_representations` over a sweep (n > N, r² < n, d = 1..4) | exact |
@@ -1527,7 +1601,16 @@ masks, tied factors (one array), placed 0/1 seeds, gathers. Tolerances otherwise
 - `docs/aligned_padded_frame.md` (user doc) covers:
   - what the aligned start is, and when to use `padded_from` and `'cone'` (`gtol_rel=1e-4` with `'cone'`, D-24);
   - the schedule and its knobs, with zero passes (`padded_max_passes=0`, `cone_max_passes=0`) documented as the
-    cheap generic start / reference and the measured fact that it carried the laptop-scale Newton gain (D-38);
+    cheap generic start / reference, and the measurements: the generic frame carried the level-2 gain, and the
+    alignment's gain appeared at 11 → 16 (D-38);
+  - **a "jit or eager" section** (D-39):
+    - the rule: nothing jits unless asked, and `use_jit=True` on the loops (or `newton_cg`'s own `use_jit`, which
+      also governs the alignment) selects it;
+    - what each layer does under it: the ragged host loop with a jitted step; the uniform whole loop as one program,
+      whose `project` must then be traceable (the library's projections and the problem's gradient are);
+    - the figures: an eager first step at d = 4 is ~22 s of op-by-op compilation (932 compilations) and 0.16 s
+      after; jitted it is one ~2 s compile; the uniform whole loop compiles in ~6 s at d = 6 and 24;
+    - `gradient_descent` (eager only) runs its cone reference eagerly;
   - what the measurements showed (§2.3, with the simultaneous / two-colour distinction);
   - the zero point as a rank-0 tensor;
   - the uniform block layout as a user sees it;
@@ -1537,7 +1620,8 @@ masks, tied factors (one array), placed 0/1 seeds, gathers. Tolerances otherwise
   - the message passing in library terms;
   - the block layout, the empty frame, the compaction and why;
   - the pad-safe pinned completion and why a QR;
-  - the jit boundary and the compile accounting;
+  - the jittable kernels, the memoized jit getters, the whole-loop jit's static/traced split, and the compile
+    accounting (D-39);
   - the T3-free seam: the three members, and why the structure check works from integers and held masks;
   - the route to a problem's aligned frame without Newton (`least_squares_problem` → `padded_start`).
 - `docs/aligned_padded_frame.tex` (+pdf): the standalone math note, written after the code. It is Nick's note
@@ -1585,10 +1669,11 @@ Review stops (Nick + session) after N3, N6, N8 and N10.
 | N1 | **Cleanup and the ragged start.** Freeze S2's outputs on T5's cases into `tests/data/padded_frame_s2_reference.npz` FIRST. Then: `fv_operations.py` back to `efe5e3d`; delete the S2/S3 tests and dispatch rows (keep S1's T10 row); remove S3's ten HISTORICAL strings (keep S1's two); refresh `test_padded_start.py`'s docstring; discard the S4 working tree. Create `backend/padded_frames.py` with `fv_empty_frame` and `fv_padded_frame`; widen `ranks.oversampled_ranks`; add `tests/test_import_graph.py` | `backend/fv_operations.py`, `backend/padded_frames.py`, `backend/ranks.py`, `tests/backend/test_padded_frame.py`, `tests/backend/test_padded_start.py`, `tests/test_dispatch.py`, `tests/test_contractions_interpreter.py`, `tests/test_import_graph.py`, `tests/data/` | full suite green; `git diff efe5e3d -- t3toolbox/backend/fv_operations.py` empty; T5, T16 rows, T18, T19 |
 | N2 | `tv_align_padded_frame`; the Appendix C ragged strings in HISTORICAL; the dense reference module | `backend/padded_frames.py`, `tests/backend/_padded_frame_oracles.py`, `tests/backend/test_padded_frame.py`, `tests/test_contractions_interpreter.py` | T1–T3; the contraction suite |
 | N3 | `fv_aligned_padded_frame`; the cycle case. **Review stop.** Review-stop clarification: dispatch rows (T16) are required for every public backend function, host loops included, so the loop gets its T16 row | `backend/padded_frames.py`, `tests/backend/test_padded_frame.py`, `tests/backend/_padded_frame_cycle_case.py`, `tests/test_dispatch.py` | T4, T6, T16 row |
+| N3b | **N3 follow-up (D-39):** `use_jit` on `fv_aligned_padded_frame` (the memoized jitted step, static on the old and output ranks, `sharing`, `update`; the host loop and `project` eager); the PAIR stop rule of §2.3 replaces the per-pass rule, so the layers agree pass for pass | `backend/padded_frames.py`, `tests/backend/test_padded_frame.py`, `tests/test_dispatch.py` | T6 (pair rule; eager = jit), T13(a), T16 row with `use_jit` |
 | N4 | `pad_safe_pinned_completion`, `ufv_frame_widths`, `ufv_empty_frame`, `ufv_padded_frame`; the scatter helper | `backend/linalg.py`, `backend/ufv_masking.py`, `backend/uniform_padded_frames.py`, `tests/backend/test_linalg.py`, `tests/backend/_uniform_padded_scatter.py`, `tests/backend/test_uniform_padded_frame.py` | T7, T8, T17 |
-| N5 | `utv_align_padded_frame` (block layout, the kernel and its jit boundary, scans, `pad_safe_svd`, groups, stacks, `update`); the uniform strings | `backend/uniform_padded_frames.py`, `tests/backend/test_uniform_padded_frame.py`, `tests/test_contractions_interpreter.py` | T9, T10 (step, start) |
-| N6 | `ufv_compact_frame`, `ufv_aligned_padded_frame`. **Review stop** | same, `tests/test_dispatch.py` | T10 (loop), T11–T13, T16 rows |
-| N7 | The seam: geometry members; `Problem.local_model(frame=)`; `_misfit_gradient_at`; `padded_start`; the `newton_cg` / `gradient_descent` keywords; `'cone'` | `backend/geometry.py`, `backend/optimizers.py`, `tests/backend/test_padded_start.py`, `tests/backend/test_optimizers.py`, `tests/test_dispatch.py` | T14, T16 rows, T18, G-bit |
+| N5 | `utv_align_padded_frame` (block layout, the JITTABLE kernel with explicit statics, eager by default, scans, `pad_safe_svd`, groups, stacks, `update`); the uniform strings | `backend/uniform_padded_frames.py`, `tests/backend/test_uniform_padded_frame.py`, `tests/test_contractions_interpreter.py` | T9, T10 (step, start) |
+| N6 | `ufv_compact_frame`, `ufv_aligned_padded_frame` with `use_jit` (the host loop calling the kernel eagerly by default; under `use_jit=True` the whole-loop jit: `fori_loop`, the truncating call, the `(UL, RO)` `while_loop`, the final conditional `'UL'`, the compaction; NaN-padded movements). **Review stop** | same, `tests/test_dispatch.py` | T10 (loop), T11, T12 (eager = jit), T13(b, c), T16 rows |
+| N7 | The seam: geometry members (`use_jit` passed through); `Problem.local_model(frame=)`; `_misfit_gradient_at`; `padded_start` (`use_jit`); the `newton_cg` / `gradient_descent` keywords, `newton_cg`'s `use_jit` forwarded to the alignment; `'cone'` | `backend/geometry.py`, `backend/optimizers.py`, `tests/backend/test_padded_start.py`, `tests/backend/test_optimizers.py`, `tests/test_dispatch.py` | T14 (incl. (i)), T16 rows, T18, G-bit |
 | N8 | Frontend twins and docstring moves. **Review stop** | `tucker_tensor_train.py`, `uniform_tucker_tensor_train.py`, `frame_variations_format.py`, `uniform_frame_variations_format.py`, `manifold.py`, `uniform_manifold.py`, `optimizers.py`, and T15's files | T15, doctests |
 | N9 | Docs, CHANGELOG, release notes, judgment calls, the math note | `docs/`, `CHANGELOG.md`, `dev/` | doctests in docs; `sphinx -W` |
 | N10 | Acceptance (§11), with the SHIPPED default schedule. **Review stop** | T3Polynomial (its own process) | the table of §11 filled |
@@ -1616,7 +1701,7 @@ Review stops (Nick + session) after N3, N6, N8 and N10.
 | D-17 | Masks are the only truth in uniform inputs; our functions may return junk-last; the loop compacts at exit | Nick 2026-11-09 |
 | D-18 | Library code: scans, named contractions [i.e. grouped `contract('…')` strings, §3.1(4)], shape annotations; no raw QR where order matters | Nick 2026-11-09 |
 | D-19 | Backend = pure functions on immutable basic types; the gold standard is the only precedent; `fv_zero_point_frame` unchanged this release (audit arc later) | Nick 2026-11-02 |
-| D-20 | **RESOLVED: host loops.** `project` is an arbitrary callable, the stop branches on the movement on the host, and a whole-loop jit buys about 6 s of compile for a loop that runs once per level. The condition is the uniform step's jit boundary (D-34) | session; writer and critic r1; orchestrator r1 |
+| D-20 | **RESOLVED: host loops by default** (amended by D-39). With `use_jit=False` both loops are host loops calling eager steps: `project` is an arbitrary callable, and the stop branches on the movement on the host. Under `use_jit=True` the ragged loop stays a host loop around a jitted step, and the uniform loop becomes one jitted program (D-39) | session; writer and critic r1; orchestrator r1; amended r7 |
 | D-21 | **RESOLVED: the zero old point** is the empty frame in the backend (D-29), and a rank-0 tensor in the frontend: structural, carrying shape, stack and backend. ONE rule everywhere (r3): a tensor is structurally zero when any Tucker rank or interior TT rank is 0. The frontend converts such an `x_old` to the canonical rank-0 tensor first, and both members apply the same test. The twins skip the reduction (`compute_minimal_ranks` maps the last boundary rank to 0) and the uniform orthogonalization (it raises on rank 0). `None` remains only in the T3-free optimizer layer for the cone (`padded_start(x_old=None)`, the member), which cannot build the empty frame itself. A rank-0 `padded_from` reaches the backend as rank-0 data; both members accept it, and the uniform member builds `ufv_empty_frame` (r2) | writer and critic r1; orchestrator r1; critic r2 |
 | D-22 | **RESOLVED:** `fv_aligned_padded_frame` (ragged) and `ufv_aligned_padded_frame` (uniform), as the prefix grammar requires | writer and critic r1; orchestrator r1 |
 | D-23 | **RESOLVED:** `backend/padded_frames.py` (Nick, round 10) and `backend/uniform_padded_frames.py` (the per-layer module pairs `t3_svd` / `ut3_svd`); no new frontend module (D-35) | writer and critic r1 |
@@ -1630,10 +1715,11 @@ Review stops (Nick + session) after N3, N6, N8 and N10.
 | D-31 | Test criteria per D-24: bitwise only for structural facts | orchestrator r1 |
 | D-32 | Every g06 arm used the simultaneous step. No two-colour rerun now; acceptance N10 runs the shipped default | orchestrator r1 |
 | D-33 | `newton_cg`: `start_frame`, `padded_from`, and two plain groups of six (`*_oversampling`, `*_oversampled_passes`, `*_max_passes`, `*_tol`, `*_alternate`, `*_seed`): fourteen keywords. `gradient_descent` gets the cone group. Option defaults are `None` = the D-6 value, so an option set without its group engaged raises (house rule). That includes `cone_*` set with `g0norm_newton` given (the cone is then not computed); `'cone'` itself stays legal there, as `'zero'` does (r2). A schedule record would be smaller but is the rejected `PaddedFrameOptions` (superseded I-3) | writer r1, for review; orchestrator r1 (every knob settable) |
-| D-34 | The uniform step's jit boundary: one module-level kernel; masks and shape via `partition_static`; every host-derived mask precomputed as host bool and the group tables as tuples of Python ints (never integer numpy arrays, which would be traced); split and `update` static arguments; the module's own `lru_cache`d jit getter; module-level, closure-free scan bodies | orchestrator r1 (critic M4) |
+| D-34 | The uniform step is a JITTABLE module-level kernel with explicit statics, jitted only under `use_jit` (r7, D-39): masks and shape via `partition_static`; every host-derived mask precomputed as host bool and the group tables as tuples of Python ints (never integer numpy arrays, which would be traced); split and `update` static; the module's own `lru_cache`d jit getter; module-level, closure-free scan bodies | orchestrator r1 (critic M4); amended r7 |
 | D-35 | The frontend loop: one twin per layer beside its frame class (`frame_variations_format.fv_aligned_padded_frame`, `uniform_frame_variations_format.ufv_aligned_padded_frame`), each dispatching on the hint's class. Reasons: `uniform_manifold` imports `manifold` (no cycle-free cross-layer home without a new module); D-15; the house's per-layer frontend free-function pairs (`t3_` / `ut3_orthogonal_representations`). The frontend `padded_start` twin is dropped: it is not in D-8, and `newton_cg(padded_from=)` is the user path. The one case it would serve, a problem's aligned frame without running Newton, goes through the PUBLIC backend `padded_start` (doctest: the `least_squares_problem` route). Flagged to Nick | writer r1; critic r2 agrees; correction r2 |
-| D-36 | The loop cap counts the truncating pass; movements are a tuple of `C` arrays in both layers. (r1 also had "`max_passes = 0` only when working = target"; superseded by D-38) | writer r1 (critic MINOR 13) |
+| D-36 | The loop cap counts the truncating pass. Movements: the ragged loop returns a tuple of `C` arrays; the uniform loop returns a fixed-length `(max_passes,)+C` array, NaN after the last pass, in both modes (r7: the whole-loop jit needs a static shape). (r1 also had "`max_passes = 0` only when working = target"; superseded by D-38) | writer r1 (critic MINOR 13); amended r7 |
 | D-38 | **Zero alignment passes is a supported, documented spelling.** `max_passes = 0` returns the seeded hint-free padded frame at the TARGET ranks: no projection, empty movements; the loops do not read their other schedule options then.<br>Through the optimizers: `newton_cg(padded_from=x_old, padded_max_passes=0)` starts Newton from it. `g0_reference='cone', cone_max_passes=0` gives the reference at the hint-free frame of the zero tensor, i.e. `fv_zero_point_frame`'s frame (= `'zero'` to rounding).<br>By D-33's rule (an option nothing reads is a mistake), zero passes with an explicitly set `*_oversampling`, `*_oversampled_passes`, `*_tol` or `*_alternate` RAISES in `newton_cg`, `gradient_descent` and `padded_start`. The message names the fix: remove the option or set a positive pass count. `*_seed` is read and allowed.<br>Reason: the Newton measurement (§2.3) found the generic start frame carries the level-2 Newton gain, and the alignment adds nothing measurable beyond the seed spread at laptop scale. The defaults (D-6) are unchanged | orchestrator r4, r5 (from the Newton measurement; critic r5) |
+| D-39 | **Jit is under the user's control, as everywhere in the library.** Backend functions stay eager; `use_jit: bool = False` on `fv_aligned_padded_frame` and `ufv_aligned_padded_frame` (and their frontend twins, the members and `padded_start`) selects jit, the `newton_cg` / `mc_sgd` / `adam` precedent.<br>Ragged: the host loop calls a memoized module-level jitted step (static: old ranks, output ranks, `sharing`, `update`); two to four step programs per level, nothing recompiles across passes; the loop itself is never jitted (its per-mode Python loops would unroll).<br>Uniform: the WHOLE loop is one `jax.jit` (`fori_loop` for the oversampled passes; one truncating call; a `while_loop` whose body is a `'UL'` pass then an `'RO'` pass, the pass counter in the state; the compaction). The cap is static; `tol` and the hint's arrays are traced; `project` must be traceable.<br>Both loops follow the PAIR stop rule (§2.3) so eager, jitted and cross-layer runs agree pass for pass.<br>`newton_cg`'s existing `use_jit` governs both the CG core and the alignment; `gradient_descent` has no `use_jit` (eager by design), so its cone runs eagerly.<br>Reason (measured, §2.3): an eager first ragged step at d = 4 is 932 op-by-op compilations, about 22 s (0.16 s after); jitted, one ~2 s compile; the uniform whole-loop jit compiles in about 6 s at d = 6 and 24 | Nick 2026-11-10 |
 | D-37 | `Problem.local_model(frame=)` (and the frontend `start_frame`) checks structure through the member `require_frame_structure(x_cores, frame)`: integers and held masks only, never an orthogonalization. Ragged: the frame's core shapes against `compute_orthogonal_representation_ranks` of `x`'s ranks, plus `C` and `N`. Uniform: the frame's variation masks against `var_masks`, the boundary entries, `shape`, the widths. The r1 text (compare with `geom.frame(x)`) is withdrawn: it orthogonalized to read structure, the pattern the arc was paused for | orchestrator r2 (critic r2 M1) |
 
 ## 10. Risks and open questions
@@ -1724,7 +1810,10 @@ The capture fraction `‖P_F g‖ / ‖grad f‖`, levels 1 → 6 / 6 → 11 / 1
   fact; output junk-last with masks.
 - [ ] `pad_safe_svd` on `[Ā | guard(Y⊥)]` for the step (the projected content); `pad_safe_pinned_completion` for the
   start; no other QR. `root` is the plain thin SVD.
-- [ ] The uniform step runs through its module-level jitted kernel with explicit statics.
+- [ ] Nothing jits unless asked: `use_jit=False` by default. The uniform step is a jittable module-level kernel with
+  explicit statics; the ragged step's jit is a memoized module-level wrapper; the uniform whole-loop jit traces `tol`
+  and the hint's arrays and holds the cap static (D-39).
+- [ ] Both loops use the pair stop rule (§2.3).
 - [ ] Structural counts and checks only; no rank tolerance; degenerate content left arbitrary.
 - [ ] The old block bitwise in the output; carriers hold the old content only; groups tied bitwise.
 - [ ] Transport plus truncation raises.
