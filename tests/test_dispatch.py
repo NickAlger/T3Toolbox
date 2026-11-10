@@ -2343,13 +2343,13 @@ class TestAlignedLoopJit(unittest.TestCase):
 
     # shape, old ranks (None: the zero tensor), target ranks, sharing, oversampling, alternate, tol -- T6's cases,
     # capped at 12 passes: oversampled and truncating passes, pairs, the final 'UL' (12 = 3 + 4 pairs + 1 and
-    # 1 + 5 pairs + 1), early stops (d = 4 at 11, the simultaneous one at tol 0.1)
+    # 1 + 5 pairs + 1), early stops (d = 4 at 9 and the simultaneous one at 8, both at tol 0.1)
     CASES = {
         'two-colour, p=0':   ((4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1)), None, 0, True, 0.05),
         'two-colour, p=5':   ((4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1)), None, 5, True, 0.05),
         'simultaneous, p=5': ((4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1)), None, 5, False, 0.1),
         'two-colour, d=4':   ((4, 5, 4, 3), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((3, 3, 3, 2), (1, 3, 3, 2, 1)), None, 5,
-                              True, 0.05),
+                              True, 0.1),
         'empty old frame':   ((4, 5, 4), None, ((2, 3, 2), (1, 2, 2, 1)), None, 5, True, 0.05),
         'sharing':           ((4, 4, 5), ((2, 2, 2), (1, 2, 2, 1)), ((3, 3, 3), (1, 3, 3, 1)), (0, 0, 1), 0, True, 0.05),
     }
@@ -2393,7 +2393,7 @@ class TestAlignedLoopJit(unittest.TestCase):
                                                                oracles.dense_frames(F)).values()), 1e-12)
                     self.assertLessEqual(max(abs(float(a) - float(b)) for a, b in zip(movements_j, movements)), 1e-10)
         self.assertEqual((lengths['two-colour, p=5'], lengths['two-colour, p=0']), (12, 12))   # the final 'UL'
-        self.assertEqual((lengths['two-colour, d=4'], lengths['simultaneous, p=5']), (11, 8))   # early stops
+        self.assertEqual((lengths['two-colour, d=4'], lengths['simultaneous, p=5']), (9, 8))    # early stops
 
     def test_the_step_is_chosen_by_use_jit(self):
         """use_jit=True takes the memoized jitted step (static: the old ranks, the output ranks, sharing, update) on jax

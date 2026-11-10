@@ -135,26 +135,19 @@ def _require_contains(
                                  'contain the old structure' % (name, i, b, a))
 
 
-def _haar_seed_rows(
-        k:     int,   # the number of new rows
-        N:     int,   # the mode size
-        key:   int,   # the stream key: the sharing group's first mode
-        seed:  int,
-) -> NDArray:         # HOST float64, shape=(k, N): the stream's first k rows
-    """The Tucker completion's seeds: the first ``k`` rows of the keyed stream ``RandomState([seed, key])``."""
-    return np.random.RandomState([seed, key]).standard_normal((k, N))
+_SEED_TAGS = {'up': 0, 'down': 1, 'left': 2, 'right': 3}   # the store-kind part of a seed stream's key
 
 
-def _coordinate_seed_order(
-        p1:  int,   # the unfolding's row axes, (p1, p2), row-major
-        p2:  int,
-        q1:  int,   # the old block's extent on them, (q1, q2) <= (p1, p2)
-        q2:  int,
-) -> NDArray:       # HOST int, shape=(p1*p2 - q1*q2,): the row indices outside the old block, in row-major order
-    """The coordinate seeds of a TT or down completion outside the old block, in the order they are used."""
-    outside = np.ones((p1, p2), dtype=bool)
-    outside[:q1, :q2] = False
-    return np.flatnonzero(outside)
+def _seed_rows(
+        store:  str,   # 'up' | 'down' | 'left' | 'right'
+        key:    int,   # the core's mode; for a Tucker factor, its sharing group's first mode
+        seed:   int,
+        w:      int,   # the old width: the slots already filled
+        k:      int,   # the number of new slots
+        p:      int,   # the seed length: the mode size (up) or the real rows of the core's unfolding
+) -> NDArray:          # HOST float64, shape=(k, p): rows w .. w+k-1 of the keyed stream (slot s seeded by row s)
+    """The hint-free convention's seeds: slot-indexed rows of the keyed stream ``RandomState([seed, store tag, key])``."""
+    return np.random.RandomState([seed, _SEED_TAGS[store], key]).standard_normal((w + k, p))[w:]
 
 
 def _embed(
@@ -166,45 +159,27 @@ def _embed(
     return linalg.pad_or_truncate(A, [(0, 0)] * nC + [(0, t - a) for t, a in zip(shape, A.shape[nC:])])
 
 
-def _seeded_completion(
-        old_C_xyc:  NDArray,   # C+(q1, q2, c): an old core, its two unfolding row axes first, its c old columns last
-        p1:         int,       # the padded row axes, (p1, p2) >= (q1, q2)
-        p2:         int,
-        count:      int,       # the number of new columns
-) -> NDArray:                  # C+(p1, p2, count): orthonormal, and orthogonal to the old columns embedded in (p1, p2)
-    """New columns of one unfolding: unit vectors outside the old block, then a completion inside it."""
-    xnp, _, _ = get_backend(False, tree_contains_jax(old_C_xyc))
-    C = tuple(old_C_xyc.shape[:-3])
-    q1, q2, c = (int(n) for n in old_C_xyc.shape[-3:])
-    outside = _coordinate_seed_order(p1, p2, q1, q2) if c else _coordinate_seed_order(p1, p2, 0, 0)
-    t = min(count, outside.size)
-    units_xyt = np.zeros((p1 * p2, t))
-    units_xyt[outside[:t], np.arange(t)] = 1.0                       # placed exactly: disjoint from the old block
-    units_xyt = units_xyt.reshape(p1, p2, t)
-    parts = [xnp.broadcast_to(xnp.asarray(units_xyt, dtype=old_C_xyc.dtype), C + units_xyt.shape)]
-    k_in = count - t
-    if k_in:                                                         # outside exhausted: complete inside the block
-        P_Cxc = old_C_xyc.reshape(C + (q1 * q2, c))
-        E_xk = np.eye(q1 * q2)[:, :k_in]
-        E_Cxk = xnp.broadcast_to(xnp.asarray(E_xk, dtype=old_C_xyc.dtype), C + E_xk.shape)
-        new_Cxk = linalg.pinned_completion(P_Cxc, E_Cxk, k_in)
-        parts.append(_embed(new_Cxk.reshape(C + (q1, q2, k_in)), (p1, p2, k_in)))
-    return xnp.concatenate(parts, axis=-1)
-
-
 def _padded_core(
         old:     NDArray,                     # C+(q1, q2, q3): an old TT or down core
         widths:  typ.Tuple[int, int, int],    # the padded core's widths, each >= old's
         axis:    int,                         # -3 | -2 | -1: the output axis; the other two, in order, index the rows
+        store:   str,                         # 'down' | 'left' | 'right'
+        key:     int,                         # the core's mode
+        seed:    int,
 ) -> NDArray:                                 # C+widths: old in the leading slots, then the completed new output slots
-    """A TT or down core of the padded frame: the old core embedded, its new output slots the hint-free completion."""
+    """A TT or down core of the padded frame: the old core embedded, its new output slots the seeds completed against it."""
     xnp, _, _ = get_backend(False, tree_contains_jax(old))
     row_widths = list(widths)
     out_width = row_widths.pop(axis)
     old_C_xyc = xnp.moveaxis(old, axis, -1)
+    C = tuple(old_C_xyc.shape[:-3])
     c = int(old_C_xyc.shape[-1])
-    emb_C_xyc = _embed(old_C_xyc, tuple(row_widths) + (c,))
-    new_C_xyk = _seeded_completion(old_C_xyc, row_widths[0], row_widths[1], out_width - c)
+    p1, p2 = row_widths
+    emb_C_xyc = _embed(old_C_xyc, (p1, p2, c))
+    seeds_xk = _seed_rows(store, key, seed, c, out_width - c, p1 * p2).T
+    seeds_Cxk = xnp.broadcast_to(xnp.asarray(seeds_xk, dtype=old.dtype), C + seeds_xk.shape)
+    new_Cxk = linalg.pinned_completion(emb_C_xyc.reshape(C + (p1 * p2, c)), seeds_Cxk, out_width - c)
+    new_C_xyk = new_Cxk.reshape(C + (p1, p2, out_width - c))
     return xnp.moveaxis(xnp.concatenate([emb_C_xyc, new_C_xyk], axis=-1), -1, axis)
 
 
@@ -213,12 +188,12 @@ def _padded_tucker_factor(
         n:     int,       # the padded Tucker width, n >= s
         key:   int,       # the stream key: the sharing group's first mode
         seed:  int,
-) -> NDArray:             # C+(n, N): U0's rows, then n - s Haar rows completed against them
-    """A Tucker factor of the padded frame: the old rows, then the keyed Haar seeds completed against them."""
+) -> NDArray:             # C+(n, N): U0's rows, then n - s seed rows completed against them
+    """A Tucker factor of the padded frame: the old rows, then the keyed seeds completed against them."""
     xnp, _, _ = get_backend(False, tree_contains_jax(U0))
     C = tuple(U0.shape[:-2])
     s, N = (int(m) for m in U0.shape[-2:])
-    seeds_Nk = _haar_seed_rows(n - s, N, key, seed).T
+    seeds_Nk = _seed_rows('up', key, seed, s, n - s, N).T
     seeds_CNk = xnp.broadcast_to(xnp.asarray(seeds_Nk, dtype=U0.dtype), C + seeds_Nk.shape)
     new_CNk = linalg.pinned_completion(U0.swapaxes(-2, -1), seeds_CNk, n - s)
     return xnp.concatenate([U0, new_CNk.swapaxes(-2, -1)], axis=-2)
@@ -268,9 +243,9 @@ def fv_padded_frame(
         tt_ranks:      typ.Sequence[int],                  # len=d+1, target TT ranks (boundary 1)
 
         sharing:       typ.Optional[typ.Sequence] = None,  # len=d group labels; None = unshared
-        seed:          int = ZERO_FRAME_SEED,              # the keyed Haar stream of the Tucker completions
+        seed:          int = ZERO_FRAME_SEED,              # the keyed seed streams of the completions
 ) -> typ.Tuple[                 # (nU, nD, rL, rR) = compute_orthogonal_representation_ranks(shape, tucker_ranks, tt_ranks)
-    typ.Tuple[NDArray, ...],    # up.    len=d, elm_shape=C+(nUi, Ni): the old rows bitwise, then the Haar completion
+    typ.Tuple[NDArray, ...],    # up.    len=d, elm_shape=C+(nUi, Ni): the old rows bitwise, then the seeded completion
     typ.Tuple[NDArray, ...],    # down.  len=d, elm_shape=C+(rLi, nDi, rR(i+1)): the old block bitwise, then seeded
     typ.Tuple[NDArray, ...],    # left.  len=d, elm_shape=C+(rLi, nUi, rL(i+1)); left[d-1] = the old carrier, zero-padded
     typ.Tuple[NDArray, ...],    # right. len=d, elm_shape=C+(rRi, nUi, rR(i+1)); right[0] = the old carrier, zero-padded
@@ -297,11 +272,11 @@ def fv_padded_frame(
     first = tuple(next(group[0] for group in groups if i in group) for i in range(d))   # each mode's stream key
     factors = tuple(_padded_tucker_factor(up0[i], nU[i], i, seed) if first[i] == i else None for i in range(d))
     up = tuple(factors[first[i]] for i in range(d))                                   # one array per group
-    down = tuple(_padded_core(down0[i], (rL[i], nD[i], rR[i + 1]), -2) for i in range(d))
-    left = (tuple(_padded_core(left0[i], (rL[i], nU[i], rL[i + 1]), -1) for i in range(d - 1))
+    down = tuple(_padded_core(down0[i], (rL[i], nD[i], rR[i + 1]), -2, 'down', i, seed) for i in range(d))
+    left = (tuple(_padded_core(left0[i], (rL[i], nU[i], rL[i + 1]), -1, 'left', i, seed) for i in range(d - 1))
             + (_embed(left0[d - 1], (rL[d - 1], nU[d - 1], rL[d])),))                 # the carrier: old content only
     right = ((_embed(right0[0], (rR[0], nU[0], rR[1])),)
-             + tuple(_padded_core(right0[i], (rR[i], nU[i], rR[i + 1]), -3) for i in range(1, d)))
+             + tuple(_padded_core(right0[i], (rR[i], nU[i], rR[i + 1]), -3, 'right', i, seed) for i in range(1, d)))
     return up, down, left, right
 
 
@@ -737,7 +712,7 @@ def fv_aligned_padded_frame(
         max_passes:          int   = ALIGN_MAX_PASSES,           # passes in all, the truncating pass included; 0 = the hint-free start at the target
         tol:                 float = ALIGN_TOL,                  # early exit on the movement
         alternate:           bool  = ALIGN_ALTERNATE,            # two-colour passes after the truncating pass
-        seed:                int   = ZERO_FRAME_SEED,            # the start's Haar stream
+        seed:                int   = ZERO_FRAME_SEED,            # the start's seed streams
         use_jit:             bool  = False,                      # the old frame to jax, the host loop calling a memoized jitted step; else eager
 ) -> typ.Tuple[
     FrameData,                 # the aligned padded frame at the target ranks

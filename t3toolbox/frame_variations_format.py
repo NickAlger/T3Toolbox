@@ -305,15 +305,15 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
             tt_ranks:      typ.Sequence[int],                  # len=d+1, target (boundary 1)
 
             sharing:       typ.Optional[typ.Sequence] = None,  # len=d group labels; None = unshared
-            seed:          int = ZERO_FRAME_SEED,              # the Haar stream of the Tucker completions
+            seed:          int = ZERO_FRAME_SEED,              # the keyed seed streams of the completions
     ) -> 'T3Frame':                                            # the seeded padded frame (old frame in the leading slots)
         """The seeded padded frame of ``x_old`` at larger ranks: the start of an alignment, hint-free.
 
         At a zero-padded rank increase the point ``x_old`` gains zero slots, and its orthonormal frame needs new
         directions there. This frame keeps ``x_old``'s own frame in the leading slots of every store and fills the new
-        slots by a data-independent convention (keyed Haar seeds for the Tucker factors, coordinate directions for the
-        TT and down cores). :py:func:`fv_aligned_padded_frame` then aligns the new slots with a tangent hint; this is
-        its start, and its ``max_passes=0`` result.
+        slots by a data-independent convention: Gaussian seeds from keyed streams, one stream row per slot, completed
+        against the old block (so successive starts never reuse a seed). :py:func:`fv_aligned_padded_frame` then aligns
+        the new slots with a tangent hint; this is its start, and its ``max_passes=0`` result.
 
         ``x_old`` is first reduced to minimal ranks (the same tensor). A STRUCTURALLY ZERO ``x_old`` -- any Tucker rank
         or interior TT rank 0, e.g. ``TuckerTensorTrain.zeros(shape, (0,)*d, (1,)+(0,)*(d-1)+(1,))`` -- is the zero

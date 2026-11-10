@@ -600,7 +600,7 @@ def newton_cg(
     ``start_frame`` gives the frame directly (a ``T3Frame`` / ``UT3Frame`` of ``x0`` after its reduction; checked
     structurally, and in safe mode orthonormal and representing ``x0``). ``g0_reference='cone'`` takes the reference
     ``‖g0‖`` at the zero tensor at the frame aligned with the data gradient there (the ``cone_*`` options;
-    ``cone_max_passes=0`` reproduces ``'zero'``). ``use_jit`` governs the alignment as well as CG. These need a
+    ``cone_max_passes=0`` evaluates it at the zero tensor's hint-free start). ``use_jit`` governs the alignment as well as CG. These need a
     manifold geometry. Every set option is forwarded and unset ones are not, so without these keywords the run and
     its ``stats`` are exactly as before; with them ``stats`` gains ``'start_frame'``, ``'start_movements'`` and
     ``'cone_movements'``.

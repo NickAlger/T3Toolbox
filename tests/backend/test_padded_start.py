@@ -344,8 +344,9 @@ class TestNewtonKeywords(unittest.TestCase):
         self.assertEqual(set(gd), {'losses', 'n_iter', 'line_search_failed'})
 
     def test_the_cone(self):
-        """Deterministic; independent of x0's values (its structure only); cone_max_passes=0 is 'zero' (any
-        oversampling); gradient_descent's cone is newton_cg's."""
+        """Deterministic; independent of x0's values (its structure only); cone_max_passes=0 is the misfit gradient
+        norm at the zero tensor's hint-free start (D-41: no longer 'zero', whose frame has coordinate TT cores);
+        gradient_descent's cone is newton_cg's."""
         for layer in LAYERS:
             with self.subTest(layer=layer):
                 setup, _, _, _ = fit_case(layer)
@@ -354,11 +355,12 @@ class TestNewtonKeywords(unittest.TestCase):
                 cone = g0(x, g0_reference='cone')
                 self.assertEqual(cone, g0(x, g0_reference='cone'))
                 self.assertEqual(cone, g0(cw.corewise_scale(x, -2.0), g0_reference='cone'))
-                zero = g0(x, g0_reference='zero')
-                for p in (0, 5):
-                    self.assertLessEqual(abs(g0(x, g0_reference='cone', cone_max_passes=0, cone_oversampling=None
-                                                if p == 5 else None) - zero), 1e-12 * zero)
-                self.assertGreater(cone, zero)                                 # the aligned frame sees more gradient
+                F0 = bopt.padded_start(problem, x, None, max_passes=0)[0]
+                r0 = cw.corewise_sub(problem.kind.point_forward(cw.corewise_zeros_like(x), problem.sample), problem.data)
+                g = bopt._misfit_gradient_at(F0, (problem, r0))
+                hint_free = float(problem.geom.with_frame(F0).inner(g, g)) ** 0.5
+                self.assertLessEqual(abs(g0(x, g0_reference='cone', cone_max_passes=0) - hint_free), 1e-12 * hint_free)
+                self.assertGreater(cone, hint_free)                            # the aligned frame sees more gradient
                 _, gd = bopt.gradient_descent(problem, x, n_iter=1, g0_reference='cone')
                 _, nc = bopt.newton_cg(problem, x, max_newton=1, g0_reference='cone')
                 self.assertEqual(gd['cone_movements'], nc['cone_movements'])
@@ -439,16 +441,18 @@ class TestSeamNumerics(unittest.TestCase):
     """(e), (f), (g1), (g2), (h)."""
 
     def test_probe_derivatives_uniform_against_ragged(self):
-        """(e): the uniform kinds at block-layout frames, d = 4, pass by pass against the ragged loop."""
+        """(e): the uniform kinds at block-layout frames, d = 4, against the ragged loop. The two layers' old frames
+        agree up to signs, and the Gaussian seeds (D-41) are not sign-covariant, so the starts and the passes differ;
+        the aligned frames agree (the fixed point is the gradient's): spans to 1e-9 at tol 1e-10, to 0.2 at the
+        default stop."""
         (rs, rold, _, _), (us, uold, _, _) = (fit_case(layer, kind='probe_derivatives') for layer in LAYERS)
         for tol, bound in ((1e-10, 1e-9), (None, 0.2)):
             with self.subTest(tol=tol):
-                kw = {} if tol is None else {'tol': tol, 'max_passes': 14}
+                kw = {} if tol is None else {'tol': tol, 'max_passes': 300}
                 Fr, mr = bopt.padded_start(rs.problem, rs.x0_cores, rold, **kw)
                 Fu, mu = bopt.padded_start(us.problem, us.x0_cores, uold, **kw)
-                mu = bopt._movement_record(mu)
-                self.assertEqual(len(mu), len(mr))
-                self.assertLessEqual(max(abs(float(a) - b) for a, b in zip(mr, mu)), 1e-9)
+                if tol is not None:                                           # both stopped on tol, not the cap
+                    self.assertLess(max(len(mr), len(bopt._movement_record(mu))), 300)
                 self.assertLessEqual(frame_distance(ragged_view('uniform', Fu), Fr), bound)
 
     def shared_one_pass(self, layer):

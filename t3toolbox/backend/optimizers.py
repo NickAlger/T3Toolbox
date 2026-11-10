@@ -1394,7 +1394,8 @@ def newton_cg(
     * ``'cone'`` -- the gradient norm at the zero tensor of x0's ranks, at the frame there ALIGNED with the
       data gradient (:py:func:`padded_start` from the zero tensor; the ``cone_*`` options, ``use_jit`` as
       below). ``'zero'`` evaluates it at a fixed, data-independent frame, which can miss most of the gradient;
-      ``cone_max_passes=0`` reproduces ``'zero'`` to rounding. ``stats['cone_movements']`` records the passes.
+      ``cone_max_passes=0`` evaluates it at the zero tensor's hint-free start (random orthonormal cores, a
+      different frame from ``'zero'``'s). ``stats['cone_movements']`` records the passes.
 
     **The start frame** (``start_frame`` / ``padded_from``). Iteration 0 linearizes at ``geom.frame(x0)`` by
     default. ``start_frame`` gives a frame of ``x0`` instead (structurally checked by the geometry's

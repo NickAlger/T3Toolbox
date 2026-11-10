@@ -36,6 +36,9 @@ T8-T12 and T17; the jitted loop's T12 and T13 rows are in ``tests/test_dispatch.
   no-op level (the old frame compacted, all-NaN movements), zero passes (the start compacted, no projection), the
   schedule recorded call by call and the pair stop rule on prescribed movements (as the ragged loop's), a stack
   C = (2,) with per-element ranks equal to its elements, structural errors.
+- **The chain test (D-41).** start -> start -> start without a fit, both layers, at a coordinate-structured point and
+  a generic one, with a step that grows a single bond: the convention at every level (1e-12, the uniform layer through
+  the scatter) and every seed's pinned-QR pivot above 1e-3.
 - **T17.** ``ufv_frame_widths(N, n, r)`` equals the widths of ``ut3_orthogonal_representations`` over a sweep.
 - The scatter helper round-trips in both of its modes.
 
@@ -233,6 +236,52 @@ class TestStartAgainstRagged(unittest.TestCase):
             self.assertLessEqual(max_difference(testing.ragged(F_e), padded_frames.fv_padded_frame(olds[e], *target)),
                                  1e-12)
             self.assertTrue(testing.junk_is_zero(F_e))
+
+
+def coordinate_point(shape, n, r):
+    """A point with coordinate-structured cores (identity-prefix Tucker factors, 0/1 TT cores; n <= r): its frame's
+    columns are unit vectors -- the structure on which the earlier convention's seeds repeated a span."""
+    d = len(shape)
+    tucker = tuple(np.eye(n, N) for N in shape)
+    bonds = (1,) + (r,) * (d - 1) + (1,)
+    tt = []
+    for i in range(d):
+        G = np.zeros((bonds[i], n, bonds[i + 1]))
+        for j in range(n):
+            G[min(j, bonds[i] - 1), j, min(j, bonds[i + 1] - 1)] = 1.0
+        tt.append(G)
+    return t3.TuckerTensorTrain(tucker, tuple(tt))
+
+
+class TestStartChains(unittest.TestCase):
+    """D-41's chain test: start -> start -> start without a fit, at a coordinate-structured point and at a generic
+    point, one step growing a single bond (no new rows in the other unfoldings). At every level both layers give the
+    convention (the uniform one through the scatter, gappy masks and garbage) to 1e-12, and every seed is fresh: its
+    pinned-QR pivot (its norm off the old block and the earlier seeds) is above 1e-3."""
+
+    LEVELS = (((3, 3, 3, 3), (1, 3, 3, 3, 1)), ((3, 3, 3, 3), (1, 3, 4, 3, 1)), ((4, 4, 4, 4), (1, 4, 4, 4, 1)))
+
+    def test_chains(self):
+        shape = (5, 5, 5, 5)
+        np.random.seed(3)
+        points = {'coordinate-structured': coordinate_point(shape, 2, 2),
+                  'generic': t3.TuckerTensorTrain.randn(shape, (2, 2, 2, 2), (1, 2, 2, 2, 1))}
+        rng = np.random.default_rng(8)
+        for name, x_old in points.items():
+            with self.subTest(point=name):
+                frame = fvc.t3_orthogonal_representations(x_old.data)[0]
+                s0 = testing.stores_of(frame)
+                uframe = testing.scatter_frame(rng, frame, (max(s0[0]) + 1, max(s0[1]) + 2, max(s0[2]) + 1,
+                                                            max(s0[3]) + 2, 6))[0]
+                for level, target in enumerate(self.LEVELS):
+                    pivots = []
+                    want = ragged_tests.convention_reference(frame, *target, pivots=pivots)
+                    frame = padded_frames.fv_padded_frame(frame, *target)
+                    uframe, _ = uniform_padded_frames.ufv_padded_frame(uframe, *target)
+                    self.assertLessEqual(ragged_tests.worst_difference(frame, want), 1e-12, 'level %d' % level)
+                    self.assertLessEqual(max_difference(testing.ragged(uframe), frame), 1e-12, 'level %d' % level)
+                    self.assertTrue(testing.junk_is_zero(uframe))
+                    self.assertGreater(min(pivots), 1e-3, 'level %d' % level)
 
 
 class TestStartStructuralErrors(unittest.TestCase):

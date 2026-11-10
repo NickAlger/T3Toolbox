@@ -9,9 +9,9 @@ junk masked to zero once), then the completion, each padded to one width with it
 ``[Na | Ka]`` and bond slots ``[Rb | Kb]``, so the only positional fact is the split ``(Na, Rb)``.
 
 ``ufv_empty_frame`` is the frame of the zero tensor (``Na = 0``, ``Rb = 1``). ``ufv_padded_frame`` is the seeded start,
-the uniform twin of ``padded_frames.fv_padded_frame``: the same seeds (keyed Haar rows per sharing group; coordinate
-directions at the real rows of each unfolding in their ragged row-major order, outside the old block first), completed
-by ``linalg.pad_safe_pinned_completion``, one batched completion per store. ``utv_align_padded_frame`` is one alignment
+the uniform twin of ``padded_frames.fv_padded_frame``: the same seeds (every store's slot-indexed rows of its keyed
+Gaussian stream, generated on the host at the ragged unfolding's size and placed at the real rows in their ragged
+row-major order), completed by ``linalg.pad_safe_pinned_completion``, one batched completion per store. ``utv_align_padded_frame`` is one alignment
 step, the uniform twin of ``padded_frames.tv_align_padded_frame``: the maps over modes are batched contractions, the
 sweeps scans with module-level bodies, and every edge's completion one ``linalg.pad_safe_svd``. The host prepares the
 masks, selections and group tables; the arithmetic is one jittable kernel, run eagerly here.
@@ -31,7 +31,7 @@ import t3toolbox.backend.ufv_masking as ufv_masking
 from t3toolbox.backend.common import *
 from t3toolbox.backend.fv_operations import ZERO_FRAME_SEED
 from t3toolbox.backend.padded_frames import (ALIGN_OVERSAMPLING, ALIGN_OVERSAMPLED_PASSES, ALIGN_MAX_PASSES,
-                                             ALIGN_TOL, ALIGN_ALTERNATE, _haar_seed_rows, _unfold, _fold, _root,
+                                             ALIGN_TOL, ALIGN_ALTERNATE, _seed_rows, _unfold, _fold, _root,
                                              _new_coordinates, _edge_content, _left_message_step,
                                              _right_message_step, _jitted)
 
@@ -85,71 +85,48 @@ def _pad_mask(
     return np.concatenate([mask, np.zeros(mask.shape[:-1] + (width - mask.shape[-1],), dtype=bool)], axis=-1)
 
 
-def _units(
-        rows:      NDArray,   # HOST bool, (...,)+(n,): the candidate rows
-        j:         NDArray,   # HOST int, (...,)+(w,): column c is the unit vector at the j[c]-th True row
-        selected:  NDArray,   # HOST bool, (...,)+(w,): the columns to fill
-) -> NDArray:                 # HOST float, (...,)+(n, w): zero outside the selected columns
-    """Unit columns at the True rows, in row-major order."""
-    n = rows.shape[-1]
-    if n == 0:
-        return np.zeros(rows.shape[:-1] + (0, j.shape[-1]))
-    order = np.argsort(~rows, axis=-1, kind='stable')                      # the True rows first, in order
-    at = np.take_along_axis(order, np.clip(j, 0, n - 1), axis=-1)
-    return ((np.arange(n)[:, None] == at[..., None, :]) & selected[..., None, :]).astype(float)
-
-
-def _coordinate_seeds(
-        rows_a:     NDArray,   # HOST bool, (M,)+C+(wa,): the unfolding's first row slot, real slots
-        split_a:    int,       # the A-block width of that slot
-        rows_b:     NDArray,   # HOST bool, (M,)+C+(wb,): the second row slot (a-major rows)
-        split_b:    int,
-        has_old:    NDArray,   # HOST bool, (M,)+C: the old block has columns
-        count:      NDArray,   # HOST int, (M,)+C: the completion's columns
-        width:      int,       # the completion block's width, >= every count
+def _store_seeds(
+        store:   str,       # 'down' | 'left' | 'right'
+        keys:    NDArray,   # HOST int, (M,): each core's mode
+        rows_a:  NDArray,   # HOST bool, (M,)+C+(wa,): the unfolding's first row slot, real slots
+        rows_b:  NDArray,   # HOST bool, (M,)+C+(wb,): the second row slot (a-major rows)
+        pins:    NDArray,   # HOST bool, (M,)+C+(w,): the old columns' mask (its sum: the old width)
+        count:   NDArray,   # HOST int, (M,)+C: the new columns
+        width:   int,       # the completion block's width, >= every count
+        seed:    int,
 ) -> typ.Tuple[
-    NDArray,   # outside units. HOST float, (M,)+C+(wa*wb, width): columns 0..t-1, the rest zero
-    NDArray,   # inside seeds.  HOST float, (M,)+C+(split_a*split_b, width): columns t..count-1 on the old block's sub-grid
-    NDArray,   # inside seed mask. HOST bool, (M,)+C+(width,): columns t..count-1
-    NDArray,   # the sub-grid's real rows. HOST bool, (M,)+C+(split_a*split_b,)
+    NDArray,   # seeds. HOST float, (M,)+C+(wa*wb, width): the ragged convention's seed rows at the real rows, junk zero
+    NDArray,   # the real rows. HOST bool, (M,)+C+(wa*wb,)
 ]:
-    """The coordinate seeds from the masks: the real rows outside the old block, then inside it, in flat slot order."""
-    lead = rows_a.shape[:-1]                                               # flat slot order = the ragged row-major order:
-    wa, wb, sa, sb = rows_a.shape[-1], rows_b.shape[-1], split_a, split_b  #   the masks keep the real slots in order
+    """The hint-free convention's seeds of one store, per core and stack element, placed at the unfolding's real rows
+    (in flat slot order: the ragged row-major order, since the masks keep the real slots in order)."""
+    lead = rows_a.shape[:-1]
+    wa, wb = rows_a.shape[-1], rows_b.shape[-1]
     real = (rows_a[..., :, None] & rows_b[..., None, :]).reshape(lead + (wa * wb,))
-    block = ((np.arange(wa) < sa)[:, None] & (np.arange(wb) < sb)[None, :]).reshape(wa * wb)
-    outside = real & ~(block & has_old[..., None])
-    t = np.minimum(count, outside.sum(axis=-1))                            # the rest fit inside: the real rows bound
-    j = np.broadcast_to(np.arange(width), lead + (width,))                 #   the target store
-    real_in = (rows_a[..., :sa, None] & rows_b[..., None, :sb]).reshape(lead + (sa * sb,)) & has_old[..., None]
-    inside_mask = (j >= t[..., None]) & (j < count[..., None])
-    return (_units(outside, j, j < t[..., None]), _units(real_in, j - t[..., None], inside_mask), inside_mask, real_in)
+    old = pins.sum(axis=-1)
+    seeds = np.zeros(lead + (wa * wb, width))
+    for index in np.ndindex(*lead):                                     # host bookkeeping, per core and element
+        k = int(count[index])
+        if k:
+            r = np.flatnonzero(real[index])
+            seeds[index][r, :k] = _seed_rows(store, int(keys[index[0]]), seed, int(old[index]), k, r.size).T
+    return seeds, real
 
 
 def _store_completion(
-        P:            NDArray,   # (M,)+C+(wa*wb, w): the old cores unfolded at the new widths (zero off the A-block rows)
+        P:            NDArray,   # (M,)+C+(rows, w): the old cores unfolded at the new widths (zero off their real rows)
         pinned_mask:  NDArray,   # HOST bool, (M,)+C+(w,): the old columns' mask
-        rows_a:       NDArray,   # HOST bool, (M,)+C+(wa,): the new mask of the first row slot
-        split_a:      int,       # its A-block width
-        rows_b:       NDArray,   # HOST bool, (M,)+C+(wb,): the new mask of the second row slot
-        split_b:      int,
-        count:        NDArray,   # HOST int, (M,)+C: the completion counts
-        width:        int,       # the completion block's width
-) -> NDArray:                    # (M,)+C+(wa*wb, width): the completion, real columns first, junk bitwise zero
-    """One store's completion, batched over its modes: the outside units placed exactly, then the in-block completion."""
+        seeds:        NDArray,   # HOST float, (M,)+C+(rows, width): from _store_seeds
+        real:         NDArray,   # HOST bool, (M,)+C+(rows,): the unfolding's real rows
+        count:        NDArray,   # HOST int, (M,)+C: the new columns
+) -> NDArray:                    # (M,)+C+(rows, width): the completion, real columns first, junk bitwise zero
+    """One store's completion, batched over its cores: the seeds completed against the old columns (pad-safe)."""
     xnp, _, _ = get_backend(True, tree_contains_jax(P))
-    lead = P.shape[:-2]
-    wa, wb = rows_a.shape[-1], rows_b.shape[-1]
-    units, seeds_in, mask_in, rows_in = _coordinate_seeds(rows_a, split_a, rows_b, split_b,
-                                                          pinned_mask.sum(axis=-1) > 0, count, width)
-    out = xnp.asarray(units, dtype=P.dtype)
-    if split_a * split_b == 0 or not mask_in.any():
-        return out
-    P_in = P.reshape(lead + (wa, wb, P.shape[-1]))[..., :split_a, :split_b, :].reshape(
-        lead + (split_a * split_b, P.shape[-1]))
-    new_in = linalg.pad_safe_pinned_completion(P_in, pinned_mask, xnp.asarray(seeds_in, dtype=P.dtype), mask_in, rows_in)
-    return out + _pad_trailing(new_in.reshape(lead + (split_a, split_b, width)), (wa, wb, width)).reshape(
-        lead + (wa * wb, width))
+    width = seeds.shape[-1]
+    if width == 0:
+        return xnp.zeros(P.shape[:-1] + (0,), dtype=P.dtype)
+    return linalg.pad_safe_pinned_completion(P, pinned_mask, xnp.asarray(seeds, dtype=P.dtype),
+                                             prefix_mask(count, width), real)
 
 
 def ufv_empty_frame(
@@ -197,7 +174,7 @@ def ufv_padded_frame(
         tt_ranks:        typ.Union[typ.Sequence[int], NDArray],       # len=d+1, or HOST int (d+1,)+C
 
         sharing:         typ.Optional[typ.Sequence] = None,           # len=d group labels; None = unshared
-        seed:            int = ZERO_FRAME_SEED,                       # the keyed Haar stream
+        seed:            int = ZERO_FRAME_SEED,                       # the keyed seed streams
 ) -> typ.Tuple[
     UFrameData,            # block layout: [A-block | P-block] per slot, old frame as given (junk zeroed), completions real-first
     typ.Tuple[int, int],   # split (Na, Rb): the static A-block widths
@@ -249,30 +226,37 @@ def ufv_padded_frame(
                              'layout per group' % (group,))
     first = np.array([group[0] for group in groups])
     group_of = np.array([next(g for g, group in enumerate(groups) if i in group) for i in range(d)])
-    seeds = np.zeros((len(groups), N, Ka))
-    for g, f in enumerate(first):                                       # host constants: each group's keyed stream
-        seeds[g, :shape[f], :] = _haar_seed_rows(Ka, shape[f], int(f), seed).T
+    seeds = np.zeros((len(groups),) + C + (N, Ka))
+    old_U = mU0[first].sum(axis=-1)                                     # (G,)+C: the old Tucker widths
+    for g, f in enumerate(first):                                       # host bookkeeping: each group's keyed stream,
+        for index in np.ndindex(*C):                                    #   per stack element
+            k = int(kU[(f,) + index])
+            if k:
+                seeds[(g,) + index][:shape[f], :k] = _seed_rows('up', int(f), seed, int(old_U[(g,) + index]), k,
+                                                                shape[f]).T
     mN = prefix_mask(np.asarray(shape), N)                              # (d, N)
     new_U = linalg.pad_safe_pinned_completion(
-        U0[first].swapaxes(-2, -1), mU0[first], xnp.asarray(seeds.reshape((len(groups),) + (1,) * len(C) + (N, Ka)),
-                                                              dtype=dtype),
+        U0[first].swapaxes(-2, -1), mU0[first], xnp.asarray(seeds, dtype=dtype),
         prefix_mask(kU[first], Ka), mN[first].reshape((len(groups),) + (1,) * len(C) + (N,)))
     U = xnp.concatenate([U0[first[group_of]], new_U[group_of].swapaxes(-2, -1)], axis=-2)   # tied within groups
 
     # -- left cores 0 .. d-2: new columns in the (a, n) unfolding; left[d-1] is the carrier
     P_L = _unfold(_pad_trailing(L0[:d - 1], (rT, nT, Rb)), -1)
-    new_L = _store_completion(P_L, mL0[1:d], mL[:d - 1], Rb, mU[:d - 1], Na, kL[1:d], Kb)
+    seeds_L, real_L = _store_seeds('left', np.arange(d - 1), mL[:d - 1], mU[:d - 1], mL0[1:d], kL[1:d], Kb, seed)
+    new_L = _store_completion(P_L, mL0[1:d], seeds_L, real_L, kL[1:d])
     L = xnp.concatenate([xnp.concatenate([P_L, new_L], axis=-1).reshape((d - 1,) + C + (rT, nT, rT)),
                          _pad_trailing(L0[d - 1:], (rT, nT, rT))], axis=0)
     # -- right cores 1 .. d-1: new rows in the (n, b) unfolding; right[0] is the carrier
     P_R = _unfold(_pad_trailing(R0[1:], (Rb, nT, rT)), -3)
-    new_R = _store_completion(P_R, mR0[1:d], mU[1:], Na, mR[2:], Rb, kR[1:d], Kb)
+    seeds_R, real_R = _store_seeds('right', np.arange(1, d), mU[1:], mR[2:], mR0[1:d], kR[1:d], Kb, seed)
+    new_R = _store_completion(P_R, mR0[1:d], seeds_R, real_R, kR[1:d])
     R = xnp.concatenate([_pad_trailing(R0[:1], (rT, nT, rT)),
                          xnp.moveaxis(xnp.concatenate([P_R, new_R], axis=-1).reshape((d - 1,) + C + (nT, rT, rT)),
                                       -1, -3)], axis=0)
     # -- down cores, all modes: new down slots in the (a, b) bond space
     P_O = _unfold(_pad_trailing(O0, (rT, Na, rT)), -2)
-    new_O = _store_completion(P_O, mD0, mL[:-1], Rb, mR[1:], Rb, kD, Ka)
+    seeds_O, real_O = _store_seeds('down', np.arange(d), mL[:-1], mR[1:], mD0, kD, Ka, seed)
+    new_O = _store_completion(P_O, mD0, seeds_O, real_O, kD)
     O = xnp.moveaxis(xnp.concatenate([P_O, new_O], axis=-1).reshape((d,) + C + (rT, rT, nT)), -1, -2)
     return (U, O, L, R, tuple(int(n) for n in shape), (mU, mD, mL, mR)), (Na, Rb)
 

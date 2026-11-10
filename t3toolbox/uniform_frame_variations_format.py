@@ -236,7 +236,7 @@ class UT3Frame(common.ExplicitEquality):
             tt_ranks:      typ.Union[typ.Sequence[int], NDArray],      # len=d+1, or HOST int (d+1,)+C, target
 
             sharing:       typ.Optional[typ.Sequence] = None,          # len=d group labels; None = unshared
-            seed:          int = ZERO_FRAME_SEED,                      # the Haar stream of the Tucker completions
+            seed:          int = ZERO_FRAME_SEED,                      # the keyed seed streams of the completions
     ) -> typ.Tuple[
         'UT3Frame',            # the seeded padded frame in block layout
         typ.Tuple[int, int],   # split (Na, Rb), for UT3Tangent.align_padded

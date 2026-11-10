@@ -121,7 +121,21 @@ handles stacks if one exists.
    message probes and the safe/unsafe pair. Results above.
 2. **The AST scan** for shadowed or duplicate definitions over `t3toolbox/`: clean. The whole-package import-graph
    cycle check: none.
-3. **Tests.** TESTS_PLACEHOLDER
+3. **Tests.**
+   - `tests/test_aligned_padded_frame_frontend.py`, `tests/test_optimizers_frontend.py` and
+     `tests/test_import_graph.py` at `-n 3`: **58 passed, 75 subtests**.
+   - `tests/test_dispatch.py -k TestAlignedPaddedFrameFrontend`: **2 passed, 8 subtests** (2 min 37 s).
+   - The doctests of the seven touched frontend modules: **145 passed**.
+4. **Docs.** `python -m sphinx -W --keep-going -b dummy docs <scratch>`: **exit 0**, no warnings. The repository was
+   unchanged by the build.
+5. **Floor env** `tttt` (py3.9, numpy 1.22.4, jax 0.4.30).
+   - The frontend test file and `test_optimizers_frontend.py`: **53 passed**.
+   - `TestAlignedPaddedFrameFrontend`: **2 passed**, so `jax.clear_caches()` exists on 0.4.30.
+6. **Note.** The session committed N8 as d452fe15 while these runs were in progress. The code and tests I checked are
+   that commit's. The one later working-tree change, a `subTest` label in `test_frame_widths_dispatch`, is the
+   session's and outside this review.
+
+The full suite was not run (the implementer: 1,340 passed at `-n 3`).
 
 ## For the maintainer (review stop after N8)
 

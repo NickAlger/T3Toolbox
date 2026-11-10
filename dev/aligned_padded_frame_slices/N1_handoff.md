@@ -1,5 +1,10 @@
 # N1 handoff: cleanup and the ragged start
 
+> **Superseded in part by D-41 (2026-11-10, slice N8b).** The hint-free start's convention changed to Gaussian seeds
+> in every store, slot-indexed. The S2-parity record below (380/380 arrays bitwise against S2), the coordinate-seed
+> convention, and T5's "zero tensor = `fv_zero_point_frame`" check describe the convention before D-41. They are kept
+> as history; see `N8b_handoff.md`.
+
 Slice N1 of `dev/aligned_padded_frame_impl_plan_2026-11-09.md` (§8). Implementer: Claude Opus 5.5, 2026-11-09.
 Revised after `N1_review.md` (REVISE; round 2 below). Everything is uncommitted in the working tree; nothing outside
 the repository was touched.
