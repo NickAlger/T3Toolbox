@@ -47,7 +47,8 @@ binding inside the one jit accepted; the NaN-padded record cannot tell a NaN mov
 SECOND REVIEW STOP DONE (Nick 2026-11-10: items 1-4 OK; the `functools.partial` binding is accepted IN THIS INSTANCE
 ONLY and establishes NO precedent -- the kernel docstring and the N9 scan-body note must say so) -> N7 BUILT, IN REVIEW (handoff written; the review must also root-cause T14(f): with sharing the uniform tied misfit
 gradient at a zero-padded frame differs 0.31 relative from the ragged one, suspected `sharing.ufv_shared_frame_data` at
-rank-deficient frames; test marked expected-failure). CI (2026-11-10): docs build had failed since N5 -- a duplicate
+rank-deficient frames; test marked expected-failure). NICK 2026-11-10: if the sharing bug is nontrivial -- architectural or algorithmic -- DISCUSS
+WITH NICK BEFORE DECIDING, fix it properly, no band-aid; only a simple local defect may be fixed without asking. CI (2026-11-10): docs build had failed since N5 -- a duplicate
 `_unfold` in `uniform_padded_frames.py` shadowed the import and left AutoAPI an unresolved placeholder under `-W`; floor job
 failed on a 1e-14 stacked tolerance (CI BLAS 1.24e-14); both fixed in 2d686e2d. RULE FROM NOW ON: the implementer runs the
 docs build (or the AutoAPI placeholder replay) and the floor env before reporting; reviews check for dead/shadowed
