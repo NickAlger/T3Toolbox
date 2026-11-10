@@ -147,7 +147,13 @@ plan round 8 (D-41; §3.4, §4.2, §4.5 wording), the Darcy hint-free baselines 
 Nick's reasons: isotropic completions (a uniformly random subspace of the complement is the natural no-information
 choice) and conditioning (pivots bounded away from zero w.h.p.; completions continuous in the old frame off a null set).
 
-**QUEUED AFTER THIS ARC (Nick 2026-11-10): a unified glossary page for the library** -- one `docs/glossary.md` defining
+**RELEASE PLAN (Nick 2026-11-10): tag 2026.4.0 when the Darcy acceptance runs on the Runpod A100 are in (results land in
+T3Polynomial `data/gpu_runs_2026_11_10/`, summary.md there; Newton/CG counts are the comparison, exact Hessian,
+CG_POWER 1.0, MAX_NEWTON 300; the first GN runs hit the 30 cap and are discarded). THEN 2026.5.0 = opt-in Newton phase
+timing (plan draft `dev/newton_timing_plan_2026-11-10.md`, writer; critic pass before implementing) + the glossary page
+below. Versions are YYYY.MINOR.PATCH; a new keyword/record is an "Added" entry, hence MINOR.**
+
+**QUEUED FOR 2026.5.0 (Nick 2026-11-10): a unified glossary page for the library** -- one `docs/glossary.md` defining
 the terms the docs use (store, frame, frame-variations format, carrier, padded frame, A-block/P-block, stack shape, sharing,
 uniform masks / junk, ragged vs uniform layer, retraction, cone reference, ...), each entry one or two lines with a link to
 the doc that explains it; linked from the docs index. Not part of the N1-N10 release; start it when N10 is accepted.
