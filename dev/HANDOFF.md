@@ -55,7 +55,8 @@ e.g. t3svd output, shared points) give different completions, all valid starts (
 representation-independent up to the stop tolerance (the numbers above); canonical bases at ties = a later audit item). CI: docs build and py3.11 green after 2d686e2d; the py3.9 floor job failed because
 ubuntu-latest moved to 26.04 (no Python 3.9 build) -- pinned to ubuntu-24.04 in 9573a4e5. RULE: the implementer runs the
 `-W` docs build (or the AutoAPI placeholder replay) and the floor env before reporting; reviews check for dead/shadowed
-imports and duplicate definitions; 1e-14 cross-path tolerances are suspect; check `gh run list` after each push. -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
+imports and duplicate definitions; 1e-14 cross-path tolerances are suspect; check `gh run list` after each push. MACHINE RULE: 13 GB laptop -- pytest-xdist at `-n 3` at most (`-n 8` swapped:
+jax workers reach 3-4 GB each), for the implementer, the reviewer and the session. -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
 `Problem.local_model(frame=)`; `_misfit_gradient_at`; public `padded_start`; 14 `newton_cg` keywords + `use_jit`
 forwarded; `'cone'`) -> N8 (frontend twins; review stop) -> N9 (docs incl. the "jit or eager" section; "STORE" is already defined in `docs/frame_variations.md` § "Four rank stores" (Nick
 2026-11-10, fine as is) -- the feature's user doc and the `padded_frames.py` module docstring define it in one clause on first
