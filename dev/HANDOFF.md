@@ -49,8 +49,10 @@ ONLY and establishes NO precedent -- the kernel docstring and the N9 scan-body n
 singular-value tie the two layers' orthogonal representations pick different bases, and the hint-free start reads
 coordinate seeds in those bases, so the layers' STARTS differ in span (0.27-1.00 on t3svd/shared points; 1e-15 on generic
 points); the aligned loop washes it out (final frames agree to 2e-5..5e-3 at the default tol, 3e-14..5e-10 at tol 1e-10);
-RECOMMENDATION to Nick: document, no code change; canonical bases at ties = a later audit item; NICK'S ANSWER PENDING --
-the N9 doc wording waits for it). CI: docs build and py3.11 green after 2d686e2d; the py3.9 floor job failed because
+DECIDED (Nick 2026-11-10): document in N9, NO code change -- the user doc states that the hint-free start is a function
+of the old frame's representation (its bases), so representations of one point in different bases (singular-value ties,
+e.g. t3svd output, shared points) give different completions, all valid starts (D-12), and the aligned loop's output is
+representation-independent up to the stop tolerance (the numbers above); canonical bases at ties = a later audit item). CI: docs build and py3.11 green after 2d686e2d; the py3.9 floor job failed because
 ubuntu-latest moved to 26.04 (no Python 3.9 build) -- pinned to ubuntu-24.04 in 9573a4e5. RULE: the implementer runs the
 `-W` docs build (or the AutoAPI placeholder replay) and the floor env before reporting; reviews check for dead/shadowed
 imports and duplicate definitions; 1e-14 cross-path tolerances are suspect; check `gh run list` after each push. -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
