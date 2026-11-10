@@ -72,7 +72,9 @@ max_passes, tol, alternate = the two-colour switch, use_jit, max_passes=0); a LI
 DOCTESTS that illustrate the properties: (a) the fixed-point / Galerkin property holds at convergence (e.g. one more
 pass moves nothing; the per-store completion equals the leading directions of its content); (b) oversampling on vs off
 at the SAME small pass count -- the oversampled run captures more / has less error. Doctests must be platform-stable
-(structural facts or inequalities, not printed floats). FINDING FOR N9's
+(structural facts or inequalities, not printed floats). Nick: BE CREATIVE here -- the goal is that a reader understands
+the function and how to use it, sees it by example, and is forewarned about the gotchas; frontend docstrings may be
+much more detailed than backend ones (the list above is a floor, not a ceiling). FINDING FOR N9's
 "jit or eager" section: each eager-jax alignment at a new structure compiles hundreds of executables and adds
 8,000-9,500 process memory mappings; an eager-jax rank continuation aligning at every level could pass vm.max_map_count
 (65,530) after ~7 levels and abort (`LLVM ERROR: Unable to allocate section memory!`, the failure
