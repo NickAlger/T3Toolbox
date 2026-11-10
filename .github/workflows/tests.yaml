@@ -24,7 +24,7 @@ concurrency:
 jobs:
   test:
     name: py${{ matrix.python }} / ${{ matrix.numpy }} / ${{ matrix.jax }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -32,9 +32,11 @@ jobs:
           - python: '3.9'
             numpy: 'numpy<2'
             jax: 'jax==0.4.30'
+            os: ubuntu-24.04     # pinned: ubuntu-latest (26.04 since 2026-11) ships no Python 3.9 build for setup-python
           - python: '3.11'
             numpy: 'numpy>=2'
             jax: 'jax'
+            os: ubuntu-latest
     env:
       PYTHONPATH: ${{ github.workspace }}
     steps:
