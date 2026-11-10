@@ -168,7 +168,26 @@ independent review. The automated guarantees are `tests/backend/test_padded_fram
 | memory mappings | 8,000–9,500 per eager-jax alignment at a new structure (`vm.max_map_count` 65,530); `jax.clear_caches()` returns to ~900 |
 | mutation testing | every slice's mutants killed or shown equivalent (the pinned-mask mutant of the uniform step is equivalent) |
 
-### Acceptance
+### Acceptance (slice N10 and the GPU runs, 2026-11-10)
 
-The Darcy ladder baselines (hint-free and default aligned starts on the Gaussian convention, and the 20 × 1000 run)
-are recorded at acceptance (the plan's slice N10).
+The shipped `padded_start` on the Darcy o01 checkpoints (ragged numpy, seeds 0 / 1). The capture fraction is
+`‖P_F ∇f‖ / ‖∇f‖`:
+
+| start | 1 → 6 | 6 → 11 | 11 → 16 |
+|---|---|---|---|
+| the library's padded frame | .189 | .117 | .106 |
+| hint-free (Gaussian, slot-indexed) | .055 / .071 | .091 / .092 | .094 / .093 |
+| aligned, the default schedule (stopped at the 10-pass cap; equal to 10 fixed passes) | .451 / .464 | .353 / .347 | .262 / .260 |
+
+Full ladders through T3Polynomial (A100, exact Hessian, `gtol_rel=1e-3`). Every level of every run stopped on the
+gradient tolerance, and every alignment on the 10-pass cap (last movements 0.27–0.43):
+
+| run | Newton | CG | best test p50 |
+|---|---|---|---|
+| 10 × 100, library start, `'zero'` | 254 | 10,175 | 0.0607 |
+| 10 × 100, library start, `'cone'` | 119 | 2,610 | 0.0619 |
+| 10 × 100, hint-free start, `'cone'` | 110 | 2,576 | 0.0631 |
+| 10 × 100, aligned start, `'cone'` | 115 | 1,839 | 0.0622 |
+| 20 × 1000, aligned start, `'cone'` | 166 | 4,130 | 0.0449 |
+| 20 × 1000, hint-free start, `'cone'` | 191 | 4,719 | 0.0448 |
+| 20 × 1000, library start, zero-type reference (2026-11-01, another card) | 167 | 4,688 | 0.0450 |

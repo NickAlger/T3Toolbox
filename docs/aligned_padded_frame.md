@@ -151,16 +151,31 @@ loops do not warn. numpy inputs need nothing; they are fast and eager.
 
 ## What the measurements showed
 
-These are from a laptop Darcy ladder (exact Hessian, the same absolute stop for every start, two start seeds):
+**The shipped code on full rank-continuation ladders** (A100, exact Hessian, `gtol_rel=1e-3`, the Darcy ladder of
+the downstream T3Polynomial project, 2026-11-10). On 10 points × 100 directions (six levels), the Newton totals were
+254 for the library's own start frame with the `'zero'` reference, 119 with `'cone'`, 110 for the hint-free padded
+start with `'cone'` and 115 for the aligned start with `'cone'`; CG totals 10,175 / 2,610 / 2,576 / 1,839. The
+reference, not the start, halves Newton: `'cone'` was 20–100× larger than `'zero'` there, so the same `gtol_rel` stops
+at a larger `‖g‖`, with best test errors within 4 % (p50 0.0607–0.0631). Within `'cone'`, the aligned start took about
+30 % fewer CG iterations than either other start, mostly at levels 3–5. At 20 points × 1000 directions (eleven
+levels, the same reference), the aligned start took 166 Newton / 4,130 CG against the hint-free start's 191 / 4,719,
+with identical test error; a library-start run from 2026-11-01 (zero-type reference, another card) took 167 / 4,688.
+**Every alignment stopped on the 10-pass cap, never on `tol=0.05`** (last movements 0.27–0.43): in practice
+`padded_max_passes` is the knob that sets the alignment's cost.
+
+**Earlier, from a laptop Darcy ladder** (exact Hessian, the same absolute stop for every start, two start seeds; the
+prototype, with an earlier hint-free convention):
 
 - **A generic seeded start roughly halves the Newton count at level 2.** The hint-free start and every aligned start
   with oversampling cut the library padded frame's 49 Newton iterations to 21–33.
-- **The alignment captures far more of the gradient**: 2–5× the frame-gradient norm of the hint-free frame.
 - **Its Newton value appears with rank.** At levels 1–2 it did not reduce Newton counts beyond the seed spread. At the
   higher-rank level 11 → 16, the aligned start with 10 or more passes cut Newton iterations by about 40 % and CG
   iterations by about 2.4×; 4 passes did not.
 - **It is cheap**: under 10 % of a gradient per pass (45 ms against a 1.1 s gradient at 11 → 16).
 
-These measurements predate the shipped start convention (the Gaussian slot-indexed seeds); the hint-free baselines
-are re-recorded with it at acceptance. The mathematics, with the algorithms as implemented, is written up in the math
-note `docs/padded_frame_cone.pdf` (source `docs/padded_frame_cone.tex`).
+**The alignment captures far more of the gradient.** Re-recorded with the shipped code, the fraction
+`‖P_F ∇f‖ / ‖∇f‖` at levels 1 → 6 / 6 → 11 / 11 → 16 was 0.06–0.07 / 0.09 / 0.09 for the hint-free start and
+0.45–0.46 / 0.35 / 0.26 for the default alignment: 3–8× more.
+
+The mathematics, with the algorithms as implemented, is written up in the math note `docs/padded_frame_cone.pdf`
+(source `docs/padded_frame_cone.tex`).

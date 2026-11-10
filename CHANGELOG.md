@@ -3,13 +3,26 @@
 All notable changes to T3Toolbox are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); versions are `YYYY.MINOR.PATCH`.
 
-## [2026.4.0] — unreleased
+## [2026.4.0] — 2026-11-10
 
 The headline is **the aligned padded frame**: after a zero-padded rank increase, `newton_cg` can start from a frame
 whose new directions are aligned with the misfit gradient (`padded_from=x_old`), and measure its relative stop
 against the gradient norm at the zero tensor on such a frame (`g0_reference='cone'`). The frame twins behind them
 are public on both layers. All of it is opt-in; no default changes. User guide: `docs/aligned_padded_frame.md`;
-mathematics: the math note `docs/padded_frame_cone.pdf` (source `docs/padded_frame_cone.tex`).
+mathematics: the math note `docs/padded_frame_cone.pdf` (source `docs/padded_frame_cone.tex`). Upgrade notes:
+`docs/release_notes.md`, "Upgrading from 2026.3.0".
+
+**Measured** (A100, exact Hessian, `gtol_rel=1e-3`, the Darcy rank-continuation ladder of the downstream
+T3Polynomial project, 2026-11-10). On 10 points × 100 directions (six levels), the Newton totals were 254 for the
+library's own start frame with the `'zero'` reference, 119 with `'cone'`, 110 for the hint-free padded start with
+`'cone'` and 115 for the aligned start with `'cone'`; CG totals 10,175 / 2,610 / 2,576 / 1,839. The reference, not
+the start, halves Newton: `'cone'` was 20–100× larger than `'zero'` there, so the same `gtol_rel` stops at a larger
+`‖g‖`, with best test errors within 4 % (p50 0.0607–0.0631). Within `'cone'`, the aligned start took about 30 % fewer
+CG iterations than either other start, mostly at levels 3–5. At 20 points × 1000 directions (eleven levels, the same
+reference), the aligned start took 166 Newton / 4,130 CG against the hint-free start's 191 / 4,719, with identical
+test error; a library-start run from 2026-11-01 (zero-type reference, another card) took 167 / 4,688. **Every
+alignment stopped on the 10-pass cap, never on `tol=0.05`** (last movements 0.27–0.43): in practice
+`padded_max_passes` is the knob that sets the alignment's cost.
 
 ### Added
 
@@ -34,6 +47,9 @@ mathematics: the math note `docs/padded_frame_cone.pdf` (source `docs/padded_fra
     level's widths;
   - `T3Tangent.align_padded(...)` / `UT3Tangent.align_padded(...)`: one alignment pass (`update` selects the stores;
     `'UL'` / `'RO'` are the two colours).
+- **The schedule** of the loops: oversampled passes (`oversampling=5` for `oversampled_passes=2`), one truncating
+  pass, then two-colour `('UL', 'RO')` pairs; the loop stops after a pair whose two movements are both below `tol`
+  (never on the truncating pass; a NaN movement never stops it), or at `max_passes` (default 10) in all.
 - **`use_jit`** on the loops and on `padded_start`: a memoized jitted step inside the host loop (ragged) or the whole
   loop as one `jax.jit` program (uniform). `newton_cg`'s own `use_jit` governs the alignment too. With jax inputs
   pass `use_jit=True`: eager jax compiles every op of a new structure (about 22 s on the first step at d = 4) and
@@ -51,7 +67,14 @@ mathematics: the math note `docs/padded_frame_cone.pdf` (source `docs/padded_fra
 
 ### Changed
 
-- None. The default Newton reference stays `'zero'`, and `fv_zero_point_frame` is unchanged.
+- No existing behaviour changes. The default Newton reference stays `'zero'`, `fv_zero_point_frame` is unchanged, and
+  a `newton_cg` call without the new keywords returns bit-identical `stats`.
+- Tests: a dispatch row (numpy in, numpy out; jax in, jax out; under `jax.jit` where jittable) for every new public
+  function, host loops included; `tests/test_import_graph.py` keeps the backend import graph acyclic; the heavy
+  jax dispatch tests release their compiled programs (`jax.clear_caches()`), so parallel workers stay under the
+  process memory-map limit.
+- CI: the py3.9 floor job is pinned to `ubuntu-24.04` (`ubuntu-latest` moved to 26.04, where `setup-python` has no
+  3.9 build).
 
 ### Removed
 

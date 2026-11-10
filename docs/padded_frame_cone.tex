@@ -461,9 +461,13 @@ valid, arbitrary completion (roundoff- and backend-dependent); they carry no con
 tests' $10^{-9}$ bar at $d\in\{1,2,3,5\}$, with sharing, truncation, stacks and the empty frame; the uniform twins equal
 the ragged ones per element to rounding. From starts differing by $0.95$--$1.00$ in span, the two layers' aligned frames
 agreed to $7\cdot10^{-4}$--$3\cdot10^{-2}$ at the default tol (equal pass counts) and to $8\cdot10^{-13}$--$6\cdot10^{-11}$
-at tol $10^{-10}$ ($d=4$, nine cases). On a Darcy rank-continuation ladder the alignment captured $2$--$5\times$ the
-frame-gradient norm of the hint-free frame, and at the higher-rank level $11\to16$ it cut Newton iterations by about
-$40\%$ and CG iterations by about $2.4\times$ (with at least ten passes).
+at tol $10^{-10}$ ($d=4$, nine cases). On a Darcy rank-continuation ladder the shipped alignment captured
+$3$--$8\times$ the frame-gradient norm of the hint-free frame (levels $1\to6$, $6\to11$, $11\to16$). Through full
+ladders with the exact Hessian (A100, 2026-11-10), the \code{'cone'} reference roughly halved the Newton count against
+\code{'zero'} at the same relative tolerance (a looser stop, test errors within $4\%$), and within \code{'cone'} the
+aligned start took about $30\%$ fewer CG iterations than the library's and the hint-free starts on 10 points $\times$ 100
+directions, and 166 Newton / 4130 CG against the hint-free start's 191 / 4719 on 20 $\times$ 1000, with identical test
+error. Every alignment stopped on the 10-pass cap, never on tol $0.05$.
 
 \paragraph{Open.}
 \begin{itemize}

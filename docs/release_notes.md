@@ -7,9 +7,45 @@ you are moving an existing codebase forward.
 
 ## Upgrading from 2026.3.0
 
-Nothing breaks: every addition is opt-in, and no default changes. To try the aligned start in a rank continuation,
-pass the previous level's point to `newton_cg(..., padded_from=x_old)`, and consider `g0_reference='cone'` with
-`gtol_rel=1e-4`. With jax arrays, also pass `use_jit=True`. See [`aligned_padded_frame.md`](aligned_padded_frame.md).
+**Nothing breaks.** Every addition is opt-in, and no default changes: the Newton reference stays `'zero'`, and a
+`newton_cg` call without the new keywords returns bit-identical `stats`. What is new, and when to reach for it:
+
+- **The aligned start after a rank increase.** Pass the previous level's point to
+  `newton_cg(..., padded_from=x_old)`. Iteration 0 then linearizes at the frame of `x0` (that point, zero-padded)
+  whose new directions are aligned with the misfit gradient. `padded_max_passes=0` gives the cheap hint-free start
+  instead. The other `padded_*` keywords (`padded_oversampling`, `padded_oversampled_passes`, `padded_tol`,
+  `padded_alternate`, `padded_seed`) tune the alignment; `stats['start_frame']` and `stats['start_movements']`
+  record it. `start_frame=F` takes a frame you built.
+- **The cone reference.** `g0_reference='cone'` (for `newton_cg` and `gradient_descent`) measures `‖g₀‖` at the zero
+  tensor on the frame aligned with the data gradient there. It is larger than `'zero'` (20–100× on the measured
+  Darcy fits), so the same `gtol_rel` stops looser; lower `gtol_rel` with it if you want the old stopping point.
+  Its options are the `cone_*` keywords, and `stats['cone_movements']` records the passes.
+- **With jax arrays, pass `use_jit=True`.** The alignment otherwise compiles every operation of each new structure
+  eagerly, which is slow on the first call and can exhaust the process memory-map limit over a long rank
+  continuation.
+- Both need a manifold geometry (`MANIFOLD`, `UNIFORM_MANIFOLD` or a shared wrapper of one). On the uniform layer,
+  `padded_from` must be padded to `x0`'s `N`: `UniformTuckerTensorTrain.from_t3(x_old, N=x0.N)`.
+
+A rank continuation that adopts both (the pattern of the downstream T3Polynomial ladder):
+
+```python
+x_old = None
+for level in range(max_levels):
+    kw = dict(g0_reference='cone', gtol_rel=gtol)
+    if x_old is not None:
+        kw['padded_from'] = x_old                     # align the new directions with the misfit gradient
+    x, stats = newton_cg(MANIFOLD, kind, sample, data, x, **kw)
+    new_tucker, new_tt = x.continuation_ranks()
+    if (new_tucker, new_tt) == (x.tucker_ranks, x.tt_ranks):
+        break
+    x_old, x = x, x.resize(x.shape, new_tucker, new_tt)
+```
+
+On the first level there is no previous point, so leave out `padded_from` and every `padded_*` option: the
+optimizer rejects `padded_*` options given without `padded_from`. The new frame functions (`T3Frame.padded`,
+`fv_aligned_padded_frame` and their uniform twins, `T3Tangent.align_padded`, `backend.optimizers.padded_start`)
+are for custom optimizers. See [`aligned_padded_frame.md`](aligned_padded_frame.md) for the method, the measured
+results, and the jit-or-eager costs.
 
 ## Upgrading from 2026.2.0
 
