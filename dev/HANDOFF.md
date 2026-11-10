@@ -94,6 +94,22 @@ but stays 2.3-4.8x the generic one; at 11->16 the aligned start with >= 10 passe
 vs both generic starts (4 passes not enough there), where at levels 1-2 it had not. Research prototypes:
 `nicks_research_experiments/tensor/aligned_padded_frame/` (README).
 
+**DECISION D-41 (Nick 2026-11-10): GAUSSIAN SEEDS EVERYWHERE, slot-indexed -- slice N8b, BEFORE N9.** Root cause
+found by the floor CI job (numpy 1.26 / OpenBLAS): the hint-free start's Tucker seeds restart the keyed stream at row 0
+on every call, so a start-from-start chain reuses a seed that lies in the current span (pivot 1e-16; the completed column
+is decided by BLAS rounding: 0.349 between the layers on CI, 1e-16 here). The TT/down cores were chain-safe in the common
+case (coordinate seeds placed at the rows OUTSIDE the old block, exactly orthogonal) but their inside fallback (no new
+rows) had the same structural hole on chains and coordinate-structured points. New convention: every store's completion
+seeds are rows of a keyed legacy `RandomState` stream (version-stable), key = (seed, store kind, sharing group's first
+mode), SLOT-INDEXED: slot s uses stream row s, so a start at old width w uses rows w..w+k-1 and chains never reuse a row;
+generated on the HOST at the ragged size (per group, per stack element) and scattered -- the uniform twin must agree
+bitwise through the scatter; pinned completion as today (pad-safe Householder in the uniform twin). Deleted:
+`_coordinate_seed_order`, the outside/inside branch, the uniform unit-vector scatter. Consequences: the zero-point frame
+changes (random orthonormal cores), the 'cone' value changes, T5/T19/the N1 S2-parity record/scatter tests rewritten,
+plan round 8 (D-41; §3.4, §4.2, §4.5 wording), the Darcy hint-free baselines re-recorded at N10 (same in expectation).
+Nick's reasons: isotropic completions (a uniformly random subspace of the complement is the natural no-information
+choice) and conditioning (pivots bounded away from zero w.h.p.; completions continuous in the old frame off a null set).
+
 **QUEUED AFTER THIS ARC (Nick 2026-11-10): a unified glossary page for the library** -- one `docs/glossary.md` defining
 the terms the docs use (store, frame, frame-variations format, carrier, padded frame, A-block/P-block, stack shape, sharing,
 uniform masks / junk, ragged vs uniform layer, retraction, cone reference, ...), each entry one or two lines with a link to
