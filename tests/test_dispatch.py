@@ -2236,6 +2236,58 @@ class TestDispatch(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'uniform masks must be concrete'):
             jax.jit(lambda data: uniform_padded_frames.utv_align_padded_frame(data, var, (4, 4), *out_ranks)[1])(frame)
 
+    def test_compact_frame_dispatch(self):
+        """The compaction (gathers and a mask multiply, so bitwise across backends): numpy in -> numpy out, jax in ->
+        jax out (masks host numpy), and it jits with the masks closed over; a stack C = (2,)."""
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
+        import test_uniform_padded_frame as uniform_tests
+        import _uniform_padded_frame_testing as testing
+        frames = [uniform_tests.TestCompaction().padded(seed=s)[2] for s in (1, 2)]
+        for name, frame in (('C = ()', frames[0]), ('C = (2,)', testing.stack_frames(frames))):
+            with self.subTest(case=name):
+                F_np = uniform_padded_frames.ufv_compact_frame(frame, (5, 5, 5, 5))
+                self.assertTrue(all(common.is_numpy_ndarray(a) for a in F_np[:4] + F_np[5]))
+                jax_frame = tuple(jnp.asarray(a) for a in frame[:4]) + tuple(frame[4:])
+                F_e = uniform_padded_frames.ufv_compact_frame(jax_frame, (5, 5, 5, 5))
+                self._leaves_all_jax(F_e[:4])
+                self.assertTrue(all(common.is_numpy_ndarray(m) for m in F_e[5]))
+                F_j = jax.jit(lambda sc: uniform_padded_frames.ufv_compact_frame(
+                    tuple(sc) + tuple(frame[4:]), (5, 5, 5, 5))[:4])(jax_frame[:4])
+                self._leaves_all_jax(F_j)
+                for F_x in (F_e[:4], F_j):
+                    self.assertTrue(all(np.array_equal(np.asarray(a), b) for a, b in zip(F_x, F_np[:4])))
+
+    def test_uniform_aligned_padded_frame_dispatch(self):
+        """The uniform loop at d = 2: numpy in -> numpy out, eagerly; jax in -> jax out, eagerly and under use_jit
+        (the whole-loop jit); numpy in with use_jit converted, jax out. The masks host numpy, the movements a
+        (max_passes,) record equal to numpy's (x64 on in this module)."""
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
+        import test_uniform_padded_frame as uniform_tests
+        import t3toolbox.backend.utv_operations as utvo
+        shape, target = (5, 6), ((3, 4), (1, 3, 1))
+        _, _, uold, _, uhint, widths = uniform_tests.loop_case(shape, ((2, 2), (1, 2, 1)), target)
+        project = utvo.utv_project_ut3_onto_tangent_space
+        kw = dict(max_passes=5, tol=0.0)
+        F_np, mv_np = uniform_padded_frames.ufv_aligned_padded_frame(uold, *target, uhint.data, project, widths, **kw)
+        self.assertTrue(all(common.is_numpy_ndarray(a) for a in F_np[:4] + F_np[5] + (mv_np,)))
+        self.assertEqual(mv_np.shape, (5,))
+        jax_old = tuple(jnp.asarray(a) for a in uold[:4]) + tuple(uold[4:])
+        jax_hint = tuple(jnp.asarray(a) for a in uhint.data[:2]) + tuple(uhint.data[2:])
+        for name, old, hint, use_jit in (('jax, eager', jax_old, jax_hint, False), ('jax, use_jit', jax_old, jax_hint, True),
+                                         ('numpy, use_jit', uold, uhint.data, True)):
+            with self.subTest(case=name):
+                F, mv = uniform_padded_frames.ufv_aligned_padded_frame(old, *target, hint, project, widths,
+                                                                       use_jit=use_jit, **kw)
+                self._leaves_all_jax((F[:4], mv))
+                self.assertTrue(all(common.is_numpy_ndarray(m) for m in F[5]))
+                self.assertLessEqual(float(np.max(np.abs(np.asarray(mv) - mv_np))), 1e-10)
+        for name, kw_short, target_short in (('zero passes', dict(max_passes=0), target),
+                                             ('nothing to complete', dict(max_passes=5), ((2, 2), (1, 2, 1)))):
+            with self.subTest(case='numpy, use_jit, ' + name):                 # the eager returns convert too
+                F, _ = uniform_padded_frames.ufv_aligned_padded_frame(uold, *target_short, uhint.data, project, widths,
+                                                                      use_jit=True, **kw_short)
+                self._leaves_all_jax(F[:4])
+
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):
         # A few complex ops: jax must agree with numpy (guards subtle backend divergence).
@@ -2370,6 +2422,93 @@ class TestAlignedLoopJit(unittest.TestCase):
             self.assertEqual(len(movements), 10)
             counts.append(step._cache_size() - before)
         self.assertLessEqual(counts[0], 4)
+        self.assertGreater(counts[0], 0)
+        self.assertEqual(counts[1], 0)
+
+
+@unittest.skipUnless(HAS_JAX, "jax not available")
+class TestUniformAlignedLoopJit(unittest.TestCase):
+    """The uniform loop under use_jit=True, the WHOLE loop one jax.jit (the plan's T12 eager = jit and T13 (b, c); here
+    because x64 is on in this module). Frames are compared by the largest principal-angle sine per directed edge."""
+
+    def test_eager_equals_jit(self):
+        """T12's cases, plus the odd remainder's final 'UL' (tol 0, cap 10: 2 + 1 + 3 pairs + 1): the numpy (eager)
+        loop and the jitted loop run the same passes (NaN in the same slots), frames to 1e-12, movements to 1e-10;
+        early stops included (the defaults stop at 9)."""
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
+        import test_uniform_padded_frame as uniform_tests
+        import _uniform_padded_frame_testing as testing
+        import t3toolbox.backend.utv_operations as utvo
+        project = utvo.utv_project_ut3_onto_tangent_space
+        cases = dict(uniform_tests.TestLoopAgainstRagged.CASES)
+        cases['the final UL'] = cases['defaults'][:4] + ({'tol': 0.0},)
+        lengths = {}
+        for name, (shape, old_ranks, target, sharing, kw) in cases.items():
+            with self.subTest(case=name):
+                _, _, uold, _, uhint, widths = uniform_tests.loop_case(shape, old_ranks, target, sharing)
+                F, mv = uniform_padded_frames.ufv_aligned_padded_frame(uold, *target, uhint.data, project, widths,
+                                                                       sharing=sharing, **kw)
+                F_j, mv_j = uniform_padded_frames.ufv_aligned_padded_frame(uold, *target, uhint.data, project, widths,
+                                                                           sharing=sharing, use_jit=True, **kw)
+                mv_j = np.asarray(mv_j)
+                lengths[name] = uniform_tests.passes_of(mv)
+                np.testing.assert_array_equal(np.isnan(mv_j), np.isnan(mv))
+                self.assertLessEqual(float(np.nanmax(np.abs(mv_j - mv))), 1e-10)
+                F_j = tuple(np.asarray(a) for a in F_j[:4]) + tuple(F_j[4:])
+                self.assertLessEqual(uniform_tests.frame_distance(testing.ragged(F_j), testing.ragged(F)), 1e-12)
+        self.assertEqual((lengths['defaults'], lengths['the final UL']), (9, 10))
+
+    def test_compile_count(self):
+        """T13 (b): the whole-loop jit compiles ONCE per structure; another run at that structure -- other values
+        (the old frame negated, so the same masks: the masks ARE the structure), another tol (traced), another hint of
+        the same shapes -- compiles nothing; another max_passes (static) one more. A structure no other test uses
+        (d = 3)."""
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
+        import test_uniform_padded_frame as uniform_tests
+        import t3toolbox.backend.utv_operations as utvo
+        loop = padded_frames._jitted(uniform_padded_frames._ufv_aligned_loop_kernel, (2, 3, 4, 5))
+        if not hasattr(loop, '_cache_size'):
+            self.skipTest("this jax has no jit _cache_size()")
+        shape, old_ranks, target = (4, 5, 3), ((1, 2, 2), (1, 1, 2, 1)), ((2, 3, 3), (1, 2, 3, 1))
+        _, _, uold, _, uhint, widths = uniform_tests.loop_case(shape, old_ranks, target, seed=1)
+        other_values = tuple(-a for a in uold[:4]) + tuple(uold[4:])      # the same masks (the structure)
+        other_hint = ut3.UniformTuckerTensorTrain.from_t3(uniform_tests.full_rank_hint(shape, 9), N=uold[0].shape[-1])
+        counts = []
+        for old, hint, tol, max_passes in ((uold, uhint, 0.05, 6), (other_values, other_hint, 1e-3, 6),
+                                           (uold, uhint, 0.05, 7)):
+            before = loop._cache_size()
+            uniform_padded_frames.ufv_aligned_padded_frame(old, *target, hint.data,
+                                                           utvo.utv_project_ut3_onto_tangent_space, widths, tol=tol,
+                                                           max_passes=max_passes, use_jit=True)
+            counts.append(loop._cache_size() - before)
+        self.assertEqual(counts, [1, 0, 1])
+
+    def test_eager_jax_compiles_nothing_twice(self):
+        """T13 (c): use_jit=False on jax inputs runs every scan body and kernel eagerly; a second run at the same
+        structure (other values) issues no backend compilation (module-level bodies, jax's per-operation caches)."""
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
+        import test_uniform_padded_frame as uniform_tests
+        import t3toolbox.backend.utv_operations as utvo
+        import jax.monitoring as monitoring
+        if not hasattr(monitoring, 'unregister_event_duration_listener'):        # the CI floor (jax 0.4.30) lacks it
+            self.skipTest('jax %s: jax.monitoring cannot unregister a listener' % jax.__version__)
+        shape, old_ranks, target = (4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1))
+        compiles = []
+        listener = lambda name, secs, **kw: compiles.append(name) if name.endswith('backend_compile_duration') else None
+        counts = []
+        monitoring.register_event_duration_secs_listener(listener)
+        try:
+            for seed in (1, 2):
+                _, _, uold, _, uhint, widths = uniform_tests.loop_case(shape, old_ranks, target, seed=seed)
+                old = tuple(jnp.asarray(a) for a in uold[:4]) + tuple(uold[4:])
+                hint = tuple(jnp.asarray(a) for a in uhint.data[:2]) + tuple(uhint.data[2:])
+                compiles.clear()
+                uniform_padded_frames.ufv_aligned_padded_frame(old, *target, hint,
+                                                               utvo.utv_project_ut3_onto_tangent_space, widths,
+                                                               max_passes=5, tol=0.0)
+                counts.append(len(compiles))
+        finally:
+            monitoring.unregister_event_duration_listener(listener)
         self.assertGreater(counts[0], 0)
         self.assertEqual(counts[1], 0)
 

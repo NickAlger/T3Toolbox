@@ -15,7 +15,11 @@ by ``linalg.pad_safe_pinned_completion``, one batched completion per store. ``ut
 step, the uniform twin of ``padded_frames.tv_align_padded_frame``: the maps over modes are batched contractions, the
 sweeps scans with module-level bodies, and every edge's completion one ``linalg.pad_safe_svd``. The host prepares the
 masks, selections and group tables; the arithmetic is one jittable kernel, run eagerly here.
+``ufv_compact_frame`` gathers a frame junk-last at a level's widths. ``ufv_aligned_padded_frame`` is the loop, the
+twin of ``padded_frames.fv_aligned_padded_frame`` (the same schedule and pair stop rule), compacted at exit; it runs
+eagerly, or under ``use_jit`` as ONE ``jax.jit`` of the whole loop.
 """
+import functools as ft
 import typing as typ
 import numpy as np
 
@@ -26,13 +30,17 @@ import t3toolbox.backend.sharing as sharing_module
 import t3toolbox.backend.ufv_masking as ufv_masking
 from t3toolbox.backend.common import *
 from t3toolbox.backend.fv_operations import ZERO_FRAME_SEED
-from t3toolbox.backend.padded_frames import (_haar_seed_rows, _unfold, _fold, _root, _new_coordinates, _edge_content,
-                                             _left_message_step, _right_message_step)
+from t3toolbox.backend.padded_frames import (ALIGN_OVERSAMPLING, ALIGN_OVERSAMPLED_PASSES, ALIGN_MAX_PASSES,
+                                             ALIGN_TOL, ALIGN_ALTERNATE, _haar_seed_rows, _unfold, _fold, _root,
+                                             _new_coordinates, _edge_content, _left_message_step,
+                                             _right_message_step, _jitted)
 
 __all__ = [
     'ufv_empty_frame',
     'ufv_padded_frame',
     'utv_align_padded_frame',
+    'ufv_compact_frame',
+    'ufv_aligned_padded_frame',
 ]
 
 UFrameData = typ.Tuple[NDArray, NDArray, NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDArray, NDArray, NDArray, NDArray]]
@@ -447,12 +455,18 @@ def _u_left_edge(
     return (o, D), (_fold(F, A.shape[-3:-1] + F.shape[-1:], -1), o, D, movement)
 
 
-def _u_left_edge_step(carry, x):
+def _u_left_edge_step(
+        carry:  typ.Tuple[NDArray, NDArray],   # as _u_left_edge
+        x:      typ.Tuple[NDArray, ...],       # as _u_left_edge
+) -> typ.Tuple[typ.Tuple[NDArray, NDArray], typ.Tuple[NDArray, NDArray, NDArray, NDArray]]:
     """One edge of the left sweep, the store updated (scan body)."""
     return _u_left_edge(carry, x, True)
 
 
-def _u_left_edge_transport_step(carry, x):
+def _u_left_edge_transport_step(
+        carry:  typ.Tuple[NDArray, NDArray],   # as _u_left_edge
+        x:      typ.Tuple[NDArray, ...],       # as _u_left_edge
+) -> typ.Tuple[typ.Tuple[NDArray, NDArray], typ.Tuple[NDArray, NDArray, NDArray, NDArray]]:
     """One edge of the left sweep, the store transported (scan body)."""
     return _u_left_edge(carry, x, False)
 
@@ -485,12 +499,18 @@ def _u_right_edge(
     return (o, D), (_fold(F, F.shape[-1:] + A.shape[-2:], -3), o, D, movement)
 
 
-def _u_right_edge_step(carry, x):
+def _u_right_edge_step(
+        carry:  typ.Tuple[NDArray, NDArray],   # as _u_right_edge
+        x:      typ.Tuple[NDArray, ...],       # as _u_right_edge
+) -> typ.Tuple[typ.Tuple[NDArray, NDArray], typ.Tuple[NDArray, NDArray, NDArray, NDArray]]:
     """One edge of the right sweep, the store updated (scan body)."""
     return _u_right_edge(carry, x, True)
 
 
-def _u_right_edge_transport_step(carry, x):
+def _u_right_edge_transport_step(
+        carry:  typ.Tuple[NDArray, NDArray],   # as _u_right_edge
+        x:      typ.Tuple[NDArray, ...],       # as _u_right_edge
+) -> typ.Tuple[typ.Tuple[NDArray, NDArray], typ.Tuple[NDArray, NDArray, NDArray, NDArray]]:
     """One edge of the right sweep, the store transported (scan body)."""
     return _u_right_edge(carry, x, False)
 
@@ -713,3 +733,269 @@ def utv_align_padded_frame(
     dynamic, skeleton = partition_static(((U, O, L, R), (V, H), host))
     U1, O1, L1, R1, movement = _utv_align_kernel(dynamic, skeleton, (Na, Rb), update)
     return (U1, O1, L1, R1, shape, (mU1, mD1, mL1, mR1)), movement
+
+
+# --------------------------------------------------------------------------------------------------
+# Compaction and the loop. The loop core runs the schedule of padded_frames.fv_aligned_padded_frame (the same pair
+# stop rule) with Python loops when eager, and with lax.fori_loop / while_loop / cond when the whole core is jitted.
+# Its loop bodies are module-level; the static structure of a phase (project, the hint, the masks, the split, the
+# output ranks, sharing, the colour) is bound explicitly. That binding is traced once per compiled program: the lax
+# loops run only inside the one jax.jit of the core, whose cache is the core's identity and static arguments.
+# --------------------------------------------------------------------------------------------------
+def ufv_compact_frame(
+        frame_data:    UFrameData,                     # any layout and mask pattern
+        level_widths:  typ.Tuple[int, int, int, int],  # (WU, WD, WL, WR), each >= every real count of its store
+) -> UFrameData:                                       # junk-last, junk zeroed; masks = ufv_make_frame_masks of the counts at level_widths
+    """The frame with every store's real slots first (in their order) at ``level_widths``: static gathers, prefix masks."""
+    U, O, L, R, shape, masks = frame_data
+    require_concrete_masks(*masks)
+    xnp, _, _ = get_backend(True, tree_contains_jax((U, O, L, R)))
+    masks = tuple(np.asarray(m, dtype=bool) for m in masks)
+    WU, WD, WL, WR = (int(w) for w in level_widths)
+    counts = tuple(m.sum(axis=-1) for m in masks)
+    for name, count, W in zip(('up', 'down', 'left', 'right'), counts, (WU, WD, WL, WR)):
+        if np.any(count > W):
+            raise ValueError('a real %s count (%d) exceeds its level width %d' % (name, int(count.max()), W))
+    wide = (max(U.shape[-2], WU), max(O.shape[-2], WD), max(L.shape[-1], WL), max(R.shape[-1], WR))
+    U = _pad_trailing(U, (wide[0], U.shape[-1]))                              # junk appended where narrower
+    O = _pad_trailing(O, (wide[2], wide[1], wide[3]))
+    L, R = _pad_trailing(L, (wide[2], wide[0], wide[2])), _pad_trailing(R, (wide[3], wide[0], wide[3]))
+    iU, iD, iL, iR = (np.argsort(~_pad_mask(m, w), axis=-1, kind='stable')[..., :W]          # real slots first
+                      for m, w, W in zip(masks, wide, (WU, WD, WL, WR)))
+    take = lambda A, index, axis: xnp.take_along_axis(A, xnp.asarray(index), axis=axis)
+    a3, b3, c3 = (lambda i: i[..., :, None, None]), (lambda i: i[..., None, :, None]), (lambda i: i[..., None, None, :])
+    U = take(U, iU[..., :, None], -2)
+    O = take(take(take(O, a3(iL[:-1]), -3), b3(iD), -2), c3(iR[1:]), -1)
+    L = take(take(take(L, a3(iL[:-1]), -3), b3(iU), -2), c3(iL[1:]), -1)
+    R = take(take(take(R, a3(iR[:-1]), -3), b3(iU), -2), c3(iR[1:]), -1)
+    masks = ufv_masking.ufv_make_frame_masks(*counts, WU, WD, WL, WR)
+    return ufv_masking.ufv_apply_frame_masks((U, O, L, R, shape, masks)) + (tuple(shape), masks)
+
+
+def _record(
+        movements:  NDArray,   # (max_passes,)+C
+        i:          typ.Any,   # the pass index (int, or traced)
+        movement:   NDArray,   # C
+) -> NDArray:                  # movements with slot i set
+    """One pass's movement written into the fixed-length record (branch-free)."""
+    xnp, _, _ = get_backend(True, tree_contains_jax((movements, movement)))
+    hit = (xnp.arange(movements.shape[0]) == i).reshape((-1,) + (1,) * (movements.ndim - 1))
+    return xnp.where(hit, movement, movements)
+
+
+def _aligning_pass(
+        statics:  typ.Tuple,                  # (project, hint, shape, masks, split, (tucker, tt) output ranks or (None, None), sharing, update)
+        cores:    typ.Tuple[NDArray, ...],    # (U, O, L, R) in block layout at `masks`
+) -> typ.Tuple[
+    typ.Tuple[NDArray, ...],                  # the cores after the pass
+    typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # their masks (host)
+    NDArray,                                  # the pass's movement, shape=C
+]:
+    """One pass: project at the block-layout frame, then one step."""
+    project, hint, shape, masks, split, out_ranks, sharing, update = statics
+    frame = tuple(cores) + (shape, masks)
+    F, movement = utv_align_padded_frame(frame, project(frame, hint), split, *out_ranks, sharing=sharing, update=update)
+    return tuple(F[:4]), F[5], movement
+
+
+def _oversampled_body(
+        statics:  typ.Tuple,   # as _aligning_pass, at the working structure, 'ULRO'
+        i:        typ.Any,     # the pass index
+        state:    typ.Tuple,   # (cores, movements)
+) -> typ.Tuple:
+    """One oversampled pass (fori body)."""
+    cores, movements = state
+    cores, _, movement = _aligning_pass(statics, cores)
+    return cores, _record(movements, i, movement)
+
+
+def _pairs_cond(
+        state:  typ.Tuple,   # (pass index, cores, movements, stop, tol, max_passes)
+) -> NDArray:                # 0-d bool: run another ('UL', 'RO') pair
+    """Not stopped, and a whole pair fits under the cap."""
+    i, _, _, stop, _, cap = state
+    return ~stop & (i + 2 <= cap)
+
+
+def _pairs_body(
+        statics:  typ.Tuple[typ.Tuple, typ.Tuple],   # the 'UL' and the 'RO' passes' statics, at the target structure
+        state:    typ.Tuple,                         # (pass index, cores, movements, stop, tol, max_passes)
+) -> typ.Tuple:
+    """One ('UL', 'RO') pair; the stop: both movements below tol (the max over the stack; a NaN never stops)."""
+    xnp, _, _ = get_backend(True, tree_contains_jax(state[1:3]))
+    i, cores, movements, _, tol, cap = state
+    cores, _, a = _aligning_pass(statics[0], cores)
+    cores, _, b = _aligning_pass(statics[1], cores)
+    movements = _record(_record(movements, i, a), i + 1, b)
+    return i + 2, cores, movements, xnp.maximum(xnp.max(a), xnp.max(b)) < tol, tol, cap
+
+
+def _final_pass(
+        statics:  typ.Tuple,   # the 'UL' pass's statics
+        state:    typ.Tuple,   # (pass index, cores, movements, stop, tol, max_passes)
+) -> typ.Tuple:
+    """The odd remainder's final 'UL' pass."""
+    i, cores, movements, stop, tol, cap = state
+    cores, _, movement = _aligning_pass(statics, cores)
+    return i + 1, cores, _record(movements, i, movement), stop, tol, cap
+
+
+def _no_pass(
+        state:  typ.Tuple,
+) -> typ.Tuple:
+    """The state unchanged (the other branch of the final pass)."""
+    return state
+
+
+def _single_cond(
+        state:  typ.Tuple,   # (pass index, cores, movements, stop, tol, max_passes)
+) -> NDArray:                # 0-d bool
+    """Not stopped, and under the cap."""
+    i, _, _, stop, _, cap = state
+    return ~stop & (i < cap)
+
+
+def _single_body(
+        statics:  typ.Tuple,   # the 'ULRO' pass's statics, at the target structure
+        state:    typ.Tuple,
+) -> typ.Tuple:
+    """One simultaneous pass; the stop: its movement below tol."""
+    xnp, _, _ = get_backend(True, tree_contains_jax(state[1:3]))
+    i, cores, movements, _, tol, cap = state
+    cores, _, movement = _aligning_pass(statics, cores)
+    return i + 1, cores, _record(movements, i, movement), xnp.max(movement) < tol, tol, cap
+
+
+def _fori(n, body, state, use_jit):
+    """``n`` iterations of ``body(i, state)``: ``jax.lax.fori_loop`` inside the jit, else a Python loop."""
+    if use_jit:
+        import jax
+        return jax.lax.fori_loop(0, n, body, state)
+    for i in range(n):
+        state = body(i, state)
+    return state
+
+
+def _cond(pred, true_fn, false_fn, state, use_jit):
+    """``jax.lax.cond`` inside the jit, else a Python branch."""
+    if use_jit:
+        import jax
+        return jax.lax.cond(pred, true_fn, false_fn, state)
+    return true_fn(state) if bool(pred) else false_fn(state)
+
+
+def _nested_tuple(
+        a:  NDArray,   # HOST int array
+) -> typ.Any:          # nested tuples of Python ints (hashable; np.asarray restores the array)
+    """A host int array as a static (hashable) value."""
+    return tuple(_nested_tuple(x) for x in a) if np.ndim(a) else int(a)
+
+
+def _ufv_aligned_loop_kernel(
+        dynamic:   typ.Tuple,   # partition_static's dynamic leaves of (old frame data, hint)
+        tol:       typ.Any,     # the stop threshold (traced under jit)
+        skeleton:  StaticSkeleton,   # the rest of (old frame data, hint)
+        project:   typ.Callable,     # project(frame_data, hint) -> variations (module-level under jit)
+        schedule:  typ.Tuple,   # (working ranks, target ranks, sharing, seed, n_over, max_passes, alternate, level_widths), hashable
+        use_jit:   bool,        # True: inside jax.jit (lax loops); False: Python loops, eager
+) -> typ.Tuple[
+    NDArray, NDArray, NDArray, NDArray,   # the aligned frame's supercores, compacted to level_widths
+    NDArray,                              # movements, (max_passes,)+C, NaN after the last pass
+]:
+    """The loop of :py:func:`ufv_aligned_padded_frame`: the start, the passes on the pair schedule, the compaction.
+
+    Its loop bodies are bound with ``functools.partial``; those partials reach a lax primitive only under
+    ``use_jit=True``, inside the one memoized jit whose cache is keyed on ``skeleton``, ``project``, ``schedule`` and
+    ``use_jit``; eagerly the loops are Python loops."""
+    old_frame_data, hint = rebuild_static(dynamic, skeleton)
+    working, target, sharing, seed, n_over, max_passes, alternate, level_widths = schedule
+    working, target = tuple(tuple(np.asarray(r) for r in ranks_) for ranks_ in (working, target))
+    frame, split = ufv_padded_frame(old_frame_data, *working, sharing=sharing, seed=seed)
+    xnp, _, _ = get_backend(True, tree_contains_jax(frame[:4]))
+    shape, masks = frame[4], frame[5]
+    C = tuple(frame[0].shape[1:-2])
+    movements = xnp.full((max_passes,) + C, np.nan, dtype=frame[0].dtype)
+
+    statics = (project, hint, shape, masks, split, (None, None), sharing, 'ULRO')
+    cores, movements = _fori(n_over, ft.partial(_oversampled_body, statics), (tuple(frame[:4]), movements), use_jit)
+    cores, masks, movement = _aligning_pass(statics[:5] + (target,) + statics[6:], cores)   # the truncating pass
+    movements = _record(movements, n_over, movement)
+    at = lambda update: (project, hint, shape, masks, split, (None, None), sharing, update)
+    if alternate:
+        state = (xnp.asarray(n_over + 1), cores, movements, xnp.asarray(False), tol, max_passes)
+        state = xwhile(_pairs_cond, ft.partial(_pairs_body, (at('UL'), at('RO'))), state, use_jit)
+        state = _cond(_single_cond(state), ft.partial(_final_pass, at('UL')), _no_pass, state, use_jit)
+    else:
+        state = (xnp.asarray(n_over + 1), cores, movements, xnp.max(movement) < tol, tol, max_passes)
+        state = xwhile(_single_cond, ft.partial(_single_body, at('ULRO')), state, use_jit)
+    compact = ufv_compact_frame(tuple(state[1]) + (shape, masks), level_widths)
+    return tuple(compact[:4]) + (state[2],)
+
+
+def ufv_aligned_padded_frame(
+        old_frame_data:      UFrameData,                              # the old frame, stack C (ufv_empty_frame for the zero tensor)
+        tucker_ranks:        typ.Union[typ.Sequence[int], NDArray],   # len=d or HOST int (d,)+C, target
+        tt_ranks:            typ.Union[typ.Sequence[int], NDArray],   # len=d+1 or HOST int (d+1,)+C, target
+        hint:                typ.Any,                                 # opaque: handed to `project` unread
+        project:             typ.Callable,                            # project(frame_data, hint) -> UVariationsData (or the bare (V, H) pair); traceable and module-level under use_jit
+        level_widths:        typ.Tuple[int, int, int, int],           # (WU, WD, WL, WR): the compaction widths (the level's frame)
+
+        sharing:             typ.Optional[typ.Sequence] = None,       # len=d group labels; None = unshared
+        oversampling:        int   = ALIGN_OVERSAMPLING,              # as fv_aligned_padded_frame (constants from padded_frames)
+        oversampled_passes:  int   = ALIGN_OVERSAMPLED_PASSES,
+        max_passes:          int   = ALIGN_MAX_PASSES,                # static under use_jit (the movements' length)
+        tol:                 float = ALIGN_TOL,                       # traced under use_jit
+        alternate:           bool  = ALIGN_ALTERNATE,
+        seed:                int   = ZERO_FRAME_SEED,
+        use_jit:             bool  = False,                           # the WHOLE loop as one jax.jit; else a host loop, eager kernel
+) -> typ.Tuple[
+    UFrameData,   # the aligned frame compacted to level_widths, prefix masks
+    NDArray,      # movements, shape=(max_passes,)+C, NaN after the last pass (both modes)
+]:
+    """The aligned padded frame in block layout, compacted to ``level_widths``: the uniform twin of ``fv_aligned_padded_frame``."""
+    for name, value in (('max_passes', max_passes), ('oversampled_passes', oversampled_passes),
+                        ('oversampling', oversampling)):
+        if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < 0:
+            raise ValueError('%s must be a non-negative int, got %r' % (name, value))
+    jitted = bool(use_jit) and jax_or_warn('use_jit=True')     # no jax: a warning, then eager on numpy
+    if jitted:                                                  # asking for jit opts into jax: the old frame's
+        old_frame_data = tuple(tree_to_jax(a) for a in old_frame_data[:4]) + tuple(old_frame_data[4:])   # supercores
+    U0, _, _, _, shape, masks = old_frame_data
+    require_concrete_masks(*masks)
+    shape = tuple(int(n) for n in shape)
+    d, C = len(shape), tuple(U0.shape[1:-2])
+    level_widths = tuple(int(w) for w in level_widths)
+    old = tuple(np.asarray(m, dtype=bool).sum(axis=-1) for m in masks)
+    tucker = _rank_array(tucker_ranks, d, C, 'tucker_ranks')
+    tt = _rank_array(tt_ranks, d + 1, C, 'tt_ranks')
+    if np.any(tt[0] != 1) or np.any(tt[-1] != 1):
+        raise ValueError("the target boundary TT ranks are not 1; a frame's boundary bonds are 1")
+    target_stores = tuple(np.broadcast_to(s, o.shape) for s, o in zip(
+        ranks.compute_orthogonal_representation_ranks(shape, tucker, tt), old))
+    for name, s, o, W in zip(('up', 'down', 'left', 'right'), target_stores, old, level_widths):
+        if np.any(s < o):
+            raise ValueError("the target %s stores are below the old frame's: the target ranks must contain the old "
+                             "structure" % name)
+        if np.any(s > W):
+            raise ValueError('a target %s store (%d) exceeds its level width %d' % (name, int(s.max()), W))
+    dtype = U0.dtype
+    if max_passes == 0:                                         # the hint-free start at the target, compacted
+        start, _ = ufv_padded_frame(old_frame_data, tucker, tt, sharing=sharing, seed=seed)
+        return ufv_compact_frame(start, level_widths), np.full((0,) + C, np.nan, dtype=dtype)
+    if all(np.array_equal(s, o) for s, o in zip(target_stores, old)):   # nothing to complete
+        return ufv_compact_frame(old_frame_data, level_widths), np.full((max_passes,) + C, np.nan, dtype=dtype)
+
+    working = ranks.oversampled_ranks(shape, tucker, tt, oversampling, sharing)
+    working_stores = ranks.compute_orthogonal_representation_ranks(shape, *working)
+    same = all(np.array_equal(np.broadcast_to(w, t.shape), t) for w, t in zip(working_stores, target_stores))
+    n_over = min(0 if same else oversampled_passes, max_passes - 1)   # the cap counts the truncating pass
+    schedule = (tuple(_nested_tuple(np.asarray(r)) for r in working), (_nested_tuple(tucker), _nested_tuple(tt)),
+                None if sharing is None else tuple(sharing), int(seed), int(n_over), int(max_passes), bool(alternate),
+                level_widths)
+    dynamic, skeleton = partition_static((old_frame_data, hint))
+    if jitted:
+        out = _jitted(_ufv_aligned_loop_kernel, (2, 3, 4, 5))(dynamic, tol, skeleton, project, schedule, True)
+    else:
+        out = _ufv_aligned_loop_kernel(dynamic, tol, skeleton, project, schedule, False)
+    level_masks = ufv_masking.ufv_make_frame_masks(*target_stores, *level_widths)
+    return tuple(out[:4]) + (shape, level_masks), out[4]

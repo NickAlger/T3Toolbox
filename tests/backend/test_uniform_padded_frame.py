@@ -2,7 +2,7 @@
 # Copyright: MIT License (2026)
 # https://github.com/NickAlger/T3Toolbox
 """Tests for ``backend.uniform_padded_frames`` and ``ufv_masking.ufv_frame_widths`` (the aligned-padded-frame plan's
-T8-T10 and T17; T11-T13 join with the loop).
+T8-T12 and T17; the jitted loop's T12 and T13 rows are in ``tests/test_dispatch.py``, where x64 is on).
 
 - **T8, the start.** ``ufv_padded_frame`` against the ragged ``fv_padded_frame`` through the scatter of
   ``_uniform_padded_frame_testing.py``: the old frame at four different own widths, gappy masks, finite garbage in
@@ -25,6 +25,17 @@ T8-T10 and T17; T11-T13 join with the loop).
 - **T10, stacks.** C = (3,) with different old, frame and output ranks per element, and C = (2, 2): each element of
   the stacked step equals its own call (frames by the same measure, movements, to 1e-14) and the ragged step; the
   start likewise, at C = (3,) and (2, 2).
+- **T11, the compaction.** Masks exactly the prefix masks of the counts at the level widths; the real entries moved
+  bitwise (the read-back equal); junk exactly 0; narrower and wider widths; a stack; ``utv_retract`` of the zero
+  tangent at the compacted frame returns X_old; ``UniformManifoldGeometryOps.from_frame`` of the compacted start has
+  ``from_point``'s variation masks at the zero-padded point; a count above its width raises.
+- **T12, the loop** (eager; eager = jit is in the dispatch file). Against ``fv_aligned_padded_frame`` with the
+  library projections of one full-rank hint on both layers, the old frame scattered with gappy masks and garbage:
+  the defaults, tol 1e-10, the zero point, non-minimal and uneven, p = 0 at d = 2, simultaneous, sharing: the same
+  pass counts, movements to 1e-12 (NaN after the last pass), spans to 1e-9, the level's prefix masks, junk 0. The
+  no-op level (the old frame compacted, all-NaN movements), zero passes (the start compacted, no projection), the
+  schedule recorded call by call and the pair stop rule on prescribed movements (as the ragged loop's), a stack
+  C = (2,) with per-element ranks equal to its elements, structural errors.
 - **T17.** ``ufv_frame_widths(N, n, r)`` equals the widths of ``ut3_orthogonal_representations`` over a sweep.
 - The scatter helper round-trips in both of its modes.
 
@@ -33,6 +44,7 @@ numpy-only (house testing strategy).
 import os
 import sys
 import unittest
+import unittest.mock
 
 import numpy as np
 
@@ -52,6 +64,9 @@ import _uniform_padded_frame_testing as testing
 import test_padded_frame as ragged_tests                 # T1's cases and setup (as a module: no re-collection)
 
 import t3toolbox.backend.tv_operations as tvo
+import t3toolbox.backend.utv_operations as utvo
+import t3toolbox.backend.geometry as geometry
+import t3toolbox.backend.ut3_conversions as ut3_conversions
 
 
 CASES = [  # label, seed, shape, old ranks (None: the zero tensor), target ranks, sharing
@@ -486,6 +501,269 @@ class TestStepStructuralErrors(unittest.TestCase):
         """Valid sharing labels (modes 0 and 2, both of size 5) on an untied scatter."""
         with self.assertRaisesRegex(ValueError, 'unequal Tucker stores or old up masks'):
             self.call(sharing=(0, 1, 0, 2), out=(None, None))
+
+
+def full_rank_hint(shape, seed):
+    """A generic T3 at the shape's minimal full ranks: the tensor both layers' loops align with."""
+    tucker, tt = ranks.compute_minimal_ranks(shape, tuple(shape), (1,) + (10 ** 6,) * (len(shape) - 1) + (1,))
+    np.random.seed(seed)
+    return t3.TuckerTensorTrain.randn(shape, tucker, tt)
+
+
+def level_of(x_old, shape, target):
+    """The level: the zero-padded point at the target ranks (uniform), and the widths of its frame."""
+    point = t3.TuckerTensorTrain.zeros(shape, *target) if x_old is None else x_old.resize(shape, *target)
+    upoint = ut3.UniformTuckerTensorTrain.from_t3(point)
+    frame = ufc.ut3_orthogonal_representations(upoint.data)[0]
+    return upoint, (frame[0].shape[-2], frame[1].shape[-2], frame[2].shape[-1], frame[3].shape[-1])
+
+
+def loop_case(shape, old_ranks, target, sharing=None, seed=0, garbage=True):
+    """(x_old, the ragged old frame, the uniform old frame scattered at four own widths, the ragged hint, its uniform
+    twin at the frame's N, the level widths)."""
+    rng = np.random.default_rng(seed)
+    np.random.seed(seed)
+    if old_ranks is None:
+        x_old, old, uold = None, padded_frames.fv_empty_frame(shape), uniform_padded_frames.ufv_empty_frame(shape)
+    else:
+        x_old = t3.TuckerTensorTrain.randn(shape, *old_ranks)
+        if sharing is not None:
+            x_old = x_old.share(sharing, max_tucker_ranks=old_ranks[0], max_tt_ranks=old_ranks[1])
+        old = fvc.t3_orthogonal_representations(x_old.data)[0]
+        s0 = testing.stores_of(old)
+        groups = () if sharing is None else sharing_module.validate_sharing(sharing, shape)
+        uold = testing.scatter_frame(rng, old, (max(s0[0]) + 1, max(s0[1]) + 2, max(s0[2]) + 2, max(s0[3]) + 1,
+                                                max(shape)), groups=groups, garbage=garbage)[0]
+    hint = full_rank_hint(shape, seed + 1)
+    if sharing is not None:
+        hint = hint.share(sharing, max_tucker_ranks=hint.tucker_ranks, max_tt_ranks=hint.tt_ranks)
+    uhint = ut3.UniformTuckerTensorTrain.from_t3(hint, N=uold[0].shape[-1])
+    return x_old, old, uold, hint, uhint, level_of(x_old, shape, target)[1]
+
+
+def passes_of(movements):
+    """The number of passes a NaN-padded movement record holds."""
+    m = np.asarray(movements).reshape(len(movements), -1)
+    return int(np.sum(~np.isnan(m[:, 0])))
+
+
+class TestCompaction(unittest.TestCase):
+    """T11."""
+
+    def padded(self, C=(), seed=0):
+        """A block-layout start (gappy in both blocks, garbage) of a d = 4 point, and its level."""
+        shape, old_ranks, target = (5, 6, 5, 6), ((2, 3, 3, 2), (1, 2, 3, 2, 1)), ((3, 5, 5, 3), (1, 3, 5, 3, 1))
+        rng = np.random.default_rng(seed)
+        np.random.seed(seed)
+        x_old = t3.TuckerTensorTrain.randn(shape, *old_ranks)
+        old = fvc.t3_orthogonal_representations(x_old.data)[0]
+        F = padded_frames.fv_padded_frame(old, *target)
+        frame = testing.scatter_frame(rng, F, (4, 3, 4, 4, 7), old_stores=testing.stores_of(old))[0]
+        return x_old, F, frame, shape, target
+
+    def test_masks_entries_and_junk(self):
+        _, F, frame, shape, target = self.padded()
+        stores = ranks.compute_orthogonal_representation_ranks(shape, *target)
+        for widths in ((5, 5, 5, 5), (7, 6, 9, 8), (6, 5, 5, 6)):                # level, wider, mixed
+            with self.subTest(widths=widths):
+                Fc = uniform_padded_frames.ufv_compact_frame(frame, widths)
+                self.assertEqual((Fc[0].shape[-2], Fc[1].shape[-2], Fc[2].shape[-1], Fc[3].shape[-1]), widths)
+                for m, count, W in zip(Fc[5], stores, widths):
+                    self.assertTrue(np.array_equal(m, np.arange(W) < np.asarray(count)[:, None]))
+                for a, b in zip(testing.ragged(Fc), testing.ragged(frame)):     # the real entries, moved bitwise
+                    self.assertTrue(all(np.array_equal(x, y) for x, y in zip(a, b)))
+                self.assertTrue(testing.junk_is_zero(Fc))
+
+    def test_a_stack(self):
+        frames = [self.padded(seed=s)[2] for s in (1, 2)]
+        stacked = testing.stack_frames(frames)
+        Fc = uniform_padded_frames.ufv_compact_frame(stacked, (5, 5, 5, 5))
+        for e in range(2):
+            self.assertTrue(all(np.array_equal(x, y) for a, b in zip(
+                testing.ragged(testing.element(Fc, e)), testing.ragged(uniform_padded_frames.ufv_compact_frame(
+                    frames[e], (5, 5, 5, 5)))) for x, y in zip(a, b)))
+
+    def test_the_level_geometry(self):
+        """At the level: the zero tangent retracts to X_old, and the compacted frame's variation masks are the
+        zero-padded point's (from_frame vs from_point)."""
+        x_old, _, frame, shape, target = self.padded()
+        upoint, widths = level_of(x_old, shape, target)
+        Fc = uniform_padded_frames.ufv_compact_frame(frame, widths)
+        d = len(shape)
+        zero = (np.zeros((d, widths[1], Fc[0].shape[-1])), np.zeros((d, widths[2], widths[0], widths[3])), Fc[4],
+                ufv_masking.ufv_variation_masks(Fc[5]))
+        X = ut3_conversions.ut3_to_dense(utvo.utv_retract(Fc, zero))
+        X_old = x_old.to_dense()
+        self.assertLessEqual(np.linalg.norm(X - X_old), 1e-12 * np.linalg.norm(X_old))
+        from_frame = geometry.UniformManifoldGeometryOps.from_frame(Fc, upoint.masks.data)
+        from_point = geometry.UniformManifoldGeometryOps.from_point(upoint.data)
+        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(from_frame.var_masks, from_point.var_masks)))
+
+    def test_a_count_above_its_width(self):
+        _, _, frame, _, _ = self.padded()
+        with self.assertRaisesRegex(ValueError, 'exceeds its level width'):
+            uniform_padded_frames.ufv_compact_frame(frame, (5, 5, 4, 5))
+
+
+class TestLoopAgainstRagged(unittest.TestCase):
+    """T12 (eager): the uniform loop runs the ragged loop's passes."""
+
+    CASES = {   # shape, old ranks (None: the zero tensor), target ranks, sharing, loop options
+        'defaults':       ((5, 6, 5, 6), ((2, 3, 3, 2), (1, 2, 3, 2, 1)), ((3, 5, 5, 3), (1, 3, 5, 3, 1)), None, {}),
+        'tol 1e-10':      ((5, 6, 5, 6), ((2, 3, 3, 2), (1, 2, 3, 2, 1)), ((3, 5, 5, 3), (1, 3, 5, 3, 1)), None,
+                           {'tol': 1e-10, 'max_passes': 13}),
+        'the zero point': ((4, 5, 4, 5), None, ((3, 4, 4, 3), (1, 3, 4, 3, 1)), None, {}),
+        'non-minimal, uneven': ((6, 6, 6, 6), ((3, 3, 3, 3), (1, 2, 3, 2, 1)), ((3, 4, 5, 3), (1, 3, 5, 3, 1)), None,
+                                {}),
+        'p=0, d=2':       ((7, 8), ((2, 2), (1, 2, 1)), ((4, 4), (1, 4, 1)), None, {'oversampling': 0}),
+        'simultaneous':   ((5, 6, 5), ((2, 3, 2), (1, 2, 2, 1)), ((3, 5, 3), (1, 3, 3, 1)), None,
+                           {'alternate': False, 'max_passes': 8}),
+        'sharing':        ((5, 5, 6), ((2, 2, 2), (1, 2, 2, 1)), ((3, 3, 4), (1, 3, 4, 1)), (0, 0, 1), {}),
+    }
+
+    def test_cases(self):
+        for name, (shape, old_ranks, target, sharing, kw) in self.CASES.items():
+            with self.subTest(case=name):
+                _, old, uold, hint, uhint, widths = loop_case(shape, old_ranks, target, sharing)
+                F, movements = padded_frames.fv_aligned_padded_frame(old, *target, hint.data,
+                                                                     tvo.tv_project_t3_onto_tangent_space,
+                                                                     sharing=sharing, **kw)
+                Fu, mu = uniform_padded_frames.ufv_aligned_padded_frame(
+                    uold, *target, uhint.data, utvo.utv_project_ut3_onto_tangent_space, widths, sharing=sharing, **kw)
+                max_passes = kw.get('max_passes', padded_frames.ALIGN_MAX_PASSES)
+                self.assertEqual(np.shape(mu), (max_passes,))
+                self.assertEqual(passes_of(mu), len(movements))
+                self.assertTrue(np.all(np.isnan(np.asarray(mu)[len(movements):])))
+                self.assertLessEqual(max(abs(float(a) - float(b)) for a, b in zip(mu, movements)), 1e-12)
+                self.assertLessEqual(frame_distance(testing.ragged(Fu), F), 1e-9)
+                stores = ranks.compute_orthogonal_representation_ranks(shape, *target)
+                for m, count, W in zip(Fu[5], stores, widths):
+                    self.assertTrue(np.array_equal(m, np.arange(W) < np.asarray(count)[:, None]))
+                self.assertTrue(testing.junk_is_zero(Fu))
+
+    def test_nothing_to_complete(self):
+        """Target stores = old stores: no pass, no projection; the old frame compacted; all-NaN movements."""
+        _, _, uold, _, _, _ = loop_case((5, 6, 5, 6), ((2, 3, 3, 2), (1, 2, 3, 2, 1)), ((2, 3, 3, 2), (1, 2, 3, 2, 1)))
+        widths = (4, 4, 4, 4)
+        with unittest.mock.patch.object(uniform_padded_frames, 'utv_align_padded_frame') as step:
+            F, movements = uniform_padded_frames.ufv_aligned_padded_frame(
+                uold, (2, 3, 3, 2), (1, 2, 3, 2, 1), None, ragged_tests.raising_project, widths)
+        step.assert_not_called()
+        self.assertEqual(movements.shape, (padded_frames.ALIGN_MAX_PASSES,))
+        self.assertTrue(np.all(np.isnan(movements)))
+        want = uniform_padded_frames.ufv_compact_frame(uold, widths)
+        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(F[:4], want[:4])))
+        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(F[5], want[5])))
+
+    def test_zero_passes(self):
+        """max_passes = 0 (any oversampling): the start at the target compacted, bitwise; (0,) movements; no
+        projection."""
+        shape, target = (5, 6, 5, 6), ((3, 5, 5, 3), (1, 3, 5, 3, 1))
+        _, _, uold, _, _, widths = loop_case(shape, ((2, 3, 3, 2), (1, 2, 3, 2, 1)), target)
+        want = uniform_padded_frames.ufv_compact_frame(
+            uniform_padded_frames.ufv_padded_frame(uold, *target, seed=3)[0], widths)
+        for p in (0, 5):
+            with self.subTest(oversampling=p):
+                F, movements = uniform_padded_frames.ufv_aligned_padded_frame(
+                    uold, *target, None, ragged_tests.raising_project, widths, oversampling=p, max_passes=0, seed=3)
+                self.assertEqual(movements.shape, (0,))
+                self.assertTrue(all(np.array_equal(a, b) for a, b in zip(F[:4], want[:4])))
+
+    def test_a_stack(self):
+        """C = (2,) with per-element old and target ranks, tol 0 (every pass runs): each element is its own loop. The
+        stack computes every element at the stack's padded widths (the maxima), its own call at its own, so six passes
+        agree to roundoff, not bitwise (measured 1.0e-14): frames to 1e-13, movements to 1e-14."""
+        shape = (5, 6, 5, 6)
+        pairs = [(((2, 3, 3, 2), (1, 2, 3, 2, 1)), ((3, 5, 5, 3), (1, 3, 5, 3, 1))),
+                 (((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((3, 4, 4, 3), (1, 3, 4, 3, 1)))]
+        rng = np.random.default_rng(4)
+        np.random.seed(4)
+        olds = [testing.scatter_frame(rng, fvc.t3_orthogonal_representations(
+            t3.TuckerTensorTrain.randn(shape, *o).data)[0], (4, 4, 4, 4, 6))[0] for o, _ in pairs]
+        uhint = ut3.UniformTuckerTensorTrain.from_t3(full_rank_hint(shape, 8), N=6)
+        widths = (5, 5, 5, 5)
+        target = tuple(np.stack([np.array(t[j]) for _, t in pairs], axis=1) for j in range(2))
+        stacked_hint = tuple(np.stack([a, a], axis=1) for a in uhint.data[:2]) + uhint.data[2:3] + (tuple(
+            np.stack([m, m], axis=1) for m in uhint.data[3]),)
+        project = utvo.utv_project_ut3_onto_tangent_space
+        F, movements = uniform_padded_frames.ufv_aligned_padded_frame(testing.stack_frames(olds), *target,
+                                                                      stacked_hint, project, widths, tol=0.0,
+                                                                      max_passes=6)
+        self.assertEqual(movements.shape, (6, 2))
+        for e, (_, t) in enumerate(pairs):
+            F_e, m_e = uniform_padded_frames.ufv_aligned_padded_frame(olds[e], *t, uhint.data, project, widths,
+                                                                      tol=0.0, max_passes=6)
+            self.assertLessEqual(frame_distance(testing.ragged(testing.element(F, e)), testing.ragged(F_e)), 1e-13)
+            self.assertLessEqual(float(np.max(np.abs(movements[:, e] - m_e))), 1e-14)
+            self.assertTrue(all(np.array_equal(a, b) for a, b in zip(testing.element(F, e)[5], F_e[5])))
+
+
+class TestLoopSchedule(unittest.TestCase):
+    """T12: the schedule recorded call by call (the real step, wrapped), and the pair stop rule on prescribed movements
+    -- the ragged loop's (``test_padded_frame.TestLoopSchedule``), on the uniform loop."""
+
+    def setUp(self):
+        self.shape, self.target = (4, 5, 4, 3), ((3, 3, 3, 2), (1, 3, 3, 2, 1))
+        _, _, self.old, _, self.hint, self.widths = loop_case(self.shape, ((2, 2, 2, 2), (1, 2, 2, 2, 1)), self.target)
+        self.project = utvo.utv_project_ut3_onto_tangent_space
+
+    def run_recorded(self, **kw):
+        """[(update, output Tucker ranks or None)] per pass."""
+        with unittest.mock.patch.object(uniform_padded_frames, 'utv_align_padded_frame',
+                                        wraps=uniform_padded_frames.utv_align_padded_frame) as step:
+            uniform_padded_frames.ufv_aligned_padded_frame(self.old, *self.target, self.hint.data, self.project,
+                                                           self.widths, **kw)
+        return [(c.kwargs['update'], None if c.args[3] is None else tuple(np.asarray(c.args[3]).tolist()))
+                for c in step.call_args_list]
+
+    def test_the_schedule(self):
+        t = self.target[0]
+        self.assertEqual(self.run_recorded(max_passes=6, tol=0.0),
+                         [('ULRO', None), ('ULRO', None), ('ULRO', t), ('UL', None), ('RO', None), ('UL', None)])
+        self.assertEqual(self.run_recorded(max_passes=4, tol=0.0, alternate=False),
+                         [('ULRO', None), ('ULRO', None), ('ULRO', t), ('ULRO', None)])
+        self.assertEqual(self.run_recorded(oversampling=0, max_passes=2, tol=0.0), [('ULRO', t), ('UL', None)])
+        self.assertEqual(self.run_recorded(oversampled_passes=5, max_passes=3, tol=0.0),
+                         [('ULRO', None), ('ULRO', None), ('ULRO', t)])
+
+    def stop_after(self, prescribed, **kw):
+        """The passes the loop runs when the step returns the prescribed movements in turn (the real frames); each is
+        recorded in its slot, NaN after the last pass."""
+        moves = iter(prescribed)
+        real = uniform_padded_frames.utv_align_padded_frame
+        seen = []
+
+        def fake(frame, variations, split, *args, **kws):
+            F, _ = real(frame, variations, split, *args, **kws)
+            seen.append(float(next(moves)))
+            return F, np.asarray(seen[-1])
+        with unittest.mock.patch.object(uniform_padded_frames, 'utv_align_padded_frame', side_effect=fake):
+            _, movements = uniform_padded_frames.ufv_aligned_padded_frame(self.old, *self.target, self.hint.data,
+                                                                          self.project, self.widths, **kw)
+        np.testing.assert_array_equal(movements, seen + [np.nan] * (len(movements) - len(seen)))
+        return len(seen)
+
+    def test_the_stop_rule(self):
+        lo, hi, nan = 0.01, 0.9, np.nan
+        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi]), 5)                  # the first pair
+        self.assertEqual(self.stop_after([hi, hi, lo, lo, hi, lo, lo, hi]), 7)          # not the truncating pass
+        self.assertEqual(self.stop_after([hi, hi, hi, hi, lo, lo, hi, hi, hi, hi]), 10)  # not across pairs
+        self.assertEqual(self.stop_after([hi] * 10), 10)                                # 3 pairs and a final 'UL'
+        self.assertEqual(self.stop_after([hi] * 9, max_passes=9), 9)                    # an even cap
+        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi], max_passes=6), 5)    # stopped: no final 'UL'
+        self.assertEqual(self.stop_after([hi, hi, hi, lo, nan, lo, lo, hi]), 7)         # a NaN never stops
+        self.assertEqual(self.stop_after([hi, lo, lo, hi], alternate=False), 3)        # simultaneous
+        self.assertEqual(self.stop_after([hi, hi, hi, nan, lo, hi], alternate=False), 5)
+
+    def test_structural_errors(self):
+        call = lambda **kw: uniform_padded_frames.ufv_aligned_padded_frame(
+            self.old, *kw.pop('target', self.target), self.hint.data, self.project, kw.pop('widths', self.widths), **kw)
+        for kw, message in ((dict(max_passes=-1), 'max_passes'), (dict(oversampling=True), 'oversampling'),
+                            (dict(target=((2, 1, 2, 2), (1, 2, 2, 2, 1))), 'below the old frame'),
+                            (dict(target=(self.target[0], (2, 3, 3, 2, 1))), 'boundary TT ranks'),
+                            (dict(widths=(2, 3, 3, 3)), 'exceeds its level width')):
+            with self.subTest(**{k: repr(v) for k, v in kw.items()}), self.assertRaisesRegex(ValueError, message):
+                call(**kw)
 
 
 class TestScatterHelper(unittest.TestCase):
