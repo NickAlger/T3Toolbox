@@ -2,7 +2,7 @@
 # Copyright: MIT License (2026)
 # https://github.com/NickAlger/T3Toolbox
 """Tests for ``backend.uniform_padded_frames`` and ``ufv_masking.ufv_frame_widths`` (the aligned-padded-frame plan's
-T8 and T17; T9-T13 join with the step and the loop).
+T8-T10 and T17; T11-T13 join with the loop).
 
 - **T8, the start.** ``ufv_padded_frame`` against the ragged ``fv_padded_frame`` through the scatter of
   ``_uniform_padded_frame_testing.py``: the old frame at four different own widths, gappy masks, finite garbage in
@@ -15,6 +15,16 @@ T8 and T17; T9-T13 join with the step and the loop).
   bitwise; garbage changes nothing (bitwise, equal layouts); a stack with ranks varying per element equals its
   elements. ``ufv_empty_frame`` is the scatter of ``fv_empty_frame``. Structural errors, each isolated. jit vs numpy
   is the T16 row in ``tests/test_dispatch.py`` (x64 is on there).
+- **T9, the step.** ``utv_align_padded_frame`` against the ragged ``tv_align_padded_frame``: the ragged start and its
+  tangent are scattered in BLOCK LAYOUT (gappy masks in both blocks, junk slots in both, finite garbage in every junk
+  entry, ``N`` padded), on T1's list (d = 1, 2, 3, 5, uneven, non-minimal, a tangent part 10x, truncating, the empty
+  old frame, sharing groups) and the transported stores (the two colours and four other subsets). Frames by the
+  largest principal-angle sine per directed edge and the movement, to 1e-9; the output masks exactly the
+  independently derived ``[the input A-mask | prefix(the ragged output counts)]`` at the counts' maxima; the junk
+  exactly 0; garbage changes nothing (bitwise, equal layouts). Structural errors, each isolated.
+- **T10, stacks.** C = (3,) with different old, frame and output ranks per element, and C = (2, 2): each element of
+  the stacked step equals its own call (frames by the same measure, movements, to 1e-14) and the ragged step; the
+  start likewise, at C = (3,) and (2, 2).
 - **T17.** ``ufv_frame_widths(N, n, r)`` equals the widths of ``ut3_orthogonal_representations`` over a sweep.
 - The scatter helper round-trips in both of its modes.
 
@@ -37,7 +47,11 @@ import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.backend.uniform_padded_frames as uniform_padded_frames
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _padded_frame_oracles as oracles
 import _uniform_padded_frame_testing as testing
+import test_padded_frame as ragged_tests                 # T1's cases and setup (as a module: no re-collection)
+
+import t3toolbox.backend.tv_operations as tvo
 
 
 CASES = [  # label, seed, shape, old ranks (None: the zero tensor), target ranks, sharing
@@ -241,6 +255,237 @@ class TestStartStructuralErrors(unittest.TestCase):
         """Sharing labels on an untied scatter (the members' up slots at different positions)."""
         with self.assertRaisesRegex(ValueError, 'unequal old up masks'):
             uniform_padded_frames.ufv_padded_frame(self.uold, (4, 4, 4, 4), (1, 4, 5, 4, 1), sharing=(0, 0, 1, 1))
+
+
+def step_case(shape, old_ranks, work_ranks, sharing=None, zero_old=False, tangent=0.0, seed=0, garbage=True,
+              stack_shape=()):
+    """(the ragged start, its tangent, the old stores, the block-layout frame and variations, the split): T1's setup,
+    scattered in block layout with one junk slot in the A-blocks, junk in the P-blocks, N padded by one."""
+    old, old_ranks, _, start, S = ragged_tests.step_case(shape, old_ranks, work_ranks, sharing=sharing,
+                                                         zero_old=zero_old, tangent=tangent, stack_shape=stack_shape)
+    variations = tvo.tv_project_dense_onto_tangent_space(start, S)
+    s0 = ranks.compute_orthogonal_representation_ranks(shape, *old_ranks)
+    k = [max(np.subtract(b, a)) for a, b in zip(s0, testing.stores_of(start))]
+    split = (max(s0[0] + s0[1]) + 1, max(s0[2] + s0[3]) + 1)
+    widths = (split[0], max(k[0], k[1]) + 1, split[1], max(k[2], k[3]) + 2, max(shape) + 1)
+    groups = () if sharing is None else sharing_module.validate_sharing(sharing, shape)
+    rng = np.random.default_rng(seed)
+    frame, positions = testing.scatter_frame(rng, start, widths, old_stores=s0, groups=groups, garbage=garbage)
+    return start, variations, old_ranks, s0, frame, testing.scatter_variations(rng, variations, frame, positions,
+                                                                               garbage=garbage), split
+
+
+def frame_distance(Fa, Fb):
+    """The largest principal-angle sine per directed edge between two ragged frames (the plan's measure)."""
+    return max(oracles.distances(oracles.dense_frames(Fa), oracles.dense_frames(Fb)).values())
+
+
+def expected_masks(frame, split, s0, s1):
+    """``[the input A-mask | prefix(s1 - s0)]`` at the counts' maxima, derived from the ragged stores."""
+    k1 = [np.subtract(b, a) for a, b in zip(s0, s1)]
+    Ka1, Kb1 = max(k1[0].max(), k1[1].max()), max(k1[2].max(), k1[3].max())
+    out = []
+    for m, k, A, K in zip(frame[5], k1, (split[0], split[0], split[1], split[1]), (Ka1, Ka1, Kb1, Kb1)):
+        out.append(np.concatenate([m[..., :A], np.arange(K) < np.asarray(k)[..., None]], axis=-1))
+    return out
+
+
+class TestStepAgainstRagged(unittest.TestCase):
+    """T9: the uniform step reproduces the ragged one through the block-layout scatter."""
+
+    def check(self, shape, old_ranks, work_ranks, out_ranks, options, update='ULRO'):
+        sharing = options.get('sharing')
+        start, variations, old_ranks, s0, frame, uvariations, split = step_case(
+            shape, old_ranks, work_ranks, sharing=sharing, zero_old=options.get('zero_old', False),
+            tangent=options.get('tangent', 0.0))
+        F, movement = padded_frames.tv_align_padded_frame(start, variations, *old_ranks, *(out_ranks or (None, None)),
+                                                          sharing=sharing, update=update)
+        F1, movement1 = uniform_padded_frames.utv_align_padded_frame(frame, uvariations, split,
+                                                                    *(out_ranks or (None, None)), sharing=sharing,
+                                                                    update=update)
+        self.assertLessEqual(frame_distance(testing.ragged(F1), F), 1e-9)
+        self.assertEqual(np.shape(movement1), ())
+        self.assertLessEqual(abs(float(movement1) - float(movement)), 1e-9)
+        self.assertTrue(testing.junk_is_zero(F1))
+        for got, want in zip(F1[5], expected_masks(frame, split, s0, testing.stores_of(F))):
+            self.assertIsInstance(got, np.ndarray)
+            self.assertTrue(np.array_equal(got, want))
+        if sharing is not None:
+            for group in sharing_module.validate_sharing(sharing, shape):
+                self.assertTrue(all(np.array_equal(F1[0][i], F1[0][group[0]]) for i in group))
+        return F1
+
+    def test_cases(self):
+        for name, args in ragged_tests.TestStepAgainstDense.CASES.items():
+            with self.subTest(case=name):
+                self.check(*args)
+
+    def test_transported_stores(self):
+        """Each store family transported, and the two colours ('UL', 'RO')."""
+        args = ((5, 6, 5, 6), ((2, 3, 3, 2), (1, 2, 3, 2, 1)), ((3, 5, 5, 3), (1, 3, 5, 3, 1)), None, {})
+        for update in ('UL', 'RO', 'LRO', 'ULO', 'U', 'O'):
+            with self.subTest(update=update):
+                self.check(*args, update=update)
+
+    def test_carriers_keep_the_old_block(self):
+        """left[d-1] and right[0] come out as their masked A-blocks, zero-padded: content in their completion slots
+        (real slots, so not masked) is dropped, as on the ragged layer."""
+        shape, old_ranks, work_ranks, _, _ = ragged_tests.TestStepAgainstDense.CASES['d=3']
+        start, variations, old_ranks, s0, frame, uvariations, (Na, Rb) = step_case(shape, old_ranks, work_ranks)
+        rng = np.random.default_rng(9)
+        U, O, L, R, sh, (mU, mD, mL, mR) = frame
+        L, R = L.copy(), R.copy()
+        L[-1] += rng.standard_normal(L[-1].shape) * (np.arange(L.shape[-2]) >= Na)[None, :, None]   # completion slots
+        R[0] += rng.standard_normal(R[0].shape) * (np.arange(R.shape[-2]) >= Na)[None, :, None]
+        F1, _ = uniform_padded_frames.utv_align_padded_frame((U, O, L, R, sh, (mU, mD, mL, mR)), uvariations, (Na, Rb))
+        mask = lambda core, a, n, b: core * a[:, None, None] * n[None, :, None] * b[None, None, :]
+        want_L = mask(L[-1], mL[-2], mU[-1], mL[-1])[:Rb, :Na, :Rb]
+        want_R = mask(R[0], mR[0], mU[0], mR[1])[:Rb, :Na, :Rb]
+        for got, want in ((F1[2][-1], want_L), (F1[3][0], want_R)):
+            self.assertTrue(np.array_equal(got[:Rb, :Na, :Rb], want))
+            got = got.copy()
+            got[:Rb, :Na, :Rb] = 0.0
+            self.assertTrue(np.all(got == 0.0))
+
+    def test_garbage_changes_nothing(self):
+        """Zeros instead of garbage in every junk entry of the frame and the variations: the bitwise same output."""
+        for name in ('d=3', 'truncating', 'groups', 'empty'):
+            shape, old_ranks, work_ranks, out_ranks, options = ragged_tests.TestStepAgainstDense.CASES[name]
+            with self.subTest(case=name):
+                runs = []
+                for garbage in (False, True):
+                    _, _, _, _, frame, uvariations, split = step_case(
+                        shape, old_ranks, work_ranks, sharing=options.get('sharing'),
+                        zero_old=options.get('zero_old', False), garbage=garbage)
+                    runs.append(uniform_padded_frames.utv_align_padded_frame(
+                        frame, uvariations, split, *(out_ranks or (None, None)), sharing=options.get('sharing')))
+                (Fc, mc), (Fd, md) = runs
+                self.assertTrue(all(np.array_equal(a, b) for a, b in zip(Fc[:4], Fd[:4])))
+                self.assertTrue(np.array_equal(mc, md))
+
+
+class TestStacks(unittest.TestCase):
+    """T10: a stack is its elements, for the step and for the start."""
+
+    ELEMENTS = [   # shape (6, 6, 6, 6): old ranks, frame (working) ranks, output ranks per element
+        (((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((3, 4, 4, 3), (1, 3, 4, 3, 1)), ((3, 3, 3, 3), (1, 3, 4, 3, 1))),
+        (((3, 2, 2, 3), (1, 3, 2, 3, 1)), ((4, 4, 3, 4), (1, 4, 4, 4, 1)), ((4, 3, 3, 4), (1, 4, 3, 4, 1))),
+        (((2, 3, 3, 2), (1, 2, 3, 2, 1)), ((3, 4, 4, 3), (1, 3, 5, 3, 1)), ((3, 4, 4, 3), (1, 3, 5, 3, 1))),
+    ]
+
+    def stacked_case(self, elements, C):
+        """The elements scattered at one block layout (split (4, 4), completion widths (3, 4), N = 7), stacked to C."""
+        shape, rng = (6, 6, 6, 6), np.random.default_rng(5)
+        ragged, frames, variations = [], [], []
+        for e, (old_ranks, work_ranks, out_ranks) in enumerate(elements):
+            old, _, _, start, S = ragged_tests.step_case(shape, old_ranks, work_ranks, seed=10 + e)
+            tangent = tvo.tv_project_dense_onto_tangent_space(start, S)
+            s0 = ranks.compute_orthogonal_representation_ranks(shape, *old_ranks)
+            frame, positions = testing.scatter_frame(rng, start, (4, 3, 4, 4, 7), old_stores=s0)
+            ragged.append((start, tangent, old_ranks, out_ranks))
+            frames.append(frame)
+            variations.append(testing.scatter_variations(rng, tangent, frame, positions))
+        stack = lambda arrays: np.stack(arrays, axis=1).reshape(arrays[0].shape[:1] + C + arrays[0].shape[1:])
+        frame = tuple(stack([f[k] for f in frames]) for k in range(4)) + (shape, tuple(
+            stack([f[5][k] for f in frames]) for k in range(4)))
+        uvariations = (stack([v[0] for v in variations]), stack([v[1] for v in variations]), shape, ())
+        out = tuple(stack([np.array(r[3][j]) for r in ragged]) for j in range(2))
+        return ragged, frames, variations, frame, uvariations, out
+
+    def test_the_step(self):
+        for C, elements in (((3,), self.ELEMENTS), ((2, 2), self.ELEMENTS[:2] * 2)):
+            with self.subTest(C=C):
+                ragged, frames, variations, frame, uvariations, out = self.stacked_case(elements, C)
+                F1, movement = uniform_padded_frames.utv_align_padded_frame(frame, uvariations, (4, 4), *out)
+                self.assertEqual(movement.shape, C)
+                self.assertTrue(testing.junk_is_zero(F1))
+                for e, idx in enumerate(np.ndindex(*C)):
+                    start, tangent, old_ranks, out_ranks = ragged[e]
+                    F_e, mv_e = uniform_padded_frames.utv_align_padded_frame(frames[e], variations[e], (4, 4),
+                                                                            *out_ranks)
+                    got = testing.ragged(testing.element(F1, idx))
+                    self.assertLessEqual(frame_distance(got, testing.ragged(F_e)), 1e-14)
+                    self.assertLessEqual(abs(float(movement[idx]) - float(mv_e)), 1e-14)
+                    F_r, mv_r = padded_frames.tv_align_padded_frame(start, tangent, *old_ranks, *out_ranks)
+                    self.assertLessEqual(frame_distance(got, F_r), 1e-9)
+                    self.assertLessEqual(abs(float(movement[idx]) - float(mv_r)), 1e-9)
+
+    def test_the_start(self):
+        """ufv_padded_frame on the stacked old frames with per-element targets: each element its own start."""
+        shape, rng = (6, 6, 6, 6), np.random.default_rng(6)
+        for C, elements in (((3,), self.ELEMENTS), ((2, 2), self.ELEMENTS[:2] * 2)):
+            with self.subTest(C=C):
+                olds, uolds = [], []
+                for e, (old_ranks, _, _) in enumerate(elements):
+                    np.random.seed(30 + e)
+                    old = fvc.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(shape, *old_ranks).data)[0]
+                    olds.append(old)
+                    uolds.append(testing.scatter_frame(rng, old, (5, 5, 5, 5, 6))[0])
+                stack = lambda arrays: np.stack(arrays, axis=1).reshape(arrays[0].shape[:1] + C + arrays[0].shape[1:])
+                uold = tuple(stack([f[k] for f in uolds]) for k in range(4)) + (shape, tuple(
+                    stack([f[5][k] for f in uolds]) for k in range(4)))
+                target = tuple(stack([np.array(t[1][j]) for t in elements]) for j in range(2))
+                F, _ = uniform_padded_frames.ufv_padded_frame(uold, *target)
+                for e, idx in enumerate(np.ndindex(*C)):
+                    F_e = testing.element(F, idx)
+                    want = padded_frames.fv_padded_frame(olds[e], *elements[e][1])
+                    self.assertLessEqual(max_difference(testing.ragged(F_e), want), 1e-14)
+                    self.assertTrue(testing.junk_is_zero(F_e))
+
+
+class TestStepStructuralErrors(unittest.TestCase):
+    """Each rejection isolated: the input is good in every respect but one, and the message names the check."""
+
+    def setUp(self):
+        self.start, _, _, self.s0, self.frame, self.var, self.split = step_case(
+            (5, 6, 5, 6), ((2, 3, 3, 2), (1, 2, 3, 2, 1)), ((3, 5, 5, 3), (1, 3, 5, 3, 1)))
+        self.out = ((3, 4, 4, 3), (1, 3, 4, 3, 1))
+
+    def call(self, frame=None, var=None, split=None, out=None, **kw):
+        return uniform_padded_frames.utv_align_padded_frame(frame or self.frame, var or self.var, split or self.split,
+                                                            *(out or self.out), **kw)
+
+    def test_the_good_input_passes(self):
+        self.call()
+        self.call(update='UL', out=(None, None))
+
+    def test_update(self):
+        for update in ('', 'UU', 'ULX'):
+            with self.subTest(update=update), self.assertRaisesRegex(ValueError, 'update must be'):
+                self.call(update=update)
+
+    def test_shapes_and_split(self):
+        with self.assertRaisesRegex(ValueError, 'tt variations has shape'):
+            self.call(var=(self.var[0], self.var[1][..., :-1]) + self.var[2:])
+        with self.assertRaisesRegex(ValueError, 'split'):
+            self.call(split=(self.split[0], 0))
+
+    def test_masks_not_an_orthogonal_representation(self):
+        masks = list(self.frame[5])
+        mD = masks[1].copy()
+        mD[1, np.flatnonzero(~mD[1])[0]] = True                         # one extra real down slot at mode 1
+        masks[1] = mD
+        with self.assertRaisesRegex(ValueError, 'do not count an orthogonal representation'):
+            self.call(frame=self.frame[:5] + (tuple(masks),))
+
+    def test_output_ranks(self):
+        with self.assertRaisesRegex(ValueError, 'give both'):
+            uniform_padded_frames.utv_align_padded_frame(self.frame, self.var, self.split, self.out[0])
+        with self.assertRaisesRegex(ValueError, 'output boundary TT ranks'):
+            self.call(out=(self.out[0], (2, 3, 4, 3, 1)))
+        with self.assertRaisesRegex(ValueError, 'the old block must fit the output and the output the frame'):
+            self.call(out=((3, 6, 5, 3), (1, 3, 5, 3, 1)))              # above the frame
+        with self.assertRaisesRegex(ValueError, 'the old block must fit'):
+            self.call(out=((2, 2, 3, 2), (1, 2, 3, 2, 1)))              # below the old block
+
+    def test_truncation_without_update(self):
+        with self.assertRaisesRegex(ValueError, 'truncated .* but not updated'):
+            self.call(update='RO')
+
+    def test_unequal_group(self):
+        """Valid sharing labels (modes 0 and 2, both of size 5) on an untied scatter."""
+        with self.assertRaisesRegex(ValueError, 'unequal Tucker stores or old up masks'):
+            self.call(sharing=(0, 1, 0, 2), out=(None, None))
 
 
 class TestScatterHelper(unittest.TestCase):

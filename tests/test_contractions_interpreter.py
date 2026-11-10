@@ -390,6 +390,21 @@ HISTORICAL = {
     'Cxnk,Cbk->Cxnb': '',
     'Caxk,Cbk->Caxb': '',
     'Ckxb,Cak->Caxb': '',
+    # the uniform alignment step (2026-11): the d-twins of the map sites
+    'dCkn,dCun->dCku': '',
+    'dCun,dCku->dCnk': '',
+    'dCxa,dCanb->dCxnb': '',
+    'dCxb,dCanb->dCanx': '',
+    'dCaxk,dCkb->dCaxb': '',
+    'dCkxb,dCka->dCaxb': '',
+    'dCaxk,dCkz->dCaxz': '',
+    'dCkxb,dCkz->dCzxb': '',
+    'dCxu,dCaub->dCaxb': '',
+    'dCik,dCkb->dCib': '',
+    'dCia,dCib->dCab': '',
+    'dCia,dCab->dCib': '',
+    'dCaxk,dCbk->dCaxb': '',
+    'dCkxb,dCak->dCaxb': '',
 }
 
 SUBS_RE = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')

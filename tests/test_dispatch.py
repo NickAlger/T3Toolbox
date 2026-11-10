@@ -2162,6 +2162,80 @@ class TestDispatch(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, 'uniform masks must be concrete'):
             jax.jit(traced)(gappy[0])
 
+    def test_uniform_align_padded_frame_dispatch(self):
+        """The uniform step: numpy in -> numpy out, jax in -> jax out (the masks host numpy either way), and it jits --
+        the public function with the masks closed over, and its kernel directly with the host data static (the
+        whole-loop jit's path) -- to jax supercores equal to numpy (frames by the largest principal-angle sine per
+        directed edge, movements, 1e-12; x64 on in this module), the junk exactly 0: d = 3 truncating, the empty old
+        frame shared, a stack C = (2,). A traced mask raises the actionable error."""
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
+        import _padded_frame_oracles as oracles
+        import _uniform_padded_frame_testing as testing
+        import test_uniform_padded_frame as uniform_tests
+        to_jax = lambda data, n: tuple(jnp.asarray(a) for a in data[:n]) + tuple(data[n:])
+        distance = lambda Fa, Fb: max(oracles.distances(oracles.dense_frames(testing.ragged(Fa)),
+                                                        oracles.dense_frames(testing.ragged(Fb))).values())
+        cases = {
+            'd=3, truncating': (((4, 5, 4), ((1, 2, 1), (1, 1, 2, 1)), ((2, 3, 2), (1, 2, 2, 1))), {},
+                                ((2, 2, 2), (1, 2, 2, 1))),
+            'empty, shared': (((4, 4, 5), None, ((2, 2, 2), (1, 2, 2, 1))), {'zero_old': True, 'sharing': (0, 0, 1)},
+                              None),
+        }
+        for name, (args, options, out) in cases.items():
+            with self.subTest(case=name):
+                _, _, _, _, frame, var, split = uniform_tests.step_case(*args, **options)
+                kw = dict(sharing=options.get('sharing'))
+                out = out or (None, None)
+                F_np, mv_np = uniform_padded_frames.utv_align_padded_frame(frame, var, split, *out, **kw)
+                self.assertTrue(all(common.is_numpy_ndarray(a) for a in F_np[:4] + F_np[5]))
+                F_e, mv_e = uniform_padded_frames.utv_align_padded_frame(to_jax(frame, 4), to_jax(var, 2), split,
+                                                                        *out, **kw)
+                self._leaves_all_jax((F_e[:4], mv_e))
+                self.assertTrue(all(common.is_numpy_ndarray(m) for m in F_e[5]))
+                def traced(sc, vv):                                     # the masks closed over, the arrays traced
+                    F, mv = uniform_padded_frames.utv_align_padded_frame(tuple(sc) + tuple(frame[4:]),
+                                                                         tuple(vv) + tuple(var[2:]), split, *out, **kw)
+                    return F[:4] + (mv,)
+                F_j = jax.jit(traced)(to_jax(frame[:4], 4), to_jax(var[:2], 2))
+                self._leaves_all_jax(F_j)
+                for F_x, mv_x in ((F_e[:4], mv_e), (F_j[:4], F_j[4])):
+                    F_x = tuple(np.asarray(a) for a in F_x) + tuple(F_np[4:])
+                    self.assertLessEqual(distance(F_x, F_np), 1e-12)
+                    self.assertLessEqual(abs(float(mv_x) - float(mv_np)), 1e-12)
+                    self.assertTrue(testing.junk_is_zero(F_x))
+        # the kernel under jit, its host data static (a hashable skeleton), as the uniform loop will call it
+        _, _, _, _, frame, var, split = uniform_tests.step_case((4, 5, 4), ((1, 2, 1), (1, 1, 2, 1)),
+                                                                ((2, 3, 2), (1, 2, 2, 1)))
+        captured = {}
+        kernel = uniform_padded_frames._utv_align_kernel
+
+        def capture(dynamic, skeleton, split_, update):
+            captured.update(dynamic=dynamic, skeleton=skeleton, split=split_, update=update)
+            return kernel(dynamic, skeleton, split_, update)
+        with unittest.mock.patch.object(uniform_padded_frames, '_utv_align_kernel', side_effect=capture):
+            F_np, mv_np = uniform_padded_frames.utv_align_padded_frame(frame, var, split)
+        hash(captured['skeleton'])
+        out = jax.jit(kernel, static_argnums=(1, 2, 3))(tuple(jnp.asarray(a) for a in captured['dynamic']),
+                                                        captured['skeleton'], captured['split'], captured['update'])
+        self._leaves_all_jax(out)
+        self.assertLessEqual(distance(tuple(np.asarray(a) for a in out[:4]) + tuple(F_np[4:]), F_np), 1e-12)
+        self.assertLessEqual(abs(float(out[4]) - float(mv_np)), 1e-12)
+        # a stack C = (2,): the stacked jitted step against the stacked numpy one, element by element
+        elements = uniform_tests.TestStacks.ELEMENTS[:2]
+        _, _, _, frame, var, out_ranks = uniform_tests.TestStacks().stacked_case(elements, (2,))
+        F_np, mv_np = uniform_padded_frames.utv_align_padded_frame(frame, var, (4, 4), *out_ranks)
+        g = jax.jit(lambda sc, vv: uniform_padded_frames.utv_align_padded_frame(
+            tuple(sc) + tuple(frame[4:]), tuple(vv) + tuple(var[2:]), (4, 4), *out_ranks))
+        F_j, mv_j = g(to_jax(frame[:4], 4), to_jax(var[:2], 2))
+        self._leaves_all_jax((F_j[:4], mv_j))
+        self.assertEqual(mv_j.shape, (2,))
+        for e in range(2):
+            self.assertLessEqual(distance(testing.element(tuple(np.asarray(a) for a in F_j[:4]) + tuple(F_np[4:]), e),
+                                          testing.element(F_np, e)), 1e-12)
+        self.assertLessEqual(float(np.max(np.abs(np.asarray(mv_j) - mv_np))), 1e-12)
+        with self.assertRaisesRegex(ValueError, 'uniform masks must be concrete'):
+            jax.jit(lambda data: uniform_padded_frames.utv_align_padded_frame(data, var, (4, 4), *out_ranks)[1])(frame)
+
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):
         # A few complex ops: jax must agree with numpy (guards subtle backend divergence).

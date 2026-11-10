@@ -75,6 +75,23 @@ def scatter_frame(rng, F, widths, old_stores=None, groups=(), gappy=True, garbag
     return (Uu, Ou, Lu, Ru, Nsh, (mU, mD, mL, mR)), (pU, pD, pL, pR)
 
 
+def scatter_variations(rng, variations, frame, positions, garbage=True):
+    """Scatter unstacked ragged variations ``(V, H)`` into the uniform layout of ``frame`` (a scattered frame's ``.data``)
+    at that scatter's ``positions``: V on the down slots and the shape prefix, H on (left, up, right); finite garbage in
+    every junk entry (or zeros). Returns the variations ``.data`` (V, H, shape, the frame's variation masks)."""
+    V, H = variations
+    pU, pD, pL, pR = positions
+    d = len(V)
+    wU, N, wL, wR = frame[0].shape[-2], frame[0].shape[-1], frame[2].shape[-1], frame[3].shape[-1]
+    junk = (lambda *s: rng.standard_normal(s)) if garbage else (lambda *s: np.zeros(s))
+    Vu, Hu = junk(d, wU, N), junk(d, wL, wU, wR)
+    for i in range(d):
+        Vu[i][np.ix_(pD[i], np.arange(V[i].shape[-1]))] = V[i]
+        Hu[i][np.ix_(pL[i], pU[i], pR[i + 1])] = H[i]
+    mU, mD, mL, mR = frame[5]
+    return Vu, Hu, frame[4], (mU, mD, mL[:-1], mR[1:])
+
+
 def stack_frames(items):
     """Stack uniform frame ``.data`` elements (equal widths, any masks) along a new stack axis (axis 1)."""
     supercores = tuple(np.stack([np.asarray(it[k]) for it in items], axis=1) for k in range(4))
@@ -83,8 +100,10 @@ def stack_frames(items):
 
 
 def element(frame, e):
-    """Stack element ``e`` of a one-axis stacked uniform frame ``.data``."""
-    return tuple(np.asarray(a)[:, e] for a in frame[:4]) + (frame[4], tuple(m[:, e] for m in frame[5]))
+    """Stack element ``e`` (an index tuple, or an int for one stack axis) of a stacked uniform frame ``.data``."""
+    e = e if isinstance(e, tuple) else (e,)
+    return tuple(np.asarray(a)[(slice(None),) + e] for a in frame[:4]) + (frame[4], tuple(m[(slice(None),) + e]
+                                                                                         for m in frame[5]))
 
 
 def ragged(frame):
