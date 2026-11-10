@@ -3,7 +3,7 @@
 # https://github.com/NickAlger/T3Toolbox
 """Tests for ``backend.padded_frames``: the empty frame, the seeded padded frame (the start), and one alignment step.
 
-The plan is ``dev/aligned_padded_frame_impl_plan_2026-11-09.md``; T1-T3 (the step) are at the end of this file.
+The plan is ``dev/aligned_padded_frame_impl_plan_2026-11-09.md``; T1-T3 (the step) and T4, T6 (the loop) follow T5.
 
 T5, the start. The construction is the
 one it replaced (the template-signature ``fv_operations.fv_padded_frame`` of commit 92640502, hint-free path from
@@ -34,11 +34,23 @@ T1-T3, the step ``tv_align_padded_frame``, against the dense per-edge reference 
 - **T3.** Degenerate hints (zero, rank one, an information-free increase) give valid frames; the structural
   rejections, each isolated by its message.
 
+T4 and T6, the loop ``fv_aligned_padded_frame``:
+
+- **T6.** Pass by pass against the dense loop on the same schedule (``_padded_frame_oracles.dense_loop``): two-colour
+  with p = 0 and p = 5, 40 passes; the simultaneous schedule; the empty old frame; sharing. The schedule itself,
+  recorded call by call: no oversampled phase when working = target; the cap counting the truncating pass;
+  ``max_passes`` = 0 and 1; target stores = old stores; the stop rule on prescribed movements (the truncating-pass
+  pair, the stack maximum, the cap). Movements are a tuple of ``C`` arrays.
+- **T4.** Two-colour is transport of the other stores, against the dense loop (in T6's two-colour rows); the cycle
+  regression on the 243-number case of ``_padded_frame_cycle_case.py``: the simultaneous loop still moves by more than
+  0.05 after 200 passes, the alternating loop's movement falls below 1e-8.
+
 numpy-only (house testing strategy); jax dispatch is in ``tests/test_dispatch.py``.
 """
 import os
 import sys
 import unittest
+import unittest.mock
 
 import numpy as np
 
@@ -53,6 +65,7 @@ import t3toolbox.backend.t3_conversions as t3c
 import t3toolbox.backend.tv_operations as tvo
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _padded_frame_cycle_case as cycle_case
 import _padded_frame_oracles as oracles
 
 STORES = ('up', 'down', 'left', 'right')
@@ -813,6 +826,222 @@ class TestStepDegenerateAndStructural(StepAsserts):
         with self.assertRaisesRegex(ValueError, 'unequal Tucker stores .* \\(frame\\)'):
             padded_frames.tv_align_padded_frame(uneven, uneven_variations, *old_ranks, (4, 4, 4, 4), (1, 4, 5, 4, 1),
                                                 sharing=(0, 0, 1, 1))
+
+
+# ------------------------------------------------------------------------------------------- T4, T6: the loop
+def recording_project(seen):
+    """The dense projection, recording every frame it is called at (the loop's frame before each pass)."""
+    def project(frame, S):
+        seen.append(frame)
+        return tvo.tv_project_dense_onto_tangent_space(frame, S)
+    return project
+
+
+def raising_project(frame, hint):
+    raise AssertionError('project must not be called')
+
+
+class TestLoopAgainstDense(StepAsserts):
+    """T6 (and T4's two-colour = transport): the loop pass by pass against the dense loop on the same schedule."""
+
+    CASES = {   # shape, old ranks (None: the empty frame), target ranks, sharing, oversampling, passes, alternate
+        'two-colour, p=0':      ((4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1)), None, 0, 40, True),
+        'two-colour, p=5':      ((4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1)), None, 5, 40, True),
+        'simultaneous, p=5':    ((4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1)), None, 5, 12, False),
+        'two-colour, d=4':      ((4, 5, 4, 3), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((3, 3, 3, 2), (1, 3, 3, 2, 1)), None,
+                                 5, 6, True),
+        'empty old frame':      ((4, 5, 4), None, ((2, 3, 2), (1, 2, 2, 1)), None, 5, 20, True),
+        'sharing':              ((4, 4, 5), ((2, 2, 2), (1, 2, 2, 1)), ((3, 3, 3), (1, 3, 3, 1)), (0, 0, 1), 0, 20,
+                                 True),
+    }
+
+    def test_against_the_dense_loop(self):
+        for name, (shape, old_ranks, target, sharing, p, passes, alternate) in self.CASES.items():
+            with self.subTest(case=name):
+                old, old_ranks, X_old, _, S = step_case(shape, old_ranks or EMPTY_RANKS(len(shape)), target,
+                                                        sharing=sharing, zero_old=old_ranks is None, seed=7)
+                seen = []
+                F, movements = padded_frames.fv_aligned_padded_frame(
+                    old, *target, S, recording_project(seen), sharing=sharing, oversampling=p, max_passes=passes,
+                    tol=0.0, alternate=alternate)
+                self.assertIsInstance(movements, tuple)
+                self.assertEqual(len(movements), passes)                          # tol 0: no early stop
+                working = ranks.oversampled_ranks(shape, *target, p, sharing)
+                self.assertEqual(stores_of(seen[0]), ranks.compute_orthogonal_representation_ranks(shape, *working))
+                groups = () if sharing is None else sharing_module.canonical_groups(sharing, shape)
+                frames, moves = oracles.dense_loop(
+                    oracles.dense_frames(old), oracles.dense_frames(seen[0]), S,
+                    ranks.compute_orthogonal_representation_ranks(shape, *working),
+                    ranks.compute_orthogonal_representation_ranks(shape, *target),
+                    padded_frames.ALIGN_OVERSAMPLED_PASSES, passes, 0.0, alternate, groups)
+                for k, (Fk, Dk) in enumerate(zip(seen[1:] + [F], frames)):
+                    self.assertLessEqual(max(oracles.distances(oracles.dense_frames(Fk), Dk).values()), 1e-9,
+                                         'pass %d' % k)
+                    self.assertLessEqual(abs(float(movements[k]) - moves[k]), 1e-9, 'pass %d' % k)
+                stores = ranks.compute_orthogonal_representation_ranks(shape, *target)
+                self.assert_padded(F, old, X_old, stores, groups)
+
+    def test_stacked(self):
+        """A stack C = (2,): movements are a tuple of C arrays, and each element is the per-element loop."""
+        shape, old_ranks, target = (4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1))
+        old, _, X_old, _, S = step_case(shape, old_ranks, target, stack_shape=(2,))
+        project = lambda frame, Y: tvo.tv_project_dense_onto_tangent_space(frame, Y)
+        F, movements = padded_frames.fv_aligned_padded_frame(old, *target, S, project, max_passes=6, tol=0.0)
+        self.assertEqual(len(movements), 6)
+        self.assertTrue(all(isinstance(m, np.ndarray) and m.shape == (2,) for m in movements))
+        for e in range(2):
+            F_e, movements_e = padded_frames.fv_aligned_padded_frame(element(old, e), *target, S[e], project,
+                                                                     max_passes=6, tol=0.0)
+            self.assertLessEqual(worst(element(F, e), F_e), 1e-12)
+            self.assertLessEqual(max(abs(float(a[e]) - float(b)) for a, b in zip(movements, movements_e)), 1e-12)
+
+
+class TestLoopSchedule(unittest.TestCase):
+    """T6: the schedule, recorded call by call (the real step, wrapped), and the stop rule on prescribed movements."""
+
+    def setUp(self):
+        self.shape = (4, 5, 4, 3)
+        self.old, _, _, _, self.S = step_case(self.shape, ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((3, 3, 3, 2), (1, 3, 3, 2, 1)))
+        self.target = ((3, 3, 3, 2), (1, 3, 3, 2, 1))
+        self.project = lambda frame, Y: tvo.tv_project_dense_onto_tangent_space(frame, Y)
+
+    def run_recorded(self, **kw):
+        """(frame, movements, [(update, output Tucker ranks or None)] per pass)."""
+        with unittest.mock.patch.object(padded_frames, 'tv_align_padded_frame',
+                                        wraps=padded_frames.tv_align_padded_frame) as step:
+            F, movements = padded_frames.fv_aligned_padded_frame(self.old, *self.target, self.S, self.project, **kw)
+        calls = [(c.kwargs['update'], c.args[4]) for c in step.call_args_list]
+        return F, movements, calls
+
+    def test_working_equals_target_has_no_oversampled_phase(self):
+        F, movements, calls = self.run_recorded(oversampling=0, max_passes=4, tol=0.0)
+        t = self.target[0]
+        self.assertEqual(calls, [('ULRO', t), ('UL', t), ('RO', t), ('UL', t)])
+        self.assertEqual(len(movements), 4)
+
+    def test_the_default_shape_of_a_run(self):
+        """Two oversampled passes, the truncating pass, then 'UL' and 'RO' in turn; the simultaneous schedule
+        updates every store on every pass."""
+        t = self.target[0]
+        _, _, calls = self.run_recorded(max_passes=6, tol=0.0)
+        self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('UL', t), ('RO', t), ('UL', t)])
+        _, _, calls = self.run_recorded(max_passes=4, tol=0.0, alternate=False)
+        self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('ULRO', t)])
+
+    def test_the_cap_counts_the_truncating_pass(self):
+        F, movements, calls = self.run_recorded(oversampled_passes=5, max_passes=3, tol=0.0)
+        self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', self.target[0])])
+        self.assertEqual(stores_of(F), ranks.compute_orthogonal_representation_ranks(self.shape, *self.target))
+
+    def test_one_pass(self):
+        """max_passes = 1: one truncating pass from the working start, or one 'ULRO' pass at the target."""
+        for p in (5, 0):
+            with self.subTest(oversampling=p):
+                F, movements, calls = self.run_recorded(oversampling=p, max_passes=1, tol=0.0)
+                self.assertEqual(calls, [('ULRO', self.target[0])])
+                self.assertEqual(len(movements), 1)
+                self.assertEqual(stores_of(F), ranks.compute_orthogonal_representation_ranks(self.shape, *self.target))
+
+    def test_zero_passes_is_the_start_at_the_target(self):
+        """No projection, no step, empty movements; the frame is fv_padded_frame at the target, bitwise."""
+        start = padded_frames.fv_padded_frame(self.old, *self.target, seed=3)
+        for p in (0, 5):
+            with self.subTest(oversampling=p):
+                with unittest.mock.patch.object(padded_frames, 'tv_align_padded_frame') as step:
+                    F, movements = padded_frames.fv_aligned_padded_frame(
+                        self.old, *self.target, None, raising_project, oversampling=p, max_passes=0, seed=3)
+                step.assert_not_called()
+                self.assertEqual(movements, ())
+                for got, want in zip(F, start):
+                    self.assertTrue(all(np.array_equal(g, w) for g, w in zip(got, want)))
+
+    def test_the_working_start_uses_the_seed(self):
+        """The first frame the loop projects at is fv_padded_frame at the working ranks with the loop's seed, bitwise;
+        another seed moves it."""
+        working = ranks.oversampled_ranks(self.shape, *self.target, padded_frames.ALIGN_OVERSAMPLING)
+        for seed in (3, 0):
+            with self.subTest(seed=seed):
+                seen = []
+                padded_frames.fv_aligned_padded_frame(self.old, *self.target, self.S, recording_project(seen),
+                                                      max_passes=1, seed=seed)
+                want = padded_frames.fv_padded_frame(self.old, *working, seed=seed)
+                for got, w in zip(seen[0], want):
+                    self.assertTrue(all(np.array_equal(g, x) for g, x in zip(got, w)))
+        self.assertFalse(np.array_equal(padded_frames.fv_padded_frame(self.old, *working, seed=3)[0][0],
+                                        padded_frames.fv_padded_frame(self.old, *working, seed=0)[0][0]))
+
+    def test_nothing_to_complete(self):
+        """Target stores equal to the old stores: no pass, empty movements, the old frame (values, bitwise)."""
+        with unittest.mock.patch.object(padded_frames, 'tv_align_padded_frame') as step:
+            F, movements = padded_frames.fv_aligned_padded_frame(
+                self.old, (2, 2, 2, 2), (1, 2, 2, 2, 1), None, raising_project)
+        step.assert_not_called()
+        self.assertEqual(movements, ())
+        for got, want in zip(F, self.old):
+            self.assertTrue(all(np.array_equal(g, w) for g, w in zip(got, want)))
+
+    def stop_after(self, prescribed, **kw):
+        """The number of passes the loop runs when the step returns the prescribed movements in turn."""
+        moves = iter(prescribed)
+        fake = lambda frame, variations, *args, **kws: (frame, np.asarray(next(moves)))
+        with unittest.mock.patch.object(padded_frames, 'tv_align_padded_frame', side_effect=fake):
+            _, movements = padded_frames.fv_aligned_padded_frame(self.old, *self.target, None, lambda F, h: None,
+                                                                 **kw)
+        return len(movements)
+
+    def test_the_stop_rule(self):
+        """With the default two oversampled passes (pass 2 truncates) and tol 0.05: alternate stops after a pass
+        whose movement and the previous one's are below tol, never at the truncating pass itself; the pair may be
+        the truncating pass and the first 'UL' pass. Simultaneous: the first pass from the truncating one on below
+        tol. Oversampled passes never stop. The stack maximum decides; the cap stops."""
+        lo, hi = 0.01, 0.9
+        self.assertEqual(self.stop_after([hi, hi, lo, lo, hi, hi]), 4)                  # the truncating pair
+        self.assertEqual(self.stop_after([hi, hi, lo, hi, lo, lo, hi]), 6)
+        self.assertEqual(self.stop_after([lo, lo, lo, lo, hi]), 4)                      # not during oversampling
+        self.assertEqual(self.stop_after([hi, lo, lo, hi], alternate=False), 3)
+        self.assertEqual(self.stop_after([lo, lo, hi, lo, hi], alternate=False), 4)
+        self.assertEqual(self.stop_after([hi, hi, lo, [lo, hi], lo, lo, hi]), 6)        # the max over the stack
+        self.assertEqual(self.stop_after([hi, hi, [lo, hi], lo, hi], alternate=False), 4)
+        self.assertEqual(self.stop_after([hi] * 10), 10)                                # the cap (default 10)
+        self.assertEqual(self.stop_after([hi] * 3, max_passes=3), 3)
+
+    def test_structural_errors(self):
+        for kw, message in ((dict(max_passes=-1), 'max_passes'), (dict(max_passes=True), 'max_passes'),
+                            (dict(oversampled_passes=-1), 'oversampled_passes'), (dict(oversampling=-1), 'non-negative')):
+            with self.subTest(**{k: repr(v) for k, v in kw.items()}), self.assertRaisesRegex(ValueError, message):
+                padded_frames.fv_aligned_padded_frame(self.old, *self.target, self.S, self.project, **kw)
+        with self.assertRaisesRegex(ValueError, 'below the old frame'):
+            padded_frames.fv_aligned_padded_frame(self.old, (2, 1, 2, 2), (1, 2, 2, 2, 1), self.S, self.project)
+        with self.assertRaisesRegex(ValueError, 'oversampling must be a non-negative int'):   # checked even when
+            padded_frames.fv_aligned_padded_frame(self.old, *self.target, self.S, self.project,  # zero passes do not
+                                                  oversampling=-1, max_passes=0)                # read it
+        with self.assertRaisesRegex(ValueError, 'target boundary TT ranks'):
+            padded_frames.fv_aligned_padded_frame(self.old, self.target[0], (2, 3, 3, 2, 1), self.S, self.project)
+
+
+class TestLoopCycle(unittest.TestCase):
+    """T4: the cycle regression on the 243-number case (``_padded_frame_cycle_case.py``): with p = 0 the simultaneous
+    loop still moves by more than 0.05 after 200 passes (a period-2 cycle); the two-colour loop converges."""
+
+    def setUp(self):
+        self.old = fvc.t3_orthogonal_representations((cycle_case.OLD_TUCKER_CORES, cycle_case.OLD_TT_CORES))[0]
+        self.project = tvo.tv_project_dense_onto_tangent_space
+
+    def run_loop(self, **kw):
+        return padded_frames.fv_aligned_padded_frame(self.old, cycle_case.TUCKER_RANKS, cycle_case.TT_RANKS,
+                                                     cycle_case.S, self.project, oversampling=0,
+                                                     seed=cycle_case.SEED, **kw)
+
+    def test_the_simultaneous_loop_cycles(self):
+        _, movements = self.run_loop(max_passes=200, tol=0.0, alternate=False)
+        self.assertEqual(len(movements), 200)
+        self.assertGreater(float(movements[-1]), 0.05)
+        self.assertGreater(float(movements[-2]), 0.05)
+
+    def test_the_two_colour_loop_converges(self):
+        _, movements = self.run_loop(max_passes=200, tol=1e-8, alternate=True)
+        self.assertLess(len(movements), 200)
+        self.assertLess(max(float(m) for m in movements[-2:]), 1e-8)
 
 if __name__ == '__main__':
     unittest.main()

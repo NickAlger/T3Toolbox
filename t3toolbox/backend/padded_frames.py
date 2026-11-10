@@ -7,8 +7,10 @@
 ``fv_empty_frame`` is the frame of the zero tensor. ``fv_padded_frame`` is the seeded start: an old frame in the
 leading slots of every store, and the new slots completed by a data-independent convention.
 ``tv_align_padded_frame`` is one alignment step: every completion replaced by the leading new directions of a tangent
-vector at the frame, the old blocks held fixed (unrooted message passing over the T3 tree's directed edges). The
-``ALIGN_*`` constants are the defaults of the alignment schedule, named once here.
+vector at the frame, the old blocks held fixed (unrooted message passing over the T3 tree's directed edges).
+``fv_aligned_padded_frame`` is the loop: from the start at oversampled working ranks, steps against the projection of
+one fixed tensor, a truncating pass to the target ranks, then two-colour passes. The ``ALIGN_*`` constants are the
+loop's defaults, named once here.
 """
 import typing as typ
 import numpy as np
@@ -29,6 +31,7 @@ __all__ = [
     'fv_empty_frame',
     'fv_padded_frame',
     'tv_align_padded_frame',
+    'fv_aligned_padded_frame',
 ]
 
 FrameData = typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray], typ.Sequence[NDArray], typ.Sequence[NDArray]]
@@ -116,6 +119,18 @@ def _rank_stores(
         raise ValueError('the %s boundary TT ranks are (%d, %d); a frame\'s boundary bonds are 1'
                          % (which, tt_ranks[0], tt_ranks[-1]))
     return stores
+
+
+def _require_contains(
+        old_stores:     typ.Tuple[typ.Tuple[int, ...], ...],   # (nU, nD, rL, rR) of the old frame
+        target_stores:  typ.Tuple[typ.Tuple[int, ...], ...],   # (nU, nD, rL, rR) of the target
+) -> None:
+    """``ValueError`` unless every target store is at least the old frame's."""
+    for name, old, new in zip(_STORE_NAMES, old_stores, target_stores):
+        for i, (a, b) in enumerate(zip(old, new)):
+            if b < a:
+                raise ValueError('the target %s store %d is %d, below the old frame\'s %d: the target ranks must '
+                                 'contain the old structure' % (name, i, b, a))
 
 
 def _haar_seed_rows(
@@ -266,11 +281,7 @@ def fv_padded_frame(
     shape = tuple(int(U.shape[-1]) for U in up0)
 
     new_stores = _rank_stores(shape, tucker_ranks, tt_ranks, 'target')
-    for name, old, new in zip(_STORE_NAMES, old_stores, new_stores):
-        for i, (a, b) in enumerate(zip(old, new)):
-            if b < a:
-                raise ValueError('the target %s store %d is %d, below the old frame\'s %d: the target ranks must '
-                                 'contain the old structure' % (name, i, b, a))
+    _require_contains(old_stores, new_stores)
 
     groups = tuple((i,) for i in range(d)) if sharing is None else sharing_module.validate_sharing(sharing, shape)
     for group in groups:
@@ -293,7 +304,10 @@ def fv_padded_frame(
 
 
 # --------------------------------------------------------------------------------------------------
-# One alignment step: the note's unrooted message passing over the directed edges of the T3 tree
+# One alignment step. Every directed edge of the T3 tree (leaf -> core, core -> core both ways, core -> leaf) gets a
+# new completion: the leading directions of the tangent vector's content at that edge, off the pinned old block.
+# The content is assembled from messages passed inward from the far side of the edge (step 1, at the old
+# completions) and from the new completions of the edges feeding it (step 2), with no root.
 # --------------------------------------------------------------------------------------------------
 def _unfold(
         X:     NDArray,   # C+(a, n, b)
@@ -666,3 +680,61 @@ def tv_align_padded_frame(
     right = (_embed(R[0][..., :nU0[0], :rR0[1]], (rR1[0], nU1[0], rR1[1])),) + right    # old content only
     movement = xnp.max(xnp.stack(tuple(moves_U) + tuple(moves_L) + tuple(moves_R) + tuple(moves_O)), axis=0)
     return (up, tuple(down), left, right), movement
+
+
+# --------------------------------------------------------------------------------------------------
+# The loop: F <- align(F, project(F, hint)), on a fixed schedule
+# --------------------------------------------------------------------------------------------------
+def fv_aligned_padded_frame(
+        old_frame:           FrameData,                          # the old frame, stack C (fv_empty_frame for the zero tensor)
+        tucker_ranks:        typ.Sequence[int],                  # len=d, target
+        tt_ranks:            typ.Sequence[int],                  # len=d+1, target (boundary 1)
+        hint:                typ.Any,                            # opaque: handed to `project` unread
+        project:             typ.Callable,                       # project(frame, hint) -> VariationsData: ONE fixed tensor projected at `frame`
+
+        sharing:             typ.Optional[typ.Sequence] = None,  # len=d group labels; None = unshared
+        oversampling:        int   = ALIGN_OVERSAMPLING,         # p: working ranks = ranks.oversampled_ranks(shape, target, p, sharing)
+        oversampled_passes:  int   = ALIGN_OVERSAMPLED_PASSES,   # passes at the working ranks before the truncating pass
+        max_passes:          int   = ALIGN_MAX_PASSES,           # passes in all, the truncating pass included; 0 = the hint-free start at the target
+        tol:                 float = ALIGN_TOL,                  # early exit on the movement
+        alternate:           bool  = ALIGN_ALTERNATE,            # two-colour passes after the truncating pass
+        seed:                int   = ZERO_FRAME_SEED,            # the start's Haar stream
+) -> typ.Tuple[
+    FrameData,                 # the aligned padded frame at the target ranks
+    typ.Tuple[NDArray, ...],   # movements, one per pass, each shape=C
+]:
+    """The aligned padded frame: the seeded start, then alignment passes against ``project(frame, hint)``."""
+    for name, value in (('max_passes', max_passes), ('oversampled_passes', oversampled_passes),
+                        ('oversampling', oversampling)):
+        if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < 0:
+            raise ValueError('%s must be a non-negative int, got %r' % (name, value))
+    tucker_ranks, tt_ranks = tuple(int(n) for n in tucker_ranks), tuple(int(r) for r in tt_ranks)
+    old_stores = _frame_stores(old_frame, 'old_frame')
+    old_tucker_ranks, old_tt_ranks = old_stores[0], old_stores[2]       # an orthogonal representation's own widths
+    shape = tuple(int(U.shape[-1]) for U in old_frame[0])
+    target_stores = _rank_stores(shape, tucker_ranks, tt_ranks, 'target')
+    _require_contains(old_stores, target_stores)
+    if max_passes == 0 or target_stores == old_stores:          # zero passes: the hint-free start at the target;
+        return fv_padded_frame(old_frame, tucker_ranks, tt_ranks, sharing, seed), ()   # or nothing to complete
+
+    working = ranks.oversampled_ranks(shape, tucker_ranks, tt_ranks, oversampling, sharing)
+    n_over = 0 if _rank_stores(shape, *working, 'working') == target_stores else oversampled_passes
+    n_over = min(n_over, max_passes - 1)                        # the cap counts the truncating pass (pass n_over)
+    frame = fv_padded_frame(old_frame, *working, sharing, seed)
+    movements = []
+    for it in range(max_passes):
+        if it <= n_over or not alternate:
+            update = 'ULRO'
+        else:                                                   # two-colour: 'UL' first, then 'RO', alternating
+            update = 'UL' if (it - n_over) % 2 == 1 else 'RO'
+        out = (None, None) if it < n_over else (tucker_ranks, tt_ranks)
+        frame, movement = tv_align_padded_frame(frame, project(frame, hint), old_tucker_ranks, old_tt_ranks, *out,
+                                                sharing=sharing, update=update)
+        movements.append(movement)
+        if alternate:                                           # both colours below tol (the max over the stack)
+            done = it > n_over and max(float(np.max(np.asarray(m))) for m in movements[-2:]) < tol
+        else:
+            done = it >= n_over and float(np.max(np.asarray(movement))) < tol
+        if done:
+            break
+    return frame, tuple(movements)
