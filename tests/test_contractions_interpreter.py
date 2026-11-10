@@ -356,6 +356,40 @@ HISTORICAL = {
     # counts, so C is solved from any operand ('').
     'Cia,Cib->Cab': '',
     'Cia,Cab->Cib': '',
+    # ... the alignment step (backend.padded_frames.tv_align_padded_frame, the plan's Appendix C, ragged forms c1-c31;
+    # c19 'Caxb,Caub->Cxu' and c22 / c23 above are reused). Far-side messages: down (c1, c2), left (c3-c8), right
+    # (c9-c14), up (c15-c20); new completions: the content g_old Phi / g_old Xi (c21), U+ g_new (c24), a slot in the
+    # new coordinates (c8 first axis, c25 Tucker axis, c14 last axis), the near terms of the left (c26, c27), right
+    # (c28, c29) and down (c30, c31) edges. Every term carries one group C and fixed lowercase counts, so C is solved
+    # from any operand: ''.
+    'Ckn,Cun->Cku': '',
+    'Cun,Cku->Cnk': '',
+    'Cxkb,Ckn->Cxnb': '',
+    'Cxnk,Ckb->Cxnb': '',
+    'Cxkb,Ckz->Cxzb': '',
+    'Cxnk,Ckz->Cxnz': '',
+    'Cxnb,Canb->Cxa': '',
+    'Cxa,Canb->Cxnb': '',
+    'Cakx,Ckn->Canx': '',
+    'Cknx,Cka->Canx': '',
+    'Cakx,Ckz->Cazx': '',
+    'Cknx,Ckz->Cznx': '',
+    'Canx,Canb->Cxb': '',
+    'Cxb,Canb->Canx': '',
+    'Caxk,Ckb->Caxb': '',
+    'Ckxb,Cka->Caxb': '',
+    'Caxk,Ckz->Caxz': '',
+    'Ckxb,Ckz->Czxb': '',
+    'Cxu,Caub->Caxb': '',
+    'Cik,Ckb->Cib': '',
+    'Cun,Cnk->Cuk': '',
+    'Cxn,Canb->Caxb': '',
+    'Cakx,Cnk->Canx': '',
+    'Cknx,Cak->Canx': '',
+    'Cxkb,Cnk->Cxnb': '',
+    'Cxnk,Cbk->Cxnb': '',
+    'Caxk,Cbk->Caxb': '',
+    'Ckxb,Cak->Caxb': '',
 }
 
 SUBS_RE = re.compile(r'^[A-Za-z]+(,[A-Za-z]+)*->[A-Za-z]*$')

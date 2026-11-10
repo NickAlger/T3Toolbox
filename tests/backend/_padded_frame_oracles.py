@@ -1,0 +1,153 @@
+# Authors: Nick Alger and Blake Christierson
+# Copyright: MIT License (2026)
+# https://github.com/NickAlger/T3Toolbox
+"""Dense reference for the padded-frame alignment step (tests only; tiny sizes).
+
+The step is written here directly on dense tensors, one DIRECTED edge at a time, with no code shared with
+``backend.padded_frames``: per edge ``a -> b``, in message order,
+
+    P+ = Q . (leading left singular vectors of  Q^T Z_(a->b) (I - V V^T)),
+
+with ``Q`` an orthonormal basis of the candidate space built from the NEW incoming completions, minus the edge's old
+frame, and ``V`` the old frame on the far side. On the core -> leaf edges the content is the hint with the old Tucker
+frame removed (the unrooted rule). A store not in ``update`` is TRANSPORTED: its old completion projected into the new
+candidate space, ``Q . (leading left singular vectors of Q^T P_old)``. The movement of an edge is
+``||T - W W^T T||_F`` with ``T = Q^T P_old`` and ``W`` the new completion in ``Q``'s coordinates.
+
+Ported from the research prototypes (``dense_oracle.py`` and ``cycle/cycle_schemes.select_pass`` in the
+maintainer-local research repo), with the movement added.
+"""
+import math
+
+import numpy as np
+
+
+def interfaces(frame):
+    """Dense left interfaces ``phi[k]`` (prod N_<k, rL_k) and right interfaces ``psi[k]`` (prod N_>=k, rR_k)."""
+    up, down, left, right = frame
+    d = len(up)
+    phi = [np.ones((1, 1))]
+    for k in range(d - 1):
+        phi.append(np.einsum('xa,ni,anb->xib', phi[k], up[k], left[k])
+                   .reshape(phi[k].shape[0] * up[k].shape[1], left[k].shape[2]))
+    psi = [None] * d + [np.ones((1, 1))]
+    for k in range(d - 1, 0, -1):
+        psi[k] = (np.einsum('anb,ni,yb->aiy', right[k], up[k], psi[k + 1])
+                  .reshape(right[k].shape[0], up[k].shape[1] * psi[k + 1].shape[0]).T)
+    return phi, psi
+
+
+def dense_frames(frame):
+    """One orthonormal dense basis per DIRECTED edge: ``(U, phi, psi, E)`` = leaf -> core, core -> core rightward,
+    core -> core leftward, core -> leaf."""
+    up, down, left, right = (tuple(np.asarray(c, dtype=float) for c in cores) for cores in frame)
+    phi, psi = interfaces((up, down, left, right))
+    U = [u.T for u in up]
+    E = [np.einsum('xa,amb,yb->xym', phi[i], down[i], psi[i + 1])
+         .reshape(phi[i].shape[0] * psi[i + 1].shape[0], down[i].shape[1]) for i in range(len(up))]
+    return U, phi, psi, E
+
+
+def complement_in(B, A):
+    """An orthonormal basis of span(B) minus span(A), for A nested in B (both orthonormal columns)."""
+    c = B.T @ A
+    Uc, sc, _ = np.linalg.svd(c, full_matrices=True)
+    assert sc.size == 0 or sc.min() > 1 - 1e-8, 'the old frame is not nested in the candidate space'
+    return B @ Uc[:, A.shape[1]:]
+
+
+def top_left(Y, k):
+    """The leading ``k`` left singular vectors of ``Y``."""
+    Uy, _, _ = np.linalg.svd(Y, full_matrices=True)
+    return Uy[:, :k]
+
+
+def dense_pass(oldD, curD, Z, stores, update='ULRO', groups=()):
+    """One step on dense tensors: the new frames ``(U, phi, psi, E)`` at ``stores`` = (nU, nD, rL, rR), and the
+    movement (max over edges). ``oldD`` / ``curD``: the dense frames of the old and the current (padded) frame; ``Z``:
+    the dense tangent vector; ``groups``: canonical sharing groups (tuples of mode indices), singletons optional."""
+    Uo, phio, psio, Eo = oldD
+    Uc, phic, psic, Ec = curD
+    nU, nD, rL, rR = stores
+    N = Z.shape
+    d = len(N)
+    Zi = [np.moveaxis(Z, i, 0).reshape(N[i], -1) for i in range(d)]
+    moves = []
+
+    def choose(Q, content, P_old, k, on):
+        T = Q.T @ P_old
+        W = top_left(content if on else T, k)
+        moves.append(np.linalg.norm(T - W @ (W.T @ T)))
+        return Q @ W
+
+    U = [None] * d
+    grouped = set(i for g in groups for i in g)
+    for g in [tuple(g) for g in groups] + [(i,) for i in range(d) if i not in grouped]:      # leaf -> core
+        i0 = g[0]
+        s = Uo[i0].shape[1]
+        Q = complement_in(np.eye(N[i0]), Uo[i0])
+        blocks = []
+        for i in g:
+            Y = Q.T @ Zi[i]
+            blocks.append(Y - (Y @ Eo[i]) @ Eo[i].T)
+        W = choose(Q, np.concatenate(blocks, axis=1), Uc[i0][:, s:], nU[i0] - s, 'U' in update)
+        for i in g:
+            U[i] = np.concatenate([Uo[i0], W], axis=1)
+    phi = [np.ones((1, 1))]
+    for k in range(d - 1):                                        # core k -> core k+1
+        B = np.einsum('xa,in->xian', phi[k], U[k]).reshape(phi[k].shape[0] * N[k], -1)
+        r0 = phio[k + 1].shape[1]
+        Q = complement_in(B, phio[k + 1])
+        Y = Q.T @ Z.reshape(B.shape[0], -1)
+        Y = Y - (Y @ psio[k + 1]) @ psio[k + 1].T
+        phi.append(np.concatenate([phio[k + 1], choose(Q, Y, phic[k + 1][:, r0:], rL[k + 1] - r0, 'L' in update)], 1))
+    psi = [None] * d + [np.ones((1, 1))]
+    for k in range(d - 1, 0, -1):                                 # core k -> core k-1
+        B = np.einsum('in,yb->iynb', U[k], psi[k + 1]).reshape(N[k] * psi[k + 1].shape[0], -1)
+        r0 = psio[k].shape[1]
+        Q = complement_in(B, psio[k])
+        Y = Q.T @ Z.reshape(-1, B.shape[0]).T
+        Y = Y - (Y @ phio[k]) @ phio[k].T
+        psi[k] = np.concatenate([psio[k], choose(Q, Y, psic[k][:, r0:], rR[k] - r0, 'R' in update)], 1)
+    E = []
+    for i in range(d):                                            # core -> leaf (unrooted)
+        B = np.einsum('xa,yb->xyab', phi[i], psi[i + 1]).reshape(phi[i].shape[0] * psi[i + 1].shape[0], -1)
+        r0 = Eo[i].shape[1]
+        Q = complement_in(B, Eo[i])
+        Zt = Zi[i].T
+        content = Q.T @ (Zt - (Zt @ Uo[i]) @ Uo[i].T)
+        E.append(np.concatenate([Eo[i], choose(Q, content, Ec[i][:, r0:], nD[i] - r0, 'O' in update)], 1))
+    return (U, phi, psi, E), max(moves)
+
+
+def tangent_basis(D, N):
+    """An orthonormal basis of the two-sided tangent space at the dense frames ``D``."""
+    U, phi, psi, E = D
+    d = len(N)
+    cols = []
+    for i in range(d):
+        nx, ny, m = math.prod(N[:i]), math.prod(N[i + 1:]), E[i].shape[1]
+        cols.append(np.einsum('ij,xym->xiyjm', np.eye(N[i]), E[i].reshape(nx, ny, m)).reshape(math.prod(N), -1))
+        cols.append(np.einsum('xa,in,yb->xiyanb', phi[i], U[i], psi[i + 1]).reshape(math.prod(N), -1))
+    Q, s, _ = np.linalg.svd(np.concatenate(cols, axis=1), full_matrices=False)
+    return Q[:, s > 1e-9 * s[0]]
+
+
+def dense_project(D, S):
+    """The orthogonal projection of the dense tensor ``S`` onto the tangent space at ``D``."""
+    Q = tangent_basis(D, S.shape)
+    return (Q @ (Q.T @ S.ravel())).reshape(S.shape)
+
+
+def distances(Da, Db):
+    """The largest principal-angle sine between two sets of dense frames, per kind of directed edge
+    ('U' leaf -> core, 'L' rightward, 'R' leftward, 'O' core -> leaf); 1.0 where the widths differ."""
+    out = {}
+    for name, a, b in zip('ULRO', Da, Db):
+        ds = []
+        for x, y in zip(a, b):
+            if x is None or y is None:
+                continue
+            ds.append(1.0 if x.shape != y.shape else (np.linalg.norm(x - y @ (y.T @ x), 2) if x.size else 0.0))
+        out[name] = max(ds) if ds else 0.0
+    return out

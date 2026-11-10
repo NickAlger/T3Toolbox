@@ -1989,6 +1989,58 @@ class TestDispatch(unittest.TestCase):
                 for a, b in zip(jax.tree_util.tree_leaves(out), jax.tree_util.tree_leaves(out_np)):
                     self.assertLessEqual(norm(np.asarray(a) - b), 1e-12)
 
+    def test_align_padded_frame_dispatch(self):
+        """One alignment step: numpy in -> numpy out, and jax in jits (ranks, sharing and update static) to pure jax
+        that agrees with numpy (x64 on in this module): the movement directly, the frames gauge-invariantly
+        through the dense tangent projection P_{T_F} Y of a fixed Y (a new column's sign follows its SVD's, which is
+        backend-dependent). Generic hints, so the content determines the subspaces. A truncating step, a shared
+        two-colour half (R and O transported), the zero tensor's empty frame, and a stack C = (2,)."""
+        import t3toolbox.backend.t3_conversions as t3c
+        np.random.seed(4)
+        r = np.random.default_rng(4)
+        x_old = t3.TuckerTensorTrain.randn((4, 5, 6, 3), (2, 2, 2, 2), (1, 2, 2, 2, 1))
+        x_tied = t3.TuckerTensorTrain.randn((5, 4, 5, 4), (2, 2, 2, 2), (1, 2, 2, 2, 1)).share(
+            (0, 1, 0, 1), max_tucker_ranks=2, max_tt_ranks=2)
+        x_stacked = t3.TuckerTensorTrain.randn((4, 5, 6, 3), (2, 2, 2, 2), (1, 2, 2, 2, 1), stack_shape=(2,))
+        cases = {   # old frame, its ranks, working ranks, output ranks, sharing, update
+            'truncating': (bvf.t3_orthogonal_representations(x_old)[0].data, ((2, 2, 2, 2), (1, 2, 2, 2, 1)),
+                           ((3, 4, 4, 3), (1, 3, 4, 3, 1)), ((3, 3, 3, 3), (1, 3, 3, 3, 1)), None, 'ULRO'),
+            'shared, UL': (bvf.t3_orthogonal_representations(x_tied)[0].data, ((2, 2, 2, 2), (1, 2, 2, 2, 1)),
+                           ((3, 3, 3, 3), (1, 3, 4, 3, 1)), (None, None), (0, 1, 0, 1), 'UL'),
+            'empty':      (padded_frames.fv_empty_frame((4, 5, 6, 3)), ((0, 0, 0, 0), (1, 0, 0, 0, 1)),
+                           ((2, 3, 3, 2), (1, 2, 3, 2, 1)), (None, None), None, 'ULRO'),
+            'C = (2,)':   (bvf.t3_orthogonal_representations(x_stacked)[0].data, ((2, 2, 2, 2), (1, 2, 2, 2, 1)),
+                           ((3, 4, 4, 3), (1, 3, 4, 3, 1)), ((3, 3, 3, 3), (1, 3, 3, 3, 1)), None, 'ULRO'),
+        }
+        to_jax = lambda f: jax.tree_util.tree_map(jnp.asarray, f)
+
+        def tangent_projection(frame, Y):                                  # P_{T_F} Y, dense, in float64
+            frame = jax.tree_util.tree_map(lambda a: np.asarray(a, dtype=float), frame)
+            return t3c.t3_to_dense(tops.tv_to_t3(frame, tops.tv_project_dense_onto_tangent_space(frame, Y)))
+
+        f = jax.jit(padded_frames.tv_align_padded_frame,
+                    static_argnames=('old_tucker_ranks', 'old_tt_ranks', 'tucker_ranks', 'tt_ranks', 'sharing', 'update'))
+        for name, (old, old_ranks, work, out_ranks, sharing, update) in cases.items():
+            with self.subTest(case=name):
+                shape, C = tuple(u.shape[-1] for u in old[0]), tuple(old[0][0].shape[:-2])
+                start = padded_frames.fv_padded_frame(old, *work, sharing=sharing)
+                variations = tops.tv_project_dense_onto_tangent_space(start, r.standard_normal(C + shape))
+                kw = dict(old_tucker_ranks=old_ranks[0], old_tt_ranks=old_ranks[1], tucker_ranks=out_ranks[0],
+                          tt_ranks=out_ranks[1], sharing=sharing, update=update)
+                F_np, mv_np = padded_frames.tv_align_padded_frame(start, variations, **kw)
+                self.assertTrue(all(common.is_numpy_ndarray(c) for c in jax.tree_util.tree_leaves(F_np)))
+                self.assertIsInstance(mv_np, (np.ndarray, np.generic))         # C = (): numpy's scalar
+                F, mv = f(to_jax(start), to_jax(variations), **kw)              # (no eager row: jit is the strong
+                                                                                #  proof, and eager jax costs ~50 s)
+                self._leaves_all_jax((F, mv))
+                self.assertEqual(np.shape(mv), C)
+                self.assertLessEqual(float(np.max(np.abs(np.asarray(mv) - mv_np))), 1e-12)
+                Y = r.standard_normal(shape)
+                for idx in np.ndindex(*C):                                     # per stack element
+                    element = lambda tree: jax.tree_util.tree_map(lambda a: a[idx], tree)
+                    ref = tangent_projection(element(F_np), Y)
+                    self.assertLessEqual(norm(tangent_projection(element(F), Y) - ref), 1e-12 * norm(ref))
+
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):
         # A few complex ops: jax must agree with numpy (guards subtle backend divergence).

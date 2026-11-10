@@ -1,9 +1,11 @@
 # Authors: Nick Alger and Blake Christierson
 # Copyright: MIT License (2026)
 # https://github.com/NickAlger/T3Toolbox
-"""Tests for ``backend.padded_frames``: the zero tensor's empty frame and the seeded padded frame (the start).
+"""Tests for ``backend.padded_frames``: the empty frame, the seeded padded frame (the start), and one alignment step.
 
-T5 of the aligned-padded-frame plan (``dev/aligned_padded_frame_impl_plan_2026-11-09.md``). The construction is the
+The plan is ``dev/aligned_padded_frame_impl_plan_2026-11-09.md``; T1-T3 (the step) are at the end of this file.
+
+T5, the start. The construction is the
 one it replaced (the template-signature ``fv_operations.fv_padded_frame`` of commit 92640502, hint-free path from
 2562264a), under the integer signature; that was checked once, bitwise on 30 cases, by
 ``dev/aligned_padded_frame_slices/N1_check_s2_equivalence.py``. What is pinned here, platform-independently:
@@ -20,8 +22,22 @@ one it replaced (the template-signature ``fv_operations.fv_padded_frame`` of com
 - **The empty frame** is the orthogonal representation of the rank-0 Tucker tensor train.
 - **Structural errors**, each isolated by its message.
 
+T1-T3, the step ``tv_align_padded_frame``, against the dense per-edge reference of ``_padded_frame_oracles.py``
+(no code shared with the implementation):
+
+- **T1.** The new frames (largest principal-angle sine per directed edge) and the movement against the dense update,
+  for d = 1, 2, 3, 5, uneven increments, non-minimal ranks, a tangent part 10x the normal part, truncating steps, the
+  empty old frame, sharing groups, a stack C, and transported stores (``update`` subsets). Every output is a valid
+  padded frame: orthonormal, the old block bitwise, the carriers and both base-point reconstructions X_old.
+- **T2.** Ungauged variations give the same frames; the hint's scale (1e-14 ... 1e14) changes nothing; a float32 step
+  is within a small multiple of float32's unit roundoff of the float64 one.
+- **T3.** Degenerate hints (zero, rank one, an information-free increase) give valid frames; the structural
+  rejections, each isolated by its message.
+
 numpy-only (house testing strategy); jax dispatch is in ``tests/test_dispatch.py``.
 """
+import os
+import sys
 import unittest
 
 import numpy as np
@@ -32,7 +48,12 @@ import t3toolbox.backend.fv_operations as fvo
 import t3toolbox.backend.linalg as linalg
 import t3toolbox.backend.padded_frames as padded_frames
 import t3toolbox.backend.sharing as sharing_module
+import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.t3_conversions as t3c
+import t3toolbox.backend.tv_operations as tvo
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import _padded_frame_oracles as oracles
 
 STORES = ('up', 'down', 'left', 'right')
 
@@ -454,6 +475,344 @@ class TestStructuralErrors(unittest.TestCase):
             with self.subTest(case=name), self.assertRaisesRegex(ValueError, message):
                 padded_frames.fv_padded_frame(old, *target, sharing=sharing)
 
+
+
+# ------------------------------------------------------------------------------------------- T1-T3: the step
+EMPTY_RANKS = lambda d: ((0,) * d, (1,) + (0,) * (d - 1) + (1,))
+
+
+def step_case(shape, old_ranks, work_ranks, sharing=None, stack_shape=(), seed=0, zero_old=False, tangent=0.0):
+    """(old frame, its ranks, X_old dense, the start at the working ranks, the hint S): x_old random at old_ranks
+    (shared, with its ranks kept, under ``sharing``), or the zero tensor; S a generic dense tensor, plus ``tangent``
+    times a unit tensor in the old tangent space."""
+    np.random.seed(seed)
+    rng = np.random.default_rng(seed)
+    d = len(shape)
+    if zero_old:
+        old_ranks = EMPTY_RANKS(d)
+        old = padded_frames.fv_empty_frame(shape, stack_shape)
+        X_old = np.zeros(stack_shape + shape)
+    else:
+        x_old = t3.TuckerTensorTrain.randn(shape, *old_ranks, stack_shape=stack_shape)
+        if sharing is not None:
+            x_old = x_old.share(sharing, max_tucker_ranks=old_ranks[0], max_tt_ranks=old_ranks[1])
+            old_ranks = (x_old.tucker_ranks, x_old.tt_ranks)
+        old, X_old = frame_of(x_old), x_old.to_dense()
+    start = padded_frames.fv_padded_frame(old, *work_ranks, sharing=sharing)
+    S = rng.standard_normal(stack_shape + shape)
+    if tangent:
+        T = t3c.t3_to_dense(tvo.tv_to_t3(old, tvo.tv_project_dense_onto_tangent_space(old, rng.standard_normal(shape))))
+        S = S / np.linalg.norm(S) + tangent * T / np.linalg.norm(T)
+    return old, old_ranks, X_old, start, S
+
+
+def element(tree, idx):
+    """Stack element ``idx`` of a tuple of tuples of stacked cores."""
+    return tuple(tuple(c[idx] for c in cores) for cores in tree)
+
+
+def worst(Fa, Fb):
+    """The largest principal-angle sine between two frames' dense directed-edge bases."""
+    return max(oracles.distances(oracles.dense_frames(Fa), oracles.dense_frames(Fb)).values())
+
+
+def stores_of(frame):
+    up, down, left, right = frame
+    return (tuple(u.shape[-2] for u in up), tuple(o.shape[-2] for o in down),
+            tuple(g.shape[-3] for g in left) + (left[-1].shape[-1],),
+            tuple(g.shape[-3] for g in right) + (right[-1].shape[-1],))
+
+
+class StepAsserts(unittest.TestCase):
+
+    def assert_padded(self, F, old, X_old, stores, groups=()):
+        """A valid padded frame (unstacked): the stores, orthonormal to 1e-12, the old block bitwise in the leading
+        slots, both base-point reconstructions X_old to 1e-12, one Tucker array per group."""
+        self.assertEqual(stores_of(F), tuple(tuple(int(n) for n in st) for st in stores))
+        self.assertLessEqual(float(fvo.fv_frame_orthogonality_residual(F)), 1e-12)
+        for new, o in zip(F, old):
+            for i in range(len(new)):
+                self.assertTrue(np.array_equal(new[i][tuple(slice(0, n) for n in o[i].shape)], o[i]))
+        up, down, left, right = F
+        nX = max(np.linalg.norm(X_old), 1.0)
+        for tt in (left, right):
+            self.assertLessEqual(np.linalg.norm(t3c.t3_to_dense((up, tt)) - X_old), 1e-12 * nX)
+        for group in groups:
+            self.assertTrue(all(up[i] is up[group[0]] for i in group))
+
+    def assert_matches_dense(self, start, variations, old, F, movement, stores, update='ULRO', groups=(), tol=1e-9):
+        """Frames and movement against the dense per-edge pass from the same start (unstacked)."""
+        Z = t3c.t3_to_dense(tvo.tv_to_t3(start, variations))
+        ref, ref_movement = oracles.dense_pass(oracles.dense_frames(old), oracles.dense_frames(start), Z, stores,
+                                               update, groups)
+        self.assertLessEqual(max(oracles.distances(oracles.dense_frames(F), ref).values()), tol)
+        self.assertLessEqual(abs(float(movement) - ref_movement), tol)
+
+
+class TestStepAgainstDense(StepAsserts):
+    """T1: one step against the dense per-edge update, and valid padded frames."""
+
+    CASES = {   # shape, old ranks, working ranks (the start), output ranks (None = the start's), options
+        'd=1':           ((7,), None, ((1,), (1, 1)), None, {'zero_old': True}),   # see the d = 1 note below
+        'd=2':           ((7, 8), ((2, 2), (1, 2, 1)), ((4, 4), (1, 4, 1)), None, {}),
+        'd=3':           ((6, 7, 6), ((2, 3, 2), (1, 2, 2, 1)), ((4, 6, 4), (1, 4, 4, 1)), None, {}),
+        'd=5':           ((4, 5, 4, 5, 4), ((2, 3, 3, 3, 2), (1, 2, 3, 3, 2, 1)),
+                          ((3, 4, 4, 4, 3), (1, 3, 4, 4, 3, 1)), None, {}),
+        'uneven':        ((6, 6, 6, 6), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((3, 4, 5, 3), (1, 3, 5, 3, 1)), None, {}),
+        'non-minimal':   ((6, 6, 6, 6), ((3, 3, 3, 3), (1, 2, 3, 2, 1)), ((5, 5, 5, 5), (1, 3, 5, 3, 1)), None, {}),
+        'tangent 10x':   ((6, 7, 6), ((2, 3, 2), (1, 2, 2, 1)), ((4, 6, 4), (1, 4, 4, 1)), None, {'tangent': 10.0}),
+        'truncating':    ((5, 6, 5, 6), ((2, 3, 3, 2), (1, 2, 3, 2, 1)), ((4, 6, 6, 4), (1, 4, 6, 4, 1)),
+                          ((3, 5, 5, 3), (1, 3, 5, 3, 1)), {}),
+        'empty':         ((5, 6, 5, 6), None, ((3, 4, 4, 3), (1, 3, 4, 3, 1)), None, {'zero_old': True}),
+        'empty, truncating': ((5, 6, 5, 6), None, ((4, 6, 5, 4), (1, 4, 6, 4, 1)), ((3, 4, 4, 3), (1, 3, 4, 3, 1)),
+                              {'zero_old': True}),
+        'groups':        ((6, 6, 6, 6), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((4, 4, 4, 4), (1, 4, 5, 4, 1)), None,
+                          {'sharing': (0, 0, 1, 1)}),
+        'groups, truncating': ((6, 6, 6, 6), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((5, 5, 5, 5), (1, 5, 6, 5, 1)),
+                               ((4, 4, 4, 4), (1, 4, 5, 4, 1)), {'sharing': (0, 0, 0, 0)}),
+        'groups, spread': ((5, 6, 5, 6, 5), ((2, 3, 2, 3, 2), (1, 2, 3, 3, 2, 1)),
+                           ((3, 4, 3, 4, 3), (1, 3, 4, 4, 3, 1)), None, {'sharing': ('a', 'b', 'a', 'c', 'a')}),
+    }
+
+    def check(self, shape, old_ranks, work_ranks, out_ranks, options, update='ULRO'):
+        sharing = options.get('sharing')
+        old, old_ranks, X_old, start, S = step_case(shape, old_ranks, work_ranks, sharing=sharing,
+                                                    zero_old=options.get('zero_old', False),
+                                                    tangent=options.get('tangent', 0.0))
+        variations = tvo.tv_project_dense_onto_tangent_space(start, S)
+        F, movement = padded_frames.tv_align_padded_frame(start, variations, *old_ranks,
+                                                          *(out_ranks or (None, None)), sharing=sharing, update=update)
+        stores = ranks.compute_orthogonal_representation_ranks(shape, *(out_ranks or work_ranks))
+        groups = () if sharing is None else sharing_module.canonical_groups(sharing, shape)
+        self.assertEqual(np.shape(movement), ())
+        self.assert_padded(F, old, X_old, stores, groups)
+        self.assert_matches_dense(start, variations, old, F, movement, stores, update, groups)
+
+    # The d = 1 note. At d = 1 the down store is one wide (nD = min(nU, rL rR) = 1), so a nonzero old point's down
+    # frame spans the whole far side and the up edge's content vanishes: its completion carries no information
+    # (T3's information-free case). The informative d = 1 step starts at the zero tensor, at Tucker rank 1.
+
+    def test_cases(self):
+        for name, args in self.CASES.items():
+            with self.subTest(case=name):
+                self.check(*args)
+
+    def test_transported_stores(self):
+        """A store not in ``update`` keeps its completion, re-expressed in the new coordinates (the dense
+        transport), while the others align -- each family transported, and the two-colour halves."""
+        args = ((5, 6, 5, 6), ((2, 3, 3, 2), (1, 2, 3, 2, 1)), ((3, 5, 5, 3), (1, 3, 5, 3, 1)), None, {})
+        for update in ('UL', 'RO', 'LRO', 'ULO', 'U', 'O'):
+            with self.subTest(update=update):
+                self.check(*args, update=update)
+
+    def test_the_tangent_projection_is_the_dense_one(self):
+        """The setup's tangent vector is the dense orthogonal projection onto the padded frame's tangent space."""
+        old, old_ranks, X_old, start, S = step_case((5, 6, 5), ((2, 3, 2), (1, 2, 2, 1)), ((3, 5, 3), (1, 3, 3, 1)))
+        Z = t3c.t3_to_dense(tvo.tv_to_t3(start, tvo.tv_project_dense_onto_tangent_space(start, S)))
+        self.assertLessEqual(np.linalg.norm(Z - oracles.dense_project(oracles.dense_frames(start), S)),
+                             1e-12 * np.linalg.norm(Z))
+
+    def test_stack(self):
+        """A stack C = (2,) and (2, 3): each element matches the dense update and is valid; the movement has
+        shape C and equals the per-element calls'."""
+        shape, old_ranks, work_ranks = (5, 6, 5), ((2, 3, 2), (1, 2, 2, 1)), ((3, 5, 3), (1, 3, 3, 1))
+        out_ranks = ((3, 4, 3), (1, 3, 3, 1))
+        for C in [(2,), (2, 3)]:
+            with self.subTest(C=C):
+                old, _, X_old, start, S = step_case(shape, old_ranks, work_ranks, stack_shape=C)
+                variations = tvo.tv_project_dense_onto_tangent_space(start, S)
+                F, movement = padded_frames.tv_align_padded_frame(start, variations, *old_ranks, *out_ranks)
+                self.assertEqual(movement.shape, C)
+                stores = ranks.compute_orthogonal_representation_ranks(shape, *out_ranks)
+                for idx in np.ndindex(*C):
+                    F_e, mv_e = padded_frames.tv_align_padded_frame(element(start, idx), element(variations, idx),
+                                                                    *old_ranks, *out_ranks)
+                    self.assertLessEqual(worst(element(F, idx), F_e), 1e-12)
+                    self.assertLessEqual(abs(float(movement[idx]) - float(mv_e)), 1e-12)
+                    self.assert_padded(element(F, idx), element(old, idx), X_old[idx], stores)
+                    self.assert_matches_dense(element(start, idx), element(variations, idx), element(old, idx),
+                                              element(F, idx), movement[idx], stores)
+
+
+class TestStepInvariances(StepAsserts):
+    """T2: the gauge of the variations, the scale of the hint, and float32."""
+
+    def setUp(self):
+        self.old, self.old_ranks, self.X_old, self.start, S = step_case(
+            (5, 6, 5, 6), ((2, 3, 3, 2), (1, 2, 3, 2, 1)), ((3, 5, 5, 3), (1, 3, 5, 3, 1)), seed=3)
+        self.variations = tvo.tv_project_dense_onto_tangent_space(self.start, S)
+        self.F, self.movement = padded_frames.tv_align_padded_frame(self.start, self.variations, *self.old_ranks)
+
+    def test_ungauged_variations(self):
+        """The same tangent vector with O(1) gauge terms moved across every bond and every leaf-core edge."""
+        rng = np.random.default_rng(11)
+        U, O, L, R = self.start
+        V, H = [np.array(v) for v in self.variations[0]], [np.array(h) for h in self.variations[1]]
+        d = len(U)
+        for i in range(d - 1):                                           # across bond i+1
+            Cm = rng.standard_normal((L[i].shape[2], R[i + 1].shape[0]))
+            H[i] = H[i] + np.einsum('anc,cb->anb', L[i], Cm)
+            H[i + 1] = H[i + 1] - np.einsum('ac,cnb->anb', Cm, R[i + 1])
+        for i in range(d):                                               # between leaf i and core i
+            Mm = rng.standard_normal((O[i].shape[1], U[i].shape[0]))
+            V[i] = V[i] + Mm @ U[i]
+            H[i] = H[i] - np.einsum('amb,mn->anb', O[i], Mm)
+        ungauged = (tuple(V), tuple(H))
+        Z, Zu = (t3c.t3_to_dense(tvo.tv_to_t3(self.start, v)) for v in (self.variations, ungauged))
+        self.assertLessEqual(np.linalg.norm(Zu - Z), 1e-12 * np.linalg.norm(Z))        # the same tangent vector
+        self.assertGreater(min(np.linalg.norm(a - b) for a, b in zip(V, self.variations[0])), 1e-1)
+        F, movement = padded_frames.tv_align_padded_frame(self.start, ungauged, *self.old_ranks)
+        self.assertLessEqual(worst(F, self.F), 1e-9)
+        self.assertLessEqual(abs(float(movement) - float(self.movement)), 1e-9)
+
+    def test_the_hint_scale_changes_nothing(self):
+        for c in (1e-14, 1e-7, 1e7, 1e14):
+            with self.subTest(scale=c):
+                scaled = tuple(tuple(c * a for a in cores) for cores in self.variations)
+                F, movement = padded_frames.tv_align_padded_frame(self.start, scaled, *self.old_ranks)
+                self.assertLessEqual(worst(F, self.F), 1e-9)
+                self.assertLessEqual(abs(float(movement) - float(self.movement)), 1e-9)
+
+    def test_float32(self):
+        """One step from an informed frame, hint N + s T (N normal, T in the old tangent space, unit norms), in float32
+        against float64: within 30 u max(1, s), u = float32's unit roundoff; float32 out."""
+        rng = np.random.default_rng(5)
+        shape = (5, 6, 5, 6)
+        F0 = self.start
+        for _ in range(4):                                               # a few passes: the frame carries information
+            F0, _ = padded_frames.tv_align_padded_frame(
+                F0, tvo.tv_project_dense_onto_tangent_space(F0, rng.standard_normal(shape)), *self.old_ranks)
+        T_old = lambda Y: t3c.t3_to_dense(tvo.tv_to_t3(self.old, tvo.tv_project_dense_onto_tangent_space(self.old, Y)))
+        S = rng.standard_normal(shape)
+        N = S - T_old(S)
+        N /= np.linalg.norm(N)
+        T = T_old(rng.standard_normal(shape))
+        T /= np.linalg.norm(T)
+        cast = lambda tree, dt: tuple(tuple(np.asarray(a, dtype=dt) for a in cores) for cores in tree)
+        u = np.finfo(np.float32).eps / 2
+        for s in (0.0, 1e2, 1e4):
+            with self.subTest(s=s):
+                g = tvo.tv_project_dense_onto_tangent_space(F0, N + s * T)
+                F64, _ = padded_frames.tv_align_padded_frame(F0, g, *self.old_ranks)
+                F32, mv32 = padded_frames.tv_align_padded_frame(cast(F0, np.float32), cast(g, np.float32),
+                                                                *self.old_ranks)
+                self.assertTrue(all(a.dtype == np.float32 for cores in F32 for a in cores))
+                self.assertEqual(mv32.dtype, np.float32)
+                self.assertLessEqual(worst(cast(F32, np.float64), F64), 30 * u * max(1.0, s))
+
+
+class TestStepDegenerateAndStructural(StepAsserts):
+    """T3: degenerate hints give valid frames; structural rejections, each isolated."""
+
+    def test_degenerate_hints(self):
+        """A zero hint, a rank-one hint, and an information-free Tucker increase (rows beyond r_i r_(i+1) have no
+        down slots, so the tangent space does not depend on them): valid frames, no rank decision anywhere."""
+        cases = {   # shape, old ranks, working ranks, output ranks, hint
+            'zero':            ((6, 6, 6, 6), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((4, 4, 4, 4), (1, 4, 5, 4, 1)), None,
+                                'zero'),
+            'zero, truncating': ((6, 6, 6, 6), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((5, 5, 5, 5), (1, 5, 6, 5, 1)),
+                                 ((4, 4, 4, 4), (1, 4, 5, 4, 1)), 'zero'),
+            'rank one':        ((6, 6, 6, 6), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((4, 4, 4, 4), (1, 4, 5, 4, 1)), None,
+                                'rank one'),
+            'information-free': ((7, 7, 7), ((2, 4, 2), (1, 2, 2, 1)), ((3, 6, 3), (1, 2, 2, 1)), None, 'generic'),
+            'information-free, d=1': ((7,), ((2,), (1, 1)), ((5,), (1, 1)), None, 'generic'),
+        }
+        for name, (shape, old_ranks, work_ranks, out_ranks, hint) in cases.items():
+            with self.subTest(case=name):
+                old, old_ranks, X_old, start, S = step_case(shape, old_ranks, work_ranks, seed=9)
+                if hint == 'rank one':
+                    rng = np.random.default_rng(9)
+                    S = rng.standard_normal(shape[0])
+                    for n in shape[1:]:
+                        S = np.multiply.outer(S, rng.standard_normal(n))
+                variations = tvo.tv_project_dense_onto_tangent_space(start, S)
+                if hint == 'zero':
+                    variations = tuple(tuple(np.zeros_like(a) for a in cores) for cores in variations)
+                F, movement = padded_frames.tv_align_padded_frame(start, variations, *old_ranks,
+                                                                  *(out_ranks or (None, None)))
+                stores = ranks.compute_orthogonal_representation_ranks(shape, *(out_ranks or work_ranks))
+                self.assert_padded(F, old, X_old, stores)
+                self.assertTrue(np.isfinite(float(movement)))
+
+    def setUp(self):
+        self.shape = (5, 6, 5, 6)
+        self.old_ranks = ((2, 3, 3, 2), (1, 2, 3, 2, 1))
+        self.work = ((4, 6, 5, 4), (1, 4, 6, 4, 1))
+        self.target = ((3, 5, 5, 3), (1, 3, 5, 3, 1))
+        self.old, _, _, self.start, S = step_case(self.shape, self.old_ranks, self.work)
+        self.variations = tvo.tv_project_dense_onto_tangent_space(self.start, S)
+
+    def step(self, frame=None, variations=None, old_ranks=None, out=(None, None), **kw):
+        return padded_frames.tv_align_padded_frame(self.start if frame is None else frame,
+                                                   self.variations if variations is None else variations,
+                                                   *(old_ranks or self.old_ranks), *out, **kw)
+
+    def test_the_good_inputs_pass(self):
+        self.step()
+        self.step(out=self.target)
+        self.step(update='UL')
+
+    def test_transport_with_truncation(self):
+        """Every family is truncated working -> target; leaving one family out of ``update`` names that family."""
+        self.assertTrue(all(a > b for a, b in zip(
+            [max(s) for s in ranks.compute_orthogonal_representation_ranks(self.shape, *self.work)],
+            [max(s) for s in ranks.compute_orthogonal_representation_ranks(self.shape, *self.target)])))
+        for missing, store in (('U', 'up'), ('O', 'down'), ('L', 'left'), ('R', 'right')):
+            update = ''.join(c for c in 'ULRO' if c != missing)
+            with self.subTest(missing=missing), self.assertRaisesRegex(ValueError, store + ' store .* not updated'):
+                self.step(out=self.target, update=update)
+
+    def test_bad_update(self):
+        for update in ('', 'UU', 'X', 'ULROX', 'ulro'):
+            with self.subTest(update=update), self.assertRaisesRegex(ValueError, 'without repeats'):
+                self.step(update=update)
+
+    def test_store_order(self):
+        """The old block must fit the output, and the output the frame."""
+        with self.assertRaisesRegex(ValueError, 'old block must fit'):
+            self.step(old_ranks=((4, 3, 3, 2), (1, 2, 3, 2, 1)), out=self.target)         # old up 4 > output 3
+        with self.assertRaisesRegex(ValueError, 'old block must fit'):
+            self.step(out=((4, 6, 5, 4), (1, 4, 6, 5, 1)))                    # left store 3: output 5 above the frame's 4
+
+    def test_ranks(self):
+        with self.assertRaisesRegex(ValueError, 'both output rank sequences'):
+            self.step(out=(self.target[0], None))
+        with self.assertRaisesRegex(ValueError, 'old boundary TT ranks'):
+            self.step(old_ranks=(self.old_ranks[0], (2, 2, 3, 2, 1)))
+        with self.assertRaisesRegex(ValueError, 'output boundary TT ranks'):
+            self.step(out=(self.target[0], (1, 3, 5, 3, 2)))
+        with self.assertRaisesRegex(ValueError, 'len\\(tucker_ranks\\)'):
+            self.step(old_ranks=((2, 3, 3), (1, 2, 3, 2, 1)))
+
+    def test_frame_and_variation_shapes(self):
+        up, down, left, right = self.start
+        bad_frame = (up, down[:1] + (np.zeros((2, 3, 2)),) + down[2:], left, right)
+        with self.assertRaisesRegex(ValueError, 'frame down\\[1\\]'):
+            self.step(frame=bad_frame)
+        V, H = self.variations
+        with self.assertRaisesRegex(ValueError, 'tucker variations'):
+            self.step(variations=((np.zeros((1, 5)),) + V[1:], H))
+        with self.assertRaisesRegex(ValueError, 'tt variations'):
+            self.step(variations=(V, H[:3]))
+
+    def test_unequal_group_stores(self):
+        """Sharing labels on stores unequal within a group: the old frame's, the output's, the frame's own."""
+        shape = (6, 6, 6, 6)
+        old, old_ranks, _, start, S = step_case(shape, ((2, 2, 2, 2), (1, 2, 2, 2, 1)),
+                                                ((4, 4, 4, 4), (1, 4, 5, 4, 1)), sharing=(0, 0, 1, 1))
+        variations = tvo.tv_project_dense_onto_tangent_space(start, S)
+        step = lambda **kw: padded_frames.tv_align_padded_frame(start, variations, **kw)
+        good = dict(old_tucker_ranks=old_ranks[0], old_tt_ranks=old_ranks[1], sharing=(0, 0, 1, 1))
+        step(**good)
+        with self.assertRaisesRegex(ValueError, 'unequal Tucker stores .* \\(old\\)'):
+            step(**dict(good, old_tucker_ranks=(2, 1, 2, 2)))
+        with self.assertRaisesRegex(ValueError, 'unequal Tucker stores .* \\(output\\)'):
+            step(**dict(good, tucker_ranks=(4, 3, 4, 4), tt_ranks=(1, 4, 5, 4, 1)))
+        uneven = padded_frames.fv_padded_frame(old, (4, 4, 5, 4), (1, 4, 5, 4, 1))      # Tucker stores 5, 4 in (2, 3)
+        uneven_variations = tvo.tv_project_dense_onto_tangent_space(uneven, S)
+        with self.assertRaisesRegex(ValueError, 'unequal Tucker stores .* \\(frame\\)'):
+            padded_frames.tv_align_padded_frame(uneven, uneven_variations, *old_ranks, (4, 4, 4, 4), (1, 4, 5, 4, 1),
+                                                sharing=(0, 0, 1, 1))
 
 if __name__ == '__main__':
     unittest.main()
