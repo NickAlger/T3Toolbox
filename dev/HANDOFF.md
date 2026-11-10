@@ -58,7 +58,14 @@ ubuntu-latest moved to 26.04 (no Python 3.9 build) -- pinned to ubuntu-24.04 in 
 imports and duplicate definitions; 1e-14 cross-path tolerances are suspect; check `gh run list` after each push. MACHINE RULE: 13 GB laptop -- pytest-xdist at `-n 3` at most (`-n 8` swapped:
 jax workers reach 3-4 GB each), for the implementer, the reviewer and the session. -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
 `Problem.local_model(frame=)`; `_misfit_gradient_at`; public `padded_start`; 14 `newton_cg` keywords + `use_jit`
-forwarded; `'cone'`) -> N8 (frontend twins; review stop) -> N9 (docs incl. the "jit or eager" section; "STORE" is already defined in `docs/frame_variations.md` § "Four rank stores" (Nick
+forwarded; `'cone'`) -> N8 DONE (commit after 3054a0a6; review APPROVE, 2 NITs: a decorator for the twelve `addCleanup` lines,
+the wrong-N message for stacked uniform hints; T15 in ONE file `tests/test_aligned_padded_frame_frontend.py`; a
+structurally-zero `padded_from` passes through uncanonicalized) -> THIRD REVIEW STOP WITH NICK (pending). FINDING FOR N9's
+"jit or eager" section: each eager-jax alignment at a new structure compiles hundreds of executables and adds
+8,000-9,500 process memory mappings; an eager-jax rank continuation aligning at every level could pass vm.max_map_count
+(65,530) after ~7 levels and abort (`LLVM ERROR: Unable to allocate section memory!`, the failure
+scan_body_principles.md records); `use_jit=True` compiles 2-4 programs per level (ragged) or 1 (uniform) -- the docs
+recommend `use_jit=True` for jax inputs; optionally the loops warn once when called eagerly on jax inputs (ask Nick). -> N9 (docs incl. the "jit or eager" section; "STORE" is already defined in `docs/frame_variations.md` § "Four rank stores" (Nick
 2026-11-10, fine as is) -- the feature's user doc and the `padded_frames.py` module docstring define it in one clause on first
 use and link to that section, nothing more; CHANGELOG; the
 math note from Nick's note; judgment calls J-7.. in `dev/padded_frame_cone_judgment_calls_2026_11.md`) -> N10
