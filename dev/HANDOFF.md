@@ -27,6 +27,19 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
+**State (2026-11-10, night). THE ALIGNED PADDED FRAME ARC IS CODE-COMPLETE: N1-N10 COMMITTED; FINAL REVIEW STOP WITH
+NICK PENDING.** Last commits: N9 docs cc7d6fc6, plan round 9 b017cbea, N10 record cd508db9. T3Polynomial adopted the
+feature (eced8e3 + 120b856, pushed): opt-in ladder keyword `padded_start` (previous level's point as
+`newton_cg(padded_from=)`, 'cone' via `newton_kwargs`), `cone.py` a raising shim. §11 acceptance: all met except the
+laptop Newton comparison (not rerun on the shipped code; the pre-release g06 measurements on the coordinate convention
+stand as the reference unless Nick asks for a rerun) and the manual 20x1000 Runpod run (decoupled by the plan).
+OPEN FOR NICK: (1) whether to rerun the laptop Newton comparison; (2) the release itself -- version 2026.4.0 is named
+in CHANGELOG/release notes, the tag is Nick's; the editable install's metadata reports a stale 2026.0.0; (3) the
+glossary page queued below; (4) the audit items collected during the arc: canonical bases / sign canonicalization at
+the representation level (D-42/D-49), the `functools.partial`-free uniform loop (D-47), the `ranks`-depends-on-sharing
+smell. The two agents (implementer, reviewer) are persistent in the session that built this; after a compaction or a
+new session, nothing is in flight.
+
 **State (2026-11-10, evening). IMPLEMENTATION IN PROGRESS: N1-N3 COMMITTED (3f9679ef, 196fcfa2, 0c4d982e, +cccc6f7c the
 loop's dispatch row); N4 BUILDING; plan at round 7 (97267ffd).** Nick reviewed the N3 stop (all items answered) and
 approved continuing. HOW THE WORK RUNS (Nick's process): one IMPLEMENTER agent and one REVIEWER agent (Opus, extra-high
