@@ -20,6 +20,7 @@ __all__ = [
     'ufv_variation_masks_over_stack',
     'ufv_apply_frame_masks',
     'ufv_apply_variations_masks',
+    'ufv_frame_widths',
 ]
 
 
@@ -34,6 +35,30 @@ def ufv_variation_masks(
     by hand. (The frontend twin is ``UT3Variations._variation_masks_of``.)"""
     up_mask, down_mask, frame_left_mask, frame_right_mask = frame_masks
     return (up_mask, down_mask, frame_left_mask[:-1], frame_right_mask[1:])
+
+
+def ufv_frame_widths(
+        N:  int,   # the point's padded mode size
+        n:  int,   # its padded Tucker width
+        r:  int,   # its padded TT width
+) -> typ.Tuple[
+    int,   # WU = min(n, N)
+    int,   # WD = min(n, N, r*r)
+    int,   # WL = r
+    int,   # WR = r
+]:
+    """The padded widths ``(nU, nD, rL, rR)`` of the frame ``ut3_orthogonal_representations`` gives a point padded to
+    ``(N, n, r)``.
+
+    Examples
+    --------
+    >>> import t3toolbox.backend.ufv_masking as ufv_masking
+    >>> ufv_masking.ufv_frame_widths(8, 5, 3)
+    (5, 5, 3, 3)
+    >>> ufv_masking.ufv_frame_widths(4, 6, 2)      # the Tucker width capped by N, the down width by r*r
+    (4, 4, 2, 2)
+    """
+    return min(n, N), min(n, N, r * r), r, r
 
 
 def ufv_make_frame_masks(

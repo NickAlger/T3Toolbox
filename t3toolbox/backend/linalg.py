@@ -34,6 +34,7 @@ __all__ = [
     'down_svd_pair',
     'pinned_completion',
     'pinned_leading_columns',
+    'pad_safe_pinned_completion',
 ]
 
 
@@ -998,3 +999,94 @@ def pinned_leading_columns(
     Aperp_Cib = A - contractions.contract('Cia,Cab->Cib', pinned, PtA_Cab)
     U_Cix, _, _ = xnp.linalg.svd(Aperp_Cib, full_matrices=False)     # C+(n, min(n, m)), descending
     return pinned_completion(pinned, U_Cix, k)
+
+
+def pad_safe_pinned_completion(
+        pinned:       NDArray,   # C+(n, s): orthonormal on its real columns; junk entries anything (masked at entry)
+        pinned_mask:  NDArray,   # HOST bool, static, broadcastable to C+(s,): True = a real pinned column
+        seeds:        NDArray,   # C+(n, m): seed columns, completed in column order; junk entries anything
+        seed_mask:    NDArray,   # HOST bool, static, broadcastable to C+(m,): True = complete this seed (per-element counts)
+        row_mask:     NDArray,   # HOST bool, static, broadcastable to C+(n,): True = a real row
+) -> NDArray:                    # C+(n, m): column j = seed j completed against the real pins and the earlier selected seeds
+                                 #   (Gram-Schmidt order, the pinned_completion sign rule) where seed_mask, else 0; bitwise 0 on
+                                 #   junk rows. Per element (structural): sum(seed_mask) <= sum(row_mask) - sum(pinned_mask)
+    ''':py:func:`pinned_completion` of the real block of a padded matrix, for any mask pattern: the
+    sign-fixed Householder QR of ``[real pins | selected seeds]`` on the real rows, scattered back to the
+    selected seeds' columns, with every junk entry of the result bitwise zero.
+
+    The completion of a seeded start is defined by the ORDER of its seeds (Gram-Schmidt: column ``j`` is seed
+    ``j`` made orthonormal against the pins and the earlier selected seeds), so its padded twin must reproduce
+    that order exactly, which an SVD does not (it orders by singular value). Static host permutations do it:
+    the rows go real-first, the columns ``[real pins | selected seeds, in order | the rest]``. The junk rows
+    are zero (masked at entry) and trail, so no Householder reflector of the selected columns touches them,
+    and those columns are bitwise zero there. Every count comes from the masks: no rank is decided from
+    content, and degenerate seeds are completed by the reflectors as in :py:func:`pinned_completion`.
+
+    The masks are host structure (the permutations are built from them on the host, so they may not be
+    traced); the arrays may be numpy or jax, and the result follows them. A per-element count above
+    ``sum(row_mask) - sum(pinned_mask)`` is structural (``ValueError``).
+
+    Examples
+    --------
+    The real block of a padded matrix (interior junk rows, a junk pinned column, garbage everywhere off the
+    real block) completes exactly as :py:func:`pinned_completion` of the unpadded block, and the junk rows of
+    the result are bitwise zero:
+
+    >>> import numpy as np
+    >>> import t3toolbox.backend.linalg as linalg
+    >>> np.random.seed(0)
+    >>> row_mask = np.array([True, False, True, True, True, False, True])  # 5 real rows of 7
+    >>> pinned_mask = np.array([True, False, True])                        # 2 real pins of 3
+    >>> P_real = np.linalg.qr(np.random.randn(5, 2))[0]
+    >>> pinned = np.random.randn(7, 3)                                     # garbage, then the real block
+    >>> pinned[np.ix_(row_mask, pinned_mask)] = P_real
+    >>> seeds = np.random.randn(7, 2)
+    >>> Q = linalg.pad_safe_pinned_completion(pinned, pinned_mask, seeds, np.array([True, True]), row_mask)
+    >>> print(Q.shape, bool(np.all(Q[~row_mask] == 0.0)))
+    (7, 2) True
+    >>> print(np.allclose(Q[row_mask], linalg.pinned_completion(P_real, seeds[row_mask], 2)))
+    True
+
+    A seed mask selects which columns to complete (per stack element in general); the unselected columns are
+    zero and the selected ones complete in their own order:
+
+    >>> Q1 = linalg.pad_safe_pinned_completion(pinned, pinned_mask, seeds, np.array([False, True]), row_mask)
+    >>> print(bool(np.all(Q1[:, 0] == 0.0)), np.allclose(Q1[row_mask][:, 1:],
+    ...                                                  linalg.pinned_completion(P_real, seeds[row_mask][:, 1:], 1)))
+    True True
+    '''
+    require_concrete_masks(pinned_mask, seed_mask, row_mask)
+    xnp, _, _ = get_backend(False, tree_contains_jax((pinned, seeds)))
+    pinned = xnp.asarray(pinned)
+    seeds = xnp.asarray(seeds)
+    n, s = pinned.shape[-2:]
+    m = seeds.shape[-1]
+    if seeds.shape[-2] != n:
+        raise ValueError('pinned %s and seeds %s must have the same rows' % (pinned.shape, seeds.shape))
+    lead = np.broadcast_shapes(pinned.shape[:-2], seeds.shape[:-2], np.shape(pinned_mask)[:-1],
+                               np.shape(seed_mask)[:-1], np.shape(row_mask)[:-1])
+    pm = np.broadcast_to(np.asarray(pinned_mask, dtype=bool), lead + (s,))
+    sm = np.broadcast_to(np.asarray(seed_mask, dtype=bool), lead + (m,))
+    rm = np.broadcast_to(np.asarray(row_mask, dtype=bool), lead + (n,))
+    if np.any(sm.sum(axis=-1) > rm.sum(axis=-1) - pm.sum(axis=-1)):
+        raise ValueError('pad_safe_pinned_completion: more seeds selected than the real rows leave beside the real pins '
+                         '(per element: sum(seed_mask) <= sum(row_mask) - sum(pinned_mask))')
+    dtype = xnp.result_type(pinned, seeds)
+    if n == 0 or m == 0:
+        return xnp.zeros(lead + (n, m), dtype=dtype)
+
+    A_nx = xnp.concatenate([xnp.where(rm[..., :, None] & pm[..., None, :], xnp.broadcast_to(pinned, lead + (n, s)), 0.0),
+                            xnp.where(rm[..., :, None] & sm[..., None, :], xnp.broadcast_to(seeds, lead + (n, m)), 0.0)],
+                           axis=-1).astype(dtype)                       # masked at entry
+    big = s + m                                                         # host permutations from the masks:
+    key_x = np.concatenate([np.where(pm, np.arange(s), big + np.arange(s)),          # [real pins | selected seeds |
+                            np.where(sm, s + np.arange(m), big + s + np.arange(m))], axis=-1)   #  the rest]
+    pc = np.argsort(key_x, axis=-1, kind='stable')
+    pr = np.argsort(np.where(rm, 0, n) + np.arange(n), axis=-1, kind='stable')         # real rows first
+    A_nx = xnp.take_along_axis(xnp.take_along_axis(A_nx, pc[..., None, :], axis=-1), pr[..., :, None], axis=-2)
+    Q_nk, R_kx = xnp.linalg.qr(A_nx)                                    # reduced Householder QR, no pivoting
+    sg_k = xnp.where(xnp.diagonal(R_kx, axis1=-2, axis2=-1) >= 0, 1.0, -1.0).astype(Q_nk.dtype)
+    Q_nk = xnp.take_along_axis(Q_nk * sg_k[..., None, :], np.argsort(pr, axis=-1)[..., :, None], axis=-2)
+    position = pm.sum(axis=-1)[..., None] + np.cumsum(sm, axis=-1) - 1  # each selected seed's QR column
+    index = np.where(sm, np.minimum(position, Q_nk.shape[-1] - 1), 0)
+    return xnp.take_along_axis(Q_nk, index[..., None, :], axis=-1) * sm[..., None, :].astype(dtype)

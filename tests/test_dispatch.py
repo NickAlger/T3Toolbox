@@ -25,6 +25,8 @@ import t3toolbox.frame_variations_format as bvf
 import t3toolbox.manifold as t3m
 import t3toolbox.backend.fv_operations as fv_operations
 import t3toolbox.backend.padded_frames as padded_frames
+import t3toolbox.backend.uniform_padded_frames as uniform_padded_frames
+import t3toolbox.backend.ufv_masking as ufv_masking
 import t3toolbox.corewise as _cw
 import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.optimizers as bopt
@@ -2061,6 +2063,97 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(len(mv), 5)
         self._leaves_all_jax((F, mv))
         self.assertLessEqual(max(abs(float(a) - float(b)) for a, b in zip(mv, mv_np)), 1e-10)
+
+    # ---------------------------------------------------- the uniform padded frame
+    def test_pad_safe_pinned_completion_dispatch(self):
+        """The pad-safe completion: numpy in -> numpy out, jax in -> jax out, and it jits (masks closed over as host
+        constants, the arrays traced) to pure jax equal to numpy to 1e-12, with junk rows and unselected columns
+        exactly 0; a stack C = (2,) with a seed mask per element. A traced mask raises the actionable error."""
+        r = np.random.default_rng(7)
+        rm = np.array([True, False, True, True, True, False, True])       # 5 real rows of 7
+        pm = np.array([True, False, True])                               # 2 real pins of 3
+        sm = np.array([[True, True, False], [False, True, True]])        # per element
+        P = r.standard_normal((2, 7, 3))
+        P[:, np.flatnonzero(rm)[:, None], np.flatnonzero(pm)[None, :]] = np.linalg.qr(r.standard_normal((2, 5, 2)))[0]
+        S = r.standard_normal((2, 7, 3))
+        out_np = linalg.pad_safe_pinned_completion(P, pm, S, sm, rm)
+        self.assertTrue(common.is_numpy_ndarray(out_np))
+        self.assert_eager_jax(linalg.pad_safe_pinned_completion, jnp.asarray(P), pm, jnp.asarray(S), sm, rm)
+        out = jax.jit(lambda P_, S_: linalg.pad_safe_pinned_completion(P_, pm, S_, sm, rm))(jnp.asarray(P), jnp.asarray(S))
+        self._leaves_all_jax(out)
+        out = np.asarray(out)
+        self.assertLessEqual(float(np.max(np.abs(out - out_np))), 1e-12)
+        self.assertTrue(np.all(out[:, ~rm] == 0.0) and np.all(out[~sm[:, None, :].repeat(7, axis=1)] == 0.0))
+        with self.assertRaisesRegex(ValueError, 'uniform masks must be concrete'):
+            jax.jit(lambda m: linalg.pad_safe_pinned_completion(P, pm, S, sm, m))(jnp.asarray(rm))
+
+    def test_frame_widths_dispatch(self):
+        """Integers in, integers out (no arrays): the widths are host structure, usable as static shapes under jit."""
+        for args in ((8, 5, 3), (np.int64(4), np.int64(6), np.int64(2))):
+            with self.subTest(args=args):
+                widths = ufv_masking.ufv_frame_widths(*args)
+                self.assertTrue(all(isinstance(w, (int, np.integer)) for w in widths))
+                self.assertEqual(jax.jit(lambda: jnp.zeros(ufv_masking.ufv_frame_widths(*args)))().shape, widths)
+
+    def test_uniform_empty_frame_dispatch(self):
+        """The zero tensor's uniform frame, an array-free constructor: use_jax chooses the supercore type (numpy by
+        default); the masks are host numpy either way; it jits (all arguments static) to jax supercores."""
+        for C in ((), (2,)):
+            with self.subTest(C=C):
+                out_np = uniform_padded_frames.ufv_empty_frame(STRUCT[0], None, C)
+                self.assertTrue(all(common.is_numpy_ndarray(c) for c in out_np[:4]))
+                out = uniform_padded_frames.ufv_empty_frame(STRUCT[0], None, C, use_jax=True)
+                self._leaves_all_jax(out[:4])
+                self.assertTrue(all(common.is_numpy_ndarray(m) for m in out[5]))
+                f = jax.jit(lambda: uniform_padded_frames.ufv_empty_frame(STRUCT[0], None, C, True)[:4])
+                jit_out = f()
+                self._leaves_all_jax(jit_out)
+                self.assertEqual([c.shape for c in jit_out], [c.shape for c in out_np[:4]])
+
+    def test_uniform_padded_frame_dispatch(self):
+        """The uniform seeded start: numpy supercores in -> numpy out, jax in -> jax out, the masks host numpy either
+        way; it jits (supercores traced, masks closed over, ranks static) to jax supercores equal to numpy to 1e-12,
+        the old block bitwise and the junk exactly 0 (x64 on in this module): a gappy old frame with garbage, the zero
+        tensor shared, and a stack C = (2,) with ranks varying per element. A traced mask raises the actionable
+        error."""
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
+        import _uniform_padded_frame_testing as testing
+        import t3toolbox.backend.fv_conversions as fvc
+        rng = np.random.default_rng(8)
+        np.random.seed(8)
+        shape = (4, 5, 6)
+        olds = [fvc.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(shape, *ranks).data)[0]
+                for ranks in (((2, 2, 2), (1, 2, 2, 1)), ((2, 3, 2), (1, 2, 3, 1)))]
+        gappy = [testing.scatter_frame(rng, old, (4, 5, 5, 4, 6))[0] for old in olds]
+        cases = {'gappy, garbage': (gappy[0], ((3, 3, 3), (1, 3, 3, 1)), None),
+                 'zero, shared': (uniform_padded_frames.ufv_empty_frame((5, 5, 6)), ((2, 2, 3), (1, 2, 3, 1)),
+                                  (0, 0, 1)),
+                 'C = (2,), per-element ranks': (testing.stack_frames(gappy), (np.array([[3, 3], [2, 3], [3, 3]]),
+                                                                             np.array([[1, 1], [3, 3], [2, 3], [1, 1]])),
+                                                 None)}
+        for name, (old, target, sharing) in cases.items():
+            with self.subTest(case=name):
+                (F_np, split) = uniform_padded_frames.ufv_padded_frame(old, *target, sharing=sharing)
+                self.assertTrue(all(common.is_numpy_ndarray(a) for a in F_np[:4] + F_np[5]))
+                jax_old = tuple(jnp.asarray(a) for a in old[:4]) + tuple(old[4:])
+                F_e, _ = uniform_padded_frames.ufv_padded_frame(jax_old, *target, sharing=sharing)
+                self._leaves_all_jax(F_e[:4])
+                self.assertTrue(all(common.is_numpy_ndarray(m) for m in F_e[5]))
+                f = jax.jit(lambda sc: uniform_padded_frames.ufv_padded_frame(
+                    tuple(sc) + tuple(old[4:]), *target, sharing=sharing)[0][:4])
+                F_j = f(jax_old[:4])
+                self._leaves_all_jax(F_j)
+                F_j = tuple(np.asarray(a) for a in F_j)
+                for a, b in zip(F_j, F_np[:4]):
+                    self.assertLessEqual(float(np.max(np.abs(a - b), initial=0.0)), 1e-12)
+                self.assertTrue(testing.junk_is_zero(F_j + tuple(F_np[4:])))
+                Na, Rb = split                                           # the old block: the masked old frame, a copy
+                self.assertTrue(np.array_equal(F_j[0][..., :Na, :], F_np[0][..., :Na, :]))
+                self.assertTrue(all(np.array_equal(a[..., :Rb, :Na, :Rb], b[..., :Rb, :Na, :Rb])
+                                    for a, b in zip(F_j[1:], F_np[1:4])))
+        traced = lambda data: uniform_padded_frames.ufv_padded_frame(data, (3, 3, 3), (1, 3, 3, 1))[0][:4]
+        with self.assertRaisesRegex(ValueError, 'uniform masks must be concrete'):
+            jax.jit(traced)(gappy[0])
 
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):

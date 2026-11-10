@@ -24,6 +24,12 @@ pinned on the properties their callers rely on: orthonormal and orthogonal to th
 input (degenerate seeds included, no threshold), the Haar recipe at ``s = 0``, the leading subspace of the
 projected content, and the stack ``C`` equal to per-element calls.
 
+``pad_safe_pinned_completion`` (the aligned-padded-frame plan's T7) is pinned against ``pinned_completion`` of the
+unpadded real block (to 1e-14, the same sign rule): interior pads in the rows, the pins and the seeds; a per-element
+``seed_mask`` in a stack; an offset seed mask (columns ``t .. t+k-1``); junk rows and unselected columns exactly 0;
+garbage in junk entries changing nothing (bitwise, equal layouts); degenerate seeds still completed; the count
+rejection.
+
 numpy-only (house testing strategy); jit dispatch + the compile-once-across-mask-patterns property
 are covered in ``tests/test_dispatch.py``.
 """
@@ -369,6 +375,101 @@ class TestPinnedLeadingColumns(unittest.TestCase):
                     self.assertLessEqual(np.max(np.abs(U[idx] - linalg.pinned_leading_columns(P[idx], A[idx], 3))),
                                          1e-14)
 
+
+
+def padded_completion_case(rng, n, s, m, C=(), pad_rows=2, pad_pins=1, garbage=True):
+    """A padded completion problem with interior pads: (pinned, pinned_mask, seeds, row_mask) and the real block
+    (P_real, S_real). The real rows and pins sit at random sorted positions; junk entries hold garbage (or zeros)."""
+    N, Sw = n + pad_rows, s + pad_pins
+    row_mask = np.zeros(N, bool)
+    row_mask[np.sort(rng.choice(N, n, replace=False))] = True
+    pinned_mask = np.zeros(Sw, bool)
+    pinned_mask[np.sort(rng.choice(Sw, s, replace=False))] = True
+    P_real = orthonormal_set(rng, C, n, s)
+    S_real = rng.standard_normal(C + (n, m))
+    junk = (lambda *shape: rng.standard_normal(shape)) if garbage else (lambda *shape: np.zeros(shape))
+    pinned, seeds = junk(*(C + (N, Sw))), junk(*(C + (N, m)))
+    pinned[..., np.flatnonzero(row_mask)[:, None], np.flatnonzero(pinned_mask)[None, :]] = P_real
+    seeds[..., row_mask, :] = S_real
+    return pinned, pinned_mask, seeds, row_mask, P_real, S_real
+
+
+class TestPadSafePinnedCompletion(unittest.TestCase):
+    """T7: the padded twin of ``pinned_completion``."""
+
+    def test_the_real_block_is_the_pinned_completion(self):
+        """Every seed selected: the real rows equal pinned_completion of the real block to 1e-14; junk rows are
+        exactly 0."""
+        rng = np.random.default_rng(0)
+        for trial, (n, s, m) in enumerate([(6, 2, 3), (7, 0, 4), (5, 3, 2), (9, 4, 5), (4, 1, 3)]):
+            with self.subTest(n=n, s=s, m=m):
+                pinned, pm, seeds, rm, P, S = padded_completion_case(rng, n, s, m)
+                Q = linalg.pad_safe_pinned_completion(pinned, pm, seeds, np.ones(m, bool), rm)
+                self.assertEqual(Q.shape, (n + 2, m))
+                self.assertTrue(np.all(Q[~rm] == 0.0))
+                self.assertLessEqual(np.max(np.abs(Q[rm] - linalg.pinned_completion(P, S, m))), 1e-14)
+
+    def test_a_seed_mask_selects_columns_in_order(self):
+        """An offset mask (columns t .. t+k-1) and a scattered one: the selected columns complete in their order,
+        against the pins and the earlier SELECTED seeds only; unselected columns are exactly 0."""
+        rng = np.random.default_rng(1)
+        pinned, pm, seeds, rm, P, S = padded_completion_case(rng, 8, 2, 6)
+        for selected in ([2, 3, 4], [0, 3, 5], [5]):
+            with self.subTest(selected=selected):
+                sm = np.zeros(6, bool)
+                sm[selected] = True
+                Q = linalg.pad_safe_pinned_completion(pinned, pm, seeds, sm, rm)
+                self.assertTrue(np.all(Q[:, ~sm] == 0.0) and np.all(Q[~rm] == 0.0))
+                want = linalg.pinned_completion(P, S[:, selected], len(selected))
+                self.assertLessEqual(np.max(np.abs(Q[rm][:, selected] - want)), 1e-14)
+
+    def test_per_element_counts_in_a_stack(self):
+        """C = (3,): one shared padded layout, a different seed mask per element; each element is its own call."""
+        rng = np.random.default_rng(2)
+        pinned, pm, seeds, rm, P, S = padded_completion_case(rng, 7, 2, 4, C=(3,))
+        sm = np.array([[True, True, False, False], [False, True, True, True], [False, False, False, False]])
+        Q = linalg.pad_safe_pinned_completion(pinned, pm, seeds, sm, rm)
+        self.assertEqual(Q.shape, (3, 9, 4))
+        for e in range(3):
+            single = linalg.pad_safe_pinned_completion(pinned[e], pm, seeds[e], sm[e], rm)
+            self.assertLessEqual(np.max(np.abs(Q[e] - single)), 1e-14)
+            want = linalg.pinned_completion(P[e], S[e][:, sm[e]], int(sm[e].sum()))
+            self.assertLessEqual(np.max(np.abs(Q[e][rm][:, sm[e]] - want), initial=0.0), 1e-14)
+            self.assertTrue(np.all(Q[e][:, ~sm[e]] == 0.0))
+
+    def test_garbage_changes_nothing(self):
+        """The junk entries are masked at entry: garbage there gives the bitwise result of zeros there."""
+        for seed in range(4):
+            with self.subTest(seed=seed):
+                clean = padded_completion_case(np.random.default_rng(seed), 6, 2, 3, garbage=False)
+                dirty = padded_completion_case(np.random.default_rng(seed), 6, 2, 3, garbage=True)
+                self.assertTrue(np.array_equal(clean[1], dirty[1]) and np.array_equal(clean[3], dirty[3]))
+                sm = np.array([True, False, True])
+                a = linalg.pad_safe_pinned_completion(clean[0], clean[1], clean[2], sm, clean[3])
+                b = linalg.pad_safe_pinned_completion(dirty[0], dirty[1], dirty[2], sm, dirty[3])
+                self.assertTrue(np.array_equal(a, b))
+
+    def test_degenerate_seeds_are_completed(self):
+        """Seeds in the span of the pins, zero seeds: an orthonormal completion orthogonal to the real pins, real
+        rows only."""
+        rng = np.random.default_rng(3)
+        pinned, pm, seeds, rm, P, S = padded_completion_case(rng, 7, 2, 3)
+        for name, S_bad in (('in span(P)', P @ rng.standard_normal((2, 3))), ('zero', np.zeros((7, 3)))):
+            with self.subTest(seeds=name):
+                seeds_bad = seeds.copy()
+                seeds_bad[rm] = S_bad
+                Q = linalg.pad_safe_pinned_completion(pinned, pm, seeds_bad, np.ones(3, bool), rm)
+                self.assertTrue(np.all(Q[~rm] == 0.0))
+                self.assertLessEqual(completion_residual(P, Q[rm]), 1e-14)
+
+    def test_count_rejection(self):
+        """More selected seeds than the real rows leave beside the real pins (per element) is structural; one seed
+        fewer passes."""
+        rng = np.random.default_rng(4)
+        pinned, pm, seeds, rm, _, _ = padded_completion_case(rng, 5, 2, 4, pad_rows=3)
+        linalg.pad_safe_pinned_completion(pinned, pm, seeds, np.array([True, True, True, False]), rm)
+        with self.assertRaisesRegex(ValueError, 'more seeds selected'):
+            linalg.pad_safe_pinned_completion(pinned, pm, seeds, np.ones(4, bool), rm)
 
 if __name__ == '__main__':
     unittest.main()
