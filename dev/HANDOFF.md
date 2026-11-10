@@ -38,7 +38,7 @@ then `CLAUDE.md`, the signature/naming/testing contributor docs, then the plan);
 COMMITS BY NAME (never `-a`; ignore the pre-existing untracked `dev/check_t3svd_retraction_second_order.py`,
 `release_notes_2026.3.0.md`; never commit `*.npz`) with `Co-Authored-By: Claude Opus 5.5` + `Claude Fable 5.1` +
 the `Claude-Session:` line, pushes, starts the next slice. Review stops with Nick after N6, N8, N10 (N3 done).
-QUEUE: N4 (in progress: `linalg.pad_safe_pinned_completion`, `ufv_masking.ufv_frame_widths`,
+QUEUE: N4 DONE (commit = HEAD after N4; `linalg.pad_safe_pinned_completion`, `ufv_masking.ufv_frame_widths`,
 `backend/uniform_padded_frames.py` with `ufv_empty_frame` + `ufv_padded_frame` in BLOCK LAYOUT, scatter test helper
 `tests/backend/_uniform_padded_frame_testing.py`, T7, T8, T16 rows) -> N3b (plan round 7: `use_jit=False` on
 `fv_aligned_padded_frame` with a memoized module-level jitted step, and the PER-PAIR stop rule: test the stop after each
