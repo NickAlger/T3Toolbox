@@ -85,16 +85,6 @@ def _pad_mask(
     return np.concatenate([mask, np.zeros(mask.shape[:-1] + (width - mask.shape[-1],), dtype=bool)], axis=-1)
 
 
-def _unfold(
-        X:     NDArray,   # (...,)+(a, n, b)
-        axis:  int,       # -3 | -2 | -1: the slot that becomes the columns
-) -> NDArray:             # (...,)+(rows, cols): the other two slots, row-major, as the rows
-    """A core unfolded with one slot as the columns (core axes only)."""
-    xnp, _, _ = get_backend(True, tree_contains_jax(X))
-    Y = xnp.moveaxis(X, axis, -1)
-    return Y.reshape(Y.shape[:-3] + (Y.shape[-3] * Y.shape[-2], Y.shape[-1]))
-
-
 def _units(
         rows:      NDArray,   # HOST bool, (...,)+(n,): the candidate rows
         j:         NDArray,   # HOST int, (...,)+(w,): column c is the unit vector at the j[c]-th True row

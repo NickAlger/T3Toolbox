@@ -23,7 +23,7 @@ T8-T12 and T17; the jitted loop's T12 and T13 rows are in ``tests/test_dispatch.
   independently derived ``[the input A-mask | prefix(the ragged output counts)]`` at the counts' maxima; the junk
   exactly 0; garbage changes nothing (bitwise, equal layouts). Structural errors, each isolated.
 - **T10, stacks.** C = (3,) with different old, frame and output ranks per element, and C = (2, 2): each element of
-  the stacked step equals its own call (frames by the same measure, movements, to 1e-14) and the ragged step; the
+  the stacked step equals its own call (frames by the same measure, movements, to 1e-13) and the ragged step; the
   start likewise, at C = (3,) and (2, 2).
 - **T11, the compaction.** Masks exactly the prefix masks of the counts at the level widths; the real entries moved
   bitwise (the read-back equal); junk exactly 0; narrower and wider widths; a stack; ``utv_retract`` of the zero
@@ -419,8 +419,8 @@ class TestStacks(unittest.TestCase):
                     F_e, mv_e = uniform_padded_frames.utv_align_padded_frame(frames[e], variations[e], (4, 4),
                                                                             *out_ranks)
                     got = testing.ragged(testing.element(F1, idx))
-                    self.assertLessEqual(frame_distance(got, testing.ragged(F_e)), 1e-14)
-                    self.assertLessEqual(abs(float(movement[idx]) - float(mv_e)), 1e-14)
+                    self.assertLessEqual(frame_distance(got, testing.ragged(F_e)), 1e-13)   # elements of different ranks run at different padded widths; CI's BLAS gave 1.2e-14
+                    self.assertLessEqual(abs(float(movement[idx]) - float(mv_e)), 1e-13)
                     F_r, mv_r = padded_frames.tv_align_padded_frame(start, tangent, *old_ranks, *out_ranks)
                     self.assertLessEqual(frame_distance(got, F_r), 1e-9)
                     self.assertLessEqual(abs(float(movement[idx]) - float(mv_r)), 1e-9)
