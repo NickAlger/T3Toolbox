@@ -47,7 +47,11 @@ binding inside the one jit accepted; the NaN-padded record cannot tell a NaN mov
 SECOND REVIEW STOP DONE (Nick 2026-11-10: items 1-4 OK; the `functools.partial` binding is accepted IN THIS INSTANCE
 ONLY and establishes NO precedent -- the kernel docstring and the N9 scan-body note must say so) -> N7 (in progress) -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
 `Problem.local_model(frame=)`; `_misfit_gradient_at`; public `padded_start`; 14 `newton_cg` keywords + `use_jit`
-forwarded; `'cone'`) -> N8 (frontend twins; review stop) -> N9 (docs incl. the "jit or eager" section; CHANGELOG; the
+forwarded; `'cone'`) -> N8 (frontend twins; review stop) -> N9 (docs incl. the "jit or eager" section; DEFINE "STORE" (Nick 2026-11-10: the term was little used before) --
+the feature's user doc on first use (one of the four per-edge rank widths of a frame, up/down/left/right, `(nU, nD, rL, rR)` from
+`compute_orthogonal_representation_ranks`; stores fix the core shapes; the padded frame extends them), linked to
+`docs/frame_variations.md` § "Four rank stores" (tighten that section's definition to match), a glossary entry if there is a
+glossary, and the `padded_frames.py` module docstring on first use; CHANGELOG; the
 math note from Nick's note; judgment calls J-7.. in `dev/padded_frame_cone_judgment_calls_2026_11.md`) -> N10
 (acceptance; T3Polynomial adopts `padded_from`; review stop). DECISIONS SINCE THE PLAN'S APPROVAL (all in the plan's
 §9): D-38 zero passes = the hint-free start (other schedule options then raise); D-39 jit under user control (`use_jit`);
