@@ -27,7 +27,38 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
-**State (2026-11-10, later). SLICES N1-N3 COMMITTED (3f9679ef, 196fcfa2, N3 = HEAD); FIRST REVIEW STOP -- awaiting Nick.**
+**State (2026-11-10, evening). IMPLEMENTATION IN PROGRESS: N1-N3 COMMITTED (3f9679ef, 196fcfa2, 0c4d982e, +cccc6f7c the
+loop's dispatch row); N4 BUILDING; plan at round 7 (97267ffd).** Nick reviewed the N3 stop (all items answered) and
+approved continuing. HOW THE WORK RUNS (Nick's process): one IMPLEMENTER agent and one REVIEWER agent (Opus, extra-high
+effort, persistent across slices -- continue them, do not respawn; if they are gone after a compaction, spawn fresh ones
+with the same briefs: read a handful of `TuckerTensorTrain`/`UniformTuckerTensorTrain` methods and their backend first,
+then `CLAUDE.md`, the signature/naming/testing contributor docs, then the plan); per slice: implementer builds and writes
+`dev/aligned_padded_frame_slices/N<k>_handoff.md` -> reviewer writes `N<k>_review.md` with a verdict (style section first)
+-> implementer fixes -> the session inspects the diff, runs the touched tests (full suite per slice by the implementer),
+COMMITS BY NAME (never `-a`; ignore the pre-existing untracked `dev/check_t3svd_retraction_second_order.py`,
+`release_notes_2026.3.0.md`; never commit `*.npz`) with `Co-Authored-By: Claude Opus 5.5` + `Claude Fable 5.1` +
+the `Claude-Session:` line, pushes, starts the next slice. Review stops with Nick after N6, N8, N10 (N3 done).
+QUEUE: N4 (in progress: `linalg.pad_safe_pinned_completion`, `ufv_masking.ufv_frame_widths`,
+`backend/uniform_padded_frames.py` with `ufv_empty_frame` + `ufv_padded_frame` in BLOCK LAYOUT, scatter test helper
+`tests/backend/_uniform_padded_frame_testing.py`, T7, T8, T16 rows) -> N3b (plan round 7: `use_jit=False` on
+`fv_aligned_padded_frame` with a memoized module-level jitted step, and the PER-PAIR stop rule: test the stop after each
+(UL, RO) pair, odd remainder = one final UL) -> N5 (uniform step) -> N6 (uniform compaction + loop; whole-loop jit under
+`use_jit`; review stop) -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
+`Problem.local_model(frame=)`; `_misfit_gradient_at`; public `padded_start`; 14 `newton_cg` keywords + `use_jit`
+forwarded; `'cone'`) -> N8 (frontend twins; review stop) -> N9 (docs incl. the "jit or eager" section; CHANGELOG; the
+math note from Nick's note; judgment calls J-7.. in `dev/padded_frame_cone_judgment_calls_2026_11.md`) -> N10
+(acceptance; T3Polynomial adopts `padded_from`; review stop). DECISIONS SINCE THE PLAN'S APPROVAL (all in the plan's
+§9): D-38 zero passes = the hint-free start (other schedule options then raise); D-39 jit under user control (`use_jit`);
+dispatch rows required for every public backend function, host loops included; small test data as Python modules of
+literals (`*.npz` are platform/version dependent), no hard rule; the skip rule compares STORES. FACTS WORTH KEEPING: the
+eager first call of the step on jax arrays is op-by-op compilation (932 compiles, ~22 s at d = 4; 0.16 s after; 2 s
+jitted); higher-rank Darcy (T3Polynomial `scripts/g06*`, data in `data/g0_reference/`): generic completions capture a
+steady ~9-10 % of the gradient at every level, the aligned fraction falls with rank (50 % -> 23 % from 1->6 to 16->21)
+but stays 2.3-4.8x the generic one; at 11->16 the aligned start with >= 10 passes cuts Newton by ~40 % and CG by ~2.4x
+vs both generic starts (4 passes not enough there), where at levels 1-2 it had not. Research prototypes:
+`nicks_research_experiments/tensor/aligned_padded_frame/` (README).
+
+**Earlier (2026-11-10, later). SLICES N1-N3 COMMITTED (3f9679ef, 196fcfa2, N3 = HEAD); FIRST REVIEW STOP -- awaiting Nick.**
 The ragged layer is complete: `backend/padded_frames.py` has `fv_empty_frame`, `fv_padded_frame`, `tv_align_padded_frame`,
 `fv_aligned_padded_frame`; tests T1-T6, T16 rows, T18, T19; the dense per-edge reference `tests/backend/_padded_frame_oracles.py`;
 the cycle case as text `tests/backend/_padded_frame_cycle_case.py`. Handoffs and reviews per slice in
