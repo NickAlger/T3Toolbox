@@ -453,9 +453,12 @@ class TestLeastSquaresProblemAndKeywords(unittest.TestCase):
         front = inspect.signature(topt.newton_cg).parameters
         back = inspect.signature(bopt.newton_cg).parameters
         self.assertFalse(any(p.kind is inspect.Parameter.VAR_KEYWORD for p in front.values()))
+        padded_start_keywords = {'start_frame', 'padded_from'} | {
+            prefix + option for prefix in ('padded_', 'cone_') for option in
+            ('oversampling', 'oversampled_passes', 'max_passes', 'tol', 'alternate', 'seed')}
         for name, p in back.items():
-            if name in ('problem', 'x0'):
-                continue
+            if name in ('problem', 'x0') or name in padded_start_keywords:   # their frontend twins arrive in N8 of the
+                continue                                                     #   aligned-padded-frame plan (§3.6)
             with self.subTest(name=name):
                 self.assertIn(name, front)
                 self.assertEqual(front[name].default, p.default)

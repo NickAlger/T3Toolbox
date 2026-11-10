@@ -896,7 +896,8 @@ def _ufv_aligned_loop_kernel(
 
     Its loop bodies are bound with ``functools.partial``; those partials reach a lax primitive only under
     ``use_jit=True``, inside the one memoized jit whose cache is keyed on ``skeleton``, ``project``, ``schedule`` and
-    ``use_jit``; eagerly the loops are Python loops."""
+    ``use_jit``; eagerly the loops are Python loops. This binding is accepted in this instance only and sets no
+    precedent for other loop bodies."""
     old_frame_data, hint = rebuild_static(dynamic, skeleton)
     working, target, sharing, seed, n_over, max_passes, alternate, level_widths = schedule
     working, target = tuple(tuple(np.asarray(r) for r in ranks_) for ranks_ in (working, target))

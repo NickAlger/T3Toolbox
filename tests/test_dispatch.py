@@ -2513,6 +2513,74 @@ class TestUniformAlignedLoopJit(unittest.TestCase):
         self.assertEqual(counts[1], 0)
 
 
+@unittest.skipUnless(HAS_JAX, "jax not available")
+class TestPaddedStartSeam(unittest.TestCase):
+    """The optimizer seam's dispatch (T16) and T14 (i): the geometry members and padded_start take numpy and jax
+    in and give the same out; on the uniform layer newton_cg's use_jit runs the alignment, the problem's gradient
+    included, inside the whole-loop jit, equal to the eager run (x64 on in this module)."""
+
+    @staticmethod
+    def case(layer, shape=(4, 5, 4), M=40):
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
+        import test_padded_start as seam
+        return seam.fit_case(layer, shape=shape, old=((2, 2, 2), (1, 2, 2, 1)), target=((3, 3, 3), (1, 3, 3, 1)), M=M)
+
+    def test_members_and_padded_start(self):
+        import t3toolbox.backend.optimizers as bopt
+        to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
+        for layer in ('ragged', 'uniform'):
+            with self.subTest(layer=layer):
+                setup, old, _, _ = self.case(layer)
+                problem, x = setup.problem, setup.x0_cores
+                geom = problem.geom
+                F_np, m_np = bopt.padded_start(problem, x, old, max_passes=2, tol=0.0)
+                arrays = (lambda F: F) if layer == 'ragged' else (lambda F: F[:4])
+                self.assertTrue(all(common.is_numpy_ndarray(a) for a in jax.tree_util.tree_leaves(arrays(F_np))))
+                self.assertIs(type(geom.with_frame(F_np)), type(geom))
+                geom.require_frame_structure(x, F_np)
+                jx = to_jax(x)
+                jold = to_jax(old) if layer == 'ragged' else tuple(jnp.asarray(a) for a in old[:2]) + tuple(old[2:])
+                jproblem = bopt._prepare_jit_inputs(True, x, problem)[1]
+                for name, args in (('member', None), ('padded_start', None)):
+                    if name == 'member':
+                        r0 = bopt.cw.corewise_sub(jproblem.kind.point_forward(jx, jproblem.sample), jproblem.data)
+                        F, m = geom.aligned_padded_frame(jx, jold, bopt._misfit_gradient_at, (jproblem, r0),
+                                                         max_passes=2, tol=0.0)
+                    else:
+                        F, m = bopt.padded_start(jproblem, jx, jold, max_passes=2, tol=0.0)
+                    self._leaves(arrays(F))
+                    geom.require_frame_structure(jx, F)
+                    self.assertLessEqual(max(abs(float(a) - float(b)) for a, b in zip(bopt._movement_record(m),
+                                                                                     bopt._movement_record(m_np))), 1e-10)
+
+    def _leaves(self, tree):
+        for leaf in jax.tree_util.tree_leaves(tree):
+            self.assertTrue(common.is_jax_ndarray(leaf), 'a numpy leaf: %s' % type(leaf))
+
+    def test_uniform_use_jit_runs_the_alignment_jitted(self):
+        """T14 (i): padded_from and 'cone' with use_jit=True on the uniform layer equal use_jit=False: the same passes,
+        the iteration-0 frame (the plan's frame measure) and the cone value to 1e-12 relative."""
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
+        import test_padded_start as seam
+        import t3toolbox.backend.optimizers as bopt
+        setup, old, _, _ = self.case('uniform')
+        runs = {}
+        for use_jit in (False, True):
+            frames = []
+            _, stats = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=1, padded_from=old,
+                                      g0_reference='cone', use_jit=use_jit,
+                                      callback=lambda info: frames.append(info.lm.frame))
+            runs[use_jit] = (stats, frames[0])
+        (eager, F_e), (jitted, F_j) = runs[False], runs[True]
+        self.assertEqual(len(jitted['start_movements']), len(eager['start_movements']))
+        self.assertEqual(len(jitted['cone_movements']), len(eager['cone_movements']))
+        cone_e, cone_j = eager['history'][0]['g0norm'], jitted['history'][0]['g0norm']
+        self.assertLessEqual(abs(cone_j - cone_e), 1e-12 * cone_e)
+        self.assertTrue(common.is_jax_ndarray(F_j[0]))
+        self.assertLessEqual(seam.frame_distance(seam.ragged_view('uniform', F_j), seam.ragged_view('uniform', F_e)),
+                             1e-12)
+
+
 class TestJitStack(unittest.TestCase):
     """Review 2026-08-22 (C4): stack() inside jit (moveaxis used to get a traced arange as its source)."""
 

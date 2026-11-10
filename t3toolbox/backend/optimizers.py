@@ -56,6 +56,7 @@ __all__ = [
     'mc_sgd',
     'adam',
     'newton_cg',
+    'padded_start',
 ]
 
 Tangent = typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]   # (tucker_variations, tt_variations)
@@ -350,6 +351,7 @@ class Problem:
             data:               typ.Any = None,          # its observed data (with sample), or None
             hessian:            str = 'gauss_newton',    # or 'exact' (case-insensitive): the model's Hessian
             curvature_damping:  typ.Optional[float] = None,  # exact only: the lift damping; None -> the geometry's
+            frame:              typ.Any = None,          # a frame of x_cores to linearize at (checked by geom.require_frame_structure); None -> geom.frame(x_cores)
     ) -> LocalModel:
         """Linearize at ``x_cores`` on the full data (``sample=None``) or an explicit minibatch
         (``sample`` AND ``data`` -- passing one without the other is a structural error).
@@ -360,6 +362,10 @@ class Problem:
         model's ONE misfit transpose and the geometry's per-frame curvature data. ``curvature_damping``
         (relative to ``‖X‖_HS``) is handed to the geometry unread; ``None`` means the geometry's own default,
         and a value with ``hessian='gauss_newton'`` -- where nothing would read it -- raises.
+
+        ``frame`` linearizes at a given frame of ``x_cores`` (a padded start's aligned frame) instead of
+        ``geom.frame(x_cores)``. Its structure is checked by the geometry's ``require_frame_structure`` (integers
+        and held masks only); a geometry without that member raises.
 
         Examples
         --------
@@ -402,7 +408,14 @@ class Problem:
         sample, data = self._sample_and_data(sample, data, 'Problem.local_model')
         if self.regularizer is not None:
             require_unstacked_for_regularizer(self.geom.stack_shape(x_cores), 'Problem.local_model')
-        frame = self.geom.frame(x_cores)
+        if frame is None:
+            frame = self.geom.frame(x_cores)
+        else:
+            require = getattr(self.geom, 'require_frame_structure', None)
+            if require is None:
+                raise ValueError('Problem.local_model: frame= needs a geometry with a require_frame_structure member; '
+                                 '%s has none' % type(self.geom).__name__)
+            require(x_cores, frame)
         sweep = self.kind.precompute(frame, sample)
         geom_aux = self.geom.precompute(frame)        # None when the geometry has no companion
         residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
@@ -601,11 +614,11 @@ def _adam_step(
 # --------------------------------------------------------------------------------------------------
 # The reference gradient norm ‖g0‖ of the relative stopping tests (g0_reference; the zero reference)
 # --------------------------------------------------------------------------------------------------
-_G0_REFERENCES = ('zero', 'warm_start')
+_G0_REFERENCES = ('zero', 'warm_start', 'cone')
 
 
 def _check_g0_reference(
-        g0_reference:  typ.Optional[str],   # None | 'zero' | 'warm_start' (case-insensitive)
+        g0_reference:  typ.Optional[str],   # None | 'zero' | 'warm_start' | 'cone' (case-insensitive)
         who:           str,                 # the optimizer name, for the message
 ) -> typ.Optional[str]:                     # the lower-cased selector, or None
     """Validate the ``g0_reference`` selector (structural: an unknown string raises in both modes)."""
@@ -613,8 +626,8 @@ def _check_g0_reference(
         return None
     ref = str(g0_reference).lower()
     if ref not in _G0_REFERENCES:
-        raise ValueError("%s: g0_reference must be None (the geometry's own reference), 'zero' or "
-                         "'warm_start'; got %r" % (who, g0_reference))
+        raise ValueError("%s: g0_reference must be None (the geometry's own reference), 'zero', "
+                         "'warm_start' or 'cone'; got %r" % (who, g0_reference))
     return ref
 
 
@@ -699,6 +712,154 @@ def _resolve_g0_reference(
     return 'warm_start', None
 
 
+# --------------------------------------------------------------------------------------------------
+# The padded start: an aligned frame at a zero-padded rank increase (start_frame / padded_from) and the
+# 'cone' reference (the gradient norm at the zero tensor, at the frame aligned with the data gradient there).
+# The layer-specific work is the geometry's (its aligned_padded_frame member); this module imports nothing new.
+# --------------------------------------------------------------------------------------------------
+_ALIGNMENT_OPTIONS = ('oversampling', 'oversampled_passes', 'max_passes', 'tol', 'alternate', 'seed')
+
+
+def _misfit_gradient_at(
+        frame:  typ.Any,      # a frame of the problem's geometry, any structure (ragged frame / uniform frame .data)
+        hint:   typ.Tuple,    # (problem, residual): the problem, and its residual at the loop's point (computed once)
+) -> typ.Any:                 # Π 𝒥ᵀ residual at `frame` (ragged variations / uniform bare pair); no regularizer term
+    """The misfit gradient at ``frame``: the alignment loops' projection of the fixed tensor ``𝒥ᵀ residual``."""
+    problem, residual = hint
+    geom = problem.geom.with_frame(frame)
+    sweep = problem.kind.precompute(frame, problem.sample)
+    return geom.project(frame, problem.kind.transpose(residual, problem.sample, frame, sweep),
+                        aux=geom.precompute(frame))
+
+
+def _alignment_options(
+        options:  typ.Dict[str, typ.Any],   # the six alignment options by name (None = unset)
+        prefix:   str,                      # '' (padded_start), 'padded_' or 'cone_' (the optimizers' keywords)
+        who:      str,
+) -> typ.Dict[str, typ.Any]:                # the set options only
+    """The set options; zero passes with an option they would not read is a structural error."""
+    given = {k: v for k, v in options.items() if v is not None}
+    if given.get('max_passes') == 0:
+        unread = [prefix + k for k in ('oversampling', 'oversampled_passes', 'tol', 'alternate') if k in given]
+        if unread:
+            raise ValueError('%s: %smax_passes=0 (the hint-free padded start) does not read %s; remove it, or set a '
+                             'positive pass count' % (who, prefix, ', '.join(unread)))
+    return given
+
+
+def padded_start(
+        problem:             'Problem',
+        x0:                  Cores,                     # the zero-padded point at the target ranks (minimal); uniform: bare pair
+        x_old:               typ.Optional[typ.Any],     # the old point at minimal ranks (ragged cores / uniform full .data, rank 0 allowed); None = the zero tensor (the cone)
+
+        oversampling:        typ.Optional[int]   = None,   # None = the member's default (ALIGN_OVERSAMPLING = 5); forwarded only when set
+        oversampled_passes:  typ.Optional[int]   = None,   # None = 2
+        max_passes:          typ.Optional[int]   = None,   # None = 10
+        tol:                 typ.Optional[float] = None,   # None = 0.05
+        alternate:           typ.Optional[bool]  = None,   # None = True
+        seed:                typ.Optional[int]   = None,   # None = ZERO_FRAME_SEED
+        use_jit:             bool = False,                 # forwarded to the loop; newton_cg passes its own use_jit
+) -> typ.Tuple[
+    typ.Any,   # the aligned frame of x0 (ragged frame / uniform frame .data at the level's widths)
+    typ.Any,   # movements, as the member returns them (ragged tuple; uniform NaN-padded array)
+]:
+    """The frame of ``x0`` aligned with the problem's misfit gradient: the start of a Newton run after a rank increase.
+
+    ``x0`` is the zero-padded point at the target ranks and ``x_old`` the old point (``None``: the zero tensor, the
+    ``'cone'`` reference's frame). The alignment runs on the geometry's ``aligned_padded_frame`` member against
+    :py:func:`_misfit_gradient_at` of the residual at ``x0`` (at the zero tensor when ``x_old`` is ``None``). Unset
+    options take the member's defaults; ``max_passes=0`` returns the hint-free padded start, and an option it would
+    not read then raises.
+
+    Examples
+    --------
+    A problem's aligned frame without running Newton -- the route from the frontend ``least_squares_problem``:
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.frame_variations_format as bvf
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.optimizers as topt
+    >>> import t3toolbox.backend.optimizers as bopt
+    >>> np.random.seed(0)
+    >>> shape = (5, 6, 5)
+    >>> ww = [np.random.randn(60, n) for n in shape]
+    >>> data = t3.TuckerTensorTrain.randn(shape, (3, 4, 3), (1, 3, 3, 1)).probe(ww)
+    >>> x_old = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
+    >>> x0 = x_old.resize(shape, (3, 4, 3), (1, 3, 3, 1))                 # zero-padded to the target ranks
+    >>> setup = topt.least_squares_problem(t3m.MANIFOLD, 'probe', ww, data, x0)
+    >>> frame, movements = bopt.padded_start(setup.problem, setup.x0_cores, x_old.data)
+    >>> F = bvf.T3Frame(*frame)                                          # rewrap
+    >>> F.up_ranks, len(movements) <= 10
+    ((3, 4, 3), True)
+
+    Newton can start from it (``newton_cg(start_frame=...)``; ``padded_from=x_old.data`` does both steps):
+
+    >>> lm = setup.problem.local_model(setup.x0_cores, frame=frame)
+    >>> bool(float(lm.objective) > 0)
+    True
+    """
+    member = getattr(problem.geom, 'aligned_padded_frame', None)
+    if member is None:
+        raise ValueError('padded_start: the geometry %s has no aligned_padded_frame member (a padded start needs a '
+                         'manifold geometry)' % type(problem.geom).__name__)
+    options = _alignment_options(dict(oversampling=oversampling, oversampled_passes=oversampled_passes,
+                                      max_passes=max_passes, tol=tol, alternate=alternate, seed=seed),
+                                 '', 'padded_start')
+    point = x0 if x_old is not None else cw.corewise_zeros_like(x0)
+    residual = cw.corewise_sub(problem.kind.point_forward(point, problem.sample), problem.data)
+    return member(x0, x_old, _misfit_gradient_at, (problem, residual), use_jit=use_jit, **options)
+
+
+def _cone_options(
+        options:  typ.Dict[str, typ.Any],   # the six cone_* options by name (None = unset)
+        engaged:  bool,                     # the cone reference is computed (g0_reference='cone', no g0norm_newton)
+        who:      str,
+) -> typ.Dict[str, typ.Any]:                # the set options only
+    """The cone_* options, checked: set only when the cone is computed, and read by the pass count."""
+    given = sorted(k for k, v in options.items() if v is not None)
+    if given and not engaged:
+        raise ValueError("%s: %s set, but the cone reference is not computed (it needs g0_reference='cone' and no "
+                         "g0norm_newton)" % (who, ', '.join('cone_' + k for k in given)))
+    return _alignment_options(options, 'cone_', who)
+
+
+def _cone_reference(
+        problem:  'Problem',
+        x0:       Cores,                     # the start point (its structure: the zero tensor at its ranks)
+        options:  typ.Dict[str, typ.Any],    # the set cone_* options (unprefixed)
+        use_jit:  bool,
+        who:      str,
+        hint:     str,                       # what to pass instead, for the vanishing-reference ValueError
+) -> typ.Tuple[
+    float,                     # ‖Π 𝒥ᵀ r(0)‖ at the aligned frame of the zero tensor
+    typ.Tuple[float, ...],     # the alignment's movements, one per pass
+]:
+    """The 'cone' reference: the misfit gradient norm at the zero tensor, at the frame aligned with it."""
+    if getattr(problem.geom, 'aligned_padded_frame', None) is None:
+        raise ValueError("%s: g0_reference='cone' needs a geometry with an aligned_padded_frame member; %s has none "
+                         "(pass %s)" % (who, type(problem.geom).__name__, hint))
+    r0 = cw.corewise_sub(problem.kind.point_forward(cw.corewise_zeros_like(x0), problem.sample), problem.data)
+    frame, movements = problem.geom.aligned_padded_frame(x0, None, _misfit_gradient_at, (problem, r0), use_jit=use_jit,
+                                                         **options)            # padded_start's call, its residual reused
+    g = _misfit_gradient_at(frame, (problem, r0))
+    value = float(problem.geom.with_frame(frame).inner(g, g)) ** 0.5
+    if not value > 0.0:
+        raise ValueError("%s: the cone reference is 0 at these ranks; pass %s" % (who, hint))
+    return value, _movement_record(movements)
+
+
+def _movement_record(
+        movements:  typ.Any,   # the member's movements: a tuple of 0-d arrays (ragged) or a NaN-padded array (uniform)
+) -> typ.Tuple[float, ...]:    # one float per pass (the uniform record's NaN tail dropped)
+    """The alignment's movements as plain floats."""
+    values = [float(m) for m in movements]
+    if not isinstance(movements, tuple):
+        while values and math.isnan(values[-1]):
+            values.pop()
+    return tuple(values)
+
+
 def gradient_descent(
         problem:  Problem,    # the fixed-rank least-squares problem
         x0:       Tangent,    # initial cores (U, G)
@@ -706,7 +867,14 @@ def gradient_descent(
         gtol_rel: float = 1e-8,   # stop when ‖g‖ <= gtol_rel * ‖g_0‖
         c_armijo: float = 1e-4,   # Armijo sufficient-decrease constant
         on_line_search_failure: str = 'stop',  # Armijo exhausted (50 halvings): 'stop' = reject + terminate; 'accept' = take the last trial and continue
-        g0_reference: typ.Optional[str] = None,  # ‖g_0‖ for the stop: None = the geometry's own ('zero' on manifolds); 'zero' | 'warm_start'
+        g0_reference: typ.Optional[str] = None,  # ‖g_0‖ for the stop: None = the geometry's own ('zero' on manifolds); 'zero' | 'warm_start' | 'cone'
+        *,
+        cone_oversampling:        typ.Optional[int]   = None,   # None = 5    (g0_reference='cone' only, else a structural error)
+        cone_oversampled_passes:  typ.Optional[int]   = None,   # None = 2
+        cone_max_passes:          typ.Optional[int]   = None,   # None = 10
+        cone_tol:                 typ.Optional[float] = None,   # None = 0.05
+        cone_alternate:           typ.Optional[bool]  = None,   # None = True
+        cone_seed:                typ.Optional[int]   = None,   # None = ZERO_FRAME_SEED
 ) -> typ.Tuple[Tangent, dict]:    # (x_cores, stats)
     """Steepest descent with a Cauchy initial step and an **Armijo backtracking line search**. The step
     length starts at the Cauchy value ``α = ‖g‖² / ‖𝒥g‖²`` (the 1D minimizer of the local GN quadratic
@@ -723,12 +891,17 @@ def gradient_descent(
 
     ``g0_reference``: the reference ``‖g_0‖`` of the relative stop, resolved exactly as in
     :py:func:`newton_cg` -- by default the gradient norm at the zero tensor of ``x0``'s ranks on a manifold
-    geometry, the warm-start ``‖g(x0)‖`` on a corewise one."""
+    geometry, the warm-start ``‖g(x0)‖`` on a corewise one; ``'cone'`` and its ``cone_*`` options as in
+    :py:func:`newton_cg` (the alignment runs eagerly here)."""
     _require_unstacked(problem.geom, x0, 'gradient_descent')
     olsf = str(on_line_search_failure).lower()
     if olsf not in ('stop', 'accept'):
         raise ValueError("on_line_search_failure must be 'stop' or 'accept'; got %r" % (on_line_search_failure,))
     ref_selector = _check_g0_reference(g0_reference, 'gradient_descent')
+    cone_options = _cone_options(dict(oversampling=cone_oversampling, oversampled_passes=cone_oversampled_passes,
+                                      max_passes=cone_max_passes, tol=cone_tol, alternate=cone_alternate,
+                                      seed=cone_seed), ref_selector == 'cone', 'gradient_descent')
+    extra = {}
     x = x0
     losses = []
     any_ls_failed = False
@@ -739,6 +912,9 @@ def gradient_descent(
         losses.append(f)
         g = lm.gradient
         gg = float(problem.geom.inner(g, g))                # ‖g‖²
+        if g0norm is None and ref_selector == 'cone':      # iteration 0: the cone reference (once)
+            g0norm, extra['cone_movements'] = _cone_reference(problem, x0, cone_options, False, 'gradient_descent',
+                                                              "g0_reference='warm_start'")
         if g0norm is None:                                  # iteration 0: resolve the reference (once)
             ref, zero_ref = _resolve_g0_reference(problem, lm.frame, x0, ref_selector, True, 'gradient_descent',
                                                   "g0_reference='warm_start'")
@@ -760,7 +936,7 @@ def gradient_descent(
             if olsf == 'stop':
                 break                                        # reject the step: x unchanged
         x = x_trial
-    return x, {'losses': losses, 'n_iter': len(losses), 'line_search_failed': any_ls_failed}
+    return x, {'losses': losses, 'n_iter': len(losses), 'line_search_failed': any_ls_failed, **extra}
 
 
 def mc_sgd(
@@ -1143,6 +1319,23 @@ def newton_cg(
         use_jit:                bool  = False,  # jit the inner CG (lax.while_loop) when the inputs are jax; else eager
 
         callback:               typ.Optional[typ.Callable] = None,  # callback(NewtonInfo) each iteration (host-side; e.g. a display)
+        *,
+        start_frame:                typ.Any = None,             # a frame of x0 for iteration 0 (structurally checked)
+        padded_from:                typ.Any = None,             # the old point: start_frame = padded_start(problem, x0, padded_from, padded_*)
+
+        padded_oversampling:        typ.Optional[int]   = None, # None = 5    (padded_from only, else a structural error)
+        padded_oversampled_passes:  typ.Optional[int]   = None, # None = 2
+        padded_max_passes:          typ.Optional[int]   = None, # None = 10
+        padded_tol:                 typ.Optional[float] = None, # None = 0.05
+        padded_alternate:           typ.Optional[bool]  = None, # None = True
+        padded_seed:                typ.Optional[int]   = None, # None = ZERO_FRAME_SEED
+
+        cone_oversampling:          typ.Optional[int]   = None, # None = 5    (g0_reference='cone' without g0norm_newton only, else a structural error)
+        cone_oversampled_passes:    typ.Optional[int]   = None, # None = 2
+        cone_max_passes:            typ.Optional[int]   = None, # None = 10
+        cone_tol:                   typ.Optional[float] = None, # None = 0.05
+        cone_alternate:             typ.Optional[bool]  = None, # None = True
+        cone_seed:                  typ.Optional[int]   = None, # None = ZERO_FRAME_SEED
 ) -> typ.Tuple[Tangent, dict]:      # (x_cores, stats)
     """Inexact Riemannian Newton-CG -- the manifold workhorse. Each Newton step builds the local model once,
     solves ``H p = −g`` by (Steihaug) CG to an inexact forcing-term tolerance (the inner loop -- jit-able via
@@ -1198,6 +1391,20 @@ def newton_cg(
       with no zero-point frame raises ``ValueError``.
     * ``'warm_start'`` -- the initial gradient norm ``‖g(x0)‖`` (the 2026.2.0 default; ``1.0`` if it is 0,
       when x0 is stationary and the stop fires at once).
+    * ``'cone'`` -- the gradient norm at the zero tensor of x0's ranks, at the frame there ALIGNED with the
+      data gradient (:py:func:`padded_start` from the zero tensor; the ``cone_*`` options, ``use_jit`` as
+      below). ``'zero'`` evaluates it at a fixed, data-independent frame, which can miss most of the gradient;
+      ``cone_max_passes=0`` reproduces ``'zero'`` to rounding. ``stats['cone_movements']`` records the passes.
+
+    **The start frame** (``start_frame`` / ``padded_from``). Iteration 0 linearizes at ``geom.frame(x0)`` by
+    default. ``start_frame`` gives a frame of ``x0`` instead (structurally checked by the geometry's
+    ``require_frame_structure``); ``padded_from=x_old`` builds it: ``x0`` is ``x_old`` zero-padded to the target
+    ranks, whose own frame is arbitrary on the padding, and :py:func:`padded_start` aligns the padding with the
+    misfit gradient (the ``padded_*`` options; ``padded_max_passes=0`` is the hint-free padded frame). Both
+    need a manifold geometry. ``use_jit`` governs the alignment as well as CG. With either keyword,
+    ``stats['start_frame']`` is ``'given'`` or ``'padded'`` and ``stats['start_movements']`` the passes. An
+    option of a group set without its group engaged (``padded_*`` without ``padded_from``, ``cone_*`` without
+    ``'cone'`` or with ``g0norm_newton``) raises, as does zero passes with an option they would not read.
 
     A **vanishing** zero reference (the data gradient at the zero tensor is 0, e.g. all-zero data) is never
     silently replaced by a constant: by default it falls back to the warm start with a ``RuntimeWarning``;
@@ -1283,7 +1490,25 @@ def newton_cg(
     ref_selector = _check_g0_reference(g0_reference, 'newton_cg')
     _check_positive_reference('g0norm_newton', g0norm_newton)
     _check_positive_reference('g0norm_cg', g0norm_cg)
+    if start_frame is not None and padded_from is not None:
+        raise ValueError('newton_cg: pass start_frame or padded_from, not both (padded_from builds the start frame)')
+    padded = dict(oversampling=padded_oversampling, oversampled_passes=padded_oversampled_passes,
+                  max_passes=padded_max_passes, tol=padded_tol, alternate=padded_alternate, seed=padded_seed)
+    unread = sorted('padded_' + k for k, v in padded.items() if v is not None)
+    if unread and padded_from is None:
+        raise ValueError('newton_cg: %s set without padded_from' % ', '.join(unread))
+    padded_options = _alignment_options(padded, 'padded_', 'newton_cg')
+    cone = ref_selector == 'cone' and g0norm_newton is None             # the cone reference is computed
+    cone_options = _cone_options(dict(oversampling=cone_oversampling, oversampled_passes=cone_oversampled_passes,
+                                      max_passes=cone_max_passes, tol=cone_tol, alternate=cone_alternate,
+                                      seed=cone_seed), cone, 'newton_cg')
     x0, problem = _prepare_jit_inputs(use_jit, x0, problem)             # auto-convert to jax when jitting
+    extra = {}                                                          # stats keys of the new keywords only
+    if padded_from is not None:
+        start_frame, movements = padded_start(problem, x0, padded_from, use_jit=use_jit, **padded_options)
+        extra.update(start_frame='padded', start_movements=_movement_record(movements))
+    elif start_frame is not None:
+        extra['start_frame'] = 'given'
     model_options = dict(hessian='exact', curvature_damping=curvature_damping) if exact else {}
     x = x0
     lm = None                                                           # rebuilt only after an accepted step
@@ -1296,7 +1521,8 @@ def newton_cg(
     t_prev = time.perf_counter()
     for it in range(max_newton):
         if lm is None:                                                  # a new point: linearize there
-            lm = problem.local_model(x, **model_options)
+            lm = problem.local_model(x, frame=start_frame, **model_options)
+            start_frame = None                                          # iteration 0 only
             misfit = float(lm.misfit)
             reg_val = float(lm.regularization) if lm.regularizer is not None else None   # None: no regularizer attached
             f = misfit + (reg_val or 0.0)
@@ -1305,12 +1531,19 @@ def newton_cg(
             lift_sigma_min, lift_eps = _lift_diagnostics(lm)
         losses.append(f)
         if newton_ref is None:                                           # iteration 0: resolve the references
-            ref, zero_ref = _resolve_g0_reference(problem, lm.frame, x0, ref_selector, g0norm_newton is None,
-                                                  'newton_cg', "g0_reference='warm_start' or g0norm_newton")
+            if ref_selector == 'cone':
+                ref, zero_ref = 'cone', None                             # no zero reference: the cone's (below)
+            else:
+                ref, zero_ref = _resolve_g0_reference(problem, lm.frame, x0, ref_selector, g0norm_newton is None,
+                                                      'newton_cg', "g0_reference='warm_start' or g0norm_newton")
             if g0norm_newton is not None:
                 newton_ref, g0_ref_kind = g0norm_newton, 'override'
             elif ref == 'zero':
                 newton_ref, g0_ref_kind = zero_ref, 'zero'
+            elif ref == 'cone':
+                newton_ref, extra['cone_movements'] = _cone_reference(
+                    problem, x0, cone_options, use_jit, 'newton_cg', "g0_reference='warm_start' or g0norm_newton")
+                g0_ref_kind = 'cone'
             else:
                 newton_ref, g0_ref_kind = (gnorm if gnorm > 0 else 1.0), 'warm_start'   # the initial ‖g‖
             if g0norm_cg is not None:
@@ -1419,7 +1652,7 @@ def newton_cg(
             newton_accepted += 1
             x, lm = x_trial, None                                        # the next row linearizes at the new point
     return x, {'losses': losses, 'newton_steps': newton_steps, 'newton_accepted': newton_accepted,
-               'stop_reason': stop_reason, 'history': history}
+               'stop_reason': stop_reason, 'history': history, **extra}
 
 
 if jax_available:

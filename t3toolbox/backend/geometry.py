@@ -68,6 +68,12 @@ from t3toolbox.backend import ut3_linalg
 from t3toolbox.backend import ut3_masking
 from t3toolbox.backend import t3_orthogonalization as ragged_orth
 from t3toolbox.backend import tt_operations
+from t3toolbox.backend import ranks
+from t3toolbox.backend import padded_frames
+from t3toolbox.backend import uniform_padded_frames
+from t3toolbox.backend.fv_operations import ZERO_FRAME_SEED
+from t3toolbox.backend.padded_frames import (ALIGN_OVERSAMPLING, ALIGN_OVERSAMPLED_PASSES, ALIGN_MAX_PASSES,
+                                             ALIGN_TOL, ALIGN_ALTERNATE)
 from t3toolbox.backend.fv_conversions import t3_orthogonal_representations, t3_corewise_frame
 import t3toolbox.corewise as cw
 
@@ -230,6 +236,33 @@ def _manifold_curvature_data(
 # --------------------------------------------------------------------------------------------------
 # Ragged geometries
 # --------------------------------------------------------------------------------------------------
+def _sharing_labels(
+        groups:  typ.Tuple[typ.Tuple[int, ...], ...],   # a canonical sharing partition; () = unshared
+        d:       int,
+) -> typ.Optional[typ.Tuple[int, ...]]:                 # len=d group labels, or None when unshared
+    """The partition as the per-mode labels the frame loops take."""
+    if not groups:
+        return None
+    labels = list(range(d))
+    for k, group in enumerate(groups):
+        for i in group:
+            labels[i] = d + k
+    return tuple(labels)
+
+
+def _structurally_zero(
+        tucker_counts:  NDArray,   # HOST int, (d,)+C
+        tt_counts:      NDArray,   # HOST int, (d+1,)+C
+        who:            str,
+) -> bool:                         # every element is zero (raises when the stack mixes zero and nonzero elements)
+    """A point is structurally zero when any Tucker rank or any interior TT rank is 0 (per stack element)."""
+    zero = np.any(np.asarray(tucker_counts) == 0, axis=0) | np.any(np.asarray(tt_counts)[1:-1] == 0, axis=0)
+    if np.any(zero) and not np.all(zero):
+        raise ValueError('%s: a stack mixes structurally zero and nonzero old points; align the elements '
+                         'separately' % who)
+    return bool(np.all(zero))
+
+
 @dc.dataclass(frozen=True, eq=False)   # eq=False + ValueHashedFields: value hash/eq, see the module docstring
 class ManifoldGeometryOps(ValueHashedFields):
     """The fixed-rank T3 manifold geometry on raw ``(tucker_cores, tt_cores)`` data -- the check-free twin
@@ -331,6 +364,68 @@ class ManifoldGeometryOps(ValueHashedFields):
         reference ``‖g(0)‖`` is evaluated (``newton_cg(g0_reference='zero')``). One seeded Haar Tucker
         factor per sharing group: :py:func:`~t3toolbox.backend.fv_operations.fv_zero_point_frame`."""
         return fv_operations.fv_zero_point_frame(frame, self.groups)
+
+    # ---- the padded start (the optimizers' start_frame / padded_from / 'cone') ------------------------
+    def with_frame(
+            self,
+            frame:  typ.Tuple,      # a frame of this layer at any structure
+    ) -> 'ManifoldGeometryOps':     # this geometry: the ragged geometry holds no rank structure
+        """The geometry at ``frame``'s structure."""
+        return self
+
+    def aligned_padded_frame(
+            self,
+            x0:                  typ.Tuple,                 # (tucker_cores, tt_cores): the point at the target ranks
+            x_old:               typ.Optional[typ.Tuple],   # the old point's cores at minimal ranks (rank 0 allowed); None = the zero tensor
+            project:             typ.Callable,              # project(frame, hint) -> variations
+            hint:                typ.Any,                   # opaque
+
+            oversampling:        int   = ALIGN_OVERSAMPLING,
+            oversampled_passes:  int   = ALIGN_OVERSAMPLED_PASSES,
+            max_passes:          int   = ALIGN_MAX_PASSES,
+            tol:                 float = ALIGN_TOL,
+            alternate:           bool  = ALIGN_ALTERNATE,
+            seed:                int   = ZERO_FRAME_SEED,
+            use_jit:             bool  = False,             # passed to the loop
+    ) -> typ.Tuple[
+        typ.Tuple,                 # the aligned frame of x0
+        typ.Tuple[NDArray, ...],   # movements, one per pass, each shape=C
+    ]:
+        """The aligned padded frame of ``x0`` from ``x_old``: :py:func:`~t3toolbox.backend.padded_frames.fv_aligned_padded_frame`."""
+        tucker = tuple(int(U.shape[-2]) for U in x0[0])
+        tt = (int(x0[1][0].shape[-3]),) + tuple(int(G.shape[-1]) for G in x0[1])
+        point = x0 if x_old is None else x_old
+        shape = tuple(int(U.shape[-1]) for U in point[0])
+        old_tucker = np.array([U.shape[-2] for U in point[0]])
+        old_tt = np.array([point[1][0].shape[-3]] + [G.shape[-1] for G in point[1]])
+        if x_old is None or _structurally_zero(old_tucker, old_tt, 'aligned_padded_frame'):
+            old = padded_frames.fv_empty_frame(shape, self.stack_shape(point), use_jax=tree_contains_jax(point))
+        else:
+            old = self.frame(x_old)
+        return padded_frames.fv_aligned_padded_frame(
+            old, tucker, tt, hint, project, sharing=_sharing_labels(self.groups, len(tucker)),
+            oversampling=oversampling, oversampled_passes=oversampled_passes, max_passes=max_passes, tol=tol,
+            alternate=alternate, seed=seed, use_jit=use_jit)
+
+    def require_frame_structure(
+            self,
+            x_cores:  typ.Tuple,   # (tucker_cores, tt_cores): the point
+            frame:    typ.Tuple,   # a candidate frame of x_cores
+    ) -> None:                     # raises ValueError unless `frame` has the structure of this geometry's frame at x_cores
+        """Check ``frame``'s core shapes against the stores of ``x_cores``'s ranks (integers only; never orthogonalizes)."""
+        tucker = tuple(int(U.shape[-2]) for U in x_cores[0])
+        tt = (int(x_cores[1][0].shape[-3]),) + tuple(int(G.shape[-1]) for G in x_cores[1])
+        shape = tuple(int(U.shape[-1]) for U in x_cores[0])
+        stores = ranks.compute_orthogonal_representation_ranks(shape, tucker, tt)
+        expected = padded_frames._frame_core_shapes(shape, *stores, self.stack_shape(x_cores))
+        if len(frame) != 4:
+            raise ValueError('start frame: expected (up, down, left, right), got %d parts' % len(frame))
+        for store, cores, shapes in zip(('up', 'down', 'left', 'right'), frame, expected):
+            got = tuple(tuple(c.shape) for c in cores)
+            if got != tuple(shapes):
+                raise ValueError('start frame: the %s cores have shapes %r; the frame of this point (shape %r, Tucker '
+                                 'ranks %r, TT ranks %r) has %r. Pass a frame of this point, e.g. the geometry\'s '
+                                 'frame(x) or its aligned padded frame' % (store, got, shape, tucker, tt, tuple(shapes)))
 
     # ---- the exact Hessian (hessian='exact' only) -------------------------------------------------
     def curvature_precompute(
@@ -711,6 +806,86 @@ class UniformManifoldGeometryOps(ValueHashedFields):
         Its real blocks are the ragged construction's, so the reference is layer-independent:
         :py:func:`~t3toolbox.backend.ufv_operations.ufv_zero_point_frame`. Host-side and eager."""
         return ufv_operations.ufv_zero_point_frame(frame_data, self.groups)
+
+    # ---- the padded start (the optimizers' start_frame / padded_from / 'cone') ------------------------
+    def with_frame(
+            self,
+            frame_data:  typ.Tuple,          # uniform frame .data at any widths and masks (a block-layout frame too)
+    ) -> 'UniformManifoldGeometryOps':       # the geometry at that frame's structure, this geometry's groups
+        """The geometry whose variation masks are ``frame_data``'s own (``from_frame`` with its up and left masks)."""
+        return dc.replace(self.from_frame(frame_data, (frame_data[5][0], frame_data[5][2])), groups=self.groups)
+
+    def aligned_padded_frame(
+            self,
+            x0:                  typ.Tuple,                 # bare (tucker_supercore, tt_supercore) at this geometry's masks
+            x_old:               typ.Optional[typ.Tuple],   # the old point's full .data at minimal ranks (rank 0 allowed); None = the zero tensor
+
+            project:             typ.Callable,              # project(frame_data, hint) -> variations (module-level under use_jit)
+            hint:                typ.Any,                   # opaque
+
+            oversampling:        int   = ALIGN_OVERSAMPLING,
+            oversampled_passes:  int   = ALIGN_OVERSAMPLED_PASSES,
+            max_passes:          int   = ALIGN_MAX_PASSES,
+            tol:                 float = ALIGN_TOL,
+            alternate:           bool  = ALIGN_ALTERNATE,
+            seed:                int   = ZERO_FRAME_SEED,
+            use_jit:             bool  = False,             # passed to the loop (the whole-loop jit)
+    ) -> typ.Tuple[
+        typ.Tuple,   # the aligned frame of x0 at the widths of self.var_masks, prefix masks
+        NDArray,     # movements, (max_passes,)+C, NaN after the last pass
+    ]:
+        """The aligned padded frame of ``x0`` from ``x_old``: :py:func:`~t3toolbox.backend.uniform_padded_frames.ufv_aligned_padded_frame`."""
+        tucker, tt = (np.asarray(m).sum(axis=-1) for m in self.masks)
+        C = self.stack_shape(x0)
+        N = int(x0[0].shape[-1])
+        if x_old is None:
+            old = uniform_padded_frames.ufv_empty_frame(self.shape, N, C, use_jax=tree_contains_jax(x0))
+        else:
+            old_tucker, old_tt = (np.asarray(m).sum(axis=-1) for m in x_old[3])
+            if _structurally_zero(old_tucker, old_tt, 'aligned_padded_frame'):
+                old = uniform_padded_frames.ufv_empty_frame(tuple(x_old[2]), int(x_old[0].shape[-1]),
+                                                            tuple(x_old[0].shape[1:-2]),
+                                                            use_jax=tree_contains_jax(x_old[:2]))
+            else:
+                old = ufv_conversions.ut3_orthogonal_representations(x_old)[0]
+        widths = tuple(int(m.shape[-1]) for m in self.var_masks)
+        return uniform_padded_frames.ufv_aligned_padded_frame(
+            old, tucker, tt, hint, project, widths, sharing=_sharing_labels(self.groups, len(self.shape)),
+            oversampling=oversampling, oversampled_passes=oversampled_passes, max_passes=max_passes, tol=tol,
+            alternate=alternate, seed=seed, use_jit=use_jit)
+
+    def require_frame_structure(
+            self,
+            x_cores:  typ.Tuple,   # bare (tucker_supercore, tt_supercore) at this geometry's masks
+            frame:    typ.Tuple,   # a candidate frame .data of x_cores
+    ) -> None:                     # raises ValueError unless `frame` has the structure of this geometry's frame at x_cores
+        """Check ``frame`` against the held structure: its variation masks, boundary bonds, shape and widths (no orthogonalization)."""
+        fix = ('Pass a frame of this point at this geometry\'s level: its frame(x), or its aligned padded frame '
+               '(compacted to the level widths)')
+        if len(frame) != 6:
+            raise ValueError('start frame: expected uniform frame data (up, down, left, right, shape, masks), got %d '
+                             'parts. %s' % (len(frame), fix))
+        U, O, L, R, shape, masks = frame
+        require_concrete_masks(*masks)
+        if tuple(shape) != tuple(self.shape):
+            raise ValueError('start frame: shape %r, the geometry\'s %r. %s' % (tuple(shape), self.shape, fix))
+        names = ('up', 'down', 'left', 'right')
+        for name, got, want in zip(names, ufv_masking.ufv_variation_masks(masks), self.var_masks):
+            if np.shape(got) != np.shape(want) or not np.array_equal(got, want):
+                raise ValueError('start frame: its %s masks differ from the geometry\'s variation masks. %s'
+                                 % (name, fix))
+        for name, bond in (('left', np.asarray(masks[2])[-1]), ('right', np.asarray(masks[3])[0])):
+            if not np.array_equal(bond, np.broadcast_to(prefix_mask(np.array(1), bond.shape[-1]), bond.shape)):
+                raise ValueError('start frame: its %s boundary bond mask is not (True, False, ...). %s' % (name, fix))
+        widths = ((U.shape[-2], masks[0].shape[-1]), (O.shape[-2], masks[1].shape[-1]),
+                  (L.shape[-3], L.shape[-1], masks[2].shape[-1]), (R.shape[-3], R.shape[-1], masks[3].shape[-1]))
+        for name, w in zip(names, widths):
+            if len(set(w)) != 1:
+                raise ValueError('start frame: the %s supercore widths %r disagree with its masks. %s' % (name, w, fix))
+        if O.shape[-3] != masks[2].shape[-1] or O.shape[-1] != masks[3].shape[-1]:
+            raise ValueError('start frame: the down supercore\'s bond widths disagree with the left/right masks. %s' % fix)
+        if U.shape[-1] != x_cores[0].shape[-1]:
+            raise ValueError('start frame: padded N = %d, the point\'s %d. %s' % (U.shape[-1], x_cores[0].shape[-1], fix))
 
     # ---- the exact Hessian (hessian='exact' only) -------------------------------------------------
     def curvature_precompute(
