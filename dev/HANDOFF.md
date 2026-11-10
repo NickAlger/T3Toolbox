@@ -41,8 +41,10 @@ the `Claude-Session:` line, pushes, starts the next slice. Review stops with Nic
 QUEUE: N4 DONE (39d80022; `linalg.pad_safe_pinned_completion`, `ufv_masking.ufv_frame_widths`,
 `backend/uniform_padded_frames.py` with `ufv_empty_frame` + `ufv_padded_frame` in BLOCK LAYOUT, scatter test helper
 `tests/backend/_uniform_padded_frame_testing.py`, T7, T8, T16 rows) -> N3b DONE (5defef15: `use_jit` on `fv_aligned_padded_frame`, numpy inputs converted as the optimizers do, the per-pair
-stop rule, NaN never stops the loop) -> N5 DONE (HEAD after N3b: `utv_align_padded_frame`; no `out_widths` -- output widths are the counts' maxima; the uniform module shares seven private math helpers with `padded_frames`, accepted, plan §3.2 to say so) -> N6 (uniform compaction + loop; whole-loop jit under
-`use_jit`; review stop) -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
+stop rule, NaN never stops the loop) -> N5 DONE (HEAD after N3b: `utv_align_padded_frame`; no `out_widths` -- output widths are the counts' maxima; the uniform module shares seven private math helpers with `padded_frames`, accepted, plan §3.2 to say so) -> N6 DONE (HEAD after N5: `ufv_compact_frame`, `ufv_aligned_padded_frame`; whole-loop jit under `use_jit`,
+first call ~9 s at d = 6 and 24; compaction pads first when the level is wider; stacked tolerance 1e-13; `functools.partial`
+binding inside the one jit accepted; the NaN-padded record cannot tell a NaN movement from an unrun pass -- N9 docs) ->
+SECOND REVIEW STOP WITH NICK (pending) -> N7 (seam: geometry members `with_frame`, `aligned_padded_frame`, `require_frame_structure`;
 `Problem.local_model(frame=)`; `_misfit_gradient_at`; public `padded_start`; 14 `newton_cg` keywords + `use_jit`
 forwarded; `'cone'`) -> N8 (frontend twins; review stop) -> N9 (docs incl. the "jit or eager" section; CHANGELOG; the
 math note from Nick's note; judgment calls J-7.. in `dev/padded_frame_cone_judgment_calls_2026_11.md`) -> N10
