@@ -103,7 +103,20 @@ local row-gauge rule, no representation-level sign canonicalization now; the lat
 item). N9 documents: the hint-free start is a function of the representation INCLUDING slot signs; the aligned loop's
 output is representation-independent to tol. Two edits for the plan at N9/N10: T20's 1e-3 pivot bound is a property of
 the chosen seeds, not a guarantee; D-41's "the zero-point frame changes" reads "the zero tensor's start changes";
-`fv_zero_point_frame` ('zero') unchanged, so `cone_max_passes=0` != 'zero' (amended D-38). NEXT: N9.**
+`fv_zero_point_frame` ('zero') unchanged, so `cone_max_passes=0` != 'zero' (amended D-38). N9 DONE (cc7d6fc6; review REVISE -> fixed: proof tightened with R(theta), references, wording unified). J-51 VERIFIED by
+the reviewer: the alignment's fixed point is a STATIONARY point of the captured frame energy E = ||Pi_T(F) g||^2 but a
+SADDLE (per store a minimum: rotating one store's completion alone never lowers E, generically raises it at second
+order; a paired rotation lowers it); each store's update maximizes ||P+^T Y||^2 for ITS content Y given the others
+(alternating Gauss-Seidel updates, not ascent of E); a strict local maximum of the cone merit is OBSERVED on small trees,
+not proved. The unified statement (verbatim in both twin docstrings, the user doc, the internals note, CHANGELOG, math
+note §5): "At a fixed point, every store's completion spans the leading new directions of its own content, given the
+other stores' completions, so one more pass moves nothing. The completions are then a stationary point of the captured
+hint energy ||Pi_T(F) hint||^2 (proved for matrices, measured on T3s) but generally not a maximum of it: rotating one
+store's completion alone never lowers that energy and generically raises it at second order. In measurements on small
+trees, they are a strict local maximum of the cone merit, one of many." PLAN §7 / D-48 / §2.2 still say "stationary ...
+many local maxima" -- correct at N10 (writer round 9, with T20's bound wording and D-41's "zero tensor's start").
+NEXT: N10 (acceptance: §11 checklist; T3Polynomial adopts `padded_from` + 'cone' in its ladder and retires cone.py;
+the Darcy hint-free baselines re-recorded on the Gaussian convention; plan round 9; final review stop).**
 
 **DECISION D-41 (Nick 2026-11-10): GAUSSIAN SEEDS EVERYWHERE, slot-indexed -- slice N8b, BEFORE N9.** Root cause
 found by the floor CI job (numpy 1.26 / OpenBLAS): the hint-free start's Tucker seeds restart the keyed stream at row 0
