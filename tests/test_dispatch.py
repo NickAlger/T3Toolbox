@@ -2041,6 +2041,27 @@ class TestDispatch(unittest.TestCase):
                     ref = tangent_projection(element(F_np), Y)
                     self.assertLessEqual(norm(tangent_projection(element(F), Y) - ref), 1e-12 * norm(ref))
 
+    def test_aligned_padded_frame_dispatch(self):
+        """The alignment loop (a host loop, so no jit variant): numpy in -> numpy out and jax in -> jax out through
+        the whole schedule, every leaf -- two oversampled passes, the truncating pass and one 'UL' / 'RO' pair (tol 0,
+        max_passes 5), at d = 2, with the dense projection of a hint of the matching array type. The jax run's
+        movements equal numpy's (x64 on in this module; they do not depend on the gauge)."""
+        np.random.seed(5)
+        x_old = t3.TuckerTensorTrain.randn((3, 4), (1, 1), (1, 1, 1))
+        old = bvf.t3_orthogonal_representations(x_old)[0].data
+        S = np.random.randn(3, 4)
+        kw = dict(max_passes=5, tol=0.0)
+        project = tops.tv_project_dense_onto_tangent_space
+        F_np, mv_np = padded_frames.fv_aligned_padded_frame(old, (2, 2), (1, 2, 1), S, project, **kw)
+        self.assertEqual(len(mv_np), 5)
+        self.assertTrue(all(common.is_numpy_ndarray(c) for c in jax.tree_util.tree_leaves(F_np)))
+        self.assertTrue(all(isinstance(m, (np.ndarray, np.generic)) for m in mv_np))   # C = (): numpy's scalars
+        F, mv = padded_frames.fv_aligned_padded_frame(jax.tree_util.tree_map(jnp.asarray, old), (2, 2), (1, 2, 1),
+                                                      jnp.asarray(S), project, **kw)
+        self.assertEqual(len(mv), 5)
+        self._leaves_all_jax((F, mv))
+        self.assertLessEqual(max(abs(float(a) - float(b)) for a, b in zip(mv, mv_np)), 1e-10)
+
     # ---------------------------------------------------- numerical smoke tests (jax == numpy)
     def test_jax_matches_numpy_smoke(self):
         # A few complex ops: jax must agree with numpy (guards subtle backend divergence).

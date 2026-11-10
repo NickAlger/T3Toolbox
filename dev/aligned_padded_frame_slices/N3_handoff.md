@@ -85,7 +85,7 @@ nothing outside the repository was touched.
 | 1 | §2.3 decides the oversampled phase on "working ≠ target" (ranks). | On the STORES: `n_over = 0` when the working stores equal the target stores. | The frames' structure is what the passes act on; ranks that differ while the stores agree would give "oversampled" passes at the target structure and a "truncating" pass that truncates nothing. For minimal targets the two criteria agree. |
 | 2 | Where the cycle case lives (no binary fixtures). | `tests/backend/_padded_frame_cycle_case.py`, a Python module of literals with the provenance in its docstring. | No text-data convention exists under `tests/`; a module needs no file I/O and follows the helper-module precedent. |
 | 3 | §5.1's "(D-38)" in `max_passes`' comment. | Dropped. | The N1 ruling removes plan labels from shipped code. |
-| 4 | The loop's T16 dispatch row. | **Not added**; flagged. | The loop is a host loop (its stop reads the movement on the host), so it cannot be jitted. The eager jax check costs about 18 s even at d = 2 with 3 passes on this loaded machine (verified by hand: jax in, jax out). Its two calls, `fv_padded_frame` and `tv_align_padded_frame`, have their own rows. N3's brief names T4 and T6 only. Say if you want the row anyway. |
+| 4 | The loop's T16 dispatch row. | **Superseded by the maintainer's ruling (follow-up below): added.** Originally not added and flagged. | The loop is a host loop (its stop reads the movement on the host), so it cannot be jitted. The eager jax check costs about 18 s even at d = 2 with 3 passes on this loaded machine (verified by hand: jax in, jax out). Its two calls, `fv_padded_frame` and `tv_align_padded_frame`, have their own rows. N3's brief names T4 and T6 only. Say if you want the row anyway. |
 | 5 | Validation of `tol` / `alternate`. | Not validated (any float; truthiness). | They are tunables, not structure; the D-38 rule about unread options applies at the optimizer level (N7), not in the loops (§2.3). |
 
 ## For the session
@@ -107,13 +107,32 @@ Rerun after round 2: `test_padded_frame.py` and `test_import_graph.py`, 54 passe
 doctests pass. The full suite was not rerun (one validation line, one comment and two tests); the result below is
 round 1's.
 
+## Follow-up (the maintainer, after the N3 commit 0c4d982e): the loop's dispatch row
+
+**Ruling.** Dispatch is checked for every public backend function, host loops included: the dispatch test verifies
+that the right functions are called for the input data types, whether or not a user would jit there. Test time is not
+a reason to skip it.
+
+- **Added `test_aligned_padded_frame_dispatch`** (`tests/test_dispatch.py`). It runs eager, with no jit variant (a host
+  loop), at d = 2: `(3, 4)`, the old ranks `(1, 1)` / `(1, 1, 1)`, the target `(2, 2)` / `(1, 2, 1)`, the working
+  stores above the target.
+  - The run (`max_passes=5`, `tol=0`) covers two oversampled passes, the truncating pass, and one `UL` / `RO` pair.
+  - `project = tv_project_dense_onto_tangent_space` on a dense hint of the matching array type.
+  - Checked: numpy in gives numpy out on every leaf (the movements are numpy scalars at C = ()); jax in gives jax out
+    on every leaf, the frame and all five movements; the jax movements equal numpy's to 1e-10 (x64).
+  - It takes 18 s alone. The whole dispatch file passes: 62 tests, 80 subtests, 4 min 20 s with `-n 4` on the loaded
+    machine.
+- **Why the eager row is slow** (the maintainer's measurement). Op-by-op compilation: one step at d = 4 issues 932
+  separate compilations on its first eager call (einsum 290, dynamic_slice 172, moveaxis 98, concatenate 84,
+  reshape 48, subtract 42), about 23 s; the second call takes 0.16 s; jitted, it is one compile of about 2 s.
+
 ## In the plan: wrong or ambiguous
 
 - T4's data path `tests/data/padded_frame_cycle_case.npz` (also Appendix A) contradicts the no-binary-fixtures ruling;
   the case is text now (call 2).
 - §2.3's "working ≠ target" is on ranks; the stores are the natural criterion (call 1).
-- T16 asks for a row for every new backend function, but the ragged loop cannot be jitted and the eager row is
-  expensive (call 4).
+- T16 asks for a row for every new backend function; for the ragged loop that row is eager (call 4, resolved by the
+  maintainer's ruling: it is added).
 
 ## Full suite
 
