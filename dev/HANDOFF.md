@@ -62,6 +62,11 @@ but stays 2.3-4.8x the generic one; at 11->16 the aligned start with >= 10 passe
 vs both generic starts (4 passes not enough there), where at levels 1-2 it had not. Research prototypes:
 `nicks_research_experiments/tensor/aligned_padded_frame/` (README).
 
+**QUEUED AFTER THIS ARC (Nick 2026-11-10): a unified glossary page for the library** -- one `docs/glossary.md` defining
+the terms the docs use (store, frame, frame-variations format, carrier, padded frame, A-block/P-block, stack shape, sharing,
+uniform masks / junk, ragged vs uniform layer, retraction, cone reference, ...), each entry one or two lines with a link to
+the doc that explains it; linked from the docs index. Not part of the N1-N10 release; start it when N10 is accepted.
+
 **Earlier (2026-11-10, later). SLICES N1-N3 COMMITTED (3f9679ef, 196fcfa2, N3 = HEAD); FIRST REVIEW STOP -- awaiting Nick.**
 The ragged layer is complete: `backend/padded_frames.py` has `fv_empty_frame`, `fv_padded_frame`, `tv_align_padded_frame`,
 `fv_aligned_padded_frame`; tests T1-T6, T16 rows, T18, T19; the dense per-edge reference `tests/backend/_padded_frame_oracles.py`;
