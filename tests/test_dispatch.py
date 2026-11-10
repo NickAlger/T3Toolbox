@@ -2108,8 +2108,8 @@ class TestDispatch(unittest.TestCase):
     def test_frame_widths_dispatch(self):
         """Integers in, integers out (no arrays): the widths are host structure, usable as static shapes under jit."""
         for args in ((8, 5, 3), (np.int64(4), np.int64(6), np.int64(2))):
-            with self.subTest(args=args):
-                widths = ufv_masking.ufv_frame_widths(*args)
+            with self.subTest(args=tuple(int(a) for a in args), numpy_ints=isinstance(args[0], np.integer)):
+                widths = ufv_masking.ufv_frame_widths(*args)                      # (subTest labels must serialize)
                 self.assertTrue(all(isinstance(w, (int, np.integer)) for w in widths))
                 self.assertEqual(jax.jit(lambda: jnp.zeros(ufv_masking.ufv_frame_widths(*args)))().shape, widths)
 
