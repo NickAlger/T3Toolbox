@@ -36,6 +36,7 @@ import t3toolbox.backend.ufv_conversions as ufv_conversions
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ufv_operations as ufv_operations
 import t3toolbox.backend.utv_operations as utv_operations
+import t3toolbox.backend.uniform_padded_frames as uniform_padded_frames
 import t3toolbox.backend.utv_sampling as utv_sampling
 import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 from t3toolbox.backend.common import *
@@ -139,6 +140,44 @@ class UT3Tangent(common.ExplicitEquality):
         self.frame.validate()
         self.variations.validate()
         ubv.check_ufv_pair(self.frame, self.variations)
+
+    def align_padded(
+            self,
+            split:         typ.Tuple[int, int],                                       # (Na, Rb), from UT3Frame.padded
+
+            tucker_ranks:  typ.Optional[typ.Union[typ.Sequence[int], NDArray]] = None,   # len=d or HOST int (d,)+C, output; None = the frame's own
+            tt_ranks:      typ.Optional[typ.Union[typ.Sequence[int], NDArray]] = None,   # len=d+1 or HOST int (d+1,)+C; None = the frame's own
+
+            sharing:       typ.Optional[typ.Sequence] = None,                         # len=d group labels; None = unshared
+            update:        str = 'ULRO',                                              # as T3Tangent.align_padded
+    ) -> typ.Tuple[
+        'ubv.UT3Frame',   # the aligned frame, block layout, P-blocks real-first
+        NDArray,          # movement, shape = frame stack C
+    ]:
+        """One alignment step of this tangent's block-layout padded frame: the uniform twin of
+        :py:meth:`~t3toolbox.manifold.T3Tangent.align_padded`. The old blocks are the leading ``split = (Na, Rb)``
+        slots (:py:meth:`~t3toolbox.uniform_frame_variations_format.UT3Frame.padded` returns it); the new blocks come
+        out real-first at the output counts' widths.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> import t3toolbox.uniform_frame_variations_format as ubv
+        >>> import t3toolbox.uniform_manifold as ut3m
+        >>> np.random.seed(0)
+        >>> x_old = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((5, 6, 5), (2, 2, 2), (1, 2, 2, 1)))
+        >>> F, split = ubv.UT3Frame.padded(x_old, (3, 4, 3), (1, 3, 3, 1))
+        >>> hint = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((5, 6, 5), (5, 6, 5), (1, 5, 5, 1)))
+        >>> v = ut3m.UNIFORM_MANIFOLD.project_ambient(F, hint)
+        >>> F1, movement = v.align_padded(split)
+        >>> bool(F1.is_orthogonal()), float(movement) > 0
+        (True, True)
+        """
+        frame, movement = uniform_padded_frames.utv_align_padded_frame(
+            self.frame.data, self.variations.data, split, tucker_ranks, tt_ranks, sharing=sharing, update=update)
+        return ubv._frame_of(frame), movement
 
     def __repr__(self) -> str:
         return (f"UT3Tangent(shape={self.shape}, tucker_ranks={self.frame.up_ranks}, "

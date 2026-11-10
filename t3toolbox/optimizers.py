@@ -49,6 +49,11 @@ import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.optimizer_display as bdisp
 import t3toolbox.backend.fitting as bfit
 import t3toolbox.backend.uniform_fitting as uf
+import t3toolbox.frame_variations_format as bvf
+import t3toolbox.uniform_frame_variations_format as ubv
+import t3toolbox.safety as safety
+import numpy as np
+import t3toolbox.backend.common as common
 
 # Regularizers live in the backend (check-free; a raw-.data user constructs them directly) and are
 # re-exported here for frontend convenience -- neither user is privileged (``docs/contributor/fitting_internals.md`` §Regularization).
@@ -340,7 +345,7 @@ def gradient_descent(
         weight:   typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
         regularizer: typ.Any = None,    # optional regularizer, e.g. optimizers.IdentityRegularizer(λ)
         chunk_size: typ.Any = 'auto',   # probe_derivatives 𝒥ᵀ memory chunk; 'auto' -> estimate_chunk_size (docs/chunking.md)
-        g0_reference: typ.Optional[str] = None,   # the stop's ‖g0‖: None = the geometry's own ('zero' on manifolds); 'zero' | 'warm_start'
+        g0_reference: typ.Optional[str] = None,   # the stop's ‖g0‖: None = the geometry's own ('zero' on manifolds); 'zero' | 'warm_start' | 'cone'
         **kwargs,                       # forwarded to backend.optimizers.gradient_descent (n_iter, gtol_rel, ...)
 ) -> typ.Tuple[Point, dict]:            # (x_opt, stats)
     """Fit ``x`` to ``data`` by steepest descent (Cauchy step + Armijo line search) on ``geometry``.
@@ -353,8 +358,10 @@ def gradient_descent(
     :py:func:`newton_cg`); this is the reference/pedagogical optimizer, ``newton_cg`` the performance path.
     ``on_line_search_failure`` ('stop' default / 'accept') controls Armijo-exhaustion behavior as in
     :py:func:`newton_cg`, and ``g0_reference`` picks the reference ``‖g0‖`` of the relative stop as there
-    (by default the zero tensor of ``x0``'s ranks on a manifold geometry). See
-    :py:func:`t3toolbox.backend.optimizers.gradient_descent`."""
+    (by default the zero tensor of ``x0``'s ranks on a manifold geometry). ``g0_reference='cone'`` and its six
+    ``cone_*`` options (``cone_oversampling``, ``cone_oversampled_passes``, ``cone_max_passes``, ``cone_tol``,
+    ``cone_alternate``, ``cone_seed``) reach the backend through ``**kwargs``; they are as in :py:func:`newton_cg`,
+    and the alignment runs eagerly here. See :py:func:`t3toolbox.backend.optimizers.gradient_descent`."""
     setup = least_squares_problem(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size)
     x_cores, stats = bopt.gradient_descent(setup.problem, setup.x0_cores, g0_reference=g0_reference, **kwargs)
     return setup.rewrap(x_cores), stats
@@ -417,6 +424,77 @@ def adam(
     return setup.rewrap(x_cores), stats
 
 
+def _padded_start_keywords(
+        geometry,                              # the frontend geometry
+        setup:          'LeastSquaresSetup',   # the problem and x0's (reduced) backend cores
+        x0:             Point,                 # the frontend start
+        start_frame:    typ.Any,               # a T3Frame / UT3Frame, or None
+        padded_from:    typ.Any,               # the old point, or None
+        use_jit:        bool,
+        g0_reference:   typ.Optional[str],
+        options:        typ.Dict[str, typ.Any],   # the twelve padded_* / cone_* options by keyword (None = unset)
+) -> typ.Dict[str, typ.Any]:                   # the backend keywords: only the set ones
+    """newton_cg's start_frame / padded_from / cone keywords, checked and converted to backend data."""
+    out = {k: v for k, v in options.items() if v is not None}
+    cone = g0_reference is not None and str(g0_reference).lower() == 'cone'
+    if (start_frame is not None or padded_from is not None or cone) and not _is_manifold_geometry(geometry):
+        raise ValueError('newton_cg: start_frame, padded_from and g0_reference=\'cone\' need a manifold geometry '
+                         '(MANIFOLD / UNIFORM_MANIFOLD, or a shared wrapper over one)')
+    uniform = isinstance(x0, ut3.UniformTuckerTensorTrain)
+    sharing = getattr(geometry, 'sharing', None)
+    to_jax = use_jit and common.jax_available
+    if start_frame is not None:
+        frame_type = ubv.UT3Frame if uniform else bvf.T3Frame
+        if not isinstance(start_frame, frame_type):
+            raise TypeError('newton_cg: start_frame must be a %s for a %s x0, got %s'
+                            % (frame_type.__name__, type(x0).__name__, type(start_frame).__name__))
+        data = start_frame.data
+        if safety.checks_active(*(data[0] if not uniform else data[:4])):
+            base = (ut3.UniformTuckerTensorTrain(data[0], data[2], tuple(data[4]), ut3.UT3Masks(data[5][0], data[5][2]))
+                    if uniform else t3.TuckerTensorTrain(data[0], data[2]))
+            safety.require(bool(np.all(start_frame.is_orthogonal())), 'newton_cg: start_frame is not orthonormal')
+            safety.require(bool(np.all(base.allclose(setup.rewrap(setup.x0_cores)))),
+                           'newton_cg: start_frame does not represent x0 (after its reduction to minimal ranks)')
+        if to_jax:
+            data = (tuple(common.to_jax(a) for a in data[:4]) + tuple(data[4:]) if uniform
+                    else common.tree_to_jax(data))
+        out['start_frame'] = data
+    if padded_from is not None:
+        out['padded_from'] = _old_point_data(padded_from, x0, sharing)
+    return out
+
+
+def _old_point_data(
+        x_old:    Point,                        # the frontend old point
+        x0:       Point,                        # the frontend start (the zero-padded point)
+        sharing:  typ.Optional[typ.Sequence],   # the geometry's sharing labels
+) -> typ.Any:                                   # the backend data of x_old (reduced; a structurally zero x_old as is)
+    """padded_from, checked against x0 (layer, shape, stack, N) and reduced to minimal ranks."""
+    uniform = isinstance(x0, ut3.UniformTuckerTensorTrain)
+    kind = ut3.UniformTuckerTensorTrain if uniform else t3.TuckerTensorTrain
+    if not isinstance(x_old, kind):
+        conversion = ('UniformTuckerTensorTrain.from_t3(padded_from, N=x0.N)' if uniform else 'padded_from.to_t3()')
+        raise TypeError('newton_cg: padded_from must be a %s like x0, got %s (convert it: %s)'
+                        % (kind.__name__, type(x_old).__name__, conversion))
+    if tuple(x_old.shape) != tuple(x0.shape) or tuple(x_old.stack_shape) != tuple(x0.stack_shape):
+        raise ValueError('newton_cg: padded_from has shape %r and stack %r; x0 has %r and %r'
+                         % (tuple(x_old.shape), tuple(x_old.stack_shape), tuple(x0.shape), tuple(x0.stack_shape)))
+    if uniform and x_old.N != x0.N:
+        raise ValueError('newton_cg: padded_from is padded to N=%d, x0 to N=%d; repack it with '
+                         'UniformTuckerTensorTrain.from_t3(padded_from.to_t3(), N=%d)' % (x_old.N, x0.N, x0.N))
+    tucker, tt = np.asarray(x_old.tucker_ranks), np.asarray(x_old.tt_ranks)
+    if np.any(tucker == 0) or np.any(tt[1:-1] == 0):                    # the zero tensor: no reduction (it breaks
+        return x_old.data                                                 #   at rank 0); the members read it as zero
+    arrays = x_old.supercores if uniform else x_old.data[0]
+    if safety.checks_active(*arrays):
+        if sharing is not None:
+            safety.require(bool(np.all(x_old.has_shared_tucker_factors(sharing))),
+                           'newton_cg: padded_from does not have tied Tucker factors under the geometry\'s sharing')
+        safety.require(bool(np.all(x0.allclose(x_old))),
+                       'newton_cg: x0 is not padded_from zero-padded (they represent different tensors)')
+    return (uf.uniform_minimal(x_old, sharing) if uniform else _ragged_minimal(x_old, sharing)).data
+
+
 def newton_cg(
         geometry,                   # ragged/uniform MANIFOLD (intended) / COREWISE (must match x0)
         kind:                   str,      # 'apply' / 'entries' / 'probe' (+ '_derivatives')
@@ -452,6 +530,23 @@ def newton_cg(
         curvature_damping:      typ.Optional[float] = None,  # exact only: lift damping, relative to ‖X‖; None = the default
         step_control:           typ.Optional[str]   = None,  # None = 'line_search' (GN) / 'trust_region' (exact)
         tr_radius0:             typ.Optional[float] = None,  # trust region only: Δ0 > 0; None = the GN Cauchy length
+        *,
+        start_frame:                typ.Optional[typ.Union['bvf.T3Frame', 'ubv.UT3Frame']] = None,   # a frame of x0 (after its reduction) for iteration 0
+        padded_from:                typ.Optional[Point] = None,   # the old point; rank 0 = the zero tensor
+
+        padded_oversampling:        typ.Optional[int]   = None,   # None = 5; padded_from only
+        padded_oversampled_passes:  typ.Optional[int]   = None,   # None = 2
+        padded_max_passes:          typ.Optional[int]   = None,   # None = 10
+        padded_tol:                 typ.Optional[float] = None,   # None = 0.05
+        padded_alternate:           typ.Optional[bool]  = None,   # None = True
+        padded_seed:                typ.Optional[int]   = None,   # None = ZERO_FRAME_SEED
+
+        cone_oversampling:          typ.Optional[int]   = None,   # None = 5; g0_reference='cone' without g0norm_newton only
+        cone_oversampled_passes:    typ.Optional[int]   = None,   # None = 2
+        cone_max_passes:            typ.Optional[int]   = None,   # None = 10
+        cone_tol:                   typ.Optional[float] = None,   # None = 0.05
+        cone_alternate:             typ.Optional[bool]  = None,   # None = True
+        cone_seed:                  typ.Optional[int]   = None,   # None = ZERO_FRAME_SEED
 ) -> typ.Tuple[Point, dict]:
     """Inexact Riemannian Newton-CG with a line search or a trust region -- the manifold workhorse. Ragged or
     uniform ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
@@ -493,6 +588,37 @@ def newton_cg(
     :py:func:`t3toolbox.backend.optimizers.newton_cg`. A custom ``callback`` overrides ``verbose``. Works on
     both the ragged and uniform layers (the uniform ``block_sumsq`` reduces the packed residual directly;
     validation data is packed automatically).
+
+    **After a rank increase** (``padded_from`` / ``start_frame`` / ``g0_reference='cone'``). Rank continuation
+    restarts Newton from ``x0`` = the previous level's ``x_old`` zero-padded to the new ranks. The orthonormal frame of
+    such a point is arbitrary on the padding, so the first Gauss-Newton step can miss the directions the fit needs.
+    ``padded_from=x_old`` builds iteration 0's frame by aligning the padding with the misfit gradient
+    (:py:func:`t3toolbox.backend.optimizers.padded_start`; the ``padded_*`` options: ``padded_max_passes=0`` is the
+    hint-free padded frame). ``x_old`` must be ``x0``'s layer, shape, stack and padded ``N``; it is reduced to minimal
+    ranks first, and a structurally zero ``x_old`` (any Tucker or interior TT rank 0) is the zero tensor. In safe
+    mode ``x0`` must equal ``x_old`` (the zero padding) and, with sharing, ``x_old``'s factors must be tied.
+    ``start_frame`` gives the frame directly (a ``T3Frame`` / ``UT3Frame`` of ``x0`` after its reduction; checked
+    structurally, and in safe mode orthonormal and representing ``x0``). ``g0_reference='cone'`` takes the reference
+    ``‖g0‖`` at the zero tensor at the frame aligned with the data gradient there (the ``cone_*`` options;
+    ``cone_max_passes=0`` reproduces ``'zero'``). ``use_jit`` governs the alignment as well as CG. These need a
+    manifold geometry. Every set option is forwarded and unset ones are not, so without these keywords the run and
+    its ``stats`` are exactly as before; with them ``stats`` gains ``'start_frame'``, ``'start_movements'`` and
+    ``'cone_movements'``.
+
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.manifold as t3m
+    >>> import t3toolbox.optimizers as optimizers
+    >>> np.random.seed(0)
+    >>> shape = (5, 6, 5)
+    >>> ww = [np.random.randn(80, n) for n in shape]
+    >>> data = t3.TuckerTensorTrain.randn(shape, (3, 4, 3), (1, 3, 3, 1)).probe(ww)
+    >>> x_old, _ = optimizers.newton_cg(t3m.MANIFOLD, 'probe', ww, data,
+    ...                                 t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)), max_newton=5)
+    >>> x0 = x_old.resize(shape, (3, 4, 3), (1, 3, 3, 1))                  # the next level, zero-padded
+    >>> x, stats = optimizers.newton_cg(t3m.MANIFOLD, 'probe', ww, data, x0, max_newton=5, padded_from=x_old)
+    >>> stats['start_frame'], len(stats['start_movements']) <= 10
+    ('padded', True)
 
     For a large-``|W|`` uniform ``probe_derivatives`` fit, ``chunk_size='auto'`` (the default) sizes the
     ``𝒥ᵀ`` gradient assembly's memory automatically (via
@@ -599,13 +725,18 @@ def newton_cg(
             vs = uf.pack_sample(kind, val_sample, x0.N)   # pack validation to the packed kind's width
             vd = uf.pack_data(kind, val_data, x0.N)
         callback, records = bdisp.make_newton_display(setup.problem, val_sample=vs, val_data=vd)
+    seam = _padded_start_keywords(geometry, setup, x0, start_frame, padded_from, use_jit, g0_reference, dict(
+        padded_oversampling=padded_oversampling, padded_oversampled_passes=padded_oversampled_passes,
+        padded_max_passes=padded_max_passes, padded_tol=padded_tol, padded_alternate=padded_alternate,
+        padded_seed=padded_seed, cone_oversampling=cone_oversampling, cone_oversampled_passes=cone_oversampled_passes,
+        cone_max_passes=cone_max_passes, cone_tol=cone_tol, cone_alternate=cone_alternate, cone_seed=cone_seed))
     x_cores, stats = bopt.newton_cg(setup.problem, setup.x0_cores,
                                     max_newton=max_newton, gtol_rel=gtol_rel, cg_maxiter=cg_maxiter,
                                     c_armijo=c_armijo, on_line_search_failure=on_line_search_failure,
                                     g0_reference=g0_reference, g0norm_newton=g0norm_newton, g0norm_cg=g0norm_cg,
                                     cg_forcing_power=cg_forcing_power, use_jit=use_jit, callback=callback,
                                     hessian=hessian, curvature_damping=curvature_damping,
-                                    step_control=step_control, tr_radius0=tr_radius0)
+                                    step_control=step_control, tr_radius0=tr_radius0, **seam)
     if records is not None:
         stats['diagnostics'] = records
     return setup.rewrap(x_cores), stats

@@ -686,6 +686,26 @@ class TuckerTensorTrain(common.ExplicitEquality):
         )
         return minimal_tucker_ranks, minimal_tt_ranks
 
+    def oversampled_ranks(
+            self,
+            p:        int,                                 # the rank increment, p >= 0
+            sharing:  typ.Optional[typ.Sequence] = None,   # len=d group labels; None = unshared
+    ) -> typ.Tuple[
+        typ.Tuple[int, ...],   # tucker ranks, len=d
+        typ.Tuple[int, ...],   # tt ranks, len=d+1
+    ]:
+        """This point's ranks plus ``p`` on every Tucker rank and interior bond, made structurally minimal and never
+        below the current ones: the working ranks of an oversampled alignment (``fv_aligned_padded_frame``'s
+        ``oversampling``). See :py:func:`~t3toolbox.backend.ranks.oversampled_ranks`.
+
+        Examples
+        --------
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> t3.TuckerTensorTrain.zeros((4, 6, 5), (2, 3, 2), (1, 2, 2, 1)).oversampled_ranks(2)
+        ((4, 5, 4), (1, 4, 4, 1))
+        """
+        return ranks.oversampled_ranks(self.shape, self.tucker_ranks, self.tt_ranks, p, sharing)
+
     @cached_property
     def has_minimal_ranks(self) -> bool:
         """True if this Tucker tensor train's ranks are minimal, False otherwise.

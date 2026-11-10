@@ -54,6 +54,14 @@ try:
 except ImportError:
     HAS_JAX = False
 
+def _release_jax_programs():
+    """Free every compiled jax program (``jax.clear_caches``) after a heavy test. Each eager-jax alignment test adds
+    8,000-9,500 process memory mappings (one per compiled executable section); a worker running a third of this file
+    accumulated past ``vm.max_map_count`` (65,530) and aborted inside an XLA compile (measured 2026-11-10). Clearing
+    returns the process to ~900 mappings. Compile-count tests measure deltas within one test, so they are unaffected."""
+    jax.clear_caches()
+
+
 STRUCT = ((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))  # small -> fast compiles
 tol = 1e-9
 norm = np.linalg.norm
@@ -1998,6 +2006,7 @@ class TestDispatch(unittest.TestCase):
         through the dense tangent projection P_{T_F} Y of a fixed Y (a new column's sign follows its SVD's, which is
         backend-dependent). Generic hints, so the content determines the subspaces. A truncating step, a shared
         two-colour half (R and O transported), the zero tensor's empty frame, and a stack C = (2,)."""
+        self.addCleanup(_release_jax_programs)
         import t3toolbox.backend.t3_conversions as t3c
         np.random.seed(4)
         r = np.random.default_rng(4)
@@ -2050,6 +2059,7 @@ class TestDispatch(unittest.TestCase):
         d = 2, with the dense projection of a hint of the matching array type -- eagerly, and with use_jit=True (the
         memoized jitted step; numpy in is converted to jax, the numpy hint handed on as is, jax out). The movements
         equal numpy's (x64 on in this module; they do not depend on the gauge)."""
+        self.addCleanup(_release_jax_programs)
         np.random.seed(5)
         x_old = t3.TuckerTensorTrain.randn((3, 4), (1, 1), (1, 1, 1))
         old = bvf.t3_orthogonal_representations(x_old)[0].data
@@ -2076,6 +2086,7 @@ class TestDispatch(unittest.TestCase):
         """The pad-safe completion: numpy in -> numpy out, jax in -> jax out, and it jits (masks closed over as host
         constants, the arrays traced) to pure jax equal to numpy to 1e-12, with junk rows and unselected columns
         exactly 0; a stack C = (2,) with a seed mask per element. A traced mask raises the actionable error."""
+        self.addCleanup(_release_jax_programs)
         r = np.random.default_rng(7)
         rm = np.array([True, False, True, True, True, False, True])       # 5 real rows of 7
         pm = np.array([True, False, True])                               # 2 real pins of 3
@@ -2123,6 +2134,7 @@ class TestDispatch(unittest.TestCase):
         the old block bitwise and the junk exactly 0 (x64 on in this module): a gappy old frame with garbage, the zero
         tensor shared, and a stack C = (2,) with ranks varying per element. A traced mask raises the actionable
         error."""
+        self.addCleanup(_release_jax_programs)
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
         import _uniform_padded_frame_testing as testing
         import t3toolbox.backend.fv_conversions as fvc
@@ -2168,6 +2180,7 @@ class TestDispatch(unittest.TestCase):
         whole-loop jit's path) -- to jax supercores equal to numpy (frames by the largest principal-angle sine per
         directed edge, movements, 1e-12; x64 on in this module), the junk exactly 0: d = 3 truncating, the empty old
         frame shared, a stack C = (2,). A traced mask raises the actionable error."""
+        self.addCleanup(_release_jax_programs)
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
         import _padded_frame_oracles as oracles
         import _uniform_padded_frame_testing as testing
@@ -2239,6 +2252,7 @@ class TestDispatch(unittest.TestCase):
     def test_compact_frame_dispatch(self):
         """The compaction (gathers and a mask multiply, so bitwise across backends): numpy in -> numpy out, jax in ->
         jax out (masks host numpy), and it jits with the masks closed over; a stack C = (2,)."""
+        self.addCleanup(_release_jax_programs)
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
         import test_uniform_padded_frame as uniform_tests
         import _uniform_padded_frame_testing as testing
@@ -2261,6 +2275,7 @@ class TestDispatch(unittest.TestCase):
         """The uniform loop at d = 2: numpy in -> numpy out, eagerly; jax in -> jax out, eagerly and under use_jit
         (the whole-loop jit); numpy in with use_jit converted, jax out. The masks host numpy, the movements a
         (max_passes,) record equal to numpy's (x64 on in this module)."""
+        self.addCleanup(_release_jax_programs)
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
         import test_uniform_padded_frame as uniform_tests
         import t3toolbox.backend.utv_operations as utvo
@@ -2322,6 +2337,9 @@ class TestAlignedLoopJit(unittest.TestCase):
     """The ragged alignment loop under ``use_jit=True`` (the plan's T6 eager = jit and T13 (a); here because x64 is on
     in this module). Frames are compared by the largest principal-angle sine per directed edge (the plan's measure):
     the step's gauge follows its SVD's, and a column's sign may differ between the jitted and the eager kernels."""
+
+    def setUp(self):
+        self.addCleanup(_release_jax_programs)
 
     # shape, old ranks (None: the zero tensor), target ranks, sharing, oversampling, alternate, tol -- T6's cases,
     # capped at 12 passes: oversampled and truncating passes, pairs, the final 'UL' (12 = 3 + 4 pairs + 1 and
@@ -2431,6 +2449,9 @@ class TestUniformAlignedLoopJit(unittest.TestCase):
     """The uniform loop under use_jit=True, the WHOLE loop one jax.jit (the plan's T12 eager = jit and T13 (b, c); here
     because x64 is on in this module). Frames are compared by the largest principal-angle sine per directed edge."""
 
+    def setUp(self):
+        self.addCleanup(_release_jax_programs)
+
     def test_eager_equals_jit(self):
         """T12's cases, plus the odd remainder's final 'UL' (tol 0, cap 10: 2 + 1 + 3 pairs + 1): the numpy (eager)
         loop and the jitted loop run the same passes (NaN in the same slots), frames to 1e-12, movements to 1e-10;
@@ -2519,6 +2540,9 @@ class TestPaddedStartSeam(unittest.TestCase):
     in and give the same out; on the uniform layer newton_cg's use_jit runs the alignment, the problem's gradient
     included, inside the whole-loop jit, equal to the eager run (x64 on in this module)."""
 
+    def setUp(self):
+        self.addCleanup(_release_jax_programs)
+
     @staticmethod
     def case(layer, shape=(4, 5, 4), M=40):
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
@@ -2579,6 +2603,87 @@ class TestPaddedStartSeam(unittest.TestCase):
         self.assertTrue(common.is_jax_ndarray(F_j[0]))
         self.assertLessEqual(seam.frame_distance(seam.ragged_view('uniform', F_j), seam.ragged_view('uniform', F_e)),
                              1e-12)
+
+
+@unittest.skipUnless(HAS_JAX, "jax not available")
+class TestAlignedPaddedFrameFrontend(unittest.TestCase):
+    """The frontend twins of the aligned padded frame: jax in -> jax out (the uniform masks host numpy), eagerly and
+    under use_jit, equal to the numpy twins' results (frames by the plan's frame measure; x64 on in this module)."""
+
+    def setUp(self):
+        self.addCleanup(_release_jax_programs)
+
+    def test_twins(self):
+        import t3toolbox.frame_variations_format as bvf_
+        import t3toolbox.uniform_frame_variations_format as ubv
+        import t3toolbox.uniform_manifold as ut3m
+        import t3toolbox.backend.padded_frames as pf
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
+        import _padded_frame_oracles as oracles
+        import _uniform_padded_frame_testing as testing
+        distance = lambda a, b: max(oracles.distances(oracles.dense_frames(a), oracles.dense_frames(b)).values())
+        np.random.seed(6)
+        shape, old, target = (4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 3, 3), (1, 3, 3, 1))
+        x_old = t3.TuckerTensorTrain.randn(shape, *old)
+        hint = t3.TuckerTensorTrain.randn(shape, (4, 5, 4), (1, 4, 4, 1))
+        jx_old, jhint = x_old.to_jax(), hint.to_jax()
+        ux_old, uhint = ut3.UniformTuckerTensorTrain.from_t3(x_old), ut3.UniformTuckerTensorTrain.from_t3(hint)
+        kw = dict(max_passes=3, tol=0.0)
+        with self.subTest(twin='T3Frame.padded'):
+            F = bvf_.T3Frame.padded(jx_old, *target)
+            self.assertTrue(all(common.is_jax_ndarray(a) for a in jax.tree_util.tree_leaves(F.data)))
+        with self.subTest(twin='fv_aligned_padded_frame'):
+            F_np, m_np = bvf_.fv_aligned_padded_frame(x_old, *target, hint, **kw)
+            for use_jit in (False, True):
+                F, m = bvf_.fv_aligned_padded_frame(jx_old, *target, jhint, use_jit=use_jit, **kw)
+                self.assertTrue(all(common.is_jax_ndarray(a) for a in jax.tree_util.tree_leaves((F.data, m))))
+                self.assertLessEqual(distance(tuple(tuple(np.asarray(c) for c in cores) for cores in F.data), F_np.data),
+                                     1e-12)
+        with self.subTest(twin='T3Tangent.align_padded'):
+            v = t3m.MANIFOLD.project_ambient(bvf_.T3Frame.padded(jx_old, *target), jhint)
+            F1, mv = v.align_padded(*old)
+            self.assertTrue(all(common.is_jax_ndarray(a) for a in jax.tree_util.tree_leaves((F1.data, mv))))
+        jux_old, juhint = ux_old.to_jax(), uhint.to_jax()
+        with self.subTest(twin='UT3Frame.padded'):
+            UF, split = ubv.UT3Frame.padded(jux_old, *target)
+            self.assertTrue(all(common.is_jax_ndarray(a) for a in UF.data[:4]))
+            self.assertTrue(all(common.is_numpy_ndarray(m) for m in UF.data[5]))
+        with self.subTest(twin='ufv_aligned_padded_frame'):
+            UF_np, um_np = ubv.ufv_aligned_padded_frame(ux_old, *target, uhint, **kw)
+            for use_jit in (False, True):
+                UF, um = ubv.ufv_aligned_padded_frame(jux_old, *target, juhint, use_jit=use_jit, **kw)
+                self.assertTrue(all(common.is_jax_ndarray(a) for a in UF.data[:4] + (um,)))
+                self.assertLessEqual(distance(testing.ragged(tuple(np.asarray(a) for a in UF.data[:4]) + UF.data[4:]),
+                                              testing.ragged(UF_np.data)), 1e-12)
+        with self.subTest(twin='UT3Tangent.align_padded'):
+            UF, split = ubv.UT3Frame.padded(jux_old, *target)
+            uv = ut3m.UNIFORM_MANIFOLD.project_ambient(UF, juhint)
+            UF1, umv = uv.align_padded(split)
+            self.assertTrue(all(common.is_jax_ndarray(a) for a in UF1.data[:4] + (umv,)))
+
+    def test_newton_cg_keywords(self):
+        """The frontend newton_cg with padded_from and 'cone' under use_jit: a jax result equal to the eager run."""
+        import t3toolbox.optimizers as topt_
+        import t3toolbox.uniform_manifold as ut3m
+        np.random.seed(7)
+        shape = (4, 5, 4)
+        ww = [np.random.randn(50, n) for n in shape]
+        data = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1)).probe(ww)
+        x_old = t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1))
+        x0 = x_old.resize(shape, (3, 3, 3), (1, 3, 3, 1))
+        for layer in ('ragged', 'uniform'):
+            with self.subTest(layer=layer):
+                geometry = t3m.MANIFOLD if layer == 'ragged' else ut3m.UNIFORM_MANIFOLD
+                start = x0 if layer == 'ragged' else ut3.UniformTuckerTensorTrain.from_t3(x0)
+                old = x_old if layer == 'ragged' else ut3.UniformTuckerTensorTrain.from_t3(x_old, N=start.N)
+                runs = [topt_.newton_cg(geometry, 'probe', ww, data, start, max_newton=2, padded_from=old,
+                                        g0_reference='cone', use_jit=use_jit) for use_jit in (False, True)]
+                (_, eager), (x_j, jitted) = runs
+                leaves = x_j.data if layer == 'ragged' else x_j.data[:2]
+                self.assertTrue(all(common.is_jax_ndarray(a) for a in jax.tree_util.tree_leaves(leaves)))
+                self.assertEqual(len(jitted['start_movements']), len(eager['start_movements']))
+                self.assertLessEqual(abs(jitted['history'][0]['g0norm'] - eager['history'][0]['g0norm']),
+                                     1e-10 * eager['history'][0]['g0norm'])
 
 
 class TestJitStack(unittest.TestCase):

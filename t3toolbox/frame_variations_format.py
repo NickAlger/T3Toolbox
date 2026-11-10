@@ -25,6 +25,11 @@ import t3toolbox.backend.t3_operations as t3_operations
 import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.fv_operations as fv_operations
+import t3toolbox.backend.padded_frames as padded_frames
+import t3toolbox.backend.tv_operations as tv_operations
+from t3toolbox.backend.fv_operations import ZERO_FRAME_SEED
+from t3toolbox.backend.padded_frames import (ALIGN_OVERSAMPLING, ALIGN_OVERSAMPLED_PASSES, ALIGN_MAX_PASSES,
+                                             ALIGN_TOL, ALIGN_ALTERNATE)
 import t3toolbox.corewise as cw
 from t3toolbox.backend.common import *
 
@@ -38,6 +43,7 @@ __all__ = [
     'check_fw_pair',
     't3_orthogonal_representations',
     't3svd_orthogonal_representations',
+    'fv_aligned_padded_frame',
 ]
 
 
@@ -291,6 +297,48 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         the safe-mode ORTH precondition of :py:meth:`~t3toolbox.manifold.ManifoldGeometry.project` on the
         same frame every matvec) is contracted **once**, not per call.'''
         return fv_operations.fv_frame_orthogonality_residual(self.data)
+
+    @staticmethod
+    def padded(
+            x_old:         't3.TuckerTensorTrain',             # the old point (reduced to minimal ranks here); rank 0 = the zero tensor
+            tucker_ranks:  typ.Sequence[int],                  # len=d, target
+            tt_ranks:      typ.Sequence[int],                  # len=d+1, target (boundary 1)
+
+            sharing:       typ.Optional[typ.Sequence] = None,  # len=d group labels; None = unshared
+            seed:          int = ZERO_FRAME_SEED,              # the Haar stream of the Tucker completions
+    ) -> 'T3Frame':                                            # the seeded padded frame (old frame in the leading slots)
+        """The seeded padded frame of ``x_old`` at larger ranks: the start of an alignment, hint-free.
+
+        At a zero-padded rank increase the point ``x_old`` gains zero slots, and its orthonormal frame needs new
+        directions there. This frame keeps ``x_old``'s own frame in the leading slots of every store and fills the new
+        slots by a data-independent convention (keyed Haar seeds for the Tucker factors, coordinate directions for the
+        TT and down cores). :py:func:`fv_aligned_padded_frame` then aligns the new slots with a tangent hint; this is
+        its start, and its ``max_passes=0`` result.
+
+        ``x_old`` is first reduced to minimal ranks (the same tensor). A STRUCTURALLY ZERO ``x_old`` -- any Tucker rank
+        or interior TT rank 0, e.g. ``TuckerTensorTrain.zeros(shape, (0,)*d, (1,)+(0,)*(d-1)+(1,))`` -- is the zero
+        tensor, whose frame is empty. The target ranks must contain ``x_old``'s structure. In safe mode, a shared
+        ``x_old`` must have tied factors.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.frame_variations_format as bvf
+        >>> np.random.seed(0)
+        >>> x_old = t3.TuckerTensorTrain.randn((5, 6, 5), (2, 2, 2), (1, 2, 2, 1))
+        >>> F = bvf.T3Frame.padded(x_old, (3, 4, 3), (1, 3, 3, 1))
+        >>> F.up_ranks, bool(F.is_orthogonal())
+        ((3, 4, 3), True)
+
+        The new frame represents the zero-padded point: its base point is still ``x_old``.
+
+        >>> x0 = x_old.resize((5, 6, 5), (3, 4, 3), (1, 3, 3, 1))
+        >>> bool(t3.TuckerTensorTrain(F.up_tucker_cores, F.left_tt_cores).allclose(x0))
+        True
+        """
+        return T3Frame(*padded_frames.fv_padded_frame(_old_frame_data(x_old, sharing, 'T3Frame.padded'),
+                                                      tucker_ranks, tt_ranks, sharing=sharing, seed=seed))
 
     def is_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
         '''True (per stack element) if the frame cores are orthogonal in their respective senses.
@@ -1636,3 +1684,109 @@ if jax_available:
         lambda x: (x.data, None),
         lambda aux_data, children: T3FrameWeights(*children),
     )
+
+
+# --------------------------------------------------------------------------------------------------
+# The aligned padded frame (frontend twins of backend.padded_frames)
+# --------------------------------------------------------------------------------------------------
+def _structurally_zero(
+        tucker_ranks:  typ.Sequence[int],   # len=d
+        tt_ranks:      typ.Sequence[int],   # len=d+1
+) -> bool:
+    """Any Tucker rank or interior TT rank 0: the zero tensor."""
+    return any(int(n) == 0 for n in tucker_ranks) or any(int(r) == 0 for r in tt_ranks[1:-1])
+
+
+def _old_frame_data(
+        x_old:    't3.TuckerTensorTrain',
+        sharing:  typ.Optional[typ.Sequence],
+        who:      str,
+) -> typ.Tuple:                            # the old frame's data (the empty frame for a structurally zero x_old)
+    """The old point's frame: checked, reduced to minimal ranks (sharing-aware), orthogonalized."""
+    if not isinstance(x_old, t3.TuckerTensorTrain):
+        hint = ' (convert a UniformTuckerTensorTrain with .to_t3())' if hasattr(x_old, 'to_t3') else ''
+        raise TypeError('%s: x_old must be a TuckerTensorTrain, got %s%s' % (who, type(x_old).__name__, hint))
+    if _structurally_zero(x_old.tucker_ranks, x_old.tt_ranks):
+        return padded_frames.fv_empty_frame(x_old.shape, x_old.stack_shape,
+                                            use_jax=common.tree_contains_jax(x_old.data))
+    if sharing is not None and safety.checks_active(*x_old.data[0]):
+        safety.require(bool(np.all(x_old.has_shared_tucker_factors(sharing))),
+                       '%s: x_old does not have tied Tucker factors under sharing=%r (share it first: '
+                       'x_old.share(sharing))' % (who, tuple(sharing)))
+    minimal = t3.TuckerTensorTrain.get_minimal_ranks(x_old.shape, x_old.tucker_ranks, x_old.tt_ranks, sharing=sharing)
+    if (tuple(x_old.tucker_ranks), tuple(x_old.tt_ranks)) != (tuple(minimal[0]), tuple(minimal[1])):
+        x_old = x_old.t3svd(sharing=sharing)[0].rank_adjustment_sweep('right_to_left', sharing=sharing)
+    return t3_orthogonal_representations(x_old)[0].data
+
+
+def fv_aligned_padded_frame(
+        x_old:               't3.TuckerTensorTrain',              # the old point; rank 0 = the zero tensor
+        tucker_ranks:        typ.Sequence[int],                   # len=d, target
+        tt_ranks:            typ.Sequence[int],                   # len=d+1, target
+        hint:                typ.Any,                             # TuckerTensorTrain / dense array, or anything with `project`
+        project:             typ.Optional[typ.Callable] = None,   # project(frame.data, hint) -> variations data; None = by the hint's class
+
+        sharing:             typ.Optional[typ.Sequence] = None,   # len=d group labels; None = unshared
+        oversampling:        int   = ALIGN_OVERSAMPLING,          # the backend's named defaults
+        oversampled_passes:  int   = ALIGN_OVERSAMPLED_PASSES,
+        max_passes:          int   = ALIGN_MAX_PASSES,
+        tol:                 float = ALIGN_TOL,
+        alternate:           bool  = ALIGN_ALTERNATE,
+        seed:                int   = ZERO_FRAME_SEED,
+        use_jit:             bool  = False,                       # jax inputs: a memoized jitted step in the host loop
+) -> typ.Tuple[
+    'T3Frame',                 # the aligned padded frame at the target ranks
+    typ.Tuple[NDArray, ...],   # movements, one per pass
+]:
+    """The padded frame of ``x_old`` at larger ranks, its new slots aligned with the tangent of ``hint``.
+
+    The hint-free start (:py:meth:`T3Frame.padded`) is refined by alignment passes: each projects one fixed tensor
+    onto the tangent space at the current frame and replaces every new slot by the leading new directions of that
+    tangent vector, the old slots held fixed. A rank increase then starts Newton from a frame whose new directions
+    already point where the fit needs them (``optimizers.newton_cg(padded_from=...)`` runs this internally, with the
+    misfit gradient as the hint).
+
+    - ``hint``: a ``TuckerTensorTrain`` (projected by ``tv_project_t3_onto_tangent_space``) or a dense array of
+      ``x_old``'s shape (``tv_project_dense_onto_tangent_space``); anything else needs ``project(frame_data, hint)``,
+      which returns raw variation data. A ``UniformTuckerTensorTrain`` hint is converted with ``.to_t3()``.
+    - The schedule: ``oversampled_passes`` passes at the target ranks plus ``oversampling``, one truncating pass,
+      then two-colour ``('UL', 'RO')`` pairs (``alternate``) until both of a pair's movements are below ``tol``, at most
+      ``max_passes`` passes in all. ``max_passes=0`` returns the hint-free start. When the target adds nothing to
+      ``x_old``'s structure the frame is ``x_old``'s and there are no passes.
+    - ``use_jit``: with jax inputs (numpy ones are converted), each step is a memoized jitted program; the loop and
+      the projection stay on the host.
+
+    ``x_old`` is reduced to minimal ranks first; a structurally zero ``x_old`` is the zero tensor (empty frame).
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.frame_variations_format as bvf
+    >>> np.random.seed(0)
+    >>> x_old = t3.TuckerTensorTrain.randn((5, 6, 5), (2, 2, 2), (1, 2, 2, 1))
+    >>> hint = t3.TuckerTensorTrain.randn((5, 6, 5), (5, 6, 5), (1, 5, 5, 1))
+    >>> F, movements = bvf.fv_aligned_padded_frame(x_old, (3, 4, 3), (1, 3, 3, 1), hint, tol=1e-6, max_passes=60)
+    >>> F.up_ranks, float(movements[-1]) < 1e-6
+    ((3, 4, 3), True)
+    """
+    old = _old_frame_data(x_old, sharing, 'fv_aligned_padded_frame')
+    if project is None:
+        if isinstance(hint, t3.TuckerTensorTrain):
+            project, hint = tv_operations.tv_project_t3_onto_tangent_space, hint.data
+        elif common.is_ndarray(hint):
+            if tuple(hint.shape[-len(x_old.shape):]) != tuple(x_old.shape):
+                raise ValueError('fv_aligned_padded_frame: a dense hint of shape %r; x_old has shape %r'
+                                 % (tuple(hint.shape), tuple(x_old.shape)))
+            project = tv_operations.tv_project_dense_onto_tangent_space
+        elif hasattr(hint, 'to_t3'):
+            raise TypeError('fv_aligned_padded_frame: a %s hint on the ragged layer; convert it with hint.to_t3()'
+                            % type(hint).__name__)
+        else:
+            raise TypeError('fv_aligned_padded_frame: no default projection for a %s hint; pass project=' %
+                            type(hint).__name__)
+    frame, movements = padded_frames.fv_aligned_padded_frame(
+        old, tucker_ranks, tt_ranks, hint, project, sharing=sharing, oversampling=oversampling,
+        oversampled_passes=oversampled_passes, max_passes=max_passes, tol=tol, alternate=alternate, seed=seed,
+        use_jit=use_jit)
+    return T3Frame(*frame), movements

@@ -716,6 +716,27 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         array would leak tracers into ``aux_data`` -- review R8-9)."""
         return ranks.compute_minimal_ranks(self.shape, self.tucker_ranks, self.tt_ranks, use_jax=False)
 
+    def oversampled_ranks(
+            self,
+            p:        int,                                 # the rank increment, p >= 0
+            sharing:  typ.Optional[typ.Sequence] = None,   # len=d group labels; None = unshared
+    ) -> typ.Tuple[
+        NDArray,   # tucker ranks, HOST int (d,)+stack_shape
+        NDArray,   # tt ranks, HOST int (d+1,)+stack_shape
+    ]:
+        """This point's ranks plus ``p`` per stack element: the uniform twin of
+        :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.oversampled_ranks`.
+
+        Examples
+        --------
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.zeros((4, 6, 5), (2, 3, 2), (1, 2, 2, 1)))
+        >>> [a.tolist() for a in x.oversampled_ranks(2)]
+        [[4, 5, 4], [1, 4, 4, 1]]
+        """
+        return ranks.oversampled_ranks(self.shape, np.asarray(self.tucker_ranks), np.asarray(self.tt_ranks), p, sharing)
+
     @property
     def has_minimal_ranks(self) -> NDArray:  # bool array, shape = stack_shape (per element; uniform ranks vary)
         """True (per stack element) if this UT3's ranks are structurally minimal. Per-element (uniform ranks

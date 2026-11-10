@@ -32,6 +32,7 @@ import t3toolbox.backend.apply as apply
 import t3toolbox.backend.entries as entries
 import t3toolbox.backend.sampling_derivatives as sampling_derivatives
 import t3toolbox.backend.ranks as ranks
+import t3toolbox.backend.padded_frames as padded_frames
 from t3toolbox.backend.common import *
 
 __all__ = [
@@ -161,6 +162,47 @@ class T3Tangent(common.ExplicitEquality):
         self.frame.validate()
         self.variations.validate()
         bvf.check_fv_pair(self.frame, self.variations)
+
+    def align_padded(
+            self,
+            old_tucker_ranks:  typ.Sequence[int],                       # len=d; the zero tensor: (0,)*d
+            old_tt_ranks:      typ.Sequence[int],                       # len=d+1; the zero tensor: (1, 0, ..., 0, 1)
+
+            tucker_ranks:      typ.Optional[typ.Sequence[int]] = None,  # len=d, output; None = the frame's own
+            tt_ranks:          typ.Optional[typ.Sequence[int]] = None,  # len=d+1, output; None = the frame's own
+
+            sharing:           typ.Optional[typ.Sequence] = None,       # len=d group labels; None = unshared
+            update:            str = 'ULRO',                            # the stores updated ('U', 'L', 'R', 'O'); the rest transported
+    ) -> typ.Tuple[
+        'bvf.T3Frame',   # the aligned frame
+        NDArray,         # movement, shape = frame stack C
+    ]:
+        """One alignment step of this tangent's padded frame: every new slot replaced by this tangent's leading new
+        directions, the old blocks (``old_*_ranks``) held fixed.
+
+        The frame must be a padded frame of a point at the old ranks (e.g. :py:meth:`~t3toolbox.frame_variations_format.T3Frame.padded`);
+        :py:func:`~t3toolbox.frame_variations_format.fv_aligned_padded_frame` loops this step. The movement measures
+        how far the new slots turned (0 at a fixed point). ``update`` restricts the step to some stores, transporting
+        the others (``'UL'`` / ``'RO'`` are the two colours of the loop); output ranks below the frame's truncate.
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.frame_variations_format as bvf
+        >>> import t3toolbox.manifold as t3m
+        >>> np.random.seed(0)
+        >>> x_old = t3.TuckerTensorTrain.randn((5, 6, 5), (2, 2, 2), (1, 2, 2, 1))
+        >>> F = bvf.T3Frame.padded(x_old, (3, 4, 3), (1, 3, 3, 1))
+        >>> v = t3m.MANIFOLD.project_ambient(F, t3.TuckerTensorTrain.randn((5, 6, 5), (5, 6, 5), (1, 5, 5, 1)))
+        >>> F1, movement = v.align_padded((2, 2, 2), (1, 2, 2, 1))
+        >>> F1.up_ranks, bool(F1.is_orthogonal()), float(movement) > 0
+        ((3, 4, 3), True, True)
+        """
+        frame, movement = padded_frames.tv_align_padded_frame(
+            self.frame.data, self.variations.data, old_tucker_ranks, old_tt_ranks, tucker_ranks, tt_ranks,
+            sharing=sharing, update=update)
+        return bvf.T3Frame(*frame), movement
 
     def __repr__(self) -> str:
         return (f"T3Tangent(shape={self.shape}, tucker_ranks={self.frame.up_ranks}, "

@@ -23,6 +23,12 @@ import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.stacking as stacking
 import t3toolbox.backend.ufv_operations as ufv_operations
 import t3toolbox.backend.ufv_masking as masking
+import t3toolbox.backend.uniform_padded_frames as uniform_padded_frames
+import t3toolbox.backend.utv_operations as utv_operations
+import t3toolbox.backend.uniform_fitting as uniform_fitting
+from t3toolbox.backend.fv_operations import ZERO_FRAME_SEED
+from t3toolbox.backend.padded_frames import (ALIGN_OVERSAMPLING, ALIGN_OVERSAMPLED_PASSES, ALIGN_MAX_PASSES,
+                                             ALIGN_TOL, ALIGN_ALTERNATE)
 import t3toolbox.backend.common as common
 from t3toolbox.backend.common import *
 
@@ -35,6 +41,7 @@ __all__ = [
     'UT3FrameWeights',
     'ufv_absorb_weights',
     'check_ufw_pair',
+    'ufv_aligned_padded_frame',
 ]
 
 
@@ -221,6 +228,43 @@ class UT3Frame(common.ExplicitEquality):
         masked-Gram over the four senses -- see
         :py:func:`~t3toolbox.backend.ufv_operations.ufv_frame_orthogonality_residual`). **cached**."""
         return ufv_operations.ufv_frame_orthogonality_residual(self.data)
+
+    @staticmethod
+    def padded(
+            x_old:         'ut3.UniformTuckerTensorTrain',             # the old point (reduced to minimal ranks here); rank 0 = the zero tensor
+            tucker_ranks:  typ.Union[typ.Sequence[int], NDArray],      # len=d, or HOST int (d,)+C, target
+            tt_ranks:      typ.Union[typ.Sequence[int], NDArray],      # len=d+1, or HOST int (d+1,)+C, target
+
+            sharing:       typ.Optional[typ.Sequence] = None,          # len=d group labels; None = unshared
+            seed:          int = ZERO_FRAME_SEED,                      # the Haar stream of the Tucker completions
+    ) -> typ.Tuple[
+        'UT3Frame',            # the seeded padded frame in block layout
+        typ.Tuple[int, int],   # split (Na, Rb), for UT3Tangent.align_padded
+    ]:
+        """The seeded padded frame of ``x_old`` at larger ranks, in block layout: the uniform twin of
+        :py:meth:`~t3toolbox.frame_variations_format.T3Frame.padded`.
+
+        Every rank slot is ``[old block | new block]``: ``x_old``'s own frame as its orthogonal representation gives
+        it, then the completion, each with its own mask (the masks are the only truth: gappy patterns are fine). The
+        split ``(Na, Rb)`` -- the old block's Tucker and bond widths -- is what
+        :py:meth:`~t3toolbox.uniform_manifold.UT3Tangent.align_padded` needs. Target ranks may vary per stack element.
+        ``x_old`` is reduced to minimal ranks first; a structurally zero ``x_old`` is the zero tensor (empty frame).
+
+        Examples
+        --------
+        >>> import numpy as np
+        >>> import t3toolbox.tucker_tensor_train as t3
+        >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+        >>> import t3toolbox.uniform_frame_variations_format as ubv
+        >>> np.random.seed(0)
+        >>> x_old = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((5, 6, 5), (2, 2, 2), (1, 2, 2, 1)))
+        >>> F, split = ubv.UT3Frame.padded(x_old, (3, 4, 3), (1, 3, 3, 1))
+        >>> split, F.masks.up_mask.sum(axis=-1).tolist(), bool(F.is_orthogonal())
+        ((2, 2), [3, 4, 3], True)
+        """
+        frame, split = uniform_padded_frames.ufv_padded_frame(_old_frame_data(x_old, sharing, 'UT3Frame.padded'),
+                                                             tucker_ranks, tt_ranks, sharing=sharing, seed=seed)
+        return _frame_of(frame), split
 
     def is_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
         """True (per stack element) if the frame supercores are orthogonal in their respective senses on
@@ -1494,3 +1538,106 @@ if common.jax_available:
         lambda w: (w.supercores, w.masks),
         lambda aux, children: UT3FrameWeights(*children, aux),
     )
+
+
+# --------------------------------------------------------------------------------------------------
+# The aligned padded frame (frontend twins of backend.uniform_padded_frames)
+# --------------------------------------------------------------------------------------------------
+def _frame_of(
+        frame_data:  typ.Tuple,   # uniform frame .data (any mask pattern)
+) -> 'UT3Frame':
+    """A uniform frame object from its data."""
+    U, O, L, R, shape, masks = frame_data
+    return UT3Frame(U, O, L, R, tuple(shape), UT3FrameMasks(*masks))
+
+
+def _old_frame_data(
+        x_old:    'ut3.UniformTuckerTensorTrain',
+        sharing:  typ.Optional[typ.Sequence],
+        who:      str,
+) -> typ.Tuple:                 # the old frame's data (the empty frame for a structurally zero x_old)
+    """The old point's frame: checked, reduced to minimal ranks (sharing-aware), orthogonalized."""
+    if not isinstance(x_old, ut3.UniformTuckerTensorTrain):
+        hint = (' (convert a TuckerTensorTrain with UniformTuckerTensorTrain.from_t3(x_old, N=...))'
+                if hasattr(x_old, 'tucker_cores') else '')
+        raise TypeError('%s: x_old must be a UniformTuckerTensorTrain, got %s%s' % (who, type(x_old).__name__, hint))
+    tucker, tt = np.asarray(x_old.tucker_ranks), np.asarray(x_old.tt_ranks)
+    zero = np.any(tucker == 0, axis=0) | np.any(tt[1:-1] == 0, axis=0)
+    if np.any(zero):
+        if not np.all(zero):
+            raise ValueError('%s: the stack mixes structurally zero and nonzero old points; align the elements '
+                             'separately' % who)
+        return uniform_padded_frames.ufv_empty_frame(x_old.shape, x_old.N, x_old.stack_shape,
+                                                     use_jax=common.tree_contains_jax(x_old.supercores))
+    if sharing is not None and safety_mod.checks_active(*x_old.supercores):
+        safety_mod.require(bool(np.all(x_old.has_shared_tucker_factors(sharing))),
+                           '%s: x_old does not have tied Tucker factors under sharing=%r (share it first)'
+                           % (who, tuple(sharing)))
+    return ufv_conversions.ut3_orthogonal_representations(uniform_fitting.uniform_minimal(x_old, sharing).data)[0]
+
+
+def ufv_aligned_padded_frame(
+        x_old:               'ut3.UniformTuckerTensorTrain',              # the old point; rank 0 = the zero tensor
+        tucker_ranks:        typ.Union[typ.Sequence[int], NDArray],       # len=d, or HOST int (d,)+C, target
+        tt_ranks:            typ.Union[typ.Sequence[int], NDArray],       # len=d+1, or HOST int (d+1,)+C, target
+        hint:                typ.Any,                                     # UniformTuckerTensorTrain (x_old's padded N), or anything with `project`
+        project:             typ.Optional[typ.Callable] = None,           # project(frame_data, hint) -> variations data; None = by the hint's class
+
+        level_widths:        typ.Optional[typ.Tuple[int, int, int, int]] = None,   # (WU, WD, WL, WR); None = ufv_frame_widths(x_old.N, max target Tucker rank, max target TT rank)
+
+        sharing:             typ.Optional[typ.Sequence] = None,           # len=d group labels; None = unshared
+        oversampling:        int   = ALIGN_OVERSAMPLING,
+        oversampled_passes:  int   = ALIGN_OVERSAMPLED_PASSES,
+        max_passes:          int   = ALIGN_MAX_PASSES,
+        tol:                 float = ALIGN_TOL,
+        alternate:           bool  = ALIGN_ALTERNATE,
+        seed:                int   = ZERO_FRAME_SEED,
+        use_jit:             bool  = False,                               # the whole loop as one jax.jit; `project` must then be traceable
+) -> typ.Tuple[
+    'UT3Frame',   # the aligned frame at level_widths, prefix masks (the level's frame structure for that padding)
+    NDArray,      # movements, shape=(max_passes,)+C, NaN after the last pass
+]:
+    """The uniform twin of :py:func:`~t3toolbox.frame_variations_format.fv_aligned_padded_frame`, compacted to a level.
+
+    The same schedule and stop rule; the frame is returned junk-last at ``level_widths`` with prefix masks -- the
+    structure of the frame ``ut3_orthogonal_representations`` gives a point padded to that level, so a Newton step
+    from it compiles nothing new. ``hint``: a ``UniformTuckerTensorTrain`` with ``x_old``'s padded ``N`` (projected
+    by ``utv_project_ut3_onto_tangent_space``), else ``project(frame_data, hint)`` on the raw block-layout frame.
+    Movements are a fixed-length ``(max_passes,)+C`` record, NaN after the last pass (a NaN movement is not told apart
+    from an unrun pass). ``use_jit=True`` runs the WHOLE loop as one ``jax.jit`` (numpy inputs are converted); a
+    custom ``project`` must then be traceable and module-level.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> import t3toolbox.tucker_tensor_train as t3
+    >>> import t3toolbox.uniform_tucker_tensor_train as ut3
+    >>> import t3toolbox.uniform_frame_variations_format as ubv
+    >>> np.random.seed(0)
+    >>> x_old = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((5, 6, 5), (2, 2, 2), (1, 2, 2, 1)))
+    >>> hint = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((5, 6, 5), (5, 6, 5), (1, 5, 5, 1)))
+    >>> F, movements = ubv.ufv_aligned_padded_frame(x_old, (3, 4, 3), (1, 3, 3, 1), hint, tol=1e-6, max_passes=60)
+    >>> F.masks.up_mask.sum(axis=-1).tolist(), movements.shape
+    ([3, 4, 3], (60,))
+    """
+    old = _old_frame_data(x_old, sharing, 'ufv_aligned_padded_frame')
+    if project is None:
+        if isinstance(hint, ut3.UniformTuckerTensorTrain):
+            if hint.N != x_old.N:
+                raise ValueError('ufv_aligned_padded_frame: the hint is padded to N=%d, x_old to N=%d; repack it with '
+                                 'UniformTuckerTensorTrain.from_t3(hint.to_t3(), N=%d)' % (hint.N, x_old.N, x_old.N))
+            project, hint = utv_operations.utv_project_ut3_onto_tangent_space, hint.data
+        elif hasattr(hint, 'tucker_cores'):
+            raise TypeError('ufv_aligned_padded_frame: a %s hint on the uniform layer; convert it with '
+                            'UniformTuckerTensorTrain.from_t3(hint, N=%d)' % (type(hint).__name__, x_old.N))
+        else:
+            raise TypeError('ufv_aligned_padded_frame: no default projection for a %s hint; pass project=' %
+                            type(hint).__name__)
+    if level_widths is None:
+        n, r = int(np.max(tucker_ranks)), int(np.max(tt_ranks))
+        level_widths = masking.ufv_frame_widths(x_old.N, n, r)
+    frame, movements = uniform_padded_frames.ufv_aligned_padded_frame(
+        old, tucker_ranks, tt_ranks, hint, project, level_widths, sharing=sharing, oversampling=oversampling,
+        oversampled_passes=oversampled_passes, max_passes=max_passes, tol=tol, alternate=alternate, seed=seed,
+        use_jit=use_jit)
+    return _frame_of(frame), movements
