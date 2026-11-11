@@ -165,9 +165,9 @@ named for the SIDE of the edge its cores occupy, so the adjective follows (left/
 UP store = the TT-shaped cores (up-orthogonal, `up_orthogonalize_tt_cores`), the DOWN store = the Tucker-factor-shaped cores
 (down-orthogonal, `down_orthogonalize_tucker_cores`): the words FLIP relative to today's `(up, down, left, right)`; every
 method name's adjective is already right. NO LETTERS IN THE API: `update` takes words, the widths become `n_up, n_down,
-r_left, r_right` (no `nU/nD/rL/rR`, no `'ULRO'`). LETTERS STAY in diagrams and equations (which letters for the Tucker
-factor / TT-shaped cores — keep U/O as core symbols or move to D/U — is a plan decision; T4S uses U for the Tucker factor;
-D suggests a diagonal). TUPLE ORDER UNCHANGED: `T3Frame.data` keeps its physical order, which in the new words reads
+r_left, r_right` (no `nU/nD/rL/rR`, no `'ULRO'`). LETTERS STAY in diagrams and equations, and Nick's choice is U = up = the TT-shaped cores, D = down = the
+Tucker-factor cores (the words' initials, like L and R), UNLESS the inventory finds a severe conflict (D as a diagonal in the
+same equation; a load-bearing old U); T4S's U (Tucker factor) is then a documented correspondence, not our letter. TUPLE ORDER UNCHANGED: `T3Frame.data` keeps its physical order, which in the new words reads
 `(down, up, left, right)` — Nick prefers it (down→up and left→right increase like x and y). Same-spelling attributes
 (`up_ranks`, `down_ranks`, `up_mask`, ...) SWAP MEANING: accepted, documented in the first line of the release notes; users
 today are Nick and known colleagues, more after the T4S / T3Polynomial papers, so fix now. PROCESS: three Opus agents
