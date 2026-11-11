@@ -191,7 +191,13 @@ the store (`nD` = Tucker factor's width = today's `nU`; `nU` = TT-shaped core's 
 `n_up`/`n_down`/`r_left`/`r_right`; "no letters in the API" narrows to `update` (words); the width keywords become
 same-spelling silent swaps; D-3/D-8 resolved. §4A: diagrams and equations are hand-only, first-class (inventory in R1,
 fences K11, completion gate K12, alignment K10/K10b, before/after shown to Nick) — Nick's standing concern, see memory
-`feedback-diagrams-are-first-class`. Round 7 (the width ruling) in progress; then Nick's remaining decisions (D-1 shift
+`feedback-diagrams-are-first-class`. Round 7-8 done (863b7088). ROUND 9 (2026-11-11): Nick WITHDREW the blanket rule "no letters in the API" — the library
+uses xi/eta/mu/the SVD's U in its API by design; "there is no escape from making judgements on a case by case basis";
+he is "very worried about unintentional consequences of an agent trying to blindly follow a rule like this". The plan
+replaces every principle with an enumerated closed token map + a DO-NOT-TOUCH list with a byte-identity gate; D-2
+reopened (letters `'UDLR'` vs words; session now recommends letters); the critic hunts over-reach risk. THIS APPLIES TO
+EVERY FUTURE BRIEF: no generalizable naming rules; enumerate; forbid any rename outside the map without asking.
+Round 9 in progress; then Nick's remaining decisions (D-1 shift
 symbol Λ/ℓ, D-2, D-4, D-5, D-9..D-11, B on the T3 pages) and R1.
 
 **2026.5.0 IN PROGRESS (2026-11-10): (a) the glossary (COMMITTED 3fc91855 with the OLD store words — correct for the
