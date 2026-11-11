@@ -160,7 +160,24 @@ CG_POWER 1.0, MAX_NEWTON 300; the first GN runs hit the 30 cap and are discarded
 timing (plan draft `dev/newton_timing_plan_2026-11-10.md`, writer; critic pass before implementing) + the glossary page
 below. Versions are YYYY.MINOR.PATCH; a new keyword/record is an "Added" entry, hence MINOR.**
 
-**2026.5.0 IN PROGRESS (2026-11-10): (a) the glossary — three scouts wrote `dev/glossary_candidates_{A_user_docs,
+**DECISION (Nick 2026-11-10): THE STORE RENAME — a breaking change in 2026.5.0, done FIRST.** First principles: a store is
+named for the SIDE of the edge its cores occupy, so the adjective follows (left/right already work so). New meaning: the
+UP store = the TT-shaped cores (up-orthogonal, `up_orthogonalize_tt_cores`), the DOWN store = the Tucker-factor-shaped cores
+(down-orthogonal, `down_orthogonalize_tucker_cores`): the words FLIP relative to today's `(up, down, left, right)`; every
+method name's adjective is already right. NO LETTERS IN THE API: `update` takes words, the widths become `n_up, n_down,
+r_left, r_right` (no `nU/nD/rL/rR`, no `'ULRO'`). LETTERS STAY in diagrams and equations (which letters for the Tucker
+factor / TT-shaped cores — keep U/O as core symbols or move to D/U — is a plan decision; T4S uses U for the Tucker factor;
+D suggests a diagonal). TUPLE ORDER UNCHANGED: `T3Frame.data` keeps its physical order, which in the new words reads
+`(down, up, left, right)` — Nick prefers it (down→up and left→right increase like x and y). Same-spelling attributes
+(`up_ranks`, `down_ranks`, `up_mask`, ...) SWAP MEANING: accepted, documented in the first line of the release notes; users
+today are Nick and known colleagues, more after the T4S / T3Polynomial papers, so fix now. PROCESS: three Opus agents
+inventory the whole library incl. docs (`dev/store_rename_inventory_{1,2,3}.md`) → the session writes the plan's first
+draft → writer/critic to agreement → Nick → implementer/reviewer slices (full suite + bitwise seeded runs). THEN the
+glossary is updated to the new words (N4/N17) and the 601-row docs pass runs on the renamed code, then the timing.
+Blast radius measured in `dev/up_down_naming_blast_radius.md` (2,011 uses / ~1,430 lines / 78 files; 44 public sites).
+
+**2026.5.0 IN PROGRESS (2026-11-10): (a) the glossary (COMMITTED 3fc91855 with the OLD store words — correct for the
+released 2026.4.0; updated in the rename slice) — three scouts wrote `dev/glossary_candidates_{A_user_docs,
 B_backend,C_frontend}.md` (233/190/185 candidate terms, ~90 inconsistencies, ~40 terms defined nowhere); a WRITER agent is
 drafting `docs/glossary.md` (one canonical name per concept, aliases listed, definitions verified against the code, a
 symbols section, linked from docs/index.rst) and `dev/glossary_naming_decisions.md`; a CRITIC iterates with the writer to
