@@ -1,9 +1,9 @@
-# The store rename — plan (draft 4, writer, 2026-11-11)
+# The store rename — plan (draft 6, writer, 2026-11-11)
 
-> **Status:** draft 4: Nick's rulings of 2026-11-11 and critic rounds 1–3 (`dev/store_rename_plan_review_r{1,2,3}.md`)
-> applied. **The critic agreed in round 4** (`dev/store_rename_plan_review_r4.md`). Next: Nick, then the
-> implementer/reviewer slices R1–R6 (§7). **Breaking**; the first item of 2026.5.0. The glossary update and the 601-row docs-consistency pass (`dev/glossary_naming_decisions.md`) run after
-> it, on the renamed code.
+> **Status:** draft 6: Nick's rulings of 2026-11-11, critic rounds 1–6 (`dev/store_rename_plan_review_r{1,…,6}.md`)
+> and Nick's review of draft 4 (amended D-8, §4A). **The critic agreed in round 6.** Next: Nick, then the
+> implementer/reviewer slices R1–R6 (§7). **Breaking**; the first item of 2026.5.0. The glossary update and the
+> 601-row docs-consistency pass (`dev/glossary_naming_decisions.md`) run after it, on the renamed code.
 >
 > **Sources:** `dev/store_rename_inventory_1_frontend_tests.md`, `_2_backend.md`, `_3_docs.md` (inv 1/2/3 below) and
 > `dev/up_down_naming_blast_radius.md` (BR). Their line numbers are of `b272e5de`; nothing outside `dev/` changed through
@@ -12,6 +12,24 @@
 > Every hand edit asserts its row's current text before replacing it, so a stale row fails loudly.
 
 ## CHANGES
+
+**Draft 6 (critic r5, on §4A).**
+
+- Fences are spans, not lines.
+- K12 is the completion gate, and K10b checks the alignment of re-laid-out blocks.
+- Fenced tier-E rows feed the hand rewrite only.
+- §3.4 now also covers the `O` family, with `O_g` carved out.
+- The seed list is extended, with companion doctests and store-word index variables.
+- K10 compares raw text.
+
+**Draft 5 (Nick, 2026-11-11).**
+
+- **Amended D-8:** diagram and equation labels keep the compact letters `nU, nD, rL, rR` in the new meaning, and `nO`
+  disappears.
+- **New §4A:** every ASCII diagram and equation is a hand-only, first-class artifact. It gets an R1 inventory, a
+  whole-block hand rewrite with before/after shown, an alignment check (K10), re-derived orthogonality relations,
+  unchanged doctest outputs, a full read by the reviewer, Nick's before/after review, and a script fence (K11).
+- §5.3, §5.4, §6, §7 and §8 carry the matching gates and rows.
 
 **Draft 4 (critic r3).**
 
@@ -90,7 +108,7 @@ Consequences:
 
 ## 1. The mapping
 
-### 1.1 One simultaneous mapping, five tiers
+### 1.1 One simultaneous mapping, five tiers, and fences
 
 The two vocabularies overlap: old up is new down, and `D` already marks the TT store in `T3Frame`'s docstring. So every
 substitution is **simultaneous**: one lookup per token and one pass per file, never a sequence of replacements.
@@ -116,6 +134,8 @@ substitution is **simultaneous**: one lookup per token and one pass per file, ne
     `uniform_manifold` 7, `frame_variations_format` 5) and 77 tests (`test_uniform_frame_variations_format` 17,
     `test_padded_frame` 13, …).
   - R1's hit table gives the exact list, and K9 (§5.3) catches what any list misses.
+- **F — fenced blocks (§4A).** Diagrams and equations: hand-only, skipped by every script pass and checked by K10 and
+  K11.
 
 ### 1.2 The token map
 
@@ -126,7 +146,7 @@ substitution is **simultaneous**: one lookup per token and one pass per file, ne
 | A1 aliases, **one-way only** | `up_orthogonalize_tucker_cores`→`down_orthogonalize_tucker_cores`, `down_orthogonalize_tt_cores`→`up_orthogonalize_tt_cores` | `backend/fv_conversions.py` only (181–185, 220, 253). The targets are public method names, so no reverse entry exists anywhere |
 | A1 labels | `up_tucker`→`down_tucker`, `down_tt`→`up_tt`, `up_tucker_ranks`→`down_ranks`, `down_tucker_ranks`→`up_ranks`, `down_tt_ranks`→`up_ranks` (`uniform_frame_variations_format.py:203, 665`) | text only (comments, docstrings, docs) |
 | A2 swaps (a ↔ b) | each of `up_ranks`, `up_mask`, `variations_up_mask`, `var_up_mask`, `up_weights`, `up_weight_supercore`, `up_sc`, `up_cores`, `up_supercore`, `up_inds`, `up_r`, `v_up_r`, `up_out`, `up0`, `up3`, `up4`, `vup`, `mup`, `up_shapes`, `up_stack_shapes`, `up_slices`, `up_masks`, `up_widths`, `up_mask_frame`, `up_mask_v`, `_up`, `_up_mask`, `_up_edge`, `_up_message`, `_u_up_messages`, `_UP_R`, `bad_up`, `masked_up`, `point_up`, `variations_up` ↔ its twin with `up`/`UP` → `down`/`DOWN`; also `test_unequal_old_up_masks_in_a_group`→`test_unequal_old_down_masks_in_a_group` | everywhere |
-| A3 widths | `nU`→`n_down`, `nD`→`n_up`, `nO`→`n_up`, `rL`→`r_left`, `rR`→`r_right`. Applied as the family `\b(nU\|nD\|nO\|rL\|rR)(\d*)([ijkdnlrxy]?)(?![A-Za-z0-9])` → `NEW[g1] + g2 + ('_' + g3 if g3 else '')`, so `nU0`→`n_down0`, `nUi`→`n_down_i`, `rL1i`→`r_left1_i`, `rR(i+1)`→`r_right(i+1)`, `nU_pad`→`n_down_pad`, `rLl`→`r_left_l`. Explicit: `nDs`→`n_ups`, `nnU`/`nnD`→`nn_down`/`nn_up`, `rrL`/`rrR`→`rr_left`/`rr_right`, `_NU`/`_ND`/`_RL`/`_RR`→`_N_DOWN`/`_N_UP`/`_R_LEFT`/`_R_RIGHT`, `sum_nD`→`sum_n_up` | everywhere but LaTeX; under D-3 (recommended) also the plain-TT bonds. **Exception:** where `nU` is a UT3 point's Tucker rank, it becomes the house UT3 symbol `n` (inv 1 C7; `n` is free in each scope): `optimizers.py:176–180`, `tests/test_chunk_size_estimator.py:274–276`, and `sampling_derivatives.py`'s chunk estimators (1819–1824, 1870–1912), where `nO = nU` becomes `n_up = n` |
+| A3 widths | `nU`→`n_down`, `nD`→`n_up`, `nO`→`n_up`, `rL`→`r_left`, `rR`→`r_right`. Applied as the family `\b(nU\|nD\|nO\|rL\|rR)(\d*)([ijkdnlrxy]?)(?![A-Za-z0-9])` → `NEW[g1] + g2 + ('_' + g3 if g3 else '')`, so `nU0`→`n_down0`, `nUi`→`n_down_i`, `rL1i`→`r_left1_i`, `rR(i+1)`→`r_right(i+1)`, `nU_pad`→`n_down_pad`, `rLl`→`r_left_l`. Explicit: `nDs`→`n_ups`, `nnU`/`nnD`→`nn_down`/`nn_up`, `rrL`/`rrR`→`rr_left`/`rr_right`, `_NU`/`_ND`/`_RL`/`_RR`→`_N_DOWN`/`_N_UP`/`_R_LEFT`/`_R_RIGHT`, `sum_nD`→`sum_n_up` | everywhere but LaTeX and the §4A fences (inside them the compact letters stay, in the new meaning: amended D-8); under D-3 (recommended) also the plain-TT bonds. **Exception:** where `nU` is a UT3 point's Tucker rank, it becomes the house UT3 symbol `n` (inv 1 C7; `n` is free in each scope): `optimizers.py:176–180`, `tests/test_chunk_size_estimator.py:274–276`, and `sampling_derivatives.py`'s chunk estimators (1819–1824, 1870–1912), where `nO = nU` becomes `n_up = n` |
 | A3 scoped | for `X` in `k, m, p, i, w, W`: `XU`→`X_down`, `XD`→`X_up`, `XL`→`X_left`, `XR`→`X_right`. That is `kU kD kL kR`, `mU mD mL mR`, `mU0 mD0 mL0 mR0`, `mU1 mD1 mL1 mR1` (digit kept: `m_down0`), `pU pD pL pR`, `iU iD iL iR`, `wU wD wL wR` (the per-store widths, `_uniform_padded_frame_testing.py:43–85`), `WU WD WL WR` | `backend/uniform_padded_frames.py`, `tests/backend/_uniform_padded_frame_testing.py`, `tests/backend/test_uniform_padded_frame.py` only (`mL`/`mR` are modes in `t3_linalg`) |
 | B1 bare | NAME `up` ↔ `down`, in code and in doctest examples | everywhere except KEEP_BARE: `tests/test_fitting.py:1148–1152` (a tangent), `tests/backend/_curvature_oracles.py:529–536` (the ξ lambda), `t3toolbox/fitting.py:290–291` (a doctest tangent). R1 re-derives the list over doctest lines (BR's eight were code tokens only) |
 | B2 literals | STRING tokens exactly `'up'` ↔ `'down'` (either quote) | everywhere: `_STORE_NAMES`, the `_SEED_TAGS` keys, `_seed_rows` arguments, the test copy `tests/backend/test_padded_frame.py:91–92`. The `_SEED_TAGS` integers stay with the physical store (`{'down': 0, 'up': 1, …}`), so the seeds are bitwise unchanged. Messages built with `%s` from `_STORE_NAMES` flip with it |
@@ -186,6 +206,8 @@ WIDTH_RE:   typ.Pattern                                           # A3 family, p
 SCOPED:     typ.Dict[str, typ.Tuple[typ.Tuple[typ.Optional[typ.Tuple[int, int]], typ.Dict[str, str]], ...]]
                                                                   # file -> ((line range | None, map), ...): A3 scoped, B3, B4, C
 KEEP_BARE:  typ.Tuple[typ.Tuple[str, int, int], ...]              # B1 exclusions: (file, first line, last line)
+FENCES:     typ.Dict[str, typ.Tuple[typ.Tuple[int, int, str], ...]]   # §4A: file -> (first, last, anchor) per block;
+                                                              # text inside is skipped by every pass
 
 ENTRIES:    typ.List[typ.Tuple[str, str]]                     # every (old, new) pair of every tier, indexed k = 0, 1, ...
                                                               # (width-family and text-pattern matches registered as found)
@@ -269,12 +291,15 @@ inv 2 §4 gives `(D, U, P, Q, shape, …)` at `geometry.py:602, 707, 893` and "f
    - L2: the `U` family → `D`, or `B` on the T3 pages (§3.3).
    - L3: `(U, G, G, G)` → `(D, G, G, G)`.
    - L4: the `Λ` and `d` notation (§3.1–3.2).
-   - L5: D-5's `Ψ`/`F`, and D-8's widths as words. This replaces inv 1's letter-swapped diagram labels: `nD0` →
-     `n_down0`.
+   - L5: D-5's `Ψ`/`F`, and amended D-8: widths as words outside the §4A fences. Inside them, inv 1's letter-swapped
+     labels (`nU0`→`nD0`, `nO1`→`nU1`) are the starting proposal for the hand rewrite.
    - L6: the reworded message directions (§3.3).
 
-On a line that carries both a tier-E row and a tier-D pattern, **tier E runs first**, because its locator needs the
-line's R2 image. Tier D then runs over every line; its patterns include the hybrids, so it is idempotent on correct
+A tier-E row whose line lies in a §4A fence (e.g. inv 1's rows inside diagrams: `frame_variations_format.py:86–108`'s
+widths, `:1266, 1271, 1273`) is **not** applied by the locator. It only feeds the block's hand rewrite as a proposal.
+
+On an unfenced line that carries both a tier-E row and a tier-D pattern, **tier E runs first**, because its locator
+needs the line's R2 image. Tier D then runs over every unfenced line; its patterns include the hybrids, so it is idempotent on correct
 text. The reviewer checks the layered text, and K4, K7 and K8 check the outcome.
 
 ## 2. The compatibility surface
@@ -396,13 +421,13 @@ store words. `test_curvature.py`'s `c_up` becomes `c_next`. The note's macros be
   up", "pushing the remainder down into the Tucker core").
 - **Cited T4S formulas** convert, with the citation kept, e.g. "T4S §6.3's substitution `(L, R, U) → G`" (tier D).
 
-### 3.4 The `P`/`Q`/`U`-family inventory (R1; critic r2 N2)
+### 3.4 The `O`/`P`/`Q`/`U`-family inventory (R1; critic r2 N2, r5)
 
 The inventories classified `U`/`O`/`D` only. They kept `P`/`Q` and the `U` family by design (inv 2 M4, C1), so the
 rulings need their own inventory before any slice applies them.
 
-- **Built in R1** as `dev/store_rename_pqu_inventory.md`: every NAME token and every text occurrence of `P`, `Q`, their
-  derived names (`P_cores`, `P_cores_dot`, `P_dot`, `Pd`, `Pxi`, `dPxi`, `Q_dot`, `Qd`, `Qxi`, `rev_Q`, `P_last`, …),
+- **Built in R1** as `dev/store_rename_pqu_inventory.md`: every NAME token and every text occurrence of `O` and its
+  derived names outside tier C's files (critic r5), and of `P`, `Q`, their derived names (`P_cores`, `P_cores_dot`, `P_dot`, `Pd`, `Pxi`, `dPxi`, `Q_dot`, `Qd`, `Qxi`, `rev_Q`, `P_last`, …),
   `P_i`/`Q_i` in text, and the `U` family (`Udot*`, `dU*`, `gU`, `gYU` (`_curvature_oracles.py:72–75`), `Ug`, `Ud`, `U_g`,
   `U̇`, `δU`). It covers `t3toolbox/`,
   `tests/`, `examples/`, the docs and the notes.
@@ -420,6 +445,10 @@ rulings need their own inventory before any slice applies them.
     `ut3_sampling.py:114, 231`, `entries.py:152, 290`, and the T3-class doctests `tucker_tensor_train.py:3870–3871,
     4072–4073` and `uniform_tucker_tensor_train.py:566–567, 631–632` (`gU, gG = x.apply_corewise_transpose(…)`: T3
     pages, so `gB`).
+  - the `O` family outside tier C's files: `t3_orthogonalization.py:118–120` (`O_ab_x`, `Oaxb`: the up-orthogonal TT
+    core, beside the T3's input Tucker core `Uio`) and `ut3_orthogonalization.py:201–204`. The likely disposition,
+    function-scoped: `Uio`→`Bio`, as the sibling `_down_orthogonalize_tucker_cores_step` already writes it, then
+    `O…`→`U…`. Kept: `shared_t3_math.tex:358`'s `O_g`, a complement basis (K8 carves it out).
 - **R1 gate:** every hit is classified. R2's tier C and R4's L1/L2 apply only what the classification marks.
 
 ## 4. Hand edits (R3–R5)
@@ -437,9 +466,9 @@ rulings need their own inventory before any slice applies them.
    (`CHANGELOG.md:714` is a record and stays.)
 4. **Letters in prose:** the tier D patterns; the CL rows of inv 1 §7 and inv 2 §9 that fall in comments and
    docstrings; the field comments `frame_variations_format.py:156–159` and `uniform_frame_variations_format.py:110–113`
-   (`B_xo`→`D_xo`, `R_ixj`, which clashes with *right*, →`U_ixj`, `P`/`Q`→`L`/`R` by D-7); the docstring diagrams,
-   redrawn with `D` below, `U` above and widths as words (D-8): `frame_variations_format.py:56–108, 219–224, 1271,
-   1305–1322, 1362`, `uniform_frame_variations_format.py:1113, 1125`.
+   (`B_xo`→`D_xo`, `R_ixj`, which clashes with *right*, →`U_ixj`, `P`/`Q`→`L`/`R` by D-7). Every diagram and equation
+   is a §4A block, redrawn by hand as a whole with `D` below, `U` above and the compact width letters in the new
+   meaning (amended D-8).
 5. **The letter API (R3)**, §1.3: the 37 backend and 93 frontend/test LETTER-API rows. The tests' letter arithmetic is
    rewritten, not swapped: `test_padded_frame.py:723–737` builds subsets by deleting letters and `:730` pairs
    `('U', 'up'), ('O', 'down')`; the invalid cases become `(), ('down', 'down'), ('X',), 'down', 'ULRO', ('Down',)`;
@@ -466,6 +495,111 @@ rulings need their own inventory before any slice applies them.
     `tucker_tensor_train.py:4264` `rL_0*r_1`→`r_0*r_1`. Loop variables named for the old store are renamed by hand:
     `fv_operations.py:653–654`'s `dn`, `u` → `w`; `u`/`o` at `test_padded_frame.py:491` and
     `_uniform_padded_frame_testing.py:41`.
+
+## 4A. Diagrams and equations: hand-only, first-class (Nick, 2026-11-11)
+
+The hand-crafted ASCII diagrams and the equations in docstrings and docs are of great value to readers, and every one
+must come through the rename **intact**. They are artifacts, not text: no script, sentinel or regex touches them.
+
+**(a) The inventory.** R1 builds `dev/store_rename_slices/diagrams_inventory.md` and commits it. It covers every ASCII
+diagram and every equation (docstring, comment, markdown or LaTeX) that mentions a store letter, a width symbol or an
+orthogonality relation.
+
+- Columns: id; file; the old **span** at `v2026.4.0` (lines, plus a column range when the block shares its lines with
+  code, as the field comments do); kind (ascii diagram, index equation, shape listing, field-comment relation, LaTeX
+  table or figure, or a companion doctest); the span text (the anchor); the letters and widths in it; the new span
+  (filled in R4/R5); re-laid out (y/n and why); the reason when new equals old.
+- A scanner proposes candidates and R1 curates them. Candidates are lines with box or edge characters (`--`, `|`, `(X)`
+  nodes) next to labels; index relations (`_[a-z]{2,3}` with `= delta_ij` / `= I_xy` / `= 0`, `einsum('…')`, `δ_ij`);
+  width symbols; a store letter in a core role (`U0`, `O_i`, `D(d-1)`, …); or a store-word index variable in a
+  recurrence (`\b(?:up|down)_[a-z]\b`, as in `ranks.py:644–647`).
+- **R1 gate:** every candidate is inventoried or dismissed with a reason.
+- **Seed list**, from the inventories:
+  - `frame_variations_format.py`: 56–66, 70–78, 86–108, 116–124, 156–159, 219–224, 353–357, 843–853, 1262–1274,
+    1305–1322, 1346–1365, 1370–1374 (R1 takes the exact bounds from the scanner);
+  - `uniform_frame_variations_format.py`: 110–113, 1097–1125;
+  - `manifold.py:685`, `uniform_manifold.py:478`; `probing.py:640–651, 1215–1226`; `ufv_operations.py:81–84`;
+    `utv_operations.py:314–315`; `ranks.py:644–647`;
+  - `tucker_tensor_train.py:61–72` (a B/G diagram: to be dismissed, with its reason);
+  - companion doctests, inventoried but not fenced: `frame_variations_format.py:1302–1322`. Tier C does not reach them
+    (it covers that file at 483–573 only), so their letters are §4.4 rows in R4a, still checked by K12.
+    The reviewer checks that their letters agree with the diagram beside them;
+  - `frame_variations.md:13–17` and its symbol table; `user_guide.rst:124–142`;
+  - `padded_frame_cone.tex` Table 1; the exact-Hessian note's two tikz figures and its equation ranges;
+  - the four notes' frame equations.
+
+**(b) Each one rewritten by hand, as a whole.** Never token by token. The slice handoff shows every block's before and
+after side by side.
+
+**(c) Alignment preserved exactly.** `dev/store_rename_diagram_check.py` compares each ascii block's old text (`git
+show v2026.4.0:<file>`) with its new span, as **raw text** (tabs not expanded: `user_guide.rst`'s diagrams are
+tab-indented). **K10**, for blocks rewritten in place, requires:
+
+- the same line count;
+- the same length per line;
+- that every column where old and new differ holds a label character (`[A-Za-z0-9_']`) on both sides, so box
+  characters, pipes, dashes, parentheses and spaces stay in their columns.
+
+Amended D-8 keeps the labels' length (`U0`→`D0`, `nU0`→`nD0`, `nO1`→`nU1`, `rR(d-1)` unchanged). A label that must grow
+makes the block a deliberate re-layout: it is marked in the inventory, shown in the handoff, never truncated, and
+checked by **K10b** instead.
+
+- K10b requires the same line count.
+- It requires every old alignment column to map to **one** consistent new column. An alignment column is a field start
+  after two or more spaces in at least two lines, or a shared separator (`=`, `:`, `|`, `#`).
+- Most equation and listing blocks are re-layouts, because their identifiers grow: `frame_variations_format.py:70–78,
+  116–124, 353–357`, `probing.py:640–651`, `ufv_operations.py:81–84`.
+- For field-comment blocks, the comment's start column is checked against the realigned signature block (§4.10).
+
+A typo inside a diagram (`Ud` for `U(d-1)`, glossary E17) is left to the docs-consistency pass unless it fits the width.
+
+**(d) Orthogonality relations re-derived index by index.** Each relation gets the new letters and a one-line derivation
+in the handoff: the core's shape, the contracted indices, and the side they belong to, which is the store's adjective.
+For example:
+
+- `D_ia D_ja = delta_ij`: the down core `(n_i, N_i)` is summed over the leaf index, below the edge;
+- `U_aib U_ajb = delta_ij`: the up core `(r_i, n_i, r_{i+1})` is summed over both bonds, above the edge;
+- `L_abi L_abj` and `R_ibc R_jbc`;
+- the field comments `D_xo D_yo = I_xy` and `U_ixj U_iyj = I_xy`;
+- the gauge condition `D_ia V_ja = 0`.
+
+The reviewer re-derives each one independently and checks it against the code's own contraction where there is one
+(e.g. `is_orthogonal`'s `einsum('...io,...jo->...ij', D, D) = I`).
+
+**(e) The doctests beside them run unchanged.** Every module doctest's expected output is identical before and after
+(a `DocTestFinder` comparison over the frontend's 2,047 examples and the backend's). Only input lines change, through
+the renames.
+
+**(f) Review.** The reviewer's brief for R4a, R4b and R5 includes reading every inventoried block against the new
+convention. Width labels are checked by adjacency: an edge touching a Tucker factor is `nD`, one touching a TT-shaped
+frame core is `nU`. The review stop after R4b shows Nick the before and after of every code-tree block, and the stop
+after R5 those of the docs and notes.
+
+**(g) Fenced from every script, by span.**
+
+- The script reads the inventory's spans as FENCES: a line range, plus a column range where the block shares its lines
+  with code.
+- Pass 1 skips all text inside a fence (COMMENT and STRING content, markdown and LaTeX lines). So do tier D and every
+  regex pass of R4/R5.
+- NAME tokens next to a fenced span are still renamed. A field comment shares its line with the field
+  (`frame_variations_format.py:156`), so R2 renames the field and the comment shifts by the name's length difference
+  (±2 columns), which §4.10's realignment absorbs.
+- No `>>>` example line is fenced.
+- **Gate K11**, after R2 and after R3: every fenced span's **text** is byte-identical to `v2026.4.0` (located by the
+  span text, not the line), and the pass-1 tree has no sentinel inside a fence.
+- **Gate K12** (completion), after R4b for the code tree and after R5 for the docs: every inventoried block's new span
+  is filled and equals the file verbatim, and a block whose new text equals its old text carries a recorded reason.
+  Without it, a forgotten block with no `O` or `nO` (`frame_variations_format.py:86–96`: `nU0`, `U0`, `Ud`) would pass
+  every other check while reading backwards.
+
+**Letters inside fences (amended D-8).**
+
+- Labels keep the compact width letters in the **new** meaning: `nD` (the down store's width, the Tucker factor's),
+  `nU` (the up store's width, the TT-shaped core's), `rL`, `rR`, with `nDi`, `rL(i+1)`. `nO` disappears.
+- Core letters are `D`, `U`, `L`, `R`.
+- The stale-versus-new ambiguity this reintroduces is the one the core letters already carry. It is handled by the
+  per-block hand edits, the reviewer's adjacency check and the gates: K2 carves out fences, while K2a (`nO`) and K8's
+  `O` core-letter pattern hold everywhere, fences included.
 
 ## 5. Verification (the rename changes no number)
 
@@ -543,25 +677,31 @@ test module (`test_frame_variations_format`, `test_uniform_frame_variations_form
 | id | what | pattern |
 |---|---|---|
 | K1 | old spellings | `\b(?:masked_)?(?:up_tucker_cores\|down_tt_cores\|up_tucker_supercore\|down_tt_supercore\|up_tucker\|down_tt\|up_tucker_ranks\|down_tucker_ranks\|down_tt_ranks\|up_orthogonalize_tucker_cores\|down_orthogonalize_tt_cores)(?:_dot)?\b` |
-| K2 | widths | `\b(?:nU\|nD\|nO\|rL\|rR)\d*[ijkdnlrxy]?(?![A-Za-z0-9])` and `\b(?:nn[UD]\|rr[LR]\|_N[UD]\|_R[LR]\|nDs)\b`; plus `\b[kmpiwW][UDLR]\d?\b` in the three A3-scoped files |
+| K2 | widths, outside the §4A fences | `\b(?:nU\|nD\|nO\|rL\|rR)\d*[ijkdnlrxy]?(?![A-Za-z0-9])` and `\b(?:nn[UD]\|rr[LR]\|_N[UD]\|_R[LR]\|nDs)\b`; plus `\b[kmpiwW][UDLR]\d?\b` in the three A3-scoped files. Inside fences the compact letters are legal in the new meaning (amended D-8) |
+| K2a | `nO`, everywhere | `\bnO` and LaTeX `n_\{O` / `n\^O`, fences included (`nO` disappears) |
 | K3 | the letter API | `update\s*:\s*str\b`; `update\s*=\s*['"]`; `['"](?:[ULRO]{2,4})['"]`; `['"][ULRO]['"]\s+(?:not\s+)?in\s+update`; in docs `` `'(?:ULRO\|UL\|RO)'` `` |
 | K4 | frame-letter tuples, hybrids included | `\(U, ?O, ?[PL], ?[QR]\)`, `\((?:D\|U), ?(?:U\|O), ?P, ?Q\b` and `\(U, ?G, ?G, ?G\)` |
 | K5 | old-order listings | `\(up, down, left` and `up/down/left/right` |
 | K6 | backwards phrases | `Tucker up-(?:SVD\|orth)`, `Tucker cores upward`, `TT cores downward`, `down-orthogonal O\b`, `up-orthogonal tucker`, `Down TT core` |
 | K7 | old shift and derivative notation | `_shift_(?:up\|down)`, `\b[DU]\^[rku]\b`, `\[U\^`, `\b[DU] (?:x\|z\|jet)\b` (catches `D x =`, `# U jet,`, `[jet, D jet]`), `\bDPhi\b`, `\bD\^2 ?Phi\b`, `DΦ`, `D²Φ`; in tex `\\Dsh\|\\Ush\|D\\Phi\|D\^2\\Phi\|D_\\zeta` and the Lagrangian's old `\\Lambda\(\\th\|_\\th\\Lambda` |
-| K8 | T4S letters left behind | `\b(?:O_i\|O_aib\|Oᵢ\|δU\|U_g)\b`, `U̇` (no trailing `\b`: it never matches after a combining mark), `outer[- ]orthogonal`; frame `P`/`Q` forms `\b[PQ]_(?:i\|last\|\{)`; the code names `\b(?:Udot\w*\|dU(?![a-z])\w*\|gU\|Ug)\b` (so the new `dUn`, from `dOn`, is not hit). Carve-outs: the T4S correspondence lines and the §3.4 inventory's keep list |
+| K8 | T4S letters left behind | `O` as a core letter everywhere, fences included: `\bO(?:\d\|_[a-z]\|ᵢ\|i\b\|\(d-1\))`; `\b(?:O_i\|O_aib\|Oᵢ\|δU\|U_g)\b`, `U̇` (no trailing `\b`: it never matches after a combining mark), `outer[- ]orthogonal`; frame `P`/`Q` forms `\b[PQ]_(?:i\|last\|\{)`; the code names `\b(?:Udot\w*\|dU(?![a-z])\w*\|gU\|Ug)\b` (so the new `dUn`, from `dOn`, is not hit). Carve-outs: the T4S correspondence lines, the §3.4 inventory's keep list, and for the `O` pattern the oracle and review codes (`O1`, `O2`, `O-2`; inv 3 §9) and the kept `O_g` (`shared_t3_math.tex:358`) |
 | K0 | sentinels | `ZQX\d+_XQZ` anywhere (after pass 2) |
 | K8b | T4S string keys | `\[['"][OPQ]['"]\]` in `tests/test_jet_recurrence.py` (after B4, `p['U']` is the correct up-core key) |
-| K9 | residual store words, token-level (critic r1 M1, r2 MINOR 1) | every bare `up`, `down`, `Up`, `Down` in the COMMENT and STRING tokens of the final code tree (and every bare word in the docs after R5) must be one of three things: (a) an inventory keep row (ORTH, MSG, UNREL; inv 2 §9 keeps, inv 1 App. B–D, inv 3 §9, collected in R1 as `dev/store_rename_keeps.txt`); (b) a word whose aligned old-tree token was the opposite store word (`git diff` line alignment, then token position); or (c) part of a tier-E proposed text after §1.4's layering. Anything else fails. **Converse** (critic r3): every old-tree token on a keep row (ORTH, MSG, UNREL) survives unchanged at its aligned position, unless its line is a tier-E proposed text (e.g. §3.3's rewordings). So clause (b) cannot pass an adjective or a message direction flipped by mistake ("up-orthogonal" → "down-orthogonal" on a TT core, "contract up"), which K6's six phrasings would miss |
+| K9 | residual store words, token-level (critic r1 M1, r2 MINOR 1) | every bare `up`, `down`, `Up`, `Down`, and every store-word index variable `\b(?:up|down)_[a-z]\b` (`up_i`, `down_i`), in the COMMENT and STRING tokens of the final code tree (and every bare word in the docs after R5) must be one of three things: (a) an inventory keep row (ORTH, MSG, UNREL; inv 2 §9 keeps, inv 1 App. B–D, inv 3 §9, collected in R1 as `dev/store_rename_keeps.txt`); (b) a word whose aligned old-tree token was the opposite store word (`git diff` line alignment, then token position); or (c) part of a tier-E proposed text after §1.4's layering. Anything else fails. **Converse** (critic r3): every old-tree token on a keep row (ORTH, MSG, UNREL) survives unchanged at its aligned position, unless its line is a tier-E proposed text (e.g. §3.3's rewordings). So clause (b) cannot pass an adjective or a message direction flipped by mistake ("up-orthogonal" → "down-orthogonal" on a TT core, "contract up"), which K6's six phrasings would miss |
+| K10 | diagram alignment, in place (§4A c) | `dev/store_rename_diagram_check.py` on raw text: per inventoried ascii block rewritten in place, the same line count and line lengths, and every differing column a label character on both sides |
+| K10b | diagram alignment, re-laid out (§4A c) | the same line count, and every old alignment column (a field start after ≥ 2 spaces in ≥ 2 lines, or a shared `=`, `:`, `\|`, `#`) maps to one consistent new column. Field-comment blocks: the comment's start column matches the realigned signature block |
+| K11 | fences untouched by scripts (§4A g) | after R2 and after R3, every fenced span's text is byte-identical to `v2026.4.0` (located by span text), and the pass-1 tree has no sentinel inside a fence |
+| K12 | every block done (§4A g) | after R4b (code tree) and R5 (docs): each inventoried block's new span is filled and equals the file verbatim; new text equal to old needs a recorded reason |
 
 **Scope:** `t3toolbox/`, `tests/` and `examples/` (fourteen scripts, nothing to change, checked all the same) for
-K0–K9; `docs/*.md|rst`, `docs/contributor/*`, `README.md` and
+K0–K12; `docs/*.md|rst`, `docs/contributor/*`, `README.md` and
 `CLAUDE.md` for all but K3's code patterns; the tex notes for K4, K7 and K8 (their equation letters `D`, `U`, `n_{D,i}`
 are legal there, K2 is not run on them).
 
 **Carve-outs, all of them:** `CHANGELOG.md` and `docs/release_notes.md` (records; the new sections name the old
 spellings on purpose); lines of `docs/glossary.md` containing "(2026.4.0"; the T4S correspondence lines (§3, for K4
-and K8); the paper ↔ code maps (`entries_apply_probe.md` §8, `batching_and_stacking.md` §8); the check file itself.
+and K8); the paper ↔ code maps (`entries_apply_probe.md` §8, `batching_and_stacking.md` §8); the §4A fences, for K2
+only; the check file itself.
 K3's `{2,4}` skips single-letter strings.
 
 Before R2 the check runs in report mode, and its hits are the to-do list. After R4b it is clean on the code tree, and
@@ -573,7 +713,8 @@ K9 is the only check that sees a bare word left in the old sense.
 - The full suite at `-n 3` (the 13 GB laptop rule), in the current-leg environment and in the floor environment
   (numpy 1.26 / jax 0.4.30). The slow tier runs serially at R6, as the release gate.
 - Module doctests: the frontend's 2,047 examples (inv 1 §4 found no expected-output change) and the backend's; every
-  `docs/*.md` and `docs/contributor/*.md` page plus `getting_started.rst`; both environments.
+  `docs/*.md` and `docs/contributor/*.md` page plus `getting_started.rst`; both environments. **Expected outputs are
+  unchanged** (§4A e): a `DocTestFinder` comparison of every example's `want` before and after, at R2, R4a, R4b and R5.
 - The dispatch rows. A word tuple stays a jit static: `_STEP_STATICS` position 7, asserted at
   `test_dispatch.py:2416–2418`. Then the import-graph test, `sphinx -W`, and `gh run list` after each push.
 - PDFs rebuilt with `latexmk -pdf`: `padded_frame_cone.pdf`, `exact_hessian_two_hole.pdf`, `shared_t3_math.pdf`,
@@ -584,6 +725,8 @@ K9 is the only check that sees a bare word left in the old sense.
 
 - **`docs/frame_variations.md` § "Four rank stores"** gets the convention paragraph, the picture and the T4S note
   (inv 3 §1(a)), and every other page links to it. `naming_conventions.md` gets the bullet "frame stores are words".
+  The letter ↔ word mapping is stated once, in the convention paragraph and the glossary's symbol table: `D`/`U`/`L`/`R`
+  for the stores, `nD` = `n_down`, `nU` = `n_up`, `rL` = `r_left`, `rR` = `r_right` (amended D-8).
 - **`CHANGELOG.md` `[2026.5.0]` "Changed — breaking"** and **`docs/release_notes.md` "Upgrading from 2026.4.0"** come
   from inv 3 §1(b), in house format: the verdict first, then the same-spelling list, stated as silent, full stop ("these
   do not raise"; no claim that a shape check catches misuse, since at a minimal frame both stores agree); the
@@ -602,12 +745,12 @@ K9 is the only check that sees a bare word left in the old sense.
 
 | slice | content | gate |
 |---|---|---|
-| **R1** | Tools and inventories only, no library change: the battery (§5.1) and its reference run on the `v2026.4.0` worktree (plus the B9 files); `store_rename_apply.py` (§1.3) in dry-run mode (pass 1 into a scratch copy); `store_rename_check.py` (§5.3) in report mode; the `P`/`Q`/`U`-family inventory (§3.4) and `dev/store_rename_keeps.txt` (K9) | the dry-run hit table reconciled key by key with inv 2 §8, inv 1 §7 and a fresh tokenizer scan (every difference explained); every CL row and every §3.4 hit assigned; nothing outside `dev/` changed |
-| **R2** | The script (pass 1, review of the sentinel diff, pass 2), tiers A–C, over `t3toolbox/`, `tests/` and `examples/`, the four sampling modules and their twins included; tier A over the docs and `CLAUDE.md`, so the markdown doctests stay green; the 12 message tests and the 4 typo lines (§4.6, §4.11) | K0 clean; battery bitwise against R1; no bijection errors; the full suite, the module and markdown doctests, and the dispatch rows green. **Review stop** |
-| **R3** | The letter API (§1.3, §4.5) in the backend steps, loops and kernels and the frontend twins, with its tests; the unequal-store assertions (§5.2) | battery bitwise (through the adapter); full suite; dispatch; K3 clean |
-| **R4a** | Code prose outside the sampling kernels: every tier D and tier E row in `t3toolbox/`, `tests/` and `examples/` (§4.1–4.4, 4.7, 4.10, 4.11), the free-prose store words included | suite; doctests in both environments; `sphinx -W`; K0–K9 clean on those files |
-| **R4b** | The sampling kernels' prose (`probing`, `sampling_derivatives`, `apply`, `entries`, `utv_sampling`, `ut3_sampling`, the jet twins and curvature tests): their tier D and E rows, the shift and derivative notation (§3.1–3.2), the reworded message directions (§3.3) | battery bitwise; suite; doctests; K0–K9 clean on the code tree. **Review stop** |
-| **R5** | Docs (§6): pages, diagrams, the six notes (§4.8) and their PDFs, the glossary and its work list, `CLAUDE.md`, CHANGELOG and release notes | `sphinx -W`; markdown doctests in both environments; K-checks clean on the docs and notes; PDFs rebuilt; every example runs (`examples/*.py`, as CI's examples job does). **Review stop** |
+| **R1** | Tools and inventories only, no library change: the battery (§5.1) and its reference run on the `v2026.4.0` worktree (plus the B9 files); `store_rename_apply.py` (§1.3) in dry-run mode (pass 1 into a scratch copy); `store_rename_check.py` (§5.3) in report mode; the `P`/`Q`/`U`-family inventory (§3.4) and `dev/store_rename_keeps.txt` (K9); the diagrams-and-equations inventory `dev/store_rename_slices/diagrams_inventory.md` (§4A a, committed), the FENCES drawn from it, and `store_rename_diagram_check.py` (K10) | the dry-run hit table reconciled key by key with inv 2 §8, inv 1 §7 and a fresh tokenizer scan (every difference explained); every CL row and every §3.4 hit assigned; every §4A scanner candidate inventoried or dismissed; nothing outside `dev/` changed |
+| **R2** | The script (pass 1, review of the sentinel diff, pass 2), tiers A–C, over `t3toolbox/`, `tests/` and `examples/`, the four sampling modules and their twins included; tier A over the docs and `CLAUDE.md`, so the markdown doctests stay green; the 12 message tests and the 4 typo lines (§4.6, §4.11) | K0 and K11 clean; battery bitwise against R1; no bijection errors; doctest outputs unchanged; the full suite, the module and markdown doctests, and the dispatch rows green. **Review stop** |
+| **R3** | The letter API (§1.3, §4.5) in the backend steps, loops and kernels and the frontend twins, with its tests; the unequal-store assertions (§5.2) | battery bitwise (through the adapter); full suite; dispatch; K3 and K11 clean |
+| **R4a** | Code prose outside the sampling kernels: every tier D and tier E row in `t3toolbox/`, `tests/` and `examples/` (§4.1–4.4, 4.7, 4.10, 4.11), the free-prose store words included; every §4A block in those files rewritten by hand, before/after and the relation derivations in the handoff | suite; doctests in both environments with outputs unchanged; `sphinx -W`; K0–K10b clean on those files; the reviewer has read every block |
+| **R4b** | The sampling kernels' prose (`probing`, `sampling_derivatives`, `apply`, `entries`, `utv_sampling`, `ut3_sampling`, the jet twins and curvature tests): their tier D and E rows, the shift and derivative notation (§3.1–3.2), the reworded message directions (§3.3), their §4A blocks by hand | battery bitwise; suite; doctests with outputs unchanged; K0–K12 clean on the code tree; the reviewer has read every block. **Review stop**: Nick sees the before/after of every code-tree diagram and equation (R4a's and R4b's) |
+| **R5** | Docs (§6): pages, the six notes (§4.8) and their PDFs, the glossary and its work list, `CLAUDE.md`, CHANGELOG and release notes; every §4A block in the docs and notes by hand (diagrams, tables, tikz labels, equations), before/after in the handoff | `sphinx -W`; markdown doctests in both environments; K-checks clean on the docs and notes; PDFs rebuilt; K10/K10b on the docs' ascii blocks and K12 on the docs; every example runs (`examples/*.py`, as CI's examples job does). **Review stop**: Nick sees the before/after of every docs and notes block |
 | **R6** | Acceptance: §5 end to end in both environments, the slow tier, the battery also in the floor environment; the T3Polynomial follow-up prepared (`g01_g0_common.py:121`, its suite), committed only after the release; HANDOFF | — |
 
 Each slice follows the house process. The implementer builds and writes `dev/store_rename_slices/R<k>_handoff.md`; the
@@ -647,11 +790,16 @@ Rulings of 2026-11-11 are recorded as RESOLVED; the rest carry a recommendation.
 - **D-7. RESOLVED (Nick): `P`/`Q` → `L`/`R` wherever they name frame cores.** This uses per-file NAME maps and exact
   text patterns. `P` keeps its other meanings (the completion `P⁺`, the P-block, `P_U`, the direction `P^t`), `Q` its
   QR meaning, and `R` the RNG helpers.
-- **D-8. Width spelling** (inv 3 C18). *Recommended:* words everywhere outside LaTeX, shape comments and ASCII diagrams
-  included (`n_down0`), overruling inv 1's letter-swapped diagram labels. In LaTeX every note uses subscript letters
-  in the new meaning: `n_{D,i}`, `n_{U,i}`, `r_{L,i}`, `r_{R,i}`, swapped simultaneously with today's; the exact-Hessian
-  note's `n^D_i` → `n^U_i`. Why: an old reader's `nD` is the TT store, and a diagram `nD` in the new meaning is a silent
-  swap that no check can tell from a stale one.
+- **D-8. RESOLVED (Nick, amended 2026-11-11): width spelling.**
+  - Words (`n_down`, `n_up`, `r_left`, `r_right`) in code identifiers, shape comments and prose.
+  - The compact letters `nD`, `nU`, `rL`, `rR` (`nDi`, `rL(i+1)`) in the **new** meaning in diagram and equation labels
+    (the §4A fences), because `r_right_(d-1)` does not fit over an edge: `frame_variations_format.py:86–108`'s
+    `rR(d-1)` already barely fits. `nD` is the down store's width (the Tucker factor's), `nU` the up store's (the
+    TT-shaped core's), and `nO` disappears.
+  - LaTeX uses `n_{D,i}`-style subscripts in the same meaning: the exact-Hessian note's `n^D_i` → `n^U_i`, and
+    `padded_frame_cone.tex`'s Table 1 swapped simultaneously.
+  - The mapping is stated once (§6). Stale-versus-new is handled by §4A's hand rewrites, the reviewer's adjacency
+    check, and K2a/K8 everywhere.
 - **D-9. Keep §5.3's K0–K8 code-tree checks as a permanent test** `tests/test_store_vocabulary.py`, like the HISTORICAL
   vocabulary scan: cheap, and it stops old spellings coming back. K9 needs the tag diff, so it stays a one-off.
   *Recommended.* The alternative is to keep all of it one-off in `dev/`.
