@@ -53,8 +53,8 @@ type; the comment carries the rest.)
 
 ```python
 def compute_mu(
-        left_tt_cores:  typ.Union[typ.Sequence[NDArray], NDArray],  # len=d-1, elm_shape=C+(rLi,nUi,rL(i+1))
-        xis:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nUi,)
+        left_tt_cores:  typ.Union[typ.Sequence[NDArray], NDArray],  # len=d-1, elm_shape=C+(rLi,nDi,rL(i+1))
+        xis:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nDi,)
 ) -> typ.Union[
     typ.Sequence[NDArray],  # mus. len=d, elm_shape=W+C+(rLi,)
     NDArray,

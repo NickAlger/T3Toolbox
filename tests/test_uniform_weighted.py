@@ -592,8 +592,8 @@ def rand_ragged_frame_weights(v, rng, stack_shape=None):
     ss = v.frame.stack_shape if stack_shape is None else stack_shape
     d = len(V)
     return bvf.T3FrameWeights(
-        tuple(np.abs(rng.standard_normal(ss + (H[i].shape[-2],))) + 0.5 for i in range(d)),   # up   <- nU
-        tuple(np.abs(rng.standard_normal(ss + (V[i].shape[-2],))) + 0.5 for i in range(d)),   # down <- nD
+        tuple(np.abs(rng.standard_normal(ss + (H[i].shape[-2],))) + 0.5 for i in range(d)),   # up   <- nD
+        tuple(np.abs(rng.standard_normal(ss + (V[i].shape[-2],))) + 0.5 for i in range(d)),   # down <- nU
         tuple(np.abs(rng.standard_normal(ss + (H[i].shape[-3],))) + 0.5 for i in range(d)),   # left <- rL
         tuple(np.abs(rng.standard_normal(ss + (H[i].shape[-1],))) + 0.5 for i in range(d)))   # right<- rR
 
@@ -601,8 +601,8 @@ def rand_ragged_frame_weights(v, rng, stack_shape=None):
 def to_uniform_tangent_pair(v, W):
     """(ragged tangent, ragged metric) -> (uniform tangent, uniform metric) padded consistently."""
     uv = ut3m.UT3Tangent.from_t3tangent(v)
-    _, _, nU, nD, rL, rR, _ = uv.variations.uniform_structure
-    return uv, ubvf.UT3FrameWeights.from_t3frameweights(W, nU=nU, nD=nD, rL=rL, rR=rR)
+    _, _, nD, nU, rL, rR, _ = uv.variations.uniform_structure
+    return uv, ubvf.UT3FrameWeights.from_t3frameweights(W, nD=nD, nU=nU, rL=rL, rR=rR)
 
 
 class TestUT3FrameWeights(unittest.TestCase):
@@ -693,7 +693,7 @@ class TestUT3FrameWeights(unittest.TestCase):
         ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         uWb = ut3.UT3Weights.from_ut3svd(ux)
         fw = ubvf.UT3FrameWeights.from_ut3weights(uWb)
-        self.assertTrue(np.array_equal(fw.up_weight_supercore, fw.down_weight_supercore))   # up == down
+        self.assertTrue(np.array_equal(fw.down_weight_supercore, fw.up_weight_supercore))   # up == down
         self.assertTrue(np.array_equal(fw.left_weight_supercore, uWb.tt_weight_supercore[:-1]))
         self.assertTrue(np.array_equal(fw.right_weight_supercore, uWb.tt_weight_supercore[1:]))
 
@@ -732,7 +732,7 @@ class TestUT3FrameWeights(unittest.TestCase):
             *[np.pad(a, ((0, 0),) * (a.ndim - 1) + ((0, 2),)) for a in uW.supercores],
             ubvf.UT3VariationsMasks(*[np.pad(m, ((0, 0),) * (m.ndim - 1) + ((0, 2),)) for m in uW.masks.data]))
         with np.errstate(divide='ignore'):
-            self.assertTrue(np.isinf(1.0 / wide.up_weight_supercore).any())   # the hazard is real
+            self.assertTrue(np.isinf(1.0 / wide.down_weight_supercore).any())   # the hazard is real
         out = wide.reciprocal()
         for a, m in zip(out.supercores, wide.masks.data):
             self.assertTrue(np.isfinite(a).all())
@@ -769,7 +769,7 @@ class TestUT3FrameWeights(unittest.TestCase):
         uv, uW = to_uniform_tangent_pair(v, rand_ragged_frame_weights(v, rng))
         self.assertTrue(uW.is_consistent_with(uv))
 
-        for fam, name in enumerate(('up', 'down', 'left', 'right')):
+        for fam, name in enumerate(('down', 'up', 'left', 'right')):
             masks = [m.copy() for m in uW.masks.data]
             last_real = int(masks[fam][0].sum()) - 1
             masks[fam][0, last_real] = False             # declare a REAL slot to be padding

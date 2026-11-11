@@ -94,8 +94,8 @@ def fv_variations_from_vector(
 def fv_variation_shapes(
         frame:  typ.Tuple,   # (U, O, P, Q) frame data; len=d each, elm_shape=stack_shape+(...)
 ) -> VariationShapes:        # (tucker_variation_shapes, tt_variation_shapes); WITHOUT the stack
-    '''The variation shapes of a frame: ``(nD_i, N_i)`` per Tucker variation and
-    ``(rL_i, nU_i, rR_i)`` per TT variation, read off the frame cores.
+    '''The variation shapes of a frame: ``(nU_i, N_i)`` per Tucker variation and
+    ``(rL_i, nD_i, rR_i)`` per TT variation, read off the frame cores.
 
     The backend twin of the frontend ``T3Frame.variation_shapes`` -- and the ONE place the
     frame-to-variation axis convention is written down for the ragged layer. Frame bookkeeping is
@@ -103,10 +103,10 @@ def fv_variation_shapes(
     core's own trailing axis, which is the NEXT bond -- the gauge shift ``left[:-1]`` / ``right[1:]``
     in mask form), so open-coding these indices is how they drift. Feed the result to
     :py:func:`fv_variations_zeros` / :py:func:`fv_variations_randn`.'''
-    up, down, left, right = frame
-    d = len(up)
-    tucker_variation_shapes = tuple((down[i].shape[-2], up[i].shape[-1]) for i in range(d))
-    tt_variation_shapes = tuple((left[i].shape[-3], up[i].shape[-2], right[i].shape[-1])
+    down, up, left, right = frame
+    d = len(down)
+    tucker_variation_shapes = tuple((up[i].shape[-2], down[i].shape[-1]) for i in range(d))
+    tt_variation_shapes = tuple((left[i].shape[-3], down[i].shape[-2], right[i].shape[-1])
                                 for i in range(d))
     return tucker_variation_shapes, tt_variation_shapes
 
@@ -160,14 +160,14 @@ def fv_variations_unit(
 
 def fv_frame_reverse(
         frame: typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores
-            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # down_tucker_cores
+            typ.Sequence[NDArray],  # up_tt_cores
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # up_tucker_cores  (mode order reversed)
-    typ.Tuple[NDArray, ...],  # down_tt_cores
+    typ.Tuple[NDArray, ...],  # down_tucker_cores  (mode order reversed)
+    typ.Tuple[NDArray, ...],  # up_tt_cores
     typ.Tuple[NDArray, ...],  # left_tt_cores    (= reversed old right cores)
     typ.Tuple[NDArray, ...],  # right_tt_cores   (= reversed old left cores)
 ]:
@@ -178,18 +178,18 @@ def fv_frame_reverse(
     (the up-tucker family is reversed; the down family is reversed per :py:func:`tt_reverse`). The
     redundant left/right store makes this exact with no re-orthogonalization. Inverse of itself.
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     rev = tt_operations.tt_reverse
-    return (tuple(U.copy() for U in up_tucker_cores[::-1]),
-            rev(down_tt_cores),
+    return (tuple(D.copy() for D in down_tucker_cores[::-1]),
+            rev(up_tt_cores),
             rev(right_tt_cores),   # old right -> new left
             rev(left_tt_cores))    # old left  -> new right
 
 
 def fv_frame_orthogonality_residual(
         frame: typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores
-            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # down_tucker_cores
+            typ.Sequence[NDArray],  # up_tt_cores
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
@@ -205,8 +205,8 @@ def fv_frame_orthogonality_residual(
     absolute deviation reduced over the **non-stack** axes (shape ``stack_shape``); a caller thresholds it
     (``<= atol``) for a per-element boolean orthogonality test.
     '''
-    UU, DD, LL, RR = frame
-    d = len(UU)
+    DD, UU, LL, RR = frame
+    d = len(DD)
     xnp, _, _ = get_backend(False, tree_contains_jax(frame))
 
     def _dev(gram, n):  # max over the two gram axes only -> keep stack (the leading '...')
@@ -214,10 +214,10 @@ def fv_frame_orthogonality_residual(
 
     devs = []
     for ii in range(d):
-        U = UU[ii]
         D = DD[ii]
-        devs.append(_dev(xnp.einsum('...io,...jo->...ij', U, U), U.shape[-2]))
-        devs.append(_dev(xnp.einsum('...iaj,...ibj->...ab', D, D), D.shape[-2]))
+        U = UU[ii]
+        devs.append(_dev(xnp.einsum('...io,...jo->...ij', D, D), D.shape[-2]))
+        devs.append(_dev(xnp.einsum('...iaj,...ibj->...ab', U, U), U.shape[-2]))
     for ii in range(d - 1):
         L = LL[ii]
         devs.append(_dev(xnp.einsum('...iaj,...iak->...jk', L, L), L.shape[-1]))
@@ -229,8 +229,8 @@ def fv_frame_orthogonality_residual(
 
 def fv_frame_consistency_residual(
         frame: typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores
-            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # down_tucker_cores
+            typ.Sequence[NDArray],  # up_tt_cores
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
@@ -242,11 +242,11 @@ def fv_frame_consistency_residual(
     the non-stack axes, so the result has shape ``stack_shape``); a caller thresholds it (``<= rtol``) for a
     per-element boolean consistency test. EXPENSIVE -- densifies both reconstructions.
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     xnp, _, _ = get_backend(False, tree_contains_jax(frame))
-    d = len(up_tucker_cores)
-    left = t3_conversions.t3_to_dense((up_tucker_cores, left_tt_cores))
-    right = t3_conversions.t3_to_dense((up_tucker_cores, right_tt_cores))
+    d = len(down_tucker_cores)
+    left = t3_conversions.t3_to_dense((down_tucker_cores, left_tt_cores))
+    right = t3_conversions.t3_to_dense((down_tucker_cores, right_tt_cores))
     mode_axes = tuple(range(left.ndim - d, left.ndim))   # the d physical-mode axes; stack axes lead
     num = xnp.sqrt(xnp.sum((left - right) ** 2, axis=mode_axes))   # Frobenius over modes -> stack_shape
     den = xnp.sqrt(xnp.sum(right ** 2, axis=mode_axes))
@@ -287,16 +287,16 @@ def _haar_rows(
 
 def fv_zero_point_frame(
         frame: typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=(nUi, Ni)
-            typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=(rLi, nDi, rR(i+1))
-            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=(rLi, nUi, rL(i+1))
-            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=(rRi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # down_tucker_cores. len=d, elm_shape=(nDi, Ni)
+            typ.Sequence[NDArray],  # up_tt_cores.   len=d, elm_shape=(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=(rRi, nDi, rR(i+1))
         ],
         groups:  typ.Tuple[typ.Tuple[int, ...], ...] = (),  # sharing partition (canonical_groups); () = unshared
         seed:    int = ZERO_FRAME_SEED,                      # the Haar stream seed: a fixed convention
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # up:    seeded Haar rows, one draw per group.     len=d, elm_shape=(nUi, Ni)
-    typ.Tuple[NDArray, ...],  # down:  identity-prefix, orthonormal.             len=d, elm_shape=(rLi, nDi, rR(i+1))
+    typ.Tuple[NDArray, ...],  # up:    seeded Haar rows, one draw per group.     len=d, elm_shape=(nDi, Ni)
+    typ.Tuple[NDArray, ...],  # down:  identity-prefix, orthonormal.             len=d, elm_shape=(rLi, nUi, rR(i+1))
     typ.Tuple[NDArray, ...],  # left:  identity-prefix, left-orthogonal; L[d-1] = 0
     typ.Tuple[NDArray, ...],  # right: identity-prefix, right-orthogonal; R[0] = 0
 ]:
@@ -355,33 +355,33 @@ def fv_zero_point_frame(
     ...     x = t3.TuckerTensorTrain.zeros((5, 6, 7), tucker_ranks, tt_ranks)
     ...     return fvc.t3_orthogonal_representations(x.data)[0]
     >>> template = structure((2, 3, 2), (1, 2, 2, 1))
-    >>> up, down, left, right = fvo.fv_zero_point_frame(template)
-    >>> print([u.shape for u in up], [g.shape for g in left])
+    >>> down, up, left, right = fvo.fv_zero_point_frame(template)
+    >>> print([u.shape for u in down], [g.shape for g in left])
     [(2, 5), (3, 6), (2, 7)] [(1, 2, 2), (2, 3, 2), (2, 2, 1)]
-    >>> bool(fvo.fv_frame_orthogonality_residual((up, down, left, right)) < 1e-14)
+    >>> bool(fvo.fv_frame_orthogonality_residual((down, up, left, right)) < 1e-14)
     True
-    >>> print(float(np.abs(t3c.t3_to_dense((up, left))).max()))   # the base point is the zero tensor
+    >>> print(float(np.abs(t3c.t3_to_dense((down, left))).max()))   # the base point is the zero tensor
     0.0
 
     Nested across ranks, and independent of the other modes' ranks:
 
-    >>> up_more = fvo.fv_zero_point_frame(structure((3, 3, 2), (1, 3, 2, 1)))[0]
-    >>> bool(np.allclose(up_more[0][:2], up[0]))       # mode 0 at rank 3 extends mode 0 at rank 2
+    >>> down_more = fvo.fv_zero_point_frame(structure((3, 3, 2), (1, 3, 2, 1)))[0]
+    >>> bool(np.allclose(down_more[0][:2], down[0]))       # mode 0 at rank 3 extends mode 0 at rank 2
     True
-    >>> bool(np.array_equal(up_more[2], up[2]))        # mode 2 is untouched by mode 0's rank
+    >>> bool(np.array_equal(down_more[2], down[2]))        # mode 2 is untouched by mode 0's rank
     True
 
     With sharing, one factor per group:
 
     >>> template = fvc.t3_orthogonal_representations(
     ...     t3.TuckerTensorTrain.zeros((6, 6, 7), (3, 3, 2), (1, 3, 2, 1)).data)[0]
-    >>> up_shared = fvo.fv_zero_point_frame(template, groups=((0, 1), (2,)))[0]
-    >>> bool(np.array_equal(up_shared[0], up_shared[1]))
+    >>> down_shared = fvo.fv_zero_point_frame(template, groups=((0, 1), (2,)))[0]
+    >>> bool(np.array_equal(down_shared[0], down_shared[1]))
     True
     '''
-    up, down, left, right = frame
-    d = len(up)
-    stack = tuple(up[0].shape[:-2])
+    down, up, left, right = frame
+    d = len(down)
+    stack = tuple(down[0].shape[:-2])
     if stack:
         raise NotImplementedError(
             "fv_zero_point_frame: a STACKED template (stack C = %r) is not supported. The zero-point frame "
@@ -390,44 +390,44 @@ def fv_zero_point_frame(
 
     key = list(range(d))                                   # the stream key of each mode: its group's first mode
     for group in groups:
-        if len({tuple(up[i].shape) for i in group}) != 1:
+        if len({tuple(down[i].shape) for i in group}) != 1:
             raise ValueError("fv_zero_point_frame: sharing group %r has unequal Tucker-factor shapes %r; a "
                              "shared factor needs one (rank, size) per group"
-                             % (tuple(group), [tuple(up[i].shape) for i in group]))
+                             % (tuple(group), [tuple(down[i].shape) for i in group]))
         for i in group:
             key[i] = min(group)
 
     for i in range(d):                                     # structural: the shapes must admit an orthonormal frame
-        (nU, N), (rL, nD, rR) = up[i].shape, down[i].shape
-        admissible = (nU <= N and nD <= rL * rR
+        (nD, N), (rL, nU, rR) = down[i].shape, up[i].shape
+        admissible = (nD <= N and nU <= rL * rR
                       and (i == d - 1 or left[i].shape[2] <= left[i].shape[0] * left[i].shape[1])
                       and (i == 0 or right[i].shape[0] <= right[i].shape[1] * right[i].shape[2]))
         if not admissible:
             raise ValueError("fv_zero_point_frame: the template's core shapes at mode %d admit no orthonormal "
                              "frame (up %r, down %r, left %r, right %r)"
-                             % (i, up[i].shape, down[i].shape, left[i].shape, right[i].shape))
+                             % (i, down[i].shape, up[i].shape, left[i].shape, right[i].shape))
 
     xnp, _, _ = get_backend(False, tree_contains_jax(frame))
-    dtype = up[0].dtype
+    dtype = down[0].dtype
 
     drawn = {}                                             # one cast Haar factor per group, replicated
     for i in range(d):
         if key[i] not in drawn:
-            drawn[key[i]] = xnp.asarray(_haar_rows(up[i].shape[0], up[i].shape[1], key[i], seed), dtype=dtype)
-    up_out = tuple(drawn[key[i]] for i in range(d))
+            drawn[key[i]] = xnp.asarray(_haar_rows(down[i].shape[0], down[i].shape[1], key[i], seed), dtype=dtype)
+    down_out = tuple(drawn[key[i]] for i in range(d))
 
-    down_out, left_out, right_out = [], [], []
+    up_out, left_out, right_out = [], [], []
     for i in range(d):
-        rL, nD, rR = down[i].shape
-        D = np.moveaxis(_identity_prefix(nD, rL * rR).reshape(nD, rL, rR), 0, 1)   # orthonormal over nD
+        rL, nU, rR = up[i].shape
+        U = np.moveaxis(_identity_prefix(nU, rL * rR).reshape(nU, rL, rR), 0, 1)   # orthonormal over nU
         a, n, b = left[i].shape
         L = _identity_prefix(a * n, b).reshape(a, n, b) if i < d - 1 else np.zeros((a, n, b))
         a, n, b = right[i].shape
         R = _identity_prefix(a, n * b).reshape(a, n, b) if i > 0 else np.zeros((a, n, b))
-        down_out.append(xnp.asarray(D, dtype=dtype))
+        up_out.append(xnp.asarray(U, dtype=dtype))
         left_out.append(xnp.asarray(L, dtype=dtype))
         right_out.append(xnp.asarray(R, dtype=dtype))
-    return up_out, tuple(down_out), tuple(left_out), tuple(right_out)
+    return down_out, tuple(up_out), tuple(left_out), tuple(right_out)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -435,14 +435,14 @@ def fv_zero_point_frame(
 # --------------------------------------------------------------------------------------------------
 def fv_center_factors(
         frame:  typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
-            typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
-            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
-            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # down_tucker_cores. len=d, elm_shape=C+(nDi, Ni)
+            typ.Sequence[NDArray],  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
         ],
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],        # centers H_i = L_i T_i.  len=d,   elm_shape=C+(rLi, nUi, rR(i+1))
-    typ.Tuple[NDArray, ...],        # tucker factors S_i^T.   len=d,   elm_shape=C+(nDi, nUi)
+    typ.Tuple[NDArray, ...],        # centers H_i = L_i T_i.  len=d,   elm_shape=C+(rLi, nDi, rR(i+1))
+    typ.Tuple[NDArray, ...],        # tucker factors S_i^T.   len=d,   elm_shape=C+(nUi, nDi)
     typ.Tuple[NDArray, ...],        # bond factors T_i.       len=d-1, elm_shape=C+(rL(i+1), rR(i+1))
 ]:
     '''The small per-mode factors that an orthogonal frame's construction produces and discards.
@@ -456,7 +456,7 @@ def fv_center_factors(
     - the **centers** ``H_i = L_i T_i`` (at the last mode the zipper is the boundary ones matrix -- ``[[1]]``
       on the usual squashed frame -- so ``H_{d-1} = L_{d-1}``): the base point's core when the orthogonality
       center sits at mode ``i`` -- the construction's own TT variations of the point;
-    - the **Tucker factors** ``S_i^T = <O_i, H_i>`` (shape ``nDi x nUi``): the base point's Tucker variation
+    - the **Tucker factors** ``S_i^T = <O_i, H_i>`` (shape ``nUi x nDi``): the base point's Tucker variation
       is ``V_i = S_i^T U_i``, and the singular values of ``S_i`` are the mode-``i`` Tucker singular values of
       ``X``. In particular ``||X||^2 = sum(sigma(S_0)^2) = ||S_0^T||_F^2``.
 
@@ -496,13 +496,13 @@ def fv_center_factors(
     >>> print(np.allclose(s_bond, np.linalg.svd(X.reshape(30, 7), compute_uv=False)[:2]))
     True
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
-    d = len(up_tucker_cores)
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
+    d = len(down_tucker_cores)
 
     ZZ = tt_operations.tt_zipper_right_to_left(left_tt_cores, right_tt_cores)   # len=d+1, C+(rLi, rRi)
     centers = tuple(contractions.contract('Caib,Cbc->Caic', left_tt_cores[ii], ZZ[ii + 1])
                     for ii in range(d))
-    tucker_factors_T = tuple(contractions.contract('Caxb,Caub->Cxu', down_tt_cores[ii], centers[ii])
+    tucker_factors_T = tuple(contractions.contract('Caxb,Caub->Cxu', up_tt_cores[ii], centers[ii])
                              for ii in range(d))
     bond_factors = tuple(ZZ[ii + 1] for ii in range(d - 1))
     return centers, tucker_factors_T, bond_factors
@@ -532,9 +532,9 @@ class LiftFactors:
     :py:func:`~t3toolbox.backend.ufv_operations.ufv_tied_lift_factors` adds the frame's UNIFORM companion and its
     group filters, zeroed on the companion's padded ``s_g`` levels.
     '''
-    tucker_pinvs:  typ.Tuple[NDArray, ...]  # (S_i^T)^{+eps}. len=d,   elm_shape=C+(nUi, nDi)
+    tucker_pinvs:  typ.Tuple[NDArray, ...]  # (S_i^T)^{+eps}. len=d,   elm_shape=C+(nDi, nUi)
     bond_pinvs:    typ.Tuple[NDArray, ...]  # T_i^{+eps}.     len=d-1, elm_shape=C+(rR(i+1), rL(i+1))
-    tucker_svals:  typ.Tuple[NDArray, ...]  # sigma(S_i).     len=d,   elm_shape=C+(nDi,)
+    tucker_svals:  typ.Tuple[NDArray, ...]  # sigma(S_i).     len=d,   elm_shape=C+(nUi,)
     bond_svals:    typ.Tuple[NDArray, ...]  # sigma(T_i).     len=d-1, elm_shape=C+(rR(i+1),)
     eps:           NDArray                  # absolute damping used, shape=C
 
@@ -544,10 +544,10 @@ class LiftFactors:
 
 def fv_lift_factors(
         frame:              typ.Tuple[
-            typ.Sequence[NDArray],                  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
-            typ.Sequence[NDArray],                  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
-            typ.Sequence[NDArray],                  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
-            typ.Sequence[NDArray],                  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+            typ.Sequence[NDArray],                  # down_tucker_cores. len=d, elm_shape=C+(nDi, Ni)
+            typ.Sequence[NDArray],                  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],                  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],                  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
         ],
         curvature_damping:  typ.Union[float, NDArray],  # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
         rcond:              typ.Optional[float] = None, # relative clip (linalg.damped_pseudo_inverse)
@@ -573,7 +573,7 @@ def fv_lift_factors(
     sharing group to one factor direction.
 
     - **Exactness.** At ``eps = 0`` the lift is exact on every *numerically full-rank* frame from
-      ``t3_orthogonal_representations``, minimal or not: a Tucker-slack ``S_i^T`` is wide (``nDi < nUi``) and a
+      ``t3_orthogonal_representations``, minimal or not: a Tucker-slack ``S_i^T`` is wide (``nUi < nDi``) and a
       TT-slack ``T_i`` is tall (``rR < rL``), and on both the pseudo-inverse is an exact one-sided inverse. At a
       rank-deficient point (a zero-padded restart) the clipped directions drop out: the lift then satisfies
       ``DPhi[L v] = E(Q v)`` with ``Q`` the projection off the clipped directions, not ``DPhi[L v] = E v``.
@@ -633,12 +633,12 @@ def fv_absorb_weights(
         weights:    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
                               typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right), each len=d
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # weighted tucker_variations, elm_shape=stack+(nDi, Ni)
-    typ.Tuple[NDArray, ...],  # weighted tt_variations,     elm_shape=stack+(rLi, nUi, rRi)
+    typ.Tuple[NDArray, ...],  # weighted tucker_variations, elm_shape=stack+(nUi, Ni)
+    typ.Tuple[NDArray, ...],  # weighted tt_variations,     elm_shape=stack+(rLi, nDi, rRi)
 ]:
     """Absorb the four-family metric weights into the VARIATION cores (the tangent metric on coordinates,
-    Approach-1 / metric-on-variations): ``down`` -> V's ``nD`` leg; ``up``/``left``/``right`` -> H's
-    ``nU``/``rL``/``rR`` legs. The frame is left orthonormal and untouched. ``corewise_stack_norm`` of the
+    Approach-1 / metric-on-variations): ``down`` -> V's ``nU`` leg; ``up``/``left``/``right`` -> H's
+    ``nD``/``rL``/``rR`` legs. The frame is left orthonormal and untouched. ``corewise_stack_norm`` of the
     result is the weighted (Grasedyck-Kramer) tangent norm. All families are len=d (one per variation core).
 
     **The weight is frame-like (stack ``C``) while the variations carry ``K + C``, and the broadcast is
@@ -649,10 +649,10 @@ def fv_absorb_weights(
     (``docs/contributor/weighted_internals.md``)."""
     xnp, _, _ = get_backend(False, tree_contains_jax((variations, weights)))
     V_cores, H_cores = variations
-    up, down, left, right = weights
-    wV = tuple(xnp.einsum('...i,...io->...io', dn, V) for dn, V in zip(down, V_cores))
+    down, up, left, right = weights
+    wV = tuple(xnp.einsum('...i,...io->...io', dn, V) for dn, V in zip(up, V_cores))
     wH = tuple(xnp.einsum('...aib,...a,...i,...b->...aib', H, lf, u, rt)
-               for H, lf, u, rt in zip(H_cores, left, up, right))
+               for H, lf, u, rt in zip(H_cores, left, down, right))
     return wV, wH
 
 
@@ -663,7 +663,7 @@ def fv_weights_consistent(
 ) -> bool:                                                                     # True iff shape-consistent
     """True iff the four weight families (each len=d) can be absorbed into ``variations`` (non-raising).
 
-    Ranks: up<->H.nU (axis -2), down<->V.nD (axis -2), left<->H.rL (axis -3), right<->H.rR (axis -1).
+    Ranks: up<->H.nD (axis -2), down<->V.nU (axis -2), left<->H.rL (axis -3), right<->H.rR (axis -1).
 
     Stacks -- the **trailing rule**: a weight is **frame-like**, carrying the frame stack ``C``, while the
     variations carry ``K + C`` (a ``K``-batch of tangents at one frame shares the one metric). So the
@@ -678,17 +678,17 @@ def fv_weights_consistent(
     and is checked by ``frame_variations_format.check_fw_pair`` at the tangent level.
     """
     V_cores, H_cores = variations
-    up, down, left, right = weights
+    down, up, left, right = weights
     d = len(V_cores)
-    if not (len(up) == len(down) == len(left) == len(right) == d):
+    if not (len(down) == len(up) == len(left) == len(right) == d):
         return False
     var_stack = V_cores[0].shape[:-2]     # K + C
-    stack = up[0].shape[:-1]              # C -- the weight is frame-like (all four families share it)
+    stack = down[0].shape[:-1]              # C -- the weight is frame-like (all four families share it)
     if var_stack[len(var_stack) - len(stack):] != stack:  # C must be the trailing part of K + C
         return False
     for i in range(d):
-        if up[i].shape != stack + (H_cores[i].shape[-2],):    return False
-        if down[i].shape != stack + (V_cores[i].shape[-2],):  return False
+        if down[i].shape != stack + (H_cores[i].shape[-2],):    return False
+        if up[i].shape != stack + (V_cores[i].shape[-2],):  return False
         if left[i].shape != stack + (H_cores[i].shape[-3],):  return False
         if right[i].shape != stack + (H_cores[i].shape[-1],): return False
     return True
@@ -716,8 +716,8 @@ def fv_kronecker_weights(weights_A, weights_B):  # each (up, down, left, right) 
 def t3weights_to_t3frameweights(
         t3_weights: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # up_weights    = tucker_weights
-    typ.Tuple[NDArray, ...],  # down_weights  = tucker_weights
+    typ.Tuple[NDArray, ...],  # down_weights    = tucker_weights
+    typ.Tuple[NDArray, ...],  # up_weights  = tucker_weights
     typ.Tuple[NDArray, ...],  # left_weights  = tt_weights[:-1]
     typ.Tuple[NDArray, ...],  # right_weights = tt_weights[1:]
 ]:
@@ -726,14 +726,14 @@ def t3weights_to_t3frameweights(
     ``up = down = tucker_weights``; ``left = tt_weights[:-1]``, ``right = tt_weights[1:]``. The TT slicing
     encodes the convention that ``H_i``'s left bond is TT bond ``i`` and its right bond is bond ``i+1`` --
     non-obvious, hence a named function. The result is a valid ``T3FrameWeights``; it pairs with a
-    **minimal-rank** tangent (where the down/complement rank ``nD`` equals the Tucker rank ``nU``, e.g. from
-    ``t3svd``). A non-minimal tangent has ``nD < nU`` and would mismatch the down family at use."""
+    **minimal-rank** tangent (where the down/complement rank ``nU`` equals the Tucker rank ``nD``, e.g. from
+    ``t3svd``). A non-minimal tangent has ``nU < nD`` and would mismatch the down family at use."""
     tucker_weights, tt_weights = t3_weights
-    up = tuple(tucker_weights)
     down = tuple(tucker_weights)
+    up = tuple(tucker_weights)
     left = tuple(tt_weights[:-1])
     right = tuple(tt_weights[1:])
-    return up, down, left, right
+    return down, up, left, right
 
 
 def fv_weighted_norm(

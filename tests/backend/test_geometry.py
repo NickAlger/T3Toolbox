@@ -9,7 +9,7 @@ What is tested HERE is the property the value-typed design exists for, and which
     every uniform and every shared geometry, which meant a recompile at each rank-continuation level and
     each rebuilt model. Granularity matters in both directions: same rank must hit, different rank must
     miss (the shapes differ, so a shared compiled program would be wrong).
-  * the **variation supercore shapes** of the uniform base-point tangent when ``nD != nU`` -- the case a
+  * the **variation supercore shapes** of the uniform base-point tangent when ``nU != nD`` -- the case a
     shortcut derivation gets wrong (see :py:func:`~t3toolbox.backend.geometry.ufv_base_point_tangent`).
 
 numpy-only (jit dispatch is covered in test_dispatch)."""
@@ -223,7 +223,7 @@ class TestBasePointTangent(unittest.TestCase):
         ``ut3_orthogonal_representations`` does -- including when the down rank differs from the up rank,
         where reading the shapes off the ``up`` supercore silently gives the wrong answer."""
         cases = [(SHAPE, TUCKER, TT, None),
-                 ((6, 6, 6), (1, 1, 1), (1, 1, 1, 1), (0, 0, 0)),   # nD=1, nU=3 -- the regression case
+                 ((6, 6, 6), (1, 1, 1), (1, 1, 1, 1), (0, 0, 0)),   # nU=1, nD=3 -- the regression case
                  ((6, 6, 6), (3, 2, 1), (1, 3, 2, 1), None),
                  ((5, 6, 7, 4), (2, 2, 3, 2), (1, 2, 3, 2, 1), None),
                  ((7, 7, 7, 7), (4, 2, 3, 1), (1, 4, 2, 3, 1), (0, 0, 1, 2))]

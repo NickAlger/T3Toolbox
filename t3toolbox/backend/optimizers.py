@@ -804,7 +804,7 @@ def padded_start(
     >>> setup = topt.least_squares_problem(t3m.MANIFOLD, 'probe', ww, data, x0)
     >>> frame, movements = bopt.padded_start(setup.problem, setup.x0_cores, x_old.data)
     >>> F = bvf.T3Frame(*frame)                                          # rewrap
-    >>> F.up_ranks, len(movements) <= 10
+    >>> F.down_ranks, len(movements) <= 10
     ((3, 4, 3), True)
 
     Newton can start from it (``newton_cg(start_frame=...)``; ``padded_from=x_old.data`` does both steps):

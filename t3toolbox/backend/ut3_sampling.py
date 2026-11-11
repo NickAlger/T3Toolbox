@@ -333,11 +333,11 @@ def ut3_probe_corewise_derivatives_hessian(
     >>> ud = ut3.UniformTuckerTensorTrain.from_t3(direction, N=6, n=4, r=4).data
     >>> pad = [1.0 - m for m in ut3m.ut3_apply_masks((np.ones_like(ud[0]), np.ones_like(ud[1]), ud[2], ud[3]))]
     >>> dirty = (ud[0] + 1e3 * pad[0], ud[1] + 1e3 * pad[1])               # garbage in the direction's padding
-    >>> KU, KG = ut3s.ut3_probe_corewise_derivatives_hessian(zt, ww, pp, u, dirty, order)
+    >>> KB, KG = ut3s.ut3_probe_corewise_derivatives_hessian(zt, ww, pp, u, dirty, order)
     >>> ref = sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta.data, direction.data, order)
     >>> all(np.allclose(KG[i][:G.shape[0], :G.shape[1], :G.shape[2]], G) for i, G in enumerate(ref[1]))
     True
-    >>> float(np.abs(KG * pad[1]).max()), float(np.abs(KU * pad[0]).max())   # the padding: exactly zero
+    >>> float(np.abs(KG * pad[1]).max()), float(np.abs(KB * pad[0]).max())   # the padding: exactly zero
     (0.0, 0.0)
     >>> import t3toolbox.backend.ut3_operations as ut3o
     >>> pk = lambda v: ut3o.pack_if_ragged(v, 6)
@@ -436,11 +436,11 @@ def ut3_probe_corewise_hessian(
     >>> ud = ut3.UniformTuckerTensorTrain.from_t3(direction, N=6, n=4, r=4).data
     >>> pad = [1.0 - m for m in ut3m.ut3_apply_masks((np.ones_like(ud[0]), np.ones_like(ud[1]), ud[2], ud[3]))]
     >>> dirty = (ud[0] + 1e3 * pad[0], ud[1] + 1e3 * pad[1])               # garbage in the direction's padding
-    >>> KU, KG = ut3s.ut3_probe_corewise_hessian(zt, ww, u, dirty)
+    >>> KB, KG = ut3s.ut3_probe_corewise_hessian(zt, ww, u, dirty)
     >>> ref = t3p.t3_probe_corewise_hessian(zt, ww, theta.data, direction.data)
     >>> all(np.allclose(KG[i][:G.shape[0], :G.shape[1], :G.shape[2]], G) for i, G in enumerate(ref[1]))
     True
-    >>> float(np.abs(KG * pad[1]).max()), float(np.abs(KU * pad[0]).max())   # the padding: exactly zero
+    >>> float(np.abs(KG * pad[1]).max()), float(np.abs(KB * pad[0]).max())   # the padding: exactly zero
     (0.0, 0.0)
     """
     masked, directions = _masked_point_and_directions(data, core_directions)
@@ -572,11 +572,11 @@ def ut3_apply_corewise_derivatives_hessian(
     >>> ud = ut3.UniformTuckerTensorTrain.from_t3(direction, N=6, n=4, r=4).data
     >>> pad = [1.0 - m for m in ut3m.ut3_apply_masks((np.ones_like(ud[0]), np.ones_like(ud[1]), ud[2], ud[3]))]
     >>> dirty = (ud[0] + 1e3 * pad[0], ud[1] + 1e3 * pad[1])               # garbage in the direction's padding
-    >>> KU, KG = ut3s.ut3_apply_corewise_derivatives_hessian(c, ww, pp, u, dirty, order)
+    >>> KB, KG = ut3s.ut3_apply_corewise_derivatives_hessian(c, ww, pp, u, dirty, order)
     >>> ref = sd.t3_apply_corewise_derivatives_hessian(c, ww, pp, theta.data, direction.data, order)
     >>> all(np.allclose(KG[i][:G.shape[0], :G.shape[1], :G.shape[2]], G) for i, G in enumerate(ref[1]))
     True
-    >>> float(np.abs(KG * pad[1]).max()), float(np.abs(KU * pad[0]).max())   # the padding: exactly zero
+    >>> float(np.abs(KG * pad[1]).max()), float(np.abs(KB * pad[0]).max())   # the padding: exactly zero
     (0.0, 0.0)
     """
     masked, directions = _masked_point_and_directions(data, core_directions)

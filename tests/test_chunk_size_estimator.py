@@ -271,9 +271,9 @@ class TestFittingChunkSizeWiring(unittest.TestCase):
         self.assertEqual([c.kwargs['hessian'] for c in spy.call_args_list], ['exact', 'gauss_newton'])
         with self.assertRaisesRegex(ValueError, "hessian must be 'gauss_newton' or 'exact'"):
             opt._resolve_chunk_size('auto', 'probe_derivatives', xu, big, 2, hessian='newton')
-        d, nU, r = 3, int(xu.tucker_supercore.shape[-2]), int(xu.tt_supercore.shape[-1])
+        d, n, r = 3, int(xu.tucker_supercore.shape[-2]), int(xu.tt_supercore.shape[-1])
         for mode, got in (('exact', exact), ('gauss_newton', gn)):
-            self.assertEqual(got, pd.estimate_chunk_size(self.STRUCT[0], (nU,) * d, (r,) * (d + 1), 2, 40000,
+            self.assertEqual(got, pd.estimate_chunk_size(self.STRUCT[0], (n,) * d, (r,) * (d + 1), 2, 40000,
                                                          dtype=xu.tucker_supercore.dtype, hessian=mode))
         self.assertIsNone(opt._resolve_chunk_size('auto', 'probe_derivatives', xr, big, 2, hessian='exact'))  # ragged
         # S12: the other kinds' exact programs (the apply / entries (derivative) two-holes) are unchunked, as their GN

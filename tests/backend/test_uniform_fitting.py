@@ -348,20 +348,20 @@ def _corrupt(obj, scale):
 def _expected_gauge_indicator(rframes, uframe, K):
     """Real-slot indicators of a kind-transpose output ``(dU, dG)``, stack ``K+C``, derived from the RAGGED
     frame(s)' core shapes (one per ``C`` element, or one shared by all) -- never from a uniform mask, so the
-    check is not circular. A variation of core i spans ``(rL_i, nU_i, rR_(i+1))`` (the gauge shift)."""
+    check is not circular. A variation of core i spans ``(rL_i, nD_i, rR_(i+1))`` (the gauge shift)."""
     C, d = tuple(uframe.stack_shape), len(uframe.shape)
     def fam(ranks_of, size):   # (d,)+K+C+(size,)
         R = np.asarray([ranks_of(f) for f in rframes]).T
         R = np.broadcast_to(R.reshape((d,) + (C if R.shape[1] > 1 else (1,) * len(C))), (d,) + C)
         m = _prefix(R, size)
         return np.broadcast_to(m.reshape((d,) + (1,) * len(K) + m.shape[1:]), (d,) + tuple(K) + m.shape[1:])
-    up = fam(lambda f: [U.shape[-2] for U in f.up_tucker_cores], uframe.nU)
-    down = fam(lambda f: [O.shape[-2] for O in f.down_tt_cores], uframe.nD)
-    left = fam(lambda f: [P.shape[-3] for P in f.left_tt_cores], uframe.rL)
-    right = fam(lambda f: [Q.shape[-1] for Q in f.right_tt_cores], uframe.rR)
+    down = fam(lambda f: [D.shape[-2] for D in f.down_tucker_cores], uframe.nD)
+    up = fam(lambda f: [U.shape[-2] for U in f.up_tt_cores], uframe.nU)
+    left = fam(lambda f: [L.shape[-3] for L in f.left_tt_cores], uframe.rL)
+    right = fam(lambda f: [R.shape[-1] for R in f.right_tt_cores], uframe.rR)
     sm = _prefix(np.asarray(uframe.shape), uframe.N).reshape((d,) + (1,) * (len(K) + len(C)) + (1, uframe.N))
-    return (down[..., :, None] & sm,
-            left[..., :, None, None] & up[..., None, :, None] & right[..., None, None, :])
+    return (up[..., :, None] & sm,
+            left[..., :, None, None] & down[..., None, :, None] & right[..., None, None, :])
 
 
 class TestKindTransposeOutputHygiene(unittest.TestCase):

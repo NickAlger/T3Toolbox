@@ -3867,8 +3867,8 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1))
         >>> ww = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
-        >>> gU, gG = x.apply_corewise_transpose(np.asarray(2.0), ww, sum_over_probes=True)
-        >>> print([g.shape for g in gU] == [u.shape for u in x.tucker_cores])   # matches Tucker cores
+        >>> gB, gG = x.apply_corewise_transpose(np.asarray(2.0), ww, sum_over_probes=True)
+        >>> print([g.shape for g in gB] == [b.shape for b in x.tucker_cores])   # matches Tucker cores
         True
         >>> print([g.shape for g in gG] == [g.shape for g in x.tt_cores])       # matches TT cores
         True
@@ -4069,8 +4069,8 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> ww = (np.random.randn(14), np.random.randn(15), np.random.randn(16))
         >>> pp = (np.random.randn(14), np.random.randn(15), np.random.randn(16))
         >>> c = np.random.randn(4)                 # residual jet, order 0..3
-        >>> gU, gG = x.apply_corewise_derivatives_transpose(c, ww, pp, 3, sum_over_probes=True)
-        >>> print([g.shape for g in gU] == [u.shape for u in x.tucker_cores])   # matches the cores
+        >>> gB, gG = x.apply_corewise_derivatives_transpose(c, ww, pp, 3, sum_over_probes=True)
+        >>> print([g.shape for g in gB] == [b.shape for b in x.tucker_cores])   # matches the cores
         True
         >>> print([g.shape for g in gG] == [g.shape for g in x.tt_cores])
         True

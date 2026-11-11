@@ -436,16 +436,16 @@ def _gauge_masks_over_Knew(
 
 def _remasked_transpose_output(
         frame_data,   # UT3Frame .data
-        dU_tilde,     # bare transpose-output tucker variation supercore, (d,)+K_new+C+(nD, N)
-        dG_tilde,     # bare transpose-output tt variation supercore,     (d,)+K_new+C+(rL, nU, rR)
+        V_tilde,     # bare transpose-output tucker variation supercore, (d,)+K_new+C+(nU, N)
+        H_tilde,     # bare transpose-output tt variation supercore,     (d,)+K_new+C+(rL, nD, rR)
 ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks), padding exactly zero
     """Attach the result tangent's variation masks (:py:func:`_gauge_masks_over_Knew`) AND re-mask the
     supercores with them, so the padded slots come back as exact zeros rather than the raw sweep's garbage
     (the boundary-bond squash, for one, broadcasts into the padded boundary slots). One multiply by a host
     mask: the real block is unchanged bit for bit, and under jit the masks are folded constants."""
-    masks = _gauge_masks_over_Knew(frame_data, dU_tilde)
-    dU_tilde, dG_tilde = ufv_masking.ufv_apply_variations_masks((dU_tilde, dG_tilde, frame_data[4], masks))
-    return (dU_tilde, dG_tilde, frame_data[4], masks)
+    masks = _gauge_masks_over_Knew(frame_data, V_tilde)
+    V_tilde, H_tilde = ufv_masking.ufv_apply_variations_masks((V_tilde, H_tilde, frame_data[4], masks))
+    return (V_tilde, H_tilde, frame_data[4], masks)
 
 
 def utv_probe_transpose(
@@ -465,9 +465,9 @@ def utv_probe_transpose(
     N = mb[0].shape[-1]
     packed_z = ut3_operations.pack_if_ragged(ztildes, N)
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
-    dU_tilde, dG_tilde = probing.tv_probe_transpose(
+    V_tilde, H_tilde = probing.tv_probe_transpose(
         packed_z, packed_ww, mb, sum_over_probes=sum_over_probes)
-    return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
+    return _remasked_transpose_output(frame_data, V_tilde, H_tilde)
 
 
 def utv_apply_transpose(
@@ -481,9 +481,9 @@ def utv_apply_transpose(
     over the new tangent stack ``K_new`` and re-mask the output with them (clean padding)."""
     mb = ufv_masking.ufv_apply_frame_masks(frame_data)
     packed_ww = ut3_operations.pack_if_ragged(ww, mb[0].shape[-1])
-    dU_tilde, dG_tilde = apply.tv_apply_transpose(
+    V_tilde, H_tilde = apply.tv_apply_transpose(
         c, packed_ww, mb, sum_over_probes=sum_over_probes)
-    return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
+    return _remasked_transpose_output(frame_data, V_tilde, H_tilde)
 
 
 def utv_entries_transpose(
@@ -496,9 +496,9 @@ def utv_entries_transpose(
     :py:func:`utv_apply_transpose` with the apply vectors replaced by the one-hot ``e_index`` (built
     packed inside ``entries._onehot_vectors``), so ``index`` needs no packing. Re-masked output."""
     mb = ufv_masking.ufv_apply_frame_masks(frame_data)
-    dU_tilde, dG_tilde = entries.tv_entries_transpose(
+    V_tilde, H_tilde = entries.tv_entries_transpose(
         c, index, mb, sum_over_probes=sum_over_probes)
-    return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
+    return _remasked_transpose_output(frame_data, V_tilde, H_tilde)
 
 
 # ----------------------------------------------------------------- the transpose 𝒥ᵀ derivatives (jets)
@@ -526,9 +526,9 @@ def utv_probe_derivatives_transpose(
     packed_z = ut3_operations.pack_if_ragged(ztildes, N)
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
-    dU_tilde, dG_tilde = sampling_derivatives.tv_probe_derivatives_transpose(
+    V_tilde, H_tilde = sampling_derivatives.tv_probe_derivatives_transpose(
         packed_z, packed_ww, packed_pp, mb, order, sum_over_probes=sum_over_probes, chunk_size=chunk_size)
-    return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
+    return _remasked_transpose_output(frame_data, V_tilde, H_tilde)
 
 
 def utv_apply_derivatives_transpose(
@@ -545,9 +545,9 @@ def utv_apply_derivatives_transpose(
     N = mb[0].shape[-1]
     packed_ww = ut3_operations.pack_if_ragged(ww, N)
     packed_pp = ut3_operations.pack_if_ragged(pp, N)
-    dU_tilde, dG_tilde = sampling_derivatives.tv_apply_derivatives_transpose(
+    V_tilde, H_tilde = sampling_derivatives.tv_apply_derivatives_transpose(
         c, packed_ww, packed_pp, mb, order, sum_over_probes=sum_over_probes)
-    return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
+    return _remasked_transpose_output(frame_data, V_tilde, H_tilde)
 
 
 def utv_entries_derivatives_transpose(
@@ -562,6 +562,6 @@ def utv_entries_derivatives_transpose(
     ``index`` unpacked -- the one-hots are built packed inside ``entries._onehot_vectors``). Re-masked output."""
     mb = ufv_masking.ufv_apply_frame_masks(frame_data)
     packed_pp = ut3_operations.pack_if_ragged(pp, mb[0].shape[-1])
-    dU_tilde, dG_tilde = sampling_derivatives.tv_entries_derivatives_transpose(
+    V_tilde, H_tilde = sampling_derivatives.tv_entries_derivatives_transpose(
         c, index, packed_pp, mb, order, sum_over_probes=sum_over_probes)
-    return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
+    return _remasked_transpose_output(frame_data, V_tilde, H_tilde)

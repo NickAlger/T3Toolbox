@@ -95,18 +95,18 @@ def _unit_point(struct):
 
 
 def _frame_dims(rframes):
-    """Forced padded sizes for a list of ragged frames: (N, nU, nD, rL, rR), each one more than the max."""
-    U = [u for f in rframes for u in f[0]]
-    O = [o for f in rframes for o in f[1]]
+    """Forced padded sizes for a list of ragged frames: (N, nD, nU, rL, rR), each one more than the max."""
+    D = [u for f in rframes for u in f[0]]
+    U = [o for f in rframes for o in f[1]]
     L = [g for f in rframes for g in f[2]]
     R = [g for f in rframes for g in f[3]]
-    return (max(u.shape[-1] for u in U) + 1, max(u.shape[-2] for u in U) + 1, max(o.shape[-2] for o in O) + 1,
+    return (max(u.shape[-1] for u in D) + 1, max(u.shape[-2] for u in D) + 1, max(o.shape[-2] for o in U) + 1,
             max(max(g.shape[-3], g.shape[-1]) for g in L) + 1, max(max(g.shape[-3], g.shape[-1]) for g in R) + 1)
 
 
 def _pack_frames(rframes, dims):
-    N, nU, nD, rL, rR = dims
-    packed = [ufc.t3frame_to_ut3frame(f, N=N, nU=nU, nD=nD, rL=rL, rR=rR) for f in rframes]
+    N, nD, nU, rL, rR = dims
+    packed = [ufc.t3frame_to_ut3frame(f, N=N, nD=nD, nU=nU, rL=rL, rR=rR) for f in rframes]
     return packed[0] if len(packed) == 1 else ufo.ufv_stack(tuple(packed), 4)
 
 
@@ -134,12 +134,12 @@ def _ragged_slices(sc, K, n_elements, shapes_of):
 
 
 def _theta_shapes(rframe):
-    """The real shapes of a raw direction at the base point (U, P): Udot (nU, N), Gdot (rL, nU, rL)."""
+    """The real shapes of a raw direction at the base point (U, P): Udot (nD, N), Gdot (rL, nD, rL)."""
     return [u.shape[-2:] for u in rframe[0]], [g.shape[-3:] for g in rframe[2]]
 
 
 def _var_shapes(rframe):
-    """The real shapes of frame coordinates: V (nD, N), H (rL, nU, rR)."""
+    """The real shapes of frame coordinates: V (nU, N), H (rL, nD, rR)."""
     return fvo.fv_variation_shapes(rframe)
 
 
@@ -245,9 +245,9 @@ def _random_variation_sc(uframe, K, rng):
 
 
 def _random_theta_sc(uframe, K, rng):
-    """Dense random raw directions shaped like the base point (U, P): (d,)+K+C+(nU, N) / (rL, nU, rL)."""
-    U, L = uframe[0], uframe[2]
-    return (rng.standard_normal(U.shape[:1] + tuple(K) + U.shape[1:]),
+    """Dense random raw directions shaped like the base point (U, P): (d,)+K+C+(nD, N) / (rL, nD, rL)."""
+    D, L = uframe[0], uframe[2]
+    return (rng.standard_normal(D.shape[:1] + tuple(K) + D.shape[1:]),
             rng.standard_normal(L.shape[:1] + tuple(K) + L.shape[1:]))
 
 
@@ -311,7 +311,7 @@ class TestUniformLiftFactors(unittest.TestCase):
         x = x1 * (1.0 / float(np.linalg.norm(x1.to_dense()))) + x2 * (1e-15 / float(np.linalg.norm(x2.to_dense())))
         frame = fvc.t3_orthogonal_representations(x.data)[0]
         lf = fvo.fv_lift_factors(frame, 0.0)
-        ulf = ufo.ufv_lift_factors(ufc.t3frame_to_ut3frame(frame, N=8, nU=8, nD=8, rL=8, rR=8), 0.0)
+        ulf = ufo.ufv_lift_factors(ufc.t3frame_to_ut3frame(frame, N=8, nD=8, nU=8, rL=8, rR=8), 0.0)
         for ragged, uniform in ((lf.tucker_pinvs, ulf.tucker_pinvs), (lf.bond_pinvs, ulf.bond_pinvs[:-1])):
             for P, U in zip(ragged, uniform):
                 self.assertGreater(np.linalg.norm(P), 1e14)                     # kept by the ragged clip
@@ -517,7 +517,7 @@ def _tt_slack_uniform(seed):
     ux = ut3.UniformTuckerTensorTrain.from_t3(x)
     rframe = fvc.t3_orthogonal_representations(x.data)[0]
     n, r = ux.data[0].shape[-2], ux.data[1].shape[-1]
-    return x, ux, rframe, ufc.t3frame_to_ut3frame(rframe, N=ux.N, nU=n, nD=n, rL=r, rR=r)
+    return x, ux, rframe, ufc.t3frame_to_ut3frame(rframe, N=ux.N, nD=n, nU=n, rL=r, rR=r)
 
 
 class TestUniformKindCorewiseHessian(unittest.TestCase):
@@ -537,7 +537,7 @@ class TestUniformKindCorewiseHessian(unittest.TestCase):
     def test_masks_from_the_frame_at_tt_slack(self):
         rng = np.random.default_rng(15)
         x, ux, rframe, frame = _tt_slack_uniform(16)
-        point_up, point_left = ux.data[3]
+        point_down, point_left = ux.data[3]
         self.assertTrue(np.all(frame[5][2] <= point_left) and not np.array_equal(frame[5][2], point_left))   # F23
         order, W = 1, 8
         shape = x.shape
@@ -706,7 +706,7 @@ class TestUniformPlainKindCorewiseHessian(unittest.TestCase):
     def test_masks_from_the_frame_at_tt_slack(self):
         rng = np.random.default_rng(95)
         x, ux, rframe, frame = _tt_slack_uniform(96)
-        point_up, point_left = ux.data[3]
+        point_down, point_left = ux.data[3]
         self.assertTrue(np.all(frame[5][2] <= point_left) and not np.array_equal(frame[5][2], point_left))   # F23
         shape, W = x.shape, 8
         base = (frame[0], frame[2])
@@ -869,7 +869,7 @@ class TestUniformDerivativeKindCorewiseHessian(unittest.TestCase):
     def test_masks_from_the_frame_at_tt_slack(self):
         rng = np.random.default_rng(115)
         x, ux, rframe, frame = _tt_slack_uniform(116)
-        point_up, point_left = ux.data[3]
+        point_down, point_left = ux.data[3]
         self.assertTrue(np.all(frame[5][2] <= point_left) and not np.array_equal(frame[5][2], point_left))   # F23
         shape, W, order = x.shape, 8, self._ORDER
         base = (frame[0], frame[2])
@@ -1582,10 +1582,10 @@ def _ragged_tied_factors(rframes, groups, cd):
     return [sharing.fv_tied_lift_factors(f, cd, sharing.fv_shared_frame_data(f, groups)) for f in rframes]
 
 
-def _dirty_companion(sfd, rframes, nD_pad, seed=0, scale=1e3):
+def _dirty_companion(sfd, rframes, nU_pad, seed=0, scale=1e3):
     """The uniform companion with finite garbage in every PADDED slot: ``U_M``'s padded rows (beyond each group
-    mode's real ``nD``) and padded-level columns, ``s_g``'s padded levels (positive, far above any clip), ``Vt_M``'s
-    padded-level rows and padded ``nU`` columns -- the real extents read off the RAGGED frames' shapes."""
+    mode's real ``nU``) and padded-level columns, ``s_g``'s padded levels (positive, far above any clip), ``Vt_M``'s
+    padded-level rows and padded ``nD`` columns -- the real extents read off the RAGGED frames' shapes."""
     rng = np.random.default_rng(seed)
     n = len(rframes)
     out = ([], [], [])
@@ -1595,10 +1595,10 @@ def _dirty_companion(sfd, rframes, nD_pad, seed=0, scale=1e3):
         levels = np.zeros((n, s.shape[-1]), bool)
         cols = np.zeros((n, Vt.shape[-1]), bool)
         for c, f in enumerate(rframes):
-            nDs = [f[1][ii].shape[-2] for ii in group]
-            for jj, nd in enumerate(nDs):
-                rows[c, jj * nD_pad: jj * nD_pad + nd] = True
-            levels[c, :min(sum(nDs), f[0][group[0]].shape[-2])] = True
+            nUs = [f[1][ii].shape[-2] for ii in group]
+            for jj, nd in enumerate(nUs):
+                rows[c, jj * nU_pad: jj * nU_pad + nd] = True
+            levels[c, :min(sum(nUs), f[0][group[0]].shape[-2])] = True
             cols[c, :f[0][group[0]].shape[-2]] = True
         if n == 1:
             rows, levels, cols = rows[0], levels[0], cols[0]
@@ -1762,7 +1762,7 @@ class TestUniformSharedTiedLift(unittest.TestCase):
 
     def test_the_group_clip_is_at_the_real_dimensions(self):
         """The clip decision on the group spectrum: a tied point whose group has a second level at ~1.8e-15 of the
-        first -- above the ragged clip ``eps * max(sum_i nD_i, n_g)`` (4 eps, real dims) and below a clip at the
+        first -- above the ragged clip ``eps * max(sum_i nU_i, n_g)`` (4 eps, real dims) and below a clip at the
         padded dimensions (16 eps, padding forced to 8) -- keeps that level on both layers: the undamped filter is
         ~4e14 there, ragged and uniform alike (a clip at the padded dimensions would drop it to 0)."""
         np.random.seed(0)
@@ -1777,7 +1777,7 @@ class TestUniformSharedTiedLift(unittest.TestCase):
         ratio = float(sfd.svd_s[0][1] / sfd.svd_s[0][0])
         self.assertTrue(4 * eps < ratio < 16 * eps, ratio)                      # between the two clips
         f = sharing.fv_tied_lift_factors(frame, 0.0, sfd).tied_filters[0]
-        uframe = ufc.t3frame_to_ut3frame(frame, N=8, nU=8, nD=8, rL=8, rR=8)
+        uframe = ufc.t3frame_to_ut3frame(frame, N=8, nD=8, nU=8, rL=8, rR=8)
         uf_ = np.asarray(ufo.ufv_tied_lift_factors(uframe, 0.0, sharing.ufv_shared_frame_data(uframe, groups))
                          .tied_filters[0])
         self.assertGreater(float(f[1]), 1e14)                                   # kept by the ragged clip
@@ -1923,7 +1923,7 @@ class TestUniformSharedExactModel(unittest.TestCase):
         ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         rframe = fvc.t3_orthogonal_representations(x.data)[0]
         nn, rr = ux.data[0].shape[-2], ux.data[1].shape[-1]
-        frame = ufc.t3frame_to_ut3frame(rframe, N=ux.N, nU=nn, nD=nn, rL=rr, rR=rr)
+        frame = ufc.t3frame_to_ut3frame(rframe, N=ux.N, nD=nn, nU=nn, rL=rr, rR=rr)
         shape, order, W = x.shape, 1, 6
         ww = [rng.standard_normal((W, N)) for N in shape]
         pp = [rng.standard_normal((W, N)) for N in shape]

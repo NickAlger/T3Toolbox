@@ -38,8 +38,8 @@ def _random_tangent(t3_structure, stack_shape=()):
 def _slice_frame(frame, idx):
     """The unstacked T3Frame at stack index ``idx`` (idx=() returns the whole frame)."""
     s = lambda C: np.asarray(C)[idx]
-    up, down, left, right = frame.data
-    return bvf.T3Frame(tuple(map(s, up)), tuple(map(s, down)), tuple(map(s, left)), tuple(map(s, right)))
+    down, up, left, right = frame.data
+    return bvf.T3Frame(tuple(map(s, down)), tuple(map(s, up)), tuple(map(s, left)), tuple(map(s, right)))
 
 
 def _slice_t3(x, idx):
@@ -74,7 +74,7 @@ def _dense_tangent_projector(frame):
     Built from the dense embeddings of many gauged random tangents: ``A @ pinv(A)`` projects onto
     their column span, which is exactly the tangent space.
     """
-    dim = t3m.manifold_dim((frame.shape, frame.up_ranks, frame.left_ranks))
+    dim = t3m.manifold_dim((frame.shape, frame.down_ranks, frame.left_ranks))
     cols = [np.asarray(t3m.MANIFOLD.randn(frame).to_dense()).reshape(-1)
             for _ in range(3 * dim)]
     A = np.stack(cols, axis=1)
@@ -113,7 +113,7 @@ class TestManifold(unittest.TestCase):
                 self.assertEqual(int(np.prod(STRUCT[0])), v.size)                 # dense element count
                 self.assertEqual(v.frame.data_size + v.variations.data_size, v.data_size)
                 self.assertEqual(frame.minimal_ranks, v.minimal_ranks)            # delegates to frame
-                self.assertEqual(t3m.manifold_dim((frame.shape, frame.up_ranks, frame.left_ranks)),
+                self.assertEqual(t3m.manifold_dim((frame.shape, frame.down_ranks, frame.left_ranks)),
                                  v.tangent_space_dimension)
                 cp = v.copy(); cp.variations.tucker_variations[0][...] = 9.0      # copy is independent
                 self.assertFalse(np.allclose(np.asarray(v.variations.tucker_variations[0]), 9.0))
@@ -214,8 +214,8 @@ class TestManifold(unittest.TestCase):
                 frame, var = bvf.t3_orthogonal_representations(x)
                 v = t3m.T3Tangent(frame, var)
 
-                U0, U1, U2 = (np.asarray(c) for c in frame.up_tucker_cores)
-                D0, D1, D2 = (np.asarray(c) for c in frame.down_tt_cores)
+                D0, D1, D2 = (np.asarray(c) for c in frame.down_tucker_cores)
+                U0, U1, U2 = (np.asarray(c) for c in frame.up_tt_cores)
                 L0, L1, L2 = (np.asarray(c) for c in frame.left_tt_cores)
                 R0, R1, R2 = (np.asarray(c) for c in frame.right_tt_cores)
                 V0, V1, V2 = (np.asarray(c) for c in var.tucker_variations)
@@ -223,8 +223,8 @@ class TestManifold(unittest.TestCase):
 
                 f = lambda B0, B1, B2, G0, G1, G2: np.einsum(
                     '...ai,...bj,...ck,...xay,...ybz,...zcw->...ijk', B0, B1, B2, G0, G1, G2)
-                manual = (f(U0, U1, U2, H0, R1, R2) + f(U0, U1, U2, L0, H1, R2) + f(U0, U1, U2, L0, L1, H2)
-                          + f(V0, U1, U2, D0, R1, R2) + f(U0, V1, U2, L0, D1, R2) + f(U0, U1, V2, L0, L1, D2))
+                manual = (f(D0, D1, D2, H0, R1, R2) + f(D0, D1, D2, L0, H1, R2) + f(D0, D1, D2, L0, L1, H2)
+                          + f(V0, D1, D2, U0, R1, R2) + f(D0, V1, D2, L0, U1, R2) + f(D0, D1, V2, L0, L1, U2))
                 self.check_relerr(manual, v.to_dense())
 
     def test_linalg(self):
@@ -680,9 +680,9 @@ class TestManifold(unittest.TestCase):
             with self.subTest(op=op):
                 JvK = np.stack([np.asarray(fwd(v)) for v in vs], axis=1)     # base-inner W + K
                 c = np.random.randn(NW, K)
-                dU, dG = tr(c)                                               # -> K + cores
+                V, H = tr(c)                                               # -> K + cores
                 for k in range(K):
-                    grad_k = (tuple(np.asarray(g)[k] for g in dU), tuple(np.asarray(g)[k] for g in dG))
+                    grad_k = (tuple(np.asarray(g)[k] for g in V), tuple(np.asarray(g)[k] for g in H))
                     lhs = float(np.sum(c[:, k] * JvK[:, k]))
                     rhs = float(cw.corewise_dot(grad_k, vs[k].variations.data))
                     self.check_relerr(np.array(rhs), np.array(lhs))
@@ -701,7 +701,7 @@ class TestManifold(unittest.TestCase):
                     x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
                     frame, _ = bvf.t3_orthogonal_representations(x)
                     v = t3m.COREWISE.randn(frame)
-                    base_point = t3.TuckerTensorTrain(frame.up_tucker_cores, frame.left_tt_cores).to_dense()
+                    base_point = t3.TuckerTensorTrain(frame.down_tucker_cores, frame.left_tt_cores).to_dense()
 
                     self.check_relerr(v.to_dense(), v.to_t3().to_dense())
                     self.check_relerr(np.asarray(base_point) + np.asarray(v.to_dense()),
@@ -714,7 +714,7 @@ class TestManifold(unittest.TestCase):
                 with self.subTest(T3_STRUCTURE=T3_STRUCTURE, STACK_SHAPE=STACK_SHAPE):
                     x = t3.TuckerTensorTrain.randn(*T3_STRUCTURE, stack_shape=STACK_SHAPE)
                     frame, _ = bvf.t3_orthogonal_representations(x)
-                    base_point = t3.TuckerTensorTrain(frame.up_tucker_cores, frame.left_tt_cores).to_dense()
+                    base_point = t3.TuckerTensorTrain(frame.down_tucker_cores, frame.left_tt_cores).to_dense()
 
                     self.check_relerr(base_point, t3m.MANIFOLD.retract(t3m.T3Tangent.zeros(frame)).to_dense())
 
@@ -722,7 +722,7 @@ class TestManifold(unittest.TestCase):
                     if STACK_SHAPE == ():  # compare against a from-dense T3-SVD of (base point + v)
                         shifted_dense = np.asarray(base_point) + np.asarray(v.to_dense())
                         ref, _, _ = t3.TuckerTensorTrain.t3svd_dense(
-                            shifted_dense, max_tucker_ranks=tuple(frame.up_ranks), max_tt_ranks=tuple(frame.left_ranks))
+                            shifted_dense, max_tucker_ranks=tuple(frame.down_ranks), max_tt_ranks=tuple(frame.left_ranks))
                         self.check_relerr(ref.to_dense(), t3m.MANIFOLD.retract(v).to_dense())
 
         # Rank preservation holds on a minimal-rank frame.
@@ -732,7 +732,7 @@ class TestManifold(unittest.TestCase):
                 frame, _ = bvf.t3_orthogonal_representations(x)
                 self.assertTrue(frame.has_minimal_ranks)
                 r = t3m.MANIFOLD.retract(t3m.COREWISE.randn(frame))
-                self.assertEqual(tuple(frame.up_ranks), r.tucker_ranks)
+                self.assertEqual(tuple(frame.down_ranks), r.tucker_ranks)
                 self.assertEqual(tuple(frame.left_ranks), r.tt_ranks)
 
     def test_project(self):
@@ -1053,7 +1053,7 @@ if __name__ == "__main__":
 
 class TestCorewiseRetractFrameGuard(unittest.TestCase):
     """Review H3-8: COREWISE.retract on a MANIFOLD-frame tangent used to die in a broadcast error on
-    a slack frame (nD != nU); now a structural ValueError naming the frame-kind mismatch. The
+    a slack frame (nU != nD); now a structural ValueError naming the frame-kind mismatch. The
     corewise path itself is unchanged."""
     def setUp(self):
         np.random.seed(0)
@@ -1061,7 +1061,7 @@ class TestCorewiseRetractFrameGuard(unittest.TestCase):
 
     def test_manifold_frame_tangent_is_rejected_when_detectable(self):
         np.random.seed(0)
-        xs = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 4), (1, 2, 3, 1))   # slack: nD != nU
+        xs = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 4), (1, 2, 3, 1))   # slack: nU != nD
         fr_s = bvf.t3_orthogonal_representations(xs)[0]
         v = t3m.MANIFOLD.randn(fr_s)
         with self.assertRaises(ValueError):

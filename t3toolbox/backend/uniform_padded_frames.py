@@ -147,8 +147,8 @@ def ufv_empty_frame(
     Examples
     --------
     >>> import t3toolbox.backend.uniform_padded_frames as uniform_padded_frames
-    >>> up, down, left, right, shape, masks = uniform_padded_frames.ufv_empty_frame((5, 6, 7), stack_shape=(2,))
-    >>> print(up.shape, down.shape, shape)
+    >>> down, up, left, right, shape, masks = uniform_padded_frames.ufv_empty_frame((5, 6, 7), stack_shape=(2,))
+    >>> print(down.shape, up.shape, shape)
     (3, 2, 0, 7) (3, 2, 1, 0, 1) (5, 6, 7)
     >>> print(masks[2][:, 0].ravel().tolist())         # left masks, stack element 0: real at bonds 0 and d only
     [True, False, False, True]
@@ -180,85 +180,85 @@ def ufv_padded_frame(
     typ.Tuple[int, int],   # split (Na, Rb): the static A-block widths
 ]:
     """The seeded padded frame in block layout: the old frame in the A-blocks, the completions by the hint-free convention."""
-    U0, O0, L0, R0, shape, masks = old_frame_data
+    D0, U0, L0, R0, shape, masks = old_frame_data
     require_concrete_masks(*masks)
-    xnp, _, _ = get_backend(True, tree_contains_jax((U0, O0, L0, R0)))
-    mU0, mD0, mL0, mR0 = (np.asarray(m, dtype=bool) for m in masks)
+    xnp, _, _ = get_backend(True, tree_contains_jax((D0, U0, L0, R0)))
+    mD0, mU0, mL0, mR0 = (np.asarray(m, dtype=bool) for m in masks)
     d = len(shape)
-    C = tuple(U0.shape[1:-2])
-    N = int(U0.shape[-1])
-    dtype = U0.dtype
+    C = tuple(D0.shape[1:-2])
+    N = int(D0.shape[-1])
+    dtype = D0.dtype
 
-    old = (mU0.sum(axis=-1), mD0.sum(axis=-1), mL0.sum(axis=-1), mR0.sum(axis=-1))   # per element, HOST int
+    old = (mD0.sum(axis=-1), mU0.sum(axis=-1), mL0.sum(axis=-1), mR0.sum(axis=-1))   # per element, HOST int
     layout = ranks.compute_orthogonal_representation_ranks(shape, old[0], old[2])
-    for name, have, want in zip(('up', 'down', 'left', 'right'), old, layout):
+    for name, have, want in zip(('down', 'up', 'left', 'right'), old, layout):
         if not np.array_equal(have, want):
-            raise ValueError('old_frame_data: the %s masks count %s; an orthogonal representation with these up and '
+            raise ValueError('old_frame_data: the %s masks count %s; an orthogonal representation with these down and '
                              'left counts has %s' % (name, have.tolist(), want.tolist()))
     tucker = _rank_array(tucker_ranks, d, C, 'tucker_ranks')
     tt = _rank_array(tt_ranks, d + 1, C, 'tt_ranks')
     if np.any(tt[0] != 1) or np.any(tt[-1] != 1):
         raise ValueError("the target boundary TT ranks are not 1; a frame's boundary bonds are 1")
     target = ranks.compute_orthogonal_representation_ranks(shape, tucker, tt)
-    kU, kD, kL, kR = (np.asarray(t) - o for t, o in zip(target, old))   # the completion counts, HOST int
-    for name, k in zip(('up', 'down', 'left', 'right'), (kU, kD, kL, kR)):
+    kD, kU, kL, kR = (np.asarray(t) - o for t, o in zip(target, old))   # the completion counts, HOST int
+    for name, k in zip(('down', 'up', 'left', 'right'), (kD, kU, kL, kR)):
         if np.any(k < 0):
             raise ValueError('the target %s stores are below the old frame\'s: the target ranks must contain the old '
                              'structure' % name)
 
-    Na, Rb = max(U0.shape[-2], O0.shape[-2]), max(L0.shape[-1], R0.shape[-1])
-    Ka, Kb = int(max(kU.max(), kD.max())), int(max(kL.max(), kR.max()))
+    Na, Rb = max(D0.shape[-2], U0.shape[-2]), max(L0.shape[-1], R0.shape[-1])
+    Ka, Kb = int(max(kD.max(), kU.max())), int(max(kL.max(), kR.max()))
     nT, rT = Na + Ka, Rb + Kb
-    U0, O0, L0, R0 = ufv_masking.ufv_apply_frame_masks(old_frame_data)              # masked once
-    U0, O0 = _pad_trailing(U0, (Na, N)), _pad_trailing(O0, (Rb, Na, Rb))
+    D0, U0, L0, R0 = ufv_masking.ufv_apply_frame_masks(old_frame_data)              # masked once
+    D0, U0 = _pad_trailing(D0, (Na, N)), _pad_trailing(U0, (Rb, Na, Rb))
     L0, R0 = _pad_trailing(L0, (Rb, Na, Rb)), _pad_trailing(R0, (Rb, Na, Rb))
-    mU0, mD0, mL0, mR0 = _pad_mask(mU0, Na), _pad_mask(mD0, Na), _pad_mask(mL0, Rb), _pad_mask(mR0, Rb)
-    mU = np.concatenate([mU0, prefix_mask(kU, Ka)], axis=-1)
+    mD0, mU0, mL0, mR0 = _pad_mask(mD0, Na), _pad_mask(mU0, Na), _pad_mask(mL0, Rb), _pad_mask(mR0, Rb)
     mD = np.concatenate([mD0, prefix_mask(kD, Ka)], axis=-1)
+    mU = np.concatenate([mU0, prefix_mask(kU, Ka)], axis=-1)
     mL = np.concatenate([mL0, prefix_mask(kL, Kb)], axis=-1)
     mR = np.concatenate([mR0, prefix_mask(kR, Kb)], axis=-1)
 
     # -- Tucker: one completion per sharing group, batched over the groups (a group's key is its first mode)
     groups = tuple((i,) for i in range(d)) if sharing is None else sharing_module.validate_sharing(sharing, shape)
     for group in groups:
-        if any(not np.array_equal(mU0[i], mU0[group[0]]) or not np.array_equal(kU[i], kU[group[0]]) for i in group):
-            raise ValueError('sharing group %r: unequal old up masks or Tucker counts; a shared factor needs one '
+        if any(not np.array_equal(mD0[i], mD0[group[0]]) or not np.array_equal(kD[i], kD[group[0]]) for i in group):
+            raise ValueError('sharing group %r: unequal old down masks or Tucker counts; a shared factor needs one '
                              'layout per group' % (group,))
     first = np.array([group[0] for group in groups])
     group_of = np.array([next(g for g, group in enumerate(groups) if i in group) for i in range(d)])
     seeds = np.zeros((len(groups),) + C + (N, Ka))
-    old_U = mU0[first].sum(axis=-1)                                     # (G,)+C: the old Tucker widths
+    old_D = mD0[first].sum(axis=-1)                                     # (G,)+C: the old Tucker widths
     for g, f in enumerate(first):                                       # host bookkeeping: each group's keyed stream,
         for index in np.ndindex(*C):                                    #   per stack element
-            k = int(kU[(f,) + index])
+            k = int(kD[(f,) + index])
             if k:
-                seeds[(g,) + index][:shape[f], :k] = _seed_rows('up', int(f), seed, int(old_U[(g,) + index]), k,
+                seeds[(g,) + index][:shape[f], :k] = _seed_rows('down', int(f), seed, int(old_D[(g,) + index]), k,
                                                                 shape[f]).T
     mN = prefix_mask(np.asarray(shape), N)                              # (d, N)
-    new_U = linalg.pad_safe_pinned_completion(
-        U0[first].swapaxes(-2, -1), mU0[first], xnp.asarray(seeds, dtype=dtype),
-        prefix_mask(kU[first], Ka), mN[first].reshape((len(groups),) + (1,) * len(C) + (N,)))
-    U = xnp.concatenate([U0[first[group_of]], new_U[group_of].swapaxes(-2, -1)], axis=-2)   # tied within groups
+    new_D = linalg.pad_safe_pinned_completion(
+        D0[first].swapaxes(-2, -1), mD0[first], xnp.asarray(seeds, dtype=dtype),
+        prefix_mask(kD[first], Ka), mN[first].reshape((len(groups),) + (1,) * len(C) + (N,)))
+    D = xnp.concatenate([D0[first[group_of]], new_D[group_of].swapaxes(-2, -1)], axis=-2)   # tied within groups
 
     # -- left cores 0 .. d-2: new columns in the (a, n) unfolding; left[d-1] is the carrier
     P_L = _unfold(_pad_trailing(L0[:d - 1], (rT, nT, Rb)), -1)
-    seeds_L, real_L = _store_seeds('left', np.arange(d - 1), mL[:d - 1], mU[:d - 1], mL0[1:d], kL[1:d], Kb, seed)
+    seeds_L, real_L = _store_seeds('left', np.arange(d - 1), mL[:d - 1], mD[:d - 1], mL0[1:d], kL[1:d], Kb, seed)
     new_L = _store_completion(P_L, mL0[1:d], seeds_L, real_L, kL[1:d])
     L = xnp.concatenate([xnp.concatenate([P_L, new_L], axis=-1).reshape((d - 1,) + C + (rT, nT, rT)),
                          _pad_trailing(L0[d - 1:], (rT, nT, rT))], axis=0)
     # -- right cores 1 .. d-1: new rows in the (n, b) unfolding; right[0] is the carrier
     P_R = _unfold(_pad_trailing(R0[1:], (Rb, nT, rT)), -3)
-    seeds_R, real_R = _store_seeds('right', np.arange(1, d), mU[1:], mR[2:], mR0[1:d], kR[1:d], Kb, seed)
+    seeds_R, real_R = _store_seeds('right', np.arange(1, d), mD[1:], mR[2:], mR0[1:d], kR[1:d], Kb, seed)
     new_R = _store_completion(P_R, mR0[1:d], seeds_R, real_R, kR[1:d])
     R = xnp.concatenate([_pad_trailing(R0[:1], (rT, nT, rT)),
                          xnp.moveaxis(xnp.concatenate([P_R, new_R], axis=-1).reshape((d - 1,) + C + (nT, rT, rT)),
                                       -1, -3)], axis=0)
     # -- down cores, all modes: new down slots in the (a, b) bond space
-    P_O = _unfold(_pad_trailing(O0, (rT, Na, rT)), -2)
-    seeds_O, real_O = _store_seeds('down', np.arange(d), mL[:-1], mR[1:], mD0, kD, Ka, seed)
-    new_O = _store_completion(P_O, mD0, seeds_O, real_O, kD)
-    O = xnp.moveaxis(xnp.concatenate([P_O, new_O], axis=-1).reshape((d,) + C + (rT, rT, nT)), -1, -2)
-    return (U, O, L, R, tuple(int(n) for n in shape), (mU, mD, mL, mR)), (Na, Rb)
+    P_U = _unfold(_pad_trailing(U0, (rT, Na, rT)), -2)
+    seeds_U, real_U = _store_seeds('up', np.arange(d), mL[:-1], mR[1:], mU0, kU, Ka, seed)
+    new_U = _store_completion(P_U, mU0, seeds_U, real_U, kU)
+    U = xnp.moveaxis(xnp.concatenate([P_U, new_U], axis=-1).reshape((d,) + C + (rT, rT, nT)), -1, -2)
+    return (D, U, L, R, tuple(int(n) for n in shape), (mD, mU, mL, mR)), (Na, Rb)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -365,23 +365,23 @@ def _u_content_d(
                             contractions.contract('dCik,dCkb->dCib', g_old, Xi)], axis=-1)
 
 
-def _u_down_messages(
+def _u_up_messages(
         VP:  NDArray,   # (d,)+C+(Ka, N): the variations' completion rows
-        U:   NDArray,   # (d,)+C+(nT, N)
+        D:   NDArray,   # (d,)+C+(nT, N)
 ) -> typ.Tuple[
     NDArray,   # PhiO. (d,)+C+(Ka, nT)
     NDArray,   # XiO.  (d,)+C+(Ka, min(N, Ka))
 ]:
     """The messages of the edges core -> leaf, all modes at once."""
-    PhiO = contractions.contract('dCkn,dCun->dCku', VP, U)
-    return PhiO, _root(VP.swapaxes(-2, -1) - contractions.contract('dCun,dCku->dCnk', U, PhiO))
+    PhiU = contractions.contract('dCkn,dCun->dCku', VP, D)
+    return PhiU, _root(VP.swapaxes(-2, -1) - contractions.contract('dCun,dCku->dCnk', D, PhiU))
 
 
-def _u_up_messages(
+def _u_down_messages(
         H_P:  NDArray,   # (d,)+C+(rT, Ka, rT): the tangent cores at the Tucker completion slots
         bL:   NDArray,   # (d,)+C+(rT, Ka, Kb)
         bR:   NDArray,   # (d,)+C+(Kb, Ka, rT)
-        O:    NDArray,   # (d,)+C+(rT, nT, rT)
+        U:    NDArray,   # (d,)+C+(rT, nT, rT)
         PhiL: NDArray,   # (d,)+C+(Kb, rT): edge c_i -> c_(i+1); zero at d-1
         XiL:  NDArray,   # (d,)+C+(Kb, Kb)
         PhiR: NDArray,   # (d,)+C+(Kb, rT): edge c_i -> c_(i-1); zero at 0
@@ -391,14 +391,14 @@ def _u_up_messages(
     NDArray,   # XiU.  (d,)+C+(Ka, z)
 ]:
     """The messages of the edges leaf -> core, all modes at once."""
-    xnp, _, _ = get_backend(True, tree_contains_jax((H_P, bL, bR, O, PhiL, XiL, PhiR, XiR)))
+    xnp, _, _ = get_backend(True, tree_contains_jax((H_P, bL, bR, U, PhiL, XiL, PhiR, XiR)))
     Vb = (H_P + contractions.contract('dCaxk,dCkb->dCaxb', bL, PhiL)
           + contractions.contract('dCkxb,dCka->dCaxb', bR, PhiR))
     rows = [_unfold(contractions.contract('dCaxk,dCkz->dCaxz', bL, XiL), -2),
             _unfold(contractions.contract('dCkxb,dCkz->dCzxb', bR, XiR), -2)]
-    PhiU = contractions.contract('dCaxb,dCaub->dCxu', Vb, O)
-    W = _unfold(Vb - contractions.contract('dCxu,dCaub->dCaxb', PhiU, O), -2)
-    return PhiU, _root(xnp.concatenate([W] + rows, axis=-2))
+    PhiD = contractions.contract('dCaxb,dCaub->dCxu', Vb, U)
+    W = _unfold(Vb - contractions.contract('dCxu,dCaub->dCaxb', PhiD, U), -2)
+    return PhiD, _root(xnp.concatenate([W] + rows, axis=-2))
 
 
 def _u_left_edge(
@@ -414,19 +414,19 @@ def _u_left_edge(
 ]:
     """One edge c_i -> c_(i+1) of the left sweep."""
     xnp, _, _ = get_backend(True, tree_contains_jax((carry, x)))
-    o_L, D_L = carry
-    H_P, O_P, R_P, L_P, A, o_U, DU, PhiP, Xi, rows, pins, sel = x
-    M = (_new_coordinates(_new_coordinates(H_P, o_L, -3), o_U, -2)
-         + _new_coordinates(contractions.contract('Cakx,Cnk->Canx', O_P, DU), o_L, -3)
-         + _new_coordinates(contractions.contract('Cknx,Cak->Canx', R_P, D_L), o_U, -2))
+    o_L, Psi_L = carry
+    H_P, U_P, R_P, L_P, A, o_D, PsiD, PhiP, Xi, rows, pins, sel = x
+    M = (_new_coordinates(_new_coordinates(H_P, o_L, -3), o_D, -2)
+         + _new_coordinates(contractions.contract('Cakx,Cnk->Canx', U_P, PsiD), o_L, -3)
+         + _new_coordinates(contractions.contract('Cknx,Cak->Canx', R_P, Psi_L), o_D, -2))
     g_new = _unfold(M, -1)
-    g_old = _unfold(_new_coordinates(_new_coordinates(L_P, o_L, -3), o_U, -2), -1)
+    g_old = _unfold(_new_coordinates(_new_coordinates(L_P, o_L, -3), o_D, -2), -1)
     Abar = _unfold(A, -1)
     Y = _edge_content(g_old, (g_new,), (PhiP,), (Xi,)) if on else g_old
     P, o, movement = _u_edge(Abar, pins, g_old, Y, rows, sel)
     F = xnp.concatenate([Abar, P], axis=-1)
-    D = contractions.contract('Cia,Cib->Cab', F, g_new)
-    return (o, D), (_fold(F, A.shape[-3:-1] + F.shape[-1:], -1), o, D, movement)
+    Psi = contractions.contract('Cia,Cib->Cab', F, g_new)
+    return (o, Psi), (_fold(F, A.shape[-3:-1] + F.shape[-1:], -1), o, Psi, movement)
 
 
 def _u_left_edge_step(
@@ -458,19 +458,19 @@ def _u_right_edge(
 ]:
     """One edge c_i -> c_(i-1) of the right sweep (run on reversed inputs)."""
     xnp, _, _ = get_backend(True, tree_contains_jax((carry, x)))
-    o_R, D_R = carry
-    H_P, O_P, L_P, R_P, A, o_U, DU, PhiP, Xi, rows, pins, sel = x
-    M = (_new_coordinates(_new_coordinates(H_P, o_U, -2), o_R, -1)
-         + _new_coordinates(contractions.contract('Cxkb,Cnk->Cxnb', O_P, DU), o_R, -1)
-         + _new_coordinates(contractions.contract('Cxnk,Cbk->Cxnb', L_P, D_R), o_U, -2))
+    o_R, Psi_R = carry
+    H_P, U_P, L_P, R_P, A, o_D, PsiD, PhiP, Xi, rows, pins, sel = x
+    M = (_new_coordinates(_new_coordinates(H_P, o_D, -2), o_R, -1)
+         + _new_coordinates(contractions.contract('Cxkb,Cnk->Cxnb', U_P, PsiD), o_R, -1)
+         + _new_coordinates(contractions.contract('Cxnk,Cbk->Cxnb', L_P, Psi_R), o_D, -2))
     g_new = _unfold(M, -3)
-    g_old = _unfold(_new_coordinates(_new_coordinates(R_P, o_U, -2), o_R, -1), -3)
+    g_old = _unfold(_new_coordinates(_new_coordinates(R_P, o_D, -2), o_R, -1), -3)
     Abar = _unfold(A, -3)
     Y = _edge_content(g_old, (g_new,), (PhiP,), (Xi,)) if on else g_old
     P, o, movement = _u_edge(Abar, pins, g_old, Y, rows, sel)
     F = xnp.concatenate([Abar, P], axis=-1)
-    D = contractions.contract('Cia,Cib->Cab', F, g_new)
-    return (o, D), (_fold(F, F.shape[-1:] + A.shape[-2:], -3), o, D, movement)
+    Psi = contractions.contract('Cia,Cib->Cab', F, g_new)
+    return (o, Psi), (_fold(F, F.shape[-1:] + A.shape[-2:], -3), o, Psi, movement)
 
 
 def _u_right_edge_step(
@@ -528,85 +528,85 @@ def _utv_align_kernel(
     NDArray,   # movement, shape=C
 ]:
     """The arithmetic of :py:func:`utv_align_padded_frame` (jittable: every static is in ``skeleton``, ``split``, ``update``)."""
-    (U, O, L, R), (V, H), host = rebuild_static(dynamic, skeleton)
-    shape, masks, (rowU, rowL, rowR, rowO), (pinU, pinL, pinR, pinO), (selU, selL, selR, selO), groups = host
+    (D, U, L, R), (V, H), host = rebuild_static(dynamic, skeleton)
+    shape, masks, (rowD, rowL, rowR, rowU), (pinD, pinL, pinR, pinU), (selD, selL, selR, selU), groups = host
     members, valid, first, group_of = (np.asarray(t) for t in groups)
-    xnp, _, xscan = get_backend(True, tree_contains_jax((U, O, L, R, V, H)))
+    xnp, _, xscan = get_backend(True, tree_contains_jax((D, U, L, R, V, H)))
     Na, Rb = split
-    d = U.shape[0]
-    C = tuple(U.shape[1:-2])
-    nT, N = U.shape[-2:]
+    d = D.shape[0]
+    C = tuple(D.shape[1:-2])
+    nT, N = D.shape[-2:]
     rT = L.shape[-1]
     Ka, Kb = nT - Na, rT - Rb
-    Ka1, Kb1 = selU.shape[-1], selL.shape[-1]
+    Ka1, Kb1 = selD.shape[-1], selL.shape[-1]
     nT1, rT1 = Na + Ka1, Rb + Kb1
-    dtype = xnp.result_type(U, V)
+    dtype = xnp.result_type(D, V)
     zeros = lambda *s: xnp.zeros(s, dtype=dtype)
 
-    U, O, L, R = ufv_masking.ufv_apply_frame_masks((U, O, L, R, shape, masks))            # masked once
+    D, U, L, R = ufv_masking.ufv_apply_frame_masks((D, U, L, R, shape, masks))            # masked once
     V, H = ufv_masking.ufv_apply_variations_masks((V, H, shape, ufv_masking.ufv_variation_masks(masks)))
 
     # -- step 1: far-side messages at the old frames
-    PhiO, XiO = _u_down_messages(V[..., Na:, :], U)
+    PhiU, XiU = _u_up_messages(V[..., Na:, :], D)
     zero_msg = (zeros(*C, Kb, rT), zeros(*C, Kb, Kb))
     empty_msg = (zeros(0, *C, Kb, rT), zeros(0, *C, Kb, Kb))
     PhiL, XiL = _sweep(xscan, _left_message_step, zero_msg, (
-        H[1:, ..., Rb:, :, :], O[1:, ..., Rb:, Na:, :], L[1:, ..., Rb:, :, Rb:], R[1:], PhiO[1:], XiO[1:]),
+        H[1:, ..., Rb:, :, :], U[1:, ..., Rb:, Na:, :], L[1:, ..., Rb:, :, Rb:], R[1:], PhiU[1:], XiU[1:]),
         empty_msg, True)
     PhiL, XiL = (xnp.concatenate([m, z[None]], axis=0) for m, z in zip((PhiL, XiL), zero_msg))   # c_i -> c_(i+1)
     PhiR, XiR = _sweep(xscan, _right_message_step, zero_msg, (
-        H[:-1, ..., Rb:], O[:-1, ..., Na:, Rb:], R[:-1, ..., Rb:, :, Rb:], L[:-1], PhiO[:-1], XiO[:-1]),
+        H[:-1, ..., Rb:], U[:-1, ..., Na:, Rb:], R[:-1, ..., Rb:, :, Rb:], L[:-1], PhiU[:-1], XiU[:-1]),
         empty_msg, False)
     PhiR, XiR = (xnp.concatenate([z[None], m], axis=0) for m, z in zip((PhiR, XiR), zero_msg))   # c_i -> c_(i-1)
-    PhiU, XiU = _u_up_messages(H[..., Na:, :], L[..., Na:, Rb:], R[..., Rb:, Na:, :], O, PhiL, XiL, PhiR, XiR)
+    PhiD, XiD = _u_down_messages(H[..., Na:, :], L[..., Na:, Rb:], R[..., Rb:, Na:, :], U, PhiL, XiL, PhiR, XiR)
 
     # -- step 2, up edges: one completion per sharing group, the members' contents side by side
-    Abar = U[..., :Na, :].swapaxes(-2, -1)                                       # (d,)+C+(N, Na)
-    g_old, g_new = U[..., Na:, :].swapaxes(-2, -1), V[..., Na:, :].swapaxes(-2, -1)
-    Y = _u_content_d(g_old, g_new, PhiU[..., Na:], XiU) if 'U' in update else g_old
+    Abar = D[..., :Na, :].swapaxes(-2, -1)                                       # (d,)+C+(N, Na)
+    g_old, g_new = D[..., Na:, :].swapaxes(-2, -1), V[..., Na:, :].swapaxes(-2, -1)
+    Y = _u_content_d(g_old, g_new, PhiD[..., Na:], XiD) if 'U' in update else g_old
     G, m = members.shape
     Yg = Y[members] * xnp.asarray(valid, dtype=dtype).reshape((G, m) + (1,) * (len(C) + 2))
     Yg = xnp.moveaxis(Yg, 1, -2).reshape((G,) + C + (N, m * Y.shape[-1]))      # missing members zero
-    P, _, _ = _u_edge_d(Abar[first], pinU, g_old[first], Yg, rowU, selU)       # (G,)+C+(N, Ka1)
+    P, _, _ = _u_edge_d(Abar[first], pinD, g_old[first], Yg, rowD, selD)       # (G,)+C+(N, Ka1)
     P = P[group_of]
     Abar = Abar[first[group_of]]                                                 # the group's old block, every member
-    oU = contractions.contract('dCia,dCib->dCab', P, g_old)
-    out = g_old - contractions.contract('dCia,dCab->dCib', P, oU)
+    oD = contractions.contract('dCia,dCib->dCab', P, g_old)
+    out = g_old - contractions.contract('dCia,dCab->dCib', P, oD)
     moves = [xnp.sqrt(xnp.sum(out * out, axis=(-2, -1)))]
-    DU = contractions.contract('dCia,dCib->dCab', xnp.concatenate([Abar, P], axis=-1), g_new)   # (d,)+C+(nT1, Ka)
-    U1 = xnp.concatenate([Abar.swapaxes(-2, -1), P.swapaxes(-2, -1)], axis=-2)                # tied within groups
+    PsiD = contractions.contract('dCia,dCib->dCab', xnp.concatenate([Abar, P], axis=-1), g_new)   # (d,)+C+(nT1, Ka)
+    D1 = xnp.concatenate([Abar.swapaxes(-2, -1), P.swapaxes(-2, -1)], axis=-2)                # tied within groups
 
     # -- the left sweep (i = 0 .. d-2) and the right sweep (i = d-1 .. 1)
     zero_edge = (zeros(*C, Kb1, Kb), zeros(*C, rT1, Kb))
     empty_edge = (zeros(0, *C, rT1, nT1, rT1), zeros(0, *C, Kb1, Kb), zeros(0, *C, rT1, Kb), zeros(0, *C))
-    L1, oL, DL, mvL = _sweep(xscan, _u_left_edge_step if 'L' in update else _u_left_edge_transport_step, zero_edge, (
-        H[:-1, ..., Rb:], O[:-1, ..., Na:, Rb:], R[:-1, ..., Rb:, :, Rb:], L[:-1, ..., Rb:],
-        _pad_trailing(L[:-1, ..., :Rb, :Na, :Rb], (rT1, nT1, Rb)), oU[:-1], DU[:-1], PhiL[:-1, ..., Rb:], XiL[:-1],
+    L1, oL, PsiL, mvL = _sweep(xscan, _u_left_edge_step if 'L' in update else _u_left_edge_transport_step, zero_edge, (
+        H[:-1, ..., Rb:], U[:-1, ..., Na:, Rb:], R[:-1, ..., Rb:, :, Rb:], L[:-1, ..., Rb:],
+        _pad_trailing(L[:-1, ..., :Rb, :Na, :Rb], (rT1, nT1, Rb)), oD[:-1], PsiD[:-1], PhiL[:-1, ..., Rb:], XiL[:-1],
         rowL, pinL, selL), empty_edge, False)
-    R1, oR, DR, mvR = _sweep(xscan, _u_right_edge_step if 'R' in update else _u_right_edge_transport_step, zero_edge, (
-        H[1:, ..., Rb:, :, :], O[1:, ..., Rb:, Na:, :], L[1:, ..., Rb:, :, Rb:], R[1:, ..., Rb:, :, :],
-        _pad_trailing(R[1:, ..., :Rb, :Na, :Rb], (Rb, nT1, rT1)), oU[1:], DU[1:], PhiR[1:, ..., Rb:], XiR[1:],
+    R1, oR, PsiR, mvR = _sweep(xscan, _u_right_edge_step if 'R' in update else _u_right_edge_transport_step, zero_edge, (
+        H[1:, ..., Rb:, :, :], U[1:, ..., Rb:, Na:, :], L[1:, ..., Rb:, :, Rb:], R[1:, ..., Rb:, :, :],
+        _pad_trailing(R[1:, ..., :Rb, :Na, :Rb], (Rb, nT1, rT1)), oD[1:], PsiD[1:], PhiR[1:, ..., Rb:], XiR[1:],
         rowR, pinR, selR), empty_edge, True)
     moves += [mvL, mvR]
 
     # -- down edges, all modes at once, with the incoming coordinate maps (zero past the ends)
-    oL, DL = (xnp.concatenate([z[None], a], axis=0) for a, z in zip((oL, DL), zero_edge))   # c_(i-1) -> c_i
-    oR, DR = (xnp.concatenate([a, z[None]], axis=0) for a, z in zip((oR, DR), zero_edge))   # c_(i+1) -> c_i
+    oL, PsiL = (xnp.concatenate([z[None], a], axis=0) for a, z in zip((oL, PsiL), zero_edge))   # c_(i-1) -> c_i
+    oR, PsiR = (xnp.concatenate([a, z[None]], axis=0) for a, z in zip((oR, PsiR), zero_edge))   # c_(i+1) -> c_i
     M = (_new_coordinates_d(_new_coordinates_d(H[..., Na:, :], oL, -3), oR, -1)
-         + _new_coordinates_d(contractions.contract('dCaxk,dCbk->dCaxb', L[..., Na:, Rb:], DR), oL, -3)
-         + _new_coordinates_d(contractions.contract('dCkxb,dCak->dCaxb', R[..., Rb:, Na:, :], DL), oR, -1))
+         + _new_coordinates_d(contractions.contract('dCaxk,dCbk->dCaxb', L[..., Na:, Rb:], PsiR), oL, -3)
+         + _new_coordinates_d(contractions.contract('dCkxb,dCak->dCaxb', R[..., Rb:, Na:, :], PsiL), oR, -1))
     g_new = _unfold(M, -2)
-    g_old = _unfold(_new_coordinates_d(_new_coordinates_d(O[..., Na:, :], oL, -3), oR, -1), -2)
-    Abar = _unfold(_pad_trailing(O[..., :Rb, :Na, :Rb], (rT1, Na, rT1)), -2)
-    Y = _u_content_d(g_old, g_new, PhiO[..., Na:], XiO) if 'O' in update else g_old
-    P, _, mvO = _u_edge_d(Abar, pinO, g_old, Y, rowO, selO)
-    O1 = _fold(xnp.concatenate([Abar, P], axis=-1), (rT1, nT1, rT1), -2)
-    moves.append(mvO)
+    g_old = _unfold(_new_coordinates_d(_new_coordinates_d(U[..., Na:, :], oL, -3), oR, -1), -2)
+    Abar = _unfold(_pad_trailing(U[..., :Rb, :Na, :Rb], (rT1, Na, rT1)), -2)
+    Y = _u_content_d(g_old, g_new, PhiU[..., Na:], XiU) if 'O' in update else g_old
+    P, _, mvU = _u_edge_d(Abar, pinU, g_old, Y, rowU, selU)
+    U1 = _fold(xnp.concatenate([Abar, P], axis=-1), (rT1, nT1, rT1), -2)
+    moves.append(mvU)
 
     L1 = xnp.concatenate([L1, _pad_trailing(L[d - 1:, ..., :Rb, :Na, :Rb], (rT1, nT1, rT1))], axis=0)   # carriers:
     R1 = xnp.concatenate([_pad_trailing(R[:1, ..., :Rb, :Na, :Rb], (rT1, nT1, rT1)), R1], axis=0)       # old only
     movement = xnp.max(xnp.concatenate([mv.reshape((-1,) + C) for mv in moves], axis=0), axis=0)
-    return U1, O1, L1, R1, movement
+    return D1, U1, L1, R1, movement
 
 
 def utv_align_padded_frame(
@@ -627,34 +627,34 @@ def utv_align_padded_frame(
     if not update or len(set(update)) != len(update) or not set(update) <= set('ULRO'):
         raise ValueError("update must be a non-empty set of the stores 'U', 'L', 'R', 'O' without repeats; got %r"
                          % (update,))
-    U, O, L, R, shape, masks = frame_data
+    D, U, L, R, shape, masks = frame_data
     V, H = variations_data[0], variations_data[1]
     require_concrete_masks(*masks)
-    mU, mD, mL, mR = (np.asarray(m, dtype=bool) for m in masks)
+    mD, mU, mL, mR = (np.asarray(m, dtype=bool) for m in masks)
     shape = tuple(int(n) for n in shape)
     d = len(shape)
-    C = tuple(U.shape[1:-2])
-    nT, N = int(U.shape[-2]), int(U.shape[-1])
+    C = tuple(D.shape[1:-2])
+    nT, N = int(D.shape[-2]), int(D.shape[-1])
     rT = int(L.shape[-1])
     Na, Rb = (int(w) for w in split)
     core = (d,) + C + (rT, nT, rT)
-    for name, A, want in (('up', U, (d,) + C + (nT, N)), ('down', O, core), ('left', L, core), ('right', R, core),
+    for name, A, want in (('down', D, (d,) + C + (nT, N)), ('up', U, core), ('left', L, core), ('right', R, core),
                           ('tucker variations', V, (d,) + C + (nT, N)), ('tt variations', H, core),
-                          ('up mask', mU, (d,) + C + (nT,)), ('down mask', mD, (d,) + C + (nT,)),
+                          ('up mask', mD, (d,) + C + (nT,)), ('down mask', mU, (d,) + C + (nT,)),
                           ('left mask', mL, (d + 1,) + C + (rT,)), ('right mask', mR, (d + 1,) + C + (rT,))):
         if tuple(A.shape) != want:
-            raise ValueError('%s has shape %s; block layout (nU = nD = %d, rL = rR = %d) gives %s'
+            raise ValueError('%s has shape %s; block layout (nD = nU = %d, rL = rR = %d) gives %s'
                              % (name, tuple(A.shape), nT, rT, want))
     if not (0 <= Na <= nT and 1 <= Rb <= rT):
         raise ValueError('split %r is outside the widths (nT, rT) = (%d, %d)' % ((Na, Rb), nT, rT))
 
-    old = (mU[..., :Na].sum(-1), mD[..., :Na].sum(-1), mL[..., :Rb].sum(-1), mR[..., :Rb].sum(-1))   # HOST int
-    own = (mU.sum(-1), mD.sum(-1), mL.sum(-1), mR.sum(-1))
+    old = (mD[..., :Na].sum(-1), mU[..., :Na].sum(-1), mL[..., :Rb].sum(-1), mR[..., :Rb].sum(-1))   # HOST int
+    own = (mD.sum(-1), mU.sum(-1), mL.sum(-1), mR.sum(-1))
     for which, counts in (('A-block', old), ('frame', own)):
         layout = ranks.compute_orthogonal_representation_ranks(shape, counts[0], counts[2])
         bounds = (counts[2][0], counts[2][-1], counts[3][0], counts[3][-1])
         if any(not np.array_equal(c, w) for c, w in zip(counts, layout)) or any(np.any(b != 1) for b in bounds):
-            raise ValueError('the %s masks do not count an orthogonal representation (stores %r, which its up and left '
+            raise ValueError('the %s masks do not count an orthogonal representation (stores %r, which its down and left '
                              'counts give as %r, boundary bonds 1)' % (which, [c.tolist() for c in counts],
                                                                       [w.tolist() for w in layout]))
     if (tucker_ranks is None) != (tt_ranks is None):
@@ -666,7 +666,7 @@ def utv_align_padded_frame(
             raise ValueError("the output boundary TT ranks are not 1; a frame's boundary bonds are 1")
         out = ranks.compute_orthogonal_representation_ranks(shape, _rank_array(tucker_ranks, d, C, 'tucker_ranks'), tt)
     out = tuple(np.broadcast_to(np.asarray(s), np.shape(o)) for s, o in zip(out, old))
-    for store, letter, o, s1, s in zip(('up', 'down', 'left', 'right'), 'UOLR', old, out, own):
+    for store, letter, o, s1, s in zip(('down', 'up', 'left', 'right'), 'UOLR', old, out, own):
         if np.any(o > s1) or np.any(s1 > s):
             raise ValueError('%s stores: old %s, output %s, frame %s; the old block must fit the output and the output '
                              'the frame' % (store, o.tolist(), s1.tolist(), s.tolist()))
@@ -677,16 +677,16 @@ def utv_align_padded_frame(
     for group in groups:
         f = group[0]
         if any(not (np.array_equal(old[0][i], old[0][f]) and np.array_equal(out[0][i], out[0][f])
-                    and np.array_equal(own[0][i], own[0][f]) and np.array_equal(mU[i, ..., :Na], mU[f, ..., :Na]))
+                    and np.array_equal(own[0][i], own[0][f]) and np.array_equal(mD[i, ..., :Na], mD[f, ..., :Na]))
                for i in group):
-            raise ValueError('sharing group %r: unequal Tucker stores or old up masks; a shared factor needs one layout '
+            raise ValueError('sharing group %r: unequal Tucker stores or old down masks; a shared factor needs one layout '
                              'per group' % (group,))
 
     k1 = tuple(np.asarray(s1) - o for s1, o in zip(out, old))                  # the output completion counts
     Ka1, Kb1 = int(max(k1[0].max(), k1[1].max(), 0)), int(max(k1[2].max(), k1[3].max(), 0))
     nT1, rT1 = Na + Ka1, Rb + Kb1
-    pU, pD, pL, pR = prefix_mask(k1[0], Ka1), prefix_mask(k1[1], Ka1), prefix_mask(k1[2], Kb1), prefix_mask(k1[3], Kb1)
-    mU1, mD1 = np.concatenate([mU[..., :Na], pU], -1), np.concatenate([mD[..., :Na], pD], -1)
+    pD, pU, pL, pR = prefix_mask(k1[0], Ka1), prefix_mask(k1[1], Ka1), prefix_mask(k1[2], Kb1), prefix_mask(k1[3], Kb1)
+    mD1, mU1 = np.concatenate([mD[..., :Na], pD], -1), np.concatenate([mU[..., :Na], pU], -1)
     mL1, mR1 = np.concatenate([mL[..., :Rb], pL], -1), np.concatenate([mR[..., :Rb], pR], -1)
 
     m = max(len(g) for g in groups)
@@ -697,16 +697,16 @@ def utv_align_padded_frame(
     lead = lambda a: a.reshape(a.shape[:1 + len(C)] + (-1,))
     rows = (np.broadcast_to(prefix_mask(np.asarray(shape), N)[list(first)].reshape((len(groups),) + (1,) * len(C) + (N,)),
                             (len(groups),) + C + (N,)),
-            lead(mL1[:-1][..., :, None] & mU1[..., None, :])[:-1],
-            lead(mU1[..., :, None] & mR1[1:][..., None, :])[1:],
+            lead(mL1[:-1][..., :, None] & mD1[..., None, :])[:-1],
+            lead(mD1[..., :, None] & mR1[1:][..., None, :])[1:],
             lead(mL1[:-1][..., :, None] & mR1[1:][..., None, :]))
-    pins = (mU[list(first)][..., :Na], mL[1:-1][..., :Rb], mR[1:-1][..., :Rb], mD[..., :Na])
-    sels = (_selection(pins[0].sum(-1), pU[list(first)], Na), _selection(pins[1].sum(-1), pL[1:-1], Rb),
-            _selection(pins[2].sum(-1), pR[1:-1], Rb), _selection(pins[3].sum(-1), pD, Na))
-    host = (shape, (mU, mD, mL, mR), rows, pins, sels, (members, valid, first, group_of))
-    dynamic, skeleton = partition_static(((U, O, L, R), (V, H), host))
-    U1, O1, L1, R1, movement = _utv_align_kernel(dynamic, skeleton, (Na, Rb), update)
-    return (U1, O1, L1, R1, shape, (mU1, mD1, mL1, mR1)), movement
+    pins = (mD[list(first)][..., :Na], mL[1:-1][..., :Rb], mR[1:-1][..., :Rb], mU[..., :Na])
+    sels = (_selection(pins[0].sum(-1), pD[list(first)], Na), _selection(pins[1].sum(-1), pL[1:-1], Rb),
+            _selection(pins[2].sum(-1), pR[1:-1], Rb), _selection(pins[3].sum(-1), pU, Na))
+    host = (shape, (mD, mU, mL, mR), rows, pins, sels, (members, valid, first, group_of))
+    dynamic, skeleton = partition_static(((D, U, L, R), (V, H), host))
+    D1, U1, L1, R1, movement = _utv_align_kernel(dynamic, skeleton, (Na, Rb), update)
+    return (D1, U1, L1, R1, shape, (mD1, mU1, mL1, mR1)), movement
 
 
 # --------------------------------------------------------------------------------------------------
@@ -718,32 +718,32 @@ def utv_align_padded_frame(
 # --------------------------------------------------------------------------------------------------
 def ufv_compact_frame(
         frame_data:    UFrameData,                     # any layout and mask pattern
-        level_widths:  typ.Tuple[int, int, int, int],  # (WU, WD, WL, WR), each >= every real count of its store
+        level_widths:  typ.Tuple[int, int, int, int],  # (WD, WU, WL, WR), each >= every real count of its store
 ) -> UFrameData:                                       # junk-last, junk zeroed; masks = ufv_make_frame_masks of the counts at level_widths
     """The frame with every store's real slots first (in their order) at ``level_widths``: static gathers, prefix masks."""
-    U, O, L, R, shape, masks = frame_data
+    D, U, L, R, shape, masks = frame_data
     require_concrete_masks(*masks)
-    xnp, _, _ = get_backend(True, tree_contains_jax((U, O, L, R)))
+    xnp, _, _ = get_backend(True, tree_contains_jax((D, U, L, R)))
     masks = tuple(np.asarray(m, dtype=bool) for m in masks)
-    WU, WD, WL, WR = (int(w) for w in level_widths)
+    WD, WU, WL, WR = (int(w) for w in level_widths)
     counts = tuple(m.sum(axis=-1) for m in masks)
-    for name, count, W in zip(('up', 'down', 'left', 'right'), counts, (WU, WD, WL, WR)):
+    for name, count, W in zip(('down', 'up', 'left', 'right'), counts, (WD, WU, WL, WR)):
         if np.any(count > W):
             raise ValueError('a real %s count (%d) exceeds its level width %d' % (name, int(count.max()), W))
-    wide = (max(U.shape[-2], WU), max(O.shape[-2], WD), max(L.shape[-1], WL), max(R.shape[-1], WR))
-    U = _pad_trailing(U, (wide[0], U.shape[-1]))                              # junk appended where narrower
-    O = _pad_trailing(O, (wide[2], wide[1], wide[3]))
+    wide = (max(D.shape[-2], WD), max(U.shape[-2], WU), max(L.shape[-1], WL), max(R.shape[-1], WR))
+    D = _pad_trailing(D, (wide[0], D.shape[-1]))                              # junk appended where narrower
+    U = _pad_trailing(U, (wide[2], wide[1], wide[3]))
     L, R = _pad_trailing(L, (wide[2], wide[0], wide[2])), _pad_trailing(R, (wide[3], wide[0], wide[3]))
-    iU, iD, iL, iR = (np.argsort(~_pad_mask(m, w), axis=-1, kind='stable')[..., :W]          # real slots first
-                      for m, w, W in zip(masks, wide, (WU, WD, WL, WR)))
+    iD, iU, iL, iR = (np.argsort(~_pad_mask(m, w), axis=-1, kind='stable')[..., :W]          # real slots first
+                      for m, w, W in zip(masks, wide, (WD, WU, WL, WR)))
     take = lambda A, index, axis: xnp.take_along_axis(A, xnp.asarray(index), axis=axis)
     a3, b3, c3 = (lambda i: i[..., :, None, None]), (lambda i: i[..., None, :, None]), (lambda i: i[..., None, None, :])
-    U = take(U, iU[..., :, None], -2)
-    O = take(take(take(O, a3(iL[:-1]), -3), b3(iD), -2), c3(iR[1:]), -1)
-    L = take(take(take(L, a3(iL[:-1]), -3), b3(iU), -2), c3(iL[1:]), -1)
-    R = take(take(take(R, a3(iR[:-1]), -3), b3(iU), -2), c3(iR[1:]), -1)
-    masks = ufv_masking.ufv_make_frame_masks(*counts, WU, WD, WL, WR)
-    return ufv_masking.ufv_apply_frame_masks((U, O, L, R, shape, masks)) + (tuple(shape), masks)
+    D = take(D, iD[..., :, None], -2)
+    U = take(take(take(U, a3(iL[:-1]), -3), b3(iU), -2), c3(iR[1:]), -1)
+    L = take(take(take(L, a3(iL[:-1]), -3), b3(iD), -2), c3(iL[1:]), -1)
+    R = take(take(take(R, a3(iR[:-1]), -3), b3(iD), -2), c3(iR[1:]), -1)
+    masks = ufv_masking.ufv_make_frame_masks(*counts, WD, WU, WL, WR)
+    return ufv_masking.ufv_apply_frame_masks((D, U, L, R, shape, masks)) + (tuple(shape), masks)
 
 
 def _record(
@@ -913,7 +913,7 @@ def ufv_aligned_padded_frame(
         tt_ranks:            typ.Union[typ.Sequence[int], NDArray],   # len=d+1 or HOST int (d+1,)+C, target
         hint:                typ.Any,                                 # opaque: handed to `project` unread
         project:             typ.Callable,                            # project(frame_data, hint) -> UVariationsData (or the bare (V, H) pair); traceable and module-level under use_jit
-        level_widths:        typ.Tuple[int, int, int, int],           # (WU, WD, WL, WR): the compaction widths (the level's frame)
+        level_widths:        typ.Tuple[int, int, int, int],           # (WD, WU, WL, WR): the compaction widths (the level's frame)
 
         sharing:             typ.Optional[typ.Sequence] = None,       # len=d group labels; None = unshared
         oversampling:        int   = ALIGN_OVERSAMPLING,              # as fv_aligned_padded_frame (constants from padded_frames)
@@ -935,10 +935,10 @@ def ufv_aligned_padded_frame(
     jitted = bool(use_jit) and jax_or_warn('use_jit=True')     # no jax: a warning, then eager on numpy
     if jitted:                                                  # asking for jit opts into jax: the old frame's
         old_frame_data = tuple(tree_to_jax(a) for a in old_frame_data[:4]) + tuple(old_frame_data[4:])   # supercores
-    U0, _, _, _, shape, masks = old_frame_data
+    D0, _, _, _, shape, masks = old_frame_data
     require_concrete_masks(*masks)
     shape = tuple(int(n) for n in shape)
-    d, C = len(shape), tuple(U0.shape[1:-2])
+    d, C = len(shape), tuple(D0.shape[1:-2])
     level_widths = tuple(int(w) for w in level_widths)
     old = tuple(np.asarray(m, dtype=bool).sum(axis=-1) for m in masks)
     tucker = _rank_array(tucker_ranks, d, C, 'tucker_ranks')
@@ -947,13 +947,13 @@ def ufv_aligned_padded_frame(
         raise ValueError("the target boundary TT ranks are not 1; a frame's boundary bonds are 1")
     target_stores = tuple(np.broadcast_to(s, o.shape) for s, o in zip(
         ranks.compute_orthogonal_representation_ranks(shape, tucker, tt), old))
-    for name, s, o, W in zip(('up', 'down', 'left', 'right'), target_stores, old, level_widths):
+    for name, s, o, W in zip(('down', 'up', 'left', 'right'), target_stores, old, level_widths):
         if np.any(s < o):
             raise ValueError("the target %s stores are below the old frame's: the target ranks must contain the old "
                              "structure" % name)
         if np.any(s > W):
             raise ValueError('a target %s store (%d) exceeds its level width %d' % (name, int(s.max()), W))
-    dtype = U0.dtype
+    dtype = D0.dtype
     if max_passes == 0:                                         # the hint-free start at the target, compacted
         start, _ = ufv_padded_frame(old_frame_data, tucker, tt, sharing=sharing, seed=seed)
         return ufv_compact_frame(start, level_widths), np.full((0,) + C, np.nan, dtype=dtype)

@@ -246,7 +246,7 @@ the SVD-grade notion.
 carries *four* rank stores — `up`/`down` and `left`/`right` — and an over-ranked request is absorbed as
 slack between them rather than breaking any single core's orthonormality. So an orthonormal frame need
 not be minimal: `t3_orthogonal_representations` does not guarantee it, and neither does
-`T3Frame.random_orthogonal`, which happily returns `up_ranks=(4,4,4)` with `down_ranks=(2,4,2)` if you
+`T3Frame.random_orthogonal`, which happily returns `down_ranks=(4,4,4)` with `up_ranks=(2,4,2)` if you
 ask for a Tucker rank the TT bonds cannot support. Such a frame is exactly orthogonal and every tangent
 operation on it is exact — the tangent space, its dimension, and the HS identities are unchanged. Full
 derivation and the measured numbers: [`frame_variations.md`](frame_variations.md). Build from a

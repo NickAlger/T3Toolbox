@@ -334,8 +334,8 @@ class TestDispatch(unittest.TestCase):
                             trs[:, :, :2], mu, G, xij)
         self.assert_jit_jax(lambda a, b, c, e: contractions.contract('trs,rWCa,Caib,sWCb->tWCi', a, b, c, e),
                             trs, mu, G, nu)
-        eta = jnp.ones((4, 2, 4)); U = jnp.ones((4, 7))
-        self.assert_jit_jax(lambda a, b: contractions.contract('tWCi,Cio->tWCo', a, b), eta, U)
+        eta = jnp.ones((4, 2, 4)); D = jnp.ones((4, 7))
+        self.assert_jit_jax(lambda a, b: contractions.contract('tWCi,Cio->tWCo', a, b), eta, D)
         self.assert_jit_jax(lambda a, b: contractions.contract('WCo,WCa->Cao', a, b, len_W=1),
                             jnp.ones((2, 5)), jnp.ones((2, 6)))
         # Riemannian (tangent) forward derivatives: jit, frame + variation sweeps, all-orders
@@ -384,10 +384,10 @@ class TestDispatch(unittest.TestCase):
             lambda var, b, ix, p: pd.tv_entries_derivatives(ix, p, var, b, 3),
             self.var.data, self.frame.data, idx, list(self.zz))
         # the order-threaded 3-group interpreter strings directly (K=(3,), C=())
-        sig = jnp.ones((4, 2, 3, 5)); Qc = jnp.ones((5, 4, 6)); xij2 = jnp.ones((2, 2, 4))
+        sig = jnp.ones((4, 2, 3, 5)); Rc = jnp.ones((5, 4, 6)); xij2 = jnp.ones((2, 2, 4))
         self.assert_jit_jax(
             lambda a, b, c, e: contractions.contract('trs,rWKCa,Caib,sWCi->tWKCb', a, b, c, e),
-            trs[:, :, :2], sig, Qc, xij2)
+            trs[:, :, :2], sig, Rc, xij2)
         dGc = jnp.ones((3, 5, 4, 6)); muc = jnp.ones((4, 2, 5))
         self.assert_jit_jax(
             lambda a, b, c, e: contractions.contract('trs,rWCa,KCaib,sWCi->tWKCb', a, b, c, e, len_C=0),
@@ -485,7 +485,7 @@ class TestDispatch(unittest.TestCase):
         vk = self.v_vstack.variations.data                                       # K = (3,)
         self.assert_jit_jax(lambda f, v: tops.tv_corewise_lift(f, v, fv_operations.fv_lift_factors(f, 1e-6)),
                             fd, vk)
-        y = (tuple(jnp.asarray(np.random.randn(3, *U.shape)) for U in fd[0]),
+        y = (tuple(jnp.asarray(np.random.randn(3, *D.shape)) for D in fd[0]),
              tuple(jnp.asarray(np.random.randn(3, *L.shape)) for L in fd[2]))
         self.assert_jit_jax(lambda f, yy: tops.tv_corewise_lift_transpose(
             f, yy, fv_operations.fv_lift_factors(f, 1e-6)), fd, y)
@@ -521,7 +521,7 @@ class TestDispatch(unittest.TestCase):
         rnd = lambda *s: jnp.asarray(np.random.randn(*s))
         theta = (tuple(self.x.tucker_cores), tuple(self.x.tt_cores))
         z = (tuple(self.x_other.tucker_cores), tuple(self.x_other.tt_cores))
-        dirs = (tuple(rnd(3, *U.shape) for U in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
+        dirs = (tuple(rnd(3, *B.shape) for B in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
         self.assert_jit_jax(t3la.t3_inner_product_corewise_transpose, z, theta)
         self.assert_jit_jax(t3la.t3_precompute_inner_product_sweep, z, theta)
         self.assert_jit_jax(t3la.t3_inner_product_corewise_hessian, z, theta, dirs)
@@ -565,7 +565,7 @@ class TestDispatch(unittest.TestCase):
         ww = tuple(rnd(W, N) for N in STRUCT[0])
         pp = tuple(rnd(W, N) for N in STRUCT[0])
         zt = tuple(rnd(order + 1, W, N) for N in STRUCT[0])                      # residual jets, no K
-        dirs = (tuple(rnd(3, *U.shape) for U in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
+        dirs = (tuple(rnd(3, *B.shape) for B in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
         self.assert_jit_jax(lambda z, w, p, th, dd: pd.t3_probe_corewise_derivatives_hessian(z, w, p, th, dd, order),
                             zt, ww, pp, theta, dirs)
 
@@ -608,7 +608,7 @@ class TestDispatch(unittest.TestCase):
         rnd = lambda *s: jnp.asarray(np.random.randn(*s))
         fd = self.frame.data
         theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (U, L)
-        dirs = (tuple(rnd(3, *U.shape) for U in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
+        dirs = (tuple(rnd(3, *B.shape) for B in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
         ww = tuple(rnd(W, N) for N in STRUCT[0])
         index = jnp.asarray(np.stack([np.random.randint(0, N, size=W) for N in STRUCT[0]]))
         other = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT).to_jax())[0].data
@@ -680,7 +680,7 @@ class TestDispatch(unittest.TestCase):
         rnd = lambda *s: jnp.asarray(np.random.randn(*s))
         fd = self.frame.data
         theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (U, L)
-        dirs = (tuple(rnd(3, *U.shape) for U in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
+        dirs = (tuple(rnd(3, *B.shape) for B in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
         pp = tuple(rnd(W, N) for N in STRUCT[0])
         c = rnd(order + 1, W)                                                    # the residual jet, no K
         other = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn(*STRUCT).to_jax())[0].data
@@ -1063,7 +1063,7 @@ class TestDispatch(unittest.TestCase):
         vk = jax.tree_util.tree_map(jnp.asarray, vk)
         self.assert_jit_jax(lambda f, v, s: tops.tv_corewise_lift(f, v, bsharing.fv_tied_lift_factors(f, 1e-6, s)),
                             fd, vk, sfd)
-        y = (tuple(jnp.asarray(np.random.randn(3, *U.shape)) for U in fd[0]),
+        y = (tuple(jnp.asarray(np.random.randn(3, *D.shape)) for D in fd[0]),
              tuple(jnp.asarray(np.random.randn(3, *L.shape)) for L in fd[2]))
         self.assert_jit_jax(lambda f, yy, s: tops.tv_corewise_lift_transpose(
             f, yy, bsharing.fv_tied_lift_factors(f, 1e-6, s)), fd, y, sfd)
@@ -1677,8 +1677,8 @@ class TestDispatch(unittest.TestCase):
         f_shape, f_masks = frame_u[4], frame_u[5]
         v_shape, v_masks = var_u[2], var_u[3]
 
-        def tied_step(up, dn, lf, rt, tkv, ttv):
-            frame_d = (up, dn, lf, rt, f_shape, f_masks)
+        def tied_step(down, up, lf, rt, tkv, ttv):
+            frame_d = (down, up, lf, rt, f_shape, f_masks)
             var_d = (tkv, ttv, v_shape, v_masks)
             sfd = bsharing.ufv_shared_frame_data(frame_d, groups)
             tied = utvo.utv_orthogonal_gauge_projection(frame_d, var_d, shared_data=sfd)
@@ -1891,15 +1891,15 @@ class TestDispatch(unittest.TestCase):
         self.assertEqual(n_plain[0], 1, 'plain UT3 recompiled on mask rebuild (mask hash/eq not value-based)')
 
         # same for the orthogonal frame's UT3FrameMasks (the optimization-loop case)
-        d, N, nU, nD, rL, rR = 3, 6, 4, 5, 3, 2
+        d, N, nD, nU, rL, rR = 3, 6, 4, 5, 3, 2
         pm = lambda r, p: np.arange(p) < np.asarray(r)[..., None]
         def make_frame():
-            up    = jnp.asarray(np.random.randn(d, nU, N))
-            down  = jnp.asarray(np.random.randn(d, rL, nD, rR))
-            left  = jnp.asarray(np.random.randn(d, rL, nU, rL))
-            right = jnp.asarray(np.random.randn(d, rR, nU, rR))
-            masks = ubv.UT3FrameMasks(pm([2,3,4],nU), pm([3,4,5],nD), pm([1,2,3,1],rL), pm([1,2,2,1],rR))
-            return ubv.UT3Frame(up, down, left, right, (4,5,6), masks)
+            down    = jnp.asarray(np.random.randn(d, nD, N))
+            up  = jnp.asarray(np.random.randn(d, rL, nU, rR))
+            left  = jnp.asarray(np.random.randn(d, rL, nD, rL))
+            right = jnp.asarray(np.random.randn(d, rR, nD, rR))
+            masks = ubv.UT3FrameMasks(pm([2,3,4],nD), pm([3,4,5],nU), pm([1,2,3,1],rL), pm([1,2,2,1],rR))
+            return ubv.UT3Frame(down, up, left, right, (4,5,6), masks)
         n_frame = [0]
         @jax.jit
         def fn_frame(B):
@@ -2837,8 +2837,8 @@ class TestTracedMaskGuard(unittest.TestCase):
         frame, _ = ubvf.ut3_orthogonal_representations(ux)
         shape, masks = frame.shape, frame.masks.data
 
-        masked = jax.jit(lambda up, dn, lf, rt: ufv_masking.ufv_apply_frame_masks(
-            (up, dn, lf, rt, shape, masks)))(*frame.supercores)
+        masked = jax.jit(lambda down, up, lf, rt: ufv_masking.ufv_apply_frame_masks(
+            (down, up, lf, rt, shape, masks)))(*frame.supercores)
         self.assertTrue(all(common.is_jax_ndarray(a) for a in masked))
 
 
@@ -2941,7 +2941,7 @@ class TestCurvatureJvpOracle(unittest.TestCase):
         rnd = lambda *s: jnp.asarray(np.random.randn(*s))
         x = t3.TuckerTensorTrain.randn(*STRUCT).to_jax()
         core_pair = x.data
-        dirs = (tuple(rnd(2, *U.shape) for U in core_pair[0]), tuple(rnd(2, *G.shape) for G in core_pair[1]))
+        dirs = (tuple(rnd(2, *B.shape) for B in core_pair[0]), tuple(rnd(2, *G.shape) for G in core_pair[1]))
         ww = tuple(rnd(W, N) for N in STRUCT[0])
         pp = tuple(rnd(W, N) for N in STRUCT[0])
         index = jnp.asarray(np.stack([np.random.randint(0, N, size=W) for N in STRUCT[0]]))

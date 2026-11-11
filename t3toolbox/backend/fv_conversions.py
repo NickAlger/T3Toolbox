@@ -48,16 +48,16 @@ def fv_to_t3(
         ],
         frame: typ.Union[
             typ.Tuple[
-                typ.Tuple[NDArray, ...],  # up_tucker_cores
-                typ.Tuple[NDArray, ...],  # down_tt_cores
+                typ.Tuple[NDArray, ...],  # down_tucker_cores
+                typ.Tuple[NDArray, ...],  # up_tt_cores
                 typ.Tuple[NDArray, ...],  # left_tt_cores
                 typ.Tuple[NDArray, ...],  # right_tt_cores
             ], # ragged
             typ.Tuple[
-                NDArray,  # up_tucker_supercore
                 NDArray,  # down_tucker_supercore
+                NDArray,  # up_tt_supercore
                 NDArray,  # left_tt_supercore
-                NDArray,  # right_tucker_supercore
+                NDArray,  # right_tt_supercore
             ], # uniform
         ],
         variations: typ.Union[
@@ -82,16 +82,16 @@ def fv_to_t3(
 ]:
     '''Convert ith frame-variation representation to TuckerTensorTrain.
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     tucker_variations, tt_variations = variations
 
-    is_uniform = is_ndarray(up_tucker_cores)
+    is_uniform = is_ndarray(down_tucker_cores)
     xnp, _, _ = get_backend(True, tree_contains_jax((frame, variations)))
 
     use_tt_coord, ii = index
 
     if use_tt_coord:
-        x_tucker_cores = up_tucker_cores
+        x_tucker_cores = down_tucker_cores
 
         LL = left_tt_cores[:ii]
         H = tt_variations[ii]
@@ -101,21 +101,21 @@ def fv_to_t3(
         else:
             x_tt_cores = tuple(LL) + (H,) + tuple(RR)
     else:
-        left_UU = up_tucker_cores[:ii]
+        left_DD = down_tucker_cores[:ii]
         V = tucker_variations[ii]
-        right_UU = up_tucker_cores[ii+1:]
+        right_DD = down_tucker_cores[ii+1:]
         if is_uniform:
-            x_tucker_cores = xnp.concatenate([left_UU, V.reshape((1,)+V.shape), right_UU])
+            x_tucker_cores = xnp.concatenate([left_DD, V.reshape((1,)+V.shape), right_DD])
         else:
-            x_tucker_cores = tuple(left_UU) + (V,) + tuple(right_UU)
+            x_tucker_cores = tuple(left_DD) + (V,) + tuple(right_DD)
 
         LL = left_tt_cores[:ii]
-        D = down_tt_cores[ii]
+        U = up_tt_cores[ii]
         RR = right_tt_cores[ii+1:]
         if is_uniform:
-            x_tt_cores = xnp.concatenate([LL, D.reshape((1,)+D.shape), RR])
+            x_tt_cores = xnp.concatenate([LL, U.reshape((1,)+U.shape), RR])
         else:
-            x_tt_cores = tuple(LL) + (D,) + tuple(RR)
+            x_tt_cores = tuple(LL) + (U,) + tuple(RR)
 
     return x_tucker_cores, x_tt_cores
 
@@ -141,8 +141,8 @@ def t3_orthogonal_representations(
 ) -> typ.Union[
     typ.Tuple[
         typ.Tuple[
-            typ.Tuple[NDArray,...], # up_tucker_cores
-            typ.Tuple[NDArray, ...],  # down_tt_cores
+            typ.Tuple[NDArray,...], # down_tucker_cores
+            typ.Tuple[NDArray, ...],  # up_tt_cores
             typ.Tuple[NDArray,...], # left_tt_cores
             typ.Tuple[NDArray,...], # right_tt_cores
         ],
@@ -153,10 +153,10 @@ def t3_orthogonal_representations(
     ], # ragged
     typ.Tuple[
         typ.Tuple[
-            NDArray,  # up_tucker_supercore
             NDArray,  # down_tucker_supercore
+            NDArray,  # up_tt_supercore
             NDArray,  # left_tt_supercore
-            NDArray,  # right_tucker_supercore
+            NDArray,  # right_tt_supercore
         ],
         typ.Tuple[
             NDArray,  # tucker_variations_supercore
@@ -178,11 +178,11 @@ def t3_orthogonal_representations(
 
     if is_uniform:
         # uniform path operates on bare (masked) supercores -- the (n,N)/(rL,n,rR) arrays, not .data.
-        up_orthogonalize_tucker_cores = lambda x: uniform_orth.down_orthogonalize_tucker_supercores(*x)
-        down_orthogonalize_tt_cores = lambda x: uniform_orth.up_orthogonalize_tt_supercores(*x)
+        down_orthogonalize_tucker_cores = lambda x: uniform_orth.down_orthogonalize_tucker_supercores(*x)
+        up_orthogonalize_tt_cores = lambda x: uniform_orth.up_orthogonalize_tt_supercores(*x)
     else:
-        up_orthogonalize_tucker_cores = ragged_orth.t3_down_orthogonalize_tucker_cores
-        down_orthogonalize_tt_cores = ragged_orth.t3_up_orthogonalize_tt_cores
+        down_orthogonalize_tucker_cores = ragged_orth.t3_down_orthogonalize_tucker_cores
+        up_orthogonalize_tt_cores = ragged_orth.t3_up_orthogonalize_tt_cores
 
     if squash_tails:
         # tt_squash_tails is polymorphic over the representation (ragged core tuple / supercore)
@@ -204,36 +204,36 @@ def t3_orthogonal_representations(
             one_r = prefix_mask(np.ones((1,) + stack_u, dtype=int), r_u)
             ttm_sq = np.concatenate([one_r, ttm_u[1:-1], one_r], axis=0)
         shape_col = np.asarray(shape_u).reshape((d_u,) + (1,) * len(stack_u))
-        up_r = np.minimum(tkm_u.sum(axis=-1), shape_col)               # 1. Tucker down-orth
+        down_r = np.minimum(tkm_u.sum(axis=-1), shape_col)               # 1. Tucker down-orth
         bond_r = ttm_sq.sum(axis=-1)
         left_r = np.array(np.broadcast_to(bond_r, bond_r.shape), dtype=int)
         for i in range(d_u - 1):                                       # 2. left sweep, original bonds
-            left_r[i + 1] = np.minimum(left_r[i] * up_r[i], bond_r[i + 1])
+            left_r[i + 1] = np.minimum(left_r[i] * down_r[i], bond_r[i + 1])
         right_r = np.array(left_r, copy=True)
         for i in range(d_u - 1, 0, -1):                                # 3. right sweep, left chain
-            right_r[i] = np.minimum(left_r[i], up_r[i] * right_r[i + 1])
-        down_r = np.minimum(up_r, left_r[:-1] * right_r[1:])           # 4. the down step
+            right_r[i] = np.minimum(left_r[i], down_r[i] * right_r[i + 1])
+        up_r = np.minimum(down_r, left_r[:-1] * right_r[1:])           # 4. the down step
 
     if not already_left_orthogonal:
         if uniform_masks is None:
             # Orthogonalize Tucker cores upward to get up_tt_cores U
-            up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(x)
+            down_tucker_cores, tt_cores = down_orthogonalize_tucker_cores(x)
 
             # Sweep left-to-right, generating left orthogonal tt_cores L
             left_tt_cores = orth.tt_left_orthogonalize(tt_cores)
         else:
-            up_tucker_cores, tt_cores = uniform_orth.down_orthogonalize_tucker_supercores(
+            down_tucker_cores, tt_cores = uniform_orth.down_orthogonalize_tucker_supercores(
                 x[0], x[1],
                 row_mask=prefix_mask(shape_col, N_u), col_mask=tkm_u,
-                out_mask=prefix_mask(up_r, min(tkm_u.shape[-1], N_u)))
-            up_masks = prefix_mask(up_r, up_tucker_cores.shape[-2])
+                out_mask=prefix_mask(down_r, min(tkm_u.shape[-1], N_u)))
+            down_masks = prefix_mask(down_r, down_tucker_cores.shape[-2])
             left_tt_cores = orth.tt_left_orthogonalize(
-                tt_cores, pad_masks=uniform_orth._tt_left_sweep_pad_masks(ttm_sq, up_masks, left_r))
+                tt_cores, pad_masks=uniform_orth._tt_left_sweep_pad_masks(ttm_sq, down_masks, left_r))
     else:
-        up_tucker_cores, left_tt_cores = x
+        down_tucker_cores, left_tt_cores = x
 
     if uniform_masks is not None:
-        up_masks = prefix_mask(up_r, up_tucker_cores.shape[-2])
+        down_masks = prefix_mask(down_r, down_tucker_cores.shape[-2])
 
     # Sweep right-to-left, generating tt_variations H, and right orthogonal tt_cores R
     if uniform_masks is None:
@@ -245,23 +245,23 @@ def t3_orthogonal_representations(
         right_tt_cores, tt_variations = orth.tt_right_orthogonalize(   # executed as a LEFT sweep on
             left_tt_cores, return_variation_cores=True,                # the reversed chain
             pad_masks=uniform_orth._tt_left_sweep_pad_masks(
-                left_masks[::-1], up_masks[::-1], right_r[::-1]),
+                left_masks[::-1], down_masks[::-1], right_r[::-1]),
         )
 
     # Orthogonalize TT cores downward to get outer_tt_cores O and tucker_variations V
     if uniform_masks is None:
-        tucker_variations, down_tt_cores = down_orthogonalize_tt_cores(
-            (up_tucker_cores, tt_variations),
+        tucker_variations, up_tt_cores = up_orthogonalize_tt_cores(
+            (down_tucker_cores, tt_variations),
         )
     else:
         r_now = tt_variations.shape[-1]
         kron_ab = (prefix_mask(left_r[:-1], r_now)[..., :, None]
                    & prefix_mask(right_r[1:], r_now)[..., None, :])    # (d,)+stack+(rL,rR)
-        tucker_variations, down_tt_cores = uniform_orth.up_orthogonalize_tt_supercores(
-            up_tucker_cores, tt_variations,
-            row_mask=kron_ab.reshape(kron_ab.shape[:-2] + (-1,)), col_mask=up_masks,
-            out_mask=prefix_mask(down_r, min(r_now * r_now, up_tucker_cores.shape[-2])))
+        tucker_variations, up_tt_cores = uniform_orth.up_orthogonalize_tt_supercores(
+            down_tucker_cores, tt_variations,
+            row_mask=kron_ab.reshape(kron_ab.shape[:-2] + (-1,)), col_mask=down_masks,
+            out_mask=prefix_mask(up_r, min(r_now * r_now, down_tucker_cores.shape[-2])))
 
-    frame = (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+    frame = (down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores)
     variation = (tucker_variations, tt_variations)
     return frame, variation

@@ -349,9 +349,9 @@ def t3m_inplace_fused(
     if max_tucker_ranks is None and max_tt_ranks is None and rtol is None and atol is None:
         return t3_mult(x, y)
 
-    Ux, Gx = x
-    Uy, Gy = y
-    d = len(Ux)
+    Bx, Gx = x
+    By, Gy = y
+    d = len(Bx)
     use_jax = tree_contains_jax((x, y))
     xnp, _, _ = get_backend(False, use_jax)
     mtr = ranks.normalize_max_ranks(max_tucker_ranks, d)
@@ -366,16 +366,16 @@ def t3m_inplace_fused(
     Gx = orth.tt_right_orthogonalize(Gx)
     Gy = orth.tt_right_orthogonalize(Gy)
 
-    stack = tuple(Ux[0].shape[:-2])
+    stack = tuple(Bx[0].shape[:-2])
     out_tucker = []
     out_tt = []
     carry = xnp.ones(stack + (1, 1, 1))  # left center: [center_bond, r_x, r_y], all 1 at the boundary
     for ii in range(d):
-        Gxi, Gyi, Uxi, Uyi = Gx[ii], Gy[ii], Ux[ii], Uy[ii]
+        Gxi, Gyi, Bxi, Byi = Gx[ii], Gy[ii], Bx[ii], By[ii]
         t = carry.shape[-3]
         nA, cA = Gxi.shape[-2], Gxi.shape[-1]
         nB, cB = Gyi.shape[-2], Gyi.shape[-1]
-        N = Uxi.shape[-1]
+        N = Bxi.shape[-1]
         P, C2 = nA * nB, cA * cB
 
         # Product core at this site: contract the carry with the two central cores.
@@ -383,9 +383,9 @@ def t3m_inplace_fused(
         site = site.reshape(stack + (t, P, C2))                               # [t, n^2, r^2]
 
         # Tucker factor W = U_x ⊙ U_y; orthonormalize (full SVD, no truncation): W = Uw diag(sw) Vt.
-        W = xnp.einsum('...nx,...mx->...nmx', Uxi, Uyi).reshape(stack + (P, N))
+        W = xnp.einsum('...nx,...mx->...nmx', Bxi, Byi).reshape(stack + (P, N))
         Uw, sw, Vt = linalg.truncated_svd(W)
-        Utilde_full = Vt                                   # row-orthonormal Tucker factor [k, N]
+        Btilde_full = Vt                                   # row-orthonormal Tucker factor [k, N]
         Mw = xnp.einsum('...pk,...k->...pk', Uw, sw)       # remainder [n^2, k] -> into the site
         site = xnp.einsum('...tpc,...pk->...tkc', site, Mw)  # [t, k, r^2]
         k = site.shape[-2]
@@ -395,7 +395,7 @@ def t3m_inplace_fused(
         env = xnp.moveaxis(site, -2, -3).reshape(stack + (k, t * C2))
         Qt, st, Vt2 = linalg.truncated_svd(env, max_rank=mtr[ii], rtol=rtol, atol=atol)
         ntil = Qt.shape[-1]
-        out_tucker.append(xnp.einsum('...kr,...kN->...rN', Qt, Utilde_full))   # [ntil, N]
+        out_tucker.append(xnp.einsum('...kr,...kN->...rN', Qt, Btilde_full))   # [ntil, N]
         site = (xnp.einsum('...r,...rc->...rc', st, Vt2)                       # [ntil, t*r^2]
                 .reshape(stack + (ntil, t, C2)))
         site = xnp.moveaxis(site, -3, -2)                                      # [t, ntil, r^2]
@@ -429,8 +429,8 @@ def _t3m_swap_pair(
     labels ride along). ``push`` controls where the singular values -- hence the
     orthogonality center -- land, so the caller keeps the center co-located with the swap.
     '''
-    GL, UL, mL = eL
-    GR, UR, mR = eR
+    GL, BL, mL = eL
+    GR, BR, mR = eR
     xnp, _, _ = get_backend(False, is_jax_ndarray(GL) or is_jax_ndarray(GR))
 
     stack = GL.shape[:-3]
@@ -447,7 +447,7 @@ def _t3m_swap_pair(
     else:                                                       # push left -> center at left core
         newGL = (U * s[..., None, :]).reshape(stack + (a, nR, rp))
         newGR = Vt.reshape(stack + (rp, nL, c))                 # right-orth, physical nL
-    return [newGL, UR, mR], [newGR, UL, mL]                     # Tucker factors / modes swap
+    return [newGL, BR, mR], [newGR, BL, mL]                     # Tucker factors / modes swap
 
 
 def _t3m_contract_pair(
@@ -464,29 +464,29 @@ def _t3m_contract_pair(
     canonical environment of both bonds, as ``t3svd`` does). With the center at the pair the
     environment is orthonormal, so the truncation is optimal; m_i is left as the new center.
     '''
-    Ga, Ua, mi = eL
-    Gb, Ub, _  = eR
+    Ga, Ba, mi = eL
+    Gb, Bb, _  = eR
     xnp, _, _ = get_backend(False, is_jax_ndarray(Ga) or is_jax_ndarray(Gb))
 
     stack = Ga.shape[:-3]
     aL, nA, b = Ga.shape[-3:]
     _, nB, c = Gb.shape[-3:]
-    N = Ua.shape[-1]
+    N = Ba.shape[-1]
     P = nA * nB
     site = xnp.einsum('...anb,...bmc->...anmc', Ga, Gb).reshape(stack + (aL, P, c))
-    W = xnp.einsum('...nx,...mx->...nmx', Ua, Ub).reshape(stack + (P, N))   # Khatri-Rao Tucker factor
+    W = xnp.einsum('...nx,...mx->...nmx', Ba, Bb).reshape(stack + (P, N))   # Khatri-Rao Tucker factor
     Uw, sw, Vt = linalg.truncated_svd(W)                       # lossless orthonormalize of W
-    Utilde_full = Vt                                           # [k, N]
+    Btilde_full = Vt                                           # [k, N]
     Mw = Uw * sw[..., None, :]                                 # [P, k] -> folded into the site
     site = xnp.einsum('...apc,...pk->...akc', site, Mw)        # [aL, k, c]
     k = site.shape[-2]
     env = xnp.moveaxis(site, -2, -3).reshape(stack + (k, aL * c))           # weighted env (both bonds orth)
     Qt, st, Vt2 = linalg.truncated_svd(env, max_rank=max_tucker_rank, rtol=rtol, atol=atol)
     ntil = st.shape[-1]
-    Utilde = xnp.einsum('...kr,...kN->...rN', Qt, Utilde_full)              # [ntil, N] new Tucker factor
+    Btilde = xnp.einsum('...kr,...kN->...rN', Qt, Btilde_full)              # [ntil, N] new Tucker factor
     site = (st[..., :, None] * Vt2).reshape(stack + (ntil, aL, c))
     site = xnp.moveaxis(site, -3, -2)                          # [aL, ntil, c] = m_i central core (center)
-    return [site, Utilde, mi]
+    return [site, Btilde, mi]
 
 
 def _t3m_move_center(
@@ -553,9 +553,9 @@ def t3m_swap(
     if oversample < 1:
         raise ValueError('oversample must be >= 1, got %r' % (oversample,))
 
-    Ux, Gx = x
-    Uy, Gy = y
-    d = len(Ux)
+    Bx, Gx = x
+    By, Gy = y
+    d = len(Bx)
 
     mtr = ranks.normalize_max_ranks(max_tucker_ranks, d)        # exact targets
     mrr = ranks.normalize_max_ranks(max_tt_ranks, d + 1)
@@ -573,13 +573,13 @@ def t3m_swap(
     Gy = tt_operations.tt_squash_tails(Gy)
 
     # Leaves -> root (fold Tucker weight into the central TTs), then build/gauge the chain.
-    Ux, Gx = ragged_orth.t3_down_orthogonalize_tucker_cores((Ux, Gx))
-    Uy, Gy = ragged_orth.t3_down_orthogonalize_tucker_cores((Uy, Gy))
+    Bx, Gx = ragged_orth.t3_down_orthogonalize_tucker_cores((Bx, Gx))
+    By, Gy = ragged_orth.t3_down_orthogonalize_tucker_cores((By, Gy))
     Gx_o = orth.tt_left_orthogonalize(list(Gx))
     Gy_o = orth.tt_right_orthogonalize(tt_operations.tt_reverse(list(Gy)))
-    Uy_rev = list(Uy[::-1])
-    chain = [[Gx_o[i], Ux[i], i] for i in range(d)] \
-          + [[Gy_o[j], Uy_rev[j], d - 1 - j] for j in range(d)]
+    By_rev = list(By[::-1])
+    chain = [[Gx_o[i], Bx[i], i] for i in range(d)] \
+          + [[Gy_o[j], By_rev[j], d - 1 - j] for j in range(d)]
     center = d - 1                                              # seam pair = (d-1, d)
 
     for i in range(d - 1, -1, -1):
@@ -663,15 +663,15 @@ def t3_weighted_inner(
 # (the T3-T3 term of the exact Riemannian Hessian)
 # --------------------------------------------------------------------------------------------------
 def _inner_product_rebasis_step(
-        x: typ.Tuple[NDArray, NDArray, NDArray],   # (G_z, B_z, U): C+(rZi,nZi,rZ(i+1)) ; C+(nZi,Ni) ; C+(nUi,Ni)
-) -> typ.Tuple[NDArray]:                           # (G_z2,): C+(rZi,nUi,rZ(i+1))
+        x: typ.Tuple[NDArray, NDArray, NDArray],   # (G_z, B_z, U): C+(rZi,nZi,rZ(i+1)) ; C+(nZi,Ni) ; C+(nDi,Ni)
+) -> typ.Tuple[NDArray]:                           # (G_z2,): C+(rZi,nDi,rZ(i+1))
     """Re-express one TT core of ``z`` in the frame's up-Tucker basis, for
     :py:func:`_inner_product_frame_transpose`. Closure-free map body --
     ``docs/contributor/scan_body_principles.md``."""
-    G_other, B_other, U = x
+    G_other, B_other, D = x
     xnp, _, _ = get_backend(False, tree_contains_jax(x))
-    BU = xnp.einsum('...iz,...xz->...ix', B_other, U)
-    G_other2 = xnp.einsum('...aib,...ix->...axb', G_other, BU)
+    BD = xnp.einsum('...iz,...xz->...ix', B_other, D)
+    G_other2 = xnp.einsum('...aib,...ix->...axb', G_other, BD)
     return (G_other2,)
 
 
@@ -679,35 +679,35 @@ def _inner_product_variations_step(
         x: typ.Tuple[NDArray, NDArray, NDArray,
                      NDArray, NDArray, NDArray],   # (ZL, ZR, G_z, B_z, O, U)
 ) -> typ.Tuple[
-    NDArray,  # dG. ungauged tt variation,     C+(rLi,nUi,rR(i+1))
-    NDArray,  # dB. ungauged tucker variation, C+(nOi,Ni)
+    NDArray,  # dG. ungauged tt variation,     C+(rLi,nDi,rR(i+1))
+    NDArray,  # dB. ungauged tucker variation, C+(nUi,Ni)
 ]:
     """One core of :py:func:`_inner_product_frame_transpose`. Closure-free map body --
     ``docs/contributor/scan_body_principles.md``."""
-    ZL, ZR, G, B, O, U = x
+    ZL, ZR, G, B, U, D = x
     xnp, _, _ = get_backend(False, tree_contains_jax(x))
     env = xnp.einsum('...ax,...aib,...by->...xiy', ZL, G, ZR)
-    BU = xnp.einsum('...io,...jo->...ij', B, U)
-    dG = xnp.einsum('...xiy,...ij->...xjy', env, BU)
-    M = xnp.einsum('...xiy,...xjy->...ij', env, O)
-    dB = xnp.einsum('...ij,...io->...jo', M, B)
-    return dG, dB
+    BD = xnp.einsum('...io,...jo->...ij', B, D)
+    H = xnp.einsum('...xiy,...ij->...xjy', env, BD)
+    M = xnp.einsum('...xiy,...xjy->...ij', env, U)
+    V = xnp.einsum('...ij,...io->...jo', M, B)
+    return H, V
 
 
 def _inner_product_frame_transpose(
         frame:  typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
-            typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
-            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
-            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # down_tucker_cores. len=d, elm_shape=C+(nDi, Ni)
+            typ.Sequence[NDArray],  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
         ],
         z:      typ.Tuple[
             typ.Sequence[NDArray],  # tucker_cores of z. len=d, elm_shape=K+C+(nZi, Ni); K may be empty
             typ.Sequence[NDArray],  # tt_cores of z.     len=d, elm_shape=K+C+(rZi, nZi, rZ(i+1))
         ],
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],        # UNGAUGED tucker_variations. len=d, elm_shape=K+C+(nDi, Ni)
-    typ.Tuple[NDArray, ...],        # UNGAUGED tt_variations.     len=d, elm_shape=K+C+(rLi, nUi, rR(i+1))
+    typ.Tuple[NDArray, ...],        # UNGAUGED tucker_variations. len=d, elm_shape=K+C+(nUi, Ni)
+    typ.Tuple[NDArray, ...],        # UNGAUGED tt_variations.     len=d, elm_shape=K+C+(rLi, nDi, rR(i+1))
 ]:
     """The frame transpose of the inner product with ``z``: ``E^T z``, the coordinates of ``<z, term>``
     against every single-core-replacement term of the frame (``E`` maps variations to the tangent sum).
@@ -720,8 +720,8 @@ def _inner_product_frame_transpose(
     core's two variation slots. ``z`` may carry an extra leading stack ``K`` over the frame's ``C`` (one
     projection per stacked ``z``): the ``'...'`` einsums broadcast the frame over it.
     """
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
-    outer_tt_cores = down_tt_cores
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
+    outer_tt_cores = up_tt_cores
 
     other_tucker_cores, other_tt_cores = z
     other_tt_cores = tt_operations.tt_squash_tails(other_tt_cores)
@@ -731,7 +731,7 @@ def _inner_product_frame_transpose(
 
     # Re-express the other T3's TT cores in the frame's up-Tucker basis.
     (other_tt_cores2,) = xmap(
-        _inner_product_rebasis_step, (other_tt_cores, other_tucker_cores, up_tucker_cores),
+        _inner_product_rebasis_step, (other_tt_cores, other_tucker_cores, down_tucker_cores),
     )
 
     if len(other_tt_cores2) == 1:
@@ -746,7 +746,7 @@ def _inner_product_frame_transpose(
 
     ungauged_tt_variations, ungauged_tucker_variations = xmap(
         _inner_product_variations_step,
-        (zipper_left2right, zipper_right2left, other_tt_cores, other_tucker_cores, outer_tt_cores, up_tucker_cores),
+        (zipper_left2right, zipper_right2left, other_tt_cores, other_tucker_cores, outer_tt_cores, down_tucker_cores),
     )
     return ungauged_tucker_variations, ungauged_tt_variations
 
@@ -834,11 +834,11 @@ def t3_precompute_inner_product_sweep(
     d = len(tucker_cores)
 
     if is_uniform:
-        BU = contractions.contract('dCzn,dCun->dCzu', z_tucker, tucker_cores)
-        G2 = contractions.contract('dCazb,dCzu->dCaub', z_tt, BU)
+        zB = contractions.contract('dCzn,dCun->dCzu', z_tucker, tucker_cores)
+        G2 = contractions.contract('dCazb,dCzu->dCaub', z_tt, zB)
     else:
-        BU = tuple(contractions.contract('Czn,Cun->Czu', z_tucker[ii], tucker_cores[ii]) for ii in range(d))
-        G2 = tuple(contractions.contract('Cazb,Czu->Caub', z_tt[ii], BU[ii]) for ii in range(d))
+        zB = tuple(contractions.contract('Czn,Cun->Czu', z_tucker[ii], tucker_cores[ii]) for ii in range(d))
+        G2 = tuple(contractions.contract('Cazb,Czu->Caub', z_tt[ii], zB[ii]) for ii in range(d))
     if d == 1:      # no chain on either side: the boundary ones environments (as in the gradient)
         ss = G2[0].shape[:-3]
         ZL = (xnp.ones(ss + (G2[0].shape[-3], tt_cores[0].shape[-3])),)
@@ -851,7 +851,7 @@ def t3_precompute_inner_product_sweep(
         env = contractions.contract('dCxa,dCxzc,dCcb->dCazb', ZL, z_tt, ZR)
     else:
         env = tuple(contractions.contract('Cxa,Cxzc,Ccb->Cazb', ZL[ii], z_tt[ii], ZR[ii]) for ii in range(d))
-    return BU, G2, ZL, ZR, env
+    return zB, G2, ZL, ZR, env
 
 
 def t3_inner_product_corewise_hessian(
@@ -953,7 +953,7 @@ def t3_inner_product_corewise_hessian_from_sweep(
     slots, so a uniform caller masks ``z``, ``theta`` AND ``theta_hat`` first and re-masks the output
     (:py:func:`~t3toolbox.backend.ut3_linalg.ut3_inner_product_corewise_hessian_from_sweep`).
     """
-    BU, G2, ZL, ZR, env = sweep
+    zB, G2, ZL, ZR, env = sweep
     z_tucker, z_tt = z
     z_tt = tt_operations.tt_squash_tails(z_tt)
     tucker_cores, tt_cores = core_pair
@@ -963,11 +963,11 @@ def t3_inner_product_corewise_hessian_from_sweep(
     d = len(tucker_cores)
 
     if is_uniform:
-        BUd = contractions.contract('dCzn,dKCun->dKCzu', z_tucker, tucker_dirs)
-        G2d = contractions.contract('dCazb,dKCzu->dKCaub', z_tt, BUd)
+        zBd = contractions.contract('dCzn,dKCun->dKCzu', z_tucker, tucker_dirs)
+        G2d = contractions.contract('dCazb,dKCzu->dKCaub', z_tt, zBd)
     else:
-        BUd = tuple(contractions.contract('Czn,KCun->KCzu', z_tucker[ii], tucker_dirs[ii]) for ii in range(d))
-        G2d = tuple(contractions.contract('Cazb,KCzu->KCaub', z_tt[ii], BUd[ii]) for ii in range(d))
+        zBd = tuple(contractions.contract('Czn,KCun->KCzu', z_tucker[ii], tucker_dirs[ii]) for ii in range(d))
+        G2d = tuple(contractions.contract('Cazb,KCzu->KCaub', z_tt[ii], zBd[ii]) for ii in range(d))
     if d == 1:      # no chain: the boundary environments do not move
         ss = tucker_dirs[0].shape[:-2]
         ZLd = (xnp.zeros(ss + ZL[0].shape[-2:]),)
@@ -982,8 +982,8 @@ def t3_inner_product_corewise_hessian_from_sweep(
         ZLd, ZRd = xnp.stack(ZLd, axis=0), xnp.stack(ZRd, axis=0)
         envd = (contractions.contract('dKCxa,dCxzc,dCcb->dKCazb', ZLd, z_tt, ZR)
                 + contractions.contract('dCxa,dCxzc,dKCcb->dKCazb', ZL, z_tt, ZRd))
-        tt_out = (contractions.contract('dKCazb,dCzu->dKCaub', envd, BU)
-                  + contractions.contract('dCazb,dKCzu->dKCaub', env, BUd))
+        tt_out = (contractions.contract('dKCazb,dCzu->dKCaub', envd, zB)
+                  + contractions.contract('dCazb,dKCzu->dKCaub', env, zBd))
         Md = (contractions.contract('dKCazb,dCaub->dKCzu', envd, tt_cores)
               + contractions.contract('dCazb,dKCaub->dKCzu', env, tt_dirs))
         return contractions.contract('dKCzu,dCzn->dKCun', Md, z_tucker), tt_out
@@ -992,8 +992,8 @@ def t3_inner_product_corewise_hessian_from_sweep(
     for ii in range(d):
         envd = (contractions.contract('KCxa,Cxzc,Ccb->KCazb', ZLd[ii], z_tt[ii], ZR[ii])
                 + contractions.contract('Cxa,Cxzc,KCcb->KCazb', ZL[ii], z_tt[ii], ZRd[ii]))
-        tt_out.append(contractions.contract('KCazb,Czu->KCaub', envd, BU[ii])
-                      + contractions.contract('Cazb,KCzu->KCaub', env[ii], BUd[ii]))
+        tt_out.append(contractions.contract('KCazb,Czu->KCaub', envd, zB[ii])
+                      + contractions.contract('Cazb,KCzu->KCaub', env[ii], zBd[ii]))
         Md = (contractions.contract('KCazb,Caub->KCzu', envd, tt_cores[ii])
               + contractions.contract('Cazb,KCaub->KCzu', env[ii], tt_dirs[ii]))
         tucker_out.append(contractions.contract('KCzu,Czn->KCun', Md, z_tucker[ii]))

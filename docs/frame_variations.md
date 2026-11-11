@@ -67,8 +67,8 @@ and why the `K`/`C` stack split is *recovered* rather than stored (see
 
 ## Four rank stores — and why excess rank is inert
 
-A `T3Frame` does not carry *one* rank tuple, it carries **four**: `up_ranks` (the rows of each Tucker
-factor `Uᵢ`), `down_ranks` (the mode leg of each down/outer core `Oᵢ`), and `left_ranks` / `right_ranks`
+A `T3Frame` does not carry *one* rank tuple, it carries **four**: `down_ranks` (the rows of each Tucker
+factor `Uᵢ`), `up_ranks` (the mode leg of each down/outer core `Oᵢ`), and `left_ranks` / `right_ranks`
 (the TT bonds, in each sweep direction). That redundancy is not bookkeeping sloppiness — it is what makes
 non-minimal ranks harmless, and it is worth understanding before reading
 [`numerical_contracts.md`](numerical_contracts.md)'s verdict that minimal rank is a precondition for
@@ -91,7 +91,7 @@ single core and orthogonality fails outright (a residual of order 1, not a toler
 **But the bound is per core, not per frame.** Ask for more rank than the rest of the network supports and
 nothing fails: the excess is carried as **slack between the four stores**. `T3Frame.random_orthogonal`
 with `tucker_ranks=(4,4,4)`, `tt_ranks=(1,2,2,1)` on a `(6,6,6)` tensor — where mode 0's Tucker ceiling is
-`r₀·r₁ = 2` — returns `up_ranks=(4,4,4)` alongside `down_ranks=(2,4,2)`. Ask for `tt_ranks=(1,9,9,1)` and
+`r₀·r₁ = 2` — returns `down_ranks=(4,4,4)` alongside `up_ranks=(2,4,2)`. Ask for `tt_ranks=(1,9,9,1)` and
 `left_ranks` and `right_ranks` come back *different from each other*, each capped in its own direction.
 Orthogonalizing a non-minimal point does the same thing.
 
@@ -118,7 +118,7 @@ picture:
 
 - A **base point** is a *tensor*; `T3Weights` weights all its internal edges (a weighted network).
 - A **tangent** is a set of *coordinates*; `T3FrameWeights` is a **diagonal metric on those coordinates** —
-  one weight per variation-core edge (`d` each: `up`↔`H.nU`, `down`↔`V.nD`, `left`↔`H.rL`, `right`↔`H.rR`).
+  one weight per variation-core edge (`d` each: `up`↔`H.nD`, `down`↔`V.nU`, `left`↔`H.rL`, `right`↔`H.rR`).
   The weighted norm is just `corewise_norm` of the weight-scaled variations; the frame stays orthonormal.
 
 The `d`-natural-edges count is not a coincidence — it is the same `d` as the variation cores, and the

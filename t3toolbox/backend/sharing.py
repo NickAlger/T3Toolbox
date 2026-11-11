@@ -476,18 +476,18 @@ class SharedFrameData:
     '''
     groups:     tuple  # static; the FULL canonical partition (validate_sharing form)
     row_splits: tuple  # static; per nontrivial group: cumulative row offsets of the stacked S^T blocks, len=k+1
-    centers:    tuple  # per nontrivial group: tuple of center cores H_i, elm_shape=C+(rLi, nUi, rR(i+1))
-    svd_U:      tuple  # per nontrivial group: left factor of thin SVD of M_g,  shape=C+(sum_nD, q)
+    centers:    tuple  # per nontrivial group: tuple of center cores H_i, elm_shape=C+(rLi, nDi, rR(i+1))
+    svd_U:      tuple  # per nontrivial group: left factor of thin SVD of M_g,  shape=C+(sum_nU, q)
     svd_s:      tuple  # per nontrivial group: singular values of M_g = the group spectrum s_g, C+(q,)
     svd_Vt:     tuple  # per nontrivial group: right factor of thin SVD of M_g, shape=C+(q, n_g)
 
 
 def fv_shared_frame_data(
         frame_data: typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
-            typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
-            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
-            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # down_tucker_cores. len=d, elm_shape=C+(nDi, Ni)
+            typ.Sequence[NDArray],  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
         ],
         groups:     typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition (validate_sharing)
 ) -> SharedFrameData:
@@ -507,7 +507,7 @@ def fv_shared_frame_data(
        down core (``S_i S_i^T = Gamma_i`` and ``W2_i = S_i O2_i`` hold by the construction's
        own factorization; no re-SVD, so no sign/degenerate-block hazards).
     3. Per nontrivial group, one thin (batched) SVD of the stacked
-       ``M_g = concat_i(S_i^T)``, shape ``C + (sum_i nD_i, n_g)``.
+       ``M_g = concat_i(S_i^T)``, shape ``C + (sum_i nU_i, n_g)``.
 
     Requires an orthogonal frame (the identities above presume the frame's gauges); the
     shared geometry enforces that in safe mode at its check sites -- this backend function is
@@ -554,11 +554,11 @@ def fv_shared_frame_data(
 
     centers, row_splits, svd_U, svd_s, svd_Vt = [], [], [], [], []
     for group in nontrivial_groups(groups):
-        SS_gT = tuple(SS_T[ii] for ii in group)                           # S_i^T, C+(nDi, nU)
+        SS_gT = tuple(SS_T[ii] for ii in group)                           # S_i^T, C+(nUi, nD)
         splits = (0,)
         for S_T in SS_gT:
             splits = splits + (splits[-1] + S_T.shape[-2],)
-        M = xnp.concatenate(SS_gT, axis=-2)                                # C+(sum nD, nU)
+        M = xnp.concatenate(SS_gT, axis=-2)                                # C+(sum nU, nD)
         U_M, s_g, Vt_M = xnp.linalg.svd(M, full_matrices=False)
         centers.append(tuple(HH[ii] for ii in group))
         row_splits.append(splits)
@@ -573,8 +573,8 @@ def fv_shared_frame_data(
 
 def fv_share_tucker_variations(
         variations_data: typ.Tuple[
-            typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nDi, Ni)
-            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nUi, rRi)
+            typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nUi, Ni)
+            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nDi, rRi)
         ],
         shared_data:    'SharedFrameData',  # the frame's companion (fv_shared_frame_data)
         rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
@@ -616,8 +616,8 @@ def fv_share_tucker_variations(
     >>> frame_d, _ = fvc.t3_orthogonal_representations(((tk[0], tk[0]), tt))
     >>> groups = sharing.validate_sharing((0, 0), (6, 6))
     >>> sfd = sharing.fv_shared_frame_data(frame_d, groups)
-    >>> raw = (tuple(np.random.randn(O.shape[-2], U.shape[-1])
-    ...              for O, U in zip(frame_d[1], frame_d[0])),
+    >>> raw = (tuple(np.random.randn(U.shape[-2], D.shape[-1])
+    ...              for U, D in zip(frame_d[1], frame_d[0])),
     ...        tuple(np.random.randn(*H.shape[-3:]) for H in frame_d[2]))
     >>> tied = tvo.tv_orthogonal_gauge_projection(frame_d, raw, shared_data=sfd)
     >>> tied2 = sharing.fv_share_tucker_variations(tied, sfd)
@@ -632,13 +632,13 @@ def fv_share_tucker_variations(
 
     new_tucker = list(tucker_variations)
     for gi, group in enumerate(nontrivial_groups(shared_data.groups)):
-        Udot = _tied_filtered_solve(shared_data, gi, tucker_variations, _tied_filter(shared_data, gi, None, rcond))
+        Ddot = _tied_filtered_solve(shared_data, gi, tucker_variations, _tied_filter(shared_data, gi, None, rcond))
         # R = M_g @ Udot: the tied coordinates of every group mode in one stack
         U_M, s_g, Vt_M = shared_data.svd_U[gi], shared_data.svd_s[gi], shared_data.svd_Vt[gi]
         splits = shared_data.row_splits[gi]
-        r = xnp.einsum('...wy,...yn->...wn', Vt_M, Udot)
+        r = xnp.einsum('...wy,...yn->...wn', Vt_M, Ddot)
         r = xnp.einsum('...w,...wn->...wn', s_g, r)
-        R = xnp.einsum('...xw,...wn->...xn', U_M, r)          # (K+C)+(sum nD, N)
+        R = xnp.einsum('...xw,...wn->...xn', U_M, r)          # (K+C)+(sum nU, N)
         for jj, ii in enumerate(group):
             new_tucker[ii] = R[..., splits[jj]:splits[jj + 1], :]
     return tuple(new_tucker), tuple(tt_variations)
@@ -650,10 +650,10 @@ def _tied_filter(
         eps:          typ.Optional[NDArray],     # damping, shape=C; None -> the exact clipped reciprocal
 
         rcond:        typ.Optional[typ.Union[float, NDArray]],  # relative clip: a scalar, or broadcastable to C+(1,);
-                                                                #   None -> dtype eps * max(sum nD_i, n_g)
+                                                                #   None -> dtype eps * max(sum nU_i, n_g)
 ) -> NDArray:                                    # f(s_g), shape=C+(q,); 0 where clipped
     '''The filter of group ``gi``'s tied solve: :py:func:`~t3toolbox.backend.linalg.filtered_reciprocal` of
-    the group spectrum ``s_g``, with the solve's default clip ``dtype eps * max(sum_i nD_i, n_g)`` --
+    the group spectrum ``s_g``, with the solve's default clip ``dtype eps * max(sum_i nU_i, n_g)`` --
     ``numpy.linalg.pinv``'s for the stacked ``M_g``. ``eps=None`` is the clipped pseudo-inverse of the tied
     projection, bit for bit the filter it always used; a damping ``eps`` is the exact Hessian's tied lift.
     A per-element ``rcond`` array (the uniform tied lift's clip at each stack element's REAL group
@@ -667,7 +667,7 @@ def _tied_filter(
 def _tied_filtered_solve(
         shared_data:        SharedFrameData,
         gi:                 int,                    # index into the companion's nontrivial-group tuples
-        tucker_variations:  typ.Sequence[NDArray],  # len=d, elm_shape=(K+C)+(nDi, Ni); the group's are read
+        tucker_variations:  typ.Sequence[NDArray],  # len=d, elm_shape=(K+C)+(nUi, Ni); the group's are read
         s_filter:           NDArray,                # f(s_g), shape=C+(q,) (_tied_filter)
 ) -> NDArray:                                       # Udot = Vt_M^T f(s_g) U_M^T [V_i1; ...], (K+C)+(n_g, N)
     '''The filtered least-squares solve ``Udot = M_g^{+f} [stacked V_i]`` against the companion's stacked-``S``
@@ -681,7 +681,7 @@ def _tied_filtered_solve(
     Vgroup = [tucker_variations[ii] for ii in group]
     xnp, _, _ = get_backend(False, tree_contains_jax((Vgroup, U_M, Vt_M, s_filter)))
 
-    Vstack = xnp.concatenate(Vgroup, axis=-2)                 # (K+C)+(sum nD, N)
+    Vstack = xnp.concatenate(Vgroup, axis=-2)                 # (K+C)+(sum nU, N)
     t = xnp.einsum('...xw,...xn->...wn', U_M, Vstack)         # U_M^T Vstack, (K+C)+(q, N)
     t = xnp.einsum('...w,...wn->...wn', s_filter, t)          # the filter
     return xnp.einsum('...wy,...wn->...yn', Vt_M, t)          # Udot, (K+C)+(n_g, N)
@@ -690,25 +690,25 @@ def _tied_filtered_solve(
 def _tied_filtered_solve_transpose(
         shared_data:  SharedFrameData,
         gi:           int,                     # index into the companion's nontrivial-group tuples
-        Udot:         NDArray,                 # elm_shape=(K+C)+(n_g, N): a direction on the group factor
+        Ddot:         NDArray,                 # elm_shape=(K+C)+(n_g, N): a direction on the group factor
         s_filter:     NDArray,                 # f(s_g), shape=C+(q,) (_tied_filter)
-) -> typ.Tuple[NDArray, ...]:                  # per group mode: (U_M f(s_g) Vt_M Udot) row block, (K+C)+(nDi, N)
+) -> typ.Tuple[NDArray, ...]:                  # per group mode: (U_M f(s_g) Vt_M Udot) row block, (K+C)+(nUi, N)
     '''The adjoint of :py:func:`_tied_filtered_solve` -- ``(M_g^{+f})^T Udot = U_M diag(f(s_g)) Vt_M Udot``,
     split into the group modes' row blocks by ``row_splits`` -- in the coordinate inner product, per ``K + C``
     element: ``<solve(V), Y> == sum_i <V_i, transpose(Y)_i>``. The same filter serves both directions, so
     ``L^T K L`` stays symmetric at every damping.'''
     U_M, Vt_M = shared_data.svd_U[gi], shared_data.svd_Vt[gi]
     splits = shared_data.row_splits[gi]
-    t_KCan = contractions.contract('Cau,KCun->KCan', Vt_M, Udot)            # Vt_M Udot, (K+C)+(q, N)
+    t_KCan = contractions.contract('Cau,KCun->KCan', Vt_M, Ddot)            # Vt_M Udot, (K+C)+(q, N)
     t_KCan = contractions.contract('Ca,KCan->KCan', s_filter, t_KCan)       # the filter
-    V_KCxn = contractions.contract('Cxa,KCan->KCxn', U_M, t_KCan)           # (K+C)+(sum nD, N)
+    V_KCxn = contractions.contract('Cxa,KCan->KCxn', U_M, t_KCan)           # (K+C)+(sum nU, N)
     return tuple(V_KCxn[..., splits[jj]:splits[jj + 1], :] for jj in range(len(splits) - 1))
 
 
 def fv_tied_ambient_directions(
         variations_data: typ.Tuple[
-            typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nDi, Ni)
-            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nUi, rRi)
+            typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nUi, Ni)
+            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nDi, rRi)
         ],
         shared_data:    'SharedFrameData',  # the frame's companion (fv_shared_frame_data)
         rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
@@ -727,10 +727,10 @@ def fv_tied_ambient_directions(
 
 def fv_tied_lift_factors(
         frame:              typ.Tuple[
-            typ.Sequence[NDArray],                  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
-            typ.Sequence[NDArray],                  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
-            typ.Sequence[NDArray],                  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
-            typ.Sequence[NDArray],                  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+            typ.Sequence[NDArray],                  # down_tucker_cores. len=d, elm_shape=C+(nDi, Ni)
+            typ.Sequence[NDArray],                  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],                  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],                  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
         ],
         curvature_damping:  typ.Union[float, NDArray],  # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
         shared_data:        SharedFrameData,            # the frame's companion (fv_shared_frame_data)
@@ -785,11 +785,11 @@ def fv_tied_lift_factors(
     >>> v = tvo.tv_orthogonal_gauge_projection(frame, fvo.fv_variations_randn(fvo.fv_variation_shapes(frame)),
     ...                                        shared_data=sfd)                 # a tied, gauged tangent
     >>> lf = sharing.fv_tied_lift_factors(frame, 0.0, sfd)
-    >>> Udot, Gdot = tvo.tv_corewise_lift(frame, v, lf)
-    >>> print(Udot[0] is Udot[1], [U.shape for U in Udot])
+    >>> Bdot, Gdot = tvo.tv_corewise_lift(frame, v, lf)
+    >>> print(Bdot[0] is Bdot[1], [b.shape for b in Bdot])
     True [(4, 6), (4, 6), (2, 4)]
     >>> corewise_frame = fvc.t3_corewise_frame((frame[0], frame[2]))
-    >>> print(np.allclose(tvo.tv_to_dense(corewise_frame, (Udot, Gdot)), tvo.tv_to_dense(frame, v)))
+    >>> print(np.allclose(tvo.tv_to_dense(corewise_frame, (Bdot, Gdot)), tvo.tv_to_dense(frame, v)))
     True
 
     Mode 0's own ``S_0^T`` is ``2 x 4`` here (the group rank 4 exceeds the mode's ceiling ``1 * 2``), so the
@@ -797,9 +797,9 @@ def fv_tied_lift_factors(
     direction of the shared parametrization, and its second derivative (the curvature) is not the shared
     manifold's:
 
-    >>> Udot_pm, Gdot_pm = tvo.tv_corewise_lift(frame, v, fvo.fv_lift_factors(frame, 0.0))
-    >>> print(frame[1][0].shape[-2], np.allclose(tvo.tv_to_dense(corewise_frame, (Udot_pm, Gdot_pm)),
-    ...                                          tvo.tv_to_dense(frame, v)), np.allclose(Udot_pm[0], Udot_pm[1]))
+    >>> Bdot_pm, Gdot_pm = tvo.tv_corewise_lift(frame, v, fvo.fv_lift_factors(frame, 0.0))
+    >>> print(frame[1][0].shape[-2], np.allclose(tvo.tv_to_dense(corewise_frame, (Bdot_pm, Gdot_pm)),
+    ...                                          tvo.tv_to_dense(frame, v)), np.allclose(Bdot_pm[0], Bdot_pm[1]))
     2 True False
     '''
     lift_factors = fv_operations.fv_lift_factors(frame, curvature_damping, rcond)
@@ -845,8 +845,8 @@ def fv_share_tucker_variations_corewise(
 ############################################################
 def fv_tied_variations_residual(
         variations:     typ.Tuple[
-            typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=K+C+(nDi, Ni)
-            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=K+C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=K+C+(nUi, Ni)
+            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=K+C+(rLi, nDi, rR(i+1))
         ],
         shared_data:    'SharedFrameData',  # the frame's companion (fv_shared_frame_data)
         rcond:          typ.Optional[float] = None,  # relative clip on the group spectrum; None -> dtype eps
@@ -995,7 +995,7 @@ def ut3_tucker_factors_shared(
 
 
 def ufv_shared_frame_data(
-        frame_data,  # UT3Frame .data: (up_sc, down_sc, left_sc, right_sc, shape, (4 masks)); stack = C
+        frame_data,  # UT3Frame .data: (down_sc, up_sc, left_sc, right_sc, shape, (4 masks)); stack = C
         groups:     typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition (validate_sharing)
 ) -> 'SharedFrameData':
     '''The uniform twin of :py:func:`fv_shared_frame_data`: the IDENTICAL polymorphic derivation
@@ -1015,9 +1015,9 @@ def ufv_shared_frame_data(
     group's REAL dimensions).
 
     Container reuse: the returned :py:class:`SharedFrameData` holds SUPERCORE SLICES at the padded
-    dims (frame stack ``C`` leading; ``row_splits`` are multiples of the padded ``nD``).
+    dims (frame stack ``C`` leading; ``row_splits`` are multiples of the padded ``nU``).
     '''
-    up_sc, down_sc, left_sc, right_sc = frame_data[0], frame_data[1], frame_data[2], frame_data[3]
+    down_sc, up_sc, left_sc, right_sc = frame_data[0], frame_data[1], frame_data[2], frame_data[3]
     # Mask first: the centers are a zipper of the stored chains (no SVD), so the padded slots -- which hold
     # the construction's orthonormal completions -- must not contract against each other. (The former
     # RE-SWEEP had to see the arrays AS STORED to reproduce the construction's SVD signs; that constraint
@@ -1068,7 +1068,7 @@ def ufv_tied_variations_residual(
 
     Same single global Frobenius ratio with the ``K + C`` stack kept -- masked first, because padding is
     don't-care garbage and two tangents tied on their real content are tied whatever their padding
-    holds. The core axes summed over are the supercore's trailing ``(nDi, Ni)``; the leading ``d`` axis
+    holds. The core axes summed over are the supercore's trailing ``(nUi, Ni)``; the leading ``d`` axis
     is summed as well, since the norm spans all ``d`` cores.
     '''
     tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)

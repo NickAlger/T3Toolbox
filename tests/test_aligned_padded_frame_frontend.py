@@ -85,7 +85,7 @@ class TestTwinsAreTheirBackendCalls(unittest.TestCase):
         F = bvf.T3Frame.padded(x_shared, *TARGET, sharing=sharing)
         self.assertTrue(equal_trees(F.data, padded_frames.fv_padded_frame(
             fvc.t3_orthogonal_representations(x_shared.data)[0], *TARGET, sharing=sharing)))
-        self.assertTrue(np.array_equal(F.up_tucker_cores[0], F.up_tucker_cores[2]))
+        self.assertTrue(np.array_equal(F.down_tucker_cores[0], F.down_tucker_cores[2]))
         ux = ut3.UniformTuckerTensorTrain.from_t3(x_stack)
         targets = (np.array([[3, 3], [4, 3], [3, 3]]), np.array([[1, 1], [3, 3], [3, 3], [1, 1]]))
         UF, _ = ubv.UT3Frame.padded(ux, *targets)
@@ -270,7 +270,7 @@ class TestNewtonValidation(unittest.TestCase):
     def test_safe_mode_checks(self):
         other = t3.TuckerTensorTrain.randn(SHAPE, *OLD)                      # not x0's tensor
         F = bvf.t3_orthogonal_representations(self.x0)[0]
-        scaled = bvf.T3Frame(tuple(2.0 * U for U in F.up_tucker_cores), F.down_tt_cores, F.left_tt_cores,
+        scaled = bvf.T3Frame(tuple(2.0 * D for D in F.down_tucker_cores), F.up_tt_cores, F.left_tt_cores,
                              F.right_tt_cores)                                 # not orthonormal
         np.random.seed(5)
         shared = (0, 1, 0)

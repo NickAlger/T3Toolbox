@@ -242,10 +242,10 @@ class TestGroupedT3svd(unittest.TestCase):
         s_dense = _dense_group_svals(x_dense, group)
         self.assertLess(np.linalg.norm(np.asarray(sk[group[0]]) - s_dense[:n_g]),
                         1e-9 * s_dense[0])
-        U_rows = np.asarray(y[0][group[0]])                              # (n_g, N), orthonormal rows
+        B_rows = np.asarray(y[0][group[0]])                              # (n_g, N), orthonormal rows
         mats = [np.moveaxis(x_dense, ii, 0).reshape(6, -1) for ii in group]
         Yd = np.linalg.svd(np.concatenate(mats, axis=1))[0][:, :n_g]     # dense top left vectors
-        P_ours, P_dense = U_rows.T @ U_rows, Yd @ Yd.T
+        P_ours, P_dense = B_rows.T @ B_rows, Yd @ Yd.T
         self.assertLess(np.linalg.norm(P_ours - P_dense), 1e-8)
 
     def test_truncation_error_bounds(self):
@@ -494,13 +494,13 @@ class TestSharedFrameData(unittest.TestCase):
 
     def test_s_factor_identities(self):
         # S_i S_i^T == Gamma_i (from the centers) and S_i-absorbed O_i == H_i, per group mode;
-        # singular values descending; row splits match the nD_i
+        # singular values descending; row splits match the nU_i
         for STRUCTURE in SHARED_STRUCTURES[1:]:
             for STACK_SHAPE in STACK_SHAPES:
                 with self.subTest(STRUCTURE=STRUCTURE, STACK_SHAPE=STACK_SHAPE):
                     x_data, _, groups = _tied_data(STRUCTURE, STACK_SHAPE)
                     frame_d, _ = fvc.t3_orthogonal_representations(x_data)
-                    OO = frame_d[1]
+                    UU = frame_d[1]
                     sfd = sharing.fv_shared_frame_data(frame_d, groups)
                     for gi, group in enumerate(sharing.nontrivial_groups(groups)):
                         M = self._svd_reconstruct(sfd, gi)
@@ -508,15 +508,15 @@ class TestSharedFrameData(unittest.TestCase):
                         ss = np.asarray(sfd.svd_s[gi])
                         self.assertTrue(np.all(np.diff(ss, axis=-1) <= 1e-12 * ss[..., :1]))
                         for jj, ii in enumerate(group):
-                            S_T = M[..., splits[jj]:splits[jj + 1], :]      # (C)+(nDi, nU)
+                            S_T = M[..., splits[jj]:splits[jj + 1], :]      # (C)+(nUi, nD)
                             S = np.swapaxes(S_T, -1, -2)
                             H = np.asarray(sfd.centers[gi][jj])
                             Gamma = np.einsum('...aub,...avb->...uv', H, H)
                             scale = np.linalg.norm(Gamma)
                             self.assertLess(np.linalg.norm(
                                 np.einsum('...ux,...vx->...uv', S, S) - Gamma), 1e-10 * scale)
-                            SO = np.einsum('...ux,...axb->...aub', S, np.asarray(OO[ii]))
-                            self.assertLess(np.linalg.norm(SO - H), 1e-10 * np.linalg.norm(H))
+                            SU = np.einsum('...ux,...axb->...aub', S, np.asarray(UU[ii]))
+                            self.assertLess(np.linalg.norm(SU - H), 1e-10 * np.linalg.norm(H))
 
     def test_group_spectrum_matches_dense(self):
         # svd_s == singular values of the dense concatenated matricizations (M7.1 / test 14b)
@@ -545,12 +545,12 @@ class TestSharedFrameData(unittest.TestCase):
         xp = x.resize(shape, (4, 4, 4, 2), r)                # group Tucker rank 3 -> 4
         self.assertTrue(np.allclose(np.asarray(xp.to_dense()), np.asarray(x.to_dense())))
         frame_d, _ = fvc.t3_orthogonal_representations(xp.data)
-        OO = frame_d[1]
+        UU = frame_d[1]
         sfd = sharing.fv_shared_frame_data(frame_d, groups)
         group = sharing.nontrivial_groups(groups)[0]
         for gi, ii in enumerate(group):
             H = np.asarray(sfd.centers[0][gi])
-            S = np.einsum('...aub,...axb->...ux', H, np.asarray(OO[ii]))   # (nU'=4, nDi)
+            S = np.einsum('...aub,...axb->...ux', H, np.asarray(UU[ii]))   # (nD'=4, nUi)
             self.assertEqual(float(np.linalg.norm(S[..., 3:, :])), 0.0)   # new row exactly zero
         ss = np.asarray(sfd.svd_s[0])
         self.assertLessEqual(float(ss[-1]), 1e-14 * float(ss[0]))         # degenerate group level
@@ -573,7 +573,7 @@ def _dense_tied_projector(frame_d, groups, variation_shapes):
     """Dense orthogonal projector onto the TIED gauged tangent subspace: basis = every TT unit
     direction + every singleton-Tucker unit direction + per-group tied directions S_i^T E for a
     spanning set of gauged ambient E (built independently of the post-pass implementation)."""
-    UU, OO = frame_d[0], frame_d[1]
+    DD, UU = frame_d[0], frame_d[1]
     # centers via a fresh right sweep of the frame's left chain (independent route)
     import t3toolbox.backend.tt_orthogonalization as tth
     _, HH = tth.tt_right_orthogonalize(frame_d[2], return_variation_cores=True)
@@ -593,15 +593,15 @@ def _dense_tied_projector(frame_d, groups, variation_shapes):
             tkv[ii].flat[kk] = 1.0
             basis.append(_dense_of_variations(frame_d, (tuple(tkv), tuple(ttv))))
     for group in sharing.nontrivial_groups(groups):
-        SS = {ii: np.einsum('...aub,...axb->...ux', np.asarray(HH[ii]), np.asarray(OO[ii]))
+        SS = {ii: np.einsum('...aub,...axb->...ux', np.asarray(HH[ii]), np.asarray(UU[ii]))
               for ii in group}
-        U_rows = np.asarray(UU[group[0]])
-        n_g, N = U_rows.shape[-2], U_rows.shape[-1]
+        D_rows = np.asarray(DD[group[0]])
+        n_g, N = D_rows.shape[-2], D_rows.shape[-1]
         for aa in range(n_g):
             for bb in range(N):
                 E = np.zeros((n_g, N))
                 E[aa, bb] = 1.0
-                E -= (E @ U_rows.T) @ U_rows                 # gauge the ambient direction
+                E -= (E @ D_rows.T) @ D_rows                 # gauge the ambient direction
                 if np.linalg.norm(E) < 1e-12:
                     continue
                 tkv, ttv = zero_vars()
@@ -625,9 +625,9 @@ class TestSharedPostPass(unittest.TestCase):
         x_data, _, groups = _tied_data((shape, n, r, spec), ())
         frame_d, _ = fvc.t3_orthogonal_representations(x_data)
         sfd = sharing.fv_shared_frame_data(frame_d, groups)
-        tkshapes = tuple((O.shape[-2], U.shape[-1]) for O, U in zip(frame_d[1], frame_d[0]))
-        ttshapes = tuple((L.shape[-3], U.shape[-2], R.shape[-1])
-                         for L, U, R in zip(frame_d[2], frame_d[0], frame_d[3]))
+        tkshapes = tuple((U.shape[-2], D.shape[-1]) for U, D in zip(frame_d[1], frame_d[0]))
+        ttshapes = tuple((L.shape[-3], D.shape[-2], R.shape[-1])
+                         for L, D, R in zip(frame_d[2], frame_d[0], frame_d[3]))
         P = _dense_tied_projector(frame_d, groups, (tkshapes, ttshapes))
         Z = np.random.randn(*shape)
         var_tied = tvo.tv_project_dense_onto_tangent_space(frame_d, Z, shared_data=sfd)
@@ -644,8 +644,8 @@ class TestSharedPostPass(unittest.TestCase):
                     x_data, spec, groups = _tied_data(STRUCTURE, STACK_SHAPE)
                     frame_d, _ = fvc.t3_orthogonal_representations(x_data)
                     sfd = sharing.fv_shared_frame_data(frame_d, groups)
-                    raw = ([np.random.randn(*(STACK_SHAPE + (O.shape[-2], U.shape[-1])))
-                            for O, U in zip(frame_d[1], frame_d[0])],
+                    raw = ([np.random.randn(*(STACK_SHAPE + (U.shape[-2], D.shape[-1])))
+                            for U, D in zip(frame_d[1], frame_d[0])],
                            [np.random.randn(*(STACK_SHAPE + H.shape[-3:])) for H in frame_d[2]])
                     v1 = tvo.tv_orthogonal_gauge_projection(frame_d, (tuple(raw[0]), tuple(raw[1])),
                                                             shared_data=sfd)
@@ -666,15 +666,15 @@ class TestSharedPostPass(unittest.TestCase):
         Z = np.random.randn(*shape)
         var_tied = tvo.tv_project_dense_onto_tangent_space(frame_d, Z, shared_data=sfd)
         group = sharing.nontrivial_groups(groups)[0]
-        OO = frame_d[1]
+        UU = frame_d[1]
         import t3toolbox.backend.tt_orthogonalization as tth
         _, HH = tth.tt_right_orthogonalize(frame_d[2], return_variation_cores=True)
-        M = np.concatenate([np.einsum('axb,aub->xu', np.asarray(OO[ii]), np.asarray(HH[ii]))
-                            for ii in group], axis=0)        # stacked S^T, (sum nD, 4)
+        M = np.concatenate([np.einsum('axb,aub->xu', np.asarray(UU[ii]), np.asarray(HH[ii]))
+                            for ii in group], axis=0)        # stacked S^T, (sum nU, 4)
         Vstack = np.concatenate([np.asarray(var_tied[0][ii]) for ii in group], axis=0)
-        Udot = np.linalg.lstsq(M, Vstack, rcond=1e-10)[0]    # (4, N): the tied ambient direction
-        self.assertEqual(float(np.linalg.norm(Udot[3:, :])), 0.0)   # gated new direction: exactly 0
-        self.assertLess(float(np.linalg.norm(M @ Udot - Vstack)),   # tied coords in range(M)
+        Ddot = np.linalg.lstsq(M, Vstack, rcond=1e-10)[0]    # (4, N): the tied ambient direction
+        self.assertEqual(float(np.linalg.norm(Ddot[3:, :])), 0.0)   # gated new direction: exactly 0
+        self.assertLess(float(np.linalg.norm(M @ Ddot - Vstack)),   # tied coords in range(M)
                         1e-9 * (1 + float(np.linalg.norm(Vstack))))
 
     def test_mean_post_pass_and_geometry_separation(self):
@@ -684,14 +684,14 @@ class TestSharedPostPass(unittest.TestCase):
         x_data, spec, groups = _tied_data(SHARED_STRUCTURES[2], ())
         frame_d, _ = fvc.t3_orthogonal_representations(x_data)
         sfd = sharing.fv_shared_frame_data(frame_d, groups)
-        raw = ([np.random.randn(O.shape[-2], U.shape[-1])
-                for O, U in zip(frame_d[1], frame_d[0])],
+        raw = ([np.random.randn(U.shape[-2], D.shape[-1])
+                for U, D in zip(frame_d[1], frame_d[0])],
                [np.random.randn(*H.shape[-3:]) for H in frame_d[2]])
         gauged = tvo.tv_orthogonal_gauge_projection(frame_d, (tuple(raw[0]), tuple(raw[1])))
         tied_gram = sharing.fv_share_tucker_variations(gauged, sfd)
         # mean: requires equal shapes within the group -- give the corewise-style variations
-        # (raw core perturbations at the (U,G,G,G) frame have full nU rows)
-        corewise_vars = ([np.random.randn(U.shape[-2], U.shape[-1]) for U in x_data[0]],
+        # (raw core perturbations at the (U,G,G,G) frame have full nD rows)
+        corewise_vars = ([np.random.randn(B.shape[-2], B.shape[-1]) for B in x_data[0]],
                          [np.random.randn(*G.shape[-3:]) for G in x_data[1]])
         tied_mean = sharing.fv_share_tucker_variations_corewise(
             (tuple(corewise_vars[0]), tuple(corewise_vars[1])), groups)
@@ -703,17 +703,17 @@ class TestSharedPostPass(unittest.TestCase):
         self.assertTrue(np.array_equal(np.asarray(tied_twice[0][group[0]]),
                                        np.asarray(tied_mean[0][group[0]])))
         # geometry separation, strongest form: on THIS structure the gauged manifold
-        # coordinates have different shapes across the group (nD_i = min(n, rL_i*rR_i) differ),
+        # coordinates have different shapes across the group (nU_i = min(n, rL_i*rR_i) differ),
         # so the arithmetic mean is not even well-formed on them
         self.assertNotEqual(np.asarray(gauged[0][group[0]]).shape,
                             np.asarray(gauged[0][group[1]]).shape)
         # ...and where shapes DO match (a symmetric-bond structure), the mean of the gauged
         # coordinates differs from the Gram/SVD-tied coordinates by a large factor
-        y_data, spec_y, groups_y = _tied_data(SHARED_STRUCTURES[1], ())     # nD = (2, 2)
+        y_data, spec_y, groups_y = _tied_data(SHARED_STRUCTURES[1], ())     # nU = (2, 2)
         frame_y, _ = fvc.t3_orthogonal_representations(y_data)
         sfd_y = sharing.fv_shared_frame_data(frame_y, groups_y)
-        raw_y = ([np.random.randn(O.shape[-2], U.shape[-1])
-                  for O, U in zip(frame_y[1], frame_y[0])],
+        raw_y = ([np.random.randn(U.shape[-2], D.shape[-1])
+                  for U, D in zip(frame_y[1], frame_y[0])],
                  [np.random.randn(*H.shape[-3:]) for H in frame_y[2]])
         gauged_y = tvo.tv_orthogonal_gauge_projection(frame_y, (tuple(raw_y[0]), tuple(raw_y[1])))
         tied_y = sharing.fv_share_tucker_variations(gauged_y, sfd_y)
@@ -743,8 +743,8 @@ class TestSharedPostPass(unittest.TestCase):
         frame_d, _ = fvc.t3_orthogonal_representations(x_data)
         sfd = sharing.fv_shared_frame_data(frame_d, groups)
         K = 3
-        tkv = tuple(np.random.randn(K, O.shape[-2], U.shape[-1])
-                    for O, U in zip(frame_d[1], frame_d[0]))
+        tkv = tuple(np.random.randn(K, U.shape[-2], D.shape[-1])
+                    for U, D in zip(frame_d[1], frame_d[0]))
         ttv = tuple(np.random.randn(K, *H.shape[-3:]) for H in frame_d[2])
         stacked = sharing.fv_share_tucker_variations((tkv, ttv), sfd)
         for kk in range(K):
@@ -756,8 +756,8 @@ class TestSharedPostPass(unittest.TestCase):
         xc_data, _, groups_c = _tied_data(SHARED_STRUCTURES[2], (2,))
         frame_c, _ = fvc.t3_orthogonal_representations(xc_data)
         sfd_c = sharing.fv_shared_frame_data(frame_c, groups_c)
-        tkv_c = tuple(np.random.randn(K, 2, O.shape[-2], U.shape[-1])
-                      for O, U in zip(frame_c[1], frame_c[0]))
+        tkv_c = tuple(np.random.randn(K, 2, U.shape[-2], D.shape[-1])
+                      for U, D in zip(frame_c[1], frame_c[0]))
         ttv_c = tuple(np.random.randn(K, 2, *H.shape[-3:]) for H in frame_c[2])
         out = sharing.fv_share_tucker_variations((tkv_c, ttv_c), sfd_c)
         self.assertEqual(np.asarray(out[0][0]).shape[:2], (K, 2))
@@ -1113,7 +1113,7 @@ class TestUniformSharedTangent(unittest.TestCase):
     # (shape, tucker_ranks, tt_ranks, sharing) -- all shared-minimal (asserted in setUp)
     _CASES = [
         ((6, 6, 5),    (3, 3, 2),    (1, 3, 2, 1),    (0, 0, 1)),
-        ((5, 6, 5, 6), (2, 3, 2, 3), (1, 2, 3, 2, 1), ('a', 'b', 'a', 'b')),   # unequal nD in a group
+        ((5, 6, 5, 6), (2, 3, 2, 3), (1, 2, 3, 2, 1), ('a', 'b', 'a', 'b')),   # unequal nU in a group
         ((6, 6, 4),    (4, 4, 2),    (1, 2, 2, 1),    (0, 0, 1)),              # the group-ceiling case
         ((7, 7, 7),    (4, 4, 4),    (1, 3, 3, 1),    (0, 0, 0)),              # all modes one group
     ]
@@ -1239,7 +1239,7 @@ class TestUniformSharedTangent(unittest.TestCase):
         # (the frame is used as stored -- its padding is part of the construction, by design)
         import t3toolbox.backend.ufv_masking as ufv_masking
         import t3toolbox.backend.utv_operations as utvo
-        shape, n, r, spec = self._CASES[1]                       # unequal nD: real padding to corrupt
+        shape, n, r, spec = self._CASES[1]                       # unequal nU: real padding to corrupt
         _, u, _, frame_u, _, sfd_u, groups = self._frames_and_companions(shape, n, r, spec)
         z = t3.TuckerTensorTrain.randn(shape, n, r)
         zu = ut3.UniformTuckerTensorTrain.from_t3(
@@ -1447,7 +1447,7 @@ class TestSharedManifoldDimGroundTruth(unittest.TestCase):
                 x_data, _, _ = _tied_data((shape, tucker, tt, spec), ())
                 geom = sg.shared_manifold(spec)
                 frame = geom.frame(t3.TuckerTensorTrain(*x_data))
-                self.assertEqual((tuple(frame.up_ranks), tuple(frame.left_ranks)), (tucker, tt))
+                self.assertEqual((tuple(frame.down_ranks), tuple(frame.left_ranks)), (tucker, tt))
                 dense_vv = np.stack([np.asarray(geom.randn(frame).to_dense()).reshape(-1)
                                      for _ in range(formula + 25)])
                 ss = np.linalg.svd(dense_vv, compute_uv=False)
@@ -1853,7 +1853,7 @@ class TestUniformSharedTangentStacked(unittest.TestCase):
         self.assertTrue(is_prefix(ret_u[3][0]) and is_prefix(ret_u[3][1]))
         self.assertTrue(np.array_equal(                          # output ranks = frame ranks, bcast over K
             ret_u[3][0].sum(-1),
-            np.broadcast_to(self.frame_u.masks.up_mask.sum(-1)[:, None], (d,) + self._K + self._C)))
+            np.broadcast_to(self.frame_u.masks.down_mask.sum(-1)[:, None], (d,) + self._K + self._C)))
         self.assertTrue(np.array_equal(
             ret_u[3][1].sum(-1),
             np.broadcast_to(self.frame_u.masks.frame_left_mask.sum(-1)[:, None], (d + 1,) + self._K + self._C)))

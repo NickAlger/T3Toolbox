@@ -33,9 +33,9 @@ _CONFIGS = [((), ()), ((2,), ()), ((), (3,)), ((2,), (3,)), ((2, 3), ()), ((), (
 
 # varying-C rank sweep: two models of DIFFERENT frame ranks padded to common dims (so they stack on one C)
 _HETERO = [((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)), ((4, 5, 6), (3, 3, 2), (1, 1, 2, 1))]
-_HETERO_PAD = dict(N=6, nU=4, nD=4, rL=3, rR=3)
+_HETERO_PAD = dict(N=6, nD=4, nU=4, rL=3, rR=3)
 
-# forced padding STRICTLY above the real max ranks of _STRUCT (nU=3, rL=rR=2, N=6) so EVERY core has a
+# forced padding STRICTLY above the real max ranks of _STRUCT (nD=3, rL=rR=2, N=6) so EVERY core has a
 # padded region (the default from_t3 pads to max(ranks), leaving the max-rank cores clean) -- 3b-6d (E)
 _PAD_T3 = dict(N=8, n=5, r=4)
 
@@ -76,11 +76,11 @@ def _expected_gauge_masks(frame, K_new=()):
     """The variation gauge masks built INDEPENDENTLY from the frame ranks + the gauge rule (prefix; the
     left/right boundary-shifted [:-1] / [1:]), broadcast over the new tangent stack -- a different
     derivation than the impl's slice of the stored masks, so the comparison catches a boundary slip."""
-    up = _prefix(np.asarray(frame.up_ranks), frame.nU)
     down = _prefix(np.asarray(frame.down_ranks), frame.nD)
+    up = _prefix(np.asarray(frame.up_ranks), frame.nU)
     left = _prefix(np.asarray(frame.left_ranks)[:-1], frame.rL)
     right = _prefix(np.asarray(frame.right_ranks)[1:], frame.rR)
-    return tuple(_bc_over_K(m, K_new) for m in (up, down, left, right))
+    return tuple(_bc_over_K(m, K_new) for m in (down, up, left, right))
 
 
 def _varying_C_tangent(seed=0):
@@ -404,7 +404,7 @@ class TestUT3CorewiseTranspose(unittest.TestCase):
         return x, ut3.UniformTuckerTensorTrain.from_t3(x)
 
     def _cmp(self, du, dg, rdu, rdg):
-        # uniform grad supercores (d,)+C+(p,N) / (d,)+C+(rL,nU,rR); compare the real region to the ragged
+        # uniform grad supercores (d,)+C+(p,N) / (d,)+C+(rL,nD,rR); compare the real region to the ragged
         for i in range(len(_STRUCT[0])):
             self.assertTrue(np.allclose(
                 np.asarray(du)[i][..., :rdu[i].shape[-2], :rdu[i].shape[-1]], np.asarray(rdu[i]), atol=1e-9))
@@ -737,10 +737,10 @@ _GARBAGE = 1e6                                   # the 1e6*(1 - mask) padding fi
 def _ragged_frame_ranks(rframe):
     """Per-core (up, down, variation-left, variation-right) ranks read off a RAGGED frame's core SHAPES --
     the ground truth for a transpose output's real extent, derived without touching any uniform mask. The
-    variation of core i spans ``(rL_i, nU_i, rR_(i+1))``: the left frame core's left rank and the right
+    variation of core i spans ``(rL_i, nD_i, rR_(i+1))``: the left frame core's left rank and the right
     frame core's right rank (the gauge shift)."""
-    return ([U.shape[-2] for U in rframe.up_tucker_cores], [O.shape[-2] for O in rframe.down_tt_cores],
-            [P.shape[-3] for P in rframe.left_tt_cores], [Q.shape[-1] for Q in rframe.right_tt_cores])
+    return ([D.shape[-2] for D in rframe.down_tucker_cores], [U.shape[-2] for U in rframe.up_tt_cores],
+            [L.shape[-3] for L in rframe.left_tt_cores], [R.shape[-1] for R in rframe.right_tt_cores])
 
 
 def _stacked_prefix(ranks_per_element, C, size):
@@ -851,7 +851,7 @@ class TestTransposeOutputHygiene(unittest.TestCase):
         for label, uframe, rframes in self._frames():
             C = tuple(uframe.stack_shape)
             tabs = [_ragged_frame_ranks(f) for f in rframes]
-            sizes = (uframe.nU, uframe.nD, uframe.rL, uframe.rR)
+            sizes = (uframe.nD, uframe.nU, uframe.rL, uframe.rR)
             gauge_C = [_stacked_prefix([t[fam] for t in tabs], C, sizes[fam]) for fam in range(4)]
             dirty_frame = _corrupt(uframe, _GARBAGE).data
             for K in [(), (3,)]:
@@ -863,8 +863,8 @@ class TestTransposeOutputHygiene(unittest.TestCase):
                             exp = tuple(_bc_over_K(m, K_new) for m in gauge_C)
                             for got, e in zip(out[3], exp):                                      # (a)
                                 self.assertTrue(np.array_equal(got, e), 'variation masks')
-                            up, down, left, right = exp
-                            ind = _indicator(down, left, up, right, uframe.shape, uframe.N)
+                            down, up, left, right = exp
+                            ind = _indicator(up, left, down, right, uframe.shape, uframe.N)
                             dirty = op(dirty_frame, sop)
                             self._assert_hygiene(out, seam(uframe.data, sop), ind, dirty, seen, name)
                             for ma, mb in zip(dirty[3], out[3]):
@@ -883,7 +883,7 @@ class TestTransposeOutputHygiene(unittest.TestCase):
                     else ut3.UniformTuckerTensorTrain.from_t3(x)
                 cases.append(('C=%s pad=%s' % (C, fp), xu, [x]))
         xs = [t3.TuckerTensorTrain.randn(*s) for s in _HETERO]
-        pad = dict(N=_HETERO_PAD['N'], n=_HETERO_PAD['nU'], r=_HETERO_PAD['rL'])
+        pad = dict(N=_HETERO_PAD['N'], n=_HETERO_PAD['nD'], r=_HETERO_PAD['rL'])
         cases.append(('varying C', ut3.UniformTuckerTensorTrain.stack(
             [ut3.UniformTuckerTensorTrain.from_t3(x, **pad) for x in xs]), xs))
         xn = t3.TuckerTensorTrain.randn(*_NONMIN)

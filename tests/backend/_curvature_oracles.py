@@ -69,13 +69,13 @@ def blocksum(gY, theta):
     """Read a gradient with respect to the doubled-rank ``Y = doubled(theta, .)`` back onto ``theta``'s
     cores: the transpose of the (linear-in-``theta``) embedding ``theta -> Y``. Stack-aware (leading axes
     of ``gY`` ride along); the block offsets come from ``theta``'s core shapes."""
-    gYU, gYG = gY
-    U, G = theta
-    d = len(U)
-    gU = tuple(gYU[i][..., :U[i].shape[-2], :] for i in range(d))      # U_i sits in the top Tucker rows
+    gYB, gYG = gY
+    B, G = theta
+    d = len(B)
+    gB = tuple(gYB[i][..., :B[i].shape[-2], :] for i in range(d))      # U_i sits in the top Tucker rows
     if d == 1:                                                         # Y_0 = [Gdot_0 ; G_0] on the n axis
-        n = U[0].shape[-2]
-        return gU, (gYG[0][..., :, n:, :],)
+        n = B[0].shape[-2]
+        return gB, (gYG[0][..., :, n:, :],)
     gG = []
     for i in range(d):
         r, n, rn = G[i].shape[-3], G[i].shape[-2], G[i].shape[-1]
@@ -86,7 +86,7 @@ def blocksum(gY, theta):
             gG.append(g[..., :r, :n, :] + g[..., r:, n:, :])
         else:                                            # R (top-left), L (top, second-second), O (bottom)
             gG.append(g[..., :r, :n, :rn] + g[..., r:, :n, rn:] + g[..., r:, n:, :rn])
-    return gU, tuple(gG)
+    return gB, tuple(gG)
 
 
 def _blocks(theta):
@@ -210,13 +210,13 @@ def tied_lift(frame, groups, v):
     group_pinvs, mode_pinvs, bond_pinvs = _tied_lift_matrices(frame, groups)
     V, H = v
     d = len(V)
-    Ud = [mode_pinvs[i] @ np.asarray(V[i]) for i in range(d)]
+    Bd = [mode_pinvs[i] @ np.asarray(V[i]) for i in range(d)]
     for g, Mp, _ in group_pinvs:
-        Ug = Mp @ np.concatenate([np.asarray(V[i]) for i in g], axis=0)
+        Bg = Mp @ np.concatenate([np.asarray(V[i]) for i in g], axis=0)
         for i in g:
-            Ud[i] = Ug
+            Bd[i] = Bg
     Gd = [np.einsum('aib,bc->aic', np.asarray(H[i]), bond_pinvs[i]) for i in range(d - 1)] + [np.asarray(H[-1])]
-    return tuple(Ud), tuple(Gd)
+    return tuple(Bd), tuple(Gd)
 
 
 def tied_lift_transpose(frame, groups, y):
@@ -238,21 +238,21 @@ def vertical_direction(theta, rng):
     """A random raw direction along the gauge orbit of ``theta = (U, G)``: ``DPhi(theta)[result] = 0``
     exactly (to first order). Tucker gauge ``U_i -> A U_i``, ``G_i -> G_i x_2 A^{-T}``; TT gauge
     ``G_i -> G_i B``, ``G_{i+1} -> B^{-1} G_{i+1}``. Unstacked."""
-    U, G = theta
-    d = len(U)
-    dU = [np.zeros(np.shape(u)) for u in U]
+    B, G = theta
+    d = len(B)
+    dB = [np.zeros(np.shape(b)) for b in B]
     dG = [np.zeros(np.shape(g)) for g in G]
     for i in range(d):
-        n = U[i].shape[-2]
+        n = B[i].shape[-2]
         Ai = rng.standard_normal((n, n))
-        dU[i] += Ai @ U[i]
+        dB[i] += Ai @ B[i]
         dG[i] -= np.einsum('aib,ij->ajb', G[i], Ai)
     for i in range(d - 1):
         r = G[i].shape[-1]
-        B = rng.standard_normal((r, r))
-        dG[i] += np.einsum('aib,bc->aic', G[i], B)
-        dG[i + 1] -= np.einsum('bc,cid->bid', B, G[i + 1])
-    return tuple(dU), tuple(dG)
+        M = rng.standard_normal((r, r))
+        dG[i] += np.einsum('aib,bc->aic', G[i], M)
+        dG[i + 1] -= np.einsum('bc,cid->bid', M, G[i + 1])
+    return tuple(dB), tuple(dG)
 
 
 # ------------------------------------------------------------------------------------------------------
@@ -268,25 +268,25 @@ def _w_c_counts(xi_jets, frame_core):
     return xi_jets[0].ndim - 2 - n_frame, n_frame
 
 
-def adjoint_sweep_tangent_trs(P, Pd, xi, xid, deta, detd, edge, edged, tildes, trs):
+def adjoint_sweep_tangent_trs(L, Ld, xi, xid, deta, detd, edge, edged, tildes, trs):
     """The derivative of ``twins._adj_sweep`` (the dense adjoint sweep ``tilde' = prop(tilde, P, xi) +
     src(edge, P, deta)``) along the dotted operands: six dense-trs terms per core, K on the dotted operand
     of each (carry / core / xi ; edge / core / deta). ``tildes`` are the undotted sweep's outputs (the carry
     entering each core). Returns the dotted tildes, len=d, elm_shape=(order+1,)+W+K+C+(rL_i,)."""
-    n_probe, n_frame = _w_c_counts(xi, P[0])
+    n_probe, n_frame = _w_c_counts(xi, L[0])
     kw = dict(len_W=n_probe, len_C=n_frame)
     s2 = min(2, trs.shape[0])
     trs_xi = trs[:, :s2, :]
-    cd = np.zeros((trs.shape[0],) + xid[0].shape[1:-1] + (P[0].shape[-3],))
+    cd = np.zeros((trs.shape[0],) + xid[0].shape[1:-1] + (L[0].shape[-3],))
     out = []
-    for k in range(len(P)):
+    for k in range(len(L)):
         out.append(cd)
-        cd = (contract('trs,tWKCa,Caib,rWCi->sWKCb', trs_xi, cd,        P[k],  xi[k][:s2],  **kw)
-              + contract('trs,tWCa,KCaib,rWCi->sWKCb', trs_xi, tildes[k], Pd[k], xi[k][:s2],  **kw)
-              + contract('trs,tWCa,Caib,rWKCi->sWKCb', trs_xi, tildes[k], P[k],  xid[k][:s2], **kw)
-              + contract('trs,rWKCa,Caib,tWCi->sWKCb', trs, edged[k], P[k],  deta[k], **kw)
-              + contract('trs,rWCa,KCaib,tWCi->sWKCb', trs, edge[k],  Pd[k], deta[k], **kw)
-              + contract('trs,rWCa,Caib,tWKCi->sWKCb', trs, edge[k],  P[k],  detd[k], **kw))
+        cd = (contract('trs,tWKCa,Caib,rWCi->sWKCb', trs_xi, cd,        L[k],  xi[k][:s2],  **kw)
+              + contract('trs,tWCa,KCaib,rWCi->sWKCb', trs_xi, tildes[k], Ld[k], xi[k][:s2],  **kw)
+              + contract('trs,tWCa,Caib,rWKCi->sWKCb', trs_xi, tildes[k], L[k],  xid[k][:s2], **kw)
+              + contract('trs,rWKCa,Caib,tWCi->sWKCb', trs, edged[k], L[k],  deta[k], **kw)
+              + contract('trs,rWCa,KCaib,tWCi->sWKCb', trs, edge[k],  Ld[k], deta[k], **kw)
+              + contract('trs,rWCa,Caib,tWKCi->sWKCb', trs, edge[k],  L[k],  detd[k], **kw))
     return tuple(out)
 
 
@@ -302,9 +302,9 @@ def sigma_tilde_tangent_jets_trs(G, Gd, xi, xid, deta, detd, nu, nud, sigma_tild
                                      nu[::-1], nud[::-1], sigma_tildes[::-1], trs)[::-1]
 
 
-def deta_tilde_tangent_jets_trs(Ud, ztildes, n_frame):
+def deta_tilde_tangent_jets_trs(Bd, ztildes, n_frame):
     """Reference twin of ``sd.compute_deta_tilde_tangent_jets``: ``Udot_i z~_i`` per core."""
-    return tuple(contract('tWCo,KCio->tWKCi', z, u, len_C=n_frame) for z, u in zip(ztildes, Ud))
+    return tuple(contract('tWCo,KCio->tWKCi', z, u, len_C=n_frame) for z, u in zip(ztildes, Bd))
 
 
 def dxi_tilde_tangent_jets_trs(G, Gd, mu, mud, nu, nud, sigma_tildes, sigma_tildes_d, tau_tildes, tau_tildes_d, trs):
@@ -395,32 +395,32 @@ def probe_derivatives_two_hole_states_trs(ztildes, ww, pp, core_pair, core_direc
     The undotted state is the corewise frame's (xi, mu reused from ``frame_sweep`` when given, else built
     from ``core_pair``; nu re-swept through G), with the undotted tildes; the dotted forward is the GN
     tangent forward at ``Q = O = P = G`` along ``(Ud, Gd)``. Every jet kernel here is a dense ``*_trs`` twin."""
-    U, G = core_pair
-    Ud, Gd = core_directions
-    n_frame = U[0].ndim - 2
+    B, G = core_pair
+    Bd, Gd = core_directions
+    n_frame = B[0].ndim - 2
     trs = twins.binomial_combine_tensor(order)
     if frame_sweep is None:
-        xi = sd.build_input_jets(probing.compute_xi(U, ww), probing.compute_xi(U, pp))
+        xi = sd.build_input_jets(probing.compute_xi(B, ww), probing.compute_xi(B, pp))
         mu = twins.compute_mu_jets_trs(G, xi, trs)
     else:
         xi, mu = frame_sweep[0], frame_sweep[1]
     st = dict(trs=trs, n_frame=n_frame, xi=xi, mu=mu)
     st['nu'] = twins.compute_nu_jets_trs(G, xi, trs)
-    st['deta_t'] = sd.compute_deta_tilde_jets(U, ztildes)
+    st['deta_t'] = sd.compute_deta_tilde_jets(B, ztildes)
     st['tau_t'] = twins.compute_tau_tilde_jets_trs(G, xi, st['deta_t'], mu, trs)
     st['sigma_t'] = twins.compute_sigma_tilde_jets_trs(G, xi, st['deta_t'], st['nu'], trs)
-    st['xid'] = sd.build_input_jets(probing.compute_xi(Ud, ww), probing.compute_xi(Ud, pp))
+    st['xid'] = sd.build_input_jets(probing.compute_xi(Bd, ww), probing.compute_xi(Bd, pp))
     st['mud'] = twins.compute_sigma_jets_trs(Gd, G, G, xi, st['xid'], mu, trs)
     st['nud'] = twins.compute_tau_jets_trs(Gd, G, G, xi, st['xid'], st['nu'], trs)
     st['etad'] = twins.compute_deta_jets_trs(Gd, G, G, mu, st['nu'], st['mud'], st['nud'], trs)
-    st['deta_td'] = deta_tilde_tangent_jets_trs(Ud, ztildes, n_frame)
+    st['deta_td'] = deta_tilde_tangent_jets_trs(Bd, ztildes, n_frame)
     st['tau_td'] = tau_tilde_tangent_jets_trs(G, Gd, xi, st['xid'], st['deta_t'], st['deta_td'], mu, st['mud'],
                                               st['tau_t'], trs)
     st['sigma_td'] = sigma_tilde_tangent_jets_trs(G, Gd, xi, st['xid'], st['deta_t'], st['deta_td'], st['nu'],
                                                   st['nud'], st['sigma_t'], trs)
     st['dxi_td'] = dxi_tilde_tangent_jets_trs(G, Gd, mu, st['mud'], st['nu'], st['nud'], st['sigma_t'],
                                               st['sigma_td'], st['tau_t'], st['tau_td'], trs)
-    st['dU'] = tucker_tangent_assembly_trs(ztildes, st['dxi_td'], ww, pp, st['etad'], n_frame)
+    st['dB'] = tucker_tangent_assembly_trs(ztildes, st['dxi_td'], ww, pp, st['etad'], n_frame)
     st['dG'] = tt_tangent_assembly_trs(st['sigma_t'], st['sigma_td'], st['tau_t'], st['tau_td'], st['deta_t'],
                                        st['deta_td'], xi, st['xid'], mu, st['mud'], st['nu'], st['nud'], trs,
                                        n_frame)
@@ -461,7 +461,7 @@ def probe_derivatives_two_hole_trs(ztildes, ww, pp, core_pair, core_directions, 
     """The dense-trs reference twin of ``sd.t3_probe_corewise_derivatives_hessian[_from_sweep]`` (ragged):
     ``K_z theta_hat = d/ds grad_theta <z~, S(Phi(theta + s theta_hat))>``, W summed, raw K + C."""
     st = probe_derivatives_two_hole_states_trs(ztildes, ww, pp, core_pair, core_directions, order, frame_sweep)
-    return st['dU'], st['dG']
+    return st['dB'], st['dG']
 
 
 # ------------------------------------------------------------------------------------------------------
@@ -509,38 +509,38 @@ def apply_derivatives_tangent_assembly_trs(xi, xid, mu, mud, sigma_hats, sigma_h
     s2 = min(2, trs.shape[0])
     t_sig = trs[:, :, :s2]
     kw = dict(len_W=w_jets[0].ndim - 2, len_C=n_frame)
-    dU = tuple(contract('uWKCa,uWo->KCao', dxd[:s2], wj[:s2], **kw) for dxd, wj in zip(dxi_hats_d, w_jets))
+    dB = tuple(contract('uWKCa,uWo->KCao', dxd[:s2], wj[:s2], **kw) for dxd, wj in zip(dxi_hats_d, w_jets))
     dG = tuple(contract('trs,rWKCa,sWCi,tWCb->KCaib', t_sig, mud[k], xi[k][:s2],  sigma_hats[k],   **kw)
                + contract('trs,rWCa,sWKCi,tWCb->KCaib', t_sig, mu[k],  xid[k][:s2], sigma_hats[k],   **kw)
                + contract('trs,rWCa,sWCi,tWKCb->KCaib', t_sig, mu[k],  xi[k][:s2],  sigma_hats_d[k], **kw)
                for k in range(len(xi)))
-    return dU, dG
+    return dB, dG
 
 
 def apply_derivatives_two_hole_states_trs(c, first, pp, core_pair, core_directions, order, entries=False):
     """Every intermediate of the dense-trs apply- (``entries=False``: ``first`` = ww) or entries- (``first`` = the
     index grid) derivative two-hole, as a dict. The undotted state is the corewise frame's: xi, the dense mu, the
     dense seeded sigma^ through G; the dotted forward is the dense GN tangent forward at ``Q = O = G``."""
-    U, G = core_pair
-    Ud, Gd = core_directions
-    n_frame = U[0].ndim - 2
+    B, G = core_pair
+    Bd, Gd = core_directions
+    n_frame = B[0].ndim - 2
     trs = twins.binomial_combine_tensor(order)
     if entries:
         up = lambda cores: bentries._entry_xis(cores, first)
-        w = bentries._onehot_vectors(first, U)
+        w = bentries._onehot_vectors(first, B)
     else:
         up = lambda cores: probing.compute_xi(cores, first)
         w = first
     st = dict(trs=trs, n_frame=n_frame)
-    st['xi'] = sd.build_input_jets(up(U), probing.compute_xi(U, pp))
-    st['xid'] = sd.build_input_jets(up(Ud), probing.compute_xi(Ud, pp))
+    st['xi'] = sd.build_input_jets(up(B), probing.compute_xi(B, pp))
+    st['xid'] = sd.build_input_jets(up(Bd), probing.compute_xi(Bd, pp))
     st['w'] = tuple(np.stack([wi, pi]) for wi, pi in zip(w, pp))
     st['mu'] = twins.compute_mu_jets_trs(G, st['xi'], trs)
     st['mud'] = twins.compute_sigma_jets_trs(Gd, G, G, st['xi'], st['xid'], st['mu'], trs)
     st['sigma_hat'] = twins.compute_sigma_hat_jets_trs(G, st['xi'], c, trs)
     st['sigma_hat_d'] = sigma_hat_tangent_jets_trs(G, Gd, st['xi'], st['xid'], st['sigma_hat'], trs)
     st['dxi_hat_d'] = dxi_hat_tangent_jets_trs(G, Gd, st['mu'], st['mud'], st['sigma_hat'], st['sigma_hat_d'], trs)
-    st['dU'], st['dG'] = apply_derivatives_tangent_assembly_trs(st['xi'], st['xid'], st['mu'], st['mud'],
+    st['dB'], st['dG'] = apply_derivatives_tangent_assembly_trs(st['xi'], st['xid'], st['mu'], st['mud'],
                                                                 st['sigma_hat'], st['sigma_hat_d'], st['dxi_hat_d'],
                                                                 st['w'], trs, n_frame)
     return st

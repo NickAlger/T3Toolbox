@@ -50,8 +50,8 @@ __all__ = [
 
 def tv_to_dense(
         frame:      typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores
-            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # down_tucker_cores
+            typ.Sequence[NDArray],  # up_tt_cores
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
@@ -67,7 +67,7 @@ def tv_to_dense(
     and one per TT hole). This is stack-aware: leading stack axes ride along through ``fv_to_t3``
     and ``to_dense``.
     """
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     tucker_variations, tt_variations = variations
 
     num_cores = len(tucker_variations)
@@ -80,7 +80,7 @@ def tv_to_dense(
         V = V + t3_conversions.t3_to_dense(term)
 
     if include_shift:
-        P = t3_conversions.t3_to_dense((up_tucker_cores, left_tt_cores))
+        P = t3_conversions.t3_to_dense((down_tucker_cores, left_tt_cores))
         V = P + V
 
     return V
@@ -88,8 +88,8 @@ def tv_to_dense(
 
 def tv_orthogonal_gauge_projection(
         frame:      typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores
-            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # down_tucker_cores
+            typ.Sequence[NDArray],  # up_tt_cores
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
@@ -118,7 +118,7 @@ def tv_orthogonal_gauge_projection(
     Gauge conditions (47)-(48), Appendix A.3, of Alger et al. (2026), "Tucker Tensor Train
     Taylor Series" (arXiv:2603.21141).
     """
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     tucker_variations, tt_variations = variations
 
     use_jax = tree_contains_jax((frame, variations))
@@ -126,16 +126,16 @@ def tv_orthogonal_gauge_projection(
 
     # TT variations: remove the component parallel to the left cores (all but the last)
     new_tt_variations = []
-    for dV, L in zip(tt_variations[:-1], left_tt_cores[:-1]):
-        parallel = xnp.einsum('...iaj,...jk->...iak', L, xnp.einsum('...iaj,...iak->...jk', L, dV))
-        new_tt_variations.append(dV - parallel)
+    for H, L in zip(tt_variations[:-1], left_tt_cores[:-1]):
+        parallel = xnp.einsum('...iaj,...jk->...iak', L, xnp.einsum('...iaj,...iak->...jk', L, H))
+        new_tt_variations.append(H - parallel)
     new_tt_variations.append(tt_variations[-1])
 
     # Tucker variations: remove the component parallel to the up cores
     new_tucker_variations = []
-    for dB, U in zip(tucker_variations, up_tucker_cores):
-        parallel = xnp.einsum('...jk,...ko->...jo', xnp.einsum('...jo,...ko->...jk', dB, U), U)
-        new_tucker_variations.append(dB - parallel)
+    for V, D in zip(tucker_variations, down_tucker_cores):
+        parallel = xnp.einsum('...jk,...ko->...jo', xnp.einsum('...jo,...ko->...jk', V, D), D)
+        new_tucker_variations.append(V - parallel)
 
     gauged = (tuple(new_tucker_variations), tuple(new_tt_variations))
     if shared_data is not None:
@@ -145,8 +145,8 @@ def tv_orthogonal_gauge_projection(
 
 def tv_oblique_gauge_projection(
         frame:      typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores
-            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # down_tucker_cores
+            typ.Sequence[NDArray],  # up_tt_cores
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
@@ -168,7 +168,7 @@ def tv_oblique_gauge_projection(
     Enforces the gauge conditions (47)-(48), Appendix A.3, of Alger et al. (2026), "Tucker Tensor
     Train Taylor Series" (arXiv:2603.21141).
     """
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     tucker_variations, tt_variations = variations
 
     use_jax = tree_contains_jax((frame, variations))
@@ -180,23 +180,23 @@ def tv_oblique_gauge_projection(
 
     # Make Tucker variations perpendicular to U; compensate through the down/outer cores.
     for ii in range(num_cores):
-        U = up_tucker_cores[ii]
-        dB = tucker_vars[ii]
-        O = down_tt_cores[ii]
-        dG = tt_vars[ii]
+        D = down_tucker_cores[ii]
+        V = tucker_vars[ii]
+        U = up_tt_cores[ii]
+        H = tt_vars[ii]
 
-        X_ji = xnp.einsum('...jo,...io->...ji', dB, U)
-        dB_parallel = xnp.einsum('...ji,...io->...jo', X_ji, U)
-        tucker_vars[ii] = dB - dB_parallel
-        tt_vars[ii] = dG + xnp.einsum('...aib,...ij->...ajb', O, X_ji)
+        X_ji = xnp.einsum('...jo,...io->...ji', V, D)
+        V_parallel = xnp.einsum('...ji,...io->...jo', X_ji, D)
+        tucker_vars[ii] = V - V_parallel
+        tt_vars[ii] = H + xnp.einsum('...aib,...ij->...ajb', U, X_ji)
 
     # Make TT variations left-perpendicular; compensate through the right cores.
     for ii in range(num_cores - 1):
         L = left_tt_cores[ii]
         R = right_tt_cores[ii + 1]
-        dG1 = tt_vars[ii]
-        X = xnp.einsum('...iaj,...iak->...jk', L, dG1)
-        tt_vars[ii] = dG1 - xnp.einsum('...iaj,...jk->...iak', L, X)
+        H1 = tt_vars[ii]
+        X = xnp.einsum('...iaj,...iak->...jk', L, H1)
+        tt_vars[ii] = H1 - xnp.einsum('...iaj,...jk->...iak', L, X)
         tt_vars[ii + 1] = tt_vars[ii + 1] + xnp.einsum('...jk,...kbl->...jbl', X, R)
 
     return tuple(tucker_vars), tuple(tt_vars)
@@ -204,8 +204,8 @@ def tv_oblique_gauge_projection(
 
 def tv_to_t3(
         frame:      typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores
-            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # down_tucker_cores
+            typ.Sequence[NDArray],  # up_tt_cores
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
@@ -232,25 +232,25 @@ def tv_to_t3(
     ``[U_g; Udot]`` are exactly equal across the group -- while the paired core block becomes
     the companion's center core ``H_i`` (the identity ``S_i``-absorbed-``O_i == H_i`` makes this
     an exact rewrite of each Tucker term). The naive ``[U_g; V_i]`` embedding is NOT tied (the
-    ``V_i = S_i^T Udot`` differ across a group in value, and in shape when the ``nD_i``
+    ``V_i = S_i^T Udot`` differ across a group in value, and in shape when the ``nU_i``
     differ). Cf. the SF-ETT tangent representation, Molozhavenko & Rakhuba (2026) Sec. 5.2.
 
     Equations (49)-(52) and Figure 22, Appendix A.3.1, of Alger et al. (2026),
     "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
     """
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     tucker_variations, tt_variations = variations
 
     if shared_data is not None and sharing_module.nontrivial_groups(shared_data.groups):
         udots = sharing_module.fv_tied_ambient_directions(variations, shared_data)
         tucker_variations = list(tucker_variations)
-        down_tt_cores = list(down_tt_cores)
+        up_tt_cores = list(up_tt_cores)
         for gi, group in enumerate(sharing_module.nontrivial_groups(shared_data.groups)):
             for jj, ii in enumerate(group):
                 tucker_variations[ii] = udots[gi]                    # ONE array per group
-                down_tt_cores[ii] = shared_data.centers[gi][jj]      # H_i replaces O_i (exact)
+                up_tt_cores[ii] = shared_data.centers[gi][jj]      # H_i replaces O_i (exact)
         tucker_variations = tuple(tucker_variations)
-        down_tt_cores = tuple(down_tt_cores)
+        up_tt_cores = tuple(up_tt_cores)
 
     use_jax = tree_contains_jax((frame, variations))
     xnp, _, _ = get_backend(False, use_jax)
@@ -262,15 +262,15 @@ def tv_to_t3(
     ss = tucker_variations[0].shape[:-2]  # stack_shape = K + C
     bcast2 = lambda C: xnp.broadcast_to(C, ss + C.shape[-2:])  # tucker-shaped frame core (..., n, N)
     bcast3 = lambda C: xnp.broadcast_to(C, ss + C.shape[-3:])  # tt-shaped frame core (..., rL, n, rR)
-    up_tucker_cores = [bcast2(U) for U in up_tucker_cores]
-    down_tt_cores   = [bcast3(O) for O in down_tt_cores]
+    down_tucker_cores = [bcast2(D) for D in down_tucker_cores]
+    up_tt_cores   = [bcast3(U) for U in up_tt_cores]
     left_tt_cores   = [bcast3(L) for L in left_tt_cores]
     right_tt_cores  = [bcast3(R) for R in right_tt_cores]
 
-    num_cores = len(up_tucker_cores)
+    num_cores = len(down_tucker_cores)
 
     # Tucker cores: [U_i ; V_i] stacked along the Tucker-rank axis.
-    x_tucker_cores = [xnp.concatenate([U, V], axis=-2) for U, V in zip(up_tucker_cores, tucker_variations)]
+    x_tucker_cores = [xnp.concatenate([D, V], axis=-2) for D, V in zip(down_tucker_cores, tucker_variations)]
     if shared_data is not None:
         # the group inputs are identical objects, so the concatenations are value-equal;
         # assign ONE array per group (structural tie, never floating-point agreement)
@@ -280,21 +280,21 @@ def tv_to_t3(
 
     if num_cores == 1:
         H = tt_variations[0]
-        O = down_tt_cores[0]
+        U = up_tt_cores[0]
         if include_shift:
             H = left_tt_cores[0] + H
-        G = xnp.concatenate([H, O], axis=-2)
+        G = xnp.concatenate([H, U], axis=-2)
         return (x_tucker_cores[0],), (G,)
 
     x_tt_cores = []
 
     # First TT core.
     dU = tt_variations[0]
-    O = down_tt_cores[0]
+    U = up_tt_cores[0]
     L = left_tt_cores[0]
-    Z = xnp.zeros(ss + (O.shape[-3], O.shape[-2], L.shape[-1]))
+    Z = xnp.zeros(ss + (U.shape[-3], U.shape[-2], L.shape[-1]))
     G_top = xnp.concatenate([dU, L], axis=-1)
-    G_bot = xnp.concatenate([O, Z], axis=-1)
+    G_bot = xnp.concatenate([U, Z], axis=-1)
     G = xnp.concatenate([G_top, G_bot], axis=-2)
     x_tt_cores.append(G)
 
@@ -302,19 +302,19 @@ def tv_to_t3(
     for ii in range(1, num_cores - 1):
         L = left_tt_cores[ii]
         R = right_tt_cores[ii]
-        O = down_tt_cores[ii]
+        U = up_tt_cores[ii]
         dU = tt_variations[ii]
         Z001 = xnp.zeros(ss + (R.shape[-3], dU.shape[-2], L.shape[-1]))
-        Z100 = xnp.zeros(ss + (R.shape[-3], O.shape[-2], R.shape[-1]))
-        Z101 = xnp.zeros(ss + (R.shape[-3], O.shape[-2], L.shape[-1]))
-        Z111 = xnp.zeros(ss + (L.shape[-3], O.shape[-2], L.shape[-1]))
+        Z100 = xnp.zeros(ss + (R.shape[-3], U.shape[-2], R.shape[-1]))
+        Z101 = xnp.zeros(ss + (R.shape[-3], U.shape[-2], L.shape[-1]))
+        Z111 = xnp.zeros(ss + (L.shape[-3], U.shape[-2], L.shape[-1]))
         G_top = xnp.concatenate([
             xnp.concatenate([R, Z001], axis=-1),
             xnp.concatenate([dU, L], axis=-1),
         ], axis=-3)
         G_bot = xnp.concatenate([
             xnp.concatenate([Z100, Z101], axis=-1),
-            xnp.concatenate([O, Z111], axis=-1),
+            xnp.concatenate([U, Z111], axis=-1),
         ], axis=-3)
         G = xnp.concatenate([G_top, G_bot], axis=-2)
         x_tt_cores.append(G)
@@ -322,14 +322,14 @@ def tv_to_t3(
     # Last TT core.
     dU = tt_variations[-1]
     R = right_tt_cores[-1]
-    O = down_tt_cores[-1]
-    Z = xnp.zeros(ss + (R.shape[-3], O.shape[-2], R.shape[-1]))
+    U = up_tt_cores[-1]
+    Z = xnp.zeros(ss + (R.shape[-3], U.shape[-2], R.shape[-1]))
     if include_shift:
         Lf = left_tt_cores[-1]
         G_top = xnp.concatenate([R, Lf + dU], axis=-3)
     else:
         G_top = xnp.concatenate([R, dU], axis=-3)
-    G_bot = xnp.concatenate([Z, O], axis=-3)
+    G_bot = xnp.concatenate([Z, U], axis=-3)
     G = xnp.concatenate([G_top, G_bot], axis=-2)
     x_tt_cores.append(G)
 
@@ -338,8 +338,8 @@ def tv_to_t3(
 
 def tv_project_t3_onto_tangent_space(
         frame:      typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores
-            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # down_tucker_cores
+            typ.Sequence[NDArray],  # up_tt_cores
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
@@ -370,8 +370,8 @@ def tv_project_t3_onto_tangent_space(
 
 def tv_project_dense_onto_tangent_space(
         frame:  typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores
-            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # down_tucker_cores
+            typ.Sequence[NDArray],  # up_tt_cores
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
@@ -403,15 +403,15 @@ def tv_project_dense_onto_tangent_space(
     Finally :py:func:`tv_orthogonal_gauge_projection` orthogonalizes the ``2d`` directions so the sum of
     their per-direction projections equals the projection onto the tangent space.
     """
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
-    d = len(up_tucker_cores)
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
+    d = len(down_tucker_cores)
 
     use_jax = tree_contains_jax((frame, Z))
     xnp, _, _ = get_backend(False, use_jax)
 
     ns = Z.ndim - d                                    # number of leading stack axes
     stack = tuple(Z.shape[:ns])                        # stack_shape
-    Ns = tuple(U.shape[-1] for U in up_tucker_cores)   # mode dimensions N_i
+    Ns = tuple(D.shape[-1] for D in down_tucker_cores)   # mode dimensions N_i
 
     # Left sweep: EL[i] is Z with modes 0..i-1 absorbed into the left bond r_i (modes i..d-1 still
     # open), shape stack + (r_i, N_i, N_{i+1}, ..., N_{d-1}).
@@ -420,7 +420,7 @@ def tv_project_dense_onto_tangent_space(
         cur = EL[ii]
         r_i = cur.shape[ns]
         cur = cur.reshape(stack + (r_i, Ns[ii], math.prod(Ns[ii + 1:])))
-        cur = xnp.einsum('...axm,...nx->...anm', cur, up_tucker_cores[ii])  # absorb N_i into the Tucker rank
+        cur = xnp.einsum('...axm,...nx->...anm', cur, down_tucker_cores[ii])  # absorb N_i into the Tucker rank
         cur = xnp.einsum('...anm,...anb->...bm', cur, left_tt_cores[ii])    # ... then into the left bond
         EL.append(cur.reshape(stack + (left_tt_cores[ii].shape[-1],) + Ns[ii + 1:]))
 
@@ -436,12 +436,12 @@ def tv_project_dense_onto_tangent_space(
             lead = math.prod(cur.shape[ns:-2])
             N_j, b = cur.shape[-2], cur.shape[-1]
             cur = cur.reshape(stack + (lead, N_j, b))
-            cur = xnp.einsum('...mxb,...nx->...mnb', cur, up_tucker_cores[jj])  # absorb N_j into the Tucker rank
+            cur = xnp.einsum('...mxb,...nx->...mnb', cur, down_tucker_cores[jj])  # absorb N_j into the Tucker rank
             cur = xnp.einsum('...mnb,...anb->...ma', cur, right_tt_cores[jj])   # ... then into the right bond
             cur = cur.reshape(stack + (keep,) + Ns[ii + 1:jj] + (right_tt_cores[jj].shape[-3],))
         core_env = cur.reshape(stack + (r_i, N_i, cur.shape[-1]))  # (r_i, N_i, r_{i+1})
-        ungauged_tt_variations.append(xnp.einsum('...axb,...nx->...anb', core_env, up_tucker_cores[ii]))
-        ungauged_tucker_variations.append(xnp.einsum('...axb,...anb->...nx', core_env, down_tt_cores[ii]))
+        ungauged_tt_variations.append(xnp.einsum('...axb,...nx->...anb', core_env, down_tucker_cores[ii]))
+        ungauged_tucker_variations.append(xnp.einsum('...axb,...anb->...nx', core_env, up_tt_cores[ii]))
 
     return tv_orthogonal_gauge_projection(
         frame, (tuple(ungauged_tucker_variations), tuple(ungauged_tt_variations)),
@@ -481,19 +481,19 @@ def _tied_lift_groups(
 
 def tv_corewise_lift(
         frame:          typ.Tuple[
-            typ.Sequence[NDArray],              # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
-            typ.Sequence[NDArray],              # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
-            typ.Sequence[NDArray],              # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
-            typ.Sequence[NDArray],              # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+            typ.Sequence[NDArray],              # down_tucker_cores. len=d, elm_shape=C+(nDi, Ni)
+            typ.Sequence[NDArray],              # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],              # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],              # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
         ],
         variations:     typ.Tuple[
-            typ.Sequence[NDArray],              # tucker_variations. len=d, elm_shape=K+C+(nDi, Ni)
-            typ.Sequence[NDArray],              # tt_variations.     len=d, elm_shape=K+C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],              # tucker_variations. len=d, elm_shape=K+C+(nUi, Ni)
+            typ.Sequence[NDArray],              # tt_variations.     len=d, elm_shape=K+C+(rLi, nDi, rR(i+1))
         ],
         lift_factors:   fv_operations.LiftFactors,  # the frame's, fv_operations.fv_lift_factors; stack C
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],                    # Udot. len=d, elm_shape=K+C+(nUi, Ni)
-    typ.Tuple[NDArray, ...],                    # Gdot. len=d, elm_shape=K+C+(rLi, nUi, rL(i+1))
+    typ.Tuple[NDArray, ...],                    # Udot. len=d, elm_shape=K+C+(nDi, Ni)
+    typ.Tuple[NDArray, ...],                    # Gdot. len=d, elm_shape=K+C+(rLi, nDi, rL(i+1))
 ]:
     '''Lift frame coordinates to raw core variations: ``theta_hat = L v``.
 
@@ -544,7 +544,7 @@ def tv_corewise_lift(
     >>> frame, _ = fvc.t3_orthogonal_representations(x.data)
     >>> v = fvo.fv_variations_randn(fvo.fv_variation_shapes(frame), (3,))     # K = (3,), ungauged
     >>> theta_hat = tvo.tv_corewise_lift(frame, v, fvo.fv_lift_factors(frame, 0.0))
-    >>> print([U.shape for U in theta_hat[0]], [G.shape for G in theta_hat[1]])
+    >>> print([b.shape for b in theta_hat[0]], [G.shape for G in theta_hat[1]])
     [(3, 2, 5), (3, 3, 6), (3, 2, 7)] [(3, 1, 2, 2), (3, 2, 3, 2), (3, 2, 2, 1)]
     >>> corewise_frame = fvc.t3_corewise_frame((frame[0], frame[2]))           # theta = (U, L)
     >>> print(np.allclose(tvo.tv_to_dense(corewise_frame, theta_hat), tvo.tv_to_dense(frame, v)))
@@ -555,34 +555,34 @@ def tv_corewise_lift(
     groups = _tied_lift_groups(lift_factors)
 
     tied_modes = set(ii for group in groups for ii in group)
-    Udot = [None if ii in tied_modes else
+    Bdot = [None if ii in tied_modes else
             contractions.contract('Cux,KCxn->KCun', lift_factors.tucker_pinvs[ii], tucker_variations[ii])
             for ii in range(d)]
     for gi, group in enumerate(groups):                                   # the tied lift: Udot_g = M_g^{+eps} [V_i]
-        Udot_g = sharing_module._tied_filtered_solve(lift_factors.shared_data, gi, tucker_variations,
+        Bdot_g = sharing_module._tied_filtered_solve(lift_factors.shared_data, gi, tucker_variations,
                                                      lift_factors.tied_filters[gi])
         for ii in group:
-            Udot[ii] = Udot_g                                             # ONE array per group (T copies it)
+            Bdot[ii] = Bdot_g                                             # ONE array per group (T copies it)
     Gdot = tuple(contractions.contract('KCaib,Cbc->KCaic', tt_variations[ii], lift_factors.bond_pinvs[ii])
                  for ii in range(d - 1)) + (tt_variations[d - 1],)        # the last TT slot: undamped
-    return tuple(Udot), Gdot
+    return tuple(Bdot), Gdot
 
 
 def tv_corewise_lift_transpose(
         frame:              typ.Tuple[
-            typ.Sequence[NDArray],              # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
-            typ.Sequence[NDArray],              # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
-            typ.Sequence[NDArray],              # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
-            typ.Sequence[NDArray],              # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+            typ.Sequence[NDArray],              # down_tucker_cores. len=d, elm_shape=C+(nDi, Ni)
+            typ.Sequence[NDArray],              # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],              # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],              # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
         ],
         core_variations:    typ.Tuple[
-            typ.Sequence[NDArray],              # raw Tucker-core variations. len=d, elm_shape=K+C+(nUi, Ni)
-            typ.Sequence[NDArray],              # raw TT-core variations.     len=d, elm_shape=K+C+(rLi, nUi, rL(i+1))
+            typ.Sequence[NDArray],              # raw Tucker-core variations. len=d, elm_shape=K+C+(nDi, Ni)
+            typ.Sequence[NDArray],              # raw TT-core variations.     len=d, elm_shape=K+C+(rLi, nDi, rL(i+1))
         ],
         lift_factors:       fv_operations.LiftFactors,  # the frame's, fv_operations.fv_lift_factors; stack C
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],                    # UNGAUGED tucker_variations. len=d, elm_shape=K+C+(nDi, Ni)
-    typ.Tuple[NDArray, ...],                    # UNGAUGED tt_variations.     len=d, elm_shape=K+C+(rLi, nUi, rR(i+1))
+    typ.Tuple[NDArray, ...],                    # UNGAUGED tucker_variations. len=d, elm_shape=K+C+(nUi, Ni)
+    typ.Tuple[NDArray, ...],                    # UNGAUGED tt_variations.     len=d, elm_shape=K+C+(rLi, nDi, rR(i+1))
 ]:
     '''The transpose of :py:func:`tv_corewise_lift`: raw core variations back to frame coordinates.
 
@@ -617,24 +617,24 @@ def tv_corewise_lift_transpose(
     >>> frame, _ = fvc.t3_orthogonal_representations(x.data)
     >>> lf = fvo.fv_lift_factors(frame, 1e-2)
     >>> v = fvo.fv_variations_randn(fvo.fv_variation_shapes(frame), ())
-    >>> y = (tuple(np.random.randn(*U.shape) for U in frame[0]),                 # raw, shaped like (U, L)
+    >>> y = (tuple(np.random.randn(*D.shape) for D in frame[0]),                 # raw, shaped like (U, L)
     ...      tuple(np.random.randn(*G.shape) for G in frame[2]))
     >>> Lv, LTy = tvo.tv_corewise_lift(frame, v, lf), tvo.tv_corewise_lift_transpose(frame, y, lf)
     >>> print(bool(np.isclose(cw.corewise_dot(Lv, y), cw.corewise_dot(v, LTy))))
     True
     '''
-    Udot, Gdot = core_variations
+    Bdot, Gdot = core_variations
     d = _check_lift_lengths(frame, core_variations, lift_factors, 'tv_corewise_lift_transpose')
     groups = _tied_lift_groups(lift_factors)
 
     tied_modes = set(ii for group in groups for ii in group)
     V = [None if ii in tied_modes else
-         contractions.contract('Cux,KCun->KCxn', lift_factors.tucker_pinvs[ii], Udot[ii])
+         contractions.contract('Cux,KCun->KCxn', lift_factors.tucker_pinvs[ii], Bdot[ii])
          for ii in range(d)]
     for gi, group in enumerate(groups):                                   # T^T, then the tied solve's adjoint
-        Y_g = Udot[group[0]]
+        Y_g = Bdot[group[0]]
         for ii in group[1:]:
-            Y_g = Y_g + Udot[ii]                                          # Y_g = sum over the group's copies
+            Y_g = Y_g + Bdot[ii]                                          # Y_g = sum over the group's copies
         blocks = sharing_module._tied_filtered_solve_transpose(lift_factors.shared_data, gi, Y_g,
                                                                lift_factors.tied_filters[gi])
         for ii, V_i in zip(group, blocks):
@@ -653,8 +653,8 @@ def _tangent_stack_split(
     The frame cores carry only the frame stack C; the variation cores carry the full stack K + C (the
     extra tangent stack K outermost). So |C| comes from a frame core and |K| is the remainder.
     """
-    n_frame = len(frame[0][0].shape) - 2       # |C|   (up core: stack + (nU, N))
-    n_full = len(variations[0][0].shape) - 2  # |K+C| (tucker variation: stack + (nD, N))
+    n_frame = len(frame[0][0].shape) - 2       # |C|   (up core: stack + (nD, N))
+    n_full = len(variations[0][0].shape) - 2  # |K+C| (tucker variation: stack + (nU, N))
     return n_full - n_frame, n_frame
 
 
@@ -753,8 +753,8 @@ def tv_stack_frame_stack(
 
 def tv_gauge_residual(
         frame: typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores
-            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # down_tucker_cores
+            typ.Sequence[NDArray],  # up_tt_cores
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
@@ -811,7 +811,7 @@ def tv_gauge_residual(
     >>> print(float(tvo.tv_gauge_residual(frame.data, diff, scale=s)) < 1e-14)   # relative to the operands
     True
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     tucker_variations, tt_variations = variations
     xnp, _, _ = get_backend(False, tree_contains_jax((frame, variations, scale)))
     # the tangent's coordinate norm per stack element (all cores), the scale the grams are relative to
@@ -824,8 +824,8 @@ def tv_gauge_residual(
         _check_gauge_scale_shape(scale, own_norm.shape, 'tv_gauge_residual')
         denominator = xnp.maximum(xnp.maximum(own_norm, scale), np.finfo(float).tiny)   # the operands' floor
     devs = []
-    for U, V in zip(up_tucker_cores, tucker_variations):
-        g = xnp.einsum('...ia,...ja->...ij', U, V)
+    for D, V in zip(down_tucker_cores, tucker_variations):
+        g = xnp.einsum('...ia,...ja->...ij', D, V)
         devs.append(xnp.max(xnp.abs(g), axis=(-2, -1)))   # keep stack, max over the gauge-gram axes
     for L, H in zip(left_tt_cores[:-1], tt_variations[:-1]):
         g = xnp.einsum('...abi,...abj->...ij', L, H)
@@ -852,8 +852,8 @@ def _check_gauge_scale_shape(
 
 def tv_retract(
         frame: typ.Tuple[
-            typ.Sequence[NDArray],  # up_tucker_cores
-            typ.Sequence[NDArray],  # down_tt_cores
+            typ.Sequence[NDArray],  # down_tucker_cores
+            typ.Sequence[NDArray],  # up_tt_cores
             typ.Sequence[NDArray],  # left_tt_cores
             typ.Sequence[NDArray],  # right_tt_cores
         ],
@@ -881,12 +881,12 @@ def tv_retract(
     The truncation is the implicit T3-SVD (Algorithm 10) of Alger et al. (2026), "Tucker Tensor
     Train Taylor Series" (arXiv:2603.21141).
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     shifted = tv_to_t3(frame, variations, include_shift=True, shared_data=shared_data)
-    up_ranks = tuple(U.shape[-2] for U in up_tucker_cores)
+    down_ranks = tuple(D.shape[-2] for D in down_tucker_cores)
     left_ranks = tuple(L.shape[-3] for L in left_tt_cores) + (left_tt_cores[-1].shape[-1],)
     sharing_labels = (None if shared_data is None
                       else sharing_module.groups_to_labels(shared_data.groups))
-    retracted, _, _ = ragged_t3svd.t3svd(shifted, max_tucker_ranks=up_ranks, max_tt_ranks=left_ranks,
+    retracted, _, _ = ragged_t3svd.t3svd(shifted, max_tucker_ranks=down_ranks, max_tt_ranks=left_ranks,
                                          sharing=sharing_labels)
     return retracted

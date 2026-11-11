@@ -1167,8 +1167,45 @@ def main(argv: typ.Optional[typ.Sequence[str]] = None) -> int:
     if a.apply:
         if not a.i_am_r2:
             raise SystemExit('--apply writes the tree: R2 only (pass --i-am-r2). R1 runs --dry-run.')
-        raise SystemExit('--apply is not implemented in R1 by design; R2 copies pass2/ over the tree after review.')
+        return apply(a.out, a.scratch)
     return dry_run(a.out, a.scratch)
+
+
+def apply(out_dir: str, scratch: str) -> int:
+    """R2: both passes into ``scratch`` (as the dry run), the single reviewable pass-1 diff
+    (``<out_dir>/R2_pass1.diff``: every file's sentinelized text against HEAD), then pass 2 copied over the tree, and
+    the zero-sentinel gate (K0) on every written file. Refuses unless every target file equals HEAD."""
+    import difflib
+    import subprocess
+    paths = python_paths() + doc_paths()
+    dirty = subprocess.run(['git', '-C', REPO, 'diff', '--name-only', 'HEAD', '--'] + paths, capture_output=True,
+                           text=True, check=True).stdout.split()
+    if dirty:
+        raise SystemExit('refusing: target files differ from HEAD: %s' % dirty[:10])
+    dry_run(out_dir, scratch)
+    pass1_dir, pass2_dir = os.path.join(scratch, 'pass1'), os.path.join(scratch, 'pass2')
+    diff, written, placed, removed = [], [], 0, 0
+    for path in paths:
+        src = open(os.path.join(REPO, path), encoding='utf-8').read()
+        s1 = open(os.path.join(pass1_dir, path), encoding='utf-8').read()
+        if s1 == src:
+            continue
+        s2 = open(os.path.join(pass2_dir, path), encoding='utf-8').read()
+        placed += len(SENTINEL_RE.findall(s1))
+        diff += difflib.unified_diff(src.splitlines(keepends=True), s1.splitlines(keepends=True),
+                                     'a/' + path, 'b/' + path, n=0)
+        assert not SENTINEL_RE.search(s2), path
+        with open(os.path.join(REPO, path), 'w', encoding='utf-8') as fh:
+            fh.write(s2)
+        removed += len(SENTINEL_RE.findall(s1)) - len(SENTINEL_RE.findall(open(os.path.join(REPO, path),
+                                                                                 encoding='utf-8').read()))
+        written.append(path)
+    with open(os.path.join(out_dir, 'R2_pass1.diff'), 'w', encoding='utf-8') as fh:
+        fh.writelines(diff)
+    left = [p for p in paths if SENTINEL_RE.search(open(os.path.join(REPO, p), encoding='utf-8').read())]
+    print('applied: %d files written; sentinels placed in pass 1 %d, removed by pass 2 %d; sentinels left in the '
+          'tree %d (K0)' % (len(written), placed, removed, len(left)))
+    return 1 if left else 0
 
 
 if __name__ == '__main__':

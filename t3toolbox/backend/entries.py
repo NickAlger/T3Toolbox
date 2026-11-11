@@ -41,7 +41,7 @@ __all__ = [
 
 def _t3_entries_step(
         mu_WCa:  NDArray,                                # carry: W+C+(rLi,)
-        ind_B_G: typ.Tuple[NDArray, NDArray, NDArray],   # (ind, B, G): int W ; C+(nUi,Ni) ; C+(rLi,nUi,rL(i+1))
+        ind_B_G: typ.Tuple[NDArray, NDArray, NDArray],   # (ind, B, G): int W ; C+(nDi,Ni) ; C+(rLi,nDi,rL(i+1))
 ) -> typ.Tuple[NDArray, typ.Tuple[int]]:   # (next carry, (0,) -- nothing emitted per mode)
     '''One mode of the all-modes fiber contraction of :py:func:`t3_entries`. Closure-free scan body --
     ``docs/contributor/scan_body_principles.md``.'''
@@ -129,14 +129,14 @@ def tv_entries(
     --------
     tv_apply
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     var_tucker_cores, var_tt_cores = variation
 
-    xis  = _entry_xis(up_tucker_cores, index)     # xi-hat_i  = U_i[..., index_i]   (fiber slice)
+    xis  = _entry_xis(down_tucker_cores, index)     # xi-hat_i  = U_i[..., index_i]   (fiber slice)
     dxis = _entry_xis(var_tucker_cores, index)    # delta-xi_i = dU_i[..., index_i] (fiber slice)
     mus  = compute_mu(left_tt_cores, xis)
 
-    return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
+    return _apply_from_xis(xis, dxis, mus, right_tt_cores, up_tt_cores, var_tt_cores)
 
 
 def tv_entries_transpose(
@@ -163,14 +163,14 @@ def tv_entries_transpose(
 
 def tv_precompute_entries_frame_sweep(
         frame:   typ.Tuple[
-            typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
-            typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+            typ.Sequence[NDArray],          # down_tucker_cores  U. len=d
+            typ.Sequence[NDArray],          # up_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
         ],                                  # frame order = T3Frame.data = (up, down, left, right)
         index:  NDArray,                    # int, shape=(d,)+W -- the grid points
 ) -> typ.Tuple[
-    typ.Sequence[NDArray],  # xis. len=d, elm_shape=W+C+(nUi,) -- the FIBER-SLICED seed (not contracted)
+    typ.Sequence[NDArray],  # xis. len=d, elm_shape=W+C+(nDi,) -- the FIBER-SLICED seed (not contracted)
     typ.Sequence[NDArray],  # mus. len=d, elm_shape=W+C+(rLi,)
 ]:                                          # lean frame sweep -- (xis, mus) only (entries seed)
     '''The all-modes **entries** frame sweep (lean): identical to :py:func:`tv_precompute_apply_frame_sweep`
@@ -185,16 +185,16 @@ def tv_precompute_entries_frame_sweep(
     tv_entries_jacobian_from_sweep
     tv_entries_transpose_from_sweep
     '''
-    up_tucker_cores, _, left_tt_cores, _ = frame
-    xis = _entry_xis(up_tucker_cores, index)
+    down_tucker_cores, _, left_tt_cores, _ = frame
+    xis = _entry_xis(down_tucker_cores, index)
     mus = compute_mu(left_tt_cores, xis)
     return xis, mus
 
 
 def tv_entries_jacobian_from_sweep(
         variation:  typ.Tuple[
-            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nUi,rRi)
+            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nUi,Ni)
+            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rRi)
         ],
         index:      NDArray,                # int, shape=(d,)+W -- for the variation's fiber-sliced dxis
         frame:       typ.Tuple[
@@ -210,10 +210,10 @@ def tv_entries_jacobian_from_sweep(
     the lean ``(xis, mus)`` from ``frame_sweep``; only the fiber-sliced ``dxis`` is computed here. No
     gauge projector ``Π``.'''
     var_tucker_cores, var_tt_cores = variation
-    _, down_tt_cores, _, right_tt_cores = frame
+    _, up_tt_cores, _, right_tt_cores = frame
     xis, mus = frame_sweep
     dxis = _entry_xis(var_tucker_cores, index)    # fiber slice; variation-dependent, not in the frame sweep
-    return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
+    return _apply_from_xis(xis, dxis, mus, right_tt_cores, up_tt_cores, var_tt_cores)
 
 
 def tv_entries_transpose_from_sweep(
@@ -233,10 +233,10 @@ def tv_entries_transpose_from_sweep(
     ``(xis, mus)`` sweep (the reuse hook for ``fitting.py``). Identical to
     :py:func:`tv_apply_transpose_from_sweep` with the one-hot vectors ``e_{index}`` as the apply vectors.
     Full ``W + K + C``; no gauge projector ``Π``.'''
-    up_tucker_cores, down_tt_cores, _, right_tt_cores = frame
-    ww = _onehot_vectors(index, up_tucker_cores)
+    down_tucker_cores, up_tt_cores, _, right_tt_cores = frame
+    ww = _onehot_vectors(index, down_tucker_cores)
     xis, mus = frame_sweep
-    return _apply_transpose_adjoint(c, ww, xis, mus, down_tt_cores, right_tt_cores, sum_over_probes)
+    return _apply_transpose_adjoint(c, ww, xis, mus, up_tt_cores, right_tt_cores, sum_over_probes)
 
 
 def t3_entries_corewise_transpose(
@@ -328,11 +328,11 @@ def t3_entries_corewise_hessian(
     >>> c = rng.standard_normal(W)
     >>> dirs = (tuple(rng.standard_normal((2,) + u.shape) for u in theta[0]),
     ...         tuple(rng.standard_normal((2,) + g.shape) for g in theta[1]))
-    >>> KU, KG = t3e.t3_entries_corewise_hessian(c, index, theta, dirs)
+    >>> KB, KG = t3e.t3_entries_corewise_hessian(c, index, theta, dirs)
     >>> one = lambda cores: t3e.t3_entries_corewise_transpose(c, index, cores, sum_over_probes=True)
     >>> shift = lambda h: tuple(tuple(x + h * dx[0] for x, dx in zip(xs, dxs)) for xs, dxs in zip(theta, dirs))
     >>> fd = [(a - b) / 2e-4 for a, b in zip(sum(one(shift(1e-4)), ()), sum(one(shift(-1e-4)), ()))]
-    >>> bool(max(np.linalg.norm(k[0] - f) / np.linalg.norm(f) for k, f in zip(KU + KG, fd)) < 1e-6)
+    >>> bool(max(np.linalg.norm(k[0] - f) / np.linalg.norm(f) for k, f in zip(KB + KG, fd)) < 1e-6)
     True
     '''
     return t3_entries_corewise_hessian_from_sweep(
@@ -358,9 +358,9 @@ def _entry_xis(tucker_cores, index):
         # factor entries exists to avoid). The supercore is (d,)+C+(p,N); advanced indices on axis 0 (d)
         # and axis -1 (N) broadcast to (d,)+W, the C/p slice rides between -> (d,)+W+C+(p,), matching the
         # ragged W+C+(p,) layout. index_i < Ni <= N stays in the real region.
-        D = tucker_cores.shape[0]
+        n_cores = tucker_cores.shape[0]
         n_W = index.ndim - 1
-        d_idx = xnp.arange(D).reshape((D,) + (1,) * n_W)          # (d,) + (1,)*W, broadcasts with index
+        d_idx = xnp.arange(n_cores).reshape((n_cores,) + (1,) * n_W)          # (d,) + (1,)*W, broadcasts with index
         return tucker_cores[d_idx, ..., index]                   # (d,) + W + C + (p,)
 
     n_idx = len(index.shape[1:])                                  # number of index-stack (W) axes
@@ -372,17 +372,17 @@ def _entry_xis(tucker_cores, index):
     return tuple(xis)
 
 
-def _onehot_vectors(index, up_tucker_cores):
+def _onehot_vectors(index, down_tucker_cores):
     '''Unit vectors e_{index_k} (shape W + (Nk,)) -- the "apply vectors" whose adjoint is the entry
     scatter, so that tv_entries_transpose is tv_apply_transpose with these one-hot vectors.'''
-    use_jax = tree_contains_jax((index, up_tucker_cores))
-    is_uniform = is_ndarray(up_tucker_cores)
+    use_jax = tree_contains_jax((index, down_tucker_cores))
+    is_uniform = is_ndarray(down_tucker_cores)
     xnp, _, _ = get_backend(is_uniform, use_jax)
     index = xnp.array(index)
     if is_uniform:
         # packed one-hots (d,)+W+(N,): eye(N) indexed by the (d,)+W index array. N is the padded mode dim;
         # each real index_i < Ni <= N puts the 1 in the real region (the padding stays zero -> contracts
         # to zero against the masked supercore).
-        N = up_tucker_cores.shape[-1]
+        N = down_tucker_cores.shape[-1]
         return xnp.eye(N)[index]
-    return tuple(xnp.eye(B.shape[-1])[index[i]] for i, B in enumerate(up_tucker_cores))
+    return tuple(xnp.eye(B.shape[-1])[index[i]] for i, B in enumerate(down_tucker_cores))

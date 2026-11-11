@@ -62,7 +62,7 @@ geometry projects onto *its* tied subspace in *its* metric on *its* coordinates.
 
 The Gram formula at a corewise frame is a *different, wrong* projection, and the mean at a manifold
 frame projects onto the wrong subspace — both directions are pinned by an adversarial test (the
-strongest form: gauged manifold coordinates can differ in *shape* across a group when the `nD_i`
+strongest form: gauged manifold coordinates can differ in *shape* across a group when the `nU_i`
 differ, so the mean is not even defined on them). Means are computed in **drift form**
 (`ref + mean(differences)`): an exactly-tied group is a bitwise fixed point, where the plain
 `(ΣB_i)/k` already perturbs the last ulp at `k = 3`.
@@ -88,7 +88,7 @@ all-singleton = the literal unshared sweep, bit-identical. Implications kept on 
 ## The tied retraction: an embedding, not a repair
 
 The naive doubled factor `[U_g; V_i]` is **not tied** — the `V_i` differ across a group in value
-and (when the `nD_i` differ) in shape, so nothing can be averaged afterwards. The shared retraction
+and (when the `nU_i` differ) in shape, so nothing can be averaged afterwards. The shared retraction
 builds the embedding tied (SF-ETT §5.2, generalized): recover `U̇` per group by the companion's
 clipped solve (exact on tied coordinates — the solve residual doubles as the safe-mode tied-tangent
 check), put `[U_g; U̇]` at every group mode (one array), and replace the down core `O_i` by the
@@ -159,7 +159,7 @@ over randomized structures/caps *before* implementation. Two lessons that cost r
    the tied projection re-masks its output; the uniform tied lift (`ufv_tied_lift_factors`) zeroes its
    damped filter on the padded levels **by the masks** — the relative clip alone would keep a padded level
    lifted above it (by garbage; the survey's roundoff stayed below 5% of the clip) — and clips at the
-   group's *real* dimensions, `eps·max(Σ_i nD_i, n_g)`, as the ragged solve does (a clip at the padded
+   group's *real* dimensions, `eps·max(Σ_i nU_i, n_g)`, as the ragged solve does (a clip at the padded
    dimensions is higher, and can drop a real level the ragged solve keeps); and `lift_sigma_min` reads only
    the real levels (else every varying-rank stack would report a padded 0). A zero-padded restart's new
    level is a *real* level: it filters to 0 by the clip and is what `lift_sigma_min` reports.
@@ -173,7 +173,7 @@ over randomized structures/caps *before* implementation. Two lessons that cost r
 Related uniform facts: `uniform_minimal` had to become sharing-aware (the per-mode reduction clips
 a group rank the group ceiling admits — `(4,4,2) → (2,4,2)` on the canonical test structure —
 structurally untying the group), and the tied embedding rebuilds the variation block at the **up**
-width `nU` (the `U̇` slot), zero-padding singleton blocks.
+width `nD` (the `U̇` slot), zero-padding singleton blocks.
 
 ## Smaller decisions on record
 

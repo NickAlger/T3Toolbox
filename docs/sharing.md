@@ -265,7 +265,7 @@ transparently (`uniform_minimal(x0, sharing=…)`) — the per-mode reduction wo
   per-mode spectra, a per-group constant that cancels within each group's reciprocal ratios), and
   `reciprocal`/`sqrt`/`concatenate`/`kronecker` all preserve group-equality. What remains deferred is
   the weighted tied *metric* — a Grasedyck–Kramer preconditioner for the shared geometry (the
-  `T3FrameWeights` route is not even well-formed under sharing: the `down` family lives on the `nD`
+  `T3FrameWeights` route is not even well-formed under sharing: the `down` family lives on the `nU`
   legs, which can differ in *length* within a group) — future work alongside the
   `SingularValueRegularizer`.
 - **The partition is user-provided.** Automatic selection of what to share is permanently out of

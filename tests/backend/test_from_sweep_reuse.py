@@ -154,10 +154,10 @@ class TestUniformPlainFromSweepVsRagged(unittest.TestCase):
                 out[(k, c)] = (self.frames_r[c], leaf.variations.to_t3variations())
         return out
 
-    def _bare_to_dense(self, dU, dG):
+    def _bare_to_dense(self, tkv, ttv):
         """Wrap a bare (dU, dG) variation supercore pair (stack K+C) in the K-broadcast gauge masks of
         ``self.v.variations`` -> dense tangent."""
-        V = self.ubv.UT3Variations(np.asarray(dU), np.asarray(dG), self.frame_u.shape,
+        V = self.ubv.UT3Variations(np.asarray(tkv), np.asarray(ttv), self.frame_u.shape,
                                    self.v.variations.masks)
         return np.asarray(self.ut3m.UT3Tangent(self.frame_u, V).to_dense())
 
@@ -189,23 +189,23 @@ class TestUniformPlainFromSweepVsRagged(unittest.TestCase):
         s_entries = self.utvs.utv_precompute_entries_frame_sweep(self.frame_u.data, self.index)
         zt = [np.random.randn(*(self.W + self.K + self.C + (N,))) for N in shapes]
         c_res = np.random.randn(*(self.W + self.K + self.C))
-        dU, dG = self.utvs.utv_probe_transpose_from_sweep(zt, s_probe, sum_over_probes=True)
-        dense_u = self._bare_to_dense(dU, dG)
+        V, H = self.utvs.utv_probe_transpose_from_sweep(zt, s_probe, sum_over_probes=True)
+        dense_u = self._bare_to_dense(V, H)
         for (k, c), (fr, vr) in self._leaves().items():
             zt_leaf = [z[(Ellipsis, k, c, slice(None))] for z in zt]
             g_r = probing.tv_probe_transpose(zt_leaf, self.ww, fr.data, sum_over_probes=True)
             d_r = np.asarray(t3m.T3Tangent(fr, bvf.T3Variations(*g_r)).to_dense())
             with self.subTest(op='probe', k=k, c=c):
                 self.assertLessEqual(_relerr(dense_u[k, c], d_r), 1e-10)
-        dU, dG = self.utvs.utv_apply_transpose_from_sweep(c_res, s_apply, sum_over_probes=True)
-        dense_u = self._bare_to_dense(dU, dG)
+        V, H = self.utvs.utv_apply_transpose_from_sweep(c_res, s_apply, sum_over_probes=True)
+        dense_u = self._bare_to_dense(V, H)
         for (k, c), (fr, vr) in self._leaves().items():
             g_r = apply.tv_apply_transpose(c_res[..., k, c], self.ww, fr.data, sum_over_probes=True)
             d_r = np.asarray(t3m.T3Tangent(fr, bvf.T3Variations(*g_r)).to_dense())
             with self.subTest(op='apply', k=k, c=c):
                 self.assertLessEqual(_relerr(dense_u[k, c], d_r), 1e-10)
-        dU, dG = self.utvs.utv_entries_transpose_from_sweep(c_res, s_entries, sum_over_probes=True)
-        dense_u = self._bare_to_dense(dU, dG)
+        V, H = self.utvs.utv_entries_transpose_from_sweep(c_res, s_entries, sum_over_probes=True)
+        dense_u = self._bare_to_dense(V, H)
         for (k, c), (fr, vr) in self._leaves().items():
             g_r = entries.tv_entries_transpose(c_res[..., k, c], self.index, fr.data,
                                                sum_over_probes=True)

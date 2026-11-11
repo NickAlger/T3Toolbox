@@ -24,28 +24,28 @@ import numpy as np
 
 def interfaces(frame):
     """Dense left interfaces ``phi[k]`` (prod N_<k, rL_k) and right interfaces ``psi[k]`` (prod N_>=k, rR_k)."""
-    up, down, left, right = frame
-    d = len(up)
+    down, up, left, right = frame
+    d = len(down)
     phi = [np.ones((1, 1))]
     for k in range(d - 1):
-        phi.append(np.einsum('xa,ni,anb->xib', phi[k], up[k], left[k])
-                   .reshape(phi[k].shape[0] * up[k].shape[1], left[k].shape[2]))
+        phi.append(np.einsum('xa,ni,anb->xib', phi[k], down[k], left[k])
+                   .reshape(phi[k].shape[0] * down[k].shape[1], left[k].shape[2]))
     psi = [None] * d + [np.ones((1, 1))]
     for k in range(d - 1, 0, -1):
-        psi[k] = (np.einsum('anb,ni,yb->aiy', right[k], up[k], psi[k + 1])
-                  .reshape(right[k].shape[0], up[k].shape[1] * psi[k + 1].shape[0]).T)
+        psi[k] = (np.einsum('anb,ni,yb->aiy', right[k], down[k], psi[k + 1])
+                  .reshape(right[k].shape[0], down[k].shape[1] * psi[k + 1].shape[0]).T)
     return phi, psi
 
 
 def dense_frames(frame):
     """One orthonormal dense basis per DIRECTED edge: ``(U, phi, psi, E)`` = leaf -> core, core -> core rightward,
     core -> core leftward, core -> leaf."""
-    up, down, left, right = (tuple(np.asarray(c, dtype=float) for c in cores) for cores in frame)
-    phi, psi = interfaces((up, down, left, right))
-    U = [u.T for u in up]
-    E = [np.einsum('xa,amb,yb->xym', phi[i], down[i], psi[i + 1])
-         .reshape(phi[i].shape[0] * psi[i + 1].shape[0], down[i].shape[1]) for i in range(len(up))]
-    return U, phi, psi, E
+    down, up, left, right = (tuple(np.asarray(c, dtype=float) for c in cores) for cores in frame)
+    phi, psi = interfaces((down, up, left, right))
+    D = [u.T for u in down]
+    U = [np.einsum('xa,amb,yb->xym', phi[i], up[i], psi[i + 1])
+         .reshape(phi[i].shape[0] * psi[i + 1].shape[0], up[i].shape[1]) for i in range(len(down))]
+    return D, phi, psi, U
 
 
 def complement_in(B, A):
@@ -62,13 +62,13 @@ def top_left(Y, k):
     return Uy[:, :k]
 
 
-def dense_pass(oldD, curD, Z, stores, update='ULRO', groups=()):
-    """One step on dense tensors: the new frames ``(U, phi, psi, E)`` at ``stores`` = (nU, nD, rL, rR), and the
+def dense_pass(old_dense, cur_dense, Z, stores, update='ULRO', groups=()):
+    """One step on dense tensors: the new frames ``(U, phi, psi, E)`` at ``stores`` = (nD, nU, rL, rR), and the
     movement (max over edges). ``oldD`` / ``curD``: the dense frames of the old and the current (padded) frame; ``Z``:
     the dense tangent vector; ``groups``: canonical sharing groups (tuples of mode indices), singletons optional."""
-    Uo, phio, psio, Eo = oldD
-    Uc, phic, psic, Ec = curD
-    nU, nD, rL, rR = stores
+    Do, phio, psio, Uo = old_dense
+    Dc, phic, psic, Uc = cur_dense
+    nD, nU, rL, rR = stores
     N = Z.shape
     d = len(N)
     Zi = [np.moveaxis(Z, i, 0).reshape(N[i], -1) for i in range(d)]
@@ -80,22 +80,22 @@ def dense_pass(oldD, curD, Z, stores, update='ULRO', groups=()):
         moves.append(np.linalg.norm(T - W @ (W.T @ T)))
         return Q @ W
 
-    U = [None] * d
+    D = [None] * d
     grouped = set(i for g in groups for i in g)
     for g in [tuple(g) for g in groups] + [(i,) for i in range(d) if i not in grouped]:      # leaf -> core
         i0 = g[0]
-        s = Uo[i0].shape[1]
-        Q = complement_in(np.eye(N[i0]), Uo[i0])
+        s = Do[i0].shape[1]
+        Q = complement_in(np.eye(N[i0]), Do[i0])
         blocks = []
         for i in g:
             Y = Q.T @ Zi[i]
-            blocks.append(Y - (Y @ Eo[i]) @ Eo[i].T)
-        W = choose(Q, np.concatenate(blocks, axis=1), Uc[i0][:, s:], nU[i0] - s, 'U' in update)
+            blocks.append(Y - (Y @ Uo[i]) @ Uo[i].T)
+        W = choose(Q, np.concatenate(blocks, axis=1), Dc[i0][:, s:], nD[i0] - s, 'U' in update)
         for i in g:
-            U[i] = np.concatenate([Uo[i0], W], axis=1)
+            D[i] = np.concatenate([Do[i0], W], axis=1)
     phi = [np.ones((1, 1))]
     for k in range(d - 1):                                        # core k -> core k+1
-        B = np.einsum('xa,in->xian', phi[k], U[k]).reshape(phi[k].shape[0] * N[k], -1)
+        B = np.einsum('xa,in->xian', phi[k], D[k]).reshape(phi[k].shape[0] * N[k], -1)
         r0 = phio[k + 1].shape[1]
         Q = complement_in(B, phio[k + 1])
         Y = Q.T @ Z.reshape(B.shape[0], -1)
@@ -103,24 +103,24 @@ def dense_pass(oldD, curD, Z, stores, update='ULRO', groups=()):
         phi.append(np.concatenate([phio[k + 1], choose(Q, Y, phic[k + 1][:, r0:], rL[k + 1] - r0, 'L' in update)], 1))
     psi = [None] * d + [np.ones((1, 1))]
     for k in range(d - 1, 0, -1):                                 # core k -> core k-1
-        B = np.einsum('in,yb->iynb', U[k], psi[k + 1]).reshape(N[k] * psi[k + 1].shape[0], -1)
+        B = np.einsum('in,yb->iynb', D[k], psi[k + 1]).reshape(N[k] * psi[k + 1].shape[0], -1)
         r0 = psio[k].shape[1]
         Q = complement_in(B, psio[k])
         Y = Q.T @ Z.reshape(-1, B.shape[0]).T
         Y = Y - (Y @ phio[k]) @ phio[k].T
         psi[k] = np.concatenate([psio[k], choose(Q, Y, psic[k][:, r0:], rR[k] - r0, 'R' in update)], 1)
-    E = []
+    U = []
     for i in range(d):                                            # core -> leaf (unrooted)
         B = np.einsum('xa,yb->xyab', phi[i], psi[i + 1]).reshape(phi[i].shape[0] * psi[i + 1].shape[0], -1)
-        r0 = Eo[i].shape[1]
-        Q = complement_in(B, Eo[i])
+        r0 = Uo[i].shape[1]
+        Q = complement_in(B, Uo[i])
         Zt = Zi[i].T
-        content = Q.T @ (Zt - (Zt @ Uo[i]) @ Uo[i].T)
-        E.append(np.concatenate([Eo[i], choose(Q, content, Ec[i][:, r0:], nD[i] - r0, 'O' in update)], 1))
-    return (U, phi, psi, E), max(moves)
+        content = Q.T @ (Zt - (Zt @ Do[i]) @ Do[i].T)
+        U.append(np.concatenate([Uo[i], choose(Q, content, Uc[i][:, r0:], nU[i] - r0, 'O' in update)], 1))
+    return (D, phi, psi, U), max(moves)
 
 
-def dense_loop(oldD, startD, S, working, target, oversampled_passes, max_passes, tol, alternate, groups=()):
+def dense_loop(old_dense, start_dense, S, working, target, oversampled_passes, max_passes, tol, alternate, groups=()):
     """The alignment loop's schedule (the plan's section 2.3) on the dense step: from the dense start ``startD`` at the
     ``working`` stores, ``n_over`` passes at the working stores, the truncating pass to the ``target`` stores, then
     (``alternate``) ('UL', 'RO') pairs while a whole pair fits under ``max_passes``, stopping after a pair whose two
@@ -128,11 +128,11 @@ def dense_loop(oldD, startD, S, working, target, oversampled_passes, max_passes,
     'ULRO' passes, stopping after the first pass from the truncating one on whose movement is below ``tol``. Every
     pass is against ``dense_project(D, S)``. Returns the dense frames and the movement after every pass."""
     n_over = 0 if tuple(working) == tuple(target) else min(oversampled_passes, max_passes - 1)
-    state = {'D': startD}
+    state = {'D': start_dense}
     frames, moves = [], []
 
     def run(stores, update):
-        state['D'], movement = dense_pass(oldD, state['D'], dense_project(state['D'], S), stores, update, groups)
+        state['D'], movement = dense_pass(old_dense, state['D'], dense_project(state['D'], S), stores, update, groups)
         frames.append(state['D'])
         moves.append(movement)
 
@@ -152,30 +152,30 @@ def dense_loop(oldD, startD, S, working, target, oversampled_passes, max_passes,
     return frames, moves
 
 
-def tangent_basis(D, N):
+def tangent_basis(dense, N):
     """An orthonormal basis of the two-sided tangent space at the dense frames ``D``."""
-    U, phi, psi, E = D
+    D, phi, psi, U = dense
     d = len(N)
     cols = []
     for i in range(d):
-        nx, ny, m = math.prod(N[:i]), math.prod(N[i + 1:]), E[i].shape[1]
-        cols.append(np.einsum('ij,xym->xiyjm', np.eye(N[i]), E[i].reshape(nx, ny, m)).reshape(math.prod(N), -1))
-        cols.append(np.einsum('xa,in,yb->xiyanb', phi[i], U[i], psi[i + 1]).reshape(math.prod(N), -1))
+        nx, ny, m = math.prod(N[:i]), math.prod(N[i + 1:]), U[i].shape[1]
+        cols.append(np.einsum('ij,xym->xiyjm', np.eye(N[i]), U[i].reshape(nx, ny, m)).reshape(math.prod(N), -1))
+        cols.append(np.einsum('xa,in,yb->xiyanb', phi[i], D[i], psi[i + 1]).reshape(math.prod(N), -1))
     Q, s, _ = np.linalg.svd(np.concatenate(cols, axis=1), full_matrices=False)
     return Q[:, s > 1e-9 * s[0]]
 
 
-def dense_project(D, S):
+def dense_project(dense, S):
     """The orthogonal projection of the dense tensor ``S`` onto the tangent space at ``D``."""
-    Q = tangent_basis(D, S.shape)
+    Q = tangent_basis(dense, S.shape)
     return (Q @ (Q.T @ S.ravel())).reshape(S.shape)
 
 
-def distances(Da, Db):
+def distances(dense_a, dense_b):
     """The largest principal-angle sine between two sets of dense frames, per kind of directed edge
     ('U' leaf -> core, 'L' rightward, 'R' leftward, 'O' core -> leaf); 1.0 where the widths differ."""
     out = {}
-    for name, a, b in zip('ULRO', Da, Db):
+    for name, a, b in zip('ULRO', dense_a, dense_b):
         ds = []
         for x, y in zip(a, b):
             if x is None or y is None:

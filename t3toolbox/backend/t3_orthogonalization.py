@@ -76,27 +76,27 @@ def t3_orthogonality_residual(
 def t3_left_orthogonalize(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # up_tucker_cores
+    typ.Tuple[NDArray, ...],  # down_tucker_cores
     typ.Tuple[NDArray, ...],  # left_tt_cores
 ]:
     """Left orthogonalize T3.
     """
-    up_tucker_cores, tt_cores = t3_down_orthogonalize_tucker_cores(x)
+    down_tucker_cores, tt_cores = t3_down_orthogonalize_tucker_cores(x)
     left_tt_cores = orth.tt_left_orthogonalize(tt_cores)
-    return (up_tucker_cores, left_tt_cores)
+    return (down_tucker_cores, left_tt_cores)
 
 
 def t3_right_orthogonalize(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # up_tucker_cores
+    typ.Tuple[NDArray, ...],  # down_tucker_cores
     typ.Tuple[NDArray, ...],  # right_tt_cores
 ]:
     """Right orthogonalize T3.
     """
-    up_tucker_cores, tt_cores = t3_down_orthogonalize_tucker_cores(x)
+    down_tucker_cores, tt_cores = t3_down_orthogonalize_tucker_cores(x)
     right_tt_cores = orth.tt_right_orthogonalize(tt_cores)
-    return (up_tucker_cores, right_tt_cores)
+    return (down_tucker_cores, right_tt_cores)
 
 
 def _up_orthogonalize_tt_cores_step(
@@ -107,22 +107,22 @@ def _up_orthogonalize_tt_cores_step(
 ]:
     """One core of the map of :py:func:`t3_up_orthogonalize_tt_cores`. Closure-free map body --
     ``docs/contributor/scan_body_principles.md``."""
-    Uio, Haib = x
+    Bio, Haib = x
     xnp, _, _ = get_backend(False, tree_contains_jax(x))
 
-    stack_shape = Uio.shape[:-2]        # the core stack C (equivalently Haib.shape[:-3])
+    stack_shape = Bio.shape[:-2]        # the core stack C (equivalently Haib.shape[:-3])
 
     rL, n, rR = Haib.shape[-3:]
     H_ab_i = Haib.swapaxes(-2, -1).reshape(stack_shape + (rL * rR, n))
 
-    O_ab_x, ssx, WTxi = xnp.linalg.svd(H_ab_i, full_matrices=False)
+    U_ab_x, ssx, WTxi = xnp.linalg.svd(H_ab_i, full_matrices=False)
     n2 = ssx.shape[-1]
-    Oaxb = O_ab_x.reshape(stack_shape + (rL, rR, n2)).swapaxes(-2, -1)
+    Uaxb = U_ab_x.reshape(stack_shape + (rL, rR, n2)).swapaxes(-2, -1)
 
     Cxi = ssx.reshape(stack_shape + (-1, 1)) * WTxi
 
-    Vxo = xnp.einsum('...xi,...io->...xo', Cxi, Uio)
-    return (Vxo, Oaxb)
+    Vxo = xnp.einsum('...xi,...io->...xo', Cxi, Bio)
+    return (Vxo, Uaxb)
 
 
 def t3_up_orthogonalize_tt_cores(
@@ -158,14 +158,14 @@ def _down_orthogonalize_tucker_cores_step(
     Rxi = xnp.einsum('...x,...xi->...xi', ssx, WTxi)
 
     new_Gaxb = xnp.einsum('...aib,...xi->...axb', Gaib, Rxi)
-    new_Uxo = Uox.swapaxes(-1,-2)
-    return (new_Uxo, new_Gaxb)
+    new_Bxo = Uox.swapaxes(-1,-2)
+    return (new_Bxo, new_Gaxb)
 
 
 def t3_down_orthogonalize_tucker_cores(
         x: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]], # (tucker_cores, tt_cores)
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # up_tucker_cores
+    typ.Tuple[NDArray, ...],  # down_tucker_cores
     typ.Tuple[NDArray, ...],  # new_tt_cores
 ]:
     """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
@@ -174,8 +174,8 @@ def t3_down_orthogonalize_tucker_cores(
     is_uniform = False
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
-    up_tucker_cores, new_tt_cores = xmap(_down_orthogonalize_tucker_cores_step, x)
-    return (up_tucker_cores, new_tt_cores)
+    down_tucker_cores, new_tt_cores = xmap(_down_orthogonalize_tucker_cores_step, x)
+    return (down_tucker_cores, new_tt_cores)
 
 
 def t3_down_svd_tucker_core(
@@ -194,10 +194,10 @@ def t3_down_svd_tucker_core(
     tucker_cores, tt_cores = x
 
     G_a_i_b = tt_cores[ii]
-    U_i_o = tucker_cores[ii]
+    B_i_o = tucker_cores[ii]
 
     new_G, new_B, ss_x = linalg.down_svd_pair(
-        G_a_i_b, U_i_o, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
+        G_a_i_b, B_i_o, min_rank=min_rank, max_rank=max_rank, rtol=rtol, atol=atol,
     )
 
     new_tt_cores = list(tt_cores)

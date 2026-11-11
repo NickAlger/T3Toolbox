@@ -27,23 +27,23 @@ def _prefix_mask(ranks, pad):  # ranks: HOST int (...,) -> bool (..., pad)
     return np.arange(pad) < np.asarray(ranks)[..., None]
 
 
-def _make_frame(d, N, nU, nD, rL, rR, shape, up_r, down_r, left_r, right_r, ss=()):
+def _make_frame(d, N, nD, nU, rL, rR, shape, down_r, up_r, left_r, right_r, ss=()):
     """Build a structurally-valid UT3Frame with prefix masks (ranks may vary per stack element)."""
-    up    = np.random.randn(*((d,) + ss + (nU, N)))
-    down  = np.random.randn(*((d,) + ss + (rL, nD, rR)))
-    left  = np.random.randn(*((d,) + ss + (rL, nU, rL)))
-    right = np.random.randn(*((d,) + ss + (rR, nU, rR)))
+    down    = np.random.randn(*((d,) + ss + (nD, N)))
+    up  = np.random.randn(*((d,) + ss + (rL, nU, rR)))
+    left  = np.random.randn(*((d,) + ss + (rL, nD, rL)))
+    right = np.random.randn(*((d,) + ss + (rR, nD, rR)))
     masks = ubv.UT3FrameMasks(
-        _prefix_mask(up_r, nU), _prefix_mask(down_r, nD),
+        _prefix_mask(down_r, nD), _prefix_mask(up_r, nU),
         _prefix_mask(left_r, rL), _prefix_mask(right_r, rR),
     )
-    return ubv.UT3Frame(up, down, left, right, tuple(shape), masks)
+    return ubv.UT3Frame(down, up, left, right, tuple(shape), masks)
 
 
 # concrete padded structure shared across tests
-_D, _N, _NU, _ND, _RL, _RR = 3, 6, 4, 5, 3, 2
+_D, _N, _ND, _NU, _RL, _RR = 3, 6, 4, 5, 3, 2
 _SHAPE = (4, 5, 6)
-_UP_R, _DOWN_R = [2, 3, 4], [3, 4, 5]            # (d,)
+_DOWN_R, _UP_R = [2, 3, 4], [3, 4, 5]            # (d,)
 _LEFT_R, _RIGHT_R = [1, 2, 3, 1], [1, 2, 2, 1]   # (d+1,)
 
 
@@ -56,8 +56,8 @@ class TestUT3Frame(unittest.TestCase):
         def b(r, length):
             a = np.broadcast_to(np.array(r).reshape((length,) + (1,) * len(ss)), (length,) + ss)
             return a.copy()
-        return _make_frame(_D, _N, _NU, _ND, _RL, _RR, _SHAPE,
-                           b(_UP_R, _D), b(_DOWN_R, _D), b(_LEFT_R, _D + 1), b(_RIGHT_R, _D + 1), ss=ss)
+        return _make_frame(_D, _N, _ND, _NU, _RL, _RR, _SHAPE,
+                           b(_DOWN_R, _D), b(_UP_R, _D), b(_LEFT_R, _D + 1), b(_RIGHT_R, _D + 1), ss=ss)
 
     # ---- construction + structure recovery ----
     def test_construct_and_structure(self):
@@ -66,17 +66,17 @@ class TestUT3Frame(unittest.TestCase):
                 B = self._frame(ss)
                 self.assertEqual(B.shape, _SHAPE)
                 self.assertEqual(B.stack_shape, ss)
-                self.assertEqual(B.uniform_structure, (_D, _N, _NU, _ND, _RL, _RR, ss))
+                self.assertEqual(B.uniform_structure, (_D, _N, _ND, _NU, _RL, _RR, ss))
                 # first stack element's ranks recover the chosen ranks
                 idx = (slice(None),) + (0,) * len(ss)
-                self.assertEqual(np.asarray(B.up_ranks)[idx].tolist(), _UP_R)
                 self.assertEqual(np.asarray(B.down_ranks)[idx].tolist(), _DOWN_R)
+                self.assertEqual(np.asarray(B.up_ranks)[idx].tolist(), _UP_R)
                 self.assertEqual(np.asarray(B.left_ranks)[idx].tolist(), _LEFT_R)
                 self.assertEqual(np.asarray(B.right_ranks)[idx].tolist(), _RIGHT_R)
 
     def test_data_layout(self):
         B = self._frame()
-        up_sc, down_sc, left_sc, right_sc, shape, masks = B.data
+        down_sc, up_sc, left_sc, right_sc, shape, masks = B.data
         self.assertEqual(shape, _SHAPE)              # .data[4] is the static int tuple
         self.assertEqual(len(masks), 4)              # .data[5] is the 4-mask tuple
         self.assertTrue(all(m.dtype == bool for m in masks))
@@ -85,8 +85,8 @@ class TestUT3Frame(unittest.TestCase):
     def test_validate_rejects_bad_supercore(self):
         B = self._frame()
         with self.assertRaises(ValueError):
-            ubv.UT3Frame(B.up_tucker_supercore[..., :-1],  # wrong N on up core
-                         B.down_tt_supercore, B.left_tt_supercore, B.right_tt_supercore,
+            ubv.UT3Frame(B.down_tucker_supercore[..., :-1],  # wrong N on up core
+                         B.up_tt_supercore, B.left_tt_supercore, B.right_tt_supercore,
                          B.shape, B.masks)
 
     def test_validate_rejects_bad_shape_tuple(self):
@@ -98,19 +98,19 @@ class TestUT3Frame(unittest.TestCase):
 
     # ---- masking semantics: real region preserved, padding zeroed ----
     def test_apply_masks_zeros_padding(self):
-        # all-ones up core -> after masking, exactly the (up_mask AND shape_mask) region survives
-        up = np.ones((_D, _NU, _N))
-        down  = np.random.randn(_D, _RL, _ND, _RR)
-        left  = np.random.randn(_D, _RL, _NU, _RL)
-        right = np.random.randn(_D, _RR, _NU, _RR)
-        masks = ubv.UT3FrameMasks(_prefix_mask(_UP_R, _NU), _prefix_mask(_DOWN_R, _ND),
+        # all-ones up core -> after masking, exactly the (down_mask AND shape_mask) region survives
+        down = np.ones((_D, _ND, _N))
+        up  = np.random.randn(_D, _RL, _NU, _RR)
+        left  = np.random.randn(_D, _RL, _ND, _RL)
+        right = np.random.randn(_D, _RR, _ND, _RR)
+        masks = ubv.UT3FrameMasks(_prefix_mask(_DOWN_R, _ND), _prefix_mask(_UP_R, _NU),
                                   _prefix_mask(_LEFT_R, _RL), _prefix_mask(_RIGHT_R, _RR))
-        B = ubv.UT3Frame(up, down, left, right, _SHAPE, masks)
+        B = ubv.UT3Frame(down, up, left, right, _SHAPE, masks)
 
-        masked_up = B.apply_masks().up_tucker_supercore
+        masked_down = B.apply_masks().down_tucker_supercore
         shape_mask = np.arange(_N) < np.array(_SHAPE)[:, None]            # (d, N)
-        expected = (_prefix_mask(_UP_R, _NU)[:, :, None] & shape_mask[:, None, :]).astype(float)
-        self.assertTrue(np.array_equal(masked_up, expected))
+        expected = (_prefix_mask(_DOWN_R, _ND)[:, :, None] & shape_mask[:, None, :]).astype(float)
+        self.assertTrue(np.array_equal(masked_down, expected))
 
     def test_apply_masks_idempotent(self):
         B = self._frame((2,))
@@ -123,10 +123,10 @@ class TestUT3Frame(unittest.TestCase):
     def test_masks_value_hash_eq(self):
         # a rebuilt-but-array-identical UT3FrameMasks must be == and hash-equal (so a re-orthogonalized
         # frame is the SAME jit cache key); a different rank structure must not be.
-        def masks(up_r):
-            return ubv.UT3FrameMasks(_prefix_mask(up_r, _NU), _prefix_mask(_DOWN_R, _ND),
+        def masks(down_r):
+            return ubv.UT3FrameMasks(_prefix_mask(down_r, _ND), _prefix_mask(_UP_R, _NU),
                                      _prefix_mask(_LEFT_R, _RL), _prefix_mask(_RIGHT_R, _RR))
-        a, b = masks(_UP_R), masks(_UP_R)
+        a, b = masks(_DOWN_R), masks(_DOWN_R)
         self.assertIsNot(a, b)
         self.assertEqual(a, b)
         self.assertEqual(hash(a), hash(b))
@@ -167,10 +167,10 @@ def _make_variations(ss=()):
     def b(r, length):
         a = np.broadcast_to(np.array(r).reshape((length,) + (1,) * len(ss)), (length,) + ss)
         return a.copy()
-    tkv = np.random.randn(*((_D,) + ss + (_ND, _N)))
-    ttv = np.random.randn(*((_D,) + ss + (_RL, _NU, _RR)))
+    tkv = np.random.randn(*((_D,) + ss + (_NU, _N)))
+    ttv = np.random.randn(*((_D,) + ss + (_RL, _ND, _RR)))
     masks = ubv.UT3VariationsMasks(
-        _prefix_mask(b(_UP_R, _D), _NU), _prefix_mask(b(_DOWN_R, _D), _ND),
+        _prefix_mask(b(_DOWN_R, _D), _ND), _prefix_mask(b(_UP_R, _D), _NU),
         _prefix_mask(b(_V_LEFT_R, _D), _RL), _prefix_mask(b(_V_RIGHT_R, _D), _RR),
     )
     return ubv.UT3Variations(tkv, ttv, _SHAPE, masks)
@@ -186,9 +186,9 @@ class TestUT3Variations(unittest.TestCase):
                 V = _make_variations(ss)
                 self.assertEqual(V.shape, _SHAPE)
                 self.assertEqual(V.stack_shape, ss)
-                self.assertEqual(V.uniform_structure, (_D, _N, _NU, _ND, _RL, _RR, ss))
+                self.assertEqual(V.uniform_structure, (_D, _N, _ND, _NU, _RL, _RR, ss))
                 idx = (slice(None),) + (0,) * len(ss)
-                self.assertEqual(np.asarray(V.up_ranks)[idx].tolist(), _UP_R)
+                self.assertEqual(np.asarray(V.down_ranks)[idx].tolist(), _DOWN_R)
                 self.assertEqual(np.asarray(V.variation_left_ranks)[idx].tolist(), _V_LEFT_R)
 
     def test_data_layout(self):
@@ -206,24 +206,24 @@ class TestUT3Variations(unittest.TestCase):
             ubv.UT3Variations(*V.data[:2], _SHAPE[:-1], V.masks)                                  # wrong shape len
 
     def test_apply_masks_zeros_padding(self):
-        # ones tucker_variations -> after masking, exactly (variations_down AND shape_mask) survives.
+        # ones tucker_variations -> after masking, exactly (variations_up AND shape_mask) survives.
         # (this also pins the ufv_apply_variations_masks tucker-axis fix -- the old reshape was a bug.)
-        tkv = np.ones((_D, _ND, _N))
-        ttv = np.random.randn(_D, _RL, _NU, _RR)
-        masks = ubv.UT3VariationsMasks(_prefix_mask(_UP_R, _NU), _prefix_mask(_DOWN_R, _ND),
+        tkv = np.ones((_D, _NU, _N))
+        ttv = np.random.randn(_D, _RL, _ND, _RR)
+        masks = ubv.UT3VariationsMasks(_prefix_mask(_DOWN_R, _ND), _prefix_mask(_UP_R, _NU),
                                        _prefix_mask(_V_LEFT_R, _RL), _prefix_mask(_V_RIGHT_R, _RR))
         V = ubv.UT3Variations(tkv, ttv, _SHAPE, masks)
         masked_tk = V.apply_masks().tucker_variations
         shape_mask = np.arange(_N) < np.array(_SHAPE)[:, None]                       # (d, N)
-        expected = (_prefix_mask(_DOWN_R, _ND)[:, :, None] & shape_mask[:, None, :]).astype(float)
-        self.assertEqual(masked_tk.shape, (_D, _ND, _N))                              # not the old broken shape
+        expected = (_prefix_mask(_UP_R, _NU)[:, :, None] & shape_mask[:, None, :]).astype(float)
+        self.assertEqual(masked_tk.shape, (_D, _NU, _N))                              # not the old broken shape
         self.assertTrue(np.array_equal(masked_tk, expected))
 
     def test_masks_value_hash_eq(self):
-        def masks(up_r):
-            return ubv.UT3VariationsMasks(_prefix_mask(up_r, _NU), _prefix_mask(_DOWN_R, _ND),
+        def masks(down_r):
+            return ubv.UT3VariationsMasks(_prefix_mask(down_r, _ND), _prefix_mask(_UP_R, _NU),
                                           _prefix_mask(_V_LEFT_R, _RL), _prefix_mask(_V_RIGHT_R, _RR))
-        a, b = masks(_UP_R), masks(_UP_R)
+        a, b = masks(_DOWN_R), masks(_DOWN_R)
         self.assertIsNot(a, b)
         self.assertEqual(a, b)
         self.assertEqual(hash(a), hash(b))
@@ -245,15 +245,15 @@ class TestCheckUbvPair(unittest.TestCase):
     def setUp(self):
         np.random.seed(0)
 
-    def _pair(self, v_up_r=_UP_R):
-        d, N, nU, nD, rL, rR = _D, _N, _NU, _ND, _RL, _RR
-        up = _prefix_mask(_UP_R, nU); dn = _prefix_mask(_DOWN_R, nD)
+    def _pair(self, v_down_r=_DOWN_R):
+        d, N, nD, nU, rL, rR = _D, _N, _ND, _NU, _RL, _RR
+        down = _prefix_mask(_DOWN_R, nD); up = _prefix_mask(_UP_R, nU)
         bl = _prefix_mask([1, 2, 3, 1], rL); br = _prefix_mask([1, 2, 2, 1], rR)      # (d+1,)
-        B = ubv.UT3Frame(np.random.randn(d, nU, N), np.random.randn(d, rL, nD, rR),
-                         np.random.randn(d, rL, nU, rL), np.random.randn(d, rR, nU, rR),
-                         _SHAPE, ubv.UT3FrameMasks(up, dn, bl, br))
-        V = ubv.UT3Variations(np.random.randn(d, nD, N), np.random.randn(d, rL, nU, rR), _SHAPE,
-                              ubv.UT3VariationsMasks(_prefix_mask(v_up_r, nU), dn, bl[:-1], br[1:]))
+        B = ubv.UT3Frame(np.random.randn(d, nD, N), np.random.randn(d, rL, nU, rR),
+                         np.random.randn(d, rL, nD, rL), np.random.randn(d, rR, nD, rR),
+                         _SHAPE, ubv.UT3FrameMasks(down, up, bl, br))
+        V = ubv.UT3Variations(np.random.randn(d, nU, N), np.random.randn(d, rL, nD, rR), _SHAPE,
+                              ubv.UT3VariationsMasks(_prefix_mask(v_down_r, nD), up, bl[:-1], br[1:]))
         return B, V
 
     def test_consistent_passes(self):
@@ -261,22 +261,22 @@ class TestCheckUbvPair(unittest.TestCase):
         ubv.check_ufv_pair(B, V)   # consistent -> no error
 
     def test_inconsistent_raises(self):
-        B, Vbad = self._pair(v_up_r=[1, 3, 4])   # variation up ranks differ from the frame's
+        B, Vbad = self._pair(v_down_r=[1, 3, 4])   # variation up ranks differ from the frame's
         with self.assertRaises(ValueError):
             ubv.check_ufv_pair(B, Vbad)
 
-    def _K_variation(self, B, K, up_r=_UP_R):
+    def _K_variation(self, B, K, down_r=_DOWN_R):
         """A K-stacked variation (a bundle of K tangents at the single frame B): cores grow a leading K
         stack, masks are the frame's gauge-shifted masks broadcast constant along K."""
-        d, N, nU, nD, rL, rR = _D, _N, _NU, _ND, _RL, _RR
+        d, N, nD, nU, rL, rR = _D, _N, _ND, _NU, _RL, _RR
         bm = B.masks
         bcast = lambda m: np.broadcast_to(m.reshape(m.shape[:1] + (1,) * len(K) + m.shape[1:]),
                                           m.shape[:1] + K + m.shape[1:])
-        up = bcast(_prefix_mask(up_r, nU))           # allow an over-ridden up rank to test mismatch
-        masks = ubv.UT3VariationsMasks(up, bcast(bm.down_mask),
+        down = bcast(_prefix_mask(down_r, nD))           # allow an over-ridden up rank to test mismatch
+        masks = ubv.UT3VariationsMasks(down, bcast(bm.up_mask),
                                        bcast(bm.frame_left_mask[:-1]), bcast(bm.frame_right_mask[1:]))
-        return ubv.UT3Variations(np.random.randn(*((d,) + K + (nD, N))),
-                                 np.random.randn(*((d,) + K + (rL, nU, rR))), _SHAPE, masks)
+        return ubv.UT3Variations(np.random.randn(*((d,) + K + (nU, N))),
+                                 np.random.randn(*((d,) + K + (rL, nD, rR))), _SHAPE, masks)
 
     def test_tangent_K_stack_passes(self):
         # the 3b-0 capability: a frame with C=() and a K-stacked variation (K != ()) is a consistent pair.
@@ -287,30 +287,30 @@ class TestCheckUbvPair(unittest.TestCase):
 
     def test_tangent_K_plus_C_stack_passes(self):
         # frame carries a core (C) stack; variation carries K+C with C as the trailing suffix.
-        d, N, nU, nD, rL, rR = _D, _N, _NU, _ND, _RL, _RR
+        d, N, nD, nU, rL, rR = _D, _N, _ND, _NU, _RL, _RR
         C, K = (3,), (2,)
-        up = _prefix_mask(_UP_R, nU); dn = _prefix_mask(_DOWN_R, nD)
+        down = _prefix_mask(_DOWN_R, nD); up = _prefix_mask(_UP_R, nU)
         bl = _prefix_mask([1, 2, 3, 1], rL); br = _prefix_mask([1, 2, 2, 1], rR)
         bcastC = lambda m: np.broadcast_to(m[:, None], m.shape[:1] + C + m.shape[1:])
-        B = ubv.UT3Frame(np.random.randn(d, *C, nU, N), np.random.randn(d, *C, rL, nD, rR),
-                         np.random.randn(d, *C, rL, nU, rL), np.random.randn(d, *C, rR, nU, rR),
-                         _SHAPE, ubv.UT3FrameMasks(bcastC(up), bcastC(dn), bcastC(bl), bcastC(br)))
+        B = ubv.UT3Frame(np.random.randn(d, *C, nD, N), np.random.randn(d, *C, rL, nU, rR),
+                         np.random.randn(d, *C, rL, nD, rL), np.random.randn(d, *C, rR, nD, rR),
+                         _SHAPE, ubv.UT3FrameMasks(bcastC(down), bcastC(up), bcastC(bl), bcastC(br)))
         # K+C variation masks: insert K after d, broadcast the frame's gauge-shifted (C-stacked) masks.
         bcastK = lambda m: np.broadcast_to(m[:, None], m.shape[:1] + K + m.shape[1:])
-        masks = ubv.UT3VariationsMasks(bcastK(bcastC(up)), bcastK(bcastC(dn)),
+        masks = ubv.UT3VariationsMasks(bcastK(bcastC(down)), bcastK(bcastC(up)),
                                        bcastK(bcastC(bl[:-1])), bcastK(bcastC(br[1:])))
-        V = ubv.UT3Variations(np.random.randn(d, *K, *C, nD, N),
-                              np.random.randn(d, *K, *C, rL, nU, rR), _SHAPE, masks)
+        V = ubv.UT3Variations(np.random.randn(d, *K, *C, nU, N),
+                              np.random.randn(d, *K, *C, rL, nD, rR), _SHAPE, masks)
         ubv.check_ufv_pair(B, V)
 
     def test_K_stack_mask_not_constant_raises(self):
         # a K-stacked variation whose mask is NOT constant along K (one slice has a different up rank).
         B, _ = self._pair()
         V = self._K_variation(B, (2,))
-        bad_up = np.array(V.masks.variations_up_mask)
-        bad_up[:, 1, :] = _prefix_mask([1, 3, 4], _NU)   # second K slice differs from the frame
+        bad_down = np.array(V.masks.variations_down_mask)
+        bad_down[:, 1, :] = _prefix_mask([1, 3, 4], _ND)   # second K slice differs from the frame
         Vbad = ubv.UT3Variations(V.tucker_variations, V.tt_variations, _SHAPE,
-                                 ubv.UT3VariationsMasks(bad_up, V.masks.variations_down_mask,
+                                 ubv.UT3VariationsMasks(bad_down, V.masks.variations_up_mask,
                                                         V.masks.variations_left_mask,
                                                         V.masks.variations_right_mask))
         with self.assertRaises(ValueError):
@@ -318,19 +318,19 @@ class TestCheckUbvPair(unittest.TestCase):
 
     def test_frame_stack_not_suffix_raises(self):
         # frame C=(3,) is NOT a trailing suffix of variation stack (5,) -> reject.
-        d, N, nU, nD, rL, rR = _D, _N, _NU, _ND, _RL, _RR
+        d, N, nD, nU, rL, rR = _D, _N, _ND, _NU, _RL, _RR
         C = (3,)
-        up = _prefix_mask(_UP_R, nU); dn = _prefix_mask(_DOWN_R, nD)
+        down = _prefix_mask(_DOWN_R, nD); up = _prefix_mask(_UP_R, nU)
         bl = _prefix_mask([1, 2, 3, 1], rL); br = _prefix_mask([1, 2, 2, 1], rR)
         bcastC = lambda m, c: np.broadcast_to(m[:, None], m.shape[:1] + c + m.shape[1:])
-        B = ubv.UT3Frame(np.random.randn(d, *C, nU, N), np.random.randn(d, *C, rL, nD, rR),
-                         np.random.randn(d, *C, rL, nU, rL), np.random.randn(d, *C, rR, nU, rR),
-                         _SHAPE, ubv.UT3FrameMasks(bcastC(up, C), bcastC(dn, C), bcastC(bl, C), bcastC(br, C)))
+        B = ubv.UT3Frame(np.random.randn(d, *C, nD, N), np.random.randn(d, *C, rL, nU, rR),
+                         np.random.randn(d, *C, rL, nD, rL), np.random.randn(d, *C, rR, nD, rR),
+                         _SHAPE, ubv.UT3FrameMasks(bcastC(down, C), bcastC(up, C), bcastC(bl, C), bcastC(br, C)))
         bad = (5,)
-        masks = ubv.UT3VariationsMasks(bcastC(up, bad), bcastC(dn, bad),
+        masks = ubv.UT3VariationsMasks(bcastC(down, bad), bcastC(up, bad),
                                        bcastC(bl[:-1], bad), bcastC(br[1:], bad))
-        V = ubv.UT3Variations(np.random.randn(d, *bad, nD, N),
-                              np.random.randn(d, *bad, rL, nU, rR), _SHAPE, masks)
+        V = ubv.UT3Variations(np.random.randn(d, *bad, nU, N),
+                              np.random.randn(d, *bad, rL, nD, rR), _SHAPE, masks)
         with self.assertRaises(ValueError):
             ubv.check_ufv_pair(B, V)
 
@@ -412,9 +412,9 @@ class TestCrossLayerConverters(unittest.TestCase):
     def test_from_t3frame_extra_padding_still_roundtrips(self):
         # padding-invariance: forcing larger pad than the natural max must not change the represented point.
         _, frame, _ = self._ragged_pair()
-        UB = ubv.UT3Frame.from_t3frame(frame, N=10, nU=8, nD=8, rL=6, rR=6)
+        UB = ubv.UT3Frame.from_t3frame(frame, N=10, nD=8, nU=8, rL=6, rR=6)
         UB.validate()
-        self.assertEqual((UB.N, UB.nU, UB.nD, UB.rL, UB.rR), (10, 8, 8, 6, 6))
+        self.assertEqual((UB.N, UB.nD, UB.nU, UB.rL, UB.rR), (10, 8, 8, 6, 6))
         self.assertLess(float(np.linalg.norm(UB.to_t3frame().to_dense() - frame.to_dense())), 1e-10)
 
     def test_from_t3variations_roundtrip_unstacked(self):
@@ -559,12 +559,12 @@ class TestStackUnstack(unittest.TestCase):
         import t3toolbox.frame_variations_format as bvf
         xs = [t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)),
               t3.TuckerTensorTrain.randn((4, 5, 6), (3, 3, 2), (1, 1, 2, 1))]
-        pad = dict(N=6, nU=4, nD=4, rL=3, rR=3)        # common padded dims so they stack
+        pad = dict(N=6, nD=4, nU=4, rL=3, rR=3)        # common padded dims so they stack
         ubases = [ubv.UT3Frame.from_t3frame(bvf.t3_orthogonal_representations(x)[0], **pad) for x in xs]
         stacked = ubv.UT3Frame.stack(ubases)
         stacked.validate()
         self.assertEqual(stacked.stack_shape, (2,))
-        self.assertFalse(np.array_equal(stacked.masks.up_mask[:, 0], stacked.masks.up_mask[:, 1]))  # ranks vary
+        self.assertFalse(np.array_equal(stacked.masks.down_mask[:, 0], stacked.masks.down_mask[:, 1]))  # ranks vary
         tree = stacked.unstack()
         for i, x in enumerate(xs):
             self.assertLess(float(np.linalg.norm(tree[i].to_dense() - x.to_dense())), 1e-10)
@@ -643,7 +643,7 @@ class TestVariationLinearAlgebra(unittest.TestCase):
         self.assertEqual(r.stack_shape, (2,))
 
     def test_zeros_default_all_true_masks(self):
-        z = ubv.UT3Variations.zeros(((3, 4, 6), (3, 2, 5, 2)), (4, 5, 6))   # (d,nD,N),(d,rL,nU,rR)
+        z = ubv.UT3Variations.zeros(((3, 4, 6), (3, 2, 5, 2)), (4, 5, 6))   # (d,nU,N),(d,rL,nD,rR)
         z.validate()
         self.assertTrue(all(m.all() for m in z.masks.data))                 # all-True (full rank)
         self.assertEqual(float(np.max(np.abs(z.tucker_variations))), 0.0)
@@ -667,7 +667,7 @@ class TestVariationLinearAlgebra(unittest.TestCase):
         # so add/sub must reject it explicitly.
         import t3toolbox.tucker_tensor_train as t3
         import t3toolbox.frame_variations_format as bvf
-        pad = dict(N=6, nU=4, nD=4, rL=3, rR=3)
+        pad = dict(N=6, nD=4, nU=4, rL=3, rR=3)
         v1 = ubv.UT3Variations.from_t3variations(
             bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)))[1], **pad)
         v2 = ubv.UT3Variations.from_t3variations(
@@ -806,7 +806,7 @@ class TestUT3FrameCheckers(unittest.TestCase):
 
     def test_is_orthogonal_mixed_stack(self):
         good = self._frame()
-        bad = ubv.UT3Frame(good.up_tucker_supercore + 0.5, good.down_tt_supercore,
+        bad = ubv.UT3Frame(good.down_tucker_supercore + 0.5, good.up_tt_supercore,
                            good.left_tt_supercore, good.right_tt_supercore, good.shape, good.masks)
         mixed = ubv.UT3Frame.stack([good, bad])
         self.assertTrue(np.array_equal(mixed.is_orthogonal(), np.array([True, False])))
@@ -860,12 +860,12 @@ class TestNonMinimalUniformFrame(unittest.TestCase):
                 rf = fvf.T3Frame.from_t3(x)
                 self.assertLess(float(np.max(np.abs(np.asarray(uf.to_dense()) - np.asarray(rf.to_dense())))),
                                 1e-9 * (1 + float(np.max(np.abs(np.asarray(x.to_dense()))))))
-                up, down, left, right = uf.data[5]
-                ref = (tuple(U.shape[-2] for U in rf.up_tucker_cores), tuple(O.shape[-2] for O in rf.down_tt_cores),
-                       tuple(P.shape[-3] for P in rf.left_tt_cores) + (rf.left_tt_cores[-1].shape[-1],),
-                       tuple(Q.shape[-3] for Q in rf.right_tt_cores) + (rf.right_tt_cores[-1].shape[-1],))
+                down, up, left, right = uf.data[5]
+                ref = (tuple(D.shape[-2] for D in rf.down_tucker_cores), tuple(U.shape[-2] for U in rf.up_tt_cores),
+                       tuple(L.shape[-3] for L in rf.left_tt_cores) + (rf.left_tt_cores[-1].shape[-1],),
+                       tuple(R.shape[-3] for R in rf.right_tt_cores) + (rf.right_tt_cores[-1].shape[-1],))
                 got = tuple(tuple(int(v) for v in np.reshape(m.sum(-1), (m.shape[0],) + C)[(slice(None),) + (0,) * len(C)])
-                            for m in (up, down, left, right))
+                            for m in (down, up, left, right))
                 self.assertEqual(got, ref)
 
 if __name__ == '__main__':
@@ -887,14 +887,14 @@ class TestPadSafeFrame(unittest.TestCase):
     @staticmethod
     def _lost_directions(uframe):
         """Mask rank minus numerical rank of the masked real block, summed over cores/families."""
-        mup, mdown, mleft, mright = ufv_masking.ufv_apply_frame_masks(uframe.data)
-        um, dm, lm, rm = uframe.data[5]
-        d = mup.shape[0]
+        mdown, mup, mleft, mright = ufv_masking.ufv_apply_frame_masks(uframe.data)
+        dm, um, lm, rm = uframe.data[5]
+        d = mdown.shape[0]
         tot = 0
         for i in range(d):
-            tot += int(um[i].sum()) - np.linalg.matrix_rank(np.asarray(mup[i]), tol=1e-10)
-            tot += int(dm[i].sum()) - np.linalg.matrix_rank(
-                np.moveaxis(np.asarray(mdown[i]), 1, 0).reshape(mdown.shape[-2], -1), tol=1e-10)
+            tot += int(dm[i].sum()) - np.linalg.matrix_rank(np.asarray(mdown[i]), tol=1e-10)
+            tot += int(um[i].sum()) - np.linalg.matrix_rank(
+                np.moveaxis(np.asarray(mup[i]), 1, 0).reshape(mup.shape[-2], -1), tol=1e-10)
         for i in range(d - 1):
             tot += int(lm[i + 1].sum()) - np.linalg.matrix_rank(
                 np.asarray(mleft[i]).reshape(-1, mleft.shape[-1]), tol=1e-10)
@@ -954,10 +954,10 @@ class TestPadSafeFrame(unittest.TestCase):
         x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 3, 3), (1, 3, 3, 1))   # numerically full rank
         rframe, _ = bvf.t3_orthogonal_representations(x)
         uf = ubv.UT3Frame.from_ut3(ut3.UniformTuckerTensorTrain.from_t3(x))
-        mup = ufv_masking.ufv_apply_frame_masks(uf.data)[0]
-        for i, U_r in enumerate(rframe.data[0]):             # up_tucker_cores, (n_i, N_i) each
-            U_u = np.asarray(mup[i])[: U_r.shape[0], : U_r.shape[1]]
-            self.assertTrue(np.allclose(U_r.T @ U_r, U_u.T @ U_u, atol=1e-10),
+        mdown = ufv_masking.ufv_apply_frame_masks(uf.data)[0]
+        for i, D_r in enumerate(rframe.data[0]):             # down_tucker_cores, (n_i, N_i) each
+            D_u = np.asarray(mdown[i])[: D_r.shape[0], : D_r.shape[1]]
+            self.assertTrue(np.allclose(D_r.T @ D_r, D_u.T @ D_u, atol=1e-10),
                             "mode %d up-space differs from ragged" % i)
 
     def test_deterministic(self):

@@ -24,11 +24,11 @@ completion in the trailing ones (the **P-block**).
 at that edge, with the A-block pinned. It does this without ever forming the doubled-rank tangent, in two
 message-passing stages:
 
-1. **Far-side messages, at the old frames** (`_down_message`, `_left_message_step`, `_right_message_step`,
-   `_up_message`). On each directed edge `a → b`, `Φ = Pᵀ Z_far U′` (what the far side sends through the old far
+1. **Far-side messages, at the old frames** (`_up_message`, `_left_message_step`, `_right_message_step`,
+   `_down_message`). On each directed edge `a → b`, `Φ = Pᵀ Z_far U′` (what the far side sends through the old far
    frame) and `Ξ`, a square root of the rest (`_root`, from a thin SVD; only `ΞΞᵀ` is used). The order is the down
    edges, the left messages from the far end, the right messages from the near end, then the up edges.
-2. **New completions, in message order** (`_up_edge`, `_left_edge_step`, `_right_edge_step`, `_down_edge`). At
+2. **New completions, in message order** (`_down_edge`, `_left_edge_step`, `_right_edge_step`, `_up_edge`). At
    `a → b`, `a`'s incoming slots are first re-expressed in their new coordinates (`_new_coordinates`: the old block
    kept, the completion block multiplied by `o = P⁺ᵀP`). Then
    `Y = [g_old Φ_P + g_new | g_old Ξ]` (`_edge_content`), and the new completion `P⁺` is the leading directions of
@@ -40,7 +40,7 @@ factorized. The messages past the chain's ends are zero-size arrays, so every co
 sweeps are scans with module-level bodies ([`scan_body_principles.md`](scan_body_principles.md)).
 
 **Sharing.** A sharing group has one Tucker factor. Its up edge stacks the members' contents side by side in one `Y`
-(`_up_edge`), so the group gets one completion.
+(`_down_edge`), so the group gets one completion.
 
 **Transport.** A store not in `update` gets `Y = g_old`: its old completion re-expressed in the new candidate space.
 Two-colour passes (`'UL'`, then `'RO'`) are alternating (Gauss–Seidel) updates of the two colours, with a projection

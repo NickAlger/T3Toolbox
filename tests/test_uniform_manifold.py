@@ -49,7 +49,7 @@ def _K_variations(frame, K, seed=0):
 
 _HETERO = [((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)),     # two models of DIFFERENT frame ranks (rank-sweep),
            ((4, 5, 6), (3, 3, 2), (1, 1, 2, 1))]     # padded to common dims so they stack on one C batch
-_HETERO_PAD = dict(N=6, nU=4, nD=4, rL=3, rR=3)
+_HETERO_PAD = dict(N=6, nD=4, nU=4, rL=3, rR=3)
 
 
 def _hetero_tangents(seed=0):
@@ -68,10 +68,10 @@ def _hetero_tangents(seed=0):
 
 
 # ------------------------------------------------------------------ 3b-4c hardening helpers
-# Forced padding STRICTLY above the real max ranks of _STRUCT (nU=3, nD<=4, rL=rR=2; N=6) so EVERY core
+# Forced padding STRICTLY above the real max ranks of _STRUCT (nD=3, nU<=4, rL=rR=2; N=6) so EVERY core
 # has a padded region (default from_t3 pads to max(ranks), leaving the max-rank core unpadded).
 _PAD_T3   = dict(N=8, n=5, r=4)                                  # UniformTuckerTensorTrain.from_t3
-_PAD_BV   = dict(N=8, nU=5, nD=5, rL=4, rR=4)                    # from_t3frame / from_t3variations
+_PAD_BV   = dict(N=8, nD=5, nU=5, rL=4, rR=4)                    # from_t3frame / from_t3variations
 
 
 def _frame(x, force_pad=False):
@@ -107,11 +107,11 @@ def _expected_doubled_masks(frame):
     rule (eqs 50-53) -- a different derivation than utv_to_ut3's concat, so the comparison is
     non-circular. Tucker = prefix-pair [up | down]; TT bond = [Q-block | P-block] with honest boundaries
     (Q0=0, Qi=right_rank_i; Pd=0, Pi=left_rank_i)."""
-    nU, nD, rL, rR = frame.nU, frame.nD, frame.rL, frame.rR
-    up_r, down_r = np.asarray(frame.up_ranks), np.asarray(frame.down_ranks)      # (d,)  +C
+    nD, nU, rL, rR = frame.nD, frame.nU, frame.rL, frame.rR
+    down_r, up_r = np.asarray(frame.down_ranks), np.asarray(frame.up_ranks)      # (d,)  +C
     left_r, right_r = np.asarray(frame.left_ranks), np.asarray(frame.right_ranks)  # (d+1,)+C
-    tucker = np.concatenate([np.arange(nU) < up_r[..., None],
-                             np.arange(nD) < down_r[..., None]], axis=-1)        # (d,)+C+(nU+nD,)
+    tucker = np.concatenate([np.arange(nD) < down_r[..., None],
+                             np.arange(nU) < up_r[..., None]], axis=-1)        # (d,)+C+(nD+nU,)
     q = right_r.copy(); q[0] = 0                                                 # Q honest at the left boundary
     p = left_r.copy();  p[-1] = 0                                                # P honest at the right boundary
     tt = np.concatenate([np.arange(rR) < q[..., None],
@@ -212,7 +212,7 @@ class TestVectorSpace(unittest.TestCase):
         B, V = _uniform_frame(x1)
         v = ut3m.UT3Tangent(B, V)
         # a DIFFERENT frame with the SAME masks/shape (perturb the supercores, keep masks) -> frames differ.
-        B2 = ubv.UT3Frame(B.up_tucker_supercore + 0.1, B.down_tt_supercore + 0.1,
+        B2 = ubv.UT3Frame(B.down_tucker_supercore + 0.1, B.up_tt_supercore + 0.1,
                           B.left_tt_supercore + 0.1, B.right_tt_supercore + 0.1, B.shape, B.masks)
         v2 = ut3m.UT3Tangent(B2, V.copy())
         with self.assertRaises(ValueError):
@@ -388,7 +388,7 @@ class TestReverseAndDtype(unittest.TestCase):
         v = ut3m.UT3Tangent(*_uniform_frame(x))
         c = v.copy()
         self.assertTrue(c.allclose(v).all())
-        self.assertIsNot(c.frame.up_tucker_supercore, v.frame.up_tucker_supercore)
+        self.assertIsNot(c.frame.down_tucker_supercore, v.frame.down_tucker_supercore)
 
     @unittest.skipUnless(HAS_JAX, "jax not installed")
     def test_to_jax_to_numpy_roundtrip(self):
@@ -496,7 +496,7 @@ class TestStackUnstack(unittest.TestCase):
 
     def test_stack_tangents_requires_same_frame(self):
         v = self._v(K=())
-        B2 = ubv.UT3Frame(v.frame.up_tucker_supercore + 0.1, v.frame.down_tt_supercore + 0.1,
+        B2 = ubv.UT3Frame(v.frame.down_tucker_supercore + 0.1, v.frame.up_tt_supercore + 0.1,
                           v.frame.left_tt_supercore + 0.1, v.frame.right_tt_supercore + 0.1,
                           v.frame.shape, v.frame.masks)
         v2 = ut3m.UT3Tangent(B2, v.variations.copy())
@@ -637,7 +637,7 @@ class TestDoubledRankToDense(unittest.TestCase):
         B, V = _uniform_frame(t3.TuckerTensorTrain.randn(*_STRUCT))
         du = ut3m.UT3Tangent(B, V).to_ut3()
         self.assertIsInstance(du, ut3.UniformTuckerTensorTrain)
-        self.assertEqual(du.n, B.nU + B.nD)                                # doubled Tucker padding
+        self.assertEqual(du.n, B.nD + B.nU)                                # doubled Tucker padding
         self.assertEqual(du.r, B.rL + B.rR)                                # doubled TT bond padding
         # honest masks (eqs 50-53): doubled Tucker rank = up + down; TT bonds = left + right INTERIOR, but
         # the two boundary bonds stay rank 1 (the global "1" is in one block; the free block has rank 0).
@@ -646,7 +646,7 @@ class TestDoubledRankToDense(unittest.TestCase):
         expected_tt[0] = lr[0]; expected_tt[-1] = rr[-1]                   # boundaries: free block has no rank
         self.assertTrue(np.array_equal(np.asarray(du.tt_ranks), expected_tt))
         self.assertTrue(np.array_equal(np.asarray(du.tucker_ranks),
-                                       np.asarray(B.up_ranks) + np.asarray(B.down_ranks)))
+                                       np.asarray(B.down_ranks) + np.asarray(B.up_ranks)))
 
     def test_d1_not_implemented(self):
         import t3toolbox.backend.utv_operations as utv_operations
@@ -815,7 +815,7 @@ class TestRetract(unittest.TestCase):
     def _check(self, v):
         ru = _wrap_ut3(self.utv_operations.utv_retract(v.frame.data, v.variations.data))
         # retracted padded dims = max actual rank across the stack, never exceeding the frame padding
-        self.assertLessEqual(ru.n, v.frame.nU)
+        self.assertLessEqual(ru.n, v.frame.nD)
         self.assertLessEqual(ru.r, v.frame.rL)
         self.assertTrue(_is_prefix(ru.masks.tucker_edge_mask) and _is_prefix(ru.masks.tt_edge_mask))  # canonical
         dense = np.asarray(ru.to_dense())
@@ -1002,7 +1002,7 @@ class TestProjectOntoTangent(unittest.TestCase):
 
     def test_varying_C(self):
         # varying-rank frame stack (the rank-sweep case) + a per-element x
-        pad = dict(N=6, nU=4, nD=4, rL=3, rR=3)
+        pad = dict(N=6, nD=4, nU=4, rL=3, rR=3)
         het = [((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)), ((4, 5, 6), (3, 3, 2), (1, 1, 2, 1))]
         bases, xs = [], []
         for s in het:
@@ -1118,7 +1118,7 @@ def _hetero_corewise(seed=0):
     us = []
     for s in _HETERO:
         xu = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*s),
-                                                  N=_HETERO_PAD['N'], n=_HETERO_PAD['nU'], r=_HETERO_PAD['rL'])
+                                                  N=_HETERO_PAD['N'], n=_HETERO_PAD['nD'], r=_HETERO_PAD['rL'])
         us.append(ut3m.UNIFORM_COREWISE.randn(ut3m.UNIFORM_COREWISE.frame(xu)))
     return us
 
@@ -1244,8 +1244,8 @@ class TestUniformCorewiseGeometry(unittest.TestCase):
                 self.assertTrue(np.allclose(np.asarray(cb.to_dense()), np.asarray(self.RC.frame(x).to_dense())))
                 # EXACT masks: up == down == tucker_edge_mask; left == right == tt_edge_mask (no slicing)
                 tkm, ttm = xu.masks.data
-                self.assertTrue(np.array_equal(cb.masks.up_mask, tkm))
                 self.assertTrue(np.array_equal(cb.masks.down_mask, tkm))
+                self.assertTrue(np.array_equal(cb.masks.up_mask, tkm))
                 self.assertTrue(np.array_equal(cb.masks.frame_left_mask, ttm))
                 self.assertTrue(np.array_equal(cb.masks.frame_right_mask, ttm))
 
@@ -1324,10 +1324,10 @@ def _utv_gauge_residual_b6ad78b(frame_data, variations_data):
     ``scale=None`` path must match it to roundoff (bitwise at S7b, checked once out-of-tree; a permanent bitwise
     test would pin the float summation order and fail on any harmless refactor)."""
     import t3toolbox.backend.ufv_masking as ufv_masking
-    up_sc, _down, left_sc, _right = ufv_masking.ufv_apply_frame_masks(frame_data)
+    down_sc, _up, left_sc, _right = ufv_masking.ufv_apply_frame_masks(frame_data)
     tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
     xnp = np
-    g_tk = xnp.einsum('d...ia,d...ja->d...ij', up_sc, tkv)
+    g_tk = xnp.einsum('d...ia,d...ja->d...ij', down_sc, tkv)
     dev_tk = xnp.max(xnp.abs(g_tk), axis=(-2, -1))
     g_tt = xnp.einsum('d...abi,d...abj->d...ij', left_sc, ttv)
     dev_tt = xnp.max(xnp.abs(g_tt), axis=(-2, -1))

@@ -241,9 +241,9 @@ per-mode lift is off by 5.6–19 in the quadratic form.
   escape. The group part of the lift stays exact there (a tied tangent's group coordinates lie in the range
   of `M_g`; 8.8e-16).
 - **The uniform padded `s_g` mask** (S9). The uniform companion holds padded slices (row splits in
-  multiples of the padded `nD`), and its padded `s_g` levels are not guaranteed exact zeros, so each group's
+  multiples of the padded `nU`), and its padded `s_g` levels are not guaranteed exact zeros, so each group's
   damped filter is zeroed on them by the frame's **group rank mask**, not only by the relative clip, and
-  clipped at the group's REAL dimensions (`eps·max(Σ nD_i, nU)` × the host real-level mask). In a
+  clipped at the group's REAL dimensions (`eps·max(Σ nU_i, nD)` × the host real-level mask). In a
   300-structure survey 1357 of 1362 padded levels were exactly 0 and the rest ≤ 3.3e-17·s₁ — the mask is
   what makes that a guarantee, and what keeps a hand-built companion's garbage out. `_lift_sigma_min` reads
   real levels only (else every varying-rank point would report 0).

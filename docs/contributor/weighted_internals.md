@@ -16,7 +16,7 @@ same object wearing two hats:
   *exactly* the shape `t3svd` returns, so the singular values are literally a `T3Weights`.
 - A **tangent** is not one network. It is a sum of `d` diagrams, each with one variation core, and the
   edges *left* of the variation are left-orthogonal (`rL`) while those *right* are right-orthogonal
-  (`rR`). Those four rank families (`nU`/`nD`/`rL`/`rR`) are not a labelling choice — they are *which
+  (`rR`). Those four rank families (`nD`/`nU`/`rL`/`rR`) are not a labelling choice — they are *which
   side of the variation an edge is on*, and the shapes forbid mixing (`rLₖ ≠ rRₖ` in general; a left
   diagonal will not fit a right bond).
 

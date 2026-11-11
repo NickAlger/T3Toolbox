@@ -116,7 +116,7 @@ different pages are collected at the end, in [Symbols](#symbols).
 - **pad-safe SVD** (`linalg.pad_safe_svd`). An SVD of a zero-padded matrix whose leading triplets are exactly the
   economy SVD of the real block, bitwise zero on padding, with no rank tolerance. Uniform sweeps use it.
   [The full-rank qualifier](uniform_equivalence_contract.md#the-full-rank-qualifier-measured-2026-08-27)
-- **padded widths** (`n`, `r`, `N`; frames `nU`, `nD`, `rL`, `rR`; also: nominal rank, a level's widths, padded `N`).
+- **padded widths** (`n`, `r`, `N`; frames `nD`, `nU`, `rL`, `rR`; also: nominal rank, a level's widths, padded `N`).
   The common sizes a uniform object's cores are padded to: Tucker `n`, TT `r`, mode `N ≥ max Ni`.
   [The layout](uniform_supercore_layout.md#the-layout)
 - **prefix mask** (`common.prefix_mask`; also: canonical form). A mask whose real slots are `[0, rank)`. `ut3svd` and
@@ -263,9 +263,9 @@ different pages are collected at the end, in [Symbols](#symbols).
 - **frame** (`T3Frame`, `UT3Frame`; also: orthogonal frame, orthonormal frame). The four stores of orthonormal frame
   cores that encode a base point and span its tangent space. Not a basis: at a non-minimal point it is overcomplete.
   [Frame-variations](frame_variations.md)
-- **frame cores** (up `Ui`, down `Oi`, left `Li`, right `Ri`; `up_tucker_cores`, `down_tt_cores`, `left_tt_cores`,
+- **frame cores** (up `Ui`, down `Oi`, left `Li`, right `Ri`; `down_tucker_cores`, `up_tt_cores`, `left_tt_cores`,
   `right_tt_cores`; also: `P`/`Q` for left/right, `D` or "outer" for down). Up: orthonormal Tucker cores. Down:
-  TT-shaped `(rL, nD, rR)`, the TT core of the Tucker-variation terms (`Vi` varies in the complement of `Ui`'s rows).
+  TT-shaped `(rL, nU, rR)`, the TT core of the Tucker-variation terms (`Vi` varies in the complement of `Ui`'s rows).
   Left/right: the orthogonal TT environments. [Frame-variations](frame_variations.md#a-tangent-is-a-sum-of-d-terms)
 - **frame-variations format** (`frame_variations_format`, `fv_` / `tv_`; also: frame-variations representation,
   (frame, variations) pair). A tangent stored as a frame plus variations; `fv_` treats the pair as indexed pieces,
@@ -341,7 +341,7 @@ different pages are collected at the end, in [Symbols](#symbols).
 - **slack** (Tucker slack, TT slack; also: excess rank). Rank requested beyond what the network supports, carried as
   differences between the stores' ranks. Geometrically inert; the first retraction collapses it.
   [Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)
-- **store** (`up_ranks`, `down_ranks`, `left_ranks`, `right_ranks`; also: rank store, orthogonal-representation
+- **store** (`down_ranks`, `up_ranks`, `left_ranks`, `right_ranks`; also: rank store, orthogonal-representation
   ranks). One of the frame's four core families, each orthonormal in its own matricization or unfolding. Its ranks are
   set by the orthogonalization sweep (up, left, right over the left chain, then down); the differences are the slack.
   [Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)

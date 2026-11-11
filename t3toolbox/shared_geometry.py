@@ -307,7 +307,7 @@ class SharedGeometry:
                 p.frame.data, p.variations.data, shared_data=shared_data))
         if self.base is t3m.COREWISE:
             new_variations = backend_sharing.fv_share_tucker_variations_corewise(p.variations.data, groups)
-            x_data = (p.frame.up_tucker_cores, p.frame.left_tt_cores)
+            x_data = (p.frame.down_tucker_cores, p.frame.left_tt_cores)
             new = cw.corewise_add(x_data, new_variations)
             # Tie the SUM rather than aliasing one mode's copy of it. Because
             # ``mean_i(U_i + V_i) = mean_i(U_i) + mean_i(V_i)``, tying after the add IS the corewise
@@ -318,7 +318,7 @@ class SharedGeometry:
             # path is unchanged to the last ulp; it also gives ONE array per group, as before.
             return t3.TuckerTensorTrain(*backend_sharing.t3_tie_tucker_factors(new, self.sharing))
         t3m._require_orthogonal_frame(p.frame, 'SharedGeometry.retract')
-        _require_tied_factors((p.frame.up_tucker_cores, p.frame.left_tt_cores), self.sharing,
+        _require_tied_factors((p.frame.down_tucker_cores, p.frame.left_tt_cores), self.sharing,
                               'SharedGeometry.retract')
         if shared_data is None:
             shared_data = self.shared_frame_data(p.frame)
@@ -376,7 +376,7 @@ class SharedGeometry:
                  (new_frame.data[5][0], new_frame.data[5][2])),
                 self.sharing, 'SharedGeometry.transport')
             return self.project_ambient(new_frame, v.to_ut3(), shared_data=shared_data)
-        _require_tied_factors((new_frame.up_tucker_cores, new_frame.left_tt_cores), self.sharing,
+        _require_tied_factors((new_frame.down_tucker_cores, new_frame.left_tt_cores), self.sharing,
                               'SharedGeometry.transport')
         return self.project_ambient(new_frame, v.to_t3(), shared_data=shared_data)
 

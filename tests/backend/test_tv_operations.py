@@ -15,7 +15,7 @@ import t3toolbox.corewise as cw
 import t3toolbox.backend.tv_operations as tv
 
 _STRUCT = ((5, 6, 7), (3, 2, 4), (1, 2, 3, 1))               # asymmetric everywhere
-_NONMIN = ((6, 6, 6), (4, 4, 4), (1, 2, 2, 1))               # over-ranked Tucker: nU != nD slack
+_NONMIN = ((6, 6, 6), (4, 4, 4), (1, 2, 2, 1))               # over-ranked Tucker: nD != nU slack
 
 
 def _slice_tree(data, idx):
@@ -119,13 +119,13 @@ class TestObliqueGaugeProjection(unittest.TestCase):
                     og = tv.tv_orthogonal_gauge_projection(fd, vd)
                     self.assertLess(_tree_relerr(og, tv.tv_oblique_gauge_projection(fd, og)), 1e-9)
                     # a vertical (pure-gauge) variation represents zero and is annihilated
-                    U, O, L, R = fd
+                    D, U, L, R = fd
                     VV = [np.zeros_like(c) for c in vd[0]]
                     HH = [np.zeros_like(c) for c in vd[1]]
                     for i in range(d):
-                        X = np.random.randn(*(K + C + (O[i].shape[-2], U[i].shape[-2])))
-                        VV[i] = VV[i] + np.einsum('...ji,...io->...jo', X, U[i])
-                        HH[i] = HH[i] - np.einsum('...aib,...ij->...ajb', O[i], X)
+                        X = np.random.randn(*(K + C + (U[i].shape[-2], D[i].shape[-2])))
+                        VV[i] = VV[i] + np.einsum('...ji,...io->...jo', X, D[i])
+                        HH[i] = HH[i] - np.einsum('...aib,...ij->...ajb', U[i], X)
                     for i in range(d - 1):
                         Y = np.random.randn(*(K + C + (L[i].shape[-1], R[i + 1].shape[-3])))
                         HH[i] = HH[i] + np.einsum('...iaj,...jk->...iak', L[i], Y)
@@ -141,15 +141,15 @@ def _tv_gauge_residual_b6ad78b(frame, variations):
     """Reference implementation: the pre-S7b ``tv_gauge_residual`` body (b6ad78b, numpy branch). The
     ``scale=None`` path must match it to roundoff (bitwise at S7b, checked once out-of-tree; a permanent bitwise
     test would pin the float summation order and fail on any harmless refactor)."""
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     tucker_variations, tt_variations = variations
     xnp = np
     norm_sq = sum(xnp.sum(V * V, axis=(-2, -1)) for V in tucker_variations) \
         + sum(xnp.sum(H * H, axis=(-3, -2, -1)) for H in tt_variations)
     scale = xnp.maximum(xnp.sqrt(norm_sq), np.finfo(float).tiny)
     devs = []
-    for U, V in zip(up_tucker_cores, tucker_variations):
-        g = xnp.einsum('...ia,...ja->...ij', U, V)
+    for D, V in zip(down_tucker_cores, tucker_variations):
+        g = xnp.einsum('...ia,...ja->...ij', D, V)
         devs.append(xnp.max(xnp.abs(g), axis=(-2, -1)))
     for L, H in zip(left_tt_cores[:-1], tt_variations[:-1]):
         g = xnp.einsum('...abi,...abj->...ij', L, H)

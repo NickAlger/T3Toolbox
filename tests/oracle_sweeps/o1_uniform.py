@@ -186,7 +186,7 @@ def varying_rank():
     """Stack two different-rank uniform T3s / tangents on one C batch and compare per element to dense."""
     shape = (4, 5, 6)
     S = [((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)), ((4, 5, 6), (3, 3, 2), (1, 1, 2, 1))]
-    PADV = dict(N=6, n=4, r=3); PADB = dict(N=6, nU=4, nD=4, rL=3, rR=3)
+    PADV = dict(N=6, n=4, r=3); PADB = dict(N=6, nD=4, nU=4, rL=3, rR=3)
     np.random.seed(2)
     xs = [t3.TuckerTensorTrain.randn(*s) for s in S]
     us = [ut3.UniformTuckerTensorTrain.from_t3(x, **PADV) for x in xs]

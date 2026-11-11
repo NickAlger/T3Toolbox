@@ -68,10 +68,10 @@ N_MASKS = 4  # both UT3Frame and UT3Variations hold four edge masks
 
 
 def ufv_variation_shapes(
-        frame_data:  typ.Tuple,   # uniform frame .data = (up_sc, down_sc, left_sc, right_sc, shape, masks)
+        frame_data:  typ.Tuple,   # uniform frame .data = (down_sc, up_sc, left_sc, right_sc, shape, masks)
 ) -> typ.Tuple[
-    typ.Tuple[int, ...],          # tucker variation supercore shape = (d,) + C + (nD, N)
-    typ.Tuple[int, ...],          # tt variation supercore shape     = (d,) + C + (rL, nU, rR)
+    typ.Tuple[int, ...],          # tucker variation supercore shape = (d,) + C + (nU, N)
+    typ.Tuple[int, ...],          # tt variation supercore shape     = (d,) + C + (rL, nD, rR)
 ]:
     """The uniform variation supercore shapes of a frame -- the backend twin of the frontend
     ``UT3Frame.uniform_variation_shapes`` (which omits the stack; this one includes it).
@@ -87,11 +87,11 @@ def ufv_variation_shapes(
     same number today -- but that is a coincidence of the padding, not the contract, and it would break
     silently under per-edge padding. Use this function rather than indexing by hand.
     """
-    up_sc, down_sc, left_sc, right_sc = frame_data[0], frame_data[1], frame_data[2], frame_data[3]
-    d_and_stack = tuple(up_sc.shape[:-2])                                     # (d,) + C
-    nU, N = up_sc.shape[-2], up_sc.shape[-1]
-    nD, rL, rR = down_sc.shape[-2], left_sc.shape[-1], right_sc.shape[-1]
-    return d_and_stack + (nD, N), d_and_stack + (rL, nU, rR)
+    down_sc, up_sc, left_sc, right_sc = frame_data[0], frame_data[1], frame_data[2], frame_data[3]
+    d_and_stack = tuple(down_sc.shape[:-2])                                     # (d,) + C
+    nD, N = down_sc.shape[-2], down_sc.shape[-1]
+    nU, rL, rR = up_sc.shape[-2], left_sc.shape[-1], right_sc.shape[-1]
+    return d_and_stack + (nU, N), d_and_stack + (rL, nD, rR)
 
 
 def ufv_leaf_structure(
@@ -202,7 +202,7 @@ def ufv_variations_sum_stack(
     union of real slots, a no-op for a same-mask stack (``docs/uniform_masks_vs_ranks.md``). The stack
     lives at axes ``1 ..`` (after the leading mode index ``d``), shared by supercores and masks."""
     tkv, ttv, shape, masks = data
-    n_stack = tkv.ndim - 3   # (d,)+stack+(nD, N)
+    n_stack = tkv.ndim - 3   # (d,)+stack+(nU, N)
     use_jax = tree_contains_jax((tkv, ttv))
     xnp, _, _ = get_backend(True, use_jax)
 
@@ -225,15 +225,15 @@ def ufv_frame_reverse(data):  # UT3Frame .data -> reversed UT3Frame .data
     **swap roles** (reversing a left-orthogonal chain yields a right-orthogonal one) and reverse; up/down
     reverse (down with a bond swap, via :py:func:`tt_operations.tt_reverse`). The redundant L/R store
     makes this exact -- no re-orthogonalization. Inverse of itself."""
-    up_sc, down_sc, left_sc, right_sc, shape, (um, dm, lm, rm) = data
+    down_sc, up_sc, left_sc, right_sc, shape, (dm, um, lm, rm) = data
     rev = tt_operations.tt_reverse
     return (
-        up_sc[::-1],
-        rev(down_sc),
+        down_sc[::-1],
+        rev(up_sc),
         rev(right_sc),                              # old right -> new left
         rev(left_sc),                               # old left  -> new right
         tuple(shape[::-1]),
-        (um[::-1], dm[::-1], rm[::-1], lm[::-1]),    # up/down reverse; left/right masks swap + reverse
+        (dm[::-1], um[::-1], rm[::-1], lm[::-1]),    # up/down reverse; left/right masks swap + reverse
     )
 
 
@@ -241,12 +241,12 @@ def ufv_variations_reverse(data):  # UT3Variations .data -> reversed UT3Variatio
     """Reverse the mode order of a UT3Variations ``.data``: the tucker-variation supercore reverses; the
     tt-variation supercore reverses with a bond swap (:py:func:`tt_operations.tt_reverse`). The per-slot
     left/right masks swap + reverse (a variation occupies one TT slot). Inverse of itself."""
-    tkv, ttv, shape, (vup, vdown, vleft, vright) = data
+    tkv, ttv, shape, (vdown, vup, vleft, vright) = data
     return (
         tkv[::-1],
         tt_operations.tt_reverse(ttv),
         tuple(shape[::-1]),
-        (vup[::-1], vdown[::-1], vright[::-1], vleft[::-1]),   # up/down reverse; left/right swap + reverse
+        (vdown[::-1], vup[::-1], vright[::-1], vleft[::-1]),   # up/down reverse; left/right swap + reverse
     )
 
 
@@ -279,19 +279,19 @@ def ufv_frame_orthogonality_residual(data):  # UT3Frame .data -> max orthogonali
     :py:func:`fv_operations.fv_frame_orthogonality_residual`; the per-element oracle is the ragged
     one via ``to_t3frame``. The boundary left/right cores are remainders and are not checked (so left
     checks cores ``0..d-2``, right checks ``1..d-1``)."""
-    up_sc, down_sc, left_sc, right_sc, shape, (um, dm, lm, rm) = data
-    mup, mdown, mleft, mright = ufv_masking.ufv_apply_frame_masks(data)   # zero the padding (mask-once)
-    use_jax = tree_contains_jax((up_sc, down_sc, left_sc, right_sc))
+    down_sc, up_sc, left_sc, right_sc, shape, (dm, um, lm, rm) = data
+    mdown, mup, mleft, mright = ufv_masking.ufv_apply_frame_masks(data)   # zero the padding (mask-once)
+    use_jax = tree_contains_jax((down_sc, up_sc, left_sc, right_sc))
     xnp, _, _ = get_backend(True, use_jax)
-    d = up_sc.shape[0]
-    nU, nD, rL, rR = mup.shape[-2], mdown.shape[-2], mleft.shape[-1], mright.shape[-1]
+    d = down_sc.shape[0]
+    nD, nU, rL, rR = mdown.shape[-2], mup.shape[-2], mleft.shape[-1], mright.shape[-1]
 
     def dev(G, mask, n):  # max over the leading core axis + the two gram axes -> keep stack
         return xnp.max(xnp.abs(G - xnp.eye(n) * mask[..., None, :]), axis=(0, -2, -1))
 
     devs = [
-        dev(xnp.einsum('...io,...jo->...ij', mup, mup), um, nU),          # up: rows orthonormal over mode
-        dev(xnp.einsum('...iaj,...ibj->...ab', mdown, mdown), dm, nD),    # down/outer: mode orthonormal over bonds
+        dev(xnp.einsum('...io,...jo->...ij', mdown, mdown), dm, nD),          # up: rows orthonormal over mode
+        dev(xnp.einsum('...iaj,...ibj->...ab', mup, mup), um, nU),    # down/outer: mode orthonormal over bonds
     ]
     if d > 1:   # interior left/right cores; the boundary core of each is the unchecked remainder
         devs.append(dev(xnp.einsum('...iaj,...iak->...jk', mleft[:-1], mleft[:-1]), lm[1:-1], rL))   # outgoing edges 1..d-1
@@ -336,9 +336,9 @@ def ufv_zero_point_frame(
     >>> zframe[5] is uframe[5]                           # the template's masks
     True
     """
-    up_sc, down_sc, left_sc, right_sc, _shape, masks = frame_data
+    down_sc, up_sc, left_sc, right_sc, _shape, masks = frame_data
     require_concrete_masks(*masks)                        # host: the unpack reads the masks
-    stack = tuple(up_sc.shape[1:-2])
+    stack = tuple(down_sc.shape[1:-2])
     if stack:
         raise NotImplementedError(
             "ufv_zero_point_frame: a STACKED template (stack C = %r) is not supported. The zero-point frame "
@@ -346,7 +346,7 @@ def ufv_zero_point_frame(
             "(backend.optimizers._require_unstacked)." % (stack,))
     ragged = fv_operations.fv_zero_point_frame(ufv_conversions.ut3frame_to_t3frame(frame_data), groups, seed)
     packed = ufv_conversions.t3frame_to_ut3frame(
-        ragged, N=up_sc.shape[-1], nU=up_sc.shape[-2], nD=down_sc.shape[-2], rL=left_sc.shape[-1], rR=right_sc.shape[-1])
+        ragged, N=down_sc.shape[-1], nD=down_sc.shape[-2], nU=up_sc.shape[-2], rL=left_sc.shape[-1], rR=right_sc.shape[-1])
     if not all(np.array_equal(a, b) for a, b in zip(packed[5], masks)):
         raise ValueError("ufv_zero_point_frame: the template's frame masks are not prefix masks (every frame "
                          "from ut3_orthogonal_representations has them); the packed zero-point frame "
@@ -379,10 +379,10 @@ def _real_values(
 
 def ufv_lift_factors(
         frame_data:         typ.Tuple[
-            NDArray,                                    # up_tucker_supercore,  (d,)+C+(nU, N)
-            NDArray,                                    # down_tt_supercore,    (d,)+C+(rL, nD, rR)
-            NDArray,                                    # left_tt_supercore,    (d,)+C+(rL, nU, rL)
-            NDArray,                                    # right_tt_supercore,   (d,)+C+(rR, nU, rR)
+            NDArray,                                    # down_tucker_supercore,  (d,)+C+(nD, N)
+            NDArray,                                    # up_tt_supercore,    (d,)+C+(rL, nU, rR)
+            NDArray,                                    # left_tt_supercore,    (d,)+C+(rL, nD, rL)
+            NDArray,                                    # right_tt_supercore,   (d,)+C+(rR, nD, rR)
             typ.Tuple[int, ...],                        # shape
             typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, frame_left, frame_right) masks; HOST bool
         ],
@@ -400,7 +400,7 @@ def ufv_lift_factors(
     (:py:func:`~t3toolbox.backend.linalg.damped_pseudo_inverse`). The returned
     :py:class:`~t3toolbox.backend.fv_operations.LiftFactors` holds supercores where the ragged one holds tuples:
 
-    - ``tucker_pinvs`` ``(d,)+C+(nU, nD)`` and ``tucker_svals`` ``(d,)+C+(min(nD, nU),)``;
+    - ``tucker_pinvs`` ``(d,)+C+(nD, nU)`` and ``tucker_svals`` ``(d,)+C+(min(nU, nD),)``;
     - ``bond_pinvs`` ``(d,)+C+(rR, rL)``: the ``d - 1`` bond factors ``T_i^{+eps}`` and, in the last slot, the
       boundary pass-through (``1`` at the real ``(0, 0)`` entry), so the undamped last TT slot
       ``Gdot_{d-1} = H_{d-1}`` is one more slice of the same contraction;
@@ -432,7 +432,7 @@ def ufv_lift_factors(
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
     >>> frame, _ = fvc.t3_orthogonal_representations(x.data)
-    >>> uframe = ufc.t3frame_to_ut3frame(frame, N=8, nU=4, nD=4, rL=3, rR=3)
+    >>> uframe = ufc.t3frame_to_ut3frame(frame, N=8, nD=4, nU=4, rL=3, rR=3)
     >>> lf, ulf = fvo.fv_lift_factors(frame, 1e-3), ufo.ufv_lift_factors(uframe, 1e-3)
     >>> ulf.tucker_pinvs.shape, ulf.bond_pinvs.shape
     ((3, 4, 4), (3, 3, 3))
@@ -448,27 +448,27 @@ def ufv_lift_factors(
     if isinstance(curvature_damping, (int, float)) and curvature_damping < 0:
         raise ValueError('ufv_lift_factors: curvature_damping must be >= 0 (it is relative to ||X||_HS); '
                          'got %r' % (curvature_damping,))
-    up_mask, down_mask, left_mask, right_mask = frame_data[5]
-    up_sc, down_sc, left_sc, right_sc = ufv_masking.ufv_apply_frame_masks(frame_data)   # guards: host masks
-    xnp, _, _ = get_backend(True, tree_contains_jax((up_sc, down_sc, left_sc, right_sc, curvature_damping)))
-    d, C = up_sc.shape[0], tuple(up_sc.shape[1:-2])
+    down_mask, up_mask, left_mask, right_mask = frame_data[5]
+    down_sc, up_sc, left_sc, right_sc = ufv_masking.ufv_apply_frame_masks(frame_data)   # guards: host masks
+    xnp, _, _ = get_backend(True, tree_contains_jax((down_sc, up_sc, left_sc, right_sc, curvature_damping)))
+    d, C = down_sc.shape[0], tuple(down_sc.shape[1:-2])
     rL, rR = left_sc.shape[-1], right_sc.shape[-1]
 
     # the center factors (fv_center_factors, on the supercores): T_i = Z_(i+1), H_i = L_i T_i, S_i^T = <O_i, H_i>
     ZZ = tt_operations.tt_zipper_right_to_left(left_sc, right_sc)          # len=d+1, elm_shape=C+(rL, rR)
     Z_sc = xnp.stack(ZZ[1:], axis=0)                                      # (d,)+C+(rL, rR); the last: boundary ones
     centers = contractions.contract('dCaib,dCbc->dCaic', left_sc, Z_sc)
-    tucker_factors_T = contractions.contract('dCaxb,dCaub->dCxu', down_sc, centers)   # (d,)+C+(nD, nU)
+    tucker_factors_T = contractions.contract('dCaxb,dCaub->dCxu', up_sc, centers)   # (d,)+C+(nU, nD)
 
     S0T = tucker_factors_T[0]
     norm_X = xnp.sqrt(xnp.sum(S0T * S0T, axis=(-2, -1)))                  # ||X||_HS = ||S_0^T||_F, shape=C
     eps = curvature_damping * norm_X
 
     dtype = tucker_factors_T.dtype
-    tk_rcond = _real_rcond(down_mask, up_mask, dtype) if rcond is None else rcond
+    tk_rcond = _real_rcond(up_mask, down_mask, dtype) if rcond is None else rcond
     tucker_pinvs, tucker_svals = linalg.damped_pseudo_inverse(tucker_factors_T, eps, tk_rcond)
-    tucker_pinvs = tucker_pinvs * (up_mask[..., :, None] & down_mask[..., None, :])   # (d,)+C+(nU, nD)
-    tucker_svals = tucker_svals * _real_values(down_mask, up_mask, tucker_svals.shape[-1])
+    tucker_pinvs = tucker_pinvs * (down_mask[..., :, None] & up_mask[..., None, :])   # (d,)+C+(nD, nU)
+    tucker_svals = tucker_svals * _real_values(up_mask, down_mask, tucker_svals.shape[-1])
 
     boundary = np.zeros((1,) + C + (rR, rL))
     boundary[..., 0, 0] = 1.0                                             # Gdot_{d-1} = H_{d-1}: the real (0, 0)
@@ -493,26 +493,26 @@ def _real_group_levels(
         k:            int,                                             # the padded group spectrum length q
 ) -> typ.Tuple[
     NDArray,                                                           # HOST bool, C+(k,): the REAL levels of s_g
-    NDArray,                                                           # HOST float, C+(1,): max(sum_i nD_i, nU), real
+    NDArray,                                                           # HOST float, C+(1,): max(sum_i nU_i, nD), real
 ]:
     """Which levels of a uniform group spectrum ``s_g`` are the group's real ones, and the real dimensions its clip
-    is taken at. The uniform companion's stacked ``M_g = [S_i1^T; ...]`` is the real block (``sum_i nD_i`` rows,
-    the group's ``nU`` columns, per stack element) bordered by exact zeros, so its real levels are the first
-    ``min(sum_i nD_i, nU)`` of its descending spectrum; the rest are padded levels at roundoff. Returns that mask
-    and ``max(sum_i nD_i, nU)`` (the ragged tied solve's clip is ``dtype eps`` times it), read off the host masks."""
-    up, down = frame_masks[0], frame_masks[1]
-    rows = sum(np.sum(down[ii], axis=-1) for ii in group)                  # C: sum_i nD_i (real)
-    cols = np.sum(up[group[0]], axis=-1)                                    # C: the group's real nU
+    is taken at. The uniform companion's stacked ``M_g = [S_i1^T; ...]`` is the real block (``sum_i nU_i`` rows,
+    the group's ``nD`` columns, per stack element) bordered by exact zeros, so its real levels are the first
+    ``min(sum_i nU_i, nD)`` of its descending spectrum; the rest are padded levels at roundoff. Returns that mask
+    and ``max(sum_i nU_i, nD)`` (the ragged tied solve's clip is ``dtype eps`` times it), read off the host masks."""
+    down, up = frame_masks[0], frame_masks[1]
+    rows = sum(np.sum(up[ii], axis=-1) for ii in group)                  # C: sum_i nU_i (real)
+    cols = np.sum(down[group[0]], axis=-1)                                    # C: the group's real nD
     real = np.arange(k) < np.minimum(rows, cols)[..., None]
     return real, np.maximum(rows, cols)[..., None].astype(float)
 
 
 def ufv_tied_lift_factors(
         frame_data:         typ.Tuple[
-            NDArray,                                    # up_tucker_supercore,  (d,)+C+(nU, N)
-            NDArray,                                    # down_tt_supercore,    (d,)+C+(rL, nD, rR)
-            NDArray,                                    # left_tt_supercore,    (d,)+C+(rL, nU, rL)
-            NDArray,                                    # right_tt_supercore,   (d,)+C+(rR, nU, rR)
+            NDArray,                                    # down_tucker_supercore,  (d,)+C+(nD, N)
+            NDArray,                                    # up_tt_supercore,    (d,)+C+(rL, nU, rR)
+            NDArray,                                    # left_tt_supercore,    (d,)+C+(rL, nD, rL)
+            NDArray,                                    # right_tt_supercore,   (d,)+C+(rR, nD, rR)
             typ.Tuple[int, ...],                        # shape
             typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, frame_left, frame_right) masks; HOST bool
         ],
@@ -530,9 +530,9 @@ def ufv_tied_lift_factors(
     ``s_g`` carries, beyond the group's real levels, padded levels that the SVD does not guarantee to be exact
     zeros (roundoff, or garbage in a hand-built companion). The filter ``f(s_g) = s_g / (s_g^2 + eps^2)``
     (:py:func:`~t3toolbox.backend.linalg.filtered_reciprocal`) is therefore zeroed on every padded level by the
-    host masks (the group's real level count is ``min(sum_i nD_i, nU)`` per stack element), not only by its
+    host masks (the group's real level count is ``min(sum_i nU_i, nD)`` per stack element), not only by its
     relative clip; and the clip itself
-    (``rcond=None``) is the ragged one, ``dtype eps * max(sum_i nD_i, nU)``, at the REAL dimensions. So per stack
+    (``rcond=None``) is the ragged one, ``dtype eps * max(sum_i nU_i, nD)``, at the REAL dimensions. So per stack
     element the filter is the ragged filter on the real levels and exactly 0 beyond them, and the tied lift is the
     ragged one. A real level that is zero -- a zero-padded restart's new level -- is clipped to 0 like the ragged
     one, and stays a real level (the smallest lift singular value reports it).
@@ -559,12 +559,12 @@ def ufv_tied_lift_factors(
     >>> frame, v = fvc.t3_orthogonal_representations(x)
     >>> groups = sharing.validate_sharing((0, 0, 1), (6, 6, 4))
     >>> lf = sharing.fv_tied_lift_factors(frame, 1e-3, sharing.fv_shared_frame_data(frame, groups))
-    >>> uframe = ufc.t3frame_to_ut3frame(frame, N=7, nU=5, nD=5, rL=3, rR=3)       # padding on every edge
+    >>> uframe = ufc.t3frame_to_ut3frame(frame, N=7, nD=5, nU=5, rL=3, rR=3)       # padding on every edge
     >>> ulf = ufo.ufv_tied_lift_factors(uframe, 1e-3, sharing.ufv_shared_frame_data(uframe, groups))
     >>> f, uf = lf.tied_filters[0], ulf.tied_filters[0]
     >>> f.shape, uf.shape, bool(np.allclose(uf[:4], f)), uf[4:].tolist()
     ((4,), (5,), True, [0.0])
-    >>> uv = ufc.t3variations_to_ut3variations(v, N=7, nU=5, nD=5, rL=3, rR=3)
+    >>> uv = ufc.t3variations_to_ut3variations(v, N=7, nD=5, nU=5, rL=3, rR=3)
     >>> theta_hat = utvo.utv_corewise_lift(uframe, uv, ulf)
     >>> bool(np.array_equal(theta_hat[0][0], theta_hat[0][1]))                   # one factor direction per group
     True
@@ -584,8 +584,8 @@ def ufv_absorb_weights(
         weights:    UT3FrameWeightsData,  # (up, down, left, right, masks), stack = C
 ) -> typ.Tuple:                      # UT3Variations .data: weighted, same shape and masks
     """Absorb the four-family metric weights into the VARIATION supercores -- the uniform twin of
-    ``fv_absorb_weights`` (the tangent metric on coordinates: ``down`` -> V's ``nD`` leg;
-    ``up``/``left``/``right`` -> H's ``nU``/``rL``/``rR`` legs). The frame is left orthonormal and
+    ``fv_absorb_weights`` (the tangent metric on coordinates: ``down`` -> V's ``nU`` leg;
+    ``up``/``left``/``right`` -> H's ``nD``/``rL``/``rR`` legs). The frame is left orthonormal and
     untouched, so this is O(ranks) and does not disturb the tangent space.
 
     **The weight is frame-like (stack ``C``) and the variations are ``K + C``, and the broadcast is
@@ -604,10 +604,10 @@ def ufv_absorb_weights(
     """
     xnp, _, _ = get_backend(True, tree_contains_jax((variations[:2], weights[:4])))
     tucker_variations, tt_variations, shape, masks = variations
-    up, down, left, right, _ = weights
+    down, up, left, right, _ = weights
 
-    weighted_tucker = xnp.einsum('d...i,d...io->d...io', down, tucker_variations)
-    weighted_tt = xnp.einsum('d...aib,d...a,d...i,d...b->d...aib', tt_variations, left, up, right)
+    weighted_tucker = xnp.einsum('d...i,d...io->d...io', up, tucker_variations)
+    weighted_tt = xnp.einsum('d...aib,d...a,d...i,d...b->d...aib', tt_variations, left, down, right)
     return weighted_tucker, weighted_tt, shape, masks
 
 
@@ -624,24 +624,24 @@ def ufv_weights_consistent(
     - **The trailing-stack rule** is ragged's too (a weight is frame-like: it carries ``C``, the variations
       carry ``K + C``; ``fv_weights_consistent``), but here it must be spelled out against padded shapes.
     - **Mask equality** is uniform-only. Ragged catches a rank mismatch as an einsum shape error; uniform
-      pads both to the common ``(nU, nD, rL, rR)``, so a mismatch is invisible to the shapes and would
+      pads both to the common ``(nD, nU, rL, rR)``, so a mismatch is invisible to the shapes and would
       silently corrupt -- a weight whose mask calls slot ``i`` padding carries a canonical zero there, so
       absorbing it **zeroes a real variation slot**. The mask comparison mirrors ``check_ufv_pair``'s
       (the variation masks are constant along ``K``).
     """
     tucker_variations, tt_variations, _, variation_masks = variations
-    up, down, left, right, weight_masks = weights
+    down, up, left, right, weight_masks = weights
 
     d = tucker_variations.shape[0]
     var_stack = tucker_variations.shape[1:-2]
-    weight_stack = up.shape[1:-1]
+    weight_stack = down.shape[1:-1]
     n_K = len(var_stack) - len(weight_stack)
     if n_K < 0 or var_stack[n_K:] != weight_stack:   # C must be the trailing part of K + C
         return False
 
-    nD = tucker_variations.shape[-2]
-    rL, nU, rR = tt_variations.shape[-3], tt_variations.shape[-2], tt_variations.shape[-1]
-    for arr, size in ((up, nU), (down, nD), (left, rL), (right, rR)):
+    nU = tucker_variations.shape[-2]
+    rL, nD, rR = tt_variations.shape[-3], tt_variations.shape[-2], tt_variations.shape[-1]
+    for arr, size in ((down, nD), (up, nU), (left, rL), (right, rR)):
         if tuple(arr.shape) != (d,) + weight_stack + (size,):
             return False
 
@@ -666,15 +666,15 @@ def ufv_weights_from_ut3_weights(
     convention (``H_i``'s left bond is TT bond ``i``, its right bond is bond ``i+1``), which turns the
     ``d+1`` bond supercore into the two ``d``-length families -- non-obvious, hence a named function.
 
-    The result pairs with a **minimal-rank** tangent (where the complement rank ``nD`` equals the Tucker
-    rank ``nU``, as for ``ut3svd`` output). A non-minimal tangent has ``nD < nU`` and would mismatch the
+    The result pairs with a **minimal-rank** tangent (where the complement rank ``nU`` equals the Tucker
+    rank ``nD``, as for ``ut3svd`` output). A non-minimal tangent has ``nU < nD`` and would mismatch the
     ``down`` family at use -- caught by ``ufv_weights_consistent`` rather than silently absorbed.
     """
     tucker_weight_supercore, tt_weight_supercore, (tucker_mask, tt_mask) = weights
-    up = down = tucker_weight_supercore
+    down = up = tucker_weight_supercore
     left, right = tt_weight_supercore[:-1], tt_weight_supercore[1:]
     masks = (tucker_mask, tucker_mask, tt_mask[:-1], tt_mask[1:])   # np: host structure, sliced not rebuilt
-    return up, down, left, right, masks
+    return down, up, left, right, masks
 
 
 def _ufv_map_real_weights(

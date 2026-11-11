@@ -102,9 +102,9 @@ def old_case(seed, shape, old_ranks, sharing=None, garbage=True, padded_zero=Fal
     if sharing is not None:
         x = x.share(sharing, max_tucker_ranks=old_ranks[0], max_tt_ranks=old_ranks[1])
     old = fvc.t3_orthogonal_representations(x.data)[0]
-    nU, nD, rL, rR = testing.stores_of(old)
+    nD, nU, rL, rR = testing.stores_of(old)
     groups = () if sharing is None else sharing_module.validate_sharing(sharing, shape)
-    widths = (max(nU) + 1, max(nD) + 2, max(rL) + 2, max(rR) + 1, max(shape))
+    widths = (max(nD) + 1, max(nU) + 2, max(rL) + 2, max(rR) + 1, max(shape))
     return old, testing.scatter_frame(rng, old, widths, groups=groups, garbage=garbage)[0]
 
 
@@ -126,16 +126,16 @@ class TestEmptyFrame(unittest.TestCase):
         for shape, C, N in [((5, 6, 7), (), None), ((4,), (2,), 6), ((3, 4, 5, 6), (2, 3), None)]:
             with self.subTest(shape=shape, C=C, N=N):
                 d, Nw = len(shape), N or max(shape)
-                U, O, L, R, sh, (mU, mD, mL, mR) = uniform_padded_frames.ufv_empty_frame(shape, N, C)
-                self.assertEqual((U.shape, O.shape, L.shape, R.shape, sh),
+                D, U, L, R, sh, (mD, mU, mL, mR) = uniform_padded_frames.ufv_empty_frame(shape, N, C)
+                self.assertEqual((D.shape, U.shape, L.shape, R.shape, sh),
                                  ((d,) + C + (0, Nw), (d,) + C + (1, 0, 1), (d,) + C + (1, 0, 1), (d,) + C + (1, 0, 1),
                                   shape))
-                self.assertEqual((mU.shape, mD.shape, mL.shape, mR.shape),
+                self.assertEqual((mD.shape, mU.shape, mL.shape, mR.shape),
                                  ((d,) + C + (0,), (d,) + C + (0,), (d + 1,) + C + (1,), (d + 1,) + C + (1,)))
                 bonds = np.zeros((d + 1,) + C + (1,), bool)
                 bonds[0], bonds[d] = True, True
                 self.assertTrue(np.array_equal(mL, bonds) and np.array_equal(mR, bonds))
-                self.assertTrue(all(isinstance(a, np.ndarray) and a.dtype == float for a in (U, O, L, R)))
+                self.assertTrue(all(isinstance(a, np.ndarray) and a.dtype == float for a in (D, U, L, R)))
 
     def test_it_is_the_scatter_of_the_ragged_empty_frame(self):
         """Prefix masks, no garbage, at widths (0, 0, 1, 1): equal arrays and masks."""
@@ -189,7 +189,7 @@ class TestStartAgainstRagged(unittest.TestCase):
         """The empty frame scattered at widths (1, 2, 3, 2): A-blocks of junk only, the split (2, 3)."""
         label, seed, shape, _, target, _ = CASES[7]
         F = self.check(label, seed, shape, None, target, None, padded_zero=True)
-        self.assertEqual((F[0].shape[-2] - 2, F[2].shape[-1] - 3), (4, 4))   # Ka = max(kU, kD), Kb = max(kL, kR)
+        self.assertEqual((F[0].shape[-2] - 2, F[2].shape[-1] - 3), (4, 4))   # Ka = max(kD, kU), Kb = max(kL, kR)
 
     def test_an_old_frame_in_block_layout(self):
         """The old frame is itself a padded frame in block layout (gappy masks in both of its blocks, garbage): the
@@ -297,10 +297,10 @@ class TestStartStructuralErrors(unittest.TestCase):
 
     def test_old_masks_not_an_orthogonal_representation(self):
         masks = list(self.uold[5])
-        mD = masks[1].copy()
-        mD[1, np.flatnonzero(~mD[1])[0]] = True                         # one extra real down slot at mode 1
-        masks[1] = mD
-        with self.assertRaisesRegex(ValueError, 'the down masks count'):
+        mU = masks[1].copy()
+        mU[1, np.flatnonzero(~mU[1])[0]] = True                         # one extra real down slot at mode 1
+        masks[1] = mU
+        with self.assertRaisesRegex(ValueError, 'the up masks count'):
             uniform_padded_frames.ufv_padded_frame(self.uold[:5] + (tuple(masks),), *self.target)
 
     def test_target_below_the_old_frame(self):
@@ -315,9 +315,9 @@ class TestStartStructuralErrors(unittest.TestCase):
         with self.assertRaises(TypeError):
             uniform_padded_frames.ufv_padded_frame(self.uold, (3.0, 4, 5, 3), self.target[1])
 
-    def test_unequal_old_up_masks_in_a_group(self):
+    def test_unequal_old_down_masks_in_a_group(self):
         """Sharing labels on an untied scatter (the members' up slots at different positions)."""
-        with self.assertRaisesRegex(ValueError, 'unequal old up masks'):
+        with self.assertRaisesRegex(ValueError, 'unequal old down masks'):
             uniform_padded_frames.ufv_padded_frame(self.uold, (4, 4, 4, 4), (1, 4, 5, 4, 1), sharing=(0, 0, 1, 1))
 
 
@@ -397,14 +397,14 @@ class TestStepAgainstRagged(unittest.TestCase):
         shape, old_ranks, work_ranks, _, _ = ragged_tests.TestStepAgainstDense.CASES['d=3']
         start, variations, old_ranks, s0, frame, uvariations, (Na, Rb) = step_case(shape, old_ranks, work_ranks)
         rng = np.random.default_rng(9)
-        U, O, L, R, sh, (mU, mD, mL, mR) = frame
+        D, U, L, R, sh, (mD, mU, mL, mR) = frame
         L, R = L.copy(), R.copy()
         L[-1] += rng.standard_normal(L[-1].shape) * (np.arange(L.shape[-2]) >= Na)[None, :, None]   # completion slots
         R[0] += rng.standard_normal(R[0].shape) * (np.arange(R.shape[-2]) >= Na)[None, :, None]
-        F1, _ = uniform_padded_frames.utv_align_padded_frame((U, O, L, R, sh, (mU, mD, mL, mR)), uvariations, (Na, Rb))
+        F1, _ = uniform_padded_frames.utv_align_padded_frame((D, U, L, R, sh, (mD, mU, mL, mR)), uvariations, (Na, Rb))
         mask = lambda core, a, n, b: core * a[:, None, None] * n[None, :, None] * b[None, None, :]
-        want_L = mask(L[-1], mL[-2], mU[-1], mL[-1])[:Rb, :Na, :Rb]
-        want_R = mask(R[0], mR[0], mU[0], mR[1])[:Rb, :Na, :Rb]
+        want_L = mask(L[-1], mL[-2], mD[-1], mL[-1])[:Rb, :Na, :Rb]
+        want_R = mask(R[0], mR[0], mD[0], mR[1])[:Rb, :Na, :Rb]
         for got, want in ((F1[2][-1], want_L), (F1[3][0], want_R)):
             self.assertTrue(np.array_equal(got[:Rb, :Na, :Rb], want))
             got = got.copy()
@@ -526,9 +526,9 @@ class TestStepStructuralErrors(unittest.TestCase):
 
     def test_masks_not_an_orthogonal_representation(self):
         masks = list(self.frame[5])
-        mD = masks[1].copy()
-        mD[1, np.flatnonzero(~mD[1])[0]] = True                         # one extra real down slot at mode 1
-        masks[1] = mD
+        mU = masks[1].copy()
+        mU[1, np.flatnonzero(~mU[1])[0]] = True                         # one extra real down slot at mode 1
+        masks[1] = mU
         with self.assertRaisesRegex(ValueError, 'do not count an orthogonal representation'):
             self.call(frame=self.frame[:5] + (tuple(masks),))
 
@@ -548,7 +548,7 @@ class TestStepStructuralErrors(unittest.TestCase):
 
     def test_unequal_group(self):
         """Valid sharing labels (modes 0 and 2, both of size 5) on an untied scatter."""
-        with self.assertRaisesRegex(ValueError, 'unequal Tucker stores or old up masks'):
+        with self.assertRaisesRegex(ValueError, 'unequal Tucker stores or old down masks'):
             self.call(sharing=(0, 1, 0, 2), out=(None, None))
 
 
@@ -827,10 +827,10 @@ class TestScatterHelper(unittest.TestCase):
         cases = (('own widths', old, (4, 5, 4, 3, 6), None), ('block layout', new, (3, 3, 3, 3, 6), s0))
         for label, F, widths, old_stores in cases:
             with self.subTest(mode=label):
-                U, _ = testing.scatter_frame(rng, F, widths, old_stores=old_stores)
-                self.assertEqual(max_difference(testing.ragged(U), F), 0.0)
+                D, _ = testing.scatter_frame(rng, F, widths, old_stores=old_stores)
+                self.assertEqual(max_difference(testing.ragged(D), F), 0.0)
                 if old_stores is not None:                               # each slot's old count sits in its A-block
-                    for m, olds, A in zip(U[5], s0, (3, 3, 3, 3)):
+                    for m, olds, A in zip(D[5], s0, (3, 3, 3, 3)):
                         self.assertEqual(m[..., :A].sum(axis=-1).tolist(), list(olds))
 
 

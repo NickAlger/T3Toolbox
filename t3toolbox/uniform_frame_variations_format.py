@@ -57,23 +57,23 @@ class UT3FrameMasks(common.ValueHashedMasks):
     pattern; see ``docs/contributor/uniform_pytree_composition.md``. (The physical ``shape`` is a separate static int
     tuple on :py:class:`UT3Frame` -- not a mask, and value-hashable.)
     """
-    up_mask:          NDArray  # dtype=bool, (d,)  +stack_shape+(nU,)
-    down_mask:        NDArray  # dtype=bool, (d,)  +stack_shape+(nD,)
+    down_mask:          NDArray  # dtype=bool, (d,)  +stack_shape+(nD,)
+    up_mask:        NDArray  # dtype=bool, (d,)  +stack_shape+(nU,)
     frame_left_mask:  NDArray  # dtype=bool, (d+1,)+stack_shape+(rL,)
     frame_right_mask: NDArray  # dtype=bool, (d+1,)+stack_shape+(rR,)
 
     def __post_init__(self):
         # Defensive READ-ONLY copies: the value key is cached on this frozen holder, so an aliased
         # writeable caller array mutated in place would leave a stale jit cache key (review H1-5).
-        for _f in ('up_mask', 'down_mask', 'frame_left_mask', 'frame_right_mask'):
+        for _f in ('down_mask', 'up_mask', 'frame_left_mask', 'frame_right_mask'):
             _m = np.array(getattr(self, _f), copy=True)
             _m.setflags(write=False)
             object.__setattr__(self, _f, _m)
 
     @property
     def data(self) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:
-        """The four raw rank-mask arrays, ``(up_mask, down_mask, frame_left_mask, frame_right_mask)``."""
-        return self.up_mask, self.down_mask, self.frame_left_mask, self.frame_right_mask
+        """The four raw rank-mask arrays, ``(down_mask, up_mask, frame_left_mask, frame_right_mask)``."""
+        return self.down_mask, self.up_mask, self.frame_left_mask, self.frame_right_mask
 
 
 @dataclass(frozen=True, eq=False)   # eq=False -> the ExplicitEquality mixin stands
@@ -81,34 +81,34 @@ class UT3Frame(common.ExplicitEquality):
     """Frame (orthogonal frame) for the frame-variations representation of uniform Tucker tensor trains.
 
     Uniform analog of :py:class:`~t3toolbox.frame_variations_format.T3Frame`: four padded supercores
-    (``up_tucker``, ``down_tt``, ``left_tt``, ``right_tt``) + the static physical ``shape`` (an int tuple,
+    (``down_tucker``, ``up_tt``, ``left_tt``, ``right_tt``) + the static physical ``shape`` (an int tuple,
     shared across the stack) + a :py:class:`UT3FrameMasks` holder (the four per-stack rank masks).
 
     Examples
     --------
     >>> import numpy as np
     >>> import t3toolbox.uniform_frame_variations_format as ubcf
-    >>> d, N, nU, nD, rL, rR = 3, 6, 4, 5, 3, 2
-    >>> up    = np.random.randn(d, nU, N)
-    >>> down  = np.random.randn(d, rL, nD, rR)
-    >>> left  = np.random.randn(d, rL, nU, rL)
-    >>> right = np.random.randn(d, rR, nU, rR)
+    >>> d, N, nD, nU, rL, rR = 3, 6, 4, 5, 3, 2
+    >>> down    = np.random.randn(d, nD, N)
+    >>> up  = np.random.randn(d, rL, nU, rR)
+    >>> left  = np.random.randn(d, rL, nD, rL)
+    >>> right = np.random.randn(d, rR, nD, rR)
     >>> shape = (4, 5, 6)                                          # real mode dims (each <= N=6)
-    >>> up_mask    = np.arange(nU) < np.array([[2],[3],[4]])       # (d, nU); per-mode up rank
-    >>> down_mask  = np.arange(nD) < np.array([[3],[4],[5]])       # (d, nD)
+    >>> down_mask    = np.arange(nD) < np.array([[2],[3],[4]])       # (d, nD); per-mode up rank
+    >>> up_mask  = np.arange(nU) < np.array([[3],[4],[5]])       # (d, nU)
     >>> left_mask  = np.arange(rL) < np.array([[1],[2],[3],[1]])   # (d+1, rL); boundary TT ranks
     >>> right_mask = np.arange(rR) < np.array([[1],[2],[2],[1]])   # (d+1, rR)
-    >>> masks = ubcf.UT3FrameMasks(up_mask, down_mask, left_mask, right_mask)
-    >>> B = ubcf.UT3Frame(up, down, left, right, shape, masks)
+    >>> masks = ubcf.UT3FrameMasks(down_mask, up_mask, left_mask, right_mask)
+    >>> B = ubcf.UT3Frame(down, up, left, right, shape, masks)
     >>> B.shape
     (4, 5, 6)
-    >>> np.asarray(B.up_ranks).tolist()
+    >>> np.asarray(B.down_ranks).tolist()
     [2, 3, 4]
     >>> B.stack_shape
     ()
     """
-    up_tucker_supercore:    NDArray              # B_dxo B_dyo   = I_dxy, shape = (d,)+stack_shape+(nU, N)
-    down_tt_supercore:      NDArray              # R_dixj R_diyj = I_dxy  shape = (d,)+stack_shape+(rL, nD, rR)
+    down_tucker_supercore:    NDArray              # B_dxo B_dyo   = I_dxy, shape = (d,)+stack_shape+(nU, N)
+    up_tt_supercore:      NDArray              # R_dixj R_diyj = I_dxy  shape = (d,)+stack_shape+(rL, nD, rR)
     left_tt_supercore:      NDArray              # P_diax P_diay = I_dxy, shape = (d,)+stack_shape+(rL, nU, rL)
     right_tt_supercore:     NDArray              # Q_dxaj Q_dyaj = I_dxy  shape = (d,)+stack_shape+(rR, nU, rR)
     shape:                  typ.Tuple[int, ...]  # len=d; (N0,...,N(d-1)) real mode dims, shared across the stack
@@ -116,34 +116,34 @@ class UT3Frame(common.ExplicitEquality):
 
     @ft.cached_property
     def data(self) -> typ.Tuple[
-        NDArray,                                   # up_tucker_supercore
-        NDArray,                                   # down_tt_supercore
+        NDArray,                                   # down_tucker_supercore
+        NDArray,                                   # up_tt_supercore
         NDArray,                                   # left_tt_supercore
         NDArray,                                   # right_tt_supercore
         typ.Tuple[int, ...],                       # shape
-        typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up_mask, down_mask, frame_left_mask, frame_right_mask)
+        typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (down_mask, up_mask, frame_left_mask, frame_right_mask)
     ]:
         return (
-            self.up_tucker_supercore, self.down_tt_supercore,
+            self.down_tucker_supercore, self.up_tt_supercore,
             self.left_tt_supercore, self.right_tt_supercore,
             self.shape, self.masks.data,
         )
 
     @ft.cached_property
     def d(self) -> int:
-        return self.up_tucker_supercore.shape[0]
+        return self.down_tucker_supercore.shape[0]
 
     @ft.cached_property
     def N(self) -> int:
-        return self.up_tucker_supercore.shape[-1]
-
-    @ft.cached_property
-    def nU(self) -> int:
-        return self.up_tucker_supercore.shape[-2]
+        return self.down_tucker_supercore.shape[-1]
 
     @ft.cached_property
     def nD(self) -> int:
-        return self.down_tt_supercore.shape[-2]
+        return self.down_tucker_supercore.shape[-2]
+
+    @ft.cached_property
+    def nU(self) -> int:
+        return self.up_tt_supercore.shape[-2]
 
     @ft.cached_property
     def rL(self) -> int:
@@ -155,38 +155,38 @@ class UT3Frame(common.ExplicitEquality):
 
     @ft.cached_property
     def stack_shape(self) -> typ.Tuple[int,...]:
-        return self.up_tucker_supercore.shape[1:-2]
+        return self.down_tucker_supercore.shape[1:-2]
 
     @ft.cached_property
     def uniform_structure(self) -> typ.Tuple[
         int, # d
         int, # N
-        int, # nU
         int, # nD
+        int, # nU
         int, # rL
         int, # rR
         typ.Tuple[int,...], # stack_shape
     ]:
-        return self.d, self.N, self.nU, self.nD, self.rL, self.rR, self.stack_shape
+        return self.d, self.N, self.nD, self.nU, self.rL, self.rR, self.stack_shape
 
     @ft.cached_property
     def uniform_variation_shapes(self) -> typ.Tuple[
-        typ.Tuple[int,...], # uniform_tucker_variations_shape = (d, nD, N)
-        typ.Tuple[int,...], # uniform_tt_variations_shape = (d, rL, nU, rR)
+        typ.Tuple[int,...], # uniform_tucker_variations_shape = (d, nU, N)
+        typ.Tuple[int,...], # uniform_tt_variations_shape = (d, rL, nD, rR)
     ]: # does not include stack_shape
-        uniform_tucker_variations_shape = (self.d, self.nD, self.N)
-        uniform_tt_variations_shape = (self.d, self.rL, self.nU, self.rR)
+        uniform_tucker_variations_shape = (self.d, self.nU, self.N)
+        uniform_tt_variations_shape = (self.d, self.rL, self.nD, self.rR)
         return uniform_tucker_variations_shape, uniform_tt_variations_shape
 
     # (`shape` is a stored field above -- the real mode dims, shared across the stack.)
 
     @ft.cached_property
-    def up_ranks(self) -> NDArray:
-        return self.masks.up_mask.sum(axis=-1)
-
-    @ft.cached_property
     def down_ranks(self) -> NDArray:
         return self.masks.down_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def up_ranks(self) -> NDArray:
+        return self.masks.up_mask.sum(axis=-1)
 
     @ft.cached_property
     def left_ranks(self) -> NDArray:
@@ -199,14 +199,14 @@ class UT3Frame(common.ExplicitEquality):
     @ft.cached_property
     def structure(self) -> typ.Tuple[
         typ.Tuple[int, ...], # shape
-        NDArray, # up_ranks
-        NDArray,  # down_tt_ranks
+        NDArray, # down_ranks
+        NDArray,  # up_ranks
         NDArray, # left_ranks
         NDArray, # right_ranks
         typ.Tuple[int,...], # stack_shape
     ]:
         return (
-            self.shape, self.up_ranks, self.down_ranks,
+            self.shape, self.down_ranks, self.up_ranks,
             self.left_ranks, self.right_ranks,
             self.stack_shape,
         )
@@ -214,9 +214,9 @@ class UT3Frame(common.ExplicitEquality):
     def apply_masks(self) -> 'UT3Frame':
         """Apply masks to the frame supercores, zeroing out unmasked entries.
         """
-        up_sc, down_sc, left_sc, right_sc = masking.ufv_apply_frame_masks(self.data)
+        down_sc, up_sc, left_sc, right_sc = masking.ufv_apply_frame_masks(self.data)
         return UT3Frame(
-            up_sc, down_sc, left_sc, right_sc,
+            down_sc, up_sc, left_sc, right_sc,
             self.shape, self.masks,
         )
 
@@ -264,7 +264,7 @@ class UT3Frame(common.ExplicitEquality):
         >>> np.random.seed(0)
         >>> x_old = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((5, 6, 5), (2, 2, 2), (1, 2, 2, 1)))
         >>> F, split = ubv.UT3Frame.padded(x_old, (3, 4, 3), (1, 3, 3, 1))
-        >>> split, F.masks.up_mask.sum(axis=-1).tolist(), bool(F.is_orthogonal())
+        >>> split, F.masks.down_mask.sum(axis=-1).tolist(), bool(F.is_orthogonal())
         ((2, 2), [3, 4, 3], True)
         """
         frame, split = uniform_padded_frames.ufv_padded_frame(_old_frame_data(x_old, sharing, 'UT3Frame.padded'),
@@ -281,18 +281,18 @@ class UT3Frame(common.ExplicitEquality):
     def minimal_ranks(self):  # (min_tucker (d,)+stack, min_tt (d+1,)+stack) -- host int, per stack element
         """Structural minimal ranks ``(min_tucker_ranks, min_tt_ranks)`` for this frame's shape/ranks,
         **per stack element** (the ranks vary across the stack -- the determinantal variety). Host ints."""
-        return ranks.compute_minimal_ranks(self.shape, self.up_ranks, self.left_ranks)
+        return ranks.compute_minimal_ranks(self.shape, self.down_ranks, self.left_ranks)
 
     @ft.cached_property
     def has_minimal_ranks(self) -> NDArray:  # bool array, shape = stack_shape (per element; uniform ranks vary)
         """True (per stack element) if the frame has structurally minimal ranks: ``left==right``,
         ``up==down``, and up/left equal the minimal ranks for the shape (reduced over the mode axis).
         Non-enforcing; not a correctness precondition (``docs/numerical_contracts.md``)."""
-        up, down = np.asarray(self.up_ranks), np.asarray(self.down_ranks)        # (d,)+stack
+        down, up = np.asarray(self.down_ranks), np.asarray(self.up_ranks)        # (d,)+stack
         left, right = np.asarray(self.left_ranks), np.asarray(self.right_ranks)  # (d+1,)+stack
         mn_tk, mn_tt = self.minimal_ranks
-        return (np.all(left == right, axis=0) & np.all(up == down, axis=0)
-                & np.all(up == np.asarray(mn_tk), axis=0) & np.all(left == np.asarray(mn_tt), axis=0))
+        return (np.all(left == right, axis=0) & np.all(down == up, axis=0)
+                & np.all(down == np.asarray(mn_tk), axis=0) & np.all(left == np.asarray(mn_tt), axis=0))
 
     def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape
         """True (per stack element) if the frame is **numerically** minimal.
@@ -307,8 +307,8 @@ class UT3Frame(common.ExplicitEquality):
         agree: ``||up·left - up·right|| <= rtol * ||up·right||`` (dense Frobenius norm). EXPENSIVE
         (densifies both). Consistent by construction for a frame from :py:func:`ut3_orthogonal_representations`."""
         left_ut3 = ut3.UniformTuckerTensorTrain(
-            self.up_tucker_supercore, self.left_tt_supercore, self.shape,
-            ut3.UT3Masks(self.masks.up_mask, self.masks.frame_left_mask))
+            self.down_tucker_supercore, self.left_tt_supercore, self.shape,
+            ut3.UT3Masks(self.masks.down_mask, self.masks.frame_left_mask))
         right_ut3 = self.to_ut3()
         return (left_ut3 - right_ut3).norm() <= rtol * right_ut3.norm()
 
@@ -339,8 +339,8 @@ class UT3Frame(common.ExplicitEquality):
     def from_t3frame(
             frame: bvf.T3Frame,
             N:  typ.Optional[int] = None,   # padded mode dim   (default max(shape))
-            nU: typ.Optional[int] = None,   # padded up rank    (default max(up_ranks))
-            nD: typ.Optional[int] = None,   # padded down rank  (default max(down_ranks))
+            nD: typ.Optional[int] = None,   # padded up rank    (default max(down_ranks))
+            nU: typ.Optional[int] = None,   # padded down rank  (default max(up_ranks))
             rL: typ.Optional[int] = None,   # padded left rank  (default max(left_ranks))
             rR: typ.Optional[int] = None,   # padded right rank (default max(right_ranks))
     ) -> 'UT3Frame':
@@ -349,9 +349,9 @@ class UT3Frame(common.ExplicitEquality):
         A single ragged frame has ranks shared across its ``C`` stack, so the masks come out **uniform
         across the stack** (varying-rank uniform batches arise only by ``stack``-ing a heterogeneous tree).
         """
-        uc, dc, lc, rc, shape, masks = ufv_conversions.t3frame_to_ut3frame(
-            frame.data, N=N, nU=nU, nD=nD, rL=rL, rR=rR)
-        return UT3Frame(uc, dc, lc, rc, shape, UT3FrameMasks(*masks))
+        c_down, c_up, lc, rc, shape, masks = ufv_conversions.t3frame_to_ut3frame(
+            frame.data, N=N, nD=nD, nU=nU, rL=rL, rR=rR)
+        return UT3Frame(c_down, c_up, lc, rc, shape, UT3FrameMasks(*masks))
 
 
     def corewise_equal(
@@ -387,8 +387,8 @@ class UT3Frame(common.ExplicitEquality):
         the Tucker supercore over the right-orthogonal TT supercore). Uniform analog of ``T3Frame.to_t3``;
         the plain-UT3 tt edge mask is the frame's ``frame_right_mask`` (the right TT ranks)."""
         return ut3.UniformTuckerTensorTrain(
-            self.up_tucker_supercore, self.right_tt_supercore,
-            self.shape, ut3.UT3Masks(self.masks.up_mask, self.masks.frame_right_mask))
+            self.down_tucker_supercore, self.right_tt_supercore,
+            self.shape, ut3.UT3Masks(self.masks.down_mask, self.masks.frame_right_mask))
 
     def to_dense(self) -> NDArray:
         """Dense tensor of the base point this frame represents (``= to_ut3().to_dense()``)."""
@@ -399,8 +399,8 @@ class UT3Frame(common.ExplicitEquality):
         left-orthogonal chain yields a right-orthogonal one -- so the redundant L/R store makes this exact
         with no re-orthogonalization. Commutes with conversion: ``B.reverse().to_t3frame() ==
         B.to_t3frame().reverse()``."""
-        up, down, left, right, shape, masks = ufv_operations.ufv_frame_reverse(self.data)
-        return UT3Frame(up, down, left, right, shape, UT3FrameMasks(*masks))
+        down, up, left, right, shape, masks = ufv_operations.ufv_frame_reverse(self.data)
+        return UT3Frame(down, up, left, right, shape, UT3FrameMasks(*masks))
 
     def orthogonalize(self) -> 'UT3Frame':
         """Orthogonal representation of the base point this frame reconstructs to (``= from_ut3(to_ut3())``).
@@ -425,7 +425,7 @@ class UT3Frame(common.ExplicitEquality):
     @staticmethod
     def random_orthogonal_like(frame: 'UT3Frame') -> 'UT3Frame':
         """A random orthogonal frame with the same shape / ranks / stack as ``frame``."""
-        return UT3Frame.random_orthogonal(frame.shape, frame.up_ranks, frame.left_ranks,
+        return UT3Frame.random_orthogonal(frame.shape, frame.down_ranks, frame.left_ranks,
                                           stack_shape=frame.stack_shape, use_jax=frame.contains_jax)
 
     # ------------------------------------------------------------- save / load
@@ -436,14 +436,14 @@ class UT3Frame(common.ExplicitEquality):
     @staticmethod
     def load(file, use_jax: bool = False) -> 'UT3Frame':
         """Load a frame saved by :py:meth:`save`. Supercores follow ``use_jax``; masks stay host numpy."""
-        up, down, left, right, shape, masks = ufv_operations.ufv_load(file, use_jax=use_jax)
-        return UT3Frame(up, down, left, right, shape, UT3FrameMasks(*masks))
+        down, up, left, right, shape, masks = ufv_operations.ufv_load(file, use_jax=use_jax)
+        return UT3Frame(down, up, left, right, shape, UT3FrameMasks(*masks))
 
     # ------------------------------------------------------------- dtype / copy / repr
     @ft.cached_property
     def supercores(self) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:
         """The four padded supercores ``(up, down, left, right)`` (the data; masks ride separately)."""
-        return (self.up_tucker_supercore, self.down_tt_supercore,
+        return (self.down_tucker_supercore, self.up_tt_supercore,
                 self.left_tt_supercore, self.right_tt_supercore)
 
     @ft.cached_property
@@ -466,8 +466,8 @@ class UT3Frame(common.ExplicitEquality):
 
     def __repr__(self) -> str:
         ss = ', stack_shape=%s' % (self.stack_shape,) if self.stack_shape else ''
-        return ('UT3Frame(shape=%s, N=%d, nU=%d, nD=%d, rL=%d, rR=%d%s)'
-                % (self.shape, self.N, self.nU, self.nD, self.rL, self.rR, ss))
+        return ('UT3Frame(shape=%s, N=%d, nD=%d, nU=%d, rL=%d, rR=%d%s)'
+                % (self.shape, self.N, self.nD, self.nU, self.rL, self.rR, ss))
 
     def validate(self) -> None:
         '''Check rank and shape consistency of a uniform Tucker tensor train frame (`UT3Frame`).
@@ -478,15 +478,15 @@ class UT3Frame(common.ExplicitEquality):
             If the supercores / masks have inconsistent shapes, or `shape` is not a length-d tuple of
             mode dims within the padded N.
         '''
-        up_mask, down_mask, frame_left_mask, frame_right_mask = self.masks.data
+        down_mask, up_mask, frame_left_mask, frame_right_mask = self.masks.data
 
-        UU_good = self.up_tucker_supercore.shape  == (self.d,) + self.stack_shape + (self.nU, self.N)
-        DD_good = self.down_tt_supercore.shape    == (self.d,) + self.stack_shape + (self.rL, self.nD, self.rR)
-        LL_good = self.left_tt_supercore.shape    == (self.d,) + self.stack_shape + (self.rL, self.nU, self.rL)
-        RR_good = self.right_tt_supercore.shape   == (self.d,) + self.stack_shape + (self.rR, self.nU, self.rR)
+        DD_good = self.down_tucker_supercore.shape  == (self.d,) + self.stack_shape + (self.nD, self.N)
+        UU_good = self.up_tt_supercore.shape    == (self.d,) + self.stack_shape + (self.rL, self.nU, self.rR)
+        LL_good = self.left_tt_supercore.shape    == (self.d,) + self.stack_shape + (self.rL, self.nD, self.rL)
+        RR_good = self.right_tt_supercore.shape   == (self.d,) + self.stack_shape + (self.rR, self.nD, self.rR)
 
-        UM_good = up_mask.shape          == (self.d,) + self.stack_shape + (self.nU,)
-        DM_good = down_mask.shape        == (self.d,) + self.stack_shape + (self.nD,)
+        DM_good = down_mask.shape          == (self.d,) + self.stack_shape + (self.nD,)
+        UM_good = up_mask.shape        == (self.d,) + self.stack_shape + (self.nU,)
         LM_good = frame_left_mask.shape  == (self.d + 1,) + self.stack_shape + (self.rL,)
         RM_good = frame_right_mask.shape == (self.d + 1,) + self.stack_shape + (self.rR,)
 
@@ -495,17 +495,17 @@ class UT3Frame(common.ExplicitEquality):
         bad_str = lambda x: ' <-- Bad' if not x else ''
 
         shapes_string = ''
-        shapes_string += 'up_tucker_supercore.shape = ' + str(self.up_tucker_supercore.shape)   + ' =? (d,) + stack_shape + (nU, N)' + bad_str(UU_good) + '\n'
-        shapes_string += 'down_tt_supercore.shape   = ' + str(self.down_tt_supercore.shape)     + ' =? (d,) + stack_shape + (rL, nD, rR)' + bad_str(DD_good) + '\n'
-        shapes_string += 'left_tt_supercore.shape   = ' + str(self.left_tt_supercore.shape)     + ' =? (d,) + stack_shape + (rL, nU, rL)' + bad_str(LL_good) + '\n'
-        shapes_string += 'right_tt_supercore.shape  = ' + str(self.right_tt_supercore.shape)    + ' =? (d,) + stack_shape + (rR, nU, rR)' + bad_str(RR_good) + '\n'
-        shapes_string += 'up_mask.shape             = ' + str(up_mask.shape) + ' =? (d,) + stack_shape + (nU,)' + bad_str(UM_good) + '\n'
-        shapes_string += 'down_mask.shape           = ' + str(down_mask.shape) + ' =? (d,) + stack_shape + (nD,)' + bad_str(DM_good) + '\n'
+        shapes_string += 'down_tucker_supercore.shape = ' + str(self.down_tucker_supercore.shape)   + ' =? (d,) + stack_shape + (nD, N)' + bad_str(DD_good) + '\n'
+        shapes_string += 'up_tt_supercore.shape   = ' + str(self.up_tt_supercore.shape)     + ' =? (d,) + stack_shape + (rL, nU, rR)' + bad_str(UU_good) + '\n'
+        shapes_string += 'left_tt_supercore.shape   = ' + str(self.left_tt_supercore.shape)     + ' =? (d,) + stack_shape + (rL, nD, rL)' + bad_str(LL_good) + '\n'
+        shapes_string += 'right_tt_supercore.shape  = ' + str(self.right_tt_supercore.shape)    + ' =? (d,) + stack_shape + (rR, nD, rR)' + bad_str(RR_good) + '\n'
+        shapes_string += 'down_mask.shape             = ' + str(down_mask.shape) + ' =? (d,) + stack_shape + (nD,)' + bad_str(DM_good) + '\n'
+        shapes_string += 'up_mask.shape           = ' + str(up_mask.shape) + ' =? (d,) + stack_shape + (nU,)' + bad_str(UM_good) + '\n'
         shapes_string += 'frame_left_mask.shape     = ' + str(frame_left_mask.shape) + ' =? (d+1,) + stack_shape + (rL,)' + bad_str(LM_good) + '\n'
         shapes_string += 'frame_right_mask.shape    = ' + str(frame_right_mask.shape) + ' =? (d+1,) + stack_shape + (rR,)' + bad_str(RM_good) + '\n'
         shapes_string += 'shape                     = ' + str(self.shape) + ' =? length-d ints in [0, N]' + bad_str(SH_good)
 
-        if not (UU_good and DD_good and LL_good and RR_good and UM_good and DM_good and LM_good and RM_good and SH_good):
+        if not (DD_good and UU_good and LL_good and RR_good and DM_good and UM_good and LM_good and RM_good and SH_good):
             raise ValueError(
                 'Inconsistent shapes for UT3Frame.\n'
                 + shapes_string
@@ -526,8 +526,8 @@ class UT3Frame(common.ExplicitEquality):
     def stack(xx):  # Array-like tree of UT3Frame
         """Stack an array-like tree of UT3Frame into a single stacked UT3Frame."""
         data_tree = stacking.apply_func_to_leaf_subtrees(xx, lambda b: b.data, None)
-        up, down, left, right, shape, masks = ufv_operations.ufv_stack(data_tree, 4)
-        return UT3Frame(up, down, left, right, shape, UT3FrameMasks(*masks))
+        down, up, left, right, shape, masks = ufv_operations.ufv_stack(data_tree, 4)
+        return UT3Frame(down, up, left, right, shape, UT3FrameMasks(*masks))
 
 
 @dataclass(frozen=True, eq=False)  # eq=False -> the mixin's VALUE-based __hash__/__eq__ stand
@@ -538,23 +538,23 @@ class UT3VariationsMasks(common.ValueHashedMasks):
     identical holder is the same jit cache key. NOTE: the left/right masks are ``(d,)`` here (not
     ``(d+1,)`` as on :py:class:`UT3FrameMasks`) -- a variation occupies one TT slot, not a boundary edge.
     """
-    variations_up_mask:    NDArray  # dtype=bool, (d,)+stack_shape+(nU,)
-    variations_down_mask:  NDArray  # dtype=bool, (d,)+stack_shape+(nD,)
+    variations_down_mask:    NDArray  # dtype=bool, (d,)+stack_shape+(nD,)
+    variations_up_mask:  NDArray  # dtype=bool, (d,)+stack_shape+(nU,)
     variations_left_mask:  NDArray  # dtype=bool, (d,)+stack_shape+(rL,)
     variations_right_mask: NDArray  # dtype=bool, (d,)+stack_shape+(rR,)
 
     def __post_init__(self):
         # Defensive READ-ONLY copies: the value key is cached on this frozen holder, so an aliased
         # writeable caller array mutated in place would leave a stale jit cache key (review H1-5).
-        for _f in ('variations_up_mask', 'variations_down_mask', 'variations_left_mask', 'variations_right_mask'):
+        for _f in ('variations_down_mask', 'variations_up_mask', 'variations_left_mask', 'variations_right_mask'):
             _m = np.array(getattr(self, _f), copy=True)
             _m.setflags(write=False)
             object.__setattr__(self, _f, _m)
 
     @property
     def data(self) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:
-        """``(variations_up_mask, variations_down_mask, variations_left_mask, variations_right_mask)``."""
-        return (self.variations_up_mask, self.variations_down_mask,
+        """``(variations_down_mask, variations_up_mask, variations_left_mask, variations_right_mask)``."""
+        return (self.variations_down_mask, self.variations_up_mask,
                 self.variations_left_mask, self.variations_right_mask)
 
 
@@ -571,23 +571,23 @@ class UT3Variations(common.ExplicitEquality):
     --------
     >>> import numpy as np
     >>> import t3toolbox.uniform_frame_variations_format as ubcf
-    >>> d, N, nU, nD, rL, rR = 3, 6, 4, 5, 3, 2
-    >>> tkv = np.random.randn(d, nD, N)
-    >>> ttv = np.random.randn(d, rL, nU, rR)
+    >>> d, N, nD, nU, rL, rR = 3, 6, 4, 5, 3, 2
+    >>> tkv = np.random.randn(d, nU, N)
+    >>> ttv = np.random.randn(d, rL, nD, rR)
     >>> shape = (4, 5, 6)
-    >>> up    = np.arange(nU) < np.array([[2],[3],[4]])       # (d, nU)
-    >>> down  = np.arange(nD) < np.array([[3],[4],[5]])       # (d, nD)
+    >>> down    = np.arange(nD) < np.array([[2],[3],[4]])       # (d, nD)
+    >>> up  = np.arange(nU) < np.array([[3],[4],[5]])       # (d, nU)
     >>> left  = np.arange(rL) < np.array([[1],[2],[3]])       # (d, rL) -- note d, not d+1
     >>> right = np.arange(rR) < np.array([[1],[2],[2]])       # (d, rR)
-    >>> masks = ubcf.UT3VariationsMasks(up, down, left, right)
+    >>> masks = ubcf.UT3VariationsMasks(down, up, left, right)
     >>> V = ubcf.UT3Variations(tkv, ttv, shape, masks)
     >>> V.uniform_structure
     (3, 6, 4, 5, 3, 2, ())
     >>> V.uniform_variation_shapes
     ((3, 5, 6), (3, 3, 4, 2))
     """
-    tucker_variations: NDArray              # (d,) + stack_shape + (nD, N)
-    tt_variations:     NDArray              # (d,) + stack_shape + (rL, nU, rR)
+    tucker_variations: NDArray              # (d,) + stack_shape + (nU, N)
+    tt_variations:     NDArray              # (d,) + stack_shape + (rL, nD, rR)
     shape:             typ.Tuple[int, ...]  # len=d; (N0,...,N(d-1)) real mode dims, shared across the stack
     masks:             UT3VariationsMasks   # static rank structure (the four edge masks)
 
@@ -600,11 +600,11 @@ class UT3Variations(common.ExplicitEquality):
         return self.tucker_variations.shape[-1]
 
     @ft.cached_property
-    def nU(self) -> int:
+    def nD(self) -> int:
         return self.tt_variations.shape[-2]
 
     @ft.cached_property
-    def nD(self) -> int:
+    def nU(self) -> int:
         return self.tucker_variations.shape[-2]
 
     @ft.cached_property
@@ -623,32 +623,32 @@ class UT3Variations(common.ExplicitEquality):
     def uniform_structure(self) -> typ.Tuple[
         int, # d
         int, # N
-        int, # nU
         int, # nD
+        int, # nU
         int, # rL
         int, # rR
         typ.Tuple[int,...], # stack_shape
     ]:
-        return self.d, self.N, self.nU, self.nD, self.rL, self.rR, self.stack_shape
+        return self.d, self.N, self.nD, self.nU, self.rL, self.rR, self.stack_shape
 
     @ft.cached_property
     def uniform_variation_shapes(self) -> typ.Tuple[
-        typ.Tuple[int,...], # uniform_tucker_variations_shape = (d, nD, N)
-        typ.Tuple[int,...], # uniform_tt_variations_shape = (d, rL, nU, rR)
+        typ.Tuple[int,...], # uniform_tucker_variations_shape = (d, nU, N)
+        typ.Tuple[int,...], # uniform_tt_variations_shape = (d, rL, nD, rR)
     ]: # does not include stack_shape
-        uniform_tucker_variations_shape = (self.d, self.nD, self.N)
-        uniform_tt_variations_shape = (self.d, self.rL, self.nU, self.rR)
+        uniform_tucker_variations_shape = (self.d, self.nU, self.N)
+        uniform_tt_variations_shape = (self.d, self.rL, self.nD, self.rR)
         return uniform_tucker_variations_shape, uniform_tt_variations_shape
 
     # (`shape` is a stored field above.)
 
     @ft.cached_property
-    def up_ranks(self) -> NDArray:
-        return self.masks.variations_up_mask.sum(axis=-1)
-
-    @ft.cached_property
     def down_ranks(self) -> NDArray:
         return self.masks.variations_down_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def up_ranks(self) -> NDArray:
+        return self.masks.variations_up_mask.sum(axis=-1)
 
     @ft.cached_property
     def variation_left_ranks(self) -> NDArray:
@@ -661,14 +661,14 @@ class UT3Variations(common.ExplicitEquality):
     @ft.cached_property
     def structure(self) -> typ.Tuple[
         typ.Tuple[int, ...], # shape
+        NDArray, # down_ranks
         NDArray, # up_ranks
-        NDArray, # down_tt_ranks
         NDArray, # variations_left_ranks
         NDArray, # variations_right_ranks
         typ.Tuple[int,...], # stack_shape
     ]:
         return (
-            self.shape, self.up_ranks, self.down_ranks,
+            self.shape, self.down_ranks, self.up_ranks,
             self.variation_left_ranks, self.variation_right_ranks,
             self.stack_shape,
         )
@@ -700,7 +700,7 @@ class UT3Variations(common.ExplicitEquality):
         atol = 0.0 if atol is None else atol
         use_jax = common.tree_contains_jax(self.supercores + other.supercores)
         xnp, _, _ = common.get_backend(True, use_jax)
-        def sq(pair):   # (tucker (d,)+stack+(nD,N), tt (d,)+stack+(rL,nU,rR)) -> stack
+        def sq(pair):   # (tucker (d,)+stack+(nU,N), tt (d,)+stack+(rL,nD,rR)) -> stack
             tk, tt = pair
             return (xnp.sum(tk * tk, axis=(0, -2, -1)) + xnp.sum(tt * tt, axis=(0, -3, -2, -1)))
         a, b = self.apply_masks().supercores, other.apply_masks().supercores
@@ -728,14 +728,14 @@ class UT3Variations(common.ExplicitEquality):
     def from_t3variations(
             variations: bvf.T3Variations,
             N:  typ.Optional[int] = None,   # padded mode dim   (default max(shape))
-            nU: typ.Optional[int] = None,   # padded up rank    (default max(up_ranks))
-            nD: typ.Optional[int] = None,   # padded down rank  (default max(down_ranks))
+            nD: typ.Optional[int] = None,   # padded up rank    (default max(down_ranks))
+            nU: typ.Optional[int] = None,   # padded down rank  (default max(up_ranks))
             rL: typ.Optional[int] = None,   # padded left rank  (default max(left_ranks))
             rR: typ.Optional[int] = None,   # padded right rank (default max(right_ranks))
     ) -> 'UT3Variations':
         """Pack a ragged :py:class:`~t3toolbox.frame_variations_format.T3Variations` into uniform variations."""
         tkv, ttv, shape, masks = ufv_conversions.t3variations_to_ut3variations(
-            variations.data, N=N, nU=nU, nD=nD, rL=rL, rR=rR)
+            variations.data, N=N, nD=nD, nU=nU, rL=rL, rR=rR)
         return UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*masks))
 
     def to_t3variations(self):  # -> bvf.T3Variations, or a nested tree (shaped like stack_shape) of them if stacked
@@ -774,19 +774,19 @@ class UT3Variations(common.ExplicitEquality):
 
     def __repr__(self) -> str:
         ss = ', stack_shape=%s' % (self.stack_shape,) if self.stack_shape else ''
-        return ('UT3Variations(shape=%s, N=%d, nU=%d, nD=%d, rL=%d, rR=%d%s)'
-                % (self.shape, self.N, self.nU, self.nD, self.rL, self.rR, ss))
+        return ('UT3Variations(shape=%s, N=%d, nD=%d, nU=%d, rL=%d, rR=%d%s)'
+                % (self.shape, self.N, self.nD, self.nU, self.rL, self.rR, ss))
 
     def validate(self) -> None:
         '''Check rank and shape consistency of a uniform Tucker tensor train variations (`UT3Variations`).
         Raises ValueError.'''
-        up_mask, down_mask, left_mask, right_mask = self.masks.data
+        down_mask, up_mask, left_mask, right_mask = self.masks.data
 
-        TK_good = self.tucker_variations.shape  == (self.d,) + self.stack_shape + (self.nD, self.N)
-        TT_good = self.tt_variations.shape      == (self.d,) + self.stack_shape + (self.rL, self.nU, self.rR)
+        TK_good = self.tucker_variations.shape  == (self.d,) + self.stack_shape + (self.nU, self.N)
+        TT_good = self.tt_variations.shape      == (self.d,) + self.stack_shape + (self.rL, self.nD, self.rR)
 
-        UM_good = up_mask.shape    == (self.d,) + self.stack_shape + (self.nU,)
-        DM_good = down_mask.shape  == (self.d,) + self.stack_shape + (self.nD,)
+        DM_good = down_mask.shape    == (self.d,) + self.stack_shape + (self.nD,)
+        UM_good = up_mask.shape  == (self.d,) + self.stack_shape + (self.nU,)
         LM_good = left_mask.shape  == (self.d,) + self.stack_shape + (self.rL,)
         RM_good = right_mask.shape == (self.d,) + self.stack_shape + (self.rR,)
 
@@ -794,15 +794,15 @@ class UT3Variations(common.ExplicitEquality):
 
         bad_str = lambda x: ' <-- Bad' if not x else ''
         shapes_string = ''
-        shapes_string += 'tucker_variations.shape     = ' + str(self.tucker_variations.shape) + ' =? (d,) + stack_shape + (nD, N)'      + bad_str(TK_good) + '\n'
-        shapes_string += 'tt_variations.shape         = ' + str(self.tt_variations.shape)     + ' =? (d,) + stack_shape + (rL, nU, rR)' + bad_str(TT_good) + '\n'
-        shapes_string += 'variations_up_mask.shape    = ' + str(up_mask.shape)    + ' =? (d,) + stack_shape + (nU,)' + bad_str(UM_good) + '\n'
-        shapes_string += 'variations_down_mask.shape  = ' + str(down_mask.shape)  + ' =? (d,) + stack_shape + (nD,)' + bad_str(DM_good) + '\n'
+        shapes_string += 'tucker_variations.shape     = ' + str(self.tucker_variations.shape) + ' =? (d,) + stack_shape + (nU, N)'      + bad_str(TK_good) + '\n'
+        shapes_string += 'tt_variations.shape         = ' + str(self.tt_variations.shape)     + ' =? (d,) + stack_shape + (rL, nD, rR)' + bad_str(TT_good) + '\n'
+        shapes_string += 'variations_down_mask.shape    = ' + str(down_mask.shape)    + ' =? (d,) + stack_shape + (nD,)' + bad_str(DM_good) + '\n'
+        shapes_string += 'variations_up_mask.shape  = ' + str(up_mask.shape)  + ' =? (d,) + stack_shape + (nU,)' + bad_str(UM_good) + '\n'
         shapes_string += 'variations_left_mask.shape  = ' + str(left_mask.shape)  + ' =? (d,) + stack_shape + (rL,)' + bad_str(LM_good) + '\n'
         shapes_string += 'variations_right_mask.shape = ' + str(right_mask.shape) + ' =? (d,) + stack_shape + (rR,)' + bad_str(RM_good) + '\n'
         shapes_string += 'shape                       = ' + str(self.shape) + ' =? length-d ints in [0, N]' + bad_str(SH_good)
 
-        if not (TK_good and TT_good and UM_good and DM_good and LM_good and RM_good and SH_good):
+        if not (TK_good and TT_good and DM_good and UM_good and LM_good and RM_good and SH_good):
             raise ValueError('Inconsistent shapes for UT3Variations.\n' + shapes_string)
 
     def __post_init__(self):
@@ -910,10 +910,10 @@ class UT3Variations(common.ExplicitEquality):
     # ------------------------------------------------------------- constructors (fill complete; masks optional)
     @staticmethod
     def _filled(uniform_variation_shapes, shape, stack_shape, masks, use_jax, fill):
-        (d, nD, N), (_d2, rL, nU, rR) = uniform_variation_shapes
+        (d, nU, N), (_d2, rL, nD, rR) = uniform_variation_shapes
         stack = tuple(stack_shape)
-        tk_shape = (d,) + stack + (nD, N)
-        tt_shape = (d,) + stack + (rL, nU, rR)
+        tk_shape = (d,) + stack + (nU, N)
+        tt_shape = (d,) + stack + (rL, nD, rR)
         if fill == 'randn':
             tkv = common.randn(*tk_shape, use_jax=use_jax)
             ttv = common.randn(*tt_shape, use_jax=use_jax)
@@ -923,13 +923,13 @@ class UT3Variations(common.ExplicitEquality):
                 tkv, ttv = to_jax(tkv), to_jax(ttv)
         if masks is None:  # default: all-True (full rank) -- the user fills the supercores completely
             masks = UT3VariationsMasks(
-                np.ones((d,) + stack + (nU,), dtype=bool), np.ones((d,) + stack + (nD,), dtype=bool),
+                np.ones((d,) + stack + (nD,), dtype=bool), np.ones((d,) + stack + (nU,), dtype=bool),
                 np.ones((d,) + stack + (rL,), dtype=bool), np.ones((d,) + stack + (rR,), dtype=bool))
         return UT3Variations(tkv, ttv, tuple(shape), masks)
 
     @staticmethod
     def zeros(
-            uniform_variation_shapes,                    # ((d, nD, N), (d, rL, nU, rR)) -- the padded supercore dims
+            uniform_variation_shapes,                    # ((d, nU, N), (d, rL, nD, rR)) -- the padded supercore dims
             shape:       typ.Sequence[int],              # (N0,...,N(d-1)) real mode dims
             stack_shape: typ.Tuple[int, ...] = (),
             masks:       typ.Optional['UT3VariationsMasks'] = None,  # None -> all-True (full rank)
@@ -964,17 +964,17 @@ class UT3Variations(common.ExplicitEquality):
         stack). ``index = (use_tt_coordinate, i, within_index)`` selects the family, the mode ``i``, and the
         within-core entry. (For a meaningful unit the entry must land in a real slot -- automatic under the
         all-True default.)"""
-        (d, nD, N), (_d2, rL, nU, rR) = uniform_variation_shapes
+        (d, nU, N), (_d2, rL, nD, rR) = uniform_variation_shapes
         stack = tuple(stack_shape)
         use_tt, i, within = index
-        tkv = np.zeros((d,) + stack + (nD, N))
-        ttv = np.zeros((d,) + stack + (rL, nU, rR))
+        tkv = np.zeros((d,) + stack + (nU, N))
+        ttv = np.zeros((d,) + stack + (rL, nD, rR))
         (ttv if use_tt else tkv)[(i, Ellipsis) + tuple(within)] = 1.0   # i = mode (leading axis); ... = stack
         if use_jax:
             tkv, ttv = to_jax(tkv), to_jax(ttv)
         if masks is None:
             masks = UT3VariationsMasks(
-                np.ones((d,) + stack + (nU,), dtype=bool), np.ones((d,) + stack + (nD,), dtype=bool),
+                np.ones((d,) + stack + (nD,), dtype=bool), np.ones((d,) + stack + (nU,), dtype=bool),
                 np.ones((d,) + stack + (rL,), dtype=bool), np.ones((d,) + stack + (rR,), dtype=bool))
         return UT3Variations(tkv, ttv, tuple(shape), masks)
 
@@ -983,7 +983,7 @@ class UT3Variations(common.ExplicitEquality):
         # x: UT3Frame (gauge-shift its frame masks -> left[:-1], right[1:]) or UT3Variations (its own masks).
         if isinstance(x, UT3Frame):
             bm = x.masks
-            return UT3VariationsMasks(bm.up_mask, bm.down_mask, bm.frame_left_mask[:-1], bm.frame_right_mask[1:])
+            return UT3VariationsMasks(bm.down_mask, bm.up_mask, bm.frame_left_mask[:-1], bm.frame_right_mask[1:])
         return x.masks
 
     @staticmethod
@@ -1010,7 +1010,7 @@ def check_ufv_pair(frame: UT3Frame, variations: UT3Variations) -> None:
     (``C``) stack -- i.e. ``variations.stack_shape == K + frame.stack_shape`` -- because a bundle of
     tangent vectors all live at a single base point (the ``W+K+C`` convention, see
     ``docs/batching_and_stacking.md``). So the check compares the *stack-free* structure
-    ``(d, N, nU, nD, rL, rR)``, requires the frame ``C`` stack to be the trailing suffix of the
+    ``(d, N, nD, nU, rL, rR)``, requires the frame ``C`` stack to be the trailing suffix of the
     variations ``K+C`` stack, and matches the rank masks broadcast over the excess ``K`` (each
     variation mask must be constant along ``K`` and equal the frame's gauge-shifted mask).
 
@@ -1019,21 +1019,21 @@ def check_ufv_pair(frame: UT3Frame, variations: UT3Variations) -> None:
     >>> import numpy as np
     >>> import t3toolbox.uniform_frame_variations_format as ubcf
     >>> stack_shape = ()                                    # unstacked, for a small readable example
-    >>> d, N, nU, nD, rL, rR = 3, 12, 7, 8, 5, 4
-    >>> uc = np.random.randn(*((d,) + stack_shape + (nU, N)))
-    >>> dc = np.random.randn(*((d,) + stack_shape + (rL, nD, rR)))
-    >>> lc = np.random.randn(*((d,) + stack_shape + (rL, nU, rL)))
-    >>> rc = np.random.randn(*((d,) + stack_shape + (rR, nU, rR)))
+    >>> d, N, nD, nU, rL, rR = 3, 12, 7, 8, 5, 4
+    >>> c_down = np.random.randn(*((d,) + stack_shape + (nD, N)))
+    >>> c_up = np.random.randn(*((d,) + stack_shape + (rL, nU, rR)))
+    >>> lc = np.random.randn(*((d,) + stack_shape + (rL, nD, rL)))
+    >>> rc = np.random.randn(*((d,) + stack_shape + (rR, nD, rR)))
     >>> shape = (10, 11, 12)
-    >>> up = np.arange(nU) < np.array([[2],[3],[4]])        # (d, nU)
-    >>> dn = np.arange(nD) < np.array([[3],[4],[5]])        # (d, nD)
+    >>> down = np.arange(nD) < np.array([[2],[3],[4]])        # (d, nD)
+    >>> up = np.arange(nU) < np.array([[3],[4],[5]])        # (d, nU)
     >>> bl = np.arange(rL) < np.array([[1],[2],[3],[1]])    # (d+1, rL) frame left
     >>> br = np.arange(rR) < np.array([[1],[2],[2],[1]])    # (d+1, rR) frame right
-    >>> B = ubcf.UT3Frame(uc, dc, lc, rc, shape, ubcf.UT3FrameMasks(up, dn, bl, br))
-    >>> tkv = np.random.randn(*((d,) + stack_shape + (nD, N)))
-    >>> ttv = np.random.randn(*((d,) + stack_shape + (rL, nU, rR)))
+    >>> B = ubcf.UT3Frame(c_down, c_up, lc, rc, shape, ubcf.UT3FrameMasks(down, up, bl, br))
+    >>> tkv = np.random.randn(*((d,) + stack_shape + (nU, N)))
+    >>> ttv = np.random.randn(*((d,) + stack_shape + (rL, nD, rR)))
     >>> V = ubcf.UT3Variations(tkv, ttv, shape,
-    ...                        ubcf.UT3VariationsMasks(up, dn, bl[:-1], br[1:]))
+    ...                        ubcf.UT3VariationsMasks(down, up, bl[:-1], br[1:]))
     >>> ubcf.check_ufv_pair(B, V)   # consistent frame/variations pair -> no error
 
     A bundle of ``K`` tangent vectors at the SAME frame carries an extra leading stack; the masks must
@@ -1041,12 +1041,12 @@ def check_ufv_pair(frame: UT3Frame, variations: UT3Variations) -> None:
 
     >>> K = (2,)
     >>> bcast = lambda m: np.broadcast_to(m[:, None], (m.shape[0],) + K + m.shape[1:])
-    >>> VK = ubcf.UT3Variations(np.random.randn(*((d,) + K + (nD, N))),
-    ...                         np.random.randn(*((d,) + K + (rL, nU, rR))), shape,
-    ...                         ubcf.UT3VariationsMasks(bcast(up), bcast(dn), bcast(bl[:-1]), bcast(br[1:])))
+    >>> VK = ubcf.UT3Variations(np.random.randn(*((d,) + K + (nU, N))),
+    ...                         np.random.randn(*((d,) + K + (rL, nD, rR))), shape,
+    ...                         ubcf.UT3VariationsMasks(bcast(down), bcast(up), bcast(bl[:-1]), bcast(br[1:])))
     >>> ubcf.check_ufv_pair(B, VK)   # frame (C=()) vs K-stacked variations -> still consistent
     """
-    # Compare the stack-free structure (d, N, nU, nD, rL, rR) -- NOT the full 7-tuple, whose trailing
+    # Compare the stack-free structure (d, N, nD, nU, rL, rR) -- NOT the full 7-tuple, whose trailing
     # stack_shape would wrongly reject a legitimate tangent (K) stack on the variations.
     if frame.uniform_structure[:6] != variations.uniform_structure[:6]:
         raise ValueError(
@@ -1072,8 +1072,8 @@ def check_ufv_pair(frame: UT3Frame, variations: UT3Variations) -> None:
     # host numpy (static aux), so this stays on `np` (see CLAUDE.md: supercores -> xnp, masks -> np).
     bm, vm = frame.masks, variations.masks
     for a, b, name in (
-            (bm.up_mask,              vm.variations_up_mask,    'up'),
-            (bm.down_mask,            vm.variations_down_mask,  'down'),
+            (bm.down_mask,              vm.variations_down_mask,    'down'),
+            (bm.up_mask,            vm.variations_up_mask,  'up'),
             (bm.frame_left_mask[:-1], vm.variations_left_mask,  'left'),
             (bm.frame_right_mask[1:], vm.variations_right_mask, 'right'),
     ):
@@ -1166,9 +1166,9 @@ def ut3_orthogonal_representations(
     # masks); this only wraps the raw frame/variation .data into the OO classes.
     frame_data, variation_data = ufv_conversions.ut3_orthogonal_representations(
         x.data, already_left_orthogonal=already_left_orthogonal, squash_tails=squash_tails)
-    uc, dc, lc, rc, shape, frame_masks = frame_data
+    c_down, c_up, lc, rc, shape, frame_masks = frame_data
     tkv, ttv, _, variation_masks = variation_data
-    return (UT3Frame(uc, dc, lc, rc, shape, UT3FrameMasks(*frame_masks)),
+    return (UT3Frame(c_down, c_up, lc, rc, shape, UT3FrameMasks(*frame_masks)),
             UT3Variations(tkv, ttv, shape, UT3VariationsMasks(*variation_masks)))
 
 
@@ -1187,7 +1187,7 @@ class UT3FrameWeights(common.ExplicitEquality):
     uniform twin of :py:class:`~t3toolbox.frame_variations_format.T3FrameWeights`.
 
     Four families, each ``len=d`` (one per variation core), packed into supercores + a
-    :py:class:`UT3VariationsMasks` holder: ``up`` (on ``H``'s ``nU`` leg), ``down`` (on ``V``'s ``nD``
+    :py:class:`UT3VariationsMasks` holder: ``up`` (on ``H``'s ``nD`` leg), ``down`` (on ``V``'s ``nU``
     leg), ``left`` (``H``'s ``rL``), ``right`` (``H``'s ``rR``). Absorbed into the **variation**
     supercores, leaving the frame orthonormal and untouched -- so it is ``O(ranks)``.
 
@@ -1221,8 +1221,8 @@ class UT3FrameWeights(common.ExplicitEquality):
     >>> print(np.asarray(v.weighted_norm(W)).shape)        # one norm per stacked tangent
     (3, 2)
     """
-    up_weight_supercore:    NDArray             # (d,)+C+(nU,)
-    down_weight_supercore:  NDArray             # (d,)+C+(nD,)
+    down_weight_supercore:    NDArray             # (d,)+C+(nD,)
+    up_weight_supercore:  NDArray             # (d,)+C+(nU,)
     left_weight_supercore:  NDArray             # (d,)+C+(rL,)
     right_weight_supercore: NDArray             # (d,)+C+(rR,)
     masks:                  UT3VariationsMasks  # static rank structure: the four variation edge masks, at C
@@ -1231,7 +1231,7 @@ class UT3FrameWeights(common.ExplicitEquality):
     @ft.cached_property
     def supercores(self) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:
         """``(up, down, left, right)`` weight supercores."""
-        return (self.up_weight_supercore, self.down_weight_supercore,
+        return (self.down_weight_supercore, self.up_weight_supercore,
                 self.left_weight_supercore, self.right_weight_supercore)
 
     @ft.cached_property
@@ -1244,15 +1244,15 @@ class UT3FrameWeights(common.ExplicitEquality):
     # ------------------------------------------------- padded (uniform) structure
     @ft.cached_property
     def d(self) -> int:
-        return self.up_weight_supercore.shape[0]
-
-    @ft.cached_property
-    def nU(self) -> int:
-        return self.up_weight_supercore.shape[-1]
+        return self.down_weight_supercore.shape[0]
 
     @ft.cached_property
     def nD(self) -> int:
         return self.down_weight_supercore.shape[-1]
+
+    @ft.cached_property
+    def nU(self) -> int:
+        return self.up_weight_supercore.shape[-1]
 
     @ft.cached_property
     def rL(self) -> int:
@@ -1265,16 +1265,16 @@ class UT3FrameWeights(common.ExplicitEquality):
     @ft.cached_property
     def stack_shape(self) -> typ.Tuple[int, ...]:
         """The **frame** stack ``C`` (``()`` if unstacked) -- never the variations' ``K + C``."""
-        return self.up_weight_supercore.shape[1:-1]
+        return self.down_weight_supercore.shape[1:-1]
 
     # ------------------------------------------------- original (real) structure
     @ft.cached_property
-    def up_ranks(self) -> NDArray:  # dtype=int, (d,)+C
-        return self.masks.variations_up_mask.sum(axis=-1)
-
-    @ft.cached_property
     def down_ranks(self) -> NDArray:  # dtype=int, (d,)+C
         return self.masks.variations_down_mask.sum(axis=-1)
+
+    @ft.cached_property
+    def up_ranks(self) -> NDArray:  # dtype=int, (d,)+C
+        return self.masks.variations_up_mask.sum(axis=-1)
 
     @ft.cached_property
     def left_ranks(self) -> NDArray:  # dtype=int, (d,)+C
@@ -1287,13 +1287,13 @@ class UT3FrameWeights(common.ExplicitEquality):
     # ----------------------------------------------------------------- validation
     def validate(self) -> None:
         """Structural: the four masks are boolean and match their supercores (same ``(d,)+C+(size,)``)."""
-        for m, name in zip(self.masks.data, ('variations_up_mask', 'variations_down_mask',
+        for m, name in zip(self.masks.data, ('variations_down_mask', 'variations_up_mask',
                                              'variations_left_mask', 'variations_right_mask')):
             if not common.is_boolean_ndarray(m):
                 raise ValueError('UT3FrameWeights: %s must be a boolean array (got %s).'
                                  % (name, getattr(m, 'dtype', type(m))))
         d, ss = self.d, self.stack_shape
-        for sc, m, name in zip(self.supercores, self.masks.data, ('up', 'down', 'left', 'right')):
+        for sc, m, name in zip(self.supercores, self.masks.data, ('down', 'up', 'left', 'right')):
             if tuple(sc.shape) != (d,) + ss + (sc.shape[-1],):
                 raise ValueError('Inconsistent UT3FrameWeights: %s_weight_supercore.shape = %s, expected '
                                  '(d=%d,) + stack_shape=%s + (size,).' % (name, tuple(sc.shape), d, ss))
@@ -1306,8 +1306,8 @@ class UT3FrameWeights(common.ExplicitEquality):
 
     def __repr__(self) -> str:
         ss = ', stack_shape=%s' % (self.stack_shape,) if self.stack_shape else ''
-        return ('UT3FrameWeights(d=%d, nU=%d, nD=%d, rL=%d, rR=%d%s)'
-                % (self.d, self.nU, self.nD, self.rL, self.rR, ss))
+        return ('UT3FrameWeights(d=%d, nD=%d, nU=%d, rL=%d, rR=%d%s)'
+                % (self.d, self.nD, self.nU, self.rL, self.rR, ss))
 
     # ----------------------------------------------------------------- operations
     def is_consistent_with(self, tangent) -> bool:
@@ -1350,8 +1350,8 @@ class UT3FrameWeights(common.ExplicitEquality):
         left bond is TT bond ``i``, its right bond is bond ``i+1``) -- simple but convention-dependent,
         hence a named method.
 
-        The result pairs with a **minimal-rank** tangent (where the complement rank ``nD`` equals the
-        Tucker rank ``nU``, as for ``ut3svd`` output); a non-minimal tangent has ``nD < nU`` and is
+        The result pairs with a **minimal-rank** tangent (where the complement rank ``nU`` equals the
+        Tucker rank ``nD``, as for ``ut3svd`` output); a non-minimal tangent has ``nU < nD`` and is
         rejected by :py:meth:`is_consistent_with` rather than silently absorbed. The Grasedyck-Kramer
         metric is ``UT3FrameWeights.from_ut3weights(UT3Weights.from_ut3svd(x)).reciprocal()``.
         """
@@ -1361,8 +1361,8 @@ class UT3FrameWeights(common.ExplicitEquality):
     @staticmethod
     def from_t3frameweights(
             weights: 'bvf.T3FrameWeights',
-            nU: typ.Optional[int] = None,   # padded up rank    (default max); pass to match the tangent's pad
-            nD: typ.Optional[int] = None,   # padded down rank  (default max)
+            nD: typ.Optional[int] = None,   # padded up rank    (default max); pass to match the tangent's pad
+            nU: typ.Optional[int] = None,   # padded down rank  (default max)
             rL: typ.Optional[int] = None,   # padded left rank  (default max)
             rR: typ.Optional[int] = None,   # padded right rank (default max)
     ) -> 'UT3FrameWeights':
@@ -1372,7 +1372,7 @@ class UT3FrameWeights(common.ExplicitEquality):
         ``frame.uniform_structure``); the defaults pad tightly to the weights' own max ranks.
         """
         return _frame_weights_from_data(
-            ufv_conversions.t3frameweights_to_ut3frameweights(weights.data, nU=nU, nD=nD, rL=rL, rR=rR))
+            ufv_conversions.t3frameweights_to_ut3frameweights(weights.data, nD=nD, nU=nU, rL=rL, rR=rR))
 
     def allclose(
             self,
@@ -1453,7 +1453,7 @@ def check_ufw_pair(
     The uniform twin of :py:func:`~t3toolbox.frame_variations_format.check_fw_pair`, and the weight
     analog of :py:func:`check_ufv_pair`. The stack must equal ``frame.stack_shape`` **exactly** (not
     merely be a trailing part of it, as when pairing with variations alone), and the four families must
-    match the frame's variation holes -- ``up`` <-> ``nU``, ``down`` <-> ``nD``, ``left`` <-> ``rL``,
+    match the frame's variation holes -- ``up`` <-> ``nD``, ``down`` <-> ``nU``, ``left`` <-> ``rL``,
     ``right`` <-> ``rR`` -- in both padded width and **rank mask**.
 
     Two things uniform must check that ragged gets for free:
@@ -1477,10 +1477,10 @@ def check_ufw_pair(
             + str(weights.stack_shape) + ' = weights.stack_shape != '
             + str(frame.stack_shape) + ' = frame.stack_shape')
 
-    frame_masks = (frame.masks.up_mask, frame.masks.down_mask,
+    frame_masks = (frame.masks.down_mask, frame.masks.up_mask,
                    frame.masks.frame_left_mask[:-1], frame.masks.frame_right_mask[1:])
-    sizes = (frame.nU, frame.nD, frame.rL, frame.rR)
-    names = ('up', 'down', 'left', 'right')
+    sizes = (frame.nD, frame.nU, frame.rL, frame.rR)
+    names = ('down', 'up', 'left', 'right')
     for name, supercore, weight_mask, frame_mask, size in zip(
             names, weights.supercores, weights.masks.data, frame_masks, sizes):
         if supercore.shape[-1] != size:
@@ -1522,7 +1522,7 @@ if common.jax_available:
     import jax
     jax.tree_util.register_pytree_node(
         UT3Frame,
-        lambda x: ((x.up_tucker_supercore, x.down_tt_supercore,
+        lambda x: ((x.down_tucker_supercore, x.up_tt_supercore,
                     x.left_tt_supercore, x.right_tt_supercore),
                    (x.shape, x.masks)),
         lambda aux, children: UT3Frame(children[0], children[1], children[2], children[3],
@@ -1552,8 +1552,8 @@ def _frame_of(
         frame_data:  typ.Tuple,   # uniform frame .data (any mask pattern)
 ) -> 'UT3Frame':
     """A uniform frame object from its data."""
-    U, O, L, R, shape, masks = frame_data
-    return UT3Frame(U, O, L, R, tuple(shape), UT3FrameMasks(*masks))
+    D, U, L, R, shape, masks = frame_data
+    return UT3Frame(D, U, L, R, tuple(shape), UT3FrameMasks(*masks))
 
 
 def _old_frame_data(

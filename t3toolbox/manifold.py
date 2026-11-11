@@ -199,7 +199,7 @@ class T3Tangent(common.ExplicitEquality):
         >>> F = bvf.T3Frame.padded(x_old, (3, 4, 3), (1, 3, 3, 1))
         >>> v = t3m.MANIFOLD.project_ambient(F, t3.TuckerTensorTrain.randn((5, 6, 5), (5, 6, 5), (1, 5, 5, 1)))
         >>> F1, movement = v.align_padded((2, 2, 2), (1, 2, 2, 1))
-        >>> F1.up_ranks, bool(F1.is_orthogonal()), float(movement) > 0
+        >>> F1.down_ranks, bool(F1.is_orthogonal()), float(movement) > 0
         ((3, 4, 3), True, True)
         """
         frame, movement = padded_frames.tv_align_padded_frame(
@@ -208,7 +208,7 @@ class T3Tangent(common.ExplicitEquality):
         return bvf.T3Frame(*frame), movement
 
     def __repr__(self) -> str:
-        return (f"T3Tangent(shape={self.shape}, tucker_ranks={self.frame.up_ranks}, "
+        return (f"T3Tangent(shape={self.shape}, tucker_ranks={self.frame.down_ranks}, "
                 f"tt_ranks={self.frame.left_ranks}, tangent_stack={self.tangent_stack_shape}, "
                 f"frame_stack={self.frame_stack_shape})")
 
@@ -599,7 +599,7 @@ class T3Tangent(common.ExplicitEquality):
         tangent-space dimension whether or not the frame's stored ranks are minimal -- excess rank adds
         no tangent directions. See :py:func:`manifold_dim`.
         """
-        return manifold_dim((self.shape, self.frame.up_ranks, self.frame.left_ranks))
+        return manifold_dim((self.shape, self.frame.down_ranks, self.frame.left_ranks))
 
     @ft.cached_property
     def has_minimal_ranks(self) -> bool:
@@ -813,18 +813,18 @@ class T3Tangent(common.ExplicitEquality):
 
         >>> kept   = t3m.T3Tangent.probe_transpose(z, ww, frame)                        # W stays a stack
         >>> summed = t3m.T3Tangent.probe_transpose(z, ww, frame, sum_over_probes=True)   # W summed
-        >>> dU_sum = tuple(np.sum(c, axis=0) for c in kept.variations.tucker_variations)  # sum the W axis
+        >>> V_sum = tuple(np.sum(c, axis=0) for c in kept.variations.tucker_variations)  # sum the W axis
         >>> err = max(float(np.linalg.norm(a - b))
-        ...           for a, b in zip(dU_sum, summed.variations.tucker_variations))
+        ...           for a, b in zip(V_sum, summed.variations.tucker_variations))
         >>> print(bool(err < 1e-9))
         True
         """
         # probing's frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
-        dU_tildes, dG_tildes = probing.tv_probe_transpose(
+        V_tildes, H_tildes = probing.tv_probe_transpose(
             ztildes, ww, frame.data, sum_over_probes=sum_over_probes,
         )
-        return T3Tangent(frame, bvf.T3Variations(dU_tildes, dG_tildes))
+        return T3Tangent(frame, bvf.T3Variations(V_tildes, H_tildes))
 
     def apply(
             self,
@@ -934,8 +934,8 @@ class T3Tangent(common.ExplicitEquality):
         True
         """
         # frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
-        dU, dG = apply.tv_apply_transpose(c, ww, frame.data, sum_over_probes=sum_over_probes)
-        return T3Tangent(frame, bvf.T3Variations(dU, dG))
+        V, H = apply.tv_apply_transpose(c, ww, frame.data, sum_over_probes=sum_over_probes)
+        return T3Tangent(frame, bvf.T3Variations(V, H))
 
     @staticmethod
     def entries_transpose(
@@ -955,8 +955,8 @@ class T3Tangent(common.ExplicitEquality):
         entries
         apply_transpose
         """
-        dU, dG = entries.tv_entries_transpose(c, index, frame.data, sum_over_probes=sum_over_probes)
-        return T3Tangent(frame, bvf.T3Variations(dU, dG))
+        V, H = entries.tv_entries_transpose(c, index, frame.data, sum_over_probes=sum_over_probes)
+        return T3Tangent(frame, bvf.T3Variations(V, H))
 
     ###############################################
     ##########    Symmetric derivatives    ########
@@ -1130,9 +1130,9 @@ class T3Tangent(common.ExplicitEquality):
         True
         """
         sampling_derivatives.check_perturbation_vectors(ww, pp)
-        dU, dG = sampling_derivatives.tv_probe_derivatives_transpose(
+        V, H = sampling_derivatives.tv_probe_derivatives_transpose(
             ztildes, ww, pp, frame.data, order, sum_over_probes=sum_over_probes, chunk_size=chunk_size)
-        return T3Tangent(frame, bvf.T3Variations(dU, dG))
+        return T3Tangent(frame, bvf.T3Variations(V, H))
 
     @staticmethod
     def apply_derivatives_transpose(
@@ -1154,9 +1154,9 @@ class T3Tangent(common.ExplicitEquality):
         apply_transpose
         """
         sampling_derivatives.check_perturbation_vectors(ww, pp)
-        dU, dG = sampling_derivatives.tv_apply_derivatives_transpose(
+        V, H = sampling_derivatives.tv_apply_derivatives_transpose(
             c, ww, pp, frame.data, order, sum_over_probes=sum_over_probes)
-        return T3Tangent(frame, bvf.T3Variations(dU, dG))
+        return T3Tangent(frame, bvf.T3Variations(V, H))
 
     @staticmethod
     def entries_derivatives_transpose(
@@ -1179,9 +1179,9 @@ class T3Tangent(common.ExplicitEquality):
         apply_derivatives_transpose
         """
         sampling_derivatives.check_perturbation_index(index, pp, frame.shape)
-        dU, dG = sampling_derivatives.tv_entries_derivatives_transpose(
+        V, H = sampling_derivatives.tv_entries_derivatives_transpose(
             c, index, pp, frame.data, order, sum_over_probes=sum_over_probes)
-        return T3Tangent(frame, bvf.T3Variations(dU, dG))
+        return T3Tangent(frame, bvf.T3Variations(V, H))
 
     ############################################
     ##########    Stacking    ##################
@@ -1566,9 +1566,9 @@ class CorewiseGeometry:
     >>> print(v.is_gauged())
     False
     >>> y = t3m.COREWISE.retract(v)            # additive: cores += v (a multilinear curve on M)
-    >>> U, G = x.data
-    >>> dU, dG = v.variations.tucker_variations, v.variations.tt_variations
-    >>> ref = t3.TuckerTensorTrain(tuple(u + du for u, du in zip(U, dU)),
+    >>> B, G = x.data
+    >>> dB, dG = v.variations.tucker_variations, v.variations.tt_variations
+    >>> ref = t3.TuckerTensorTrain(tuple(b + db for b, db in zip(B, dB)),
     ...                            tuple(g + dg for g, dg in zip(G, dG)))
     >>> print(bool(np.allclose(y.to_dense(), ref.to_dense())))
     True
@@ -1635,19 +1635,19 @@ class CorewiseGeometry:
         and adds the variations. ``p`` must be a corewise tangent (a frame from :py:meth:`frame`).
 
         A MANIFOLD-frame tangent is rejected whenever that is structurally detectable (its down/left
-        slots hold different cores, e.g. a slack frame with ``nD != nU`` -- review H3-8); when the
+        slots hold different cores, e.g. a slack frame with ``nU != nD`` -- review H3-8); when the
         manifold frame happens to have identically-shaped slots the two frame kinds are structurally
         indistinguishable, and pairing each geometry with its own frames is the caller's contract.
         """
-        down_shapes = tuple(np.shape(c) for c in p.frame.down_tt_cores)
+        up_shapes = tuple(np.shape(c) for c in p.frame.up_tt_cores)
         left_shapes = tuple(np.shape(c) for c in p.frame.left_tt_cores)
-        if down_shapes != left_shapes:
+        if up_shapes != left_shapes:
             raise ValueError(
                 'COREWISE.retract needs a tangent at a COREWISE frame (COREWISE.frame(x) / .randn), '
                 'whose down/left/right slots hold the SAME cores (U, G, G, G); this tangent lives at a '
                 'MANIFOLD frame (down core shapes %s vs left core shapes %s) -- use MANIFOLD.retract.'
-                % (down_shapes, left_shapes))
-        x_data = (p.frame.up_tucker_cores, p.frame.left_tt_cores)  # (U, G) from the (U, G, G, G) frame
+                % (up_shapes, left_shapes))
+        x_data = (p.frame.down_tucker_cores, p.frame.left_tt_cores)  # (U, G) from the (U, G, G, G) frame
         new = cw.corewise_add(x_data, p.variations.data)
         return t3.TuckerTensorTrain(*new)
 

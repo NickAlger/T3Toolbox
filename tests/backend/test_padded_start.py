@@ -274,7 +274,7 @@ class TestFrameStructure(unittest.TestCase):
         setup, _, _, _ = fit_case('ragged')
         problem, x = setup.problem, setup.x0_cores
         F = problem.geom.frame(x)
-        for k, store in enumerate(('up', 'down', 'left', 'right')):
+        for k, store in enumerate(('down', 'up', 'left', 'right')):
             with self.subTest(store=store):
                 bad = list(F)
                 cores = list(bad[k])
@@ -287,24 +287,24 @@ class TestFrameStructure(unittest.TestCase):
         setup, old, _, _ = fit_case('uniform')
         problem, x = setup.problem, setup.x0_cores
         F = problem.geom.frame(x)
-        U, O, L, R, shape, masks = F
-        for k, store in enumerate(('up', 'down', 'left', 'right')):
+        D, U, L, R, shape, masks = F
+        for k, store in enumerate(('down', 'up', 'left', 'right')):
             with self.subTest(family=store):
                 m = [np.array(a) for a in masks]
                 i = 1                                                          # an interior mode / bond
                 m[k][i][..., -1] = ~m[k][i][..., -1]
                 with self.assertRaisesRegex(ValueError, 'its %s masks differ' % store):
-                    problem.local_model(x, frame=(U, O, L, R, shape, tuple(m)))
+                    problem.local_model(x, frame=(D, U, L, R, shape, tuple(m)))
         for k, (store, bond) in enumerate((('left', -1), ('right', 0))):
             with self.subTest(boundary=store):
                 m = [np.array(a) for a in masks]
                 m[2 + k][bond][..., -1] = True                                 # a second real slot on the boundary
                 with self.assertRaisesRegex(ValueError, 'its %s boundary bond mask' % store):
-                    problem.local_model(x, frame=(U, O, L, R, shape, tuple(m)))
+                    problem.local_model(x, frame=(D, U, L, R, shape, tuple(m)))
         with self.subTest(part='shape'), self.assertRaisesRegex(ValueError, 'shape'):
-            problem.local_model(x, frame=(U, O, L, R, tuple(shape[:-1]) + (shape[-1] - 1,), masks))
+            problem.local_model(x, frame=(D, U, L, R, tuple(shape[:-1]) + (shape[-1] - 1,), masks))
         with self.subTest(part='a padded width'), self.assertRaisesRegex(ValueError, 'supercore widths'):
-            problem.local_model(x, frame=(U, np.concatenate([O, O[..., :1, :]], axis=-2), L, R, shape, masks))
+            problem.local_model(x, frame=(D, np.concatenate([U, U[..., :1, :]], axis=-2), L, R, shape, masks))
 
     def test_a_geometry_without_the_member(self):
         setup = topt.least_squares_problem(t3m.COREWISE, 'probe', *fit_case('ragged')[0].problem.sample[:0] or (
@@ -475,10 +475,10 @@ class TestSeamNumerics(unittest.TestCase):
         ragged_problem = fit_case('ragged', shape=shape, sharing=sharing, M=60)[0].problem   # the same fit
         residual = [a - b for a, b in zip(x0.probe(ragged_problem.sample), ragged_problem.data)]
         G = dense_probe_gradient(ragged_problem.sample, residual)
-        startD = oracles.dense_frames(start)
-        D, move = oracles.dense_pass(oracles.dense_frames(old_frame), startD,
-                                     dense_tied_project(startD, G, groups, x0.to_dense()), stores, 'ULRO', groups)
-        self.assertLessEqual(max(oracles.distances(oracles.dense_frames(ragged_view(layer, F)), D).values()), 1e-9)
+        start_dense = oracles.dense_frames(start)
+        dense, move = oracles.dense_pass(oracles.dense_frames(old_frame), start_dense,
+                                     dense_tied_project(start_dense, G, groups, x0.to_dense()), stores, 'ULRO', groups)
+        self.assertLessEqual(max(oracles.distances(oracles.dense_frames(ragged_view(layer, F)), dense).values()), 1e-9)
         self.assertLessEqual(abs(bopt._movement_record(movements)[0] - move), 1e-9)
 
     def test_shared_one_pass(self):
@@ -499,7 +499,7 @@ class TestSeamNumerics(unittest.TestCase):
                                              (ww, pp), data)
         x = t3.TuckerTensorTrain.randn(shape, *rk).data
         Q = [np.linalg.qr(np.random.randn(n, n))[0] for n in rk[0]]
-        x_rot = (tuple(q.T @ U for q, U in zip(Q, x[0])), tuple(np.einsum('anb,nm->amb', G, q) for G, q in zip(x[1], Q)))
+        x_rot = (tuple(q.T @ B for q, B in zip(Q, x[0])), tuple(np.einsum('anb,nm->amb', G, q) for G, q in zip(x[1], Q)))
         F = problem.geom.frame(x_rot)
         default, rotated = problem.local_model(x, hessian='exact'), problem.local_model(x, frame=F, hessian='exact')
         import t3toolbox.backend.tv_operations as tvo
@@ -563,19 +563,19 @@ def dense_probe_gradient(ww, residual):
     return G
 
 
-def dense_tied_project(D, S, groups, X):
+def dense_tied_project(dense, S, groups, X):
     """The orthogonal projection of the dense S onto the TIED tangent space at the dense frames D of the point X: the
     TT directions as they are, and per group one shared Tucker variation dU moving every member's factor,
     sum_(i in g) Y_i x_i dU with Y_i = X x_i U_i^T (the untied down-frame Tucker columns are replaced)."""
     import math
-    U, phi, psi, E = D
+    D, phi, psi, U = dense
     N = S.shape
     d = len(N)
     cols, tucker = [], {}
     for i in range(d):
         nx, ny = math.prod(N[:i]), math.prod(N[i + 1:])
-        cols.append(np.einsum('xa,in,yb->xiyanb', phi[i], U[i], psi[i + 1]).reshape(math.prod(N), -1))
-        Y = np.einsum('xiy,in->xny', X.reshape(nx, N[i], ny), U[i])
+        cols.append(np.einsum('xa,in,yb->xiyanb', phi[i], D[i], psi[i + 1]).reshape(math.prod(N), -1))
+        Y = np.einsum('xiy,in->xny', X.reshape(nx, N[i], ny), D[i])
         tucker[i] = np.einsum('ij,xny->xiyjn', np.eye(N[i]), Y).reshape(math.prod(N), -1)
     for group in groups:
         cols.append(sum(tucker[i] for i in group))

@@ -295,15 +295,15 @@ class TestBackendOptimizers(unittest.TestCase):
         for name, (kind, sample, data) in cases.items():
             with self.subTest(kind=name):
                 prob = opt.least_squares_problem(bgeo.CorewiseGeometryOps(), kind, sample, data)
-                gU, gG = prob.local_model(X0.data).gradient
-                dU = [rng.standard_normal(u.shape) for u in X0.tucker_cores]
+                gB, gG = prob.local_model(X0.data).gradient
+                dB_dir = [rng.standard_normal(b.shape) for b in X0.tucker_cores]
                 dG = [rng.standard_normal(g.shape) for g in X0.tt_cores]
-                inner = (sum(float(np.sum(np.asarray(gU[i]) * dU[i])) for i in range(len(dU)))
+                inner = (sum(float(np.sum(np.asarray(gB[i]) * dB_dir[i])) for i in range(len(dB_dir)))
                          + sum(float(np.sum(np.asarray(gG[i]) * dG[i])) for i in range(len(dG))))
                 eps = 1e-6
-                plus = (tuple(u + eps * du for u, du in zip(X0.tucker_cores, dU)),
+                plus = (tuple(b + eps * db for b, db in zip(X0.tucker_cores, dB_dir)),
                         tuple(g + eps * dg for g, dg in zip(X0.tt_cores, dG)))
-                minus = (tuple(u - eps * du for u, du in zip(X0.tucker_cores, dU)),
+                minus = (tuple(b - eps * db for b, db in zip(X0.tucker_cores, dB_dir)),
                          tuple(g - eps * dg for g, dg in zip(X0.tt_cores, dG)))
                 fd = (float(prob.objective(plus)) - float(prob.objective(minus))) / (2 * eps)
                 self.assertLess(abs(inner - fd) / max(abs(fd), 1e-30), 1e-5)

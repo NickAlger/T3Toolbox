@@ -77,7 +77,7 @@ Semantics:
 ### A fixed `chunk_size` bounds the chunk *count*, not the bytes
 
 Peak memory is `chunk_size · (per-row bytes)`, and the per-row bytes grow like `K·r²` (TT
-gradient) or `(order+1)·nU·N` (Tucker gradient, the term that dominates when the ambient dimension
+gradient) or `(order+1)·nD·N` (Tucker gradient, the term that dominates when the ambient dimension
 `N ≫ n`). So a single fixed default is only "safe for moderate problems": comfortable at `r = 128`,
 but heavier at large ranks or large `N`. To actually **bound the memory**, choose `chunk_size` from the
 problem shapes (next section).
@@ -123,7 +123,7 @@ True
 
 ```
 
-It sizes the **larger** of the TT-core (`r²` legs) and Tucker (`nO`, `N` legs) gradients, so it stays
+It sizes the **larger** of the TT-core (`r²` legs) and Tucker (`nU`, `N` legs) gradients, so it stays
 safe when `N ≫ n`; and when the whole assembly already fits the balance — the usual case for a single
 tangent, as here — it returns `chunk_size = |W|` (the transpose then runs dense, no chunking overhead).
 Pass `hessian='exact'` (the solver's mode vocabulary; the default is `'gauss_newton'`) to size the chunk so

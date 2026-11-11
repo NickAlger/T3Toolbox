@@ -621,13 +621,13 @@ def compute_orthogonal_representation_ranks(
         use_jax: bool = False,
 ) -> typ.Tuple[
     typ.Union[
-        typ.Tuple[int,...],  # (nU0,...,nU(d-1))
+        typ.Tuple[int,...],  # (nD0,...,nD(d-1))
         NDArray,  # dtype=int, shape=(d,) + stack_shape
-    ], # up_tucker_ranks
+    ], # down_ranks
     typ.Union[
-        typ.Tuple[int, ...],  # (nD0',...,nD(d-1)')
+        typ.Tuple[int, ...],  # (nU0',...,nU(d-1)')
         NDArray,  # dtype=int, shape=(d,) + stack_shape
-    ],  # down_tucker_ranks
+    ],  # up_ranks
     typ.Union[
         typ.Tuple[int,...],  # (rL0',...,rLd')
         NDArray,  # dtype=int, shape=(d+1,) + stack_shape
@@ -660,22 +660,22 @@ def compute_orthogonal_representation_ranks(
         raise ValueError('len(tt_ranks) = %d != d + 1 = %d' % (len(tt_ranks_arr), d + 1))
     stack_shape = tt_ranks_arr.shape[1:]
     one = np.ones(stack_shape, dtype=int)
-    up = [np.minimum(tucker_ranks_arr[i], shape[i]) * one for i in range(d)]
+    down = [np.minimum(tucker_ranks_arr[i], shape[i]) * one for i in range(d)]
     left = [tt_ranks_arr[i] * one for i in range(d + 1)]
     left[0] = one
     for i in range(d - 1):                                   # left sweep on the ORIGINAL bonds
-        left[i + 1] = np.minimum(left[i] * up[i], tt_ranks_arr[i + 1])
+        left[i + 1] = np.minimum(left[i] * down[i], tt_ranks_arr[i + 1])
     left[d] = one
     right = list(left)                                       # right sweep over the LEFT-orthogonal chain
     right[d] = one
     for i in range(d - 1, 0, -1):
-        right[i] = np.minimum(left[i], up[i] * right[i + 1])
+        right[i] = np.minimum(left[i], down[i] * right[i + 1])
     right[0] = one
-    down = [np.minimum(up[i], left[i] * right[i + 1]) for i in range(d)]
+    up = [np.minimum(down[i], left[i] * right[i + 1]) for i in range(d)]
     if isinstance(tucker_ranks, typ.Sequence):
-        return (tuple(int(n) for n in up), tuple(int(n) for n in down),
+        return (tuple(int(n) for n in down), tuple(int(n) for n in up),
                 tuple(int(r) for r in left), tuple(int(r) for r in right))
-    return np.stack(up), np.stack(down), np.stack(left), np.stack(right)
+    return np.stack(down), np.stack(up), np.stack(left), np.stack(right)
 
 def compute_manifold_dim(
         shape:          typ.Sequence[int],  # (N0, ..., N(d-1))
@@ -728,8 +728,8 @@ def compute_manifold_dim(
 
 def frame_has_minimal_ranks(
         shape:          typ.Sequence[int],
-        up_ranks:       typ.Sequence[int],
-        down_ranks:     typ.Sequence[int],
+        down_ranks:       typ.Sequence[int],
+        up_ranks:     typ.Sequence[int],
         left_ranks:     typ.Sequence[int],
         right_ranks:    typ.Sequence[int],
 
@@ -747,13 +747,13 @@ def frame_has_minimal_ranks(
     '''
     if tuple(left_ranks) != tuple(right_ranks):
         return False
-    if tuple(up_ranks) != tuple(down_ranks):
+    if tuple(down_ranks) != tuple(up_ranks):
         return False
     if sharing is not None:
         for group in sharing_module.validate_sharing(sharing, shape):
-            if len(set(int(up_ranks[jj]) for jj in group)) > 1:   # untied ranks: not shared-minimal
+            if len(set(int(down_ranks[jj]) for jj in group)) > 1:   # untied ranks: not shared-minimal
                 return False
-    min_tucker_ranks, min_tt_ranks = compute_minimal_ranks(shape, up_ranks, left_ranks,
+    min_tucker_ranks, min_tt_ranks = compute_minimal_ranks(shape, down_ranks, left_ranks,
                                                            sharing=sharing)
-    return (tuple(int(n) for n in min_tucker_ranks) == tuple(int(n) for n in up_ranks)
+    return (tuple(int(n) for n in min_tucker_ranks) == tuple(int(n) for n in down_ranks)
             and tuple(int(r) for r in min_tt_ranks) == tuple(int(r) for r in left_ranks))

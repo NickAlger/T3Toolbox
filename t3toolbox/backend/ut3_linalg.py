@@ -407,14 +407,14 @@ def ut3_inner_product_corewise_hessian_from_sweep(
     ...     [ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain(*x), N=7, n=4, r=4) for x in xs]).data
     >>> Z, TH, D = pack(zs), pack(thetas), pack(dirs)
     >>> sweep = ut3la.ut3_precompute_inner_product_sweep(Z, TH)
-    >>> KU, KG = ut3la.ut3_inner_product_corewise_hessian_from_sweep(Z, TH, D[:2], sweep)
-    >>> KU.shape, KG.shape                                        # (d,)+C+(n, N), (d,)+C+(r, n, r)
+    >>> KB, KG = ut3la.ut3_inner_product_corewise_hessian_from_sweep(Z, TH, D[:2], sweep)
+    >>> KB.shape, KG.shape                                        # (d,)+C+(n, N), (d,)+C+(r, n, r)
     ((3, 2, 4, 7), (3, 2, 4, 4, 4))
     >>> ok = []
     >>> for c in range(2):
     ...     ref = t3la.t3_inner_product_corewise_hessian(zs[c], thetas[c], dirs[c])
     ...     ok += [np.allclose(KG[i, c][:G.shape[0], :G.shape[1], :G.shape[2]], G) for i, G in enumerate(ref[1])]
-    ...     ok += [np.allclose(KU[i, c][:U.shape[0], :U.shape[1]], U) for i, U in enumerate(ref[0])]
+    ...     ok += [np.allclose(KB[i, c][:B.shape[0], :B.shape[1]], B) for i, B in enumerate(ref[0])]
     >>> all(ok), float(np.abs(KG[0, 0, 1:]).max())                # real blocks; a padded boundary slot
     (True, 0.0)
     """

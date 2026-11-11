@@ -65,7 +65,7 @@ is"). Use it to understand the math, not to decide what the library should do.
 
 The math is in *Alger, Christierson, Chen & Ghattas (2026), "Tucker Tensor Train Taylor Series"
 (arXiv:2603.21141)* — "T4S". **Appendix A** is the reference for the manifold/tangent code.
-Notation map (paper ↔ code): `U`=up_tucker, `P`=left_tt, `Q`=right_tt, `O`=down_tt (outer);
+Notation map (paper ↔ code): `U`=down_tucker, `P`=left_tt, `Q`=right_tt, `O`=up_tt (outer);
 `δU`=tucker_variations (V), `δG`=tt_variations (H). The code matches the appendix; the one known
 divergence is the **Algorithm-11 orthogonalization sweep order** (code does left-then-right; the
 paper does right-then-left) — the resulting orthogonal representations are equivalent. When code
@@ -211,7 +211,7 @@ exemplar; `apply`/`entries` are the general-purpose all-modes special cases.
 **Two gotchas:**
 - **Canonical core-tuple orderings (frontend takes precedence).** `TuckerTensorTrain.data =
   (tucker_cores, tt_cores)`; `T3Frame.data = (up, down, left, right) = (U, O, P, Q)` (the `O`/down core
-  is called **`down_tt_cores`**, not "outer"); `T3Variations.data = (tucker_variations, tt_variations)`;
+  is called **`up_tt_cores`**, not "outer"); `T3Variations.data = (tucker_variations, tt_variations)`;
   `(frame, variations)` pairs are frame-first. All verified backends (`tv_operations`,
   `fv_conversions` (incl. `t3_orthogonal_representations`), **and the sampling modules
   `probing`/`apply`/`entries`**) take these tuples in this

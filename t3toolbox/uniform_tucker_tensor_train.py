@@ -563,11 +563,11 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (5, 6, 4), (1, 2, 3, 1)))
         >>> ww = [np.random.randn(2, N) for N in (10, 11, 12)]     # apply stack W=(2,)
         >>> c = np.random.randn(2)                                 # residual, shape=W
-        >>> gU, gG = x.apply_corewise_transpose(c, ww, sum_over_probes=True)
-        >>> print(gU.shape == x.tucker_supercore.shape, gG.shape == x.tt_supercore.shape)   # sum W -> core shapes
+        >>> gB, gG = x.apply_corewise_transpose(c, ww, sum_over_probes=True)
+        >>> print(gB.shape == x.tucker_supercore.shape, gG.shape == x.tt_supercore.shape)   # sum W -> core shapes
         True True
-        >>> kU, kG = x.apply_corewise_transpose(c, ww, sum_over_probes=False)
-        >>> print(kU.shape, kG.shape)                              # keep W: a leading (2,) grad stack
+        >>> kB, kG = x.apply_corewise_transpose(c, ww, sum_over_probes=False)
+        >>> print(kB.shape, kG.shape)                              # keep W: a leading (2,) grad stack
         (3, 2, 6, 12) (3, 2, 3, 6, 3)
         """
         return ut3_sampling.ut3_apply_corewise_transpose(c, ww, self.data, sum_over_probes=sum_over_probes)
@@ -628,8 +628,8 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         >>> ww = [np.random.randn(2, N) for N in (10, 11, 12)]     # apply stack W=(2,)
         >>> pp = [np.random.randn(2, N) for N in (10, 11, 12)]
         >>> c = np.random.randn(3, 2)                              # residual jet, (order+1,)+W = (3, 2)
-        >>> gU, gG = x.apply_corewise_derivatives_transpose(c, ww, pp, 2, sum_over_probes=True)
-        >>> print(gU.shape == x.tucker_supercore.shape, gG.shape == x.tt_supercore.shape)
+        >>> gB, gG = x.apply_corewise_derivatives_transpose(c, ww, pp, 2, sum_over_probes=True)
+        >>> print(gB.shape == x.tucker_supercore.shape, gG.shape == x.tt_supercore.shape)
         True True
         """
         sampling_derivatives.check_perturbation_vectors(ww, pp)

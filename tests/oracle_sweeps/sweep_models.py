@@ -46,11 +46,11 @@ def build_point(d, shared, seed):
     x = t3.TuckerTensorTrain(tuple(rng.standard_normal(c.shape) for c in x.data[0]),
                              tuple(rng.standard_normal(c.shape) for c in x.data[1]))
     if shared:
-        U = list(x.data[0])
+        B = list(x.data[0])
         for i in range(1, d):
             if sharing[i] == sharing[0]:
-                U[i] = U[0]
-        x = t3.TuckerTensorTrain(tuple(U), x.data[1])
+                B[i] = B[0]
+        x = t3.TuckerTensorTrain(tuple(B), x.data[1])
     return x, (sharing if shared else None)
 
 

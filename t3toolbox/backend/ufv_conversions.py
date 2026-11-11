@@ -68,7 +68,7 @@ def ut3_orthogonal_representations(
         squash_tails:                  bool = True,
 ) -> typ.Tuple[
     typ.Tuple[                                # frame .data:
-        NDArray, NDArray, NDArray, NDArray,   #   up_sc, down_sc, left_sc, right_sc
+        NDArray, NDArray, NDArray, NDArray,   #   down_sc, up_sc, left_sc, right_sc
         typ.Tuple[int, ...],                  #   shape
         typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, frame_left, frame_right) masks
     ],
@@ -104,18 +104,18 @@ def ut3_orthogonal_representations(
     # SVD-based; uniform_masks makes every SVD in the sweep PAD-SAFE (review S1b: at a numerically
     # rank-deficient point a black-box SVD may put sigma~0 completion columns in padded slots, which
     # the masks then erase -- a lost tangent direction).
-    (uc, dc, lc, rc), (tkv, ttv) = fv_conversions.t3_orthogonal_representations(
+    (c_down, c_up, lc, rc), (tkv, ttv) = fv_conversions.t3_orthogonal_representations(
         (masked_tk, masked_tt), already_left_orthogonal=already_left_orthogonal, squash_tails=squash_tails,
         uniform_masks=(shape, tkm, ttm))
 
-    up_ranks, down_ranks, left_ranks, right_ranks = ranks.compute_orthogonal_representation_ranks(
+    down_ranks, up_ranks, left_ranks, right_ranks = ranks.compute_orthogonal_representation_ranks(
         shape, tkm.sum(axis=-1), ttm.sum(axis=-1))
 
-    nU, nD, rL, rR = uc.shape[-2], dc.shape[-2], lc.shape[-1], rc.shape[-1]
-    um, dm, lm, rm = ufv_masking.ufv_make_frame_masks(up_ranks, down_ranks, left_ranks, right_ranks, nU, nD, rL, rR)
+    nD, nU, rL, rR = c_down.shape[-2], c_up.shape[-2], lc.shape[-1], rc.shape[-1]
+    dm, um, lm, rm = ufv_masking.ufv_make_frame_masks(down_ranks, up_ranks, left_ranks, right_ranks, nD, nU, rL, rR)
 
-    frame_data     = (uc, dc, lc, rc, shape, (um, dm, lm, rm))
-    variation_data = (tkv, ttv, shape, ufv_masking.ufv_variation_masks((um, dm, lm, rm)))
+    frame_data     = (c_down, c_up, lc, rc, shape, (dm, um, lm, rm))
+    variation_data = (tkv, ttv, shape, ufv_masking.ufv_variation_masks((dm, um, lm, rm)))
     return frame_data, variation_data
 
 
@@ -140,17 +140,17 @@ def ut3_corewise_frame(
 
 def ut3frame_to_t3frame(
         x: typ.Tuple[
-            NDArray,                          # up_tucker_supercore
-            NDArray,                          # down_tt_supercore
+            NDArray,                          # down_tucker_supercore
+            NDArray,                          # up_tt_supercore
             NDArray,                          # left_tt_supercore
             NDArray,                          # right_tt_supercore
             typ.Tuple[int, ...],              # shape
-            typ.Tuple[                        # (up_mask, down_mask, frame_left_mask, frame_right_mask)
+            typ.Tuple[                        # (down_mask, up_mask, frame_left_mask, frame_right_mask)
                 NDArray, NDArray, NDArray, NDArray,
             ],
         ],
 ) -> typ.Union[
-    typ.Tuple[typ.Tuple[NDArray, ...], ...],  # (up_cores, down_cores, left_cores, right_cores), if unstacked
+    typ.Tuple[typ.Tuple[NDArray, ...], ...],  # (down_cores, up_cores, left_cores, right_cores), if unstacked
     typ.Tuple,                                # else a nested tree (shaped like stack_shape) of those
 ]:
     '''Convert a uniform UT3Frame ``.data`` to ragged ``T3Frame`` core-tuples (or a nested tree, if stacked).
@@ -159,36 +159,36 @@ def ut3frame_to_t3frame(
     argwhere); only the *rank* masks scatter, so they are extracted with ``np.argwhere`` (HOST numpy --
     masks are host). The supercores may be jax; advanced-indexing them with the host int indices is fine.
     '''
-    (up_supercore, down_supercore, left_supercore, right_supercore,
-     shape, (up_mask, down_mask, frame_left_mask, frame_right_mask)) = x
-    require_concrete_masks(up_mask, down_mask, frame_left_mask, frame_right_mask)  # host: argwhere is np
-    stack_shape = up_supercore.shape[1:-2]
-    d = up_supercore.shape[0]
+    (down_supercore, up_supercore, left_supercore, right_supercore,
+     shape, (down_mask, up_mask, frame_left_mask, frame_right_mask)) = x
+    require_concrete_masks(down_mask, up_mask, frame_left_mask, frame_right_mask)  # host: argwhere is np
+    stack_shape = down_supercore.shape[1:-2]
+    d = down_supercore.shape[0]
 
     if not stack_shape:  # unstacked -> one ragged (up, down, left, right) core set
-        up_cores, down_cores, left_cores, right_cores = [], [], [], []
+        down_cores, up_cores, left_cores, right_cores = [], [], [], []
         for ind in range(d):
-            up_inds   = np.argwhere(up_mask[ind]).reshape(-1)
-            down_inds = np.argwhere(down_mask[ind]).reshape(-1)
+            down_inds   = np.argwhere(down_mask[ind]).reshape(-1)
+            up_inds = np.argwhere(up_mask[ind]).reshape(-1)
             left_a    = np.argwhere(frame_left_mask[ind]).reshape(-1)
             left_b    = np.argwhere(frame_left_mask[ind + 1]).reshape(-1)
             right_a   = np.argwhere(frame_right_mask[ind]).reshape(-1)
             right_b   = np.argwhere(frame_right_mask[ind + 1]).reshape(-1)
             Ni = shape[ind]
 
-            up_cores.append(   up_supercore[ind][up_inds, :][:, :Ni])
-            down_cores.append( down_supercore[ind][left_a, :, :][:, down_inds, :][:, :, right_b])
-            left_cores.append( left_supercore[ind][left_a, :, :][:, up_inds, :][:, :, left_b])
-            right_cores.append(right_supercore[ind][right_a, :, :][:, up_inds, :][:, :, right_b])
+            down_cores.append(   down_supercore[ind][down_inds, :][:, :Ni])
+            up_cores.append( up_supercore[ind][left_a, :, :][:, up_inds, :][:, :, right_b])
+            left_cores.append( left_supercore[ind][left_a, :, :][:, down_inds, :][:, :, left_b])
+            right_cores.append(right_supercore[ind][right_a, :, :][:, down_inds, :][:, :, right_b])
 
-        return tuple(up_cores), tuple(down_cores), tuple(left_cores), tuple(right_cores)
+        return tuple(down_cores), tuple(up_cores), tuple(left_cores), tuple(right_cores)
 
     all_T3Bs = []
-    for ii in range(up_supercore.shape[1]):
+    for ii in range(down_supercore.shape[1]):
         xi = (
-            up_supercore[:, ii], down_supercore[:, ii], left_supercore[:, ii], right_supercore[:, ii],
+            down_supercore[:, ii], up_supercore[:, ii], left_supercore[:, ii], right_supercore[:, ii],
             shape,
-            (up_mask[:, ii], down_mask[:, ii], frame_left_mask[:, ii], frame_right_mask[:, ii]),
+            (down_mask[:, ii], up_mask[:, ii], frame_left_mask[:, ii], frame_right_mask[:, ii]),
         )
         all_T3Bs.append(ut3frame_to_t3frame(xi))
     return tuple(all_T3Bs)
@@ -196,21 +196,21 @@ def ut3frame_to_t3frame(
 
 def t3frame_to_ut3frame(
         frame_data: typ.Tuple[
-            typ.Tuple[NDArray, ...],  # up_tucker_cores,   len=d, elm_shape=C+(nUi, Ni)
-            typ.Tuple[NDArray, ...],  # down_tt_cores,     len=d, elm_shape=C+(rLi, nDi, rR(i+1))
-            typ.Tuple[NDArray, ...],  # left_tt_cores,     len=d, elm_shape=C+(rLi, nUi, rL(i+1))
-            typ.Tuple[NDArray, ...],  # right_tt_cores,    len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+            typ.Tuple[NDArray, ...],  # down_tucker_cores,   len=d, elm_shape=C+(nDi, Ni)
+            typ.Tuple[NDArray, ...],  # up_tt_cores,     len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Tuple[NDArray, ...],  # left_tt_cores,     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Tuple[NDArray, ...],  # right_tt_cores,    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
         ],
         N:  typ.Optional[int] = None,   # padded mode dim   (default max(shape))
-        nU: typ.Optional[int] = None,   # padded up rank    (default max(up_ranks))
-        nD: typ.Optional[int] = None,   # padded down rank  (default max(down_ranks))
+        nD: typ.Optional[int] = None,   # padded up rank    (default max(down_ranks))
+        nU: typ.Optional[int] = None,   # padded down rank  (default max(up_ranks))
         rL: typ.Optional[int] = None,   # padded left rank  (default max(left_ranks))
         rR: typ.Optional[int] = None,   # padded right rank (default max(right_ranks))
 ) -> typ.Tuple[
-    NDArray,                          # up_tucker_supercore,  (d,)+C+(nU, N)
-    NDArray,                          # down_tt_supercore,    (d,)+C+(rL, nD, rR)
-    NDArray,                          # left_tt_supercore,    (d,)+C+(rL, nU, rL)
-    NDArray,                          # right_tt_supercore,   (d,)+C+(rR, nU, rR)
+    NDArray,                          # down_tucker_supercore,  (d,)+C+(nD, N)
+    NDArray,                          # up_tt_supercore,    (d,)+C+(rL, nU, rR)
+    NDArray,                          # left_tt_supercore,    (d,)+C+(rL, nD, rL)
+    NDArray,                          # right_tt_supercore,   (d,)+C+(rR, nD, rR)
     typ.Tuple[int, ...],              # shape = (N0,...,N(d-1))
     typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, frame_left, frame_right) masks
 ]:
@@ -219,45 +219,45 @@ def t3frame_to_ut3frame(
     Inverse of :py:func:`ut3frame_to_t3frame`. A *single* ragged frame has ranks shared across its ``C``
     stack, so the masks come out **uniform across the stack** (varying-rank uniform batches arise only by
     ``stack``-ing a heterogeneous tree). Pads each family to common dims (default: max over modes; pass
-    ``N``/``nU``/``nD``/``rL``/``rR`` to force larger) and records the real extents as prefix masks
+    ``N``/``nD``/``nU``/``rL``/``rR`` to force larger) and records the real extents as prefix masks
     (``ufv_make_frame_masks``; the real content lands in the upper-left, so the prefix masks are correct).
     '''
-    up_cores, down_cores, left_cores, right_cores = frame_data
-    d = len(up_cores)
+    down_cores, up_cores, left_cores, right_cores = frame_data
+    d = len(down_cores)
     use_jax = tree_contains_jax(frame_data)
-    stack_shape = up_cores[0].shape[:-2]
+    stack_shape = down_cores[0].shape[:-2]
 
-    shape       = tuple(int(U.shape[-1]) for U in up_cores)                                   # (N0,...,N(d-1))
-    up_ranks    = tuple(int(U.shape[-2]) for U in up_cores)                                   # (d,)   nU per mode
-    down_ranks  = tuple(int(G.shape[-2]) for G in down_cores)                                 # (d,)   nD per mode
+    shape       = tuple(int(D.shape[-1]) for D in down_cores)                                   # (N0,...,N(d-1))
+    down_ranks    = tuple(int(D.shape[-2]) for D in down_cores)                                   # (d,)   nD per mode
+    up_ranks  = tuple(int(G.shape[-2]) for G in up_cores)                                 # (d,)   nU per mode
     left_ranks  = tuple(int(G.shape[-3]) for G in left_cores) + (int(left_cores[-1].shape[-1]),)    # (d+1,) rL edges
     right_ranks = tuple(int(G.shape[-3]) for G in right_cores) + (int(right_cores[-1].shape[-1]),)  # (d+1,) rR edges
 
     N  = max(shape)       if N  is None else N
-    nU = max(up_ranks)    if nU is None else nU
-    nD = max(down_ranks)  if nD is None else nD
+    nD = max(down_ranks)    if nD is None else nD
+    nU = max(up_ranks)  if nU is None else nU
     rL = max(left_ranks)  if rL is None else rL
     rR = max(right_ranks) if rR is None else rR
 
-    up_sc    = _pad_stack(up_cores,    (nU, N),     use_jax)
-    down_sc  = _pad_stack(down_cores,  (rL, nD, rR), use_jax)
-    left_sc  = _pad_stack(left_cores,  (rL, nU, rL), use_jax)
-    right_sc = _pad_stack(right_cores, (rR, nU, rR), use_jax)
+    down_sc    = _pad_stack(down_cores,    (nD, N),     use_jax)
+    up_sc  = _pad_stack(up_cores,  (rL, nU, rR), use_jax)
+    left_sc  = _pad_stack(left_cores,  (rL, nD, rL), use_jax)
+    right_sc = _pad_stack(right_cores, (rR, nD, rR), use_jax)
 
     masks = ufv_masking.ufv_make_frame_masks(
-        _broadcast_ranks_over_stack(up_ranks,    stack_shape),
-        _broadcast_ranks_over_stack(down_ranks,  stack_shape),
+        _broadcast_ranks_over_stack(down_ranks,    stack_shape),
+        _broadcast_ranks_over_stack(up_ranks,  stack_shape),
         _broadcast_ranks_over_stack(left_ranks,  stack_shape),
         _broadcast_ranks_over_stack(right_ranks, stack_shape),
-        nU, nD, rL, rR,
+        nD, nU, rL, rR,
     )
-    return up_sc, down_sc, left_sc, right_sc, shape, masks
+    return down_sc, up_sc, left_sc, right_sc, shape, masks
 
 
 def ut3variations_to_t3variations(
         x: typ.Tuple[
-            NDArray,                          # tucker_variations,  (d,)+C+(nD, N)
-            NDArray,                          # tt_variations,      (d,)+C+(rL, nU, rR)
+            NDArray,                          # tucker_variations,  (d,)+C+(nU, N)
+            NDArray,                          # tt_variations,      (d,)+C+(rL, nD, rR)
             typ.Tuple[int, ...],              # shape
             typ.Tuple[                        # (variations up, down, left, right) masks
                 NDArray, NDArray, NDArray, NDArray,
@@ -271,24 +271,24 @@ def ut3variations_to_t3variations(
 
     Variations twin of :py:func:`ut3frame_to_t3frame`. The physical mode dim is a prefix (slices ``[:Ni]``
     from ``shape``); the rank masks scatter, so they extract with ``np.argwhere`` (HOST numpy). The
-    variation tt-core ``H_i`` has shape ``(rLi, nUi, rR(i+1))`` -- left/up/right masks index its three axes.
+    variation tt-core ``H_i`` has shape ``(rLi, nDi, rR(i+1))`` -- left/up/right masks index its three axes.
     '''
-    tucker_variations, tt_variations, shape, (vup, vdown, vleft, vright) = x
-    require_concrete_masks(vup, vdown, vleft, vright)  # host: argwhere is np
+    tucker_variations, tt_variations, shape, (vdown, vup, vleft, vright) = x
+    require_concrete_masks(vdown, vup, vleft, vright)  # host: argwhere is np
     stack_shape = tucker_variations.shape[1:-2]
     d = tucker_variations.shape[0]
 
     if not stack_shape:  # unstacked -> one ragged (tucker_variations, tt_variations)
         tucker_cores, tt_cores = [], []
         for ind in range(d):
-            up_inds    = np.argwhere(vup[ind]).reshape(-1)
-            down_inds  = np.argwhere(vdown[ind]).reshape(-1)
+            down_inds    = np.argwhere(vdown[ind]).reshape(-1)
+            up_inds  = np.argwhere(vup[ind]).reshape(-1)
             left_inds  = np.argwhere(vleft[ind]).reshape(-1)
             right_inds = np.argwhere(vright[ind]).reshape(-1)
             Ni = shape[ind]
 
-            tucker_cores.append(tucker_variations[ind][down_inds, :][:, :Ni])
-            tt_cores.append(   tt_variations[ind][left_inds, :, :][:, up_inds, :][:, :, right_inds])
+            tucker_cores.append(tucker_variations[ind][up_inds, :][:, :Ni])
+            tt_cores.append(   tt_variations[ind][left_inds, :, :][:, down_inds, :][:, :, right_inds])
 
         return tuple(tucker_cores), tuple(tt_cores)
 
@@ -297,7 +297,7 @@ def ut3variations_to_t3variations(
         xi = (
             tucker_variations[:, ii], tt_variations[:, ii],
             shape,
-            (vup[:, ii], vdown[:, ii], vleft[:, ii], vright[:, ii]),
+            (vdown[:, ii], vup[:, ii], vleft[:, ii], vright[:, ii]),
         )
         all_T3Vs.append(ut3variations_to_t3variations(xi))
     return tuple(all_T3Vs)
@@ -305,17 +305,17 @@ def ut3variations_to_t3variations(
 
 def t3variations_to_ut3variations(
         variations_data: typ.Tuple[
-            typ.Tuple[NDArray, ...],  # tucker_variations, len=d, elm_shape=C+(nDi, Ni)
-            typ.Tuple[NDArray, ...],  # tt_variations,     len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Tuple[NDArray, ...],  # tucker_variations, len=d, elm_shape=C+(nUi, Ni)
+            typ.Tuple[NDArray, ...],  # tt_variations,     len=d, elm_shape=C+(rLi, nDi, rR(i+1))
         ],
         N:  typ.Optional[int] = None,   # padded mode dim   (default max(shape))
-        nU: typ.Optional[int] = None,   # padded up rank    (default max(up_ranks))
-        nD: typ.Optional[int] = None,   # padded down rank  (default max(down_ranks))
+        nD: typ.Optional[int] = None,   # padded up rank    (default max(down_ranks))
+        nU: typ.Optional[int] = None,   # padded down rank  (default max(up_ranks))
         rL: typ.Optional[int] = None,   # padded left rank  (default max(left_ranks))
         rR: typ.Optional[int] = None,   # padded right rank (default max(right_ranks))
 ) -> typ.Tuple[
-    NDArray,                          # tucker_variations supercore, (d,)+C+(nD, N)
-    NDArray,                          # tt_variations supercore,     (d,)+C+(rL, nU, rR)
+    NDArray,                          # tucker_variations supercore, (d,)+C+(nU, N)
+    NDArray,                          # tt_variations supercore,     (d,)+C+(rL, nD, rR)
     typ.Tuple[int, ...],              # shape
     typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (variations up, down, left, right) masks, all (d,)-leading
 ]:
@@ -331,44 +331,44 @@ def t3variations_to_ut3variations(
     stack_shape = tucker_cores[0].shape[:-2]
 
     shape       = tuple(int(V.shape[-1]) for V in tucker_cores)   # (N0,...,N(d-1))
-    up_ranks    = tuple(int(H.shape[-2]) for H in tt_cores)       # (d,) nUi
-    down_ranks  = tuple(int(V.shape[-2]) for V in tucker_cores)   # (d,) nDi
+    down_ranks    = tuple(int(H.shape[-2]) for H in tt_cores)       # (d,) nDi
+    up_ranks  = tuple(int(V.shape[-2]) for V in tucker_cores)   # (d,) nUi
     left_ranks  = tuple(int(H.shape[-3]) for H in tt_cores)       # (d,) rLi  (per-slot left bond)
     right_ranks = tuple(int(H.shape[-1]) for H in tt_cores)       # (d,) rR(i+1) (per-slot right bond)
 
     N  = max(shape)       if N  is None else N
-    nU = max(up_ranks)    if nU is None else nU
-    nD = max(down_ranks)  if nD is None else nD
+    nD = max(down_ranks)    if nD is None else nD
+    nU = max(up_ranks)  if nU is None else nU
     rL = max(left_ranks)  if rL is None else rL
     rR = max(right_ranks) if rR is None else rR
 
-    tkv = _pad_stack(tucker_cores, (nD, N),     use_jax)
-    ttv = _pad_stack(tt_cores,     (rL, nU, rR), use_jax)
+    tkv = _pad_stack(tucker_cores, (nU, N),     use_jax)
+    ttv = _pad_stack(tt_cores,     (rL, nD, rR), use_jax)
 
     masks = ufv_masking.ufv_make_frame_masks(
-        _broadcast_ranks_over_stack(up_ranks,    stack_shape),
-        _broadcast_ranks_over_stack(down_ranks,  stack_shape),
+        _broadcast_ranks_over_stack(down_ranks,    stack_shape),
+        _broadcast_ranks_over_stack(up_ranks,  stack_shape),
         _broadcast_ranks_over_stack(left_ranks,  stack_shape),
         _broadcast_ranks_over_stack(right_ranks, stack_shape),
-        nU, nD, rL, rR,
+        nD, nU, rL, rR,
     )
     return tkv, ttv, shape, masks
 
 
 def t3frameweights_to_ut3frameweights(
         weights: typ.Tuple[
-            typ.Sequence[NDArray],  # up_weights,    len=d, elm_shape=C+(nUi,)
-            typ.Sequence[NDArray],  # down_weights,  len=d, elm_shape=C+(nDi,)
+            typ.Sequence[NDArray],  # down_weights,    len=d, elm_shape=C+(nDi,)
+            typ.Sequence[NDArray],  # up_weights,  len=d, elm_shape=C+(nUi,)
             typ.Sequence[NDArray],  # left_weights,  len=d, elm_shape=C+(rLi,)
             typ.Sequence[NDArray],  # right_weights, len=d, elm_shape=C+(rRi,)
         ],
-        nU: int = None,             # padded up rank    (default max); pass to match the tangent's pad
-        nD: int = None,             # padded down rank  (default max)
+        nD: int = None,             # padded up rank    (default max); pass to match the tangent's pad
+        nU: int = None,             # padded down rank  (default max)
         rL: int = None,             # padded left rank  (default max)
         rR: int = None,             # padded right rank (default max)
 ) -> typ.Tuple[
-    NDArray,  # up_weight_supercore,    (d,)+C+(nU,)
-    NDArray,  # down_weight_supercore,  (d,)+C+(nD,)
+    NDArray,  # down_weight_supercore,    (d,)+C+(nD,)
+    NDArray,  # up_weight_supercore,  (d,)+C+(nU,)
     NDArray,  # left_weight_supercore,  (d,)+C+(rL,)
     NDArray,  # right_weight_supercore, (d,)+C+(rR,)
     typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # the four edge masks, HOST bool, static
@@ -380,15 +380,15 @@ def t3frameweights_to_ut3frameweights(
     edges only). The ``C`` stack is carried through untouched -- a frame weight is **frame-like**, so it
     never grows a ``K`` axis (``docs/contributor/weighted_internals.md`` §8.5).
 
-    Pass ``nU``/``nD``/``rL``/``rR`` to match the padding of the tangent these weights will pair with
+    Pass ``nD``/``nU``/``rL``/``rR`` to match the padding of the tangent these weights will pair with
     (e.g. from ``frame.uniform_structure``); the defaults pad tightly to the weights' own max ranks.
     """
     use_jax = tree_contains_jax(weights)
-    up_weights, down_weights, left_weights, right_weights = weights
-    stack_shape = up_weights[0].shape[:-1]   # C
+    down_weights, up_weights, left_weights, right_weights = weights
+    stack_shape = down_weights[0].shape[:-1]   # C
 
     sizes = []
-    for fam, override in zip(weights, (nU, nD, rL, rR)):
+    for fam, override in zip(weights, (nD, nU, rL, rR)):
         sizes.append(max(w.shape[-1] for w in fam) if override is None else override)
 
     supercores = tuple(_pad_stack(fam, (size,), use_jax) for fam, size in zip(weights, sizes))

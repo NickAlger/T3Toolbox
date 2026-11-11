@@ -74,36 +74,36 @@ def compute_eta_jets_trs(tt_cores, mu_jets, nu_jets, trs):
                  for G, mu, nu in zip(tt_cores, mu_jets, nu_jets))
 
 
-def _sigma_jet_step(sigma_jet, Q, O, dG, xi_jet, dxi_jet, mu_jet, trs):
+def _sigma_jet_step(sigma_jet, R, U, dG, xi_jet, dxi_jet, mu_jet, trs):
     """One K-aware dense step of the sigma recursion: three affine pushthroughs (carried sigma through Q,
     the frame mu through the variation core dG and through the down frame O)."""
     s2 = _s_size(trs)
     trs_push = trs[:, :, :s2]
-    n_frame = Q.ndim - 3
-    return (contract('trs,rWKCa,Caib,sWCi->tWKCb', trs_push, sigma_jet, Q, xi_jet[:s2])
+    n_frame = R.ndim - 3
+    return (contract('trs,rWKCa,Caib,sWCi->tWKCb', trs_push, sigma_jet, R, xi_jet[:s2])
             + contract('trs,rWCa,KCaib,sWCi->tWKCb', trs_push, mu_jet, dG, xi_jet[:s2], len_C=n_frame)
-            + contract('trs,rWCa,Caib,sWKCi->tWKCb', trs_push, mu_jet, O, dxi_jet[:s2]))
+            + contract('trs,rWCa,Caib,sWKCi->tWKCb', trs_push, mu_jet, U, dxi_jet[:s2]))
 
 
-def _sigma_sweep_trs(var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs):
+def _sigma_sweep_trs(var_tt_cores, right_tt_cores, up_tt_cores, xi_jets, dxi_jets, mu_jets, trs):
     """The sigma sweep: ``(per-core entering jets, terminal carry)``."""
     sigma = np.zeros((trs.shape[0],) + dxi_jets[0].shape[1:-1] + (right_tt_cores[0].shape[-3],))
     out = []
-    for Q, O, dG, xi, dxi, mu in zip(right_tt_cores, down_tt_cores, var_tt_cores, xi_jets, dxi_jets, mu_jets):
+    for R, U, dG, xi, dxi, mu in zip(right_tt_cores, up_tt_cores, var_tt_cores, xi_jets, dxi_jets, mu_jets):
         out.append(sigma)
-        sigma = _sigma_jet_step(sigma, Q, O, dG, xi, dxi, mu, trs)
+        sigma = _sigma_jet_step(sigma, R, U, dG, xi, dxi, mu, trs)
     return tuple(out), sigma
 
 
-def compute_sigma_jets_trs(var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs):
+def compute_sigma_jets_trs(var_tt_cores, right_tt_cores, up_tt_cores, xi_jets, dxi_jets, mu_jets, trs):
     """Variation-leftward jets ``sigma_i = sigma_{i-1} Q_i(xi_i) + mu_{i-1} dG_i(xi_i) + mu_{i-1} O_i(dxi_i)``."""
-    return _sigma_sweep_trs(var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs)[0]
+    return _sigma_sweep_trs(var_tt_cores, right_tt_cores, up_tt_cores, xi_jets, dxi_jets, mu_jets, trs)[0]
 
 
-def compute_tau_jets_trs(var_tt_cores, left_tt_cores, down_tt_cores, xi_jets, dxi_jets, nu_jets, trs):
+def compute_tau_jets_trs(var_tt_cores, left_tt_cores, up_tt_cores, xi_jets, dxi_jets, nu_jets, trs):
     """Variation-rightward jets: the sigma sweep of the reversed train, reversed."""
     rev = tt_operations.tt_reverse
-    return compute_sigma_jets_trs(rev(var_tt_cores), rev(left_tt_cores), rev(down_tt_cores),
+    return compute_sigma_jets_trs(rev(var_tt_cores), rev(left_tt_cores), rev(up_tt_cores),
                                   xi_jets[::-1], dxi_jets[::-1], nu_jets[::-1], trs)[::-1]
 
 
@@ -111,12 +111,12 @@ def compute_deta_jets_trs(var_tt_cores, left_tt_cores, right_tt_cores, mu_jets, 
                           trs):
     """Tangent combine ``deta_i = sigma Q nu + mu dG nu + mu P tau``, three dense binomial combines."""
     out = []
-    for P, Q, dG, mu, nu, sig, tau in zip(left_tt_cores, right_tt_cores, var_tt_cores, mu_jets, nu_jets,
+    for L, R, dG, mu, nu, sig, tau in zip(left_tt_cores, right_tt_cores, var_tt_cores, mu_jets, nu_jets,
                                           sigma_jets, tau_jets):
-        n_frame = Q.ndim - 3
-        out.append(contract('trs,rWKCa,Caib,sWCb->tWKCi', trs, sig, Q, nu)
+        n_frame = R.ndim - 3
+        out.append(contract('trs,rWKCa,Caib,sWCb->tWKCi', trs, sig, R, nu)
                    + contract('trs,rWCa,KCaib,sWCb->tWKCi', trs, mu, dG, nu, len_C=n_frame)
-                   + contract('trs,rWCa,Caib,sWKCb->tWKCi', trs, mu, P, tau))
+                   + contract('trs,rWCa,Caib,sWKCb->tWKCi', trs, mu, L, tau))
     return tuple(out)
 
 
@@ -130,10 +130,10 @@ def apply_derivatives_t3_trs(xi_jets, tt_cores, trs):
     return np.sum(mu, axis=-1)
 
 
-def apply_derivatives_tv_trs(xi_jets, dxi_jets, mu_jets, right_tt_cores, down_tt_cores, var_tt_cores, trs):
+def apply_derivatives_tv_trs(xi_jets, dxi_jets, mu_jets, right_tt_cores, up_tt_cores, var_tt_cores, trs):
     """Riemannian apply/entries derivatives from the jets: the terminal carry of the dense sigma sweep,
     bond summed. shape=(order+1,)+W+K+C."""
-    terminal = _sigma_sweep_trs(var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs)[1]
+    terminal = _sigma_sweep_trs(var_tt_cores, right_tt_cores, up_tt_cores, xi_jets, dxi_jets, mu_jets, trs)[1]
     return np.sum(terminal, axis=-1)
 
 
@@ -141,16 +141,16 @@ def apply_derivatives_tv_trs(xi_jets, dxi_jets, mu_jets, right_tt_cores, down_tt
 # Transpose (adjoint) jets and the gradient assemblies
 # ------------------------------------------------------------------------------------------------------
 
-def _adj_sweep(P_cores, xi_jets, deta_tildes, edge_jets, trs):
+def _adj_sweep(L_cores, xi_jets, deta_tildes, edge_jets, trs):
     """The dense adjoint sweep: per core, the adjoint-hooked pushthrough (propagation, the input jet on
     ``r in {0,1}``) plus the deta~ source (a full binomial correlation), both wired as the transpose."""
     s2 = _s_size(trs)
-    carry = np.zeros((trs.shape[0],) + deta_tildes[0].shape[1:-1] + (P_cores[0].shape[-3],))
+    carry = np.zeros((trs.shape[0],) + deta_tildes[0].shape[1:-1] + (L_cores[0].shape[-3],))
     out = []
-    for P, xi, deta_t, edge in zip(P_cores, xi_jets, deta_tildes, edge_jets):
+    for L, xi, deta_t, edge in zip(L_cores, xi_jets, deta_tildes, edge_jets):
         out.append(carry)
-        carry = (contract('trs,tWKCa,Caib,rWCi->sWKCb', trs[:, :s2, :], carry, P, xi[:s2])
-                 + contract('trs,rWCa,Caib,tWKCi->sWKCb', trs, edge, P, deta_t))
+        carry = (contract('trs,tWKCa,Caib,rWCi->sWKCb', trs[:, :s2, :], carry, L, xi[:s2])
+                 + contract('trs,rWCa,Caib,tWKCi->sWKCb', trs, edge, L, deta_t))
     return tuple(out)
 
 
@@ -165,13 +165,13 @@ def compute_sigma_tilde_jets_trs(right_tt_cores, xi_jets, deta_tildes, nu_jets, 
                       nu_jets[::-1], trs)[::-1]
 
 
-def compute_dxi_tilde_jets_trs(down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes, trs):
+def compute_dxi_tilde_jets_trs(up_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes, trs):
     """Adjoint-var-down jets dxi~, ALL ``order+1`` rows of the dense adjoint-hooked combines
     ``tau~ O nu + mu O sigma~`` (only the rows ``u in {0,1}`` are ever read: the shipped kernel returns just
     those two, so compare ``[:2]``)."""
-    return tuple(contract('trs,tWKCa,Caib,sWCb->rWKCi', trs, tt, O, nu)
-                 + contract('trs,rWCa,Caib,tWKCb->sWKCi', trs, mu, O, st)
-                 for O, mu, nu, st, tt in zip(down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes))
+    return tuple(contract('trs,tWKCa,Caib,sWCb->rWKCi', trs, tt, U, nu)
+                 + contract('trs,rWCa,Caib,tWKCb->sWKCi', trs, mu, U, st)
+                 for U, mu, nu, st, tt in zip(up_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes))
 
 
 def assemble_tt_variation_jets_trs(sigma_tildes, tau_tildes, deta_tildes, xi_jets, mu_jets, nu_jets, trs, n_probe,
@@ -192,26 +192,26 @@ def compute_sigma_hat_jets_trs(right_tt_cores, xi_jets, c, trs):
     """The apply/entries transpose's seeded adjoint sweep via Q: a dense propagation-only sweep from the
     terminal bond (``c`` broadcast over it), right to left."""
     s2 = _s_size(trs)
-    rev_Q, rev_xi = tt_operations.tt_reverse(right_tt_cores), xi_jets[::-1]
+    rev_R, rev_xi = tt_operations.tt_reverse(right_tt_cores), xi_jets[::-1]
     carry = np.broadcast_to(c[..., None], tuple(c.shape) + (right_tt_cores[-1].shape[-1],))
     out = []
-    for Q, xi in zip(rev_Q, rev_xi):
+    for R, xi in zip(rev_R, rev_xi):
         out.append(carry)
-        carry = contract('trs,tWKCa,Caib,rWCi->sWKCb', trs[:, :s2, :], carry, Q, xi[:s2])
+        carry = contract('trs,tWKCa,Caib,rWCi->sWKCb', trs[:, :s2, :], carry, R, xi[:s2])
     return tuple(out)[::-1]
 
 
-def apply_derivatives_transpose_trs(c, xi_jets, mu_jets, w_jets, down_tt_cores, right_tt_cores, trs, n_probe,
+def apply_derivatives_transpose_trs(c, xi_jets, mu_jets, w_jets, up_tt_cores, right_tt_cores, trs, n_probe,
                                     sum_over_probes):
     """The apply/entries derivative transpose from the jets: the seeded sigma^ sweep, the dense dxi^ combine
     ``mu O sigma^`` (all rows) and the single-term assembly ``dG = mu (x) xi (x) sigma^``, ``dU = dxi^ (x) w``.
     Returns ``(dU, dG)``."""
     s2 = _s_size(trs)
     sigma_hats = compute_sigma_hat_jets_trs(right_tt_cores, xi_jets, c, trs)
-    gU, gG = ('KCao', 'KCaib') if sum_over_probes else ('WKCao', 'WKCaib')
-    dU, dG = [], []
-    for O, xi, mu, sh, wj in zip(down_tt_cores, xi_jets, mu_jets, sigma_hats, w_jets):
-        dxh = contract('trs,rWCa,Caib,tWKCb->sWKCi', trs, mu, O, sh)
-        dG.append(contract('trs,rWCa,sWCi,tWKCb->' + gG, trs[:, :, :s2], mu, xi[:s2], sh, len_W=n_probe))
-        dU.append(contract('uWKCa,uWo->' + gU, dxh[:s2], wj[:s2]))
-    return tuple(dU), tuple(dG)
+    gV, gH = ('KCao', 'KCaib') if sum_over_probes else ('WKCao', 'WKCaib')
+    V, H = [], []
+    for U, xi, mu, sig_hat, wj in zip(up_tt_cores, xi_jets, mu_jets, sigma_hats, w_jets):
+        dxh = contract('trs,rWCa,Caib,tWKCb->sWKCi', trs, mu, U, sig_hat)
+        H.append(contract('trs,rWCa,sWCi,tWKCb->' + gH, trs[:, :, :s2], mu, xi[:s2], sig_hat, len_W=n_probe))
+        V.append(contract('uWKCa,uWo->' + gV, dxh[:s2], wj[:s2]))
+    return tuple(V), tuple(H)

@@ -182,18 +182,18 @@ def t3_probe(
 
 
 def _xi_step(
-        x: typ.Tuple[NDArray, NDArray],   # (U, w): C+(nUi,Ni) ; W+(Ni,)
-) -> typ.Tuple[NDArray]:                  # (xi,): W+C+(nUi,)
+        x: typ.Tuple[NDArray, NDArray],   # (U, w): C+(nDi,Ni) ; W+(Ni,)
+) -> typ.Tuple[NDArray]:                  # (xi,): W+C+(nDi,)
     '''One core of the ragged map of :py:func:`compute_xi`. Closure-free map body --
     ``docs/contributor/scan_body_principles.md``.'''
-    U, w = x
-    return (contractions.contract('Cio,Wo->WCi', U, w),)
+    D, w = x
+    return (contractions.contract('Cio,Wo->WCi', D, w),)
 
 
 def compute_xi(
-        up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(nUi,Ni)
+        down_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(nDi,Ni)
         ww:                 typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+(Ni,)
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # xis. len=d, elm_shape=(...,nUi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # xis. len=d, elm_shape=(...,nDi)
     '''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -203,32 +203,32 @@ def compute_xi(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = tree_contains_jax((up_tucker_cores, ww))
-    is_uniform = is_ndarray(up_tucker_cores)
+    use_jax = tree_contains_jax((down_tucker_cores, ww))
+    is_uniform = is_ndarray(down_tucker_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        xis = contractions.contract('dCio,dWo->dWCi', up_tucker_cores, ww)
+        xis = contractions.contract('dCio,dWo->dWCi', down_tucker_cores, ww)
     else:
-        (xis,) = xmap(_xi_step, (up_tucker_cores, ww))
+        (xis,) = xmap(_xi_step, (down_tucker_cores, ww))
 
     return xis
 
 
 def _mu_step(
         mu: NDArray,                      # carry: W+C+(rLi,)
-        x:  typ.Tuple[NDArray, NDArray],  # (P, xi): C+(rLi,nUi,rL(i+1)) ; W+C+(nUi,)
+        x:  typ.Tuple[NDArray, NDArray],  # (P, xi): C+(rLi,nDi,rL(i+1)) ; W+C+(nDi,)
 ) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:   # (next carry, (mu,))
     '''One edge of the leftward sweep of :py:func:`compute_mu`. Closure-free scan body --
     ``docs/contributor/scan_body_principles.md``.'''
-    P, xi = x[0], x[1]
-    mu_next = contractions.contract('WCa,Caib,WCi->WCb', mu, P, xi)
+    L, xi = x[0], x[1]
+    mu_next = contractions.contract('WCa,Caib,WCi->WCb', mu, L, xi)
     return mu_next, (mu,)
 
 
 def compute_mu(
-        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rLi,nUi,rL(i+1)) (the last core is not swept)
-        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+C+(nUi,)
+        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rLi,nDi,rL(i+1)) (the last core is not swept)
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+C+(nDi,)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # mus. len=d, elm_shape=W+C+(rLi,)
     '''Compute leftward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -252,8 +252,8 @@ def compute_mu(
 
 
 def compute_nu(
-        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rRi,nUi,rR(i+1))
-        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+C+(nUi,)
+        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rRi,nDi,rR(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+C+(nDi,)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # nus. len=d, elm_shape=W+C+(rR(i+1),)
     '''Compute rightward edge variables associated with edges between adjacent TT-cores.
     Used for probing a Tucker tensor train.
@@ -272,8 +272,8 @@ def compute_nu(
 
 
 def _eta_step(
-        x: typ.Tuple[NDArray, NDArray, NDArray],   # (mu, G, nu): W+C+(rLi,) ; C+(rLi,nOi,rR(i+1)) ; W+C+(rR(i+1),)
-) -> typ.Tuple[NDArray]:                           # (eta,): W+C+(nOi,)
+        x: typ.Tuple[NDArray, NDArray, NDArray],   # (mu, G, nu): W+C+(rLi,) ; C+(rLi,nUi,rR(i+1)) ; W+C+(rR(i+1),)
+) -> typ.Tuple[NDArray]:                           # (eta,): W+C+(nUi,)
     '''One core of the ragged map of :py:func:`compute_eta`. Closure-free map body --
     ``docs/contributor/scan_body_principles.md``.'''
     mu, G, nu = x
@@ -281,10 +281,10 @@ def _eta_step(
 
 
 def compute_eta(
-        down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+        up_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rLi,nUi,rR(i+1))
         mus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=W+C+(rLi,)
         nus:                    typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # etas. len=d, elm_shape=W+C+(nOi,)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # etas. len=d, elm_shape=W+C+(nUi,)
     '''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
     Used for probing a Tucker tensor train.
 
@@ -294,14 +294,14 @@ def compute_eta(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = tree_contains_jax((down_tt_cores, mus, nus))
-    is_uniform = is_ndarray(down_tt_cores)
+    use_jax = tree_contains_jax((up_tt_cores, mus, nus))
+    is_uniform = is_ndarray(up_tt_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
-        etas = contractions.contract('dWCa,dCaib,dWCb->dWCi', mus, down_tt_cores, nus)
+        etas = contractions.contract('dWCa,dCaib,dWCb->dWCi', mus, up_tt_cores, nus)
     else:
-        (etas,) = xmap(_eta_step, (mus, down_tt_cores, nus))
+        (etas,) = xmap(_eta_step, (mus, up_tt_cores, nus))
 
     return etas
 
@@ -311,8 +311,8 @@ def _assemble_z_step(
 ) -> typ.Tuple[NDArray]:                  # (z,): W+C+(Ni,)
     '''One core of the ragged map of :py:func:`assemble_z`. Closure-free map body --
     ``docs/contributor/scan_body_principles.md``.'''
-    eta, U = x
-    return (contractions.contract('WCi,Cio->WCo', eta, U),)
+    eta, D = x
+    return (contractions.contract('WCi,Cio->WCo', eta, D),)
 
 
 def assemble_z(
@@ -344,9 +344,9 @@ def assemble_z(
 #####################################################
 
 def compute_dxi(
-        var_tucker_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(nOi,Ni)
+        var_tucker_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(nUi,Ni)
         ww:                     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,Ni)
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dxis. len=d, elm_shape=(...,nOi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dxis. len=d, elm_shape=(...,nUi)
     '''Compute var-upward edge variables dxi.
     Used for probing a tangent vector.
 
@@ -370,7 +370,7 @@ def compute_dxi(
     return compute_xi(var_tucker_cores, ww)
 
 
-def _sigma_step(sigma, Q, O, dG, xi, dxi, mu):
+def _sigma_step(sigma, R, U, dG, xi, dxi, mu):
     '''One step of the perturbation-leftward (sigma) recursion (Algorithm 7), shared by
     compute_sigma (which keeps the per-core sequence, for probing) and tv_apply/tv_entries
     (which keep only the terminal carry, for the all-modes contraction).
@@ -380,10 +380,10 @@ def _sigma_step(sigma, Q, O, dG, xi, dxi, mu):
     variation core dG (K+C), so len(C) is supplied via n_frame (recovered from the C-only Q, the
     n_probe precedent). Reduces to the two-group result when K is empty.
     '''
-    n_frame = Q.ndim - 3
-    t1 = contractions.contract('WKCa,Caib,WCi->WKCb', sigma, Q, xi)
+    n_frame = R.ndim - 3
+    t1 = contractions.contract('WKCa,Caib,WCi->WKCb', sigma, R, xi)
     t2 = contractions.contract('WCa,KCaib,WCi->WKCb', mu, dG, xi, len_C=n_frame)
-    t3 = contractions.contract('WCa,Caib,WKCi->WKCb', mu, O, dxi)
+    t3 = contractions.contract('WCa,Caib,WKCi->WKCb', mu, U, dxi)
     return t1 + t2 + t3
 
 
@@ -393,16 +393,16 @@ def _sigma_sweep_step(
 ) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:   # (next carry, (sigma,))
     '''One edge of the sweep of :py:func:`compute_sigma`, keeping the per-core sequence. Closure-free
     scan body -- ``docs/contributor/scan_body_principles.md``.'''
-    Q, O, dG, xi, dxi, mu = x
-    return _sigma_step(sigma, Q, O, dG, xi, dxi, mu), (sigma,)
+    R, U, dG, xi, dxi, mu = x
+    return _sigma_step(sigma, R, U, dG, xi, dxi, mu), (sigma,)
 
 
 def compute_sigma(
-        var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
-        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
-        down_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
-        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi),
-        dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
+        var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nDi,rR(i+1))
+        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nDi,rR(i+1))
+        up_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nDi),
+        dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
         mus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rLi)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # sigmas. len=d, elm_shape=(...,rRi)
     '''Compute var-leftward edge variables sigma.
@@ -422,7 +422,7 @@ def compute_sigma(
     assemble_tangent_z
     tv_probe
     '''
-    use_jax = tree_contains_jax((var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus))
+    use_jax = tree_contains_jax((var_tt_cores, right_tt_cores, up_tt_cores, xis, dxis, mus))
     is_uniform = not isinstance(xis, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
@@ -430,16 +430,16 @@ def compute_sigma(
     rR0 = right_tt_cores[0].shape[-3]
     init = xnp.zeros(dxis[0].shape[:-1] + (rR0,))
 
-    last_sigma, (sigmas,) = xscan(_sigma_sweep_step, init, (right_tt_cores, down_tt_cores, var_tt_cores, xis, dxis, mus))
+    last_sigma, (sigmas,) = xscan(_sigma_sweep_step, init, (right_tt_cores, up_tt_cores, var_tt_cores, xis, dxis, mus))
     return sigmas
 
 
 def compute_tau(
-        var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
-        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rL(i+1))
-        down_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
-        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi),
-        dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
+        var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nDi,rR(i+1))
+        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nDi,rL(i+1))
+        up_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nDi),
+        dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
         nus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # taus. len=d, elm_shape=(...,rL(i+1))
     '''Compute var-rightward edge variables tau.
@@ -463,7 +463,7 @@ def compute_tau(
     reverse = tt_operations.tt_reverse
 
     rev_taus = compute_sigma(
-        reverse(var_tt_cores), reverse(left_tt_cores), reverse(down_tt_cores),
+        reverse(var_tt_cores), reverse(left_tt_cores), reverse(up_tt_cores),
         xis[::-1], dxis[::-1], nus[::-1],
     )
     return rev_taus[::-1]
@@ -472,28 +472,28 @@ def compute_tau(
 def _deta_step(
         x: typ.Tuple[NDArray, NDArray, NDArray,
                      NDArray, NDArray, NDArray, NDArray],   # (P, Q, dG, mu, nu, sigma, tau)
-) -> typ.Tuple[NDArray]:                                    # (deta,): W+K+C+(nUi,)
+) -> typ.Tuple[NDArray]:                                    # (deta,): W+K+C+(nDi,)
     '''One core of the ragged map of :py:func:`compute_deta`. Closure-free map body --
     ``docs/contributor/scan_body_principles.md``.'''
-    P, Q, dG, mu, nu, sigma, tau = x
+    L, R, dG, mu, nu, sigma, tau = x
     # Three-group contractions (see compute_sigma): sigma/tau carry K, mu/nu and frame cores
     # P/Q do not. term1/term3 self-infer; term2's only core is dG (K+C) -> n_frame from Q.
-    n_frame = Q.ndim - 3
-    term1 = contractions.contract('WKCa,Caib,WCb->WKCi', sigma, Q, nu)
+    n_frame = R.ndim - 3
+    term1 = contractions.contract('WKCa,Caib,WCb->WKCi', sigma, R, nu)
     term2 = contractions.contract('WCa,KCaib,WCb->WKCi', mu, dG, nu, len_C=n_frame)
-    term3 = contractions.contract('WCa,Caib,WKCb->WKCi', mu, P, tau)
+    term3 = contractions.contract('WCa,Caib,WKCb->WKCi', mu, L, tau)
     return (term1 + term2 + term3,)
 
 
 def compute_deta(
-        var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
-        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rL(i+1))
-        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
+        var_tt_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nDi,rR(i+1))
+        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nDi,rL(i+1))
+        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nDi,rR(i+1))
         mus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rLi)
         nus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
         sigmas:             typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rRi)
         taus:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rL(i+1))
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # detas. len=d, elm_shape=(...,nUi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # detas. len=d, elm_shape=(...,nDi)
     '''Compute var-downward edge variables deta.
     Used for probing a tangent vector.
 
@@ -518,7 +518,7 @@ def compute_deta(
     if is_uniform:
         # d-prefixed WKC contractions: sigmas/taus carry K (W+K+C); mus/nus and the frame
         # supercores are W+C / C-only; the variation supercore var_tt_cores is K+C. n_frame = len(C),
-        # read off the C-only frame supercore (d,)+C+(rR,nU,rR). The ragged xmap branch below is the oracle.
+        # read off the C-only frame supercore (d,)+C+(rR,nD,rR). The ragged xmap branch below is the oracle.
         n_frame = right_tt_cores.ndim - 4
         term1 = contractions.contract('dWKCa,dCaib,dWCb->dWKCi', sigmas, right_tt_cores, nus)
         term2 = contractions.contract('dWCa,dKCaib,dWCb->dWKCi', mus, var_tt_cores, nus, len_C=n_frame)
@@ -536,21 +536,21 @@ def _assemble_tangent_z_step(
 ) -> typ.Tuple[NDArray]:                                    # (z,): W+K+C+(Ni,)
     '''One core of the ragged map of :py:func:`assemble_tangent_z`. Closure-free map body --
     ``docs/contributor/scan_body_principles.md``.'''
-    B, dB, eta, deta = x
+    D, V, eta, deta = x
     # Three-group contractions (see compute_sigma): deta carries K (in term1 both W and K ride
     # passively over the C-only frame core B, so no split is needed); eta is W+C and dB is the
     # variation core K+C, so term2 needs len(C) -- recovered here from the C-only core B.
-    n_frame = B.ndim - 2
-    term1 = contractions.contract('WKCi,Cio->WKCo', deta, B)
-    term2 = contractions.contract('WCi,KCio->WKCo', eta, dB, len_C=n_frame)
+    n_frame = D.ndim - 2
+    term1 = contractions.contract('WKCi,Cio->WKCo', deta, D)
+    term2 = contractions.contract('WCi,KCio->WKCo', eta, V, len_C=n_frame)
     return (term1 + term2,)
 
 
 def assemble_tangent_z(
-        tucker_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(nUi,Ni)
-        var_tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(nOi,Ni)
-        etas:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
-        detas:              typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
+        tucker_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(nDi,Ni)
+        var_tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(nUi,Ni)
+        etas:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
+        detas:              typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nDi)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # zs. len=d, elm_shape=(...,Ni)
     '''Assemble tangent vector probes from edge variables.
 
@@ -588,8 +588,8 @@ def assemble_tangent_z(
 
 def tv_probe_jacobian_from_sweep(
         variation:  typ.Tuple[
-            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
+            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nUi,Ni)
+            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rR(i+1))
         ],
         ww:         typ.Sequence[NDArray],  # probe vectors, len=d, elm_shape=W+(Ni,) -- for the variation's dxis
         frame:       typ.Tuple[
@@ -614,21 +614,21 @@ def tv_probe_jacobian_from_sweep(
     tv_probe_transpose_from_sweep
     '''
     var_tucker_cores, var_tt_cores = variation
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     xis, mus, nus, etas = frame_sweep
     dxis   = compute_dxi(var_tucker_cores, ww)
-    sigmas = compute_sigma(var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus)
-    taus   = compute_tau(var_tt_cores, left_tt_cores, down_tt_cores, xis, dxis, nus)
+    sigmas = compute_sigma(var_tt_cores, right_tt_cores, up_tt_cores, xis, dxis, mus)
+    taus   = compute_tau(var_tt_cores, left_tt_cores, up_tt_cores, xis, dxis, nus)
     detas  = compute_deta(var_tt_cores, left_tt_cores, right_tt_cores, mus, nus, sigmas, taus)
-    return assemble_tangent_z(up_tucker_cores, var_tucker_cores, etas, detas)
+    return assemble_tangent_z(down_tucker_cores, var_tucker_cores, etas, detas)
 
 
 def tv_probe(
         ww:         typ.Union[typ.Sequence[NDArray],    NDArray],  # input vectors, len=d, elm_shape=(...,Ni)
         variation:  typ.Union[
             typ.Tuple[
-                typ.Sequence[NDArray],  # var_tucker_cores. len=d, elm_shape=(nOi,Ni)
-                typ.Sequence[NDArray],  # var_tt_cores.     len=d, elm_shape=(rLi,nUi,rR(i+1))
+                typ.Sequence[NDArray],  # var_tucker_cores. len=d, elm_shape=(nUi,Ni)
+                typ.Sequence[NDArray],  # var_tt_cores.     len=d, elm_shape=(rLi,nDi,rR(i+1))
             ],
             typ.Tuple[
                 NDArray,  # var_tucker_supercore.
@@ -669,7 +669,7 @@ def tv_probe(
         input vectors to probe with. len=d, elm_shape=(...,Ni)
     variation: bvf.T3Variations.data
         Tangent direction, as a (tucker_variations, tt_variations) data tuple.
-    frame: (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+    frame: (down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores)
         Orthogonal frame for the point where the tangent space attaches to the manifold. This is
         exactly ``T3Frame.data`` order (U, O, P, Q) -- pass ``frame.data`` directly, no reorder.
 
@@ -730,25 +730,25 @@ def tv_probe(
     >>> print([bool(np.allclose(z, z2)) for z, z2 in zip(zzz, zzz_dense)])
     [True, True, True]
     '''
-    (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores) = frame
+    (down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores) = frame
     (var_tucker_cores, var_tt_cores) = variation
 
-    xis = compute_xi(up_tucker_cores, ww)
+    xis = compute_xi(down_tucker_cores, ww)
 
     mus = compute_mu(left_tt_cores, xis)
 
     nus = compute_nu(right_tt_cores, xis)
 
-    etas = compute_eta(down_tt_cores, mus, nus)
+    etas = compute_eta(up_tt_cores, mus, nus)
 
     dxis = compute_dxi(var_tucker_cores, ww)
 
     sigmas = compute_sigma(
-        var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus,
+        var_tt_cores, right_tt_cores, up_tt_cores, xis, dxis, mus,
     )
 
     taus = compute_tau(
-        var_tt_cores, left_tt_cores, down_tt_cores, xis, dxis, nus,
+        var_tt_cores, left_tt_cores, up_tt_cores, xis, dxis, nus,
     )
 
     detas = compute_deta(
@@ -756,7 +756,7 @@ def tv_probe(
     )
 
     zz = assemble_tangent_z(
-        up_tucker_cores, var_tucker_cores, etas, detas,
+        down_tucker_cores, var_tucker_cores, etas, detas,
     )
 
     return zz
@@ -776,17 +776,17 @@ def tv_probe(
 
 def tv_precompute_probe_frame_sweep(
         frame:   typ.Tuple[
-            typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
-            typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+            typ.Sequence[NDArray],          # down_tucker_cores  U. len=d
+            typ.Sequence[NDArray],          # up_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
         ],                                  # frame order = T3Frame.data = (up, down, left, right)
         ww:     typ.Sequence[NDArray],      # probe vectors, len=d, elm_shape=W+(Ni,)
 ) -> typ.Tuple[
-    typ.Sequence[NDArray],  # xis.  len=d, elm_shape=W+C+(nUi,)
+    typ.Sequence[NDArray],  # xis.  len=d, elm_shape=W+C+(nDi,)
     typ.Sequence[NDArray],  # mus.  len=d, elm_shape=W+C+(rLi,)
     typ.Sequence[NDArray],  # nus.  len=d, elm_shape=W+C+(rR(i+1),)
-    typ.Sequence[NDArray],  # etas. len=d, elm_shape=W+C+(nOi,)
+    typ.Sequence[NDArray],  # etas. len=d, elm_shape=W+C+(nUi,)
 ]:                                          # full frame sweep -- (xis, mus, nus, etas)
     '''The **probe** frame sweep (full): all four frame edge variables ``(xi, mu, nu, eta)``. The probe
     leaves one mode free, so its transpose's per-mode (vector) residual must be propagated through both
@@ -801,27 +801,27 @@ def tv_precompute_probe_frame_sweep(
     tv_probe_transpose_from_sweep
     tv_precompute_apply_frame_sweep
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
-    xis  = compute_xi(up_tucker_cores, ww)
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
+    xis  = compute_xi(down_tucker_cores, ww)
     mus  = compute_mu(left_tt_cores, xis)
     nus  = compute_nu(right_tt_cores, xis)
-    etas = compute_eta(down_tt_cores, mus, nus)
+    etas = compute_eta(up_tt_cores, mus, nus)
     return xis, mus, nus, etas
 
 
 def _sigma_hat_step(
         carry: NDArray,                      # W+K+C+(rR(i+1),)
-        data:  typ.Tuple[NDArray, NDArray],  # (Q, xi): C+(rRi,nUi,rR(i+1)) ; W+C+(nUi,)
+        data:  typ.Tuple[NDArray, NDArray],  # (Q, xi): C+(rRi,nDi,rR(i+1)) ; W+C+(nDi,)
 ) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:   # (next carry, (carry,))
     '''One edge of the adjoint reverse sweep of :py:func:`compute_sigma_hat`. Closure-free scan body
     -- ``docs/contributor/scan_body_principles.md``.'''
-    Q, xi = data
-    return contractions.contract('WKCa,Caib,WCi->WKCb', carry, Q, xi), (carry,)
+    R, xi = data
+    return contractions.contract('WKCa,Caib,WCi->WKCb', carry, R, xi), (carry,)
 
 
 def compute_sigma_hat(
-        right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
-        xis:            typ.Sequence[NDArray],  # frame up-index edge vars, len=d, elm_shape=W+C+(nUi,)
+        right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nDi,rR(i+1))
+        xis:            typ.Sequence[NDArray],  # frame up-index edge vars, len=d, elm_shape=W+C+(nDi,)
         c:              NDArray,                # residual (scalar), shape=W+K+C
 ) -> typ.Sequence[NDArray]:                     # sigma_hats. len=d, elm_shape=W+K+C+(rR(i+1),)
     '''Propagation-only adjoint **reverse** sweep via ``Q``, seeded at the terminal bond by the residual
@@ -836,7 +836,7 @@ def compute_sigma_hat(
     reverse = tt_operations.tt_reverse
     xnp, _, xscan = get_backend(is_uniform, use_jax)
 
-    rev_Q = reverse(right_tt_cores)
+    rev_R = reverse(right_tt_cores)
     rev_xi = xis[::-1]
     # The forward sums the terminal bond (rR_d, not necessarily 1 -- e.g. the corewise frame's own cores),
     # so the adjoint BROADCASTS c over it: seed = c (x) 1_{rR_d} -> W+K+C+(rR_d,).
@@ -844,7 +844,7 @@ def compute_sigma_hat(
     c = xnp.asarray(c)          # a bare Python float is the natural W = K = C = () residual (apply/entries)
     seed = xnp.broadcast_to(c[..., None], tuple(c.shape) + (rR_d,))
 
-    _, (rev_sigma_hats,) = xscan(_sigma_hat_step, seed, (rev_Q, rev_xi))
+    _, (rev_sigma_hats,) = xscan(_sigma_hat_step, seed, (rev_R, rev_xi))
     return rev_sigma_hats[::-1]
 
 
@@ -853,20 +853,20 @@ def compute_sigma_hat(
 ###############################################################
 
 def _deta_tilde_step(
-        x: typ.Tuple[NDArray, NDArray],   # (U, zt): C+(nUi,Ni) ; W+K+C+(Ni,)
-) -> typ.Tuple[NDArray]:                  # (deta_tilde,): W+K+C+(nUi,)
+        x: typ.Tuple[NDArray, NDArray],   # (U, zt): C+(nDi,Ni) ; W+K+C+(Ni,)
+) -> typ.Tuple[NDArray]:                  # (deta_tilde,): W+K+C+(nDi,)
     '''One core of the ragged map of :py:func:`compute_deta_tilde`. Closure-free map body --
     ``docs/contributor/scan_body_principles.md``.'''
-    U, zt = x
+    D, zt = x
     # C (T3 stack) is shared between the core U and the residual zt; W is the probe stack on
     # zt. This is NOT compute_xi (which forms an outer product over the two stacks).
-    return (contractions.contract('WCo,Cio->WCi', zt, U),)
+    return (contractions.contract('WCo,Cio->WCi', zt, D),)
 
 
 def compute_deta_tilde(
-        up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(nUi,Ni)
+        down_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(nDi,Ni)
         ztildes:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,Ni)
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,nUi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,nDi)
     '''Adjoint-var-upward edge variables deta_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
 
@@ -876,8 +876,8 @@ def compute_deta_tilde(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = tree_contains_jax((up_tucker_cores, ztildes))
-    is_uniform = is_ndarray(up_tucker_cores)
+    use_jax = tree_contains_jax((down_tucker_cores, ztildes))
+    is_uniform = is_ndarray(down_tucker_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
@@ -885,9 +885,9 @@ def compute_deta_tilde(
         # the probe stack W), so this is the SHARED-C contraction dWCo_dCio_to_dWCi -- NOT the outer-product
         # dCio_dWo_to_dWCi (which assumes no shared C and is wrong for a C-stacked tangent). Mirrors the
         # ragged contract('WCo,Cio->WCi', zt, U); the ragged xmap branch below is the oracle.
-        deta_tildes = contractions.contract('dWCo,dCio->dWCi', ztildes, up_tucker_cores)
+        deta_tildes = contractions.contract('dWCo,dCio->dWCi', ztildes, down_tucker_cores)
     else:
-        (deta_tildes,) = xmap(_deta_tilde_step, (up_tucker_cores, ztildes))
+        (deta_tildes,) = xmap(_deta_tilde_step, (down_tucker_cores, ztildes))
 
     return deta_tildes
 
@@ -898,20 +898,20 @@ def _tau_tilde_step(
 ) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:   # (next carry, (tau_tilde,))
     '''One edge of the adjoint rightward sweep of :py:func:`compute_tau_tilde`. Closure-free scan
     body -- ``docs/contributor/scan_body_principles.md``.'''
-    P, xi, deta_tilde, mu = x
+    L, xi, deta_tilde, mu = x
     # Three-group (W probe, K tangent, C frame): tau_tilde/deta_tilde carry K (from the residual),
     # xi/mu and the frame core P do not. Both terms self-infer the split (P pins C, xi/mu pin W);
     # reduces to the two-group result when K is empty (no K-stacked residual).
-    t1 = contractions.contract('WKCa,Caib,WCi->WKCb', tau_tilde, P, xi)
-    t2 = contractions.contract('WCa,Caib,WKCi->WKCb', mu, P, deta_tilde)
+    t1 = contractions.contract('WKCa,Caib,WCi->WKCb', tau_tilde, L, xi)
+    t2 = contractions.contract('WCa,Caib,WKCi->WKCb', mu, L, deta_tilde)
     tau_tilde_next = t1 + t2
     return tau_tilde_next, (tau_tilde,)
 
 
 def compute_tau_tilde(
-        deta_tildes:        typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,nUi)
-        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rL(i+1))
-        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
+        deta_tildes:        typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,nDi)
+        left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nDi,rL(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nDi)
         mus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rLi)
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,rLi)
     '''Adjoint-var-rightward edge variables tau_tilde.
@@ -935,9 +935,9 @@ def compute_tau_tilde(
 
 
 def compute_sigma_tilde(
-        deta_tildes:        typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
-        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
-        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
+        deta_tildes:        typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nDi)
+        right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nDi,rR(i+1))
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nDi)
         nus:                typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,rR(i+1))
 ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # len=d, elm_shape=(...,rR(i+1))
     '''Adjoint-var-leftward edge variables sigma_tilde.
@@ -959,24 +959,24 @@ def compute_sigma_tilde(
 
 def _dxi_tilde_step(
         x: typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray],   # (O, mu, nu, st, tt)
-) -> typ.Tuple[NDArray]:                                             # (dxi_tilde,): W+K+C+(nOi,)
+) -> typ.Tuple[NDArray]:                                             # (dxi_tilde,): W+K+C+(nUi,)
     '''One core of the ragged map of :py:func:`compute_dxi_tilde`. Closure-free map body --
     ``docs/contributor/scan_body_principles.md``.'''
-    O, mu, nu, st, tt = x
+    U, mu, nu, st, tt = x
     # Three-group (see compute_tau_tilde): tt/st carry K, mu/nu and the frame core O do not.
     # Both terms self-infer (O pins C, mu/nu pin W).
-    term1 = contractions.contract('WKCa,Caib,WCb->WKCi', tt, O, nu)
-    term2 = contractions.contract('WCa,Caib,WKCb->WKCi', mu, O, st)
+    term1 = contractions.contract('WKCa,Caib,WCb->WKCi', tt, U, nu)
+    term2 = contractions.contract('WCa,Caib,WKCb->WKCi', mu, U, st)
     return (term1 + term2,)
 
 
 def compute_dxi_tilde(
         sigma_tildes:           typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rR(i+1))
         tau_tildes:             typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rLi)
-        down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+        up_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rR(i+1))
         mus:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rLi)
         nus:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rR(i+1))
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dxi_tildes. len=d, elm_shape=(...,nOi)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dxi_tildes. len=d, elm_shape=(...,nUi)
     '''Adjoint-var-downward edge variables dxi_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
 
@@ -986,18 +986,18 @@ def compute_dxi_tilde(
         arXiv preprint arXiv:2603.21141.
         `https://arxiv.org/abs/2603.21141 <https://arxiv.org/abs/2603.21141>`_
     '''
-    use_jax = tree_contains_jax((sigma_tildes, tau_tildes, down_tt_cores, mus, nus))
+    use_jax = tree_contains_jax((sigma_tildes, tau_tildes, up_tt_cores, mus, nus))
     is_uniform = not isinstance(mus, typ.Sequence)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
 
     if is_uniform:
         # d-prefixed WKC: tau_tildes/sigma_tildes carry K (W+K+C); mus/nus are W+C; the frame
-        # supercore down_tt_cores (O) is C-only. Mirrors the ragged calls; the ragged xmap is the oracle.
-        term1 = contractions.contract('dWKCa,dCaib,dWCb->dWKCi', tau_tildes, down_tt_cores, nus)
-        term2 = contractions.contract('dWCa,dCaib,dWKCb->dWKCi', mus, down_tt_cores, sigma_tildes)
+        # supercore up_tt_cores (O) is C-only. Mirrors the ragged calls; the ragged xmap is the oracle.
+        term1 = contractions.contract('dWKCa,dCaib,dWCb->dWKCi', tau_tildes, up_tt_cores, nus)
+        term2 = contractions.contract('dWCa,dCaib,dWKCb->dWKCi', mus, up_tt_cores, sigma_tildes)
         dxi_tildes = term1 + term2
     else:
-        xs = (down_tt_cores, mus, nus, sigma_tildes, tau_tildes)
+        xs = (up_tt_cores, mus, nus, sigma_tildes, tau_tildes)
         (dxi_tildes,) = xmap(_dxi_tilde_step, xs)
 
     return dxi_tildes
@@ -1006,7 +1006,7 @@ def compute_dxi_tilde(
 def _assemble_tucker_variations_core(
         x:               typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (z_tilde, eta, w, dxi_tilde)
         sum_over_probes: bool,     # caller intent -- no operand carries it; hence the two bodies below
-) -> typ.Tuple[NDArray]:           # (dU_tilde,): W+K+C+(nOi,Ni), or K+C+(nOi,Ni) when summed
+) -> typ.Tuple[NDArray]:           # (dU_tilde,): W+K+C+(nUi,Ni), or K+C+(nUi,Ni) when summed
     '''One core of the ragged map of :py:func:`assemble_tucker_variations`, shared by the two
     closure-free map bodies below -- ``docs/contributor/scan_body_principles.md``.'''
     z_tilde, eta, w, dxi_tilde = x
@@ -1017,18 +1017,18 @@ def _assemble_tucker_variations_core(
     # two-group result when K is empty.
     n_probe = w.ndim - 1
     if sum_over_probes:
-        dU_tilde = (
+        V_tilde = (
                 contractions.contract('WKCo,WCa->KCao', z_tilde, eta, len_W=n_probe)
                 +
                 contractions.contract('Wo,WKCa->KCao', w, dxi_tilde)
         )
     else:
-        dU_tilde = (
+        V_tilde = (
                 contractions.contract('WKCo,WCa->WKCao', z_tilde, eta, len_W=n_probe)
                 +
                 contractions.contract('Wo,WKCa->WKCao', w, dxi_tilde)
         )
-    return (dU_tilde,)
+    return (V_tilde,)
 
 
 def _assemble_tucker_variations_step_summed(x):    # closure-free map body -- docs/contributor/scan_body_principles.md
@@ -1043,11 +1043,11 @@ def _assemble_tucker_variations_step_unsummed(x):  # closure-free map body -- do
 
 def assemble_tucker_variations(
         ztildes:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,Ni)
-        dxi_tildes: typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
+        dxi_tildes: typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
         ww:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,Ni)
-        etas:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
+        etas:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nUi)
         sum_over_probes: bool = False,
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dU_tildes. len=d, elm_shape=(...,nOi,Ni)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dU_tildes. len=d, elm_shape=(...,nUi,Ni)
     '''Assemble Tucker core variations, delta_U_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
 
@@ -1066,17 +1066,17 @@ def assemble_tucker_variations(
         # supercore (d,)+W+(N,) -> n_probe = len(W). The ragged xmap below is the oracle.
         n_probe = ww.ndim - 2
         if sum_over_probes:
-            dU_tildes = (contractions.contract('dWKCo,dWCa->dKCao', ztildes, etas, len_W=n_probe)
+            V_tildes = (contractions.contract('dWKCo,dWCa->dKCao', ztildes, etas, len_W=n_probe)
                          + contractions.contract('dWo,dWKCa->dKCao', ww, dxi_tildes))
         else:
-            dU_tildes = (contractions.contract('dWKCo,dWCa->dWKCao', ztildes, etas, len_W=n_probe)
+            V_tildes = (contractions.contract('dWKCo,dWCa->dWKCao', ztildes, etas, len_W=n_probe)
                          + contractions.contract('dWo,dWKCa->dWKCao', ww, dxi_tildes))
     else:
         step = (_assemble_tucker_variations_step_summed if sum_over_probes
                 else _assemble_tucker_variations_step_unsummed)
-        (dU_tildes,) = xmap(step, (ztildes, etas, ww, dxi_tildes))
+        (V_tildes,) = xmap(step, (ztildes, etas, ww, dxi_tildes))
 
-    return dU_tildes
+    return V_tildes
 
 
 def _assemble_tt_variations_core(
@@ -1084,7 +1084,7 @@ def _assemble_tt_variations_core(
                                    NDArray, NDArray, NDArray],  # (xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde)
         n_probe:         int,      # len(W); rides as an extra map operand -- see assemble_tt_variations
         sum_over_probes: bool,     # caller intent -- no operand carries it; hence the two bodies below
-) -> typ.Tuple[NDArray]:           # (dG_tilde,): W+K+C+(rLi,nUi,rR(i+1)), or K+C+(...) when summed
+) -> typ.Tuple[NDArray]:           # (dG_tilde,): W+K+C+(rLi,nDi,rR(i+1)), or K+C+(...) when summed
     '''One core of the ragged map of :py:func:`assemble_tt_variations`, shared by the two
     closure-free map bodies below -- ``docs/contributor/scan_body_principles.md``.'''
     xi, mu, nu, sigma_tilde, tau_tilde, deta_tilde = x
@@ -1094,7 +1094,7 @@ def _assemble_tt_variations_core(
     # each contraction then derives C from an W+C operand and K from the W+K+C one. Output
     # keeps K always; W is summed (K+C) or kept (W+K+C) per sum_over_probes.
     if sum_over_probes:
-        dG_tilde = (
+        H_tilde = (
                 contractions.contract('WCi,WCa,WKCj->KCiaj', mu, xi, sigma_tilde, len_W=n_probe)
                 +
                 contractions.contract('WKCi,WCa,WCj->KCiaj', tau_tilde, xi, nu, len_W=n_probe)
@@ -1102,14 +1102,14 @@ def _assemble_tt_variations_core(
                 contractions.contract('WCi,WKCa,WCj->KCiaj', mu, deta_tilde, nu, len_W=n_probe)
         )
     else:
-        dG_tilde = (
+        H_tilde = (
                 contractions.contract('WCi,WCa,WKCj->WKCiaj', mu, xi, sigma_tilde, len_W=n_probe)
                 +
                 contractions.contract('WKCi,WCa,WCj->WKCiaj', tau_tilde, xi, nu, len_W=n_probe)
                 +
                 contractions.contract('WCi,WKCa,WCj->WKCiaj', mu, deta_tilde, nu, len_W=n_probe)
         )
-    return (dG_tilde,)
+    return (H_tilde,)
 
 
 def _assemble_tt_variations_step_summed(x):    # closure-free map body -- docs/contributor/scan_body_principles.md
@@ -1127,13 +1127,13 @@ def _assemble_tt_variations_step_unsummed(x):  # closure-free map body -- docs/c
 def assemble_tt_variations(
         sigma_tildes:   typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rR(i+1))
         tau_tildes:     typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rLi)
-        deta_tildes:    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,nUi)
-        xis:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,nUi)
+        deta_tildes:    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,nDi)
+        xis:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,nDi)
         mus:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rLi)
         nus:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(...,rR(i+1))
         sum_over_probes: bool = False,
         n_probe: int = 0,  # number of trailing probe-stack axes; only used when sum_over_probes
-) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dG_tildes. len=d, elm_shape=(...,rLi,nUi,rR(i+1))
+) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dG_tildes. len=d, elm_shape=(...,rLi,nDi,rR(i+1))
     '''Assemble TT core variations, delta_G_tilde.
     Used for computing the transpose of the map from a tangent vector to its probes.
 
@@ -1152,11 +1152,11 @@ def assemble_tt_variations(
         # term (sigma_tilde on j, tau_tilde on i, deta_tilde on a); the frame edge vars xi/mu/nu are W+C.
         # n_probe = len(W) (supplied). The ragged xmap below is the oracle.
         if sum_over_probes:
-            dG_tildes = (contractions.contract('dWCi,dWCa,dWKCj->dKCiaj', mus, xis, sigma_tildes, len_W=n_probe)
+            H_tildes = (contractions.contract('dWCi,dWCa,dWKCj->dKCiaj', mus, xis, sigma_tildes, len_W=n_probe)
                          + contractions.contract('dWKCi,dWCa,dWCj->dKCiaj', tau_tildes, xis, nus, len_W=n_probe)
                          + contractions.contract('dWCi,dWKCa,dWCj->dKCiaj', mus, deta_tildes, nus, len_W=n_probe))
         else:
-            dG_tildes = (contractions.contract('dWCi,dWCa,dWKCj->dWKCiaj', mus, xis, sigma_tildes, len_W=n_probe)
+            H_tildes = (contractions.contract('dWCi,dWCa,dWKCj->dWKCiaj', mus, xis, sigma_tildes, len_W=n_probe)
                          + contractions.contract('dWKCi,dWCa,dWCj->dWKCiaj', tau_tildes, xis, nus, len_W=n_probe)
                          + contractions.contract('dWCi,dWKCa,dWCj->dWKCiaj', mus, deta_tildes, nus, len_W=n_probe))
     else:
@@ -1165,9 +1165,9 @@ def assemble_tt_variations(
         step = (_assemble_tt_variations_step_summed if sum_over_probes
                 else _assemble_tt_variations_step_unsummed)
         xs = (xis, mus, nus, sigma_tildes, tau_tildes, deta_tildes, (n_probe,) * len(xis))
-        (dG_tildes,) = xmap(step, xs)
+        (H_tildes,) = xmap(step, xs)
 
-    return dG_tildes
+    return H_tildes
 
 
 def tv_probe_transpose_from_sweep(
@@ -1194,17 +1194,17 @@ def tv_probe_transpose_from_sweep(
     tv_probe_transpose
     tv_probe_jacobian_from_sweep
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     xis, mus, nus, etas = frame_sweep
-    deta_tildes  = compute_deta_tilde(up_tucker_cores, ztildes)
+    deta_tildes  = compute_deta_tilde(down_tucker_cores, ztildes)
     tau_tildes   = compute_tau_tilde(deta_tildes, left_tt_cores, xis, mus)
     sigma_tildes = compute_sigma_tilde(deta_tildes, right_tt_cores, xis, nus)
-    dxi_tildes   = compute_dxi_tilde(sigma_tildes, tau_tildes, down_tt_cores, mus, nus)
+    dxi_tildes   = compute_dxi_tilde(sigma_tildes, tau_tildes, up_tt_cores, mus, nus)
     n_probe = ww[0].ndim - 1
-    dU_tildes = assemble_tucker_variations(ztildes, dxi_tildes, ww, etas, sum_over_probes=sum_over_probes)
-    dG_tildes = assemble_tt_variations(sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus,
+    V_tildes = assemble_tucker_variations(ztildes, dxi_tildes, ww, etas, sum_over_probes=sum_over_probes)
+    H_tildes = assemble_tt_variations(sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus,
                                        sum_over_probes=sum_over_probes, n_probe=n_probe)
-    return dU_tildes, dG_tildes
+    return V_tildes, H_tildes
 
 
 def tv_probe_transpose(
@@ -1227,12 +1227,12 @@ def tv_probe_transpose(
         sum_over_probes: bool = False,
 ) -> typ.Union[
     typ.Tuple[
-        typ.Tuple[NDArray,...], # dU_tildes. len=d, elm_shape=(...,nOi,Ni)
-        typ.Tuple[NDArray,...], # dG_tildes. len=d, elm_shape=(...,rLi,nUi,rR(i+1))
+        typ.Tuple[NDArray,...], # dU_tildes. len=d, elm_shape=(...,nUi,Ni)
+        typ.Tuple[NDArray,...], # dG_tildes. len=d, elm_shape=(...,rLi,nDi,rR(i+1))
     ],
     typ.Tuple[
-        NDArray,  # dU_tildes. shape=(d, ..., nOi, Ni)
-        NDArray,  # dG_tildes. shape=(d, ..., rLi, nUi, rR(i+1))
+        NDArray,  # dU_tildes. shape=(d, ..., nUi, Ni)
+        NDArray,  # dG_tildes. shape=(d, ..., rLi, nDi, rR(i+1))
     ],
 ]:
     '''Apply the transpose of the map from a tangent vector to its probes (apply (J^(s))^T to ztildes).
@@ -1256,7 +1256,7 @@ def tv_probe_transpose(
         Probe residuals to apply the transpose map to. len=d, elm_shape=(...,Ni)
     ww: typ.Sequence[NDArray]
         input vectors that defined the (forward) probe map. len=d, elm_shape=(...,Ni)
-    frame: (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+    frame: (down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores)
         Orthogonal frame for the point where the tangent space attaches to the manifold. This is
         exactly ``T3Frame.data`` order (U, O, P, Q) -- pass ``frame.data`` directly, no reorder.
     sum_over_probes: bool
@@ -1319,25 +1319,25 @@ def tv_probe_transpose(
     >>> print(bool(np.allclose(lhs, rhs)))
     True
     '''
-    (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores) = frame
+    (down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores) = frame
 
-    xis = compute_xi(up_tucker_cores, ww)
+    xis = compute_xi(down_tucker_cores, ww)
 
     mus = compute_mu(left_tt_cores, xis)
 
     nus = compute_nu(right_tt_cores, xis)
 
-    etas = compute_eta(down_tt_cores, mus, nus)
+    etas = compute_eta(up_tt_cores, mus, nus)
 
     #
 
-    deta_tildes = compute_deta_tilde(up_tucker_cores, ztildes)
+    deta_tildes = compute_deta_tilde(down_tucker_cores, ztildes)
 
     tau_tildes = compute_tau_tilde(deta_tildes, left_tt_cores, xis, mus)
 
     sigma_tildes = compute_sigma_tilde(deta_tildes, right_tt_cores, xis, nus)
 
-    dxi_tildes = compute_dxi_tilde(sigma_tildes, tau_tildes, down_tt_cores, mus, nus)
+    dxi_tildes = compute_dxi_tilde(sigma_tildes, tau_tildes, up_tt_cores, mus, nus)
 
     #
 
@@ -1346,17 +1346,17 @@ def tv_probe_transpose(
     # W-only probe vectors ww. (ragged: ww[0].shape = W + (Ni,).)
     n_probe = ww[0].ndim - 1
 
-    dU_tildes = assemble_tucker_variations(
+    V_tildes = assemble_tucker_variations(
         ztildes, dxi_tildes, ww, etas,
         sum_over_probes=sum_over_probes,
     )
 
-    dG_tildes = assemble_tt_variations(
+    H_tildes = assemble_tt_variations(
         sigma_tildes, tau_tildes, deta_tildes, xis, mus, nus,
         sum_over_probes=sum_over_probes, n_probe=n_probe,
     )
 
-    return dU_tildes, dG_tildes
+    return V_tildes, H_tildes
 
 
 def t3_probe_ambient_transpose(
@@ -1468,29 +1468,29 @@ def t3_probe_corewise_transpose(
 # masks theta and theta_hat once, packs, delegates here, and re-masks the output -- the kernel is mask-free).
 
 def _deta_tilde_tangent_step(
-        x: typ.Tuple[NDArray, NDArray, NDArray],   # (U, Udot, z~): C+(nUi,Ni) ; K+C+(nUi,Ni) ; W+C+(Ni,)
-) -> typ.Tuple[NDArray]:                           # (deta_tilde_dot,): W+K+C+(nUi,)
+        x: typ.Tuple[NDArray, NDArray, NDArray],   # (U, Udot, z~): C+(nDi,Ni) ; K+C+(nDi,Ni) ; W+C+(Ni,)
+) -> typ.Tuple[NDArray]:                           # (deta_tilde_dot,): W+K+C+(nDi,)
     '''One core of the ragged map of :py:func:`compute_deta_tilde_tangent`. The C-only ``U`` is passed only to
     recover ``len(C)``. Closure-free map body -- ``docs/contributor/scan_body_principles.md``.'''
-    U, Ud, zt = x
-    return (contractions.contract('WCo,KCio->WKCi', zt, Ud, len_C=U.ndim - 2),)
+    D, Dd, zt = x
+    return (contractions.contract('WCo,KCio->WKCi', zt, Dd, len_C=D.ndim - 2),)
 
 
 def compute_deta_tilde_tangent(
-        up_tucker_cores:        typ.Union[typ.Sequence[NDArray], NDArray],  # U.    len=d, elm_shape=C+(nUi,Ni)
-        up_tucker_cores_dot:    typ.Union[typ.Sequence[NDArray], NDArray],  # Udot. len=d, elm_shape=K+C+(nUi,Ni)
+        down_tucker_cores:        typ.Union[typ.Sequence[NDArray], NDArray],  # U.    len=d, elm_shape=C+(nDi,Ni)
+        down_tucker_cores_dot:    typ.Union[typ.Sequence[NDArray], NDArray],  # Udot. len=d, elm_shape=K+C+(nDi,Ni)
         ztildes:                typ.Union[typ.Sequence[NDArray], NDArray],  # residuals, len=d, elm_shape=W+C+(Ni,)
-) -> typ.Union[typ.Sequence[NDArray], NDArray]:  # deta_tildes_dot. len=d, elm_shape=W+K+C+(nUi,)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]:  # deta_tildes_dot. len=d, elm_shape=W+K+C+(nDi,)
     '''The derivative of :py:func:`compute_deta_tilde` along the Tucker directions, the residual held fixed:
     ``deta_tilde_dot_i = Udot_i z~_i`` (only the core moves). The tangent stack ``K`` comes from ``Udot``; ``U``
     only pins ``len(C)``.'''
-    use_jax = tree_contains_jax((up_tucker_cores, up_tucker_cores_dot, ztildes))
-    is_uniform = is_ndarray(up_tucker_cores)
+    use_jax = tree_contains_jax((down_tucker_cores, down_tucker_cores_dot, ztildes))
+    is_uniform = is_ndarray(down_tucker_cores)
     xnp, xmap, xscan = get_backend(is_uniform, use_jax)
     if is_uniform:
-        return contractions.contract('dWCo,dKCio->dWKCi', ztildes, up_tucker_cores_dot,
-                                     len_C=up_tucker_cores.ndim - 3)
-    (deta_tildes_dot,) = xmap(_deta_tilde_tangent_step, (up_tucker_cores, up_tucker_cores_dot, ztildes))
+        return contractions.contract('dWCo,dKCio->dWKCi', ztildes, down_tucker_cores_dot,
+                                     len_C=down_tucker_cores.ndim - 3)
+    (deta_tildes_dot,) = xmap(_deta_tilde_tangent_step, (down_tucker_cores, down_tucker_cores_dot, ztildes))
     return deta_tildes_dot
 
 
@@ -1504,19 +1504,19 @@ def _tau_tilde_tangent_step(
     each): ``d(tau~ P xi) = _sigma_step(tau~_dot, P, P, P_dot, xi, xi_dot, tau~)`` and ``d(mu P deta~) =
     _sigma_step(mu_dot, P, P, P_dot, deta~, deta~_dot, mu)``. Closure-free scan body --
     ``docs/contributor/scan_body_principles.md``.'''
-    P, Pd, xi, xid, dt, dtd, mu, mud, tt = x
-    nxt = (_sigma_step(carry_dot, P, P, Pd, xi, xid, tt)      # K on the carry / the core / xi
-           + _sigma_step(mud, P, P, Pd, dt, dtd, mu))          # K on mu / the core / deta~
+    L, Ld, xi, xid, dt, dtd, mu, mud, tt = x
+    nxt = (_sigma_step(carry_dot, L, L, Ld, xi, xid, tt)      # K on the carry / the core / xi
+           + _sigma_step(mud, L, L, Ld, dt, dtd, mu))          # K on mu / the core / deta~
     return nxt, (carry_dot,)
 
 
 def compute_tau_tilde_tangent(
-        left_tt_cores:          typ.Union[typ.Sequence[NDArray], NDArray],  # P.     len=d, elm_shape=C+(rLi,nUi,rL(i+1))
-        left_tt_cores_dot:      typ.Union[typ.Sequence[NDArray], NDArray],  # P_dot. len=d, elm_shape=K+C+(rLi,nUi,rL(i+1))
-        xis:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nUi,)
-        xis_dot:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nUi,)
-        deta_tildes:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nUi,)
-        deta_tildes_dot:        typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nUi,)
+        left_tt_cores:          typ.Union[typ.Sequence[NDArray], NDArray],  # P.     len=d, elm_shape=C+(rLi,nDi,rL(i+1))
+        left_tt_cores_dot:      typ.Union[typ.Sequence[NDArray], NDArray],  # P_dot. len=d, elm_shape=K+C+(rLi,nDi,rL(i+1))
+        xis:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nDi,)
+        xis_dot:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nDi,)
+        deta_tildes:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nDi,)
+        deta_tildes_dot:        typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nDi,)
         mus:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(rLi,)
         mus_dot:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(rLi,)
         tau_tildes:             typ.Union[typ.Sequence[NDArray], NDArray],  # = compute_tau_tilde(deta~, P, xi, mu). len=d, elm_shape=W+C+(rLi,)
@@ -1541,12 +1541,12 @@ def compute_tau_tilde_tangent(
 
 
 def compute_sigma_tilde_tangent(
-        right_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray],  # Q.     len=d, elm_shape=C+(rRi,nUi,rR(i+1))
-        right_tt_cores_dot:     typ.Union[typ.Sequence[NDArray], NDArray],  # Q_dot. len=d, elm_shape=K+C+(rRi,nUi,rR(i+1))
-        xis:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nUi,)
-        xis_dot:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nUi,)
-        deta_tildes:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nUi,)
-        deta_tildes_dot:        typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nUi,)
+        right_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray],  # Q.     len=d, elm_shape=C+(rRi,nDi,rR(i+1))
+        right_tt_cores_dot:     typ.Union[typ.Sequence[NDArray], NDArray],  # Q_dot. len=d, elm_shape=K+C+(rRi,nDi,rR(i+1))
+        xis:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nDi,)
+        xis_dot:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nDi,)
+        deta_tildes:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nDi,)
+        deta_tildes_dot:        typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nDi,)
         nus:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(rR(i+1),)
         nus_dot:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(rR(i+1),)
         sigma_tildes:           typ.Union[typ.Sequence[NDArray], NDArray],  # = compute_sigma_tilde(deta~, Q, xi, nu). len=d, elm_shape=W+C+(rR(i+1),)
@@ -1562,8 +1562,8 @@ def compute_sigma_tilde_tangent(
 
 
 def compute_dxi_tilde_tangent(
-        down_tt_cores:          typ.Union[typ.Sequence[NDArray], NDArray],  # O.     len=d, elm_shape=C+(rLi,nOi,rR(i+1))
-        down_tt_cores_dot:      typ.Union[typ.Sequence[NDArray], NDArray],  # O_dot. len=d, elm_shape=K+C+(rLi,nOi,rR(i+1))
+        up_tt_cores:          typ.Union[typ.Sequence[NDArray], NDArray],  # O.     len=d, elm_shape=C+(rLi,nUi,rR(i+1))
+        up_tt_cores_dot:      typ.Union[typ.Sequence[NDArray], NDArray],  # O_dot. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1))
         mus:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(rLi,)
         mus_dot:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(rLi,)
         nus:                    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(rR(i+1),)
@@ -1572,14 +1572,14 @@ def compute_dxi_tilde_tangent(
         sigma_tildes_dot:       typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(rR(i+1),)
         tau_tildes:             typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(rLi,)
         tau_tildes_dot:         typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(rLi,)
-) -> typ.Union[typ.Sequence[NDArray], NDArray]:  # dxi_tildes_dot. len=d, elm_shape=W+K+C+(nOi,)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]:  # dxi_tildes_dot. len=d, elm_shape=W+K+C+(nUi,)
     '''The derivative of :py:func:`compute_dxi_tilde`, ``dxi~ = tau~ O nu + mu O sigma~``: each combine is
     trilinear and :py:func:`compute_deta` is exactly the product rule of one (``sigma Q nu + mu dG nu + mu P
     tau``), so ``dxi~_dot = compute_deta(O_dot, O, O, tau~, nu, tau~_dot, nu_dot) + compute_deta(O_dot, O, O, mu,
     sigma~, mu_dot, sigma~_dot)`` -- six terms, ``K`` on the dotted factor of each.'''
-    from_tau = compute_deta(down_tt_cores_dot, down_tt_cores, down_tt_cores, tau_tildes, nus, tau_tildes_dot,
+    from_tau = compute_deta(up_tt_cores_dot, up_tt_cores, up_tt_cores, tau_tildes, nus, tau_tildes_dot,
                             nus_dot)
-    from_mu = compute_deta(down_tt_cores_dot, down_tt_cores, down_tt_cores, mus, sigma_tildes, mus_dot,
+    from_mu = compute_deta(up_tt_cores_dot, up_tt_cores, up_tt_cores, mus, sigma_tildes, mus_dot,
                            sigma_tildes_dot)
     if is_ndarray(from_tau):
         return from_tau + from_mu
@@ -1588,7 +1588,7 @@ def compute_dxi_tilde_tangent(
 
 def _tucker_tangent_variations_step(
         x: typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # (z~, dxi~_dot, eta_dot, w), one core
-) -> typ.Tuple[NDArray]:                                    # (dU,): K+C+(nOi,Ni), W summed
+) -> typ.Tuple[NDArray]:                                    # (dU,): K+C+(nUi,Ni), W summed
     '''One core of the ragged map of :py:func:`assemble_tucker_tangent_variations`; ``len(W)`` is read off the
     W-only probe vector ``w``. Closure-free map body -- ``docs/contributor/scan_body_principles.md``.'''
     zt, dxtd, etad, w = x
@@ -1599,10 +1599,10 @@ def _tucker_tangent_variations_step(
 
 def assemble_tucker_tangent_variations(
         ztildes:        typ.Union[typ.Sequence[NDArray], NDArray],  # residuals, len=d, elm_shape=W+C+(Ni,)
-        dxi_tildes_dot: typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nOi,)
+        dxi_tildes_dot: typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nUi,)
         ww:             typ.Union[typ.Sequence[NDArray], NDArray],  # probe vectors, len=d, elm_shape=W+(Ni,)
-        etas_dot:       typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nOi,)
-) -> typ.Union[typ.Sequence[NDArray], NDArray]:  # dU. len=d, elm_shape=K+C+(nOi,Ni) (W summed)
+        etas_dot:       typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nUi,)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]:  # dU. len=d, elm_shape=K+C+(nUi,Ni) (W summed)
     '''The derivative of :py:func:`assemble_tucker_variations` (``sum_over_probes=True``) with the residual and
     the probe vectors fixed: ``sum_W z~ (x) eta_dot + w (x) dxi~_dot``.'''
     use_jax = tree_contains_jax((ztildes, dxi_tildes_dot, ww, etas_dot))
@@ -1612,14 +1612,14 @@ def assemble_tucker_tangent_variations(
         n_probe = ww.ndim - 2                      # ww is the W-only packed probe supercore (d,)+W+(N,)
         return (contractions.contract('dWCo,dWKCa->dKCao', ztildes, etas_dot, len_W=n_probe)
                 + contractions.contract('dWo,dWKCa->dKCao', ww, dxi_tildes_dot))
-    (dU,) = xmap(_tucker_tangent_variations_step, (ztildes, dxi_tildes_dot, etas_dot, ww))
-    return dU
+    (dB,) = xmap(_tucker_tangent_variations_step, (ztildes, dxi_tildes_dot, etas_dot, ww))
+    return dB
 
 
 def _tt_tangent_variations_step(
         x: typ.Tuple[NDArray, ...],   # (xi, xi_dot, mu, mu_dot, nu, nu_dot, sigma~, sigma~_dot, tau~, tau~_dot,
         #                               deta~, deta~_dot, n_probe), one core
-) -> typ.Tuple[NDArray]:              # (dG,): K+C+(rLi,nUi,rR(i+1)), W summed
+) -> typ.Tuple[NDArray]:              # (dG,): K+C+(rLi,nDi,rR(i+1)), W summed
     '''One core of the factored TT tangent assembly (:py:func:`assemble_tt_tangent_variations`). ``n_probe``
     rides as the last map operand (per-call data with no W-only operand to recover it from). Closure-free map
     body -- ``docs/contributor/scan_body_principles.md``.'''
@@ -1651,16 +1651,16 @@ def assemble_tt_tangent_variations(
         sigma_tildes_dot:   typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(rR(i+1),)
         tau_tildes:         typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(rLi,)
         tau_tildes_dot:     typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(rLi,)
-        deta_tildes:        typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nUi,)
-        deta_tildes_dot:    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nUi,)
-        xis:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nUi,)
-        xis_dot:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nUi,)
+        deta_tildes:        typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nDi,)
+        deta_tildes_dot:    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nDi,)
+        xis:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(nDi,)
+        xis_dot:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nDi,)
         mus:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(rLi,)
         mus_dot:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(rLi,)
         nus:                typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+C+(rR(i+1),)
         nus_dot:            typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(rR(i+1),)
         n_probe:            int,                                        # len(W): no operand here is W-only
-) -> typ.Union[typ.Sequence[NDArray], NDArray]:  # dG. len=d, elm_shape=K+C+(rLi,nUi,rR(i+1)) (W summed)
+) -> typ.Union[typ.Sequence[NDArray], NDArray]:  # dG. len=d, elm_shape=K+C+(rLi,nDi,rR(i+1)) (W summed)
     '''The derivative of :py:func:`assemble_tt_variations` (``sum_over_probes=True``), factored by the product
     rule: the three trilinear outer products group as ``mu . (xi (x) sigma~ + deta~ (x) nu) + tau~ . (xi (x) nu)``,
     each pair intermediate and its dotted twin formed once and met by the remaining factor -- four W-summed finals
@@ -1735,10 +1735,10 @@ def t3_probe_corewise_hessian_from_sweep(
                                                sigma_tildes_dot, tau_tildes, tau_tildes_dot)
 
     # 6. the assemblies (W summed)
-    dU = assemble_tucker_tangent_variations(ztildes, dxi_tildes_dot, ww, etas_dot)
+    dB = assemble_tucker_tangent_variations(ztildes, dxi_tildes_dot, ww, etas_dot)
     dG = assemble_tt_tangent_variations(sigma_tildes, sigma_tildes_dot, tau_tildes, tau_tildes_dot, deta_tildes,
                                         deta_tildes_dot, xis, xis_dot, mus, mus_dot, nus, nus_dot, n_probe)
-    return dU, dG
+    return dB, dG
 
 
 def t3_probe_corewise_hessian(
@@ -1798,16 +1798,16 @@ def t3_probe_corewise_hessian(
     >>> zt = [rng.standard_normal((W, N)) for N in shape]                  # residuals, W+(Ni,)
     >>> dirs = (tuple(rng.standard_normal((2,) + u.shape) for u in theta[0]),   # a tangent stack K = (2,)
     ...         tuple(rng.standard_normal((2,) + g.shape) for g in theta[1]))
-    >>> KU, KG = t3p.t3_probe_corewise_hessian(zt, ww, theta, dirs)
+    >>> KB, KG = t3p.t3_probe_corewise_hessian(zt, ww, theta, dirs)
     >>> [k.shape for k in KG]                                              # K + the TT core shapes
     [(2, 1, 2, 2), (2, 2, 3, 2), (2, 2, 2, 1)]
     >>> one = lambda cores: t3p.t3_probe_corewise_transpose(zt, ww, cores, sum_over_probes=True)
     >>> shift = lambda h: tuple(tuple(c + h * dc[0] for c, dc in zip(cs, dcs)) for cs, dcs in zip(theta, dirs))
     >>> fd = [(a - b) / 2e-4 for a, b in zip(sum(one(shift(1e-4)), ()), sum(one(shift(-1e-4)), ()))]
-    >>> got = [k[0] for k in KU + KG]
+    >>> got = [k[0] for k in KB + KG]
     >>> bool(max(np.linalg.norm(g - f) / np.linalg.norm(f) for g, f in zip(got, fd)) < 1e-6)
     True
-    >>> gram = sum(a.reshape(2, -1) @ b.reshape(2, -1).T for a, b in zip(dirs[0] + dirs[1], KU + KG))
+    >>> gram = sum(a.reshape(2, -1) @ b.reshape(2, -1).T for a, b in zip(dirs[0] + dirs[1], KB + KG))
     >>> bool(abs(gram[0, 1] - gram[1, 0]) < 1e-12 * abs(gram).max())     # <a, K b> = <b, K a>
     True
     '''

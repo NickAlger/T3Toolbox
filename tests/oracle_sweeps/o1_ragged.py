@@ -292,7 +292,7 @@ def sweep_structure(sname, struct, sh):
             if K == () and C == ():
                 def _retr_svd():
                     shifted = Bd + Vd
-                    ref, _, _ = t3.TuckerTensorTrain.t3svd_dense(shifted, max_tucker_ranks=tuple(frame.up_ranks), max_tt_ranks=tuple(frame.left_ranks))
+                    ref, _, _ = t3.TuckerTensorTrain.t3svd_dense(shifted, max_tucker_ranks=tuple(frame.down_ranks), max_tt_ranks=tuple(frame.left_ranks))
                     return relerr(t3m.MANIFOLD.retract(v).to_dense(), ref.to_dense())
                 check('retract_vs_t3svd_dense', sname, 'ragged', C, (), K, sh, _retr_svd, tol=1e-6)
             # transport

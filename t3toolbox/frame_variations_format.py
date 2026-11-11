@@ -143,36 +143,36 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
     >>> import numpy as np
     >>> import t3toolbox.frame_variations_format as bvf
     >>> ss = (2, 3)                                       # frame/core stack C, shared by every core
-    >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
-    >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+    >>> down_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+    >>> up_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
     >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3, 12, 5)))
     >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-    >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
-    >>> print(frame.structure)   # (shape, up_ranks, down_ranks, left_ranks, right_ranks, stack_shape)
+    >>> frame = bvf.T3Frame(down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores)
+    >>> print(frame.structure)   # (shape, down_ranks, up_ranks, left_ranks, right_ranks, stack_shape)
     ((14, 15, 16), (10, 11, 12), (9, 8, 7), (1, 2, 3, 5), (2, 4, 5, 1), (2, 3))
     >>> print(frame.variation_shapes)   # the (tucker, tt) holes a fitting T3Variations must fill
     (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
     """
-    up_tucker_cores:    typ.Tuple[NDArray,...]  # len=d. B_xo B_yo   = I_xy, Bi.shape = stack_shape+(nUi, Ni)
-    down_tt_cores:      typ.Tuple[NDArray,...]  # len=d. R_ixj R_iyj = I_xy  Ri.shape = stack_shape+(rLi, nDi, rR(i+1))
+    down_tucker_cores:    typ.Tuple[NDArray,...]  # len=d. B_xo B_yo   = I_xy, Bi.shape = stack_shape+(nUi, Ni)
+    up_tt_cores:      typ.Tuple[NDArray,...]  # len=d. R_ixj R_iyj = I_xy  Ri.shape = stack_shape+(rLi, nDi, rR(i+1))
     left_tt_cores:      typ.Tuple[NDArray,...]  # len=d. P_iax P_iay = I_xy, Pi.shape = stack_shape+(rLi, nUi, rL(i+1))
     right_tt_cores:     typ.Tuple[NDArray,...]  # len=d. Q_xaj Q_yaj = I_xy  Qi.shape = stack_shape+(rRi, nUi, rR(i+1))
 
     @ft.cached_property
     def d(self) -> int:
-        return len(self.up_tucker_cores)
+        return len(self.down_tucker_cores)
 
     @ft.cached_property
     def shape(self) -> typ.Tuple[int,...]:
-        return tuple([U.shape[-1] for U in self.up_tucker_cores])
-
-    @ft.cached_property
-    def up_ranks(self) -> typ.Tuple[int,...]:
-        return tuple([U.shape[-2] for U in self.up_tucker_cores])
+        return tuple([D.shape[-1] for D in self.down_tucker_cores])
 
     @ft.cached_property
     def down_ranks(self) -> typ.Tuple[int,...]:
-        return tuple([G.shape[-2] for G in self.down_tt_cores])
+        return tuple([D.shape[-2] for D in self.down_tucker_cores])
+
+    @ft.cached_property
+    def up_ranks(self) -> typ.Tuple[int,...]:
+        return tuple([G.shape[-2] for G in self.up_tt_cores])
 
     @ft.cached_property
     def left_ranks(self) -> typ.Tuple[int,...]:
@@ -185,20 +185,20 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
     @ft.cached_property
     def stack_shape(self) -> typ.Tuple[int,...]:   # C (frame/core stack): the batch of base points, on every core
         """The frame/core stack ``C`` -- a batch of base points, shared by every core."""
-        return self.up_tucker_cores[0].shape[:-2]
+        return self.down_tucker_cores[0].shape[:-2]
 
     @ft.cached_property
     def structure(self) -> typ.Tuple[
         typ.Tuple[int, ...], # shape
-        typ.Tuple[int, ...], # up_tucker_ranks
         typ.Tuple[int, ...], # down_ranks
+        typ.Tuple[int, ...], # up_ranks
         typ.Tuple[int, ...], # left_ranks
         typ.Tuple[int, ...], # right_ranks
         typ.Tuple[int, ...], # stack_shape
     ]:
         return (
             self.shape,
-            self.up_ranks, self.down_ranks,
+            self.down_ranks, self.up_ranks,
             self.left_ranks, self.right_ranks,
             self.stack_shape,
         )
@@ -229,32 +229,32 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         >>> import numpy as np
         >>> import t3toolbox.frame_variations_format as bvf
         >>> ss = (2, 3)                                   # stack C -- NOT part of variation_shapes
-        >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
-        >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+        >>> down_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+        >>> up_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
         >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3, 12, 5)))
         >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-        >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+        >>> frame = bvf.T3Frame(down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores)
         >>> tucker_holes, tt_holes = frame.variation_shapes   # (tucker hole shapes, tt hole shapes)
-        >>> print(tucker_holes)   # one (nDi, Ni) per mode
+        >>> print(tucker_holes)   # one (nUi, Ni) per mode
         ((9, 14), (8, 15), (7, 16))
-        >>> print(tt_holes)       # one (rLi, nUi, rRi) per mode
+        >>> print(tt_holes)       # one (rLi, nDi, rRi) per mode
         ((1, 10, 4), (2, 11, 5), (3, 12, 1))
         '''
-        tucker_variation_shapes = tuple([(nD, N) for nD, N in zip(self.down_ranks, self.shape)])
+        tucker_variation_shapes = tuple([(nU, N) for nU, N in zip(self.up_ranks, self.shape)])
         tt_variation_shapes = tuple([
-            (rL, nU, rR) for rL, nU, rR
-            in zip(self.left_ranks[:-1], self.up_ranks, self.right_ranks[1:])])
+            (rL, nD, rR) for rL, nD, rR
+            in zip(self.left_ranks[:-1], self.down_ranks, self.right_ranks[1:])])
 
         return tucker_variation_shapes, tt_variation_shapes
 
     @ft.cached_property
     def data(self) -> typ.Tuple[
-        typ.Tuple[NDArray,...],  # up_tucker_cores
-        typ.Tuple[NDArray, ...], # down_tt_cores
+        typ.Tuple[NDArray,...],  # down_tucker_cores
+        typ.Tuple[NDArray, ...], # up_tt_cores
         typ.Tuple[NDArray,...],  # left_tt_cores
         typ.Tuple[NDArray,...],  # right_tt_cores
     ]:
-        return self.up_tucker_cores, self.down_tt_cores, self.left_tt_cores, self.right_tt_cores
+        return self.down_tucker_cores, self.up_tt_cores, self.left_tt_cores, self.right_tt_cores
 
     def to_jax(self) -> 'T3Frame':
         """Copy with all frame cores converted to jax arrays."""
@@ -285,7 +285,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
 
     def __repr__(self) -> str:
         ss = f", stack_shape={self.stack_shape}" if self.stack_shape else ""
-        return (f"T3Frame(shape={self.shape}, up_ranks={self.up_ranks}, "
+        return (f"T3Frame(shape={self.shape}, down_ranks={self.down_ranks}, "
                 f"left_ranks={self.left_ranks}{ss})")
 
     @ft.cached_property
@@ -335,13 +335,13 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         >>> np.random.seed(0)
         >>> x_old = t3.TuckerTensorTrain.randn((5, 6, 5), (2, 2, 2), (1, 2, 2, 1))
         >>> F = bvf.T3Frame.padded(x_old, (3, 4, 3), (1, 3, 3, 1))
-        >>> F.up_ranks, bool(F.is_orthogonal())
+        >>> F.down_ranks, bool(F.is_orthogonal())
         ((3, 4, 3), True)
 
         The new frame represents the zero-padded point: its base point is still ``x_old``.
 
         >>> x0 = x_old.resize((5, 6, 5), (3, 4, 3), (1, 3, 3, 1))
-        >>> bool(t3.TuckerTensorTrain(F.up_tucker_cores, F.left_tt_cores).allclose(x0))
+        >>> bool(t3.TuckerTensorTrain(F.down_tucker_cores, F.left_tt_cores).allclose(x0))
         True
         """
         return T3Frame(*padded_frames.fv_padded_frame(_old_frame_data(x_old, sharing, 'T3Frame.padded'),
@@ -380,8 +380,8 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         show the elements differ:
 
         >>> good, _ = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn((5, 6), (2, 2), (1, 2, 1)))
-        >>> bad = bvf.T3Frame(tuple(np.ones_like(U) for U in good.up_tucker_cores),  # ones cores: not orthogonal
-        ...                   good.down_tt_cores, good.left_tt_cores, good.right_tt_cores)
+        >>> bad = bvf.T3Frame(tuple(np.ones_like(D) for D in good.down_tucker_cores),  # ones cores: not orthogonal
+        ...                   good.up_tt_cores, good.left_tt_cores, good.right_tt_cores)
         >>> stacked = bvf.T3Frame.stack([good, bad])
         >>> print(stacked.is_orthogonal().shape, stacked.is_orthogonal())   # one bool per stack element
         (2,) [ True False]
@@ -395,7 +395,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         **Structural**: computed from the rank tuples + shape, not the numerical core values (see
         :py:meth:`TuckerTensorTrain.get_minimal_ranks`).
         """
-        return t3.TuckerTensorTrain.get_minimal_ranks(self.shape, self.up_ranks, self.left_ranks)
+        return t3.TuckerTensorTrain.get_minimal_ranks(self.shape, self.down_ranks, self.left_ranks)
 
     @ft.cached_property
     def has_minimal_ranks(self) -> bool:
@@ -403,8 +403,8 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
 
         Minimal-rank frame means:
             - ``left_ranks == right_ranks``,
-            - ``up_ranks == down_ranks``, and
-            - those ranks (tucker_ranks=up_ranks, tt_ranks=left_ranks) are minimal for a regular
+            - ``down_ranks == up_ranks``, and
+            - those ranks (tucker_ranks=down_ranks, tt_ranks=left_ranks) are minimal for a regular
               Tucker tensor train of this shape (see :py:meth:`TuckerTensorTrain.get_minimal_ranks`).
 
         This is the **structural** minimal-rank check (cheap integer arithmetic on the ranks); for the
@@ -435,7 +435,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         False
         '''
         return ranks.frame_has_minimal_ranks(
-            self.shape, self.up_ranks, self.down_ranks, self.left_ranks, self.right_ranks)
+            self.shape, self.down_ranks, self.up_ranks, self.left_ranks, self.right_ranks)
 
     def has_numerically_minimal_ranks(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape
         '''True (per stack element) if the frame is **numerically** minimal -- certified *without* an SVD.
@@ -480,28 +480,28 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         T3Frame
         T3Variations
         '''
-        UU, DD, LL, RR = self.data
+        DD, UU, LL, RR = self.data
 
-        d = len(UU)
-        if not (len(LL) == d and len(RR) == d and len(DD) == d):
+        d = len(DD)
+        if not (len(LL) == d and len(RR) == d and len(UU) == d):
             raise ValueError(
                 'Inconsistent T3Frame.\n'
                 + 'All core sequences must have length d=' + str(d) + '.\n'
-                + 'len(UU)=' + str(len(UU))
-                + ', len(DD)=' + str(len(DD))
+                + 'len(UU)=' + str(len(DD))
+                + ', len(DD)=' + str(len(UU))
                 + ', len(LL)=' + str(len(LL))
                 + ', len(RR)=' + str(len(RR))
 
             )
 
-        for ii, U in enumerate(UU):
-            if len(U.shape) < 2:
+        for ii, D in enumerate(DD):
+            if len(D.shape) < 2:
                 raise ValueError(
                     'Inconsistent T3Frame.\n'
-                    + 'tucker_cores[' + str(ii) + '] is not a (stacked) matrix. shape=' + str(U.shape)
+                    + 'tucker_cores[' + str(ii) + '] is not a (stacked) matrix. shape=' + str(D.shape)
                 )
 
-        for name, CC in zip(["left_tt", "right_tt", "outer_tt"], [LL, RR, DD]):
+        for name, CC in zip(["left_tt", "right_tt", "outer_tt"], [LL, RR, UU]):
             for ii, C in enumerate(CC):
                 if len(C.shape) < 3:
                     raise ValueError(
@@ -510,22 +510,22 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
                         + 'shape=' + str(C.shape)
                     )
 
-        up_stack_shapes     = tuple([B.shape[:-2] for B in self.up_tucker_cores])
+        down_stack_shapes     = tuple([B.shape[:-2] for B in self.down_tucker_cores])
         left_stack_shapes   = tuple([G.shape[:-3] for G in self.left_tt_cores])
         right_stack_shapes  = tuple([G.shape[:-3] for G in self.right_tt_cores])
-        down_stack_shapes   = tuple([G.shape[:-3] for G in self.down_tt_cores])
+        up_stack_shapes   = tuple([G.shape[:-3] for G in self.up_tt_cores])
 
         if not (
-                up_stack_shapes
-                == down_stack_shapes
+                down_stack_shapes
+                == up_stack_shapes
                 == left_stack_shapes
                 == right_stack_shapes
                 == (self.stack_shape,)*self.d
         ):
             raise ValueError(
                 'Inconsistent T3Frame.\n'
-                + str(up_stack_shapes) + ' = up_stack_shapes.\n'
                 + str(down_stack_shapes) + ' = down_stack_shapes.\n'
+                + str(up_stack_shapes) + ' = up_stack_shapes.\n'
                 + str(left_stack_shapes) + ' = left_stack_shapes.\n'
                 + str(right_stack_shapes) + ' = right_stack_shapes.'
             )
@@ -547,30 +547,30 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
             )
 
         for ii in range(d):
-            U, L, R, D = UU[ii], LL[ii], RR[ii], DD[ii]
+            D, L, R, U = DD[ii], LL[ii], RR[ii], UU[ii]
 
-            if not (U.shape[-2] == L.shape[-2] == R.shape[-2]):
+            if not (D.shape[-2] == L.shape[-2] == R.shape[-2]):
                 raise ValueError(
                     'Inconsistent T3Frame.\n'
                     + 'Tucker rank mismatch at index ' + str(ii)
-                    + ': U.shape[-2]=' + str(U.shape[-2])
+                    + ': U.shape[-2]=' + str(D.shape[-2])
                     + ', L.shape[-2]=' + str(L.shape[-2])
                     + ', R.shape[-2]=' + str(R.shape[-2])
                 )
 
-            if D.shape[-3] != L.shape[-3]:
+            if U.shape[-3] != L.shape[-3]:
                 raise ValueError(
                     'Inconsistent T3Frame.\n'
                     + 'Down TT core left rank mismatch at index ' + str(ii)
-                    + ': D.shape[-3]=' + str(D.shape[-3])
+                    + ': D.shape[-3]=' + str(U.shape[-3])
                     + ' != L.shape[-3]=' + str(L.shape[-3])
                 )
 
-            if D.shape[-1] != R.shape[-1]:
+            if U.shape[-1] != R.shape[-1]:
                 raise ValueError(
                     'Inconsistent T3Frame.\n'
                     + 'Down TT core right rank mismatch at index ' + str(ii)
-                    + ': D.shape[-1]=' + str(D.shape[-1])
+                    + ': D.shape[-1]=' + str(U.shape[-1])
                     + ' != R.shape[-1]=' + str(R.shape[-1])
                 )
 
@@ -588,18 +588,18 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         >>> np.random.seed(0)
         >>> rnd = lambda x: np.random.randn(*x)
         >>> ss = (2, 3)                                   # stack C: unstack splits these leading axes
-        >>> up_tucker_cores = (rnd(ss+(10, 14)), rnd(ss+(11, 15)), rnd(ss+(12, 16)))
-        >>> down_tt_cores = (rnd(ss+(1, 9, 4)), rnd(ss+(2, 8, 5)), rnd(ss+(3, 7, 1)))
+        >>> down_tucker_cores = (rnd(ss+(10, 14)), rnd(ss+(11, 15)), rnd(ss+(12, 16)))
+        >>> up_tt_cores = (rnd(ss+(1, 9, 4)), rnd(ss+(2, 8, 5)), rnd(ss+(3, 7, 1)))
         >>> left_tt_cores = (rnd(ss+(1, 10, 2)), rnd(ss+(2, 11, 3)), rnd(ss+(3, 12, 5)))
         >>> right_tt_cores = (rnd(ss+(2, 10, 4)), rnd(ss+(4, 11, 5)), rnd(ss+(5, 12, 1)))
-        >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+        >>> frame = bvf.T3Frame(down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores)
         >>> S = frame.unstack()
         >>> print(len(S), len(S[0]))                      # nested tree shaped like the stack (2, 3)
         2 3
         >>> ii, jj = 1, 2                                 # the [ii][jj] leaf is just the cores sliced at [ii, jj]
         >>> Sij = S[ii][jj]
         >>> sliced = bvf.T3Frame(
-        ...     tuple(c[ii, jj] for c in up_tucker_cores), tuple(c[ii, jj] for c in down_tt_cores),
+        ...     tuple(c[ii, jj] for c in down_tucker_cores), tuple(c[ii, jj] for c in up_tt_cores),
         ...     tuple(c[ii, jj] for c in left_tt_cores), tuple(c[ii, jj] for c in right_tt_cores))
         >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(Sij.data, sliced.data)), 0.0))
         True
@@ -624,11 +624,11 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         >>> np.random.seed(0)
         >>> rnd = lambda x: np.random.randn(*x)
         >>> ss = (2, 3)                                   # stack C
-        >>> up_tucker_cores = (rnd(ss+(10, 14)), rnd(ss+(11, 15)), rnd(ss+(12, 16)))
-        >>> down_tt_cores = (rnd(ss+(1, 9, 4)), rnd(ss+(2, 8, 5)), rnd(ss+(3, 7, 1)))
+        >>> down_tucker_cores = (rnd(ss+(10, 14)), rnd(ss+(11, 15)), rnd(ss+(12, 16)))
+        >>> up_tt_cores = (rnd(ss+(1, 9, 4)), rnd(ss+(2, 8, 5)), rnd(ss+(3, 7, 1)))
         >>> left_tt_cores = (rnd(ss+(1, 10, 2)), rnd(ss+(2, 11, 3)), rnd(ss+(3, 12, 5)))
         >>> right_tt_cores = (rnd(ss+(2, 10, 4)), rnd(ss+(4, 11, 5)), rnd(ss+(5, 12, 1)))
-        >>> x = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+        >>> x = bvf.T3Frame(down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores)
         >>> x2 = bvf.T3Frame.stack(x.unstack())           # stack is the inverse of unstack
         >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(x.data, x2.data)), 0.0))
         True
@@ -661,8 +661,8 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         Requesting a rank above what the rest of the network can support is allowed and does not raise:
         an orthonormal core cannot carry more rank than its own shape admits, so the excess is carried as
         **slack** between the frame's four rank stores rather than in any one core. Asking for
-        ``tucker_ranks=(4,4,4)`` with ``tt_ranks=(1,2,2,1)`` returns ``up_ranks=(4,4,4)`` but
-        ``down_ranks=(2,4,2)``; asking for ``tt_ranks=(1,9,9,1)`` returns different ``left_ranks`` and
+        ``tucker_ranks=(4,4,4)`` with ``tt_ranks=(1,2,2,1)`` returns ``down_ranks=(4,4,4)`` but
+        ``up_ranks=(2,4,2)``; asking for ``tt_ranks=(1,9,9,1)`` returns different ``left_ranks`` and
         ``right_ranks``. The frame is exactly orthogonal either way and every tangent operation on it is
         exact -- only :py:attr:`has_minimal_ranks` reports ``False`` (a diagnostic, never a
         precondition; see ``docs/frame_variations.md``)."""
@@ -672,7 +672,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
     @staticmethod
     def random_orthogonal_like(frame: 'T3Frame') -> 'T3Frame':
         """A random orthogonal frame with the same shape/ranks/stack as ``frame``."""
-        return T3Frame.random_orthogonal(frame.shape, frame.up_ranks, frame.left_ranks,
+        return T3Frame.random_orthogonal(frame.shape, frame.down_ranks, frame.left_ranks,
                                          stack_shape=frame.stack_shape, use_jax=frame.contains_jax)
 
     def save(self, file) -> None:
@@ -726,7 +726,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         specifically this form. No consistency check is performed (verifying it would mean densifying
         multiple reconstructions -- the kind of expensive check the library avoids).
         """
-        return t3.TuckerTensorTrain(self.up_tucker_cores, self.right_tt_cores)
+        return t3.TuckerTensorTrain(self.down_tucker_cores, self.right_tt_cores)
 
     def to_dense(self) -> NDArray:
         """Dense tensor of the base point this frame represents (``= to_t3().to_dense()``)."""
@@ -797,11 +797,11 @@ class T3Variations(common.ExplicitEquality):
     >>> import numpy as np
     >>> import t3toolbox.frame_variations_format as bvf
     >>> ss = (2, 3)                                       # stack shape, shared by frame and variations
-    >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+    >>> down_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
     >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3, 12, 5)))
     >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-    >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-    >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+    >>> up_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+    >>> frame = bvf.T3Frame(down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores)
     >>> tucker_shapes, tt_shapes = frame.variation_shapes  # the holes to fill
     >>> tucker_variations = tuple(np.ones(ss + s) for s in tucker_shapes)
     >>> tt_variations = tuple(np.ones(ss + s) for s in tt_shapes)
@@ -809,8 +809,8 @@ class T3Variations(common.ExplicitEquality):
     >>> print(variations.variation_shapes == frame.variation_shapes)   # fits the frame's holes exactly
     True
     """
-    tucker_variations: typ.Tuple[NDArray,...]  # len=d, elm_shape=stack_shape+(nDi, Ni)
-    tt_variations:     typ.Tuple[NDArray,...]  # len=d, elm_shape=stack_shape+(rLi, nUi, rRi)
+    tucker_variations: typ.Tuple[NDArray,...]  # len=d, elm_shape=stack_shape+(nUi, Ni)
+    tt_variations:     typ.Tuple[NDArray,...]  # len=d, elm_shape=stack_shape+(rLi, nDi, rRi)
 
     @ft.cached_property
     def d(self) -> int:
@@ -818,7 +818,7 @@ class T3Variations(common.ExplicitEquality):
 
     @ft.cached_property
     def shape(self) -> typ.Tuple[int,...]:
-        return tuple([U.shape[-1] for U in self.tucker_variations])
+        return tuple([V.shape[-1] for V in self.tucker_variations])
 
     @ft.cached_property
     def stack_shape(self) -> typ.Tuple[int,...]:   # full leading stack K + C (split-agnostic on its own)
@@ -961,9 +961,9 @@ class T3Variations(common.ExplicitEquality):
         >>> np.random.seed(0)
         >>> rnd = lambda x: np.random.randn(*x)
         >>> ss = (2, 3)                                   # stack: unstack splits these leading axes
-        >>> NN, nnU, nnD, rrL, rrR = (10, 11, 12), (8, 7, 8), (6, 7, 8), (2, 3, 4, 3), (5, 4, 6, 1)
-        >>> tucker_variations = tuple(rnd(ss+(n, N)) for n, N in zip(nnD, NN))
-        >>> tt_variations = tuple(rnd(ss+(rL, n, rR)) for rL, n, rR in zip(rrL[:-1], nnU, rrR[1:]))
+        >>> NN, nnD, nnU, rrL, rrR = (10, 11, 12), (8, 7, 8), (6, 7, 8), (2, 3, 4, 3), (5, 4, 6, 1)
+        >>> tucker_variations = tuple(rnd(ss+(n, N)) for n, N in zip(nnU, NN))
+        >>> tt_variations = tuple(rnd(ss+(rL, n, rR)) for rL, n, rR in zip(rrL[:-1], nnD, rrR[1:]))
         >>> V = bvf.T3Variations(tucker_variations, tt_variations)
         >>> VV = V.unstack()
         >>> print(len(VV), len(VV[0]))                    # nested tree shaped like the stack (2, 3)
@@ -994,9 +994,9 @@ class T3Variations(common.ExplicitEquality):
         >>> np.random.seed(0)
         >>> rnd = lambda x: np.random.randn(*x)
         >>> ss = (2, 3)                                   # stack
-        >>> NN, nnU, nnD, rrL, rrR = (10, 11, 12), (8, 7, 8), (6, 7, 8), (2, 3, 4, 3), (5, 4, 6, 1)
-        >>> tucker_variations = tuple(rnd(ss+(n, N)) for n, N in zip(nnD, NN))
-        >>> tt_variations = tuple(rnd(ss+(rL, n, rR)) for rL, n, rR in zip(rrL[:-1], nnU, rrR[1:]))
+        >>> NN, nnD, nnU, rrL, rrR = (10, 11, 12), (8, 7, 8), (6, 7, 8), (2, 3, 4, 3), (5, 4, 6, 1)
+        >>> tucker_variations = tuple(rnd(ss+(n, N)) for n, N in zip(nnU, NN))
+        >>> tt_variations = tuple(rnd(ss+(rL, n, rR)) for rL, n, rR in zip(rrL[:-1], nnD, rrR[1:]))
         >>> V = bvf.T3Variations(tucker_variations, tt_variations)
         >>> V2 = bvf.T3Variations.stack(V.unstack())      # stack is the inverse of unstack
         >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(V.data, V2.data)), 0.0))
@@ -1066,7 +1066,7 @@ class T3Variations(common.ExplicitEquality):
         if rtol is None:
             rtol = safety.comparison_rtol(self.data, other.data)
         atol = 0.0 if atol is None else atol
-        n_stack = np.ndim(self.data[0][0]) - 2                  # tucker variation core = stack+(nD, N)
+        n_stack = np.ndim(self.data[0][0]) - 2                  # tucker variation core = stack+(nU, N)
         use_jax = common.tree_contains_jax((self.data, other.data))
         xnp, _, _ = common.get_backend(False, use_jax)
         diff = cw.corewise_sub(self.data, other.data)
@@ -1182,11 +1182,11 @@ def check_fv_pair(
     >>> import numpy as np
     >>> import t3toolbox.frame_variations_format as bvf
     >>> ss = (2, 3)                                       # frame stack shape C
-    >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+    >>> down_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
     >>> left_tt_cores = (np.ones(ss+(1, 10, 2)), np.ones(ss+(2, 11, 3)), np.ones(ss+(3, 12, 5)))
     >>> right_tt_cores = (np.ones(ss+(2, 10, 4)), np.ones(ss+(4, 11, 5)), np.ones(ss+(5, 12, 1)))
-    >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
-    >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+    >>> up_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+    >>> frame = bvf.T3Frame(down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores)
     >>> tucker_shapes, tt_shapes = frame.variation_shapes
     >>> variations = bvf.T3Variations(tuple(np.ones(ss + s) for s in tucker_shapes),
     ...                               tuple(np.ones(ss + s) for s in tt_shapes))
@@ -1299,11 +1299,11 @@ def fv_to_t3(
     >>> import t3toolbox.corewise as cw
     >>> np.random.seed(0)
     >>> randn = np.random.randn
-    >>> (U0, U1, U2) = (randn(10, 14), randn(11, 15), randn(12, 16))
+    >>> (D0, D1, D2) = (randn(10, 14), randn(11, 15), randn(12, 16))
     >>> (L0, L1, L2) = (randn(1, 10, 2), randn(2, 11, 3), randn(3, 12, 4))
     >>> (R0, R1, R2) = (randn(2, 10, 4), randn(4, 11, 5), randn(5, 12, 1))
-    >>> (D0, D1, D2) = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
-    >>> frame = bvf.T3Frame((U0, U1, U2), (D0, D1, D2), (L0, L1, L2), (R0, R1, R2))
+    >>> (U0, U1, U2) = (randn(1, 9, 4), randn(2, 8, 5), randn(3, 7, 1))
+    >>> frame = bvf.T3Frame((D0, D1, D2), (U0, U1, U2), (L0, L1, L2), (R0, R1, R2))
     >>> (V0, V1, V2) = (randn(9, 14), randn(8, 15), randn(7, 16))
     >>> (H0, H1, H2) = (randn(1, 10, 4), randn(2, 11, 5), randn(3, 12, 1))
     >>> variations = bvf.T3Variations((V0, V1, V2), (H0, H1, H2))
@@ -1312,14 +1312,14 @@ def fv_to_t3(
     Tucker (up) cores are unchanged:
 
     >>> tt_term = bvf.fv_to_t3((True, 1), frame, variations)
-    >>> expected = ((U0, U1, U2), (L0, H1, R2))      # up cores untouched; TT chain = L0, H1, R2
+    >>> expected = ((D0, D1, D2), (L0, H1, R2))      # up cores untouched; TT chain = L0, H1, R2
     >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(tt_term.data, expected)), 0.0))
     True
 
     Replacing the index-1 Tucker core swaps ``V1`` into the up cores and the down core ``D1`` into the chain:
 
     >>> tucker_term = bvf.fv_to_t3((False, 1), frame, variations)
-    >>> expected = ((U0, V1, U2), (L0, D1, R2))
+    >>> expected = ((D0, V1, D2), (L0, U1, R2))
     >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(tucker_term.data, expected)), 0.0))
     True
     '''
@@ -1436,7 +1436,7 @@ class T3FrameWeights(common.ExplicitEquality):
     reweighting of the ``d`` variation directions (penalise poorly-informed ones with e.g. ``1/sigma``).
 
     Four families, each ``len=d`` (one per variation core, Approach-1 / metric-on-variations):
-    ``up`` (on ``H``'s ``nU`` leg), ``down`` (on ``V``'s ``nD`` leg), ``left`` (``H``'s ``rL``),
+    ``up`` (on ``H``'s ``nD`` leg), ``down`` (on ``V``'s ``nU`` leg), ``left`` (``H``'s ``rL``),
     ``right`` (``H``'s ``rR``). :py:meth:`T3Tangent.weighted_norm` / :py:meth:`~T3Tangent.weighted_inner`
     absorb these into the variation cores and take the coordinate norm/inner -- the frame stays orthonormal
     and untouched.
@@ -1450,14 +1450,14 @@ class T3FrameWeights(common.ExplicitEquality):
     tangent level, where the frame is present too, :py:func:`check_fw_pair` enforces the exact
     ``weights.stack_shape == frame.stack_shape``.
     """
-    up_weights:    typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nUi,)
-    down_weights:  typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nDi,)
+    down_weights:    typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nDi,)
+    up_weights:  typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nUi,)
     left_weights:  typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(rLi,)
     right_weights: typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(rRi,)
 
     @ft.cached_property
     def data(self) -> typ.Tuple[typ.Tuple[NDArray, ...], ...]:  # (up, down, left, right)
-        return self.up_weights, self.down_weights, self.left_weights, self.right_weights
+        return self.down_weights, self.up_weights, self.left_weights, self.right_weights
 
     def allclose(
             self,
@@ -1472,7 +1472,7 @@ class T3FrameWeights(common.ExplicitEquality):
         if rtol is None:
             rtol = safety.comparison_rtol(self.data, other.data)
         atol = 0.0 if atol is None else atol
-        n_stack = np.ndim(self.up_weights[0]) - 1
+        n_stack = np.ndim(self.down_weights[0]) - 1
         use_jax = common.tree_contains_jax((self.data, other.data))
         xnp, _, _ = common.get_backend(False, use_jax)
         diff = cw.corewise_sub(self.data, other.data)
@@ -1490,15 +1490,15 @@ class T3FrameWeights(common.ExplicitEquality):
 
     @ft.cached_property
     def d(self) -> int:
-        return len(self.up_weights)
-
-    @ft.cached_property
-    def up_ranks(self) -> typ.Tuple[int, ...]:
-        return tuple(int(w.shape[-1]) for w in self.up_weights)
+        return len(self.down_weights)
 
     @ft.cached_property
     def down_ranks(self) -> typ.Tuple[int, ...]:
         return tuple(int(w.shape[-1]) for w in self.down_weights)
+
+    @ft.cached_property
+    def up_ranks(self) -> typ.Tuple[int, ...]:
+        return tuple(int(w.shape[-1]) for w in self.up_weights)
 
     @ft.cached_property
     def left_ranks(self) -> typ.Tuple[int, ...]:
@@ -1510,12 +1510,12 @@ class T3FrameWeights(common.ExplicitEquality):
 
     @ft.cached_property
     def stack_shape(self) -> typ.Tuple[int, ...]:
-        return self.up_weights[0].shape[:-1]
+        return self.down_weights[0].shape[:-1]
 
     def validate(self):
         """Structural: four families each of length d, and one uniform stack_shape on every vector."""
         ss = self.stack_shape
-        for name, fam in (('up', self.up_weights), ('down', self.down_weights),
+        for name, fam in (('down', self.down_weights), ('up', self.up_weights),
                           ('left', self.left_weights), ('right', self.right_weights)):
             if len(fam) != self.d:
                 raise ValueError('Inconsistent T3FrameWeights.\n' + str(self.d) + ' = d, but len('
@@ -1544,7 +1544,7 @@ class T3FrameWeights(common.ExplicitEquality):
 
     def reverse(self) -> 'T3FrameWeights':
         """Reverse the mode order, swapping ``left``<->``right`` (mirrors :py:meth:`T3Frame.reverse`)."""
-        return T3FrameWeights(self.up_weights[::-1], self.down_weights[::-1],
+        return T3FrameWeights(self.down_weights[::-1], self.up_weights[::-1],
                               self.right_weights[::-1], self.left_weights[::-1])
 
     def concatenate(self, other: 'T3FrameWeights') -> 'T3FrameWeights':
@@ -1572,7 +1572,7 @@ class T3FrameWeights(common.ExplicitEquality):
         ``up = down = tucker_weights``, ``left = tt_weights[:-1]``, ``right = tt_weights[1:]``. The TT
         slicing follows the ``Hᵢ`` bond convention (``Hᵢ``'s left bond is TT bond ``i``, right bond
         ``i+1``) -- simple but convention-dependent, hence a named method. The result pairs with a
-        **minimal-rank** tangent at ``x`` (where the complement rank ``nD`` equals the Tucker rank ``nU``,
+        **minimal-rank** tangent at ``x`` (where the complement rank ``nU`` equals the Tucker rank ``nD``,
         as for ``t3svd`` output); the Grasedyck–Kramer metric is
         ``T3FrameWeights.from_t3weights(T3Weights.from_t3svd(x)).reciprocal()``."""
         return cls(*fv_operations.t3weights_to_t3frameweights(t3_weights.data))
@@ -1606,7 +1606,7 @@ def t3svd_orthogonal_representations(
     >>> x = t3.TuckerTensorTrain.randn((5, 6, 7), (3, 3, 3), (1, 3, 3, 1))
     >>> frame, variations, sigma = bvf.t3svd_orthogonal_representations(x)
     >>> xs, _, _ = x.t3svd()
-    >>> print(all(np.allclose(U, Ux) for U, Ux in zip(frame.up_tucker_cores, xs.tucker_cores)))  # same gauge
+    >>> print(all(np.allclose(D, Bx) for D, Bx in zip(frame.down_tucker_cores, xs.tucker_cores)))  # same gauge
     True
     >>> W = bvf.T3FrameWeights.from_t3weights(sigma)     # the sigma-metric on this frame's coordinates
     >>> print(W.is_consistent_with(variations))
@@ -1625,7 +1625,7 @@ def check_fw_pair(
 
     The weight<->frame analog of :py:func:`check_fv_pair`. A :py:class:`T3FrameWeights` is **frame-like**:
     it carries the frame stack ``C`` (one metric per base point, shared by every tangent there), and its
-    four families weight the variation holes ``frame`` leaves -- ``up``<->``nU``, ``down``<->``nD``,
+    four families weight the variation holes ``frame`` leaves -- ``up``<->``nD``, ``down``<->``nU``,
     ``left``<->``rL``, ``right``<->``rR``. So the stack must match ``frame.stack_shape`` **exactly** (not
     merely be a trailing part of it, as when pairing with variations alone).
 
@@ -1646,10 +1646,10 @@ def check_fw_pair(
             + str(frame.stack_shape) + ' = frame.stack_shape'
         )
 
-    tucker_holes, tt_holes = frame.variation_shapes   # (nD, N) per core; (rL, nU, rR) per core
+    tucker_holes, tt_holes = frame.variation_shapes   # (nU, N) per core; (rL, nD, rR) per core
     families = (
-        ('up',    weights.up_ranks,    tuple(h[1] for h in tt_holes)),
-        ('down',  weights.down_ranks,  tuple(h[0] for h in tucker_holes)),
+        ('down',    weights.down_ranks,    tuple(h[1] for h in tt_holes)),
+        ('up',  weights.up_ranks,  tuple(h[0] for h in tucker_holes)),
         ('left',  weights.left_ranks,  tuple(h[0] for h in tt_holes)),
         ('right', weights.right_ranks, tuple(h[2] for h in tt_holes)),
     )
@@ -1837,7 +1837,7 @@ def fv_aligned_padded_frame(
     >>> hint = t3.TuckerTensorTrain.randn(shape, (5, 6, 5, 6), (1, 5, 25, 6, 1))
     >>> captured = lambda F: float(t3m.MANIFOLD.norm(t3m.MANIFOLD.project_ambient(F, hint)))   # ‖Π_T(F) hint‖
     >>> F, movements = bvf.fv_aligned_padded_frame(x_old, *target, hint, tol=1e-10, max_passes=300)
-    >>> F.up_ranks, len(movements) < 300                        # stopped on tol, not on the cap
+    >>> F.down_ranks, len(movements) < 300                        # stopped on tol, not on the cap
     ((3, 4, 4, 3), True)
 
     One more pass moves nothing, and neither does a pass updating any one store alone (``align_padded`` is one pass;

@@ -16,7 +16,7 @@ import t3toolbox.backend.t3_conversions as t3c
 import t3toolbox.backend.tv_operations as tv
 
 _CASES = [((5, 6, 7), (3, 2, 4), (1, 2, 3, 1)),              # asymmetric
-          ((6, 6, 6), (4, 4, 4), (1, 2, 2, 1))]              # over-ranked: nU != nD slack
+          ((6, 6, 6), (4, 4, 4), (1, 2, 2, 1))]              # over-ranked: nD != nU slack
 
 
 def _tree_relerr(a, b):

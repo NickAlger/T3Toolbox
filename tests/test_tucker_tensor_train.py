@@ -2233,7 +2233,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ]
         def replace(x, kind, i, new):                      # x with one core replaced
             tk, tt = [list(cs) for cs in x.data]
-            (tk if kind == 'U' else tt)[i] = new
+            (tk if kind == 'B' else tt)[i] = new
             return t3.TuckerTensorTrain(tuple(tk), tuple(tt))
         def core_dot(gA, gB, nC):                          # sum_cores <a,b>, keep leading C stack
             return sum(np.sum(a * b, axis=tuple(range(nC, a.ndim)))
@@ -2249,24 +2249,24 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         tk, tt = [list(cs) for cs in x.data]
                         ww = [np.random.randn(*(W + (N,))) for N in shape]
                         c = np.asarray(np.random.randn(*(W + C)))
-                        dU = [np.random.randn(*u.shape) for u in tk]
+                        dB = [np.random.randn(*b.shape) for b in tk]
                         dG = [np.random.randn(*g.shape) for g in tt]
                         # exact forward corewise Jacobian J(dcores) = sum over single-core replacements
-                        Jd = sum(np.asarray(replace(x, 'U', i, dU[i]).apply(ww)) for i in range(d)) \
+                        Jd = sum(np.asarray(replace(x, 'B', i, dB[i]).apply(ww)) for i in range(d)) \
                            + sum(np.asarray(replace(x, 'G', i, dG[i]).apply(ww)) for i in range(d))  # W+C
 
                         # summed (J^T r): gradients shaped exactly like the cores (no |W| anywhere)
-                        gU, gG = x.apply_corewise_transpose(c, ww, sum_over_probes=True)
-                        self.assertEqual([u.shape for u in tk], [g.shape for g in gU])
+                        gB, gG = x.apply_corewise_transpose(c, ww, sum_over_probes=True)
+                        self.assertEqual([b.shape for b in tk], [g.shape for g in gB])
                         self.assertEqual([g.shape for g in tt], [g.shape for g in gG])
-                        lhs = core_dot(([np.asarray(g) for g in gU], [np.asarray(g) for g in gG]), (dU, dG), nC)
+                        lhs = core_dot(([np.asarray(g) for g in gB], [np.asarray(g) for g in gG]), (dB, dG), nC)
                         rhs = np.sum(c * Jd, axis=tuple(range(nW)))               # sum over W, keep C
                         self.check_relerr(rhs, lhs)
 
                         # unsummed: W is a leading stack on each gradient; sum=True == sum_W of sum=False
-                        gUk, gGk = x.apply_corewise_transpose(c, ww)
-                        self.assertEqual(W + tk[0].shape, gUk[0].shape)
-                        for s, k in zip(gU, gUk):
+                        gBk, gGk = x.apply_corewise_transpose(c, ww)
+                        self.assertEqual(W + tk[0].shape, gBk[0].shape)
+                        for s, k in zip(gB, gBk):
                             self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
                         for s, k in zip(gG, gGk):
                             self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
@@ -2280,7 +2280,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ]
         def replace(x, kind, i, new):
             tk, tt = [list(cs) for cs in x.data]
-            (tk if kind == 'U' else tt)[i] = new
+            (tk if kind == 'B' else tt)[i] = new
             return t3.TuckerTensorTrain(tuple(tk), tuple(tt))
         def core_dot(gA, gB, nC):
             return sum(np.sum(a * b, axis=tuple(range(nC, a.ndim)))
@@ -2296,21 +2296,21 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         tk, tt = [list(cs) for cs in x.data]
                         idx = np.array([np.random.randint(0, N, size=W) for N in shape])   # (d,)+W
                         c = np.asarray(np.random.randn(*(W + C)))
-                        dU = [np.random.randn(*u.shape) for u in tk]
+                        dB = [np.random.randn(*b.shape) for b in tk]
                         dG = [np.random.randn(*g.shape) for g in tt]
-                        Jd = sum(np.asarray(replace(x, 'U', i, dU[i]).entries(idx)) for i in range(d)) \
+                        Jd = sum(np.asarray(replace(x, 'B', i, dB[i]).entries(idx)) for i in range(d)) \
                            + sum(np.asarray(replace(x, 'G', i, dG[i]).entries(idx)) for i in range(d))
 
-                        gU, gG = x.entries_corewise_transpose(c, idx, sum_over_probes=True)
-                        self.assertEqual([u.shape for u in tk], [g.shape for g in gU])
+                        gB, gG = x.entries_corewise_transpose(c, idx, sum_over_probes=True)
+                        self.assertEqual([b.shape for b in tk], [g.shape for g in gB])
                         self.assertEqual([g.shape for g in tt], [g.shape for g in gG])
-                        lhs = core_dot(([np.asarray(g) for g in gU], [np.asarray(g) for g in gG]), (dU, dG), nC)
+                        lhs = core_dot(([np.asarray(g) for g in gB], [np.asarray(g) for g in gG]), (dB, dG), nC)
                         rhs = np.sum(c * Jd, axis=tuple(range(nW)))
                         self.check_relerr(rhs, lhs)
 
-                        gUk, gGk = x.entries_corewise_transpose(c, idx)
-                        self.assertEqual(W + tk[0].shape, gUk[0].shape)
-                        for s, k in zip(gU, gUk):
+                        gBk, gGk = x.entries_corewise_transpose(c, idx)
+                        self.assertEqual(W + tk[0].shape, gBk[0].shape)
+                        for s, k in zip(gB, gBk):
                             self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
                         for s, k in zip(gG, gGk):
                             self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
@@ -2367,7 +2367,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
         ]
         def replace(x, kind, i, new):
             tk, tt = [list(cs) for cs in x.data]
-            (tk if kind == 'U' else tt)[i] = new
+            (tk if kind == 'B' else tt)[i] = new
             return t3.TuckerTensorTrain(tuple(tk), tuple(tt))
         def core_dot(gA, gB, nC):
             return sum(np.sum(a * b, axis=tuple(range(nC, a.ndim)))
@@ -2383,12 +2383,12 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         tk, tt = [list(cs) for cs in x.data]
                         ww = [np.random.randn(*(W + (N,))) for N in shape]
                         zt = [np.random.randn(*(W + C + (N,))) for N in shape]
-                        dU = [np.random.randn(*u.shape) for u in tk]
+                        dB = [np.random.randn(*b.shape) for b in tk]
                         dG = [np.random.randn(*g.shape) for g in tt]
                         # exact forward corewise Jacobian per mode: Jm[m] = sum_i probe(replace_i)_m
                         Jm = [np.zeros(W + C + (N,)) for N in shape]
                         for i in range(d):
-                            for kind, dd in (('U', dU), ('G', dG)):
+                            for kind, dd in (('B', dB), ('G', dG)):
                                 pr = replace(x, kind, i, dd[i]).probe(ww)
                                 for m in range(d):
                                     Jm[m] = Jm[m] + np.asarray(pr[m])
@@ -2396,16 +2396,16 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         zJ = sum(np.sum(zt[m] * Jm[m], axis=-1) for m in range(d))   # W + C
                         rhs = np.sum(zJ, axis=tuple(range(nW)))                      # C
 
-                        gU, gG = x.probe_corewise_transpose(zt, ww, sum_over_probes=True)
-                        self.assertEqual([u.shape for u in tk], [g.shape for g in gU])
+                        gB, gG = x.probe_corewise_transpose(zt, ww, sum_over_probes=True)
+                        self.assertEqual([b.shape for b in tk], [g.shape for g in gB])
                         self.assertEqual([g.shape for g in tt], [g.shape for g in gG])
-                        lhs = core_dot(([np.asarray(g) for g in gU], [np.asarray(g) for g in gG]), (dU, dG), nC)
+                        lhs = core_dot(([np.asarray(g) for g in gB], [np.asarray(g) for g in gG]), (dB, dG), nC)
                         self.check_relerr(rhs, lhs)
 
                         # unsummed: W leads each gradient; sum=True == sum_W of sum=False
-                        gUk, gGk = x.probe_corewise_transpose(zt, ww)
-                        self.assertEqual(W + tk[0].shape, gUk[0].shape)
-                        for s, k in zip(gU, gUk):
+                        gBk, gGk = x.probe_corewise_transpose(zt, ww)
+                        self.assertEqual(W + tk[0].shape, gBk[0].shape)
+                        for s, k in zip(gB, gBk):
                             self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
                         for s, k in zip(gG, gGk):
                             self.check_relerr(np.asarray(s), np.asarray(k).sum(axis=tuple(range(nW))))
@@ -3028,16 +3028,16 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
         # corewise transpose: <g, dcores> matches a central finite difference of <r, forward(cores)>
         r = [np.random.randn(*np.asarray(z).shape) for z in x.probe_derivatives(ww, pp, ORDER)]
-        gU, gG = x.probe_corewise_derivatives_transpose(r, ww, pp, ORDER, sum_over_probes=True)
-        dU = [np.random.randn(*B.shape) for B in x.tucker_cores]
+        gB, gG = x.probe_corewise_derivatives_transpose(r, ww, pp, ORDER, sum_over_probes=True)
+        dB = [np.random.randn(*B.shape) for B in x.tucker_cores]
         dG = [np.random.randn(*G.shape) for G in x.tt_cores]
-        inner = (sum(np.sum(np.asarray(gU[i]) * dU[i]) for i in range(d))
+        inner = (sum(np.sum(np.asarray(gB[i]) * dB[i]) for i in range(d))
                  + sum(np.sum(np.asarray(gG[i]) * dG[i]) for i in range(d)))
         eps = 1e-6
         dot = lambda data: sum(np.sum(r[i] * np.asarray(sampling_derivatives.t3_probe_derivatives(ww, pp, data, ORDER)[i]))
                                for i in range(d))
-        plus = ([B + eps * du for B, du in zip(x.tucker_cores, dU)], [G + eps * dg for G, dg in zip(x.tt_cores, dG)])
-        minus = ([B - eps * du for B, du in zip(x.tucker_cores, dU)], [G - eps * dg for G, dg in zip(x.tt_cores, dG)])
+        plus = ([B + eps * db for B, db in zip(x.tucker_cores, dB)], [G + eps * dg for G, dg in zip(x.tt_cores, dG)])
+        minus = ([B - eps * db for B, db in zip(x.tucker_cores, dB)], [G - eps * dg for G, dg in zip(x.tt_cores, dG)])
         fd = (dot(plus) - dot(minus)) / (2 * eps)
         self.assertLessEqual(abs(inner - fd) / max(abs(fd), 1e-30), 1e-5)
 
@@ -3067,14 +3067,14 @@ class TestTuckerTensorTrain(unittest.TestCase):
         for name, transpose, forward in cases:
             with self.subTest(op=name):
                 r = np.random.randn(*np.asarray(forward(x.data)).shape)
-                gU, gG = transpose(r)
-                dU = [np.random.randn(*B.shape) for B in x.tucker_cores]
+                gB, gG = transpose(r)
+                dB = [np.random.randn(*B.shape) for B in x.tucker_cores]
                 dG = [np.random.randn(*G.shape) for G in x.tt_cores]
-                inner = (sum(np.sum(np.asarray(gU[i]) * dU[i]) for i in range(d))
+                inner = (sum(np.sum(np.asarray(gB[i]) * dB[i]) for i in range(d))
                          + sum(np.sum(np.asarray(gG[i]) * dG[i]) for i in range(d)))
                 dot = lambda data: float(np.sum(r * np.asarray(forward(data))))
-                plus = ([B + eps * du for B, du in zip(x.tucker_cores, dU)], [G + eps * dg for G, dg in zip(x.tt_cores, dG)])
-                minus = ([B - eps * du for B, du in zip(x.tucker_cores, dU)], [G - eps * dg for G, dg in zip(x.tt_cores, dG)])
+                plus = ([B + eps * db for B, db in zip(x.tucker_cores, dB)], [G + eps * dg for G, dg in zip(x.tt_cores, dG)])
+                minus = ([B - eps * db for B, db in zip(x.tucker_cores, dB)], [G - eps * dg for G, dg in zip(x.tt_cores, dG)])
                 fd = (dot(plus) - dot(minus)) / (2 * eps)
                 self.assertLessEqual(abs(inner - fd) / max(abs(fd), 1e-30), 1e-5)
 

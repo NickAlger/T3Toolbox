@@ -125,15 +125,15 @@ def fv_base_point_tangent(
     (It equals ``tv_project_t3_onto_tangent_space(frame, (U, P))`` -- verified -- but avoids that roundabout
     computation, whose environment contractions all collapse since the projected T3 IS the frame's own
     cores. See ``docs/contributor/fitting_internals.md`` §Regularization.)"""
-    up, _down, left, _right = frame
-    stack = up[0].shape[:-2]                                         # the frame stack C
+    down, _up, left, _right = frame
+    stack = down[0].shape[:-2]                                         # the frame stack C
     tucker_var, tt_var = fv_operations.fv_variations_zeros(
         fv_operations.fv_variation_shapes(frame), stack, tree_contains_jax(frame))
     return (tucker_var, tt_var[:-1] + (left[-1],))                   # last TT variation = P_last
 
 
 def ufv_base_point_tangent(
-        frame_data:  typ.Tuple,   # uniform frame .data = (up_sc, down_sc, left_sc, right_sc, shape, masks)
+        frame_data:  typ.Tuple,   # uniform frame .data = (down_sc, up_sc, left_sc, right_sc, shape, masks)
 ) -> typ.Tuple:                   # v_X as a bare variation supercore pair (tucker_var_sc, tt_var_sc)
     """The uniform twin of :py:func:`fv_base_point_tangent`: the attachment point as a gauged tangent,
     all variation slots zero except the last TT slice, set to the frame's last left core ``P_last``.
@@ -141,7 +141,7 @@ def ufv_base_point_tangent(
     The variation supercore shapes come from
     :py:func:`~t3toolbox.backend.ufv_operations.ufv_variation_shapes`, which is where the frame axis
     convention is written down. Do not re-derive them here: the tempting shortcut ("the Tucker
-    variation has the ``up`` supercore's shape") holds only when ``nD == nU``, which is true of most
+    variation has the ``up`` supercore's shape") holds only when ``nU == nD``, which is true of most
     unshared ranks and false as soon as a sharing group's rank differs from the down rank."""
     left_sc = frame_data[2]
     xnp, _, _ = get_backend(True, tree_contains_jax(frame_data))
@@ -340,7 +340,7 @@ class ManifoldGeometryOps(ValueHashedFields):
         """The coordinate ``<.,.>`` on tangents (Hilbert-Schmidt on an orthonormal, gauged frame),
         **per-element over the leading stacks** (``K+C``) -- shape = stack, a 0-d scalar unstacked,
         matching the uniform twin and the frontend ``MANIFOLD.inner`` (review H3-5)."""
-        return cw.corewise_stack_dot(a, b, a[0][0].ndim - 2)     # Tucker variation core = stack+(nD, N)
+        return cw.corewise_stack_dot(a, b, a[0][0].ndim - 2)     # Tucker variation core = stack+(nU, N)
 
     def point_norm_sq(self, x_cores):
         """``‖X‖²_HS`` -- the regularizer's objective term; **per-element over the stack ``C``**
@@ -392,11 +392,11 @@ class ManifoldGeometryOps(ValueHashedFields):
         typ.Tuple[NDArray, ...],   # movements, one per pass, each shape=C
     ]:
         """The aligned padded frame of ``x0`` from ``x_old``: :py:func:`~t3toolbox.backend.padded_frames.fv_aligned_padded_frame`."""
-        tucker = tuple(int(U.shape[-2]) for U in x0[0])
+        tucker = tuple(int(B.shape[-2]) for B in x0[0])
         tt = (int(x0[1][0].shape[-3]),) + tuple(int(G.shape[-1]) for G in x0[1])
         point = x0 if x_old is None else x_old
-        shape = tuple(int(U.shape[-1]) for U in point[0])
-        old_tucker = np.array([U.shape[-2] for U in point[0]])
+        shape = tuple(int(B.shape[-1]) for B in point[0])
+        old_tucker = np.array([B.shape[-2] for B in point[0]])
         old_tt = np.array([point[1][0].shape[-3]] + [G.shape[-1] for G in point[1]])
         if x_old is None or _structurally_zero(old_tucker, old_tt, 'aligned_padded_frame'):
             old = padded_frames.fv_empty_frame(shape, self.stack_shape(point), use_jax=tree_contains_jax(point))
@@ -413,14 +413,14 @@ class ManifoldGeometryOps(ValueHashedFields):
             frame:    typ.Tuple,   # a candidate frame of x_cores
     ) -> None:                     # raises ValueError unless `frame` has the structure of this geometry's frame at x_cores
         """Check ``frame``'s core shapes against the stores of ``x_cores``'s ranks (integers only; never orthogonalizes)."""
-        tucker = tuple(int(U.shape[-2]) for U in x_cores[0])
+        tucker = tuple(int(B.shape[-2]) for B in x_cores[0])
         tt = (int(x_cores[1][0].shape[-3]),) + tuple(int(G.shape[-1]) for G in x_cores[1])
-        shape = tuple(int(U.shape[-1]) for U in x_cores[0])
+        shape = tuple(int(B.shape[-1]) for B in x_cores[0])
         stores = ranks.compute_orthogonal_representation_ranks(shape, tucker, tt)
         expected = padded_frames._frame_core_shapes(shape, *stores, self.stack_shape(x_cores))
         if len(frame) != 4:
             raise ValueError('start frame: expected (up, down, left, right), got %d parts' % len(frame))
-        for store, cores, shapes in zip(('up', 'down', 'left', 'right'), frame, expected):
+        for store, cores, shapes in zip(('down', 'up', 'left', 'right'), frame, expected):
             got = tuple(tuple(c.shape) for c in cores)
             if got != tuple(shapes):
                 raise ValueError('start frame: the %s cores have shapes %r; the frame of this point (shape %r, Tucker '
@@ -616,9 +616,9 @@ def _uniform_lift_sigma_min(
     each nontrivial group's spectrum ``s_g`` in place of its modes' own, per frame element. A padded slot's (or
     padded level's) singular value is 0 or roundoff by construction and must not count, or every point of a
     varying-rank stack would report 0: the real count of each spectrum is ``min`` of its matrix's real dimensions,
-    read off the host masks (``min(sum_i nD_i, nU)`` for a group's stacked ``M_g``)."""
-    up, down, left, right = frame_masks
-    q_tucker = np.minimum(np.sum(down, axis=-1), np.sum(up, axis=-1))                     # (d,)+C
+    read off the host masks (``min(sum_i nU_i, nD)`` for a group's stacked ``M_g``)."""
+    down, up, left, right = frame_masks
+    q_tucker = np.minimum(np.sum(up, axis=-1), np.sum(down, axis=-1))                     # (d,)+C
     q_bond = np.minimum(np.sum(left[1:-1], axis=-1), np.sum(right[1:-1], axis=-1))        # (d-1,)+C
     xnp, _, _ = get_backend(True, tree_contains_jax(lift_factors.tucker_svals))
     groups = () if lift_factors.shared_data is None else \
@@ -748,7 +748,7 @@ class UniformManifoldGeometryOps(ValueHashedFields):
             self,
             x_sc:  typ.Tuple,      # bare (tucker_supercore, tt_supercore)
     ) -> typ.Tuple[int, ...]:      # C -- the frame/core stack (empty for a single tensor)
-        """The point's frame stack ``C``. The uniform Tucker supercore is ``(d,) + C + (nU, N)``."""
+        """The point's frame stack ``C``. The uniform Tucker supercore is ``(d,) + C + (nD, N)``."""
         return tuple(x_sc[0].shape[1:-2])
 
     def base_point(self, frame_data):
@@ -865,11 +865,11 @@ class UniformManifoldGeometryOps(ValueHashedFields):
         if len(frame) != 6:
             raise ValueError('start frame: expected uniform frame data (up, down, left, right, shape, masks), got %d '
                              'parts. %s' % (len(frame), fix))
-        U, O, L, R, shape, masks = frame
+        D, U, L, R, shape, masks = frame
         require_concrete_masks(*masks)
         if tuple(shape) != tuple(self.shape):
             raise ValueError('start frame: shape %r, the geometry\'s %r. %s' % (tuple(shape), self.shape, fix))
-        names = ('up', 'down', 'left', 'right')
+        names = ('down', 'up', 'left', 'right')
         for name, got, want in zip(names, ufv_masking.ufv_variation_masks(masks), self.var_masks):
             if np.shape(got) != np.shape(want) or not np.array_equal(got, want):
                 raise ValueError('start frame: its %s masks differ from the geometry\'s variation masks. %s'
@@ -877,15 +877,15 @@ class UniformManifoldGeometryOps(ValueHashedFields):
         for name, bond in (('left', np.asarray(masks[2])[-1]), ('right', np.asarray(masks[3])[0])):
             if not np.array_equal(bond, np.broadcast_to(prefix_mask(np.array(1), bond.shape[-1]), bond.shape)):
                 raise ValueError('start frame: its %s boundary bond mask is not (True, False, ...). %s' % (name, fix))
-        widths = ((U.shape[-2], masks[0].shape[-1]), (O.shape[-2], masks[1].shape[-1]),
+        widths = ((D.shape[-2], masks[0].shape[-1]), (U.shape[-2], masks[1].shape[-1]),
                   (L.shape[-3], L.shape[-1], masks[2].shape[-1]), (R.shape[-3], R.shape[-1], masks[3].shape[-1]))
         for name, w in zip(names, widths):
             if len(set(w)) != 1:
                 raise ValueError('start frame: the %s supercore widths %r disagree with its masks. %s' % (name, w, fix))
-        if O.shape[-3] != masks[2].shape[-1] or O.shape[-1] != masks[3].shape[-1]:
+        if U.shape[-3] != masks[2].shape[-1] or U.shape[-1] != masks[3].shape[-1]:
             raise ValueError('start frame: the down supercore\'s bond widths disagree with the left/right masks. %s' % fix)
-        if U.shape[-1] != x_cores[0].shape[-1]:
-            raise ValueError('start frame: padded N = %d, the point\'s %d. %s' % (U.shape[-1], x_cores[0].shape[-1], fix))
+        if D.shape[-1] != x_cores[0].shape[-1]:
+            raise ValueError('start frame: padded N = %d, the point\'s %d. %s' % (D.shape[-1], x_cores[0].shape[-1], fix))
 
     # ---- the exact Hessian (hessian='exact' only) -------------------------------------------------
     def curvature_precompute(
@@ -1000,7 +1000,7 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
             self,
             x_sc:  typ.Tuple,      # bare (tucker_supercore, tt_supercore)
     ) -> typ.Tuple[int, ...]:      # C -- the frame/core stack (empty for a single tensor)
-        """The point's frame stack ``C``. The uniform Tucker supercore is ``(d,) + C + (nU, N)``."""
+        """The point's frame stack ``C``. The uniform Tucker supercore is ``(d,) + C + (nD, N)``."""
         return tuple(x_sc[0].shape[1:-2])
 
     def base_point(self, frame_data):

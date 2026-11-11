@@ -66,7 +66,7 @@ def _broadcast_variation_masks_over_K(
         return np.broadcast_to(m.reshape(m.shape[:1] + (1,) * len(K) + m.shape[1:]),
                                m.shape[:1] + K + m.shape[1:])
 
-    return ubv.UT3VariationsMasks(b(masks.variations_up_mask), b(masks.variations_down_mask),
+    return ubv.UT3VariationsMasks(b(masks.variations_down_mask), b(masks.variations_up_mask),
                                   b(masks.variations_left_mask), b(masks.variations_right_mask))
 
 
@@ -181,7 +181,7 @@ class UT3Tangent(common.ExplicitEquality):
         return ubv._frame_of(frame), movement
 
     def __repr__(self) -> str:
-        return (f"UT3Tangent(shape={self.shape}, tucker_ranks={self.frame.up_ranks}, "
+        return (f"UT3Tangent(shape={self.shape}, tucker_ranks={self.frame.down_ranks}, "
                 f"tt_ranks={self.frame.left_ranks}, tangent_stack={self.tangent_stack_shape}, "
                 f"frame_stack={self.frame_stack_shape})")
 
@@ -218,7 +218,7 @@ class UT3Tangent(common.ExplicitEquality):
     def structure(self):
         """The frame's per-element structure tuple (ranks are arrays over the frame stack ``C``).
 
-        ``(shape, up_ranks, down_ranks, left_ranks, right_ranks, stack_shape)``."""
+        ``(shape, down_ranks, up_ranks, left_ranks, right_ranks, stack_shape)``."""
         return self.frame.structure
 
     @ft.cached_property
@@ -413,13 +413,13 @@ class UT3Tangent(common.ExplicitEquality):
         structurally-minimal ranks (gauge already quotiented); see
         :py:func:`~t3toolbox.backend.ranks.compute_manifold_dim`. Masks are host numpy, so the ranks --
         and this dimension -- are host quantities (a small loop over the frame stack, computed once)."""
-        up = np.asarray(self.frame.up_ranks)        # (d,)   + C
+        down = np.asarray(self.frame.down_ranks)        # (d,)   + C
         left = np.asarray(self.frame.left_ranks)    # (d+1,) + C
         C = self.frame_stack_shape
 
         def dim_at(idx):  # idx: an index tuple into C
             sel = (slice(None),) + idx
-            tucker_ranks = tuple(int(n) for n in up[sel])
+            tucker_ranks = tuple(int(n) for n in down[sel])
             tt_ranks = tuple(int(r) for r in left[sel])
             return ranks.compute_manifold_dim(self.shape, tucker_ranks, tt_ranks)
 
@@ -521,8 +521,8 @@ class UT3Tangent(common.ExplicitEquality):
     def from_t3tangent(
             tangent:  't3m.T3Tangent',
             N:   typ.Optional[int] = None,   # padded mode dim   (default max(shape))
-            nU:  typ.Optional[int] = None,   # padded up rank    (default max(up_ranks))
-            nD:  typ.Optional[int] = None,   # padded down rank  (default max(down_ranks))
+            nD:  typ.Optional[int] = None,   # padded up rank    (default max(down_ranks))
+            nU:  typ.Optional[int] = None,   # padded down rank  (default max(up_ranks))
             rL:  typ.Optional[int] = None,   # padded left rank  (default max(left_ranks))
             rR:  typ.Optional[int] = None,   # padded right rank (default max(right_ranks))
     ) -> 'UT3Tangent':
@@ -531,11 +531,11 @@ class UT3Tangent(common.ExplicitEquality):
         dims (derived from the frame if not given) so the masks come out consistent."""
         b = tangent.frame
         N  = max(b.shape)            if N  is None else N
-        nU = int(max(b.up_ranks))    if nU is None else nU
-        nD = int(max(b.down_ranks))  if nD is None else nD
+        nD = int(max(b.down_ranks))    if nD is None else nD
+        nU = int(max(b.up_ranks))  if nU is None else nU
         rL = int(max(b.left_ranks))  if rL is None else rL
         rR = int(max(b.right_ranks)) if rR is None else rR
-        pad = dict(N=N, nU=nU, nD=nD, rL=rL, rR=rR)
+        pad = dict(N=N, nD=nD, nU=nU, rL=rL, rR=rR)
         return UT3Tangent(ubv.UT3Frame.from_t3frame(b, **pad),
                           ubv.UT3Variations.from_t3variations(tangent.variations, **pad))
 
@@ -990,7 +990,7 @@ class UT3Tangent(common.ExplicitEquality):
         """Stack a ``C``-shaped tree of single-base-point tangents into a frame-stacked UT3Tangent.
 
         Inverse of :py:meth:`unstack_frame`. The leaves sit at **different** base points, so no shared-frame
-        identity is required; they must share the padded dims ``(d, N, nU, nD, rL, rR)``, the real mode
+        identity is required; they must share the padded dims ``(d, N, nD, nU, rL, rR)``, the real mode
         ``shape``, and the tangent stack ``K`` -- but the **ranks/masks MAY differ across the frame stack
         ``C``** (varying-rank stacks are supported). The bases stack over the inner frame stack ``C`` (so the
         variation stack becomes ``K + C``)."""
@@ -1000,7 +1000,7 @@ class UT3Tangent(common.ExplicitEquality):
         for t in leaves[1:]:
             if key(t) != k0:
                 raise ValueError(
-                    'stack_frame requires all tangents to share the padded dims (d, N, nU, nD, rL, rR), the '
+                    'stack_frame requires all tangents to share the padded dims (d, N, nD, nU, rL, rR), the '
                     'mode shape, and the tangent stack K (only the base point -- and its ranks/masks -- may '
                     'differ across the frame stack C).')
         paired_tree = stacking.apply_func_to_leaf_subtrees(
@@ -1313,8 +1313,8 @@ class UniformCorewiseGeometry:
         substitution ``(P, Q, O) -> G`` gives all three non-up slots the single core ``G``'s rank structure,
         with no boundary slicing (the ``[:-1]`` / ``[1:]`` gauge shift is a *variations*, not a frame,
         thing)."""
-        up, down, left, right, shape, mask_tuple = ufv_conversions.ut3_corewise_frame(x.data)
-        return ubv.UT3Frame(up, down, left, right, shape, ubv.UT3FrameMasks(*mask_tuple))
+        down, up, left, right, shape, mask_tuple = ufv_conversions.ut3_corewise_frame(x.data)
+        return ubv.UT3Frame(down, up, left, right, shape, ubv.UT3FrameMasks(*mask_tuple))
 
     def randn(
             self,

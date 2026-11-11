@@ -216,7 +216,7 @@ Two measurement mistakes cost real time here; both are the same shape, and worth
 
 **Breadth of cases is not coverage when the cases share a degeneracy.** A shape derivation was checked
 across 21 structures including stack shapes and passed every one. It was wrong. All 21 happened to have
-`nD == nU`; the first shared geometry where a group's rank differed from the down rank broke it
+`nU == nD`; the first shared geometry where a group's rank differed from the down rank broke it
 immediately.
 
 **Compare invariants, not representations.** An optimizer comparison reported a 1.75 absolute

@@ -69,7 +69,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _padded_frame_cycle_case as cycle_case
 import _padded_frame_oracles as oracles
 
-STORES = ('up', 'down', 'left', 'right')
+STORES = ('down', 'up', 'left', 'right')
 
 
 def frame_of(x):
@@ -89,7 +89,7 @@ def padded_case(shape, old_ranks, new_ranks, stack_shape=(), sharing=None, seed=
 
 def stream_rows(store, key, seed, w, k, p):
     """Rows w .. w+k-1 of the keyed stream RandomState([seed, store tag, key]) (tags: up 0, down 1, left 2, right 3)."""
-    tag = {'up': 0, 'down': 1, 'left': 2, 'right': 3}[store]
+    tag = {'down': 0, 'up': 1, 'left': 2, 'right': 3}[store]
     return np.random.RandomState([seed, tag, key]).standard_normal((w + k, p))[w:]
 
 
@@ -106,10 +106,10 @@ def convention_reference(old, tucker, tt, sharing=None, seed=0, pivots=None):
     """The hint-free start rebuilt from the convention's definition (unstacked): each store's new slots are the seeded
     pinned QR of [the old block embedded | the stream's rows w .. w+k-1]; carriers the old content. ``pivots``, a
     list, collects every seed pivot."""
-    up0, down0, left0, right0 = old
-    d = len(up0)
-    shape = tuple(U.shape[-1] for U in up0)
-    nU, nD, rL, rR = ranks.compute_orthogonal_representation_ranks(shape, tucker, tt)
+    down0, up0, left0, right0 = old
+    d = len(down0)
+    shape = tuple(D.shape[-1] for D in down0)
+    nD, nU, rL, rR = ranks.compute_orthogonal_representation_ranks(shape, tucker, tt)
     first = list(range(d))
     if sharing is not None:
         for group in sharing_module.validate_sharing(sharing, shape):
@@ -129,21 +129,21 @@ def convention_reference(old, tucker, tt, sharing=None, seed=0, pivots=None):
         F = np.concatenate([P, new], axis=1).reshape(tuple(rows) + (c + k,))
         return np.moveaxis(F, -1, axis)
 
-    up = []
+    down = []
     for i in range(d):
         f = first[i]
-        U0 = up0[f]
-        new, piv = seeded_qr(U0.T, stream_rows('up', f, seed, U0.shape[0], nU[f] - U0.shape[0], shape[f]).T)
+        D0 = down0[f]
+        new, piv = seeded_qr(D0.T, stream_rows('down', f, seed, D0.shape[0], nD[f] - D0.shape[0], shape[f]).T)
         if pivots is not None and f == i:
             pivots.extend(piv)
-        up.append(np.concatenate([U0, new.T], axis=0))
+        down.append(np.concatenate([D0, new.T], axis=0))
     pad = lambda A, w: np.pad(A, [(0, t - a) for t, a in zip(w, A.shape)])
-    down = [core(down0[i], (rL[i], nD[i], rR[i + 1]), -2, 'down', i) for i in range(d)]
-    left = [core(left0[i], (rL[i], nU[i], rL[i + 1]), -1, 'left', i) for i in range(d - 1)]
-    left.append(pad(left0[d - 1], (rL[d - 1], nU[d - 1], rL[d])))
-    right = [pad(right0[0], (rR[0], nU[0], rR[1]))] + [core(right0[i], (rR[i], nU[i], rR[i + 1]), -3, 'right', i)
+    up = [core(up0[i], (rL[i], nU[i], rR[i + 1]), -2, 'up', i) for i in range(d)]
+    left = [core(left0[i], (rL[i], nD[i], rL[i + 1]), -1, 'left', i) for i in range(d - 1)]
+    left.append(pad(left0[d - 1], (rL[d - 1], nD[d - 1], rL[d])))
+    right = [pad(right0[0], (rR[0], nD[0], rR[1]))] + [core(right0[i], (rR[i], nD[i], rR[i + 1]), -3, 'right', i)
                                                        for i in range(1, d)]
-    return tuple(up), tuple(down), tuple(left), tuple(right)
+    return tuple(down), tuple(up), tuple(left), tuple(right)
 
 
 def worst_difference(Fa, Fb):
@@ -164,18 +164,18 @@ def take(frame, idx):
 def projectors(frame):
     """Gauge-invariant summary of a frame: per mode the Tucker projector U^T U, per bond the dense left and
     right interface projectors, per mode the dense down-environment projector (O_i between the interfaces)."""
-    up, down, left, right = frame
-    d = len(up)
+    down, up, left, right = frame
+    d = len(down)
     phi = [np.ones((1, 1))]                             # Phi_k: (prod N_<k, rL_k)
     for k in range(d - 1):
-        phi.append(np.einsum('xa,ni,anb->xib', phi[k], up[k], left[k]).reshape(-1, left[k].shape[2]))
+        phi.append(np.einsum('xa,ni,anb->xib', phi[k], down[k], left[k]).reshape(-1, left[k].shape[2]))
     psi = [None] * d + [np.ones((1, 1))]                # Psi_k: (prod N_>=k, rR_k)
     for k in range(d - 1, 0, -1):
-        psi[k] = np.einsum('anb,ni,yb->aiy', right[k], up[k], psi[k + 1]).reshape(right[k].shape[0], -1).T
-    out = [u.T @ u for u in up]
+        psi[k] = np.einsum('anb,ni,yb->aiy', right[k], down[k], psi[k + 1]).reshape(right[k].shape[0], -1).T
+    out = [u.T @ u for u in down]
     out += [p @ p.T for p in phi[1:]] + [p @ p.T for p in psi[1:d]]
     for i in range(d):
-        E = np.einsum('xa,amb,yb->xym', phi[i], down[i], psi[i + 1]).reshape(-1, down[i].shape[1])
+        E = np.einsum('xa,amb,yb->xym', phi[i], up[i], psi[i + 1]).reshape(-1, up[i].shape[1])
         out.append(E @ E.T)
     return out
 
@@ -198,23 +198,23 @@ class PaddedFrameAsserts(unittest.TestCase):
         for got, want in zip(padded, expected_shapes):
             self.assertEqual([g.shape for g in got], [w.shape for w in want])
         self.assertLessEqual(float(fvo.fv_frame_orthogonality_residual(padded)), 1e-14)
-        up, down, left, right = padded
+        down, up, left, right = padded
         nX = max(np.linalg.norm(X_old), 1.0)
         for tt in (left, right):
-            self.assertLessEqual(np.linalg.norm(t3c.t3_to_dense((up, tt)) - X_old), 1e-13 * nX)
-        U0, O0, L0, R0 = old
-        for i in range(len(up)):                         # the old block, embedded as a copy (structural)
-            self.assertTrue(np.array_equal(up[i][:U0[i].shape[0]], U0[i]))
-            self.assertTrue(np.array_equal(down[i][tuple(slice(0, n) for n in O0[i].shape)], O0[i]))
+            self.assertLessEqual(np.linalg.norm(t3c.t3_to_dense((down, tt)) - X_old), 1e-13 * nX)
+        D0, U0, L0, R0 = old
+        for i in range(len(down)):                         # the old block, embedded as a copy (structural)
+            self.assertTrue(np.array_equal(down[i][:D0[i].shape[0]], D0[i]))
+            self.assertTrue(np.array_equal(up[i][tuple(slice(0, n) for n in U0[i].shape)], U0[i]))
             self.assertTrue(np.array_equal(left[i][tuple(slice(0, n) for n in L0[i].shape)], L0[i]))
             self.assertTrue(np.array_equal(right[i][tuple(slice(0, n) for n in R0[i].shape)], R0[i]))
             a, n, b = L0[i].shape                        # zero elsewhere in the old columns / rows (structural)
             self.assertTrue(np.all(left[i][:, :, :b][a:] == 0.0) and np.all(left[i][:a, n:, :b] == 0.0))
             a, n, b = R0[i].shape
             self.assertTrue(np.all(right[i][:a, :, b:] == 0.0) and np.all(right[i][:a, n:, :b] == 0.0))
-            a, m, b = O0[i].shape
-            self.assertTrue(np.all(down[i][a:, :m] == 0.0) and np.all(down[i][:a, :m, b:] == 0.0))
-        d = len(up)                                      # the carriers: zero on every new index
+            a, m, b = U0[i].shape
+            self.assertTrue(np.all(up[i][a:, :m] == 0.0) and np.all(up[i][:a, :m, b:] == 0.0))
+        d = len(down)                                      # the carriers: zero on every new index
         a, n, b = L0[d - 1].shape
         self.assertTrue(np.all(left[d - 1][a:] == 0.0) and np.all(left[d - 1][:, n:] == 0.0))
         a, n, b = R0[0].shape
@@ -362,10 +362,10 @@ class TestConvention(PaddedFrameAsserts):
         """One more Tucker slot at one mode: the leading rows agree to 1e-14; the other modes are untouched."""
         shape, old_ranks = (5, 6, 7), ((2, 2, 2), (1, 2, 2, 1))
         _, old, _ = padded_case(shape, old_ranks, ((3, 3, 3), (1, 3, 3, 1)))
-        up3 = padded_frames.fv_padded_frame(old, (3, 3, 3), (1, 3, 3, 1))[0]
-        up4 = padded_frames.fv_padded_frame(old, (3, 4, 3), (1, 3, 3, 1))[0]
-        self.assertLessEqual(np.max(np.abs(up4[1][:3] - up3[1])), 1e-14)
-        self.assertTrue(np.array_equal(up4[0], up3[0]) and np.array_equal(up4[2], up3[2]))
+        down3 = padded_frames.fv_padded_frame(old, (3, 3, 3), (1, 3, 3, 1))[0]
+        down4 = padded_frames.fv_padded_frame(old, (3, 4, 3), (1, 3, 3, 1))[0]
+        self.assertLessEqual(np.max(np.abs(down4[1][:3] - down3[1])), 1e-14)
+        self.assertTrue(np.array_equal(down4[0], down3[0]) and np.array_equal(down4[2], down3[2]))
 
     def test_stack_equals_per_element(self):
         """A C = (2,) and (2, 3) stack equals per-element calls to 1e-14 (an in-block case included)."""
@@ -400,14 +400,14 @@ class TestStructuralErrors(unittest.TestCase):
 
     def test_old_frame_layout(self):
         """The old frame must have an orthogonal representation's layout, read off its up and left widths."""
-        up, down, left, right = self.old
+        down, up, left, right = self.old
         cases = {
-            'a down width':       (self.replaced('down', 1, np.zeros((2, 3, 2))), 'old_frame down\\[1\\]'),
+            'a down width':       (self.replaced('up', 1, np.zeros((2, 3, 2))), 'old_frame up\\[1\\]'),
             'a right width':      (self.replaced('right', 1, np.zeros((3, 2, 2))), 'old_frame right\\[1\\]'),
             'inconsistent left':  (self.replaced('left', 0, np.zeros((1, 2, 3))), 'old_frame left\\[0\\]'),
             'left boundary bond': (self.replaced('left', 0, np.zeros((2, 2, 2))), 'old_frame left\\[0\\]'),
-            'a stack on one core': (self.replaced('down', 2, np.zeros((1,) + down[2].shape)), 'old_frame down\\[2\\]'),
-            'store lengths':      ((up, down, left[:2], right), 'one core per mode'),
+            'a stack on one core': (self.replaced('up', 2, np.zeros((1,) + up[2].shape)), 'old_frame up\\[2\\]'),
+            'store lengths':      ((down, up, left[:2], right), 'one core per mode'),
         }
         for name, (frame, message) in cases.items():
             with self.subTest(case=name), self.assertRaisesRegex(ValueError, message):
@@ -487,8 +487,8 @@ def worst(Fa, Fb):
 
 
 def stores_of(frame):
-    up, down, left, right = frame
-    return (tuple(u.shape[-2] for u in up), tuple(o.shape[-2] for o in down),
+    down, up, left, right = frame
+    return (tuple(u.shape[-2] for u in down), tuple(o.shape[-2] for o in up),
             tuple(g.shape[-3] for g in left) + (left[-1].shape[-1],),
             tuple(g.shape[-3] for g in right) + (right[-1].shape[-1],))
 
@@ -503,12 +503,12 @@ class StepAsserts(unittest.TestCase):
         for new, o in zip(F, old):
             for i in range(len(new)):
                 self.assertTrue(np.array_equal(new[i][tuple(slice(0, n) for n in o[i].shape)], o[i]))
-        up, down, left, right = F
+        down, up, left, right = F
         nX = max(np.linalg.norm(X_old), 1.0)
         for tt in (left, right):
-            self.assertLessEqual(np.linalg.norm(t3c.t3_to_dense((up, tt)) - X_old), 1e-12 * nX)
+            self.assertLessEqual(np.linalg.norm(t3c.t3_to_dense((down, tt)) - X_old), 1e-12 * nX)
         for group in groups:
-            self.assertTrue(all(up[i] is up[group[0]] for i in group))
+            self.assertTrue(all(down[i] is down[group[0]] for i in group))
 
     def assert_matches_dense(self, start, variations, old, F, movement, stores, update='ULRO', groups=(), tol=1e-9):
         """Frames and movement against the dense per-edge pass from the same start (unstacked)."""
@@ -558,7 +558,7 @@ class TestStepAgainstDense(StepAsserts):
         self.assert_padded(F, old, X_old, stores, groups)
         self.assert_matches_dense(start, variations, old, F, movement, stores, update, groups)
 
-    # The d = 1 note. At d = 1 the down store is one wide (nD = min(nU, rL rR) = 1), so a nonzero old point's down
+    # The d = 1 note. At d = 1 the down store is one wide (nU = min(nD, rL rR) = 1), so a nonzero old point's down
     # frame spans the whole far side and the up edge's content vanishes: its completion carries no information
     # (T3's information-free case). The informative d = 1 step starts at the zero tensor, at Tucker rank 1.
 
@@ -616,17 +616,17 @@ class TestStepInvariances(StepAsserts):
     def test_ungauged_variations(self):
         """The same tangent vector with O(1) gauge terms moved across every bond and every leaf-core edge."""
         rng = np.random.default_rng(11)
-        U, O, L, R = self.start
+        D, U, L, R = self.start
         V, H = [np.array(v) for v in self.variations[0]], [np.array(h) for h in self.variations[1]]
-        d = len(U)
+        d = len(D)
         for i in range(d - 1):                                           # across bond i+1
             Cm = rng.standard_normal((L[i].shape[2], R[i + 1].shape[0]))
             H[i] = H[i] + np.einsum('anc,cb->anb', L[i], Cm)
             H[i + 1] = H[i + 1] - np.einsum('ac,cnb->anb', Cm, R[i + 1])
         for i in range(d):                                               # between leaf i and core i
-            Mm = rng.standard_normal((O[i].shape[1], U[i].shape[0]))
-            V[i] = V[i] + Mm @ U[i]
-            H[i] = H[i] - np.einsum('amb,mn->anb', O[i], Mm)
+            Mm = rng.standard_normal((U[i].shape[1], D[i].shape[0]))
+            V[i] = V[i] + Mm @ D[i]
+            H[i] = H[i] - np.einsum('amb,mn->anb', U[i], Mm)
         ungauged = (tuple(V), tuple(H))
         Z, Zu = (t3c.t3_to_dense(tvo.tv_to_t3(self.start, v)) for v in (self.variations, ungauged))
         self.assertLessEqual(np.linalg.norm(Zu - Z), 1e-12 * np.linalg.norm(Z))        # the same tangent vector
@@ -727,7 +727,7 @@ class TestStepDegenerateAndStructural(StepAsserts):
         self.assertTrue(all(a > b for a, b in zip(
             [max(s) for s in ranks.compute_orthogonal_representation_ranks(self.shape, *self.work)],
             [max(s) for s in ranks.compute_orthogonal_representation_ranks(self.shape, *self.target)])))
-        for missing, store in (('U', 'up'), ('O', 'down'), ('L', 'left'), ('R', 'right')):
+        for missing, store in (('U', 'down'), ('O', 'up'), ('L', 'left'), ('R', 'right')):
             update = ''.join(c for c in 'ULRO' if c != missing)
             with self.subTest(missing=missing), self.assertRaisesRegex(ValueError, store + ' store .* not updated'):
                 self.step(out=self.target, update=update)
@@ -755,9 +755,9 @@ class TestStepDegenerateAndStructural(StepAsserts):
             self.step(old_ranks=((2, 3, 3), (1, 2, 3, 2, 1)))
 
     def test_frame_and_variation_shapes(self):
-        up, down, left, right = self.start
-        bad_frame = (up, down[:1] + (np.zeros((2, 3, 2)),) + down[2:], left, right)
-        with self.assertRaisesRegex(ValueError, 'frame down\\[1\\]'):
+        down, up, left, right = self.start
+        bad_frame = (down, up[:1] + (np.zeros((2, 3, 2)),) + up[2:], left, right)
+        with self.assertRaisesRegex(ValueError, 'frame up\\[1\\]'):
             self.step(frame=bad_frame)
         V, H = self.variations
         with self.assertRaisesRegex(ValueError, 'tucker variations'):

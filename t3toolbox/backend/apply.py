@@ -36,7 +36,7 @@ __all__ = [
 
 def _t3_apply_step(
         mu_WCa: NDArray,                                # carry: W+C+(rLi,)
-        v_B_G:  typ.Tuple[NDArray, NDArray, NDArray],   # (v, B, G): W+(Ni,) ; C+(nUi,Ni) ; C+(rLi,nUi,rL(i+1))
+        v_B_G:  typ.Tuple[NDArray, NDArray, NDArray],   # (v, B, G): W+(Ni,) ; C+(nDi,Ni) ; C+(rLi,nDi,rL(i+1))
 ) -> typ.Tuple[NDArray, typ.Tuple[int]]:   # (next carry, (0,) -- nothing emitted per mode)
     '''One mode of the all-modes contraction of :py:func:`t3_apply`. Closure-free scan body --
     ``docs/contributor/scan_body_principles.md``.'''
@@ -141,12 +141,12 @@ def t3_apply_ambient_transpose(
 def tv_apply(
         ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
         variation:  typ.Tuple[
-            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nUi,rRi)
+            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nUi,Ni)
+            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rRi)
         ],
         frame:       typ.Tuple[
-            typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
-            typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+            typ.Sequence[NDArray],          # down_tucker_cores  U. len=d
+            typ.Sequence[NDArray],          # up_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
         ],                                  # frame order = T3Frame.data = (up, down, left, right)
@@ -162,14 +162,14 @@ def tv_apply(
     tv_entries
     tv_probe
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     var_tucker_cores, var_tt_cores = variation
 
-    xis  = compute_xi(up_tucker_cores, ww)       # xi-hat_i  = U_i^T w_i
+    xis  = compute_xi(down_tucker_cores, ww)       # xi-hat_i  = U_i^T w_i
     dxis = compute_dxi(var_tucker_cores, ww)     # delta-xi_i = dU_i^T w_i
     mus  = compute_mu(left_tt_cores, xis)        # frame left sweep via P
 
-    return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
+    return _apply_from_xis(xis, dxis, mus, right_tt_cores, up_tt_cores, var_tt_cores)
 
 
 def tv_apply_transpose(
@@ -197,14 +197,14 @@ def tv_apply_transpose(
 
 def tv_precompute_apply_frame_sweep(
         frame:   typ.Tuple[
-            typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
-            typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+            typ.Sequence[NDArray],          # down_tucker_cores  U. len=d
+            typ.Sequence[NDArray],          # up_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
         ],                                  # frame order = T3Frame.data = (up, down, left, right)
         ww:     typ.Sequence[NDArray],      # apply vectors, len=d, elm_shape=W+(Ni,)
 ) -> typ.Tuple[
-    typ.Sequence[NDArray],  # xis. len=d, elm_shape=W+C+(nUi,)
+    typ.Sequence[NDArray],  # xis. len=d, elm_shape=W+C+(nDi,)
     typ.Sequence[NDArray],  # mus. len=d, elm_shape=W+C+(rLi,)
 ]:                                          # lean frame sweep -- (xis, mus) only
     '''The all-modes apply **frame sweep** (lean): the frame edge variables ``(xi-hat, mu-hat)`` that
@@ -224,21 +224,21 @@ def tv_precompute_apply_frame_sweep(
     tv_apply_transpose_from_sweep
     tv_precompute_probe_frame_sweep
     '''
-    up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
-    xis = compute_xi(up_tucker_cores, ww)
+    down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
+    xis = compute_xi(down_tucker_cores, ww)
     mus = compute_mu(left_tt_cores, xis)
     return xis, mus
 
 
 def tv_apply_jacobian_from_sweep(
         variation:  typ.Tuple[
-            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nUi,rRi)
+            typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nUi,Ni)
+            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rRi)
         ],
         ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,) -- for the variation's dxis
         frame:       typ.Tuple[
-            typ.Sequence[NDArray],          # up_tucker_cores  U. len=d  (unused; for a uniform call signature)
-            typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+            typ.Sequence[NDArray],          # down_tucker_cores  U. len=d  (unused; for a uniform call signature)
+            typ.Sequence[NDArray],          # up_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d  (unused)
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
         ],                                  # frame order = T3Frame.data = (up, down, left, right)
@@ -258,18 +258,18 @@ def tv_apply_jacobian_from_sweep(
     tv_apply
     '''
     var_tucker_cores, var_tt_cores = variation
-    _, down_tt_cores, _, right_tt_cores = frame
+    _, up_tt_cores, _, right_tt_cores = frame
     xis, mus = frame_sweep
     dxis = compute_dxi(var_tucker_cores, ww)     # variation-dependent; not part of the frame sweep
-    return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
+    return _apply_from_xis(xis, dxis, mus, right_tt_cores, up_tt_cores, var_tt_cores)
 
 
 def tv_apply_transpose_from_sweep(
         c:          NDArray,                # residual, shape = W + K + C (K optional)
         ww:         typ.Sequence[NDArray],  # apply vectors (one-hot e_index for entries), len=d, elm_shape=W+(Ni,)
         frame:       typ.Tuple[
-            typ.Sequence[NDArray],          # up_tucker_cores  U. len=d  (unused; uniform call signature)
-            typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+            typ.Sequence[NDArray],          # down_tucker_cores  U. len=d  (unused; uniform call signature)
+            typ.Sequence[NDArray],          # up_tt_cores    O. len=d
             typ.Sequence[NDArray],          # left_tt_cores    P. len=d  (unused)
             typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
         ],                                  # frame order = T3Frame.data = (up, down, left, right)
@@ -291,9 +291,9 @@ def tv_apply_transpose_from_sweep(
     tv_precompute_apply_frame_sweep
     tv_apply_transpose
     '''
-    _, down_tt_cores, _, right_tt_cores = frame
+    _, up_tt_cores, _, right_tt_cores = frame
     xis, mus = frame_sweep
-    return _apply_transpose_adjoint(c, ww, xis, mus, down_tt_cores, right_tt_cores, sum_over_probes)
+    return _apply_transpose_adjoint(c, ww, xis, mus, up_tt_cores, right_tt_cores, sum_over_probes)
 
 
 def t3_apply_corewise_transpose(
@@ -414,15 +414,15 @@ def t3_apply_corewise_hessian(
     >>> c = rng.standard_normal(W)                                         # one residual per apply
     >>> dirs = (tuple(rng.standard_normal((2,) + u.shape) for u in theta[0]),   # a tangent stack K = (2,)
     ...         tuple(rng.standard_normal((2,) + g.shape) for g in theta[1]))
-    >>> KU, KG = t3a.t3_apply_corewise_hessian(c, ww, theta, dirs)
-    >>> [k.shape for k in KU]                                              # K + the Tucker core shapes
+    >>> KB, KG = t3a.t3_apply_corewise_hessian(c, ww, theta, dirs)
+    >>> [k.shape for k in KB]                                              # K + the Tucker core shapes
     [(2, 2, 4), (2, 3, 5), (2, 2, 3)]
     >>> one = lambda cores: t3a.t3_apply_corewise_transpose(c, ww, cores, sum_over_probes=True)
     >>> shift = lambda h: tuple(tuple(x + h * dx[0] for x, dx in zip(xs, dxs)) for xs, dxs in zip(theta, dirs))
     >>> fd = [(a - b) / 2e-4 for a, b in zip(sum(one(shift(1e-4)), ()), sum(one(shift(-1e-4)), ()))]
-    >>> bool(max(np.linalg.norm(k[0] - f) / np.linalg.norm(f) for k, f in zip(KU + KG, fd)) < 1e-6)
+    >>> bool(max(np.linalg.norm(k[0] - f) / np.linalg.norm(f) for k, f in zip(KB + KG, fd)) < 1e-6)
     True
-    >>> gram = sum(a.reshape(2, -1) @ b.reshape(2, -1).T for a, b in zip(dirs[0] + dirs[1], KU + KG))
+    >>> gram = sum(a.reshape(2, -1) @ b.reshape(2, -1).T for a, b in zip(dirs[0] + dirs[1], KB + KG))
     >>> bool(abs(gram[0, 1] - gram[1, 0]) < 1e-12 * abs(gram).max())     # <a, K b> = <b, K a>
     True
     '''
@@ -437,11 +437,11 @@ def _apply_from_xis_step(
 ) -> typ.Tuple[NDArray, typ.Tuple[int]]:   # (next carry, (0,) -- only the terminal carry is used)
     '''One edge of the sweep of :py:func:`_apply_from_xis`, emitting nothing (the sequence-keeping twin
     is ``probing._sigma_sweep_step``). Closure-free scan body -- ``docs/contributor/scan_body_principles.md``.'''
-    Q, O, dG, xi, dxi, mu = x
-    return _sigma_step(sigma, Q, O, dG, xi, dxi, mu), (0,)
+    R, U, dG, xi, dxi, mu = x
+    return _sigma_step(sigma, R, U, dG, xi, dxi, mu), (0,)
 
 
-def _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores):
+def _apply_from_xis(xis, dxis, mus, right_tt_cores, up_tt_cores, var_tt_cores):
     '''Run the perturbation sigma sweep (via Q) to its TERMINAL carry and contract the final bond.
 
     Shared tail of tv_apply and tv_entries (they differ only in how xis/dxis are formed).
@@ -453,11 +453,11 @@ def _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
     # carry sigma is W+K+C; take the leading stack from dxis (carries K), not xis (W+C only).
     rR0 = right_tt_cores[0].shape[-3]
     init = xnp.zeros(dxis[0].shape[:-1] + (rR0,))
-    sigma_terminal, _ = xscan(_apply_from_xis_step, init, (right_tt_cores, down_tt_cores, var_tt_cores, xis, dxis, mus))
+    sigma_terminal, _ = xscan(_apply_from_xis_step, init, (right_tt_cores, up_tt_cores, var_tt_cores, xis, dxis, mus))
     return xnp.sum(sigma_terminal, axis=-1)   # contract the terminal bond -> W + K + C
 
 
-def _apply_transpose_adjoint(c, ww, xis, mus, down_tt_cores, right_tt_cores, sum_over_probes):
+def _apply_transpose_adjoint(c, ww, xis, mus, up_tt_cores, right_tt_cores, sum_over_probes):
     '''Adjoint-state assembly shared by apply/tv_entries_transpose_from_sweep -- the **low-memory,
     K-aware** transpose (replaces the old scatter). The scalar residual ``c`` seeds one reverse
     ``sigma_hat`` sweep (recomputing the right context, so ``nu``/``eta`` are never stored); then
@@ -480,27 +480,27 @@ def _apply_transpose_adjoint(c, ww, xis, mus, down_tt_cores, right_tt_cores, sum
         # unroll). ww is the packed apply/one-hot probe supercore (d,)+W+(N,) -> n_probe = len(W). The
         # ragged loop below is the oracle.
         n_probe = ww.ndim - 2
-        dxi_hats = contractions.contract('dWCa,dCaib,dWKCb->dWKCi', mus, down_tt_cores, sigma_hats)
+        dxi_hats = contractions.contract('dWCa,dCaib,dWKCb->dWKCi', mus, up_tt_cores, sigma_hats)
         if sum_over_probes:
-            dG_tildes = contractions.contract('dWCa,dWCi,dWKCb->dKCaib', mus, xis, sigma_hats, len_W=n_probe)
-            dU_tildes = contractions.contract('dWo,dWKCa->dKCao', ww, dxi_hats)
+            H_tildes = contractions.contract('dWCa,dWCi,dWKCb->dKCaib', mus, xis, sigma_hats, len_W=n_probe)
+            V_tildes = contractions.contract('dWo,dWKCa->dKCao', ww, dxi_hats)
         else:
-            dG_tildes = contractions.contract('dWCa,dWCi,dWKCb->dWKCaib', mus, xis, sigma_hats, len_W=n_probe)
-            dU_tildes = contractions.contract('dWo,dWKCa->dWKCao', ww, dxi_hats)
-        return dU_tildes, dG_tildes
+            H_tildes = contractions.contract('dWCa,dWCi,dWKCb->dWKCaib', mus, xis, sigma_hats, len_W=n_probe)
+            V_tildes = contractions.contract('dWo,dWKCa->dWKCao', ww, dxi_hats)
+        return V_tildes, H_tildes
 
     n_probe = ww[0].ndim - 1
-    dxi_hats = tuple(contractions.contract('WCa,Caib,WKCb->WKCi', mu, O, sh)        # dxi_hat = mu . O . sigma_hat
-                     for mu, O, sh in zip(mus, down_tt_cores, sigma_hats))
+    dxi_hats = tuple(contractions.contract('WCa,Caib,WKCb->WKCi', mu, U, sig_hat)        # dxi_hat = mu . O . sigma_hat
+                     for mu, U, sig_hat in zip(mus, up_tt_cores, sigma_hats))
     if sum_over_probes:
-        dG_tildes = tuple(contractions.contract('WCa,WCi,WKCb->KCaib', mu, xi, sh, len_W=n_probe)
-                          for mu, xi, sh in zip(mus, xis, sigma_hats))
-        dU_tildes = tuple(contractions.contract('Wo,WKCa->KCao', w, dxh) for w, dxh in zip(ww, dxi_hats))
+        H_tildes = tuple(contractions.contract('WCa,WCi,WKCb->KCaib', mu, xi, sig_hat, len_W=n_probe)
+                          for mu, xi, sig_hat in zip(mus, xis, sigma_hats))
+        V_tildes = tuple(contractions.contract('Wo,WKCa->KCao', w, dxh) for w, dxh in zip(ww, dxi_hats))
     else:
-        dG_tildes = tuple(contractions.contract('WCa,WCi,WKCb->WKCaib', mu, xi, sh, len_W=n_probe)
-                          for mu, xi, sh in zip(mus, xis, sigma_hats))
-        dU_tildes = tuple(contractions.contract('Wo,WKCa->WKCao', w, dxh) for w, dxh in zip(ww, dxi_hats))
-    return dU_tildes, dG_tildes   # (var_tucker, var_tt) = T3Variations.data
+        H_tildes = tuple(contractions.contract('WCa,WCi,WKCb->WKCaib', mu, xi, sig_hat, len_W=n_probe)
+                          for mu, xi, sig_hat in zip(mus, xis, sigma_hats))
+        V_tildes = tuple(contractions.contract('Wo,WKCa->WKCao', w, dxh) for w, dxh in zip(ww, dxi_hats))
+    return V_tildes, H_tildes   # (var_tucker, var_tt) = T3Variations.data
 
 
 def _apply_corewise_hessian_adjoint(c, ww, xis, xis_dot, mus, mus_dot, tt_cores, tt_dirs):
@@ -525,21 +525,21 @@ def _apply_corewise_hessian_adjoint(c, ww, xis, xis_dot, mus, mus_dot, tt_cores,
 
     if is_uniform:
         n_probe = ww.ndim - 2                     # ww is the W-only packed apply / one-hot supercore (d,)+W+(N,)
-        dU = contractions.contract('dWo,dWKCa->dKCao', ww, dxi_hats_dot)
+        dB = contractions.contract('dWo,dWKCa->dKCao', ww, dxi_hats_dot)
         E = contractions.contract('dWCi,dWCb->dWCib', xis, sigma_hats)
         E_dot = (contractions.contract('dWKCi,dWCb->dWKCib', xis_dot, sigma_hats, len_W=n_probe)
                  + contractions.contract('dWCi,dWKCb->dWKCib', xis, sigma_hats_dot, len_W=n_probe))
         dG = (contractions.contract('dWKCa,dWCib->dKCaib', mus_dot, E, len_W=n_probe)
               + contractions.contract('dWCa,dWKCib->dKCaib', mus, E_dot, len_W=n_probe))
-        return dU, dG
+        return dB, dG
 
     n_probe = ww[0].ndim - 1
-    dU = tuple(contractions.contract('Wo,WKCa->KCao', w, dxd) for w, dxd in zip(ww, dxi_hats_dot))
+    dB = tuple(contractions.contract('Wo,WKCa->KCao', w, dxd) for w, dxd in zip(ww, dxi_hats_dot))
     dG = []
-    for mu, mud, xi, xid, sh, shd in zip(mus, mus_dot, xis, xis_dot, sigma_hats, sigma_hats_dot):
-        E = contractions.contract('WCi,WCb->WCib', xi, sh)
-        E_dot = (contractions.contract('WKCi,WCb->WKCib', xid, sh, len_W=n_probe)
-                 + contractions.contract('WCi,WKCb->WKCib', xi, shd, len_W=n_probe))
+    for mu, mud, xi, xid, sig_hat, sig_hat_d in zip(mus, mus_dot, xis, xis_dot, sigma_hats, sigma_hats_dot):
+        E = contractions.contract('WCi,WCb->WCib', xi, sig_hat)
+        E_dot = (contractions.contract('WKCi,WCb->WKCib', xid, sig_hat, len_W=n_probe)
+                 + contractions.contract('WCi,WKCb->WKCib', xi, sig_hat_d, len_W=n_probe))
         dG.append(contractions.contract('WKCa,WCib->KCaib', mud, E, len_W=n_probe)
                   + contractions.contract('WCa,WKCib->KCaib', mu, E_dot, len_W=n_probe))
-    return dU, tuple(dG)
+    return dB, tuple(dG)

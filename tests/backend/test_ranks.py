@@ -442,11 +442,11 @@ class TestOrthogonalRepresentationRanks(unittest.TestCase):
     def _actual(x):
         import t3toolbox.frame_variations_format as fvf
         fr = fvf.T3Frame.from_t3(x)
-        up = tuple(U.shape[-2] for U in fr.up_tucker_cores)
-        down = tuple(O.shape[-2] for O in fr.down_tt_cores)
-        left = tuple(P.shape[-3] for P in fr.left_tt_cores) + (fr.left_tt_cores[-1].shape[-1],)
-        right = tuple(Q.shape[-3] for Q in fr.right_tt_cores) + (fr.right_tt_cores[-1].shape[-1],)
-        return up, down, left, right
+        down = tuple(D.shape[-2] for D in fr.down_tucker_cores)
+        up = tuple(U.shape[-2] for U in fr.up_tt_cores)
+        left = tuple(L.shape[-3] for L in fr.left_tt_cores) + (fr.left_tt_cores[-1].shape[-1],)
+        right = tuple(R.shape[-3] for R in fr.right_tt_cores) + (fr.right_tt_cores[-1].shape[-1],)
+        return down, up, left, right
 
     def test_matches_the_sweep_on_random_structures(self):
         import t3toolbox.tucker_tensor_train as t3
@@ -469,10 +469,10 @@ class TestOrthogonalRepresentationRanks(unittest.TestCase):
         shape = (5, 7, 6)
         tk = np.array([[2, 3], [3, 3], [2, 1]])                     # (d, C=2)
         tt = np.array([[1, 1], [2, 4], [3, 2], [1, 1]])             # (d+1, C=2)
-        up, down, left, right = ranks.compute_orthogonal_representation_ranks(shape, tk, tt)
+        down, up, left, right = ranks.compute_orthogonal_representation_ranks(shape, tk, tt)
         for c in range(2):
             ref = ranks.compute_orthogonal_representation_ranks(shape, tuple(tk[:, c]), tuple(tt[:, c]))
-            self.assertEqual((tuple(up[:, c]), tuple(down[:, c]), tuple(left[:, c]), tuple(right[:, c])), ref)
+            self.assertEqual((tuple(down[:, c]), tuple(up[:, c]), tuple(left[:, c]), tuple(right[:, c])), ref)
 
 if __name__ == "__main__":
     unittest.main()

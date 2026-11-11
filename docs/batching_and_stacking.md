@@ -387,8 +387,8 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
   everywhere else.
 - **Grouped contractions** are `contract('WCa,Caib,WCi->WCb', ...)` calls: read each term as a
   grouped-block einsum signature; output is frame-inner (`W` outer, `C` inner).
-- **Paper ↔ code** (Appendix A of the T4S paper): `U`=up_tucker, `P`=left_tt, `Q`=right_tt,
-  `O`=down_tt (called `down_tt_cores`, not "outer"); `δU`=tucker_variations (`V`), `δG`=tt_variations
+- **Paper ↔ code** (Appendix A of the T4S paper): `U`=down_tucker, `P`=left_tt, `Q`=right_tt,
+  `O`=up_tt (called `up_tt_cores`, not "outer"); `δU`=tucker_variations (`V`), `δG`=tt_variations
   (`H`). The block letters `W`/`K`/`C` are **deliberately disjoint** from these core/variation symbols,
   so `V` here means only the Tucker variation and `G` only the TT core — **no overload**.
 

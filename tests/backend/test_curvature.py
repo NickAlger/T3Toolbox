@@ -152,8 +152,8 @@ def _random_variations(frame, KC):
 
 def _raw_like_frame_cores(frame, KC, rng):
     """A random raw core variation shaped like theta = (U, L), stack K + C."""
-    U, _, L, _ = frame
-    return (tuple(rng.standard_normal(KC + u.shape[-2:]) for u in U),
+    D, _, L, _ = frame
+    return (tuple(rng.standard_normal(KC + u.shape[-2:]) for u in D),
             tuple(rng.standard_normal(KC + g.shape[-3:]) for g in L))
 
 
@@ -169,17 +169,17 @@ class TestFrameFactors(unittest.TestCase):
             for C in [(), (2,), (2, 3)]:
                 with self.subTest(structure=name, C=C):
                     x, frame, variations = _point_and_frame(struct, C)
-                    U, O, L, R = frame
+                    D, U, L, R = frame
                     V, H = variations
-                    d = len(U)
+                    d = len(D)
                     centers, STs, Ts = fvo.fv_center_factors(frame)
                     self.assertEqual((len(centers), len(STs), len(Ts)), (d, d, d - 1))
                     for i in range(d):
-                        self.assertEqual(STs[i].shape, C + (O[i].shape[-2], U[i].shape[-2]))
+                        self.assertEqual(STs[i].shape, C + (U[i].shape[-2], D[i].shape[-2]))
                         scale = max(np.linalg.norm(H[i]), 1.0)
                         self.assertLess(np.linalg.norm(centers[i] - H[i]), 1e-12 * scale)
-                        VUt = np.einsum('...xn,...un->...xu', V[i], U[i])          # S_i^T = V_i U_i^T
-                        self.assertLess(np.linalg.norm(STs[i] - VUt), 1e-12 * scale)
+                        VDt = np.einsum('...xn,...un->...xu', V[i], D[i])          # S_i^T = V_i U_i^T
+                        self.assertLess(np.linalg.norm(STs[i] - VDt), 1e-12 * scale)
                     for i in range(d - 1):
                         self.assertEqual(Ts[i].shape, C + (L[i].shape[-1], R[i + 1].shape[-3]))
                         LH = np.einsum('...abi,...abj->...ij', L[i], H[i])          # T_i = <L_i, H_i>
@@ -244,8 +244,8 @@ class TestLiftIdentity(unittest.TestCase):
                     v = tv.tv_orthogonal_gauge_projection(frame, v_raw)
                     for which, vv in (('gauged', v), ('ungauged', v_raw)):
                         theta_hat = tv.tv_corewise_lift(frame, vv, lf)
-                        for i, (Ud, U) in enumerate(zip(theta_hat[0], frame[0])):
-                            self.assertEqual(Ud.shape, K + U.shape)
+                        for i, (Bd, D) in enumerate(zip(theta_hat[0], frame[0])):
+                            self.assertEqual(Bd.shape, K + D.shape)
                         for Gd, L in zip(theta_hat[1], frame[2]):
                             self.assertEqual(Gd.shape, K + L.shape)
                         lhs = tv.tv_to_dense(corewise_frame, theta_hat)
@@ -367,8 +367,8 @@ class TestDamping(unittest.TestCase):
                     lf = fvo.fv_lift_factors(frame, cd)
                     self.assertEqual(float(lf.eps), 0.0)
                     v = _random_variations(frame, (2,))
-                    Ud, Gd = tv.tv_corewise_lift(frame, v, lf)
-                    self.assertTrue(all(np.all(a == 0.0) for a in Ud))
+                    Bd, Gd = tv.tv_corewise_lift(frame, v, lf)
+                    self.assertTrue(all(np.all(a == 0.0) for a in Bd))
                     self.assertTrue(all(np.all(a == 0.0) for a in Gd[:-1]))
                     self.assertTrue(np.array_equal(Gd[-1], v[1][-1]))
 
@@ -479,8 +479,8 @@ _T3T3_CASES = {
 
 def _directions(theta, K, rng):
     """Random raw directions at theta: the tangent stack K prepended to theta's own core shapes (C included)."""
-    U, G = theta
-    return (tuple(rng.standard_normal(K + u.shape) for u in U), tuple(rng.standard_normal(K + g.shape) for g in G))
+    B, G = theta
+    return (tuple(rng.standard_normal(K + u.shape) for u in B), tuple(rng.standard_normal(K + g.shape) for g in G))
 
 
 def _norm_flat(a):
@@ -591,13 +591,13 @@ class TestInnerProductTwoHole(unittest.TestCase):
         theta = t3k.t3_corewise_randn(*_D4, stack_shape=(2,))
         z = t3k.t3_corewise_randn((4, 5, 4, 5), (3, 2, 2, 3), (1, 3, 2, 3, 1), stack_shape=(2,))
         sweep = t3la.t3_precompute_inner_product_sweep(z, theta)
-        BU, G2, ZL, ZR, env = sweep
+        zB, G2, ZL, ZR, env = sweep
         self.assertEqual(tuple(len(p) for p in sweep), (4, 4, 4, 4, 4))
         self.assertEqual(env[1].shape, (2,) + theta[1][1].shape[-3:-2] + z[0][1].shape[-2:-1] + theta[1][1].shape[-1:])
         # the sweep IS the gradient's intermediates: dG_i = env_i x_2 BU_i
         grad = t3la.t3_inner_product_corewise_transpose(z, theta)
         for i in range(4):
-            self.assertTrue(np.allclose(np.einsum('...azb,...zu->...aub', env[i], BU[i]), grad[1][i]))
+            self.assertTrue(np.allclose(np.einsum('...azb,...zu->...aub', env[i], zB[i]), grad[1][i]))
         for K in [(), (3,)]:
             dirs = _directions(theta, K, rng)
             one = t3la.t3_inner_product_corewise_hessian(z, theta, dirs)
@@ -737,7 +737,7 @@ class TestProbeDerivativesTwoHole(unittest.TestCase):
                         tt_got = sd.assemble_tt_tangent_variation_jets(*tt_args, len(W))
                         pieces = {
                             'whole': (sd.t3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, dirs, order),
-                                      (st['dU'], st['dG'])),
+                                      (st['dB'], st['dG'])),
                             'deta_tilde_dot': (sd.compute_deta_tilde_tangent_jets(theta[0], dirs[0], zt),
                                                st['deta_td']),
                             'tau_tilde_dot': (sd.compute_tau_tilde_tangent_jets(
@@ -748,12 +748,12 @@ class TestProbeDerivativesTwoHole(unittest.TestCase):
                                 st['sigma_t']), st['sigma_td']),
                             'dxi_tilde_dot': (tuple(g[:s2] for g in dxi_got), tuple(r[:2] for r in st['dxi_td'])),
                             'tucker_assembly': (sd.assemble_tucker_tangent_variation_jets(
-                                zt, tuple(r[:2] for r in st['dxi_td']), ww, pp, st['etad'], len(W)), st['dU']),
+                                zt, tuple(r[:2] for r in st['dxi_td']), ww, pp, st['etad'], len(W)), st['dB']),
                             'tt_assembly': (tt_got, st['dG']),
                             'tt_assembly_vs_factored': (tt_got, oracles.tt_tangent_assembly_factored_trs(
                                 *tt_args, st['trs'], st['n_frame'])),
                         }
-                        self.assertGreater(_norm_flat((st['dU'], st['dG'])), 1e-3)
+                        self.assertGreater(_norm_flat((st['dB'], st['dG'])), 1e-3)
                         for piece, (got, ref) in pieces.items():
                             if piece == 'whole':
                                 got, ref = got[0] + got[1], ref[0] + ref[1]
@@ -817,10 +817,10 @@ class TestProbeDerivativesTwoHole(unittest.TestCase):
                     dir_u = u3c.t3_to_ut3(dirs, N=N, n=n, r=r, squash_tails=False)[:2]
                     packed = [u3o.pack_vectors(v, N) for v in (zt, ww, pp)]
                     for cs in (None, 3, 2):                                # dense; 2 full chunks + rem; 3 + rem
-                        oU, oG = sd.t3_probe_corewise_derivatives_hessian(*packed, th_u, dir_u, order, chunk_size=cs)
-                        self.assertEqual(oU.shape, (d,) + K + C + (n, N))
+                        oB, oG = sd.t3_probe_corewise_derivatives_hessian(*packed, th_u, dir_u, order, chunk_size=cs)
+                        self.assertEqual(oB.shape, (d,) + K + C + (n, N))
                         self.assertEqual(oG.shape, (d,) + K + C + (r, n, r))
-                        real = ([oU[i][..., :tr[i], :shape[i]] for i in range(d)],
+                        real = ([oB[i][..., :tr[i], :shape[i]] for i in range(d)],
                                 [oG[i][..., :ttr[i], :tr[i], :ttr[i + 1]] for i in range(d)])
                         self.assertLess(_relerr_tree(real, rag), 1e-13, cs)
 
@@ -996,14 +996,14 @@ class TestPlainKindsTwoHole(unittest.TestCase):
             for K, C in [((), ()), ((2,), (2,))]:
                 with self.subTest(structure=name, K=K, C=C):
                     _, theta, ww, zt, dirs = _plain_problem('probe', struct, K, C, (5,), rng)
-                    U, G = theta
-                    Ud, Gd = dirs
+                    B, G = theta
+                    Bd, Gd = dirs
 
                     def state(cores):                                # the corewise undotted state of theta
-                        Uc, Gc = cores
-                        xi = probing.compute_xi(Uc, ww)
+                        Bc, Gc = cores
+                        xi = probing.compute_xi(Bc, ww)
                         mu, nu = probing.compute_mu(Gc, xi), probing.compute_nu(Gc, xi)
-                        dt = probing.compute_deta_tilde(Uc, zt)
+                        dt = probing.compute_deta_tilde(Bc, zt)
                         tt = probing.compute_tau_tilde(dt, Gc, xi, mu)
                         st = probing.compute_sigma_tilde(dt, Gc, xi, nu)
                         return dict(xi=xi, mu=mu, nu=nu, eta=probing.compute_eta(Gc, mu, nu), dt=dt, tt=tt, st=st,
@@ -1017,7 +1017,7 @@ class TestPlainKindsTwoHole(unittest.TestCase):
                         xid = probing.compute_dxi(dk[0], ww)
                         mud = probing.compute_sigma(dk[1], G, G, s0['xi'], xid, s0['mu'])
                         nud = probing.compute_tau(dk[1], G, G, s0['xi'], xid, s0['nu'])
-                        dtd = probing.compute_deta_tilde_tangent(U, dk[0], zt)
+                        dtd = probing.compute_deta_tilde_tangent(B, dk[0], zt)
                         ttd = probing.compute_tau_tilde_tangent(G, dk[1], s0['xi'], xid, s0['dt'], dtd, s0['mu'], mud,
                                                                 s0['tt'])
                         std = probing.compute_sigma_tilde_tangent(G, dk[1], s0['xi'], xid, s0['dt'], dtd, s0['nu'],
@@ -1036,10 +1036,10 @@ class TestPlainKindsTwoHole(unittest.TestCase):
                                 continue
                             self.assertLess((num / den) ** 0.5, 1e-8, label)
                     # the factored TT assembly == the nine-term product rule (the full K stack)
-                    xid = probing.compute_dxi(Ud, ww)
+                    xid = probing.compute_dxi(Bd, ww)
                     mud = probing.compute_sigma(Gd, G, G, s0['xi'], xid, s0['mu'])
                     nud = probing.compute_tau(Gd, G, G, s0['xi'], xid, s0['nu'])
-                    dtd = probing.compute_deta_tilde_tangent(U, Ud, zt)
+                    dtd = probing.compute_deta_tilde_tangent(B, Bd, zt)
                     ttd = probing.compute_tau_tilde_tangent(G, Gd, s0['xi'], xid, s0['dt'], dtd, s0['mu'], mud, s0['tt'])
                     std = probing.compute_sigma_tilde_tangent(G, Gd, s0['xi'], xid, s0['dt'], dtd, s0['nu'], nud,
                                                               s0['st'])
@@ -1055,15 +1055,15 @@ class TestPlainKindsTwoHole(unittest.TestCase):
         for K, C in [((), ()), ((2,), (2,))]:
             with self.subTest(K=K, C=C):
                 _, theta, ww, c, dirs = _plain_problem('apply', _D4, K, C, (5,), rng)
-                U, G = theta
-                xi = probing.compute_xi(U, ww)
+                B, G = theta
+                xi = probing.compute_xi(B, ww)
                 mu = probing.compute_mu(G, xi)
                 xid = probing.compute_dxi(dirs[0], ww)
                 mud = probing.compute_sigma(dirs[1], G, G, xi, xid, mu)
-                sh = probing.compute_sigma_hat(G, xi, c)
-                shd = probing.compute_tau(dirs[1], G, G, xi, xid, sh)
+                sig_hat = probing.compute_sigma_hat(G, xi, c)
+                sig_hat_d = probing.compute_tau(dirs[1], G, G, xi, xid, sig_hat)
                 got = bapply.t3_apply_corewise_hessian(c, ww, theta, dirs)[1]
-                ref = oracles.apply_tt_tangent_assembly_three_term(mu, mud, xi, xid, sh, shd, 1)
+                ref = oracles.apply_tt_tangent_assembly_three_term(mu, mud, xi, xid, sig_hat, sig_hat_d, 1)
                 self.assertLess(_tree_relerr(got, ref), 1e-14)
 
     def test_from_sweep_reuses_the_model_sweep(self):
@@ -1118,10 +1118,10 @@ class TestPlainKindsTwoHole(unittest.TestCase):
                         dir_u = u3c.t3_to_ut3(dirs, N=N, n=n, r=r, squash_tails=False)[:2]
                         s_u = sample if kind == 'entries' else u3o.pack_vectors(sample, N)
                         z_u = u3o.pack_vectors(z, N) if kind == 'probe' else z
-                        oU, oG = hess(z_u, s_u, th_u, dir_u)
-                        self.assertEqual(oU.shape, (d,) + K + C + (n, N))
+                        oB, oG = hess(z_u, s_u, th_u, dir_u)
+                        self.assertEqual(oB.shape, (d,) + K + C + (n, N))
                         self.assertEqual(oG.shape, (d,) + K + C + (r, n, r))
-                        real = ([oU[i][..., :tr[i], :shape[i]] for i in range(d)],
+                        real = ([oB[i][..., :tr[i], :shape[i]] for i in range(d)],
                                 [oG[i][..., :ttr[i], :tr[i], :ttr[i + 1]] for i in range(d)])
                         self.assertLess(_relerr_tree(real, rag), 1e-13)
 
@@ -1325,17 +1325,17 @@ class TestDerivativeKindsTwoHole(unittest.TestCase):
                                 (st['xi'][i], st['xid'][i], st['mu'][i], st['mud'][i], st['sigma_hat'][i],
                                  st['sigma_hat_d'][i], st['dxi_hat_d'][i][:2], st['w'][i])) for i in range(len(G)))))
                             pieces = {
-                                'whole': (_deriv_ops(kind, order)[0](c, sample, theta, dirs), (st['dU'], st['dG'])),
+                                'whole': (_deriv_ops(kind, order)[0](c, sample, theta, dirs), (st['dB'], st['dG'])),
                                 'sigma_hat': (sd.compute_sigma_hat_jets(G, st['xi'], c), st['sigma_hat']),
                                 'sigma_hat_dot': (sd.compute_sigma_hat_tangent_jets(G, Gd, st['xi'], st['xid'],
                                                                                     st['sigma_hat']),
                                                   st['sigma_hat_d']),
                                 'dxi_hat_dot': (tuple(g[:s2] for g in dxi_got),
                                                 tuple(r[:s2] for r in st['dxi_hat_d'])),
-                                'tucker_assembly': (asm[0], st['dU']),
+                                'tucker_assembly': (asm[0], st['dB']),
                                 'tt_assembly': (asm[1], st['dG']),
                             }
-                            self.assertGreater(_norm_flat((st['dU'], st['dG'])), 1e-3)
+                            self.assertGreater(_norm_flat((st['dB'], st['dG'])), 1e-3)
                             for piece, (got, ref) in pieces.items():
                                 if piece == 'whole':
                                     got, ref = got[0] + got[1], ref[0] + ref[1]
@@ -1446,10 +1446,10 @@ class TestDerivativeKindsTwoHole(unittest.TestCase):
                         th_u = u3c.t3_to_ut3(theta, N=N, n=n, r=r, squash_tails=False)[:2]
                         dir_u = u3c.t3_to_ut3(dirs, N=N, n=n, r=r, squash_tails=False)[:2]
                         first = sample[0] if kind == 'entries_derivatives' else u3o.pack_vectors(sample[0], N)
-                        oU, oG = hess(c, (first, u3o.pack_vectors(sample[1], N)), th_u, dir_u)
-                        self.assertEqual(oU.shape, (d,) + K + C + (n, N))
+                        oB, oG = hess(c, (first, u3o.pack_vectors(sample[1], N)), th_u, dir_u)
+                        self.assertEqual(oB.shape, (d,) + K + C + (n, N))
                         self.assertEqual(oG.shape, (d,) + K + C + (r, n, r))
-                        real = ([oU[i][..., :tr[i], :shape[i]] for i in range(d)],
+                        real = ([oB[i][..., :tr[i], :shape[i]] for i in range(d)],
                                 [oG[i][..., :ttr[i], :tr[i], :ttr[i + 1]] for i in range(d)])
                         self.assertLess(_relerr_tree(real, rag), 1e-13)
 
@@ -1555,15 +1555,15 @@ class TestFlatSlotsAndVerticalDirections(unittest.TestCase):
         for struct in (_MINIMAL, _D4, _D2):
             with self.subTest(shape=struct[0]):
                 frame, theta, R, Zg = self._setup(struct, rng)
-                U, O, L, Rr = frame
-                d = len(U)
+                D, U, L, Rr = frame
+                d = len(D)
                 # (a) a frame-coordinate vertical p (E p = 0), lifted; (b) a raw gauge direction
-                VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(O, U)]
+                VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(U, D)]
                 HH = [np.zeros(h) for h in fvo.fv_variation_shapes(frame)[1]]
                 for i in range(d):
-                    X = rng.standard_normal((O[i].shape[-2], U[i].shape[-2]))
-                    VV[i] += X @ U[i]
-                    HH[i] -= np.einsum('aib,ij->ajb', O[i], X)
+                    X = rng.standard_normal((U[i].shape[-2], D[i].shape[-2]))
+                    VV[i] += X @ D[i]
+                    HH[i] -= np.einsum('aib,ij->ajb', U[i], X)
                 for i in range(d - 1):
                     Y = rng.standard_normal((L[i].shape[-1], Rr[i + 1].shape[-3]))
                     HH[i] += np.einsum('iaj,jk->iak', L[i], Y)
@@ -1771,14 +1771,14 @@ class TestExactLocalModel(unittest.TestCase):
                 prob, x = _pd_fit(struct, 2, (10,), rng, weight=[1.0, 0.5, 0.25])
                 lm = prob.local_model(x, hessian='exact', curvature_damping=0.0)
                 geom, frame, data = prob.geom, lm.frame, lm.curvature.geometry_data
-                U, O, L, R = frame
-                VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(O, U)]
+                D, U, L, R = frame
+                VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(U, D)]
                 HH = [np.zeros(h) for h in fvo.fv_variation_shapes(frame)[1]]
-                for i in range(len(U)):
-                    X = rng.standard_normal((O[i].shape[-2], U[i].shape[-2]))
-                    VV[i] += X @ U[i]
-                    HH[i] -= np.einsum('aib,ij->ajb', O[i], X)
-                for i in range(len(U) - 1):
+                for i in range(len(D)):
+                    X = rng.standard_normal((U[i].shape[-2], D[i].shape[-2]))
+                    VV[i] += X @ D[i]
+                    HH[i] -= np.einsum('aib,ij->ajb', U[i], X)
+                for i in range(len(D) - 1):
                     Y = rng.standard_normal((L[i].shape[-1], R[i + 1].shape[-3]))
                     HH[i] += np.einsum('iaj,jk->iak', L[i], Y)
                     HH[i + 1] -= np.einsum('jk,kbl->jbl', Y, R[i + 1])
@@ -2108,14 +2108,14 @@ class TestPlainKindsExactLocalModel(unittest.TestCase):
                     prob, x = _plain_fit(kind, struct, (20,), rng, weight=w)
                     lm = prob.local_model(x, hessian='exact', curvature_damping=0.0)
                     geom, frame, data = prob.geom, lm.frame, lm.curvature.geometry_data
-                    U, O, L, R = frame
-                    VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(O, U)]
+                    D, U, L, R = frame
+                    VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(U, D)]
                     HH = [np.zeros(h) for h in fvo.fv_variation_shapes(frame)[1]]
-                    for i in range(len(U)):
-                        X = rng.standard_normal((O[i].shape[-2], U[i].shape[-2]))
-                        VV[i] += X @ U[i]
-                        HH[i] -= np.einsum('aib,ij->ajb', O[i], X)
-                    for i in range(len(U) - 1):
+                    for i in range(len(D)):
+                        X = rng.standard_normal((U[i].shape[-2], D[i].shape[-2]))
+                        VV[i] += X @ D[i]
+                        HH[i] -= np.einsum('aib,ij->ajb', U[i], X)
+                    for i in range(len(D) - 1):
                         Y = rng.standard_normal((L[i].shape[-1], R[i + 1].shape[-3]))
                         HH[i] += np.einsum('iaj,jk->iak', L[i], Y)
                         HH[i + 1] -= np.einsum('jk,kbl->jbl', Y, R[i + 1])
@@ -2268,14 +2268,14 @@ class TestDerivativeKindsExactLocalModel(unittest.TestCase):
                     prob, x = _deriv_fit(kind, struct, 2, (20,), rng, weight=[1.0, 0.5, 0.25])
                     lm = prob.local_model(x, hessian='exact', curvature_damping=0.0)
                     geom, frame, data = prob.geom, lm.frame, lm.curvature.geometry_data
-                    U, O, L, R = frame
-                    VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(O, U)]
+                    D, U, L, R = frame
+                    VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(U, D)]
                     HH = [np.zeros(h) for h in fvo.fv_variation_shapes(frame)[1]]
-                    for i in range(len(U)):
-                        X = rng.standard_normal((O[i].shape[-2], U[i].shape[-2]))
-                        VV[i] += X @ U[i]
-                        HH[i] -= np.einsum('aib,ij->ajb', O[i], X)
-                    for i in range(len(U) - 1):
+                    for i in range(len(D)):
+                        X = rng.standard_normal((U[i].shape[-2], D[i].shape[-2]))
+                        VV[i] += X @ D[i]
+                        HH[i] -= np.einsum('aib,ij->ajb', U[i], X)
+                    for i in range(len(D) - 1):
                         Y = rng.standard_normal((L[i].shape[-1], R[i + 1].shape[-3]))
                         HH[i] += np.einsum('iaj,jk->iak', L[i], Y)
                         HH[i + 1] -= np.einsum('jk,kbl->jbl', Y, R[i + 1])
@@ -2758,12 +2758,12 @@ class TestExactNewtonFromNonMinimalPoints(unittest.TestCase):
     outer / 1 rejected, both starts, and curvature_damping 0 the same; TT slack 22 / 6.
     (Gauss-Newton's behaviour from a TT-slack start is a property of the problem, not of the frame: E11.)"""
 
-    def _check(self, problem, x0, up, down, left, right, outer, curvature_dampings=(None,)):
+    def _check(self, problem, x0, down, up, left, right, outer, curvature_dampings=(None,)):
         frame = problem.local_model(x0.data, hessian='exact').frame
         reference = fvc.t3_orthogonal_representations(x0.data)[0]
         self.assertEqual([a.shape for a in sum(map(tuple, frame), ())], [a.shape for a in sum(map(tuple, reference), ())])
-        U, O, L, R = frame
-        self.assertEqual(([u.shape[0] for u in U], [o.shape[1] for o in O]), (up, down))
+        D, U, L, R = frame
+        self.assertEqual(([u.shape[0] for u in D], [o.shape[1] for o in U]), (down, up))
         self.assertEqual(([L[0].shape[0]] + [l.shape[2] for l in L], [R[0].shape[0]] + [r.shape[2] for r in R]),
                          (left, right))
         y, _, _ = x0.t3svd()
@@ -2785,12 +2785,12 @@ class TestExactNewtonFromNonMinimalPoints(unittest.TestCase):
 
     def test_tucker_slack(self):
         problem, x0 = _slack_problem(100, 1, ((4, 4, 4), (1, 2, 2, 1)))
-        self._check(problem, x0, up=[4, 4, 4], down=[2, 4, 2], left=[1, 2, 2, 1], right=[1, 2, 2, 1], outer=14,
+        self._check(problem, x0, down=[4, 4, 4], up=[2, 4, 2], left=[1, 2, 2, 1], right=[1, 2, 2, 1], outer=14,
                     curvature_dampings=(None, 0.0))
 
     def test_tt_slack(self):
         problem, x0 = _slack_problem(200, 0, ((4, 4, 4), (1, 9, 9, 1)))
-        self._check(problem, x0, up=[4, 4, 4], down=[4, 4, 4], left=[1, 4, 9, 1], right=[1, 4, 4, 1], outer=22)
+        self._check(problem, x0, down=[4, 4, 4], up=[4, 4, 4], left=[1, 4, 9, 1], right=[1, 4, 4, 1], outer=22)
 
 
 # ---------------------------------------------------------------------------------------------------
@@ -2979,8 +2979,8 @@ class TestSharedExactLocalModel(unittest.TestCase):
         kind = bfit.probe_derivatives_kind(2, None)
         data = [z + 0.3 * rng.standard_normal(z.shape) for z in kind.point_forward(x.data, (ww, pp))]
         prob = bopt.least_squares_problem(geom, kind, (ww, pp), data)
-        U, O, L, _ = frame
-        raw = (tuple(rng.standard_normal(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(O, U)),
+        D, U, L, _ = frame
+        raw = (tuple(rng.standard_normal(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(U, D)),
                tuple(rng.standard_normal(l.shape) for l in L))
         v = geom.project(frame, raw, aux)
         v = cw.corewise_scale(v, 1.0 / np.linalg.norm(tv.tv_to_dense(frame, v)))

@@ -114,14 +114,14 @@ singular values** is one line:
 ```python
 >>> import t3toolbox.frame_variations_format as bvf
 >>> gk = bvf.T3FrameWeights.from_t3weights(t3.T3Weights.from_t3svd(x)).reciprocal()
->>> print(gk.up_ranks, gk.down_ranks)              # up = down = the Tucker weights
+>>> print(gk.down_ranks, gk.up_ranks)              # up = down = the Tucker weights
 (2, 2, 2) (2, 2, 2)
 >>> print(gk.left_ranks, gk.right_ranks)           # left = tt[:-1], right = tt[1:]
 (1, 2, 2) (2, 2, 1)
 
 ```
 
-It pairs with a minimal-rank tangent at `x` (where the complement rank `nD` equals the Tucker rank, as for
+It pairs with a minimal-rank tangent at `x` (where the complement rank `nU` equals the Tucker rank, as for
 `t3svd` output — see [`frame_variations.md`](frame_variations.md)).
 
 **Shared Tucker factors.** Weighting composes with the shared-factor format

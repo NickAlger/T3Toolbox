@@ -198,14 +198,14 @@ def up_orthogonalize_tt_supercores(
     rL, n, rR = tt_supercore.shape[-3:]
     H_ab_i = tt_supercore.swapaxes(-1, -2).reshape((d,) + stack + (rL * rR, n))
     if row_mask is None:
-        O_ab_x, ss, WT_x_i = xnp.linalg.svd(H_ab_i, full_matrices=False)
+        U_ab_x, ss, WT_x_i = xnp.linalg.svd(H_ab_i, full_matrices=False)
     else:
         # pad-safe (review S1b): sigma~0 completions stay off the padded (a,b)/rank slots
-        O_ab_x, ss, WT_x_i = linalg.pad_safe_svd(H_ab_i, row_mask, col_mask)
+        U_ab_x, ss, WT_x_i = linalg.pad_safe_svd(H_ab_i, row_mask, col_mask)
         if out_mask is not None:
-            O_ab_x = O_ab_x * out_mask[..., None, :]
+            U_ab_x = U_ab_x * out_mask[..., None, :]
     x = ss.shape[-1]
-    new_tt = O_ab_x.reshape((d,) + stack + (rL, rR, x)).swapaxes(-1, -2)   # (d,)+stack+(rL,x,rR)
+    new_tt = U_ab_x.reshape((d,) + stack + (rL, rR, x)).swapaxes(-1, -2)   # (d,)+stack+(rL,x,rR)
     C_x_i = xnp.einsum('...x,...xi->...xi', ss, WT_x_i)
     new_tk = xnp.einsum('...xi,...io->...xo', C_x_i, tucker_supercore)     # (d,)+stack+(x,N)
     return new_tk, new_tt

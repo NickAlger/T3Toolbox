@@ -35,7 +35,7 @@ STRUCTS = [
     ((5,),          (3,),         (1, 1)),               # d = 1
     ((4, 5, 6),     (2, 3, 2),    (1, 2, 2, 1)),         # d = 3
     ((5, 4, 6, 5),  (2, 3, 2, 3), (1, 2, 3, 2, 1)),      # d = 4
-    ((6, 6, 6),     (4, 4, 4),    (1, 2, 2, 1)),         # over-ranked Tucker: nU != nD frame slack
+    ((6, 6, 6),     (4, 4, 4),    (1, 2, 2, 1)),         # over-ranked Tucker: nD != nU frame slack
 ]
 STACKS = [((), (), ()), ((3,), (2,), ()), ((2, 2), (2,), (2,)), ((3,), (2, 2), (2, 2))]   # (W, K, C)
 
@@ -53,19 +53,19 @@ def _problem(STRUCT, W, K, C, order, rng):
     x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
     frame, _ = bvf.t3_orthogonal_representations(x)
     v = t3m.COREWISE.randn(frame, stack_shape=K)
-    U, O, P, Q = frame.data
-    dU, dG = v.variations.data
+    D, U, L, R = frame.data
+    V, H = v.variations.data
     ww = [rng.standard_normal(W + (n,)) for n in shapes]
     pp = [rng.standard_normal(W + (n,)) for n in shapes]
     trs = twins.binomial_combine_tensor(order)
-    xi = pd.build_input_jets(pd.compute_xi(U, ww), pd.compute_xi(U, pp))
-    dxi = pd.build_input_jets(pd.compute_xi(dU, ww), pd.compute_xi(dU, pp))
-    mu = twins.compute_mu_jets_trs(P, xi, trs)
-    nu = twins.compute_nu_jets_trs(Q, xi, trs)
+    xi = pd.build_input_jets(pd.compute_xi(D, ww), pd.compute_xi(D, pp))
+    dxi = pd.build_input_jets(pd.compute_xi(V, ww), pd.compute_xi(V, pp))
+    mu = twins.compute_mu_jets_trs(L, xi, trs)
+    nu = twins.compute_nu_jets_trs(R, xi, trs)
     zt = [rng.standard_normal((order + 1,) + W + K + C + (n,)) for n in shapes]
     c = rng.standard_normal((order + 1,) + W + K + C)
-    return dict(U=U, O=O, P=P, Q=Q, dU=dU, dG=dG, ww=ww, pp=pp, trs=trs, xi=xi, dxi=dxi, mu=mu, nu=nu,
-                zt=zt, deta_t=pd.compute_deta_tilde_jets(U, zt), c=c, wj=pd.build_input_jets(ww, pp))
+    return dict(D=D, U=U, L=L, R=R, V=V, H=H, ww=ww, pp=pp, trs=trs, xi=xi, dxi=dxi, mu=mu, nu=nu,
+                zt=zt, deta_t=pd.compute_deta_tilde_jets(D, zt), c=c, wj=pd.build_input_jets(ww, pp))
 
 
 class _Sweep(unittest.TestCase):
@@ -97,21 +97,21 @@ class TestForwardJets(_Sweep):
     def test_forward_jets_match_trs(self):
         def check(p, order, n_probe):
             trs = p['trs']
-            self._close(pd.compute_mu_jets(p['P'], p['xi'], order), p['mu'], 'mu')
-            self._close(pd.compute_nu_jets(p['Q'], p['xi'], order), p['nu'], 'nu')
-            self._close(pd.compute_eta_jets(p['O'], p['mu'], p['nu']),
-                        twins.compute_eta_jets_trs(p['O'], p['mu'], p['nu'], trs), 'eta')
-            s_ref = twins.compute_sigma_jets_trs(p['dG'], p['Q'], p['O'], p['xi'], p['dxi'], p['mu'], trs)
-            t_ref = twins.compute_tau_jets_trs(p['dG'], p['P'], p['O'], p['xi'], p['dxi'], p['nu'], trs)
-            self._close(pd.compute_sigma_jets(p['dG'], p['Q'], p['O'], p['xi'], p['dxi'], p['mu']), s_ref, 'sigma')
-            self._close(pd.compute_tau_jets(p['dG'], p['P'], p['O'], p['xi'], p['dxi'], p['nu']), t_ref, 'tau')
-            self._close(pd.compute_deta_jets(p['dG'], p['P'], p['Q'], p['mu'], p['nu'], s_ref, t_ref),
-                        twins.compute_deta_jets_trs(p['dG'], p['P'], p['Q'], p['mu'], p['nu'], s_ref, t_ref, trs),
+            self._close(pd.compute_mu_jets(p['L'], p['xi'], order), p['mu'], 'mu')
+            self._close(pd.compute_nu_jets(p['R'], p['xi'], order), p['nu'], 'nu')
+            self._close(pd.compute_eta_jets(p['U'], p['mu'], p['nu']),
+                        twins.compute_eta_jets_trs(p['U'], p['mu'], p['nu'], trs), 'eta')
+            s_ref = twins.compute_sigma_jets_trs(p['H'], p['R'], p['U'], p['xi'], p['dxi'], p['mu'], trs)
+            t_ref = twins.compute_tau_jets_trs(p['H'], p['L'], p['U'], p['xi'], p['dxi'], p['nu'], trs)
+            self._close(pd.compute_sigma_jets(p['H'], p['R'], p['U'], p['xi'], p['dxi'], p['mu']), s_ref, 'sigma')
+            self._close(pd.compute_tau_jets(p['H'], p['L'], p['U'], p['xi'], p['dxi'], p['nu']), t_ref, 'tau')
+            self._close(pd.compute_deta_jets(p['H'], p['L'], p['R'], p['mu'], p['nu'], s_ref, t_ref),
+                        twins.compute_deta_jets_trs(p['H'], p['L'], p['R'], p['mu'], p['nu'], s_ref, t_ref, trs),
                         'deta')
-            self._close([pd._apply_derivatives_t3_from_xi_jets(p['xi'], p['P'], order)],
-                        [twins.apply_derivatives_t3_trs(p['xi'], p['P'], trs)], 'apply (Euclidean)')
-            self._close([pd._apply_derivatives_from_jets(p['xi'], p['dxi'], p['mu'], p['Q'], p['O'], p['dG'])],
-                        [twins.apply_derivatives_tv_trs(p['xi'], p['dxi'], p['mu'], p['Q'], p['O'], p['dG'], trs)],
+            self._close([pd._apply_derivatives_t3_from_xi_jets(p['xi'], p['L'], order)],
+                        [twins.apply_derivatives_t3_trs(p['xi'], p['L'], trs)], 'apply (Euclidean)')
+            self._close([pd._apply_derivatives_from_jets(p['xi'], p['dxi'], p['mu'], p['R'], p['U'], p['H'])],
+                        [twins.apply_derivatives_tv_trs(p['xi'], p['dxi'], p['mu'], p['R'], p['U'], p['H'], trs)],
                         'apply (tangent)')
         self._sweep(check, 0)
 
@@ -124,18 +124,18 @@ class TestTransposeJets(_Sweep):
     def test_transpose_jets_match_trs(self):
         def check(p, order, n_probe):
             trs = p['trs']
-            tt = twins.compute_tau_tilde_jets_trs(p['P'], p['xi'], p['deta_t'], p['mu'], trs)
-            st = twins.compute_sigma_tilde_jets_trs(p['Q'], p['xi'], p['deta_t'], p['nu'], trs)
-            self._close(pd.compute_tau_tilde_jets(p['P'], p['xi'], p['deta_t'], p['mu']), tt, 'tau_tilde')
-            self._close(pd.compute_sigma_tilde_jets(p['Q'], p['xi'], p['deta_t'], p['nu']), st, 'sigma_tilde')
+            tt = twins.compute_tau_tilde_jets_trs(p['L'], p['xi'], p['deta_t'], p['mu'], trs)
+            st = twins.compute_sigma_tilde_jets_trs(p['R'], p['xi'], p['deta_t'], p['nu'], trs)
+            self._close(pd.compute_tau_tilde_jets(p['L'], p['xi'], p['deta_t'], p['mu']), tt, 'tau_tilde')
+            self._close(pd.compute_sigma_tilde_jets(p['R'], p['xi'], p['deta_t'], p['nu']), st, 'sigma_tilde')
             # dxi~: only the two read rows are formed (the twin computes all order+1); row 1 is zero at order 0
             s2 = min(2, order + 1)
-            dxi = pd.compute_dxi_tilde_jets(p['O'], p['mu'], p['nu'], st, tt)
+            dxi = pd.compute_dxi_tilde_jets(p['U'], p['mu'], p['nu'], st, tt)
             self.assertEqual([np.shape(a)[0] for a in dxi], [2] * len(dxi))
             if order == 0:
                 self.assertTrue(all(np.all(a[1] == 0) for a in dxi))
             self._close([a[:s2] for a in dxi],
-                        [a[:2] for a in twins.compute_dxi_tilde_jets_trs(p['O'], p['mu'], p['nu'], st, tt, trs)],
+                        [a[:2] for a in twins.compute_dxi_tilde_jets_trs(p['U'], p['mu'], p['nu'], st, tt, trs)],
                         'dxi_tilde')
             for sop in (True, False):
                 self._close(pd.assemble_tt_variation_jets(st, tt, p['deta_t'], p['xi'], p['mu'], p['nu'],
@@ -143,12 +143,12 @@ class TestTransposeJets(_Sweep):
                             twins.assemble_tt_variation_jets_trs(st, tt, p['deta_t'], p['xi'], p['mu'], p['nu'],
                                                                  trs, n_probe, sop),
                             'tt assembly (sum_over_probes=%s)' % sop)
-            self._close(pd.compute_sigma_hat_jets(p['Q'], p['xi'], p['c']),
-                        twins.compute_sigma_hat_jets_trs(p['Q'], p['xi'], p['c'], trs), 'sigma_hat')
+            self._close(pd.compute_sigma_hat_jets(p['R'], p['xi'], p['c']),
+                        twins.compute_sigma_hat_jets_trs(p['R'], p['xi'], p['c'], trs), 'sigma_hat')
             for sop in (True, False):
-                got = pd._apply_derivatives_transpose_from_jets(p['c'], p['xi'], p['mu'], p['wj'], p['O'], p['Q'],
+                got = pd._apply_derivatives_transpose_from_jets(p['c'], p['xi'], p['mu'], p['wj'], p['U'], p['R'],
                                                                 sop)
-                ref = twins.apply_derivatives_transpose_trs(p['c'], p['xi'], p['mu'], p['wj'], p['O'], p['Q'],
+                ref = twins.apply_derivatives_transpose_trs(p['c'], p['xi'], p['mu'], p['wj'], p['U'], p['R'],
                                                             trs, n_probe, sop)
                 self._close(got[0], ref[0], 'apply transpose dU (sum_over_probes=%s)' % sop)
                 self._close(got[1], ref[1], 'apply transpose dG (sum_over_probes=%s)' % sop)
@@ -170,15 +170,15 @@ class TestUniformKernelsMatchRagged(unittest.TestCase):
                     op = order + 1
                     core = lambda *k: R(d, *k, *C, r, n, r)                     # (d,)+[K+]C+(r,n,r)
                     jet = lambda rows, *k: R(d, rows, *W, *k, *C, r)            # (d,order)+W+[K+]C+(r,)
-                    O, P, Q, dG = core(), core(), core(), core(*K)
+                    Uc, Lc, Rc, dG = core(), core(), core(), core(*K)
                     xi, mu, nu = R(d, 2, *W, *C, n), jet(op), jet(op)
                     sig, tau, st, tt = jet(op, *K), jet(op, *K), jet(op, *K), jet(op, *K)
                     deta_t = R(d, op, *W, *K, *C, n)
                     cases = {
-                        'eta': lambda a: pd.compute_eta_jets(*a), 'eta_ops': (O, mu, nu),
-                        'deta': lambda a: pd.compute_deta_jets(*a), 'deta_ops': (dG, P, Q, mu, nu, sig, tau),
-                        'tau_tilde': lambda a: pd.compute_tau_tilde_jets(*a), 'tau_tilde_ops': (P, xi, deta_t, mu),
-                        'dxi_tilde': lambda a: pd.compute_dxi_tilde_jets(*a), 'dxi_tilde_ops': (O, mu, nu, st, tt),
+                        'eta': lambda a: pd.compute_eta_jets(*a), 'eta_ops': (Uc, mu, nu),
+                        'deta': lambda a: pd.compute_deta_jets(*a), 'deta_ops': (dG, Lc, Rc, mu, nu, sig, tau),
+                        'tau_tilde': lambda a: pd.compute_tau_tilde_jets(*a), 'tau_tilde_ops': (Lc, xi, deta_t, mu),
+                        'dxi_tilde': lambda a: pd.compute_dxi_tilde_jets(*a), 'dxi_tilde_ops': (Uc, mu, nu, st, tt),
                     }
                     for name in ('eta', 'deta', 'tau_tilde', 'dxi_tilde'):
                         ops = cases[name + '_ops']
@@ -224,10 +224,10 @@ class TestAssemblyChunked(unittest.TestCase):
         for K in [1, 3]:
             for order in [0, 2, 3]:
                 for W in [7, 10]:
-                    nO, N = 4, 5
+                    nU, N = 4, 5
                     R = lambda *s: rng.standard_normal(s)
-                    zt, dxt = R(d, order + 1, W, K, N), R(d, 2, W, K, nO)       # dxi~: its two read rows
-                    ww, pp, eta = R(d, W, N), R(d, W, N), R(d, order + 1, W, nO)
+                    zt, dxt = R(d, order + 1, W, K, N), R(d, 2, W, K, nU)       # dxi~: its two read rows
+                    ww, pp, eta = R(d, W, N), R(d, W, N), R(d, order + 1, W, nU)
                     for sop in [True, False]:
                         ref = pd.assemble_tucker_variation_jets(zt, dxt, ww, pp, eta, 1, sop, chunk_size=None)
                         for cs in [3, 4, W, W + 5]:

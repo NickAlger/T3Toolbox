@@ -56,12 +56,12 @@ def hadamard_cores(xA, xB):
     """Hadamard (elementwise-product) combine of two T3s' UNWEIGHTED cores (physical output shared,
     internal legs Kronecker) -- the core partner of T3Weights.kronecker, done here in the test."""
     ss = xA.stack_shape
-    Uc = tuple(np.einsum('...ix,...jx->...ijx', a, b).reshape(ss + (a.shape[-2] * b.shape[-2], a.shape[-1]))
+    Bc = tuple(np.einsum('...ix,...jx->...ijx', a, b).reshape(ss + (a.shape[-2] * b.shape[-2], a.shape[-1]))
                for a, b in zip(xA.data[0], xB.data[0]))
     Gc = tuple(np.einsum('...aib,...cjd->...acijbd', a, b).reshape(
                    ss + (a.shape[-3] * b.shape[-3], a.shape[-2] * b.shape[-2], a.shape[-1] * b.shape[-1]))
                for a, b in zip(xA.data[1], xB.data[1]))
-    return t3.TuckerTensorTrain(Uc, Gc)
+    return t3.TuckerTensorTrain(Bc, Gc)
 
 
 class TestT3Weights(unittest.TestCase):
@@ -193,8 +193,8 @@ def rand_frame_weights(v, rng, stack_shape=None):
     ss = v.frame.stack_shape if stack_shape is None else stack_shape   # C
     d = len(V)
     return bvf.T3FrameWeights(
-        tuple(rng.standard_normal(ss + (H[i].shape[-2],)) for i in range(d)),   # up   <- nU
-        tuple(rng.standard_normal(ss + (V[i].shape[-2],)) for i in range(d)),   # down <- nD
+        tuple(rng.standard_normal(ss + (H[i].shape[-2],)) for i in range(d)),   # up   <- nD
+        tuple(rng.standard_normal(ss + (V[i].shape[-2],)) for i in range(d)),   # down <- nU
         tuple(rng.standard_normal(ss + (H[i].shape[-3],)) for i in range(d)),   # left <- rL
         tuple(rng.standard_normal(ss + (H[i].shape[-1],)) for i in range(d)))   # right<- rR
 
@@ -208,7 +208,7 @@ def hand_frame_metric_sq(v, W):
     ss = v.variations.stack_shape        # K + C
     wss = W.stack_shape                  # C (frame-like); broadcasts over the K axes by right-alignment
     ns, d = len(ss), len(V)
-    up, dn, lf, rt = W.data
+    down, up, lf, rt = W.data
 
     def wfro2(arr, wts):
         w = arr
@@ -217,8 +217,8 @@ def hand_frame_metric_sq(v, W):
             w = w * wt.reshape(shp)
         return (w * w).sum(axis=tuple(range(ns, arr.ndim)))
 
-    return (sum(wfro2(V[i], [dn[i]]) for i in range(d))
-            + sum(wfro2(H[i], [lf[i], up[i], rt[i]]) for i in range(d)))
+    return (sum(wfro2(V[i], [up[i]]) for i in range(d))
+            + sum(wfro2(H[i], [lf[i], down[i], rt[i]]) for i in range(d)))
 
 
 CK_STACKS = [((), ()), ((), (2,)), ((2,), ()), ((2,), (2, 3))]   # (C, K)
@@ -269,7 +269,7 @@ class TestT3FrameWeights(unittest.TestCase):
         rng = np.random.default_rng(3)
         v = make_tangent(STRUCTURES[0], (), ())
         W = rand_frame_weights(v, rng)
-        bad = bvf.T3FrameWeights(W.up_weights, W.down_weights, W.left_weights,
+        bad = bvf.T3FrameWeights(W.down_weights, W.up_weights, W.left_weights,
                                  tuple(np.ones(r + 1) for r in W.right_ranks))   # perturb right ranks
         self.assertFalse(bad.is_consistent_with(v))
         with self.assertRaises(ValueError):
@@ -366,11 +366,11 @@ class TestT3FrameWeights(unittest.TestCase):
                 x = t3.TuckerTensorTrain.randn(*struct)
                 Wt = t3.T3Weights.from_t3svd(x)
                 Wf = bvf.T3FrameWeights.from_t3weights(Wt)
-                for a, b in zip(Wf.up_weights, Wt.tucker_weights):     self.assertTrue(np.array_equal(a, b))
-                for a, b in zip(Wf.down_weights, Wt.tucker_weights):   self.assertTrue(np.array_equal(a, b))
+                for a, b in zip(Wf.down_weights, Wt.tucker_weights):     self.assertTrue(np.array_equal(a, b))
+                for a, b in zip(Wf.up_weights, Wt.tucker_weights):   self.assertTrue(np.array_equal(a, b))
                 for a, b in zip(Wf.left_weights, Wt.tt_weights[:-1]):  self.assertTrue(np.array_equal(a, b))
                 for a, b in zip(Wf.right_weights, Wt.tt_weights[1:]):  self.assertTrue(np.array_equal(a, b))
-                frame, _ = bvf.t3_orthogonal_representations(x)        # nD==nU for minimal x
+                frame, _ = bvf.t3_orthogonal_representations(x)        # nU==nD for minimal x
                 self.assertTrue(Wf.is_consistent_with(t3m.COREWISE.randn(frame)))
 
     def test_concat_kron_reverse(self):
@@ -378,7 +378,7 @@ class TestT3FrameWeights(unittest.TestCase):
         rng = np.random.default_rng(4)
         v = make_tangent(STRUCTURES[1], (2,), (2,))
         W = rand_frame_weights(v, rng)
-        self.assertEqual(W.concatenate(W).up_ranks, tuple(2 * n for n in W.up_ranks))
+        self.assertEqual(W.concatenate(W).down_ranks, tuple(2 * n for n in W.down_ranks))
         self.assertEqual(W.kronecker(W).left_ranks, tuple(n * n for n in W.left_ranks))
         self.assertEqual(W.reverse().left_ranks, W.right_ranks[::-1])   # left<->right swap + reverse
         Wr = bvf.T3FrameWeights.stack(W.unstack())
@@ -398,8 +398,8 @@ class TestT3svdFrameGauge(unittest.TestCase):
                     x = t3.TuckerTensorTrain.randn(*structure, stack_shape=C)
                     frame, variations, sigma = bvf.t3svd_orthogonal_representations(x)
                     xs, st, stt = x.t3svd()
-                    for U, Ux in zip(frame.up_tucker_cores, xs.tucker_cores):
-                        self.assertLess(float(np.max(np.abs(np.asarray(U) - np.asarray(Ux)))), 1e-12)
+                    for D, Bx in zip(frame.down_tucker_cores, xs.tucker_cores):
+                        self.assertLess(float(np.max(np.abs(np.asarray(D) - np.asarray(Bx)))), 1e-12)
                     self.assertTrue(np.all(frame.is_orthogonal()))
                     self.assertLess(float(np.max(np.abs(np.asarray(frame.to_dense()) - np.asarray(x.to_dense())))),
                                     1e-9 * (1 + float(np.max(np.abs(np.asarray(x.to_dense()))))))
@@ -409,9 +409,9 @@ class TestT3svdFrameGauge(unittest.TestCase):
                     # the default sweep (no flag) is NOT in that gauge -- the bug the helper exists for
                     if max(structure[1]) > 1:
                         default_frame, _ = bvf.t3_orthogonal_representations(xs)
-                        dev = max(float(np.max(np.abs(np.abs(np.einsum('...ai,...bi->...ab', np.asarray(U), np.asarray(Ux)))
-                                                         - np.eye(U.shape[-2]))))
-                                  for U, Ux in zip(default_frame.up_tucker_cores, xs.tucker_cores) if U.shape[-2] > 1)
+                        dev = max(float(np.max(np.abs(np.abs(np.einsum('...ai,...bi->...ab', np.asarray(D), np.asarray(Bx)))
+                                                         - np.eye(D.shape[-2]))))
+                                  for D, Bx in zip(default_frame.down_tucker_cores, xs.tucker_cores) if D.shape[-2] > 1)
                         self.assertGreater(dev, 1e-3)
 
     def test_uniform_twin_matches_ragged(self):
@@ -430,8 +430,8 @@ class TestT3svdFrameGauge(unittest.TestCase):
                                     1e-9 * (1 + float(np.max(np.abs(np.asarray(x.to_dense()))))))
                     if not C:                                     # to_t3frame() is a tree when stacked
                         rf = uframe.to_t3frame()
-                        for U, Ur in zip(rf.up_tucker_cores, frame.up_tucker_cores):
-                            self.assertLess(float(np.max(np.abs(np.abs(np.asarray(U)) - np.abs(np.asarray(Ur))))), 1e-10)
+                        for D, Dr in zip(rf.down_tucker_cores, frame.down_tucker_cores):
+                            self.assertLess(float(np.max(np.abs(np.abs(np.asarray(D)) - np.abs(np.asarray(Dr))))), 1e-10)
 
 
 if __name__ == "__main__":

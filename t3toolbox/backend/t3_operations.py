@@ -86,7 +86,7 @@ def t3_absorb_tucker_into_tt(
 
     if is_uniform:
         return xnp.einsum('d...anb,d...no->d...aob', tt_cores, tucker_cores)
-    return tuple(xnp.einsum('...anb,...no->...aob', G, U) for G, U in zip(tt_cores, tucker_cores))
+    return tuple(xnp.einsum('...anb,...no->...aob', G, B) for G, B in zip(tt_cores, tucker_cores))
 
 
 def t3_squash_tails(

@@ -120,6 +120,6 @@ class TestUpOrthogonalizeTtCores(unittest.TestCase):
             for ss in STACKS:
                 with self.subTest(shape=shape, stack=ss):
                     x = t3.TuckerTensorTrain.randn(shape, tr, ttr, stack_shape=ss).data
-                    V, Oc = O.t3_up_orthogonalize_tt_cores(x)
-                    self.assertLess(_relerr(_dense((V, Oc)), _dense(x)), 1e-12)
-                    self.assertLess(max(_up_res(G) for G in Oc), 1e-12)
+                    V, Uc = O.t3_up_orthogonalize_tt_cores(x)
+                    self.assertLess(_relerr(_dense((V, Uc)), _dense(x)), 1e-12)
+                    self.assertLess(max(_up_res(G) for G in Uc), 1e-12)

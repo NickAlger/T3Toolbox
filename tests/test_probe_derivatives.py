@@ -156,28 +156,28 @@ class TestProbeDerivatives(unittest.TestCase):
                     x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
                     frame, _ = bvf.t3_orthogonal_representations(x)
                     v = t3m.COREWISE.randn(frame)
-                    dU_v, dG_v = v.variations.data
+                    V_v, H_v = v.variations.data
                     ww = [np.random.randn(*(S + (N,))) for N in shapes]
                     pp = [np.random.randn(*(S + (N,))) for N in shapes]
 
                     z_jets = pd.tv_probe_derivatives(ww, pp, v.variations.data, v.frame.data, K)
                     r = [np.random.randn(*np.asarray(zi).shape) for zi in z_jets]
 
-                    dU, dG = pd.tv_probe_derivatives_transpose(
+                    V, H = pd.tv_probe_derivatives_transpose(
                         r, ww, pp, v.frame.data, K, sum_over_probes=True)
                     lhs = sum(np.sum(r[i] * np.asarray(z_jets[i])) for i in range(d))
-                    rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
-                           + sum(np.sum(np.asarray(dG[i]) * dG_v[i]) for i in range(d)))
+                    rhs = (sum(np.sum(np.asarray(V[i]) * V_v[i]) for i in range(d))
+                           + sum(np.sum(np.asarray(H[i]) * H_v[i]) for i in range(d)))
                     self.assertLessEqual(abs(lhs - rhs) / abs(lhs), tol)
 
                     # sum_over_probes=False keeps S; summing those axes recovers the True result
                     if S:
-                        dU0, dG0 = pd.tv_probe_derivatives_transpose(
+                        V0, H0 = pd.tv_probe_derivatives_transpose(
                             r, ww, pp, v.frame.data, K, sum_over_probes=False)
                         ax = tuple(range(len(S)))
-                        for a, b in zip(dU0, dU):
+                        for a, b in zip(V0, V):
                             self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
-                        for a, b in zip(dG0, dG):
+                        for a, b in zip(H0, H):
                             self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
 
     def test_tangent_order_zero_is_plain_tangent_probe(self):
@@ -270,27 +270,27 @@ class TestProbeDerivatives(unittest.TestCase):
                     x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
                     frame, _ = bvf.t3_orthogonal_representations(x)
                     v = t3m.COREWISE.randn(frame, stack_shape=K)
-                    dU_v, dG_v = v.variations.data
+                    V_v, H_v = v.variations.data
                     ww = [np.random.randn(*(W + (N,))) for N in shapes]
                     pp = [np.random.randn(*(W + (N,))) for N in shapes]
 
                     Jv = pd.tv_probe_derivatives(ww, pp, v.variations.data, v.frame.data, ORDER)
                     r = [np.random.randn(*np.asarray(z).shape) for z in Jv]
 
-                    dU, dG = pd.tv_probe_derivatives_transpose(
+                    V, H = pd.tv_probe_derivatives_transpose(
                         r, ww, pp, v.frame.data, ORDER, sum_over_probes=True)
                     lhs = sum(np.sum(r[i] * np.asarray(Jv[i])) for i in range(d))
-                    rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
-                           + sum(np.sum(np.asarray(dG[i]) * dG_v[i]) for i in range(d)))
+                    rhs = (sum(np.sum(np.asarray(V[i]) * V_v[i]) for i in range(d))
+                           + sum(np.sum(np.asarray(H[i]) * H_v[i]) for i in range(d)))
                     self.assertLessEqual(abs(lhs - rhs) / abs(lhs), tol)
 
                     if W:                                  # summing the kept-W result recovers the summed one
-                        dU0, dG0 = pd.tv_probe_derivatives_transpose(
+                        V0, H0 = pd.tv_probe_derivatives_transpose(
                             r, ww, pp, v.frame.data, ORDER, sum_over_probes=False)
                         ax = tuple(range(len(W)))
-                        for a, b in zip(dU0, dU):
+                        for a, b in zip(V0, V):
                             self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
-                        for a, b in zip(dG0, dG):
+                        for a, b in zip(H0, H):
                             self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
 
     def test_apply_derivatives_match_dense(self):
@@ -367,7 +367,7 @@ class TestProbeDerivatives(unittest.TestCase):
                         x = t3.TuckerTensorTrain.randn(*STRUCT, stack_shape=C)
                         frame, _ = bvf.t3_orthogonal_representations(x)
                         v = t3m.COREWISE.randn(frame, stack_shape=K)
-                        dU_v, dG_v = v.variations.data
+                        V_v, H_v = v.variations.data
                         pp = [np.random.randn(*(W + (N,))) for N in shapes]
                         if kind == 'apply':
                             ww = [np.random.randn(*(W + (N,))) for N in shapes]
@@ -381,18 +381,18 @@ class TestProbeDerivatives(unittest.TestCase):
                                 cc, index, pp, v.frame.data, ORDER, sum_over_probes=sop)
                         c = np.random.randn(*np.asarray(Jv).shape)
 
-                        dU, dG = T(c, True)
+                        V, H = T(c, True)
                         lhs = float(np.sum(c * np.asarray(Jv)))
-                        rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
-                               + sum(np.sum(np.asarray(dG[i]) * dG_v[i]) for i in range(d)))
+                        rhs = (sum(np.sum(np.asarray(V[i]) * V_v[i]) for i in range(d))
+                               + sum(np.sum(np.asarray(H[i]) * H_v[i]) for i in range(d)))
                         self.assertLessEqual(abs(lhs - rhs) / abs(lhs), tol)
 
                         if W:
-                            dU0, dG0 = T(c, False)
+                            V0, H0 = T(c, False)
                             ax = tuple(range(len(W)))
-                            for a, b in zip(dU0, dU):
+                            for a, b in zip(V0, V):
                                 self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
-                            for a, b in zip(dG0, dG):
+                            for a, b in zip(H0, H):
                                 self.check_relerr(np.asarray(b), np.sum(np.asarray(a), axis=ax))
 
     def test_corewise_derivatives_finite_difference(self):
@@ -429,15 +429,15 @@ class TestProbeDerivatives(unittest.TestCase):
                         dot = lambda data: float(np.sum(c * np.asarray(fwd(data))))
                         g = pd.t3_entries_corewise_derivatives_transpose(c, index, pp, x.data, ORDER, sum_over_probes=True)
 
-                    gU, gG = g
-                    dU = [rng.randn(*u.shape) for u in tucker_cores]
+                    gB, gG = g
+                    dB = [rng.randn(*b.shape) for b in tucker_cores]
                     dG = [rng.randn(*gg.shape) for gg in tt_cores]
-                    inner = (sum(np.sum(np.asarray(gU[i]) * dU[i]) for i in range(d))
+                    inner = (sum(np.sum(np.asarray(gB[i]) * dB[i]) for i in range(d))
                              + sum(np.sum(np.asarray(gG[i]) * dG[i]) for i in range(d)))
                     eps = 1e-6
-                    plus = ([u + eps * du for u, du in zip(tucker_cores, dU)],
+                    plus = ([b + eps * du for b, du in zip(tucker_cores, dB)],
                             [gg + eps * dg for gg, dg in zip(tt_cores, dG)])
-                    minus = ([u - eps * du for u, du in zip(tucker_cores, dU)],
+                    minus = ([b - eps * du for b, du in zip(tucker_cores, dB)],
                              [gg - eps * dg for gg, dg in zip(tt_cores, dG)])
                     fd = (dot(plus) - dot(minus)) / (2 * eps)
                     self.assertLessEqual(abs(inner - fd) / max(abs(fd), 1e-30), 1e-5)
@@ -461,14 +461,14 @@ if __name__ == "__main__":
 
 
 class TestAsymmetricGenericFrame(unittest.TestCase):
-    """The derivative sweeps at a fully ASYMMETRIC generic frame -- distinct mode sizes, nD != nU,
+    """The derivative sweeps at a fully ASYMMETRIC generic frame -- distinct mode sizes, nU != nD,
     rL != rR, non-palindromic bonds (review R6-8: every other tangent-derivative test uses one
-    palindromic nD == nU structure, the degeneracy class that hides transposition bugs; builders
+    palindromic nU == nD structure, the degeneracy class that hides transposition bugs; builders
     ported from ``repros/R6/common_r6.py``). The ops are precondition-free (exact for any cores), so
     a raw random frame is legitimate. Forward jets vs the dense oracle; adjoint identities for all
     three transposes, K-stacked included."""
-    # d=3: N, nU, nD, rL (len d+1), rR (len d+1)
-    _N, _NU, _ND = (3, 5, 4), (2, 3, 2), (3, 2, 4)
+    # d=3: N, nD, nU, rL (len d+1), rR (len d+1)
+    _N, _ND, _NU = (3, 5, 4), (2, 3, 2), (3, 2, 4)
     _RL, _RR = (1, 2, 4, 1), (1, 3, 2, 1)
 
     def setUp(self):
@@ -487,18 +487,18 @@ class TestAsymmetricGenericFrame(unittest.TestCase):
     def _frame(self, C=()):
         R = np.random.randn
         d = len(self._N)
-        up = tuple(R(*C, self._NU[i], self._N[i]) for i in range(d))
-        down = tuple(R(*C, self._RL[i], self._ND[i], self._RR[i + 1]) for i in range(d))
-        left = tuple(R(*C, self._RL[i], self._NU[i], self._RL[i + 1]) for i in range(d))
-        right = tuple(R(*C, self._RR[i], self._NU[i], self._RR[i + 1]) for i in range(d))
-        return (up, down, left, right)
+        down = tuple(R(*C, self._ND[i], self._N[i]) for i in range(d))
+        up = tuple(R(*C, self._RL[i], self._NU[i], self._RR[i + 1]) for i in range(d))
+        left = tuple(R(*C, self._RL[i], self._ND[i], self._RL[i + 1]) for i in range(d))
+        right = tuple(R(*C, self._RR[i], self._ND[i], self._RR[i + 1]) for i in range(d))
+        return (down, up, left, right)
 
     def _var(self, K=(), C=()):
         R = np.random.randn
         d = len(self._N)
-        dU = tuple(R(*K, *C, self._ND[i], self._N[i]) for i in range(d))
-        dG = tuple(R(*K, *C, self._RL[i], self._NU[i], self._RR[i + 1]) for i in range(d))
-        return (dU, dG)
+        V = tuple(R(*K, *C, self._NU[i], self._N[i]) for i in range(d))
+        H = tuple(R(*K, *C, self._RL[i], self._ND[i], self._RR[i + 1]) for i in range(d))
+        return (V, H)
 
     def test_forward_jets_match_dense_oracle(self):
         d = len(self._N)
@@ -530,29 +530,29 @@ class TestAsymmetricGenericFrame(unittest.TestCase):
                         continue
                     with self.subTest(kind=kind, W=W, K=K, C=C, ORDER=ORDER):
                         frame, var = self._frame(C), self._var(K, C)
-                        dU_v, dG_v = var
+                        V_v, H_v = var
                         pp = [np.random.randn(*(W + (N,))) for N in self._N]
                         if kind == 'probe':
                             ww = [np.random.randn(*(W + (N,))) for N in self._N]
                             z = pd.tv_probe_derivatives(ww, pp, var, frame, ORDER)
                             r = [np.random.randn(*np.asarray(zi).shape) for zi in z]
-                            dU, dG = pd.tv_probe_derivatives_transpose(
+                            V, H = pd.tv_probe_derivatives_transpose(
                                 r, ww, pp, frame, ORDER, sum_over_probes=True)
                             lhs = sum(float(np.sum(r[i] * np.asarray(z[i]))) for i in range(d))
                         elif kind == 'apply':
                             ww = [np.random.randn(*(W + (N,))) for N in self._N]
                             Jv = pd.tv_apply_derivatives(ww, pp, var, frame, ORDER)
                             c = np.random.randn(*np.asarray(Jv).shape)
-                            dU, dG = pd.tv_apply_derivatives_transpose(
+                            V, H = pd.tv_apply_derivatives_transpose(
                                 c, ww, pp, frame, ORDER, sum_over_probes=True)
                             lhs = float(np.sum(c * np.asarray(Jv)))
                         else:
                             index = np.stack([np.random.randint(0, N, size=W) for N in self._N], axis=0)
                             Jv = pd.tv_entries_derivatives(index, pp, var, frame, ORDER)
                             c = np.random.randn(*np.asarray(Jv).shape)
-                            dU, dG = pd.tv_entries_derivatives_transpose(
+                            V, H = pd.tv_entries_derivatives_transpose(
                                 c, index, pp, frame, ORDER, sum_over_probes=True)
                             lhs = float(np.sum(c * np.asarray(Jv)))
-                        rhs = (sum(float(np.sum(np.asarray(dU[i]) * dU_v[i])) for i in range(d))
-                               + sum(float(np.sum(np.asarray(dG[i]) * dG_v[i])) for i in range(d)))
+                        rhs = (sum(float(np.sum(np.asarray(V[i]) * V_v[i])) for i in range(d))
+                               + sum(float(np.sum(np.asarray(H[i]) * H_v[i])) for i in range(d)))
                         self.assertLessEqual(abs(lhs - rhs) / abs(lhs), tol)
