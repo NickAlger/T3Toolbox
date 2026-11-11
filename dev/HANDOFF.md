@@ -207,7 +207,13 @@ sentences name the store AND the arrow; the .tex width subscripts listed in R1's
 contraction sizes. Draft 15 (these) in progress. NEXT PROCESS (Nick): when draft 15 is agreed, a FRESH agent drafts a
 SECOND batch of sample edits (different, harder cases); the SESSION reviews them itself, asking Nick only when uncertain;
 bad agent decisions = a misspecified plan -> update the plan. Nick's posture: diligence up front, hands-off in flight (a
-mid-sequence "fix" of an interim state breaks the slices -- see sample edit 4). Then R1. then Nick's remaining decisions (D-1 shift
+mid-sequence "fix" of an interim state breaks the slices -- see sample edit 4). BATCH 2 DONE (2026-11-11,
+`dev/store_rename_sample_edits_2.md`, reviewed by the session: agent's forms approved; 15 enumeration gaps closed in draft
+17, d63bc017). RULINGS 2026-11-11: the corewise frame is `(B, G, G, G)` (D-6 corrected: the manifold algorithm on an
+orthogonal frame (D, U, L, R) with B substituted for D and G for U, L, R computes the corewise operation for any B, G);
+ttm/HT note: leaf frames B_i, transfer tensors T_t, macros \X \Y \Z. Draft 18 (these) in progress. NEXT: a THIRD sample
+batch in the untouched areas (user docs pages, glossary + work list, CHANGELOG/upgrade drafts, test assertions, uniform
+kernel masks), reviewed by the session; R1 if quiet. then Nick's remaining decisions (D-1 shift
 symbol Λ/ℓ, D-2, D-4, D-5, D-9..D-11, B on the T3 pages) and R1.
 
 **2026.5.0 IN PROGRESS (2026-11-10): (a) the glossary (COMMITTED 3fc91855 with the OLD store words — correct for the
