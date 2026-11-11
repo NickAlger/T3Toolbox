@@ -160,6 +160,18 @@ CG_POWER 1.0, MAX_NEWTON 300; the first GN runs hit the 30 cap and are discarded
 timing (plan draft `dev/newton_timing_plan_2026-11-10.md`, writer; critic pass before implementing) + the glossary page
 below. Versions are YYYY.MINOR.PATCH; a new keyword/record is an "Added" entry, hence MINOR.**
 
+**2026.5.0 IN PROGRESS (2026-11-10): (a) the glossary — three scouts wrote `dev/glossary_candidates_{A_user_docs,
+B_backend,C_frontend}.md` (233/190/185 candidate terms, ~90 inconsistencies, ~40 terms defined nowhere); a WRITER agent is
+drafting `docs/glossary.md` (one canonical name per concept, aliases listed, definitions verified against the code, a
+symbols section, linked from docs/index.rst) and `dev/glossary_naming_decisions.md`; a CRITIC iterates with the writer to
+agreement, then Nick + session review. (b) NICK 2026-11-10: the documentation errors and inconsistencies the scouts found
+ARE FIXED in this release — after the glossary is agreed, an implementer applies `dev/glossary_naming_decisions.md`
+(NAMING items: the canonical spelling everywhere; ERROR items: wrong claims, e.g. docstrings citing a nonexistent
+`numerically_equal`, `g0_reference` lists missing 'cone', "use_jit without jax raises" where it warns, masks called
+"prefix" where gappy, wrong file citations, internal review codes in shipped docstrings) across docs and docstrings — docs
+and docstrings only, no behaviour change; reviewer verifies; sphinx -W + doctests on both envs. (c) then the opt-in
+Newton phase timing (`dev/newton_timing_plan_2026-11-10.md`, critic pass first).**
+
 **QUEUED FOR 2026.5.0 (Nick 2026-11-10): a unified glossary page for the library** -- one `docs/glossary.md` defining
 the terms the docs use (store, frame, frame-variations format, carrier, padded frame, A-block/P-block, stack shape, sharing,
 uniform masks / junk, ragged vs uniform layer, retraction, cone reference, ...), each entry one or two lines with a link to
