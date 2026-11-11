@@ -211,9 +211,12 @@ mid-sequence "fix" of an interim state breaks the slices -- see sample edit 4). 
 `dev/store_rename_sample_edits_2.md`, reviewed by the session: agent's forms approved; 15 enumeration gaps closed in draft
 17, d63bc017). RULINGS 2026-11-11: the corewise frame is `(B, G, G, G)` (D-6 corrected: the manifold algorithm on an
 orthogonal frame (D, U, L, R) with B substituted for D and G for U, L, R computes the corewise operation for any B, G);
-ttm/HT note: leaf frames B_i, transfer tensors T_t, macros \X \Y \Z. Draft 18 (these) in progress. NEXT: a THIRD sample
-batch in the untouched areas (user docs pages, glossary + work list, CHANGELOG/upgrade drafts, test assertions, uniform
-kernel masks), reviewed by the session; R1 if quiet. then Nick's remaining decisions (D-1 shift
+ttm/HT note: leaf frames B_i, transfer tensors T_t, macros \X \Y \Z. Draft 18 done (edb669de). BATCH 3 DONE (`dev/store_rename_sample_edits_3.md`, the session's review in its §13: agent's
+forms approved; 16 enumeration gaps closed in draft 20, c2d53b41, 1,489 lines; session ruling: the gauged tied ambient
+direction takes D forms (`Ddot`/`\dot D`), B only for the corewise lift's raw direction). THE PLAN IS FINAL AT DRAFT 20;
+writer + critic concur with the session: START R1 (tools and inventories only, no library change) on Nick's word.
+Thirty sample edits found no misspecified principle, only enumeration/wording gaps, which R1's hit table, freeness
+check, letter_sites and diagram inventory catch mechanically. then Nick's remaining decisions (D-1 shift
 symbol Λ/ℓ, D-2, D-4, D-5, D-9..D-11, B on the T3 pages) and R1.
 
 **2026.5.0 IN PROGRESS (2026-11-10): (a) the glossary (COMMITTED 3fc91855 with the OLD store words — correct for the
