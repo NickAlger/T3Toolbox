@@ -27,8 +27,15 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
-**State (2026-11-10, night). THE ALIGNED PADDED FRAME ARC IS CODE-COMPLETE: N1-N10 COMMITTED; FINAL REVIEW STOP WITH
-NICK PENDING.** Last commits: N9 docs cc7d6fc6, plan round 9 b017cbea, N10 record cd508db9. T3Polynomial adopted the
+**State (2026-11-10, late). RELEASED: T3Toolbox 2026.4.0 = the aligned padded frame, tag v2026.4.0 on e364fe01 (Nick
+tagged; release workflow built, PyPI publish behind Nick's environment approval). The Darcy acceptance runs on a Runpod
+A100 are in T3Polynomial `data/gpu_runs_2026_11_10/summary.md` (the reference, not the start, halves Newton at 10x100;
+the aligned start takes ~30 % fewer CG there and 166/4130 vs the hint-free 191/4719 Newton/CG at 20x1000; all alignments
+stopped on the 10-pass cap). NEXT RELEASE 2026.5.0 = opt-in Newton phase timing (`dev/newton_timing_plan_2026-11-10.md`,
+draft; T-1..T-7 answered by the session's recommendations, Nick to confirm; critic pass before implementing) + the
+glossary page. The arc's own record follows.**
+
+**Earlier state (2026-11-10, night). THE ALIGNED PADDED FRAME ARC IS CODE-COMPLETE: N1-N10 COMMITTED.** Last commits: N9 docs cc7d6fc6, plan round 9 b017cbea, N10 record cd508db9. T3Polynomial adopted the
 feature (eced8e3 + 120b856, pushed): opt-in ladder keyword `padded_start` (previous level's point as
 `newton_cg(padded_from=)`, 'cone' via `newton_kwargs`), `cone.py` a raising shim. §11 acceptance: all met except the
 laptop Newton comparison (not rerun on the shipped code; the pre-release g06 measurements on the coordinate convention
