@@ -34,8 +34,15 @@ D-shaped peg cannot fit a V-shaped hole": any `(nU, N)` array is V-family, `(rL,
 or B (point); `d`-prefixed derivative names survive only at the core's own shape (the corewise frame's dB/dG); so the
 transpose outputs `dU_tildes`→`V_tildes` etc., the notes' gauged coordinates δD→V, and the four pre-existing
 point-lettered variation locals are renamed by shape. K17 enforces it. Implementer `a4d06609b499890d5`, reviewer
-`a8a004aa870e237f9` (persistent; respawn with the brief below if gone). NEXT: R2 (the scripted pass; review stop with Nick
-after it).** Nick spot-checked all three
+`a8a004aa870e237f9` (persistent; respawn with the brief below if gone). R2 COMMITTED (5153a0be): the scripted pass over 82 files (4,896 hits, eleven hand edits to store-naming messages and
+test regexes), battery bitwise vs v2026.4.0, suite 1,338 passed, doctests unchanged, sphinx -W clean, review APPROVE.
+INTERIM STATE ON MAIN BY DESIGN: the `update` letter strings are still 2026.4.0's ('ULRO', 'U' = Tucker store) until
+R3 converts them to form (c) tuples ('D','U','L','R'); the fenced field comments beside renamed fields keep the old
+letters and drift ±2 columns until R4a; `fv_to_t3`'s example uses new letters beside old-letter diagrams until R4a/R5.
+DO NOT "FIX" ANY OF THIS OUT OF SEQUENCE. The 532 KB `R2_pass1.diff` is NOT committed (regenerable: HEAD's dry run
+rebuilds the hit table byte for byte). **PAUSED HERE AT NICK'S REQUEST (2026-11-11): resume with R3 on his word** — the
+letter API (`update` tuples, `_update_stores`, `_STORE_LETTERS`/`_COLOURS`, the dispatch rows, the unequal-store
+assertions of §5.2), then R4a, R4b, R5, R6 (review stop with Nick after R4).** Nick spot-checked all three
 sample-edit files and approved starting. PLAN: `dev/store_rename_plan_2026-11-10.md` (draft 20, c2d53b41; reviews
 `dev/store_rename_plan_review_r1..r20.md`; sample edits `dev/store_rename_sample_edits{,_2,_3}.md` with Nick's approvals
 and the session's §13 review). SLICES R1-R6 (plan §7): R1 tools and inventories only (dry-run script + hit table,
