@@ -197,7 +197,17 @@ he is "very worried about unintentional consequences of an agent trying to blind
 replaces every principle with an enumerated closed token map + a DO-NOT-TOUCH list with a byte-identity gate; D-2
 reopened (letters `'UDLR'` vs words; session now recommends letters); the critic hunts over-reach risk. THIS APPLIES TO
 EVERY FUTURE BRIEF: no generalizable naming rules; enumerate; forbid any rename outside the map without asking.
-Round 9 in progress; then Nick's remaining decisions (D-1 shift
+Rounds 9-13 done (draft 14, 9363c246: the rule removed, closed token map, DO-NOT-TOUCH list + K14/K15, sh/shift with
+sig_hat locals, update form (c), Psi spelled out in code, d for the differential, -ward travel words, one block per
+diagram, colon fix). SAMPLE-EDIT REVIEW (Nick's idea, 2026-11-11): an agent drafted ten concrete before/after edits from the
+plan (`dev/store_rename_sample_edits.md`); Nick approved 1-10 in chat with rulings: B for a T3's OWN Tucker cores IN CODE
+TOO (`Ux`->`Bx`, `Uio`->`Bio`, ... reinstated as enumerated renames; never D); `_shift_up`/`_shift_down` function names
+STAY; `\mathcal{R}` for the retraction in the notes; the T4S correspondence line names δD/V and δG/H; both-senses
+sentences name the store AND the arrow; the .tex width subscripts listed in R1's inventory with the reviewer checking
+contraction sizes. Draft 15 (these) in progress. NEXT PROCESS (Nick): when draft 15 is agreed, a FRESH agent drafts a
+SECOND batch of sample edits (different, harder cases); the SESSION reviews them itself, asking Nick only when uncertain;
+bad agent decisions = a misspecified plan -> update the plan. Nick's posture: diligence up front, hands-off in flight (a
+mid-sequence "fix" of an interim state breaks the slices -- see sample edit 4). Then R1. then Nick's remaining decisions (D-1 shift
 symbol Λ/ℓ, D-2, D-4, D-5, D-9..D-11, B on the T3 pages) and R1.
 
 **2026.5.0 IN PROGRESS (2026-11-10): (a) the glossary (COMMITTED 3fc91855 with the OLD store words — correct for the
