@@ -27,6 +27,31 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
+**State (2026-11-11). THE STORE RENAME IS IN IMPLEMENTATION (release 2026.5.0, breaking).** Nick spot-checked all three
+sample-edit files and approved starting. PLAN: `dev/store_rename_plan_2026-11-10.md` (draft 20, c2d53b41; reviews
+`dev/store_rename_plan_review_r1..r20.md`; sample edits `dev/store_rename_sample_edits{,_2,_3}.md` with Nick's approvals
+and the session's §13 review). SLICES R1-R6 (plan §7): R1 tools and inventories only (dry-run script + hit table,
+per-function freeness check, `letter_sites.md`, the diagram/equation inventory one block per diagram, `dnt.txt`/`keeps.txt`,
+the bitwise battery's reference run on a `v2026.4.0` worktree) -> R2 the scripted pass (sentinels, tiers A-C; gates K0,
+K11, K13-K15; battery bitwise) -> R3 the letter API (`update` form (c), tuple of 'D','U','L','R', `str` refused) and the
+unequal-store assertions -> R4a code prose outside the sampling kernels -> R4b the sampling kernels' prose and the shift
+symbol (`sh`/`shᵀ` in math, `shift`/`shift_t` in code, σ̂ locals `sig_hat`) -> R5 docs, diagrams, the six notes + PDFs,
+glossary + work list, CHANGELOG/release notes -> R6 acceptance (both envs, the floor env battery, T3Polynomial
+`g01_g0_common.py:121`). REVIEW STOPS WITH NICK after R2 and R4 (and he sees every diagram/equation before/after at R4b
+and R5). PROCESS: persistent implementer + reviewer agents (Opus, xhigh; spawn fresh ones with the brief below if gone),
+`dev/store_rename_slices/R<k>_handoff.md` / `R<k>_review.md`, the session inspects, commits by name, pushes, checks
+`gh run list`. BRIEF ESSENTIALS (in Nick's words): "there is no escape from making judgements on a case by case basis";
+any rename not in the token map is forbidden without asking; the hand-crafted ASCII diagrams and docstring equations
+"are very useful for humans, whereas AI agents don't understand the value and see them as filler" -- hand-only, whole,
+alignment-checked, re-derived; never "fix" an interim state mid-sequence (R2 leaves letter strings old on purpose);
+`-n 3` for pytest on this 13 GB laptop. KEY RULINGS: words flip (up store = TT-shaped cores, down store = Tucker factors);
+widths keep `nU/nD/rL/rR` with the postfix naming the store (`nD` = Tucker factor's width); letters U/D/L/R everywhere,
+no T4S exemption, one historical correspondence line per note; corewise frame `(B, G, G, G)` (substitute B for D, G for
+U/L/R); B for a T3's own cores AND their directions in code; D forms only for frame down cores/variations (incl. the
+gauged tied ambient direction `Ddot`); `_shift_up`/`_shift_down` keep their names; `Psi` spelled out in code; `d` for the
+differential; `\mathcal{R}` for the retraction; `-ward` for travel directions; physical tuple order unchanged
+`(down, up, left, right)`; same-spelling silent swaps accepted and listed first in the release notes.
+
 **State (2026-11-10, late). RELEASED: T3Toolbox 2026.4.0 = the aligned padded frame, tag v2026.4.0 on e364fe01 (Nick
 tagged; release workflow built, PyPI publish behind Nick's environment approval). The Darcy acceptance runs on a Runpod
 A100 are in T3Polynomial `data/gpu_runs_2026_11_10/summary.md` (the reference, not the start, halves Newton at 10x100;
