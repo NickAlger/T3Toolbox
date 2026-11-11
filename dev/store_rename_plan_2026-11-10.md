@@ -1,9 +1,10 @@
-# The store rename — plan (draft 17, writer, 2026-11-11)
+# The store rename — plan (draft 18, writer, 2026-11-11)
 
-> **Status:** draft 17: Nick's rulings of 2026-11-11, critic rounds 1–16 (`dev/store_rename_plan_review_r{1,…,16}.md`),
+> **Status:** draft 18: Nick's rulings of 2026-11-11, critic rounds 1–17 (`dev/store_rename_plan_review_r{1,…,17}.md`),
 > Nick's decisions on every open item, and his review of the sample edits (`dev/store_rename_sample_edits.md`; edits
 > 1–7 approved as written, 8–10 ruled on for draft 15) and the second batch (`dev/store_rename_sample_edits_2.md`; its
-> recommended forms approved, its §12 issues fixed in draft 17). **The critic agreed in round 17** (`dev/store_rename_plan_review_r17.md`). Next: the
+> recommended forms approved, its §12 issues fixed in draft 17), and Nick's two rulings of draft 18. **The critic agreed in
+> round 19** (`dev/store_rename_plan_review_r19.md`). Next: the
 > implementer/reviewer slices R1–R6 (§7).
 > **Breaking**; the first item of 2026.5.0. The glossary update and the 601-row docs-consistency pass
 > (`dev/glossary_naming_decisions.md`) run after it, on the renamed code.
@@ -18,6 +19,19 @@
 
 *History only: the record of how the plan got here. The instructions are the numbered sections below; where a CHANGES
 line and a section differ, the section governs.*
+
+**Draft 18 (Nick's two rulings).**
+
+- **D-6 corrected: the corewise frame is `(B, G, G, G)`.** The manifold operations take an orthogonal frame
+  `(D, U, L, R)`; the corewise variant substitutes the point's own cores, `B` for `D` and `G` for `U`, `L`, `R`, and
+  computes the corewise operation for any `B`, `G`. Every corewise sentence is rewritten from that meaning (§1.2a);
+  "no longer required orthogonal" and draft 17's "the down slot holds B" sentence are dropped. Tier D's 62 tuples, L3,
+  the cited substitution lines, §3.1, §3.3, D-6 and K4 follow. Sample batch 2's edits 3, 4, 10 and 11 and its
+  `_curvature_oracles.py:261–263` comment show `(D, G, G, G)`; this draft supersedes them.
+- **Critic r18:** four more corewise sites (`_curvature_oracles.py:312, 496`, `sampling_derivatives.py:3252`,
+  `symmetric_probe_derivatives.tex:556–559`), and K4 bans the single equality `[OPQ] = G`.
+- **The ttm/HT note** (Nick agrees with the recommendation): leaf frames `B_i`, transfer tensors `T_t`, macros `\X`,
+  `\Y`, `\Z`, each with a line naming what the HT literature writes (§4.8).
 
 **Draft 17 (sample batch 2, `dev/store_rename_sample_edits_2.md` §12; the session's rulings).**
 
@@ -374,9 +388,12 @@ Tier D, text patterns (R4a/R4b; comments, docstrings and docs; the tex notes by 
 
 - `(U, O, P, Q)`, `(U,O,P,Q)` and `(U, O, L, R)` → `(D, U, L, R)` (D-7; 65 lines in code and docs, 2 in the notes).
   The hybrid `(D, U, P, Q` (inv 2 §4's proposals, e.g. `geometry.py:602, 707, 893`) → `(D, U, L, R`.
-- `(U, G, G, G)` and `(U,G,G,G)` → `(D, G, G, G)` (D-6; 62 lines).
-- `(P, Q, O) → G` and `P,Q,O → G` → `(L, R, U) → G`, written "T4S §6.3's substitution" where cited (13 lines: the
-  11 inv 2 C4 rows, inv 1 C3, `CLAUDE.md:115`, `transposes.md:37`).
+- `(U, G, G, G)` and `(U,G,G,G)` → `(B, G, G, G)` (D-6 as corrected by Nick: the point's own cores substituted
+  into the frame; 62 lines).
+- `(P, Q, O) → G` and `P,Q,O → G` (13 lines: the 11 inv 2 C4 rows, inv 1 C3, `CLAUDE.md:115`, `transposes.md:37`): no
+  pattern. Each sentence is rewritten by hand from the corewise rule (§1.2a) as `B → D`, `G → U, L, R` where it
+  states the substitution, or `(U, L, R) → G` where it names only the TT-shaped slots, with "T4S §6.3's
+  substitution" kept where cited.
 - `(up, down, left, right)` → `(down, up, left, right)`, and the same for `(up, down, left[:-1], right[1:])` and
   `up/down/left/right`.
 - The jet-shift and derivative notation of §3.2. In code comments and docstrings and in the docs and notes alike,
@@ -411,7 +428,7 @@ scan, except the two dispositions in tier C's B rows.
     `tv_corewise_lift_transpose` (`Udot→Bdot`); the doctest at :547 (`[b.shape for b in theta_hat[0]]`).
   - `utv_operations.py`: `utv_corewise_lift` (`Udot→Bdot`), `utv_corewise_lift_transpose` (`Ud→Bd`),
     `utv_corewise_retract` (`dU→dB`: free perturbations of the point's own cores; its comments' "the point's Tucker
-    core U", "the point `(U, G)`" and `(dU, dG)` → `B`, `(B, G)`, `(dB, dG)` by hand, the frame tuple → `(D, G, G, G)`
+    core U", "the point `(U, G)`" and `(dU, dG)` → `B`, `(B, G)`, `(dB, dG)` by hand, the frame tuple → `(B, G, G, G)`
     by tier D). Every corewise operation reads its down slot as the point's own cores, so all take `B` forms.
   - `manifold.py`'s COREWISE doctest at :1569–1571 (`U, G = x.data` → `B, G`; `dU→dB`, `u→b`, `du→db`).
   - The T3 doctests and `test_tucker_tensor_train.py` (tier C's B rows).
@@ -465,12 +482,29 @@ scan, except the two dispositions in tier C's B rows.
   This is correct under D-12 (the session, 2026-11-11), and no letter changes. R4a adds one sentence at the first
   site, `tv_operations.py:504`: "`θ = (D, L)` is written by the frame's stores it is built from (down, left); its
   corewise direction `θ̂ = (Bdot, Gdot)` moves the point's own raw cores, so it takes `B`."
-- **The corewise frame's slot and its content** (the session, 2026-11-11; sample batch 2, §11). Sentences about the
-  corewise frame take `B` for the content and `D` for the slot: "with ``B_i`` no longer required orthogonal -- i.e. …
-  at frame ``(D, G, G, G)``", "(``B`` non-orthogonal)". This overrides inv 2's C4 rows (`U_i→D_i`) at these sites:
-  `apply.py:320–322`, `sampling_derivatives.py:2386–2387`, `probing.py:1427`, `utv_operations.py:381–382, 391`. The
-  convention paragraph says it once (§6).
-  - `theta = (U, G)` and the point `(U, G)` → `(B, G)`, with the frame tuple `(D, G, G, G)` by tier D:
+- **The corewise frame** (Nick, 2026-11-11; D-6 corrected). The manifold operations take an orthogonal frame
+  `(D, U, L, R)`. The corewise variant substitutes the point's own cores, `B` for `D` and `G` for `U`, `L`, `R`, so the
+  same algorithm runs at the frame `(B, G, G, G)` and computes the corewise operation for any `B`, `G`: the manifold
+  operation needs an orthogonal frame, the corewise one does not. Every corewise sentence is rewritten from that
+  meaning, never word-swapped. The template: "the Section 6.3 substitution `B → D`, `G → U, L, R`:
+  `tv_apply_transpose` at the frame `(B, G, G, G)`; the manifold operation requires an orthogonal frame, the
+  corewise one works for any `B`, `G`". The phrasings "with `U_i` no longer required orthogonal" and "(`U`
+  non-orthogonal)" are dropped, and no sentence says what the down slot holds: the tuple says it. A sentence that
+  names only the TT-shaped slots writes `(U, L, R) → G`, and `Q = O = P = G` becomes `U = L = R = G`. This overrides
+  inv 2's C4 rows. The sites:
+  - the substitution sentences: `apply.py:320–323`, `probing.py:1426–1428`, `sampling_derivatives.py:2385–2387,
+    2407–2409`, `t3_linalg.py:769–771`, `fv_conversions.py:33`, `geometry.py:491, 510`, `ut3_sampling.py:111–112,
+    228–229`, `utv_operations.py:381–383`, `tucker_tensor_train.py:4033–4034`, `uniform_manifold.py:1282–1284,
+    1312–1314` ("the three TT-shaped slots", where it said "non-up slots"), `CLAUDE.md:115`, `transposes.md:37`, and
+    `symmetric_probe_derivatives.tex:556–559`, by hand in R5: "…the tangent derivative transpose at the frame
+    $(\mathbf B,\mathbf G,\mathbf G,\mathbf G)$ (the substitution $\mathbf B\to\mathbf D$,
+    $\mathbf G_i\to\mathbf U,\mathbf L,\mathbf R$): the manifold operation requires an orthogonal frame, the
+    corewise one works for any $\mathbf B$, $\mathbf G$." in place of "…with the base's own cores substituted for the
+    orthogonal frames ($\mathbf P,\mathbf Q,\mathbf O\to\mathbf G_i$, $\mathbf U$ no longer required orthogonal)";
+  - `U = L = R = G`: `probing.py:1457, 1721`, `sampling_derivatives.py:2464, 2989`, `_curvature_oracles.py:397`;
+    `R = U = G` for `Q = O = G` at `_curvature_oracles.py:523` and `sampling_derivatives.py:3252`; `U = G` for `O = G`
+    at `_curvature_oracles.py:312, 496` (`:496`'s `mu O sigma^` → `mu U sigma^`);
+  - `theta = (U, G)` and the point `(U, G)` → `(B, G)`, with the frame tuple `(B, G, G, G)` by tier D:
     `probing.py:1453`, `sampling_derivatives.py:2460, 3103`, `manifold.py:1634`, `uniform_manifold.py:1368`,
     `_curvature_oracles.py:93, 238, 262` (`:262` is an inv 1 App. B line; this row overrides it).
   - The corewise tangent forward's direction `(Udot, Gdot)`, `xidot = Udot w` → `(Bdot, Gdot)`, `xidot = Bdot w`:
@@ -579,7 +613,7 @@ inv 2 §4 gives `(D, U, P, Q, shape, …)` at `geometry.py:602, 707, 893` and "f
 3. **Layer the rulings** on top:
    - L1: frame `P`/`Q` → `L`/`R`, by the §3.4 classification.
    - L2: the `U` family → `D`, or `B` for a T3's own Tucker cores (§3.3).
-   - L3: `(U, G, G, G)` → `(D, G, G, G)`.
+   - L3: `(U, G, G, G)` → `(B, G, G, G)`.
    - L4: the `sh` and `d` notation (§3.1–3.2).
    - L5: D-5's `Ψ`/`F`, and D-8's width swap. The inventories' word proposals (`n_down…`, `r_left…`) are re-expressed as
      the swapped letters (`nD…`, `rL…`); inv 1's letter-swapped diagram labels (`nU0`→`nD0`, `nO1`→`nU1`) already are.
@@ -771,9 +805,9 @@ itself.
   is `\Lift` (`\mathcal{L}`) and differs by font.
 - **A T3's own Tucker cores**, which T4S writes `U`, are `B` (D-6; Nick, 2026-11-11: "definitely should not be D"):
   in code by tier C's B rows and B5, in text on the T3 pages and in the notes (§3.3, §4.8). `D` names a frame's down
-  store, including the corewise frame's slot `(D, G, G, G)` and a point given by a frame's stores (`θ = (D, L)`), and
-  that core's variations; a direction of a point's own cores takes `B` forms (D-12, §1.2a). After the rename `U` names the up store, or an SVD factor
-  (§1.5 items 2 and 11). A `U` that is neither is classified by §3.4, never left as it is.
+  store, a point given by a frame's stores (`θ = (D, L)`) and that core's variations; a direction of a point's own
+  cores takes `B` forms (D-12, §1.2a). The corewise frame is `(B, G, G, G)`, the point's own cores substituted into the
+  frame (D-6). After the rename `U` names the up store, or an SVD factor (§1.5 items 2 and 11). A `U` that is neither is classified by §3.4, never left as it is.
 - **Kept, because they are other meanings, not frame letters:** the SVD factor `U` in `UΣVᵀ` (inv 2 C3: 9 modules,
   100+ tokens; the padded-frame note's matrix-case proof), QR's `Q, R`, the completion `P⁺` and the P-block, the
   derivative direction `P^t`/`pp`, and `utv_sampling`'s "U3". Tier C never maps a letter outside its listed files and
@@ -799,7 +833,7 @@ itself.
 
 ### 3.3 Fixed rules
 
-- **Frames:** the frame tuples tier D lists become `(D, U, L, R)`, and the corewise frame becomes `(D, G, G, G)` (D-6,
+- **Frames:** the frame tuples tier D lists become `(D, U, L, R)`, and the corewise frame becomes `(B, G, G, G)` (D-6,
   Nick; 62 sites).
   - The `U`-family names take `B` or `D` forms by D-12, at §1.2a's sites: in code `Bdot`, `dB`, `Bd`, `gB` for a
     point's own cores, `dD`, `Dd`, `dD_tilde` for a frame down core; in prose `Ḃ`/`δD` likewise. Pairs stay symmetric
@@ -837,7 +871,7 @@ itself.
   stay ("upward edge variables", "contract up", "pushing the remainder down into the Tucker core"). This replaces
   draft 11's rewordings ("the η jets", "the ξ index").
 - **Cited T4S formulas:** exactly the 13 lines tier D lists convert, with the citation kept, e.g. "T4S §6.3's
-  substitution `(L, R, U) → G`".
+  substitution `B → D`, `G → U, L, R`" (§1.2a).
 
 ### 3.4 The `O`/`P`/`Q`/`U`-family inventory (R1; critic r2 N2, r5)
 
@@ -972,13 +1006,12 @@ rulings need their own inventory before any slice applies them.
      `B^X_i \krrow B^Y_i` replaces `U^A_i \krrow U^B_i`. None of `X`, `Y`, `Z` is used in the note (its lowercase `x`
      is the index of `\T[x]`, distinct by case); `X`, `Y` match the operands `x`, `y` of the code (`Bx`, `By`) and of
      `t3m_methods.md` (`B_i^x \odot B_i^y`), and `Z` is the next letter for their product.
-     **Held for Nick** (sample batch 2, §7): the HT section (:217–240) has transfer tensors `B_t`, which would meet the
-     leaf frames `B_i` in one sentence, and the calligraphic macros `\A`, `\B`, `\C` (29 uses, outside the 59
-     superscripts) name the operands and product, `\C` also the T3's core tensor in `eq:t3` (:72–75).
-     - **Recommended:** leaf frames `B_i`; transfer tensors `T_t` (`T` is unused; the macro `\T` is calligraphic);
-       the macros become `\X`, `\Y`, `\Z` (undefined today), so `\C` keeps one meaning, the core tensor.
-     - **Alternative:** the HT section keeps the HT literature's letters (`U_t` frames, `B_t` transfer tensors) under a
-       one-line notation remark, and only the T3 sections take `B_i`; the macros stay `\A`, `\B`, `\C`.
+     **The HT section and the macros (Nick, 2026-11-11, agreeing with the recommendation of sample batch 2, §7):**
+     the leaf frames are `B_i`; the HT transfer tensors `B_t` (:217–240) become `T_t` (`T` is unused; the macro `\T`
+     is calligraphic), so they no longer meet `B_i`; the calligraphic macros `\A`, `\B`, `\C` (29 uses) become `\X`,
+     `\Y`, `\Z` (undefined today), matching the superscripts, so `\C` keeps one meaning, the T3's core tensor in
+     `eq:t3` (:72–75). Each change gets a line naming what the HT literature writes (`U_t` for the frames, `B_t` for
+     the transfer tensors) and what the note wrote before (`\A`, `\B`, `\C`).
    - No other note has a retraction `R` beside an `R` store: `shared_t3_math.tex`'s `R(\T,\xi)` (:474) meets no right
      store, and `padded_frame_cone.tex`'s `R(\theta)` (:217–219) is a residual function. Both stay.
 
@@ -1218,7 +1251,7 @@ test module (`test_frame_variations_format`, `test_uniform_frame_variations_form
 | K1 | old spellings | `\b(?:masked_)?(?:up_tucker_cores\|down_tt_cores\|up_tucker_supercore\|down_tt_supercore\|up_tucker\|down_tt\|up_tucker_ranks\|down_tucker_ranks\|down_tt_ranks\|up_orthogonalize_tucker_cores\|down_orthogonalize_tt_cores)(?:_dot)?\b` |
 | K2 | stale width spellings (D-8: nothing can grep the meaning of `nU`/`nD`) | `(?<![\\\w])nO` (not an escape's `\nO`), LaTeX `n_\{O` and `n\^O`, and any word width `\b(?:n_up\|n_down\|r_left\|r_right\|k_up\|k_down\|m_up\|m_down)\w*` (none may appear anywhere: Nick). This holds everywhere, fences and notes included. The proof of the `nU`↔`nD` swap is the battery on slack frames (§5.1), the bijection check, K13, and the reviewer's adjacency reading |
 | K3 | the `update` values (D-2(c)) | In the LETTER-API files (`padded_frames`, `uniform_padded_frames`, `manifold`, `uniform_manifold`, `frame_variations_format`, `uniform_frame_variations_format`, the padded-frame tests and oracles, `test_dispatch`, `test_aligned_padded_frame_frontend`): `update\s*:\s*str\b`, `update\s*=\s*['"]` (a `str` passed), `['"]O['"]\s+(?:not\s+)?in\s+update`, and any update string or tuple containing `'O'`. In docs: `` `'(?:ULRO\|UL\|RO)'` `` |
-| K4 | frame-letter tuples, hybrids and the cited substitution | `\(U, ?O, ?[PL], ?[QR]\)`, `\((?:D\|U), ?(?:U\|O), ?P, ?Q\b`, `\(U, ?G, ?G, ?G\)`, and `\(?P, ?Q, ?O\)? ?(?:→\|->)` |
+| K4 | frame-letter tuples, hybrids and the cited substitution | `\(U, ?O, ?[PL], ?[QR]\)`, `\((?:D\|U), ?(?:U\|O), ?P, ?Q\b`, `\(U, ?G, ?G, ?G\)`, `\(D, ?G, ?G, ?G\)`, `\(?P, ?Q, ?O\)? ?(?:→\|->)`, `Q = O = P = G`, `Q = O = G`, the single equality `\b[OPQ] = G\b`, and the dropped phrasing `no longer required orthogonal` |
 | K5 | old-order listings | `\(up, down, left` and `up/down/left/right` |
 | K6 | backwards phrases | `Tucker up-(?:SVD\|orth)`, `Tucker cores upward`, `TT cores downward`, `down-orthogonal O\b`, `up-orthogonal tucker`, `Down TT core` |
 | K7 | old shift and derivative notation | `\b[DU]\^[rku]\b`, `\[U\^`, `\b[DU] (?:x\|z\|jet)\b` (catches `D x =`, `# U jet,`, `[jet, D jet]`), `\bDPhi\b`, `\bD\^2 ?Phi\b`, `DΦ`, `D²Φ`; in tex `\\Dsh\|\\Ush\|D\\Phi\|D\^2\\Phi\|D_\\zeta` |
@@ -1267,7 +1300,7 @@ K9 is the only check that sees a bare word left in the old sense.
   from inv 3 §1(a) **corrected**: the widths are `nD`, `nU`, `rL`, `rR` (not inv 3's `n_down`…, which K2 bans), and
   the math notes are converted, with no "notes keep T4S's letters" sentence. The paragraph also says that `d` is both
   the mode count and the upright differential, told apart by context (D-11), and that a T3's own Tucker cores are `B`
-  (D-6), with one sentence: "at the corewise frame of θ = (B, G) the down slot holds B". Every other page links to it. `naming_conventions.md` gets the bullet "frame stores are words".
+  (D-6). Every other page links to it. `naming_conventions.md` gets the bullet "frame stores are words".
   The letter ↔ word mapping is stated once, in the convention paragraph and the glossary's symbol table: `D`/`U`/`L`/`R`
   for the stores; `nD` the down store's width (the Tucker factor's), `nU` the up store's (the TT-shaped core's), `rL`,
   `rR` the left and right stores' (D-8).
@@ -1333,7 +1366,10 @@ battery comparison); the session inspects the diff, runs the suite, commits by n
 - **D-5.** The padded-frame products and messages `D` become `Ψ`/`\Psi` in the docs and notes, and `Psi`, spelled
   out, in code: no Greek characters in identifiers (`Psi`, `Psi_L`, `Psi_R`, `PsiL`, `PsiR`, `PsiD`, `PsiDs`). The edge
   frame `U_{x→t}`, `U′` becomes `F_{x→t}`, `F′`.
-- **D-6.** The corewise frame is `(D, G, G, G)`. A T3's own Tucker cores are `B`, in code and in text (Nick,
+- **D-6 (corrected by Nick, 2026-11-11).** The corewise frame is `(B, G, G, G)`: the manifold operations take an
+  orthogonal frame `(D, U, L, R)`, and the corewise variant substitutes the point's own cores, `B` for `D` and `G` for
+  `U`, `L`, `R`, computing the corewise operation for any `B`, `G` (§1.2a). A T3's own Tucker cores are `B`, in code
+  and in text (Nick,
   2026-11-11, reinstating the draft-10 withdrawals): tier C's B rows and B5, the T3 pages and the notes (§3.3, §4.8).
   `D` is a frame's down store and its variations; directions of a point's own cores take `B` forms (D-12). `U` is the
   up store, or an SVD factor where it is one (§1.5 item 11): "definitely should not be D" (Nick).
