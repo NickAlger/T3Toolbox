@@ -1,11 +1,11 @@
-# The store rename — plan (draft 21, writer, 2026-11-11)
+# The store rename — plan (draft 22, writer, 2026-11-11)
 
-> **Status:** draft 21: Nick's rulings of 2026-11-11, critic rounds 1–20 (`dev/store_rename_plan_review_r{1,…,20}.md`),
+> **Status:** draft 22: Nick's rulings of 2026-11-11, critic rounds 1–21 (`dev/store_rename_plan_review_r{1,…,21}.md`),
 > Nick's decisions on every open item, and his review of the sample edits (`dev/store_rename_sample_edits.md`; edits
 > 1–7 approved as written, 8–10 ruled on for draft 15) and the second batch (`dev/store_rename_sample_edits_2.md`; its
 > recommended forms approved, its §12 issues fixed in draft 17), Nick's two rulings of draft 18, and the third batch (`dev/store_rename_sample_edits_3.md`; its §12 issues
-> fixed in draft 20 with the session's rulings, its §13), and R1's findings (draft 21). **The critic agreed in round
-> 21** (`dev/store_rename_plan_review_r21.md`). Next: the
+> fixed in draft 20 with the session's rulings, its §13), R1's findings (draft 21), and Nick's variation-letter rule (draft 22). **The critic agreed
+> in round 22** (`dev/store_rename_plan_review_r22.md`). Next: the
 > implementer/reviewer slices R1–R6 (§7).
 > **Breaking**; the first item of 2026.5.0. The glossary update and the 601-row docs-consistency pass
 > (`dev/glossary_naming_decisions.md`) run after it, on the renamed code.
@@ -20,6 +20,11 @@
 
 *History only: the record of how the plan got here. The instructions are the numbered sections below; where a CHANGES
 line and a section differ, the section governs.*
+
+**Draft 22 (Nick: "Tucker variations are V and TT variations are H. The D U L R are for the frames.").**
+
+- The rule is stated in §3 and §1.2a, with gate K17. The re-check of every `letter_sites.md` row and the hit table's
+  letter rows changes no row (§1.2a). Existing variation locals spelled `dB`/`dG`/`B` are listed for Nick (§1.2a).
 
 **Draft 21 (R1's findings, `dev/store_rename_slices/R1_handoff.md` §7 and `R1_review.md`; the session's rulings).**
 
@@ -436,7 +441,30 @@ text; it becomes `D+ g_new (c24)`, as inv 2 §6 and `padded_frames.py:452`'s `# 
 
 ### 1.2a The `U`-family sites (D-12; code and doctests, function by function)
 
-The rule: a name takes the letter of the object it moves. A direction, gradient or Hessian block of a point's own
+**Variations are `V` and `H`; `D`, `U`, `L`, `R` are the frames** (Nick, 2026-11-11: "Tucker variations are V and TT
+variations are H. The D U L R are for the frames."). Variation cores are `V` (Tucker) and `H` (TT) in code names,
+prose and pictures; `D`, `U`, `L`, `R` name frame cores only; a derivative or gradient with respect to a frame core
+takes that core's letter (`dD_tildes`, `Ddot`, the notes' gauged coordinates `δD_i`, which `V_i` carries); `B`, `G`
+name a point's own cores and their directions. Gate K17 (§5.3); `frame_variations_format.py:821`'s `U→V` is the model
+row.
+
+- **Re-check (draft 22).** Every row of `dev/store_rename_letter_sites.md` (314) and every tier-C, B and letter row of
+  R1's hit table was checked for a name whose value is a variation core landing on a bare frame letter. None does, and
+  no row changes. The scan's seven matches each zip a frame store with a variation, and the letter binds the store:
+  `tv_operations.py:136, 273, 827`, `_jet_trs_twins.py:92, 114`, `test_t3_orthogonalization.py:123` (`V, Oc`; `Oc` is
+  the TT output), `test_tv_operations.py:151`.
+- **Held for Nick: existing variation locals spelled with a point's letters.** These are outside the token map and
+  stay unless Nick rules; under the rule they would read `V`/`H` (or `dD` for a gradient with respect to the frame's
+  down core):
+  - `tv_operations.py`: `tv_orthogonal_gauge_projection` (`:136–138`, `for dB, U in zip(tucker_variations, …)`) and
+    `tv_oblique_gauge_projection` (`:184–190`, `dB = tucker_vars[ii]`, `dB_parallel`, beside `dG = tt_vars[ii]`):
+    proposed `dB→V`, `dB_parallel→V_parallel`, `dG→H`;
+  - `t3_linalg.py:683, 693–694` (`_inner_product_variations_step`) and `utv_operations.py:608–615`: `dB`, the frame
+    transpose's Tucker block, proposed `dD`; the comments `utv_operations.py:470, 512` ("`dB U^T`") → "`V D^T`";
+  - `probing.py:535–545` (`_assemble_tangent_z_step`): `B, dB` are the frame's down core and its variation (the
+    docstring says "the C-only frame core B"), proposed `D, V`.
+
+The rule for the `U` family: a name takes the letter of the object it moves. A direction, gradient or Hessian block of a point's own
 Tucker cores (raw-core coordinates: a corewise lift, a corewise transpose or Hessian, a raw perturbation) takes `B`
 forms. A variation or direction of a frame's down core (a tangent's Tucker variation `V`, a transpose's Tucker block, a
 kernel whose core is the frame's `D`) takes `D` forms. Every site below passed R1's freeness check in the draft-16
@@ -839,6 +867,10 @@ itself.
 
 ### 3.1 What the new letters collide with, and what is renamed instead
 
+- **Variations are `V` and `H`; `D`, `U`, `L`, `R` are the frames** (Nick, 2026-11-11). Variation cores are `V`
+  (Tucker) and `H` (TT) everywhere; a frame letter names a frame core only; a derivative or gradient with respect to a
+  frame core takes that core's letter (`dD_tildes`, `Ddot`, `δD_i`); `B`, `G` name a point's own cores and their
+  directions (§1.2a, K17).
 - **No `D` is a diagonal.** Every diagonal is spelled `diag(…)`; the one `D⁻¹` (`tests/backend/test_optimizers.py:344`)
   is in an unrelated equation (inv 3 §2, inv 1 C5).
 - **The jet shifts.** These are the library's own notation, not T4S's: forward `D x = [t x^(t-1)]_t` and reverse
@@ -1348,9 +1380,10 @@ test module (`test_frame_variations_format`, `test_uniform_frame_variations_form
 | K14 | DO-NOT-TOUCH identity (§1.5) | per file, the multiset of NAME tokens of §1.5 items 1–14, listed in R1's `dev/store_rename_dnt.txt` (file- or function-scoped for `U`, `Q`, `R`, `P`) and of `contract(`/`einsum(` string arguments is identical between `v2026.4.0` and the renamed tree. No exceptions |
 | K15 | the token map is closed (critic r9 O1) | Per file, on NAME tokens (code and doctest examples). **After R2:** R2's edits are in-place token replacements, so the old and new NAME sequences have equal length, and at every position new equals old unless R1's hit table lists that (file, line, column) with exactly that image. **After R3, R4a, R4b and R5:** `difflib` the NAME sequences against the previous slice's commit; every unequal hunk must be one the slice's handoff lists (R3: the `update` helper, steps, loops, tests; R4: §4.11's loop variables, §4 item 12's lines, §3.4's R4 dispositions). A prose-only slice leaves the NAME stream identical. Cross-check: old − new ⊆ map sources and new − old ⊆ map images ∪ the handoffs' new names (`_update_stores`, `_STORE_LETTERS`, `_COLOURS`, `n_cores`, `start_dense`, the `c`-suffixed locals, …) |
 | K16 | LaTeX width forms signed off (§4A a) | report mode: every `n_\{[DUO],`, `n\^[DUO]`, `r_\{[LR],` in the six notes, listed with its line and its before/after in the R5 handoff for explicit sign-off by the reviewer and Nick. The reviewer signs each off by §4A(f)'s contraction-size check. `n_\{O` and `n\^O` also fail K2 |
+| K17 | variations keep `V`/`H` (Nick, 2026-11-11) | over R1's hit table and every `letter_sites.md` row, at R1 (report) and R2: no NAME whose value is a variation core (bound from `tucker_variations`, `tt_variations`, `V`, `H`, `tkv`, `ttv`, a `_V`/`_H` name, or a `.variations` field, directly or as the matching element of a `zip`) is mapped to a bare frame letter (`D`, `U`, `L`, `R` and their indexed forms `D0`, `Di`, `D_r`, …). Derivative forms (`dD…`, `Ddot`, `Dd`) are allowed by the rule. No `U→D` or `O→U` letter row may land on a variation; `frame_variations_format.py:821`'s `U→V` is the model |
 
 **Scope:** `t3toolbox/`, `tests/` and `examples/` (fourteen scripts, nothing to change, checked all the same) for
-K0–K16; `docs/*.md|rst`, `docs/contributor/*`, `README.md` and `CLAUDE.md` for all but K3's code patterns and K13;
+K0–K17; `docs/*.md|rst`, `docs/contributor/*`, `README.md` and `CLAUDE.md` for all but K3's code patterns and K13;
 the tex notes for K2, K4, K7 and K8.
 
 **Carve-outs, all of them:** `CHANGELOG.md` and `docs/release_notes.md` (records; the new sections name the old
@@ -1418,7 +1451,7 @@ K9 is the only check that sees a bare word left in the old sense.
 | slice | content | gate |
 |---|---|---|
 | **R1** | Tools and inventories only, no library change: the battery (§5.1) and its reference run on the `v2026.4.0` worktree (plus the B9 files); `store_rename_apply.py` (§1.3) in dry-run mode (pass 1 into a scratch copy); `store_rename_check.py` (§5.3) in report mode; the `P`/`Q`/`U`-family inventory (§3.4) and `dev/store_rename_keeps.txt` (K9); the diagrams-and-equations inventory `dev/store_rename_slices/diagrams_inventory.md` (§4A a, committed), the FENCES drawn from it, and `store_rename_diagram_check.py` (K10) | the dry-run hit table reconciled key by key with inv 2 §8, inv 1 §7 and a fresh tokenizer scan (every difference explained); every CL row and every §3.4 hit (every `U`-named NAME token included) on `store_rename_letter_sites.md` or excluded with a reason; the freeness check (§3.4) clean; every `.tex` width subscript and letter-bearing equation line inventoried; `dnt.txt` built and disjoint from the token map; every §4A scanner candidate inventoried or dismissed; nothing outside `dev/` changed |
-| **R2** | The script (pass 1, review of the sentinel diff, pass 2), tiers A–C, over `t3toolbox/`, `tests/` and `examples/`, the four sampling modules and their twins included; tier A over the docs and `CLAUDE.md`, so the markdown doctests stay green; the 12 message tests and the 4 typo lines (§4.6, §4.11) | K0, K11, K13 (fenced spans skipped), K14 and K15 clean; battery bitwise against R1; no bijection errors; doctest outputs unchanged; the full suite, the module and markdown doctests, and the dispatch rows green. **Review stop** |
+| **R2** | The script (pass 1, review of the sentinel diff, pass 2), tiers A–C, over `t3toolbox/`, `tests/` and `examples/`, the four sampling modules and their twins included; tier A over the docs and `CLAUDE.md`, so the markdown doctests stay green; the 12 message tests and the 4 typo lines (§4.6, §4.11) | K0, K11, K13 (fenced spans skipped), K14, K15 and K17 clean; battery bitwise against R1; no bijection errors; doctest outputs unchanged; the full suite, the module and markdown doctests, and the dispatch rows green. **Review stop** |
 | **R3** | The `update` values (§1.3, §4.5, per D-2) in the backend steps, loops and kernels and the frontend twins, with its tests; the unequal-store assertions (§5.2) | battery bitwise (through the adapter); full suite; the module doctests in both environments (R3 converts doctest LETTER-API rows, e.g. `frame_variations_format.py:1850`); dispatch; K3, K11, K14 and K15 clean |
 | **R4a** | Code prose outside the sampling kernels: every tier D and tier E row in `t3toolbox/`, `tests/` and `examples/` (§4.1–4.4, 4.7, 4.10, 4.11), the free-prose store words included; every §4A block in those files rewritten by hand, before/after and the relation derivations in the handoff | suite; doctests in both environments with outputs unchanged; `sphinx -W`; K0–K10b and K13–K15 clean on those files; the reviewer has read every block |
 | **R4b** | The sampling kernels' prose (`probing`, `sampling_derivatives`, `apply`, `entries`, `utv_sampling`, `ut3_sampling`, the jet twins and curvature tests): their tier D and E rows, the shift and derivative notation (§3.1–3.2), the reworded message directions (§3.3), their §4A blocks by hand | battery bitwise; suite; doctests with outputs unchanged; K0–K15 clean on the code tree; the reviewer has read every block. **Review stop**: Nick sees the before/after of every code-tree diagram and equation (R4a's and R4b's) |
