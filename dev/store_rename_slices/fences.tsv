@@ -1,0 +1,302 @@
+id	file	first_line	last_line	col_start	col_end	fenced	kind	anchor_sha1
+DOC-BAS-0040	docs/batching_and_stacking.md	40	46	-	-	y	markdown table	29d73867b1f02eebade499f1c89d13820974ab71
+TEX-EHTH-0103	docs/exact_hessian_two_hole.tex	103	103	-	-	y	LaTeX equation line	27e652ddbf5e7981bd561faa1c09f3c977f36ff7
+TEX-EHTH-0105	docs/exact_hessian_two_hole.tex	105	105	-	-	y	LaTeX equation line	10d9cf8f0b18094d5b3085be7fff2df5575b22f9
+TEX-EHTH-0108	docs/exact_hessian_two_hole.tex	108	112	-	-	y	LaTeX equation line	73c411e1cb5ec59fd61932e02d9a20ff58d35d6e
+TEX-EHTH-0117	docs/exact_hessian_two_hole.tex	117	123	-	-	y	LaTeX equation line	c60f0eae969935216899c23d76673e7e7d8401a5
+TEX-EHTH-0125	docs/exact_hessian_two_hole.tex	125	129	-	-	y	LaTeX equation line	090a322fd637f7d3c82e5ec99eabf77af09c7e98
+TEX-EHTH-0130	docs/exact_hessian_two_hole.tex	130	132	-	-	y	LaTeX equation line	0b4ba4aaaf1cd042a37e2e9dd4555d33e388480b
+TEX-EHTH-0145	docs/exact_hessian_two_hole.tex	145	146	-	-	y	LaTeX equation line	368c333f4f20ae372d167e43ca404217d60ab956
+TEX-EHTH-0151	docs/exact_hessian_two_hole.tex	151	200	-	-	y	LaTeX table or figure	e1b26f54701069873d643efe1f2a6b100d14dd80
+TEX-EHTH-0210	docs/exact_hessian_two_hole.tex	210	211	-	-	y	LaTeX equation line	a5916a75f805a0fc388b6398996b45b292b36ed3
+TEX-EHTH-0212	docs/exact_hessian_two_hole.tex	212	216	-	-	y	LaTeX equation line	f387753ed84d5bf78d100b49902b314853e09d17
+TEX-EHTH-0221	docs/exact_hessian_two_hole.tex	221	222	-	-	y	LaTeX equation line	5c67d70f41fcf49d8ac6d2b8f9ae6bcfacd06e72
+TEX-EHTH-0225	docs/exact_hessian_two_hole.tex	225	226	-	-	y	LaTeX equation line	316e492e221d2f673cbc96b355272490fdb4bd45
+TEX-EHTH-0230	docs/exact_hessian_two_hole.tex	230	232	-	-	y	LaTeX equation line	fd4a09cf56296e91138b9427b335c184fbedfbd7
+TEX-EHTH-0237	docs/exact_hessian_two_hole.tex	237	241	-	-	y	LaTeX equation line	e99380684ff130c1f9381214bdd3b9f5dcb6dfea
+TEX-EHTH-0244	docs/exact_hessian_two_hole.tex	244	244	-	-	y	LaTeX equation line	818b958333e41a190914cf73e0afe680f67cae6e
+TEX-EHTH-0258	docs/exact_hessian_two_hole.tex	258	263	-	-	y	LaTeX equation line	ca461e599306442cc2bd603b13dd5e3d0d0b3b49
+TEX-EHTH-0283	docs/exact_hessian_two_hole.tex	283	283	-	-	y	LaTeX equation line	7ed3f10a3c0619c298a36e024bc1329c9b76f0cd
+TEX-EHTH-0288	docs/exact_hessian_two_hole.tex	288	288	-	-	y	LaTeX equation line	7913c4a5e9c5871f0044b7b0b7fe99f099fe13f7
+TEX-EHTH-0302	docs/exact_hessian_two_hole.tex	302	307	-	-	y	LaTeX equation line	b2b10cc47835eff415e4b4c2152d886450249101
+TEX-EHTH-0309	docs/exact_hessian_two_hole.tex	309	310	-	-	y	LaTeX equation line	01c5327e8a013339e8cd1ca6b7c5db5881a28067
+TEX-EHTH-0316	docs/exact_hessian_two_hole.tex	316	316	-	-	y	LaTeX equation line	496e6a9ca3d2444505535202053ab48b87e139ae
+TEX-EHTH-0317	docs/exact_hessian_two_hole.tex	317	321	-	-	y	LaTeX equation line	f9b8af56a48428ac72e57958d547e53814a8adc0
+TEX-EHTH-0322	docs/exact_hessian_two_hole.tex	322	322	-	-	y	LaTeX equation line	6df7925973003c0c4a17098acc58faeab8464d68
+TEX-EHTH-0327	docs/exact_hessian_two_hole.tex	327	329	-	-	y	LaTeX equation line	42ff9cec0ef88905b54ea7bbfb75f4266a9e35eb
+TEX-EHTH-0338	docs/exact_hessian_two_hole.tex	338	379	-	-	y	LaTeX table or figure	47dda47521ef2f303d6ee5d9beb7137bfa26dd29
+TEX-EHTH-0382	docs/exact_hessian_two_hole.tex	382	382	-	-	y	LaTeX equation line	8424710f2b1054172aa419fc986c1bac4725d5e7
+TEX-EHTH-0383	docs/exact_hessian_two_hole.tex	383	387	-	-	y	LaTeX equation line	c35d3b2d79ef60b7f55ef5f066f72a85082fa550
+TEX-EHTH-0394	docs/exact_hessian_two_hole.tex	394	394	-	-	y	LaTeX equation line	b4637495455fd84b5407e9894b64fc3851e33979
+TEX-EHTH-0399	docs/exact_hessian_two_hole.tex	399	400	-	-	y	LaTeX equation line	10dc8b0160381dda4f2d769a42c368d43df92d21
+TEX-EHTH-0404	docs/exact_hessian_two_hole.tex	404	425	-	-	y	LaTeX equation line	2a68cf4b89e89140c4848b82b75e745360f5be18
+TEX-EHTH-0478	docs/exact_hessian_two_hole.tex	478	478	-	-	y	LaTeX equation line	febbf19dfe745b43adda5bb3d28a287872402475
+TEX-EHTH-0480	docs/exact_hessian_two_hole.tex	480	480	-	-	y	LaTeX equation line	924a9a98df30430e844b4413e73396a3ca59e4fd
+TEX-EHTH-0482	docs/exact_hessian_two_hole.tex	482	495	-	-	y	LaTeX equation line	1df25b91522faa14002ae5a1d403fdeb777476cd
+TEX-EHTH-0500	docs/exact_hessian_two_hole.tex	500	500	-	-	y	LaTeX equation line	de24e0ed84edef3c8ec9f3ad76c4850b08747c1f
+TEX-EHTH-0503	docs/exact_hessian_two_hole.tex	503	521	-	-	y	LaTeX equation line	15be5fbd91db648a3d9b73ed5eb5c07295d28a41
+TEX-EHTH-0527	docs/exact_hessian_two_hole.tex	527	527	-	-	y	LaTeX equation line	54fcd056cdf76215bb998abeebcf3aa347eabba5
+TEX-EHTH-0535	docs/exact_hessian_two_hole.tex	535	535	-	-	y	LaTeX equation line	995f90d3f80032cde6b7f5c616991df1280bd841
+TEX-EHTH-0539	docs/exact_hessian_two_hole.tex	539	539	-	-	y	LaTeX equation line	687d160001afe415693d7ce61dbd38f2ec4eaf54
+TEX-EHTH-0543	docs/exact_hessian_two_hole.tex	543	543	-	-	y	LaTeX equation line	59099168cd8eb41720848383d8b041f36f5cb878
+TEX-EHTH-0545	docs/exact_hessian_two_hole.tex	545	545	-	-	y	LaTeX equation line	398eb68bae649342436bc2dec4f1edc7ffc5635b
+TEX-EHTH-0551	docs/exact_hessian_two_hole.tex	551	551	-	-	y	LaTeX equation line	7297da5a5a4a399daceb9e620401058aba163c4e
+TEX-EHTH-0554	docs/exact_hessian_two_hole.tex	554	557	-	-	y	LaTeX equation line	2af752396458c29ccb74d9e65f311b6fb0e49f7b
+TEX-EHTH-0558	docs/exact_hessian_two_hole.tex	558	558	-	-	y	LaTeX equation line	ded88f374fcf50eb0cd90f43c28e23211658fcce
+TEX-EHTH-0573	docs/exact_hessian_two_hole.tex	573	576	-	-	y	LaTeX equation line	d6029c7310b98f7a34df6ac8173233d44aaa22dd
+TEX-EHTH-0577	docs/exact_hessian_two_hole.tex	577	584	-	-	y	LaTeX equation line	b33a3d33a6c02446df7b414a589c4752038e9c1f
+TEX-EHTH-0600	docs/exact_hessian_two_hole.tex	600	600	-	-	y	LaTeX equation line	92677e6c70ca3666604ec246881f5d06e092ab52
+TEX-EHTH-0612	docs/exact_hessian_two_hole.tex	612	612	-	-	y	LaTeX equation line	8894b70453595ec5ba14dd86dff6d00a6b87755e
+TEX-EHTH-0613	docs/exact_hessian_two_hole.tex	613	617	-	-	y	LaTeX equation line	a1bce5a3c534d31d0988c10d664e1de2e63e51b7
+TEX-EHTH-0619	docs/exact_hessian_two_hole.tex	619	619	-	-	y	LaTeX equation line	0123ed352fccd6b1c1abcc0a3644ccdf0f5c53c6
+TEX-EHTH-0622	docs/exact_hessian_two_hole.tex	622	643	-	-	y	LaTeX equation line	aa953c5240e599b2fd93e4a2789f4fb6bee4ddf7
+TEX-EHTH-0645	docs/exact_hessian_two_hole.tex	645	662	-	-	y	LaTeX equation line	4c785b5308ac591f6c2b70a8ec6abff4138d99d9
+TEX-EHTH-0668	docs/exact_hessian_two_hole.tex	668	672	-	-	y	LaTeX equation line	766ea56fe0a54d8e372c7feb09a587709b9782fe
+TEX-EHTH-0696	docs/exact_hessian_two_hole.tex	696	701	-	-	y	LaTeX equation line	58b7d389ab937de5802c7e10f2a8019e01481a8d
+TEX-EHTH-0702	docs/exact_hessian_two_hole.tex	702	703	-	-	y	LaTeX equation line	efaac56bf1f1382fb79a71963d3f40de278f5657
+TEX-EHTH-0744	docs/exact_hessian_two_hole.tex	744	764	-	-	y	LaTeX equation line	6798484b5d4724d74f6734792085089f8a77df90
+TEX-EHTH-0776	docs/exact_hessian_two_hole.tex	776	776	-	-	y	LaTeX equation line	8a8eb56447b2343f600b7a857c72089b8a1ca9bf
+TEX-EHTH-0779	docs/exact_hessian_two_hole.tex	779	784	-	-	y	LaTeX equation line	82f56da6be088ec38e852e8d571830056c5fa804
+TEX-EHTH-0785	docs/exact_hessian_two_hole.tex	785	788	-	-	y	LaTeX equation line	797ff10e14d691a95ebbcb55fc1d5e428a925f37
+TEX-EHTH-0789	docs/exact_hessian_two_hole.tex	789	796	-	-	y	LaTeX equation line	d36b07ee6abbed4e656ceedd880ad20d6080b9d6
+TEX-EHTH-0801	docs/exact_hessian_two_hole.tex	801	823	-	-	y	LaTeX table or figure	8f52b26c77a412abe02791c3c1ad3c3c97b996e9
+TEX-EHTH-0825	docs/exact_hessian_two_hole.tex	825	840	-	-	y	LaTeX equation line	fc80363376c39abcd04d017d9c19c6e5c8b724dc
+TEX-EHTH-0860	docs/exact_hessian_two_hole.tex	860	861	-	-	y	LaTeX equation line	00697a49eee3011cd26c3d88adf5a79b495e95b5
+TEX-EHTH-0863	docs/exact_hessian_two_hole.tex	863	863	-	-	y	LaTeX equation line	4ee3d26f530e230103bbd08fb0ce65634192ce8d
+TEX-EHTH-0865	docs/exact_hessian_two_hole.tex	865	870	-	-	y	LaTeX equation line	1e0768fa15f28e98d9a91e5d38e220a1487f6e8b
+TEX-EHTH-0871	docs/exact_hessian_two_hole.tex	871	871	-	-	y	LaTeX equation line	c8db53443877a75524c93ace31fdcf9f15034a4f
+TEX-EHTH-0888	docs/exact_hessian_two_hole.tex	888	901	-	-	y	LaTeX equation line	accb34f5fce2006df1ee63fc2674fb5b41dab011
+TEX-EHTH-0913	docs/exact_hessian_two_hole.tex	913	927	-	-	y	LaTeX equation line	99a2404f31ddb7d774a8b9ecc7efb1105f281f25
+TEX-EHTH-0934	docs/exact_hessian_two_hole.tex	934	934	-	-	y	LaTeX equation line	cafb1fa94ea6988e667a1dd5f2d8102c5f3a131e
+TEX-EHTH-0961	docs/exact_hessian_two_hole.tex	961	988	-	-	y	LaTeX equation line	db265cbee4bc26924809a92be8bf010ce3f22623
+TEX-EHTH-1006	docs/exact_hessian_two_hole.tex	1006	1033	-	-	y	LaTeX table or figure	f77ee9ec6ecb1eec2a49484fb80dfd95de721df1
+TEX-EHTH-1053	docs/exact_hessian_two_hole.tex	1053	1053	-	-	y	LaTeX equation line	e191ea8233440deb554e5761652fc2de996299f1
+DOC-FV-0014	docs/frame_variations.md	14	16	-	-	y	ascii diagram	e779a068931c66f0ccf2ef8a65125128e2e222ea
+DOC-FV-0023	docs/frame_variations.md	23	30	-	-	y	markdown table	1ef69505a4b01f381e8a8a2e8c43eca99b7035c1
+DOC-FV-0057	docs/frame_variations.md	57	57	-	-	y	index equation	b8ac1fd2eb3ba3e76ecf778fdd17a0cc7730714b
+DOC-FV-0080	docs/frame_variations.md	80	85	-	-	y	markdown table	1f23c1f80f22a9334c7e69d343bb76897b446b28
+DOC-G-0106	docs/glossary.md	106	106	-	-	y	index equation	fbe61b7448782be6a2675adc06053779f1316f31
+DOC-G-0273	docs/glossary.md	273	273	-	-	y	index equation	ea32e6d05a2cfe64008ab00da781f678886841ee
+TEX-PSS-0049	docs/pad_safe_svd.tex	49	49	-	-	y	LaTeX equation line	87b3f96996b1a177366bc67714ba9c25fdf1f566
+TEX-PSS-0065	docs/pad_safe_svd.tex	65	67	-	-	y	LaTeX equation line	b136447cf408d7072e7f652bf29ea3143ba1a47b
+TEX-PSS-0068	docs/pad_safe_svd.tex	68	68	-	-	y	LaTeX equation line	7db4bd2907129c913fbf37f9a684940f06a9015a
+TEX-PSS-0086	docs/pad_safe_svd.tex	86	87	-	-	y	LaTeX equation line	fc92d45a94988e34754e11be55cf0049ae0f8299
+TEX-PSS-0120	docs/pad_safe_svd.tex	120	120	-	-	y	LaTeX equation line	f8590b2bc83c2c3345d80d0a5b99abf04c6907b1
+TEX-PSS-0144	docs/pad_safe_svd.tex	144	144	-	-	y	LaTeX equation line	a8add80cb7bdaa9ced21eee32e10a50240df9eba
+TEX-PSS-0147	docs/pad_safe_svd.tex	147	147	-	-	y	LaTeX equation line	66b793d6ad92a5258ff9afa9b9762a0f32986ec6
+TEX-PSS-0149	docs/pad_safe_svd.tex	149	149	-	-	y	LaTeX equation line	138cbfa02d54ae7f2a0285816f6d357aea93ac30
+TEX-PSS-0163	docs/pad_safe_svd.tex	163	163	-	-	y	LaTeX equation line	6fce67e9b3964c174483335adcb1ef036bdbec85
+TEX-PSS-0183	docs/pad_safe_svd.tex	183	183	-	-	y	LaTeX equation line	48707f0c06df917cbb462271f65facf6b0a3f1c0
+TEX-PSS-0185	docs/pad_safe_svd.tex	185	185	-	-	y	LaTeX equation line	c0b27c2b79a9980867ed8e1d7c2ba9724b83f222
+TEX-PSS-0195	docs/pad_safe_svd.tex	195	195	-	-	y	LaTeX equation line	07208ad2f5b31b7efcec8e9d58fd45a5b0bf9fb6
+TEX-PSS-0197	docs/pad_safe_svd.tex	197	197	-	-	y	LaTeX equation line	16f7fb46c2685a68bc44d0a7ae993387c66b83c5
+TEX-PSS-0205	docs/pad_safe_svd.tex	205	206	-	-	y	LaTeX equation line	272de87661895088c3c610c4ffc329d1b1b7fe72
+TEX-PSS-0221	docs/pad_safe_svd.tex	221	221	-	-	y	LaTeX equation line	b937c9d310e084b63611a91bf4a7a2fb29217492
+TEX-PSS-0223	docs/pad_safe_svd.tex	223	223	-	-	y	LaTeX equation line	83f8fe5324f68be414b0864302dcc3dc1302aa8a
+TEX-PSS-0226	docs/pad_safe_svd.tex	226	226	-	-	y	LaTeX equation line	7fe5102f652c5ecb06112041fc69fb5ad2a1d398
+TEX-PSS-0235	docs/pad_safe_svd.tex	235	236	-	-	y	LaTeX equation line	2e69cb55bdcca8901dc79ba315815147284d4048
+TEX-PSS-0240	docs/pad_safe_svd.tex	240	240	-	-	y	LaTeX equation line	be91d6ab07eaf0008b77bbffe58f08a0169c19a5
+TEX-PSS-0243	docs/pad_safe_svd.tex	243	243	-	-	y	LaTeX equation line	32b837d00e4ed682240fada49ec7769311d1b7aa
+TEX-PSS-0274	docs/pad_safe_svd.tex	274	274	-	-	y	LaTeX equation line	f12582b99938b8e3f1522bd9fbad93a685389009
+TEX-PSS-0276	docs/pad_safe_svd.tex	276	276	-	-	y	LaTeX equation line	b94c43fb195bc83d5ae08e39b9874a33d82fa400
+TEX-PSS-0322	docs/pad_safe_svd.tex	322	322	-	-	y	LaTeX equation line	b872600b8150e19e2a237f3eb9e0931db86302df
+TEX-PSS-0350	docs/pad_safe_svd.tex	350	350	-	-	y	LaTeX equation line	fd46b416b00ddc4e0741b776d505e2631d73ff31
+TEX-PSS-0354	docs/pad_safe_svd.tex	354	355	-	-	y	LaTeX equation line	df0af53926028710da6c5bcda1a974e938eb0a91
+TEX-PSS-0358	docs/pad_safe_svd.tex	358	359	-	-	y	LaTeX equation line	4110cd1e7cd5555451c9719f2756cc71749de80e
+TEX-PSS-0362	docs/pad_safe_svd.tex	362	362	-	-	y	LaTeX equation line	33010d36f19870bfd065c0c219a74de090432be6
+TEX-PSS-0384	docs/pad_safe_svd.tex	384	384	-	-	y	LaTeX equation line	7eb05cba83bb9d1998c17b9344a45f75d9fcaf24
+TEX-PSS-0424	docs/pad_safe_svd.tex	424	424	-	-	y	LaTeX equation line	40fe8d9edd858d2f4c758faa6304457bee8be34e
+TEX-PSS-0426	docs/pad_safe_svd.tex	426	426	-	-	y	LaTeX equation line	a473b0c3eb4a0fc021feae2c88dedf05088d39b5
+TEX-PSS-0427	docs/pad_safe_svd.tex	427	429	-	-	y	LaTeX equation line	6014749061bb87716f7516450cca83195e12289d
+TEX-PSS-0430	docs/pad_safe_svd.tex	430	431	-	-	y	LaTeX equation line	07468a8f8935cb1eacecc8e8e4a368da314b92d4
+TEX-PFC-0096	docs/padded_frame_cone.tex	96	97	-	-	y	LaTeX equation line	0e007ffd015038f429c2c0a780ad44faa82d7ece
+TEX-PFC-0102	docs/padded_frame_cone.tex	102	116	-	-	y	LaTeX table or figure	a53eeceafa8eef200dd03a6955a9b44299fad76f
+TEX-PFC-0120	docs/padded_frame_cone.tex	120	120	-	-	y	LaTeX equation line	e8265de024b10f7e7f7325df95835b7a70c9c639
+TEX-PFC-0140	docs/padded_frame_cone.tex	140	141	-	-	y	LaTeX equation line	685a6e6c4a07b631e8eea9b9ff3826864cb08aa4
+TEX-PFC-0152	docs/padded_frame_cone.tex	152	153	-	-	y	LaTeX equation line	4e01c4e48068644e29f7f8daa849c64372519d1a
+TEX-PFC-0171	docs/padded_frame_cone.tex	171	172	-	-	y	LaTeX equation line	43cc9fed8b6a6be7dbce88919ef8738542a38572
+TEX-PFC-0174	docs/padded_frame_cone.tex	174	175	-	-	y	LaTeX equation line	6242986e00b601e31ec3262718285e199f8796ee
+TEX-PFC-0188	docs/padded_frame_cone.tex	188	188	-	-	y	LaTeX equation line	b4e34bb211b94890f0661b894fb82f07311ed3f8
+TEX-PFC-0195	docs/padded_frame_cone.tex	195	195	-	-	y	LaTeX equation line	cde52314cad345a37ae9320b55ec04a79597fbb8
+TEX-PFC-0196	docs/padded_frame_cone.tex	196	198	-	-	y	LaTeX equation line	03b7c8a41f85c6e85472183289e90243cd7e4fc6
+TEX-PFC-0199	docs/padded_frame_cone.tex	199	200	-	-	y	LaTeX equation line	6435a75153cbd01da9c20e83932083dc7b2ea0cf
+TEX-PFC-0206	docs/padded_frame_cone.tex	206	207	-	-	y	LaTeX equation line	1028cf097b116e9c415acca2a148e10644a04719
+TEX-PFC-0209	docs/padded_frame_cone.tex	209	212	-	-	y	LaTeX equation line	af87e544ddf44383d58ed1441df4579a58cf493a
+TEX-PFC-0216	docs/padded_frame_cone.tex	216	220	-	-	y	LaTeX equation line	4d76b02087c53f141cdfdb8ff897e904facc5d73
+TEX-PFC-0221	docs/padded_frame_cone.tex	221	221	-	-	y	LaTeX equation line	514038963955c62db10b3c4512c9a69a49759a54
+TEX-PFC-0225	docs/padded_frame_cone.tex	225	225	-	-	y	LaTeX equation line	a5ab19041b0f2f444bcb5e3fde528ec87ff64af9
+TEX-PFC-0242	docs/padded_frame_cone.tex	242	242	-	-	y	LaTeX equation line	d7856bc413b94a79e40862eb094d9d629e44adb1
+TEX-PFC-0258	docs/padded_frame_cone.tex	258	259	-	-	y	LaTeX equation line	262e7543ca965b1b90e36df04b475f0430aa5f38
+TEX-PFC-0261	docs/padded_frame_cone.tex	261	261	-	-	y	LaTeX equation line	5eedabe586b469d7dc5570e10313eda229e64b7f
+TEX-PFC-0278	docs/padded_frame_cone.tex	278	278	-	-	y	LaTeX equation line	d9584a0c90242cba0878c3cc34b2c785a821a399
+TEX-PFC-0280	docs/padded_frame_cone.tex	280	289	-	-	y	LaTeX table or figure	2cf09c8462734bf48d627dddb1540f35ee5274c4
+TEX-PFC-0292	docs/padded_frame_cone.tex	292	292	-	-	y	LaTeX equation line	38d4d9a91d9985fca8757197f43d708339af8483
+TEX-PFC-0298	docs/padded_frame_cone.tex	298	300	-	-	y	LaTeX equation line	f5d5bfdbb174a09d498e6e86c47f8d598e453fb2
+TEX-PFC-0303	docs/padded_frame_cone.tex	303	303	-	-	y	LaTeX equation line	a9615a7a481bef275d19bf66996b4e7cb550b495
+TEX-PFC-0306	docs/padded_frame_cone.tex	306	323	-	-	y	LaTeX equation line	bd7d74cc156413056c535d96e978987056ae9311
+TEX-PFC-0330	docs/padded_frame_cone.tex	330	330	-	-	y	LaTeX equation line	7da392133abeb2ea5aabf50b3d908fa050d7f9d3
+TEX-PFC-0405	docs/padded_frame_cone.tex	405	405	-	-	y	LaTeX equation line	11743db33e20746cfe3f40123c248c31f66680e2
+TEX-PFC-0451	docs/padded_frame_cone.tex	451	451	-	-	y	LaTeX equation line	923e305de97710c3abdb043342f5df2b333b723a
+TEX-STM-0066	docs/shared_t3_math.tex	66	70	-	-	y	LaTeX equation line	f825464e186a0ac68351d519ccca4e664500519d
+TEX-STM-0071	docs/shared_t3_math.tex	71	71	-	-	y	LaTeX equation line	8145519e2a88bbc9f8c5addc35b30b2be42111ef
+TEX-STM-0082	docs/shared_t3_math.tex	82	82	-	-	y	LaTeX equation line	69ab3afbb34b0d7dd5be601000190066051dfe62
+TEX-STM-0104	docs/shared_t3_math.tex	104	104	-	-	y	LaTeX equation line	8ea3be1f08304d22eda65a7a62a813ee082c13e3
+TEX-STM-0118	docs/shared_t3_math.tex	118	120	-	-	y	LaTeX equation line	b2d706923a7c805ba0a565a04f68cc7122757a90
+TEX-STM-0122	docs/shared_t3_math.tex	122	126	-	-	y	LaTeX equation line	f29964665398744685fe297a783d19b78f904856
+TEX-STM-0147	docs/shared_t3_math.tex	147	147	-	-	y	LaTeX equation line	401829b3579b68ab0ef24acbb3b1e2f7f86a4a6e
+TEX-STM-0168	docs/shared_t3_math.tex	168	168	-	-	y	LaTeX equation line	5071fb5b1056b68c0edef10cdf10c21031f5438f
+TEX-STM-0170	docs/shared_t3_math.tex	170	171	-	-	y	LaTeX equation line	e964ede29029aad83c3cd3d347b38212ac850603
+TEX-STM-0179	docs/shared_t3_math.tex	179	202	-	-	y	LaTeX equation line	6af64fe880b0ecde729016c3038f60fefef165c9
+TEX-STM-0205	docs/shared_t3_math.tex	205	205	-	-	y	LaTeX equation line	d8a10f7954432101d32f1541816d536081f25622
+TEX-STM-0208	docs/shared_t3_math.tex	208	217	-	-	y	LaTeX equation line	ab1066da8586d2df73dc71a7c5bfe8f0f8a10fc0
+TEX-STM-0221	docs/shared_t3_math.tex	221	222	-	-	y	LaTeX equation line	237dd90e95fa99ea673938915dc2c3fbbaed0d37
+TEX-STM-0272	docs/shared_t3_math.tex	272	289	-	-	y	LaTeX equation line	9bd01d673332caa7bd13e2c9772611422f73480b
+TEX-STM-0292	docs/shared_t3_math.tex	292	293	-	-	y	LaTeX equation line	cdc712d04c89d06649186f4bf10ed5163bfd9a6c
+TEX-STM-0306	docs/shared_t3_math.tex	306	306	-	-	y	LaTeX equation line	b2289d55aba5a56dc7aed64d66ab67251734c9be
+TEX-STM-0325	docs/shared_t3_math.tex	325	325	-	-	y	LaTeX equation line	2a5c8aadf781fc7558232269b7333c43d4ca871a
+TEX-STM-0347	docs/shared_t3_math.tex	347	348	-	-	y	LaTeX equation line	3fe5a4a413893aec16dca69f10fbad016ac11db3
+TEX-STM-0349	docs/shared_t3_math.tex	349	351	-	-	y	LaTeX equation line	938e990c88138e4e908171748a94f8d6eb1b11d0
+TEX-STM-0358	docs/shared_t3_math.tex	358	358	-	-	y	LaTeX equation line	4e15b74cb6be658b5d413ac6a6d20181b01337d0
+TEX-STM-0360	docs/shared_t3_math.tex	360	360	-	-	y	LaTeX equation line	2814e2eada8af719522814506a15cc898636520c
+TEX-STM-0363	docs/shared_t3_math.tex	363	363	-	-	y	LaTeX equation line	8efcf8f4215a22c12ba22b2740760014ef30fc0e
+TEX-STM-0366	docs/shared_t3_math.tex	366	367	-	-	y	LaTeX equation line	3c7ff9483db1ef0dd8cc45e075702e182465a203
+TEX-STM-0377	docs/shared_t3_math.tex	377	384	-	-	y	LaTeX equation line	b53b10872ea07cb69b752b07fc7e78c30f1c7312
+TEX-STM-0385	docs/shared_t3_math.tex	385	385	-	-	y	LaTeX equation line	db87ce16abcd58d0681bc397c56c2455eacbf29f
+TEX-STM-0393	docs/shared_t3_math.tex	393	393	-	-	y	LaTeX equation line	b210dfc6d8a6cac54b62603af7618566243ac914
+TEX-STM-0395	docs/shared_t3_math.tex	395	395	-	-	y	LaTeX equation line	09bd6e208869a751c2e8bab5b9c84669ecfe1f6f
+TEX-STM-0397	docs/shared_t3_math.tex	397	398	-	-	y	LaTeX equation line	a94c8def1b0928516b63fdf1254520f4fe0c4f5e
+TEX-STM-0404	docs/shared_t3_math.tex	404	410	-	-	y	LaTeX equation line	45aafc7b40cd9b306359c80a7bd0a3aa295ebb66
+TEX-STM-0412	docs/shared_t3_math.tex	412	414	-	-	y	LaTeX equation line	6b866e6cf2c0fc310885e29d308c7f1706636261
+TEX-STM-0442	docs/shared_t3_math.tex	442	442	-	-	y	LaTeX equation line	1e86dacb3c09678b14305d4075470119231bf335
+TEX-STM-0444	docs/shared_t3_math.tex	444	444	-	-	y	LaTeX equation line	22eff7eb810368e5ff1cc3432eeb62662edecc68
+TEX-STM-0446	docs/shared_t3_math.tex	446	446	-	-	y	LaTeX equation line	df0a104c75b2432db76a6aeb8d3e480c8c8be82a
+TEX-STM-0449	docs/shared_t3_math.tex	449	449	-	-	y	LaTeX equation line	7f4ba7a2a8246bb43676eb80cb8abddcce944046
+TEX-STM-0472	docs/shared_t3_math.tex	472	472	-	-	y	LaTeX equation line	e63df0326618cbc43369c04dceed6ca11daddbd5
+TEX-STM-0473	docs/shared_t3_math.tex	473	475	-	-	y	LaTeX equation line	4b488c3a81e5b6539b66e699c609e6169f5aa9fd
+TEX-STM-0484	docs/shared_t3_math.tex	484	484	-	-	y	LaTeX equation line	ffa21a533e3f8cc62157ecfa4ca6ed858975e8ac
+TEX-STM-0489	docs/shared_t3_math.tex	489	489	-	-	y	LaTeX equation line	c5e3d7925cda51c842f24cea8dee9c1d12a0fd2d
+TEX-STM-0491	docs/shared_t3_math.tex	491	492	-	-	y	LaTeX equation line	d7451a5708c0734147dd5b1f9e4830f3c6f78d0f
+TEX-STM-0551	docs/shared_t3_math.tex	551	551	-	-	y	LaTeX equation line	8938999747a30a29b9559b92229ab91d9f8eb087
+TEX-STM-0553	docs/shared_t3_math.tex	553	553	-	-	y	LaTeX equation line	cda4c674cce8c3ace7e1e7d0474e28d32895f42a
+TEX-STM-0566	docs/shared_t3_math.tex	566	566	-	-	y	LaTeX equation line	e94bdbf1826a41ebcca9aae39f744c7e9aa2e3fa
+TEX-SPD-0048	docs/symmetric_probe_derivatives.tex	48	48	-	-	y	LaTeX equation line	b4334a395d1d363c702524e84ed3d86e475f6493
+TEX-SPD-0066	docs/symmetric_probe_derivatives.tex	66	67	-	-	y	LaTeX equation line	adc844c933e17964bd4b8fb5644c8e968b4a578d
+TEX-SPD-0085	docs/symmetric_probe_derivatives.tex	85	98	-	-	y	LaTeX equation line	e0d5c71682927c2fb079f71cedacc995da48f630
+TEX-SPD-0101	docs/symmetric_probe_derivatives.tex	101	101	-	-	y	LaTeX equation line	ac2744d2635eb3ae7b06ecb255d98e95b729bf26
+TEX-SPD-0105	docs/symmetric_probe_derivatives.tex	105	105	-	-	y	LaTeX equation line	fbad8f9b1a35411bd81b88b67e45cdf3769ba84e
+TEX-SPD-0107	docs/symmetric_probe_derivatives.tex	107	107	-	-	y	LaTeX equation line	37e12824aae3aa3e3b7c2711a810be8a3b90202d
+TEX-SPD-0108	docs/symmetric_probe_derivatives.tex	108	113	-	-	y	LaTeX equation line	8ac5ce0696cbe4f8a70cc575ae862590517aac6a
+TEX-SPD-0121	docs/symmetric_probe_derivatives.tex	121	121	-	-	y	LaTeX equation line	be2991ff3b4aac1c24c9e95d693de6dcc42c7b02
+TEX-SPD-0126	docs/symmetric_probe_derivatives.tex	126	126	-	-	y	LaTeX equation line	2bc854f486dc99888acde6653b9ea5a977e79bc4
+TEX-SPD-0127	docs/symmetric_probe_derivatives.tex	127	131	-	-	y	LaTeX equation line	4553c0d6b358620951ad44f6f4e67b56b4eca051
+TEX-SPD-0144	docs/symmetric_probe_derivatives.tex	144	147	-	-	y	LaTeX equation line	873ff380f17e13a5398cf376397298e22ca7941d
+TEX-SPD-0152	docs/symmetric_probe_derivatives.tex	152	152	-	-	y	LaTeX equation line	16ba005065dc1f15a20a6a1419e9c634fd183cee
+TEX-SPD-0158	docs/symmetric_probe_derivatives.tex	158	159	-	-	y	LaTeX equation line	62f132c3b729e50efa8333eeb3fcf01ff07aed6a
+TEX-SPD-0161	docs/symmetric_probe_derivatives.tex	161	165	-	-	y	LaTeX equation line	9dc02e888127f8147b7a960f2529f7bc3e8508d4
+TEX-SPD-0169	docs/symmetric_probe_derivatives.tex	169	170	-	-	y	LaTeX equation line	f957ac5ae2a2c12a4aee224fe566f6e1ebd85851
+TEX-SPD-0195	docs/symmetric_probe_derivatives.tex	195	195	-	-	y	LaTeX equation line	f8240957feebc47c4ec8da24a7858ccb58ad022c
+TEX-SPD-0217	docs/symmetric_probe_derivatives.tex	217	217	-	-	y	LaTeX equation line	23093c8b2a6ac00a42b55b30f56a4a0bf60d0010
+TEX-SPD-0241	docs/symmetric_probe_derivatives.tex	241	248	-	-	y	LaTeX equation line	45f6d6dc13c242dc0a2361f929d22475da17e5ff
+TEX-SPD-0252	docs/symmetric_probe_derivatives.tex	252	253	-	-	y	LaTeX equation line	50f2152d7d360aa860ee339e5918b8adaca5643d
+TEX-SPD-0256	docs/symmetric_probe_derivatives.tex	256	257	-	-	y	LaTeX equation line	1ceefb3308be2a09173dc79ca138a1e7c4086b52
+TEX-SPD-0276	docs/symmetric_probe_derivatives.tex	276	302	-	-	y	LaTeX equation line	4ec20edde207132571c0ec979dec9481498e29a2
+TEX-SPD-0349	docs/symmetric_probe_derivatives.tex	349	349	-	-	y	LaTeX equation line	8cf1119c30c74f2cdbaf440a5f684e46d787c69f
+TEX-SPD-0353	docs/symmetric_probe_derivatives.tex	353	353	-	-	y	LaTeX equation line	66840ae6c5b69ccae309b9f6d78dea163db88137
+TEX-SPD-0373	docs/symmetric_probe_derivatives.tex	373	374	-	-	y	LaTeX equation line	d7920aae11ee0edb220b3feeda6beaeeb69c088c
+TEX-SPD-0377	docs/symmetric_probe_derivatives.tex	377	383	-	-	y	LaTeX equation line	25569e742d52afe4737b0ea756cde16120161e69
+TEX-SPD-0384	docs/symmetric_probe_derivatives.tex	384	384	-	-	y	LaTeX equation line	159cf6802c1e437eac8acd640669a98a2e9eff55
+TEX-SPD-0386	docs/symmetric_probe_derivatives.tex	386	399	-	-	y	LaTeX equation line	16bd26190d031eaa5e68fdda19eda39c3dc28499
+TEX-SPD-0403	docs/symmetric_probe_derivatives.tex	403	403	-	-	y	LaTeX equation line	a160d4c5c7247adb916033ce5b613d36e4abacfd
+TEX-SPD-0407	docs/symmetric_probe_derivatives.tex	407	408	-	-	y	LaTeX equation line	ebd4bb068c3774a72089ab68b73c8f78b9f2ea48
+TEX-SPD-0410	docs/symmetric_probe_derivatives.tex	410	419	-	-	y	LaTeX equation line	244374735d3a18d97af61c695eac3da7aa2f8aab
+TEX-SPD-0428	docs/symmetric_probe_derivatives.tex	428	428	-	-	y	LaTeX equation line	edba608b2d19a85e2b5202ef1b2b0bbd9f43d5ca
+TEX-SPD-0438	docs/symmetric_probe_derivatives.tex	438	438	-	-	y	LaTeX equation line	3152c9aed0ad19cd2e9fa1d950e31313e66edaff
+TEX-SPD-0445	docs/symmetric_probe_derivatives.tex	445	449	-	-	y	LaTeX equation line	9c972faf4b1271aed05a912fde8e95e48787b18a
+TEX-SPD-0452	docs/symmetric_probe_derivatives.tex	452	452	-	-	y	LaTeX equation line	2ab03ec7c40dead7a8f96e1bb6958a36f2b3fc7a
+TEX-SPD-0454	docs/symmetric_probe_derivatives.tex	454	454	-	-	y	LaTeX equation line	3313ec1be1efacf24f5182a59df6888aee69c49b
+TEX-SPD-0456	docs/symmetric_probe_derivatives.tex	456	456	-	-	y	LaTeX equation line	ec36d61de03a62f048fbf8cb7be96b112a9ef825
+TEX-SPD-0457	docs/symmetric_probe_derivatives.tex	457	461	-	-	y	LaTeX equation line	91e8f7641d86fd506b8eca0469b25b0c4cfa60b2
+TEX-SPD-0466	docs/symmetric_probe_derivatives.tex	466	466	-	-	y	LaTeX equation line	d5ca3b6b2bf5dd0e44c128084f8b0ef05acad5aa
+TEX-SPD-0482	docs/symmetric_probe_derivatives.tex	482	482	-	-	y	LaTeX equation line	5ef1ae9f34704c817157ecc20525ef1612df85b0
+TEX-SPD-0485	docs/symmetric_probe_derivatives.tex	485	485	-	-	y	LaTeX equation line	3b1d46ddc69d686389b187066c8166d94aa69ac9
+TEX-SPD-0500	docs/symmetric_probe_derivatives.tex	500	500	-	-	y	LaTeX equation line	6b9498c9df9440c62d8b1f938f9eae6f1d079bbd
+TEX-SPD-0502	docs/symmetric_probe_derivatives.tex	502	507	-	-	y	LaTeX equation line	dff74ea3b4329c4e3d233bf832e3bcc1d93c2587
+TEX-SPD-0540	docs/symmetric_probe_derivatives.tex	540	540	-	-	y	LaTeX equation line	60a01678732662e4f59a30167cc49731680a20ec
+TEX-SPD-0542	docs/symmetric_probe_derivatives.tex	542	543	-	-	y	LaTeX equation line	dbfa814a1818f6294d425d55830651aa8bdee09b
+TEX-SPD-0547	docs/symmetric_probe_derivatives.tex	547	547	-	-	y	LaTeX equation line	01e15c8209fbfc0ee867144125a992537fed922c
+TEX-SPD-0559	docs/symmetric_probe_derivatives.tex	559	559	-	-	y	LaTeX equation line	f2363eed8438686a64e57c680fcab21df6e12fb9
+TEX-SPD-0631	docs/symmetric_probe_derivatives.tex	631	631	-	-	y	LaTeX equation line	e86928c90f0410229b4cbae876808c64c9aa1548
+TEX-SPD-0633	docs/symmetric_probe_derivatives.tex	633	633	-	-	y	LaTeX equation line	4b79e9c453847ff2d8c2701c0c89edc760aff6b0
+TEX-TTHN-0073	docs/ttm_t3m_ht_note.tex	73	77	-	-	y	LaTeX equation line	f836068c8bd804e67cc00730faf92978fd0418cd
+TEX-TTHN-0078	docs/ttm_t3m_ht_note.tex	78	78	-	-	y	LaTeX equation line	271c35681cab4437e13045062057186094eed98d
+TEX-TTHN-0080	docs/ttm_t3m_ht_note.tex	80	80	-	-	y	LaTeX equation line	1c2ecfa11e6be2abeb5f09381a3f8e640526dc77
+TEX-TTHN-0084	docs/ttm_t3m_ht_note.tex	84	87	-	-	y	LaTeX equation line	7aa7068718bc601bc958968e36a6b66e62db35ee
+TEX-TTHN-0092	docs/ttm_t3m_ht_note.tex	92	97	-	-	y	LaTeX equation line	53dc569a37a582661017a4c6e48100de033e5880
+TEX-TTHN-0099	docs/ttm_t3m_ht_note.tex	99	99	-	-	y	LaTeX equation line	7ba8e1b48726868797cfe57b679cd0a50e27b20b
+TEX-TTHN-0114	docs/ttm_t3m_ht_note.tex	114	130	-	-	y	LaTeX equation line	0fb7501ad8384370c303cf37c2ccb386a8d39324
+TEX-TTHN-0133	docs/ttm_t3m_ht_note.tex	133	133	-	-	y	LaTeX equation line	081f91de96633c8fcaae693af997efe125176f09
+TEX-TTHN-0149	docs/ttm_t3m_ht_note.tex	149	149	-	-	y	LaTeX equation line	ab0265af99f061cf7708573548282398af36b258
+TEX-TTHN-0151	docs/ttm_t3m_ht_note.tex	151	153	-	-	y	LaTeX equation line	9c70fde6c0ccfd284332695c4c1f0d4a67fa72b0
+TEX-TTHN-0158	docs/ttm_t3m_ht_note.tex	158	178	-	-	y	LaTeX equation line	c145f4a1d58d26c63dc023d4f054cb215926fe6e
+TEX-TTHN-0186	docs/ttm_t3m_ht_note.tex	186	186	-	-	y	LaTeX equation line	cd316b7b13284e12acd6edfabbf02ec89419985b
+TEX-TTHN-0217	docs/ttm_t3m_ht_note.tex	217	218	-	-	y	LaTeX equation line	ae30ebe5ad1debe506fea71d27d335349e193941
+TEX-TTHN-0222	docs/ttm_t3m_ht_note.tex	222	230	-	-	y	LaTeX table or figure	102d72a230dc2cdfcb961499a2e272853a611948
+TEX-TTHN-0237	docs/ttm_t3m_ht_note.tex	237	241	-	-	y	LaTeX equation line	85951fcd351f5f022c1aed441b130af458378605
+DOC-UG-0125	docs/user_guide.rst	125	133	-	-	y	ascii diagram	f3105b90e1406aa7f98ccf646ef5f2f9e59ee919
+DOC-UG-0139	docs/user_guide.rst	139	142	-	-	y	shape listing	b3b174184bedb431e30ce18f2ec99dffda6eda0a
+DOC-UG-0215	docs/user_guide.rst	215	218	-	-	y	index equation	98889ed494389aa7cfce93d432090af46569b827
+DOC-W-0069	docs/weighting.md	69	74	-	-	y	markdown table	54e90523ce7b18f45de9dc2a6db3316ef58cae41
+A-0465	t3toolbox/backend/apply.py	465	467	-	-	y	index equation	654fd3a5e3672ef8c40827b0da0fd351b253108a
+FO-0201	t3toolbox/backend/fv_operations.py	201	202	-	-	y	shape listing	b3e0413d7b538f76f7817295d586d2bab34bb04c
+PF-0041	t3toolbox/backend/padded_frames.py	41	41	-	-	y	shape listing	26d47ad72d389fee1061a02fa100e2f00033799b
+PF-0043	t3toolbox/backend/padded_frames.py	43	43	-	-	y	shape listing	b640d057ecf930883ed03519c3bd89037780f47d
+P-0640	t3toolbox/backend/probing.py	640	643	40	-	y	field-comment relation	e20a65a15ca41a0ffd23f3754a68e43ada7830d7
+P-0646	t3toolbox/backend/probing.py	646	649	26	-	y	field-comment relation	7f952b631693ee4aaf87348f6566c7f513270bcf
+P-0651	t3toolbox/backend/probing.py	651	651	11	-	y	index equation	f0e7947832882bb8166b2c1d97ea23b780751070
+P-1215	t3toolbox/backend/probing.py	1215	1218	40	-	y	field-comment relation	e20a65a15ca41a0ffd23f3754a68e43ada7830d7
+P-1221	t3toolbox/backend/probing.py	1221	1224	26	-	y	field-comment relation	7f952b631693ee4aaf87348f6566c7f513270bcf
+P-1226	t3toolbox/backend/probing.py	1226	1226	11	-	y	index equation	f0e7947832882bb8166b2c1d97ea23b780751070
+RA-0644	t3toolbox/backend/ranks.py	644	647	-	-	y	index equation	f6d84ecc31ac05c21bf4b0a0c754e8335a42f841
+T3OR-0044	t3toolbox/backend/t3_orthogonalization.py	44	46	-	-	y	index equation	843820c1bbd4df9f15eb89501c4386a4b74bddcf
+TVOP-0108	t3toolbox/backend/tv_operations.py	108	108	-	-	y	index equation	526d67a5b99b2b02fce643886262f3d07b771953
+UFOP-0083	t3toolbox/backend/ufv_operations.py	83	83	-	-	y	index equation	7d1aa30e474ac8d63d6a8820c1c82070c6382cd4
+UPF-0047	t3toolbox/backend/uniform_padded_frames.py	47	48	-	-	y	shape listing	a6d552b0ca92d082530d38fa24f60243364b9d48
+UPF-0050	t3toolbox/backend/uniform_padded_frames.py	50	50	-	-	y	shape listing	eba206d6e91b1f6e7017d50cb2a6a85bec4ef012
+UTVOPE-0314	t3toolbox/backend/utv_operations.py	314	315	-	-	y	index equation	7ca957f87b26bf0c4caa590360f5e102e0a14236
+UTVOPE-0538	t3toolbox/backend/utv_operations.py	538	539	-	-	y	index equation	0433a0d4e573c24d11a03a85ebbd1a628e6987f5
+FVF-0058a	t3toolbox/frame_variations_format.py	58	61	8	32	y	ascii diagram	b1285f27dd8d64a6f85ee5e2029aeb1afae089a0
+FVF-0058b	t3toolbox/frame_variations_format.py	58	61	32	56	y	ascii diagram	3649b8dac5f8d41f6c116439c88a2751ec09c26b
+FVF-0058c	t3toolbox/frame_variations_format.py	58	61	56	-	y	ascii diagram	6bcad17af365c5c2e97c681664d2f897f780097d
+FVF-0063a	t3toolbox/frame_variations_format.py	63	66	8	32	y	ascii diagram	253870d8690719cc4c21cbcd8cbd047454026f8f
+FVF-0063b	t3toolbox/frame_variations_format.py	63	66	32	56	y	ascii diagram	230c01c1b57c21f24eb527c575515b391de68988
+FVF-0063c	t3toolbox/frame_variations_format.py	63	66	56	-	y	ascii diagram	3f0f475dc46cf010bb02aa61fbcd021f0c947103
+FVF-0071	t3toolbox/frame_variations_format.py	71	74	-	-	y	shape listing	88e46f015149f3f7f0facca5c8b62682eee09f9d
+FVF-0077	t3toolbox/frame_variations_format.py	77	78	-	-	y	shape listing	1f7bb74bd12c650c20d15f8ca41668e4e1bc3e0c
+FVF-0088	t3toolbox/frame_variations_format.py	88	96	-	-	y	ascii diagram	0c21e5684a379921312ff95830c38f202390fee7
+FVF-0100	t3toolbox/frame_variations_format.py	100	108	-	-	y	ascii diagram	00d7b54ebce5bd62a234fac6a02a9bd3dec6bcd4
+FVF-0117	t3toolbox/frame_variations_format.py	117	120	-	-	y	index equation	36757544b9083fd5a26d10dde391e01e678c1c8b
+FVF-0123	t3toolbox/frame_variations_format.py	123	124	-	-	y	index equation	b5e231733b3705089db6eaa6d8ad83a9b98eeaa0
+FVF-0156	t3toolbox/frame_variations_format.py	156	159	48	-	y	field-comment relation	cf4f6dfdf6fba51fcb41d7e2ea9c692500e920ff
+FVF-0217	t3toolbox/frame_variations_format.py	217	220	-	-	y	ascii diagram	af1b924ce01e93eec96898ea6a2b465481993831
+FVF-0222	t3toolbox/frame_variations_format.py	222	225	-	-	y	ascii diagram	c68b82a44c585c6392774dc248dc23048f7999f9
+FVF-0354	t3toolbox/frame_variations_format.py	354	357	-	-	y	index equation	25b2cc703256df3d8e4a0e8c4c6caa2926aae417
+FVF-0784	t3toolbox/frame_variations_format.py	784	785	-	-	y	shape listing	d6c54cb1ade84a7950850db3c99cf58945ba1c1f
+FVF-0845	t3toolbox/frame_variations_format.py	845	848	-	-	y	ascii diagram	af1b924ce01e93eec96898ea6a2b465481993831
+FVF-0850	t3toolbox/frame_variations_format.py	850	853	-	-	y	ascii diagram	c68b82a44c585c6392774dc248dc23048f7999f9
+FVF-1264	t3toolbox/frame_variations_format.py	1264	1267	-	-	y	ascii diagram	903e9bba65cb3ce83b91d763b9b8269825f8cb45
+FVF-1271	t3toolbox/frame_variations_format.py	1271	1274	-	-	y	ascii diagram	c83ecc21e3fb18b5b10c3c92382f1b40565def6d
+FVF-1302	t3toolbox/frame_variations_format.py	1302	1322	-	-	n	companion doctest	f56ccf4206508cc59ca6deefc168e4b3ba0b82ac
+FVF-1355	t3toolbox/frame_variations_format.py	1355	1358	-	-	y	ascii diagram	b765ca3b911f44cb3614d87df468722b5fc9e929
+FVF-1362	t3toolbox/frame_variations_format.py	1362	1365	-	-	y	ascii diagram	f10ae634fa2c3c7c339cfb3f529fc319c29f7b91
+FVF-1371	t3toolbox/frame_variations_format.py	1371	1374	-	-	y	shape listing	9b71d08a717df2bc4cfc0565d250ddeaa7b99a8a
+M-0685	t3toolbox/manifold.py	685	686	-	-	y	index equation	b8d1cbff64a521fd0fe154f323bcd855b113fac8
+TTT-2765	t3toolbox/tucker_tensor_train.py	2765	2765	-	-	y	index equation	b1189dacc47decb1adbbc42f5e4c9d4fdaa6c297
+TTT-2837	t3toolbox/tucker_tensor_train.py	2837	2837	-	-	y	index equation	e31ce310553fdbb61369eb4d3ac37e6d93093d95
+TTT-2908	t3toolbox/tucker_tensor_train.py	2908	2908	-	-	y	index equation	91872f44c5e40dc6a7c6b2cfe8a747e441d7b8f3
+TTT-2979	t3toolbox/tucker_tensor_train.py	2979	2979	-	-	y	index equation	806caa6ed96c52b87a7c3a68efe7312d5ddf23c5
+UFVF-0110	t3toolbox/uniform_frame_variations_format.py	110	113	49	-	y	field-comment relation	e1d8ebec4d22450ef66a30dd9055a4094ec675c1
+UFVF-1106	t3toolbox/uniform_frame_variations_format.py	1106	1109	-	-	y	ascii diagram	b765ca3b911f44cb3614d87df468722b5fc9e929
+UFVF-1113	t3toolbox/uniform_frame_variations_format.py	1113	1116	-	-	y	ascii diagram	4ebded7dd18f71c26307e9532535a150c03deebe
+UFVF-1122	t3toolbox/uniform_frame_variations_format.py	1122	1125	-	-	y	shape listing	b1a7904ac2035183e255806229e7049e45da7353
+UNMA-0478	t3toolbox/uniform_manifold.py	478	479	-	-	y	index equation	794a5396a5c380f69c25d1a305d233dad699c46b
+T-TFVF-0025	tests/test_frame_variations_format.py	25	27	-	-	y	shape listing	d73c7223ad0b200c6c63627301d24bdafa313588

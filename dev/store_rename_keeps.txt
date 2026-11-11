@@ -1,0 +1,1116 @@
+# store rename K9 keep list (plan §5.3 K9), built by dev/store_rename_slices/r1_build_lists.py at v2026.4.0.
+# KEEP: (a) a bare store word here is a conscious keep, and (converse) survives at its aligned position.
+# EXEMPT: a tier-E line whose words change by design (§3.3 -ward rewordings, the authoritative grep;
+# §4.2 store-and-arrow sites; §4.3 backwards adjectives): neither (a) nor the converse applies.
+# PATTERN: inv 3 §9 classes in the docs, matched by regex (no line rows exist).
+file	line	kind	source	text
+docs/contributor/curvature_internals.md	23	KEEP	inv3 keep row	Lagrangian Hessian `f∘Φ − ⟨grad f, Φ⟩` pulled back through the lift. Reference: T4S (arXiv:2603.21141)
+docs/contributor/padded_frame_internals.md	27	EXEMPT	§4.2 store-and-arrow site	1. **Far-side messages, at the old frames** (`_down_message`, `_left_message_step`, `_right_message_step`,
+docs/contributor/padded_frame_internals.md	28	EXEMPT	§4.2 store-and-arrow site	`_up_message`). On each directed edge `a → b`, `Φ = Pᵀ Z_far U′` (what the far side sends through the old far
+docs/contributor/padded_frame_internals.md	29	EXEMPT	§4.2 store-and-arrow site	frame) and `Ξ`, a square root of the rest (`_root`, from a thin SVD; only `ΞΞᵀ` is used). The order is the down
+docs/contributor/padded_frame_internals.md	30	EXEMPT	§4.2 store-and-arrow site	edges, the left messages from the far end, the right messages from the near end, then the up edges.
+docs/contributor/padded_frame_internals.md	31	EXEMPT	§4.2 store-and-arrow site	2. **New completions, in message order** (`_up_edge`, `_left_edge_step`, `_right_edge_step`, `_down_edge`). At
+docs/contributor/padded_frame_internals.md	42	EXEMPT	§4.2 store-and-arrow site	**Sharing.** A sharing group has one Tucker factor. Its up edge stacks the members' contents side by side in one `Y`
+docs/contributor/padded_frame_internals.md	43	EXEMPT	§4.2 store-and-arrow site	(`_up_edge`), so the group gets one completion.
+docs/entries_apply_probe.md	228	KEEP	inv3 keep row	## 8. Paper ↔ code map (probing, T4S §6)
+docs/entries_apply_probe.md	229	KEEP	inv3 keep row	
+docs/entries_apply_probe.md	230	KEEP	inv3 keep row	How `backend/probing.py` maps to Section 6 of the paper (algorithm numbers per the arXiv version,
+docs/entries_apply_probe.md	231	KEEP	inv3 keep row	which is current). The Riemannian least-squares operators factor as **`J = 𝒥 ∘ Π`** and **`Jᵀ = Π ∘ 𝒥ᵀ`**:
+docs/entries_apply_probe.md	232	KEEP	inv3 keep row	`Π` is the orthogonal gauge projector (`MANIFOLD.project`; backend `tv_orthogonal_gauge_projection`,
+docs/entries_apply_probe.md	233	KEEP	inv3 keep row	enforcing gauge conditions (47)–(48)), and `𝒥` is the bare tangent sampling op below.
+docs/entries_apply_probe.md	234	KEEP	inv3 keep row	Notation: hat `^` = base-point quantities, `δ` = perturbation, tilde `~` = adjoint (transpose sweep).
+docs/entries_apply_probe.md	235	KEEP	inv3 keep row	
+docs/entries_apply_probe.md	236	KEEP	inv3 keep row	**A probe (§6.2.1, Algorithm 5)** — the `i`-th probe contracts with all probing vectors except the
+docs/entries_apply_probe.md	237	KEEP	inv3 keep row	`i`-th, leaving index `i` free. Edge variables ↔ code:
+docs/entries_apply_probe.md	238	KEEP	inv3 keep row	
+docs/entries_apply_probe.md	239	KEEP	inv3 keep row	| Paper | code | meaning |
+docs/entries_apply_probe.md	240	KEEP	inv3 keep row	|---|---|---|
+docs/entries_apply_probe.md	241	KEEP	inv3 keep row	| `ξᵢ = Uᵢᵀwᵢ` (contract up) | `compute_xi` | probe vec through the Tucker frame |
+docs/entries_apply_probe.md	242	KEEP	inv3 keep row	| `μᵢᵀ = μᵢ₋₁ᵀ Gᵢ(ξᵢ)` (left sweep) | `compute_mu` | left partial product |
+docs/entries_apply_probe.md	243	KEEP	inv3 keep row	| `νᵢ = Gᵢ(ξᵢ) νᵢ₊₁` (right sweep) | `compute_nu` | right partial product |
+docs/entries_apply_probe.md	244	KEEP	inv3 keep row	| `ηᵢ = μᵢ₋₁ᵀ Gᵢ νᵢ` (central) | `compute_eta` | leaves the Tucker middle free |
+docs/entries_apply_probe.md	245	KEEP	inv3 keep row	| `zᵢ = Uᵢ ηᵢ` (contract down) | `assemble_z` | back to the ambient index |
+docs/entries_apply_probe.md	246	KEEP	inv3 keep row	
+docs/entries_apply_probe.md	247	KEEP	inv3 keep row	`t3_probe` = Algorithm 5 (wrapped by `TuckerTensorTrain.probe`).
+docs/entries_apply_probe.md	248	KEEP	inv3 keep row	
+docs/entries_apply_probe.md	249	KEEP	inv3 keep row	**Tangent probing `𝒥⁽ˢ⁾` (§6.2.2, Algorithms 6 + 7)** — a tangent vector is a doubled-rank T3
+docs/entries_apply_probe.md	250	KEEP	inv3 keep row	(A.3.1), so each edge variable splits into frame + perturbation: `ξ→(ξ̂,δξ)`, `μ→(σ,μ̂)`,
+docs/entries_apply_probe.md	251	KEEP	inv3 keep row	`ν→(τ,ν̂)`, `η→(δη,η̂)`. Algorithm 6 is Algorithm 5 on the base point with the gauge-appropriate
+docs/entries_apply_probe.md	252	KEEP	inv3 keep row	cores `P` (left), `Q` (right), `O` (central) in place of `G`; Algorithm 7 is the perturbation
+docs/entries_apply_probe.md	253	KEEP	inv3 keep row	sweep:
+docs/entries_apply_probe.md	254	KEEP	inv3 keep row	
+docs/entries_apply_probe.md	255	KEEP	inv3 keep row	| Paper (Algorithm 7) | code |
+docs/entries_apply_probe.md	256	KEEP	inv3 keep row	|---|---|
+docs/entries_apply_probe.md	257	KEEP	inv3 keep row	| `δξᵢ = δUᵢᵀwᵢ` | `compute_dxi` |
+docs/entries_apply_probe.md	258	KEEP	inv3 keep row	| `σᵢᵀ = σᵢ₋₁ᵀQᵢ(ξ̂) + μ̂ᵢ₋₁ᵀδGᵢ(ξ̂) + μ̂ᵢ₋₁ᵀOᵢ(δξ)` | `compute_sigma` |
+docs/entries_apply_probe.md	259	KEEP	inv3 keep row	| `τᵢ = δGᵢ₊₁(ξ̂)ν̂ + Oᵢ₊₁(δξ)ν̂ + Pᵢ₊₁(ξ̂)τ` | `compute_tau` |
+docs/entries_apply_probe.md	260	KEEP	inv3 keep row	| `δηᵢ = σᵢ₋₁ᵀQᵢν̂ + μ̂Pᵢτ + μ̂δGᵢν̂` | `compute_deta` |
+docs/entries_apply_probe.md	261	KEEP	inv3 keep row	| `δzᵢ = Uᵢδηᵢ + δUᵢη̂ᵢ` | `assemble_tangent_z` |
+docs/entries_apply_probe.md	262	KEEP	inv3 keep row	
+docs/entries_apply_probe.md	263	KEEP	inv3 keep row	`tv_probe` = Algorithms 6 + 7 = `𝒥⁽ˢ⁾`.
+docs/entries_apply_probe.md	264	KEEP	inv3 keep row	
+docs/entries_apply_probe.md	265	KEEP	inv3 keep row	**The transpose `(𝒥⁽ˢ⁾)ᵀ` (§6.2.3, Algorithm 8)** — given a residual-like `z̃`, the adjoint sweep
+docs/entries_apply_probe.md	266	KEEP	inv3 keep row	over the same edge variables (`compute_deta_tilde` / `tau_tilde` / `sigma_tilde` / `dxi_tilde` +
+docs/entries_apply_probe.md	267	KEEP	inv3 keep row	`assemble_tucker_variations` / `assemble_tt_variations`) returns `((δŨᵢ), (δG̃ᵢ))`:
+docs/entries_apply_probe.md	268	KEEP	inv3 keep row	`δŨᵢ = z̃ᵢη̂ᵢᵀ + wᵢδξ̃ᵢᵀ` and `δG̃ᵢ = τ̃⊗ξ̂⊗ν̂ + μ̂⊗ξ̂⊗σ̃ + μ̂⊗δη̃⊗ν̂`. This is `tv_probe_transpose`.
+docs/entries_apply_probe.md	269	KEEP	inv3 keep row	
+docs/entries_apply_probe.md	270	KEEP	inv3 keep row	**The corewise substitution (§6.3)** — the same Algorithms 7/8 with the plain cores `Gᵢ`
+docs/entries_apply_probe.md	271	KEEP	inv3 keep row	substituted for `(Pᵢ, Qᵢ, Oᵢ)` give the corewise (non-manifold) Jacobian; the probing code is
+docs/exact_hessian_two_hole.tex	478	KEEP	inv3 keep row	At the \emph{corewise frame} $(U,G,G,G)$ of raw cores $\th=(U,G)$ (\code{t3_corewise_frame}) the tangent
+docs/exact_hessian_two_hole.tex	479	KEEP	inv3 keep row	transpose of T4S Algorithm~8 is the core gradient $\nabla_\th\ip{c}{A\Phi(\th)}$ (T4S \S6.3, the corewise
+docs/exact_hessian_two_hole.tex	480	KEEP	inv3 keep row	substitution $P,Q,O\to G$; \code{t3_probe_corewise_transpose}). With edge variables on bonds $0,\dots,d$ (core $i$
+docs/frame_variations.md	27	KEEP	inv3 keep row	| left-TT `Lᵢ` | `L`/`P` | left environment (left of the variation) | `rL` |
+docs/frame_variations.md	28	KEEP	inv3 keep row	| right-TT `Rᵢ` | `R`/`Q` | right environment (right of the variation) | `rR` |
+docs/frame_variations.md	58	KEEP	inv3 keep row	against all but the last `Hᵢ` — Appendix A.3 of the T4S paper), something powerful happens: **plain
+docs/glossary.md	713	KEEP	inv3 keep row	| `P` | the left frame core in the T4S paper's notation (`batching_and_stacking.md` §8, `entries_apply_probe.md` §8, `LocalModel.frame` as `(U, O, P, Q)`), where the user guide writes `L`; the derivative direction (`pp`); a completion `P⁺` (`aligned_padded_frame.md` movement, the padded-frame note); the tangent projector `P_X` / `P_F`; the core parameter space (`CorewiseGeometry`) |
+docs/padded_frame_cone.tex	83	KEEP	inv3 keep row	those of T4S \cite{T4S}. Two constraints shape the answer: $S$ is available only through projections
+docs/padded_frame_cone.tex	403	EXEMPT	§4.2 store-and-arrow site	attractor of that map. Updating the stores pointing toward the root $c_{d-1}$ (up, left) and then those pointing away
+docs/padded_frame_cone.tex	404	EXEMPT	§4.2 store-and-arrow site	(right, down), the other colour transported, is an alternating (Gauss--Seidel) update with a projection between the
+docs/symmetric_probe_derivatives.tex	373	KEEP	inv3 keep row	$\big((\mathbf U_i),(\mathbf O_i),(\mathbf P_i),(\mathbf Q_i)\big)$ (up-Tucker, down-, left-, and
+docs/symmetric_probe_derivatives.tex	374	KEEP	inv3 keep row	right-TT cores) and a gauged variation $\delta\mathbb V = \big((\delta\mathbf U_i),
+docs/symmetric_probe_derivatives.tex	375	KEEP	inv3 keep row	(\delta\mathbf G_i)\big)$; see Appendix~A of the T4S paper. Its $i$th action on $\mathbf W$ is computed
+docs/transposes.md	37	KEEP	inv3 keep row	gradient with respect to the raw cores (the Section 6.3 substitution `P,Q,O → G`). It is *not* a
+docs/user_guide.rst	142	EXEMPT	§4.3 backwards adjective	- down_tt_cores     = (O0,...,O(d-1)), down-orthogonal
+examples/fit_hilbert_from_entries_lbfgs.py	17	KEEP	inv1 App. B	``from_vector`` map our cores to/from the 1-D vector scipy wants, and -- the crux -- the corewise
+examples/fit_hilbert_from_entries_lbfgs.py	63	KEEP	inv1 App. B	the observed entries while blowing the unobserved corner up (true error several times the tensor norm).
+examples/fit_hilbert_regularized.py	23	KEEP	inv1 App. B	directions), trading a little bias for reduced variance -- the classic bias-variance **U-curve**. Pass
+examples/fit_hilbert_regularized.py	36	KEEP	inv1 App. B	error and so finds the U-curve's bottom.
+examples/fit_hilbert_regularized.py	129	KEEP	inv1 App. B	# ---- one representative seed: the bias-variance U-curve --------------------------------------
+examples/fit_hilbert_regularized.py	143	KEEP	inv1 App. B	print(f"  poorly-determined directions; too much over-shrinks -- the bias-variance U-curve. Held-out")
+examples/fit_hilbert_tensor_newton_cg.py	51	KEEP	inv1 App. B	by one and refit, each time **warm-starting by zero-padding** the converged cores up to the new ranks
+examples/fit_hilbert_uniform_newton_cg.py	38	KEEP	inv1 App. B	errors match the ragged run to the printed digits at the levels the fit converges (here up to the selected
+examples/fit_per_mode_weight_probes.py	122	KEEP	inv1 App. B	print("   estimate -- every mode ends up ~1e-2; weighting discounts it, so the clean modes set")
+examples/fit_shared_factors_jetted_probes.py	48	KEEP	inv1 App. B	noise floor is lower and its validation error turns up (overfits) later. The gap is real but
+examples/fit_varied_rank_tensor_newton_cg.py	34	KEEP	inv1 App. B	there is already "used up"; small = that edge is well conditioned and has room to grow),
+t3toolbox/backend/apply.py	215	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (the plan's explicit row; the grep misses ``eta``)	**Lean ``(xis, mus)`` only** (not the right ``nu`` / down ``eta`` sweeps): the all-modes apply
+t3toolbox/backend/apply.py	316	KEEP	inv2 §9 doc UNRELATED	``(tucker_cores, tt_cores)`` -- a gradient, NOT a tensor (so no ``|W|`` blow-up: the apply stack
+t3toolbox/backend/common.py	543	KEEP	inv2 §9 doc UNRELATED	the object alive, as for numpy arrays), and ``x in list`` works only up to the first non-
+t3toolbox/backend/entries.py	124	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	Identical to :py:func:`tv_apply` except the up-index edge variables come from slicing the
+t3toolbox/backend/entries.py	151	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	Identical to :py:func:`tv_apply_transpose` with the up-index ``xi-hat`` from fiber slicing and
+t3toolbox/backend/entries.py	314	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	up-index ``xi`` / ``xi_dot`` from slicing Tucker-core fibers at ``index`` and the apply vectors replaced by the
+t3toolbox/backend/entries.py	344	KEEP	inv2 §9 doc UNRELATED	'''Up-index edge variables by slicing Tucker-core fibers at ``index`` (no contraction).
+t3toolbox/backend/fitting.py	326	KEEP	inv2 §9 doc UNRELATED	and ``Problem.local_model(hessian='exact')`` rejects it up front with a structural error.
+t3toolbox/backend/fv_conversions.py	181	EXEMPT	§4.3 backwards adjective	up_orthogonalize_tucker_cores = lambda x: uniform_orth.down_orthogonalize_tucker_supercores(*x)
+t3toolbox/backend/fv_conversions.py	182	EXEMPT	§4.3 backwards adjective	down_orthogonalize_tt_cores = lambda x: uniform_orth.up_orthogonalize_tt_supercores(*x)
+t3toolbox/backend/fv_conversions.py	184	EXEMPT	§4.3 backwards adjective	up_orthogonalize_tucker_cores = ragged_orth.t3_down_orthogonalize_tucker_cores
+t3toolbox/backend/fv_conversions.py	185	EXEMPT	§4.3 backwards adjective	down_orthogonalize_tt_cores = ragged_orth.t3_up_orthogonalize_tt_cores
+t3toolbox/backend/fv_conversions.py	219	EXEMPT	§4.3 backwards adjective	# Orthogonalize Tucker cores upward to get up_tt_cores U
+t3toolbox/backend/fv_conversions.py	251	EXEMPT	§4.3 backwards adjective	# Orthogonalize TT cores downward to get outer_tt_cores O and tucker_variations V
+t3toolbox/backend/fv_operations.py	101	KEEP	inv2 §9 doc UNRELATED	frame-to-variation axis convention is written down for the ragged layer. Frame bookkeeping is
+t3toolbox/backend/geometry.py	143	KEEP	inv2 §9 doc UNRELATED	convention is written down. Do not re-derive them here: the tempting shortcut ("the Tucker
+t3toolbox/backend/geometry.py	348	EXEMPT	§4.3 backwards adjective	(Tucker up-orth + one left TT sweep, no ``W`` factor -- negligible beside the misfit evaluation it
+t3toolbox/backend/linalg.py	7	KEEP	inv2 §9 doc ADJECTIVE	``truncated_svd``, the directional ``left/right/up_svd`` and ``*_svd_pair`` factorizations
+t3toolbox/backend/linalg.py	30	KEEP	inv2 §9 str ADJECTIVE	'up_svd',
+t3toolbox/backend/linalg.py	33	KEEP	inv2 §9 str ADJECTIVE	'up_svd_pair',
+t3toolbox/backend/linalg.py	34	KEEP	inv2 §9 str ADJECTIVE	'down_svd_pair',
+t3toolbox/backend/linalg.py	319	KEEP	inv2 §9 code ADJECTIVE	def up_svd(
+t3toolbox/backend/linalg.py	330	KEEP	inv2 §9 doc ADJECTIVE	'''Compute (truncated) singular value decomposition of 3-tensor up unfolding.
+t3toolbox/backend/linalg.py	342	KEEP	inv2 §9 doc ADJECTIVE	>>> U, ss, Vt = linalg.up_svd(G)
+t3toolbox/backend/linalg.py	348	KEEP	inv2 §9 doc ADJECTIVE	>>> print(np.allclose(Um.T @ Um, np.eye(Um.shape[1])))   # up unfolding of U is orthonormal
+t3toolbox/backend/linalg.py	448	KEEP	inv2 §9 code ADJECTIVE	def up_svd_pair(
+t3toolbox/backend/linalg.py	463	KEEP	inv2 §9 doc ADJECTIVE	Orthogonalizes ``G`` via its up unfolding (so ``new_G`` is up-orthonormal) and absorbs the
+t3toolbox/backend/linalg.py	474	KEEP	inv2 §9 doc ADJECTIVE	>>> new_G, new_B, ss = linalg.up_svd_pair(G, B)
+t3toolbox/backend/linalg.py	482	KEEP	inv2 §9 doc ADJECTIVE	>>> print(np.allclose(Um.T @ Um, np.eye(Um.shape[1])))   # new_G is up-orthonormal
+t3toolbox/backend/linalg.py	489	KEEP	inv2 §9 code ADJECTIVE	U_i_x_j, ss_x, Vt_x_a = up_svd(
+t3toolbox/backend/linalg.py	497	KEEP	inv2 §9 code ADJECTIVE	def down_svd_pair(
+t3toolbox/backend/linalg.py	511	KEEP	inv2 §9 doc ADJECTIVE	Mirror of :py:func:`up_svd_pair`: orthogonalizes the matrix ``B`` (so ``new_B`` has orthonormal
+t3toolbox/backend/linalg.py	522	KEEP	inv2 §9 doc ADJECTIVE	>>> new_G, new_B, ss = linalg.down_svd_pair(G, B)
+t3toolbox/backend/linalg.py	612	KEEP	inv2 §9 doc UNRELATED	* ``Vt`` is rebuilt from ``A.T @ U == V @ diag(ss)`` -- exactly its own QR up to column signs.
+t3toolbox/backend/linalg.py	679	KEEP	inv2 §9 cmt UNRELATED	# broadcast the masks over the leading batch axes up front (take_along_axis needs full ndim)
+t3toolbox/backend/linalg.py	715	KEEP	inv2 §9 cmt UNRELATED	# -- rebuild the right factor: A^T @ U == V @ diag(ss), already its own QR up to column signs --
+t3toolbox/backend/linalg.py	746	KEEP	inv2 §9 doc UNRELATED	above ``1/(2 eps)``. ``eps = 0`` is the exact reciprocal up to rounding (``s/s^2``).
+t3toolbox/backend/linalg.py	951	KEEP	inv2 §9 doc UNRELATED	``pinned_completion(pinned, U, k)``, whose QR of the orthonormal ``[P | U_k]`` returns ``U_k`` up to
+t3toolbox/backend/optimizer_display.py	212	KEEP	inv2 §9 doc UNRELATED	``5.2e-04`` line up -- ``%.1e`` is fixed 7-char width, so columns align with no padding logic:
+t3toolbox/backend/optimizers.py	79	KEEP	inv2 §9 doc UNRELATED	**Optional member** (looked up duck-typed, ``getattr(geom, 'zero_point_frame', None)``; a geometry
+t3toolbox/backend/optimizers.py	88	KEEP	inv2 §9 doc UNRELATED	**The start-frame members** -- optional, looked up duck-typed, needed only by the features that use them (an
+t3toolbox/backend/optimizers.py	111	KEEP	inv2 §9 doc UNRELATED	``lift_eps`` (looked up duck-typed; absent means ``None``).
+t3toolbox/backend/optimizers.py	206	KEEP	inv2 §9 doc UNRELATED	:py:class:`t3toolbox.fitting.LocalModel` (same name, one level down).
+t3toolbox/backend/padded_frames.py	376	KEEP	inv2 §9 doc STORE-WORD	"""The message of the edge core -> leaf (map body)."""
+t3toolbox/backend/padded_frames.py	436	KEEP	inv2 §9 doc STORE-WORD	"""The message of the edge leaf -> core (map body)."""
+t3toolbox/backend/probing.py	75	KEEP	inv2 §9 cmt UNRELATED	# cheaper to absorb any edge weights into the cores once, up front, then probe the weighted cores
+t3toolbox/backend/probing.py	76	KEEP	inv2 §9 cmt UNRELATED	# with the plain functions below (rather than threading weights through every probe). The up-front
+t3toolbox/backend/probing.py	197	KEEP	inv2 §9 doc UNRELATED	'''Compute upward edge variables associated with edges between Tucker cores and adjacent TT-cores.
+t3toolbox/backend/probing.py	288	KEEP	inv2 §9 doc UNRELATED	'''Compute downward edge variables associated with edges between Tucker cores and adjacent TT-cores.
+t3toolbox/backend/probing.py	322	KEEP	inv2 §9 doc UNRELATED	'''Assemble probes from downward edge variables.
+t3toolbox/backend/probing.py	350	KEEP	inv2 §9 doc UNRELATED	'''Compute var-upward edge variables dxi.
+t3toolbox/backend/probing.py	497	KEEP	inv2 §9 doc UNRELATED	'''Compute var-downward edge variables deta.
+t3toolbox/backend/probing.py	646	EXEMPT	§4.3 backwards adjective	NDArray,  # up_tucker_supercore. shape=(d, nU, N),      up orthogonal elements
+t3toolbox/backend/probing.py	647	EXEMPT	§4.3 backwards adjective	NDArray,  # down_tt_supercore.   shape=(d, rL, nO, rR), down orthogonal elements
+t3toolbox/backend/probing.py	773	EXEMPT	inv2 §9 cmt UNRELATED; §3.3 -ward rewording (grep)	# assembly -- roughly half of tv_probe. entries is apply with the up-index xis obtained by
+t3toolbox/backend/probing.py	824	EXEMPT	inv2 §9 cmt UNRELATED; §3.3 -ward rewording (grep)	xis:            typ.Sequence[NDArray],  # frame up-index edge vars, len=d, elm_shape=W+C+(nUi,)
+t3toolbox/backend/probing.py	870	KEEP	inv2 §9 doc UNRELATED	'''Adjoint-var-upward edge variables deta_tilde.
+t3toolbox/backend/probing.py	980	KEEP	inv2 §9 doc UNRELATED	'''Adjoint-var-downward edge variables dxi_tilde.
+t3toolbox/backend/probing.py	1221	EXEMPT	§4.3 backwards adjective	NDArray,  # up_tucker_supercore. shape=(d, nU, N),      up orthogonal elements
+t3toolbox/backend/probing.py	1222	EXEMPT	§4.3 backwards adjective	NDArray,  # down_tt_supercore.   shape=(d, rL, nO, rR), down orthogonal elements
+t3toolbox/backend/probing.py	1429	KEEP	inv2 §9 doc UNRELATED	tt_cores)`` (a gradient, not a tensor; no ``|W|`` blow-up). For non-manifold optimizers (Adam,
+t3toolbox/backend/probing.py	1459	EXEMPT	inv2 §9 cmt UNRELATED; §3.3 -ward rewording (grep)	#   3. dotted adjoint-up lift deta~dot = Udot z~;
+t3toolbox/backend/probing.py	1728	EXEMPT	inv2 §9 cmt UNRELATED; §3.3 -ward rewording (grep)	# 3. the dotted adjoint-up lift; 4. the dotted adjoint sweeps; 5. the dotted dxi~
+t3toolbox/backend/probing.py	1777	KEEP	inv2 §9 doc UNRELATED	up front with ``theta``'s masks (:py:func:`~t3toolbox.backend.ut3_sampling.ut3_probe_corewise_hessian`).
+t3toolbox/backend/ranks.py	334	KEEP	inv2 §9 doc UNRELATED	'''Grow up to ``max_grow`` of the candidate edges, best-conditioned (smallest kappa) first, taking
+t3toolbox/backend/ranks.py	535	KEEP	inv2 §9 doc ADJECTIVE	not minimize; see :py:func:`rank_adjustment_sweep`). The sweep is down-orthogonalize,
+t3toolbox/backend/ranks.py	580	KEEP	inv2 §9 cmt ADJECTIVE	n[ii] = xnp.minimum(n[ii], shape[ii])              # down-orthogonalize: n_i <= N_i
+t3toolbox/backend/sampling_derivatives.py	52	KEEP	inv2 §9 cmt UNRELATED	# long ago). It is reconstructed from an old, unvetted derivation and will be written up afresh in a
+t3toolbox/backend/sampling_derivatives.py	162	KEEP	inv2 §9 doc UNRELATED	verified against :py:func:`dense_probe_derivatives`. (Project write-up in preparation.)
+t3toolbox/backend/sampling_derivatives.py	251	KEEP	inv2 §9 doc UNRELATED	a two-term banded recurrence (:py:func:`_shift_down_pair` / :py:func:`_shift_up_pair`).
+t3toolbox/backend/sampling_derivatives.py	293	KEEP	inv2 §9 cmt UNRELATED	#   z^(r+1). The two shifted copies of the full jet are stacked on a pair axis (_shift_down_pair /
+t3toolbox/backend/sampling_derivatives.py	294	KEEP	inv2 §9 cmt UNRELATED	#   _shift_up_pair) and contracted against [b^(0), b^(1)] in ONE GEMM: mu/nu/sigma/tau, the adjoint
+t3toolbox/backend/sampling_derivatives.py	300	KEEP	inv2 §9 cmt UNRELATED	#   OTHER factor, carried by the scan. The forward shift D x = [t x^(t-1)]_t (_shift_down) satisfies
+t3toolbox/backend/sampling_derivatives.py	303	KEEP	inv2 §9 cmt UNRELATED	#   U x = [(s+1) x^(s+1)]_s (_shift_up; U^r z = r! C(r+s,r) z^(r+s)). No weight matrix, no traced shift,
+t3toolbox/backend/sampling_derivatives.py	315	KEEP	inv2 §9 code UNRELATED	def _shift_down(
+t3toolbox/backend/sampling_derivatives.py	327	KEEP	inv2 §9 code UNRELATED	def _shift_up(
+t3toolbox/backend/sampling_derivatives.py	330	KEEP	inv2 §9 cmt UNRELATED	) -> NDArray:               # U jet, same shape: (U jet)^(s) = (s+1) jet^(s+1), zero at s = order
+t3toolbox/backend/sampling_derivatives.py	331	KEEP	inv2 §9 doc UNRELATED	'''The reverse Leibniz shift ``(U x)^(s) = (s+1) x^(s+1)``, the adjoint of :py:func:`_shift_down`.
+t3toolbox/backend/sampling_derivatives.py	332	KEEP	inv2 §9 doc UNRELATED	Iterated, ``(U^r x)^(s) = r! C(s+r, r) x^(s+r)`` (zero once ``s + r > order``).'''
+t3toolbox/backend/sampling_derivatives.py	338	KEEP	inv2 §9 code UNRELATED	def _shift_down_pair(
+t3toolbox/backend/sampling_derivatives.py	345	KEEP	inv2 §9 code UNRELATED	return xnp.stack([jet, _shift_down(jet, xnp)], axis=axis)
+t3toolbox/backend/sampling_derivatives.py	348	KEEP	inv2 §9 code UNRELATED	def _shift_up_pair(
+t3toolbox/backend/sampling_derivatives.py	352	KEEP	inv2 §9 cmt UNRELATED	) -> NDArray:               # [jet, U jet] stacked on a new length-2 axis
+t3toolbox/backend/sampling_derivatives.py	355	KEEP	inv2 §9 code UNRELATED	return xnp.stack([jet, _shift_up(jet, xnp)], axis=axis)
+t3toolbox/backend/sampling_derivatives.py	364	KEEP	inv2 §9 doc UNRELATED	``D^r`` / ``U^r`` supplies the other ``r! C(.,r)``). A small folded constant.'''
+t3toolbox/backend/sampling_derivatives.py	381	KEEP	inv2 §9 code+str UNRELATED	next_mu = contractions.contract('stWCa,sWCab->tWCb', _shift_down_pair(mu_jet, xnp), Gxi)
+t3toolbox/backend/sampling_derivatives.py	444	KEEP	inv2 §9 code UNRELATED	return (eta, _shift_down(nu_r, xnp), G), ()
+t3toolbox/backend/sampling_derivatives.py	564	EXEMPT	§3.3 -ward rewording (grep)	xi_jets: typ.Sequence[NDArray],         # up-index jets, len=d, elm_shape=(2,)+W+C+(nUi,)
+t3toolbox/backend/sampling_derivatives.py	583	EXEMPT	§3.3 -ward rewording (grep)	xi_jets: typ.Sequence[NDArray],         # up-index jets, len=d, elm_shape=(2,)+W+C+(nUi,)
+t3toolbox/backend/sampling_derivatives.py	613	EXEMPT	§3.3 -ward rewording (grep)	'''The **apply**-derivative frame sweep (lean): the up-index jet ``build_input_jets(U_i x_i, U_i p_i)``
+t3toolbox/backend/sampling_derivatives.py	636	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	but the up-index jet is formed by fiber-slicing the Tucker cores at ``index`` (order 0) + contracting
+t3toolbox/backend/sampling_derivatives.py	710	KEEP	inv2 §9 code UNRELATED	mu_pair = _shift_down_pair(mu_jet, xnp)
+t3toolbox/backend/sampling_derivatives.py	711	KEEP	inv2 §9 code+str UNRELATED	t1 = contractions.contract('stWKCa,sWCab->tWKCb', _shift_down_pair(sigma_jet, xnp), Qxi, len_C=nf)
+t3toolbox/backend/sampling_derivatives.py	798	KEEP	inv2 §9 code UNRELATED	return (deta, _shift_down(nu_r, xnp), _shift_down(tau_r, xnp), P, Q, dG), ()
+t3toolbox/backend/sampling_derivatives.py	955	KEEP	inv2 §9 doc UNRELATED	:py:func:`dense_probe_derivatives` on the densified tangent. (Project write-up in preparation.)
+t3toolbox/backend/sampling_derivatives.py	980	EXEMPT	inv2 §9 cmt UNRELATED; §3.3 -ward rewording (grep)	# apply with the up-index xis from slicing Tucker-core fibers (deferred to its own step).
+t3toolbox/backend/sampling_derivatives.py	1147	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	The ``entries`` analog of :py:func:`t3_apply_derivatives` -- apply-derivatives with the up-index
+t3toolbox/backend/sampling_derivatives.py	1176	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	the entries analog of :py:func:`tv_apply_jacobian_derivatives_from_sweep` (variation up-index jet from
+t3toolbox/backend/sampling_derivatives.py	1204	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	up-index jets from slicing Tucker-core fibers at ``index`` (order 0) + contracting ``P`` (order 1).
+t3toolbox/backend/sampling_derivatives.py	1230	KEEP	inv2 §9 cmt UNRELATED	# up-shifted jet where both are full. Stacks (frame-inner W + C, as in plain probing): sample stack W on
+t3toolbox/backend/sampling_derivatives.py	1237	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	'''One core of the adjoint-up lift of :py:func:`compute_deta_tilde_jets` (ragged path only).
+t3toolbox/backend/sampling_derivatives.py	1247	EXEMPT	§3.3 -ward rewording (grep)	'''Adjoint-up edge-variable jets: ``deta_tilde_i = U_i r_i`` (contract the ambient mode, order
+t3toolbox/backend/sampling_derivatives.py	1271	KEEP	inv2 §9 doc UNRELATED	over the reverse banded pair :py:func:`_shift_up_pair`. W, K, C ride unflattened (carry carries K;
+t3toolbox/backend/sampling_derivatives.py	1278	KEEP	inv2 §9 code+str UNRELATED	return contractions.contract('ksWKCa,kWCab->sWKCb', _shift_up_pair(carry, xnp), Pxi, len_C=nf)
+t3toolbox/backend/sampling_derivatives.py	1288	KEEP	inv2 §9 doc UNRELATED	``W*r^2``) meets the carried ``U^r deta~``, which is then up-shifted. Closure-free scan body.'''
+t3toolbox/backend/sampling_derivatives.py	1295	KEEP	inv2 §9 code UNRELATED	return (src, _shift_up(deta_r, xnp), P), ()
+t3toolbox/backend/sampling_derivatives.py	1356	EXEMPT	§3.3 -ward rewording (grep)	deta_tildes:    typ.Sequence[NDArray],  # adjoint-up jets, len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
+t3toolbox/backend/sampling_derivatives.py	1367	EXEMPT	§3.3 -ward rewording (grep)	deta_tildes:    typ.Sequence[NDArray],  # adjoint-up jets, len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
+t3toolbox/backend/sampling_derivatives.py	1398	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	'''One core of :py:func:`compute_dxi_tilde_jets`: the two read rows of the adjoint-down combine, as an
+t3toolbox/backend/sampling_derivatives.py	1404	KEEP	inv2 §9 code UNRELATED	(mu, nu, _shift_up_pair(st, xnp, axis=1), _shift_up_pair(tt, xnp, axis=1)))
+t3toolbox/backend/sampling_derivatives.py	1425	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	'''Adjoint-var-down edge-variable jets (jet-ified probing.compute_dxi_tilde): the two adjoint-hooked
+t3toolbox/backend/sampling_derivatives.py	1433	KEEP	inv2 §9 doc UNRELATED	with ``U x = [(s+1) x^(s+1)]_s`` (row 1 of :py:func:`_shift_up_pair`): ``C(j+1, j) = j+1`` is the only
+t3toolbox/backend/sampling_derivatives.py	1476	EXEMPT	§3.3 -ward rewording (grep)	dxi_tildes:     typ.Sequence[NDArray],  # adjoint-var-down jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
+t3toolbox/backend/sampling_derivatives.py	1479	EXEMPT	§3.3 -ward rewording (grep)	etas:           typ.Sequence[NDArray],  # frame down jets, len=d, elm_shape=(order+1,)+W+C+(nOi,)
+t3toolbox/backend/sampling_derivatives.py	1510	EXEMPT	§3.3 -ward rewording (grep)	dxi_tildes:     typ.Sequence[NDArray],  # adjoint-var-down jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
+t3toolbox/backend/sampling_derivatives.py	1513	EXEMPT	§3.3 -ward rewording (grep)	etas:           typ.Sequence[NDArray],  # frame down jets, len=d, elm_shape=(order+1,)+W+C+(nOi,)
+t3toolbox/backend/sampling_derivatives.py	1549	KEEP	inv2 §9 doc UNRELATED	``(acc, U^r deta~, nu)`` (``nu`` rides unchanged), the xs ``(mu^(r), 1/r!)``: per step, fold the shifted
+t3toolbox/backend/sampling_derivatives.py	1550	KEEP	inv2 §9 doc UNRELATED	``deta~`` against the whole ``nu`` (peak ``W*K*n*r``), add the outer product with ``mu^(r)``, up-shift.
+t3toolbox/backend/sampling_derivatives.py	1563	KEEP	inv2 §9 code UNRELATED	return (acc, _shift_up(deta_r, xnp), nu), ()
+t3toolbox/backend/sampling_derivatives.py	1578	KEEP	inv2 §9 doc UNRELATED	mu^(r) (x) xi^(s) (x) sigma~^(r+s)`` is ``sum_k xi^(k) (x) [sum_r mu^(r) (x) U^k sigma~^(r)]``, so
+t3toolbox/backend/sampling_derivatives.py	1579	KEEP	inv2 §9 doc UNRELATED	form the pair ``sum_r mu^(r) (x) [U^k sigma~]^(r)`` (``k in {0,1}``; :py:func:`_shift_up_pair`) and
+t3toolbox/backend/sampling_derivatives.py	1592	KEEP	inv2 §9 code+str UNRELATED	pair = (contractions.contract('krWKCb,rWCa->kWKCab', _shift_up_pair(st, xnp), mu, len_W=n_probe)
+t3toolbox/backend/sampling_derivatives.py	1593	KEEP	inv2 §9 code+str UNRELATED	+ contractions.contract('ksWKCa,sWCb->kWKCab', _shift_up_pair(tt, xnp), nu, len_W=n_probe))
+t3toolbox/backend/sampling_derivatives.py	1784	KEEP	inv2 §9 cmt UNRELATED	# value, call these once outside jit and pass the int down. Two policies (docs/chunking.md):
+t3toolbox/backend/sampling_derivatives.py	1855	KEEP	inv2 §9 doc UNRELATED	(under-estimating small-rank problems by up to ~1.5x) while counting unchunked intermediates the chunked
+t3toolbox/backend/sampling_derivatives.py	1997	KEEP	inv2 §9 doc UNRELATED	on a stacked frame returns a chunk up to ``prod(C)`` times too large, which is exactly the
+t3toolbox/backend/sampling_derivatives.py	2157	KEEP	inv2 §9 doc UNRELATED	sigma^^(r+s)`` is banded in the affine ``xi``: the pair ``sum_r mu^(r) (x) [U^k sigma^]^(r)``
+t3toolbox/backend/sampling_derivatives.py	2158	KEEP	inv2 §9 doc UNRELATED	(:py:func:`_shift_up_pair`) meets ``xi^(k)``.'''
+t3toolbox/backend/sampling_derivatives.py	2167	KEEP	inv2 §9 code+str UNRELATED	pair = contractions.contract('krWKCb,rWCa->kWKCab', _shift_up_pair(sh, xnp), mu, len_W=n_probe)
+t3toolbox/backend/sampling_derivatives.py	2199	EXEMPT	§3.3 -ward rewording (grep)	'''One core of the adjoint-down combine ``dxi^ = mu O sigma^`` of
+t3toolbox/backend/sampling_derivatives.py	2367	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	frame up-index jet from fiber slicing at ``index`` (order 0) + contracting ``P`` (order 1), and the
+t3toolbox/backend/sampling_derivatives.py	2466	EXEMPT	inv2 §9 cmt UNRELATED; §3.3 -ward rewording (grep)	#   3. dotted adjoint-up lift deta~dot = Udot z~;
+t3toolbox/backend/sampling_derivatives.py	2510	KEEP	inv2 §9 cmt UNRELATED	carry:  typ.Tuple[NDArray, ...],       # (src, U^r deta~, U^r deta~_dot, P, P_dot); the cores ride unchanged
+t3toolbox/backend/sampling_derivatives.py	2514	KEEP	inv2 §9 doc UNRELATED	``src_dot^(s) += d(edge^(r) P) . [U^r deta~]^(s) + (edge^(r) P) . [U^r deta~_dot]^(s)`` with
+t3toolbox/backend/sampling_derivatives.py	2515	KEEP	inv2 §9 doc UNRELATED	``d(edge P) = edge_dot P + edge P_dot`` (live slice ``W*K*r^2``), then up-shift both carried jets.
+t3toolbox/backend/sampling_derivatives.py	2527	KEEP	inv2 §9 code UNRELATED	return (src, _shift_up(deta_r, xnp), _shift_up(deta_dot_r, xnp), P, P_dot), ()
+t3toolbox/backend/sampling_derivatives.py	2554	KEEP	inv2 §9 code+str UNRELATED	return (contractions.contract('ksWKCa,kWCab->sWKCb', _shift_up_pair(carry_dot, xnp), Pxi, len_C=nf)
+t3toolbox/backend/sampling_derivatives.py	2555	KEEP	inv2 §9 code+str UNRELATED	+ contractions.contract('ksWCa,kWKCab->sWKCb', _shift_up_pair(carry, xnp), dPxi, len_C=nf))
+t3toolbox/backend/sampling_derivatives.py	2567	EXEMPT	§3.3 -ward rewording (grep)	deta_t:         NDArray,    # adjoint-up jet,   (order+1,)+W+C+(nUi,)
+t3toolbox/backend/sampling_derivatives.py	2726	KEEP	inv2 §9 code UNRELATED	pairs = tuple(_shift_up_pair(j, xnp, axis=1) for j in (st, std, tt, ttd))
+t3toolbox/backend/sampling_derivatives.py	2832	KEEP	inv2 §9 doc UNRELATED	:py:func:`_tt_det_lag_step` (W summed). The carry is ``(acc, U^r deta~, U^r deta~_dot, nu, nu_dot)``, the xs
+t3toolbox/backend/sampling_derivatives.py	2845	KEEP	inv2 §9 code UNRELATED	return (acc, _shift_up(deta_r, xnp), _shift_up(deta_dot_r, xnp), nu, nu_dot), ()
+t3toolbox/backend/sampling_derivatives.py	2861	KEEP	inv2 §9 doc UNRELATED	- **sigma~ / tau~ groups** (``xi`` affine): the banded pairs ``sum_r mu^(r) (x) [U^k sigma~]^(r) +
+t3toolbox/backend/sampling_derivatives.py	2862	KEEP	inv2 §9 doc UNRELATED	sum_s [U^k tau~]^(s) (x) nu^(s)`` and their dotted twins (four terms: K on ``mu_dot`` / ``sigma~_dot`` /
+t3toolbox/backend/sampling_derivatives.py	2874	KEEP	inv2 §9 code UNRELATED	pst, pstd, ptt, pttd = (_shift_up_pair(j, xnp) for j in (st, std, tt, ttd))
+t3toolbox/backend/sampling_derivatives.py	2996	EXEMPT	inv2 §9 cmt UNRELATED; §3.3 -ward rewording (grep)	# 3. the dotted adjoint-up lift; 4. the dotted adjoint sweeps; 5. the dotted dxi~
+t3toolbox/backend/sampling_derivatives.py	3049	KEEP	inv2 §9 doc UNRELATED	zero: a uniform caller masks both once up front with ``theta``'s masks, so the shared algorithm runs
+t3toolbox/backend/sampling_derivatives.py	3185	EXEMPT	§3.3 -ward rewording (grep)	'''One core of the dotted adjoint-down combine ``d(mu O sigma^)`` of
+t3toolbox/backend/sampling_derivatives.py	3192	KEEP	inv2 §9 code UNRELATED	(mu, mud, _shift_up_pair(sh, xnp, axis=1), _shift_up_pair(shd, xnp, axis=1)))
+t3toolbox/backend/sampling_derivatives.py	3212	KEEP	inv2 §9 doc UNRELATED	(x) [U^k sigma^]^(r)`` and its dotted twin (``K`` on ``mu_dot`` / ``sigma^_dot``) met by ``xi`` / ``xi_dot`` --
+t3toolbox/backend/sampling_derivatives.py	3220	KEEP	inv2 §9 code UNRELATED	psh, pshd = _shift_up_pair(sh, xnp), _shift_up_pair(shd, xnp)
+t3toolbox/backend/sampling_derivatives.py	3415	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	``entries_derivatives``. Identical to :py:func:`t3_apply_corewise_derivatives_hessian` with the up-index jet's
+t3toolbox/backend/sharing.py	722	KEEP	inv2 §9 doc CORE-LETTER	(``[U_g | Udot]`` per group, with the center cores as the paired blocks).'''
+t3toolbox/backend/sharing.py	1007	KEEP	inv2 §9 doc UNRELATED	the padded slots hold the construction's arbitrary orthonormal completions, which must not pair up.
+t3toolbox/backend/stacking.py	54	KEEP	inv2 §9 cmt UNRELATED	):           # the first leaf, drilling down xx[0]...[0]
+t3toolbox/backend/stacking.py	242	KEEP	inv2 §9 cmt UNRELATED	# 1. Drill down to find the 'template' of the original structure
+t3toolbox/backend/t3_linalg.py	534	KEEP	inv2 §9 doc UNRELATED	leg, then for each mode (``d-1`` down to ``0``) bubbles the matching pair adjacent via
+t3toolbox/backend/t3_linalg.py	537	KEEP	inv2 §9 doc ADJECTIVE UNRELATED	swap/merge SVD is locally optimal; the Tucker factors are down-orthogonalized up front.
+t3toolbox/backend/t3_linalg.py	576	KEEP	inv2 §9 code ADJECTIVE	Ux, Gx = ragged_orth.t3_down_orthogonalize_tucker_cores((Ux, Gx))
+t3toolbox/backend/t3_linalg.py	577	KEEP	inv2 §9 code ADJECTIVE	Uy, Gy = ragged_orth.t3_down_orthogonalize_tucker_cores((Uy, Gy))
+t3toolbox/backend/t3_linalg.py	717	KEEP	inv2 §9 doc CORE-LETTER	frame ``(U, G, G, G)`` it is the core gradient of ``<z, Phi(theta)>``
+t3toolbox/backend/t3_operations.py	45	KEEP	inv2 §9 doc UNRELATED	"""Broadcast every core of a T3 up to the common (broadcast) stack of all its cores.
+t3toolbox/backend/t3_orthogonalization.py	7	KEEP	inv2 §9 doc ADJECTIVE	``t3_left/right_orthogonalize``, the up/down core sweeps, the single-core SVD steps they are
+t3toolbox/backend/t3_orthogonalization.py	21	KEEP	inv2 §9 str ADJECTIVE	't3_up_orthogonalize_tt_cores',
+t3toolbox/backend/t3_orthogonalization.py	22	KEEP	inv2 §9 str ADJECTIVE	't3_down_orthogonalize_tucker_cores',
+t3toolbox/backend/t3_orthogonalization.py	23	KEEP	inv2 §9 str ADJECTIVE	't3_down_svd_tucker_core',
+t3toolbox/backend/t3_orthogonalization.py	26	KEEP	inv2 §9 str ADJECTIVE	't3_down_svd_tt_core',
+t3toolbox/backend/t3_orthogonalization.py	27	KEEP	inv2 §9 str ADJECTIVE	't3_up_svd_tt_core',
+t3toolbox/backend/t3_orthogonalization.py	38	KEEP	inv2 §9 doc ADJECTIVE	'''Non-enforcing check of T3 *left/right-orthogonal form*: Tucker cores down-orthogonal AND TT
+t3toolbox/backend/t3_orthogonalization.py	102	KEEP	inv2 §9 code ADJECTIVE	def _up_orthogonalize_tt_cores_step(
+t3toolbox/backend/t3_orthogonalization.py	108	KEEP	inv2 §9 doc ADJECTIVE	"""One core of the map of :py:func:`t3_up_orthogonalize_tt_cores`. Closure-free map body --
+t3toolbox/backend/t3_orthogonalization.py	128	KEEP	inv2 §9 code ADJECTIVE	def t3_up_orthogonalize_tt_cores(
+t3toolbox/backend/t3_orthogonalization.py	134	KEEP	inv2 §9 doc UNRELATED	"""Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
+t3toolbox/backend/t3_orthogonalization.py	140	KEEP	inv2 §9 code ADJECTIVE	tucker_variations, outer_tt_cores = xmap(_up_orthogonalize_tt_cores_step, x)
+t3toolbox/backend/t3_orthogonalization.py	144	KEEP	inv2 §9 code ADJECTIVE	def _down_orthogonalize_tucker_cores_step(
+t3toolbox/backend/t3_orthogonalization.py	147	EXEMPT	§4.3 backwards adjective	NDArray,  # new_Uxo.  up-orthogonal tucker core, C+(x,Ni)
+t3toolbox/backend/t3_orthogonalization.py	150	KEEP	inv2 §9 doc ADJECTIVE	"""One core of the map of :py:func:`t3_down_orthogonalize_tucker_cores`. Closure-free map body
+t3toolbox/backend/t3_orthogonalization.py	165	KEEP	inv2 §9 code ADJECTIVE	def t3_down_orthogonalize_tucker_cores(
+t3toolbox/backend/t3_orthogonalization.py	171	EXEMPT	§4.3 backwards adjective	"""Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
+t3toolbox/backend/t3_orthogonalization.py	181	KEEP	inv2 §9 code ADJECTIVE	def t3_down_svd_tucker_core(
+t3toolbox/backend/t3_orthogonalization.py	192	KEEP	inv2 §9 doc UNRELATED	'''Compute SVD of ith tucker core and contract non-orthogonal factor up into the TT-core above.
+t3toolbox/backend/t3_orthogonalization.py	199	KEEP	inv2 §9 code ADJECTIVE	new_G, new_B, ss_x = linalg.down_svd_pair(
+t3toolbox/backend/t3_orthogonalization.py	299	KEEP	inv2 §9 code ADJECTIVE	def t3_down_svd_tt_core(
+t3toolbox/backend/t3_orthogonalization.py	322	KEEP	inv2 §9 code ADJECTIVE	U_a_x_b, ss_x, Vt_x_i = linalg.up_svd(G0_a_i_b, min_rank, max_rank, rtol, atol)
+t3toolbox/backend/t3_orthogonalization.py	336	KEEP	inv2 §9 code ADJECTIVE	def t3_up_svd_tt_core(
+t3toolbox/backend/t3_orthogonalization.py	347	KEEP	inv2 §9 doc UNRELATED	'''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
+t3toolbox/backend/t3_orthogonalization.py	354	KEEP	inv2 §9 code ADJECTIVE	new_G, new_B, ss_x = linalg.up_svd_pair(
+t3toolbox/backend/t3_orthogonalization.py	381	KEEP	inv2 §9 code ADJECTIVE	left_tk, left_tt = t3_down_orthogonalize_tucker_cores((left_tk, left_tt))
+t3toolbox/backend/t3_orthogonalization.py	387	KEEP	inv2 §9 code ADJECTIVE	right_tk, right_tt = t3_down_orthogonalize_tucker_cores((right_tk, right_tt))
+t3toolbox/backend/t3_orthogonalization.py	392	KEEP	inv2 §9 code ADJECTIVE	new_G, new_B, _ = linalg.up_svd_pair(G, B)
+t3toolbox/backend/t3_orthogonalization.py	408	KEEP	inv2 §9 code ADJECTIVE	tucker_cores, tt_cores = t3_down_orthogonalize_tucker_cores(x)
+t3toolbox/backend/t3_svd.py	67	KEEP	inv2 §9 doc ADJECTIVE	**right-orthogonal** (Tucker down-orthogonal + TT right-orthogonal -- the form the L->R sweep needs).
+t3toolbox/backend/t3_svd.py	103	KEEP	inv2 §9 cmt ADJECTIVE	# Orthogonalize (Tucker down-orthogonal, TT right-orthogonal) -- skipped if asserted right-orthogonal
+t3toolbox/backend/t3_svd.py	105	KEEP	inv2 §9 code ADJECTIVE	x = ragged_orth.t3_down_orthogonalize_tucker_cores(x)
+t3toolbox/backend/t3_svd.py	115	KEEP	inv2 §9 code+cmt ADJECTIVE	x, ss_tucker = ragged_orth.t3_down_svd_tt_core(  # SVD between TT core and Tucker core
+t3toolbox/backend/t3_svd.py	130	KEEP	inv2 §9 code ADJECTIVE	def _up_matricization(
+t3toolbox/backend/t3_svd.py	133	KEEP	inv2 §9 doc ADJECTIVE	'''The up-matricization W2 of a TT core (Tucker leg to rows), stack-aware.'''
+t3toolbox/backend/t3_svd.py	182	KEEP	inv2 §9 doc ADJECTIVE	up-matricization ``W2_i``; each group truncates ONE SVD of the concatenation
+t3toolbox/backend/t3_svd.py	187	KEEP	inv2 §9 doc ADJECTIVE	mode) and to every group core's up leg. Note the tolerance acts on the concatenation,
+t3toolbox/backend/t3_svd.py	225	KEEP	inv2 §9 code ADJECTIVE	x = ragged_orth.t3_down_orthogonalize_tucker_cores(x)
+t3toolbox/backend/t3_svd.py	257	KEEP	inv2 §9 code ADJECTIVE	W2 = _up_matricization(HH[ii])
+t3toolbox/backend/t3_svd.py	263	KEEP	inv2 §9 code ADJECTIVE	M = xnp.concatenate([_up_matricization(HH[ii]) for ii in group], axis=-1)
+t3toolbox/backend/t3_svd.py	312	EXEMPT	§4.3 backwards adjective	(a Tucker rank above its mode size, ``n_i > N_i``, is reduced by a Tucker up-SVD first -- the one case
+t3toolbox/backend/t3_svd.py	345	EXEMPT	§4.3 backwards adjective	if x[0][ii].shape[-2] > x[0][ii].shape[-1]:       # n_i > N_i: only a Tucker up-SVD can reduce it
+t3toolbox/backend/t3_svd.py	346	KEEP	inv2 §9 code ADJECTIVE	x, _ = ragged_orth.t3_down_svd_tucker_core(x, ii)
+t3toolbox/backend/t3_svd.py	354	KEEP	inv2 §9 code+cmt ADJECTIVE	x, _ = ragged_orth.t3_down_svd_tt_core(x, ii)        # Tucker
+t3toolbox/backend/t3_svd.py	388	KEEP	inv2 §9 doc ADJECTIVE	assigned as ONE array per group and each group core's up leg absorbs its coefficient
+t3toolbox/backend/tv_operations.py	232	KEEP	inv2 §9 doc CORE-LETTER	``[U_g; Udot]`` are exactly equal across the group -- while the paired core block becomes
+t3toolbox/backend/tv_operations.py	234	KEEP	inv2 §9 doc CORE-LETTER	an exact rewrite of each Tucker term). The naive ``[U_g; V_i]`` embedding is NOT tied (the
+t3toolbox/backend/tv_operations.py	260	KEEP	inv2 §9 cmt UNRELATED	# every frame-derived core up to K+C -- replicating the base point over the tangent stack K -- so
+t3toolbox/backend/ufv_conversions.py	34	KEEP	inv2 §9 cmt UNRELATED	target_tail: typ.Tuple[int, ...],    # the common (padded) trailing shape every core is padded up to
+t3toolbox/backend/ufv_conversions.py	37	KEEP	inv2 §9 doc UNRELATED	"""Zero-pad each (ragged-tailed) core up to ``target_tail`` and stack onto a new leading ``d`` axis.
+t3toolbox/backend/ufv_operations.py	396	KEEP	inv2 §9 doc UNRELATED	not pair up), then the same derivation runs on the supercores: the right-to-left zipper of the left chain
+t3toolbox/backend/ufv_operations.py	649	KEEP	inv2 §9 cmt UNRELATED	# leading mode axis, broadcast up to K+C, and compare -- the check_ufv_pair pattern.
+t3toolbox/backend/uniform_fitting.py	488	KEEP	inv2 §9 doc UNRELATED	mid-optimization; this is checked (structurally, cheap) and rejected up front rather than crashing
+t3toolbox/backend/uniform_fitting.py	504	KEEP	inv2 §9 doc UNRELATED	bonds are at most 2) -- is rejected up front with a clear error:
+t3toolbox/backend/uniform_padded_frames.py	563	EXEMPT	§4.2 store-and-arrow site	# -- step 2, up edges: one completion per sharing group, the members' contents side by side
+t3toolbox/backend/uniform_padded_frames.py	592	EXEMPT	§4.2 store-and-arrow site	# -- down edges, all modes at once, with the incoming coordinate maps (zero past the ends)
+t3toolbox/backend/ut3_linalg.py	179	KEEP	inv2 §9 cmt ADJECTIVE	def _ut3_left_orthogonalized(data: UT3Data) -> UT3Data:  # down-orth the Tucker, then left-orth the TT
+t3toolbox/backend/ut3_linalg.py	180	KEEP	inv2 §9 doc ADJECTIVE	"""The two-step chain the norm fast path assumes: down-orthogonalize the Tucker supercores, then
+t3toolbox/backend/ut3_linalg.py	192	KEEP	inv2 §9 code ADJECTIVE	ut3_orthogonalization.ut3_down_orthogonalize_tucker_cores(data))
+t3toolbox/backend/ut3_operations.py	78	KEEP	inv2 §9 doc UNRELATED	"""Sum the leading/trailing TT bonds down to rank 1 (preserves the tensor), updating those edge
+t3toolbox/backend/ut3_orthogonalization.py	20	KEEP	inv2 §9 str ADJECTIVE	'down_orthogonalize_tucker_supercores',
+t3toolbox/backend/ut3_orthogonalization.py	21	KEEP	inv2 §9 str ADJECTIVE	'up_orthogonalize_tt_supercores',
+t3toolbox/backend/ut3_orthogonalization.py	22	KEEP	inv2 §9 str ADJECTIVE	'ut3_down_orthogonalize_tucker_cores',
+t3toolbox/backend/ut3_orthogonalization.py	23	KEEP	inv2 §9 str ADJECTIVE	'ut3_up_orthogonalize_tt_cores',
+t3toolbox/backend/ut3_orthogonalization.py	40	KEEP	inv2 §9 doc ADJECTIVE	form (Tucker supercores down-orthogonal AND TT supercores left/right-orthogonal), **per stack element**.
+t3toolbox/backend/ut3_orthogonalization.py	125	KEEP	inv2 §9 code ADJECTIVE	def down_orthogonalize_tucker_supercores(
+t3toolbox/backend/ut3_orthogonalization.py	134	KEEP	inv2 §9 doc ADJECTIVE	index, remainder pushed into the TT cores. The SVD core of :py:func:`ut3_down_orthogonalize_tucker_cores`;
+t3toolbox/backend/ut3_orthogonalization.py	157	KEEP	inv2 §9 code ADJECTIVE	def ut3_down_orthogonalize_tucker_cores(data: UT3Data) -> UT3Data:
+t3toolbox/backend/ut3_orthogonalization.py	158	KEEP	inv2 §9 doc UNRELATED	"""Orthogonalize the Tucker cores (rows orthonormal over the mode index), pushing the remainder up
+t3toolbox/backend/ut3_orthogonalization.py	173	KEEP	inv2 §9 code ADJECTIVE	new_tk, new_tt = down_orthogonalize_tucker_supercores(
+t3toolbox/backend/ut3_orthogonalization.py	182	KEEP	inv2 §9 code ADJECTIVE	def up_orthogonalize_tt_supercores(
+t3toolbox/backend/ut3_orthogonalization.py	189	EXEMPT	§4.3 backwards adjective	) -> typ.Tuple[NDArray, NDArray]:   # (new_tucker = variations V, new_tt = down-orthogonal O)
+t3toolbox/backend/ut3_orthogonalization.py	190	KEEP	inv2 §9 doc ADJECTIVE	"""Bare batched TT-up SVD on supercores (assumes masked input): the TT mode index becomes orthonormal
+t3toolbox/backend/ut3_orthogonalization.py	191	KEEP	inv2 §9 doc UNRELATED	over the bonds, the remainder pushed down into the Tucker core. The SVD core of
+t3toolbox/backend/ut3_orthogonalization.py	192	KEEP	inv2 §9 doc ADJECTIVE	:py:func:`ut3_up_orthogonalize_tt_cores`; also reused by the orthogonal-representation sweep
+t3toolbox/backend/ut3_orthogonalization.py	214	KEEP	inv2 §9 code ADJECTIVE	def ut3_up_orthogonalize_tt_cores(data: UT3Data) -> UT3Data:
+t3toolbox/backend/ut3_orthogonalization.py	215	KEEP	inv2 §9 doc ADJECTIVE UNRELATED	"""Up-orthogonalize the TT cores (mode index orthonormal over the bonds), pushing the remainder down
+t3toolbox/backend/ut3_orthogonalization.py	226	KEEP	inv2 §9 code ADJECTIVE	new_tk, new_tt = up_orthogonalize_tt_supercores(
+t3toolbox/backend/ut3_sampling.py	220	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	``sampling_derivatives.t3_entries_derivatives``; the up-index jet slices Tucker fibers, so only ``pp`` is
+t3toolbox/backend/ut3_svd.py	299	KEEP	inv2 §9 cmt ADJECTIVE	n0 = np.minimum(tkm.sum(axis=-1), shape_col)               # after down-orthogonalization
+t3toolbox/backend/ut3_svd.py	331	KEEP	inv2 §9 cmt ADJECTIVE	skip_orthogonalization: bool = False,  # assume input already right-orthogonal (Tucker down + TT right)
+t3toolbox/backend/ut3_svd.py	345	KEEP	inv2 §9 doc ADJECTIVE	``skip_orthogonalization=True`` assumes the input is already right-orthogonal (Tucker down-orthogonal,
+t3toolbox/backend/ut3_svd.py	374	KEEP	inv2 §9 code ADJECTIVE	frame_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
+t3toolbox/backend/ut3_svd.py	379	KEEP	inv2 §9 code ADJECTIVE	frame_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
+t3toolbox/backend/ut3_svd.py	485	KEEP	inv2 §9 cmt ADJECTIVE	skip_orthogonalization: bool = False,  # assume input already right-orthogonal (Tucker down + TT right)
+t3toolbox/backend/ut3_svd.py	529	KEEP	inv2 §9 cmt ADJECTIVE	n0 = np.minimum(tkm_c.sum(axis=-1), shape_col)                 # after down-orth
+t3toolbox/backend/ut3_svd.py	562	KEEP	inv2 §9 code ADJECTIVE	frame_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
+t3toolbox/backend/ut3_svd.py	566	KEEP	inv2 §9 code ADJECTIVE	frame_supercore, tt_supercore = ut3_orthogonalization.down_orthogonalize_tucker_supercores(
+t3toolbox/backend/utv_operations.py	205	KEEP	inv2 §9 doc UNRELATED	up to ``K + C`` (mirror ragged ``bcast``), and the masks (host numpy, carrying ``K + C`` already from
+t3toolbox/backend/utv_operations.py	387	KEEP	inv2 §9 doc UNRELATED	would misalign ``d`` with ``K``): the base point (stack ``C``) is broadcast up to ``K + C`` by inserting
+t3toolbox/backend/utv_operations.py	452	KEEP	inv2 §9 doc UNRELATED	Mask-once up front (the frame and variation padding zeroed), then mask-agnostic einsums vectorized over
+t3toolbox/backend/utv_operations.py	504	KEEP	inv2 §9 doc UNRELATED	the tensor order ``d``), while a scan compiles the body once. Mask-once up front. Enforces the gauge
+t3toolbox/backend/utv_sampling.py	72	KEEP	inv2 §9 doc UNRELATED	"""Apply the rank masks once up front; return the masked supercores in probing's operand order
+t3toolbox/fitting.py	12	KEEP	inv1 App. B	:py:class:`~t3toolbox.backend.optimizers.LocalModel` (same name, one level up). The model is generic over
+t3toolbox/fitting.py	154	KEEP	inv1 App. B	) -> typ.Optional[NDArray]:                # None, or the canonical 2-D ω[m,o], m in {1,d}, o in {1,order+1}
+t3toolbox/fitting.py	155	KEEP	inv1 App. B	'''Validate + canonicalize a residual weight to the 2-D matrix ``ω[mode, order]`` (structural errors,
+t3toolbox/fitting.py	157	KEEP	inv1 App. B	lenient: **plain probe** takes a 1-D per-mode weight ``(d,)`` (a 2-D ``(d, 1)`` is rejected -- it has no
+t3toolbox/fitting.py	160	KEEP	inv1 App. B	weighting is probe-only). A bare 1-D vector binds to each model's innermost/most-important axis: order
+t3toolbox/fitting.py	165	KEEP	inv1 App. B	plain_probe = (kind_name == 'probe')            # plain probe: 1-D per-mode, no order axis
+t3toolbox/fitting.py	168	KEEP	inv1 App. B	raise ValueError("plain probe takes a 1-D per-mode residual weight of shape (d,); it has no "
+t3toolbox/fitting.py	177	KEEP	inv1 App. B	raise ValueError("residual weight must be 1-D or 2-D (ω[mode, order]); got shape %s" % (w.shape,))
+t3toolbox/fitting.py	290	KEEP	inv1 App. B	>>> up = ut3m.UNIFORM_MANIFOLD.randn(umodel.frame)
+t3toolbox/fitting.py	291	KEEP	inv1 App. B	>>> bool(np.allclose(float(umodel.gn_quadratic(up)), float(up.corewise_inner(umodel.gn_hessian(up)))))
+t3toolbox/fitting.py	606	KEEP	inv1 App. B	weight:             typ.Optional[NDArray] = None,   # canonical 2-D ω[m,o] (from _canonical_weight), or None
+t3toolbox/fitting.py	740	KEEP	inv1 App. B	weight:             typ.Optional[typ.Any] = None,    # per-mode residual weight ω, 1-D (d,); None = 1 (unweighted)
+t3toolbox/fitting.py	750	KEEP	inv1 App. B	weighted: the objective is ``½ Σ_i ‖ω_i r_i‖²`` over the ``d`` per-mode probe residuals, so a 1-D
+t3toolbox/fitting.py	751	KEEP	inv1 App. B	weight ``ω`` of shape ``(d,)`` up- or down-weights each mode's data (e.g. inverse-scale / inverse-noise
+t3toolbox/fitting.py	752	KEEP	inv1 App. B	balancing). Plain probe has no order axis, so ``weight`` is a **1-D** per-mode vector (a 2-D ``(d, 1)``
+t3toolbox/fitting.py	768	KEEP	inv1 App. B	A per-mode weight down-weights mode 0 and up-weights mode 2 in the objective ``½ Σ_i ‖ω_i r_i‖²``:
+t3toolbox/fitting.py	777	KEEP	inv1 App. B	A 2-D weight is rejected -- plain probe has no order axis:
+t3toolbox/fitting.py	781	KEEP	inv1 App. B	ValueError: plain probe takes a 1-D per-mode residual weight of shape (d,)
+t3toolbox/frame_variations_format.py	119	KEEP	inv1 App. C	- left_tt_cores     = (L0,...,L(d-1)), left-orthogonal:  L_abi L_abj = delta_ij
+t3toolbox/frame_variations_format.py	120	KEEP	inv1 App. C	- right_tt_cores    = (R0,...,R(d-1)), right-orthogonal  R_ibc R_jbc = delta_ij
+t3toolbox/frame_variations_format.py	493	KEEP	inv1 App. B	+ ', len(RR)=' + str(len(RR))
+t3toolbox/frame_variations_format.py	541	KEEP	inv1 App. B	rRl = tuple([int(RR[0].shape[-3])] + [int(R.shape[-1]) for R in RR])
+t3toolbox/frame_variations_format.py	542	KEEP	inv1 App. B	rRr = tuple([int(R.shape[-3]) for R in RR] + [int(RR[-1].shape[-1])])
+t3toolbox/frame_variations_format.py	693	KEEP	inv1 App. C	"""Reverse the mode order. Left/right cores **swap roles** (reversing a left-orthogonal chain
+t3toolbox/frame_variations_format.py	694	KEEP	inv1 App. C	yields a right-orthogonal one), so ``new_left = reverse(old_right)`` and vice versa; the
+t3toolbox/frame_variations_format.py	723	KEEP	inv1 App. C	Reconstructed in right-canonical form (the Tucker factors over the right-orthogonal core-TT).
+t3toolbox/frame_variations_format.py	751	KEEP	inv1 App. C	A frame stores both the left- and right-orthogonal core-TTs (see :py:meth:`to_t3`); for a
+t3toolbox/frame_variations_format.py	821	KEEP	inv1 App. B	return tuple([U.shape[-1] for U in self.tucker_variations])
+t3toolbox/frame_variations_format.py	1311	KEEP	inv1 App. C	Replacing the index-1 TT-core swaps ``H1`` into the right-orthogonal chain ``L0, ?, R2``; the
+t3toolbox/frame_variations_format.py	1338	KEEP	inv1 App. C	already_left_orthogonal: bool = False,
+t3toolbox/frame_variations_format.py	1371	EXEMPT	§4.3 backwards adjective	- tucker_cores      = (U0,U1, U2, U3), up orthogonal
+t3toolbox/frame_variations_format.py	1372	EXEMPT	§4.3 backwards adjective	- down_tt_cores     = (O0, O1, O2, O3), down orthogonal
+t3toolbox/frame_variations_format.py	1373	KEEP	inv1 App. C	- left_tt_cores     = (L0, L1, L2),     left orthogonal
+t3toolbox/frame_variations_format.py	1374	KEEP	inv1 App. C	- right_tt_cores    = (R1, R2, R3),     right orthogonal
+t3toolbox/frame_variations_format.py	1381	KEEP	inv1 App. C	(arXiv:2603.21141). NOTE: the left/right orthogonalization sweep order here differs from
+t3toolbox/frame_variations_format.py	1428	KEEP	inv1 App. C	x.data, already_left_orthogonal=already_left_orthogonal, squash_tails=squash_tails,
+t3toolbox/frame_variations_format.py	1592	KEEP	inv1 App. C	``already_left_orthogonal=True`` -- the flag that matters: a T3-SVD result is left-orthogonal, and the
+t3toolbox/frame_variations_format.py	1616	KEEP	inv1 App. C	frame, variations = t3_orthogonal_representations(xs, already_left_orthogonal=True)
+t3toolbox/frame_variations_format.py	1789	KEEP	inv1 App. B	different hint-free starts. The aligned output does not have this dependence, up to ``tol``.
+t3toolbox/manifold.py	401	KEEP	inv1 App. B	# fast-path keeps the common eager case O(1); the value compare runs only when the objects differ
+t3toolbox/manifold.py	650	KEEP	inv1 App. B	result the yardstick is the operands' (a division by a small step scales it up too), so certify a
+t3toolbox/manifold.py	949	EXEMPT	inv1 App. B; §3.3 -ward rewording (grep)	The adjoint of :py:meth:`entries` -- identical to :py:meth:`apply_transpose` with the up-index
+t3toolbox/manifold.py	1172	EXEMPT	inv1 App. B; §3.3 -ward rewording (grep)	Identical to :py:meth:`apply_derivatives_transpose` with the frame up-index from fiber slicing and
+t3toolbox/optimizers.py	139	KEEP	inv1 App. C	y, _, _ = x0.t3svd(sharing=sharing)                              # lossless, left-orthogonal
+t3toolbox/optimizers.py	140	KEEP	inv1 App. C	return y.rank_adjustment_sweep('right_to_left', sharing=sharing)  # minimal (the t3svd output is left-orthogonal)
+t3toolbox/optimizers.py	305	KEEP	inv1 App. B	wm = _fitting._canonical_weight(weight, kind, _n_modes(kind, sample), order or 0)   # 2-D ω[m,o] or None
+t3toolbox/optimizers.py	679	KEEP	inv1 App. B	core's dtype. First set up the problem:
+t3toolbox/safety.py	249	KEEP	inv1 App. B	The ``b1 is b2`` identity is the O(1) fast path; this only runs (and only matters) when the objects
+t3toolbox/shared_geometry.py	79	KEEP	inv1 App. B	The wrapper is stateless up to its static ``(base, sharing)`` identity (value-based
+t3toolbox/tucker_tensor_train.py	291	KEEP	inv1 App. B	.. [1] Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+t3toolbox/tucker_tensor_train.py	615	EXEMPT	§4.3 backwards adjective	- Down TT core unfoldings are full rank: ``ni <= (ri*r(i+1))``
+t3toolbox/tucker_tensor_train.py	750	KEEP	inv1 App. B	the stored ranks. The ``t3svd`` makes this O(tensor) -- a diagnostic, not a hot-path check.
+t3toolbox/tucker_tensor_train.py	778	KEEP	inv1 App. C	def is_left_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
+t3toolbox/tucker_tensor_train.py	779	KEEP	inv1 App. C	"""True (per stack element) if this T3 is in **left-orthogonal form**: every Tucker core
+t3toolbox/tucker_tensor_train.py	780	KEEP	inv1 App. D	down-orthogonal and every TT core except the last left-orthogonal (the last TT core is the center
+t3toolbox/tucker_tensor_train.py	785	KEEP	inv1 App. C	:py:meth:`t3svd` result is left-orthogonal, as is the result of
+t3toolbox/tucker_tensor_train.py	795	KEEP	inv1 App. C	>>> print(x.is_left_orthogonal())     # a random T3 is not in any orthogonal form
+t3toolbox/tucker_tensor_train.py	797	KEEP	inv1 App. C	>>> x2, _, _ = x.t3svd()              # a t3svd result is left-orthogonal
+t3toolbox/tucker_tensor_train.py	798	KEEP	inv1 App. C	>>> print(x2.is_left_orthogonal())
+t3toolbox/tucker_tensor_train.py	800	KEEP	inv1 App. C	>>> print(x2.is_right_orthogonal())   # ...but not right-orthogonal
+t3toolbox/tucker_tensor_train.py	803	KEEP	inv1 App. C	Stacked: a per-element bool array. Stack a left-orthogonal element with a non-orthogonal one:
+t3toolbox/tucker_tensor_train.py	807	KEEP	inv1 App. C	>>> print(stacked.is_left_orthogonal().shape, stacked.is_left_orthogonal())
+t3toolbox/tucker_tensor_train.py	812	KEEP	inv1 App. C	def is_right_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
+t3toolbox/tucker_tensor_train.py	813	KEEP	inv1 App. C	"""True (per stack element) if this T3 is in **right-orthogonal form**: every Tucker core
+t3toolbox/tucker_tensor_train.py	814	KEEP	inv1 App. D	down-orthogonal and every TT core except the first right-orthogonal (the first TT core is the
+t3toolbox/tucker_tensor_train.py	817	KEEP	inv1 App. C	Non-enforcing convenience checker (see :py:meth:`is_left_orthogonal`). The result of
+t3toolbox/tucker_tensor_train.py	818	KEEP	inv1 App. C	``rank_adjustment_sweep('right_to_left')`` is right-orthogonal when its input's Tucker cores were
+t3toolbox/tucker_tensor_train.py	2088	KEEP	inv1 App. B	the number of modes ``d`` (``O(d²·r³)`` compute, ``O(r̃²)`` memory).
+t3toolbox/tucker_tensor_train.py	2731	KEEP	inv1 App. D	def down_svd_tucker_core(
+t3toolbox/tucker_tensor_train.py	2764	KEEP	inv1 App. D	New TuckerTensorTrain representing the same tensor, but with ith tucker core down orthogonal.
+t3toolbox/tucker_tensor_train.py	2780	KEEP	inv1 App. D	:py:meth:`.TuckerTensorTrain.up_svd_tt_core`
+t3toolbox/tucker_tensor_train.py	2789	KEEP	inv1 App. D	>>> x2, ss = x.down_svd_tucker_core(ind)
+t3toolbox/tucker_tensor_train.py	2795	KEEP	inv1 App. D	>>> print(bool(np.linalg.norm(B @ B.T - np.eye(rank)) < 1e-12)) # Tucker core is (down) orthogonal
+t3toolbox/tucker_tensor_train.py	2798	KEEP	inv1 App. D	result = ragged_orthogonalization.t3_down_svd_tucker_core(
+t3toolbox/tucker_tensor_train.py	2850	KEEP	inv1 App. D	:py:meth:`.TuckerTensorTrain.down_svd_tucker_core`
+t3toolbox/tucker_tensor_train.py	2852	KEEP	inv1 App. D	:py:meth:`.TuckerTensorTrain.up_svd_tt_core`
+t3toolbox/tucker_tensor_train.py	2866	KEEP	inv1 App. C	>>> print(bool(np.linalg.norm(np.einsum('iaj,iak->jk', G, G) - np.eye(G.shape[2])) < 1e-12)) # TT-core is left-orthogonal
+t3toolbox/tucker_tensor_train.py	2921	KEEP	inv1 App. D	:py:meth:`.TuckerTensorTrain.down_svd_tucker_core`
+t3toolbox/tucker_tensor_train.py	2923	KEEP	inv1 App. D	:py:meth:`.TuckerTensorTrain.up_svd_tt_core`
+t3toolbox/tucker_tensor_train.py	2937	KEEP	inv1 App. C	>>> print(bool(np.linalg.norm(np.einsum('iaj,kaj->ik', G, G) - np.eye(G.shape[0])) < 1e-12)) # TT-core is right orthogonal
+t3toolbox/tucker_tensor_train.py	2945	KEEP	inv1 App. D	def up_svd_tt_core(
+t3toolbox/tucker_tensor_train.py	2956	EXEMPT	§4.3 backwards adjective	'''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
+t3toolbox/tucker_tensor_train.py	2978	EXEMPT	§4.3 backwards adjective	New TuckerTensorTrain representing the same tensor, but with ith TT-core down orthogonal.
+t3toolbox/tucker_tensor_train.py	2986	KEEP	inv1 App. D	:py:meth:`.TuckerTensorTrain.down_svd_tucker_core`
+t3toolbox/tucker_tensor_train.py	2988	KEEP	inv1 App. D	:py:meth:`.TuckerTensorTrain.up_svd_tt_core`
+t3toolbox/tucker_tensor_train.py	2997	KEEP	inv1 App. D	>>> x2, ss = x.up_svd_tt_core(ind)
+t3toolbox/tucker_tensor_train.py	3002	EXEMPT	§4.3 backwards adjective	>>> print(bool(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1])) < 1e-12)) # TT-core is down orthogonal
+t3toolbox/tucker_tensor_train.py	3005	KEEP	inv1 App. D	result = ragged_orthogonalization.t3_up_svd_tt_core(
+t3toolbox/tucker_tensor_train.py	3019	KEEP	inv1 App. D	- All other Tucker cores are down orthogonalized.
+t3toolbox/tucker_tensor_train.py	3020	KEEP	inv1 App. C	- TT-cores to the left are left orthogonalized.
+t3toolbox/tucker_tensor_train.py	3021	KEEP	inv1 App. D	- TT-core directly above is up orthogonalized.
+t3toolbox/tucker_tensor_train.py	3022	KEEP	inv1 App. C	- TT-cores to the right are right orthogonalized.
+t3toolbox/tucker_tensor_train.py	3076	KEEP	inv1 App. D	- All Tucker cores are down orthogonalized.
+t3toolbox/tucker_tensor_train.py	3077	KEEP	inv1 App. C	- TT-cores to the left are left orthogonalized.
+t3toolbox/tucker_tensor_train.py	3079	KEEP	inv1 App. C	- TT-cores to the right are right orthogonalized.
+t3toolbox/tucker_tensor_train.py	3106	KEEP	inv1 App. C	>>> print(bool(np.linalg.norm(np.einsum('aib,aic->bc', XL, XL) - np.eye(G1.shape[0])) < 1e-12)) # Left subtree is left orthogonal
+t3toolbox/tucker_tensor_train.py	3108	EXEMPT	§4.3 backwards adjective	>>> print(bool(np.linalg.norm(np.einsum('xi,yi->xy', B1, B1) - np.eye(G1.shape[1])) < 1e-12)) # Core below G1 is up orthogonal
+t3toolbox/tucker_tensor_train.py	3111	KEEP	inv1 App. C	>>> print(bool(np.linalg.norm(np.einsum('aib,cib->ac', XR, XR) - np.eye(G1.shape[2])) < 1e-12)) # Right subtree is right orthogonal
+t3toolbox/tucker_tensor_train.py	3125	KEEP	inv1 App. C	>>> print(bool(np.linalg.norm(np.einsum('bijd,cijd->bc', XR, XR) - np.eye(G0.shape[2])) < 1e-12)) # Right subtree is right orthogonal
+t3toolbox/tucker_tensor_train.py	3132	KEEP	inv1 App. D	def down_orthogonalize_tucker_cores(
+t3toolbox/tucker_tensor_train.py	3135	KEEP	inv1 App. D	"""Orthogonalize Tucker cores downwards, pushing remainders onto TT cores above.
+t3toolbox/tucker_tensor_train.py	3140	KEEP	inv1 App. D	New TuckerTensorTrain representing the same tensor, but with all Tucker cores down orthogonal.
+t3toolbox/tucker_tensor_train.py	3144	KEEP	inv1 App. D	:py:meth:`.TuckerTensorTrain.up_orthogonalize_tt_cores`
+t3toolbox/tucker_tensor_train.py	3145	KEEP	inv1 App. C	:py:meth:`.TuckerTensorTrain.left_orthogonalize_tt_cores`
+t3toolbox/tucker_tensor_train.py	3146	KEEP	inv1 App. C	:py:meth:`.TuckerTensorTrain.right_orthogonalize_tt_cores`
+t3toolbox/tucker_tensor_train.py	3154	KEEP	inv1 App. D	>>> x_orth = x.down_orthogonalize_tucker_cores()
+t3toolbox/tucker_tensor_train.py	3159	KEEP	inv1 App. D	>>> print(bool(np.linalg.norm(B @ B.T - np.eye(B.shape[0])) < 1e-12)) # Tucker core is down orthogonal
+t3toolbox/tucker_tensor_train.py	3168	KEEP	inv1 App. D	>>> x_orth = x.down_orthogonalize_tucker_cores()
+t3toolbox/tucker_tensor_train.py	3178	KEEP	inv1 App. D	return TuckerTensorTrain(*ragged_orthogonalization.t3_down_orthogonalize_tucker_cores(self.data))
+t3toolbox/tucker_tensor_train.py	3180	KEEP	inv1 App. D	def up_orthogonalize_tt_cores(
+t3toolbox/tucker_tensor_train.py	3183	KEEP	inv1 App. D	"""Up orthogonalize TT cores, pushing remainders onto Tucker cores below.
+t3toolbox/tucker_tensor_train.py	3188	KEEP	inv1 App. D	New TuckerTensorTrain representing the same tensor, but with all TT cores up orthogonal.
+t3toolbox/tucker_tensor_train.py	3192	KEEP	inv1 App. D	:py:meth:`.TuckerTensorTrain.down_orthogonalize_tucker_cores`
+t3toolbox/tucker_tensor_train.py	3193	KEEP	inv1 App. C	:py:meth:`.TuckerTensorTrain.left_orthogonalize_tt_cores`
+t3toolbox/tucker_tensor_train.py	3194	KEEP	inv1 App. C	:py:meth:`.TuckerTensorTrain.right_orthogonalize_tt_cores`
+t3toolbox/tucker_tensor_train.py	3202	KEEP	inv1 App. D	>>> x_orth = x.up_orthogonalize_tt_cores()
+t3toolbox/tucker_tensor_train.py	3207	KEEP	inv1 App. D	>>> print(bool(np.linalg.norm(np.einsum('iaj,ibj->ab',G,G)-np.eye(G.shape[1])) < 1e-12)) # TT core is up orthogonal
+t3toolbox/tucker_tensor_train.py	3216	KEEP	inv1 App. D	>>> x_orth = x.up_orthogonalize_tt_cores()
+t3toolbox/tucker_tensor_train.py	3227	KEEP	inv1 App. D	*ragged_orthogonalization.t3_up_orthogonalize_tt_cores(self.data),
+t3toolbox/tucker_tensor_train.py	3230	KEEP	inv1 App. C	def left_orthogonalize_tt_cores(
+t3toolbox/tucker_tensor_train.py	3234	KEEP	inv1 App. C	"""Left orthogonalize the TT cores, possibly returning variation cores as well.
+t3toolbox/tucker_tensor_train.py	3245	KEEP	inv1 App. C	New TuckerTensorTrain representing the same tensor, but with all TT cores left orthogonal.
+t3toolbox/tucker_tensor_train.py	3251	KEEP	inv1 App. D	:py:meth:`.TuckerTensorTrain.down_orthogonalize_tucker_cores`
+t3toolbox/tucker_tensor_train.py	3252	KEEP	inv1 App. D	:py:meth:`.TuckerTensorTrain.up_orthogonalize_tt_cores`
+t3toolbox/tucker_tensor_train.py	3253	KEEP	inv1 App. C	:py:meth:`.TuckerTensorTrain.right_orthogonalize_tt_cores`
+t3toolbox/tucker_tensor_train.py	3262	KEEP	inv1 App. C	>>> x_orth = x.left_orthogonalize_tt_cores()
+t3toolbox/tucker_tensor_train.py	3267	KEEP	inv1 App. C	>>> print(bool(np.linalg.norm(np.einsum('iaj,iak->jk',G,G)-np.eye(G.shape[2])) < 1e-12)) # TT core is left orthogonal
+t3toolbox/tucker_tensor_train.py	3276	KEEP	inv1 App. C	>>> x_orth = x.left_orthogonalize_tt_cores()
+t3toolbox/tucker_tensor_train.py	3284	KEEP	inv1 App. C	result = orth.tt_left_orthogonalize(
+t3toolbox/tucker_tensor_train.py	3292	KEEP	inv1 App. C	def right_orthogonalize_tt_cores(
+t3toolbox/tucker_tensor_train.py	3296	KEEP	inv1 App. C	"""Right orthogonalize the TT cores, possibly returning variation cores as well.
+t3toolbox/tucker_tensor_train.py	3307	KEEP	inv1 App. C	New TuckerTensorTrain representing the same tensor, but with all TT cores right orthogonal.
+t3toolbox/tucker_tensor_train.py	3313	KEEP	inv1 App. D	:py:meth:`.TuckerTensorTrain.down_orthogonalize_tucker_cores`
+t3toolbox/tucker_tensor_train.py	3314	KEEP	inv1 App. D	:py:meth:`.TuckerTensorTrain.up_orthogonalize_tt_cores`
+t3toolbox/tucker_tensor_train.py	3315	KEEP	inv1 App. C	:py:meth:`.TuckerTensorTrain.left_orthogonalize_tt_cores`
+t3toolbox/tucker_tensor_train.py	3323	KEEP	inv1 App. C	>>> x_orth = x.right_orthogonalize_tt_cores()
+t3toolbox/tucker_tensor_train.py	3328	KEEP	inv1 App. C	>>> print(bool(np.linalg.norm(np.einsum('iaj,kaj->ik',G,G)-np.eye(G.shape[0])) < 1e-12)) # TT core is right orthogonal
+t3toolbox/tucker_tensor_train.py	3337	KEEP	inv1 App. C	>>> x_orth = x.right_orthogonalize_tt_cores()
+t3toolbox/tucker_tensor_train.py	3345	KEEP	inv1 App. C	result = orth.tt_right_orthogonalize(
+t3toolbox/tucker_tensor_train.py	3701	KEEP	inv1 App. B	gradient, not a tensor; no ``|W|`` blow-up). Computed by the Section 6.3 corewise simplification
+t3toolbox/tucker_tensor_train.py	3737	KEEP	inv1 App. B	``sum_over_probes`` chooses where the probe stack ``W`` lands (both modes are cheap, ``O(d|W|N)``):
+t3toolbox/tucker_tensor_train.py	3842	KEEP	inv1 App. B	with it. No ``|W|`` blow-up: the probe stack collapses into the fixed-size cores.
+t3toolbox/tucker_tensor_train.py	4143	KEEP	inv1 App. D	**right-orthogonal** (every Tucker core down-orthogonal **and** every TT core
+t3toolbox/tucker_tensor_train.py	4144	KEEP	inv1 App. C	right-orthogonal -- the form the left-to-right sweep needs). **Not enforced** -- a wrong
+t3toolbox/tucker_tensor_train.py	4145	KEEP	inv1 App. C	assertion silently corrupts the result; verify first with :py:meth:`is_right_orthogonal`. A
+t3toolbox/tucker_tensor_train.py	4147	KEEP	inv1 App. C	it yourself (a left-orthogonal T3 reversed is right-orthogonal) if you want to skip. Default:
+t3toolbox/tucker_tensor_train.py	4177	KEEP	inv1 App. B	exceed the requested tolerance by up to a factor ``sqrt(2d-1)`` (the generalized Oseledets bound)::
+t3toolbox/tucker_tensor_train.py	4184	KEEP	inv1 App. C	**left-orthogonal**, but under a hard rank cap it can leave a Tucker rank / bond above its
+t3toolbox/tucker_tensor_train.py	4187	KEEP	inv1 App. C	:py:meth:`rank_adjustment_sweep` (the result is left-orthogonal, so ``'right_to_left'`` minimizes
+t3toolbox/tucker_tensor_train.py	4265	KEEP	inv1 App. C	left-orthogonal; reduce it to minimal with :py:meth:`rank_adjustment_sweep`
+t3toolbox/tucker_tensor_train.py	4266	KEEP	inv1 App. C	(``'right_to_left'``, since a ``t3svd`` result is left-orthogonal):
+t3toolbox/tucker_tensor_train.py	4273	KEEP	inv1 App. C	>>> print(x2.is_left_orthogonal(), x2.has_minimal_ranks, x2.tucker_ranks)
+t3toolbox/tucker_tensor_train.py	4280	KEEP	inv1 App. C	right-orthogonal (verify with :py:meth:`is_right_orthogonal` first -- it is not checked):
+t3toolbox/tucker_tensor_train.py	4286	KEEP	inv1 App. D	>>> xr = x.down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()
+t3toolbox/tucker_tensor_train.py	4287	KEEP	inv1 App. C	>>> print(xr.is_right_orthogonal())
+t3toolbox/tucker_tensor_train.py	4544	KEEP	inv1 App. C	``'right_to_left'`` returns a **right-orthogonal** T3; ``'left_to_right'`` a **left-orthogonal**
+t3toolbox/tucker_tensor_train.py	4548	KEEP	inv1 App. C	if the input is already orthogonal in the opposite direction** -- e.g. a :py:meth:`t3svd` result is left-orthogonal, so
+t3toolbox/tucker_tensor_train.py	4553	KEEP	inv1 App. C	is *lossy* in that case). Verify the gauge with :py:meth:`is_left_orthogonal` /
+t3toolbox/tucker_tensor_train.py	4554	KEEP	inv1 App. C	:py:meth:`is_right_orthogonal` first, or compose both directions for guaranteed minimal ranks.
+t3toolbox/tucker_tensor_train.py	4563	KEEP	inv1 App. C	>>> x2, _, _ = x.t3svd(max_tt_ranks=2)        # basic T3-SVD: left-orthogonal, NOT minimal
+t3toolbox/tucker_tensor_train.py	4566	KEEP	inv1 App. C	>>> x3 = x2.rank_adjustment_sweep('right_to_left')   # x2 is left-orthogonal -> R->L minimizes
+t3toolbox/tucker_tensor_train.py	4572	KEEP	inv1 App. C	Wrong direction for the input's gauge -- the left-orthogonal ``x2`` needs ``'right_to_left'``;
+t3toolbox/tucker_tensor_train.py	4677	KEEP	inv1 App. B	exceed the requested tolerance by up to a factor ``sqrt(2d-1)`` (the generalized Oseledets bound).
+t3toolbox/tucker_tensor_train.py	4691	KEEP	inv1 App. B	.. [1] Alger, N., Christierson, B., Chen, P., & Ghattas, O. (2026).
+t3toolbox/uniform_frame_variations_format.py	387	KEEP	inv1 App. C	the Tucker supercore over the right-orthogonal TT supercore). Uniform analog of ``T3Frame.to_t3``;
+t3toolbox/uniform_frame_variations_format.py	399	KEEP	inv1 App. C	left-orthogonal chain yields a right-orthogonal one -- so the redundant L/R store makes this exact
+t3toolbox/uniform_frame_variations_format.py	1071	KEEP	inv1 App. B	# axes after the leading core (d) axis, then broadcast up to the variations mask shape. Masks are
+t3toolbox/uniform_frame_variations_format.py	1089	KEEP	inv1 App. C	already_left_orthogonal: bool = False,
+t3toolbox/uniform_frame_variations_format.py	1122	EXEMPT	§4.3 backwards adjective	- tucker_cores       = (U0,U1, U2, U3), up orthogonal
+t3toolbox/uniform_frame_variations_format.py	1123	KEEP	inv1 App. C	- left_tt_cores     = (L0, L1, L2),     left orthogonal
+t3toolbox/uniform_frame_variations_format.py	1124	KEEP	inv1 App. C	- right_tt_cores    = (R1, R2, R3),     right orthogonal
+t3toolbox/uniform_frame_variations_format.py	1125	EXEMPT	§4.3 backwards adjective	- outer_tt_cores    = (O0, O1, O2, O3), down orthogonal
+t3toolbox/uniform_frame_variations_format.py	1168	KEEP	inv1 App. C	x.data, already_left_orthogonal=already_left_orthogonal, squash_tails=squash_tails)
+t3toolbox/uniform_frame_variations_format.py	1192	KEEP	inv1 App. B	supercores, leaving the frame orthonormal and untouched -- so it is ``O(ranks)``.
+t3toolbox/uniform_frame_variations_format.py	1439	KEEP	inv1 App. C	the orthogonal frame of ``x`` in the T3-SVD gauge (``already_left_orthogonal=True``, so the Tucker
+t3toolbox/uniform_frame_variations_format.py	1443	KEEP	inv1 App. C	frame, variations = ut3_orthogonal_representations(xs, already_left_orthogonal=True)
+t3toolbox/uniform_manifold.py	259	KEEP	inv1 App. B	# O(1); the value compare runs only when the objects differ, e.g. a jit round-trip reconstructs a
+t3toolbox/uniform_manifold.py	261	KEEP	inv1 App. B	# first (review H5-5): the tangent space depends only on real content, so frames identical up to
+t3toolbox/uniform_manifold.py	340	KEEP	inv1 App. B	``O(ranks)``. Vectorized over the stack (returns shape ``K + C``).
+t3toolbox/uniform_tucker_tensor_train.py	9	KEEP	inv1 App. B	A UT3 pads the cores of a Tucker tensor train up to common sizes ``n`` (Tucker rank), ``r`` (TT rank),
+t3toolbox/uniform_tucker_tensor_train.py	249	KEEP	inv1 App. B	"""Sum the leading/trailing TT bonds down to rank 1 (preserves the represented tensor)."""
+t3toolbox/uniform_tucker_tensor_train.py	569	KEEP	inv1 App. B	>>> kU, kG = x.apply_corewise_transpose(c, ww, sum_over_probes=False)
+t3toolbox/uniform_tucker_tensor_train.py	570	KEEP	inv1 App. B	>>> print(kU.shape, kG.shape)                              # keep W: a leading (2,) grad stack
+t3toolbox/uniform_tucker_tensor_train.py	683	KEEP	inv1 App. D	def down_orthogonalize_tucker_cores(self) -> 'UniformTuckerTensorTrain':
+t3toolbox/uniform_tucker_tensor_train.py	684	KEEP	inv1 App. D	"""Orthogonalize the Tucker cores, pushing the remainder up into the TT cores."""
+t3toolbox/uniform_tucker_tensor_train.py	685	KEEP	inv1 App. D	return _from_data(ut3_orthogonalization.ut3_down_orthogonalize_tucker_cores(self.data))
+t3toolbox/uniform_tucker_tensor_train.py	687	KEEP	inv1 App. D	def up_orthogonalize_tt_cores(self) -> 'UniformTuckerTensorTrain':
+t3toolbox/uniform_tucker_tensor_train.py	688	KEEP	inv1 App. D	"""Up-orthogonalize the TT cores, pushing the remainder down into the Tucker cores."""
+t3toolbox/uniform_tucker_tensor_train.py	689	KEEP	inv1 App. D	return _from_data(ut3_orthogonalization.ut3_up_orthogonalize_tt_cores(self.data))
+t3toolbox/uniform_tucker_tensor_train.py	691	KEEP	inv1 App. C	def left_orthogonalize_tt_cores(self) -> 'UniformTuckerTensorTrain':
+t3toolbox/uniform_tucker_tensor_train.py	692	KEEP	inv1 App. C	"""Left-orthogonalize the TT cores."""
+t3toolbox/uniform_tucker_tensor_train.py	693	KEEP	inv1 App. C	return _from_data(ut3_orthogonalization.ut3_left_orthogonalize_tt_cores(self.data))
+t3toolbox/uniform_tucker_tensor_train.py	695	KEEP	inv1 App. C	def right_orthogonalize_tt_cores(self) -> 'UniformTuckerTensorTrain':
+t3toolbox/uniform_tucker_tensor_train.py	696	KEEP	inv1 App. C	"""Right-orthogonalize the TT cores."""
+t3toolbox/uniform_tucker_tensor_train.py	697	KEEP	inv1 App. C	return _from_data(ut3_orthogonalization.ut3_right_orthogonalize_tt_cores(self.data))
+t3toolbox/uniform_tucker_tensor_train.py	699	KEEP	inv1 App. C	def is_left_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
+t3toolbox/uniform_tucker_tensor_train.py	700	KEEP	inv1 App. D	"""True (per stack element) if in left-orthogonal form (Tucker supercores down-orthogonal AND TT
+t3toolbox/uniform_tucker_tensor_train.py	701	KEEP	inv1 App. C	supercores left-orthogonal). A :py:meth:`t3svd` result is left-orthogonal. Non-enforcing checker;
+t3toolbox/uniform_tucker_tensor_train.py	706	KEEP	inv1 App. C	def is_right_orthogonal(self, atol: float = 1e-9) -> NDArray:  # bool array, shape = stack_shape (scalar unstacked)
+t3toolbox/uniform_tucker_tensor_train.py	707	KEEP	inv1 App. D	"""True (per stack element) if in right-orthogonal form (Tucker supercores down-orthogonal AND TT
+t3toolbox/uniform_tucker_tensor_train.py	708	KEEP	inv1 App. C	supercores right-orthogonal). Non-enforcing per-element checker (reduce with ``.all()``); verify
+t3toolbox/uniform_tucker_tensor_train.py	752	KEEP	inv1 App. C	on real parts. Always **left-orthogonal**; under truncation **not** necessarily minimal (use
+t3toolbox/uniform_tucker_tensor_train.py	754	KEEP	inv1 App. C	orthogonalization, asserting the input is already right-orthogonal (verify with
+t3toolbox/uniform_tucker_tensor_train.py	755	KEEP	inv1 App. C	:py:meth:`is_right_orthogonal` -- not checked). Uniform truncates by **max rank only** -- unlike
+t3toolbox/uniform_tucker_tensor_train.py	807	KEEP	inv1 App. C	right-orthogonal UT3, ``'left_to_right'`` a left-orthogonal one (fully so when the input's Tucker
+t3toolbox/uniform_tucker_tensor_train.py	811	KEEP	inv1 App. C	left-orthogonal, so ``'right_to_left'`` minimizes it).
+t3toolbox/uniform_tucker_tensor_train.py	816	KEEP	inv1 App. C	Verify the gauge with :py:meth:`is_left_orthogonal` / :py:meth:`is_right_orthogonal` first.
+t3toolbox/uniform_tucker_tensor_train.py	827	KEEP	inv1 App. C	>>> print(x2.is_left_orthogonal(), x2.has_minimal_ranks)   # t3svd output: left-orth, non-minimal
+t3toolbox/uniform_tucker_tensor_train.py	829	KEEP	inv1 App. C	>>> good = x2.rank_adjustment_sweep('right_to_left')       # CORRECT (x2 is left-orthogonal)
+t3toolbox/uniform_tucker_tensor_train.py	1045	KEEP	inv1 App. B	frontend-side construction (the OO-frame exception to the backend/frontend razor)."""
+t3toolbox/uniform_tucker_tensor_train.py	1093	KEEP	inv1 App. B	>>> with np.errstate(divide='ignore'):                             # the naive divide DOES blow up
+tests/_jet_trs_twins.py	169	EXEMPT	inv1 App. B; §3.3 -ward rewording (grep)	"""Adjoint-var-down jets dxi~, ALL ``order+1`` rows of the dense adjoint-hooked combines
+tests/backend/_curvature_oracles.py	73	KEEP	inv1 App. B	U, G = theta
+tests/backend/_curvature_oracles.py	74	KEEP	inv1 App. B	d = len(U)
+tests/backend/_curvature_oracles.py	75	KEEP	inv1 App. B	gU = tuple(gYU[i][..., :U[i].shape[-2], :] for i in range(d))      # U_i sits in the top Tucker rows
+tests/backend/_curvature_oracles.py	77	KEEP	inv1 App. B	n = U[0].shape[-2]
+tests/backend/_curvature_oracles.py	85	KEEP	inv1 App. B	elif i == d - 1:                                 # [[R ; Gdot], [0 ; O]]: top-first and bottom-second
+tests/backend/_curvature_oracles.py	87	KEEP	inv1 App. B	else:                                            # R (top-left), L (top, second-second), O (bottom)
+tests/backend/_curvature_oracles.py	93	KEEP	inv1 App. B	"""theta = (U, G) as a flat list of 2d core arrays (Tucker first)."""
+tests/backend/_curvature_oracles.py	213	KEEP	inv1 App. B	Ud = [mode_pinvs[i] @ np.asarray(V[i]) for i in range(d)]
+tests/backend/_curvature_oracles.py	217	KEEP	inv1 App. B	Ud[i] = Ug
+tests/backend/_curvature_oracles.py	219	KEEP	inv1 App. B	return tuple(Ud), tuple(Gd)
+tests/backend/_curvature_oracles.py	238	KEEP	inv1 App. B	"""A random raw direction along the gauge orbit of ``theta = (U, G)``: ``DPhi(theta)[result] = 0``
+tests/backend/_curvature_oracles.py	239	KEEP	inv1 App. B	exactly (to first order). Tucker gauge ``U_i -> A U_i``, ``G_i -> G_i x_2 A^{-T}``; TT gauge
+tests/backend/_curvature_oracles.py	241	KEEP	inv1 App. B	U, G = theta
+tests/backend/_curvature_oracles.py	242	KEEP	inv1 App. B	d = len(U)
+tests/backend/_curvature_oracles.py	243	KEEP	inv1 App. B	dU = [np.zeros(np.shape(u)) for u in U]
+tests/backend/_curvature_oracles.py	246	KEEP	inv1 App. B	n = U[i].shape[-2]
+tests/backend/_curvature_oracles.py	248	KEEP	inv1 App. B	dU[i] += Ai @ U[i]
+tests/backend/_curvature_oracles.py	262	KEEP	inv1 App. B	# operands carry W + C only (the residual jets z~ have no K). theta = (U, G) is the corewise point, so its
+tests/backend/_curvature_oracles.py	305	KEEP	inv1 App. B	def deta_tilde_tangent_jets_trs(Ud, ztildes, n_frame):
+tests/backend/_curvature_oracles.py	307	KEEP	inv1 App. B	return tuple(contract('tWCo,KCio->tWKCi', z, u, len_C=n_frame) for z, u in zip(ztildes, Ud))
+tests/backend/_curvature_oracles.py	312	KEEP	inv1 App. B	combine (``twins.compute_dxi_tilde_jets_trs``) at ``O = G``, ALL ``order+1`` rows (the shipped kernel forms
+tests/backend/_curvature_oracles.py	397	KEEP	inv1 App. B	tangent forward at ``Q = O = P = G`` along ``(Ud, Gd)``. Every jet kernel here is a dense ``*_trs`` twin."""
+tests/backend/_curvature_oracles.py	398	KEEP	inv1 App. B	U, G = core_pair
+tests/backend/_curvature_oracles.py	399	KEEP	inv1 App. B	Ud, Gd = core_directions
+tests/backend/_curvature_oracles.py	400	KEEP	inv1 App. B	n_frame = U[0].ndim - 2
+tests/backend/_curvature_oracles.py	403	KEEP	inv1 App. B	xi = sd.build_input_jets(probing.compute_xi(U, ww), probing.compute_xi(U, pp))
+tests/backend/_curvature_oracles.py	409	KEEP	inv1 App. B	st['deta_t'] = sd.compute_deta_tilde_jets(U, ztildes)
+tests/backend/_curvature_oracles.py	412	KEEP	inv1 App. B	st['xid'] = sd.build_input_jets(probing.compute_xi(Ud, ww), probing.compute_xi(Ud, pp))
+tests/backend/_curvature_oracles.py	416	KEEP	inv1 App. B	st['deta_td'] = deta_tilde_tangent_jets_trs(Ud, ztildes, n_frame)
+tests/backend/_curvature_oracles.py	496	KEEP	inv1 App. B	dense combine ``mu O sigma^`` at ``O = G``, ALL ``order+1`` rows (the shipped kernel forms only ``u in {0, 1}``)."""
+tests/backend/_curvature_oracles.py	523	KEEP	inv1 App. B	dense seeded sigma^ through G; the dotted forward is the dense GN tangent forward at ``Q = O = G``."""
+tests/backend/_curvature_oracles.py	524	KEEP	inv1 App. B	U, G = core_pair
+tests/backend/_curvature_oracles.py	525	KEEP	inv1 App. B	Ud, Gd = core_directions
+tests/backend/_curvature_oracles.py	526	KEEP	inv1 App. B	n_frame = U[0].ndim - 2
+tests/backend/_curvature_oracles.py	529	KEEP	inv1 App. B	up = lambda cores: bentries._entry_xis(cores, first)
+tests/backend/_curvature_oracles.py	530	KEEP	inv1 App. B	w = bentries._onehot_vectors(first, U)
+tests/backend/_curvature_oracles.py	532	KEEP	inv1 App. B	up = lambda cores: probing.compute_xi(cores, first)
+tests/backend/_curvature_oracles.py	535	KEEP	inv1 App. B	st['xi'] = sd.build_input_jets(up(U), probing.compute_xi(U, pp))
+tests/backend/_curvature_oracles.py	536	KEEP	inv1 App. B	st['xid'] = sd.build_input_jets(up(Ud), probing.compute_xi(Ud, pp))
+tests/backend/_padded_frame_oracles.py	129	KEEP	inv1 App. B	pass is against ``dense_project(D, S)``. Returns the dense frames and the movement after every pass."""
+tests/backend/_padded_frame_oracles.py	131	KEEP	inv1 App. B	state = {'D': startD}
+tests/backend/_padded_frame_oracles.py	135	KEEP	inv1 App. B	state['D'], movement = dense_pass(oldD, state['D'], dense_project(state['D'], S), stores, update, groups)
+tests/backend/_padded_frame_oracles.py	136	KEEP	inv1 App. B	frames.append(state['D'])
+tests/backend/_padded_frame_oracles.py	155	KEEP	inv1 App. B	def tangent_basis(D, N):
+tests/backend/_padded_frame_oracles.py	156	KEEP	inv1 App. B	"""An orthonormal basis of the two-sided tangent space at the dense frames ``D``."""
+tests/backend/_padded_frame_oracles.py	168	KEEP	inv1 App. B	def dense_project(D, S):
+tests/backend/_padded_frame_oracles.py	169	KEEP	inv1 App. B	"""The orthogonal projection of the dense tensor ``S`` onto the tangent space at ``D``."""
+tests/backend/_padded_frame_oracles.py	170	KEEP	inv1 App. B	Q = tangent_basis(D, S.shape)
+tests/backend/test_curvature.py	76	KEEP	inv1 App. B	the exact adjoint; the exact model against the second derivative along the shared retraction (measured O(h^2),
+tests/backend/test_curvature.py	156	KEEP	inv1 App. B	return (tuple(rng.standard_normal(KC + u.shape[-2:]) for u in U),
+tests/backend/test_curvature.py	174	KEEP	inv1 App. B	d = len(U)
+tests/backend/test_curvature.py	181	KEEP	inv1 App. B	VUt = np.einsum('...xn,...un->...xu', V[i], U[i])          # S_i^T = V_i U_i^T
+tests/backend/test_curvature.py	247	KEEP	inv1 App. B	for i, (Ud, U) in enumerate(zip(theta_hat[0], frame[0])):
+tests/backend/test_curvature.py	248	KEEP	inv1 App. B	self.assertEqual(Ud.shape, K + U.shape)
+tests/backend/test_curvature.py	370	KEEP	inv1 App. B	Ud, Gd = tv.tv_corewise_lift(frame, v, lf)
+tests/backend/test_curvature.py	371	KEEP	inv1 App. B	self.assertTrue(all(np.all(a == 0.0) for a in Ud))
+tests/backend/test_curvature.py	421	KEEP	inv1 App. B	U_M, s_g, Vt_M = sfd.svd_U[gi], sfd.svd_s[gi], sfd.svd_Vt[gi]
+tests/backend/test_curvature.py	430	KEEP	inv1 App. B	t = np.einsum('...xw,...xn->...wn', U_M, Vstack)
+tests/backend/test_curvature.py	435	KEEP	inv1 App. B	R = np.einsum('...xw,...wn->...xn', U_M, r)                   # the redistribution
+tests/backend/test_curvature.py	482	KEEP	inv1 App. B	U, G = theta
+tests/backend/test_curvature.py	483	KEEP	inv1 App. B	return (tuple(rng.standard_normal(K + u.shape) for u in U), tuple(rng.standard_normal(K + g.shape) for g in G))
+tests/backend/test_curvature.py	581	KEEP	inv1 App. B	# the derivative of the one-hole: a polynomial along the line, central difference O(h^2)
+tests/backend/test_curvature.py	705	KEEP	inv1 App. B	h = 2e-5                        # a polynomial in h: central difference O(h^2)
+tests/backend/test_curvature.py	716	KEEP	inv1 App. B	sensitivity: a dropped or rescaled product-rule term moves the result by O(1e-2..1). The dotted dxi~ is
+tests/backend/test_curvature.py	864	KEEP	inv1 App. B	h = 2e-5                            # a polynomial in h: central difference O(h^2)
+tests/backend/test_curvature.py	971	KEEP	inv1 App. B	``h^(2d-2)``, are its derivative EXACTLY up to rounding: the two-hole matches to <= 1e-12 (observed <= 3.9e-15),
+tests/backend/test_curvature.py	992	KEEP	inv1 App. B	corewise frame's undotted state, which is polynomial in the cores: a central difference is O(h^2)); the
+tests/backend/test_curvature.py	999	KEEP	inv1 App. B	U, G = theta
+tests/backend/test_curvature.py	1000	KEEP	inv1 App. B	Ud, Gd = dirs
+tests/backend/test_curvature.py	1020	KEEP	inv1 App. B	dtd = probing.compute_deta_tilde_tangent(U, dk[0], zt)
+tests/backend/test_curvature.py	1039	KEEP	inv1 App. B	xid = probing.compute_dxi(Ud, ww)
+tests/backend/test_curvature.py	1042	KEEP	inv1 App. B	dtd = probing.compute_deta_tilde_tangent(U, Ud, zt)
+tests/backend/test_curvature.py	1058	KEEP	inv1 App. B	U, G = theta
+tests/backend/test_curvature.py	1059	KEEP	inv1 App. B	xi = probing.compute_xi(U, ww)
+tests/backend/test_curvature.py	1167	KEEP	inv1 App. B	h = 2e-5                            # a polynomial in h: central difference O(h^2)
+tests/backend/test_curvature.py	1275	KEEP	inv1 App. B	is its derivative exactly up to rounding (as for the plain kinds): the two-hole matches to <= 1e-12."""
+tests/backend/test_curvature.py	1386	KEEP	inv1 App. B	c_up = np.concatenate([c[1:], np.zeros_like(c[:1])], axis=0)        # c^(t+1), zero at order
+tests/backend/test_curvature.py	1389	KEEP	inv1 App. B	zt = [a * (c[..., None] * bc(w) + (t1 * c_up)[..., None] * bc(p))
+tests/backend/test_curvature.py	1495	KEEP	inv1 App. B	h = 2e-5                            # a polynomial in h: central difference O(h^2)
+tests/backend/test_curvature.py	1559	KEEP	inv1 App. B	d = len(U)
+tests/backend/test_curvature.py	1565	KEEP	inv1 App. B	VV[i] += X @ U[i]
+tests/backend/test_curvature.py	1630	KEEP	inv1 App. B	residual -- hence the curvature term -- is O(1), and the point ``x`` to linearize at."""
+tests/backend/test_curvature.py	1648	KEEP	inv1 App. B	"""``f''(0)`` by the central second difference with one Richardson step (error O(h^4))."""
+tests/backend/test_curvature.py	1777	KEEP	inv1 App. B	for i in range(len(U)):
+tests/backend/test_curvature.py	1779	KEEP	inv1 App. B	VV[i] += X @ U[i]
+tests/backend/test_curvature.py	1781	KEEP	inv1 App. B	for i in range(len(U) - 1):
+tests/backend/test_curvature.py	2041	KEEP	inv1 App. B	noise -- so the residual, hence the curvature term, is O(1) -- and the point ``x`` to linearize at."""
+tests/backend/test_curvature.py	2114	KEEP	inv1 App. B	for i in range(len(U)):
+tests/backend/test_curvature.py	2116	KEEP	inv1 App. B	VV[i] += X @ U[i]
+tests/backend/test_curvature.py	2118	KEEP	inv1 App. B	for i in range(len(U) - 1):
+tests/backend/test_curvature.py	2215	KEEP	inv1 App. B	plus noise -- so the residual, hence the curvature term, is O(1) -- and the point ``x`` to linearize at; with
+tests/backend/test_curvature.py	2274	KEEP	inv1 App. B	for i in range(len(U)):
+tests/backend/test_curvature.py	2276	KEEP	inv1 App. B	VV[i] += X @ U[i]
+tests/backend/test_curvature.py	2278	KEEP	inv1 App. B	for i in range(len(U) - 1):
+tests/backend/test_curvature.py	2632	KEEP	inv1 App. B	(6,6,6) -- misspecified, so the residual and with it the curvature term are O(1) and Gauss-Newton is
+tests/backend/test_curvature.py	2738	KEEP	inv1 App. B	"""c42's set-up on probe derivatives: a rank-3 target on (6,6,6), 2 % noise, and a start point of the
+tests/backend/test_curvature.py	2932	KEEP	inv1 App. B	retraction (measured second order, F14 -- O(h^2), not proven), the derivative of the projected shared gradient
+tests/backend/test_curvature.py	2963	KEEP	inv1 App. B	"""F14 (``c15_shared_exact``'s set-up, seed 5; measured, not proven): the plain central second difference
+tests/backend/test_curvature.py	2964	KEEP	inv1 App. B	along the shared retraction converges to the exact model's ``<v, H v>`` at O(h^2) -- the error falls ~4x per
+tests/backend/test_curvature.py	3110	KEEP	inv1 App. B	mode 2 uses fully: its own spectrum reaches ~1e-2 while every lift singular value is O(1))."""
+tests/backend/test_from_sweep_reuse.py	4	KEEP	inv1 App. B	"""The frame-sweep REUSE contract (Phase D of the 2026-08-22 review): the ``*_from_sweep`` forms fed a
+tests/backend/test_fv_operations.py	4	KEEP	inv1 App. B	"""Direct tests for the ``fv_operations`` backend surface (Phase D of the 2026-08-22 review, finding
+tests/backend/test_geometry.py	307	KEEP	inv1 App. C	def test_t3_left_orthogonal_norm_sq_matches_the_dense_norm(self):
+tests/backend/test_geometry.py	310	KEEP	inv1 App. C	left_orthogonal, _, _ = A.t3svd()
+tests/backend/test_geometry.py	311	KEEP	inv1 App. C	self.assertAlmostEqual(float(bgeo.t3_left_orthogonal_norm_sq(left_orthogonal.data)) ** 0.5,
+tests/backend/test_linalg.py	13	KEEP	inv1 App. B	1. ``U[pad_rows][:, :q] == 0.0`` and ``Vt[:q, :][:, pad_cols] == 0.0`` -- **bitwise**, not small;
+tests/backend/test_linalg.py	14	KEEP	inv1 App. B	2. all ``K`` columns of ``U`` / rows of ``Vt`` orthonormal to ~1e-14 (float64);
+tests/backend/test_linalg.py	16	KEEP	inv1 App. B	4. ``U @ diag(ss) @ Vt`` reconstructs the padded matrix;
+tests/backend/test_linalg.py	17	KEEP	inv1 App. B	5. the real block of ``U[:, :q]`` is orthonormal at full ``q`` -- NO lost directions (the S1b
+tests/backend/test_linalg.py	64	KEEP	inv1 App. B	def check_contract(self, A, row_mask, col_mask, U, ss, Vt, tol=1e-11):
+tests/backend/test_linalg.py	72	KEEP	inv1 App. B	self.assertTrue(np.all(U[~row_mask][:, :q] == 0.0), "U pad rows not bitwise zero")
+tests/backend/test_linalg.py	74	KEEP	inv1 App. B	self.assertLess(np.linalg.norm(U.T @ U - np.eye(K)), tol, "U not orthonormal")
+tests/backend/test_linalg.py	76	KEEP	inv1 App. B	self.assertLess(np.linalg.norm(U * ss @ Vt - A), 100 * tol * sA, "reconstruction failed")
+tests/backend/test_linalg.py	80	KEEP	inv1 App. B	Ur = U[row_mask][:, :q]
+tests/backend/test_linalg.py	82	KEEP	inv1 App. B	"real block of U lost rank (the S1b failure)")
+tests/backend/test_linalg.py	93	KEEP	inv1 App. B	U, ss, Vt = linalg.pad_safe_svd(A, rm, cm)
+tests/backend/test_linalg.py	94	KEEP	inv1 App. B	self.check_contract(A, rm, cm, U, ss, Vt)
+tests/backend/test_linalg.py	127	KEEP	inv1 App. B	U, ss, Vt = linalg.pad_safe_svd(A, rm, cm)
+tests/backend/test_linalg.py	130	KEEP	inv1 App. B	self.check_contract(A[b], rm, cm, U[b], ss[b], Vt[b])
+tests/backend/test_linalg.py	146	KEEP	inv1 App. B	U, ss, Vt = linalg.pad_safe_svd(A, rm, cm)
+tests/backend/test_linalg.py	147	KEEP	inv1 App. B	self.check_contract(A, rm, cm, U, ss, Vt)
+tests/backend/test_linalg.py	182	KEEP	inv1 App. B	U, ss, Vt = linalg.pad_safe_svd(A, ~row_pad, ~col_pad)
+tests/backend/test_linalg.py	183	KEEP	inv1 App. B	self.check_contract(A, ~row_pad, ~col_pad, U, ss, Vt)
+tests/backend/test_linalg.py	196	KEEP	inv1 App. B	U, ss, Vt = linalg.pad_safe_svd(A, rm, cm)             #   of a rank-continuation restart)
+tests/backend/test_linalg.py	197	KEEP	inv1 App. B	self.check_contract(A, rm, cm, U, ss, Vt)
+tests/backend/test_linalg.py	198	KEEP	inv1 App. B	Ur = U[rm]                                             # 7 x 4 real block, orthonormal at 4:
+tests/backend/test_linalg.py	207	KEEP	inv1 App. B	U1, s1, Vt1 = linalg.pad_safe_svd(A, rm, cm)
+tests/backend/test_linalg.py	208	KEEP	inv1 App. B	U2, s2, Vt2 = linalg.pad_safe_svd(A.copy(), rm.copy(), cm.copy())
+tests/backend/test_linalg.py	209	KEEP	inv1 App. B	self.assertTrue(np.array_equal(U1, U2) and np.array_equal(s1, s2) and np.array_equal(Vt1, Vt2))
+tests/backend/test_linalg.py	276	KEEP	inv1 App. B	U = linalg.pinned_leading_columns(P, rng.standard_normal((2, 5, 3)), 0)
+tests/backend/test_linalg.py	277	KEEP	inv1 App. B	self.assertEqual((Q.shape, U.shape), ((2, 5, 0), (2, 5, 0)))
+tests/backend/test_linalg.py	298	KEEP	inv1 App. B	U = linalg.pinned_leading_columns(P, seeds, 3)
+tests/backend/test_linalg.py	299	KEEP	inv1 App. B	self.assertEqual((Q.dtype, U.dtype), (np.float32, np.float32))
+tests/backend/test_linalg.py	327	KEEP	inv1 App. B	"""A = P X + U_t diag(sigma) V_t^T with U_t orthogonal to P and a gap after the first t // 2 values."""
+tests/backend/test_linalg.py	341	KEEP	inv1 App. B	U = linalg.pinned_leading_columns(P, A, k)
+tests/backend/test_linalg.py	342	KEEP	inv1 App. B	self.assertEqual(U.shape, (n, k))
+tests/backend/test_linalg.py	343	KEEP	inv1 App. B	self.assertLess(projector_distance(U, Ut[:, :k]), 1e-12)
+tests/backend/test_linalg.py	344	KEEP	inv1 App. B	self.assertLessEqual(completion_residual(P, U), 1e-14)
+tests/backend/test_linalg.py	361	KEEP	inv1 App. B	U = linalg.pinned_leading_columns(P, A, k)
+tests/backend/test_linalg.py	362	KEEP	inv1 App. B	self.assertEqual(U.shape, (n, k))
+tests/backend/test_linalg.py	363	KEEP	inv1 App. B	self.assertLessEqual(completion_residual(P, U), 1e-14)
+tests/backend/test_linalg.py	364	KEEP	inv1 App. B	U = linalg.pinned_leading_columns(P, cases['rank 1 off P'], k)
+tests/backend/test_linalg.py	365	KEEP	inv1 App. B	self.assertGreater(abs(U[:, 0] @ Ut[:, 0]), 1 - 1e-12)                 # the one direction it has, first
+tests/backend/test_linalg.py	372	KEEP	inv1 App. B	U = linalg.pinned_leading_columns(P, A, 3)
+tests/backend/test_linalg.py	375	KEEP	inv1 App. B	self.assertLessEqual(np.max(np.abs(U[idx] - linalg.pinned_leading_columns(P[idx], A[idx], 3))),
+tests/backend/test_optimizer_display.py	1	KEEP	inv1 App. B	"""Tests for the backend Newton-CG diagnostic display (backend/optimizer_display.py, D3).
+tests/backend/test_optimizer_display.py	36	KEEP	inv1 App. B	"""%.1e cells are all 7 chars -- a `1.0e+00` and a `5.2e-04` line up with zero effort; `—` matches."""
+tests/backend/test_optimizers.py	339	KEEP	inv1 App. B	"""D1: `_cg_solve` returns `(p, iters, resid², ok, boundary)` -- converges to the exact solution on a
+tests/backend/test_optimizers.py	344	KEEP	inv1 App. B	# PD: CG converges to D^-1 rhs, ok stays True, residual under tol
+tests/backend/test_optimizers.py	357	KEEP	inv1 App. B	"""D1: newton_cg returns a per-iteration `history`, fires `callback(NewtonInfo)` each iteration
+tests/backend/test_optimizers.py	1113	KEEP	inv1 App. C	together (S6), and the regularized objective is exact at a RAW, non-left-orthogonal point (S7)."""
+tests/backend/test_optimizers.py	1140	KEEP	inv1 App. C	# point_norm_sq read ‖last TT core‖², exact only for a left-orthogonal point; a randn point gave
+tests/backend/test_padded_frame.py	8	KEEP	inv1 App. B	T5, the start, on the D-41 convention (Gaussian seeds in every store, slot-indexed). What is pinned here,
+tests/backend/test_padded_frame.py	225	KEEP	inv1 App. B	"""At the empty frame the start is the convention's (D-41: Gaussian seeds in every store, so no longer
+tests/backend/test_padded_frame.py	332	KEEP	inv1 App. B	"""The hint-free convention (D-41): every store's new slots are the pinned completion of its keyed Gaussian stream's
+tests/backend/test_padded_frame.py	562	EXEMPT	§4.2 store-and-arrow site	# frame spans the whole far side and the up edge's content vanishes: its completion carries no information
+tests/backend/test_padded_frame.py	617	KEEP	inv1 App. B	"""The same tangent vector with O(1) gauge terms moved across every bond and every leaf-core edge."""
+tests/backend/test_padded_start.py	348	KEEP	inv1 App. B	norm at the zero tensor's hint-free start (D-41: no longer 'zero', whose frame has coordinate TT cores);
+tests/backend/test_padded_start.py	445	KEEP	inv1 App. B	agree up to signs, and the Gaussian seeds (D-41) are not sign-covariant, so the starts and the passes differ;
+tests/backend/test_padded_start.py	479	KEEP	inv1 App. B	D, move = oracles.dense_pass(oracles.dense_frames(old_frame), startD,
+tests/backend/test_padded_start.py	481	KEEP	inv1 App. B	self.assertLessEqual(max(oracles.distances(oracles.dense_frames(ragged_view(layer, F)), D).values()), 1e-9)
+tests/backend/test_padded_start.py	502	KEEP	inv1 App. B	x_rot = (tuple(q.T @ U for q, U in zip(Q, x[0])), tuple(np.einsum('anb,nm->amb', G, q) for G, q in zip(x[1], Q)))
+tests/backend/test_padded_start.py	566	KEEP	inv1 App. B	def dense_tied_project(D, S, groups, X):
+tests/backend/test_padded_start.py	567	KEEP	inv1 App. B	"""The orthogonal projection of the dense S onto the TIED tangent space at the dense frames D of the point X: the
+tests/backend/test_structural_guards.py	46	KEEP	inv1 App. B	U, ss, Vt = linalg.truncated_svd(A, min_rank=2, max_rank=2)          # consistent pair still fine
+tests/backend/test_t3_orthogonalization.py	4	KEEP	inv1 App. B	"""Direct tests for the orthogonalization backend's untested public surface (Phase D of the 2026-08-22
+tests/backend/test_t3_orthogonalization.py	5	KEEP	inv1 App. C	review, finding R2-9; promoted from ``repros/R2/r2_04_orthogonalization.py``): ``t3_right_orthogonalize``,
+tests/backend/test_t3_orthogonalization.py	7	KEEP	inv1 App. D	``t3_up_orthogonalize_tt_cores`` -- each must preserve the represented tensor and attain its
+tests/backend/test_t3_orthogonalization.py	13	KEEP	inv1 App. B	from t3toolbox.backend import t3_orthogonalization as O, t3_conversions as C
+tests/backend/test_t3_orthogonalization.py	42	KEEP	inv1 App. D	def _up_res(G):
+tests/backend/test_t3_orthogonalization.py	46	KEEP	inv1 App. C	class TestRightOrthogonalize(unittest.TestCase):
+tests/backend/test_t3_orthogonalization.py	50	KEEP	inv1 App. C	def test_preserves_tensor_and_right_orthogonal(self):
+tests/backend/test_t3_orthogonalization.py	55	KEEP	inv1 App. C	y = O.t3_right_orthogonalize(x)
+tests/backend/test_t3_orthogonalization.py	57	KEEP	inv1 App. B	self.assertLess(float(np.max(O.t3_orthogonality_residual(y, 'right'))), 1e-12)
+tests/backend/test_t3_orthogonalization.py	65	KEEP	inv1 App. D	# everything orthogonal EXCEPT tucker core ii; tensor preserved; tt core ii up-orthonormal
+tests/backend/test_t3_orthogonalization.py	72	KEEP	inv1 App. B	tk, tt = O.t3_orthogonalize_relative_to_tucker_core(x, ii)
+tests/backend/test_t3_orthogonalization.py	76	KEEP	inv1 App. D	+ [_right_res(G) for G in tt[ii + 1:]] + [_up_res(tt[ii])])
+tests/backend/test_t3_orthogonalization.py	86	KEEP	inv1 App. B	tk, tt = O.t3_orthogonalize_relative_to_tt_core(x, ii)
+tests/backend/test_t3_orthogonalization.py	99	KEEP	inv1 App. D	steps = [('down_svd_tucker', O.t3_down_svd_tucker_core), ('left_svd_tt', O.t3_left_svd_tt_core),
+tests/backend/test_t3_orthogonalization.py	100	KEEP	inv1 App. D	('right_svd_tt', O.t3_right_svd_tt_core), ('down_svd_tt', O.t3_down_svd_tt_core),
+tests/backend/test_t3_orthogonalization.py	101	KEEP	inv1 App. D	('up_svd_tt', O.t3_up_svd_tt_core)]
+tests/backend/test_t3_orthogonalization.py	113	KEEP	inv1 App. D	class TestUpOrthogonalizeTtCores(unittest.TestCase):
+tests/backend/test_t3_orthogonalization.py	118	KEEP	inv1 App. D	# (variations, outer) represent the same tensor; the outer cores are up-orthonormal
+tests/backend/test_t3_orthogonalization.py	123	KEEP	inv1 App. D	V, Oc = O.t3_up_orthogonalize_tt_cores(x)
+tests/backend/test_t3_orthogonalization.py	125	KEEP	inv1 App. D	self.assertLess(max(_up_res(G) for G in Oc), 1e-12)
+tests/backend/test_tv_operations.py	4	KEEP	inv1 App. B	"""Direct tests for the tangent-variations stack converters and the oblique gauge projection (Phase D
+tests/backend/test_tv_operations.py	127	KEEP	inv1 App. B	VV[i] = VV[i] + np.einsum('...ji,...io->...jo', X, U[i])
+tests/backend/test_tv_operations.py	152	KEEP	inv1 App. B	g = xnp.einsum('...ia,...ja->...ij', U, V)
+tests/backend/test_tv_operations.py	191	KEEP	inv1 App. B	frame, (_, v, _, _) = self._tangents(K, C)                     # ungauged: residual O(1)
+tests/backend/test_uniform_curvature.py	103	KEEP	inv1 App. B	return (max(u.shape[-1] for u in U) + 1, max(u.shape[-2] for u in U) + 1, max(o.shape[-2] for o in O) + 1,
+tests/backend/test_uniform_curvature.py	249	KEEP	inv1 App. B	U, L = uframe[0], uframe[2]
+tests/backend/test_uniform_curvature.py	250	KEEP	inv1 App. B	return (rng.standard_normal(U.shape[:1] + tuple(K) + U.shape[1:]),
+tests/backend/test_uniform_curvature.py	316	KEEP	inv1 App. B	for P, U in zip(ragged, uniform):
+tests/backend/test_uniform_curvature.py	318	KEEP	inv1 App. B	self.assertLess(abs(np.linalg.norm(U) / np.linalg.norm(P) - 1.0), 1e-2)
+tests/backend/test_uniform_curvature.py	404	KEEP	inv1 App. B	D = (rng.standard_normal(tk_shape[:1] + tuple(K) + tk_shape[1:]),
+tests/backend/test_uniform_curvature.py	407	KEEP	inv1 App. B	D_r = [tuple(_ragged_slices(D[j], K, n, lambda cc, j=j: shapes(cc)[j])[c] for j in range(2))
+tests/backend/test_uniform_curvature.py	409	KEEP	inv1 App. B	out = ut3la.ut3_inner_product_corewise_hessian(Z, TH, D)
+tests/backend/test_uniform_curvature.py	412	KEEP	inv1 App. B	lambda c, j=j: t3la.t3_inner_product_corewise_hessian(zs[c], thetas[c], D_r[c])[j],
+tests/backend/test_uniform_curvature.py	421	KEEP	inv1 App. B	dZ, dTH, D, ut3la.ut3_precompute_inner_product_sweep(dZ, dTH))
+tests/backend/test_uniform_curvature.py	425	KEEP	inv1 App. B	ut3mask.ut3_apply_masks(Z), ut3mask.ut3_apply_masks(TH), D,
+tests/backend/test_uniform_curvature.py	466	KEEP	inv1 App. B	D = _random_theta_sc(uframe, K, rng)
+tests/backend/test_uniform_curvature.py	467	KEEP	inv1 App. B	D_r = [tuple(_ragged_slices(D[j], K, n, lambda cc, j=j: _theta_shapes(rframes[cc])[j])[c]
+tests/backend/test_uniform_curvature.py	469	KEEP	inv1 App. B	out = ut3s.ut3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, D, order, chunk_size=chunk)
+tests/backend/test_uniform_curvature.py	474	KEEP	inv1 App. B	ztc, ww, pp, (rframes[c][0], rframes[c][2]), D_r[c], order, chunk_size=chunk))
+tests/backend/test_uniform_curvature.py	482	KEEP	inv1 App. B	pk(zt, 4), pk(ww, 5), pk(pp, 6), dirty_theta, D, order, chunk_size=chunk)
+tests/backend/test_uniform_curvature.py	486	KEEP	inv1 App. B	reuse = ut3s.ut3_probe_corewise_derivatives_hessian_from_sweep(zt, theta, D, order, sweep,
+tests/backend/test_uniform_curvature.py	498	KEEP	inv1 App. B	D = _random_theta_sc(uframe, (), rng)
+tests/backend/test_uniform_curvature.py	499	KEEP	inv1 App. B	good = ut3s.ut3_probe_corewise_derivatives_hessian(zt, ww, pp, theta, D, order)
+tests/backend/test_uniform_curvature.py	502	KEEP	inv1 App. B	bare = sd.t3_probe_corewise_derivatives_hessian(pk(zt), pk(ww), pk(pp), ut3mask.ut3_apply_masks(theta), D,
+tests/backend/test_uniform_curvature.py	554	KEEP	inv1 App. B	D = _random_theta_sc(frame, K, rng)
+tests/backend/test_uniform_curvature.py	555	KEEP	inv1 App. B	out = kind.corewise_hessian(D, rp, sample, frame, sweep, base)
+tests/backend/test_uniform_curvature.py	556	KEEP	inv1 App. B	D_r = tuple(_ragged_slices(D[j], K, 1, lambda c, j=j: _theta_shapes(rframe)[j])[0] for j in range(2))
+tests/backend/test_uniform_curvature.py	559	KEEP	inv1 App. B	ref = ragged_kind.corewise_hessian(D_r, r, (ww, pp), rframe, rsweep, (rframe[0], rframe[2]))
+tests/backend/test_uniform_curvature.py	563	KEEP	inv1 App. B	kind._apply_weight(rp, 2), (base[0], base[1], ux.data[2], ux.data[3]), D, order, sweep,
+tests/backend/test_uniform_curvature.py	583	KEEP	inv1 App. B	D = _random_theta_sc(uframe, (2,), rng)
+tests/backend/test_uniform_curvature.py	584	KEEP	inv1 App. B	clean = ut3mask.ut3_apply_masks(D + (shape, masks))
+tests/backend/test_uniform_curvature.py	585	KEEP	inv1 App. B	a = kind.corewise_hessian(D, r, sample, uframe, sweep, (uframe[0], uframe[2]))
+tests/backend/test_uniform_curvature.py	588	KEEP	inv1 App. B	self.assertGreater(min(np.abs(np.asarray(D[j]) - np.asarray(clean[j])).max() for j in range(2)), 1.0)
+tests/backend/test_uniform_curvature.py	643	KEEP	inv1 App. B	D = _random_theta_sc(uframe, K, rng)
+tests/backend/test_uniform_curvature.py	644	KEEP	inv1 App. B	D_r = [tuple(_ragged_slices(D[j], K, n, lambda cc, j=j: _theta_shapes(rframes[cc])[j])[c]
+tests/backend/test_uniform_curvature.py	646	KEEP	inv1 App. B	out = hess(z, s, theta, D)
+tests/backend/test_uniform_curvature.py	647	KEEP	inv1 App. B	ref = [ragged_hess(z_of(c), s, (rframes[c][0], rframes[c][2]), D_r[c]) for c in range(n)]
+tests/backend/test_uniform_curvature.py	656	KEEP	inv1 App. B	again = hess(dz, ds, dirty_theta, D)
+tests/backend/test_uniform_curvature.py	659	KEEP	inv1 App. B	reuse = from_sweep(z, theta, D, sweep)
+tests/backend/test_uniform_curvature.py	672	KEEP	inv1 App. B	D = _random_theta_sc(uframe, (), rng)
+tests/backend/test_uniform_curvature.py	673	KEEP	inv1 App. B	good = _PLAIN_UNIFORM[kind][0](z, s, theta, D)
+tests/backend/test_uniform_curvature.py	677	KEEP	inv1 App. B	ut3mask.ut3_apply_masks(theta), D)
+tests/backend/test_uniform_curvature.py	722	KEEP	inv1 App. B	D = _random_theta_sc(frame, K, rng)
+tests/backend/test_uniform_curvature.py	723	KEEP	inv1 App. B	out = ukind.corewise_hessian(D, zp, sample, frame, sweep, base)
+tests/backend/test_uniform_curvature.py	724	KEEP	inv1 App. B	D_r = tuple(_ragged_slices(D[j], K, 1, lambda c, j=j: _theta_shapes(rframe)[j])[0] for j in range(2))
+tests/backend/test_uniform_curvature.py	725	KEEP	inv1 App. B	ref = rkind.corewise_hessian(D_r, z, s, rframe, rsweep, (rframe[0], rframe[2]))
+tests/backend/test_uniform_curvature.py	729	KEEP	inv1 App. B	ukind._apply_weight(zp, 2), (base[0], base[1], ux.data[2], ux.data[3]), D, sweep)
+tests/backend/test_uniform_curvature.py	747	KEEP	inv1 App. B	D = _random_theta_sc(uframe, (2,), rng)
+tests/backend/test_uniform_curvature.py	748	KEEP	inv1 App. B	clean = ut3mask.ut3_apply_masks(D + (shape, masks))
+tests/backend/test_uniform_curvature.py	749	KEEP	inv1 App. B	a = ukind.corewise_hessian(D, zp, sample, uframe, sweep, (uframe[0], uframe[2]))
+tests/backend/test_uniform_curvature.py	752	KEEP	inv1 App. B	self.assertGreater(min(np.abs(np.asarray(D[j]) - np.asarray(clean[j])).max() for j in range(2)), 1.0)
+tests/backend/test_uniform_curvature.py	811	KEEP	inv1 App. B	D = _random_theta_sc(uframe, K, rng)
+tests/backend/test_uniform_curvature.py	812	KEEP	inv1 App. B	D_r = [tuple(_ragged_slices(D[j], K, n, lambda cc, j=j: _theta_shapes(rframes[cc])[j])[c_]
+tests/backend/test_uniform_curvature.py	814	KEEP	inv1 App. B	out = hess(c, s, theta, D)
+tests/backend/test_uniform_curvature.py	815	KEEP	inv1 App. B	ref = [ragged_hess(c_of(c_), s, (rframes[c_][0], rframes[c_][2]), D_r[c_])
+tests/backend/test_uniform_curvature.py	821	KEEP	inv1 App. B	again = hess(c, _dirty_deriv_sample(kind, s, shape, uframe[0].shape[-1], 5), dirty_theta, D)
+tests/backend/test_uniform_curvature.py	823	KEEP	inv1 App. B	reuse = from_sweep(c, theta, D, precompute(ufc.ut3_corewise_frame(theta), s))
+tests/backend/test_uniform_curvature.py	837	KEEP	inv1 App. B	D = _random_theta_sc(uframe, (), rng)
+tests/backend/test_uniform_curvature.py	838	KEEP	inv1 App. B	good = hess(c, s, theta, D)
+tests/backend/test_uniform_curvature.py	842	KEEP	inv1 App. B	bare = ragged_hess(c, packed, ut3mask.ut3_apply_masks(theta), D)
+tests/backend/test_uniform_curvature.py	885	KEEP	inv1 App. B	D = _random_theta_sc(frame, K, rng)
+tests/backend/test_uniform_curvature.py	886	KEEP	inv1 App. B	out = ukind.corewise_hessian(D, c, sample, frame, sweep, base)
+tests/backend/test_uniform_curvature.py	887	KEEP	inv1 App. B	D_r = tuple(_ragged_slices(D[j], K, 1, lambda c_, j=j: _theta_shapes(rframe)[j])[0] for j in range(2))
+tests/backend/test_uniform_curvature.py	888	KEEP	inv1 App. B	ref = rkind.corewise_hessian(D_r, c, s, rframe, rsweep, (rframe[0], rframe[2]))
+tests/backend/test_uniform_curvature.py	893	KEEP	inv1 App. B	right = from_sweep(weighted, _theta_data(frame), D, sweep)
+tests/backend/test_uniform_curvature.py	895	KEEP	inv1 App. B	wrong = from_sweep(weighted, (base[0], base[1], ux.data[2], ux.data[3]), D, sweep)   # point masks
+tests/backend/test_uniform_curvature.py	912	KEEP	inv1 App. B	D = _random_theta_sc(uframe, (2,), rng)
+tests/backend/test_uniform_curvature.py	913	KEEP	inv1 App. B	clean = ut3mask.ut3_apply_masks(D + (shape, masks))
+tests/backend/test_uniform_curvature.py	914	KEEP	inv1 App. B	a = ukind.corewise_hessian(D, c, sample, uframe, sweep, (uframe[0], uframe[2]))
+tests/backend/test_uniform_curvature.py	917	KEEP	inv1 App. B	self.assertGreater(min(np.abs(np.asarray(D[j]) - np.asarray(clean[j])).max() for j in range(2)), 1.0)
+tests/backend/test_uniform_curvature.py	981	KEEP	inv1 App. B	D = _random_theta_sc(uframe, K, rng)
+tests/backend/test_uniform_curvature.py	982	KEEP	inv1 App. B	D_r = [tuple(_ragged_slices(D[j], K, n, lambda cc, j=j: _theta_shapes(rframes[cc])[j])[c]
+tests/backend/test_uniform_curvature.py	984	KEEP	inv1 App. B	kt = geom.tangential_curvature(uframe, D, cd_u)
+tests/backend/test_uniform_curvature.py	985	KEEP	inv1 App. B	kt_r = [_MANIFOLD.tangential_curvature(rframes[c], D_r[c], cd_r[c]) for c in range(n)]
+tests/backend/test_uniform_curvature.py	988	KEEP	inv1 App. B	lt = geom.lift_transpose(uframe, D, cd_u)
+tests/backend/test_uniform_curvature.py	989	KEEP	inv1 App. B	lt_r = [_MANIFOLD.lift_transpose(rframes[c], D_r[c], cd_r[c]) for c in range(n)]
+tests/backend/test_uniform_curvature.py	1334	KEEP	inv1 App. B	# a quadratic form sums signed terms and can cancel far below its terms' scale (|q| down to ~1e-3
+tests/backend/test_uniform_curvature.py	1504	KEEP	inv1 App. B	"""T25's set-up (tests/backend/test_curvature.py ``_slack_problem``): the ragged run from the minimal-rank
+tests/backend/test_uniform_curvature.py	1586	KEEP	inv1 App. B	"""The uniform companion with finite garbage in every PADDED slot: ``U_M``'s padded rows (beyond each group
+tests/backend/test_uniform_curvature.py	1593	KEEP	inv1 App. B	U, s, Vt = (np.array(a, copy=True) for a in (sfd.svd_U[gi], sfd.svd_s[gi], sfd.svd_Vt[gi]))
+tests/backend/test_uniform_curvature.py	1594	KEEP	inv1 App. B	rows = np.zeros((n, U.shape[-2]), bool)
+tests/backend/test_uniform_curvature.py	1605	KEEP	inv1 App. B	U += scale * (1.0 - (rows[..., :, None] & levels[..., None, :])) * rng.standard_normal(U.shape)
+tests/backend/test_uniform_curvature.py	1608	KEEP	inv1 App. B	for acc, a in zip(out, (U, s, Vt)):
+tests/backend/test_uniform_curvature.py	1619	KEEP	inv1 App. B	and its transpose bitwise unchanged, where the clip-only filter picks it up -- and ``sigma_min`` reads the REAL
+tests/backend/test_uniform_curvature.py	1853	KEEP	inv1 App. B	the SHARED uniform retraction (O(h^2), measured as in F14) and the dense Lagrangian Hessian of ``Phi o T``; the
+tests/backend/test_uniform_curvature.py	2055	KEEP	inv1 App. B	"""F14 (``c15_shared_exact``'s set-up, seed 5) on the uniform layer: the plain central second difference along
+tests/backend/test_uniform_curvature.py	2056	KEEP	inv1 App. B	the SHARED uniform retraction converges to the exact model's ``<v, H v>`` at O(h^2) -- the error falls ~4x
+tests/backend/test_uniform_fitting.py	1	KEEP	inv1 App. B	"""Tests for the uniform-layer fitting seams (backend/uniform_fitting.py) -- optimizers-on-uniform U2.
+tests/backend/test_uniform_fitting.py	90	KEEP	inv1 App. B	"""U3: the uniform SamplingKind builders (apply/entries/probe) reproduce the ragged SamplingKind on the
+tests/backend/test_uniform_fitting.py	173	KEEP	inv1 App. B	"""D6: the uniform probe kinds' `block_sumsq` (the per-(mode,order) reduction for the diagnostic error
+tests/backend/test_uniform_fitting.py	201	KEEP	inv1 App. B	"""U3.5: the user-facing uniform sampling ops MIRROR their vector input's packedness -- ragged in ->
+tests/backend/test_uniform_fitting.py	239	KEEP	inv1 App. B	"""U3': the uniform DERIVATIVE (jet) SamplingKind builders reproduce the ragged derivative kind on the
+tests/backend/test_uniform_fitting.py	428	KEEP	inv1 App. B	d, O, C = len(xu.shape), self._ORDER + 1, tuple(xu.stack_shape)
+tests/backend/test_uniform_fitting.py	429	KEEP	inv1 App. B	lead = {'apply': (), 'entries': (), 'probe': (d,), 'apply_derivatives': (O,),
+tests/backend/test_uniform_fitting.py	430	KEEP	inv1 App. B	'entries_derivatives': (O,), 'probe_derivatives': (d, O)}[name]
+tests/backend/test_uniform_fitting.py	497	KEEP	inv1 App. B	"""U4: the uniform least-squares Problem (fully packed) reproduces the ragged backend Problem's
+tests/backend/test_uniform_fitting.py	498	KEEP	inv1 App. B	LocalModel -- objective, gradient (via <g, p>), and gn_quadratic(p) -- on the equivalent (up to
+tests/backend/test_uniform_fitting.py	547	KEEP	inv1 App. B	O = 3
+tests/backend/test_uniform_fitting.py	552	KEEP	inv1 App. B	'apply_derivatives':   ((ww, pp), np.random.randn(O + 1, self.W)),
+tests/backend/test_uniform_fitting.py	553	KEEP	inv1 App. B	'entries_derivatives': ((idx, pp), np.random.randn(O + 1, self.W)),
+tests/backend/test_uniform_fitting.py	554	KEEP	inv1 App. B	'probe_derivatives':   ((ww, pp), [np.random.randn(O + 1, self.W, n) for n in SH]),
+tests/backend/test_uniform_fitting.py	566	KEEP	inv1 App. B	O, WEIGHT = 3, [1.0, 0.5, 0.3, 0.2]
+tests/backend/test_uniform_fitting.py	574	KEEP	inv1 App. B	self._check(geom, bgeom, kind_name, factory(O, WEIGHT), sample, data, order=O, weight=WEIGHT)
+tests/backend/test_uniform_fitting.py	578	KEEP	inv1 App. B	"""U5: the four backend optimizers run on the uniform Problem (fully packed) and reproduce / match the
+tests/backend/test_uniform_fitting.py	631	KEEP	inv1 App. B	"""U5.6: uniform fitting requires a minimal-rank frame (from a non-minimal frame the retraction truncates
+tests/backend/test_uniform_fitting.py	634	KEEP	inv1 App. B	with a clear error up front; the optimizer runs cleanly from the reduced frame."""
+tests/backend/test_uniform_padded_frame.py	39	KEEP	inv1 App. B	- **The chain test (D-41).** start -> start -> start without a fit, both layers, at a coordinate-structured point and
+tests/backend/test_uniform_padded_frame.py	257	KEEP	inv1 App. B	"""D-41's chain test: start -> start -> start without a fit, at a coordinate-structured point and at a generic
+tests/backend/test_uniform_padded_frame.py	830	KEEP	inv1 App. B	U, _ = testing.scatter_frame(rng, F, widths, old_stores=old_stores)
+tests/backend/test_uniform_padded_frame.py	831	KEEP	inv1 App. B	self.assertEqual(max_difference(testing.ragged(U), F), 0.0)
+tests/backend/test_uniform_padded_frame.py	833	KEEP	inv1 App. B	for m, olds, A in zip(U[5], s0, (3, 3, 3, 3)):
+tests/backend/test_zero_reference.py	95	KEEP	inv1 App. B	self.assertEqual(float(np.abs(t3c.t3_to_dense((F0[0], F0[3]))).max()), 0.0)   # (U, R): right
+tests/backend/test_zero_reference.py	382	KEEP	inv1 App. B	number, and a seeded ragged fit and its uniform twin keep tracking each other (the O2 contract)."""
+tests/backend/test_zero_reference.py	425	KEEP	inv1 App. B	`newton_losses` to 1e-7 (the O2 threshold; observed worst over the 44 O2 pairs 3.5e-12, F37)."""
+tests/oracle_sweeps/o1_common.py	1	KEEP	inv1 App. B	"""Shared oracles + result table for the O1 sweep."""
+tests/oracle_sweeps/o1_ragged.py	39	KEEP	inv1 App. C	if not bool(np.all(xs.is_left_orthogonal())): e = max(e, 1.0)
+tests/oracle_sweeps/o1_ragged.py	52	KEEP	inv1 App. C	if not bool(np.all(xs.is_left_orthogonal())): e = max(e, 1.0)
+tests/oracle_sweeps/o1_ragged.py	61	KEEP	inv1 App. C	if not bool(np.all(xs.is_right_orthogonal())): e = max(e, 1.0)
+tests/oracle_sweeps/o1_ragged.py	107	KEEP	inv1 App. B	D = cp_dense(F)
+tests/oracle_sweeps/o1_ragged.py	110	KEEP	inv1 App. B	return relerr(D, ref)
+tests/oracle_sweeps/o1_ragged.py	113	KEEP	inv1 App. B	D = cp_dense(F)
+tests/oracle_sweeps/o1_ragged.py	116	KEEP	inv1 App. B	return relerr(D, ref)
+tests/oracle_sweeps/o1_ragged.py	119	KEEP	inv1 App. B	D = cp_dense(F)
+tests/oracle_sweeps/o1_ragged.py	130	KEEP	inv1 App. B	return relerr(D, ref)
+tests/oracle_sweeps/o1_ragged.py	170	KEEP	inv1 App. B	Dd = np.asarray(tdl.to_dense())
+tests/oracle_sweeps/o1_ragged.py	171	KEEP	inv1 App. B	check('corewise_tangent_apply', sname, 'ragged', C, W, (), sh, lambda: relerr(tdl.apply(ww), dense_apply(Dd, ww, d)))
+tests/oracle_sweeps/o1_ragged.py	231	KEEP	inv1 App. B	Vd = np.asarray(v.to_dense()); Ud = np.asarray(u.to_dense())
+tests/oracle_sweeps/o1_ragged.py	247	KEEP	inv1 App. B	lambda: relerr(t3m.MANIFOLD.inner(u, v), np.sum((Ud * Vd).reshape(K + C + (-1,)), axis=-1)))
+tests/oracle_sweeps/o1_ragged.py	257	KEEP	inv1 App. B	lambda: relerr((v + u * 0.5 - v * 2.0).to_dense(), Vd + 0.5 * Ud - 2.0 * Vd))
+tests/oracle_sweeps/o1_ragged.py	265	KEEP	inv1 App. B	lhs = np.sum((Pd * Ud).reshape(K + C + (-1,)), -1); rhs = np.sum((Z * Ud).reshape(K + C + (-1,)), -1)
+tests/oracle_sweeps/o1_uniform.py	35	KEEP	inv1 App. C	if not bool(np.all(xs.is_left_orthogonal())): e = max(e, 1.0)
+tests/oracle_sweeps/o1_uniform.py	42	KEEP	inv1 App. C	if not bool(np.all(xs.is_right_orthogonal())): e = max(e, 1.0)
+tests/oracle_sweeps/o1_uniform.py	139	KEEP	inv1 App. B	Vd = np.asarray(v.to_dense()); Ud = np.asarray(u.to_dense())
+tests/oracle_sweeps/o1_uniform.py	140	KEEP	inv1 App. B	check('u_manifold_inner', sname, rep, C, (), K, sh, lambda: relerr(ut3m.UNIFORM_MANIFOLD.inner(u, v), np.sum((Ud * Vd).reshape(K + C + (-1,)), -1)))
+tests/oracle_sweeps/o1_uniform.py	143	KEEP	inv1 App. B	check('u_tangent_add_scale', sname, rep, C, (), K, sh, lambda: relerr((v + u * 0.5 - v * 2.0).to_dense(), Vd + 0.5 * Ud - 2.0 * Vd))
+tests/oracle_sweeps/o1_uniform.py	171	KEEP	inv1 App. B	lhs = np.sum((Pd * Ud).reshape(K + C + (-1,)), -1); rhs = np.sum((Gd * Ud).reshape(K + C + (-1,)), -1)
+tests/oracle_sweeps/o1_uniform.py	193	KEEP	inv1 App. B	U = ut3.UniformTuckerTensorTrain.stack(us)
+tests/oracle_sweeps/o1_uniform.py	196	KEEP	inv1 App. B	check('vr_to_dense', 'vary', 'uniform', C, (), (), None, lambda: relerr(udense(U), Xs))
+tests/oracle_sweeps/o1_uniform.py	199	KEEP	inv1 App. B	check('vr_apply', 'vary', 'uniform', C, W, (), None, lambda: relerr(U.apply(ww), dense_apply(Xs, ww, d)))
+tests/oracle_sweeps/o1_uniform.py	200	KEEP	inv1 App. B	check('vr_probe', 'vary', 'uniform', C, W, (), None, lambda: max(relerr(a, b) for a, b in zip(U.probe(ww), dense_probe(Xs, ww, d))))
+tests/oracle_sweeps/o1_uniform.py	201	KEEP	inv1 App. B	check('vr_entries', 'vary', 'uniform', C, W, (), None, lambda: relerr(U.entries(index), dense_entries(Xs, index, d, shape)))
+tests/oracle_sweeps/o1_uniform.py	202	KEEP	inv1 App. B	check('vr_probe_derivatives', 'vary', 'uniform', C, W, (), None, lambda: max(relerr(a, b) for a, b in zip(U.probe_derivatives(ww, pp, ORDER), dense_probe_jets(Xs, ww, pp, d, ORDER))))
+tests/oracle_sweeps/o1_uniform.py	203	KEEP	inv1 App. B	check('vr_apply_derivatives', 'vary', 'uniform', C, W, (), None, lambda: relerr(U.apply_derivatives(ww, pp, ORDER), dense_apply_jets(Xs, ww, pp, d, ORDER)))
+tests/oracle_sweeps/o1_uniform.py	229	KEEP	inv1 App. B	Ud = np.asarray(ut3m.UNIFORM_MANIFOLD.randn(V.frame, stack_shape=K).to_dense())
+tests/oracle_sweeps/oracle.py	104	KEEP	inv1 App. B	"""omega ⊙ (S(x) - y) with the documented omega[mode, order] broadcasting. weight: None, 1-D, or 2-D."""
+tests/oracle_sweeps/oracle.py	113	KEEP	inv1 App. B	if kind == 'probe':                      # 1-D per-mode
+tests/oracle_sweeps/sweep_exact.py	29	KEEP	inv1 App. B	import oracle as O
+tests/oracle_sweeps/sweep_exact.py	149	KEEP	inv1 App. B	Se = O.S(kind, E, sample, order)
+tests/oracle_sweeps/sweep_exact.py	150	KEEP	inv1 App. B	cols.append(_flat(O.weighted_residual(kind, Se, _zeros_like_output(Se), weight, order)))
+tests/oracle_sweeps/sweep_exact.py	207	KEEP	inv1 App. B	y = O.S(kind, A.to_dense(), sample, order)
+tests/oracle_sweeps/sweep_exact.py	227	KEEP	inv1 App. B	rw = _flat(O.weighted_residual(kind, O.S(kind, x.to_dense(), sample, order), y, weight, order))
+tests/oracle_sweeps/sweep_models.py	1	KEEP	inv1 App. B	"""O2 oracle sweep, part 1: fitting.LocalModel vs dense ground truth, over representation x geometry x
+tests/oracle_sweeps/sweep_models.py	6	KEEP	inv1 App. B	import oracle as O
+tests/oracle_sweeps/sweep_models.py	49	KEEP	inv1 App. B	U = list(x.data[0])
+tests/oracle_sweeps/sweep_models.py	52	KEEP	inv1 App. B	U[i] = U[0]
+tests/oracle_sweeps/sweep_models.py	53	KEEP	inv1 App. B	x = t3.TuckerTensorTrain(tuple(U), x.data[1])
+tests/oracle_sweeps/sweep_models.py	139	KEEP	inv1 App. B	y = O.S(kind, A.to_dense(), sample, order)
+tests/oracle_sweeps/sweep_models.py	155	KEEP	inv1 App. B	obj_hand = O.misfit(kind, X, sample, y, weight, order) + (reg_value(geom_name, X, x.data) if reg else 0.0)
+tests/oracle_sweeps/sweep_models.py	170	KEEP	inv1 App. B	Jp_hand = O.S(kind, dense_of(Pp), sample, order)
+tests/oracle_sweeps/sweep_models.py	171	KEEP	inv1 App. B	Jq_hand = O.S(kind, dense_of(Pq), sample, order)
+tests/oracle_sweeps/sweep_models.py	175	KEEP	inv1 App. B	wJp = O.weighted_residual(kind, Jp_hand, zero, weight, order)
+tests/oracle_sweeps/sweep_models.py	176	KEEP	inv1 App. B	wJq = O.weighted_residual(kind, Jq_hand, zero, weight, order)
+tests/oracle_sweeps/sweep_models.py	189	KEEP	inv1 App. B	wr = O.weighted_residual(kind, Sx, y, weight, order)
+tests/oracle_sweeps/sweep_models.py	204	KEEP	inv1 App. B	return O.misfit(kind, Xt, sample, y, weight, order) + (reg_value(geom_name, Xt, c) if reg else 0.0)
+tests/oracle_sweeps/sweep_optimizers.py	1	KEEP	inv1 App. B	"""O2 oracle sweep, part 2: the four frontend optimizers. Checks: (a) every reported objective equals a
+tests/oracle_sweeps/sweep_optimizers.py	7	KEEP	inv1 App. B	import oracle as O
+tests/oracle_sweeps/sweep_optimizers.py	24	KEEP	inv1 App. B	m = O.misfit(kind, X, sample, y, weight, order)
+tests/oracle_sweeps/sweep_optimizers.py	45	KEEP	inv1 App. B	y = O.S(kind, A.to_dense(), sample, order)
+tests/test_chunk_size_estimator.py	197	KEEP	inv1 App. B	Within ``PACKING_RTOL``: XLA's heap-packed scratch is affine in the chunk size only up to its buffer packing,
+tests/test_chunk_size_estimator.py	289	KEEP	inv1 App. B	# chunk_size is an exact reorganization -> the fit is identical up to float rounding, for any
+tests/test_contractions_interpreter.py	207	KEEP	inv1 App. B	# ... the frame's center factors (C only): H = L x3 T, S^T = <O, H>
+tests/test_contractions_interpreter.py	227	EXEMPT	inv1 App. B; §3.3 -ward rewording (grep)	# The dotted adjoint-up lift (Udot z~), ragged and d-prefixed: no C-only operand, so len_C.
+tests/test_contractions_interpreter.py	289	KEEP	inv1 App. B	# two-row dxi~ correlation per order slice (mu O and O nu, and the dotted terms; the tilde pair carries u):
+tests/test_contractions_interpreter.py	335	EXEMPT	inv1 App. B; §3.3 -ward rewording (grep)	# S10 / S11 (2026.3.0): the plain probe / apply / entries two-holes (no order axis). The dotted adjoint-up lift
+tests/test_contractions_interpreter.py	363	EXEMPT	§4.2 store-and-arrow site	# (c28, c29) and down (c30, c31) edges. Every term carries one group C and fixed lowercase counts, so C is solved
+tests/test_corewise.py	4	KEEP	inv1 App. B	"""Direct tests for the small ``corewise`` helpers the 2026-08-22 review found untested (Phase D,
+tests/test_dispatch.py	149	KEEP	inv1 App. B	U, ss, Vt = map(np.asarray, out)
+tests/test_dispatch.py	151	KEEP	inv1 App. B	self.assertTrue(np.all(U[~rm][:, :q] == 0.0), "bitwise pad-zero lost under jit")
+tests/test_dispatch.py	337	KEEP	inv1 App. B	eta = jnp.ones((4, 2, 4)); U = jnp.ones((4, 7))
+tests/test_dispatch.py	338	KEEP	inv1 App. B	self.assert_jit_jax(lambda a, b: contractions.contract('tWCi,Cio->tWCo', a, b), eta, U)
+tests/test_dispatch.py	488	KEEP	inv1 App. B	y = (tuple(jnp.asarray(np.random.randn(3, *U.shape)) for U in fd[0]),
+tests/test_dispatch.py	524	KEEP	inv1 App. B	dirs = (tuple(rnd(3, *U.shape) for U in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
+tests/test_dispatch.py	568	KEEP	inv1 App. B	dirs = (tuple(rnd(3, *U.shape) for U in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
+tests/test_dispatch.py	611	KEEP	inv1 App. B	dirs = (tuple(rnd(3, *U.shape) for U in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
+tests/test_dispatch.py	683	KEEP	inv1 App. B	dirs = (tuple(rnd(3, *U.shape) for U in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
+tests/test_dispatch.py	1066	KEEP	inv1 App. B	y = (tuple(jnp.asarray(np.random.randn(3, *U.shape)) for U in fd[0]),
+tests/test_dispatch.py	1152	KEEP	inv1 App. B	D = (jnp.asarray(rng.standard_normal(frame[0].shape[:1] + (2,) + frame[0].shape[1:])),
+tests/test_dispatch.py	1155	KEEP	inv1 App. B	sc4, *D, lf)
+tests/test_dispatch.py	1165	KEEP	inv1 App. B	Z(z0, z1), TH(u, l), (a, b)), z[0], z[1], frame[0], frame[2], *D)
+tests/test_dispatch.py	1171	KEEP	inv1 App. B	jitted = jax.jit(two_hole)(zt, pww, ppp, frame[0], frame[2], *D)
+tests/test_dispatch.py	1173	KEEP	inv1 App. B	eager = two_hole(*(np.asarray(t) for t in (zt, pww, ppp, frame[0], frame[2]) + D))
+tests/test_dispatch.py	1179	KEEP	inv1 App. B	zt, frame[0], frame[2], *D, (sweep[0], sweep[1], sweep[2], None, sweep[4]))
+tests/test_dispatch.py	1183	KEEP	inv1 App. B	*D, r, sc4, (sweep[0], sweep[1], sweep[2], None, sweep[4]))
+tests/test_dispatch.py	1188	KEEP	inv1 App. B	self.assert_jit_jax(lambda s4, a, b, c: geom.lift_transpose(F(s4), (a, b), c), sc4, *D, cd)
+tests/test_dispatch.py	1189	KEEP	inv1 App. B	self.assert_jit_jax(lambda s4, a, b, c: geom.tangential_curvature(F(s4), (a, b), c), sc4, *D, cd)
+tests/test_dispatch.py	1302	KEEP	inv1 App. B	D = (jnp.asarray(rng.standard_normal(frame[0].shape[:1] + (2,) + frame[0].shape[1:])),
+tests/test_dispatch.py	1305	KEEP	inv1 App. B	F(s4), (a, b, shape, (fmasks[0], fmasks[2])), l)[:2], sc4, *D, lf)
+tests/test_dispatch.py	1474	KEEP	inv1 App. B	is a subclass, which is a different type, which the value-based ``__eq__`` rejects up front."""
+tests/test_dispatch.py	1647	KEEP	inv1 App. D	for m in ('down_orthogonalize_tucker_cores', 'up_orthogonalize_tt_cores',
+tests/test_dispatch.py	1648	KEEP	inv1 App. C	'left_orthogonalize_tt_cores', 'right_orthogonalize_tt_cores'):
+tests/test_dispatch.py	1861	KEEP	inv1 App. B	# ---------------------------------------------------- jit bucket: UT3Variations vector-space ops (2c-D)
+tests/test_dispatch.py	1931	KEEP	inv1 App. B	# -> dynamic shapes. Dispatch is pushed down (no top-level jax check), so the output is jax
+tests/test_dispatch.py	1937	KEEP	inv1 App. B	# code coerced the dense down to the frame's numpy here -- the regression this fix prevents. With
+tests/test_dispatch.py	2846	KEEP	inv1 App. B	"""Positive jit coverage for the uniform weighted layer (Phase D of the 2026-08-22 review; the
+tests/test_dispatch.py	2944	KEEP	inv1 App. B	dirs = (tuple(rnd(2, *U.shape) for U in core_pair[0]), tuple(rnd(2, *G.shape) for G in core_pair[1]))
+tests/test_fitting.py	355	KEEP	inv1 App. B	'''``SamplingKind.block_sumsq`` (D2): the per-`(mode, order)` sum-of-squares that keeps the mode/order
+tests/test_fitting.py	474	KEEP	inv1 App. B	# bare 1-D order vector == explicit (1, order+1) row (backward compat)
+tests/test_fitting.py	500	KEEP	inv1 App. B	identity. Backend probe_kind is lenient on (d,1); the frontend 1-D contract is S2's concern.'''
+tests/test_fitting.py	668	KEEP	inv1 App. B	"""Review 2026-08-22 (C13): the factories validate sample / residual against the point up front."""
+tests/test_fitting.py	714	KEEP	inv1 App. B	'''A probe-derivative fit whose data come from ANOTHER unit point plus 10 % noise (an O(1) residual, so the
+tests/test_fitting.py	715	KEEP	inv1 App. B	curvature term is O(1)): the point x, the sample, the data, and the canonical weight.'''
+tests/test_fitting.py	1073	KEEP	inv1 App. B	embedded submanifold is ``P_x D(grad f)(x)[p]``). The Gauss-Newton Hessian misses it.'''
+tests/test_fitting.py	1148	KEEP	inv1 App. B	up = ut3m.UNIFORM_MANIFOLD.randn(um.frame) * 0.1
+tests/test_fitting.py	1149	KEEP	inv1 App. B	uy = um.retract(up)
+tests/test_fitting.py	1151	KEEP	inv1 App. B	self.assertTrue(_bitwise(uy.data[:2], ut3m.UNIFORM_MANIFOLD.retract(up).data[:2]))
+tests/test_fitting.py	1152	KEEP	inv1 App. B	self.assertTrue(_bitwise(uy.data[:2], ulm.retract(up.variations.supercores)))
+tests/test_fitting.py	1475	KEEP	inv1 App. B	D = (gp - gm) * (1.0 / (2 * h)) - Hp
+tests/test_fitting.py	1476	KEEP	inv1 App. B	self.assertLess(float(D.corewise_norm() / Hp.corewise_norm()), 1e-5)     # FD agrees
+tests/test_fitting.py	1478	KEEP	inv1 App. B	self.assertGreater(float(tvo.tv_gauge_residual(mx.frame.data, D.variations.data)), 1e-9)
+tests/test_fitting.py	1479	KEEP	inv1 App. B	self.assertLess(float(D.gauge_residual), 1e-13)
+tests/test_fitting.py	1480	KEEP	inv1 App. B	self.assertTrue(np.isclose(float(M.norm(D)), float(D.corewise_norm())))   # no raise
+tests/test_frame_variations_format.py	255	KEEP	inv1 App. B	# G-stacked frame cores up to V+G so the term is a valid uniform-stack TuckerTensorTrain whose
+tests/test_frame_variations_format.py	447	EXEMPT	§4.3 backwards adjective	# U: up-orthogonal (all i); D: outer-orthogonal (all i);
+tests/test_frame_variations_format.py	448	KEEP	inv1 App. C	# L: left-orthogonal (i=0..d-2); R: right-orthogonal (i=1..d-1).
+tests/test_import_graph.py	17	KEEP	inv1 App. B	- the padded-frame modules import only the modules their plan names (downward; no new cycle).
+tests/test_import_graph.py	120	KEEP	inv1 App. B	def test_the_padded_frame_modules_import_downward(self):
+tests/test_manifold.py	81	KEEP	inv1 App. B	# A is rank-deficient (the tangent parametrization is redundant): singular values are O(1) then a
+tests/test_manifold.py	176	KEEP	inv1 App. B	D = np.asarray(v.to_dense()); ns = D.ndim - d
+tests/test_manifold.py	177	KEEP	inv1 App. B	perm = tuple(range(ns)) + tuple(range(D.ndim - 1, ns - 1, -1))
+tests/test_manifold.py	178	KEEP	inv1 App. B	self.check_relerr(D.transpose(perm), np.asarray(v.reverse().to_dense()))
+tests/test_manifold.py	179	KEEP	inv1 App. B	self.check_relerr(D, np.asarray(v.reverse().reverse().to_dense()))
+tests/test_manifold.py	227	KEEP	inv1 App. B	+ f(V0, U1, U2, D0, R1, R2) + f(U0, V1, U2, L0, D1, R2) + f(U0, U1, V2, L0, L1, D2))
+tests/test_manifold.py	888	KEEP	inv1 App. B	# T3-input routes of project_ambient are both checked against ground truth (review O1-5: the
+tests/test_optimizers_frontend.py	149	KEEP	inv1 App. B	"""D4: verbose=True prints a per-iteration block (captured) and returns stats['diagnostics'] with
+tests/test_optimizers_frontend.py	187	KEEP	inv1 App. B	probe must be 1-D (a 2-D (d,1) is rejected)."""
+tests/test_optimizers_frontend.py	192	KEEP	inv1 App. B	with self.assertRaises(ValueError):    # plain probe: a 2-D (d,1) is rejected (no order axis)
+tests/test_optimizers_frontend.py	241	KEEP	inv1 App. B	"""D6: verbose Newton-CG works on the uniform layer (packed block_sumsq, auto-packed validation)
+tests/test_optimizers_frontend.py	506	KEEP	inv1 App. B	"""T21's set-up (tests/backend/test_curvature.py, c24's template): probe derivatives of order 2 with
+tests/test_optimizers_frontend.py	528	KEEP	inv1 App. B	"""T22's set-up (tests/backend/test_curvature.py): ``_restart_problem`` on ``shared_manifold((0, 0, 1))`` -- a
+tests/test_oracle_sweep.py	4	KEEP	inv1 App. B	"""The promoted oracle sweeps (Phase D of the 2026-08-22 review) -- the review's O1 (sampling/tangent:
+tests/test_oracle_sweep.py	6	KEEP	inv1 App. B	varying-rank stacks) and O2 (fitting: polynomial-interpolation oracle vs fitting.LocalModel; optimizer
+tests/test_oracle_sweep.py	12	KEEP	inv1 App. B	- ALWAYS-ON: the full O1 sweep, the full O2 model sweep, and a 2-way-covering subset of the O2
+tests/test_oracle_sweep.py	28	KEEP	inv1 App. B	and jit entries in ``test_dispatch``. Repairing the harness comparison is a recorded follow-up.
+tests/test_oracle_sweep.py	38	KEEP	inv1 App. B	legitimately flat (the review's resolved D-item: retract preserves frame ranks only on a minimal
+tests/test_sharing.py	216	KEEP	inv1 App. C	# same tensor and report the same TT ranks; the shared output is tied and left-orthogonal
+tests/test_sharing.py	227	KEEP	inv1 App. C	self.assertTrue(np.all(np.asarray(yT.is_left_orthogonal())))
+tests/test_sharing.py	245	KEEP	inv1 App. B	U_rows = np.asarray(y[0][group[0]])                              # (n_g, N), orthonormal rows
+tests/test_sharing.py	248	KEEP	inv1 App. B	P_ours, P_dense = U_rows.T @ U_rows, Yd @ Yd.T
+tests/test_sharing.py	476	KEEP	inv1 App. B	# M_g = U diag(s) Vt, batched over the frame stack
+tests/test_sharing.py	579	KEEP	inv1 App. C	_, HH = tth.tt_right_orthogonalize(frame_d[2], return_variation_cores=True)
+tests/test_sharing.py	598	KEEP	inv1 App. B	U_rows = np.asarray(UU[group[0]])
+tests/test_sharing.py	599	KEEP	inv1 App. B	n_g, N = U_rows.shape[-2], U_rows.shape[-1]
+tests/test_sharing.py	604	KEEP	inv1 App. B	E -= (E @ U_rows.T) @ U_rows                 # gauge the ambient direction
+tests/test_sharing.py	629	KEEP	inv1 App. B	ttshapes = tuple((L.shape[-3], U.shape[-2], R.shape[-1])
+tests/test_sharing.py	630	KEEP	inv1 App. B	for L, U, R in zip(frame_d[2], frame_d[0], frame_d[3]))
+tests/test_sharing.py	647	KEEP	inv1 App. B	raw = ([np.random.randn(*(STACK_SHAPE + (O.shape[-2], U.shape[-1])))
+tests/test_sharing.py	671	KEEP	inv1 App. C	_, HH = tth.tt_right_orthogonalize(frame_d[2], return_variation_cores=True)
+tests/test_sharing.py	687	KEEP	inv1 App. B	raw = ([np.random.randn(O.shape[-2], U.shape[-1])
+tests/test_sharing.py	715	KEEP	inv1 App. B	raw_y = ([np.random.randn(O.shape[-2], U.shape[-1])
+tests/test_sharing.py	746	KEEP	inv1 App. B	tkv = tuple(np.random.randn(K, O.shape[-2], U.shape[-1])
+tests/test_sharing.py	759	KEEP	inv1 App. B	tkv_c = tuple(np.random.randn(K, 2, O.shape[-2], U.shape[-1])
+tests/test_sharing.py	806	KEEP	inv1 App. B	# cores, so even the additive corewise chart agrees with x + t*v only to O(t^2)
+tests/test_sharing.py	1061	KEEP	inv1 App. B	# s_g's fresh level goes from exactly 0 to O(1) mass
+tests/test_sharing.py	1779	KEEP	inv1 App. B	per element vs the ragged tied twin (Phase D of the 2026-08-22 review; the HANDOFF gap "uniform
+tests/test_t3m.py	35	KEEP	inv1 App. B	# ---- reusable per-method checks (each phase wires up its method) ----
+tests/test_tucker_tensor_train.py	1341	KEEP	inv1 App. D	def test_down_svd_tucker_core(self):
+tests/test_tucker_tensor_train.py	1377	KEEP	inv1 App. D	x2, ss = x.down_svd_tucker_core(CORE_IND, MIN_RANK, MAX_RANK)
+tests/test_tucker_tensor_train.py	1399	KEEP	inv1 App. D	def test_down_svd_tucker_core_tols(self):
+tests/test_tucker_tensor_train.py	1423	KEEP	inv1 App. D	x2, ss = x.down_svd_tucker_core(
+tests/test_tucker_tensor_train.py	1672	KEEP	inv1 App. D	def test_up_svd_tt_core(self):
+tests/test_tucker_tensor_train.py	1707	KEEP	inv1 App. D	x2, ss = x.up_svd_tt_core(CORE_IND, MIN_RANK, MAX_RANK)
+tests/test_tucker_tensor_train.py	1731	KEEP	inv1 App. D	def test_up_svd_tt_core_tols(self):
+tests/test_tucker_tensor_train.py	1755	KEEP	inv1 App. D	x2, ss = x.up_svd_tt_core(
+tests/test_tucker_tensor_train.py	1886	KEEP	inv1 App. D	def test_down_orthogonalize_tucker_cores(self):
+tests/test_tucker_tensor_train.py	1907	KEEP	inv1 App. D	x2 = x.down_orthogonalize_tucker_cores()
+tests/test_tucker_tensor_train.py	1918	KEEP	inv1 App. D	def test_up_orthogonalize_tt_cores(self):
+tests/test_tucker_tensor_train.py	1939	KEEP	inv1 App. D	x2 = x.up_orthogonalize_tt_cores()
+tests/test_tucker_tensor_train.py	1950	KEEP	inv1 App. C	def test_left_orthogonalize_tt_cores(self):
+tests/test_tucker_tensor_train.py	1971	KEEP	inv1 App. C	x2 = x.left_orthogonalize_tt_cores()
+tests/test_tucker_tensor_train.py	1982	KEEP	inv1 App. C	def test_right_orthogonalize_tt_cores(self):
+tests/test_tucker_tensor_train.py	2003	KEEP	inv1 App. C	x2 = x.right_orthogonalize_tt_cores()
+tests/test_tucker_tensor_train.py	2171	KEEP	inv1 App. B	# summed: W becomes the CP rank |W| (the J^T r back-projection), O(|W|N) -- the
+tests/test_tucker_tensor_train.py	2236	KEEP	inv1 App. B	(tk if kind == 'U' else tt)[i] = new
+tests/test_tucker_tensor_train.py	2255	KEEP	inv1 App. B	Jd = sum(np.asarray(replace(x, 'U', i, dU[i]).apply(ww)) for i in range(d)) \
+tests/test_tucker_tensor_train.py	2283	KEEP	inv1 App. B	(tk if kind == 'U' else tt)[i] = new
+tests/test_tucker_tensor_train.py	2301	KEEP	inv1 App. B	Jd = sum(np.asarray(replace(x, 'U', i, dU[i]).entries(idx)) for i in range(d)) \
+tests/test_tucker_tensor_train.py	2370	KEEP	inv1 App. B	(tk if kind == 'U' else tt)[i] = new
+tests/test_tucker_tensor_train.py	2391	KEEP	inv1 App. B	for kind, dd in (('U', dU), ('G', dG)):
+tests/test_tucker_tensor_train.py	2661	KEEP	inv1 App. C	def test_t3svd_is_left_orthogonal_not_necessarily_minimal(self):
+tests/test_tucker_tensor_train.py	2662	KEEP	inv1 App. C	# t3svd is the basic algorithm: always left-orthogonal, NOT guaranteed minimal under truncation.
+tests/test_tucker_tensor_train.py	2675	KEEP	inv1 App. C	self.assertTrue(x2.is_left_orthogonal().all())                       # always left-orthogonal
+tests/test_tucker_tensor_train.py	2681	KEEP	inv1 App. C	# matching the input's orthogonality reaches minimal. A t3svd output is left-orthogonal, so
+tests/test_tucker_tensor_train.py	2682	KEEP	inv1 App. C	# 'right_to_left' minimizes it (-> right-orthogonal); composing both gives minimal left-orthogonal.
+tests/test_tucker_tensor_train.py	2699	KEEP	inv1 App. C	self.assertTrue(rl.is_right_orthogonal().all())
+tests/test_tucker_tensor_train.py	2703	KEEP	inv1 App. C	self.assertTrue(both.is_left_orthogonal().all())
+tests/test_tucker_tensor_train.py	2721	KEEP	inv1 App. C	self.assertTrue(x2.is_left_orthogonal().all())
+tests/test_tucker_tensor_train.py	2724	KEEP	inv1 App. C	def test_is_left_right_orthogonal_checkers(self):
+tests/test_tucker_tensor_train.py	2732	KEEP	inv1 App. C	self.assertFalse(x.is_left_orthogonal().all())
+tests/test_tucker_tensor_train.py	2733	KEEP	inv1 App. C	self.assertFalse(x.is_right_orthogonal().all())
+tests/test_tucker_tensor_train.py	2735	KEEP	inv1 App. D	tk, tt = orthx.t3_down_orthogonalize_tucker_cores(x.data)
+tests/test_tucker_tensor_train.py	2736	KEEP	inv1 App. C	xL = t3.TuckerTensorTrain(tk, orth.tt_left_orthogonalize(tt))
+tests/test_tucker_tensor_train.py	2737	KEEP	inv1 App. C	xR = t3.TuckerTensorTrain(tk, orth.tt_right_orthogonalize(tt))
+tests/test_tucker_tensor_train.py	2738	KEEP	inv1 App. C	self.assertTrue(xL.is_left_orthogonal().all())
+tests/test_tucker_tensor_train.py	2739	KEEP	inv1 App. C	self.assertFalse(xL.is_right_orthogonal().all())
+tests/test_tucker_tensor_train.py	2740	KEEP	inv1 App. C	self.assertTrue(xR.is_right_orthogonal().all())
+tests/test_tucker_tensor_train.py	2741	KEEP	inv1 App. C	self.assertFalse(xR.is_left_orthogonal().all())
+tests/test_tucker_tensor_train.py	2742	KEEP	inv1 App. C	# a t3svd result is left-orthogonal
+tests/test_tucker_tensor_train.py	2744	KEEP	inv1 App. C	self.assertTrue(x2.is_left_orthogonal().all())
+tests/test_tucker_tensor_train.py	2747	KEEP	inv1 App. C	# assume_orthogonal=True (input already right-orthogonal) skips the redundant orthogonalization
+tests/test_tucker_tensor_train.py	2753	KEEP	inv1 App. D	xR = x.down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()  # right-orthogonal
+tests/test_tucker_tensor_train.py	2754	KEEP	inv1 App. C	self.assertTrue(xR.is_right_orthogonal().all())
+tests/test_tucker_tensor_train.py	2761	KEEP	inv1 App. C	self.assertTrue(a.is_left_orthogonal().all())
+tests/test_tucker_tensor_train.py	3113	KEEP	inv1 App. B	# Review 2026-08-22 (S13): structural problems hard-error in every mode -- including `python -O`,
+tests/test_tucker_tensor_train.py	3127	KEEP	inv1 App. B	out = subprocess.run([sys.executable, '-O', '-c', code], capture_output=True, text=True,
+tests/test_tucker_tensor_train.py	3202	EXEMPT	§4.3 backwards adjective	# steps; the sweep now opens with a Tucker up-SVD, so "compose both directions" is minimal.
+tests/test_tucker_tensor_train.py	3208	KEEP	inv1 App. C	# and the conditional orthogonality claim: a t3svd input gives a fully right-orthogonal result
+tests/test_tucker_tensor_train.py	3210	KEEP	inv1 App. C	self.assertTrue(bool(xs.rank_adjustment_sweep('right_to_left').is_right_orthogonal()))
+tests/test_uniform_frame_variations_format.py	574	KEEP	inv1 App. B	"""2c-D: UT3Variations vector-space ops (corewise at a fixed mask) + constructors. Verified against
+tests/test_uniform_frame_variations_format.py	927	KEEP	inv1 App. C	"""The t3svd-gauge frame (ut3svd_orthogonal_representations: already_left_orthogonal, through
+tests/test_uniform_frame_variations_format.py	993	KEEP	inv1 App. B	on a garbage-padded input as on a clean one (Phase D of the 2026-08-22 review; promoted from
+tests/test_uniform_manifold.py	225	KEEP	inv1 App. B	# up to don't-care padding are the same frame, so tangent arithmetic between them works.
+tests/test_uniform_manifold.py	622	KEEP	inv1 App. B	# all of _CONFIGS: C / K / K+C / forced-pad / multi-axis C / multi-axis K (D, E)
+tests/test_uniform_manifold.py	838	KEEP	inv1 App. B	for ss, K, fp in _CONFIGS:                                          # +forced-pad, +multi-axis (D, E)
+tests/test_uniform_probing.py	213	KEEP	inv1 App. B	O = _ORDER + 1
+tests/test_uniform_probing.py	218	KEEP	inv1 App. B	u = np.asarray(zz[m]).reshape((O, nW, -1, Nm))[:, :, i, :]
+tests/test_uniform_probing.py	219	KEEP	inv1 App. B	self.assertTrue(np.allclose(u, np.asarray(rzz[m]).reshape((O, nW, Nm)), atol=1e-8),
+tests/test_uniform_probing.py	228	KEEP	inv1 App. B	nW, O = (int(np.prod(W)) if W else 1), _ORDER + 1
+tests/test_uniform_probing.py	230	KEEP	inv1 App. B	u = aa.reshape((O, nW, -1))[:, :, i]
+tests/test_uniform_probing.py	231	KEEP	inv1 App. B	self.assertTrue(np.allclose(u, np.asarray(leaf.apply_derivatives(ww, pp, _ORDER)).reshape((O, nW)),
+tests/test_uniform_probing.py	236	KEEP	inv1 App. B	nW, O = (int(np.prod(W)) if W else 1), _ORDER + 1
+tests/test_uniform_probing.py	238	KEEP	inv1 App. B	u = ee.reshape((O, nW, -1))[:, :, i]
+tests/test_uniform_probing.py	239	KEEP	inv1 App. B	self.assertTrue(np.allclose(u, np.asarray(leaf.entries_derivatives(index, pp, _ORDER)).reshape((O, nW)),
+tests/test_uniform_probing.py	395	KEEP	inv1 App. B	(P,Q,O)->G substitution. The raw gradient supercores match the ragged TuckerTensorTrain corewise
+tests/test_uniform_probing.py	826	KEEP	inv1 App. B	O = _ORDER + 1
+tests/test_uniform_probing.py	829	KEEP	inv1 App. B	zj = [np.random.randn(*((O,) + S + (n,))) for n in shape]
+tests/test_uniform_probing.py	830	KEEP	inv1 App. B	cj = np.random.randn(*((O,) + S))
+tests/test_uniform_probing.py	898	KEEP	inv1 App. B	O = _ORDER + 1
+tests/test_uniform_probing.py	901	KEEP	inv1 App. B	zj = [np.random.randn(*((O,) + S + (n,))) for n in shape]
+tests/test_uniform_probing.py	902	KEEP	inv1 App. B	cj = np.random.randn(*((O,) + S))
+tests/test_uniform_tucker_tensor_train.py	239	KEEP	inv1 App. D	ORTH_METHODS = ['down_orthogonalize_tucker_cores', 'up_orthogonalize_tt_cores',
+tests/test_uniform_tucker_tensor_train.py	240	KEEP	inv1 App. C	'left_orthogonalize_tt_cores', 'right_orthogonalize_tt_cores']
+tests/test_uniform_tucker_tensor_train.py	298	KEEP	inv1 App. C	# t3svd is the basic algorithm: left-orthogonal, raw-sweep ranks (NOT necessarily minimal). Tensor
+tests/test_uniform_tucker_tensor_train.py	309	KEEP	inv1 App. C	self.assertTrue(ux2.is_left_orthogonal().all())   # always left-orthogonal
+tests/test_uniform_tucker_tensor_train.py	313	KEEP	inv1 App. C	# rank_adjustment_sweep minimizes a (left-orthogonal) t3svd output via 'right_to_left'; uniform
+tests/test_uniform_tucker_tensor_train.py	328	KEEP	inv1 App. C	self.assertTrue(url.is_right_orthogonal().all())
+tests/test_uniform_tucker_tensor_train.py	330	KEEP	inv1 App. C	both = url.rank_adjustment_sweep('left_to_right')  # -> minimal, left-orthogonal
+tests/test_uniform_tucker_tensor_train.py	332	KEEP	inv1 App. C	self.assertTrue(both.is_left_orthogonal().all())
+tests/test_uniform_tucker_tensor_train.py	337	KEEP	inv1 App. C	def test_is_left_right_orthogonal(self):
+tests/test_uniform_tucker_tensor_train.py	341	KEEP	inv1 App. C	self.assertFalse(ux.is_left_orthogonal().all())          # a random T3 is in neither form
+tests/test_uniform_tucker_tensor_train.py	342	KEEP	inv1 App. C	self.assertFalse(ux.is_right_orthogonal().all())
+tests/test_uniform_tucker_tensor_train.py	343	KEEP	inv1 App. D	uxL = ux.down_orthogonalize_tucker_cores().left_orthogonalize_tt_cores()
+tests/test_uniform_tucker_tensor_train.py	344	KEEP	inv1 App. D	uxR = ux.down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()
+tests/test_uniform_tucker_tensor_train.py	345	KEEP	inv1 App. C	self.assertTrue(uxL.is_left_orthogonal().all())
+tests/test_uniform_tucker_tensor_train.py	346	KEEP	inv1 App. C	self.assertFalse(uxL.is_right_orthogonal().all())
+tests/test_uniform_tucker_tensor_train.py	347	KEEP	inv1 App. C	self.assertTrue(uxR.is_right_orthogonal().all())
+tests/test_uniform_tucker_tensor_train.py	348	KEEP	inv1 App. C	self.assertFalse(uxR.is_left_orthogonal().all())
+tests/test_uniform_tucker_tensor_train.py	349	KEEP	inv1 App. C	self.assertTrue(ux.t3svd()[0].is_left_orthogonal().all())  # a t3svd result is left-orthogonal
+tests/test_uniform_tucker_tensor_train.py	352	KEEP	inv1 App. C	# assume_orthogonal=True (input already right-orthogonal) skips the orthogonalization; same result.
+tests/test_uniform_tucker_tensor_train.py	355	KEEP	inv1 App. D	uR = ux.down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()  # right-orthogonal
+tests/test_uniform_tucker_tensor_train.py	356	KEEP	inv1 App. C	self.assertTrue(uR.is_right_orthogonal().all())
+tests/test_uniform_tucker_tensor_train.py	362	KEEP	inv1 App. C	self.assertTrue(a.is_left_orthogonal().all())
+tests/test_uniform_tucker_tensor_train.py	581	KEEP	inv1 App. D	conv.ut3_to_dense(bo.ut3_down_orthogonalize_tucker_cores(ux.data)),
+tests/test_uniform_tucker_tensor_train.py	582	KEEP	inv1 App. D	ux.down_orthogonalize_tucker_cores().to_dense()), TOL)
+tests/test_uniform_tucker_tensor_train.py	586	KEEP	inv1 App. D	orth_data = lambda d: bo.ut3_left_orthogonalize_tt_cores(bo.ut3_down_orthogonalize_tucker_cores(d))
+tests/test_uniform_tucker_tensor_train.py	646	KEEP	inv1 App. C	self.assertTrue(np.all(ux.t3svd()[0].is_left_orthogonal()))
+tests/test_uniform_tucker_tensor_train.py	723	KEEP	inv1 App. B	# `repros/H5/repro_exact_masks.py` and `repros/R8/three_prong_sweep.py` (Phase D).
+tests/test_uniform_tucker_tensor_train.py	792	KEEP	inv1 App. D	for op in ('down_orthogonalize_tucker_cores', 'up_orthogonalize_tt_cores',
+tests/test_uniform_tucker_tensor_train.py	793	KEEP	inv1 App. C	'left_orthogonalize_tt_cores', 'right_orthogonalize_tt_cores'):
+tests/test_uniform_tucker_tensor_train.py	855	KEEP	inv1 App. D	for op in ('down_orthogonalize_tucker_cores', 'up_orthogonalize_tt_cores',
+tests/test_uniform_tucker_tensor_train.py	856	KEEP	inv1 App. C	'left_orthogonalize_tt_cores', 'right_orthogonalize_tt_cores'):
+tests/test_uniform_tucker_tensor_train.py	877	KEEP	inv1 App. B	"""Direct test for the exported-but-uncalled ``ut3svd_supercores`` (Phase D of the 2026-08-22
+tests/test_uniform_tucker_tensor_train.py	910	KEEP	inv1 App. D	ro = ux.down_orthogonalize_tucker_cores().right_orthogonalize_tt_cores()
+tests/test_uniform_weighted.py	225	KEEP	inv1 App. B	def test_naive_reciprocal_would_blow_up(self):
+tests/test_weighted.py	402	KEEP	inv1 App. B	self.assertLess(float(np.max(np.abs(np.asarray(U) - np.asarray(Ux)))), 1e-12)
+tests/test_weighted.py	412	KEEP	inv1 App. B	dev = max(float(np.max(np.abs(np.abs(np.einsum('...ai,...bi->...ab', np.asarray(U), np.asarray(Ux)))
+tests/test_weighted.py	413	KEEP	inv1 App. B	- np.eye(U.shape[-2]))))
+tests/test_weighted.py	434	KEEP	inv1 App. B	self.assertLess(float(np.max(np.abs(np.abs(np.asarray(U)) - np.abs(np.asarray(Ur))))), 1e-10)
+docs/*	-	PATTERN	inv3 §9: English "up to"/"up front"/"warm-up"/"blow up"/"picked up"/"set up"	\bup (?:to|front)\b|\bwarm-up\b|\bblow[- ]up\b|\bpicked up\b|\bset up\b
+docs/*	-	PATTERN	inv3 §9: English "down to"/"downstream"/"write down"/"down-weight"	\bdown to\b|\bdownstream\b|\bwrite down\b|\bdown-weight
+docs/*	-	PATTERN	inv3 §9: jet-order shifts	_shift_up|_shift_down|down-shift|\\\\Dsh

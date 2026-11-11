@@ -1,0 +1,3207 @@
+# store_rename_check: tree `/home/nick/repos/T3Toolbox`, stage R1
+
+| check | status | summary |
+|---|---|---|
+| K0 | PASS | 0 hit(s) of a surviving sentinel (pass-2 / final tree) (gate from R2) |
+| K1 | REPORT | 524 hit(s) of an old spelling (code tree clean after R2 except prose, all after R5) (gate from R4b) |
+| K2 | REPORT | 107 hit(s) of a stale width spelling (everywhere, fences and notes included) (gate from R4b) |
+| K3 | REPORT | 174 hit(s) of the update letter API's old form or a word tuple (gate from R3) |
+| K4 | REPORT | 219 hit(s) of an old frame-letter tuple, hybrid or the cited substitution (gate from R4b) |
+| K5 | REPORT | 78 hit(s) of an old-order listing (gate from R4b) |
+| K6 | REPORT | 12 hit(s) of a backwards phrase (gate from R4b) |
+| K7 | REPORT | 147 hit(s) of the old shift / derivative notation (gate from R4b) |
+| K8 | REPORT | 1208 hit(s) of a T4S letter left behind (gate from R4b) |
+| K8b | REPORT | 34 hit(s) of a T4S string key in test_jet_recurrence (gate from R2) |
+| K9 | REPORT | 348 line(s) with a bare store word that is neither a keep, nor the opposite of its aligned old word (the free-prose to-do list before R4b) |
+| K9-converse | PASS | 0 keep line(s) whose store words did not survive |
+| K10/K10b | PENDING | 0 in place, 0 re-laid out checked; 60 blocks not yet rewritten |
+| K11 | PASS | fenced spans byte-identical to v2026.4.0 (located by text) |
+| K12 | PENDING | 0 of 301 blocks filled |
+| K13 | REPORT | 57 shape line(s) whose width letter disagrees with the entry (fenced spans skipped) |
+| K13-generic | INFO | 13 generic tucker_cores/tt_cores shape lines (reported to the reviewer, §4 item 12) |
+| K13-unrecognised | INFO | 164 shape lines with widths but no recognised entry |
+| K14 | PASS | 0 DNT multiset difference(s), 0 file(s) with different contract/einsum strings (1393 DNT rows) |
+| K15 | PASS | 0 NAME position(s) changed outside the hit table |
+| K16 | REPORT | 20 LaTeX width form(s) in the notes, each for explicit sign-off at R5 |
+| K17 | PASS | 891 NAME hit(s) to a bare frame letter checked; 0 bound from a variation core |
+| K17-params | INFO | 17 renamed parameters (binding resolved by the caller, not by K17) |
+| K17-shape-frame | REPORT | 2: D/dD/U/dU on a V/H-shaped array (gate from R2; 215 NAME/array pairs resolved; meaningful on a renamed tree) |
+| K17-shape-point | REPORT | 0: B/G forms on a V/H-shaped array (item 12's n makes the corewise ones core-shaped in R4b) (gate from R4b; 215 NAME/array pairs resolved; meaningful on a renamed tree) |
+| K17-shape-converse | REPORT | 0: a V/H name on a core-shaped array (gate from R2; 215 NAME/array pairs resolved; meaningful on a renamed tree) |
+| K17-labels | INFO | 1 return-element comment labels with a shape verdict (comments: R4 rewrites them) |
+
+## K1 (REPORT, 524)
+
+- t3toolbox/backend/apply.py:148: `up_tucker_cores` -- typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
+- t3toolbox/backend/apply.py:149: `down_tt_cores` -- typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+- t3toolbox/backend/apply.py:165: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/apply.py:165: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/apply.py:168: `up_tucker_cores` -- xis  = compute_xi(up_tucker_cores, ww)       # xi-hat_i  = U_i^T w_i
+- t3toolbox/backend/apply.py:172: `down_tt_cores` -- return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
+- t3toolbox/backend/apply.py:200: `up_tucker_cores` -- typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
+- t3toolbox/backend/apply.py:201: `down_tt_cores` -- typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+- t3toolbox/backend/apply.py:227: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/apply.py:227: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/apply.py:228: `up_tucker_cores` -- xis = compute_xi(up_tucker_cores, ww)
+- t3toolbox/backend/apply.py:240: `up_tucker_cores` -- typ.Sequence[NDArray],          # up_tucker_cores  U. len=d  (unused; for a uniform call signature)
+- t3toolbox/backend/apply.py:241: `down_tt_cores` -- typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+- t3toolbox/backend/apply.py:261: `down_tt_cores` -- _, down_tt_cores, _, right_tt_cores = frame
+- t3toolbox/backend/apply.py:264: `down_tt_cores` -- return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
+- t3toolbox/backend/apply.py:271: `up_tucker_cores` -- typ.Sequence[NDArray],          # up_tucker_cores  U. len=d  (unused; uniform call signature)
+- t3toolbox/backend/apply.py:272: `down_tt_cores` -- typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+- t3toolbox/backend/apply.py:294: `down_tt_cores` -- _, down_tt_cores, _, right_tt_cores = frame
+- t3toolbox/backend/apply.py:296: `down_tt_cores` -- return _apply_transpose_adjoint(c, ww, xis, mus, down_tt_cores, right_tt_cores, sum_over_probes)
+- t3toolbox/backend/apply.py:444: `down_tt_cores` -- def _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores):
+- t3toolbox/backend/apply.py:456: `down_tt_cores` -- sigma_terminal, _ = xscan(_apply_from_xis_step, init, (right_tt_cores, down_tt_cores, var_tt_cores, xis, dxis, mus))
+- t3toolbox/backend/apply.py:460: `down_tt_cores` -- def _apply_transpose_adjoint(c, ww, xis, mus, down_tt_cores, right_tt_cores, sum_over_probes):
+- t3toolbox/backend/apply.py:483: `down_tt_cores` -- dxi_hats = contractions.contract('dWCa,dCaib,dWKCb->dWKCi', mus, down_tt_cores, sigma_hats)
+- t3toolbox/backend/apply.py:494: `down_tt_cores` -- for mu, O, sh in zip(mus, down_tt_cores, sigma_hats))
+- t3toolbox/backend/entries.py:132: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/entries.py:132: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/entries.py:135: `up_tucker_cores` -- xis  = _entry_xis(up_tucker_cores, index)     # xi-hat_i  = U_i[..., index_i]   (fiber slice)
+- t3toolbox/backend/entries.py:139: `down_tt_cores` -- return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
+- t3toolbox/backend/entries.py:166: `up_tucker_cores` -- typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
+- t3toolbox/backend/entries.py:167: `down_tt_cores` -- typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+- t3toolbox/backend/entries.py:188: `up_tucker_cores` -- up_tucker_cores, _, left_tt_cores, _ = frame
+- t3toolbox/backend/entries.py:189: `up_tucker_cores` -- xis = _entry_xis(up_tucker_cores, index)
+- t3toolbox/backend/entries.py:213: `down_tt_cores` -- _, down_tt_cores, _, right_tt_cores = frame
+- t3toolbox/backend/entries.py:216: `down_tt_cores` -- return _apply_from_xis(xis, dxis, mus, right_tt_cores, down_tt_cores, var_tt_cores)
+- t3toolbox/backend/entries.py:236: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, _, right_tt_cores = frame
+- t3toolbox/backend/entries.py:236: `down_tt_cores` -- up_tucker_cores, down_tt_cores, _, right_tt_cores = frame
+- t3toolbox/backend/entries.py:237: `up_tucker_cores` -- ww = _onehot_vectors(index, up_tucker_cores)
+- t3toolbox/backend/entries.py:239: `down_tt_cores` -- return _apply_transpose_adjoint(c, ww, xis, mus, down_tt_cores, right_tt_cores, sum_over_probes)
+- t3toolbox/backend/entries.py:375: `up_tucker_cores` -- def _onehot_vectors(index, up_tucker_cores):
+- t3toolbox/backend/entries.py:378: `up_tucker_cores` -- use_jax = tree_contains_jax((index, up_tucker_cores))
+- t3toolbox/backend/entries.py:379: `up_tucker_cores` -- is_uniform = is_ndarray(up_tucker_cores)
+- t3toolbox/backend/entries.py:386: `up_tucker_cores` -- N = up_tucker_cores.shape[-1]
+- t3toolbox/backend/entries.py:388: `up_tucker_cores` -- return tuple(xnp.eye(B.shape[-1])[index[i]] for i, B in enumerate(up_tucker_cores))
+- t3toolbox/backend/fv_conversions.py:51: `up_tucker_cores` -- typ.Tuple[NDArray, ...],  # up_tucker_cores
+- t3toolbox/backend/fv_conversions.py:52: `down_tt_cores` -- typ.Tuple[NDArray, ...],  # down_tt_cores
+- t3toolbox/backend/fv_conversions.py:57: `up_tucker_supercore` -- NDArray,  # up_tucker_supercore
+- t3toolbox/backend/fv_conversions.py:85: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/fv_conversions.py:85: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/fv_conversions.py:88: `up_tucker_cores` -- is_uniform = is_ndarray(up_tucker_cores)
+- t3toolbox/backend/fv_conversions.py:94: `up_tucker_cores` -- x_tucker_cores = up_tucker_cores
+- t3toolbox/backend/fv_conversions.py:104: `up_tucker_cores` -- left_UU = up_tucker_cores[:ii]
+- t3toolbox/backend/fv_conversions.py:106: `up_tucker_cores` -- right_UU = up_tucker_cores[ii+1:]
+- t3toolbox/backend/fv_conversions.py:113: `down_tt_cores` -- D = down_tt_cores[ii]
+- t3toolbox/backend/fv_conversions.py:144: `up_tucker_cores` -- typ.Tuple[NDArray,...], # up_tucker_cores
+- t3toolbox/backend/fv_conversions.py:145: `down_tt_cores` -- typ.Tuple[NDArray, ...],  # down_tt_cores
+- t3toolbox/backend/fv_conversions.py:156: `up_tucker_supercore` -- NDArray,  # up_tucker_supercore
+- t3toolbox/backend/fv_conversions.py:181: `up_orthogonalize_tucker_cores` -- up_orthogonalize_tucker_cores = lambda x: uniform_orth.down_orthogonalize_tucker_supercores(*x)
+- t3toolbox/backend/fv_conversions.py:182: `down_orthogonalize_tt_cores` -- down_orthogonalize_tt_cores = lambda x: uniform_orth.up_orthogonalize_tt_supercores(*x)
+- t3toolbox/backend/fv_conversions.py:184: `up_orthogonalize_tucker_cores` -- up_orthogonalize_tucker_cores = ragged_orth.t3_down_orthogonalize_tucker_cores
+- t3toolbox/backend/fv_conversions.py:185: `down_orthogonalize_tt_cores` -- down_orthogonalize_tt_cores = ragged_orth.t3_up_orthogonalize_tt_cores
+- t3toolbox/backend/fv_conversions.py:220: `up_tucker_cores` -- up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(x)
+- t3toolbox/backend/fv_conversions.py:220: `up_orthogonalize_tucker_cores` -- up_tucker_cores, tt_cores = up_orthogonalize_tucker_cores(x)
+- t3toolbox/backend/fv_conversions.py:225: `up_tucker_cores` -- up_tucker_cores, tt_cores = uniform_orth.down_orthogonalize_tucker_supercores(
+- t3toolbox/backend/fv_conversions.py:229: `up_tucker_cores` -- up_masks = prefix_mask(up_r, up_tucker_cores.shape[-2])
+- t3toolbox/backend/fv_conversions.py:233: `up_tucker_cores` -- up_tucker_cores, left_tt_cores = x
+- t3toolbox/backend/fv_conversions.py:236: `up_tucker_cores` -- up_masks = prefix_mask(up_r, up_tucker_cores.shape[-2])
+- t3toolbox/backend/fv_conversions.py:253: `down_tt_cores` -- tucker_variations, down_tt_cores = down_orthogonalize_tt_cores(
+- t3toolbox/backend/fv_conversions.py:253: `down_orthogonalize_tt_cores` -- tucker_variations, down_tt_cores = down_orthogonalize_tt_cores(
+- t3toolbox/backend/fv_conversions.py:254: `up_tucker_cores` -- (up_tucker_cores, tt_variations),
+- t3toolbox/backend/fv_conversions.py:260: `down_tt_cores` -- tucker_variations, down_tt_cores = uniform_orth.up_orthogonalize_tt_supercores(
+- t3toolbox/backend/fv_conversions.py:261: `up_tucker_cores` -- up_tucker_cores, tt_variations,
+- t3toolbox/backend/fv_conversions.py:263: `up_tucker_cores` -- out_mask=prefix_mask(down_r, min(r_now * r_now, up_tucker_cores.shape[-2])))
+- t3toolbox/backend/fv_conversions.py:265: `up_tucker_cores` -- frame = (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/backend/fv_conversions.py:265: `down_tt_cores` -- frame = (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/backend/fv_operations.py:163: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores
+- t3toolbox/backend/fv_operations.py:164: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores
+- t3toolbox/backend/fv_operations.py:169: `up_tucker_cores` -- typ.Tuple[NDArray, ...],  # up_tucker_cores  (mode order reversed)
+- t3toolbox/backend/fv_operations.py:170: `down_tt_cores` -- typ.Tuple[NDArray, ...],  # down_tt_cores
+- t3toolbox/backend/fv_operations.py:181: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/fv_operations.py:181: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/fv_operations.py:183: `up_tucker_cores` -- return (tuple(U.copy() for U in up_tucker_cores[::-1]),
+- t3toolbox/backend/fv_operations.py:184: `down_tt_cores` -- rev(down_tt_cores),
+- t3toolbox/backend/fv_operations.py:191: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores
+- t3toolbox/backend/fv_operations.py:192: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores
+- t3toolbox/backend/fv_operations.py:201: `up_tucker` -- - up_tucker U_i (all i), outer/down D_i (all i),
+- t3toolbox/backend/fv_operations.py:232: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores
+- t3toolbox/backend/fv_operations.py:233: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores
+- t3toolbox/backend/fv_operations.py:245: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/fv_operations.py:245: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/fv_operations.py:247: `up_tucker_cores` -- d = len(up_tucker_cores)
+- t3toolbox/backend/fv_operations.py:248: `up_tucker_cores` -- left = t3_conversions.t3_to_dense((up_tucker_cores, left_tt_cores))
+- t3toolbox/backend/fv_operations.py:249: `up_tucker_cores` -- right = t3_conversions.t3_to_dense((up_tucker_cores, right_tt_cores))
+- t3toolbox/backend/fv_operations.py:290: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=(nUi, Ni)
+- t3toolbox/backend/fv_operations.py:291: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=(rLi, nDi, rR(i+1))
+- t3toolbox/backend/fv_operations.py:438: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+- t3toolbox/backend/fv_operations.py:439: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+- t3toolbox/backend/fv_operations.py:499: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/fv_operations.py:499: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/fv_operations.py:500: `up_tucker_cores` -- d = len(up_tucker_cores)
+- t3toolbox/backend/fv_operations.py:505: `down_tt_cores` -- tucker_factors_T = tuple(contractions.contract('Caxb,Caub->Cxu', down_tt_cores[ii], centers[ii])
+- t3toolbox/backend/fv_operations.py:547: `up_tucker_cores` -- typ.Sequence[NDArray],                  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+- t3toolbox/backend/fv_operations.py:548: `down_tt_cores` -- typ.Sequence[NDArray],                  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+- t3toolbox/backend/probing.py:194: `up_tucker_cores` -- up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(nUi,Ni)
+- t3toolbox/backend/probing.py:206: `up_tucker_cores` -- use_jax = tree_contains_jax((up_tucker_cores, ww))
+- t3toolbox/backend/probing.py:207: `up_tucker_cores` -- is_uniform = is_ndarray(up_tucker_cores)
+- t3toolbox/backend/probing.py:211: `up_tucker_cores` -- xis = contractions.contract('dCio,dWo->dWCi', up_tucker_cores, ww)
+- t3toolbox/backend/probing.py:213: `up_tucker_cores` -- (xis,) = xmap(_xi_step, (up_tucker_cores, ww))
+- t3toolbox/backend/probing.py:284: `down_tt_cores` -- down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/probing.py:297: `down_tt_cores` -- use_jax = tree_contains_jax((down_tt_cores, mus, nus))
+- t3toolbox/backend/probing.py:298: `down_tt_cores` -- is_uniform = is_ndarray(down_tt_cores)
+- t3toolbox/backend/probing.py:302: `down_tt_cores` -- etas = contractions.contract('dWCa,dCaib,dWCb->dWCi', mus, down_tt_cores, nus)
+- t3toolbox/backend/probing.py:304: `down_tt_cores` -- (etas,) = xmap(_eta_step, (mus, down_tt_cores, nus))
+- t3toolbox/backend/probing.py:403: `down_tt_cores` -- down_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+- t3toolbox/backend/probing.py:425: `down_tt_cores` -- use_jax = tree_contains_jax((var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus))
+- t3toolbox/backend/probing.py:433: `down_tt_cores` -- last_sigma, (sigmas,) = xscan(_sigma_sweep_step, init, (right_tt_cores, down_tt_cores, var_tt_cores, xis, dxis, mus))
+- t3toolbox/backend/probing.py:440: `down_tt_cores` -- down_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+- t3toolbox/backend/probing.py:466: `down_tt_cores` -- reverse(var_tt_cores), reverse(left_tt_cores), reverse(down_tt_cores),
+- t3toolbox/backend/probing.py:617: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/probing.py:617: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/probing.py:620: `down_tt_cores` -- sigmas = compute_sigma(var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus)
+- t3toolbox/backend/probing.py:621: `down_tt_cores` -- taus   = compute_tau(var_tt_cores, left_tt_cores, down_tt_cores, xis, dxis, nus)
+- t3toolbox/backend/probing.py:623: `up_tucker_cores` -- return assemble_tangent_z(up_tucker_cores, var_tucker_cores, etas, detas)
+- t3toolbox/backend/probing.py:640: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores. len=d. U_xo U_yo   = I_xy, U.shape = (nU, N)
+- t3toolbox/backend/probing.py:641: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
+- t3toolbox/backend/probing.py:646: `up_tucker_supercore` -- NDArray,  # up_tucker_supercore. shape=(d, nU, N),      up orthogonal elements
+- t3toolbox/backend/probing.py:647: `down_tt_supercore` -- NDArray,  # down_tt_supercore.   shape=(d, rL, nO, rR), down orthogonal elements
+- t3toolbox/backend/probing.py:672: `up_tucker_cores` -- frame: (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/backend/probing.py:672: `down_tt_cores` -- frame: (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/backend/probing.py:733: `up_tucker_cores` -- (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores) = frame
+- t3toolbox/backend/probing.py:733: `down_tt_cores` -- (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores) = frame
+- t3toolbox/backend/probing.py:736: `up_tucker_cores` -- xis = compute_xi(up_tucker_cores, ww)
+- t3toolbox/backend/probing.py:742: `down_tt_cores` -- etas = compute_eta(down_tt_cores, mus, nus)
+- t3toolbox/backend/probing.py:747: `down_tt_cores` -- var_tt_cores, right_tt_cores, down_tt_cores, xis, dxis, mus,
+- t3toolbox/backend/probing.py:751: `down_tt_cores` -- var_tt_cores, left_tt_cores, down_tt_cores, xis, dxis, nus,
+- t3toolbox/backend/probing.py:759: `up_tucker_cores` -- up_tucker_cores, var_tucker_cores, etas, detas,
+- t3toolbox/backend/probing.py:779: `up_tucker_cores` -- typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
+- t3toolbox/backend/probing.py:780: `down_tt_cores` -- typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+- t3toolbox/backend/probing.py:804: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/probing.py:804: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/probing.py:805: `up_tucker_cores` -- xis  = compute_xi(up_tucker_cores, ww)
+- t3toolbox/backend/probing.py:808: `down_tt_cores` -- etas = compute_eta(down_tt_cores, mus, nus)
+- t3toolbox/backend/probing.py:867: `up_tucker_cores` -- up_tucker_cores:    typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=(nUi,Ni)
+- t3toolbox/backend/probing.py:879: `up_tucker_cores` -- use_jax = tree_contains_jax((up_tucker_cores, ztildes))
+- t3toolbox/backend/probing.py:880: `up_tucker_cores` -- is_uniform = is_ndarray(up_tucker_cores)
+- t3toolbox/backend/probing.py:888: `up_tucker_cores` -- deta_tildes = contractions.contract('dWCo,dCio->dWCi', ztildes, up_tucker_cores)
+- t3toolbox/backend/probing.py:890: `up_tucker_cores` -- (deta_tildes,) = xmap(_deta_tilde_step, (up_tucker_cores, ztildes))
+- t3toolbox/backend/probing.py:976: `down_tt_cores` -- down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+- t3toolbox/backend/probing.py:989: `down_tt_cores` -- use_jax = tree_contains_jax((sigma_tildes, tau_tildes, down_tt_cores, mus, nus))
+- t3toolbox/backend/probing.py:995: `down_tt_cores` -- # supercore down_tt_cores (O) is C-only. Mirrors the ragged calls; the ragged xmap is the oracle.
+- t3toolbox/backend/probing.py:996: `down_tt_cores` -- term1 = contractions.contract('dWKCa,dCaib,dWCb->dWKCi', tau_tildes, down_tt_cores, nus)
+- t3toolbox/backend/probing.py:997: `down_tt_cores` -- term2 = contractions.contract('dWCa,dCaib,dWKCb->dWKCi', mus, down_tt_cores, sigma_tildes)
+- t3toolbox/backend/probing.py:1000: `down_tt_cores` -- xs = (down_tt_cores, mus, nus, sigma_tildes, tau_tildes)
+- t3toolbox/backend/probing.py:1197: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/probing.py:1197: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/probing.py:1199: `up_tucker_cores` -- deta_tildes  = compute_deta_tilde(up_tucker_cores, ztildes)
+- t3toolbox/backend/probing.py:1202: `down_tt_cores` -- dxi_tildes   = compute_dxi_tilde(sigma_tildes, tau_tildes, down_tt_cores, mus, nus)
+- t3toolbox/backend/probing.py:1215: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores. len=d. U_xo U_yo   = I_xy, U.shape = (nU, N)
+- t3toolbox/backend/probing.py:1216: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
+- t3toolbox/backend/probing.py:1221: `up_tucker_supercore` -- NDArray,  # up_tucker_supercore. shape=(d, nU, N),      up orthogonal elements
+- t3toolbox/backend/probing.py:1222: `down_tt_supercore` -- NDArray,  # down_tt_supercore.   shape=(d, rL, nO, rR), down orthogonal elements
+- t3toolbox/backend/probing.py:1259: `up_tucker_cores` -- frame: (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/backend/probing.py:1259: `down_tt_cores` -- frame: (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/backend/probing.py:1322: `up_tucker_cores` -- (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores) = frame
+- t3toolbox/backend/probing.py:1322: `down_tt_cores` -- (up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores) = frame
+- t3toolbox/backend/probing.py:1324: `up_tucker_cores` -- xis = compute_xi(up_tucker_cores, ww)
+- t3toolbox/backend/probing.py:1330: `down_tt_cores` -- etas = compute_eta(down_tt_cores, mus, nus)
+- t3toolbox/backend/probing.py:1334: `up_tucker_cores` -- deta_tildes = compute_deta_tilde(up_tucker_cores, ztildes)
+- t3toolbox/backend/probing.py:1340: `down_tt_cores` -- dxi_tildes = compute_dxi_tilde(sigma_tildes, tau_tildes, down_tt_cores, mus, nus)
+- t3toolbox/backend/probing.py:1480: `up_tucker_cores` -- up_tucker_cores:        typ.Union[typ.Sequence[NDArray], NDArray],  # U.    len=d, elm_shape=C+(nUi,Ni)
+- t3toolbox/backend/probing.py:1481: `up_tucker_cores_dot` -- up_tucker_cores_dot:    typ.Union[typ.Sequence[NDArray], NDArray],  # Udot. len=d, elm_shape=K+C+(nUi,Ni)
+- t3toolbox/backend/probing.py:1487: `up_tucker_cores` -- use_jax = tree_contains_jax((up_tucker_cores, up_tucker_cores_dot, ztildes))
+- t3toolbox/backend/probing.py:1487: `up_tucker_cores_dot` -- use_jax = tree_contains_jax((up_tucker_cores, up_tucker_cores_dot, ztildes))
+- t3toolbox/backend/probing.py:1488: `up_tucker_cores` -- is_uniform = is_ndarray(up_tucker_cores)
+- t3toolbox/backend/probing.py:1491: `up_tucker_cores_dot` -- return contractions.contract('dWCo,dKCio->dWKCi', ztildes, up_tucker_cores_dot,
+- t3toolbox/backend/probing.py:1492: `up_tucker_cores` -- len_C=up_tucker_cores.ndim - 3)
+- t3toolbox/backend/probing.py:1493: `up_tucker_cores` -- (deta_tildes_dot,) = xmap(_deta_tilde_tangent_step, (up_tucker_cores, up_tucker_cores_dot, ztildes))
+- t3toolbox/backend/probing.py:1493: `up_tucker_cores_dot` -- (deta_tildes_dot,) = xmap(_deta_tilde_tangent_step, (up_tucker_cores, up_tucker_cores_dot, ztildes))
+- t3toolbox/backend/probing.py:1565: `down_tt_cores` -- down_tt_cores:          typ.Union[typ.Sequence[NDArray], NDArray],  # O.     len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/probing.py:1566: `down_tt_cores_dot` -- down_tt_cores_dot:      typ.Union[typ.Sequence[NDArray], NDArray],  # O_dot. len=d, elm_shape=K+C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/probing.py:1580: `down_tt_cores_dot` -- from_tau = compute_deta(down_tt_cores_dot, down_tt_cores, down_tt_cores, tau_tildes, nus, tau_tildes_dot,
+- t3toolbox/backend/probing.py:1580: `down_tt_cores` -- from_tau = compute_deta(down_tt_cores_dot, down_tt_cores, down_tt_cores, tau_tildes, nus, tau_tildes_dot,
+- t3toolbox/backend/probing.py:1580: `down_tt_cores` -- from_tau = compute_deta(down_tt_cores_dot, down_tt_cores, down_tt_cores, tau_tildes, nus, tau_tildes_dot,
+- t3toolbox/backend/probing.py:1582: `down_tt_cores_dot` -- from_mu = compute_deta(down_tt_cores_dot, down_tt_cores, down_tt_cores, mus, sigma_tildes, mus_dot,
+- t3toolbox/backend/probing.py:1582: `down_tt_cores` -- from_mu = compute_deta(down_tt_cores_dot, down_tt_cores, down_tt_cores, mus, sigma_tildes, mus_dot,
+- t3toolbox/backend/probing.py:1582: `down_tt_cores` -- from_mu = compute_deta(down_tt_cores_dot, down_tt_cores, down_tt_cores, mus, sigma_tildes, mus_dot,
+- t3toolbox/backend/ranks.py:626: `up_tucker_ranks` -- ], # up_tucker_ranks
+- t3toolbox/backend/ranks.py:630: `down_tucker_ranks` -- ],  # down_tucker_ranks
+- t3toolbox/backend/sampling_derivatives.py:594: `down_tt_cores` -- _, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/sampling_derivatives.py:597: `down_tt_cores` -- eta_jets = compute_eta_jets(down_tt_cores, mu_jets, nu_jets)
+- t3toolbox/backend/sampling_derivatives.py:618: `up_tucker_cores` -- up_tucker_cores = frame[0]
+- t3toolbox/backend/sampling_derivatives.py:619: `up_tucker_cores` -- xi_jets = build_input_jets(compute_xi(up_tucker_cores, ww), compute_xi(up_tucker_cores, pp))
+- t3toolbox/backend/sampling_derivatives.py:619: `up_tucker_cores` -- xi_jets = build_input_jets(compute_xi(up_tucker_cores, ww), compute_xi(up_tucker_cores, pp))
+- t3toolbox/backend/sampling_derivatives.py:638: `up_tucker_cores` -- up_tucker_cores = frame[0]
+- t3toolbox/backend/sampling_derivatives.py:639: `up_tucker_cores` -- xi_jets = build_input_jets(_entry_xis(up_tucker_cores, index), compute_xi(up_tucker_cores, pp))
+- t3toolbox/backend/sampling_derivatives.py:639: `up_tucker_cores` -- xi_jets = build_input_jets(_entry_xis(up_tucker_cores, index), compute_xi(up_tucker_cores, pp))
+- t3toolbox/backend/sampling_derivatives.py:661: `up_tucker_cores` -- up_tucker_cores = frame[0]
+- t3toolbox/backend/sampling_derivatives.py:662: `up_tucker_cores` -- xi_jets = build_input_jets(compute_xi(up_tucker_cores, ww), compute_xi(up_tucker_cores, pp))
+- t3toolbox/backend/sampling_derivatives.py:662: `up_tucker_cores` -- xi_jets = build_input_jets(compute_xi(up_tucker_cores, ww), compute_xi(up_tucker_cores, pp))
+- t3toolbox/backend/sampling_derivatives.py:735: `down_tt_cores` -- down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:749: `down_tt_cores` -- use_jax = tree_contains_jax((var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets))
+- t3toolbox/backend/sampling_derivatives.py:756: `down_tt_cores` -- dtype = xnp.result_type(*(a[0] for a in (var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets)))
+- t3toolbox/backend/sampling_derivatives.py:758: `down_tt_cores` -- _, (sigma_jets,) = xscan(_sigma_jets_step, init, (right_tt_cores, down_tt_cores, var_tt_cores, xi_jets, dxi_jets, mu_jets))
+- t3toolbox/backend/sampling_derivatives.py:765: `down_tt_cores` -- down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:776: `down_tt_cores` -- reverse(down_tt_cores), xi_jets[::-1], dxi_jets[::-1], nu_jets[::-1],
+- t3toolbox/backend/sampling_derivatives.py:917: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/sampling_derivatives.py:917: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/sampling_derivatives.py:922: `down_tt_cores` -- sigma_jets = compute_sigma_jets(var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets)
+- t3toolbox/backend/sampling_derivatives.py:923: `down_tt_cores` -- tau_jets   = compute_tau_jets(var_tt_cores, left_tt_cores, down_tt_cores, xi_jets, dxi_jets, nu_jets)
+- t3toolbox/backend/sampling_derivatives.py:925: `up_tucker_cores` -- return assemble_tangent_z_jets(up_tucker_cores, var_tucker_cores, eta_jets, deta_jets)
+- t3toolbox/backend/sampling_derivatives.py:936: `up_tucker_cores` -- typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
+- t3toolbox/backend/sampling_derivatives.py:937: `down_tt_cores` -- typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+- t3toolbox/backend/sampling_derivatives.py:1051: `down_tt_cores` -- down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:1060: `down_tt_cores` -- use_jax = tree_contains_jax((xi_jets, dxi_jets, mu_jets, right_tt_cores, down_tt_cores, var_tt_cores))
+- t3toolbox/backend/sampling_derivatives.py:1067: `down_tt_cores` -- dtype = xnp.result_type(*(a[0] for a in (var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets)))
+- t3toolbox/backend/sampling_derivatives.py:1070: `down_tt_cores` -- (right_tt_cores, down_tt_cores, var_tt_cores, xi_jets, dxi_jets, mu_jets))
+- t3toolbox/backend/sampling_derivatives.py:1094: `down_tt_cores` -- _, down_tt_cores, _, right_tt_cores = frame
+- t3toolbox/backend/sampling_derivatives.py:1099: `down_tt_cores` -- xi_jets, dxi_jets, mu_jets, right_tt_cores, down_tt_cores, var_tt_cores)
+- t3toolbox/backend/sampling_derivatives.py:1110: `up_tucker_cores` -- typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
+- t3toolbox/backend/sampling_derivatives.py:1111: `down_tt_cores` -- typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+- t3toolbox/backend/sampling_derivatives.py:1178: `down_tt_cores` -- _, down_tt_cores, _, right_tt_cores = frame
+- t3toolbox/backend/sampling_derivatives.py:1183: `down_tt_cores` -- xi_jets, dxi_jets, mu_jets, right_tt_cores, down_tt_cores, var_tt_cores)
+- t3toolbox/backend/sampling_derivatives.py:1194: `up_tucker_cores` -- typ.Sequence[NDArray],          # up_tucker_cores  U. len=d
+- t3toolbox/backend/sampling_derivatives.py:1195: `down_tt_cores` -- typ.Sequence[NDArray],          # down_tt_cores    O. len=d
+- t3toolbox/backend/sampling_derivatives.py:1244: `up_tucker_cores` -- up_tucker_cores:    typ.Sequence[NDArray],  # U.  len=d, elm_shape=C+(nUi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1250: `up_tucker_cores` -- use_jax = tree_contains_jax((up_tucker_cores, ztildes))
+- t3toolbox/backend/sampling_derivatives.py:1251: `up_tucker_cores` -- is_uniform = is_ndarray(up_tucker_cores)
+- t3toolbox/backend/sampling_derivatives.py:1257: `up_tucker_cores` -- deta_tildes = contractions.contract('dtWKCo,dCio->dtWKCi', ztildes, up_tucker_cores)
+- t3toolbox/backend/sampling_derivatives.py:1259: `up_tucker_cores` -- (deta_tildes,) = xmap(_deta_tilde_jets_step, (up_tucker_cores, ztildes))
+- t3toolbox/backend/sampling_derivatives.py:1419: `down_tt_cores` -- down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:1436: `down_tt_cores` -- use_jax = tree_contains_jax((down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes))
+- t3toolbox/backend/sampling_derivatives.py:1437: `down_tt_cores` -- is_uniform = is_ndarray(down_tt_cores)
+- t3toolbox/backend/sampling_derivatives.py:1440: `down_tt_cores` -- (dxi_tildes,) = xmap(step, (down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes))
+- t3toolbox/backend/sampling_derivatives.py:2036: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/sampling_derivatives.py:2036: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/sampling_derivatives.py:2040: `up_tucker_cores` -- deta_tildes  = compute_deta_tilde_jets(up_tucker_cores, ztildes)
+- t3toolbox/backend/sampling_derivatives.py:2043: `down_tt_cores` -- dxi_tildes   = compute_dxi_tilde_jets(down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes)
+- t3toolbox/backend/sampling_derivatives.py:2223: `down_tt_cores` -- down_tt_cores:      typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2234: `down_tt_cores` -- use_jax = tree_contains_jax((c, xi_jets, mu_jets, w_jets, down_tt_cores, right_tt_cores))
+- t3toolbox/backend/sampling_derivatives.py:2235: `down_tt_cores` -- is_uniform = is_ndarray(down_tt_cores)
+- t3toolbox/backend/sampling_derivatives.py:2240: `down_tt_cores` -- (dxi_hats,) = xmap(dxh_step, (down_tt_cores, mu_jets, sigma_hats))
+- t3toolbox/backend/sampling_derivatives.py:2269: `down_tt_cores` -- _, down_tt_cores, _, right_tt_cores = frame
+- t3toolbox/backend/sampling_derivatives.py:2273: `down_tt_cores` -- c, xi_jets, mu_jets, w_jets, down_tt_cores, right_tt_cores, sum_over_probes)
+- t3toolbox/backend/sampling_derivatives.py:2329: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, _, right_tt_cores = frame
+- t3toolbox/backend/sampling_derivatives.py:2329: `down_tt_cores` -- up_tucker_cores, down_tt_cores, _, right_tt_cores = frame
+- t3toolbox/backend/sampling_derivatives.py:2331: `up_tucker_cores` -- w_jets = _entries_ambient_jets(index, up_tucker_cores, pp)   # ambient input jets (one-hot, direction) for dU
+- t3toolbox/backend/sampling_derivatives.py:2333: `down_tt_cores` -- c, xi_jets, mu_jets, w_jets, down_tt_cores, right_tt_cores, sum_over_probes)
+- t3toolbox/backend/sampling_derivatives.py:2338: `up_tucker_cores` -- up_tucker_cores:    typ.Sequence[NDArray],  # U. len=d, elm_shape=C+(nUi,Ni): the mode sizes and the dtype
+- t3toolbox/backend/sampling_derivatives.py:2344: `up_tucker_cores` -- ww_onehot = _onehot_vectors(index, up_tucker_cores)   # e_{index}, elm_shape=W+(Ni,)
+- t3toolbox/backend/sampling_derivatives.py:2345: `up_tucker_cores` -- xnp, _, _ = get_backend(True, tree_contains_jax((up_tucker_cores, pp)))     # only xnp
+- t3toolbox/backend/sampling_derivatives.py:2346: `up_tucker_cores` -- dtype = xnp.result_type(up_tucker_cores[0], pp[0])      # the one-hots are built in the default dtype
+- t3toolbox/backend/sampling_derivatives.py:2492: `up_tucker_cores` -- up_tucker_cores:        typ.Sequence[NDArray],  # U.    len=d, elm_shape=C+(nUi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:2493: `up_tucker_cores_dot` -- up_tucker_cores_dot:    typ.Sequence[NDArray],  # Udot. len=d, elm_shape=K+C+(nUi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:2499: `up_tucker_cores` -- use_jax = tree_contains_jax((up_tucker_cores, up_tucker_cores_dot, ztildes))
+- t3toolbox/backend/sampling_derivatives.py:2499: `up_tucker_cores_dot` -- use_jax = tree_contains_jax((up_tucker_cores, up_tucker_cores_dot, ztildes))
+- t3toolbox/backend/sampling_derivatives.py:2500: `up_tucker_cores` -- is_uniform = is_ndarray(up_tucker_cores)
+- t3toolbox/backend/sampling_derivatives.py:2503: `up_tucker_cores_dot` -- return contractions.contract('dtWCo,dKCio->dtWKCi', ztildes, up_tucker_cores_dot,
+- t3toolbox/backend/sampling_derivatives.py:2504: `up_tucker_cores` -- len_C=up_tucker_cores.ndim - 3)
+- t3toolbox/backend/sampling_derivatives.py:2505: `up_tucker_cores` -- (deta_tildes_dot,) = xmap(_deta_tilde_tangent_jets_step, (up_tucker_cores, up_tucker_cores_dot, ztildes))
+- t3toolbox/backend/sampling_derivatives.py:2505: `up_tucker_cores_dot` -- (deta_tildes_dot,) = xmap(_deta_tilde_tangent_jets_step, (up_tucker_cores, up_tucker_cores_dot, ztildes))
+- t3toolbox/backend/sampling_derivatives.py:2742: `down_tt_cores` -- down_tt_cores:      typ.Sequence[NDArray],  # O.        len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2743: `down_tt_cores_dot` -- down_tt_cores_dot:  typ.Sequence[NDArray],  # O_dot.    len=d, elm_shape=K+C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2756: `down_tt_cores` -- use_jax = tree_contains_jax((down_tt_cores, down_tt_cores_dot, mu_jets, mu_jets_dot, nu_jets, nu_jets_dot,
+- t3toolbox/backend/sampling_derivatives.py:2756: `down_tt_cores_dot` -- use_jax = tree_contains_jax((down_tt_cores, down_tt_cores_dot, mu_jets, mu_jets_dot, nu_jets, nu_jets_dot,
+- t3toolbox/backend/sampling_derivatives.py:2758: `down_tt_cores` -- is_uniform = is_ndarray(down_tt_cores)
+- t3toolbox/backend/sampling_derivatives.py:2761: `down_tt_cores` -- (dxi_tildes_dot,) = xmap(step, (down_tt_cores, down_tt_cores_dot, mu_jets, mu_jets_dot, nu_jets, nu_jets_dot,
+- t3toolbox/backend/sampling_derivatives.py:2761: `down_tt_cores_dot` -- (dxi_tildes_dot,) = xmap(step, (down_tt_cores, down_tt_cores_dot, mu_jets, mu_jets_dot, nu_jets, nu_jets_dot,
+- t3toolbox/backend/sharing.py:487: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+- t3toolbox/backend/sharing.py:488: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+- t3toolbox/backend/sharing.py:730: `up_tucker_cores` -- typ.Sequence[NDArray],                  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+- t3toolbox/backend/sharing.py:731: `down_tt_cores` -- typ.Sequence[NDArray],                  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+- t3toolbox/backend/t3_linalg.py:699: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+- t3toolbox/backend/t3_linalg.py:700: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+- t3toolbox/backend/t3_linalg.py:723: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/t3_linalg.py:723: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/t3_linalg.py:724: `down_tt_cores` -- outer_tt_cores = down_tt_cores
+- t3toolbox/backend/t3_linalg.py:734: `up_tucker_cores` -- _inner_product_rebasis_step, (other_tt_cores, other_tucker_cores, up_tucker_cores),
+- t3toolbox/backend/t3_linalg.py:749: `up_tucker_cores` -- (zipper_left2right, zipper_right2left, other_tt_cores, other_tucker_cores, outer_tt_cores, up_tucker_cores),
+- t3toolbox/backend/t3_orthogonalization.py:79: `up_tucker_cores` -- typ.Tuple[NDArray, ...],  # up_tucker_cores
+- t3toolbox/backend/t3_orthogonalization.py:84: `up_tucker_cores` -- up_tucker_cores, tt_cores = t3_down_orthogonalize_tucker_cores(x)
+- t3toolbox/backend/t3_orthogonalization.py:86: `up_tucker_cores` -- return (up_tucker_cores, left_tt_cores)
+- t3toolbox/backend/t3_orthogonalization.py:92: `up_tucker_cores` -- typ.Tuple[NDArray, ...],  # up_tucker_cores
+- t3toolbox/backend/t3_orthogonalization.py:97: `up_tucker_cores` -- up_tucker_cores, tt_cores = t3_down_orthogonalize_tucker_cores(x)
+- t3toolbox/backend/t3_orthogonalization.py:99: `up_tucker_cores` -- return (up_tucker_cores, right_tt_cores)
+- t3toolbox/backend/t3_orthogonalization.py:168: `up_tucker_cores` -- typ.Tuple[NDArray, ...],  # up_tucker_cores
+- t3toolbox/backend/t3_orthogonalization.py:177: `up_tucker_cores` -- up_tucker_cores, new_tt_cores = xmap(_down_orthogonalize_tucker_cores_step, x)
+- t3toolbox/backend/t3_orthogonalization.py:178: `up_tucker_cores` -- return (up_tucker_cores, new_tt_cores)
+- t3toolbox/backend/tv_operations.py:53: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores
+- t3toolbox/backend/tv_operations.py:54: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores
+- t3toolbox/backend/tv_operations.py:70: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:70: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:83: `up_tucker_cores` -- P = t3_conversions.t3_to_dense((up_tucker_cores, left_tt_cores))
+- t3toolbox/backend/tv_operations.py:91: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores
+- t3toolbox/backend/tv_operations.py:92: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores
+- t3toolbox/backend/tv_operations.py:121: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:121: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:136: `up_tucker_cores` -- for dB, U in zip(tucker_variations, up_tucker_cores):
+- t3toolbox/backend/tv_operations.py:148: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores
+- t3toolbox/backend/tv_operations.py:149: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores
+- t3toolbox/backend/tv_operations.py:171: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:171: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:183: `up_tucker_cores` -- U = up_tucker_cores[ii]
+- t3toolbox/backend/tv_operations.py:185: `down_tt_cores` -- O = down_tt_cores[ii]
+- t3toolbox/backend/tv_operations.py:207: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores
+- t3toolbox/backend/tv_operations.py:208: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores
+- t3toolbox/backend/tv_operations.py:241: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:241: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:247: `down_tt_cores` -- down_tt_cores = list(down_tt_cores)
+- t3toolbox/backend/tv_operations.py:247: `down_tt_cores` -- down_tt_cores = list(down_tt_cores)
+- t3toolbox/backend/tv_operations.py:251: `down_tt_cores` -- down_tt_cores[ii] = shared_data.centers[gi][jj]      # H_i replaces O_i (exact)
+- t3toolbox/backend/tv_operations.py:253: `down_tt_cores` -- down_tt_cores = tuple(down_tt_cores)
+- t3toolbox/backend/tv_operations.py:253: `down_tt_cores` -- down_tt_cores = tuple(down_tt_cores)
+- t3toolbox/backend/tv_operations.py:265: `up_tucker_cores` -- up_tucker_cores = [bcast2(U) for U in up_tucker_cores]
+- t3toolbox/backend/tv_operations.py:265: `up_tucker_cores` -- up_tucker_cores = [bcast2(U) for U in up_tucker_cores]
+- t3toolbox/backend/tv_operations.py:266: `down_tt_cores` -- down_tt_cores   = [bcast3(O) for O in down_tt_cores]
+- t3toolbox/backend/tv_operations.py:266: `down_tt_cores` -- down_tt_cores   = [bcast3(O) for O in down_tt_cores]
+- t3toolbox/backend/tv_operations.py:270: `up_tucker_cores` -- num_cores = len(up_tucker_cores)
+- t3toolbox/backend/tv_operations.py:273: `up_tucker_cores` -- x_tucker_cores = [xnp.concatenate([U, V], axis=-2) for U, V in zip(up_tucker_cores, tucker_variations)]
+- t3toolbox/backend/tv_operations.py:283: `down_tt_cores` -- O = down_tt_cores[0]
+- t3toolbox/backend/tv_operations.py:293: `down_tt_cores` -- O = down_tt_cores[0]
+- t3toolbox/backend/tv_operations.py:305: `down_tt_cores` -- O = down_tt_cores[ii]
+- t3toolbox/backend/tv_operations.py:325: `down_tt_cores` -- O = down_tt_cores[-1]
+- t3toolbox/backend/tv_operations.py:341: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores
+- t3toolbox/backend/tv_operations.py:342: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores
+- t3toolbox/backend/tv_operations.py:373: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores
+- t3toolbox/backend/tv_operations.py:374: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores
+- t3toolbox/backend/tv_operations.py:406: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:406: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:407: `up_tucker_cores` -- d = len(up_tucker_cores)
+- t3toolbox/backend/tv_operations.py:414: `up_tucker_cores` -- Ns = tuple(U.shape[-1] for U in up_tucker_cores)   # mode dimensions N_i
+- t3toolbox/backend/tv_operations.py:423: `up_tucker_cores` -- cur = xnp.einsum('...axm,...nx->...anm', cur, up_tucker_cores[ii])  # absorb N_i into the Tucker rank
+- t3toolbox/backend/tv_operations.py:439: `up_tucker_cores` -- cur = xnp.einsum('...mxb,...nx->...mnb', cur, up_tucker_cores[jj])  # absorb N_j into the Tucker rank
+- t3toolbox/backend/tv_operations.py:443: `up_tucker_cores` -- ungauged_tt_variations.append(xnp.einsum('...axb,...nx->...anb', core_env, up_tucker_cores[ii]))
+- t3toolbox/backend/tv_operations.py:444: `down_tt_cores` -- ungauged_tucker_variations.append(xnp.einsum('...axb,...anb->...nx', core_env, down_tt_cores[ii]))
+- t3toolbox/backend/tv_operations.py:484: `up_tucker_cores` -- typ.Sequence[NDArray],              # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+- t3toolbox/backend/tv_operations.py:485: `down_tt_cores` -- typ.Sequence[NDArray],              # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+- t3toolbox/backend/tv_operations.py:573: `up_tucker_cores` -- typ.Sequence[NDArray],              # up_tucker_cores. len=d, elm_shape=C+(nUi, Ni)
+- t3toolbox/backend/tv_operations.py:574: `down_tt_cores` -- typ.Sequence[NDArray],              # down_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+- t3toolbox/backend/tv_operations.py:756: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores
+- t3toolbox/backend/tv_operations.py:757: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores
+- t3toolbox/backend/tv_operations.py:814: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:814: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:827: `up_tucker_cores` -- for U, V in zip(up_tucker_cores, tucker_variations):
+- t3toolbox/backend/tv_operations.py:855: `up_tucker_cores` -- typ.Sequence[NDArray],  # up_tucker_cores
+- t3toolbox/backend/tv_operations.py:856: `down_tt_cores` -- typ.Sequence[NDArray],  # down_tt_cores
+- t3toolbox/backend/tv_operations.py:884: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:884: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- t3toolbox/backend/tv_operations.py:886: `up_tucker_cores` -- up_ranks = tuple(U.shape[-2] for U in up_tucker_cores)
+- t3toolbox/backend/ufv_conversions.py:143: `up_tucker_supercore` -- NDArray,                          # up_tucker_supercore
+- t3toolbox/backend/ufv_conversions.py:144: `down_tt_supercore` -- NDArray,                          # down_tt_supercore
+- t3toolbox/backend/ufv_conversions.py:199: `up_tucker_cores` -- typ.Tuple[NDArray, ...],  # up_tucker_cores,   len=d, elm_shape=C+(nUi, Ni)
+- t3toolbox/backend/ufv_conversions.py:200: `down_tt_cores` -- typ.Tuple[NDArray, ...],  # down_tt_cores,     len=d, elm_shape=C+(rLi, nDi, rR(i+1))
+- t3toolbox/backend/ufv_conversions.py:210: `up_tucker_supercore` -- NDArray,                          # up_tucker_supercore,  (d,)+C+(nU, N)
+- t3toolbox/backend/ufv_conversions.py:211: `down_tt_supercore` -- NDArray,                          # down_tt_supercore,    (d,)+C+(rL, nD, rR)
+- t3toolbox/backend/ufv_masking.py:91: `up_tucker_supercore` -- NDArray,             # up_tucker_supercore,  (d,)+stack_shape+(nU, N)
+- t3toolbox/backend/ufv_masking.py:92: `down_tt_supercore` -- NDArray,             # down_tt_supercore,    (d,)+stack_shape+(rL, nD, rR)
+- t3toolbox/backend/ufv_masking.py:104: `masked_up_tucker_supercore` -- NDArray,  # masked_up_tucker_supercore
+- t3toolbox/backend/ufv_masking.py:105: `masked_down_tt_supercore` -- NDArray,  # masked_down_tt_supercore
+- t3toolbox/backend/ufv_masking.py:112: `up_tucker_supercore` -- (up_tucker_supercore, down_tt_supercore, left_tt_supercore, right_tt_supercore,
+- t3toolbox/backend/ufv_masking.py:112: `down_tt_supercore` -- (up_tucker_supercore, down_tt_supercore, left_tt_supercore, right_tt_supercore,
+- t3toolbox/backend/ufv_masking.py:116: `up_tucker_supercore` -- d = up_tucker_supercore.shape[0]
+- t3toolbox/backend/ufv_masking.py:117: `up_tucker_supercore` -- ss = up_tucker_supercore.shape[1:-2]
+- t3toolbox/backend/ufv_masking.py:118: `up_tucker_supercore` -- nU = up_tucker_supercore.shape[-2]
+- t3toolbox/backend/ufv_masking.py:119: `up_tucker_supercore` -- N = up_tucker_supercore.shape[-1]
+- t3toolbox/backend/ufv_masking.py:120: `down_tt_supercore` -- rL = down_tt_supercore.shape[-3]
+- t3toolbox/backend/ufv_masking.py:121: `down_tt_supercore` -- nD = down_tt_supercore.shape[-2]
+- t3toolbox/backend/ufv_masking.py:122: `down_tt_supercore` -- rR = down_tt_supercore.shape[-1]
+- t3toolbox/backend/ufv_masking.py:135: `masked_up_tucker_supercore` -- masked_up_tucker_supercore = up_tucker_supercore * (SM_k * UM_k)
+- t3toolbox/backend/ufv_masking.py:135: `up_tucker_supercore` -- masked_up_tucker_supercore = up_tucker_supercore * (SM_k * UM_k)
+- t3toolbox/backend/ufv_masking.py:136: `masked_down_tt_supercore` -- masked_down_tt_supercore   = down_tt_supercore   * (LM_l * DM_t * RM_r)
+- t3toolbox/backend/ufv_masking.py:136: `down_tt_supercore` -- masked_down_tt_supercore   = down_tt_supercore   * (LM_l * DM_t * RM_r)
+- t3toolbox/backend/ufv_masking.py:141: `masked_up_tucker_supercore` -- masked_up_tucker_supercore, masked_down_tt_supercore,
+- t3toolbox/backend/ufv_masking.py:141: `masked_down_tt_supercore` -- masked_up_tucker_supercore, masked_down_tt_supercore,
+- t3toolbox/backend/ufv_operations.py:382: `up_tucker_supercore` -- NDArray,                                    # up_tucker_supercore,  (d,)+C+(nU, N)
+- t3toolbox/backend/ufv_operations.py:383: `down_tt_supercore` -- NDArray,                                    # down_tt_supercore,    (d,)+C+(rL, nD, rR)
+- t3toolbox/backend/ufv_operations.py:512: `up_tucker_supercore` -- NDArray,                                    # up_tucker_supercore,  (d,)+C+(nU, N)
+- t3toolbox/backend/ufv_operations.py:513: `down_tt_supercore` -- NDArray,                                    # down_tt_supercore,    (d,)+C+(rL, nD, rR)
+- t3toolbox/backend/utv_operations.py:383: `up_tucker_supercore` -- (``up_tucker_supercore`` and ``left_tt_supercore``, which the corewise frame sets to the single core
+- t3toolbox/frame_variations_format.py:71: `up_tucker_cores` -- - up_tucker_cores   = (U0, ..., U(d-1)), elm_shape=(nUi, Ni)
+- t3toolbox/frame_variations_format.py:72: `down_tt_cores` -- - down_tt_cores     = (D0, ..., D(d-1)), elm_shape=(rLi, nDi, rR(i+1))
+- t3toolbox/frame_variations_format.py:117: `up_tucker_cores` -- - up_tucker_cores   = (U0,...,U(d-1)), orthogonal:       U_ia U_ja = delta_ij
+- t3toolbox/frame_variations_format.py:118: `down_tt_cores` -- - down_tt_cores     = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
+- t3toolbox/frame_variations_format.py:146: `up_tucker_cores` -- >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+- t3toolbox/frame_variations_format.py:147: `down_tt_cores` -- >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+- t3toolbox/frame_variations_format.py:150: `up_tucker_cores` -- >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/frame_variations_format.py:150: `down_tt_cores` -- >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/frame_variations_format.py:156: `up_tucker_cores` -- up_tucker_cores:    typ.Tuple[NDArray,...]  # len=d. B_xo B_yo   = I_xy, Bi.shape = stack_shape+(nUi, Ni)
+- t3toolbox/frame_variations_format.py:157: `down_tt_cores` -- down_tt_cores:      typ.Tuple[NDArray,...]  # len=d. R_ixj R_iyj = I_xy  Ri.shape = stack_shape+(rLi, nDi, rR(i+1))
+- t3toolbox/frame_variations_format.py:163: `up_tucker_cores` -- return len(self.up_tucker_cores)
+- t3toolbox/frame_variations_format.py:167: `up_tucker_cores` -- return tuple([U.shape[-1] for U in self.up_tucker_cores])
+- t3toolbox/frame_variations_format.py:171: `up_tucker_cores` -- return tuple([U.shape[-2] for U in self.up_tucker_cores])
+- t3toolbox/frame_variations_format.py:175: `down_tt_cores` -- return tuple([G.shape[-2] for G in self.down_tt_cores])
+- t3toolbox/frame_variations_format.py:188: `up_tucker_cores` -- return self.up_tucker_cores[0].shape[:-2]
+- t3toolbox/frame_variations_format.py:193: `up_tucker_ranks` -- typ.Tuple[int, ...], # up_tucker_ranks
+- t3toolbox/frame_variations_format.py:232: `up_tucker_cores` -- >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+- t3toolbox/frame_variations_format.py:233: `down_tt_cores` -- >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+- t3toolbox/frame_variations_format.py:236: `up_tucker_cores` -- >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/frame_variations_format.py:236: `down_tt_cores` -- >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/frame_variations_format.py:252: `up_tucker_cores` -- typ.Tuple[NDArray,...],  # up_tucker_cores
+- t3toolbox/frame_variations_format.py:253: `down_tt_cores` -- typ.Tuple[NDArray, ...], # down_tt_cores
+- t3toolbox/frame_variations_format.py:257: `up_tucker_cores` -- return self.up_tucker_cores, self.down_tt_cores, self.left_tt_cores, self.right_tt_cores
+- t3toolbox/frame_variations_format.py:257: `down_tt_cores` -- return self.up_tucker_cores, self.down_tt_cores, self.left_tt_cores, self.right_tt_cores
+- t3toolbox/frame_variations_format.py:344: `up_tucker_cores` -- >>> bool(t3.TuckerTensorTrain(F.up_tucker_cores, F.left_tt_cores).allclose(x0))
+- t3toolbox/frame_variations_format.py:354: `up_tucker` -- - up_tucker U_i (all i):    ``einsum('...io,...jo->...ij', U, U) = I``
+- t3toolbox/frame_variations_format.py:383: `up_tucker_cores` -- >>> bad = bvf.T3Frame(tuple(np.ones_like(U) for U in good.up_tucker_cores),  # ones cores: not orthogonal
+- t3toolbox/frame_variations_format.py:384: `down_tt_cores` -- ...                   good.down_tt_cores, good.left_tt_cores, good.right_tt_cores)
+- t3toolbox/frame_variations_format.py:513: `up_tucker_cores` -- up_stack_shapes     = tuple([B.shape[:-2] for B in self.up_tucker_cores])
+- t3toolbox/frame_variations_format.py:516: `down_tt_cores` -- down_stack_shapes   = tuple([G.shape[:-3] for G in self.down_tt_cores])
+- t3toolbox/frame_variations_format.py:591: `up_tucker_cores` -- >>> up_tucker_cores = (rnd(ss+(10, 14)), rnd(ss+(11, 15)), rnd(ss+(12, 16)))
+- t3toolbox/frame_variations_format.py:592: `down_tt_cores` -- >>> down_tt_cores = (rnd(ss+(1, 9, 4)), rnd(ss+(2, 8, 5)), rnd(ss+(3, 7, 1)))
+- t3toolbox/frame_variations_format.py:595: `up_tucker_cores` -- >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/frame_variations_format.py:595: `down_tt_cores` -- >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/frame_variations_format.py:602: `up_tucker_cores` -- ...     tuple(c[ii, jj] for c in up_tucker_cores), tuple(c[ii, jj] for c in down_tt_cores),
+- t3toolbox/frame_variations_format.py:602: `down_tt_cores` -- ...     tuple(c[ii, jj] for c in up_tucker_cores), tuple(c[ii, jj] for c in down_tt_cores),
+- t3toolbox/frame_variations_format.py:627: `up_tucker_cores` -- >>> up_tucker_cores = (rnd(ss+(10, 14)), rnd(ss+(11, 15)), rnd(ss+(12, 16)))
+- t3toolbox/frame_variations_format.py:628: `down_tt_cores` -- >>> down_tt_cores = (rnd(ss+(1, 9, 4)), rnd(ss+(2, 8, 5)), rnd(ss+(3, 7, 1)))
+- t3toolbox/frame_variations_format.py:631: `up_tucker_cores` -- >>> x = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/frame_variations_format.py:631: `down_tt_cores` -- >>> x = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/frame_variations_format.py:729: `up_tucker_cores` -- return t3.TuckerTensorTrain(self.up_tucker_cores, self.right_tt_cores)
+- t3toolbox/frame_variations_format.py:800: `up_tucker_cores` -- >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+- t3toolbox/frame_variations_format.py:803: `down_tt_cores` -- >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+- t3toolbox/frame_variations_format.py:804: `up_tucker_cores` -- >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/frame_variations_format.py:804: `down_tt_cores` -- >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/frame_variations_format.py:1185: `up_tucker_cores` -- >>> up_tucker_cores = (np.ones(ss+(10, 14)), np.ones(ss+(11, 15)), np.ones(ss+(12, 16)))
+- t3toolbox/frame_variations_format.py:1188: `down_tt_cores` -- >>> down_tt_cores = (np.ones(ss+(1, 9, 4)), np.ones(ss+(2, 8, 5)), np.ones(ss+(3, 7, 1)))
+- t3toolbox/frame_variations_format.py:1189: `up_tucker_cores` -- >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/frame_variations_format.py:1189: `down_tt_cores` -- >>> frame = bvf.T3Frame(up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores)
+- t3toolbox/frame_variations_format.py:1372: `down_tt_cores` -- - down_tt_cores     = (O0, O1, O2, O3), down orthogonal
+- t3toolbox/frame_variations_format.py:1609: `up_tucker_cores` -- >>> print(all(np.allclose(U, Ux) for U, Ux in zip(frame.up_tucker_cores, xs.tucker_cores)))  # same gauge
+- t3toolbox/manifold.py:1642: `down_tt_cores` -- down_shapes = tuple(np.shape(c) for c in p.frame.down_tt_cores)
+- t3toolbox/manifold.py:1650: `up_tucker_cores` -- x_data = (p.frame.up_tucker_cores, p.frame.left_tt_cores)  # (U, G) from the (U, G, G, G) frame
+- t3toolbox/shared_geometry.py:310: `up_tucker_cores` -- x_data = (p.frame.up_tucker_cores, p.frame.left_tt_cores)
+- t3toolbox/shared_geometry.py:321: `up_tucker_cores` -- _require_tied_factors((p.frame.up_tucker_cores, p.frame.left_tt_cores), self.sharing,
+- t3toolbox/shared_geometry.py:379: `up_tucker_cores` -- _require_tied_factors((new_frame.up_tucker_cores, new_frame.left_tt_cores), self.sharing,
+- t3toolbox/uniform_frame_variations_format.py:84: `up_tucker` -- (``up_tucker``, ``down_tt``, ``left_tt``, ``right_tt``) + the static physical ``shape`` (an int tuple,
+- t3toolbox/uniform_frame_variations_format.py:84: `down_tt` -- (``up_tucker``, ``down_tt``, ``left_tt``, ``right_tt``) + the static physical ``shape`` (an int tuple,
+- t3toolbox/uniform_frame_variations_format.py:110: `up_tucker_supercore` -- up_tucker_supercore:    NDArray              # B_dxo B_dyo   = I_dxy, shape = (d,)+stack_shape+(nU, N)
+- t3toolbox/uniform_frame_variations_format.py:111: `down_tt_supercore` -- down_tt_supercore:      NDArray              # R_dixj R_diyj = I_dxy  shape = (d,)+stack_shape+(rL, nD, rR)
+- t3toolbox/uniform_frame_variations_format.py:119: `up_tucker_supercore` -- NDArray,                                   # up_tucker_supercore
+- t3toolbox/uniform_frame_variations_format.py:120: `down_tt_supercore` -- NDArray,                                   # down_tt_supercore
+- t3toolbox/uniform_frame_variations_format.py:127: `up_tucker_supercore` -- self.up_tucker_supercore, self.down_tt_supercore,
+- t3toolbox/uniform_frame_variations_format.py:127: `down_tt_supercore` -- self.up_tucker_supercore, self.down_tt_supercore,
+- t3toolbox/uniform_frame_variations_format.py:134: `up_tucker_supercore` -- return self.up_tucker_supercore.shape[0]
+- t3toolbox/uniform_frame_variations_format.py:138: `up_tucker_supercore` -- return self.up_tucker_supercore.shape[-1]
+- t3toolbox/uniform_frame_variations_format.py:142: `up_tucker_supercore` -- return self.up_tucker_supercore.shape[-2]
+- t3toolbox/uniform_frame_variations_format.py:146: `down_tt_supercore` -- return self.down_tt_supercore.shape[-2]
+- t3toolbox/uniform_frame_variations_format.py:158: `up_tucker_supercore` -- return self.up_tucker_supercore.shape[1:-2]
+- t3toolbox/uniform_frame_variations_format.py:203: `down_tt_ranks` -- NDArray,  # down_tt_ranks
+- t3toolbox/uniform_frame_variations_format.py:310: `up_tucker_supercore` -- self.up_tucker_supercore, self.left_tt_supercore, self.shape,
+- t3toolbox/uniform_frame_variations_format.py:390: `up_tucker_supercore` -- self.up_tucker_supercore, self.right_tt_supercore,
+- t3toolbox/uniform_frame_variations_format.py:446: `up_tucker_supercore` -- return (self.up_tucker_supercore, self.down_tt_supercore,
+- t3toolbox/uniform_frame_variations_format.py:446: `down_tt_supercore` -- return (self.up_tucker_supercore, self.down_tt_supercore,
+- t3toolbox/uniform_frame_variations_format.py:483: `up_tucker_supercore` -- UU_good = self.up_tucker_supercore.shape  == (self.d,) + self.stack_shape + (self.nU, self.N)
+- t3toolbox/uniform_frame_variations_format.py:484: `down_tt_supercore` -- DD_good = self.down_tt_supercore.shape    == (self.d,) + self.stack_shape + (self.rL, self.nD, self.rR)
+- t3toolbox/uniform_frame_variations_format.py:498: `up_tucker_supercore` -- shapes_string += 'up_tucker_supercore.shape = ' + str(self.up_tucker_supercore.shape)   + ' =? (d,) + stack_shape + (nU, N)' + bad_str(UU_good) + '\n'
+- t3toolbox/uniform_frame_variations_format.py:498: `up_tucker_supercore` -- shapes_string += 'up_tucker_supercore.shape = ' + str(self.up_tucker_supercore.shape)   + ' =? (d,) + stack_shape + (nU, N)' + bad_str(UU_good) + '\n'
+- t3toolbox/uniform_frame_variations_format.py:499: `down_tt_supercore` -- shapes_string += 'down_tt_supercore.shape   = ' + str(self.down_tt_supercore.shape)     + ' =? (d,) + stack_shape + (rL, nD, rR)' + bad_str(DD_good) +
+- t3toolbox/uniform_frame_variations_format.py:499: `down_tt_supercore` -- shapes_string += 'down_tt_supercore.shape   = ' + str(self.down_tt_supercore.shape)     + ' =? (d,) + stack_shape + (rL, nD, rR)' + bad_str(DD_good) +
+- t3toolbox/uniform_frame_variations_format.py:665: `down_tt_ranks` -- NDArray, # down_tt_ranks
+- t3toolbox/uniform_frame_variations_format.py:1525: `up_tucker_supercore` -- lambda x: ((x.up_tucker_supercore, x.down_tt_supercore,
+- t3toolbox/uniform_frame_variations_format.py:1525: `down_tt_supercore` -- lambda x: ((x.up_tucker_supercore, x.down_tt_supercore,
+- tests/_jet_trs_twins.py:88: `down_tt_cores` -- def _sigma_sweep_trs(var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs):
+- tests/_jet_trs_twins.py:92: `down_tt_cores` -- for Q, O, dG, xi, dxi, mu in zip(right_tt_cores, down_tt_cores, var_tt_cores, xi_jets, dxi_jets, mu_jets):
+- tests/_jet_trs_twins.py:98: `down_tt_cores` -- def compute_sigma_jets_trs(var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs):
+- tests/_jet_trs_twins.py:100: `down_tt_cores` -- return _sigma_sweep_trs(var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs)[0]
+- tests/_jet_trs_twins.py:103: `down_tt_cores` -- def compute_tau_jets_trs(var_tt_cores, left_tt_cores, down_tt_cores, xi_jets, dxi_jets, nu_jets, trs):
+- tests/_jet_trs_twins.py:106: `down_tt_cores` -- return compute_sigma_jets_trs(rev(var_tt_cores), rev(left_tt_cores), rev(down_tt_cores),
+- tests/_jet_trs_twins.py:133: `down_tt_cores` -- def apply_derivatives_tv_trs(xi_jets, dxi_jets, mu_jets, right_tt_cores, down_tt_cores, var_tt_cores, trs):
+- tests/_jet_trs_twins.py:136: `down_tt_cores` -- terminal = _sigma_sweep_trs(var_tt_cores, right_tt_cores, down_tt_cores, xi_jets, dxi_jets, mu_jets, trs)[1]
+- tests/_jet_trs_twins.py:168: `down_tt_cores` -- def compute_dxi_tilde_jets_trs(down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes, trs):
+- tests/_jet_trs_twins.py:174: `down_tt_cores` -- for O, mu, nu, st, tt in zip(down_tt_cores, mu_jets, nu_jets, sigma_tildes, tau_tildes))
+- tests/_jet_trs_twins.py:204: `down_tt_cores` -- def apply_derivatives_transpose_trs(c, xi_jets, mu_jets, w_jets, down_tt_cores, right_tt_cores, trs, n_probe,
+- tests/_jet_trs_twins.py:213: `down_tt_cores` -- for O, xi, mu, sh, wj in zip(down_tt_cores, xi_jets, mu_jets, sigma_hats, w_jets):
+- tests/backend/test_ranks.py:445: `up_tucker_cores` -- up = tuple(U.shape[-2] for U in fr.up_tucker_cores)
+- tests/backend/test_ranks.py:446: `down_tt_cores` -- down = tuple(O.shape[-2] for O in fr.down_tt_cores)
+- tests/backend/test_tv_operations.py:144: `up_tucker_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- tests/backend/test_tv_operations.py:144: `down_tt_cores` -- up_tucker_cores, down_tt_cores, left_tt_cores, right_tt_cores = frame
+- tests/backend/test_tv_operations.py:151: `up_tucker_cores` -- for U, V in zip(up_tucker_cores, tucker_variations):
+- tests/backend/test_uniform_fitting.py:358: `up_tucker_cores` -- up = fam(lambda f: [U.shape[-2] for U in f.up_tucker_cores], uframe.nU)
+- tests/backend/test_uniform_fitting.py:359: `down_tt_cores` -- down = fam(lambda f: [O.shape[-2] for O in f.down_tt_cores], uframe.nD)
+- tests/test_aligned_padded_frame_frontend.py:88: `up_tucker_cores` -- self.assertTrue(np.array_equal(F.up_tucker_cores[0], F.up_tucker_cores[2]))
+- tests/test_aligned_padded_frame_frontend.py:88: `up_tucker_cores` -- self.assertTrue(np.array_equal(F.up_tucker_cores[0], F.up_tucker_cores[2]))
+- tests/test_aligned_padded_frame_frontend.py:273: `up_tucker_cores` -- scaled = bvf.T3Frame(tuple(2.0 * U for U in F.up_tucker_cores), F.down_tt_cores, F.left_tt_cores,
+- tests/test_aligned_padded_frame_frontend.py:273: `down_tt_cores` -- scaled = bvf.T3Frame(tuple(2.0 * U for U in F.up_tucker_cores), F.down_tt_cores, F.left_tt_cores,
+- tests/test_frame_variations_format.py:106: `up_tucker_cores` -- self.assertEqual((frame.up_tucker_cores, frame.down_tt_cores,
+- tests/test_frame_variations_format.py:106: `down_tt_cores` -- self.assertEqual((frame.up_tucker_cores, frame.down_tt_cores,
+- tests/test_frame_variations_format.py:224: `up_tucker_cores` -- tuple(U[idx] for U in frame.up_tucker_cores),
+- tests/test_frame_variations_format.py:225: `down_tt_cores` -- tuple(G[idx] for G in frame.down_tt_cores),
+- tests/test_frame_variations_format.py:409: `up_tucker_cores` -- bad = bvf.T3Frame(frame.up_tucker_cores, frame.down_tt_cores,
+- tests/test_frame_variations_format.py:409: `down_tt_cores` -- bad = bvf.T3Frame(frame.up_tucker_cores, frame.down_tt_cores,
+- tests/test_frame_variations_format.py:454: `up_tucker_cores` -- U = [np.asarray(c) for c in frame.up_tucker_cores]
+- tests/test_frame_variations_format.py:455: `down_tt_cores` -- D = [np.asarray(c) for c in frame.down_tt_cores]
+- tests/test_frame_variations_format.py:558: `up_tucker_cores` -- up = list(frame.up_tucker_cores)
+- tests/test_frame_variations_format.py:561: `down_tt_cores` -- bvf.T3Frame(tuple(up), frame.down_tt_cores, frame.left_tt_cores, frame.right_tt_cores)
+- tests/test_manifold.py:217: `up_tucker_cores` -- U0, U1, U2 = (np.asarray(c) for c in frame.up_tucker_cores)
+- tests/test_manifold.py:218: `down_tt_cores` -- D0, D1, D2 = (np.asarray(c) for c in frame.down_tt_cores)
+- tests/test_manifold.py:704: `up_tucker_cores` -- base_point = t3.TuckerTensorTrain(frame.up_tucker_cores, frame.left_tt_cores).to_dense()
+- tests/test_manifold.py:717: `up_tucker_cores` -- base_point = t3.TuckerTensorTrain(frame.up_tucker_cores, frame.left_tt_cores).to_dense()
+- tests/test_uniform_frame_variations_format.py:88: `up_tucker_supercore` -- ubv.UT3Frame(B.up_tucker_supercore[..., :-1],  # wrong N on up core
+- tests/test_uniform_frame_variations_format.py:89: `down_tt_supercore` -- B.down_tt_supercore, B.left_tt_supercore, B.right_tt_supercore,
+- tests/test_uniform_frame_variations_format.py:110: `up_tucker_supercore` -- masked_up = B.apply_masks().up_tucker_supercore
+- tests/test_uniform_frame_variations_format.py:809: `up_tucker_supercore` -- bad = ubv.UT3Frame(good.up_tucker_supercore + 0.5, good.down_tt_supercore,
+- tests/test_uniform_frame_variations_format.py:809: `down_tt_supercore` -- bad = ubv.UT3Frame(good.up_tucker_supercore + 0.5, good.down_tt_supercore,
+- tests/test_uniform_frame_variations_format.py:864: `up_tucker_cores` -- ref = (tuple(U.shape[-2] for U in rf.up_tucker_cores), tuple(O.shape[-2] for O in rf.down_tt_cores),
+- tests/test_uniform_frame_variations_format.py:864: `down_tt_cores` -- ref = (tuple(U.shape[-2] for U in rf.up_tucker_cores), tuple(O.shape[-2] for O in rf.down_tt_cores),
+- tests/test_uniform_frame_variations_format.py:958: `up_tucker_cores` -- for i, U_r in enumerate(rframe.data[0]):             # up_tucker_cores, (n_i, N_i) each
+- tests/test_uniform_manifold.py:215: `up_tucker_supercore` -- B2 = ubv.UT3Frame(B.up_tucker_supercore + 0.1, B.down_tt_supercore + 0.1,
+- tests/test_uniform_manifold.py:215: `down_tt_supercore` -- B2 = ubv.UT3Frame(B.up_tucker_supercore + 0.1, B.down_tt_supercore + 0.1,
+- tests/test_uniform_manifold.py:391: `up_tucker_supercore` -- self.assertIsNot(c.frame.up_tucker_supercore, v.frame.up_tucker_supercore)
+- tests/test_uniform_manifold.py:391: `up_tucker_supercore` -- self.assertIsNot(c.frame.up_tucker_supercore, v.frame.up_tucker_supercore)
+- tests/test_uniform_manifold.py:499: `up_tucker_supercore` -- B2 = ubv.UT3Frame(v.frame.up_tucker_supercore + 0.1, v.frame.down_tt_supercore + 0.1,
+- tests/test_uniform_manifold.py:499: `down_tt_supercore` -- B2 = ubv.UT3Frame(v.frame.up_tucker_supercore + 0.1, v.frame.down_tt_supercore + 0.1,
+- tests/test_uniform_probing.py:742: `up_tucker_cores` -- return ([U.shape[-2] for U in rframe.up_tucker_cores], [O.shape[-2] for O in rframe.down_tt_cores],
+- tests/test_uniform_probing.py:742: `down_tt_cores` -- return ([U.shape[-2] for U in rframe.up_tucker_cores], [O.shape[-2] for O in rframe.down_tt_cores],
+- tests/test_weighted.py:401: `up_tucker_cores` -- for U, Ux in zip(frame.up_tucker_cores, xs.tucker_cores):
+- tests/test_weighted.py:414: `up_tucker_cores` -- for U, Ux in zip(default_frame.up_tucker_cores, xs.tucker_cores) if U.shape[-2] > 1)
+- tests/test_weighted.py:433: `up_tucker_cores` -- for U, Ur in zip(rf.up_tucker_cores, frame.up_tucker_cores):
+- tests/test_weighted.py:433: `up_tucker_cores` -- for U, Ur in zip(rf.up_tucker_cores, frame.up_tucker_cores):
+- docs/glossary.md:266: `up_tucker_cores` -- - **frame cores** (up `Ui`, down `Oi`, left `Li`, right `Ri`; `up_tucker_cores`, `down_tt_cores`, `left_tt_cores`,
+- docs/glossary.md:266: `down_tt_cores` -- - **frame cores** (up `Ui`, down `Oi`, left `Li`, right `Ri`; `up_tucker_cores`, `down_tt_cores`, `left_tt_cores`,
+- docs/user_guide.rst:139: `up_tucker_cores` -- - up_tucker_cores   = (U0,...,U(d-1)), orthogonal
+- docs/user_guide.rst:142: `down_tt_cores` -- - down_tt_cores     = (O0,...,O(d-1)), down-orthogonal
+- CLAUDE.md:68: `up_tucker` -- Notation map (paper ↔ code): `U`=up_tucker, `P`=left_tt, `Q`=right_tt, `O`=down_tt (outer);
+- CLAUDE.md:68: `down_tt` -- Notation map (paper ↔ code): `U`=up_tucker, `P`=left_tt, `Q`=right_tt, `O`=down_tt (outer);
+- CLAUDE.md:214: `down_tt_cores` -- is called **`down_tt_cores`**, not "outer"); `T3Variations.data = (tucker_variations, tt_variations)`;
+
+## K2 (REPORT, 107)
+
+- t3toolbox/backend/apply.py:144: `nO` -- typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/apply.py:235: `nO` -- typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/apply.py:465: `nO` -- dxi-hat_k  = mu-hat_{k-1} . O_k . sigma-hat_k                 # over the down mode nO
+- t3toolbox/backend/apply.py:467: `nO` -- dU-tilde_k = dxi-hat_k (x) w_k                               # over (nO, N)
+- t3toolbox/backend/entries.py:196: `nO` -- typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/probing.py:275: `nO` -- x: typ.Tuple[NDArray, NDArray, NDArray],   # (mu, G, nu): W+C+(rLi,) ; C+(rLi,nOi,rR(i+1)) ; W+C+(rR(i+1),)
+- t3toolbox/backend/probing.py:276: `nO` -- ) -> typ.Tuple[NDArray]:                           # (eta,): W+C+(nOi,)
+- t3toolbox/backend/probing.py:284: `nO` -- down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/probing.py:287: `nO` -- ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # etas. len=d, elm_shape=W+C+(nOi,)
+- t3toolbox/backend/probing.py:347: `nO` -- var_tucker_cores:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(nOi,Ni)
+- t3toolbox/backend/probing.py:349: `nO` -- ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dxis. len=d, elm_shape=(...,nOi)
+- t3toolbox/backend/probing.py:403: `nO` -- down_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+- t3toolbox/backend/probing.py:405: `nO` -- dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
+- t3toolbox/backend/probing.py:440: `nO` -- down_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+- t3toolbox/backend/probing.py:442: `nO` -- dxis:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
+- t3toolbox/backend/probing.py:551: `nO` -- var_tucker_cores:   typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(nOi,Ni)
+- t3toolbox/backend/probing.py:552: `nO` -- etas:               typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
+- t3toolbox/backend/probing.py:591: `nO` -- typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/probing.py:630: `nO` -- typ.Sequence[NDArray],  # var_tucker_cores. len=d, elm_shape=(nOi,Ni)
+- t3toolbox/backend/probing.py:641: `nO` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
+- t3toolbox/backend/probing.py:647: `nO` -- NDArray,  # down_tt_supercore.   shape=(d, rL, nO, rR), down orthogonal elements
+- t3toolbox/backend/probing.py:789: `nO` -- typ.Sequence[NDArray],  # etas. len=d, elm_shape=W+C+(nOi,)
+- t3toolbox/backend/probing.py:962: `nO` -- ) -> typ.Tuple[NDArray]:                                             # (dxi_tilde,): W+K+C+(nOi,)
+- t3toolbox/backend/probing.py:976: `nO` -- down_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nOi,rR(i+1))
+- t3toolbox/backend/probing.py:979: `nO` -- ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dxi_tildes. len=d, elm_shape=(...,nOi)
+- t3toolbox/backend/probing.py:1009: `nO` -- ) -> typ.Tuple[NDArray]:           # (dU_tilde,): W+K+C+(nOi,Ni), or K+C+(nOi,Ni) when summed
+- t3toolbox/backend/probing.py:1009: `nO` -- ) -> typ.Tuple[NDArray]:           # (dU_tilde,): W+K+C+(nOi,Ni), or K+C+(nOi,Ni) when summed
+- t3toolbox/backend/probing.py:1046: `nO` -- dxi_tildes: typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
+- t3toolbox/backend/probing.py:1048: `nO` -- etas:       typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(...,nOi)
+- t3toolbox/backend/probing.py:1050: `nO` -- ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dU_tildes. len=d, elm_shape=(...,nOi,Ni)
+- t3toolbox/backend/probing.py:1216: `nO` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
+- t3toolbox/backend/probing.py:1222: `nO` -- NDArray,  # down_tt_supercore.   shape=(d, rL, nO, rR), down orthogonal elements
+- t3toolbox/backend/probing.py:1230: `nO` -- typ.Tuple[NDArray,...], # dU_tildes. len=d, elm_shape=(...,nOi,Ni)
+- t3toolbox/backend/probing.py:1234: `nO` -- NDArray,  # dU_tildes. shape=(d, ..., nOi, Ni)
+- t3toolbox/backend/probing.py:1565: `nO` -- down_tt_cores:          typ.Union[typ.Sequence[NDArray], NDArray],  # O.     len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/probing.py:1566: `nO` -- down_tt_cores_dot:      typ.Union[typ.Sequence[NDArray], NDArray],  # O_dot. len=d, elm_shape=K+C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/probing.py:1575: `nO` -- ) -> typ.Union[typ.Sequence[NDArray], NDArray]:  # dxi_tildes_dot. len=d, elm_shape=W+K+C+(nOi,)
+- t3toolbox/backend/probing.py:1591: `nO` -- ) -> typ.Tuple[NDArray]:                                    # (dU,): K+C+(nOi,Ni), W summed
+- t3toolbox/backend/probing.py:1602: `nO` -- dxi_tildes_dot: typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nOi,)
+- t3toolbox/backend/probing.py:1604: `nO` -- etas_dot:       typ.Union[typ.Sequence[NDArray], NDArray],  # len=d, elm_shape=W+K+C+(nOi,)
+- t3toolbox/backend/probing.py:1605: `nO` -- ) -> typ.Union[typ.Sequence[NDArray], NDArray]:  # dU. len=d, elm_shape=K+C+(nOi,Ni) (W summed)
+- t3toolbox/backend/sampling_derivatives.py:434: `nO` -- carry:  typ.Tuple[NDArray, NDArray, NDArray],  # (eta, D^r nu, G): (order+1,)+W+C+(nOi,) ; (order+1,)+W+C+(rR(i+1),) ; C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:434: `nO` -- carry:  typ.Tuple[NDArray, NDArray, NDArray],  # (eta, D^r nu, G): (order+1,)+W+C+(nOi,) ; (order+1,)+W+C+(rR(i+1),) ; C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:450: `nO` -- ) -> typ.Tuple[NDArray]:                        # (eta_jet,) elm_shape=(order+1,)+W+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:473: `nO` -- tt_cores:   typ.Sequence[NDArray],  # len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:476: `nO` -- ) -> typ.Tuple[NDArray, ...]:               # eta_jets. len=d, elm_shape=(order+1,)+W+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:589: `nO` -- typ.Sequence[NDArray],  # eta_jets. len=d, elm_shape=(order+1,)+W+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:655: `nO` -- typ.Sequence[NDArray],  # eta_jets. len=d, elm_shape=(order+1,)+W+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:735: `nO` -- down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:737: `nO` -- dxi_jets:       typ.Sequence[NDArray],  # var  input jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:765: `nO` -- down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:767: `nO` -- dxi_jets:       typ.Sequence[NDArray],  # var  input jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:873: `nO` -- var_tucker_cores:   typ.Sequence[NDArray],  # dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:874: `nO` -- eta_jets:           typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:899: `nO` -- typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:932: `nO` -- typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1048: `nO` -- dxi_jets:       typ.Sequence[NDArray],  # var  input jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:1051: `nO` -- down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:1076: `nO` -- typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1106: `nO` -- typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1160: `nO` -- typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1190: `nO` -- typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1378: `nO` -- carry:  typ.Tuple[NDArray, NDArray],   # (dxi~, O): (2,)+W+K+C+(nOi,) ; C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:1378: `nO` -- carry:  typ.Tuple[NDArray, NDArray],   # (dxi~, O): (2,)+W+K+C+(nOi,) ; C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:1397: `nO` -- ) -> typ.Tuple[NDArray]:                        # (dxi_tilde,) elm_shape=(2,)+W+K+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:1419: `nO` -- down_tt_cores:  typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:1424: `nO` -- ) -> typ.Tuple[NDArray, ...]:                   # dxi_tildes. len=d, elm_shape=(2,)+W+K+C+(nOi,): rows u = 0, 1 only
+- t3toolbox/backend/sampling_derivatives.py:1447: `nO` -- ) -> typ.Tuple[NDArray]:           # (dU_tilde,): W+K+C+(nOi,Ni), or K+C+(nOi,Ni) when summed
+- t3toolbox/backend/sampling_derivatives.py:1447: `nO` -- ) -> typ.Tuple[NDArray]:           # (dU_tilde,): W+K+C+(nOi,Ni), or K+C+(nOi,Ni) when summed
+- t3toolbox/backend/sampling_derivatives.py:1476: `nO` -- dxi_tildes:     typ.Sequence[NDArray],  # adjoint-var-down jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:1479: `nO` -- etas:           typ.Sequence[NDArray],  # frame down jets, len=d, elm_shape=(order+1,)+W+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:1482: `nO` -- ) -> typ.Tuple[NDArray, ...]:                   # dU_tildes. len=d, elm_shape=[W+]C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1510: `nO` -- dxi_tildes:     typ.Sequence[NDArray],  # adjoint-var-down jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:1513: `nO` -- etas:           typ.Sequence[NDArray],  # frame down jets, len=d, elm_shape=(order+1,)+W+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:1517: `nO` -- ) -> typ.Tuple[NDArray, ...]:                   # dU_tildes. len=d, elm_shape=[W+]K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1519: `nO` -- :py:func:`_assemble_tucker_variation_jets_dense`). The milder assembly (two legs nO,N -- the dense
+- t3toolbox/backend/sampling_derivatives.py:1788: `nO` -- # gradient assemblies, TT-core r^2 legs and Tucker nO/N legs, plus the chunk's slices of their inputs) -- and
+- t3toolbox/backend/sampling_derivatives.py:1820: `nO` -- nO = nU                                         # down-core mode ~ the Tucker rank
+- t3toolbox/backend/sampling_derivatives.py:1823: `nO` -- + 2 * nO)                    # dxi_t: its two read rows (K+C)
+- t3toolbox/backend/sampling_derivatives.py:1824: `nO` -- + 2 * nU + op * (r + r + nO))     # xi, mu, nu, eta (C, no K)
+- t3toolbox/backend/sampling_derivatives.py:1889: `nO` -- nO = nU                                         # down-core mode ~ the Tucker rank
+- t3toolbox/backend/sampling_derivatives.py:1892: `nO` -- + K * (2 * nU + op * (4 * r + nU + nO)        # their dots ; eta_dot
+- t3toolbox/backend/sampling_derivatives.py:1893: `nO` -- + 2 * nO))                                   # dxi~_dot: its two read rows
+- t3toolbox/backend/sampling_derivatives.py:2184: `nO` -- carry:  typ.Tuple[NDArray, NDArray],   # (dxi^, O): (2,)+W+K+C+(nOi,) ; C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2184: `nO` -- carry:  typ.Tuple[NDArray, NDArray],   # (dxi^, O): (2,)+W+K+C+(nOi,) ; C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2198: `nO` -- ) -> typ.Tuple[NDArray]:                        # (dxi_hat,) elm_shape=(2,)+W+K+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:2223: `nO` -- down_tt_cores:      typ.Sequence[NDArray],  # O.  len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2227: `nO` -- typ.Tuple[NDArray, ...],    # dU_tildes. len=d, elm_shape=[W+]K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:2694: `nO` -- carry:  typ.Tuple[NDArray, NDArray, NDArray],  # (dxi~_dot, O, O_dot): (2,)+W+K+C+(nOi,) ; C+(...) ; K+C+(...)
+- t3toolbox/backend/sampling_derivatives.py:2720: `nO` -- ) -> typ.Tuple[NDArray]:                       # (dxi_tilde_dot,) elm_shape=(2,)+W+K+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:2742: `nO` -- down_tt_cores:      typ.Sequence[NDArray],  # O.        len=d, elm_shape=C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2743: `nO` -- down_tt_cores_dot:  typ.Sequence[NDArray],  # O_dot.    len=d, elm_shape=K+C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2752: `nO` -- ) -> typ.Tuple[NDArray, ...]:                       # dxi_tildes_dot. len=d, elm_shape=(2,)+W+K+C+(nOi,): rows u = 0, 1 only
+- t3toolbox/backend/sampling_derivatives.py:2768: `nO` -- ) -> typ.Tuple[NDArray]:                                   # (dU,) K+C+(nOi,Ni), W summed
+- t3toolbox/backend/sampling_derivatives.py:2801: `nO` -- dxi_tildes_dot:     typ.Sequence[NDArray],  # len=d, elm_shape=(2,)+W+K+C+(nOi,): the two read rows
+- t3toolbox/backend/sampling_derivatives.py:2804: `nO` -- eta_jets_dot:       typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+K+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:2807: `nO` -- ) -> typ.Tuple[NDArray, ...]:                       # dU. len=d, elm_shape=K+C+(nOi,Ni) (W summed)
+- t3toolbox/backend/sampling_derivatives.py:3163: `nO` -- carry:  typ.Tuple[NDArray, NDArray, NDArray],  # (dxi^_dot, O, O_dot): (2,)+W+K+C+(nOi,) ; C+(...) ; K+C+(...)
+- t3toolbox/backend/sampling_derivatives.py:3184: `nO` -- ) -> typ.Tuple[NDArray]:                       # (dxi_hat_dot,) elm_shape=(2,)+W+K+C+(nOi,)
+- t3toolbox/backend/sampling_derivatives.py:3208: `nO` -- ) -> typ.Tuple[NDArray, NDArray]:     # (dU, dG): K+C+(nOi,Ni) ; K+C+(rLi,nUi,rR(i+1)), W summed
+- t3toolbox/backend/sampling_derivatives.py:3239: `nO` -- typ.Tuple[NDArray, ...],                    # dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/t3_linalg.py:683: `nO` -- NDArray,  # dB. ungauged tucker variation, C+(nOi,Ni)
+- t3toolbox/frame_variations_format.py:103: `nO` -- | nU0     | nO1                | nU(d-1)
+- tests/test_jet_recurrence.py:227: `nO` -- nO, N = 4, 5
+- tests/test_jet_recurrence.py:229: `nO` -- zt, dxt = R(d, order + 1, W, K, N), R(d, 2, W, K, nO)       # dxi~: its two read rows
+- tests/test_jet_recurrence.py:230: `nO` -- ww, pp, eta = R(d, W, N), R(d, W, N), R(d, order + 1, W, nO)
+- docs/chunking.md:126: `nO` -- It sizes the **larger** of the TT-core (`r²` legs) and Tucker (`nO`, `N` legs) gradients, so it stays
+
+## K3 (REPORT, 174)
+
+- t3toolbox/backend/padded_frames.py:13: `'RO'` -- one fixed tensor, a truncating pass to the target ranks, then two-colour passes in ``('UL', 'RO')`` pairs. The
+- t3toolbox/backend/padded_frames.py:554: `update:            str` -- update:            str = 'ULRO',                             # stores updated: 'U' up, 'L' left, 'R' right, 'O' down; the rest transported
+- t3toolbox/backend/padded_frames.py:554: `'ULRO'` -- update:            str = 'ULRO',                             # stores updated: 'U' up, 'L' left, 'R' right, 'O' down; the rest transported
+- t3toolbox/backend/padded_frames.py:560: `'ULRO'` -- if not update or len(set(update)) != len(update) or not set(update) <= set('ULRO'):
+- t3toolbox/backend/padded_frames.py:581: `'UOLR'` -- for store, letter, old, new, own in zip(_STORE_NAMES, 'UOLR', (nU0, nD0, rL0, rR0), out, (nU, nD, rL, rR)):
+- t3toolbox/backend/padded_frames.py:655: `'O' in update` -- tuple(nD1[i] - nD0[i] for i in range(d)), ('O' in update,) * d))
+- t3toolbox/backend/padded_frames.py:687: `update:     str` -- update:     str,                                      # 'ULRO' | 'UL' | 'RO'
+- t3toolbox/backend/padded_frames.py:687: `'ULRO'` -- update:     str,                                      # 'ULRO' | 'UL' | 'RO'
+- t3toolbox/backend/padded_frames.py:687: `'RO'` -- update:     str,                                      # 'ULRO' | 'UL' | 'RO'
+- t3toolbox/backend/padded_frames.py:750: `'ULRO'` -- frame, movement = _aligning_pass(step, frame, hint, project, old, out, sharing, 'ULRO')
+- t3toolbox/backend/padded_frames.py:752: `'RO'` -- if alternate:                                               # ('UL', 'RO') pairs while a whole pair fits; the stop
+- t3toolbox/backend/padded_frames.py:755: `'RO'` -- for update in ('UL', 'RO'):
+- t3toolbox/backend/padded_frames.py:762: `'ULRO'` -- else:                                                       # 'ULRO' passes, the stop tested after each (the
+- t3toolbox/backend/padded_frames.py:765: `'ULRO'` -- frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, 'ULRO')
+- t3toolbox/backend/uniform_padded_frames.py:522: `update:    str` -- update:    str,                       # static: the stores updated; the rest transported
+- t3toolbox/backend/uniform_padded_frames.py:601: `'O' in update` -- Y = _u_content_d(g_old, g_new, PhiO[..., Na:], XiO) if 'O' in update else g_old
+- t3toolbox/backend/uniform_padded_frames.py:621: `update:           str` -- update:           str = 'ULRO',                                      # static; as tv_align_padded_frame
+- t3toolbox/backend/uniform_padded_frames.py:621: `'ULRO'` -- update:           str = 'ULRO',                                      # static; as tv_align_padded_frame
+- t3toolbox/backend/uniform_padded_frames.py:627: `'ULRO'` -- if not update or len(set(update)) != len(update) or not set(update) <= set('ULRO'):
+- t3toolbox/backend/uniform_padded_frames.py:669: `'UOLR'` -- for store, letter, o, s1, s in zip(('up', 'down', 'left', 'right'), 'UOLR', old, out, own):
+- t3toolbox/backend/uniform_padded_frames.py:776: `'ULRO'` -- statics:  typ.Tuple,   # as _aligning_pass, at the working structure, 'ULRO'
+- t3toolbox/backend/uniform_padded_frames.py:788: `'RO'` -- ) -> NDArray:                # 0-d bool: run another ('UL', 'RO') pair
+- t3toolbox/backend/uniform_padded_frames.py:795: `'RO'` -- statics:  typ.Tuple[typ.Tuple, typ.Tuple],   # the 'UL' and the 'RO' passes' statics, at the target structure
+- t3toolbox/backend/uniform_padded_frames.py:798: `'RO'` -- """One ('UL', 'RO') pair; the stop: both movements below tol (the max over the stack; a NaN never stops)."""
+- t3toolbox/backend/uniform_padded_frames.py:833: `'ULRO'` -- statics:  typ.Tuple,   # the 'ULRO' pass's statics, at the target structure
+- t3toolbox/backend/uniform_padded_frames.py:894: `'ULRO'` -- statics = (project, hint, shape, masks, split, (None, None), sharing, 'ULRO')
+- t3toolbox/backend/uniform_padded_frames.py:901: `'RO'` -- state = xwhile(_pairs_cond, ft.partial(_pairs_body, (at('UL'), at('RO'))), state, use_jit)
+- t3toolbox/backend/uniform_padded_frames.py:905: `'ULRO'` -- state = xwhile(_single_cond, ft.partial(_single_body, at('ULRO')), state, use_jit)
+- t3toolbox/frame_variations_format.py:1765: `'RO'` -- - then two-colour pairs: a ``'UL'`` pass (up and left stores) and an ``'RO'`` pass (right and down), the other
+- t3toolbox/frame_variations_format.py:1805: `'ULRO'` -- - ``alternate``: the two-colour switch. ``False`` runs simultaneous ``'ULRO'`` passes, stopping on one movement.
+- t3toolbox/frame_variations_format.py:1850: `'ULRO'` -- >>> [bool(float(tangent.align_padded(*old, update=store)[1]) < 1e-8) for store in 'ULRO']
+- t3toolbox/manifold.py:175: `update:            str` -- update:            str = 'ULRO',                            # the stores updated ('U', 'L', 'R', 'O'); the rest transported
+- t3toolbox/manifold.py:175: `'ULRO'` -- update:            str = 'ULRO',                            # the stores updated ('U', 'L', 'R', 'O'); the rest transported
+- t3toolbox/manifold.py:175: `('U', 'L', 'R', 'O')` -- update:            str = 'ULRO',                            # the stores updated ('U', 'L', 'R', 'O'); the rest transported
+- t3toolbox/manifold.py:186: `'RO'` -- the others (``'UL'`` / ``'RO'`` are the two colours of the loop); output ranks below the frame's truncate.
+- t3toolbox/uniform_frame_variations_format.py:1611: `'RO'` -- ``('UL', 'RO')`` pairs).
+- t3toolbox/uniform_manifold.py:152: `update:        str` -- update:        str = 'ULRO',                                              # as T3Tangent.align_padded
+- t3toolbox/uniform_manifold.py:152: `'ULRO'` -- update:        str = 'ULRO',                                              # as T3Tangent.align_padded
+- tests/backend/_padded_frame_oracles.py:65: `update='` -- def dense_pass(oldD, curD, Z, stores, update='ULRO', groups=()):
+- tests/backend/_padded_frame_oracles.py:65: `'ULRO'` -- def dense_pass(oldD, curD, Z, stores, update='ULRO', groups=()):
+- tests/backend/_padded_frame_oracles.py:119: `'O' in update` -- E.append(np.concatenate([Eo[i], choose(Q, content, Ec[i][:, r0:], nD[i] - r0, 'O' in update)], 1))
+- tests/backend/_padded_frame_oracles.py:126: `'RO'` -- (``alternate``) ('UL', 'RO') pairs while a whole pair fits under ``max_passes``, stopping after a pair whose two
+- tests/backend/_padded_frame_oracles.py:128: `'ULRO'` -- 'ULRO' passes, stopping after the first pass from the truncating one on whose movement is below ``tol``. Every
+- tests/backend/_padded_frame_oracles.py:140: `'ULRO'` -- run(working if it < n_over else target, 'ULRO')
+- tests/backend/_padded_frame_oracles.py:145: `'RO'` -- run(target, 'RO')
+- tests/backend/_padded_frame_oracles.py:151: `'ULRO'` -- run(target, 'ULRO')
+- tests/backend/_padded_frame_oracles.py:178: `'ULRO'` -- for name, a, b in zip('ULRO', Da, Db):
+- tests/backend/test_padded_frame.py:40: `'RO'` -- stop rule on prescribed movements (the stop tested only after a ``('UL', 'RO')`` pair, never on the truncating
+- tests/backend/test_padded_frame.py:513: `update='` -- def assert_matches_dense(self, start, variations, old, F, movement, stores, update='ULRO', groups=(), tol=1e-9):
+- tests/backend/test_padded_frame.py:513: `'ULRO'` -- def assert_matches_dense(self, start, variations, old, F, movement, stores, update='ULRO', groups=(), tol=1e-9):
+- tests/backend/test_padded_frame.py:547: `update='` -- def check(self, shape, old_ranks, work_ranks, out_ranks, options, update='ULRO'):
+- tests/backend/test_padded_frame.py:547: `'ULRO'` -- def check(self, shape, old_ranks, work_ranks, out_ranks, options, update='ULRO'):
+- tests/backend/test_padded_frame.py:574: `'RO'` -- for update in ('UL', 'RO', 'LRO', 'ULO', 'U', 'O'):
+- tests/backend/test_padded_frame.py:574: `'LRO'` -- for update in ('UL', 'RO', 'LRO', 'ULO', 'U', 'O'):
+- tests/backend/test_padded_frame.py:574: `'ULO'` -- for update in ('UL', 'RO', 'LRO', 'ULO', 'U', 'O'):
+- tests/backend/test_padded_frame.py:723: `update='` -- self.step(update='UL')
+- tests/backend/test_padded_frame.py:731: `update = '` -- update = ''.join(c for c in 'ULRO' if c != missing)
+- tests/backend/test_padded_frame.py:731: `'ULRO'` -- update = ''.join(c for c in 'ULRO' if c != missing)
+- tests/backend/test_padded_frame.py:899: `'ULRO'` -- self.assertEqual(calls, [('ULRO', t), ('UL', t), ('RO', t), ('UL', t)])
+- tests/backend/test_padded_frame.py:899: `'RO'` -- self.assertEqual(calls, [('ULRO', t), ('UL', t), ('RO', t), ('UL', t)])
+- tests/backend/test_padded_frame.py:903: `'RO'` -- """Two oversampled passes, the truncating pass, then 'UL' and 'RO' in turn; the simultaneous schedule
+- tests/backend/test_padded_frame.py:907: `'ULRO'` -- self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('UL', t), ('RO', t), ('UL', t)])
+- tests/backend/test_padded_frame.py:907: `'ULRO'` -- self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('UL', t), ('RO', t), ('UL', t)])
+- tests/backend/test_padded_frame.py:907: `'ULRO'` -- self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('UL', t), ('RO', t), ('UL', t)])
+- tests/backend/test_padded_frame.py:907: `'RO'` -- self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('UL', t), ('RO', t), ('UL', t)])
+- tests/backend/test_padded_frame.py:909: `'ULRO'` -- self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('ULRO', t)])
+- tests/backend/test_padded_frame.py:909: `'ULRO'` -- self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('ULRO', t)])
+- tests/backend/test_padded_frame.py:909: `'ULRO'` -- self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('ULRO', t)])
+- tests/backend/test_padded_frame.py:909: `'ULRO'` -- self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('ULRO', t)])
+- tests/backend/test_padded_frame.py:912: `'ULRO'` -- """max_passes = 2 with no oversampled phase: the 'ULRO' pass, then one slot, no pair: the final 'UL'."""
+- tests/backend/test_padded_frame.py:914: `'ULRO'` -- self.assertEqual(calls, [('ULRO', self.target[0]), ('UL', self.target[0])])
+- tests/backend/test_padded_frame.py:919: `'ULRO'` -- self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', self.target[0])])
+- tests/backend/test_padded_frame.py:919: `'ULRO'` -- self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', self.target[0])])
+- tests/backend/test_padded_frame.py:919: `'ULRO'` -- self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', self.target[0])])
+- tests/backend/test_padded_frame.py:923: `'ULRO'` -- """max_passes = 1: one truncating pass from the working start, or one 'ULRO' pass at the target."""
+- tests/backend/test_padded_frame.py:927: `'ULRO'` -- self.assertEqual(calls, [('ULRO', self.target[0])])
+- tests/backend/test_padded_frame.py:980: `'RO'` -- after the truncating one come in ('UL', 'RO') pairs (3-4, 5-6, 7-8) and the stop is tested after each pair,
+- tests/backend/test_padded_frame.py:1006: `'RO'` -- """Recorded: a stop after the first pair leaves (oversampled x2, truncating, 'UL', 'RO') and no more."""
+- tests/backend/test_padded_frame.py:1015: `'ULRO'` -- self.assertEqual(updates, ['ULRO', 'ULRO', 'ULRO', 'UL', 'RO'])
+- tests/backend/test_padded_frame.py:1015: `'ULRO'` -- self.assertEqual(updates, ['ULRO', 'ULRO', 'ULRO', 'UL', 'RO'])
+- tests/backend/test_padded_frame.py:1015: `'ULRO'` -- self.assertEqual(updates, ['ULRO', 'ULRO', 'ULRO', 'UL', 'RO'])
+- tests/backend/test_padded_frame.py:1015: `'RO'` -- self.assertEqual(updates, ['ULRO', 'ULRO', 'ULRO', 'UL', 'RO'])
+- tests/backend/test_padded_start.py:480: `'ULRO'` -- dense_tied_project(startD, G, groups, x0.to_dense()), stores, 'ULRO', groups)
+- tests/backend/test_uniform_padded_frame.py:360: `update='` -- def check(self, shape, old_ranks, work_ranks, out_ranks, options, update='ULRO'):
+- tests/backend/test_uniform_padded_frame.py:360: `'ULRO'` -- def check(self, shape, old_ranks, work_ranks, out_ranks, options, update='ULRO'):
+- tests/backend/test_uniform_padded_frame.py:388: `'RO'` -- """Each store family transported, and the two colours ('UL', 'RO')."""
+- tests/backend/test_uniform_padded_frame.py:390: `'RO'` -- for update in ('UL', 'RO', 'LRO', 'ULO', 'U', 'O'):
+- tests/backend/test_uniform_padded_frame.py:390: `'LRO'` -- for update in ('UL', 'RO', 'LRO', 'ULO', 'U', 'O'):
+- tests/backend/test_uniform_padded_frame.py:390: `'ULO'` -- for update in ('UL', 'RO', 'LRO', 'ULO', 'U', 'O'):
+- tests/backend/test_uniform_padded_frame.py:514: `update='` -- self.call(update='UL', out=(None, None))
+- tests/backend/test_uniform_padded_frame.py:547: `update='` -- self.call(update='RO')
+- tests/backend/test_uniform_padded_frame.py:547: `'RO'` -- self.call(update='RO')
+- tests/backend/test_uniform_padded_frame.py:771: `'ULRO'` -- [('ULRO', None), ('ULRO', None), ('ULRO', t), ('UL', None), ('RO', None), ('UL', None)])
+- tests/backend/test_uniform_padded_frame.py:771: `'ULRO'` -- [('ULRO', None), ('ULRO', None), ('ULRO', t), ('UL', None), ('RO', None), ('UL', None)])
+- tests/backend/test_uniform_padded_frame.py:771: `'ULRO'` -- [('ULRO', None), ('ULRO', None), ('ULRO', t), ('UL', None), ('RO', None), ('UL', None)])
+- tests/backend/test_uniform_padded_frame.py:771: `'RO'` -- [('ULRO', None), ('ULRO', None), ('ULRO', t), ('UL', None), ('RO', None), ('UL', None)])
+- tests/backend/test_uniform_padded_frame.py:773: `'ULRO'` -- [('ULRO', None), ('ULRO', None), ('ULRO', t), ('ULRO', None)])
+- tests/backend/test_uniform_padded_frame.py:773: `'ULRO'` -- [('ULRO', None), ('ULRO', None), ('ULRO', t), ('ULRO', None)])
+- tests/backend/test_uniform_padded_frame.py:773: `'ULRO'` -- [('ULRO', None), ('ULRO', None), ('ULRO', t), ('ULRO', None)])
+- tests/backend/test_uniform_padded_frame.py:773: `'ULRO'` -- [('ULRO', None), ('ULRO', None), ('ULRO', t), ('ULRO', None)])
+- tests/backend/test_uniform_padded_frame.py:774: `'ULRO'` -- self.assertEqual(self.run_recorded(oversampling=0, max_passes=2, tol=0.0), [('ULRO', t), ('UL', None)])
+- tests/backend/test_uniform_padded_frame.py:776: `'ULRO'` -- [('ULRO', None), ('ULRO', None), ('ULRO', t)])
+- tests/backend/test_uniform_padded_frame.py:776: `'ULRO'` -- [('ULRO', None), ('ULRO', None), ('ULRO', t)])
+- tests/backend/test_uniform_padded_frame.py:776: `'ULRO'` -- [('ULRO', None), ('ULRO', None), ('ULRO', t)])
+- tests/test_aligned_padded_frame_frontend.py:125: `update='` -- UF1, umv = uv.align_padded(split, update='UL')
+- tests/test_aligned_padded_frame_frontend.py:126: `update='` -- UFb, umvb = uniform_padded_frames.utv_align_padded_frame(UF.data, uv.variations.data, split, update='UL')
+- tests/test_dispatch.py:2019: `'ULRO'` -- ((3, 4, 4, 3), (1, 3, 4, 3, 1)), ((3, 3, 3, 3), (1, 3, 3, 3, 1)), None, 'ULRO'),
+- tests/test_dispatch.py:2023: `'ULRO'` -- ((2, 3, 3, 2), (1, 2, 3, 2, 1)), (None, None), None, 'ULRO'),
+- tests/test_dispatch.py:2025: `'ULRO'` -- ((3, 4, 4, 3), (1, 3, 4, 3, 1)), ((3, 3, 3, 3), (1, 3, 3, 3, 1)), None, 'ULRO'),
+- tests/test_dispatch.py:2058: `'RO'` -- every leaf -- two oversampled passes, the truncating pass and one 'UL' / 'RO' pair (tol 0, max_passes 5), at
+- tests/test_dispatch.py:2416: `'ULRO'` -- self.assertEqual(seen, [(u, on_jax) for u in ('ULRO', 'ULRO', 'ULRO', 'UL')])
+- tests/test_dispatch.py:2416: `'ULRO'` -- self.assertEqual(seen, [(u, on_jax) for u in ('ULRO', 'ULRO', 'ULRO', 'UL')])
+- tests/test_dispatch.py:2416: `'ULRO'` -- self.assertEqual(seen, [(u, on_jax) for u in ('ULRO', 'ULRO', 'ULRO', 'UL')])
+- tests/test_dispatch.py:2424: `'ULRO'` -- oversampled 'ULRO', the truncating 'ULRO', 'UL', 'RO' -- and a second run at the same structure, other values,
+- tests/test_dispatch.py:2424: `'ULRO'` -- oversampled 'ULRO', the truncating 'ULRO', 'UL', 'RO' -- and a second run at the same structure, other values,
+- tests/test_dispatch.py:2424: `'RO'` -- oversampled 'ULRO', the truncating 'ULRO', 'UL', 'RO' -- and a second run at the same structure, other values,
+- docs/aligned_padded_frame.md:60: ``'UL'`` -- 3. **Two-colour pairs** (`alternate=True`, the default): a `'UL'` pass (up and left stores), then an `'RO'` pass
+- docs/aligned_padded_frame.md:60: ``'RO'`` -- 3. **Two-colour pairs** (`alternate=True`, the default): a `'UL'` pass (up and left stores), then an `'RO'` pass
+- docs/aligned_padded_frame.md:65: ``'UL'`` -- included. An odd remainder runs one final `'UL'` pass. With the defaults: 2 oversampled, 1 truncating, 3 pairs and
+- docs/aligned_padded_frame.md:66: ``'UL'`` -- a final `'UL'`.
+- docs/aligned_padded_frame.md:138: ``'ULRO'`` -- `'ULRO'`, the truncating `'ULRO'`, `'UL'`, `'RO'`), about 2 s each at d = 4, and nothing recompiles across passes.
+- docs/aligned_padded_frame.md:138: ``'ULRO'`` -- `'ULRO'`, the truncating `'ULRO'`, `'UL'`, `'RO'`), about 2 s each at d = 4, and nothing recompiles across passes.
+- docs/aligned_padded_frame.md:138: ``'UL'`` -- `'ULRO'`, the truncating `'ULRO'`, `'UL'`, `'RO'`), about 2 s each at d = 4, and nothing recompiles across passes.
+- docs/aligned_padded_frame.md:138: ``'RO'`` -- `'ULRO'`, the truncating `'ULRO'`, `'UL'`, `'RO'`), about 2 s each at d = 4, and nothing recompiles across passes.
+- docs/glossary.md:366: ``'UL'`` -- - **two-colour pass** (`'UL'`, `'RO'`; `alternate=True`). A pass updating the up and left stores, then one updating
+- docs/glossary.md:366: ``'RO'`` -- - **two-colour pass** (`'UL'`, `'RO'`; `alternate=True`). A pass updating the up and left stores, then one updating
+- docs/contributor/padded_frame_internals.md:46: ``'UL'`` -- Two-colour passes (`'UL'`, then `'RO'`) are alternating (Gauss–Seidel) updates of the two colours, with a projection
+- docs/contributor/padded_frame_internals.md:46: ``'RO'`` -- Two-colour passes (`'UL'`, then `'RO'`) are alternating (Gauss–Seidel) updates of the two colours, with a projection
+- docs/contributor/padded_frame_internals.md:116: ``'ULRO'`` -- step programs: the oversampled `'ULRO'`, the truncating `'ULRO'`, `'UL'` and `'RO'`. The projection runs eagerly
+- docs/contributor/padded_frame_internals.md:116: ``'ULRO'`` -- step programs: the oversampled `'ULRO'`, the truncating `'ULRO'`, `'UL'` and `'RO'`. The projection runs eagerly
+- docs/contributor/padded_frame_internals.md:116: ``'UL'`` -- step programs: the oversampled `'ULRO'`, the truncating `'ULRO'`, `'UL'` and `'RO'`. The projection runs eagerly
+- docs/contributor/padded_frame_internals.md:116: ``'RO'`` -- step programs: the oversampled `'ULRO'`, the truncating `'ULRO'`, `'UL'` and `'RO'`. The projection runs eagerly
+- docs/contributor/padded_frame_internals.md:122: ``'UL'`` -- of oversampled passes, the truncating pass, a `while_loop` of `(UL, RO)` pairs, a `cond` for the final `'UL'`,
+- t3toolbox/backend/geometry.py:423: `('up'` -- for store, cores, shapes in zip(('up', 'down', 'left', 'right'), frame, expected):
+- t3toolbox/backend/geometry.py:872: `('up'` -- names = ('up', 'down', 'left', 'right')
+- t3toolbox/backend/geometry.py:877: `('left'` -- for name, bond in (('left', np.asarray(masks[2])[-1]), ('right', np.asarray(masks[3])[0])):
+- t3toolbox/backend/geometry.py:877: `('right'` -- for name, bond in (('left', np.asarray(masks[2])[-1]), ('right', np.asarray(masks[3])[0])):
+- t3toolbox/backend/padded_frames.py:51: `('up'` -- _STORE_NAMES = ('up', 'down', 'left', 'right')
+- t3toolbox/backend/padded_frames.py:197: `('up'` -- seeds_Nk = _seed_rows('up', key, seed, s, n - s, N).T
+- t3toolbox/backend/uniform_padded_frames.py:194: `('up'` -- for name, have, want in zip(('up', 'down', 'left', 'right'), old, layout):
+- t3toolbox/backend/uniform_padded_frames.py:204: `('up'` -- for name, k in zip(('up', 'down', 'left', 'right'), (kU, kD, kL, kR)):
+- t3toolbox/backend/uniform_padded_frames.py:235: `('up'` -- seeds[(g,) + index][:shape[f], :k] = _seed_rows('up', int(f), seed, int(old_U[(g,) + index]), k,
+- t3toolbox/backend/uniform_padded_frames.py:245: `('left'` -- seeds_L, real_L = _store_seeds('left', np.arange(d - 1), mL[:d - 1], mU[:d - 1], mL0[1:d], kL[1:d], Kb, seed)
+- t3toolbox/backend/uniform_padded_frames.py:251: `('right'` -- seeds_R, real_R = _store_seeds('right', np.arange(1, d), mU[1:], mR[2:], mR0[1:d], kR[1:d], Kb, seed)
+- t3toolbox/backend/uniform_padded_frames.py:258: `('down'` -- seeds_O, real_O = _store_seeds('down', np.arange(d), mL[:-1], mR[1:], mD0, kD, Ka, seed)
+- t3toolbox/backend/uniform_padded_frames.py:641: `('up'` -- for name, A, want in (('up', U, (d,) + C + (nT, N)), ('down', O, core), ('left', L, core), ('right', R, core),
+- t3toolbox/backend/uniform_padded_frames.py:641: `('down'` -- for name, A, want in (('up', U, (d,) + C + (nT, N)), ('down', O, core), ('left', L, core), ('right', R, core),
+- t3toolbox/backend/uniform_padded_frames.py:641: `('left'` -- for name, A, want in (('up', U, (d,) + C + (nT, N)), ('down', O, core), ('left', L, core), ('right', R, core),
+- t3toolbox/backend/uniform_padded_frames.py:641: `('right'` -- for name, A, want in (('up', U, (d,) + C + (nT, N)), ('down', O, core), ('left', L, core), ('right', R, core),
+- t3toolbox/backend/uniform_padded_frames.py:669: `('up'` -- for store, letter, o, s1, s in zip(('up', 'down', 'left', 'right'), 'UOLR', old, out, own):
+- t3toolbox/backend/uniform_padded_frames.py:730: `('up'` -- for name, count, W in zip(('up', 'down', 'left', 'right'), counts, (WU, WD, WL, WR)):
+- t3toolbox/backend/uniform_padded_frames.py:950: `('up'` -- for name, s, o, W in zip(('up', 'down', 'left', 'right'), target_stores, old, level_widths):
+- t3toolbox/frame_variations_format.py:1518: `('up'` -- for name, fam in (('up', self.up_weights), ('down', self.down_weights),
+- t3toolbox/frame_variations_format.py:1518: `('down'` -- for name, fam in (('up', self.up_weights), ('down', self.down_weights),
+- t3toolbox/frame_variations_format.py:1519: `('left'` -- ('left', self.left_weights), ('right', self.right_weights)):
+- t3toolbox/frame_variations_format.py:1519: `('right'` -- ('left', self.left_weights), ('right', self.right_weights)):
+- t3toolbox/frame_variations_format.py:1651: `('up'` -- ('up',    weights.up_ranks,    tuple(h[1] for h in tt_holes)),
+- t3toolbox/frame_variations_format.py:1652: `('down'` -- ('down',  weights.down_ranks,  tuple(h[0] for h in tucker_holes)),
+- t3toolbox/frame_variations_format.py:1653: `('left'` -- ('left',  weights.left_ranks,  tuple(h[0] for h in tt_holes)),
+- t3toolbox/frame_variations_format.py:1654: `('right'` -- ('right', weights.right_ranks, tuple(h[2] for h in tt_holes)),
+- t3toolbox/uniform_frame_variations_format.py:1296: `('up'` -- for sc, m, name in zip(self.supercores, self.masks.data, ('up', 'down', 'left', 'right')):
+- t3toolbox/uniform_frame_variations_format.py:1483: `('up'` -- names = ('up', 'down', 'left', 'right')
+- tests/backend/test_padded_frame.py:72: `('up'` -- STORES = ('up', 'down', 'left', 'right')
+- tests/backend/test_padded_frame.py:136: `('up'` -- new, piv = seeded_qr(U0.T, stream_rows('up', f, seed, U0.shape[0], nU[f] - U0.shape[0], shape[f]).T)
+- tests/backend/test_padded_frame.py:405: `('down'` -- 'a down width':       (self.replaced('down', 1, np.zeros((2, 3, 2))), 'old_frame down\\[1\\]'),
+- tests/backend/test_padded_frame.py:406: `('right'` -- 'a right width':      (self.replaced('right', 1, np.zeros((3, 2, 2))), 'old_frame right\\[1\\]'),
+- tests/backend/test_padded_frame.py:407: `('left'` -- 'inconsistent left':  (self.replaced('left', 0, np.zeros((1, 2, 3))), 'old_frame left\\[0\\]'),
+- tests/backend/test_padded_frame.py:408: `('left'` -- 'left boundary bond': (self.replaced('left', 0, np.zeros((2, 2, 2))), 'old_frame left\\[0\\]'),
+- tests/backend/test_padded_frame.py:409: `('down'` -- 'a stack on one core': (self.replaced('down', 2, np.zeros((1,) + down[2].shape)), 'old_frame down\\[2\\]'),
+- tests/backend/test_padded_start.py:277: `('up'` -- for k, store in enumerate(('up', 'down', 'left', 'right')):
+- tests/backend/test_padded_start.py:291: `('up'` -- for k, store in enumerate(('up', 'down', 'left', 'right')):
+- tests/backend/test_padded_start.py:298: `('left'` -- for k, (store, bond) in enumerate((('left', -1), ('right', 0))):
+- tests/backend/test_padded_start.py:298: `('right'` -- for k, (store, bond) in enumerate((('left', -1), ('right', 0))):
+- tests/test_uniform_weighted.py:772: `('up'` -- for fam, name in enumerate(('up', 'down', 'left', 'right')):
+
+## K4 (REPORT, 219)
+
+- examples/fit_hilbert_from_entries_lbfgs.py:11: `(U, G, G, G)` -- 2. **The corewise geometry** (``t3m.COREWISE``) -- optimize on the raw core parameters ``(U, G, G, G)``
+- t3toolbox/backend/apply.py:321: `P, Q, O ->` -- feed the frame's own cores in place of the orthogonal frames (``P, Q, O -> G_i``), with ``U_i`` no
+- t3toolbox/backend/apply.py:322: `(U, G, G, G)` -- longer required orthogonal -- i.e. :py:func:`tv_apply_transpose` at frame ``(U, G, G, G)``. No
+- t3toolbox/backend/apply.py:354: `(U, O, L, R)` -- model. :py:func:`tv_precompute_apply_frame_sweep` is the same at the manifold frame ``(U, O, L, R)`` and at the
+- t3toolbox/backend/apply.py:389: `(U, G, G, G)` -- form (:py:func:`_apply_transpose_adjoint` at the corewise frame ``(U, G, G, G)``) by the product rule: the
+- t3toolbox/backend/apply.py:508: `(U, G, G, G)` -- ``(U, G, G, G)`` along ``(Udot, Gdot)``, shared by :py:func:`t3_apply_corewise_hessian_from_sweep` and
+- t3toolbox/backend/entries.py:203: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q); uses Q (right) and O (down)
+- t3toolbox/backend/entries.py:203: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (U, O, P, Q); uses Q (right) and O (down)
+- t3toolbox/backend/entries.py:225: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q); uses U (one-hot), O, Q
+- t3toolbox/backend/entries.py:225: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (U, O, P, Q); uses U (one-hot), O, Q
+- t3toolbox/backend/fitting.py:16: `(U,O,P,Q)` -- composes the two. The §6.3 corewise substitution ``(U,O,P,Q) -> (U,G,G,G)`` is now nothing but
+- t3toolbox/backend/fitting.py:16: `(U,O,P,Q` -- composes the two. The §6.3 corewise substitution ``(U,O,P,Q) -> (U,G,G,G)`` is now nothing but
+- t3toolbox/backend/fitting.py:16: `(U,G,G,G)` -- composes the two. The §6.3 corewise substitution ``(U,O,P,Q) -> (U,G,G,G)`` is now nothing but
+- t3toolbox/backend/fitting.py:545: `(U, O, L, R)` -- # (U, O, L, R); through U and G at the corewise frame) -- unweighted, so the residual is r itself
+- t3toolbox/backend/fitting.py:657: `(U, O, L, R)` -- # (U, O, L, R); through U and G at the corewise frame); omega^2 r, exactly as transpose weights it
+- t3toolbox/backend/fitting.py:718: `(U, O, L, R)` -- # the sweep's xi / mu are base_point's own: the manifold frame (U, O, L, R) sweeps xi through U and mu
+- t3toolbox/backend/fitting.py:719: `(U, G, G, G)` -- # through L, and the corewise frame (U, G, G, G) through U and G -- base_point is (U, L) / (U, G)
+- t3toolbox/backend/fv_conversions.py:32: `(U, O, P, Q)` -- ) -> typ.Tuple:                # (U, O, P, Q) = (U, G, G, G); the raw cores ARE the frame
+- t3toolbox/backend/fv_conversions.py:32: `(U, O, P, Q` -- ) -> typ.Tuple:                # (U, O, P, Q) = (U, G, G, G); the raw cores ARE the frame
+- t3toolbox/backend/fv_conversions.py:32: `(U, G, G, G)` -- ) -> typ.Tuple:                # (U, O, P, Q) = (U, G, G, G); the raw cores ARE the frame
+- t3toolbox/backend/fv_conversions.py:33: `(P, Q, O) ->` -- '''The **corewise** frame of a T3: the Section 6.3 substitution ``(P, Q, O) -> G``.
+- t3toolbox/backend/fv_operations.py:95: `(U, O, P, Q)` -- frame:  typ.Tuple,   # (U, O, P, Q) frame data; len=d each, elm_shape=stack_shape+(...)
+- t3toolbox/backend/fv_operations.py:95: `(U, O, P, Q` -- frame:  typ.Tuple,   # (U, O, P, Q) frame data; len=d each, elm_shape=stack_shape+(...)
+- t3toolbox/backend/geometry.py:119: `(U, O, P, Q)` -- frame:  typ.Tuple,    # (U, O, P, Q) -- an orthogonal frame
+- t3toolbox/backend/geometry.py:119: `(U, O, P, Q` -- frame:  typ.Tuple,    # (U, O, P, Q) -- an orthogonal frame
+- t3toolbox/backend/geometry.py:217: `(U, O, P, Q)` -- frame:              typ.Tuple,   # (U, O, P, Q) -- an orthogonal frame
+- t3toolbox/backend/geometry.py:217: `(U, O, P, Q` -- frame:              typ.Tuple,   # (U, O, P, Q) -- an orthogonal frame
+- t3toolbox/backend/geometry.py:291: `(U, O, P, Q)` -- ) -> typ.Tuple:                # (U, O, P, Q) orthonormal frame (Algorithm 11)
+- t3toolbox/backend/geometry.py:291: `(U, O, P, Q` -- ) -> typ.Tuple:                # (U, O, P, Q) orthonormal frame (Algorithm 11)
+- t3toolbox/backend/geometry.py:306: `(U, O, P, Q)` -- frame:  typ.Tuple,   # (U, O, P, Q)
+- t3toolbox/backend/geometry.py:306: `(U, O, P, Q` -- frame:  typ.Tuple,   # (U, O, P, Q)
+- t3toolbox/backend/geometry.py:314: `(U, O, P, Q)` -- frame:  typ.Tuple,   # (U, O, P, Q)
+- t3toolbox/backend/geometry.py:314: `(U, O, P, Q` -- frame:  typ.Tuple,   # (U, O, P, Q)
+- t3toolbox/backend/geometry.py:361: `(U, O, P, Q)` -- frame:  typ.Tuple,   # (U, O, P, Q) -- a frame of this geometry: the STRUCTURE to copy
+- t3toolbox/backend/geometry.py:361: `(U, O, P, Q` -- frame:  typ.Tuple,   # (U, O, P, Q) -- a frame of this geometry: the STRUCTURE to copy
+- t3toolbox/backend/geometry.py:362: `(U, O, P, Q)` -- ) -> typ.Tuple:              # (U, O, P, Q) -- the canonical orthonormal frame at the zero tensor
+- t3toolbox/backend/geometry.py:362: `(U, O, P, Q` -- ) -> typ.Tuple:              # (U, O, P, Q) -- the canonical orthonormal frame at the zero tensor
+- t3toolbox/backend/geometry.py:433: `(U, O, P, Q)` -- frame:              typ.Tuple,                   # (U, O, P, Q)
+- t3toolbox/backend/geometry.py:433: `(U, O, P, Q` -- frame:              typ.Tuple,                   # (U, O, P, Q)
+- t3toolbox/backend/geometry.py:491: `(P, Q, O) ->` -- The raw cores ARE the frame (the Section 6.3 substitution ``(P, Q, O) -> G``), there is no gauge, and
+- t3toolbox/backend/geometry.py:509: `(U, O, P, Q)` -- ) -> typ.Tuple:                # (U, O, P, Q) = (U, G, G, G) -- the raw cores ARE the frame
+- t3toolbox/backend/geometry.py:509: `(U, O, P, Q` -- ) -> typ.Tuple:                # (U, O, P, Q) = (U, G, G, G) -- the raw cores ARE the frame
+- t3toolbox/backend/geometry.py:509: `(U, G, G, G)` -- ) -> typ.Tuple:                # (U, O, P, Q) = (U, G, G, G) -- the raw cores ARE the frame
+- t3toolbox/backend/geometry.py:510: `(P, Q, O) ->` -- """The (non-orthonormal) corewise frame: the Section 6.3 substitution ``(P, Q, O) -> G``."""
+- t3toolbox/backend/geometry.py:602: `(U, O, P, Q` -- frame_data:  typ.Tuple,   # uniform frame .data = (U, O, P, Q, shape, (up, down, left, right) masks)
+- t3toolbox/backend/geometry.py:707: `(U, O, P, Q` -- frame_data:   typ.Tuple,                          # uniform frame .data = (U, O, P, Q, shape, masks)
+- t3toolbox/backend/geometry.py:893: `(U, O, P, Q` -- frame_data:         typ.Tuple,                   # uniform frame .data = (U, O, P, Q, shape, masks)
+- t3toolbox/backend/geometry.py:956: `(U, G, G, G)` -- ``(U, G, G, G)`` frame's gauge shift), so ``from_point`` needs no orthogonalization."""
+- t3toolbox/backend/geometry.py:983: `(U, G, G, G)` -- """The variation masks of the ``(U, G, G, G)`` frame -- the corewise frame's mask set put
+- t3toolbox/backend/optimizers.py:228: `(U, O, P, Q)` -- frame:     typ.Tuple      # (U, O, P, Q)
+- t3toolbox/backend/optimizers.py:228: `(U, O, P, Q` -- frame:     typ.Tuple      # (U, O, P, Q)
+- t3toolbox/backend/padded_frames.py:566: `(U, O, L, R)` -- nU, nD, rL, rR = _frame_stores((U, O, L, R), 'frame')
+- t3toolbox/backend/probing.py:598: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/probing.py:598: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/probing.py:651: `(U, O, P, Q)` -- ], # frame order = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/probing.py:651: `(U, O, P, Q` -- ], # frame order = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/probing.py:674: `(U, O, P, Q)` -- exactly ``T3Frame.data`` order (U, O, P, Q) -- pass ``frame.data`` directly, no reorder.
+- t3toolbox/backend/probing.py:674: `(U, O, P, Q` -- exactly ``T3Frame.data`` order (U, O, P, Q) -- pass ``frame.data`` directly, no reorder.
+- t3toolbox/backend/probing.py:1179: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/probing.py:1179: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/probing.py:1226: `(U, O, P, Q)` -- ], # frame order = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/probing.py:1226: `(U, O, P, Q` -- ], # frame order = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/probing.py:1261: `(U, O, P, Q)` -- exactly ``T3Frame.data`` order (U, O, P, Q) -- pass ``frame.data`` directly, no reorder.
+- t3toolbox/backend/probing.py:1261: `(U, O, P, Q` -- exactly ``T3Frame.data`` order (U, O, P, Q) -- pass ``frame.data`` directly, no reorder.
+- t3toolbox/backend/probing.py:1427: `P, Q, O ->` -- ``P, Q, O -> G_i`` (``U`` non-orthogonal) into :py:func:`tv_probe_transpose`, i.e. that
+- t3toolbox/backend/probing.py:1428: `(U, G, G, G)` -- transpose at frame ``(U, G, G, G)``. Returns gradients shaped exactly like ``(tucker_cores,
+- t3toolbox/backend/probing.py:1453: `(U, G, G, G)` -- # W + C only (the residual has no K). At the corewise frame (U, G, G, G) of theta = (U, G):
+- t3toolbox/backend/probing.py:1457: `Q = O = P = G` -- #   2. dotted forward = the GN tangent forward at Q = O = P = G along (Udot, Gdot): xidot = Udot w,
+- t3toolbox/backend/probing.py:1457: `P = G` -- #   2. dotted forward = the GN tangent forward at Q = O = P = G along (Udot, Gdot): xidot = Udot w,
+- t3toolbox/backend/probing.py:1702: `(U, O, L, R)` -- hook for a local model, whose probe sweep at the manifold frame ``(U, O, L, R)`` carries exactly the corewise
+- t3toolbox/backend/probing.py:1714: `(U, G, G, G)` -- # 1. the undotted state at the corewise frame (U, G, G, G): nu re-swept through G; the adjoint tildes.
+- t3toolbox/backend/probing.py:1721: `Q = O = P = G` -- # 2. the dotted forward: the GN tangent forward at Q = O = P = G along (Udot, Gdot) -- its sigma / tau /
+- t3toolbox/backend/probing.py:1721: `P = G` -- # 2. the dotted forward: the GN tangent forward at Q = O = P = G along (Udot, Gdot) -- its sigma / tau /
+- t3toolbox/backend/regularization.py:58: `(U,O,P,Q)` -- :py:mod:`t3toolbox.backend.geometry`'s geometry classes; ``frame`` = ``(U,O,P,Q)``; ``p`` a tangent
+- t3toolbox/backend/regularization.py:58: `(U,O,P,Q` -- :py:mod:`t3toolbox.backend.geometry`'s geometry classes; ``frame`` = ``(U,O,P,Q)``; ``p`` a tangent
+- t3toolbox/backend/sampling_derivatives.py:563: `(U, O, P, Q)` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:563: `(U, O, P, Q` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:582: `(U, O, P, Q)` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:582: `(U, O, P, Q` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:605: `(U, O, P, Q)` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:605: `(U, O, P, Q` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:627: `(U, O, P, Q)` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:627: `(U, O, P, Q` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:647: `(U, O, P, Q)` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:647: `(U, O, P, Q` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:907: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:907: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:940: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:940: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1084: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1084: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1114: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1114: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1168: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1168: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1198: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1198: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1875: `(U, O, P, Q)` -- frame = (S(d, *cax, nU, N), S(d, *cax, r, nU, r), S(d, *cax, r, nU, r), S(d, *cax, r, nU, r))   # (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1875: `(U, O, P, Q` -- frame = (S(d, *cax, nU, N), S(d, *cax, r, nU, r), S(d, *cax, r, nU, r), S(d, *cax, r, nU, r))   # (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2021: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2021: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2060: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2060: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2255: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2255: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2283: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2283: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2315: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2315: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2358: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2358: `(U, O, P, Q` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2386: `(P, Q, O ->` -- # transpose with the frame's OWN cores in place of the orthogonal frames (P, Q, O -> G_i), U no longer
+- t3toolbox/backend/sampling_derivatives.py:2408: `P,Q,O ->` -- core-wise optimizers). The Section 6.3 substitution ``P,Q,O -> G`` into
+- t3toolbox/backend/sampling_derivatives.py:2409: `(U, G, G, G)` -- :py:func:`tv_probe_derivatives_transpose` (frame ``(U, G, G, G)``; orthogonality not required).
+- t3toolbox/backend/sampling_derivatives.py:2460: `(U, G, G, G)` -- # (the residual has no K). At the corewise frame (U, G, G, G) of theta = (U, G):
+- t3toolbox/backend/sampling_derivatives.py:2464: `Q = O = P = G` -- #   2. dotted forward = the GN tangent forward at Q = O = P = G along (Udot, Gdot): xidot = Udot (w, p),
+- t3toolbox/backend/sampling_derivatives.py:2464: `P = G` -- #   2. dotted forward = the GN tangent forward at Q = O = P = G along (Udot, Gdot): xidot = Udot (w, p),
+- t3toolbox/backend/sampling_derivatives.py:2969: `(U, O, L, R)` -- ``mu`` jets -- the reuse hook for a local model, whose probe sweep at the manifold frame ``(U, O, L, R)``
+- t3toolbox/backend/sampling_derivatives.py:2982: `(U, G, G, G)` -- # 1. the undotted state at the corewise frame (U, G, G, G): nu re-swept through G; the adjoint tildes.
+- t3toolbox/backend/sampling_derivatives.py:2989: `Q = O = P = G` -- # 2. the dotted forward: the GN tangent forward at Q = O = P = G along (Udot, Gdot) -- its sigma / tau /
+- t3toolbox/backend/sampling_derivatives.py:2989: `P = G` -- # 2. the dotted forward: the GN tangent forward at Q = O = P = G along (Udot, Gdot) -- its sigma / tau /
+- t3toolbox/backend/sampling_derivatives.py:3103: `(U, G, G, G)` -- # corewise frame (U, G, G, G) of theta = (U, G), with the residual fixed, its product rule is:
+- t3toolbox/backend/sampling_derivatives.py:3244: `(U, G, G, G)` -- ``(U, G, G, G)`` along ``(Udot, Gdot)`` (``sum_over_probes=True``). The dotted forward (``mu_dot``, the GN tangent
+- t3toolbox/backend/sampling_derivatives.py:3252: `Q = O = G` -- mu_jets_dot = compute_sigma_jets(tt_dirs, tt_cores, tt_cores, xi_jets, xi_jets_dot, mu_jets)   # Q = O = G
+- t3toolbox/backend/sampling_derivatives.py:3252: `O = G` -- mu_jets_dot = compute_sigma_jets(tt_dirs, tt_cores, tt_cores, xi_jets, xi_jets_dot, mu_jets)   # Q = O = G
+- t3toolbox/backend/sharing.py:1049: `(U,G,G,G)` -- variations_data,   # UT3Variations .data at the corewise (U,G,G,G) frame; stack = K + C
+- t3toolbox/backend/t3_linalg.py:717: `(U, G, G, G)` -- frame ``(U, G, G, G)`` it is the core gradient of ``<z, Phi(theta)>``
+- t3toolbox/backend/t3_linalg.py:770: `(U, G, G, G)` -- ``(U, G, G, G)`` -- the Section 6.3 substitution ``(P, Q, O) -> G`` of Alger et al. (2026), "Tucker
+- t3toolbox/backend/t3_linalg.py:770: `(P, Q, O) ->` -- ``(U, G, G, G)`` -- the Section 6.3 substitution ``(P, Q, O) -> G`` of Alger et al. (2026), "Tucker
+- t3toolbox/backend/tv_operations.py:453: `(U, O, L, R)` -- frame,                                  # (U, O, L, R), len=d each
+- t3toolbox/backend/ufv_conversions.py:131: `(U, G, G, G)` -- ``(U, G, G, G)`` supercores and the matching ``(tucker, tucker, tt, tt)`` frame mask set.
+- t3toolbox/backend/uniform_padded_frames.py:531: `(U, O, L, R)` -- (U, O, L, R), (V, H), host = rebuild_static(dynamic, skeleton)
+- t3toolbox/backend/uniform_padded_frames.py:707: `(U, O, L, R)` -- dynamic, skeleton = partition_static(((U, O, L, R), (V, H), host))
+- t3toolbox/backend/uniform_padded_frames.py:726: `(U, O, L, R)` -- xnp, _, _ = get_backend(True, tree_contains_jax((U, O, L, R)))
+- t3toolbox/backend/uniform_padded_frames.py:762: `(U, O, L, R)` -- cores:    typ.Tuple[NDArray, ...],    # (U, O, L, R) in block layout at `masks`
+- t3toolbox/backend/ut3_sampling.py:111: `(P,Q,O)->` -- # Gradient of a sampling op w.r.t. the frame's own supercores (the Section 6.3 (P,Q,O)->G substitution, via
+- t3toolbox/backend/ut3_sampling.py:112: `(U, G, G, G)` -- # the now-polymorphic probing.*_corewise_transpose -- the tangent transpose at the frame (U, G, G, G)). For
+- t3toolbox/backend/ut3_sampling.py:229: `(P,Q,O)->` -- # the frame's own supercores (the §6.3 (P,Q,O)->G substitution, via the now-polymorphic
+- t3toolbox/backend/ut3_sampling.py:373: `(U, O, P, Q)` -- manifold frame ``(U, O, P, Q)`` of ``theta = (U, P)`` (or the apply sweep at the corewise frame): its masked
+- t3toolbox/backend/ut3_sampling.py:373: `(U, O, P, Q` -- manifold frame ``(U, O, P, Q)`` of ``theta = (U, P)`` (or the apply sweep at the corewise frame): its masked
+- t3toolbox/backend/ut3_sampling.py:463: `(U, O, P, Q)` -- :py:func:`~t3toolbox.backend.utv_sampling.utv_precompute_probe_frame_sweep` at the manifold frame ``(U, O, P, Q)``
+- t3toolbox/backend/ut3_sampling.py:463: `(U, O, P, Q` -- :py:func:`~t3toolbox.backend.utv_sampling.utv_precompute_probe_frame_sweep` at the manifold frame ``(U, O, P, Q)``
+- t3toolbox/backend/utv_operations.py:376: `(U, G, G, G)` -- frame_data,       # UT3Frame .data: the (U, G, G, G) corewise frame, supercore stack = C
+- t3toolbox/backend/utv_operations.py:381: `(U, G, G, G)` -- The uniform mirror of the additive retraction on the corewise frame ``(U, G, G, G)`` (Section 6.3,
+- t3toolbox/backend/utv_operations.py:382: `(P, Q, O) ->` -- Alger et al. 2026 -- the ``(P, Q, O) -> G`` substitution): recovers the point ``(U, G)`` from the frame
+- t3toolbox/fitting.py:26: `(U,G,G,G)` -- **corewise** case, where the tangent lives at the non-orthonormal frame ``(U,G,G,G)`` (a core
+- t3toolbox/fitting.py:268: `(U,G,G,G)` -- raw ``(U,G,G,G)`` frame (a core perturbation), with **no** gauge projection:
+- t3toolbox/fitting.py:392: `(U,G,G,G)` -- the raw core gradient ``𝒥ᵀr`` (a tangent at ``(U,G,G,G)``, no ``Π``). The same in both modes: an
+- t3toolbox/frame_variations_format.py:8: `(U, O, P, Q)` -- fixed-rank T3 manifold (T4S Appendix A). ``T3Frame.data = (up, down, left, right) = (U, O, P, Q)``;
+- t3toolbox/frame_variations_format.py:8: `(U, O, P, Q` -- fixed-rank T3 manifold (T4S Appendix A). ``T3Frame.data = (up, down, left, right) = (U, O, P, Q)``;
+- t3toolbox/frame_variations_format.py:1169: `(U, O, P, Q)` -- frame cores (U, O, P, Q), and that their stacks are compatible.
+- t3toolbox/frame_variations_format.py:1169: `(U, O, P, Q` -- frame cores (U, O, P, Q), and that their stacks are compatible.
+- t3toolbox/manifold.py:1342: `(U, O, P, Q)` -- ) -> bvf.T3Frame:  # orthonormal frame (U, O, P, Q) at x
+- t3toolbox/manifold.py:1342: `(U, O, P, Q` -- ) -> bvf.T3Frame:  # orthonormal frame (U, O, P, Q) at x
+- t3toolbox/manifold.py:1547: `(U, G, G, G)` -- Optimization happens *on* the raw cores: tangents are perturbations of the cores ``(U, G, G, G)``
+- t3toolbox/manifold.py:1564: `(U, G, G, G)` -- >>> frame = t3m.COREWISE.frame(x)            # the (U, G, G, G) frame
+- t3toolbox/manifold.py:1580: `(U, G, G, G)` -- ) -> bvf.T3Frame:  # the (U, G, G, G) non-orthonormal frame at x
+- t3toolbox/manifold.py:1581: `(U, G, G, G)` -- """The core-parameter frame at ``x``: ``(U, G, G, G)`` (down/left/right all the TT cores ``G``)."""
+- t3toolbox/manifold.py:1615: `(U,G,G,G)` -- The corewise dot of the variations -- *no* orthogonal/gauge requirement (the ``(U,G,G,G)`` frame
+- t3toolbox/manifold.py:1630: `(U, G, G, G)` -- p:  T3Tangent,  # step (a corewise tangent at frame = (U, G, G, G))
+- t3toolbox/manifold.py:1634: `(U, G, G, G)` -- Recovers the point ``(U, G)`` from ``p.frame`` (which :py:meth:`frame` built as ``(U, G, G, G)``)
+- t3toolbox/manifold.py:1647: `(U, G, G, G)` -- 'whose down/left/right slots hold the SAME cores (U, G, G, G); this tangent lives at a '
+- t3toolbox/manifold.py:1650: `(U, G, G, G)` -- x_data = (p.frame.up_tucker_cores, p.frame.left_tt_cores)  # (U, G) from the (U, G, G, G) frame
+- t3toolbox/tucker_tensor_train.py:4033: `P,Q,O ->` -- -- a gradient, not a tensor. The Section 6.3 substitution ``P,Q,O -> G`` into
+- t3toolbox/uniform_manifold.py:1281: `(U, G, G, G)` -- Optimization happens *on* the raw supercores: tangents are perturbations of the cores ``(U, G, G, G)``
+- t3toolbox/uniform_manifold.py:1283: `(P, Q, O) ->` -- ``(P, Q, O) -> G`` substitution), the metric is the plain Euclidean (corewise) inner product, the
+- t3toolbox/uniform_manifold.py:1296: `(U, G, G, G)` -- >>> frame = ut3m.UNIFORM_COREWISE.frame(x)            # the (U, G, G, G) frame
+- t3toolbox/uniform_manifold.py:1308: `(U, G, G, G)` -- ) -> ubv.UT3Frame:  # the (U, G, G, G) non-orthonormal frame at x
+- t3toolbox/uniform_manifold.py:1309: `(U, G, G, G)` -- """The core-parameter frame at ``x``: ``(U, G, G, G)`` (down/left/right all the TT supercore ``G``).
+- t3toolbox/uniform_manifold.py:1313: `(P, Q, O) ->` -- substitution ``(P, Q, O) -> G`` gives all three non-up slots the single core ``G``'s rank structure,
+- t3toolbox/uniform_manifold.py:1349: `(U, G, G, G)` -- The corewise dot of the variations -- *no* orthogonal/gauge requirement (the ``(U, G, G, G)`` frame is
+- t3toolbox/uniform_manifold.py:1364: `(U, G, G, G)` -- p:  UT3Tangent,   # step (a corewise tangent at frame = (U, G, G, G))
+- t3toolbox/uniform_manifold.py:1368: `(U, G, G, G)` -- Recovers the point ``(U, G)`` from ``p.frame`` (which :py:meth:`frame` built as ``(U, G, G, G)``) and
+- t3toolbox/uniform_tucker_tensor_train.py:546: `(P,Q,O)->` -- Section 6.3 ``(P,Q,O)->G`` substitution; no orthogonality required. ``sum_over_probes=True`` sums the
+- t3toolbox/uniform_tucker_tensor_train.py:610: `(P,Q,O)->` -- the grads have no order axis). The §6.3 ``(P,Q,O)->G`` substitution. ``sum_over_probes`` /
+- tests/backend/_curvature_oracles.py:263: `(U, G, G, G)` -- # corewise frame is (U, G, G, G): every frame core of the GN transpose is G and its derivative is Gd.
+- tests/backend/_curvature_oracles.py:312: `O = G` -- combine (``twins.compute_dxi_tilde_jets_trs``) at ``O = G``, ALL ``order+1`` rows (the shipped kernel forms
+- tests/backend/_curvature_oracles.py:397: `Q = O = P = G` -- tangent forward at ``Q = O = P = G`` along ``(Ud, Gd)``. Every jet kernel here is a dense ``*_trs`` twin."""
+- tests/backend/_curvature_oracles.py:397: `P = G` -- tangent forward at ``Q = O = P = G`` along ``(Ud, Gd)``. Every jet kernel here is a dense ``*_trs`` twin."""
+- tests/backend/_curvature_oracles.py:471: `(U, G, G, G)` -- # (U, G, G, G) along (Ud, Gd), the residual jet c fixed (W + C, no K): one dense binomial contraction per product-rule
+- tests/backend/_curvature_oracles.py:496: `O = G` -- dense combine ``mu O sigma^`` at ``O = G``, ALL ``order+1`` rows (the shipped kernel forms only ``u in {0, 1}``)."""
+- tests/backend/_curvature_oracles.py:523: `Q = O = G` -- dense seeded sigma^ through G; the dotted forward is the dense GN tangent forward at ``Q = O = G``."""
+- tests/backend/_curvature_oracles.py:523: `O = G` -- dense seeded sigma^ through G; the dotted forward is the dense GN tangent forward at ``Q = O = G``."""
+- tests/backend/test_curvature.py:767: `(U, O, L, R)` -- """The manifold model's probe sweep at the frame (U, O, L, R) carries the corewise xi / mu of its base
+- tests/backend/test_curvature.py:1070: `(U, O, L, R)` -- """The manifold model's sweep at the frame (U, O, L, R) carries the corewise xi / mu of its base point
+- tests/backend/test_curvature.py:1396: `(U, O, L, R)` -- """The manifold model's lean jet sweep at the frame (U, O, L, R) carries the corewise xi / mu of its base point
+- tests/backend/test_uniform_curvature.py:1169: `(U, G, G, G)` -- """Garbage in EVERY padded slot of the frame's four supercores -- on the corewise frame ``(U, G, G, G)`` that
+- tests/backend/test_uniform_curvature.py:1178: `(U, G, G, G)` -- if geometry == 'corewise':                     # (U, G, G, G): ONE garbage-padded G, three times
+- tests/backend/test_uniform_curvature.py:1307: `(U, G, G, G)` -- output masks; garbage in every padded slot of the frame -- on the corewise frame ``(U, G, G, G)`` the point's
+- tests/backend/test_uniform_curvature.py:1362: `(U, G, G, G)` -- if geometry == 'corewise':                 # (U, G, G, G): ONE garbage-padded G, three times
+- tests/backend/test_uniform_curvature.py:1905: `(U, G, G, G)` -- if geometry == 'corewise':                     # (U, G, G, G): ONE garbage-padded G, three times
+- tests/backend/test_uniform_padded_frame.py:138: `(U, O, L, R)` -- self.assertTrue(all(isinstance(a, np.ndarray) and a.dtype == float for a in (U, O, L, R)))
+- tests/test_contractions_sharding.py:199: `(U, O, P, Q)` -- frame = (R(d, n, N), R(d, r, n, r), R(d, r, n, r), R(d, r, n, r))     # uniform (U, O, P, Q), replicated
+- tests/test_contractions_sharding.py:199: `(U, O, P, Q` -- frame = (R(d, n, N), R(d, r, n, r), R(d, r, n, r), R(d, r, n, r))     # uniform (U, O, P, Q), replicated
+- tests/test_dispatch.py:409: `(P,Q,O->` -- # corewise derivative transposes (P,Q,O->G substitution): gradient w.r.t. the frame's own cores
+- tests/test_fitting.py:8: `(U,G,G,G)` -- (manifold: a gauged tangent; corewise: the sum-of-core-swaps at ``(U,G,G,G)``). We also check the
+- tests/test_manifold.py:470: `(U,G,G,G)` -- # ... and a non-orthonormal frame (the corewise (U,G,G,G) frame)
+- tests/test_sharing.py:693: `(U,G,G,G)` -- # (raw core perturbations at the (U,G,G,G) frame have full nU rows)
+- tests/test_tucker_tensor_train.py:3053: `(U,G,G,G)` -- # sweep at the terminal bond, which the corewise (U,G,G,G) substitution makes != 1 (the forward
+- tests/test_uniform_manifold.py:1108: `(U, G, G, G)` -- """A random tangent at the corewise ``(U, G, G, G)`` frame of a (possibly stacked) random point."""
+- tests/test_uniform_manifold.py:1220: `(U,G,G,G)` -- cframe = self.C.frame(ut3.UniformTuckerTensorTrain.from_t3(x))        # the non-orthogonal (U,G,G,G) frame
+- tests/test_uniform_manifold.py:1232: `(U,G,G,G)` -- t3m.COREWISE -- frame (the (U,G,G,G) frame + EXACT masks) / project (identity) / inner / norm / additive
+- tests/test_uniform_probing.py:395: `(P,Q,O)->` -- (P,Q,O)->G substitution. The raw gradient supercores match the ragged TuckerTensorTrain corewise
+- docs/fitting_and_optimization.md:216: `(U,G,G,G)` -- | optimizes | on the fixed-rank manifold (the gauge `Π` makes `g`/`H` Riemannian) | the raw cores `(U,G,G,G)`, Euclidean metric |
+- docs/glossary.md:252: `(U, G, G, G)` -- - **corewise frame** (`(U, G, G, G)`; `t3_corewise_frame`). The non-orthonormal frame whose down, left and right cores
+- docs/glossary.md:713: `(U, O, P, Q)` -- | `P` | the left frame core in the T4S paper's notation (`batching_and_stacking.md` §8, `entries_apply_probe.md` §8, `LocalModel.frame` as `(U, O, P, 
+- docs/glossary.md:713: `(U, O, P, Q` -- | `P` | the left frame core in the T4S paper's notation (`batching_and_stacking.md` §8, `entries_apply_probe.md` §8, `LocalModel.frame` as `(U, O, P, 
+- docs/transposes.md:37: `P,Q,O →` -- gradient with respect to the raw cores (the Section 6.3 substitution `P,Q,O → G`). It is *not* a
+- docs/contributor/curvature_internals.md:13: `(U, O, L, R)` -- At a point `X = Φ(θ)` with orthogonal frame `(U, O, L, R)` (`T3Frame.data`), gauged coordinates
+- docs/contributor/parameters_not_closures.md:93: `(U,G,G,G)` -- | the `(U,G,G,G)` corewise frame | ~10 copies + one private function this refactor briefly deleted | `t3_corewise_frame` / `ut3_corewise_frame` |
+- CLAUDE.md:115: `P,Q,O →` -- > transpose (`P,Q,O → G`, paper §6.3), but that substitution is the non-obvious part — inlining it in
+- CLAUDE.md:213: `(U, O, P, Q)` -- (tucker_cores, tt_cores)`; `T3Frame.data = (up, down, left, right) = (U, O, P, Q)` (the `O`/down core
+- CLAUDE.md:213: `(U, O, P, Q` -- (tucker_cores, tt_cores)`; `T3Frame.data = (up, down, left, right) = (U, O, P, Q)` (the `O`/down core
+- docs/exact_hessian_two_hole.tex:409: `(U,O,P,Q)` -- \Require orthogonal frame $(U,O,P,Q)$; relative damping $c\ge0$; coordinates $v=(\delta U_i,\delta G_i)$ (stack $\mathtt{K+C}$)
+- docs/exact_hessian_two_hole.tex:409: `(U,O,P,Q` -- \Require orthogonal frame $(U,O,P,Q)$; relative damping $c\ge0$; coordinates $v=(\delta U_i,\delta G_i)$ (stack $\mathtt{K+C}$)
+- docs/exact_hessian_two_hole.tex:478: `(U,G,G,G)` -- At the \emph{corewise frame} $(U,G,G,G)$ of raw cores $\th=(U,G)$ (\code{t3_corewise_frame}) the tangent
+- docs/exact_hessian_two_hole.tex:545: `(U,O,P,Q)` -- the manifold frame $(U,O,P,Q)$ and the corewise frame $(U,P,P,P)$ of the base point), $\nu$ is re-swept through
+- docs/exact_hessian_two_hole.tex:545: `(U,O,P,Q` -- the manifold frame $(U,O,P,Q)$ and the corewise frame $(U,P,P,P)$ of the base point), $\nu$ is re-swept through
+- docs/symmetric_probe_derivatives.tex:559: `no longer required orthogonal` -- ($\mathbf P,\mathbf Q,\mathbf O\to\mathbf G_i$, $\mathbf U$ no longer required orthogonal). It is a
+
+## K5 (REPORT, 78)
+
+- t3toolbox/backend/apply.py:152: `(up, down, left` -- ],                                  # frame order = T3Frame.data = (up, down, left, right)
+- t3toolbox/backend/apply.py:179: `(up, down, left` -- typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+- t3toolbox/backend/apply.py:204: `(up, down, left` -- ],                                  # frame order = T3Frame.data = (up, down, left, right)
+- t3toolbox/backend/apply.py:244: `(up, down, left` -- ],                                  # frame order = T3Frame.data = (up, down, left, right)
+- t3toolbox/backend/apply.py:275: `(up, down, left` -- ],                                  # frame order = T3Frame.data = (up, down, left, right)
+- t3toolbox/backend/entries.py:120: `(up, down, left` -- typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+- t3toolbox/backend/entries.py:146: `(up, down, left` -- typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+- t3toolbox/backend/entries.py:170: `(up, down, left` -- ],                                  # frame order = T3Frame.data = (up, down, left, right)
+- t3toolbox/backend/fv_operations.py:174: `(up, down, left` -- '''Reverse the mode order of a T3 frame 4-tuple ``(up, down, left, right)``.
+- t3toolbox/backend/fv_operations.py:361: `(up, down, left` -- >>> bool(fvo.fv_frame_orthogonality_residual((up, down, left, right)) < 1e-14)
+- t3toolbox/backend/fv_operations.py:634: `(up, down, left` -- typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right), each len=d
+- t3toolbox/backend/fv_operations.py:662: `(up, down, left` -- typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+- t3toolbox/backend/fv_operations.py:697: `(up, down, left` -- def fv_concatenate_weights(weights_A, weights_B):  # each (up, down, left, right) -> concatenated, ranks add
+- t3toolbox/backend/fv_operations.py:704: `(up, down, left` -- def fv_kronecker_weights(weights_A, weights_B):  # each (up, down, left, right) -> Kronecker, ranks multiply
+- t3toolbox/backend/fv_operations.py:742: `(up, down, left` -- typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+- t3toolbox/backend/fv_operations.py:755: `(up, down, left` -- typ.Sequence[NDArray], typ.Sequence[NDArray]],   # one metric (up, down, left, right)
+- t3toolbox/backend/geometry.py:422: `(up, down, left` -- raise ValueError('start frame: expected (up, down, left, right), got %d parts' % len(frame))
+- t3toolbox/backend/geometry.py:602: `(up, down, left` -- frame_data:  typ.Tuple,   # uniform frame .data = (U, O, P, Q, shape, (up, down, left, right) masks)
+- t3toolbox/backend/geometry.py:612: `(up, down, left` -- frame_masks:   typ.Tuple,                   # the frame's (up, down, left, right) masks; HOST bool
+- t3toolbox/backend/geometry.py:742: `(up, down, left` -- ) -> typ.Tuple:             # uniform frame .data = (up, down, left, right, shape, masks)
+- t3toolbox/backend/geometry.py:866: `(up, down, left` -- raise ValueError('start frame: expected uniform frame data (up, down, left, right, shape, masks), got %d '
+- t3toolbox/backend/padded_frames.py:41: `(up, down, left` -- #   (up, down, left, right), each len=d, elm_shapes C+(nUi, Ni), C+(rLi, nDi, rR(i+1)), C+(rLi, nUi, rL(i+1)), C+(rRi, nUi, rR(i+1))
+- t3toolbox/backend/probing.py:651: `(up, down, left` -- ], # frame order = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/probing.py:783: `(up, down, left` -- ],                                  # frame order = T3Frame.data = (up, down, left, right)
+- t3toolbox/backend/probing.py:1226: `(up, down, left` -- ], # frame order = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:940: `(up, down, left` -- ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1114: `(up, down, left` -- ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1198: `(up, down, left` -- ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/ufv_conversions.py:168: `(up, down, left` -- if not stack_shape:  # unstacked -> one ragged (up, down, left, right) core set
+- t3toolbox/backend/ufv_conversions.py:407: `(up, down, left` -- typ.Tuple[typ.Tuple[NDArray, ...], ...],  # (up, down, left, right) ragged families, if unstacked
+- t3toolbox/backend/ufv_masking.py:29: `(up, down, left` -- ) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:                   # (up, down, left[:-1], right[1:])
+- t3toolbox/backend/ufv_operations.py:59: `(up, down, left` -- # A uniform FRAME-WEIGHTS .data tuple: (up, down, left, right, (4 variation edge masks)).
+- t3toolbox/backend/ufv_operations.py:303: `(up, down, left` -- frame_data:  typ.Tuple,                                   # uniform frame .data = (up, down, left, right, shape, masks); stack C = ()
+- t3toolbox/backend/ufv_operations.py:491: `(up, down, left` -- frame_masks:  typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # the frame's (up, down, left, right); HOST bool
+- t3toolbox/backend/ufv_operations.py:584: `(up, down, left` -- weights:    UT3FrameWeightsData,  # (up, down, left, right, masks), stack = C
+- t3toolbox/backend/ufv_operations.py:616: `(up, down, left` -- weights:    UT3FrameWeightsData,  # (up, down, left, right, masks), stack = C
+- t3toolbox/backend/ufv_operations.py:661: `(up, down, left` -- ) -> UT3FrameWeightsData:  # (up, down, left, right, masks) -- a tangent metric
+- t3toolbox/backend/ufv_operations.py:681: `(up, down, left` -- weights: UT3FrameWeightsData,  # (up, down, left, right, masks)
+- t3toolbox/backend/utv_operations.py:58: `(up, down, left` -- frame_data,       # (up, down, left, right, shape, masks), each supercore stack = C
+- t3toolbox/backend/utv_operations.py:188: `(up, down, left` -- frame_data,       # UT3Frame .data:      (up, down, left, right, shape, (4 masks)),  supercore stack = C
+- t3toolbox/backend/utv_operations.py:754: `(up, down, left` -- weights:    typ.Tuple,  # UT3FrameWeights .data: (up, down, left, right, masks), stack = C
+- t3toolbox/backend/utv_sampling.py:69: `(up, down, left` -- frame_data,       # UT3Frame .data:      (up, down, left, right, shape, masks)
+- t3toolbox/backend/utv_sampling.py:71: `(up, down, left` -- ):  # -> (masked variation supercores (tkv, ttv), masked frame supercores (up, down, left, right))
+- t3toolbox/frame_variations_format.py:8: `(up, down, left` -- fixed-rank T3 manifold (T4S Appendix A). ``T3Frame.data = (up, down, left, right) = (U, O, P, Q)``;
+- t3toolbox/frame_variations_format.py:1459: `(up, down, left` -- def data(self) -> typ.Tuple[typ.Tuple[NDArray, ...], ...]:  # (up, down, left, right)
+- t3toolbox/manifold.py:745: `(up, down, left` -- # probing's frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
+- t3toolbox/manifold.py:822: `(up, down, left` -- # probing's frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
+- t3toolbox/manifold.py:864: `(up, down, left` -- # frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
+- t3toolbox/manifold.py:936: `(up, down, left` -- # frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
+- t3toolbox/uniform_frame_variations_format.py:102: `(up, down, left` -- >>> B = ubcf.UT3Frame(up, down, left, right, shape, masks)
+- t3toolbox/uniform_frame_variations_format.py:403: `(up, down, left` -- return UT3Frame(up, down, left, right, shape, UT3FrameMasks(*masks))
+- t3toolbox/uniform_frame_variations_format.py:440: `(up, down, left` -- return UT3Frame(up, down, left, right, shape, UT3FrameMasks(*masks))
+- t3toolbox/uniform_frame_variations_format.py:445: `(up, down, left` -- """The four padded supercores ``(up, down, left, right)`` (the data; masks ride separately)."""
+- t3toolbox/uniform_frame_variations_format.py:530: `(up, down, left` -- return UT3Frame(up, down, left, right, shape, UT3FrameMasks(*masks))
+- t3toolbox/uniform_frame_variations_format.py:582: `(up, down, left` -- >>> masks = ubcf.UT3VariationsMasks(up, down, left, right)
+- t3toolbox/uniform_frame_variations_format.py:1233: `(up, down, left` -- """``(up, down, left, right)`` weight supercores."""
+- t3toolbox/uniform_frame_variations_format.py:1239: `(up, down, left` -- """Raw-array view, mirroring the fields: ``(up, down, left, right, (4 rank masks))``. Backend
+- t3toolbox/uniform_frame_variations_format.py:1417: `(up, down, left` -- if common.is_ndarray(res[0][0]):   # res = (up, down, left, right) leaf
+- t3toolbox/uniform_frame_variations_format.py:1425: `(up, down, left` -- """Wrap a backend frame-weights ``.data`` tuple ``(up, down, left, right, (4 masks))`` into a
+- t3toolbox/uniform_manifold.py:73: `(up, down, left` -- def _ut3frame_from_data(bd) -> ubv.UT3Frame:        # bd = (up, down, left, right, shape, masks_tuple)
+- t3toolbox/uniform_manifold.py:1317: `(up, down, left` -- return ubv.UT3Frame(up, down, left, right, shape, ubv.UT3FrameMasks(*mask_tuple))
+- tests/backend/_padded_frame_oracles.py:44: `(up, down, left` -- phi, psi = interfaces((up, down, left, right))
+- tests/backend/test_padded_frame.py:410: `(up, down, left` -- 'store lengths':      ((up, down, left[:2], right), 'one core per mode'),
+- tests/test_dispatch.py:1902: `(up, down, left` -- return ubv.UT3Frame(up, down, left, right, (4,5,6), masks)
+- tests/test_frame_variations_format.py:43: `(up, down, left` -- """A small, valid set of (up, down, left, right) cores for d=2, no stacking."""
+- tests/test_probe_derivatives.py:494: `(up, down, left` -- return (up, down, left, right)
+- tests/test_uniform_frame_variations_format.py:40: `(up, down, left` -- return ubv.UT3Frame(up, down, left, right, tuple(shape), masks)
+- tests/test_uniform_frame_variations_format.py:108: `(up, down, left` -- B = ubv.UT3Frame(up, down, left, right, _SHAPE, masks)
+- tests/test_uniform_frame_variations_format.py:375: `(up, down, left` -- self.assertEqual(len(frame_data), 6)          # (up, down, left, right, shape, masks)
+- tests/test_uniform_frame_variations_format.py:868: `(up, down, left` -- for m in (up, down, left, right))
+- tests/test_uniform_probing.py:83: `(up, down, left` -- return tuple(_bc_over_K(m, K_new) for m in (up, down, left, right))
+- docs/aligned_padded_frame.md:20: `(up, down, left` -- A frame has four **stores**: the families of frame cores (up, down, left, right), each one rank axis per mode or
+- docs/batching_and_stacking.md:415: `(up, down, left` -- (tucker_cores, tt_cores)`; `T3Frame.data = (up, down, left, right)`; `T3Variations.data =
+- docs/glossary.md:370: `(up, down, left` -- from the frame's as `(up, down, left[:-1], right[1:])`; tangent `+`/`−`/scale leave them unchanged.
+- docs/glossary.md:609: `(up, down, left` -- `(up, down, left, right)`; `(tucker_variations, tt_variations)`; uniform `(supercores…, shape, masks)`.
+- docs/contributor/parameters_not_closures.md:92: `(up, down, left` -- | the variation-mask gauge shift `(up, down, left[:-1], right[1:])` | 5 copies | `ufv_variation_masks` |
+- CLAUDE.md:158: `up/down/left/right` -- `from_t3svd`); **`T3FrameWeights`** (`up/down/left/right`, each len d) is a **metric on a tangent's
+- CLAUDE.md:213: `(up, down, left` -- (tucker_cores, tt_cores)`; `T3Frame.data = (up, down, left, right) = (U, O, P, Q)` (the `O`/down core
+
+## K6 (REPORT, 12)
+
+- t3toolbox/backend/fv_conversions.py:219: `Tucker cores upward` -- # Orthogonalize Tucker cores upward to get up_tt_cores U
+- t3toolbox/backend/fv_conversions.py:251: `TT cores downward` -- # Orthogonalize TT cores downward to get outer_tt_cores O and tucker_variations V
+- t3toolbox/backend/geometry.py:348: `Tucker up-orth` -- (Tucker up-orth + one left TT sweep, no ``W`` factor -- negligible beside the misfit evaluation it
+- t3toolbox/backend/t3_orthogonalization.py:147: `up-orthogonal tucker` -- NDArray,  # new_Uxo.  up-orthogonal tucker core, C+(x,Ni)
+- t3toolbox/backend/t3_orthogonalization.py:171: `Tucker cores upward` -- """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
+- t3toolbox/backend/t3_svd.py:312: `Tucker up-SVD` -- (a Tucker rank above its mode size, ``n_i > N_i``, is reduced by a Tucker up-SVD first -- the one case
+- t3toolbox/backend/t3_svd.py:345: `Tucker up-SVD` -- if x[0][ii].shape[-2] > x[0][ii].shape[-1]:       # n_i > N_i: only a Tucker up-SVD can reduce it
+- t3toolbox/backend/ut3_orthogonalization.py:189: `down-orthogonal O` -- ) -> typ.Tuple[NDArray, NDArray]:   # (new_tucker = variations V, new_tt = down-orthogonal O)
+- t3toolbox/frame_variations_format.py:564: `Down TT core` -- + 'Down TT core left rank mismatch at index ' + str(ii)
+- t3toolbox/frame_variations_format.py:572: `Down TT core` -- + 'Down TT core right rank mismatch at index ' + str(ii)
+- t3toolbox/tucker_tensor_train.py:615: `Down TT core` -- - Down TT core unfoldings are full rank: ``ni <= (ri*r(i+1))``
+- tests/test_tucker_tensor_train.py:3202: `Tucker up-SVD` -- # steps; the sweep now opens with a Tucker up-SVD, so "compose both directions" is minimal.
+
+## K7 (REPORT, 147)
+
+- t3toolbox/backend/fv_operations.py:560: `DPhi` -- ``DPhi(theta)[theta_hat] = E v``, when
+- t3toolbox/backend/fv_operations.py:579: `DPhi` -- ``DPhi[L v] = E(Q v)`` with ``Q`` the projection off the clipped directions, not ``DPhi[L v] = E v``.
+- t3toolbox/backend/fv_operations.py:579: `DPhi` -- ``DPhi[L v] = E(Q v)`` with ``Q`` the projection off the clipped directions, not ``DPhi[L v] = E v``.
+- t3toolbox/backend/optimizers.py:220: `D^2 Phi` -- ``<N, D^2 Phi>`` with ``N`` the normal part of ``A^T omega^2 r``). On a corewise geometry it is the
+- t3toolbox/backend/sampling_derivatives.py:300: `D x` -- #   OTHER factor, carried by the scan. The forward shift D x = [t x^(t-1)]_t (_shift_down) satisfies
+- t3toolbox/backend/sampling_derivatives.py:301: `D^r` -- #   D^r x = r! C(t,r) x^(t-r), so the convolution is sum_r (a^(r)/r!) (D^r b): the scan carries D^r b,
+- t3toolbox/backend/sampling_derivatives.py:301: `D^r` -- #   D^r x = r! C(t,r) x^(t-r), so the convolution is sum_r (a^(r)/r!) (D^r b): the scan carries D^r b,
+- t3toolbox/backend/sampling_derivatives.py:301: `D^r` -- #   D^r x = r! C(t,r) x^(t-r), so the convolution is sum_r (a^(r)/r!) (D^r b): the scan carries D^r b,
+- t3toolbox/backend/sampling_derivatives.py:303: `U^r` -- #   U x = [(s+1) x^(s+1)]_s (_shift_up; U^r z = r! C(r+s,r) z^(r+s)). No weight matrix, no traced shift,
+- t3toolbox/backend/sampling_derivatives.py:303: `U x` -- #   U x = [(s+1) x^(s+1)]_s (_shift_up; U^r z = r! C(r+s,r) z^(r+s)). No weight matrix, no traced shift,
+- t3toolbox/backend/sampling_derivatives.py:318: `D jet` -- ) -> NDArray:               # D jet, same shape: (D jet)^(t) = t jet^(t-1), zero at t = 0
+- t3toolbox/backend/sampling_derivatives.py:318: `D jet` -- ) -> NDArray:               # D jet, same shape: (D jet)^(t) = t jet^(t-1), zero at t = 0
+- t3toolbox/backend/sampling_derivatives.py:319: `D x` -- '''The forward Leibniz shift ``(D x)^(t) = t x^(t-1)`` -- the order-``t`` coefficient of the product
+- t3toolbox/backend/sampling_derivatives.py:320: `D^r` -- with the affine jet ``(0, 1)``. Iterated, ``(D^r x)^(t) = r! C(t, r) x^(t-r)``: how the order scans
+- t3toolbox/backend/sampling_derivatives.py:330: `U jet` -- ) -> NDArray:               # U jet, same shape: (U jet)^(s) = (s+1) jet^(s+1), zero at s = order
+- t3toolbox/backend/sampling_derivatives.py:330: `U jet` -- ) -> NDArray:               # U jet, same shape: (U jet)^(s) = (s+1) jet^(s+1), zero at s = order
+- t3toolbox/backend/sampling_derivatives.py:331: `U x` -- '''The reverse Leibniz shift ``(U x)^(s) = (s+1) x^(s+1)``, the adjoint of :py:func:`_shift_down`.
+- t3toolbox/backend/sampling_derivatives.py:332: `U^r` -- Iterated, ``(U^r x)^(s) = r! C(s+r, r) x^(s+r)`` (zero once ``s + r > order``).'''
+- t3toolbox/backend/sampling_derivatives.py:342: `D jet` -- ) -> NDArray:               # [jet, D jet] stacked on a new length-2 axis
+- t3toolbox/backend/sampling_derivatives.py:352: `U jet` -- ) -> NDArray:               # [jet, U jet] stacked on a new length-2 axis
+- t3toolbox/backend/sampling_derivatives.py:364: `D^r` -- ``D^r`` / ``U^r`` supplies the other ``r! C(.,r)``). A small folded constant.'''
+- t3toolbox/backend/sampling_derivatives.py:364: `U^r` -- ``D^r`` / ``U^r`` supplies the other ``r! C(.,r)``). A small folded constant.'''
+- t3toolbox/backend/sampling_derivatives.py:434: `D^r` -- carry:  typ.Tuple[NDArray, NDArray, NDArray],  # (eta, D^r nu, G): (order+1,)+W+C+(nOi,) ; (order+1,)+W+C+(rR(i+1),) ; C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:437: `D^r` -- '''One input order ``r`` of the eta convolution: ``eta += (mu^(r)/r! . G) . D^r nu``, then ``D`` the
+- t3toolbox/backend/sampling_derivatives.py:484: `D^r` -- ``eta = sum_r (mu^(r)/r! . G) . D^r nu``,   ``(D x)^(t) = t x^(t-1)``,
+- t3toolbox/backend/sampling_derivatives.py:484: `D x` -- ``eta = sum_r (mu^(r)/r! . G) . D^r nu``,   ``(D x)^(t) = t x^(t-1)``,
+- t3toolbox/backend/sampling_derivatives.py:487: `D^r` -- folds in the whole right jet, whose binomial weights the carried ``D^r nu`` supplies (``D^r`` is
+- t3toolbox/backend/sampling_derivatives.py:487: `D^r` -- folds in the whole right jet, whose binomial weights the carried ``D^r nu`` supplies (``D^r`` is
+- t3toolbox/backend/sampling_derivatives.py:782: `D^r` -- carry:  typ.Tuple[NDArray, ...],       # (deta, D^r nu, D^r tau, P, Q, dG); the cores ride unchanged
+- t3toolbox/backend/sampling_derivatives.py:782: `D^r` -- carry:  typ.Tuple[NDArray, ...],       # (deta, D^r nu, D^r tau, P, Q, dG); the cores ride unchanged
+- t3toolbox/backend/sampling_derivatives.py:786: `D^r` -- order-``r`` slices meet the carried ``D^r nu`` / ``D^r tau``, which are then shifted. The two terms
+- t3toolbox/backend/sampling_derivatives.py:786: `D^r` -- order-``r`` slices meet the carried ``D^r nu`` / ``D^r tau``, which are then shifted. The two terms
+- t3toolbox/backend/sampling_derivatives.py:842: `D^r` -- live at a time) against the carried, shifted right jets ``D^r nu`` / ``D^r tau`` -- peak ``W*K*r^2``.
+- t3toolbox/backend/sampling_derivatives.py:842: `D^r` -- live at a time) against the carried, shifted right jets ``D^r nu`` / ``D^r tau`` -- peak ``W*K*r^2``.
+- t3toolbox/backend/sampling_derivatives.py:1283: `U^r` -- carry:  typ.Tuple[NDArray, NDArray, NDArray],  # (src, U^r deta~, P): (order+1,)+W+K+C+(rL(i+1),) ; (order+1,)+W+K+C+(nUi,) ; C+(rLi,nUi,rL(i+1))
+- t3toolbox/backend/sampling_derivatives.py:1288: `U^r` -- ``W*r^2``) meets the carried ``U^r deta~``, which is then up-shifted. Closure-free scan body.'''
+- t3toolbox/backend/sampling_derivatives.py:1379: `U^u` -- xs:     typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (mu^(j), nu^(j), [U^u sigma~]^(j), [U^u tau~]^(j)): W+C+(rLi,) ; W+C+(rR(i+1),) ; (2,)+W+K+C
+- t3toolbox/backend/sampling_derivatives.py:1379: `U^u` -- xs:     typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (mu^(j), nu^(j), [U^u sigma~]^(j), [U^u tau~]^(j)): W+C+(rLi,) ; W+C+(rR(i+1),) ; (2,)+W+K+C
+- t3toolbox/backend/sampling_derivatives.py:1379: `[U^` -- xs:     typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (mu^(j), nu^(j), [U^u sigma~]^(j), [U^u tau~]^(j)): W+C+(rLi,) ; W+C+(rR(i+1),) ; (2,)+W+K+C
+- t3toolbox/backend/sampling_derivatives.py:1379: `[U^` -- xs:     typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (mu^(j), nu^(j), [U^u sigma~]^(j), [U^u tau~]^(j)): W+C+(rLi,) ; W+C+(rR(i+1),) ; (2,)+W+K+C
+- t3toolbox/backend/sampling_derivatives.py:1381: `U^u` -- '''One order ``j`` of the two-row dxi~ correlation: ``dxi~^(u) += (mu^(j) O) . [U^u sigma~]^(j) +
+- t3toolbox/backend/sampling_derivatives.py:1381: `[U^` -- '''One order ``j`` of the two-row dxi~ correlation: ``dxi~^(u) += (mu^(j) O) . [U^u sigma~]^(j) +
+- t3toolbox/backend/sampling_derivatives.py:1382: `U^u` -- [U^u tau~]^(j) . (O nu^(j))`` for ``u in {0, 1}`` -- one order slice of ``mu O`` / ``O nu`` live (peak
+- t3toolbox/backend/sampling_derivatives.py:1382: `[U^` -- [U^u tau~]^(j) . (O nu^(j))`` for ``u in {0, 1}`` -- one order slice of ``mu O`` / ``O nu`` live (peak
+- t3toolbox/backend/sampling_derivatives.py:1431: `U^u` -- ``dxi~^(u) = sum_j (mu^(j) O) . [U^u sigma~]^(j) + [U^u tau~]^(j) . (O nu^(j))``,
+- t3toolbox/backend/sampling_derivatives.py:1431: `U^u` -- ``dxi~^(u) = sum_j (mu^(j) O) . [U^u sigma~]^(j) + [U^u tau~]^(j) . (O nu^(j))``,
+- t3toolbox/backend/sampling_derivatives.py:1431: `[U^` -- ``dxi~^(u) = sum_j (mu^(j) O) . [U^u sigma~]^(j) + [U^u tau~]^(j) . (O nu^(j))``,
+- t3toolbox/backend/sampling_derivatives.py:1431: `[U^` -- ``dxi~^(u) = sum_j (mu^(j) O) . [U^u sigma~]^(j) + [U^u tau~]^(j) . (O nu^(j))``,
+- t3toolbox/backend/sampling_derivatives.py:1433: `U x` -- with ``U x = [(s+1) x^(s+1)]_s`` (row 1 of :py:func:`_shift_up_pair`): ``C(j+1, j) = j+1`` is the only
+- t3toolbox/backend/sampling_derivatives.py:1549: `U^r` -- ``(acc, U^r deta~, nu)`` (``nu`` rides unchanged), the xs ``(mu^(r), 1/r!)``: per step, fold the shifted
+- t3toolbox/backend/sampling_derivatives.py:1578: `U^k` -- mu^(r) (x) xi^(s) (x) sigma~^(r+s)`` is ``sum_k xi^(k) (x) [sum_r mu^(r) (x) U^k sigma~^(r)]``, so
+- t3toolbox/backend/sampling_derivatives.py:1579: `U^k` -- form the pair ``sum_r mu^(r) (x) [U^k sigma~]^(r)`` (``k in {0,1}``; :py:func:`_shift_up_pair`) and
+- t3toolbox/backend/sampling_derivatives.py:1579: `[U^` -- form the pair ``sum_r mu^(r) (x) [U^k sigma~]^(r)`` (``k in {0,1}``; :py:func:`_shift_up_pair`) and
+- t3toolbox/backend/sampling_derivatives.py:2157: `U^k` -- sigma^^(r+s)`` is banded in the affine ``xi``: the pair ``sum_r mu^(r) (x) [U^k sigma^]^(r)``
+- t3toolbox/backend/sampling_derivatives.py:2157: `[U^` -- sigma^^(r+s)`` is banded in the affine ``xi``: the pair ``sum_r mu^(r) (x) [U^k sigma^]^(r)``
+- t3toolbox/backend/sampling_derivatives.py:2185: `U^u` -- xs:     typ.Tuple[NDArray, NDArray],   # (mu^(j), [U^u sigma^]^(j)): W+C+(rLi,) ; (2,)+W+K+C+(rR(i+1),)
+- t3toolbox/backend/sampling_derivatives.py:2185: `[U^` -- xs:     typ.Tuple[NDArray, NDArray],   # (mu^(j), [U^u sigma^]^(j)): W+C+(rLi,) ; (2,)+W+K+C+(rR(i+1),)
+- t3toolbox/backend/sampling_derivatives.py:2187: `U^u` -- '''One order ``j`` of the two-row dxi^ correlation ``dxi^^(u) += (mu^(j) O) . [U^u sigma^]^(j)`` -- the
+- t3toolbox/backend/sampling_derivatives.py:2187: `[U^` -- '''One order ``j`` of the two-row dxi^ correlation ``dxi^^(u) += (mu^(j) O) . [U^u sigma^]^(j)`` -- the
+- t3toolbox/backend/sampling_derivatives.py:2510: `U^r` -- carry:  typ.Tuple[NDArray, ...],       # (src, U^r deta~, U^r deta~_dot, P, P_dot); the cores ride unchanged
+- t3toolbox/backend/sampling_derivatives.py:2510: `U^r` -- carry:  typ.Tuple[NDArray, ...],       # (src, U^r deta~, U^r deta~_dot, P, P_dot); the cores ride unchanged
+- t3toolbox/backend/sampling_derivatives.py:2514: `U^r` -- ``src_dot^(s) += d(edge^(r) P) . [U^r deta~]^(s) + (edge^(r) P) . [U^r deta~_dot]^(s)`` with
+- t3toolbox/backend/sampling_derivatives.py:2514: `U^r` -- ``src_dot^(s) += d(edge^(r) P) . [U^r deta~]^(s) + (edge^(r) P) . [U^r deta~_dot]^(s)`` with
+- t3toolbox/backend/sampling_derivatives.py:2514: `[U^` -- ``src_dot^(s) += d(edge^(r) P) . [U^r deta~]^(s) + (edge^(r) P) . [U^r deta~_dot]^(s)`` with
+- t3toolbox/backend/sampling_derivatives.py:2514: `[U^` -- ``src_dot^(s) += d(edge^(r) P) . [U^r deta~]^(s) + (edge^(r) P) . [U^r deta~_dot]^(s)`` with
+- t3toolbox/backend/sampling_derivatives.py:2699: `U^u` -- factor -- ``d(mu O) . [U^u sigma~] + (mu O) . [U^u sigma~_dot] + [U^u tau~_dot] . (O nu) + [U^u tau~] .
+- t3toolbox/backend/sampling_derivatives.py:2699: `U^u` -- factor -- ``d(mu O) . [U^u sigma~] + (mu O) . [U^u sigma~_dot] + [U^u tau~_dot] . (O nu) + [U^u tau~] .
+- t3toolbox/backend/sampling_derivatives.py:2699: `U^u` -- factor -- ``d(mu O) . [U^u sigma~] + (mu O) . [U^u sigma~_dot] + [U^u tau~_dot] . (O nu) + [U^u tau~] .
+- t3toolbox/backend/sampling_derivatives.py:2699: `U^u` -- factor -- ``d(mu O) . [U^u sigma~] + (mu O) . [U^u sigma~_dot] + [U^u tau~_dot] . (O nu) + [U^u tau~] .
+- t3toolbox/backend/sampling_derivatives.py:2699: `[U^` -- factor -- ``d(mu O) . [U^u sigma~] + (mu O) . [U^u sigma~_dot] + [U^u tau~_dot] . (O nu) + [U^u tau~] .
+- t3toolbox/backend/sampling_derivatives.py:2699: `[U^` -- factor -- ``d(mu O) . [U^u sigma~] + (mu O) . [U^u sigma~_dot] + [U^u tau~_dot] . (O nu) + [U^u tau~] .
+- t3toolbox/backend/sampling_derivatives.py:2699: `[U^` -- factor -- ``d(mu O) . [U^u sigma~] + (mu O) . [U^u sigma~_dot] + [U^u tau~_dot] . (O nu) + [U^u tau~] .
+- t3toolbox/backend/sampling_derivatives.py:2699: `[U^` -- factor -- ``d(mu O) . [U^u sigma~] + (mu O) . [U^u sigma~_dot] + [U^u tau~_dot] . (O nu) + [U^u tau~] .
+- t3toolbox/backend/sampling_derivatives.py:2832: `U^r` -- :py:func:`_tt_det_lag_step` (W summed). The carry is ``(acc, U^r deta~, U^r deta~_dot, nu, nu_dot)``, the xs
+- t3toolbox/backend/sampling_derivatives.py:2832: `U^r` -- :py:func:`_tt_det_lag_step` (W summed). The carry is ``(acc, U^r deta~, U^r deta~_dot, nu, nu_dot)``, the xs
+- t3toolbox/backend/sampling_derivatives.py:2861: `U^k` -- - **sigma~ / tau~ groups** (``xi`` affine): the banded pairs ``sum_r mu^(r) (x) [U^k sigma~]^(r) +
+- t3toolbox/backend/sampling_derivatives.py:2861: `[U^` -- - **sigma~ / tau~ groups** (``xi`` affine): the banded pairs ``sum_r mu^(r) (x) [U^k sigma~]^(r) +
+- t3toolbox/backend/sampling_derivatives.py:2862: `U^k` -- sum_s [U^k tau~]^(s) (x) nu^(s)`` and their dotted twins (four terms: K on ``mu_dot`` / ``sigma~_dot`` /
+- t3toolbox/backend/sampling_derivatives.py:2862: `[U^` -- sum_s [U^k tau~]^(s) (x) nu^(s)`` and their dotted twins (four terms: K on ``mu_dot`` / ``sigma~_dot`` /
+- t3toolbox/backend/sampling_derivatives.py:3167: `U^u` -- (the ``mu O sigma~`` half of :py:func:`_dxi_tilde_tangent_order_step`), ``d(mu O) . [U^u sigma^] + (mu O) .
+- t3toolbox/backend/sampling_derivatives.py:3167: `[U^` -- (the ``mu O sigma~`` half of :py:func:`_dxi_tilde_tangent_order_step`), ``d(mu O) . [U^u sigma^] + (mu O) .
+- t3toolbox/backend/sampling_derivatives.py:3168: `U^u` -- [U^u sigma^_dot]`` with ``d(mu O) = mu_dot O + mu O_dot`` -- ``K`` on the dotted factor of each. Closure-free
+- t3toolbox/backend/sampling_derivatives.py:3168: `[U^` -- [U^u sigma^_dot]`` with ``d(mu O) = mu_dot O + mu O_dot`` -- ``K`` on the dotted factor of each. Closure-free
+- t3toolbox/backend/sampling_derivatives.py:3212: `U^k` -- (x) [U^k sigma^]^(r)`` and its dotted twin (``K`` on ``mu_dot`` / ``sigma^_dot``) met by ``xi`` / ``xi_dot`` --
+- t3toolbox/backend/sampling_derivatives.py:3212: `[U^` -- (x) [U^k sigma^]^(r)`` and its dotted twin (``K`` on ``mu_dot`` / ``sigma^_dot``) met by ``xi`` / ``xi_dot`` --
+- t3toolbox/backend/sharing.py:757: `DPhi` -- - **Exactness.** At ``eps = 0`` the tied lift satisfies ``DPhi[L v] = E v`` on tied coordinates wherever
+- t3toolbox/backend/t3_linalg.py:887: `D^2 Phi` -- second-order term ``<A^T r, D^2 Phi>`` into its normal part (the Weingarten map; Absil, Mahony &
+- t3toolbox/backend/t3_linalg.py:889: `D^2 Phi` -- ``<W(xi, N), eta> = <N, D^2 Phi[xi_hat, eta_hat]>``). This one-shot form computes the per-``(z, theta)``
+- t3toolbox/backend/tv_operations.py:510: `DPhi` -- there); at a rank-deficient point the clipped directions drop out, ``DPhi[L v] = E(Q v)`` (see
+- tests/backend/_curvature_oracles.py:11: `DPhi` -- ``DPhi(theta)[theta_hat] = Phi(Y)`` for the doubled-rank T3 ``Y = tv_to_t3(t3_corewise_frame(theta),
+- tests/backend/_curvature_oracles.py:64: `DPhi` -- """The doubled-rank T3 ``Y`` with ``Phi(Y) = DPhi(theta)[theta_hat]`` (stack: ``theta_hat``'s)."""
+- tests/backend/_curvature_oracles.py:178: `DPhi` -- the Riemannian gradient ``P_X A^T r`` this is ``(DPhi)^T Hess f (DPhi)`` (the vertical directions are in
+- tests/backend/_curvature_oracles.py:178: `DPhi` -- the Riemannian gradient ``P_X A^T r`` this is ``(DPhi)^T Hess f (DPhi)`` (the vertical directions are in
+- tests/backend/_curvature_oracles.py:238: `DPhi` -- """A random raw direction along the gauge orbit of ``theta = (U, G)``: ``DPhi(theta)[result] = 0``
+- tests/backend/test_curvature.py:1577: `DPhi` -- 1e-12 * _norm_flat(theta_hat), which)       # DPhi[theta_hat] = 0
+- tests/backend/test_curvature.py:2852: `DPhi` -- """``DPhi[L v] == E v`` at eps = 0 (to roundoff), the group's raw factor directions one array; the per-mode
+- tests/backend/test_uniform_curvature.py:1617: `DPhi` -- tied lift identity ``DPhi[L v] == E v``. The uniform companion's padded ``s_g`` levels filter to exactly 0 BY THE
+- tests/backend/test_uniform_curvature.py:1704: `DPhi` -- """``DPhi[L v] == E v`` at eps = 0 per element, for a tied gauged tangent (the uniform shared geometry's own
+- docs/contributor/curvature_internals.md:310: `DΦ` -- | F14 | shared, sharing `(0,0,1)`: the tied lift satisfies `DΦ[Lv] = Ev`; the exact form matches FD along the shared retraction at O(h²) | lift 5.3e-1
+- docs/contributor/deferred_and_rejected.md:134: `D^r` -- recurrence on a carried jet (`D^r x = r!·C(t,r)·x^(t−r)`, `D x = t·x^(t−1)`), never a weight matrix. The
+- docs/contributor/deferred_and_rejected.md:134: `D x` -- recurrence on a carried jet (`D^r x = r!·C(t,r)·x^(t−r)`, `D x = t·x^(t−1)`), never a weight matrix. The
+- docs/exact_hessian_two_hole.tex:44: `\Dsh` -- \newcommand{\Dsh}{\mathsf{D}}
+- docs/exact_hessian_two_hole.tex:45: `\Ush` -- \newcommand{\Ush}{\mathsf{U}}
+- docs/exact_hessian_two_hole.tex:110: `D\Phi` -- D\Phi(\th)[\thh] = \sum_{a} \Phi(\th;\, a\leftarrow \thh_a), \qquad
+- docs/exact_hessian_two_hole.tex:111: `D^2\Phi` -- D^2\Phi(\th)[\thh,\thh'] = \sum_{a\neq b} \Phi(\th;\, a\leftarrow\thh_a,\, b\leftarrow\thh'_b),
+- docs/exact_hessian_two_hole.tex:210: `D\Phi` -- Let $\zeta,\zeta'\in T_X\M$ and let $\thh,\thh'$ be any raw directions with $D\Phi(\th)[\thh]=\zeta$,
+- docs/exact_hessian_two_hole.tex:211: `D\Phi` -- $D\Phi(\th)[\thh']=\zeta'$. Then
+- docs/exact_hessian_two_hole.tex:215: `D^2\Phi` -- + \ip{N}{D^2\Phi(\th)[\thh,\thh']},
+- docs/exact_hessian_two_hole.tex:222: `D_\zeta` -- $\W_X(\zeta,N)=P_X\,(D_\zeta P)\,N$, and $\ip{\W_X(\zeta,N)}{\zeta'}=\ip{N}{\mathrm{II}_X(\zeta,\zeta')}$
+- docs/exact_hessian_two_hole.tex:225: `D^2\Phi` -- $\ip{N}{D^2\Phi[\thh,\thh']}=\ip{N}{\mathrm{II}_X(\zeta,\zeta')}$, which depends on $\zeta,\zeta'$ only. The first
+- docs/exact_hessian_two_hole.tex:230: `D\Phi` -- the gauge action ($D\Phi(\th)[V\th]=0$ for \emph{every} $\th$), satisfies, after differentiating that identity along
+- docs/exact_hessian_two_hole.tex:231: `D^2\Phi` -- $\thh'$, $D^2\Phi[\thh_v,\thh']=-D\Phi[V\thh']\in T_X\M$, which $N$ annihilates. (At a slack frame
+- docs/exact_hessian_two_hole.tex:231: `D\Phi` -- $\thh'$, $D^2\Phi[\thh_v,\thh']=-D\Phi[V\thh']\in T_X\M$, which $N$ annihilates. (At a slack frame
+- docs/exact_hessian_two_hole.tex:232: `D\Phi` -- $\ker D\Phi(\th)$ is larger than the gauge orbit's tangent; Proposition~\ref{prop:weingarten} covers every lift.) No derivative of the frame (no SVD p
+- docs/exact_hessian_two_hole.tex:240: `D^2\Phi` -- \qquad \ip{\thh'}{\K_Z\thh}=\ip{Z}{D^2\Phi(\th)[\thh,\thh']},
+- docs/exact_hessian_two_hole.tex:244: `D^2\Phi` -- (Figure~\ref{fig:holes}c). Two instances are needed, and $\ip{N}{D^2\Phi}$ is their difference:
+- docs/exact_hessian_two_hole.tex:261: `D\Phi` -- \nabla_\th\Lambda = D\Phi^\T N = 0,\qquad
+- docs/exact_hessian_two_hole.tex:262: `D\Phi` -- \nabla^2_\th\Lambda = D\Phi^\T\,\Hess f(X)\,D\Phi,
+- docs/exact_hessian_two_hole.tex:262: `D\Phi` -- \nabla^2_\th\Lambda = D\Phi^\T\,\Hess f(X)\,D\Phi,
+- docs/exact_hessian_two_hole.tex:283: `D^2\Phi` -- $\ip{\grad f}{P_XD^2\Phi[\cdot,\cdot]}=O(\|\grad f\|)$ and depends on the lift. Level 2 is what the library ships;
+- docs/exact_hessian_two_hole.tex:322: `D\Phi` -- If every $S_i^\T$ has full row rank and every $T_i$ full column rank, then $D\Phi(\th)[\Lift v]=\Emap v$ for
+- docs/exact_hessian_two_hole.tex:394: `D\Phi` -- $\sim10^{-17}$) needs no special case: there the lift satisfies $D\Phi[\Lift v]=\Emap(Q_{\mathrm c}v)$ with $Q_{\mathrm c}$ the
+- docs/exact_hessian_two_hole.tex:551: `D\Phi` -- \paragraph{The block-sum oracle.} Since $D\Phi(\th)[\thh]=\Phi(Y)$ for the doubled-rank T3 $Y$ that
+- docs/exact_hessian_two_hole.tex:573: `\Dsh` -- Write the down-shift $(\Dsh x)^{(t)}=t\,x^{(t-1)}$ and its adjoint, the up-shift $(\Ush x)^{(s)}=(s+1)\,x^{(s+1)}$
+- docs/exact_hessian_two_hole.tex:573: `\Ush` -- Write the down-shift $(\Dsh x)^{(t)}=t\,x^{(t-1)}$ and its adjoint, the up-shift $(\Ush x)^{(s)}=(s+1)\,x^{(s+1)}$
+- docs/exact_hessian_two_hole.tex:574: `\Dsh` -- ($x^{(m+1)}=0$), so that $\Dsh^r x=r!\binom{t}{r}x^{(t-r)}$ and $(\Ush^rx)^{(s)}=r!\binom{r+s}{r}x^{(r+s)}$
+- docs/exact_hessian_two_hole.tex:574: `\Ush` -- ($x^{(m+1)}=0$), so that $\Dsh^r x=r!\binom{t}{r}x^{(t-r)}$ and $(\Ush^rx)^{(s)}=r!\binom{r+s}{r}x^{(r+s)}$
+- docs/exact_hessian_two_hole.tex:579: `\Dsh` -- &\text{banded (one affine factor } b\text{):} && (a\star b)^{(t)}=a^{(t)}b^{(0)}+(\Dsh a)^{(t)}b^{(1)},
+- docs/exact_hessian_two_hole.tex:580: `\Ush` -- && (c\star^\T b)^{(s)}=c^{(s)}b^{(0)}+(\Ush c)^{(s)}b^{(1)},\\
+- docs/exact_hessian_two_hole.tex:582: `\Dsh` -- &\text{full (both jets):} && (a\ast b)^{(t)}=\textstyle\sum_r\frac{a^{(r)}}{r!}(\Dsh^r b)^{(t)},
+- docs/exact_hessian_two_hole.tex:583: `\Ush` -- && (a\ast^\T z)^{(s)}=\textstyle\sum_r\frac{a^{(r)}}{r!}(\Ush^r z)^{(s)},
+- docs/exact_hessian_two_hole.tex:612: `\Ush` -- pairs them with $(w,p)$), and only those are formed: with $[\Ush^0x]=x$, $[\Ush^1x]=\Ush x$,
+- docs/exact_hessian_two_hole.tex:612: `\Ush` -- pairs them with $(w,p)$), and only those are formed: with $[\Ush^0x]=x$, $[\Ush^1x]=\Ush x$,
+- docs/exact_hessian_two_hole.tex:612: `\Ush` -- pairs them with $(w,p)$), and only those are formed: with $[\Ush^0x]=x$, $[\Ush^1x]=\Ush x$,
+- docs/exact_hessian_two_hole.tex:615: `\Ush` -- \dxt_i^{(u)}=\sum_j\mu_{i-1}^{(j)}G_i\,[\Ush^u\tilde\sigma_i]^{(j)}+[\Ush^u\tilde\tau_{i-1}]^{(j)}G_i\,\nu_i^{(j)},
+- docs/exact_hessian_two_hole.tex:615: `\Ush` -- \dxt_i^{(u)}=\sum_j\mu_{i-1}^{(j)}G_i\,[\Ush^u\tilde\sigma_i]^{(j)}+[\Ush^u\tilde\tau_{i-1}]^{(j)}G_i\,\nu_i^{(j)},
+- docs/exact_hessian_two_hole.tex:619: `\Ush` -- $d(\mu G)[\Ush^u\tilde\sigma]+\mu G[\Ush^u\dot{\tilde\sigma}]+[\Ush^u\dot{\tilde\tau}]G\nu+[\Ush^u\tilde\tau]d(G\nu)$,
+- docs/exact_hessian_two_hole.tex:619: `\Ush` -- $d(\mu G)[\Ush^u\tilde\sigma]+\mu G[\Ush^u\dot{\tilde\sigma}]+[\Ush^u\dot{\tilde\tau}]G\nu+[\Ush^u\tilde\tau]d(G\nu)$,
+- docs/exact_hessian_two_hole.tex:619: `\Ush` -- $d(\mu G)[\Ush^u\tilde\sigma]+\mu G[\Ush^u\dot{\tilde\sigma}]+[\Ush^u\dot{\tilde\tau}]G\nu+[\Ush^u\tilde\tau]d(G\nu)$,
+- docs/exact_hessian_two_hole.tex:619: `\Ush` -- $d(\mu G)[\Ush^u\tilde\sigma]+\mu G[\Ush^u\dot{\tilde\sigma}]+[\Ush^u\dot{\tilde\tau}]G\nu+[\Ush^u\tilde\tau]d(G\nu)$,
+- docs/exact_hessian_two_hole.tex:700: `\Ush` -- \Pi_{i,k}=\sum_r\mu_{i-1}^{(r)}\otimes[\Ush^k\tilde\sigma_i]^{(r)}+\sum_s[\Ush^k\tilde\tau_{i-1}]^{(s)}\otimes\nu_i^{(s)},
+- docs/exact_hessian_two_hole.tex:700: `\Ush` -- \Pi_{i,k}=\sum_r\mu_{i-1}^{(r)}\otimes[\Ush^k\tilde\sigma_i]^{(r)}+\sum_s[\Ush^k\tilde\tau_{i-1}]^{(s)}\otimes\nu_i^{(s)},
+- docs/exact_hessian_two_hole.tex:702: `\Ush` -- with the fold $F_i^{(r)}=\sum_s\binom{r+s}{r}\ddet_i^{(r+s)}\otimes\nu_i^{(s)}=\sum_s\frac{1}{r!}(\Ush^r\ddet_i)^{(s)}\otimes\nu_i^{(s)}$
+- docs/exact_hessian_two_hole.tex:703: `\Ush` -- (\code{_tt_det_lag_step}, which carries $\Ush^r\ddet$). Its derivative (\code{_tt_tangent_variation_jets_step},
+- docs/exact_hessian_two_hole.tex:1014: `D\Phi` -- C2 & Prop.~\ref{prop:lift}: $D\Phi[\Lift v]=\Emap v$ on minimal / Tucker-slack / TT-slack frames & $\le2.4{\times}10^{-15}$\\
+- docs/exact_hessian_two_hole.tex:1017: `D^2\Phi` -- C6 & $\ip{N}{D^2\Phi[\thh,\thh']}=\ip{\thh'}{\K_N\thh}$ (dense double replacement); a vertical $\thh_v$ has
+- docs/exact_hessian_two_hole.tex:1026: `D\Phi` -- C12 & tied lift \eqref{eq:tied}: $D\Phi[\Lift v]=\Emap v$ at a group-ceiling point; $=M_g^+[\delta U_i]$; adjoint & $\le5.1{\times}10^{-16}$\\
+
+## K8 (REPORT, 1208)
+
+- t3toolbox/backend/apply.py:169: `dU_i` -- dxis = compute_dxi(var_tucker_cores, ww)     # delta-xi_i = dU_i^T w_i
+- t3toolbox/backend/apply.py:181: `dU_tildes` -- ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
+- t3toolbox/backend/apply.py:281: `dU_tildes` -- ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
+- t3toolbox/backend/apply.py:354: `(U, O, L, R)` -- model. :py:func:`tv_precompute_apply_frame_sweep` is the same at the manifold frame ``(U, O, L, R)`` and at the
+- t3toolbox/backend/apply.py:360: `Udot` -- xis_dot = compute_dxi(tucker_dirs, ww)                                       # xi_dot = Udot w
+- t3toolbox/backend/apply.py:465: `O_k` -- dxi-hat_k  = mu-hat_{k-1} . O_k . sigma-hat_k                 # over the down mode nO
+- t3toolbox/backend/apply.py:467: `dU` -- dU-tilde_k = dxi-hat_k (x) w_k                               # over (nO, N)
+- t3toolbox/backend/apply.py:486: `dU_tildes` -- dU_tildes = contractions.contract('dWo,dWKCa->dKCao', ww, dxi_hats)
+- t3toolbox/backend/apply.py:489: `dU_tildes` -- dU_tildes = contractions.contract('dWo,dWKCa->dWKCao', ww, dxi_hats)
+- t3toolbox/backend/apply.py:490: `dU_tildes` -- return dU_tildes, dG_tildes
+- t3toolbox/backend/apply.py:493: `mu, O` -- dxi_hats = tuple(contractions.contract('WCa,Caib,WKCb->WKCi', mu, O, sh)        # dxi_hat = mu . O . sigma_hat
+- t3toolbox/backend/apply.py:494: `mu, O` -- for mu, O, sh in zip(mus, down_tt_cores, sigma_hats))
+- t3toolbox/backend/apply.py:498: `dU_tildes` -- dU_tildes = tuple(contractions.contract('Wo,WKCa->KCao', w, dxh) for w, dxh in zip(ww, dxi_hats))
+- t3toolbox/backend/apply.py:502: `dU_tildes` -- dU_tildes = tuple(contractions.contract('Wo,WKCa->WKCao', w, dxh) for w, dxh in zip(ww, dxi_hats))
+- t3toolbox/backend/apply.py:503: `dU_tildes` -- return dU_tildes, dG_tildes   # (var_tucker, var_tt) = T3Variations.data
+- t3toolbox/backend/apply.py:508: `Udot` -- ``(U, G, G, G)`` along ``(Udot, Gdot)``, shared by :py:func:`t3_apply_corewise_hessian_from_sweep` and
+- t3toolbox/backend/apply.py:516: `dU` -- dU              = sum_W  w (x) dxi_hat_dot
+- t3toolbox/backend/apply.py:528: `dU` -- dU = contractions.contract('dWo,dWKCa->dKCao', ww, dxi_hats_dot)
+- t3toolbox/backend/apply.py:534: `dU` -- return dU, dG
+- t3toolbox/backend/apply.py:537: `dU` -- dU = tuple(contractions.contract('Wo,WKCa->KCao', w, dxd) for w, dxd in zip(ww, dxi_hats_dot))
+- t3toolbox/backend/apply.py:545: `dU` -- return dU, tuple(dG)
+- t3toolbox/backend/entries.py:125: `dU_i` -- Tucker-core fibers (``U_i[..., index_i]`` and ``dU_i[..., index_i]``) rather than contracting with
+- t3toolbox/backend/entries.py:136: `dU_i` -- dxis = _entry_xis(var_tucker_cores, index)    # delta-xi_i = dU_i[..., index_i] (fiber slice)
+- t3toolbox/backend/entries.py:148: `dU_tildes` -- ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes)
+- t3toolbox/backend/entries.py:152: `dU` -- the apply vectors replaced by the unit vectors ``e_{index_k}`` (so the ``dU-tilde`` outer product
+- t3toolbox/backend/entries.py:203: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q); uses Q (right) and O (down)
+- t3toolbox/backend/entries.py:225: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q); uses U (one-hot), O, Q
+- t3toolbox/backend/entries.py:230: `dU_tildes` -- ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
+- t3toolbox/backend/entries.py:290: `Udot` -- xis_dot = _entry_xis(tucker_dirs, index)                                     # xi_dot = Udot[..., index] (fiber slice)
+- t3toolbox/backend/fitting.py:16: `(U,O,P,Q)` -- composes the two. The §6.3 corewise substitution ``(U,O,P,Q) -> (U,G,G,G)`` is now nothing but
+- t3toolbox/backend/fitting.py:351: `dU` -- """The bare transpose ``J^T r``, summed over the sample stack ``W``; raw ``(dU, dG)``."""
+- t3toolbox/backend/fitting.py:374: `Udot` -- core_directions,   # theta_hat = (Udot, Gdot) at base_point; elm_shape=K+C+(...) (raw core shapes)
+- t3toolbox/backend/fitting.py:380: `dU` -- ):                         # -> raw (dU, dG), stack K+C, sample stack W summed; MASK-FREE by contract
+- t3toolbox/backend/fitting.py:389: `dU` -- Needed **only** for ``hessian='exact'``. Raw ``(dU, dG)`` shaped like the directions (``K + C``),
+- t3toolbox/backend/fitting.py:545: `(U, O, L, R)` -- # (U, O, L, R); through U and G at the corewise frame) -- unweighted, so the residual is r itself
+- t3toolbox/backend/fitting.py:657: `(U, O, L, R)` -- # (U, O, L, R); through U and G at the corewise frame); omega^2 r, exactly as transpose weights it
+- t3toolbox/backend/fitting.py:718: `(U, O, L, R)` -- # the sweep's xi / mu are base_point's own: the manifold frame (U, O, L, R) sweeps xi through U and mu
+- t3toolbox/backend/fv_conversions.py:32: `(U, O, P, Q)` -- ) -> typ.Tuple:                # (U, O, P, Q) = (U, G, G, G); the raw cores ARE the frame
+- t3toolbox/backend/fv_conversions.py:33: `(P, Q, O)` -- '''The **corewise** frame of a T3: the Section 6.3 substitution ``(P, Q, O) -> G``.
+- t3toolbox/backend/fv_conversions.py:33: `, O)` -- '''The **corewise** frame of a T3: the Section 6.3 substitution ``(P, Q, O) -> G``.
+- t3toolbox/backend/fv_operations.py:95: `(U, O, P, Q)` -- frame:  typ.Tuple,   # (U, O, P, Q) frame data; len=d each, elm_shape=stack_shape+(...)
+- t3toolbox/backend/fv_operations.py:315: `U_g` -- sign-fixed reduced QR of ``G.T``, and set ``U_g = Q.T``: Haar-distributed orthonormal rows, the same
+- t3toolbox/backend/fv_operations.py:459: `O_i` -- - the **Tucker factors** ``S_i^T = <O_i, H_i>`` (shape ``nDi x nUi``): the base point's Tucker variation
+- t3toolbox/backend/fv_operations.py:459: `O_i` -- - the **Tucker factors** ``S_i^T = <O_i, H_i>`` (shape ``nDi x nUi``): the base point's Tucker variation
+- t3toolbox/backend/fv_operations.py:463: ```O``` -- The zipper recompute is GEMM-only, exact to roundoff, and consistent with the stored ``O``/``R``
+- t3toolbox/backend/fv_operations.py:559: `Udot_i` -- variation ``theta_hat = (Udot_i, Gdot_i)`` represent the same tangent vector,
+- t3toolbox/backend/fv_operations.py:562: `Udot_i` -- ``Udot_i = (S_i^T)^+ V_i``,   ``Gdot_i = H_i x_3 T_i^+`` (``i <= d-2``),   ``Gdot_{d-1} = H_{d-1}``,
+- t3toolbox/backend/geometry.py:119: `(U, O, P, Q)` -- frame:  typ.Tuple,    # (U, O, P, Q) -- an orthogonal frame
+- t3toolbox/backend/geometry.py:122: `P_last` -- variations zero except the last TT variation, set to the frame's last left core ``P_last``. This is
+- t3toolbox/backend/geometry.py:132: `P_last` -- return (tucker_var, tt_var[:-1] + (left[-1],))                   # last TT variation = P_last
+- t3toolbox/backend/geometry.py:139: `P_last` -- all variation slots zero except the last TT slice, set to the frame's last left core ``P_last``.
+- t3toolbox/backend/geometry.py:152: `P_last` -- left_sc[-1:]], axis=0)                # zero except last = P_last
+- t3toolbox/backend/geometry.py:217: `(U, O, P, Q)` -- frame:              typ.Tuple,   # (U, O, P, Q) -- an orthogonal frame
+- t3toolbox/backend/geometry.py:291: `(U, O, P, Q)` -- ) -> typ.Tuple:                # (U, O, P, Q) orthonormal frame (Algorithm 11)
+- t3toolbox/backend/geometry.py:306: `(U, O, P, Q)` -- frame:  typ.Tuple,   # (U, O, P, Q)
+- t3toolbox/backend/geometry.py:314: `(U, O, P, Q)` -- frame:  typ.Tuple,   # (U, O, P, Q)
+- t3toolbox/backend/geometry.py:361: `(U, O, P, Q)` -- frame:  typ.Tuple,   # (U, O, P, Q) -- a frame of this geometry: the STRUCTURE to copy
+- t3toolbox/backend/geometry.py:362: `(U, O, P, Q)` -- ) -> typ.Tuple:              # (U, O, P, Q) -- the canonical orthonormal frame at the zero tensor
+- t3toolbox/backend/geometry.py:433: `(U, O, P, Q)` -- frame:              typ.Tuple,                   # (U, O, P, Q)
+- t3toolbox/backend/geometry.py:451: `Udot_g` -- group, ``Udot_g = M_g^{+eps} [V_i1; ...]`` against ``aux``'s stacked-``S`` SVD
+- t3toolbox/backend/geometry.py:491: `(P, Q, O)` -- The raw cores ARE the frame (the Section 6.3 substitution ``(P, Q, O) -> G``), there is no gauge, and
+- t3toolbox/backend/geometry.py:491: `, O)` -- The raw cores ARE the frame (the Section 6.3 substitution ``(P, Q, O) -> G``), there is no gauge, and
+- t3toolbox/backend/geometry.py:509: `(U, O, P, Q)` -- ) -> typ.Tuple:                # (U, O, P, Q) = (U, G, G, G) -- the raw cores ARE the frame
+- t3toolbox/backend/geometry.py:510: `(P, Q, O)` -- """The (non-orthonormal) corewise frame: the Section 6.3 substitution ``(P, Q, O) -> G``."""
+- t3toolbox/backend/geometry.py:510: `, O)` -- """The (non-orthonormal) corewise frame: the Section 6.3 substitution ``(P, Q, O) -> G``."""
+- t3toolbox/backend/geometry.py:880: `O.shape` -- widths = ((U.shape[-2], masks[0].shape[-1]), (O.shape[-2], masks[1].shape[-1]),
+- t3toolbox/backend/geometry.py:885: `O.shape` -- if O.shape[-3] != masks[2].shape[-1] or O.shape[-1] != masks[3].shape[-1]:
+- t3toolbox/backend/geometry.py:885: `O.shape` -- if O.shape[-3] != masks[2].shape[-1] or O.shape[-1] != masks[3].shape[-1]:
+- t3toolbox/backend/optimizers.py:228: `(U, O, P, Q)` -- frame:     typ.Tuple      # (U, O, P, Q)
+- t3toolbox/backend/padded_frames.py:443: `, O)` -- PhiU = contractions.contract('Caxb,Caub->Cxu', Vb, O)
+- t3toolbox/backend/padded_frames.py:444: `, O)` -- W = _unfold(Vb - contractions.contract('Cxu,Caub->Caxb', PhiU, O), -2)
+- t3toolbox/backend/padded_frames.py:566: `(U, O, L, R)` -- nU, nD, rL, rR = _frame_stores((U, O, L, R), 'frame')
+- t3toolbox/backend/padded_frames.py:605: `O[` -- tuple(H[j][..., rL0[j]:, :, :] for j in js), tuple(O[j][..., rL0[j]:, nD0[j]:, :] for j in js),
+- t3toolbox/backend/padded_frames.py:611: `O[` -- tuple(H[j][..., rR0[j + 1]:] for j in js), tuple(O[j][..., nD0[j]:, rR0[j + 1]:] for j in js),
+- t3toolbox/backend/padded_frames.py:632: `O[` -- tuple(H[i][..., rR0[i + 1]:] for i in js), tuple(O[i][..., nD0[i]:, rR0[i + 1]:] for i in js),
+- t3toolbox/backend/padded_frames.py:642: `O[` -- tuple(H[i][..., rL0[i]:, :, :] for i in js), tuple(O[i][..., rL0[i]:, nD0[i]:, :] for i in js),
+- t3toolbox/backend/padded_frames.py:652: `O[` -- tuple(R[i][..., rR0[i]:, nU0[i]:, :] for i in range(d)), tuple(O[i][..., nD0[i]:, :] for i in range(d)),
+- t3toolbox/backend/padded_frames.py:653: `O[` -- tuple(_embed(O[i][..., :rL0[i], :nD0[i], :rR0[i + 1]], (rL1[i], nD0[i], rR1[i + 1])) for i in range(d)),
+- t3toolbox/backend/probing.py:379: `(Q, O)` -- cores (Q, O) do not. t1/t3 self-infer the split from the C-only frame core; t2's only core is the
+- t3toolbox/backend/probing.py:379: `, O)` -- cores (Q, O) do not. t1/t3 self-infer the split from the C-only frame core; t2's only core is the
+- t3toolbox/backend/probing.py:386: `mu, O` -- t3 = contractions.contract('WCa,Caib,WKCi->WKCb', mu, O, dxi)
+- t3toolbox/backend/probing.py:598: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/probing.py:641: `O.shape` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
+- t3toolbox/backend/probing.py:641: `O_i` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
+- t3toolbox/backend/probing.py:641: `O_i` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
+- t3toolbox/backend/probing.py:642: `P_i` -- typ.Sequence[NDArray],  # left_tt_cores.   len=d. P_iax P_iay = I_xy, P.shape = (rL, nU, rR)
+- t3toolbox/backend/probing.py:642: `P_i` -- typ.Sequence[NDArray],  # left_tt_cores.   len=d. P_iax P_iay = I_xy, P.shape = (rL, nU, rR)
+- t3toolbox/backend/probing.py:651: `(U, O, P, Q)` -- ], # frame order = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/probing.py:674: `(U, O, P, Q)` -- exactly ``T3Frame.data`` order (U, O, P, Q) -- pass ``frame.data`` directly, no reorder.
+- t3toolbox/backend/probing.py:969: `mu, O` -- term2 = contractions.contract('WCa,Caib,WKCb->WKCi', mu, O, st)
+- t3toolbox/backend/probing.py:995: `(O)` -- # supercore down_tt_cores (O) is C-only. Mirrors the ragged calls; the ragged xmap is the oracle.
+- t3toolbox/backend/probing.py:1009: `dU_tilde` -- ) -> typ.Tuple[NDArray]:           # (dU_tilde,): W+K+C+(nOi,Ni), or K+C+(nOi,Ni) when summed
+- t3toolbox/backend/probing.py:1020: `dU_tilde` -- dU_tilde = (
+- t3toolbox/backend/probing.py:1026: `dU_tilde` -- dU_tilde = (
+- t3toolbox/backend/probing.py:1031: `dU_tilde` -- return (dU_tilde,)
+- t3toolbox/backend/probing.py:1050: `dU_tildes` -- ) -> typ.Union[typ.Sequence[NDArray], NDArray]: # dU_tildes. len=d, elm_shape=(...,nOi,Ni)
+- t3toolbox/backend/probing.py:1069: `dU_tildes` -- dU_tildes = (contractions.contract('dWKCo,dWCa->dKCao', ztildes, etas, len_W=n_probe)
+- t3toolbox/backend/probing.py:1072: `dU_tildes` -- dU_tildes = (contractions.contract('dWKCo,dWCa->dWKCao', ztildes, etas, len_W=n_probe)
+- t3toolbox/backend/probing.py:1077: `dU_tildes` -- (dU_tildes,) = xmap(step, (ztildes, etas, ww, dxi_tildes))
+- t3toolbox/backend/probing.py:1079: `dU_tildes` -- return dU_tildes
+- t3toolbox/backend/probing.py:1179: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/probing.py:1185: `dU_tildes` -- ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
+- t3toolbox/backend/probing.py:1204: `dU_tildes` -- dU_tildes = assemble_tucker_variations(ztildes, dxi_tildes, ww, etas, sum_over_probes=sum_over_probes)
+- t3toolbox/backend/probing.py:1207: `dU_tildes` -- return dU_tildes, dG_tildes
+- t3toolbox/backend/probing.py:1216: `O.shape` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
+- t3toolbox/backend/probing.py:1216: `O_i` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
+- t3toolbox/backend/probing.py:1216: `O_i` -- typ.Sequence[NDArray],  # down_tt_cores.   len=d. O_ixj O_iyj = I_xy  O.shape = (rL, nO, rR)
+- t3toolbox/backend/probing.py:1217: `P_i` -- typ.Sequence[NDArray],  # left_tt_cores.   len=d. P_iax P_iay = I_xy, P.shape = (rL, nU, rR)
+- t3toolbox/backend/probing.py:1217: `P_i` -- typ.Sequence[NDArray],  # left_tt_cores.   len=d. P_iax P_iay = I_xy, P.shape = (rL, nU, rR)
+- t3toolbox/backend/probing.py:1226: `(U, O, P, Q)` -- ], # frame order = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/probing.py:1230: `dU_tildes` -- typ.Tuple[NDArray,...], # dU_tildes. len=d, elm_shape=(...,nOi,Ni)
+- t3toolbox/backend/probing.py:1234: `dU_tildes` -- NDArray,  # dU_tildes. shape=(d, ..., nOi, Ni)
+- t3toolbox/backend/probing.py:1261: `(U, O, P, Q)` -- exactly ``T3Frame.data`` order (U, O, P, Q) -- pass ``frame.data`` directly, no reorder.
+- t3toolbox/backend/probing.py:1267: `dU_tildes` -- (dU_tildes, dG_tildes)
+- t3toolbox/backend/probing.py:1294: `dU_tildes` -- >>> JTz = t3p.tv_probe_transpose(z, ww, probe_frame)   # (dU_tildes, dG_tildes)
+- t3toolbox/backend/probing.py:1349: `dU_tildes` -- dU_tildes = assemble_tucker_variations(
+- t3toolbox/backend/probing.py:1359: `dU_tildes` -- return dU_tildes, dG_tildes
+- t3toolbox/backend/probing.py:1457: `Udot` -- #   2. dotted forward = the GN tangent forward at Q = O = P = G along (Udot, Gdot): xidot = Udot w,
+- t3toolbox/backend/probing.py:1457: `Udot` -- #   2. dotted forward = the GN tangent forward at Q = O = P = G along (Udot, Gdot): xidot = Udot w,
+- t3toolbox/backend/probing.py:1459: `Udot` -- #   3. dotted adjoint-up lift deta~dot = Udot z~;
+- t3toolbox/backend/probing.py:1471: `Udot` -- x: typ.Tuple[NDArray, NDArray, NDArray],   # (U, Udot, z~): C+(nUi,Ni) ; K+C+(nUi,Ni) ; W+C+(Ni,)
+- t3toolbox/backend/probing.py:1475: `Ud` -- U, Ud, zt = x
+- t3toolbox/backend/probing.py:1476: `Ud` -- return (contractions.contract('WCo,KCio->WKCi', zt, Ud, len_C=U.ndim - 2),)
+- t3toolbox/backend/probing.py:1481: `Udot` -- up_tucker_cores_dot:    typ.Union[typ.Sequence[NDArray], NDArray],  # Udot. len=d, elm_shape=K+C+(nUi,Ni)
+- t3toolbox/backend/probing.py:1485: `Udot_i` -- ``deta_tilde_dot_i = Udot_i z~_i`` (only the core moves). The tangent stack ``K`` comes from ``Udot``; ``U``
+- t3toolbox/backend/probing.py:1485: `Udot` -- ``deta_tilde_dot_i = Udot_i z~_i`` (only the core moves). The tangent stack ``K`` comes from ``Udot``; ``U``
+- t3toolbox/backend/probing.py:1503: `mu O` -- exactly one :py:func:`_sigma_step` (``sigma Q xi + mu dG xi + mu O dxi``, three terms with ``K`` on one factor
+- t3toolbox/backend/probing.py:1566: `O_d` -- down_tt_cores_dot:      typ.Union[typ.Sequence[NDArray], NDArray],  # O_dot. len=d, elm_shape=K+C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/probing.py:1576: `mu O` -- '''The derivative of :py:func:`compute_dxi_tilde`, ``dxi~ = tau~ O nu + mu O sigma~``: each combine is
+- t3toolbox/backend/probing.py:1576: `O nu` -- '''The derivative of :py:func:`compute_dxi_tilde`, ``dxi~ = tau~ O nu + mu O sigma~``: each combine is
+- t3toolbox/backend/probing.py:1576: `O sigma` -- '''The derivative of :py:func:`compute_dxi_tilde`, ``dxi~ = tau~ O nu + mu O sigma~``: each combine is
+- t3toolbox/backend/probing.py:1578: `O_d` -- tau``), so ``dxi~_dot = compute_deta(O_dot, O, O, tau~, nu, tau~_dot, nu_dot) + compute_deta(O_dot, O, O, mu,
+- t3toolbox/backend/probing.py:1578: `O_d` -- tau``), so ``dxi~_dot = compute_deta(O_dot, O, O, tau~, nu, tau~_dot, nu_dot) + compute_deta(O_dot, O, O, mu,
+- t3toolbox/backend/probing.py:1591: `dU` -- ) -> typ.Tuple[NDArray]:                                    # (dU,): K+C+(nOi,Ni), W summed
+- t3toolbox/backend/probing.py:1605: `dU` -- ) -> typ.Union[typ.Sequence[NDArray], NDArray]:  # dU. len=d, elm_shape=K+C+(nOi,Ni) (W summed)
+- t3toolbox/backend/probing.py:1615: `dU` -- (dU,) = xmap(_tucker_tangent_variations_step, (ztildes, dxi_tildes_dot, etas_dot, ww))
+- t3toolbox/backend/probing.py:1616: `dU` -- return dU
+- t3toolbox/backend/probing.py:1702: `(U, O, L, R)` -- hook for a local model, whose probe sweep at the manifold frame ``(U, O, L, R)`` carries exactly the corewise
+- t3toolbox/backend/probing.py:1721: `Udot` -- # 2. the dotted forward: the GN tangent forward at Q = O = P = G along (Udot, Gdot) -- its sigma / tau /
+- t3toolbox/backend/probing.py:1738: `dU` -- dU = assemble_tucker_tangent_variations(ztildes, dxi_tildes_dot, ww, etas_dot)
+- t3toolbox/backend/probing.py:1741: `dU` -- return dU, dG
+- t3toolbox/backend/regularization.py:58: `(U,O,P,Q)` -- :py:mod:`t3toolbox.backend.geometry`'s geometry classes; ``frame`` = ``(U,O,P,Q)``; ``p`` a tangent
+- t3toolbox/backend/sampling_derivatives.py:563: `(U, O, P, Q)` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:582: `(U, O, P, Q)` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:605: `(U, O, P, Q)` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:627: `(U, O, P, Q)` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:647: `(U, O, P, Q)` -- ],                                      # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:672: `dU` -- # the variation cores dU, dG), then z = U.deta + dU.eta. Differentiating that map w.r.t. the probe
+- t3toolbox/backend/sampling_derivatives.py:672: `dU` -- # the variation cores dU, dG), then z = U.deta + dU.eta. Differentiating that map w.r.t. the probe
+- t3toolbox/backend/sampling_derivatives.py:697: `mu O` -- ``sigma Q(xi) + mu dG(xi) + mu O(dxi)`` as fused two-term recurrences. W, K, C ride unflattened
+- t3toolbox/backend/sampling_derivatives.py:743: `O_i` -- ``sigma_i = sigma_{i-1} Q_i(xi_i) + mu_{i-1} dG_i(xi_i) + mu_{i-1} O_i(dxi_i)``, boundary
+- t3toolbox/backend/sampling_derivatives.py:743: `Q_i` -- ``sigma_i = sigma_{i-1} Q_i(xi_i) + mu_{i-1} dG_i(xi_i) + mu_{i-1} O_i(dxi_i)``, boundary
+- t3toolbox/backend/sampling_derivatives.py:743: `O_i` -- ``sigma_i = sigma_{i-1} Q_i(xi_i) + mu_{i-1} dG_i(xi_i) + mu_{i-1} O_i(dxi_i)``, boundary
+- t3toolbox/backend/sampling_derivatives.py:859: `dU` -- data: typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (U, dU, eta_jet, deta_jet) for one core
+- t3toolbox/backend/sampling_derivatives.py:863: `dU` -- U, dU, eta_jet, deta_jet = data
+- t3toolbox/backend/sampling_derivatives.py:864: `dU` -- # Three-group (W,K,C): deta carries K (in the lift via the C-only U, W and K ride passively); eta is W+C and dU is
+- t3toolbox/backend/sampling_derivatives.py:868: `dU` -- + contractions.contract('tWCi,KCio->tWKCo', eta_jet, dU, len_C=n_frame),)
+- t3toolbox/backend/sampling_derivatives.py:873: `dU` -- var_tucker_cores:   typ.Sequence[NDArray],  # dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:877: `dU_i` -- '''Assemble tangent-probe-derivative jets: ``z_i = U_i deta_i + dU_i eta_i`` -- two lifts
+- t3toolbox/backend/sampling_derivatives.py:886: `dU` -- # C-only U supercore, where W and K ride passively); eta is W+C lifted through the K+C variation core dU,
+- t3toolbox/backend/sampling_derivatives.py:899: `dU` -- typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:907: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:932: `dU` -- typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:940: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1076: `dU` -- typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1084: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1106: `dU` -- typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1114: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1160: `dU` -- typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1168: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1190: `dU` -- typ.Sequence[NDArray],          # var_tucker_cores dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1198: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (up, down, left, right) = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:1222: `dU_tilde` -- # gradient (dU_tilde, dG_tilde). Derived as the jet-ified adjoint-state Lagrangian (T4S Thm 7, Alg. 8):
+- t3toolbox/backend/sampling_derivatives.py:1378: `, O)` -- carry:  typ.Tuple[NDArray, NDArray],   # (dxi~, O): (2,)+W+K+C+(nOi,) ; C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:1381: `(mu^(j) O)` -- '''One order ``j`` of the two-row dxi~ correlation: ``dxi~^(u) += (mu^(j) O) . [U^u sigma~]^(j) +
+- t3toolbox/backend/sampling_derivatives.py:1381: `mu^(j) O` -- '''One order ``j`` of the two-row dxi~ correlation: ``dxi~^(u) += (mu^(j) O) . [U^u sigma~]^(j) +
+- t3toolbox/backend/sampling_derivatives.py:1382: `mu O` -- [U^u tau~]^(j) . (O nu^(j))`` for ``u in {0, 1}`` -- one order slice of ``mu O`` / ``O nu`` live (peak
+- t3toolbox/backend/sampling_derivatives.py:1382: `O nu` -- [U^u tau~]^(j) . (O nu^(j))`` for ``u in {0, 1}`` -- one order slice of ``mu O`` / ``O nu`` live (peak
+- t3toolbox/backend/sampling_derivatives.py:1382: `O nu` -- [U^u tau~]^(j) . (O nu^(j))`` for ``u in {0, 1}`` -- one order slice of ``mu O`` / ``O nu`` live (peak
+- t3toolbox/backend/sampling_derivatives.py:1383: ```O``` -- ``W*r*n``). Closure-free scan body (the core ``O`` rides the carry).'''
+- t3toolbox/backend/sampling_derivatives.py:1387: `, O)` -- mO = contractions.contract('WCa,Caib->WCib', mu_j, O)
+- t3toolbox/backend/sampling_derivatives.py:1387: `mu_j, O` -- mO = contractions.contract('WCa,Caib->WCib', mu_j, O)
+- t3toolbox/backend/sampling_derivatives.py:1391: `, O)` -- return (dxi, O), ()
+- t3toolbox/backend/sampling_derivatives.py:1402: `O.shape` -- dxi0 = xnp.zeros((2,) + st.shape[1:-1] + (O.shape[-2],), xnp.result_type(O, mu, nu, st, tt))   # W+K+C off the tilde
+- t3toolbox/backend/sampling_derivatives.py:1403: `, O)` -- (dxi, _), _ = xscan(_dxi_tilde_order_step, (dxi0, O),
+- t3toolbox/backend/sampling_derivatives.py:1426: `mu O` -- combines ``tau~ O nu`` and ``mu O sigma~`` giving delta-xi-tilde on the mode.
+- t3toolbox/backend/sampling_derivatives.py:1426: `O nu` -- combines ``tau~ O nu`` and ``mu O sigma~`` giving delta-xi-tilde on the mode.
+- t3toolbox/backend/sampling_derivatives.py:1426: `O sigma` -- combines ``tau~ O nu`` and ``mu O sigma~`` giving delta-xi-tilde on the mode.
+- t3toolbox/backend/sampling_derivatives.py:1431: `(mu^(j) O)` -- ``dxi~^(u) = sum_j (mu^(j) O) . [U^u sigma~]^(j) + [U^u tau~]^(j) . (O nu^(j))``,
+- t3toolbox/backend/sampling_derivatives.py:1431: `mu^(j) O` -- ``dxi~^(u) = sum_j (mu^(j) O) . [U^u sigma~]^(j) + [U^u tau~]^(j) . (O nu^(j))``,
+- t3toolbox/backend/sampling_derivatives.py:1431: `O nu` -- ``dxi~^(u) = sum_j (mu^(j) O) . [U^u sigma~]^(j) + [U^u tau~]^(j) . (O nu^(j))``,
+- t3toolbox/backend/sampling_derivatives.py:1447: `dU_tilde` -- ) -> typ.Tuple[NDArray]:           # (dU_tilde,): W+K+C+(nOi,Ni), or K+C+(nOi,Ni) when summed
+- t3toolbox/backend/sampling_derivatives.py:1482: `dU_tildes` -- ) -> typ.Tuple[NDArray, ...]:                   # dU_tildes. len=d, elm_shape=[W+]C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1485: `dU_tilde` -- ``dU_tilde = sum_t eta^(t) (x) r^(t) + sum_u dxi_tilde^(u) (x) w_jet^(u)`` -- both diagonal in the order,
+- t3toolbox/backend/sampling_derivatives.py:1490: `dU` -- w_jets = build_input_jets(ww, pp)          # ambient input jets (value, direction) for dU
+- t3toolbox/backend/sampling_derivatives.py:1504: `dU_tildes` -- (dU_tildes,) = xmap(step, (ztildes, dxi_tildes, etas, w_jets))
+- t3toolbox/backend/sampling_derivatives.py:1505: `dU_tildes` -- return dU_tildes
+- t3toolbox/backend/sampling_derivatives.py:1517: `dU_tildes` -- ) -> typ.Tuple[NDArray, ...]:                   # dU_tildes. len=d, elm_shape=[W+]K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:1875: `(U, O, P, Q)` -- frame = (S(d, *cax, nU, N), S(d, *cax, r, nU, r), S(d, *cax, r, nU, r), S(d, *cax, r, nU, r))   # (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2021: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2030: `dU_tildes` -- typ.Tuple[NDArray, ...],  # dU_tildes (Tucker variation gradient)
+- t3toolbox/backend/sampling_derivatives.py:2045: `dU_tildes` -- dU_tildes = assemble_tucker_variation_jets(
+- t3toolbox/backend/sampling_derivatives.py:2050: `dU_tildes` -- return dU_tildes, dG_tildes
+- t3toolbox/backend/sampling_derivatives.py:2060: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2065: `dU_tildes` -- typ.Tuple[NDArray, ...],  # dU_tildes (Tucker variation gradient)
+- t3toolbox/backend/sampling_derivatives.py:2069: `dU_tildes` -- variation gradient ``(dU_tildes, dG_tildes)``. The jet-ified adjoint-state method (T4S Thm 7, Alg. 8):
+- t3toolbox/backend/sampling_derivatives.py:2102: `dU_tilde` -- # and dU_tilde = dxi_hat (x) w_jet, with dxi_hat = mu * O * sigma_hat (its two read rows). Half the work of
+- t3toolbox/backend/sampling_derivatives.py:2153: `dU_tilde` -- ) -> typ.Tuple[NDArray, NDArray]:  # (dU_tilde, dG_tilde); W summed (K+C+...) or kept (W+K+C+...)
+- t3toolbox/backend/sampling_derivatives.py:2164: `dU` -- dG, dU = 'kWKCab,kWCi->KCaib', 'uWKCa,uWo->KCao'
+- t3toolbox/backend/sampling_derivatives.py:2166: `dU` -- dG, dU = 'kWKCab,kWCi->WKCaib', 'uWKCa,uWo->WKCao'
+- t3toolbox/backend/sampling_derivatives.py:2169: `dU_t` -- dU_t = contractions.contract(dU, dxh[:s_size], wj[:s_size])
+- t3toolbox/backend/sampling_derivatives.py:2169: `dU` -- dU_t = contractions.contract(dU, dxh[:s_size], wj[:s_size])
+- t3toolbox/backend/sampling_derivatives.py:2170: `dU_t` -- return (dU_t, dG_t)
+- t3toolbox/backend/sampling_derivatives.py:2184: `, O)` -- carry:  typ.Tuple[NDArray, NDArray],   # (dxi^, O): (2,)+W+K+C+(nOi,) ; C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2187: `(mu^(j) O)` -- '''One order ``j`` of the two-row dxi^ correlation ``dxi^^(u) += (mu^(j) O) . [U^u sigma^]^(j)`` -- the
+- t3toolbox/backend/sampling_derivatives.py:2187: `mu^(j) O` -- '''One order ``j`` of the two-row dxi^ correlation ``dxi^^(u) += (mu^(j) O) . [U^u sigma^]^(j)`` -- the
+- t3toolbox/backend/sampling_derivatives.py:2188: `mu O` -- ``mu O sigma~`` half of :py:func:`_dxi_tilde_order_step`. Closure-free scan body.'''
+- t3toolbox/backend/sampling_derivatives.py:2188: `O sigma` -- ``mu O sigma~`` half of :py:func:`_dxi_tilde_order_step`. Closure-free scan body.'''
+- t3toolbox/backend/sampling_derivatives.py:2191: `, O)` -- mO = contractions.contract('WCa,Caib->WCib', mu_j, O)
+- t3toolbox/backend/sampling_derivatives.py:2191: `mu_j, O` -- mO = contractions.contract('WCa,Caib->WCib', mu_j, O)
+- t3toolbox/backend/sampling_derivatives.py:2192: `, O)` -- return (dxh + contractions.contract('WCib,uWKCb->uWKCi', mO, sh_pair_j, len_C=O.ndim - 3), O), ()
+- t3toolbox/backend/sampling_derivatives.py:2199: `mu O` -- '''One core of the adjoint-down combine ``dxi^ = mu O sigma^`` of
+- t3toolbox/backend/sampling_derivatives.py:2199: `O sigma` -- '''One core of the adjoint-down combine ``dxi^ = mu O sigma^`` of
+- t3toolbox/backend/sampling_derivatives.py:2203: `O.shape` -- dxh0 = xnp.zeros((2,) + sh.shape[1:-1] + (O.shape[-2],), xnp.result_type(O, mu, sh))   # W+K+C off sigma^
+- t3toolbox/backend/sampling_derivatives.py:2204: `, O)` -- (dxh, _), _ = xscan(_dxi_hat_order_step, (dxh0, O), (mu, _shift_up_pair(sh, xnp, axis=1)))
+- t3toolbox/backend/sampling_derivatives.py:2227: `dU_tildes` -- typ.Tuple[NDArray, ...],    # dU_tildes. len=d, elm_shape=[W+]K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:2232: `dU` -- gradient assembly (dG = mu (x) xi (x) sigma_hat, dU = dxi_hat (x) w_jet), mapped over cores on both
+- t3toolbox/backend/sampling_derivatives.py:2233: `dU` -- layouts (``len(W)`` is read off the W-only ``w_jets``). Returns (dU, dG).'''
+- t3toolbox/backend/sampling_derivatives.py:2244: `dU_tildes` -- (dU_tildes, dG_tildes) = xmap(step, (xi_jets, mu_jets, sigma_hats, dxi_hats, w_jets))
+- t3toolbox/backend/sampling_derivatives.py:2245: `dU_tildes` -- return dU_tildes, dG_tildes
+- t3toolbox/backend/sampling_derivatives.py:2255: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2263: `dU_tildes` -- typ.Tuple[NDArray, ...],  # dU_tildes
+- t3toolbox/backend/sampling_derivatives.py:2271: `dU` -- w_jets = build_input_jets(ww, pp)               # ambient input jets (value, direction) for dU
+- t3toolbox/backend/sampling_derivatives.py:2283: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2287: `dU_tildes` -- typ.Tuple[NDArray, ...],  # dU_tildes (Tucker variation gradient)
+- t3toolbox/backend/sampling_derivatives.py:2291: `dU_tildes` -- variation gradient ``(dU_tildes, dG_tildes)``. The adjoint-state apply transpose -- the scalar
+- t3toolbox/backend/sampling_derivatives.py:2315: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2323: `dU_tildes` -- typ.Tuple[NDArray, ...],  # dU_tildes
+- t3toolbox/backend/sampling_derivatives.py:2331: `dU` -- w_jets = _entries_ambient_jets(index, up_tucker_cores, pp)   # ambient input jets (one-hot, direction) for dU
+- t3toolbox/backend/sampling_derivatives.py:2358: `(U, O, P, Q)` -- ],                                  # = T3Frame.data = (U, O, P, Q)
+- t3toolbox/backend/sampling_derivatives.py:2362: `dU_tildes` -- typ.Tuple[NDArray, ...],  # dU_tildes
+- t3toolbox/backend/sampling_derivatives.py:2464: `Udot` -- #   2. dotted forward = the GN tangent forward at Q = O = P = G along (Udot, Gdot): xidot = Udot (w, p),
+- t3toolbox/backend/sampling_derivatives.py:2464: `Udot` -- #   2. dotted forward = the GN tangent forward at Q = O = P = G along (Udot, Gdot): xidot = Udot (w, p),
+- t3toolbox/backend/sampling_derivatives.py:2466: `Udot` -- #   3. dotted adjoint-up lift deta~dot = Udot z~;
+- t3toolbox/backend/sampling_derivatives.py:2483: `Udot` -- data: typ.Tuple[NDArray, NDArray, NDArray],  # (U, Udot, ztilde) for one core
+- t3toolbox/backend/sampling_derivatives.py:2487: `Ud` -- U, Ud, zt = data
+- t3toolbox/backend/sampling_derivatives.py:2488: `Ud` -- return (contractions.contract('tWCo,KCio->tWKCi', zt, Ud, len_C=U.ndim - 2),)
+- t3toolbox/backend/sampling_derivatives.py:2493: `Udot` -- up_tucker_cores_dot:    typ.Sequence[NDArray],  # Udot. len=d, elm_shape=K+C+(nUi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:2497: `Udot_i` -- ``deta_tilde_dot_i = Udot_i z~_i`` (the residual is fixed, so only the core moves). The order axis
+- t3toolbox/backend/sampling_derivatives.py:2498: `Udot` -- rides through; the tangent stack ``K`` comes from ``Udot``.'''
+- t3toolbox/backend/sampling_derivatives.py:2694: `O_d` -- carry:  typ.Tuple[NDArray, NDArray, NDArray],  # (dxi~_dot, O, O_dot): (2,)+W+K+C+(nOi,) ; C+(...) ; K+C+(...)
+- t3toolbox/backend/sampling_derivatives.py:2699: `mu O` -- factor -- ``d(mu O) . [U^u sigma~] + (mu O) . [U^u sigma~_dot] + [U^u tau~_dot] . (O nu) + [U^u tau~] .
+- t3toolbox/backend/sampling_derivatives.py:2699: `mu O` -- factor -- ``d(mu O) . [U^u sigma~] + (mu O) . [U^u sigma~_dot] + [U^u tau~_dot] . (O nu) + [U^u tau~] .
+- t3toolbox/backend/sampling_derivatives.py:2699: `O nu` -- factor -- ``d(mu O) . [U^u sigma~] + (mu O) . [U^u sigma~_dot] + [U^u tau~_dot] . (O nu) + [U^u tau~] .
+- t3toolbox/backend/sampling_derivatives.py:2700: `O nu` -- d(O nu)``. Closure-free scan body (the cores ride the carry).'''
+- t3toolbox/backend/sampling_derivatives.py:2704: `, O)` -- mO = contractions.contract('WCa,Caib->WCib', mu_j, O)
+- t3toolbox/backend/sampling_derivatives.py:2704: `mu_j, O` -- mO = contractions.contract('WCa,Caib->WCib', mu_j, O)
+- t3toolbox/backend/sampling_derivatives.py:2705: `, O)` -- dmO = (contractions.contract('WKCa,Caib->WKCib', mud_j, O)                    # K on mu_dot
+- t3toolbox/backend/sampling_derivatives.py:2705: `mud_j, O` -- dmO = (contractions.contract('WKCa,Caib->WKCib', mud_j, O)                    # K on mu_dot
+- t3toolbox/backend/sampling_derivatives.py:2718: `O_d` -- data:       typ.Tuple[NDArray, ...],   # (O, O_dot, mu, mu_dot, nu, nu_dot, sigma~, sigma~_dot, tau~, tau~_dot), one core
+- t3toolbox/backend/sampling_derivatives.py:2725: `O.shape` -- dxi0 = xnp.zeros((2,) + std.shape[1:-1] + (O.shape[-2],), xnp.result_type(*data))   # W+K+C off a dotted tilde
+- t3toolbox/backend/sampling_derivatives.py:2743: `O_d` -- down_tt_cores_dot:  typ.Sequence[NDArray],  # O_dot.    len=d, elm_shape=K+C+(rLi,nOi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2754: `mu O` -- combines (``tau~ O nu`` and ``mu O sigma~``), six terms with ``K`` on the dotted factor of each, in its
+- t3toolbox/backend/sampling_derivatives.py:2754: `O nu` -- combines (``tau~ O nu`` and ``mu O sigma~``), six terms with ``K`` on the dotted factor of each, in its
+- t3toolbox/backend/sampling_derivatives.py:2754: `O sigma` -- combines (``tau~ O nu`` and ``mu O sigma~``), six terms with ``K`` on the dotted factor of each, in its
+- t3toolbox/backend/sampling_derivatives.py:2768: `dU` -- ) -> typ.Tuple[NDArray]:                                   # (dU,) K+C+(nOi,Ni), W summed
+- t3toolbox/backend/sampling_derivatives.py:2784: `dU` -- w_jets = build_input_jets(ww, pp)          # ambient input jets (value, direction): the dU leg
+- t3toolbox/backend/sampling_derivatives.py:2790: `dU` -- (dU,) = xmap(_tucker_tangent_variation_jets_step, (ztildes, dxi_tildes_dot, eta_jets_dot, w_jets))
+- t3toolbox/backend/sampling_derivatives.py:2791: `dU` -- return dU
+- t3toolbox/backend/sampling_derivatives.py:2807: `dU` -- ) -> typ.Tuple[NDArray, ...]:                       # dU. len=d, elm_shape=K+C+(nOi,Ni) (W summed)
+- t3toolbox/backend/sampling_derivatives.py:2969: `(U, O, L, R)` -- ``mu`` jets -- the reuse hook for a local model, whose probe sweep at the manifold frame ``(U, O, L, R)``
+- t3toolbox/backend/sampling_derivatives.py:2989: `Udot` -- # 2. the dotted forward: the GN tangent forward at Q = O = P = G along (Udot, Gdot) -- its sigma / tau /
+- t3toolbox/backend/sampling_derivatives.py:3006: `dU` -- dU = assemble_tucker_tangent_variation_jets(ztildes, dxi_tildes_dot, ww, pp, eta_jets_dot, n_probe,
+- t3toolbox/backend/sampling_derivatives.py:3011: `dU` -- return dU, dG
+- t3toolbox/backend/sampling_derivatives.py:3101: `mu O` -- # residual jet c seeds ONE propagation sweep sigma^ through Q (no deta~ source, no nu / eta), then dxi^ = mu O
+- t3toolbox/backend/sampling_derivatives.py:3102: `dU` -- # sigma^ (its two read rows) and the single-term assembly dG = mu (x) xi (x) sigma^, dU = dxi^ (x) w. At the
+- t3toolbox/backend/sampling_derivatives.py:3106: `Udot` -- #   2. dotted forward: xidot = Udot (w, p) (entries: the fiber slice), mudot = the GN tangent forward's sigma jets;
+- t3toolbox/backend/sampling_derivatives.py:3163: `O_d` -- carry:  typ.Tuple[NDArray, NDArray, NDArray],  # (dxi^_dot, O, O_dot): (2,)+W+K+C+(nOi,) ; C+(...) ; K+C+(...)
+- t3toolbox/backend/sampling_derivatives.py:3167: `mu O` -- (the ``mu O sigma~`` half of :py:func:`_dxi_tilde_tangent_order_step`), ``d(mu O) . [U^u sigma^] + (mu O) .
+- t3toolbox/backend/sampling_derivatives.py:3167: `mu O` -- (the ``mu O sigma~`` half of :py:func:`_dxi_tilde_tangent_order_step`), ``d(mu O) . [U^u sigma^] + (mu O) .
+- t3toolbox/backend/sampling_derivatives.py:3167: `mu O` -- (the ``mu O sigma~`` half of :py:func:`_dxi_tilde_tangent_order_step`), ``d(mu O) . [U^u sigma^] + (mu O) .
+- t3toolbox/backend/sampling_derivatives.py:3167: `O sigma` -- (the ``mu O sigma~`` half of :py:func:`_dxi_tilde_tangent_order_step`), ``d(mu O) . [U^u sigma^] + (mu O) .
+- t3toolbox/backend/sampling_derivatives.py:3168: `mu O` -- [U^u sigma^_dot]`` with ``d(mu O) = mu_dot O + mu O_dot`` -- ``K`` on the dotted factor of each. Closure-free
+- t3toolbox/backend/sampling_derivatives.py:3168: `mu_dot O` -- [U^u sigma^_dot]`` with ``d(mu O) = mu_dot O + mu O_dot`` -- ``K`` on the dotted factor of each. Closure-free
+- t3toolbox/backend/sampling_derivatives.py:3168: `O_d` -- [U^u sigma^_dot]`` with ``d(mu O) = mu_dot O + mu O_dot`` -- ``K`` on the dotted factor of each. Closure-free
+- t3toolbox/backend/sampling_derivatives.py:3173: `, O)` -- mO = contractions.contract('WCa,Caib->WCib', mu_j, O)
+- t3toolbox/backend/sampling_derivatives.py:3173: `mu_j, O` -- mO = contractions.contract('WCa,Caib->WCib', mu_j, O)
+- t3toolbox/backend/sampling_derivatives.py:3174: `, O)` -- dmO = (contractions.contract('WKCa,Caib->WKCib', mud_j, O)                    # K on mu_dot
+- t3toolbox/backend/sampling_derivatives.py:3174: `mud_j, O` -- dmO = (contractions.contract('WKCa,Caib->WKCib', mud_j, O)                    # K on mu_dot
+- t3toolbox/backend/sampling_derivatives.py:3182: `O_d` -- data:       typ.Tuple[NDArray, ...],   # (O, O_dot, mu, mu_dot, sigma^, sigma^_dot), one core
+- t3toolbox/backend/sampling_derivatives.py:3185: `mu O` -- '''One core of the dotted adjoint-down combine ``d(mu O sigma^)`` of
+- t3toolbox/backend/sampling_derivatives.py:3185: `O sigma` -- '''One core of the dotted adjoint-down combine ``d(mu O sigma^)`` of
+- t3toolbox/backend/sampling_derivatives.py:3190: `O.shape` -- dxh0 = xnp.zeros((2,) + shd.shape[1:-1] + (O.shape[-2],), xnp.result_type(*data))   # W+K+C off sigma^_dot
+- t3toolbox/backend/sampling_derivatives.py:3208: `dU` -- ) -> typ.Tuple[NDArray, NDArray]:     # (dU, dG): K+C+(nOi,Ni) ; K+C+(rLi,nUi,rR(i+1)), W summed
+- t3toolbox/backend/sampling_derivatives.py:3213: `dU` -- two W-summed finals instead of three (the sigma~ group of :py:func:`_tt_tangent_variation_jets_step`). ``dU =
+- t3toolbox/backend/sampling_derivatives.py:3226: `dU` -- dU = contractions.contract('uWKCa,uWo->KCao', dxhd[:s_size], wj[:s_size])
+- t3toolbox/backend/sampling_derivatives.py:3227: `dU` -- return (dU, dG)
+- t3toolbox/backend/sampling_derivatives.py:3239: `dU` -- typ.Tuple[NDArray, ...],                    # dU. len=d, elm_shape=K+C+(nOi,Ni)
+- t3toolbox/backend/sampling_derivatives.py:3244: `Udot` -- ``(U, G, G, G)`` along ``(Udot, Gdot)`` (``sum_over_probes=True``). The dotted forward (``mu_dot``, the GN tangent
+- t3toolbox/backend/sampling_derivatives.py:3258: `dU` -- (dU, dG) = xmap(_apply_tangent_assemble_step, (xi_jets, xi_jets_dot, mu_jets, mu_jets_dot, sigma_hats,
+- t3toolbox/backend/sampling_derivatives.py:3260: `dU` -- return dU, dG
+- t3toolbox/backend/sampling_derivatives.py:3288: `Udot` -- xi_jets_dot = build_input_jets(compute_xi(tucker_dirs, ww), compute_xi(tucker_dirs, pp))   # Udot (w, p)
+- t3toolbox/backend/sampling_derivatives.py:3289: `dU` -- w_jets = build_input_jets(ww, pp)               # ambient input jets (value, direction): the dU leg
+- t3toolbox/backend/sampling_derivatives.py:3390: `Udot` -- xi_jets_dot = build_input_jets(_entry_xis(tucker_dirs, index), compute_xi(tucker_dirs, pp))   # Udot (e_index, p)
+- t3toolbox/backend/sharing.py:501: `O_i` -- ``H_i`` that pair with the frame's ``O_i``/``R_i``, which these are, whatever built the frame.
+- t3toolbox/backend/sharing.py:501: `O_i` -- ``H_i`` that pair with the frame's ``O_i``/``R_i``, which these are, whatever built the frame.
+- t3toolbox/backend/sharing.py:506: `O_i` -- 2. Per mode of each nontrivial group, ``S_i^T = <O_i, H_i>`` against the frame's STORED
+- t3toolbox/backend/sharing.py:506: `O_i` -- 2. Per mode of each nontrivial group, ``S_i^T = <O_i, H_i>`` against the frame's STORED
+- t3toolbox/backend/sharing.py:507: `O2` -- down core (``S_i S_i^T = Gamma_i`` and ``W2_i = S_i O2_i`` hold by the construction's
+- t3toolbox/backend/sharing.py:550: `O_i` -- # Steps 1-2, the centers H_i = L_i Z_{i+1} and S_i^T = <O_i, H_i> from the stored cores (Z the
+- t3toolbox/backend/sharing.py:550: `O_i` -- # Steps 1-2, the centers H_i = L_i Z_{i+1} and S_i^T = <O_i, H_i> from the stored cores (Z the
+- t3toolbox/backend/sharing.py:586: `Udot` -- variation coordinates onto the tied subspace ``{V_i = S_i^T Udot, common gauged Udot}``.
+- t3toolbox/backend/sharing.py:586: `Udot` -- variation coordinates onto the tied subspace ``{V_i = S_i^T Udot, common gauged Udot}``.
+- t3toolbox/backend/sharing.py:589: `Udot` -- SVD (``Udot = M_g^+ [V_{i_1}; ...; V_{i_k}]``, sensitivity ``kappa_g`` -- never the
+- t3toolbox/backend/sharing.py:590: `Udot` -- ``kappa_g^2`` normal equations) followed by the exact redistribution ``V_i <- S_i^T Udot``
+- t3toolbox/backend/sharing.py:591: `Udot` -- (the row blocks of ``M_g Udot``). Gauge is preserved identically (each ``S_i^T Udot`` is
+- t3toolbox/backend/sharing.py:591: `Udot` -- (the row blocks of ``M_g Udot``). Gauge is preserved identically (each ``S_i^T Udot`` is
+- t3toolbox/backend/sharing.py:592: `Udot` -- gauged when ``Udot`` is, and ``Udot`` inherits the gauge from gauged inputs); the
+- t3toolbox/backend/sharing.py:592: `Udot` -- gauged when ``Udot`` is, and ``Udot`` inherits the gauge from gauged inputs); the
+- t3toolbox/backend/sharing.py:619: `O.shape` -- >>> raw = (tuple(np.random.randn(O.shape[-2], U.shape[-1])
+- t3toolbox/backend/sharing.py:635: `Udot` -- Udot = _tied_filtered_solve(shared_data, gi, tucker_variations, _tied_filter(shared_data, gi, None, rcond))
+- t3toolbox/backend/sharing.py:636: `Udot` -- # R = M_g @ Udot: the tied coordinates of every group mode in one stack
+- t3toolbox/backend/sharing.py:639: `Udot` -- r = xnp.einsum('...wy,...yn->...wn', Vt_M, Udot)
+- t3toolbox/backend/sharing.py:672: `Udot` -- ) -> NDArray:                                       # Udot = Vt_M^T f(s_g) U_M^T [V_i1; ...], (K+C)+(n_g, N)
+- t3toolbox/backend/sharing.py:673: `Udot` -- '''The filtered least-squares solve ``Udot = M_g^{+f} [stacked V_i]`` against the companion's stacked-``S``
+- t3toolbox/backend/sharing.py:687: `Udot` -- return xnp.einsum('...wy,...wn->...yn', Vt_M, t)          # Udot, (K+C)+(n_g, N)
+- t3toolbox/backend/sharing.py:693: `Udot` -- Udot:         NDArray,                 # elm_shape=(K+C)+(n_g, N): a direction on the group factor
+- t3toolbox/backend/sharing.py:695: `Udot` -- ) -> typ.Tuple[NDArray, ...]:                  # per group mode: (U_M f(s_g) Vt_M Udot) row block, (K+C)+(nDi, N)
+- t3toolbox/backend/sharing.py:696: `Udot` -- '''The adjoint of :py:func:`_tied_filtered_solve` -- ``(M_g^{+f})^T Udot = U_M diag(f(s_g)) Vt_M Udot``,
+- t3toolbox/backend/sharing.py:696: `Udot` -- '''The adjoint of :py:func:`_tied_filtered_solve` -- ``(M_g^{+f})^T Udot = U_M diag(f(s_g)) Vt_M Udot``,
+- t3toolbox/backend/sharing.py:702: `Udot` -- t_KCan = contractions.contract('Cau,KCun->KCan', Vt_M, Udot)            # Vt_M Udot, (K+C)+(q, N)
+- t3toolbox/backend/sharing.py:702: `Udot` -- t_KCan = contractions.contract('Cau,KCun->KCan', Vt_M, Udot)            # Vt_M Udot, (K+C)+(q, N)
+- t3toolbox/backend/sharing.py:715: `Udot` -- ) -> typ.Tuple[NDArray, ...]:  # per NONTRIVIAL group: Udot, elm_shape=(K+C)+(n_g, N)
+- t3toolbox/backend/sharing.py:716: `Udot` -- '''Recover each group's common gauged ambient direction ``Udot`` from (tied) Tucker
+- t3toolbox/backend/sharing.py:718: `Udot` -- :py:func:`fv_share_tucker_variations`, returning ``Udot`` itself instead of the
+- t3toolbox/backend/sharing.py:719: `Udot` -- redistributed coordinates. Exact on exactly-tied input (``V_i = S_i^T Udot``); on untied
+- t3toolbox/backend/sharing.py:722: `U_g` -- (``[U_g | Udot]`` per group, with the center cores as the paired blocks).'''
+- t3toolbox/backend/sharing.py:722: `Udot` -- (``[U_g | Udot]`` per group, with the center cores as the paired blocks).'''
+- t3toolbox/backend/sharing.py:744: `Udot` -- and a tied coordinate ``V_i = S_i^T Udot`` has ONE raw factor direction per group. The lift recovers it
+- t3toolbox/backend/sharing.py:747: `Udot_g` -- ``Udot_g = M_g^{+eps} [V_i1; ...; V_ik]``,  ``M_g = [S_i1^T; ...; S_ik^T]`` (the companion's stacked SVD),
+- t3toolbox/backend/sharing.py:788: `Udot` -- >>> Udot, Gdot = tvo.tv_corewise_lift(frame, v, lf)
+- t3toolbox/backend/sharing.py:789: `Udot` -- >>> print(Udot[0] is Udot[1], [U.shape for U in Udot])
+- t3toolbox/backend/sharing.py:789: `Udot` -- >>> print(Udot[0] is Udot[1], [U.shape for U in Udot])
+- t3toolbox/backend/sharing.py:789: `Udot` -- >>> print(Udot[0] is Udot[1], [U.shape for U in Udot])
+- t3toolbox/backend/sharing.py:792: `Udot` -- >>> print(np.allclose(tvo.tv_to_dense(corewise_frame, (Udot, Gdot)), tvo.tv_to_dense(frame, v)))
+- t3toolbox/backend/sharing.py:800: `Udot_pm` -- >>> Udot_pm, Gdot_pm = tvo.tv_corewise_lift(frame, v, fvo.fv_lift_factors(frame, 0.0))
+- t3toolbox/backend/sharing.py:801: `Udot_pm` -- >>> print(frame[1][0].shape[-2], np.allclose(tvo.tv_to_dense(corewise_frame, (Udot_pm, Gdot_pm)),
+- t3toolbox/backend/sharing.py:802: `Udot_pm` -- ...                                          tvo.tv_to_dense(frame, v)), np.allclose(Udot_pm[0], Udot_pm[1]))
+- t3toolbox/backend/sharing.py:802: `Udot_pm` -- ...                                          tvo.tv_to_dense(frame, v)), np.allclose(Udot_pm[0], Udot_pm[1]))
+- t3toolbox/backend/sharing.py:822: `dU_i` -- perturbations onto the tied subspace ``{dU_i all equal within each group}``.
+- t3toolbox/backend/sharing.py:1002: `O_i` -- (the centers ``H_i = L_i Z_{i+1}`` from the zipper of the stored chains, ``S_i^T = <O_i, H_i>``
+- t3toolbox/backend/sharing.py:1002: `O_i` -- (the centers ``H_i = L_i Z_{i+1}`` from the zipper of the stored chains, ``S_i^T = <O_i, H_i>``
+- t3toolbox/backend/sharing.py:1035: `Udot` -- re-stack, re-mask. The redistribution ``U_M diag(s_g) Vt_M Udot`` reaches the padded rows only through
+- t3toolbox/backend/t3_linalg.py:692: `, O)` -- M = xnp.einsum('...xiy,...xjy->...ij', env, O)
+- t3toolbox/backend/t3_linalg.py:770: `(P, Q, O)` -- ``(U, G, G, G)`` -- the Section 6.3 substitution ``(P, Q, O) -> G`` of Alger et al. (2026), "Tucker
+- t3toolbox/backend/t3_linalg.py:770: `, O)` -- ``(U, G, G, G)`` -- the Section 6.3 substitution ``(P, Q, O) -> G`` of Alger et al. (2026), "Tucker
+- t3toolbox/backend/t3_linalg.py:820: `dU_i` -- (``dG_i = env_i x_2 BU_i``, ``dU_i = <env_i, G_i>^T B_z,i``); the Hessian differentiates each of them
+- t3toolbox/backend/t3_linalg.py:946: `Udot_i` -- ``BUdot_i = B_z,i Udot_i^T``, ``G2dot_i = G_z,i x_2 BUdot_i``; the tangent zippers ``ZLdot``, ``ZRdot``
+- t3toolbox/backend/t3_orthogonalization.py:106: `outer-orthogonal` -- NDArray,  # Oaxb. outer-orthogonal tt core, C+(rLi,n2,rR(i+1))
+- t3toolbox/backend/t3_orthogonalization.py:118: `O_a` -- O_ab_x, ssx, WTxi = xnp.linalg.svd(H_ab_i, full_matrices=False)
+- t3toolbox/backend/t3_orthogonalization.py:120: `O_a` -- Oaxb = O_ab_x.reshape(stack_shape + (rL, rR, n2)).swapaxes(-2, -1)
+- t3toolbox/backend/t3_svd.py:424: `P_i` -- P_i = xnp.einsum('...ux,...x->...ux', W_block, s_q)               # B_i = P_i @ Vt_q, exact
+- t3toolbox/backend/t3_svd.py:424: `P_i` -- P_i = xnp.einsum('...ux,...x->...ux', W_block, s_q)               # B_i = P_i @ Vt_q, exact
+- t3toolbox/backend/t3_svd.py:426: `P_i` -- new_tt[ii] = xnp.einsum('...aub,...ux->...axb', new_tt[ii], P_i)
+- t3toolbox/backend/tv_operations.py:229: `Udot` -- nontrivial group, the common gauged ambient direction ``Udot`` is recovered from the (tied)
+- t3toolbox/backend/tv_operations.py:232: `U_g` -- ``[U_g; Udot]`` are exactly equal across the group -- while the paired core block becomes
+- t3toolbox/backend/tv_operations.py:232: `Udot` -- ``[U_g; Udot]`` are exactly equal across the group -- while the paired core block becomes
+- t3toolbox/backend/tv_operations.py:233: `O_i` -- the companion's center core ``H_i`` (the identity ``S_i``-absorbed-``O_i == H_i`` makes this
+- t3toolbox/backend/tv_operations.py:233: `O_i` -- the companion's center core ``H_i`` (the identity ``S_i``-absorbed-``O_i == H_i`` makes this
+- t3toolbox/backend/tv_operations.py:234: `U_g` -- an exact rewrite of each Tucker term). The naive ``[U_g; V_i]`` embedding is NOT tied (the
+- t3toolbox/backend/tv_operations.py:235: `Udot` -- ``V_i = S_i^T Udot`` differ across a group in value, and in shape when the ``nD_i``
+- t3toolbox/backend/tv_operations.py:251: `O_i` -- down_tt_cores[ii] = shared_data.centers[gi][jj]      # H_i replaces O_i (exact)
+- t3toolbox/backend/tv_operations.py:251: `O_i` -- down_tt_cores[ii] = shared_data.centers[gi][jj]      # H_i replaces O_i (exact)
+- t3toolbox/backend/tv_operations.py:266: `for O in` -- down_tt_cores   = [bcast3(O) for O in down_tt_cores]
+- t3toolbox/backend/tv_operations.py:266: `(O)` -- down_tt_cores   = [bcast3(O) for O in down_tt_cores]
+- t3toolbox/backend/tv_operations.py:292: `dU` -- dU = tt_variations[0]
+- t3toolbox/backend/tv_operations.py:295: `O.shape` -- Z = xnp.zeros(ss + (O.shape[-3], O.shape[-2], L.shape[-1]))
+- t3toolbox/backend/tv_operations.py:295: `O.shape` -- Z = xnp.zeros(ss + (O.shape[-3], O.shape[-2], L.shape[-1]))
+- t3toolbox/backend/tv_operations.py:296: `dU` -- G_top = xnp.concatenate([dU, L], axis=-1)
+- t3toolbox/backend/tv_operations.py:306: `dU` -- dU = tt_variations[ii]
+- t3toolbox/backend/tv_operations.py:307: `dU` -- Z001 = xnp.zeros(ss + (R.shape[-3], dU.shape[-2], L.shape[-1]))
+- t3toolbox/backend/tv_operations.py:308: `O.shape` -- Z100 = xnp.zeros(ss + (R.shape[-3], O.shape[-2], R.shape[-1]))
+- t3toolbox/backend/tv_operations.py:309: `O.shape` -- Z101 = xnp.zeros(ss + (R.shape[-3], O.shape[-2], L.shape[-1]))
+- t3toolbox/backend/tv_operations.py:310: `O.shape` -- Z111 = xnp.zeros(ss + (L.shape[-3], O.shape[-2], L.shape[-1]))
+- t3toolbox/backend/tv_operations.py:313: `dU` -- xnp.concatenate([dU, L], axis=-1),
+- t3toolbox/backend/tv_operations.py:323: `dU` -- dU = tt_variations[-1]
+- t3toolbox/backend/tv_operations.py:326: `O.shape` -- Z = xnp.zeros(ss + (R.shape[-3], O.shape[-2], R.shape[-1]))
+- t3toolbox/backend/tv_operations.py:329: `dU` -- G_top = xnp.concatenate([R, Lf + dU], axis=-3)
+- t3toolbox/backend/tv_operations.py:331: `dU` -- G_top = xnp.concatenate([R, dU], axis=-3)
+- t3toolbox/backend/tv_operations.py:401: ```O``` -- variation) and ``dU_i = <O_i, core_env_i>`` (the Tucker variation; ``O`` = the outer/down cores). A
+- t3toolbox/backend/tv_operations.py:401: `O_i` -- variation) and ``dU_i = <O_i, core_env_i>`` (the Tucker variation; ``O`` = the outer/down cores). A
+- t3toolbox/backend/tv_operations.py:401: `dU_i` -- variation) and ``dU_i = <O_i, core_env_i>`` (the Tucker variation; ``O`` = the outer/down cores). A
+- t3toolbox/backend/tv_operations.py:401: `O_i` -- variation) and ``dU_i = <O_i, core_env_i>`` (the Tucker variation; ``O`` = the outer/down cores). A
+- t3toolbox/backend/tv_operations.py:453: `(U, O, L, R)` -- frame,                                  # (U, O, L, R), len=d each
+- t3toolbox/backend/tv_operations.py:495: `Udot` -- typ.Tuple[NDArray, ...],                    # Udot. len=d, elm_shape=K+C+(nUi, Ni)
+- t3toolbox/backend/tv_operations.py:500: `Udot_i` -- ``Udot_i = (S_i^T)^{+eps} V_i``,   ``Gdot_i = H_i x_3 T_i^{+eps}`` (``i <= d-2``),   ``Gdot_{d-1} = H_{d-1}``,
+- t3toolbox/backend/tv_operations.py:523: `Udot_g` -- nontrivial sharing group's Tucker slots lift to ONE factor direction, ``Udot_g = M_g^{+eps} [V_i1; ...]``
+- t3toolbox/backend/tv_operations.py:558: `Udot` -- Udot = [None if ii in tied_modes else
+- t3toolbox/backend/tv_operations.py:561: `Udot_g` -- for gi, group in enumerate(groups):                                   # the tied lift: Udot_g = M_g^{+eps} [V_i]
+- t3toolbox/backend/tv_operations.py:562: `Udot_g` -- Udot_g = sharing_module._tied_filtered_solve(lift_factors.shared_data, gi, tucker_variations,
+- t3toolbox/backend/tv_operations.py:565: `Udot` -- Udot[ii] = Udot_g                                             # ONE array per group (T copies it)
+- t3toolbox/backend/tv_operations.py:565: `Udot_g` -- Udot[ii] = Udot_g                                             # ONE array per group (T copies it)
+- t3toolbox/backend/tv_operations.py:568: `Udot` -- return tuple(Udot), Gdot
+- t3toolbox/backend/tv_operations.py:589: `Udot_i` -- ``V_i = ((S_i^T)^{+eps})^T Udot_i``,   ``H_i = Gdot_i x_3 (T_i^{+eps})^T`` (``i <= d-2``),
+- t3toolbox/backend/tv_operations.py:599: `Udot_i` -- copies (``T^T``) and mapped back by the tied solve's adjoint, ``[V_i1; ...] = (M_g^{+eps})^T sum_i Udot_i``;
+- t3toolbox/backend/tv_operations.py:626: `Udot` -- Udot, Gdot = core_variations
+- t3toolbox/backend/tv_operations.py:632: `Udot` -- contractions.contract('Cux,KCun->KCxn', lift_factors.tucker_pinvs[ii], Udot[ii])
+- t3toolbox/backend/tv_operations.py:635: `Udot` -- Y_g = Udot[group[0]]
+- t3toolbox/backend/tv_operations.py:637: `Udot` -- Y_g = Y_g + Udot[ii]                                          # Y_g = sum over the group's copies
+- t3toolbox/backend/ufv_operations.py:277: ```O``` -- down/outer ``O``, left ``L``, right ``R``), with the correct outgoing mask per sense (left core ``i`` ->
+- t3toolbox/backend/ufv_operations.py:398: `O_i` -- the mode axis), the centers ``H_i = L_i T_i`` and the Tucker factors ``S_i^T = <O_i, H_i>`` as ``d``-prefixed
+- t3toolbox/backend/ufv_operations.py:398: `O_i` -- the mode axis), the centers ``H_i = L_i T_i`` and the Tucker factors ``S_i^T = <O_i, H_i>`` as ``d``-prefixed
+- t3toolbox/backend/ufv_operations.py:457: `O_i` -- # the center factors (fv_center_factors, on the supercores): T_i = Z_(i+1), H_i = L_i T_i, S_i^T = <O_i, H_i>
+- t3toolbox/backend/ufv_operations.py:457: `O_i` -- # the center factors (fv_center_factors, on the supercores): T_i = Z_(i+1), H_i = L_i T_i, S_i^T = <O_i, H_i>
+- t3toolbox/backend/ufv_operations.py:526: `Udot_g` -- slots to ONE factor direction, ``Udot_g = M_g^{+eps} [V_i1; ...]``, solved against the companion's stacked-``S``
+- t3toolbox/backend/uniform_padded_frames.py:183: `O0` -- U0, O0, L0, R0, shape, masks = old_frame_data
+- t3toolbox/backend/uniform_padded_frames.py:185: `O0` -- xnp, _, _ = get_backend(True, tree_contains_jax((U0, O0, L0, R0)))
+- t3toolbox/backend/uniform_padded_frames.py:209: `O0` -- Na, Rb = max(U0.shape[-2], O0.shape[-2]), max(L0.shape[-1], R0.shape[-1])
+- t3toolbox/backend/uniform_padded_frames.py:212: `O0` -- U0, O0, L0, R0 = ufv_masking.ufv_apply_frame_masks(old_frame_data)              # masked once
+- t3toolbox/backend/uniform_padded_frames.py:213: `O0` -- U0, O0 = _pad_trailing(U0, (Na, N)), _pad_trailing(O0, (Rb, Na, Rb))
+- t3toolbox/backend/uniform_padded_frames.py:213: `O0` -- U0, O0 = _pad_trailing(U0, (Na, N)), _pad_trailing(O0, (Rb, Na, Rb))
+- t3toolbox/backend/uniform_padded_frames.py:257: `O0` -- P_O = _unfold(_pad_trailing(O0, (rT, Na, rT)), -2)
+- t3toolbox/backend/uniform_padded_frames.py:399: `, O)` -- PhiU = contractions.contract('dCaxb,dCaub->dCxu', Vb, O)
+- t3toolbox/backend/uniform_padded_frames.py:400: `, O)` -- W = _unfold(Vb - contractions.contract('dCxu,dCaub->dCaxb', PhiU, O), -2)
+- t3toolbox/backend/uniform_padded_frames.py:531: `(U, O, L, R)` -- (U, O, L, R), (V, H), host = rebuild_static(dynamic, skeleton)
+- t3toolbox/backend/uniform_padded_frames.py:534: `(U, O, L, R, V, H)` -- xnp, _, xscan = get_backend(True, tree_contains_jax((U, O, L, R, V, H)))
+- t3toolbox/backend/uniform_padded_frames.py:554: `O[` -- H[1:, ..., Rb:, :, :], O[1:, ..., Rb:, Na:, :], L[1:, ..., Rb:, :, Rb:], R[1:], PhiO[1:], XiO[1:]),
+- t3toolbox/backend/uniform_padded_frames.py:558: `O[` -- H[:-1, ..., Rb:], O[:-1, ..., Na:, Rb:], R[:-1, ..., Rb:, :, Rb:], L[:-1], PhiO[:-1], XiO[:-1]),
+- t3toolbox/backend/uniform_padded_frames.py:583: `O[` -- H[:-1, ..., Rb:], O[:-1, ..., Na:, Rb:], R[:-1, ..., Rb:, :, Rb:], L[:-1, ..., Rb:],
+- t3toolbox/backend/uniform_padded_frames.py:587: `O[` -- H[1:, ..., Rb:, :, :], O[1:, ..., Rb:, Na:, :], L[1:, ..., Rb:, :, Rb:], R[1:, ..., Rb:, :, :],
+- t3toolbox/backend/uniform_padded_frames.py:599: `O[` -- g_old = _unfold(_new_coordinates_d(_new_coordinates_d(O[..., Na:, :], oL, -3), oR, -1), -2)
+- t3toolbox/backend/uniform_padded_frames.py:600: `O[` -- Abar = _unfold(_pad_trailing(O[..., :Rb, :Na, :Rb], (rT1, Na, rT1)), -2)
+- t3toolbox/backend/uniform_padded_frames.py:603: `O1` -- O1 = _fold(xnp.concatenate([Abar, P], axis=-1), (rT1, nT1, rT1), -2)
+- t3toolbox/backend/uniform_padded_frames.py:609: `O1` -- return U1, O1, L1, R1, movement
+- t3toolbox/backend/uniform_padded_frames.py:707: `(U, O, L, R)` -- dynamic, skeleton = partition_static(((U, O, L, R), (V, H), host))
+- t3toolbox/backend/uniform_padded_frames.py:708: `O1` -- U1, O1, L1, R1, movement = _utv_align_kernel(dynamic, skeleton, (Na, Rb), update)
+- t3toolbox/backend/uniform_padded_frames.py:709: `O1` -- return (U1, O1, L1, R1, shape, (mU1, mD1, mL1, mR1)), movement
+- t3toolbox/backend/uniform_padded_frames.py:726: `(U, O, L, R)` -- xnp, _, _ = get_backend(True, tree_contains_jax((U, O, L, R)))
+- t3toolbox/backend/uniform_padded_frames.py:733: `O.shape` -- wide = (max(U.shape[-2], WU), max(O.shape[-2], WD), max(L.shape[-1], WL), max(R.shape[-1], WR))
+- t3toolbox/backend/uniform_padded_frames.py:762: `(U, O, L, R)` -- cores:    typ.Tuple[NDArray, ...],    # (U, O, L, R) in block layout at `masks`
+- t3toolbox/backend/ut3_orthogonalization.py:201: `O_a` -- O_ab_x, ss, WT_x_i = xnp.linalg.svd(H_ab_i, full_matrices=False)
+- t3toolbox/backend/ut3_orthogonalization.py:204: `O_a` -- O_ab_x, ss, WT_x_i = linalg.pad_safe_svd(H_ab_i, row_mask, col_mask)
+- t3toolbox/backend/ut3_orthogonalization.py:206: `O_a` -- O_ab_x = O_ab_x * out_mask[..., None, :]
+- t3toolbox/backend/ut3_orthogonalization.py:206: `O_a` -- O_ab_x = O_ab_x * out_mask[..., None, :]
+- t3toolbox/backend/ut3_orthogonalization.py:208: `O_a` -- new_tt = O_ab_x.reshape((d,) + stack + (rL, rR, x)).swapaxes(-1, -2)   # (d,)+stack+(rL,x,rR)
+- t3toolbox/backend/ut3_sampling.py:111: `(P,Q,O)` -- # Gradient of a sampling op w.r.t. the frame's own supercores (the Section 6.3 (P,Q,O)->G substitution, via
+- t3toolbox/backend/ut3_sampling.py:111: `,O)` -- # Gradient of a sampling op w.r.t. the frame's own supercores (the Section 6.3 (P,Q,O)->G substitution, via
+- t3toolbox/backend/ut3_sampling.py:114: `dU` -- # supercores (dU, dG) -- the uniform mirror of the ragged TuckerTensorTrain.*_corewise_transpose raw-tuple
+- t3toolbox/backend/ut3_sampling.py:229: `(P,Q,O)` -- # the frame's own supercores (the §6.3 (P,Q,O)->G substitution, via the now-polymorphic
+- t3toolbox/backend/ut3_sampling.py:229: `,O)` -- # the frame's own supercores (the §6.3 (P,Q,O)->G substitution, via the now-polymorphic
+- t3toolbox/backend/ut3_sampling.py:231: `dU` -- # boundary; return the RAW gradient supercores (dU, dG), re-masked on exit (clean padding, as above). For a
+- t3toolbox/backend/ut3_sampling.py:373: `(U, O, P, Q)` -- manifold frame ``(U, O, P, Q)`` of ``theta = (U, P)`` (or the apply sweep at the corewise frame): its masked
+- t3toolbox/backend/ut3_sampling.py:463: `(U, O, P, Q)` -- :py:func:`~t3toolbox.backend.utv_sampling.utv_precompute_probe_frame_sweep` at the manifold frame ``(U, O, P, Q)``
+- t3toolbox/backend/utv_operations.py:210: `Udot` -- the ragged branch: per nontrivial group the common gauged ambient direction ``Udot``
+- t3toolbox/backend/utv_operations.py:213: `O_i` -- center core ``H_i`` replaces ``O_i`` (an exact rewrite of each Tucker term). ``Udot`` has the UP
+- t3toolbox/backend/utv_operations.py:213: `Udot` -- center core ``H_i`` replaces ``O_i`` (an exact rewrite of each Tucker term). ``Udot`` has the UP
+- t3toolbox/backend/utv_operations.py:213: `O_i` -- center core ``H_i`` replaces ``O_i`` (an exact rewrite of each Tucker term). ``Udot`` has the UP
+- t3toolbox/backend/utv_operations.py:242: `O_i` -- down_slices.append(shared_data.centers[gi][jj])          # H_i replaces O_i, (C)+(rL, nU, rR)
+- t3toolbox/backend/utv_operations.py:242: `O_i` -- down_slices.append(shared_data.centers[gi][jj])          # H_i replaces O_i, (C)+(rL, nU, rR)
+- t3toolbox/backend/utv_operations.py:250: `O.shape` -- [O, xnp.zeros(O.shape[:-2] + (pad, O.shape[-1]))], axis=-2))
+- t3toolbox/backend/utv_operations.py:250: `O.shape` -- [O, xnp.zeros(O.shape[:-2] + (pad, O.shape[-1]))], axis=-2))
+- t3toolbox/backend/utv_operations.py:277: `O[` -- Gbot = xnp.concatenate([O[:1], Z(1, rL, nD, rL)], axis=-1)             # (rL, nD, rR+rL)
+- t3toolbox/backend/utv_operations.py:285: `dU` -- xnp.concatenate([ttv[1:-1], L[1:-1]], axis=-1),                    # [dU, L]   -> (rL, nU, rR+rL)
+- t3toolbox/backend/utv_operations.py:289: `O[` -- xnp.concatenate([O[1:-1], Z(nd, rL, nD, rL)], axis=-1),            # [O, Z111] -> (rL, nD, rR+rL)
+- t3toolbox/backend/utv_operations.py:295: `dU` -- if include_shift:  # fold the base point's last core in: add its rank-1 right boundary (col 0) to dU
+- t3toolbox/backend/utv_operations.py:299: `dU` -- Gtop = xnp.concatenate([R[-1:], dG], axis=-3)                          # [R, dU] -> (rR+rL, nU, rR)
+- t3toolbox/backend/utv_operations.py:300: `O[` -- Gbot = xnp.concatenate([Z(1, rR, nD, rR), O[-1:]], axis=-3)            # (rR+rL, nD, rR)
+- t3toolbox/backend/utv_operations.py:315: `dU` -- # block structure (T4S (49)-(52)): Tucker axis [U | dU] = [up | down]; the TT bond is [Q | P] = [R | L], so
+- t3toolbox/backend/utv_operations.py:320: `dU` -- tucker_mask = np.concatenate([var_up_mask, var_down_mask], axis=-1)        # (d,)+ss+(nU+nD,)  [U | dU]
+- t3toolbox/backend/utv_operations.py:377: `dU` -- variations_data,  # UT3Variations .data: free core perturbations (dU, dG), stack = K + C
+- t3toolbox/backend/utv_operations.py:382: `(P, Q, O)` -- Alger et al. 2026 -- the ``(P, Q, O) -> G`` substitution): recovers the point ``(U, G)`` from the frame
+- t3toolbox/backend/utv_operations.py:382: `, O)` -- Alger et al. 2026 -- the ``(P, Q, O) -> G`` substitution): recovers the point ``(U, G)`` from the frame
+- t3toolbox/backend/utv_operations.py:396: `dU` -- dU, dG = variations_data[0], variations_data[1]   # (d,) + K + C + (nD, N), (d,) + K + C + (rL, nU, rR)
+- t3toolbox/backend/utv_operations.py:398: `dU` -- ss = dU.shape[1:-2]         # K + C (the variation stack)
+- t3toolbox/backend/utv_operations.py:408: `dU` -- new_tk = bcast_sc(up_sc) + dU
+- t3toolbox/backend/utv_operations.py:486: `Q_i` -- dG = dG_in + xnp.einsum('...jk,...kbl->...jbl', X_prev, R)            # incoming correction X_prev @ Q_ii
+- t3toolbox/backend/utv_operations.py:498: ```O``` -- made perpendicular to ``U`` (compensating through the down core ``O``), then the TT variations are made
+- t3toolbox/backend/utv_operations.py:518: `Q_i` -- # incoming correction X_prev @ Q_ii, then projects. The last core is left un-projected (its emitted
+- t3toolbox/backend/utv_operations.py:538: `dU` -- Each Tucker variation must be orthogonal to its up-core (``U^T dU = 0``) and each left-interior TT
+- t3toolbox/backend/utv_operations.py:555: `dU` -- g_tk = xnp.einsum('d...ia,d...ja->d...ij', up_sc, tkv)                     # U^T dU,        (d,)+stack+(nU, nD)
+- t3toolbox/backend/utv_operations.py:669: `Udot` -- ):  # -> plain-UT3 .data of the raw direction theta_hat = (Udot, Gdot, shape, (up, left) masks over K + C)
+- t3toolbox/backend/utv_operations.py:673: `Udot_i` -- ``Udot_i = (S_i^T)^{+eps} V_i``,   ``Gdot_i = H_i x_3 T_i^{+eps}`` (``i <= d-2``),   ``Gdot_{d-1} = H_{d-1}``,
+- t3toolbox/backend/utv_operations.py:682: `Udot_g` -- each nontrivial sharing group's Tucker slots lift to ONE factor direction, ``Udot_g = M_g^{+eps} [V_i1; ...]``
+- t3toolbox/backend/utv_operations.py:716: `Udot` -- Udot = contractions.contract('dCux,dKCxn->dKCun', lift_factors.tucker_pinvs, tkv)
+- t3toolbox/backend/utv_operations.py:717: `Udot` -- Udot = _tie_group_slices(Udot, groups, [                                      # the tied lift: Udot_g at each
+- t3toolbox/backend/utv_operations.py:717: `Udot` -- Udot = _tie_group_slices(Udot, groups, [                                      # the tied lift: Udot_g at each
+- t3toolbox/backend/utv_operations.py:717: `Udot_g` -- Udot = _tie_group_slices(Udot, groups, [                                      # the tied lift: Udot_g at each
+- t3toolbox/backend/utv_operations.py:723: `Udot` -- return tuple(ut3_masking.ut3_apply_masks((Udot, Gdot, shape, masks))) + (shape, masks)
+- t3toolbox/backend/utv_operations.py:728: `Udot` -- core_variations,    # plain-UT3 .data of raw core variations (Udot, Gdot, shape, masks), stack K + C
+- t3toolbox/backend/utv_operations.py:732: `Udot_i` -- variations back to frame coordinates, ``V_i = ((S_i^T)^{+eps})^T Udot_i``, ``H_i = Gdot_i x_3 (T_i^{+eps})^T``
+- t3toolbox/backend/utv_operations.py:740: `Ud` -- Ud, Gd = ut3_masking.ut3_apply_masks(core_variations)                          # mask on entry (own masks)
+- t3toolbox/backend/utv_operations.py:742: `Ud` -- V = contractions.contract('dCux,dKCun->dKCxn', lift_factors.tucker_pinvs, Ud)
+- t3toolbox/backend/utv_operations.py:744: `Ud` -- sharing_module._tied_filtered_solve_transpose(lift_factors.shared_data, gi, _group_sum(Ud, group),
+- t3toolbox/backend/utv_operations.py:748: `Ud` -- masks = ufv_masking.ufv_variation_masks_over_stack(frame_data[5], frame_data[0].shape[1:-2], Ud.shape[1:-2])
+- t3toolbox/backend/utv_sampling.py:200: `dU_tilde` -- ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
+- t3toolbox/backend/utv_sampling.py:203: `dU_tilde` -- supercores ``(dU_tilde, dG_tilde)``, padding NOT re-masked (the calling kind's ``transpose`` re-masks it)."""
+- t3toolbox/backend/utv_sampling.py:212: `dU_tilde` -- ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
+- t3toolbox/backend/utv_sampling.py:224: `dU_tilde` -- ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
+- t3toolbox/backend/utv_sampling.py:331: `dU_tilde` -- ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
+- t3toolbox/backend/utv_sampling.py:345: `dU_tilde` -- ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
+- t3toolbox/backend/utv_sampling.py:360: `dU_tilde` -- ):  # -> bare variation supercore pair (dU_tilde, dG_tilde); stack K_new + C
+- t3toolbox/backend/utv_sampling.py:439: `dU_tilde` -- dU_tilde,     # bare transpose-output tucker variation supercore, (d,)+K_new+C+(nD, N)
+- t3toolbox/backend/utv_sampling.py:441: `dU_tilde` -- ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks), padding exactly zero
+- t3toolbox/backend/utv_sampling.py:446: `dU_tilde` -- masks = _gauge_masks_over_Knew(frame_data, dU_tilde)
+- t3toolbox/backend/utv_sampling.py:447: `dU_tilde` -- dU_tilde, dG_tilde = ufv_masking.ufv_apply_variations_masks((dU_tilde, dG_tilde, frame_data[4], masks))
+- t3toolbox/backend/utv_sampling.py:447: `dU_tilde` -- dU_tilde, dG_tilde = ufv_masking.ufv_apply_variations_masks((dU_tilde, dG_tilde, frame_data[4], masks))
+- t3toolbox/backend/utv_sampling.py:448: `dU_tilde` -- return (dU_tilde, dG_tilde, frame_data[4], masks)
+- t3toolbox/backend/utv_sampling.py:456: `dU_tilde` -- ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
+- t3toolbox/backend/utv_sampling.py:468: `dU_tilde` -- dU_tilde, dG_tilde = probing.tv_probe_transpose(
+- t3toolbox/backend/utv_sampling.py:470: `dU_tilde` -- return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
+- t3toolbox/backend/utv_sampling.py:478: `dU_tilde` -- ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
+- t3toolbox/backend/utv_sampling.py:484: `dU_tilde` -- dU_tilde, dG_tilde = apply.tv_apply_transpose(
+- t3toolbox/backend/utv_sampling.py:486: `dU_tilde` -- return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
+- t3toolbox/backend/utv_sampling.py:494: `dU_tilde` -- ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
+- t3toolbox/backend/utv_sampling.py:499: `dU_tilde` -- dU_tilde, dG_tilde = entries.tv_entries_transpose(
+- t3toolbox/backend/utv_sampling.py:501: `dU_tilde` -- return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
+- t3toolbox/backend/utv_sampling.py:520: `dU_tilde` -- ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
+- t3toolbox/backend/utv_sampling.py:529: `dU_tilde` -- dU_tilde, dG_tilde = sampling_derivatives.tv_probe_derivatives_transpose(
+- t3toolbox/backend/utv_sampling.py:531: `dU_tilde` -- return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
+- t3toolbox/backend/utv_sampling.py:541: `dU_tilde` -- ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
+- t3toolbox/backend/utv_sampling.py:548: `dU_tilde` -- dU_tilde, dG_tilde = sampling_derivatives.tv_apply_derivatives_transpose(
+- t3toolbox/backend/utv_sampling.py:550: `dU_tilde` -- return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
+- t3toolbox/backend/utv_sampling.py:560: `dU_tilde` -- ):  # -> UT3Variations .data: (dU_tilde, dG_tilde, shape, masks); stack K_new + C
+- t3toolbox/backend/utv_sampling.py:565: `dU_tilde` -- dU_tilde, dG_tilde = sampling_derivatives.tv_entries_derivatives_transpose(
+- t3toolbox/backend/utv_sampling.py:567: `dU_tilde` -- return _remasked_transpose_output(frame_data, dU_tilde, dG_tilde)
+- t3toolbox/frame_variations_format.py:8: `(U, O, P, Q)` -- fixed-rank T3 manifold (T4S Appendix A). ``T3Frame.data = (up, down, left, right) = (U, O, P, Q)``;
+- t3toolbox/frame_variations_format.py:93: `Ud` -- U0        U1                   Ud
+- t3toolbox/frame_variations_format.py:105: `Ud` -- U0       (V1)                   Ud
+- t3toolbox/frame_variations_format.py:118: `O_aib` -- - down_tt_cores     = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
+- t3toolbox/frame_variations_format.py:118: `outer-orthogonal` -- - down_tt_cores     = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
+- t3toolbox/frame_variations_format.py:118: `O0` -- - down_tt_cores     = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
+- t3toolbox/frame_variations_format.py:118: `O(d-1)` -- - down_tt_cores     = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
+- t3toolbox/frame_variations_format.py:118: `O_a` -- - down_tt_cores     = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
+- t3toolbox/frame_variations_format.py:118: `O_a` -- - down_tt_cores     = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
+- t3toolbox/frame_variations_format.py:158: `P_i` -- left_tt_cores:      typ.Tuple[NDArray,...]  # len=d. P_iax P_iay = I_xy, Pi.shape = stack_shape+(rLi, nUi, rL(i+1))
+- t3toolbox/frame_variations_format.py:158: `P_i` -- left_tt_cores:      typ.Tuple[NDArray,...]  # len=d. P_iax P_iay = I_xy, Pi.shape = stack_shape+(rLi, nUi, rL(i+1))
+- t3toolbox/frame_variations_format.py:222: `O2` -- 1 -- L0 -- L1 -- O2 -- R3 -- 1
+- t3toolbox/frame_variations_format.py:850: `O2` -- 1 -- L0 -- L1 -- O2 -- R3 -- 1
+- t3toolbox/frame_variations_format.py:1169: `(U, O, P, Q)` -- frame cores (U, O, P, Q), and that their stacks are compatible.
+- t3toolbox/frame_variations_format.py:1372: `O0` -- - down_tt_cores     = (O0, O1, O2, O3), down orthogonal
+- t3toolbox/frame_variations_format.py:1372: `O1` -- - down_tt_cores     = (O0, O1, O2, O3), down orthogonal
+- t3toolbox/frame_variations_format.py:1372: `O2` -- - down_tt_cores     = (O0, O1, O2, O3), down orthogonal
+- t3toolbox/frame_variations_format.py:1372: `O3` -- - down_tt_cores     = (O0, O1, O2, O3), down orthogonal
+- t3toolbox/manifold.py:478: `dU_i` -- The gauged identity ``<v, v'>_HS = sum_i <dU_i, dU_i'> + sum_i <dG_i, dG_i'>`` is Appendix A.3 of
+- t3toolbox/manifold.py:478: `dU_i` -- The gauged identity ``<v, v'>_HS = sum_i <dU_i, dU_i'> + sum_i <dG_i, dG_i'>`` is Appendix A.3 of
+- t3toolbox/manifold.py:816: `dU_sum` -- >>> dU_sum = tuple(np.sum(c, axis=0) for c in kept.variations.tucker_variations)  # sum the W axis
+- t3toolbox/manifold.py:818: `dU_sum` -- ...           for a, b in zip(dU_sum, summed.variations.tucker_variations))
+- t3toolbox/manifold.py:824: `dU_tildes` -- dU_tildes, dG_tildes = probing.tv_probe_transpose(
+- t3toolbox/manifold.py:827: `dU_tildes` -- return T3Tangent(frame, bvf.T3Variations(dU_tildes, dG_tildes))
+- t3toolbox/manifold.py:937: `dU` -- dU, dG = apply.tv_apply_transpose(c, ww, frame.data, sum_over_probes=sum_over_probes)
+- t3toolbox/manifold.py:938: `dU` -- return T3Tangent(frame, bvf.T3Variations(dU, dG))
+- t3toolbox/manifold.py:958: `dU` -- dU, dG = entries.tv_entries_transpose(c, index, frame.data, sum_over_probes=sum_over_probes)
+- t3toolbox/manifold.py:959: `dU` -- return T3Tangent(frame, bvf.T3Variations(dU, dG))
+- t3toolbox/manifold.py:1133: `dU` -- dU, dG = sampling_derivatives.tv_probe_derivatives_transpose(
+- t3toolbox/manifold.py:1135: `dU` -- return T3Tangent(frame, bvf.T3Variations(dU, dG))
+- t3toolbox/manifold.py:1157: `dU` -- dU, dG = sampling_derivatives.tv_apply_derivatives_transpose(
+- t3toolbox/manifold.py:1159: `dU` -- return T3Tangent(frame, bvf.T3Variations(dU, dG))
+- t3toolbox/manifold.py:1182: `dU` -- dU, dG = sampling_derivatives.tv_entries_derivatives_transpose(
+- t3toolbox/manifold.py:1184: `dU` -- return T3Tangent(frame, bvf.T3Variations(dU, dG))
+- t3toolbox/manifold.py:1342: `(U, O, P, Q)` -- ) -> bvf.T3Frame:  # orthonormal frame (U, O, P, Q) at x
+- t3toolbox/manifold.py:1343: `outer-orthogonal` -- """The orthonormal frame at ``x`` (the left/right/outer-orthogonal representation)."""
+- t3toolbox/manifold.py:1554: `(O, P, Q)` -- ``(O, P, Q) -> G`` is exactly this change of frame; the manifold counterpart is
+- t3toolbox/manifold.py:1570: `dU` -- >>> dU, dG = v.variations.tucker_variations, v.variations.tt_variations
+- t3toolbox/manifold.py:1571: `dU` -- >>> ref = t3.TuckerTensorTrain(tuple(u + du for u, du in zip(U, dU)),
+- t3toolbox/tucker_tensor_train.py:3870: `gU` -- >>> gU, gG = x.apply_corewise_transpose(np.asarray(2.0), ww, sum_over_probes=True)
+- t3toolbox/tucker_tensor_train.py:3871: `gU` -- >>> print([g.shape for g in gU] == [u.shape for u in x.tucker_cores])   # matches Tucker cores
+- t3toolbox/tucker_tensor_train.py:4072: `gU` -- >>> gU, gG = x.apply_corewise_derivatives_transpose(c, ww, pp, 3, sum_over_probes=True)
+- t3toolbox/tucker_tensor_train.py:4073: `gU` -- >>> print([g.shape for g in gU] == [u.shape for u in x.tucker_cores])   # matches the cores
+- t3toolbox/uniform_frame_variations_format.py:1007: `(U, L, R, O)` -- to interface with the frame cores (U, L, R, O).
+- t3toolbox/uniform_frame_variations_format.py:1007: `, O)` -- to interface with the frame cores (U, L, R, O).
+- t3toolbox/uniform_frame_variations_format.py:1113: `O2` -- 1 -- L0 -- L1 -- O2 -- R3 -- 1
+- t3toolbox/uniform_frame_variations_format.py:1125: `O0` -- - outer_tt_cores    = (O0, O1, O2, O3), down orthogonal
+- t3toolbox/uniform_frame_variations_format.py:1125: `O1` -- - outer_tt_cores    = (O0, O1, O2, O3), down orthogonal
+- t3toolbox/uniform_frame_variations_format.py:1125: `O2` -- - outer_tt_cores    = (O0, O1, O2, O3), down orthogonal
+- t3toolbox/uniform_frame_variations_format.py:1125: `O3` -- - outer_tt_cores    = (O0, O1, O2, O3), down orthogonal
+- t3toolbox/uniform_manifold.py:478: `dU_i` -- coordinate ones; not enforced at construction): ``U_i^T dU_i = 0`` (all i) and
+- t3toolbox/uniform_manifold.py:479: `P_i` -- ``(P_i^L)^T dG_i^L = 0`` (i = 0..d-2) -- conditions (47)-(48), Appendix A.3 of Alger et al. (2026).
+- t3toolbox/uniform_manifold.py:1283: `(P, Q, O)` -- ``(P, Q, O) -> G`` substitution), the metric is the plain Euclidean (corewise) inner product, the
+- t3toolbox/uniform_manifold.py:1283: `, O)` -- ``(P, Q, O) -> G`` substitution), the metric is the plain Euclidean (corewise) inner product, the
+- t3toolbox/uniform_manifold.py:1313: `(P, Q, O)` -- substitution ``(P, Q, O) -> G`` gives all three non-up slots the single core ``G``'s rank structure,
+- t3toolbox/uniform_manifold.py:1313: `, O)` -- substitution ``(P, Q, O) -> G`` gives all three non-up slots the single core ``G``'s rank structure,
+- t3toolbox/uniform_tucker_tensor_train.py:546: `(P,Q,O)` -- Section 6.3 ``(P,Q,O)->G`` substitution; no orthogonality required. ``sum_over_probes=True`` sums the
+- t3toolbox/uniform_tucker_tensor_train.py:546: `,O)` -- Section 6.3 ``(P,Q,O)->G`` substitution; no orthogonality required. ``sum_over_probes=True`` sums the
+- t3toolbox/uniform_tucker_tensor_train.py:566: `gU` -- >>> gU, gG = x.apply_corewise_transpose(c, ww, sum_over_probes=True)
+- t3toolbox/uniform_tucker_tensor_train.py:567: `gU` -- >>> print(gU.shape == x.tucker_supercore.shape, gG.shape == x.tt_supercore.shape)   # sum W -> core shapes
+- t3toolbox/uniform_tucker_tensor_train.py:610: `(P,Q,O)` -- the grads have no order axis). The §6.3 ``(P,Q,O)->G`` substitution. ``sum_over_probes`` /
+- t3toolbox/uniform_tucker_tensor_train.py:610: `,O)` -- the grads have no order axis). The §6.3 ``(P,Q,O)->G`` substitution. ``sum_over_probes`` /
+- t3toolbox/uniform_tucker_tensor_train.py:631: `gU` -- >>> gU, gG = x.apply_corewise_derivatives_transpose(c, ww, pp, 2, sum_over_probes=True)
+- t3toolbox/uniform_tucker_tensor_train.py:632: `gU` -- >>> print(gU.shape == x.tucker_supercore.shape, gG.shape == x.tt_supercore.shape)
+- tests/_jet_trs_twins.py:85: `mu_jet, O` -- + contract('trs,rWCa,Caib,sWKCi->tWKCb', trs_push, mu_jet, O, dxi_jet[:s2]))
+- tests/_jet_trs_twins.py:99: `O_i` -- """Variation-leftward jets ``sigma_i = sigma_{i-1} Q_i(xi_i) + mu_{i-1} dG_i(xi_i) + mu_{i-1} O_i(dxi_i)``."""
+- tests/_jet_trs_twins.py:99: `Q_i` -- """Variation-leftward jets ``sigma_i = sigma_{i-1} Q_i(xi_i) + mu_{i-1} dG_i(xi_i) + mu_{i-1} O_i(dxi_i)``."""
+- tests/_jet_trs_twins.py:99: `O_i` -- """Variation-leftward jets ``sigma_i = sigma_{i-1} Q_i(xi_i) + mu_{i-1} dG_i(xi_i) + mu_{i-1} O_i(dxi_i)``."""
+- tests/_jet_trs_twins.py:170: `mu O` -- ``tau~ O nu + mu O sigma~`` (only the rows ``u in {0,1}`` are ever read: the shipped kernel returns just
+- tests/_jet_trs_twins.py:170: `O nu` -- ``tau~ O nu + mu O sigma~`` (only the rows ``u in {0,1}`` are ever read: the shipped kernel returns just
+- tests/_jet_trs_twins.py:170: `O sigma` -- ``tau~ O nu + mu O sigma~`` (only the rows ``u in {0,1}`` are ever read: the shipped kernel returns just
+- tests/_jet_trs_twins.py:173: `mu, O` -- + contract('trs,rWCa,Caib,tWKCb->sWKCi', trs, mu, O, st)
+- tests/_jet_trs_twins.py:207: `mu O` -- ``mu O sigma^`` (all rows) and the single-term assembly ``dG = mu (x) xi (x) sigma^``, ``dU = dxi^ (x) w``.
+- tests/_jet_trs_twins.py:207: `O sigma` -- ``mu O sigma^`` (all rows) and the single-term assembly ``dG = mu (x) xi (x) sigma^``, ``dU = dxi^ (x) w``.
+- tests/_jet_trs_twins.py:207: `dU` -- ``mu O sigma^`` (all rows) and the single-term assembly ``dG = mu (x) xi (x) sigma^``, ``dU = dxi^ (x) w``.
+- tests/_jet_trs_twins.py:208: `dU` -- Returns ``(dU, dG)``."""
+- tests/_jet_trs_twins.py:211: `gU` -- gU, gG = ('KCao', 'KCaib') if sum_over_probes else ('WKCao', 'WKCaib')
+- tests/_jet_trs_twins.py:212: `dU` -- dU, dG = [], []
+- tests/_jet_trs_twins.py:214: `mu, O` -- dxh = contract('trs,rWCa,Caib,tWKCb->sWKCi', trs, mu, O, sh)
+- tests/_jet_trs_twins.py:216: `dU` -- dU.append(contract('uWKCa,uWo->' + gU, dxh[:s2], wj[:s2]))
+- tests/_jet_trs_twins.py:216: `gU` -- dU.append(contract('uWKCa,uWo->' + gU, dxh[:s2], wj[:s2]))
+- tests/_jet_trs_twins.py:217: `dU` -- return tuple(dU), tuple(dG)
+- tests/backend/_curvature_oracles.py:75: `gU` -- gU = tuple(gYU[i][..., :U[i].shape[-2], :] for i in range(d))      # U_i sits in the top Tucker rows
+- tests/backend/_curvature_oracles.py:78: `gU` -- return gU, (gYG[0][..., :, n:, :],)
+- tests/backend/_curvature_oracles.py:89: `gU` -- return gU, tuple(gG)
+- tests/backend/_curvature_oracles.py:207: `Udot_g` -- ``Udot_g = pinv(M_g) [V_i1; ...]``, copied to the group's modes; the per-mode and bond lifts elsewhere -- the
+- tests/backend/_curvature_oracles.py:213: `Ud` -- Ud = [mode_pinvs[i] @ np.asarray(V[i]) for i in range(d)]
+- tests/backend/_curvature_oracles.py:215: `Ug` -- Ug = Mp @ np.concatenate([np.asarray(V[i]) for i in g], axis=0)
+- tests/backend/_curvature_oracles.py:217: `Ud` -- Ud[i] = Ug
+- tests/backend/_curvature_oracles.py:217: `Ug` -- Ud[i] = Ug
+- tests/backend/_curvature_oracles.py:219: `Ud` -- return tuple(Ud), tuple(Gd)
+- tests/backend/_curvature_oracles.py:243: `dU` -- dU = [np.zeros(np.shape(u)) for u in U]
+- tests/backend/_curvature_oracles.py:248: `dU` -- dU[i] += Ai @ U[i]
+- tests/backend/_curvature_oracles.py:255: `dU` -- return tuple(dU), tuple(dG)
+- tests/backend/_curvature_oracles.py:305: `Ud` -- def deta_tilde_tangent_jets_trs(Ud, ztildes, n_frame):
+- tests/backend/_curvature_oracles.py:306: `Udot_i` -- """Reference twin of ``sd.compute_deta_tilde_tangent_jets``: ``Udot_i z~_i`` per core."""
+- tests/backend/_curvature_oracles.py:307: `Ud` -- return tuple(contract('tWCo,KCio->tWKCi', z, u, len_C=n_frame) for z, u in zip(ztildes, Ud))
+- tests/backend/_curvature_oracles.py:397: `Ud` -- tangent forward at ``Q = O = P = G`` along ``(Ud, Gd)``. Every jet kernel here is a dense ``*_trs`` twin."""
+- tests/backend/_curvature_oracles.py:399: `Ud` -- Ud, Gd = core_directions
+- tests/backend/_curvature_oracles.py:412: `Ud` -- st['xid'] = sd.build_input_jets(probing.compute_xi(Ud, ww), probing.compute_xi(Ud, pp))
+- tests/backend/_curvature_oracles.py:412: `Ud` -- st['xid'] = sd.build_input_jets(probing.compute_xi(Ud, ww), probing.compute_xi(Ud, pp))
+- tests/backend/_curvature_oracles.py:416: `Ud` -- st['deta_td'] = deta_tilde_tangent_jets_trs(Ud, ztildes, n_frame)
+- tests/backend/_curvature_oracles.py:423: `dU` -- st['dU'] = tucker_tangent_assembly_trs(ztildes, st['dxi_td'], ww, pp, st['etad'], n_frame)
+- tests/backend/_curvature_oracles.py:464: `dU` -- return st['dU'], st['dG']
+- tests/backend/_curvature_oracles.py:471: `Ud` -- # (U, G, G, G) along (Ud, Gd), the residual jet c fixed (W + C, no K): one dense binomial contraction per product-rule
+- tests/backend/_curvature_oracles.py:496: `mu O` -- dense combine ``mu O sigma^`` at ``O = G``, ALL ``order+1`` rows (the shipped kernel forms only ``u in {0, 1}``)."""
+- tests/backend/_curvature_oracles.py:496: `O sigma` -- dense combine ``mu O sigma^`` at ``O = G``, ALL ``order+1`` rows (the shipped kernel forms only ``u in {0, 1}``)."""
+- tests/backend/_curvature_oracles.py:508: `dU` -- of the dense ``dG = mu (x) xi (x) sigma^`` (one dense-trs term per dotted factor) and ``dU = dxi^_dot (x) w``."""
+- tests/backend/_curvature_oracles.py:512: `dU` -- dU = tuple(contract('uWKCa,uWo->KCao', dxd[:s2], wj[:s2], **kw) for dxd, wj in zip(dxi_hats_d, w_jets))
+- tests/backend/_curvature_oracles.py:517: `dU` -- return dU, dG
+- tests/backend/_curvature_oracles.py:525: `Ud` -- Ud, Gd = core_directions
+- tests/backend/_curvature_oracles.py:536: `Ud` -- st['xid'] = sd.build_input_jets(up(Ud), probing.compute_xi(Ud, pp))
+- tests/backend/_curvature_oracles.py:536: `Ud` -- st['xid'] = sd.build_input_jets(up(Ud), probing.compute_xi(Ud, pp))
+- tests/backend/_curvature_oracles.py:543: `dU` -- st['dU'], st['dG'] = apply_derivatives_tangent_assembly_trs(st['xi'], st['xid'], st['mu'], st['mud'],
+- tests/backend/_uniform_padded_frame_testing.py:69: `O[` -- Ou[i][np.ix_(pL[i], pD[i], pR[i + 1])] = O[i]
+- tests/backend/test_curvature.py:178: `O[` -- self.assertEqual(STs[i].shape, C + (O[i].shape[-2], U[i].shape[-2]))
+- tests/backend/test_curvature.py:247: `Ud` -- for i, (Ud, U) in enumerate(zip(theta_hat[0], frame[0])):
+- tests/backend/test_curvature.py:248: `Ud` -- self.assertEqual(Ud.shape, K + U.shape)
+- tests/backend/test_curvature.py:370: `Ud` -- Ud, Gd = tv.tv_corewise_lift(frame, v, lf)
+- tests/backend/test_curvature.py:371: `Ud` -- self.assertTrue(all(np.all(a == 0.0) for a in Ud))
+- tests/backend/test_curvature.py:740: `dU` -- (st['dU'], st['dG'])),
+- tests/backend/test_curvature.py:751: `dU` -- zt, tuple(r[:2] for r in st['dxi_td']), ww, pp, st['etad'], len(W)), st['dU']),
+- tests/backend/test_curvature.py:756: `dU` -- self.assertGreater(_norm_flat((st['dU'], st['dG'])), 1e-3)
+- tests/backend/test_curvature.py:767: `(U, O, L, R)` -- """The manifold model's probe sweep at the frame (U, O, L, R) carries the corewise xi / mu of its base
+- tests/backend/test_curvature.py:1000: `Ud` -- Ud, Gd = dirs
+- tests/backend/test_curvature.py:1039: `Ud` -- xid = probing.compute_dxi(Ud, ww)
+- tests/backend/test_curvature.py:1042: `Ud` -- dtd = probing.compute_deta_tilde_tangent(U, Ud, zt)
+- tests/backend/test_curvature.py:1070: `(U, O, L, R)` -- """The manifold model's sweep at the frame (U, O, L, R) carries the corewise xi / mu of its base point
+- tests/backend/test_curvature.py:1328: `dU` -- 'whole': (_deriv_ops(kind, order)[0](c, sample, theta, dirs), (st['dU'], st['dG'])),
+- tests/backend/test_curvature.py:1335: `dU` -- 'tucker_assembly': (asm[0], st['dU']),
+- tests/backend/test_curvature.py:1338: `dU` -- self.assertGreater(_norm_flat((st['dU'], st['dG'])), 1e-3)
+- tests/backend/test_curvature.py:1396: `(U, O, L, R)` -- """The manifold model's lean jet sweep at the frame (U, O, L, R) carries the corewise xi / mu of its base point
+- tests/backend/test_curvature.py:1561: `(O, U)` -- VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(O, U)]
+- tests/backend/test_curvature.py:1564: `O[` -- X = rng.standard_normal((O[i].shape[-2], U[i].shape[-2]))
+- tests/backend/test_curvature.py:1566: `O[` -- HH[i] -= np.einsum('aib,ij->ajb', O[i], X)
+- tests/backend/test_curvature.py:1775: `(O, U)` -- VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(O, U)]
+- tests/backend/test_curvature.py:1778: `O[` -- X = rng.standard_normal((O[i].shape[-2], U[i].shape[-2]))
+- tests/backend/test_curvature.py:1780: `O[` -- HH[i] -= np.einsum('aib,ij->ajb', O[i], X)
+- tests/backend/test_curvature.py:2112: `(O, U)` -- VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(O, U)]
+- tests/backend/test_curvature.py:2115: `O[` -- X = rng.standard_normal((O[i].shape[-2], U[i].shape[-2]))
+- tests/backend/test_curvature.py:2117: `O[` -- HH[i] -= np.einsum('aib,ij->ajb', O[i], X)
+- tests/backend/test_curvature.py:2272: `(O, U)` -- VV = [np.zeros(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(O, U)]
+- tests/backend/test_curvature.py:2275: `O[` -- X = rng.standard_normal((O[i].shape[-2], U[i].shape[-2]))
+- tests/backend/test_curvature.py:2277: `O[` -- HH[i] -= np.einsum('aib,ij->ajb', O[i], X)
+- tests/backend/test_curvature.py:2983: `(O, U)` -- raw = (tuple(rng.standard_normal(o.shape[-2:-1] + u.shape[-1:]) for o, u in zip(O, U)),
+- tests/backend/test_from_sweep_reuse.py:157: `dU` -- def _bare_to_dense(self, dU, dG):
+- tests/backend/test_from_sweep_reuse.py:158: `dU` -- """Wrap a bare (dU, dG) variation supercore pair (stack K+C) in the K-broadcast gauge masks of
+- tests/backend/test_from_sweep_reuse.py:160: `dU` -- V = self.ubv.UT3Variations(np.asarray(dU), np.asarray(dG), self.frame_u.shape,
+- tests/backend/test_from_sweep_reuse.py:192: `dU` -- dU, dG = self.utvs.utv_probe_transpose_from_sweep(zt, s_probe, sum_over_probes=True)
+- tests/backend/test_from_sweep_reuse.py:193: `dU` -- dense_u = self._bare_to_dense(dU, dG)
+- tests/backend/test_from_sweep_reuse.py:200: `dU` -- dU, dG = self.utvs.utv_apply_transpose_from_sweep(c_res, s_apply, sum_over_probes=True)
+- tests/backend/test_from_sweep_reuse.py:201: `dU` -- dense_u = self._bare_to_dense(dU, dG)
+- tests/backend/test_from_sweep_reuse.py:207: `dU` -- dU, dG = self.utvs.utv_entries_transpose_from_sweep(c_res, s_entries, sum_over_probes=True)
+- tests/backend/test_from_sweep_reuse.py:208: `dU` -- dense_u = self._bare_to_dense(dU, dG)
+- tests/backend/test_optimizers.py:298: `gU` -- gU, gG = prob.local_model(X0.data).gradient
+- tests/backend/test_optimizers.py:299: `dU` -- dU = [rng.standard_normal(u.shape) for u in X0.tucker_cores]
+- tests/backend/test_optimizers.py:301: `gU` -- inner = (sum(float(np.sum(np.asarray(gU[i]) * dU[i])) for i in range(len(dU)))
+- tests/backend/test_optimizers.py:301: `dU` -- inner = (sum(float(np.sum(np.asarray(gU[i]) * dU[i])) for i in range(len(dU)))
+- tests/backend/test_optimizers.py:301: `dU` -- inner = (sum(float(np.sum(np.asarray(gU[i]) * dU[i])) for i in range(len(dU)))
+- tests/backend/test_optimizers.py:304: `dU` -- plus = (tuple(u + eps * du for u, du in zip(X0.tucker_cores, dU)),
+- tests/backend/test_optimizers.py:306: `dU` -- minus = (tuple(u - eps * du for u, du in zip(X0.tucker_cores, dU)),
+- tests/backend/test_optimizers.py:554: `P_last` -- and ‖X‖_HS = ‖P_last‖ = point_norm_sq**½, across structures (design §4)."""
+- tests/backend/test_optimizers.py:563: `P_last` -- float(np.linalg.norm(Xd)), places=5)                          # ‖X‖=‖P_last‖
+- tests/backend/test_padded_frame.py:166: `O_i` -- right interface projectors, per mode the dense down-environment projector (O_i between the interfaces)."""
+- tests/backend/test_padded_frame.py:166: `O_i` -- right interface projectors, per mode the dense down-environment projector (O_i between the interfaces)."""
+- tests/backend/test_padded_frame.py:205: `O0` -- U0, O0, L0, R0 = old
+- tests/backend/test_padded_frame.py:208: `O0` -- self.assertTrue(np.array_equal(down[i][tuple(slice(0, n) for n in O0[i].shape)], O0[i]))
+- tests/backend/test_padded_frame.py:208: `O0` -- self.assertTrue(np.array_equal(down[i][tuple(slice(0, n) for n in O0[i].shape)], O0[i]))
+- tests/backend/test_padded_frame.py:215: `O0` -- a, m, b = O0[i].shape
+- tests/backend/test_padded_frame.py:627: `O[` -- Mm = rng.standard_normal((O[i].shape[1], U[i].shape[0]))
+- tests/backend/test_padded_frame.py:629: `O[` -- H[i] = H[i] - np.einsum('amb,mn->anb', O[i], Mm)
+- tests/backend/test_padded_start.py:307: `O[` -- problem.local_model(x, frame=(U, np.concatenate([O, O[..., :1, :]], axis=-2), L, R, shape, masks))
+- tests/backend/test_padded_start.py:568: `dU` -- TT directions as they are, and per group one shared Tucker variation dU moving every member's factor,
+- tests/backend/test_padded_start.py:569: `dU` -- sum_(i in g) Y_i x_i dU with Y_i = X x_i U_i^T (the untied down-frame Tucker columns are replaced)."""
+- tests/backend/test_ranks.py:446: `O.shape` -- down = tuple(O.shape[-2] for O in fr.down_tt_cores)
+- tests/backend/test_ranks.py:446: `for O in` -- down = tuple(O.shape[-2] for O in fr.down_tt_cores)
+- tests/backend/test_tv_operations.py:126: `O[` -- X = np.random.randn(*(K + C + (O[i].shape[-2], U[i].shape[-2])))
+- tests/backend/test_tv_operations.py:128: `O[` -- HH[i] = HH[i] - np.einsum('...aib,...ij->...ajb', O[i], X)
+- tests/backend/test_uniform_curvature.py:137: `Udot` -- """The real shapes of a raw direction at the base point (U, P): Udot (nU, N), Gdot (rL, nU, rL)."""
+- tests/backend/test_uniform_fitting.py:149: `dU` -- jt = kind_u.transpose(r, sample, self.frame.data, sw)     # bare (dU, dG)
+- tests/backend/test_uniform_fitting.py:349: `dU` -- """Real-slot indicators of a kind-transpose output ``(dU, dG)``, stack ``K+C``, derived from the RAGGED
+- tests/backend/test_uniform_fitting.py:359: `O.shape` -- down = fam(lambda f: [O.shape[-2] for O in f.down_tt_cores], uframe.nD)
+- tests/backend/test_uniform_fitting.py:359: `for O in` -- down = fam(lambda f: [O.shape[-2] for O in f.down_tt_cores], uframe.nD)
+- tests/backend/test_uniform_fitting.py:430: `, O)` -- 'entries_derivatives': (O,), 'probe_derivatives': (d, O)}[name]
+- tests/backend/test_uniform_padded_frame.py:130: `O.shape` -- self.assertEqual((U.shape, O.shape, L.shape, R.shape, sh),
+- tests/backend/test_uniform_padded_frame.py:138: `(U, O, L, R)` -- self.assertTrue(all(isinstance(a, np.ndarray) and a.dtype == float for a in (U, O, L, R)))
+- tests/test_contractions_interpreter.py:207: `<O,` -- # ... the frame's center factors (C only): H = L x3 T, S^T = <O, H>
+- tests/test_contractions_interpreter.py:227: `Udot` -- # The dotted adjoint-up lift (Udot z~), ragged and d-prefixed: no C-only operand, so len_C.
+- tests/test_contractions_interpreter.py:289: `mu O` -- # two-row dxi~ correlation per order slice (mu O and O nu, and the dotted terms; the tilde pair carries u):
+- tests/test_contractions_interpreter.py:289: `O nu` -- # two-row dxi~ correlation per order slice (mu O and O nu, and the dotted terms; the tilde pair carries u):
+- tests/test_contractions_interpreter.py:336: `Udot` -- # Udot z~ (z~ is W + C, the direction K + C: neither pins C alone, so C is supplied, as for its jet twin
+- tests/test_contractions_sharding.py:199: `(U, O, P, Q)` -- frame = (R(d, n, N), R(d, r, n, r), R(d, r, n, r), R(d, r, n, r))     # uniform (U, O, P, Q), replicated
+- tests/test_dispatch.py:2006: `P_{` -- through the dense tangent projection P_{T_F} Y of a fixed Y (a new column's sign follows its SVD's, which is
+- tests/test_dispatch.py:2029: `P_{` -- def tangent_projection(frame, Y):                                  # P_{T_F} Y, dense, in float64
+- tests/test_frame_variations_format.py:447: `outer-orthogonal` -- # U: up-orthogonal (all i); D: outer-orthogonal (all i);
+- tests/test_jet_recurrence.py:57: `dU` -- dU, dG = v.variations.data
+- tests/test_jet_recurrence.py:62: `dU` -- dxi = pd.build_input_jets(pd.compute_xi(dU, ww), pd.compute_xi(dU, pp))
+- tests/test_jet_recurrence.py:62: `dU` -- dxi = pd.build_input_jets(pd.compute_xi(dU, ww), pd.compute_xi(dU, pp))
+- tests/test_jet_recurrence.py:67: `dU` -- return dict(U=U, O=O, P=P, Q=Q, dU=dU, dG=dG, ww=ww, pp=pp, trs=trs, xi=xi, dxi=dxi, mu=mu, nu=nu,
+- tests/test_jet_recurrence.py:67: `dU` -- return dict(U=U, O=O, P=P, Q=Q, dU=dU, dG=dG, ww=ww, pp=pp, trs=trs, xi=xi, dxi=dxi, mu=mu, nu=nu,
+- tests/test_jet_recurrence.py:153: `dU` -- self._close(got[0], ref[0], 'apply transpose dU (sum_over_probes=%s)' % sop)
+- tests/test_manifold.py:683: `dU` -- dU, dG = tr(c)                                               # -> K + cores
+- tests/test_manifold.py:685: `dU` -- grad_k = (tuple(np.asarray(g)[k] for g in dU), tuple(np.asarray(g)[k] for g in dG))
+- tests/test_probe_derivatives.py:159: `dU_v` -- dU_v, dG_v = v.variations.data
+- tests/test_probe_derivatives.py:166: `dU` -- dU, dG = pd.tv_probe_derivatives_transpose(
+- tests/test_probe_derivatives.py:169: `dU` -- rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
+- tests/test_probe_derivatives.py:169: `dU_v` -- rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
+- tests/test_probe_derivatives.py:175: `dU0` -- dU0, dG0 = pd.tv_probe_derivatives_transpose(
+- tests/test_probe_derivatives.py:178: `dU0` -- for a, b in zip(dU0, dU):
+- tests/test_probe_derivatives.py:178: `dU` -- for a, b in zip(dU0, dU):
+- tests/test_probe_derivatives.py:273: `dU_v` -- dU_v, dG_v = v.variations.data
+- tests/test_probe_derivatives.py:280: `dU` -- dU, dG = pd.tv_probe_derivatives_transpose(
+- tests/test_probe_derivatives.py:283: `dU` -- rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
+- tests/test_probe_derivatives.py:283: `dU_v` -- rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
+- tests/test_probe_derivatives.py:288: `dU0` -- dU0, dG0 = pd.tv_probe_derivatives_transpose(
+- tests/test_probe_derivatives.py:291: `dU0` -- for a, b in zip(dU0, dU):
+- tests/test_probe_derivatives.py:291: `dU` -- for a, b in zip(dU0, dU):
+- tests/test_probe_derivatives.py:370: `dU_v` -- dU_v, dG_v = v.variations.data
+- tests/test_probe_derivatives.py:384: `dU` -- dU, dG = T(c, True)
+- tests/test_probe_derivatives.py:386: `dU` -- rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
+- tests/test_probe_derivatives.py:386: `dU_v` -- rhs = (sum(np.sum(np.asarray(dU[i]) * dU_v[i]) for i in range(d))
+- tests/test_probe_derivatives.py:391: `dU0` -- dU0, dG0 = T(c, False)
+- tests/test_probe_derivatives.py:393: `dU0` -- for a, b in zip(dU0, dU):
+- tests/test_probe_derivatives.py:393: `dU` -- for a, b in zip(dU0, dU):
+- tests/test_probe_derivatives.py:432: `gU` -- gU, gG = g
+- tests/test_probe_derivatives.py:433: `dU` -- dU = [rng.randn(*u.shape) for u in tucker_cores]
+- tests/test_probe_derivatives.py:435: `gU` -- inner = (sum(np.sum(np.asarray(gU[i]) * dU[i]) for i in range(d))
+- tests/test_probe_derivatives.py:435: `dU` -- inner = (sum(np.sum(np.asarray(gU[i]) * dU[i]) for i in range(d))
+- tests/test_probe_derivatives.py:438: `dU` -- plus = ([u + eps * du for u, du in zip(tucker_cores, dU)],
+- tests/test_probe_derivatives.py:440: `dU` -- minus = ([u - eps * du for u, du in zip(tucker_cores, dU)],
+- tests/test_probe_derivatives.py:499: `dU` -- dU = tuple(R(*K, *C, self._ND[i], self._N[i]) for i in range(d))
+- tests/test_probe_derivatives.py:501: `dU` -- return (dU, dG)
+- tests/test_probe_derivatives.py:533: `dU_v` -- dU_v, dG_v = var
+- tests/test_probe_derivatives.py:539: `dU` -- dU, dG = pd.tv_probe_derivatives_transpose(
+- tests/test_probe_derivatives.py:546: `dU` -- dU, dG = pd.tv_apply_derivatives_transpose(
+- tests/test_probe_derivatives.py:553: `dU` -- dU, dG = pd.tv_entries_derivatives_transpose(
+- tests/test_probe_derivatives.py:556: `dU` -- rhs = (sum(float(np.sum(np.asarray(dU[i]) * dU_v[i])) for i in range(d))
+- tests/test_probe_derivatives.py:556: `dU_v` -- rhs = (sum(float(np.sum(np.asarray(dU[i]) * dU_v[i])) for i in range(d))
+- tests/test_sharing.py:496: `O_i` -- # S_i S_i^T == Gamma_i (from the centers) and S_i-absorbed O_i == H_i, per group mode;
+- tests/test_sharing.py:496: `O_i` -- # S_i S_i^T == Gamma_i (from the centers) and S_i-absorbed O_i == H_i, per group mode;
+- tests/test_sharing.py:628: `O.shape` -- tkshapes = tuple((O.shape[-2], U.shape[-1]) for O, U in zip(frame_d[1], frame_d[0]))
+- tests/test_sharing.py:647: `O.shape` -- raw = ([np.random.randn(*(STACK_SHAPE + (O.shape[-2], U.shape[-1])))
+- tests/test_sharing.py:675: `Udot` -- Udot = np.linalg.lstsq(M, Vstack, rcond=1e-10)[0]    # (4, N): the tied ambient direction
+- tests/test_sharing.py:676: `Udot` -- self.assertEqual(float(np.linalg.norm(Udot[3:, :])), 0.0)   # gated new direction: exactly 0
+- tests/test_sharing.py:677: `Udot` -- self.assertLess(float(np.linalg.norm(M @ Udot - Vstack)),   # tied coords in range(M)
+- tests/test_sharing.py:687: `O.shape` -- raw = ([np.random.randn(O.shape[-2], U.shape[-1])
+- tests/test_sharing.py:715: `O.shape` -- raw_y = ([np.random.randn(O.shape[-2], U.shape[-1])
+- tests/test_sharing.py:746: `O.shape` -- tkv = tuple(np.random.randn(K, O.shape[-2], U.shape[-1])
+- tests/test_sharing.py:759: `O.shape` -- tkv_c = tuple(np.random.randn(K, 2, O.shape[-2], U.shape[-1])
+- tests/test_tucker_tensor_train.py:2252: `dU` -- dU = [np.random.randn(*u.shape) for u in tk]
+- tests/test_tucker_tensor_train.py:2255: `dU` -- Jd = sum(np.asarray(replace(x, 'U', i, dU[i]).apply(ww)) for i in range(d)) \
+- tests/test_tucker_tensor_train.py:2259: `gU` -- gU, gG = x.apply_corewise_transpose(c, ww, sum_over_probes=True)
+- tests/test_tucker_tensor_train.py:2260: `gU` -- self.assertEqual([u.shape for u in tk], [g.shape for g in gU])
+- tests/test_tucker_tensor_train.py:2262: `gU` -- lhs = core_dot(([np.asarray(g) for g in gU], [np.asarray(g) for g in gG]), (dU, dG), nC)
+- tests/test_tucker_tensor_train.py:2262: `dU` -- lhs = core_dot(([np.asarray(g) for g in gU], [np.asarray(g) for g in gG]), (dU, dG), nC)
+- tests/test_tucker_tensor_train.py:2269: `gU` -- for s, k in zip(gU, gUk):
+- tests/test_tucker_tensor_train.py:2299: `dU` -- dU = [np.random.randn(*u.shape) for u in tk]
+- tests/test_tucker_tensor_train.py:2301: `dU` -- Jd = sum(np.asarray(replace(x, 'U', i, dU[i]).entries(idx)) for i in range(d)) \
+- tests/test_tucker_tensor_train.py:2304: `gU` -- gU, gG = x.entries_corewise_transpose(c, idx, sum_over_probes=True)
+- tests/test_tucker_tensor_train.py:2305: `gU` -- self.assertEqual([u.shape for u in tk], [g.shape for g in gU])
+- tests/test_tucker_tensor_train.py:2307: `gU` -- lhs = core_dot(([np.asarray(g) for g in gU], [np.asarray(g) for g in gG]), (dU, dG), nC)
+- tests/test_tucker_tensor_train.py:2307: `dU` -- lhs = core_dot(([np.asarray(g) for g in gU], [np.asarray(g) for g in gG]), (dU, dG), nC)
+- tests/test_tucker_tensor_train.py:2313: `gU` -- for s, k in zip(gU, gUk):
+- tests/test_tucker_tensor_train.py:2386: `dU` -- dU = [np.random.randn(*u.shape) for u in tk]
+- tests/test_tucker_tensor_train.py:2391: `dU` -- for kind, dd in (('U', dU), ('G', dG)):
+- tests/test_tucker_tensor_train.py:2399: `gU` -- gU, gG = x.probe_corewise_transpose(zt, ww, sum_over_probes=True)
+- tests/test_tucker_tensor_train.py:2400: `gU` -- self.assertEqual([u.shape for u in tk], [g.shape for g in gU])
+- tests/test_tucker_tensor_train.py:2402: `gU` -- lhs = core_dot(([np.asarray(g) for g in gU], [np.asarray(g) for g in gG]), (dU, dG), nC)
+- tests/test_tucker_tensor_train.py:2402: `dU` -- lhs = core_dot(([np.asarray(g) for g in gU], [np.asarray(g) for g in gG]), (dU, dG), nC)
+- tests/test_tucker_tensor_train.py:2408: `gU` -- for s, k in zip(gU, gUk):
+- tests/test_tucker_tensor_train.py:3031: `gU` -- gU, gG = x.probe_corewise_derivatives_transpose(r, ww, pp, ORDER, sum_over_probes=True)
+- tests/test_tucker_tensor_train.py:3032: `dU` -- dU = [np.random.randn(*B.shape) for B in x.tucker_cores]
+- tests/test_tucker_tensor_train.py:3034: `gU` -- inner = (sum(np.sum(np.asarray(gU[i]) * dU[i]) for i in range(d))
+- tests/test_tucker_tensor_train.py:3034: `dU` -- inner = (sum(np.sum(np.asarray(gU[i]) * dU[i]) for i in range(d))
+- tests/test_tucker_tensor_train.py:3039: `dU` -- plus = ([B + eps * du for B, du in zip(x.tucker_cores, dU)], [G + eps * dg for G, dg in zip(x.tt_cores, dG)])
+- tests/test_tucker_tensor_train.py:3040: `dU` -- minus = ([B - eps * du for B, du in zip(x.tucker_cores, dU)], [G - eps * dg for G, dg in zip(x.tt_cores, dG)])
+- tests/test_tucker_tensor_train.py:3070: `gU` -- gU, gG = transpose(r)
+- tests/test_tucker_tensor_train.py:3071: `dU` -- dU = [np.random.randn(*B.shape) for B in x.tucker_cores]
+- tests/test_tucker_tensor_train.py:3073: `gU` -- inner = (sum(np.sum(np.asarray(gU[i]) * dU[i]) for i in range(d))
+- tests/test_tucker_tensor_train.py:3073: `dU` -- inner = (sum(np.sum(np.asarray(gU[i]) * dU[i]) for i in range(d))
+- tests/test_tucker_tensor_train.py:3076: `dU` -- plus = ([B + eps * du for B, du in zip(x.tucker_cores, dU)], [G + eps * dg for G, dg in zip(x.tt_cores, dG)])
+- tests/test_tucker_tensor_train.py:3077: `dU` -- minus = ([B - eps * du for B, du in zip(x.tucker_cores, dU)], [G - eps * dg for G, dg in zip(x.tt_cores, dG)])
+- tests/test_uniform_frame_variations_format.py:864: `O.shape` -- ref = (tuple(U.shape[-2] for U in rf.up_tucker_cores), tuple(O.shape[-2] for O in rf.down_tt_cores),
+- tests/test_uniform_frame_variations_format.py:864: `for O in` -- ref = (tuple(U.shape[-2] for U in rf.up_tucker_cores), tuple(O.shape[-2] for O in rf.down_tt_cores),
+- tests/test_uniform_probing.py:395: `(P,Q,O)` -- (P,Q,O)->G substitution. The raw gradient supercores match the ragged TuckerTensorTrain corewise
+- tests/test_uniform_probing.py:395: `,O)` -- (P,Q,O)->G substitution. The raw gradient supercores match the ragged TuckerTensorTrain corewise
+- tests/test_uniform_probing.py:742: `O.shape` -- return ([U.shape[-2] for U in rframe.up_tucker_cores], [O.shape[-2] for O in rframe.down_tt_cores],
+- tests/test_uniform_probing.py:742: `for O in` -- return ([U.shape[-2] for U in rframe.up_tucker_cores], [O.shape[-2] for O in rframe.down_tt_cores],
+- docs/batching_and_stacking.md:90: ``O`` -- > (`U`,`P`,`Q`,`O`,`G`,`H`,`B`) and from `Jᵀ`/tensor/`T3`, so a shape comment is never ambiguous.
+- docs/chunking.md:216: `dU` -- dU, dG = tv_probe_derivatives_transpose(          # frame (replicated), order: closed over
+- docs/chunking.md:218: `dU` -- return jax.tree.map(lambda a: jax.lax.psum(a, 'w'), (dU, dG))   # finish the W-sum across shards
+- docs/frame_variations.md:26: ``O`` -- | down-TT `Oᵢ` | `O` | the Tucker *complement* (where `V` varies) | `nD` |
+- docs/frame_variations.md:26: `Oᵢ` -- | down-TT `Oᵢ` | `O` | the Tucker *complement* (where `V` varies) | `nD` |
+- docs/frame_variations.md:26: `Oᵢ` -- | down-TT `Oᵢ` | `O` | the Tucker *complement* (where `V` varies) | `nD` |
+- docs/frame_variations.md:41: `P_last` -- gauged tangent, `v_X`, whose only nonzero variation is the **last TT variation** (`= P_last`, the
+- docs/frame_variations.md:71: `Oᵢ` -- factor `Uᵢ`), `down_ranks` (the mode leg of each down/outer core `Oᵢ`), and `left_ranks` / `right_ranks`
+- docs/frame_variations.md:71: `Oᵢ` -- factor `Uᵢ`), `down_ranks` (the mode leg of each down/outer core `Oᵢ`), and `left_ranks` / `right_ranks`
+- docs/frame_variations.md:83: `Oᵢ` -- | `Oᵢ` (down / outer) | `nᵢ × (rᵢ·rᵢ₊₁)` unfolding, rows orthonormal | `nᵢ ≤ rᵢ·rᵢ₊₁` |
+- docs/frame_variations.md:83: `Oᵢ` -- | `Oᵢ` (down / outer) | `nᵢ × (rᵢ·rᵢ₊₁)` unfolding, rows orthonormal | `nᵢ ≤ rᵢ·rᵢ₊₁` |
+- docs/glossary.md:107: ``O`` -- orthonormality sums over. **Clash:** the frame pages name these by store instead (`O` "down-orthogonal", `U` "up
+- docs/glossary.md:221: ``O`` -- stores named in `update` (letters `U`, `O`, `L`, `R`); the others are transported. Returns the new frame and its
+- docs/glossary.md:230: `P_last` -- variations zero except the last TT variation, so `‖X‖² = ‖P_last‖²`.
+- docs/glossary.md:266: `Oi` -- - **frame cores** (up `Ui`, down `Oi`, left `Li`, right `Ri`; `up_tucker_cores`, `down_tt_cores`, `left_tt_cores`,
+- docs/glossary.md:373: `δU` -- cores, `δU`/`δG`). The cores that fill the frame's holes and encode a tangent's direction. Gauged, they are
+- docs/glossary.md:717: ``O`` -- | `O`, `D` | the down frame core: `O` in the user guide, `frame_variations.md`, the math notes and the `update` letters; `D` in the `T3Frame` docstrin
+- docs/glossary.md:717: ``O`` -- | `O`, `D` | the down frame core: `O` in the user guide, `frame_variations.md`, the math notes and the `update` letters; `D` in the `T3Frame` docstrin
+- docs/numerical_contracts.md:65: `δU` -- The gauge residual is **relative** — the gauge grams `Uᵀ δU`, `Lᵀ δG` over a scale — so a correctly
+- docs/sharing.md:134: `U̇` -- `U̇`** driving all the group's Tucker variations (`V_i = S_iᵀ U̇` in the frame's coordinates — the
+- docs/sharing.md:134: `U̇` -- `U̇`** driving all the group's Tucker variations (`V_i = S_iᵀ U̇` in the frame's coordinates — the
+- docs/sharing.md:156: `U̇` -- coordinates lift to **one** raw factor direction, `U̇ = M_g⁺ [V_{i₁}; …]` — the same stacked-`S` solve
+- docs/user_guide.rst:130: `O0` -- 1--O0--R1--R2--1   1--L0--O1--R2--1   1--L0--L1--O2--1
+- docs/user_guide.rst:142: `O0` -- - down_tt_cores     = (O0,...,O(d-1)), down-orthogonal
+- docs/user_guide.rst:142: `O(d-1)` -- - down_tt_cores     = (O0,...,O(d-1)), down-orthogonal
+- docs/user_guide.rst:216: `dU_i` -- variation core    dU_i  (T3Variations)   K + C        (3, 2)    + (n_i, N_i)
+- docs/contributor/batching_internals.md:49: ``O`` -- (`U`,`P`,`Q`,`O`,`G`,`H`,`B`). Before the rename they were `F`/`V`/`G`, which clashed with the
+- docs/contributor/curvature_internals.md:13: `(U, O, L, R)` -- At a point `X = Φ(θ)` with orthogonal frame `(U, O, L, R)` (`T3Frame.data`), gauged coordinates
+- docs/contributor/curvature_internals.md:28: `O_i` -- | frame factors `T_i = ⟨L_i, H_i⟩`, `S_iᵀ = ⟨O_i, H_i⟩`, centers `H_i = L_i T_i` | `fv_operations.fv_center_factors` | `T_i` by zipper on demand, neve
+- docs/contributor/curvature_internals.md:28: `O_i` -- | frame factors `T_i = ⟨L_i, H_i⟩`, `S_iᵀ = ⟨O_i, H_i⟩`, centers `H_i = L_i T_i` | `fv_operations.fv_center_factors` | `T_i` by zipper on demand, neve
+- docs/contributor/curvature_internals.md:29: `U̇` -- | the lift `L`: `U̇_i = (S_iᵀ)^{+ε} V_i`, `Ġ_i = H_i ×₃ T_i^{+ε}` (`i ≤ d−2`), `Ġ_{d−1} = H_{d−1}` | `tv_operations.tv_corewise_lift` / `_transpose`; 
+- docs/contributor/curvature_internals.md:102: `U̇` -- the same order wiring. The dotted input jet is `build_input_jets(compute_xi(U̇, ww), compute_xi(U̇, pp))`,
+- docs/contributor/curvature_internals.md:102: `U̇` -- the same order wiring. The dotted input jet is `build_input_jets(compute_xi(U̇, ww), compute_xi(U̇, pp))`,
+- docs/contributor/curvature_internals.md:181: `U_g` -- U_g = (Q * sign(diag(R))).T                  # replicated over the group's modes
+- docs/contributor/curvature_internals.md:228: `U̇` -- coordinates lift to ONE raw factor direction, `U̇_g = M_g^{+ε}[V_{i₁}; …]`, against the stacked-`S` SVD the
+- docs/contributor/deferred_and_rejected.md:147: `mu O` -- fused GEMM, and the scan is what keeps the `(order+1)·W·r·n` slice of `mu O` off the peak (12.6 GB per core
+- docs/contributor/deferred_and_rejected.md:199: `P_{` -- `‖N_core‖² = ‖P_∅Z‖² − ‖H^grad‖²`, `‖N_k‖² = ‖P_{k}Z‖² − ‖V_k^grad‖²`, and `‖N_{≥2}‖²` as the remainder. Per
+- docs/contributor/fitting_internals.md:71: `P_last` -- except the last TT variation, set to the frame's last left core `P_last`** (the one slot with no gauge
+- docs/contributor/fitting_internals.md:73: `P_last` -- construction and `point_norm_sq = ‖P_last‖²` — **not** the naive "sum of frame-core norms," which is *wrong*
+- docs/contributor/fitting_internals.md:125: `P_last` -- `= P_last`, else zero — already gauged) is broadly useful beyond the reg gradient; worth a first-class
+- docs/contributor/sharing_internals.md:17: `U̇` -- The tied tangent subspace at a shared point is basis-free: per group, `V_i = S_iᵀ U̇` for one common
+- docs/contributor/sharing_internals.md:18: `U̇` -- gauged ambient `U̇`, where `S_i = W2_i O2_iᵀ` is the small factor the frame construction itself
+- docs/contributor/sharing_internals.md:28: `O_i` -- with the stored `O_i`/`R_i` *whatever built the frame*. A re-SVD would face sign/degenerate-block
+- docs/contributor/sharing_internals.md:28: `O_i` -- with the stored `O_i`/`R_i` *whatever built the frame*. A re-SVD would face sign/degenerate-block
+- docs/contributor/sharing_internals.md:59: `U̇` -- projection `U̇ = M_g⁺ [V_{i₁}; …; V_{iₖ}]`, redistributed as `V_i ← S_iᵀ U̇`.
+- docs/contributor/sharing_internals.md:59: `U̇` -- projection `U̇ = M_g⁺ [V_{i₁}; …; V_{iₖ}]`, redistributed as `V_i ← S_iᵀ U̇`.
+- docs/contributor/sharing_internals.md:90: `U_g` -- The naive doubled factor `[U_g; V_i]` is **not tied** — the `V_i` differ across a group in value
+- docs/contributor/sharing_internals.md:92: `U̇` -- builds the embedding tied (SF-ETT §5.2, generalized): recover `U̇` per group by the companion's
+- docs/contributor/sharing_internals.md:94: `U_g` -- check), put `[U_g; U̇]` at every group mode (one array), and replace the down core `O_i` by the
+- docs/contributor/sharing_internals.md:94: `O_i` -- check), put `[U_g; U̇]` at every group mode (one array), and replace the down core `O_i` by the
+- docs/contributor/sharing_internals.md:94: `U̇` -- check), put `[U_g; U̇]` at every group mode (one array), and replace the down core `O_i` by the
+- docs/contributor/sharing_internals.md:94: `O_i` -- check), put `[U_g; U̇]` at every group mode (one array), and replace the down core `O_i` by the
+- docs/contributor/sharing_internals.md:95: `O_i` -- companion's center `H_i` (the identity `S_i`-absorbed-`O_i = H_i` makes this an exact rewrite of
+- docs/contributor/sharing_internals.md:95: `O_i` -- companion's center `H_i` (the identity `S_i`-absorbed-`O_i = H_i` makes this an exact rewrite of
+- docs/contributor/sharing_internals.md:176: `U̇` -- width `nU` (the `U̇` slot), zero-padding singleton blocks.
+- CLAUDE.md:68: ``O`` -- Notation map (paper ↔ code): `U`=up_tucker, `P`=left_tt, `Q`=right_tt, `O`=down_tt (outer);
+- CLAUDE.md:69: `δU` -- `δU`=tucker_variations (V), `δG`=tt_variations (H). The code matches the appendix; the one known
+- CLAUDE.md:182: ``O`` -- > before a rename that made them disjoint from the core/variation symbols `U`/`P`/`Q`/`O`/`G`/`H`/`V`.)
+- CLAUDE.md:213: `(U, O, P, Q)` -- (tucker_cores, tt_cores)`; `T3Frame.data = (up, down, left, right) = (U, O, P, Q)` (the `O`/down core
+- CLAUDE.md:213: ``O`` -- (tucker_cores, tt_cores)`; `T3Frame.data = (up, down, left, right) = (U, O, P, Q)` (the `O`/down core
+- docs/padded_frame_cone.tex:109: `O_i` -- $c_i\to \ell_i$ & \code{down[i]} & $O_i\in\R^{r_{L,i}\times n_{D,i}\times r_{R,i+1}}$ & the down index \\
+- docs/padded_frame_cone.tex:109: `O_i` -- $c_i\to \ell_i$ & \code{down[i]} & $O_i\in\R^{r_{L,i}\times n_{D,i}\times r_{R,i+1}}$ & the down index \\
+- docs/padded_frame_cone.tex:120: `P_{` -- (the \emph{A-block}, $\Abar_{x\to t}$, of width $r_e$) and an orthonormal \emph{completion} $P_{x\to t}$ of width
+- docs/padded_frame_cone.tex:188: `P_{` -- lies in the near completion, provided the $k\times k$ matrix $P_{a\to b}^\T S P_{b\to a}$ is invertible. In the
+- docs/padded_frame_cone.tex:188: `P_{` -- lies in the near completion, provided the $k\times k$ matrix $P_{a\to b}^\T S P_{b\to a}$ is invertible. In the
+- docs/padded_frame_cone.tex:284: `P_{` -- $\Phi_{a\to b}$ & $k\times R$ & $P_{a\to b}^\T Z_{\mathrm{far}}U'_{b\to a}$ & stage 1, far leaves inward\\
+- docs/padded_frame_cone.tex:285: `P_{` -- $\Xi_{a\to b}$ & $k\times\cdot$ & $\Xi\Xi^\T=P_{a\to b}^\T Z_{\mathrm{far}}(I-U'_{b\to a}U'^\T_{b\to a})Z_{\mathrm{far}}^\T P_{a\to b}$ & stage 1, wit
+- docs/padded_frame_cone.tex:285: `P_{` -- $\Xi_{a\to b}$ & $k\times\cdot$ & $\Xi\Xi^\T=P_{a\to b}^\T Z_{\mathrm{far}}(I-U'_{b\to a}U'^\T_{b\to a})Z_{\mathrm{far}}^\T P_{a\to b}$ & stage 1, wit
+- docs/padded_frame_cone.tex:286: `P_{` -- $D_{a\to b}$ & $R\times k$ & $U'^{+\T}_{a\to b}Z_{\mathrm{near}}P_{b\to a}$ & stage 2, message order\\
+- docs/padded_frame_cone.tex:287: `P_{` -- $o_{a\to b}$ & $k^+\times k$ & $P^{+\T}_{a\to b}P_{a\to b}$ & stage 2, with $D$\\
+- docs/exact_hessian_two_hole.tex:117: `O_i` -- the representations are equivalent, and everything below is recomputed from the stored cores) is $(U_i, O_i, P_i, Q_i)$ = \code{T3Frame.data} = (up, d
+- docs/exact_hessian_two_hole.tex:117: `P_i` -- the representations are equivalent, and everything below is recomputed from the stored cores) is $(U_i, O_i, P_i, Q_i)$ = \code{T3Frame.data} = (up, d
+- docs/exact_hessian_two_hole.tex:117: `Q_i` -- the representations are equivalent, and everything below is recomputed from the stored cores) is $(U_i, O_i, P_i, Q_i)$ = \code{T3Frame.data} = (up, d
+- docs/exact_hessian_two_hole.tex:117: `O_i` -- the representations are equivalent, and everything below is recomputed from the stored cores) is $(U_i, O_i, P_i, Q_i)$ = \code{T3Frame.data} = (up, d
+- docs/exact_hessian_two_hole.tex:118: `P_i` -- $U_i\in\R^{n_i\times N_i}$ with orthonormal rows, left-orthogonal $P_i\in\R^{r^L_{i-1}\times n_i\times r^L_i}$,
+- docs/exact_hessian_two_hole.tex:119: `O_i` -- right-orthogonal $Q_i\in\R^{r^R_{i-1}\times n_i\times r^R_i}$, and $O_i\in\R^{r^L_{i-1}\times n^D_i\times r^R_i}$
+- docs/exact_hessian_two_hole.tex:119: `Q_i` -- right-orthogonal $Q_i\in\R^{r^R_{i-1}\times n_i\times r^R_i}$, and $O_i\in\R^{r^L_{i-1}\times n^D_i\times r^R_i}$
+- docs/exact_hessian_two_hole.tex:119: `O_i` -- right-orthogonal $Q_i\in\R^{r^R_{i-1}\times n_i\times r^R_i}$, and $O_i\in\R^{r^L_{i-1}\times n^D_i\times r^R_i}$
+- docs/exact_hessian_two_hole.tex:127: `P_{` -- \Emap v = \sum_i \big[P_{<i}\,\delta G_i\,Q_{>i}\big]\times_j U_j
+- docs/exact_hessian_two_hole.tex:127: `Q_{` -- \Emap v = \sum_i \big[P_{<i}\,\delta G_i\,Q_{>i}\big]\times_j U_j
+- docs/exact_hessian_two_hole.tex:128: `O_i` -- + \sum_i \big[P_{<i}\,O_i\,Q_{>i}\big]\times_i \delta U_i \times_{j\neq i} U_j ,
+- docs/exact_hessian_two_hole.tex:128: `P_{` -- + \sum_i \big[P_{<i}\,O_i\,Q_{>i}\big]\times_i \delta U_i \times_{j\neq i} U_j ,
+- docs/exact_hessian_two_hole.tex:128: `Q_{` -- + \sum_i \big[P_{<i}\,O_i\,Q_{>i}\big]\times_i \delta U_i \times_{j\neq i} U_j ,
+- docs/exact_hessian_two_hole.tex:128: `O_i` -- + \sum_i \big[P_{<i}\,O_i\,Q_{>i}\big]\times_i \delta U_i \times_{j\neq i} U_j ,
+- docs/exact_hessian_two_hole.tex:130: `P_{` -- where $P_{<i}=P_1\cdots P_{i-1}$ and $Q_{>i}=Q_{i+1}\cdots Q_d$ are TT chains, and $C\times_kM$ contracts
+- docs/exact_hessian_two_hole.tex:130: `P_{` -- where $P_{<i}=P_1\cdots P_{i-1}$ and $Q_{>i}=Q_{i+1}\cdots Q_d$ are TT chains, and $C\times_kM$ contracts
+- docs/exact_hessian_two_hole.tex:130: `Q_{` -- where $P_{<i}=P_1\cdots P_{i-1}$ and $Q_{>i}=Q_{i+1}\cdots Q_d$ are TT chains, and $C\times_kM$ contracts
+- docs/exact_hessian_two_hole.tex:130: `Q_{` -- where $P_{<i}=P_1\cdots P_{i-1}$ and $Q_{>i}=Q_{i+1}\cdots Q_d$ are TT chains, and $C\times_kM$ contracts
+- docs/exact_hessian_two_hole.tex:132: `P_i` -- $\delta U_i U_i^\T=0$ and $(P_i^{\langle 2\rangle})^\T\delta G_i^{\langle 2\rangle}=0$ ($i<d$; T4S (47)--(48)) are
+- docs/exact_hessian_two_hole.tex:304: `P_{` -- T_i = \ip{P_{>i}}{Q_{>i}}\in\R^{r^L_i\times r^R_i}\ (i<d),\qquad
+- docs/exact_hessian_two_hole.tex:304: `Q_{` -- T_i = \ip{P_{>i}}{Q_{>i}}\in\R^{r^L_i\times r^R_i}\ (i<d),\qquad
+- docs/exact_hessian_two_hole.tex:305: `P_i` -- H_i = P_i\times_3T_i\ (H_d=P_d),\qquad
+- docs/exact_hessian_two_hole.tex:306: `O_i` -- S_i^\T = \ip{O_i}{H_i}_{\{1,3\}}\in\R^{n^D_i\times n_i},
+- docs/exact_hessian_two_hole.tex:306: `O_i` -- S_i^\T = \ip{O_i}{H_i}_{\{1,3\}}\in\R^{n^D_i\times n_i},
+- docs/exact_hessian_two_hole.tex:309: `O_i` -- \code{tt_zipper_right_to_left}). Then $H_i=O_i\times_2S_i^\T$, the centers are the point's own core with the
+- docs/exact_hessian_two_hole.tex:309: `O_i` -- \code{tt_zipper_right_to_left}). Then $H_i=O_i\times_2S_i^\T$, the centers are the point's own core with the
+- docs/exact_hessian_two_hole.tex:310: `P_{` -- orthogonality center at $i$ ($X=P_{<i}H_iQ_{>i}\times U$), $P_{>i}=T_i\,Q_{>i}$ (the left-canonical tail is
+- docs/exact_hessian_two_hole.tex:310: `P_{` -- orthogonality center at $i$ ($X=P_{<i}H_iQ_{>i}\times U$), $P_{>i}=T_i\,Q_{>i}$ (the left-canonical tail is
+- docs/exact_hessian_two_hole.tex:310: `Q_{` -- orthogonality center at $i$ ($X=P_{<i}H_iQ_{>i}\times U$), $P_{>i}=T_i\,Q_{>i}$ (the left-canonical tail is
+- docs/exact_hessian_two_hole.tex:327: `P_{` -- TT slot: $P_{<i}\dot G_iP_{>i}=P_{<i}\,(\dot G_iT_i)\,Q_{>i}=P_{<i}\,\delta G_i T_i^+T_i\,Q_{>i}$, and $T_i^+T_i=I$
+- docs/exact_hessian_two_hole.tex:327: `P_{` -- TT slot: $P_{<i}\dot G_iP_{>i}=P_{<i}\,(\dot G_iT_i)\,Q_{>i}=P_{<i}\,\delta G_i T_i^+T_i\,Q_{>i}$, and $T_i^+T_i=I$
+- docs/exact_hessian_two_hole.tex:327: `Q_{` -- TT slot: $P_{<i}\dot G_iP_{>i}=P_{<i}\,(\dot G_iT_i)\,Q_{>i}=P_{<i}\,\delta G_i T_i^+T_i\,Q_{>i}$, and $T_i^+T_i=I$
+- docs/exact_hessian_two_hole.tex:327: `P_{` -- TT slot: $P_{<i}\dot G_iP_{>i}=P_{<i}\,(\dot G_iT_i)\,Q_{>i}=P_{<i}\,\delta G_i T_i^+T_i\,Q_{>i}$, and $T_i^+T_i=I$
+- docs/exact_hessian_two_hole.tex:327: `Q_{` -- TT slot: $P_{<i}\dot G_iP_{>i}=P_{<i}\,(\dot G_iT_i)\,Q_{>i}=P_{<i}\,\delta G_i T_i^+T_i\,Q_{>i}$, and $T_i^+T_i=I$
+- docs/exact_hessian_two_hole.tex:328: `P_{` -- for full column rank. Tucker slot: replacing $U_i$ by $\dot U_i$ in $X=P_{<i}H_iQ_{>i}\times U$ gives
+- docs/exact_hessian_two_hole.tex:329: `O_i` -- $P_{<i}(H_i\times_2\dot U_i)Q_{>i}=P_{<i}\big(O_i\times_2(S_i^\T\dot U_i)\big)Q_{>i}$, and $S_i^\T(S_i^\T)^+=I$
+- docs/exact_hessian_two_hole.tex:329: `P_{` -- $P_{<i}(H_i\times_2\dot U_i)Q_{>i}=P_{<i}\big(O_i\times_2(S_i^\T\dot U_i)\big)Q_{>i}$, and $S_i^\T(S_i^\T)^+=I$
+- docs/exact_hessian_two_hole.tex:329: `Q_{` -- $P_{<i}(H_i\times_2\dot U_i)Q_{>i}=P_{<i}\big(O_i\times_2(S_i^\T\dot U_i)\big)Q_{>i}$, and $S_i^\T(S_i^\T)^+=I$
+- docs/exact_hessian_two_hole.tex:329: `P_{` -- $P_{<i}(H_i\times_2\dot U_i)Q_{>i}=P_{<i}\big(O_i\times_2(S_i^\T\dot U_i)\big)Q_{>i}$, and $S_i^\T(S_i^\T)^+=I$
+- docs/exact_hessian_two_hole.tex:329: `Q_{` -- $P_{<i}(H_i\times_2\dot U_i)Q_{>i}=P_{<i}\big(O_i\times_2(S_i^\T\dot U_i)\big)Q_{>i}$, and $S_i^\T(S_i^\T)^+=I$
+- docs/exact_hessian_two_hole.tex:329: `O_i` -- $P_{<i}(H_i\times_2\dot U_i)Q_{>i}=P_{<i}\big(O_i\times_2(S_i^\T\dot U_i)\big)Q_{>i}$, and $S_i^\T(S_i^\T)^+=I$
+- docs/exact_hessian_two_hole.tex:343: `P_{` -- \node[ttc] (a1) at (0,0) {$P_{i-1}$}; \node[dotc] (a2) at (1.2,0) {$\delta G_i$};
+- docs/exact_hessian_two_hole.tex:344: `Q_{` -- \node[ttc] (a3) at (2.4,0) {$Q_{i+1}$}; \node[ttc] (a4) at (3.6,0) {$Q_{i+2}$};
+- docs/exact_hessian_two_hole.tex:344: `Q_{` -- \node[ttc] (a3) at (2.4,0) {$Q_{i+1}$}; \node[ttc] (a4) at (3.6,0) {$Q_{i+2}$};
+- docs/exact_hessian_two_hole.tex:348: `P_{` -- \node[ttc] (b1) at (5.8,0) {$P_{i-1}$}; \node[dotc] (b2) at (6.9,0) {$\dot G_i$};
+- docs/exact_hessian_two_hole.tex:350: `Q_{` -- \node[ttc] (b3) at (8.8,0) {$Q_{i+1}$}; \node[ttc] (b4) at (10.0,0) {$Q_{i+2}$};
+- docs/exact_hessian_two_hole.tex:350: `Q_{` -- \node[ttc] (b3) at (8.8,0) {$Q_{i+1}$}; \node[ttc] (b4) at (10.0,0) {$Q_{i+2}$};
+- docs/exact_hessian_two_hole.tex:354: `P_{` -- node[midway,above=3pt,font=\scriptsize]{$=P_{i+1}P_{i+2}=P_{>i}$};
+- docs/exact_hessian_two_hole.tex:354: `P_{` -- node[midway,above=3pt,font=\scriptsize]{$=P_{i+1}P_{i+2}=P_{>i}$};
+- docs/exact_hessian_two_hole.tex:354: `P_{` -- node[midway,above=3pt,font=\scriptsize]{$=P_{i+1}P_{i+2}=P_{>i}$};
+- docs/exact_hessian_two_hole.tex:359: `O_i` -- \node[ttc] (c1) at (0,0) {$P_{i-1}$}; \node[ttc] (c2) at (1.2,0) {$O_i$}; \node[ttc] (c3) at (2.4,0) {$Q_{i+1}$};
+- docs/exact_hessian_two_hole.tex:359: `P_{` -- \node[ttc] (c1) at (0,0) {$P_{i-1}$}; \node[ttc] (c2) at (1.2,0) {$O_i$}; \node[ttc] (c3) at (2.4,0) {$Q_{i+1}$};
+- docs/exact_hessian_two_hole.tex:359: `Q_{` -- \node[ttc] (c1) at (0,0) {$P_{i-1}$}; \node[ttc] (c2) at (1.2,0) {$O_i$}; \node[ttc] (c3) at (2.4,0) {$Q_{i+1}$};
+- docs/exact_hessian_two_hole.tex:359: `O_i` -- \node[ttc] (c1) at (0,0) {$P_{i-1}$}; \node[ttc] (c2) at (1.2,0) {$O_i$}; \node[ttc] (c3) at (2.4,0) {$Q_{i+1}$};
+- docs/exact_hessian_two_hole.tex:364: `O_i` -- \node[ttc] (d1) at (4.5,0) {$P_{i-1}$}; \node[ttc] (d2) at (5.7,0) {$O_i$}; \node[ttc] (d3) at (6.9,0) {$Q_{i+1}$};
+- docs/exact_hessian_two_hole.tex:364: `P_{` -- \node[ttc] (d1) at (4.5,0) {$P_{i-1}$}; \node[ttc] (d2) at (5.7,0) {$O_i$}; \node[ttc] (d3) at (6.9,0) {$Q_{i+1}$};
+- docs/exact_hessian_two_hole.tex:364: `Q_{` -- \node[ttc] (d1) at (4.5,0) {$P_{i-1}$}; \node[ttc] (d2) at (5.7,0) {$O_i$}; \node[ttc] (d3) at (6.9,0) {$Q_{i+1}$};
+- docs/exact_hessian_two_hole.tex:364: `O_i` -- \node[ttc] (d1) at (4.5,0) {$P_{i-1}$}; \node[ttc] (d2) at (5.7,0) {$O_i$}; \node[ttc] (d3) at (6.9,0) {$Q_{i+1}$};
+- docs/exact_hessian_two_hole.tex:374: `P_{` -- \caption{The lift, slot by slot (red: the variation). (a) The frame's TT slot $P_{<i}\,\delta G_i\,Q_{>i}$ equals the
+- docs/exact_hessian_two_hole.tex:374: `Q_{` -- \caption{The lift, slot by slot (red: the variation). (a) The frame's TT slot $P_{<i}\,\delta G_i\,Q_{>i}$ equals the
+- docs/exact_hessian_two_hole.tex:375: `P_{` -- raw slot $P_{<i}\,\dot G_i\,P_{>i}$ because the left-canonical tail is $P_{>i}=T_iQ_{>i}$. (b) The frame's Tucker
+- docs/exact_hessian_two_hole.tex:375: `P_{` -- raw slot $P_{<i}\,\dot G_i\,P_{>i}$ because the left-canonical tail is $P_{>i}=T_iQ_{>i}$. (b) The frame's Tucker
+- docs/exact_hessian_two_hole.tex:375: `P_{` -- raw slot $P_{<i}\,\dot G_i\,P_{>i}$ because the left-canonical tail is $P_{>i}=T_iQ_{>i}$. (b) The frame's Tucker
+- docs/exact_hessian_two_hole.tex:376: `O_i` -- slot pairs $\delta U_i$ with the orthonormal $O_i$; the raw slot pairs $\dot U_i$ with the center
+- docs/exact_hessian_two_hole.tex:376: `O_i` -- slot pairs $\delta U_i$ with the orthonormal $O_i$; the raw slot pairs $\dot U_i$ with the center
+- docs/exact_hessian_two_hole.tex:377: `O_i` -- $H_i=O_i\times_2S_i^\T$. The pseudo-inverses are the only place an inverse singular value enters the Hessian.}
+- docs/exact_hessian_two_hole.tex:377: `O_i` -- $H_i=O_i\times_2S_i^\T$. The pseudo-inverses are the only place an inverse singular value enters the Hessian.}
+- docs/exact_hessian_two_hole.tex:394: `Q_{` -- $\sim10^{-17}$) needs no special case: there the lift satisfies $D\Phi[\Lift v]=\Emap(Q_{\mathrm c}v)$ with $Q_{\mathrm c}$ the
+- docs/exact_hessian_two_hole.tex:394: `Q_{` -- $\sim10^{-17}$) needs no special case: there the lift satisfies $D\Phi[\Lift v]=\Emap(Q_{\mathrm c}v)$ with $Q_{\mathrm c}$ the
+- docs/exact_hessian_two_hole.tex:409: `(U,O,P,Q)` -- \Require orthogonal frame $(U,O,P,Q)$; relative damping $c\ge0$; coordinates $v=(\delta U_i,\delta G_i)$ (stack $\mathtt{K+C}$)
+- docs/exact_hessian_two_hole.tex:411: `O_i` -- \State $T_i\gets\ip{P_{>i}}{Q_{>i}}$ (zipper);\ $H_i\gets P_i\times_3T_i$;\ $S_i^\T\gets\ip{O_i}{H_i}_{\{1,3\}}$
+- docs/exact_hessian_two_hole.tex:411: `P_{` -- \State $T_i\gets\ip{P_{>i}}{Q_{>i}}$ (zipper);\ $H_i\gets P_i\times_3T_i$;\ $S_i^\T\gets\ip{O_i}{H_i}_{\{1,3\}}$
+- docs/exact_hessian_two_hole.tex:411: `Q_{` -- \State $T_i\gets\ip{P_{>i}}{Q_{>i}}$ (zipper);\ $H_i\gets P_i\times_3T_i$;\ $S_i^\T\gets\ip{O_i}{H_i}_{\{1,3\}}$
+- docs/exact_hessian_two_hole.tex:411: `P_i` -- \State $T_i\gets\ip{P_{>i}}{Q_{>i}}$ (zipper);\ $H_i\gets P_i\times_3T_i$;\ $S_i^\T\gets\ip{O_i}{H_i}_{\{1,3\}}$
+- docs/exact_hessian_two_hole.tex:411: `O_i` -- \State $T_i\gets\ip{P_{>i}}{Q_{>i}}$ (zipper);\ $H_i\gets P_i\times_3T_i$;\ $S_i^\T\gets\ip{O_i}{H_i}_{\{1,3\}}$
+- docs/exact_hessian_two_hole.tex:539: `\dot U` -- --- exactly T4S Algorithm~7 ($\sigma,\tau,\delta\eta$) with $Q=O=P=G$ and variation $(\dot U,\dot G)$. The
+- docs/exact_hessian_two_hole.tex:545: `(U,O,P,Q)` -- the manifold frame $(U,O,P,Q)$ and the corewise frame $(U,P,P,P)$ of the base point), $\nu$ is re-swept through
+- docs/exact_hessian_two_hole.tex:623: `\dot U` -- \caption{Two-hole, forward half: the dotted forward jets along $\thh=(\dot U,\dot G)$}
+- docs/exact_hessian_two_hole.tex:860: `U_g` -- $\delta U_i=S_i^\T\dot U_g$ (\texttt{docs/shared\_t3\_math.tex}, Prop.\ ``tied tangent space is a tilted subspace'';
+- docs/exact_hessian_two_hole.tex:867: `U_g` -- \dot U_g=M_g^{+\eps}\begin{bmatrix}\delta U_{i_1}\\ \vdots\\ \delta U_{i_k}\end{bmatrix}
+- docs/exact_hessian_two_hole.tex:871: `U_g` -- the same $\dot U_g$ at every group mode; the adjoint sums the group's copies ($\mathsf T^\T$) before the solve's
+- docs/exact_hessian_two_hole.tex:894: `U_g` -- \State lift: $\dot U_g\gets V_M\,\mathrm{diag}(f)\,U_M^\T\,[\delta U_i]_{i\in g}$; $\dot U_i\gets\dot U_g$ for $i\in g$ \Comment{\code{_tied_filtered_
+- docs/exact_hessian_two_hole.tex:894: `U_g` -- \State lift: $\dot U_g\gets V_M\,\mathrm{diag}(f)\,U_M^\T\,[\delta U_i]_{i\in g}$; $\dot U_i\gets\dot U_g$ for $i\in g$ \Comment{\code{_tied_filtered_
+- docs/exact_hessian_two_hole.tex:920: `U_g` -- \State $Q,R\gets\mathrm{qr}(G^\T)$ (reduced);\ $U_g\gets(Q\,\mathrm{sign}(\mathrm{diag}R))^\T$, replicated over $g$ \Comment{sign-fixed Haar rows}
+- docs/exact_hessian_two_hole.tex:922: `O_i` -- \State $O_i,P_i,Q_i\gets$ identity prefixes (orthonormal), $P_d=0$, $Q_1=0$ \Comment{base point $=0$}
+- docs/exact_hessian_two_hole.tex:922: `P_i` -- \State $O_i,P_i,Q_i\gets$ identity prefixes (orthonormal), $P_d=0$, $Q_1=0$ \Comment{base point $=0$}
+- docs/exact_hessian_two_hole.tex:922: `Q_i` -- \State $O_i,P_i,Q_i\gets$ identity prefixes (orthonormal), $P_d=0$, $Q_1=0$ \Comment{base point $=0$}
+- docs/exact_hessian_two_hole.tex:922: `O_i` -- \State $O_i,P_i,Q_i\gets$ identity prefixes (orthonormal), $P_d=0$, $Q_1=0$ \Comment{base point $=0$}
+- docs/exact_hessian_two_hole.tex:1013: `O_i` -- C1 & \eqref{eq:factors}: $H_i=O_i\times_2S_i^\T$; $P_{>i}=T_iQ_{>i}$; spectra; $\|X\|^2=\|S_1^\T\|_F^2$ & $\le8.4{\times}10^{-16}$\\
+- docs/exact_hessian_two_hole.tex:1013: `P_{` -- C1 & \eqref{eq:factors}: $H_i=O_i\times_2S_i^\T$; $P_{>i}=T_iQ_{>i}$; spectra; $\|X\|^2=\|S_1^\T\|_F^2$ & $\le8.4{\times}10^{-16}$\\
+- docs/exact_hessian_two_hole.tex:1013: `O_i` -- C1 & \eqref{eq:factors}: $H_i=O_i\times_2S_i^\T$; $P_{>i}=T_iQ_{>i}$; spectra; $\|X\|^2=\|S_1^\T\|_F^2$ & $\le8.4{\times}10^{-16}$\\
+- docs/shared_t3_math.tex:119: `U_g` -- \T_{(i)} = U_g\, W_i\, M_i,
+- docs/shared_t3_math.tex:124: `U_g` -- = U_g \,\bigl[\, W_{i_1} \,|\, \cdots \,|\, W_{i_k} \,\bigr]\,
+- docs/shared_t3_math.tex:147: `U_g` -- factor $U_g$ is common by sharedness, \eqref{eq:stacked} follows by placing
+- docs/shared_t3_math.tex:168: `U_g` -- column space contained in $\operatorname{range}(U_g)$, hence so does the
+- docs/shared_t3_math.tex:170: `U_g` -- $(\leq)$: take $U_g$ to be an orthonormal basis of the concatenation's column
+- docs/shared_t3_math.tex:171: `U_g` -- space; projecting each mode ($U_g U_g^\top \T_{(i)} = \T_{(i)}$) yields an
+- docs/shared_t3_math.tex:171: `U_g` -- space; projecting each mode ($U_g U_g^\top \T_{(i)} = \T_{(i)}$) yields an
+- docs/shared_t3_math.tex:195: `U_g` -- n_g'}$. Update $U_g \leftarrow U_g Y$ \emph{once} (assigned to every mode of
+- docs/shared_t3_math.tex:195: `U_g` -- n_g'}$. Update $U_g \leftarrow U_g Y$ \emph{once} (assigned to every mode of
+- docs/shared_t3_math.tex:200: `U_g` -- in the single product $U_g Y$, at cost $O(N_g n_g^2)$ per group; the SVD
+- docs/shared_t3_math.tex:205: `P_{` -- Let $P_{\mathrm{sf}}(\T)$ denote the output of
+- docs/shared_t3_math.tex:209: `P_{` -- \bigl\| \T - P_{\mathrm{sf}}(\T) \bigr\|_{\HS}
+- docs/shared_t3_math.tex:221: `P_{` -- Split $P_{\mathrm{sf}} = P_{\mathrm{SF\text{-}Tucker}} \circ
+- docs/shared_t3_math.tex:221: `P_{` -- Split $P_{\mathrm{sf}} = P_{\mathrm{SF\text{-}Tucker}} \circ
+- docs/shared_t3_math.tex:222: `P_{` -- P_{\mathrm{TT}}$ (either order; \cite[Rem.~1]{MR2026}). Each stage is
+- docs/shared_t3_math.tex:285: `U_g` -- \item Set $U_g \coloneqq Q Y$; project each mode by applying
+- docs/shared_t3_math.tex:286: `U_g` -- $(U_g^\top U_i)$ to the up-leg of core $i$ and replacing the factor by
+- docs/shared_t3_math.tex:287: `U_g` -- $U_g$. Follow with Algorithm~\ref{alg:rounding}.
+- docs/shared_t3_math.tex:347: `\dot U` -- a single \emph{gauged ambient direction} $\dot U \in \R^{N_g \times n_g}$
+- docs/shared_t3_math.tex:348: `U_g` -- with $U_g^\top \dot U = 0$: in the ($S$-absorbed) frame coordinates,
+- docs/shared_t3_math.tex:348: `\dot U` -- with $U_g^\top \dot U = 0$: in the ($S$-absorbed) frame coordinates,
+- docs/shared_t3_math.tex:350: `\dot U` -- C_i = \dot U\, S_i \quad \text{for a common gauged } \dot U, \qquad i \in g .
+- docs/shared_t3_math.tex:350: `\dot U` -- C_i = \dot U\, S_i \quad \text{for a common gauged } \dot U, \qquad i \in g .
+- docs/shared_t3_math.tex:358: `U_g` -- $O_g$ of $U_g$ ($\dot U = O_g B$, coordinates $C_i = B S_i$), suggesting a
+- docs/shared_t3_math.tex:358: `\dot U` -- $O_g$ of $U_g$ ($\dot U = O_g B$, coordinates $C_i = B S_i$), suggesting a
+- docs/shared_t3_math.tex:360: `U_g` -- subspace depends only on $U_g$ (tied by hypothesis) and the $S_i$; no
+- docs/shared_t3_math.tex:363: `Q_i` -- $\Gamma_i = S_i S_i^\top$ (replacing $S_i$ by $S_i Q_i$ together with the
+- docs/shared_t3_math.tex:378: `\dot U` -- \dot U \;=\; \Bigl(\sum_{i \in g} C_i S_i^\top\Bigr)
+- docs/shared_t3_math.tex:383: `\dot U` -- C_i \leftarrow \dot U S_i .
+- docs/shared_t3_math.tex:385: `\dot U` -- TT variations and singleton modes are unaffected, and $\dot U$ is
+- docs/shared_t3_math.tex:393: `\dot U` -- Minimize $\sum_{i\in g} \| C_i - \dot U S_i \|_F^2$ over $\dot U$; setting the
+- docs/shared_t3_math.tex:393: `\dot U` -- Minimize $\sum_{i\in g} \| C_i - \dot U S_i \|_F^2$ over $\dot U$; setting the
+- docs/shared_t3_math.tex:395: `\dot U` -- $\sum_i C_i S_i^\top = \dot U \sum_i S_i S_i^\top$, invertible whenever the
+- docs/shared_t3_math.tex:397: `U_g` -- $U_g^\top \sum_i C_i S_i^\top = \sum_i (U_g^\top C_i) S_i^\top = 0$, and the
+- docs/shared_t3_math.tex:397: `U_g` -- $U_g^\top \sum_i C_i S_i^\top = \sum_i (U_g^\top C_i) S_i^\top = 0$, and the
+- docs/shared_t3_math.tex:398: `U_g` -- Gram sum acts on the other side, so $U_g^\top \dot U = 0$.
+- docs/shared_t3_math.tex:398: `\dot U` -- Gram sum acts on the other side, so $U_g^\top \dot U = 0$.
+- docs/shared_t3_math.tex:412: `\dot U` -- $\dot U^\top = M_g^{+}\, C^{\mathrm{stack}}$ (then
+- docs/shared_t3_math.tex:413: `\dot U` -- $C_i^\top \leftarrow S_i^\top \dot U^\top$, the corresponding row block of
+- docs/shared_t3_math.tex:414: `\dot U` -- $M_g \dot U^\top$), computed from one thin SVD of $M_g$ with a relative
+- docs/shared_t3_math.tex:472: `U_g` -- factor is $[\,U_g \,|\, \dot U_g\,]$, identical across each group), and
+- docs/shared_t3_math.tex:472: `U_g` -- factor is $[\,U_g \,|\, \dot U_g\,]$, identical across each group), and
+- docs/shared_t3_math.tex:474: `P_{` -- R(\T, \xi) \coloneqq P_{\mathrm{sf}}(\T + \xi)
+- docs/shared_t3_math.tex:484: `U_g` -- after the fact: per group, the doubled factor is $[\,U_g \,|\, \dot U\,]$
+- docs/shared_t3_math.tex:484: `\dot U` -- after the fact: per group, the doubled factor is $[\,U_g \,|\, \dot U\,]$
+- docs/shared_t3_math.tex:489: `U_g` -- per-mode factor blocks $[\,U_g \,|\, \dot U S_i\,]$ (the $S$-absorbed
+- docs/shared_t3_math.tex:489: `\dot U` -- per-mode factor blocks $[\,U_g \,|\, \dot U S_i\,]$ (the $S$-absorbed
+- docs/shared_t3_math.tex:492: `\dot U` -- repairs this. $\dot U$ is recovered from tied coordinates by the
+- docs/pad_safe_svd.tex:197: `Q_{` -- $t_j = \max_i |Q_{ij}|\,[i\text{ padded}] \in \{0,1\}$.
+- docs/pad_safe_svd.tex:354: `P_{` -- generalized SVD of the pair $(\!\Apad^{\top}, B)$ with $B^{\top}B = P_{\mathrm{real}}$
+- docs/pad_safe_svd.tex:355: `P_{` -- \cite{VanLoan1976,PaigeSaunders1981}. Because $P_{\mathrm{real}}\Apad = \Apad$ the pair
+- docs/pad_safe_svd.tex:359: `P_{` -- $\Apad\Apad^{\top} + \varepsilon^2 P_{\mathrm{real}}$ --- the same commuting pair folded into one
+- docs/symmetric_probe_derivatives.tex:373: `\mathbf O` -- $\big((\mathbf U_i),(\mathbf O_i),(\mathbf P_i),(\mathbf Q_i)\big)$ (up-Tucker, down-, left-, and
+- docs/symmetric_probe_derivatives.tex:373: `O_i` -- $\big((\mathbf U_i),(\mathbf O_i),(\mathbf P_i),(\mathbf Q_i)\big)$ (up-Tucker, down-, left-, and
+- docs/symmetric_probe_derivatives.tex:373: `P_i` -- $\big((\mathbf U_i),(\mathbf O_i),(\mathbf P_i),(\mathbf Q_i)\big)$ (up-Tucker, down-, left-, and
+- docs/symmetric_probe_derivatives.tex:373: `Q_i` -- $\big((\mathbf U_i),(\mathbf O_i),(\mathbf P_i),(\mathbf Q_i)\big)$ (up-Tucker, down-, left-, and
+- docs/symmetric_probe_derivatives.tex:373: `O_i` -- $\big((\mathbf U_i),(\mathbf O_i),(\mathbf P_i),(\mathbf Q_i)\big)$ (up-Tucker, down-, left-, and
+- docs/symmetric_probe_derivatives.tex:380: `P_i` -- \boldsymbol\mu_i^\top = \boldsymbol\mu_{i-1}^\top \mathbf P_i(\boldsymbol\xi_i), \quad
+- docs/symmetric_probe_derivatives.tex:381: `Q_{` -- \boldsymbol\nu_i = \mathbf Q_{i+1}(\boldsymbol\xi_{i+1})\,\boldsymbol\nu_{i+1}, \quad
+- docs/symmetric_probe_derivatives.tex:382: `\mathbf O` -- \boldsymbol\eta_i = \boldsymbol\mu_{i-1}^\top \mathbf O_i\, \boldsymbol\nu_i,
+- docs/symmetric_probe_derivatives.tex:382: `O_i` -- \boldsymbol\eta_i = \boldsymbol\mu_{i-1}^\top \mathbf O_i\, \boldsymbol\nu_i,
+- docs/symmetric_probe_derivatives.tex:382: `O_i` -- \boldsymbol\eta_i = \boldsymbol\mu_{i-1}^\top \mathbf O_i\, \boldsymbol\nu_i,
+- docs/symmetric_probe_derivatives.tex:384: `\mathbf O` -- (the plain pipeline \eqref{eq:xi}--\eqref{eq:z} with the frame cores $\mathbf P,\mathbf Q,\mathbf O$
+- docs/symmetric_probe_derivatives.tex:388: `Q_i` -- \boldsymbol\sigma_i^\top &= \boldsymbol\sigma_{i-1}^\top \mathbf Q_i(\boldsymbol\xi_i)
+- docs/symmetric_probe_derivatives.tex:390: `\mathbf O` -- + \boldsymbol\mu_{i-1}^\top \mathbf O_i(\delta\boldsymbol\xi_i), \label{eq:rsigma}\\
+- docs/symmetric_probe_derivatives.tex:390: `O_i` -- + \boldsymbol\mu_{i-1}^\top \mathbf O_i(\delta\boldsymbol\xi_i), \label{eq:rsigma}\\
+- docs/symmetric_probe_derivatives.tex:390: `O_i` -- + \boldsymbol\mu_{i-1}^\top \mathbf O_i(\delta\boldsymbol\xi_i), \label{eq:rsigma}\\
+- docs/symmetric_probe_derivatives.tex:392: `\mathbf O` -- + \mathbf O_{i+1}(\delta\boldsymbol\xi_{i+1})\boldsymbol\nu_{i+1}
+- docs/symmetric_probe_derivatives.tex:393: `P_{` -- + \mathbf P_{i+1}(\boldsymbol\xi_{i+1})\boldsymbol\tau_{i+1}, \label{eq:rtau}\\
+- docs/symmetric_probe_derivatives.tex:394: `Q_i` -- \delta\boldsymbol\eta_i &= \boldsymbol\sigma_{i-1}^\top \mathbf Q_i \boldsymbol\nu_i
+- docs/symmetric_probe_derivatives.tex:396: `P_i` -- + \boldsymbol\mu_{i-1}^\top \mathbf P_i \boldsymbol\tau_i, \label{eq:rdeta}\\
+- docs/symmetric_probe_derivatives.tex:412: `Q_i` -- &= \big(\boldsymbol\sigma_{i-1}^{(t)}\big)^\top \mathbf Q_i(\boldsymbol\xi_i)
+- docs/symmetric_probe_derivatives.tex:413: `Q_i` -- + t \big(\boldsymbol\sigma_{i-1}^{(t-1)}\big)^\top \mathbf Q_i(\mathbf U_i\mathbf p_i) \nonumber\\
+- docs/symmetric_probe_derivatives.tex:416: `\mathbf O` -- &\;+ \big(\boldsymbol\mu_{i-1}^{(t)}\big)^\top \mathbf O_i(\delta\boldsymbol\xi_i)
+- docs/symmetric_probe_derivatives.tex:416: `O_i` -- &\;+ \big(\boldsymbol\mu_{i-1}^{(t)}\big)^\top \mathbf O_i(\delta\boldsymbol\xi_i)
+- docs/symmetric_probe_derivatives.tex:416: `O_i` -- &\;+ \big(\boldsymbol\mu_{i-1}^{(t)}\big)^\top \mathbf O_i(\delta\boldsymbol\xi_i)
+- docs/symmetric_probe_derivatives.tex:417: `\mathbf O` -- + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \mathbf O_i(\delta\mathbf U_i\mathbf p_i),
+- docs/symmetric_probe_derivatives.tex:417: `O_i` -- + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \mathbf O_i(\delta\mathbf U_i\mathbf p_i),
+- docs/symmetric_probe_derivatives.tex:417: `O_i` -- + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \mathbf O_i(\delta\mathbf U_i\mathbf p_i),
+- docs/symmetric_probe_derivatives.tex:428: `\mathbf O` -- Section~\ref{sec:impl}, fed a frame core ($\mathbf P,\mathbf Q,\mathbf O$) or the variation core
+- docs/symmetric_probe_derivatives.tex:559: `\mathbf O` -- ($\mathbf P,\mathbf Q,\mathbf O\to\mathbf G_i$, $\mathbf U$ no longer required orthogonal). It is a
+- docs/exact_hessian_two_hole.tex:122: `\delta U` -- A tangent vector has gauged coordinates $v=(\delta U_i,\delta G_i)$, $\delta U_i\in\R^{n^D_i\times N_i}$,
+- docs/exact_hessian_two_hole.tex:122: `\delta U` -- A tangent vector has gauged coordinates $v=(\delta U_i,\delta G_i)$, $\delta U_i\in\R^{n^D_i\times N_i}$,
+- docs/exact_hessian_two_hole.tex:128: `\delta U` -- + \sum_i \big[P_{<i}\,O_i\,Q_{>i}\big]\times_i \delta U_i \times_{j\neq i} U_j ,
+- docs/exact_hessian_two_hole.tex:132: `\delta U` -- $\delta U_i U_i^\T=0$ and $(P_i^{\langle 2\rangle})^\T\delta G_i^{\langle 2\rangle}=0$ ($i<d$; T4S (47)--(48)) are
+- docs/exact_hessian_two_hole.tex:316: `\dot U` -- Define $\Lift v=\thh=(\dot U_i,\dot G_i)$, a variation of the base point $\th=(U,P)$, by
+- docs/exact_hessian_two_hole.tex:319: `\dot U` -- \dot U_i = (S_i^\T)^{+}\,\delta U_i,\qquad
+- docs/exact_hessian_two_hole.tex:319: `\delta U` -- \dot U_i = (S_i^\T)^{+}\,\delta U_i,\qquad
+- docs/exact_hessian_two_hole.tex:328: `\dot U` -- for full column rank. Tucker slot: replacing $U_i$ by $\dot U_i$ in $X=P_{<i}H_iQ_{>i}\times U$ gives
+- docs/exact_hessian_two_hole.tex:329: `\dot U` -- $P_{<i}(H_i\times_2\dot U_i)Q_{>i}=P_{<i}\big(O_i\times_2(S_i^\T\dot U_i)\big)Q_{>i}$, and $S_i^\T(S_i^\T)^+=I$
+- docs/exact_hessian_two_hole.tex:329: `\dot U` -- $P_{<i}(H_i\times_2\dot U_i)Q_{>i}=P_{<i}\big(O_i\times_2(S_i^\T\dot U_i)\big)Q_{>i}$, and $S_i^\T(S_i^\T)^+=I$
+- docs/exact_hessian_two_hole.tex:360: `\delta U` -- \node[dotc] (cu) at (1.2,-1.1) {$\delta U_i$};
+- docs/exact_hessian_two_hole.tex:366: `\dot U` -- \node[dotc] (du) at (5.7,-1.9) {$\dot U_i$};
+- docs/exact_hessian_two_hole.tex:371: `\dot U` -- \node[font=\small,anchor=west] at (-0.7,-2.9) {(b) Tucker slot: $\dot U_i=(S_i^\T)^{+\eps}\delta U_i$, exact when $S_i^\T(S_i^\T)^+=I$ (Tucker slack: 
+- docs/exact_hessian_two_hole.tex:371: `\delta U` -- \node[font=\small,anchor=west] at (-0.7,-2.9) {(b) Tucker slot: $\dot U_i=(S_i^\T)^{+\eps}\delta U_i$, exact when $S_i^\T(S_i^\T)^+=I$ (Tucker slack: 
+- docs/exact_hessian_two_hole.tex:376: `\delta U` -- slot pairs $\delta U_i$ with the orthonormal $O_i$; the raw slot pairs $\dot U_i$ with the center
+- docs/exact_hessian_two_hole.tex:376: `\dot U` -- slot pairs $\delta U_i$ with the orthonormal $O_i$; the raw slot pairs $\dot U_i$ with the center
+- docs/exact_hessian_two_hole.tex:400: `\delta U` -- coordinates, $\delta U_i=((S_i^\T)^{+\eps})^\T Y^U_i$, $\delta G_i=Y^G_i\times_3(T_i^{+\eps})^\T$,
+- docs/exact_hessian_two_hole.tex:409: `\delta U` -- \Require orthogonal frame $(U,O,P,Q)$; relative damping $c\ge0$; coordinates $v=(\delta U_i,\delta G_i)$ (stack $\mathtt{K+C}$)
+- docs/exact_hessian_two_hole.tex:410: `\dot U` -- \Ensure raw directions $\thh=(\dot U_i,\dot G_i)$ of $\th=(U,P)$
+- docs/exact_hessian_two_hole.tex:416: `\dot U` -- \State $\dot U_i\gets(S_i^\T)^{+\eps}\,\delta U_i$ \Comment{\texttt{'Cux,KCxn->KCun'}}
+- docs/exact_hessian_two_hole.tex:416: `\delta U` -- \State $\dot U_i\gets(S_i^\T)^{+\eps}\,\delta U_i$ \Comment{\texttt{'Cux,KCxn->KCun'}}
+- docs/exact_hessian_two_hole.tex:419: `\delta U` -- \State adjoint: $\delta U_i\gets((S_i^\T)^{+\eps})^\T Y^U_i$,\ $\delta G_i\gets Y^G_i\times_3(T_i^{+\eps})^\T$
+- docs/exact_hessian_two_hole.tex:492: `\tilde U` -- &\delta\tilde U_i=\textstyle\sum_{\mathtt W}\big(\eta_i\otimes c_i+\dxt_i\otimes w_i\big),\qquad
+- docs/exact_hessian_two_hole.tex:500: `\tilde U` -- \xi_i\otimes\hat\sigma_i$, $\delta\tilde U_i=\sum_{\mathtt W}\delta\hat\xi_i\otimes w_i$ with
+- docs/exact_hessian_two_hole.tex:508: `\tilde U` -- \Ensure $(\delta\tilde U_i,\delta\tilde G_i)$, $\mathtt W$ summed
+- docs/exact_hessian_two_hole.tex:516: `\tilde U` -- \State $\delta\tilde U_i,\ \delta\tilde G_i$ by \eqref{eq:asm} \Comment{\code{assemble_tucker_variations}, \code{assemble_tt_variations}}
+- docs/exact_hessian_two_hole.tex:527: `\dot U` -- derivative along $\thh=(\dot U_i,\dot G_i)$, i.e.\ the \emph{product rule} applied to every line of
+- docs/exact_hessian_two_hole.tex:535: `\dot U` -- $\dot\xi_i=\dot U_iw_i$,\
+- docs/exact_hessian_two_hole.tex:539: `\dot U` -- --- exactly T4S Algorithm~7 ($\sigma,\tau,\delta\eta$) with $Q=O=P=G$ and variation $(\dot U,\dot G)$. The
+- docs/exact_hessian_two_hole.tex:543: `\tilde U` -- $\frac{d}{ds}\delta\tilde U_i=\sum_{\mathtt W}(\dot\eta_i\otimes c_i+\dot{\dxt}_i\otimes w_i)$, and $\delta\tilde G_i$
+- docs/exact_hessian_two_hole.tex:576: `\dot U` -- $\dot\xi_i=(\dot U_iw_i,\dot U_ip_i)$ (\code{build_input_jets}). Every jet product is one of four forms:
+- docs/exact_hessian_two_hole.tex:576: `\dot U` -- $\dot\xi_i=(\dot U_iw_i,\dot U_ip_i)$ (\code{build_input_jets}). Every jet product is one of four forms:
+- docs/exact_hessian_two_hole.tex:600: `\dot U` -- and its product rule along $(\dot G,\dot\xi,\dot\mu,\dot{\ddet})$, with $\dot{\ddet}_i=\dot U_ic_i$, is the dotted step
+- docs/exact_hessian_two_hole.tex:623: `\dot U` -- \caption{Two-hole, forward half: the dotted forward jets along $\thh=(\dot U,\dot G)$}
+- docs/exact_hessian_two_hole.tex:628: `\dot U` -- \State $\dot\xi_i\gets(\dot U_iw_i,\ \dot U_ip_i)$ \Comment{\code{build_input_jets}, \code{compute_xi}}
+- docs/exact_hessian_two_hole.tex:628: `\dot U` -- \State $\dot\xi_i\gets(\dot U_iw_i,\ \dot U_ip_i)$ \Comment{\code{build_input_jets}, \code{compute_xi}}
+- docs/exact_hessian_two_hole.tex:651: `\dot U` -- \State $\dot{\ddet}_i\gets\dot U_ic_i$ \Comment{order-diagonal; \code{compute_deta_tilde_tangent_jets}}
+- docs/exact_hessian_two_hole.tex:786: `\dot U` -- two-hole adds the ``one core replaced'' companions: $\dot{BU}_i=B_{z,i}\dot U_i^\T$, $\dot{\hat G}_i$, the
+- docs/exact_hessian_two_hole.tex:832: `\dot U` -- \State $\dot{BU}_i\gets B_{z,i}\dot U_i^\T$;\ $\dot{\hat G}_i\gets G_{z,i}\times_2\dot{BU}_i$
+- docs/exact_hessian_two_hole.tex:860: `\delta U` -- $\delta U_i=S_i^\T\dot U_g$ (\texttt{docs/shared\_t3\_math.tex}, Prop.\ ``tied tangent space is a tilted subspace'';
+- docs/exact_hessian_two_hole.tex:860: `\dot U` -- $\delta U_i=S_i^\T\dot U_g$ (\texttt{docs/shared\_t3\_math.tex}, Prop.\ ``tied tangent space is a tilted subspace'';
+- docs/exact_hessian_two_hole.tex:861: `\dot U` -- that note writes the factors $N\times n$, so its $C_i=\dot US_i$ is this relation transposed) has one raw
+- docs/exact_hessian_two_hole.tex:867: `\dot U` -- \dot U_g=M_g^{+\eps}\begin{bmatrix}\delta U_{i_1}\\ \vdots\\ \delta U_{i_k}\end{bmatrix}
+- docs/exact_hessian_two_hole.tex:867: `\delta U` -- \dot U_g=M_g^{+\eps}\begin{bmatrix}\delta U_{i_1}\\ \vdots\\ \delta U_{i_k}\end{bmatrix}
+- docs/exact_hessian_two_hole.tex:867: `\delta U` -- \dot U_g=M_g^{+\eps}\begin{bmatrix}\delta U_{i_1}\\ \vdots\\ \delta U_{i_k}\end{bmatrix}
+- docs/exact_hessian_two_hole.tex:868: `\delta U` -- =V_Mf_\eps(s_g)U_M^\T[\delta U_{i}]_{i\in g},\qquad
+- docs/exact_hessian_two_hole.tex:869: `\delta U` -- \Lift^\T:\ [\delta U_i]_{i\in g}=(M_g^{+\eps})^\T\textstyle\sum_{i\in g}Y^U_i,
+- docs/exact_hessian_two_hole.tex:871: `\dot U` -- the same $\dot U_g$ at every group mode; the adjoint sums the group's copies ($\mathsf T^\T$) before the solve's
+- docs/exact_hessian_two_hole.tex:892: `\delta U` -- \Require companion $(U_M,s_g,V_M,\text{row splits})$ of $M_g$; $\eps$; coordinates $[\delta U_i]_{i\in g}$, or raw $[Y^U_i]_{i\in g}$
+- docs/exact_hessian_two_hole.tex:894: `\dot U` -- \State lift: $\dot U_g\gets V_M\,\mathrm{diag}(f)\,U_M^\T\,[\delta U_i]_{i\in g}$; $\dot U_i\gets\dot U_g$ for $i\in g$ \Comment{\code{_tied_filtered_
+- docs/exact_hessian_two_hole.tex:894: `\delta U` -- \State lift: $\dot U_g\gets V_M\,\mathrm{diag}(f)\,U_M^\T\,[\delta U_i]_{i\in g}$; $\dot U_i\gets\dot U_g$ for $i\in g$ \Comment{\code{_tied_filtered_
+- docs/exact_hessian_two_hole.tex:894: `\dot U` -- \State lift: $\dot U_g\gets V_M\,\mathrm{diag}(f)\,U_M^\T\,[\delta U_i]_{i\in g}$; $\dot U_i\gets\dot U_g$ for $i\in g$ \Comment{\code{_tied_filtered_
+- docs/exact_hessian_two_hole.tex:894: `\dot U` -- \State lift: $\dot U_g\gets V_M\,\mathrm{diag}(f)\,U_M^\T\,[\delta U_i]_{i\in g}$; $\dot U_i\gets\dot U_g$ for $i\in g$ \Comment{\code{_tied_filtered_
+- docs/exact_hessian_two_hole.tex:895: `\delta U` -- \State adjoint: $Y_g\gets\sum_{i\in g}Y^U_i$;\ $[\delta U_i]\gets U_M\,\mathrm{diag}(f)\,V_M^\T Y_g$, split by rows \Comment{its transpose}
+- docs/exact_hessian_two_hole.tex:1026: `\delta U` -- C12 & tied lift \eqref{eq:tied}: $D\Phi[\Lift v]=\Emap v$ at a group-ceiling point; $=M_g^+[\delta U_i]$; adjoint & $\le5.1{\times}10^{-16}$\\
+- docs/shared_t3_math.tex:347: `\dot U` -- a single \emph{gauged ambient direction} $\dot U \in \R^{N_g \times n_g}$
+- docs/shared_t3_math.tex:348: `\dot U` -- with $U_g^\top \dot U = 0$: in the ($S$-absorbed) frame coordinates,
+- docs/shared_t3_math.tex:350: `\dot U` -- C_i = \dot U\, S_i \quad \text{for a common gauged } \dot U, \qquad i \in g .
+- docs/shared_t3_math.tex:350: `\dot U` -- C_i = \dot U\, S_i \quad \text{for a common gauged } \dot U, \qquad i \in g .
+- docs/shared_t3_math.tex:358: `\dot U` -- $O_g$ of $U_g$ ($\dot U = O_g B$, coordinates $C_i = B S_i$), suggesting a
+- docs/shared_t3_math.tex:378: `\dot U` -- \dot U \;=\; \Bigl(\sum_{i \in g} C_i S_i^\top\Bigr)
+- docs/shared_t3_math.tex:383: `\dot U` -- C_i \leftarrow \dot U S_i .
+- docs/shared_t3_math.tex:385: `\dot U` -- TT variations and singleton modes are unaffected, and $\dot U$ is
+- docs/shared_t3_math.tex:393: `\dot U` -- Minimize $\sum_{i\in g} \| C_i - \dot U S_i \|_F^2$ over $\dot U$; setting the
+- docs/shared_t3_math.tex:393: `\dot U` -- Minimize $\sum_{i\in g} \| C_i - \dot U S_i \|_F^2$ over $\dot U$; setting the
+- docs/shared_t3_math.tex:395: `\dot U` -- $\sum_i C_i S_i^\top = \dot U \sum_i S_i S_i^\top$, invertible whenever the
+- docs/shared_t3_math.tex:398: `\dot U` -- Gram sum acts on the other side, so $U_g^\top \dot U = 0$.
+- docs/shared_t3_math.tex:412: `\dot U` -- $\dot U^\top = M_g^{+}\, C^{\mathrm{stack}}$ (then
+- docs/shared_t3_math.tex:413: `\dot U` -- $C_i^\top \leftarrow S_i^\top \dot U^\top$, the corresponding row block of
+- docs/shared_t3_math.tex:414: `\dot U` -- $M_g \dot U^\top$), computed from one thin SVD of $M_g$ with a relative
+- docs/shared_t3_math.tex:446: `\dot U` -- $\{\dot U_i \text{ equal within each group}\}$ (TT-core perturbations
+- docs/shared_t3_math.tex:449: `\dot U` -- $\dot U_i \mapsto \tfrac{1}{k_g} \sum_{j \in g} \dot U_j$. The additive
+- docs/shared_t3_math.tex:449: `\dot U` -- $\dot U_i \mapsto \tfrac{1}{k_g} \sum_{j \in g} \dot U_j$. The additive
+- docs/shared_t3_math.tex:472: `\dot U` -- factor is $[\,U_g \,|\, \dot U_g\,]$, identical across each group), and
+- docs/shared_t3_math.tex:484: `\dot U` -- after the fact: per group, the doubled factor is $[\,U_g \,|\, \dot U\,]$
+- docs/shared_t3_math.tex:489: `\dot U` -- per-mode factor blocks $[\,U_g \,|\, \dot U S_i\,]$ (the $S$-absorbed
+- docs/shared_t3_math.tex:492: `\dot U` -- repairs this. $\dot U$ is recovered from tied coordinates by the
+- docs/symmetric_probe_derivatives.tex:48: `\mathbf P` -- \emph{same} direction $\mathbf P$, repeated $t$ times --- and show they are computed by a single
+- docs/symmetric_probe_derivatives.tex:66: `\mathbf U` -- A \emph{Tucker tensor train} is a pair of core families $\mathbb T = \big((\mathbf U_i)_{i=1}^d,\,
+- docs/symmetric_probe_derivatives.tex:67: `\mathbf U` -- (\mathbf G_i)_{i=1}^d\big)$, where each \emph{Tucker factor} $\mathbf U_i \in \R^{n_i \times N_i}$
+- docs/symmetric_probe_derivatives.tex:86: `\mathbf U` -- \boldsymbol\xi_i      &= \mathbf U_i \mathbf w_i \in \R^{n_i},
+- docs/symmetric_probe_derivatives.tex:96: `\mathbf U` -- \mathbf z_i           &= \mathbf U_i^\top \boldsymbol\eta_i \in \R^{N_i}.
+- docs/symmetric_probe_derivatives.tex:101: `\mathbf U` -- $\mathbf G_i$, leaving the middle index free. The single Tucker factor $\mathbf U_i$ is used twice:
+- docs/symmetric_probe_derivatives.tex:105: `\mathbf P` -- Fix a direction $\mathbf P = (\mathbf p_1, \dots, \mathbf p_d)$, $\mathbf p_i \in \R^{N_i}$. We seek
+- docs/symmetric_probe_derivatives.tex:107: `\mathbf P` -- times in the single repeated direction $\mathbf P$:
+- docs/symmetric_probe_derivatives.tex:110: `\mathbf P` -- \mathbf z_i^{(t)} \;:=\; \frac{\dd{^t}}{\dd s^t}\, \mathbf z_i(\mathbf W + s\mathbf P)\Big|_{s=0}
+- docs/symmetric_probe_derivatives.tex:111: `\mathbf P` -- \;=\; D^t \mathbf z_i(\mathbf W)\,\mathbf P^{t},
+- docs/symmetric_probe_derivatives.tex:121: `\mathbf P` -- $\mathbf W + s\mathbf P$ and tracking its Taylor data.
+- docs/symmetric_probe_derivatives.tex:126: `\mathbf P` -- (along $\mathbf P$, at $\mathbf W$) is the tuple of symmetric derivatives
+- docs/symmetric_probe_derivatives.tex:130: `\mathbf P` -- q^{(t)} := \frac{\dd{^t}}{\dd s^t}\, q(\mathbf W + s\mathbf P)\Big|_{s=0}.
+- docs/symmetric_probe_derivatives.tex:146: `\mathbf U` -- \qquad \delta\boldsymbol\xi_i := \mathbf U_i \mathbf p_i.
+- docs/symmetric_probe_derivatives.tex:152: `\mathbf U` -- $\boldsymbol\xi_i(s) = \mathbf U_i \mathbf w_i(s) = \mathbf U_i \mathbf w_i + s\,\mathbf U_i \mathbf
+- docs/symmetric_probe_derivatives.tex:152: `\mathbf U` -- $\boldsymbol\xi_i(s) = \mathbf U_i \mathbf w_i(s) = \mathbf U_i \mathbf w_i + s\,\mathbf U_i \mathbf
+- docs/symmetric_probe_derivatives.tex:152: `\mathbf U` -- $\boldsymbol\xi_i(s) = \mathbf U_i \mathbf w_i(s) = \mathbf U_i \mathbf w_i + s\,\mathbf U_i \mathbf
+- docs/symmetric_probe_derivatives.tex:246: `\mathbf U` -- \mathbf z_i^{(t)} &= \mathbf U_i^\top \boldsymbol\eta_i^{(t)}.
+- docs/symmetric_probe_derivatives.tex:256: `\mathbf U` -- linear map $\boldsymbol\eta_i \mapsto \mathbf U_i^\top \boldsymbol\eta_i$, whose jet acts
+- docs/symmetric_probe_derivatives.tex:257: `\mathbf U` -- componentwise: $\mathbf z_i^{(t)} = \mathbf U_i^\top \boldsymbol\eta_i^{(t)}$.
+- docs/symmetric_probe_derivatives.tex:280: `\mathbf U` -- \Require T3 $\big((\mathbf U_i),(\mathbf G_i)\big)$; inputs $\mathbf W$; direction $\mathbf P$; order $m$
+- docs/symmetric_probe_derivatives.tex:280: `\mathbf P` -- \Require T3 $\big((\mathbf U_i),(\mathbf G_i)\big)$; inputs $\mathbf W$; direction $\mathbf P$; order $m$
+- docs/symmetric_probe_derivatives.tex:283: `\mathbf U` -- \State $\boldsymbol\xi_i \gets \mathbf U_i \mathbf w_i$,\quad
+- docs/symmetric_probe_derivatives.tex:284: `\mathbf U` -- $\delta\boldsymbol\xi_i \gets \mathbf U_i \mathbf p_i$
+- docs/symmetric_probe_derivatives.tex:299: `\mathbf U` -- \State $\mathbf z_i^{(t)} \gets \mathbf U_i^\top \boldsymbol\eta_i^{(t)}$ \textbf{ for } $t=0,\dots,m$
+- docs/symmetric_probe_derivatives.tex:349: `\mathbf P` -- $(\mathbf W, \mathbf P)$ pairs at once: each sample is a paired input/direction, so to sweep many
+- docs/symmetric_probe_derivatives.tex:353: `\mathbf P` -- Each action is multilinear in the off-mode inputs, so $\mathbf z_i(\mathbf W + s\mathbf P)$ is a
+- docs/symmetric_probe_derivatives.tex:373: `\mathbf U` -- $\big((\mathbf U_i),(\mathbf O_i),(\mathbf P_i),(\mathbf Q_i)\big)$ (up-Tucker, down-, left-, and
+- docs/symmetric_probe_derivatives.tex:373: `\mathbf O` -- $\big((\mathbf U_i),(\mathbf O_i),(\mathbf P_i),(\mathbf Q_i)\big)$ (up-Tucker, down-, left-, and
+- docs/symmetric_probe_derivatives.tex:373: `\mathbf P` -- $\big((\mathbf U_i),(\mathbf O_i),(\mathbf P_i),(\mathbf Q_i)\big)$ (up-Tucker, down-, left-, and
+- docs/symmetric_probe_derivatives.tex:373: `\mathbf Q` -- $\big((\mathbf U_i),(\mathbf O_i),(\mathbf P_i),(\mathbf Q_i)\big)$ (up-Tucker, down-, left-, and
+- docs/symmetric_probe_derivatives.tex:374: `\delta\mathbf U` -- right-TT cores) and a gauged variation $\delta\mathbb V = \big((\delta\mathbf U_i),
+- docs/symmetric_probe_derivatives.tex:379: `\mathbf U` -- \boldsymbol\xi_i = \mathbf U_i \mathbf w_i, \quad
+- docs/symmetric_probe_derivatives.tex:380: `\mathbf P` -- \boldsymbol\mu_i^\top = \boldsymbol\mu_{i-1}^\top \mathbf P_i(\boldsymbol\xi_i), \quad
+- docs/symmetric_probe_derivatives.tex:381: `\mathbf Q` -- \boldsymbol\nu_i = \mathbf Q_{i+1}(\boldsymbol\xi_{i+1})\,\boldsymbol\nu_{i+1}, \quad
+- docs/symmetric_probe_derivatives.tex:382: `\mathbf O` -- \boldsymbol\eta_i = \boldsymbol\mu_{i-1}^\top \mathbf O_i\, \boldsymbol\nu_i,
+- docs/symmetric_probe_derivatives.tex:384: `\mathbf P` -- (the plain pipeline \eqref{eq:xi}--\eqref{eq:z} with the frame cores $\mathbf P,\mathbf Q,\mathbf O$
+- docs/symmetric_probe_derivatives.tex:384: `\mathbf Q` -- (the plain pipeline \eqref{eq:xi}--\eqref{eq:z} with the frame cores $\mathbf P,\mathbf Q,\mathbf O$
+- docs/symmetric_probe_derivatives.tex:384: `\mathbf O` -- (the plain pipeline \eqref{eq:xi}--\eqref{eq:z} with the frame cores $\mathbf P,\mathbf Q,\mathbf O$
+- docs/symmetric_probe_derivatives.tex:387: `\delta\mathbf U` -- \delta\boldsymbol\xi_i &= \delta\mathbf U_i \mathbf w_i, \label{eq:rdxi}\\
+- docs/symmetric_probe_derivatives.tex:388: `\mathbf Q` -- \boldsymbol\sigma_i^\top &= \boldsymbol\sigma_{i-1}^\top \mathbf Q_i(\boldsymbol\xi_i)
+- docs/symmetric_probe_derivatives.tex:390: `\mathbf O` -- + \boldsymbol\mu_{i-1}^\top \mathbf O_i(\delta\boldsymbol\xi_i), \label{eq:rsigma}\\
+- docs/symmetric_probe_derivatives.tex:392: `\mathbf O` -- + \mathbf O_{i+1}(\delta\boldsymbol\xi_{i+1})\boldsymbol\nu_{i+1}
+- docs/symmetric_probe_derivatives.tex:393: `\mathbf P` -- + \mathbf P_{i+1}(\boldsymbol\xi_{i+1})\boldsymbol\tau_{i+1}, \label{eq:rtau}\\
+- docs/symmetric_probe_derivatives.tex:394: `\mathbf Q` -- \delta\boldsymbol\eta_i &= \boldsymbol\sigma_{i-1}^\top \mathbf Q_i \boldsymbol\nu_i
+- docs/symmetric_probe_derivatives.tex:396: `\mathbf P` -- + \boldsymbol\mu_{i-1}^\top \mathbf P_i \boldsymbol\tau_i, \label{eq:rdeta}\\
+- docs/symmetric_probe_derivatives.tex:397: `\mathbf U` -- \mathbf z_i &= \mathbf U_i^\top \delta\boldsymbol\eta_i + \delta\mathbf U_i^\top \boldsymbol\eta_i,
+- docs/symmetric_probe_derivatives.tex:397: `\delta\mathbf U` -- \mathbf z_i &= \mathbf U_i^\top \delta\boldsymbol\eta_i + \delta\mathbf U_i^\top \boldsymbol\eta_i,
+- docs/symmetric_probe_derivatives.tex:403: `\mathbf P` -- Differentiating \eqref{eq:rbase}--\eqref{eq:rz} with respect to $\mathbf W$ along $\mathbf P$ uses
+- docs/symmetric_probe_derivatives.tex:407: `\mathbf U` -- order-one input jets $\jet{\boldsymbol\xi_i} = (\boldsymbol\xi_i, \mathbf U_i\mathbf p_i, 0, \dots)$
+- docs/symmetric_probe_derivatives.tex:408: `\delta\mathbf U` -- and $\jet{\delta\boldsymbol\xi_i} = (\delta\boldsymbol\xi_i, \delta\mathbf U_i\mathbf p_i, 0, \dots)$,
+- docs/symmetric_probe_derivatives.tex:412: `\mathbf Q` -- &= \big(\boldsymbol\sigma_{i-1}^{(t)}\big)^\top \mathbf Q_i(\boldsymbol\xi_i)
+- docs/symmetric_probe_derivatives.tex:413: `\mathbf Q` -- + t \big(\boldsymbol\sigma_{i-1}^{(t-1)}\big)^\top \mathbf Q_i(\mathbf U_i\mathbf p_i) \nonumber\\
+- docs/symmetric_probe_derivatives.tex:413: `\mathbf U` -- + t \big(\boldsymbol\sigma_{i-1}^{(t-1)}\big)^\top \mathbf Q_i(\mathbf U_i\mathbf p_i) \nonumber\\
+- docs/symmetric_probe_derivatives.tex:415: `\mathbf U` -- + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \delta\mathbf G_i(\mathbf U_i\mathbf p_i) \nonumber\\
+- docs/symmetric_probe_derivatives.tex:416: `\mathbf O` -- &\;+ \big(\boldsymbol\mu_{i-1}^{(t)}\big)^\top \mathbf O_i(\delta\boldsymbol\xi_i)
+- docs/symmetric_probe_derivatives.tex:417: `\mathbf O` -- + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \mathbf O_i(\delta\mathbf U_i\mathbf p_i),
+- docs/symmetric_probe_derivatives.tex:417: `\delta\mathbf U` -- + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \mathbf O_i(\delta\mathbf U_i\mathbf p_i),
+- docs/symmetric_probe_derivatives.tex:428: `\mathbf P` -- Section~\ref{sec:impl}, fed a frame core ($\mathbf P,\mathbf Q,\mathbf O$) or the variation core
+- docs/symmetric_probe_derivatives.tex:428: `\mathbf Q` -- Section~\ref{sec:impl}, fed a frame core ($\mathbf P,\mathbf Q,\mathbf O$) or the variation core
+- docs/symmetric_probe_derivatives.tex:428: `\mathbf O` -- Section~\ref{sec:impl}, fed a frame core ($\mathbf P,\mathbf Q,\mathbf O$) or the variation core
+- docs/symmetric_probe_derivatives.tex:438: `\widetilde{\mathbf U` -- the action-jet space, return the variation gradient $\big((\delta\widetilde{\mathbf U}_i),
+- docs/symmetric_probe_derivatives.tex:459: `\widetilde{\mathbf U` -- \big((\delta\widetilde{\mathbf U}_i),(\delta\widetilde{\mathbf G}_i)\big)
+- docs/symmetric_probe_derivatives.tex:482: `\mathbf U` -- \eta}_i = \mathbf U_i \mathbf r_i$ is the order-diagonal lift.
+- docs/symmetric_probe_derivatives.tex:485: `\delta\mathbf U` -- The variation gradients $\partial_{\delta\mathbf G_i}\mathcal L$ and $\partial_{\delta\mathbf U_i}
+- docs/symmetric_probe_derivatives.tex:500: `\delta\mathbf U` -- \item the Tucker core $\delta\mathbf U_i$ has one internal edge (the down-edge to its TT core), so
+- docs/symmetric_probe_derivatives.tex:503: `\widetilde{\mathbf U` -- \delta\widetilde{\mathbf U}_i
+- docs/symmetric_probe_derivatives.tex:540: `\widetilde{\mathbf U` -- \sigma}_i$, $\delta\widetilde{\mathbf U}_i = \widehat{\delta\boldsymbol\xi}_i\otimes\mathbf w_i$ (about
+- docs/symmetric_probe_derivatives.tex:542: `\mathbf P` -- e_{\mathrm{index}}$ in the base slot and a general direction $\mathbf P$ (fiber-slice the base projection,
+- docs/symmetric_probe_derivatives.tex:543: `\mathbf P` -- contract $\mathbf P$ at order one); its transpose scatters onto the indexed rows.
+- docs/symmetric_probe_derivatives.tex:547: `\mathbf P` -- the sample stack $W$ (the paired $(\mathbf X,\mathbf P)$ samples, on the inputs), the tangent stack $K$
+- docs/symmetric_probe_derivatives.tex:559: `\mathbf P` -- ($\mathbf P,\mathbf Q,\mathbf O\to\mathbf G_i$, $\mathbf U$ no longer required orthogonal). It is a
+- docs/symmetric_probe_derivatives.tex:559: `\mathbf Q` -- ($\mathbf P,\mathbf Q,\mathbf O\to\mathbf G_i$, $\mathbf U$ no longer required orthogonal). It is a
+- docs/symmetric_probe_derivatives.tex:559: `\mathbf O` -- ($\mathbf P,\mathbf Q,\mathbf O\to\mathbf G_i$, $\mathbf U$ no longer required orthogonal). It is a
+- docs/symmetric_probe_derivatives.tex:559: `\mathbf U` -- ($\mathbf P,\mathbf Q,\mathbf O\to\mathbf G_i$, $\mathbf U$ no longer required orthogonal). It is a
+- docs/symmetric_probe_derivatives.tex:631: `\widetilde{\mathbf U` -- \delta\widetilde{\mathbf U}_i$: order-summed outer products of the tilde edge variables with the base
+
+## K8b (REPORT, 34)
+
+- tests/test_jet_recurrence.py:100: `['P']` -- self._close(pd.compute_mu_jets(p['P'], p['xi'], order), p['mu'], 'mu')
+- tests/test_jet_recurrence.py:101: `['Q']` -- self._close(pd.compute_nu_jets(p['Q'], p['xi'], order), p['nu'], 'nu')
+- tests/test_jet_recurrence.py:102: `['O']` -- self._close(pd.compute_eta_jets(p['O'], p['mu'], p['nu']),
+- tests/test_jet_recurrence.py:103: `['O']` -- twins.compute_eta_jets_trs(p['O'], p['mu'], p['nu'], trs), 'eta')
+- tests/test_jet_recurrence.py:104: `['Q']` -- s_ref = twins.compute_sigma_jets_trs(p['dG'], p['Q'], p['O'], p['xi'], p['dxi'], p['mu'], trs)
+- tests/test_jet_recurrence.py:104: `['O']` -- s_ref = twins.compute_sigma_jets_trs(p['dG'], p['Q'], p['O'], p['xi'], p['dxi'], p['mu'], trs)
+- tests/test_jet_recurrence.py:105: `['P']` -- t_ref = twins.compute_tau_jets_trs(p['dG'], p['P'], p['O'], p['xi'], p['dxi'], p['nu'], trs)
+- tests/test_jet_recurrence.py:105: `['O']` -- t_ref = twins.compute_tau_jets_trs(p['dG'], p['P'], p['O'], p['xi'], p['dxi'], p['nu'], trs)
+- tests/test_jet_recurrence.py:106: `['Q']` -- self._close(pd.compute_sigma_jets(p['dG'], p['Q'], p['O'], p['xi'], p['dxi'], p['mu']), s_ref, 'sigma')
+- tests/test_jet_recurrence.py:106: `['O']` -- self._close(pd.compute_sigma_jets(p['dG'], p['Q'], p['O'], p['xi'], p['dxi'], p['mu']), s_ref, 'sigma')
+- tests/test_jet_recurrence.py:107: `['P']` -- self._close(pd.compute_tau_jets(p['dG'], p['P'], p['O'], p['xi'], p['dxi'], p['nu']), t_ref, 'tau')
+- tests/test_jet_recurrence.py:107: `['O']` -- self._close(pd.compute_tau_jets(p['dG'], p['P'], p['O'], p['xi'], p['dxi'], p['nu']), t_ref, 'tau')
+- tests/test_jet_recurrence.py:108: `['P']` -- self._close(pd.compute_deta_jets(p['dG'], p['P'], p['Q'], p['mu'], p['nu'], s_ref, t_ref),
+- tests/test_jet_recurrence.py:108: `['Q']` -- self._close(pd.compute_deta_jets(p['dG'], p['P'], p['Q'], p['mu'], p['nu'], s_ref, t_ref),
+- tests/test_jet_recurrence.py:109: `['P']` -- twins.compute_deta_jets_trs(p['dG'], p['P'], p['Q'], p['mu'], p['nu'], s_ref, t_ref, trs),
+- tests/test_jet_recurrence.py:109: `['Q']` -- twins.compute_deta_jets_trs(p['dG'], p['P'], p['Q'], p['mu'], p['nu'], s_ref, t_ref, trs),
+- tests/test_jet_recurrence.py:111: `['P']` -- self._close([pd._apply_derivatives_t3_from_xi_jets(p['xi'], p['P'], order)],
+- tests/test_jet_recurrence.py:112: `['P']` -- [twins.apply_derivatives_t3_trs(p['xi'], p['P'], trs)], 'apply (Euclidean)')
+- tests/test_jet_recurrence.py:113: `['Q']` -- self._close([pd._apply_derivatives_from_jets(p['xi'], p['dxi'], p['mu'], p['Q'], p['O'], p['dG'])],
+- tests/test_jet_recurrence.py:113: `['O']` -- self._close([pd._apply_derivatives_from_jets(p['xi'], p['dxi'], p['mu'], p['Q'], p['O'], p['dG'])],
+- tests/test_jet_recurrence.py:114: `['Q']` -- [twins.apply_derivatives_tv_trs(p['xi'], p['dxi'], p['mu'], p['Q'], p['O'], p['dG'], trs)],
+- tests/test_jet_recurrence.py:114: `['O']` -- [twins.apply_derivatives_tv_trs(p['xi'], p['dxi'], p['mu'], p['Q'], p['O'], p['dG'], trs)],
+- tests/test_jet_recurrence.py:127: `['P']` -- tt = twins.compute_tau_tilde_jets_trs(p['P'], p['xi'], p['deta_t'], p['mu'], trs)
+- tests/test_jet_recurrence.py:128: `['Q']` -- st = twins.compute_sigma_tilde_jets_trs(p['Q'], p['xi'], p['deta_t'], p['nu'], trs)
+- tests/test_jet_recurrence.py:129: `['P']` -- self._close(pd.compute_tau_tilde_jets(p['P'], p['xi'], p['deta_t'], p['mu']), tt, 'tau_tilde')
+- tests/test_jet_recurrence.py:130: `['Q']` -- self._close(pd.compute_sigma_tilde_jets(p['Q'], p['xi'], p['deta_t'], p['nu']), st, 'sigma_tilde')
+- tests/test_jet_recurrence.py:133: `['O']` -- dxi = pd.compute_dxi_tilde_jets(p['O'], p['mu'], p['nu'], st, tt)
+- tests/test_jet_recurrence.py:138: `['O']` -- [a[:2] for a in twins.compute_dxi_tilde_jets_trs(p['O'], p['mu'], p['nu'], st, tt, trs)],
+- tests/test_jet_recurrence.py:146: `['Q']` -- self._close(pd.compute_sigma_hat_jets(p['Q'], p['xi'], p['c']),
+- tests/test_jet_recurrence.py:147: `['Q']` -- twins.compute_sigma_hat_jets_trs(p['Q'], p['xi'], p['c'], trs), 'sigma_hat')
+- tests/test_jet_recurrence.py:149: `['O']` -- got = pd._apply_derivatives_transpose_from_jets(p['c'], p['xi'], p['mu'], p['wj'], p['O'], p['Q'],
+- tests/test_jet_recurrence.py:149: `['Q']` -- got = pd._apply_derivatives_transpose_from_jets(p['c'], p['xi'], p['mu'], p['wj'], p['O'], p['Q'],
+- tests/test_jet_recurrence.py:151: `['O']` -- ref = twins.apply_derivatives_transpose_trs(p['c'], p['xi'], p['mu'], p['wj'], p['O'], p['Q'],
+- tests/test_jet_recurrence.py:151: `['Q']` -- ref = twins.apply_derivatives_transpose_trs(p['c'], p['xi'], p['mu'], p['wj'], p['O'], p['Q'],
+
+## K9 (REPORT, 348)
+
+- t3toolbox/backend/apply.py:152: up down
+- t3toolbox/backend/apply.py:179: up down
+- t3toolbox/backend/apply.py:204: up down
+- t3toolbox/backend/apply.py:244: up down
+- t3toolbox/backend/apply.py:275: up down
+- t3toolbox/backend/apply.py:465: down
+- t3toolbox/backend/entries.py:120: up down
+- t3toolbox/backend/entries.py:146: up down
+- t3toolbox/backend/entries.py:170: up down
+- t3toolbox/backend/entries.py:203: down
+- t3toolbox/backend/fv_conversions.py:207: down
+- t3toolbox/backend/fv_conversions.py:215: down
+- t3toolbox/backend/fv_operations.py:174: up down
+- t3toolbox/backend/fv_operations.py:178: up down
+- t3toolbox/backend/fv_operations.py:201: down
+- t3toolbox/backend/fv_operations.py:239: up up
+- t3toolbox/backend/fv_operations.py:298: up
+- t3toolbox/backend/fv_operations.py:299: down
+- t3toolbox/backend/fv_operations.py:313: up
+- t3toolbox/backend/fv_operations.py:317: down
+- t3toolbox/backend/fv_operations.py:358: up down
+- t3toolbox/backend/fv_operations.py:359: up
+- t3toolbox/backend/fv_operations.py:361: up down
+- t3toolbox/backend/fv_operations.py:363: up
+- t3toolbox/backend/fv_operations.py:369: up
+- t3toolbox/backend/fv_operations.py:371: up
+- t3toolbox/backend/fv_operations.py:407: up down
+- t3toolbox/backend/fv_operations.py:634: up down
+- t3toolbox/backend/fv_operations.py:640: down up
+- t3toolbox/backend/fv_operations.py:662: up down
+- t3toolbox/backend/fv_operations.py:666: up down
+- t3toolbox/backend/fv_operations.py:697: up down
+- t3toolbox/backend/fv_operations.py:704: up down
+- t3toolbox/backend/fv_operations.py:726: up down
+- t3toolbox/backend/fv_operations.py:729: down
+- t3toolbox/backend/fv_operations.py:730: down
+- t3toolbox/backend/fv_operations.py:742: up down
+- t3toolbox/backend/fv_operations.py:755: up down
+- t3toolbox/backend/geometry.py:144: up
+- t3toolbox/backend/geometry.py:145: down
+- t3toolbox/backend/geometry.py:422: up down
+- t3toolbox/backend/geometry.py:423: up down
+- t3toolbox/backend/geometry.py:602: up down
+- t3toolbox/backend/geometry.py:603: up
+- t3toolbox/backend/geometry.py:604: up
+- t3toolbox/backend/geometry.py:612: up down
+- t3toolbox/backend/geometry.py:686: up down
+- t3toolbox/backend/geometry.py:742: up down
+- t3toolbox/backend/geometry.py:815: up
+- t3toolbox/backend/geometry.py:866: up down
+- t3toolbox/backend/geometry.py:872: up down
+- t3toolbox/backend/geometry.py:886: down
+- t3toolbox/backend/geometry.py:925: up
+- t3toolbox/backend/padded_frames.py:8: up down
+- t3toolbox/backend/padded_frames.py:41: up down
+- t3toolbox/backend/padded_frames.py:51: up down
+- t3toolbox/backend/padded_frames.py:62: up
+- t3toolbox/backend/padded_frames.py:63: down
+- t3toolbox/backend/padded_frames.py:86: up
+- t3toolbox/backend/padded_frames.py:102: up
+- t3toolbox/backend/padded_frames.py:139: up down
+- t3toolbox/backend/padded_frames.py:143: up down
+- t3toolbox/backend/padded_frames.py:148: up
+- t3toolbox/backend/padded_frames.py:164: down
+- t3toolbox/backend/padded_frames.py:167: down
+- t3toolbox/backend/padded_frames.py:171: down
+- t3toolbox/backend/padded_frames.py:197: up
+- t3toolbox/backend/padded_frames.py:208: up
+- t3toolbox/backend/padded_frames.py:209: down
+- t3toolbox/backend/padded_frames.py:220: up down
+- t3toolbox/backend/padded_frames.py:221: up
+- t3toolbox/backend/padded_frames.py:249: up
+- t3toolbox/backend/padded_frames.py:250: down
+- t3toolbox/backend/padded_frames.py:276: down
+- t3toolbox/backend/padded_frames.py:554: up down
+- t3toolbox/backend/padded_frames.py:619: up down
+- t3toolbox/backend/probing.py:651: up down
+- t3toolbox/backend/probing.py:783: up down
+- t3toolbox/backend/probing.py:1226: up down
+- t3toolbox/backend/ranks.py:644: down up_i
+- t3toolbox/backend/ranks.py:645: up_i
+- t3toolbox/backend/ranks.py:646: up_i
+- t3toolbox/backend/ranks.py:647: down down_i up_i
+- t3toolbox/backend/ranks.py:651: down
+- t3toolbox/backend/ranks.py:740: up down up
+- t3toolbox/backend/ranks.py:742: up
+- t3toolbox/backend/sampling_derivatives.py:940: up down
+- t3toolbox/backend/sampling_derivatives.py:1114: up down
+- t3toolbox/backend/sampling_derivatives.py:1198: up down
+- t3toolbox/backend/sampling_derivatives.py:1820: down
+- t3toolbox/backend/sampling_derivatives.py:1889: down
+- t3toolbox/backend/sharing.py:507: down
+- t3toolbox/backend/t3_linalg.py:668: up
+- t3toolbox/backend/t3_linalg.py:719: up
+- t3toolbox/backend/t3_linalg.py:732: up
+- t3toolbox/backend/tv_operations.py:134: up
+- t3toolbox/backend/tv_operations.py:164: down
+- t3toolbox/backend/tv_operations.py:181: down
+- t3toolbox/backend/tv_operations.py:401: down
+- t3toolbox/backend/tv_operations.py:656: up
+- t3toolbox/backend/tv_operations.py:770: up
+- t3toolbox/backend/tv_operations.py:873: up
+- t3toolbox/backend/ufv_conversions.py:73: up down
+- t3toolbox/backend/ufv_conversions.py:78: up down
+- t3toolbox/backend/ufv_conversions.py:96: up down
+- t3toolbox/backend/ufv_conversions.py:168: up down
+- t3toolbox/backend/ufv_conversions.py:205: up
+- t3toolbox/backend/ufv_conversions.py:206: down
+- t3toolbox/backend/ufv_conversions.py:215: up down
+- t3toolbox/backend/ufv_conversions.py:262: up down
+- t3toolbox/backend/ufv_conversions.py:274: up
+- t3toolbox/backend/ufv_conversions.py:312: up
+- t3toolbox/backend/ufv_conversions.py:313: down
+- t3toolbox/backend/ufv_conversions.py:320: up down
+- t3toolbox/backend/ufv_conversions.py:365: up
+- t3toolbox/backend/ufv_conversions.py:366: down
+- t3toolbox/backend/ufv_conversions.py:403: up down
+- t3toolbox/backend/ufv_conversions.py:407: up down
+- t3toolbox/backend/ufv_masking.py:28: up down
+- t3toolbox/backend/ufv_masking.py:29: up down
+- t3toolbox/backend/ufv_masking.py:33: up down
+- t3toolbox/backend/ufv_masking.py:58: down
+- t3toolbox/backend/ufv_masking.py:181: up
+- t3toolbox/backend/ufv_masking.py:196: up down
+- t3toolbox/backend/ufv_masking.py:216: up
+- t3toolbox/backend/ufv_operations.py:59: up down
+- t3toolbox/backend/ufv_operations.py:83: up down up
+- t3toolbox/backend/ufv_operations.py:225: up down
+- t3toolbox/backend/ufv_operations.py:226: down
+- t3toolbox/backend/ufv_operations.py:236: up down
+- t3toolbox/backend/ufv_operations.py:249: up down
+- t3toolbox/backend/ufv_operations.py:276: up
+- t3toolbox/backend/ufv_operations.py:277: down
+- t3toolbox/backend/ufv_operations.py:293: up
+- t3toolbox/backend/ufv_operations.py:294: down
+- t3toolbox/backend/ufv_operations.py:303: up down
+- t3toolbox/backend/ufv_operations.py:387: up down
+- t3toolbox/backend/ufv_operations.py:491: up down
+- t3toolbox/backend/ufv_operations.py:517: up down
+- t3toolbox/backend/ufv_operations.py:584: up down
+- t3toolbox/backend/ufv_operations.py:587: down
+- t3toolbox/backend/ufv_operations.py:588: up
+- t3toolbox/backend/ufv_operations.py:616: up down
+- t3toolbox/backend/ufv_operations.py:661: up down
+- t3toolbox/backend/ufv_operations.py:665: up down
+- t3toolbox/backend/ufv_operations.py:671: down
+- t3toolbox/backend/ufv_operations.py:681: up down
+- t3toolbox/backend/uniform_fitting.py:74: up
+- t3toolbox/backend/uniform_fitting.py:78: up
+- t3toolbox/backend/uniform_fitting.py:81: up
+- t3toolbox/backend/uniform_fitting.py:151: up
+- t3toolbox/backend/uniform_fitting.py:179: up
+- t3toolbox/backend/uniform_fitting.py:215: up
+- t3toolbox/backend/uniform_fitting.py:246: up
+- t3toolbox/backend/uniform_fitting.py:277: up
+- t3toolbox/backend/uniform_fitting.py:316: up
+- t3toolbox/backend/uniform_padded_frames.py:47: up down
+- t3toolbox/backend/uniform_padded_frames.py:48: up down
+- t3toolbox/backend/uniform_padded_frames.py:89: down
+- t3toolbox/backend/uniform_padded_frames.py:138: up
+- t3toolbox/backend/uniform_padded_frames.py:139: down
+- t3toolbox/backend/uniform_padded_frames.py:143: up down
+- t3toolbox/backend/uniform_padded_frames.py:150: up down
+- t3toolbox/backend/uniform_padded_frames.py:151: up down
+- t3toolbox/backend/uniform_padded_frames.py:194: up down
+- t3toolbox/backend/uniform_padded_frames.py:196: up
+- t3toolbox/backend/uniform_padded_frames.py:204: up down
+- t3toolbox/backend/uniform_padded_frames.py:225: up
+- t3toolbox/backend/uniform_padded_frames.py:235: up
+- t3toolbox/backend/uniform_padded_frames.py:256: down down
+- t3toolbox/backend/uniform_padded_frames.py:258: down
+- t3toolbox/backend/uniform_padded_frames.py:641: up down
+- t3toolbox/backend/uniform_padded_frames.py:643: up down
+- t3toolbox/backend/uniform_padded_frames.py:657: up
+- t3toolbox/backend/uniform_padded_frames.py:669: up down
+- t3toolbox/backend/uniform_padded_frames.py:682: up
+- t3toolbox/backend/uniform_padded_frames.py:730: up down
+- t3toolbox/backend/uniform_padded_frames.py:950: up down
+- t3toolbox/backend/ut3_sampling.py:374: up
+- t3toolbox/backend/ut3_sampling.py:464: up
+- t3toolbox/backend/ut3_sampling.py:497: up
+- t3toolbox/backend/ut3_sampling.py:524: up
+- t3toolbox/backend/ut3_sampling.py:599: up
+- t3toolbox/backend/ut3_sampling.py:636: up
+- t3toolbox/backend/utv_operations.py:58: up down
+- t3toolbox/backend/utv_operations.py:63: up
+- t3toolbox/backend/utv_operations.py:67: up
+- t3toolbox/backend/utv_operations.py:188: up down
+- t3toolbox/backend/utv_operations.py:201: up down
+- t3toolbox/backend/utv_operations.py:213: UP
+- t3toolbox/backend/utv_operations.py:215: UP
+- t3toolbox/backend/utv_operations.py:315: up down
+- t3toolbox/backend/utv_operations.py:336: up
+- t3toolbox/backend/utv_operations.py:448: up
+- t3toolbox/backend/utv_operations.py:498: down
+- t3toolbox/backend/utv_operations.py:511: down
+- t3toolbox/backend/utv_operations.py:538: up
+- t3toolbox/backend/utv_operations.py:585: up up
+- t3toolbox/backend/utv_operations.py:595: up
+- t3toolbox/backend/utv_operations.py:669: up
+- t3toolbox/backend/utv_operations.py:677: up
+- t3toolbox/backend/utv_operations.py:754: up down
+- t3toolbox/backend/utv_sampling.py:69: up down
+- t3toolbox/backend/utv_sampling.py:71: up down
+- t3toolbox/backend/utv_sampling.py:429: up down
+- t3toolbox/frame_variations_format.py:8: up down
+- t3toolbox/frame_variations_format.py:355: down
+- t3toolbox/frame_variations_format.py:564: Down
+- t3toolbox/frame_variations_format.py:572: Down
+- t3toolbox/frame_variations_format.py:743: up down
+- t3toolbox/frame_variations_format.py:1312: up
+- t3toolbox/frame_variations_format.py:1315: up
+- t3toolbox/frame_variations_format.py:1319: up down
+- t3toolbox/frame_variations_format.py:1439: up down
+- t3toolbox/frame_variations_format.py:1459: up down
+- t3toolbox/frame_variations_format.py:1518: up down
+- t3toolbox/frame_variations_format.py:1572: up down
+- t3toolbox/frame_variations_format.py:1628: up down
+- t3toolbox/frame_variations_format.py:1651: up
+- t3toolbox/frame_variations_format.py:1652: down
+- t3toolbox/frame_variations_format.py:1666: down up
+- t3toolbox/frame_variations_format.py:1765: up down
+- t3toolbox/manifold.py:496: down
+- t3toolbox/manifold.py:497: up
+- t3toolbox/manifold.py:531: down up
+- t3toolbox/manifold.py:745: up down
+- t3toolbox/manifold.py:822: up down
+- t3toolbox/manifold.py:864: up down
+- t3toolbox/manifold.py:936: up down
+- t3toolbox/manifold.py:1548: down
+- t3toolbox/manifold.py:1581: down
+- t3toolbox/manifold.py:1637: down
+- t3toolbox/manifold.py:1647: down
+- t3toolbox/manifold.py:1648: down
+- t3toolbox/safety.py:18: up down
+- t3toolbox/uniform_frame_variations_format.py:92: up
+- t3toolbox/uniform_frame_variations_format.py:93: down
+- t3toolbox/uniform_frame_variations_format.py:97: up
+- t3toolbox/uniform_frame_variations_format.py:102: up down
+- t3toolbox/uniform_frame_variations_format.py:289: up down up
+- t3toolbox/uniform_frame_variations_format.py:307: up up up
+- t3toolbox/uniform_frame_variations_format.py:342: up
+- t3toolbox/uniform_frame_variations_format.py:343: down
+- t3toolbox/uniform_frame_variations_format.py:445: up down
+- t3toolbox/uniform_frame_variations_format.py:578: up
+- t3toolbox/uniform_frame_variations_format.py:579: down
+- t3toolbox/uniform_frame_variations_format.py:582: up down
+- t3toolbox/uniform_frame_variations_format.py:681: up down
+- t3toolbox/uniform_frame_variations_format.py:731: up
+- t3toolbox/uniform_frame_variations_format.py:732: down
+- t3toolbox/uniform_frame_variations_format.py:1028: up
+- t3toolbox/uniform_frame_variations_format.py:1032: up
+- t3toolbox/uniform_frame_variations_format.py:1036: up
+- t3toolbox/uniform_frame_variations_format.py:1046: up
+- t3toolbox/uniform_frame_variations_format.py:1075: up
+- t3toolbox/uniform_frame_variations_format.py:1076: down
+- t3toolbox/uniform_frame_variations_format.py:1190: up down
+- t3toolbox/uniform_frame_variations_format.py:1233: up down
+- t3toolbox/uniform_frame_variations_format.py:1239: up down
+- t3toolbox/uniform_frame_variations_format.py:1296: up down
+- t3toolbox/uniform_frame_variations_format.py:1348: up down
+- t3toolbox/uniform_frame_variations_format.py:1364: up
+- t3toolbox/uniform_frame_variations_format.py:1365: down
+- t3toolbox/uniform_frame_variations_format.py:1417: up down
+- t3toolbox/uniform_frame_variations_format.py:1425: up down
+- t3toolbox/uniform_frame_variations_format.py:1456: up down
+- t3toolbox/uniform_frame_variations_format.py:1483: up down
+- t3toolbox/uniform_frame_variations_format.py:1499: down up
+- t3toolbox/uniform_manifold.py:73: up down
+- t3toolbox/uniform_manifold.py:324: down
+- t3toolbox/uniform_manifold.py:325: up
+- t3toolbox/uniform_manifold.py:524: up
+- t3toolbox/uniform_manifold.py:525: down
+- t3toolbox/uniform_manifold.py:1282: down
+- t3toolbox/uniform_manifold.py:1309: down
+- t3toolbox/uniform_manifold.py:1311: up down
+- t3toolbox/uniform_manifold.py:1313: up
+- tests/_jet_trs_twins.py:79: down
+- tests/backend/_uniform_padded_frame_testing.py:36: up
+- tests/backend/_uniform_padded_frame_testing.py:80: down up
+- tests/backend/test_curvature.py:114: down up
+- tests/backend/test_curvature.py:2800: down
+- tests/backend/test_curvature.py:2804: down
+- tests/backend/test_curvature.py:2805: down
+- tests/backend/test_curvature.py:2806: down
+- tests/backend/test_geometry.py:223: down up
+- tests/backend/test_geometry.py:224: up
+- tests/backend/test_padded_frame.py:72: up down
+- tests/backend/test_padded_frame.py:91: up down
+- tests/backend/test_padded_frame.py:92: up down
+- tests/backend/test_padded_frame.py:136: up
+- tests/backend/test_padded_frame.py:141: down
+- tests/backend/test_padded_frame.py:166: down
+- tests/backend/test_padded_frame.py:184: down
+- tests/backend/test_padded_frame.py:296: down
+- tests/backend/test_padded_frame.py:402: up
+- tests/backend/test_padded_frame.py:405: down down down
+- tests/backend/test_padded_frame.py:409: down down
+- tests/backend/test_padded_frame.py:561: down down
+- tests/backend/test_padded_frame.py:679: down
+- tests/backend/test_padded_frame.py:730: up down
+- tests/backend/test_padded_frame.py:743: up
+- tests/backend/test_padded_frame.py:760: down
+- tests/backend/test_padded_start.py:277: up down
+- tests/backend/test_padded_start.py:291: up down
+- tests/backend/test_padded_start.py:569: down
+- tests/backend/test_uniform_curvature.py:513: up
+- tests/backend/test_uniform_curvature.py:525: up
+- tests/backend/test_uniform_curvature.py:684: up
+- tests/backend/test_uniform_curvature.py:849: up
+- tests/backend/test_uniform_padded_frame.py:11: down
+- tests/backend/test_uniform_padded_frame.py:124: up down
+- tests/backend/test_uniform_padded_frame.py:301: down
+- tests/backend/test_uniform_padded_frame.py:303: down
+- tests/backend/test_uniform_padded_frame.py:319: up
+- tests/backend/test_uniform_padded_frame.py:320: up
+- tests/backend/test_uniform_padded_frame.py:530: down
+- tests/backend/test_uniform_padded_frame.py:551: up
+- tests/test_contractions_interpreter.py:360: down
+- tests/test_contractions_interpreter.py:361: up
+- tests/test_fitting.py:700: down up
+- tests/test_frame_variations_format.py:43: up down
+- tests/test_frame_variations_format.py:127: up
+- tests/test_frame_variations_format.py:130: down
+- tests/test_frame_variations_format.py:131: down
+- tests/test_uniform_frame_variations_format.py:88: up
+- tests/test_uniform_frame_variations_format.py:101: up
+- tests/test_uniform_frame_variations_format.py:133: up
+- tests/test_uniform_frame_variations_format.py:264: up
+- tests/test_uniform_frame_variations_format.py:275: up
+- tests/test_uniform_frame_variations_format.py:307: up
+- tests/test_uniform_frame_variations_format.py:375: up down
+- tests/test_uniform_frame_variations_format.py:844: down
+- tests/test_uniform_frame_variations_format.py:947: up
+- tests/test_uniform_frame_variations_format.py:961: up
+- tests/test_uniform_manifold.py:108: up down
+- tests/test_uniform_manifold.py:642: up down
+- tests/test_uniform_manifold.py:1245: up down
+- tests/test_uniform_probing.py:738: up down
+- tests/test_uniform_weighted.py:595: up
+- tests/test_uniform_weighted.py:596: down
+- tests/test_uniform_weighted.py:682: up down
+- tests/test_uniform_weighted.py:696: up down
+- tests/test_uniform_weighted.py:772: up down
+- tests/test_weighted.py:196: up
+- tests/test_weighted.py:197: down
+- tests/test_weighted.py:258: down up
+- tests/test_weighted.py:363: up down
+
+## K13 (REPORT, 57)
+
+- t3toolbox/backend/fv_operations.py:292: left_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=(rLi, nUi, rL(i+1))
+- t3toolbox/backend/fv_operations.py:293: right_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=(rRi, nUi, rR(i+1))
+- t3toolbox/backend/fv_operations.py:440: left_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+- t3toolbox/backend/fv_operations.py:441: right_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+- t3toolbox/backend/fv_operations.py:549: left_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],                  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+- t3toolbox/backend/fv_operations.py:550: right_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],                  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+- t3toolbox/backend/probing.py:230: left_tt_cores wants nD, has ['nUi'] -- left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rLi,nUi,rL(i+1)) (the last core is 
+- t3toolbox/backend/probing.py:255: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/probing.py:402: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
+- t3toolbox/backend/probing.py:439: left_tt_cores wants nD, has ['nUi'] -- left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rL(i+1))
+- t3toolbox/backend/probing.py:490: left_tt_cores wants nD, has ['nUi'] -- left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rL(i+1))
+- t3toolbox/backend/probing.py:491: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
+- t3toolbox/backend/probing.py:823: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/probing.py:913: left_tt_cores wants nD, has ['nUi'] -- left_tt_cores:      typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rLi,nUi,rL(i+1))
+- t3toolbox/backend/probing.py:939: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores:     typ.Union[typ.Sequence[NDArray], NDArray], # len=d, elm_shape=(rRi,nUi,rR(i+1))
+- t3toolbox/backend/probing.py:1514: left_tt_cores wants nD, has ['nUi'] -- left_tt_cores:          typ.Union[typ.Sequence[NDArray], NDArray],  # P.     len=d, elm_shape=C+(rLi,nUi,rL(i+1))
+- t3toolbox/backend/probing.py:1515: left_tt_cores_dot wants nD, has ['nUi'] -- left_tt_cores_dot:      typ.Union[typ.Sequence[NDArray], NDArray],  # P_dot. len=d, elm_shape=K+C+(rLi,nUi,rL(i+1))
+- t3toolbox/backend/probing.py:1544: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores:         typ.Union[typ.Sequence[NDArray], NDArray],  # Q.     len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/probing.py:1545: right_tt_cores_dot wants nD, has ['nUi'] -- right_tt_cores_dot:     typ.Union[typ.Sequence[NDArray], NDArray],  # Q_dot. len=d, elm_shape=K+C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:734: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:764: left_tt_cores wants nD, has ['nUi'] -- left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
+- t3toolbox/backend/sampling_derivatives.py:830: left_tt_cores wants nD, has ['nUi'] -- left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
+- t3toolbox/backend/sampling_derivatives.py:831: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:1050: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:1354: left_tt_cores wants nD, has ['nUi'] -- left_tt_cores:  typ.Sequence[NDArray],  # P.  len=d, elm_shape=C+(rLi,nUi,rL(i+1))
+- t3toolbox/backend/sampling_derivatives.py:1365: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2120: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores: typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2224: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores:     typ.Sequence[NDArray],  # Q.  len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2654: left_tt_cores wants nD, has ['nUi'] -- left_tt_cores:      typ.Sequence[NDArray],  # P.        len=d, elm_shape=C+(rLi,nUi,rL(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2655: left_tt_cores_dot wants nD, has ['nUi'] -- left_tt_cores_dot:  typ.Sequence[NDArray],  # P_dot.    len=d, elm_shape=K+C+(rLi,nUi,rL(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2673: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores:     typ.Sequence[NDArray],  # Q.        len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:2674: right_tt_cores_dot wants nD, has ['nUi'] -- right_tt_cores_dot: typ.Sequence[NDArray],  # Q_dot.    len=d, elm_shape=K+C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:3134: right_tt_cores wants nD, has ['nUi'] -- right_tt_cores:     typ.Sequence[NDArray],  # Q.        len=d, elm_shape=C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/sampling_derivatives.py:3135: right_tt_cores_dot wants nD, has ['nUi'] -- right_tt_cores_dot: typ.Sequence[NDArray],  # Q_dot.    len=d, elm_shape=K+C+(rRi,nUi,rR(i+1))
+- t3toolbox/backend/sharing.py:489: left_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+- t3toolbox/backend/sharing.py:490: right_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+- t3toolbox/backend/sharing.py:576: tucker_variations wants nU, has ['nDi'] -- typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nDi, Ni)
+- t3toolbox/backend/sharing.py:577: tt_variations wants nD, has ['nUi'] -- typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nUi, rRi)
+- t3toolbox/backend/sharing.py:670: tucker_variations wants nU, has ['nDi'] -- tucker_variations:  typ.Sequence[NDArray],  # len=d, elm_shape=(K+C)+(nDi, Ni); the group's are read
+- t3toolbox/backend/sharing.py:710: tucker_variations wants nU, has ['nDi'] -- typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nDi, Ni)
+- t3toolbox/backend/sharing.py:711: tt_variations wants nD, has ['nUi'] -- typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nUi, rRi)
+- t3toolbox/backend/sharing.py:732: left_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],                  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+- t3toolbox/backend/sharing.py:733: right_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],                  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+- t3toolbox/backend/sharing.py:848: tucker_variations wants nU, has ['nDi'] -- typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=K+C+(nDi, Ni)
+- t3toolbox/backend/sharing.py:849: tt_variations wants nD, has ['nUi'] -- typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=K+C+(rLi, nUi, rR(i+1))
+- t3toolbox/backend/t3_linalg.py:701: left_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+- t3toolbox/backend/t3_linalg.py:702: right_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+- t3toolbox/backend/tv_operations.py:486: left_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],              # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+- t3toolbox/backend/tv_operations.py:487: right_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],              # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+- t3toolbox/backend/tv_operations.py:490: tucker_variations wants nU, has ['nDi'] -- typ.Sequence[NDArray],              # tucker_variations. len=d, elm_shape=K+C+(nDi, Ni)
+- t3toolbox/backend/tv_operations.py:491: tt_variations wants nD, has ['nUi'] -- typ.Sequence[NDArray],              # tt_variations.     len=d, elm_shape=K+C+(rLi, nUi, rR(i+1))
+- t3toolbox/backend/tv_operations.py:575: left_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],              # left_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rL(i+1))
+- t3toolbox/backend/tv_operations.py:576: right_tt_cores wants nD, has ['nUi'] -- typ.Sequence[NDArray],              # right_tt_cores.  len=d, elm_shape=C+(rRi, nUi, rR(i+1))
+- t3toolbox/frame_variations_format.py:812: tucker_variations wants nU, has ['nDi'] -- tucker_variations: typ.Tuple[NDArray,...]  # len=d, elm_shape=stack_shape+(nDi, Ni)
+- t3toolbox/frame_variations_format.py:813: tt_variations wants nD, has ['nUi'] -- tt_variations:     typ.Tuple[NDArray,...]  # len=d, elm_shape=stack_shape+(rLi, nUi, rRi)
+- t3toolbox/uniform_frame_variations_format.py:589: tucker_variations wants nU, has ['nD'] -- tucker_variations: NDArray              # (d,) + stack_shape + (nD, N)
+- t3toolbox/uniform_frame_variations_format.py:590: tt_variations wants nD, has ['nU'] -- tt_variations:     NDArray              # (d,) + stack_shape + (rL, nU, rR)
+
+## K13-generic (INFO, 13)
+
+- t3toolbox/backend/probing.py:550: tucker_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:145: tucker_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:146: tt_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:388: tt_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:416: tt_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:518: tucker_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:872: tucker_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:995: tt_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1017: tucker_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1018: tt_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1140: tucker_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1141: tt_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:3236: tt_cores ['nUi']
+
+## K13-unrecognised (INFO, 164)
+
+- t3toolbox/backend/apply.py:39: v_B_G ['nUi', 'nUi']
+- t3toolbox/backend/apply.py:145: var_tt_cores ['nUi']
+- t3toolbox/backend/apply.py:207: xis ['nUi']
+- t3toolbox/backend/apply.py:236: var_tt_cores ['nUi']
+- t3toolbox/backend/entries.py:44: ind_B_G ['nUi', 'nUi']
+- t3toolbox/backend/entries.py:173: xis ['nUi']
+- t3toolbox/backend/entries.py:197: var_tt_cores ['nUi']
+- t3toolbox/backend/fv_operations.py:290: up_tucker_cores ['nUi']
+- t3toolbox/backend/fv_operations.py:291: down_tt_cores ['nDi']
+- t3toolbox/backend/fv_operations.py:438: up_tucker_cores ['nUi']
+- t3toolbox/backend/fv_operations.py:439: down_tt_cores ['nDi']
+- t3toolbox/backend/fv_operations.py:535: tucker_pinvs ['nUi', 'nDi']
+- t3toolbox/backend/fv_operations.py:537: tucker_svals ['nDi']
+- t3toolbox/backend/fv_operations.py:547: up_tucker_cores ['nUi']
+- t3toolbox/backend/fv_operations.py:548: down_tt_cores ['nDi']
+- t3toolbox/backend/padded_frames.py:62: up ['nUi']
+- t3toolbox/backend/padded_frames.py:63: down ['nDi']
+- t3toolbox/backend/padded_frames.py:64: left ['nUi']
+- t3toolbox/backend/padded_frames.py:65: right ['nUi']
+- t3toolbox/backend/padded_frames.py:128: old_stores ['nU', 'nD']
+- t3toolbox/backend/padded_frames.py:129: target_stores ['nU', 'nD']
+- t3toolbox/backend/padded_frames.py:249: up ['nUi']
+- t3toolbox/backend/padded_frames.py:250: down ['nDi']
+- t3toolbox/backend/padded_frames.py:251: left ['nUi']
+- t3toolbox/backend/padded_frames.py:252: right ['nUi']
+- t3toolbox/backend/padded_frames.py:371: x ['nUi']
+- t3toolbox/backend/padded_frames.py:373: PhiO ['nU']
+- t3toolbox/backend/padded_frames.py:384: x ['nUj']
+- t3toolbox/backend/padded_frames.py:407: x ['nUj']
+- t3toolbox/backend/padded_frames.py:433: PhiU ['nD']
+- t3toolbox/backend/probing.py:185: x ['nUi']
+- t3toolbox/backend/probing.py:194: up_tucker_cores ['nUi']
+- t3toolbox/backend/probing.py:196: xis ['nUi']
+- t3toolbox/backend/probing.py:220: x ['nUi', 'nUi']
+- t3toolbox/backend/probing.py:231: xis ['nUi']
+- t3toolbox/backend/probing.py:256: xis ['nUi']
+- t3toolbox/backend/probing.py:401: var_tt_cores ['nUi']
+- t3toolbox/backend/probing.py:404: xis ['nUi']
+- t3toolbox/backend/probing.py:438: var_tt_cores ['nUi']
+- t3toolbox/backend/probing.py:441: xis ['nUi']
+- t3toolbox/backend/probing.py:489: var_tt_cores ['nUi']
+- t3toolbox/backend/probing.py:496: detas ['nUi']
+- t3toolbox/backend/probing.py:553: detas ['nUi']
+- t3toolbox/backend/probing.py:592: var_tt_cores ['nUi']
+- t3toolbox/backend/probing.py:631: var_tt_cores ['nUi']
+- t3toolbox/backend/probing.py:786: xis ['nUi']
+- t3toolbox/backend/probing.py:814: data ['nUi', 'nUi']
+- t3toolbox/backend/probing.py:824: xis ['nUi']
+- t3toolbox/backend/probing.py:856: x ['nUi']
+- t3toolbox/backend/probing.py:867: up_tucker_cores ['nUi']
+- t3toolbox/backend/probing.py:912: deta_tildes ['nUi']
+- t3toolbox/backend/probing.py:914: xis ['nUi']
+- t3toolbox/backend/probing.py:938: deta_tildes ['nUi']
+- t3toolbox/backend/probing.py:940: xis ['nUi']
+- t3toolbox/backend/probing.py:1130: deta_tildes ['nUi']
+- t3toolbox/backend/probing.py:1131: xis ['nUi']
+- t3toolbox/backend/probing.py:1136: dG_tildes ['nUi']
+- t3toolbox/backend/probing.py:1231: dG_tildes ['nUi']
+- t3toolbox/backend/probing.py:1235: dG_tildes ['nUi']
+- t3toolbox/backend/probing.py:1471: x ['nUi', 'nUi']
+- t3toolbox/backend/probing.py:1480: up_tucker_cores ['nUi']
+- t3toolbox/backend/probing.py:1481: up_tucker_cores_dot ['nUi']
+- t3toolbox/backend/probing.py:1483: deta_tildes_dot ['nUi']
+- t3toolbox/backend/probing.py:1516: xis ['nUi']
+- t3toolbox/backend/probing.py:1517: xis_dot ['nUi']
+- t3toolbox/backend/probing.py:1518: deta_tildes ['nUi']
+- t3toolbox/backend/probing.py:1519: deta_tildes_dot ['nUi']
+- t3toolbox/backend/probing.py:1546: xis ['nUi']
+- t3toolbox/backend/probing.py:1547: xis_dot ['nUi']
+- t3toolbox/backend/probing.py:1548: deta_tildes ['nUi']
+- t3toolbox/backend/probing.py:1549: deta_tildes_dot ['nUi']
+- t3toolbox/backend/probing.py:1654: deta_tildes ['nUi']
+- t3toolbox/backend/probing.py:1655: deta_tildes_dot ['nUi']
+- t3toolbox/backend/probing.py:1656: xis ['nUi']
+- t3toolbox/backend/probing.py:1657: xis_dot ['nUi']
+- t3toolbox/backend/probing.py:1663: dG ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:244: xis ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:245: dxis ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:246: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:389: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:417: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:519: eta_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:564: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:567: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:583: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:586: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:610: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:632: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:652: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:733: var_tt_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:736: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:763: var_tt_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:766: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:829: var_tt_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:836: deta_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:875: deta_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:994: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1047: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1052: var_tt_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1244: up_tucker_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1246: deta_tildes ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1265: P ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1266: xi ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1283: carry ['nUi', 'nUi']
+- t3toolbox/backend/sampling_derivatives.py:1355: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1356: deta_tildes ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1366: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1367: deta_tildes ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1604: deta_tildes ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1605: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1610: dG_tildes ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:1921: tucker_ranks ['nU_1', 'nU_d']
+- t3toolbox/backend/sampling_derivatives.py:1979: tucker_ranks ['nU_1', 'nU_d']
+- t3toolbox/backend/sampling_derivatives.py:2121: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2220: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2228: dG_tildes ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2338: up_tucker_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2492: up_tucker_cores ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2493: up_tucker_cores_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2495: deta_tildes_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2533: P ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2534: P_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2535: xi ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2536: xi_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2563: P ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2564: P_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2565: xi ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2566: xi_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2567: deta_t ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2568: deta_t_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2656: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2657: xi_jets_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2658: deta_tildes ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2659: deta_tildes_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2675: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2676: xi_jets_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2677: deta_tildes ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2678: deta_tildes_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2915: deta_tildes ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2916: deta_tildes_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2917: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2918: xi_jets_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:2925: dG ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:3136: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:3137: xi_jets_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:3232: xi_jets ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:3233: xi_jets_dot ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:3237: tt_dirs ['nUi']
+- t3toolbox/backend/sampling_derivatives.py:3240: dG ['nUi']
+- t3toolbox/backend/sharing.py:479: centers ['nUi']
+- t3toolbox/backend/sharing.py:487: up_tucker_cores ['nUi']
+- t3toolbox/backend/sharing.py:488: down_tt_cores ['nDi']
+- t3toolbox/backend/sharing.py:730: up_tucker_cores ['nUi']
+- t3toolbox/backend/sharing.py:731: down_tt_cores ['nDi']
+- t3toolbox/backend/t3_linalg.py:666: x ['nUi']
+- t3toolbox/backend/t3_linalg.py:682: dG ['nUi']
+- t3toolbox/backend/t3_linalg.py:699: up_tucker_cores ['nUi']
+- t3toolbox/backend/t3_linalg.py:700: down_tt_cores ['nDi']
+- t3toolbox/backend/tv_operations.py:484: up_tucker_cores ['nUi']
+- t3toolbox/backend/tv_operations.py:485: down_tt_cores ['nDi']
+- t3toolbox/backend/tv_operations.py:495: Udot ['nUi']
+- t3toolbox/backend/tv_operations.py:496: Gdot ['nUi']
+- t3toolbox/backend/tv_operations.py:573: up_tucker_cores ['nUi']
+- t3toolbox/backend/tv_operations.py:574: down_tt_cores ['nDi']
+
+## K16 (REPORT, 20)
+
+- docs/padded_frame_cone.tex:108: `n_{U,` -- $\ell_i\to c_i$ & \code{up[i]} & $U_i\in\R^{n_{U,i}\times N_i}$ & the Tucker index \\
+- docs/padded_frame_cone.tex:109: `n_{D,` -- $c_i\to \ell_i$ & \code{down[i]} & $O_i\in\R^{r_{L,i}\times n_{D,i}\times r_{R,i+1}}$ & the down index \\
+- docs/padded_frame_cone.tex:109: `r_{L,` -- $c_i\to \ell_i$ & \code{down[i]} & $O_i\in\R^{r_{L,i}\times n_{D,i}\times r_{R,i+1}}$ & the down index \\
+- docs/padded_frame_cone.tex:109: `r_{R,` -- $c_i\to \ell_i$ & \code{down[i]} & $O_i\in\R^{r_{L,i}\times n_{D,i}\times r_{R,i+1}}$ & the down index \\
+- docs/padded_frame_cone.tex:110: `n_{U,` -- $c_i\to c_{i+1}$ & \code{left[i]}, $i\le d-2$ & $L_i\in\R^{r_{L,i}\times n_{U,i}\times r_{L,i+1}}$ & bond $i+1$ \\
+- docs/padded_frame_cone.tex:110: `r_{L,` -- $c_i\to c_{i+1}$ & \code{left[i]}, $i\le d-2$ & $L_i\in\R^{r_{L,i}\times n_{U,i}\times r_{L,i+1}}$ & bond $i+1$ \\
+- docs/padded_frame_cone.tex:110: `r_{L,` -- $c_i\to c_{i+1}$ & \code{left[i]}, $i\le d-2$ & $L_i\in\R^{r_{L,i}\times n_{U,i}\times r_{L,i+1}}$ & bond $i+1$ \\
+- docs/padded_frame_cone.tex:111: `n_{U,` -- $c_i\to c_{i-1}$ & \code{right[i]}, $i\ge 1$ & $R_i\in\R^{r_{R,i}\times n_{U,i}\times r_{R,i+1}}$ & bond $i$ \\
+- docs/padded_frame_cone.tex:111: `r_{R,` -- $c_i\to c_{i-1}$ & \code{right[i]}, $i\ge 1$ & $R_i\in\R^{r_{R,i}\times n_{U,i}\times r_{R,i+1}}$ & bond $i$ \\
+- docs/padded_frame_cone.tex:111: `r_{R,` -- $c_i\to c_{i-1}$ & \code{right[i]}, $i\ge 1$ & $R_i\in\R^{r_{R,i}\times n_{U,i}\times r_{R,i+1}}$ & bond $i$ \\
+- docs/exact_hessian_two_hole.tex:119: `n^D` -- right-orthogonal $Q_i\in\R^{r^R_{i-1}\times n_i\times r^R_i}$, and $O_i\in\R^{r^L_{i-1}\times n^D_i\times r^R_i}$
+- docs/exact_hessian_two_hole.tex:120: `n^D` -- orthonormal over its middle index ($n^D_i\le n_i$; $n^D_i<n_i$ is \emph{Tucker slack}, $r^R_i<r^L_i$ \emph{TT slack}).
+- docs/exact_hessian_two_hole.tex:120: `n^D` -- orthonormal over its middle index ($n^D_i\le n_i$; $n^D_i<n_i$ is \emph{Tucker slack}, $r^R_i<r^L_i$ \emph{TT slack}).
+- docs/exact_hessian_two_hole.tex:122: `n^D` -- A tangent vector has gauged coordinates $v=(\delta U_i,\delta G_i)$, $\delta U_i\in\R^{n^D_i\times N_i}$,
+- docs/exact_hessian_two_hole.tex:306: `n^D` -- S_i^\T = \ip{O_i}{H_i}_{\{1,3\}}\in\R^{n^D_i\times n_i},
+- docs/exact_hessian_two_hole.tex:893: `n^D` -- \State $f\gets f_\eps(s_g)$, clip $\mathrm{rcond}=\mathrm{dtype}\,\eps\cdot\max(\sum_{i\in g}n^D_i,n_g)$ \Comment{\code{_tied_filter}}
+- docs/shared_t3_math.tex:366: `n_{D,` -- implementation $S_i \in \R^{n_g \times n_{D,i}}$ with
+- docs/shared_t3_math.tex:367: `n_{D,` -- $n_{D,i} = \min(n_g,\ r_{i-1} r_i)$ --- rectangular in general, so an
+- docs/shared_t3_math.tex:406: `n_{D,` -- \in \R^{(\sum_{i\in g} n_{D,i}) \times n_g},
+- docs/shared_t3_math.tex:491: `n_{D,` -- and, when the $n_{D,i}$ differ, even in shape, and no per-mode averaging
+
+## K17-params (INFO, 17)
+
+- t3toolbox/backend/padded_frames.py: U0
+- t3toolbox/backend/probing.py: O
+- t3toolbox/backend/probing.py: Q
+- t3toolbox/backend/sampling_derivatives.py: O
+- t3toolbox/backend/sampling_derivatives.py: P
+- t3toolbox/backend/sampling_derivatives.py: P_cores
+- t3toolbox/backend/sampling_derivatives.py: P_cores_dot
+- t3toolbox/backend/sampling_derivatives.py: P_dot
+- t3toolbox/backend/sampling_derivatives.py: Q
+- t3toolbox/backend/uniform_padded_frames.py: O
+- t3toolbox/backend/uniform_padded_frames.py: U
+- tests/_jet_trs_twins.py: O
+- tests/_jet_trs_twins.py: P_cores
+- tests/_jet_trs_twins.py: Q
+- tests/backend/_curvature_oracles.py: P
+- tests/test_frame_variations_format.py: D
+- tests/test_frame_variations_format.py: U
+
+## K17-shape-frame (REPORT, 2)
+
+- tests/test_frame_variations_format.py:44: U [frame] is on a V-shaped array -- U = (randn(4, 14), randn(5, 15))            # (nU_i, N_i)
+- tests/test_frame_variations_format.py:47: D [frame] is on a H-shaped array -- D = (randn(1, 3, 2), randn(2, 4, 1))        # (rL_i, nD_i, rR_(i+1))
+
+## K17-labels (INFO, 1)
+
+- t3toolbox/backend/tv_operations.py:495: Udot [frame] is on a V-shaped array -- typ.Tuple[NDArray, ...],                    # Udot. len=d, elm_shape=K+C+(nUi, Ni)

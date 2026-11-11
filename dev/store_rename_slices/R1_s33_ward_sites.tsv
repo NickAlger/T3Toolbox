@@ -1,0 +1,40 @@
+file	line	match	source	text
+t3toolbox/backend/apply.py	215	down ``eta``	plan (explicit; the grep misses it)	**Lean ``(xis, mus)`` only** (not the right ``nu`` / down ``eta`` sweeps): the all-modes apply
+t3toolbox/backend/entries.py	124	up-index	grep	Identical to :py:func:`tv_apply` except the up-index edge variables come from slicing the
+t3toolbox/backend/entries.py	151	up-index	grep	Identical to :py:func:`tv_apply_transpose` with the up-index ``xi-hat`` from fiber slicing and
+t3toolbox/backend/entries.py	314	up-index	grep	up-index ``xi`` / ``xi_dot`` from slicing Tucker-core fibers at ``index`` and the apply vectors replaced by the
+t3toolbox/backend/probing.py	773	up-index	grep	# assembly -- roughly half of tv_probe. entries is apply with the up-index xis obtained by
+t3toolbox/backend/probing.py	824	up-index	grep	xis:            typ.Sequence[NDArray],  # frame up-index edge vars, len=d, elm_shape=W+C+(nUi,)
+t3toolbox/backend/probing.py	1459	adjoint-up	grep	#   3. dotted adjoint-up lift deta~dot = Udot z~;
+t3toolbox/backend/probing.py	1728	adjoint-up	grep	# 3. the dotted adjoint-up lift; 4. the dotted adjoint sweeps; 5. the dotted dxi~
+t3toolbox/backend/sampling_derivatives.py	564	up-index	grep	xi_jets: typ.Sequence[NDArray],         # up-index jets, len=d, elm_shape=(2,)+W+C+(nUi,)
+t3toolbox/backend/sampling_derivatives.py	583	up-index	grep	xi_jets: typ.Sequence[NDArray],         # up-index jets, len=d, elm_shape=(2,)+W+C+(nUi,)
+t3toolbox/backend/sampling_derivatives.py	613	up-index	grep	'''The **apply**-derivative frame sweep (lean): the up-index jet ``build_input_jets(U_i x_i, U_i p_i)``
+t3toolbox/backend/sampling_derivatives.py	636	up-index	grep	but the up-index jet is formed by fiber-slicing the Tucker cores at ``index`` (order 0) + contracting
+t3toolbox/backend/sampling_derivatives.py	980	up-index	grep	# apply with the up-index xis from slicing Tucker-core fibers (deferred to its own step).
+t3toolbox/backend/sampling_derivatives.py	1147	up-index	grep	The ``entries`` analog of :py:func:`t3_apply_derivatives` -- apply-derivatives with the up-index
+t3toolbox/backend/sampling_derivatives.py	1176	up-index	grep	the entries analog of :py:func:`tv_apply_jacobian_derivatives_from_sweep` (variation up-index jet from
+t3toolbox/backend/sampling_derivatives.py	1204	up-index	grep	up-index jets from slicing Tucker-core fibers at ``index`` (order 0) + contracting ``P`` (order 1).
+t3toolbox/backend/sampling_derivatives.py	1237	adjoint-up	grep	'''One core of the adjoint-up lift of :py:func:`compute_deta_tilde_jets` (ragged path only).
+t3toolbox/backend/sampling_derivatives.py	1247	Adjoint-up	grep	'''Adjoint-up edge-variable jets: ``deta_tilde_i = U_i r_i`` (contract the ambient mode, order
+t3toolbox/backend/sampling_derivatives.py	1356	adjoint-up	grep	deta_tildes:    typ.Sequence[NDArray],  # adjoint-up jets, len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
+t3toolbox/backend/sampling_derivatives.py	1367	adjoint-up	grep	deta_tildes:    typ.Sequence[NDArray],  # adjoint-up jets, len=d, elm_shape=(order+1,)+W+K+C+(nUi,)
+t3toolbox/backend/sampling_derivatives.py	1398	adjoint-down	grep	'''One core of :py:func:`compute_dxi_tilde_jets`: the two read rows of the adjoint-down combine, as an
+t3toolbox/backend/sampling_derivatives.py	1425	var-down	grep	'''Adjoint-var-down edge-variable jets (jet-ified probing.compute_dxi_tilde): the two adjoint-hooked
+t3toolbox/backend/sampling_derivatives.py	1476	var-down	grep	dxi_tildes:     typ.Sequence[NDArray],  # adjoint-var-down jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
+t3toolbox/backend/sampling_derivatives.py	1479	down jets	grep	etas:           typ.Sequence[NDArray],  # frame down jets, len=d, elm_shape=(order+1,)+W+C+(nOi,)
+t3toolbox/backend/sampling_derivatives.py	1510	var-down	grep	dxi_tildes:     typ.Sequence[NDArray],  # adjoint-var-down jets, len=d, elm_shape=(2,)+W+K+C+(nOi,)
+t3toolbox/backend/sampling_derivatives.py	1513	down jets	grep	etas:           typ.Sequence[NDArray],  # frame down jets, len=d, elm_shape=(order+1,)+W+C+(nOi,)
+t3toolbox/backend/sampling_derivatives.py	2199	adjoint-down	grep	'''One core of the adjoint-down combine ``dxi^ = mu O sigma^`` of
+t3toolbox/backend/sampling_derivatives.py	2367	up-index	grep	frame up-index jet from fiber slicing at ``index`` (order 0) + contracting ``P`` (order 1), and the
+t3toolbox/backend/sampling_derivatives.py	2466	adjoint-up	grep	#   3. dotted adjoint-up lift deta~dot = Udot z~;
+t3toolbox/backend/sampling_derivatives.py	2567	adjoint-up	grep	deta_t:         NDArray,    # adjoint-up jet,   (order+1,)+W+C+(nUi,)
+t3toolbox/backend/sampling_derivatives.py	2996	adjoint-up	grep	# 3. the dotted adjoint-up lift; 4. the dotted adjoint sweeps; 5. the dotted dxi~
+t3toolbox/backend/sampling_derivatives.py	3185	adjoint-down	grep	'''One core of the dotted adjoint-down combine ``d(mu O sigma^)`` of
+t3toolbox/backend/sampling_derivatives.py	3415	up-index	grep	``entries_derivatives``. Identical to :py:func:`t3_apply_corewise_derivatives_hessian` with the up-index jet's
+t3toolbox/backend/ut3_sampling.py	220	up-index	grep	``sampling_derivatives.t3_entries_derivatives``; the up-index jet slices Tucker fibers, so only ``pp`` is
+t3toolbox/manifold.py	949	up-index	grep	The adjoint of :py:meth:`entries` -- identical to :py:meth:`apply_transpose` with the up-index
+t3toolbox/manifold.py	1172	up-index	grep	Identical to :py:meth:`apply_derivatives_transpose` with the frame up-index from fiber slicing and
+tests/_jet_trs_twins.py	169	var-down	grep	"""Adjoint-var-down jets dxi~, ALL ``order+1`` rows of the dense adjoint-hooked combines
+tests/test_contractions_interpreter.py	227	adjoint-up	grep	# The dotted adjoint-up lift (Udot z~), ragged and d-prefixed: no C-only operand, so len_C.
+tests/test_contractions_interpreter.py	335	adjoint-up	grep	# S10 / S11 (2026.3.0): the plain probe / apply / entries two-holes (no order axis). The dotted adjoint-up lift

@@ -1,0 +1,1398 @@
+# store rename DO-NOT-TOUCH list (plan §1.5, gate K14). Built by dev/store_rename_slices/r1_build_lists.py at v2026.4.0.
+# Columns: identifier, scope (* | file | file::outermost def | file:first-last), §1.5 item, note.
+# Item 6 (contract/einsum string arguments) is checked by K14 directly; item 10 lists the public
+# names of t3toolbox/ not in the token map. Disjoint from the dry-run hit table: PROVEN (0 violations).
+identifier	scope	item	note
+Xi	*	1	Greek-letter name
+Xis	*	1	Greek-letter name
+deta	*	1	Greek-letter name
+deta_dot_r	*	1	Greek-letter name
+deta_jet	*	1	Greek-letter name
+deta_jets	*	1	Greek-letter name
+deta_r	*	1	Greek-letter name
+deta_t	*	1	Greek-letter name
+deta_t_dot	*	1	Greek-letter name
+deta_tilde	*	1	Greek-letter name
+deta_tilde_tangent_jets_trs	*	1	Greek-letter name
+deta_tildes	*	1	Greek-letter name
+deta_tildes_d	*	1	Greek-letter name
+deta_tildes_dot	*	1	Greek-letter name
+detas	*	1	Greek-letter name
+dxi	*	1	Greek-letter name
+dxi_core	*	1	Greek-letter name
+dxi_got	*	1	Greek-letter name
+dxi_hat_tangent_jets_trs	*	1	Greek-letter name
+dxi_hats	*	1	Greek-letter name
+dxi_hats_d	*	1	Greek-letter name
+dxi_hats_dot	*	1	Greek-letter name
+dxi_jet	*	1	Greek-letter name
+dxi_jets	*	1	Greek-letter name
+dxi_s	*	1	Greek-letter name
+dxi_tilde	*	1	Greek-letter name
+dxi_tilde_tangent_jets_trs	*	1	Greek-letter name
+dxi_tildes	*	1	Greek-letter name
+dxi_tildes_d	*	1	Greek-letter name
+dxi_tildes_dot	*	1	Greek-letter name
+dxi_w	*	1	Greek-letter name
+dxis	*	1	Greek-letter name
+eta	*	1	Greek-letter name
+eta_jet	*	1	Greek-letter name
+eta_jets	*	1	Greek-letter name
+eta_jets_d	*	1	Greek-letter name
+eta_jets_dot	*	1	Greek-letter name
+eta_r	*	1	Greek-letter name
+etas	*	1	Greek-letter name
+kappa	*	1	Greek-letter name
+kappa_g	*	1	Greek-letter name
+kappa_guard	*	1	Greek-letter name
+kappa_loc	*	1	Greek-letter name
+kappa_loc_max	*	1	Greek-letter name
+kappa_max	*	1	Greek-letter name
+kappa_tt	*	1	Greek-letter name
+kappa_tucker	*	1	Greek-letter name
+mu	*	1	Greek-letter name
+mu_L	*	1	Greek-letter name
+mu_R	*	1	Greek-letter name
+mu_WCa	*	1	Greek-letter name
+mu_WCb	*	1	Greek-letter name
+mu_WCz	*	1	Greek-letter name
+mu_dot_r	*	1	Greek-letter name
+mu_j	*	1	Greek-letter name
+mu_jet	*	1	Greek-letter name
+mu_jets	*	1	Greek-letter name
+mu_jets_dot	*	1	Greek-letter name
+mu_next	*	1	Greek-letter name
+mu_pair	*	1	Greek-letter name
+mu_r	*	1	Greek-letter name
+mu_reg	*	1	Greek-letter name
+mu_terminal	*	1	Greek-letter name
+mus	*	1	Greek-letter name
+nu	*	1	Greek-letter name
+nu_dot	*	1	Greek-letter name
+nu_j	*	1	Greek-letter name
+nu_jet	*	1	Greek-letter name
+nu_jets	*	1	Greek-letter name
+nu_jets_dot	*	1	Greek-letter name
+nu_r	*	1	Greek-letter name
+nus	*	1	Greek-letter name
+omega	*	1	Greek-letter name
+omega_mode	*	1	Greek-letter name
+rho	*	1	Greek-letter name
+rho_true	*	1	Greek-letter name
+sigma	*	1	Greek-letter name
+sigma_hat	*	1	Greek-letter name
+sigma_hat_d	*	1	Greek-letter name
+sigma_hat_tangent_jets_trs	*	1	Greek-letter name
+sigma_hats	*	1	Greek-letter name
+sigma_hats_d	*	1	Greek-letter name
+sigma_hats_dot	*	1	Greek-letter name
+sigma_jet	*	1	Greek-letter name
+sigma_jets	*	1	Greek-letter name
+sigma_min	*	1	Greek-letter name
+sigma_terminal	*	1	Greek-letter name
+sigma_tilde	*	1	Greek-letter name
+sigma_tilde_tangent_jets_trs	*	1	Greek-letter name
+sigma_tildes	*	1	Greek-letter name
+sigma_tildes_d	*	1	Greek-letter name
+sigma_tildes_dot	*	1	Greek-letter name
+sigmas	*	1	Greek-letter name
+tau	*	1	Greek-letter name
+tau_jet	*	1	Greek-letter name
+tau_jets	*	1	Greek-letter name
+tau_pair_j	*	1	Greek-letter name
+tau_r	*	1	Greek-letter name
+tau_tilde	*	1	Greek-letter name
+tau_tilde_next	*	1	Greek-letter name
+tau_tilde_tangent_jets_trs	*	1	Greek-letter name
+tau_tildes	*	1	Greek-letter name
+tau_tildes_d	*	1	Greek-letter name
+tau_tildes_dot	*	1	Greek-letter name
+taus	*	1	Greek-letter name
+theta	*	1	Greek-letter name
+theta_hat	*	1	Greek-letter name
+theta_vert	*	1	Greek-letter name
+thetas	*	1	Greek-letter name
+xi	*	1	Greek-letter name
+xi_CpW	*	1	Greek-letter name
+xi_WCp	*	1	Greek-letter name
+xi_dot	*	1	Greek-letter name
+xi_jet	*	1	Greek-letter name
+xi_jets	*	1	Greek-letter name
+xi_jets_dot	*	1	Greek-letter name
+xi_s	*	1	Greek-letter name
+xis	*	1	Greek-letter name
+P_old	tests/backend/_padded_frame_oracles.py	2	pqu: orthonormal bases (complement / SVD U factor) and the old basis; not frame cores
+Q	t3toolbox/backend/fv_operations.py	2	pqu: QR factor
+Q	t3toolbox/tucker_tensor_train.py	2	pqu: QR factor (doctest)
+Q	tests/backend/_padded_frame_oracles.py	2	pqu: orthonormal bases (complement / SVD U factor) and the old basis; not frame cores
+Q	tests/backend/test_padded_start.py	2	pqu: QR / SVD bases
+Q	tests/oracle_sweeps/sweep_exact.py	2	pqu: SVD factor and its basis
+Q	tests/test_sharing.py	2	pqu: QR factor
+Q0_i_o	t3toolbox/backend/t3_orthogonalization.py	2	pqu: QR factors
+Q_x_o	t3toolbox/backend/t3_orthogonalization.py	2	pqu: QR factors
+Qt	t3toolbox/backend/t3_linalg.py	2	pqu: SVD left factor named Q (Qt, st, Vt2 = svd)
+S	*	2	decomposition factor
+U	t3toolbox/backend/t3_svd.py	2	pqu: SVD factor (dense reference SVDs)
+U	t3toolbox/backend/tt_orthogonalization.py	2	pqu: SVD factor
+U	t3toolbox/backend/ut3_svd.py	2	pqu: SVD factor
+U	tests/backend/test_uniform_curvature.py::_dirty_companion	2	pqu: SVD factor
+U_M	*	2	decomposition factor
+U_M	t3toolbox/backend/sharing.py	2	pqu: SVD factors of the shared frame data
+U_M	tests/backend/test_curvature.py	2	pqu: SVD factors
+U_T	*	2	decomposition factor
+U_a_x	*	2	decomposition factor
+U_a_x_b	*	2	decomposition factor
+U_i_a_x	*	2	decomposition factor
+U_nk	*	2	decomposition factor
+U_o_x	*	2	decomposition factor
+Uc	tests/backend/_padded_frame_oracles.py::complement_in	2	pqu: SVD factors (plan names _padded_frame_oracles.py:54 Uc and Uy)
+Uj	tests/oracle_sweeps/sweep_exact.py	2	pqu: SVD factor and its basis
+Us	*	2	decomposition factor
+Us	t3toolbox/backend/uniform_padded_frames.py	2	pqu: SVD factor (§1.5 item 2 names Us)
+Uy	tests/backend/_padded_frame_oracles.py	2	pqu: SVD factors (plan names _padded_frame_oracles.py:54 Uc and Uy)
+Vt	*	2	decomposition factor
+svd_U	*	2	decomposition factor
+svd_U	t3toolbox/backend/sharing.py	2	pqu: SVD factors of the shared frame data
+svd_U	tests/backend/test_curvature.py	2	pqu: SVD factors
+svd_U	tests/backend/test_uniform_curvature.py	2	pqu: SVD factor
+svd_Vt	*	2	decomposition factor
+HP	tests/backend/test_curvature.py	3	pqu: P = a tangent direction, HP its Hessian image (a direction, not a frame core)
+HP	tests/backend/test_uniform_curvature.py	3	pqu: a tangent direction P
+H_P	t3toolbox/backend/padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+H_P	t3toolbox/backend/uniform_padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3)
+L_P	t3toolbox/backend/padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+L_P	t3toolbox/backend/uniform_padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3)
+P	t3toolbox/backend/padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+P	t3toolbox/backend/ufv_operations.py	3	pqu: a pseudo-inverse (tucker_pinvs/bond_pinvs)
+P	t3toolbox/backend/uniform_padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3)
+P	tests/backend/test_curvature.py	3	pqu: a pseudo-inverse (§1.5 item 3 names test_curvature.py:215-220, 353)
+PP	tests/backend/test_uniform_curvature.py	3	pqu: a tangent direction P
+P_L	t3toolbox/backend/uniform_padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3)
+P_R	t3toolbox/backend/uniform_padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3)
+P_eps	tests/backend/test_curvature.py	3	pqu: a pseudo-inverse (§1.5 item 3 names test_curvature.py:215-220, 353)
+P_old	t3toolbox/backend/padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+P_r	tests/backend/test_uniform_curvature.py	3	pqu: a tangent direction P
+PhiP	t3toolbox/backend/padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+PhiP	t3toolbox/backend/uniform_padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3)
+PhiPs	t3toolbox/backend/padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+R_P	t3toolbox/backend/padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+R_P	t3toolbox/backend/uniform_padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3)
+VP	t3toolbox/backend/padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+VP	t3toolbox/backend/uniform_padded_frames.py	3	pqu: the completion P and its products (§1.5 item 3)
+pp	*	3	derivative direction
+R	tests/test_jet_recurrence.py::test_chunked_matches_dense	4	RNG helper (line 208)
+R	tests/test_jet_recurrence.py::test_tucker_chunked_matches_dense	4	RNG helper (line 228)
+R	tests/test_jet_recurrence.py::test_uniform_equals_ragged	4	RNG helper (line 166)
+R	tests/test_probe_derivatives.py::_frame	4	RNG helper (line 488)
+R	tests/test_probe_derivatives.py::_var	4	RNG helper (line 497)
+B	examples/fit_shared_factors_jetted_probes.py	5	a T3's own Tucker cores
+B	t3toolbox/backend/entries.py	5	a T3's own Tucker cores
+B	t3toolbox/backend/linalg.py	5	a T3's own Tucker cores
+B	t3toolbox/backend/sharing.py	5	a T3's own Tucker cores
+B	t3toolbox/backend/stacking.py	5	a T3's own Tucker cores
+B	t3toolbox/backend/t3_constructors.py	5	a T3's own Tucker cores
+B	t3toolbox/backend/t3_conversions.py	5	a T3's own Tucker cores
+B	t3toolbox/backend/t3_linalg.py	5	a T3's own Tucker cores
+B	t3toolbox/backend/t3_operations.py	5	a T3's own Tucker cores
+B	t3toolbox/backend/t3_orthogonalization.py	5	a T3's own Tucker cores
+B	t3toolbox/backend/t3_svd.py	5	a T3's own Tucker cores
+B	t3toolbox/backend/tt_operations.py	5	a T3's own Tucker cores
+B	t3toolbox/backend/ut3_conversions.py	5	a T3's own Tucker cores
+B	t3toolbox/backend/ut3_svd.py	5	a T3's own Tucker cores
+B	t3toolbox/frame_variations_format.py	5	a T3's own Tucker cores
+B	t3toolbox/tucker_tensor_train.py	5	a T3's own Tucker cores
+B	t3toolbox/uniform_frame_variations_format.py	5	a T3's own Tucker cores
+B	tests/backend/_padded_frame_oracles.py	5	a T3's own Tucker cores
+B	tests/backend/test_curvature.py	5	a T3's own Tucker cores
+B	tests/backend/test_from_sweep_reuse.py	5	a T3's own Tucker cores
+B	tests/backend/test_linalg.py	5	a T3's own Tucker cores
+B	tests/backend/test_optimizers.py	5	a T3's own Tucker cores
+B	tests/backend/test_t3_orthogonalization.py	5	a T3's own Tucker cores
+B	tests/oracle_sweeps/o1_ragged.py	5	a T3's own Tucker cores
+B	tests/test_dispatch.py	5	a T3's own Tucker cores
+B	tests/test_frame_variations_format.py	5	a T3's own Tucker cores
+B	tests/test_sharing.py	5	a T3's own Tucker cores
+B	tests/test_t3m.py	5	a T3's own Tucker cores
+B	tests/test_tucker_tensor_train.py	5	a T3's own Tucker cores
+B	tests/test_uniform_frame_variations_format.py	5	a T3's own Tucker cores
+B	tests/test_uniform_manifold.py	5	a T3's own Tucker cores
+C	*	5	house letter
+G	*	5	house letter
+H	*	5	house letter
+K	*	5	house letter
+N	*	5	house letter
+V	*	5	house letter
+W	*	5	house letter
+d	*	5	house letter
+dc	t3toolbox/backend/common.py	5	the dataclasses alias
+dc	t3toolbox/backend/fv_operations.py	5	the dataclasses alias
+dc	t3toolbox/backend/geometry.py	5	the dataclasses alias
+dc	t3toolbox/backend/optimizers.py	5	the dataclasses alias
+dc	t3toolbox/backend/regularization.py	5	the dataclasses alias
+dc	t3toolbox/backend/sharing.py	5	the dataclasses alias
+dc	t3toolbox/backend/ufv_operations.py	5	the dataclasses alias
+dc	t3toolbox/backend/uniform_fitting.py	5	the dataclasses alias
+dc	t3toolbox/fitting.py	5	the dataclasses alias
+dc	t3toolbox/optimizers.py	5	the dataclasses alias
+dc	tests/backend/test_curvature.py	5	the dataclasses alias
+dc	tests/backend/test_optimizers.py	5	the dataclasses alias
+dc	tests/backend/test_uniform_curvature.py	5	the dataclasses alias
+dc	tests/test_dispatch.py	5	the dataclasses alias
+n	*	5	house letter
+r	*	5	house letter
+rL	*	5	rL/rR and their forms (D-3)
+rL0	*	5	rL/rR and their forms (D-3)
+rL1	*	5	rL/rR and their forms (D-3)
+rL2	*	5	rL/rR and their forms (D-3)
+rL_small	*	5	rL/rR and their forms (D-3)
+rLi	*	5	rL/rR and their forms (D-3)
+rLl	*	5	rL/rR and their forms (D-3)
+rLn	*	5	rL/rR and their forms (D-3)
+rLr	*	5	rL/rR and their forms (D-3)
+rLx	*	5	rL/rR and their forms (D-3)
+rLy	*	5	rL/rR and their forms (D-3)
+rR	*	5	rL/rR and their forms (D-3)
+rR0	*	5	rL/rR and their forms (D-3)
+rR1	*	5	rL/rR and their forms (D-3)
+rR2	*	5	rL/rR and their forms (D-3)
+rR_d	*	5	rL/rR and their forms (D-3)
+rR_small	*	5	rL/rR and their forms (D-3)
+rRi	*	5	rL/rR and their forms (D-3)
+rRl	*	5	rL/rR and their forms (D-3)
+rRn	*	5	rL/rR and their forms (D-3)
+rRr	*	5	rL/rR and their forms (D-3)
+rRx	*	5	rL/rR and their forms (D-3)
+rRy	*	5	rL/rR and their forms (D-3)
+rrL	*	5	rL/rR and their forms (D-3)
+rrR	*	5	rL/rR and their forms (D-3)
+_down_orthogonalize_tucker_cores_step	*	7	orthogonalization/SVD/unfolding name
+_left_orthogonalized_tt_ranks	*	7	orthogonalization/SVD/unfolding name
+_retr_svd	*	7	orthogonalization/SVD/unfolding name
+_right_orthogonalized_tt_ranks	*	7	orthogonalization/SVD/unfolding name
+_svd	*	7	orthogonalization/SVD/unfolding name
+_svd_reconstruct	*	7	orthogonalization/SVD/unfolding name
+_svd_trunc	*	7	orthogonalization/SVD/unfolding name
+_up_matricization	*	7	orthogonalization/SVD/unfolding name
+_up_orthogonalize_tt_cores_step	*	7	orthogonalization/SVD/unfolding name
+_up_res	*	7	orthogonalization/SVD/unfolding name
+_ut3_left_orthogonalized	*	7	orthogonalization/SVD/unfolding name
+all_matricization_ss	*	7	orthogonalization/SVD/unfolding name
+dense_tucker_svd	*	7	orthogonalization/SVD/unfolding name
+down_orthogonalize_tucker_cores	*	7	orthogonalization/SVD/unfolding name
+down_orthogonalize_tucker_supercores	*	7	orthogonalization/SVD/unfolding name
+down_svd_pair	*	7	orthogonalization/SVD/unfolding name
+down_svd_tucker_core	*	7	orthogonalization/SVD/unfolding name
+left_orthogonalize_tt_cores	*	7	orthogonalization/SVD/unfolding name
+left_svd	*	7	orthogonalization/SVD/unfolding name
+left_svd_pair	*	7	orthogonalization/SVD/unfolding name
+left_svd_tt_core	*	7	orthogonalization/SVD/unfolding name
+matricization_Esq	*	7	orthogonalization/SVD/unfolding name
+orthogonalize	*	7	orthogonalization/SVD/unfolding name
+orthogonalize_relative_to_tt_core	*	7	orthogonalization/SVD/unfolding name
+orthogonalize_relative_to_tucker_core	*	7	orthogonalization/SVD/unfolding name
+pad_safe_svd	*	7	orthogonalization/SVD/unfolding name
+ragged_orthogonalization	*	7	orthogonalization/SVD/unfolding name
+right_orthogonalize_tt_cores	*	7	orthogonalization/SVD/unfolding name
+right_svd	*	7	orthogonalization/SVD/unfolding name
+right_svd_pair	*	7	orthogonalization/SVD/unfolding name
+right_svd_tt_core	*	7	orthogonalization/SVD/unfolding name
+singular_values_of_matricizations	*	7	orthogonalization/SVD/unfolding name
+skip_orthogonalization	*	7	orthogonalization/SVD/unfolding name
+svd	*	7	orthogonalization/SVD/unfolding name
+svd_s	*	7	orthogonalization/SVD/unfolding name
+t3_down_orthogonalize_tucker_cores	*	7	orthogonalization/SVD/unfolding name
+t3_down_svd_tt_core	*	7	orthogonalization/SVD/unfolding name
+t3_down_svd_tucker_core	*	7	orthogonalization/SVD/unfolding name
+t3_left_orthogonalize	*	7	orthogonalization/SVD/unfolding name
+t3_left_svd_tt_core	*	7	orthogonalization/SVD/unfolding name
+t3_orthogonalization	*	7	orthogonalization/SVD/unfolding name
+t3_orthogonalize_relative_to_tt_core	*	7	orthogonalization/SVD/unfolding name
+t3_orthogonalize_relative_to_tucker_core	*	7	orthogonalization/SVD/unfolding name
+t3_right_orthogonalize	*	7	orthogonalization/SVD/unfolding name
+t3_right_svd_tt_core	*	7	orthogonalization/SVD/unfolding name
+t3_svd	*	7	orthogonalization/SVD/unfolding name
+t3_up_orthogonalize_tt_cores	*	7	orthogonalization/SVD/unfolding name
+t3_up_svd_tt_core	*	7	orthogonalization/SVD/unfolding name
+test_compute_minimal_ranks_matches_matricization	*	7	orthogonalization/SVD/unfolding name
+test_down_orthogonalize_tucker_cores	*	7	orthogonalization/SVD/unfolding name
+test_down_svd_tucker_core	*	7	orthogonalization/SVD/unfolding name
+test_down_svd_tucker_core_tols	*	7	orthogonalization/SVD/unfolding name
+test_from_frame_is_from_point_without_the_orthogonalization	*	7	orthogonalization/SVD/unfolding name
+test_jit_pad_safe_svd	*	7	orthogonalization/SVD/unfolding name
+test_jit_svd_gauge_representations	*	7	orthogonalization/SVD/unfolding name
+test_left_orthogonalize_tt_cores	*	7	orthogonalization/SVD/unfolding name
+test_left_svd_tt_core	*	7	orthogonalization/SVD/unfolding name
+test_left_svd_tucker_core_tols	*	7	orthogonalization/SVD/unfolding name
+test_manifold_dim_via_svd	*	7	orthogonalization/SVD/unfolding name
+test_orthogonalization_masks_match_ragged	*	7	orthogonalization/SVD/unfolding name
+test_orthogonalize_is_consistent	*	7	orthogonalization/SVD/unfolding name
+test_orthogonalize_matches_ragged	*	7	orthogonalization/SVD/unfolding name
+test_orthogonalize_non_minimal	*	7	orthogonalization/SVD/unfolding name
+test_orthogonalize_reconstructs_base_point	*	7	orthogonalization/SVD/unfolding name
+test_orthogonalize_relative_to_tt_core	*	7	orthogonalization/SVD/unfolding name
+test_orthogonalize_relative_to_tucker_core	*	7	orthogonalization/SVD/unfolding name
+test_right_orthogonalize_tt_cores	*	7	orthogonalization/SVD/unfolding name
+test_right_svd_tt_core	*	7	orthogonalization/SVD/unfolding name
+test_right_svd_tucker_core_tols	*	7	orthogonalization/SVD/unfolding name
+test_skip_orthogonalization_and_no_squash	*	7	orthogonalization/SVD/unfolding name
+test_truncated_svd_min_gt_max_raises	*	7	orthogonalization/SVD/unfolding name
+test_up_orthogonalize_tt_cores	*	7	orthogonalization/SVD/unfolding name
+test_up_svd_tt_core	*	7	orthogonalization/SVD/unfolding name
+test_up_svd_tt_core_tols	*	7	orthogonalization/SVD/unfolding name
+test_use_orthogonalization_kwarg_parity	*	7	orthogonalization/SVD/unfolding name
+truncated_svd	*	7	orthogonalization/SVD/unfolding name
+tt_left_orthogonalize	*	7	orthogonalization/SVD/unfolding name
+tt_orthogonalization	*	7	orthogonalization/SVD/unfolding name
+tt_right_orthogonalize	*	7	orthogonalization/SVD/unfolding name
+up_orthogonalize_tt_cores	*	7	orthogonalization/SVD/unfolding name
+up_orthogonalize_tt_supercores	*	7	orthogonalization/SVD/unfolding name
+up_svd	*	7	orthogonalization/SVD/unfolding name
+up_svd_pair	*	7	orthogonalization/SVD/unfolding name
+up_svd_tt_core	*	7	orthogonalization/SVD/unfolding name
+use_orthogonalization	*	7	orthogonalization/SVD/unfolding name
+ut3_down_orthogonalize_tucker_cores	*	7	orthogonalization/SVD/unfolding name
+ut3_left_orthogonalize_tt_cores	*	7	orthogonalization/SVD/unfolding name
+ut3_norm_orthogonalized	*	7	orthogonalization/SVD/unfolding name
+ut3_orthogonalization	*	7	orthogonalization/SVD/unfolding name
+ut3_right_orthogonalize_tt_cores	*	7	orthogonalization/SVD/unfolding name
+ut3_svd	*	7	orthogonalization/SVD/unfolding name
+ut3_up_orthogonalize_tt_cores	*	7	orthogonalization/SVD/unfolding name
+via_svd	*	7	orthogonalization/SVD/unfolding name
+x_svd	*	7	orthogonalization/SVD/unfolding name
+_shift_down	*	8	jet-shift function (Nick, 2026-11-11)
+_shift_down_pair	*	8	jet-shift function (Nick, 2026-11-11)
+_shift_up	*	8	jet-shift function (Nick, 2026-11-11)
+_shift_up_pair	*	8	jet-shift function (Nick, 2026-11-11)
+c_up	tests/backend/test_curvature.py	8	a shifted jet
+Ud	tests/oracle_sweeps/o1_ragged.py	9	pqu: Ud = "u dense": the plan keeps it (tier C "letters kept", §1.2a's exception for o1_ragged.py and o1_uniform.py; K8's carve-out)
+Ud	tests/oracle_sweeps/o1_uniform.py	9	pqu: Ud = "u dense": the plan keeps it (tier C "letters kept", §1.2a's exception for o1_ragged.py and o1_uniform.py; K8's carve-out)
+up	t3toolbox/fitting.py:290-291	9	KEEP_BARE (B1 exclusion)
+up	tests/backend/_curvature_oracles.py:529-536	9	KEEP_BARE (B1 exclusion)
+up	tests/test_fitting.py:1148-1152	9	KEEP_BARE (B1 exclusion)
+ALIGN_ALTERNATE	*	10	public name (t3toolbox/backend/padded_frames.py)
+ALIGN_MAX_PASSES	*	10	public name (t3toolbox/backend/padded_frames.py)
+ALIGN_OVERSAMPLED_PASSES	*	10	public name (t3toolbox/backend/padded_frames.py)
+ALIGN_OVERSAMPLING	*	10	public name (t3toolbox/backend/padded_frames.py)
+ALIGN_TOL	*	10	public name (t3toolbox/backend/padded_frames.py)
+APPLY	*	10	public name (t3toolbox/backend/fitting.py)
+ApplyDerivativesKind	*	10	public name (t3toolbox/backend/fitting.py)
+ApplyKind	*	10	public name (t3toolbox/backend/fitting.py)
+COREWISE	*	10	public name (t3toolbox/manifold.py)
+CarryType	*	10	public name (t3toolbox/backend/common.py)
+Cores	*	10	public name (t3toolbox/backend/optimizers.py)
+CorewiseGeometry	*	10	public name (t3toolbox/manifold.py)
+CorewiseGeometryOps	*	10	public name (t3toolbox/backend/geometry.py)
+CurvatureState	*	10	public name (t3toolbox/backend/optimizers.py)
+DEFAULT_CHUNK_SIZE	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+DEFAULT_CURVATURE_DAMPING	*	10	public name (t3toolbox/backend/geometry.py)
+DEFAULT_RTOL_JAX	*	10	public name (t3toolbox/safety.py)
+DEFAULT_RTOL_NUMPY	*	10	public name (t3toolbox/safety.py)
+ENTRIES	*	10	public name (t3toolbox/backend/fitting.py)
+EntriesDerivativesKind	*	10	public name (t3toolbox/backend/fitting.py)
+EntriesKind	*	10	public name (t3toolbox/backend/fitting.py)
+ExplicitEquality	*	10	public name (t3toolbox/backend/common.py)
+FrameData	*	10	public name (t3toolbox/backend/padded_frames.py)
+Geometry	*	10	public name (t3toolbox/backend/optimizers.py)
+IdentityRegularizer	*	10	public name (t3toolbox/backend/regularization.py)
+LeastSquaresSetup	*	10	public name (t3toolbox/optimizers.py)
+LiftFactors	*	10	public name (t3toolbox/backend/fv_operations.py)
+LocalModel	*	10	public name (t3toolbox/backend/optimizers.py)
+MANIFOLD	*	10	public name (t3toolbox/manifold.py)
+ManifoldCurvatureData	*	10	public name (t3toolbox/backend/geometry.py)
+ManifoldGeometry	*	10	public name (t3toolbox/manifold.py)
+ManifoldGeometryOps	*	10	public name (t3toolbox/backend/geometry.py)
+NDArray	*	10	public name (t3toolbox/backend/common.py)
+NDArrayTree	*	10	public name (t3toolbox/corewise.py)
+N_MASKS	*	10	public name (t3toolbox/backend/ufv_operations.py)
+NewtonInfo	*	10	public name (t3toolbox/backend/optimizers.py)
+PROBE	*	10	public name (t3toolbox/backend/fitting.py)
+Point	*	10	public name (t3toolbox/optimizers.py)
+ProbeDerivativesKind	*	10	public name (t3toolbox/backend/fitting.py)
+ProbeKind	*	10	public name (t3toolbox/backend/fitting.py)
+ProbeOutputKind	*	10	public name (t3toolbox/backend/fitting.py)
+Problem	*	10	public name (t3toolbox/backend/optimizers.py)
+Regularizer	*	10	public name (t3toolbox/backend/regularization.py)
+SafetyTolerances	*	10	public name (t3toolbox/safety.py)
+SamplingKind	*	10	public name (t3toolbox/backend/fitting.py)
+ScalarOutputKind	*	10	public name (t3toolbox/backend/fitting.py)
+SharedFrameData	*	10	public name (t3toolbox/backend/sharing.py)
+SharedGeometry	*	10	public name (t3toolbox/shared_geometry.py)
+StaticSkeleton	*	10	public name (t3toolbox/backend/common.py)
+T3Frame	*	10	public name (t3toolbox/frame_variations_format.py)
+T3FrameWeights	*	10	public name (t3toolbox/frame_variations_format.py)
+T3Tangent	*	10	public name (t3toolbox/manifold.py)
+T3Variations	*	10	public name (t3toolbox/frame_variations_format.py)
+T3Weights	*	10	public name (t3toolbox/tucker_tensor_train.py)
+Tangent	*	10	public name (t3toolbox/backend/optimizers.py)
+TuckerTensorTrain	*	10	public name (t3toolbox/tucker_tensor_train.py)
+UFrameData	*	10	public name (t3toolbox/backend/uniform_padded_frames.py)
+UNIFORM_COREWISE	*	10	public name (t3toolbox/uniform_manifold.py)
+UNIFORM_MANIFOLD	*	10	public name (t3toolbox/uniform_manifold.py)
+UVariationsData	*	10	public name (t3toolbox/backend/uniform_padded_frames.py)
+UniformApplyDerivativesKind	*	10	public name (t3toolbox/backend/uniform_fitting.py)
+UniformApplyKind	*	10	public name (t3toolbox/backend/uniform_fitting.py)
+UniformCorewiseGeometry	*	10	public name (t3toolbox/uniform_manifold.py)
+UniformCorewiseGeometryOps	*	10	public name (t3toolbox/backend/geometry.py)
+UniformEntriesDerivativesKind	*	10	public name (t3toolbox/backend/uniform_fitting.py)
+UniformEntriesKind	*	10	public name (t3toolbox/backend/uniform_fitting.py)
+UniformManifoldGeometry	*	10	public name (t3toolbox/uniform_manifold.py)
+UniformManifoldGeometryOps	*	10	public name (t3toolbox/backend/geometry.py)
+UniformProbeDerivativesKind	*	10	public name (t3toolbox/backend/uniform_fitting.py)
+UniformProbeKind	*	10	public name (t3toolbox/backend/uniform_fitting.py)
+UniformTuckerTensorTrain	*	10	public name (t3toolbox/uniform_tucker_tensor_train.py)
+ValueHashedFields	*	10	public name (t3toolbox/backend/common.py)
+ValueHashedMasks	*	10	public name (t3toolbox/backend/common.py)
+VariationShapes	*	10	public name (t3toolbox/backend/fv_operations.py)
+Variations	*	10	public name (t3toolbox/backend/fv_operations.py)
+VariationsData	*	10	public name (t3toolbox/backend/padded_frames.py)
+ZERO_FRAME_SEED	*	10	public name (t3toolbox/backend/fv_operations.py)
+absorb_weights	*	10	public name (t3toolbox/manifold.py)
+adam	*	10	public name (t3toolbox/backend/optimizers.py)
+align_padded	*	10	public name (t3toolbox/manifold.py)
+aligned_padded_frame	*	10	public name (t3toolbox/backend/geometry.py)
+allclose	*	10	public name (t3toolbox/frame_variations_format.py)
+alpha	*	10	public name (t3toolbox/backend/optimizers.py)
+apply	*	10	public name (t3toolbox/manifold.py)
+apply_ambient_transpose	*	10	public name (t3toolbox/tucker_tensor_train.py)
+apply_corewise_derivatives_transpose	*	10	public name (t3toolbox/tucker_tensor_train.py)
+apply_corewise_transpose	*	10	public name (t3toolbox/tucker_tensor_train.py)
+apply_derivatives	*	10	public name (t3toolbox/manifold.py)
+apply_derivatives_kind	*	10	public name (t3toolbox/backend/fitting.py)
+apply_derivatives_model	*	10	public name (t3toolbox/fitting.py)
+apply_derivatives_transpose	*	10	public name (t3toolbox/manifold.py)
+apply_func_to_leaf_subtrees	*	10	public name (t3toolbox/backend/stacking.py)
+apply_masks	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+apply_model	*	10	public name (t3toolbox/fitting.py)
+apply_transpose	*	10	public name (t3toolbox/manifold.py)
+assemble_tangent_z	*	10	public name (t3toolbox/backend/probing.py)
+assemble_tangent_z_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+assemble_tt_tangent_variation_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+assemble_tt_tangent_variations	*	10	public name (t3toolbox/backend/probing.py)
+assemble_tt_variation_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+assemble_tt_variations	*	10	public name (t3toolbox/backend/probing.py)
+assemble_tucker_tangent_variation_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+assemble_tucker_tangent_variations	*	10	public name (t3toolbox/backend/probing.py)
+assemble_tucker_variation_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+assemble_tucker_variations	*	10	public name (t3toolbox/backend/probing.py)
+assemble_z	*	10	public name (t3toolbox/backend/probing.py)
+assemble_z_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+base_name	*	10	public name (t3toolbox/shared_geometry.py)
+base_point	*	10	public name (t3toolbox/backend/geometry.py)
+basic_ragged_stack	*	10	public name (t3toolbox/backend/stacking.py)
+basic_ragged_unstack	*	10	public name (t3toolbox/backend/stacking.py)
+basic_uniform_stack	*	10	public name (t3toolbox/backend/stacking.py)
+basic_uniform_unstack	*	10	public name (t3toolbox/backend/stacking.py)
+block_sumsq	*	10	public name (t3toolbox/backend/fitting.py)
+block_sumsq_over_probes	*	10	public name (t3toolbox/backend/fitting.py)
+block_sumsq_over_samples	*	10	public name (t3toolbox/backend/fitting.py)
+bond_pinvs	*	10	public name (t3toolbox/backend/fv_operations.py)
+bond_svals	*	10	public name (t3toolbox/backend/fv_operations.py)
+build_input_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+canonical_groups	*	10	public name (t3toolbox/backend/geometry.py)
+centers	*	10	public name (t3toolbox/backend/sharing.py)
+cg_boundary	*	10	public name (t3toolbox/backend/optimizers.py)
+cg_converged	*	10	public name (t3toolbox/backend/optimizers.py)
+cg_iters	*	10	public name (t3toolbox/backend/optimizers.py)
+cg_maxiter	*	10	public name (t3toolbox/backend/optimizers.py)
+cg_reference	*	10	public name (t3toolbox/backend/optimizers.py)
+cg_resid	*	10	public name (t3toolbox/backend/optimizers.py)
+cg_tol	*	10	public name (t3toolbox/backend/optimizers.py)
+cg_truncated	*	10	public name (t3toolbox/backend/optimizers.py)
+check_fv_pair	*	10	public name (t3toolbox/frame_variations_format.py)
+check_fw_pair	*	10	public name (t3toolbox/frame_variations_format.py)
+check_perturbation_index	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+check_perturbation_vectors	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+check_ufv_pair	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+check_ufw_pair	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+checks_active	*	10	public name (t3toolbox/safety.py)
+chunk_size	*	10	public name (t3toolbox/backend/fitting.py)
+comparison_rtol	*	10	public name (t3toolbox/safety.py)
+compute_continuation_ranks	*	10	public name (t3toolbox/backend/ranks.py)
+compute_deta	*	10	public name (t3toolbox/backend/probing.py)
+compute_deta_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_deta_tilde	*	10	public name (t3toolbox/backend/probing.py)
+compute_deta_tilde_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_deta_tilde_tangent	*	10	public name (t3toolbox/backend/probing.py)
+compute_deta_tilde_tangent_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_dxi	*	10	public name (t3toolbox/backend/probing.py)
+compute_dxi_tilde	*	10	public name (t3toolbox/backend/probing.py)
+compute_dxi_tilde_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_dxi_tilde_tangent	*	10	public name (t3toolbox/backend/probing.py)
+compute_dxi_tilde_tangent_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_eta	*	10	public name (t3toolbox/backend/probing.py)
+compute_eta_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_manifold_dim	*	10	public name (t3toolbox/backend/ranks.py)
+compute_minimal_ranks	*	10	public name (t3toolbox/backend/ranks.py)
+compute_mu	*	10	public name (t3toolbox/backend/probing.py)
+compute_mu_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_nu	*	10	public name (t3toolbox/backend/probing.py)
+compute_nu_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_orthogonal_representation_ranks	*	10	public name (t3toolbox/backend/ranks.py)
+compute_raw_sweep_ranks	*	10	public name (t3toolbox/backend/ranks.py)
+compute_sigma	*	10	public name (t3toolbox/backend/probing.py)
+compute_sigma_hat	*	10	public name (t3toolbox/backend/probing.py)
+compute_sigma_hat_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_sigma_hat_tangent_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_sigma_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_sigma_tilde	*	10	public name (t3toolbox/backend/probing.py)
+compute_sigma_tilde_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_sigma_tilde_tangent	*	10	public name (t3toolbox/backend/probing.py)
+compute_sigma_tilde_tangent_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_tau	*	10	public name (t3toolbox/backend/probing.py)
+compute_tau_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_tau_tilde	*	10	public name (t3toolbox/backend/probing.py)
+compute_tau_tilde_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_tau_tilde_tangent	*	10	public name (t3toolbox/backend/probing.py)
+compute_tau_tilde_tangent_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+compute_xi	*	10	public name (t3toolbox/backend/probing.py)
+concatenate	*	10	public name (t3toolbox/frame_variations_format.py)
+contains_jax	*	10	public name (t3toolbox/frame_variations_format.py)
+continuation_ranks	*	10	public name (t3toolbox/tucker_tensor_train.py)
+contract	*	10	public name (t3toolbox/backend/contractions.py)
+converged	*	10	public name (t3toolbox/backend/optimizers.py)
+copy	*	10	public name (t3toolbox/frame_variations_format.py)
+core_shapes	*	10	public name (t3toolbox/tucker_tensor_train.py)
+corewise_add	*	10	public name (t3toolbox/corewise.py)
+corewise_dot	*	10	public name (t3toolbox/corewise.py)
+corewise_equal	*	10	public name (t3toolbox/corewise.py)
+corewise_err	*	10	public name (t3toolbox/corewise.py)
+corewise_hessian	*	10	public name (t3toolbox/backend/fitting.py)
+corewise_inner	*	10	public name (t3toolbox/manifold.py)
+corewise_logical_not	*	10	public name (t3toolbox/corewise.py)
+corewise_map	*	10	public name (t3toolbox/corewise.py)
+corewise_neg	*	10	public name (t3toolbox/corewise.py)
+corewise_norm	*	10	public name (t3toolbox/corewise.py)
+corewise_relerr	*	10	public name (t3toolbox/corewise.py)
+corewise_scale	*	10	public name (t3toolbox/corewise.py)
+corewise_stack_dot	*	10	public name (t3toolbox/corewise.py)
+corewise_stack_norm	*	10	public name (t3toolbox/corewise.py)
+corewise_stack_scale	*	10	public name (t3toolbox/corewise.py)
+corewise_stack_sum	*	10	public name (t3toolbox/corewise.py)
+corewise_sub	*	10	public name (t3toolbox/corewise.py)
+corewise_sum	*	10	public name (t3toolbox/corewise.py)
+corewise_zeros_like	*	10	public name (t3toolbox/corewise.py)
+current_safety	*	10	public name (t3toolbox/safety.py)
+curvature	*	10	public name (t3toolbox/backend/optimizers.py)
+curvature_hessian	*	10	public name (t3toolbox/fitting.py)
+curvature_hvp	*	10	public name (t3toolbox/backend/optimizers.py)
+curvature_precompute	*	10	public name (t3toolbox/backend/geometry.py)
+curvature_quadratic	*	10	public name (t3toolbox/backend/optimizers.py)
+damped_pseudo_inverse	*	10	public name (t3toolbox/backend/linalg.py)
+data	*	10	public name (t3toolbox/backend/optimizers.py)
+data_size	*	10	public name (t3toolbox/frame_variations_format.py)
+delta_f	*	10	public name (t3toolbox/backend/optimizers.py)
+dense_apply_derivatives	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+dense_entries_derivatives	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+dense_probe	*	10	public name (t3toolbox/backend/probing.py)
+dense_probe_derivatives	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+dense_t3svd	*	10	public name (t3toolbox/backend/t3_svd.py)
+dense_ttsvd	*	10	public name (t3toolbox/backend/t3_svd.py)
+edge_condition_numbers	*	10	public name (t3toolbox/backend/ranks.py)
+effective_rtol	*	10	public name (t3toolbox/safety.py)
+entries	*	10	public name (t3toolbox/manifold.py)
+entries_ambient_transpose	*	10	public name (t3toolbox/tucker_tensor_train.py)
+entries_corewise_derivatives_transpose	*	10	public name (t3toolbox/tucker_tensor_train.py)
+entries_corewise_transpose	*	10	public name (t3toolbox/tucker_tensor_train.py)
+entries_derivatives	*	10	public name (t3toolbox/manifold.py)
+entries_derivatives_kind	*	10	public name (t3toolbox/backend/fitting.py)
+entries_derivatives_model	*	10	public name (t3toolbox/fitting.py)
+entries_derivatives_transpose	*	10	public name (t3toolbox/manifold.py)
+entries_model	*	10	public name (t3toolbox/fitting.py)
+entries_transpose	*	10	public name (t3toolbox/manifold.py)
+eps	*	10	public name (t3toolbox/backend/fv_operations.py)
+estimate_chunk_size	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+evaluate	*	10	public name (t3toolbox/fitting.py)
+filtered_reciprocal	*	10	public name (t3toolbox/backend/linalg.py)
+flat_draw	*	10	public name (t3toolbox/backend/optimizers.py)
+forcing_eta	*	10	public name (t3toolbox/backend/optimizers.py)
+format_newton_iter	*	10	public name (t3toolbox/backend/optimizer_display.py)
+forward	*	10	public name (t3toolbox/backend/fitting.py)
+frame	*	10	public name (t3toolbox/backend/geometry.py)
+frame_has_minimal_ranks	*	10	public name (t3toolbox/backend/ranks.py)
+frame_left_mask	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+frame_right_mask	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+frame_stack_shape	*	10	public name (t3toolbox/manifold.py)
+frames_equal	*	10	public name (t3toolbox/safety.py)
+frames_equal_or_skip	*	10	public name (t3toolbox/safety.py)
+from_canonical	*	10	public name (t3toolbox/tucker_tensor_train.py)
+from_frame	*	10	public name (t3toolbox/backend/geometry.py)
+from_point	*	10	public name (t3toolbox/backend/geometry.py)
+from_t3	*	10	public name (t3toolbox/frame_variations_format.py)
+from_t3frame	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+from_t3frameweights	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+from_t3svd	*	10	public name (t3toolbox/tucker_tensor_train.py)
+from_t3tangent	*	10	public name (t3toolbox/uniform_manifold.py)
+from_t3variations	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+from_t3weights	*	10	public name (t3toolbox/frame_variations_format.py)
+from_tensor_train	*	10	public name (t3toolbox/tucker_tensor_train.py)
+from_ut3	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+from_ut3svd	*	10	public name (t3toolbox/uniform_tucker_tensor_train.py)
+from_ut3weights	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+from_vector	*	10	public name (t3toolbox/frame_variations_format.py)
+fv_absorb_weights	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_aligned_padded_frame	*	10	public name (t3toolbox/backend/padded_frames.py)
+fv_base_point_tangent	*	10	public name (t3toolbox/backend/geometry.py)
+fv_center_factors	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_concatenate_weights	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_empty_frame	*	10	public name (t3toolbox/backend/padded_frames.py)
+fv_frame_consistency_residual	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_frame_orthogonality_residual	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_frame_reverse	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_kronecker_weights	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_lift_factors	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_padded_frame	*	10	public name (t3toolbox/backend/padded_frames.py)
+fv_share_tucker_variations	*	10	public name (t3toolbox/backend/sharing.py)
+fv_share_tucker_variations_corewise	*	10	public name (t3toolbox/backend/sharing.py)
+fv_shared_frame_data	*	10	public name (t3toolbox/backend/sharing.py)
+fv_tied_ambient_directions	*	10	public name (t3toolbox/backend/sharing.py)
+fv_tied_lift_factors	*	10	public name (t3toolbox/backend/sharing.py)
+fv_tied_variations_residual	*	10	public name (t3toolbox/backend/sharing.py)
+fv_to_t3	*	10	public name (t3toolbox/backend/fv_conversions.py)
+fv_variation_shapes	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_variations_from_vector	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_variations_randn	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_variations_unit	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_variations_zeros	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_weighted_inner	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_weighted_norm	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_weights_consistent	*	10	public name (t3toolbox/backend/fv_operations.py)
+fv_zero_point_frame	*	10	public name (t3toolbox/backend/fv_operations.py)
+g0_reference	*	10	public name (t3toolbox/backend/optimizers.py)
+g0norm	*	10	public name (t3toolbox/backend/optimizers.py)
+gauge_residual	*	10	public name (t3toolbox/manifold.py)
+geom	*	10	public name (t3toolbox/backend/optimizers.py)
+geom_aux	*	10	public name (t3toolbox/backend/optimizers.py)
+geometry	*	10	public name (t3toolbox/fitting.py)
+geometry_aux	*	10	public name (t3toolbox/fitting.py)
+geometry_data	*	10	public name (t3toolbox/backend/optimizers.py)
+get_backend	*	10	public name (t3toolbox/backend/common.py)
+get_core_shapes	*	10	public name (t3toolbox/tucker_tensor_train.py)
+get_first_leaf	*	10	public name (t3toolbox/backend/stacking.py)
+get_minimal_ranks	*	10	public name (t3toolbox/tucker_tensor_train.py)
+gn_hessian	*	10	public name (t3toolbox/fitting.py)
+gn_quadratic	*	10	public name (t3toolbox/backend/optimizers.py)
+gnorm	*	10	public name (t3toolbox/backend/optimizers.py)
+gradient	*	10	public name (t3toolbox/backend/optimizers.py)
+gradient_descent	*	10	public name (t3toolbox/backend/optimizers.py)
+groups	*	10	public name (t3toolbox/backend/geometry.py)
+groups_to_labels	*	10	public name (t3toolbox/backend/sharing.py)
+has_block_sumsq	*	10	public name (t3toolbox/backend/fitting.py)
+has_minimal_ranks	*	10	public name (t3toolbox/frame_variations_format.py)
+has_numerically_minimal_ranks	*	10	public name (t3toolbox/frame_variations_format.py)
+has_order	*	10	public name (t3toolbox/backend/fitting.py)
+has_shared_tucker_factors	*	10	public name (t3toolbox/tucker_tensor_train.py)
+has_shared_tucker_weights	*	10	public name (t3toolbox/tucker_tensor_train.py)
+hessian	*	10	public name (t3toolbox/backend/optimizers.py)
+hvp	*	10	public name (t3toolbox/backend/optimizers.py)
+inner	*	10	public name (t3toolbox/backend/geometry.py)
+is_boolean_ndarray	*	10	public name (t3toolbox/backend/common.py)
+is_consistent	*	10	public name (t3toolbox/frame_variations_format.py)
+is_consistent_with	*	10	public name (t3toolbox/frame_variations_format.py)
+is_exact	*	10	public name (t3toolbox/backend/optimizers.py)
+is_gauged	*	10	public name (t3toolbox/manifold.py)
+is_jax_ndarray	*	10	public name (t3toolbox/backend/common.py)
+is_left_orthogonal	*	10	public name (t3toolbox/tucker_tensor_train.py)
+is_ndarray	*	10	public name (t3toolbox/backend/common.py)
+is_numpy_ndarray	*	10	public name (t3toolbox/backend/common.py)
+is_orthogonal	*	10	public name (t3toolbox/frame_variations_format.py)
+is_packed	*	10	public name (t3toolbox/backend/ut3_operations.py)
+is_right_orthogonal	*	10	public name (t3toolbox/tucker_tensor_train.py)
+is_tracing	*	10	public name (t3toolbox/safety.py)
+is_uniform	*	10	public name (t3toolbox/shared_geometry.py)
+items_are_uniform	*	10	public name (t3toolbox/backend/common.py)
+iteration	*	10	public name (t3toolbox/backend/optimizers.py)
+jacobian	*	10	public name (t3toolbox/backend/optimizers.py)
+jax	*	10	public name (t3toolbox/tucker_tensor_train.py)
+jax_available	*	10	public name (t3toolbox/backend/common.py)
+jax_map	*	10	public name (t3toolbox/backend/common.py)
+jax_or_warn	*	10	public name (t3toolbox/backend/common.py)
+jax_scan	*	10	public name (t3toolbox/backend/common.py)
+kind	*	10	public name (t3toolbox/backend/optimizers.py)
+kronecker	*	10	public name (t3toolbox/frame_variations_format.py)
+least_squares_problem	*	10	public name (t3toolbox/backend/optimizers.py)
+left_ranks	*	10	public name (t3toolbox/frame_variations_format.py)
+left_tt_cores	*	10	public name (t3toolbox/frame_variations_format.py)
+left_tt_supercore	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+left_weight_supercore	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+left_weights	*	10	public name (t3toolbox/frame_variations_format.py)
+lift	*	10	public name (t3toolbox/backend/geometry.py)
+lift_eps	*	10	public name (t3toolbox/backend/optimizers.py)
+lift_factors	*	10	public name (t3toolbox/backend/geometry.py)
+lift_sigma_min	*	10	public name (t3toolbox/backend/optimizers.py)
+lift_transpose	*	10	public name (t3toolbox/backend/geometry.py)
+lm	*	10	public name (t3toolbox/backend/optimizers.py)
+load	*	10	public name (t3toolbox/frame_variations_format.py)
+load_core_families	*	10	public name (t3toolbox/backend/common.py)
+local_model	*	10	public name (t3toolbox/backend/optimizers.py)
+ls_failed	*	10	public name (t3toolbox/backend/optimizers.py)
+ls_steps	*	10	public name (t3toolbox/backend/optimizers.py)
+make_newton_display	*	10	public name (t3toolbox/backend/optimizer_display.py)
+manifold_dim	*	10	public name (t3toolbox/manifold.py)
+masks	*	10	public name (t3toolbox/backend/geometry.py)
+max_chunk_size_within	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+mc_sgd	*	10	public name (t3toolbox/backend/optimizers.py)
+minimal_ranks	*	10	public name (t3toolbox/frame_variations_format.py)
+misfit	*	10	public name (t3toolbox/backend/optimizers.py)
+misfit_gradient	*	10	public name (t3toolbox/backend/optimizers.py)
+n_measurements	*	10	public name (t3toolbox/backend/fitting.py)
+n_stack	*	10	public name (t3toolbox/backend/geometry.py)
+n_w	*	10	public name (t3toolbox/backend/optimizers.py)
+name	*	10	public name (t3toolbox/backend/fitting.py)
+newton_cg	*	10	public name (t3toolbox/backend/optimizers.py)
+nontrivial_groups	*	10	public name (t3toolbox/backend/sharing.py)
+norm	*	10	public name (t3toolbox/manifold.py)
+normalize_max_ranks	*	10	public name (t3toolbox/backend/ranks.py)
+normalized	*	10	public name (t3toolbox/manifold.py)
+numpy_map	*	10	public name (t3toolbox/backend/common.py)
+numpy_scan	*	10	public name (t3toolbox/backend/common.py)
+objective	*	10	public name (t3toolbox/backend/optimizers.py)
+objective_value	*	10	public name (t3toolbox/fitting.py)
+ones	*	10	public name (t3toolbox/tucker_tensor_train.py)
+orthogonality_residual	*	10	public name (t3toolbox/frame_variations_format.py)
+oversampled_ranks	*	10	public name (t3toolbox/backend/ranks.py)
+pHp	*	10	public name (t3toolbox/backend/optimizers.py)
+pKp	*	10	public name (t3toolbox/backend/optimizers.py)
+pack_data	*	10	public name (t3toolbox/backend/uniform_fitting.py)
+pack_if_ragged	*	10	public name (t3toolbox/backend/ut3_operations.py)
+pack_sample	*	10	public name (t3toolbox/backend/uniform_fitting.py)
+pack_vectors	*	10	public name (t3toolbox/backend/ut3_operations.py)
+pad_or_truncate	*	10	public name (t3toolbox/backend/linalg.py)
+pad_safe_pinned_completion	*	10	public name (t3toolbox/backend/linalg.py)
+padded	*	10	public name (t3toolbox/frame_variations_format.py)
+padded_start	*	10	public name (t3toolbox/backend/optimizers.py)
+partition_static	*	10	public name (t3toolbox/backend/common.py)
+pinned_completion	*	10	public name (t3toolbox/backend/linalg.py)
+pinned_leading_columns	*	10	public name (t3toolbox/backend/linalg.py)
+point_forward	*	10	public name (t3toolbox/backend/fitting.py)
+point_norm_sq	*	10	public name (t3toolbox/backend/geometry.py)
+point_tangent	*	10	public name (t3toolbox/backend/geometry.py)
+precompute	*	10	public name (t3toolbox/backend/fitting.py)
+prefix_mask	*	10	public name (t3toolbox/backend/common.py)
+probe	*	10	public name (t3toolbox/manifold.py)
+probe_ambient_transpose	*	10	public name (t3toolbox/tucker_tensor_train.py)
+probe_corewise_derivatives_transpose	*	10	public name (t3toolbox/tucker_tensor_train.py)
+probe_corewise_transpose	*	10	public name (t3toolbox/tucker_tensor_train.py)
+probe_derivatives	*	10	public name (t3toolbox/manifold.py)
+probe_derivatives_kind	*	10	public name (t3toolbox/backend/fitting.py)
+probe_derivatives_model	*	10	public name (t3toolbox/fitting.py)
+probe_derivatives_transpose	*	10	public name (t3toolbox/manifold.py)
+probe_kind	*	10	public name (t3toolbox/backend/fitting.py)
+probe_model	*	10	public name (t3toolbox/fitting.py)
+probe_transpose	*	10	public name (t3toolbox/manifold.py)
+problem	*	10	public name (t3toolbox/optimizers.py)
+project	*	10	public name (t3toolbox/backend/geometry.py)
+project_ambient	*	10	public name (t3toolbox/manifold.py)
+project_oblique	*	10	public name (t3toolbox/manifold.py)
+quadratic	*	10	public name (t3toolbox/backend/optimizers.py)
+ragged_backend_geometry	*	10	public name (t3toolbox/fitting.py)
+ragged_map	*	10	public name (t3toolbox/backend/common.py)
+ragged_scan	*	10	public name (t3toolbox/backend/common.py)
+randn	*	10	public name (t3toolbox/backend/common.py)
+randn_like	*	10	public name (t3toolbox/frame_variations_format.py)
+random_orthogonal	*	10	public name (t3toolbox/frame_variations_format.py)
+random_orthogonal_like	*	10	public name (t3toolbox/frame_variations_format.py)
+rank_adjustment_sweep	*	10	public name (t3toolbox/tucker_tensor_train.py)
+ranks	*	10	public name (t3toolbox/tucker_tensor_train.py)
+readonly_mask_copies	*	10	public name (t3toolbox/backend/common.py)
+rebuild_static	*	10	public name (t3toolbox/backend/common.py)
+reciprocal	*	10	public name (t3toolbox/frame_variations_format.py)
+regularization	*	10	public name (t3toolbox/backend/optimizers.py)
+regularizer	*	10	public name (t3toolbox/backend/optimizers.py)
+relative_errors	*	10	public name (t3toolbox/backend/optimizer_display.py)
+require	*	10	public name (t3toolbox/safety.py)
+require_concrete_masks	*	10	public name (t3toolbox/backend/common.py)
+require_frame_structure	*	10	public name (t3toolbox/backend/geometry.py)
+require_parameters_are_fields	*	10	public name (t3toolbox/backend/common.py)
+require_unstacked_for_regularizer	*	10	public name (t3toolbox/backend/regularization.py)
+residual	*	10	public name (t3toolbox/backend/optimizers.py)
+resize	*	10	public name (t3toolbox/tucker_tensor_train.py)
+retract	*	10	public name (t3toolbox/backend/geometry.py)
+reverse	*	10	public name (t3toolbox/frame_variations_format.py)
+rewrap	*	10	public name (t3toolbox/optimizers.py)
+right_ranks	*	10	public name (t3toolbox/frame_variations_format.py)
+right_tt_cores	*	10	public name (t3toolbox/frame_variations_format.py)
+right_tt_supercore	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+right_weight_supercore	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+right_weights	*	10	public name (t3toolbox/frame_variations_format.py)
+row_splits	*	10	public name (t3toolbox/backend/sharing.py)
+rtol_jax	*	10	public name (t3toolbox/safety.py)
+rtol_numpy	*	10	public name (t3toolbox/safety.py)
+safe	*	10	public name (t3toolbox/safety.py)
+sample	*	10	public name (t3toolbox/backend/optimizers.py)
+save	*	10	public name (t3toolbox/frame_variations_format.py)
+save_core_families	*	10	public name (t3toolbox/backend/common.py)
+segment	*	10	public name (t3toolbox/tucker_tensor_train.py)
+set_default_safety	*	10	public name (t3toolbox/safety.py)
+shape	*	10	public name (t3toolbox/backend/geometry.py)
+share	*	10	public name (t3toolbox/tucker_tensor_train.py)
+shared	*	10	public name (t3toolbox/shared_geometry.py)
+shared_corewise	*	10	public name (t3toolbox/shared_geometry.py)
+shared_data	*	10	public name (t3toolbox/backend/fv_operations.py)
+shared_frame_data	*	10	public name (t3toolbox/shared_geometry.py)
+shared_manifold	*	10	public name (t3toolbox/shared_geometry.py)
+size	*	10	public name (t3toolbox/frame_variations_format.py)
+slope	*	10	public name (t3toolbox/backend/optimizers.py)
+sqrt	*	10	public name (t3toolbox/frame_variations_format.py)
+squash_tails	*	10	public name (t3toolbox/tucker_tensor_train.py)
+stack	*	10	public name (t3toolbox/backend/stacking.py)
+stack_frame	*	10	public name (t3toolbox/manifold.py)
+stack_shape	*	10	public name (t3toolbox/backend/geometry.py)
+stack_tangents	*	10	public name (t3toolbox/manifold.py)
+step_control	*	10	public name (t3toolbox/backend/optimizers.py)
+step_rel	*	10	public name (t3toolbox/backend/optimizers.py)
+stop_reason	*	10	public name (t3toolbox/backend/optimizers.py)
+strength	*	10	public name (t3toolbox/backend/regularization.py)
+structure	*	10	public name (t3toolbox/frame_variations_format.py)
+sum	*	10	public name (t3toolbox/tucker_tensor_train.py)
+sum_leafs_along_axes	*	10	public name (t3toolbox/backend/stacking.py)
+sum_stack	*	10	public name (t3toolbox/frame_variations_format.py)
+sum_stack_corewise	*	10	public name (t3toolbox/tucker_tensor_train.py)
+sum_tangents	*	10	public name (t3toolbox/manifold.py)
+sumsq	*	10	public name (t3toolbox/backend/fitting.py)
+sumsq_over_probes	*	10	public name (t3toolbox/backend/fitting.py)
+sumsq_over_samples	*	10	public name (t3toolbox/backend/fitting.py)
+supercores	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+sweep	*	10	public name (t3toolbox/backend/optimizers.py)
+t3_absorb_tucker_into_tt	*	10	public name (t3toolbox/backend/t3_operations.py)
+t3_absorb_weights	*	10	public name (t3toolbox/backend/t3_operations.py)
+t3_add	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3_alias_tied_tucker_factors	*	10	public name (t3toolbox/backend/geometry.py)
+t3_apply	*	10	public name (t3toolbox/backend/apply.py)
+t3_apply_ambient_transpose	*	10	public name (t3toolbox/backend/apply.py)
+t3_apply_corewise_derivatives_hessian	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+t3_apply_corewise_derivatives_hessian_from_sweep	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+t3_apply_corewise_derivatives_transpose	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+t3_apply_corewise_hessian	*	10	public name (t3toolbox/backend/apply.py)
+t3_apply_corewise_hessian_from_sweep	*	10	public name (t3toolbox/backend/apply.py)
+t3_apply_corewise_transpose	*	10	public name (t3toolbox/backend/apply.py)
+t3_apply_derivatives	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+t3_broadcast_to_common_stack	*	10	public name (t3toolbox/backend/t3_operations.py)
+t3_concatenate	*	10	public name (t3toolbox/backend/t3_operations.py)
+t3_concatenate_weights	*	10	public name (t3toolbox/backend/t3_operations.py)
+t3_core_shapes	*	10	public name (t3toolbox/backend/t3_operations.py)
+t3_corewise_frame	*	10	public name (t3toolbox/backend/fv_conversions.py)
+t3_corewise_randn	*	10	public name (t3toolbox/backend/t3_constructors.py)
+t3_entries	*	10	public name (t3toolbox/backend/entries.py)
+t3_entries_ambient_transpose	*	10	public name (t3toolbox/backend/entries.py)
+t3_entries_corewise_derivatives_hessian	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+t3_entries_corewise_derivatives_hessian_from_sweep	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+t3_entries_corewise_derivatives_transpose	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+t3_entries_corewise_hessian	*	10	public name (t3toolbox/backend/entries.py)
+t3_entries_corewise_hessian_from_sweep	*	10	public name (t3toolbox/backend/entries.py)
+t3_entries_corewise_transpose	*	10	public name (t3toolbox/backend/entries.py)
+t3_entries_derivatives	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+t3_from_canonical	*	10	public name (t3toolbox/backend/t3_conversions.py)
+t3_from_tensor_train	*	10	public name (t3toolbox/backend/t3_conversions.py)
+t3_from_vector	*	10	public name (t3toolbox/backend/t3_conversions.py)
+t3_inner_product	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3_inner_product_corewise_hessian	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3_inner_product_corewise_hessian_from_sweep	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3_inner_product_corewise_transpose	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3_kronecker_weights	*	10	public name (t3toolbox/backend/t3_operations.py)
+t3_left_orthogonal_norm_sq	*	10	public name (t3toolbox/backend/geometry.py)
+t3_mult	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3_norm	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3_ones	*	10	public name (t3toolbox/backend/t3_constructors.py)
+t3_orthogonal_representations	*	10	public name (t3toolbox/backend/fv_conversions.py)
+t3_orthogonality_residual	*	10	public name (t3toolbox/backend/t3_orthogonalization.py)
+t3_plus_scalar	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3_precompute_inner_product_sweep	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3_probe	*	10	public name (t3toolbox/backend/probing.py)
+t3_probe_ambient_transpose	*	10	public name (t3toolbox/backend/probing.py)
+t3_probe_corewise_derivatives_hessian	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+t3_probe_corewise_derivatives_hessian_from_sweep	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+t3_probe_corewise_derivatives_transpose	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+t3_probe_corewise_hessian	*	10	public name (t3toolbox/backend/probing.py)
+t3_probe_corewise_hessian_from_sweep	*	10	public name (t3toolbox/backend/probing.py)
+t3_probe_corewise_transpose	*	10	public name (t3toolbox/backend/probing.py)
+t3_probe_derivatives	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+t3_rank_adjustment_sweep	*	10	public name (t3toolbox/backend/t3_svd.py)
+t3_scale	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3_segment	*	10	public name (t3toolbox/backend/t3_operations.py)
+t3_share_tucker_factors	*	10	public name (t3toolbox/backend/t3_svd.py)
+t3_sharing_residual	*	10	public name (t3toolbox/backend/sharing.py)
+t3_squash_tails	*	10	public name (t3toolbox/backend/t3_operations.py)
+t3_stack	*	10	public name (t3toolbox/backend/t3_operations.py)
+t3_sum	*	10	public name (t3toolbox/backend/t3_operations.py)
+t3_sum_stack	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3_tie_tucker_factors	*	10	public name (t3toolbox/backend/sharing.py)
+t3_to_dense	*	10	public name (t3toolbox/backend/t3_conversions.py)
+t3_to_dense_chain	*	10	public name (t3toolbox/backend/t3_conversions.py)
+t3_to_tensor_train	*	10	public name (t3toolbox/backend/t3_conversions.py)
+t3_to_ut3	*	10	public name (t3toolbox/backend/ut3_conversions.py)
+t3_to_vector	*	10	public name (t3toolbox/backend/t3_conversions.py)
+t3_tucker_factors_shared	*	10	public name (t3toolbox/backend/sharing.py)
+t3_tucker_weights_shared	*	10	public name (t3toolbox/backend/sharing.py)
+t3_tucker_weights_sharing_residual	*	10	public name (t3toolbox/backend/sharing.py)
+t3_unstack	*	10	public name (t3toolbox/backend/t3_operations.py)
+t3_weighted_inner	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3_weighted_norm	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3_weights_consistent	*	10	public name (t3toolbox/backend/t3_operations.py)
+t3_zeros	*	10	public name (t3toolbox/backend/t3_constructors.py)
+t3frame_to_ut3frame	*	10	public name (t3toolbox/backend/ufv_conversions.py)
+t3frameweights_to_ut3frameweights	*	10	public name (t3toolbox/backend/ufv_conversions.py)
+t3m	*	10	public name (t3toolbox/tucker_tensor_train.py)
+t3m_form_then_round	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3m_inplace_fused	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3m_swap	*	10	public name (t3toolbox/backend/t3_linalg.py)
+t3svd	*	10	public name (t3toolbox/backend/t3_svd.py)
+t3svd_dense	*	10	public name (t3toolbox/tucker_tensor_train.py)
+t3svd_orthogonal_representations	*	10	public name (t3toolbox/frame_variations_format.py)
+t3variations_to_ut3variations	*	10	public name (t3toolbox/backend/ufv_conversions.py)
+t3weights_to_t3frameweights	*	10	public name (t3toolbox/backend/fv_operations.py)
+t3weights_to_ut3weights	*	10	public name (t3toolbox/backend/ut3_conversions.py)
+take	*	10	public name (t3toolbox/backend/fitting.py)
+tangent_space_dimension	*	10	public name (t3toolbox/manifold.py)
+tangent_stack_shape	*	10	public name (t3toolbox/manifold.py)
+tangential_curvature	*	10	public name (t3toolbox/backend/geometry.py)
+tied_filters	*	10	public name (t3toolbox/backend/fv_operations.py)
+to_dense	*	10	public name (t3toolbox/frame_variations_format.py)
+to_jax	*	10	public name (t3toolbox/backend/common.py)
+to_numpy	*	10	public name (t3toolbox/backend/common.py)
+to_t3	*	10	public name (t3toolbox/frame_variations_format.py)
+to_t3frame	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+to_t3frameweights	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+to_t3tangent	*	10	public name (t3toolbox/uniform_manifold.py)
+to_t3variations	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+to_t3weights	*	10	public name (t3toolbox/uniform_tucker_tensor_train.py)
+to_tensor_train	*	10	public name (t3toolbox/tucker_tensor_train.py)
+to_ut3	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+to_vector	*	10	public name (t3toolbox/frame_variations_format.py)
+tr_accepted	*	10	public name (t3toolbox/backend/optimizers.py)
+tr_radius	*	10	public name (t3toolbox/backend/optimizers.py)
+transport	*	10	public name (t3toolbox/manifold.py)
+transpose	*	10	public name (t3toolbox/backend/fitting.py)
+tree	*	10	public name (t3toolbox/backend/common.py)
+tree_contains_jax	*	10	public name (t3toolbox/backend/common.py)
+tree_depth	*	10	public name (t3toolbox/backend/stacking.py)
+tree_depth_of_tree_over_leaf	*	10	public name (t3toolbox/backend/ut3_operations.py)
+tree_to_jax	*	10	public name (t3toolbox/backend/common.py)
+tree_zip	*	10	public name (t3toolbox/backend/stacking.py)
+trees_have_same_structure	*	10	public name (t3toolbox/backend/stacking.py)
+tt_change_core_shapes	*	10	public name (t3toolbox/backend/tt_operations.py)
+tt_cores	*	10	public name (t3toolbox/tucker_tensor_train.py)
+tt_edge_mask	*	10	public name (t3toolbox/uniform_tucker_tensor_train.py)
+tt_ranks	*	10	public name (t3toolbox/tucker_tensor_train.py)
+tt_reverse	*	10	public name (t3toolbox/backend/tt_operations.py)
+tt_squash_tails	*	10	public name (t3toolbox/backend/tt_operations.py)
+tt_supercore	*	10	public name (t3toolbox/uniform_tucker_tensor_train.py)
+tt_variations	*	10	public name (t3toolbox/frame_variations_format.py)
+tt_weight_supercore	*	10	public name (t3toolbox/uniform_tucker_tensor_train.py)
+tt_weights	*	10	public name (t3toolbox/tucker_tensor_train.py)
+tt_zipper_left_to_right	*	10	public name (t3toolbox/backend/tt_operations.py)
+tt_zipper_right_to_left	*	10	public name (t3toolbox/backend/tt_operations.py)
+tt_zipper_tangent_left_to_right	*	10	public name (t3toolbox/backend/tt_operations.py)
+tt_zipper_tangent_right_to_left	*	10	public name (t3toolbox/backend/tt_operations.py)
+tucker_change_core_shapes	*	10	public name (t3toolbox/backend/t3_operations.py)
+tucker_cores	*	10	public name (t3toolbox/tucker_tensor_train.py)
+tucker_edge_mask	*	10	public name (t3toolbox/uniform_tucker_tensor_train.py)
+tucker_pinvs	*	10	public name (t3toolbox/backend/fv_operations.py)
+tucker_ranks	*	10	public name (t3toolbox/tucker_tensor_train.py)
+tucker_supercore	*	10	public name (t3toolbox/uniform_tucker_tensor_train.py)
+tucker_svals	*	10	public name (t3toolbox/backend/fv_operations.py)
+tucker_variations	*	10	public name (t3toolbox/frame_variations_format.py)
+tucker_weight_supercore	*	10	public name (t3toolbox/uniform_tucker_tensor_train.py)
+tucker_weights	*	10	public name (t3toolbox/tucker_tensor_train.py)
+tv_align_padded_frame	*	10	public name (t3toolbox/backend/padded_frames.py)
+tv_apply	*	10	public name (t3toolbox/backend/apply.py)
+tv_apply_derivatives	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_apply_derivatives_transpose	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_apply_jacobian_derivatives_from_sweep	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_apply_jacobian_from_sweep	*	10	public name (t3toolbox/backend/apply.py)
+tv_apply_transpose	*	10	public name (t3toolbox/backend/apply.py)
+tv_apply_transpose_derivatives_from_sweep	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_apply_transpose_from_sweep	*	10	public name (t3toolbox/backend/apply.py)
+tv_corewise_lift	*	10	public name (t3toolbox/backend/tv_operations.py)
+tv_corewise_lift_transpose	*	10	public name (t3toolbox/backend/tv_operations.py)
+tv_entries	*	10	public name (t3toolbox/backend/entries.py)
+tv_entries_derivatives	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_entries_derivatives_transpose	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_entries_jacobian_derivatives_from_sweep	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_entries_jacobian_from_sweep	*	10	public name (t3toolbox/backend/entries.py)
+tv_entries_transpose	*	10	public name (t3toolbox/backend/entries.py)
+tv_entries_transpose_derivatives_from_sweep	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_entries_transpose_from_sweep	*	10	public name (t3toolbox/backend/entries.py)
+tv_gauge_residual	*	10	public name (t3toolbox/backend/tv_operations.py)
+tv_oblique_gauge_projection	*	10	public name (t3toolbox/backend/tv_operations.py)
+tv_orthogonal_gauge_projection	*	10	public name (t3toolbox/backend/tv_operations.py)
+tv_precompute_apply_frame_sweep	*	10	public name (t3toolbox/backend/apply.py)
+tv_precompute_apply_frame_sweep_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_precompute_entries_frame_sweep	*	10	public name (t3toolbox/backend/entries.py)
+tv_precompute_entries_frame_sweep_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_precompute_probe_frame_sweep	*	10	public name (t3toolbox/backend/probing.py)
+tv_precompute_probe_frame_sweep_jets	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_probe	*	10	public name (t3toolbox/backend/probing.py)
+tv_probe_derivatives	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_probe_derivatives_transpose	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_probe_jacobian_derivatives_from_sweep	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_probe_jacobian_from_sweep	*	10	public name (t3toolbox/backend/probing.py)
+tv_probe_transpose	*	10	public name (t3toolbox/backend/probing.py)
+tv_probe_transpose_derivatives_from_sweep	*	10	public name (t3toolbox/backend/sampling_derivatives.py)
+tv_probe_transpose_from_sweep	*	10	public name (t3toolbox/backend/probing.py)
+tv_project_dense_onto_tangent_space	*	10	public name (t3toolbox/backend/tv_operations.py)
+tv_project_t3_onto_tangent_space	*	10	public name (t3toolbox/backend/tv_operations.py)
+tv_retract	*	10	public name (t3toolbox/backend/tv_operations.py)
+tv_stack_frame_stack	*	10	public name (t3toolbox/backend/tv_operations.py)
+tv_stack_tangent_stack	*	10	public name (t3toolbox/backend/tv_operations.py)
+tv_to_dense	*	10	public name (t3toolbox/backend/tv_operations.py)
+tv_to_t3	*	10	public name (t3toolbox/backend/tv_operations.py)
+tv_unstack_frame_stack	*	10	public name (t3toolbox/backend/tv_operations.py)
+tv_unstack_tangent_stack	*	10	public name (t3toolbox/backend/tv_operations.py)
+uniform_derivatives_kind	*	10	public name (t3toolbox/backend/uniform_fitting.py)
+uniform_least_squares_problem	*	10	public name (t3toolbox/backend/uniform_fitting.py)
+uniform_minimal	*	10	public name (t3toolbox/backend/uniform_fitting.py)
+uniform_sampling_kind	*	10	public name (t3toolbox/backend/uniform_fitting.py)
+uniform_structure	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+uniform_variation_shapes	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+unit	*	10	public name (t3toolbox/frame_variations_format.py)
+unpack_vectors	*	10	public name (t3toolbox/backend/ut3_operations.py)
+unsafe	*	10	public name (t3toolbox/safety.py)
+unstack	*	10	public name (t3toolbox/backend/stacking.py)
+unstack_frame	*	10	public name (t3toolbox/manifold.py)
+unstack_tangents	*	10	public name (t3toolbox/manifold.py)
+ut3frame_to_t3frame	*	10	public name (t3toolbox/backend/ufv_conversions.py)
+ut3frameweights_to_t3frameweights	*	10	public name (t3toolbox/backend/ufv_conversions.py)
+ut3svd	*	10	public name (t3toolbox/backend/ut3_svd.py)
+ut3svd_orthogonal_representations	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+ut3svd_supercores	*	10	public name (t3toolbox/backend/ut3_svd.py)
+ut3variations_to_t3variations	*	10	public name (t3toolbox/backend/ufv_conversions.py)
+ut3weights_to_t3weights	*	10	public name (t3toolbox/backend/ut3_conversions.py)
+validate	*	10	public name (t3toolbox/frame_variations_format.py)
+validate_sharing	*	10	public name (t3toolbox/backend/sharing.py)
+value	*	10	public name (t3toolbox/backend/regularization.py)
+var_masks	*	10	public name (t3toolbox/backend/geometry.py)
+variation_left_ranks	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+variation_right_ranks	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+variation_shapes	*	10	public name (t3toolbox/frame_variations_format.py)
+variations	*	10	public name (t3toolbox/manifold.py)
+variations_left_mask	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+variations_right_mask	*	10	public name (t3toolbox/uniform_frame_variations_format.py)
+w_axes	*	10	public name (t3toolbox/backend/fitting.py)
+wall_time	*	10	public name (t3toolbox/backend/optimizers.py)
+weight	*	10	public name (t3toolbox/backend/fitting.py)
+weighted_inner	*	10	public name (t3toolbox/manifold.py)
+weighted_norm	*	10	public name (t3toolbox/manifold.py)
+with_frame	*	10	public name (t3toolbox/backend/geometry.py)
+with_sharing	*	10	public name (t3toolbox/backend/geometry.py)
+x0_cores	*	10	public name (t3toolbox/optimizers.py)
+x_cores	*	10	public name (t3toolbox/backend/optimizers.py)
+xappend	*	10	public name (t3toolbox/backend/common.py)
+xcat	*	10	public name (t3toolbox/backend/common.py)
+xprepend	*	10	public name (t3toolbox/backend/common.py)
+xwhile	*	10	public name (t3toolbox/backend/common.py)
+z	*	10	public name (t3toolbox/backend/geometry.py)
+z_sweep	*	10	public name (t3toolbox/backend/geometry.py)
+zero_point_frame	*	10	public name (t3toolbox/backend/geometry.py)
+zeros	*	10	public name (t3toolbox/frame_variations_format.py)
+zeros_like	*	10	public name (t3toolbox/frame_variations_format.py)
+U	t3toolbox/backend/t3_linalg.py::_t3m_swap_pair	11	SVD factor beside the B rows
+U	tests/backend/test_structural_guards.py	11	pqu: SVD factor (§1.5 item 11)
+U	tests/backend/test_structural_guards.py::test_truncated_svd_min_gt_max_raises	11	SVD factor (U, ss, Vt = ...)
+U	tests/test_dispatch.py::test_jit_pad_safe_svd	11	SVD factor (U, ss, Vt = ...)
+U_a_x	t3toolbox/backend/t3_orthogonalization.py	11	SVD factor beside the B rows
+U_a_x_b	t3toolbox/backend/t3_orthogonalization.py	11	SVD factor beside the B rows
+U_i_a_x	t3toolbox/backend/t3_orthogonalization.py	11	SVD factor beside the B rows
+U_o_x	t3toolbox/backend/ut3_orthogonalization.py	11	SVD factor beside the B rows
+Uox	t3toolbox/backend/t3_orthogonalization.py	11	SVD factor beside the B rows
+Uw	t3toolbox/backend/t3_linalg.py	11	pqu: SVD factor (§1.5 item 11)
+Uw	t3toolbox/backend/t3_linalg.py::_t3m_contract_pair	11	SVD factor beside the B rows
+Uw	t3toolbox/backend/t3_linalg.py::t3m_inplace_fused	11	SVD factor beside the B rows
+svd_U	tests/test_sharing.py	11	SVD factor beside the B rows
+GU	tests/test_sharing.py	12	pqu: the shared uniform geometry (U = uniform)
+U	tests/oracle_sweeps/o1_uniform.py	12	pqu: U a uniform T3 (§1.5 item 12 names o1_uniform.py:193)
+U	tests/oracle_sweeps/o1_uniform.py::varying_rank	12	a uniform T3
+UB	tests/test_dispatch.py	12	U = uniform
+UB	tests/test_uniform_frame_variations_format.py	12	U = uniform
+UF	t3toolbox/uniform_frame_variations_format.py	12	pqu: U = uniform (a UT3 frame)
+UF	tests/test_aligned_padded_frame_frontend.py	12	U = uniform
+UF	tests/test_dispatch.py	12	U = uniform
+UF0	tests/backend/test_zero_reference.py	12	pqu: U = uniform (a uniform frame)
+UF1	tests/test_aligned_padded_frame_frontend.py	12	pqu: U = uniform
+UF1	tests/test_dispatch.py	12	pqu: U = uniform (§1.5 item 12 names test_dispatch.py:1705-1708)
+UF_np	tests/test_dispatch.py	12	pqu: U = uniform (§1.5 item 12 names test_dispatch.py:1705-1708)
+UFb	tests/test_aligned_padded_frame_frontend.py	12	U = uniform
+UT3Data	*	12	U/u = uniform
+UT3Frame	*	12	U/u = uniform
+UT3FrameMasks	*	12	U/u = uniform
+UT3FrameWeights	*	12	U/u = uniform
+UT3FrameWeightsData	*	12	U/u = uniform
+UT3Masks	*	12	U/u = uniform
+UT3Tangent	*	12	U/u = uniform
+UT3Variations	*	12	U/u = uniform
+UT3VariationsMasks	*	12	U/u = uniform
+UT3Weights	*	12	U/u = uniform
+UT3WeightsData	*	12	U/u = uniform
+UV	tests/test_dispatch.py	12	U = uniform
+UV	tests/test_uniform_frame_variations_format.py	12	U = uniform
+UVS	tests/test_dispatch.py	12	pqu: U = uniform (§1.5 item 12 names test_dispatch.py:1705-1708)
+UW	tests/test_dispatch.py	12	U = uniform
+Usc	tests/test_dispatch.py	12	U = uniform
+_UCLS	tests/backend/test_uniform_curvature.py	12	pqu: U = uniform
+_UKIND	tests/backend/test_uniform_curvature.py	12	pqu: U = uniform
+_u_content_d	*	12	U/u = uniform
+_u_edge	*	12	U/u = uniform
+_u_edge_d	*	12	U/u = uniform
+_u_leaf	*	12	U/u = uniform
+_u_left_edge	*	12	U/u = uniform
+_u_left_edge_step	*	12	U/u = uniform
+_u_left_edge_transport_step	*	12	U/u = uniform
+_u_near_pair	*	12	U/u = uniform
+_u_right_edge	*	12	U/u = uniform
+_u_right_edge_step	*	12	U/u = uniform
+_u_right_edge_transport_step	*	12	U/u = uniform
+_u_stack_scale	*	12	U/u = uniform
+ufv_absorb_weights	*	12	U/u = uniform
+ufv_aligned_padded_frame	*	12	U/u = uniform
+ufv_apply_frame_masks	*	12	U/u = uniform
+ufv_apply_variations_masks	*	12	U/u = uniform
+ufv_base_point_tangent	*	12	U/u = uniform
+ufv_compact_frame	*	12	U/u = uniform
+ufv_concatenate_weights	*	12	U/u = uniform
+ufv_conversions	*	12	U/u = uniform
+ufv_empty_frame	*	12	U/u = uniform
+ufv_frame_orthogonality_residual	*	12	U/u = uniform
+ufv_frame_reverse	*	12	U/u = uniform
+ufv_frame_widths	*	12	U/u = uniform
+ufv_kronecker_weights	*	12	U/u = uniform
+ufv_leaf_structure	*	12	U/u = uniform
+ufv_lift_factors	*	12	U/u = uniform
+ufv_load	*	12	U/u = uniform
+ufv_make_frame_masks	*	12	U/u = uniform
+ufv_masking	*	12	U/u = uniform
+ufv_operations	*	12	U/u = uniform
+ufv_padded_frame	*	12	U/u = uniform
+ufv_reciprocal_weights	*	12	U/u = uniform
+ufv_save	*	12	U/u = uniform
+ufv_share_tucker_variations	*	12	U/u = uniform
+ufv_share_tucker_variations_corewise	*	12	U/u = uniform
+ufv_shared_frame_data	*	12	U/u = uniform
+ufv_sqrt_weights	*	12	U/u = uniform
+ufv_stack	*	12	U/u = uniform
+ufv_stack_axes	*	12	U/u = uniform
+ufv_tied_lift_factors	*	12	U/u = uniform
+ufv_tied_variations_residual	*	12	U/u = uniform
+ufv_unstack	*	12	U/u = uniform
+ufv_unstack_axes	*	12	U/u = uniform
+ufv_variation_masks	*	12	U/u = uniform
+ufv_variation_masks_over_stack	*	12	U/u = uniform
+ufv_variation_shapes	*	12	U/u = uniform
+ufv_variations_reverse	*	12	U/u = uniform
+ufv_variations_sum_stack	*	12	U/u = uniform
+ufv_weighted_inner	*	12	U/u = uniform
+ufv_weighted_norm	*	12	U/u = uniform
+ufv_weights_consistent	*	12	U/u = uniform
+ufv_weights_from_ut3_weights	*	12	U/u = uniform
+ufv_zero_point_frame	*	12	U/u = uniform
+ut3_absorb_weights	*	12	U/u = uniform
+ut3_add	*	12	U/u = uniform
+ut3_apply	*	12	U/u = uniform
+ut3_apply_corewise_derivatives_hessian	*	12	U/u = uniform
+ut3_apply_corewise_derivatives_hessian_from_sweep	*	12	U/u = uniform
+ut3_apply_corewise_derivatives_transpose	*	12	U/u = uniform
+ut3_apply_corewise_hessian	*	12	U/u = uniform
+ut3_apply_corewise_hessian_from_sweep	*	12	U/u = uniform
+ut3_apply_corewise_transpose	*	12	U/u = uniform
+ut3_apply_derivatives	*	12	U/u = uniform
+ut3_apply_masks	*	12	U/u = uniform
+ut3_concatenate_weights	*	12	U/u = uniform
+ut3_constructors	*	12	U/u = uniform
+ut3_conversions	*	12	U/u = uniform
+ut3_corewise_frame	*	12	U/u = uniform
+ut3_corewise_randn	*	12	U/u = uniform
+ut3_entries	*	12	U/u = uniform
+ut3_entries_corewise_derivatives_hessian	*	12	U/u = uniform
+ut3_entries_corewise_derivatives_hessian_from_sweep	*	12	U/u = uniform
+ut3_entries_corewise_derivatives_transpose	*	12	U/u = uniform
+ut3_entries_corewise_hessian	*	12	U/u = uniform
+ut3_entries_corewise_hessian_from_sweep	*	12	U/u = uniform
+ut3_entries_corewise_transpose	*	12	U/u = uniform
+ut3_entries_derivatives	*	12	U/u = uniform
+ut3_full_sum	*	12	U/u = uniform
+ut3_inner	*	12	U/u = uniform
+ut3_inner_product	*	12	U/u = uniform
+ut3_inner_product_corewise_hessian	*	12	U/u = uniform
+ut3_inner_product_corewise_hessian_from_sweep	*	12	U/u = uniform
+ut3_inner_product_corewise_transpose	*	12	U/u = uniform
+ut3_kronecker_weights	*	12	U/u = uniform
+ut3_leaf_structure	*	12	U/u = uniform
+ut3_linalg	*	12	U/u = uniform
+ut3_load	*	12	U/u = uniform
+ut3_make_masks	*	12	U/u = uniform
+ut3_masking	*	12	U/u = uniform
+ut3_mod	*	12	U/u = uniform
+ut3_norm	*	12	U/u = uniform
+ut3_ones	*	12	U/u = uniform
+ut3_operations	*	12	U/u = uniform
+ut3_orthogonal_representations	*	12	U/u = uniform
+ut3_orthogonality_residual	*	12	U/u = uniform
+ut3_pad_ranks	*	12	U/u = uniform
+ut3_precompute_inner_product_sweep	*	12	U/u = uniform
+ut3_probe	*	12	U/u = uniform
+ut3_probe_corewise_derivatives_hessian	*	12	U/u = uniform
+ut3_probe_corewise_derivatives_hessian_from_sweep	*	12	U/u = uniform
+ut3_probe_corewise_derivatives_transpose	*	12	U/u = uniform
+ut3_probe_corewise_hessian	*	12	U/u = uniform
+ut3_probe_corewise_hessian_from_sweep	*	12	U/u = uniform
+ut3_probe_corewise_transpose	*	12	U/u = uniform
+ut3_probe_derivatives	*	12	U/u = uniform
+ut3_rank_adjustment_sweep	*	12	U/u = uniform
+ut3_reciprocal_weights	*	12	U/u = uniform
+ut3_reverse	*	12	U/u = uniform
+ut3_sampling	*	12	U/u = uniform
+ut3_save	*	12	U/u = uniform
+ut3_scale	*	12	U/u = uniform
+ut3_sharing_residual	*	12	U/u = uniform
+ut3_sqrt_weights	*	12	U/u = uniform
+ut3_squash_tails	*	12	U/u = uniform
+ut3_stack	*	12	U/u = uniform
+ut3_sum_stack	*	12	U/u = uniform
+ut3_tie_tucker_factors	*	12	U/u = uniform
+ut3_to_dense	*	12	U/u = uniform
+ut3_to_t3	*	12	U/u = uniform
+ut3_tucker_factors_shared	*	12	U/u = uniform
+ut3_tucker_weights_shared	*	12	U/u = uniform
+ut3_tucker_weights_sharing_residual	*	12	U/u = uniform
+ut3_unstack	*	12	U/u = uniform
+ut3_weighted_inner	*	12	U/u = uniform
+ut3_weighted_norm	*	12	U/u = uniform
+ut3_weights_consistent	*	12	U/u = uniform
+ut3_zeros	*	12	U/u = uniform
+utv_align_padded_frame	*	12	U/u = uniform
+utv_apply	*	12	U/u = uniform
+utv_apply_derivatives	*	12	U/u = uniform
+utv_apply_derivatives_transpose	*	12	U/u = uniform
+utv_apply_jacobian_derivatives_from_sweep	*	12	U/u = uniform
+utv_apply_jacobian_from_sweep	*	12	U/u = uniform
+utv_apply_transpose	*	12	U/u = uniform
+utv_apply_transpose_derivatives_from_sweep	*	12	U/u = uniform
+utv_apply_transpose_from_sweep	*	12	U/u = uniform
+utv_corewise_inner	*	12	U/u = uniform
+utv_corewise_lift	*	12	U/u = uniform
+utv_corewise_lift_transpose	*	12	U/u = uniform
+utv_corewise_retract	*	12	U/u = uniform
+utv_entries	*	12	U/u = uniform
+utv_entries_derivatives	*	12	U/u = uniform
+utv_entries_derivatives_transpose	*	12	U/u = uniform
+utv_entries_jacobian_derivatives_from_sweep	*	12	U/u = uniform
+utv_entries_jacobian_from_sweep	*	12	U/u = uniform
+utv_entries_transpose	*	12	U/u = uniform
+utv_entries_transpose_derivatives_from_sweep	*	12	U/u = uniform
+utv_entries_transpose_from_sweep	*	12	U/u = uniform
+utv_gauge_residual	*	12	U/u = uniform
+utv_oblique_gauge_projection	*	12	U/u = uniform
+utv_operations	*	12	U/u = uniform
+utv_ops	*	12	U/u = uniform
+utv_orthogonal_gauge_projection	*	12	U/u = uniform
+utv_precompute_apply_frame_sweep	*	12	U/u = uniform
+utv_precompute_apply_frame_sweep_jets	*	12	U/u = uniform
+utv_precompute_entries_frame_sweep	*	12	U/u = uniform
+utv_precompute_entries_frame_sweep_jets	*	12	U/u = uniform
+utv_precompute_probe_frame_sweep	*	12	U/u = uniform
+utv_precompute_probe_frame_sweep_jets	*	12	U/u = uniform
+utv_probe	*	12	U/u = uniform
+utv_probe_derivatives	*	12	U/u = uniform
+utv_probe_derivatives_transpose	*	12	U/u = uniform
+utv_probe_jacobian_derivatives_from_sweep	*	12	U/u = uniform
+utv_probe_jacobian_from_sweep	*	12	U/u = uniform
+utv_probe_transpose	*	12	U/u = uniform
+utv_probe_transpose_derivatives_from_sweep	*	12	U/u = uniform
+utv_probe_transpose_from_sweep	*	12	U/u = uniform
+utv_project_ut3_onto_tangent_space	*	12	U/u = uniform
+utv_retract	*	12	U/u = uniform
+utv_sampling	*	12	U/u = uniform
+utv_stack_frame_stack	*	12	U/u = uniform
+utv_stack_tangent_stack	*	12	U/u = uniform
+utv_sum_tangent_stack	*	12	U/u = uniform
+utv_to_ut3	*	12	U/u = uniform
+utv_unstack_frame_stack	*	12	U/u = uniform
+utv_unstack_tangent_stack	*	12	U/u = uniform
+O	tests/backend/test_t3_orthogonalization.py	13	the oracle module alias O
+O	tests/backend/test_uniform_fitting.py::_residual	13	pqu: an order count O
+O	tests/backend/test_uniform_fitting.py::_sample_data	13	pqu: an order count O
+O	tests/backend/test_uniform_fitting.py::test_derivative_kinds_match_ragged	13	pqu: an order count O
+O	tests/oracle_sweeps/sweep_exact.py	13	the oracle module alias O
+O	tests/oracle_sweeps/sweep_models.py	13	the oracle module alias O
+O	tests/oracle_sweeps/sweep_optimizers.py	13	the oracle module alias O
+O	tests/test_uniform_probing.py::_check_apply	13	pqu: an order count O (§1.5 item 13 names test_uniform_probing.py:213-219; 826, 898 are the same)
+O	tests/test_uniform_probing.py::_check_entries	13	pqu: an order count O (§1.5 item 13 names test_uniform_probing.py:213-219; 826, 898 are the same)
+O	tests/test_uniform_probing.py::_check_probe	13	an order count
+O	tests/test_uniform_probing.py::_corewise_wrappers	13	pqu: an order count O (§1.5 item 13 names test_uniform_probing.py:213-219; 826, 898 are the same)
+O	tests/test_uniform_probing.py::_tangent_wrappers	13	pqu: an order count O (§1.5 item 13 names test_uniform_probing.py:213-219; 826, 898 are the same)
+P	tests/backend/_curvature_oracles.py::tt_tangent_assembly_factored_trs	14	pqu: session ruling 2026-11-11 (4): kept, with DNT rows. P = M xs and Q = N xs + M deta~ are factored products with index layout (t, W, C, a, i), not frame cores (rL, n, rR); §3.4's "sites known now" over-generalized this file
+Pd	tests/backend/_curvature_oracles.py::tt_tangent_assembly_factored_trs	14	pqu: session ruling 2026-11-11 (4): kept, with DNT rows. P = M xs and Q = N xs + M deta~ are factored products with index layout (t, W, C, a, i), not frame cores (rL, n, rR); §3.4's "sites known now" over-generalized this file
+Q	tests/backend/_curvature_oracles.py	14	pqu: session ruling 2026-11-11 (4): kept, with DNT rows. P = M xs and Q = N xs + M deta~ are factored products with index layout (t, W, C, a, i), not frame cores (rL, n, rR); §3.4's "sites known now" over-generalized this file
+Qd	tests/backend/_curvature_oracles.py	14	pqu: session ruling 2026-11-11 (4): kept, with DNT rows. P = M xs and Q = N xs + M deta~ are factored products with index layout (t, W, C, a, i), not frame cores (rL, n, rR); §3.4's "sites known now" over-generalized this file
+R	t3toolbox/backend/fv_operations.py::_haar_rows	14	QR factor R (line 284)
+R	t3toolbox/backend/linalg.py::_haar_sketch	14	QR factor R (line 562)
+R	tests/backend/test_padded_frame.py::seeded_qr	14	QR factor R (line 99)
+psh	t3toolbox/backend/sampling_derivatives.py::_apply_tangent_assemble_step	14	a shape local / shifted pair, not sigma-hat (§3.2)
+pshd	t3toolbox/backend/sampling_derivatives.py::_apply_tangent_assemble_step	14	a shape local / shifted pair, not sigma-hat (§3.2)
+sh	t3toolbox/backend/fitting.py::_flat_gather	14	a shape local / shifted pair, not sigma-hat (§3.2)
+sh	t3toolbox/backend/sampling_derivatives.py::_flatten_w	14	a shape local / shifted pair, not sigma-hat (§3.2)
+sh	t3toolbox/backend/sharing.py::fv_tied_variations_residual	14	a shape local / shifted pair, not sigma-hat (§3.2)
+sh	t3toolbox/manifold.py::manifold_dim	14	a shape local / shifted pair, not sigma-hat (§3.2)
+sh	tests/backend/test_uniform_padded_frame.py::test_carriers_keep_the_old_block	14	a shape local / shifted pair, not sigma-hat (§3.2)
+sh	tests/backend/test_uniform_padded_frame.py::test_the_table	14	a shape local / shifted pair, not sigma-hat (§3.2)
+sh	tests/oracle_sweeps/o1_common.py::check	14	a shape local / shifted pair, not sigma-hat (§3.2)
+sh	tests/oracle_sweeps/o1_common.py::record	14	a shape local / shifted pair, not sigma-hat (§3.2)
+sh	tests/oracle_sweeps/o1_ragged.py::sweep_structure	14	a shape local / shifted pair, not sigma-hat (§3.2)
+sh	tests/oracle_sweeps/o1_uniform.py::sweep	14	a shape local / shifted pair, not sigma-hat (§3.2)
+sh	tests/test_oracle_sweep.py::_assert_results	14	a shape local / shifted pair, not sigma-hat (§3.2)
+shift	t3toolbox/backend/apply.py::t3_apply_corewise_hessian	14	a finite-difference move of the point (line 421), not the jet shift
+shift	t3toolbox/backend/entries.py::t3_entries_corewise_hessian	14	a finite-difference move of the point (line 333), not the jet shift
+shift	t3toolbox/backend/probing.py::t3_probe_corewise_hessian	14	a finite-difference move of the point (line 1805), not the jet shift
+shift	t3toolbox/backend/sampling_derivatives.py::t3_apply_corewise_derivatives_hessian	14	a finite-difference move of the point (line 3353), not the jet shift
+shift	t3toolbox/backend/sampling_derivatives.py::t3_entries_corewise_derivatives_hessian	14	a finite-difference move of the point (line 3438), not the jet shift
+shift	t3toolbox/backend/sampling_derivatives.py::t3_probe_corewise_derivatives_hessian	14	a finite-difference move of the point (line 3080), not the jet shift
+shift	t3toolbox/backend/t3_linalg.py::t3_inner_product_corewise_hessian	14	a finite-difference move of the point (line 911), not the jet shift
+shift	tests/backend/test_curvature.py::test_against_a_finite_difference_of_the_one_hole	14	a finite-difference move of the point (line 706), not the jet shift
+shift	tests/backend/test_curvature.py::test_residual_weights	14	a finite-difference move of the point (line 865), not the jet shift
+shift	tests/backend/test_curvature.py::test_two_hole_against_the_dense_hessian_and_finite_differences	14	a finite-difference move of the point (line 583), not the jet shift
+P	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+P	tests/backend/test_linalg.py	2,3	pqu: SVD/QR factors and the pinned completion P
+P	tests/backend/test_padded_frame.py	2,3	pqu: the completion P and QR Q
+P	tests/test_dispatch.py	2,3	pqu: the pinned completion P and QR Q (§1.5 item 2 names test_dispatch.py:163, 2095)
+PQ	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+PQ	tests/backend/test_linalg.py	2,3	pqu: SVD/QR factors and the pinned completion P
+PQ	tests/test_dispatch.py	2,3	pqu: the pinned completion P and QR Q (§1.5 item 2 names test_dispatch.py:163, 2095)
+PU	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+P_	tests/test_dispatch.py	2,3	pqu: the pinned completion P and QR Q (§1.5 item 2 names test_dispatch.py:163, 2095)
+P_real	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+P_real	tests/backend/test_linalg.py	2,3	pqu: SVD/QR factors and the pinned completion P
+Ps	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+PtA_Cab	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Q	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Q	tests/backend/test_linalg.py	2,3	pqu: SVD/QR factors and the pinned completion P
+Q	tests/backend/test_padded_frame.py	2,3	pqu: the completion P and QR Q
+Q	tests/test_dispatch.py	2,3	pqu: the pinned completion P and QR Q (§1.5 item 2 names test_dispatch.py:163, 2095)
+Q1	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Q_Cnx	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Q_nk	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Q_nx	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Qp_nx	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U	tests/backend/test_linalg.py	2,3	pqu: SVD/QR factors and the pinned completion P
+U0	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U1	tests/backend/test_linalg.py	2,3	pqu: SVD/QR factors and the pinned completion P
+U2	tests/backend/test_linalg.py	2,3	pqu: SVD/QR factors and the pinned completion P
+U_Cix	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_T	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_a_x	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_i_a_x	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_i_j_x	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_i_x	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_i_x_j	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_ia_x	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_mk	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_nk	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_x_i	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Ub	tests/backend/test_linalg.py	2,3	pqu: SVD/QR factors and the pinned completion P
+Um	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Uo	tests/backend/test_linalg.py	2,3	pqu: SVD/QR factors and the pinned completion P
+Ur	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Ur	tests/backend/test_linalg.py	2,3	pqu: SVD/QR factors and the pinned completion P
+Ur0	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Ut	tests/backend/test_linalg.py	2,3	pqu: SVD/QR factors and the pinned completion P
+Uw	t3toolbox/backend/linalg.py	2,3	pqu: SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+P	tests/backend/test_uniform_curvature.py	3,12	pqu: P a ragged pseudo-inverse, U its uniform twin (U = uniform)
+U	tests/backend/test_uniform_curvature.py::test_the_clip_is_at_the_real_dimensions	3,12	pqu: P a ragged pseudo-inverse, U its uniform twin (U = uniform)

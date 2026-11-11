@@ -1,0 +1,142 @@
+identifier	file	function	dnt_item	reason
+Q	t3toolbox/backend/fv_operations.py	*	2	QR factor
+P	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+PQ	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+PU	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+P_real	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Ps	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+PtA_Cab	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Q	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Q1	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Q_Cnx	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Q_nk	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Q_nx	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Qp_nx	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U0	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_Cix	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_T	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_a_x	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_i_a_x	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_i_j_x	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_i_x	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_i_x_j	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_ia_x	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_mk	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_nk	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+U_x_i	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Um	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Ur	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Ur0	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+Uw	t3toolbox/backend/linalg.py	*	2,3	SVD/QR/eig factors (U, Um, U_*, Uw, Ur, Ur0, U0, U_T, U_nk, U_mk, Q, Qp_nx, Q_nx, Q1, Q_nk, Q_Cnx, U_Cix) and the pinned completion P, Ps, PQ, PU, PtA_Cab, P_real (§1.5 items 2, 3)
+H_P	t3toolbox/backend/padded_frames.py	*	3	the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+L_P	t3toolbox/backend/padded_frames.py	*	3	the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+P	t3toolbox/backend/padded_frames.py	*	3	the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+P_old	t3toolbox/backend/padded_frames.py	*	3	the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+PhiP	t3toolbox/backend/padded_frames.py	*	3	the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+PhiPs	t3toolbox/backend/padded_frames.py	*	3	the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+R_P	t3toolbox/backend/padded_frames.py	*	3	the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+VP	t3toolbox/backend/padded_frames.py	*	3	the completion P and its products (§1.5 item 3: only a store suffix changes, P_O->P_U, O_P->U_P)
+U_M	t3toolbox/backend/sharing.py	*	2	SVD factors of the shared frame data
+svd_U	t3toolbox/backend/sharing.py	*	2	SVD factors of the shared frame data
+Qt	t3toolbox/backend/t3_linalg.py	*	2	SVD left factor named Q (Qt, st, Vt2 = svd)
+U	t3toolbox/backend/t3_linalg.py	_t3m_swap_pair	11	SVD factor (§1.5 item 11)
+Uw	t3toolbox/backend/t3_linalg.py	*	11	SVD factor (§1.5 item 11)
+Q0_i_o	t3toolbox/backend/t3_orthogonalization.py	*	2	QR factors
+Q_x_o	t3toolbox/backend/t3_orthogonalization.py	*	2	QR factors
+U_a_x	t3toolbox/backend/t3_orthogonalization.py	*	11	SVD factors (§1.5 item 11)
+U_a_x_b	t3toolbox/backend/t3_orthogonalization.py	*	11	SVD factors (§1.5 item 11)
+U_i_a_x	t3toolbox/backend/t3_orthogonalization.py	*	11	SVD factors (§1.5 item 11)
+Uox	t3toolbox/backend/t3_orthogonalization.py	*	11	SVD factors (§1.5 item 11)
+U	t3toolbox/backend/t3_svd.py	*	2	SVD factor (dense reference SVDs)
+U	t3toolbox/backend/tt_orthogonalization.py	*	2	SVD factor
+P	t3toolbox/backend/ufv_operations.py	*	3	a pseudo-inverse (tucker_pinvs/bond_pinvs)
+H_P	t3toolbox/backend/uniform_padded_frames.py	*	3	the completion P and its products (§1.5 item 3)
+L_P	t3toolbox/backend/uniform_padded_frames.py	*	3	the completion P and its products (§1.5 item 3)
+P	t3toolbox/backend/uniform_padded_frames.py	*	3	the completion P and its products (§1.5 item 3)
+P_L	t3toolbox/backend/uniform_padded_frames.py	*	3	the completion P and its products (§1.5 item 3)
+P_R	t3toolbox/backend/uniform_padded_frames.py	*	3	the completion P and its products (§1.5 item 3)
+PhiP	t3toolbox/backend/uniform_padded_frames.py	*	3	the completion P and its products (§1.5 item 3)
+R_P	t3toolbox/backend/uniform_padded_frames.py	*	3	the completion P and its products (§1.5 item 3)
+Us	t3toolbox/backend/uniform_padded_frames.py	*	2	SVD factor (§1.5 item 2 names Us)
+VP	t3toolbox/backend/uniform_padded_frames.py	*	3	the completion P and its products (§1.5 item 3)
+U_o_x	t3toolbox/backend/ut3_orthogonalization.py	*	11	SVD factor (§1.5 item 11)
+U	t3toolbox/backend/ut3_svd.py	*	2	SVD factor
+Q	t3toolbox/tucker_tensor_train.py	*	2	QR factor (doctest)
+UF	t3toolbox/uniform_frame_variations_format.py	*	12	U = uniform (a UT3 frame)
+P	tests/backend/_curvature_oracles.py	tt_tangent_assembly_factored_trs	14	session ruling 2026-11-11 (4): kept, with DNT rows. P = M xs and Q = N xs + M deta~ are factored products with index layout (t, W, C, a, i), not frame cores (rL, n, rR); §3.4's "sites known now" over-generalized this file
+Pd	tests/backend/_curvature_oracles.py	tt_tangent_assembly_factored_trs	14	session ruling 2026-11-11 (4): kept, with DNT rows. P = M xs and Q = N xs + M deta~ are factored products with index layout (t, W, C, a, i), not frame cores (rL, n, rR); §3.4's "sites known now" over-generalized this file
+Q	tests/backend/_curvature_oracles.py	*	14	session ruling 2026-11-11 (4): kept, with DNT rows. P = M xs and Q = N xs + M deta~ are factored products with index layout (t, W, C, a, i), not frame cores (rL, n, rR); §3.4's "sites known now" over-generalized this file
+Qd	tests/backend/_curvature_oracles.py	*	14	session ruling 2026-11-11 (4): kept, with DNT rows. P = M xs and Q = N xs + M deta~ are factored products with index layout (t, W, C, a, i), not frame cores (rL, n, rR); §3.4's "sites known now" over-generalized this file
+P_old	tests/backend/_padded_frame_oracles.py	*	2	orthonormal bases (complement / SVD U factor) and the old basis; not frame cores
+Q	tests/backend/_padded_frame_oracles.py	*	2	orthonormal bases (complement / SVD U factor) and the old basis; not frame cores
+Uc	tests/backend/_padded_frame_oracles.py	complement_in	2	SVD factors (plan names _padded_frame_oracles.py:54 Uc and Uy)
+Uy	tests/backend/_padded_frame_oracles.py	*	2	SVD factors (plan names _padded_frame_oracles.py:54 Uc and Uy)
+HP	tests/backend/test_curvature.py	*	3	P = a tangent direction, HP its Hessian image (a direction, not a frame core)
+P	tests/backend/test_curvature.py	*	3	a pseudo-inverse (§1.5 item 3 names test_curvature.py:215-220, 353)
+P_eps	tests/backend/test_curvature.py	*	3	a pseudo-inverse (§1.5 item 3 names test_curvature.py:215-220, 353)
+U_M	tests/backend/test_curvature.py	*	2	SVD factors
+svd_U	tests/backend/test_curvature.py	*	2	SVD factors
+P	tests/backend/test_linalg.py	*	2,3	SVD/QR factors and the pinned completion P
+PQ	tests/backend/test_linalg.py	*	2,3	SVD/QR factors and the pinned completion P
+P_real	tests/backend/test_linalg.py	*	2,3	SVD/QR factors and the pinned completion P
+Q	tests/backend/test_linalg.py	*	2,3	SVD/QR factors and the pinned completion P
+U	tests/backend/test_linalg.py	*	2,3	SVD/QR factors and the pinned completion P
+U1	tests/backend/test_linalg.py	*	2,3	SVD/QR factors and the pinned completion P
+U2	tests/backend/test_linalg.py	*	2,3	SVD/QR factors and the pinned completion P
+Ub	tests/backend/test_linalg.py	*	2,3	SVD/QR factors and the pinned completion P
+Uo	tests/backend/test_linalg.py	*	2,3	SVD/QR factors and the pinned completion P
+Ur	tests/backend/test_linalg.py	*	2,3	SVD/QR factors and the pinned completion P
+Ut	tests/backend/test_linalg.py	*	2,3	SVD/QR factors and the pinned completion P
+P	tests/backend/test_padded_frame.py	*	2,3	the completion P and QR Q
+Q	tests/backend/test_padded_frame.py	*	2,3	the completion P and QR Q
+Q	tests/backend/test_padded_start.py	*	2	QR / SVD bases
+U	tests/backend/test_structural_guards.py	*	11	SVD factor (§1.5 item 11)
+O	tests/backend/test_t3_orthogonalization.py	*	13	the oracle module alias O
+HP	tests/backend/test_uniform_curvature.py	*	3	a tangent direction P
+P	tests/backend/test_uniform_curvature.py	*	3,12	P a ragged pseudo-inverse, U its uniform twin (U = uniform)
+PP	tests/backend/test_uniform_curvature.py	*	3	a tangent direction P
+P_r	tests/backend/test_uniform_curvature.py	*	3	a tangent direction P
+U	tests/backend/test_uniform_curvature.py	test_the_clip_is_at_the_real_dimensions	3,12	P a ragged pseudo-inverse, U its uniform twin (U = uniform)
+U	tests/backend/test_uniform_curvature.py	_dirty_companion	2	SVD factor
+_UCLS	tests/backend/test_uniform_curvature.py	*	12	U = uniform
+_UKIND	tests/backend/test_uniform_curvature.py	*	12	U = uniform
+svd_U	tests/backend/test_uniform_curvature.py	*	2	SVD factor
+O	tests/backend/test_uniform_fitting.py	_residual	13	an order count O
+O	tests/backend/test_uniform_fitting.py	_sample_data	13	an order count O
+O	tests/backend/test_uniform_fitting.py	test_derivative_kinds_match_ragged	13	an order count O
+UF0	tests/backend/test_zero_reference.py	*	12	U = uniform (a uniform frame)
+Ud	tests/oracle_sweeps/o1_ragged.py	*	9	Ud = "u dense": the plan keeps it (tier C "letters kept", §1.2a's exception for o1_ragged.py and o1_uniform.py; K8's carve-out)
+U	tests/oracle_sweeps/o1_uniform.py	*	12	U a uniform T3 (§1.5 item 12 names o1_uniform.py:193)
+Ud	tests/oracle_sweeps/o1_uniform.py	*	9	Ud = "u dense": the plan keeps it (tier C "letters kept", §1.2a's exception for o1_ragged.py and o1_uniform.py; K8's carve-out)
+O	tests/oracle_sweeps/sweep_exact.py	*	13	the oracle module alias O
+Q	tests/oracle_sweeps/sweep_exact.py	*	2	SVD factor and its basis
+Uj	tests/oracle_sweeps/sweep_exact.py	*	2	SVD factor and its basis
+O	tests/oracle_sweeps/sweep_models.py	*	13	the oracle module alias O
+O	tests/oracle_sweeps/sweep_optimizers.py	*	13	the oracle module alias O
+UF	tests/test_aligned_padded_frame_frontend.py	*	12	U = uniform
+UF1	tests/test_aligned_padded_frame_frontend.py	*	12	U = uniform
+UFb	tests/test_aligned_padded_frame_frontend.py	*	12	U = uniform
+P	tests/test_dispatch.py	*	2,3	the pinned completion P and QR Q (§1.5 item 2 names test_dispatch.py:163, 2095)
+PQ	tests/test_dispatch.py	*	2,3	the pinned completion P and QR Q (§1.5 item 2 names test_dispatch.py:163, 2095)
+P_	tests/test_dispatch.py	*	2,3	the pinned completion P and QR Q (§1.5 item 2 names test_dispatch.py:163, 2095)
+Q	tests/test_dispatch.py	*	2,3	the pinned completion P and QR Q (§1.5 item 2 names test_dispatch.py:163, 2095)
+U	tests/test_dispatch.py	test_jit_pad_safe_svd	11	SVD factor (§1.5 item 11)
+UB	tests/test_dispatch.py	*	12	U = uniform (§1.5 item 12 names test_dispatch.py:1705-1708)
+UF	tests/test_dispatch.py	*	12	U = uniform (§1.5 item 12 names test_dispatch.py:1705-1708)
+UF1	tests/test_dispatch.py	*	12	U = uniform (§1.5 item 12 names test_dispatch.py:1705-1708)
+UF_np	tests/test_dispatch.py	*	12	U = uniform (§1.5 item 12 names test_dispatch.py:1705-1708)
+UV	tests/test_dispatch.py	*	12	U = uniform (§1.5 item 12 names test_dispatch.py:1705-1708)
+UVS	tests/test_dispatch.py	*	12	U = uniform (§1.5 item 12 names test_dispatch.py:1705-1708)
+UW	tests/test_dispatch.py	*	12	U = uniform (§1.5 item 12 names test_dispatch.py:1705-1708)
+Usc	tests/test_dispatch.py	*	12	U = uniform (§1.5 item 12 names test_dispatch.py:1705-1708)
+GU	tests/test_sharing.py	*	12	the shared uniform geometry (U = uniform)
+Q	tests/test_sharing.py	*	2	QR factor
+svd_U	tests/test_sharing.py	*	2	SVD factor (§1.5 item 11 names :478)
+UB	tests/test_uniform_frame_variations_format.py	*	12	U = uniform (§1.5 item 12 names :398)
+UV	tests/test_uniform_frame_variations_format.py	*	12	U = uniform (§1.5 item 12 names :398)
+O	tests/test_uniform_probing.py	_check_probe	13	an order count O (§1.5 item 13 names test_uniform_probing.py:213-219; 826, 898 are the same)
+O	tests/test_uniform_probing.py	_check_apply	13	an order count O (§1.5 item 13 names test_uniform_probing.py:213-219; 826, 898 are the same)
+O	tests/test_uniform_probing.py	_check_entries	13	an order count O (§1.5 item 13 names test_uniform_probing.py:213-219; 826, 898 are the same)
+O	tests/test_uniform_probing.py	_tangent_wrappers	13	an order count O (§1.5 item 13 names test_uniform_probing.py:213-219; 826, 898 are the same)
+O	tests/test_uniform_probing.py	_corewise_wrappers	13	an order count O (§1.5 item 13 names test_uniform_probing.py:213-219; 826, 898 are the same)
