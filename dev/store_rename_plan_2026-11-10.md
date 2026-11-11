@@ -1,11 +1,11 @@
-# The store rename — plan (draft 22, writer, 2026-11-11)
+# The store rename — plan (draft 23, writer, 2026-11-11)
 
-> **Status:** draft 22: Nick's rulings of 2026-11-11, critic rounds 1–21 (`dev/store_rename_plan_review_r{1,…,21}.md`),
+> **Status:** draft 23: Nick's rulings of 2026-11-11, critic rounds 1–22 (`dev/store_rename_plan_review_r{1,…,22}.md`),
 > Nick's decisions on every open item, and his review of the sample edits (`dev/store_rename_sample_edits.md`; edits
 > 1–7 approved as written, 8–10 ruled on for draft 15) and the second batch (`dev/store_rename_sample_edits_2.md`; its
 > recommended forms approved, its §12 issues fixed in draft 17), Nick's two rulings of draft 18, and the third batch (`dev/store_rename_sample_edits_3.md`; its §12 issues
-> fixed in draft 20 with the session's rulings, its §13), R1's findings (draft 21), and Nick's variation-letter rule (draft 22). **The critic agreed
-> in round 22** (`dev/store_rename_plan_review_r22.md`). Next: the
+> fixed in draft 20 with the session's rulings, its §13), R1's findings (draft 21), Nick's variation-letter rule (draft 22) and the session's V1–V5 rows (draft 23). **The critic
+> agreed in round 23** (`dev/store_rename_plan_review_r23.md`). Next: the
 > implementer/reviewer slices R1–R6 (§7).
 > **Breaking**; the first item of 2026.5.0. The glossary update and the 601-row docs-consistency pass
 > (`dev/glossary_naming_decisions.md`) run after it, on the renamed code.
@@ -20,6 +20,13 @@
 
 *History only: the record of how the plan got here. The instructions are the numbered sections below; where a CHANGES
 line and a section differ, the section governs.*
+
+**Draft 23 (the session's V1–V5 rulings under the V/H rule).**
+
+- Tangent-coordinate variation names take `V`/`H`: `_tangent_z_jets_step` `dU→V`; `test_jet_recurrence._problem`
+  `dU, dG → V, H` (keywords and the string keys, B7); `test_probe_derivatives._var` `dU→V` (with `dG→H`, its pair) and
+  `dU_v, dG_v → V_v, H_v` in four functions; `tv_operations.py:400–401` reads `H_i`, `V_i`. The derivative sense keeps
+  the core's letter. §3 states the distinction once. The four point-lettered locals stay held for Nick.
 
 **Draft 22 (Nick: "Tucker variations are V and TT variations are H. The D U L R are for the frames.").**
 
@@ -379,6 +386,7 @@ substitution is **simultaneous**: one lookup per token and one pass per file, ne
 | B4 scoped letter strings | STRING `'U'`→`'D'`, `'O'`→`'U'`, `'P'`→`'L'`, `'Q'`→`'R'` (simultaneous) | `tests/test_jet_recurrence.py` only: the 34 dict keys `p['O']`, `p['P']`, `p['Q']`, … (its `dict(U=…, O=…)` keywords are NAMEs, tier C). Elsewhere a `'U'` string is untouched, except by B5 |
 | B5 scoped T3 strings | STRING `'U'`→`'B'`, the T3 Tucker kind (D-6) | `tests/test_tucker_tensor_train.py:2236, 2255, 2283, 2301, 2370, 2391` (`kind == 'U'`, `replace(x, 'U', …)`, `('U', dU)`), with that file's `dU→dB` (tier C's B rows), so each call site and its comparison flip together |
 | B6 scoped string keys | STRING `'dU'`→`'dB'`, the corewise Hessian's Tucker block in the oracles' state dicts (D-12) | `tests/backend/_curvature_oracles.py:423, 464, 543` and `tests/backend/test_curvature.py:740, 751, 756, 1328, 1335, 1338` (`st['dU']`, written and read together, like B5) |
+| B7 scoped string keys | STRING `'dG'`→`'H'` (the dict key, 8 sites `p['dG']`; `p['dU']` is never read) and the label `'apply transpose dU (…)'`→`'apply transpose dD (…)'` (a transpose output, the derivative sense) | `tests/test_jet_recurrence.py` only (`:104–114`, `:153`), with `_problem`'s `dU=`/`dG=`→`V=`/`H=` |
 
 Tier C, letters (NAME tokens, simultaneous within each row; inv 2 §8's per-file maps, amended):
 
@@ -400,9 +408,9 @@ Tier C, letters (NAME tokens, simultaneous within each row; inv 2 §8's per-file
 | `backend/probing.py` | `U→D, O→U, P→L, Q→R, Ud→Dd, Pd→Ld, rev_Q→rev_R` (no `L`, `R` or `D` local exists there) |
 | `backend/sampling_derivatives.py` | `U→D, O→U, P→L, Q→R, P_dot→L_dot, Q_dot→R_dot, P_cores→L_cores, P_cores_dot→L_cores_dot, Pxi→Lxi, dPxi→dLxi, Qxi→Rxi, rev_Q→rev_R, Ud→Dd, Od→Ud, mO→mU, On→Un, dmO→dmU, dOn→dUn, Odxi→Udxi` (no `L`, `R` or `D` local exists there) |
 | `backend/apply.py`; `backend/entries.py` (361–363) | `O→U, Q→R`; `D→n_cores` (the core count, beside the Tucker cores) |
-| the `U` family (D-12) | §1.2a's site list, function by function: `B` forms (`Bdot`, `Bdot_g`, `dB`, `Bd`, `gB`, `gBk`, `Bg`, `gYB`) for a direction or gradient of a point's own Tucker cores; `D` forms (`dD`, `Dd`, `gD`, `dD_t`, `dD0`, `dD_v`, `dD_tilde`, `dD_tildes`, `dD_sum`) for a frame down core's variation or direction. The `G` family (`dG`, `Gdot`, `Gd`) is the library's TT letter and stays. Exceptions: `tv_operations.py:292–331`'s `dU = tt_variations[i]` is a TT variation, so it becomes `H` (hand row); `o1_ragged.py`'s and `o1_uniform.py`'s `Ud` ("u dense") stay |
+| the `U` family (D-12) | §1.2a's site list, function by function: `B` forms (`Bdot`, `Bdot_g`, `dB`, `Bd`, `gB`, `gBk`, `Bg`, `gYB`) for a direction or gradient of a point's own Tucker cores; `D` forms (`dD`, `Dd`, `gD`, `dD_t`, `dD0`, `dD_tilde`, `dD_tildes`, `dD_sum`) for a derivative with respect to a frame down core; `V`/`H` for a tangent-coordinate variation (§3, the session's V1–V5 rows in §1.2a). The `G` family (`dG`, `Gdot`, `Gd`) is the library's TT letter and stays. Exceptions: `tv_operations.py:292–331`'s `dU = tt_variations[i]` is a TT variation, so it becomes `H` (hand row); `o1_ragged.py`'s and `o1_uniform.py`'s `Ud` ("u dense") stay |
 | σ̂ locals (D-1) | `sh→sig_hat`, `shd→sig_hat_d`, function-scoped: `sampling_derivatives.py` (`sh` 2159, 2167, 2201–2204, 3188–3220; `shd` 3188–3220), `apply.py` (493–501, 539–542), `tests/_jet_trs_twins.py` (213–215), `tests/backend/test_curvature.py` (`test_apply_tt_assembly_is_the_three_term_product_rule`, 1063–1066; 3 + 2 tokens). The shape locals `sh` stay (§1.5 item 14): `sampling_derivatives.py:1693–1694` (`_flatten_w`, a shape tuple), `backend/fitting.py:162–163`, the uniform tests |
-| T4S test twins | `tests/_jet_trs_twins.py`: `O→U, P→L, Q→R, P_cores→L_cores, rev_Q→rev_R`. `tests/test_jet_recurrence.py`: `U→D, O→U, P→L, Q→R` in `_problem` (49–68), plus B4. In `test_uniform_equals_ragged` (163–200) the RNG helper `R` is on §1.5's list, so the frame-core locals there take a `c` suffix: `O→Uc, P→Lc, Q→Rc`. The RNG `R` at 166, 208, 228 is untouched. `Q→R` is mapped only in the files listed; `test_probe_derivatives.py:488, 497` keeps its RNG `R` |
+| T4S test twins | `tests/_jet_trs_twins.py`: `O→U, P→L, Q→R, P_cores→L_cores, rev_Q→rev_R`. `tests/test_jet_recurrence.py`: `U→D, O→U, P→L, Q→R, dU→V, dG→H` in `_problem` (49–68; the `dict` keywords `dU=`, `dG=` with them), plus B4 and B7. In `test_uniform_equals_ragged` (163–200) the RNG helper `R` is on §1.5's list, so the frame-core locals there take a `c` suffix: `O→Uc, P→Lc, Q→Rc`. The RNG `R` at 166, 208, 228 is untouched. `Q→R` is mapped only in the files listed; `test_probe_derivatives.py:488, 497` keeps its RNG `R` |
 | tests that mirror a mapped module | `tests/backend/_uniform_padded_frame_testing.py`, `tests/backend/test_uniform_padded_frame.py` and `tests/backend/test_padded_start.py` (290–307): `U→D, O→U, Uu→Du, Ou→Uu`. `tests/backend/test_padded_frame.py` (111, 135–139, 205–216, 619–629): `U0→D0, O0→U0, U→D, O→U` (inv 1 §7 gives `D0, U0, L0, R0 = old`). `tests/test_uniform_frame_variations_format.py`: `U_r→D_r, U_u→D_u` (958–959 by row). `tests/test_dispatch.py:1986`: `U_3→D_3`, a comment only ("`U_3` Haar-completed"; there is no NAME `U_3`), so an R4a prose row |
 | every other CL row (critic r1 M2, r9) | **R1's enumerated list** `dev/store_rename_letter_sites.md`: one row per occurrence, `(file, function, token → image)`, for every CL row of inv 1 §7 and App. A, every CORE-LETTER entry of inv 2 §8 not in the rows above, and every §3.4 hit classified as a frame core. R2 applies that list and nothing else; no rule map is applied. Files expected on it: `test_frame_variations_format.py`, `test_manifold.py`, `test_uniform_manifold.py`, `test_curvature.py`, `test_uniform_curvature.py`, `_curvature_oracles.py`, `test_tv_operations.py`, `test_sharing.py` (its frame `UU, OO` at 576–598; its `U_rows` are in the B and D rows below), `test_optimizers.py:533`, `test_zero_reference.py:94`, `test_contractions_sharding.py:199`, `test_fitting.py:8`. A row whose token has another meaning (§1.5) is excluded, with its reason. Gate: R1 shows every CL row and every classified hit on the list |
 | dense oracles | `tests/backend/_padded_frame_oracles.py` and `test_padded_start.py` (566–580), function-scoped: `D→dense, oldD→old_dense, curD→cur_dense, U→D, Uo→Do, Uc→Dc, E→U, Eo→Uo, Ec→Uc`. `D` is the dense frame there, and `E` the core → leaf basis, now the up edge. `Uc` in the SVD helper (:54) and `Uy` are SVD factors and stay. The oracle's letter API (`dense_pass(update='ULRO')`, `'U' in update`, the `zip('ULRO', …)` keys) goes to R3 with the library's. For one convention, the remaining dense-frame names become words: `startD`, `Da`, `Db` (`_padded_frame_oracles.py:123–178`) and `startD` and `D` in `test_padded_start.py:478–481` → `start_dense`, `dense_a`, `dense_b`, `dense` |
@@ -508,7 +516,8 @@ scan, except the two dispositions in tier C's B rows.
   - `probing.py`: `_assemble_tucker_variations_core` (`dU_tilde→dD_tilde`), `assemble_tucker_variations`,
     `tv_probe_transpose_from_sweep`, `tv_probe_transpose` (`dU_tildes→dD_tildes`), `_deta_tilde_tangent_step`
     (`Ud→Dd`, beside its `U→D`).
-  - `sampling_derivatives.py`: `_tangent_z_jets_step` (`dU→dD`, beside `U→D`), `_assemble_tucker_variation_jets_dense`,
+  - `sampling_derivatives.py`: `_tangent_z_jets_step` (`dU→V`, beside `U→D`: a tangent's Tucker variation, V1),
+    `_assemble_tucker_variation_jets_dense`,
     `tv_probe_transpose_derivatives_from_sweep`, `_apply_derivatives_transpose_from_jets` (`dU_tildes→dD_tildes`),
     `_apply_transpose_assemble_core` (`dU→dD`, `dU_t→dD_t`), `_deta_tilde_tangent_jets_step` (`Ud→Dd`, beside `U→D`).
   - `utv_sampling.py`: the seven transposes and `_remasked_transpose_output` (`dU_tilde→dD_tilde`).
@@ -517,10 +526,11 @@ scan, except the two dispositions in tier C's B rows.
     doctest at :816–818 (`dU_sum→dD_sum`).
   - Tests: `_jet_trs_twins.py`: `apply_derivatives_transpose_trs` (`gU→gD`, the spec string, and `dU→dD`).
     `tests/backend/test_from_sweep_reuse.py`: `_bare_to_dense`, `test_transposes_per_element` (`dU→dD`). `test_jet_recurrence.py`:
-    `_problem` (`dU→dD`, the `dict` keyword included). `test_manifold.py`: `test_tangent_apply_transpose_kstack`
+    `_problem` (`dU, dG → V, H`, the `dict` keywords and B7's string keys included; V2). `test_manifold.py`: `test_tangent_apply_transpose_kstack`
     (`dU→dD`). `test_probe_derivatives.py`: `test_tangent_transpose_adjoint_identity`,
     `test_tangent_transpose_K_stacked`, `test_apply_entries_transpose_adjoint_identity`, `test_adjoint_identities`
-    (`dU→dD`, `dU0→dD0`, `dU_v→dD_v`), `_var` (`dU→dD`).
+    (the transpose outputs `dU→dD`, `dU0→dD0` stand; the tangent's variations `dU_v, dG_v → V_v, H_v`, V4), `_var`
+    (`dU→V`, V3, with its pair `dG→H`). `V`, `H`, `V_v`, `H_v` are free in each function.
 - **Text** (R4a/R4b hand rows, the same rule): `B` forms at `backend/fitting.py:374, 380, 389`
   (`corewise_hessian`: `theta_hat = (Bdot, Gdot)`, raw `(dB, dG)`), `ut3_sampling.py:114, 231`, `entries.py:290`, `t3_linalg.py:946, 948`
   (`zBdot_i = B_z,i Bdot_i^T`, `zB_i`), `fv_operations.py:559, 562`, `geometry.py:451`, `ufv_operations.py:526`,
@@ -533,8 +543,8 @@ scan, except the two dispositions in tier C's B rows.
   `down_tucker_cores[_dot]`: their API names the frame's down store, so their map bodies `_deta_tilde_tangent_step`
   and `_deta_tilde_tangent_jets_step` read `D, Dd`. The reason is the A1 keyword, not the call graph (their one library
   caller is the corewise Hessian). `_tangent_z_jets_step` (`assemble_tangent_z_jets`) has no A1 keyword; its
-  direction is `var_tucker_cores` (`dU`, shape `(nOi, Ni)`), a tangent's Tucker variation `V`, so it is `dD` by the
-  object test itself. The oracle twin `deta_tilde_tangent_jets_trs` has no store keyword and takes θ's directions from
+  direction is `var_tucker_cores` (`dU`, shape `(nOi, Ni)`), a tangent's Tucker variation, so it is `V` (the
+  tangent-coordinate sense, §3). The oracle twin `deta_tilde_tangent_jets_trs` has no store keyword and takes θ's directions from
   its corewise callers, so it is `Bd`; twin and kernel read differently by design. The draft-16 re-check applied
   the test "a point's own core or its direction → `B` form; a frame down core or its variation → `D` form" to every
   row above: the only change was `utv_corewise_retract` (critic r15) and `fitting.py:351`, a frame-generic transpose
@@ -870,7 +880,11 @@ itself.
 - **Variations are `V` and `H`; `D`, `U`, `L`, `R` are the frames** (Nick, 2026-11-11). Variation cores are `V`
   (Tucker) and `H` (TT) everywhere; a frame letter names a frame core only; a derivative or gradient with respect to a
   frame core takes that core's letter (`dD_tildes`, `Ddot`, `δD_i`); `B`, `G` name a point's own cores and their
-  directions (§1.2a, K17).
+  directions (§1.2a, K17). **Two senses of a variations container** (the session, 2026-11-11): in the
+  *tangent-coordinate* sense, a tangent's Tucker and TT variation cores, the names are `V`/`H` (`V`, `H`, `V_v`,
+  `H_v`); in the *derivative* sense, a gradient or transpose output with respect to a frame core, even when carried in
+  a `T3Variations`, the name keeps the core's letter (`dD_tildes`, `dD_t`, `Ddot`, the notes' `δD_i`, which `V_i`
+  carries). `G`-family derivative names (`dG_tildes`) are untouched.
 - **No `D` is a diagonal.** Every diagonal is spelled `diag(…)`; the one `D⁻¹` (`tests/backend/test_optimizers.py:344`)
   is in an unrelated equation (inv 3 §2, inv 1 C5).
 - **The jet shifts.** These are the library's own notation, not T4S's: forward `D x = [t x^(t-1)]_t` and reverse
@@ -930,8 +944,10 @@ itself.
     point's own cores, `dD`, `Dd`, `dD_tilde` for a frame down core; in prose `Ḃ`/`δD` likewise. Pairs stay symmetric
     with the unchanged `G` family: `(dB, dG)`, `(Bdot, Gdot)`, `(dD, dG)`.
   - A `U`-family name not on that list is not renamed without asking.
-  - One site misnames a variation: `tv_operations.py:292–331`'s `dU = tt_variations[i]` → `H`. And `:401`'s
-    `dU_i = <O_i, core_env_i>` becomes `dD_i = <U_i, core_env_i>`. No other site.
+  - One site misnames a variation: `tv_operations.py:292–331`'s `dU = tt_variations[i]` → `H`. And `:400–401`'s
+    "`dG_i = <U_i, core_env_i>` (the TT variation) and `dU_i = <O_i, core_env_i>` (the Tucker variation; `O` = the
+    outer/down cores)" becomes "`H_i = <D_i, core_env_i>` (the TT variation) and `V_i = <U_i, core_env_i>` (the Tucker
+    variation; `U` = the up cores)" (V5). No other site.
   - A point given by a frame's stores is written in store letters at exactly these sites: `fitting.py:380` (`(U, P)` →
     `(D, L)`), `ut3_sampling.py:374`, `shared_geometry.py:45`, `tv_operations.py:504, 506, 549` (`theta = (U, L)` →
     `theta = (D, L)`), and `curvature_internals.md:29, 47, 65–67`. More sites go to R1's list with the reviewer's
