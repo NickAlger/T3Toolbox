@@ -184,6 +184,15 @@ own jet-shift letters D/U get new symbols; each note gets one historical corresp
 unique sentinels (old token → sentinel → new token) so any surviving sentinel fails a grep. RETRACTED: "stale same-spelling
 code fails on a shape check" — at a minimal frame both stores have equal ranks, so stale code is silently wrong; the
 release notes say so plainly.
+PLAN AGREED (draft 6, 6bc3779d; reviews r1-r6) — then two more rulings 2026-11-11: (i) D-8 AMENDED: pictures and
+equations keep COMPACT letters (`r_R(d-1)` does not fit over an edge); (ii) the WIDTH symbols keep the house nomenclature
+`nU, nD, rL, rR` EVERYWHERE in code (shape comments, identifiers, keywords, properties) with the postfix letter naming
+the store (`nD` = Tucker factor's width = today's `nU`; `nU` = TT-shaped core's width = today's `nD`/`nO`) — NO
+`n_up`/`n_down`/`r_left`/`r_right`; "no letters in the API" narrows to `update` (words); the width keywords become
+same-spelling silent swaps; D-3/D-8 resolved. §4A: diagrams and equations are hand-only, first-class (inventory in R1,
+fences K11, completion gate K12, alignment K10/K10b, before/after shown to Nick) — Nick's standing concern, see memory
+`feedback-diagrams-are-first-class`. Round 7 (the width ruling) in progress; then Nick's remaining decisions (D-1 shift
+symbol Λ/ℓ, D-2, D-4, D-5, D-9..D-11, B on the T3 pages) and R1.
 
 **2026.5.0 IN PROGRESS (2026-11-10): (a) the glossary (COMMITTED 3fc91855 with the OLD store words — correct for the
 released 2026.4.0; updated in the rename slice) — three scouts wrote `dev/glossary_candidates_{A_user_docs,
