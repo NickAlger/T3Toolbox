@@ -1,11 +1,11 @@
-# The store rename — plan (draft 24, writer, 2026-11-11)
+# The store rename — plan (draft 25, writer, 2026-11-11)
 
-> **Status:** draft 24: Nick's rulings of 2026-11-11, critic rounds 1–23 (`dev/store_rename_plan_review_r{1,…,23}.md`),
+> **Status:** draft 25: Nick's rulings of 2026-11-11, critic rounds 1–25 (`dev/store_rename_plan_review_r{1,…,25}.md`),
 > Nick's decisions on every open item, and his review of the sample edits (`dev/store_rename_sample_edits.md`; edits
 > 1–7 approved as written, 8–10 ruled on for draft 15) and the second batch (`dev/store_rename_sample_edits_2.md`; its
 > recommended forms approved, its §12 issues fixed in draft 17), Nick's two rulings of draft 18, and the third batch (`dev/store_rename_sample_edits_3.md`; its §12 issues
-> fixed in draft 20 with the session's rulings, its §13), R1's findings (draft 21), Nick's variation-letter rule (draft 22) the session's V1–V5 rows (draft 23) and Nick's shape rule (draft 24). **The critic
-> agreed in round 25** (`dev/store_rename_plan_review_r25.md`). Next: the
+> fixed in draft 20 with the session's rulings, its §13), R1's findings (draft 21), Nick's variation-letter rule (draft 22) the session's V1–V5 rows (draft 23) Nick's shape rule (draft 24) and R2's record (draft 25). **The critic agreed in round 26**
+> (`dev/store_rename_plan_review_r26.md`). Next: the
 > implementer/reviewer slices R1–R6 (§7).
 > **Breaking**; the first item of 2026.5.0. The glossary update and the 601-row docs-consistency pass
 > (`dev/glossary_naming_decisions.md`) run after it, on the renamed code.
@@ -20,6 +20,11 @@
 
 *History only: the record of how the plan got here. The instructions are the numbered sections below; where a CHANGES
 line and a section differ, the section governs.*
+
+**Draft 25 (R2's record, `dev/store_rename_slices/R2_handoff.md` §3, §6).**
+
+- Three rows R2 applied with the reviewer's approval, under the shape rule: `dG1→H1`, and `dG_tilde(s)→H_tilde(s)` in
+  the three TT assembly kernels (§1.2a). §4.6 records the seven messages and tests hand-edited in R2.
 
 **Draft 24 (Nick: "in most cases the dU notation is there for no good reason, and should be V or H. I don't think a
 D-shaped peg can fit into a V-shaped hole").**
@@ -479,7 +484,7 @@ row.
   its function (ast):
   - `tv_operations.py`, `tv_orthogonal_gauge_projection`: `dB→V` (`:136–138`, over `tucker_variations`) and `dV→H`
     (`:129–131`, over `tt_variations`: a TT variation spelled `V`); `tv_oblique_gauge_projection` (`:184–190`):
-    `dB→V`, `dB_parallel→V_parallel`, `dG→H`;
+    `dB→V`, `dB_parallel→V_parallel`, `dG→H`, `dG1→H1` (R2, reviewer-approved; a `(rL, nD, rR)` TT variation);
   - `t3_linalg.py`, `_inner_product_variations_step` (`:682–694`): `dG→H` (comment `C+(rLi,nUi,rR(i+1))`, the old
     Tucker width, so `(rL, nD, rR)`) and `dB→V` (comment `C+(nOi,Ni)`, so `(nU, N)`): no `dD`;
   - `utv_operations.py`, `utv_project_ut3_onto_tangent_space` (`:600–615`): `dG→H` (`(rL, nU, rR)` old, `(rL, nD, rR)`
@@ -526,11 +531,13 @@ draft-24 scan, except the dispositions noted (tier C's B rows; `_bare_to_dense`)
     `dU-tilde_k = dxi-hat_k (x) w_k  # over (nO, N)` → `V~_k = …  # over (nU, N)` and `dG-tilde_k` → `H~_k`).
   - `probing.py`: `_assemble_tucker_variations_core` (`dU_tilde→V_tilde`; `(nOi,Ni)`), `assemble_tucker_variations`
     (`dU_tildes→V_tildes`), `tv_probe_transpose_from_sweep` and `tv_probe_transpose` (`dU_tildes→V_tildes`,
-    `dG_tildes→H_tildes`; `:1230–1235`).
+    `dG_tildes→H_tildes`; `:1230–1235`); the TT assembly kernels `_assemble_tt_variations_core` (`dG_tilde→H_tilde`)
+    and `assemble_tt_variations` (`dG_tildes→H_tildes`), which hold `(rL, nD, rR)` arrays (R2, reviewer-approved).
   - `sampling_derivatives.py`: `_tangent_z_jets_step` (`dU→V`, V1), `_assemble_tucker_variation_jets_dense`
     (`dU_tildes→V_tildes`; `:1482`), `tv_probe_transpose_derivatives_from_sweep` and
     `_apply_derivatives_transpose_from_jets` (`dU_tildes→V_tildes`, `dG_tildes→H_tildes`; `:2227–2228`),
-    `_apply_transpose_assemble_core` (the spec strings' names `dU→V`, `dG→H`, and `dU_t→V_t`, `dG_t→H_t`).
+    `_apply_transpose_assemble_core` (the spec strings' names `dU→V`, `dG→H`, and `dU_t→V_t`, `dG_t→H_t`),
+    `_assemble_tt_variation_jets_dense` (`dG_tildes→H_tildes`, `(rL, nD, rR)`; R2, reviewer-approved).
   - `utv_sampling.py`: the seven transposes and `_remasked_transpose_output` (`dU_tilde→V_tilde`, `dG_tilde→H_tilde`;
     `:439–440`).
   - `manifold.py`: `probe_transpose` (`dU_tildes→V_tildes`, `dG_tildes→H_tildes`), `apply_transpose`,
@@ -1110,7 +1117,10 @@ rulings need their own inventory before any slice applies them.
 6. **Messages that name a store** (the `str` rows of inv 2 §9) and the 12 tests that assert on them (inv 1 §1.2:
    `test_padded_frame.py:405, 409, 732, 737, 760`, `test_uniform_padded_frame.py:303, 320, 518, 551`,
    `test_padded_start.py:277/283, 291/296`, `test_frame_variations_format.py:562`). These go in R2, so the suite stays
-   green.
+   green. **Done in R2** (`R2_handoff.md` §3, §6): seven hand edits, the four the preview showed failing (the regexes
+   at `test_padded_frame.py:405, 409, 760` and `test_uniform_padded_frame.py:303`, with the messages
+   `padded_frames.py:102` and `uniform_padded_frames.py:196`) plus `uniform_padded_frames.py:225, 657, 682` ("up" →
+   "down" for the Tucker store), whose tests `test_uniform_padded_frame.py:320, 551` match them.
 7. **D-5 in the note and the internals page.**
 8. **The four tex notes, converted (R5)**: frame letters and widths in the new meaning, a T3's own Tucker cores as `B`
    (D-6), the T4S line in each, `sh` and `d` (§3.1). Each letter-bearing line is classified in §3.4's inventory: a
