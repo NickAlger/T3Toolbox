@@ -21,6 +21,7 @@ and a mask-based **uniform** (padded, GPU/`jit`-friendly) mirror of the whole st
 
    getting_started
    user_guide
+   glossary
    design_notes
    contributor_guide
    api_reference

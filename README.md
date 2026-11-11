@@ -132,6 +132,7 @@ for the full tour with verified outputs.
 
 https://nickalger.github.io/T3Toolbox/ — [getting started](https://nickalger.github.io/T3Toolbox/getting_started.html),
 [user guide](https://nickalger.github.io/T3Toolbox/user_guide.html),
+[glossary](https://nickalger.github.io/T3Toolbox/glossary.html),
 [design notes](https://nickalger.github.io/T3Toolbox/design_notes.html), and the full
 [API reference](https://nickalger.github.io/T3Toolbox/api_reference.html) (frontend **and**
 backend — the backend is a first-class, fully documented surface). Worked end-to-end fitting
