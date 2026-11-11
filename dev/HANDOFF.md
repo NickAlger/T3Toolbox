@@ -27,7 +27,15 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
-**State (2026-11-11). THE STORE RENAME IS IN IMPLEMENTATION (release 2026.5.0, breaking).** Nick spot-checked all three
+**State (2026-11-11). THE STORE RENAME IS IN IMPLEMENTATION (release 2026.5.0, breaking). R1 COMMITTED (a380d198):
+tools and inventories only. Plan at draft 25 (098c61bd). Rulings during R1: `up_more/up_shared` and `um/dm` are stores;
+Nick: "Tucker variations are V and TT variations are H; D U L R are for the frames" and "shape decides the letter — a
+D-shaped peg cannot fit a V-shaped hole": any `(nU, N)` array is V-family, `(rL, nD, rR)` H-family, `(nD, N)` D (frame)
+or B (point); `d`-prefixed derivative names survive only at the core's own shape (the corewise frame's dB/dG); so the
+transpose outputs `dU_tildes`→`V_tildes` etc., the notes' gauged coordinates δD→V, and the four pre-existing
+point-lettered variation locals are renamed by shape. K17 enforces it. Implementer `a4d06609b499890d5`, reviewer
+`a8a004aa870e237f9` (persistent; respawn with the brief below if gone). NEXT: R2 (the scripted pass; review stop with Nick
+after it).** Nick spot-checked all three
 sample-edit files and approved starting. PLAN: `dev/store_rename_plan_2026-11-10.md` (draft 20, c2d53b41; reviews
 `dev/store_rename_plan_review_r1..r20.md`; sample edits `dev/store_rename_sample_edits{,_2,_3}.md` with Nick's approvals
 and the session's §13 review). SLICES R1-R6 (plan §7): R1 tools and inventories only (dry-run script + hit table,
