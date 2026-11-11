@@ -2,7 +2,8 @@
 
 > **Status:** draft 16: Nick's rulings of 2026-11-11, critic rounds 1–14 (`dev/store_rename_plan_review_r{1,…,14}.md`),
 > Nick's decisions on every open item, and his review of the sample edits (`dev/store_rename_sample_edits.md`; edits
-> 1–7 approved as written, 8–10 ruled on for draft 15). **The critic agreed in round 16** (`dev/store_rename_plan_review_r16.md`). Next: the
+> 1–7 approved as written, 8–10 ruled on for draft 15). **The critic agreed in round 16** (`dev/store_rename_plan_review_r16.md`); the session's dispositions of the
+> writer's four flags were added after it. Final at draft 16, pending the second sample-edit batch. Next: the
 > implementer/reviewer slices R1–R6 (§7).
 > **Breaking**; the first item of 2026.5.0. The glossary update and the 601-row docs-consistency pass
 > (`dev/glossary_naming_decisions.md`) run after it, on the renamed code.
@@ -27,6 +28,13 @@ line and a section differ, the section governs.*
 - **R1 checks that every new `B`/`D` name is free in its function** (ast; nested-def parameters excepted). The scan
   found two clashes, each with a listed disposition: `vertical_direction`'s TT gauge matrix `B` → `M`, and
   `test_derivative_kinds`'s direction `dU` → `dB_dir` (`dB` is its data batch).
+- **The session's dispositions of the writer's four flags (after r16):**
+  - `θ = (D, L)` beside `θ̂ = (Bdot, Gdot)` is correct under D-12; one sentence at the first site says so (§1.2a).
+  - PB20's `R_k^{-1}` stays as the citation writes it, marked "(PB20's notation)"; `\mathcal{R}` is for the retraction
+    only (§4.8). This reverses draft 15's `\mathcal{R}_k^{-1}`.
+  - §4.8 justifies each proposed note letter (`K_i`, `F`, `X`, `Y`, `Z`).
+  - `O_ab_x`/`Oaxb` in the two orthogonalization kernels → `U_ab_x`/`Uaxb` (the up-orthogonal core the frame takes as
+    its up store); no site there names a point's own TT core, so no `G` row (§3.4, tier C).
 - **Critic r15:** `utv_corewise_retract`'s `dU` is a raw perturbation of the point's own cores, so `dB` (§1.2a), like
   the corewise lift and Hessians. Every row was re-checked against the same test; `fitting.py:351` (a frame-generic
   transpose) moved to `D`.
@@ -431,8 +439,11 @@ scan, except the two dispositions in tier C's B rows.
   change was `utv_corewise_retract` (critic r15) and `fitting.py:351`, a frame-generic transpose (`D`).
 - **Where the two letters meet.** A point given by a frame's stores keeps its store letters (`θ = (D, L)`, §3.3), and
   its raw direction takes `B` forms (`θ̂ = (Bdot, Gdot)`), because θ̂ moves the point's own raw cores. They sit side by
-  side in `tv_corewise_lift`'s docstring (`tv_operations.py:504, 506, 549`) and at `curvature_internals.md:65–67`;
-  the rewritten docstring says which is which.
+  side in `tv_corewise_lift`'s docstring (`tv_operations.py:504, 506, 549`) and at `curvature_internals.md:65–67`.
+  This is correct under D-12 (the session, 2026-11-11), and no letter changes. R4a adds one sentence at the first
+  site, `tv_operations.py:504`: "`θ = (D, L)` is written by the frame's stores it is built from (down, left); its
+  corewise direction `θ̂ = (Bdot, Gdot)` moves the point's own raw cores, so it takes `B`."
+
 
 ### 1.3 The scripts (in `dev/`, never imported by the library; R1 writes them)
 
@@ -568,7 +579,7 @@ with a store, but it is not a store.
    factors of an SVD, QR or eigendecomposition.
    - Sites include `linalg.py`, `t3_svd.py`, `ut3_svd.py`, `tt_orthogonalization.py`, `sharing.py`,
      `uniform_padded_frames.py` (`Us`), the SVD locals of `ut3_orthogonalization.py` and `t3_orthogonalization.py`
-     (incl. their `O_ab_x`/`Oaxb`, §3.4), `fv_operations.py:284–285`, `tests/backend/test_linalg.py`,
+     (their `O_ab_x`/`Oaxb` are renamed instead, §3.4), `fv_operations.py:284–285`, `tests/backend/test_linalg.py`,
      `test_sharing.py:372`, `test_padded_frame.py:99`, `test_padded_start.py:582`, `_padded_frame_oracles.py:164`,
      `test_dispatch.py:163, 2095` (a QR's `P`), and the padded-frame note's matrix proof (`A = UΣVᵀ`).
    - R1's `dnt.txt` is the authority, not this list.
@@ -808,11 +819,17 @@ rulings need their own inventory before any slice applies them.
     `test_uniform_curvature.py:99–100, 249`, `test_tv_operations.py:151`, `test_dispatch.py:337`, `test_manifold.py:683`,
     `test_from_sweep_reuse.py`'s `dU`. A row already on R1's letter list is counted once. (`_curvature_oracles.py`'s
     and `test_curvature.py`'s θ cores and `test_optimizers.py:298–306` are now rows: tier C's B rows, §1.2a.)
-  - the `O` family outside tier C's files: `t3_orthogonalization.py:118–120` (`O_ab_x`, `Oaxb`: the up-orthogonal TT
-    core, beside the T3's input Tucker core, now `Bio`) and `ut3_orthogonalization.py:201–208`. Disposition: **kept**.
-    They are SVD outputs (§1.5 item 2), and K8 carves them out; only the return comment's adjective is corrected in
-    prose. With `Uio→Bio`, `U_ab_x`/`Uaxb` would now also fit (an SVD factor; the up-orthogonal TT core); that is not
-    done without Nick's ruling. Also kept: `shared_t3_math.tex:358`'s `O_g`, a complement basis (K8
+  - the `O` family outside tier C's files, by the test "the up-orthogonal (frame-store) core → `U`; a point's own TT
+    core → `G`" (the session, 2026-11-11). Both kernels produce the up-orthogonal TT core that the frame takes as its
+    up store (`fv_conversions.py:185, 260`), so both sites are `U`:
+    - `t3_orthogonalization.py`, `_up_orthogonalize_tt_cores_step`: `O_ab_x→U_ab_x` (118, 120), `Oaxb→Uaxb` (120,
+      125), and the signature comment at :106 by hand ("`Uaxb`. up-orthogonal tt core").
+    - `ut3_orthogonalization.py`, `up_orthogonalize_tt_supercores`: `O_ab_x→U_ab_x` (201–208), and the return comment
+      at :189 by hand ("new_tt = up-orthogonal U").
+
+    No site in either module names a point's own TT core with an `O`, so there is no `G` row. The T3 method
+    `TuckerTensorTrain.up_orthogonalize_tt_cores` (`tucker_tensor_train.py:3227`) wraps the same output as the point's
+    own TT cores without a letter. Both names are free in their functions (R1's freeness check). Also kept: `shared_t3_math.tex:358`'s `O_g`, a complement basis (K8
     carves it out).
 - **R1 gate:** every hit is classified, every `U`-named NAME token included. R2's tier C and R4's L1/L2 apply only
   what the classification marks; a `B` or `D` row beyond those tier C lists joins `store_rename_letter_sites.md` only
@@ -874,26 +891,35 @@ rulings need their own inventory before any slice applies them.
      two tikz figures relabelled (inv 3 §3). θ's raw cores `U_i` (:103–105 and on) → `B_i`, beside the note's
      `B_{z,i}`; the product `BU_i`, `\dot{BU}_i` (:781–832) → `\hat B_i`, `\dot{\hat B}_i`, like the note's `\hat G_i`
      (z's cores in θ's basis; the code's `zB`). **The retraction is `\mathcal{R}`** (Nick, 2026-11-11):
-     `\mathcal{R}_X(t\zeta)` at :288 and `\mathcal{R}_x(p)` at :974, 976. Psenka & Boumal's `R_k^{-1}` at :382 and in
-     the PB20 entry at :1053 takes the same mark, `\mathcal{R}_k^{-1}`, per the ruling; it is an inverted factor of
-     their TT Weingarten map, not a retraction, and the notation paragraph says so. A plain `R` is then always the
-     right store.
+     `\mathcal{R}_X(t\zeta)` at :288 and `\mathcal{R}_x(p)` at :974, 976; `\mathcal{R}` is for the retraction only.
+     Psenka & Boumal's `R_k^{-1}` at :382 is an inverted factor in a quoted formula, not a retraction (the session,
+     2026-11-11): it stays as PB20 writes it, with "(PB20's notation)" added at that line. The PB20 bibliography
+     entry (:1053) is the citation itself and stays. Apart from that marked citation, a plain `R` is the right
+     store.
    - `symmetric_probe_derivatives.tex`: `D^t`→`\mathrm d^t` at :111 (its `P^t` is the direction and stays); the T3's
      own `\mathbf U_i` → `\mathbf B_i` (the plain `B` of :158–169, a bilinear map, differs by font and stays).
    - `shared_t3_math.tex`: the T3's own factors → `B_i`, `B_g` (the point algorithms of §2 and the corewise section
      :440–450); in the tangent sections (:318–420, 486–491) the frame's down store and its directions → `D_i`, `D_g`,
      `\dot D`, and the notation paragraph says that at a point in orthonormal representation `D_i` is `B_i`. A line
-     that holds both roles (the doubled factor `[U_g | \dot U_g]` at :472, 484) is classified symbol by symbol. To free `B`, the blocks `B_i \coloneqq U_i W_i` (:279–306) become `K_i` and the
-     tied coordinates `B` (:358, 551–566) become `F` (neither letter is used in the note). `n_{D,i}`→`n_{U,i}`,
-     "up-leg"→"Tucker leg"; `O_g` (a complement basis) kept.
+     that holds both roles (the doubled factor `[U_g | \dot U_g]` at :472, 484) is classified symbol by symbol. To
+     free `B` for the factors, two of the note's own `B`s move:
+     - `K_i` replaces the block `B_i \coloneqq U_i W_i` (:279–306), the mode-`i` block of the stacked matrix whose
+       column space the algorithm builds (`Q^\top K_i = R_{[i]} W_i`). `K` is used nowhere in the note; it is the
+       code's tangent-stack letter, but the note has no stacks.
+     - `F` replaces the tied coordinate matrix `B` (:358, 551–566): `\dot D = O_g F`, `C_i = F S_i`, and the Gram
+       `\operatorname{tr}(F(\sum_i \Gamma_i)F^\top)`. `F` is used nowhere in the note.
+
+     Also `n_{D,i}`→`n_{U,i}` and "up-leg"→"Tucker leg"; `O_g` (a complement basis) is kept.
    - `ttm_t3m_ht_note.tex`: the Tucker factors (the note's "leaf frames") `U_i`→`B_i`. Its operand labels `A`, `B`
-     and the product `C` (59 superscripts) become `X`, `Y`, `Z`, so `B` is not both a factor and an operand
-     (`t3m_methods.md` and the code write `x`, `y`).
+     and the product `C` (26, 24 and 9 superscripts) become `X`, `Y`, `Z`, so `B` is not both a factor and an operand:
+     `B^X_i \krrow B^Y_i` replaces `U^A_i \krrow U^B_i`. None of `X`, `Y`, `Z` is used in the note (its lowercase `x`
+     is the index of `\T[x]`, distinct by case); `X`, `Y` match the operands `x`, `y` of the code (`Bx`, `By`) and of
+     `t3m_methods.md` (`B_i^x \odot B_i^y`), and `Z` is the next letter for their product.
    - No other note has a retraction `R` beside an `R` store: `shared_t3_math.tex`'s `R(\T,\xi)` (:474) meets no right
      store, and `padded_frame_cone.tex`'s `R(\theta)` (:217–219) is a residual function. Both stay.
 
-   The `K_i`/`F` and `X`/`Y`/`Z` letters are the writer's proposals (draft 15); Nick confirms them on the PDFs at R5's
-   stop.
+   The `K_i`/`F` and `X`/`Y`/`Z` letters are the writer's proposals (draft 15); the session checks them when they
+   appear as sample edits, and Nick sees them on the PDFs at R5's stop.
 9. **Glossary** (inv 3 §5.2) and the 51 work-list rows (inv 3 §7; N4 and N17 resolve). The retired spellings are listed
    under "also: (2026.4.0 …)" for one release (BR §1.5). The symbol table gains `sh`, `Ψ` and the upright `d`, and loses
    `O`; `D`, `U`, `P` are rewritten.
@@ -1123,7 +1149,7 @@ test module (`test_frame_variations_format`, `test_uniform_frame_variations_form
 | K5 | old-order listings | `\(up, down, left` and `up/down/left/right` |
 | K6 | backwards phrases | `Tucker up-(?:SVD\|orth)`, `Tucker cores upward`, `TT cores downward`, `down-orthogonal O\b`, `up-orthogonal tucker`, `Down TT core` |
 | K7 | old shift and derivative notation | `\b[DU]\^[rku]\b`, `\[U\^`, `\b[DU] (?:x\|z\|jet)\b` (catches `D x =`, `# U jet,`, `[jet, D jet]`), `\bDPhi\b`, `\bD\^2 ?Phi\b`, `DΦ`, `D²Φ`; in tex `\\Dsh\|\\Ush\|D\\Phi\|D\^2\\Phi\|D_\\zeta` |
-| K8 | T4S letters left behind | `O` as a frame core in prose and code, matched only in frame-core contexts: `\bO\[`, `\bO\.shape\b`, `\bfor\s+O\s+in\b`, a letter tuple containing it (`\((?:\s*[A-Z]\w?\s*,)*\s*O\s*(?:,\s*[A-Z]\w?\s*)*\)`), a trailing tuple member `,\s*O\s*\)` (`(dxi~, O)`), `\(mu\^\(\w+\) O\)`, `\b(?:mu\S*\|nu) O\b`, `\bO (?:nu\|sigma\|tau)`, `` ``O`` `` and `` `O` `` in backticks, and `\\mathbf\s*\{?O`. §1.5 item 13's `O`s are carved out; in tex `\\delta\s*U\b`, `\\dot\s*U\b`, `\\dot\{U\}`; `O` as a core letter everywhere, fences included: `\bO(?:\d\|_[a-z]\|ᵢ\|i\b\|\(d-1\))`; `\b(?:O_i\|O_aib\|Oᵢ\|δU\|U_g)\b`, `U̇` (no trailing `\b`: it never matches after a combining mark), `outer[- ]orthogonal`; frame `P`/`Q` forms `\b[PQ]_(?:i\|last\|\{)`; the code names `\b(?:Udot\w*\|dU(?![a-z])\w*\|gU\|Ug)\b` (so the new `dUn`, from `dOn`, is not hit). Carve-outs: the T4S correspondence lines, the §3.4 inventory's keep list, and for the `O` pattern the oracle and review codes (`O1`, `O2`, `O-2`; inv 3 §9) and the kept `O_g` (`shared_t3_math.tex:358`), and the T3-level SVD outputs `O_ab_x`, `Oaxb` (`t3_orthogonalization.py:118–120`, `ut3_orthogonalization.py:201–208`) |
+| K8 | T4S letters left behind | `O` as a frame core in prose and code, matched only in frame-core contexts: `\bO\[`, `\bO\.shape\b`, `\bfor\s+O\s+in\b`, a letter tuple containing it (`\((?:\s*[A-Z]\w?\s*,)*\s*O\s*(?:,\s*[A-Z]\w?\s*)*\)`), a trailing tuple member `,\s*O\s*\)` (`(dxi~, O)`), `\(mu\^\(\w+\) O\)`, `\b(?:mu\S*\|nu) O\b`, `\bO (?:nu\|sigma\|tau)`, `` ``O`` `` and `` `O` `` in backticks, and `\\mathbf\s*\{?O`. §1.5 item 13's `O`s are carved out; in tex `\\delta\s*U\b`, `\\dot\s*U\b`, `\\dot\{U\}`; `O` as a core letter everywhere, fences included: `\bO(?:\d\|_[a-z]\|ᵢ\|i\b\|\(d-1\))`; `\b(?:O_i\|O_aib\|Oᵢ\|δU\|U_g)\b`, `U̇` (no trailing `\b`: it never matches after a combining mark), `outer[- ]orthogonal`; frame `P`/`Q` forms `\b[PQ]_(?:i\|last\|\{)`; the code names `\b(?:Udot\w*\|dU(?![a-z])\w*\|gU\|Ug)\b` (so the new `dUn`, from `dOn`, is not hit). Carve-outs: the T4S correspondence lines, the §3.4 inventory's keep list, and for the `O` pattern the oracle and review codes (`O1`, `O2`, `O-2`; inv 3 §9) and the kept `O_g` (`shared_t3_math.tex:358`) |
 | K0 | sentinels | `ZQX\d+_XQZ` anywhere (after pass 2) |
 | K8b | T4S string keys | `\[['"][OPQ]['"]\]` in `tests/test_jet_recurrence.py` (after B4, `p['U']` is the correct up-core key) |
 | K9 | residual store words, token-level (critic r1 M1, r2 MINOR 1) | every bare `up`, `down`, `Up`, `Down`, and every store-word index variable `\b(?:up\|down)_[a-z]\b` (`up_i`, `down_i`), in the COMMENT and STRING tokens of the final code tree (and every bare word in the docs after R5) must be one of three things: (a) an inventory keep row (ORTH, MSG, UNREL; inv 2 §9 keeps, inv 1 App. B–D, inv 3 §9, collected in R1 as `dev/store_rename_keeps.txt`); (b) a word whose aligned old-tree token was the opposite store word (`git diff` line alignment, then token position); or (c) part of a tier-E proposed text after §1.4's layering. Anything else fails. **Converse** (critic r3): every old-tree token on a keep row (ORTH, MSG, UNREL) survives unchanged at its aligned position, unless its line is a tier-E proposed text (e.g. §3.3's rewordings). So clause (b) cannot pass an adjective or a message direction flipped by mistake ("up-orthogonal" → "down-orthogonal" on a TT core, "contract up"), which K6's six phrasings would miss |
