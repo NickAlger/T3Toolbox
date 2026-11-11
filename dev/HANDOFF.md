@@ -175,6 +175,15 @@ inventory the whole library incl. docs (`dev/store_rename_inventory_{1,2,3}.md`)
 draft → writer/critic to agreement → Nick → implementer/reviewer slices (full suite + bitwise seeded runs). THEN the
 glossary is updated to the new words (N4/N17) and the 601-row docs pass runs on the renamed code, then the timing.
 Blast radius measured in `dev/up_down_naming_blast_radius.md` (2,011 uses / ~1,430 lines / 78 files; 44 public sites).
+STATE 2026-11-11: inventories done (`dev/store_rename_inventory_{1_frontend_tests,2_backend,3_docs}.md`); plan draft 1 by
+the writer in `dev/store_rename_plan_2026-11-10.md`; writer/critic rounds running (reviews `dev/store_rename_plan_review_r*.md`).
+NICK'S RULINGS 2026-11-11: D-1 NO T4S EXEMPTION — T4S is historical; internal consistency trumps the paper; frame letters
+U/D/L/R everywhere incl. probing / sampling_derivatives / apply / entries / test twins / all four tex notes; the library's
+own jet-shift letters D/U get new symbols; each note gets one historical correspondence line to T4S. D-6 corewise frame =
+`(D, G, G, G)`. D-7 P/Q → L/R everywhere. Mapping safety: Nick suggests (not mandates) a two-phase substitution through
+unique sentinels (old token → sentinel → new token) so any surviving sentinel fails a grep. RETRACTED: "stale same-spelling
+code fails on a shape check" — at a minimal frame both stores have equal ranks, so stale code is silently wrong; the
+release notes say so plainly.
 
 **2026.5.0 IN PROGRESS (2026-11-10): (a) the glossary (COMMITTED 3fc91855 with the OLD store words — correct for the
 released 2026.4.0; updated in the rename slice) — three scouts wrote `dev/glossary_candidates_{A_user_docs,
