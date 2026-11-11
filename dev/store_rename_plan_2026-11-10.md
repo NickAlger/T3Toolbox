@@ -1,8 +1,9 @@
-# The store rename — plan (draft 11, writer, 2026-11-11)
+# The store rename — plan (draft 14, writer, 2026-11-11)
 
-> **Status:** draft 11: Nick's rulings of 2026-11-11, critic rounds 1–11 (`dev/store_rename_plan_review_r{1,…,11}.md`),
-> Nick's review of draft 4 (§4A), his width ruling (D-8 final), and his withdrawal of "no letters in the API"
-> (draft 9). **The critic agreed in round 11.** Next: Nick, then the implementer/reviewer slices R1–R6 (§7).
+> **Status:** draft 14: Nick's rulings of 2026-11-11, critic rounds 1–12 (`dev/store_rename_plan_review_r{1,…,12}.md`),
+> Nick's decisions on every open item, and his review of the sample edits (`dev/store_rename_sample_edits.md`; edits
+> 1–7 approved as written). **The critic agreed in round 13** (`dev/store_rename_plan_review_r13.md`). Next: the
+> implementer/reviewer slices R1–R6 (§7).
 > **Breaking**; the first item of 2026.5.0. The glossary update and the 601-row docs-consistency pass
 > (`dev/glossary_naming_decisions.md`) run after it, on the renamed code.
 >
@@ -16,6 +17,53 @@
 
 *History only: the record of how the plan got here. The instructions are the numbered sections below; where a CHANGES
 line and a section differ, the section governs.*
+
+**Draft 14 (Nick's rulings from the sample-edit review).**
+
+- **D-1 final.**
+  - Math writes `sh`/`shᵀ`, and code writes `shift`/`shift_t`: the shift functions become `_shift`, `_shift_t`,
+    `_shift_pair`, `_shift_t_pair`.
+  - The σ̂ locals `sh`/`shd` become `sig_hat`/`sig_hat_d`, an enumerated rename.
+  - So no `sh` has two meanings in code or math.
+- **Travel directions take `-ward`.** Every bare `-up`/`-down` travel-direction site is an enumerated hand row (§3.3),
+  replacing draft 11's rewordings.
+- **Smaller additions:**
+  - the missing colon at `frame_variations_format.py:116–124`;
+  - each diagram its own block (`86–96`, `98–108`);
+  - `theta = (U, L)` at `tv_operations.py:504, 506, 549` on §3.3's list;
+  - item 9's and item 1's overrides stated at the items;
+  - K8 catches `(…, O)`.
+
+**Draft 13 (critic r12).**
+
+- **Q1:** `sh` is not collision-free; it is the σ̂ local in the jet kernels. D-1's spelling goes back to Nick with three
+  options (§3.2, §8); the writer recommends `Sh`/`Shᵀ`.
+- **Q2:** K8's bare-`O` pattern is limited to frame-core contexts. The other meanings of `O` join §1.5 as item 13.
+
+**Draft 12 (Nick's decisions on every open item; the sample edits).**
+
+- **Every decision is RESOLVED (§8):**
+  - D-1: the shift is the spelled operator `sh`/`shᵀ`, and the Lagrangian rename is dropped.
+  - D-2: form (c), single-letter tuples.
+  - D-4: rename only.
+  - D-5: `Ψ` in docs and notes, `Psi` in code.
+  - D-6: `B` for a T3's own cores.
+  - D-9: a one-off.
+  - D-10: sentinels.
+  - D-11: `d`, with the mode-count clash noted.
+- **Sample edit 1's "after"** is the model for the field-comment blocks (§4A).
+- **Fixed from `store_rename_sample_edits.md` §12:**
+  - K13 skips fenced spans until R4a.
+  - K14 covers items 1–12.
+  - K8 catches a bare `O` and `\delta U`/`\dot U`.
+  - K4 catches `P,Q,O ->`.
+  - K12 is one block per diagram.
+  - The adjacency wording in §4A(f).
+  - K13 parses tuple-element comments.
+  - The exact-Hessian `R` collisions.
+  - Item 9 vs the shift letters.
+  - The stale convention-paragraph source.
+- **The riskiest edit:** every LaTeX width subscript in the notes is inventoried and signed off (scanner rule, K16).
 
 **Draft 11 (critic r10).**
 
@@ -163,12 +211,17 @@ forbidden without asking.
    (`n_up`, `n_down`, …) are introduced.
 4. **The T4S-derived `U`-family code names** listed in tier C's row (`Udot`, `dU…`, `gU`, `gYU`, `Ug`, `Ud`), and
    their `O` counterparts per §3.4.
-5. **The jet-shift letters** in equations and prose: `D x`, `U x`, `D^r`, `U^u` → `Λ x`, `Λᵀ x`, … (D-1). The shift
-   *functions* keep their names.
-6. **The derivative `D`** → upright `d` (`DΦ`, `DPhi`, …), if D-11 stands.
+5. **The jet shift** (D-1). In math (the docs and notes) it is the spelled operator `sh`, `shᵀ` (`\mathsf{sh}`),
+   with `D x`, `U x`, `D^r`, `U^u` → `sh x`, `shᵀ x`, `sh^r`, `(shᵀ)^u`. In code it is `shift`, `shift_t`: the
+   functions `_shift_down`→`_shift`, `_shift_up`→`_shift_t`, `_shift_down_pair`→`_shift_pair`,
+   `_shift_up_pair`→`_shift_t_pair` (A1 shifts), and the comment and docstring notation `shift^r nu`,
+   `[shift_t^u sigma~]`. The σ̂ locals `sh`/`shd` in `sampling_derivatives.py`, `apply.py` and `tests/_jet_trs_twins.py`
+   become `sig_hat`/`sig_hat_d` (tier C), so `sh` is never two things in one place.
+6. **The derivative `D`** → upright `d` (`DΦ`, `DPhi`, …; D-11).
 7. **The padded-frame letters** of D-5 (`D` products → `Ψ`, `U_{x→t}` → `F_{x→t}`).
-8. **The `update` argument's values**, per D-2.
+8. **The `update` argument**, per D-2(c): a tuple of single store letters in the new meaning.
 9. **The dense oracles' local names** and the collision renames listed in tier C.
+10. **Travel directions of edge variables** written with a bare `-up`/`-down` take `-ward` (§3.3's enumerated rows).
 
 Every other identifier and code token stays byte-identical; prose changes only by tier E. §1.5 names the parts most
 at risk (gate K14), and K15 checks every NAME token (§5.3).
@@ -215,6 +268,7 @@ substitution is **simultaneous**: one lookup per token and one pass per file, ne
 | tier | old → new (one simultaneous pass) | scope |
 |---|---|---|
 | A1 renamed | `up_tucker_cores`→`down_tucker_cores`, `down_tt_cores`→`up_tt_cores`, `up_tucker_cores_dot`→`down_tucker_cores_dot`, `down_tt_cores_dot`→`up_tt_cores_dot`, `up_tucker_supercore`→`down_tucker_supercore`, `down_tt_supercore`→`up_tt_supercore`, `masked_up_tucker_supercore`→`masked_down_tucker_supercore`, `masked_down_tt_supercore`→`masked_up_tt_supercore` | everywhere |
+| A1 shifts (D-1) | `_shift_down`→`_shift`, `_shift_up`→`_shift_t`, `_shift_down_pair`→`_shift_pair`, `_shift_up_pair`→`_shift_t_pair` (all free names) | `backend/sampling_derivatives.py` (33 NAME tokens) and the text mentions, incl. `exact_hessian_two_hole.tex:575, 585` (`\code{…}`, by hand in R5) |
 | A1 aliases, **one-way only** | `up_orthogonalize_tucker_cores`→`down_orthogonalize_tucker_cores`, `down_orthogonalize_tt_cores`→`up_orthogonalize_tt_cores` | `backend/fv_conversions.py` only (181–185, 220, 253). The targets are public method names, so no reverse entry exists anywhere |
 | A1 labels | `up_tucker`→`down_tucker`, `down_tt`→`up_tt`, `up_tucker_ranks`→`down_ranks`, `down_tucker_ranks`→`up_ranks`, `down_tt_ranks`→`up_ranks` (`uniform_frame_variations_format.py:203, 665`) | text only (comments, docstrings, docs) |
 | A2 swaps (a ↔ b) | each of `up_ranks`, `up_mask`, `variations_up_mask`, `var_up_mask`, `up_weights`, `up_weight_supercore`, `up_sc`, `up_cores`, `up_supercore`, `up_inds`, `up_r`, `v_up_r`, `up_out`, `up0`, `up3`, `up4`, `vup`, `mup`, `up_shapes`, `up_stack_shapes`, `up_slices`, `up_masks`, `up_widths`, `up_mask_frame`, `up_mask_v`, `_up`, `_up_mask`, `_up_edge`, `_up_message`, `_u_up_messages`, `_UP_R`, `bad_up`, `masked_up`, `point_up`, `variations_up` ↔ its twin with `up`/`UP` → `down`/`DOWN`; also `test_unequal_old_up_masks_in_a_group`→`test_unequal_old_down_masks_in_a_group` | everywhere |
@@ -245,6 +299,7 @@ Tier C, letters (NAME tokens, simultaneous within each row; inv 2 §8's per-file
 | `backend/sampling_derivatives.py` | `U→D, O→U, P→L, Q→R, P_dot→L_dot, Q_dot→R_dot, P_cores→L_cores, P_cores_dot→L_cores_dot, Pxi→Lxi, dPxi→dLxi, Qxi→Rxi, rev_Q→rev_R, Ud→Dd, Od→Ud, mO→mU, On→Un, dmO→dmU, dOn→dUn, Odxi→Udxi` (no `L`, `R` or `D` local exists there) |
 | `backend/apply.py`; `backend/entries.py` (361–363) | `O→U, Q→R`; `D→n_cores` (the core count, beside the Tucker cores) |
 | T4S-derived Tucker names (§3.3) | `Udot→Ddot, Udot_g→Ddot_g, dU→dD, dU0→dD0, dU_v→dD_v, dU_t→dD_t, dU_tilde→dD_tilde, dU_tildes→dD_tildes, gU→gD, gYU→gYD, Ug→Dg`, and `Ud→Dd` where it is the Tucker direction (`_curvature_oracles.py`, `test_curvature.py`, `utv_operations.py`; not `o1_ragged.py`, where `Ud` is "u dense", nor `o1_uniform.py`, whose `U` is a uniform T3). Only in frame, tangent, sampling and curvature code: `manifold.py`, `tv_operations.py`, `utv_operations.py`, `utv_sampling.py`, `sharing.py`, `apply.py`, `probing.py`, `sampling_derivatives.py`, `backend/fitting.py`, `ut3_sampling.py`, `entries.py`, and the tests R1's enumerated list names, occurrence by occurrence. The `G` family (`dG`, `Gdot`, `Gd`) is the library's TT letter and stays. Exceptions: `tv_operations.py:292–331`'s `dU = tt_variations[i]` is a TT variation, so it becomes `H` (hand row). T3-level code keeps its `U` family (`test_tucker_tensor_train.py`'s `dU`, the `TuckerTensorTrain` doctests' `gU`; §1.5 item 11) |
+| σ̂ locals (D-1) | `sh→sig_hat`, `shd→sig_hat_d`, function-scoped: `sampling_derivatives.py` (`sh` 1693–1694, 2159, 2167, 2201–2204, 3188–3220; `shd` 3188–3220), `apply.py` (493–501, 539–542), `tests/_jet_trs_twins.py` (213–215). The shape locals `sh` elsewhere (`backend/fitting.py:162–163`, the uniform tests) stay |
 | T4S test twins | `tests/_jet_trs_twins.py`: `O→U, P→L, Q→R, P_cores→L_cores, rev_Q→rev_R`. `tests/test_jet_recurrence.py`: `U→D, O→U, P→L, Q→R` in `_problem` (49–68), plus B4. In `test_uniform_equals_ragged` (163–200) the RNG helper `R` is on §1.5's list, so the frame-core locals there take a `c` suffix: `O→Uc, P→Lc, Q→Rc`. The RNG `R` at 166, 208, 228 is untouched. `Q→R` is mapped only in the files listed; `test_probe_derivatives.py:488, 497` keeps its RNG `R` |
 | tests that mirror a mapped module | `tests/backend/_uniform_padded_frame_testing.py`, `tests/backend/test_uniform_padded_frame.py` and `tests/backend/test_padded_start.py` (290–307): `U→D, O→U, Uu→Du, Ou→Uu`. `tests/backend/test_padded_frame.py` (111, 135–139, 205–216, 619–629): `U0→D0, O0→U0, U→D, O→U` (inv 1 §7 gives `D0, U0, L0, R0 = old`). `tests/test_uniform_frame_variations_format.py`: `U_r→D_r, U_u→D_u` (958–959 by row). `tests/test_dispatch.py`: `U_3→D_3` |
 | every other CL row (critic r1 M2, r9) | **R1's enumerated list** `dev/store_rename_letter_sites.md`: one row per occurrence, `(file, function, token → image)`, for every CL row of inv 1 §7 and App. A, every CORE-LETTER entry of inv 2 §8 not in the rows above, and every §3.4 hit classified as a frame core. R2 applies that list and nothing else; no rule map is applied. Files expected on it: `test_frame_variations_format.py`, `test_manifold.py`, `test_uniform_manifold.py`, `test_curvature.py`, `test_uniform_curvature.py`, `_curvature_oracles.py`, `test_tv_operations.py`, `test_sharing.py` (its frame `UU, OO` at 576–598, not its `U_rows`), `test_optimizers.py:533`, `test_zero_reference.py:94`, `test_contractions_sharding.py:199`, `test_fitting.py:8`. A row whose token has another meaning (§1.5) is excluded, with its reason. Gate: R1 shows every CL row and every classified hit on the list |
@@ -260,8 +315,9 @@ Tier D, text patterns (R4a/R4b; comments, docstrings and docs; the tex notes by 
   11 inv 2 C4 rows, inv 1 C3, `CLAUDE.md:115`, `transposes.md:37`).
 - `(up, down, left, right)` → `(down, up, left, right)`, and the same for `(up, down, left[:-1], right[1:])` and
   `up/down/left/right`.
-- The jet-shift and derivative notation of §3.2: `D x`, `U x`, `D^r`, `U^r`, `U^u`, `U^k`, `[U^` → `Λ x`, `Λᵀ x`,
-  `Λ^r`, `(Λᵀ)^r`, …; `DPhi`, `D^2 Phi`, `DΦ` → `dPhi`, `d^2 Phi`, `dΦ`. These are in `sampling_derivatives.py`
+- The jet-shift and derivative notation of §3.2. In code comments and docstrings, `D x`, `U x`, `D^r`, `U^r`, `U^u`,
+  `U^k`, `[U^` → `shift x`, `shift_t x`, `shift^r`, `shift_t^r`, …; in the docs and notes → `sh x`, `shᵀ x`, `sh^r`,
+  `(shᵀ)^r`, …. `DPhi`, `D^2 Phi`, `DΦ` → `dPhi`, `d^2 Phi`, `dΦ`. These are in `sampling_derivatives.py`
   (41 lines). Outside it, exactly these 15 code lines: `sharing.py:757`, `t3_linalg.py:887, 889`, `optimizers.py:220`,
   `tv_operations.py:510`, `fv_operations.py:560, 579`, `_curvature_oracles.py:11, 64, 178, 238`,
   `test_uniform_curvature.py:1617, 1704`, `test_curvature.py:1577, 2852`. In the docs: `deferred_and_rejected.md:134`
@@ -325,47 +381,40 @@ the net.
   the bijection and K9.
 - The pass-1 tree is never run or committed.
 
-**The `update` argument (D-2, open for Nick).** It lives in `backend/padded_frames.py`, also imported by
-`uniform_padded_frames.py` (the D-46 sibling convention). Form (a), recommended:
+**The `update` argument (D-2, RESOLVED: form (c)).** It lives in `backend/padded_frames.py`, also imported by
+`uniform_padded_frames.py` (the D-46 sibling convention). It is a tuple of single store letters in the new meaning,
+and a `str` is refused:
 
 ```python
-_STORE_LETTERS = 'DULR'                                     # a frame's stores in physical order (T3Frame.data)
-_COLOURS = ('DL', 'UR')                                     # the two-colour passes (alternate=True), in pass order
+_STORE_LETTERS = ('D', 'U', 'L', 'R')                       # a frame's stores in physical order (T3Frame.data)
+_COLOURS = (('D', 'L'), ('U', 'R'))                         # the two-colour passes (alternate=True), in pass order
 
 def _update_stores(
-        update:  str,   # store letters, any order, e.g. 'DL': D down, U up, L left, R right
-) -> str:               # the same letters in _STORE_LETTERS order: one jit static per set
+        update:  typ.Collection[str],   # single store letters, any order, e.g. ('D', 'L'): D down, U up, L left, R right
+) -> typ.Tuple[str, ...]:               # the same letters in _STORE_LETTERS order: one jit static per set
     """``update`` validated and canonicalized; ``ValueError`` otherwise, naming the letters."""
-    if not (isinstance(update, str) and update and len(set(update)) == len(update)
-            and set(update) <= set(_STORE_LETTERS)):
-        message = ("update must be a non-empty string of the store letters 'D', 'U', 'L', 'R' without repeats "
-                   "(D down, U up, L left, R right), e.g. 'DL'; got %r" % (update,))
+    if (isinstance(update, str) or not update or len(set(update)) != len(update)
+            or not set(update) <= set(_STORE_LETTERS)):
+        message = ("update must be a non-empty tuple of the store letters 'D', 'U', 'L', 'R' without repeats "
+                   "(D down, U up, L left, R right), e.g. ('D', 'L'); got %r" % (update,))
         if isinstance(update, str) and 'O' in update:
             message += ("; 'O' was the 2026.4.0 letter for the TT-shaped store, now 'U' "
                         "(and 2026.4.0's 'U', the Tucker store, is now 'D')")
         raise ValueError(message)
-    return ''.join(c for c in _STORE_LETTERS if c in update)
+    return tuple(c for c in _STORE_LETTERS if c in update)
 ```
 
-- **The steps** take `update: str = 'DULR'` (any order; the rest transported), call `_update_stores` first, and pass
-  the canonical string to the uniform kernel as its static.
+- **The steps** take `update: typ.Collection[str] = ('D', 'U', 'L', 'R')` (any order; the rest transported), call
+  `_update_stores` first, and pass the canonical tuple to the uniform kernel as its static.
 - **The loops** pass `_STORE_LETTERS` and `_COLOURS[0]`/`_COLOURS[1]`.
 - **The truncation check** keys on the letter: `zip(_STORE_LETTERS, …)`, then `if b < c and letter not in update`.
-- **The conversion of the existing letter strings** is a simultaneous swap scoped to the inventories' LETTER-API rows:
-  `'U'`→`'D'`, `'O'`→`'U'`, `'L'` and `'R'` kept, inside the update strings and the `'X' in update` tests. So `'ULRO'`
-  becomes `'DULR'`, `'UL'` becomes `'DL'`, and `'RO'` becomes `'UR'`.
-- **The silent case:** a 2026.4.0 string without `'O'` (e.g. `'UL'`) silently means other stores, the same accepted
-  swap as `nU`/`up_ranks`. A string with `'O'` raises.
-
-**Form (b)** is a tuple of words, `('down', 'up', 'left', 'right')`, with `_COLOURS = (('down', 'left'), ('right',
-'up'))`. Any non-`str` collection is accepted and canonicalized to that order, and a `str` is refused, with the message
-"update must be a non-empty tuple of the store words …".
-
-**Form (c)** is a collection of single store letters, `update: typ.Collection[str] = ('D', 'U', 'L', 'R')`, with
-`_COLOURS = (('D', 'L'), ('U', 'R'))` and canonicalization to that order. A `str` is refused; one containing `'O'`
-gets the pointed message. The conversion of the existing strings splits each into its letters and applies (a)'s swap:
-`'UL'` → `('D', 'L')`. In every form the messages keep `update must be` and `without repeats`, which the tests' regexes
-match.
+- **The conversion of the existing letter strings** is scoped to the inventories' LETTER-API rows. Each update string
+  is swapped letter by letter (`'U'`→`'D'`, `'O'`→`'U'`, `'L'` and `'R'` kept) and split into a tuple: `'ULRO'` →
+  `('D', 'L', 'R', 'U')`, canonical `('D', 'U', 'L', 'R')`; `'UL'` → `('D', 'L')`; `'RO'` → `('R', 'U')`, canonical
+  `('U', 'R')`. The `'X' in update` tests take the swapped letter.
+- **Every 2026.4.0 call fails loudly**, because it passes a `str`. One containing `'O'` gets the pointed message. A
+  generator raises `TypeError` at `len`.
+- The message keeps `update must be` and `without repeats`, which the tests' regexes match.
 
 ### 1.4 Applying tier E (critic r2 N2)
 
@@ -380,7 +429,7 @@ inv 2 §4 gives `(D, U, P, Q, shape, …)` at `geometry.py:602, 707, 893` and "f
    - L1: frame `P`/`Q` → `L`/`R`, by the §3.4 classification.
    - L2: the `U` family → `D`, or `B` on the T3 pages (§3.3).
    - L3: `(U, G, G, G)` → `(D, G, G, G)`.
-   - L4: the `Λ` and `d` notation (§3.1–3.2).
+   - L4: the `sh` and `d` notation (§3.1–3.2).
    - L5: D-5's `Ψ`/`F`, and D-8's width swap. The inventories' word proposals (`n_down…`, `r_left…`) are re-expressed as
      the swapped letters (`nD…`, `rL…`); inv 1's letter-swapped diagram labels (`nU0`→`nD0`, `nO1`→`nU1`) already are.
    - L6: the reworded message directions (§3.3).
@@ -403,6 +452,9 @@ with a store, but it is not a store.
    forms (`xi_jets`, `sigma_tilde(s)`, `tau_tilde(s)`, `deta`, `deta_tilde`, `dxi_tilde`, `sigma_hat`, …).
    - Only a store-letter suffix on a Greek stem changes, as tier C lists it (`PhiO→PhiU`, `PhiU→PhiD`, `XiO→XiU`,
      `XiU→XiD`, `XiUs→XiDs`). The stem never changes.
+   - **Override (D-1):** the σ̂ locals `sh`/`shd` in `sampling_derivatives.py`, `apply.py` and
+     `tests/_jet_trs_twins.py` become `sig_hat`/`sig_hat_d` (tier C's enumerated row), and nothing else in this item
+     changes.
 2. **Decomposition factors**: `U`, `S`, `V`, `Vt`, `Q`, `R` and their forms (`Us`, `U_M`, `svd_U`, `svd_Vt`, `U_a_x_b`,
    `U_i_a_x`, `U_o_x`, `U_nk`, `U_T`, the SVD helpers' `Uc`/`Uy` at `_padded_frame_oracles.py:54`) where they are
    factors of an SVD, QR or eigendecomposition.
@@ -429,10 +481,12 @@ with a store, but it is not a store.
 7. **Every `*_orthogonalize_*` and `*_svd_*` name**, and the unfolding names (`_up_matricization`, `_up_res`,
    `up_svd`, `up_svd_pair`, `down_svd_pair`, `t3_down_svd_tt_core`, …). The one exception is the two private
    `fv_conversions` aliases of A1.
-8. **The jet-shift functions and locals:** `_shift_up`, `_shift_down`, `_shift_up_pair`, `_shift_down_pair`, and
-   `test_curvature.py`'s `c_up` (jet order, not stores). Only the shift letters in equations change (§3.2).
-9. **Everything the inventories file as UNRELATED or as a keep:** inv 2 §9's UNRELATED and ADJECTIVE keep rows, inv 1
-   App. B–D, inv 3 §9, and BR's KEEP_BARE locals.
+8. **`test_curvature.py`'s `c_up`** (a shifted jet). The shift functions themselves are renamed by D-1 (A1 shifts:
+   `_shift`, `_shift_t`, `_shift_pair`, `_shift_t_pair`) and are no longer on this list.
+9. **Everything the inventories file as UNRELATED or as a keep.** **Overrides, stated here:** the jet-shift letters
+   (`U x`, `D^r`; inv 2 M7) and the shift function names, which D-1 changes (§3.2); and the bare travel-direction words
+   (`up-index`, `adjoint-up`, …), which §3.3's rows change to `-ward`. Otherwise it covers inv 2 §9's UNRELATED and
+   ADJECTIVE keep rows, inv 1 App. B–D, inv 3 §9, and BR's KEEP_BARE locals.
 10. **Every public name not in the token map.**
 11. **`U` as a T3's own Tucker core in non-frame code** (critic r9):
     - `t3_linalg.py` outside 660–760: `U`, `Ux`, `Uy`, `Uxi`, `Uyi`, `Uw`, `UL`, `UR`, `Ua`, `Ub`, `Utilde`,
@@ -451,10 +505,20 @@ with a store, but it is not a store.
       The up-store locals are not uniform and change by tier C: `uc` in `ufv_conversions.py` and
       `uniform_frame_variations_format.py` (`uc→c_down`), and `um` in `ufv_conversions.py` and `ufv_operations.py`
       (`um↔dm`).
+13. **`O` with other meanings** (critic r12):
+    - the oracle module alias `O` (`tests/backend/test_t3_orthogonalization.py:13`, `oracle_sweeps/sweep_models.py:6`,
+      `sweep_exact.py:29`, `sweep_optimizers.py:7`) and every `O.…` use;
+    - an order count `O` (`test_uniform_probing.py:213–219`);
+    - the interpreter flag `-O` (`test_tucker_tensor_train.py:3113, 3127`);
+    - "I/O" (`optimizer_display.py:12`, `glossary.md:115`, `uniform_equivalence_contract.md:95`);
+    - author initials in citations ("Ghattas, O.", "Koch, O.": `probing.py:94, 201, 237, …`,
+      `tucker_tensor_train.py:291, 4691`, `user_guide.rst:448, 494, 514`, `shared_t3_math.tex:766`,
+      `padded_frame_cone.tex:487`, `ttm_t3m_ht_note.tex:344`);
+    - big-O, `O(…)`.
 
 **K14 (DO-NOT-TOUCH identity).**
 
-- For every file, the multiset of NAME tokens drawn from items 1–10 must be identical between `v2026.4.0` and the
+- For every file, the multiset of NAME tokens drawn from items 1–13 must be identical between `v2026.4.0` and the
   renamed tree. The identifiers are listed in R1's `dev/store_rename_dnt.txt`, file- or function-scoped where a letter
   also names a frame core (`U`, `Q`, `R`, `P`).
 - So must the multiset of string arguments of `contract(`/`einsum(` calls.
@@ -470,8 +534,8 @@ Full tables: inv 1 §2 (frontend) and inv 2 §2 (backend). Counts from BR §1.3,
   - 18 backend core keywords in 14 functions (8 `probing.compute_*` with 10 keywords, 6
     `sampling_derivatives.compute_*_jets` with 8): `up_tucker_cores[_dot] → down_tucker_cores[_dot]`,
     `down_tt_cores[_dot] → up_tt_cores[_dot]`.
-  - `update` on 4 functions. Under D-2(a), a 2026.4.0 string containing `'O'` raises `ValueError`; one without it
-    (e.g. `'UL'`) is a silent swap and is listed below. Under (b), every letter string raises.
+  - `update` on 4 functions (D-2(c)): every 2026.4.0 call passes a `str`, which now raises `ValueError` naming the
+    letters; one containing `'O'` gets the pointed message.
 - **Silent** (same spelling, swapped meaning), 44 sites:
   - 18 attributes on 7 classes: `up_ranks`/`down_ranks` (`T3Frame`, `T3FrameWeights`, `UT3Frame`, `UT3Variations`,
     `UT3FrameWeights`), `up_weights`/`down_weights`, `up_weight_supercore`/`down_weight_supercore`,
@@ -523,7 +587,7 @@ itself.
   `U x = [(s+1) x^(s+1)]_s`. They appear in `sampling_derivatives.py` (41 lines), `deferred_and_rejected.md:134` and
   the exact-Hessian note (`\Dsh`/`\Ush`, 14 lines). Both collide with the store letters inside single equations: after
   the rename, `(mu^(j) O)·[U^u sigma~]^(j)` would read `(mu^(j) U)·[U^u sigma~]^(j)` (inv 2 C2, C3). They are renamed
-  to `Λ`, `Λᵀ` (§3.2, D-1).
+  to the spelled operator `sh`, `shᵀ` (§3.2, D-1).
 - **The derivative `D`.** It appears as `DΦ`, `D²Φ`, `D_ζP` (21 lines of the exact-Hessian note, beside its frame
   cores), `D^t` (`symmetric_probe_derivatives.tex:111`), `DPhi`/`D^2 Phi` in 13 docstrings and comments, and the
   curvature page's `DΦ[Lv] = Ev`. It becomes the upright differential: `\mathrm{d}\Phi`, `\mathrm{d}^t` in LaTeX, and
@@ -543,38 +607,22 @@ itself.
   derivative direction `P^t`/`pp`, and `utv_sampling`'s "U3". Tier C never maps a letter outside its listed files and
   ranges.
 
-### 3.2 The jet-shift symbol (D-1, replaced)
+### 3.2 The jet shift (D-1, FINAL)
 
-Candidates were checked against the code, the docs, the notes and the glossary's symbol table:
-
-- **`S`/`S̃`:** taken. The glossary lists four meanings: the sampling operator `S(x)`, the hint `S`, the frame factors
-  `S_i` and the T/S transforms. `S_i` is also in the exact-Hessian note that defines the shifts (21 uses).
-- **`J⁺`/`J⁻`:** read as the sampling Jacobian `𝒥`/`𝒥ᵀ`. That symbol appears in the jet kernels' own docstrings
-  (`probing`, `apply`, `entries`) and in the note's `\Jac`.
-- **`Γ`, `Υ`, `Δ`, `Ψ`, `E`, `M`, `T`:** `Γ` is the sharing Gram `Γ_i`, `Υ` looks like the content `Y`, `Δ`/`δ` are
-  variation notation, `Ψ` is taken by D-5, and `E`, `M`, `T` are the captured energy, the proof matrix and the tangent
-  space. (`entries.py:361`'s local `D`, the core count, becomes `n_cores` under tier C.)
-- **`Λ` and `Λᵀ`, with the note's Lagrangian renamed: recommended.**
-  - `Λ` has one other use: the exact-Hessian note's Lagrangian `Λ(θ) = f(Φ(θ)) − ⟨grad f(X), Φ(θ)⟩`
-    (`exact_hessian_two_hole.tex:255–275, 1019`, 7 uses). That is the very note that defines the shifts (critic r2 N1).
-    It has no other use in the code, the docs or the glossary; `curvature_internals.md:23` names the Lagrangian in
-    words.
-  - The Lagrangian becomes `ℓ` (`\ell`, unused in that note; `\mathcal L` is `\Lift`), and the shift keeps `Λ`.
-  - One letter plus its transpose states what the code relies on: the reverse shift *is* the forward shift's adjoint in
-    the plain inner product, truncation included,
-    `⟨Λx, y⟩ = Σ_{t≤m} t x^(t-1) y^(t) = Σ_{s<m} (s+1) x^(s) y^(s+1) = ⟨x, Λᵀy⟩`.
-  - Caveats: `Λ` often names a diagonal (no such use in scope), and lowercase `λ` is the ridge weight (3 uses in the
-    note), distinguished by case.
-- **Alternative:** a spelled operator `sh`/`shᵀ` (`\mathsf{sh}`). It needs no Lagrangian rename, but it is heavier in
-  the correlation formulas, and `sh` is a shape local in the uniform tests.
-
-With `Λ`, the examples read `dxi~^(u) += (mu^(j) U)·[(Λᵀ)^u sigma~]^(j) + [(Λᵀ)^u tau~]^(j)·(U nu^(j))` and
-`eta = Σ_r (mu^(r)/r!·G)·Λ^r nu`.
-
-The shift *functions* keep their names: `_shift_down`, `_shift_up` and their `_pair` forms, and `test_curvature.py`'s
-`c_up`, are on §1.5's list. Their up/down is jet order, and the docstrings now define `Λ`/`Λᵀ` beside them. Only the
-letters `D`/`U` used for the shifts in equations and comments change (the 41 lines). The note's macros become `\Sh` =
-`\Lambda` and `\Sh^{\T}`.
+- **Math** (docs and the notes) writes the spelled operator `sh` (forward, `(sh x)^(t) = t x^(t-1)`) and `shᵀ`
+  (reverse, `(shᵀ x)^(s) = (s+1) x^(s+1)`), its exact adjoint in the plain inner product, truncation included. In
+  LaTeX that is `\mathsf{sh}`, `\mathsf{sh}^{\T}`, so the exact-Hessian note's macros become `\Sh` = `\mathsf{sh}`.
+  The note's Lagrangian `\Lambda` is not renamed.
+- **Code** writes `shift` and `shift_t`.
+  - Functions: `_shift_down`→`_shift`, `_shift_up`→`_shift_t`, `_shift_down_pair`→`_shift_pair`,
+    `_shift_up_pair`→`_shift_t_pair` (tier A1 shifts).
+  - Comments and docstrings: `shift^r nu`, `[shift_t^u sigma~]`. In `sampling_derivatives.py` the examples read
+    `dxi~^(u) += (mu^(j) U)·[shift_t^u sigma~]^(j) + [shift_t^u tau~]^(j)·(U nu^(j))` and
+    `eta = Σ_r (mu^(r)/r!·G)·shift^r nu`.
+- **The σ̂ locals** `sh`/`shd` (14 + 5 tokens in `sampling_derivatives.py`, 9 + 2 in `apply.py`, 3 in the test twin) are
+  renamed `sig_hat`/`sig_hat_d` (tier C). So neither code nor math gives `sh` two meanings. The shape locals `sh`
+  elsewhere stay.
+- `test_curvature.py`'s `c_up` (a shifted jet, not the operator) stays.
 
 ### 3.3 Fixed rules
 
@@ -587,16 +635,31 @@ letters `D`/`U` used for the shifts in equations and comments change (the 41 lin
   - One site misnames a variation: `tv_operations.py:292–331`'s `dU = tt_variations[i]` → `H`. And `:401`'s
     `dU_i = <O_i, core_env_i>` becomes `dD_i = <U_i, core_env_i>`. No other site.
   - A point given by a frame's stores is written in store letters at exactly these sites: `fitting.py:380` (`(U, P)` →
-    `(D, L)`), `ut3_sampling.py:374`, `shared_geometry.py:45`, and `curvature_internals.md:29, 47, 65–67`. More sites
-    go to R1's list with the reviewer's agreement.
+    `(D, L)`), `ut3_sampling.py:374`, `shared_geometry.py:45`, `tv_operations.py:504, 506, 549` (`theta = (U, L)` →
+    `theta = (D, L)`), and `curvature_internals.md:29, 47, 65–67`. More sites go to R1's list with the reviewer's
+    agreement.
 - **T3-level code and the T3 pages keep their letters** (D-6 residual, critic r9). `B` stays where the README, the
   user guide and the `TuckerTensorTrain` doctests write it, and `U` where T3-level code writes it (§1.5 item 11). Also
   unchanged: inv 3 C13's `Uᵢ` on `entries_apply_probe.md` §1 and §3 and on `t3m_methods.md`, `test_tucker_tensor_train.py`
   (its `dU` and kind `'U'`), and the `gU` doctests. Nothing here is renamed without Nick's ruling.
-- **T4S's message directions that now read as store words** are reworded: "frame down jets"
-  (`sampling_derivatives.py:1479, 1513`) → "the η jets"; "up-index" (`probing.py:773, 824`) → "the ξ index"; "down
-  `eta`" (`apply.py:215`) → "the η sweep". Directions spelled as directions stay ("upward edge variables", "contract
-  up", "pushing the remainder down into the Tucker core").
+- **Travel directions of edge variables take `-ward`** (Nick, 2026-11-11), as `probing.py` already writes them
+  ("var-downward", "Adjoint-var-upward", "-leftward", "-rightward"). Stores and adjectives keep the bare words. Every
+  bare `-up`/`-down` travel-direction site is an enumerated hand row, R4b, found by the grep
+  `(var|adjoint|Adjoint)-(up|down)\b|\b(up|down) (jets|eta|sweep|sweeps|lift)\b|\bup-index\b`:
+  - `Adjoint-var-down` → `Adjoint-var-downward` (`sampling_derivatives.py:1425`, `tests/_jet_trs_twins.py:169`);
+  - `adjoint-var-down jets` → `adjoint-var-downward jets` (`sampling_derivatives.py:1476, 1510`);
+  - `frame down jets` → `frame downward jets` (`:1479, 1513`);
+  - `adjoint-up` → `adjoint-upward` (`sampling_derivatives.py:1237, 1247, 1356, 1367, 2466, 2567, 2996`,
+    `probing.py:1459, 1728`, `tests/test_contractions_interpreter.py:227, 335`);
+  - `adjoint-down` → `adjoint-downward` (`sampling_derivatives.py:1398, 2199, 3185`);
+  - `up-index` → `upward` (`probing.py:773, 824`, `entries.py:124, 151, 314`, `manifold.py:949, 1172`,
+    `ut3_sampling.py:220`, `sampling_derivatives.py:564, 583, 613, 636, 980, 1147, 1176, 1204, 2367, 3415`), e.g.
+    "the up-index edge variables" → "the upward edge variables";
+  - `down eta` → `downward eta` (`apply.py:215`).
+
+  R1 re-runs the grep on the tree, and the list it produces is authoritative. Directions already spelled as directions
+  stay ("upward edge variables", "contract up", "pushing the remainder down into the Tucker core"). This replaces
+  draft 11's rewordings ("the η jets", "the ξ index").
 - **Cited T4S formulas:** exactly the 13 lines tier D lists convert, with the citation kept, e.g. "T4S §6.3's
   substitution `(L, R, U) → G`".
 
@@ -650,31 +713,29 @@ rulings need their own inventory before any slice applies them.
    (`B_xo`→`D_xo`, `R_ixj`, which clashes with *right*, →`U_ixj`, `P`/`Q`→`L`/`R` by D-7). Every diagram and equation
    is a §4A block, redrawn by hand as a whole with `D` below, `U` above and the compact width letters in the new
    meaning (D-8).
-5. **The `update` values (R3)**, §1.3, per D-2: the 37 backend and 93 frontend/test LETTER-API rows.
-   - **Under (a):** the scoped letter swap (`'U'`→`'D'`, `'O'`→`'U'`) inside those rows' strings and `in update` tests.
-     The tests' letter arithmetic is re-checked by hand (`test_padded_frame.py:723–737` builds subsets by deleting
-     letters, and `:730` pairs `('U', 'up'), ('O', 'down')` → `('D', 'down'), ('U', 'up')`). The invalid cases gain
-     `'ULRO'` (the `'O'` message) and `'dulr'`, and keep `''`, `'DD'`, `'X'`, `'DULRX'`. The recorded schedules
-     `('ULRO', t)` become `('DULR', t)`.
-   - **Under (b):** the word-tuple rewrite, as before: invalid cases `(), ('down', 'down'), ('X',), 'down', 'ULRO',
-     ('Down',)`.
-   - **Under (c):** (a)'s swap, then each string split into a tuple of letters. Invalid cases: `()`, `('D', 'D')`,
-     `('X',)`, `'DL'` (a `str`), `'ULRO'` (a `str` with the `'O'` message).
+5. **The `update` values (R3)**, §1.3, D-2(c): the 37 backend and 93 frontend/test LETTER-API rows. Each update
+   string is swapped letter by letter (`'U'`→`'D'`, `'O'`→`'U'`) and split into a tuple; the `in update` tests take the
+   swapped letter.
+   - The tests' letter arithmetic is re-checked by hand (`test_padded_frame.py:723–737` builds subsets by deleting
+     letters, and `:730` pairs `('U', 'up'), ('O', 'down')` → `('D', 'down'), ('U', 'up')`).
+   - Invalid cases: `()`, `('D', 'D')`, `('X',)`, `'DL'` (a `str`), `'ULRO'` (a `str` with the `'O'` message).
+   - The recorded schedules `('ULRO', t)` become `(('D', 'U', 'L', 'R'), t)`.
    - The dense oracle's letter API follows the same form.
 6. **Messages that name a store** (the `str` rows of inv 2 §9) and the 12 tests that assert on them (inv 1 §1.2:
    `test_padded_frame.py:405, 409, 732, 737, 760`, `test_uniform_padded_frame.py:303, 320, 518, 551`,
    `test_padded_start.py:277/283, 291/296`, `test_frame_variations_format.py:562`). These go in R2, so the suite stays
    green.
 7. **D-5 in the note and the internals page.**
-8. **The four tex notes, converted (R5)**: frame letters and widths in the new meaning, the T4S line in each, `Λ` and
-   `d` (§3.1). The known in-note collisions: in `exact_hessian_two_hole.tex`, the Lagrangian `\Lambda`→`\ell` (7 uses,
-   first), `DΦ`/`D²Φ`/`D_ζP`→`\mathrm d`,
+8. **The four tex notes, converted (R5)**: frame letters and widths in the new meaning, the T4S line in each, `sh` and
+   `d` (§3.1). The known in-note collisions: in `exact_hessian_two_hole.tex`, `DΦ`/`D²Φ`/`D_ζP`→`\mathrm d`; the new
+   right core `R_i` beside the retraction `R_X`/`R_x` and `R_k^{-1}` (kept, distinguished by subscript, and said so in
+   the note's notation paragraph);
    `\Dsh`/`\Ush`→`\Sh`/`\Sh^\T`, `n^D_i`→`n^U_i`, the two tikz figures relabelled (inv 3 §3); in
    `symmetric_probe_derivatives.tex`, `D^t`→`\mathrm d^t` at :111, while its `P^t` is the direction and stays; in
    `shared_t3_math.tex`, `U_i`, `U_g`, `U̇`→`D…`, `n_{D,i}`→`n_{U,i}`, "up-leg"→"Tucker leg", with `O_g` (a complement
    basis) kept; in `ttm_t3m_ht_note.tex`, the leaf frames `U_i`→`D_i`.
 9. **Glossary** (inv 3 §5.2) and the 51 work-list rows (inv 3 §7; N4 and N17 resolve). The retired spellings are listed
-   under "also: (2026.4.0 …)" for one release (BR §1.5). The symbol table gains `Λ`, `Ψ` and the upright `d`, and loses
+   under "also: (2026.4.0 …)" for one release (BR §1.5). The symbol table gains `sh`, `Ψ` and the upright `d`, and loses
    `O`; `D`, `U`, `P` are rewritten.
 10. **Signature blocks realigned** wherever a name changed length (`up_tucker_cores` → `down_tucker_cores`), per
     `docs/contributor/signature_style.md`.
@@ -710,10 +771,17 @@ orthogonality relation.
   nodes) next to labels; index relations (`_[a-z]{2,3}` with `= delta_ij` / `= I_xy` / `= 0`, `einsum('…')`, `δ_ij`);
   width symbols; a store letter in a core role (`U0`, `O_i`, `D(d-1)`, …); or a store-word index variable in a
   recurrence (`\b(?:up|down)_[a-z]\b`, as in `ranks.py:644–647`).
+- **Every LaTeX width form in the six notes** (`n_\{[DUO],`, `n\^[DUO]`, `r_\{[LR],`) is a candidate, and every hit must
+  be an inventoried block. Inv 3's proposals for them are stale (`n_{\mathrm{up},i}`, "keep"), so each takes the
+  swapped letter by hand. `shared_t3_math.tex:365–367, 406, 491` (`n_{D,i}` → `n_{U,i}`, beside `U_g`/`\dot U` →
+  `D_g`/`\dot D` with `O_g` kept) is the riskiest edit of the rename (sample edits §11): valid LaTeX either way, and
+  read by no other gate. **K16** lists every such form in the notes for explicit sign-off in the R5 handoff.
+- **One inventory block per diagram or equation**, never several grouped, so a half-done group cannot pass K12.
 - **R1 gate:** every candidate is inventoried or dismissed with a reason.
 - **Seed list**, from the inventories:
-  - `frame_variations_format.py`: 56–66, 70–78, 86–108, 116–124, 156–159, 219–224, 353–357, 843–853, 1262–1274,
-    1305–1322, 1346–1365, 1370–1374 (R1 takes the exact bounds from the scanner);
+  - `frame_variations_format.py`: 56–66, 70–78, 86–96, 98–108, 116–124, 156–159, 219–224, 353–357, 843–853,
+    1262–1274, 1305–1322, 1346–1365, 1370–1374. Each diagram is its own block: R1 splits every range that holds
+    several, as `86–96` / `98–108`, so K12 cannot pass a half-done pair. R1 takes the exact bounds from the scanner;
   - `uniform_frame_variations_format.py`: 110–113, 1097–1125;
   - `manifold.py:685`, `uniform_manifold.py:478`; `probing.py:640–651, 1215–1226`; `ufv_operations.py:81–84`;
     `utv_operations.py:314–315`; `ranks.py:644–647`;
@@ -726,7 +794,16 @@ orthogonality relation.
   - the four notes' frame equations.
 
 **(b) Each one rewritten by hand, as a whole.** Never token by token. The slice handoff shows every block's before and
-after side by side.
+after side by side. **The model for the field-comment blocks** is the maintainer-approved "after" of sample edit 1
+(`dev/store_rename_sample_edits.md` §1), applied verbatim at `frame_variations_format.py:156–159`, and in the same form
+at `uniform_frame_variations_format.py:110–113`:
+
+~~~python
+    down_tucker_cores:  typ.Tuple[NDArray,...]  # len=d. D_xo D_yo   = I_xy, Di.shape = stack_shape+(nDi, Ni)
+    up_tt_cores:        typ.Tuple[NDArray,...]  # len=d. U_ixj U_iyj = I_xy  Ui.shape = stack_shape+(rLi, nUi, rR(i+1))
+    left_tt_cores:      typ.Tuple[NDArray,...]  # len=d. L_iax L_iay = I_xy, Li.shape = stack_shape+(rLi, nDi, rL(i+1))
+    right_tt_cores:     typ.Tuple[NDArray,...]  # len=d. R_xaj R_yaj = I_xy  Ri.shape = stack_shape+(rRi, nDi, rR(i+1))
+~~~
 
 **(c) Alignment preserved exactly.** `dev/store_rename_diagram_check.py` compares each ascii block's old text (`git
 show v2026.4.0:<file>`) with its new span, as **raw text** (tabs not expanded: `user_guide.rst`'s diagrams are
@@ -750,7 +827,8 @@ checked by **K10b** instead.
 
 A typo inside a diagram (`Ud` for `U(d-1)`, glossary E17) is left to the docs-consistency pass unless it fits the width.
 
-**(d) Orthogonality relations re-derived index by index.** Each relation gets the new letters and a one-line derivation
+**(d) Orthogonality relations re-derived index by index.** In the `T3Frame` block (`frame_variations_format.py:116–124`)
+the hand rewrite also adds the missing colon after `right-orthogonal` (Nick). Each relation gets the new letters and a one-line derivation
 in the handoff: the core's shape, the contracted indices, and the side they belong to, which is the store's adjective.
 For example:
 
@@ -768,8 +846,9 @@ The reviewer re-derives each one independently and checks it against the code's 
 the renames.
 
 **(f) Review.** The reviewer's brief for R4a, R4b and R5 includes reading every inventoried block against the new
-convention. Width labels are checked by adjacency: an edge touching a Tucker factor is `nD`, one touching a TT-shaped
-frame core is `nU`. The review stop after R4b shows Nick the before and after of every code-tree block, and the stop
+convention. It also reads every K16 LaTeX width form. Width labels are checked by adjacency: an edge touching a Tucker
+factor (a down core) is `nD`, one touching an up core is `nU`. The left and right cores' Tucker leg is `nD`, and so is the
+TT variations' middle leg; the Tucker variations' rows are `nU`. The review stop after R4b shows Nick the before and after of every code-tree block, and the stop
 after R5 those of the docs and notes.
 
 **(g) Fenced from every script, by span.**
@@ -792,7 +871,7 @@ after R5 those of the docs and notes.
 **Letters inside fences** are the code's (D-8), for the labels the inventory records as frame cores or store widths:
 core letters `D`, `U`, `L`, `R`; widths `nD`, `nU`, `rL`, `rR`, with `nO` gone. Other letters in a block (`G`, `V`,
 `H`, `N`, an SVD's `U`) stay. The hand rewrite swaps them, the reviewer checks by adjacency (an edge touching a Tucker factor is `nD`, one
-touching a TT-shaped frame core is `nU`), and K2 (stale spellings) and K8 (`O` as a core letter) hold everywhere,
+touching an up core is `nU`; the left/right cores' Tucker leg is `nD`), and K2 (stale spellings) and K8 (`O` as a core letter) hold everywhere,
 fences included.
 
 ## 5. Verification (the rename changes no number)
@@ -807,8 +886,8 @@ repo.
 
 - `NEW = 'up_tt_cores' in {f.name for f in dataclasses.fields(bvf.T3Frame)}`. `hasattr` is False on both trees, because
   a field without a default is no class attribute.
-- `upd(stores)` gives the new tree's form: a letter string under D-2(a) (`down→D`, `up→U`), words under (b), a letter
-  tuple under (c). On the old tree it gives the old letters (`down→U`, `up→O`, `left→L`, `right→R`).
+- `upd(stores)` gives the new tree's form, a tuple of new letters (`down→D`, `up→U`, `left→L`, `right→R`; D-2(c)).
+  On the old tree it gives the old letter string (`down→U`, `up→O`, `left→L`, `right→R`).
 - `attr(obj, new_name)` reads the new name, or on the old tree the old spelling: A1, A2 and A3 reversed (B2 reads the
   width properties).
 - Widths are passed positionally.
@@ -841,7 +920,7 @@ repo.
 | B4 orthogonalizations and SVD | `xS.down_orthogonalize_tucker_cores()`, `.up_orthogonalize_tt_cores()`, `.left_orthogonalize_tt_cores()`, `.right_orthogonalize_tt_cores()`, `.t3svd()`, `.t3svd(max_tt_ranks=2)`; the uniform twins; `xG.t3svd()` |
 | B5 tangents | `v = MANIFOLD.project_ambient(F, y)`; `retract`, `transport` to `MANIFOLD.frame(x0)`, `inner`, `norm`; `v.to_dense()`, `v.to_t3()`, `v.gauge_residual()`; a `K`-stacked tangent `T3Tangent.stack_tangents((v, 2·v))` through `to_dense`, `inner`, `retract`; `fv_absorb_weights` with the B2 weights; the uniform twins via `UT3Tangent.from_t3tangent(v, 8, 7, 5, 6, 3)` and the default `UT3Tangent.from_t3tangent(v)` (its `dict(nU=nU, …)` forwarding), and `uxC`'s; `COREWISE.frame(xS)`; the shared and tied paths: `sharing.ufv_shared_frame_data`, `utv_operations.utv_orthogonal_gauge_projection(…, shared_data=…)` (the `up_mask_frame`, `up_mask_v`, `down_slices` code, `utv_operations.py:230–254`), `shared(MANIFOLD, sharing).project/retract` and `shared(UNIFORM_MANIFOLD, sharing)` on `xG` |
 | B6 sampling | `v.probe(ww)`, `.apply(ww)`, `.entries(idx)`, `.probe_derivatives(ww, pp, 2)`, `.probe_transpose`, `.probe_derivatives_transpose`; `xS.probe_derivatives(ww, pp, 2)`; the uniform twins; the 14 keyword-renamed `probing.compute_*` / `sampling_derivatives.compute_*_jets`, positionally |
-| B7 padded frames | `T3Frame.padded(x_old, tk1, tt1)`, also at the slack target and with `sharing`; `UT3Frame.padded`; `T3Tangent.align_padded` and `UT3Tangent.align_padded` with `upd(u)` for all 15 non-empty subsets of the four stores, plus one permuted form (`'LD'` against `'DL'` under D-2(a), `('left', 'down')` under (b): the canonicalization), at the minimal and the slack target; the frontend `bvf.fv_aligned_padded_frame(x_old, tk1, tt1, y, max_passes=m, alternate=a)` for `(m, a)` in `(0, True), (3, True), (3, False), (10, True)`; the slack-old-frame backend step and the backend loop `padded_frames.fv_aligned_padded_frame(old_frame, tucker_ranks, tt_ranks, hint, project, …)`; `ufv_aligned_padded_frame` the same, plus `use_jit=True`; `backend.optimizers.padded_start(setup.problem, setup.x0_cores, x_old.data)` |
+| B7 padded frames | `T3Frame.padded(x_old, tk1, tt1)`, also at the slack target and with `sharing`; `UT3Frame.padded`; `T3Tangent.align_padded` and `UT3Tangent.align_padded` with `upd(u)` for all 15 non-empty subsets of the four stores, plus one permuted tuple (`('L', 'D')` against `('D', 'L')`: the canonicalization), at the minimal and the slack target; the frontend `bvf.fv_aligned_padded_frame(x_old, tk1, tt1, y, max_passes=m, alternate=a)` for `(m, a)` in `(0, True), (3, True), (3, False), (10, True)`; the slack-old-frame backend step and the backend loop `padded_frames.fv_aligned_padded_frame(old_frame, tucker_ranks, tt_ranks, hint, project, …)`; `ufv_aligned_padded_frame` the same, plus `use_jit=True`; `backend.optimizers.padded_start(setup.problem, setup.x0_cores, x_old.data)` |
 | B8 optimizers | `newton_cg(MANIFOLD, 'probe', ww, data, x0, max_newton=3)`, again with `padded_from=x_old`, with `g0_reference='cone'`, and with `hessian='exact'`; `newton_cg(UNIFORM_MANIFOLD, …, padded_from=…)`; `newton_cg(shared(MANIFOLD, (0, 0, 1)), …)` on `xG`; `gradient_descent(…, g0_reference='cone')`. Record `x.data`, `start_movements`, `cone_movements`, the integer/boolean `stats` and the numeric `history` fields stacked into arrays; host-clock fields are excluded |
 | B9 files across versions | the old tree saves `T3Frame`, `T3Variations`, `T3Tangent`, `UT3Frame` and `UT3Variations` of `xS` to the scratchpad; the new tree loads them and records `.data`, which must equal its own B1/B5 arrays |
 
@@ -866,7 +945,7 @@ per store from `F`'s ranks, since `from_t3weights` copies one Tucker vector into
 test module (`test_frame_variations_format`, `test_uniform_frame_variations_format`, `test_weighted`,
 `test_uniform_weighted`, `backend/test_ranks`). The battery uses unequal stores and widths throughout.
 
-### 5.3 The completeness check: `dev/store_rename_check.py` (code-tree part permanent per D-9)
+### 5.3 The completeness check: `dev/store_rename_check.py` (one-off, in `dev/`; D-9)
 
 **Patterns:**
 
@@ -874,25 +953,26 @@ test module (`test_frame_variations_format`, `test_uniform_frame_variations_form
 |---|---|---|
 | K1 | old spellings | `\b(?:masked_)?(?:up_tucker_cores\|down_tt_cores\|up_tucker_supercore\|down_tt_supercore\|up_tucker\|down_tt\|up_tucker_ranks\|down_tucker_ranks\|down_tt_ranks\|up_orthogonalize_tucker_cores\|down_orthogonalize_tt_cores)(?:_dot)?\b` |
 | K2 | stale width spellings (D-8: nothing can grep the meaning of `nU`/`nD`) | `(?<![\\\w])nO` (not an escape's `\nO`), LaTeX `n_\{O` and `n\^O`, and any word width `\b(?:n_up\|n_down\|r_left\|r_right\|k_up\|k_down\|m_up\|m_down)\w*` (none may appear anywhere: Nick). This holds everywhere, fences and notes included. The proof of the `nU`↔`nD` swap is the battery on slack frames (§5.1), the bijection check, K13, and the reviewer's adjacency reading |
-| K3 | the `update` values (per D-2) | Under (a): in the LETTER-API files (`padded_frames`, `uniform_padded_frames`, `manifold`, `uniform_manifold`, `frame_variations_format`, `uniform_frame_variations_format`, the padded-frame tests and oracles, `test_dispatch`, `test_aligned_padded_frame_frontend`) no update string or `in update` test contains `'O'`: `['"][DULRO]*O[DULRO]*['"]` on update lines, and `['"]O['"]\s+(?:not\s+)?in\s+update`. In docs: `` `'(?:ULRO\|RO)'` ``. Under (c): (a)'s `'O'` checks plus `update\s*:\s*str\b` and `update\s*=\s*['"]`. Under (b): `update\s*:\s*str\b`, `update\s*=\s*['"]`, `['"](?:[ULRO]{2,4})['"]`, `['"][ULRO]['"]\s+(?:not\s+)?in\s+update`, and in docs `` `'(?:ULRO\|UL\|RO)'` `` |
-| K4 | frame-letter tuples, hybrids included | `\(U, ?O, ?[PL], ?[QR]\)`, `\((?:D\|U), ?(?:U\|O), ?P, ?Q\b` and `\(U, ?G, ?G, ?G\)` |
+| K3 | the `update` values (D-2(c)) | In the LETTER-API files (`padded_frames`, `uniform_padded_frames`, `manifold`, `uniform_manifold`, `frame_variations_format`, `uniform_frame_variations_format`, the padded-frame tests and oracles, `test_dispatch`, `test_aligned_padded_frame_frontend`): `update\s*:\s*str\b`, `update\s*=\s*['"]` (a `str` passed), `['"]O['"]\s+(?:not\s+)?in\s+update`, and any update string or tuple containing `'O'`. In docs: `` `'(?:ULRO\|UL\|RO)'` `` |
+| K4 | frame-letter tuples, hybrids and the cited substitution | `\(U, ?O, ?[PL], ?[QR]\)`, `\((?:D\|U), ?(?:U\|O), ?P, ?Q\b`, `\(U, ?G, ?G, ?G\)`, and `\(?P, ?Q, ?O\)? ?(?:→\|->)` |
 | K5 | old-order listings | `\(up, down, left` and `up/down/left/right` |
 | K6 | backwards phrases | `Tucker up-(?:SVD\|orth)`, `Tucker cores upward`, `TT cores downward`, `down-orthogonal O\b`, `up-orthogonal tucker`, `Down TT core` |
-| K7 | old shift and derivative notation | `\b[DU]\^[rku]\b`, `\[U\^`, `\b[DU] (?:x\|z\|jet)\b` (catches `D x =`, `# U jet,`, `[jet, D jet]`), `\bDPhi\b`, `\bD\^2 ?Phi\b`, `DΦ`, `D²Φ`; in tex `\\Dsh\|\\Ush\|D\\Phi\|D\^2\\Phi\|D_\\zeta` and the Lagrangian's old `\\Lambda\(\\th\|_\\th\\Lambda` |
-| K8 | T4S letters left behind | `O` as a core letter everywhere, fences included: `\bO(?:\d\|_[a-z]\|ᵢ\|i\b\|\(d-1\))`; `\b(?:O_i\|O_aib\|Oᵢ\|δU\|U_g)\b`, `U̇` (no trailing `\b`: it never matches after a combining mark), `outer[- ]orthogonal`; frame `P`/`Q` forms `\b[PQ]_(?:i\|last\|\{)`; the code names `\b(?:Udot\w*\|dU(?![a-z])\w*\|gU\|Ug)\b` (so the new `dUn`, from `dOn`, is not hit). Carve-outs: the T4S correspondence lines, the §3.4 inventory's keep list, and for the `O` pattern the oracle and review codes (`O1`, `O2`, `O-2`; inv 3 §9) and the kept `O_g` (`shared_t3_math.tex:358`), and the T3-level SVD outputs `O_ab_x`, `Oaxb` (`t3_orthogonalization.py:118–120`, `ut3_orthogonalization.py:201–208`) |
+| K7 | old shift and derivative notation | the old shift function names `\b_shift_(?:up\|down)(?:_pair)?\b`; a bare operator `sh` in code comments (`\bsh(?:ᵀ\|\^)`, where code writes `shift`); `\b[DU]\^[rku]\b`, `\[U\^`, `\b[DU] (?:x\|z\|jet)\b` (catches `D x =`, `# U jet,`, `[jet, D jet]`), `\bDPhi\b`, `\bD\^2 ?Phi\b`, `DΦ`, `D²Φ`; in tex `\\Dsh\|\\Ush\|D\\Phi\|D\^2\\Phi\|D_\\zeta` |
+| K8 | T4S letters left behind | `O` as a frame core in prose and code, matched only in frame-core contexts: `\bO\[`, `\bO\.shape\b`, `\bfor\s+O\s+in\b`, a letter tuple containing it (`\((?:\s*[A-Z]\w?\s*,)*\s*O\s*(?:,\s*[A-Z]\w?\s*)*\)`), a trailing tuple member `,\s*O\s*\)` (`(dxi~, O)`), `\(mu\^\(\w+\) O\)`, `\b(?:mu\S*\|nu) O\b`, `\bO (?:nu\|sigma\|tau)`, `` ``O`` `` and `` `O` `` in backticks, and `\\mathbf\s*\{?O`. §1.5 item 13's `O`s are carved out; in tex `\\delta\s*U\b`, `\\dot\s*U\b`, `\\dot\{U\}`; `O` as a core letter everywhere, fences included: `\bO(?:\d\|_[a-z]\|ᵢ\|i\b\|\(d-1\))`; `\b(?:O_i\|O_aib\|Oᵢ\|δU\|U_g)\b`, `U̇` (no trailing `\b`: it never matches after a combining mark), `outer[- ]orthogonal`; frame `P`/`Q` forms `\b[PQ]_(?:i\|last\|\{)`; the code names `\b(?:Udot\w*\|dU(?![a-z])\w*\|gU\|Ug)\b` (so the new `dUn`, from `dOn`, is not hit). Carve-outs: the T4S correspondence lines, the §3.4 inventory's keep list, and for the `O` pattern the oracle and review codes (`O1`, `O2`, `O-2`; inv 3 §9) and the kept `O_g` (`shared_t3_math.tex:358`), and the T3-level SVD outputs `O_ab_x`, `Oaxb` (`t3_orthogonalization.py:118–120`, `ut3_orthogonalization.py:201–208`) |
 | K0 | sentinels | `ZQX\d+_XQZ` anywhere (after pass 2) |
 | K8b | T4S string keys | `\[['"][OPQ]['"]\]` in `tests/test_jet_recurrence.py` (after B4, `p['U']` is the correct up-core key) |
 | K9 | residual store words, token-level (critic r1 M1, r2 MINOR 1) | every bare `up`, `down`, `Up`, `Down`, and every store-word index variable `\b(?:up|down)_[a-z]\b` (`up_i`, `down_i`), in the COMMENT and STRING tokens of the final code tree (and every bare word in the docs after R5) must be one of three things: (a) an inventory keep row (ORTH, MSG, UNREL; inv 2 §9 keeps, inv 1 App. B–D, inv 3 §9, collected in R1 as `dev/store_rename_keeps.txt`); (b) a word whose aligned old-tree token was the opposite store word (`git diff` line alignment, then token position); or (c) part of a tier-E proposed text after §1.4's layering. Anything else fails. **Converse** (critic r3): every old-tree token on a keep row (ORTH, MSG, UNREL) survives unchanged at its aligned position, unless its line is a tier-E proposed text (e.g. §3.3's rewordings). So clause (b) cannot pass an adjective or a message direction flipped by mistake ("up-orthogonal" → "down-orthogonal" on a TT core, "contract up"), which K6's six phrasings would miss |
 | K10 | diagram alignment, in place (§4A c) | `dev/store_rename_diagram_check.py` on raw text: per inventoried ascii block rewritten in place, the same line count and line lengths, and every differing column a label character on both sides |
 | K10b | diagram alignment, re-laid out (§4A c) | the same line count, and every old alignment column (a field start after ≥ 2 spaces in ≥ 2 lines, or a shared `=`, `:`, `\|`, `#`) maps to one consistent new column. Field-comment blocks: the comment's start column matches the realigned signature block |
 | K11 | fences untouched by scripts (§4A g) | after R2 and after R3, every fenced span's text is byte-identical to `v2026.4.0` (located by span text), and the pass-1 tree has no sentinel inside a fence |
-| K12 | every block done (§4A g) | after R4b (code tree) and R5 (docs): each inventoried block's new span is filled and equals the file verbatim; new text equal to old needs a recorded reason |
-| K13 | shape comments agree with their entry (D-8) | Over every single-entry shape line: a signature or field comment `NAME: type  # …` and a docstring listing `- NAME = (…), elm_shape=(…)`, plus their uniform supercore forms. Extract the entry name and every width token `\bn[UD]\w*` in its shape, and require the letter the table gives: **`nD`** for `down_*` entries (`down_tucker_cores[_dot]`, `down_tucker_supercore`, `down_weights`, `down_weight_supercore`, `down_mask`, `variations_down_mask`, `down_ranks`), for `left_tt_*`/`right_tt_*` (their middle leg), and for `tt_variations` / `H` (middle leg); **`nU`** for `up_*` entries (`up_tt_cores[_dot]`, `up_tt_supercore`, `up_weights`, `up_weight_supercore`, `up_mask`, `variations_up_mask`, `up_ranks`) and for `tucker_variations` / `V` (its rows: the complement directions live in the up width). K13 recognises **only** store-named entries and `V`/`H`. Generic `tucker_cores`/`tt_cores` lines are reported to the reviewer, not checked, because a generic kernel parameter may hold a frame store. The ten known ones get a disposition in §4 item 12. A shape line with width tokens but no recognised entry is reported, not failed. This corrects the sketch "tucker → `nD`, tt → `nU`", which the variations and the left/right cores contradict |
-| K14 | DO-NOT-TOUCH identity (§1.5) | per file, the multiset of NAME tokens on R1's `dev/store_rename_dnt.txt` (file- or function-scoped for `U`, `Q`, `R`, `P`) and of `contract(`/`einsum(` string arguments is identical between `v2026.4.0` and the renamed tree. No exceptions |
+| K12 | every block done (§4A g) | after R4b (code tree) and R5 (docs): each inventoried block (one per diagram or equation, §4A a)'s new span is filled and equals the file verbatim; new text equal to old needs a recorded reason |
+| K13 | shape comments agree with their entry (D-8) | Over every single-entry shape line: a signature or field comment `NAME: type  # …`, a tuple-element comment `typ.Sequence[NDArray],  # down_tucker_cores. len=d, elm_shape=…` (the backend's commonest form), a docstring listing `- NAME = (…), elm_shape=(…)`, and their uniform supercore forms. **Fenced spans (§4A) are skipped at R2 and R3** (they keep their old widths until R4a's hand rewrite); from R4a on they are checked too. Extract the entry name and every width token `\bn[UD]\w*` in its shape, and require the letter the table gives: **`nD`** for `down_*` entries (`down_tucker_cores[_dot]`, `down_tucker_supercore`, `down_weights`, `down_weight_supercore`, `down_mask`, `variations_down_mask`, `down_ranks`), for `left_tt_*`/`right_tt_*` (their middle leg), and for `tt_variations` / `H` (middle leg); **`nU`** for `up_*` entries (`up_tt_cores[_dot]`, `up_tt_supercore`, `up_weights`, `up_weight_supercore`, `up_mask`, `variations_up_mask`, `up_ranks`) and for `tucker_variations` / `V` (its rows: the complement directions live in the up width). K13 recognises **only** store-named entries and `V`/`H`. Generic `tucker_cores`/`tt_cores` lines are reported to the reviewer, not checked, because a generic kernel parameter may hold a frame store. The ten known ones get a disposition in §4 item 12. A shape line with width tokens but no recognised entry is reported, not failed. This corrects the sketch "tucker → `nD`, tt → `nU`", which the variations and the left/right cores contradict |
+| K14 | DO-NOT-TOUCH identity (§1.5) | per file, the multiset of NAME tokens of §1.5 items 1–13, listed in R1's `dev/store_rename_dnt.txt` (file- or function-scoped for `U`, `Q`, `R`, `P`) and of `contract(`/`einsum(` string arguments is identical between `v2026.4.0` and the renamed tree. No exceptions |
 | K15 | the token map is closed (critic r9 O1) | Per file, on NAME tokens (code and doctest examples). **After R2:** R2's edits are in-place token replacements, so the old and new NAME sequences have equal length, and at every position new equals old unless R1's hit table lists that (file, line, column) with exactly that image. **After R3, R4a, R4b and R5:** `difflib` the NAME sequences against the previous slice's commit; every unequal hunk must be one the slice's handoff lists (R3: the `update` helper, steps, loops, tests; R4: §4.11's loop variables, §4 item 12's lines, §3.4's R4 dispositions). A prose-only slice leaves the NAME stream identical. Cross-check: old − new ⊆ map sources and new − old ⊆ map images ∪ the handoffs' new names (`_update_stores`, `_STORE_LETTERS`, `_COLOURS`, `n_cores`, `start_dense`, the `c`-suffixed locals, …) |
+| K16 | LaTeX width forms signed off (§4A a) | report mode: every `n_\{[DUO],`, `n\^[DUO]`, `r_\{[LR],` in the six notes, listed with its line and its before/after in the R5 handoff for explicit sign-off by the reviewer and Nick. `n_\{O` and `n\^O` also fail K2 |
 
 **Scope:** `t3toolbox/`, `tests/` and `examples/` (fourteen scripts, nothing to change, checked all the same) for
-K0–K15; `docs/*.md|rst`, `docs/contributor/*`, `README.md` and `CLAUDE.md` for all but K3's code patterns and K13;
+K0–K16; `docs/*.md|rst`, `docs/contributor/*`, `README.md` and `CLAUDE.md` for all but K3's code patterns and K13;
 the tex notes for K2, K4, K7 and K8.
 
 **Carve-outs, all of them:** `CHANGELOG.md` and `docs/release_notes.md` (records; the new sections name the old
@@ -919,8 +999,11 @@ K9 is the only check that sees a bare word left in the old sense.
 
 ## 6. Documentation and release notes (R5)
 
-- **`docs/frame_variations.md` § "Four rank stores"** gets the convention paragraph, the picture and the T4S note
-  (inv 3 §1(a)), and every other page links to it. `naming_conventions.md` gets the bullet "frame stores are words".
+- **`docs/frame_variations.md` § "Four rank stores"** gets the convention paragraph, the picture and the T4S note,
+  from inv 3 §1(a) **corrected**: the widths are `nD`, `nU`, `rL`, `rR` (not inv 3's `n_down`…, which K2 bans), and
+  the math notes are converted, with no "notes keep T4S's letters" sentence. The paragraph also says that `d` is both
+  the mode count and the upright differential, told apart by context (D-11), and that a T3's own Tucker cores are `B`
+  (D-6). Every other page links to it. `naming_conventions.md` gets the bullet "frame stores are words".
   The letter ↔ word mapping is stated once, in the convention paragraph and the glossary's symbol table: `D`/`U`/`L`/`R`
   for the stores; `nD` the down store's width (the Tucker factor's), `nU` the up store's (the TT-shaped core's), `rL`,
   `rR` the left and right stores' (D-8).
@@ -946,11 +1029,11 @@ K9 is the only check that sees a bare word left in the old sense.
 | slice | content | gate |
 |---|---|---|
 | **R1** | Tools and inventories only, no library change: the battery (§5.1) and its reference run on the `v2026.4.0` worktree (plus the B9 files); `store_rename_apply.py` (§1.3) in dry-run mode (pass 1 into a scratch copy); `store_rename_check.py` (§5.3) in report mode; the `P`/`Q`/`U`-family inventory (§3.4) and `dev/store_rename_keeps.txt` (K9); the diagrams-and-equations inventory `dev/store_rename_slices/diagrams_inventory.md` (§4A a, committed), the FENCES drawn from it, and `store_rename_diagram_check.py` (K10) | the dry-run hit table reconciled key by key with inv 2 §8, inv 1 §7 and a fresh tokenizer scan (every difference explained); every CL row and every §3.4 hit on `store_rename_letter_sites.md` or excluded with a reason; `dnt.txt` built and disjoint from the token map; every §4A scanner candidate inventoried or dismissed; nothing outside `dev/` changed |
-| **R2** | The script (pass 1, review of the sentinel diff, pass 2), tiers A–C, over `t3toolbox/`, `tests/` and `examples/`, the four sampling modules and their twins included; tier A over the docs and `CLAUDE.md`, so the markdown doctests stay green; the 12 message tests and the 4 typo lines (§4.6, §4.11) | K0, K11, K13, K14 and K15 clean; battery bitwise against R1; no bijection errors; doctest outputs unchanged; the full suite, the module and markdown doctests, and the dispatch rows green. **Review stop** |
+| **R2** | The script (pass 1, review of the sentinel diff, pass 2), tiers A–C, over `t3toolbox/`, `tests/` and `examples/`, the four sampling modules and their twins included; tier A over the docs and `CLAUDE.md`, so the markdown doctests stay green; the 12 message tests and the 4 typo lines (§4.6, §4.11) | K0, K11, K13 (fenced spans skipped), K14 and K15 clean; battery bitwise against R1; no bijection errors; doctest outputs unchanged; the full suite, the module and markdown doctests, and the dispatch rows green. **Review stop** |
 | **R3** | The `update` values (§1.3, §4.5, per D-2) in the backend steps, loops and kernels and the frontend twins, with its tests; the unequal-store assertions (§5.2) | battery bitwise (through the adapter); full suite; dispatch; K3, K11, K14 and K15 clean |
 | **R4a** | Code prose outside the sampling kernels: every tier D and tier E row in `t3toolbox/`, `tests/` and `examples/` (§4.1–4.4, 4.7, 4.10, 4.11), the free-prose store words included; every §4A block in those files rewritten by hand, before/after and the relation derivations in the handoff | suite; doctests in both environments with outputs unchanged; `sphinx -W`; K0–K10b and K13–K15 clean on those files; the reviewer has read every block |
 | **R4b** | The sampling kernels' prose (`probing`, `sampling_derivatives`, `apply`, `entries`, `utv_sampling`, `ut3_sampling`, the jet twins and curvature tests): their tier D and E rows, the shift and derivative notation (§3.1–3.2), the reworded message directions (§3.3), their §4A blocks by hand | battery bitwise; suite; doctests with outputs unchanged; K0–K15 clean on the code tree; the reviewer has read every block. **Review stop**: Nick sees the before/after of every code-tree diagram and equation (R4a's and R4b's) |
-| **R5** | Docs (§6): pages, the six notes (§4.8) and their PDFs, the glossary and its work list, `CLAUDE.md`, CHANGELOG and release notes; every §4A block in the docs and notes by hand (diagrams, tables, tikz labels, equations), before/after in the handoff | `sphinx -W`; markdown doctests in both environments; K-checks clean on the docs and notes; PDFs rebuilt; K10/K10b on the docs' ascii blocks and K12 on the docs; every example runs (`examples/*.py`, as CI's examples job does). **Review stop**: Nick sees the before/after of every docs and notes block |
+| **R5** | Docs (§6): pages, the six notes (§4.8) and their PDFs, the glossary and its work list, `CLAUDE.md`, CHANGELOG and release notes; every §4A block in the docs and notes by hand (diagrams, tables, tikz labels, equations), before/after in the handoff | `sphinx -W`; markdown doctests in both environments; K-checks clean on the docs and notes; PDFs rebuilt; K10/K10b on the docs' ascii blocks, K12 on the docs, and K16's LaTeX width forms signed off; every example runs (`examples/*.py`, as CI's examples job does). **Review stop**: Nick sees the before/after of every docs and notes block |
 | **R6** | Acceptance: §5 end to end in both environments, the slow tier, the battery also in the floor environment; the T3Polynomial follow-up prepared (`g01_g0_common.py:121`, its suite), committed only after the release; HANDOFF | — |
 
 **The implementer's brief (Nick's words, 2026-11-11), read before every slice.**
@@ -968,45 +1051,27 @@ reviewer writes `R<k>_review.md` with a verdict (for R2, after its own re-deriva
 battery comparison); the session inspects the diff, runs the suite, commits by name (never `-a`), pushes and checks
 `gh run list`.
 
-## 8. Decisions for Nick
+## 8. Decisions (all RESOLVED by Nick, 2026-11-11)
 
-Rulings of 2026-11-11 are recorded as RESOLVED; the rest carry a recommendation.
-
-- **D-1. RESOLVED (Nick): no exemption.** What remains for Nick is the jet-shift symbol (§3.2). *Recommended: `Λ`,
-  `Λᵀ`, with the exact-Hessian note's Lagrangian `Λ` (7 uses) renamed `ℓ`.* The alternative is a spelled
-  `sh`/`shᵀ`, which needs no rename. `S`, `J⁺`/`J⁻`, `Γ`, `Υ`, `Δ`, `Ψ`, `E`, `M` and `T` are rejected for
-  collisions.
-- **D-2. REOPENED on its merits (Nick, 2026-11-11): the form of `update`** (§1.3).
-  - **(a) Letter strings in the new meaning** (`'DULR'`, any subset, any order, default all four). Validation names the
-    four letters and rejects `'O'` explicitly ("'O' was the 2026.4.0 letter for the TT-shaped store, now 'U'"). Pro:
-    consistent with the diagrams, the widths (`nU`/`nD`) and the LaTeX. The `'U'` inversion is the same accepted
-    same-spelling swap as `nU`/`up_ranks`, and every 2026.4.0 string containing `'O'` (all four colours of the default
-    schedule) fails loudly. Con: an old `'UL'` silently means down+left now.
-  - **(b) A tuple of words.** Pro: it cannot be misread across the version boundary, and an old letter string raises.
-    Con: a second vocabulary beside `nU`/`nD` and the pictures.
-  - **(c) A collection of single-letter strings in the new meaning** (`('D', 'L')`, any order, default
-    `('D', 'U', 'L', 'R')`), with a `str` refused (critic r9). Pro: it keeps Nick's letters, consistent with the
-    pictures and widths, yet every 2026.4.0 call (always a `str`) fails loudly. A `str` containing `'O'` still gets
-    the pointed message. Con: tuple syntax for single letters (`update=('U',)`).
-  - **(a)'s silent case is the common one:** `'UL'` is a 2026.4.0 colour and `'U'` the obvious single-store call. Both
-    are accepted with the other meaning, and only a string containing `'O'` raises.
-  - *The session recommends (a). The writer and the critic note that (c) removes (a)'s silent case at the cost of
-    tuple syntax. The choice is Nick's.*
-- **D-3. RESOLVED (Nick, 2026-11-11): no folding.** `rL`/`rR` stay as they are, frame or generic, and the only width
-  change is the `nU`↔`nD` swap. A UT3 point's Tucker rank `nU` becomes the house `n` (A3 exception).
-- **D-4. The five doctests that print `F.up_ranks`** (`frame_variations_format.py:338, 1840`, `manifold.py:202`,
-  `uniform_frame_variations_format.py:267`, `optimizers.py:807`). All are padded frames, minimal by construction.
-  *Recommended: rename only*, and detect stale names with §5.2 and the battery's slack paths. An unequal structure is
-  impossible for `padded_start`, whose `x0` must be minimal.
-- **D-5. The padded-frame letters.** The products and messages `D` become `Ψ` (code `Psi…`, the note's
-  `\Psi_{a\to b}`, the internals page), and the edge frame `U_{x→t}`, `U′` becomes `F_{x→t}`, `F′`. *Recommended.*
-  `Ψ` is free in the code, the note and the page (the dense oracles' lowercase `psi`, the right interfaces, is unrelated;
-  their letter note says so). `M` is the note's proof matrix (:209); `E` is the captured energy (internals :53, note).
-- **D-6. RESOLVED (Nick): the corewise frame is `(D, G, G, G)`.** *Recommended for the residual case* (§3.3):
-  - Only the enumerated frame, tangent, sampling and curvature sites take `D`. That covers the T4S-derived `U`-family
-    code names in tier C's row (`dU`→`dD`, `Udot`→`Ddot`, …, with the `G` family unchanged).
-  - T3-level code and the T3 pages keep their letters: `U` in T3-level code, `B` where the docs write it.
-  - The alternative is to rename those too (to `B` or `D`), which Nick would rule on site by site.
+- **D-1 (FINAL).** No exemption. The jet shift is the spelled operator `sh`/`shᵀ` in math (`\mathsf{sh}`), and
+  `shift`/`shift_t` in code: the functions are renamed `_shift`, `_shift_t`, `_shift_pair`, `_shift_t_pair`. The σ̂
+  locals `sh`/`shd` become `sig_hat`/`sig_hat_d` (§3.2, tier C). The exact-Hessian note's Lagrangian `\Lambda` is not
+  renamed.
+- **D-2. Form (c):** `update` is a tuple of single store letters in the new meaning (`('D', 'L')`, any order, default
+  `('D', 'U', 'L', 'R')`). A `str` is refused, so every 2026.4.0 call fails loudly; a `str` containing `'O'` gets the
+  pointed message (§1.3).
+- **D-3.** No folding: `rL`/`rR` stay as they are, frame or generic. The only width change is the `nU`↔`nD` swap. A
+  UT3 point's Tucker rank `nU` becomes the house `n` (A3 exception).
+- **D-4. Rename only.** The five doctests that print `F.up_ranks` (`frame_variations_format.py:338, 1840`,
+  `manifold.py:202`, `uniform_frame_variations_format.py:267`, `optimizers.py:807`) are padded frames, minimal by
+  construction. Stale names are detected by §5.2 and the battery's slack paths.
+- **D-5.** The padded-frame products and messages `D` become `Ψ`/`\Psi` in the docs and notes, and `Psi`, spelled
+  out, in code: no Greek characters in identifiers (`Psi`, `Psi_L`, `Psi_R`, `PsiL`, `PsiR`, `PsiD`, `PsiDs`). The edge
+  frame `U_{x→t}`, `U′` becomes `F_{x→t}`, `F′`.
+- **D-6.** The corewise frame is `(D, G, G, G)`. A T3's own Tucker cores are written `B`, the README's, user guide's
+  and `TuckerTensorTrain` doctests' letter, wherever new or rewritten text names them. The draft-10 withdrawals stand:
+  existing T3-level names (`U` in T3-level code, §1.5 item 11, and `B` where already written) are not renamed. Only
+  the enumerated frame, tangent, sampling and curvature sites take `D`, including tier C's `U`-family row.
 - **D-7. RESOLVED (Nick): `P`/`Q` → `L`/`R` at the sites where they name frame cores**, i.e. those §3.4 classifies
   so, plus tier C's and tier D's listed rows and §4A's blocks. This uses per-file NAME maps and exact
   text patterns. `P` keeps its other meanings (the completion `P⁺`, the P-block, `P_U`, the direction `P^t`), `Q` its
@@ -1023,20 +1088,15 @@ Rulings of 2026-11-11 are recorded as RESOLVED; the rest carry a recommendation.
     agreement, and the reviewer's adjacency reading. The Tucker factor's row count is `nDi`; a TT-shaped up core's
     middle axis is `nUi`; the left/right cores' and the TT variations' middle axis is `nDi`; the Tucker variations'
     rows are `nUi`.
-- **D-9. Keep §5.3's K0–K8 code-tree checks as a permanent test** `tests/test_store_vocabulary.py`, like the HISTORICAL
-  vocabulary scan: cheap, and it stops old spellings coming back. K9 needs the tag diff, so it stays a one-off.
-  *Recommended.* The alternative is to keep all of it one-off in `dev/`.
-- **D-10. Sentinels** (Nick's suggestion; §1.3). *Recommended: sentinels implement every pass*: required for the text
-  rewrites, and in the Python pass for the single reviewable pass-1 diff. The critic's variant, sentinels for text only
-  with the tokenizer's lookup for Python, is equally safe; the difference is one review artifact or two.
-- **D-11. The derivative `D`** (`DΦ`, `D²Φ`, `D_ζP`, `D^t`, `DPhi`) becomes the upright differential `d`, so `D` has
-  one meaning in the notes and on the curvature page. *Recommended.* The alternative is a prime, `Φ′(θ)[·]`, which has
-  no form for `D_ζP`.
+- **D-9.** The completeness checks are one-off, in `dev/`: there is no permanent test.
+- **D-10.** Sentinels implement every pass (§1.3).
+- **D-11.** The derivative `D` (`DΦ`, `D²Φ`, `D_ζP`, `D^t`, `DPhi`) becomes the upright differential `d`. The clash
+  with the mode count `d` is accepted as clear from context, and the convention paragraph says so (§6).
 
 ## 9. Risks
 
 - **Over-reach (Nick's chief worry).** An agent "completes the pattern" at a site the plan does not list: renaming an
-  SVD's `U`, a Greek stem, an RNG `R`, a `_shift_*` function or an adjective. Mitigated by:
+  SVD's `U`, a Greek stem beyond the σ̂ row, an RNG `R`, a shape local `sh`, or an adjective. Mitigated by:
   - §0's exhaustive list and §1.5's DO-NOT-TOUCH list;
   - K14's byte-identity check;
   - the implementer brief (§7);
