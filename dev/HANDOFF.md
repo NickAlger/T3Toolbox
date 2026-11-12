@@ -40,7 +40,12 @@ INTERIM STATE ON MAIN BY DESIGN: the `update` letter strings are still 2026.4.0'
 R3 converts them to form (c) tuples ('D','U','L','R'); the fenced field comments beside renamed fields keep the old
 letters and drift ±2 columns until R4a; `fv_to_t3`'s example uses new letters beside old-letter diagrams until R4a/R5.
 DO NOT "FIX" ANY OF THIS OUT OF SEQUENCE. The 532 KB `R2_pass1.diff` is NOT committed (regenerable: HEAD's dry run
-rebuilds the hit table byte for byte). **PAUSED HERE AT NICK'S REQUEST (2026-11-11): resume with R3 on his word** — the
+rebuilds the hit table byte for byte). RESUMED 2026-11-12 (Nick: R2 review-stop items 1-5 all good). NICK'S REQUIREMENT: misaligned comment columns are
+fine as an intermediate state, but EVERY block the rename touched must be RE-ALIGNED before the naming arc completes
+("humans' eyes scan up and down aligned columns") -- R4a realigns signature blocks, field comments, bodies and doctest
+examples (whitespace-only, K15-checked), and R6's acceptance includes an alignment sweep report: no ragged comment
+column remains in any touched block. R3 STARTED 2026-11-12 with a fresh implementer (the R1/R2 agents did not survive
+the pause) — the
 letter API (`update` tuples, `_update_stores`, `_STORE_LETTERS`/`_COLOURS`, the dispatch rows, the unequal-store
 assertions of §5.2), then R4a, R4b, R5, R6 (review stop with Nick after R4).** Nick spot-checked all three
 sample-edit files and approved starting. PLAN: `dev/store_rename_plan_2026-11-10.md` (draft 20, c2d53b41; reviews
