@@ -44,7 +44,9 @@ rebuilds the hit table byte for byte). RESUMED 2026-11-12 (Nick: R2 review-stop 
 fine as an intermediate state, but EVERY block the rename touched must be RE-ALIGNED before the naming arc completes
 ("humans' eyes scan up and down aligned columns") -- R4a realigns signature blocks, field comments, bodies and doctest
 examples (whitespace-only, K15-checked), and R6's acceptance includes an alignment sweep report: no ragged comment
-column remains in any touched block. R3 STARTED 2026-11-12 with a fresh implementer (the R1/R2 agents did not survive
+column remains in any touched block. Nick (2026-11-12): alignment WITHIN REASON -- if aligning would make lines extremely
+long or cause other problems, a judgement call is allowed; the guiding principle is readability for humans; the style
+reference is the flagship module `t3toolbox/tucker_tensor_train.py` (setting aside any misalignment from this arc). R3 STARTED 2026-11-12 with a fresh implementer (the R1/R2 agents did not survive
 the pause) — the
 letter API (`update` tuples, `_update_stores`, `_STORE_LETTERS`/`_COLOURS`, the dispatch rows, the unequal-store
 assertions of §5.2), then R4a, R4b, R5, R6 (review stop with Nick after R4).** Nick spot-checked all three
