@@ -1608,7 +1608,7 @@ def ufv_aligned_padded_frame(
     **Purpose, method, fixed point, properties** are those of the ragged twin, whose docstring explains them; the user
     guide is :doc:`/aligned_padded_frame`. In short, it biases the new directions of every rank store toward the hint's tangent
     projection. It does so by a fixed-point iteration (oversampled passes, a truncating pass, then two-colour
-    ``('UL', 'RO')`` pairs).
+    ``(('D', 'L'), ('U', 'R'))`` pairs).
 
     At a fixed point, every store's completion spans the leading new directions of its own content, given the other
     stores' completions, so one more pass moves nothing. The completions are then a stationary point of the captured

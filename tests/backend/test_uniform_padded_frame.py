@@ -357,7 +357,7 @@ def expected_masks(frame, split, s0, s1):
 class TestStepAgainstRagged(unittest.TestCase):
     """T9: the uniform step reproduces the ragged one through the block-layout scatter."""
 
-    def check(self, shape, old_ranks, work_ranks, out_ranks, options, update='ULRO'):
+    def check(self, shape, old_ranks, work_ranks, out_ranks, options, update=('D', 'U', 'L', 'R')):
         sharing = options.get('sharing')
         start, variations, old_ranks, s0, frame, uvariations, split = step_case(
             shape, old_ranks, work_ranks, sharing=sharing, zero_old=options.get('zero_old', False),
@@ -385,9 +385,9 @@ class TestStepAgainstRagged(unittest.TestCase):
                 self.check(*args)
 
     def test_transported_stores(self):
-        """Each store family transported, and the two colours ('UL', 'RO')."""
+        """Each store family transported, and the two colours (('D', 'L'), ('U', 'R'))."""
         args = ((5, 6, 5, 6), ((2, 3, 3, 2), (1, 2, 3, 2, 1)), ((3, 5, 5, 3), (1, 3, 5, 3, 1)), None, {})
-        for update in ('UL', 'RO', 'LRO', 'ULO', 'U', 'O'):
+        for update in (('D', 'L'), ('U', 'R'), ('U', 'L', 'R'), ('D', 'U', 'L'), ('D',), ('U',)):
             with self.subTest(update=update):
                 self.check(*args, update=update)
 
@@ -511,12 +511,32 @@ class TestStepStructuralErrors(unittest.TestCase):
 
     def test_the_good_input_passes(self):
         self.call()
-        self.call(update='UL', out=(None, None))
+        self.call(update=('D', 'L'), out=(None, None))
 
     def test_update(self):
-        for update in ('', 'UU', 'ULX'):
+        """The ragged step's validation (``padded_frames._update_stores``): bad letters name the letters; every str
+        and a collection holding the 2026.4.0 letter 'O' add the 2026.4.0 sentence."""
+        for update in ((), ('D', 'D'), ('D', 'L', 'X')):
             with self.subTest(update=update), self.assertRaisesRegex(ValueError, 'update must be'):
                 self.call(update=update)
+        for update in ('DL', 'ULRO', ('U', 'O')):
+            with self.subTest(update=update), self.assertRaisesRegex(ValueError, 'update must be .*2026.4.0 form'):
+                self.call(update=update)
+
+    def test_update_reaches_the_kernel_canonical(self):
+        """Any order or collection of the letters reaches the kernel, whose jit static it is, in ``_STORE_LETTERS``
+        order, one static per set; the frames agree bitwise."""
+        kernel, seen = uniform_padded_frames._utv_align_kernel, []
+
+        def capture(dynamic, skeleton, split, update):
+            seen.append(update)
+            return kernel(dynamic, skeleton, split, update)
+        with unittest.mock.patch.object(uniform_padded_frames, '_utv_align_kernel', side_effect=capture):
+            runs = [self.call(update=u, out=(None, None)) for u in (('D', 'L'), ('L', 'D'), ['L', 'D'], {'D', 'L'})]
+        self.assertEqual(seen, [('D', 'L')] * 4)
+        (F0, movement0), others = runs[0], runs[1:]
+        for F, movement in others:
+            self.assertTrue(all(np.array_equal(a, b) for a, b in zip(F[:4] + (movement,), F0[:4] + (movement0,))))
 
     def test_shapes_and_split(self):
         with self.assertRaisesRegex(ValueError, 'tt variations has shape'):
@@ -544,7 +564,7 @@ class TestStepStructuralErrors(unittest.TestCase):
 
     def test_truncation_without_update(self):
         with self.assertRaisesRegex(ValueError, 'truncated .* but not updated'):
-            self.call(update='RO')
+            self.call(update=('U', 'R'))
 
     def test_unequal_group(self):
         """Valid sharing labels (modes 0 and 2, both of size 5) on an untied scatter."""
@@ -768,12 +788,15 @@ class TestLoopSchedule(unittest.TestCase):
     def test_the_schedule(self):
         t = self.target[0]
         self.assertEqual(self.run_recorded(max_passes=6, tol=0.0),
-                         [('ULRO', None), ('ULRO', None), ('ULRO', t), ('UL', None), ('RO', None), ('UL', None)])
+                         [(('D', 'U', 'L', 'R'), None), (('D', 'U', 'L', 'R'), None), (('D', 'U', 'L', 'R'), t),
+                          (('D', 'L'), None), (('U', 'R'), None), (('D', 'L'), None)])
         self.assertEqual(self.run_recorded(max_passes=4, tol=0.0, alternate=False),
-                         [('ULRO', None), ('ULRO', None), ('ULRO', t), ('ULRO', None)])
-        self.assertEqual(self.run_recorded(oversampling=0, max_passes=2, tol=0.0), [('ULRO', t), ('UL', None)])
+                         [(('D', 'U', 'L', 'R'), None), (('D', 'U', 'L', 'R'), None), (('D', 'U', 'L', 'R'), t),
+                          (('D', 'U', 'L', 'R'), None)])
+        self.assertEqual(self.run_recorded(oversampling=0, max_passes=2, tol=0.0),
+                         [(('D', 'U', 'L', 'R'), t), (('D', 'L'), None)])
         self.assertEqual(self.run_recorded(oversampled_passes=5, max_passes=3, tol=0.0),
-                         [('ULRO', None), ('ULRO', None), ('ULRO', t)])
+                         [(('D', 'U', 'L', 'R'), None), (('D', 'U', 'L', 'R'), None), (('D', 'U', 'L', 'R'), t)])
 
     def stop_after(self, prescribed, **kw):
         """The passes the loop runs when the step returns the prescribed movements in turn (the real frames); each is
@@ -797,9 +820,9 @@ class TestLoopSchedule(unittest.TestCase):
         self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi]), 5)                  # the first pair
         self.assertEqual(self.stop_after([hi, hi, lo, lo, hi, lo, lo, hi]), 7)          # not the truncating pass
         self.assertEqual(self.stop_after([hi, hi, hi, hi, lo, lo, hi, hi, hi, hi]), 10)  # not across pairs
-        self.assertEqual(self.stop_after([hi] * 10), 10)                                # 3 pairs and a final 'UL'
+        self.assertEqual(self.stop_after([hi] * 10), 10)                                # 3 pairs and a final ('D', 'L')
         self.assertEqual(self.stop_after([hi] * 9, max_passes=9), 9)                    # an even cap
-        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi], max_passes=6), 5)    # stopped: no final 'UL'
+        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi], max_passes=6), 5)    # stopped: no final ('D', 'L')
         self.assertEqual(self.stop_after([hi, hi, hi, lo, nan, lo, lo, hi]), 7)         # a NaN never stops
         self.assertEqual(self.stop_after([hi, lo, lo, hi], alternate=False), 3)        # simultaneous
         self.assertEqual(self.stop_after([hi, hi, hi, nan, lo, hi], alternate=False), 5)

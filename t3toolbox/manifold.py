@@ -172,7 +172,7 @@ class T3Tangent(common.ExplicitEquality):
             tt_ranks:          typ.Optional[typ.Sequence[int]] = None,  # len=d+1, output; None = the frame's own
 
             sharing:           typ.Optional[typ.Sequence] = None,       # len=d group labels; None = unshared
-            update:            str = 'ULRO',                            # the stores updated ('U', 'L', 'R', 'O'); the rest transported
+            update:            typ.Collection[str] = ('D', 'U', 'L', 'R'),   # store letters, any order: 'D' down, 'U' up, 'L' left, 'R' right; the rest transported
     ) -> typ.Tuple[
         'bvf.T3Frame',   # the aligned frame
         NDArray,         # movement, shape = frame stack C
@@ -183,7 +183,8 @@ class T3Tangent(common.ExplicitEquality):
         The frame must be a padded frame of a point at the old ranks (e.g. :py:meth:`~t3toolbox.frame_variations_format.T3Frame.padded`);
         :py:func:`~t3toolbox.frame_variations_format.fv_aligned_padded_frame` loops this step. The movement measures
         how far the new slots turned (0 at a fixed point). ``update`` restricts the step to some stores, transporting
-        the others (``'UL'`` / ``'RO'`` are the two colours of the loop); output ranks below the frame's truncate.
+        the others (``('D', 'L')`` / ``('U', 'R')`` are the two colours of the loop); output ranks below the frame's
+        truncate.
 
         At a fixed point of the loop every store's completion spans the leading directions of its content, so one more
         step moves nothing: the loop twin's docstring demonstrates it. See :doc:`/aligned_padded_frame`.

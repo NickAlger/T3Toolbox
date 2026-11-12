@@ -15,6 +15,7 @@ import t3toolbox.tucker_tensor_train as t3
 import t3toolbox.uniform_tucker_tensor_train as ut3
 import t3toolbox.frame_variations_format as bvf
 import t3toolbox.backend.ufv_masking as ufv_masking
+import t3toolbox.backend.ufv_conversions as ufv_conversions
 
 try:
     import jax
@@ -158,6 +159,38 @@ class TestUT3Frame(unittest.TestCase):
         self.assertTrue(np.isfinite(float(val)))
         self.assertTrue(all(isinstance(m, np.ndarray) for m in B.masks.data))
 
+    def test_stores_are_named_by_side(self):
+        """The same-spelling names of UT3Frame, UT3FrameMasks, from_t3frame and the backend packers (plan section 5.2),
+        at a frame whose four stores and four padded widths all differ, read against the ragged source frame and the
+        supercores: the down supercore holds the Tucker factors at width nD, the up supercore the TT-shaped cores at
+        width nU, whether the widths are passed by position (N, nD, nU, rL, rR) or by keyword."""
+        np.random.seed(0)
+        F = bvf.T3Frame.from_t3(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 6, 2), (1, 2, 5, 1)))
+        down, up = [c.shape[0] for c in F.data[0]], [c.shape[1] for c in F.data[1]]      # [3, 6, 2], [2, 4, 2]
+        packed = ufv_conversions.t3frame_to_ut3frame(F.data, N=8, nD=7, nU=5, rL=6, rR=3)
+        masks = ufv_masking.ufv_make_frame_masks(
+            down_ranks=np.array(down), up_ranks=np.array(up),
+            left_ranks=np.array([c.shape[0] for c in F.data[2]] + [1]),
+            right_ranks=np.array([1] + [c.shape[2] for c in F.data[3]]), nD=7, nU=5, rL=6, rR=3)
+        frames = {'positional': ubv.UT3Frame.from_t3frame(F, 8, 7, 5, 6, 3),
+                  'keywords': ubv.UT3Frame.from_t3frame(F, N=8, nD=7, nU=5, rL=6, rR=3),
+                  'backend keywords': ubv.UT3Frame(*packed[:5], ubv.UT3FrameMasks(*packed[5])),
+                  'mask keywords': ubv.UT3Frame(*packed[:5], ubv.UT3FrameMasks(
+                      down_mask=masks[0], up_mask=masks[1], frame_left_mask=masks[2], frame_right_mask=masks[3]))}
+        for name, uF in frames.items():
+            with self.subTest(frame=name):
+                self.assertEqual((uF.nD, uF.nU), (7, 5))
+                self.assertEqual((uF.down_tucker_supercore.shape, uF.up_tt_supercore.shape), ((3, 7, 8), (3, 6, 5, 3)))
+                for i, (Di, Ui) in enumerate(zip(F.data[0], F.data[1])):       # the ragged cores in the leading slots
+                    self.assertTrue(np.array_equal(uF.down_tucker_supercore[i][:Di.shape[0], :Di.shape[1]], Di))
+                    self.assertTrue(np.array_equal(
+                        uF.up_tt_supercore[i][:Ui.shape[0], :Ui.shape[1], :Ui.shape[2]], Ui))
+                self.assertEqual(uF.down_ranks.tolist(), down)
+                self.assertEqual(uF.up_ranks.tolist(), up)
+                self.assertEqual((uF.masks.down_mask.shape[-1], uF.masks.up_mask.shape[-1]), (7, 5))
+                self.assertEqual((uF.masks.down_mask.sum(-1).tolist(), uF.masks.up_mask.sum(-1).tolist()), (down, up))
+                self.assertTrue(all(np.array_equal(a, b) for a, b in zip(uF.masks.data, masks)))
+
 
 # ---- UT3Variations (increment 2): variation left/right masks are (d,), not (d+1,) ----
 _V_LEFT_R, _V_RIGHT_R = [1, 2, 3], [1, 2, 2]   # (d,) variation TT ranks
@@ -239,6 +272,34 @@ class TestUT3Variations(unittest.TestCase):
             self.assertTrue(np.array_equal(np.asarray(a), np.asarray(b)))
         self.assertEqual(V2.shape, V.shape)
         self.assertIs(V2.masks, V.masks)
+
+    def test_stores_are_named_by_side(self):
+        """The same-spelling names of UT3Variations, UT3VariationsMasks, from_t3variations and the backend packer (plan
+        section 5.2), against the ragged source variations at a frame whose stores and padded widths all differ: the
+        Tucker variations' rows are the up store's (width nU), the TT variations' middle leg the down store's (nD)."""
+        np.random.seed(0)
+        F, V = bvf.t3_orthogonal_representations(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 6, 2), (1, 2, 5, 1)))
+        down, up = [h.shape[1] for h in V.tt_variations], [g.shape[0] for g in V.tucker_variations]   # [3,6,2], [2,4,2]
+        self.assertEqual((down, up), ([c.shape[0] for c in F.data[0]], [c.shape[1] for c in F.data[1]]))
+        packed = ufv_conversions.t3variations_to_ut3variations(V.data, N=8, nD=7, nU=5, rL=6, rR=3)
+        named = ubv.UT3VariationsMasks(variations_down_mask=packed[3][0], variations_up_mask=packed[3][1],
+                                       variations_left_mask=packed[3][2], variations_right_mask=packed[3][3])
+        variations = {'positional': ubv.UT3Variations.from_t3variations(V, 8, 7, 5, 6, 3),
+                      'keywords': ubv.UT3Variations.from_t3variations(V, N=8, nD=7, nU=5, rL=6, rR=3),
+                      'backend keywords': ubv.UT3Variations(*packed[:3], ubv.UT3VariationsMasks(*packed[3])),
+                      'mask keywords': ubv.UT3Variations(*packed[:3], named)}
+        for name, uV in variations.items():
+            with self.subTest(variations=name):
+                self.assertEqual((uV.nD, uV.nU), (7, 5))
+                self.assertEqual((uV.tucker_variations.shape, uV.tt_variations.shape), ((3, 5, 8), (3, 6, 7, 3)))
+                for i, (g, h) in enumerate(zip(V.tucker_variations, V.tt_variations)):
+                    self.assertTrue(np.array_equal(uV.tucker_variations[i][:g.shape[0], :g.shape[1]], g))
+                    self.assertTrue(np.array_equal(uV.tt_variations[i][:h.shape[0], :h.shape[1], :h.shape[2]], h))
+                self.assertEqual((uV.down_ranks.tolist(), uV.up_ranks.tolist()), (down, up))
+                masks = uV.masks
+                self.assertEqual((masks.variations_down_mask.shape[-1], masks.variations_up_mask.shape[-1]), (7, 5))
+                self.assertEqual((masks.variations_down_mask.sum(-1).tolist(),
+                                  masks.variations_up_mask.sum(-1).tolist()), (down, up))
 
 
 class TestCheckUbvPair(unittest.TestCase):

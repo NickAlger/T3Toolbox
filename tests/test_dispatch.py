@@ -2005,7 +2005,7 @@ class TestDispatch(unittest.TestCase):
         that agrees with numpy (x64 on in this module): the movement directly, the frames gauge-invariantly
         through the dense tangent projection P_{T_F} Y of a fixed Y (a new column's sign follows its SVD's, which is
         backend-dependent). Generic hints, so the content determines the subspaces. A truncating step, a shared
-        two-colour half (R and O transported), the zero tensor's empty frame, and a stack C = (2,)."""
+        two-colour half (right and up transported), the zero tensor's empty frame, and a stack C = (2,)."""
         self.addCleanup(_release_jax_programs)
         import t3toolbox.backend.t3_conversions as t3c
         np.random.seed(4)
@@ -2016,13 +2016,13 @@ class TestDispatch(unittest.TestCase):
         x_stacked = t3.TuckerTensorTrain.randn((4, 5, 6, 3), (2, 2, 2, 2), (1, 2, 2, 2, 1), stack_shape=(2,))
         cases = {   # old frame, its ranks, working ranks, output ranks, sharing, update
             'truncating': (bvf.t3_orthogonal_representations(x_old)[0].data, ((2, 2, 2, 2), (1, 2, 2, 2, 1)),
-                           ((3, 4, 4, 3), (1, 3, 4, 3, 1)), ((3, 3, 3, 3), (1, 3, 3, 3, 1)), None, 'ULRO'),
-            'shared, UL': (bvf.t3_orthogonal_representations(x_tied)[0].data, ((2, 2, 2, 2), (1, 2, 2, 2, 1)),
-                           ((3, 3, 3, 3), (1, 3, 4, 3, 1)), (None, None), (0, 1, 0, 1), 'UL'),
+                           ((3, 4, 4, 3), (1, 3, 4, 3, 1)), ((3, 3, 3, 3), (1, 3, 3, 3, 1)), None, ('D', 'U', 'L', 'R')),
+            'shared, DL': (bvf.t3_orthogonal_representations(x_tied)[0].data, ((2, 2, 2, 2), (1, 2, 2, 2, 1)),
+                           ((3, 3, 3, 3), (1, 3, 4, 3, 1)), (None, None), (0, 1, 0, 1), ('D', 'L')),
             'empty':      (padded_frames.fv_empty_frame((4, 5, 6, 3)), ((0, 0, 0, 0), (1, 0, 0, 0, 1)),
-                           ((2, 3, 3, 2), (1, 2, 3, 2, 1)), (None, None), None, 'ULRO'),
+                           ((2, 3, 3, 2), (1, 2, 3, 2, 1)), (None, None), None, ('D', 'U', 'L', 'R')),
             'C = (2,)':   (bvf.t3_orthogonal_representations(x_stacked)[0].data, ((2, 2, 2, 2), (1, 2, 2, 2, 1)),
-                           ((3, 4, 4, 3), (1, 3, 4, 3, 1)), ((3, 3, 3, 3), (1, 3, 3, 3, 1)), None, 'ULRO'),
+                           ((3, 4, 4, 3), (1, 3, 4, 3, 1)), ((3, 3, 3, 3), (1, 3, 3, 3, 1)), None, ('D', 'U', 'L', 'R')),
         }
         to_jax = lambda f: jax.tree_util.tree_map(jnp.asarray, f)
 
@@ -2055,10 +2055,10 @@ class TestDispatch(unittest.TestCase):
 
     def test_aligned_padded_frame_dispatch(self):
         """The alignment loop (a host loop): numpy in -> numpy out and jax in -> jax out through the whole schedule,
-        every leaf -- two oversampled passes, the truncating pass and one 'UL' / 'RO' pair (tol 0, max_passes 5), at
-        d = 2, with the dense projection of a hint of the matching array type -- eagerly, and with use_jit=True (the
-        memoized jitted step; numpy in is converted to jax, the numpy hint handed on as is, jax out). The movements
-        equal numpy's (x64 on in this module; they do not depend on the gauge)."""
+        every leaf -- two oversampled passes, the truncating pass and one ('D', 'L') / ('U', 'R') pair (tol 0,
+        max_passes 5), at d = 2, with the dense projection of a hint of the matching array type -- eagerly, and with
+        use_jit=True (the memoized jitted step; numpy in is converted to jax, the numpy hint handed on as is, jax out).
+        The movements equal numpy's (x64 on in this module; they do not depend on the gauge)."""
         self.addCleanup(_release_jax_programs)
         np.random.seed(5)
         x_old = t3.TuckerTensorTrain.randn((3, 4), (1, 1), (1, 1, 1))
@@ -2342,7 +2342,7 @@ class TestAlignedLoopJit(unittest.TestCase):
         self.addCleanup(_release_jax_programs)
 
     # shape, old ranks (None: the zero tensor), target ranks, sharing, oversampling, alternate, tol -- T6's cases,
-    # capped at 12 passes: oversampled and truncating passes, pairs, the final 'UL' (12 = 3 + 4 pairs + 1 and
+    # capped at 12 passes: oversampled and truncating passes, pairs, the final ('D', 'L') (12 = 3 + 4 pairs + 1 and
     # 1 + 5 pairs + 1), early stops (d = 4 at 9 and the simultaneous one at 8, both at tol 0.1)
     CASES = {
         'two-colour, p=0':   ((4, 5, 4), ((2, 2, 2), (1, 2, 2, 1)), ((3, 4, 3), (1, 3, 3, 1)), None, 0, True, 0.05),
@@ -2392,7 +2392,7 @@ class TestAlignedLoopJit(unittest.TestCase):
                     self.assertLessEqual(max(oracles.distances(oracles.dense_frames(F_j),
                                                                oracles.dense_frames(F)).values()), 1e-12)
                     self.assertLessEqual(max(abs(float(a) - float(b)) for a, b in zip(movements_j, movements)), 1e-10)
-        self.assertEqual((lengths['two-colour, p=5'], lengths['two-colour, p=0']), (12, 12))   # the final 'UL'
+        self.assertEqual((lengths['two-colour, p=5'], lengths['two-colour, p=0']), (12, 12))   # the final ('D', 'L')
         self.assertEqual((lengths['two-colour, d=4'], lengths['simultaneous, p=5']), (9, 8))    # early stops
 
     def test_the_step_is_chosen_by_use_jit(self):
@@ -2413,7 +2413,7 @@ class TestAlignedLoopJit(unittest.TestCase):
                     padded_frames.fv_aligned_padded_frame(frame, (2, 2), (1, 2, 1), None, lambda F, h: None,
                                                           max_passes=4, tol=0.0, use_jit=use_jit)
                 on_jax = use_jit or inputs == 'jax'
-                self.assertEqual(seen, [(u, on_jax) for u in ('ULRO', 'ULRO', 'ULRO', 'UL')])
+                self.assertEqual(seen, [(u, on_jax) for u in (('D', 'U', 'L', 'R'),) * 3 + (('D', 'L'),)])
                 if use_jit:
                     wrap.assert_called_once_with(step, padded_frames._STEP_STATICS)
                 else:
@@ -2421,9 +2421,10 @@ class TestAlignedLoopJit(unittest.TestCase):
 
     def test_compile_count(self):
         """T13 (a): a 10-pass jitted run (p = 5, so all four kinds of pass) compiles at most four step programs -- the
-        oversampled 'ULRO', the truncating 'ULRO', 'UL', 'RO' -- and a second run at the same structure, other values,
-        compiles none. A structure no other test uses, so the count is this run's. The wrapper is memoized (one
-        object), the house ``_jitted`` contract; jax 0.10 would share the programs across wrappers anyway."""
+        oversampled all-store, the truncating all-store, ('D', 'L'), ('U', 'R') -- and a second run at the same
+        structure, other values, compiles none. A structure no other test uses, so the count is this run's. The wrapper
+        is memoized (one object), the house ``_jitted`` contract; jax 0.10 would share the programs across wrappers
+        anyway."""
         step = padded_frames._jitted(padded_frames.tv_align_padded_frame, padded_frames._STEP_STATICS)
         self.assertIs(padded_frames._jitted(padded_frames.tv_align_padded_frame, padded_frames._STEP_STATICS), step)
         if not hasattr(step, '_cache_size'):
@@ -2453,16 +2454,16 @@ class TestUniformAlignedLoopJit(unittest.TestCase):
         self.addCleanup(_release_jax_programs)
 
     def test_eager_equals_jit(self):
-        """T12's cases, plus the odd remainder's final 'UL' (tol 0, cap 10: 2 + 1 + 3 pairs + 1): the numpy (eager)
-        loop and the jitted loop run the same passes (NaN in the same slots), frames to 1e-12, movements to 1e-10;
-        early stops included (the defaults stop at 9)."""
+        """T12's cases, plus the odd remainder's final ('D', 'L') (tol 0, cap 10: 2 + 1 + 3 pairs + 1): the numpy
+        (eager) loop and the jitted loop run the same passes (NaN in the same slots), frames to 1e-12, movements to
+        1e-10; early stops included (the defaults stop at 9)."""
         sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
         import test_uniform_padded_frame as uniform_tests
         import _uniform_padded_frame_testing as testing
         import t3toolbox.backend.utv_operations as utvo
         project = utvo.utv_project_ut3_onto_tangent_space
         cases = dict(uniform_tests.TestLoopAgainstRagged.CASES)
-        cases['the final UL'] = cases['defaults'][:4] + ({'tol': 0.0},)
+        cases['the final DL'] = cases['defaults'][:4] + ({'tol': 0.0},)
         lengths = {}
         for name, (shape, old_ranks, target, sharing, kw) in cases.items():
             with self.subTest(case=name):
@@ -2477,7 +2478,7 @@ class TestUniformAlignedLoopJit(unittest.TestCase):
                 self.assertLessEqual(float(np.nanmax(np.abs(mv_j - mv))), 1e-10)
                 F_j = tuple(np.asarray(a) for a in F_j[:4]) + tuple(F_j[4:])
                 self.assertLessEqual(uniform_tests.frame_distance(testing.ragged(F_j), testing.ragged(F)), 1e-12)
-        self.assertEqual((lengths['defaults'], lengths['the final UL']), (9, 10))
+        self.assertEqual((lengths['defaults'], lengths['the final DL']), (9, 10))
 
     def test_compile_count(self):
         """T13 (b): the whole-loop jit compiles ONCE per structure; another run at that structure -- other values

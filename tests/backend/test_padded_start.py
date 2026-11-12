@@ -477,7 +477,8 @@ class TestSeamNumerics(unittest.TestCase):
         G = dense_probe_gradient(ragged_problem.sample, residual)
         start_dense = oracles.dense_frames(start)
         dense, move = oracles.dense_pass(oracles.dense_frames(old_frame), start_dense,
-                                     dense_tied_project(start_dense, G, groups, x0.to_dense()), stores, 'ULRO', groups)
+                                     dense_tied_project(start_dense, G, groups, x0.to_dense()), stores,
+                                     ('D', 'U', 'L', 'R'), groups)
         self.assertLessEqual(max(oracles.distances(oracles.dense_frames(ragged_view(layer, F)), dense).values()), 1e-9)
         self.assertLessEqual(abs(bopt._movement_record(movements)[0] - move), 1e-9)
 

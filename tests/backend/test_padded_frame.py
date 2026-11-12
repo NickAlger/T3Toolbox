@@ -37,10 +37,10 @@ T4 and T6, the loop ``fv_aligned_padded_frame``:
   with p = 0 and p = 5, 40 passes; the simultaneous schedule; the empty old frame; sharing; and with the default
   ``tol``, the same pass count. The schedule itself, recorded call by call: no oversampled phase when working =
   target; the cap counting the truncating pass; ``max_passes`` = 0, 1 and 2; target stores = old stores; the PAIR
-  stop rule on prescribed movements (the stop tested only after a ``('UL', 'RO')`` pair, never on the truncating
-  pass nor across two pairs; an odd remainder running one final 'UL' only when not stopped; the stack maximum; the
-  cap). Movements are a tuple of ``C`` arrays. ``use_jit=True`` without jax warns once and runs eagerly on numpy
-  (the optimizers' jax-absent policy). Eager = jit and T13 (a), the compile count, need jax with x64 and live in
+  stop rule on prescribed movements (the stop tested only after a ``(('D', 'L'), ('U', 'R'))`` pair, never on the
+  truncating pass nor across two pairs; an odd remainder running one final ('D', 'L') only when not stopped; the stack
+  maximum; the cap). Movements are a tuple of ``C`` arrays. ``use_jit=True`` without jax warns once and runs eagerly on
+  numpy (the optimizers' jax-absent policy). Eager = jit and T13 (a), the compile count, need jax with x64 and live in
   ``tests/test_dispatch.py`` (``TestAlignedLoopJit``).
 - **T4.** Two-colour is transport of the other stores, against the dense loop (in T6's two-colour rows); the cycle
   regression on the 243-number case of ``_padded_frame_cycle_case.py``: the simultaneous loop still moves by more than
@@ -510,7 +510,8 @@ class StepAsserts(unittest.TestCase):
         for group in groups:
             self.assertTrue(all(down[i] is down[group[0]] for i in group))
 
-    def assert_matches_dense(self, start, variations, old, F, movement, stores, update='ULRO', groups=(), tol=1e-9):
+    def assert_matches_dense(self, start, variations, old, F, movement, stores, update=('D', 'U', 'L', 'R'), groups=(),
+                             tol=1e-9):
         """Frames and movement against the dense per-edge pass from the same start (unstacked)."""
         Z = t3c.t3_to_dense(tvo.tv_to_t3(start, variations))
         ref, ref_movement = oracles.dense_pass(oracles.dense_frames(old), oracles.dense_frames(start), Z, stores,
@@ -544,7 +545,7 @@ class TestStepAgainstDense(StepAsserts):
                            ((3, 4, 3, 4, 3), (1, 3, 4, 4, 3, 1)), None, {'sharing': ('a', 'b', 'a', 'c', 'a')}),
     }
 
-    def check(self, shape, old_ranks, work_ranks, out_ranks, options, update='ULRO'):
+    def check(self, shape, old_ranks, work_ranks, out_ranks, options, update=('D', 'U', 'L', 'R')):
         sharing = options.get('sharing')
         old, old_ranks, X_old, start, S = step_case(shape, old_ranks, work_ranks, sharing=sharing,
                                                     zero_old=options.get('zero_old', False),
@@ -571,7 +572,7 @@ class TestStepAgainstDense(StepAsserts):
         """A store not in ``update`` keeps its completion, re-expressed in the new coordinates (the dense
         transport), while the others align -- each family transported, and the two-colour halves."""
         args = ((5, 6, 5, 6), ((2, 3, 3, 2), (1, 2, 3, 2, 1)), ((3, 5, 5, 3), (1, 3, 5, 3, 1)), None, {})
-        for update in ('UL', 'RO', 'LRO', 'ULO', 'U', 'O'):
+        for update in (('D', 'L'), ('U', 'R'), ('U', 'L', 'R'), ('D', 'U', 'L'), ('D',), ('U',)):
             with self.subTest(update=update):
                 self.check(*args, update=update)
 
@@ -720,22 +721,56 @@ class TestStepDegenerateAndStructural(StepAsserts):
     def test_the_good_inputs_pass(self):
         self.step()
         self.step(out=self.target)
-        self.step(update='UL')
+        self.step(update=('D', 'L'))
 
     def test_transport_with_truncation(self):
         """Every family is truncated working -> target; leaving one family out of ``update`` names that family."""
         self.assertTrue(all(a > b for a, b in zip(
             [max(s) for s in ranks.compute_orthogonal_representation_ranks(self.shape, *self.work)],
             [max(s) for s in ranks.compute_orthogonal_representation_ranks(self.shape, *self.target)])))
-        for missing, store in (('U', 'down'), ('O', 'up'), ('L', 'left'), ('R', 'right')):
-            update = ''.join(c for c in 'ULRO' if c != missing)
+        for missing, store in (('D', 'down'), ('U', 'up'), ('L', 'left'), ('R', 'right')):
+            update = tuple(c for c in ('D', 'U', 'L', 'R') if c != missing)
             with self.subTest(missing=missing), self.assertRaisesRegex(ValueError, store + ' store .* not updated'):
                 self.step(out=self.target, update=update)
 
     def test_bad_update(self):
-        for update in ('', 'UU', 'X', 'ULROX', 'ulro'):
-            with self.subTest(update=update), self.assertRaisesRegex(ValueError, 'without repeats'):
-                self.step(update=update)
+        """Not a non-empty collection of distinct store letters: the message names the letters. Every str (the 2026.4.0
+        annotated type, refused whatever it holds) and a collection holding the 2026.4.0 letter 'O' add the 2026.4.0
+        sentence."""
+        for update in ((), ('D', 'D'), ('X',), ('D', 'U', 'L', 'R', 'X'), ('d', 'u', 'l', 'r')):
+            with self.subTest(update=update):
+                with self.assertRaisesRegex(ValueError, 'without repeats') as raised:
+                    self.step(update=update)
+                self.assertNotIn('2026.4.0', str(raised.exception))
+        for update in ('DL', 'ULRO', 'D', ('U', 'O'), ['L', 'O']):
+            with self.subTest(update=update):
+                with self.assertRaisesRegex(ValueError, "without repeats .*; that is the 2026.4.0 form, whose 'U' was "
+                                                        r"the Tucker store \(now 'D'\)"):
+                    self.step(update=update)
+        with self.assertRaises(ValueError) as raised:
+            self.step(update='ULRO')
+        self.assertEqual(str(raised.exception),
+                         "update must be a non-empty tuple of the store letters 'D', 'U', 'L', 'R' without repeats "
+                         "(D down, U up, L left, R right), e.g. ('D', 'L'); got 'ULRO'; that is the 2026.4.0 form, "
+                         "whose 'U' was the Tucker store (now 'D') and 'O' the TT-shaped store (now 'U'): swap each "
+                         "letter and pass a tuple, e.g. 'UL' -> ('D', 'L'), not ('U', 'L'), which now means up and "
+                         "left")
+
+    def test_update_letters_in_any_order_with_the_new_meaning(self):
+        """Any collection of the letters, in any order, is one canonical set (``_STORE_LETTERS`` order), so the frames
+        agree bitwise. A 2026.4.0 tuple without 'O' runs in the new meaning: ('U', 'L') updates the up and the left
+        stores and transports the down store, whose completion keeps its span; ('D', 'L') moves it."""
+        self.assertEqual(padded_frames._update_stores(('R', 'U', 'D')), ('D', 'U', 'R'))
+        F, movement = self.step(update=('U', 'L'))
+        for update in (('L', 'U'), ['U', 'L'], {'U', 'L'}, frozenset(('U', 'L'))):
+            with self.subTest(update=update):
+                G, movement_G = self.step(update=update)
+                self.assertTrue(all(np.array_equal(a, b) for f, g in zip(F, G) for a, b in zip(f, g)))
+                self.assertTrue(np.array_equal(movement, movement_G))
+        F_down, _ = self.step(update=('D', 'L'))
+        off_span = lambda frame: [np.linalg.norm(a - a @ s.T @ s) for a, s in zip(frame[0], self.start[0])]
+        self.assertLessEqual(max(off_span(F)), 1e-12)          # the down store transported: the start's row spans
+        self.assertGreater(max(off_span(F_down)), 1e-3)        # the down store aligned: moved
 
     def test_store_order(self):
         """The old block must fit the output, and the output the frame."""
@@ -896,35 +931,39 @@ class TestLoopSchedule(unittest.TestCase):
     def test_working_equals_target_has_no_oversampled_phase(self):
         F, movements, calls = self.run_recorded(oversampling=0, max_passes=4, tol=0.0)
         t = self.target[0]
-        self.assertEqual(calls, [('ULRO', t), ('UL', t), ('RO', t), ('UL', t)])
+        self.assertEqual(calls, [(('D', 'U', 'L', 'R'), t), (('D', 'L'), t), (('U', 'R'), t), (('D', 'L'), t)])
         self.assertEqual(len(movements), 4)
 
     def test_the_default_shape_of_a_run(self):
-        """Two oversampled passes, the truncating pass, then 'UL' and 'RO' in turn; the simultaneous schedule
-        updates every store on every pass."""
+        """Two oversampled passes, the truncating pass, then ('D', 'L') and ('U', 'R') in turn; the simultaneous
+        schedule updates every store on every pass."""
         t = self.target[0]
         _, _, calls = self.run_recorded(max_passes=6, tol=0.0)
-        self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('UL', t), ('RO', t), ('UL', t)])
+        self.assertEqual(calls, [(('D', 'U', 'L', 'R'), None), (('D', 'U', 'L', 'R'), None), (('D', 'U', 'L', 'R'), t),
+                                 (('D', 'L'), t), (('U', 'R'), t), (('D', 'L'), t)])
         _, _, calls = self.run_recorded(max_passes=4, tol=0.0, alternate=False)
-        self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', t), ('ULRO', t)])
+        self.assertEqual(calls, [(('D', 'U', 'L', 'R'), None), (('D', 'U', 'L', 'R'), None), (('D', 'U', 'L', 'R'), t),
+                                 (('D', 'U', 'L', 'R'), t)])
 
     def test_two_passes_at_working_equal_to_target(self):
-        """max_passes = 2 with no oversampled phase: the 'ULRO' pass, then one slot, no pair: the final 'UL'."""
+        """max_passes = 2 with no oversampled phase: the all-store pass, then one slot, no pair: the final
+        ('D', 'L')."""
         _, movements, calls = self.run_recorded(oversampling=0, max_passes=2, tol=0.0)
-        self.assertEqual(calls, [('ULRO', self.target[0]), ('UL', self.target[0])])
+        self.assertEqual(calls, [(('D', 'U', 'L', 'R'), self.target[0]), (('D', 'L'), self.target[0])])
         self.assertEqual(len(movements), 2)
 
     def test_the_cap_counts_the_truncating_pass(self):
         F, movements, calls = self.run_recorded(oversampled_passes=5, max_passes=3, tol=0.0)
-        self.assertEqual(calls, [('ULRO', None), ('ULRO', None), ('ULRO', self.target[0])])
+        self.assertEqual(calls, [(('D', 'U', 'L', 'R'), None), (('D', 'U', 'L', 'R'), None),
+                                 (('D', 'U', 'L', 'R'), self.target[0])])
         self.assertEqual(stores_of(F), ranks.compute_orthogonal_representation_ranks(self.shape, *self.target))
 
     def test_one_pass(self):
-        """max_passes = 1: one truncating pass from the working start, or one 'ULRO' pass at the target."""
+        """max_passes = 1: one truncating pass from the working start, or one all-store pass at the target."""
         for p in (5, 0):
             with self.subTest(oversampling=p):
                 F, movements, calls = self.run_recorded(oversampling=p, max_passes=1, tol=0.0)
-                self.assertEqual(calls, [('ULRO', self.target[0])])
+                self.assertEqual(calls, [(('D', 'U', 'L', 'R'), self.target[0])])
                 self.assertEqual(len(movements), 1)
                 self.assertEqual(stores_of(F), ranks.compute_orthogonal_representation_ranks(self.shape, *self.target))
 
@@ -977,20 +1016,20 @@ class TestLoopSchedule(unittest.TestCase):
 
     def test_the_stop_rule(self):
         """The PAIR rule, with the default two oversampled passes (pass 2 truncates), cap 10 and tol 0.05: the passes
-        after the truncating one come in ('UL', 'RO') pairs (3-4, 5-6, 7-8) and the stop is tested after each pair,
-        both movements below tol; never on the truncating pass, never across two pairs; the odd slot left by the cap
-        (pass 9) runs one final 'UL' only when not stopped. Simultaneous: the first pass from the truncating one on
-        below tol. Oversampled passes never stop. The stack maximum decides; the cap stops."""
+        after the truncating one come in (('D', 'L'), ('U', 'R')) pairs (3-4, 5-6, 7-8) and the stop is tested after
+        each pair, both movements below tol; never on the truncating pass, never across two pairs; the odd slot left by
+        the cap (pass 9) runs one final ('D', 'L') only when not stopped. Simultaneous: the first pass from the
+        truncating one on below tol. Oversampled passes never stop. The stack maximum decides; the cap stops."""
         lo, hi = 0.01, 0.9
         self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi]), 5)                  # the first pair
         self.assertEqual(self.stop_after([hi, hi, lo, lo, hi, lo, lo, hi]), 7)          # not the truncating pass
         self.assertEqual(self.stop_after([hi, hi, hi, hi, lo, lo, hi, hi, hi, hi]), 10)  # not across pairs (4-5)
         self.assertEqual(self.stop_after([lo, lo, lo, lo, lo, hi]), 5)                  # not during oversampling
         self.assertEqual(self.stop_after([hi, hi, hi, [lo, hi], lo, lo, lo, hi]), 7)    # the max over the stack
-        self.assertEqual(self.stop_after([hi] * 9 + [lo]), 10)                          # the cap: 3 pairs, a final 'UL'
-        self.assertEqual(self.stop_after([hi] * 9, max_passes=9), 9)                    # an even cap: no final 'UL'
-        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi], max_passes=6), 5)    # stopped: no final 'UL'
-        self.assertEqual(self.stop_after([hi] * 6, max_passes=6), 6)                    # not stopped: the final 'UL'
+        self.assertEqual(self.stop_after([hi] * 9 + [lo]), 10)                          # the cap: 3 pairs, a final ('D', 'L')
+        self.assertEqual(self.stop_after([hi] * 9, max_passes=9), 9)                    # an even cap: no final ('D', 'L')
+        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi], max_passes=6), 5)    # stopped: no final ('D', 'L')
+        self.assertEqual(self.stop_after([hi] * 6, max_passes=6), 6)                    # not stopped: the final ('D', 'L')
         self.assertEqual(self.stop_after([hi] * 3, max_passes=3), 3)
         self.assertEqual(self.stop_after([hi, lo, lo, hi], alternate=False), 3)        # simultaneous
         self.assertEqual(self.stop_after([lo, lo, hi, lo, hi], alternate=False), 4)
@@ -1003,7 +1042,8 @@ class TestLoopSchedule(unittest.TestCase):
         self.assertEqual(self.stop_after([hi, hi, hi, [lo, nan], lo, lo, lo, hi]), 7)   #   or of a stack
 
     def test_the_stopping_pass_types(self):
-        """Recorded: a stop after the first pair leaves (oversampled x2, truncating, 'UL', 'RO') and no more."""
+        """Recorded: a stop after the first pair leaves (oversampled x2, truncating, ('D', 'L'), ('U', 'R')) and no
+        more."""
         moves = iter([0.9, 0.9, 0.9, 0.01, 0.01, 0.9])
         updates = []
 
@@ -1012,7 +1052,8 @@ class TestLoopSchedule(unittest.TestCase):
             return frame, np.asarray(next(moves))
         with unittest.mock.patch.object(padded_frames, 'tv_align_padded_frame', side_effect=fake):
             padded_frames.fv_aligned_padded_frame(self.old, *self.target, None, lambda F, h: None)
-        self.assertEqual(updates, ['ULRO', 'ULRO', 'ULRO', 'UL', 'RO'])
+        self.assertEqual(updates, [('D', 'U', 'L', 'R'), ('D', 'U', 'L', 'R'), ('D', 'U', 'L', 'R'), ('D', 'L'),
+                                   ('U', 'R')])
 
     def test_use_jit_without_jax(self):
         """jax absent (simulated, as the optimizers' test does): use_jit=True warns once and runs eagerly on numpy,

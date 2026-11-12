@@ -535,6 +535,17 @@ class TestFrameVariationsFormat(unittest.TestCase):
         self.assertFalse(nonorth.is_orthogonal().all())
         self.assertFalse(nonorth.has_numerically_minimal_ranks().all())
 
+    def test_stores_are_named_by_side(self):
+        """The ranks that kept their spelling in 2026.5.0 (plan section 5.2), read against the physical frame at a point
+        whose four stores all differ: the down store is ``data[0]``, the Tucker factors ``(n, N)`` below each Tucker
+        edge; the up store is ``data[1]``, the TT-shaped cores above it, counted by their middle leg."""
+        np.random.seed(0)
+        F = bvf.T3Frame.from_t3(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 6, 2), (1, 2, 5, 1)))
+        self.assertEqual([c.shape for c in F.data[0]], [(3, 5), (6, 6), (2, 7)])     # the Tucker factors
+        self.assertEqual(F.down_ranks, tuple(c.shape[0] for c in F.data[0]))          # (3, 6, 2)
+        self.assertEqual(F.up_ranks, tuple(c.shape[1] for c in F.data[1]))            # (2, 4, 2)
+        self.assertNotEqual(F.down_ranks, F.up_ranks)
+
 
 
 class TestReviewC13Frames(unittest.TestCase):

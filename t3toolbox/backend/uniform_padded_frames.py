@@ -33,7 +33,7 @@ from t3toolbox.backend.fv_operations import ZERO_FRAME_SEED
 from t3toolbox.backend.padded_frames import (ALIGN_OVERSAMPLING, ALIGN_OVERSAMPLED_PASSES, ALIGN_MAX_PASSES,
                                              ALIGN_TOL, ALIGN_ALTERNATE, _seed_rows, _unfold, _fold, _root,
                                              _new_coordinates, _edge_content, _left_message_step,
-                                             _right_message_step, _jitted)
+                                             _right_message_step, _jitted, _STORE_LETTERS, _COLOURS, _update_stores)
 
 __all__ = [
     'ufv_empty_frame',
@@ -519,7 +519,7 @@ def _utv_align_kernel(
         dynamic:   typ.Tuple[NDArray, ...],   # partition_static's dynamic leaves: the supercores and the variations
         skeleton:  StaticSkeleton,            # the rest: shape, masks, row masks, pins, selections, group tables
         split:     typ.Tuple[int, int],       # (Na, Rb), static
-        update:    str,                       # static: the stores updated; the rest transported
+        update:    typ.Tuple[str, ...],       # static: the stores updated (canonical letters); the rest transported
 ) -> typ.Tuple[
     NDArray,   # U+. (d,)+C+(nT1, N)
     NDArray,   # O+. (d,)+C+(rT1, nT1, rT1)
@@ -563,7 +563,7 @@ def _utv_align_kernel(
     # -- step 2, up edges: one completion per sharing group, the members' contents side by side
     Abar = D[..., :Na, :].swapaxes(-2, -1)                                       # (d,)+C+(N, Na)
     g_old, g_new = D[..., Na:, :].swapaxes(-2, -1), V[..., Na:, :].swapaxes(-2, -1)
-    Y = _u_content_d(g_old, g_new, PhiD[..., Na:], XiD) if 'U' in update else g_old
+    Y = _u_content_d(g_old, g_new, PhiD[..., Na:], XiD) if 'D' in update else g_old
     G, m = members.shape
     Yg = Y[members] * xnp.asarray(valid, dtype=dtype).reshape((G, m) + (1,) * (len(C) + 2))
     Yg = xnp.moveaxis(Yg, 1, -2).reshape((G,) + C + (N, m * Y.shape[-1]))      # missing members zero
@@ -598,7 +598,7 @@ def _utv_align_kernel(
     g_new = _unfold(M, -2)
     g_old = _unfold(_new_coordinates_d(_new_coordinates_d(U[..., Na:, :], oL, -3), oR, -1), -2)
     Abar = _unfold(_pad_trailing(U[..., :Rb, :Na, :Rb], (rT1, Na, rT1)), -2)
-    Y = _u_content_d(g_old, g_new, PhiU[..., Na:], XiU) if 'O' in update else g_old
+    Y = _u_content_d(g_old, g_new, PhiU[..., Na:], XiU) if 'U' in update else g_old
     P, _, mvU = _u_edge_d(Abar, pinU, g_old, Y, rowU, selU)
     U1 = _fold(xnp.concatenate([Abar, P], axis=-1), (rT1, nT1, rT1), -2)
     moves.append(mvU)
@@ -618,15 +618,13 @@ def utv_align_padded_frame(
         tt_ranks:         typ.Optional[typ.Union[typ.Sequence[int], NDArray]] = None,   # len=d+1 or HOST int (d+1,)+C; None = the frame's own
 
         sharing:          typ.Optional[typ.Sequence] = None,                 # len=d group labels; None = unshared
-        update:           str = 'ULRO',                                      # static; as tv_align_padded_frame
+        update:           typ.Collection[str] = ('D', 'U', 'L', 'R'),        # static; as tv_align_padded_frame
 ) -> typ.Tuple[
     UFrameData,   # P-blocks at the output widths (the counts' maxima), real-first; A-blocks as given
     NDArray,      # movement, shape=C
 ]:
     """One alignment step in block layout: the uniform twin of ``padded_frames.tv_align_padded_frame``."""
-    if not update or len(set(update)) != len(update) or not set(update) <= set('ULRO'):
-        raise ValueError("update must be a non-empty set of the stores 'U', 'L', 'R', 'O' without repeats; got %r"
-                         % (update,))
+    update = _update_stores(update)
     D, U, L, R, shape, masks = frame_data
     V, H = variations_data[0], variations_data[1]
     require_concrete_masks(*masks)
@@ -666,7 +664,7 @@ def utv_align_padded_frame(
             raise ValueError("the output boundary TT ranks are not 1; a frame's boundary bonds are 1")
         out = ranks.compute_orthogonal_representation_ranks(shape, _rank_array(tucker_ranks, d, C, 'tucker_ranks'), tt)
     out = tuple(np.broadcast_to(np.asarray(s), np.shape(o)) for s, o in zip(out, old))
-    for store, letter, o, s1, s in zip(('down', 'up', 'left', 'right'), 'UOLR', old, out, own):
+    for store, letter, o, s1, s in zip(('down', 'up', 'left', 'right'), _STORE_LETTERS, old, out, own):
         if np.any(o > s1) or np.any(s1 > s):
             raise ValueError('%s stores: old %s, output %s, frame %s; the old block must fit the output and the output '
                              'the frame' % (store, o.tolist(), s1.tolist(), s.tolist()))
@@ -773,7 +771,7 @@ def _aligning_pass(
 
 
 def _oversampled_body(
-        statics:  typ.Tuple,   # as _aligning_pass, at the working structure, 'ULRO'
+        statics:  typ.Tuple,   # as _aligning_pass, at the working structure, all four stores
         i:        typ.Any,     # the pass index
         state:    typ.Tuple,   # (cores, movements)
 ) -> typ.Tuple:
@@ -785,17 +783,18 @@ def _oversampled_body(
 
 def _pairs_cond(
         state:  typ.Tuple,   # (pass index, cores, movements, stop, tol, max_passes)
-) -> NDArray:                # 0-d bool: run another ('UL', 'RO') pair
+) -> NDArray:                # 0-d bool: run another (('D', 'L'), ('U', 'R')) pair
     """Not stopped, and a whole pair fits under the cap."""
     i, _, _, stop, _, cap = state
     return ~stop & (i + 2 <= cap)
 
 
 def _pairs_body(
-        statics:  typ.Tuple[typ.Tuple, typ.Tuple],   # the 'UL' and the 'RO' passes' statics, at the target structure
+        statics:  typ.Tuple[typ.Tuple, typ.Tuple],   # the ('D', 'L') and ('U', 'R') statics, at the target structure
         state:    typ.Tuple,                         # (pass index, cores, movements, stop, tol, max_passes)
 ) -> typ.Tuple:
-    """One ('UL', 'RO') pair; the stop: both movements below tol (the max over the stack; a NaN never stops)."""
+    """One (('D', 'L'), ('U', 'R')) pair; the stop: both movements below tol (the max over the stack; a NaN never
+    stops)."""
     xnp, _, _ = get_backend(True, tree_contains_jax(state[1:3]))
     i, cores, movements, _, tol, cap = state
     cores, _, a = _aligning_pass(statics[0], cores)
@@ -805,10 +804,10 @@ def _pairs_body(
 
 
 def _final_pass(
-        statics:  typ.Tuple,   # the 'UL' pass's statics
+        statics:  typ.Tuple,   # the ('D', 'L') pass's statics
         state:    typ.Tuple,   # (pass index, cores, movements, stop, tol, max_passes)
 ) -> typ.Tuple:
-    """The odd remainder's final 'UL' pass."""
+    """The odd remainder's final ('D', 'L') pass."""
     i, cores, movements, stop, tol, cap = state
     cores, _, movement = _aligning_pass(statics, cores)
     return i + 1, cores, _record(movements, i, movement), stop, tol, cap
@@ -830,7 +829,7 @@ def _single_cond(
 
 
 def _single_body(
-        statics:  typ.Tuple,   # the 'ULRO' pass's statics, at the target structure
+        statics:  typ.Tuple,   # the all-store pass's statics, at the target structure
         state:    typ.Tuple,
 ) -> typ.Tuple:
     """One simultaneous pass; the stop: its movement below tol."""
@@ -891,18 +890,18 @@ def _ufv_aligned_loop_kernel(
     C = tuple(frame[0].shape[1:-2])
     movements = xnp.full((max_passes,) + C, np.nan, dtype=frame[0].dtype)
 
-    statics = (project, hint, shape, masks, split, (None, None), sharing, 'ULRO')
+    statics = (project, hint, shape, masks, split, (None, None), sharing, _STORE_LETTERS)
     cores, movements = _fori(n_over, ft.partial(_oversampled_body, statics), (tuple(frame[:4]), movements), use_jit)
     cores, masks, movement = _aligning_pass(statics[:5] + (target,) + statics[6:], cores)   # the truncating pass
     movements = _record(movements, n_over, movement)
     at = lambda update: (project, hint, shape, masks, split, (None, None), sharing, update)
     if alternate:
         state = (xnp.asarray(n_over + 1), cores, movements, xnp.asarray(False), tol, max_passes)
-        state = xwhile(_pairs_cond, ft.partial(_pairs_body, (at('UL'), at('RO'))), state, use_jit)
-        state = _cond(_single_cond(state), ft.partial(_final_pass, at('UL')), _no_pass, state, use_jit)
+        state = xwhile(_pairs_cond, ft.partial(_pairs_body, (at(_COLOURS[0]), at(_COLOURS[1]))), state, use_jit)
+        state = _cond(_single_cond(state), ft.partial(_final_pass, at(_COLOURS[0])), _no_pass, state, use_jit)
     else:
         state = (xnp.asarray(n_over + 1), cores, movements, xnp.max(movement) < tol, tol, max_passes)
-        state = xwhile(_single_cond, ft.partial(_single_body, at('ULRO')), state, use_jit)
+        state = xwhile(_single_cond, ft.partial(_single_body, at(_STORE_LETTERS)), state, use_jit)
     compact = ufv_compact_frame(tuple(state[1]) + (shape, masks), level_widths)
     return tuple(compact[:4]) + (state[2],)
 

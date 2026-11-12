@@ -1762,8 +1762,8 @@ def fv_aligned_padded_frame(
 
     - ``oversampled_passes`` passes at the target ranks plus ``oversampling``;
     - one truncating pass to the target;
-    - then two-colour pairs: a ``'UL'`` pass (up and left stores) and an ``'RO'`` pass (right and down), the other
-      colour transported. A simultaneous update can cycle with period 2, which the pairs avoid.
+    - then two-colour pairs: a ``('D', 'L')`` pass (the down and left stores) and a ``('U', 'R')`` pass (the up and
+      right stores), the other colour transported. A simultaneous update can cycle with period 2, which the pairs avoid.
 
     The loop stops after a pair whose two movements are both below ``tol``, or at ``max_passes`` in all. The movement
     of a pass is how far the new slots turned: the largest, over the stores, of ``‖g_old − P⁺P⁺ᵀ g_old‖_F``.
@@ -1802,7 +1802,7 @@ def fv_aligned_padded_frame(
     - ``max_passes``: the cap, the truncating pass included. ``0`` returns the hint-free start.
     - ``tol``: the pair stop. The default ``0.05`` is a coarse alignment; with a small ``tol`` the cap is often the
       effective stop.
-    - ``alternate``: the two-colour switch. ``False`` runs simultaneous ``'ULRO'`` passes, stopping on one movement.
+    - ``alternate``: the two-colour switch. ``False`` runs simultaneous all-store passes, stopping on one movement.
     - ``seed``: the hint-free start's seed streams.
     - ``use_jit``: see the gotchas.
     - Returns ``(frame, movements)``: the aligned ``T3Frame`` and one movement per pass run (each of shape ``C``).
@@ -1847,7 +1847,7 @@ def fv_aligned_padded_frame(
     >>> tangent = t3m.MANIFOLD.project_ambient(F, hint)
     >>> bool(float(tangent.align_padded(*old)[1]) < 1e-8)
     True
-    >>> [bool(float(tangent.align_padded(*old, update=store)[1]) < 1e-8) for store in 'ULRO']
+    >>> [bool(float(tangent.align_padded(*old, update=(store,))[1]) < 1e-8) for store in ('D', 'U', 'L', 'R')]
     [True, True, True, True]
 
     The aligned frame's tangent space holds far more of the hint than the hint-free start's:

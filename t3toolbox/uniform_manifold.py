@@ -149,7 +149,7 @@ class UT3Tangent(common.ExplicitEquality):
             tt_ranks:      typ.Optional[typ.Union[typ.Sequence[int], NDArray]] = None,   # len=d+1 or HOST int (d+1,)+C; None = the frame's own
 
             sharing:       typ.Optional[typ.Sequence] = None,                         # len=d group labels; None = unshared
-            update:        str = 'ULRO',                                              # as T3Tangent.align_padded
+            update:        typ.Collection[str] = ('D', 'U', 'L', 'R'),                # as T3Tangent.align_padded
     ) -> typ.Tuple[
         'ubv.UT3Frame',   # the aligned frame, block layout, P-blocks real-first
         NDArray,          # movement, shape = frame stack C

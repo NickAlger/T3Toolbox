@@ -62,7 +62,7 @@ def top_left(Y, k):
     return Uy[:, :k]
 
 
-def dense_pass(old_dense, cur_dense, Z, stores, update='ULRO', groups=()):
+def dense_pass(old_dense, cur_dense, Z, stores, update=('D', 'U', 'L', 'R'), groups=()):
     """One step on dense tensors: the new frames ``(U, phi, psi, E)`` at ``stores`` = (nD, nU, rL, rR), and the
     movement (max over edges). ``oldD`` / ``curD``: the dense frames of the old and the current (padded) frame; ``Z``:
     the dense tangent vector; ``groups``: canonical sharing groups (tuples of mode indices), singletons optional."""
@@ -90,7 +90,7 @@ def dense_pass(old_dense, cur_dense, Z, stores, update='ULRO', groups=()):
         for i in g:
             Y = Q.T @ Zi[i]
             blocks.append(Y - (Y @ Uo[i]) @ Uo[i].T)
-        W = choose(Q, np.concatenate(blocks, axis=1), Dc[i0][:, s:], nD[i0] - s, 'U' in update)
+        W = choose(Q, np.concatenate(blocks, axis=1), Dc[i0][:, s:], nD[i0] - s, 'D' in update)
         for i in g:
             D[i] = np.concatenate([Do[i0], W], axis=1)
     phi = [np.ones((1, 1))]
@@ -116,17 +116,18 @@ def dense_pass(old_dense, cur_dense, Z, stores, update='ULRO', groups=()):
         Q = complement_in(B, Uo[i])
         Zt = Zi[i].T
         content = Q.T @ (Zt - (Zt @ Do[i]) @ Do[i].T)
-        U.append(np.concatenate([Uo[i], choose(Q, content, Uc[i][:, r0:], nU[i] - r0, 'O' in update)], 1))
+        U.append(np.concatenate([Uo[i], choose(Q, content, Uc[i][:, r0:], nU[i] - r0, 'U' in update)], 1))
     return (D, phi, psi, U), max(moves)
 
 
 def dense_loop(old_dense, start_dense, S, working, target, oversampled_passes, max_passes, tol, alternate, groups=()):
     """The alignment loop's schedule (the plan's section 2.3) on the dense step: from the dense start ``startD`` at the
     ``working`` stores, ``n_over`` passes at the working stores, the truncating pass to the ``target`` stores, then
-    (``alternate``) ('UL', 'RO') pairs while a whole pair fits under ``max_passes``, stopping after a pair whose two
-    movements are below ``tol``, and one final 'UL' pass in a remaining slot unless stopped; or (not ``alternate``)
-    'ULRO' passes, stopping after the first pass from the truncating one on whose movement is below ``tol``. Every
-    pass is against ``dense_project(D, S)``. Returns the dense frames and the movement after every pass."""
+    (``alternate``) (('D', 'L'), ('U', 'R')) pairs while a whole pair fits under ``max_passes``, stopping after a
+    pair whose two movements are below ``tol``, and one final ('D', 'L') pass in a remaining slot unless stopped; or
+    (not ``alternate``) all-store passes, stopping after the first pass from the truncating one on whose movement is
+    below ``tol``. Every pass is against ``dense_project(D, S)``. Returns the dense frames and the movement after
+    every pass."""
     n_over = 0 if tuple(working) == tuple(target) else min(oversampled_passes, max_passes - 1)
     state = {'D': start_dense}
     frames, moves = [], []
@@ -137,18 +138,18 @@ def dense_loop(old_dense, start_dense, S, working, target, oversampled_passes, m
         moves.append(movement)
 
     for it in range(n_over + 1):
-        run(working if it < n_over else target, 'ULRO')
+        run(working if it < n_over else target, ('D', 'U', 'L', 'R'))
     if alternate:
         stop = False
         while not stop and len(moves) + 2 <= max_passes:
-            run(target, 'UL')
-            run(target, 'RO')
+            run(target, ('D', 'L'))
+            run(target, ('U', 'R'))
             stop = max(moves[-2:]) < tol
         if not stop and len(moves) < max_passes:
-            run(target, 'UL')
+            run(target, ('D', 'L'))
     else:
         while not moves[-1] < tol and len(moves) < max_passes:
-            run(target, 'ULRO')
+            run(target, ('D', 'U', 'L', 'R'))
     return frames, moves
 
 
@@ -173,9 +174,9 @@ def dense_project(dense, S):
 
 def distances(dense_a, dense_b):
     """The largest principal-angle sine between two sets of dense frames, per kind of directed edge
-    ('U' leaf -> core, 'L' rightward, 'R' leftward, 'O' core -> leaf); 1.0 where the widths differ."""
+    ('D' leaf -> core, 'L' rightward, 'R' leftward, 'U' core -> leaf); 1.0 where the widths differ."""
     out = {}
-    for name, a, b in zip('ULRO', dense_a, dense_b):
+    for name, a, b in zip(('D', 'L', 'R', 'U'), dense_a, dense_b):
         ds = []
         for x, y in zip(a, b):
             if x is None or y is None:

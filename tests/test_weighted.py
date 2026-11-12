@@ -384,6 +384,25 @@ class TestT3FrameWeights(unittest.TestCase):
         Wr = bvf.T3FrameWeights.stack(W.unstack())
         self.assertTrue(all(np.allclose(a, b) for fa, fb in zip(Wr.data, W.data) for a, b in zip(fa, fb)))
 
+    def test_stores_are_named_by_side(self):
+        """T3FrameWeights' same-spelling fields and ranks (plan section 5.2), at a frame whose stores all differ, the
+        weights built per store from the physical frame (``from_t3weights`` copies one Tucker vector into both):
+        ``down_weights`` are sized by the Tucker factors' rows, the TT variations' middle leg; ``up_weights`` by the
+        TT-shaped cores' middle leg, the Tucker variations' rows."""
+        np.random.seed(0)
+        F = bvf.T3Frame.from_t3(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 6, 2), (1, 2, 5, 1)))
+        down, up, left, right = (tuple(np.arange(1.0, c.shape[axis] + 1) for c in cores)
+                                 for cores, axis in zip(F.data, (0, 1, 0, 2)))
+        W = bvf.T3FrameWeights(down_weights=down, up_weights=up, left_weights=left, right_weights=right)
+        self.assertIs(W.data[0], down)
+        self.assertIs(W.data[1], up)
+        self.assertEqual(W.down_ranks, tuple(c.shape[0] for c in F.data[0]))          # (3, 6, 2)
+        self.assertEqual(W.up_ranks, tuple(c.shape[1] for c in F.data[1]))            # (2, 4, 2)
+        v = t3m.MANIFOLD.project_ambient(F, t3.TuckerTensorTrain.randn((5, 6, 7), (5, 6, 7), (1, 5, 7, 1)))
+        self.assertEqual(W.down_ranks, tuple(h.shape[1] for h in v.variations.tt_variations))
+        self.assertEqual(W.up_ranks, tuple(g.shape[0] for g in v.variations.tucker_variations))
+        self.assertTrue(W.is_consistent_with(v))
+
 
 class TestT3svdFrameGauge(unittest.TestCase):
     """Review 2026-08-22 (S14): the frame a singular-value metric pairs with must carry the singular basis.

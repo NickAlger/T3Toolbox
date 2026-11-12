@@ -576,6 +576,7 @@ import t3toolbox.uniform_frame_variations_format as ubvf
 import t3toolbox.uniform_manifold as ut3m
 import t3toolbox.backend.ufv_operations as ufv_operations
 import t3toolbox.backend.utv_operations as utv_operations
+import t3toolbox.backend.ufv_conversions as ufv_conversions
 
 CK_STACKS = [((), ()), ((), (2,)), ((2,), ()), ((2,), (3,)), ((2,), (2, 3))]   # (C, K)
 
@@ -799,3 +800,28 @@ class TestUT3FrameWeights(unittest.TestCase):
         for name in ('concatenate', 'kronecker'):
             with self.subTest(op=name):
                 self.assertTrue(all(common.is_numpy_ndarray(m) for m in getattr(jW, name)(jW).masks.data))
+
+    def test_stores_are_named_by_side(self):
+        """UT3FrameWeights' same-spelling names, from_t3frameweights and the backend packer (plan section 5.2), at a
+        frame whose stores and padded widths all differ, the ragged weights built per store from the physical frame
+        (``from_t3weights`` copies one Tucker vector into both): the down weights, sized by the Tucker factors' rows,
+        go to the down supercore at width nD; the up weights, sized by the TT-shaped cores' middle legs, to width nU."""
+        np.random.seed(0)
+        F = bvf.T3Frame.from_t3(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 6, 2), (1, 2, 5, 1)))
+        W = bvf.T3FrameWeights(*(tuple(np.arange(1.0, c.shape[axis] + 1) for c in cores)
+                                 for cores, axis in zip(F.data, (0, 1, 0, 2))))
+        down, up = [c.shape[0] for c in F.data[0]], [c.shape[1] for c in F.data[1]]      # [3, 6, 2], [2, 4, 2]
+        packed = ufv_conversions.t3frameweights_to_ut3frameweights(W.data, nD=7, nU=5, rL=6, rR=3)
+        weights = {'positional': ubvf.UT3FrameWeights.from_t3frameweights(W, 7, 5, 6, 3),
+                   'keywords': ubvf.UT3FrameWeights.from_t3frameweights(W, nD=7, nU=5, rL=6, rR=3),
+                   'field keywords': ubvf.UT3FrameWeights(
+                       down_weight_supercore=packed[0], up_weight_supercore=packed[1], left_weight_supercore=packed[2],
+                       right_weight_supercore=packed[3], masks=ubvf.UT3VariationsMasks(*packed[4]))}
+        for name, uW in weights.items():
+            with self.subTest(weights=name):
+                self.assertEqual((uW.nD, uW.nU), (7, 5))
+                self.assertEqual((uW.down_weight_supercore.shape, uW.up_weight_supercore.shape), ((3, 7), (3, 5)))
+                for i in range(3):                                              # the ragged vectors, leading slots
+                    self.assertTrue(np.array_equal(uW.down_weight_supercore[i][:down[i]], W.data[0][i]))
+                    self.assertTrue(np.array_equal(uW.up_weight_supercore[i][:up[i]], W.data[1][i]))
+                self.assertEqual((uW.down_ranks.tolist(), uW.up_ranks.tolist()), (down, up))

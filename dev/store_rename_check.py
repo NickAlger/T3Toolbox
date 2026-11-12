@@ -72,6 +72,14 @@ K3_CODE = [re.compile(r'update\s*:\s*str\b'), re.compile(r'update\s*=\s*[\'"]'),
            re.compile(r'\(\s*(?:[\'"][DULRO][\'"]\s*,\s*)*[\'"]O[\'"](?:\s*,\s*[\'"][DULRO][\'"])*\s*,?\s*\)')]
 K3_DOCS = [re.compile(r"`'(?:ULRO|UL|RO)'`")]
 K3_WORD_TUPLE = [re.compile(r"\('(?:down|up|left|right)'")]
+# R3's extension: in the letter-API files, any string of 2-4 store letters (code, docstrings and comments): 2026.4.0's
+# ('ULRO', 'UL', 'RO', ...) and new letters alike ('DL'), since form (c) takes a tuple.
+K3_OLD_LETTERS = [re.compile(r'[\'"][DULRO]{2,4}[\'"]')]          # form (c) refuses every str of letters
+# Carved out of K3 by function (R3): the refusal itself (its 'O' test and its message naming the 2026.4.0 form) and the
+# tests that pass the 2026.4.0 forms on purpose, to see them refused.
+K3_REFUSALS = {'t3toolbox/backend/padded_frames.py': ('_update_stores',),
+               'tests/backend/test_padded_frame.py': ('test_bad_update',),
+               'tests/backend/test_uniform_padded_frame.py': ('test_update',)}
 K4 = [re.compile(p) for p in (r'\(U, ?O, ?[PL], ?[QR]\)', r'\((?:D|U), ?(?:U|O), ?P, ?Q\b', r'\(U, ?G, ?G, ?G\)',
                               r'\(D, ?G, ?G, ?G\)', r'\(?P, ?Q, ?O\)? ?(?:→|->)', r'Q = O = P = G', r'Q = O = G',
                               r'\b[OPQ] = G\b', r'no longer required orthogonal')]
@@ -225,11 +233,47 @@ def k2(tree, stage):
                  'of a stale width spelling (everywhere, fences and notes included)')]
 
 
+_prose_cache: typ.Dict[typ.Tuple[str, str], typ.Any] = {}
+
+
+def _code_prose(tree: str, path: str):
+    """(docstring line ranges, {line: comment column}, the K3_REFUSALS functions' lines) of a Python file."""
+    if (tree, path) not in _prose_cache:
+        import ast
+        src = read(tree, path) or ''
+        doc, refusal = [], set()
+        for node in ast.walk(ast.parse(src)):
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)) and node.body:
+                first = node.body[0]
+                if (isinstance(first, ast.Expr) and isinstance(first.value, ast.Constant)
+                        and isinstance(first.value.value, str)):
+                    doc.append((first.lineno, first.end_lineno))
+            if (isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and node.name in K3_REFUSALS.get(path, ())):
+                refusal.update(range(node.lineno, node.end_lineno + 1))
+        comments = {t.start[0]: t.start[1] for t in tokenize.generate_tokens(io.StringIO(src).readline)
+                    if t.type == tokenize.COMMENT}
+        _prose_cache[(tree, path)] = (doc, comments, refusal)
+    return _prose_cache[(tree, path)]
+
+
 def k3(tree, stage):
-    hits = pattern_hits(tree, [p for p in code_paths() if p in LETTER_API_FILES], K3_CODE, 'K3')
-    hits += pattern_hits(tree, doc_paths(), K3_DOCS + K3_WORD_TUPLE, 'K3')
-    hits += [h for h in pattern_hits(tree, code_paths(), K3_WORD_TUPLE, 'K3')]
-    return [_rep('K3', hits, stage, 'R3', "of the update letter API's old form or a word tuple")]
+    """§5.3's K3, with R3's extension: the old letter strings in the letter-API files, and the word tuple read in the
+    docs and in code files' docstrings and comments only (§5.3: "in docs and docstrings"; in code, store-word tuples
+    name stores in messages and seeds, B2's literals). The K3_REFUSALS functions are carved out."""
+    refused = lambda p, i, m, ln: i in _code_prose(tree, p)[2]
+    hits = pattern_hits(tree, [p for p in code_paths() if p in LETTER_API_FILES], K3_CODE + K3_OLD_LETTERS, 'K3',
+                        refused)
+
+    def not_prose(p, i, m, ln):
+        doc, comments, refusal = _code_prose(tree, p)
+        prose = any(a <= i <= b for a, b in doc) or (i in comments and m.start() >= comments[i])
+        return not prose or i in refusal
+    hits += pattern_hits(tree, code_paths(), K3_WORD_TUPLE, 'K3', not_prose)
+    doc_hits = pattern_hits(tree, doc_paths(), K3_DOCS + K3_WORD_TUPLE, 'K3')
+    return [_rep('K3', hits, stage, 'R3', "of the update letter API's old form or a word tuple, in the code tree"),
+            _rep('K3-docs', doc_hits, stage, 'R5', "of the update letter API's old form or a word tuple, in the docs "
+                                                   "(their LETTER-API rows are R5's, §1.4 L7)")]
 
 
 def k4_to_k8(tree, stage):
@@ -485,6 +529,159 @@ def _contract_strings(src: str) -> collections.Counter:
                     if isinstance(a, ast.Constant) and isinstance(a.value, str):
                         c[a.value] += 1
     return c
+
+
+_ref_cache: typ.Dict[typ.Tuple[str, str], typ.Optional[str]] = {}
+
+
+def read_ref(ref: str, path: str) -> typ.Optional[str]:
+    if (ref, path) not in _ref_cache:
+        r = subprocess.run(['git', '-C', REPO, 'show', '%s:%s' % (ref, path)], capture_output=True)
+        _ref_cache[(ref, path)] = r.stdout.decode('utf-8') if r.returncode == 0 else None
+    return _ref_cache[(ref, path)]
+
+
+HUNK_FIELDS = ('file', 'tag', 'old_lines', 'new_lines', 'old', 'new')
+
+
+def name_diff(tree: str, prev: str):
+    """From R3 on (§5.3 K15): per code file, the NAME streams of the previous slice's commit and of the tree, and
+    difflib's unequal opcodes between them."""
+    out = []
+    for p in code_paths():
+        new, old = read(tree, p), read_ref(prev, p)
+        if new is None or old is None or new == old:
+            continue
+        on, nn = _names(p, old), _names(p, new)
+        sm = difflib.SequenceMatcher(None, [x[2] for x in on], [x[2] for x in nn], autojunk=False)
+        out.append((p, old, new, on, nn, [o for o in sm.get_opcodes() if o[0] != 'equal']))
+    return out
+
+
+def name_hunks(diff) -> typ.List[typ.Dict[str, str]]:
+    """The unequal NAME hunks as rows of HUNK_FIELDS (lines are first-last of the hunk's tokens; '-' when empty)."""
+    rows = []
+    for p, old, new, on, nn, ops in diff:
+        for tag, i1, i2, j1, j2 in ops:
+            rows.append(dict(file=p, tag=tag,
+                             old_lines='%d-%d' % (on[i1][0], on[i2 - 1][0]) if i2 > i1 else '-',
+                             new_lines='%d-%d' % (nn[j1][0], nn[j2 - 1][0]) if j2 > j1 else '-',
+                             old=' '.join(x[2] for x in on[i1:i2]), new=' '.join(x[2] for x in nn[j1:j2])))
+    return rows
+
+
+def k15_cross_check(diff, hits_dir, names: typ.Sequence[str]) -> 'Result':
+    """§5.3's K15 cross-check, from R3 on: over the replace and delete hunks (insert hunks are new code, read through
+    the listed hunks), per file, every name in old - new must be a hit-table source and every name in new - old a
+    hit-table image, unless the slice's handoff lists it (``names``)."""
+    hits = list(csv.DictReader(open(os.path.join(hits_dir, 'R1_hit_table.tsv')), delimiter='\t')) if hits_dir else []
+    sources = {h['old'] for h in hits if h['ctx'].endswith('NAME')}
+    images = {h['new'] for h in hits if h['ctx'].endswith('NAME')}
+    listed = set(names)
+    errs, det = [], []
+    for p, old, new, on, nn, ops in diff:
+        a, b = collections.Counter(), collections.Counter()
+        for tag, i1, i2, j1, j2 in ops:
+            if tag in ('replace', 'delete'):
+                a.update(x[2] for x in on[i1:i2])
+                b.update(x[2] for x in nn[j1:j2])
+        removed, added = a - b, b - a
+        if not (removed or added):
+            continue
+        det.append('%s: old - new {%s}; new - old {%s}' % (p, ', '.join(sorted(removed)), ', '.join(sorted(added))))
+        errs += ['%s: removed %s is neither a map source nor listed' % (p, n) for n in sorted(removed)
+                 if n not in sources and n not in listed]
+        errs += ['%s: added %s is neither a map image nor listed' % (p, n) for n in sorted(added)
+                 if n not in images and n not in listed]
+    return Result('K15-cross', 'FAIL' if errs else 'PASS', '%d name(s) outside the map and the listed names, over the '
+                  'replace/delete hunks (listed: %s)' % (len(errs), ', '.join(sorted(listed)) or 'none'), errs + det)
+
+
+def k14_k15_after_r2(tree, hits_dir, prev, hunks_file, write_hunks, names=()):
+    """From R3 on. K15: every unequal NAME hunk against the previous slice's commit ``prev`` is one the slice lists
+    (``hunks_file``, a TSV of HUNK_FIELDS that the handoff carries). K14: no DO-NOT-TOUCH token is lost or replaced
+    in a hunk (the previous slice passed K14 against the tag, so every listed occurrence survives); DNT names that
+    new code adds (public names in new tests) are counted, and the tag comparison of R2 is repeated with them
+    subtracted."""
+    dnt = load_dnt()
+    diff = name_diff(tree, prev)
+    rows = name_hunks(diff)
+    if write_hunks:
+        with open(write_hunks, 'w', newline='') as fh:
+            w = csv.DictWriter(fh, HUNK_FIELDS, delimiter='\t', lineterminator='\n')
+            w.writeheader()
+            w.writerows(rows)
+    by_ident = collections.defaultdict(list)
+    for ident, scope, item in dnt:
+        by_ident[ident].append((scope, item))
+
+    def relevant(p, ident):
+        return [(sc, it) for sc, it in by_ident.get(ident, ())
+                if sc == '*' or sc == p or sc.startswith(p + '::') or sc.startswith(p + ':')]
+
+    def count(p, names, outer, ident, scope):
+        return sum(1 for l, c, t, x in names if t == ident and _in_scope(scope, p, l, outer))
+
+    lost, added = [], collections.Counter()
+    for p, old, new, on, nn, ops in diff:
+        oo, no = _outer(old), _outer(new)
+        for tag, i1, i2, j1, j2 in ops:
+            a_names, b_names = on[i1:i2], nn[j1:j2]
+            for ident in {x[2] for x in a_names} | {x[2] for x in b_names}:
+                for scope, item in relevant(p, ident):
+                    a, b = count(p, a_names, oo, ident, scope), count(p, b_names, no, ident, scope)
+                    if a > b:
+                        lost.append('%s: %s [%s, item %s] lost in the hunk at old lines %s (%d -> %d)'
+                                    % (p, ident, scope, item, '%d-%d' % (on[i1][0], on[i2 - 1][0]), a, b))
+                    elif b > a:
+                        added[(p, ident, scope)] += b - a
+    # the tag comparison (R2's K14) on the files this slice changed, with its additions subtracted; the others are
+    # byte-identical to the previous slice, which passed K14 against the tag
+    hits = list(csv.DictReader(open(os.path.join(hits_dir, 'R1_hit_table.tsv')), delimiter='\t')) if hits_dir else []
+    images = collections.defaultdict(list)
+    for h in hits:
+        if h['ctx'].endswith('NAME'):
+            images[(h['file'], h['new'])].append(int(h['line']))
+    tag_errs, k14s = [], []
+    for p, prev_src, new, _, nn, _ in diff:
+        base = read_base(p)
+        if base is None:
+            continue
+        bn, pn = _names(p, base), _names(p, prev_src)
+        bo, po, no = _outer(base), _outer(prev_src), _outer(new)
+        for ident in {x[2] for x in bn} | {x[2] for x in pn} | {x[2] for x in nn} | {n for f, n in images if f == p}:
+            for scope, item in relevant(p, ident):
+                co, cp, cn = count(p, bn, bo, ident, scope), count(p, pn, po, ident, scope), count(p, nn, no, ident, scope)
+                ci = sum(1 for l in images.get((p, ident), ()) if _in_scope(scope, p, l, bo))
+                if cp - ci != co:
+                    tag_errs.append('%s: %s [%s, item %s] base %d, previous slice %d, images %d'
+                                    % (p, ident, scope, item, co, cp, ci))
+                if cn - cp != added[(p, ident, scope)]:
+                    tag_errs.append('%s: %s [%s, item %s] previous slice %d, tree %d, additions in hunks %d'
+                                    % (p, ident, scope, item, cp, cn, added[(p, ident, scope)]))
+        if _contract_strings(base) != _contract_strings(new):
+            k14s.append('%s: contract/einsum string arguments differ' % p)
+    add_det = ['added: %s: %s [%s] +%d' % (p, i, s, v) for (p, i, s), v in sorted(added.items())]
+    out = [Result('K14', 'FAIL' if (lost or tag_errs or k14s) else 'PASS',
+                  '%d DNT token(s) lost in a hunk against %s, %d count difference(s) against %s after the hunks, '
+                  '%d file(s) with different contract/einsum strings; %d DNT token(s) added by new code (%d DNT rows)'
+                  % (len(lost), prev, len(tag_errs), BASE, len(k14s), sum(added.values()), len(dnt)),
+                  lost + tag_errs + k14s + add_det)]
+    if hunks_file:
+        listed = list(csv.DictReader(open(hunks_file, newline=''), delimiter='\t'))
+        key = lambda r: tuple(r[f] for f in HUNK_FIELDS)
+        extra = [r for r in rows if key(r) not in {key(x) for x in listed}]
+        missing = [r for r in listed if key(r) not in {key(x) for x in rows}]
+        det = ['NOT LISTED: %s' % '\t'.join(key(r)) for r in extra] + ['LISTED, NOT FOUND: %s' % '\t'.join(key(r))
+                                                                      for r in missing]
+        out.append(Result('K15', 'FAIL' if det else 'PASS', '%d NAME hunk(s) against %s; %d not listed in %s, %d '
+                          'listed and not found' % (len(rows), prev, len(extra), os.path.basename(hunks_file),
+                                                    len(missing)), det))
+    else:
+        out.append(Result('K15', 'REPORT', '%d NAME hunk(s) against %s (pass --hunks to check them against the '
+                          'listed ones)' % (len(rows), prev), ['\t'.join(r[f] for f in HUNK_FIELDS) for r in rows]))
+    out.append(k15_cross_check(diff, hits_dir, names))
+    return out
 
 
 def k14_k15(tree, stage, hits_dir):
@@ -825,6 +1022,11 @@ def main(argv=None) -> int:
     ap.add_argument('--only', default='')
     ap.add_argument('--out', default=None)
     ap.add_argument('--realized', action='store_true', help='K15 converse: every NAME hit is in place (R2 on)')
+    ap.add_argument('--prev', default='HEAD', help='R3 on: the previous slice\'s commit, for K14/K15')
+    ap.add_argument('--hunks', default=None, help='R3 on: the TSV of the NAME hunks the handoff lists (K15)')
+    ap.add_argument('--write-hunks', default=None, help='R3 on: write the NAME hunks found to this TSV')
+    ap.add_argument('--names', default='', help='R3 on: comma-separated names the handoff lists as removed or added '
+                                                'by its replace/delete hunks (K15 cross-check)')
     a = ap.parse_args(argv)
     _load_text_keeps()
     only = set(a.only.split(',')) if a.only else None
@@ -847,7 +1049,11 @@ def main(argv=None) -> int:
     if want('K13'):
         res += k13(a.tree, a.stage)
     if want('K14') or want('K15'):
-        res += k14_k15(a.tree, a.stage, a.hits)
+        if _stage_ge(a.stage, 'R3'):
+            res += k14_k15_after_r2(a.tree, a.hits, a.prev, a.hunks, a.write_hunks,
+                                    [n for n in a.names.split(',') if n])
+        else:
+            res += k14_k15(a.tree, a.stage, a.hits)
     if a.realized and a.hits:
         res.append(k15_realized(a.tree, a.hits))
     if want('K16'):

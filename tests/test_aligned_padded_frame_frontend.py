@@ -122,8 +122,8 @@ class TestTwinsAreTheirBackendCalls(unittest.TestCase):
         self.assertTrue(equal_trees(F1.data, Fb) and np.array_equal(mv, mvb))
         UF, split = ubv.UT3Frame.padded(ux_old, *TARGET)
         uv = ut3m.UNIFORM_MANIFOLD.project_ambient(UF, uhint)
-        UF1, umv = uv.align_padded(split, update='UL')
-        UFb, umvb = uniform_padded_frames.utv_align_padded_frame(UF.data, uv.variations.data, split, update='UL')
+        UF1, umv = uv.align_padded(split, update=('D', 'L'))
+        UFb, umvb = uniform_padded_frames.utv_align_padded_frame(UF.data, uv.variations.data, split, update=('D', 'L'))
         self.assertTrue(equal_trees(UF1.data, UFb) and np.array_equal(umv, umvb))
 
     def test_oversampled_ranks(self):

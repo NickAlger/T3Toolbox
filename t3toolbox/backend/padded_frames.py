@@ -10,8 +10,8 @@ leading slots of every store (the four families of frame cores, up / down / left
 ``tv_align_padded_frame`` is one alignment step: every completion replaced by the leading new directions of a tangent
 vector at the frame, the old blocks held fixed (unrooted message passing over the T3 tree's directed edges).
 ``fv_aligned_padded_frame`` is the loop: from the start at oversampled working ranks, steps against the projection of
-one fixed tensor, a truncating pass to the target ranks, then two-colour passes in ``('UL', 'RO')`` pairs. The
-``ALIGN_*`` constants are the loop's defaults, named once here. Everything runs eagerly unless the loop is asked for
+one fixed tensor, a truncating pass to the target ranks, then two-colour passes in ``(('D', 'L'), ('U', 'R'))`` pairs.
+The ``ALIGN_*`` constants are the loop's defaults, named once here. Everything runs eagerly unless the loop is asked for
 jit (``use_jit``): then the old frame goes to jax and the loop calls a memoized jitted step.
 """
 import functools as ft
@@ -49,6 +49,24 @@ ALIGN_TOL = 0.05
 ALIGN_ALTERNATE = True
 
 _STORE_NAMES = ('down', 'up', 'left', 'right')
+_STORE_LETTERS = ('D', 'U', 'L', 'R')                       # a frame's stores in physical order (T3Frame.data)
+_COLOURS = (('D', 'L'), ('U', 'R'))                         # the two-colour passes (alternate=True), in pass order
+
+
+def _update_stores(
+        update:  typ.Collection[str],   # single store letters, any order, e.g. ('D', 'L'): D down, U up, L left, R right
+) -> typ.Tuple[str, ...]:               # the same letters in _STORE_LETTERS order: one jit static per set
+    """``update`` validated and canonicalized; ``ValueError`` otherwise, naming the letters."""
+    if (isinstance(update, str) or not update or len(set(update)) != len(update)
+            or not set(update) <= set(_STORE_LETTERS)):
+        message = ("update must be a non-empty tuple of the store letters 'D', 'U', 'L', 'R' without repeats "
+                   "(D down, U up, L left, R right), e.g. ('D', 'L'); got %r" % (update,))
+        if isinstance(update, str) or 'O' in update:      # every str is a 2026.4.0 call
+            message += ("; that is the 2026.4.0 form, whose 'U' was the Tucker store (now 'D') and 'O' the "
+                        "TT-shaped store (now 'U'): swap each letter and pass a tuple, e.g. 'UL' -> ('D', 'L'), "
+                        "not ('U', 'L'), which now means up and left")
+        raise ValueError(message)
+    return tuple(c for c in _STORE_LETTERS if c in update)
 
 
 def _frame_core_shapes(
@@ -551,15 +569,13 @@ def tv_align_padded_frame(
         tt_ranks:          typ.Optional[typ.Sequence[int]] = None,   # len=d+1, output ranks; None = the frame's own
 
         sharing:           typ.Optional[typ.Sequence] = None,        # len=d group labels; None = unshared
-        update:            str = 'ULRO',                             # stores updated: 'U' up, 'L' left, 'R' right, 'O' down; the rest transported
+        update:            typ.Collection[str] = ('D', 'U', 'L', 'R'),   # store letters, any order: 'D' down, 'U' up, 'L' left, 'R' right; the rest transported
 ) -> typ.Tuple[
     FrameData,   # the frame at the output ranks: old blocks bitwise, completions aligned
     NDArray,     # movement, shape=C: max over directed edges of ‖g_old − P⁺P⁺ᵀ g_old‖_F
 ]:
     """One alignment step: each completion replaced by the tangent's leading new directions, old blocks pinned."""
-    if not update or len(set(update)) != len(update) or not set(update) <= set('ULRO'):
-        raise ValueError("update must be a non-empty set of the stores 'U', 'L', 'R', 'O' without repeats; got %r"
-                         % (update,))
+    update = _update_stores(update)
     xnp, xmap, xscan = get_backend(False, tree_contains_jax((frame, variations)))
     D, U, L, R = (tuple(xnp.asarray(c) for c in cores) for cores in frame)
     V, H = (tuple(xnp.asarray(c) for c in cores) for cores in variations)
@@ -578,7 +594,7 @@ def tv_align_padded_frame(
         raise ValueError('give both output rank sequences (tucker_ranks, tt_ranks) or neither')
     out = (nD, nU, rL, rR) if tucker_ranks is None else _rank_stores(shape, tucker_ranks, tt_ranks, 'output')
     nD1, nU1, rL1, rR1 = out
-    for store, letter, old, new, own in zip(_STORE_NAMES, 'UOLR', (nD0, nU0, rL0, rR0), out, (nD, nU, rL, rR)):
+    for store, letter, old, new, own in zip(_STORE_NAMES, _STORE_LETTERS, (nD0, nU0, rL0, rR0), out, (nD, nU, rL, rR)):
         for i, (a, b, c) in enumerate(zip(old, new, own)):
             if not a <= b <= c:
                 raise ValueError('%s store %d: old %d, output %d, frame %d; the old block must fit the output and the '
@@ -621,7 +637,7 @@ def tv_align_padded_frame(
         tuple(D[g[0]][..., :nD0[g[0]], :] for g in groups), tuple(D[g[0]][..., nD0[g[0]]:, :] for g in groups),
         tuple(tuple(V[i][..., nU0[i]:, :].swapaxes(-2, -1) for i in g) for g in groups),
         tuple(tuple(PhiD[i][..., nU0[i]:] for i in g) for g in groups), tuple(tuple(XiD[i] for i in g) for g in groups),
-        tuple(nD1[g[0]] - nD0[g[0]] for g in groups), ('U' in update,) * len(groups)))
+        tuple(nD1[g[0]] - nD0[g[0]] for g in groups), ('D' in update,) * len(groups)))
     group_of = tuple(next((j, g.index(i)) for j, g in enumerate(groups) if i in g) for i in range(d))
     oD = tuple(oD[j] for j, _ in group_of)
     PsiD = tuple(PsiDs[j][m] for j, m in group_of)
@@ -652,7 +668,7 @@ def tv_align_padded_frame(
         tuple(R[i][..., rR0[i]:, nD0[i]:, :] for i in range(d)), tuple(U[i][..., nU0[i]:, :] for i in range(d)),
         tuple(_embed(U[i][..., :rL0[i], :nU0[i], :rR0[i + 1]], (rL1[i], nU0[i], rR1[i + 1])) for i in range(d)),
         oL, PsiL, oR, PsiR, tuple(PhiU[i][..., nD0[i]:] for i in range(d)), XiU,
-        tuple(nU1[i] - nU0[i] for i in range(d)), ('O' in update,) * d))
+        tuple(nU1[i] - nU0[i] for i in range(d)), ('U' in update,) * d))
 
     left = left + (_embed(L[d - 1][..., :rL0[d - 1], :nD0[d - 1], :], (rL1[d - 1], nD1[d - 1], rL1[d])),)   # carriers:
     right = (_embed(R[0][..., :nD0[0], :rR0[1]], (rR1[0], nD1[0], rR1[1])),) + right    # old content only
@@ -684,7 +700,7 @@ def _aligning_pass(
         old_ranks:  typ.Tuple[typ.Tuple[int, ...], ...],      # (old Tucker ranks len=d, old TT ranks len=d+1)
         out_ranks:  typ.Tuple[typ.Optional[typ.Tuple[int, ...]], ...],   # (Tucker, TT) output ranks; (None, None) = the frame's own
         sharing:    typ.Optional[typ.Tuple],                  # len=d group labels (hashable: static under jit)
-        update:     str,                                      # 'ULRO' | 'UL' | 'RO'
+        update:     typ.Tuple[str, ...],                      # all four stores | ('D', 'L') | ('U', 'R')
 ) -> typ.Tuple[
     FrameData,   # the frame after the pass
     NDArray,     # its movement, shape=C
@@ -747,22 +763,22 @@ def fv_aligned_padded_frame(
     movements = []
     for it in range(n_over + 1):                                # the oversampled passes, then the truncating pass
         out = (None, None) if it < n_over else target
-        frame, movement = _aligning_pass(step, frame, hint, project, old, out, sharing, 'ULRO')
+        frame, movement = _aligning_pass(step, frame, hint, project, old, out, sharing, _STORE_LETTERS)
         movements.append(movement)
-    if alternate:                                               # ('UL', 'RO') pairs while a whole pair fits; the stop
-        stop = False                                            #   is tested after each pair (both below tol)
-        while not stop and len(movements) + 2 <= max_passes:
-            for update in ('UL', 'RO'):
+    if alternate:                                               # (('D', 'L'), ('U', 'R')) pairs while a whole pair
+        stop = False                                            #   fits; the stop is tested after each pair (both
+        while not stop and len(movements) + 2 <= max_passes:   #   below tol)
+            for update in _COLOURS:
                 frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, update)
                 movements.append(movement)
             stop = _peak(movements[-2:]) < tol
-        if not stop and len(movements) < max_passes:           # an odd remainder: one final 'UL' pass
-            frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, 'UL')
+        if not stop and len(movements) < max_passes:           # an odd remainder: one final ('D', 'L') pass
+            frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, _COLOURS[0])
             movements.append(movement)
-    else:                                                       # 'ULRO' passes, the stop tested after each (the
+    else:                                                       # all-store passes, the stop tested after each (the
         stop = _peak(movements[-1:]) < tol                      #   truncating pass included)
         while not stop and len(movements) < max_passes:
-            frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, 'ULRO')
+            frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, _STORE_LETTERS)
             movements.append(movement)
             stop = _peak([movement]) < tol
     return frame, tuple(movements)

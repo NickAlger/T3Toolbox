@@ -1086,6 +1086,26 @@ class TestCrossLayerConverters(unittest.TestCase):
         for i in range(2):
             self.assertLess(float(np.linalg.norm(np.asarray(tree[i].to_dense()) - np.asarray(rs[i].to_dense()))), 1e-10)
 
+    def test_from_t3tangent_widths_are_named_by_side(self):
+        """from_t3tangent's same-spelling width keywords (plan section 5.2), at a frame whose stores and padded widths
+        all differ: nD pads the down store (the Tucker factors, the TT variations' middle leg), nU the up store (the
+        TT-shaped cores, the Tucker variations' rows), as the positional call (N, nD, nU, rL, rR) does."""
+        np.random.seed(0)
+        F = bvf.T3Frame.from_t3(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 6, 2), (1, 2, 5, 1)))
+        v = t3m.MANIFOLD.project_ambient(F, t3.TuckerTensorTrain.randn((5, 6, 7), (5, 6, 7), (1, 5, 7, 1)))
+        for name, uv in (('positional', ut3m.UT3Tangent.from_t3tangent(v, 8, 7, 5, 6, 3)),
+                         ('keywords', ut3m.UT3Tangent.from_t3tangent(v, N=8, nD=7, nU=5, rL=6, rR=3))):
+            with self.subTest(call=name):
+                self.assertEqual((uv.frame.down_tucker_supercore.shape, uv.frame.up_tt_supercore.shape),
+                                 ((3, 7, 8), (3, 6, 5, 3)))
+                self.assertEqual((uv.variations.tucker_variations.shape, uv.variations.tt_variations.shape),
+                                 ((3, 5, 8), (3, 6, 7, 3)))
+                for i, (Di, g) in enumerate(zip(F.data[0], v.variations.tucker_variations)):
+                    self.assertTrue(np.array_equal(uv.frame.down_tucker_supercore[i][:Di.shape[0], :Di.shape[1]], Di))
+                    self.assertTrue(np.array_equal(uv.variations.tucker_variations[i][:g.shape[0], :g.shape[1]], g))
+                dense = np.asarray(v.to_dense())
+                self.assertLess(np.linalg.norm(np.asarray(uv.to_dense()) - dense), 1e-12 * np.linalg.norm(dense))
+
 
 def _per_element_dense(testcase, v, uop, rop, atol=1e-10):
     """``uop(v)`` (a uniform geometry op returning an object with ``.to_dense()``) matches ``rop`` applied to

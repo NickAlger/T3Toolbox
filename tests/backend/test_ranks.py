@@ -431,6 +431,26 @@ class TestSharedFrameHasMinimalRanks(unittest.TestCase):
         self.assertTrue(ranks.frame_has_minimal_ranks(*args))
         self.assertFalse(ranks.frame_has_minimal_ranks(*args, sharing=(0, 0, 1)))
 
+    def test_stores_are_named_by_side(self):
+        """The rank keywords that kept their spelling in 2026.5.0 (plan section 5.2), passed by keyword from the
+        physical frames: down = the Tucker factors' rows, up = the TT-shaped cores' middle legs. A frame whose stores
+        all differ is not minimal; a minimal one is. (The verdict is symmetric in down/up; the keywords are pinned.)"""
+        import t3toolbox.frame_variations_format as bvf
+        import t3toolbox.tucker_tensor_train as t3
+        np.random.seed(0)
+        for structure, minimal in ((((5, 6, 7), (3, 6, 2), (1, 2, 5, 1)), False),
+                                   (((5, 6, 7), (3, 5, 3), (1, 3, 3, 1)), True)):
+            F = bvf.T3Frame.from_t3(t3.TuckerTensorTrain.randn(*structure))
+            stores = dict(down_ranks=tuple(c.shape[0] for c in F.data[0]),
+                          up_ranks=tuple(c.shape[1] for c in F.data[1]),
+                          left_ranks=tuple(c.shape[0] for c in F.data[2]) + (1,),
+                          right_ranks=(1,) + tuple(c.shape[2] for c in F.data[3]))
+            with self.subTest(structure=structure):
+                self.assertEqual(stores['down_ranks'], structure[1])            # the Tucker ranks
+                self.assertEqual(ranks.frame_has_minimal_ranks(structure[0], **stores), minimal)
+                self.assertEqual(ranks.compute_orthogonal_representation_ranks(*structure),
+                                 tuple(stores[k] for k in ('down_ranks', 'up_ranks', 'left_ranks', 'right_ranks')))
+
 
 
 class TestOrthogonalRepresentationRanks(unittest.TestCase):
