@@ -27,6 +27,42 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
+**State (2026-11-13, evening). STORE RENAME: R1-R5 COMMITTED (a380d198, 5153a0be, 74683a39, e3085085, f5ef5a8c,
+6062f3d2); R6 (ACCEPTANCE) IS RUNNING (implementer `abe9ed948c3aa086a`: §5 end to end on both envs, the alignment sweep
+over every touched file incl. the 21+2 known pre-existing misalignments, the T3Polynomial one-liner
+`scripts/g01_g0_common.py:121` prepared not committed, `release_notes_2026.5.0.md` untracked). WHEN R6 REPORTS: spawn a
+reviewer (same brief pattern as R1-R5: own runs, one job at a time), commit R6 by name incl. `R6_handoff.md`,
+`R6_review.md`, `R6_alignment_sweep.md`; commit the T3Polynomial one-liner in that repo (its suite must pass) and push;
+record draft 29 in the plan; FINAL REVIEW STOP with Nick. The release tag is NOT cut after R6 -- see the bundle below.
+Plan at draft 28 (1ddeadcf). The CODE and DOCS are in the new convention; CI green through R5.
+
+**2026.5.0 BUNDLE, planned AFTER R6 and BEFORE the tag (Nick 2026-11-13), each writer/critic-style then
+implementer/reviewer:** (A) the opt-in Newton phase TIMING — draft `dev/newton_timing_plan_2026-11-10.md`; the session's
+recommendations on T-1..T-7 stand (split the local model; the full compile wait; no separate accepted-retraction phase;
+report `previous_callback`; no `gradient_descent`; the geometry member gets a `timing=False` keyword rather than a changed
+return arity; plain dict in stats); needs a critic pass, then implementation. (B) the GN-TO-FULL-NEWTON SWITCH — source
+note `dev/gn_newton_switch_source_notes_2026-11-13.md` (the rule: after each GN step one extra full-Hessian product gives
+the full model's prediction; compare e_GN = |Δf − m_GN(s)| and e_N = |Δf − m_N(s)|; switch for good when e_N < 0.25·e_GN
+on 2 consecutive accepted steps; a miss, a rejected step or a rounding-level e_GN resets the count). NICK'S ANSWERS
+2026-11-13: (1) option shape `hessian='switch'` with `switch_tau`/`switch_k` keywords: YES; (2) forcing power 0.5 before
+the switch, 1.0 after, both user-settable; T3Polynomial starts 0.5/1.0; (3) default step control in switch mode: trust
+region; (4) rounding gate: SESSION RECOMMENDS the library's dtype-aware resolution scale with the source's constant,
+applied to both errors; (5) resets ("something went wrong with the local quadratic model"): SESSION RECOMMENDS reset on a
+rejected TR step, any line-search backtrack (α<1), the −g fallback, a forced 'accept', and the rounding gate; NOT on a
+boundary/truncated CG step (both models are evaluated at the actual step); (6) start tracking at iteration 0; (7)
+reporting: SESSION RECOMMENDS per-row `NewtonInfo.hessian` (the model that solved that step), run-level
+`stats['hessian']='switch'` + `stats['switched_at']`, the tracking curvature in a separate `switch_pKp` so the display's κ
+formula (reads pKp on exact rows only) is untouched, per-row `switch_e_gn`/`switch_e_n`/`switch_count`, a display column,
+all None outside switch mode; (8) each rank level starts in Gauss-Newton under switch mode (we may leave the basin); (9)
+scope: `newton_cg` on every geometry/representation that supports `hessian='exact'`, chunking unaffected,
+`gradient_descent` out; tests: threshold-disabled = bitwise GN, forced-at-0 = bitwise exact, each reset condition;
+benchmarks: Darcy 10x100 o01 switch(0.5→1.0) vs GN(0.5) vs exact(1.0) at equal tolerance (Newton/CG counts), then
+20x1000 if promising, padded-start levels as the no-switch stress case; MEASURE the cost of exact-mode curvature setup at
+every GN-phase point before fixing the default (fallback: track every k-th accepted step). Nick has not yet confirmed
+the recommendations on 4, 5, 7, 9 -- ask once, then plan. (C) the glossary update and the 601-row docs pass
+(`dev/glossary_naming_decisions.md`, now re-expressed in the new words). Then the release commit (version 2026.5.0 in
+pyproject/CITATION/__init__, CHANGELOG date, release notes) and Nick tags.
+
 **State (2026-11-11). THE STORE RENAME IS IN IMPLEMENTATION (release 2026.5.0, breaking). R1 COMMITTED (a380d198):
 tools and inventories only. Plan at draft 25 (098c61bd). Rulings during R1: `up_more/up_shared` and `um/dm` are stores;
 Nick: "Tucker variations are V and TT variations are H; D U L R are for the frames" and "shape decides the letter — a
