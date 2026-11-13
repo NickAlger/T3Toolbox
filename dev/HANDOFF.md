@@ -60,8 +60,16 @@ locals on the DNT list (there only because R1 listed every B/G) were renamed V/H
 FOR R6's ALIGNMENT SWEEP: 21 one/two-column misalignments in touched lines predate the arc (in v2026.4.0) + 2 in R3's new
 test lines (`test_frame_variations_format.py:544-545`): whitespace-only fixes. PLAN TEXT (writer, with R4b's): the nine
 (B, G) rows; loop-variable images D/U/Di; `utv_corewise_retract`'s generic n; the four -ward rows done in R4a (drop
-from R4b's list); the gate-tool narrowings. NEXT: R4b (the sampling kernels' prose and the shift symbols), then the
-review stop with Nick after R4. Earlier: PAUSED AFTER R3 (tokens): next R4a — code prose outside the sampling kernels (tier D/E rows), the backwards adjectives, the
+from R4b's list); the gate-tool narrowings. R4b COMMITTED 2026-11-13 (f5ef5a8c; review APPROVE after one revision; 15 files; the shift `sh`/`shᵀ`; 36 shape-rule
+NAME renames beyond the original map: forward kernels' `dG`->`H`, z-assembly `D`->`B`, `rsig_hat`; generic n extended to
+the probe two-hole assemblies; one floor-env TOL 1e-14 -> 1e-13). THE CODE TREE IS DONE: every K1-K17 gate is clean in
+code; the remaining hits are the docs and notes (R5). **R4 REVIEW STOP WITH NICK (pending)** — items: all 54 code-tree
+diagrams/equations before/after (R4a, R4b handoff Appendix A); names renamed by the shape rule beyond the map (R4a's 8
+comprehension B/G, `udots`, utv `dG`; R4b's `dG`->`H`, `D`->`B`, `rsig_hat`); the generic n beyond item 12's list;
+wording fixes beyond letter swaps (`D V^T`, `D_i w_i`, "the lift", "Upward"), the TOL change, the gate-tool narrowings.
+PLAN TEXT (writer, one round): all R4a/R4b rows (RV1-RV15 + R4b's), the four -ward rows moved from R4b to R4a, item 12's
+extension, the TOL change, the tool narrowings. NEXT after Nick: R5 (docs, the two ASCII diagrams, the six notes +
+PDFs, glossary + work list, CHANGELOG/release notes), then R6. Earlier: PAUSED AFTER R3 (tokens): next R4a — code prose outside the sampling kernels (tier D/E rows), the backwards adjectives, the
 corewise `(B, G, G, G)` sentences, the `-ward` travel words, and the REALIGNMENT of every touched block within reason
 (style reference `tucker_tensor_train.py`); then R4b, the review stop with Nick after R4, R5, R6.** — the
 letter API (`update` tuples, `_update_stores`, `_STORE_LETTERS`/`_COLOURS`, the dispatch rows, the unequal-store
