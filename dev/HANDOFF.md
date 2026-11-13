@@ -63,7 +63,7 @@ test lines (`test_frame_variations_format.py:544-545`): whitespace-only fixes. P
 from R4b's list); the gate-tool narrowings. R4b COMMITTED 2026-11-13 (f5ef5a8c; review APPROVE after one revision; 15 files; the shift `sh`/`shᵀ`; 36 shape-rule
 NAME renames beyond the original map: forward kernels' `dG`->`H`, z-assembly `D`->`B`, `rsig_hat`; generic n extended to
 the probe two-hole assemblies; one floor-env TOL 1e-14 -> 1e-13). THE CODE TREE IS DONE: every K1-K17 gate is clean in
-code; the remaining hits are the docs and notes (R5). **R4 REVIEW STOP WITH NICK (pending)** — items: all 54 code-tree
+code; the remaining hits are the docs and notes (R5). R4 REVIEW STOP PASSED (Nick 2026-11-13, "we can proceed"); the items he saw: all 54 code-tree
 diagrams/equations before/after (R4a, R4b handoff Appendix A); names renamed by the shape rule beyond the map (R4a's 8
 comprehension B/G, `udots`, utv `dG`; R4b's `dG`->`H`, `D`->`B`, `rsig_hat`); the generic n beyond item 12's list;
 wording fixes beyond letter swaps (`D V^T`, `D_i w_i`, "the lift", "Upward"), the TOL change, the gate-tool narrowings.
