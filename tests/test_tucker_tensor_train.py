@@ -3050,7 +3050,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
 
     def test_corewise_derivative_transpose_nontrivial_boundary(self):
         # Regression: the adjoint-state apply/entries (derivative) transpose seeds the reverse sigma_hat
-        # sweep at the terminal bond, which the corewise (U,G,G,G) substitution makes != 1 (the forward
+        # sweep at the terminal bond, which the corewise (B,G,G,G) substitution makes != 1 (the forward
         # SUMS that bond), so the seed must broadcast c over rR_d. (Probe is unaffected -- no scalar seed.)
         np.random.seed(0)
         shapes = (6, 7, 8); ORDER = 2; W = (2,); d = len(shapes); eps = 1e-6
@@ -3199,7 +3199,7 @@ class TestRankAdjustmentSweepTuckerAboveModeSize(unittest.TestCase):
 
     def test_composed_sweeps_reach_minimal_ranks_when_n_exceeds_N(self):
         # Review 2026-08-22 (S4 / R3-2): a Tucker rank above its mode size is invisible to the TT-side
-        # steps; the sweep now opens with a Tucker up-SVD, so "compose both directions" is minimal.
+        # steps; the sweep now opens with a Tucker down-SVD, so "compose both directions" is minimal.
         np.random.seed(51)
         x = t3.TuckerTensorTrain.randn((13, 14, 15, 16), (4, 99, 6, 7), (1, 4, 9, 7, 1))
         y = x.rank_adjustment_sweep('right_to_left').rank_adjustment_sweep('left_to_right')

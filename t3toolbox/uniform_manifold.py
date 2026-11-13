@@ -70,7 +70,7 @@ def _broadcast_variation_masks_over_K(
                                   b(masks.variations_left_mask), b(masks.variations_right_mask))
 
 
-def _ut3frame_from_data(bd) -> ubv.UT3Frame:        # bd = (up, down, left, right, shape, masks_tuple)
+def _ut3frame_from_data(bd) -> ubv.UT3Frame:        # bd = (down, up, left, right, shape, masks_tuple)
     return ubv.UT3Frame(bd[0], bd[1], bd[2], bd[3], bd[4], ubv.UT3FrameMasks(*bd[5]))
 
 
@@ -321,8 +321,8 @@ class UT3Tangent(common.ExplicitEquality):
         return xnp.sqrt(self.corewise_inner(self))
 
     def absorb_weights(self, weights: 'ubv.UT3FrameWeights') -> 'UT3Tangent':
-        """Absorb the metric ``weights`` into this tangent's **variation** supercores (``down``->V,
-        ``up``/``left``/``right``->H), returning the weighted tangent **at the same frame**. Its
+        """Absorb the metric ``weights`` into this tangent's **variation** supercores (``up``->V,
+        ``down``/``left``/``right``->H), returning the weighted tangent **at the same frame**. Its
         :py:meth:`corewise_norm` equals :py:meth:`weighted_norm`.
 
         **Warning -- the result is not gauged.** Scaling the variation coordinates breaks the gauge
@@ -413,7 +413,7 @@ class UT3Tangent(common.ExplicitEquality):
         structurally-minimal ranks (gauge already quotiented); see
         :py:func:`~t3toolbox.backend.ranks.compute_manifold_dim`. Masks are host numpy, so the ranks --
         and this dimension -- are host quantities (a small loop over the frame stack, computed once)."""
-        down = np.asarray(self.frame.down_ranks)        # (d,)   + C
+        down = np.asarray(self.frame.down_ranks)    # (d,)   + C
         left = np.asarray(self.frame.left_ranks)    # (d+1,) + C
         C = self.frame_stack_shape
 
@@ -475,8 +475,8 @@ class UT3Tangent(common.ExplicitEquality):
         """True (per stack element) if the variations are gauged w.r.t. the frame.
 
         Gauge conditions (needed for the manifold Hilbert-Schmidt inner product / norm to equal the
-        coordinate ones; not enforced at construction): ``U_i^T dU_i = 0`` (all i) and
-        ``(P_i^L)^T dG_i^L = 0`` (i = 0..d-2) -- conditions (47)-(48), Appendix A.3 of Alger et al. (2026).
+        coordinate ones; not enforced at construction): ``D_i V_i^T = 0`` (all i) and
+        ``(L_i^L)^T H_i^L = 0`` (i = 0..d-2) -- conditions (47)-(48), Appendix A.3 of Alger et al. (2026).
         **Per-stack-element bool array** (reduce with ``.all()`` for a single verdict)."""
         return self.gauge_residual <= atol
 
@@ -521,8 +521,8 @@ class UT3Tangent(common.ExplicitEquality):
     def from_t3tangent(
             tangent:  't3m.T3Tangent',
             N:   typ.Optional[int] = None,   # padded mode dim   (default max(shape))
-            nD:  typ.Optional[int] = None,   # padded up rank    (default max(down_ranks))
-            nU:  typ.Optional[int] = None,   # padded down rank  (default max(up_ranks))
+            nD:  typ.Optional[int] = None,   # padded down rank  (default max(down_ranks))
+            nU:  typ.Optional[int] = None,   # padded up rank    (default max(up_ranks))
             rL:  typ.Optional[int] = None,   # padded left rank  (default max(left_ranks))
             rR:  typ.Optional[int] = None,   # padded right rank (default max(right_ranks))
     ) -> 'UT3Tangent':
@@ -531,8 +531,8 @@ class UT3Tangent(common.ExplicitEquality):
         dims (derived from the frame if not given) so the masks come out consistent."""
         b = tangent.frame
         N  = max(b.shape)            if N  is None else N
-        nD = int(max(b.down_ranks))    if nD is None else nD
-        nU = int(max(b.up_ranks))  if nU is None else nU
+        nD = int(max(b.down_ranks))  if nD is None else nD
+        nU = int(max(b.up_ranks))    if nU is None else nU
         rL = int(max(b.left_ranks))  if rL is None else rL
         rR = int(max(b.right_ranks)) if rR is None else rR
         pad = dict(N=N, nD=nD, nU=nU, rL=rL, rR=rR)
@@ -1278,9 +1278,9 @@ class UniformCorewiseGeometry:
     """The Euclidean geometry of the uniform core parameter space (uniform mirror of
     :py:class:`~t3toolbox.manifold.CorewiseGeometry`).
 
-    Optimization happens *on* the raw supercores: tangents are perturbations of the cores ``(U, G, G, G)``
-    (the non-orthonormal frame whose down/left/right cores are all the TT supercore ``G`` -- the Section 6.3
-    ``(P, Q, O) -> G`` substitution), the metric is the plain Euclidean (corewise) inner product, the
+    Optimization happens *on* the raw supercores: tangents are perturbations of the cores ``(B, G, G, G)``
+    (the non-orthonormal frame whose up/left/right cores are all the TT supercore ``G`` -- the Section 6.3
+    ``(U, L, R) -> G`` substitution), the metric is the plain Euclidean (corewise) inner product, the
     "projection" is the identity (no gauge), and the retraction is vector addition in the supercores. Use the
     module singleton :py:data:`UNIFORM_COREWISE`. The manifold counterpart is
     :py:class:`UniformManifoldGeometry`.
@@ -1293,7 +1293,7 @@ class UniformCorewiseGeometry:
     >>> import t3toolbox.uniform_manifold as ut3m
     >>> np.random.seed(0)
     >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))
-    >>> frame = ut3m.UNIFORM_COREWISE.frame(x)            # the (U, G, G, G) frame
+    >>> frame = ut3m.UNIFORM_COREWISE.frame(x)            # the (B, G, G, G) frame
     >>> v = ut3m.UNIFORM_COREWISE.randn(frame)           # raw randn cores (no gauge)
     >>> print(bool(v.is_gauged().all()))
     False
@@ -1305,12 +1305,12 @@ class UniformCorewiseGeometry:
     def frame(
             self,
             x:  ut3.UniformTuckerTensorTrain,
-    ) -> ubv.UT3Frame:  # the (U, G, G, G) non-orthonormal frame at x
-        """The core-parameter frame at ``x``: ``(U, G, G, G)`` (down/left/right all the TT supercore ``G``).
+    ) -> ubv.UT3Frame:  # the (B, G, G, G) non-orthonormal frame at x
+        """The core-parameter frame at ``x``: ``(B, G, G, G)`` (up/left/right all the TT supercore ``G``).
 
-        The mask analog of the cores: ``up = down = tucker_edge_mask`` (the U-G Tucker edges) and
+        The mask analog of the cores: ``down = up = tucker_edge_mask`` (the B-G Tucker edges) and
         ``left = right = tt_edge_mask`` (the G-G TT bonds, full length ``d+1``) -- the Section 6.3
-        substitution ``(P, Q, O) -> G`` gives all three non-up slots the single core ``G``'s rank structure,
+        substitution ``(U, L, R) -> G`` gives the three TT-shaped slots the single core ``G``'s rank structure,
         with no boundary slicing (the ``[:-1]`` / ``[1:]`` gauge shift is a *variations*, not a frame,
         thing)."""
         down, up, left, right, shape, mask_tuple = ufv_conversions.ut3_corewise_frame(x.data)
@@ -1346,7 +1346,7 @@ class UniformCorewiseGeometry:
     ) -> NDArray:  # the Euclidean (coordinate) inner product, shape = stack_shape (K + C)
         """The **Euclidean** (coordinate) inner product of two tangents on the core parameter space.
 
-        The corewise dot of the variations -- *no* orthogonal/gauge requirement (the ``(U, G, G, G)`` frame is
+        The corewise dot of the variations -- *no* orthogonal/gauge requirement (the ``(B, G, G, G)`` frame is
         non-orthonormal by design). Safe mode checks only that the two tangents share a frame. This is exactly
         :py:meth:`UT3Tangent.corewise_inner`."""
         return t1.corewise_inner(t2)
@@ -1361,11 +1361,11 @@ class UniformCorewiseGeometry:
 
     def retract(
             self,
-            p:  UT3Tangent,   # step (a corewise tangent at frame = (U, G, G, G))
+            p:  UT3Tangent,   # step (a corewise tangent at frame = (B, G, G, G))
     ) -> ut3.UniformTuckerTensorTrain:  # additive retraction: cores += p
         """Additive retraction: add the variation supercores to the point's cores (``cores += p``).
 
-        Recovers the point ``(U, G)`` from ``p.frame`` (which :py:meth:`frame` built as ``(U, G, G, G)``) and
+        Recovers the point ``(B, G)`` from ``p.frame`` (which :py:meth:`frame` built as ``(B, G, G, G)``) and
         adds the variations. ``p`` must be a corewise tangent (a frame from :py:meth:`frame`). See
         :py:func:`~t3toolbox.backend.utv_operations.utv_corewise_retract`."""
         return _ut3_from_data(utv_operations.utv_corewise_retract(p.frame.data, p.variations.data))

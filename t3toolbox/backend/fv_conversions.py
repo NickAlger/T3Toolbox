@@ -29,8 +29,8 @@ __all__ = [
 
 def t3_corewise_frame(
         x_cores:  typ.Tuple,   # (tucker_cores, tt_cores)
-) -> typ.Tuple:                # (U, O, P, Q) = (U, G, G, G); the raw cores ARE the frame
-    '''The **corewise** frame of a T3: the Section 6.3 substitution ``(P, Q, O) -> G``.
+) -> typ.Tuple:                # (D, U, L, R) = (B, G, G, G); the raw cores ARE the frame
+    '''The **corewise** frame of a T3: the Section 6.3 substitution ``(U, L, R) -> G``.
 
     The counterpart of :py:func:`t3_orthogonal_representations` -- the two ways to make a frame from a
     point. Where the orthogonal representation builds an orthonormal frame with a gauge, this one just
@@ -212,11 +212,11 @@ def t3_orthogonal_representations(
         right_r = np.array(left_r, copy=True)
         for i in range(d_u - 1, 0, -1):                                # 3. right sweep, left chain
             right_r[i] = np.minimum(left_r[i], down_r[i] * right_r[i + 1])
-        up_r = np.minimum(down_r, left_r[:-1] * right_r[1:])           # 4. the down step
+        up_r = np.minimum(down_r, left_r[:-1] * right_r[1:])           # 4. the up step
 
     if not already_left_orthogonal:
         if uniform_masks is None:
-            # Orthogonalize Tucker cores upward to get up_tt_cores U
+            # Down-orthogonalize the Tucker cores to get the down store D (down_tucker_cores)
             down_tucker_cores, tt_cores = down_orthogonalize_tucker_cores(x)
 
             # Sweep left-to-right, generating left orthogonal tt_cores L
@@ -248,7 +248,7 @@ def t3_orthogonal_representations(
                 left_masks[::-1], down_masks[::-1], right_r[::-1]),
         )
 
-    # Orthogonalize TT cores downward to get outer_tt_cores O and tucker_variations V
+    # Up-orthogonalize the TT cores to get the up store U (up_tt_cores) and tucker_variations V
     if uniform_masks is None:
         tucker_variations, up_tt_cores = up_orthogonalize_tt_cores(
             (down_tucker_cores, tt_variations),

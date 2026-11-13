@@ -155,7 +155,7 @@ class TestUniformPlainFromSweepVsRagged(unittest.TestCase):
         return out
 
     def _bare_to_dense(self, tkv, ttv):
-        """Wrap a bare (dU, dG) variation supercore pair (stack K+C) in the K-broadcast gauge masks of
+        """Wrap a bare (V, H) variation supercore pair (stack K+C) in the K-broadcast gauge masks of
         ``self.v.variations`` -> dense tangent."""
         V = self.ubv.UT3Variations(np.asarray(tkv), np.asarray(ttv), self.frame_u.shape,
                                    self.v.variations.masks)

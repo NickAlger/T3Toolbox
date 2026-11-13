@@ -33,12 +33,12 @@ def scatter_frame(rng, F, widths, old_stores=None, groups=(), gappy=True, garbag
     all differ). ``old_stores`` given: ``F`` is a padded frame whose leading slots hold those stores, scattered in BLOCK
     LAYOUT, ``widths = (Na, Ka, Rb, Kb, N)``: Tucker slots ``[old Na | completion Ka]``, bond slots ``[old Rb | Kb]``.
     Real slots sit at random sorted positions inside each block (``gappy``); junk entries hold random garbage. With
-    ``groups``, a group's members share their up positions and supercore slice (a tied factor).
+    ``groups``, a group's members share their down positions and supercore slice (a tied factor).
     Returns (frame ``.data``, positions (pD, pU, pL, pR), each a list of index arrays)."""
     D, U, L, R = F
     d = len(D)
     nD, nU, rL, rR = stores_of(F)
-    Nsh = tuple(u.shape[-1] for u in D)
+    Nsh = tuple(Di.shape[-1] for Di in D)
     if old_stores is None:
         wD, wU, wL, wR, N = widths
         pos = lambda counts, w: [_pick(rng, w, c, gappy) for c in counts]
@@ -77,7 +77,7 @@ def scatter_frame(rng, F, widths, old_stores=None, groups=(), gappy=True, garbag
 
 def scatter_variations(rng, variations, frame, positions, garbage=True):
     """Scatter unstacked ragged variations ``(V, H)`` into the uniform layout of ``frame`` (a scattered frame's ``.data``)
-    at that scatter's ``positions``: V on the down slots and the shape prefix, H on (left, up, right); finite garbage in
+    at that scatter's ``positions``: V on the up slots and the shape prefix, H on (left, down, right); finite garbage in
     every junk entry (or zeros). Returns the variations ``.data`` (V, H, shape, the frame's variation masks)."""
     V, H = variations
     pD, pU, pL, pR = positions

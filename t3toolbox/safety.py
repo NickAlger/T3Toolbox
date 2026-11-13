@@ -15,7 +15,7 @@ The library distinguishes (see ``docs/contributor/numerical_contract_catalog.md`
 **Minimal ranks are NOT among them** -- not in either flavour. Minimal rank was measured, op by op,
 against a dense oracle and is a correctness precondition for *nothing*: the tangent machinery needs only
 per-core orthonormality plus the gauge conditions, and an orthonormal frame carries excess rank harmlessly
-as slack between its four rank stores (``up``/``down``, ``left``/``right``). Enforcing it would reject
+as slack between its four rank stores (``down``/``up``, ``left``/``right``). Enforcing it would reject
 legitimate frames -- including every frame :py:meth:`T3Frame.random_orthogonal` returns for an
 over-ranked request. ``has_minimal_ranks`` (structural) and ``has_numerically_minimal_ranks`` remain as
 **diagnostics**; see ``docs/numerical_contracts.md`` for the verdict and ``docs/frame_variations.md`` for

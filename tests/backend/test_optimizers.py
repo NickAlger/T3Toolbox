@@ -530,7 +530,7 @@ class TestBackendOptimizers(unittest.TestCase):
                 prob0 = opt.least_squares_problem(geom, bfit.PROBE, ww, data)
                 lm, lm0 = prob.local_model(X0.data), prob0.local_model(X0.data)
                 frame = lm.frame
-                base = (frame[0], frame[2])                                  # the frame's tensor X = (U, P)
+                base = (frame[0], frame[2])                                  # the frame's tensor X = (D, L)
                 # value: manifold = ½λ‖X‖²_HS ; corewise = ½λ Σ‖core‖²
                 if gname == 'manifold':
                     rho_true = 0.5 * lam * float(np.linalg.norm(t3.TuckerTensorTrain(*base).to_dense())) ** 2
@@ -551,7 +551,7 @@ class TestBackendOptimizers(unittest.TestCase):
 
     def test_manifold_point_tangent_is_vX(self):
         """ManifoldGeometryOps.point_tangent(frame) = the attachment point as a gauged tangent v_X: dense(v_X) = X,
-        and ‖X‖_HS = ‖P_last‖ = point_norm_sq**½, across structures (design §4)."""
+        and ‖X‖_HS = ‖L_last‖ = point_norm_sq**½, across structures (design §4)."""
         from t3toolbox.backend import tv_operations as tvo
         for shp, tk, tt in [((5, 6, 7), (2, 2, 2), (1, 2, 2, 1)), ((4, 4, 4, 4), (2, 2, 2, 2), (1, 2, 3, 2, 1))]:
             with self.subTest(shape=shp):
@@ -560,7 +560,7 @@ class TestBackendOptimizers(unittest.TestCase):
                 vX = bgeo.ManifoldGeometryOps().point_tangent(frame)
                 self.assertTrue(np.allclose(tvo.tv_to_dense(frame, vX, include_shift=False), Xd))   # dense(v_X)=X
                 self.assertAlmostEqual(float(bgeo.ManifoldGeometryOps().point_norm_sq((frame[0], frame[2]))) ** 0.5,
-                                       float(np.linalg.norm(Xd)), places=5)                          # ‖X‖=‖P_last‖
+                                       float(np.linalg.norm(Xd)), places=5)                          # ‖X‖=‖L_last‖
 
     def test_newton_cg_line_search_exhaustion(self):
         """R7-7: exhausting the Armijo search stops the run by default (rejecting the step) and is

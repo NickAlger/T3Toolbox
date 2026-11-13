@@ -217,7 +217,7 @@ class LocalModel:
       kind's :py:meth:`~t3toolbox.backend.fitting.SamplingKind.corewise_hessian` (the derivative of the
       corewise transpose at the fixed residual) and ``K_{grad f}`` the geometry's tangential curvature
       (Absil, Mahony & Trumpf (2013), "An extrinsic look at the Riemannian Hessian": the Weingarten term as
-      ``<N, D^2 Phi>`` with ``N`` the normal part of ``A^T omega^2 r``). On a corewise geometry it is the
+      ``<N, d^2 Phi>`` with ``N`` the normal part of ``A^T omega^2 r``). On a corewise geometry it is the
       plain Hessian of ``f o Phi`` (no lift, no tangential term).
 
     ``gn_quadratic`` / ``jacobian`` / ``retract`` mean the same in both modes (``gn_quadratic`` is always
@@ -225,7 +225,7 @@ class LocalModel:
     geom:     typ.Any        # a Geometry (backend.geometry.*GeometryOps); aux_data, so it must hash by VALUE
     kind:     typ.Any        # backend fitting.SamplingKind (forward / transpose / sumsq / w_axes)
     sample:   typ.Any        # ww (probe/apply) or index (entries)
-    frame:     typ.Tuple      # (U, O, P, Q)
+    frame:     typ.Tuple      # (D, U, L, R)
     sweep:    typ.Tuple      # precomputed frame sweep (reused across gradient/jacobian/hvp)
     residual: typ.Any        # r = S(x) - data
     n_w:      int            # number of leading sample-stack axes
@@ -876,7 +876,7 @@ def _movement_record(
 
 def gradient_descent(
         problem:  Problem,    # the fixed-rank least-squares problem
-        x0:       Tangent,    # initial cores (U, G)
+        x0:       Tangent,    # initial cores (B, G)
         n_iter:   int   = 100,
         gtol_rel: float = 1e-8,   # stop when ‖g‖ <= gtol_rel * ‖g_0‖
         c_armijo: float = 1e-4,   # Armijo sufficient-decrease constant
@@ -955,7 +955,7 @@ def gradient_descent(
 
 def mc_sgd(
         problem:     Problem,    # the fixed-rank least-squares problem
-        x0:          Tangent,    # initial cores (U, G)
+        x0:          Tangent,    # initial cores (B, G)
         rng,                     # np.random.Generator -- passed to the draw each step
         batch:       int,        # measurements per minibatch (for the default flat draw; ignored if draw given)
         draw:        typ.Optional[typ.Callable] = None,  # custom draw(rng)->(sample_B,data_B); None = flat default
@@ -1000,7 +1000,7 @@ def mc_sgd(
 
 def adam(
         problem:  Problem,    # the fixed-rank least-squares problem
-        x0:       Tangent,    # initial cores (U, G)
+        x0:       Tangent,    # initial cores (B, G)
         rng,                  # np.random.Generator -- passed to the draw each step
         batch:    int,        # measurements per minibatch (for the default flat draw; ignored if draw given)
         draw:     typ.Optional[typ.Callable] = None,  # custom draw(rng)->(sample_B,data_B); None = flat default
@@ -1312,7 +1312,7 @@ def _lift_diagnostics(
 
 def newton_cg(
         problem:                Problem,  # the fixed-rank least-squares problem
-        x0:                     Tangent,  # initial cores (U, G)
+        x0:                     Tangent,  # initial cores (B, G)
 
         max_newton:             int   = 30,    # Newton iterations (history rows) -- rejected trust-region trials included
         gtol_rel:               float = 1e-8,  # stop when ‖g‖ <= gtol_rel * ‖g0‖  (‖g0‖: g0norm_newton, else the g0_reference)

@@ -38,7 +38,7 @@ def interfaces(frame):
 
 
 def dense_frames(frame):
-    """One orthonormal dense basis per DIRECTED edge: ``(U, phi, psi, E)`` = leaf -> core, core -> core rightward,
+    """One orthonormal dense basis per DIRECTED edge: ``(D, phi, psi, U)`` = leaf -> core, core -> core rightward,
     core -> core leftward, core -> leaf."""
     down, up, left, right = (tuple(np.asarray(c, dtype=float) for c in cores) for cores in frame)
     phi, psi = interfaces((down, up, left, right))
@@ -63,9 +63,10 @@ def top_left(Y, k):
 
 
 def dense_pass(old_dense, cur_dense, Z, stores, update=('D', 'U', 'L', 'R'), groups=()):
-    """One step on dense tensors: the new frames ``(U, phi, psi, E)`` at ``stores`` = (nD, nU, rL, rR), and the
-    movement (max over edges). ``oldD`` / ``curD``: the dense frames of the old and the current (padded) frame; ``Z``:
-    the dense tangent vector; ``groups``: canonical sharing groups (tuples of mode indices), singletons optional."""
+    """One step on dense tensors: the new frames ``(D, phi, psi, U)`` at ``stores`` = (nD, nU, rL, rR), and the
+    movement (max over edges). ``old_dense`` / ``cur_dense``: the dense frames of the old and the current (padded)
+    frame; ``Z``: the dense tangent vector; ``groups``: canonical sharing groups (tuples of mode indices), singletons
+    optional."""
     Do, phio, psio, Uo = old_dense
     Dc, phic, psic, Uc = cur_dense
     nD, nU, rL, rR = stores
@@ -154,7 +155,7 @@ def dense_loop(old_dense, start_dense, S, working, target, oversampled_passes, m
 
 
 def tangent_basis(dense, N):
-    """An orthonormal basis of the two-sided tangent space at the dense frames ``D``."""
+    """An orthonormal basis of the two-sided tangent space at the dense frames ``dense``."""
     D, phi, psi, U = dense
     d = len(N)
     cols = []
@@ -167,7 +168,7 @@ def tangent_basis(dense, N):
 
 
 def dense_project(dense, S):
-    """The orthogonal projection of the dense tensor ``S`` onto the tangent space at ``D``."""
+    """The orthogonal projection of the dense tensor ``S`` onto the tangent space at ``dense``."""
     Q = tangent_basis(dense, S.shape)
     return (Q @ (Q.T @ S.ravel())).reshape(S.shape)
 

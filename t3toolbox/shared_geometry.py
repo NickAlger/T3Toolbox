@@ -42,7 +42,7 @@ __all__ = [
 
 
 def _require_tied_factors(
-        data,               # (tucker_cores, tt_cores) raw data (a point or a frame's (U, P))
+        data,               # (tucker_cores, tt_cores) raw data (a point or a frame's (D, L))
         sharing,            # len=d; group labels
         who:        str,    # the operation name, for the message
 ) -> None:
@@ -310,7 +310,7 @@ class SharedGeometry:
             x_data = (p.frame.down_tucker_cores, p.frame.left_tt_cores)
             new = cw.corewise_add(x_data, new_variations)
             # Tie the SUM rather than aliasing one mode's copy of it. Because
-            # ``mean_i(U_i + V_i) = mean_i(U_i) + mean_i(V_i)``, tying after the add IS the corewise
+            # ``mean_i(B_i + V_i) = mean_i(B_i) + mean_i(V_i)``, tying after the add IS the corewise
             # (Euclidean) projection of ``x + v`` onto the tied set -- so the retraction is TOTAL: an
             # untied tangent (already handled by the mean above) and an untied base point both land on
             # the shared set, with nothing silently discarded. On a tied base point every summed core is

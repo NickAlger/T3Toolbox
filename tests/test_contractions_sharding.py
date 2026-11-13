@@ -196,7 +196,7 @@ class TestJetKernelsShardOverW(unittest.TestCase):
         d, n, r, N, order = 3, 3, 3, 5, 3
         W = 4 * self.n_dev                                   # 4 probes per device; chunk_size 2 chunks the shard
         R = lambda *s: rng.standard_normal(s)
-        frame = (R(d, n, N), R(d, r, n, r), R(d, r, n, r), R(d, r, n, r))     # uniform (U, O, P, Q), replicated
+        frame = (R(d, n, N), R(d, r, n, r), R(d, r, n, r), R(d, r, n, r))     # uniform (D, U, L, R), replicated
         theta, dirs = (R(d, n, N), R(d, r, n, r)), (R(d, n, N), R(d, r, n, r))
         zt, ww, pp = R(d, order + 1, W, N), R(d, W, N), R(d, W, N)
         specs = (P(None, None, 'w', None), P(None, 'w', None), P(None, 'w', None))   # W: axis 2 / 1 / 1

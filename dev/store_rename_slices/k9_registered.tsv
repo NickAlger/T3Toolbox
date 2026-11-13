@@ -1,0 +1,54 @@
+# store rename K9 registrations (plan §5.3 K9 clauses (c) and (d); R3_review S4), added at R4a.
+# Matched by (file, whitespace-normalized line text), so a registration survives line shifts and realignment but
+# lapses when the line's words change. clause: c = an R4a tier-E rewrite (its words change by design);
+# d = R3's new-meaning lines (R3_handoff Appendix C); keep = an unchanged word that reads correctly in the new
+# convention; swap = a (down, up) line pair R1-R3 reordered, each line's words matching its own NAMEs.
+file	clause	line_at_R4a	reason	text
+t3toolbox/backend/padded_frames.py	d	52	R3 Appendix C (the K9 alignment artifact; new code)	_STORE_NAMES = ('down', 'up', 'left', 'right')
+t3toolbox/backend/padded_frames.py	d	58	R3 Appendix C (update= letters legend, new meaning)	update: typ.Collection[str], # single store letters, any order, e.g. ('D', 'L'): D down, U up, L left, R right
+t3toolbox/backend/padded_frames.py	d	64	R3 Appendix C (update= letters legend, new meaning)	"(D down, U up, L left, R right), e.g. ('D', 'L'); got %r" % (update,))
+t3toolbox/backend/padded_frames.py	d	68	R3 Appendix C (update= letters legend, new meaning)	"not ('U', 'L'), which now means up and left")
+t3toolbox/manifold.py	d	175	R3 Appendix C (update= letters legend, new meaning; R4a realigned its comment)	update: typ.Collection[str] = ('D', 'U', 'L', 'R'), # store letters, any order: 'D' down, 'U' up, 'L' left, 'R' right; the rest transported
+tests/backend/test_padded_frame.py	d	755	R3 Appendix C (new-meaning test text)	"(D down, U up, L left, R right), e.g. ('D', 'L'); got 'ULRO'; that is the 2026.4.0 form, "
+tests/backend/test_padded_frame.py	d	757	R3 Appendix C (new-meaning test text)	"letter and pass a tuple, e.g. 'UL' -> ('D', 'L'), not ('U', 'L'), which now means up and "
+tests/backend/test_padded_frame.py	d	762	R3 Appendix C (new-meaning test text)	agree bitwise. A 2026.4.0 tuple without 'O' runs in the new meaning: ('U', 'L') updates the up and the left
+tests/backend/test_padded_frame.py	d	763	R3 Appendix C (new-meaning test text)	stores and transports the down store, whose completion keeps its span; ('D', 'L') moves it."""
+tests/backend/test_padded_frame.py	d	773	R3 Appendix C (new-meaning test text)	self.assertLessEqual(max(off_span(F)), 1e-12) # the down store transported: the start's row spans
+tests/backend/test_padded_frame.py	d	774	R3 Appendix C (new-meaning test text)	self.assertGreater(max(off_span(F_down)), 1e-3) # the down store aligned: moved
+tests/backend/test_ranks.py	d	436	R3 Appendix C	physical frames: down = the Tucker factors' rows, up = the TT-shaped cores' middle legs. A frame whose stores
+tests/backend/test_ranks.py	d	437	R3 Appendix C	all differ is not minimal; a minimal one is. (The verdict is symmetric in down/up; the keywords are pinned.)"""
+tests/test_dispatch.py	d	2008	R3 Appendix C	two-colour half (right and up transported), the zero tensor's empty frame, and a stack C = (2,)."""
+tests/test_frame_variations_format.py	d	540	R3 Appendix C	whose four stores all differ: the down store is ``data[0]``, the Tucker factors ``(n, N)`` below each Tucker
+tests/test_frame_variations_format.py	d	541	R3 Appendix C	edge; the up store is ``data[1]``, the TT-shaped cores above it, counted by their middle leg."""
+tests/test_uniform_frame_variations_format.py	d	165	R3 Appendix C	supercores: the down supercore holds the Tucker factors at width nD, the up supercore the TT-shaped cores at
+tests/test_uniform_frame_variations_format.py	d	279	R3 Appendix C	Tucker variations' rows are the up store's (width nU), the TT variations' middle leg the down store's (nD)."""
+tests/test_uniform_manifold.py	d	1091	R3 Appendix C	all differ: nD pads the down store (the Tucker factors, the TT variations' middle leg), nU the up store (the
+tests/test_uniform_weighted.py	d	807	R3 Appendix C	(``from_t3weights`` copies one Tucker vector into both): the down weights, sized by the Tucker factors' rows,
+tests/test_uniform_weighted.py	d	808	R3 Appendix C	go to the down supercore at width nD; the up weights, sized by the TT-shaped cores' middle legs, to width nU."""
+t3toolbox/backend/padded_frames.py	c	8	R4a tier E: module docstring, store words in the new convention	leading slots of every store (the four families of frame cores, down / up / left / right, each named for the side of
+t3toolbox/backend/ranks.py	c	644	R4a §4A block RA-0644, re-derived (down_i/up_i step names)	1. Tucker down-orthogonalization: ``down_i = min(n_i, N_i)``;
+t3toolbox/backend/ranks.py	c	645	R4a §4A block RA-0644, re-derived (down_i/up_i step names)	2. a LEFT sweep on the original TT bonds: ``left_{i+1} = min(left_i * down_i, r_{i+1})``;
+t3toolbox/backend/ranks.py	c	646	R4a §4A block RA-0644, re-derived (down_i/up_i step names)	3. a RIGHT sweep over the left-orthogonal chain: ``right_i = min(left_i, down_i * right_{i+1})``;
+t3toolbox/backend/ranks.py	c	647	R4a §4A block RA-0644, re-derived (down_i/up_i step names)	4. the up cores: ``up_i = min(down_i, left_i * right_{i+1})``.
+t3toolbox/backend/t3_orthogonalization.py	c	106	R4a tier E: backwards adjective/direction rewritten (Down-orthogonalize ... up onto the TT cores above)	NDArray, # Uaxb. up-orthogonal tt core, C+(rLi,n2,rR(i+1))
+t3toolbox/backend/tv_operations.py	c	515	R4a tier E: added sentence naming theta=(D, L) by its stores (down, left)	frame's stores it is built from (down, left); its corewise direction ``theta_hat = (Bdot, Gdot)`` moves
+t3toolbox/backend/utv_operations.py	c	585	R4a tier E: "down-Tucker basis" (new meaning); "up front" is English	Mask-once up front, then: re-express ``x``'s TT cores in the frame's down-Tucker basis (a per-core map
+t3toolbox/frame_variations_format.py	c	8	R4a tier E: module docstring convention sentence	fixed-rank T3 manifold (T4S Appendix A). ``T3Frame.data = (down, up, left, right) = (D, U, L, R)``, each
+t3toolbox/frame_variations_format.py	c	118	R4a §4A block FVF-0117/0123 (sample edit 6 AFTER)	- down_tucker_cores = (D0,...,D(d-1)), down-orthogonal: D_ia D_ja = delta_ij
+t3toolbox/frame_variations_format.py	c	119	R4a §4A block FVF-0117/0123 (sample edit 6 AFTER)	- up_tt_cores = (U0,...,U(d-1)), up-orthogonal: U_aib U_ajb = delta_ij
+t3toolbox/manifold.py	c	1344	R4a tier E: left/right/up-orthogonal (was outer-orthogonal)	"""The orthonormal frame at ``x`` (the left/right/up-orthogonal representation)."""
+tests/backend/test_padded_frame.py	c	562	R4a tier E: the d = 1 note rewritten in the new convention	# The d = 1 note. At d = 1 the up store is one wide (nU = min(nD, rL rR) = 1), so a nonzero old point's up
+tests/backend/test_padded_frame.py	c	563	R4a tier E: the d = 1 note rewritten in the new convention	# frame spans the whole far side and the down store's edge's (l_i -> c_i) content vanishes: its completion
+t3toolbox/backend/fv_conversions.py	keep	207	R4a keep: "1. Tucker down-orth" is the new convention unchanged (the Tucker cores are down-orthogonalized)	down_r = np.minimum(tkm_u.sum(axis=-1), shape_col) # 1. Tucker down-orth
+t3toolbox/backend/ufv_conversions.py	swap	205	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	nD: typ.Optional[int] = None, # padded down rank (default max(down_ranks))
+t3toolbox/backend/ufv_conversions.py	swap	206	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	nU: typ.Optional[int] = None, # padded up rank (default max(up_ranks))
+t3toolbox/backend/ufv_conversions.py	swap	312	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	nD: typ.Optional[int] = None, # padded down rank (default max(down_ranks))
+t3toolbox/backend/ufv_conversions.py	swap	313	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	nU: typ.Optional[int] = None, # padded up rank (default max(up_ranks))
+t3toolbox/uniform_frame_variations_format.py	swap	342	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	nD: typ.Optional[int] = None, # padded down rank (default max(down_ranks))
+t3toolbox/uniform_frame_variations_format.py	swap	343	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	nU: typ.Optional[int] = None, # padded up rank (default max(up_ranks))
+t3toolbox/uniform_frame_variations_format.py	swap	731	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	nD: typ.Optional[int] = None, # padded down rank (default max(down_ranks))
+t3toolbox/uniform_frame_variations_format.py	swap	732	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	nU: typ.Optional[int] = None, # padded up rank (default max(up_ranks))
+t3toolbox/uniform_frame_variations_format.py	swap	1075	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	(bm.down_mask, vm.variations_down_mask, 'down'),
+t3toolbox/uniform_frame_variations_format.py	swap	1076	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	(bm.up_mask, vm.variations_up_mask, 'up'),
+t3toolbox/uniform_manifold.py	swap	524	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	nD: typ.Optional[int] = None, # padded down rank (default max(down_ranks))
+t3toolbox/uniform_manifold.py	swap	525	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	nU: typ.Optional[int] = None, # padded up rank (default max(up_ranks))

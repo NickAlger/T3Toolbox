@@ -171,8 +171,8 @@ class T3Tangent(common.ExplicitEquality):
             tucker_ranks:      typ.Optional[typ.Sequence[int]] = None,  # len=d, output; None = the frame's own
             tt_ranks:          typ.Optional[typ.Sequence[int]] = None,  # len=d+1, output; None = the frame's own
 
-            sharing:           typ.Optional[typ.Sequence] = None,       # len=d group labels; None = unshared
-            update:            typ.Collection[str] = ('D', 'U', 'L', 'R'),   # store letters, any order: 'D' down, 'U' up, 'L' left, 'R' right; the rest transported
+            sharing:           typ.Optional[typ.Sequence] = None,           # len=d group labels; None = unshared
+            update:            typ.Collection[str] = ('D', 'U', 'L', 'R'),  # store letters, any order: 'D' down, 'U' up, 'L' left, 'R' right; the rest transported
     ) -> typ.Tuple[
         'bvf.T3Frame',   # the aligned frame
         NDArray,         # movement, shape = frame stack C
@@ -476,7 +476,7 @@ class T3Tangent(common.ExplicitEquality):
         This is the *coordinate* inner product; it equals Hilbert-Schmidt on an orthonormal, gauged frame
         (minimal rank is not required). For that semantic -- with the orthogonal/gauge preconditions checked -- use
         :py:meth:`ManifoldGeometry.inner` (or :py:meth:`CorewiseGeometry.inner` for the Euclidean metric).
-        The gauged identity ``<v, v'>_HS = sum_i <dU_i, dU_i'> + sum_i <dG_i, dG_i'>`` is Appendix A.3 of
+        The gauged identity ``<v, v'>_HS = sum_i <V_i, V_i'> + sum_i <H_i, H_i'>`` is Appendix A.3 of
         Alger et al. (2026), "Tucker Tensor Train Taylor Series" (arXiv:2603.21141).
         """
         self._check_same_tangent_space(other)
@@ -494,8 +494,8 @@ class T3Tangent(common.ExplicitEquality):
         return cw.corewise_stack_norm(self.variations.data, len(self.stack_shape))
 
     def absorb_weights(self, weights: 'bvf.T3FrameWeights') -> 'T3Tangent':
-        """Absorb the metric ``weights`` into this tangent's **variation** cores (``down``->V,
-        ``up``/``left``/``right``->H), returning the weighted tangent **at the same frame**. Its
+        """Absorb the metric ``weights`` into this tangent's **variation** cores (``up``->V,
+        ``down``/``left``/``right``->H), returning the weighted tangent **at the same frame**. Its
         :py:meth:`corewise_norm` equals :py:meth:`weighted_norm`.
 
         **Warning -- the result is not gauged.** Scaling the variation coordinates breaks the gauge
@@ -529,7 +529,7 @@ class T3Tangent(common.ExplicitEquality):
 
     def weighted_norm(self, weights: 'bvf.T3FrameWeights'):
         """The **weighted** (Grasedyck-Kramer) coordinate norm: absorb the metric ``weights`` into the
-        variation cores (``down``->V, ``up``/``left``/``right``->H) and take the coordinate norm. The frame
+        variation cores (``up``->V, ``down``/``left``/``right``->H) and take the coordinate norm. The frame
         stays orthonormal (untouched). Vectorized over the stack (returns shape ``K + C``). The inserted
         diagonal is squared by the norm, so ``weights = 1/sigma`` penalises by ``1/sigma^2``. As with
         :py:meth:`corewise_norm`, this is the coordinate metric (= HS on an orthonormal, gauged frame).
@@ -683,7 +683,7 @@ class T3Tangent(common.ExplicitEquality):
         Gauge conditions (needed for :py:meth:`ManifoldGeometry.inner` / :py:meth:`ManifoldGeometry.norm`
         to equal the Hilbert-Schmidt values; not enforced at construction):
 
-        - ``einsum('...ia,...ja->...ij', U_i, V_i) = 0`` for all i (Tucker variations ⟂ U).
+        - ``einsum('...ia,...ja->...ij', D_i, V_i) = 0`` for all i (Tucker variations ⟂ D).
         - ``einsum('...abi,...abj->...ij', L_i, H_i) = 0`` for i = 0..d-2 (TT variations ⟂ L).
 
         These are the gauge conditions (47)-(48), Appendix A.3, of Alger et al. (2026),
@@ -743,7 +743,7 @@ class T3Tangent(common.ExplicitEquality):
         >>> print(zzb[0].shape)            # W + K + C + (N0,) = (2,) + (3,) + () + (10,)
         (2, 3, 10)
         """
-        # probing's frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
+        # probing's frame order is exactly T3Frame.data = (down, up, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
         return probing.tv_probe(ww, self.variations.data, self.frame.data)
 
@@ -814,13 +814,13 @@ class T3Tangent(common.ExplicitEquality):
 
         >>> kept   = t3m.T3Tangent.probe_transpose(z, ww, frame)                        # W stays a stack
         >>> summed = t3m.T3Tangent.probe_transpose(z, ww, frame, sum_over_probes=True)   # W summed
-        >>> V_sum = tuple(np.sum(c, axis=0) for c in kept.variations.tucker_variations)  # sum the W axis
+        >>> V_sum  = tuple(np.sum(c, axis=0) for c in kept.variations.tucker_variations)  # sum the W axis
         >>> err = max(float(np.linalg.norm(a - b))
         ...           for a, b in zip(V_sum, summed.variations.tucker_variations))
         >>> print(bool(err < 1e-9))
         True
         """
-        # probing's frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
+        # probing's frame order is exactly T3Frame.data = (down, up, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
         V_tildes, H_tildes = probing.tv_probe_transpose(
             ztildes, ww, frame.data, sum_over_probes=sum_over_probes,
@@ -862,7 +862,7 @@ class T3Tangent(common.ExplicitEquality):
         >>> print(bool(abs(float(a) - float(a_dense)) < 1e-9))
         True
         """
-        # frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
+        # frame order is exactly T3Frame.data = (down, up, left, right) -- no reorder.
         # numpy/jax dispatch is inferred from the input array types inside probing.
         return apply.tv_apply(ww, self.variations.data, self.frame.data)
 
@@ -934,7 +934,7 @@ class T3Tangent(common.ExplicitEquality):
         >>> print(bool(abs(lhs - 1.7 * float(v.apply(ww))) < 1e-9))
         True
         """
-        # frame order is exactly T3Frame.data = (up, down, left, right) -- no reorder.
+        # frame order is exactly T3Frame.data = (down, up, left, right) -- no reorder.
         V, H = apply.tv_apply_transpose(c, ww, frame.data, sum_over_probes=sum_over_probes)
         return T3Tangent(frame, bvf.T3Variations(V, H))
 
@@ -947,7 +947,7 @@ class T3Tangent(common.ExplicitEquality):
     ) -> 'T3Tangent':
         """Apply the transpose ``entries^T`` of :py:meth:`entries`: scatter ``c`` at ``index`` into a tangent.
 
-        The adjoint of :py:meth:`entries` -- identical to :py:meth:`apply_transpose` with the up-index
+        The adjoint of :py:meth:`entries` -- identical to :py:meth:`apply_transpose` with the upward
         ``ξ̂`` from fiber slicing and unit apply-vectors ``e_{index}``. ``sum_over_probes`` as in
         :py:meth:`apply_transpose` (see *Batching & stacking* §11).
 
@@ -1170,8 +1170,8 @@ class T3Tangent(common.ExplicitEquality):
     ) -> 'T3Tangent':
         """Transpose of :py:meth:`entries_derivatives`: scatter residual jets ``c`` at ``index`` into a tangent.
 
-        Identical to :py:meth:`apply_derivatives_transpose` with the frame up-index from fiber slicing and
-        the ambient ``w_jet`` from the unit vectors ``e_{index}`` (so the Tucker-variation gradient
+        Identical to :py:meth:`apply_derivatives_transpose` with the frame's upward edge variables from fiber slicing
+        and the ambient ``w_jet`` from the unit vectors ``e_{index}`` (so the Tucker-variation gradient
         scatters onto the indexed rows).
 
         See Also
@@ -1340,8 +1340,8 @@ class ManifoldGeometry:
     def frame(
             self,
             x:  t3.TuckerTensorTrain,
-    ) -> bvf.T3Frame:  # orthonormal frame (U, O, P, Q) at x
-        """The orthonormal frame at ``x`` (the left/right/outer-orthogonal representation)."""
+    ) -> bvf.T3Frame:  # orthonormal frame (D, U, L, R) at x
+        """The orthonormal frame at ``x`` (the left/right/up-orthogonal representation)."""
         frame, _ = bvf.t3_orthogonal_representations(x)
         return frame
 
@@ -1545,14 +1545,14 @@ class ManifoldGeometry:
 class CorewiseGeometry:
     """The Euclidean geometry of the core parameter space ``P`` (the over-parametrized cover of ``M``).
 
-    Optimization happens *on* the raw cores: tangents are perturbations of the cores ``(U, G, G, G)``
-    (the non-orthonormal frame whose down/left/right cores are all the TT cores ``G``), the metric is
+    Optimization happens *on* the raw cores: tangents are perturbations of the cores ``(B, G, G, G)``
+    (the non-orthonormal frame whose up/left/right cores are all the TT cores ``G``), the metric is
     the plain Euclidean (corewise) inner product, the "projection" is the identity (no gauge), and the
     retraction is vector addition in the cores. The corewise gradient is a genuine
     :py:class:`T3Tangent` at this frame -- not a raw tuple. Gauge directions lie in the kernel of the
     pushforward, so the Gauss-Newton Hessian is gauge-singular (fine for Adam / L-BFGS, needs
     regularization for Newton). Use the module singleton :py:data:`COREWISE`. The §6.3 substitution
-    ``(O, P, Q) -> G`` is exactly this change of frame; the manifold counterpart is
+    ``(U, L, R) -> G`` is exactly this change of frame; the manifold counterpart is
     :py:class:`ManifoldGeometry`.
 
     Examples
@@ -1562,7 +1562,7 @@ class CorewiseGeometry:
     >>> import t3toolbox.manifold as t3m
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
-    >>> frame = t3m.COREWISE.frame(x)            # the (U, G, G, G) frame
+    >>> frame = t3m.COREWISE.frame(x)            # the (B, G, G, G) frame
     >>> v = t3m.COREWISE.randn(frame)           # raw randn cores (no gauge)
     >>> print(v.is_gauged())
     False
@@ -1578,8 +1578,8 @@ class CorewiseGeometry:
     def frame(
             self,
             x:  t3.TuckerTensorTrain,
-    ) -> bvf.T3Frame:  # the (U, G, G, G) non-orthonormal frame at x
-        """The core-parameter frame at ``x``: ``(U, G, G, G)`` (down/left/right all the TT cores ``G``)."""
+    ) -> bvf.T3Frame:  # the (B, G, G, G) non-orthonormal frame at x
+        """The core-parameter frame at ``x``: ``(B, G, G, G)`` (up/left/right all the TT cores ``G``)."""
         return bvf.T3Frame(*fv_conversions.t3_corewise_frame(x.data))
 
     def randn(
@@ -1613,7 +1613,7 @@ class CorewiseGeometry:
     ) -> NDArray:  # the Euclidean (coordinate) inner product, shape = stack_shape (K + C)
         """The **Euclidean** (coordinate) inner product of two tangents on the core parameter space.
 
-        The corewise dot of the variations -- *no* orthogonal/gauge requirement (the ``(U,G,G,G)`` frame
+        The corewise dot of the variations -- *no* orthogonal/gauge requirement (the ``(B,G,G,G)`` frame
         is non-orthonormal by design). Safe mode checks only that the two tangents share a frame. This is
         exactly :py:meth:`T3Tangent.corewise_inner`."""
         return t1.corewise_inner(t2)
@@ -1628,14 +1628,14 @@ class CorewiseGeometry:
 
     def retract(
             self,
-            p:  T3Tangent,  # step (a corewise tangent at frame = (U, G, G, G))
+            p:  T3Tangent,  # step (a corewise tangent at frame = (B, G, G, G))
     ) -> t3.TuckerTensorTrain:  # additive retraction: cores += p
         """Additive retraction: add the variation cores to the point's cores (``cores += p``).
 
-        Recovers the point ``(U, G)`` from ``p.frame`` (which :py:meth:`frame` built as ``(U, G, G, G)``)
+        Recovers the point ``(B, G)`` from ``p.frame`` (which :py:meth:`frame` built as ``(B, G, G, G)``)
         and adds the variations. ``p`` must be a corewise tangent (a frame from :py:meth:`frame`).
 
-        A MANIFOLD-frame tangent is rejected whenever that is structurally detectable (its down/left
+        A MANIFOLD-frame tangent is rejected whenever that is structurally detectable (its up/left
         slots hold different cores, e.g. a slack frame with ``nU != nD`` -- review H3-8); when the
         manifold frame happens to have identically-shaped slots the two frame kinds are structurally
         indistinguishable, and pairing each geometry with its own frames is the caller's contract.
@@ -1645,10 +1645,10 @@ class CorewiseGeometry:
         if up_shapes != left_shapes:
             raise ValueError(
                 'COREWISE.retract needs a tangent at a COREWISE frame (COREWISE.frame(x) / .randn), '
-                'whose down/left/right slots hold the SAME cores (U, G, G, G); this tangent lives at a '
-                'MANIFOLD frame (down core shapes %s vs left core shapes %s) -- use MANIFOLD.retract.'
+                'whose up/left/right slots hold the SAME cores (B, G, G, G); this tangent lives at a '
+                'MANIFOLD frame (up core shapes %s vs left core shapes %s) -- use MANIFOLD.retract.'
                 % (up_shapes, left_shapes))
-        x_data = (p.frame.down_tucker_cores, p.frame.left_tt_cores)  # (U, G) from the (U, G, G, G) frame
+        x_data = (p.frame.down_tucker_cores, p.frame.left_tt_cores)  # (B, G) from the (B, G, G, G) frame
         new = cw.corewise_add(x_data, p.variations.data)
         return t3.TuckerTensorTrain(*new)
 

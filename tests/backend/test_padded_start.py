@@ -565,9 +565,9 @@ def dense_probe_gradient(ww, residual):
 
 
 def dense_tied_project(dense, S, groups, X):
-    """The orthogonal projection of the dense S onto the TIED tangent space at the dense frames D of the point X: the
-    TT directions as they are, and per group one shared Tucker variation dU moving every member's factor,
-    sum_(i in g) Y_i x_i dU with Y_i = X x_i U_i^T (the untied down-frame Tucker columns are replaced)."""
+    """The orthogonal projection of the dense S onto the TIED tangent space at the dense frames of the point X: the
+    TT directions as they are, and per group one shared Tucker variation V moving every member's factor,
+    sum_(i in g) Y_i x_i V with Y_i = X x_i D_i^T (the untied up-frame Tucker columns are replaced)."""
     import math
     D, phi, psi, U = dense
     N = S.shape

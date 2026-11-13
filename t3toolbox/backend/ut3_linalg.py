@@ -361,7 +361,7 @@ def ut3_inner_product_corewise_transpose(
 def ut3_precompute_inner_product_sweep(
         z:      UT3Data,                  # the fixed uniform T3, stack C
         theta:  UT3Data,                  # the point, stack C
-) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray]:   # (BU, G2, ZL, ZR, env) supercores, (d,)+C+(...)
+) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray]:   # (zB, G2, ZL, ZR, env) supercores, (d,)+C+(...)
     """The uniform twin of :py:func:`~t3toolbox.backend.t3_linalg.t3_precompute_inner_product_sweep`: the
     ``(z, theta)``-dependent intermediates of the T3-T3 two-hole, once per frame -- ``z`` and ``theta`` masked on
     entry, then the polymorphic sweep (``d``-prefixed contractions, the zippers' uniform scan). Pass the result to

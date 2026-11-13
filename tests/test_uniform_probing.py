@@ -392,7 +392,7 @@ class TestUT3TangentTranspose(unittest.TestCase):
 
 class TestUT3CorewiseTranspose(unittest.TestCase):
     """3b-6c: the corewise (non-manifold) sampling transposes on UniformTuckerTensorTrain -- the Section 6.3
-    (P,Q,O)->G substitution. The raw gradient supercores match the ragged TuckerTensorTrain corewise
+    (U,L,R)->G substitution. The raw gradient supercores match the ragged TuckerTensorTrain corewise
     gradients per stack element (in the real/masked region), across frame stacks; sum_over_probes=True (the
     residual c is shape W+C, shared by both layers)."""
 
@@ -735,7 +735,7 @@ _GARBAGE = 1e6                                   # the 1e6*(1 - mask) padding fi
 
 
 def _ragged_frame_ranks(rframe):
-    """Per-core (up, down, variation-left, variation-right) ranks read off a RAGGED frame's core SHAPES --
+    """Per-core (down, up, variation-left, variation-right) ranks read off a RAGGED frame's core SHAPES --
     the ground truth for a transpose output's real extent, derived without touching any uniform mask. The
     variation of core i spans ``(rL_i, nD_i, rR_(i+1))``: the left frame core's left rank and the right
     frame core's right rank (the gauge shift)."""

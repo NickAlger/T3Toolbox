@@ -485,9 +485,9 @@ class SharedFrameData:
 def fv_shared_frame_data(
         frame_data: typ.Tuple[
             typ.Sequence[NDArray],  # down_tucker_cores. len=d, elm_shape=C+(nDi, Ni)
-            typ.Sequence[NDArray],  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
-            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
-            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
+            typ.Sequence[NDArray],  # up_tt_cores.       len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
         ],
         groups:     typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition (validate_sharing)
 ) -> SharedFrameData:
@@ -498,13 +498,13 @@ def fv_shared_frame_data(
     1. The centers ``H_i = L_i Z_{i+1}`` from the STORED cores, with ``Z_{i+1}`` the right-to-left
        zipper of the left chain against the right chain (``tt_zipper_right_to_left``): GEMM-only, no
        SVD, and gauge-consistent with the stored ``R`` by construction -- the identities below need the
-       ``H_i`` that pair with the frame's ``O_i``/``R_i``, which these are, whatever built the frame.
+       ``H_i`` that pair with the frame's ``U_i``/``R_i``, which these are, whatever built the frame.
        (Until 2026-08-22 the centers came from RE-SWEEPING the left chain with fresh SVDs, which
        reproduces the construction's ``H_i`` only when the same SVD ran on the same arrays; on a
        ``UT3Frame.to_t3frame()`` leaf -- padded batched SVD vs sliced per-core SVD -- the signs differed
        and the tied projection was silently 30% off, review S9.)
-    2. Per mode of each nontrivial group, ``S_i^T = <O_i, H_i>`` against the frame's STORED
-       down core (``S_i S_i^T = Gamma_i`` and ``W2_i = S_i O2_i`` hold by the construction's
+    2. Per mode of each nontrivial group, ``S_i^T = <U_i, H_i>`` against the frame's STORED
+       up core (``S_i S_i^T = Gamma_i`` and ``W2_i = S_i U2_i`` hold by the construction's
        own factorization; no re-SVD, so no sign/degenerate-block hazards).
     3. Per nontrivial group, one thin (batched) SVD of the stacked
        ``M_g = concat_i(S_i^T)``, shape ``C + (sum_i nU_i, n_g)``.
@@ -547,9 +547,9 @@ def fv_shared_frame_data(
     use_jax = tree_contains_jax(frame_data)
     xnp, _, _ = get_backend(False, use_jax)
 
-    # Steps 1-2, the centers H_i = L_i Z_{i+1} and S_i^T = <O_i, H_i> from the stored cores (Z the
+    # Steps 1-2, the centers H_i = L_i Z_{i+1} and S_i^T = <U_i, H_i> from the stored cores (Z the
     # right-to-left zipper of the left chain against the right chain): exact, GEMM-only, and consistent
-    # with the stored O/R whatever built the frame (no fresh SVD, so no sign/degenerate-block hazard).
+    # with the stored U/R whatever built the frame (no fresh SVD, so no sign/degenerate-block hazard).
     HH, SS_T, _ = fv_operations.fv_center_factors(frame_data)
 
     centers, row_splits, svd_U, svd_s, svd_Vt = [], [], [], [], []
@@ -583,13 +583,13 @@ def fv_share_tucker_variations(
     typ.Tuple[NDArray, ...],  # tt_variations, untouched
 ]:
     '''The tied post-pass of the shared MANIFOLD geometry: orthogonally project gauged Tucker
-    variation coordinates onto the tied subspace ``{V_i = S_i^T Udot, common gauged Udot}``.
+    variation coordinates onto the tied subspace ``{V_i = S_i^T Ddot, common gauged Ddot}``.
 
     Per nontrivial group, one clipped least-squares solve against the companion's stacked-``S``
-    SVD (``Udot = M_g^+ [V_{i_1}; ...; V_{i_k}]``, sensitivity ``kappa_g`` -- never the
-    ``kappa_g^2`` normal equations) followed by the exact redistribution ``V_i <- S_i^T Udot``
-    (the row blocks of ``M_g Udot``). Gauge is preserved identically (each ``S_i^T Udot`` is
-    gauged when ``Udot`` is, and ``Udot`` inherits the gauge from gauged inputs); the
+    SVD (``Ddot = M_g^+ [V_{i_1}; ...; V_{i_k}]``, sensitivity ``kappa_g`` -- never the
+    ``kappa_g^2`` normal equations) followed by the exact redistribution ``V_i <- S_i^T Ddot``
+    (the row blocks of ``M_g Ddot``). Gauge is preserved identically (each ``S_i^T Ddot`` is
+    gauged when ``Ddot`` is, and ``Ddot`` inherits the gauge from gauged inputs); the
     projection is idempotent and fixes exactly-tied inputs. TT variations are untouched
     (sharing constrains only the Tucker factors). The clip makes the solve well-defined
     (minimum-norm) at rank-deficient points -- which zero-padded continuation restarts visit by
@@ -633,7 +633,7 @@ def fv_share_tucker_variations(
     new_tucker = list(tucker_variations)
     for gi, group in enumerate(nontrivial_groups(shared_data.groups)):
         Ddot = _tied_filtered_solve(shared_data, gi, tucker_variations, _tied_filter(shared_data, gi, None, rcond))
-        # R = M_g @ Udot: the tied coordinates of every group mode in one stack
+        # R = M_g @ Ddot: the tied coordinates of every group mode in one stack
         U_M, s_g, Vt_M = shared_data.svd_U[gi], shared_data.svd_s[gi], shared_data.svd_Vt[gi]
         splits = shared_data.row_splits[gi]
         r = xnp.einsum('...wy,...yn->...wn', Vt_M, Ddot)
@@ -669,8 +669,8 @@ def _tied_filtered_solve(
         gi:                 int,                    # index into the companion's nontrivial-group tuples
         tucker_variations:  typ.Sequence[NDArray],  # len=d, elm_shape=(K+C)+(nUi, Ni); the group's are read
         s_filter:           NDArray,                # f(s_g), shape=C+(q,) (_tied_filter)
-) -> NDArray:                                       # Udot = Vt_M^T f(s_g) U_M^T [V_i1; ...], (K+C)+(n_g, N)
-    '''The filtered least-squares solve ``Udot = M_g^{+f} [stacked V_i]`` against the companion's stacked-``S``
+) -> NDArray:                                       # Ddot = Vt_M^T f(s_g) U_M^T [V_i1; ...], (K+C)+(n_g, N)
+    '''The filtered least-squares solve ``Ddot = M_g^{+f} [stacked V_i]`` against the companion's stacked-``S``
     SVD ``M_g = U_M diag(s_g) Vt_M`` (sensitivity ``kappa_g``, never the normal equations' ``kappa_g^2``).
 
     With the clipped filter (``_tied_filter(..., eps=None, ...)``) it is the minimum-norm solve of the tied
@@ -684,7 +684,7 @@ def _tied_filtered_solve(
     Vstack = xnp.concatenate(Vgroup, axis=-2)                 # (K+C)+(sum nU, N)
     t = xnp.einsum('...xw,...xn->...wn', U_M, Vstack)         # U_M^T Vstack, (K+C)+(q, N)
     t = xnp.einsum('...w,...wn->...wn', s_filter, t)          # the filter
-    return xnp.einsum('...wy,...wn->...yn', Vt_M, t)          # Udot, (K+C)+(n_g, N)
+    return xnp.einsum('...wy,...wn->...yn', Vt_M, t)          # Ddot, (K+C)+(n_g, N)
 
 
 def _tied_filtered_solve_transpose(
@@ -692,14 +692,14 @@ def _tied_filtered_solve_transpose(
         gi:           int,                     # index into the companion's nontrivial-group tuples
         Ddot:         NDArray,                 # elm_shape=(K+C)+(n_g, N): a direction on the group factor
         s_filter:     NDArray,                 # f(s_g), shape=C+(q,) (_tied_filter)
-) -> typ.Tuple[NDArray, ...]:                  # per group mode: (U_M f(s_g) Vt_M Udot) row block, (K+C)+(nUi, N)
-    '''The adjoint of :py:func:`_tied_filtered_solve` -- ``(M_g^{+f})^T Udot = U_M diag(f(s_g)) Vt_M Udot``,
+) -> typ.Tuple[NDArray, ...]:                  # per group mode: (U_M f(s_g) Vt_M Ddot) row block, (K+C)+(nUi, N)
+    '''The adjoint of :py:func:`_tied_filtered_solve` -- ``(M_g^{+f})^T Ddot = U_M diag(f(s_g)) Vt_M Ddot``,
     split into the group modes' row blocks by ``row_splits`` -- in the coordinate inner product, per ``K + C``
     element: ``<solve(V), Y> == sum_i <V_i, transpose(Y)_i>``. The same filter serves both directions, so
     ``L^T K L`` stays symmetric at every damping.'''
     U_M, Vt_M = shared_data.svd_U[gi], shared_data.svd_Vt[gi]
     splits = shared_data.row_splits[gi]
-    t_KCan = contractions.contract('Cau,KCun->KCan', Vt_M, Ddot)            # Vt_M Udot, (K+C)+(q, N)
+    t_KCan = contractions.contract('Cau,KCun->KCan', Vt_M, Ddot)            # Vt_M Ddot, (K+C)+(q, N)
     t_KCan = contractions.contract('Ca,KCan->KCan', s_filter, t_KCan)       # the filter
     V_KCxn = contractions.contract('Cxa,KCan->KCxn', U_M, t_KCan)           # (K+C)+(sum nU, N)
     return tuple(V_KCxn[..., splits[jj]:splits[jj + 1], :] for jj in range(len(splits) - 1))
@@ -712,14 +712,14 @@ def fv_tied_ambient_directions(
         ],
         shared_data:    'SharedFrameData',  # the frame's companion (fv_shared_frame_data)
         rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
-) -> typ.Tuple[NDArray, ...]:  # per NONTRIVIAL group: Udot, elm_shape=(K+C)+(n_g, N)
-    '''Recover each group's common gauged ambient direction ``Udot`` from (tied) Tucker
+) -> typ.Tuple[NDArray, ...]:  # per NONTRIVIAL group: Ddot, elm_shape=(K+C)+(n_g, N)
+    '''Recover each group's common gauged ambient direction ``Ddot`` from (tied) Tucker
     variation coordinates -- the clipped least-squares solve of
-    :py:func:`fv_share_tucker_variations`, returning ``Udot`` itself instead of the
-    redistributed coordinates. Exact on exactly-tied input (``V_i = S_i^T Udot``); on untied
+    :py:func:`fv_share_tucker_variations`, returning ``Ddot`` itself instead of the
+    redistributed coordinates. Exact on exactly-tied input (``V_i = S_i^T Ddot``); on untied
     input it returns the least-squares fit (the tied projection's ambient direction). The
     shared retraction uses this to build the TIED doubled-rank embedding
-    (``[U_g | Udot]`` per group, with the center cores as the paired blocks).'''
+    (``[D_g | Ddot]`` per group, with the center cores as the paired blocks).'''
     tucker_variations, _ = variations_data
     return tuple(_tied_filtered_solve(shared_data, gi, tucker_variations, _tied_filter(shared_data, gi, None, rcond))
                  for gi in range(len(nontrivial_groups(shared_data.groups))))
@@ -728,9 +728,9 @@ def fv_tied_ambient_directions(
 def fv_tied_lift_factors(
         frame:              typ.Tuple[
             typ.Sequence[NDArray],                  # down_tucker_cores. len=d, elm_shape=C+(nDi, Ni)
-            typ.Sequence[NDArray],                  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
-            typ.Sequence[NDArray],                  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
-            typ.Sequence[NDArray],                  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
+            typ.Sequence[NDArray],                  # up_tt_cores.       len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],                  # left_tt_cores.     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],                  # right_tt_cores.    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
         ],
         curvature_damping:  typ.Union[float, NDArray],  # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
         shared_data:        SharedFrameData,            # the frame's companion (fv_shared_frame_data)
@@ -741,10 +741,10 @@ def fv_tied_lift_factors(
     :py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift` lifts the group's Tucker slots TIED.
 
     On the shared set the point is ``Phi(T theta_sh)``, with ``T`` copying each group's factor to all its modes,
-    and a tied coordinate ``V_i = S_i^T Udot`` has ONE raw factor direction per group. The lift recovers it
+    and a tied coordinate ``V_i = S_i^T Bdot`` has ONE raw factor direction per group. The lift recovers it
     from all the group's coordinates at once,
 
-    ``Udot_g = M_g^{+eps} [V_i1; ...; V_ik]``,  ``M_g = [S_i1^T; ...; S_ik^T]`` (the companion's stacked SVD),
+    ``Bdot_g = M_g^{+eps} [V_i1; ...; V_ik]``,  ``M_g = [S_i1^T; ...; S_ik^T]`` (the companion's stacked SVD),
 
     and puts it at every group mode; singleton modes and every TT slot lift as unshared. The group filter
     ``f(s_g) = s_g / (s_g^2 + eps^2)``, clipped (:py:func:`~t3toolbox.backend.linalg.filtered_reciprocal`), uses
@@ -754,7 +754,7 @@ def fv_tied_lift_factors(
     spectrum) is the lift's singular value there -- the per-mode ``S_i^T`` can be rank-deficient on a perfectly
     regular shared point, when the group rank exceeds a mode's own ceiling.
 
-    - **Exactness.** At ``eps = 0`` the tied lift satisfies ``DPhi[L v] = E v`` on tied coordinates wherever
+    - **Exactness.** At ``eps = 0`` the tied lift satisfies ``dPhi[L v] = E v`` on tied coordinates wherever
       the stacked ``M_g`` has full column rank, which is the shared analogue of a numerically full-rank frame
       (the group spectrum ``s_g`` is the Jacobian spectrum of the shared factor, ``docs/sharing.md``). That is
       sufficient, not necessary: the group part stays exact at a zero-padded restart too (a tied tangent's group
@@ -819,7 +819,7 @@ def fv_share_tucker_variations_corewise(
     typ.Tuple[NDArray, ...],  # tt_variations, untouched
 ]:
     '''The tied post-pass of the shared COREWISE geometry: orthogonally project raw core
-    perturbations onto the tied subspace ``{dU_i all equal within each group}``.
+    perturbations onto the tied subspace ``{dB_i all equal within each group}``.
 
     On the corewise geometry the coordinates are raw factor copies and the metric is Euclidean
     on the core entries, so the projection is the per-group arithmetic mean, assigned as ONE
@@ -999,7 +999,7 @@ def ufv_shared_frame_data(
         groups:     typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical partition (validate_sharing)
 ) -> 'SharedFrameData':
     '''The uniform twin of :py:func:`fv_shared_frame_data`: the IDENTICAL polymorphic derivation
-    (the centers ``H_i = L_i Z_{i+1}`` from the zipper of the stored chains, ``S_i^T = <O_i, H_i>``
+    (the centers ``H_i = L_i Z_{i+1}`` from the zipper of the stored chains, ``S_i^T = <U_i, H_i>``
     batched over the mode axis, one batched thin SVD per group of the statically-gathered
     concatenation) on the frame's MASKED supercores.
 
@@ -1032,7 +1032,7 @@ def ufv_share_tucker_variations(
 ):  # -> tied variations .data (same masks; padded rows come back exactly zero)
     '''The uniform twin of :py:func:`fv_share_tucker_variations` (the manifold tied post-pass):
     mask the variation supercores, delegate to the polymorphic ragged solve on the mode slices,
-    re-stack, re-mask. The redistribution ``U_M diag(s_g) Vt_M Udot`` reaches the padded rows only through
+    re-stack, re-mask. The redistribution ``U_M diag(s_g) Vt_M Ddot`` reaches the padded rows only through
     ``U_M``'s padded-row entries, which the SVD leaves at roundoff (~1e-16), not at an exact zero; the
     re-mask makes the output masked-clean (the real blocks are untouched, bit for bit), with the masks
     unchanged.'''
@@ -1046,7 +1046,7 @@ def ufv_share_tucker_variations(
 
 
 def ufv_share_tucker_variations_corewise(
-        variations_data,   # UT3Variations .data at the corewise (U,G,G,G) frame; stack = K + C
+        variations_data,   # UT3Variations .data at the corewise (B,G,G,G) frame; stack = K + C
         groups:         typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical (validate_sharing)
 ):  # -> tied variations .data (per-group drift-form mean; same masks)
     '''The uniform twin of :py:func:`fv_share_tucker_variations_corewise` (the corewise tied post-pass):

@@ -193,8 +193,8 @@ def rand_frame_weights(v, rng, stack_shape=None):
     ss = v.frame.stack_shape if stack_shape is None else stack_shape   # C
     d = len(V)
     return bvf.T3FrameWeights(
-        tuple(rng.standard_normal(ss + (H[i].shape[-2],)) for i in range(d)),   # up   <- nD
-        tuple(rng.standard_normal(ss + (V[i].shape[-2],)) for i in range(d)),   # down <- nU
+        tuple(rng.standard_normal(ss + (H[i].shape[-2],)) for i in range(d)),   # down <- nD
+        tuple(rng.standard_normal(ss + (V[i].shape[-2],)) for i in range(d)),   # up   <- nU
         tuple(rng.standard_normal(ss + (H[i].shape[-3],)) for i in range(d)),   # left <- rL
         tuple(rng.standard_normal(ss + (H[i].shape[-1],)) for i in range(d)))   # right<- rR
 
@@ -255,7 +255,7 @@ class TestT3FrameWeights(unittest.TestCase):
                     self.assertLess(np.abs(a - b).max(), 1e-9)      # symmetry
 
     def test_reciprocal_identity(self):
-        """down->V, up/left/right->H legs undo under reciprocal: absorb then reciprocal-absorb recovers v."""
+        """up->V, down/left/right->H legs undo under reciprocal: absorb then reciprocal-absorb recovers v."""
         import t3toolbox.backend.fv_operations as fv
         rng = np.random.default_rng(2)
         v = make_tangent(STRUCTURES[0], (), (2,))
@@ -360,14 +360,14 @@ class TestT3FrameWeights(unittest.TestCase):
         self.assertTrue(np.allclose(np.asarray(vw.corewise_norm()), np.asarray(v.weighted_norm(W))))
 
     def test_from_t3weights(self):
-        """from_t3weights: up=down=tucker, left=tt[:-1], right=tt[1:]; consistent with a minimal tangent."""
+        """from_t3weights: down=up=tucker, left=tt[:-1], right=tt[1:]; consistent with a minimal tangent."""
         for struct in STRUCTURES[:2]:
             with self.subTest(struct=struct):
                 x = t3.TuckerTensorTrain.randn(*struct)
                 Wt = t3.T3Weights.from_t3svd(x)
                 Wf = bvf.T3FrameWeights.from_t3weights(Wt)
-                for a, b in zip(Wf.down_weights, Wt.tucker_weights):     self.assertTrue(np.array_equal(a, b))
-                for a, b in zip(Wf.up_weights, Wt.tucker_weights):   self.assertTrue(np.array_equal(a, b))
+                for a, b in zip(Wf.down_weights, Wt.tucker_weights):   self.assertTrue(np.array_equal(a, b))
+                for a, b in zip(Wf.up_weights, Wt.tucker_weights):     self.assertTrue(np.array_equal(a, b))
                 for a, b in zip(Wf.left_weights, Wt.tt_weights[:-1]):  self.assertTrue(np.array_equal(a, b))
                 for a, b in zip(Wf.right_weights, Wt.tt_weights[1:]):  self.assertTrue(np.array_equal(a, b))
                 frame, _ = bvf.t3_orthogonal_representations(x)        # nU==nD for minimal x

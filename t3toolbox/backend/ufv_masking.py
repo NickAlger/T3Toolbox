@@ -25,12 +25,12 @@ __all__ = [
 
 
 def ufv_variation_masks(
-        frame_masks:  typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, frame_left, frame_right); HOST bool
-) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:                   # (up, down, left[:-1], right[1:])
+        frame_masks:  typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (down, up, frame_left, frame_right); HOST bool
+) -> typ.Tuple[NDArray, NDArray, NDArray, NDArray]:                   # (down, up, left[:-1], right[1:])
     """The variation masks of a frame: its rank masks with the **gauge shift** applied.
 
     A variation occupies one TT slot, not a boundary edge, so it takes the frame's left masks without
-    the last and the right masks without the first. The up/down masks pass through. This one line is
+    the last and the right masks without the first. The down/up masks pass through. This one line is
     the whole convention, and it was previously open-coded at four sites; call it rather than slicing
     by hand. (The frontend twin is ``UT3Variations._variation_masks_of``.)"""
     down_mask, up_mask, frame_left_mask, frame_right_mask = frame_masks
@@ -55,15 +55,15 @@ def ufv_frame_widths(
     >>> import t3toolbox.backend.ufv_masking as ufv_masking
     >>> ufv_masking.ufv_frame_widths(8, 5, 3)
     (5, 5, 3, 3)
-    >>> ufv_masking.ufv_frame_widths(4, 6, 2)      # the Tucker width capped by N, the down width by r*r
+    >>> ufv_masking.ufv_frame_widths(4, 6, 2)      # the Tucker width capped by N, the up width by r*r
     (4, 4, 2, 2)
     """
     return min(n, N), min(n, N, r * r), r, r
 
 
 def ufv_make_frame_masks(
-        down_ranks:    NDArray,   # HOST int, (d,)   + stack_shape
-        up_ranks:  NDArray,   # HOST int, (d,)   + stack_shape
+        down_ranks:  NDArray,   # HOST int, (d,)   + stack_shape
+        up_ranks:    NDArray,   # HOST int, (d,)   + stack_shape
         left_ranks:  NDArray,   # HOST int, (d+1,) + stack_shape
         right_ranks: NDArray,   # HOST int, (d+1,) + stack_shape
         nD: int,
@@ -71,16 +71,16 @@ def ufv_make_frame_masks(
         rL: int,
         rR: int,
 ) -> typ.Tuple[
-    NDArray,  # down_mask,    HOST bool, (d,)   + stack_shape + (nD,)
-    NDArray,  # up_mask,  HOST bool, (d,)   + stack_shape + (nU,)
+    NDArray,  # down_mask,  HOST bool, (d,)   + stack_shape + (nD,)
+    NDArray,  # up_mask,    HOST bool, (d,)   + stack_shape + (nU,)
     NDArray,  # left_mask,  HOST bool, (d+1,) + stack_shape + (rL,)
     NDArray,  # right_mask, HOST bool, (d+1,) + stack_shape + (rR,)
 ]:
     """Build the prefix RANK edge masks for a uniform frame. The physical ``shape`` is a separate
     int tuple (not a mask), so this returns only the four rank masks. HOST numpy (masks are static
     structure -- ``np``, not ``xnp``; see ``docs/contributor/uniform_pytree_composition.md``)."""
-    down_mask    = prefix_mask(down_ranks, nD)
-    up_mask  = prefix_mask(up_ranks, nU)
+    down_mask  = prefix_mask(down_ranks, nD)
+    up_mask    = prefix_mask(up_ranks, nU)
     left_mask  = prefix_mask(left_ranks, rL)
     right_mask = prefix_mask(right_ranks, rR)
     return down_mask, up_mask, left_mask, right_mask
@@ -89,13 +89,13 @@ def ufv_make_frame_masks(
 def ufv_apply_frame_masks(
         data: typ.Tuple[
             NDArray,             # down_tucker_supercore,  (d,)+stack_shape+(nD, N)
-            NDArray,             # up_tt_supercore,    (d,)+stack_shape+(rL, nU, rR)
-            NDArray,             # left_tt_supercore,    (d,)+stack_shape+(rL, nD, rL)
-            NDArray,             # right_tt_supercore,   (d,)+stack_shape+(rR, nD, rR)
+            NDArray,             # up_tt_supercore,        (d,)+stack_shape+(rL, nU, rR)
+            NDArray,             # left_tt_supercore,      (d,)+stack_shape+(rL, nD, rL)
+            NDArray,             # right_tt_supercore,     (d,)+stack_shape+(rR, nD, rR)
             typ.Sequence[int],   # shape = (N0,...,N(d-1)), static int tuple
             typ.Tuple[
-                NDArray,  # down_mask,          dtype=bool, (d,)  +stack_shape+(nD,)
-                NDArray,  # up_mask,        dtype=bool, (d,)  +stack_shape+(nU,)
+                NDArray,  # down_mask,        dtype=bool, (d,)  +stack_shape+(nD,)
+                NDArray,  # up_mask,          dtype=bool, (d,)  +stack_shape+(nU,)
                 NDArray,  # frame_left_mask,  dtype=bool, (d+1,)+stack_shape+(rL,)
                 NDArray,  # frame_right_mask, dtype=bool, (d+1,)+stack_shape+(rR,)
             ],
@@ -124,18 +124,18 @@ def ufv_apply_frame_masks(
     shape_mask = prefix_mask(shape, N)  # (d, N) HOST bool, reconstructed from the static shape ints
 
     SM_k = shape_mask.reshape(           (d,) + (1,)*len(ss) + (1,)  + (N,))
-    DM_k = down_mask.reshape(              (d,) + ss           + (nD,) + (1,))
-    DM_t = down_mask.reshape(              (d,) + ss           + (1,)  + (nD,) + (1,))
-    UM_t = up_mask.reshape(            (d,) + ss           + (1,)  + (nU,) + (1,))
+    DM_k = down_mask.reshape(            (d,) + ss           + (nD,) + (1,))
+    DM_t = down_mask.reshape(            (d,) + ss           + (1,)  + (nD,) + (1,))
+    UM_t = up_mask.reshape(              (d,) + ss           + (1,)  + (nU,) + (1,))
     LM_l = frame_left_mask[:-1].reshape( (d,) + ss           + (rL,) + (1,)  + (1,))
     LM_r = frame_left_mask[1:].reshape(  (d,) + ss           + (1,)  + (1,)  + (rL,))
     RM_l = frame_right_mask[:-1].reshape((d,) + ss           + (rR,) + (1,)  + (1,))
     RM_r = frame_right_mask[1:].reshape( (d,) + ss           + (1,)  + (1,)  + (rR,))
 
     masked_down_tucker_supercore = down_tucker_supercore * (SM_k * DM_k)
-    masked_up_tt_supercore   = up_tt_supercore   * (LM_l * UM_t * RM_r)
-    masked_left_tt_supercore   = left_tt_supercore   * (LM_l * DM_t * LM_r)
-    masked_right_tt_supercore  = right_tt_supercore  * (RM_l * DM_t * RM_r)
+    masked_up_tt_supercore       = up_tt_supercore       * (LM_l * UM_t * RM_r)
+    masked_left_tt_supercore     = left_tt_supercore     * (LM_l * DM_t * LM_r)
+    masked_right_tt_supercore    = right_tt_supercore    * (RM_l * DM_t * RM_r)
 
     return (
         masked_down_tucker_supercore, masked_up_tt_supercore,
@@ -149,8 +149,8 @@ def ufv_apply_variations_masks(
             NDArray,             # tt_variations_supercore,     (d,)+stack_shape+(rL, nD, rR)
             typ.Sequence[int],   # shape = (N0,...,N(d-1)), static int tuple
             typ.Tuple[
-                NDArray,  # variations_down_mask,    dtype=bool, (d,)+stack_shape+(nD,)
-                NDArray,  # variations_up_mask,  dtype=bool, (d,)+stack_shape+(nU,)
+                NDArray,  # variations_down_mask,  dtype=bool, (d,)+stack_shape+(nD,)
+                NDArray,  # variations_up_mask,    dtype=bool, (d,)+stack_shape+(nU,)
                 NDArray,  # variations_left_mask,  dtype=bool, (d,)+stack_shape+(rL,)
                 NDArray,  # variations_right_mask, dtype=bool, (d,)+stack_shape+(rR,)
             ],
@@ -177,10 +177,10 @@ def ufv_apply_variations_masks(
 
     # tucker_variations (d,)+ss+(nU, N): mask nU by variations_up, N by shape.
     SM   = shape_mask.reshape(            (d,) + (1,)*len(ss) + (1,)  + (N,))
-    UM_k = up_mask.reshape(             (d,) + ss           + (nU,) + (1,))
-    # tt_variations (d,)+ss+(rL, nD, rR): mask rL/nD/rR by left/up/right.
+    UM_k = up_mask.reshape(               (d,) + ss           + (nU,) + (1,))
+    # tt_variations (d,)+ss+(rL, nD, rR): mask rL/nD/rR by left/down/right.
     LM_l = variations_left_mask.reshape(  (d,) + ss           + (rL,) + (1,)  + (1,))
-    DM_t = down_mask.reshape(               (d,) + ss           + (1,)  + (nD,) + (1,))
+    DM_t = down_mask.reshape(             (d,) + ss           + (1,)  + (nD,) + (1,))
     RM_r = variations_right_mask.reshape( (d,) + ss           + (1,)  + (1,)  + (rR,))
 
     masked_tucker_variations_supercore = tucker_variations_supercore * (SM * UM_k)
@@ -193,7 +193,7 @@ def ufv_apply_variations_masks(
 
 
 def ufv_variation_masks_over_stack(
-        frame_masks,        # the frame's (up, down, frame_left, frame_right) masks, each (len,)+C+(size,)
+        frame_masks,        # the frame's (down, up, frame_left, frame_right) masks, each (len,)+C+(size,)
         frame_stack,        # C, the frame stack
         out_stack,          # K + C, the stack of the variations the masks are for (K leading, possibly empty)
 ):                          # -> the 4 variation masks, each (d,)+K+C+(size,), HOST numpy
@@ -213,7 +213,7 @@ def _masks_over_stack(
 ):                          # -> the same family, each (len,)+K+C+(size,), HOST numpy (a read-only broadcast view)
     """Broadcast a mask family (constant) over an extra leading tangent stack ``K`` -- the shared half of
     :py:func:`ufv_variation_masks_over_stack`, for masks that are already gauge-shifted (a geometry's held
-    variation masks) or that need no shift (a point's ``(up, left)`` pair). ``K = ()`` returns views of the
+    variation masks) or that need no shift (a point's ``(down, left)`` pair). ``K = ()`` returns views of the
     same values. Host numpy: static structure."""
     K = tuple(out_stack[:len(out_stack) - len(frame_stack)])
     if tuple(out_stack[len(K):]) != tuple(frame_stack):

@@ -92,7 +92,7 @@ def fv_variations_from_vector(
 
 
 def fv_variation_shapes(
-        frame:  typ.Tuple,   # (U, O, P, Q) frame data; len=d each, elm_shape=stack_shape+(...)
+        frame:  typ.Tuple,   # (D, U, L, R) frame data; len=d each, elm_shape=stack_shape+(...)
 ) -> VariationShapes:        # (tucker_variation_shapes, tt_variation_shapes); WITHOUT the stack
     '''The variation shapes of a frame: ``(nU_i, N_i)`` per Tucker variation and
     ``(rL_i, nD_i, rR_i)`` per TT variation, read off the frame cores.
@@ -168,14 +168,14 @@ def fv_frame_reverse(
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # down_tucker_cores  (mode order reversed)
     typ.Tuple[NDArray, ...],  # up_tt_cores
-    typ.Tuple[NDArray, ...],  # left_tt_cores    (= reversed old right cores)
-    typ.Tuple[NDArray, ...],  # right_tt_cores   (= reversed old left cores)
+    typ.Tuple[NDArray, ...],  # left_tt_cores      (= reversed old right cores)
+    typ.Tuple[NDArray, ...],  # right_tt_cores     (= reversed old left cores)
 ]:
-    '''Reverse the mode order of a T3 frame 4-tuple ``(up, down, left, right)``.
+    '''Reverse the mode order of a T3 frame 4-tuple ``(down, up, left, right)``.
 
     The left and right TT families **swap roles**: reversing a left-orthogonal chain yields a
     right-orthogonal one, so the new left family is the reversed old *right* family and vice versa
-    (the up-tucker family is reversed; the down family is reversed per :py:func:`tt_reverse`). The
+    (the down-tucker family is reversed; the up family is reversed per :py:func:`tt_reverse`). The
     redundant left/right store makes this exact with no re-orthogonalization. Inverse of itself.
     '''
     down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
@@ -198,7 +198,7 @@ def fv_frame_orthogonality_residual(
 
     Checks each stacked block's gram against the identity:
 
-    - up_tucker U_i (all i), outer/down D_i (all i),
+    - down_tucker D_i (all i), outer/up U_i (all i),
     - left L_i (i=0..d-2), right R_i (i=1..d-1).
 
     The last left core and first right core are boundary remainders and are not checked. Returns the max
@@ -236,7 +236,7 @@ def fv_frame_consistency_residual(
         ],
 ) -> NDArray:  # shape = stack_shape (per stack element; scalar/0-d when unstacked)
     '''Relative Frobenius mismatch between the left- and right-canonical reconstructions of the base
-    point (``up`` over ``left`` vs ``up`` over ``right``), **per stack element**.
+    point (``down`` over ``left`` vs ``down`` over ``right``), **per stack element**.
 
     Returns ``||left - right|| / max(1, ||right||)`` over the dense **mode** axes (the norm is reduced over
     the non-stack axes, so the result has shape ``stack_shape``); a caller thresholds it (``<= rtol``) for a
@@ -288,15 +288,15 @@ def _haar_rows(
 def fv_zero_point_frame(
         frame: typ.Tuple[
             typ.Sequence[NDArray],  # down_tucker_cores. len=d, elm_shape=(nDi, Ni)
-            typ.Sequence[NDArray],  # up_tt_cores.   len=d, elm_shape=(rLi, nUi, rR(i+1))
-            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=(rLi, nDi, rL(i+1))
-            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=(rRi, nDi, rR(i+1))
+            typ.Sequence[NDArray],  # up_tt_cores.       len=d, elm_shape=(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.     len=d, elm_shape=(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.    len=d, elm_shape=(rRi, nDi, rR(i+1))
         ],
         groups:  typ.Tuple[typ.Tuple[int, ...], ...] = (),  # sharing partition (canonical_groups); () = unshared
         seed:    int = ZERO_FRAME_SEED,                      # the Haar stream seed: a fixed convention
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # up:    seeded Haar rows, one draw per group.     len=d, elm_shape=(nDi, Ni)
-    typ.Tuple[NDArray, ...],  # down:  identity-prefix, orthonormal.             len=d, elm_shape=(rLi, nUi, rR(i+1))
+    typ.Tuple[NDArray, ...],  # down:  seeded Haar rows, one draw per group.     len=d, elm_shape=(nDi, Ni)
+    typ.Tuple[NDArray, ...],  # up:    identity-prefix, orthonormal.             len=d, elm_shape=(rLi, nUi, rR(i+1))
     typ.Tuple[NDArray, ...],  # left:  identity-prefix, left-orthogonal; L[d-1] = 0
     typ.Tuple[NDArray, ...],  # right: identity-prefix, right-orthogonal; R[0] = 0
 ]:
@@ -310,11 +310,11 @@ def fv_zero_point_frame(
 
     The construction:
 
-    - **Tucker factors** (``up``): per sharing group ``g`` (an unshared mode is its own group), with key
+    - **Tucker factors** (``down``): per sharing group ``g`` (an unshared mode is its own group), with key
       ``k_g = min(g)``, draw ``G = RandomState([seed, k_g]).standard_normal((n_g, N_g))``, take the
-      sign-fixed reduced QR of ``G.T``, and set ``U_g = Q.T``: Haar-distributed orthonormal rows, the same
+      sign-fixed reduced QR of ``G.T``, and set ``D_g = Q.T``: Haar-distributed orthonormal rows, the same
       array for every mode of the group.
-    - **TT cores** (``down`` / ``left`` / ``right``): identity prefixes -- exactly orthonormal, no draw --
+    - **TT cores** (``up`` / ``left`` / ``right``): identity prefixes -- exactly orthonormal, no draw --
       with ``left[d-1] = right[0] = 0``, so both base-point reconstructions are the zero tensor.
 
     Three properties follow, and are what the reference relies on:
@@ -404,7 +404,7 @@ def fv_zero_point_frame(
                       and (i == 0 or right[i].shape[0] <= right[i].shape[1] * right[i].shape[2]))
         if not admissible:
             raise ValueError("fv_zero_point_frame: the template's core shapes at mode %d admit no orthonormal "
-                             "frame (up %r, down %r, left %r, right %r)"
+                             "frame (down %r, up %r, left %r, right %r)"
                              % (i, down[i].shape, up[i].shape, left[i].shape, right[i].shape))
 
     xnp, _, _ = get_backend(False, tree_contains_jax(frame))
@@ -436,9 +436,9 @@ def fv_zero_point_frame(
 def fv_center_factors(
         frame:  typ.Tuple[
             typ.Sequence[NDArray],  # down_tucker_cores. len=d, elm_shape=C+(nDi, Ni)
-            typ.Sequence[NDArray],  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
-            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
-            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
+            typ.Sequence[NDArray],  # up_tt_cores.       len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],  # left_tt_cores.     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],  # right_tt_cores.    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
         ],
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],        # centers H_i = L_i T_i.  len=d,   elm_shape=C+(rLi, nDi, rR(i+1))
@@ -456,11 +456,11 @@ def fv_center_factors(
     - the **centers** ``H_i = L_i T_i`` (at the last mode the zipper is the boundary ones matrix -- ``[[1]]``
       on the usual squashed frame -- so ``H_{d-1} = L_{d-1}``): the base point's core when the orthogonality
       center sits at mode ``i`` -- the construction's own TT variations of the point;
-    - the **Tucker factors** ``S_i^T = <O_i, H_i>`` (shape ``nUi x nDi``): the base point's Tucker variation
-      is ``V_i = S_i^T U_i``, and the singular values of ``S_i`` are the mode-``i`` Tucker singular values of
+    - the **Tucker factors** ``S_i^T = <U_i, H_i>`` (shape ``nUi x nDi``): the base point's Tucker variation
+      is ``V_i = S_i^T D_i``, and the singular values of ``S_i`` are the mode-``i`` Tucker singular values of
       ``X``. In particular ``||X||^2 = sum(sigma(S_0)^2) = ||S_0^T||_F^2``.
 
-    The zipper recompute is GEMM-only, exact to roundoff, and consistent with the stored ``O``/``R``
+    The zipper recompute is GEMM-only, exact to roundoff, and consistent with the stored ``U``/``R``
     whatever built the frame; nothing is re-SVD'd, so no sign or degenerate-block choice is made here
     (the measurements are in the sharing design record, ``docs/contributor/sharing_internals.md``). The
     identities above presume an **orthogonal** frame (as from ``t3_orthogonal_representations``); like
@@ -545,21 +545,21 @@ class LiftFactors:
 def fv_lift_factors(
         frame:              typ.Tuple[
             typ.Sequence[NDArray],                  # down_tucker_cores. len=d, elm_shape=C+(nDi, Ni)
-            typ.Sequence[NDArray],                  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
-            typ.Sequence[NDArray],                  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
-            typ.Sequence[NDArray],                  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
+            typ.Sequence[NDArray],                  # up_tt_cores.       len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+            typ.Sequence[NDArray],                  # left_tt_cores.     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+            typ.Sequence[NDArray],                  # right_tt_cores.    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
         ],
         curvature_damping:  typ.Union[float, NDArray],  # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
         rcond:              typ.Optional[float] = None, # relative clip (linalg.damped_pseudo_inverse)
 ) -> LiftFactors:
     '''The damped pseudo-inverses that lift frame coordinates to raw core variations.
 
-    At an orthogonal frame of ``X = Phi(theta)``, with ``theta = (U, L)`` the frame's own raw cores (the
+    At an orthogonal frame of ``X = Phi(theta)``, with ``theta = (D, L)`` the frame's own raw cores (the
     left-canonical gauge of the base point), a gauged-or-not coordinate ``v = (V_i, H_i)`` and a raw
-    variation ``theta_hat = (Udot_i, Gdot_i)`` represent the same tangent vector,
-    ``DPhi(theta)[theta_hat] = E v``, when
+    variation ``theta_hat = (Bdot_i, Gdot_i)`` represent the same tangent vector,
+    ``dPhi(theta)[theta_hat] = E v``, when
 
-    ``Udot_i = (S_i^T)^+ V_i``,   ``Gdot_i = H_i x_3 T_i^+`` (``i <= d-2``),   ``Gdot_{d-1} = H_{d-1}``,
+    ``Bdot_i = (S_i^T)^+ V_i``,   ``Gdot_i = H_i x_3 T_i^+`` (``i <= d-2``),   ``Gdot_{d-1} = H_{d-1}``,
 
     with ``S_i^T`` and ``T_i`` the center factors (:py:func:`fv_center_factors`). This function returns
     those pseudo-inverses, damped by the Tikhonov filter ``sigma / (sigma^2 + eps^2)``
@@ -576,7 +576,7 @@ def fv_lift_factors(
       ``t3_orthogonal_representations``, minimal or not: a Tucker-slack ``S_i^T`` is wide (``nUi < nDi``) and a
       TT-slack ``T_i`` is tall (``rR < rL``), and on both the pseudo-inverse is an exact one-sided inverse. At a
       rank-deficient point (a zero-padded restart) the clipped directions drop out: the lift then satisfies
-      ``DPhi[L v] = E(Q v)`` with ``Q`` the projection off the clipped directions, not ``DPhi[L v] = E v``.
+      ``dPhi[theta_hat] = E(Q v)`` with ``Q`` the projection off the clipped directions, not ``dPhi[theta_hat] = E v``.
     - **Rank-deficient points.** The filter clips (to exactly 0) every singular value below
       ``rcond * sigma_max``, so a zero-padded rank-continuation restart -- whose padded singular values are
       roundoff -- gives finite factors at any ``eps``, ``eps = 0`` included. At the zero tensor everything is
@@ -631,13 +631,13 @@ def fv_lift_factors(
 def fv_absorb_weights(
         variations: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_variations V, tt_variations H)
         weights:    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
-                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right), each len=d
+                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right), each len=d
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # weighted tucker_variations, elm_shape=stack+(nUi, Ni)
     typ.Tuple[NDArray, ...],  # weighted tt_variations,     elm_shape=stack+(rLi, nDi, rRi)
 ]:
     """Absorb the four-family metric weights into the VARIATION cores (the tangent metric on coordinates,
-    Approach-1 / metric-on-variations): ``down`` -> V's ``nU`` leg; ``up``/``left``/``right`` -> H's
+    Approach-1 / metric-on-variations): ``up`` -> V's ``nU`` leg; ``down``/``left``/``right`` -> H's
     ``nD``/``rL``/``rR`` legs. The frame is left orthonormal and untouched. ``corewise_stack_norm`` of the
     result is the weighted (Grasedyck-Kramer) tangent norm. All families are len=d (one per variation core).
 
@@ -650,20 +650,20 @@ def fv_absorb_weights(
     xnp, _, _ = get_backend(False, tree_contains_jax((variations, weights)))
     V_cores, H_cores = variations
     down, up, left, right = weights
-    wV = tuple(xnp.einsum('...i,...io->...io', dn, V) for dn, V in zip(up, V_cores))
-    wH = tuple(xnp.einsum('...aib,...a,...i,...b->...aib', H, lf, u, rt)
-               for H, lf, u, rt in zip(H_cores, left, down, right))
+    wV = tuple(xnp.einsum('...i,...io->...io', w, V) for w, V in zip(up, V_cores))
+    wH = tuple(xnp.einsum('...aib,...a,...i,...b->...aib', H, lf, w, rt)
+               for H, lf, w, rt in zip(H_cores, left, down, right))
     return wV, wH
 
 
 def fv_weights_consistent(
         variations: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (V, H)
         weights:    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
-                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right)
 ) -> bool:                                                                     # True iff shape-consistent
     """True iff the four weight families (each len=d) can be absorbed into ``variations`` (non-raising).
 
-    Ranks: up<->H.nD (axis -2), down<->V.nU (axis -2), left<->H.rL (axis -3), right<->H.rR (axis -1).
+    Ranks: down<->H.nD (axis -2), up<->V.nU (axis -2), left<->H.rL (axis -3), right<->H.rR (axis -1).
 
     Stacks -- the **trailing rule**: a weight is **frame-like**, carrying the frame stack ``C``, while the
     variations carry ``K + C`` (a ``K``-batch of tangents at one frame shares the one metric). So the
@@ -683,25 +683,25 @@ def fv_weights_consistent(
     if not (len(down) == len(up) == len(left) == len(right) == d):
         return False
     var_stack = V_cores[0].shape[:-2]     # K + C
-    stack = down[0].shape[:-1]              # C -- the weight is frame-like (all four families share it)
+    stack = down[0].shape[:-1]            # C -- the weight is frame-like (all four families share it)
     if var_stack[len(var_stack) - len(stack):] != stack:  # C must be the trailing part of K + C
         return False
     for i in range(d):
-        if down[i].shape != stack + (H_cores[i].shape[-2],):    return False
-        if up[i].shape != stack + (V_cores[i].shape[-2],):  return False
+        if down[i].shape != stack + (H_cores[i].shape[-2],):  return False
+        if up[i].shape != stack + (V_cores[i].shape[-2],):    return False
         if left[i].shape != stack + (H_cores[i].shape[-3],):  return False
         if right[i].shape != stack + (H_cores[i].shape[-1],): return False
     return True
 
 
-def fv_concatenate_weights(weights_A, weights_B):  # each (up, down, left, right) -> concatenated, ranks add
+def fv_concatenate_weights(weights_A, weights_B):  # each (down, up, left, right) -> concatenated, ranks add
     """Per-edge concatenation of two frame-weight 4-tuples (the '+' combine; ranks add). Last-axis."""
     xnp, _, _ = get_backend(False, tree_contains_jax((weights_A, weights_B)))
     return tuple(tuple(xnp.concatenate([a, b], axis=-1) for a, b in zip(fA, fB))
                  for fA, fB in zip(weights_A, weights_B))
 
 
-def fv_kronecker_weights(weights_A, weights_B):  # each (up, down, left, right) -> Kronecker, ranks multiply
+def fv_kronecker_weights(weights_A, weights_B):  # each (down, up, left, right) -> Kronecker, ranks multiply
     """Per-edge Kronecker product of two frame-weight 4-tuples (the Hadamard combine; ranks multiply).
     Last-axis outer product broadcasting the shared stack (A-major); NOT np.kron."""
     xnp, _, _ = get_backend(False, tree_contains_jax((weights_A, weights_B)))
@@ -716,18 +716,18 @@ def fv_kronecker_weights(weights_A, weights_B):  # each (up, down, left, right) 
 def t3weights_to_t3frameweights(
         t3_weights: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_weights, tt_weights)
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, ...],  # down_weights    = tucker_weights
-    typ.Tuple[NDArray, ...],  # up_weights  = tucker_weights
+    typ.Tuple[NDArray, ...],  # down_weights  = tucker_weights
+    typ.Tuple[NDArray, ...],  # up_weights    = tucker_weights
     typ.Tuple[NDArray, ...],  # left_weights  = tt_weights[:-1]
     typ.Tuple[NDArray, ...],  # right_weights = tt_weights[1:]
 ]:
     """Build frame weights (a tangent metric) from base-point edge weights ``(tucker_weights, tt_weights)``.
 
-    ``up = down = tucker_weights``; ``left = tt_weights[:-1]``, ``right = tt_weights[1:]``. The TT slicing
+    ``down = up = tucker_weights``; ``left = tt_weights[:-1]``, ``right = tt_weights[1:]``. The TT slicing
     encodes the convention that ``H_i``'s left bond is TT bond ``i`` and its right bond is bond ``i+1`` --
     non-obvious, hence a named function. The result is a valid ``T3FrameWeights``; it pairs with a
-    **minimal-rank** tangent (where the down/complement rank ``nU`` equals the Tucker rank ``nD``, e.g. from
-    ``t3svd``). A non-minimal tangent has ``nU < nD`` and would mismatch the down family at use."""
+    **minimal-rank** tangent (where the up/complement rank ``nU`` equals the Tucker rank ``nD``, e.g. from
+    ``t3svd``). A non-minimal tangent has ``nU < nD`` and would mismatch the up family at use."""
     tucker_weights, tt_weights = t3_weights
     down = tuple(tucker_weights)
     up = tuple(tucker_weights)
@@ -739,7 +739,7 @@ def t3weights_to_t3frameweights(
 def fv_weighted_norm(
         variations: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (V, H)
         weights:    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
-                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right)
         n_stack:    int,                                                       # leading K+C stack axes kept
 ) -> NDArray:                                                                  # weighted norm, shape=stack
     """Weighted (Grasedyck-Kramer) coordinate norm of a tangent's variations: the corewise stack-norm of
@@ -752,7 +752,7 @@ def fv_weighted_inner(
         variations_A: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (V, H) of A
         variations_B: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (V, H) of B
         weights:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
-                                typ.Sequence[NDArray], typ.Sequence[NDArray]],   # one metric (up, down, left, right)
+                                typ.Sequence[NDArray], typ.Sequence[NDArray]],   # one metric (down, up, left, right)
         n_stack:      int,                                                       # leading K+C stack axes kept
 ) -> NDArray:                                                                    # weighted inner, shape=stack
     """Weighted coordinate inner product ``<absorb(W,A), absorb(W,B)>`` w.r.t. one metric ``weights`` --

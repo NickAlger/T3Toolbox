@@ -30,8 +30,8 @@ def _prefix_mask(ranks, pad):  # ranks: HOST int (...,) -> bool (..., pad)
 
 def _make_frame(d, N, nD, nU, rL, rR, shape, down_r, up_r, left_r, right_r, ss=()):
     """Build a structurally-valid UT3Frame with prefix masks (ranks may vary per stack element)."""
-    down    = np.random.randn(*((d,) + ss + (nD, N)))
-    up  = np.random.randn(*((d,) + ss + (rL, nU, rR)))
+    down  = np.random.randn(*((d,) + ss + (nD, N)))
+    up    = np.random.randn(*((d,) + ss + (rL, nU, rR)))
     left  = np.random.randn(*((d,) + ss + (rL, nD, rL)))
     right = np.random.randn(*((d,) + ss + (rR, nD, rR)))
     masks = ubv.UT3FrameMasks(
@@ -86,7 +86,7 @@ class TestUT3Frame(unittest.TestCase):
     def test_validate_rejects_bad_supercore(self):
         B = self._frame()
         with self.assertRaises(ValueError):
-            ubv.UT3Frame(B.down_tucker_supercore[..., :-1],  # wrong N on up core
+            ubv.UT3Frame(B.down_tucker_supercore[..., :-1],  # wrong N on down core
                          B.up_tt_supercore, B.left_tt_supercore, B.right_tt_supercore,
                          B.shape, B.masks)
 
@@ -99,9 +99,9 @@ class TestUT3Frame(unittest.TestCase):
 
     # ---- masking semantics: real region preserved, padding zeroed ----
     def test_apply_masks_zeros_padding(self):
-        # all-ones up core -> after masking, exactly the (down_mask AND shape_mask) region survives
+        # all-ones down core -> after masking, exactly the (down_mask AND shape_mask) region survives
         down = np.ones((_D, _ND, _N))
-        up  = np.random.randn(_D, _RL, _NU, _RR)
+        up    = np.random.randn(_D, _RL, _NU, _RR)
         left  = np.random.randn(_D, _RL, _ND, _RL)
         right = np.random.randn(_D, _RR, _ND, _RR)
         masks = ubv.UT3FrameMasks(_prefix_mask(_DOWN_R, _ND), _prefix_mask(_UP_R, _NU),
@@ -131,7 +131,7 @@ class TestUT3Frame(unittest.TestCase):
         self.assertIsNot(a, b)
         self.assertEqual(a, b)
         self.assertEqual(hash(a), hash(b))
-        self.assertNotEqual(a, masks([1, 3, 4]))   # different up ranks -> not equal
+        self.assertNotEqual(a, masks([1, 3, 4]))   # different down ranks -> not equal
 
     # ---- jax pytree composition (supercores = children; (shape, masks) = static aux) ----
     @unittest.skipUnless(HAS_JAX, 'jax not installed')
@@ -322,7 +322,7 @@ class TestCheckUbvPair(unittest.TestCase):
         ubv.check_ufv_pair(B, V)   # consistent -> no error
 
     def test_inconsistent_raises(self):
-        B, Vbad = self._pair(v_down_r=[1, 3, 4])   # variation up ranks differ from the frame's
+        B, Vbad = self._pair(v_down_r=[1, 3, 4])   # variation down ranks differ from the frame's
         with self.assertRaises(ValueError):
             ubv.check_ufv_pair(B, Vbad)
 
@@ -333,7 +333,7 @@ class TestCheckUbvPair(unittest.TestCase):
         bm = B.masks
         bcast = lambda m: np.broadcast_to(m.reshape(m.shape[:1] + (1,) * len(K) + m.shape[1:]),
                                           m.shape[:1] + K + m.shape[1:])
-        down = bcast(_prefix_mask(down_r, nD))           # allow an over-ridden up rank to test mismatch
+        down = bcast(_prefix_mask(down_r, nD))           # allow an over-ridden down rank to test mismatch
         masks = ubv.UT3VariationsMasks(down, bcast(bm.up_mask),
                                        bcast(bm.frame_left_mask[:-1]), bcast(bm.frame_right_mask[1:]))
         return ubv.UT3Variations(np.random.randn(*((d,) + K + (nU, N))),
@@ -365,7 +365,7 @@ class TestCheckUbvPair(unittest.TestCase):
         ubv.check_ufv_pair(B, V)
 
     def test_K_stack_mask_not_constant_raises(self):
-        # a K-stacked variation whose mask is NOT constant along K (one slice has a different up rank).
+        # a K-stacked variation whose mask is NOT constant along K (one slice has a different down rank).
         B, _ = self._pair()
         V = self._K_variation(B, (2,))
         bad_down = np.array(V.masks.variations_down_mask)
@@ -433,7 +433,7 @@ class TestUt3OrthogonalRepresentations(unittest.TestCase):
         import t3toolbox.frame_variations_format as bvf
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 3, 2), (1, 2, 2, 1))
         frame_data, variation_data = ubvc.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(x).data)
-        self.assertEqual(len(frame_data), 6)          # (up, down, left, right, shape, masks)
+        self.assertEqual(len(frame_data), 6)          # (down, up, left, right, shape, masks)
         self.assertEqual(len(variation_data), 4)      # (tucker_var, tt_var, shape, masks)
         self.assertEqual(frame_data[4], (4, 5, 6))    # shape carried through
         self.assertEqual(len(frame_data[5]), 4)       # four frame rank masks
@@ -902,7 +902,7 @@ class TestUT3FrameCheckers(unittest.TestCase):
 class TestNonMinimalUniformFrame(unittest.TestCase):
     """Review 2026-08-22 (S1a): UT3Frame.from_ut3 / ut3_orthogonal_representations on a structurally
     NON-minimal point must be orthogonal and equal the ragged frame per element -- the frame masks used to
-    come from a rank recurrence in the wrong sweep order, leaving the down cores non-orthonormal."""
+    come from a rank recurrence in the wrong sweep order, leaving the up cores non-orthonormal."""
 
     def test_frame_on_non_minimal_points(self):
         import t3toolbox.tucker_tensor_train as t3
@@ -1005,7 +1005,7 @@ class TestPadSafeFrame(unittest.TestCase):
         self.assertEqual(self._lost_directions(frame), 0)
 
     def test_frame_gauge_equivalent_to_ragged(self):
-        """Cross-representation: at a FULL-RANK point the up-core spans equal ragged's (projector
+        """Cross-representation: at a FULL-RANK point the down-core spans equal ragged's (projector
         comparison per mode -- the gauges legitimately differ, the subspaces cannot). At a
         numerically DEFICIENT point no such equality holds or should: the sigma~0 completion
         directions are a CHOICE (both layers' choices are valid escape directions -- ragged takes
@@ -1019,7 +1019,7 @@ class TestPadSafeFrame(unittest.TestCase):
         for i, D_r in enumerate(rframe.data[0]):             # down_tucker_cores, (n_i, N_i) each
             D_u = np.asarray(mdown[i])[: D_r.shape[0], : D_r.shape[1]]
             self.assertTrue(np.allclose(D_r.T @ D_r, D_u.T @ D_u, atol=1e-10),
-                            "mode %d up-space differs from ragged" % i)
+                            "mode %d down-space differs from ragged" % i)
 
     def test_deterministic(self):
         """The pad-safe sweep is deterministic (fixed sketch): same input -> bitwise same frame."""

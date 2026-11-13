@@ -297,6 +297,9 @@ def k4_to_k8(tree, stage):
             return True                                       # kept complement basis
         if (p, i) in _TEXT_KEEPS:
             return True                                       # §3.4 inventory keep
+        for cp, cg, ctext in K8_R4A_CARVES:
+            if p == cp and g == cg and ctext in ln:
+                return True                                   # R4a: not a T4S letter (see the list)
         return False
     res.append(_rep('K8', pattern_hits(tree, every, K8, 'K8', carve8)
                     + pattern_hits(tree, list(TEX), K8 + K8_TEX, 'K8', carve8)
@@ -306,6 +309,15 @@ def k4_to_k8(tree, stage):
     res.append(_rep('K8b', pattern_hits(tree, ['tests/test_jet_recurrence.py'], K8B, 'K8b'), stage, 'R2',
                     "of a T4S string key in test_jet_recurrence"))
     return res
+
+
+# R4a: K8 hits that are not T4S frame letters (misclassified by the §3.4 scan), matched by (file, hit, line text).
+K8_R4A_CARVES = (
+    ('t3toolbox/backend/t3_svd.py', 'P_i', "P_i = xnp.einsum('...ux,...x->...ux', W_block, s_q)"),  # coefficient block
+    ('t3toolbox/backend/t3_svd.py', 'P_i', "new_tt[ii] = xnp.einsum('...aub,...ux->...axb', new_tt[ii], P_i)"),
+    ('tests/backend/test_uniform_fitting.py', ', O)', "'probe_derivatives': (d, O)}[name]"),    # the order count O
+    ('tests/test_dispatch.py', 'P_{', 'P_{T_F} Y'),                                            # the tangent projector
+)
 
 
 _TEXT_KEEPS: typ.Set[typ.Tuple[str, int]] = set()
@@ -341,8 +353,27 @@ def _text_tokens(src: str) -> typ.List[typ.Tuple[int, int, str]]:
         if t.type not in (tokenize.COMMENT, tokenize.STRING):
             continue
         for k, ln in enumerate(t.string.split('\n')):
-            for m in STORE_WORD_RE.finditer(ln):
+            off = 0
+            if t.type == tokenize.STRING and re.match(r'\s*(?:>>>|\.\.\.)(?: |$)', ln):
+                off = ln.find(' #')                   # R4a: a doctest source line is code (its NAMEs are K14/K15's);
+                if off < 0:                           # only its trailing comment is prose
+                    continue
+            for m in STORE_WORD_RE.finditer(ln, off):
                 out.append((t.start[0] + k, (t.start[1] if k == 0 else 0) + m.start(), m.group(0)))
+    return out
+
+
+def load_k9_registered() -> typ.Dict[str, typ.Dict[str, typ.Tuple[str, str]]]:
+    """R4a: K9's clauses (c) and (d) as registrations, file -> whitespace-normalized line text -> (clause, reason)
+    (``dev/store_rename_slices/k9_registered.tsv``)."""
+    out: typ.Dict[str, typ.Dict[str, typ.Tuple[str, str]]] = collections.defaultdict(dict)
+    p = os.path.join(REPO, 'dev', 'store_rename_slices', 'k9_registered.tsv')
+    if os.path.exists(p):
+        for ln in open(p, encoding='utf-8'):
+            if ln.startswith('#') or ln.startswith('file\t'):
+                continue
+            c = ln.rstrip('\n').split('\t')
+            out[c[0]][c[4]] = (c[1], c[3])
     return out
 
 
@@ -350,6 +381,8 @@ def k9(tree, stage):
     """Residual store words (token-level) and the converse. On a tree equal to the base, (b) cannot hold, so every
     non-keep word is the to-do list (REPORT before R4b)."""
     keeps = load_keeps()
+    registered = load_k9_registered()
+    seen_registered: typ.Set[typ.Tuple[str, str]] = set()
     opposite = {'up': 'down', 'down': 'up', 'Up': 'Down', 'Down': 'Up', 'UP': 'DOWN', 'DOWN': 'UP'}
     residual, converse = [], []
     for p in code_paths():
@@ -383,6 +416,10 @@ def k9(tree, stage):
             ows = [w for _, w in sorted(old_words.get(oln, []))] if oln else []
             nws = [w for _, w in sorted(ws)]
             ok = len(ows) == len(nws) and all(o == opposite.get(n) for o, n in zip(ows, nws))
+            norm = ' '.join(nl[ln - 1].split())
+            if not ok and norm in registered.get(p, {}):
+                seen_registered.add((p, norm))                # clause (c) / (d), registered (R4a)
+                continue
             if not ok:
                 residual.append('%s:%d: %s' % (p, ln, ' '.join(nws)))
         for (kp, kl), kind in keeps.items():
@@ -399,6 +436,10 @@ def k9(tree, stage):
                   '(the free-prose to-do list before R4b)' % len(residual), residual),
            Result('K9-converse', 'FAIL' if converse else 'PASS',
                   '%d keep line(s) whose store words did not survive' % len(converse), converse)]
+    stale = ['%s: %s' % (p, t[:100]) for p, d in sorted(registered.items()) for t in d if (p, t) not in seen_registered]
+    out.append(Result('K9-registered', 'REPORT' if stale else 'PASS',
+                      '%d registered line(s) (k9_registered.tsv) not met as a residual line (stale or since changed)'
+                      % len(stale), stale))
     return out
 
 
@@ -597,7 +638,7 @@ def k15_cross_check(diff, hits_dir, names: typ.Sequence[str]) -> 'Result':
                   'replace/delete hunks (listed: %s)' % (len(errs), ', '.join(sorted(listed)) or 'none'), errs + det)
 
 
-def k14_k15_after_r2(tree, hits_dir, prev, hunks_file, write_hunks, names=()):
+def k14_k15_after_r2(tree, hits_dir, prev, hunks_file, write_hunks, names=(), recheck_prev=True):
     """From R3 on. K15: every unequal NAME hunk against the previous slice's commit ``prev`` is one the slice lists
     (``hunks_file``, a TSV of HUNK_FIELDS that the handoff carries). K14: no DO-NOT-TOUCH token is lost or replaced
     in a hunk (the previous slice passed K14 against the tag, so every listed occurrence survives); DNT names that
@@ -622,7 +663,15 @@ def k14_k15_after_r2(tree, hits_dir, prev, hunks_file, write_hunks, names=()):
     def count(p, names, outer, ident, scope):
         return sum(1 for l, c, t, x in names if t == ident and _in_scope(scope, p, l, outer))
 
-    lost, added = [], collections.Counter()
+    # R4a: a session-ruled row (tier ``R4a-row`` in the hit table, a NAME the session ruled after R1's DNT list was
+    # built) licenses exactly its own occurrences of a DNT token; each row is used once
+    ruled = collections.Counter()
+    if hits_dir:
+        for h in csv.DictReader(open(os.path.join(hits_dir, 'R1_hit_table.tsv')), delimiter='\t'):
+            if h['tier'] == 'R4a-row' and h['ctx'].endswith('NAME'):
+                ruled[(h['file'], h['old'])] += 1
+    licensed = collections.Counter()
+    lost, added, ruled_det = [], collections.Counter(), []
     for p, old, new, on, nn, ops in diff:
         oo, no = _outer(old), _outer(new)
         for tag, i1, i2, j1, j2 in ops:
@@ -631,8 +680,15 @@ def k14_k15_after_r2(tree, hits_dir, prev, hunks_file, write_hunks, names=()):
                 for scope, item in relevant(p, ident):
                     a, b = count(p, a_names, oo, ident, scope), count(p, b_names, no, ident, scope)
                     if a > b:
-                        lost.append('%s: %s [%s, item %s] lost in the hunk at old lines %s (%d -> %d)'
-                                    % (p, ident, scope, item, '%d-%d' % (on[i1][0], on[i2 - 1][0]), a, b))
+                        free = ruled[(p, ident)] - licensed[(p, ident, scope)]
+                        use = min(free, a - b)
+                        licensed[(p, ident, scope)] += use
+                        if use:
+                            ruled_det.append('ruled: %s: %s [%s, item %s] -%d at old lines %s (a session row)'
+                                             % (p, ident, scope, item, use, '%d-%d' % (on[i1][0], on[i2 - 1][0])))
+                        if a - b > use:
+                            lost.append('%s: %s [%s, item %s] lost in the hunk at old lines %s (%d -> %d)'
+                                        % (p, ident, scope, item, '%d-%d' % (on[i1][0], on[i2 - 1][0]), a, b))
                     elif b > a:
                         added[(p, ident, scope)] += b - a
     # the tag comparison (R2's K14) on the files this slice changed, with its additions subtracted; the others are
@@ -642,7 +698,7 @@ def k14_k15_after_r2(tree, hits_dir, prev, hunks_file, write_hunks, names=()):
     for h in hits:
         if h['ctx'].endswith('NAME'):
             images[(h['file'], h['new'])].append(int(h['line']))
-    tag_errs, k14s = [], []
+    tag_errs, k14s, prev_info = [], [], []
     for p, prev_src, new, _, nn, _ in diff:
         base = read_base(p)
         if base is None:
@@ -654,9 +710,11 @@ def k14_k15_after_r2(tree, hits_dir, prev, hunks_file, write_hunks, names=()):
                 co, cp, cn = count(p, bn, bo, ident, scope), count(p, pn, po, ident, scope), count(p, nn, no, ident, scope)
                 ci = sum(1 for l in images.get((p, ident), ()) if _in_scope(scope, p, l, bo))
                 if cp - ci != co:
-                    tag_errs.append('%s: %s [%s, item %s] base %d, previous slice %d, images %d'
-                                    % (p, ident, scope, item, co, cp, ci))
-                if cn - cp != added[(p, ident, scope)]:
+                    # R4a: from R4a on the previous slice's own additions (R3's §5.2 tests) are in ``prev``; that
+                    # comparison was the previous slice's gate, so it is listed, not failed (``recheck_prev``)
+                    (tag_errs if recheck_prev else prev_info).append(
+                        '%s: %s [%s, item %s] base %d, previous slice %d, images %d' % (p, ident, scope, item, co, cp, ci))
+                if cn - cp != added[(p, ident, scope)] - licensed[(p, ident, scope)]:
                     tag_errs.append('%s: %s [%s, item %s] previous slice %d, tree %d, additions in hunks %d'
                                     % (p, ident, scope, item, cp, cn, added[(p, ident, scope)]))
         if _contract_strings(base) != _contract_strings(new):
@@ -666,7 +724,8 @@ def k14_k15_after_r2(tree, hits_dir, prev, hunks_file, write_hunks, names=()):
                   '%d DNT token(s) lost in a hunk against %s, %d count difference(s) against %s after the hunks, '
                   '%d file(s) with different contract/einsum strings; %d DNT token(s) added by new code (%d DNT rows)'
                   % (len(lost), prev, len(tag_errs), BASE, len(k14s), sum(added.values()), len(dnt)),
-                  lost + tag_errs + k14s + add_det)]
+                  lost + tag_errs + k14s + add_det + ruled_det
+                  + ['previous slice vs base (its own gate; info): ' + x for x in prev_info])]
     if hunks_file:
         listed = list(csv.DictReader(open(hunks_file, newline=''), delimiter='\t'))
         key = lambda r: tuple(r[f] for f in HUNK_FIELDS)
@@ -1051,7 +1110,7 @@ def main(argv=None) -> int:
     if want('K14') or want('K15'):
         if _stage_ge(a.stage, 'R3'):
             res += k14_k15_after_r2(a.tree, a.hits, a.prev, a.hunks, a.write_hunks,
-                                    [n for n in a.names.split(',') if n])
+                                    [n for n in a.names.split(',') if n], recheck_prev=(a.stage == 'R3'))
         else:
             res += k14_k15(a.tree, a.stage, a.hits)
     if a.realized and a.hits:

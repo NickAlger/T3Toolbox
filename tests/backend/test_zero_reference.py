@@ -91,8 +91,8 @@ class TestZeroPointFrame(unittest.TestCase):
                 F0 = geom.zero_point_frame(template)
                 self.assertEqual([[c.shape for c in fam] for fam in F0], [[c.shape for c in fam] for fam in template])
                 self.assertLessEqual(float(fvo.fv_frame_orthogonality_residual(F0)), 1e-14)
-                self.assertEqual(float(np.abs(t3c.t3_to_dense((F0[0], F0[2]))).max()), 0.0)   # (U, L): left
-                self.assertEqual(float(np.abs(t3c.t3_to_dense((F0[0], F0[3]))).max()), 0.0)   # (U, R): right
+                self.assertEqual(float(np.abs(t3c.t3_to_dense((F0[0], F0[2]))).max()), 0.0)   # (D, L): left
+                self.assertEqual(float(np.abs(t3c.t3_to_dense((F0[0], F0[3]))).max()), 0.0)   # (D, R): right
                 aux = geom.precompute(F0)
                 v = fvo.fv_variations_randn(fvo.fv_variation_shapes(F0))
                 p1 = geom.project(F0, v, aux=aux)

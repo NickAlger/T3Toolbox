@@ -593,8 +593,8 @@ def rand_ragged_frame_weights(v, rng, stack_shape=None):
     ss = v.frame.stack_shape if stack_shape is None else stack_shape
     d = len(V)
     return bvf.T3FrameWeights(
-        tuple(np.abs(rng.standard_normal(ss + (H[i].shape[-2],))) + 0.5 for i in range(d)),   # up   <- nD
-        tuple(np.abs(rng.standard_normal(ss + (V[i].shape[-2],))) + 0.5 for i in range(d)),   # down <- nU
+        tuple(np.abs(rng.standard_normal(ss + (H[i].shape[-2],))) + 0.5 for i in range(d)),   # down <- nD
+        tuple(np.abs(rng.standard_normal(ss + (V[i].shape[-2],))) + 0.5 for i in range(d)),   # up   <- nU
         tuple(np.abs(rng.standard_normal(ss + (H[i].shape[-3],))) + 0.5 for i in range(d)),   # left <- rL
         tuple(np.abs(rng.standard_normal(ss + (H[i].shape[-1],))) + 0.5 for i in range(d)))   # right<- rR
 
@@ -680,7 +680,7 @@ class TestUT3FrameWeights(unittest.TestCase):
 
     def test_roundtrip_and_from_ut3weights(self):
         """to_uniform -> to_ragged recovers the ragged metric; from_ut3weights slices base-point weights
-        into the four families (up=down=tucker, left=tt[:-1], right=tt[1:])."""
+        into the four families (down=up=tucker, left=tt[:-1], right=tt[1:])."""
         rng = np.random.default_rng(34)
         v = make_ragged_tangent(STRUCTURES[0], (), ())
         W = rand_ragged_frame_weights(v, rng)
@@ -694,7 +694,7 @@ class TestUT3FrameWeights(unittest.TestCase):
         ux = ut3.UniformTuckerTensorTrain.from_t3(x)
         uWb = ut3.UT3Weights.from_ut3svd(ux)
         fw = ubvf.UT3FrameWeights.from_ut3weights(uWb)
-        self.assertTrue(np.array_equal(fw.down_weight_supercore, fw.up_weight_supercore))   # up == down
+        self.assertTrue(np.array_equal(fw.down_weight_supercore, fw.up_weight_supercore))   # down == up
         self.assertTrue(np.array_equal(fw.left_weight_supercore, uWb.tt_weight_supercore[:-1]))
         self.assertTrue(np.array_equal(fw.right_weight_supercore, uWb.tt_weight_supercore[1:]))
 

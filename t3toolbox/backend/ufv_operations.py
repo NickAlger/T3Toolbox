@@ -56,7 +56,7 @@ __all__ = [
     'ufv_variation_shapes',
 ]
 
-# A uniform FRAME-WEIGHTS .data tuple: (up, down, left, right, (4 variation edge masks)).
+# A uniform FRAME-WEIGHTS .data tuple: (down, up, left, right, (4 variation edge masks)).
 # The four supercores are each (d,)+C+(size,) and the masks match them. NO `shape` (weights have no
 # physical legs) and NO K: a frame weight is FRAME-LIKE -- one metric per base point, carrying the frame
 # stack C, broadcast over the variations' K+C at absorb (docs/contributor/weighted_internals.md).
@@ -80,7 +80,7 @@ def ufv_variation_shapes(
     dims are read exactly as ``UT3Frame`` and :py:func:`~t3toolbox.backend.ufv_conversions.ut3_orthogonal_representations`
     read them::
 
-        nU = up.shape[-2]    nD = down.shape[-2]    rL = left.shape[-1]    rR = right.shape[-1]    N = up.shape[-1]
+        nD = down.shape[-2]    nU = up.shape[-2]    rL = left.shape[-1]    rR = right.shape[-1]    N = down.shape[-1]
 
     Note ``rL`` comes off the left supercore's **last** axis. Every uniform bond pads to a single ``r``,
     so the left supercore's leading and trailing bond axes happen to be equal and ``shape[-3]`` gives the
@@ -222,8 +222,8 @@ def ufv_variations_sum_stack(
 
 def ufv_frame_reverse(data):  # UT3Frame .data -> reversed UT3Frame .data
     """Reverse the mode order of a UT3Frame ``.data``. The left/right supercores **and** their masks
-    **swap roles** (reversing a left-orthogonal chain yields a right-orthogonal one) and reverse; up/down
-    reverse (down with a bond swap, via :py:func:`tt_operations.tt_reverse`). The redundant L/R store
+    **swap roles** (reversing a left-orthogonal chain yields a right-orthogonal one) and reverse; down/up
+    reverse (up with a bond swap, via :py:func:`tt_operations.tt_reverse`). The redundant L/R store
     makes this exact -- no re-orthogonalization. Inverse of itself."""
     down_sc, up_sc, left_sc, right_sc, shape, (dm, um, lm, rm) = data
     rev = tt_operations.tt_reverse
@@ -233,7 +233,7 @@ def ufv_frame_reverse(data):  # UT3Frame .data -> reversed UT3Frame .data
         rev(right_sc),                              # old right -> new left
         rev(left_sc),                               # old left  -> new right
         tuple(shape[::-1]),
-        (dm[::-1], um[::-1], rm[::-1], lm[::-1]),    # up/down reverse; left/right masks swap + reverse
+        (dm[::-1], um[::-1], rm[::-1], lm[::-1]),    # down/up reverse; left/right masks swap + reverse
     )
 
 
@@ -246,7 +246,7 @@ def ufv_variations_reverse(data):  # UT3Variations .data -> reversed UT3Variatio
         tkv[::-1],
         tt_operations.tt_reverse(ttv),
         tuple(shape[::-1]),
-        (vdown[::-1], vup[::-1], vright[::-1], vleft[::-1]),   # up/down reverse; left/right swap + reverse
+        (vdown[::-1], vup[::-1], vright[::-1], vleft[::-1]),   # down/up reverse; left/right swap + reverse
     )
 
 
@@ -273,8 +273,8 @@ def ufv_load(file, use_jax: bool = False):  # -> (*supercores, shape, masks)
 def ufv_frame_orthogonality_residual(data):  # UT3Frame .data -> max orthogonality deviation, per stack element
     """Max deviation of the four masked frame supercores from orthonormality, **per stack element** (shape
     ``stack_shape``). Each masked supercore slice IS a hypothetical ragged core (mask the padding to zero);
-    require its Gram == ``diag(outgoing_mask)`` -- the masked-Gram pattern, over the four senses (up ``U``,
-    down/outer ``O``, left ``L``, right ``R``), with the correct outgoing mask per sense (left core ``i`` ->
+    require its Gram == ``diag(outgoing_mask)`` -- the masked-Gram pattern, over the four senses (down ``D``,
+    up/outer ``U``, left ``L``, right ``R``), with the correct outgoing mask per sense (left core ``i`` ->
     ``frame_left_mask[i+1]``). The uniform analog of
     :py:func:`fv_operations.fv_frame_orthogonality_residual`; the per-element oracle is the ragged
     one via ``to_t3frame``. The boundary left/right cores are remainders and are not checked (so left
@@ -290,8 +290,8 @@ def ufv_frame_orthogonality_residual(data):  # UT3Frame .data -> max orthogonali
         return xnp.max(xnp.abs(G - xnp.eye(n) * mask[..., None, :]), axis=(0, -2, -1))
 
     devs = [
-        dev(xnp.einsum('...io,...jo->...ij', mdown, mdown), dm, nD),          # up: rows orthonormal over mode
-        dev(xnp.einsum('...iaj,...ibj->...ab', mup, mup), um, nU),    # down/outer: mode orthonormal over bonds
+        dev(xnp.einsum('...io,...jo->...ij', mdown, mdown), dm, nD),      # down: rows orthonormal over mode
+        dev(xnp.einsum('...iaj,...ibj->...ab', mup, mup), um, nU),        # up/outer: mode orthonormal over bonds
     ]
     if d > 1:   # interior left/right cores; the boundary core of each is the unchecked remainder
         devs.append(dev(xnp.einsum('...iaj,...iak->...jk', mleft[:-1], mleft[:-1]), lm[1:-1], rL))   # outgoing edges 1..d-1
@@ -300,7 +300,7 @@ def ufv_frame_orthogonality_residual(data):  # UT3Frame .data -> max orthogonali
 
 
 def ufv_zero_point_frame(
-        frame_data:  typ.Tuple,                                   # uniform frame .data = (up, down, left, right, shape, masks); stack C = ()
+        frame_data:  typ.Tuple,                                   # uniform frame .data = (down, up, left, right, shape, masks); stack C = ()
         groups:      typ.Tuple[typ.Tuple[int, ...], ...] = (),    # sharing partition (canonical_groups); () = unshared
         seed:        int = fv_operations.ZERO_FRAME_SEED,         # the Haar stream seed: a fixed convention
 ) -> typ.Tuple:                                                   # uniform frame .data at the zero tensor; the template's masks
@@ -380,11 +380,11 @@ def _real_values(
 def ufv_lift_factors(
         frame_data:         typ.Tuple[
             NDArray,                                    # down_tucker_supercore,  (d,)+C+(nD, N)
-            NDArray,                                    # up_tt_supercore,    (d,)+C+(rL, nU, rR)
-            NDArray,                                    # left_tt_supercore,    (d,)+C+(rL, nD, rL)
-            NDArray,                                    # right_tt_supercore,   (d,)+C+(rR, nD, rR)
+            NDArray,                                    # up_tt_supercore,        (d,)+C+(rL, nU, rR)
+            NDArray,                                    # left_tt_supercore,      (d,)+C+(rL, nD, rL)
+            NDArray,                                    # right_tt_supercore,     (d,)+C+(rR, nD, rR)
             typ.Tuple[int, ...],                        # shape
-            typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, frame_left, frame_right) masks; HOST bool
+            typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (down, up, frame_left, frame_right) masks; HOST bool
         ],
         curvature_damping:  typ.Union[float, NDArray],  # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
         rcond:              typ.Optional[float] = None, # relative clip; None -> the ragged default per REAL block
@@ -395,7 +395,7 @@ def ufv_lift_factors(
     The frame is masked once (its padded slots hold the construction's orthonormal completions, which must
     not pair up), then the same derivation runs on the supercores: the right-to-left zipper of the left chain
     against the right chain (:py:func:`~t3toolbox.backend.tt_operations.tt_zipper_right_to_left`, a scan over
-    the mode axis), the centers ``H_i = L_i T_i`` and the Tucker factors ``S_i^T = <O_i, H_i>`` as ``d``-prefixed
+    the mode axis), the centers ``H_i = L_i T_i`` and the Tucker factors ``S_i^T = <U_i, H_i>`` as ``d``-prefixed
     grouped contractions, and ONE batched damped pseudo-inverse per family
     (:py:func:`~t3toolbox.backend.linalg.damped_pseudo_inverse`). The returned
     :py:class:`~t3toolbox.backend.fv_operations.LiftFactors` holds supercores where the ragged one holds tuples:
@@ -454,7 +454,7 @@ def ufv_lift_factors(
     d, C = down_sc.shape[0], tuple(down_sc.shape[1:-2])
     rL, rR = left_sc.shape[-1], right_sc.shape[-1]
 
-    # the center factors (fv_center_factors, on the supercores): T_i = Z_(i+1), H_i = L_i T_i, S_i^T = <O_i, H_i>
+    # the center factors (fv_center_factors, on the supercores): T_i = Z_(i+1), H_i = L_i T_i, S_i^T = <U_i, H_i>
     ZZ = tt_operations.tt_zipper_right_to_left(left_sc, right_sc)          # len=d+1, elm_shape=C+(rL, rR)
     Z_sc = xnp.stack(ZZ[1:], axis=0)                                      # (d,)+C+(rL, rR); the last: boundary ones
     centers = contractions.contract('dCaib,dCbc->dCaic', left_sc, Z_sc)
@@ -488,7 +488,7 @@ def ufv_lift_factors(
 
 
 def _real_group_levels(
-        frame_masks:  typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # the frame's (up, down, left, right); HOST bool
+        frame_masks:  typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # the frame's (down, up, left, right); HOST bool
         group:        typ.Tuple[int, ...],                             # one nontrivial sharing group
         k:            int,                                             # the padded group spectrum length q
 ) -> typ.Tuple[
@@ -510,11 +510,11 @@ def _real_group_levels(
 def ufv_tied_lift_factors(
         frame_data:         typ.Tuple[
             NDArray,                                    # down_tucker_supercore,  (d,)+C+(nD, N)
-            NDArray,                                    # up_tt_supercore,    (d,)+C+(rL, nU, rR)
-            NDArray,                                    # left_tt_supercore,    (d,)+C+(rL, nD, rL)
-            NDArray,                                    # right_tt_supercore,   (d,)+C+(rR, nD, rR)
+            NDArray,                                    # up_tt_supercore,        (d,)+C+(rL, nU, rR)
+            NDArray,                                    # left_tt_supercore,      (d,)+C+(rL, nD, rL)
+            NDArray,                                    # right_tt_supercore,     (d,)+C+(rR, nD, rR)
             typ.Tuple[int, ...],                        # shape
-            typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (up, down, frame_left, frame_right) masks; HOST bool
+            typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # (down, up, frame_left, frame_right) masks; HOST bool
         ],
         curvature_damping:  typ.Union[float, NDArray],  # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
         shared_data:        sharing_module.SharedFrameData,  # the frame's UNIFORM companion (ufv_shared_frame_data)
@@ -523,7 +523,7 @@ def ufv_tied_lift_factors(
     '''The uniform twin of :py:func:`~t3toolbox.backend.sharing.fv_tied_lift_factors`: the lift factors of a uniform
     SHARED point -- :py:func:`ufv_lift_factors` plus, per nontrivial sharing group, the damped filter of the group's
     tied solve -- so that :py:func:`~t3toolbox.backend.utv_operations.utv_corewise_lift` lifts each group's Tucker
-    slots to ONE factor direction, ``Udot_g = M_g^{+eps} [V_i1; ...]``, solved against the companion's stacked-``S``
+    slots to ONE factor direction, ``Bdot_g = M_g^{+eps} [V_i1; ...]``, solved against the companion's stacked-``S``
     SVD (:py:func:`~t3toolbox.backend.sharing.ufv_shared_frame_data`).
 
     **The padded levels.** The uniform companion is built on the frame's padded supercores, so its group spectrum
@@ -581,11 +581,11 @@ def ufv_tied_lift_factors(
 
 def ufv_absorb_weights(
         variations: typ.Tuple,       # UT3Variations .data: (tkv, ttv, shape, masks), stack = K + C
-        weights:    UT3FrameWeightsData,  # (up, down, left, right, masks), stack = C
+        weights:    UT3FrameWeightsData,  # (down, up, left, right, masks), stack = C
 ) -> typ.Tuple:                      # UT3Variations .data: weighted, same shape and masks
     """Absorb the four-family metric weights into the VARIATION supercores -- the uniform twin of
-    ``fv_absorb_weights`` (the tangent metric on coordinates: ``down`` -> V's ``nU`` leg;
-    ``up``/``left``/``right`` -> H's ``nD``/``rL``/``rR`` legs). The frame is left orthonormal and
+    ``fv_absorb_weights`` (the tangent metric on coordinates: ``up`` -> V's ``nU`` leg;
+    ``down``/``left``/``right`` -> H's ``nD``/``rL``/``rR`` legs). The frame is left orthonormal and
     untouched, so this is O(ranks) and does not disturb the tangent space.
 
     **The weight is frame-like (stack ``C``) and the variations are ``K + C``, and the broadcast is
@@ -613,7 +613,7 @@ def ufv_absorb_weights(
 
 def ufv_weights_consistent(
         variations: typ.Tuple,            # UT3Variations .data: (tkv, ttv, shape, masks), stack = K + C
-        weights:    UT3FrameWeightsData,  # (up, down, left, right, masks), stack = C
+        weights:    UT3FrameWeightsData,  # (down, up, left, right, masks), stack = C
 ) -> bool:                                # True iff `weights` can be absorbed into `variations`
     """True iff the four weight families fit ``variations`` (non-raising): padded widths match, the weight
     stack is the **trailing part** of the variation stack, and the weight's masks -- broadcast constant
@@ -658,17 +658,17 @@ def ufv_weights_consistent(
 
 def ufv_weights_from_ut3_weights(
         weights: typ.Tuple[NDArray, NDArray, typ.Tuple[NDArray, NDArray]],  # UT3Weights .data
-) -> UT3FrameWeightsData:  # (up, down, left, right, masks) -- a tangent metric
+) -> UT3FrameWeightsData:  # (down, up, left, right, masks) -- a tangent metric
     """Build uniform frame weights (a tangent metric) from uniform base-point edge weights -- the twin of
     ``t3weights_to_t3frameweights``, and the same slicing, applied to supercores **and** masks:
 
-    ``up = down = tucker``; ``left = tt[:-1]``, ``right = tt[1:]``. The TT slicing encodes the ``H_i`` bond
+    ``down = up = tucker``; ``left = tt[:-1]``, ``right = tt[1:]``. The TT slicing encodes the ``H_i`` bond
     convention (``H_i``'s left bond is TT bond ``i``, its right bond is bond ``i+1``), which turns the
     ``d+1`` bond supercore into the two ``d``-length families -- non-obvious, hence a named function.
 
     The result pairs with a **minimal-rank** tangent (where the complement rank ``nU`` equals the Tucker
     rank ``nD``, as for ``ut3svd`` output). A non-minimal tangent has ``nU < nD`` and would mismatch the
-    ``down`` family at use -- caught by ``ufv_weights_consistent`` rather than silently absorbed.
+    ``up`` family at use -- caught by ``ufv_weights_consistent`` rather than silently absorbed.
     """
     tucker_weight_supercore, tt_weight_supercore, (tucker_mask, tt_mask) = weights
     down = up = tucker_weight_supercore
@@ -678,7 +678,7 @@ def ufv_weights_from_ut3_weights(
 
 
 def _ufv_map_real_weights(
-        weights: UT3FrameWeightsData,  # (up, down, left, right, masks)
+        weights: UT3FrameWeightsData,  # (down, up, left, right, masks)
         fn,                            # (xnp, w) -> w, applied elementwise to the REAL slots only
 ) -> UT3FrameWeightsData:              # fn on the real slots; padding forced to a canonical, finite 0
     """Apply ``fn`` to the real slots of all four families, forcing the padding to a finite ``0``. The

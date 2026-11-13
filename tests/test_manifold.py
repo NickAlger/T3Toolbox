@@ -467,7 +467,7 @@ class TestManifold(unittest.TestCase):
             t3m.MANIFOLD.inner(raw, raw)
         with self.assertRaises(ValueError):
             t3m.MANIFOLD.norm(raw)
-        # ... and a non-orthonormal frame (the corewise (U,G,G,G) frame)
+        # ... and a non-orthonormal frame (the corewise (B,G,G,G) frame)
         cg = t3m.COREWISE.randn(t3m.COREWISE.frame(x))
         with self.assertRaises(ValueError):
             t3m.MANIFOLD.inner(cg, cg)
@@ -680,7 +680,7 @@ class TestManifold(unittest.TestCase):
             with self.subTest(op=op):
                 JvK = np.stack([np.asarray(fwd(v)) for v in vs], axis=1)     # base-inner W + K
                 c = np.random.randn(NW, K)
-                V, H = tr(c)                                               # -> K + cores
+                V, H = tr(c)                                                 # -> K + cores
                 for k in range(K):
                     grad_k = (tuple(np.asarray(g)[k] for g in V), tuple(np.asarray(g)[k] for g in H))
                     lhs = float(np.sum(c[:, k] * JvK[:, k]))

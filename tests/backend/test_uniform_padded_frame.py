@@ -8,7 +8,7 @@ T8-T12 and T17; the jitted loop's T12 and T13 rows are in ``tests/test_dispatch.
   ``_uniform_padded_frame_testing.py``: the old frame at four different own widths, gappy masks, finite garbage in
   every junk entry; the plan's cases (d = 2, 3, 5, uneven increments, non-minimal ranks, a bond growing alone,
   outside and inside completions in one core, the zero tensor) plus sharing, d = 1, the zero tensor padded with
-  garbage, the zero tensor at d = 1 (its down store has real old rows but no old column), and an old frame that
+  garbage, the zero tensor at d = 1 (its up store has real old rows but no old column), and an old frame that
   is itself in block layout (gappy masks in both blocks). The real parts read back equal the ragged start to 1e-12;
   every junk entry of the output is exactly 0; the output masks equal the independently derived ``[the old mask as
   given, padded | prefix(the counts)]``, the counts from the ragged stores; tied groups share their supercore slice
@@ -121,7 +121,7 @@ def max_difference(Fa, Fb):
 class TestEmptyFrame(unittest.TestCase):
 
     def test_the_table(self):
-        """U (d,)+C+(0, N), O / L / R (d,)+C+(1, 0, 1); up and down masks empty; left and right masks real at bonds
+        """D (d,)+C+(0, N), U / L / R (d,)+C+(1, 0, 1); down and up masks empty; left and right masks real at bonds
         0 and d only; N = max(shape) by default, or given; numpy, default float."""
         for shape, C, N in [((5, 6, 7), (), None), ((4,), (2,), 6), ((3, 4, 5, 6), (2, 3), None)]:
             with self.subTest(shape=shape, C=C, N=N):
@@ -298,7 +298,7 @@ class TestStartStructuralErrors(unittest.TestCase):
     def test_old_masks_not_an_orthogonal_representation(self):
         masks = list(self.uold[5])
         mU = masks[1].copy()
-        mU[1, np.flatnonzero(~mU[1])[0]] = True                         # one extra real down slot at mode 1
+        mU[1, np.flatnonzero(~mU[1])[0]] = True                         # one extra real up slot at mode 1
         masks[1] = mU
         with self.assertRaisesRegex(ValueError, 'the up masks count'):
             uniform_padded_frames.ufv_padded_frame(self.uold[:5] + (tuple(masks),), *self.target)
@@ -316,7 +316,7 @@ class TestStartStructuralErrors(unittest.TestCase):
             uniform_padded_frames.ufv_padded_frame(self.uold, (3.0, 4, 5, 3), self.target[1])
 
     def test_unequal_old_down_masks_in_a_group(self):
-        """Sharing labels on an untied scatter (the members' up slots at different positions)."""
+        """Sharing labels on an untied scatter (the members' down slots at different positions)."""
         with self.assertRaisesRegex(ValueError, 'unequal old down masks'):
             uniform_padded_frames.ufv_padded_frame(self.uold, (4, 4, 4, 4), (1, 4, 5, 4, 1), sharing=(0, 0, 1, 1))
 
@@ -547,7 +547,7 @@ class TestStepStructuralErrors(unittest.TestCase):
     def test_masks_not_an_orthogonal_representation(self):
         masks = list(self.frame[5])
         mU = masks[1].copy()
-        mU[1, np.flatnonzero(~mU[1])[0]] = True                         # one extra real down slot at mode 1
+        mU[1, np.flatnonzero(~mU[1])[0]] = True                         # one extra real up slot at mode 1
         masks[1] = mU
         with self.assertRaisesRegex(ValueError, 'do not count an orthogonal representation'):
             self.call(frame=self.frame[:5] + (tuple(masks),))

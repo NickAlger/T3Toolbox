@@ -71,14 +71,14 @@ __all__ = [
 # `_UniformLayerMixin` precedes the ragged kind in the MRO but defines no corewise_hessian, so a uniform kind that
 # did not override it would inherit the ragged (mask-free) method and run it on padded supercores -- a second
 # derivative multiplies a direction's padded slot into real slots. Each override masks theta and theta_hat with
-# the masks of the FRAME it is handed (frame_data[5]: up and left) and re-masks its output.
+# the masks of the FRAME it is handed (frame_data[5]: down and left) and re-masks its output.
 # --------------------------------------------------------------------------------------------------
 def _frame_theta(
         frame_data:  typ.Tuple,                       # the uniform frame the model's sweep was built at
-        base_point:  typ.Tuple[NDArray, NDArray],     # its base point's bare supercores (up, left)
+        base_point:  typ.Tuple[NDArray, NDArray],     # its base point's bare supercores (down, left)
 ) -> typ.Tuple:                                       # the base point as plain-UT3 .data, with the FRAME's masks
     """The base point as a plain-UT3 ``.data`` carrying the masks of the FRAME it was read off
-    (``frame_data[5]``: up and left) -- what every uniform ``corewise_hessian`` masks ``theta`` and ``theta_hat``
+    (``frame_data[5]``: down and left) -- what every uniform ``corewise_hessian`` masks ``theta`` and ``theta_hat``
     with. Not the sweep's (bare supercores) and not the kind's ``self.masks`` (the point's: a strict superset of the
     frame's at TT slack, which would let the frame's padded completions into ``theta``)."""
     return (base_point[0], base_point[1], tuple(frame_data[4]), (frame_data[5][0], frame_data[5][2]))
@@ -148,7 +148,7 @@ class UniformApplyKind(_UniformLayerMixin, bfit.ApplyKind):
     def corewise_hessian(self, core_directions, r, ww, frame_data, sweep, base_point):
         """The masked uniform two-hole (:py:func:`~t3toolbox.backend.ut3_sampling.ut3_apply_corewise_hessian_from_sweep`),
         reusing the model sweep's packed vectors and lean ``(xi, mu)``. ``theta`` and ``theta_hat`` are masked with the
-        FRAME's ``(up, left)`` masks (``frame_data[5]``, not ``self.masks``: the point's, a strict superset at TT
+        FRAME's ``(down, left)`` masks (``frame_data[5]``, not ``self.masks``: the point's, a strict superset at TT
         slack), and the output is re-masked with them -- as :py:meth:`UniformProbeDerivativesKind.corewise_hessian`."""
         return ut3_sampling.ut3_apply_corewise_hessian_from_sweep(
             r, _frame_theta(frame_data, base_point), core_directions, sweep)
@@ -176,7 +176,7 @@ class UniformEntriesKind(_UniformLayerMixin, bfit.EntriesKind):
 
     def corewise_hessian(self, core_directions, r, index, frame_data, sweep, base_point):
         """The masked uniform two-hole (:py:func:`~t3toolbox.backend.ut3_sampling.ut3_entries_corewise_hessian_from_sweep`),
-        masked with the FRAME's ``(up, left)`` masks -- as :py:meth:`UniformApplyKind.corewise_hessian`."""
+        masked with the FRAME's ``(down, left)`` masks -- as :py:meth:`UniformApplyKind.corewise_hessian`."""
         return ut3_sampling.ut3_entries_corewise_hessian_from_sweep(
             r, _frame_theta(frame_data, base_point), core_directions, sweep)
 
@@ -212,7 +212,7 @@ class UniformProbeKind(_UniformLayerMixin, bfit.ProbeKind):
     def corewise_hessian(self, core_directions, r, ww, frame_data, sweep, base_point):
         """The masked uniform two-hole at ``omega^2 r``
         (:py:func:`~t3toolbox.backend.ut3_sampling.ut3_probe_corewise_hessian_from_sweep`), reusing the model sweep's
-        packed vectors and ``xi`` / ``mu``, masked with the FRAME's ``(up, left)`` masks -- as
+        packed vectors and ``xi`` / ``mu``, masked with the FRAME's ``(down, left)`` masks -- as
         :py:meth:`UniformApplyKind.corewise_hessian`."""
         return ut3_sampling.ut3_probe_corewise_hessian_from_sweep(
             self._apply_weight(r, 2), _frame_theta(frame_data, base_point), core_directions, sweep)
@@ -243,7 +243,7 @@ class UniformApplyDerivativesKind(_UniformLayerMixin, bfit.ApplyDerivativesKind)
     def corewise_hessian(self, core_directions, r, s, frame_data, sweep, base_point):
         """The masked uniform two-hole at ``omega^2 r``
         (:py:func:`~t3toolbox.backend.ut3_sampling.ut3_apply_corewise_derivatives_hessian_from_sweep`), reusing the
-        model sweep's packed sample and lean ``(xi, mu)`` jets, masked with the FRAME's ``(up, left)`` masks -- as
+        model sweep's packed sample and lean ``(xi, mu)`` jets, masked with the FRAME's ``(down, left)`` masks -- as
         :py:meth:`UniformProbeDerivativesKind.corewise_hessian`."""
         return ut3_sampling.ut3_apply_corewise_derivatives_hessian_from_sweep(
             self._apply_weight(r, 2), _frame_theta(frame_data, base_point), core_directions, self.order, sweep)
@@ -274,7 +274,7 @@ class UniformEntriesDerivativesKind(_UniformLayerMixin, bfit.EntriesDerivativesK
     def corewise_hessian(self, core_directions, r, s, frame_data, sweep, base_point):
         """The masked uniform two-hole at ``omega^2 r``
         (:py:func:`~t3toolbox.backend.ut3_sampling.ut3_entries_corewise_derivatives_hessian_from_sweep`), masked with
-        the FRAME's ``(up, left)`` masks -- as :py:meth:`UniformApplyDerivativesKind.corewise_hessian`."""
+        the FRAME's ``(down, left)`` masks -- as :py:meth:`UniformApplyDerivativesKind.corewise_hessian`."""
         return ut3_sampling.ut3_entries_corewise_derivatives_hessian_from_sweep(
             self._apply_weight(r, 2), _frame_theta(frame_data, base_point), core_directions, self.order, sweep)
 
@@ -313,7 +313,7 @@ class UniformProbeDerivativesKind(_UniformLayerMixin, bfit.ProbeDerivativesKind)
         """The masked uniform two-hole at ``omega^2 r``
         (:py:func:`~t3toolbox.backend.ut3_sampling.ut3_probe_corewise_derivatives_hessian_from_sweep`),
         reusing the model sweep's packed sample and ``xi`` / ``mu`` jets. ``theta`` (the base
-        point's bare supercores) and ``theta_hat`` are masked with the FRAME's ``(up, left)`` masks -- read off
+        point's bare supercores) and ``theta_hat`` are masked with the FRAME's ``(down, left)`` masks -- read off
         ``frame_data``, the frame this model's sweep was built at, not ``self.masks`` (the point's, a strict
         superset at TT slack) and not the sweep (bare supercores) -- and the output is re-masked with them."""
         return ut3_sampling.ut3_probe_corewise_derivatives_hessian_from_sweep(

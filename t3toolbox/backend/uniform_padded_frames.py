@@ -44,10 +44,10 @@ __all__ = [
 ]
 
 UFrameData = typ.Tuple[NDArray, NDArray, NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDArray, NDArray, NDArray, NDArray]]
-#   up (d,)+C+(nU, N), down (d,)+C+(rL, nD, rR), left (d,)+C+(rL, nU, rL), right (d,)+C+(rR, nU, rR), shape (len=d),
-#   masks HOST bool (up (d,)+C+(nU,), down (d,)+C+(nD,), left (d+1,)+C+(rL,), right (d+1,)+C+(rR,)); block layout: nU = nD, rL = rR
+#   down (d,)+C+(nD, N), up (d,)+C+(rL, nU, rR), left (d,)+C+(rL, nD, rL), right (d,)+C+(rR, nD, rR), shape (len=d),
+#   masks HOST bool (down (d,)+C+(nD,), up (d,)+C+(nU,), left (d+1,)+C+(rL,), right (d+1,)+C+(rR,)); block layout: nU = nD, rL = rR
 UVariationsData = typ.Tuple[NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDArray, NDArray, NDArray, NDArray]]
-#   V (d,)+C+(nD, N), H (d,)+C+(rL, nU, rR), shape, variation masks; only V, H are read (masked with the frame's own masks)
+#   V (d,)+C+(nU, N), H (d,)+C+(rL, nD, rR), shape, variation masks; only V, H are read (masked with the frame's own masks)
 
 
 def _rank_array(
@@ -86,7 +86,7 @@ def _pad_mask(
 
 
 def _store_seeds(
-        store:   str,       # 'down' | 'left' | 'right'
+        store:   str,       # 'up' | 'left' | 'right'
         keys:    NDArray,   # HOST int, (M,): each core's mode
         rows_a:  NDArray,   # HOST bool, (M,)+C+(wa,): the unfolding's first row slot, real slots
         rows_b:  NDArray,   # HOST bool, (M,)+C+(wb,): the second row slot (a-major rows)
@@ -135,12 +135,12 @@ def ufv_empty_frame(
         stack_shape:  typ.Sequence[int] = (),   # C
         use_jax:      bool = False,             # array-free constructor: chooses the supercore type (masks are always host)
 ) -> typ.Tuple[                                 # the frame of the zero tensor (Na = 0, Rb = 1; default float):
-    NDArray,               # up.    shape=(d,)+C+(0, N)
-    NDArray,               # down.  shape=(d,)+C+(1, 0, 1)
+    NDArray,               # down.  shape=(d,)+C+(0, N)
+    NDArray,               # up.    shape=(d,)+C+(1, 0, 1)
     NDArray,               # left.  shape=(d,)+C+(1, 0, 1)
     NDArray,               # right. shape=(d,)+C+(1, 0, 1)
     typ.Tuple[int, ...],   # shape, len=d
-    typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # masks, HOST bool: up/down (d,)+C+(0,); left/right (d+1,)+C+(1,), True at bonds 0 and d only
+    typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # masks, HOST bool: down/up (d,)+C+(0,); left/right (d+1,)+C+(1,), True at bonds 0 and d only
 ]:
     """The frame of the zero tensor in block layout: its orthogonal representation's prefix masks at widths (0, 0, 1, 1).
 
@@ -253,7 +253,7 @@ def ufv_padded_frame(
     R = xnp.concatenate([_pad_trailing(R0[:1], (rT, nT, rT)),
                          xnp.moveaxis(xnp.concatenate([P_R, new_R], axis=-1).reshape((d - 1,) + C + (nT, rT, rT)),
                                       -1, -3)], axis=0)
-    # -- down cores, all modes: new down slots in the (a, b) bond space
+    # -- up cores, all modes: new up slots in the (a, b) bond space
     P_U = _unfold(_pad_trailing(U0, (rT, Na, rT)), -2)
     seeds_U, real_U = _store_seeds('up', np.arange(d), mL[:-1], mR[1:], mU0, kU, Ka, seed)
     new_U = _store_completion(P_U, mU0, seeds_U, real_U, kU)
@@ -369,8 +369,8 @@ def _u_up_messages(
         VP:  NDArray,   # (d,)+C+(Ka, N): the variations' completion rows
         D:   NDArray,   # (d,)+C+(nT, N)
 ) -> typ.Tuple[
-    NDArray,   # PhiO. (d,)+C+(Ka, nT)
-    NDArray,   # XiO.  (d,)+C+(Ka, min(N, Ka))
+    NDArray,   # PhiU. (d,)+C+(Ka, nT)
+    NDArray,   # XiU.  (d,)+C+(Ka, min(N, Ka))
 ]:
     """The messages of the edges core -> leaf, all modes at once."""
     PhiU = contractions.contract('dCkn,dCun->dCku', VP, D)
@@ -387,8 +387,8 @@ def _u_down_messages(
         PhiR: NDArray,   # (d,)+C+(Kb, rT): edge c_i -> c_(i-1); zero at 0
         XiR:  NDArray,   # (d,)+C+(Kb, Kb)
 ) -> typ.Tuple[
-    NDArray,   # PhiU. (d,)+C+(Ka, nT)
-    NDArray,   # XiU.  (d,)+C+(Ka, z)
+    NDArray,   # PhiD. (d,)+C+(Ka, nT)
+    NDArray,   # XiD.  (d,)+C+(Ka, z)
 ]:
     """The messages of the edges leaf -> core, all modes at once."""
     xnp, _, _ = get_backend(True, tree_contains_jax((H_P, bL, bR, U, PhiL, XiL, PhiR, XiR)))
@@ -402,15 +402,16 @@ def _u_down_messages(
 
 
 def _u_left_edge(
-        carry:  typ.Tuple[NDArray, NDArray],   # (o_L, D_L) of the edge c_(i-1) -> c_i: C+(Kb1, Kb) ; C+(rT1, Kb)
-        x:      typ.Tuple[NDArray, ...],       # (H_P, O_P, R_P, L_P, A, o_U, DU, PhiP, Xi, rows, pins, sel) at core i:
+        carry:  typ.Tuple[NDArray, NDArray],   # (o_L, Psi_L) of the edge c_(i-1) -> c_i: C+(Kb1, Kb) ;
+                                               #   C+(rT1, Kb)
+        x:      typ.Tuple[NDArray, ...],       # (H_P, U_P, R_P, L_P, A, o_D, PsiD, PhiP, Xi, rows, pins, sel) at core i:
                                                #   C+(rT, nT, Kb) ; C+(rT, Ka, Kb) ; C+(Kb, nT, Kb) ; C+(rT, nT, Kb) ;
                                                #   C+(rT1, nT1, Rb) ; C+(Ka1, Ka) ; C+(nT1, Ka) ; C+(Kb, Kb) ; C+(Kb, Kb) ;
                                                #   bool C+(rT1 nT1,) ; bool C+(Rb,) ; bool C+(Rb + Kb1, Kb1)
         on:     bool,                          # False: the store is transported
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, NDArray],               # (o_L, D_L) of the edge c_i -> c_(i+1)
-    typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # (L+_i C+(rT1, nT1, rT1), o_L, D_L, movement C)
+    typ.Tuple[NDArray, NDArray],               # (o_L, Psi_L) of the edge c_i -> c_(i+1)
+    typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # (L+_i C+(rT1, nT1, rT1), o_L, Psi_L, movement C)
 ]:
     """One edge c_i -> c_(i+1) of the left sweep."""
     xnp, _, _ = get_backend(True, tree_contains_jax((carry, x)))
@@ -446,15 +447,16 @@ def _u_left_edge_transport_step(
 
 
 def _u_right_edge(
-        carry:  typ.Tuple[NDArray, NDArray],   # (o_R, D_R) of the edge c_(i+1) -> c_i: C+(Kb1, Kb) ; C+(rT1, Kb)
-        x:      typ.Tuple[NDArray, ...],       # (H_P, O_P, L_P, R_P, A, o_U, DU, PhiP, Xi, rows, pins, sel) at core i:
+        carry:  typ.Tuple[NDArray, NDArray],   # (o_R, Psi_R) of the edge c_(i+1) -> c_i: C+(Kb1, Kb) ;
+                                               #   C+(rT1, Kb)
+        x:      typ.Tuple[NDArray, ...],       # (H_P, U_P, L_P, R_P, A, o_D, PsiD, PhiP, Xi, rows, pins, sel) at core i:
                                                #   C+(Kb, nT, rT) ; C+(Kb, Ka, rT) ; C+(Kb, nT, Kb) ; C+(Kb, nT, rT) ;
                                                #   C+(Rb, nT1, rT1) ; C+(Ka1, Ka) ; C+(nT1, Ka) ; C+(Kb, Kb) ; C+(Kb, Kb) ;
                                                #   bool C+(nT1 rT1,) ; bool C+(Rb,) ; bool C+(Rb + Kb1, Kb1)
         on:     bool,                          # False: the store is transported
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, NDArray],               # (o_R, D_R) of the edge c_i -> c_(i-1)
-    typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # (R+_i C+(rT1, nT1, rT1), o_R, D_R, movement C)
+    typ.Tuple[NDArray, NDArray],               # (o_R, Psi_R) of the edge c_i -> c_(i-1)
+    typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # (R+_i C+(rT1, nT1, rT1), o_R, Psi_R, movement C)
 ]:
     """One edge c_i -> c_(i-1) of the right sweep (run on reversed inputs)."""
     xnp, _, _ = get_backend(True, tree_contains_jax((carry, x)))
@@ -521,8 +523,8 @@ def _utv_align_kernel(
         split:     typ.Tuple[int, int],       # (Na, Rb), static
         update:    typ.Tuple[str, ...],       # static: the stores updated (canonical letters); the rest transported
 ) -> typ.Tuple[
-    NDArray,   # U+. (d,)+C+(nT1, N)
-    NDArray,   # O+. (d,)+C+(rT1, nT1, rT1)
+    NDArray,   # D+. (d,)+C+(nT1, N)
+    NDArray,   # U+. (d,)+C+(rT1, nT1, rT1)
     NDArray,   # L+. (d,)+C+(rT1, nT1, rT1)
     NDArray,   # R+. (d,)+C+(rT1, nT1, rT1)
     NDArray,   # movement, shape=C
@@ -560,7 +562,7 @@ def _utv_align_kernel(
     PhiR, XiR = (xnp.concatenate([z[None], m], axis=0) for m, z in zip((PhiR, XiR), zero_msg))   # c_i -> c_(i-1)
     PhiD, XiD = _u_down_messages(H[..., Na:, :], L[..., Na:, Rb:], R[..., Rb:, Na:, :], U, PhiL, XiL, PhiR, XiR)
 
-    # -- step 2, up edges: one completion per sharing group, the members' contents side by side
+    # -- step 2, the down store's edges (l_i -> c_i): one completion per sharing group, members side by side
     Abar = D[..., :Na, :].swapaxes(-2, -1)                                       # (d,)+C+(N, Na)
     g_old, g_new = D[..., Na:, :].swapaxes(-2, -1), V[..., Na:, :].swapaxes(-2, -1)
     Y = _u_content_d(g_old, g_new, PhiD[..., Na:], XiD) if 'D' in update else g_old
@@ -589,7 +591,7 @@ def _utv_align_kernel(
         rowR, pinR, selR), empty_edge, True)
     moves += [mvL, mvR]
 
-    # -- down edges, all modes at once, with the incoming coordinate maps (zero past the ends)
+    # -- the up store's edges (c_i -> l_i), all modes at once, with the incoming coordinate maps (zero past the ends)
     oL, PsiL = (xnp.concatenate([z[None], a], axis=0) for a, z in zip((oL, PsiL), zero_edge))   # c_(i-1) -> c_i
     oR, PsiR = (xnp.concatenate([a, z[None]], axis=0) for a, z in zip((oR, PsiR), zero_edge))   # c_(i+1) -> c_i
     M = (_new_coordinates_d(_new_coordinates_d(H[..., Na:, :], oL, -3), oR, -1)
@@ -638,7 +640,7 @@ def utv_align_padded_frame(
     core = (d,) + C + (rT, nT, rT)
     for name, A, want in (('down', D, (d,) + C + (nT, N)), ('up', U, core), ('left', L, core), ('right', R, core),
                           ('tucker variations', V, (d,) + C + (nT, N)), ('tt variations', H, core),
-                          ('up mask', mD, (d,) + C + (nT,)), ('down mask', mU, (d,) + C + (nT,)),
+                          ('down mask', mD, (d,) + C + (nT,)), ('up mask', mU, (d,) + C + (nT,)),
                           ('left mask', mL, (d + 1,) + C + (rT,)), ('right mask', mR, (d + 1,) + C + (rT,))):
         if tuple(A.shape) != want:
             raise ValueError('%s has shape %s; block layout (nD = nU = %d, rL = rR = %d) gives %s'
@@ -757,7 +759,7 @@ def _record(
 
 def _aligning_pass(
         statics:  typ.Tuple,                  # (project, hint, shape, masks, split, (tucker, tt) output ranks or (None, None), sharing, update)
-        cores:    typ.Tuple[NDArray, ...],    # (U, O, L, R) in block layout at `masks`
+        cores:    typ.Tuple[NDArray, ...],    # (D, U, L, R) in block layout at `masks`
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],                  # the cores after the pass
     typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # their masks (host)

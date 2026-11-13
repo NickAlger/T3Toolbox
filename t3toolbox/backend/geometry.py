@@ -101,9 +101,9 @@ DEFAULT_CURVATURE_DAMPING = 1e-6    # the exact Hessian's lift damping, RELATIVE
 # The math the geometries bind (named, so a raw-.data user can find and reuse it)
 # --------------------------------------------------------------------------------------------------
 def t3_left_orthogonal_norm_sq(
-        x_cores:  typ.Tuple,   # (tucker_cores, tt_cores) -- a LEFT-orthogonal T3 (a frame's (U,P), or a retracted point)
+        x_cores:  typ.Tuple,   # (tucker_cores, tt_cores) -- a LEFT-orthogonal T3 (a frame's (D,L), or a retracted point)
 ) -> NDArray:                  # ‖X‖²_HS, shape = stack C (a 0-d scalar for C=()); PER-ELEMENT over the stack
-    """``‖X‖²_HS = ‖last TT core‖²`` -- exact for a left-orthogonal T3 (the frame's ``(U,P)`` or a
+    """``‖X‖²_HS = ‖last TT core‖²`` -- exact for a left-orthogonal T3 (the frame's ``(D,L)`` or a
     ``t3svd`` retraction output), so no dense tensor and no re-orthogonalization. The left-orthogonal
     precondition is check-free here (backend) and is the caller's responsibility: on a raw point the value
     is simply wrong (measured 3 vs 1400 on a ``randn`` point -- the 2026-08-22 review). Use
@@ -116,40 +116,40 @@ def t3_left_orthogonal_norm_sq(
 
 
 def fv_base_point_tangent(
-        frame:  typ.Tuple,    # (U, O, P, Q) -- an orthogonal frame
+        frame:  typ.Tuple,    # (D, U, L, R) -- an orthogonal frame
 ) -> typ.Tuple:               # v_X: the attachment point X as a gauged tangent (tucker_var, tt_var)
-    """The attachment point ``X = (U, P)`` as a gauged tangent ``v_X`` -- **the DIRECT construction**: all
-    variations zero except the last TT variation, set to the frame's last left core ``P_last``. This is
+    """The attachment point ``X = (D, L)`` as a gauged tangent ``v_X`` -- **the DIRECT construction**: all
+    variations zero except the last TT variation, set to the frame's last left core ``L_last``. This is
     already gauged (the last TT variation is the one slot with no gauge condition), so it needs neither an
     ambient projection nor a gauge projection: ``dense(v_X) = X`` and ``‖v_X‖_coord = ‖X‖_HS`` exactly.
-    (It equals ``tv_project_t3_onto_tangent_space(frame, (U, P))`` -- verified -- but avoids that roundabout
+    (It equals ``tv_project_t3_onto_tangent_space(frame, (D, L))`` -- verified -- but avoids that roundabout
     computation, whose environment contractions all collapse since the projected T3 IS the frame's own
     cores. See ``docs/contributor/fitting_internals.md`` §Regularization.)"""
     down, _up, left, _right = frame
     stack = down[0].shape[:-2]                                         # the frame stack C
     tucker_var, tt_var = fv_operations.fv_variations_zeros(
         fv_operations.fv_variation_shapes(frame), stack, tree_contains_jax(frame))
-    return (tucker_var, tt_var[:-1] + (left[-1],))                   # last TT variation = P_last
+    return (tucker_var, tt_var[:-1] + (left[-1],))                   # last TT variation = L_last
 
 
 def ufv_base_point_tangent(
         frame_data:  typ.Tuple,   # uniform frame .data = (down_sc, up_sc, left_sc, right_sc, shape, masks)
 ) -> typ.Tuple:                   # v_X as a bare variation supercore pair (tucker_var_sc, tt_var_sc)
     """The uniform twin of :py:func:`fv_base_point_tangent`: the attachment point as a gauged tangent,
-    all variation slots zero except the last TT slice, set to the frame's last left core ``P_last``.
+    all variation slots zero except the last TT slice, set to the frame's last left core ``L_last``.
 
     The variation supercore shapes come from
     :py:func:`~t3toolbox.backend.ufv_operations.ufv_variation_shapes`, which is where the frame axis
     convention is written down. Do not re-derive them here: the tempting shortcut ("the Tucker
-    variation has the ``up`` supercore's shape") holds only when ``nU == nD``, which is true of most
-    unshared ranks and false as soon as a sharing group's rank differs from the down rank."""
+    variation has the ``down`` supercore's shape") holds only when ``nU == nD``, which is true of most
+    unshared ranks and false as soon as a sharing group's rank differs from the up rank."""
     left_sc = frame_data[2]
     xnp, _, _ = get_backend(True, tree_contains_jax(frame_data))
     tucker_var_shape, tt_var_shape = ufv_operations.ufv_variation_shapes(frame_data)
     d = tucker_var_shape[0]
     tucker_var_sc = xnp.zeros(tucker_var_shape)                        # all zero
     tt_var_sc = xnp.concatenate([xnp.zeros((d - 1,) + tt_var_shape[1:]),
-                                 left_sc[-1:]], axis=0)                # zero except last = P_last
+                                 left_sc[-1:]], axis=0)                # zero except last = L_last
     return (tucker_var_sc, tt_var_sc)
 
 
@@ -214,7 +214,7 @@ def _lift_sigma_min(
 
 
 def _manifold_curvature_data(
-        frame:              typ.Tuple,   # (U, O, P, Q) -- an orthogonal frame
+        frame:              typ.Tuple,   # (D, U, L, R) -- an orthogonal frame
         misfit_gradient:    typ.Tuple,   # gauged coordinates of grad f (the misfit's Riemannian gradient), stack C
         curvature_damping:  float,       # RELATIVE: eps = curvature_damping * ||X||_HS, >= 0
         shared_data:        typ.Optional[sharing_module.SharedFrameData] = None,   # shared: the frame's companion
@@ -288,7 +288,7 @@ class ManifoldGeometryOps(ValueHashedFields):
     def frame(
             self,
             x_cores:  typ.Tuple,   # (tucker_cores, tt_cores)
-    ) -> typ.Tuple:                # (U, O, P, Q) orthonormal frame (Algorithm 11)
+    ) -> typ.Tuple:                # (D, U, L, R) orthonormal frame (Algorithm 11)
         """The linearization frame at ``x_cores``."""
         frame, _ = t3_orthogonal_representations(x_cores)
         return frame
@@ -303,15 +303,15 @@ class ManifoldGeometryOps(ValueHashedFields):
 
     def base_point(
             self,
-            frame:  typ.Tuple,   # (U, O, P, Q)
-    ) -> typ.Tuple:              # (tucker_cores, tt_cores) = (U, P) -- the tensor the frame is attached to
-        """The point ``X = (U, P)`` the frame is attached to. What a frame *is* belongs to the geometry,
+            frame:  typ.Tuple,   # (D, U, L, R)
+    ) -> typ.Tuple:              # (tucker_cores, tt_cores) = (D, L) -- the tensor the frame is attached to
+        """The point ``X = (D, L)`` the frame is attached to. What a frame *is* belongs to the geometry,
         so consumers (the regularizer, diagnostics) ask for the point rather than indexing the tuple."""
         return (frame[0], frame[2])
 
     def precompute(
             self,
-            frame:  typ.Tuple,   # (U, O, P, Q)
+            frame:  typ.Tuple,   # (D, U, L, R)
     ) -> typ.Any:                # the per-frame geometry companion, or None when there is none
         """The per-frame companion ``project`` / ``retract`` reuse -- the SF-T3 shared-frame data when
         tied, ``None`` otherwise. Computed ONCE per local model (the ``sweep`` pattern) rather than once
@@ -345,7 +345,7 @@ class ManifoldGeometryOps(ValueHashedFields):
     def point_norm_sq(self, x_cores):
         """``‖X‖²_HS`` -- the regularizer's objective term; **per-element over the stack ``C``**
         (shape = ``C``, a 0-d scalar unstacked). Exact for ANY point: left-orthogonalizes first
-        (Tucker up-orth + one left TT sweep, no ``W`` factor -- negligible beside the misfit evaluation it
+        (Tucker down-orth + one left TT sweep, no ``W`` factor -- negligible beside the misfit evaluation it
         always sits next to), then reads ``‖last TT core‖²``. The uniform twin does the same. The check-free
         fast path for a point known to be left-orthogonal is :py:func:`t3_left_orthogonal_norm_sq`."""
         tucker, tt = x_cores
@@ -358,8 +358,8 @@ class ManifoldGeometryOps(ValueHashedFields):
 
     def zero_point_frame(
             self,
-            frame:  typ.Tuple,   # (U, O, P, Q) -- a frame of this geometry: the STRUCTURE to copy
-    ) -> typ.Tuple:              # (U, O, P, Q) -- the canonical orthonormal frame at the zero tensor
+            frame:  typ.Tuple,   # (D, U, L, R) -- a frame of this geometry: the STRUCTURE to copy
+    ) -> typ.Tuple:              # (D, U, L, R) -- the canonical orthonormal frame at the zero tensor
         """The canonical frame at the zero tensor with ``frame``'s ranks -- where the default Newton
         reference ``‖g(0)‖`` is evaluated (``newton_cg(g0_reference='zero')``). One seeded Haar Tucker
         factor per sharing group: :py:func:`~t3toolbox.backend.fv_operations.fv_zero_point_frame`."""
@@ -419,7 +419,7 @@ class ManifoldGeometryOps(ValueHashedFields):
         stores = ranks.compute_orthogonal_representation_ranks(shape, tucker, tt)
         expected = padded_frames._frame_core_shapes(shape, *stores, self.stack_shape(x_cores))
         if len(frame) != 4:
-            raise ValueError('start frame: expected (up, down, left, right), got %d parts' % len(frame))
+            raise ValueError('start frame: expected (down, up, left, right), got %d parts' % len(frame))
         for store, cores, shapes in zip(('down', 'up', 'left', 'right'), frame, expected):
             got = tuple(tuple(c.shape) for c in cores)
             if got != tuple(shapes):
@@ -430,7 +430,7 @@ class ManifoldGeometryOps(ValueHashedFields):
     # ---- the exact Hessian (hessian='exact' only) -------------------------------------------------
     def curvature_precompute(
             self,
-            frame:              typ.Tuple,                   # (U, O, P, Q)
+            frame:              typ.Tuple,                   # (D, U, L, R)
             misfit_gradient:    typ.Tuple,                   # Pi J^T omega^2 r: the model's ONE misfit transpose
             aux:                typ.Any,                     # self.precompute(frame)
             curvature_damping:  typ.Optional[float],         # RELATIVE to ||X||_HS; None -> DEFAULT_CURVATURE_DAMPING
@@ -448,7 +448,7 @@ class ManifoldGeometryOps(ValueHashedFields):
 
         **Shared** (``groups``): the shared set is parametrized as ``Phi(T theta_sh)``, ``T`` copying each
         group's factor, so its Hessian is the same formula through the TIED lift -- one factor direction per
-        group, ``Udot_g = M_g^{+eps} [V_i1; ...]`` against ``aux``'s stacked-``S`` SVD
+        group, ``Bdot_g = M_g^{+eps} [V_i1; ...]`` against ``aux``'s stacked-``S`` SVD
         (:py:func:`~t3toolbox.backend.sharing.fv_tied_lift_factors`), its adjoint summing the group's copies --
         with ``misfit_gradient`` the TIED gradient (what :py:meth:`project` with ``aux`` returns), so the
         normal part is the shared manifold's; ``hvp``'s outer projection ties the result. The smallest lift
@@ -466,9 +466,9 @@ class ManifoldGeometryOps(ValueHashedFields):
                                         shared_data=aux if aux is not None else self.precompute(frame))
 
     def lift(self, frame, variations, curvature_data):
-        """Gauged (or not) coordinates -> raw core variations of the base point ``(U, P)``, ``theta_hat = L v``
-        (:py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift`; tied -- one factor direction per sharing
-        group -- on a shared geometry); stack ``K + C``."""
+        """Gauged (or not) coordinates -> raw core variations of the base point ``(D, L)``, ``theta_hat``, the lift
+        of ``v`` (:py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift`; tied -- one factor direction per
+        sharing group -- on a shared geometry); stack ``K + C``."""
         return tops.tv_corewise_lift(frame, variations, curvature_data.lift_factors)
 
     def lift_transpose(self, frame, core_variations, curvature_data):
@@ -488,7 +488,7 @@ class CorewiseGeometryOps(ValueHashedFields):
     """The core-parameter Euclidean geometry on raw ``(tucker_cores, tt_cores)`` data -- the check-free
     twin of :py:data:`t3toolbox.manifold.COREWISE`.
 
-    The raw cores ARE the frame (the Section 6.3 substitution ``(P, Q, O) -> G``), there is no gauge, and
+    The raw cores ARE the frame (the Section 6.3 substitution ``(U, L, R) -> G``), there is no gauge, and
     the retraction is additive (``cores += variations``). With a non-empty ``groups`` the projection is
     the per-group arithmetic mean (the corewise coordinates are raw factor copies, so that IS the
     orthogonal projection onto the tied subspace) and the additive retraction preserves tying exactly, so
@@ -506,8 +506,8 @@ class CorewiseGeometryOps(ValueHashedFields):
     def frame(
             self,
             x_cores:  typ.Tuple,   # (tucker_cores, tt_cores)
-    ) -> typ.Tuple:                # (U, O, P, Q) = (U, G, G, G) -- the raw cores ARE the frame
-        """The (non-orthonormal) corewise frame: the Section 6.3 substitution ``(P, Q, O) -> G``."""
+    ) -> typ.Tuple:                # (D, U, L, R) = (B, G, G, G) -- the raw cores ARE the frame
+        """The (non-orthonormal) corewise frame: the Section 6.3 substitution ``(U, L, R) -> G``."""
         return t3_corewise_frame(x_cores)
 
     def stack_shape(
@@ -519,7 +519,7 @@ class CorewiseGeometryOps(ValueHashedFields):
         return tuple(x_cores[0][0].shape[:-2])
 
     def base_point(self, frame):
-        """The point ``X = (U, G)`` the frame is attached to (see :py:meth:`ManifoldGeometryOps.base_point`)."""
+        """The point ``X = (B, G)`` the frame is attached to (see :py:meth:`ManifoldGeometryOps.base_point`)."""
         return (frame[0], frame[2])
 
     def precompute(self, frame):
@@ -533,7 +533,7 @@ class CorewiseGeometryOps(ValueHashedFields):
         return sharing_module.fv_share_tucker_variations_corewise(variations, self.groups)
 
     def retract(self, frame, variations, aux=None):
-        """The additive retraction ``(U, G) += variations`` (mean-tied first when shared, which keeps
+        """The additive retraction ``(B, G) += variations`` (mean-tied first when shared, which keeps
         tied-in giving tied-out; the group's factors come back as one aliased array)."""
         new = cw.corewise_add(self.base_point(frame), self.project(frame, variations))
         if not self.groups:
@@ -551,7 +551,7 @@ class CorewiseGeometryOps(ValueHashedFields):
         return cw.corewise_stack_dot(x_cores, x_cores, x_cores[0][0].ndim - 2)
 
     def point_tangent(self, frame):
-        """The cores ``(U, G)`` as a tangent (the projection is the identity here; ``X_ref = 0``)."""
+        """The cores ``(B, G)`` as a tangent (the projection is the identity here; ``X_ref = 0``)."""
         return self.base_point(frame)
 
     def zero_point_frame(self, frame) -> None:
@@ -599,9 +599,9 @@ def _var_masks_for(
 
 
 def _uniform_point(
-        frame_data:  typ.Tuple,   # uniform frame .data = (U, O, P, Q, shape, (up, down, left, right) masks)
-) -> typ.Tuple:                   # the base point (U, P) as plain-UT3 .data, with the FRAME's (up, left) masks
-    """The point a uniform frame is attached to, as plain-UT3 ``.data`` carrying the frame's own ``(up, left)``
+        frame_data:  typ.Tuple,   # uniform frame .data = (D, U, L, R, shape, (down, up, left, right) masks)
+) -> typ.Tuple:                   # the base point (D, L) as plain-UT3 .data, with the FRAME's (down, left) masks
+    """The point a uniform frame is attached to, as plain-UT3 ``.data`` carrying the frame's own ``(down, left)``
     masks -- the masks the exact Hessian's uniform kernels mask ``theta`` and ``theta_hat`` with (the frame's,
     not the point's: at TT slack the frame's are a strict subset)."""
     return (frame_data[0], frame_data[2], tuple(frame_data[4]), (frame_data[5][0], frame_data[5][2]))
@@ -609,7 +609,7 @@ def _uniform_point(
 
 def _uniform_lift_sigma_min(
         lift_factors:  fv_operations.LiftFactors,   # supercore-valued (ufv_[tied_]lift_factors), stack C
-        frame_masks:   typ.Tuple,                   # the frame's (up, down, left, right) masks; HOST bool
+        frame_masks:   typ.Tuple,                   # the frame's (down, up, left, right) masks; HOST bool
 ) -> NDArray:                                       # shape=C: the smallest REAL singular value the lift inverts
     """The uniform twin of :py:func:`_lift_sigma_min`: the minimum over every REAL singular value of the
     Tucker factors ``S_i^T`` of the modes the lift does not tie, the bond factors ``T_i`` and -- at a shared point --
@@ -683,7 +683,7 @@ class UniformManifoldGeometryOps(ValueHashedFields):
 
     shape:      typ.Tuple[int, ...]   # the mode sizes
     masks:      typ.Tuple             # plain-UT3 rank masks (tucker_edge_mask, tt_edge_mask); HOST numpy
-    var_masks:  typ.Tuple             # variation masks (up, down, frame_left[:-1], frame_right[1:]); HOST numpy
+    var_masks:  typ.Tuple             # variation masks (down, up, frame_left[:-1], frame_right[1:]); HOST numpy
     groups:     typ.Tuple[typ.Tuple[int, ...], ...] = ()   # sharing partition; () = unshared
 
     @classmethod
@@ -704,7 +704,7 @@ class UniformManifoldGeometryOps(ValueHashedFields):
     @classmethod
     def from_frame(
             cls,
-            frame_data:   typ.Tuple,                          # uniform frame .data = (U, O, P, Q, shape, masks)
+            frame_data:   typ.Tuple,                          # uniform frame .data = (D, U, L, R, shape, masks)
             plain_masks:  typ.Tuple,                          # the point's plain-UT3 (tucker, tt) masks; HOST bool
             sharing:      typ.Optional[typ.Sequence] = None,  # len=d group labels; None = unshared
     ) -> 'UniformManifoldGeometryOps':
@@ -739,7 +739,7 @@ class UniformManifoldGeometryOps(ValueHashedFields):
     def frame(
             self,
             x_sc:  typ.Tuple,   # bare (tucker_supercore, tt_supercore) at this geometry's rank
-    ) -> typ.Tuple:             # uniform frame .data = (up, down, left, right, shape, masks)
+    ) -> typ.Tuple:             # uniform frame .data = (down, up, left, right, shape, masks)
         """The orthonormal frame at ``x_sc``, using this geometry's held shape and rank masks."""
         return ufv_conversions.ut3_orthogonal_representations(
             (x_sc[0], x_sc[1], self.shape, self.masks))[0]
@@ -752,7 +752,7 @@ class UniformManifoldGeometryOps(ValueHashedFields):
         return tuple(x_sc[0].shape[1:-2])
 
     def base_point(self, frame_data):
-        """The bare supercore pair ``(U, P)`` the frame is attached to."""
+        """The bare supercore pair ``(D, L)`` the frame is attached to."""
         return (frame_data[0], frame_data[2])
 
     def precompute(self, frame_data):
@@ -812,7 +812,7 @@ class UniformManifoldGeometryOps(ValueHashedFields):
             self,
             frame_data:  typ.Tuple,          # uniform frame .data at any widths and masks (a block-layout frame too)
     ) -> 'UniformManifoldGeometryOps':       # the geometry at that frame's structure, this geometry's groups
-        """The geometry whose variation masks are ``frame_data``'s own (``from_frame`` with its up and left masks)."""
+        """The geometry whose variation masks are ``frame_data``'s own (``from_frame`` with its down and left masks)."""
         return dc.replace(self.from_frame(frame_data, (frame_data[5][0], frame_data[5][2])), groups=self.groups)
 
     def aligned_padded_frame(
@@ -863,7 +863,7 @@ class UniformManifoldGeometryOps(ValueHashedFields):
         fix = ('Pass a frame of this point at this geometry\'s level: its frame(x), or its aligned padded frame '
                '(compacted to the level widths)')
         if len(frame) != 6:
-            raise ValueError('start frame: expected uniform frame data (up, down, left, right, shape, masks), got %d '
+            raise ValueError('start frame: expected uniform frame data (down, up, left, right, shape, masks), got %d '
                              'parts. %s' % (len(frame), fix))
         D, U, L, R, shape, masks = frame
         require_concrete_masks(*masks)
@@ -883,14 +883,14 @@ class UniformManifoldGeometryOps(ValueHashedFields):
             if len(set(w)) != 1:
                 raise ValueError('start frame: the %s supercore widths %r disagree with its masks. %s' % (name, w, fix))
         if U.shape[-3] != masks[2].shape[-1] or U.shape[-1] != masks[3].shape[-1]:
-            raise ValueError('start frame: the down supercore\'s bond widths disagree with the left/right masks. %s' % fix)
+            raise ValueError('start frame: the up supercore\'s bond widths disagree with the left/right masks. %s' % fix)
         if D.shape[-1] != x_cores[0].shape[-1]:
             raise ValueError('start frame: padded N = %d, the point\'s %d. %s' % (D.shape[-1], x_cores[0].shape[-1], fix))
 
     # ---- the exact Hessian (hessian='exact' only) -------------------------------------------------
     def curvature_precompute(
             self,
-            frame_data:         typ.Tuple,                   # uniform frame .data = (U, O, P, Q, shape, masks)
+            frame_data:         typ.Tuple,                   # uniform frame .data = (D, U, L, R, shape, masks)
             misfit_gradient:    typ.Tuple,                   # bare pair Pi J^T omega^2 r: the ONE misfit transpose
             aux:                typ.Any,                     # self.precompute(frame_data)
             curvature_damping:  typ.Optional[float],         # RELATIVE to ||X||_HS; None -> DEFAULT_CURVATURE_DAMPING
@@ -920,9 +920,9 @@ class UniformManifoldGeometryOps(ValueHashedFields):
                                                 shared_data=aux if aux is not None else self.precompute(frame_data))
 
     def lift(self, frame_data, var_sc, curvature_data):
-        """Coordinates -> raw core variations of the base point ``(U, P)``, ``theta_hat = L v``, on bare supercore
-        pairs (stack ``K + C``): :py:func:`~t3toolbox.backend.utv_operations.utv_corewise_lift`, masked on entry
-        with the frame's variation masks and re-masked on exit with its ``(up, left)`` masks."""
+        """Coordinates -> raw core variations of the base point ``(D, L)``, ``theta_hat``, the lift of ``v``, on bare
+        supercore pairs (stack ``K + C``): :py:func:`~t3toolbox.backend.utv_operations.utv_corewise_lift`, masked on
+        entry with the frame's variation masks and re-masked on exit with its ``(down, left)`` masks."""
         stack = var_sc[0].shape[1:-2]
         variations = (var_sc[0], var_sc[1], tuple(frame_data[4]),
                       ufv_masking.ufv_variation_masks_over_stack(frame_data[5], frame_data[0].shape[1:-2], stack))
@@ -953,7 +953,7 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
     As :py:class:`CorewiseGeometryOps`: the cores are the frame, no gauge, additive retraction; and as
     :py:class:`UniformManifoldGeometryOps`, the rank structure is held here because the optimizer state
     is a bare supercore pair. The variation masks are a pure derivation of the plain masks here (the
-    ``(U, G, G, G)`` frame's gauge shift), so ``from_point`` needs no orthogonalization."""
+    ``(B, G, G, G)`` frame's gauge shift), so ``from_point`` needs no orthogonalization."""
 
     shape:   typ.Tuple[int, ...]   # the mode sizes
     masks:   typ.Tuple             # plain-UT3 rank masks (tucker_edge_mask, tt_edge_mask); HOST numpy
@@ -980,7 +980,7 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
 
     @property
     def var_masks(self) -> typ.Tuple:
-        """The variation masks of the ``(U, G, G, G)`` frame -- the corewise frame's mask set put
+        """The variation masks of the ``(B, G, G, G)`` frame -- the corewise frame's mask set put
         through the gauge shift. A pure derivation of :py:attr:`masks`, so it is a property rather
         than a stored field."""
         tucker_mask, tt_mask = self.masks
@@ -992,7 +992,7 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
     def frame(
             self,
             x_sc:  typ.Tuple,   # bare (tucker_supercore, tt_supercore)
-    ) -> typ.Tuple:             # uniform frame .data = (U, G, G, G, shape, masks)
+    ) -> typ.Tuple:             # uniform frame .data = (B, G, G, G, shape, masks)
         """The corewise frame: the cores themselves, with the doubled mask set."""
         return ufv_conversions.ut3_corewise_frame((x_sc[0], x_sc[1], self.shape, self.masks))
 
@@ -1004,7 +1004,7 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
         return tuple(x_sc[0].shape[1:-2])
 
     def base_point(self, frame_data):
-        """The bare supercore pair ``(U, G)`` the frame is attached to."""
+        """The bare supercore pair ``(B, G)`` the frame is attached to."""
         return (frame_data[0], frame_data[2])
 
     def precompute(self, frame_data):
@@ -1032,7 +1032,7 @@ class UniformCorewiseGeometryOps(ValueHashedFields):
         return self.inner(x_sc, x_sc)
 
     def point_tangent(self, frame_data):
-        """The cores ``(U, G)`` as a tangent (the projection is the identity here)."""
+        """The cores ``(B, G)`` as a tangent (the projection is the identity here)."""
         return self.base_point(frame_data)
 
     def zero_point_frame(self, frame_data) -> None:

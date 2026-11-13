@@ -406,7 +406,7 @@ class TestDispatch(unittest.TestCase):
             self.assert_jit_jax(
                 lambda cc, ix, p, b: pd.tv_entries_derivatives_transpose(cc, ix, p, b, 3, sum_over_probes=sop),
                 ca, idx, list(self.zz), self.frame.data)
-        # corewise derivative transposes (P,Q,O->G substitution): gradient w.r.t. the frame's own cores
+        # corewise derivative transposes (U,L,R->G substitution): gradient w.r.t. the frame's own cores
         self.assert_jit_jax(
             lambda rr, w, p, cp: pd.t3_probe_corewise_derivatives_transpose(rr, w, p, cp, 3, sum_over_probes=True),
             rt, list(self.ww), list(self.zz), self.x.data)
@@ -561,7 +561,7 @@ class TestDispatch(unittest.TestCase):
         order, W = 2, 7
         rnd = lambda *s: jnp.asarray(np.random.randn(*s))
         fd = self.frame.data
-        theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (U, L)
+        theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (D, L)
         ww = tuple(rnd(W, N) for N in STRUCT[0])
         pp = tuple(rnd(W, N) for N in STRUCT[0])
         zt = tuple(rnd(order + 1, W, N) for N in STRUCT[0])                      # residual jets, no K
@@ -607,7 +607,7 @@ class TestDispatch(unittest.TestCase):
         W = 7
         rnd = lambda *s: jnp.asarray(np.random.randn(*s))
         fd = self.frame.data
-        theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (U, L)
+        theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (D, L)
         dirs = (tuple(rnd(3, *B.shape) for B in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
         ww = tuple(rnd(W, N) for N in STRUCT[0])
         index = jnp.asarray(np.stack([np.random.randint(0, N, size=W) for N in STRUCT[0]]))
@@ -679,7 +679,7 @@ class TestDispatch(unittest.TestCase):
         W, order = 7, 2
         rnd = lambda *s: jnp.asarray(np.random.randn(*s))
         fd = self.frame.data
-        theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (U, L)
+        theta = (tuple(fd[0]), tuple(fd[2]))                                     # the base point (D, L)
         dirs = (tuple(rnd(3, *B.shape) for B in theta[0]), tuple(rnd(3, *G.shape) for G in theta[1]))  # K=(3,)
         pp = tuple(rnd(W, N) for N in STRUCT[0])
         c = rnd(order + 1, W)                                                    # the residual jet, no K
@@ -1894,8 +1894,8 @@ class TestDispatch(unittest.TestCase):
         d, N, nD, nU, rL, rR = 3, 6, 4, 5, 3, 2
         pm = lambda r, p: np.arange(p) < np.asarray(r)[..., None]
         def make_frame():
-            down    = jnp.asarray(np.random.randn(d, nD, N))
-            up  = jnp.asarray(np.random.randn(d, rL, nU, rR))
+            down  = jnp.asarray(np.random.randn(d, nD, N))
+            up    = jnp.asarray(np.random.randn(d, rL, nU, rR))
             left  = jnp.asarray(np.random.randn(d, rL, nD, rL))
             right = jnp.asarray(np.random.randn(d, rR, nD, rR))
             masks = ubv.UT3FrameMasks(pm([2,3,4],nD), pm([3,4,5],nU), pm([1,2,3,1],rL), pm([1,2,2,1],rR))
@@ -1983,7 +1983,7 @@ class TestDispatch(unittest.TestCase):
         shared, a nonzero old frame with an in-block completion, and a stack C = (2,)."""
         np.random.seed(1)
         shape, old_ranks, new_ranks = (4, 4, 4, 4), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((2, 2, 2, 3), (1, 2, 3, 2, 1))
-        x_old = t3.TuckerTensorTrain.randn(shape, *old_ranks)                  # -> L_1 in-block; U_3 Haar-completed
+        x_old = t3.TuckerTensorTrain.randn(shape, *old_ranks)                  # -> L_1 in-block; D_3 Haar-completed
         x_old_C = t3.TuckerTensorTrain.randn(shape, *old_ranks, stack_shape=(2,))
         to_jax = lambda f: jax.tree_util.tree_map(jnp.asarray, f)
         f = jax.jit(padded_frames.fv_padded_frame, static_argnames=('tucker_ranks', 'tt_ranks', 'sharing', 'seed'))

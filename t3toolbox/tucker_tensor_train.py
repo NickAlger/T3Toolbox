@@ -612,7 +612,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         Minimal ranks satisfy:
             - Left TT core unfoldings are full rank: ``r(i+1) <= (ri*ni)``
             - Right TT core unfoldings are full rank: ``ri <= (ni*r(i+1))``
-            - Down TT core unfoldings are full rank: ``ni <= (ri*r(i+1))``
+            - Up TT core unfoldings are full rank: ``ni <= (ri*r(i+1))``
             - Tucker ranks do not exceed shape: ``ni <= Ni``
 
         In this function, minimal ranks are defined with respect to a
@@ -2953,7 +2953,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         'TuckerTensorTrain',  # new_x
         NDArray,  # singular values, shape=(new_ni,)
     ]:
-        '''Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below.
+        '''Compute SVD of ith TT-core up unfolding and contract non-orthogonal factor down into the tucker core below.
 
         Parameters
         ----------
@@ -2975,7 +2975,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         Returns
         -------
         new_x: TuckerTensorTrain
-            New TuckerTensorTrain representing the same tensor, but with ith TT-core down orthogonal.
+            New TuckerTensorTrain representing the same tensor, but with ith TT-core up orthogonal.
             I.e., ``einsum('...iaj,...ibj->...ab', G, G) = (stacked) identity matrix``, where ``G=new_tt_cores[ii]``.
             May have different ith Tucker rank.
         ss: NDArray
@@ -2999,7 +2999,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         True
         >>> tucker_cores2, tt_cores2 = x2.data
         >>> G = tt_cores2[ind]
-        >>> print(bool(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1])) < 1e-12)) # TT-core is down orthogonal
+        >>> print(bool(np.linalg.norm(np.einsum('iaj,ibj->ab', G, G) - np.eye(G.shape[1])) < 1e-12)) # TT-core is up orthogonal
         True
         '''
         result = ragged_orthogonalization.t3_up_svd_tt_core(
@@ -3105,7 +3105,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> XL = np.einsum('axb,xi -> aib', G0, B0) # Everything to the left of G1
         >>> print(bool(np.linalg.norm(np.einsum('aib,aic->bc', XL, XL) - np.eye(G1.shape[0])) < 1e-12)) # Left subtree is left orthogonal
         True
-        >>> print(bool(np.linalg.norm(np.einsum('xi,yi->xy', B1, B1) - np.eye(G1.shape[1])) < 1e-12)) # Core below G1 is up orthogonal
+        >>> print(bool(np.linalg.norm(np.einsum('xi,yi->xy', B1, B1) - np.eye(G1.shape[1])) < 1e-12)) # Core below G1 is down orthogonal
         True
         >>> XR = np.einsum('axb,xi->aib', G2, B2) # Everything to the right of G1
         >>> print(bool(np.linalg.norm(np.einsum('aib,cib->ac', XR, XR) - np.eye(G1.shape[2])) < 1e-12)) # Right subtree is right orthogonal
@@ -4030,7 +4030,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
 
         Gradient w.r.t. *this tensor's cores*, treated as independent optimization variables
         (Adam / L-BFGS). Returns a raw ``(tucker_grads, tt_grads)`` tuple shaped like ``self.data``
-        -- a gradient, not a tensor. The Section 6.3 substitution ``P,Q,O -> G`` into
+        -- a gradient, not a tensor. The Section 6.3 substitution ``U,L,R -> G`` into
         ``T3Tangent.probe_derivatives_transpose`` (no orthogonality required).
         ``sum_over_probes=True`` is the summed gradient ``J^T r``.
 
@@ -4261,7 +4261,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         ValueError
 
         Under truncation, ``t3svd`` does **not** guarantee minimal ranks -- a hard cap can leave a
-        Tucker rank above its structural bound (here ``n_0 = 3 > rL_0*r_1 = 1*2 = 2``). The result is
+        Tucker rank above its structural bound (here ``n_0 = 3 > r_0*r_1 = 1*2 = 2``). The result is
         left-orthogonal; reduce it to minimal with :py:meth:`rank_adjustment_sweep`
         (``'right_to_left'``, since a ``t3svd`` result is left-orthogonal):
 

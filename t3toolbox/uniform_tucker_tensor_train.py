@@ -543,7 +543,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         the supercores (treated as free variables) -- for a core-wise optimizer (Adam, L-BFGS).
 
         Returns the raw gradient supercores ``(tucker_grad, tt_grad)`` (a gradient, NOT a tensor). The
-        Section 6.3 ``(P,Q,O)->G`` substitution; no orthogonality required. ``sum_over_probes=True`` sums the
+        Section 6.3 ``(U,L,R)->G`` substitution; no orthogonality required. ``sum_over_probes=True`` sums the
         apply stack ``W`` (the Gauss-Newton ``Jᵀr``), so the grads are shaped exactly like the supercores;
         ``False`` keeps ``W`` as a leading grad stack. Uniform mirror of
         :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_transpose`.
@@ -607,7 +607,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         apply-derivative jets w.r.t. the supercores (treated as free variables), for a core-wise optimizer.
 
         Returns the raw gradient supercores ``(tucker_grad, tt_grad)`` (the order axis of ``c`` is summed, so
-        the grads have no order axis). The §6.3 ``(P,Q,O)->G`` substitution. ``sum_over_probes`` /
+        the grads have no order axis). The §6.3 ``(U,L,R)->G`` substitution. ``sum_over_probes`` /
         structural precondition as in :py:meth:`apply_corewise_transpose` / :py:meth:`probe_derivatives`.
         Uniform mirror of
         :py:meth:`~t3toolbox.tucker_tensor_train.TuckerTensorTrain.apply_corewise_derivatives_transpose`.

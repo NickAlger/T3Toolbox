@@ -641,14 +641,14 @@ def compute_orthogonal_representation_ranks(
     produces, without running it -- the uniform frame masks are built from these, so this recurrence must
     follow the sweep's ORDER exactly:
 
-    1. Tucker down-orthogonalization: ``up_i = min(n_i, N_i)``;
-    2. a LEFT sweep on the original TT bonds: ``left_{i+1} = min(left_i * up_i, r_{i+1})``;
-    3. a RIGHT sweep over the left-orthogonal chain: ``right_i = min(left_i, up_i * right_{i+1})``;
-    4. the down cores: ``down_i = min(up_i, left_i * right_{i+1})``.
+    1. Tucker down-orthogonalization: ``down_i = min(n_i, N_i)``;
+    2. a LEFT sweep on the original TT bonds: ``left_{i+1} = min(left_i * down_i, r_{i+1})``;
+    3. a RIGHT sweep over the left-orthogonal chain: ``right_i = min(left_i, down_i * right_{i+1})``;
+    4. the up cores: ``up_i = min(down_i, left_i * right_{i+1})``.
 
     The boundary bonds are 1 (the sweep squashes the tails). Until 2026-08-22 this ran the paper's
     right-then-left order on the original bonds; on minimal-rank structures the two agree, on any
-    non-minimal TT bond they do not, and the uniform frame's left/down masks were too small (review S1).
+    non-minimal TT bond they do not, and the uniform frame's left/up masks were too small (review S1).
     Host numpy throughout: ranks are static structure (``use_jax`` is accepted for compatibility and ignored).
     '''
     tucker_ranks_arr = np.asarray(tucker_ranks)
@@ -728,8 +728,8 @@ def compute_manifold_dim(
 
 def frame_has_minimal_ranks(
         shape:          typ.Sequence[int],
-        down_ranks:       typ.Sequence[int],
-        up_ranks:     typ.Sequence[int],
+        down_ranks:     typ.Sequence[int],
+        up_ranks:       typ.Sequence[int],
         left_ranks:     typ.Sequence[int],
         right_ranks:    typ.Sequence[int],
 
@@ -737,9 +737,9 @@ def frame_has_minimal_ranks(
 ) -> bool:
     '''True if a T3Frame with these (redundant) ranks is structurally minimal.
 
-    Requires the left/right and up/down rank stores to agree, and the up/left ranks to equal the
+    Requires the left/right and down/up rank stores to agree, and the down/left ranks to equal the
     minimal ranks for the shape. With ``sharing``, minimality is the SHARED notion
-    (:py:func:`compute_minimal_ranks` with ``sharing``): up ranks must additionally be equal within
+    (:py:func:`compute_minimal_ranks` with ``sharing``): down ranks must additionally be equal within
     each group (False otherwise -- untied ranks cannot carry tied factors), and the group ceiling
     can keep a rank the per-mode reduction would clip. A diagnostic, never a precondition (minimal
     rank -- shared or not -- is not a correctness precondition for any verified operation, and a

@@ -8,7 +8,7 @@ Newton-CG): same target tensor, a different information source (entries), the *o
 
   1. **Entries / tensor completion** -- the most intuitive sampling op: we observe ``A`` at a handful of
      random multi-indices and "fill in" the rest by fitting a low-rank ``X`` with ``X[idx] ~ A[idx]``.
-  2. **The corewise geometry** (``t3m.COREWISE``) -- optimize on the raw core parameters ``(U, G, G, G)``
+  2. **The corewise geometry** (``t3m.COREWISE``) -- optimize on the raw core parameters ``(B, G, G, G)``
      with the Euclidean metric and additive retraction (``cores += step``), rather than on the fixed-rank
      manifold. The corewise Gauss-Newton Hessian is gauge-singular, but first-order / quasi-Newton methods
      (L-BFGS, Adam) tolerate that: the gradient is gauge-orthogonal, so the gauge directions are harmless

@@ -186,7 +186,7 @@ def up_orthogonalize_tt_supercores(
         row_mask: typ.Optional[NDArray] = None,  # HOST bool, broadcastable to (d,)+stack+(rL*rR,); True = real (a,b) slot
         col_mask: typ.Optional[NDArray] = None,  # HOST bool, broadcastable to (d,)+stack+(n,); True = real rank slot
         out_mask: typ.Optional[NDArray] = None,  # HOST bool, broadcastable to (d,)+stack+(min(rL*rR,n),); real output slots
-) -> typ.Tuple[NDArray, NDArray]:   # (new_tucker = variations V, new_tt = down-orthogonal O)
+) -> typ.Tuple[NDArray, NDArray]:   # (new_tucker = variations V, new_tt = up-orthogonal U)
     """Bare batched TT-up SVD on supercores (assumes masked input): the TT mode index becomes orthonormal
     over the bonds, the remainder pushed down into the Tucker core. The SVD core of
     :py:func:`ut3_up_orthogonalize_tt_cores`; also reused by the orthogonal-representation sweep

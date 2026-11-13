@@ -105,17 +105,17 @@ def _corrupt(obj, scale=1e3):
 def _expected_doubled_masks(frame):
     """Independently build the doubled (tucker_edge_mask, tt_edge_mask) from the BASE ranks + the paper
     rule (eqs 50-53) -- a different derivation than utv_to_ut3's concat, so the comparison is
-    non-circular. Tucker = prefix-pair [up | down]; TT bond = [Q-block | P-block] with honest boundaries
-    (Q0=0, Qi=right_rank_i; Pd=0, Pi=left_rank_i)."""
+    non-circular. Tucker = prefix-pair [down | up]; TT bond = [R-block | L-block] with honest boundaries
+    (R0=0, Ri=right_rank_i; Ld=0, Li=left_rank_i)."""
     nD, nU, rL, rR = frame.nD, frame.nU, frame.rL, frame.rR
     down_r, up_r = np.asarray(frame.down_ranks), np.asarray(frame.up_ranks)      # (d,)  +C
     left_r, right_r = np.asarray(frame.left_ranks), np.asarray(frame.right_ranks)  # (d+1,)+C
     tucker = np.concatenate([np.arange(nD) < down_r[..., None],
-                             np.arange(nU) < up_r[..., None]], axis=-1)        # (d,)+C+(nD+nU,)
-    q = right_r.copy(); q[0] = 0                                                 # Q honest at the left boundary
-    p = left_r.copy();  p[-1] = 0                                                # P honest at the right boundary
+                             np.arange(nU) < up_r[..., None]], axis=-1)          # (d,)+C+(nD+nU,)
+    q = right_r.copy(); q[0] = 0                                                 # R honest at the left boundary
+    p = left_r.copy();  p[-1] = 0                                                # L honest at the right boundary
     tt = np.concatenate([np.arange(rR) < q[..., None],
-                         np.arange(rL) < p[..., None]], axis=-1)                 # (d+1,)+C+(rR+rL,)  [Q | P]
+                         np.arange(rL) < p[..., None]], axis=-1)                 # (d+1,)+C+(rR+rL,)  [R | L]
     return tucker, tt
 
 
@@ -639,7 +639,7 @@ class TestDoubledRankToDense(unittest.TestCase):
         self.assertIsInstance(du, ut3.UniformTuckerTensorTrain)
         self.assertEqual(du.n, B.nD + B.nU)                                # doubled Tucker padding
         self.assertEqual(du.r, B.rL + B.rR)                                # doubled TT bond padding
-        # honest masks (eqs 50-53): doubled Tucker rank = up + down; TT bonds = left + right INTERIOR, but
+        # honest masks (eqs 50-53): doubled Tucker rank = down + up; TT bonds = left + right INTERIOR, but
         # the two boundary bonds stay rank 1 (the global "1" is in one block; the free block has rank 0).
         lr, rr = np.asarray(B.left_ranks), np.asarray(B.right_ranks)       # (d+1,)
         expected_tt = lr + rr
@@ -1125,7 +1125,7 @@ def _per_element_scalar(testcase, v, u_arr, rop, atol=1e-9):
 
 
 def _make_corewise_tangent(stack_shape=(), K=(), force_pad=False, seed=0):
-    """A random tangent at the corewise ``(U, G, G, G)`` frame of a (possibly stacked) random point."""
+    """A random tangent at the corewise ``(B, G, G, G)`` frame of a (possibly stacked) random point."""
     np.random.seed(seed)
     x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=stack_shape)
     xu = ut3.UniformTuckerTensorTrain.from_t3(x, **_PAD_T3) if force_pad else ut3.UniformTuckerTensorTrain.from_t3(x)
@@ -1237,7 +1237,7 @@ class TestUniformManifoldGeometry(unittest.TestCase):
 
     def test_safety_requires_orthogonal(self):
         x = t3.TuckerTensorTrain.randn(*_STRUCT)
-        cframe = self.C.frame(ut3.UniformTuckerTensorTrain.from_t3(x))        # the non-orthogonal (U,G,G,G) frame
+        cframe = self.C.frame(ut3.UniformTuckerTensorTrain.from_t3(x))        # the non-orthogonal (B,G,G,G) frame
         self.assertFalse(bool(cframe.is_orthogonal().all()))
         v = ut3m.UT3Tangent.zeros(cframe)
         for op in (self.M.project, self.M.project_oblique, self.M.retract):
@@ -1249,7 +1249,7 @@ class TestUniformManifoldGeometry(unittest.TestCase):
 
 class TestUniformCorewiseGeometry(unittest.TestCase):
     """3b-5: UNIFORM_COREWISE (the Euclidean core-parameter geometry) verified against the ragged
-    t3m.COREWISE -- frame (the (U,G,G,G) frame + EXACT masks) / project (identity) / inner / norm / additive
+    t3m.COREWISE -- frame (the (B,G,G,G) frame + EXACT masks) / project (identity) / inner / norm / additive
     retract -- across _CONFIGS and the varying-C rank sweep."""
     def setUp(self):
         np.random.seed(0)
@@ -1262,7 +1262,7 @@ class TestUniformCorewiseGeometry(unittest.TestCase):
                 xu = ut3.UniformTuckerTensorTrain.from_t3(x)
                 cb = self.C.frame(xu)
                 self.assertTrue(np.allclose(np.asarray(cb.to_dense()), np.asarray(self.RC.frame(x).to_dense())))
-                # EXACT masks: up == down == tucker_edge_mask; left == right == tt_edge_mask (no slicing)
+                # EXACT masks: down == up == tucker_edge_mask; left == right == tt_edge_mask (no slicing)
                 tkm, ttm = xu.masks.data
                 self.assertTrue(np.array_equal(cb.masks.down_mask, tkm))
                 self.assertTrue(np.array_equal(cb.masks.up_mask, tkm))

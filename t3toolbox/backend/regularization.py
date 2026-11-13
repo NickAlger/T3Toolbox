@@ -55,7 +55,7 @@ class Regularizer:
     """Protocol for a quadratic regularizer ``ρ(X)`` added to the fitting objective.
 
     A concrete subclass supplies the four contributions the local GN model needs. ``geom`` is a
-    :py:mod:`t3toolbox.backend.geometry`'s geometry classes; ``frame`` = ``(U,O,P,Q)``; ``p`` a tangent
+    :py:mod:`t3toolbox.backend.geometry`'s geometry classes; ``frame`` = ``(D,U,L,R)``; ``p`` a tangent
     ``(tucker_var, tt_var)``; ``x_cores`` = ``(tucker_cores, tt_cores)``. Tangent-valued methods return a
     gauged/projected tangent."""
     def value(self, geom, x_cores):        # ρ(X)          -- for Problem.objective / line search (any point)

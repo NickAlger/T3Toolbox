@@ -5,7 +5,7 @@ One ``fitting.LocalModel`` is parameterized over the **sampling kind** (apply / 
 sampling forward is linear in the ambient tensor, the least-squares objective is exactly quadratic, so the
 Gauss-Newton model is the exact restriction of the objective to the affine tangent space ``r +
 dense(𝒥 Π p)`` -- and ``dense(𝒥 Π p)`` is just ``geometry.project(p).to_dense()`` for *both* geometries
-(manifold: a gauged tangent; corewise: the sum-of-core-swaps at ``(U,G,G,G)``). We also check the
+(manifold: a gauged tangent; corewise: the sum-of-core-swaps at ``(B,G,G,G)``). We also check the
 two-form consistency, the razor self-containment (raw ``p`` == projected ``Π p``), the matched pair
 (manifold gauges, corewise does not), GN symmetry, the ``J`` / ``Jᵀ`` adjoint, and -- as an independent
 cross-check -- agreement with the established ``T3Tangent`` / ``TuckerTensorTrain`` transpose operators.
@@ -697,7 +697,7 @@ class TestFactoryValidation(unittest.TestCase):
 # 2026.3.0 (S6a / S6): the uniform backend geometry from the frame, and the frontend exact mode (T18)
 # ---------------------------------------------------------------------------------------------------
 _EX_MINIMAL = ((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
-_EX_TUCKER_SLACK = ((6, 6, 6), (4, 4, 4), (1, 2, 2, 1))     # frame down ranks (2, 4, 2) < up (4, 4, 4)
+_EX_TUCKER_SLACK = ((6, 6, 6), (4, 4, 4), (1, 2, 2, 1))     # frame up ranks (2, 4, 2) < down (4, 4, 4)
 _EX_TT_SLACK = ((6, 6, 6), (4, 4, 4), (1, 9, 9, 1))         # frame left ranks != right ranks
 _EX_D4 = ((4, 5, 4, 5), (2, 3, 3, 2), (1, 2, 3, 2, 1))
 _EX_SHAREABLE = ((5, 5, 7), (2, 2, 2), (1, 2, 2, 1))        # modes 0 and 1 can share a factor

@@ -493,7 +493,7 @@ class TestSharedFrameData(unittest.TestCase):
                                                            np.asarray(HH[ii])))
 
     def test_s_factor_identities(self):
-        # S_i S_i^T == Gamma_i (from the centers) and S_i-absorbed O_i == H_i, per group mode;
+        # S_i S_i^T == Gamma_i (from the centers) and S_i-absorbed U_i == H_i, per group mode;
         # singular values descending; row splits match the nU_i
         for STRUCTURE in SHARED_STRUCTURES[1:]:
             for STACK_SHAPE in STACK_SHAPES:
@@ -690,7 +690,7 @@ class TestSharedPostPass(unittest.TestCase):
         gauged = tvo.tv_orthogonal_gauge_projection(frame_d, (tuple(raw[0]), tuple(raw[1])))
         tied_gram = sharing.fv_share_tucker_variations(gauged, sfd)
         # mean: requires equal shapes within the group -- give the corewise-style variations
-        # (raw core perturbations at the (U,G,G,G) frame have full nD rows)
+        # (raw core perturbations at the (B,G,G,G) frame have full nD rows)
         corewise_vars = ([np.random.randn(B.shape[-2], B.shape[-1]) for B in x_data[0]],
                          [np.random.randn(*G.shape[-3:]) for G in x_data[1]])
         tied_mean = sharing.fv_share_tucker_variations_corewise(

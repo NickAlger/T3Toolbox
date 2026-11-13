@@ -1,0 +1,487 @@
+# R4a realignment hunks (whitespace only): the tree before the realignment pass (prose/letter/block edits done) -> the tree as handed over.
+# Produced by the pass described in R4a_handoff.md §4 (the tool + three hand decisions). diff -U0.
+--- a/t3toolbox/backend/fv_operations.py
++++ b/t3toolbox/backend/fv_operations.py
+@@ -171,2 +171,2 @@
+-    typ.Tuple[NDArray, ...],  # left_tt_cores    (= reversed old right cores)
+-    typ.Tuple[NDArray, ...],  # right_tt_cores   (= reversed old left cores)
++    typ.Tuple[NDArray, ...],  # left_tt_cores      (= reversed old right cores)
++    typ.Tuple[NDArray, ...],  # right_tt_cores     (= reversed old left cores)
+@@ -291,3 +291,3 @@
+-            typ.Sequence[NDArray],  # up_tt_cores.   len=d, elm_shape=(rLi, nUi, rR(i+1))
+-            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=(rLi, nDi, rL(i+1))
+-            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=(rRi, nDi, rR(i+1))
++            typ.Sequence[NDArray],  # up_tt_cores.       len=d, elm_shape=(rLi, nUi, rR(i+1))
++            typ.Sequence[NDArray],  # left_tt_cores.     len=d, elm_shape=(rLi, nDi, rL(i+1))
++            typ.Sequence[NDArray],  # right_tt_cores.    len=d, elm_shape=(rRi, nDi, rR(i+1))
+@@ -439,3 +439,3 @@
+-            typ.Sequence[NDArray],  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+-            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+-            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
++            typ.Sequence[NDArray],  # up_tt_cores.       len=d, elm_shape=C+(rLi, nUi, rR(i+1))
++            typ.Sequence[NDArray],  # left_tt_cores.     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
++            typ.Sequence[NDArray],  # right_tt_cores.    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
+@@ -548,3 +548,3 @@
+-            typ.Sequence[NDArray],                  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+-            typ.Sequence[NDArray],                  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+-            typ.Sequence[NDArray],                  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
++            typ.Sequence[NDArray],                  # up_tt_cores.       len=d, elm_shape=C+(rLi, nUi, rR(i+1))
++            typ.Sequence[NDArray],                  # left_tt_cores.     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
++            typ.Sequence[NDArray],                  # right_tt_cores.    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
+@@ -686 +686 @@
+-    stack = down[0].shape[:-1]              # C -- the weight is frame-like (all four families share it)
++    stack = down[0].shape[:-1]            # C -- the weight is frame-like (all four families share it)
+@@ -690,2 +690,2 @@
+-        if down[i].shape != stack + (H_cores[i].shape[-2],):    return False
+-        if up[i].shape != stack + (V_cores[i].shape[-2],):  return False
++        if down[i].shape != stack + (H_cores[i].shape[-2],):  return False
++        if up[i].shape != stack + (V_cores[i].shape[-2],):    return False
+@@ -719,2 +719,2 @@
+-    typ.Tuple[NDArray, ...],  # down_weights    = tucker_weights
+-    typ.Tuple[NDArray, ...],  # up_weights  = tucker_weights
++    typ.Tuple[NDArray, ...],  # down_weights  = tucker_weights
++    typ.Tuple[NDArray, ...],  # up_weights    = tucker_weights
+--- a/t3toolbox/backend/padded_frames.py
++++ b/t3toolbox/backend/padded_frames.py
+@@ -75,2 +75,2 @@
+-        down_ranks:     typ.Sequence[int],   # len=d, nD
+-        up_ranks:   typ.Sequence[int],   # len=d, nU
++        down_ranks:   typ.Sequence[int],   # len=d, nD
++        up_ranks:     typ.Sequence[int],   # len=d, nU
+@@ -573,2 +573,2 @@
+-        sharing:           typ.Optional[typ.Sequence] = None,        # len=d group labels; None = unshared
+-        update:            typ.Collection[str] = ('D', 'U', 'L', 'R'),   # store letters, any order: 'D' down, 'U' up, 'L' left, 'R' right; the rest transported
++        sharing:           typ.Optional[typ.Sequence] = None,           # len=d group labels; None = unshared
++        update:            typ.Collection[str] = ('D', 'U', 'L', 'R'),  # store letters, any order: 'D' down, 'U' up, 'L' left, 'R' right; the rest transported
+--- a/t3toolbox/backend/ranks.py
++++ b/t3toolbox/backend/ranks.py
+@@ -731,2 +731,2 @@
+-        down_ranks:       typ.Sequence[int],
+-        up_ranks:     typ.Sequence[int],
++        down_ranks:     typ.Sequence[int],
++        up_ranks:       typ.Sequence[int],
+--- a/t3toolbox/backend/sharing.py
++++ b/t3toolbox/backend/sharing.py
+@@ -488,3 +488,3 @@
+-            typ.Sequence[NDArray],  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+-            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+-            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
++            typ.Sequence[NDArray],  # up_tt_cores.       len=d, elm_shape=C+(rLi, nUi, rR(i+1))
++            typ.Sequence[NDArray],  # left_tt_cores.     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
++            typ.Sequence[NDArray],  # right_tt_cores.    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
+@@ -731,3 +731,3 @@
+-            typ.Sequence[NDArray],                  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+-            typ.Sequence[NDArray],                  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+-            typ.Sequence[NDArray],                  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
++            typ.Sequence[NDArray],                  # up_tt_cores.       len=d, elm_shape=C+(rLi, nUi, rR(i+1))
++            typ.Sequence[NDArray],                  # left_tt_cores.     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
++            typ.Sequence[NDArray],                  # right_tt_cores.    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
+--- a/t3toolbox/backend/t3_linalg.py
++++ b/t3toolbox/backend/t3_linalg.py
+@@ -700,3 +700,3 @@
+-            typ.Sequence[NDArray],  # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+-            typ.Sequence[NDArray],  # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+-            typ.Sequence[NDArray],  # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
++            typ.Sequence[NDArray],  # up_tt_cores.       len=d, elm_shape=C+(rLi, nUi, rR(i+1))
++            typ.Sequence[NDArray],  # left_tt_cores.     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
++            typ.Sequence[NDArray],  # right_tt_cores.    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
+--- a/t3toolbox/backend/tv_operations.py
++++ b/t3toolbox/backend/tv_operations.py
+@@ -251 +251 @@
+-                up_tt_cores[ii] = shared_data.centers[gi][jj]      # H_i replaces U_i (exact)
++                up_tt_cores[ii] = shared_data.centers[gi][jj]        # H_i replaces U_i (exact)
+@@ -266,3 +266,3 @@
+-    up_tt_cores   = [bcast3(U) for U in up_tt_cores]
+-    left_tt_cores   = [bcast3(L) for L in left_tt_cores]
+-    right_tt_cores  = [bcast3(R) for R in right_tt_cores]
++    up_tt_cores       = [bcast3(U) for U in up_tt_cores]
++    left_tt_cores     = [bcast3(L) for L in left_tt_cores]
++    right_tt_cores    = [bcast3(R) for R in right_tt_cores]
+@@ -412,3 +412,3 @@
+-    ns = Z.ndim - d                                    # number of leading stack axes
+-    stack = tuple(Z.shape[:ns])                        # stack_shape
+-    Ns = tuple(D.shape[-1] for D in down_tucker_cores)   # mode dimensions N_i
++    ns = Z.ndim - d                                     # number of leading stack axes
++    stack = tuple(Z.shape[:ns])                         # stack_shape
++    Ns = tuple(D.shape[-1] for D in down_tucker_cores)  # mode dimensions N_i
+@@ -424 +424 @@
+-        cur = xnp.einsum('...anm,...anb->...bm', cur, left_tt_cores[ii])    # ... then into the left bond
++        cur = xnp.einsum('...anm,...anb->...bm', cur, left_tt_cores[ii])      # ... then into the left bond
+@@ -440 +440 @@
+-            cur = xnp.einsum('...mnb,...anb->...ma', cur, right_tt_cores[jj])   # ... then into the right bond
++            cur = xnp.einsum('...mnb,...anb->...ma', cur, right_tt_cores[jj])     # ... then into the right bond
+@@ -485,3 +485,3 @@
+-            typ.Sequence[NDArray],              # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+-            typ.Sequence[NDArray],              # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+-            typ.Sequence[NDArray],              # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
++            typ.Sequence[NDArray],              # up_tt_cores.       len=d, elm_shape=C+(rLi, nUi, rR(i+1))
++            typ.Sequence[NDArray],              # left_tt_cores.     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
++            typ.Sequence[NDArray],              # right_tt_cores.    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
+@@ -576,3 +576,3 @@
+-            typ.Sequence[NDArray],              # up_tt_cores.   len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+-            typ.Sequence[NDArray],              # left_tt_cores.   len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+-            typ.Sequence[NDArray],              # right_tt_cores.  len=d, elm_shape=C+(rRi, nDi, rR(i+1))
++            typ.Sequence[NDArray],              # up_tt_cores.       len=d, elm_shape=C+(rLi, nUi, rR(i+1))
++            typ.Sequence[NDArray],              # left_tt_cores.     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
++            typ.Sequence[NDArray],              # right_tt_cores.    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
+--- a/t3toolbox/backend/ufv_conversions.py
++++ b/t3toolbox/backend/ufv_conversions.py
+@@ -171,2 +171,2 @@
+-            down_inds   = np.argwhere(down_mask[ind]).reshape(-1)
+-            up_inds = np.argwhere(up_mask[ind]).reshape(-1)
++            down_inds = np.argwhere(down_mask[ind]).reshape(-1)
++            up_inds   = np.argwhere(up_mask[ind]).reshape(-1)
+@@ -179,2 +179,2 @@
+-            down_cores.append(   down_supercore[ind][down_inds, :][:, :Ni])
+-            up_cores.append( up_supercore[ind][left_a, :, :][:, up_inds, :][:, :, right_b])
++            down_cores.append( down_supercore[ind][down_inds, :][:, :Ni])
++            up_cores.append(   up_supercore[ind][left_a, :, :][:, up_inds, :][:, :, right_b])
+@@ -199,4 +199,4 @@
+-            typ.Tuple[NDArray, ...],  # down_tucker_cores,   len=d, elm_shape=C+(nDi, Ni)
+-            typ.Tuple[NDArray, ...],  # up_tt_cores,     len=d, elm_shape=C+(rLi, nUi, rR(i+1))
+-            typ.Tuple[NDArray, ...],  # left_tt_cores,     len=d, elm_shape=C+(rLi, nDi, rL(i+1))
+-            typ.Tuple[NDArray, ...],  # right_tt_cores,    len=d, elm_shape=C+(rRi, nDi, rR(i+1))
++            typ.Tuple[NDArray, ...],  # down_tucker_cores,  len=d, elm_shape=C+(nDi, Ni)
++            typ.Tuple[NDArray, ...],  # up_tt_cores,        len=d, elm_shape=C+(rLi, nUi, rR(i+1))
++            typ.Tuple[NDArray, ...],  # left_tt_cores,      len=d, elm_shape=C+(rLi, nDi, rL(i+1))
++            typ.Tuple[NDArray, ...],  # right_tt_cores,     len=d, elm_shape=C+(rRi, nDi, rR(i+1))
+@@ -211,3 +211,3 @@
+-    NDArray,                          # up_tt_supercore,    (d,)+C+(rL, nU, rR)
+-    NDArray,                          # left_tt_supercore,    (d,)+C+(rL, nD, rL)
+-    NDArray,                          # right_tt_supercore,   (d,)+C+(rR, nD, rR)
++    NDArray,                          # up_tt_supercore,        (d,)+C+(rL, nU, rR)
++    NDArray,                          # left_tt_supercore,      (d,)+C+(rL, nD, rL)
++    NDArray,                          # right_tt_supercore,     (d,)+C+(rR, nD, rR)
+@@ -230,3 +230,3 @@
+-    shape       = tuple(int(D.shape[-1]) for D in down_cores)                                   # (N0,...,N(d-1))
+-    down_ranks    = tuple(int(D.shape[-2]) for D in down_cores)                                   # (d,)   nD per mode
+-    up_ranks  = tuple(int(G.shape[-2]) for G in up_cores)                                 # (d,)   nU per mode
++    shape       = tuple(int(D.shape[-1]) for D in down_cores)                                 # (N0,...,N(d-1))
++    down_ranks  = tuple(int(D.shape[-2]) for D in down_cores)                                 # (d,)   nD per mode
++    up_ranks    = tuple(int(G.shape[-2]) for G in up_cores)                                   # (d,)   nU per mode
+@@ -237,2 +237,2 @@
+-    nD = max(down_ranks)    if nD is None else nD
+-    nU = max(up_ranks)  if nU is None else nU
++    nD = max(down_ranks)  if nD is None else nD
++    nU = max(up_ranks)    if nU is None else nU
+@@ -242,2 +242,2 @@
+-    down_sc    = _pad_stack(down_cores,    (nD, N),     use_jax)
+-    up_sc  = _pad_stack(up_cores,  (rL, nU, rR), use_jax)
++    down_sc  = _pad_stack(down_cores,  (nD, N),     use_jax)
++    up_sc    = _pad_stack(up_cores,    (rL, nU, rR), use_jax)
+@@ -248,2 +248,2 @@
+-        _broadcast_ranks_over_stack(down_ranks,    stack_shape),
+-        _broadcast_ranks_over_stack(up_ranks,  stack_shape),
++        _broadcast_ranks_over_stack(down_ranks,  stack_shape),
++        _broadcast_ranks_over_stack(up_ranks,    stack_shape),
+@@ -284,2 +284,2 @@
+-            down_inds    = np.argwhere(vdown[ind]).reshape(-1)
+-            up_inds  = np.argwhere(vup[ind]).reshape(-1)
++            down_inds  = np.argwhere(vdown[ind]).reshape(-1)
++            up_inds    = np.argwhere(vup[ind]).reshape(-1)
+@@ -334,2 +334,2 @@
+-    down_ranks    = tuple(int(H.shape[-2]) for H in tt_cores)       # (d,) nDi
+-    up_ranks  = tuple(int(V.shape[-2]) for V in tucker_cores)   # (d,) nUi
++    down_ranks  = tuple(int(H.shape[-2]) for H in tt_cores)       # (d,) nDi
++    up_ranks    = tuple(int(V.shape[-2]) for V in tucker_cores)   # (d,) nUi
+@@ -340,2 +340,2 @@
+-    nD = max(down_ranks)    if nD is None else nD
+-    nU = max(up_ranks)  if nU is None else nU
++    nD = max(down_ranks)  if nD is None else nD
++    nU = max(up_ranks)    if nU is None else nU
+@@ -349,2 +349,2 @@
+-        _broadcast_ranks_over_stack(down_ranks,    stack_shape),
+-        _broadcast_ranks_over_stack(up_ranks,  stack_shape),
++        _broadcast_ranks_over_stack(down_ranks,  stack_shape),
++        _broadcast_ranks_over_stack(up_ranks,    stack_shape),
+@@ -360,2 +360,2 @@
+-            typ.Sequence[NDArray],  # down_weights,    len=d, elm_shape=C+(nDi,)
+-            typ.Sequence[NDArray],  # up_weights,  len=d, elm_shape=C+(nUi,)
++            typ.Sequence[NDArray],  # down_weights,  len=d, elm_shape=C+(nDi,)
++            typ.Sequence[NDArray],  # up_weights,    len=d, elm_shape=C+(nUi,)
+@@ -370,2 +370,2 @@
+-    NDArray,  # down_weight_supercore,    (d,)+C+(nD,)
+-    NDArray,  # up_weight_supercore,  (d,)+C+(nU,)
++    NDArray,  # down_weight_supercore,  (d,)+C+(nD,)
++    NDArray,  # up_weight_supercore,    (d,)+C+(nU,)
+--- a/t3toolbox/backend/ufv_masking.py
++++ b/t3toolbox/backend/ufv_masking.py
+@@ -65,2 +65,2 @@
+-        down_ranks:    NDArray,   # HOST int, (d,)   + stack_shape
+-        up_ranks:  NDArray,   # HOST int, (d,)   + stack_shape
++        down_ranks:  NDArray,   # HOST int, (d,)   + stack_shape
++        up_ranks:    NDArray,   # HOST int, (d,)   + stack_shape
+@@ -74,2 +74,2 @@
+-    NDArray,  # down_mask,    HOST bool, (d,)   + stack_shape + (nD,)
+-    NDArray,  # up_mask,  HOST bool, (d,)   + stack_shape + (nU,)
++    NDArray,  # down_mask,  HOST bool, (d,)   + stack_shape + (nD,)
++    NDArray,  # up_mask,    HOST bool, (d,)   + stack_shape + (nU,)
+@@ -82,2 +82,2 @@
+-    down_mask    = prefix_mask(down_ranks, nD)
+-    up_mask  = prefix_mask(up_ranks, nU)
++    down_mask  = prefix_mask(down_ranks, nD)
++    up_mask    = prefix_mask(up_ranks, nU)
+@@ -92,3 +92,3 @@
+-            NDArray,             # up_tt_supercore,    (d,)+stack_shape+(rL, nU, rR)
+-            NDArray,             # left_tt_supercore,    (d,)+stack_shape+(rL, nD, rL)
+-            NDArray,             # right_tt_supercore,   (d,)+stack_shape+(rR, nD, rR)
++            NDArray,             # up_tt_supercore,        (d,)+stack_shape+(rL, nU, rR)
++            NDArray,             # left_tt_supercore,      (d,)+stack_shape+(rL, nD, rL)
++            NDArray,             # right_tt_supercore,     (d,)+stack_shape+(rR, nD, rR)
+@@ -97,2 +97,2 @@
+-                NDArray,  # down_mask,          dtype=bool, (d,)  +stack_shape+(nD,)
+-                NDArray,  # up_mask,        dtype=bool, (d,)  +stack_shape+(nU,)
++                NDArray,  # down_mask,        dtype=bool, (d,)  +stack_shape+(nD,)
++                NDArray,  # up_mask,          dtype=bool, (d,)  +stack_shape+(nU,)
+@@ -127,3 +127,3 @@
+-    DM_k = down_mask.reshape(              (d,) + ss           + (nD,) + (1,))
+-    DM_t = down_mask.reshape(              (d,) + ss           + (1,)  + (nD,) + (1,))
+-    UM_t = up_mask.reshape(            (d,) + ss           + (1,)  + (nU,) + (1,))
++    DM_k = down_mask.reshape(            (d,) + ss           + (nD,) + (1,))
++    DM_t = down_mask.reshape(            (d,) + ss           + (1,)  + (nD,) + (1,))
++    UM_t = up_mask.reshape(              (d,) + ss           + (1,)  + (nU,) + (1,))
+@@ -136,3 +136,3 @@
+-    masked_up_tt_supercore   = up_tt_supercore   * (LM_l * UM_t * RM_r)
+-    masked_left_tt_supercore   = left_tt_supercore   * (LM_l * DM_t * LM_r)
+-    masked_right_tt_supercore  = right_tt_supercore  * (RM_l * DM_t * RM_r)
++    masked_up_tt_supercore       = up_tt_supercore       * (LM_l * UM_t * RM_r)
++    masked_left_tt_supercore     = left_tt_supercore     * (LM_l * DM_t * LM_r)
++    masked_right_tt_supercore    = right_tt_supercore    * (RM_l * DM_t * RM_r)
+@@ -152,2 +152,2 @@
+-                NDArray,  # variations_down_mask,    dtype=bool, (d,)+stack_shape+(nD,)
+-                NDArray,  # variations_up_mask,  dtype=bool, (d,)+stack_shape+(nU,)
++                NDArray,  # variations_down_mask,  dtype=bool, (d,)+stack_shape+(nD,)
++                NDArray,  # variations_up_mask,    dtype=bool, (d,)+stack_shape+(nU,)
+@@ -180 +180 @@
+-    UM_k = up_mask.reshape(             (d,) + ss           + (nU,) + (1,))
++    UM_k = up_mask.reshape(               (d,) + ss           + (nU,) + (1,))
+@@ -183 +183 @@
+-    DM_t = down_mask.reshape(               (d,) + ss           + (1,)  + (nD,) + (1,))
++    DM_t = down_mask.reshape(             (d,) + ss           + (1,)  + (nD,) + (1,))
+--- a/t3toolbox/backend/ufv_operations.py
++++ b/t3toolbox/backend/ufv_operations.py
+@@ -293,2 +293,2 @@
+-        dev(xnp.einsum('...io,...jo->...ij', mdown, mdown), dm, nD),          # down: rows orthonormal over mode
+-        dev(xnp.einsum('...iaj,...ibj->...ab', mup, mup), um, nU),    # up/outer: mode orthonormal over bonds
++        dev(xnp.einsum('...io,...jo->...ij', mdown, mdown), dm, nD),      # down: rows orthonormal over mode
++        dev(xnp.einsum('...iaj,...ibj->...ab', mup, mup), um, nU),        # up/outer: mode orthonormal over bonds
+@@ -383,3 +383,3 @@
+-            NDArray,                                    # up_tt_supercore,    (d,)+C+(rL, nU, rR)
+-            NDArray,                                    # left_tt_supercore,    (d,)+C+(rL, nD, rL)
+-            NDArray,                                    # right_tt_supercore,   (d,)+C+(rR, nD, rR)
++            NDArray,                                    # up_tt_supercore,        (d,)+C+(rL, nU, rR)
++            NDArray,                                    # left_tt_supercore,      (d,)+C+(rL, nD, rL)
++            NDArray,                                    # right_tt_supercore,     (d,)+C+(rR, nD, rR)
+@@ -513,3 +513,3 @@
+-            NDArray,                                    # up_tt_supercore,    (d,)+C+(rL, nU, rR)
+-            NDArray,                                    # left_tt_supercore,    (d,)+C+(rL, nD, rL)
+-            NDArray,                                    # right_tt_supercore,   (d,)+C+(rR, nD, rR)
++            NDArray,                                    # up_tt_supercore,        (d,)+C+(rL, nU, rR)
++            NDArray,                                    # left_tt_supercore,      (d,)+C+(rL, nD, rL)
++            NDArray,                                    # right_tt_supercore,     (d,)+C+(rR, nD, rR)
+--- a/t3toolbox/backend/utv_operations.py
++++ b/t3toolbox/backend/utv_operations.py
+@@ -230,2 +230,2 @@
+-        down_mask_frame = frame_data[5][0]                    # (d,)+C+(nD,), HOST
+-        down_mask_v = np.broadcast_to(                        # (d,)+K+C+(nD,): the frame mask over K
++        down_mask_frame = frame_data[5][0]                  # (d,)+C+(nD,), HOST
++        down_mask_v = np.broadcast_to(                      # (d,)+K+C+(nD,): the frame mask over K
+@@ -242 +242 @@
+-                up_slices.append(shared_data.centers[gi][jj])          # H_i replaces U_i, (C)+(rL, nD, rR)
++                up_slices.append(shared_data.centers[gi][jj])            # H_i replaces U_i, (C)+(rL, nD, rR)
+@@ -254,2 +254,2 @@
+-        up_sc = xnp.stack(up_slices, axis=0)            # (d,)+C+(rL, nD, rR)
+-        var_up_mask = np.stack(block_masks, axis=0)       # (d,)+K+C+(nD,), HOST
++        up_sc = xnp.stack(up_slices, axis=0)                # (d,)+C+(rL, nD, rR)
++        var_up_mask = np.stack(block_masks, axis=0)         # (d,)+K+C+(nD,), HOST
+@@ -357 +357 @@
+-    down_ranks   = down_mask.sum(axis=-1)                 # (d,)   + C, HOST int
++    down_ranks = down_mask.sum(axis=-1)               # (d,)   + C, HOST int
+@@ -391,3 +391,3 @@
+-    down_sc = frame_data[0]       # (d,)   + C + (n, N)         -- the point's Tucker core B
+-    G_sc  = frame_data[2]       # (d,)   + C + (rL, n, rR)    -- the point's TT core G (left == right == G)
+-    shape = frame_data[4]
++    down_sc = frame_data[0]     # (d,)   + C + (n, N)         -- the point's Tucker core B
++    G_sc    = frame_data[2]     # (d,)   + C + (rL, n, rR)    -- the point's TT core G (left == right == G)
++    shape   = frame_data[4]
+@@ -397 +397 @@
+-    C  = down_sc.shape[1:-2]      # frame stack C
++    C  = down_sc.shape[1:-2]    # frame stack C
+@@ -512 +512 @@
+-    X = xnp.einsum('d...jo,d...io->d...ji', tkv, down_sc)                        # V D^T, (d,)+stack+(nU, nD)
++    X = xnp.einsum('d...jo,d...io->d...ji', tkv, down_sc)                      # V D^T, (d,)+stack+(nU, nD)
+@@ -514 +514 @@
+-    ttv = ttv + xnp.einsum('d...aib,d...ij->d...ajb', up_sc, X)              # U-compensation into the TT vars
++    ttv = ttv + xnp.einsum('d...aib,d...ij->d...ajb', up_sc, X)                # U-compensation into the TT vars
+@@ -555 +555 @@
+-    g_tk = xnp.einsum('d...ia,d...ja->d...ij', down_sc, tkv)                     # D V^T,         (d,)+stack+(nD, nU)
++    g_tk = xnp.einsum('d...ia,d...ja->d...ij', down_sc, tkv)                   # D V^T,         (d,)+stack+(nD, nU)
+@@ -596 +596 @@
+-    BD1 = xnp.einsum('d...iz,d...xz->d...ix', other_tk, down_sc)                 # B_x D^T, (d,)+stack+(n_x, nD)
++    BD1 = xnp.einsum('d...iz,d...xz->d...ix', other_tk, down_sc)               # B_x D^T, (d,)+stack+(n_x, nD)
+@@ -605,4 +605,4 @@
+-    BD = xnp.einsum('d...io,d...jo->d...ij', other_tk, down_sc)                  # B_x D^T, (d,)+stack+(n_x, nD)
+-    H = xnp.einsum('d...xiy,d...ij->d...xjy', env, BD)                        # tt variation, (d,)+stack+(rL, nD, rR)
+-    M  = xnp.einsum('d...xiy,d...xjy->d...ij', env, up_sc)                   # (d,)+stack+(n_x, nU)
+-    V = xnp.einsum('d...ij,d...io->d...jo', M, other_tk)                      # tucker variation, (d,)+stack+(nU, N)
++    BD = xnp.einsum('d...io,d...jo->d...ij', other_tk, down_sc)                # B_x D^T, (d,)+stack+(n_x, nD)
++    H  = xnp.einsum('d...xiy,d...ij->d...xjy', env, BD)                        # tt variation, (d,)+stack+(rL, nD, rR)
++    M  = xnp.einsum('d...xiy,d...xjy->d...ij', env, up_sc)                     # (d,)+stack+(n_x, nU)
++    V  = xnp.einsum('d...ij,d...io->d...jo', M, other_tk)                      # tucker variation, (d,)+stack+(nU, N)
+--- a/t3toolbox/frame_variations_format.py
++++ b/t3toolbox/frame_variations_format.py
+@@ -514 +514 @@
+-        down_stack_shapes     = tuple([B.shape[:-2] for B in self.down_tucker_cores])
++        down_stack_shapes   = tuple([B.shape[:-2] for B in self.down_tucker_cores])
+@@ -517 +517 @@
+-        up_stack_shapes   = tuple([G.shape[:-3] for G in self.up_tt_cores])
++        up_stack_shapes     = tuple([G.shape[:-3] for G in self.up_tt_cores])
+@@ -1454,2 +1454,2 @@
+-    down_weights:    typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nDi,)
+-    up_weights:  typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nUi,)
++    down_weights:  typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nDi,)
++    up_weights:    typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nUi,)
+@@ -1652,2 +1652,2 @@
+-        ('down',    weights.down_ranks,    tuple(h[1] for h in tt_holes)),
+-        ('up',  weights.up_ranks,  tuple(h[0] for h in tucker_holes)),
++        ('down',  weights.down_ranks,  tuple(h[1] for h in tt_holes)),
++        ('up',    weights.up_ranks,    tuple(h[0] for h in tucker_holes)),
+--- a/t3toolbox/manifold.py
++++ b/t3toolbox/manifold.py
+@@ -174,2 +174,2 @@
+-            sharing:           typ.Optional[typ.Sequence] = None,       # len=d group labels; None = unshared
+-            update:            typ.Collection[str] = ('D', 'U', 'L', 'R'),   # store letters, any order: 'D' down, 'U' up, 'L' left, 'R' right; the rest transported
++            sharing:           typ.Optional[typ.Sequence] = None,           # len=d group labels; None = unshared
++            update:            typ.Collection[str] = ('D', 'U', 'L', 'R'),  # store letters, any order: 'D' down, 'U' up, 'L' left, 'R' right; the rest transported
+@@ -817 +817 @@
+-        >>> V_sum = tuple(np.sum(c, axis=0) for c in kept.variations.tucker_variations)  # sum the W axis
++        >>> V_sum  = tuple(np.sum(c, axis=0) for c in kept.variations.tucker_variations)  # sum the W axis
+--- a/t3toolbox/uniform_frame_variations_format.py
++++ b/t3toolbox/uniform_frame_variations_format.py
+@@ -60,2 +60,2 @@
+-    down_mask:          NDArray  # dtype=bool, (d,)  +stack_shape+(nD,)
+-    up_mask:        NDArray  # dtype=bool, (d,)  +stack_shape+(nU,)
++    down_mask:        NDArray  # dtype=bool, (d,)  +stack_shape+(nD,)
++    up_mask:          NDArray  # dtype=bool, (d,)  +stack_shape+(nU,)
+@@ -92,2 +92,2 @@
+-    >>> down    = np.random.randn(d, nD, N)
+-    >>> up  = np.random.randn(d, rL, nU, rR)
++    >>> down  = np.random.randn(d, nD, N)
++    >>> up    = np.random.randn(d, rL, nU, rR)
+@@ -97,2 +97,2 @@
+-    >>> down_mask    = np.arange(nD) < np.array([[2],[3],[4]])       # (d, nD); per-mode down rank
+-    >>> up_mask  = np.arange(nU) < np.array([[3],[4],[5]])       # (d, nU)
++    >>> down_mask  = np.arange(nD) < np.array([[2],[3],[4]])       # (d, nD); per-mode down rank
++    >>> up_mask    = np.arange(nU) < np.array([[3],[4],[5]])       # (d, nU)
+@@ -484,3 +484,3 @@
+-        UU_good = self.up_tt_supercore.shape    == (self.d,) + self.stack_shape + (self.rL, self.nU, self.rR)
+-        LL_good = self.left_tt_supercore.shape    == (self.d,) + self.stack_shape + (self.rL, self.nD, self.rL)
+-        RR_good = self.right_tt_supercore.shape   == (self.d,) + self.stack_shape + (self.rR, self.nD, self.rR)
++        UU_good = self.up_tt_supercore.shape        == (self.d,) + self.stack_shape + (self.rL, self.nU, self.rR)
++        LL_good = self.left_tt_supercore.shape      == (self.d,) + self.stack_shape + (self.rL, self.nD, self.rL)
++        RR_good = self.right_tt_supercore.shape     == (self.d,) + self.stack_shape + (self.rR, self.nD, self.rR)
+@@ -488,2 +488,2 @@
+-        DM_good = down_mask.shape          == (self.d,) + self.stack_shape + (self.nD,)
+-        UM_good = up_mask.shape        == (self.d,) + self.stack_shape + (self.nU,)
++        DM_good = down_mask.shape        == (self.d,) + self.stack_shape + (self.nD,)
++        UM_good = up_mask.shape          == (self.d,) + self.stack_shape + (self.nU,)
+@@ -498,4 +498,4 @@
+-        shapes_string += 'down_tucker_supercore.shape = ' + str(self.down_tucker_supercore.shape)   + ' =? (d,) + stack_shape + (nD, N)' + bad_str(DD_good) + '\n'
+-        shapes_string += 'up_tt_supercore.shape   = ' + str(self.up_tt_supercore.shape)     + ' =? (d,) + stack_shape + (rL, nU, rR)' + bad_str(UU_good) + '\n'
+-        shapes_string += 'left_tt_supercore.shape   = ' + str(self.left_tt_supercore.shape)     + ' =? (d,) + stack_shape + (rL, nD, rL)' + bad_str(LL_good) + '\n'
+-        shapes_string += 'right_tt_supercore.shape  = ' + str(self.right_tt_supercore.shape)    + ' =? (d,) + stack_shape + (rR, nD, rR)' + bad_str(RR_good) + '\n'
++        shapes_string += 'down_tucker_supercore.shape = ' + str(self.down_tucker_supercore.shape)  + ' =? (d,) + stack_shape + (nD, N)' + bad_str(DD_good) + '\n'
++        shapes_string += 'up_tt_supercore.shape       = ' + str(self.up_tt_supercore.shape)        + ' =? (d,) + stack_shape + (rL, nU, rR)' + bad_str(UU_good) + '\n'
++        shapes_string += 'left_tt_supercore.shape     = ' + str(self.left_tt_supercore.shape)      + ' =? (d,) + stack_shape + (rL, nD, rL)' + bad_str(LL_good) + '\n'
++        shapes_string += 'right_tt_supercore.shape    = ' + str(self.right_tt_supercore.shape)     + ' =? (d,) + stack_shape + (rR, nD, rR)' + bad_str(RR_good) + '\n'
+@@ -503,4 +503,4 @@
+-        shapes_string += 'up_mask.shape           = ' + str(up_mask.shape) + ' =? (d,) + stack_shape + (nU,)' + bad_str(UM_good) + '\n'
+-        shapes_string += 'frame_left_mask.shape     = ' + str(frame_left_mask.shape) + ' =? (d+1,) + stack_shape + (rL,)' + bad_str(LM_good) + '\n'
+-        shapes_string += 'frame_right_mask.shape    = ' + str(frame_right_mask.shape) + ' =? (d+1,) + stack_shape + (rR,)' + bad_str(RM_good) + '\n'
+-        shapes_string += 'shape                     = ' + str(self.shape) + ' =? length-d ints in [0, N]' + bad_str(SH_good)
++        shapes_string += 'up_mask.shape               = ' + str(up_mask.shape) + ' =? (d,) + stack_shape + (nU,)' + bad_str(UM_good) + '\n'
++        shapes_string += 'frame_left_mask.shape       = ' + str(frame_left_mask.shape) + ' =? (d+1,) + stack_shape + (rL,)' + bad_str(LM_good) + '\n'
++        shapes_string += 'frame_right_mask.shape      = ' + str(frame_right_mask.shape) + ' =? (d+1,) + stack_shape + (rR,)' + bad_str(RM_good) + '\n'
++        shapes_string += 'shape                       = ' + str(self.shape) + ' =? length-d ints in [0, N]' + bad_str(SH_good)
+@@ -541,2 +541,2 @@
+-    variations_down_mask:    NDArray  # dtype=bool, (d,)+stack_shape+(nD,)
+-    variations_up_mask:  NDArray  # dtype=bool, (d,)+stack_shape+(nU,)
++    variations_down_mask:  NDArray  # dtype=bool, (d,)+stack_shape+(nD,)
++    variations_up_mask:    NDArray  # dtype=bool, (d,)+stack_shape+(nU,)
+@@ -578,2 +578,2 @@
+-    >>> down    = np.arange(nD) < np.array([[2],[3],[4]])       # (d, nD)
+-    >>> up  = np.arange(nU) < np.array([[3],[4],[5]])       # (d, nU)
++    >>> down  = np.arange(nD) < np.array([[2],[3],[4]])       # (d, nD)
++    >>> up    = np.arange(nU) < np.array([[3],[4],[5]])       # (d, nU)
+@@ -788,2 +788,2 @@
+-        DM_good = down_mask.shape    == (self.d,) + self.stack_shape + (self.nD,)
+-        UM_good = up_mask.shape  == (self.d,) + self.stack_shape + (self.nU,)
++        DM_good = down_mask.shape  == (self.d,) + self.stack_shape + (self.nD,)
++        UM_good = up_mask.shape    == (self.d,) + self.stack_shape + (self.nU,)
+@@ -799,2 +799,2 @@
+-        shapes_string += 'variations_down_mask.shape    = ' + str(down_mask.shape)    + ' =? (d,) + stack_shape + (nD,)' + bad_str(DM_good) + '\n'
+-        shapes_string += 'variations_up_mask.shape  = ' + str(up_mask.shape)  + ' =? (d,) + stack_shape + (nU,)' + bad_str(UM_good) + '\n'
++        shapes_string += 'variations_down_mask.shape  = ' + str(down_mask.shape)  + ' =? (d,) + stack_shape + (nD,)' + bad_str(DM_good) + '\n'
++        shapes_string += 'variations_up_mask.shape    = ' + str(up_mask.shape)    + ' =? (d,) + stack_shape + (nU,)' + bad_str(UM_good) + '\n'
+@@ -1028 +1028 @@
+-    >>> down = np.arange(nD) < np.array([[2],[3],[4]])        # (d, nD)
++    >>> down = np.arange(nD) < np.array([[2],[3],[4]])      # (d, nD)
+@@ -1075,2 +1075,2 @@
+-            (bm.down_mask,              vm.variations_down_mask,    'down'),
+-            (bm.up_mask,            vm.variations_up_mask,  'up'),
++            (bm.down_mask,            vm.variations_down_mask,  'down'),
++            (bm.up_mask,              vm.variations_up_mask,    'up'),
+@@ -1224,2 +1224,2 @@
+-    down_weight_supercore:    NDArray             # (d,)+C+(nD,)
+-    up_weight_supercore:  NDArray             # (d,)+C+(nU,)
++    down_weight_supercore:  NDArray             # (d,)+C+(nD,)
++    up_weight_supercore:    NDArray             # (d,)+C+(nU,)
+--- a/t3toolbox/uniform_manifold.py
++++ b/t3toolbox/uniform_manifold.py
+@@ -416 +416 @@
+-        down = np.asarray(self.frame.down_ranks)        # (d,)   + C
++        down = np.asarray(self.frame.down_ranks)    # (d,)   + C
+@@ -534,2 +534,2 @@
+-        nD = int(max(b.down_ranks))    if nD is None else nD
+-        nU = int(max(b.up_ranks))  if nU is None else nU
++        nD = int(max(b.down_ranks))  if nD is None else nD
++        nU = int(max(b.up_ranks))    if nU is None else nU
+--- a/tests/test_dispatch.py
++++ b/tests/test_dispatch.py
+@@ -1897,2 +1897,2 @@
+-            down    = jnp.asarray(np.random.randn(d, nD, N))
+-            up  = jnp.asarray(np.random.randn(d, rL, nU, rR))
++            down  = jnp.asarray(np.random.randn(d, nD, N))
++            up    = jnp.asarray(np.random.randn(d, rL, nU, rR))
+--- a/tests/test_frame_variations_format.py
++++ b/tests/test_frame_variations_format.py
+@@ -69 +69 @@
+-        #  (shape,             down_ranks,      up_ranks,    left_ranks,        right_ranks)
++        #  (shape,             down_ranks,    up_ranks,      left_ranks,        right_ranks)
+--- a/tests/test_manifold.py
++++ b/tests/test_manifold.py
+@@ -683 +683 @@
+-                V, H = tr(c)                                               # -> K + cores
++                V, H = tr(c)                                                 # -> K + cores
+--- a/tests/test_uniform_frame_variations_format.py
++++ b/tests/test_uniform_frame_variations_format.py
+@@ -33,2 +33,2 @@
+-    down    = np.random.randn(*((d,) + ss + (nD, N)))
+-    up  = np.random.randn(*((d,) + ss + (rL, nU, rR)))
++    down  = np.random.randn(*((d,) + ss + (nD, N)))
++    up    = np.random.randn(*((d,) + ss + (rL, nU, rR)))
+@@ -104 +104 @@
+-        up  = np.random.randn(_D, _RL, _NU, _RR)
++        up    = np.random.randn(_D, _RL, _NU, _RR)
+--- a/tests/test_uniform_manifold.py
++++ b/tests/test_uniform_manifold.py
+@@ -114 +114 @@
+-                             np.arange(nU) < up_r[..., None]], axis=-1)        # (d,)+C+(nD+nU,)
++                             np.arange(nU) < up_r[..., None]], axis=-1)          # (d,)+C+(nD+nU,)
+--- a/tests/test_weighted.py
++++ b/tests/test_weighted.py
+@@ -369,2 +369,2 @@
+-                for a, b in zip(Wf.down_weights, Wt.tucker_weights):     self.assertTrue(np.array_equal(a, b))
+-                for a, b in zip(Wf.up_weights, Wt.tucker_weights):   self.assertTrue(np.array_equal(a, b))
++                for a, b in zip(Wf.down_weights, Wt.tucker_weights):   self.assertTrue(np.array_equal(a, b))
++                for a, b in zip(Wf.up_weights, Wt.tucker_weights):     self.assertTrue(np.array_equal(a, b))

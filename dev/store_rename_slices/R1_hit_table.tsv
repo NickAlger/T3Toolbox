@@ -4895,3 +4895,27 @@ tests/test_weighted.py	433	44	NAME	A1	up_tucker_cores	down_tucker_cores	A1	TestT
 tests/test_weighted.py	433	67	NAME	A1	up_tucker_cores	down_tucker_cores	A1	TestT3svdFrameGauge.test_uniform_twin_matches_ragged
 tests/test_weighted.py	434	82	NAME	C-D	U	D	C D rows	TestT3svdFrameGauge.test_uniform_twin_matches_ragged
 tests/test_weighted.py	434	106	NAME	C-D	Ur	Dr	C D rows	TestT3svdFrameGauge.test_uniform_twin_matches_ragged
+t3toolbox/frame_variations_format.py	855	41	NAME	R4a-row	B	V	R4a review S2 (session 2026-11-13): shape rule, a Tucker variation is V	variation_shapes
+t3toolbox/frame_variations_format.py	855	58	NAME	R4a-row	B	V	R4a review S2 (session 2026-11-13): shape rule, a Tucker variation is V	variation_shapes
+t3toolbox/frame_variations_format.py	856	37	NAME	R4a-row	G	H	R4a review S2 (session 2026-11-13): shape rule, a TT variation is H	variation_shapes
+t3toolbox/frame_variations_format.py	856	54	NAME	R4a-row	G	H	R4a review S2 (session 2026-11-13): shape rule, a TT variation is H	variation_shapes
+t3toolbox/frame_variations_format.py	940	37	NAME	R4a-row	B	V	R4a review S2 (session 2026-11-13): shape rule, a Tucker variation is V	validate
+t3toolbox/frame_variations_format.py	940	54	NAME	R4a-row	B	V	R4a review S2 (session 2026-11-13): shape rule, a Tucker variation is V	validate
+t3toolbox/frame_variations_format.py	941	33	NAME	R4a-row	G	H	R4a review S2 (session 2026-11-13): shape rule, a TT variation is H	validate
+t3toolbox/frame_variations_format.py	941	50	NAME	R4a-row	G	H	R4a review S2 (session 2026-11-13): shape rule, a TT variation is H	validate
+t3toolbox/backend/tv_operations.py	245	8	NAME	R4a-row	udots	ddots	R4a review S4 (session 2026-11-13): the plural local of the Ddot row	tv_to_t3
+t3toolbox/backend/tv_operations.py	250	40	NAME	R4a-row	udots	ddots	R4a review S4 (session 2026-11-13): the plural local of the Ddot row	tv_to_t3
+t3toolbox/backend/utv_operations.py	224	8	NAME	R4a-row	udots	ddots	R4a review S4 (session 2026-11-13): the plural local of the Ddot row	utv_to_ut3
+t3toolbox/backend/utv_operations.py	241	34	NAME	R4a-row	udots	ddots	R4a review S4 (session 2026-11-13): the plural local of the Ddot row	utv_to_ut3
+t3toolbox/backend/utv_operations.py	294	8	NAME	R4a-row	dG	H	R4a review S4 (session 2026-11-13): a (rL, nD, rR) TT variation is H	last_core
+t3toolbox/backend/utv_operations.py	298	12	NAME	R4a-row	dG	H	R4a review S4 (session 2026-11-13): a (rL, nD, rR) TT variation is H	last_core
+t3toolbox/backend/utv_operations.py	298	17	NAME	R4a-row	dG	H	R4a review S4 (session 2026-11-13): a (rL, nD, rR) TT variation is H	last_core
+t3toolbox/backend/utv_operations.py	299	40	NAME	R4a-row	dG	H	R4a review S4 (session 2026-11-13): a (rL, nD, rR) TT variation is H	last_core
+t3toolbox/backend/utv_operations.py	485	10	NAME	R4a-row	dG_in	H_in	R4a review S4 (session 2026-11-13): a (rL, nD, rR) TT variation is H	_utv_oblique_gauge_step
+t3toolbox/backend/utv_operations.py	486	4	NAME	R4a-row	dG	H	R4a review S4 (session 2026-11-13): a (rL, nD, rR) TT variation is H	_utv_oblique_gauge_step
+t3toolbox/backend/utv_operations.py	486	9	NAME	R4a-row	dG_in	H_in	R4a review S4 (session 2026-11-13): a (rL, nD, rR) TT variation is H	_utv_oblique_gauge_step
+t3toolbox/backend/utv_operations.py	487	47	NAME	R4a-row	dG	H	R4a review S4 (session 2026-11-13): a (rL, nD, rR) TT variation is H	_utv_oblique_gauge_step
+t3toolbox/backend/utv_operations.py	488	11	NAME	R4a-row	dG	H	R4a review S4 (session 2026-11-13): a (rL, nD, rR) TT variation is H	_utv_oblique_gauge_step
+t3toolbox/backend/utv_operations.py	489	22	NAME	R4a-row	dG	H	R4a review S4 (session 2026-11-13): a (rL, nD, rR) TT variation is H	_utv_oblique_gauge_step
+t3toolbox/backend/utv_operations.py	523	20	NAME	R4a-row	dG_stack	H_stack	R4a review S4 (session 2026-11-13): stacked (rL, nD, rR) TT variations are H	utv_oblique_gauge_projection
+t3toolbox/backend/utv_operations.py	524	48	NAME	R4a-row	dG_stack	H_stack	R4a review S4 (session 2026-11-13): stacked (rL, nD, rR) TT variations are H	utv_oblique_gauge_projection

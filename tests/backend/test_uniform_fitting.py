@@ -146,7 +146,7 @@ class TestUniformSamplingKind(unittest.TestCase):
                 # probe forward is PACKED (d,)+W+C+(N,); a packed random residual exercises the packed path.
                 r = np.random.randn(*np.asarray(fwd).shape)
                 lhs = float(np.sum(r * np.asarray(fwd)))
-                jt = kind_u.transpose(r, sample, self.frame.data, sw)     # bare (dU, dG)
+                jt = kind_u.transpose(r, sample, self.frame.data, sw)     # bare (V, H)
                 rhs = float(utv_operations.utv_corewise_inner(
                     (jt[0], jt[1], _STRUCT[0], self.vmask), self.var.data, 0))
                 self.assertTrue(np.isclose(lhs, rhs), f"{name}: {lhs} != {rhs}")
@@ -346,7 +346,7 @@ def _corrupt(obj, scale):
 
 
 def _expected_gauge_indicator(rframes, uframe, K):
-    """Real-slot indicators of a kind-transpose output ``(dU, dG)``, stack ``K+C``, derived from the RAGGED
+    """Real-slot indicators of a kind-transpose output ``(V, H)``, stack ``K+C``, derived from the RAGGED
     frame(s)' core shapes (one per ``C`` element, or one shared by all) -- never from a uniform mask, so the
     check is not circular. A variation of core i spans ``(rL_i, nD_i, rR_(i+1))`` (the gauge shift)."""
     C, d = tuple(uframe.stack_shape), len(uframe.shape)

@@ -88,7 +88,7 @@ def padded_case(shape, old_ranks, new_ranks, stack_shape=(), sharing=None, seed=
 
 
 def stream_rows(store, key, seed, w, k, p):
-    """Rows w .. w+k-1 of the keyed stream RandomState([seed, store tag, key]) (tags: up 0, down 1, left 2, right 3)."""
+    """Rows w .. w+k-1 of the keyed stream RandomState([seed, store tag, key]) (tags: down 0, up 1, left 2, right 3)."""
     tag = {'down': 0, 'up': 1, 'left': 2, 'right': 3}[store]
     return np.random.RandomState([seed, tag, key]).standard_normal((w + k, p))[w:]
 
@@ -162,8 +162,8 @@ def take(frame, idx):
 
 
 def projectors(frame):
-    """Gauge-invariant summary of a frame: per mode the Tucker projector U^T U, per bond the dense left and
-    right interface projectors, per mode the dense down-environment projector (O_i between the interfaces)."""
+    """Gauge-invariant summary of a frame: per mode the Tucker projector D^T D, per bond the dense left and
+    right interface projectors, per mode the dense up-environment projector (U_i between the interfaces)."""
     down, up, left, right = frame
     d = len(down)
     phi = [np.ones((1, 1))]                             # Phi_k: (prod N_<k, rL_k)
@@ -181,7 +181,7 @@ def projectors(frame):
 
 
 def inside_count(old, new, axis):
-    """The convention's in-block column count of a TT / down core (its output axis ``axis``): the new columns
+    """The convention's in-block column count of a TT / up core (its output axis ``axis``): the new columns
     take the outside coordinates of the (row-major) unfolding first, and only the rest come from a completion
     inside the old block -- the only part a factorization computes."""
     q1, q2, c = np.moveaxis(old, axis, -1).shape[-3:]
@@ -293,7 +293,7 @@ class TestValidAtResizedPoints(PaddedFrameAsserts):
         'no increase':        ((5, 6, 7), ((2, 3, 2), (1, 2, 2, 1)), ((2, 3, 2), (1, 2, 2, 1))),
         'in-block TT':        ((4, 4, 4, 4), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((2, 2, 2, 2), (1, 2, 3, 2, 1))),
         'in-block bond 1':    ((5, 6, 7), ((3, 3, 3), (1, 2, 2, 1)), ((3, 3, 3), (1, 3, 2, 1))),
-        'in-block down':      ((5, 6, 7), ((2, 3, 2), (1, 2, 2, 1)), ((2, 4, 2), (1, 2, 2, 1))),
+        'in-block up':        ((5, 6, 7), ((2, 3, 2), (1, 2, 2, 1)), ((2, 4, 2), (1, 2, 2, 1))),
         'non-minimal target': ((5, 6, 7), ((2, 2, 2), (1, 2, 2, 1)), ((6, 4, 3), (1, 3, 5, 1))),
     }
 
@@ -399,10 +399,10 @@ class TestStructuralErrors(unittest.TestCase):
         padded_frames.fv_padded_frame(self.old, *self.target)
 
     def test_old_frame_layout(self):
-        """The old frame must have an orthogonal representation's layout, read off its up and left widths."""
+        """The old frame must have an orthogonal representation's layout, read off its down and left widths."""
         down, up, left, right = self.old
         cases = {
-            'a down width':       (self.replaced('up', 1, np.zeros((2, 3, 2))), 'old_frame up\\[1\\]'),
+            'an up width':        (self.replaced('up', 1, np.zeros((2, 3, 2))), 'old_frame up\\[1\\]'),
             'a right width':      (self.replaced('right', 1, np.zeros((3, 2, 2))), 'old_frame right\\[1\\]'),
             'inconsistent left':  (self.replaced('left', 0, np.zeros((1, 2, 3))), 'old_frame left\\[0\\]'),
             'left boundary bond': (self.replaced('left', 0, np.zeros((2, 2, 2))), 'old_frame left\\[0\\]'),
@@ -488,7 +488,7 @@ def worst(Fa, Fb):
 
 def stores_of(frame):
     down, up, left, right = frame
-    return (tuple(u.shape[-2] for u in down), tuple(o.shape[-2] for o in up),
+    return (tuple(D.shape[-2] for D in down), tuple(U.shape[-2] for U in up),
             tuple(g.shape[-3] for g in left) + (left[-1].shape[-1],),
             tuple(g.shape[-3] for g in right) + (right[-1].shape[-1],))
 
@@ -559,9 +559,10 @@ class TestStepAgainstDense(StepAsserts):
         self.assert_padded(F, old, X_old, stores, groups)
         self.assert_matches_dense(start, variations, old, F, movement, stores, update, groups)
 
-    # The d = 1 note. At d = 1 the down store is one wide (nU = min(nD, rL rR) = 1), so a nonzero old point's down
-    # frame spans the whole far side and the up edge's content vanishes: its completion carries no information
-    # (T3's information-free case). The informative d = 1 step starts at the zero tensor, at Tucker rank 1.
+    # The d = 1 note. At d = 1 the up store is one wide (nU = min(nD, rL rR) = 1), so a nonzero old point's up
+    # frame spans the whole far side and the down store's edge's (l_i -> c_i) content vanishes: its completion
+    # carries no information (T3's information-free case). The informative d = 1 step starts at the zero tensor,
+    # at Tucker rank 1.
 
     def test_cases(self):
         for name, args in self.CASES.items():
@@ -677,7 +678,7 @@ class TestStepDegenerateAndStructural(StepAsserts):
 
     def test_degenerate_hints(self):
         """A zero hint, a rank-one hint, and an information-free Tucker increase (rows beyond r_i r_(i+1) have no
-        down slots, so the tangent space does not depend on them): valid frames, no rank decision anywhere."""
+        up slots, so the tangent space does not depend on them): valid frames, no rank decision anywhere."""
         cases = {   # shape, old ranks, working ranks, output ranks, hint
             'zero':            ((6, 6, 6, 6), ((2, 2, 2, 2), (1, 2, 2, 2, 1)), ((4, 4, 4, 4), (1, 4, 5, 4, 1)), None,
                                 'zero'),
@@ -775,7 +776,7 @@ class TestStepDegenerateAndStructural(StepAsserts):
     def test_store_order(self):
         """The old block must fit the output, and the output the frame."""
         with self.assertRaisesRegex(ValueError, 'old block must fit'):
-            self.step(old_ranks=((4, 3, 3, 2), (1, 2, 3, 2, 1)), out=self.target)         # old up 4 > output 3
+            self.step(old_ranks=((4, 3, 3, 2), (1, 2, 3, 2, 1)), out=self.target)         # old down 4 > output 3
         with self.assertRaisesRegex(ValueError, 'old block must fit'):
             self.step(out=((4, 6, 5, 4), (1, 4, 6, 5, 1)))                    # left store 3: output 5 above the frame's 4
 

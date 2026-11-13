@@ -220,8 +220,8 @@ class TestParametersMustBeFields(unittest.TestCase):
 class TestBasePointTangent(unittest.TestCase):
     def test_uniform_variation_shapes_match_the_orthogonal_representation(self):
         """``ufv_base_point_tangent`` must produce the variation supercore shapes that
-        ``ut3_orthogonal_representations`` does -- including when the down rank differs from the up rank,
-        where reading the shapes off the ``up`` supercore silently gives the wrong answer."""
+        ``ut3_orthogonal_representations`` does -- including when the up rank differs from the down rank,
+        where reading the shapes off the ``down`` supercore silently gives the wrong answer."""
         cases = [(SHAPE, TUCKER, TT, None),
                  ((6, 6, 6), (1, 1, 1), (1, 1, 1, 1), (0, 0, 0)),   # nU=1, nD=3 -- the regression case
                  ((6, 6, 6), (3, 2, 1), (1, 3, 2, 1), None),

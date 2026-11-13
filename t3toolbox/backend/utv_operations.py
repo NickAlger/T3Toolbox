@@ -55,16 +55,16 @@ __all__ = [
 
 
 def _tangent_stack_split(
-        frame_data,       # (up, down, left, right, shape, masks), each supercore stack = C
+        frame_data,       # (down, up, left, right, shape, masks), each supercore stack = C
         variations_data,  # (tkv, ttv, shape, masks),             each supercore stack = K + C
 ) -> typ.Tuple[int, int]:  # (|K|, |C|)
     """Recover the tangent / frame stack split (|K|, |C|) from a (frame, variations) ``.data`` pair.
 
-    The frame supercores carry only the frame stack ``C`` (up: ``(d,)+C+(nD, N)``); the variation supercores
+    The frame supercores carry only the frame stack ``C`` (down: ``(d,)+C+(nD, N)``); the variation supercores
     carry the full ``K + C`` (tucker variation: ``(d,)+K+C+(nU, N)``). So ``|C|`` comes from a frame core
     and ``|K|`` is the remainder.
     """
-    n_frame = frame_data[0].ndim - 3       # |C|   (up supercore: (d,) + C + (nD, N))
+    n_frame = frame_data[0].ndim - 3       # |C|   (down supercore: (d,) + C + (nD, N))
     n_full = variations_data[0].ndim - 3  # |K+C| (tucker variation: (d,) + K + C + (nU, N))
     return n_full - n_frame, n_frame
 
@@ -185,7 +185,7 @@ def utv_sum_tangent_stack(
 
 
 def utv_to_ut3(
-        frame_data,       # UT3Frame .data:      (up, down, left, right, shape, (4 masks)),  supercore stack = C
+        frame_data,       # UT3Frame .data:      (down, up, left, right, shape, (4 masks)),  supercore stack = C
         variations_data,  # UT3Variations .data: (tkv, ttv, shape, (4 masks)),               supercore stack = K + C
         include_shift: bool = False,  # False: tangent vector v. True: base point + v.
         shared_data: typ.Optional['sharing_module.SharedFrameData'] = None,  # tied embedding (SF-T3)
@@ -193,12 +193,12 @@ def utv_to_ut3(
     """Doubled-rank uniform Tucker tensor train representing a uniform frame-variations tangent vector.
 
     The uniform mirror of :py:func:`tv_operations.tv_to_t3` (equations (49)-(52) / Figure 22,
-    Appendix A.3.1 of Alger et al. 2026). The Tucker supercore becomes ``[U ; V]`` (concat along the
+    Appendix A.3.1 of Alger et al. 2026). The Tucker supercore becomes ``[D ; V]`` (concat along the
     Tucker-rank axis); the TT supercore is the block-bidiagonal embedding, uniform-padded to bonds
     ``rL+rR`` for every core with the **frame-inner ``[R, L]`` bond order** (mirroring the ragged build).
     The doubled rank masks are concatenations of the existing masks (the **#1 trap**: the appended boundary
     slots are FULL ``ones`` -- the supercore is zero there, so to_dense's mask-then-contract is unaffected):
-    ``tucker_mask = concat([up, down])``; ``tt_mask = concat([right_ext, left_ext])`` with
+    ``tucker_mask = concat([down, up])``; ``tt_mask = concat([right_ext, left_ext])`` with
     ``left_ext = [var_left, ones]`` and ``right_ext = [ones, var_right]``.
 
     Stack-aware: the variation supercores carry ``K + C``; the frame supercores (stack ``C``) are broadcast
@@ -207,12 +207,12 @@ def utv_to_ut3(
     the last core (``base point + v``).
 
     With ``shared_data`` (the frame's uniform SF-T3 companion), the embedding is built TIED, mirroring
-    the ragged branch: per nontrivial group the common gauged ambient direction ``Udot``
+    the ragged branch: per nontrivial group the common gauged ambient direction ``Ddot``
     (:py:func:`~t3toolbox.backend.sharing.fv_tied_ambient_directions` -- garbage-immune through the
     companion's masked ``U_M``) takes the variation slot at EVERY group mode, and the companion's
-    center core ``H_i`` replaces ``O_i`` (an exact rewrite of each Tucker term). ``Udot`` has the UP
+    center core ``H_i`` replaces ``U_i`` (an exact rewrite of each Tucker term). ``Ddot`` has the DOWN
     width, so the variation block is rebuilt at height ``nD``: singleton slices zero-pad from ``nU``
-    (block masks pad with False); group block masks are the frame's UP mask."""
+    (block masks pad with False); group block masks are the frame's DOWN mask."""
     down_sc, up_sc, left_sc, right_sc, shape, _base_masks = frame_data
     tkv, ttv, _shape_v, var_masks = variations_data
     var_down_mask, var_up_mask, var_left_mask, var_right_mask = var_masks
@@ -221,14 +221,14 @@ def utv_to_ut3(
     xnp, _, _ = get_backend(True, use_jax)
 
     if shared_data is not None and sharing_module.nontrivial_groups(shared_data.groups):
-        udots = sharing_module.fv_tied_ambient_directions((tkv, ttv), shared_data)
+        ddots = sharing_module.fv_tied_ambient_directions((tkv, ttv), shared_data)
         nD_pad, nU_pad = down_sc.shape[-2], up_sc.shape[-2]
         pad = nD_pad - nU_pad
         d0 = down_sc.shape[0]
         ss_v = tkv.shape[1:-2]                              # K + C
         n_K0 = len(ss_v) - (down_sc.ndim - 3)
-        down_mask_frame = frame_data[5][0]                    # (d,)+C+(nD,), HOST
-        down_mask_v = np.broadcast_to(                        # (d,)+K+C+(nD,): the frame mask over K
+        down_mask_frame = frame_data[5][0]                  # (d,)+C+(nD,), HOST
+        down_mask_v = np.broadcast_to(                      # (d,)+K+C+(nD,): the frame mask over K
             down_mask_frame.reshape(down_mask_frame.shape[:1] + (1,) * n_K0 + down_mask_frame.shape[1:]),
             down_mask_frame.shape[:1] + tuple(ss_v) + down_mask_frame.shape[-1:])
         mode_slot = {ii: (gi, jj)
@@ -238,8 +238,8 @@ def utv_to_ut3(
         for ii in range(d0):
             if ii in mode_slot:
                 gi, jj = mode_slot[ii]
-                tkv_slices.append(udots[gi])                             # ONE array per group, (K+C)+(nD, N)
-                up_slices.append(shared_data.centers[gi][jj])          # H_i replaces O_i, (C)+(rL, nD, rR)
+                tkv_slices.append(ddots[gi])                             # ONE array per group, (K+C)+(nD, N)
+                up_slices.append(shared_data.centers[gi][jj])            # H_i replaces U_i, (C)+(rL, nD, rR)
                 block_masks.append(down_mask_v[ii])
             else:
                 v = tkv[ii]
@@ -251,8 +251,8 @@ def utv_to_ut3(
                 block_masks.append(np.concatenate(
                     [var_up_mask[ii], np.zeros(var_up_mask[ii].shape[:-1] + (pad,), bool)], axis=-1))
         tkv = xnp.stack(tkv_slices, axis=0)                 # (d,)+K+C+(nD, N)
-        up_sc = xnp.stack(up_slices, axis=0)            # (d,)+C+(rL, nD, rR)
-        var_up_mask = np.stack(block_masks, axis=0)       # (d,)+K+C+(nD,), HOST
+        up_sc = xnp.stack(up_slices, axis=0)                # (d,)+C+(rL, nD, rR)
+        var_up_mask = np.stack(block_masks, axis=0)         # (d,)+K+C+(nD,), HOST
 
     d  = down_sc.shape[0]
     nD = down_sc.shape[-2]; N = down_sc.shape[-1]; nU = up_sc.shape[-2]
@@ -268,7 +268,7 @@ def utv_to_ut3(
     D = bcast(down_sc); U = bcast(up_sc); L = bcast(left_sc); R = bcast(right_sc)
     Z = lambda nd, a, b, c: xnp.zeros((nd,) + ss + (a, b, c))   # nd cores of a (a, b, c) zero block
 
-    # ---- Tucker supercore: [U ; V] along the Tucker-rank axis (-2). Fully vectorized over d. ----
+    # ---- Tucker supercore: [D ; V] along the Tucker-rank axis (-2). Fully vectorized over d. ----
     tucker_supercore = xnp.concatenate([D, tkv], axis=-2)       # (d,)+ss+(nD+nU, N)
 
     # ---- TT supercore: first / mid / last cores, [R, L] bond order, padded to (rR+rL, nD+nU, rR+rL). ----
@@ -282,21 +282,21 @@ def utv_to_ut3(
         nd = d - 2
         Gtop = xnp.concatenate([
             xnp.concatenate([R[1:-1], Z(nd, rR, nD, rL)], axis=-1),            # [R, Z001] -> (rR, nD, rR+rL)
-            xnp.concatenate([ttv[1:-1], L[1:-1]], axis=-1),                    # [dU, L]   -> (rL, nD, rR+rL)
+            xnp.concatenate([ttv[1:-1], L[1:-1]], axis=-1),                    # [H, L]    -> (rL, nD, rR+rL)
         ], axis=-3)                                                            # (rR+rL, nD, rR+rL)
         Gbot = xnp.concatenate([
             xnp.concatenate([Z(nd, rR, nU, rR), Z(nd, rR, nU, rL)], axis=-1),  # (rR, nU, rR+rL)
-            xnp.concatenate([U[1:-1], Z(nd, rL, nU, rL)], axis=-1),            # [O, Z111] -> (rL, nU, rR+rL)
+            xnp.concatenate([U[1:-1], Z(nd, rL, nU, rL)], axis=-1),            # [U, Z111] -> (rL, nU, rR+rL)
         ], axis=-3)                                                            # (rR+rL, nU, rR+rL)
         return xnp.concatenate([Gtop, Gbot], axis=-2)                         # (rR+rL, nD+nU, rR+rL)
 
     def last_core():      # right bond is the boundary (the R-block); pad the L-block (rL cols) with zeros
-        dG = ttv[-1:]
-        if include_shift:  # fold the base point's last core in: add its rank-1 right boundary (col 0) to dU
+        H = ttv[-1:]
+        if include_shift:  # fold the base point's last core in: add its rank-1 right boundary (col 0) to H
             Lf_boundary = xnp.concatenate(
                 [L[-1:][..., :1], Z(1, rL, nD, rR - 1)], axis=-1)              # (rL, nD, rR), boundary in col 0
-            dG = dG + Lf_boundary
-        Gtop = xnp.concatenate([R[-1:], dG], axis=-3)                          # [R, dU] -> (rR+rL, nD, rR)
+            H = H + Lf_boundary
+        Gtop = xnp.concatenate([R[-1:], H], axis=-3)                           # [R, H] -> (rR+rL, nD, rR)
         Gbot = xnp.concatenate([Z(1, rR, nU, rR), U[-1:]], axis=-3)            # (rR+rL, nU, rR)
         G = xnp.concatenate([Gtop, Gbot], axis=-2)                            # (rR+rL, nD+nU, rR)
         return xnp.concatenate([G, Z(1, rR + rL, nD + nU, rL)], axis=-1)       # (rR+rL, nD+nU, rR+rL)
@@ -312,15 +312,15 @@ def utv_to_ut3(
     tt_supercore = xnp.concatenate(blocks, axis=0)                             # (d,)+ss+(rR+rL, nD+nU, rR+rL)
 
     # ---- Doubled rank masks (HOST numpy; carry K+C from the variation masks). The order respects the
-    # block structure (T4S (49)-(52)): Tucker axis [U | dU] = [up | down]; the TT bond is [Q | P] = [R | L], so
-    # the right-chain mask sits in the Q block and the left-chain mask in the P block -- the unique
+    # block structure (T4S (49)-(52)): Tucker axis [D | V] = [down | up]; the TT bond is [R | L] (T4S's [Q | P]), so
+    # the right-chain mask sits in the R block and the left-chain mask in the L block -- the unique
     # concatenation where each diagonal mask multiplies the core block it belongs to. At the two boundary
-    # bonds the global "1" sits in the CONTENT block (P at bond 0, Q at bond d); the opposite (free) block
+    # bonds the global "1" sits in the CONTENT block (L at bond 0, R at bond d); the opposite (free) block
     # has no core, hence rank 0 -- appended as zeros (not phantom ones), so the doubled ranks stay honest. ----
-    tucker_mask = np.concatenate([var_down_mask, var_up_mask], axis=-1)        # (d,)+ss+(nD+nU,)  [U | dU]
-    left_ext  = np.concatenate([var_left_mask,  np.zeros((1,) + ss + (rL,), bool)], axis=0)  # (d+1,)+ss+(rL,): P-part
-    right_ext = np.concatenate([np.zeros((1,) + ss + (rR,), bool), var_right_mask], axis=0)  # (d+1,)+ss+(rR,): Q-part
-    tt_mask = np.concatenate([right_ext, left_ext], axis=-1)                   # (d+1,)+ss+(rR+rL,)  [Q | P] order
+    tucker_mask = np.concatenate([var_down_mask, var_up_mask], axis=-1)        # (d,)+ss+(nD+nU,)  [D | V]
+    left_ext  = np.concatenate([var_left_mask,  np.zeros((1,) + ss + (rL,), bool)], axis=0)  # (d+1,)+ss+(rL,): L-part
+    right_ext = np.concatenate([np.zeros((1,) + ss + (rR,), bool), var_right_mask], axis=0)  # (d+1,)+ss+(rR,): R-part
+    tt_mask = np.concatenate([right_ext, left_ext], axis=-1)                   # (d+1,)+ss+(rR+rL,)  [R | L] order
 
     return tucker_supercore, tt_supercore, shape, (tucker_mask, tt_mask)
 
@@ -333,7 +333,7 @@ def utv_retract(
     """Retract a uniform frame-variations tangent vector onto the fixed-rank manifold.
 
     Forms the shifted doubled-rank embedding ``base point + v`` (:py:func:`utv_to_ut3` with
-    ``include_shift=True``) and truncates it back to the **base point's own ranks** -- the Tucker ``up``
+    ``include_shift=True``) and truncates it back to the **base point's own ranks** -- the Tucker ``down``
     ranks and ``left`` TT ranks read off the frame masks -- via the mask-truncated uniform T3-SVD. The output
     is a UT3 at the frame padded dims (``ut3svd`` truncates by max rank to a fixed shape, so no extra slice
     is needed), one retracted point per stack element. The uniform mirror of
@@ -354,7 +354,7 @@ def utv_retract(
     n_K = len(ss) - len(C)
 
     down_mask, _up_mask, frame_left_mask, _frame_right_mask = frame_data[5]
-    down_ranks   = down_mask.sum(axis=-1)                 # (d,)   + C, HOST int
+    down_ranks = down_mask.sum(axis=-1)               # (d,)   + C, HOST int
     left_ranks = frame_left_mask.sum(axis=-1)         # (d+1,) + C, HOST int
 
     def bcast_over_K(ranks):  # (L,)+C -> (L,)+K+C: the K tangents share the base point's truncation targets
@@ -373,13 +373,13 @@ def utv_retract(
 
 
 def utv_corewise_retract(
-        frame_data,       # UT3Frame .data: the (U, G, G, G) corewise frame, supercore stack = C
-        variations_data,  # UT3Variations .data: free core perturbations (dU, dG), stack = K + C
+        frame_data,       # UT3Frame .data: the (B, G, G, G) corewise frame, supercore stack = C
+        variations_data,  # UT3Variations .data: free core perturbations (dB, dG), stack = K + C
 ):  # -> retracted UniformTuckerTensorTrain .data (at the base point's ranks; stack = K + C)
     """Additive (corewise) retraction: ``cores += variations``.
 
-    The uniform mirror of the additive retraction on the corewise frame ``(U, G, G, G)`` (Section 6.3,
-    Alger et al. 2026 -- the ``(P, Q, O) -> G`` substitution): recovers the point ``(U, G)`` from the frame
+    The uniform mirror of the additive retraction on the corewise frame ``(B, G, G, G)`` (Section 6.3,
+    Alger et al. 2026 -- the ``(U, L, R) -> G`` substitution): recovers the point ``(B, G)`` from the frame
     (``down_tucker_supercore`` and ``left_tt_supercore``, which the corewise frame sets to the single core
     ``G``) and adds the variation supercores, giving a uniform Tucker tensor train at the base point's own
     ranks. Mirrors ``CorewiseGeometry.utv_retract`` / ``corewise.corewise_add`` -- but the uniform supercores are
@@ -388,13 +388,13 @@ def utv_corewise_retract(
     ``n_K`` size-1 axes *after* the leading mode axis -- the ``K`` perturbations share one base point. The
     result masks are the frame plain-UT3 masks (``down_mask``, ``frame_left_mask``) broadcast over ``K``.
     """
-    down_sc = frame_data[0]       # (d,)   + C + (nD, N)        -- the point's Tucker core U
-    G_sc  = frame_data[2]       # (d,)   + C + (rL, nD, rR)   -- the point's TT core G (left == right == G)
-    shape = frame_data[4]
+    down_sc = frame_data[0]     # (d,)   + C + (n, N)         -- the point's Tucker core B
+    G_sc    = frame_data[2]     # (d,)   + C + (rL, n, rR)    -- the point's TT core G (left == right == G)
+    shape   = frame_data[4]
     down_mask, _up_mask, frame_left_mask, _frame_right_mask = frame_data[5]
 
-    dB, dG = variations_data[0], variations_data[1]   # (d,) + K + C + (nU, N), (d,) + K + C + (rL, nD, rR)
-    C  = down_sc.shape[1:-2]      # frame stack C
+    dB, dG = variations_data[0], variations_data[1]   # (d,) + K + C + (n, N), (d,) + K + C + (rL, n, rR)
+    C  = down_sc.shape[1:-2]    # frame stack C
     ss = dB.shape[1:-2]         # K + C (the variation stack)
     n_K = len(ss) - len(C)
 
@@ -445,8 +445,8 @@ def utv_orthogonal_gauge_projection(
 ):  # -> gauged variations .data (same masks; the tangent VECTOR changes)
     """Orthogonally project the variations onto the gauge-satisfying subspace (the uniform mirror of
     :py:func:`tv_operations.tv_orthogonal_gauge_projection`). Removes the component of each Tucker
-    variation parallel to its up-core ``U`` and of each left-interior TT variation parallel to its
-    left-core ``P`` -- the gauge conditions (47)-(48), Appendix A.3 of Alger et al. (2026). The
+    variation parallel to its down-core ``D`` and of each left-interior TT variation parallel to its
+    left-core ``L`` -- the gauge conditions (47)-(48), Appendix A.3 of Alger et al. (2026). The
     represented tangent vector CHANGES (orthogonal, not oblique).
 
     Mask-once up front (the frame and variation padding zeroed), then mask-agnostic einsums vectorized over
@@ -461,13 +461,13 @@ def utv_orthogonal_gauge_projection(
     _tkv0, _ttv0, shape, masks = variations_data
     xnp, _, _ = get_backend(True, tree_contains_jax((down_sc, left_sc, tkv, ttv)))
 
-    # TT variations: remove the P-parallel component (vectorized over d); keep the last core unchanged.
-    gram = xnp.einsum('d...iaj,d...iak->d...jk', left_sc, ttv)                 # (P^L)^T dG^L, (d,)+stack+(rL, rR)
+    # TT variations: remove the L-parallel component (vectorized over d); keep the last core unchanged.
+    gram = xnp.einsum('d...iaj,d...iak->d...jk', left_sc, ttv)                 # (L^L)^T H^L, (d,)+stack+(rL, rR)
     parallel = xnp.einsum('d...iaj,d...jk->d...iak', left_sc, gram)
     new_ttv = xnp.concatenate([(ttv - parallel)[:-1], ttv[-1:]], axis=0)       # last TT variation untouched
 
-    # Tucker variations: remove the U-parallel component (all d cores).
-    gram_tk = xnp.einsum('d...jo,d...ko->d...jk', tkv, down_sc)                  # dB U^T, (d,)+stack+(nU, nD)
+    # Tucker variations: remove the D-parallel component (all d cores).
+    gram_tk = xnp.einsum('d...jo,d...ko->d...jk', tkv, down_sc)                  # V D^T, (d,)+stack+(nU, nD)
     new_tkv = tkv - xnp.einsum('d...jk,d...ko->d...jo', gram_tk, down_sc)
 
     if shared_data is not None and sharing_module.nontrivial_groups(shared_data.groups):
@@ -476,17 +476,17 @@ def utv_orthogonal_gauge_projection(
 
 
 def _utv_oblique_gauge_step(
-        X_prev: NDArray,                               # carry: previous core's (P^L)^T dG^L, K+C+(rL, rR)
-        core:   typ.Tuple[NDArray, NDArray, NDArray],  # (L, R, dG): C+(rL,n,rL) ; C+(rR,n,rR) ; K+C+(rL,n,rR)
+        X_prev: NDArray,                               # carry: previous core's (L^L)^T H^L, K+C+(rL, rR)
+        core:   typ.Tuple[NDArray, NDArray, NDArray],  # (L, R, H): C+(rL,n,rL) ; C+(rR,n,rR) ; K+C+(rL,n,rR)
 ) -> typ.Tuple[NDArray, typ.Tuple[NDArray, NDArray]]:  # (next carry, (projected core, corrected core))
     '''One core of the TT sweep of :py:func:`utv_oblique_gauge_projection`. Closure-free scan body --
     ``docs/contributor/scan_body_principles.md``.'''
     xnp, _, _ = get_backend(True, tree_contains_jax((X_prev, core)))   # only xnp; it ignores the flag
-    L, R, dG_in = core                                                    # slices: L,R (stack C), dG (stack K+C)
-    dG = dG_in + xnp.einsum('...jk,...kbl->...jbl', X_prev, R)            # incoming correction X_prev @ Q_ii
-    Xi = xnp.einsum('...iaj,...iak->...jk', L, dG)                         # (P^L)^T dG^L, stack+(rL, rR)
-    proj = dG - xnp.einsum('...iaj,...jk->...iak', L, Xi)
-    return Xi, (proj, dG)
+    L, R, H_in = core                                                     # slices: L,R (stack C), H (stack K+C)
+    H = H_in + xnp.einsum('...jk,...kbl->...jbl', X_prev, R)              # incoming correction X_prev @ R_ii
+    Xi = xnp.einsum('...iaj,...iak->...jk', L, H)                          # (L^L)^T H^L, stack+(rL, rR)
+    proj = H - xnp.einsum('...iaj,...jk->...iak', L, Xi)
+    return Xi, (proj, H)
 
 
 def utv_oblique_gauge_projection(
@@ -495,8 +495,8 @@ def utv_oblique_gauge_projection(
 ):  # -> gauged variations .data (same masks; the tangent VECTOR is PRESERVED)
     """Project the variations onto the gauge-satisfying subspace while PRESERVING the tangent vector (the
     uniform mirror of :py:func:`tv_operations.tv_oblique_gauge_projection`). The Tucker perturbation is
-    made perpendicular to ``U`` (compensating through the down core ``O``), then the TT variations are made
-    left-perpendicular (compensating through the right core ``Q``).
+    made perpendicular to ``D`` (compensating through the up core ``U``), then the TT variations are made
+    left-perpendicular (compensating through the right core ``R``).
 
     The Tucker step is independent per core -> vectorized over ``d``. The TT step carries a correction
     forward to the next core (a left-to-right sweep), implemented as an ``xscan`` over ``d`` -- NOT a Python
@@ -508,20 +508,20 @@ def utv_oblique_gauge_projection(
     _tkv0, _ttv0, shape, masks = variations_data
     xnp, _, xscan = get_backend(True, tree_contains_jax((down_sc, up_sc, left_sc, right_sc, tkv, ttv)))
 
-    # Make Tucker variations perpendicular to U; compensate through the down core O (vectorized over d).
-    X = xnp.einsum('d...jo,d...io->d...ji', tkv, down_sc)                        # dB U^T, (d,)+stack+(nU, nD)
+    # Make Tucker variations perpendicular to D; compensate through the up core U (vectorized over d).
+    X = xnp.einsum('d...jo,d...io->d...ji', tkv, down_sc)                      # V D^T, (d,)+stack+(nU, nD)
     new_tkv = tkv - xnp.einsum('d...ji,d...io->d...jo', X, down_sc)
-    ttv = ttv + xnp.einsum('d...aib,d...ij->d...ajb', up_sc, X)              # O-compensation into the TT vars
+    ttv = ttv + xnp.einsum('d...aib,d...ij->d...ajb', up_sc, X)                # U-compensation into the TT vars
 
-    # Make TT variations left-perpendicular; compensate through the right core Q. Left-to-right SCAN: the
-    # carry is the previous core's X = (P^L)^T dG^L (shape stack+(rL, rR)); at core ii it first applies the
-    # incoming correction X_prev @ Q_ii, then projects. The last core is left un-projected (its emitted
-    # dG -- the corrected-but-not-projected core -- is used instead of its projection).
+    # Make TT variations left-perpendicular; compensate through the right core R. Left-to-right SCAN: the
+    # carry is the previous core's X = (L^L)^T H^L (shape stack+(rL, rR)); at core ii it first applies the
+    # incoming correction X_prev @ R_ii, then projects. The last core is left un-projected (its emitted
+    # H -- the corrected-but-not-projected core -- is used instead of its projection).
     ss = tkv.shape[1:-2]                                                       # variation stack K+C
     rL, rR = left_sc.shape[-1], right_sc.shape[-1]
 
-    _, (proj_stack, dG_stack) = xscan(_utv_oblique_gauge_step, xnp.zeros(ss + (rL, rR)), (left_sc, right_sc, ttv))
-    new_ttv = xnp.concatenate([proj_stack[:-1], dG_stack[-1:]], axis=0)        # last core: un-projected
+    _, (proj_stack, H_stack) = xscan(_utv_oblique_gauge_step, xnp.zeros(ss + (rL, rR)), (left_sc, right_sc, ttv))
+    new_ttv = xnp.concatenate([proj_stack[:-1], H_stack[-1:]], axis=0)         # last core: un-projected
 
     return new_tkv, new_ttv, shape, masks
 
@@ -535,8 +535,8 @@ def utv_gauge_residual(
     """Max violation of the gauge conditions for a uniform tangent vector, **per stack element** (the
     uniform mirror of :py:func:`tv_operations.tv_gauge_residual`).
 
-    Each Tucker variation must be orthogonal to its up-core (``U^T dU = 0``) and each left-interior TT
-    variation orthogonal to its left-core (``(P^L)^T dG^L = 0``). Mask-once, then the gauge grams vectorized
+    Each Tucker variation must be orthogonal to its down-core (``D V^T = 0``) and each left-interior TT
+    variation orthogonal to its left-core (``(L^L)^T H^L = 0``). Mask-once, then the gauge grams vectorized
     over ``d``, max-abs reduced over the gram axes (keeping the stack), then the max over all checks (the
     last TT core is excluded -- the ``[:-1]`` boundary). **Relative**, like the ragged twin: the max gram is
     divided by the coordinate norm of the whole (masked) tangent per stack element, so the result is in
@@ -552,9 +552,9 @@ def utv_gauge_residual(
     tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)
     xnp, _, _ = get_backend(True, tree_contains_jax((down_sc, left_sc, tkv, ttv, scale)))
 
-    g_tk = xnp.einsum('d...ia,d...ja->d...ij', down_sc, tkv)                     # U^T dU,        (d,)+stack+(nD, nU)
+    g_tk = xnp.einsum('d...ia,d...ja->d...ij', down_sc, tkv)                   # D V^T,         (d,)+stack+(nD, nU)
     dev_tk = xnp.max(xnp.abs(g_tk), axis=(-2, -1))                             # (d,)+stack
-    g_tt = xnp.einsum('d...abi,d...abj->d...ij', left_sc, ttv)                 # (P^L)^T dG^L,  (d,)+stack+(rL, rR)
+    g_tt = xnp.einsum('d...abi,d...abj->d...ij', left_sc, ttv)                 # (L^L)^T H^L,   (d,)+stack+(rL, rR)
     dev_tt = xnp.max(xnp.abs(g_tt), axis=(-2, -1))                             # (d,)+stack
     # the tangent's coordinate norm per stack element (all cores): the scale the grams are relative to
     norm_sq = xnp.sum(tkv * tkv, axis=(0, -2, -1)) + xnp.sum(ttv * ttv, axis=(0, -3, -2, -1))
@@ -582,7 +582,7 @@ def utv_project_ut3_onto_tangent_space(
     ``shared_data`` (SF-T3): tie the projection onto the SHARED tangent space, exactly as the ragged twin
     does -- without it a raw-``.data`` user of a shared frame gets an untied projection (review R9-11).
 
-    Mask-once up front, then: re-express ``x``'s TT cores in the frame's up-Tucker basis (a per-core map
+    Mask-once up front, then: re-express ``x``'s TT cores in the frame's down-Tucker basis (a per-core map
     vectorized over ``d``); accumulate the left/right TT environments with the polymorphic
     :py:func:`tv_operations.tt_zipper_*` (uniform ``xscan``, mask-free since the operands are masked);
     contract each environment into the ungauged Tucker/TT variations (a ``d``-axis map); then gauge."""
@@ -592,8 +592,8 @@ def utv_project_ut3_onto_tangent_space(
     down_mask, up_mask, frame_left_mask, frame_right_mask = frame_data[5]
     xnp, _, _ = get_backend(True, tree_contains_jax((down_sc, up_sc, left_sc, right_sc, other_tk, other_tt)))
 
-    # Re-express x's TT cores in the frame's up-Tucker basis (vectorized over d).
-    BD1 = xnp.einsum('d...iz,d...xz->d...ix', other_tk, down_sc)                 # B_x U^T, (d,)+stack+(n_x, nD)
+    # Re-express x's TT cores in the frame's down-Tucker basis (vectorized over d).
+    BD1 = xnp.einsum('d...iz,d...xz->d...ix', other_tk, down_sc)               # B_x D^T, (d,)+stack+(n_x, nD)
     other_tt2 = xnp.einsum('d...aib,d...ix->d...axb', other_tt, BD1)           # (d,)+stack+(rA, nD, rB)
 
     # Accumulate the left/right TT environments (polymorphic zippers -> tuples; stack into supercores).
@@ -602,10 +602,10 @@ def utv_project_ut3_onto_tangent_space(
 
     # Contract the environments into the ungauged variations (vectorized over d).
     env = xnp.einsum('d...ax,d...aib,d...by->d...xiy', zl, other_tt, zr)       # (d,)+stack+(rL, n_x, rR)
-    BD = xnp.einsum('d...io,d...jo->d...ij', other_tk, down_sc)                  # B_x U^T, (d,)+stack+(n_x, nD)
-    H = xnp.einsum('d...xiy,d...ij->d...xjy', env, BD)                        # tt variation, (d,)+stack+(rL, nD, rR)
-    M  = xnp.einsum('d...xiy,d...xjy->d...ij', env, up_sc)                   # (d,)+stack+(n_x, nU)
-    V = xnp.einsum('d...ij,d...io->d...jo', M, other_tk)                      # tucker variation, (d,)+stack+(nU, N)
+    BD = xnp.einsum('d...io,d...jo->d...ij', other_tk, down_sc)                # B_x D^T, (d,)+stack+(n_x, nD)
+    H  = xnp.einsum('d...xiy,d...ij->d...xjy', env, BD)                        # tt variation, (d,)+stack+(rL, nD, rR)
+    M  = xnp.einsum('d...xiy,d...xjy->d...ij', env, up_sc)                     # (d,)+stack+(n_x, nU)
+    V  = xnp.einsum('d...ij,d...io->d...jo', M, other_tk)                      # tucker variation, (d,)+stack+(nU, N)
 
     # Gauge the ungauged variations (they carry the frame's gauge-shifted masks).
     # the gauge masks over the projected tensor's stack K + C (C = the frame's; the einsums above broadcast
@@ -666,20 +666,20 @@ def utv_corewise_lift(
         frame_data,         # UT3Frame .data (an orthogonal frame), supercore stack = C
         variations_data,    # UT3Variations .data, supercore stack = K + C (masks over K + C)
         lift_factors,       # fv_operations.LiftFactors of the frame, ufv_operations.ufv_lift_factors; stack C
-):  # -> plain-UT3 .data of the raw direction theta_hat = (Udot, Gdot, shape, (up, left) masks over K + C)
+):  # -> plain-UT3 .data of the raw direction theta_hat = (Bdot, Gdot, shape, (down, left) masks over K + C)
     """The uniform twin of :py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift`: frame coordinates ->
-    raw core variations of the base point ``(U, P)``, ``theta_hat = L v``,
+    raw core variations of the base point ``(D, L)``, ``theta_hat``, the lift of ``v``,
 
-    ``Udot_i = (S_i^T)^{+eps} V_i``,   ``Gdot_i = H_i x_3 T_i^{+eps}`` (``i <= d-2``),   ``Gdot_{d-1} = H_{d-1}``,
+    ``Bdot_i = (S_i^T)^{+eps} V_i``,   ``Gdot_i = H_i x_3 T_i^{+eps}`` (``i <= d-2``),   ``Gdot_{d-1} = H_{d-1}``,
 
     as two ``d``-prefixed grouped contractions over the whole supercores (the last TT slot is the factors'
     boundary pass-through slice, so it needs no special case). The variations are masked on entry with their
-    own masks, and the output carries the frame's ``(up, left)`` masks -- the base point's -- broadcast over
+    own masks, and the output carries the frame's ``(down, left)`` masks -- the base point's -- broadcast over
     ``K``, re-masked with them, so its padding is exactly zero. Per stack element, the real block is the ragged
     lift of the real blocks (``to_uniform -> lift -> to_ragged == lift``).
 
     **Shared points.** With tied lift factors (:py:func:`~t3toolbox.backend.ufv_operations.ufv_tied_lift_factors`)
-    each nontrivial sharing group's Tucker slots lift to ONE factor direction, ``Udot_g = M_g^{+eps} [V_i1; ...]``
+    each nontrivial sharing group's Tucker slots lift to ONE factor direction, ``Bdot_g = M_g^{+eps} [V_i1; ...]``
     against the companion's stacked ``M_g`` (the ragged tied solve, on the masked supercore slices), written into
     every group mode's slice -- the same values at each, as the ragged lift's one array per group -- then re-masked
     with the rest.
@@ -714,7 +714,7 @@ def utv_corewise_lift(
     tkv, ttv = ufv_masking.ufv_apply_variations_masks(variations_data)            # mask on entry (own masks)
     shape = tuple(frame_data[4])
     Bdot = contractions.contract('dCux,dKCxn->dKCun', lift_factors.tucker_pinvs, tkv)
-    Bdot = _tie_group_slices(Bdot, groups, [                                      # the tied lift: Udot_g at each
+    Bdot = _tie_group_slices(Bdot, groups, [                                      # the tied lift: Bdot_g at each
         (sharing_module._tied_filtered_solve(lift_factors.shared_data, gi, tkv, lift_factors.tied_filters[gi]),)
         * len(group) for gi, group in enumerate(groups)])
     Gdot = contractions.contract('dKCaib,dCbc->dKCaic', ttv, lift_factors.bond_pinvs)
@@ -725,11 +725,11 @@ def utv_corewise_lift(
 
 def utv_corewise_lift_transpose(
         frame_data,         # UT3Frame .data (an orthogonal frame), supercore stack = C
-        core_variations,    # plain-UT3 .data of raw core variations (Udot, Gdot, shape, masks), stack K + C
+        core_variations,    # plain-UT3 .data of raw core variations (Bdot, Gdot, shape, masks), stack K + C
         lift_factors,       # fv_operations.LiftFactors of the frame, ufv_operations.ufv_lift_factors; stack C
 ):  # -> UNGAUGED UT3Variations .data (V, H, shape, the frame's variation masks over K + C)
     """The uniform twin of :py:func:`~t3toolbox.backend.tv_operations.tv_corewise_lift_transpose`: raw core
-    variations back to frame coordinates, ``V_i = ((S_i^T)^{+eps})^T Udot_i``, ``H_i = Gdot_i x_3 (T_i^{+eps})^T``
+    variations back to frame coordinates, ``V_i = ((S_i^T)^{+eps})^T Bdot_i``, ``H_i = Gdot_i x_3 (T_i^{+eps})^T``
     (the last TT slot through the boundary pass-through), the exact adjoint of :py:func:`utv_corewise_lift` in the
     masked coordinate inner products, per ``K + C`` element, at every damping. The input is masked on entry
     with its own masks (``ut3_apply_masks`` broadcasts ``C`` masks over ``K``); the output carries the frame's
@@ -751,7 +751,7 @@ def utv_corewise_lift_transpose(
 
 def ufv_weighted_norm(
         variations: typ.Tuple,  # UT3Variations .data: (tkv, ttv, shape, masks), stack = K + C
-        weights:    typ.Tuple,  # UT3FrameWeights .data: (up, down, left, right, masks), stack = C
+        weights:    typ.Tuple,  # UT3FrameWeights .data: (down, up, left, right, masks), stack = C
         n_stack:    int,        # leading K+C stack axes to keep; 0 -> a single scalar
 ) -> NDArray:                   # weighted coordinate norm, shape = stack_shape[:n_stack]
     """Weighted (Grasedyck-Kramer) coordinate norm of a uniform tangent's variations: absorb the metric

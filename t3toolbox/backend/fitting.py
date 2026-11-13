@@ -13,7 +13,7 @@ This module supplies the **kind** half: a :py:class:`SamplingKind` descriptor bu
 primitives + the reduction per kind (:py:data:`APPLY` / :py:data:`ENTRIES` / :py:data:`PROBE`). The
 **geometry** half lives in the geometry (:py:data:`t3toolbox.manifold.MANIFOLD` /
 :py:data:`~t3toolbox.manifold.COREWISE`); the frontend :py:class:`t3toolbox.fitting.LocalModel`
-composes the two. The §6.3 corewise substitution ``(U,O,P,Q) -> (U,G,G,G)`` is now nothing but
+composes the two. The §6.3 corewise substitution ``(D,U,L,R) -> (B,G,G,G)`` is now nothing but
 ``CorewiseGeometry.frame`` -- there is no separate corewise backend.
 
 ``probe`` is vector-valued (one free mode per probe), so its residual / forward output is a sequence of
@@ -348,7 +348,7 @@ class SamplingKind(ValueHashedFields):
             "are writing a new operator from scratch." % type(self).__name__)
 
     def transpose(self, residual, sample, frame, sweep):
-        """The bare transpose ``J^T r``, summed over the sample stack ``W``; raw ``(dU, dG)``."""
+        """The bare transpose ``J^T r``, summed over the sample stack ``W``; raw ``(V, H)``."""
         raise NotImplementedError(
             "%s does not implement transpose(): the bare transpose J^T r. Subclass a concrete kind (ApplyKind, ProbeKind, "
             "the *DerivativesKind) to inherit it, or ScalarOutputKind / ProbeOutputKind if you "
@@ -371,13 +371,13 @@ class SamplingKind(ValueHashedFields):
     @abc.abstractmethod     # the stdlib "unimplemented" marker: Problem.local_model(hessian='exact') reads it
     def corewise_hessian(
             self,
-            core_directions,   # theta_hat = (Udot, Gdot) at base_point; elm_shape=K+C+(...) (raw core shapes)
+            core_directions,   # theta_hat = (Bdot, Gdot) at base_point; elm_shape=K+C+(...) (raw core shapes)
             residual,          # RAW r = S(x) - data, as transpose receives it; omega^2 is applied HERE
             sample,            # as forward / transpose take it
             frame,             # this model's frame -- the slot forward / transpose take
             sweep,             # this model's precompute(frame, sample); its xi / mu half is what is reused
             base_point,        # theta = geom.base_point(frame): the raw cores the directions vary
-    ):                         # -> raw (dU, dG), stack K+C, sample stack W summed; MASK-FREE by contract
+    ):                         # -> raw (dB, dG), stack K+C, sample stack W summed; MASK-FREE by contract
         """The derivative of :py:meth:`transpose`'s **corewise** form along a core direction.
 
         ``K_r theta_hat = d/ds grad_theta <omega^2 r, S(Phi(theta + s theta_hat))> |_{s=0}`` at
@@ -386,7 +386,7 @@ class SamplingKind(ValueHashedFields):
         ``transpose`` weights it). It is the sampling half of the exact Hessian's curvature term; the
         geometry lifts a tangent to ``theta_hat`` and maps the result back.
 
-        Needed **only** for ``hessian='exact'``. Raw ``(dU, dG)`` shaped like the directions (``K + C``),
+        Needed **only** for ``hessian='exact'``. Raw ``(dB, dG)`` shaped like the directions (``K + C``),
         ``W`` summed. Mask-free by contract: on the uniform layer the kind's own override masks ``theta``
         and ``theta_hat`` with the frame's masks and re-masks the output.
 
@@ -541,8 +541,8 @@ class ApplyKind(_WwSample, ScalarOutputKind):
         return _take_apply(sample, data, idx)
 
     def corewise_hessian(self, core_directions, r, ww, frame, sweep, base_point):
-        # the lean sweep's xi / mu are base_point's own (xi through U, mu through L at the manifold frame
-        # (U, O, L, R); through U and G at the corewise frame) -- unweighted, so the residual is r itself
+        # the lean sweep's xi / mu are base_point's own (xi through D, mu through L at the manifold frame
+        # (D, U, L, R); through B and G at the corewise frame) -- unweighted, so the residual is r itself
         return bapply.t3_apply_corewise_hessian_from_sweep(r, ww, base_point, core_directions, sweep)
 
 
@@ -653,8 +653,8 @@ class ApplyDerivativesKind(_WwPpSample, ScalarOutputKind, _DerivativesKind):
         return _take_deriv_apply(sample, data, idx)
 
     def corewise_hessian(self, core_directions, r, s, frame, sweep, base_point):
-        # the lean sweep's xi / mu jets are base_point's own (xi through U, mu through L at the manifold frame
-        # (U, O, L, R); through U and G at the corewise frame); omega^2 r, exactly as transpose weights it
+        # the lean sweep's xi / mu jets are base_point's own (xi through D, mu through L at the manifold frame
+        # (D, U, L, R); through B and G at the corewise frame); omega^2 r, exactly as transpose weights it
         return pd.t3_apply_corewise_derivatives_hessian_from_sweep(
             self._apply_weight(r, 2), s[0], s[1], base_point, core_directions, self.order, sweep)
 
@@ -715,8 +715,8 @@ class ProbeDerivativesKind(_WwPpSample, ProbeOutputKind, _DerivativesKind):
         return _take_deriv_probe(sample, data, idx)
 
     def corewise_hessian(self, core_directions, r, s, frame, sweep, base_point):
-        # the sweep's xi / mu are base_point's own: the manifold frame (U, O, L, R) sweeps xi through U and mu
-        # through L, and the corewise frame (U, G, G, G) through U and G -- base_point is (U, L) / (U, G)
+        # the sweep's xi / mu are base_point's own: the manifold frame (D, U, L, R) sweeps xi through D and mu
+        # through L, and the corewise frame (B, G, G, G) through B and G -- base_point is (D, L) / (B, G)
         return pd.t3_probe_corewise_derivatives_hessian_from_sweep(
             self._apply_weight(r, 2), s[0], s[1], base_point, core_directions, self.order, sweep,
             chunk_size=self.chunk_size)

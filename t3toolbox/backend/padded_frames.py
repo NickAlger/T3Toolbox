@@ -5,8 +5,9 @@
 """The padded frame at a zero-padded rank increase, on ragged frame data.
 
 ``fv_empty_frame`` is the frame of the zero tensor. ``fv_padded_frame`` is the seeded start: an old frame in the
-leading slots of every store (the four families of frame cores, up / down / left / right; :doc:`/frame_variations`,
-"Four rank stores"), and the new slots completed by a data-independent convention.
+leading slots of every store (the four families of frame cores, down / up / left / right, each named for the side of
+its edges that its cores occupy; :doc:`/frame_variations`, "Four rank stores"), and the new slots completed by a
+data-independent convention.
 ``tv_align_padded_frame`` is one alignment step: every completion replaced by the leading new directions of a tangent
 vector at the frame, the old blocks held fixed (unrooted message passing over the T3 tree's directed edges).
 ``fv_aligned_padded_frame`` is the loop: from the start at oversampled working ranks, steps against the projection of
@@ -38,9 +39,9 @@ __all__ = [
 ]
 
 FrameData = typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray], typ.Sequence[NDArray], typ.Sequence[NDArray]]
-#   (up, down, left, right), each len=d, elm_shapes C+(nUi, Ni), C+(rLi, nDi, rR(i+1)), C+(rLi, nUi, rL(i+1)), C+(rRi, nUi, rR(i+1))
+#   (down, up, left, right), each len=d, elm_shapes C+(nDi, Ni), C+(rLi, nUi, rR(i+1)), C+(rLi, nDi, rL(i+1)), C+(rRi, nDi, rR(i+1))
 VariationsData = typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]
-#   (tucker_variations, tt_variations), each len=d, elm_shapes C+(nDi, Ni), C+(rLi, nUi, rR(i+1))
+#   (tucker_variations, tt_variations), each len=d, elm_shapes C+(nUi, Ni), C+(rLi, nDi, rR(i+1))
 
 ALIGN_OVERSAMPLING = 5          # the alignment loops' defaults, named once; the members and the frontend twins use them
 ALIGN_OVERSAMPLED_PASSES = 2
@@ -71,14 +72,14 @@ def _update_stores(
 
 def _frame_core_shapes(
         shape:        typ.Sequence[int],   # len=d, the mode sizes (N0, ..., N(d-1))
-        down_ranks:     typ.Sequence[int],   # len=d, nD
-        up_ranks:   typ.Sequence[int],   # len=d, nU
+        down_ranks:   typ.Sequence[int],   # len=d, nD
+        up_ranks:     typ.Sequence[int],   # len=d, nU
         left_ranks:   typ.Sequence[int],   # len=d+1, rL
         right_ranks:  typ.Sequence[int],   # len=d+1, rR
         stack_shape:  typ.Sequence[int],   # C
 ) -> typ.Tuple[
-    typ.Tuple[typ.Tuple[int, ...], ...],   # up.    len=d, each C+(nDi, Ni)
-    typ.Tuple[typ.Tuple[int, ...], ...],   # down.  len=d, each C+(rLi, nUi, rR(i+1))
+    typ.Tuple[typ.Tuple[int, ...], ...],   # down.  len=d, each C+(nDi, Ni)
+    typ.Tuple[typ.Tuple[int, ...], ...],   # up.    len=d, each C+(rLi, nUi, rR(i+1))
     typ.Tuple[typ.Tuple[int, ...], ...],   # left.  len=d, each C+(rLi, nDi, rL(i+1))
     typ.Tuple[typ.Tuple[int, ...], ...],   # right. len=d, each C+(rRi, nDi, rR(i+1))
 ]:
@@ -101,7 +102,7 @@ def _frame_stores(
     typ.Tuple[int, ...],   # rL. len=d+1
     typ.Tuple[int, ...],   # rR. len=d+1
 ]:
-    """A frame's stores, from its up and left widths; ``ValueError`` unless every core has their layout."""
+    """A frame's stores, from its down and left widths; ``ValueError`` unless every core has their layout."""
     down, up, left, right = frame
     d = len(down)
     if not len(up) == len(left) == len(right) == d:
@@ -158,12 +159,12 @@ _SEED_TAGS = {'down': 0, 'up': 1, 'left': 2, 'right': 3}   # the store-kind part
 
 
 def _seed_rows(
-        store:  str,   # 'up' | 'down' | 'left' | 'right'
+        store:  str,   # 'down' | 'up' | 'left' | 'right'
         key:    int,   # the core's mode; for a Tucker factor, its sharing group's first mode
         seed:   int,
         w:      int,   # the old width: the slots already filled
         k:      int,   # the number of new slots
-        p:      int,   # the seed length: the mode size (up) or the real rows of the core's unfolding
+        p:      int,   # the seed length: the mode size (down) or the real rows of the core's unfolding
 ) -> NDArray:          # HOST float64, shape=(k, p): rows w .. w+k-1 of the keyed stream (slot s seeded by row s)
     """The hint-free convention's seeds: slot-indexed rows of the keyed stream ``RandomState([seed, store tag, key])``."""
     return np.random.RandomState([seed, _SEED_TAGS[store], key]).standard_normal((w + k, p))[w:]
@@ -179,14 +180,14 @@ def _embed(
 
 
 def _padded_core(
-        old:     NDArray,                     # C+(q1, q2, q3): an old TT or down core
+        old:     NDArray,                     # C+(q1, q2, q3): an old TT or up core
         widths:  typ.Tuple[int, int, int],    # the padded core's widths, each >= old's
         axis:    int,                         # -3 | -2 | -1: the output axis; the other two, in order, index the rows
-        store:   str,                         # 'down' | 'left' | 'right'
+        store:   str,                         # 'up' | 'left' | 'right'
         key:     int,                         # the core's mode
         seed:    int,
 ) -> NDArray:                                 # C+widths: old in the leading slots, then the completed new output slots
-    """A TT or down core of the padded frame: the old core embedded, its new output slots the seeds completed against it."""
+    """A TT or up core of the padded frame: the old core embedded, its new output slots the seeds completed against it."""
     xnp, _, _ = get_backend(False, tree_contains_jax(old))
     row_widths = list(widths)
     out_width = row_widths.pop(axis)
@@ -207,7 +208,7 @@ def _padded_tucker_factor(
         n:     int,       # the padded Tucker width, n >= s
         key:   int,       # the stream key: the sharing group's first mode
         seed:  int,
-) -> NDArray:             # C+(n, N): U0's rows, then n - s seed rows completed against them
+) -> NDArray:             # C+(n, N): D0's rows, then n - s seed rows completed against them
     """A Tucker factor of the padded frame: the old rows, then the keyed seeds completed against them."""
     xnp, _, _ = get_backend(False, tree_contains_jax(D0))
     C = tuple(D0.shape[:-2])
@@ -223,8 +224,8 @@ def fv_empty_frame(
         stack_shape:  typ.Sequence[int] = (),   # C
         use_jax:      bool = False,             # array-free constructor: the flag chooses the output type
 ) -> typ.Tuple[                                 # the frame of the zero tensor (default float), b = (1, 0, ..., 0, 1):
-    typ.Tuple[NDArray, ...],    # up.    len=d, elm_shape=C+(0, Ni)
-    typ.Tuple[NDArray, ...],    # down.  len=d, elm_shape=C+(bi, 0, b(i+1))
+    typ.Tuple[NDArray, ...],    # down.  len=d, elm_shape=C+(0, Ni)
+    typ.Tuple[NDArray, ...],    # up.    len=d, elm_shape=C+(bi, 0, b(i+1))
     typ.Tuple[NDArray, ...],    # left.  len=d, elm_shape=C+(bi, 0, b(i+1))
     typ.Tuple[NDArray, ...],    # right. len=d, elm_shape=C+(bi, 0, b(i+1))
 ]:
@@ -264,8 +265,8 @@ def fv_padded_frame(
         sharing:       typ.Optional[typ.Sequence] = None,  # len=d group labels; None = unshared
         seed:          int = ZERO_FRAME_SEED,              # the keyed seed streams of the completions
 ) -> typ.Tuple[                 # (nD, nU, rL, rR) = compute_orthogonal_representation_ranks(shape, tucker_ranks, tt_ranks)
-    typ.Tuple[NDArray, ...],    # up.    len=d, elm_shape=C+(nDi, Ni): the old rows bitwise, then the seeded completion
-    typ.Tuple[NDArray, ...],    # down.  len=d, elm_shape=C+(rLi, nUi, rR(i+1)): the old block bitwise, then seeded
+    typ.Tuple[NDArray, ...],    # down.  len=d, elm_shape=C+(nDi, Ni): the old rows bitwise, then the seeded completion
+    typ.Tuple[NDArray, ...],    # up.    len=d, elm_shape=C+(rLi, nUi, rR(i+1)): the old block bitwise, then seeded
     typ.Tuple[NDArray, ...],    # left.  len=d, elm_shape=C+(rLi, nDi, rL(i+1)); left[d-1] = the old carrier, zero-padded
     typ.Tuple[NDArray, ...],    # right. len=d, elm_shape=C+(rRi, nDi, rR(i+1)); right[0] = the old carrier, zero-padded
 ]:
@@ -386,10 +387,10 @@ def _edge(
 
 
 def _up_message(
-        x: typ.Tuple[NDArray, NDArray],   # (VP, U): C+(kUi, Ni), the variation's completion rows ; C+(nDi, Ni)
+        x: typ.Tuple[NDArray, NDArray],   # (VP, D): C+(kUi, Ni), the variation's completion rows ; C+(nDi, Ni)
 ) -> typ.Tuple[
-    NDArray,   # PhiO. C+(kU, nD)
-    NDArray,   # XiO.  C+(kU, z)
+    NDArray,   # PhiU. C+(kU, nD)
+    NDArray,   # XiU.  C+(kU, z)
 ]:
     """The message of the edge core -> leaf (map body)."""
     VP, D = x
@@ -399,7 +400,7 @@ def _up_message(
 
 def _left_message_step(
         carry:  typ.Tuple[NDArray, NDArray],   # (PhiL, XiL), edge c_j -> c_(j+1): C+(kL(j+1), rR(j+1)) ; C+(kL(j+1), z)
-        x:      typ.Tuple[NDArray, ...],       # (H_P, bO, bL, R, PhiO, XiO) at core j: C+(kLj, nDj, rR(j+1)) ;
+        x:      typ.Tuple[NDArray, ...],       # (H_P, bU, bL, R, PhiU, XiU) at core j: C+(kLj, nDj, rR(j+1)) ;
                                                #   C+(kLj, kUj, rR(j+1)); C+(kLj, nDj, kL(j+1)); C+(rRj, nDj, rR(j+1)) ;
                                                #   C+(kUj, nDj) ; C+(kUj, z)
 ) -> typ.Tuple[
@@ -422,7 +423,7 @@ def _left_message_step(
 
 def _right_message_step(
         carry:  typ.Tuple[NDArray, NDArray],   # (PhiR, XiR) of the edge c_j -> c_(j-1): C+(kRj, rLj) ; C+(kRj, z)
-        x:      typ.Tuple[NDArray, ...],       # (H_P, bO, bR, L, PhiO, XiO) at core j: C+(rLj, nDj, kR(j+1)) ;
+        x:      typ.Tuple[NDArray, ...],       # (H_P, bU, bR, L, PhiU, XiU) at core j: C+(rLj, nDj, kR(j+1)) ;
                                                #   C+(rLj, kUj, kR(j+1)); C+(kRj, nDj, kR(j+1)); C+(rLj, nDj, rL(j+1)) ;
                                                #   C+(kUj, nDj) ; C+(kUj, z)
 ) -> typ.Tuple[
@@ -444,12 +445,12 @@ def _right_message_step(
 
 
 def _down_message(
-        x: typ.Tuple[NDArray, ...],   # (H_P, bL, bR, O, PhiL, XiL, PhiR, XiR) at core i: C+(rLi, kDi, rR(i+1)) ;
+        x: typ.Tuple[NDArray, ...],   # (H_P, bL, bR, U, PhiL, XiL, PhiR, XiR) at core i: C+(rLi, kDi, rR(i+1)) ;
                                       #   C+(rLi, kDi, kL(i+1)) ; C+(kRi, kDi, rR(i+1)) ; C+(rLi, nUi, rR(i+1)) ;
                                       #   C+(kL(i+1), rR(i+1)) ; C+(kL(i+1), z) ; C+(kRi, rLi) ; C+(kRi, z)
 ) -> typ.Tuple[
-    NDArray,   # PhiU. C+(kD, nU)
-    NDArray,   # XiU.  C+(kD, z)
+    NDArray,   # PhiD. C+(kD, nU)
+    NDArray,   # XiD.  C+(kD, z)
 ]:
     """The message of the edge leaf -> core (map body)."""
     xnp, _, _ = get_backend(False, tree_contains_jax(x))
@@ -464,12 +465,12 @@ def _down_message(
 
 
 def _down_edge(
-        x: typ.Tuple,   # (A, P_old, g_news, PhiPs, XiUs, k1, on), one sharing group: C+(s, N) ; C+(k, N) ;
+        x: typ.Tuple,   # (A, P_old, g_news, PhiPs, XiDs, k1, on), one sharing group: C+(s, N) ; C+(k, N) ;
                         #   per member C+(N, kUi) ; C+(k, kUi) ; C+(k, z) ; int ; bool (False = transport)
 ) -> typ.Tuple[
-    NDArray,                  # U+.  C+(s + k1, N): the old rows, then the new completion
-    NDArray,                  # o_U. C+(k1, k)
-    typ.Tuple[NDArray, ...],  # DU per member, elm_shape=C+(s + k1, kU)
+    NDArray,                  # D+.  C+(s + k1, N): the old rows, then the new completion
+    NDArray,                  # o_D. C+(k1, k)
+    typ.Tuple[NDArray, ...],  # PsiD per member, elm_shape=C+(s + k1, kU)
     NDArray,                  # movement, shape=C
 ]:
     """The edges leaf -> core of one sharing group (map body): one completion from the members' contents."""
@@ -483,14 +484,14 @@ def _down_edge(
 
 
 def _left_edge_step(
-        carry:  typ.Tuple[NDArray, NDArray],   # (o_L, D_L) of the edge c_(i-1) -> c_i: C+(k1Li, kLi) ; C+(rL1i, kRi)
-        x:      typ.Tuple,                     # (H_P, O_P, R_P, L_P, A, o_U, DU, PhiP, Xi, k1, on) at core i:
+        carry:  typ.Tuple[NDArray, NDArray],   # (o_L, Psi_L) of the edge c_(i-1) -> c_i: C+(k1Li, kLi) ; C+(rL1i, kRi)
+        x:      typ.Tuple,                     # (H_P, U_P, R_P, L_P, A, o_D, PsiD, PhiP, Xi, k1, on) at core i:
                                                #   C+(rLi, nDi, kR(i+1)); C+(rLi, kUi, kR(i+1)); C+(kRi, nDi, kR(i+1)) ;
                                                #   C+(rLi, nDi, kL(i+1)) ; C+(rL1i, nD1i, rL0(i+1)) ; C+(k1Di, kDi) ;
                                                #   C+(nD1i, kUi) ; C+(kL(i+1), kR(i+1)) ; C+(kL(i+1), z) ; int ; bool
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, NDArray],               # (o_L, D_L) of the edge c_i -> c_(i+1)
-    typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # (L+_i, o_L, D_L, movement)
+    typ.Tuple[NDArray, NDArray],               # (o_L, Psi_L) of the edge c_i -> c_(i+1)
+    typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # (L+_i, o_L, Psi_L, movement)
 ]:
     """One edge c_i -> c_(i+1) of the left sweep (scan body)."""
     xnp, _, _ = get_backend(False, tree_contains_jax((carry, x[:9])))
@@ -510,14 +511,15 @@ def _left_edge_step(
 
 
 def _right_edge_step(
-        carry:  typ.Tuple[NDArray, NDArray],   # (o_R, D_R), edge c_(i+1) -> c_i: C+(k1R(i+1), kR(i+1)); C+(rR1(i+1), .)
-        x:      typ.Tuple,                     # (H_P, O_P, L_P, R_P, A, o_U, DU, PhiP, Xi, k1, on) at core i:
+        carry:  typ.Tuple[NDArray, NDArray],   # (o_R, Psi_R), edge c_(i+1) -> c_i: C+(k1R(i+1), kR(i+1)) ;
+                                               #   C+(rR1(i+1), .)
+        x:      typ.Tuple,                     # (H_P, U_P, L_P, R_P, A, o_D, PsiD, PhiP, Xi, k1, on) at core i:
                                                #   C+(kLi, nDi, rR(i+1)); C+(kLi, kUi, rR(i+1)); C+(kLi, nDi, kL(i+1)) ;
                                                #   C+(kRi, nDi, rR(i+1)) ; C+(rR0i, nD1i, rR1(i+1)) ; C+(k1Di, kDi) ;
                                                #   C+(nD1i, kUi) ; C+(kRi, kLi) ; C+(kRi, z) ; int ; bool
 ) -> typ.Tuple[
-    typ.Tuple[NDArray, NDArray],               # (o_R, D_R) of the edge c_i -> c_(i-1)
-    typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # (R+_i, o_R, D_R, movement)
+    typ.Tuple[NDArray, NDArray],               # (o_R, Psi_R) of the edge c_i -> c_(i-1)
+    typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # (R+_i, o_R, Psi_R, movement)
 ]:
     """One edge c_i -> c_(i-1) of the right sweep (scan body; run on reversed inputs)."""
     xnp, _, _ = get_backend(False, tree_contains_jax((carry, x[:9])))
@@ -537,12 +539,12 @@ def _right_edge_step(
 
 
 def _up_edge(
-        x: typ.Tuple,   # (H_P, L_P, R_P, O_P, A, o_L, D_L, o_R, D_R, PhiP, Xi, k1, on) at core i:
+        x: typ.Tuple,   # (H_P, L_P, R_P, U_P, A, o_L, Psi_L, o_R, Psi_R, PhiP, Xi, k1, on) at core i:
                         #   C+(rLi, kDi, rR(i+1)); C+(rLi, kDi, kL(i+1)); C+(kRi, kDi, rR(i+1)); C+(rLi, kUi, rR(i+1)) ;
                         #   C+(rL1i, nU0i, rR1(i+1)) ; C+(k1Li, kLi) ; C+(rL1i, kRi) ; C+(k1R(i+1), kR(i+1)) ;
                         #   C+(rR1(i+1), kL(i+1)) ; C+(kUi, kDi) ; C+(kUi, z) ; int ; bool
 ) -> typ.Tuple[
-    NDArray,   # O+_i. C+(rL1i, nU1i, rR1(i+1))
+    NDArray,   # U+_i. C+(rL1i, nU1i, rR1(i+1))
     NDArray,   # movement, shape=C
 ]:
     """The edge core -> leaf (map body); its incoming coordinate maps come from the two edge sweeps."""
@@ -568,8 +570,8 @@ def tv_align_padded_frame(
         tucker_ranks:      typ.Optional[typ.Sequence[int]] = None,   # len=d, output ranks; None = the frame's own
         tt_ranks:          typ.Optional[typ.Sequence[int]] = None,   # len=d+1, output ranks; None = the frame's own
 
-        sharing:           typ.Optional[typ.Sequence] = None,        # len=d group labels; None = unshared
-        update:            typ.Collection[str] = ('D', 'U', 'L', 'R'),   # store letters, any order: 'D' down, 'U' up, 'L' left, 'R' right; the rest transported
+        sharing:           typ.Optional[typ.Sequence] = None,           # len=d group labels; None = unshared
+        update:            typ.Collection[str] = ('D', 'U', 'L', 'R'),  # store letters, any order: 'D' down, 'U' up, 'L' left, 'R' right; the rest transported
 ) -> typ.Tuple[
     FrameData,   # the frame at the output ranks: old blocks bitwise, completions aligned
     NDArray,     # movement, shape=C: max over directed edges of ‖g_old − P⁺P⁺ᵀ g_old‖_F
@@ -632,7 +634,7 @@ def tv_align_padded_frame(
         tuple(H[i][..., nD0[i]:, :] for i in range(d)), tuple(L[i][..., nD0[i]:, rL0[i + 1]:] for i in range(d)),
         tuple(R[i][..., rR0[i]:, nD0[i]:, :] for i in range(d)), U, PhiL, XiL, PhiR, XiR))
 
-    # -- step 2: new completions, new frames: up, the left sweep, the right sweep, down
+    # -- step 2: new completions, new frames: down, the left sweep, the right sweep, up
     D1, oD, PsiDs, moves_D = xmap(_down_edge, (
         tuple(D[g[0]][..., :nD0[g[0]], :] for g in groups), tuple(D[g[0]][..., nD0[g[0]]:, :] for g in groups),
         tuple(tuple(V[i][..., nU0[i]:, :].swapaxes(-2, -1) for i in g) for g in groups),

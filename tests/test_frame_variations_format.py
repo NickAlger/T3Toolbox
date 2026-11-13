@@ -22,9 +22,9 @@ def _random_frame_variations(structure):
         down_ranks, up_ranks:  len=d
         left_ranks, right_ranks: len=d+1
     Core shapes (with leading stack_shape):
-        U_i = (nU_i, N_i)           L_i = (rL_i, nU_i, rL_(i+1))
-        R_i = (rR_i, nU_i, rR_(i+1))  D_i = (rL_i, nD_i, rR_(i+1))
-        V_i = (nD_i, N_i)           H_i = (rL_i, nU_i, rR_(i+1))
+        D_i = (nD_i, N_i)           L_i = (rL_i, nD_i, rL_(i+1))
+        R_i = (rR_i, nD_i, rR_(i+1))  U_i = (rL_i, nU_i, rR_(i+1))
+        V_i = (nU_i, N_i)           H_i = (rL_i, nD_i, rR_(i+1))
     """
     shape, down_ranks, up_ranks, left_ranks, right_ranks, stack_shape = structure
     rnd = lambda *s: np.random.randn(*s)
@@ -40,7 +40,7 @@ def _random_frame_variations(structure):
 
 
 def _good_frame_cores():
-    """A small, valid set of (up, down, left, right) cores for d=2, no stacking."""
+    """A small, valid set of (down, up, left, right) cores for d=2, no stacking."""
     D = (randn(4, 14), randn(5, 15))            # (nD_i, N_i)
     L = (randn(1, 4, 2), randn(2, 5, 1))        # (rL_i, nD_i, rL_(i+1))
     R = (randn(1, 4, 2), randn(2, 5, 1))        # (rR_i, nD_i, rR_(i+1))
@@ -66,7 +66,7 @@ class TestFrameVariationsFormat(unittest.TestCase):
         np.random.seed(0)
 
     frame_structures = [
-        #  (shape,             down_ranks,      up_ranks,    left_ranks,        right_ranks)
+        #  (shape,             down_ranks,    up_ranks,      left_ranks,        right_ranks)
         ((14,),                (4,),          (3,),          (1, 1),            (1, 1)),
         ((14, 15),             (4, 5),        (3, 4),        (1, 2, 1),         (1, 2, 1)),
         ((14, 15, 16),         (4, 5, 6),     (3, 4, 5),     (1, 2, 3, 1),      (1, 3, 2, 1)),
@@ -123,13 +123,13 @@ class TestFrameVariationsFormat(unittest.TestCase):
     def test_t3frame_validate_raises(self):
         # Each corruption introduces exactly one inconsistency into an otherwise-valid set of cores.
         corruptions = [
-            ("wrong number of cores",   lambda D, U, L, R: (D[:-1], U, L, R)),
-            ("up core not a matrix",    lambda D, U, L, R: ((randn(4),) + D[1:], U, L, R)),
-            ("left core not 3-tensor",  lambda D, U, L, R: (D, U, (randn(1, 4),) + L[1:], R)),
-            ("tucker rank mismatch",    lambda D, U, L, R: ((randn(99, 14),) + D[1:], U, L, R)),
-            ("down-left rank mismatch", lambda D, U, L, R: (D, (randn(99, 3, 2),) + U[1:], L, R)),
-            ("down-right rank mismatch", lambda D, U, L, R: (D, (randn(1, 3, 99),) + U[1:], L, R)),
-            ("left chain inconsistent", lambda D, U, L, R: (D, U, (L[0], randn(99, 5, 1)), R)),
+            ("wrong number of cores",    lambda D, U, L, R: (D[:-1], U, L, R)),
+            ("down core not a matrix",   lambda D, U, L, R: ((randn(4),) + D[1:], U, L, R)),
+            ("left core not 3-tensor",   lambda D, U, L, R: (D, U, (randn(1, 4),) + L[1:], R)),
+            ("tucker rank mismatch",     lambda D, U, L, R: ((randn(99, 14),) + D[1:], U, L, R)),
+            ("up-left rank mismatch",    lambda D, U, L, R: (D, (randn(99, 3, 2),) + U[1:], L, R)),
+            ("up-right rank mismatch",   lambda D, U, L, R: (D, (randn(1, 3, 99),) + U[1:], L, R)),
+            ("left chain inconsistent",  lambda D, U, L, R: (D, U, (L[0], randn(99, 5, 1)), R)),
             ("right chain inconsistent", lambda D, U, L, R: (D, U, L, (R[0], randn(99, 5, 1)))),
             ("inconsistent stack shape", lambda D, U, L, R: (D, U, (randn(2, 1, 4, 2),) + L[1:], R)),
         ]
@@ -444,7 +444,7 @@ class TestFrameVariationsFormat(unittest.TestCase):
                         self.check_relerr(x_dense, bvf.fv_to_t3((False, ii), frame, variations).to_dense())
 
     def test_orthogonal_representations_frame_orthogonality(self):
-        # U: up-orthogonal (all i); D: outer-orthogonal (all i);
+        # D: down-orthogonal (all i); U: up-orthogonal (all i);
         # L: left-orthogonal (i=0..d-2); R: right-orthogonal (i=1..d-1).
         for T3_STRUCTURE in self.t3_structures:
             for STACK_SHAPE in self.stack_shapes:
@@ -570,7 +570,7 @@ class TestReviewC13Frames(unittest.TestCase):
         down[1] = np.random.randn(2, 3, 4, 6)                      # Tucker rank 4 where L/R say 3
         with self.assertRaises(ValueError) as cm:
             bvf.T3Frame(tuple(down), frame.up_tt_cores, frame.left_tt_cores, frame.right_tt_cores)
-        self.assertIn('U.shape[-2]=4', str(cm.exception))
+        self.assertIn('D.shape[-2]=4', str(cm.exception))
 
 if __name__ == "__main__":
     unittest.main()

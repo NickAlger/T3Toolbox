@@ -23,7 +23,7 @@ two independent choices:
     :py:mod:`t3toolbox.backend.fitting`).
 
 Every input and output is a :py:class:`~t3toolbox.manifold.T3Tangent` at ``model.frame`` -- including the
-**corewise** case, where the tangent lives at the non-orthonormal frame ``(U,G,G,G)`` (a core
+**corewise** case, where the tangent lives at the non-orthonormal frame ``(B,G,G,G)`` (a core
 perturbation; see :py:class:`~t3toolbox.manifold.CorewiseGeometry`). Build trial steps at ``model.frame``
 (e.g. ``geometry.randn(model.frame)``); a step at a different frame raises the numerical same-frame guard
 (skipped under ``safety.unsafe()`` / a jax trace), like :py:class:`~t3toolbox.manifold.T3Tangent`.
@@ -265,7 +265,7 @@ class LocalModel:
     True
 
     The **corewise** geometry is the same call with a different geometry: the gradient is a tangent at the
-    raw ``(U,G,G,G)`` frame (a core perturbation), with **no** gauge projection:
+    raw ``(B,G,G,G)`` frame (a core perturbation), with **no** gauge projection:
 
     >>> cmodel = fitting.apply_model(t3m.COREWISE, x, ww, r)
     >>> print(cmodel.gradient.is_gauged())
@@ -377,7 +377,7 @@ class LocalModel:
     @ft.cached_property
     def objective_value(self) -> NDArray:  # c = ½‖r‖² (+ ρ(X)), shape C
         '''The least-squares objective at the frame, ``c = ½‖r‖²`` (the model constant ``m(0)``); plus
-        ``ρ(X)`` when a ``regularizer`` is set (``X`` = the frame's tensor ``(U, P)``).'''
+        ``ρ(X)`` when a ``regularizer`` is set (``X`` = the frame's tensor ``(D, L)``).'''
         c = 0.5 * self.kind.sumsq(self.residual, self._n_w)
         if self.regularizer is not None:
             c = c + self.regularizer.value(self._bgeom, (self.frame.data[0], self.frame.data[2]))
@@ -389,7 +389,7 @@ class LocalModel:
         plus the regularizer gradient ``g_R`` when set.
 
         On the manifold geometry this is the gauged Riemannian gradient; on the corewise geometry it is
-        the raw core gradient ``𝒥ᵀr`` (a tangent at ``(U,G,G,G)``, no ``Π``). The same in both modes: an
+        the raw core gradient ``𝒥ᵀr`` (a tangent at ``(B,G,G,G)``, no ``Π``). The same in both modes: an
         exact model did its one misfit transpose at construction and reads it here, bit for bit.'''
         if self.curvature is not None:           # exact: the misfit gradient, already computed (by _wrap)
             g = _tangent_at(self.frame, self.curvature.misfit_gradient)

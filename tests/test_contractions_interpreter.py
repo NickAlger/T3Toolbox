@@ -204,14 +204,14 @@ HISTORICAL = {
     'Cau,KCun->KCan': '',
     'Ca,KCan->KCan': '',
     'Cxa,KCan->KCxn': '',
-    # ... the frame's center factors (C only): H = L x3 T, S^T = <O, H>
+    # ... the frame's center factors (C only): H = L x3 T, S^T = <U, H>
     'Caib,Cbc->Caic': '',
     'Caxb,Caub->Cxu': '',
     # ... the tangent zipper's three product-rule terms (carry, A-direction, B-direction)
     'KCij,Ciak,Cjal->KCkl': '',
     'Cij,KCiak,Cjal->KCkl': '',
     'Cij,Ciak,KCjal->KCkl': '',
-    # ... the T3-T3 sweep (C only: BU, G2, the one-hole environment) and its dotted two-hole terms
+    # ... the T3-T3 sweep (C only: zB, G2, the one-hole environment) and its dotted two-hole terms
     'Czn,Cun->Czu': '',
     'Cazb,Czu->Caub': '',
     'Cxa,Cxzc,Ccb->Cazb': '',
@@ -224,7 +224,7 @@ HISTORICAL = {
     'Cazb,KCaub->KCzu': '',
     'KCzu,Czn->KCun': '',
     # ... the probe-derivative two-hole (sampling_derivatives): K rides on the dotted operand of each term.
-    # The dotted adjoint-up lift (Udot z~), ragged and d-prefixed: no C-only operand, so len_C.
+    # The dotted adjoint-upward lift (Bdot z~), ragged and d-prefixed: no C-only operand, so len_C.
     'tWCo,KCio->tWKCi': 'C',
     'dtWCo,dKCio->dtWKCi': 'C',
     # the dotted adjoint step (_adj_tilde_tangent_step): the d(P xi) pair, the undotted-carry recurrence
@@ -286,7 +286,7 @@ HISTORICAL = {
     'dsWCai,dsWKCb->dKCaib': 'W',
     # S3b (2026.3.0): every production jet kernel a recurrence / scan, the binomial tensor test-only (its
     # dense-trs rows above stay as history; the twins in tests/_jet_trs_twins.py still use them). The
-    # two-row dxi~ correlation per order slice (mu O and O nu, and the dotted terms; the tilde pair carries u):
+    # two-row dxi~ correlation per order slice (mu U and U nu, and the dotted terms; the tilde pair carries u):
     'Caib,WCb->WCai': '',
     'Caib,WKCb->WKCai': '',
     'KCaib,WCb->WKCai': 'C',
@@ -332,8 +332,8 @@ HISTORICAL = {
     'dKCazb,dCaub->dKCzu': '',
     'dCazb,dKCaub->dKCzu': '',
     'dKCzu,dCzn->dKCun': '',
-    # S10 / S11 (2026.3.0): the plain probe / apply / entries two-holes (no order axis). The dotted adjoint-up lift
-    # Udot z~ (z~ is W + C, the direction K + C: neither pins C alone, so C is supplied, as for its jet twin
+    # S10 / S11 (2026.3.0): the plain probe / apply / entries two-holes (no order axis). The dotted adjoint-upward
+    # lift Bdot z~ (z~ is W + C, the direction K + C: neither pins C alone, so C is supplied, as for its jet twin
     # 'tWCo,KCio->tWKCi'); the Tucker term z~ (x) eta_dot (W + C against W + K + C: the W | C split is free, so W);
     # and the factored TT assemblies' pair intermediates xi (x) sigma~ / deta~ (x) nu / xi (x) sigma_hat -- the
     # undotted pair co-travels W, C on both operands ('') and the dotted pairs carry K on one side (W) -- whose
@@ -357,11 +357,11 @@ HISTORICAL = {
     'Cia,Cib->Cab': '',
     'Cia,Cab->Cib': '',
     # ... the alignment step (backend.padded_frames.tv_align_padded_frame, the plan's Appendix C, ragged forms c1-c31;
-    # c19 'Caxb,Caub->Cxu' and c22 / c23 above are reused). Far-side messages: down (c1, c2), left (c3-c8), right
-    # (c9-c14), up (c15-c20); new completions: the content g_old Phi / g_old Xi (c21), U+ g_new (c24), a slot in the
+    # c19 'Caxb,Caub->Cxu' and c22 / c23 above are reused). Far-side messages: up (c1, c2), left (c3-c8), right
+    # (c9-c14), down (c15-c20); new completions: the content g_old Phi / g_old Xi (c21), D+ g_new (c24), a slot in the
     # new coordinates (c8 first axis, c25 Tucker axis, c14 last axis), the near terms of the left (c26, c27), right
-    # (c28, c29) and down (c30, c31) edges. Every term carries one group C and fixed lowercase counts, so C is solved
-    # from any operand: ''.
+    # (c28, c29) and the up store's (c30, c31) edges. Every term carries one group C and fixed lowercase counts, so C
+    # is solved from any operand: ''.
     'Ckn,Cun->Cku': '',
     'Cun,Cku->Cnk': '',
     'Cxkb,Ckn->Cxnb': '',

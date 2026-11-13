@@ -100,10 +100,10 @@ def t3_right_orthogonalize(
 
 
 def _up_orthogonalize_tt_cores_step(
-        x: typ.Tuple[NDArray, NDArray],   # (Uio, Haib): C+(ni,Ni) ; C+(rLi,ni,rR(i+1))
+        x: typ.Tuple[NDArray, NDArray],   # (Bio, Haib): C+(ni,Ni) ; C+(rLi,ni,rR(i+1))
 ) -> typ.Tuple[
     NDArray,  # Vxo.  tucker variation, C+(n2,Ni)
-    NDArray,  # Oaxb. outer-orthogonal tt core, C+(rLi,n2,rR(i+1))
+    NDArray,  # Uaxb. up-orthogonal tt core, C+(rLi,n2,rR(i+1))
 ]:
     """One core of the map of :py:func:`t3_up_orthogonalize_tt_cores`. Closure-free map body --
     ``docs/contributor/scan_body_principles.md``."""
@@ -131,7 +131,7 @@ def t3_up_orthogonalize_tt_cores(
     typ.Tuple[NDArray, ...],  # tucker_variations
     typ.Tuple[NDArray, ...],  # outer_tt_cores
 ]:
-    """Outer orthogonalize TT cores, pushing remainders downward onto tucker cores below.
+    """Up-orthogonalize the TT cores, pushing the remainders down onto the Tucker cores below.
     """
     use_jax = any([is_jax_ndarray(c) for c in tuple(x[0]) + tuple(x[1])])
     is_uniform = False
@@ -144,7 +144,7 @@ def t3_up_orthogonalize_tt_cores(
 def _down_orthogonalize_tucker_cores_step(
         x: typ.Tuple[NDArray, NDArray],   # (Bio, Gaib): C+(ni,Ni) ; C+(rLi,ni,rR(i+1))
 ) -> typ.Tuple[
-    NDArray,  # new_Uxo.  up-orthogonal tucker core, C+(x,Ni)
+    NDArray,  # new_Bxo.  down-orthogonal tucker core, C+(x,Ni)
     NDArray,  # new_Gaxb. tt core with the remainder absorbed, C+(rLi,x,rR(i+1))
 ]:
     """One core of the map of :py:func:`t3_down_orthogonalize_tucker_cores`. Closure-free map body
@@ -168,7 +168,7 @@ def t3_down_orthogonalize_tucker_cores(
     typ.Tuple[NDArray, ...],  # down_tucker_cores
     typ.Tuple[NDArray, ...],  # new_tt_cores
 ]:
-    """Orthogonalize Tucker cores upwards, pushing remainders onto TT cores above.
+    """Down-orthogonalize the Tucker cores, pushing the remainders up onto the TT cores above.
     """
     use_jax = any([is_jax_ndarray(c) for c in tuple(x[0]) + tuple(x[1])])
     is_uniform = False

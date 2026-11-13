@@ -5,7 +5,8 @@
 """The frontend frame/variations classes: ``T3Frame`` (orthogonal frame) + ``T3Variations``.
 
 A (frame, variations) pair is the orthogonal representation of a tangent direction to the
-fixed-rank T3 manifold (T4S Appendix A). ``T3Frame.data = (up, down, left, right) = (U, O, P, Q)``;
+fixed-rank T3 manifold (T4S Appendix A). ``T3Frame.data = (down, up, left, right) = (D, U, L, R)``, each
+store named for the side of its edges that its cores occupy (:doc:`/frame_variations`, "Four rank stores");
 structural validation runs in ``__post_init__``. ``t3_orthogonal_representations`` here returns
 the frontend objects; the same-named backend function (``backend.fv_conversions``) returns raw data.
 """
@@ -57,25 +58,25 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
 
         1--(H0)--R1---R2---1    1---L0--(H1)--R2---1    1---L0---L1--(H2)--1
             |    |    |             |    |    |             |    |    |
-            U0   U1   U2            U0   U1   U2            U0   U1   U2
+            D0   D1   D2            D0   D1   D2            D0   D1   D2
             |    |    |             |    |    |             |    |    |
 
-        1---D0---R1---R2---1    1---L0---D1---R2---1    1---L0---L1---D2---1
+        1---U0---R1---R2---1    1---L0---U1---R2---1    1---L0---L1---U2---1
             |    |    |             |    |    |             |    |    |
-           (V0)  U1   U2            U0  (V1)  U2            U0   U1  (V2)
+           (V0)  D1   D2            D0  (V1)  D2            D0   D1  (V2)
             |    |    |             |    |    |             |    |    |
 
     In each of these, there is a special "variation" core, indicated by parentheses (X), surrounded by "frame" cores.
 
     The components of T3Frame are the "frame cores":
-        - up_tucker_cores   = (U0, ..., U(d-1)), elm_shape=(nUi, Ni)
-        - down_tt_cores     = (D0, ..., D(d-1)), elm_shape=(rLi, nDi, rR(i+1))
+        - down_tucker_cores = (D0, ..., D(d-1)), elm_shape=(nDi, Ni)
+        - up_tt_cores       = (U0, ..., U(d-1)), elm_shape=(rLi, nUi, rR(i+1))
         - left_tt_cores     = (L0, ..., L(d-1)), elm_shape=(rLi, ni, rL(i+1))
         - right_tt_cores    = (R0, ..., R(d-1)), elm_shape=(rRi, ni, rR(i+1))
 
     The components of T3Variations are the "variation cores":
-        - tucker_variations = (V0, ..., V(d-1)), elm_shape=(nDi, Ni)
-        - tt_variations     = (H0, ..., H(d-1)), elm_shape=(rLi, nUi, rRi)
+        - tucker_variations = (V0, ..., V(d-1)), elm_shape=(nUi, Ni)
+        - tt_variations     = (H0, ..., H(d-1)), elm_shape=(rLi, nDi, rRi)
 
     Note that Ld and R0 are not used in these diagrams. (Why keep them, then? They hold the base
     point as one extra variation term so the frame remembers where it is attached, and they give every
@@ -88,9 +89,9 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
            rL0       rL1       rR2      rR(d-1)         rRd
         1 ------ L0 ----- (H1) ----- ... ------ R(d-1) ------ 1
                  |         |                    |
-                 | nU0     | nU1                | nU(d-1)
+                 | nD0     | nD1                | nD(d-1)
                  |         |                    |
-                 U0        U1                   Ud
+                 D0        D1                   Dd
                  |         |                    |
                  | N0      | N1                 | N(d-1)
                  |         |                    |
@@ -98,11 +99,11 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
     and::
 
            rL0       rL1       rR2      rR(d-1)         rRd
-        1 ------ L0 ------ D1 ------ ... ------ R(d-1) ------ 1
+        1 ------ L0 ------ U1 ------ ... ------ R(d-1) ------ 1
                  |         |                    |
-                 | nU0     | nO1                | nU(d-1)
+                 | nD0     | nU1                | nD(d-1)
                  |         |                    |
-                 U0       (V1)                   Ud
+                 D0       (V1)                   Dd
                  |         |                    |
                  | N0      | N1                 | N(d-1)
                  |         |                    |
@@ -114,13 +115,13 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
     tangent vector with respect to the frame.
 
     Often, it is desirable for the frame cores to be **orthogonal** as follows:
-        - up_tucker_cores   = (U0,...,U(d-1)), orthogonal:       U_ia U_ja = delta_ij
-        - down_tt_cores     = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij
+        - down_tucker_cores = (D0,...,D(d-1)), down-orthogonal:  D_ia D_ja = delta_ij
+        - up_tt_cores       = (U0,...,U(d-1)), up-orthogonal:    U_aib U_ajb = delta_ij
         - left_tt_cores     = (L0,...,L(d-1)), left-orthogonal:  L_abi L_abj = delta_ij
-        - right_tt_cores    = (R0,...,R(d-1)), right-orthogonal  R_ibc R_jbc = delta_ij
+        - right_tt_cores    = (R0,...,R(d-1)), right-orthogonal: R_ibc R_jbc = delta_ij
 
     Often, it is desirable for the variations to satisfy the following **Gauge conditions**:
-        - U_ia V_ja = 0    (all V)
+        - D_ia V_ja = 0    (all V)
         - L_abi H_abj = 0  (all but the last H)
 
     If these conditions are satisfied, then one can do "dumb" corewise linear algebra
@@ -153,10 +154,10 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
     >>> print(frame.variation_shapes)   # the (tucker, tt) holes a fitting T3Variations must fill
     (((9, 14), (8, 15), (7, 16)), ((1, 10, 4), (2, 11, 5), (3, 12, 1)))
     """
-    down_tucker_cores:    typ.Tuple[NDArray,...]  # len=d. B_xo B_yo   = I_xy, Bi.shape = stack_shape+(nUi, Ni)
-    up_tt_cores:      typ.Tuple[NDArray,...]  # len=d. R_ixj R_iyj = I_xy  Ri.shape = stack_shape+(rLi, nDi, rR(i+1))
-    left_tt_cores:      typ.Tuple[NDArray,...]  # len=d. P_iax P_iay = I_xy, Pi.shape = stack_shape+(rLi, nUi, rL(i+1))
-    right_tt_cores:     typ.Tuple[NDArray,...]  # len=d. Q_xaj Q_yaj = I_xy  Qi.shape = stack_shape+(rRi, nUi, rR(i+1))
+    down_tucker_cores:  typ.Tuple[NDArray,...]  # len=d. D_xo D_yo   = I_xy, Di.shape = stack_shape+(nDi, Ni)
+    up_tt_cores:        typ.Tuple[NDArray,...]  # len=d. U_ixj U_iyj = I_xy  Ui.shape = stack_shape+(rLi, nUi, rR(i+1))
+    left_tt_cores:      typ.Tuple[NDArray,...]  # len=d. L_iax L_iay = I_xy, Li.shape = stack_shape+(rLi, nDi, rL(i+1))
+    right_tt_cores:     typ.Tuple[NDArray,...]  # len=d. R_xaj R_yaj = I_xy  Ri.shape = stack_shape+(rRi, nDi, rR(i+1))
 
     @ft.cached_property
     def d(self) -> int:
@@ -216,12 +217,12 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
 
             1 -- L0 -- ( ) -- R2 -- R3 -- 1
                  |      |      |      |
-                 U0     U1     U2     U3
+                 D0     D1     D2     D3
                  |      |      |      |
 
-            1 -- L0 -- L1 -- O2 -- R3 -- 1
+            1 -- L0 -- L1 -- U2 -- R3 -- 1
                  |     |     |     |
-                 U0    U1    ( )   U3
+                 D0    D1    ( )   D3
                  |     |     |     |
 
         Examples
@@ -351,8 +352,8 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         '''True (per stack element) if the frame cores are orthogonal in their respective senses.
 
         Checks (each stacked block; max absolute deviation from identity <= atol):
-            - up_tucker U_i (all i):    ``einsum('...io,...jo->...ij', U, U) = I``
-            - down/outer D_i (all i):   ``einsum('...iaj,...ibj->...ab', D, D) = I``
+            - down_tucker D_i (all i):  ``einsum('...io,...jo->...ij', D, D) = I``
+            - up/outer U_i (all i):     ``einsum('...iaj,...ibj->...ab', U, U) = I``
             - left L_i (i = 0..d-2):    ``einsum('...iaj,...iak->...jk', L, L) = I``
             - right R_i (i = 1..d-1):   ``einsum('...iaj,...kaj->...ik', R, R) = I``
 
@@ -487,8 +488,8 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
             raise ValueError(
                 'Inconsistent T3Frame.\n'
                 + 'All core sequences must have length d=' + str(d) + '.\n'
-                + 'len(UU)=' + str(len(DD))
-                + ', len(DD)=' + str(len(UU))
+                + 'len(DD)=' + str(len(DD))
+                + ', len(UU)=' + str(len(UU))
                 + ', len(LL)=' + str(len(LL))
                 + ', len(RR)=' + str(len(RR))
 
@@ -501,7 +502,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
                     + 'tucker_cores[' + str(ii) + '] is not a (stacked) matrix. shape=' + str(D.shape)
                 )
 
-        for name, CC in zip(["left_tt", "right_tt", "outer_tt"], [LL, RR, UU]):
+        for name, CC in zip(["left_tt", "right_tt", "up_tt"], [LL, RR, UU]):
             for ii, C in enumerate(CC):
                 if len(C.shape) < 3:
                     raise ValueError(
@@ -510,10 +511,10 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
                         + 'shape=' + str(C.shape)
                     )
 
-        down_stack_shapes     = tuple([B.shape[:-2] for B in self.down_tucker_cores])
+        down_stack_shapes   = tuple([B.shape[:-2] for B in self.down_tucker_cores])
         left_stack_shapes   = tuple([G.shape[:-3] for G in self.left_tt_cores])
         right_stack_shapes  = tuple([G.shape[:-3] for G in self.right_tt_cores])
-        up_stack_shapes   = tuple([G.shape[:-3] for G in self.up_tt_cores])
+        up_stack_shapes     = tuple([G.shape[:-3] for G in self.up_tt_cores])
 
         if not (
                 down_stack_shapes
@@ -553,7 +554,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
                 raise ValueError(
                     'Inconsistent T3Frame.\n'
                     + 'Tucker rank mismatch at index ' + str(ii)
-                    + ': U.shape[-2]=' + str(D.shape[-2])
+                    + ': D.shape[-2]=' + str(D.shape[-2])
                     + ', L.shape[-2]=' + str(L.shape[-2])
                     + ', R.shape[-2]=' + str(R.shape[-2])
                 )
@@ -561,16 +562,16 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
             if U.shape[-3] != L.shape[-3]:
                 raise ValueError(
                     'Inconsistent T3Frame.\n'
-                    + 'Down TT core left rank mismatch at index ' + str(ii)
-                    + ': D.shape[-3]=' + str(U.shape[-3])
+                    + 'Up TT core left rank mismatch at index ' + str(ii)
+                    + ': U.shape[-3]=' + str(U.shape[-3])
                     + ' != L.shape[-3]=' + str(L.shape[-3])
                 )
 
             if U.shape[-1] != R.shape[-1]:
                 raise ValueError(
                     'Inconsistent T3Frame.\n'
-                    + 'Down TT core right rank mismatch at index ' + str(ii)
-                    + ': D.shape[-1]=' + str(U.shape[-1])
+                    + 'Up TT core right rank mismatch at index ' + str(ii)
+                    + ': U.shape[-1]=' + str(U.shape[-1])
                     + ' != R.shape[-1]=' + str(R.shape[-1])
                 )
 
@@ -740,7 +741,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         :py:func:`t3_orthogonal_representations`. For a frame that is already orthogonal and consistent
         this returns an equivalent orthogonal frame; for a hand-built or drifted one it returns a
         genuinely orthogonal frame for the *right-canonical* base point (each direction's ranks capped
-        at what the network supports, so an over-ranked input comes back carrying up/down slack --
+        at what the network supports, so an over-ranked input comes back carrying down/up slack --
         see :py:attr:`has_minimal_ranks`).
         """
         return T3Frame.from_t3(self.to_t3())
@@ -781,8 +782,8 @@ class T3Variations(common.ExplicitEquality):
     Tuple containing variation cores for frame-variation representations of TuckerTensorTrains.
 
     *Components*
-        - tucker_variations    = (V0, ..., V(d-1)), elm_shape=stack_shape+(nDi, Ni)
-        - tt_variations        = (H0, ..., H(d-1)), elm_shape=stack_shape+(rLi, nUi, rRi)
+        - tucker_variations    = (V0, ..., V(d-1)), elm_shape=stack_shape+(nUi, Ni)
+        - tt_variations        = (H0, ..., H(d-1)), elm_shape=stack_shape+(rLi, nDi, rRi)
 
     The variations should fit in the "holes" of a T3Frame.
 
@@ -844,16 +845,16 @@ class T3Variations(common.ExplicitEquality):
 
             1 -- L0 -- ( ) -- R2 -- R3 -- 1
                  |      |      |      |
-                 U0     U1     U2     U3
+                 D0     D1     D2     D3
                  |      |      |      |
 
-            1 -- L0 -- L1 -- O2 -- R3 -- 1
+            1 -- L0 -- L1 -- U2 -- R3 -- 1
                  |     |     |     |
-                 U0    U1    ( )   U3
+                 D0    D1    ( )   D3
                  |     |     |     |
         '''
-        tucker_variation_shapes = tuple([B.shape[-2:] for B in self.tucker_variations])
-        tt_variation_shapes = tuple([G.shape[-3:] for G in self.tt_variations])
+        tucker_variation_shapes = tuple([V.shape[-2:] for V in self.tucker_variations])
+        tt_variation_shapes = tuple([H.shape[-3:] for H in self.tt_variations])
         return tucker_variation_shapes, tt_variation_shapes
 
     @ft.cached_property
@@ -937,8 +938,8 @@ class T3Variations(common.ExplicitEquality):
                     + 'shape=' + str(H.shape)
                 )
 
-        tucker_stack_shapes = tuple([B.shape[:-2] for B in self.tucker_variations])
-        tt_stack_shapes = tuple([G.shape[:-3] for G in self.tt_variations])
+        tucker_stack_shapes = tuple([V.shape[:-2] for V in self.tucker_variations])
+        tt_stack_shapes = tuple([H.shape[:-3] for H in self.tt_variations])
 
         if not (tucker_stack_shapes == tt_stack_shapes == (self.stack_shape,)*self.d):
             raise ValueError(
@@ -1166,7 +1167,7 @@ def check_fv_pair(
     """Check rank and shape consistency between T3Frame and T3Variations.
 
     This ensures that the variation cores (V, H) have the correct dimensions to interface with the
-    frame cores (U, O, P, Q), and that their stacks are compatible.
+    frame cores (D, U, L, R), and that their stacks are compatible.
 
     Stacking: a variation may carry extra *outer* tangent-stack axes -- a batch of tangent vectors
     sharing the same base point -- so its ``stack_shape`` is ``tangent_stack_shape + frame_stack_shape``
@@ -1263,14 +1264,14 @@ def fv_to_t3(
 
         1 -- L0 --(H1)-- R2 -- R3 -- 1
              |     |     |     |
-             U0    U1    U2    U3
+             D0    D1    D2    D3
              |     |     |     |
 
     If replacement_ind=2, replace_tt=False::
 
-        1 -- L0 -- L1 -- D2 -- R3 -- 1
+        1 -- L0 -- L1 -- U2 -- R3 -- 1
              |     |     |     |
-             U0    U1   (V2)   U3
+             D0    D1   (V2)   D3
              |     |     |     |
 
     These are the single-core variation terms summed in equation (46), Appendix A.3, of Alger et al.
@@ -1309,14 +1310,14 @@ def fv_to_t3(
     >>> variations = bvf.T3Variations((V0, V1, V2), (H0, H1, H2))
 
     Replacing the index-1 TT-core swaps ``H1`` into the right-orthogonal chain ``L0, ?, R2``; the
-    Tucker (up) cores are unchanged:
+    Tucker (down) cores are unchanged:
 
     >>> tt_term = bvf.fv_to_t3((True, 1), frame, variations)
-    >>> expected = ((D0, D1, D2), (L0, H1, R2))      # up cores untouched; TT chain = L0, H1, R2
+    >>> expected = ((D0, D1, D2), (L0, H1, R2))      # down cores untouched; TT chain = L0, H1, R2
     >>> print(np.allclose(cw.corewise_norm(cw.corewise_sub(tt_term.data, expected)), 0.0))
     True
 
-    Replacing the index-1 Tucker core swaps ``V1`` into the up cores and the down core ``D1`` into the chain:
+    Replacing the index-1 Tucker core swaps ``V1`` into the down cores and the up core ``U1`` into the chain:
 
     >>> tucker_term = bvf.fv_to_t3((False, 1), frame, variations)
     >>> expected = ((D0, V1, D2), (L0, U1, R2))
@@ -1354,22 +1355,22 @@ def t3_orthogonal_representations(
 
                   1 -- L0 -- H1 -- R2 -- R3 -- 1
         X    =         |     |     |     |
-                       U0    U1    U2    U3
+                       D0    D1    D2    D3
                        |     |     |     |
 
     Frame-variation representation with non-orthogonal tucker core V2::
 
-                  1 -- L0 -- L1 -- D2 -- R3 -- 1
+                  1 -- L0 -- L1 -- U2 -- R3 -- 1
         X    =         |     |     |     |
-                       U0    U1    V2    U3
+                       D0    D1    V2    D3
                        |     |     |     |
 
     The input tensor train x is defined by:
         - x_tucker_cores    = (B0, B1, B2, B3)
         - x_tt_cores        = (G0, G1, G2, G3)
     The "frame cores" are:
-        - tucker_cores      = (U0,U1, U2, U3), up orthogonal
-        - down_tt_cores     = (O0, O1, O2, O3), down orthogonal
+        - down_tucker_cores = (D0, D1, D2, D3), down orthogonal
+        - up_tt_cores       = (U0, U1, U2, U3), up orthogonal
         - left_tt_cores     = (L0, L1, L2),     left orthogonal
         - right_tt_cores    = (R1, R2, R3),     right orthogonal
     The "variation cores" are:
@@ -1436,7 +1437,7 @@ class T3FrameWeights(common.ExplicitEquality):
     reweighting of the ``d`` variation directions (penalise poorly-informed ones with e.g. ``1/sigma``).
 
     Four families, each ``len=d`` (one per variation core, Approach-1 / metric-on-variations):
-    ``up`` (on ``H``'s ``nD`` leg), ``down`` (on ``V``'s ``nU`` leg), ``left`` (``H``'s ``rL``),
+    ``down`` (on ``H``'s ``nD`` leg), ``up`` (on ``V``'s ``nU`` leg), ``left`` (``H``'s ``rL``),
     ``right`` (``H``'s ``rR``). :py:meth:`T3Tangent.weighted_norm` / :py:meth:`~T3Tangent.weighted_inner`
     absorb these into the variation cores and take the coordinate norm/inner -- the frame stays orthonormal
     and untouched.
@@ -1450,13 +1451,13 @@ class T3FrameWeights(common.ExplicitEquality):
     tangent level, where the frame is present too, :py:func:`check_fw_pair` enforces the exact
     ``weights.stack_shape == frame.stack_shape``.
     """
-    down_weights:    typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nDi,)
-    up_weights:  typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nUi,)
+    down_weights:  typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nDi,)
+    up_weights:    typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nUi,)
     left_weights:  typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(rLi,)
     right_weights: typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(rRi,)
 
     @ft.cached_property
-    def data(self) -> typ.Tuple[typ.Tuple[NDArray, ...], ...]:  # (up, down, left, right)
+    def data(self) -> typ.Tuple[typ.Tuple[NDArray, ...], ...]:  # (down, up, left, right)
         return self.down_weights, self.up_weights, self.left_weights, self.right_weights
 
     def allclose(
@@ -1569,7 +1570,7 @@ class T3FrameWeights(common.ExplicitEquality):
     @classmethod
     def from_t3weights(cls, t3_weights: 't3.T3Weights') -> 'T3FrameWeights':
         """Build a tangent metric from base-point edge weights (e.g. ``T3Weights.from_t3svd(x)``):
-        ``up = down = tucker_weights``, ``left = tt_weights[:-1]``, ``right = tt_weights[1:]``. The TT
+        ``down = up = tucker_weights``, ``left = tt_weights[:-1]``, ``right = tt_weights[1:]``. The TT
         slicing follows the ``Hᵢ`` bond convention (``Hᵢ``'s left bond is TT bond ``i``, right bond
         ``i+1``) -- simple but convention-dependent, hence a named method. The result pairs with a
         **minimal-rank** tangent at ``x`` (where the complement rank ``nU`` equals the Tucker rank ``nD``,
@@ -1625,7 +1626,7 @@ def check_fw_pair(
 
     The weight<->frame analog of :py:func:`check_fv_pair`. A :py:class:`T3FrameWeights` is **frame-like**:
     it carries the frame stack ``C`` (one metric per base point, shared by every tangent there), and its
-    four families weight the variation holes ``frame`` leaves -- ``up``<->``nD``, ``down``<->``nU``,
+    four families weight the variation holes ``frame`` leaves -- ``down``<->``nD``, ``up``<->``nU``,
     ``left``<->``rL``, ``right``<->``rR``. So the stack must match ``frame.stack_shape`` **exactly** (not
     merely be a trailing part of it, as when pairing with variations alone).
 
@@ -1648,8 +1649,8 @@ def check_fw_pair(
 
     tucker_holes, tt_holes = frame.variation_shapes   # (nU, N) per core; (rL, nD, rR) per core
     families = (
-        ('down',    weights.down_ranks,    tuple(h[1] for h in tt_holes)),
-        ('up',  weights.up_ranks,  tuple(h[0] for h in tucker_holes)),
+        ('down',  weights.down_ranks,  tuple(h[1] for h in tt_holes)),
+        ('up',    weights.up_ranks,    tuple(h[0] for h in tucker_holes)),
         ('left',  weights.left_ranks,  tuple(h[0] for h in tt_holes)),
         ('right', weights.right_ranks, tuple(h[2] for h in tt_holes)),
     )
@@ -1663,7 +1664,7 @@ def check_fw_pair(
 
 
 def fv_absorb_weights(variations: T3Variations, weights: T3FrameWeights) -> T3Variations:
-    """Absorb the metric ``weights`` into the variation cores (``down``->V, ``up``/``left``/``right``->H),
+    """Absorb the metric ``weights`` into the variation cores (``up``->V, ``down``/``left``/``right``->H),
     returning the weighted :py:class:`T3Variations` (the frame is unchanged). The coordinate norm
     (``corewise_norm``) of the result is the weighted tangent norm -- see
     :py:meth:`~t3toolbox.manifold.T3Tangent.weighted_norm`, and the helper method

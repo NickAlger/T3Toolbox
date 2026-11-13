@@ -309,7 +309,7 @@ def t3_rank_adjustment_sweep(
     opposite direction** -- e.g. a :py:func:`t3svd` result is left-orthogonal, so
     ``t3_rank_adjustment_sweep(result, 'right_to_left')`` minimizes it (verify with ``has_minimal_ranks``).
     On a general input it is a partial reduction; compose both directions for guaranteed minimal ranks
-    (a Tucker rank above its mode size, ``n_i > N_i``, is reduced by a Tucker up-SVD first -- the one case
+    (a Tucker rank above its mode size, ``n_i > N_i``, is reduced by a Tucker down-SVD first -- the one case
     the TT-side steps cannot see).
 
     ``sharing``: a partition with a real group routes through the grouped lossless reduction
@@ -342,7 +342,7 @@ def t3_rank_adjustment_sweep(
     x = (x[0], tt_operations.tt_squash_tails(x[1]))
     num_cores = len(x[0])
     for ii in range(num_cores):
-        if x[0][ii].shape[-2] > x[0][ii].shape[-1]:       # n_i > N_i: only a Tucker up-SVD can reduce it
+        if x[0][ii].shape[-2] > x[0][ii].shape[-1]:       # n_i > N_i: only a Tucker down-SVD can reduce it
             x, _ = ragged_orth.t3_down_svd_tucker_core(x, ii)
     if direction == 'right_to_left':
         for ii in range(num_cores - 1, -1, -1):

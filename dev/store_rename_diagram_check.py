@@ -6,10 +6,13 @@ One-off (D-9), in ``dev/``, never imported by the library. Reads the R1 inventor
 - **K10** (a block rewritten in place): the same line count, the same length per line, and every column where old
   and new differ holds a label character ``[A-Za-z0-9_']`` on both sides. Raw text: tabs are not expanded.
 - **K10b** (a block re-laid out): the same line count, and every old alignment column -- a field start after two
-  or more spaces in at least two lines, or a shared ``=``, ``:``, ``|``, ``#`` -- maps to one consistent new column.
+  or more spaces in at least two lines, or a shared ``=``, ``:``, ``|``, ``#`` (not a ``:`` closing a label) -- maps
+  to one consistent new column.
   Field-comment blocks also need every line of the new span to start its comment at the new start column.
 - **K11** (fences untouched by scripts): every fenced span's text is byte-identical to ``v2026.4.0``, located by
-  span TEXT, not by line; with ``--pass1-tree DIR`` also no sentinel ``ZQX\\d+_XQZ`` inside a fence there.
+  span TEXT, not by line; with ``--pass1-tree DIR`` also no sentinel ``ZQX\\d+_XQZ`` inside a fence there. A block
+  rewritten by hand (its inventory new text recorded and different) is an exception, verified by K12 instead
+  (``--list-exceptions`` prints them).
 - **K12** (completion): every block's new span and new text are filled and equal the file verbatim; a block whose
   new text equals its old text carries a recorded ``same-reason``.
 
@@ -161,6 +164,8 @@ def _alignment_columns(lines: typ.List[str]) -> typ.Dict[int, typ.Set[int]]:
             starts[m.start()].add(i)
         for c, ch in enumerate(s):
             if ch in SEPARATORS:
+                if ch == ':' and c > 0 and s[c - 1] != ' ' and (c + 1 == len(s) or s[c + 1] == ' '):
+                    continue          # R4a: a colon closing a label ("(all i):") moves with its label
                 seps[(c, ch)].add(i)
     cols = collections.defaultdict(set)
     for c, ls in starts.items():
@@ -248,9 +253,18 @@ def _locate(lines: typ.List[str], seg: typ.List[str], col) -> typ.List[int]:
     return hits
 
 
+def k11_rewritten(fences: typ.Optional[typ.List[Fence]] = None) -> typ.List[str]:
+    """The fenced blocks a slice has rewritten by hand (their inventory new text is recorded and differs from the
+    old): K11's exceptions, each verified verbatim against the file by K12 instead (R4a)."""
+    inv = read_inventory()
+    return [f.id for f in (fences or read_fences()) if f.fenced and inv.get(f.id) is not None
+            and inv[f.id].new_text is not None and inv[f.id].new_text != inv[f.id].old_text]
+
+
 def k11(tree: str = '.', pass1_tree: typ.Optional[str] = None, fences: typ.Optional[typ.List[Fence]] = None
         ) -> typ.List[str]:
-    fences = [f for f in (fences or read_fences()) if f.fenced]
+    rewritten = set(k11_rewritten()) if fences is None else set()      # a synthetic fence list: no exceptions
+    fences = [f for f in (fences or read_fences()) if f.fenced and f.id not in rewritten]
     errs = []
     groups = collections.defaultdict(list)
     for fc in fences:
@@ -486,9 +500,12 @@ def main(argv: typ.List[str]) -> int:
         bad |= bool(errs)
     if what in ('all', 'k11'):
         errs = k11(tree, pass1)
-        n = sum(1 for f in read_fences() if f.fenced)
-        print('K11: %s (%d fenced spans located by text in %s%s)'
-              % ('FAIL' if errs else 'PASS', n, tree, ' and %s' % pass1 if pass1 else ''))
+        rewritten = k11_rewritten()
+        n = sum(1 for f in read_fences() if f.fenced) - len(rewritten)
+        print('K11: %s (%d fenced spans located by text in %s%s; %d rewritten by hand, excepted and checked by K12)'
+              % ('FAIL' if errs else 'PASS', n, tree, ' and %s' % pass1 if pass1 else '', len(rewritten)))
+        if '--list-exceptions' in argv:
+            print('  K11 exceptions: ' + ', '.join(rewritten))
         for m in errs:
             print('  ' + m)
         bad |= bool(errs)
