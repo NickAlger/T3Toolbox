@@ -1,10 +1,10 @@
-# The store rename — plan (draft 26, writer, 2026-11-13)
+# The store rename — plan (draft 27, writer, 2026-11-13)
 
-> **Status:** draft 26: Nick's rulings of 2026-11-11, critic rounds 1–25 (`dev/store_rename_plan_review_r{1,…,25}.md`),
+> **Status:** draft 27: Nick's rulings of 2026-11-11, critic rounds 1–25 (`dev/store_rename_plan_review_r{1,…,25}.md`),
 > Nick's decisions on every open item, and his review of the sample edits (`dev/store_rename_sample_edits.md`; edits
 > 1–7 approved as written, 8–10 ruled on for draft 15) and the second batch (`dev/store_rename_sample_edits_2.md`; its
 > recommended forms approved, its §12 issues fixed in draft 17), Nick's two rulings of draft 18, and the third batch (`dev/store_rename_sample_edits_3.md`; its §12 issues
-> fixed in draft 20 with the session's rulings, its §13), R1's findings (draft 21), Nick's variation-letter rule (draft 22) the session's V1–V5 rows (draft 23) Nick's shape rule (draft 24), R2's record (draft 25) and R3's record (draft 26). **The critic agreed in round 26**
+> fixed in draft 20 with the session's rulings, its §13), R1's findings (draft 21), Nick's variation-letter rule (draft 22) the session's V1–V5 rows (draft 23) Nick's shape rule (draft 24), R2's record (draft 25), R3's record (draft 26) and R4a's and R4b's record (draft 27). **The critic agreed in round 26**
 > (`dev/store_rename_plan_review_r26.md`). Next: the
 > implementer/reviewer slices R1–R6 (§7).
 > **Breaking**; the first item of 2026.5.0. The glossary update and the 601-row docs-consistency pass
@@ -20,6 +20,27 @@
 
 *History only: the record of how the plan got here. The instructions are the numbered sections below; where a CHANGES
 line and a section differ, the section governs.*
+
+**Draft 27 (R4a's and R4b's record: `dev/store_rename_slices/R4a_review.md`'s MINOR 1–2 and S1–S5, the rows RV1–RV15
+of `dev/store_rename_letter_sites.md`, and `R4b_review.md`'s R1–R7 with the session's rows; sites from `R4a_handoff.md`
+and `R4b_handoff.md`; R4a committed, e3085085; R4b committed, f5ef5a8c).**
+
+- §1.2a, by shape: the comprehension `B`/`G` over the variations → `V`/`H` (`frame_variations_format.py:856–857,
+  941–942`); `udots` → `ddots`; utv's `dG` → `H`; the forward kernels' `dG` → `H` (eleven functions with the twins,
+  and `test_jet_recurrence.py:173, 179`); the z-assembly steps' point-core `D` → `B`; `delta_U_tilde` → `V_tilde`;
+  A-0465's `V-tilde_k`/`H-tilde_k`.
+- §3.1: `test_curvature.py:10` writes the lift in words; `DF` → `dF`. §3.2: `rsh` → `rsig_hat`.
+- §3.3: the four `-ward` rows done in R4a leave R4b's list; `entries.py:344` "Upward".
+- §3.4: R4a's text rows (utv's frame `P`/`Q` → `L`/`R`, `t3_linalg.py:418, 419, 493` `[G, B, mode]`, the nine
+  corewise `(B, G)`, `tv_operations.py:774, 779` `D V^T`, `t3_orthogonalization.py:134` "Up-orthogonalize"); R4b's 104
+  `P`/`Q` → `L`/`R` prose lines (its Appendix C) and `apply.py:168–169` `D_i w_i`.
+- §4 item 11: the loop-variable images `D`, `U`, `Di`. Item 12: `sampling_derivatives.py:473` takes `n` (it receives
+  either); the generic `n` at `utv_corewise_retract`, the two T3-only steps and the probe two-hole assemblies.
+- §5.3: the gate-tool narrowings of both slices (K9's registered-lines file and doctest-source skip, K8's carve-outs
+  with the NAME `Ud`, K14's previous-slice recount informational and its session-row licence, K10b's colon rule,
+  K11's exceptions handed to K12) and K15's R4 hunk lists. §5.4: the floor-env `TOL` 1e-14 → 1e-13 in
+  `test_jet_recurrence.py`, a listed test-only change.
+- §7: R4a and R4b are committed; the R4 review stop with Nick is pending.
 
 **Draft 26 (R3's record: `dev/store_rename_slices/R3_review.md`'s S1–S5, sites from `R3_handoff.md`; R3 committed,
 74683a39).**
@@ -505,6 +526,11 @@ row.
     new) and `dB→V` (`(nD, N)` old, `(nU, N)` new); the comments `:470, 512` "`dB U^T`" → "`V D^T`";
   - `probing.py`, `_assemble_tangent_z_step` (`:535–545`): `B, dB → D, V` (its wrapper `assemble_tangent_z` takes
     `tucker_cores` `(nUi,Ni)` old, the frame's down core, and `var_tucker_cores` `(nOi,Ni)` old, the variation).
+  - `frame_variations_format.py`, the comprehensions of `T3Variations.variation_shapes` (`:856–857`) and
+    `T3Variations.validate` (`:941–942`): `B→V` over `tucker_variations`, `G→H` over `tt_variations`, 8 tokens (R4a,
+    the session's S2, row RV12). R1's `dnt.txt` filed them under §1.5 item 5, as it filed every `B`/`G`; they are
+    variations, so never item 5 in meaning, and Nick hears of them at the R4 stop as an over-inclusion, not an
+    exception (K14, §5.3).
 
 The rule for the `U` family is the shape rule (Nick, draft 24): an array of shape `(nU, N)` is `V…`; `(rL, nD, rR)`
 is `H…`; `(nD, N)` is `D…` (a frame core) or `B…` (the point's own core) by context; a `d`-prefixed name stands only on
@@ -519,6 +545,9 @@ draft-24 scan, except the dispositions noted (tier C's B rows; `_bare_to_dense`)
   - `sampling_derivatives.py`: `_assemble_tucker_tangent_variation_jets_dense`,
     `t3_probe_corewise_derivatives_hessian_from_sweep`, `_apply_tangent_assemble_step`,
     `_apply_derivatives_hessian_from_jets` (`dU→dB`; the corewise Hessians' Tucker blocks).
+  - The z-assembly steps (R4b, ruling R3): `probing._assemble_z_step` and `sampling_derivatives._z_jets_step`, `D→B`
+    (2 tokens each; their comments `(eta, B)`, `(eta_jet, B)`). `assemble_z` and `assemble_z_jets` take generic
+    `tucker_cores`, and their only callers, `t3_probe` and `t3_probe_derivatives`, pass the point's own.
   - `sharing.py`: the doctest at :788–802 (`Udot→Bdot`, `Udot_pm→Bdot_pm`, `[b.shape for b in Bdot]`: the corewise
     lift's output).
   - `tv_operations.py`: `tv_corewise_lift` (`Udot→Bdot`, `Udot_g→Bdot_g`; sample edit 3's `Ddot` is superseded),
@@ -542,11 +571,13 @@ draft-24 scan, except the dispositions noted (tier C's B rows; `_bare_to_dense`)
   new `nU`) or utv's `(nD, N)` (old `nD`, new `nU`) for the Tucker block, `(rLi, nUi, rR(i+1))` (old `nU`, new `nD`)
   for the TT block.
   - `apply.py`: `_apply_transpose_adjoint` (`dU_tildes→V_tildes`, `dG_tildes→H_tildes`; the docstring's
-    `dU-tilde_k = dxi-hat_k (x) w_k  # over (nO, N)` → `V~_k = …  # over (nU, N)` and `dG-tilde_k` → `H~_k`).
+    `dU-tilde_k = dxi-hat_k (x) w_k  # over (nO, N)` → `V~_k = …  # over (nU, N)` and `dG-tilde_k` → `H~_k`; R4b
+    spelled them `V-tilde_k`, `H-tilde_k`, the block's style, in A-0465).
   - `probing.py`: `_assemble_tucker_variations_core` (`dU_tilde→V_tilde`; `(nOi,Ni)`), `assemble_tucker_variations`
     (`dU_tildes→V_tildes`), `tv_probe_transpose_from_sweep` and `tv_probe_transpose` (`dU_tildes→V_tildes`,
     `dG_tildes→H_tildes`; `:1230–1235`); the TT assembly kernels `_assemble_tt_variations_core` (`dG_tilde→H_tilde`)
-    and `assemble_tt_variations` (`dG_tildes→H_tildes`), which hold `(rL, nD, rR)` arrays (R2, reviewer-approved).
+    and `assemble_tt_variations` (`dG_tildes→H_tildes`), which hold `(rL, nD, rR)` arrays (R2, reviewer-approved);
+    in those two docstrings T4S's spelled-out `delta_U_tilde`, `delta_G_tilde` → `V_tilde`, `H_tilde` (R4b).
   - `sampling_derivatives.py`: `_tangent_z_jets_step` (`dU→V`, V1), `_assemble_tucker_variation_jets_dense`
     (`dU_tildes→V_tildes`; `:1482`), `tv_probe_transpose_derivatives_from_sweep` and
     `_apply_derivatives_transpose_from_jets` (`dU_tildes→V_tildes`, `dG_tildes→H_tildes`; `:2227–2228`),
@@ -554,6 +585,17 @@ draft-24 scan, except the dispositions noted (tier C's B rows; `_bare_to_dense`)
     `_assemble_tt_variation_jets_dense` (`dG_tildes→H_tildes`, `(rL, nD, rR)`; R2, reviewer-approved).
   - `utv_sampling.py`: the seven transposes and `_remasked_transpose_output` (`dU_tilde→V_tilde`, `dG_tilde→H_tilde`;
     `:439–440`).
+  - `utv_operations.py` (R4a, the session's S4, rows RV14–RV15): `utv_to_ut3`'s `last_core` `dG→H` (`ttv[-1:]`,
+    `(rL, nD, rR)`); `_utv_oblique_gauge_step`'s `dG_in`, `dG` → `H_in`, `H` and `utv_oblique_gauge_projection`'s
+    `dG_stack→H_stack`, with their comments (the step runs only at a manifold frame). `utv_corewise_retract`'s
+    `dB, dG` stay: they have the point's own core shapes at the corewise frame.
+  - The forward kernels' TT variation, the `var_tt_cores` slot `(rLi,nDi,rR(i+1))` (R4b, ruling R7): `dG→H` in
+    `probing._sigma_step`, `_sigma_sweep_step`, `_deta_step`; `apply._apply_from_xis_step`;
+    `sampling_derivatives._sigma_banded_step` (with `dGxi→Hxi`), `_sigma_jets_step`, `_deta_jets_order_step`,
+    `_deta_jets_core`; the twins `_jet_trs_twins._sigma_jet_step`, `_sigma_sweep_trs`, `compute_deta_jets_trs`; and
+    `test_jet_recurrence.test_uniform_equals_ragged` (`:173, 179`, the object `_problem` calls `H`). Their prose
+    follows (the tuple comments, the `# H.` labels, `mu H xi`, `H_i(xi_i)`). `dG` stays on the corewise Hessian's TT
+    block and on the raw directions of `G` (§3.1).
   - `manifold.py`: `probe_transpose` (`dU_tildes→V_tildes`, `dG_tildes→H_tildes`), `apply_transpose`,
     `entries_transpose`, `probe_derivatives_transpose`, `apply_derivatives_transpose`, `entries_derivatives_transpose`
     (`dU→V`, `dG→H`; each returns `T3Variations(…)`); the doctest at :816–818 (`dU_sum→V_sum`).
@@ -578,7 +620,8 @@ draft-24 scan, except the dispositions noted (tier C's B rows; `_bare_to_dense`)
     `utv_to_ut3` docstring (`:210, 213`): `Udot→Ddot`. Also `test_sharing.py`'s `test_degenerate_point_min_norm`
     (`Udot→Ddot`, "the tied ambient direction"). `B` stays for the corewise lift's raw direction: `tv_corewise_lift`,
     `utv_corewise_lift` and `fv_tied_lift_factors`' `Udot_g` (docstring `:744–747`, `→Bdot_g`). `Ddot` is free in each
-    function.
+    function. Its plural local `udots` → `ddots` (`tv_operations.py:245, 250`, `utv_operations.py:224, 241`; R4a,
+    the session's S4, row RV13).
 - **Text** (R4a/R4b hand rows, the same rule): `B` forms at `backend/fitting.py:374, 380, 389`
   (`corewise_hessian`: `theta_hat = (Bdot, Gdot)`, raw `(dB, dG)`), `ut3_sampling.py:114, 231`, `entries.py:290`, `t3_linalg.py:946, 948`
   (`zBdot_i = B_z,i Bdot_i^T`, `zB_i`), `fv_operations.py:559, 562`, `geometry.py:451`, `ufv_operations.py:526`,
@@ -947,7 +990,8 @@ itself.
   cores), `D^t` (`symmetric_probe_derivatives.tex:111`), `DPhi`/`D^2 Phi` in 13 docstrings and comments, and the
   curvature page's `DΦ[Lv] = Ev`. It becomes the upright differential: `\mathrm{d}\Phi`, `\mathrm{d}^t` in LaTeX, and
   `dPhi`, `d^2 Phi`, `dΦ` in text (D-11). The italic `d` for the mode count is distinguished by font in LaTeX and is
-  never followed by `Φ`/`Phi` in text.
+  never followed by `Φ`/`Phi` in text. R4b added `_curvature_oracles.py:10`'s `DF(theta)[theta_hat]` → `dF(…)`, the
+  same derivative as the next line's `dPhi`.
 - **The padded-frame material** (D-5): the products and message `D` become `Ψ`, and the edge frame `U_{x→t}`, `U′`
   becomes `F_{x→t}`, `F′`.
 - **D-7's `L` meets the lift `L`** (the session, 2026-11-11; sample batch 2, §10). The code docstrings write the
@@ -958,7 +1002,9 @@ itself.
   `tv_operations.py:498–519` (`theta = (D, L)` at 504, 506 beside `L v` at 498, 506, 510 and `L^T K L` at 519);
   `fv_operations.py:557–579` (`theta = (D, L)` at 557, `DPhi[L v]` at 579). `geometry.py:439, 475, 933`,
   `sharing.py:699, 757` and `optimizers.py:214` have the lift with no `L` store and stay; the exact-Hessian note's lift
-  is `\Lift` (`\mathcal{L}`) and differs by font.
+  is `\Lift` (`\mathcal{L}`) and differs by font. R4b added `tests/backend/test_curvature.py:10`
+  (`t3_corewise_frame(D, L)` beside `L v`, the session's row): "for ``theta_hat``, the lift of ``v``"; `:12`'s
+  `<L v, y> == <v, L^T y>` has no store letter and stays.
 - **A T3's own Tucker cores**, which T4S writes `U`, are `B` (D-6; Nick, 2026-11-11: "definitely should not be D"):
   in code by tier C's B rows and B5, in text on the T3 pages and in the notes (§3.3, §4.8). `D` names a frame's down
   store, a point given by a frame's stores (`θ = (D, L)`) and that core's variations; a direction of a point's own
@@ -983,7 +1029,9 @@ itself.
 - **A code variable holding the operator**, where one exists, is `shift`/`shift_t`. R1's scan lists any; the tree at
   `v2026.4.0` calls the functions directly.
 - **The σ̂ locals** `sh`/`shd` (10 + 5 tokens in `sampling_derivatives.py`, 9 + 2 in `apply.py`, 3 in the test twin) are
-  renamed `sig_hat`/`sig_hat_d` (tier C), so the jet kernels never hold a local `sh` beside the operator `sh`. The shifted pairs
+  renamed `sig_hat`/`sig_hat_d` (tier C), so the jet kernels never hold a local `sh` beside the operator `sh`. R4b
+  renamed the reversed σ̂ `rsh` → `rsig_hat` in `_curvature_oracles.sigma_hat_tangent_jets_trs` (`:483, 489, 490`;
+  the session's row), the tree's last `sh` meaning σ̂. The shifted pairs
   `psh`, `pshd` (`sampling_derivatives.py:3220`) and the shape locals `sh` stay, `_flatten_w`'s (`:1693–1694`) included.
 - `test_curvature.py`'s `c_up` (a shifted jet, not the operator) stays.
 
@@ -1012,18 +1060,24 @@ itself.
   is named so both factors stay legible (`BU→zB`, not `BB`).
 - **Travel directions of edge variables take `-ward`** (Nick, 2026-11-11), as `probing.py` already writes them
   ("var-downward", "Adjoint-var-upward", "-leftward", "-rightward"). Stores and adjectives keep the bare words. Every
-  bare `-up`/`-down` travel-direction site is an enumerated hand row, R4b, found by the grep
-  `(var|adjoint|Adjoint)-(up|down)\b|\b(up|down) (jets|eta|sweep|sweeps|lift)\b|\bup-index\b`:
+  bare `-up`/`-down` travel-direction site is an enumerated hand row, R4b (R4a for the four in its own files, below),
+  found by the grep `(var|adjoint|Adjoint)-(up|down)\b|\b(up|down) (jets|eta|sweep|sweeps|lift)\b|\bup-index\b`:
   - `Adjoint-var-down` → `Adjoint-var-downward` (`sampling_derivatives.py:1425`, `tests/_jet_trs_twins.py:169`);
   - `adjoint-var-down jets` → `adjoint-var-downward jets` (`sampling_derivatives.py:1476, 1510`);
   - `frame down jets` → `frame downward jets` (`:1479, 1513`);
   - `adjoint-up` → `adjoint-upward` (`sampling_derivatives.py:1237, 1247, 1356, 1367, 2466, 2567, 2996`,
-    `probing.py:1459, 1728`, `tests/test_contractions_interpreter.py:227, 335`);
+    `probing.py:1459, 1728`);
   - `adjoint-down` → `adjoint-downward` (`sampling_derivatives.py:1398, 2199, 3185`);
-  - `up-index` → `upward` (`probing.py:773, 824`, `entries.py:124, 151, 314`, `manifold.py:949, 1172`,
-    `ut3_sampling.py:220`, `sampling_derivatives.py:564, 583, 613, 636, 980, 1147, 1176, 1204, 2367, 3415`), e.g.
-    "the up-index edge variables" → "the upward edge variables";
+  - `up-index` → `upward` (`probing.py:773, 824`, `entries.py:124, 151, 314`, `ut3_sampling.py:220`,
+    `sampling_derivatives.py:564, 583, 613, 636, 980, 1147, 1176, 1204, 2367, 3415`), e.g. "the up-index edge
+    variables" → "the upward edge variables";
   - `down eta` → `downward eta` (`apply.py:215`).
+
+  R4a did the four rows in its own files: `manifold.py:949, 1172` ("upward ``ξ̂``", "the frame's upward edge
+  variables") and `tests/test_contractions_interpreter.py:227, 335` ("adjoint-upward"). R4b added `entries.py:344`
+  (`_entry_xis`), "Up-index edge variables" → "Upward edge variables", which the case-sensitive grep missed (the
+  session's row): its `store_rename_keeps.txt` row went from KEEP to EXEMPT, like its siblings `:124, 151, 314`, and
+  `R1_s33_ward_sites.tsv` gained its row.
 
   R1 re-runs the grep on the tree, and the list it produces is authoritative. Directions already spelled as directions
   stay ("upward edge variables", "contract up", "pushing the remainder down into the Tucker core"). This replaces
@@ -1075,6 +1129,22 @@ rulings need their own inventory before any slice applies them.
     `TuckerTensorTrain.up_orthogonalize_tt_cores` (`tucker_tensor_train.py:3227`) wraps the same output as the point's
     own TT cores without a letter. Both names are free in their functions (R1's freeness check). Also kept: `shared_t3_math.tex:358`'s `O_g`, a complement basis (K8
     carves it out).
+- **Rows R4a and R4b added** (each with the reviewer's agreement; the session's rulings, 2026-11-13):
+  - R4a (`store_rename_letter_sites.md` § "The R4a review rows", RV1–RV11): the frame's `P`/`Q` → `L`/`R` in
+    `utv_operations.py`'s comments, `:449` "left-core ``L``", `:464` "the L-parallel component", `:499` "the right
+    core ``R``" and `(L^L)^T H^L` at `:465, 479, 487, 517, 557`, with the renamed local's comments at `:480, 485, 519`
+    (RV1–RV6); a T3's own Tucker factor at `t3_linalg.py:418, 419, 493`, `[G, B, mode]`, `B=stack+(nL, NL)`,
+    `B=stack+(nR, NR)` (RV7, the twin of `:455–456`; the function's `U` is the SVD factor); the point's own cores
+    `(U, G)` → `(B, G)` at `geometry.py:522, 536, 554, 1007, 1035` and `# initial cores (B, G)` at
+    `optimizers.py:879, 958, 1003, 1315` (RV8–RV9, D-6); the gauge in the code's layout, ``D V^T`` and
+    ``max|D V^T|``, at `tv_operations.py:774, 779` (RV10; the gram `einsum('...ia,...ja->...ij', D, V)`, as TVOP-0108,
+    UNMA-0478 and UTVOPE-0538); and `t3_orthogonalization.py:134` "Up-orthogonalize the TT cores, pushing the
+    remainders down onto the Tucker cores below." (RV11; T4S's "outer" as a verb, past K8's case-sensitive pattern).
+  - R4b: the frame's `P`/`Q` → `L`/`R` (`P_dot`→`L_dot`, `Q_dot`→`R_dot`, `Pxi`→`Lxi`) on the 104 prose lines of
+    `R4b_handoff.md`'s Appendix C, the record (tuple and carry comments, signature labels, formulas and "via L / via
+    R" in `probing`, `sampling_derivatives`, `apply`, `entries`, `_jet_trs_twins` and `_curvature_oracles`; the
+    reviewer's R1); the perturbation `P`/`pp` and the projector `P_X` stay. `apply.py:168–169` in the code's layout,
+    `xi-hat_i = D_i w_i` and `delta-xi_i = V_i w_i` (`contract('Cio,Wo->WCi', D, w)`; the session's row).
 - **R1 gate:** every hit is classified, every `U`-named NAME token included. R2's tier C and R4's L1/L2 apply only
   what the classification marks; a `B` or `D` row beyond those tier C lists joins `store_rename_letter_sites.md` only
   with the reviewer's agreement, and K15 checks it like any other.
@@ -1204,20 +1274,33 @@ rulings need their own inventory before any slice applies them.
     `down_tucker_supercore`→`up_tt_supercore`, and `:60, 159` `right_tucker_supercore`→`right_tt_supercore`. In R4a:
     `tucker_tensor_train.py:4264` `rL_0*r_1`→`r_0*r_1`. These loop variables named for the old store, and no others, are renamed by hand:
     `fv_operations.py:653–654`'s `dn`, `u` → `w`; `u`/`o` at `test_padded_frame.py:491` and
-    `_uniform_padded_frame_testing.py:41`.
+    `_uniform_padded_frame_testing.py:41`. R4a's images there: `u`, `o` → `D`, `U` at `test_padded_frame.py:491`
+    (`tuple(D.shape[-2] for D in down), tuple(U.shape[-2] for U in up)`) and `u` → `Di` at
+    `_uniform_padded_frame_testing.py:41` (`tuple(Di.shape[-1] for Di in D)`).
 12. **Generic kernel shape lines** (critic r7). R2's swap writes `nD`/`nU` into the shape comments of generic
     `tucker_cores`/`tt_cores` kernel parameters: `sampling_derivatives.py:388, 416, 473, 518, 872, 995, 3236`,
     `probing.py:550`, `ufv_conversions.py:334–335`. Each is a tier-E row in R4a/R4b, disposed by its call sites:
-    - a parameter that receives a frame store keeps the store's letter (`sampling_derivatives.py:473`'s `tt_cores`
-      holds the up store, so its old `(rLi,nOi,rR(i+1))` becomes `(rLi,nUi,rR(i+1))`);
+    - a parameter that receives a frame store keeps the store's letter (R4b's record: `probing.py:550` and
+      `sampling_derivatives.py:872` keep `nD`, both callers passing `down_tucker_cores`; `probing.compute_eta` keeps
+      `nU` by its keyword `up_tt_cores`);
     - one that receives a T3's own cores, or either, takes the generic `n` for its width (`rLi`/`rR(i+1)` stay
-      unchanged, per D-3);
+      unchanged, per D-3). `sampling_derivatives.py:473`'s `tt_cores`, which draft 26 put under the up store, receives
+      either (`t3_probe_derivatives` passes a T3's own `tt_cores`, `_probe_frame_sweep_jets_from_xi` the frame's
+      `up_tt_cores`), so it takes `n` at `:473, 476`, in `_eta_jets_order_step`'s carry (`:434`) and in
+      `_eta_jets_core`'s return (`:450`) (R4b, ruling R2);
     - one size, one label (the session, 2026-11-11): where `n` replaces a store width, every other shape comment of
       that function with the same size takes `n` too, its twin and its outputs included. At
       `sampling_derivatives.py:3230–3240` (`_apply_derivatives_hessian_from_jets`): `tt_cores` and `tt_dirs`
       (`:3236–3237`) `(rLi,ni,rR(i+1))`, the outputs `dB` `(ni,Ni)` and `dG` `(rLi,ni,rR(i+1))` (`:3239–3240`), and the
       `xi_jets`/`xi_jets_dot` legs `(ni,)` (`:3232–3233`). Also (R1) the `x` of the `t3_*_derivatives` kernels, a T3
       point's own cores: `sampling_derivatives.py:145–146, 1017–1018, 1140–1141`, with their twins and outputs.
+      R4b's record: the T3-only steps `apply._t3_apply_step` (`:39`) and `entries._t3_entries_step` (`:44`),
+      `C+(ni,Ni) ; C+(rLi,ni,rL(i+1))` (ruling R2); the probe two-hole assemblies, `probing.py`'s
+      `assemble_tucker_tangent_variations`, `assemble_tt_tangent_variations` and their steps, and their jet twins in
+      `sampling_derivatives.py` (`assemble_tucker_tangent_variation_jets`, `assemble_tt_tangent_variation_jets`,
+      `_tucker_tangent_variation_jets_step`): the corewise Hessian's core-shaped blocks, where K17's shape test needed
+      `n`. R4a's: `utv_corewise_retract`'s three shape comments (`utv_operations.py:391, 392, 396`), where every slot
+      of the corewise frame carries the point's own rank.
       `ufv_conversions.py:334–335` are not generic: they are `up_ranks`/`down_ranks` locals, which K13 checks as
       store-named entries.
 
@@ -1444,17 +1527,17 @@ placed it). The battery uses unequal stores and widths throughout.
 | K5 | old-order listings | `\(up, down, left` and `up/down/left/right` |
 | K6 | backwards phrases | `Tucker up-(?:SVD\|orth)`, `Tucker cores upward`, `TT cores downward`, `down-orthogonal O\b`, `up-orthogonal tucker`, `Down TT core` |
 | K7 | old shift and derivative notation | `\b[DU]\^[rku]\b`, `\[U\^`, `\b[DU] (?:x\|z\|jet)\b` (catches `D x =`, `# U jet,`, `[jet, D jet]`), `\bDPhi\b`, `\bD\^2 ?Phi\b`, `DΦ`, `D²Φ`; in tex `\\Dsh\|\\Ush\|D\\Phi\|D\^2\\Phi\|D_\\zeta` |
-| K8 | T4S letters left behind | `O` as a frame core in prose and code, matched only in frame-core contexts: `\bO\[`, `\bO\.shape\b`, `\bfor\s+O\s+in\b`, a letter tuple containing it (`\((?:\s*[A-Z]\w?\s*,)*\s*O\s*(?:,\s*[A-Z]\w?\s*)*\)`), a trailing tuple member `,\s*O\s*\)` (`(dxi~, O)`), `\(mu\^\(\w+\) O\)`, `\b(?:mu\S*\|nu) O\b`, `\bO (?:nu\|sigma\|tau)`, `` ``O`` `` and `` `O` `` in backticks, and `\\mathbf\s*\{?O`. §1.5 item 13's `O`s are carved out; in tex `\\delta\s*U\b`, `\\dot\s*U\b`, `\\dot\{U\}`, and (R1) any `\mathbf`/`\dot`/`\delta`/`\widetilde`/`\widehat`/`\tilde`/`\hat` followed by `[UOPQ]` with no trailing boundary, braces and a nested `\mathbf` allowed: `\\(?:mathbf\|dot\|delta\|widetilde\|widehat\|tilde\|hat)\s*\{?\s*(?:\\mathbf\s*\{?\s*)?[UOPQ]` (e.g. `\dot US_i`, `\delta\widetilde{\mathbf U}_i`, `\widehat{\mathbf U}`), carved out where §1.5 or §4.8 keeps the letter (`\dot V`, the SVD's `\mathbf U` in `pad_safe_svd.tex`, PB20's citation); `O` as a core letter everywhere, fences included: `\bO(?:\d\|_[a-z]\|ᵢ\|i\b\|\(d-1\))`; `\b(?:O_i\|O_aib\|Oᵢ\|δU\|U_g)\b`, `U̇` (no trailing `\b`: it never matches after a combining mark), `outer[- ]orthogonal`; frame `P`/`Q` forms `\b[PQ]_(?:i\|last\|\{)`; the code names `\b(?:Udot\w*\|dU(?![a-z])\w*\|gU\|Ug\|Ud)\b` (so the new `dUn`, from `dOn`, is not hit); `O` in an angle bracket, `<\s*O\s*,` and `,\s*O\s*>` (`S^T = <O, H>`). Carve-outs: the T4S correspondence lines, the §3.4 inventory's keep list, and for the `O` pattern the oracle and review codes (`O1`, `O2`, `O-2`; inv 3 §9) and the kept `O_g` (`shared_t3_math.tex:358`); for `Ud`, `oracle_sweeps/o1_ragged.py` and `o1_uniform.py` ("u dense") |
+| K8 | T4S letters left behind | `O` as a frame core in prose and code, matched only in frame-core contexts: `\bO\[`, `\bO\.shape\b`, `\bfor\s+O\s+in\b`, a letter tuple containing it (`\((?:\s*[A-Z]\w?\s*,)*\s*O\s*(?:,\s*[A-Z]\w?\s*)*\)`), a trailing tuple member `,\s*O\s*\)` (`(dxi~, O)`), `\(mu\^\(\w+\) O\)`, `\b(?:mu\S*\|nu) O\b`, `\bO (?:nu\|sigma\|tau)`, `` ``O`` `` and `` `O` `` in backticks, and `\\mathbf\s*\{?O`. §1.5 item 13's `O`s are carved out; in tex `\\delta\s*U\b`, `\\dot\s*U\b`, `\\dot\{U\}`, and (R1) any `\mathbf`/`\dot`/`\delta`/`\widetilde`/`\widehat`/`\tilde`/`\hat` followed by `[UOPQ]` with no trailing boundary, braces and a nested `\mathbf` allowed: `\\(?:mathbf\|dot\|delta\|widetilde\|widehat\|tilde\|hat)\s*\{?\s*(?:\\mathbf\s*\{?\s*)?[UOPQ]` (e.g. `\dot US_i`, `\delta\widetilde{\mathbf U}_i`, `\widehat{\mathbf U}`), carved out where §1.5 or §4.8 keeps the letter (`\dot V`, the SVD's `\mathbf U` in `pad_safe_svd.tex`, PB20's citation); `O` as a core letter everywhere, fences included: `\bO(?:\d\|_[a-z]\|ᵢ\|i\b\|\(d-1\))`; `\b(?:O_i\|O_aib\|Oᵢ\|δU\|U_g)\b`, `U̇` (no trailing `\b`: it never matches after a combining mark), `outer[- ]orthogonal`; frame `P`/`Q` forms `\b[PQ]_(?:i\|last\|\{)`; the code names `\b(?:Udot\w*\|dU(?![a-z])\w*\|gU\|Ug\|Ud)\b` (so the new `dUn`, from `dOn`, is not hit); `O` in an angle bracket, `<\s*O\s*,` and `,\s*O\s*>` (`S^T = <O, H>`). Carve-outs: the T4S correspondence lines, the §3.4 inventory's keep list, and for the `O` pattern the oracle and review codes (`O1`, `O2`, `O-2`; inv 3 §9) and the kept `O_g` (`shared_t3_math.tex:358`); for `Ud`, `oracle_sweeps/o1_ragged.py` and `o1_uniform.py` ("u dense"). R4a's record: `K8_R4A_CARVES`, by (file, hit, line text), for `t3_svd.py:424, 426`'s `P_i` (a coefficient block, `B_i = P_i @ Vt_q`), `tests/backend/test_uniform_fitting.py:430`'s `O` (the order count, §1.5 item 13) and `tests/test_dispatch.py:2006, 2029`'s `P_{T_F}` (the tangent projector). R4b's record: in `sampling_derivatives.py` a `Ud` on a code line (outside docstrings and comments) is the NAME tier C maps from `Od`, the dotted up core, which K15 pins; a prose `Ud` still hits |
 | K0 | sentinels | `ZQX\d+_XQZ` anywhere (after pass 2) |
 | K8b | T4S string keys | `\[['"][OPQ]['"]\]` in `tests/test_jet_recurrence.py` (after B4, `p['U']` is the correct up-core key) |
-| K9 | residual store words, token-level (critic r1 M1, r2 MINOR 1) | every bare `up`, `down`, `Up`, `Down`, `UP`, `DOWN` (e.g. `utv_operations.py:213, 215`), and every store-word index variable `\b(?:up\|down)_[a-z]\b` (`up_i`, `down_i`), in the COMMENT and STRING tokens of the final code tree (and every bare word in the docs after R5) must be one of four things: (a) an inventory keep row (ORTH, MSG, UNREL; inv 2 §9 keeps, inv 1 App. B–D, inv 3 §9, collected in R1 as `dev/store_rename_keeps.txt`); (b) a word whose aligned old-tree token was the opposite store word (`git diff` line alignment, then token position); (c) part of a tier-E proposed text after §1.4's layering; or (d) at R4b, one of R3's new-meaning lines, which (a)–(c) do not cover: the R3 handoff's Appendix C (20 lines; its other NEW line, `padded_frames.py:51`, is the tool's alignment artifact) and the restored legend at `frame_variations_format.py:1765–1766` (R3's record). Anything else fails. **Converse** (critic r3): every old-tree token on a keep row (ORTH, MSG, UNREL) survives unchanged at its aligned position, unless its line is a tier-E proposed text (e.g. §3.3's rewordings). So clause (b) cannot pass an adjective or a message direction flipped by mistake ("up-orthogonal" → "down-orthogonal" on a TT core, "contract up"), which K6's six phrasings would miss |
+| K9 | residual store words, token-level (critic r1 M1, r2 MINOR 1) | every bare `up`, `down`, `Up`, `Down`, `UP`, `DOWN` (e.g. `utv_operations.py:213, 215`), and every store-word index variable `\b(?:up\|down)_[a-z]\b` (`up_i`, `down_i`), in the COMMENT and STRING tokens of the final code tree (and every bare word in the docs after R5) must be one of four things: (a) an inventory keep row (ORTH, MSG, UNREL; inv 2 §9 keeps, inv 1 App. B–D, inv 3 §9, collected in R1 as `dev/store_rename_keeps.txt`); (b) a word whose aligned old-tree token was the opposite store word (`git diff` line alignment, then token position); (c) part of a tier-E proposed text after §1.4's layering; or (d) at R4b, one of R3's new-meaning lines, which (a)–(c) do not cover: the R3 handoff's Appendix C (20 lines; its other NEW line, `padded_frames.py:51`, is the tool's alignment artifact) and the restored legend at `frame_variations_format.py:1765–1766` (R3's record). Anything else fails. **Converse** (critic r3): every old-tree token on a keep row (ORTH, MSG, UNREL) survives unchanged at its aligned position, unless its line is a tier-E proposed text (e.g. §3.3's rewordings). So clause (b) cannot pass an adjective or a message direction flipped by mistake ("up-orthogonal" → "down-orthogonal" on a TT core, "contract up"), which K6's six phrasings would miss. **R4a's record:** clauses (c) and (d) are registrations in `dev/store_rename_slices/k9_registered.tsv`, matched per file by whitespace-normalised line text (they survive line shifts and realignment and lapse when the words change; an identical line elsewhere in the same file is covered too), and `K9-registered` reports stale rows: 21 clause-(d) lines, 14 clause-(c) R4a rewrites, one missed clause-(a) `keep` (`fv_conversions.py:207`, "Tucker down-orth") and 12 `swap` lines (a `difflib` pairing artifact: each new line equals the tag's neighbouring line). K9 skips doctest source lines (`>>>`, `...`; their trailing comments are still read): their NAMEs are K14's and K15's, and a store-word string literal there would go unseen (none exists) |
 | K10 | diagram alignment, in place (§4A c) | `dev/store_rename_diagram_check.py` on raw text: per inventoried ascii block rewritten in place, the same line count and line lengths, and every differing column a label character on both sides |
-| K10b | diagram alignment, re-laid out (§4A c) | the same line count, and every old alignment column (a field start after ≥ 2 spaces in ≥ 2 lines, or a shared `=`, `:`, `\|`, `#`) maps to one consistent new column. Field-comment blocks: the comment's start column matches the realigned signature block |
-| K11 | fences untouched by scripts (§4A g) | after R2 and after R3, every fenced span's text is byte-identical to `v2026.4.0` (located by span text), and the pass-1 tree has no sentinel inside a fence |
+| K10b | diagram alignment, re-laid out (§4A c) | the same line count, and every old alignment column (a field start after ≥ 2 spaces in ≥ 2 lines, or a shared `=`, `:`, `\|`, `#`) maps to one consistent new column. Field-comment blocks: the comment's start column matches the realigned signature block. A `:` that closes a label (a non-space before it, a space after) is not an alignment column: it moves with its label (R4a's record) |
+| K11 | fences untouched by scripts (§4A g) | after R2 and after R3, every fenced span's text is byte-identical to `v2026.4.0` (located by span text), and the pass-1 tree has no sentinel inside a fence. From R4a on, a fenced block whose recorded inventory new text differs from its old text is excepted, and K12 checks it verbatim instead (41 at R4a; `--list-exceptions`; R4a's record) |
 | K12 | every block done (§4A g) | after R4b (code tree) and R5 (docs): each inventoried block (one per diagram or equation, §4A a)'s new span is filled and equals the file verbatim; new text equal to old needs a recorded reason |
 | K13 | shape comments agree with their entry (D-8) | Over every single-entry shape line: a signature or field comment `NAME: type  # …`, a tuple-element comment `typ.Sequence[NDArray],  # down_tucker_cores. len=d, elm_shape=…` (the backend's commonest form), a docstring listing `- NAME = (…), elm_shape=(…)`, and their uniform supercore forms. **Fenced spans (§4A) are skipped at R2 and R3** (they keep their old widths until R4a's hand rewrite); from R4a on they are checked too. Extract the entry name and every width token `\bn[UD]\w*` in its shape, and require the letter the table gives: **`nD`** for `down_*` entries (`down_tucker_cores[_dot]`, `down_tucker_supercore`, `down_weights`, `down_weight_supercore`, `down_mask`, `variations_down_mask`, `down_ranks`), for `left_tt_*`/`right_tt_*` (their middle leg), and for `tt_variations` / `H` (middle leg); **`nU`** for `up_*` entries (`up_tt_cores[_dot]`, `up_tt_supercore`, `up_weights`, `up_weight_supercore`, `up_mask`, `variations_up_mask`, `up_ranks`) and for `tucker_variations` / `V` (its rows: the complement directions live in the up width). K13 recognises **only** store-named entries and `V`/`H`. Generic `tucker_cores`/`tt_cores` lines are reported to the reviewer, not checked, because a generic kernel parameter may hold a frame store. The ten known ones get a disposition in §4 item 12. A shape line with width tokens but no recognised entry is reported, not failed. This corrects the sketch "tucker → `nD`, tt → `nU`", which the variations and the left/right cores contradict |
-| K14 | DO-NOT-TOUCH identity (§1.5) | per file, the multiset of NAME tokens of §1.5 items 1–14, listed in R1's `dev/store_rename_dnt.txt` (file- or function-scoped for `U`, `Q`, `R`, `P`) and of `contract(`/`einsum(` string arguments is identical between `v2026.4.0` and the renamed tree. No exceptions. **From R3 on** (R3's record) it runs against the previous slice's commit, over K15's `difflib` NAME hunks: no DNT token lost or replaced; DNT names that listed new code adds are allowed (R3's new tests: 291, e.g. `randn`, `T3Frame`) |
-| K15 | the token map is closed (critic r9 O1) | Per file, on NAME tokens (code and doctest examples). **After R2:** R2's edits are in-place token replacements, so the old and new NAME sequences have equal length, and at every position new equals old unless R1's hit table lists that (file, line, column) with exactly that image. **After R3, R4a, R4b and R5:** `difflib` the NAME sequences against the previous slice's commit; every unequal hunk must be one the slice's handoff lists (R3: the `update` helper, steps, loops, tests; R4: §4.11's loop variables, §4 item 12's lines, §3.4's R4 dispositions). A prose-only slice leaves the NAME stream identical. Cross-check (`K15-cross`, per file, over the replace and delete hunks): old − new ⊆ map sources ∪ the slice's listed removed names (code a slice deletes is no map source: R3's `if`, `not`, `or`, `len`, `set`, `update`, `raise`, `ValueError`, `join`; R3's record) and new − old ⊆ map images ∪ the handoffs' new names (`_update_stores`, `_STORE_LETTERS`, `_COLOURS`, `n_cores`, `start_dense`, the `c`-suffixed locals, …) |
+| K14 | DO-NOT-TOUCH identity (§1.5) | per file, the multiset of NAME tokens of §1.5 items 1–14, listed in R1's `dev/store_rename_dnt.txt` (file- or function-scoped for `U`, `Q`, `R`, `P`) and of `contract(`/`einsum(` string arguments is identical between `v2026.4.0` and the renamed tree. No exceptions. **From R3 on** (R3's record) it runs against the previous slice's commit, over K15's `difflib` NAME hunks: no DNT token lost or replaced; DNT names that listed new code adds are allowed (R3's new tests: 291, e.g. `randn`, `T3Frame`). From R4a on, the previous slice's recount against the base is listed, not failed (that slice's own gate passed it); the slice's own hunks are still checked. A hit-table NAME row of tier `R4a-row` licenses exactly its own occurrences of a DNT token, per file and token: §1.2a's eight comprehension `B`/`G`, which R1 filed under item 5 by over-inclusion (R4a's record) |
+| K15 | the token map is closed (critic r9 O1) | Per file, on NAME tokens (code and doctest examples). **After R2:** R2's edits are in-place token replacements, so the old and new NAME sequences have equal length, and at every position new equals old unless R1's hit table lists that (file, line, column) with exactly that image. **After R3, R4a, R4b and R5:** `difflib` the NAME sequences against the previous slice's commit; every unequal hunk must be one the slice's handoff lists (R3: the `update` helper, steps, loops, tests; R4: §4.11's loop variables, §4 item 12's lines, §3.4's R4 dispositions, and the R4 NAME rows of §1.2a and §3.2, listed in `R4a_name_hunks.tsv` (40 hunks; K15-cross `--names w,o`) and `R4b_name_hunks.tsv` (36; `--names dGxi,Hxi,rsh,rsig_hat`)). A prose-only slice leaves the NAME stream identical. Cross-check (`K15-cross`, per file, over the replace and delete hunks): old − new ⊆ map sources ∪ the slice's listed removed names (code a slice deletes is no map source: R3's `if`, `not`, `or`, `len`, `set`, `update`, `raise`, `ValueError`, `join`; R3's record) and new − old ⊆ map images ∪ the handoffs' new names (`_update_stores`, `_STORE_LETTERS`, `_COLOURS`, `n_cores`, `start_dense`, the `c`-suffixed locals, …) |
 | K16 | LaTeX width forms signed off (§4A a) | report mode: every `n_\{[DUO],`, `n\^[DUO]`, `r_\{[LR],` in the six notes, listed with its line and its before/after in the R5 handoff for explicit sign-off by the reviewer and Nick. The reviewer signs each off by §4A(f)'s contraction-size check. `n_\{O` and `n\^O` also fail K2 |
 | K17 | variations keep `V`/`H` (Nick, 2026-11-11) | over R1's hit table and every `letter_sites.md` row, at R1 (report) and R2: no NAME whose value is a variation core (bound from `tucker_variations`, `tt_variations`, `V`, `H`, `tkv`, `ttv`, a `_V`/`_H` name, or a `.variations` field, directly or as the matching element of a `zip`) is mapped to a bare frame letter (`D`, `U`, `L`, `R` and their indexed forms `D0`, `Di`, `D_r`, …). By the shape rule (`(nU, N)` → `V`, `(rL, nD, rR)` → `H`, `(nD, N)` → `D` or `B` by context, `d`-prefixed only at the core's own shape), the `D`-shaped derivative forms `Dd`, `Ddot` are allowed; no `dD` is. No `U→D` or `O→U` letter row may land on a variation; `frame_variations_format.py:821`'s `U→V` is the model. **Shape test** (Nick, 2026-11-11): a NAME whose shape comment (signature, return or trailing) is `(nU…, N…)` or `(rL…, nD…, rR…)` in the new tree may not carry `D`/`dD` or `U`/`dU`; and in the notes no `\delta U`, `\delta D` or `\delta G` gauged coordinate is left (carve-out: the T4S correspondence lines) |
 
@@ -1476,6 +1559,10 @@ K9 is the only check that sees a bare word left in the old sense.
 
 - The full suite at `-n 3` (the 13 GB laptop rule), in the current-leg environment and in the floor environment
   (numpy 1.26 / jax 0.4.30). The slow tier runs serially at R6, as the release gate.
+  - R4b's one test-only change outside the token map (the session's listed row): `tests/test_jet_recurrence.py:32`
+    `TOL = 1e-14` → `1e-13`, its comment kept. In the floor environment with threaded OpenBLAS, `'apply (Euclidean)'`
+    core 0 reached a relative error of 1.22e-14 with the three touched test modules run together; it passes
+    single-threaded, the battery is bitwise, and the arc's standing rule holds a 1e-14 cross-path tolerance suspect.
 - Module doctests: the frontend's 2,047 examples (inv 1 §4 found no expected-output change) and the backend's; every
   `docs/*.md` and `docs/contributor/*.md` page plus `getting_started.rst`; both environments. **Expected outputs are
   unchanged** (§4A e): a `DocTestFinder` comparison of every example's `want` before and after, at R2, R4a, R4b and R5.
@@ -1536,10 +1623,11 @@ K9 is the only check that sees a bare word left in the old sense.
 | **R5** | Docs (§6): pages, the six notes (§4.8) and their PDFs, the glossary and its work list, `CLAUDE.md`, CHANGELOG and release notes; every §4A block in the docs and notes by hand (diagrams, tables, tikz labels, equations), before/after in the handoff | `sphinx -W`; markdown doctests in both environments; K-checks clean on the docs and notes; PDFs rebuilt; K10/K10b on the docs' ascii blocks, K12 on the docs, and K16's LaTeX width forms signed off; every note compiled with `latexmk -pdf` (§5); every example runs (`examples/*.py`, as CI's examples job does). **Review stop**: Nick sees the before/after of every docs and notes block, and every note's compiled PDF (Nick, 2026-11-11) |
 | **R6** | Acceptance: §5 end to end in both environments, the slow tier, the battery also in the floor environment; the T3Polynomial follow-up prepared (`g01_g0_common.py:121`, its suite), committed only after the release; HANDOFF | — |
 
-**Progress (draft 26).** R3 is committed (74683a39). R4a realigns every block the rename touched (§4 item 10), within
-reason (Nick, 2026-11-12, `dev/HANDOFF.md`'s top block): where aligning would make lines extremely long or cause other
-problems, a judgement call is allowed; the guiding principle is readability for humans; the style reference is
-`t3toolbox/tucker_tensor_train.py`, setting aside any misalignment from this arc.
+**Progress (draft 27).** R3 is committed (74683a39), R4a (e3085085) and R4b (f5ef5a8c) too; the code tree is done
+(K12: 54 of 54 code-tree blocks), and the R4 review stop with Nick is pending. R4a realigns every block the rename
+touched (§4 item 10), within reason (Nick, 2026-11-12, `dev/HANDOFF.md`'s top block): where aligning would make lines
+extremely long or cause other problems, a judgement call is allowed; the guiding principle is readability for humans;
+the style reference is `t3toolbox/tucker_tensor_train.py`, setting aside any misalignment from this arc.
 
 **The implementer's brief (Nick's words, 2026-11-11), read before every slice.**
 
