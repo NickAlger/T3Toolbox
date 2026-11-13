@@ -58,8 +58,8 @@ scope: `newton_cg` on every geometry/representation that supports `hessian='exac
 `gradient_descent` out; tests: threshold-disabled = bitwise GN, forced-at-0 = bitwise exact, each reset condition;
 benchmarks: Darcy 10x100 o01 switch(0.5→1.0) vs GN(0.5) vs exact(1.0) at equal tolerance (Newton/CG counts), then
 20x1000 if promising, padded-start levels as the no-switch stress case; MEASURE the cost of exact-mode curvature setup at
-every GN-phase point before fixing the default (fallback: track every k-th accepted step). Nick has not yet confirmed
-the recommendations on 4, 5, 7, 9 -- ask once, then plan. (C) the glossary update and the 601-row docs pass
+every GN-phase point before fixing the default (fallback: track every k-th accepted step). NICK AGREED (2026-11-13) with the
+session's recommendations on 4, 5, 7 and 9 -- all nine switch questions are decided; the plan writer has what it needs. (C) the glossary update and the 601-row docs pass
 (`dev/glossary_naming_decisions.md`, now re-expressed in the new words). Then the release commit (version 2026.5.0 in
 pyproject/CITATION/__init__, CHANGELOG date, release notes) and Nick tags.
 
