@@ -40,7 +40,12 @@ Plan at draft 28 (1ddeadcf). The CODE and DOCS are in the new convention; CI gre
 started 2026-11-13 evening in parallel with R6's acceptance runs: switch-plan writer `a90e932de26b64b57` ->
 `dev/gn_newton_switch_plan_2026-11-13.md`; timing-plan writer `a14687754ac557916` revising
 `dev/newton_timing_plan_2026-11-10.md` to draft 1; a critic reviews both when they land; implementation only after R6 is
-committed and Nick has seen the final stop), each writer/critic-style then implementer/reviewer:** (A) the opt-in Newton phase TIMING — draft `dev/newton_timing_plan_2026-11-10.md`; the session's
+committed and Nick has seen the final stop), each writer/critic-style then implementer/reviewer:** STATUS 2026-11-13
+late: the SWITCH plan is writer/critic-AGREED at draft 2 (`dev/gn_newton_switch_plan_2026-11-13.md`, reviews r1-r2) and
+awaits Nick's §9 decisions G-1..G-4, G-6, G-7 (the session recommends the writer's recommendation on each); the TIMING
+plan is in critic round 2 (review r1: 4 MINOR, incl. two guards -- an overridden `Problem.local_model` keeps its own
+build under timing, and `timing` is passed to a geometry member only when the member names it; its Q-1 = the `gradient`
+phase carries exact mode's misfit transpose, critic agrees). R6 (acceptance) is built and in review. (A) the opt-in Newton phase TIMING — draft `dev/newton_timing_plan_2026-11-10.md`; the session's
 recommendations on T-1..T-7 stand (split the local model; the full compile wait; no separate accepted-retraction phase;
 report `previous_callback`; no `gradient_descent`; the geometry member gets a `timing=False` keyword rather than a changed
 return arity; plain dict in stats); needs a critic pass, then implementation. (B) the GN-TO-FULL-NEWTON SWITCH — source
