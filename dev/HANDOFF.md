@@ -43,7 +43,7 @@ started 2026-11-13 evening in parallel with R6's acceptance runs: switch-plan wr
 committed and Nick has seen the final stop), each writer/critic-style then implementer/reviewer:** STATUS 2026-11-13
 late: the SWITCH plan is writer/critic-AGREED at draft 2 (`dev/gn_newton_switch_plan_2026-11-13.md`, reviews r1-r2) and
 awaits Nick's §9 decisions G-1..G-4, G-6, G-7 (the session recommends the writer's recommendation on each); the TIMING
-plan is in critic round 2 (review r1: 4 MINOR, incl. two guards -- an overridden `Problem.local_model` keeps its own
+plan is writer/critic-AGREED at draft 2 (`dev/newton_timing_plan_2026-11-10.md`, reviews r1-r2; round 1 had 4 MINOR incl. two guards -- an overridden `Problem.local_model` keeps its own
 build under timing, and `timing` is passed to a geometry member only when the member names it; its Q-1 = the `gradient`
 phase carries exact mode's misfit transpose, critic agrees). R6 (acceptance) is built and in review. (A) the opt-in Newton phase TIMING — draft `dev/newton_timing_plan_2026-11-10.md`; the session's
 recommendations on T-1..T-7 stand (split the local model; the full compile wait; no separate accepted-retraction phase;
