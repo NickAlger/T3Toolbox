@@ -134,7 +134,7 @@ def _ragged_slices(sc, K, n_elements, shapes_of):
 
 
 def _theta_shapes(rframe):
-    """The real shapes of a raw direction at the base point (U, P): Udot (nD, N), Gdot (rL, nD, rL)."""
+    """The real shapes of a raw direction at the base point (D, L): Bdot (nD, N), Gdot (rL, nD, rL)."""
     return [u.shape[-2:] for u in rframe[0]], [g.shape[-3:] for g in rframe[2]]
 
 
@@ -245,7 +245,7 @@ def _random_variation_sc(uframe, K, rng):
 
 
 def _random_theta_sc(uframe, K, rng):
-    """Dense random raw directions shaped like the base point (U, P): (d,)+K+C+(nD, N) / (rL, nD, rL)."""
+    """Dense random raw directions shaped like the base point (D, L): (d,)+K+C+(nD, N) / (rL, nD, rL)."""
     D, L = uframe[0], uframe[2]
     return (rng.standard_normal(D.shape[:1] + tuple(K) + D.shape[1:]),
             rng.standard_normal(L.shape[:1] + tuple(K) + L.shape[1:]))
@@ -510,7 +510,7 @@ class TestUniformProbeDerivativesTwoHole(unittest.TestCase):
 # ---------------------------------------------------------------------------------------------------
 def _tt_slack_uniform(seed):
     """A TT-slack point (non-minimal: its frame's left ranks [1,4,9,1] < the point's [1,9,9,1]), ragged and as a
-    uniform point, and its RAGGED frame packed at the point's padded sizes -- so the frame's (up, left) masks are a
+    uniform point, and its RAGGED frame packed at the point's padded sizes -- so the frame's (down, left) masks are a
     strict subset of the point's (F23) and its coordinates are the ragged frame's slot for slot."""
     np.random.seed(seed)
     x = t3.TuckerTensorTrain.randn((6, 6, 6), (4, 4, 4), (1, 9, 9, 1))
@@ -522,7 +522,7 @@ def _tt_slack_uniform(seed):
 
 class TestUniformKindCorewiseHessian(unittest.TestCase):
     """``UniformProbeDerivativesKind.corewise_hessian``: its own masked override (T23); its masks are
-    the FRAME's ``(up, left)`` (m29: at TT slack ``frame[5]`` is a strict subset of ``self.masks``, and the
+    the FRAME's ``(down, left)`` (m29: at TT slack ``frame[5]`` is a strict subset of ``self.masks``, and the
     point masks would let the frame's padded completions into theta); T24: theta masked == the sweep's
     ``(mb[0], mb[2])``, and garbage in theta_hat's padded slots (every edge) == zeroed padding, the real block
     bitwise."""
@@ -681,7 +681,7 @@ class TestUniformPlainKindsTwoHole(unittest.TestCase):
 
 class TestUniformPlainKindCorewiseHessian(unittest.TestCase):
     """``UniformProbeKind`` / ``UniformApplyKind`` / ``UniformEntriesKind.corewise_hessian`` (T23 after the override,
-    T24, m29), in the S8 shape: each is its own masked override; its masks are the FRAME's ``(up, left)`` -- at
+    T24, m29), in the S8 shape: each is its own masked override; its masks are the FRAME's ``(down, left)`` -- at
     TT slack ``frame[5]`` is a strict subset of ``self.masks``, and the point masks give a different answer (the
     ``self.masks``-instead-of-frame mutant); garbage in theta_hat's padded slots == zeroed padding, bitwise."""
 
@@ -846,7 +846,7 @@ class TestUniformDerivativeKindsTwoHole(unittest.TestCase):
 
 class TestUniformDerivativeKindCorewiseHessian(unittest.TestCase):
     """``UniformApplyDerivativesKind`` / ``UniformEntriesDerivativesKind.corewise_hessian`` (T23, T24, m29), in the S8
-    shape: each is its own masked override; its masks are the FRAME's ``(up, left)`` -- at TT slack ``frame[5]`` is a
+    shape: each is its own masked override; its masks are the FRAME's ``(down, left)`` -- at TT slack ``frame[5]`` is a
     strict subset of ``self.masks``, and the point masks give a different answer (the ``self.masks``-instead-of-frame
     mutant); the per-order weight enters as ``omega^2 r``; garbage in theta_hat's padded slots == zeroed padding,
     bitwise."""
@@ -1166,7 +1166,7 @@ class TestUniformExactLocalModel(unittest.TestCase):
                             _compare(self, lm.gradient[j], lambda c, j=j: rlm[c].gradient[j], (), n, 'gradient')
 
     def test_garbage_in_the_frame_padding(self):
-        """Garbage in EVERY padded slot of the frame's four supercores -- on the corewise frame ``(U, G, G, G)`` that
+        """Garbage in EVERY padded slot of the frame's four supercores -- on the corewise frame ``(B, G, G, G)`` that
         includes the point's padded boundary-bond slots, the ones the boundary squash sums over -- leaves every
         exact action bit-identical, on both uniform geometries (and with garbage-padded residual, sample and
         trial tangent, as everywhere in this class)."""
@@ -1175,7 +1175,7 @@ class TestUniformExactLocalModel(unittest.TestCase):
             with self.subTest(geometry=geometry):
                 lm, _rlm, uframe, _vs, n = _exact_models('d3 varying', 38, rng, geometry)
                 dirty = _dirty_frame(uframe, seed=39)
-                if geometry == 'corewise':                     # (U, G, G, G): ONE garbage-padded G, three times
+                if geometry == 'corewise':                     # (B, G, G, G): ONE garbage-padded G, three times
                     dirty = (dirty[0], dirty[2], dirty[2], dirty[2]) + tuple(uframe[4:])
                     left = uframe[5][2]
                     self.assertTrue(np.all(~left[0][..., 1:]) and np.all(~left[-1][..., 1:]))   # the boundary pads
@@ -1304,7 +1304,7 @@ class TestUniformPlainKindsExactLocalModel(unittest.TestCase):
     """The backend exact ``LocalModel`` for the plain kinds (S10 / S11) on the uniform layer, at a frame packed from
     the ragged one: every exact action per element equal to the ragged model's on both uniform geometries
     (varying-rank stacks, forced padding, garbage-padded residual / sample / trial tangents, ``K`` stacks), exact
-    output masks; garbage in every padded slot of the frame -- on the corewise frame ``(U, G, G, G)`` the point's
+    output masks; garbage in every padded slot of the frame -- on the corewise frame ``(B, G, G, G)`` the point's
     padded boundary-bond slots included -- leaves every action bitwise unchanged; and one SHARED-uniform subcase per
     kind (the tied lift on the companion, per element the ragged shared model, the output tied)."""
 
@@ -1359,7 +1359,7 @@ class TestUniformPlainKindsExactLocalModel(unittest.TestCase):
                 with self.subTest(kind=kind, geometry=geometry):
                     lm, _rlm, uframe, _vs, n = _exact_models('d3 varying', 104, rng, geometry, kind=kind)
                     dirty = _dirty_frame(uframe, seed=105)
-                    if geometry == 'corewise':                 # (U, G, G, G): ONE garbage-padded G, three times
+                    if geometry == 'corewise':                 # (B, G, G, G): ONE garbage-padded G, three times
                         dirty = (dirty[0], dirty[2], dirty[2], dirty[2]) + tuple(uframe[4:])
                         left = uframe[5][2]
                         self.assertTrue(np.all(~left[0][..., 1:]) and np.all(~left[-1][..., 1:]))   # the boundary pads
@@ -1614,7 +1614,7 @@ class TestUniformSharedTiedLift(unittest.TestCase):
     """T12's uniform twin, the lift (``ufv_tied_lift_factors`` + ``utv_corewise_lift[_transpose]``): per element the
     ragged tied factors / lift / transpose (<= 1e-13) on varying-rank shared stacks with forced padding, the group
     modes' slices one value, exact output masks, the adjoint identity on K and C stacks at dampings 0 to 10, and the
-    tied lift identity ``DPhi[L v] == E v``. The uniform companion's padded ``s_g`` levels filter to exactly 0 BY THE
+    tied lift identity ``dPhi[L v] == E v``. The uniform companion's padded ``s_g`` levels filter to exactly 0 BY THE
     MASKS, not only by the clip -- finite garbage in every padded slot of the companion leaves the factors, the lift
     and its transpose bitwise unchanged, where the clip-only filter picks it up -- and ``sigma_min`` reads the REAL
     ``s_g`` levels only. A companion of another layout is a structural error."""
@@ -1701,7 +1701,7 @@ class TestUniformSharedTiedLift(unittest.TestCase):
                         self.assertTrue(np.all(np.abs(lhs - rhs) <= 1e-12 * scale))
 
     def test_the_tied_lift_represents_a_tied_tangent(self):
-        """``DPhi[L v] == E v`` at eps = 0 per element, for a tied gauged tangent (the uniform shared geometry's own
+        """``dPhi[L v] == E v`` at eps = 0 per element, for a tied gauged tangent (the uniform shared geometry's own
         projection): the lift, read back on each element's real blocks, represents the same dense tangent through the
         core parametrization at the base point."""
         rng = np.random.default_rng(67)
@@ -1902,7 +1902,7 @@ class TestUniformSharedExactModel(unittest.TestCase):
             with self.subTest(geometry=geometry):
                 lm, _rlm, uframe, _vs, n = _shared_exact_models('ceiling varying', 78, rng, geometry)
                 dirty = _dirty_frame(uframe, seed=79)
-                if geometry == 'corewise':                     # (U, G, G, G): ONE garbage-padded G, three times
+                if geometry == 'corewise':                     # (B, G, G, G): ONE garbage-padded G, three times
                     dirty = (dirty[0], dirty[2], dirty[2], dirty[2]) + tuple(uframe[4:])
                 lmd = _uniform_exact_model(dirty, (uframe[5][0], uframe[5][2]), lm.kind, lm.sample, lm.residual,
                                            1e-4 if geometry == 'manifold' else None, geom=lm.geom)

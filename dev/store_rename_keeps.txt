@@ -88,7 +88,7 @@ t3toolbox/backend/common.py	543	KEEP	inv2 §9 doc UNRELATED	the object alive, as
 t3toolbox/backend/entries.py	124	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	Identical to :py:func:`tv_apply` except the up-index edge variables come from slicing the
 t3toolbox/backend/entries.py	151	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	Identical to :py:func:`tv_apply_transpose` with the up-index ``xi-hat`` from fiber slicing and
 t3toolbox/backend/entries.py	314	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (grep)	up-index ``xi`` / ``xi_dot`` from slicing Tucker-core fibers at ``index`` and the apply vectors replaced by the
-t3toolbox/backend/entries.py	344	KEEP	inv2 §9 doc UNRELATED	'''Up-index edge variables by slicing Tucker-core fibers at ``index`` (no contraction).
+t3toolbox/backend/entries.py	344	EXEMPT	inv2 §9 doc UNRELATED; §3.3 -ward rewording (session, R4b S1)	'''Up-index edge variables by slicing Tucker-core fibers at ``index`` (no contraction).
 t3toolbox/backend/fitting.py	326	KEEP	inv2 §9 doc UNRELATED	and ``Problem.local_model(hessian='exact')`` rejects it up front with a structural error.
 t3toolbox/backend/fv_conversions.py	181	EXEMPT	§4.3 backwards adjective	up_orthogonalize_tucker_cores = lambda x: uniform_orth.down_orthogonalize_tucker_supercores(*x)
 t3toolbox/backend/fv_conversions.py	182	EXEMPT	§4.3 backwards adjective	down_orthogonalize_tt_cores = lambda x: uniform_orth.up_orthogonalize_tt_supercores(*x)

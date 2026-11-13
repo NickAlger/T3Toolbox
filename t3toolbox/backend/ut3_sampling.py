@@ -108,10 +108,10 @@ def ut3_full_sum(
 
 
 # ----------------------------------------------------------------- corewise (non-manifold) transposes
-# Gradient of a sampling op w.r.t. the frame's own supercores (the Section 6.3 (P,Q,O)->G substitution, via
-# the now-polymorphic probing.*_corewise_transpose -- the tangent transpose at the frame (U, G, G, G)). For
+# Gradient of a sampling op w.r.t. the frame's own supercores (the Section 6.3 (U,L,R)->G substitution, via
+# the now-polymorphic probing.*_corewise_transpose -- the tangent transpose at the frame (B, G, G, G)). For
 # a uniform core-wise optimizer (Adam, L-BFGS). Mask-once + pack at the boundary; return the RAW gradient
-# supercores (dU, dG) -- the uniform mirror of the ragged TuckerTensorTrain.*_corewise_transpose raw-tuple
+# supercores (dB, dG) -- the uniform mirror of the ragged TuckerTensorTrain.*_corewise_transpose raw-tuple
 # return -- RE-MASKED on exit with the same point masks that masked the input. The raw padding is not clean
 # (the boundary-bond squash is a sum over the whole bond, so its gradient broadcasts into the padded
 # boundary-bond slots too); the re-mask zeroes it, so a consumer gets exact zeros there. The equivalence
@@ -217,7 +217,7 @@ def ut3_entries_derivatives(
         order: int,                    # highest derivative order
 ) -> NDArray:                          # shape=(order+1,)+W+stack_shape
     """Symmetric entry derivatives of a uniform Tucker tensor train at ``index`` (shares
-    ``sampling_derivatives.t3_entries_derivatives``; the up-index jet slices Tucker fibers, so only ``pp`` is
+    ``sampling_derivatives.t3_entries_derivatives``; the upward jet slices Tucker fibers, so only ``pp`` is
     packed -- ``index`` in ``[0,Ni)`` hits the real prefix)."""
     masked = ut3_masking.ut3_apply_masks(data)
     packed_pp = ut3_operations.pack_if_ragged(pp, masked[0].shape[-1])
@@ -226,9 +226,9 @@ def ut3_entries_derivatives(
 
 # ----------------------------------------------------------- corewise derivative transposes (jets)
 # The jet-ified twins of the corewise transposes above: gradient of a plain-T3 derivative sampling op w.r.t.
-# the frame's own supercores (the §6.3 (P,Q,O)->G substitution, via the now-polymorphic
+# the frame's own supercores (the §6.3 (U,L,R)->G substitution, via the now-polymorphic
 # sampling_derivatives.*_corewise_derivatives_transpose). Mask-once + pack ww/pp (entries: pp only) at the
-# boundary; return the RAW gradient supercores (dU, dG), re-masked on exit (clean padding, as above). For a
+# boundary; return the RAW gradient supercores (dB, dG), re-masked on exit (clean padding, as above). For a
 # uniform core-wise optimizer.
 
 def ut3_apply_corewise_derivatives_transpose(
@@ -370,8 +370,8 @@ def ut3_probe_corewise_derivatives_hessian_from_sweep(
     :py:func:`~t3toolbox.backend.sampling_derivatives.t3_probe_corewise_derivatives_hessian_from_sweep`.
 
     ``frame_sweep`` is :py:func:`~t3toolbox.backend.utv_sampling.utv_precompute_probe_frame_sweep_jets` at the
-    manifold frame ``(U, O, P, Q)`` of ``theta = (U, P)`` (or the apply sweep at the corewise frame): its masked
-    frame's ``U`` and ``P`` are ``theta`` masked with the frame's ``(up, left)`` masks, so ``data`` must carry those
+    manifold frame ``(D, U, L, R)`` of ``theta = (D, L)`` (or the apply sweep at the corewise frame): its masked
+    frame's ``D`` and ``L`` are ``theta`` masked with the frame's ``(down, left)`` masks, so ``data`` must carry those
     masks (a uniform kind reads them off the frame it is handed; at TT slack the point's own masks are a strict
     superset). ``theta`` and ``theta_hat`` are masked with ``data``'s masks, and the output is re-masked."""
     _mb, packed_ww, packed_pp, _shape, psweep = frame_sweep
@@ -460,8 +460,8 @@ def ut3_probe_corewise_hessian_from_sweep(
     """:py:func:`ut3_probe_corewise_hessian` reusing a uniform sweep's packed vectors and its ``xi`` / ``mu`` -- the
     reuse hook for a uniform local model, the twin of
     :py:func:`~t3toolbox.backend.probing.t3_probe_corewise_hessian_from_sweep`. ``frame_sweep`` is
-    :py:func:`~t3toolbox.backend.utv_sampling.utv_precompute_probe_frame_sweep` at the manifold frame ``(U, O, P, Q)``
-    of ``theta = (U, P)`` (or a sweep at the corewise frame), so ``data`` must carry that frame's ``(up, left)`` masks
+    :py:func:`~t3toolbox.backend.utv_sampling.utv_precompute_probe_frame_sweep` at the manifold frame ``(D, U, L, R)``
+    of ``theta = (D, L)`` (or a sweep at the corewise frame), so ``data`` must carry that frame's ``(down, left)`` masks
     (a uniform kind reads them off the frame it is handed); ``theta`` and ``theta_hat`` are masked with them and the
     output is re-masked."""
     _mb, packed_ww, _shape, psweep = frame_sweep
@@ -494,7 +494,7 @@ def ut3_apply_corewise_hessian_from_sweep(
         frame_sweep:      typ.Tuple,                     # utv_precompute_apply_frame_sweep at a frame whose base point is theta
 ) -> typ.Tuple[NDArray, NDArray]:                        # (Tucker, TT) blocks of K theta_hat, (d,)+K+C+(...), W summed
     """:py:func:`ut3_apply_corewise_hessian` reusing a uniform apply sweep's packed vectors and lean ``(xi, mu)``
-    (``data`` carries the sweep frame's ``(up, left)`` masks, as :py:func:`ut3_probe_corewise_hessian_from_sweep`)."""
+    (``data`` carries the sweep frame's ``(down, left)`` masks, as :py:func:`ut3_probe_corewise_hessian_from_sweep`)."""
     _mb, packed_ww, _shape, psweep = frame_sweep
     masked, directions = _masked_point_and_directions(data, core_directions)
     grads = apply.t3_apply_corewise_hessian_from_sweep(c, packed_ww, masked, directions, psweep)
@@ -521,7 +521,7 @@ def ut3_entries_corewise_hessian_from_sweep(
         frame_sweep:      typ.Tuple,                     # utv_precompute_entries_frame_sweep at a frame whose base point is theta
 ) -> typ.Tuple[NDArray, NDArray]:                        # (Tucker, TT) blocks of K theta_hat, (d,)+K+C+(...), W summed
     """:py:func:`ut3_entries_corewise_hessian` reusing a uniform entries sweep's index and lean (fiber-sliced)
-    ``(xi, mu)`` (``data`` carries the sweep frame's ``(up, left)`` masks)."""
+    ``(xi, mu)`` (``data`` carries the sweep frame's ``(down, left)`` masks)."""
     _mb, index, _shape, psweep = frame_sweep
     masked, directions = _masked_point_and_directions(data, core_directions)
     grads = entries.t3_entries_corewise_hessian_from_sweep(c, index, masked, directions, psweep)
@@ -596,7 +596,7 @@ def ut3_apply_corewise_derivatives_hessian_from_sweep(
     """:py:func:`ut3_apply_corewise_derivatives_hessian` reusing a uniform apply jet sweep's packed ``ww`` / ``pp`` and
     its lean ``(xi, mu)`` jets -- the reuse hook for a uniform local model, the twin of
     :py:func:`~t3toolbox.backend.sampling_derivatives.t3_apply_corewise_derivatives_hessian_from_sweep`. ``data``
-    carries the sweep frame's ``(up, left)`` masks (a uniform kind reads them off the frame it is handed; at TT slack
+    carries the sweep frame's ``(down, left)`` masks (a uniform kind reads them off the frame it is handed; at TT slack
     the point's own masks are a strict superset), as :py:func:`ut3_probe_corewise_derivatives_hessian_from_sweep`."""
     _mb, packed_ww, packed_pp, _shape, psweep = frame_sweep
     masked, directions = _masked_point_and_directions(data, core_directions)
@@ -633,7 +633,7 @@ def ut3_entries_corewise_derivatives_hessian_from_sweep(
         frame_sweep:      typ.Tuple,                     # utv_precompute_entries_frame_sweep_jets at a frame whose base point is theta
 ) -> typ.Tuple[NDArray, NDArray]:                        # (Tucker, TT) blocks of K theta_hat, (d,)+K+C+(...), W summed
     """:py:func:`ut3_entries_corewise_derivatives_hessian` reusing a uniform entries jet sweep's index, packed ``pp``
-    and lean (fiber-sliced) ``(xi, mu)`` jets (``data`` carries the sweep frame's ``(up, left)`` masks)."""
+    and lean (fiber-sliced) ``(xi, mu)`` jets (``data`` carries the sweep frame's ``(down, left)`` masks)."""
     _mb, index, packed_pp, _shape, psweep = frame_sweep
     masked, directions = _masked_point_and_directions(data, core_directions)
     grads = sampling_derivatives.t3_entries_corewise_derivatives_hessian_from_sweep(

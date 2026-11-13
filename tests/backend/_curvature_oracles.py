@@ -7,8 +7,8 @@ Two oracles, each independent of the kernel it checks:
 
 * **The block-sum oracle.** For a function ``F(theta) = <c, S(Phi(theta))>`` that is LINEAR in the
   tensor (a sampling transpose, or an inner product with a fixed ``Z``), the core-coordinate Hessian
-  applied to ``theta_hat`` is the gradient of ``theta -> DF(theta)[theta_hat]``. Since
-  ``DPhi(theta)[theta_hat] = Phi(Y)`` for the doubled-rank T3 ``Y = tv_to_t3(t3_corewise_frame(theta),
+  applied to ``theta_hat`` is the gradient of ``theta -> dF(theta)[theta_hat]``. Since
+  ``dPhi(theta)[theta_hat] = Phi(Y)`` for the doubled-rank T3 ``Y = tv_to_t3(t3_corewise_frame(theta),
   theta_hat)`` and ``Y`` is linear in ``theta`` (each of its blocks is a core of ``theta``, of
   ``theta_hat``, or zero), the Hessian is the ONE-HOLE gradient at ``Y`` read back onto the blocks where
   ``theta``'s cores sit: :py:func:`blocksum`. It uses only the one-hole kernel and ``tv_to_t3``.
@@ -61,7 +61,7 @@ import _jet_trs_twins as twins
 
 
 def doubled(theta, theta_hat):
-    """The doubled-rank T3 ``Y`` with ``Phi(Y) = DPhi(theta)[theta_hat]`` (stack: ``theta_hat``'s)."""
+    """The doubled-rank T3 ``Y`` with ``Phi(Y) = dPhi(theta)[theta_hat]`` (stack: ``theta_hat``'s)."""
     return tv.tv_to_t3(fvc.t3_corewise_frame(theta), theta_hat)
 
 
@@ -72,7 +72,7 @@ def blocksum(gY, theta):
     gYB, gYG = gY
     B, G = theta
     d = len(B)
-    gB = tuple(gYB[i][..., :B[i].shape[-2], :] for i in range(d))      # U_i sits in the top Tucker rows
+    gB = tuple(gYB[i][..., :B[i].shape[-2], :] for i in range(d))      # B_i sits in the top Tucker rows
     if d == 1:                                                         # Y_0 = [Gdot_0 ; G_0] on the n axis
         n = B[0].shape[-2]
         return gB, (gYG[0][..., :, n:, :],)
@@ -82,15 +82,15 @@ def blocksum(gY, theta):
         g = gYG[i]
         if i == 0:                                       # [[Gdot, G], [G, 0]]: top-right and bottom-left
             gG.append(g[..., :, :n, rn:] + g[..., :, n:, :rn])
-        elif i == d - 1:                                 # [[R ; Gdot], [0 ; O]]: top-first and bottom-second
+        elif i == d - 1:                                 # [[R ; Gdot], [0 ; U]]: top-first and bottom-second
             gG.append(g[..., :r, :n, :] + g[..., r:, n:, :])
-        else:                                            # R (top-left), L (top, second-second), O (bottom)
+        else:                                            # R (top-left), L (top, second-second), U (bottom)
             gG.append(g[..., :r, :n, :rn] + g[..., r:, :n, rn:] + g[..., r:, n:, :rn])
     return gB, tuple(gG)
 
 
 def _blocks(theta):
-    """theta = (U, G) as a flat list of 2d core arrays (Tucker first)."""
+    """theta = (B, G) as a flat list of 2d core arrays (Tucker first)."""
     return list(theta[0]) + list(theta[1])
 
 
@@ -175,7 +175,7 @@ def dense_lagrangian_hessian(A, y, theta, theta_hat, G_dense):
     """``H theta_hat`` for ``H`` the core-coordinate Hessian of the Lagrangian
     ``theta -> f(Phi(theta)) - <G_dense, Phi(theta)>``, ``f(X) = 1/2 ||A vec(X) - y||^2`` (a dense
     measurement matrix ``A``): ``J^T A^T A J theta_hat + H_{A^T r - G} theta_hat``, exact. With ``G_dense``
-    the Riemannian gradient ``P_X A^T r`` this is ``(DPhi)^T Hess f (DPhi)`` (the vertical directions are in
+    the Riemannian gradient ``P_X A^T r`` this is ``(dPhi)^T Hess f (dPhi)`` (the vertical directions are in
     its null space); with ``G_dense = 0`` it is the plain Hessian of ``f o Phi``."""
     X = _dense(_blocks(theta), len(theta[0]))
     r = A @ X.ravel() - y
@@ -204,7 +204,7 @@ def _tied_lift_matrices(frame, groups):
 
 def tied_lift(frame, groups, v):
     """An independent TIED lift at eps = 0 (unstacked coordinates ``v``): one factor direction per nontrivial group,
-    ``Udot_g = pinv(M_g) [V_i1; ...]``, copied to the group's modes; the per-mode and bond lifts elsewhere -- the
+    ``Bdot_g = pinv(M_g) [V_i1; ...]``, copied to the group's modes; the per-mode and bond lifts elsewhere -- the
     lift of the tied parametrization ``Phi(T theta_sh)``, built from dense pseudo-inverses (no SVD of the shared
     companion, no ``tv_corewise_lift``)."""
     group_pinvs, mode_pinvs, bond_pinvs = _tied_lift_matrices(frame, groups)
@@ -235,9 +235,9 @@ def tied_lift_transpose(frame, groups, y):
 
 
 def vertical_direction(theta, rng):
-    """A random raw direction along the gauge orbit of ``theta = (U, G)``: ``DPhi(theta)[result] = 0``
-    exactly (to first order). Tucker gauge ``U_i -> A U_i``, ``G_i -> G_i x_2 A^{-T}``; TT gauge
-    ``G_i -> G_i B``, ``G_{i+1} -> B^{-1} G_{i+1}``. Unstacked."""
+    """A random raw direction along the gauge orbit of ``theta = (B, G)``: ``dPhi(theta)[result] = 0``
+    exactly (to first order). Tucker gauge ``B_i -> A B_i``, ``G_i -> G_i x_2 A^{-T}``; TT gauge
+    ``G_i -> G_i M``, ``G_{i+1} -> M^{-1} G_{i+1}``. Unstacked."""
     B, G = theta
     d = len(B)
     dB = [np.zeros(np.shape(b)) for b in B]
@@ -259,8 +259,8 @@ def vertical_direction(theta, rng):
 # The probe-derivative two-hole: dense-trs reference twins (stack-aware: W + K + C, ragged)
 # ------------------------------------------------------------------------------------------------------
 # Notation: a trailing ``d`` is the derivative along theta_hat (it carries the tangent stack K); the undotted
-# operands carry W + C only (the residual jets z~ have no K). theta = (U, G) is the corewise point, so its
-# corewise frame is (U, G, G, G): every frame core of the GN transpose is G and its derivative is Gd.
+# operands carry W + C only (the residual jets z~ have no K). theta = (B, G) is the corewise point, so its
+# corewise frame is (B, G, G, G): every frame core of the GN transpose is G and its derivative is Gd.
 
 def _w_c_counts(xi_jets, frame_core):
     """(n_probe, n_frame) from an undotted input jet (2,)+W+C+(n,) and a C-only frame core C+(a,i,b)."""
@@ -269,8 +269,8 @@ def _w_c_counts(xi_jets, frame_core):
 
 
 def adjoint_sweep_tangent_trs(L, Ld, xi, xid, deta, detd, edge, edged, tildes, trs):
-    """The derivative of ``twins._adj_sweep`` (the dense adjoint sweep ``tilde' = prop(tilde, P, xi) +
-    src(edge, P, deta)``) along the dotted operands: six dense-trs terms per core, K on the dotted operand
+    """The derivative of ``twins._adj_sweep`` (the dense adjoint sweep ``tilde' = prop(tilde, L, xi) +
+    src(edge, L, deta)``) along the dotted operands: six dense-trs terms per core, K on the dotted operand
     of each (carry / core / xi ; edge / core / deta). ``tildes`` are the undotted sweep's outputs (the carry
     entering each core). Returns the dotted tildes, len=d, elm_shape=(order+1,)+W+K+C+(rL_i,)."""
     n_probe, n_frame = _w_c_counts(xi, L[0])
@@ -303,13 +303,13 @@ def sigma_tilde_tangent_jets_trs(G, Gd, xi, xid, deta, detd, nu, nud, sigma_tild
 
 
 def deta_tilde_tangent_jets_trs(Bd, ztildes, n_frame):
-    """Reference twin of ``sd.compute_deta_tilde_tangent_jets``: ``Udot_i z~_i`` per core."""
+    """Reference twin of ``sd.compute_deta_tilde_tangent_jets``: ``Bdot_i z~_i`` per core."""
     return tuple(contract('tWCo,KCio->tWKCi', z, u, len_C=n_frame) for z, u in zip(ztildes, Bd))
 
 
 def dxi_tilde_tangent_jets_trs(G, Gd, mu, mud, nu, nud, sigma_tildes, sigma_tildes_d, tau_tildes, tau_tildes_d, trs):
     """Reference twin of ``sd.compute_dxi_tilde_tangent_jets``: the six-term product rule of the dense dxi~
-    combine (``twins.compute_dxi_tilde_jets_trs``) at ``O = G``, ALL ``order+1`` rows (the shipped kernel forms
+    combine (``twins.compute_dxi_tilde_jets_trs``) at ``U = G``, ALL ``order+1`` rows (the shipped kernel forms
     only the two read rows ``u in {0, 1}``; compare ``[:2]``)."""
     n_probe, n_frame = _w_c_counts(mu, G[0])           # mu (order+1,)+W+C+(r,): the same W + C layout as xi
     kw = dict(len_W=n_probe, len_C=n_frame)
@@ -394,7 +394,7 @@ def probe_derivatives_two_hole_states_trs(ztildes, ww, pp, core_pair, core_direc
 
     The undotted state is the corewise frame's (xi, mu reused from ``frame_sweep`` when given, else built
     from ``core_pair``; nu re-swept through G), with the undotted tildes; the dotted forward is the GN
-    tangent forward at ``Q = O = P = G`` along ``(Ud, Gd)``. Every jet kernel here is a dense ``*_trs`` twin."""
+    tangent forward at ``U = L = R = G`` along ``(Bd, Gd)``. Every jet kernel here is a dense ``*_trs`` twin."""
     B, G = core_pair
     Bd, Gd = core_directions
     n_frame = B[0].ndim - 2
@@ -468,7 +468,7 @@ def probe_derivatives_two_hole_trs(ztildes, ww, pp, core_pair, core_directions, 
 # The apply / entries derivative two-holes: dense-trs reference twins (stack-aware: W + K + C, ragged)
 # ------------------------------------------------------------------------------------------------------
 # The derivative of the adjoint-state GN transpose (``twins.apply_derivatives_transpose_trs``) at the corewise frame
-# (U, G, G, G) along (Ud, Gd), the residual jet c fixed (W + C, no K): one dense binomial contraction per product-rule
+# (B, G, G, G) along (Bd, Gd), the residual jet c fixed (W + C, no K): one dense binomial contraction per product-rule
 # term, as for the probe-derivative twins above.
 
 def sigma_hat_tangent_jets_trs(G, Gd, xi, xid, sigma_hats, trs):
@@ -480,20 +480,20 @@ def sigma_hat_tangent_jets_trs(G, Gd, xi, xid, sigma_hats, trs):
     s2 = min(2, trs.shape[0])
     trs_xi = trs[:, :s2, :]
     rv = tto.tt_reverse
-    rG, rGd, rxi, rxid, rsh = rv(G), rv(Gd), xi[::-1], xid[::-1], sigma_hats[::-1]
+    rG, rGd, rxi, rxid, rsig_hat = rv(G), rv(Gd), xi[::-1], xid[::-1], sigma_hats[::-1]
     cd = np.zeros((trs.shape[0],) + xid[0].shape[1:-1] + (G[-1].shape[-1],))
     out = []
     for k in range(len(G)):
         out.append(cd)
-        cd = (contract('trs,tWKCa,Caib,rWCi->sWKCb', trs_xi, cd,     rG[k],  rxi[k][:s2],  **kw)
-              + contract('trs,tWCa,KCaib,rWCi->sWKCb', trs_xi, rsh[k], rGd[k], rxi[k][:s2],  **kw)
-              + contract('trs,tWCa,Caib,rWKCi->sWKCb', trs_xi, rsh[k], rG[k],  rxid[k][:s2], **kw))
+        cd = (contract('trs,tWKCa,Caib,rWCi->sWKCb', trs_xi, cd,          rG[k],  rxi[k][:s2],  **kw)
+              + contract('trs,tWCa,KCaib,rWCi->sWKCb', trs_xi, rsig_hat[k], rGd[k], rxi[k][:s2],  **kw)
+              + contract('trs,tWCa,Caib,rWKCi->sWKCb', trs_xi, rsig_hat[k], rG[k],  rxid[k][:s2], **kw))
     return tuple(out)[::-1]
 
 
 def dxi_hat_tangent_jets_trs(G, Gd, mu, mud, sigma_hats, sigma_hats_d, trs):
     """Reference twin of the dotted two-row dxi^ of the apply / entries two-holes: the three-term product rule of the
-    dense combine ``mu O sigma^`` at ``O = G``, ALL ``order+1`` rows (the shipped kernel forms only ``u in {0, 1}``)."""
+    dense combine ``mu U sigma^`` at ``U = G``, ALL ``order+1`` rows (the shipped kernel forms only ``u in {0, 1}``)."""
     n_probe, n_frame = _w_c_counts(mu, G[0])
     kw = dict(len_W=n_probe, len_C=n_frame)
     return tuple(contract('trs,rWKCa,Caib,tWCb->sWKCi', trs, mud[k], G[k],  sigma_hats[k],   **kw)
@@ -505,7 +505,7 @@ def dxi_hat_tangent_jets_trs(G, Gd, mu, mud, sigma_hats, sigma_hats_d, trs):
 def apply_derivatives_tangent_assembly_trs(xi, xid, mu, mud, sigma_hats, sigma_hats_d, dxi_hats_d, w_jets, trs,
                                            n_frame):
     """Reference twin of the apply / entries two-holes' assemblies (W summed): the unfactored three-term product rule
-    of the dense ``dG = mu (x) xi (x) sigma^`` (one dense-trs term per dotted factor) and ``dU = dxi^_dot (x) w``."""
+    of the dense ``dG = mu (x) xi (x) sigma^`` (one dense-trs term per dotted factor) and ``dB = dxi^_dot (x) w``."""
     s2 = min(2, trs.shape[0])
     t_sig = trs[:, :, :s2]
     kw = dict(len_W=w_jets[0].ndim - 2, len_C=n_frame)
@@ -520,7 +520,7 @@ def apply_derivatives_tangent_assembly_trs(xi, xid, mu, mud, sigma_hats, sigma_h
 def apply_derivatives_two_hole_states_trs(c, first, pp, core_pair, core_directions, order, entries=False):
     """Every intermediate of the dense-trs apply- (``entries=False``: ``first`` = ww) or entries- (``first`` = the
     index grid) derivative two-hole, as a dict. The undotted state is the corewise frame's: xi, the dense mu, the
-    dense seeded sigma^ through G; the dotted forward is the dense GN tangent forward at ``Q = O = G``."""
+    dense seeded sigma^ through G; the dotted forward is the dense GN tangent forward at ``R = U = G``."""
     B, G = core_pair
     Bd, Gd = core_directions
     n_frame = B[0].ndim - 2

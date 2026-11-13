@@ -36,7 +36,7 @@ __all__ = [
 
 def _t3_apply_step(
         mu_WCa: NDArray,                                # carry: W+C+(rLi,)
-        v_B_G:  typ.Tuple[NDArray, NDArray, NDArray],   # (v, B, G): W+(Ni,) ; C+(nDi,Ni) ; C+(rLi,nDi,rL(i+1))
+        v_B_G:  typ.Tuple[NDArray, NDArray, NDArray],   # (v, B, G): W+(Ni,) ; C+(ni,Ni) ; C+(rLi,ni,rL(i+1))
 ) -> typ.Tuple[NDArray, typ.Tuple[int]]:   # (next carry, (0,) -- nothing emitted per mode)
     '''One mode of the all-modes contraction of :py:func:`t3_apply`. Closure-free scan body --
     ``docs/contributor/scan_body_principles.md``.'''
@@ -145,16 +145,16 @@ def tv_apply(
             typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rRi)
         ],
         frame:       typ.Tuple[
-            typ.Sequence[NDArray],          # down_tucker_cores  U. len=d
-            typ.Sequence[NDArray],          # up_tt_cores    O. len=d
-            typ.Sequence[NDArray],          # left_tt_cores    P. len=d
-            typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # frame order = T3Frame.data = (up, down, left, right)
+            typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
+            typ.Sequence[NDArray],          # up_tt_cores        U. len=d
+            typ.Sequence[NDArray],          # left_tt_cores      L. len=d
+            typ.Sequence[NDArray],          # right_tt_cores     R. len=d
+        ],                                  # frame order = T3Frame.data = (down, up, left, right)
 ) -> NDArray:                               # the scalar apply(v, ww), one per stack element; shape = W + K + C
     '''Apply a tangent vector in all modes: contract the dense tangent with ``ww`` in every index.
 
-    The all-modes special case of probing -- a single left-to-right pass (mu-hat via P, then the
-    perturbation sigma via Q), contracted at the terminal bond. No right (nu) / central (eta) sweeps,
+    The all-modes special case of probing -- a single left-to-right pass (mu-hat via L, then the
+    perturbation sigma via R), contracted at the terminal bond. No right (nu) / central (eta) sweeps,
     no per-mode assembly. See Section 6.2.2 (Algorithms 6-7) of Alger et al. (2026).
 
     See Also
@@ -165,9 +165,9 @@ def tv_apply(
     down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     var_tucker_cores, var_tt_cores = variation
 
-    xis  = compute_xi(down_tucker_cores, ww)       # xi-hat_i  = U_i^T w_i
-    dxis = compute_dxi(var_tucker_cores, ww)     # delta-xi_i = dU_i^T w_i
-    mus  = compute_mu(left_tt_cores, xis)        # frame left sweep via P
+    xis  = compute_xi(down_tucker_cores, ww)     # xi-hat_i  = D_i w_i
+    dxis = compute_dxi(var_tucker_cores, ww)     # delta-xi_i = V_i w_i
+    mus  = compute_mu(left_tt_cores, xis)        # frame left sweep via L
 
     return _apply_from_xis(xis, dxis, mus, right_tt_cores, up_tt_cores, var_tt_cores)
 
@@ -176,9 +176,9 @@ def tv_apply_transpose(
         c:          NDArray,                # residual, shape = W + K + C (K optional; one per probe-set, per base point)
         ww:         typ.Sequence[NDArray],  # the apply vectors, len=d, elm_shape=W+(Ni,)
         frame:       typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
-                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right)
         sum_over_probes: bool = False,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (V_tildes, H_tildes) = T3Variations.data
     '''Apply the transpose of :py:func:`tv_apply` -- back-project a residual ``c`` into a tangent.
 
     The adjoint of the (linear-in-the-variation) all-modes apply. Needs only the frame sweep
@@ -197,11 +197,11 @@ def tv_apply_transpose(
 
 def tv_precompute_apply_frame_sweep(
         frame:   typ.Tuple[
-            typ.Sequence[NDArray],          # down_tucker_cores  U. len=d
-            typ.Sequence[NDArray],          # up_tt_cores    O. len=d
-            typ.Sequence[NDArray],          # left_tt_cores    P. len=d
-            typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # frame order = T3Frame.data = (up, down, left, right)
+            typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
+            typ.Sequence[NDArray],          # up_tt_cores        U. len=d
+            typ.Sequence[NDArray],          # left_tt_cores      L. len=d
+            typ.Sequence[NDArray],          # right_tt_cores     R. len=d
+        ],                                  # frame order = T3Frame.data = (down, up, left, right)
         ww:     typ.Sequence[NDArray],      # apply vectors, len=d, elm_shape=W+(Ni,)
 ) -> typ.Tuple[
     typ.Sequence[NDArray],  # xis. len=d, elm_shape=W+C+(nDi,)
@@ -212,7 +212,7 @@ def tv_precompute_apply_frame_sweep(
     Computing them is the expensive, ``W``-scaled part of the apply Jacobian; precomputed **once per
     frame** and reused across every ``J`` / ``Jᵀ`` of an inner solve (the reuse hook for ``fitting.py``).
 
-    **Lean ``(xis, mus)`` only** (not the right ``nu`` / down ``eta`` sweeps): the all-modes apply
+    **Lean ``(xis, mus)`` only** (not the right ``nu`` / downward ``eta`` sweeps): the all-modes apply
     forward AND its adjoint-state transpose use only ``(xi, mu)`` -- the transpose recomputes the right
     context as ``sigma_hat`` from the residual rather than storing ``nu``/``eta``, halving the
     ``W``-scaling memory (apply on the manifold, §6.2.2 of Alger et al. (2026)). Probe, which leaves a
@@ -237,11 +237,11 @@ def tv_apply_jacobian_from_sweep(
         ],
         ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,) -- for the variation's dxis
         frame:       typ.Tuple[
-            typ.Sequence[NDArray],          # down_tucker_cores  U. len=d  (unused; for a uniform call signature)
-            typ.Sequence[NDArray],          # up_tt_cores    O. len=d
-            typ.Sequence[NDArray],          # left_tt_cores    P. len=d  (unused)
-            typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # frame order = T3Frame.data = (up, down, left, right)
+            typ.Sequence[NDArray],          # down_tucker_cores  D. len=d  (unused; for a uniform call signature)
+            typ.Sequence[NDArray],          # up_tt_cores        U. len=d
+            typ.Sequence[NDArray],          # left_tt_cores      L. len=d  (unused)
+            typ.Sequence[NDArray],          # right_tt_cores     R. len=d
+        ],                                  # frame order = T3Frame.data = (down, up, left, right)
         frame_sweep: typ.Tuple[
             typ.Sequence[NDArray],          # xis
             typ.Sequence[NDArray],          # mus
@@ -268,21 +268,21 @@ def tv_apply_transpose_from_sweep(
         c:          NDArray,                # residual, shape = W + K + C (K optional)
         ww:         typ.Sequence[NDArray],  # apply vectors (one-hot e_index for entries), len=d, elm_shape=W+(Ni,)
         frame:       typ.Tuple[
-            typ.Sequence[NDArray],          # down_tucker_cores  U. len=d  (unused; uniform call signature)
-            typ.Sequence[NDArray],          # up_tt_cores    O. len=d
-            typ.Sequence[NDArray],          # left_tt_cores    P. len=d  (unused)
-            typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # frame order = T3Frame.data = (up, down, left, right)
+            typ.Sequence[NDArray],          # down_tucker_cores  D. len=d  (unused; uniform call signature)
+            typ.Sequence[NDArray],          # up_tt_cores        U. len=d
+            typ.Sequence[NDArray],          # left_tt_cores      L. len=d  (unused)
+            typ.Sequence[NDArray],          # right_tt_cores     R. len=d
+        ],                                  # frame order = T3Frame.data = (down, up, left, right)
         frame_sweep: typ.Tuple[
             typ.Sequence[NDArray],          # xis
             typ.Sequence[NDArray],          # mus
         ],                                  # = tv_precompute_apply_frame_sweep(frame, ww)  (lean: no nu/eta)
         sum_over_probes: bool = False,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (V_tildes, H_tildes) = T3Variations.data
     '''Transpose of the all-modes apply reusing a precomputed frame sweep -- the bare ``𝒥ᵀ``, by the
     **adjoint-state** method (the scalar residual ``c`` seeds one reverse ``sigma_hat`` sweep; see
-    :py:func:`_apply_transpose_adjoint`). Takes the **lean** ``(xis, mus)`` sweep + the frame cores ``O,
-    Q`` (it recomputes the right context rather than storing ``nu``/``eta`` -- half the memory). Reuse
+    :py:func:`_apply_transpose_adjoint`). Takes the **lean** ``(xis, mus)`` sweep + the frame cores ``U,
+    R`` (it recomputes the right context rather than storing ``nu``/``eta`` -- half the memory). Reuse
     hook for ``fitting.py`` (one frame sweep feeds the forward and this transpose). Full ``W + K + C``
     (the residual ``c`` may carry the tangent stack ``K``). No gauge projector ``Π``.
 
@@ -317,11 +317,11 @@ def t3_apply_corewise_transpose(
     collapses into the fixed-size cores). Distinct from the *ambient* transpose (a free CP tensor) and
     the *tangent* transpose (a Riemannian tangent); see ``docs/transposes.md``.
 
-    Implemented by the Section 6.3 ("corewise simplification") substitution into the tangent transpose:
-    feed the frame's own cores in place of the orthogonal frames (``P, Q, O -> G_i``), with ``U_i`` no
-    longer required orthogonal -- i.e. :py:func:`tv_apply_transpose` at frame ``(U, G, G, G)``. No
-    orthogonality is required. ``sum_over_probes=True`` sums the apply stack ``W`` (the gradient
-    ``J^T r``); ``False`` keeps ``W`` as a stack (one core-gradient set per probe).
+    Implemented by the Section 6.3 ("corewise simplification") substitution into the tangent transpose,
+    ``B -> D``, ``G -> U, L, R``: :py:func:`tv_apply_transpose` at the frame ``(B, G, G, G)``. The manifold
+    operation requires an orthogonal frame; the corewise one works for any ``B``, ``G``.
+    ``sum_over_probes=True`` sums the apply stack ``W`` (the gradient ``J^T r``); ``False`` keeps ``W`` as a
+    stack (one core-gradient set per probe).
 
     Math reference: Section 6.3, Alger et al. (2026), "Tucker Tensor Train Taylor Series"
     (arXiv:2603.21141).
@@ -351,13 +351,13 @@ def t3_apply_corewise_hessian_from_sweep(
     typ.Tuple[NDArray, ...],                        # TT block of K theta_hat.     len=d, elm_shape=K+C+(ri,ni,r(i+1))
 ]:
     ''':py:func:`t3_apply_corewise_hessian` reusing a precomputed lean ``frame_sweep`` -- the reuse hook for a local
-    model. :py:func:`tv_precompute_apply_frame_sweep` is the same at the manifold frame ``(U, O, L, R)`` and at the
-    corewise frame ``(U, L, L, L)`` of its base point ``theta = (U, L)`` (``xi`` through ``U``, ``mu`` through
+    model. :py:func:`tv_precompute_apply_frame_sweep` is the same at the manifold frame ``(D, U, L, R)`` and at the
+    corewise frame ``(D, L, L, L)`` of its base point ``theta = (D, L)`` (``xi`` through ``D``, ``mu`` through
     ``L``), so the model's own sweep is reused; it must be ``core_pair``'s own, which nothing here checks.'''
     _, tt_cores = core_pair
     tucker_dirs, tt_dirs = core_directions
     xis, mus = frame_sweep
-    xis_dot = compute_dxi(tucker_dirs, ww)                                       # xi_dot = Udot w
+    xis_dot = compute_dxi(tucker_dirs, ww)                                       # xi_dot = Bdot w
     mus_dot = probing.compute_sigma(tt_dirs, tt_cores, tt_cores, xis, xis_dot, mus)   # mu_dot, through G
     return _apply_corewise_hessian_adjoint(c, ww, xis, xis_dot, mus, mus_dot, tt_cores, tt_dirs)
 
@@ -386,7 +386,7 @@ def t3_apply_corewise_hessian(
 
     for a fixed residual ``c``. The sampling half of the exact Riemannian Hessian's curvature term for ``apply``,
     by a hand-written "two-hole" sweep -- exact and symmetric. It differentiates the transpose's adjoint-state
-    form (:py:func:`_apply_transpose_adjoint` at the corewise frame ``(U, G, G, G)``) by the product rule: the
+    form (:py:func:`_apply_transpose_adjoint` at the corewise frame ``(B, G, G, G)``) by the product rule: the
     residual-seeded right context ``sigma_hat`` is swept through ``G`` (there is no ``nu`` or ``eta``), then its
     derivative and those of ``xi`` and ``mu`` -- the GN tangent forward's ``compute_dxi`` / ``compute_sigma`` and
     ``compute_tau`` -- feed the derivatives of the single-term assemblies. :py:func:`t3_entries_corewise_hessian`
@@ -433,16 +433,16 @@ def t3_apply_corewise_hessian(
 
 def _apply_from_xis_step(
         sigma: NDArray,   # carry: W+K+C+(rRi,)
-        x:     typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray, NDArray],  # (Q, O, dG, xi, dxi, mu)
+        x:     typ.Tuple[NDArray, NDArray, NDArray, NDArray, NDArray, NDArray],  # (R, U, H, xi, dxi, mu)
 ) -> typ.Tuple[NDArray, typ.Tuple[int]]:   # (next carry, (0,) -- only the terminal carry is used)
     '''One edge of the sweep of :py:func:`_apply_from_xis`, emitting nothing (the sequence-keeping twin
     is ``probing._sigma_sweep_step``). Closure-free scan body -- ``docs/contributor/scan_body_principles.md``.'''
-    R, U, dG, xi, dxi, mu = x
-    return _sigma_step(sigma, R, U, dG, xi, dxi, mu), (0,)
+    R, U, H, xi, dxi, mu = x
+    return _sigma_step(sigma, R, U, H, xi, dxi, mu), (0,)
 
 
 def _apply_from_xis(xis, dxis, mus, right_tt_cores, up_tt_cores, var_tt_cores):
-    '''Run the perturbation sigma sweep (via Q) to its TERMINAL carry and contract the final bond.
+    '''Run the perturbation sigma sweep (via R) to its TERMINAL carry and contract the final bond.
 
     Shared tail of tv_apply and tv_entries (they differ only in how xis/dxis are formed).
     '''
@@ -462,9 +462,9 @@ def _apply_transpose_adjoint(c, ww, xis, mus, up_tt_cores, right_tt_cores, sum_o
     K-aware** transpose (replaces the old scatter). The scalar residual ``c`` seeds one reverse
     ``sigma_hat`` sweep (recomputing the right context, so ``nu``/``eta`` are never stored); then
 
-        dxi-hat_k  = mu-hat_{k-1} . O_k . sigma-hat_k                 # over the down mode nO
-        dG-tilde_k = mu-hat_{k-1} (x) xi-hat_k (x) sigma-hat_k        # over (rL, nU, rR)
-        dU-tilde_k = dxi-hat_k (x) w_k                               # over (nO, N)
+        dxi-hat_k  = mu-hat_{k-1} . U_k . sigma-hat_k                 # over the up mode nU
+        H-tilde_k  = mu-hat_{k-1} (x) xi-hat_k (x) sigma-hat_k        # over (rL, nD, rR)
+        V-tilde_k  = dxi-hat_k (x) w_k                                # over (nU, N)
 
     Uses only the lean frame sweep ``(xis, mus)`` (half the memory of the ``(xis, mus, nus, etas)`` the
     scatter stored -- the ``W``-scaling ``nu``/``eta`` are gone), at the cost of the ``sigma_hat`` sweep
@@ -490,7 +490,7 @@ def _apply_transpose_adjoint(c, ww, xis, mus, up_tt_cores, right_tt_cores, sum_o
         return V_tildes, H_tildes
 
     n_probe = ww[0].ndim - 1
-    dxi_hats = tuple(contractions.contract('WCa,Caib,WKCb->WKCi', mu, U, sig_hat)        # dxi_hat = mu . O . sigma_hat
+    dxi_hats = tuple(contractions.contract('WCa,Caib,WKCb->WKCi', mu, U, sig_hat)        # dxi_hat = mu . U . sigma_hat
                      for mu, U, sig_hat in zip(mus, up_tt_cores, sigma_hats))
     if sum_over_probes:
         H_tildes = tuple(contractions.contract('WCa,WCi,WKCb->KCaib', mu, xi, sig_hat, len_W=n_probe)
@@ -505,7 +505,7 @@ def _apply_transpose_adjoint(c, ww, xis, mus, up_tt_cores, right_tt_cores, sum_o
 
 def _apply_corewise_hessian_adjoint(c, ww, xis, xis_dot, mus, mus_dot, tt_cores, tt_dirs):
     '''The derivative of :py:func:`_apply_transpose_adjoint` (``sum_over_probes=True``) at the corewise frame
-    ``(U, G, G, G)`` along ``(Udot, Gdot)``, shared by :py:func:`t3_apply_corewise_hessian_from_sweep` and
+    ``(B, G, G, G)`` along ``(Bdot, Gdot)``, shared by :py:func:`t3_apply_corewise_hessian_from_sweep` and
     :py:func:`~t3toolbox.backend.entries.t3_entries_corewise_hessian_from_sweep` (which differ only in how
     ``xi`` / ``xi_dot`` and the apply vectors ``ww`` are formed). With the residual ``c`` fixed (``W + C``; no
     ``K``):
@@ -513,7 +513,7 @@ def _apply_corewise_hessian_adjoint(c, ww, xis, xis_dot, mus, mus_dot, tt_cores,
         sigma_hat       = the c-seeded reverse sweep through G                (compute_sigma_hat)
         sigma_hat_dot   = its derivative: the reverse GN tangent sweep        (compute_tau(Gdot, G, G, xi, xi_dot, sigma_hat))
         dxi_hat_dot     = d(mu G sigma_hat)                                    (compute_deta(Gdot, G, G, mu, sigma_hat, mu_dot, sigma_hat_dot))
-        dU              = sum_W  w (x) dxi_hat_dot
+        dB              = sum_W  w (x) dxi_hat_dot
         dG              = sum_W  mu_dot . E + mu . E_dot,  E = xi (x) sigma_hat,  E_dot = xi_dot (x) sigma_hat + xi (x) sigma_hat_dot
 
     -- the single-term assemblies' product rule, ``dG``'s three terms grouped by their common factor ``mu`` (two

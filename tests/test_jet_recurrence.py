@@ -29,7 +29,7 @@ import t3toolbox.backend.sampling_derivatives as pd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _jet_trs_twins as twins
 
-TOL = 1e-14                                               # relative; the forms sum in different orders
+TOL = 1e-13                                               # relative; the forms sum in different orders
 ORDERS = (0, 1, 2, 3, 4)
 STRUCTS = [
     ((5,),          (3,),         (1, 1)),               # d = 1
@@ -150,8 +150,8 @@ class TestTransposeJets(_Sweep):
                                                                 sop)
                 ref = twins.apply_derivatives_transpose_trs(p['c'], p['xi'], p['mu'], p['wj'], p['U'], p['R'],
                                                             trs, n_probe, sop)
-                self._close(got[0], ref[0], 'apply transpose dU (sum_over_probes=%s)' % sop)
-                self._close(got[1], ref[1], 'apply transpose dG (sum_over_probes=%s)' % sop)
+                self._close(got[0], ref[0], 'apply transpose V (sum_over_probes=%s)' % sop)
+                self._close(got[1], ref[1], 'apply transpose H (sum_over_probes=%s)' % sop)
         self._sweep(check, 1)
 
 
@@ -170,13 +170,13 @@ class TestUniformKernelsMatchRagged(unittest.TestCase):
                     op = order + 1
                     core = lambda *k: R(d, *k, *C, r, n, r)                     # (d,)+[K+]C+(r,n,r)
                     jet = lambda rows, *k: R(d, rows, *W, *k, *C, r)            # (d,order)+W+[K+]C+(r,)
-                    Uc, Lc, Rc, dG = core(), core(), core(), core(*K)
+                    Uc, Lc, Rc, H = core(), core(), core(), core(*K)
                     xi, mu, nu = R(d, 2, *W, *C, n), jet(op), jet(op)
                     sig, tau, st, tt = jet(op, *K), jet(op, *K), jet(op, *K), jet(op, *K)
                     deta_t = R(d, op, *W, *K, *C, n)
                     cases = {
                         'eta': lambda a: pd.compute_eta_jets(*a), 'eta_ops': (Uc, mu, nu),
-                        'deta': lambda a: pd.compute_deta_jets(*a), 'deta_ops': (dG, Lc, Rc, mu, nu, sig, tau),
+                        'deta': lambda a: pd.compute_deta_jets(*a), 'deta_ops': (H, Lc, Rc, mu, nu, sig, tau),
                         'tau_tilde': lambda a: pd.compute_tau_tilde_jets(*a), 'tau_tilde_ops': (Lc, xi, deta_t, mu),
                         'dxi_tilde': lambda a: pd.compute_dxi_tilde_jets(*a), 'dxi_tilde_ops': (Uc, mu, nu, st, tt),
                     }

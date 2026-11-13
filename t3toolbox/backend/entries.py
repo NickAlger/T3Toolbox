@@ -41,7 +41,7 @@ __all__ = [
 
 def _t3_entries_step(
         mu_WCa:  NDArray,                                # carry: W+C+(rLi,)
-        ind_B_G: typ.Tuple[NDArray, NDArray, NDArray],   # (ind, B, G): int W ; C+(nDi,Ni) ; C+(rLi,nDi,rL(i+1))
+        ind_B_G: typ.Tuple[NDArray, NDArray, NDArray],   # (ind, B, G): int W ; C+(ni,Ni) ; C+(rLi,ni,rL(i+1))
 ) -> typ.Tuple[NDArray, typ.Tuple[int]]:   # (next carry, (0,) -- nothing emitted per mode)
     '''One mode of the all-modes fiber contraction of :py:func:`t3_entries`. Closure-free scan body --
     ``docs/contributor/scan_body_principles.md``.'''
@@ -117,12 +117,12 @@ def tv_entries(
         index:      NDArray,                # int, shape=(d,)+W (index stack W)
         variation:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (var_tucker, var_tt)
         frame:       typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
-                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right)
 ) -> NDArray:                               # entries of the dense tangent at ``index``; shape = W + K + C
     '''Extract entries of the dense tangent at ``index`` (= apply with unit vectors, by slicing).
 
-    Identical to :py:func:`tv_apply` except the up-index edge variables come from slicing the
-    Tucker-core fibers (``U_i[..., index_i]`` and ``dU_i[..., index_i]``) rather than contracting with
+    Identical to :py:func:`tv_apply` except the upward edge variables come from slicing the
+    Tucker-core fibers (``D_i[..., index_i]`` and ``V_i[..., index_i]``) rather than contracting with
     vectors -- so there is no contraction with unit basis vectors and no ``N`` factor.
 
     See Also
@@ -132,8 +132,8 @@ def tv_entries(
     down_tucker_cores, up_tt_cores, left_tt_cores, right_tt_cores = frame
     var_tucker_cores, var_tt_cores = variation
 
-    xis  = _entry_xis(down_tucker_cores, index)     # xi-hat_i  = U_i[..., index_i]   (fiber slice)
-    dxis = _entry_xis(var_tucker_cores, index)    # delta-xi_i = dU_i[..., index_i] (fiber slice)
+    xis  = _entry_xis(down_tucker_cores, index)   # xi-hat_i  = D_i[..., index_i]   (fiber slice)
+    dxis = _entry_xis(var_tucker_cores, index)    # delta-xi_i = V_i[..., index_i]  (fiber slice)
     mus  = compute_mu(left_tt_cores, xis)
 
     return _apply_from_xis(xis, dxis, mus, right_tt_cores, up_tt_cores, var_tt_cores)
@@ -143,13 +143,13 @@ def tv_entries_transpose(
         c:          NDArray,                # residual, shape = W + C
         index:      NDArray,                # int, shape=(d,)+W (the indices whose entries c weights)
         frame:       typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
-                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (up, down, left, right)
+                              typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right)
         sum_over_probes: bool = False,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes)
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (V_tildes, H_tildes)
     '''Apply the transpose of :py:func:`tv_entries` -- scatter a residual ``c`` at ``index`` into a tangent.
 
-    Identical to :py:func:`tv_apply_transpose` with the up-index ``xi-hat`` from fiber slicing and
-    the apply vectors replaced by the unit vectors ``e_{index_k}`` (so the ``dU-tilde`` outer product
+    Identical to :py:func:`tv_apply_transpose` with the upward ``xi-hat`` from fiber slicing and
+    the apply vectors replaced by the unit vectors ``e_{index_k}`` (so the ``V-tilde`` outer product
     *is* the entry scatter).
 
     See Also
@@ -163,11 +163,11 @@ def tv_entries_transpose(
 
 def tv_precompute_entries_frame_sweep(
         frame:   typ.Tuple[
-            typ.Sequence[NDArray],          # down_tucker_cores  U. len=d
-            typ.Sequence[NDArray],          # up_tt_cores    O. len=d
-            typ.Sequence[NDArray],          # left_tt_cores    P. len=d
-            typ.Sequence[NDArray],          # right_tt_cores   Q. len=d
-        ],                                  # frame order = T3Frame.data = (up, down, left, right)
+            typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
+            typ.Sequence[NDArray],          # up_tt_cores        U. len=d
+            typ.Sequence[NDArray],          # left_tt_cores      L. len=d
+            typ.Sequence[NDArray],          # right_tt_cores     R. len=d
+        ],                                  # frame order = T3Frame.data = (down, up, left, right)
         index:  NDArray,                    # int, shape=(d,)+W -- the grid points
 ) -> typ.Tuple[
     typ.Sequence[NDArray],  # xis. len=d, elm_shape=W+C+(nDi,) -- the FIBER-SLICED seed (not contracted)
@@ -200,7 +200,7 @@ def tv_entries_jacobian_from_sweep(
         frame:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Frame.data = (U, O, P, Q); uses Q (right) and O (down)
+        ],                                  # = T3Frame.data = (D, U, L, R); uses R (right) and U (up)
         frame_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = tv_precompute_entries_frame_sweep(frame, index)  (lean)
@@ -222,12 +222,12 @@ def tv_entries_transpose_from_sweep(
         frame:       typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
-        ],                                  # = T3Frame.data = (U, O, P, Q); uses U (one-hot), O, Q
+        ],                                  # = T3Frame.data = (D, U, L, R); uses D (one-hot), U, R
         frame_sweep: typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = tv_precompute_entries_frame_sweep(frame, index)  (lean: no nu/eta)
         sum_over_probes: bool = False,
-) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (dU_tildes, dG_tildes) = T3Variations.data
+) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (V_tildes, H_tildes) = T3Variations.data
     '''Transpose of the all-modes entries reusing a precomputed frame sweep -- the bare ``𝒥ᵀ`` (entries),
     by the **adjoint-state** method (see :py:func:`_apply_transpose_adjoint`). Takes the **lean**
     ``(xis, mus)`` sweep (the reuse hook for ``fitting.py``). Identical to
@@ -283,11 +283,11 @@ def t3_entries_corewise_hessian_from_sweep(
 ]:
     ''':py:func:`t3_entries_corewise_hessian` reusing a precomputed lean ``frame_sweep``
     (:py:func:`tv_precompute_entries_frame_sweep`, the same at the manifold frame and at the corewise frame of its
-    base point ``theta = (U, L)``) -- the reuse hook for a local model; it must be ``core_pair``'s own.'''
+    base point ``theta = (D, L)``) -- the reuse hook for a local model; it must be ``core_pair``'s own.'''
     tucker_cores, tt_cores = core_pair
     tucker_dirs, tt_dirs = core_directions
     xis, mus = frame_sweep
-    xis_dot = _entry_xis(tucker_dirs, index)                                     # xi_dot = Udot[..., index] (fiber slice)
+    xis_dot = _entry_xis(tucker_dirs, index)                                     # xi_dot = Bdot[..., index] (fiber slice)
     mus_dot = probing.compute_sigma(tt_dirs, tt_cores, tt_cores, xis, xis_dot, mus)
     ww = _onehot_vectors(index, tucker_cores)                                    # the one-hot "apply vectors"
     return _apply_corewise_hessian_adjoint(c, ww, xis, xis_dot, mus, mus_dot, tt_cores, tt_dirs)
@@ -311,7 +311,7 @@ def t3_entries_corewise_hessian(
     '''The derivative of :py:func:`t3_entries_corewise_transpose` along core directions: the core-coordinate
     Hessian of ``theta -> <c, entries(Phi(theta), index)>`` applied to ``theta_hat`` -- the exact Hessian's sampling
     term for ``entries``. Identical to :py:func:`~t3toolbox.backend.apply.t3_apply_corewise_hessian` with the
-    up-index ``xi`` / ``xi_dot`` from slicing Tucker-core fibers at ``index`` and the apply vectors replaced by the
+    upward ``xi`` / ``xi_dot`` from slicing Tucker-core fibers at ``index`` and the apply vectors replaced by the
     unit vectors ``e_index`` (so the Tucker block is the entry scatter). Stacks, polymorphism and the mask-free
     contract as there; index semantics are numpy's (the module note).
 
@@ -341,7 +341,7 @@ def t3_entries_corewise_hessian(
 
 
 def _entry_xis(tucker_cores, index):
-    '''Up-index edge variables by slicing Tucker-core fibers at ``index`` (no contraction).
+    '''Upward edge variables by slicing Tucker-core fibers at ``index`` (no contraction).
 
     tucker_cores[i].shape = C + (p_i, Ni); index is an int array of shape (d,) + W (index stack W).
     Returns xis with elm_shape = W + C + (p_i,) -- the same layout compute_xi produces, so the

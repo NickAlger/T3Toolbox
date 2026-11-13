@@ -3,6 +3,7 @@ t3toolbox/backend/apply.py	215	down ``eta``	plan (explicit; the grep misses it)	
 t3toolbox/backend/entries.py	124	up-index	grep	Identical to :py:func:`tv_apply` except the up-index edge variables come from slicing the
 t3toolbox/backend/entries.py	151	up-index	grep	Identical to :py:func:`tv_apply_transpose` with the up-index ``xi-hat`` from fiber slicing and
 t3toolbox/backend/entries.py	314	up-index	grep	up-index ``xi`` / ``xi_dot`` from slicing Tucker-core fibers at ``index`` and the apply vectors replaced by the
+t3toolbox/backend/entries.py	344	Up-index	session (R4b S1; the case-sensitive grep missed it)	'''Up-index edge variables by slicing Tucker-core fibers at ``index`` (no contraction).
 t3toolbox/backend/probing.py	773	up-index	grep	# assembly -- roughly half of tv_probe. entries is apply with the up-index xis obtained by
 t3toolbox/backend/probing.py	824	up-index	grep	xis:            typ.Sequence[NDArray],  # frame up-index edge vars, len=d, elm_shape=W+C+(nUi,)
 t3toolbox/backend/probing.py	1459	adjoint-up	grep	#   3. dotted adjoint-up lift deta~dot = Udot z~;

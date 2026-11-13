@@ -6092,10 +6092,10 @@ new text (R4/R5, verbatim the file at the new span):
 
 - file: `t3toolbox/backend/apply.py`; old span: 465–467; kind: index equation; fenced: y
 - letters and widths: letters: O_k; widths: nO nU rL rR; store words: down
-- roles: O_k the TT-shaped store (→ U_k); "over the down mode nO" → up mode nU; (rL, nU, rR) → (rL, nD, rR); dU-tilde_k (§1.2a: `_apply_transpose_adjoint` takes D forms) → dD-tilde_k over (nU, N)
-- re-laid out: n expected unless a label grows; K10 in place
+- roles: O_k the TT-shaped store (→ U_k); "over the down mode nO" → up mode nU; (rL, nU, rR) → (rL, nD, rR); dU-tilde_k (§1.2a: `_apply_transpose_adjoint` takes D forms) → V-tilde_k over (nU, N), dG-tilde_k → H-tilde_k over (rL, nD, rR) (the shape rule, R4b)
+- re-laid out: y (R4b: re-laid out, K10b; the comment "over the down mode nO" -> "over the up mode nU" is two characters shorter; the `=` and `#` columns are the tag's (19, 70), the third line's `#` moved from 69 to 70 (a one-column misalignment at the tag, fixed where it fits); `dG-tilde_k`/`dU-tilde_k` -> `H-tilde_k`/`V-tilde_k` (shape rule), one column shorter, padded so `=` stays at 19)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 465–467
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -6109,6 +6109,9 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+        dxi-hat_k  = mu-hat_{k-1} . U_k . sigma-hat_k                 # over the up mode nU
+        H-tilde_k  = mu-hat_{k-1} (x) xi-hat_k (x) sigma-hat_k        # over (rL, nD, rR)
+        V-tilde_k  = dxi-hat_k (x) w_k                                # over (nU, N)
 ~~~
 
 
@@ -6193,9 +6196,9 @@ new text (R4/R5, verbatim the file at the new span):
 - file: `t3toolbox/backend/probing.py`; old span: 640–643, columns 40–end; kind: field-comment relation; fenced: y
 - letters and widths: letters: O O_ixj O_iyj P P_iax P_iay Q Q_xaj Q_yaj U U_xo U_yo; widths: nO nU rL rR; store words: down_tt_cores left_tt_cores right_tt_cores up_tucker_cores
 - roles: tuple-element comments: up_tucker_cores U_xo → down_tucker_cores D_xo; down_tt_cores O_ixj → up_tt_cores U_ixj; P → L, Q → R; nU → nD, nO → nU
-- re-laid out: y: the store labels change length (K10b on the comment span)
+- re-laid out: y (R4b: re-laid out, K10b; the store labels change length (`down_tucker_cores.` is the longest, 18), so `len=d.` moves from offset 19 to 21 on all four lines; the relations and shapes keep their relative columns)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 640–643, columns 40–end
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -6210,6 +6213,10 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+# down_tucker_cores. len=d. D_xo D_yo   = I_xy, D.shape = (nD, N)
+# up_tt_cores.       len=d. U_ixj U_iyj = I_xy  U.shape = (rL, nU, rR)
+# left_tt_cores.     len=d. L_iax L_iay = I_xy, L.shape = (rL, nD, rL)
+# right_tt_cores.    len=d. R_xaj R_yaj = I_xy  R.shape = (rR, nD, rR)
 ~~~
 
 #### P-0646
@@ -6217,9 +6224,9 @@ new text (R4/R5, verbatim the file at the new span):
 - file: `t3toolbox/backend/probing.py`; old span: 646–649, columns 26–end; kind: field-comment relation; fenced: y
 - letters and widths: widths: nO nU rL rR; store words: down down_tt_supercore left_tt_supercore right_tt_supercore up up_tucker_supercore
 - roles: uniform supercore labels (up_tucker_supercore → down_tucker_supercore, down_tt_supercore → up_tt_supercore); widths nU → nD, nO → nU; adjectives "up orthogonal elements" / "down orthogonal elements" are backwards today (§4.3 probing.py:646–647)
-- re-laid out: y: labels change length (K10b on the comment span)
+- re-laid out: y (R4b: re-laid out, K10b; the labels change length (`down_tucker_supercore.` is the longest, 22), so `shape=` moves from offset 23 to 25 on all four lines; the adjective column keeps its relative position)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 646–649, columns 26–end
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -6234,6 +6241,10 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+# down_tucker_supercore. shape=(d, nD, N),      down orthogonal elements
+# up_tt_supercore.       shape=(d, rL, nU, rR), up orthogonal elements
+# left_tt_supercore.     shape=(d, rL, nD, rL), left orthogonal elements
+# right_tt_supercore.    shape=(d, rR, nD, rR), right orthogonal elements
 ~~~
 
 #### P-0651
@@ -6241,9 +6252,9 @@ new text (R4/R5, verbatim the file at the new span):
 - file: `t3toolbox/backend/probing.py`; old span: 651, columns 11–end; kind: index equation; fenced: y
 - letters and widths: letters: O P Q U; store words: down up
 - roles: `frame order = T3Frame.data = (up, down, left, right) = (U, O, P, Q)` → `(down, up, left, right) = (D, U, L, R)` (tier D's patterns, applied by hand inside the fence)
-- re-laid out: n expected (same lengths)
+- re-laid out: y (R4b: re-laid out, K10b (the word swap `(up, down,` -> `(down, up,` moves letters across a comma column; same length))
 - new == old possible: possible: record the reason at R4 if nothing changes
-- new span: (R4/R5)
+- new span: 651, columns 11–end
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -6255,6 +6266,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+# frame order = T3Frame.data = (down, up, left, right) = (D, U, L, R)
 ~~~
 
 #### P-1215
@@ -6262,9 +6274,9 @@ new text (R4/R5, verbatim the file at the new span):
 - file: `t3toolbox/backend/probing.py`; old span: 1215–1218, columns 40–end; kind: field-comment relation; fenced: y
 - letters and widths: letters: O O_ixj O_iyj P P_iax P_iay Q Q_xaj Q_yaj U U_xo U_yo; widths: nO nU rL rR; store words: down_tt_cores left_tt_cores right_tt_cores up_tucker_cores
 - roles: as P-0640
-- re-laid out: y: the store labels change length (K10b on the comment span)
+- re-laid out: y (R4b: re-laid out, K10b; the store labels change length (`down_tucker_cores.` is the longest, 18), so `len=d.` moves from offset 19 to 21 on all four lines; the relations and shapes keep their relative columns (as P-0640))
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 1215–1218, columns 40–end
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -6279,6 +6291,10 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+# down_tucker_cores. len=d. D_xo D_yo   = I_xy, D.shape = (nD, N)
+# up_tt_cores.       len=d. U_ixj U_iyj = I_xy  U.shape = (rL, nU, rR)
+# left_tt_cores.     len=d. L_iax L_iay = I_xy, L.shape = (rL, nD, rL)
+# right_tt_cores.    len=d. R_xaj R_yaj = I_xy  R.shape = (rR, nD, rR)
 ~~~
 
 #### P-1221
@@ -6286,9 +6302,9 @@ new text (R4/R5, verbatim the file at the new span):
 - file: `t3toolbox/backend/probing.py`; old span: 1221–1224, columns 26–end; kind: field-comment relation; fenced: y
 - letters and widths: widths: nO nU rL rR; store words: down down_tt_supercore left_tt_supercore right_tt_supercore up up_tucker_supercore
 - roles: as P-0646 (§4.3 probing.py:1221–1222)
-- re-laid out: y: labels change length (K10b on the comment span)
+- re-laid out: y (R4b: re-laid out, K10b; the labels change length (`down_tucker_supercore.` is the longest, 22), so `shape=` moves from offset 23 to 25 on all four lines; the adjective column keeps its relative position (as P-0646))
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 1221–1224, columns 26–end
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -6303,6 +6319,10 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+# down_tucker_supercore. shape=(d, nD, N),      down orthogonal elements
+# up_tt_supercore.       shape=(d, rL, nU, rR), up orthogonal elements
+# left_tt_supercore.     shape=(d, rL, nD, rL), left orthogonal elements
+# right_tt_supercore.    shape=(d, rR, nD, rR), right orthogonal elements
 ~~~
 
 #### P-1226
@@ -6310,9 +6330,9 @@ new text (R4/R5, verbatim the file at the new span):
 - file: `t3toolbox/backend/probing.py`; old span: 1226, columns 11–end; kind: index equation; fenced: y
 - letters and widths: letters: O P Q U; store words: down up
 - roles: as P-0651
-- re-laid out: n expected (same lengths)
+- re-laid out: y (R4b: re-laid out, K10b (the word swap `(up, down,` -> `(down, up,` moves letters across a comma column; same length) (as P-0651))
 - new == old possible: possible: record the reason at R4 if nothing changes
-- new span: (R4/R5)
+- new span: 1226, columns 11–end
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -6324,6 +6344,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+# frame order = T3Frame.data = (down, up, left, right) = (D, U, L, R)
 ~~~
 
 

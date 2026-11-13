@@ -300,6 +300,11 @@ def k4_to_k8(tree, stage):
         for cp, cg, ctext in K8_R4A_CARVES:
             if p == cp and g == cg and ctext in ln:
                 return True                                   # R4a: not a T4S letter (see the list)
+        if p == 't3toolbox/backend/sampling_derivatives.py' and g == 'Ud':
+            doc, comments, _ = _code_prose(tree, p)
+            if not (any(a <= i <= b for a, b in doc) or (i in comments and m.start() >= comments[i])):
+                return True                                   # R4b: the NAME Ud is tier C's image of Od (the up
+                                                              # core's direction), checked by K15; prose Ud still hits
         return False
     res.append(_rep('K8', pattern_hits(tree, every, K8, 'K8', carve8)
                     + pattern_hits(tree, list(TEX), K8 + K8_TEX, 'K8', carve8)

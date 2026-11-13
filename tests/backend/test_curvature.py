@@ -5,10 +5,11 @@
 ``_curvature_oracles.py`` (numpy-only; jax dispatch is in ``tests/test_dispatch.py``).
 
 * **T1 factors** -- ``fv_center_factors`` / ``fv_lift_factors``: the centers are the construction's, the
-  bond and Tucker factors are ``<L_i, H_i>`` and ``V_i U_i^T``, their spectra are the dense unfoldings',
+  bond and Tucker factors are ``<L_i, H_i>`` and ``V_i D_i^T``, their spectra are the dense unfoldings',
   and ``sum sigma(S_0)^2 = ||X||^2`` (so ``eps = curvature_damping * ||X||``).
-* **T2 lift identity** -- ``tv_to_dense(t3_corewise_frame(U, L), L v) == tv_to_dense(frame, v)`` at
-  ``eps = 0``, gauged and ungauged, on minimal, Tucker-slack and TT-slack frames.
+* **T2 lift identity** -- ``tv_to_dense(t3_corewise_frame(D, L), theta_hat) == tv_to_dense(frame, v)``
+  for ``theta_hat``, the lift of ``v``, at ``eps = 0``, gauged and ungauged, on minimal, Tucker-slack and
+  TT-slack frames.
 * **T3 lift adjoint** -- ``<L v, y> == <v, L^T y>`` per ``K + C`` element, at several dampings.
 * **T4 damping** -- ``eps -> 0`` continuity; finite at a zero-padded restart; zero at the zero point
   except the last TT slot; the filters themselves.
@@ -111,7 +112,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _curvature_oracles as oracles
 
 _MINIMAL = ((5, 6, 7), (2, 3, 2), (1, 2, 2, 1))
-_TUCKER_SLACK = ((6, 6, 6), (4, 4, 4), (1, 2, 2, 1))        # frame down ranks (2, 4, 2) < up (4, 4, 4)
+_TUCKER_SLACK = ((6, 6, 6), (4, 4, 4), (1, 2, 2, 1))        # frame up ranks (2, 4, 2) < down (4, 4, 4)
 _TT_SLACK = ((6, 6, 6), (4, 4, 4), (1, 9, 9, 1))            # frame left ranks != right ranks
 _D1 = ((5,), (3,), (1, 1))
 _D2 = ((5, 6), (3, 3), (1, 3, 1))
@@ -151,7 +152,7 @@ def _random_variations(frame, KC):
 
 
 def _raw_like_frame_cores(frame, KC, rng):
-    """A random raw core variation shaped like theta = (U, L), stack K + C."""
+    """A random raw core variation shaped like theta = (D, L), stack K + C."""
     D, _, L, _ = frame
     return (tuple(rng.standard_normal(KC + u.shape[-2:]) for u in D),
             tuple(rng.standard_normal(KC + g.shape[-3:]) for g in L))
@@ -178,7 +179,7 @@ class TestFrameFactors(unittest.TestCase):
                         self.assertEqual(STs[i].shape, C + (U[i].shape[-2], D[i].shape[-2]))
                         scale = max(np.linalg.norm(H[i]), 1.0)
                         self.assertLess(np.linalg.norm(centers[i] - H[i]), 1e-12 * scale)
-                        VDt = np.einsum('...xn,...un->...xu', V[i], D[i])          # S_i^T = V_i U_i^T
+                        VDt = np.einsum('...xn,...un->...xu', V[i], D[i])          # S_i^T = V_i D_i^T
                         self.assertLess(np.linalg.norm(STs[i] - VDt), 1e-12 * scale)
                     for i in range(d - 1):
                         self.assertEqual(Ts[i].shape, C + (L[i].shape[-1], R[i + 1].shape[-3]))
@@ -594,7 +595,7 @@ class TestInnerProductTwoHole(unittest.TestCase):
         zB, G2, ZL, ZR, env = sweep
         self.assertEqual(tuple(len(p) for p in sweep), (4, 4, 4, 4, 4))
         self.assertEqual(env[1].shape, (2,) + theta[1][1].shape[-3:-2] + z[0][1].shape[-2:-1] + theta[1][1].shape[-1:])
-        # the sweep IS the gradient's intermediates: dG_i = env_i x_2 BU_i
+        # the sweep IS the gradient's intermediates: dG_i = env_i x_2 zB_i
         grad = t3la.t3_inner_product_corewise_transpose(z, theta)
         for i in range(4):
             self.assertTrue(np.allclose(np.einsum('...azb,...zu->...aub', env[i], zB[i]), grad[1][i]))
@@ -632,7 +633,7 @@ _PD_STACKS = [((2,), ()), ((2,), (2,)), ((2, 3), ()), ((2, 3), (2,))]     # (K, 
 
 
 def _pd_problem(struct, order, K, C, W, rng, raw=False):
-    """theta (a frame's base point (U, L), or -- raw -- unconstrained corewise cores), the samples, the
+    """theta (a frame's base point (D, L), or -- raw -- unconstrained corewise cores), the samples, the
     residual jets z~ (no K) and the directions (K + C)."""
     if raw:
         theta = t3k.t3_corewise_randn(*struct, stack_shape=C)
@@ -764,8 +765,8 @@ class TestProbeDerivativesTwoHole(unittest.TestCase):
         self.assertLess(worst, 1e-14)
 
     def test_from_sweep_reuses_the_model_sweep(self):
-        """The manifold model's probe sweep at the frame (U, O, L, R) carries the corewise xi / mu of its base
-        point (U, L): from_sweep with it -- or with the lean corewise (xi, mu) pair -- is the one-shot, bitwise;
+        """The manifold model's probe sweep at the frame (D, U, L, R) carries the corewise xi / mu of its base
+        point (D, L): from_sweep with it -- or with the lean corewise (xi, mu) pair -- is the one-shot, bitwise;
         and one sweep serves every direction."""
         rng = np.random.default_rng(16)
         for C in [(), (2,)]:
@@ -898,7 +899,7 @@ def _plain_ops(kind):
 
 
 def _plain_problem(kind, struct, K, C, W, rng, raw=False):
-    """theta (a frame's base point (U, L), or -- raw -- unconstrained corewise cores), the sample (ww, or an index
+    """theta (a frame's base point (D, L), or -- raw -- unconstrained corewise cores), the sample (ww, or an index
     grid for entries), the residual (no K) and the directions (K + C), as :py:func:`_pd_problem`."""
     if raw:
         theta = t3k.t3_corewise_randn(*struct, stack_shape=C)
@@ -1067,8 +1068,8 @@ class TestPlainKindsTwoHole(unittest.TestCase):
                 self.assertLess(_tree_relerr(got, ref), 1e-14)
 
     def test_from_sweep_reuses_the_model_sweep(self):
-        """The manifold model's sweep at the frame (U, O, L, R) carries the corewise xi / mu of its base point
-        (U, L): from_sweep with it -- or with the sweep at the corewise frame -- is the one-shot, bitwise; one sweep
+        """The manifold model's sweep at the frame (D, U, L, R) carries the corewise xi / mu of its base point
+        (D, L): from_sweep with it -- or with the sweep at the corewise frame -- is the one-shot, bitwise; one sweep
         serves every direction."""
         rng = np.random.default_rng(55)
         for kind in _PLAIN_KINDS:
@@ -1212,7 +1213,7 @@ def _deriv_sample(kind, shape, W, rng):
 
 
 def _deriv_problem(kind, struct, order, K, C, W, rng, raw=False):
-    """theta (a frame's base point (U, L), or -- raw -- unconstrained corewise cores), the paired sample, the residual
+    """theta (a frame's base point (D, L), or -- raw -- unconstrained corewise cores), the paired sample, the residual
     jet (no K) and the directions (K + C), as :py:func:`_pd_problem`."""
     if raw:
         theta = t3k.t3_corewise_randn(*struct, stack_shape=C)
@@ -1393,8 +1394,8 @@ class TestDerivativeKindsTwoHole(unittest.TestCase):
                         self.assertLess(_tree_relerr(app[0] + app[1], prb[0] + prb[1]), 1e-13)
 
     def test_from_sweep_reuses_the_model_sweep(self):
-        """The manifold model's lean jet sweep at the frame (U, O, L, R) carries the corewise xi / mu of its base point
-        (U, L): from_sweep with it -- or with the sweep at the corewise frame -- is the one-shot, bitwise; one sweep
+        """The manifold model's lean jet sweep at the frame (D, U, L, R) carries the corewise xi / mu of its base point
+        (D, L): from_sweep with it -- or with the sweep at the corewise frame -- is the one-shot, bitwise; one sweep
         serves every direction."""
         rng = np.random.default_rng(76)
         for kind in _DERIV_KINDS:
@@ -1524,7 +1525,7 @@ class TestFlatSlotsAndVerticalDirections(unittest.TestCase):
     def _setup(struct, rng):
         x = t3.TuckerTensorTrain.randn(*struct)
         frame, _ = fvc.t3_orthogonal_representations(x.data)
-        theta = (tuple(frame[0]), tuple(frame[2]))                 # the frame's own raw cores (U, L)
+        theta = (tuple(frame[0]), tuple(frame[2]))                 # the frame's own raw cores (D, L)
         R = rng.standard_normal(struct[0])                         # an ambient tensor (A^T r)
         g = tv.tv_project_dense_onto_tangent_space(frame, R)       # P_X R, gauged coordinates
         Zg = tv.tv_to_t3(frame, g)                                 # ... as a doubled-rank T3
@@ -1574,7 +1575,7 @@ class TestFlatSlotsAndVerticalDirections(unittest.TestCase):
                 for which, theta_hat in (('lifted', lifted), ('raw gauge', oracles.vertical_direction(theta, rng))):
                     corewise_frame = fvc.t3_corewise_frame(theta)
                     self.assertLess(np.linalg.norm(tv.tv_to_dense(corewise_frame, theta_hat)),
-                                    1e-12 * _norm_flat(theta_hat), which)       # DPhi[theta_hat] = 0
+                                    1e-12 * _norm_flat(theta_hat), which)       # dPhi[theta_hat] = 0
                     K_R = oracles.dense_inner_product_hessian(R, theta, theta_hat)
                     K_g = t3la.t3_inner_product_corewise_hessian(Zg, theta, theta_hat)
                     self.assertGreater(_norm_flat(K_R), 1e-3)                    # not trivially zero
@@ -2797,13 +2798,13 @@ class TestExactNewtonFromNonMinimalPoints(unittest.TestCase):
 # S7: the exact Hessian on the SHARED manifold -- the tied lift (T12, T22)
 # ---------------------------------------------------------------------------------------------------
 # (structure, sharing labels). On 'minimal' every group mode's S_i^T is square, so the tied lift equals the
-# per-mode one; on the others a group's rank exceeds some member's own ceiling (its down rank), S_i^T is wide
+# per-mode one; on the others a group's rank exceeds some member's own ceiling (its up rank), S_i^T is wide
 # there, and the per-mode lift -- a minimum-norm solve per mode -- is not TIED: no direction of the shared
 # parametrization Phi(T theta_sh), and the wrong curvature (these structures discriminate the two).
 _SH_MINIMAL = (((5, 5, 6), (2, 2, 2), (1, 2, 2, 1)), (0, 0, 1))
-_SH_CEILING = (((6, 6, 4), (4, 4, 2), (1, 2, 2, 1)), (0, 0, 1))                # mode 0: down rank 2 < 4
-_SH_TWO_GROUPS = (((5, 6, 5, 6), (3, 2, 3, 2), (1, 2, 3, 2, 1)), (0, 1, 0, 1))  # mode 0: down rank 2 < 3
-_SH_ONE_GROUP = (((5, 5, 5), (3, 3, 3), (1, 2, 2, 1)), (0, 0, 0))               # modes 0, 2: down rank 2 < 3
+_SH_CEILING = (((6, 6, 4), (4, 4, 2), (1, 2, 2, 1)), (0, 0, 1))                # mode 0: up rank 2 < 4
+_SH_TWO_GROUPS = (((5, 6, 5, 6), (3, 2, 3, 2), (1, 2, 3, 2, 1)), (0, 1, 0, 1))  # mode 0: up rank 2 < 3
+_SH_ONE_GROUP = (((5, 5, 5), (3, 3, 3), (1, 2, 2, 1)), (0, 0, 0))               # modes 0, 2: up rank 2 < 3
 _SH_STRUCTURES = {'minimal': _SH_MINIMAL, 'ceiling': _SH_CEILING, 'two_groups': _SH_TWO_GROUPS,
                   'one_group': _SH_ONE_GROUP}
 
@@ -2849,7 +2850,7 @@ class TestSharedExactLift(unittest.TestCase):
         np.random.seed(51)
 
     def test_tied_lift_identity_and_tie(self):
-        """``DPhi[L v] == E v`` at eps = 0 (to roundoff), the group's raw factor directions one array; the per-mode
+        """``dPhi[L v] == E v`` at eps = 0 (to roundoff), the group's raw factor directions one array; the per-mode
         lift represents ``v`` too but is untied on the discriminating structures (and equals the tied one where
         every group mode's ``S_i^T`` is square)."""
         for name, (struct, labels) in _SH_STRUCTURES.items():
