@@ -230,6 +230,15 @@ plan round 8 (D-41; §3.4, §4.2, §4.5 wording), the Darcy hint-free baselines 
 Nick's reasons: isotropic completions (a uniformly random subspace of the complement is the natural no-information
 choice) and conditioning (pivots bounded away from zero w.h.p.; completions continuous in the old frame off a null set).
 
+**RELEASE PLAN UPDATE (Nick 2026-11-13): 2026.5.0 bundles, AFTER the store-rename arc (R6) and BEFORE the tag, two more
+features, each planned writer/critic-style first: (1) the opt-in Newton phase TIMING (draft `dev/newton_timing_plan_2026-11-10.md`;
+T-1..T-7 answered by the session's recommendations, D-6 of that draft becomes a `timing=False` keyword on the geometry
+member rather than a changed return arity; critic pass before implementing); (2) a GN-TO-FULL-NEWTON SWITCH: start
+Newton with the Gauss-Newton Hessian and switch to the exact Hessian by a strategy Nick developed in
+https://github.com/NickAlger/nicks-optimizers (the recent arc there) -- read that repo first, write a plan with the
+strategy's rule, its API in `newton_cg` (a keyword; defaults preserve current behaviour), tests, docs. The glossary and the
+601-row docs pass also remain 2026.5.0 items. Then the release commit (version bump, CHANGELOG date) and Nick tags.**
+
 **RELEASE PLAN (Nick 2026-11-10): tag 2026.4.0 when the Darcy acceptance runs on the Runpod A100 are in (results land in
 T3Polynomial `data/gpu_runs_2026_11_10/`, summary.md there; Newton/CG counts are the comparison, exact Hessian,
 CG_POWER 1.0, MAX_NEWTON 300; the first GN runs hit the 30 cap and are discarded). THEN 2026.5.0 = opt-in Newton phase
