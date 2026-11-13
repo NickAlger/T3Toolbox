@@ -68,8 +68,13 @@ diagrams/equations before/after (R4a, R4b handoff Appendix A); names renamed by 
 comprehension B/G, `udots`, utv `dG`; R4b's `dG`->`H`, `D`->`B`, `rsig_hat`); the generic n beyond item 12's list;
 wording fixes beyond letter swaps (`D V^T`, `D_i w_i`, "the lift", "Upward"), the TOL change, the gate-tool narrowings.
 PLAN TEXT (writer, one round): all R4a/R4b rows (RV1-RV15 + R4b's), the four -ward rows moved from R4b to R4a, item 12's
-extension, the TOL change, the tool narrowings. NEXT after Nick: R5 (docs, the two ASCII diagrams, the six notes +
-PDFs, glossary + work list, CHANGELOG/release notes), then R6. Earlier: PAUSED AFTER R3 (tokens): next R4a — code prose outside the sampling kernels (tier D/E rows), the backwards adjectives, the
+extension, the TOL change, the tool narrowings. R5 BUILT 2026-11-13 (docs, diagrams, six notes + PDFs, glossary + work list, CHANGELOG/release notes), IN REVIEW:
+every K gate clean at stage R5, K12 301/301, K16 21 width forms signed off by contraction sizes, six PDFs rebuilt and
+read by the reviewer. Rulings: the exact-Hessian note's frame CENTERS renamed `\bar H_i` (12 sites; the TT-variation
+letter H stands); the zipper chains written out so `\dot B_i` has one meaning; `pad_safe_svd.tex:307` `u_j` ->
+`n_{D,j}`; CLAUDE.md:69 "T4S's `U` is ..." applied by the session. AUDIT ITEMS (not this release): the code's own `H`
+for companion CENTERS (sharing/alignment) collides with the frame-variations `H`; the shared note's `\dot V_i`,
+`\dot W_i` are D-shaped by the shape rule but are not store letters. Then R6. Earlier: PAUSED AFTER R3 (tokens): next R4a — code prose outside the sampling kernels (tier D/E rows), the backwards adjectives, the
 corewise `(B, G, G, G)` sentences, the `-ward` travel words, and the REALIGNMENT of every touched block within reason
 (style reference `tucker_tensor_train.py`); then R4b, the review stop with Nick after R4, R5, R6.** — the
 letter API (`update` tuples, `_update_stores`, `_STORE_LETTERS`/`_COLOURS`, the dispatch rows, the unequal-store
