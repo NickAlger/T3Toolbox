@@ -36,8 +36,11 @@ reviewer (same brief pattern as R1-R5: own runs, one job at a time), commit R6 b
 record draft 29 in the plan; FINAL REVIEW STOP with Nick. The release tag is NOT cut after R6 -- see the bundle below.
 Plan at draft 28 (1ddeadcf). The CODE and DOCS are in the new convention; CI green through R5.
 
-**2026.5.0 BUNDLE, planned AFTER R6 and BEFORE the tag (Nick 2026-11-13), each writer/critic-style then
-implementer/reviewer:** (A) the opt-in Newton phase TIMING — draft `dev/newton_timing_plan_2026-11-10.md`; the session's
+**2026.5.0 BUNDLE, planned BEFORE the tag (Nick 2026-11-13; all nine switch questions decided, so the two plan DRAFTS
+started 2026-11-13 evening in parallel with R6's acceptance runs: switch-plan writer `a90e932de26b64b57` ->
+`dev/gn_newton_switch_plan_2026-11-13.md`; timing-plan writer `a14687754ac557916` revising
+`dev/newton_timing_plan_2026-11-10.md` to draft 1; a critic reviews both when they land; implementation only after R6 is
+committed and Nick has seen the final stop), each writer/critic-style then implementer/reviewer:** (A) the opt-in Newton phase TIMING — draft `dev/newton_timing_plan_2026-11-10.md`; the session's
 recommendations on T-1..T-7 stand (split the local model; the full compile wait; no separate accepted-retraction phase;
 report `previous_callback`; no `gradient_descent`; the geometry member gets a `timing=False` keyword rather than a changed
 return arity; plain dict in stats); needs a critic pass, then implementation. (B) the GN-TO-FULL-NEWTON SWITCH — source
