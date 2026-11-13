@@ -68,9 +68,9 @@ what makes the **uniform** layer safe (below), because it inherits the mask-corr
 
 **The base point as a tangent (`v_X`) — the non-obvious part.** The reg gradient needs `x` in tangent
 coordinates. Key fact: the attachment point `X` is a *single gauged tangent term* — **all variations zero
-except the last TT variation, set to the frame's last left core `P_last`** (the one slot with no gauge
+except the last TT variation, set to the frame's last left core `L_last`** (the one slot with no gauge
 condition, so it is already gauged; `dense(v_X)=X`). Hence `point_tangent(frame)=v_X` is a direct
-construction and `point_norm_sq = ‖P_last‖²` — **not** the naive "sum of frame-core norms," which is *wrong*
+construction and `point_norm_sq = ‖L_last‖²` — **not** the naive "sum of frame-core norms," which is *wrong*
 (orthogonal frame cores have norm `√rank`, not content: measured `42291.8` vs the true `‖X‖²=42280.8`). The
 tangent isometry (paper Appendix A.3) is stated for the zero-centered space but extends to `X` because `v_X`
 is itself gauged. A consequence worth knowing: on the manifold `H_R = λI` is the **exact** Riemannian Hessian
@@ -122,7 +122,7 @@ keeps full-strength reg. A custom `draw` of a non-nominal batch size may want `�
   tool for denoising a *good* fit (where identity λ is only a modest secondary knob; user doc §5). Reuses
   `point_tangent`/`project` composed with an `M`-apply on tangents.
 - **Base-point-as-tangent as a public op.** Representing `X` as its gauged tangent `v_X` (last TT variation
-  `= P_last`, else zero — already gauged) is broadly useful beyond the reg gradient; worth a first-class
+  `= L_last`, else zero — already gauged) is broadly useful beyond the reg gradient; worth a first-class
   `T3Tangent`/`UT3Tangent` factory + backend helper. The reg's `point_tangent`
   (`backend/geometry.py::fv_base_point_tangent` / `ufv_base_point_tangent`) is the
   current internal implementation to promote.

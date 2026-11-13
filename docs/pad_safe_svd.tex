@@ -73,7 +73,7 @@ static (the requirement for a single \code{jit}/\code{vmap}/\code{scan} compilat
 In T3Toolbox this is the \emph{uniform} representation of Tucker tensor trains: supercores padded to
 common edge widths with prefix rank masks, so that a whole stack of tensors of varying ranks flows
 through one compiled program \cite{t3docs}. Every orthogonalization step of the uniform sweeps ---
-the Tucker down-orthogonalization, both TT sweeps, the down step, and the T3-SVD scan --- is an SVD
+the Tucker down-orthogonalization, both TT sweeps, the TT up-orthogonalization, and the T3-SVD scan --- is an SVD
 of a zero-padded unfolding, and the row index of an unfolding is often a Kronecker product of two
 padded edges, which is how \emph{interior} padding arises even though each edge is padded only as a
 suffix.
@@ -299,12 +299,12 @@ $\sigma$-accuracy scale with precision.
 
 In T3Toolbox the primitive replaces every SVD that produces \emph{kept basis columns} in the
 uniform sweeps: the Tucker down-orthogonalization, both TT sweeps (as a pad-safe scan step whose
-per-step masks ride the scan inputs), the down step, and the T3-SVD scan (unshared and shared).
+per-step masks ride the scan inputs), the TT up-orthogonalization, and the T3-SVD scan (unshared and shared).
 Three integration points are worth recording:
 
 \begin{itemize}[itemsep=2pt]
 \item \textbf{Evolving masks.} The row mask of a mid-sweep unfolding is not an input mask: bond
-ranks evolve by the sweep recurrences (e.g.\ $\ell_{j+1} = \min(\ell_j u_j,\, r_{j+1})$). All
+ranks evolve by the sweep recurrences (e.g.\ $\ell_{j+1} = \min(\ell_j n_{D,j},\, r_{j+1})$). All
 evolved masks are precomputed on the host from the same recurrences the frame masks are built from,
 and enter the compiled program as constants.
 \item \textbf{A bitwise-clean chain.} Each site also \emph{zeroes its don't-care completion

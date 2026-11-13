@@ -109,7 +109,7 @@ code path. Verdict: build only if first-order manifold fitting becomes a hot pat
 
 - *Retaining `HH`/`S` on the frame* — mechanism 3; see above. The companion's re-sweep is the
   pure-form equivalent at the cost of one cheap sweep per outer step (and its **bit-identity** with
-  the construction is what makes the `⟨O, H⟩` pairing exact — see
+  the construction is what makes the `⟨U, H⟩` pairing exact — see
   [`sharing_internals.md`](sharing_internals.md)).
 - *Continuation reading `κ_g` off the last companion* instead of a fresh grouped `t3svd` — true
   that `svd_s` *is* `s_g`, but continuation is a between-solves decision (once per level), the

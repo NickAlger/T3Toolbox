@@ -6,13 +6,15 @@ note [`../padded_frame_cone.tex`](../padded_frame_cone.tex) (+pdf). This page is
 
 ## The step as message passing
 
-A T3 is a tree: Tucker leaves `l_i` and TT cores `c_i` in a chain. Each **directed** edge has one frame core, and the
-four directions are the library's four stores:
+A T3 is a tree: Tucker leaves `l_i` and TT cores `c_i` in a chain. Each **directed** edge has one frame core,
+orthonormal over the side the edge comes from; its store is named for that side, so a store's edges point away from
+its name (the up store's edges point down, from chain to leaf;
+[Four rank stores](../frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)):
 
 | directed edge | store | output slot |
 |---|---|---|
-| `l_i → c_i` | `up[i]` | the Tucker index |
-| `c_i → l_i` | `down[i]` | the down index |
+| `l_i → c_i` | `down[i]` | the Tucker index |
+| `c_i → l_i` | `up[i]` | the middle index (`nU`) |
 | `c_i → c_(i+1)` | `left[i]`, `i ≤ d-2` | bond `i+1` |
 | `c_i → c_(i-1)` | `right[i]`, `i ≥ 1` | bond `i` |
 
@@ -25,27 +27,28 @@ at that edge, with the A-block pinned. It does this without ever forming the dou
 message-passing stages:
 
 1. **Far-side messages, at the old frames** (`_up_message`, `_left_message_step`, `_right_message_step`,
-   `_down_message`). On each directed edge `a → b`, `Φ = Pᵀ Z_far U′` (what the far side sends through the old far
-   frame) and `Ξ`, a square root of the rest (`_root`, from a thin SVD; only `ΞΞᵀ` is used). The order is the down
-   edges, the left messages from the far end, the right messages from the near end, then the up edges.
+   `_down_message`). On each directed edge `a → b`, `Φ = Pᵀ Z_far F′` (what the far side sends through the old far
+   frame) and `Ξ`, a square root of the rest (`_root`, from a thin SVD; only `ΞΞᵀ` is used). The order is the up
+   store's edges (`c_i → l_i`), the left messages from the far end, the right messages from the near end, then the
+   down store's edges (`l_i → c_i`).
 2. **New completions, in message order** (`_down_edge`, `_left_edge_step`, `_right_edge_step`, `_up_edge`). At
    `a → b`, `a`'s incoming slots are first re-expressed in their new coordinates (`_new_coordinates`: the old block
    kept, the completion block multiplied by `o = P⁺ᵀP`). Then
    `Y = [g_old Φ_P + g_new | g_old Ξ]` (`_edge_content`), and the new completion `P⁺` is the leading directions of
    `(I − ĀĀᵀ)Y`, completed against `Ā` (`linalg.pinned_leading_columns`). The edge emits `o` and
-   `D = [Ā | P⁺]ᵀ g_new` for the edges after it, and its movement `‖g_old − P⁺o‖_F`.
+   `Ψ = [Ā | P⁺]ᵀ g_new` for the edges after it, and its movement `‖g_old − P⁺o‖_F`.
 
 `Y` is the edge's normal content exactly (the note's `Y = Q(LJ)Θᵀ` identity), so nothing wider than `old + 2k` is
 factorized. The messages past the chain's ends are zero-size arrays, so every core runs the same body, and the
 sweeps are scans with module-level bodies ([`scan_body_principles.md`](scan_body_principles.md)).
 
-**Sharing.** A sharing group has one Tucker factor. Its up edge stacks the members' contents side by side in one `Y`
-(`_down_edge`), so the group gets one completion.
+**Sharing.** A sharing group has one Tucker factor. Its down store's edge (`l_i → c_i`) stacks the members' contents
+side by side in one `Y` (`_down_edge`), so the group gets one completion.
 
 **Transport.** A store not in `update` gets `Y = g_old`: its old completion re-expressed in the new candidate space.
-Two-colour passes (`'UL'`, then `'RO'`) are alternating (Gauss–Seidel) updates of the two colours, with a projection
-in between. A pass may not both transport and truncate: a transported store can lose directions arbitrarily in a
-truncated neighbour's coordinates, so the step raises.
+Two-colour passes (`('D', 'L')`, then `('U', 'R')`) are alternating (Gauss–Seidel) updates of the two colours, with a
+projection in between. A pass may not both transport and truncate: a transported store can lose directions
+arbitrarily in a truncated neighbour's coordinates, so the step raises.
 
 **What a store's update maximizes, and what the loop converges to.** Each updated store takes the leading directions
 of its own content matrix `Y` given the others, so it maximizes `‖P⁺ᵀY‖²`, the captured energy of that content. `Y`
@@ -83,10 +86,11 @@ assumes junk-last on input.
 ## The start: the pad-safe pinned completion, and why a QR
 
 The hint-free start completes each store's A-block with Gaussian seeds: slot `s` gets row `s` of the keyed legacy
-`RandomState([seed, store tag, key])` stream (`_seed_rows`; tags up 0, down 1, left 2, right 3; the key is the
-mode, or a sharing group's first mode). The rows are drawn on the host at the ragged unfolding's length. The ragged
-layer completes them with `linalg.pinned_completion`, the sign-fixed Householder QR of `[pins | seeds]`. The uniform
-layer places the same rows at the real rows (the flat slot order is the ragged row-major order) and calls
+`RandomState([seed, store tag, key])` stream (`_seed_rows`; tags down 0, up 1, left 2, right 3, the integers of
+2026.4.0's same physical stores, so seeded streams are unchanged; the key is the mode, or a sharing group's first
+mode). The rows are drawn on the host at the ragged unfolding's length. The ragged layer completes them with
+`linalg.pinned_completion`, the sign-fixed Householder QR of `[pins | seeds]`. The uniform layer places the same
+rows at the real rows (the flat slot order is the ragged row-major order) and calls
 `linalg.pad_safe_pinned_completion`.
 
 A QR, not an SVD, because the convention is defined by the seeds' ORDER (Gram–Schmidt: column `j` is seed `j` made
@@ -113,14 +117,15 @@ Nothing jits unless asked (D-39).
   function persists across calls and its programs are reused.
   - **Ragged** (`fv_aligned_padded_frame(use_jit=True)`): the host loop calls `_jitted(tv_align_padded_frame,
     (2, …, 7))`, with the old ranks, output ranks, `sharing` and `update` as statics. A level compiles at most four
-    step programs: the oversampled `'ULRO'`, the truncating `'ULRO'`, `'UL'` and `'RO'`. The projection runs eagerly
-    between steps.
+    step programs: the oversampled `('D', 'U', 'L', 'R')`, the truncating `('D', 'U', 'L', 'R')`, `('D', 'L')` and
+    `('U', 'R')`. The projection runs eagerly between steps.
   - **Uniform** (`ufv_aligned_padded_frame(use_jit=True)`): the WHOLE loop is
     `_jitted(_ufv_aligned_loop_kernel, (2, 3, 4, 5))`. The statics are the skeleton (structure and masks), `project`,
     the hashable `schedule` (working and target ranks, sharing, seed, `n_over`, `max_passes`, `alternate`, level
     widths) and `use_jit`. The traced part is the old frame's and the hint's arrays, and `tol`. Inside: a `fori_loop`
-    of oversampled passes, the truncating pass, a `while_loop` of `(UL, RO)` pairs, a `cond` for the final `'UL'`,
-    and the compaction. One compile per structure; new values of `tol` or of the arrays do not recompile.
+    of oversampled passes, the truncating pass, a `while_loop` of `(('D', 'L'), ('U', 'R'))` pairs, a `cond` for the
+    final `('D', 'L')`, and the compaction. One compile per structure; new values of `tol` or of the arrays do not
+    recompile.
   - The loop bodies are bound with `functools.partial` inside that one jit. This is accepted in this instance only
     and sets no precedent (D-47; [`scan_body_principles.md`](scan_body_principles.md)).
 - **The record.** The jitted loop needs a static output shape, so the uniform movements are `(max_passes,)+C`, NaN
@@ -137,7 +142,7 @@ layer-specific work. They are defined on `ManifoldGeometryOps` and `UniformManif
 through their `groups` field:
 
 - `with_frame(frame)`: the geometry at a frame's structure. The ragged geometry holds no structure and returns
-  itself. The uniform one takes the frame's up and left masks as its variation masks.
+  itself. The uniform one takes the frame's down and left masks as its variation masks.
 - `require_frame_structure(x_cores, frame)`: a structural check for `local_model(frame=)` and `start_frame`. It
   works from integers (the frame's core shapes against `compute_orthogonal_representation_ranks` of `x`'s ranks,
   plus `C` and `N`) and from held masks (the uniform variation masks), and never orthogonalizes `x`. Reading the

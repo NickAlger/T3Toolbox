@@ -39,9 +39,9 @@ Take `d = 3` modes, a batch of **2 base points** (`C = (2,)`), with **3 tangent 
 
 | Array | Blocks | Shape |
 |---|---|---|
-| frame Tucker core `Uᵢ` (`T3Frame`) | `C` | `(2,) + (nᵢ, Nᵢ)` |
-| frame TT core `Pᵢ` (`T3Frame`) | `C` | `(2,) + (rᵢ, nᵢ, rᵢ₊₁)` |
-| variation core `δUᵢ` (`T3Variations`) | `K + C` | `(3, 2) + (nᵢ, Nᵢ)` |
+| frame Tucker core `Dᵢ` (`T3Frame`) | `C` | `(2,) + (nᵢ, Nᵢ)` |
+| frame TT core `Lᵢ` (`T3Frame`) | `C` | `(2,) + (rᵢ, nᵢ, rᵢ₊₁)` |
+| variation core `Vᵢ` (`T3Variations`) | `K + C` | `(3, 2) + (nᵢ, Nᵢ)` |
 | probe vector `wᵢ` (`ww`) | `W` | `(4,) + (Nᵢ,)` |
 | forward probe `zᵢ` (`tangent.probe(ww)`) | `W + K + C` | `(4, 3, 2) + (Nᵢ,)` |
 
@@ -87,7 +87,7 @@ The codebase annotates shapes in trailing comments and encodes them in names. Th
 | **ragged / uniform / weighted** | the three representations. **ragged** (tuples of arrays) is the default; **uniform** (supercores + masks) is the jit/GPU mirror of the whole stack (`docs/uniform_equivalence_contract.md`); **weighted** is diagonal edge weights on the internal edges — a data format + `absorb` into cores, not a separate object layer (`docs/weighting.md`). |
 
 > The block letters `W`/`K`/`C` are deliberately disjoint from the core/variation symbols
-> (`U`,`P`,`Q`,`O`,`G`,`H`,`B`) and from `Jᵀ`/tensor/`T3`, so a shape comment is never ambiguous.
+> (`D`,`U`,`L`,`R`,`B`,`G`,`V`,`H`) and from `Jᵀ`/tensor/`T3`, so a shape comment is never ambiguous.
 
 ---
 
@@ -225,7 +225,7 @@ So probing is built on the **grouped-einsum interpreter** `backend.contractions.
 
 - The subscripts are a standard einsum string with one extension: an **UPPERCASE letter is a GROUP
   of zero or more axes**, lowercase letters are single axes — e.g.
-  `contract('WCa,Caib,WCi->WCb', mu, P, xi)`. An empty group contributes no axes, so the *same
+  `contract('WCa,Caib,WCi->WCb', mu, L, xi)`. An empty group contributes no axes, so the *same
   call* handles no-stack / one-stack / both-stack.
 - Each group's axis count is **solved from the operand ndims** (a small exact linear system).
   Whether the ndims *can* pin a split is a property of the subscripts alone — so a call site either
@@ -278,7 +278,7 @@ This is *the* thing that decides where broadcasting is lazy vs materialized:
   `T3Frame`/`T3Variations`) *hard-require* every core to share one `stack_shape`. So **any builder that
   produces a class instance must materialize the broadcast to uniform**:
   - `tv_to_t3` → must broadcast frame→`K+C` before concatenating the doubled-rank cores (its output
-    *is* a validated `TuckerTensorTrain`; `[U_i ; V_i]` is one array).
+    *is* a validated `TuckerTensorTrain`; `[D_i ; V_i]` is one array).
   - frontend `bvf.fv_to_t3` → must `t3_broadcast_to_common_stack` the mixed-stack term before wrapping
     in `TuckerTensorTrain`.
   - whereas `to_dense` produces a *bare array*, so it can broadcast lazily inside the contraction.
@@ -387,10 +387,12 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
   everywhere else.
 - **Grouped contractions** are `contract('WCa,Caib,WCi->WCb', ...)` calls: read each term as a
   grouped-block einsum signature; output is frame-inner (`W` outer, `C` inner).
-- **Paper ↔ code** (Appendix A of the T4S paper): `U`=down_tucker, `P`=left_tt, `Q`=right_tt,
-  `O`=up_tt (called `up_tt_cores`, not "outer"); `δU`=tucker_variations (`V`), `δG`=tt_variations
-  (`H`). The block letters `W`/`K`/`C` are **deliberately disjoint** from these core/variation symbols,
-  so `V` here means only the Tucker variation and `G` only the TT core — **no overload**.
+- **Paper ↔ code** (Appendix A of the T4S paper): `U` = `down_tucker_cores` (our `D`), `P` = `left_tt_cores`
+  (`L`), `Q` = `right_tt_cores` (`R`), `O` (outer-orthogonal) = `up_tt_cores` (our `U`, up-orthogonal); `δU` =
+  `tucker_variations` (`V`), `δG` = `tt_variations` (`H`). The paper's `U` is our `D`
+  ([Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)). The block letters
+  `W`/`K`/`C` are **deliberately disjoint** from these core/variation symbols, so `V` here means only the Tucker
+  variation and `G` only the TT core — **no overload**.
 
 ---
 
@@ -412,7 +414,7 @@ The naming scheme encodes axis layout — once you know it, the einsums read the
   broadcasts lazily (bare array out), `to_t3` materializes (validated class out). See §5.
 - **`apply`/`entries` are `W+C`** (vec/index stack OUTER, T3 stack INNER), like everything else.
 - **Canonical core-tuple orderings (frontend takes precedence):** `TuckerTensorTrain.data =
-  (tucker_cores, tt_cores)`; `T3Frame.data = (up, down, left, right)`; `T3Variations.data =
+  (tucker_cores, tt_cores)`; `T3Frame.data = (down, up, left, right) = (D, U, L, R)`; `T3Variations.data =
   (tucker_variations, tt_variations)`; `(frame, variations)` pairs are frame-first. Pass `.data`
   straight through; do not reorder.
 

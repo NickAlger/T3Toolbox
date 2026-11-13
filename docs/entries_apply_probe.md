@@ -62,7 +62,7 @@ index : int array, shape (d,) + W       # index[m] = the (stack W of) indices in
 result: X[index[0], …, index[d-1]]       # shape W + C
 ```
 The all-modes special case of `probe` with one-hot vectors, but computed by **slicing** Tucker-core
-fibers `Uᵢ[…, idxᵢ]` (no contraction over `Nᵢ`, no `Nᵢ` cost factor), then the same left-to-right TT
+fibers `Bᵢ[…, idxᵢ]` (no contraction over `Nᵢ`, no `Nᵢ` cost factor), then the same left-to-right TT
 sweep as `apply`. Frontend: `TuckerTensorTrain.entries`. Dense check: `result == X.to_dense()[index]`.
 
 ### `apply(ww) → scalar`
@@ -82,7 +82,7 @@ result: list of d arrays, result[m].shape = W + C + (Nm,)
         result[m] = X(w₀, …, w_{m-1}, ·, w_{m+1}, …, w_{d-1})   # contract all but mode m
 ```
 The general operation: `d` separate contractions, each leaving one mode free. Needs left + right +
-central sweeps plus a per-mode assembly back to the ambient index (`zᵢ = Uᵢ ηᵢ`). Frontend:
+central sweeps plus a per-mode assembly back to the ambient index (`zᵢ = Bᵢ ηᵢ`). Frontend:
 `TuckerTensorTrain.probe`. (Algorithm 5; backend `probing.t3_probe`.)
 
 ---
@@ -117,8 +117,8 @@ Per sample (one probe / index, ignoring stacks), with `N ~ max Nᵢ`, `n ~ max n
 | op        | cost (per sample)            | why                                                            |
 |-----------|------------------------------|---------------------------------------------------------------|
 | `entries` | cheapest: `O(d·n·r²)`        | fiber **slice** (no `Nᵢ` factor) + one L→R TT sweep            |
-| `apply`   | `O(d·N·n + d·n·r²)`          | contract each `wᵢ` through `Uᵢ` (`N·n`) + one L→R TT sweep      |
-| `probe`   | `O(d·N·n + d·n·r²)` + assembly | left **and** right **and** central sweeps + `d` assemblies `Uᵢηᵢ` (output `Σ Nᵢ`) |
+| `apply`   | `O(d·N·n + d·n·r²)`          | contract each `wᵢ` through `Bᵢ` (`N·n`) + one L→R TT sweep      |
+| `probe`   | `O(d·N·n + d·n·r²)` + assembly | left **and** right **and** central sweeps + `d` assemblies `Bᵢηᵢ` (output `Σ Nᵢ`) |
 
 Rule of thumb: **`entries` < `apply` ≪ `probe`**. `entries` and `apply` return one scalar; `probe`
 returns `d` vectors and does ~3× the sweeping plus the ambient assembly. Use the least general
@@ -232,6 +232,8 @@ which is current). The Riemannian least-squares operators factor as **`J = 𝒥 
 `Π` is the orthogonal gauge projector (`MANIFOLD.project`; backend `tv_orthogonal_gauge_projection`,
 enforcing gauge conditions (47)–(48)), and `𝒥` is the bare tangent sampling op below.
 Notation: hat `^` = base-point quantities, `δ` = perturbation, tilde `~` = adjoint (transpose sweep).
+Letters are the paper's: T4S writes U, O, P, Q for our D, U, L, R; its δU is our V (`tucker_variations`), its δG
+our H (`tt_variations`) ([Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)).
 
 **A probe (§6.2.1, Algorithm 5)** — the `i`-th probe contracts with all probing vectors except the
 `i`-th, leaving index `i` free. Edge variables ↔ code:

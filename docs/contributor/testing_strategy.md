@@ -49,7 +49,7 @@ Assert the produced object's masks **exactly equal an independently-derived expe
 a *different source* than the implementation, so the test is not the code checking itself. Examples:
 
 - the doubled-rank masks vs a from-the-frame-ranks construction of the prefix-pair Tucker mask and the
-  `[Q | P]` honest-boundary TT mask (the paper rule), not vs the impl's own concatenation;
+  `[R | L]` honest-boundary TT mask (the paper's rule), not vs the impl's own concatenation;
 - `retract`'s ranks vs the **ragged** `retract`'s ranks (the ground truth — note these can drop *below* the
   frame ranks when `frame+tangent` is genuinely lower-rank, which is correct, not a bug);
 - gauge output masks `==` input masks (gauge must preserve them); `project` masks `==` the frame gauge masks.
@@ -108,7 +108,7 @@ design ([`uniform_masks_vs_ranks.md`](../uniform_masks_vs_ranks.md),
 [`uniform_rank_masks_rationale.md`](uniform_rank_masks_rationale.md)). Boolean masks compose with the
 operations *algebraically* and locally: add = concat, multiply = Kronecker, the doubled-rank embedding =
 concat, gauge/projection *preserve* the mask, retraction's SVD *re-derives* it. There is little integer
-rank-arithmetic to get wrong, and the few non-obvious spots (the `[Q | P]` doubled-bond order, the honest
+rank-arithmetic to get wrong, and the few non-obvious spots (the `[R | L]` doubled-bond order, the honest
 boundaries) are pinned by the exact-mask assertions above. A representation whose metadata travels through
 operations by concatenation and Kronecker products is simply *harder to corrupt* than one that threads
 hand-maintained integer ranks.

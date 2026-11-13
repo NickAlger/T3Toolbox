@@ -46,7 +46,7 @@ Per-call expansion removes the flatten and the residue with it — see the shard
 ## Decision history
 
 - **Why the letters `W`/`K`/`C`.** They are deliberately disjoint from the core/variation symbols
-  (`U`,`P`,`Q`,`O`,`G`,`H`,`B`). Before the rename they were `F`/`V`/`G`, which clashed with the
+  (`D`,`U`,`L`,`R`,`B`,`G`,`V`,`H`). Before the rename they were `F`/`V`/`G`, which clashed with the
   TT-core `G` and the Tucker-variation `V`; `apply`/`entries`/`dense_probe` additionally drifted to
   a private `X`/`V`/`I`/`K`/`Z` scheme (so e.g. `mu_VXa` became `mu_WCa`). Removing that overload
   was the motivation for the rename.

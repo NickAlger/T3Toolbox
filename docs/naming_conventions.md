@@ -117,6 +117,9 @@ which layer you are holding.
 - Batch blocks are single capital letters — `C` (frame stack), `W` (probe stack), `K` (tangent
   stack), frame-inner order `W+K+C` — and body locals encode their axis layout as a name suffix
   (`mu_WCa`, `C_aib`); see `docs/batching_and_stacking.md` and `docs/contributor/signature_style.md`.
+- Frame store names are words (`down_*`, `up_*`, `left_*`, `right_*`); their letters `D`, `U`, `L`, `R` name them in
+  `update`, diagrams and equations, and their widths are `nD`, `nU`, `rL`, `rR`
+  ([Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)).
 
 ## Semantic markers (load-bearing — you can trust them)
 

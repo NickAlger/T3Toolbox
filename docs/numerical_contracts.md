@@ -48,7 +48,7 @@ geometries, sampling kinds), whose equality decides compiled-program reuse
 | property | meaning | checker |
 |---|---|---|
 | **same-frame** (`SF`) | two tangents share one tangent space — their frames are *numerically equal* (`safety.frames_equal`, with an object-identity fast path; a jit round-trip of the same frame passes) | built into the checked ops |
-| **orthogonal** (`ORTH`) | the frame is orthonormal (U/O/L/R conditions) | `T3Frame.is_orthogonal(atol)` |
+| **orthogonal** (`ORTH`) | the frame is orthonormal (D/U/L/R conditions) | `T3Frame.is_orthogonal(atol)` |
 | **gauged** (`GAUGE`) | the variations satisfy the gauge conditions (47)–(48), relative to the tangent's scale (its operands' for an arithmetic result — [below](#the-gauge-check-scale-own-norm-or-operand-scale)) | `T3Tangent.is_gauged(atol)` |
 | **minimal rank** | no stored rank is redundant | `has_minimal_ranks` (structural) / `has_numerically_minimal_ranks` (numerical) — **diagnostic only, never enforced** (see the verdict below) |
 | **tied factors** (`TIED`) | the Tucker factors are numerically equal within each sharing group ([`sharing.md`](sharing.md)) | `has_shared_tucker_factors(sharing, rtol)` (ragged and uniform; the residual is `backend.sharing.t3_sharing_residual` / `ut3_sharing_residual`) |
@@ -62,7 +62,7 @@ is jax-aware (`rtol_jax`, looser, when any operand is a jax array — jax defaul
 
 ### The gauge-check scale: own norm or operand scale
 
-The gauge residual is **relative** — the gauge grams `Uᵀ δU`, `Lᵀ δG` over a scale — so a correctly
+The gauge residual is **relative** — the gauge grams `D Vᵀ`, `Lᵀ H` over a scale — so a correctly
 gauged tangent passes at any magnitude and a tiny ungauged one fails. *Which* scale matters for one
 pattern. A tangent computed directly (a projection, a gradient, a constructor) is measured against
 its **own** coordinate norm. A tangent built by arithmetic is measured against its **operands'**:
@@ -101,10 +101,10 @@ certify a computed tangent's gauge, check that tangent (`Hp.is_gauged()`), not a
 >>> Hp = model.hessian(p)
 >>> print(bool(M.norm(H_fd - Hp) < 1e-6 * M.norm(Hp)))   # safe mode accepts the near-cancelling difference
 True
->>> D = H_fd - Hp
->>> print(bool(tvo.tv_gauge_residual(model.frame.data, D.variations.data) > 1e-9))   # vs its own tiny norm
+>>> diff = H_fd - Hp
+>>> print(bool(tvo.tv_gauge_residual(model.frame.data, diff.variations.data) > 1e-9))   # vs its own tiny norm
 True
->>> print(bool(D.gauge_residual < 1e-13))                                           # vs its operands'
+>>> print(bool(diff.gauge_residual < 1e-13))                                           # vs its operands'
 True
 
 ```
@@ -243,7 +243,7 @@ checkers. Naming rule: bare `minimal_ranks` means the structural notion; `numeri
 the SVD-grade notion.
 
 **Why excess rank is inert** (the mechanism, worth knowing before you reach for a rank check): a frame
-carries *four* rank stores — `up`/`down` and `left`/`right` — and an over-ranked request is absorbed as
+carries *four* rank stores — `down`/`up` and `left`/`right` — and an over-ranked request is absorbed as
 slack between them rather than breaking any single core's orthonormality. So an orthonormal frame need
 not be minimal: `t3_orthogonal_representations` does not guarantee it, and neither does
 `T3Frame.random_orthogonal`, which happily returns `down_ranks=(4,4,4)` with `up_ranks=(2,4,2)` if you

@@ -131,7 +131,7 @@ True
 
 Every iterate stays exactly tied (one factor array per group). At a shared point the tied tangent
 directions are: **TT variations unrestricted**, and per group **one common gauged ambient direction
-`U̇`** driving all the group's Tucker variations (`V_i = S_iᵀ U̇` in the frame's coordinates — the
+`Ḋ`** driving all the group's Tucker variations (`V_i = S_iᵀ Ḋ` in the frame's coordinates — the
 `S_i` factors are part of the orthogonal frame's own factorization). The wrapper's projection lands
 on this subspace, and its retraction goes through a *tied* doubled-rank embedding truncated by the
 grouped T3-SVD, so tying is preserved by construction rather than repaired after the fact.
@@ -143,7 +143,7 @@ subspace in *its* metric on *its* coordinates — and the formulas genuinely dif
   tied projection is a *tilted* least-squares solve against the group's stacked-`S` SVD (solved at
   sensitivity `κ_g`, with a clipped pseudoinverse — well-defined even at rank-deficient points).
 - **`shared(COREWISE, …)`** works on raw core perturbations, where the tied subspace is simply
-  "the `δU_i` are equal" and the projection is the per-group **arithmetic mean**.
+  "the `Ḃ_i` are equal" and the projection is the per-group **arithmetic mean**.
 
 Swapping the formulas would give wrong projections in both directions; the wrapper owns this so you
 never have to. Inner products are untouched (the tied subspace is linear — the restricted metric
@@ -153,7 +153,7 @@ never have to. Inner products are untouched (the tied subspace is linear — the
 On `shared_corewise` it is the plain Hessian of the objective in the tied cores, tied by the same
 per-group mean. On `shared_manifold` the curvature term needs the *tied lift*: the shared set is the
 tied parametrization (one factor per group, copied to the group's modes), so each group's tied
-coordinates lift to **one** raw factor direction, `U̇ = M_g⁺ [V_{i₁}; …]` — the same stacked-`S` solve
+coordinates lift to **one** raw factor direction, `Ḃ = M_g⁺ [V_{i₁}; …]` — the same stacked-`S` solve
 the projection uses, damped like the rest of the lift — and the normal part of the curvature is taken
 against the *shared* gradient. A per-mode lift would represent the same tangent but not a tied
 direction, and its curvature would be wrong wherever a group's rank exceeds one of its modes' own
@@ -265,7 +265,7 @@ transparently (`uniform_minimal(x0, sharing=…)`) — the per-mode reduction wo
   per-mode spectra, a per-group constant that cancels within each group's reciprocal ratios), and
   `reciprocal`/`sqrt`/`concatenate`/`kronecker` all preserve group-equality. What remains deferred is
   the weighted tied *metric* — a Grasedyck–Kramer preconditioner for the shared geometry (the
-  `T3FrameWeights` route is not even well-formed under sharing: the `down` family lives on the `nU`
+  `T3FrameWeights` route is not even well-formed under sharing: the `up` family lives on the `nU`
   legs, which can differ in *length* within a group) — future work alongside the
   `SingularValueRegularizer`.
 - **The partition is user-provided.** Automatic selection of what to share is permanently out of

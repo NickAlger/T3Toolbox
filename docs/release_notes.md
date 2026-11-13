@@ -5,6 +5,83 @@ The full changelog is reproduced below, newest first; the format follows
 then a minor number that increments with each release of that year). Start with the upgrade notes if
 you are moving an existing codebase forward.
 
+## Upgrading from 2026.4.0
+
+**The frame stores `up` and `down` have swapped names: a name that kept its spelling now means the other store,
+and it need not raise.** `frame.up_ranks` was the Tucker factors' ranks and is now the up cores' mode legs;
+`UT3Frame.nU` was the padded Tucker width and is now the up store's. At a minimal frame the two stores agree, so
+such code even returns the right numbers there: search for the names below rather than waiting for an error. When
+a stale width keyword does raise (a swapped width below the other store's ranks), the error comes from inside numpy
+and does not name the width.
+
+**Why.** A store is now named for the side of its edge that its cores occupy, as `left` and `right` always were.
+Draw the TT chain on top and the Tucker factors below it: the **up** store is the TT-shaped cores above each Tucker
+edge (up-orthogonal), the **down** store the Tucker factors below it (down-orthogonal). The 2026.4.0 words named
+where the cores' edges point, the opposite way, and disagreed with the method names `up_orthogonalize_tt_cores` and
+`down_orthogonalize_tucker_cores`, which are unchanged. See
+[Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert).
+
+| 2026.4.0 | 2026.5.0 | raises if left? |
+|---|---|---|
+| `up_ranks` / `down_ranks` (`T3Frame`, `T3FrameWeights`, `UT3Frame`, `UT3Variations`, `UT3FrameWeights`) | `down_ranks` / `up_ranks` | **no** |
+| `T3FrameWeights.up_weights` / `down_weights` (fields and keywords) | `down_weights` / `up_weights` | **no** |
+| `UT3FrameWeights.up_weight_supercore` / `down_weight_supercore` (fields and keywords) | swapped | **no** |
+| `UT3FrameMasks.up_mask` / `down_mask` (fields and keywords) | swapped | **no** |
+| `UT3VariationsMasks.variations_up_mask` / `variations_down_mask` (fields and keywords) | swapped | **no** |
+| keywords `up_ranks=` / `down_ranks=` (`ranks.frame_has_minimal_ranks`, `ufv_masking.ufv_make_frame_masks`) | swapped | **no** |
+| properties `nU` / `nD` (`UT3Frame`, `UT3Variations`, `UT3FrameWeights`) | `nD` / `nU` | **no** |
+| keywords `nU=` / `nD=` (the four `from_*` converters, `ufv_conversions.*_to_ut3*`, `ufv_make_frame_masks`) | `nD=` / `nU=` | **no** (it need not) |
+| `T3Frame.up_tucker_cores` / `down_tt_cores` (fields and keywords) | `down_tucker_cores` / `up_tt_cores` | yes |
+| `UT3Frame.up_tucker_supercore` / `down_tt_supercore` | `down_tucker_supercore` / `up_tt_supercore` | yes |
+| keywords `up_tucker_cores[_dot]=` / `down_tt_cores[_dot]=` (`probing.compute_*`, `sampling_derivatives.compute_*_jets`) | `down_tucker_cores[_dot]=` / `up_tt_cores[_dot]=` | yes |
+| `update='ULRO'` / `'UL'` / `'RO'` (`T3Tangent.align_padded`, `UT3Tangent.align_padded`, `tv_align_padded_frame`, `utv_align_padded_frame`) | `('D', 'U', 'L', 'R')` / `('D', 'L')` / `('U', 'R')` | yes for a `str`; see below |
+
+**Migrate in one pass.** Two `sed` passes undo each other. Swap every name at once, longest first, and only these
+(never a `*_orthogonalize_*` or `*_svd*` name, whose words are unchanged):
+
+```python
+import re
+SWAP = {'up_tucker_cores': 'down_tucker_cores', 'down_tt_cores': 'up_tt_cores',
+        'up_tucker_cores_dot': 'down_tucker_cores_dot', 'down_tt_cores_dot': 'up_tt_cores_dot',
+        'up_tucker_supercore': 'down_tucker_supercore', 'down_tt_supercore': 'up_tt_supercore',
+        'up_ranks': 'down_ranks', 'down_ranks': 'up_ranks',
+        'up_weights': 'down_weights', 'down_weights': 'up_weights',
+        'up_weight_supercore': 'down_weight_supercore', 'down_weight_supercore': 'up_weight_supercore',
+        'up_mask': 'down_mask', 'down_mask': 'up_mask',
+        'variations_up_mask': 'variations_down_mask', 'variations_down_mask': 'variations_up_mask',
+        'nU': 'nD', 'nD': 'nU'}
+pattern = re.compile(r'\b(' + '|'.join(sorted(SWAP, key=len, reverse=True)) + r')\b')
+source = pattern.sub(lambda m: SWAP[m.group(1)], source)    # then review the nU/nD hits: they may be your own names
+```
+
+`\b` treats `_` as a word character, so `up_mask` does not match inside `variations_up_mask`, nor `up_tucker_cores`
+inside `up_tucker_cores_dot` (hence its own entry). `rL` and `rR` are unchanged. Your own `nU`/`nD` locals are
+swapped along with the keywords, which keeps them consistent.
+
+**`update` needs a hand edit.** It takes a tuple of the new store letters, any order: `'D'` down, `'U'` up, `'L'`
+left, `'R'` right. Swap each old letter (`'U'` → `'D'`, `'O'` → `'U'`; `'L'` and `'R'` stay) and split: `'ULRO'` →
+`('D', 'U', 'L', 'R')` (the default), `'UL'` → `('D', 'L')`, not `('U', 'L')`, which now updates the up store; `'RO'`
+→ `('U', 'R')`. Every `str` raises:
+
+```
+ValueError: update must be a non-empty tuple of the store letters 'D', 'U', 'L', 'R' without repeats (D down, U up, L left, R right), e.g. ('D', 'L'); got 'ULRO'; that is the 2026.4.0 form, whose 'U' was the Tucker store (now 'D') and 'O' the TT-shaped store (now 'U'): swap each letter and pass a tuple, e.g. 'UL' -> ('D', 'L'), not ('U', 'L'), which now means up and left
+```
+
+A tuple or list of the old letters, which 2026.4.0 also accepted, raises only if it holds `'O'`: convert it the same
+way, or it runs with the new meaning.
+
+**What does not change.** Positions: `T3Frame.data` and every rank, mask, weight and uniform tuple keep their order,
+which now reads `(down, up, left, right)`, so `up, down, left, right = frame.data` keeps working (rename the locals
+to read right), and so do positional width calls (`UT3Frame.from_t3frame(F, N, 7, 5)`). Saved files load unchanged.
+Every number is bit-identical, seeded starts included. The orthogonalization and SVD method names, every optimizer
+keyword and every other public name are unchanged.
+
+**Letters.** Diagrams, equations and shape comments write `D`, `U`, `L`, `R` and the widths `nD`, `nU`, `rL`, `rR`;
+a T3's own cores are `B`, `G`; a variation-shaped array is `V` or `H` by its shape; the jet shift is `sh` / `shᵀ`
+and the derivative an upright `d`. Docs before 2026.5.0 wrote `U` for the Tucker factor and `O` for the TT-shaped
+core. T4S writes U, O, P, Q for our D, U, L, R; its δU is our V (`tucker_variations`), its δG our H
+(`tt_variations`).
+
 ## Upgrading from 2026.3.0
 
 **Nothing breaks.** Every addition is opt-in, and no default changes: the Newton reference stays `'zero'`, and a

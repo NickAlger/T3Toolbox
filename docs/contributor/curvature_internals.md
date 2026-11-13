@@ -10,7 +10,7 @@ Read this before touching the lift, a two-hole kernel, the curvature companions 
 
 ## The formula, and where each piece lives
 
-At a point `X = Φ(θ)` with orthogonal frame `(U, O, L, R)` (`T3Frame.data`), gauged coordinates
+At a point `X = Φ(θ)` with orthogonal frame `(D, U, L, R)` (`T3Frame.data`), gauged coordinates
 `v = (V_i, H_i)` and the gauge projection `Π`, the exact Riemannian Hessian of
 `f(X) = ½‖ω ⊙ (A X − y)‖²` is
 
@@ -25,8 +25,8 @@ App. A for the frame and gauge, Psenka–Boumal (arXiv:2011.13395) for the secon
 
 | math | code | notes |
 |---|---|---|
-| frame factors `T_i = ⟨L_i, H_i⟩`, `S_iᵀ = ⟨O_i, H_i⟩`, centers `H_i = L_i T_i` | `fv_operations.fv_center_factors` | `T_i` by zipper on demand, never stored on the frame (I-1); `σ(S_i)` is the mode-`i` Tucker spectrum, `σ(T_i)` the bond spectrum; `‖X‖² = Σσ(S_0)²` |
-| the lift `L`: `U̇_i = (S_iᵀ)^{+ε} V_i`, `Ġ_i = H_i ×₃ T_i^{+ε}` (`i ≤ d−2`), `Ġ_{d−1} = H_{d−1}` | `tv_operations.tv_corewise_lift` / `_transpose`; factors `fv_lift_factors` | raw core directions of the base point `θ = (U, L)` |
+| frame factors `T_i = ⟨L_i, H_i⟩`, `S_iᵀ = ⟨U_i, H_i⟩`, centers `H_i = L_i T_i` | `fv_operations.fv_center_factors` | `T_i` by zipper on demand, never stored on the frame (I-1); `σ(S_i)` is the mode-`i` Tucker spectrum, `σ(T_i)` the bond spectrum; `‖X‖² = Σσ(S_0)²` |
+| the lift `L`: `Ḃ_i = (S_iᵀ)^{+ε} V_i`, `Ġ_i = H_i ×₃ T_i^{+ε}` (`i ≤ d−2`), `Ġ_{d−1} = H_{d−1}` | `tv_operations.tv_corewise_lift` / `_transpose`; factors `fv_lift_factors` | raw core directions of the base point `θ = (D, L)` |
 | the filter `f(σ) = σ/(σ²+ε²)`, clipped, `f(0) = 0` | `linalg.filtered_reciprocal`, `damped_pseudo_inverse` | `ε = curvature_damping·‖X‖_HS`; `eps=None` is the tied solve's filter, bit for bit |
 | `K_c θ̂ = d/ds ∇_θ⟨c, S(Φ(θ + sθ̂))⟩` | `t3_<kind>_corewise[_derivatives]_hessian[_from_sweep]`; `SamplingKind.corewise_hessian` | the two-hole sweep, raw `K + C` |
 | `Z = grad f` as a doubled-rank T3; `K_Z θ̂` | `tv_to_t3(frame, g)`; `t3_linalg.t3_inner_product_corewise_hessian[_from_sweep]` | the geometry's `tangential_curvature` |
@@ -44,7 +44,7 @@ T3 module.
 
 The lift turns gauged frame coordinates into raw core directions of the base point, so that a *corewise*
 second derivative can act on a *tangent* direction. It is a pseudo-inverse, and it is exact on one side:
-`tv_to_dense(t3_corewise_frame(U, L), L v) == tv_to_dense(frame, v)` for every tangent `v` — at zero
+`tv_to_dense(t3_corewise_frame(D, L), L v) == tv_to_dense(frame, v)` for every tangent `v` — at zero
 damping, on every frame `t3_orthogonal_representations` builds, minimal or not. On a Tucker-slack frame
 `S_iᵀ` is wide and on a TT-slack frame `T_i` is tall, and the pinv is still an exact one-sided inverse
 there (F2, F3: 6e-15 / 9e-16); only a hand-built frame with a *wide* `T_i` would give a least-squares lift
@@ -62,9 +62,9 @@ both directions, so `Lᵀ_ε K L_ε` stays symmetric for every `ε`.
 >>> frame, _ = fvc.t3_orthogonal_representations(x.data)
 >>> v = tvo.tv_orthogonal_gauge_projection(frame, fvo.fv_variations_randn(fvo.fv_variation_shapes(frame), ()))
 >>> lift = fvo.fv_lift_factors(frame, 0.0)                 # undamped
->>> theta_hat = tvo.tv_corewise_lift(frame, v, lift)       # raw directions of the base point (U, L)
->>> U, _, L, _ = frame
->>> a = tvo.tv_to_dense(fvc.t3_corewise_frame((U, L)), theta_hat)
+>>> theta_hat = tvo.tv_corewise_lift(frame, v, lift)       # raw directions of the base point (D, L)
+>>> D, _, L, _ = frame
+>>> a = tvo.tv_to_dense(fvc.t3_corewise_frame((D, L)), theta_hat)
 >>> b = tvo.tv_to_dense(frame, v)
 >>> bool(np.linalg.norm(a - b) < 1e-12 * np.linalg.norm(b))     # the lift represents the tangent
 True
@@ -99,7 +99,7 @@ one: the extrinsic Weingarten form through the parametrization's exact Jacobians
 sample vectors. The jet axis `t` (length `order + 1`) is the sample-direction Taylor index; the core
 direction is a second, *independent* index truncated at first order, for which Leibniz needs no binomials,
 `(fgh)˙ = ḟgh + fġh + fgḣ`. So each existing three-factor `t`-convolution spawns three dotted terms with
-the same order wiring. The dotted input jet is `build_input_jets(compute_xi(U̇, ww), compute_xi(U̇, pp))`,
+the same order wiring. The dotted input jet is `build_input_jets(compute_xi(Ḃ, ww), compute_xi(Ḃ, pp))`,
 affine in `t` like `xi`. **Layout: companion arrays** (I-10) — undotted jets are `(order+1,)+W+C+(…)`,
 dotted ones `(order+1,)+W+K+C+(…)` — not a stacked length-2 axis, which would broadcast every undotted
 jet over `K`.
@@ -155,7 +155,7 @@ stored (`is_exact = curvature is not None`, I-3, B1); the term is present iff `g
 **θ̂ masking from the FRAME** (uniform; m29, F18, F23, F25). On a uniform supercore a direction's padding
 multiplies *into* real slots in the second derivative, so the masks are load-bearing (an unmasked `θ̂`
 corrupts the real block by 2.6e3), not hygiene. The uniform kinds' `corewise_hessian` masks `θ` and `θ̂`
-with the masks of the **frame it is handed** (`frame_data[5]`'s up / left masks) — not `self.masks`, which
+with the masks of the **frame it is handed** (`frame_data[5]`'s down / left masks) — not `self.masks`, which
 is a strict superset at TT slack — and re-masks the output (the S0c rule: every uniform transpose returns
 clean padding). Garbage here means **finite** garbage: NaN leaks library-wide because masks multiply
 ([`testing_strategy.md`](testing_strategy.md)). The uniform lift factors clip each block at its REAL
@@ -178,7 +178,7 @@ Per sharing group `g` (singletons are their own group), with `k_g` its first mod
 ```
 G   = np.random.RandomState([seed, k_g]).standard_normal((n_g, N_g))
 Q, R = np.linalg.qr(G.T)
-U_g = (Q * sign(diag(R))).T                  # replicated over the group's modes
+D_g = (Q * sign(diag(R))).T                  # replicated over the group's modes
 ```
 
 and identity-prefix TT cores with `L[d−1] = R[0] = 0`. Three properties, each by construction:
@@ -209,7 +209,7 @@ True
 
 ```
 
-**Why Haar, and only for `U`.** The Tucker factor is the only part of the frame that meets the data. Any
+**Why Haar, and only for `D`.** The Tucker factor is the only part of the frame that meets the data. Any
 **coordinate-aligned** completion — LAPACK's of a zero core, or an identity prefix — gives a reference of
 **exactly 0** whenever the data have no energy on the leading coordinates (F32); a Haar draw never does
 (seeds 0–5 gave 9.5–24 on such data). The TT cores act on rank indices, which carry no data orientation,
@@ -225,7 +225,7 @@ and duck-typed for custom geometries (m34). Alternatives considered: [`deferred_
 
 The shared set is the tied parametrization `Φ(Tθ)` (`T` copies each group's factor to its modes), so its
 Hessian is the same formula through a **tied lift** (`sharing.fv_tied_lift_factors`): each group's
-coordinates lift to ONE raw factor direction, `U̇_g = M_g^{+ε}[V_{i₁}; …]`, against the stacked-`S` SVD the
+coordinates lift to ONE raw factor direction, `Ḃ_g = M_g^{+ε}[V_{i₁}; …]`, against the stacked-`S` SVD the
 tied projection already uses (the two share `_tied_filtered_solve`, bit-identical), the transpose sums the
 group's copies, and the normal part is taken against the **tied** misfit gradient. A per-mode lift
 represents the same tangent but not a tied direction; the two coincide iff every `S_iᵀ` is square, so the
@@ -307,7 +307,7 @@ the dispatch tests).
 | E9 | the zero reference moves ≤ 1.6–1.7× under a mode rotation; a nonzero start's `‖g‖` is invariant | "good to an O(1) factor" |
 | E10 | per-layer zero references broke the O2 ragged/uniform pairing (5.2e-4 / 3.9e-3) | the canonical frame (F31, F37) |
 | F13 | the probe-derivative two-hole (orders 0–3, `K ∈ {(2,), (2,3)}`, `C ∈ {(), (2,)}`, d ∈ {4, 3, 1}) = the block sum | ≤ 1.0e-15 (S3: 4.4e-16; S12 apply/entries derivatives ≤ 7e-16; an independent dense oracle 9.7e-16) |
-| F14 | shared, sharing `(0,0,1)`: the tied lift satisfies `DΦ[Lv] = Ev`; the exact form matches FD along the shared retraction at O(h²) | lift 5.3e-16 (S7 through `Problem.local_model`: 4.7e-16); FD ratios 4.0 / 4.25 |
+| F14 | shared, sharing `(0,0,1)`: the tied lift satisfies `dΦ[Lv] = Ev`; the exact form matches FD along the shared retraction at O(h²) | lift 5.3e-16 (S7 through `Problem.local_model`: 4.7e-16); FD ratios 4.0 / 4.25 |
 | F15 | θ and θ̂ masked on entry → real block exact; an unmasked θ̂ corrupts it | 5.5e-17; unmasked 2.6e3 |
 | F16 | the T/S transforms hold at the manifold frame, fail at the corewise one | ≤ 9.5e-16; 6.2 |
 | F17 | `‖X‖² = Σσ(S_0)² = Σσ(T_i)²` | ≤ 1.4e-15 |
@@ -315,7 +315,7 @@ the dispatch tests).
 | F19 | probe derivatives, order 2, ω = `[1, .5, .25]`, restart rank 2 → 3, 5 % noise: GN + Armijo 39 steps / 130 hvps; exact + TR 8 / 23 at power 1.0, 10 / 28 at 0.5, 0 rejected | seeded; the plan's restart template |
 | F21 | the TR floor rule on both degenerate cases → `objective_floor` | T15 |
 | F22, F29 | T16's rates (plain `apply`; a GN warm-up of 15 steps with `g0_reference='warm_start'`): GN ratios 0.56–0.68; exact power 1.0 `e_{k+1}/e_k² ≤ 0.92`; power 0.5 `e_{k+1}/e_k^{1.5}` 0.43–0.98 in `[1e-6, 1e-1]` | S12 through the library: 0.917 with the warm-start warm-up (the zero-reference warm-up moves it to 0.941 — drift of the warm-up's end point, not the kernels); T16 itself is re-based on probe derivatives (S5) |
-| F23 | the uniform frame's up / left masks ⊆ the point's; a strict subset at TT slack | why the kinds read the frame's masks |
+| F23 | the uniform frame's down / left masks ⊆ the point's; a strict subset at TT slack | why the kinds read the frame's masks |
 | F24 | every step with `|pred| > 1e3·res` has `|1 − ρ| ≤ 1e-3` | T16's step criterion (n15) |
 | F25 | the frame argument reaches the real extent (m29); numpy float32 → float64 residual (m30) | — |
 | F26 | g₀ interplay on F19's problem: zero 7.01e4 vs warm start 2.07e4; GN 36 vs 39 steps; exact + TR 9/27 vs 10/28 (power 0.5), 7/24 vs 8/23 (1.0); COREWISE zero reference 0.0; `g0norm_newton=0.0` used to raise `ZeroDivisionError` | — |

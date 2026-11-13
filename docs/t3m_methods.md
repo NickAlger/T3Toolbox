@@ -21,10 +21,10 @@ With **no truncation requested, every method short-circuits to the exact full pr
 
 ## What there is to truncate
 
-Write a T3 as `T[x] = Σ_n (∏_i U_i[n_i, x_i]) · C[n]`, with the central Tucker core `C` stored as
+Write a T3 as `T[x] = Σ_n (∏_i B_i[n_i, x_i]) · C[n]`, with the central Tucker core `C` stored as
 a tensor train. The elementwise product splits into **two truncatable rank families**:
 
-- **Tucker factors:** `W_i = U_i^x ⊙ U_i^y` (row-wise Khatri-Rao), rank `n_x·n_y` → truncate to `ñ_i`;
+- **Tucker factors:** `W_i = B_i^x ⊙ B_i^y` (row-wise Khatri-Rao), rank `n_x·n_y` → truncate to `ñ_i`;
 - **central core-TT bonds:** `G̃_i = G_i^x ⊗ G_i^y` (Kronecker), bond `r_x·r_y` → truncate to `r̃_i`.
 
 Both families blow up quadratically, which is why an untruncated product chain gets expensive fast

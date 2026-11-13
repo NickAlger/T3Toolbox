@@ -104,8 +104,8 @@ different pages are collected at the end, in [Symbols](#symbols).
   orthonormal columns; *right*, its `ri × (ni·r(i+1))` unfolding has orthonormal rows; *up* (also outer), its
   `ni × (ri·r(i+1))` matricization has orthonormal rows (`up_orthogonalize_tt_cores`). Tucker core: *down*,
   `B Bᵀ = I` (`down_orthogonalize_tucker_cores`). The adjective names the side of the cut edge whose indices the
-  orthonormality sums over. **Clash:** the frame pages name these by store instead (`O` "down-orthogonal", `U` "up
-  orthogonal"); a rename of the stores is being assessed.
+  orthonormality sums over. The frame stores are named the same way: an up core is up-orthogonal, a down core
+  down-orthogonal (2026.5.0; before, the store names were the other way round).
   [Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)
 - **oversample** (`t3m(method='swap', oversample=k)`). Relax every truncation criterion by `k` during the swap merge,
   then truncate once at the targets. Unrelated to the alignment's `oversampling`.
@@ -117,7 +117,9 @@ different pages are collected at the end, in [Symbols](#symbols).
   economy SVD of the real block, bitwise zero on padding, with no rank tolerance. Uniform sweeps use it.
   [The full-rank qualifier](uniform_equivalence_contract.md#the-full-rank-qualifier-measured-2026-08-27)
 - **padded widths** (`n`, `r`, `N`; frames `nD`, `nU`, `rL`, `rR`; also: nominal rank, a level's widths, padded `N`).
-  The common sizes a uniform object's cores are padded to: Tucker `n`, TT `r`, mode `N ≥ max Ni`.
+  The common sizes a uniform object's cores are padded to: Tucker `n`, TT `r`, mode `N ≥ max Ni`. A frame's stores
+  each have their own: `nD` the down store's (the Tucker factor's rows), `nU` the up store's (the up core's mode leg),
+  `rL`, `rR` the left and right stores' bonds. `nD` and `nU` swapped meaning in 2026.5.0.
   [The layout](uniform_supercore_layout.md#the-layout)
 - **prefix mask** (`common.prefix_mask`; also: canonical form). A mask whose real slots are `[0, rank)`. `ut3svd` and
   SVD-based orthogonalization produce it; it is an output property, never an input assumption.
@@ -192,7 +194,7 @@ different pages are collected at the end, in [Symbols](#symbols).
   central core. [User guide](user_guide.rst)
 - **TT rank** (`tt_ranks`, `ri`, length `d+1`; also: bond rank, bond). The size of TT bond `i`: between TT cores
   `i-1` and `i`, with `r0` and `rd` the boundary bonds. [User guide](user_guide.rst)
-- **Tucker core** (`tucker_cores`; `Bi`, `Ui` in a frame; also: Tucker factor, Tucker basis, leaf). The `d` matrices
+- **Tucker core** (`tucker_cores`; `Bi`, `Di` in a frame; also: Tucker factor, Tucker basis, leaf). The `d` matrices
   of shape `stack_shape + (ni, Ni)` mapping mode `i` to its Tucker index. [User guide](user_guide.rst)
 - **Tucker rank** (`tucker_ranks`, `ni`, length `d`). The size of the edge between Tucker core `i` and TT core `i`.
   [User guide](user_guide.rst)
@@ -218,8 +220,9 @@ different pages are collected at the end, in [Symbols](#symbols).
   onto the frame's tangent space and gives every store the leading new directions of its content.
   [The alignment](aligned_padded_frame.md#the-alignment)
 - **alignment pass** (`T3Tangent.align_padded`, `tv_align_padded_frame`; also: pass, alignment step). One update of the
-  stores named in `update` (letters `U`, `O`, `L`, `R`); the others are transported. Returns the new frame and its
-  movement. [The alignment](aligned_padded_frame.md#the-alignment)
+  stores named in `update`, a tuple of the store letters `D`, `U`, `L`, `R` in any order; the others are transported.
+  (2026.4.0: the letters `U`, `O`, `L`, `R`, with `U` the Tucker store, or a string of them.) Returns the new frame and
+  its movement. [The alignment](aligned_padded_frame.md#the-alignment)
 - **ambient projection** (`project_ambient`). Project an ambient tensor (a T3 or a dense array) onto the tangent
   space at a frame; applied to an ambient gradient it gives the Riemannian gradient.
   [The geometries](numerical_contracts.md#the-geometries-the-semantic-innernorm-live-here)
@@ -227,7 +230,7 @@ different pages are collected at the end, in [Symbols](#symbols).
   derivative examples, "base points X" are sample locations instead.
   [A tangent is a sum of terms](frame_variations.md#a-tangent-is-a-sum-of-d-terms)
 - **base-point tangent** (`v_X`; `fv_base_point_tangent`). The point written as a gauged tangent at its own frame: all
-  variations zero except the last TT variation, so `‖X‖² = ‖P_last‖²`.
+  variations zero except the last TT variation, so `‖X‖² = ‖L_last‖²`.
   [`d` cores, `d+1` bonds](frame_variations.md#d-cores-d1-bonds--and-the-extra-ld-r0)
 - **block layout** (split `(Na, Rb)`). The uniform alignment's internal layout: every rank slot is `[old block | new
   block]`, each padded to one width with its own mask; `(Na, Rb)` are the old block's Tucker and bond widths.
@@ -249,8 +252,9 @@ different pages are collected at the end, in [Symbols](#symbols).
 - **`COREWISE`** (`CorewiseGeometry`, `CorewiseGeometryOps`). The Euclidean geometry of the raw cores: corewise frame,
   identity projection, additive retraction. Its Gauss-Newton Hessian is gauge-singular.
   [Choosing a geometry](fitting_and_optimization.md#24-choosing-a-geometry)
-- **corewise frame** (`(U, G, G, G)`; `t3_corewise_frame`). The non-orthonormal frame whose down, left and right cores
-  are the TT cores, so a tangent is a raw core perturbation. `COREWISE` uses it.
+- **corewise frame** (`(B, G, G, G)`; `t3_corewise_frame`; also: (2026.4.0: `(U, G, G, G)`)). The non-orthonormal frame
+  whose up, left and right cores are the TT cores `G` and whose down cores are the Tucker cores `B`, so a tangent is a
+  raw core perturbation. `COREWISE` uses it.
   [Corewise transpose](transposes.md#corewise--xapply_corewise_transposec-ww-sum_over_probes--instance)
 - **doubled-rank representation** (`T3Tangent.to_t3`, `tv_to_t3`; `include_shift`). The tangent as one T3 of about
   twice the frame's ranks; `include_shift=True` adds the base point. [Frame-variations](frame_variations.md)
@@ -263,14 +267,16 @@ different pages are collected at the end, in [Symbols](#symbols).
 - **frame** (`T3Frame`, `UT3Frame`; also: orthogonal frame, orthonormal frame). The four stores of orthonormal frame
   cores that encode a base point and span its tangent space. Not a basis: at a non-minimal point it is overcomplete.
   [Frame-variations](frame_variations.md)
-- **frame cores** (up `Ui`, down `Oi`, left `Li`, right `Ri`; `down_tucker_cores`, `up_tt_cores`, `left_tt_cores`,
-  `right_tt_cores`; also: `P`/`Q` for left/right, `D` or "outer" for down). Up: orthonormal Tucker cores. Down:
-  TT-shaped `(rL, nU, rR)`, the TT core of the Tucker-variation terms (`Vi` varies in the complement of `Ui`'s rows).
-  Left/right: the orthogonal TT environments. [Frame-variations](frame_variations.md#a-tangent-is-a-sum-of-d-terms)
+- **frame cores** (down `Di`, up `Ui`, left `Li`, right `Ri`; `down_tucker_cores`, `up_tt_cores`, `left_tt_cores`,
+  `right_tt_cores`; also: "outer" for up, T4S's letters (see **T4S**),
+  (2026.4.0, names reversed: up `Ui` (Tucker), down `Oi` or `Di`, `up_tucker_cores`, `down_tt_cores`)).
+  Down: the orthonormal Tucker factors `(nD, N)`. Up: TT-shaped `(rL, nU, rR)`, the TT core of the Tucker-variation
+  terms (`Vi` varies in the complement of `Di`'s rows). Left/right: the orthogonal TT environments. Each store is
+  named for the side of its edge its cores occupy. [Frame-variations](frame_variations.md#a-tangent-is-a-sum-of-d-terms)
 - **frame-variations format** (`frame_variations_format`, `fv_` / `tv_`; also: frame-variations representation,
   (frame, variations) pair). A tangent stored as a frame plus variations; `fv_` treats the pair as indexed pieces,
   `tv_` as the sum of its terms. [Frame-variations](frame_variations.md)
-- **gauge conditions** (`is_gauged`, `gauge_residual`; also: gauged). `Ui Viᵀ = 0` for every `i` (code layout), and
+- **gauge conditions** (`is_gauged`, `gauge_residual`; also: gauged). `Di Viᵀ = 0` for every `i` (code layout), and
   each `Li` left-orthogonal against `Hi` for `i < d-1` (T4S eqs. 47–48). They make the variations coordinates.
   [Gauge conditions](frame_variations.md#gauge-conditions-make-the-variations-coordinates)
 - **gauge freedom** (also: gauge, up to gauge). The non-uniqueness of a representation: any invertible change on an
@@ -281,7 +287,7 @@ different pages are collected at the end, in [Symbols](#symbols).
   subspace; it keeps the gauged part and changes the represented tangent, and applied after a bare transpose it gives
   the Riemannian gradient. *Oblique* (`MANIFOLD.project_oblique`, `tv_oblique_gauge_projection`; also: oblique
   projection): not orthogonal; it enforces the gauge while preserving the represented tangent, compensating through
-  the down and right cores. (An ambient tensor goes through **ambient projection** instead.)
+  the up and right cores. (An ambient tensor goes through **ambient projection** instead.)
   [Notes](entries_apply_probe.md#4-the-riemannian--tangent-versions-and-their-transposes)
 - **geometry** (`MANIFOLD`, `COREWISE`, `UNIFORM_MANIFOLD`, `UNIFORM_COREWISE`; backend `*GeometryOps`; protocol
   `optimizers.Geometry`). Where optimization happens: the frame, the projection `Π`, the retraction and the metric,
@@ -342,8 +348,11 @@ different pages are collected at the end, in [Symbols](#symbols).
   differences between the stores' ranks. Geometrically inert; the first retraction collapses it.
   [Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)
 - **store** (`down_ranks`, `up_ranks`, `left_ranks`, `right_ranks`; also: rank store, orthogonal-representation
-  ranks). One of the frame's four core families, each orthonormal in its own matricization or unfolding. Its ranks are
-  set by the orthogonalization sweep (up, left, right over the left chain, then down); the differences are the slack.
+  ranks, (2026.4.0, names reversed: `up_ranks` (Tucker), `down_ranks` (TT-shaped))). One of the frame's four core
+  families, named for the side of its edge its cores occupy, with the TT chain drawn on top: left and right of every
+  TT bond, up (the TT-shaped cores) above and down (the Tucker factors) below every Tucker edge. Each is orthonormal
+  in its own matricization or unfolding, over the indices on its side. Its ranks are set by the orthogonalization
+  sweep (down, left, right over the left chain, then up); the differences are the slack.
   [Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)
 - **store transport**. In an alignment pass, a store not named in `update` keeps its completion, re-expressed in the
   new coordinates. Unrelated to vector transport. [Internals](contributor/padded_frame_internals.md#the-step-as-message-passing)
@@ -357,21 +366,21 @@ different pages are collected at the end, in [Symbols](#symbols).
 - **tangent cone**. At a point of lower rank than the target ranks (the zero tensor, a zero-padded point), the
   first-order directions into the tensors of at most those ranks: a union of linear spaces, not one tangent space.
   The cone merit and the cone reference are named for it. [The math note](padded_frame_cone.pdf)
-- **tangent metric** (`T3FrameWeights`, `UT3FrameWeights`). Diagonal weights on a tangent's coordinates (`up`, `down`,
+- **tangent metric** (`T3FrameWeights`, `UT3FrameWeights`). Diagonal weights on a tangent's coordinates (`down`, `up`,
   `left`, `right`, each length `d`), absorbed into the variations but batched with the frame stack `C`.
   [`T3FrameWeights`](weighting.md#t3frameweights--a-metric-on-a-tangent)
 - **tied projection** (`Π_sh`; `SharedGeometry.project`). The projection onto the tied tangent subspace in the
   geometry's own metric: a tilted post-pass on the manifold, the per-group mean on corewise.
   [Optimizing over shared factors](sharing.md#optimizing-over-shared-factors)
-- **two-colour pass** (`'UL'`, `'RO'`; `alternate=True`). A pass updating the up and left stores, then one updating
-  right and down, the other colour transported; avoids the period-2 cycle of simultaneous updates.
+- **two-colour pass** (`('D', 'L')`, `('U', 'R')`; `alternate=True`). A pass updating the down and left stores, then
+  one updating the up and right stores, the other colour transported; avoids the period-2 cycle of simultaneous updates.
   [The schedule](aligned_padded_frame.md#the-schedule)
 - **variation masks** (`ufv_variation_masks`; also: gauge-shifted masks). A uniform tangent's variation masks, derived
-  from the frame's as `(up, down, left[:-1], right[1:])`; tangent `+`/`−`/scale leave them unchanged.
+  from the frame's as `(down, up, left[:-1], right[1:])`; tangent `+`/`−`/scale leave them unchanged.
   [Tangent masks](uniform_masks_vs_ranks.md#tangent-variation-masks-a-different-algebra)
 - **variations** (`T3Variations`, `UT3Variations`; `tucker_variations` `Vi`, `tt_variations` `Hi`; also: variation
-  cores, `δU`/`δG`). The cores that fill the frame's holes and encode a tangent's direction. Gauged, they are
-  orthonormal coordinates. [Frame-variations](frame_variations.md)
+  cores, T4S's letters (see **T4S**)). The cores that fill the frame's holes and encode a tangent's direction. Gauged,
+  they are orthonormal coordinates. [Frame-variations](frame_variations.md)
 - **vector transport** (`MANIFOLD.transport`). Move a tangent to the tangent space at another frame by projection.
   [The geometries](numerical_contracts.md#the-geometries-the-semantic-innernorm-live-here)
 - **zero-point frame** (`fv_zero_point_frame`; also: canonical zero-point frame). The fixed frame at the zero tensor:
@@ -606,7 +615,7 @@ different pages are collected at the end, in [Symbols](#symbols).
   never Hilbert–Schmidt. `corewise_dot`/`corewise_norm` collapse every axis, stacks included.
   [Semantic markers](naming_conventions.md#semantic-markers-load-bearing--you-can-trust-them)
 - **`.data`** (also: raw tuple). The raw tuple a frontend object wraps: `(tucker_cores, tt_cores)`; a frame's
-  `(up, down, left, right)`; `(tucker_variations, tt_variations)`; uniform `(supercores…, shape, masks)`.
+  `(down, up, left, right)`; `(tucker_variations, tt_variations)`; uniform `(supercores…, shape, masks)`.
   [Naming conventions](naming_conventions.md#parameter-names-carry-representation-too)
 - **dispatch** (`get_backend` → `xnp`, `xmap`, `xscan`; `tree_contains_jax`; also: inferred dispatch). numpy vs jax
   is inferred from the input arrays at the lowest level, and ragged vs uniform from the operand types; no `use_jax`
@@ -685,7 +694,8 @@ different pages are collected at the end, in [Symbols](#symbols).
 - **structural vs numerical**. Structural problems (shapes, ranks, masks, options) always raise, in both modes and
   under jit; numerical preconditions are checked only in safe mode. [User guide](user_guide.rst)
 - **T4S**. The paper Alger, Christierson, Chen & Ghattas (2026), "Tucker Tensor Train Taylor Series"
-  (arXiv:2603.21141); citations use the arXiv numbering. [arXiv](https://arxiv.org/abs/2603.21141)
+  (arXiv:2603.21141); citations use the arXiv numbering. T4S writes U, O, P, Q for our D, U, L, R; its δU is our V
+  (`tucker_variations`), its δG our H (`tt_variations`). [arXiv](https://arxiv.org/abs/2603.21141)
 - **twin** (uniform twin, backend twin, frontend twin, `_trs` / test twin, dotted twin). The same operation at another
   layer or level, or a reference implementation of it. [Naming conventions](naming_conventions.md)
 - **`use_jax`**. The flag on pure constructors with no array input (`randn`, `zeros`, `ones`, `load` and backend
@@ -700,7 +710,11 @@ different pages are collected at the end, in [Symbols](#symbols).
 ## Symbols
 
 Uppercase `C`, `W`, `K` are reserved for the batch blocks in shape comments and contraction strings; lowercase
-letters are single axes. The letters below also carry other meanings on some pages.
+letters are single axes. A frame's stores are written `D`, `U`, `L`, `R` (down, up, left, right), with widths `nD`
+(the down store's: the Tucker factor's rows), `nU` (the up store's: the up core's mode leg), `rL` and `rR`; a T3's own
+cores are `B` (Tucker) and `G` (TT). Before 2026.5.0 the words up and down, and with them `nU` and `nD`, named the
+other store ([Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)). The letters
+below also carry other meanings on some pages.
 
 | symbol | meanings, and the pages that use each |
 |---|---|
@@ -710,17 +724,20 @@ letters are single axes. The letters below also carry other meanings on some pag
 | `r` | TT rank `ri`; the padded TT width (uniform); the residual `r` (fitting pages) |
 | `K` | the tangent stack (batching, naming conventions, shape comments); the derivative order in `fitting_and_optimization.md` §2.1, `backend/sampling_derivatives.py`'s module comment and the apply-derivative examples, where `order` is meant; the curvature operators `K_{Aᵀω²r}`, `K_{grad f}` (§4.12, `LocalModel` docstrings) |
 | `W` | the probe stack (batching, shape comments); a `T3Weights` variable (`weighting.md`); the Khatri–Rao factor `Wi` (`t3m_methods.md`); the up-matricization `Wi` (shared-factor math note); an integer variable in a `chunking.md` example |
-| `P` | the left frame core in the T4S paper's notation (`batching_and_stacking.md` §8, `entries_apply_probe.md` §8, `LocalModel.frame` as `(U, O, P, Q)`), where the user guide writes `L`; the derivative direction (`pp`); a completion `P⁺` (`aligned_padded_frame.md` movement, the padded-frame note); the tangent projector `P_X` / `P_F`; the core parameter space (`CorewiseGeometry`) |
-| `L` | the left frame cores `Li` (user guide, `frame_variations.md`); the lift `L` (§4.12, curvature pages) |
+| `P` | the derivative direction (`pp`); a completion `P⁺` (`aligned_padded_frame.md` movement, the padded-frame note); the tangent projector `P_X` / `P_F`; the core parameter space (`CorewiseGeometry`); T4S's left frame core, our `L` (see **T4S**; the paper ↔ code maps, `batching_and_stacking.md` §8 and `entries_apply_probe.md` §8, keep the paper's letters) |
+| `L` | the left frame cores `Li` and the left store's letter (user guide, `frame_variations.md`, `update`); the lift `L` (§4.12, curvature pages) |
 | `H` | the TT variations `Hi` (frame pages); the Hessian `H` (fitting pages); the centers `Hi = Li Ti` (`curvature_internals.md`, CHANGELOG 2026.3.0); `H_R`, the regularizer's Hessian |
 | `S` | the sampling operator `S(x)` (fitting pages); the hint `S` (padded-frame note); the frame factors `Si` (`sharing.md`, `curvature_internals.md`); `S` in the T/S transforms (`curvature_internals.md`) |
-| `O`, `D` | the down frame core: `O` in the user guide, `frame_variations.md`, the math notes and the `update` letters; `D` in the `T3Frame` docstring; "outer" in the minimal-rank list |
+| `D` | the down frame core `Di`, a Tucker factor, and the down store's letter (frame pages, diagrams, equations, `update`). Before 2026.5.0 `D` also stood for the derivative (now the upright `d`), the forward jet shift (now `sh`), the padded-frame messages (now `Ψ`) and, in the `T3Frame` docstring, the TT-shaped core (now `U`) |
+| `U` | the up frame core `Ui`, TT-shaped, and the up store's letter (frame pages, diagrams, equations, `update`); the SVD factor in `UΣVᵀ`. Before 2026.5.0 `U` was the Tucker frame core and its `update` letter (now `D`), the reverse jet shift (now `shᵀ`) and the padded-frame note's edge frame (now `F_{x→t}`) |
 | `κ` | the edge condition number `κi` and group `κ_g` (rank continuation, sharing); the display ratio `κ = pKp/(pHp − pKp)` (§4.12) |
 | `ρ` | the regularizer `ρ(x)`; the trust-region ratio of actual to predicted change |
 | `η`, `σ` | `η`: the central edge variable and the CG forcing term; `σ`: singular values, a tangent edge variable, and `lift_sigma_min` in the display |
 | `Π` | the gauge projection on variations (`MANIFOLD.project`); `Π_{T(F)}`, the ambient projection onto a frame's tangent space (aligned-frame pages) |
+| `Ψ` | the padded-frame messages and products (`Ψ_{a→b}` in the padded-frame note, `Ψ` in `contributor/padded_frame_internals.md`, `Psi` in code), beside the note's edge frame `F_{x→t}`; before 2026.5.0 written `D` |
 | `X`, `x` | the T3 iterate; the sample location of a derivative measurement (derivative examples, "probe vectors X" in derivative-model docstrings) |
 | `T` | the frame factors `Ti` (exact-Hessian note); the tangent space `T(F)` (padded-frame pages); the represented tensor (shared-factor note) |
-| `d` | the number of modes; the leading supercore axis (uniform layer); a leading `d` in a local name's suffix is the supercore or derivative axis |
+| `d` | the number of modes; the leading supercore axis (uniform layer); a leading `d` in a local name's suffix is the supercore or derivative axis; upright, the differential (`dΦ`, `d²Φ`: `curvature_internals.md`, the exact-Hessian and symmetric-probe notes), told apart from the mode count by context. Before 2026.5.0 the differential was `D` |
+| `sh` | the jet shift: forward `(sh x)^(t) = t x^(t-1)` and its adjoint, reverse `(shᵀ x)^(s) = (s+1) x^(s+1)` (`backend/sampling_derivatives.py`, whose functions `_shift_down`, `_shift_up` keep their names; the exact-Hessian note's `\mathsf{sh}`); before 2026.5.0 written `D` and `U` |
 | `m` | the maximum derivative order in `symmetric_probe_derivatives.tex` (the code's `order`); the cone merit `m_c`; the Gauss-Newton model `m(p)` |
 | `ε` | the lift damping (`curvature_damping`); machine epsilon in the `objective_floor` test; `adam`'s `eps` |

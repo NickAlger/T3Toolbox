@@ -64,11 +64,11 @@ the tail-energy definition of $\rank_\varepsilon$ made explicit
 A \emph{Tucker tensor train} (T3; equivalently, extended tensor train)
 represents a tensor $\T \in \R^{N_1 \times \cdots \times N_d}$ as
 \[
-\T = \bigl[\bigl[\, G ;\; U_1, \ldots, U_d \,\bigr]\bigr],
+\T = \bigl[\bigl[\, G ;\; B_1, \ldots, B_d \,\bigr]\bigr],
 \qquad
 G = \mathrm{TT}(G_1, \ldots, G_d),
 \]
-where $U_i \in \R^{N_i \times n_i}$ are the Tucker factors,
+where $B_i \in \R^{N_i \times n_i}$ are the Tucker factors,
 $G_i \in \R^{r_{i-1} \times n_i \times r_i}$ are the TT cores of the central
 Tucker core $G \in \R^{n_1 \times \cdots \times n_d}$, and
 $r_0 = r_d = 1$. We call $\boldsymbol{n} = (n_1,\ldots,n_d)$ the Tucker ranks
@@ -79,10 +79,20 @@ matricization of $\T$ and $\T^{\langle i \rangle}$ its $i$-th matrix
 unfolding. $W_i \in \R^{n_i \times r_{i-1} r_i}$ denotes the
 \emph{up-matricization} of core $G_i$ (Tucker leg to rows). All statements
 below assume the standard \emph{orthogonalized representations}: the factors
-$U_i$ have orthonormal columns, and, when a statement refers to mode $i$, the
+$B_i$ have orthonormal columns, and, when a statement refers to mode $i$, the
 TT chain is in \emph{$i$-orthogonal form} (cores left of $i$ left-orthogonal,
 cores right of $i$ right-orthogonal), reachable by QR sweeps without changing
-$\T$.
+$\T$. In the tangent-space statements of Section~\ref{sec:geometry} the
+factors and their directions are written $D_i$, $D_g$, $\dot D$: the down
+store of T3Toolbox's orthonormal frame (T4S~\cite{T4S}, App.~A.3). At a point
+in orthonormal representation $D_i$ is $B_i$; the corewise geometry of
+Proposition~\ref{prop:corewise}, whose points are the raw cores, keeps $B_i$.
+
+T4S writes $U$, $O$, $P$, $Q$ for our $D$, $U$, $L$, $R$; its $\delta U$ is
+our $V$ (\texttt{tucker\_variations}), its $\delta G$ our $H$
+(\texttt{tt\_variations}). Before T3Toolbox 2026.5.0 this note wrote $U$ for
+the factors (now $B$, and $D$ in the tangent statements), $B_i$ for the block
+$K_i$ of Algorithm~\ref{alg:init}, and $B$ for the tied coordinates $Z$.
 
 \begin{definition}[Mode environment / Gram matrix]\label{def:gram}
 $\Gamma_i \coloneqq G_{(i)} G_{(i)}^\top \in \R^{n_i \times n_i}$, the Gram of
@@ -101,7 +111,7 @@ is the identity).
 \begin{definition}[Sharing partition; shared T3]\label{def:sharing}
 A \emph{sharing partition} assigns each mode $i \in \{1,\ldots,d\}$ to a group
 $g$; modes in a group $g = (i_1, \ldots, i_{k_g})$ must have equal mode sizes,
-denoted $N_g$. A T3 is \emph{shared} (an SF-T3) if $U_{i} = U_{g}$ and
+denoted $N_g$. A T3 is \emph{shared} (an SF-T3) if $B_{i} = B_{g}$ and
 $n_i = n_g$ for all $i \in g$, for every group. Singleton groups impose no
 constraint. $\Msh$ denotes the set of shared T3s with fixed ranks
 (Section~\ref{sec:geometry}).
@@ -116,12 +126,12 @@ matrix $[\,\T_{(i_1)} \,|\, \cdots \,|\, \T_{(i_{k_g})}\,]$.
 Let $\T$ be a shared T3 with orthonormal factors, and let each $W_i$ be taken
 in the $i$-orthogonal representation. Then for each mode $i$ of group $g$,
 \begin{equation}\label{eq:skeleton}
-\T_{(i)} = U_g\, W_i\, M_i,
+\T_{(i)} = B_g\, W_i\, M_i,
 \end{equation}
 where $M_i$ has orthonormal rows, and stacking the group's matricizations,
 \begin{equation}\label{eq:stacked}
 \bigl[\,\T_{(i_1)} \,|\, \cdots \,|\, \T_{(i_k)}\,\bigr]
-= U_g \,\bigl[\, W_{i_1} \,|\, \cdots \,|\, W_{i_k} \,\bigr]\,
+= B_g \,\bigl[\, W_{i_1} \,|\, \cdots \,|\, W_{i_k} \,\bigr]\,
 \operatorname{blockdiag}\!\bigl(M_{i_1}, \ldots, M_{i_k}\bigr).
 \end{equation}
 Consequently the nonzero singular values of the concatenation equal those of
@@ -144,7 +154,7 @@ a matrix $M_i$ with orthonormal rows (a Kronecker/interface product of
 orthonormal-column factors and left/right-orthogonal partial chains).
 Each block of the concatenation is factored in its own representation of the
 same tensor $\T$; since each factorization holds individually and the left
-factor $U_g$ is common by sharedness, \eqref{eq:stacked} follows by placing
+factor $B_g$ is common by sharedness, \eqref{eq:stacked} follows by placing
 the $M_i$ in block-diagonal position. The outer factors in \eqref{eq:stacked}
 are, respectively, orthonormal-column and orthonormal-row, so singular values
 pass to the middle factor. Finally,
@@ -165,10 +175,10 @@ TT ranks are unaffected by sharing:\ $r_i^{\min} = \rank \T^{\langle i\rangle}$.
 
 \begin{proof}[Proof sketch]
 $(\geq)$: in any shared representation, every $\T_{(i)}$, $i \in g$, has
-column space contained in $\operatorname{range}(U_g)$, hence so does the
+column space contained in $\operatorname{range}(B_g)$, hence so does the
 concatenation, giving $\rank[\cdots] \leq n_g$.
-$(\leq)$: take $U_g$ to be an orthonormal basis of the concatenation's column
-space; projecting each mode ($U_g U_g^\top \T_{(i)} = \T_{(i)}$) yields an
+$(\leq)$: take $B_g$ to be an orthonormal basis of the concatenation's column
+space; projecting each mode ($B_g B_g^\top \T_{(i)} = \T_{(i)}$) yields an
 exact shared representation with $n_g = \rank[\cdots]$; TT-decompose the
 resulting core at the unfolding ranks. See \cite{MR2026,Pesh2024} for
 details.
@@ -192,12 +202,12 @@ with target ranks.
 \item Each group $g$: one truncated SVD of the concatenation
   $[\,W_{i_1} | \cdots | W_{i_k}\,] \in \R^{n_g \times \sum_{i\in g}
   r_{i-1} r_i}$, yielding leading left singular vectors $Y \in \R^{n_g \times
-  n_g'}$. Update $U_g \leftarrow U_g Y$ \emph{once} (assigned to every mode of
-  $g$) and apply $Y^\top$ to the up-leg of every core in $g$.
+  n_g'}$. Update $B_g \leftarrow B_g Y$ \emph{once} (assigned to every mode of
+  $g$) and apply $Y^\top$ to the Tucker leg of every core in $g$.
 \end{enumerate}
 By Lemma~\ref{lem:skeleton}, step (4) computes the optimal rank-$n_g'$
 truncation of the concatenation while touching the large dimension $N_g$ only
-in the single product $U_g Y$, at cost $O(N_g n_g^2)$ per group; the SVD
+in the single product $B_g Y$, at cost $O(N_g n_g^2)$ per group; the SVD
 itself acts on an $n_g \times \sum_i r_{i-1} r_i$ matrix.
 \end{algorithm}
 
@@ -270,26 +280,26 @@ matricization/unfolding of the original tensor.
 \section{Initialization: unshared $\to$ shared}\label{sec:init}
 
 \begin{algorithm}[Shared projection of an unshared T3]\label{alg:init}
-Input: T3 with orthonormal but distinct factors $U_i$, $i \in g$.
+Input: T3 with orthonormal but distinct factors $B_i$, $i \in g$.
 For each group $g$:
 \begin{enumerate}[label=\emph{(\arabic*)},itemsep=1pt,topsep=2pt]
 \item Stack factors and compute one tall QR:
-  $[\,U_{i_1} | \cdots | U_{i_k}\,] = Q R$, with
+  $[\,B_{i_1} | \cdots | B_{i_k}\,] = Q R$, with
   $Q \in \R^{N_g \times m}$, $m \leq \sum_{i\in g} n_i$.
-\item Express each block $B_i \coloneqq U_i W_i$ (never formed at size
-  $N_g$) in the $Q$ basis: $Q^\top B_i = R_{[i]} W_i$, where $R_{[i]}$ is the
+\item Express each block $K_i \coloneqq B_i W_i$ (never formed at size
+  $N_g$) in the $Q$ basis: $Q^\top K_i = R_{[i]} W_i$, where $R_{[i]}$ is the
   corresponding column block of $R$. SVD the small stacked matrix
   $[\,R_{[i_1]} W_{i_1} | \cdots | R_{[i_k]} W_{i_k}\,] \in
   \R^{m \times \sum_i r_{i-1} r_i}$; retain leading left singular vectors
   $Y$.
-\item Set $U_g \coloneqq Q Y$; project each mode by applying
-  $(U_g^\top U_i)$ to the up-leg of core $i$ and replacing the factor by
-  $U_g$. Follow with Algorithm~\ref{alg:rounding}.
+\item Set $B_g \coloneqq Q Y$; project each mode by applying
+  $(B_g^\top B_i)$ to the Tucker leg of core $i$ and replacing the factor by
+  $B_g$. Follow with Algorithm~\ref{alg:rounding}.
 \end{enumerate}
 \end{algorithm}
 
 \begin{lemma}\label{lem:init}
-The column space of $[\,B_{i_1} | \cdots | B_{i_k}\,]$ lies in
+The column space of $[\,K_{i_1} | \cdots | K_{i_k}\,]$ lies in
 $\operatorname{range}(Q)$, so step (2) computes the exact dominant left
 singular subspace of the concatenation $[\,\T_{(i_1)}|\cdots|\T_{(i_k)}\,]$
 while touching the large dimension only in the QR of step (1) and the product
@@ -322,7 +332,7 @@ Let $\Mnr$ denote the manifold of fixed-rank T3s and
 $T_{\T}\Mnr$ its tangent space at a point $\T$ with orthonormal
 representation. A tangent vector is a sum of $d$ TT-variation terms and $d$
 Tucker-variation terms; in \emph{gauged} form the Tucker variation at mode
-$i$ satisfies $U_i^\top \dot V_i = 0$, and gauge conditions make all cross
+$i$ satisfies $D_i^\top \dot V_i = 0$, and gauge conditions make all cross
 terms in the Hilbert--Schmidt inner product vanish, so
 \begin{equation}\label{eq:hsnorm}
 \langle \xi, \eta \rangle_{\HS}
@@ -344,10 +354,10 @@ manifold and is smooth \cite[Thm.~5]{MR2026}.
 \begin{proposition}[Tied tangent space is a tilted subspace]\label{prop:tilt}
 Fix a shared point. A tangent vector is tangent to $\Msh$ iff its TT
 variations are unrestricted and, per group, its Tucker variations arise from
-a single \emph{gauged ambient direction} $\dot U \in \R^{N_g \times n_g}$
-with $U_g^\top \dot U = 0$: in the ($S$-absorbed) frame coordinates,
+a single \emph{gauged ambient direction} $\dot D \in \R^{N_g \times n_g}$
+with $D_g^\top \dot D = 0$: in the ($S$-absorbed) frame coordinates,
 \begin{equation}\label{eq:tied}
-C_i = \dot U\, S_i \quad \text{for a common gauged } \dot U, \qquad i \in g .
+C_i = \dot D\, S_i \quad \text{for a common gauged } \dot D, \qquad i \in g .
 \end{equation}
 This is a linear subspace of the full gauged tangent space, tilted
 mode-by-mode by the (generally distinct, generally rectangular) $S_i$.
@@ -355,16 +365,16 @@ mode-by-mode by the (generally distinct, generally rectangular) $S_i$.
 
 \begin{remark}[No complement basis; rectangular $S_i$]
 An earlier draft stated \eqref{eq:tied} through an orthonormal complement
-$O_g$ of $U_g$ ($\dot U = O_g B$, coordinates $C_i = B S_i$), suggesting a
+$O_g$ of $D_g$ ($\dot D = O_g Z$, coordinates $C_i = Z S_i$), suggesting a
 complement must be constructed once per group and tied across it. The
-subspace depends only on $U_g$ (tied by hypothesis) and the $S_i$; no
+subspace depends only on $D_g$ (tied by hypothesis) and the $S_i$; no
 complement basis is ever materialized (nor is one materialized anywhere in
 T3Toolbox), and the per-mode rotational freedom in the factorization
 $\Gamma_i = S_i S_i^\top$ (replacing $S_i$ by $S_i Q_i$ together with the
 correspondingly rotated orthonormal core) cancels identically in
 \eqref{eq:tied} and in the projection \eqref{eq:gramsolve}. Note also that in
-implementation $S_i \in \R^{n_g \times n_{D,i}}$ with
-$n_{D,i} = \min(n_g,\ r_{i-1} r_i)$ --- rectangular in general, so an
+implementation $S_i \in \R^{n_g \times n_{U,i}}$ with
+$n_{U,i} = \min(n_g,\ r_{i-1} r_i)$ --- rectangular in general, so an
 individual Gram $\Gamma_i$ may be singular at a perfectly smooth shared
 point; only the group sum is invertible there
 (Proposition~\ref{prop:kappa}(iii)).
@@ -375,14 +385,14 @@ The orthogonal projection (in the frame-coordinate Euclidean metric, which
 equals Hilbert--Schmidt) of arbitrary gauged coordinates
 $(C_{i})_{i \in g}$ onto the subspace~\eqref{eq:tied} is given by
 \begin{equation}\label{eq:gramsolve}
-\dot U \;=\; \Bigl(\sum_{i \in g} C_i S_i^\top\Bigr)
+\dot D \;=\; \Bigl(\sum_{i \in g} C_i S_i^\top\Bigr)
         \Bigl(\sum_{i \in g} S_i S_i^\top\Bigr)^{-1}
    \;=\; \Bigl(\sum_{i \in g} C_i S_i^\top\Bigr)
         \Bigl(\sum_{i \in g} \Gamma_i\Bigr)^{-1},
 \qquad
-C_i \leftarrow \dot U S_i .
+C_i \leftarrow \dot D S_i .
 \end{equation}
-TT variations and singleton modes are unaffected, and $\dot U$ is
+TT variations and singleton modes are unaffected, and $\dot D$ is
 automatically gauged when the $C_i$ are. Formula~\eqref{eq:gramsolve}
 is the projection formula of \cite[\S 5.3]{MR2026} rederived as least squares
 onto a tilted diagonal; $\sum_i C_i S_i^\top$ equals the sum of raw per-mode
@@ -390,12 +400,12 @@ cotangents $(\nabla f)_{(i)} G_{(i)}^\top$.
 \end{proposition}
 
 \begin{proof}
-Minimize $\sum_{i\in g} \| C_i - \dot U S_i \|_F^2$ over $\dot U$; setting the
+Minimize $\sum_{i\in g} \| C_i - \dot D S_i \|_F^2$ over $\dot D$; setting the
 gradient to zero gives the normal equations
-$\sum_i C_i S_i^\top = \dot U \sum_i S_i S_i^\top$, invertible whenever the
+$\sum_i C_i S_i^\top = \dot D \sum_i S_i S_i^\top$, invertible whenever the
 point has full shared rank ($s_{g,n_g} > 0$ by \eqref{eq:specid}). Gauge:
-$U_g^\top \sum_i C_i S_i^\top = \sum_i (U_g^\top C_i) S_i^\top = 0$, and the
-Gram sum acts on the other side, so $U_g^\top \dot U = 0$.
+$D_g^\top \sum_i C_i S_i^\top = \sum_i (D_g^\top C_i) S_i^\top = 0$, and the
+Gram sum acts on the other side, so $D_g^\top \dot D = 0$.
 \end{proof}
 
 \begin{remark}[Numerical form: solve the tilted least squares by SVD, never
@@ -403,15 +413,15 @@ by normal equations]\label{rem:svdsolve}
 Implementations should not form the Gram sum. Stacking
 \[
 M_g = \begin{bmatrix} S_{i_1}^\top \\ \vdots \\ S_{i_k}^\top \end{bmatrix}
-\in \R^{(\sum_{i\in g} n_{D,i}) \times n_g},
+\in \R^{(\sum_{i\in g} n_{U,i}) \times n_g},
 \qquad
 C^{\mathrm{stack}} = \begin{bmatrix} C_{i_1}^\top \\ \vdots \\
 C_{i_k}^\top \end{bmatrix},
 \]
 the projection is the least-squares solution
-$\dot U^\top = M_g^{+}\, C^{\mathrm{stack}}$ (then
-$C_i^\top \leftarrow S_i^\top \dot U^\top$, the corresponding row block of
-$M_g \dot U^\top$), computed from one thin SVD of $M_g$ with a relative
+$\dot D^\top = M_g^{+}\, C^{\mathrm{stack}}$ (then
+$C_i^\top \leftarrow S_i^\top \dot D^\top$, the corresponding row block of
+$M_g \dot D^\top$), computed from one thin SVD of $M_g$ with a relative
 singular-value clip. Three payoffs. (i) The solve has the intrinsic
 least-squares sensitivity ($\kappa_g$ on the solution component); the
 normal-equations/Cholesky route is $\kappa_g^2$ unconditionally.
@@ -439,14 +449,14 @@ direction.
 \begin{proposition}[The corewise geometry ties by averaging]
 \label{prop:corewise}
 Consider instead the over-parametrized \emph{corewise} geometry: points are
-the raw cores $((U_i)_i, (G_i)_i)$, the metric is Euclidean on the core
+the raw cores $((B_i)_i, (G_i)_i)$, the metric is Euclidean on the core
 entries, and the retraction is addition of core perturbations. The shared
-parameter set $\{\,U_i = U_j,\ i, j \in g,\ \forall g\,\}$ is a linear
+parameter set $\{\,B_i = B_j,\ i, j \in g,\ \forall g\,\}$ is a linear
 subspace of the parameter space; its tangent space is
-$\{\dot U_i \text{ equal within each group}\}$ (TT-core perturbations
+$\{\dot B_i \text{ equal within each group}\}$ (TT-core perturbations
 unrestricted), and the orthogonal projection onto it in the corewise metric
 is the per-group arithmetic mean
-$\dot U_i \mapsto \tfrac{1}{k_g} \sum_{j \in g} \dot U_j$. The additive
+$\dot B_i \mapsto \tfrac{1}{k_g} \sum_{j \in g} \dot B_j$. The additive
 retraction then preserves tying exactly.
 \end{proposition}
 
@@ -469,7 +479,7 @@ at exactly symmetric points).
 \begin{proposition}[Retraction]\label{prop:retract}
 For a shared point $\T$ and tied tangent $\xi$, the attached point
 $\T + \xi$ admits a shared T3 representation with doubled ranks (the doubled
-factor is $[\,U_g \,|\, \dot U_g\,]$, identical across each group), and
+factor is $[\,D_g \,|\, \dot D_g\,]$, identical across each group), and
 \[
 R(\T, \xi) \coloneqq P_{\mathrm{sf}}(\T + \xi)
 \]
@@ -481,15 +491,15 @@ retraction on $\Msh$. This follows from quasi-optimality
 
 \begin{remark}[Tied doubled-rank embedding]\label{rem:embedding}
 The attached point $\T + \xi$ should be \emph{constructed} tied, not re-tied
-after the fact: per group, the doubled factor is $[\,U_g \,|\, \dot U\,]$
+after the fact: per group, the doubled factor is $[\,D_g \,|\, \dot D\,]$
 (one matrix, used at every mode of $g$; $2 n_g$ columns) and the paired core
 block at mode $i$ is the \emph{center core} $W_i$ (equivalently, $S_i$
 absorbed back into the $S$-stripped orthonormal core) --- cf.\ the SF-ETT
 tangent representation \cite[\S 5.2]{MR2026}. The naive embedding by
-per-mode factor blocks $[\,U_g \,|\, \dot U S_i\,]$ (the $S$-absorbed
+per-mode factor blocks $[\,D_g \,|\, \dot D S_i\,]$ (the $S$-absorbed
 coordinates) is \emph{not} tied: the blocks differ across the group in value
-and, when the $n_{D,i}$ differ, even in shape, and no per-mode averaging
-repairs this. $\dot U$ is recovered from tied coordinates by the
+and, when the $n_{U,i}$ differ, even in shape, and no per-mode averaging
+repairs this. $\dot D$ is recovered from tied coordinates by the
 least-squares solve of Remark~\ref{rem:svdsolve} (exact on tied input; its
 residual is a natural tied-tangent check).
 \end{remark}
@@ -548,9 +558,9 @@ group-wide.
 \label{prop:kappa}
 At a shared point:
 \begin{enumerate}[label=(\roman*),itemsep=1pt,topsep=2pt]
-\item The Gram of the tied parameterization $B \mapsto (BS_i)_{i \in g}$ is
+\item The Gram of the tied parameterization $Z \mapsto (ZS_i)_{i \in g}$ is
   $\sum_{i\in g}\Gamma_i$: for a tied Tucker tangent,
-  $\|\xi\|_{\HS}^2 = \tr\bigl(B (\sum_i \Gamma_i) B^\top\bigr)$. Its
+  $\|\xi\|_{\HS}^2 = \tr\bigl(Z (\sum_i \Gamma_i) Z^\top\bigr)$. Its
   eigenvalue spread is $\kappa_g^2$.
 \item The projection solve~\eqref{eq:gramsolve} has condition number
   $\kappa_g^2$.
@@ -562,8 +572,8 @@ At a shared point:
 \end{proposition}
 
 \begin{proof}
-(i) is \eqref{eq:hsnorm} with $\dot V_i \leftrightarrow BS_i$ absorbed into
-frame coordinates: $\sum_i \|BS_i\|_F^2 = \tr(B(\sum_i S_iS_i^\top)B^\top)$.
+(i) is \eqref{eq:hsnorm} with $\dot V_i \leftrightarrow ZS_i$ absorbed into
+frame coordinates: $\sum_i \|ZS_i\|_F^2 = \tr(Z(\sum_i S_iS_i^\top)Z^\top)$.
 (ii) is immediate from \eqref{eq:gramsolve} and \eqref{eq:specid}. (iii) is
 Theorem~\ref{thm:sharedrank} with \eqref{eq:specid}.
 \end{proof}
@@ -622,7 +632,7 @@ levels of $s_g$ are exactly zero, and the tied Tucker channel
 clipped pseudoinverse of Remark~\ref{rem:svdsolve} returns the minimum-norm
 solution --- zero there). The escape is carried by the \emph{untied
 TT-variation channel}: TT variations are unrestricted and have first-order
-content in the new up-slots, paired with the (deterministically completed,
+content in the new Tucker slots, paired with the (deterministically completed,
 tied) new factor columns, so the first Gauss--Newton step activates the new
 directions through core mass; once $s_g$ acquires mass, the tied Tucker
 channel reactivates, with a transiently large $\kappa_g$ that the clipped

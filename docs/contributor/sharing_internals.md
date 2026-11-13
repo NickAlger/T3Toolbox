@@ -14,9 +14,9 @@
 
 ## The `S_i` machinery: recompute by zipper, never retain, never re-SVD
 
-The tied tangent subspace at a shared point is basis-free: per group, `V_i = S_iᵀ U̇` for one common
-gauged ambient `U̇`, where `S_i = W2_i O2_iᵀ` is the small factor the frame construction itself
-produces (`backend/t3_orthogonalization.py`, the `Cxi` local; `S_i S_iᵀ = Γ_i` and `W2_i = S_i O2_i`
+The tied tangent subspace at a shared point is basis-free: per group, `V_i = S_iᵀ Ḋ` for one common
+gauged ambient `Ḋ`, where `S_i = W2_i U2_iᵀ` is the small factor the frame construction itself
+produces (`backend/t3_orthogonalization.py`, the `Cxi` local; `S_i S_iᵀ = Γ_i` and `W2_i = S_i U2_i`
 exactly). Three decisions:
 
 1. **Derived on demand, never stored.** `SharedFrameData` (the companion) is computed from a frame
@@ -25,7 +25,7 @@ exactly). Three decisions:
    centers are `H_i = L_i Z_{i+1}`, with `Z_{i+1}` the right-to-left zipper of the left chain against
    the right chain (`tt_zipper_right_to_left`): GEMM-only, exact to roundoff (≤ 4.5e-15 float64,
    ≤ 3.2e-7 float32, flat in `d` and `κ_TT` because the operands are orthogonal), and gauge-consistent
-   with the stored `O_i`/`R_i` *whatever built the frame*. A re-SVD would face sign/degenerate-block
+   with the stored `U_i`/`R_i` *whatever built the frame*. A re-SVD would face sign/degenerate-block
    hazards (symmetric tensors have repeated `Γ` eigenvalues). **History (2026-08-22 review, S9):** the
    first design re-ran `tt_right_orthogonalize(left_tt_cores, return_variation_cores=True)` — the same
    SVD sweep on the same stored arrays as the construction, hence bit-identical *when it was the same
@@ -56,9 +56,9 @@ The original plan had one post-pass for both geometries. Wrong — the review re
 geometry projects onto *its* tied subspace in *its* metric on *its* coordinates.
 
 - **Manifold** (gauged, `S`-absorbed coordinates, where corewise = Hilbert–Schmidt): the tilted
-  projection `U̇ = M_g⁺ [V_{i₁}; …; V_{iₖ}]`, redistributed as `V_i ← S_iᵀ U̇`.
+  projection `Ḋ = M_g⁺ [V_{i₁}; …; V_{iₖ}]`, redistributed as `V_i ← S_iᵀ Ḋ`.
 - **Corewise** (raw factor copies, Euclidean metric, additive retraction): the tied subspace is
-  `{δU_i all equal}` and the projection is the plain per-group **arithmetic mean**.
+  `{Ḃ_i all equal}` and the projection is the plain per-group **arithmetic mean**.
 
 The Gram formula at a corewise frame is a *different, wrong* projection, and the mean at a manifold
 frame projects onto the wrong subspace — both directions are pinned by an adversarial test (the
@@ -87,12 +87,12 @@ all-singleton = the literal unshared sweep, bit-identical. Implications kept on 
 
 ## The tied retraction: an embedding, not a repair
 
-The naive doubled factor `[U_g; V_i]` is **not tied** — the `V_i` differ across a group in value
+The naive doubled factor `[D_g; V_i]` is **not tied** — the `V_i` differ across a group in value
 and (when the `nU_i` differ) in shape, so nothing can be averaged afterwards. The shared retraction
-builds the embedding tied (SF-ETT §5.2, generalized): recover `U̇` per group by the companion's
+builds the embedding tied (SF-ETT §5.2, generalized): recover `Ḋ` per group by the companion's
 clipped solve (exact on tied coordinates — the solve residual doubles as the safe-mode tied-tangent
-check), put `[U_g; U̇]` at every group mode (one array), and replace the down core `O_i` by the
-companion's center `H_i` (the identity `S_i`-absorbed-`O_i = H_i` makes this an exact rewrite of
+check), put `[D_g; Ḋ]` at every group mode (one array), and replace the up core `U_i` by the
+companion's center `H_i` (the identity `S_i`-absorbed-`U_i = H_i` makes this an exact rewrite of
 each Tucker term). Then the grouped `t3svd` truncates back to the frame's ranks.
 
 ## Padded restarts: which tangent channels are alive
@@ -101,7 +101,7 @@ Rank continuation warm-starts by zero-padding, which places the iterate *on* the
 stratum: the fresh factor directions carry no core mass, the corresponding rows of every `S_i`
 vanish, the new levels of `s_g` are **exactly zero**, and the tied Tucker channel admits no
 first-order motion in the new directions (the clipped pinv correctly returns zero there). The
-escape is carried by the **untied TT-variation channel** — first-order mass in the new up-slots,
+escape is carried by the **untied TT-variation channel** — first-order mass in the new Tucker slots,
 paired with the deterministically-completed factor columns — measured to activate the new
 directions within two Newton steps; `κ_g` is transiently large afterwards and the clipped solve
 handles it. Consequences wired into the code: the projection solve is a clipped pseudoinverse
@@ -172,8 +172,8 @@ over randomized structures/caps *before* implementation. Two lessons that cost r
 
 Related uniform facts: `uniform_minimal` had to become sharing-aware (the per-mode reduction clips
 a group rank the group ceiling admits — `(4,4,2) → (2,4,2)` on the canonical test structure —
-structurally untying the group), and the tied embedding rebuilds the variation block at the **up**
-width `nD` (the `U̇` slot), zero-padding singleton blocks.
+structurally untying the group), and the tied embedding rebuilds the variation block at the **down**
+width `nD` (the `Ḋ` slot), zero-padding singleton blocks.
 
 ## Smaller decisions on record
 

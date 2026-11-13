@@ -1114,3 +1114,35 @@ tests/test_weighted.py	434	KEEP	inv1 App. B	self.assertLess(float(np.max(np.abs(
 docs/*	-	PATTERN	inv3 §9: English "up to"/"up front"/"warm-up"/"blow up"/"picked up"/"set up"	\bup (?:to|front)\b|\bwarm-up\b|\bblow[- ]up\b|\bpicked up\b|\bset up\b
 docs/*	-	PATTERN	inv3 §9: English "down to"/"downstream"/"write down"/"down-weight"	\bdown to\b|\bdownstream\b|\bwrite down\b|\bdown-weight
 docs/*	-	PATTERN	inv3 §9: jet-order shifts	_shift_up|_shift_down|down-shift|\\\\Dsh
+docs/aligned_padded_frame.md	180	KEEP	inv3 §9 English idiom (R5 row: not a store word)	The mathematics, with the algorithms as implemented, is written up in the math note `docs/padded_frame_cone.pdf`
+docs/batching_and_stacking.md	269	KEEP	inv3 §9 English idiom (R5 row: not a store word)	  core stacks, `broadcast_to` each core up, then contract. No-op for a uniform-stack T3.
+docs/fitting_and_optimization.md	279	KEEP	inv3 §9 English idiom (R5 row: not a store word)	  **optional** (looked up duck-typed): `zero_point_frame(frame)`, the canonical frame at the zero tensor
+docs/fitting_and_optimization.md	297	KEEP	inv3 §9 English idiom (R5 row: not a store word)	  interactive frontend twin (same name, one level up; `T3Tangent` in/out), verified bit-identical — except
+docs/fitting_and_optimization.md	400	KEEP	inv3 §9 English idiom (R5 row: not a store word)	`'probe_derivatives'`) accept a mode weight. It up- or down-weights each mode's data — invaluable when the
+docs/rank_continuation.md	22	KEEP	inv3 §9 English idiom (R5 row: not a store word)	edges that need a high rank, or push `r` up and *over-fit* the edges that only needed a low one — wasting
+docs/rank_continuation.md	35	KEEP	inv3 §9 English idiom (R5 row: not a store word)	* **large `κᵢ`** → that edge's rank is already "used up" (the last singular value it kept is tiny);
+docs/sharing.md	88	KEEP	inv3 §9 English idiom (R5 row: not a store word)	   up.
+docs/t3svd_minimal_ranks.md	53	KEEP	inv3 §9 English idiom (R5 row: not a store word)	`rL_i * n_i`. Then `n_i`, fixed moments earlier against the larger pre-cap bond, ends up `> rL_i * rR_i`
+docs/uniform_equivalence_contract.md	34	KEEP	inv3 §9 English idiom (R5 row: not a store word)	there (see the contributor notes for how that case is pinned down and tested).
+docs/uniform_ranks_and_varieties.md	18	KEEP	inv3 §9 English idiom (R5 row: not a store word)	represents a tensor of rank `≤ n_s` regardless of the mask. Masking-down and "a rank-`n` core that
+docs/uniform_ranks_and_varieties.md	88	KEEP	inv3 §9 English idiom (R5 row: not a store word)	The honest cost shows up at exactly one place — the ragged round-trip:
+docs/contributor/ambient_derivative_transpose_note.md	7	KEEP	inv3 §9 English idiom (R5 row: not a store word)	the grid left unbuilt. This note records the math and the design analysis so it can be picked back up
+docs/contributor/batching_internals.md	26	KEEP	inv3 §9 English idiom (R5 row: not a store word)	  sharding sweep all pick the new string up automatically from an AST scan of the source — there is
+docs/contributor/deferred_and_rejected.md	40	KEEP	inv3 §9 English idiom (R5 row: not a store word)	  jax-dependent and give up the factored, chunked assemblies. Source: the implementation plan's non-goals and
+docs/contributor/deferred_and_rejected.md	238	KEEP	inv3 §9 English idiom (R5 row: not a store word)	  `chunk_size`) is allocated on top of the full chunk, so `max_chunk_size_within` can overshoot its budget by up
+docs/contributor/deferred_and_rejected.md	240	KEEP	inv3 §9 English idiom (R5 row: not a store word)	- **The uniform tied projection's clip** (S9, a follow-up slice). `ufv_share_tucker_variations` — the shared
+docs/contributor/numerical_contract_catalog.md	34	KEEP	inv3 §9 English idiom (R5 row: not a store word)	The mechanism behind the result was worked out later and is written up in
+docs/contributor/numerical_contract_catalog.md	72	KEEP	inv3 §9 English idiom (R5 row: not a store word)	> section further down measured every one of them and found none to hold: `inner`/`norm` are exactly HS
+docs/contributor/testing_strategy.md	145	KEEP	inv3 §9 English idiom (R5 row: not a store word)	level up: the *checks* need the same suspicion as the *masks*.
+docs/contributor/uniform_internals.md	47	KEEP	inv3 §9 English idiom (R5 row: not a store word)	down without guesswork: **do whatever the ragged op does** — keep the rank with an arbitrary
+docs/contributor/uniform_svd_prefix_orthogonalization.md	28	KEEP	inv3 §9 English idiom (R5 row: not a store word)	  sorted by importance. Whether the real content ends up in `Q`'s prefix depends entirely on column
+CLAUDE.md	9	KEEP	inv3 §9 English idiom (R5 row: not a store word)	code into a standalone package: cleaning up, documenting, restructuring for usability, adding
+CLAUDE.md	42	KEEP	inv3 §9 English idiom (R5 row: not a store word)	**Handoff ritual:** when wrapping up, refresh `dev/HANDOFF.md` (one living doc by default; more when
+CLAUDE.md	97	KEEP	inv3 §9 English idiom (R5 row: not a store word)	> function would otherwise force them to know some follow-up call (e.g. `tree_zip` to pair two returned
+CLAUDE.md	229	KEEP	inv3 §9 English idiom (R5 row: not a store word)	delegating function needn't infer at all — its callees do, from the arrays passed down). Applied
+docs/glossary.md	79	KEEP	R5 row: adjective (down-orthogonal), right in the new words (inv3 §5.2 :79)	  down-orthogonal and every TT core but the last left-orthogonal (left form) or but the first right-orthogonal (right
+docs/glossary.md	102	KEEP	R5 row: the adjective list (inv3 §5.2: the adjectives stay)	- **orthogonal core** (left-, right-, down-, up-orthogonal; also: outer-orthogonal). A core with orthonormal rows or
+docs/glossary.md	104	KEEP	R5 row: adjective *up* (inv3 §5.2: stays)	  orthonormal columns; *right*, its `ri × (ni·r(i+1))` unfolding has orthonormal rows; *up* (also outer), its
+docs/glossary.md	105	KEEP	R5 row: adjective *down* (inv3 §5.2: stays)	  `ni × (ri·r(i+1))` matricization has orthonormal rows (`up_orthogonalize_tt_cores`). Tucker core: *down*,
+docs/glossary.md	408	KEEP	R5 row: travel direction "up the Tucker cores" (inv3 §5.2 :408: stays)	  contractions of a sample through the network, one per edge: `ξ` up the Tucker cores, `μ`/`ν` along the left/right
+docs/glossary.md	712	KEEP	R5 row: adjective up-matricization (inv3 §5.2 :712: stays)	| `W` | the probe stack (batching, shape comments); a `T3Weights` variable (`weighting.md`); the Khatri–Rao factor `Wi` (`t3m_methods.md`); the up-matricization `Wi` (shared-factor math note); an integer variable in a `chunking.md` example |

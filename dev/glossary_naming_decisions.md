@@ -11,7 +11,7 @@ names), then (b) the most-used spelling in the rendered docs (`docs/*.md`, `docs
 then (c) the math notes (`docs/*.tex`). A name that is wrong for the code skips to the next rule.
 
 **Kinds.** NAMING: pick the canonical form. ERROR: a wrong claim (M/U: matricization vs unfolding). CODE: a behaviour fix for the implementer. Rows
-marked **HELD** wait for Nick's decision on their item.
+marked **HELD** wait for Nick's decision on their item (none remain: N17, the last, was resolved on 2026-11-10).
 
 **How to use the work list.** The items are defined once in [Items](#items) (kind, decision or claim, and a one-line
 verification note: what in the code decides it). The [work list by file](#work-list-by-file) then gives every edit:
@@ -27,8 +27,9 @@ when the note is next rebuilt.
   (`#d-cores-d1-bonds--and-the-extra-ld-r0`, `#a-tangent-is-a-sum-of-d-terms`); update those links and any other page
   linking to them (`grep -rn "frame_variations.md#" docs`). The `-W` docs build catches a missed one.
 - N3: the glossary's **same-frame** entry says "SF in the contract tables"; change it to the new label.
-- N17: once Nick decides (the adjectives stay; the store names may change), release or replace the HELD rows and
-  update the glossary's **orthogonal core** and **frame cores** entries.
+- N17 (resolved 2026-11-10): the adjectives stayed and the store names flipped (the 2026.5.0 store rename,
+  `dev/store_rename_plan_2026-11-10.md`). The HELD rows below are released in the new store words; the glossary's
+  **orthogonal core** and **frame cores** entries were rewritten by the rename (R5).
 - N2: the four `fitting_and_optimization.md` rows (lines 52, 55, 76, 78) are one doctest session; apply them
   together and re-run that page's doctest.
 - Aliases that the renames retire (`Ld`, "sample stack", "padded restart", ...) stay in the glossary's "also:" lists
@@ -37,7 +38,7 @@ when the note is next rebuilt.
 ## The three hardest decisions
 
 1. **Tucker core** (the `(ni, Ni)` matrices `Bi`), over **Tucker factor**. Rule (a): the data field and attribute are
-   `tucker_cores` / `up_tucker_cores` / `tucker_variations`. Against it: the docs use "Tucker factor" more (25 vs 14 in
+   `tucker_cores` / `down_tucker_cores` / `tucker_variations`. Against it: the docs use "Tucker factor" more (25 vs 14 in
    the user pages), the literature calls these matrices factors and the small tensor the core, and the sharing API
    itself says factors (`has_shared_tucker_factors`, `t3_tie_tucker_factors`, `ut3_tucker_factors_shared`). The
    collision with the Tucker decomposition's core tensor is handled by calling that the **central core** (item N15).
@@ -78,7 +79,7 @@ when the note is next rebuilt.
 | N1 | NAMING | `W` is the **probe stack** (not "sample stack", "probe / sample stack", "vec/index stack") | API split (`sum_over_probes` vs `sample=`); docs 20:4 for "probe stack"; naming_conventions.md registers `W` (probe stack) |
 | N2 | NAMING | the derivative order is spelled **`order`**, never `K` | every `*_derivatives` op and model takes `order=`; naming_conventions.md §Index letters reserves `K` for the tangent stack (2026-08-24 ruling). The curvature operators `K_{Aᵀω²r}`, `K_{grad f}` are left as math notation (the glossary's symbols table warns) |
 | N3 | NAMING | the same-frame property label is **`FRAMES`** (proposed; any one word beside `ORTH`/`GAUGE`/`TIED` works), not `SF` (which is SF-T3 on the same page) | the check is `safety.frames_equal`; numerical_contracts.md has both `SF` (same-frame) and "The shared (SF-T3) surface" |
-| N4 | NAMING | the down store and its cores are named **down, `O`** (not `D`, not "outer" as a name). The orthogonality *adjective* is N17, not N4 | `align_padded(update=...)` letters `'U'`, `'O'`, `'L'`, `'R'`; `T3Frame.data = (up, down, left, right)`. Not "outer TT bonds" (`tucker_tensor_train.py:962`), which are the boundary bonds and stay |
+| N4 | NAMING (**RESOLVED** 2026-11-10: the store rename, 2026.5.0) | a store is named for the side of its edge its cores occupy: the TT-shaped store and its cores are **up, `U`**, the Tucker store and its cores **down, `D`**; not "outer" as a name (T4S's word; T4S's `O` is our `U`, its `U` our `D`). The orthogonality *adjective* is N17, not N4 | `align_padded(update=...)` takes a tuple of the letters `'D'`, `'U'`, `'L'`, `'R'` (a `str` raises); `T3Frame.data = (down, up, left, right)`; widths `nD`, `nU`, `rL`, `rR`. Not "outer TT bonds" (`tucker_tensor_train.py:962`), which are the boundary bonds and stay |
 | N5 | NAMING | **old block / new block** (not A-block / P-block) | no API name; rendered docs 10:6 |
 | N6 | NAMING | **bare Jacobian `𝒥`** for the tangent sampling map; the Riemannian Jacobian is `J = 𝒥∘Π` | `T3Tangent.probe/apply/entries` apply no gauge projection (`fitting.py` calls them "bare"); entries_apply_probe.md §4 notes |
 | N7 | NAMING | **warm start** (not "padded restart", "continuation restart") | the most-used term; the point is `resize`'s zero-padded `x_old` (rank_continuation.md "How to use it") |
@@ -90,7 +91,7 @@ when the note is next rebuilt.
 | N13 | NAMING | **store transport** (not bare "transport") for a store not in `update` | `MANIFOLD.transport` is vector transport, a different operation |
 | N14 | NAMING | the new slots of a zero-padded point are **new slots**, not "the padding" | they are real slots (masks `True`), so "padding" would mean junk |
 | N15 | NAMING | **central core** for the Tucker core tensor (never "central Tucker core") | "Tucker core" is the API's name for `tucker_cores` |
-| N17 | NAMING (**HELD**: Nick is deciding) | the orthogonality adjectives follow the **method convention** (rule a): a Tucker core with `B Bᵀ = I` is *down-orthogonal* (`down_orthogonalize_tucker_cores`), a TT core orthonormal in its `ni × (ri·r(i+1))` matricization is *up-orthogonal* (`up_orthogonalize_tt_cores`; alias outer-orthogonal). Nick's reasoning: left cores are left-orthogonal and right cores right-orthogonal, and the `O` cores' orthonormal index group lies upward of the Tucker–TT edge, so the method adjectives are right and the **store names** "up"/"down" are the problem; a store rename is being assessed. The HELD rows below assume the adjectives stay and the frame pages change; a store rename would supersede them | `fv_conversions.py:184` binds `up_orthogonalize_tucker_cores = t3_down_orthogonalize_tucker_cores`; `ranks.py:644` "Tucker down-orthogonalization: up_i = ..."; `tucker_tensor_train.py:3159` (`B Bᵀ = I`, "down orthogonal") vs `:3207` (TT, "up orthogonal"); `up_svd_tt_core` (`:2978`) and `:3108` contradict even the method convention |
+| N17 | NAMING (**RESOLVED** 2026-11-10: the adjectives stay, the stores flip) | the orthogonality adjectives follow the **method convention** (rule a): a Tucker core with `B Bᵀ = I` is *down-orthogonal* (`down_orthogonalize_tucker_cores`), a TT core orthonormal in its `ni × (ri·r(i+1))` matricization is *up-orthogonal* (`up_orthogonalize_tt_cores`; alias outer-orthogonal). Nick's reasoning: left cores are left-orthogonal and right cores right-orthogonal, and the TT-shaped cores' (then `O`, now `U`) orthonormal index group lies upward of the Tucker–TT edge, so the method adjectives are right and the **store names** "up"/"down" were the problem. The 2026.5.0 store rename swapped the store names to agree. The former HELD rows below are released in the new store words; rows the rename itself applied are marked done | At 2026.4.0: `fv_conversions.py:184` (the rename's one-way A1 aliases) binds `up_orthogonalize_tucker_cores = t3_down_orthogonalize_tucker_cores`; `ranks.py:644` "Tucker down-orthogonalization: up_i = ..."; `tucker_tensor_train.py:3159` (`B Bᵀ = I`, "down orthogonal") vs `:3207` (TT, "up orthogonal"); `up_svd_tt_core` (`:2978`) and `:3108` (the rename's §4.3 rows) contradict even the method convention |
 | E1 | ERROR | docstrings cite helpers that do not exist: a `numerically_equal` method and `common._jax_or_warn` | no `numerically_equal` in `t3toolbox` (grep); the method is `allclose`. The helper is `common.jax_or_warn` (no underscore) |
 | E2 | ERROR | `g0_reference` value lists omit `'cone'` | `_G0_REFERENCES = ('zero', 'warm_start', 'cone')` (backend/optimizers.py:630); history records `'cone'` (l.1561) |
 | E3 | ERROR | release notes say `use_jit=True` without jax raises | `common.jax_or_warn` warns and runs on numpy (since 2026.2.0, CHANGELOG `[2026.2.0]` Changed) |
@@ -100,14 +101,14 @@ when the note is next rebuilt.
 | E7 | ERROR | an example cites a doc that does not exist | `docs/derivative_order_information_and_conditioning.md` is absent |
 | E8 | ERROR | the carriers are called `Ld`, `R0`; there is no core `Ld` | frame cores are indexed `L0…L(d-1)`; `fv_zero_point_frame` sets `left[d-1] = right[0] = 0`. The carriers are `L(d-1)` (`left[d-1]`) and `R0` (`right[0]`); the extra *bonds* are `rLd` and `rR0`. Only `docs/glossary.md` links the renamed anchor |
 | E9 | ERROR | "a tangent is a sum of `d` terms" | `T3Tangent` docstring: "the sum of 2d single-core variation terms" (T4S eq. 46); the page's own diagram adds the Tucker set |
-| E10 | ERROR | the Tucker gauge condition is written `Uᵢᵀ Vᵢ = 0` | `Ui`, `Vi` are stored `(n, N)`; `tv_orthogonal_gauge_projection` states `U_i V_i^T = 0` |
+| E10 | ERROR | the Tucker gauge condition is written `Uᵢᵀ Vᵢ = 0` (2026.4.0's letter for the frame's Tucker core, now `Dᵢ`; the one site, `frame_variations.md:57`, was fixed by the store rename) | `Di`, `Vi` are stored `(nD, N)`, `(nU, N)`; `tv_orthogonal_gauge_projection` states `D_i V_i^T = 0` |
 | E11 | ERROR | "`get_backend` dispatches ... `xwhile` to `jax.lax.while_loop`" | `get_backend` returns `(xnp, xmap, xscan)`; `common.xwhile` is separate and runs a Python loop unless `use_jit=True` with a jax state |
 | E12 | ERROR | "the Gauss-Newton models" for the local models | `GaussNewtonModel` became `LocalModel` in 2026.3.0 and carries the exact Hessian too |
 | E13 | ERROR | "the Taylor-series machinery the library is named for (T4S)" | the library is T3Toolbox; T4S is the paper |
 | E14 | ERROR | `require_concrete_masks` docstring says `aux_data` is "identity-hashed, never-inspected" | mask holders hash by value (`common.ValueHashedMasks`) |
 | E15 | ERROR | regularizers "receive a `GeometryOps`" | `geometry.py` calls `GeometryOps` the retired record-of-lambdas; the protocol is `optimizers.Geometry` |
 | E16 | ERROR | comments cite the removed function `tWCi_Cio_to_tWCo` | the named contraction functions were removed (2026.1.0); `contract('tWCi,Cio->tWCo', ...)` replaced them |
-| E17 | ERROR | docstring typos in index ranges and shapes | `tucker_ranks = (n0, …, n(d-1))`; modes, cores and diagrams are 0-based; `fv_variation_shapes` gives a TT variation the shape `(rL_i, nU_i, rR_(i+1))` (it reads `right[i].shape[-1]`), and the left/right frame cores carry `nU_i` |
+| E17 | ERROR | docstring typos in index ranges and shapes | `tucker_ranks = (n0, …, n(d-1))`; modes, cores and diagrams are 0-based; `fv_variation_shapes` gives a TT variation the shape `(rL_i, nD_i, rR_(i+1))` (it reads `right[i].shape[-1]`), and the left/right frame cores carry `nD_i` |
 | E18 | ERROR | examples call a T3-SVD truncation "the best rank-r approximation" | T3-SVD truncation is quasi-optimal, not optimal (contributor/t3svd_verification.md §1, the Oseledets-type bound) |
 | E19 | ERROR | the user guide and `sharing.md` mix 1-based and 0-based mode indices, and one unfolding is garbled | modes are `N0…N(d-1)`; bond `ri` separates cores `0..i-1` from `i..d-1`, so mode `i`'s Tucker ceiling is `ri·r(i+1)` |
 | E20 | ERROR | a user page points readers at `CLAUDE.md` | `CLAUDE.md` is not part of the published docs |
@@ -120,8 +121,8 @@ when the note is next rebuilt.
 
 **Code identifiers that use the wrong word (M/U; reported, no rename proposed).** Two, both non-public:
 `backend/padded_frames._unfold` / `_fold` (imported by `backend/uniform_padded_frames.py`) reshape any core slot to
-the columns, and are called with the middle slot on the down cores `O` (`P_O`, the down edge's `g_new`, `g_old`,
-`Abar`), which makes those matricizations; and the test
+the columns, and are called with the middle slot on the up cores `U` (`U_P`, and `_up_edge`'s `g_new`, `g_old`, `Abar`
+on the up store's edge, `c_i → l_i`), which makes those matricizations; and the test
 `tests/test_tucker_tensor_train.py::test_compute_minimal_ranks_matches_matricization` (cited in
 `docs/t3svd_minimal_ranks.md:27, :135` and `tests/test_sharing.py:1382`), which checks Tucker matricizations *and* TT
 unfoldings. Every public identifier is right: `_up_matricization`, `singular_values_of_matricizations` (Tucker),
@@ -194,8 +195,8 @@ User pages first, then contributor pages, the package, the examples, and the mat
 | 32 | § `d` cores, `d+1` bonds — and the "extra" `Ld`, `R0` | E8 | heading "`d` cores, `d+1` bonds — and the "extra" `Ld`, `R0`" | "... — and the carriers `L(d-1)`, `R0`" (update the link to this anchor in docs/glossary.md) |
 | 36 | § `d` cores, `d+1` bonds — and the "extra" `Ld`, `R0` | E8 | "**`Ld` and `R0` are never used**" | "**`L(d-1)` and `R0` are never used**" |
 | 42 | § `d` cores, `d+1` bonds — and the "extra" `Ld`, `R0` | E8 | "the `Ld`-adjacent slot ... the padding `Ld` / `R0` cores" | "the `L(d-1)`-adjacent slot ... the carriers `L(d-1)` / `R0`" |
-| 57 | § Gauge conditions make the variations *coordinates* | E10 | "`Uᵢᵀ Vᵢ = 0`" | "`Uᵢ Vᵢᵀ = 0`" |
-| 71 | § Four rank stores — and why excess rank is inert | N4 | "down/outer" | "down" |
+| 57 | § Gauge conditions make the variations *coordinates* | E10 | done by the store rename (R5): "`Dᵢ Vᵢᵀ = 0`" | — |
+| 71 | § Four rank stores — and why excess rank is inert | N4 | done by the store rename (R5): "`up_ranks` (the mode leg of each up core `Uᵢ`)" | — |
 | 77 | § Four rank stores — and why excess rank is inert | M/U | "Each core must be orthonormal *in its own unfolding*" | "Each core must be orthonormal *in its own matricization or unfolding*" |
 | 83 | § Four rank stores — and why excess rank is inert | M/U | "`nᵢ × (rᵢ·rᵢ₊₁)` unfolding, rows orthonormal" | "`nᵢ × (rᵢ·rᵢ₊₁)` matricization, rows orthonormal" |
 | 125 | § Weights are a diagonal metric on those coordinates | E8 | "padding `Ld`/`R0` bonds" | "carrier bonds `rLd` / `rR0`" |
@@ -297,12 +298,12 @@ User pages first, then contributor pages, the package, the examples, and the mat
 | line | where | item | current | replacement |
 |---|---|---|---|---|
 | 9 | § Tucker tensor trains | N15 | "representation of the central Tucker core" | "representation of the central core (the Tucker decomposition's core tensor)" |
-| 97 | § Minimal rank conditions | M/U | "Outer TT core unfoldings are full rank" | "... TT core matricizations are full rank" (the adjective is N17, HELD) |
-| 97 | § Minimal rank conditions | N17 | "Outer TT core unfoldings are full rank" | HELD (N17): "Up (outer) TT core unfoldings are full rank" |
+| 97 | § Minimal rank conditions | M/U | done by the store rename (R5), with the N17 row below: "TT core up-matricizations are full rank" | — |
+| 97 | § Minimal rank conditions | N17 | done by the store rename (R5): "TT core up-matricizations are full rank" | — |
 | 103 | § Minimal rank conditions | E19 | "Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1))" | "Ni x (N0*...*N(i-1)*N(i+1)*...*N(d-1))" |
 | 104 | § Minimal rank conditions | E19 | "(N*...*Ni) x (N(i+1)*...*N(d-1))" | "(N0*...*N(i-1)) x (Ni*...*N(d-1))" (bond ri sits between cores i-1 and i) |
 | 122 | § T3 manifold | E19 | "R^(N1 x ... x Nd)" | "R^(N0 x ... x N(d-1))" |
-| 142 | § T3 manifold | N17 | "down_tt_cores = (O0,...,O(d-1)), down-orthogonal" | HELD (N17): "..., up-orthogonal" |
+| 142 | § T3 manifold | N17 | done by the store rename (R5): "up_tt_cores = (U0,...,U(d-1)), up-orthogonal" | — |
 | 166 | § The three sampling operations: entries, apply, probe | N9 | "test vectors" | "probe vectors" |
 | 173 | § The three sampling operations: entries, apply, probe | N6 | "(the Riemannian Jacobian 𝒥 and its transpose 𝒥ᵀ)" | "(the bare Jacobian 𝒥 and its transpose 𝒥ᵀ; the Riemannian Jacobian is J = 𝒥∘Π)" |
 | 177 | § The three sampling operations: entries, apply, probe | E19 | "a N1 x N2 x N3 Tucker tensor with vectors u1, u2, u3 (lengths N1, N2, N3" | "an N0 x N1 x N2 ... u0, u1, u2 (lengths N0, N1, N2" (and the diagram labels) |
@@ -316,7 +317,7 @@ User pages first, then contributor pages, the package, the examples, and the mat
 
 | line | where | item | current | replacement |
 |---|---|---|---|---|
-| 28 | § The formula, and where each piece lives | E6 | ``` \| frame factors `T_i = ⟨L_i, H_i⟩`, `S_iᵀ = ⟨O_i, H_i⟩`, centers `H_i = L_i T_i` \| `fv_operations.fv_center_factors` \| `T_i` by zipper on demand, never stored on the frame (I-1); `σ(S_i)` is the mode-`i` Tucker spectrum, `σ(T_i)` the bond spectrum; `‖X‖² = Σσ(S_0)²` \| ``` | ``` \| frame factors `T_i = ⟨L_i, H_i⟩`, `S_iᵀ = ⟨O_i, H_i⟩`, centers `H_i = L_i T_i` \| `fv_operations.fv_center_factors` \| `T_i` by zipper on demand, never stored on the frame; `σ(S_i)` is the mode-`i` Tucker spectrum, `σ(T_i)` the bond spectrum; `‖X‖² = Σσ(S_0)²` \| ``` |
+| 28 | § The formula, and where each piece lives | E6 | ``` \| frame factors `T_i = ⟨L_i, H_i⟩`, `S_iᵀ = ⟨U_i, H_i⟩`, centers `H_i = L_i T_i` \| `fv_operations.fv_center_factors` \| `T_i` by zipper on demand, never stored on the frame (I-1); `σ(S_i)` is the mode-`i` Tucker spectrum, `σ(T_i)` the bond spectrum; `‖X‖² = Σσ(S_0)²` \| ``` | ``` \| frame factors `T_i = ⟨L_i, H_i⟩`, `S_iᵀ = ⟨U_i, H_i⟩`, centers `H_i = L_i T_i` \| `fv_operations.fv_center_factors` \| `T_i` by zipper on demand, never stored on the frame; `σ(S_i)` is the mode-`i` Tucker spectrum, `σ(T_i)` the bond spectrum; `‖X‖² = Σσ(S_0)²` \| ``` |
 | 50 | § The lift and its one-sided exactness | E6 | ``` there (F2, F3: 6e-15 / 9e-16); only a hand-built frame with a *wide* `T_i` would give a least-squares lift ``` | ``` there (6e-15 / 9e-16); only a hand-built frame with a *wide* `T_i` would give a least-squares lift ``` |
 | 74 | § The lift and its one-sided exactness | E6 | ``` **The damping is a solver parameter, not a geometry field** (I-22; the "options are not parameters" rule ``` | ``` **The damping is a solver parameter, not a geometry field** (the "options are not parameters" rule ``` |
 | 77 | § The lift and its one-sided exactness | N7 | "padded restart" | "warm start (zero-padded)" |
@@ -573,11 +574,11 @@ User pages first, then contributor pages, the package, the examples, and the mat
 
 | line | where | item | current | replacement |
 |---|---|---|---|---|
-| 98 | `fv_variation_shapes` | E17 | "``(rL_i, nU_i, rR_i)`` per TT variation" | "``(rL_i, nU_i, rR_(i+1))`` per TT variation" (the next lines already explain the shift) |
+| 98 | `fv_variation_shapes` | E17 | "``(rL_i, nD_i, rR_i)`` per TT variation" | "``(rL_i, nD_i, rR_(i+1))`` per TT variation" (the next lines already explain the shift) |
 | 491 | `fv_center_factors` | M/U | "# the mode-1 unfolding" | "# the mode-1 matricization" |
 | 578 | `fv_lift_factors` | N7 | "padded restart" | "warm start (zero-padded)" |
 | 581 | `fv_lift_factors` | N7 | "continuation restart" | "warm start (zero-padded)" |
-| 640 | `fv_absorb_weights` | E6 | ``` Approach-1 / metric-on-variations): ``down`` -> V's ``nD`` leg; ``up``/``left``/``right`` -> H's ``` | ``` i.e. on the variations): ``down`` -> V's ``nD`` leg; ``up``/``left``/``right`` -> H's ``` |
+| 640 | `fv_absorb_weights` | E6 | ``` Approach-1 / metric-on-variations): ``up`` -> V's ``nU`` leg; ``down``/``left``/``right`` -> H's ``` | ``` i.e. on the variations): ``up`` -> V's ``nU`` leg; ``down``/``left``/``right`` -> H's ``` |
 
 ### `t3toolbox/backend/geometry.py`
 
@@ -626,7 +627,7 @@ User pages first, then contributor pages, the package, the examples, and the mat
 | line | where | item | current | replacement |
 |---|---|---|---|---|
 | 7 | module | N8 | "seeded start" | "hint-free start" |
-| 148 | `_seed_rows` | M/U | "# the seed length: the mode size (up) or the real rows of the core's unfolding" | "... or the real rows of the core's matricization (down) or unfolding (left, right)" |
+| 148 | `_seed_rows` | M/U | "# the seed length: the mode size (down) or the real rows of the core's unfolding" | "... or the real rows of the core's matricization (up) or unfolding (left, right)" |
 | 254 | `fv_padded_frame` | N8 | "The seeded padded frame: the old frame in the leading slots" | "The hint-free padded frame: the old frame in the leading slots" |
 | 294 | `_unfold` | M/U | "A core unfolded with one slot as the columns (core axes only)." | "A core reshaped with one slot as the columns: an unfolding for an end slot, a matricization for the middle slot (core axes only)." |
 | 301 | `_fold` | M/U | "# C+(rows, cols): an unfolding" | "# C+(rows, cols): a matricization or unfolding" |
@@ -642,13 +643,13 @@ User pages first, then contributor pages, the package, the examples, and the mat
 | 374 | `_sigma_step` | E22 | "perturbation-leftward (sigma) recursion" | "left-side perturbation (sigma) recursion" |
 | 408 | `compute_sigma` | E22 | "var-leftward edge variables sigma" | "left-side variation edge variables sigma" |
 | 445 | `compute_tau` | E22 | "var-rightward edge variables tau" | "right-side variation edge variables tau" |
-| 646 | `tv_probe` | N17 | "up_tucker_supercore ... up orthogonal elements" | HELD (N17): "down-orthogonal elements" |
-| 647 | `tv_probe` | N17 | "down_tt_supercore ... down orthogonal elements" | HELD (N17): "up-orthogonal elements" |
+| 646 | `tv_probe` | N17 | done by the store rename (R4b): "down_tucker_supercore ... down orthogonal elements" | — |
+| 647 | `tv_probe` | N17 | done by the store rename (R4b): "up_tt_supercore ... up orthogonal elements" | — |
 | 899 | `_tau_tilde_step` | E22 | "the adjoint rightward sweep of compute_tau_tilde" | "One edge of the adjoint left-to-right sweep of compute_tau_tilde" (it is a forward `xscan`) |
 | 917 | `compute_tau_tilde` | E22 | "Adjoint-var-rightward edge variables tau_tilde" | "Adjoint right-side variation edge variables tau_tilde" |
 | 943 | `compute_sigma_tilde` | E22 | "Adjoint-var-leftward edge variables sigma_tilde" | "Adjoint left-side variation edge variables sigma_tilde" |
-| 1221 | `tv_probe_transpose` | N17 | "up_tucker_supercore ... up orthogonal elements" | HELD (N17): "down-orthogonal elements" |
-| 1222 | `tv_probe_transpose` | N17 | "down_tt_supercore ... down orthogonal elements" | HELD (N17): "up-orthogonal elements" |
+| 1221 | `tv_probe_transpose` | N17 | done by the store rename (R4b): "down_tucker_supercore ... down orthogonal elements" | — |
+| 1222 | `tv_probe_transpose` | N17 | done by the store rename (R4b): "up_tt_supercore ... up orthogonal elements" | — |
 
 ### `t3toolbox/backend/ranks.py`
 
@@ -656,7 +657,7 @@ User pages first, then contributor pages, the package, the examples, and the mat
 |---|---|---|---|---|
 | 308 | `edge_condition_numbers` | M/U | "Edge condition numbers ... of the matrix unfoldings." | "... of the matricizations and unfoldings." (the next lines already say so) |
 | 379 | `compute_continuation_ranks` | M/U | "from the current iterate's unfolding singular values" | "from the current iterate's matricization and unfolding singular values" |
-| 651 | `compute_orthogonal_representation_ranks` | E6 | ``` non-minimal TT bond they do not, and the uniform frame's left/down masks were too small (review S1). ``` | ``` non-minimal TT bond they do not, and the uniform frame's left/down masks were too small. ``` |
+| 651 | `compute_orthogonal_representation_ranks` | E6 | ``` non-minimal TT bond they do not, and the uniform frame's left/up masks were too small (review S1). ``` | ``` non-minimal TT bond they do not, and the uniform frame's left/up masks were too small. ``` |
 | 746 | `frame_has_minimal_ranks` | N7 | "continuation restart" | "warm start (zero-padded)" |
 
 ### `t3toolbox/backend/regularization.py`
@@ -733,8 +734,8 @@ User pages first, then contributor pages, the package, the examples, and the mat
 
 | line | where | item | current | replacement |
 |---|---|---|---|---|
-| 106 | `_up_orthogonalize_tt_cores_step` | N17 | "# Oaxb. outer-orthogonal tt core" | HELD (N17): keep, or "up-orthogonal tt core" |
-| 147 | `_down_orthogonalize_tucker_cores_step` | N17 | "# new_Uxo.  up-orthogonal tucker core" | HELD (N17): "down-orthogonal tucker core" |
+| 106 | `_up_orthogonalize_tt_cores_step` | N17 | done by the store rename (R4a): "# Uaxb. up-orthogonal tt core" | — |
+| 147 | `_down_orthogonalize_tucker_cores_step` | N17 | done by the store rename (R4a): "# new_Bxo.  down-orthogonal tucker core" | — |
 | 310 | `t3_down_svd_tt_core` | M/U | "Compute SVD of ith TT-core outer unfolding and keep non-orthogonal factor with this core." | "Compute the SVD of the ith TT core's matricization (mode index as rows) and keep the non-orthogonal factor with this core." |
 | 347 | `t3_up_svd_tt_core` | M/U | `t3_up_svd_tt_core`: "Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below." | "Compute the SVD of the ith TT core's matricization (mode index as rows) and contract the non-orthogonal factor down into the Tucker core below." (it calls `up_svd_pair`; "right unfolding" is also factually wrong) |
 
@@ -749,8 +750,8 @@ User pages first, then contributor pages, the package, the examples, and the mat
 
 | line | where | item | current | replacement |
 |---|---|---|---|---|
-| 164 | `tv_oblique_gauge_projection` | N4 | "down/outer" | "down" |
-| 181 | `tv_oblique_gauge_projection` | N4 | "down/outer" | "down" |
+| 164 | `tv_oblique_gauge_projection` | N4 | "up/outer" (the rename's tier-E row swapped the word only) | "up" |
+| 181 | `tv_oblique_gauge_projection` | N4 | "up/outer" (the rename's tier-E row swapped the word only) | "up" |
 
 ### `t3toolbox/backend/ufv_conversions.py`
 
@@ -768,8 +769,8 @@ User pages first, then contributor pages, the package, the examples, and the mat
 
 | line | where | item | current | replacement |
 |---|---|---|---|---|
-| 277 | `ufv_frame_orthogonality_residual` | N4 | "down/outer" | "down" |
-| 294 | `dev` | N4 | "down/outer" | "down" |
+| 277 | `ufv_frame_orthogonality_residual` | N4 | "up/outer ``U``" (the rename swapped the word and the letter) | "up ``U``" |
+| 294 | `dev` | N4 | "# up/outer: mode orthonormal over bonds" (the rename swapped the word only) | "# up: mode orthonormal over bonds" |
 | 537 | `ufv_tied_lift_factors` | N7 | "padded restart" | "warm start (zero-padded)" |
 
 ### `t3toolbox/backend/uniform_fitting.py`
@@ -823,7 +824,7 @@ User pages first, then contributor pages, the package, the examples, and the mat
 | 9 | module | E6 | ``` mask-aware **pad-safe** SVD the sweeps use (review S1b) is derived in ``docs/pad_safe_svd.tex``. ``` | ``` mask-aware **pad-safe** SVD the sweeps use is derived in ``docs/pad_safe_svd.tex``. ``` |
 | 138 | `down_orthogonalize_tucker_supercores` | E6 | `at a numerically rank-deficient point the sigma~0 completion columns stay OFF the padding (review` | `at a numerically rank-deficient point the sigma~0 completion columns stay OFF the padding (a` |
 | 139 | `down_orthogonalize_tucker_supercores` | E6 | `S1b -- a black-box SVD may place them in padded slots, which the masks then erase: a lost tangent` | `black-box SVD may place them in padded slots, which the masks then erase: a lost tangent` |
-| 189 | `up_orthogonalize_tt_supercores` | N17 | "new_tt = down-orthogonal O" | HELD (N17): "new_tt = up-orthogonal O" |
+| 189 | `up_orthogonalize_tt_supercores` | N17 | done by the store rename (R4a): "new_tt = up-orthogonal U" | — |
 | 203 | `up_orthogonalize_tt_supercores` | E6 | ``` # pad-safe (review S1b): sigma~0 completions stay off the padded (a,b)/rank slots ``` | ``` # pad-safe: sigma~0 completions stay off the padded (a,b)/rank slots ``` |
 
 ### `t3toolbox/backend/ut3_svd.py`
@@ -867,24 +868,24 @@ User pages first, then contributor pages, the package, the examples, and the mat
 
 | line | where | item | current | replacement |
 |---|---|---|---|---|
-| 63 | `T3Frame` | N4 | diagram cores `D0`, `D1`, `D2` | `O0`, `O1`, `O2` |
-| 72 | `T3Frame` | N4 | `down_tt_cores = (D0, ..., D(d-1))` | `down_tt_cores = (O0, ..., O(d-1))` |
-| 73 | `T3Frame` | E17 | "left_tt_cores = (L0, ..., L(d-1)), elm_shape=(rLi, ni, rL(i+1))" | "elm_shape=(rLi, nUi, rL(i+1))" |
-| 74 | `T3Frame` | E17 | "right_tt_cores = (R0, ..., R(d-1)), elm_shape=(rRi, ni, rR(i+1))" | "elm_shape=(rRi, nUi, rR(i+1))" |
-| 78 | `T3Frame` | E17 | "tt_variations = (H0, ..., H(d-1)), elm_shape=(rLi, nUi, rRi)" | "elm_shape=(rLi, nUi, rR(i+1))" (`fv_variation_shapes` reads `right[i].shape[-1]`) |
+| 63 | `T3Frame` | N4 | done by the store rename (R4a, §4A block): the TT-shaped diagram cores are `U0`, `U1`, `U2`, the Tucker ones `D0`, `D1`, `D2` | — |
+| 72 | `T3Frame` | N4 | done by the store rename (R4a): `up_tt_cores = (U0, ..., U(d-1))` | — |
+| 73 | `T3Frame` | E17 | "left_tt_cores = (L0, ..., L(d-1)), elm_shape=(rLi, ni, rL(i+1))" | "elm_shape=(rLi, nDi, rL(i+1))" |
+| 74 | `T3Frame` | E17 | "right_tt_cores = (R0, ..., R(d-1)), elm_shape=(rRi, ni, rR(i+1))" | "elm_shape=(rRi, nDi, rR(i+1))" |
+| 78 | `T3Frame` | E17 | "tt_variations = (H0, ..., H(d-1)), elm_shape=(rLi, nDi, rRi)" | "elm_shape=(rLi, nDi, rR(i+1))" (`fv_variation_shapes` reads `right[i].shape[-1]`) |
 | 80 | `T3Frame` | E8 | "Note that Ld and R0 are not used in these diagrams." | "Note that L(d-1) and R0 (the carriers) are not used in these diagrams." |
-| 93 | `T3Frame` | E17 | diagram label "Ud" | "U(d-1)" |
-| 101 | `T3Frame` | N4 | rank diagram core "D1" (`T3Frame`; the next line already says `nO1`) | "O1" |
-| 105 | `T3Frame` | E17 | diagram label "Ud" | "U(d-1)" |
-| 118 | `T3Frame` | N17 | "down_tt_cores = (O0,...,O(d-1)), outer-orthogonal  O_aib O_ajb = delta_ij" | HELD (N17): keep, or "up-orthogonal" |
+| 93 | `T3Frame` | E17 | diagram label "Dd" (the store rename's §4A block relabelled the Tucker core) | "D(d-1)" |
+| 101 | `T3Frame` | N4 | done by the store rename (R4a, §4A block 98–108): "U1", next line `nU1` | — |
+| 105 | `T3Frame` | E17 | diagram label "Dd" (the store rename's §4A block relabelled the Tucker core) | "D(d-1)" |
+| 118 | `T3Frame` | N17 | done by the store rename (R4a): "up_tt_cores = (U0,...,U(d-1)), up-orthogonal:    U_aib U_ajb = delta_ij" | — |
 | 128 | `T3Frame` | E17 | "the N1 x ... x Nd tangent vectors" | "the N0 x ... x N(d-1) tangent vectors" |
 | 309 | `padded` | N8 | "# the seeded padded frame (old frame in the le..." | "# the hint-free padded frame (old frame in the le..." |
 | 310 | `padded` | N8 | "The seeded padded frame of ``x_old`` at larger ranks" | "The hint-free padded frame of ``x_old`` at larger ranks" |
-| 355 | `is_orthogonal` | N4 | "down/outer D_i (all i):   ``einsum('...iaj,...ibj->...ab', D, D) = I``" | "down O_i (all i):   ``einsum('...iaj,...ibj->...ab', O, O) = I``" |
-| 365 | `is_orthogonal` | N17 | "Orthogonal cores (left/right/outer/Tucker)" | HELD (N17): keep, or "(left/right/up/down)" |
-| 1271 | `fv_to_t3` | N4 | `fv_to_t3` diagram core "D2" | "O2" |
-| 1371 | `t3_orthogonal_representations` | N17 | "tucker_cores = (U0,U1, U2, U3), up orthogonal" | HELD (N17): "down-orthogonal" |
-| 1372 | `t3_orthogonal_representations` | N17 | "down_tt_cores = (O0, O1, O2, O3), down orthogonal" | HELD (N17): "up-orthogonal" |
+| 355 | `is_orthogonal` | N4 | "up/outer U_i (all i):     ``einsum('...iaj,...ibj->...ab', U, U) = I``" (the rename swapped the word and the letters) | "up U_i (all i):     ``einsum('...iaj,...ibj->...ab', U, U) = I``" |
+| 365 | `is_orthogonal` | N17 | "Orthogonal cores (left/right/outer/Tucker)" | "Orthogonal cores (left/right/up/down)" |
+| 1271 | `fv_to_t3` | N4 | done by the store rename (R4a, §4A block): diagram core "U2" | — |
+| 1371 | `t3_orthogonal_representations` | N17 | done by the store rename (R4a): "down_tucker_cores = (D0, D1, D2, D3), down orthogonal" | — |
+| 1372 | `t3_orthogonal_representations` | N17 | done by the store rename (R4a): "up_tt_cores = (U0, U1, U2, U3), up orthogonal" | — |
 | 1438 | `T3FrameWeights` | E6 | ``` Four families, each ``len=d`` (one per variation core, Approach-1 / metric-on-variations): ``` | ``` Four families, each ``len=d`` (one per variation core; the weights are a metric on the variations): ``` |
 
 ### `t3toolbox/manifold.py`
@@ -899,8 +900,8 @@ User pages first, then contributor pages, the package, the examples, and the mat
 | 1099 | `probe_derivatives_transpose` | N1 | "sample stack" | "probe stack" |
 | 1104 | `probe_derivatives_transpose` | N1 | "sample stack" | "probe stack" |
 | 1249 | `stack_tangents` | E6 | `stack_tangents` ValueError: '... or unstack the K-stacked one first (unstack_tangents). (Used to die inside numpy with an inhomogeneous-shape error -- review H3-6.)' | 'stack_tangents: every leaf must carry the same tangent stack K to stack into one outer level; got K shapes %s. Stack the K=() leaves separately, or unstack the K-stacked one first (unstack_tangents).' |
-| 1343 | `frame` | N17 | "(the left/right/outer-orthogonal representation)" | HELD (N17): keep, or "(the orthogonal representation)" |
-| 1638 | `retract` | E6 | ``` slots hold different cores, e.g. a slack frame with ``nD != nU`` -- review H3-8); when the ``` | ``` slots hold different cores, e.g. a slack frame with ``nD != nU``); when the ``` |
+| 1343 | `frame` | N17 | done by the store rename (R4a): "(the left/right/up-orthogonal representation)" | — |
+| 1638 | `retract` | E6 | ``` slots hold different cores, e.g. a slack frame with ``nU != nD`` -- review H3-8); when the ``` | ``` slots hold different cores, e.g. a slack frame with ``nU != nD``); when the ``` |
 | 1675 | `_flatten_tangents` | E6 | ``` # ---- The operand scale of the safe-mode gauge check (I-38). Shared with the uniform twin (UT3Tangent): both ``` | ``` # ---- The operand scale of the safe-mode gauge check. Shared with the uniform twin (UT3Tangent): both ``` |
 
 ### `t3toolbox/optimizers.py`
@@ -937,15 +938,15 @@ User pages first, then contributor pages, the package, the examples, and the mat
 | 66 | `TuckerTensorTrain` | E17 | diagram label "nd" | "n(d-1)" |
 | 70 | `TuckerTensorTrain` | E17 | diagram label "Nd" | "N(d-1)" |
 | 101 | `TuckerTensorTrain` | E17 | "``tucker_ranks = (n0, r1, ..., n(d-1))``" | "``tucker_ranks = (n0, n1, ..., n(d-1))``" |
-| 615 | `get_minimal_ranks` | M/U | "Down TT core unfoldings are full rank" | "... TT core matricizations are full rank" (the adjective is N17, HELD) |
+| 615 | `get_minimal_ranks` | M/U | "Up TT core unfoldings are full rank" (the store rename's §4.3 row turned "Down" into "Up") | "TT core up-matricizations are full rank" (as `user_guide.rst:97` reads after the rename) |
 | 624 | `get_minimal_ranks` | E19 | "(N*...*Ni) x (N(i+1)*...*N(d-1)) matrix unfoldings" | "(N0*...*N(i-1)) x (Ni*...*N(d-1)) matrix unfoldings" (bond ri) |
 | 625 | `get_minimal_ranks` | E19 | "Ni x (N1*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations" | "Ni x (N0*...*N(i-1)*N(i+1)*...*N(d-1)) matricizations" |
 | 2138 | `t3m` | E6 | ``` __rmul__ = __mul__      # scalar * x == x * scalar (elementwise * commutes; review R1-12) ``` | ``` __rmul__ = __mul__      # scalar * x == x * scalar (elementwise * commutes) ``` |
 | 2183 | `corewise_equal` | E1 | "equality use :py:meth:`numerically_equal`." | "equality use :py:meth:`allclose`." |
-| 2956 | `up_svd_tt_core` | M/U | `up_svd_tt_core`: "Compute SVD of ith TT-core right unfolding and contract non-orthogonal factor down into the tucker core below." | as `t3_up_svd_tt_core` above |
-| 2978 | `up_svd_tt_core` | N17 | `up_svd_tt_core` Returns: "with ith TT-core down orthogonal" | HELD (N17): "up-orthogonal" |
-| 3002 | `up_svd_tt_core` | N17 | "# TT-core is down orthogonal" | HELD (N17): "# TT-core is up-orthogonal" |
-| 3108 | `orthogonalize_relative_to_tt_core` | N17 | "# Core below G1 is up orthogon[al]" (a Tucker core, `B Bᵀ = I`) | HELD (N17): "down-orthogonal" |
+| 2956 | `up_svd_tt_core` | M/U | `up_svd_tt_core`: "Compute SVD of ith TT-core up unfolding and contract non-orthogonal factor down into the tucker core below." (the store rename's §4.3 row turned "right" into "up") | as `t3_up_svd_tt_core` above |
+| 2978 | `up_svd_tt_core` | N17 | done by the store rename (R4a): `up_svd_tt_core` Returns: "with ith TT-core up orthogonal" | — |
+| 3002 | `up_svd_tt_core` | N17 | done by the store rename (R4a): "# TT-core is up orthogonal" | — |
+| 3108 | `orthogonalize_relative_to_tt_core` | N17 | done by the store rename (R4a): "# Core below G1 is down orthogonal" (a Tucker core, `B Bᵀ = I`) | — |
 | 3920 | `probe_derivatives` | N1 | "sample stack" | "probe stack" |
 | 3921 | `probe_derivatives` | N6 | "for the Riemannian Jacobian use" | "for the (bare) Jacobian use" |
 | 3957 | `apply_derivatives` | N1 | "sample stack" | "probe stack" |
@@ -965,8 +966,8 @@ User pages first, then contributor pages, the package, the examples, and the mat
 | 241 | `padded` | N8 | "# the seeded padded frame in block layout" | "# the hint-free padded frame in block layout" |
 | 244 | `padded` | N8 | "The seeded padded frame of ``x_old`` at larger ranks, in block layout" | "The hint-free padded frame of ``x_old`` at larger ranks, in block layout" |
 | 548 | `__post_init__` | E6 | ``` # writeable caller array mutated in place would leave a stale jit cache key (review H1-5). ``` | ``` # writeable caller array mutated in place would leave a stale jit cache key. ``` |
-| 1122 | `ut3_orthogonal_representations` | N17 | "tucker_cores = (U0,U1, U2, U3), up orthogonal" | HELD (N17): "down-orthogonal" |
-| 1125 | `ut3_orthogonal_representations` | N17 | "outer_tt_cores = (O0, O1, O2, O3), down orthogonal" | HELD (N17): "down_tt_cores = (O0, O1, O2, O3), up-orthogonal" (the name `outer_tt_cores` is also stale: N4) |
+| 1122 | `ut3_orthogonal_representations` | N17 | done by the store rename (R4a): "down_tucker_cores = (D0, D1, D2, D3), down orthogonal" | — |
+| 1125 | `ut3_orthogonal_representations` | N17 | done by the store rename (R4a): "up_tt_cores = (U0, U1, U2, U3), up orthogonal" (also N4: the stale name `outer_tt_cores` is gone) | — |
 
 ### `t3toolbox/uniform_manifold.py`
 
@@ -1109,7 +1110,7 @@ User pages first, then contributor pages, the package, the examples, and the mat
 | 689 | § The assembly, factored by the product rule | E6 | ``` $\dot E_2=\dot\xi\otimes\nu+\xi\otimes\dot\nu$: four $\mathtt W$-summed finals (check C11c). Any pairing of the three ``` | ``` $\dot E_2=\dot\xi\otimes\nu+\xi\otimes\dot\nu$: four $\mathtt W$-summed finals. Any pairing of the three ``` |
 | 690 | § The assembly, factored by the product rule | E6 | ``` groups into two intermediates gives four; slice S3's dense form paired the $\tilde\tau$ and $\ddet$ groups through ``` | ``` groups into two intermediates gives four; an earlier dense form paired the $\tilde\tau$ and $\ddet$ groups through ``` |
 | 712 | § The assembly, factored by the product rule | E6 | ``` C11a: equal to the nine-term dense binomial form to $6.3\times10^{-16}$). Apply/entries have one group, so ``` | ``` equal to the nine-term dense binomial form to $6.3\times10^{-16}$). Apply/entries have one group, so ``` |
-| 750 | § The assembly, factored by the product rule | E6 | ``` \State undotted: $\nu$ re-swept through $G$; $\ddet=Uc$; $\tilde\tau$, $\tilde\sigma$ \Comment{GN kernels, recompute (I-11)} ``` | ``` \State undotted: $\nu$ re-swept through $G$; $\ddet=Uc$; $\tilde\tau$, $\tilde\sigma$ \Comment{GN kernels, recompute} ``` |
+| 750 | § The assembly, factored by the product rule | E6 | ``` \State undotted: $\nu$ re-swept through $G$; $\ddet=Bc$; $\tilde\tau$, $\tilde\sigma$ \Comment{GN kernels, recompute (I-11)} ``` | ``` \State undotted: $\nu$ re-swept through $G$; $\ddet=Bc$; $\tilde\tau$, $\tilde\sigma$ \Comment{GN kernels, recompute} ``` |
 | 771 | § The assembly, factored by the product rule | E6 | ``` order $0$ every jet kernel reduces to the plain kind's (check C9d). ``` | ``` order $0$ every jet kernel reduces to the plain kind's. ``` |
 | 846 | § The uniform masking rule | E6 | ``` masks are load-bearing, not hygiene (an unmasked $\thh$ corrupts the real block by $2.6\times10^3$; F15, F18). Every ``` | ``` masks are load-bearing, not hygiene (an unmasked $\thh$ corrupts the real block by $2.6\times10^3$). Every ``` |
 | 849 | § The uniform masking rule | E6 | ``` \code{self.masks}, which is a strict superset at TT slack (F23) --- runs the mask-free polymorphic kernel, and ``` | ``` \code{self.masks}, which is a strict superset at TT slack --- runs the mask-free polymorphic kernel, and ``` |

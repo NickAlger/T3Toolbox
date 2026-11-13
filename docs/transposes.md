@@ -34,7 +34,7 @@ The other two transposes are *that same object, **projected** onto a smaller spa
 The relationships:
 
 - **corewise** = the **pullback** `𝒥ᵀ` of the residual through the core parametrization at `X` -- the
-  gradient with respect to the raw cores (the Section 6.3 substitution `P,Q,O → G`). It is *not* a
+  gradient with respect to the raw cores (the Section 6.3 substitution `(U, L, R) → G`). It is *not* a
   projection of the ambient back-projection (the core parametrization is not an isometry, so the
   two differ by the cores' Gram factors).
 - **tangent** = the ambient back-projection **projected onto the gauged manifold tangent space** at `X`.
@@ -114,7 +114,7 @@ variables. Returns a **raw tuple** `(tucker_grads, tt_grads)` whose arrays have 
 
 - This is the operation behind standard (non-manifold) optimizers: `cores ← cores − lr · grad`.
 - It is implemented by the §6.3 substitution into the tangent machinery (Algorithm 8 with the TT cores
-  used in place of the orthogonal left/right/down frames, and the Tucker cores no longer required to be
+  used in place of the orthogonal left/right/up frames, and the Tucker cores no longer required to be
   orthogonal). You do **not** need an orthogonal representation to call it.
 - **Returns a raw tuple, not a `TuckerTensorTrain`,** on purpose: the result is a *gradient*, not a
   tensor. Wrapping it in a `TuckerTensorTrain` would invite `X − lr·grad`, which silently does

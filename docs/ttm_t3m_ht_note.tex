@@ -20,9 +20,10 @@
 \usepackage[colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue]{hyperref}
 
 \newcommand{\T}{\mathcal{T}}
-\newcommand{\A}{\mathcal{A}}
-\newcommand{\B}{\mathcal{B}}
-\newcommand{\C}{\mathcal{C}}
+\newcommand{\X}{\mathcal{X}}
+\newcommand{\Y}{\mathcal{Y}}
+\newcommand{\Z}{\mathcal{Z}}
+\newcommand{\C}{\mathcal{C}}                 % the T3's core tensor, eq:t3
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\krrow}{\odot_{\mathrm{r}}}     % row-wise Khatri--Rao
 \newcommand{\kron}{\otimes}
@@ -61,7 +62,7 @@ it does not pay off for TT/T3 inputs even though the meta-principle is sound.
 
 A dense order-$d$ tensor $\T\in\R^{N_0\times\cdots\times N_{d-1}}$ has entries
 $\T[x_0,\dots,x_{d-1}]$. We write the \emph{Hadamard} (elementwise) product of two
-same-shape tensors as $\C=\A\had\B$, i.e.\ $\C[x]=\A[x]\,\B[x]$.
+same-shape tensors as $\Z=\X\had\Y$, i.e.\ $\Z[x]=\X[x]\,\Y[x]$.
 
 \paragraph{Tensor train (TT).}
 $\displaystyle \T[x]=\sum G_0[\,\cdot,x_0,\cdot\,]\cdots G_{d-1}[\,\cdot,x_{d-1},\cdot\,]$,
@@ -71,32 +72,38 @@ $r_0=r_d=1$. The $r_i$ are the \emph{TT bonds}.
 \paragraph{Tucker tensor train (T3).}
 A Tucker decomposition whose core $\C$ is itself stored as a TT:
 \begin{equation}
-\T[x]=\sum_{n_0,\dots,n_{d-1}} \Big(\prod_{i=0}^{d-1} U_i[n_i,x_i]\Big)\,\C[n_0,\dots,n_{d-1}],
+\T[x]=\sum_{n_0,\dots,n_{d-1}} \Big(\prod_{i=0}^{d-1} B_i[n_i,x_i]\Big)\,\C[n_0,\dots,n_{d-1}],
 \qquad \C=\TT(G),
 \label{eq:t3}
 \end{equation}
-with \emph{Tucker factors} (leaf frames) $U_i\in\R^{n_i\times N_i}$ and central TT
+with \emph{Tucker factors} (leaf frames) $B_i\in\R^{n_i\times N_i}$ and central TT
 cores $G_i\in\R^{r_i\times n_i\times r_{i+1}}$. The $n_i$ are the \emph{Tucker ranks}.
-Plain TT is the special case $n_i=N_i$, $U_i=I$.
+Plain TT is the special case $n_i=N_i$, $B_i=I$.
+
+T4S writes $U$, $O$, $P$, $Q$ for our $D$, $U$, $L$, $R$; its $\delta U$ is our $V$
+(\texttt{tucker\_variations}), its $\delta G$ our $H$ (\texttt{tt\_variations}). It writes $U_i$ for the
+Tucker factors $B_i$, and HT papers write $U_t$ for the leaf frames and $B_t$ for the transfer tensors
+($T_t$ here, \S\ref{sec:ht}); this note wrote $\mathcal A$, $\mathcal B$, $\mathcal C$ (superscripts $A$, $B$, $C$)
+for $\X$, $\Y$, $\Z$.
 
 \paragraph{Two combination rules.}
 For a Hadamard product, the row-wise Khatri--Rao and the Kronecker product appear:
 \begin{align}
-(U^A\krrow U^B)[(a,b),\,x] &= U^A[a,x]\,U^B[b,x] && \text{(row-wise Khatri--Rao, ``COPY'')},\\
-(G^A\kron G^B)[(\alpha,\alpha'),(a,b),(\beta,\beta')] &= G^A[\alpha,a,\beta]\,G^B[\alpha',a',\beta'] && \text{(Kronecker)} .
+(B^X\krrow B^Y)[(a,b),\,x] &= B^X[a,x]\,B^Y[b,x] && \text{(row-wise Khatri--Rao, ``COPY'')},\\
+(G^X\kron G^Y)[(\alpha,\alpha'),(a,b),(\beta,\beta')] &= G^X[\alpha,a,\beta]\,G^Y[\alpha',a',\beta'] && \text{(Kronecker)} .
 \end{align}
 
 \paragraph{The product of two T3s.}
-Substituting \eqref{eq:t3} for $\A$ and $\B$ into $\C[x]=\A[x]\B[x]$ and grouping
+Substituting \eqref{eq:t3} for $\X$ and $\Y$ into $\Z[x]=\X[x]\Y[x]$ and grouping
 factors mode by mode gives the exact product T3:
 \begin{equation}
-W_i \;=\; U^A_i\krrow U^B_i \in\R^{(n^A_i n^B_i)\times N_i},
+W_i \;=\; B^X_i\krrow B^Y_i \in\R^{(n^X_i n^Y_i)\times N_i},
 \qquad
-G^C_i \;=\; G^A_i\kron G^B_i \in\R^{(r^A_i r^B_i)\times(n^A_i n^B_i)\times(r^A_{i+1}r^B_{i+1})}.
+G^Z_i \;=\; G^X_i\kron G^Y_i \in\R^{(r^X_i r^Y_i)\times(n^X_i n^Y_i)\times(r^X_{i+1}r^Y_{i+1})}.
 \label{eq:prod}
 \end{equation}
 \emph{Both} rank families blow up multiplicatively: Tucker rank
-$n^A_i n^B_i$ and TT bond $r^A_i r^B_i$. The point of every algorithm below is to
+$n^X_i n^Y_i$ and TT bond $r^X_i r^Y_i$. The point of every algorithm below is to
 produce \eqref{eq:prod} \emph{already truncated} back to target ranks
 $\ntil_i,\rtil_i$, ideally without ever forming the blown-up factors.
 
@@ -107,7 +114,7 @@ For pure TT the leaf frames are trivial, so only the central object matters and
 the Hadamard acts \emph{diagonally} on each physical leg: when two same-mode cores
 meet, a copy tensor $\delta[x,x',x'']$ (the order-3 diagonal) ties their physical
 legs to a single output leg of the \emph{same} size $N_i$. TTM never forms the
-$r^2$ bonds. Instead it views $\A\kron\B$ (the order-$2d$ outer product) as one
+$r^2$ bonds. Instead it views $\X\kron\Y$ (the order-$2d$ outer product) as one
 length-$2d$ TT and merges matching modes by local, gauge-centered, truncating
 \emph{swaps}.
 
@@ -115,22 +122,22 @@ length-$2d$ TT and merges matching modes by local, gauge-centered, truncating
 \caption{\textsc{TTM} --- Hadamard product of two tensor trains (swap form)}
 \label{alg:ttm}
 \begin{algorithmic}[1]
-\Require TT cores $\{G^A_i\}$, $\{G^B_i\}$; per-step tolerance / target bond $\rtil$
-\State $H \gets [\,G^A_0,\dots,G^A_{d-1},\ \textsc{reverse}(G^B)\,]$ \Comment{length-$2d$ chain $=\A\kron\B$; reversal makes mode $d{-}1$ adjacent}
-\State left-orthogonalize the $A$-half, right-orthogonalize the reversed-$B$ half \Comment{mixed-canonical center at the seam}
+\Require TT cores $\{G^X_i\}$, $\{G^Y_i\}$; per-step tolerance / target bond $\rtil$
+\State $H \gets [\,G^X_0,\dots,G^X_{d-1},\ \textsc{reverse}(G^Y)\,]$ \Comment{length-$2d$ chain $=\X\kron\Y$; reversal makes mode $d{-}1$ adjacent}
+\State left-orthogonalize the $X$-half, right-orthogonalize the reversed-$Y$ half \Comment{mixed-canonical center at the seam}
 \For{$i=d-1$ \textbf{downto} $0$}
   \State move the orthogonality center to the right end of the merged block
-  \For{each step bringing the mode-$i$ $B$-core toward its $A$-partner}
+  \For{each step bringing the mode-$i$ $Y$-core toward its $X$-partner}
     \State \textsc{swap} the adjacent pair by a \emph{centered} truncated SVD \Comment{bond stays $O(\rtil)$}
   \EndFor
   \State \textsc{merge} the adjacent matching pair with the copy tensor $\delta$ (diagonal in $x_i$); single bonds in/out
 \EndFor
-\State \Return the length-$d$ chain $\{G^C_i\}$
+\State \Return the length-$d$ chain $\{G^Z_i\}$
 \end{algorithmic}
 \end{algorithm}
 
 The reversal makes the $\tfrac{d(d-1)}{2}$ swaps minimal, and each merged core is
-``bubbled past'' by later $B$-cores. Because every swap and merge is performed in
+``bubbled past'' by later $Y$-cores. Because every swap and merge is performed in
 mixed-canonical gauge (everything surrounding the active core is orthogonal toward
 it), each truncated SVD is locally optimal in Frobenius norm. \textbf{For pure TT
 this per-step optimality is enough}: the physical leg size $N_i$ is invariant
@@ -146,10 +153,10 @@ The skeleton of Algorithm~\ref{alg:ttm} ports verbatim: concatenate, reverse,
 the $\tfrac{d(d-1)}{2}$ swap schedule, and the gauge discipline are all
 tensor-agnostic. \emph{One} thing changes: the copy-tensor merge becomes the
 \textbf{Khatri--Rao merge}. When the mode-$i$ pair meets, the merged physical leg
-is the pair $(n^A_i,n^B_i)$ carrying the Tucker factor $W_i=U^A_i\krrow U^B_i$ from
+is the pair $(n^X_i,n^Y_i)$ carrying the Tucker factor $W_i=B^X_i\krrow B^Y_i$ from
 \eqref{eq:prod}, and $W_i$ admits a \emph{new} compression
 \begin{equation}
-\rank(W_i)\le \min(n^A_i n^B_i,\;N_i),\qquad\text{truncate to } \ntil_i,
+\rank(W_i)\le \min(n^X_i n^Y_i,\;N_i),\qquad\text{truncate to } \ntil_i,
 \end{equation}
 weighted by the (orthogonal) environment exactly as the T3-SVD per-site step does.
 This Tucker compression \textbf{has no analogue in pure TT} and is the source of
@@ -159,21 +166,21 @@ everything below.
 \caption{\textsc{T3M-swap} --- Hadamard product of two Tucker tensor trains}
 \label{alg:t3m}
 \begin{algorithmic}[1]
-\Require T3s $(U^A,G^A)$, $(U^B,G^B)$; targets $\ntil,\rtil$ (and/or $\mathrm{rtol},\mathrm{atol}$); oversample $k\ge1$
+\Require T3s $(B^X,G^X)$, $(B^Y,G^Y)$; targets $\ntil,\rtil$ (and/or $\mathrm{rtol},\mathrm{atol}$); oversample $k\ge1$
 \State down-orthogonalize the Tucker factors of each input \Comment{HT: ``orthogonalize leaves toward the root''}
-\State $H \gets [\,G^A_0,\dots,G^A_{d-1},\ \textsc{reverse}(G^B)\,]$ with each $G_i$ carrying $(U_i,\text{mode }i)$
-\State left-orthogonalize the $A$-half, right-orthogonalize the reversed-$B$ half \Comment{center at the seam}
+\State $H \gets [\,G^X_0,\dots,G^X_{d-1},\ \textsc{reverse}(G^Y)\,]$ with each $G_i$ carrying $(B_i,\text{mode }i)$
+\State left-orthogonalize the $X$-half, right-orthogonalize the reversed-$Y$ half \Comment{center at the seam}
 \For{$i=d-1$ \textbf{downto} $0$}
   \State move the center to the right end of the merged block
-  \For{each step bringing the mode-$i$ $B$-core to its $A$-partner}
+  \For{each step bringing the mode-$i$ $Y$-core to its $X$-partner}
     \State centered truncated-SVD \textsc{swap}, intermediate bond capped at $k\,\rtil$ (or tol $/k$) \Comment{memory only}
   \EndFor
-  \State \textsc{merge}: $W_i\gets U^A_i\krrow U^B_i$; centered weighted-SVD compress to $\le k\,\ntil$; Tucker factors/modes ride along
+  \State \textsc{merge}: $W_i\gets B^X_i\krrow B^Y_i$; centered weighted-SVD compress to $\le k\,\ntil$; Tucker factors/modes ride along
 \EndFor
 \If{$k>1$ \textbf{or} a non-uniform per-position bond cap was requested}
-  \State $\{(U^C_i,G^C_i)\}\gets$ \textsc{T3-SVD-round}$(\{(U^C_i,G^C_i)\};\ \ntil,\rtil,\mathrm{rtol},\mathrm{atol})$ \Comment{the decisive truncation}
+  \State $\{(B^Z_i,G^Z_i)\}\gets$ \textsc{T3-SVD-round}$(\{(B^Z_i,G^Z_i)\};\ \ntil,\rtil,\mathrm{rtol},\mathrm{atol})$ \Comment{the decisive truncation}
 \EndIf
-\State \Return $\{(U^C_i,G^C_i)\}$
+\State \Return $\{(B^Z_i,G^Z_i)\}$
 \end{algorithmic}
 \end{algorithm}
 
@@ -183,7 +190,7 @@ reproduces \eqref{eq:prod} to machine precision. Yet under \emph{aggressive}
 truncation it lands at $\approx1.2\times$ the optimal error, whereas
 form-then-round is optimal. The cause is structural, not a gauge bug:
 \begin{quote}
-the Khatri--Rao compression $W_i\!=\!U^A_i\krrow U^B_i$ \textbf{couples} the two
+the Khatri--Rao compression $W_i\!=\!B^X_i\krrow B^Y_i$ \textbf{couples} the two
 operands' factors, so it can only happen when the two cores \emph{meet} (the merge,
 which for the last mode is the very last step). Meanwhile the bonds want to be
 truncated \emph{after} all merges: while $a_0$ and $b_0$ are still split across the
@@ -214,8 +221,8 @@ identity.
 \label{sec:ht}
 
 \subsection{TT, Tucker, and T3 as HT instances}
-An HT tensor is a \emph{dimension tree} with leaf frames $U_i\in\R^{n_i\times N_i}$
-and transfer tensors $B_t\in\R^{n_{t_1}\times n_{t_2}\times n_t}$ at internal nodes
+An HT tensor is a \emph{dimension tree} with leaf frames $B_i\in\R^{n_i\times N_i}$
+and transfer tensors $T_t\in\R^{n_{t_1}\times n_{t_2}\times n_t}$ at internal nodes
 $t$ with children $t_1,t_2$ (root rank $1$). The familiar formats are points in
 this space:
 \begin{center}
@@ -223,7 +230,7 @@ this space:
 \toprule
 format & HT realization\\
 \midrule
-Tensor train & linear (caterpillar) tree, \textbf{trivial} leaf frames ($U_i=I$)\\
+Tensor train & linear (caterpillar) tree, \textbf{trivial} leaf frames ($B_i=I$)\\
 Tucker & star (one root transfer tensor, $d$ leaf frames)\\
 Tucker tensor train (T3) & linear tree, \textbf{nontrivial} leaf frames\\
 \bottomrule
@@ -235,12 +242,12 @@ So T3 is exactly ``TT with the leaf frames switched on'' --- which, by
 \subsection{Hadamard on trees}
 For two HT tensors on the \emph{same} tree, the Hadamard product is, at every node,
 \[
-\text{leaf frames } \;W_i = U^A_i\krrow U^B_i,
+\text{leaf frames } \;W_i = B^X_i\krrow B^Y_i,
 \qquad
-\text{transfer tensors } \; B^C_t = B^A_t\kron B^B_t,
+\text{transfer tensors } \; T^Z_t = T^X_t\kron T^Y_t,
 \]
 i.e.\ the universal ``KR at leaves, Kronecker inside,'' followed by an HT-rounding.
-Equivalently (the TTM viewpoint), $\A\kron\B$ is itself a valid HT tensor on the
+Equivalently (the TTM viewpoint), $\X\kron\Y$ is itself a valid HT tensor on the
 two trees joined at a new root, and the Hadamard is recovered by \emph{merging each
 pair of matching leaves} (the copy tensor / KR) while truncating in mixed-canonical
 gauge. TTM/T3M are the \emph{linear-tree} instances of this; a general tree replaces
@@ -252,7 +259,7 @@ the center-at-the-truncated-node gauge $=$ HT mixed-canonical form; the final
 T3-SVD cleanup $=$ ``round with the format's native rounder.''
 
 \subsection{Bubbling and tree balance}
-In a linear tree the matching leaves of $\A\kron\B$ start $\sim d$ apart, and
+In a linear tree the matching leaves of $\X\kron\Y$ start $\sim d$ apart, and
 rearranging them to be siblings costs $O(d^2)$ adjacent swaps (the ``bubbling'';
 it is the inversion count of the permutation
 $[0,\dots,d{-}1,\,d{-}1,\dots,0]\mapsto[0,0,1,1,\dots]$). A \emph{balanced} tree has
@@ -276,7 +283,7 @@ $\rank_{[a,b]}\le r_a\,r_{b+1}\approx r^2$ (prefix/suffix blocks keep rank
 $\approx r$; the middle nodes inflate). Since the separation rank of a Hadamard
 product is sub-multiplicative,
 \[
-\rank_{[a,b]}(\A\had\B)\ \le\ \rank_{[a,b]}(\A)\,\rank_{[a,b]}(\B)\ \approx\ r^2\cdot r^2 = r^4 .
+\rank_{[a,b]}(\X\had\Y)\ \le\ \rank_{[a,b]}(\X)\,\rank_{[a,b]}(\Y)\ \approx\ r^2\cdot r^2 = r^4 .
 \]
 So the product is $\approx r^2$-compact as a \textbf{TT} but $\approx r^4$-compact
 as a \textbf{balanced HT}: converting moves you into a representation where the very

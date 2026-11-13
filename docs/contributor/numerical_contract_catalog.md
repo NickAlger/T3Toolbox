@@ -33,7 +33,7 @@ time. What stands is the verdict in that section and the user page
 
 The mechanism behind the result was worked out later and is written up in
 [`../frame_variations.md`](../frame_variations.md): a frame carries **four** rank stores
-(`up`/`down`, `left`/`right`) and absorbs an over-ranked request as slack between them, so an
+(`down`/`up`, `left`/`right`) and absorbs an over-ranked request as slack between them, so an
 orthonormal frame need not be minimal — `T3Frame.random_orthogonal` returns exactly such a frame for any
 over-ranked request, and every tangent operation on it is exact. Orthonormality plus the gauge is the
 whole precondition; a minimal-rank gate would reject legitimate frames.
@@ -53,7 +53,7 @@ those properties only make them *equal HS*), so it moves to the geometry's `inne
 | property | meaning | checker (exists) | cost | notes |
 |---|---|---|---|---|
 | **same-frame** | two tangents share one frame (= same tangent space) | *new* `same_frame(b1,b2)` | **O(1) common case** | `b1 is b2 or frames_equal(b1.data,b2.data, rtol)` — identity is the fast sufficient path; `frames_equal` (a value compare) is the complete fallback that also accepts the jit round-trip. |
-| **orthogonal** | the frame is orthonormal (U/O/L/R conditions) | `T3Frame.is_orthogonal()` | contractions | a `@cached_property` candidate (frame is frozen → check once). |
+| **orthogonal** | the frame is orthonormal (D/U/L/R conditions) | `T3Frame.is_orthogonal()` | contractions | a `@cached_property` candidate (frame is frozen → check once). |
 | **gauged** | variations satisfy the gauge conditions (47)–(48) | `T3Tangent.is_gauged()` | contractions | per (frame,variations) pair; cacheable. |
 | **minimal rank** | structurally-and-numerically minimal ranks | `has_minimal_ranks` (structural) | SVD (numerical) | **numerical check intentionally skipped** (§ "Minimal ranks"). |
 

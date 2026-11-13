@@ -52,3 +52,36 @@ t3toolbox/uniform_frame_variations_format.py	swap	1075	R1-R3 swapped the line pa
 t3toolbox/uniform_frame_variations_format.py	swap	1076	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	(bm.up_mask, vm.variations_up_mask, 'up'),
 t3toolbox/uniform_manifold.py	swap	524	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	nD: typ.Optional[int] = None, # padded down rank (default max(down_ranks))
 t3toolbox/uniform_manifold.py	swap	525	R1-R3 swapped the line pair into (down, up) order; the words travel with their lines, matching their own NAMEs	nU: typ.Optional[int] = None, # padded up rank (default max(up_ranks))
+# R5: clause (c) registrations for the docs (the K9-docs half), line numbers of the R5 tree
+docs/aligned_padded_frame.md	c	20	R5 inv3 §5.4 :20-21 (tier E): the store list in the new order, named for the side its cores occupy	A frame has four **stores**: the families of frame cores (down, up, left, right), each named for the side of its
+docs/frame_variations.md	c	19	R5 inv3 §5.1 :19 (tier E): the V-term picture, up core in the chain	(plus a matching set with the Tucker variation `(Vᵢ)` in place of `Dᵢ` and the up core `Uᵢ` in the chain.) The
+docs/frame_variations.md	c	83	R5 plan §6: the convention picture (sample batch 3 edit 1)	l0 l1 l2 Tucker factors: edges n0 ... n2, each with an up and a down side
+docs/frame_variations.md	c	86	R5 plan §6: the convention picture	one Tucker edge: c(i) up core U(i): TT-shaped, above the edge
+docs/frame_variations.md	c	88	R5 plan §6: the convention picture	l(i) down core D(i): the Tucker factor, below the edge
+docs/frame_variations.md	c	93	R5 plan §6: the convention paragraph (sample batch 3 edit 1)	every TT bond, the right store those on the right, the up store the TT-shaped cores above every Tucker edge,
+docs/frame_variations.md	c	94	R5 plan §6: the convention paragraph	and the down store the Tucker factors below it. The orthogonality adjectives say the same thing: a left core is
+docs/frame_variations.md	c	95	R5 plan §6: the convention paragraph	left-orthogonal, an up core up-orthogonal (`up_orthogonalize_tt_cores`), a down core down-orthogonal
+docs/frame_variations.md	c	97	R5 plan §6: the convention paragraph	edge, a core's edge points away from its side (a left core's edge points right, an up core's edge points down
+docs/frame_variations.md	c	98	R5 plan §6: the convention paragraph	to the leaf). A frame keeps the stores in the order `(down, up, left, right)`, Tucker family first as in
+docs/frame_variations.md	c	102	R5 plan §6: the Letters paragraph	(`Dᵢ` the down core, the Tucker factor; `Uᵢ` the up core). Their widths are `nD` (the down store's: the Tucker
+docs/frame_variations.md	c	103	R5 plan §6: the Letters paragraph	factor's rows), `nU` (the up store's: the up core's mode leg), `rL` and `rR` (the left and right stores'
+docs/frame_variations.md	c	104	R5 plan §6: the Letters paragraph	bonds); at a minimal frame the down and up ranks agree. A T3's own cores, outside a frame, are `Bᵢ` (Tucker) and
+docs/frame_variations.md	c	106	R5 plan §6: the Letters paragraph (the 2026.5.0 swap)	context tells them apart. Before 2026.5.0 the words up and down, and with them the widths `nU` and `nD`, named
+docs/user_guide.rst	c	97	R5 inv3 §5.3 :97 (tier E; work list :300-301): up-matricizations	- TT core up-matricizations are full rank: ni <= (ri*r(i+1))
+docs/user_guide.rst	c	139	R5 DOC-UG-0139 (§4A block, sample batch 3 edit 8): the reordered list, down-orthogonal	- down_tucker_cores = (D0,...,D(d-1)), down-orthogonal
+docs/user_guide.rst	c	140	R5 DOC-UG-0139 (§4A block, sample batch 3 edit 8): the reordered list, up-orthogonal (§4.3 backwards adjective fixed)	- up_tt_cores = (U0,...,U(d-1)), up-orthogonal
+docs/contributor/padded_frame_internals.md	c	11	R5 inv3 §6.1 :8-9 (tier E): store named for its side, edges point away	its name (the up store's edges point down, from chain to leaf;
+docs/contributor/padded_frame_internals.md	c	17	R5 inv3 §6.1 :15 (tier E): the table row up[i]	| `c_i → l_i` | `up[i]` | the middle index (`nU`) |
+docs/contributor/padded_frame_internals.md	c	31	R5 plan §4.2 store-and-arrow (sample edit 9 AFTER)	frame) and `Ξ`, a square root of the rest (`_root`, from a thin SVD; only `ΞΞᵀ` is used). The order is the up
+docs/contributor/padded_frame_internals.md	c	33	R5 plan §4.2 store-and-arrow (sample edit 9 AFTER)	down store's edges (`l_i → c_i`).
+docs/contributor/padded_frame_internals.md	c	89	R5 inv3 §6.1 :86 (tier E): seed tags, the 2026.4.0 integers	`RandomState([seed, store tag, key])` stream (`_seed_rows`; tags down 0, up 1, left 2, right 3, the integers of
+CLAUDE.md	c	70	R5 plan §6 / sample batch 3 edit 7: the notation map and the nD/nU clause (M1 rewrap, session)	its `O` ("outer", our up-orthogonal) `up_tt_cores`.
+CLAUDE.md	c	71	R5 plan §6 / sample batch 3 edit 7: the notation map and the nD/nU clause (M1 rewrap, session)	Widths: `nD` the down store's (the Tucker factor's rows), `nU` the up store's — they swapped meaning in 2026.5.0; see
+docs/glossary.md	c	107	R5 glossary orthogonal core: the Clash sentence resolved (inv3 §5.2 :102-109)	orthonormality sums over. The frame stores are named the same way: an up core is up-orthogonal, a down core
+docs/glossary.md	c	108	R5 glossary orthogonal core (inv3 §5.2)	down-orthogonal (2026.5.0; before, the store names were the other way round).
+docs/glossary.md	c	121	R5 glossary padded widths: the store widths (plan §6, §4 item 9)	each have their own: `nD` the down store's (the Tucker factor's rows), `nU` the up store's (the up core's mode leg),
+docs/glossary.md	c	713	R5 glossary Symbols intro: the letter-word mapping (plan §6)	letters are single axes. A frame's stores are written `D`, `U`, `L`, `R` (down, up, left, right), with widths `nD`
+docs/glossary.md	c	714	R5 glossary Symbols intro (plan §6)	(the down store's: the Tucker factor's rows), `nU` (the up store's: the up core's mode leg), `rL` and `rR`; a T3's own
+docs/glossary.md	c	715	R5 glossary Symbols intro (plan §6)	cores are `B` (Tucker) and `G` (TT). Before 2026.5.0 the words up and down, and with them `nU` and `nD`, named the
+docs/glossary.md	c	731	R5 glossary Symbols D row (plan §4 item 9)	| `D` | the down frame core `Di`, a Tucker factor, and the down store's letter (frame pages, diagrams, equations, `update`). Before 2026.5.0 `D` also stood for the derivative (now the upright `d`), the forward jet shift (now `sh`), the padded-frame messages (now `Ψ`) and, in the `T3Frame` docstring, the TT-shaped core (now `U`) |
+docs/glossary.md	c	732	R5 glossary Symbols U row (plan §4 item 9)	| `U` | the up frame core `Ui`, TT-shaped, and the up store's letter (frame pages, diagrams, equations, `update`); the SVD factor in `UΣVᵀ`. Before 2026.5.0 `U` was the Tucker frame core and its `update` letter (now `D`), the reverse jet shift (now `shᵀ`) and the padded-frame note's edge frame (now `F_{x→t}`) |

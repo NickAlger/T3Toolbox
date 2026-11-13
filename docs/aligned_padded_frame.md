@@ -17,8 +17,9 @@ The frame twins behind them are public: `T3Frame.padded` / `UT3Frame.padded` (th
 
 ## The padded frame
 
-A frame has four **stores**: the families of frame cores (up, down, left, right), each one rank axis per mode or
-bond (see [Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)). At a rank
+A frame has four **stores**: the families of frame cores (down, up, left, right), each named for the side of its
+edges that its cores occupy and each one rank axis per mode or bond (see
+[Four rank stores](frame_variations.md#four-rank-stores--and-why-excess-rank-is-inert)). At a rank
 increase every store gains slots. A **padded frame** keeps `x_old`'s own frame in the leading slots of every store,
 bitwise, and fills the new slots with an orthonormal completion. Whatever the completion, the frame represents `x0`
 (the carriers `left[d-1]` and `right[0]` keep the old content only).
@@ -57,13 +58,13 @@ remaining directions there are an arbitrary valid completion.
 1. **Oversampled passes** (`oversampling`, default 5; `oversampled_passes`, default 2): passes at the target ranks
    plus `oversampling`. They are skipped when those wider ranks give the target's stores.
 2. **One truncating pass** to the target ranks.
-3. **Two-colour pairs** (`alternate=True`, the default): a `'UL'` pass (up and left stores), then an `'RO'` pass
-   (right and down), the other colour transported. A simultaneous update can cycle with period 2; the pairs do not.
-   `alternate=False` runs simultaneous passes.
+3. **Two-colour pairs** (`alternate=True`, the default): a `('D', 'L')` pass (down and left stores), then a
+   `('U', 'R')` pass (up and right), the other colour transported. A simultaneous update can cycle with period 2;
+   the pairs do not. `alternate=False` runs simultaneous passes.
 4. **The stop:** after a pair whose two movements are both below `tol` (default 0.05). The truncating pass never
    stops the loop, and a NaN movement never does. `max_passes` (default 10) caps all passes, the truncating one
-   included. An odd remainder runs one final `'UL'` pass. With the defaults: 2 oversampled, 1 truncating, 3 pairs and
-   a final `'UL'`.
+   included. An odd remainder runs one final `('D', 'L')` pass. With the defaults: 2 oversampled, 1 truncating, 3
+   pairs and a final `('D', 'L')`.
 
 The **movement** of a pass is how far the new directions turned: the largest, over the stores, of
 `‖g_old − P⁺P⁺ᵀ g_old‖_F`. It is 0 at a fixed point.
@@ -135,8 +136,8 @@ Nothing jits unless asked. `use_jit=True` on the loop twins -- or `newton_cg`'s 
 alignment as well as CG -- selects it:
 
 - **ragged**: the host loop calls a memoized jitted step. A level compiles two to four step programs (the oversampled
-  `'ULRO'`, the truncating `'ULRO'`, `'UL'`, `'RO'`), about 2 s each at d = 4, and nothing recompiles across passes.
-  The projection runs eagerly;
+  `('D', 'U', 'L', 'R')`, the truncating `('D', 'U', 'L', 'R')`, `('D', 'L')` and `('U', 'R')`), about 2 s each at
+  d = 4, and nothing recompiles across passes. The projection runs eagerly;
 - **uniform**: the WHOLE loop -- the start, every pass, the projections, the compaction -- is one program, compiled once
   per structure: about 9 s at d = 6 and at d = 24 (first call), then 0.02–0.08 s. `tol` and the hint's arrays are
   traced, so new values do not recompile. A custom `project` must then be traceable and module-level. The library's

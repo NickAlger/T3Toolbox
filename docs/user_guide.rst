@@ -94,7 +94,7 @@ Tucker tensor trains are said to have *minimal ranks* if they satisfy:
 
 - Left TT core unfoldings are full rank: r(i+1) <= (ri*ni)
 - Right TT core unfoldings are full rank: ri <= (ni*r(i+1))
-- Outer TT core unfoldings are full rank: ni <= (ri*r(i+1))
+- TT core up-matricizations are full rank: ni <= (ri*r(i+1))
 - Tucker cores have full row rank: ni <= Ni
 
 Minimal rank properties:
@@ -124,22 +124,22 @@ looks like this::
 
 	      1--H0--R1--R2--1   1--L0--H1--R2--1   1--L0--L1--H2--1
 	         |   |   |          |   |   |          |   |   |
-	v  =     U0  U1  U2    +    U0  U1  U2    +    U0  U1  U2
+	v  =     D0  D1  D2    +    D0  D1  D2    +    D0  D1  D2
 	         |   |   |          |   |   |          |   |   |
 
-	      1--O0--R1--R2--1   1--L0--O1--R2--1   1--L0--L1--O2--1
+	      1--U0--R1--R2--1   1--L0--U1--R2--1   1--L0--L1--U2--1
 	         |   |   |          |   |   |          |   |   |
-	   +     V0  U1  U2    +    U0  V1  U2    +    U0  U1  V2
+	   +     V0  D1  D2    +    D0  V1  D2    +    D0  D1  V2
 	         |   |   |          |   |   |          |   |   |
 
 - The following "frame" cores are orthogonal representations of the base point where the tangent space
   is attached. When performing computations, these are computed once per tangent space, then fixed for
   all tangent vectors in the space:
 
-  - up_tucker_cores   = (U0,...,U(d-1)), orthogonal
+  - down_tucker_cores = (D0,...,D(d-1)), down-orthogonal
+  - up_tt_cores       = (U0,...,U(d-1)), up-orthogonal
   - left_tt_cores     = (L0,...,L(d-1)), left-orthogonal
   - right_tt_cores    = (R0,...,R(d-1)), right-orthogonal
-  - down_tt_cores     = (O0,...,O(d-1)), down-orthogonal
 
 - The following "variation" cores define the tangent vector w.r.t. the frame cores:
 
@@ -212,8 +212,8 @@ There are **three kinds of batch** ("blocks"), which batch different things on d
 Axes are ordered **frame-inner**: ``W + K + C + (tensor axes)``. For example, with 2 base points
 (``C``), 3 tangent vectors at each (``K``), probed by 4 probe-sets (``W``), every array's shape is::
 
-    frame Tucker core  U_i   (T3Frame)        C            (2,)      + (n_i, N_i)
-    variation core    dU_i  (T3Variations)   K + C        (3, 2)    + (n_i, N_i)
+    frame Tucker core  D_i   (T3Frame)        C            (2,)      + (n_i, N_i)
+    variation core    V_i   (T3Variations)   K + C        (3, 2)    + (n_i, N_i)
     probe vector      w_i   (ww)             W            (4,)      + (N_i,)
     forward probe     z_i   (tangent.probe)  W + K + C     (4, 3, 2) + (N_i,)
 

@@ -68,8 +68,8 @@ one per variation core — in four families matching the tangent's rank types:
 
 | family | weights | length |
 |---|---|---|
-| `up` | `H`'s Tucker (`nU`) leg | `d` |
-| `down` | `V`'s complement (`nD`) leg | `d` |
+| `down` | `H`'s Tucker (`nD`) leg | `d` |
+| `up` | `V`'s complement (`nU`) leg | `d` |
 | `left` | `H`'s left bond (`rL`) | `d` |
 | `right` | `H`'s right bond (`rR`) | `d` |
 
@@ -97,7 +97,7 @@ Tucker basis *is* the singular basis the σ's belong to (and it costs one SVD, n
 is degenerate, and comes back rotated by an arbitrary orthogonal matrix — σ-weights applied on that frame
 weight the wrong directions, silently (this was the documented recipe before 2026.2.0).
 
-The weights are absorbed into the **variation** cores (`down`→`V`, `up`/`left`/`right`→`H`); the frame
+The weights are absorbed into the **variation** cores (`up`→`V`, `down`/`left`/`right`→`H`); the frame
 stays orthonormal and untouched, so this is `O(ranks)` and does not disturb the tangent space.
 `tangent.absorb_weights(W)` returns the weighted tangent at the same frame — but note it is **not gauged**
 (scaling the coordinates breaks the gauge, though not the frame's orthogonality), so use `corewise` ops on
@@ -107,14 +107,14 @@ weights recover `tangent.corewise_norm()`. Like `T3Weights`, `T3FrameWeights` ha
 `concatenate` / `kronecker` / `reverse` / `stack` / `unstack` / `is_consistent_with`.
 
 **From a base-point weight.** `T3FrameWeights.from_t3weights(W)` builds a tangent metric from a
-`T3Weights` — `up = down =` the Tucker weights, and `left` / `right` are the TT-bond weights sliced by the
+`T3Weights` — `down = up =` the Tucker weights, and `left` / `right` are the TT-bond weights sliced by the
 `Hᵢ` bond convention (`left = tt[:-1]`, `right = tt[1:]`). So the **Grasedyck–Kramer metric from a point's
 singular values** is one line:
 
 ```python
 >>> import t3toolbox.frame_variations_format as bvf
 >>> gk = bvf.T3FrameWeights.from_t3weights(t3.T3Weights.from_t3svd(x)).reciprocal()
->>> print(gk.down_ranks, gk.up_ranks)              # up = down = the Tucker weights
+>>> print(gk.down_ranks, gk.up_ranks)              # down = up = the Tucker weights
 (2, 2, 2) (2, 2, 2)
 >>> print(gk.left_ranks, gk.right_ranks)           # left = tt[:-1], right = tt[1:]
 (1, 2, 2) (2, 2, 1)

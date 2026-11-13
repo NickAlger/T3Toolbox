@@ -213,7 +213,7 @@ unconstrained Python/numpy — or write it in jax on device-resident data to kee
 
 | | **`MANIFOLD`** | **`COREWISE`** |
 |---|---|---|
-| optimizes | on the fixed-rank manifold (the gauge `Π` makes `g`/`H` Riemannian) | the raw cores `(U,G,G,G)`, Euclidean metric |
+| optimizes | on the fixed-rank manifold (the gauge `Π` makes `g`/`H` Riemannian) | the raw cores `(B,G,G,G)`, Euclidean metric |
 | retraction | implicit truncated T3-SVD | additive (`cores += step`) |
 | start `x0` | the **zero** tensor (orthonormal frame completion makes `J≠0`) | **nonzero** small random (zero cores ⇒ `J=0`) |
 | pairs with | `newton_cg`, `mc_sgd` (the gauged `H` is PD) | `adam`, scipy/optax bridges (the corewise `H` is gauge-singular) |

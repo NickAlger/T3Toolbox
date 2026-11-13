@@ -20,12 +20,12 @@ same object wearing two hats:
   side of the variation an edge is on*, and the shapes forbid mixing (`rLₖ ≠ rRₖ` in general; a left
   diagonal will not fit a right bond).
 
-Forcing one class would need `down=None, left=right` for the plain case — uglier than two honest types.
+Forcing one class would need `up=None, left=right` for the plain case — uglier than two honest types.
 
 ## The tangent weight is a METRIC (the design change that caught us out)
 
-The first design absorbed the tangent weights into the **frame** cores (`up→U, down→O, left→P,
-right→Q`, variations untouched). It shipped as the opposite: a **metric on the variation
+The first design absorbed the tangent weights into the **frame** cores (`down→D, up→U, left→L,
+right→R`, variations untouched). It shipped as the opposite: a **metric on the variation
 coordinates**, absorbed into `V`/`H`, with the frame left orthonormal.
 
 Why: the frame's `d+1`-th left/right cores are base-point padding — "not really part of the frame"
@@ -44,7 +44,7 @@ tensor, no `tv_weighted_*` twins. If you find a note describing that path, it is
 
 | question | answer for `T3FrameWeights` |
 |---|---|
-| what does it *act on*? | the **variations** (`down`→V, `up`/`left`/`right`→H) |
+| what does it *act on*? | the **variations** (`up`→V, `down`/`left`/`right`→H) |
 | what does it *batch with*? | the **frame** — stack `C`, never the variations' `K + C` |
 
 A metric is one-per-base-point, shared by all `K` tangent vectors at that frame. At the design change,

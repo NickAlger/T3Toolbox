@@ -63,8 +63,8 @@ transpose is deferred (see the project note). This material is not part of the p
 We recall just enough of the probing construction to fix notation; see the T4S paper for the full
 development.
 
-A \emph{Tucker tensor train} is a pair of core families $\mathbb T = \big((\mathbf U_i)_{i=1}^d,\,
-(\mathbf G_i)_{i=1}^d\big)$, where each \emph{Tucker factor} $\mathbf U_i \in \R^{n_i \times N_i}$
+A \emph{Tucker tensor train} is a pair of core families $\mathbb T = \big((\mathbf B_i)_{i=1}^d,\,
+(\mathbf G_i)_{i=1}^d\big)$, where each \emph{Tucker factor} $\mathbf B_i \in \R^{n_i \times N_i}$
 has full row rank ($n_i \le N_i$) and each \emph{tensor-train core} $\mathbf G_i \in \R^{r_{i-1}
 \times n_i \times r_i}$, with boundary ranks $r_0 = r_d = 1$. It represents a tensor $\mathbf T \in
 \R^{N_1 \times \cdots \times N_d}$. For a vector $\mathbf v \in \R^{n_i}$ we write $\mathbf
@@ -83,7 +83,7 @@ every mode $j \ne i$, leaving mode $i$ free:
 \]
 Probing computes all $d$ actions in two sweeps over the train. Introduce the \emph{edge variables}
 \begin{align}
-  \boldsymbol\xi_i      &= \mathbf U_i \mathbf w_i \in \R^{n_i},
+  \boldsymbol\xi_i      &= \mathbf B_i \mathbf w_i \in \R^{n_i},
   & &\text{(projected probe)} \label{eq:xi}\\
   \boldsymbol\mu_0^\top  &= 1, &
   \boldsymbol\mu_i^\top &= \boldsymbol\mu_{i-1}^\top\, \mathbf G_i(\boldsymbol\xi_i) \in \R^{r_i},
@@ -93,12 +93,12 @@ Probing computes all $d$ actions in two sweeps over the train. Introduce the \em
   & &\text{(right pushthrough)} \label{eq:nu}\\
   \boldsymbol\eta_i     &= \boldsymbol\mu_{i-1}^\top\, \mathbf G_i\, \boldsymbol\nu_i \in \R^{n_i},
   & &\text{(combine, mode $i$ free)} \label{eq:eta}\\
-  \mathbf z_i           &= \mathbf U_i^\top \boldsymbol\eta_i \in \R^{N_i}.
+  \mathbf z_i           &= \mathbf B_i^\top \boldsymbol\eta_i \in \R^{N_i}.
   & &\text{(lift)} \label{eq:z}
 \end{align}
 Here $\boldsymbol\mu_{i-1}^\top \mathbf G_i \boldsymbol\nu_i$ denotes the vector obtained by
 contracting $\boldsymbol\mu_{i-1}$ and $\boldsymbol\nu_i$ into the left and right bond indices of
-$\mathbf G_i$, leaving the middle index free. The single Tucker factor $\mathbf U_i$ is used twice:
+$\mathbf G_i$, leaving the middle index free. The single Tucker factor $\mathbf B_i$ is used twice:
 to \emph{project} the probe \eqref{eq:xi} and to \emph{lift} the result \eqref{eq:z}.
 
 \paragraph{Goal.}
@@ -108,7 +108,7 @@ times in the single repeated direction $\mathbf P$:
 \begin{equation}
   \label{eq:goal}
   \mathbf z_i^{(t)} \;:=\; \frac{\dd{^t}}{\dd s^t}\, \mathbf z_i(\mathbf W + s\mathbf P)\Big|_{s=0}
-  \;=\; D^t \mathbf z_i(\mathbf W)\,\mathbf P^{t},
+  \;=\; \mathrm d^t \mathbf z_i(\mathbf W)\,\mathbf P^{t},
   \qquad t = 0, 1, \dots, m.
 \end{equation}
 Order $t=0$ is the ordinary probe. The point is that the \emph{same} direction is fed into all $t$
@@ -143,13 +143,13 @@ Consequently the projected probe \eqref{eq:xi}, being a fixed linear image, also
 jet:
 \[
   \jet{\boldsymbol\xi_i} = (\boldsymbol\xi_i,\ \delta\boldsymbol\xi_i,\ 0, \dots, 0),
-  \qquad \delta\boldsymbol\xi_i := \mathbf U_i \mathbf p_i.
+  \qquad \delta\boldsymbol\xi_i := \mathbf B_i \mathbf p_i.
 \]
 \end{lemma}
 
 \begin{proof}
 $\mathbf w_i(s)$ is affine, so its second and higher $s$-derivatives vanish. The projection
-$\boldsymbol\xi_i(s) = \mathbf U_i \mathbf w_i(s) = \mathbf U_i \mathbf w_i + s\,\mathbf U_i \mathbf
+$\boldsymbol\xi_i(s) = \mathbf B_i \mathbf w_i(s) = \mathbf B_i \mathbf w_i + s\,\mathbf B_i \mathbf
 p_i$ is again affine.
 \end{proof}
 
@@ -192,7 +192,7 @@ because the binomial form maps directly onto integer-exact arithmetic in the imp
 \label{sec:derivs}
 
 We now apply Lemma~\ref{lem:leibniz} to each edge-variable recursion. Throughout, the cores $\mathbf
-U_i, \mathbf G_i$ are constants (independent of $s$), so the only $s$-dependence is carried by the
+B_i, \mathbf G_i$ are constants (independent of $s$), so the only $s$-dependence is carried by the
 edge variables.
 
 \begin{theorem}[Pushthrough jets]
@@ -243,7 +243,7 @@ For $i = 1, \dots, d$ and $t = 0, 1, \dots, m$,
     &= \sum_{r=0}^{t} \binom{t}{r}\,
        \big(\boldsymbol\mu_{i-1}^{(r)}\big)^\top \mathbf G_i\, \boldsymbol\nu_i^{(t-r)},
     \label{eq:deta}\\[2pt]
-  \mathbf z_i^{(t)} &= \mathbf U_i^\top \boldsymbol\eta_i^{(t)}.
+  \mathbf z_i^{(t)} &= \mathbf B_i^\top \boldsymbol\eta_i^{(t)}.
     \label{eq:dz}
 \end{align}
 \end{theorem}
@@ -253,8 +253,8 @@ The combine \eqref{eq:eta} is $\boldsymbol\eta_i = B(\boldsymbol\mu_{i-1}, \bold
 bilinear map $B(\mathbf u, \mathbf v) = \mathbf u^\top \mathbf G_i \mathbf v$ (mode $i$ free), so
 \eqref{eq:deta} is Lemma~\ref{lem:leibniz} verbatim. Unlike the pushthrough, \emph{both} arguments
 carry full jets, so the sum runs over all $r = 0, \dots, t$. Finally \eqref{eq:z} is the fixed
-linear map $\boldsymbol\eta_i \mapsto \mathbf U_i^\top \boldsymbol\eta_i$, whose jet acts
-componentwise: $\mathbf z_i^{(t)} = \mathbf U_i^\top \boldsymbol\eta_i^{(t)}$.
+linear map $\boldsymbol\eta_i \mapsto \mathbf B_i^\top \boldsymbol\eta_i$, whose jet acts
+componentwise: $\mathbf z_i^{(t)} = \mathbf B_i^\top \boldsymbol\eta_i^{(t)}$.
 \end{proof}
 
 \begin{remark}[The full sum, $r = 0$ to $t$]
@@ -277,11 +277,11 @@ the order index $t$.
 \caption{Symmetric probe derivatives of a Tucker tensor train}
 \label{alg:sweep}
 \begin{algorithmic}[1]
-\Require T3 $\big((\mathbf U_i),(\mathbf G_i)\big)$; inputs $\mathbf W$; direction $\mathbf P$; order $m$
+\Require T3 $\big((\mathbf B_i),(\mathbf G_i)\big)$; inputs $\mathbf W$; direction $\mathbf P$; order $m$
 \Ensure derivative jets $\jet{\mathbf z_i}$ for $i=1,\dots,d$
 \For{$i = 1,\dots,d$} \Comment{project, forming the order-one input jets}
-  \State $\boldsymbol\xi_i \gets \mathbf U_i \mathbf w_i$,\quad
-         $\delta\boldsymbol\xi_i \gets \mathbf U_i \mathbf p_i$
+  \State $\boldsymbol\xi_i \gets \mathbf B_i \mathbf w_i$,\quad
+         $\delta\boldsymbol\xi_i \gets \mathbf B_i \mathbf p_i$
 \EndFor
 \State $\jet{\boldsymbol\mu_0} \gets (1,0,\dots,0)$
 \For{$i = 1,\dots,d$} \Comment{left sweep, Eq.~\eqref{eq:dmu}}
@@ -296,7 +296,7 @@ the order index $t$.
 \For{$i = 1,\dots,d$} \Comment{combine and lift, Eqs.~\eqref{eq:deta}--\eqref{eq:dz}}
   \State $\boldsymbol\eta_i^{(t)} \gets \sum_{r=0}^{t}\binom{t}{r}
          \big(\boldsymbol\mu_{i-1}^{(r)}\big)^\top \mathbf G_i\,\boldsymbol\nu_i^{(t-r)}$ \textbf{ for } $t=0,\dots,m$
-  \State $\mathbf z_i^{(t)} \gets \mathbf U_i^\top \boldsymbol\eta_i^{(t)}$ \textbf{ for } $t=0,\dots,m$
+  \State $\mathbf z_i^{(t)} \gets \mathbf B_i^\top \boldsymbol\eta_i^{(t)}$ \textbf{ for } $t=0,\dots,m$
 \EndFor
 \end{algorithmic}
 \end{algorithm}
@@ -370,51 +370,56 @@ input vectors --- the operator needed to fit a tangent vector to measured deriva
 
 \paragraph{Tangent-vector probing.}
 A tangent vector $v$ at a base point is represented by an orthogonal frame
-$\big((\mathbf U_i),(\mathbf O_i),(\mathbf P_i),(\mathbf Q_i)\big)$ (up-Tucker, down-, left-, and
-right-TT cores) and a gauged variation $\delta\mathbb V = \big((\delta\mathbf U_i),
-(\delta\mathbf G_i)\big)$; see Appendix~A of the T4S paper. Its $i$th action on $\mathbf W$ is computed
+$\big((\mathbf D_i),(\mathbf U_i),(\mathbf L_i),(\mathbf R_i)\big)$ (down-Tucker, up-, left-, and
+right-TT cores) and a gauged variation $\delta\mathbb V = \big((\mathbf V_i),
+(\mathbf H_i)\big)$; see Appendix~A of the T4S paper. Its $i$th action on $\mathbf W$ is computed
 by a base sweep through the frame,
 \begin{equation}
   \label{eq:rbase}
-  \boldsymbol\xi_i = \mathbf U_i \mathbf w_i, \quad
-  \boldsymbol\mu_i^\top = \boldsymbol\mu_{i-1}^\top \mathbf P_i(\boldsymbol\xi_i), \quad
-  \boldsymbol\nu_i = \mathbf Q_{i+1}(\boldsymbol\xi_{i+1})\,\boldsymbol\nu_{i+1}, \quad
-  \boldsymbol\eta_i = \boldsymbol\mu_{i-1}^\top \mathbf O_i\, \boldsymbol\nu_i,
+  \boldsymbol\xi_i = \mathbf D_i \mathbf w_i, \quad
+  \boldsymbol\mu_i^\top = \boldsymbol\mu_{i-1}^\top \mathbf L_i(\boldsymbol\xi_i), \quad
+  \boldsymbol\nu_i = \mathbf R_{i+1}(\boldsymbol\xi_{i+1})\,\boldsymbol\nu_{i+1}, \quad
+  \boldsymbol\eta_i = \boldsymbol\mu_{i-1}^\top \mathbf U_i\, \boldsymbol\nu_i,
 \end{equation}
-(the plain pipeline \eqref{eq:xi}--\eqref{eq:z} with the frame cores $\mathbf P,\mathbf Q,\mathbf O$
-in place of $\mathbf G$), and a variation sweep
+(the plain pipeline \eqref{eq:xi}--\eqref{eq:z} with the frame cores $\mathbf L,\mathbf R,\mathbf U$
+in place of $\mathbf G$ and $\mathbf D$ in place of $\mathbf B$), and a variation sweep
 \begin{align}
-  \delta\boldsymbol\xi_i &= \delta\mathbf U_i \mathbf w_i, \label{eq:rdxi}\\
-  \boldsymbol\sigma_i^\top &= \boldsymbol\sigma_{i-1}^\top \mathbf Q_i(\boldsymbol\xi_i)
-    + \boldsymbol\mu_{i-1}^\top \delta\mathbf G_i(\boldsymbol\xi_i)
-    + \boldsymbol\mu_{i-1}^\top \mathbf O_i(\delta\boldsymbol\xi_i), \label{eq:rsigma}\\
-  \boldsymbol\tau_i &= \delta\mathbf G_{i+1}(\boldsymbol\xi_{i+1})\boldsymbol\nu_{i+1}
-    + \mathbf O_{i+1}(\delta\boldsymbol\xi_{i+1})\boldsymbol\nu_{i+1}
-    + \mathbf P_{i+1}(\boldsymbol\xi_{i+1})\boldsymbol\tau_{i+1}, \label{eq:rtau}\\
-  \delta\boldsymbol\eta_i &= \boldsymbol\sigma_{i-1}^\top \mathbf Q_i \boldsymbol\nu_i
-    + \boldsymbol\mu_{i-1}^\top \delta\mathbf G_i \boldsymbol\nu_i
-    + \boldsymbol\mu_{i-1}^\top \mathbf P_i \boldsymbol\tau_i, \label{eq:rdeta}\\
-  \mathbf z_i &= \mathbf U_i^\top \delta\boldsymbol\eta_i + \delta\mathbf U_i^\top \boldsymbol\eta_i,
+  \delta\boldsymbol\xi_i &= \mathbf V_i \mathbf w_i, \label{eq:rdxi}\\
+  \boldsymbol\sigma_i^\top &= \boldsymbol\sigma_{i-1}^\top \mathbf R_i(\boldsymbol\xi_i)
+    + \boldsymbol\mu_{i-1}^\top \mathbf H_i(\boldsymbol\xi_i)
+    + \boldsymbol\mu_{i-1}^\top \mathbf U_i(\delta\boldsymbol\xi_i), \label{eq:rsigma}\\
+  \boldsymbol\tau_i &= \mathbf H_{i+1}(\boldsymbol\xi_{i+1})\boldsymbol\nu_{i+1}
+    + \mathbf U_{i+1}(\delta\boldsymbol\xi_{i+1})\boldsymbol\nu_{i+1}
+    + \mathbf L_{i+1}(\boldsymbol\xi_{i+1})\boldsymbol\tau_{i+1}, \label{eq:rtau}\\
+  \delta\boldsymbol\eta_i &= \boldsymbol\sigma_{i-1}^\top \mathbf R_i \boldsymbol\nu_i
+    + \boldsymbol\mu_{i-1}^\top \mathbf H_i \boldsymbol\nu_i
+    + \boldsymbol\mu_{i-1}^\top \mathbf L_i \boldsymbol\tau_i, \label{eq:rdeta}\\
+  \mathbf z_i &= \mathbf D_i^\top \delta\boldsymbol\eta_i + \mathbf V_i^\top \boldsymbol\eta_i,
     \label{eq:rz}
 \end{align}
 with $\boldsymbol\sigma_0 = 0$, $\boldsymbol\tau_d = 0$ (Algorithm~7 of the T4S paper).
+
+T4S writes $\mathbf U$, $\mathbf O$, $\mathbf P$, $\mathbf Q$ for our $\mathbf D$, $\mathbf U$, $\mathbf L$, $\mathbf R$;
+its $\delta\mathbf U$ is our $\mathbf V$ (\texttt{tucker\_variations}), its $\delta\mathbf G$ our $\mathbf H$
+(\texttt{tt\_variations}). Like this note before, it writes $\mathbf U_i$ for a T3's own Tucker factors,
+our $\mathbf B_i$.
 
 \paragraph{Jets.}
 Differentiating \eqref{eq:rbase}--\eqref{eq:rz} with respect to $\mathbf W$ along $\mathbf P$ uses
 nothing new: every right-hand side is a chain of bilinear pairings, so Lemma~\ref{lem:leibniz}
 applies term by term. The base sweep \eqref{eq:rbase} is verbatim Theorems~\ref{thm:push}--%
 \ref{thm:action} with the frame cores. The variation sweep jet-ifies the same way; with the
-order-one input jets $\jet{\boldsymbol\xi_i} = (\boldsymbol\xi_i, \mathbf U_i\mathbf p_i, 0, \dots)$
-and $\jet{\delta\boldsymbol\xi_i} = (\delta\boldsymbol\xi_i, \delta\mathbf U_i\mathbf p_i, 0, \dots)$,
+order-one input jets $\jet{\boldsymbol\xi_i} = (\boldsymbol\xi_i, \mathbf D_i\mathbf p_i, 0, \dots)$
+and $\jet{\delta\boldsymbol\xi_i} = (\delta\boldsymbol\xi_i, \mathbf V_i\mathbf p_i, 0, \dots)$,
 \eqref{eq:rsigma} becomes the bidiagonal recursion
 \begin{align}
   \big(\boldsymbol\sigma_i^{(t)}\big)^\top
-  &= \big(\boldsymbol\sigma_{i-1}^{(t)}\big)^\top \mathbf Q_i(\boldsymbol\xi_i)
-   + t \big(\boldsymbol\sigma_{i-1}^{(t-1)}\big)^\top \mathbf Q_i(\mathbf U_i\mathbf p_i) \nonumber\\
-  &\;+ \big(\boldsymbol\mu_{i-1}^{(t)}\big)^\top \delta\mathbf G_i(\boldsymbol\xi_i)
-     + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \delta\mathbf G_i(\mathbf U_i\mathbf p_i) \nonumber\\
-  &\;+ \big(\boldsymbol\mu_{i-1}^{(t)}\big)^\top \mathbf O_i(\delta\boldsymbol\xi_i)
-     + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \mathbf O_i(\delta\mathbf U_i\mathbf p_i),
+  &= \big(\boldsymbol\sigma_{i-1}^{(t)}\big)^\top \mathbf R_i(\boldsymbol\xi_i)
+   + t \big(\boldsymbol\sigma_{i-1}^{(t-1)}\big)^\top \mathbf R_i(\mathbf D_i\mathbf p_i) \nonumber\\
+  &\;+ \big(\boldsymbol\mu_{i-1}^{(t)}\big)^\top \mathbf H_i(\boldsymbol\xi_i)
+     + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \mathbf H_i(\mathbf D_i\mathbf p_i) \nonumber\\
+  &\;+ \big(\boldsymbol\mu_{i-1}^{(t)}\big)^\top \mathbf U_i(\delta\boldsymbol\xi_i)
+     + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \mathbf U_i(\mathbf V_i\mathbf p_i),
   \label{eq:rdsigma}
 \end{align}
 and $\boldsymbol\tau$, $\delta\boldsymbol\eta$, $\mathbf z$ likewise (the combine \eqref{eq:rdeta} and
@@ -425,8 +430,8 @@ lift \eqref{eq:rz} being full binomial convolutions, as in \eqref{eq:deta}--\eqr
 Every edge variable above --- base \emph{and} variation --- depends on $\mathbf W$, so every one
 carries the order axis. The forward Riemannian sweep therefore introduces \emph{no new contractions}:
 each term of \eqref{eq:rdsigma} and its companions is one of the three jet contractions of
-Section~\ref{sec:impl}, fed a frame core ($\mathbf P,\mathbf Q,\mathbf O$) or the variation core
-$\delta\mathbf G$. (Contrast the manifold tangent stack of many tangents at one base, which rides
+Section~\ref{sec:impl}, fed a frame core ($\mathbf L,\mathbf R,\mathbf U$) or the variation core
+$\mathbf H$. (Contrast the manifold tangent stack of many tangents at one base, which rides
 only the variation-derived edge variables and so needs asymmetric three-block contractions.)
 \end{remark}
 
@@ -435,8 +440,8 @@ only the variation-derived edge variables and so needs asymmetric three-block co
 
 The map $\delta\mathbb V \mapsto \{\mathbf z_i^{(t)}\}$ of Section~\ref{sec:riem} is \emph{linear} in
 the variation. Fitting needs its transpose: given residual jets $\mathbf r = \{\mathbf r_i^{(t)}\}$ in
-the action-jet space, return the variation gradient $\big((\delta\widetilde{\mathbf U}_i),
-(\delta\widetilde{\mathbf G}_i)\big)$. We obtain it by the adjoint-state method, jet-ified.
+the action-jet space, return the variation gradient $\big((\widetilde{\mathbf V}_i),
+(\widetilde{\mathbf H}_i)\big)$. We obtain it by the adjoint-state method, jet-ified.
 
 \paragraph{The Lagrangian.}
 Introduce an adjoint (multiplier) jet for each forward edge-variable equation
@@ -456,7 +461,7 @@ Section~\ref{sec:impl}. At a stationary point the constraints hold ($\partial_{\
 ($\partial_\Xi\mathcal L = 0$), and
 \begin{equation}
   \label{eq:grad}
-  \big((\delta\widetilde{\mathbf U}_i),(\delta\widetilde{\mathbf G}_i)\big)
+  \big((\widetilde{\mathbf V}_i),(\widetilde{\mathbf H}_i)\big)
   = \partial_{\delta\mathbb V}\, \mathcal L = \big(J^{(s)}\big)^\top(\mathbf r).
 \end{equation}
 Because the constraints are the jet-ified forward equations, both the adjoint sweeps and the gradient
@@ -479,28 +484,28 @@ It is literally the same kernel \eqref{eq:trs} wired as its transpose --- the ad
 convolution is a binomial correlation. Thus $\widehat{\boldsymbol\sigma},\widehat{\boldsymbol\tau},
 \widehat{\delta\boldsymbol\xi}$ are computed by the adjoint-hooked analogues of
 \eqref{eq:rsigma}--\eqref{eq:rdeta}, in the reverse sweep direction, while $\widehat{\delta\boldsymbol
-\eta}_i = \mathbf U_i \mathbf r_i$ is the order-diagonal lift.
+\eta}_i = \mathbf D_i \mathbf r_i$ is the order-diagonal lift.
 
 \paragraph{Gradient assembly: arity equals internal-edge count.}
-The variation gradients $\partial_{\delta\mathbf G_i}\mathcal L$ and $\partial_{\delta\mathbf U_i}
+The variation gradients $\partial_{\mathbf H_i}\mathcal L$ and $\partial_{\mathbf V_i}
 \mathcal L$ are \emph{order-less} (the variation cores carry no order axis). Differentiating the
 Lagrangian's contractions with respect to a core sums out the order axes, and \emph{the number summed
 equals the number of internal edges of that core}:
 \begin{itemize}
-  \item the TT core $\delta\mathbf G_i$ has three internal edges (its left and right bonds and the
-    up-edge to its Tucker core), so its gradient contracts three jets against the three-leg tensor
-    $\texttt{trs}$. It is the sum of the core-adjoints of the three $\delta\mathbf G$-terms in
+  \item the TT core $\mathbf H_i$ has three internal edges (its left and right bonds and the
+    edge down to its Tucker core), so its gradient contracts three jets against the three-leg tensor
+    $\texttt{trs}$. It is the sum of the core-adjoints of the three $\mathbf H$-terms in
     \eqref{eq:rsigma}, \eqref{eq:rtau}, \eqref{eq:rdeta} --- each an order-less three-fold outer
     product placed on the (left-bond, mode, right-bond) legs of the core --- e.g.\ from
     \eqref{eq:rsigma},
     \[
-      \delta\widetilde{\mathbf G}_i \;\supset\; \sum_{r+s=t}\texttt{trs}[t,r,s]\
+      \widetilde{\mathbf H}_i \;\supset\; \sum_{r+s=t}\texttt{trs}[t,r,s]\
         \boldsymbol\mu_{i-1}^{(r)} \otimes \boldsymbol\xi_i^{(s)} \otimes \widehat{\boldsymbol\sigma}_i^{(t)};
     \]
-  \item the Tucker core $\delta\mathbf U_i$ has one internal edge (the down-edge to its TT core), so
+  \item the Tucker core $\mathbf V_i$ has one internal edge (the edge up to its TT core), so
     its gradient contracts against the one-leg ``tensor'' --- a plain sum over the single order axis:
     \[
-      \delta\widetilde{\mathbf U}_i
+      \widetilde{\mathbf V}_i
       = \sum_t \boldsymbol\eta_i^{(t)} \otimes \mathbf r_i^{(t)}
       + \sum_u \widehat{\delta\boldsymbol\xi}_i^{(u)} \otimes \mathbf w_i^{(u)},
       \qquad \jet{\mathbf w_i} = (\mathbf w_i, \mathbf p_i, 0, \dots).
@@ -536,8 +541,8 @@ assembly). Its forward jet is therefore the terminal $\boldsymbol\sigma$-jet. It
 adjoint-state Lagrangian with the per-mode residual gone: the scalar residual jet $\mathbf c$ \emph{seeds}
 one propagation sweep at the terminal bond (a propagation-only $\widehat{\boldsymbol\sigma}$ sweep, no
 $\widehat{\delta\boldsymbol\eta}$ source), and the gradient is
-$\delta\widetilde{\mathbf G}_i = \boldsymbol\mu_{i-1}\otimes\boldsymbol\xi_i\otimes\widehat{\boldsymbol
-\sigma}_i$, $\delta\widetilde{\mathbf U}_i = \widehat{\delta\boldsymbol\xi}_i\otimes\mathbf w_i$ (about
+$\widetilde{\mathbf H}_i = \boldsymbol\mu_{i-1}\otimes\boldsymbol\xi_i\otimes\widehat{\boldsymbol
+\sigma}_i$, $\widetilde{\mathbf V}_i = \widehat{\delta\boldsymbol\xi}_i\otimes\mathbf w_i$ (about
 half the work of the probe transpose). \emph{entries} is \emph{apply} with one-hot inputs $\mathbf
 e_{\mathrm{index}}$ in the base slot and a general direction $\mathbf P$ (fiber-slice the base projection,
 contract $\mathbf P$ at order one); its transpose scatters onto the indexed rows.
@@ -555,9 +560,10 @@ the split is recovered from operand shapes. Each reduces to the two-group form w
 \paragraph{Corewise (non-manifold) transpose.}
 The gradient of the plain-T3 derivative sampling map with respect to the cores as independent variables
 (for non-manifold optimizers) is the Section-6.3 \emph{corewise simplification}: the tangent derivative
-transpose with the base's own cores substituted for the orthogonal frames
-($\mathbf P,\mathbf Q,\mathbf O\to\mathbf G_i$, $\mathbf U$ no longer required orthogonal). It is a
-trivial substitution wrapper; verified against \texttt{jax.grad} of the forward.
+transpose with the base's own cores substituted for the orthogonal frame, i.e.\ at the frame
+$(\mathbf B,\mathbf G,\mathbf G,\mathbf G)$ ($\mathbf B\to\mathbf D$, $\mathbf G\to\mathbf U,\mathbf L,\mathbf R$).
+The manifold transpose requires an orthogonal frame; the corewise one works for any $\mathbf B$, $\mathbf G$.
+It is a trivial substitution wrapper; verified against \texttt{jax.grad} of the forward.
 
 \paragraph{Deferred: the ambient transpose.}
 The base-free adjoint on the full tensor space (CP factors) is deferred: for the derivative map the
@@ -627,8 +633,8 @@ outer core sweep (also a scan). On the packed (uniform) backend these dispatch t
 the compiler keep every slice live, so the scan primitive is essential rather than cosmetic.
 
 \paragraph{The variation assembly.}
-The transpose closes by assembling the variation-core gradients $\delta\widetilde{\mathbf G}_i,
-\delta\widetilde{\mathbf U}_i$: order-summed outer products of the tilde edge variables with the base
+The transpose closes by assembling the variation-core gradients $\widetilde{\mathbf H}_i,
+\widetilde{\mathbf V}_i$: order-summed outer products of the tilde edge variables with the base
 jets. Here the order axes are \emph{fully} summed (no output order) and the free legs are a whole core
 $(\mathrm{r_L},\mathrm{n},\mathrm{r_R})$, so the intermediate is the largest in the chain --- and it is
 exactly \emph{linear} in the sample stack $W$. It is therefore chunked over $W$: the dense assembly runs

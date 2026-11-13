@@ -89,8 +89,8 @@ Applying the rule surfaced four duplications, and each convention now has one ho
 
 | convention | before | after |
 |---|---|---|
-| the variation-mask gauge shift `(up, down, left[:-1], right[1:])` | 5 copies | `ufv_variation_masks` |
-| the `(U,G,G,G)` corewise frame | ~10 copies + one private function this refactor briefly deleted | `t3_corewise_frame` / `ut3_corewise_frame` |
+| the variation-mask gauge shift `(down, up, left[:-1], right[1:])` | 5 copies | `ufv_variation_masks` |
+| the `(B,G,G,G)` corewise frame | ~10 copies + one private function this refactor briefly deleted | `t3_corewise_frame` / `ut3_corewise_frame` |
 | frame → variation shapes | frontend property only | `fv_variation_shapes` / `ufv_variation_shapes` |
 | the sharing-partition normalization | open-coded | `sharing.canonical_groups` |
 
@@ -216,10 +216,10 @@ Two measurement mistakes cost real time here; both are the same shape, and worth
 
 **Breadth of cases is not coverage when the cases share a degeneracy.** A shape derivation was checked
 across 21 structures including stack shapes and passed every one. It was wrong. All 21 happened to have
-`nU == nD`; the first shared geometry where a group's rank differed from the down rank broke it
+`nU == nD`; the first shared geometry where a group's rank differed from the up rank broke it
 immediately.
 
 **Compare invariants, not representations.** An optimizer comparison reported a 1.75 absolute
 difference and looked like a real regression. It was comparing raw cores, which carry a gauge freedom
-(`U → UQ`, `G → Qᵀ G` leaves the tensor unchanged). Comparing the dense tensor instead: agreement to
+(`B → BQ`, `G → Qᵀ G` leaves the tensor unchanged). Comparing the dense tensor instead: agreement to
 1e-12 relative, with Newton trajectories matching to ten digits.

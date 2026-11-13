@@ -13,32 +13,33 @@ core** (in parentheses) surrounded by **frame cores**:
 ```
 1--(H0)--R1---R2--1     1---L0--(H1)--R2--1     1---L0---L1--(H2)--1
     |    |    |             |    |    |             |    |    |
-    U0   U1   U2            U0   U1   U2            U0   U1   U2
+    D0   D1   D2            D0   D1   D2            D0   D1   D2
 ```
 
-(plus a matching set with the Tucker variation `(Vᵢ)` in place of `Uᵢ`.) The **frame cores encode the base
-point** — where the tangent space attaches to the manifold — and the **variation cores encode the tangent
-direction** relative to that frame. There are four frame families and two variation families:
+(plus a matching set with the Tucker variation `(Vᵢ)` in place of `Dᵢ` and the up core `Uᵢ` in the chain.) The
+**frame cores encode the base point** — where the tangent space attaches to the manifold — and the **variation
+cores encode the tangent direction** relative to that frame. There are four frame families and two variation
+families:
 
 | frame core | symbol | role | rank on its legs |
 |---|---|---|---|
-| up-Tucker `Uᵢ` | `U` | the Tucker factors (retained directions) | `nU` |
-| down-TT `Oᵢ` | `O` | the Tucker *complement* (where `V` varies) | `nD` |
-| left-TT `Lᵢ` | `L`/`P` | left environment (left of the variation) | `rL` |
-| right-TT `Rᵢ` | `R`/`Q` | right environment (right of the variation) | `rR` |
-| tucker-variation `Vᵢ` | `V` | Tucker-factor direction (in the `nD` complement) | `nD` |
-| tt-variation `Hᵢ` | `H` | TT-core direction | `nU`, `rL`, `rR` |
+| down-Tucker `Dᵢ` | `D` | the Tucker factors (retained directions) | `nD` |
+| up-TT `Uᵢ` | `U` | the Tucker *complement* (where `V` varies) | `nU` |
+| left-TT `Lᵢ` | `L` | left environment (left of the variation) | `rL` |
+| right-TT `Rᵢ` | `R` | right environment (right of the variation) | `rR` |
+| tucker-variation `Vᵢ` | `V` | Tucker-factor direction (in the `nU` complement) | `nU` |
+| tt-variation `Hᵢ` | `H` | TT-core direction | `nD`, `rL`, `rR` |
 
 ## `d` cores, `d+1` bonds — and the "extra" `Ld`, `R0`
 
-Each family has **`d` cores** (`U0…U(d-1)`, `L0…L(d-1)`, …), but the TT **bonds** run `rL0 … rLd` and
+Each family has **`d` cores** (`D0…D(d-1)`, `L0…L(d-1)`, …), but the TT **bonds** run `rL0 … rLd` and
 `rR0 … rRd` — **`d+1`** of them. Mathematically there are only `d` *natural* left/right cores: in the
 diagrams above, **`Ld` and `R0` are never used** (the leftmost term needs no left environment; the
 rightmost needs no right environment).
 
 So why keep them? **To give the base point a home.** A frame is meant to *remember the point it was
 constructed at*, and that point is stored as a single extra variation term — the base point written as a
-gauged tangent, `v_X`, whose only nonzero variation is the **last TT variation** (`= P_last`, the
+gauged tangent, `v_X`, whose only nonzero variation is the **last TT variation** (`= L_last`, the
 `Ld`-adjacent slot). Keeping the padding `Ld` / `R0` cores means:
 
 - there is a **canonical, non-arbitrary place** to put the base-point term (rather than picking one of the
@@ -54,7 +55,7 @@ genuinely per-mode are the variation cores and their adjacent edges.
 
 ## Gauge conditions make the variations *coordinates*
 
-When the frame is **orthonormal** and the variations are **gauged** (`Uᵢᵀ Vᵢ = 0`; `Lᵢ` left-orthogonal
+When the frame is **orthonormal** and the variations are **gauged** (`Dᵢ Vᵢᵀ = 0`; `Lᵢ` left-orthogonal
 against all but the last `Hᵢ` — Appendix A.3 of the T4S paper), something powerful happens: **plain
 "dumb" corewise linear algebra on the variation cores faithfully equals Hilbert–Schmidt linear algebra on
 the tangent vectors they represent.** Adding variations adds tangents; `corewise_norm`/`corewise_inner`
@@ -68,19 +69,54 @@ and why the `K`/`C` stack split is *recovered* rather than stored (see
 ## Four rank stores — and why excess rank is inert
 
 A `T3Frame` does not carry *one* rank tuple, it carries **four**: `down_ranks` (the rows of each Tucker
-factor `Uᵢ`), `up_ranks` (the mode leg of each down/outer core `Oᵢ`), and `left_ranks` / `right_ranks`
+factor `Dᵢ`), `up_ranks` (the mode leg of each up core `Uᵢ`), and `left_ranks` / `right_ranks`
 (the TT bonds, in each sweep direction). That redundancy is not bookkeeping sloppiness — it is what makes
 non-minimal ranks harmless, and it is worth understanding before reading
 [`numerical_contracts.md`](numerical_contracts.md)'s verdict that minimal rank is a precondition for
 nothing.
+
+**Store names.** Draw a T3 with its TT chain on top and its Tucker factors hanging below, one under each TT core:
+
+```
+   1 --- c0 --- c1 --- c2 --- 1        TT chain: bonds r0 ... r3, each with a left and a right side
+         |      |      |
+         l0     l1     l2              Tucker factors: edges n0 ... n2, each with an up and a down side
+
+   one TT bond:      c(i) --|-- c(i+1)        left core L(i) on the left side, right core R(i+1) on the right
+   one Tucker edge:     c(i)                  up core U(i): TT-shaped, above the edge
+                        -+-
+                        l(i)                  down core D(i): the Tucker factor, below the edge
+```
+
+Every internal edge carries two frame cores, one on each side, and each is orthonormal over the indices on its
+own side. **A store is named for the side its cores occupy**: the left store holds the cores on the left of
+every TT bond, the right store those on the right, the up store the TT-shaped cores above every Tucker edge,
+and the down store the Tucker factors below it. The orthogonality adjectives say the same thing: a left core is
+left-orthogonal, an up core up-orthogonal (`up_orthogonalize_tt_cores`), a down core down-orthogonal
+(`down_orthogonalize_tucker_cores`). Name a store by its side, never by where its edge points: as a directed
+edge, a core's edge points away from its side (a left core's edge points right, an up core's edge points down
+to the leaf). A frame keeps the stores in the order `(down, up, left, right)`, Tucker family first as in
+`TuckerTensorTrain.data`.
+
+**Letters.** Diagrams, equations, shape comments and the `update` argument write the stores `D`, `U`, `L`, `R`
+(`Dᵢ` the down core, the Tucker factor; `Uᵢ` the up core). Their widths are `nD` (the down store's: the Tucker
+factor's rows), `nU` (the up store's: the up core's mode leg), `rL` and `rR` (the left and right stores'
+bonds); at a minimal frame the down and up ranks agree. A T3's own cores, outside a frame, are `Bᵢ` (Tucker) and
+`Gᵢ` (TT), as in `TuckerTensorTrain`. `d` is both the number of modes and, upright, the differential (`dΦ`);
+context tells them apart. Before 2026.5.0 the words up and down, and with them the widths `nU` and `nD`, named
+the other store ([release notes](release_notes.md), "Upgrading from 2026.4.0").
+
+**T4S notation.** T4S writes U, O, P, Q for our D, U, L, R; its δU is our V (`tucker_variations`), its δG our H
+(`tt_variations`). The paper ↔ code maps ([`entries_apply_probe.md`](entries_apply_probe.md) §8,
+[`batching_and_stacking.md`](batching_and_stacking.md) §8) keep the paper's letters.
 
 Each core must be orthonormal *in its own unfolding*, and that caps that core's own rank — you cannot have
 more orthonormal rows than the space they live in:
 
 | core | orthonormality | the rank it caps |
 |---|---|---|
-| `Uᵢ` (up / Tucker) | rows orthonormal | `nᵢ ≤ Nᵢ` |
-| `Oᵢ` (down / outer) | `nᵢ × (rᵢ·rᵢ₊₁)` unfolding, rows orthonormal | `nᵢ ≤ rᵢ·rᵢ₊₁` |
+| `Dᵢ` (down / Tucker) | rows orthonormal | `nᵢ ≤ Nᵢ` |
+| `Uᵢ` (up) | `nᵢ × (rᵢ·rᵢ₊₁)` unfolding, rows orthonormal | `nᵢ ≤ rᵢ·rᵢ₊₁` |
 | `Lᵢ` (left) | `(rᵢ·nᵢ) × rᵢ₊₁`, columns orthonormal | `rᵢ₊₁ ≤ rᵢ·nᵢ` |
 | `Rᵢ` (right) | `rᵢ × (nᵢ·rᵢ₊₁)`, rows orthonormal | `rᵢ ≤ nᵢ·rᵢ₊₁` |
 
@@ -98,10 +134,10 @@ Orthogonalizing a non-minimal point does the same thing.
 Two consequences follow, and they are the whole story:
 
 - **An orthonormal frame need not have minimal ranks.** `has_minimal_ranks` additionally requires
-  `up == down` and `left == right`, so it reports `False` on exactly these frames. That is correct and
+  `down == up` and `left == right`, so it reports `False` on exactly these frames. That is correct and
   useful — it is a diagnostic that your *stored* rank tuple is partly unrealizable — but it is not a defect
   of the frame, and orthogonality does not imply it.
-- **The excess is geometrically inert.** The tangent variations are shaped by the operative (down) ranks,
+- **The excess is geometrically inert.** The tangent variations are shaped by the operative (up) ranks,
   so the tangent space is unchanged: its dimension still equals `manifold_dim`, `MANIFOLD.inner`/`norm`
   are still exactly Hilbert–Schmidt, and the ambient projection is still idempotent and self-adjoint — all
   to machine precision. What grows is the *ungauged* coordinate array; the gauge conditions cut it back to
@@ -118,7 +154,7 @@ picture:
 
 - A **base point** is a *tensor*; `T3Weights` weights all its internal edges (a weighted network).
 - A **tangent** is a set of *coordinates*; `T3FrameWeights` is a **diagonal metric on those coordinates** —
-  one weight per variation-core edge (`d` each: `up`↔`H.nD`, `down`↔`V.nU`, `left`↔`H.rL`, `right`↔`H.rR`).
+  one weight per variation-core edge (`d` each: `down`↔`H.nD`, `up`↔`V.nU`, `left`↔`H.rL`, `right`↔`H.rR`).
   The weighted norm is just `corewise_norm` of the weight-scaled variations; the frame stays orthonormal.
 
 The `d`-natural-edges count is not a coincidence — it is the same `d` as the variation cores, and the

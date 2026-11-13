@@ -131,7 +131,7 @@ cross-references.)
   the pushthroughs, the adjoint propagation and the TT assembly's sigma~/tau~ groups; the two-row `dx̃i`
   correlation (which now returns only the two rows the Tucker assembly reads) is that pair met by a diagonal
   order scan, for memory. Both factors full → an order scan whose binomial weights come from a shift
-  recurrence on a carried jet (`D^r x = r!·C(t,r)·x^(t−r)`, `D x = t·x^(t−1)`), never a weight matrix. The
+  recurrence on a carried jet (`sh^r x = r!·C(t,r)·x^(t−r)`, `sh x = t·x^(t−1)`), never a weight matrix. The
   dense binomial forms survive only as the `*_trs` reference twins in the test suite
   (`tests/_jet_trs_twins.py`, `tests/backend/_curvature_oracles.py`), never imported by the package —
   the oracle in `tests/test_jet_recurrence.py` and `tests/backend/test_curvature.py`. Measured on the change
@@ -144,7 +144,7 @@ cross-references.)
   `dx̃i` kernel went 1.08 → 3.88 ms (d·(order+1) = 15 steps; eta 0.52 → 0.86 ms), the GN probe transpose
   5.5 → 8.6 ms, while large problems got faster and leaner (the TT assembly 6× faster on numpy; 4–6× less
   temporary jitted). Not a reason for a dense contraction: `dx̃i`'s length-2 axis (its two rows) is already one
-  fused GEMM, and the scan is what keeps the `(order+1)·W·r·n` slice of `mu O` off the peak (12.6 GB per core
+  fused GEMM, and the scan is what keeps the `(order+1)·W·r·n` slice of `mu U` off the peak (12.6 GB per core
   at r=128, W=32000, order 5). The lever, if latency ever matters, is a layout one: one order scan whose bodies
   are vectorized over the cores (`d·W·r·n` per slice) instead of a map over cores of scans.
 - **Structured tangent stacks (`K`) — open idea** (Nick, 2026-06-12). When the `K` tangent vectors
@@ -194,7 +194,7 @@ cross-references.)
   `weighted_internals.md` (S1), `backend/ut3_linalg.py`.
 
 - **Normal-space sector norms — deferred** (I-13, Nick 2026-10-26). The curvature term's normal-space operand Z
-  (the misfit gradient's ambient lift) splits into 2^d sectors `E_S = ⊗_k (U_k^⊥ if k ∈ S else U_k)`. The tangent
+  (the misfit gradient's ambient lift) splits into 2^d sectors `E_S = ⊗_k (D_k^⊥ if k ∈ S else D_k)`. The tangent
   space sees `∅` (the core) and the singletons `{k}` (the Tucker slots). So the normal part decomposes as
   `‖N_core‖² = ‖P_∅Z‖² − ‖H^grad‖²`, `‖N_k‖² = ‖P_{k}Z‖² − ‖V_k^grad‖²`, and `‖N_{≥2}‖²` as the remainder. Per
   sector, they would say where the data pull leaves the manifold: a rank-continuation signal and a curvature

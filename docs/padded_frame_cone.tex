@@ -72,7 +72,7 @@ implements the start, the step, the schedule and the cone reference $\|\Pi_{T(F)
 
 Rank continuation fits a T3 $X_{\mathrm{old}}$ at some ranks, raises the ranks, and starts Newton at
 $X_0 = X_{\mathrm{old}}$ zero-padded. Newton linearizes at a frame of $X_0$: orthonormal frame cores in four
-\emph{stores} (up, down, left, right), whose tangent space $T(F)$ holds the first step. The old frame determines
+\emph{stores} (down, up, left, right), whose tangent space $T(F)$ holds the first step. The old frame determines
 the leading slots of every store; the new slots are a free orthonormal completion, and the first step from $X_0$
 depends on it. A completion that ignores the data can leave the step blind to the directions the data want.
 
@@ -93,11 +93,16 @@ the new ranks, $T(F)$ is its tangent space. $\|\cdot\|$ is the Frobenius norm.
 
 A T3 is a tree: Tucker leaves $\ell_i$ (physical size $N_i$) and TT cores $c_i$ in a chain (the orthogonal frame of a
 T3 is T4S \cite{T4S} App.~A.1, A.3, Algorithm~11). For a directed edge
-$x\to t$, the frame $U_{x\to t}$ is an orthonormal basis of the column space of the tensor unfolded with $x$'s side
-as rows. Frames are nested: $U_{x\to t}$ lies in $H_x\otimes\bigotimes_{y\in\mathrm{nb}(x)\setminus t}U_{y\to x}$,
+$x\to t$, the frame $F_{x\to t}$ is an orthonormal basis of the column space of the tensor unfolded with $x$'s side
+as rows. Frames are nested: $F_{x\to t}$ lies in $H_x\otimes\bigotimes_{y\in\mathrm{nb}(x)\setminus t}F_{y\to x}$,
 with $H_x$ the physical space at $x$ (trivial at a TT core). So one \emph{frame core} per directed edge stores the
-frame, and the four directions are exactly the library's four stores (Table~\ref{tab:stores}). The stores' widths
-are \code{ranks.compute_orthogonal_representation_ranks} of the ranks.
+frame, and the four kinds of directed edge are exactly the library's four stores (Table~\ref{tab:stores}), each
+named for the side of its edges that its cores occupy, the side the edges point away from: the up store's edges
+point down, from chain to leaf. The stores' widths are \code{ranks.compute_orthogonal_representation_ranks} of the
+ranks.
+
+T4S writes $U$, $O$, $P$, $Q$ for our $D$, $U$, $L$, $R$; its $\delta U$ is our $V$ (\code{tucker_variations}), its
+$\delta G$ our $H$ (\code{tt_variations}).
 
 \begin{table}[h]
 \centering
@@ -105,10 +110,10 @@ are \code{ranks.compute_orthogonal_representation_ranks} of the ranks.
 \toprule
 directed edge & store & core & output slot \\
 \midrule
-$\ell_i\to c_i$ & \code{up[i]} & $U_i\in\R^{n_{U,i}\times N_i}$ & the Tucker index \\
-$c_i\to \ell_i$ & \code{down[i]} & $O_i\in\R^{r_{L,i}\times n_{D,i}\times r_{R,i+1}}$ & the down index \\
-$c_i\to c_{i+1}$ & \code{left[i]}, $i\le d-2$ & $L_i\in\R^{r_{L,i}\times n_{U,i}\times r_{L,i+1}}$ & bond $i+1$ \\
-$c_i\to c_{i-1}$ & \code{right[i]}, $i\ge 1$ & $R_i\in\R^{r_{R,i}\times n_{U,i}\times r_{R,i+1}}$ & bond $i$ \\
+$\ell_i\to c_i$ & \code{down[i]} & $D_i\in\R^{n_{D,i}\times N_i}$ & the Tucker index \\
+$c_i\to \ell_i$ & \code{up[i]} & $U_i\in\R^{r_{L,i}\times n_{U,i}\times r_{R,i+1}}$ & the middle index \\
+$c_i\to c_{i+1}$ & \code{left[i]}, $i\le d-2$ & $L_i\in\R^{r_{L,i}\times n_{D,i}\times r_{L,i+1}}$ & bond $i+1$ \\
+$c_i\to c_{i-1}$ & \code{right[i]}, $i\ge 1$ & $R_i\in\R^{r_{R,i}\times n_{D,i}\times r_{R,i+1}}$ & bond $i$ \\
 \bottomrule
 \end{tabular}
 \caption{Directed edges of a T3 and the frame stores. $L_{d-1}$ and $R_0$ are the \emph{carriers} of the base
@@ -149,8 +154,8 @@ right one its top $k$ right singular vectors: the truncated SVD of $N$, which is
 
 \paragraph{The sweep on a tree.} In a leaves-to-root sweep where each edge sees the earlier truncations, every SVD
 step of the formal truncation reduces to an SVD of one normal block of $S$ with its rows restricted to the candidate
-space: at edge $x\to t$, the rows in $C'_{x\to t}\ominus U_{x\to t}$ with $C'$ built from the completed child frames,
-and the columns in the complement of $A$'s frame $U_{t\to x}$. Its completions depend on the root: each edge sees the
+space: at edge $x\to t$, the rows in $C'_{x\to t}\ominus F_{x\to t}$ with $C'$ built from the completed child frames,
+and the columns in the complement of $A$'s frame $F_{t\to x}$. Its completions depend on the root: each edge sees the
 choices made below it. On small test problems the five roots of a five-site TT captured between $0.47$ and $0.54$ of
 $\|N\|^2$, against $0.59$ for the best completion found. The loop of the next section removes that dependence.
 
@@ -168,7 +173,7 @@ eqs.~(46)--(48)), never forming it as the doubled-rank T3 it is (T4S App.~A.3.1,
 \paragraph{Why the two-sided tangent space.} Projecting $S$ onto the linear piece a rooted completion defines (write
 $A$ in the completed frames, vary one core at a time) returns the same completions: every frame set is a fixed point,
 and the loop stalls (measured: angles of $10^{-15}$). The tangent space $T(F)$ of the padded point also holds, at each
-edge, tensors whose far side lies in the \emph{far completion} $Q_e$ (the completion of $U_{t\to x}$). Through them
+edge, tensors whose far side lies in the \emph{far completion} $Q_e$ (the completion of $F_{t\to x}$). Through them
 the normal block of $S$ applied to $Q_e$ enters the step: information from outside the current completions.
 
 \paragraph{The matrix case.} With $P,Q$ completing $U,V$, the projection of $S$ onto $T(F)=\{U'X+YV'^\T\}$ has normal
@@ -281,15 +286,15 @@ node terms on $a$'s side and on $b$'s side, $P$ the old completion and $P^+$ the
 \toprule
 message & size & definition & built \\
 \midrule
-$\Phi_{a\to b}$ & $k\times R$ & $P_{a\to b}^\T Z_{\mathrm{far}}U'_{b\to a}$ & stage 1, far leaves inward\\
-$\Xi_{a\to b}$ & $k\times\cdot$ & $\Xi\Xi^\T=P_{a\to b}^\T Z_{\mathrm{far}}(I-U'_{b\to a}U'^\T_{b\to a})Z_{\mathrm{far}}^\T P_{a\to b}$ & stage 1, with $\Phi$\\
-$D_{a\to b}$ & $R\times k$ & $U'^{+\T}_{a\to b}Z_{\mathrm{near}}P_{b\to a}$ & stage 2, message order\\
-$o_{a\to b}$ & $k^+\times k$ & $P^{+\T}_{a\to b}P_{a\to b}$ & stage 2, with $D$\\
+$\Phi_{a\to b}$ & $k\times R$ & $P_{a\to b}^\T Z_{\mathrm{far}}F'_{b\to a}$ & stage 1, far leaves inward\\
+$\Xi_{a\to b}$ & $k\times\cdot$ & $\Xi\Xi^\T=P_{a\to b}^\T Z_{\mathrm{far}}(I-F'_{b\to a}F'^\T_{b\to a})Z_{\mathrm{far}}^\T P_{a\to b}$ & stage 1, with $\Phi$\\
+$\Psi_{a\to b}$ & $R\times k$ & $F'^{+\T}_{a\to b}Z_{\mathrm{near}}P_{b\to a}$ & stage 2, message order\\
+$o_{a\to b}$ & $k^+\times k$ & $P^{+\T}_{a\to b}P_{a\to b}$ & stage 2, with $\Psi$\\
 \bottomrule
 \end{tabular}
 \end{center}
 $\Phi$ and $\Xi$ say what the far side sends through the old completion: the part inside the old far frame, and a
-square root of the rest (any factor; only $\Xi\Xi^\T$ enters). $D$ and $o$ carry the near side, already rotated into
+square root of the rest (any factor; only $\Xi\Xi^\T$ enters). $\Psi$ and $o$ carry the near side, already rotated into
 the new frames.
 
 \paragraph{The edge identity.} At $a\to b$, with $a$'s incoming slots in their new coordinates (the old block kept,
@@ -307,15 +312,15 @@ completion did not turn.
 \caption{One alignment step (ragged)}\label{alg:step}
 \begin{algorithmic}[1]
 \Require padded frame $F$; variations $(V,H)$ of $Z$ at $F$; old ranks; output ranks; \code{update}
-\State Stage 1 (old frames): down messages; left messages from the far end; right messages from the near end; up
-messages; each $(\Phi,\Xi)$.
-\Impl{\code{_down_message}, \code{_left_message_step}, \code{_right_message_step} (scan bodies), \code{_up_message};
+\State Stage 1 (old frames): the up store's messages ($c_i\to\ell_i$); left messages from the far end; right messages
+from the near end; the down store's messages ($\ell_i\to c_i$); each $(\Phi,\Xi)$.
+\Impl{\code{_up_message}, \code{_left_message_step}, \code{_right_message_step} (scan bodies), \code{_down_message};
 $\Xi$ by \code{_root}, a factor from the thin SVD, never a Gram matrix.}
-\State Stage 2 (message order): up edges (one per sharing group, the members' contents side by side); the left sweep
-$i=0..d-2$; the right sweep $i=d-1..1$; down edges. At each: new coordinates, $Y$ by \eqref{eq:edge}, $P^+$, $o$, $D$,
-movement.
+\State Stage 2 (message order): the down store's edges ($\ell_i\to c_i$; one per sharing group, the members' contents
+side by side); the left sweep $i=0..d-2$; the right sweep $i=d-1..1$; the up store's edges ($c_i\to\ell_i$). At each:
+new coordinates, $Y$ by \eqref{eq:edge}, $P^+$, $o$, $\Psi$, movement.
 \Impl{\code{_new_coordinates}, \code{_edge_content}, \code{_edge} $\to$ \code{linalg.pinned_leading_columns};
-\code{_up_edge}, \code{_left_edge_step}, \code{_right_edge_step}, \code{_down_edge}.}
+\code{_down_edge}, \code{_left_edge_step}, \code{_right_edge_step}, \code{_up_edge}.}
 \State A store not in \code{update} is transported: $Y=g_{\mathrm{old}}$.
 \State Carriers: the old content, embedded. Return the frame and the largest movement.
 \Impl{\code{padded_frames.tv_align_padded_frame}; frontend one pass: \code{T3Tangent.align_padded}.}
@@ -336,7 +341,7 @@ from the masks; no rank is decided from content.
 \section{The start}\label{sec:start}
 
 The loop starts from the hint-free padded frame. Every store's new slot $s$ is seeded by row $s$ of a keyed Gaussian
-stream, \code{RandomState([seed, store tag, key])} (tags up 0, down 1, left 2, right 3; the key is the mode, or a
+stream, \code{RandomState([seed, store tag, key])} (tags down 0, up 1, left 2, right 3; the key is the mode, or a
 sharing group's first mode), with the ragged unfolding's row length; a start at old width $w$ uses rows
 $w,\dots,w+k-1$. The seeds are completed against the A-block in Gram--Schmidt order by the sign-fixed Householder
 QR of $[\Abar\mid\text{seeds}]$.
@@ -359,7 +364,7 @@ The completion is a uniformly random subspace of the A-block's complement in dis
 no-information choice, and its pivots are bounded away from zero with high probability. Because the seeds are
 slot-indexed, a start built from a start never reuses a seed.
 
-\paragraph{Representation dependence.} A TT or down seed row is read in the slot coordinates of the neighbours'
+\paragraph{Representation dependence.} A TT or up seed row is read in the slot coordinates of the neighbours'
 frames, and a Gaussian row does not flip when a slot's sign does. So the start is a function of the old frame
 \emph{as represented}: bases chosen differently at singular-value ties, or a flipped slot sign (free in an
 unnormalized SVD), give different starts, all valid. The ragged and uniform orthogonalizations of one point choose
@@ -381,10 +386,10 @@ the target stores; $n_{\mathrm{over}}\gets\min(n_{\mathrm{over}},\mathrm{cap}-1)
 \For{$n_{\mathrm{over}}$ passes} $F\gets\operatorname{step}(F,\Pi_{T(F)}S)$ at the working ranks, all stores \EndFor
 \State $F\gets\operatorname{step}(F,\Pi_{T(F)}S)$, output at the target ranks (truncating), all stores
 \While{a whole pair fits under the cap}
-  \State $F\gets$ step updating up and left (\code{'UL'}); $F\gets$ step updating right and down (\code{'RO'})
+  \State $F\gets$ step updating down and left (\code{('D', 'L')}); $F\gets$ step updating up and right (\code{('U', 'R')})
   \State \textbf{if} both movements $<$ tol \textbf{then stop}
 \EndWhile
-\State \textbf{if} one slot is left and not stopped: one more \code{'UL'} step
+\State \textbf{if} one slot is left and not stopped: one more \code{('D', 'L')} step
 \Impl{\code{padded_frames.fv_aligned_padded_frame} (host loop; \code{use_jit}: a memoized jitted step);
 \code{uniform_padded_frames.ufv_aligned_padded_frame} (\code{use_jit}: the whole loop as one \code{jax.jit},
 compacted to the level's widths at exit); frontend \code{frame_variations_format.fv_aligned_padded_frame},
@@ -400,8 +405,9 @@ alone plateaus at $88\%$.
 
 \paragraph{Two colours.} The simultaneous update (all stores per pass) can cycle with period~$2$: measured on a Darcy
 gradient from about pass $400$, and on a $243$-number case whose stationary point lies above the cycle and is not an
-attractor of that map. Updating the stores pointing toward the root $c_{d-1}$ (up, left) and then those pointing away
-(right, down), the other colour transported, is an alternating (Gauss--Seidel) update with a projection between the
+attractor of that map. Updating the stores whose edges point toward the root $c_{d-1}$, the down store's
+($\ell_i\to c_i$) and the left store's, and then those whose edges point away, the right store's and the up store's
+($c_i\to\ell_i$), the other colour transported, is an alternating (Gauss--Seidel) update with a projection between the
 halves. Each updated store maximizes the captured energy $\|P^{+\T}Y\|^2$ of its own content $Y$ given the others;
 since $Y$ depends on the store's previous completion, this is a self-consistency condition, not ascent of one
 objective, and in particular not of $E$, which is a saddle at the fixed point (Proposition~\ref{prop:matrix}). The
@@ -409,8 +415,8 @@ alternating update converged on the cycling case with no merit decrease. The sto
 and a NaN movement never stops the loop.
 
 \paragraph{Defaults.} $p=5$ for $2$ passes, cap $10$, tol $0.05$: two oversampled passes, the truncating pass, three
-pairs and a final \code{'UL'}. The movement tracks the true frame movement within $15\%$ from $1$ to $10^{-15}$. A pass
-costs at most about $10\%$ of a gradient.
+pairs and a final \code{('D', 'L')}. The movement tracks the true frame movement within $15\%$ from $1$ to $10^{-15}$.
+A pass costs at most about $10\%$ of a gradient.
 
 % ===========================================================================
 \section{The cone reference}\label{sec:cone}

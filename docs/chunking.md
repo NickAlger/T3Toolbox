@@ -77,7 +77,7 @@ Semantics:
 ### A fixed `chunk_size` bounds the chunk *count*, not the bytes
 
 Peak memory is `chunk_size · (per-row bytes)`, and the per-row bytes grow like `K·r²` (TT
-gradient) or `(order+1)·nD·N` (Tucker gradient, the term that dominates when the ambient dimension
+gradient) or `(order+1)·nU·N` (Tucker gradient, the term that dominates when the ambient dimension
 `N ≫ n`). So a single fixed default is only "safe for moderate problems": comfortable at `r = 128`,
 but heavier at large ranks or large `N`. To actually **bound the memory**, choose `chunk_size` from the
 problem shapes (next section).
@@ -213,9 +213,9 @@ from jax.sharding import PartitionSpec as P
          out_specs=P(),                        # summed gradient: replicated
          check_vma=False)                      # see below
 def jtr(ztildes, ww, pp):
-    dU, dG = tv_probe_derivatives_transpose(          # frame (replicated), order: closed over
+    V, H = tv_probe_derivatives_transpose(            # frame (replicated), order: closed over
         ztildes, ww, pp, frame, order, sum_over_probes=True, chunk_size=cs)   # chunks the LOCAL shard
-    return jax.tree.map(lambda a: jax.lax.psum(a, 'w'), (dU, dG))   # finish the W-sum across shards
+    return jax.tree.map(lambda a: jax.lax.psum(a, 'w'), (V, H))     # finish the W-sum across shards
 ```
 
 The same body runs the exact Hessian's two-hole (`t3_probe_corewise_derivatives_hessian(ztildes, ww, pp,

@@ -65,9 +65,12 @@ is"). Use it to understand the math, not to decide what the library should do.
 
 The math is in *Alger, Christierson, Chen & Ghattas (2026), "Tucker Tensor Train Taylor Series"
 (arXiv:2603.21141)* — "T4S". **Appendix A** is the reference for the manifold/tangent code.
-Notation map (paper ↔ code): `U`=down_tucker, `P`=left_tt, `Q`=right_tt, `O`=up_tt (outer);
-`δU`=tucker_variations (V), `δG`=tt_variations (H). The code matches the appendix; the one known
-divergence is the **Algorithm-11 orthogonalization sweep order** (code does left-then-right; the
+Notation map (paper ↔ code): T4S writes U, O, P, Q for our D, U, L, R; its δU is our V (`tucker_variations`), its
+δG our H (`tt_variations`) — T4S's `U` is `down_tucker_cores`, its `P` `left_tt_cores`, its `Q` `right_tt_cores`,
+its `O` ("outer", our up-orthogonal) `up_tt_cores`.
+Widths: `nD` the down store's (the Tucker factor's rows), `nU` the up store's — they swapped meaning in 2026.5.0; see
+`docs/frame_variations.md` § Four rank stores. The code matches the
+appendix; the one known divergence is the **Algorithm-11 orthogonalization sweep order** (code does left-then-right; the
 paper does right-then-left) — the resulting orthogonal representations are equivalent. When code
 implements a numbered equation/algorithm, cite it in the docstring **by the arXiv version's numbering**:
 the arXiv version (https://arxiv.org/abs/2603.21141) is updated, current and **THE reference** (Nick,
@@ -112,7 +115,7 @@ are eqs (47)–(48), the doubled-rank tangent representation (49)–(52), T3-SVD
 > one belongs in the backend, because a user who doesn't know the trick can't "just rewrite it." Example:
 > the `t3_{apply,entries,probe}_corewise_transpose` trio (in `apply`/`entries`/`probing`) are each a
 > one-line substitution into the *tangent*
-> transpose (`P,Q,O → G`, paper §6.3), but that substitution is the non-obvious part — inlining it in
+> transpose (`(U, L, R) → G`, paper §6.3), but that substitution is the non-obvious part — inlining it in
 > the frontend would hide the corewise capability from backend users entirely.
 - `TuckerTensorTrain` (`tucker_tensor_train.py`) — the keystone; `.data = (tucker_cores, tt_cores)`.
 - `T3Frame` / `T3Variations` (`frame_variations_format.py`) — orthogonal frame + tangent direction.
@@ -155,7 +158,7 @@ are eqs (47)–(48), the doubled-rank tangent representation (49)–(52), T3-SVD
   **`T3Weights`** (`tucker[d], tt[d+1]` = the `t3svd` sval format) weights a **`TuckerTensorTrain` as a
   tensor** (`t3_absorb_weights` + `t3_weighted_norm/inner` + `t3_{concatenate,kronecker}_weights` in
   `t3_operations`/`t3_linalg`; frontend `t3_absorb_weights`/`t3_weighted_norm`/`t3_weighted_inner` +
-  `from_t3svd`); **`T3FrameWeights`** (`up/down/left/right`, each len d) is a **metric on a tangent's
+  `from_t3svd`); **`T3FrameWeights`** (`down/up/left/right`, each len d) is a **metric on a tangent's
   coordinates** (Grasedyck–Kramer preconditioner) — absorbed into the **variation** cores
   (`fv_absorb_weights`; `T3Tangent.weighted_norm/weighted_inner`, frame left orthonormal).
   `concatenate`↔`+`, `kronecker`↔`⊙` (Hadamard, Kronecker-of-weights verified). **Uniform mirrors all of
@@ -179,7 +182,7 @@ are eqs (47)–(48), the doubled-rank tangent representation (49)–(52), T3-SVD
 > **`K`** = tangent stack (the `k` tangent vectors at *one* frame, on the *variations* only). Order is
 > frame-inner **`W + K + C`**. **The most common slip is conflating `C` (base points) with `K` (tangent
 > vectors at a frame)** — they live on different operands and mean different things. (These were `F`/`V`/`G`
-> before a rename that made them disjoint from the core/variation symbols `U`/`P`/`Q`/`O`/`G`/`H`/`V`.)
+> before a rename that made them disjoint from the core/variation symbols `D`/`U`/`L`/`R`/`B`/`G`/`V`/`H`.)
 
 **"Stacking" means three different things** — keep them straight:
 1. `stack_shape`: leading batch axes on one object's cores (`core.shape = stack_shape + (...)`).
@@ -210,7 +213,7 @@ exemplar; `apply`/`entries` are the general-purpose all-modes special cases.
 
 **Two gotchas:**
 - **Canonical core-tuple orderings (frontend takes precedence).** `TuckerTensorTrain.data =
-  (tucker_cores, tt_cores)`; `T3Frame.data = (up, down, left, right) = (U, O, P, Q)` (the `O`/down core
+  (tucker_cores, tt_cores)`; `T3Frame.data = (down, up, left, right) = (D, U, L, R)` (the `U`/up core
   is called **`up_tt_cores`**, not "outer"); `T3Variations.data = (tucker_variations, tt_variations)`;
   `(frame, variations)` pairs are frame-first. All verified backends (`tv_operations`,
   `fv_conversions` (incl. `t3_orthogonal_representations`), **and the sampling modules
@@ -272,7 +275,7 @@ to `xnp`.** Rule: **supercores → `xnp`; masks → `np`.** Full reasoning + the
   stacked/derivative axis; contractions are `contract('WCa,Caib,WCi->WCb', ...)` calls).
 - `math.prod` (not `np.prod(..., dtype=int)`) for static products of shape ints.
 - einsum everywhere with a leading `'...'`; numpy path passes `optimize=path`, jax path omits it.
-- Uppercase single-letter core names (`U V G P Q O …`) are intentional — ignore "should be
+- Uppercase single-letter core names (`D U L R B G V H …`) are intentional — ignore "should be
   lowercase" linter notes.
 
 ## House philosophy: structural problems always error; numerical preconditions are checked in safe mode

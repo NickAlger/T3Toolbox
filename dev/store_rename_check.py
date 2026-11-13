@@ -99,6 +99,10 @@ K8_TEX = [re.compile(r'\\delta\s*U\b'), re.compile(r'\\dot\s*U\b'), re.compile(r
 # draft 21: decorated letters with no trailing boundary (\dot US_i, \delta\widetilde{\mathbf U}_i), carved out in
 # pad_safe_svd.tex (the SVD's \mathbf U, §1.5 item 2)
 K8_TEX_DECOR = re.compile(r'\\(?:mathbf|dot|delta|widetilde|widehat|tilde|hat)\s*\{?\s*(?:\\mathbf\s*\{?\s*)?[UOPQ]')
+# R5: after the conversion a plain bold `\mathbf U` is the up store and a plain bold `\mathbf P` the derivative
+# direction (§1.5 item 3), both correct; so at R5 a plain `\mathbf` hits only `O`/`Q`, and `U`/`P` hit only under a
+# decoration (`\dot`, `\delta`, `\widetilde`, ...: a T4S variation or direction left behind).
+K8_TEX_DECOR_R5 = re.compile(r'\\mathbf\s*\{?\s*[OQ]|\\(?:dot|delta|widetilde|widehat|tilde|hat)\s*\{?\s*(?:\\mathbf\s*\{?\s*)?[UOPQ]')
 K8B = [re.compile(r'\[[\'"][OPQ][\'"]\]')]
 K0 = [re.compile(r'ZQX\d+_XQZ')]
 K16 = [re.compile(r'n_\{[DUO],'), re.compile(r'n\^[DUO]'), re.compile(r'r_\{[LR],')]
@@ -137,11 +141,20 @@ def read_base(path: str) -> typ.Optional[str]:
     return _base_cache[path]
 
 
+def _t4s_normal(t: str) -> str:
+    """R5: the T4S line's text with its markup removed, so its markdown (`U`) and LaTeX ($U$, $\\mathbf U$) forms
+    match Nick's plain words ("T4S writes U, O, P, Q for our D, U, L, R; ...")."""
+    t = re.sub(r'\\mathbf\s*', '', t)
+    t = re.sub(r'[`${}]', '', t)
+    return ' '.join(t.split())
+
+
 def carved_lines(path: str, text: str, check: str) -> typ.Set[int]:
     """Line numbers carved out of a pattern check, by block (§5.3)."""
     lines = text.split('\n')
     out: typ.Set[int] = set()
-    # blocks = paragraphs / list items (blank-line delimited)
+    # blocks = paragraphs / list items (blank-line delimited; R5: a markdown list item's start, `- ` / `* ` / `1. `,
+    # also starts a block, so a glossary entry is its own block, not its whole section's list)
     blocks, cur = [], []
     for i, ln in enumerate(lines, 1):
         if not ln.strip():
@@ -149,6 +162,9 @@ def carved_lines(path: str, text: str, check: str) -> typ.Set[int]:
                 blocks.append(cur)
             cur = []
         else:
+            if cur and path.endswith(('.md', '.rst')) and re.match(r'\s*(?:[-*]|\d+\.) ', ln):
+                blocks.append(cur)
+                cur = []
             cur.append(i)
     if cur:
         blocks.append(cur)
@@ -156,7 +172,7 @@ def carved_lines(path: str, text: str, check: str) -> typ.Set[int]:
         t = '\n'.join(lines[i - 1] for i in b)
         if path == 'docs/glossary.md' and '(2026.4.0' in t and check in ('K1', 'K2', 'K4', 'K5', 'K8', 'K9'):
             out.update(b)
-        if 'T4S writes U, O, P, Q' in t and check in ('K4', 'K8'):
+        if 'T4S writes U, O, P, Q' in _t4s_normal(t) and check in ('K4', 'K8'):
             out.update(b)
     if path in ('docs/entries_apply_probe.md', 'docs/batching_and_stacking.md'):
         in8 = False
@@ -165,8 +181,10 @@ def carved_lines(path: str, text: str, check: str) -> typ.Set[int]:
                 in8 = bool(re.match(r'#+ (?:§\s*)?8[.\s]', ln))
             if in8:
                 out.add(i)
-    if path == 'docs/glossary.md' and check == 'K8':
-        out.add(102)                                      # N17's own alias "outer-orthogonal"
+    if path == 'docs/glossary.md' and check == 'K8':     # N17's own alias "outer-orthogonal" (R5: located by its
+        for b in blocks:                                  # entry, not by line number, so it survives the rewrite)
+            if lines[b[0] - 1].lstrip().startswith('- **orthogonal core**'):
+                out.update(i for i in b if re.search(r'outer[- ]orthogonal', lines[i - 1]))
     return out
 
 
@@ -293,8 +311,8 @@ def k4_to_k8(tree, stage):
             return True                                       # oracle / review codes (inv 3 §9)
         if p.endswith(('oracle_sweeps/o1_ragged.py', 'oracle_sweeps/o1_uniform.py')) and g == 'Ud':
             return True                                       # "u dense"
-        if p == 'docs/shared_t3_math.tex' and i == 358 and 'O_g' in ln and g.startswith('O_g'):
-            return True                                       # kept complement basis
+        if p == 'docs/shared_t3_math.tex' and 'O_g' in ln and g.startswith('O_g'):
+            return True                                       # kept complement basis (R5: by text, not line 358)
         if (p, i) in _TEXT_KEEPS:
             return True                                       # §3.4 inventory keep
         for cp, cg, ctext in K8_R4A_CARVES:
@@ -308,7 +326,8 @@ def k4_to_k8(tree, stage):
         return False
     res.append(_rep('K8', pattern_hits(tree, every, K8, 'K8', carve8)
                     + pattern_hits(tree, list(TEX), K8 + K8_TEX, 'K8', carve8)
-                    + pattern_hits(tree, [t for t in TEX if not t.endswith('pad_safe_svd.tex')], [K8_TEX_DECOR], 'K8',
+                    + pattern_hits(tree, [t for t in TEX if not t.endswith('pad_safe_svd.tex')],
+                                   [K8_TEX_DECOR_R5 if _stage_ge(stage, 'R5') else K8_TEX_DECOR], 'K8',
                                    carve8), stage, 'R4b',
                     'of a T4S letter left behind'))
     res.append(_rep('K8b', pattern_hits(tree, ['tests/test_jet_recurrence.py'], K8B, 'K8b'), stage, 'R2',
@@ -322,6 +341,19 @@ K8_R4A_CARVES = (
     ('t3toolbox/backend/t3_svd.py', 'P_i', "new_tt[ii] = xnp.einsum('...aub,...ux->...axb', new_tt[ii], P_i)"),
     ('tests/backend/test_uniform_fitting.py', ', O)', "'probe_derivatives': (d, O)}[name]"),    # the order count O
     ('tests/test_dispatch.py', 'P_{', 'P_{T_F} Y'),                                            # the tangent projector
+    ('docs/contributor/deferred_and_rejected.md', 'P_{', '‖P_{k}Z‖²'),     # R5: the sector projector P_S, S = {k}
+    # R5, the notes' do-not-touch letters (§1.5 items 2, 3; the R5 agents' records): the completions P_{a->b} of the
+    # padded-frame note, the shared rounding operator P_sf and its stages, the rotation Q_i (§13 row 10), the pad-safe
+    # SVD note's QR Q_{ij} and projector P_real. None of these notes writes a frame core as P or Q.
+    ('docs/padded_frame_cone.tex', 'P_{', 'P_{x\\to t}'),
+    ('docs/padded_frame_cone.tex', 'P_{', 'P_{a\\to b}'),
+    ('docs/padded_frame_cone.tex', 'P_{', 'P_{b\\to a}'),
+    ('docs/shared_t3_math.tex', 'P_{', 'P_{\\mathrm{sf}}'),
+    ('docs/shared_t3_math.tex', 'P_{', 'P_{\\mathrm{TT}}'),
+    ('docs/shared_t3_math.tex', 'Q_i', 'S_i Q_i'),
+    ('docs/pad_safe_svd.tex', 'Q_{', '|Q_{ij}|'),
+    ('docs/pad_safe_svd.tex', 'P_{', 'P_{\\mathrm{real}}'),
+    ('docs/exact_hessian_two_hole.tex', 'Q_{', 'Q_{\\mathrm c}'),   # the projection off the clipped directions
 )
 
 
@@ -441,11 +473,120 @@ def k9(tree, stage):
                   '(the free-prose to-do list before R4b)' % len(residual), residual),
            Result('K9-converse', 'FAIL' if converse else 'PASS',
                   '%d keep line(s) whose store words did not survive' % len(converse), converse)]
-    stale = ['%s: %s' % (p, t[:100]) for p, d in sorted(registered.items()) for t in d if (p, t) not in seen_registered]
+    code = set(code_paths())                                  # R5: the docs' registrations are K9-docs-registered's
+    stale = ['%s: %s' % (p, t[:100]) for p, d in sorted(registered.items()) if p in code
+             for t in d if (p, t) not in seen_registered]
     out.append(Result('K9-registered', 'REPORT' if stale else 'PASS',
                       '%d registered line(s) (k9_registered.tsv) not met as a residual line (stale or since changed)'
                       % len(stale), stale))
     return out
+
+
+def _doc_keep_patterns() -> typ.List[typ.Pattern]:
+    """R5: the keep file's PATTERN rows for the docs (inv 3 §9's English and jet-shift classes)."""
+    out = []
+    with open(os.path.join(REPO, 'dev', 'store_rename_keeps.txt')) as fh:
+        for ln in fh:
+            if ln.startswith('#') or ln.startswith('file\t'):
+                continue
+            c = ln.rstrip('\n').split('\t')
+            if len(c) >= 5 and c[0] == 'docs/*' and c[2] == 'PATTERN':
+                out.append(re.compile(c[4].replace('\\\\', '\\')))
+    return out
+
+
+def _doc_words(text: str, pats: typ.List[typ.Pattern]) -> typ.List[typ.Tuple[int, int, str]]:
+    """(line, col, word) of every bare store word in a docs page, minus the keep PATTERN phrases; on a doctest
+    source line (``>>> `` / ``... ``) only its trailing comment is prose (its NAMEs are code)."""
+    out = []
+    for i, ln in enumerate(text.split('\n'), 1):
+        off = 0
+        if re.match(r'\s*(?:>>>|\.\.\.)(?: |$)', ln):
+            off = ln.find(' #')
+            if off < 0:
+                continue
+        spans = [m.span() for pat in pats for m in pat.finditer(ln)]
+        for m in STORE_WORD_RE.finditer(ln, off):
+            if any(a <= m.start() < b for a, b in spans):
+                continue
+            out.append((i, m.start(), m.group(0)))
+    return out
+
+
+def _read_base_doc(path: str) -> typ.Optional[str]:
+    """The docs' base: the tag, or R1's base for a page newer than the tag (``docs/glossary.md``)."""
+    t = read_base(path)
+    if t is None:
+        r = subprocess.run(['git', '-C', REPO, 'show', '88fbbedb:%s' % path], capture_output=True)
+        t = r.stdout.decode('utf-8') if r.returncode == 0 else None
+    return t
+
+
+def k9_docs(tree, stage):
+    """R5: K9 over the docs (plan §5.3: "and every bare word in the docs after R5"). The same four clauses as the
+    code tree's K9 -- (a) a keep row (by old line, or a docs PATTERN phrase), (b) the opposite of the aligned old
+    word, (c) a registered R5 rewrite (``k9_registered.tsv``) -- on line-aligned page text; the glossary's
+    "(2026.4.0 ...)" alias items are carved out by block, as for K1/K2/K4/K5/K8. Converse: a KEEP row's words
+    survive."""
+    keeps = load_keeps()
+    registered = load_k9_registered()
+    pats = _doc_keep_patterns()
+    opposite = {'up': 'down', 'down': 'up', 'Up': 'Down', 'Down': 'Up', 'UP': 'DOWN', 'DOWN': 'UP'}
+    residual, converse, seen = [], [], set()
+    for p in doc_paths():
+        new, old = read(tree, p), _read_base_doc(p)
+        if new is None or old is None:
+            continue
+        nl, ol = new.split('\n'), old.split('\n')
+        carved = carved_lines(p, new, 'K9')
+        sm = difflib.SequenceMatcher(None, ol, nl, autojunk=False)
+        line_map = {}
+        for a, b, size in sm.get_matching_blocks():
+            for k in range(size):
+                line_map[b + k + 1] = a + k + 1
+        for tag, i1, i2, j1, j2 in sm.get_opcodes():
+            if tag == 'replace' and i2 - i1 == j2 - j1:
+                for k in range(i2 - i1):
+                    line_map[j1 + k + 1] = i1 + k + 1
+        old_by_line = collections.defaultdict(list)
+        for ln, col, w in _doc_words(old, pats):
+            old_by_line[ln].append((col, w))
+        new_by_line = collections.defaultdict(list)
+        for ln, col, w in _doc_words(new, pats):
+            new_by_line[ln].append((col, w))
+        for ln, ws in sorted(new_by_line.items()):
+            if ln in carved:
+                continue
+            oln = line_map.get(ln)
+            if oln and keeps.get((p, oln)) in ('KEEP', 'EXEMPT'):
+                continue
+            ows = [w for _, w in sorted(old_by_line.get(oln, []))] if oln else []
+            nws = [w for _, w in sorted(ws)]
+            if len(ows) == len(nws) and all(o == opposite.get(n) for o, n in zip(ows, nws)):
+                continue
+            norm = ' '.join(nl[ln - 1].split())
+            if norm in registered.get(p, {}):
+                seen.add((p, norm))
+                continue
+            residual.append('%s:%d: %s -- %s' % (p, ln, ' '.join(nws), nl[ln - 1].strip()[:110]))
+        for (kp, kl), kind in keeps.items():
+            if kp != p or kind != 'KEEP':
+                continue
+            nln = next((n for n, o in line_map.items() if o == kl), None)
+            ows = [w for _, w in sorted(old_by_line.get(kl, []))]
+            nws = [w for _, w in sorted(new_by_line.get(nln, []))] if nln else None
+            if ows and nws != ows:
+                converse.append('%s:%d: keep words %s became %s' % (p, kl, ows, nws))
+    gated = _stage_ge(stage, 'R5')
+    stale = ['%s: %s' % (p, t[:100]) for p, d in sorted(registered.items()) if p in doc_paths()
+             for t in d if (p, t) not in seen]
+    return [Result('K9-docs', ('FAIL' if residual else 'PASS') if gated else ('REPORT' if residual else 'PASS'),
+                   '%d docs line(s) with a bare store word that is neither a keep, nor the opposite of its aligned '
+                   'old word, nor a registered R5 rewrite' % len(residual), residual),
+            Result('K9-docs-converse', 'FAIL' if converse else 'PASS',
+                   '%d docs keep line(s) whose store words did not survive' % len(converse), converse),
+            Result('K9-docs-registered', 'REPORT' if stale else 'PASS',
+                   '%d registered docs line(s) not met as a residual line' % len(stale), stale)]
 
 
 def k10_k12(tree, stage, pass1):
@@ -1108,6 +1249,7 @@ def main(argv=None) -> int:
         res += k4_to_k8(a.tree, a.stage)
     if want('K9'):
         res += k9(a.tree, a.stage)
+        res += k9_docs(a.tree, a.stage)
     if want('K10') or want('K11') or want('K12'):
         res += k10_k12(a.tree, a.stage, a.pass1)
     if want('K13'):

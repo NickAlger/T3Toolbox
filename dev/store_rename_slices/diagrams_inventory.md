@@ -84,7 +84,7 @@ of consecutive letter-bearing lines), LaTeX table or figure.
 - roles: frame Tucker core `Uᵢ` → `Dᵢ`; frame TT core `Pᵢ` → `Lᵢ` (D-7); variation core `δUᵢ` → `δDᵢ` (D-12; or `Vᵢ`, the rewriter's choice); shapes use the T3's nᵢ, rᵢ (stay)
 - re-laid out: n/a: a markdown table; K12 applies
 - new == old possible: possible: record the reason at R4 if nothing changes
-- new span: (R4/R5)
+- new span: 40–46
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -102,6 +102,13 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+| Array | Blocks | Shape |
+|---|---|---|
+| frame Tucker core `Dᵢ` (`T3Frame`) | `C` | `(2,) + (nᵢ, Nᵢ)` |
+| frame TT core `Lᵢ` (`T3Frame`) | `C` | `(2,) + (rᵢ, nᵢ, rᵢ₊₁)` |
+| variation core `Vᵢ` (`T3Variations`) | `K + C` | `(3, 2) + (nᵢ, Nᵢ)` |
+| probe vector `wᵢ` (`ww`) | `W` | `(4,) + (Nᵢ,)` |
+| forward probe `zᵢ` (`tangent.probe(ww)`) | `W + K + C` | `(4, 3, 2) + (Nᵢ,)` |
 ~~~
 
 
@@ -114,7 +121,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 102
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -126,6 +133,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\paragraph{The format.} A T3 with raw cores $\th = \big((B_i)_{i=1}^d, (G_i)_{i=1}^d\big)$, $B_i\in\R^{n_i\times N_i}$,
 ~~~
 
 #### TEX-EHTH-0105
@@ -135,7 +143,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 104
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -147,6 +155,7 @@ $X = \Phi(\th) = \mathrm{TT}(G_1,\dots,G_d)\times_1 U_1\cdots\times_d U_d$ (code
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$X = \Phi(\th) = \mathrm{TT}(G_1,\dots,G_d)\times_1 B_1\cdots\times_d B_d$ (code: \code{TuckerTensorTrain.data}
 ~~~
 
 #### TEX-EHTH-0108
@@ -156,7 +165,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 107–111
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -172,6 +181,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:Dphi}
+  \mathrm d\Phi(\th)[\thh] = \sum_{a} \Phi(\th;\, a\leftarrow \thh_a), \qquad
+  \mathrm d^2\Phi(\th)[\thh,\thh'] = \sum_{a\neq b} \Phi(\th;\, a\leftarrow\thh_a,\, b\leftarrow\thh'_b),
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0117  (K16)
@@ -182,7 +196,7 @@ new text (R4/R5, verbatim the file at the new span):
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
 - K16 width lines: 118, 119, 120, 122, 123
-- new span: (R4/R5)
+- new span: 116–126
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -200,6 +214,17 @@ $\delta G_i\in\R^{r^L_{i-1}\times n_i\times r^R_i}$ (code: \code{tucker_variatio
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+the representations are equivalent, and everything below is recomputed from the stored cores) is $(D_i, U_i, L_i, R_i)$ = \code{T3Frame.data} = (down, up, left, right):
+$D_i\in\R^{n_i\times N_i}$ with orthonormal rows, left-orthogonal $L_i\in\R^{r^L_{i-1}\times n_i\times r^L_i}$,
+right-orthogonal $R_i\in\R^{r^R_{i-1}\times n_i\times r^R_i}$, and $U_i\in\R^{r^L_{i-1}\times n^U_i\times r^R_i}$
+orthonormal over its middle index ($n^U_i\le n_i$; $n^U_i<n_i$ is \emph{Tucker slack}, $r^R_i<r^L_i$ \emph{TT slack}).
+
+T4S writes $U$, $O$, $P$, $Q$ for our $D$, $U$, $L$, $R$; its $\delta U$ is our $V$ (\code{tucker_variations}), its $\delta G$ our $H$ (\code{tt_variations}).
+T4S, and this note before 2026.5.0, write a T3's own Tucker cores $U_i$, our $B_i$.
+
+The base point in its left-canonical gauge is $\th=(D,L)$ (\code{ManifoldGeometryOps.base_point}).
+A tangent vector has gauged coordinates $v=(V_i,H_i)$, $V_i\in\R^{n^U_i\times N_i}$,
+$H_i\in\R^{r^L_{i-1}\times n_i\times r^R_i}$ (code: \code{tucker_variations}, \code{tt_variations}),
 ~~~
 
 #### TEX-EHTH-0125
@@ -209,7 +234,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 128–132
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -225,6 +250,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:E}
+  \Emap v = \sum_i \big[L_{<i}\,H_i\,R_{>i}\big]\times_j D_j
+          + \sum_i \big[L_{<i}\,U_i\,R_{>i}\big]\times_i V_i \times_{j\neq i} D_j ,
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0130
@@ -234,7 +264,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 133–135
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -248,6 +278,9 @@ $\delta U_i U_i^\T=0$ and $(P_i^{\langle 2\rangle})^\T\delta G_i^{\langle 2\rang
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+where $L_{<i}=L_1\cdots L_{i-1}$ and $R_{>i}=R_{i+1}\cdots R_d$ are TT chains, and $C\times_kM$ contracts
+index $k$ of a core $C$ with the \emph{rows} of a matrix $M$ (so $\Phi(\th)=\mathrm{TT}(G)\times_1B_1\cdots$). The gauge conditions
+$V_i D_i^\T=0$ and $(L_i^{\langle 2\rangle})^\T H_i^{\langle 2\rangle}=0$ ($i<d$; T4S (47)--(48)) are
 ~~~
 
 #### TEX-EHTH-0145
@@ -257,8 +290,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 148–149
+- same-reason: R5: P_X is the tangent projector (§1.5 item 3); no store letter
 
 old text:
 
@@ -270,6 +303,8 @@ $\grad f = P_X\nabla f$ ($P_X=\Emap\Pi\Emap^\T$, coordinates $g=\Pi\Jac^\T(\omeg
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\grad f = P_X\nabla f$ ($P_X=\Emap\Pi\Emap^\T$, coordinates $g=\Pi\Jac^\T(\omega^2\odot r)$, the model's
+\code{misfit_gradient}), and the \emph{normal part} $N = (I-P_X)\nabla f$. The jets of the derivative kinds carry
 ~~~
 
 #### TEX-EHTH-0151
@@ -279,7 +314,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 154–203
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -340,6 +375,56 @@ over the replaced core $b\neq a$ gives block $a$ of $\K_c\thh$ (eq.~\eqref{eq:Kd
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[x=9.5mm,y=9.5mm]
+  % (a) the sampled network
+  \begin{scope}
+    \foreach \i/\n in {1/G_1,2/G_2,3/G_3,4/G_4} \node[ttc] (g\i) at (\i,0) {$\n$};
+    \foreach \i/\n in {1/B_1,2/B_2,3/B_3,4/B_4} \node[tkc] (u\i) at (\i,-1.15) {$\n$};
+    \node[vecn] (w1) at (1,-2.1) {$w_1$}; \node[vecn] (w2) at (2,-2.1) {$w_2$};
+    \node[resn] (z3) at (3,-2.1) {$c_3$}; \node[vecn] (w4) at (4,-2.1) {$w_4$};
+    \foreach \i in {1,2,3} { \pgfmathtruncatemacro\j{\i+1} \draw[bnd] (g\i)--(g\j); }
+    \foreach \i in {1,2,3,4} { \draw[bnd] (g\i)--(u\i); }
+    \draw[bnd] (u1)--(w1); \draw[bnd] (u2)--(w2); \draw[bnd] (u3)--(z3); \draw[bnd] (u4)--(w4);
+    \node[font=\small] at (2.5,0.85) {(a) $\langle c, A\,\Phi(\theta)\rangle$ (one probe term)};
+  \end{scope}
+  % (b) one hole
+  \begin{scope}[xshift=52mm]
+    \node[ttc] (g1) at (1,0) {$G_1$}; \node[holec] (g2) at (2,0) {}; \node[ttc] (g3) at (3,0) {$G_3$};
+    \node[ttc] (g4) at (4,0) {$G_4$};
+    \foreach \i/\n in {1/B_1,2/B_2,3/B_3,4/B_4} \node[tkc] (u\i) at (\i,-1.15) {$\n$};
+    \node[vecn] (w1) at (1,-2.1) {$w_1$}; \node[vecn] (w2) at (2,-2.1) {$w_2$};
+    \node[resn] (z3) at (3,-2.1) {$c_3$}; \node[vecn] (w4) at (4,-2.1) {$w_4$};
+    \draw[bnd] (g1)--(g2); \draw[bnd] (g2)--(g3); \draw[bnd] (g3)--(g4);
+    \foreach \i in {1,2,3,4} { \draw[bnd] (g\i)--(u\i); }
+    \draw[bnd] (u1)--(w1); \draw[bnd] (u2)--(w2); \draw[bnd] (u3)--(z3); \draw[bnd] (u4)--(w4);
+    \draw[dashed,gray,rounded corners=3pt] (0.55,0.45)--(1.45,0.45)--(1.45,-2.45)--(0.55,-2.45)--cycle;
+    \node[font=\scriptsize,anchor=east] at (0.55,-1.15) {$\mu_1$};
+    \node[font=\small] at (2.5,0.85) {(b) one hole: $\nabla_{G_2}$};
+  \end{scope}
+  % (c) two holes
+  \begin{scope}[xshift=104mm]
+    \node[ttc] (g1) at (1,0) {$G_1$}; \node[holec] (g2) at (2,0) {}; \node[ttc] (g3) at (3,0) {$G_3$};
+    \node[dotc] (g4) at (4,0) {$\dot G_4$};
+    \foreach \i/\n in {1/B_1,2/B_2,3/B_3} \node[tkc] (u\i) at (\i,-1.15) {$\n$};
+    \node[tkc] (u4) at (4,-1.15) {$B_4$};
+    \node[vecn] (w1) at (1,-2.1) {$w_1$}; \node[vecn] (w2) at (2,-2.1) {$w_2$};
+    \node[resn] (z3) at (3,-2.1) {$c_3$}; \node[vecn] (w4) at (4,-2.1) {$w_4$};
+    \draw[bnd] (g1)--(g2); \draw[bnd] (g2)--(g3); \draw[bnd] (g3)--(g4);
+    \foreach \i in {1,2,3,4} { \draw[bnd] (g\i)--(u\i); }
+    \draw[bnd] (u1)--(w1); \draw[bnd] (u2)--(w2); \draw[bnd] (u3)--(z3); \draw[bnd] (u4)--(w4);
+    \node[font=\small] at (2.5,0.85) {(c) two holes: one term of $(\K_c\hat\theta)_{G_2}$};
+  \end{scope}
+\end{tikzpicture}
+\caption{Cores as nodes, bonds as edges (TT cores on top, Tucker factors below, sample vectors as squares).
+(a) One term of $\ip{c}{A\Phi(\th)}$ for a probe: the weighted residual $c_3$ sits on the free mode.
+(b) The one-hole sweep (the corewise transpose) leaves one core out: the open legs are its gradient block, here
+the left environment $\mu_1$ (dashed box), the projected probe $\xi_2=B_2w_2$ and a right environment.
+(c) The two-hole sweep leaves one core out \emph{and} replaces another by its direction ($\dot G_4$, red); summing
+over the replaced core $b\neq a$ gives block $a$ of $\K_c\thh$ (eq.~\eqref{eq:Kdef}).}
+\label{fig:holes}
+\end{figure}
 ~~~
 
 #### TEX-EHTH-0210
@@ -349,7 +434,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 213–214
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -362,6 +447,8 @@ $D\Phi(\th)[\thh']=\zeta'$. Then
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Let $\zeta,\zeta'\in T_X\M$ and let $\thh,\thh'$ be any raw directions with $\mathrm d\Phi(\th)[\thh]=\zeta$,
+$\mathrm d\Phi(\th)[\thh']=\zeta'$. Then
 ~~~
 
 #### TEX-EHTH-0212
@@ -371,7 +458,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 215–219
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -387,6 +474,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:hess}
+  \ip{\Hess f(X)[\zeta]}{\zeta'} = \ip{\omega\odot A\zeta}{\omega\odot A\zeta'}
+     + \ip{N}{\mathrm d^2\Phi(\th)[\thh,\thh']},
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0221
@@ -396,7 +488,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 224–225
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -409,6 +501,8 @@ $\W_X(\zeta,N)=P_X\,(D_\zeta P)\,N$, and $\ip{\W_X(\zeta,N)}{\zeta'}=\ip{N}{\mat
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+For an embedded submanifold, $\Hess f(X)[\zeta]=P_X\nabla^2 f\,\zeta+\W_X(\zeta,N)$ with the Weingarten map
+$\W_X(\zeta,N)=P_X\,(\mathrm d_\zeta P)\,N$, and $\ip{\W_X(\zeta,N)}{\zeta'}=\ip{N}{\mathrm{II}_X(\zeta,\zeta')}$
 ~~~
 
 #### TEX-EHTH-0225
@@ -418,7 +512,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 228–229
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -431,6 +525,8 @@ term is $\ip{\zeta'}{P_XA^\T\omega^2A\zeta}=\ip{\omega A\zeta}{\omega A\zeta'}$ 
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\ip{N}{\mathrm d^2\Phi[\thh,\thh']}=\ip{N}{\mathrm{II}_X(\zeta,\zeta')}$, which depends on $\zeta,\zeta'$ only. The first
+term is $\ip{\zeta'}{P_XA^\T\omega^2A\zeta}=\ip{\omega A\zeta}{\omega A\zeta'}$ since $\zeta'$ is tangent.
 ~~~
 
 #### TEX-EHTH-0230
@@ -440,7 +536,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 233–235
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -454,6 +550,9 @@ $\ker D\Phi(\th)$ is larger than the gauge orbit's tangent; Proposition~\ref{pro
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+the gauge action ($\mathrm d\Phi(\th)[V\th]=0$ for \emph{every} $\th$), satisfies, after differentiating that identity along
+$\thh'$, $\mathrm d^2\Phi[\thh_v,\thh']=-\mathrm d\Phi[V\thh']\in T_X\M$, which $N$ annihilates. (At a slack frame
+$\ker \mathrm d\Phi(\th)$ is larger than the gauge orbit's tangent; Proposition~\ref{prop:weingarten} covers every lift.) No derivative of the frame (no SVD perturbation) enters --- this is the reason for the route
 ~~~
 
 #### TEX-EHTH-0237
@@ -463,7 +562,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 240–244
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -479,6 +578,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:Kdef}
+  \K_Z\,\thh \;=\; \frac{d}{ds}\nabla_\th\ip{Z}{\Phi(\th+s\thh)}\Big|_{s=0},
+  \qquad \ip{\thh'}{\K_Z\thh}=\ip{Z}{\mathrm d^2\Phi(\th)[\thh,\thh']},
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0244
@@ -488,7 +592,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 247
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -500,6 +604,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+(Figure~\ref{fig:holes}c). Two instances are needed, and $\ip{N}{\mathrm d^2\Phi}$ is their difference:
 ~~~
 
 #### TEX-EHTH-0258
@@ -509,7 +614,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 261–266
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -526,6 +631,12 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:lagrangian}
+  \Lambda(\th) = f(\Phi(\th)) - \ip{\grad f(X)}{\Phi(\th)}, \qquad
+  \nabla_\th\Lambda = \mathrm d\Phi^\T N = 0,\qquad
+  \nabla^2_\th\Lambda = \mathrm d\Phi^\T\,\Hess f(X)\,\mathrm d\Phi,
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0283
@@ -535,7 +646,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 286
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -547,6 +658,7 @@ $\ip{\grad f}{P_XD^2\Phi[\cdot,\cdot]}=O(\|\grad f\|)$ and depends on the lift. 
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\ip{\grad f}{P_X\mathrm d^2\Phi[\cdot,\cdot]}=O(\|\grad f\|)$ and depends on the lift. Level 2 is what the library ships;
 ~~~
 
 #### TEX-EHTH-0288
@@ -556,7 +668,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 291
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -568,6 +680,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\emph{second order}: $\frac{d^2}{dt^2}f(\mathcal{R}_X(t\zeta))|_0=\ip{\Hess f[\zeta]}{\zeta}$. The archived design note
 ~~~
 
 #### TEX-EHTH-0302  (K16)
@@ -578,7 +691,7 @@ new text (R4/R5, verbatim the file at the new span):
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
 - K16 width lines: 304, 306
-- new span: (R4/R5)
+- new span: 305–310
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -595,6 +708,12 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:factors}
+  T_i = \ip{L_{>i}}{R_{>i}}\in\R^{r^L_i\times r^R_i}\ (i<d),\qquad
+  \bar H_i = L_i\times_3T_i\ (\bar H_d=L_d),\qquad
+  S_i^\T = \ip{U_i}{\bar H_i}_{\{1,3\}}\in\R^{n^U_i\times n_i},
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0309
@@ -604,7 +723,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 312–313
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -617,6 +736,8 @@ orthogonality center at $i$ ($X=P_{<i}H_iQ_{>i}\times U$), $P_{>i}=T_i\,Q_{>i}$ 
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\code{tt_zipper_right_to_left}). Then $\bar H_i=U_i\times_2S_i^\T$, the centers are the point's own core with the
+orthogonality center at $i$ ($X=L_{<i}\bar H_iR_{>i}\times D$), $L_{>i}=T_i\,R_{>i}$ (the left-canonical tail is
 ~~~
 
 #### TEX-EHTH-0316
@@ -626,7 +747,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 319
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -638,6 +759,7 @@ Define $\Lift v=\thh=(\dot U_i,\dot G_i)$, a variation of the base point $\th=(U
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Define $\Lift v=\thh=(\dot B_i,\dot G_i)$, a variation of the base point $\th=(D,L)$, by
 ~~~
 
 #### TEX-EHTH-0317
@@ -647,7 +769,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 320–324
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -663,6 +785,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:lift}
+  \dot B_i = (S_i^\T)^{+}\,V_i,\qquad
+  \dot G_i = H_i\times_3 T_i^{+}\ (i<d),\qquad \dot G_d=H_d .
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0322
@@ -672,7 +799,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 325
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -684,6 +811,7 @@ If every $S_i^\T$ has full row rank and every $T_i$ full column rank, then $D\Ph
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+If every $S_i^\T$ has full row rank and every $T_i$ full column rank, then $\mathrm d\Phi(\th)[\Lift v]=\Emap v$ for
 ~~~
 
 #### TEX-EHTH-0327
@@ -693,7 +821,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 330–332
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -707,6 +835,9 @@ $P_{<i}(H_i\times_2\dot U_i)Q_{>i}=P_{<i}\big(O_i\times_2(S_i^\T\dot U_i)\big)Q_
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+TT slot: $L_{<i}\dot G_iL_{>i}=L_{<i}\,(\dot G_iT_i)\,R_{>i}=L_{<i}\,H_i T_i^+T_i\,R_{>i}$, and $T_i^+T_i=I$
+for full column rank. Tucker slot: replacing $D_i$ by $\dot B_i$ in $X=L_{<i}\bar H_iR_{>i}\times D$ gives
+$L_{<i}(\bar H_i\times_2\dot B_i)R_{>i}=L_{<i}\big(U_i\times_2(S_i^\T\dot B_i)\big)R_{>i}$, and $S_i^\T(S_i^\T)^+=I$
 ~~~
 
 #### TEX-EHTH-0338
@@ -716,7 +847,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 341–382
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -769,6 +900,48 @@ $H_i=O_i\times_2S_i^\T$. The pseudo-inverses are the only place an inverse singu
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[x=10mm,y=10mm]
+  % (a) TT slot
+  \begin{scope}
+    \node[ttc] (a1) at (0,0) {$L_{i-1}$}; \node[dotc] (a2) at (1.2,0) {$H_i$};
+    \node[ttc] (a3) at (2.4,0) {$R_{i+1}$}; \node[ttc] (a4) at (3.6,0) {$R_{i+2}$};
+    \draw[bnd] (-0.7,0)--(a1)--(a2)--(a3)--(a4)--(4.25,0);
+    \foreach \x in {0,1.2,2.4,3.6} \draw[bnd] (\x,-0.38)--(\x,-0.8);
+    \node at (4.75,0) {$=$};
+    \node[ttc] (b1) at (5.8,0) {$L_{i-1}$}; \node[dotc] (b2) at (6.9,0) {$\dot G_i$};
+    \node[matn] (bt) at (7.85,0) {$T_i$};
+    \node[ttc] (b3) at (8.8,0) {$R_{i+1}$}; \node[ttc] (b4) at (10.0,0) {$R_{i+2}$};
+    \draw[bnd] (5.2,0)--(b1)--(b2)--(bt)--(b3)--(b4)--(10.7,0);
+    \foreach \x in {5.8,6.9,8.8,10.0} \draw[bnd] (\x,-0.38)--(\x,-0.8);
+    \draw[decorate,decoration={brace,amplitude=4pt}] (7.6,0.45)--(10.4,0.45)
+      node[midway,above=3pt,font=\scriptsize]{$=L_{i+1}L_{i+2}=L_{>i}$};
+    \node[font=\small,anchor=west] at (-0.7,-1.25) {(a) TT slot: $\dot G_i=H_i\times_3T_i^{+\eps}$, exact when $T_i^+T_i=I$ (TT slack: $T_i$ tall)};
+  \end{scope}
+  % (b) Tucker slot
+  \begin{scope}[yshift=-24mm]
+    \node[ttc] (c1) at (0,0) {$L_{i-1}$}; \node[ttc] (c2) at (1.2,0) {$U_i$}; \node[ttc] (c3) at (2.4,0) {$R_{i+1}$};
+    \node[dotc] (cu) at (1.2,-1.1) {$V_i$};
+    \draw[bnd] (-0.7,0)--(c1)--(c2)--(c3)--(3.05,0); \draw[bnd] (c2)--(cu)--(1.2,-1.75);
+    \draw[bnd] (0,-0.38)--(0,-0.8); \draw[bnd] (2.4,-0.38)--(2.4,-0.8);
+    \node at (3.55,0) {$=$};
+    \node[ttc] (d1) at (4.5,0) {$L_{i-1}$}; \node[ttc] (d2) at (5.7,0) {$U_i$}; \node[ttc] (d3) at (6.9,0) {$R_{i+1}$};
+    \node[matn] (ds) at (5.7,-0.95) {$S_i^\T$};
+    \node[dotc] (du) at (5.7,-1.9) {$\dot B_i$};
+    \draw[bnd] (3.95,0)--(d1)--(d2)--(d3)--(7.6,0); \draw[bnd] (d2)--(ds)--(du)--(5.7,-2.55);
+    \draw[bnd] (4.5,-0.38)--(4.5,-0.8); \draw[bnd] (6.9,-0.38)--(6.9,-0.8);
+    \draw[dashed,rounded corners=3pt,gray] (5.2,0.45)--(6.25,0.45)--(6.25,-1.3)--(5.2,-1.3)--cycle;
+    \node[font=\scriptsize,anchor=west] at (6.3,-1.15) {$=\bar H_i$ (the center)};
+    \node[font=\small,anchor=west] at (-0.7,-2.9) {(b) Tucker slot: $\dot B_i=(S_i^\T)^{+\eps}V_i$, exact when $S_i^\T(S_i^\T)^+=I$ (Tucker slack: $S_i^\T$ wide)};
+  \end{scope}
+\end{tikzpicture}
+\caption{The lift, slot by slot (red: the variation). (a) The frame's TT slot $L_{<i}\,H_i\,R_{>i}$ equals the
+raw slot $L_{<i}\,\dot G_i\,L_{>i}$ because the left-canonical tail is $L_{>i}=T_iR_{>i}$. (b) The frame's Tucker
+slot pairs $V_i$ with the orthonormal $U_i$; the raw slot pairs $\dot B_i$ with the center
+$\bar H_i=U_i\times_2S_i^\T$. The pseudo-inverses are the only place an inverse singular value enters the Hessian.}
+\label{fig:lift}
+\end{figure}
 ~~~
 
 #### TEX-EHTH-0382
@@ -778,7 +951,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 385
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -790,6 +963,7 @@ $R_k^{-1}$ \cite{PB20}), so it is damped by the Tikhonov filter
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$R_k^{-1}$ \cite{PB20}, PB20's notation), so it is damped by the Tikhonov filter
 ~~~
 
 #### TEX-EHTH-0383
@@ -799,8 +973,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 386–390
+- same-reason: R5: an SVD's V f(Sigma) U^T (§1.5 item 2)
 
 old text:
 
@@ -815,6 +989,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:filter}
+  f_\eps(\sigma)=\frac{\sigma}{\sigma^2+\eps^2}\ \ (0\text{ for }\sigma\le\mathrm{rcond}\cdot\sigma_1),\qquad
+  M^{+\eps}=V f_\eps(\Sigma)U^\T=(M^\T M+\eps^2I)^{-1}M^\T,
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0394
@@ -824,7 +1003,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 397
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -836,6 +1015,7 @@ $\sim10^{-17}$) needs no special case: there the lift satisfies $D\Phi[\Lift v]=
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\sim10^{-17}$) needs no special case: there the lift satisfies $\mathrm d\Phi[\Lift v]=\Emap(Q_{\mathrm c}v)$ with $Q_{\mathrm c}$ the
 ~~~
 
 #### TEX-EHTH-0399
@@ -845,7 +1025,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 402–403
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -858,6 +1038,8 @@ coordinates, $\delta U_i=((S_i^\T)^{+\eps})^\T Y^U_i$, $\delta G_i=Y^G_i\times_3
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\paragraph{The transpose.} $\Lift^\T y$ maps raw core variations $y=(Y^B_i,Y^G_i)$ to \emph{ungauged}
+coordinates, $V_i=((S_i^\T)^{+\eps})^\T Y^B_i$, $H_i=Y^G_i\times_3(T_i^{+\eps})^\T$,
 ~~~
 
 #### TEX-EHTH-0404
@@ -867,7 +1049,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 407–428
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -900,6 +1082,28 @@ uniform: \code{ufv_operations.ufv_lift_factors}, \code{utv_operations.utv_corewi
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[t]
+\caption{The lift $\thh=\Lift_\eps v$ and its adjoint $\Lift_\eps^\T$ (per-frame factors once, per matvec two
+contractions per mode)}
+\label{alg:lift}
+\begin{algorithmic}[1]
+\Require orthogonal frame $(D,U,L,R)$; relative damping $c\ge0$; coordinates $v=(V_i,H_i)$ (stack $\mathtt{K+C}$)
+\Ensure raw directions $\thh=(\dot B_i,\dot G_i)$ of $\th=(D,L)$
+\State $T_i\gets\ip{L_{>i}}{R_{>i}}$ (zipper);\ $\bar H_i\gets L_i\times_3T_i$;\ $S_i^\T\gets\ip{U_i}{\bar H_i}_{\{1,3\}}$
+   \Comment{\code{fv_center_factors}}
+\State $\eps\gets c\,\|S_1^\T\|_F$;\ $(S_i^\T)^{+\eps},\ T_i^{+\eps}\gets$ one thin SVD each, filter \eqref{eq:filter}
+   \Comment{\code{fv_lift_factors}}
+\For{$i=1,\dots,d$} \Comment{\code{tv_corewise_lift}}
+  \State $\dot B_i\gets(S_i^\T)^{+\eps}\,V_i$ \Comment{\texttt{'Cux,KCxn->KCun'}}
+  \State $\dot G_i\gets H_i\times_3T_i^{+\eps}$ if $i<d$, else $\dot G_d\gets H_d$ \Comment{\texttt{'KCaib,Cbc->KCaic'}}
+\EndFor
+\State adjoint: $V_i\gets((S_i^\T)^{+\eps})^\T Y^B_i$,\ $H_i\gets Y^G_i\times_3(T_i^{+\eps})^\T$
+   \Comment{\code{tv_corewise_lift_transpose}}
+\Impl{\code{fv_operations.fv_center_factors}, \code{fv_operations.fv_lift_factors} (\code{LiftFactors}),
+\code{linalg.damped_pseudo_inverse}, \code{linalg.filtered_reciprocal}, \code{tv_operations.tv_corewise_lift[_transpose]};
+uniform: \code{ufv_operations.ufv_lift_factors}, \code{utv_operations.utv_corewise_lift[_transpose]}.}
+\end{algorithmic}
+\end{algorithm}
 ~~~
 
 #### TEX-EHTH-0478
@@ -909,7 +1113,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 481
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -921,6 +1125,7 @@ At the \emph{corewise frame} $(U,G,G,G)$ of raw cores $\th=(U,G)$ (\code{t3_core
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+At the \emph{corewise frame} $(B,G,G,G)$ of raw cores $\th=(B,G)$ (\code{t3_corewise_frame}) the tangent
 ~~~
 
 #### TEX-EHTH-0480
@@ -930,7 +1135,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 483
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -942,6 +1147,7 @@ substitution $P,Q,O\to G$; \code{t3_probe_corewise_transpose}). With edge variab
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+substitution $U,L,R\to G$; \code{t3_probe_corewise_transpose}). With edge variables on bonds $0,\dots,d$ (core $i$
 ~~~
 
 #### TEX-EHTH-0482
@@ -951,7 +1157,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 485–498
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -976,6 +1182,20 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{align}
+  \label{eq:fwd}
+  &\xi_i=B_iw_i,\quad \mu_i=\mu_{i-1}G_i(\xi_i),\ \mu_0=1,\quad \nu_{i-1}=G_i(\xi_i)\nu_i,\ \nu_d=1,\quad
+   \eta_i=\mu_{i-1}G_i\nu_i, \\
+  \label{eq:adj}
+  &\ddet_i=B_ic_i,\quad \tilde\tau_i=\tilde\tau_{i-1}G_i(\xi_i)+\mu_{i-1}G_i(\ddet_i),\ \tilde\tau_0=0,\quad
+   \tilde\sigma_{i-1}=G_i(\xi_i)\tilde\sigma_i+G_i(\ddet_i)\nu_i,\ \tilde\sigma_d=0, \\
+  \label{eq:dxt}
+  &\dxt_i=\tilde\tau_{i-1}G_i\nu_i+\mu_{i-1}G_i\tilde\sigma_i, \\
+  \label{eq:asm}
+  &\tilde V_i=\textstyle\sum_{\mathtt W}\big(\eta_i\otimes c_i+\dxt_i\otimes w_i\big),\qquad
+   \tilde H_i=\sum_{\mathtt W}\big(\mu_{i-1}\otimes\xi_i\otimes\tilde\sigma_i
+   +\tilde\tau_{i-1}\otimes\xi_i\otimes\nu_i+\mu_{i-1}\otimes\ddet_i\otimes\nu_i\big).
+\end{align}
 ~~~
 
 #### TEX-EHTH-0500
@@ -985,7 +1205,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 503
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -997,6 +1217,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\xi_i\otimes\hat\sigma_i$, $\tilde V_i=\sum_{\mathtt W}\delta\hat\xi_i\otimes w_i$ with
 ~~~
 
 #### TEX-EHTH-0503
@@ -1006,7 +1227,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 506–524
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1036,6 +1257,25 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[t]
+\caption{The one-hole sweep (reference): the corewise probe transpose $\nabla_\th\ip{c}{A\Phi(\th)}$}
+\label{alg:onehole}
+\begin{algorithmic}[1]
+\Require $\th=(B_i,G_i)$; probe vectors $w_i$ (stack $\mathtt W$); weighted residuals $c_i=\omega_i^2\odot r_i$
+\Ensure $(\tilde V_i,\tilde H_i)$, $\mathtt W$ summed
+\State $\xi_i,\mu_i,\nu_i,\eta_i$ by \eqref{eq:fwd} \Comment{frame sweep (T4S Alg.~5); \code{tv_precompute_probe_frame_sweep}}
+\State $\ddet_i\gets B_ic_i$ \Comment{\code{compute_deta_tilde}}
+\For{$i=1,\dots,d$} $\tilde\tau_i\gets\tilde\tau_{i-1}G_i(\xi_i)+\mu_{i-1}G_i(\ddet_i)$ \Comment{\code{compute_tau_tilde}}
+\EndFor
+\For{$i=d,\dots,1$} $\tilde\sigma_{i-1}\gets G_i(\xi_i)\tilde\sigma_i+G_i(\ddet_i)\nu_i$ \Comment{\code{compute_sigma_tilde}}
+\EndFor
+\State $\dxt_i\gets\tilde\tau_{i-1}G_i\nu_i+\mu_{i-1}G_i\tilde\sigma_i$ \Comment{\code{compute_dxi_tilde}}
+\State $\tilde V_i,\ \tilde H_i$ by \eqref{eq:asm} \Comment{\code{assemble_tucker_variations}, \code{assemble_tt_variations}}
+\Impl{\code{probing.t3_probe_corewise_transpose} = \code{probing.tv_probe_transpose} at \code{fv_conversions.t3_corewise_frame}
+(T4S \S6.2.3, Algorithm~8; \S6.3). Jets: \code{sampling_derivatives.t3_probe_corewise_derivatives_transpose},
+\code{tv_probe_transpose_derivatives_from_sweep}.}
+\end{algorithmic}
+\end{algorithm}
 ~~~
 
 #### TEX-EHTH-0527
@@ -1045,7 +1285,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 530
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1057,6 +1297,7 @@ derivative along $\thh=(\dot U_i,\dot G_i)$, i.e.\ the \emph{product rule} appli
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+derivative along $\thh=(\dot B_i,\dot G_i)$, i.e.\ the \emph{product rule} applied to every line of
 ~~~
 
 #### TEX-EHTH-0535
@@ -1066,7 +1307,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 538
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1078,6 +1319,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+  $\dot\xi_i=\dot B_iw_i$,\
 ~~~
 
 #### TEX-EHTH-0539
@@ -1087,7 +1329,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 542
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1099,6 +1341,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+  --- exactly T4S Algorithm~7 ($\sigma,\tau,\delta\eta$) with $U=L=R=G$ and variation $(\dot B,\dot G)$. The
 ~~~
 
 #### TEX-EHTH-0543
@@ -1108,7 +1351,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 546
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1120,6 +1363,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+  $\frac{d}{ds}\tilde V_i=\sum_{\mathtt W}(\dot\eta_i\otimes c_i+\dot{\dxt}_i\otimes w_i)$, and $\tilde H_i$
 ~~~
 
 #### TEX-EHTH-0545
@@ -1129,7 +1373,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 548
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1141,6 +1385,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+  the manifold frame $(D,U,L,R)$ and the corewise frame $(D,L,L,L)$ of the base point), $\nu$ is re-swept through
 ~~~
 
 #### TEX-EHTH-0551
@@ -1150,7 +1395,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 554
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1162,6 +1407,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\paragraph{The block-sum oracle.} Since $\mathrm d\Phi(\th)[\thh]=\Phi(Y)$ for the doubled-rank T3 $Y$ that
 ~~~
 
 #### TEX-EHTH-0554
@@ -1171,8 +1417,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 557–560
+- same-reason: R5: B^T is the block-sum operator, not a T3's core (left; R5 handoff Q-EHTH-2)
 
 old text:
 
@@ -1186,6 +1432,10 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:blocksum}
+  \K_c\thh = B^\T\,\nabla_Y\ip{c}{A\Phi(Y)},
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0558
@@ -1195,8 +1445,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 561
+- same-reason: R5: B^T, the block-sum operator (as TEX-EHTH-0554)
 
 old text:
 
@@ -1207,6 +1457,7 @@ $B^\T$ summing the gradient blocks where $\th$'s cores sit. This one-hole-only i
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$B^\T$ summing the gradient blocks where $\th$'s cores sit. This one-hole-only identity (check C9b, $3.4\times10^{-16}$)
 ~~~
 
 #### TEX-EHTH-0573
@@ -1216,7 +1467,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 576–579
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1231,6 +1482,10 @@ $\dot\xi_i=(\dot U_iw_i,\dot U_ip_i)$ (\code{build_input_jets}). Every jet produ
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Write the shift $\Sh$, $(\Sh x)^{(t)}=t\,x^{(t-1)}$, and its adjoint $\Sh^\T$, $(\Sh^\T x)^{(s)}=(s+1)\,x^{(s+1)}$
+($x^{(m+1)}=0$), so that $\Sh^r x=r!\binom{t}{r}x^{(t-r)}$ and $((\Sh^\T)^rx)^{(s)}=r!\binom{r+s}{r}x^{(r+s)}$
+(\code{_shift_down}, \code{_shift_up}). The input jets are affine, $\xi_i=(B_iw_i,B_ip_i)$,
+$\dot\xi_i=(\dot B_iw_i,\dot B_ip_i)$ (\code{build_input_jets}). Every jet product is one of four forms:
 ~~~
 
 #### TEX-EHTH-0577
@@ -1240,7 +1495,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 580–587
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1259,6 +1514,14 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{align}
+  \label{eq:band}
+  &\text{banded (one affine factor } b\text{):} && (a\star b)^{(t)}=a^{(t)}b^{(0)}+(\Sh a)^{(t)}b^{(1)},
+     && (c\star^\T b)^{(s)}=c^{(s)}b^{(0)}+(\Sh^\T c)^{(s)}b^{(1)},\\
+  \label{eq:conv}
+  &\text{full (both jets):} && (a\ast b)^{(t)}=\textstyle\sum_r\frac{a^{(r)}}{r!}(\Sh^r b)^{(t)},
+     && (a\ast^\T z)^{(s)}=\textstyle\sum_r\frac{a^{(r)}}{r!}((\Sh^\T)^r z)^{(s)},
+\end{align}
 ~~~
 
 #### TEX-EHTH-0600
@@ -1268,7 +1531,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 603
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1280,6 +1543,7 @@ and its product rule along $(\dot G,\dot\xi,\dot\mu,\dot{\ddet})$, with $\dot{\d
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+and its product rule along $(\dot G,\dot\xi,\dot\mu,\dot{\ddet})$, with $\dot{\ddet}_i=\dot B_ic_i$, is the dotted step
 ~~~
 
 #### TEX-EHTH-0612
@@ -1289,7 +1553,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 615
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1301,6 +1565,7 @@ pairs them with $(w,p)$), and only those are formed: with $[\Ush^0x]=x$, $[\Ush^
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+pairs them with $(w,p)$), and only those are formed: with $[(\Sh^\T)^0x]=x$, $[(\Sh^\T)^1x]=\Sh^\T x$,
 ~~~
 
 #### TEX-EHTH-0613
@@ -1310,7 +1575,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 616–620
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1326,6 +1591,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:dxitilde}
+  \dxt_i^{(u)}=\sum_j\mu_{i-1}^{(j)}G_i\,[(\Sh^\T)^u\tilde\sigma_i]^{(j)}+[(\Sh^\T)^u\tilde\tau_{i-1}]^{(j)}G_i\,\nu_i^{(j)},
+  \qquad u\in\{0,1\},
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0619
@@ -1335,7 +1605,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 622
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1347,6 +1617,7 @@ $d(\mu G)[\Ush^u\tilde\sigma]+\mu G[\Ush^u\dot{\tilde\sigma}]+[\Ush^u\dot{\tilde
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$d(\mu G)[(\Sh^\T)^u\tilde\sigma]+\mu G[(\Sh^\T)^u\dot{\tilde\sigma}]+[(\Sh^\T)^u\dot{\tilde\tau}]G\nu+[(\Sh^\T)^u\tilde\tau]d(G\nu)$,
 ~~~
 
 #### TEX-EHTH-0622
@@ -1356,7 +1627,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 625–646
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1389,6 +1660,28 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[t]
+\caption{Two-hole, forward half: the dotted forward jets along $\thh=(\dot B,\dot G)$}
+\label{alg:fwd}
+\begin{algorithmic}[1]
+\Require $\th=(B,G)$; $\thh$ (stack $\mathtt{K+C}$); $w_i,p_i$ (stack $\mathtt W$); order $m$; model sweep $(\xi,\mu)$
+\Ensure $\dot\xi_i,\dot\mu_i,\dot\nu_i,\dot\eta_i$ (orders $0..m$) and the undotted $\nu_i$
+\State $\dot\xi_i\gets(\dot B_iw_i,\ \dot B_ip_i)$ \Comment{\code{build_input_jets}, \code{compute_xi}}
+\State $\nu_{i-1}\gets G_i(\xi_i)\star\nu_i$ \Comment{re-swept through $G$: \code{compute_nu_jets}}
+\For{$i=1,\dots,d$}
+  \State $\dot\mu_i\gets\dot\mu_{i-1}\star G_i(\xi_i)+\mu_{i-1}\star\dot G_i(\xi_i)+\mu_{i-1}\star G_i(\dot\xi_i)$
+  \Comment{\code{compute_sigma_jets}$(\dot G,G,G,\dots)$}
+\EndFor
+\For{$i=d,\dots,1$}
+  \State $\dot\nu_{i-1}\gets G_i(\xi_i)\star\dot\nu_i+\dot G_i(\xi_i)\star\nu_i+G_i(\dot\xi_i)\star\nu_i$
+  \Comment{\code{compute_tau_jets}}
+\EndFor
+\State $\dot\eta_i\gets\dot\mu_{i-1}G_i\ast\nu_i+\mu_{i-1}\dot G_i\ast\nu_i+\mu_{i-1}G_i\ast\dot\nu_i$
+  \Comment{\code{compute_deta_jets} (order scan)}
+\Impl{\code{sampling_derivatives}: the GN tangent forward (T4S Alg.~7 jet-ified) at $U=L=R=G$; plain kinds
+\code{probing.compute_dxi}, \code{compute_sigma}, \code{compute_tau}, \code{compute_deta}.}
+\end{algorithmic}
+\end{algorithm}
 ~~~
 
 #### TEX-EHTH-0645
@@ -1398,7 +1691,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 648–665
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1427,6 +1720,24 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[t]
+\caption{Two-hole, adjoint half: the dotted adjoint sweeps}
+\label{alg:adj}
+\begin{algorithmic}[1]
+\Require undotted $\xi,\mu,\nu$ and adjoint state $\ddet,\tilde\tau,\tilde\sigma$ at $\th$; dotted $\dot\xi,\dot\mu,\dot\nu$; residual jets $c_i$
+\Ensure $\dot{\ddet}_i,\dot{\tilde\tau}_i,\dot{\tilde\sigma}_i$ and the two read rows $\dot{\dxt}_i^{(0,1)}$
+\State $\dot{\ddet}_i\gets\dot B_ic_i$ \Comment{order-diagonal; \code{compute_deta_tilde_tangent_jets}}
+\For{$i=1,\dots,d$} \Comment{carry $\dot{\tilde\tau}$; the undotted $\tilde\tau_{i-1}$ rides as scan data}
+  \State $\dot{\tilde\tau}_i\gets$ \eqref{eq:tautildedot} \Comment{\code{compute_tau_tilde_tangent_jets}, step \code{_adj_tilde_tangent_step}}
+\EndFor
+\State $\dot{\tilde\sigma}\gets$ the same sweep on the reversed train \Comment{\code{compute_sigma_tilde_tangent_jets}}
+\State $\dot{\dxt}_i^{(u)}\gets$ the product rule of \eqref{eq:dxitilde}, $u\in\{0,1\}$ \Comment{\code{compute_dxi_tilde_tangent_jets}}
+\Impl{\code{sampling_derivatives}: \code{_adj_prop_tangent}, \code{_adj_tangent_src_order_step},
+\code{_adj_tangent_sweep_scanned}, \code{_dxi_tilde_tangent_order_step}; plain probe: \code{probing.compute_deta_tilde_tangent},
+\code{compute_tau_tilde_tangent} (two \code{_sigma_step} calls per core), \code{compute_sigma_tilde_tangent},
+\code{compute_dxi_tilde_tangent} (two \code{compute_deta} calls).}
+\end{algorithmic}
+\end{algorithm}
 ~~~
 
 #### TEX-EHTH-0668
@@ -1436,7 +1747,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 671–675
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1452,6 +1763,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:tuckerdot}
+  (\K_c\thh)_{B_i}=\sum_{\mathtt W}\Big(\sum_t\dot\eta_i^{(t)}\otimes c_i^{(t)}+\sum_{u\in\{0,1\}}\dot{\dxt}_i^{(u)}\otimes w_i^{(u)}\Big),
+  \qquad w^{(0)}=w,\ w^{(1)}=p .
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0696
@@ -1461,7 +1777,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 699–706
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1478,6 +1794,14 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:asmjet}
+  \begin{gathered}
+  \tilde H_i=\sum_{\mathtt W}\Big(\sum_{k\in\{0,1\}}\Pi_{i,k}\otimes_2\xi_i^{(k)}
+     +\sum_r\mu_{i-1}^{(r)}\otimes F_i^{(r)}\Big),\\
+  \Pi_{i,k}=\sum_r\mu_{i-1}^{(r)}\otimes[(\Sh^\T)^k\tilde\sigma_i]^{(r)}+\sum_s[(\Sh^\T)^k\tilde\tau_{i-1}]^{(s)}\otimes\nu_i^{(s)},
+  \end{gathered}
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0702
@@ -1487,7 +1811,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 707–708
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1500,6 +1824,8 @@ with the fold $F_i^{(r)}=\sum_s\binom{r+s}{r}\ddet_i^{(r+s)}\otimes\nu_i^{(s)}=\
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+with the fold $F_i^{(r)}=\sum_s\binom{r+s}{r}\ddet_i^{(r+s)}\otimes\nu_i^{(s)}=\sum_s\frac{1}{r!}((\Sh^\T)^r\ddet_i)^{(s)}\otimes\nu_i^{(s)}$
+(\code{_tt_det_lag_step}, which carries $(\Sh^\T)^r\ddet$). Its derivative (\code{_tt_tangent_variation_jets_step},
 ~~~
 
 #### TEX-EHTH-0744
@@ -1509,7 +1835,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 749–769
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1541,6 +1867,27 @@ in \code{fitting.py}, \code{uniform_fitting.py}.}
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[t]
+\caption{The probe-derivative two-hole $\K_c\thh$ (driver)}
+\label{alg:driver}
+\begin{algorithmic}[1]
+\Require $c_i=\omega^2\odot r_i$ (jets, $\mathtt{W+C}$); $w,p$; $\th=(B,G)$; $\thh$ ($\mathtt{K+C}$); order $m$; model sweep $(\xi,\mu)$
+\Ensure $\K_c\thh$, raw core variations ($\mathtt{K+C}$, $\mathtt W$ summed)
+\State undotted: $\nu$ re-swept through $G$; $\ddet=Bc$; $\tilde\tau$, $\tilde\sigma$ \Comment{GN kernels, recompute (I-11)}
+\State dotted forward $\dot\xi,\dot\mu,\dot\nu,\dot\eta$ \Comment{Algorithm~\ref{alg:fwd}}
+\State dotted adjoint $\dot{\ddet},\dot{\tilde\tau},\dot{\tilde\sigma},\dot{\dxt}^{(0,1)}$ \Comment{Algorithm~\ref{alg:adj}}
+\State Tucker block \eqref{eq:tuckerdot}; TT block \eqref{eq:asmjetdot}, $\mathtt W$-chunked \Comment{Section~\ref{sec:assembly}}
+\Impl{\code{sampling_derivatives.t3_probe_corewise_derivatives_hessian[_from_sweep]}; step 1 \code{compute_nu_jets},
+\code{compute_deta_tilde_jets}, \code{compute_tau_tilde_jets}, \code{compute_sigma_tilde_jets}; step 4
+\code{assemble_tucker_tangent_variation_jets}, \code{assemble_tt_tangent_variation_jets}; the other kinds:
+\code{probing.t3_probe_corewise_hessian[_from_sweep]}, \code{apply.t3_apply_corewise_hessian[_from_sweep]}
+(\code{_apply_corewise_hessian_adjoint}), \code{entries.t3_entries_corewise_hessian[_from_sweep]},
+\code{sampling_derivatives.t3_apply_corewise_derivatives_hessian[_from_sweep]}, \code{t3_entries_corewise_derivatives_hessian[_from_sweep]}
+(\code{_apply_derivatives_hessian_from_jets}, \code{compute_sigma_hat_tangent_jets} with step
+\code{_sigma_hat_tangent_jets_step}); the hook \code{SamplingKind.corewise_hessian} (the required sixth operation)
+in \code{fitting.py}, \code{uniform_fitting.py}.}
+\end{algorithmic}
+\end{algorithm}
 ~~~
 
 #### TEX-EHTH-0776
@@ -1550,8 +1897,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 781
+- same-reason: R5: (B_z, G_z) are Z's own cores (D-6: B a T3's own Tucker cores, already written)
 
 old text:
 
@@ -1562,6 +1909,7 @@ $\K_{\grad f}$ is \eqref{eq:Kdef} for $Z=\grad f$ given as a T3 $(B_z,G_z)$ of d
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\K_{\grad f}$ is \eqref{eq:Kdef} for $Z=\grad f$ given as a T3 $(B_z,G_z)$ of doubled rank. The one-hole
 ~~~
 
 #### TEX-EHTH-0779
@@ -1571,7 +1919,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 784–789
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1588,6 +1936,12 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:t3t3}
+  \hat B_i=B_{z,i}B_i^\T,\quad \hat G_i=G_{z,i}\times_2\hat B_i,\quad
+  Z^L=\mathrm{zip}_\to(\hat G,G),\quad Z^R=\mathrm{zip}_\leftarrow(\hat G,G),\quad
+  \mathrm{env}_i=Z^L_i\,G_{z,i}\,Z^R_i,
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0785
@@ -1597,7 +1951,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 790–793
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1612,6 +1966,10 @@ $A=\hat G$, $B=G$; \code{tt_zipper_tangent_left_to_right}, step \code{_tt_zipper
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+with gradient blocks $\mathrm{env}_i\times_2\hat B_i$ (TT) and $\ip{\mathrm{env}_i}{G_i}^\T B_{z,i}$ (Tucker). The
+two-hole adds the ``one core replaced'' companions: $\dot{\hat B}_i=B_{z,i}\dot B_i^\T$, $\dot{\hat G}_i$, the
+\emph{tangent zippers} $\dot Z^{L}_{i+1}=\dot Z^L_i\hat G_iG_i+Z^L_i\dot{\hat G}_iG_i+Z^L_i\hat G_i\dot G_i$ (with the chains
+$\hat G$, $G$; \code{tt_zipper_tangent_left_to_right}, step \code{_tt_zipper_tangent_step}), and the product rule
 ~~~
 
 #### TEX-EHTH-0789
@@ -1621,7 +1979,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 794–801
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1640,6 +1998,14 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:t3t3dot}
+  \begin{gathered}
+  \dot{\mathrm{env}}_i=\dot Z^L_iG_{z,i}Z^R_i+Z^L_iG_{z,i}\dot Z^R_i,\\
+  (\K_Z\thh)_{G_i}=\dot{\mathrm{env}}_i\times_2\hat B_i+\mathrm{env}_i\times_2\dot{\hat B}_i,\qquad
+  (\K_Z\thh)_{B_i}=\big(\ip{\dot{\mathrm{env}}_i}{G_i}+\ip{\mathrm{env}_i}{\dot G_i}\big)^\T B_{z,i}.
+  \end{gathered}
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0801
@@ -1649,7 +2015,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 806–828
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1683,6 +2049,29 @@ top rung is $G_{z,4}$ itself, contracted with $BU_4$ (or $\dot{BU}_4$) on the mo
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[x=10mm,y=10mm]
+  \foreach \i in {1,...,5} {
+    \ifnum\i=4 \node[holec] (b\i) at (\i,0) {}; \else
+      \ifnum\i=2 \node[dotc] (b\i) at (\i,0) {$\dot G_{\i}$}; \else \node[ttc] (b\i) at (\i,0) {$G_{\i}$}; \fi \fi
+    \ifnum\i=4 \node[resn] (a\i) at (\i,1.3) {$G_{z,\i}$}; \else \node[ttc] (a\i) at (\i,1.3) {$\hat G_{\i}$}; \fi
+    \draw[bnd] (a\i)--(b\i);
+  }
+  \foreach \i in {1,...,4} { \pgfmathtruncatemacro\j{\i+1} \draw[bnd] (a\i)--(a\j); \draw[bnd] (b\i)--(b\j); }
+  \draw[decorate,decoration={brace,amplitude=4pt,mirror}] (0.6,-0.6)--(3.4,-0.6)
+     node[midway,below=4pt,font=\scriptsize]{$\dot Z^L_4$ (one core replaced)};
+  \draw[decorate,decoration={brace,amplitude=4pt,mirror}] (4.6,-0.6)--(5.4,-0.6)
+     node[midway,below=4pt,font=\scriptsize]{$Z^R_4$};
+  \node[font=\scriptsize,anchor=west] at (5.6,1.3) {$Z$'s chain in $\theta$'s basis ($\hat G=G_z\times_2\hat B$)};
+  \node[font=\scriptsize,anchor=west] at (5.6,0) {$\theta$'s chain};
+  \node[font=\scriptsize,anchor=west] at (5.6,0.65) {mode legs contracted};
+\end{tikzpicture}
+\caption{The T3-to-T3 two-hole as a ladder: $Z$'s re-based TT cores on top, $\theta$'s below. The hole at core 4 is
+the gradient block; the bottom-left $\dot G_2$ makes $\dot Z^L_4$ one term of the tangent zipper. Core 4's own
+top rung is $G_{z,4}$ itself, contracted with $\hat B_4$ (or $\dot{\hat B}_4$) on the mode leg.}
+\label{fig:t3t3}
+\end{figure}
 ~~~
 
 #### TEX-EHTH-0825
@@ -1692,7 +2081,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 830–845
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1719,6 +2108,22 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[t]
+\caption{The T3-to-T3 two-hole $\K_Z\thh$}
+\label{alg:t3t3}
+\begin{algorithmic}[1]
+\Require $Z=(B_z,G_z)$ (tails squashed); $\th=(B,G)$ ($\mathtt C$); $\thh$ ($\mathtt{K+C}$)
+\Ensure $\K_Z\thh$
+\State $\hat B,\hat G,Z^L,Z^R,\mathrm{env}$ by \eqref{eq:t3t3} \Comment{per frame: \code{t3_precompute_inner_product_sweep}}
+\State $\dot{\hat B}_i\gets B_{z,i}\dot B_i^\T$;\ $\dot{\hat G}_i\gets G_{z,i}\times_2\dot{\hat B}_i$
+\State $\dot Z^L\gets$ \code{tt_zipper_tangent_left_to_right}$(\hat G,G,\dot{\hat G},\dot G;Z^L)$;\ $\dot Z^R$ likewise from the right
+\State blocks by \eqref{eq:t3t3dot}
+\Impl{\code{t3_linalg.t3_inner_product_corewise_hessian[_from_sweep]}, \code{t3_linalg.t3_inner_product_corewise_transpose},
+\code{tt_operations.tt_zipper_tangent_left_to_right}, \code{tt_zipper_tangent_right_to_left}; called by
+\code{ManifoldGeometryOps.tangential_curvature}; uniform: \code{ut3_linalg.ut3_precompute_inner_product_sweep},
+\code{ut3_inner_product_corewise_hessian[_from_sweep]}.}
+\end{algorithmic}
+\end{algorithm}
 ~~~
 
 #### TEX-EHTH-0860
@@ -1728,7 +2133,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 865–866
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1741,6 +2146,8 @@ that note writes the factors $N\times n$, so its $C_i=\dot US_i$ is this relatio
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$V_i=S_i^\T\dot B_g$ (\texttt{docs/shared\_t3\_math.tex}, Prop.\ ``tied tangent space is a tilted subspace'';
+that note writes the factors $N\times n$, so its $C_i=\dot DS_i$ is this relation transposed) has one raw
 ~~~
 
 #### TEX-EHTH-0863
@@ -1750,8 +2157,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 868
+- same-reason: R5: U_M, V_M are SVD factors (§1.5 item 2)
 
 old text:
 
@@ -1762,6 +2169,7 @@ $M_g=[S_{i_1}^\T;\dots;S_{i_k}^\T]$ and its SVD $M_g=U_M\,\mathrm{diag}(s_g)\,V_
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$M_g=[S_{i_1}^\T;\dots;S_{i_k}^\T]$ and its SVD $M_g=U_M\,\mathrm{diag}(s_g)\,V_M^\T$ (the companion
 ~~~
 
 #### TEX-EHTH-0865
@@ -1771,7 +2179,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 870–875
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1788,6 +2196,12 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:tied}
+  \dot B_g=M_g^{+\eps}\begin{bmatrix}V_{i_1}\\ \vdots\\ V_{i_k}\end{bmatrix}
+   =V_Mf_\eps(s_g)U_M^\T[V_{i}]_{i\in g},\qquad
+  \Lift^\T:\ [V_i]_{i\in g}=(M_g^{+\eps})^\T\textstyle\sum_{i\in g}Y^B_i,
+\end{equation}
 ~~~
 
 #### TEX-EHTH-0871
@@ -1797,7 +2211,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 876
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1809,6 +2223,7 @@ the same $\dot U_g$ at every group mode; the adjoint sums the group's copies ($\
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+the same $\dot B_g$ at every group mode; the adjoint sums the group's copies ($\mathsf T^\T$) before the solve's
 ~~~
 
 #### TEX-EHTH-0888  (K16)
@@ -1819,7 +2234,7 @@ new text (R4/R5, verbatim the file at the new span):
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
 - K16 width lines: 893
-- new span: (R4/R5)
+- new span: 893–906
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1844,6 +2259,20 @@ tied projection's solve), dispatched inside \code{tv_corewise_lift[_transpose]};
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[t]
+\caption{The tied lift and its adjoint (one nontrivial group $g$)}
+\label{alg:tied}
+\begin{algorithmic}[1]
+\Require companion $(U_M,s_g,V_M,\text{row splits})$ of $M_g$; $\eps$; coordinates $[V_i]_{i\in g}$, or raw $[Y^B_i]_{i\in g}$
+\State $f\gets f_\eps(s_g)$, clip $\mathrm{rcond}=\mathrm{dtype}\,\eps\cdot\max(\sum_{i\in g}n^U_i,n_g)$ \Comment{\code{_tied_filter}}
+\State lift: $\dot B_g\gets V_M\,\mathrm{diag}(f)\,U_M^\T\,[V_i]_{i\in g}$; $\dot B_i\gets\dot B_g$ for $i\in g$ \Comment{\code{_tied_filtered_solve}}
+\State adjoint: $Y_g\gets\sum_{i\in g}Y^B_i$;\ $[V_i]\gets U_M\,\mathrm{diag}(f)\,V_M^\T Y_g$, split by rows \Comment{its transpose}
+\Impl{\code{sharing.fv_tied_lift_factors} (fills \code{LiftFactors.shared_data}, \code{tied_filters}),
+\code{sharing._tied_filter}, \code{_tied_filtered_solve[_transpose]} (with \code{eps=None} bit-identical to the
+tied projection's solve), dispatched inside \code{tv_corewise_lift[_transpose]}; uniform:
+\code{ufv_operations.ufv_tied_lift_factors}.}
+\end{algorithmic}
+\end{algorithm}
 ~~~
 
 #### TEX-EHTH-0913
@@ -1853,7 +2282,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 918–932
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1879,6 +2308,21 @@ the reference: \code{optimizers._resolve_g0_reference}, \code{_zero_reference_gn
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[h]
+\caption{The canonical zero-point frame}
+\label{alg:zero}
+\begin{algorithmic}[1]
+\Require a frame's \emph{structure} (core shapes; unstacked); sharing groups (singletons their own); seed $=0$
+\For{each group $g$ with key $k_g=\min g$}
+  \State $G\gets$ \code{RandomState([seed, k_g]).standard_normal((n_g, N_g))} \Comment{keyed legacy stream}
+  \State $Q,R\gets\mathrm{qr}(G^\T)$ (reduced);\ $D_g\gets(Q\,\mathrm{sign}(\mathrm{diag}R))^\T$, replicated over $g$ \Comment{sign-fixed Haar rows}
+\EndFor
+\State $U_i,L_i,R_i\gets$ identity prefixes (orthonormal), $L_d=0$, $R_1=0$ \Comment{base point $=0$}
+\Impl{\code{fv_operations.fv_zero_point_frame} (\code{_haar_rows}, \code{_identity_prefix}, \code{ZERO_FRAME_SEED});
+uniform \code{ufv_operations.ufv_zero_point_frame} (unpack, build, pack); geometry member \code{zero_point_frame};
+the reference: \code{optimizers._resolve_g0_reference}, \code{_zero_reference_gnorm}.}
+\end{algorithmic}
+\end{algorithm}
 ~~~
 
 #### TEX-EHTH-0934
@@ -1888,7 +2332,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 939
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1900,6 +2344,7 @@ Haar only for $U$: the Tucker factor is the only part of the frame that meets th
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Haar only for $D$: the Tucker factor is the only part of the frame that meets the data, and any
 ~~~
 
 #### TEX-EHTH-0961
@@ -1909,7 +2354,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 966–993
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1948,6 +2393,34 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[t]
+\caption{Newton--CG with the trust region (one row per trial)}
+\label{alg:tr}
+\begin{algorithmic}[1]
+\Require $x_0$; references $\|g_0\|$ (Section~\ref{sec:zero}); forcing power $\kappa$ (default $\frac12$; $1$ for a q-quadratic tail)
+\State build the local model at $x$; $g$, $f$ \Comment{\code{Problem.local_model(hessian='exact')}}
+\Loop
+  \If{$\|g\|\le\texttt{gtol\_rel}\,\|g_0\|$} \Return $x$ (\code{'gradient'}) \EndIf
+  \State $\eta\gets\min(\frac12,(\|g\|/\|g_0\|_{cg})^\kappa)$ \Comment{forcing term}
+  \State first step: $\Delta_0\gets\|g\|^3/g^\T\Hop_{GN}g$ (or $\|g\|$), $\Delta_{\max}\gets10^4\Delta_0$ \Comment{\code{_initial_radius}}
+  \State $p\gets$ Steihaug CG on $\Hop p=-g$ to $\eta\|g\|$ inside $\Delta$ \Comment{\code{_cg_solve}}
+  \State if $g^\T p\ge0$: $p\gets-g\min(1,\Delta/\|g\|)$ (a boundary step if scaled)
+  \State $\mathrm{pred}\gets g^\T p+\frac12(p^\T\Hop_{GN}p+p^\T\Lift^\T\K_N\Lift p)$ \Comment{one two-hole}
+  \State $\rho\gets(f(\mathcal{R}_x(p))-f)/\mathrm{pred}$ if $\mathrm{pred}<0$, else NaN
+  \State \textbf{if} $\rho<\frac14$ or NaN: $\Delta\gets\frac14\|p\|$;\ \textbf{elif} $\rho>\frac34$ and boundary: $\Delta\gets\min(2\Delta,\Delta_{\max})$
+  \If{$\rho>0.1$} accept: $x\gets \mathcal{R}_x(p)$, rebuild the model
+  \Else \ keep $x$ and its model
+    \State \textbf{stop} \code{'objective_floor'} if $|\mathrm{pred}|\le10\,\epsilon_{\mathrm{res}}(\|\omega\odot y\|\,\|\omega\odot r\|+|f|)$
+    \State \textbf{stop} \code{'trust_region_floor'} if $\Delta<10^{-12}\Delta_0$ (checked second)
+  \EndIf
+\EndLoop
+\Impl{\code{optimizers.newton_cg}; CG \code{_cg_solve}, \code{_cg_core}, \code{_cg_body}; \code{LocalModel.gn_quadratic},
+\code{curvature_quadratic} (constants \code{_TR_ACCEPT}, \code{_TR_SHRINK_BELOW}, \code{_TR_SHRINK},
+\code{_TR_EXPAND_ABOVE}, \code{_TR_EXPAND}, \code{_TR_RADIUS_MAX_REL}, \code{_TR_RESOLUTION_FACTOR},
+\code{_TR_RADIUS_FLOOR_REL}); $\epsilon_{\mathrm{res}}$ = \code{_resolution_eps} (host-side, dtype-only); per-row
+\code{NewtonInfo}.}
+\end{algorithmic}
+\end{algorithm}
 ~~~
 
 #### TEX-EHTH-1006
@@ -1957,7 +2430,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 1011–1038
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -1996,6 +2469,34 @@ C14 & $\Hop=$ GN $+$ \code{curvature_hvp}; quadratic split; exact gradient $\equ
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{@{}l p{0.68\textwidth} r@{}}
+\toprule
+& check & residual \\
+\midrule
+C1 & \eqref{eq:factors}: $\bar H_i=U_i\times_2S_i^\T$; $L_{>i}=T_iR_{>i}$; spectra; $\|X\|^2=\|S_1^\T\|_F^2$ & $\le8.4{\times}10^{-16}$\\
+C2 & Prop.~\ref{prop:lift}: $\mathrm d\Phi[\Lift v]=\Emap v$ on minimal / Tucker-slack / TT-slack frames & $\le2.4{\times}10^{-15}$\\
+C3--4 & $\Lift_\eps^\T$ is the adjoint at $\eps=10^{-2}\|X\|$; $\max f_\eps=1/(2\eps)$; $M^{+\eps}=(M^\T M+\eps^2I)^{-1}M^\T$ & $\le1.9{\times}10^{-15}$\\
+C5 & $\grad f=P_X\nabla f$; $N$ is normal & $\le9.9{\times}10^{-16}$\\
+C6 & $\ip{N}{\mathrm d^2\Phi[\thh,\thh']}=\ip{\thh'}{\K_N\thh}$ (dense double replacement); a vertical $\thh_v$ has
+  $\K_N\thh_v=0$ and does not change the form, while $\|\K_{A^\T r}\thh_v\|\approx10^4$ & $\le1.2{\times}10^{-13}$\\
+C7 & \eqref{eq:newton} $=\Pi\Lift^\T\nabla^2_\th\Lambda\Lift\Pi$ (\code{jax.jvp} of \code{jax.grad}); $\nabla_\th\Lambda=0$;
+  level 1 $=\Pi\Lift^\T\nabla^2_\th(f\circ\Phi)\Lift\Pi$ & $\le4.5{\times}10^{-14}$\\
+C8 & $\ip{p}{\Hop p}$ vs $\frac{d^2}{dt^2}f(\mathcal{R}(tp))$ (Richardson; level 2) / vs $\frac{d^2}{dt^2}f(\Phi(\th+t\Lift p))$ (level 1) & $3.7{\times}10^{-6}$ / $2.5{\times}10^{-10}$\\
+C9 & the two-holes (probe derivatives, apply derivatives, T3--T3) $=$ complex-step $d/ds$ of their one-holes; the
+  block sum \eqref{eq:blocksum}; symmetry; order 0 $=$ plain probe & $\le4.6{\times}10^{-16}$\\
+C10 & the written recurrences $\dot\mu$, \eqref{eq:tautilde}, \eqref{eq:tautildedot}, $\dot{\dxt}$ vs the kernels & $\le4.3{\times}10^{-16}$\\
+C11 & the factored assemblies \eqref{eq:pairs}, \eqref{eq:asmjetdot} $=$ the nine-term binomial product rule & $\le6.3{\times}10^{-16}$\\
+C12 & tied lift \eqref{eq:tied}: $\mathrm d\Phi[\Lift v]=\Emap v$ at a group-ceiling point; $=M_g^+[V_i]$; adjoint & $\le5.1{\times}10^{-16}$\\
+C13 & zero frame: nested, rank-independent, base point 0, the recipe by hand (orthonormal to $6.7{\times}10^{-16}$) & $0$\\
+C14 & $\Hop=$ GN $+$ \code{curvature_hvp}; quadratic split; exact gradient $\equiv$ GN gradient; default $\eps$ & $\le4.4{\times}10^{-16}$\\
+\bottomrule
+\end{tabular}
+\caption{The equation checks (scratch script against \texttt{76aa37f}; relative residuals).}
+\label{tab:checks}
+\end{table}
 ~~~
 
 #### TEX-EHTH-1053
@@ -2005,8 +2506,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: T4S letters, per §4.8: the frame's U (Tucker store) → D, O → U, P/Q → L/R; θ's raw own cores U_i (:103–105 and on) → B_i; BU_i, \dot{BU}_i (:781–832) → \hat B_i; DΦ, D²Φ, D_ζP → \mathrm d; \Dsh/\Ush → \Sh/\Sh^\T; n^D_i → n^U_i; the retraction R_X/R_x (:288, 974, 976) → \mathcal R; PB20's R_k^{-1} (:382) stays, marked "(PB20's notation)"; \Lift differs by font; a plain R is the right store
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 1058
+- same-reason: R5: the PB20 bibliography entry (the citation itself, plan §4 item 8)
 
 old text:
 
@@ -2017,6 +2518,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+  arXiv:2011.13395 (2020) --- the TT Weingarten map with $R_k^{-1}$, the analogue of $T_i^{+}$.
 ~~~
 
 
@@ -2029,7 +2531,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: U0–U2 the Tucker store (→ D); (H) the TT variation; L, R stay
 - re-laid out: n expected: labels keep their length (U0→D0, nU0→nD0, nO1→nU1); K10 in place
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 14–16
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -2043,6 +2545,9 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+1--(H0)--R1---R2--1     1---L0--(H1)--R2--1     1---L0---L1--(H2)--1
+    |    |    |             |    |    |             |    |    |
+    D0   D1   D2            D0   D1   D2            D0   D1   D2
 ~~~
 
 #### DOC-FV-0023
@@ -2052,7 +2557,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: the symbol table: up-Tucker Uᵢ/U/nU → down-Tucker Dᵢ/D/nD; down-TT Oᵢ/O/nD → up-TT Uᵢ/U/nU; `L`/`P`, `R`/`Q` → L, R (D-7); V's width nD → nU, H's nU → nD (D-8); the T4S letters go to the correspondence line (§3)
 - re-laid out: n/a: a markdown table (not column-aligned); K10/K10b do not apply, K12 does
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 24–31
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -2071,6 +2576,14 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+| frame core | symbol | role | rank on its legs |
+|---|---|---|---|
+| down-Tucker `Dᵢ` | `D` | the Tucker factors (retained directions) | `nD` |
+| up-TT `Uᵢ` | `U` | the Tucker *complement* (where `V` varies) | `nU` |
+| left-TT `Lᵢ` | `L` | left environment (left of the variation) | `rL` |
+| right-TT `Rᵢ` | `R` | right environment (right of the variation) | `rR` |
+| tucker-variation `Vᵢ` | `V` | Tucker-factor direction (in the `nU` complement) | `nU` |
+| tt-variation `Hᵢ` | `H` | TT-core direction | `nD`, `rL`, `rR` |
 ~~~
 
 #### DOC-FV-0057
@@ -2078,9 +2591,9 @@ new text (R4/R5, verbatim the file at the new span):
 - file: `docs/frame_variations.md`; old span: 57; kind: index equation; fenced: y
 - letters and widths: letters: Lᵢ Vᵢ
 - roles: `Uᵢᵀ Vᵢ = 0` → `Dᵢᵀ Vᵢ = 0` (an inline gauge relation in prose)
-- re-laid out: n expected unless a label grows; K10 in place
+- re-laid out: y (R5: re-laid out, K10b; the gauge written in the code's layout, `Dᵢ Vᵢᵀ = 0` for `Uᵢᵀ Vᵢ = 0`: the transpose moves from the frame core to the variation, so one column changes from ᵀ to a space; the work list's E10 row for this line, done here)
 - new == old possible: possible: record the reason at R4 if nothing changes
-- new span: (R4/R5)
+- new span: 58
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -2092,6 +2605,7 @@ When the frame is **orthonormal** and the variations are **gauged** (`Uᵢᵀ V�
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+When the frame is **orthonormal** and the variations are **gauged** (`Dᵢ Vᵢᵀ = 0`; `Lᵢ` left-orthogonal
 ~~~
 
 #### DOC-FV-0080
@@ -2101,7 +2615,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: `Uᵢ` (up / Tucker) → `Dᵢ` (down / Tucker); `Oᵢ` (down / outer) → `Uᵢ` (up); L, R stay; the rank caps use the T3's nᵢ, rᵢ (stay)
 - re-laid out: n/a: a markdown table; K12 applies
 - new == old possible: possible: record the reason at R4 if nothing changes
-- new span: (R4/R5)
+- new span: 116–121
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -2118,6 +2632,12 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+| core | orthonormality | the rank it caps |
+|---|---|---|
+| `Dᵢ` (down / Tucker) | rows orthonormal | `nᵢ ≤ Nᵢ` |
+| `Uᵢ` (up) | `nᵢ × (rᵢ·rᵢ₊₁)` unfolding, rows orthonormal | `nᵢ ≤ rᵢ·rᵢ₊₁` |
+| `Lᵢ` (left) | `(rᵢ·nᵢ) × rᵢ₊₁`, columns orthonormal | `rᵢ₊₁ ≤ rᵢ·nᵢ` |
+| `Rᵢ` (right) | `rᵢ × (nᵢ·rᵢ₊₁)`, rows orthonormal | `rᵢ ≤ nᵢ·rᵢ₊₁` |
 ~~~
 
 
@@ -2129,8 +2649,8 @@ new text (R4/R5, verbatim the file at the new span):
 - letters and widths: letters: B; store words: down_orthogonalize_tucker_cores
 - re-laid out: n expected unless a label grows; K10 in place
 - new == old possible: yes expected: `B Bᵀ = I` is a T3's own Tucker core (B stays); the line's prose is the glossary's, read at 88fbbedb
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 106
+- same-reason: R5: B Bᵀ = I is a T3's own Tucker core (D-6, already B); no store letter or width
 
 old text:
 
@@ -2141,6 +2661,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+  `B Bᵀ = I` (`down_orthogonalize_tucker_cores`). The adjective names the side of the cut edge whose indices the
 ~~~
 
 #### DOC-G-0273
@@ -2150,7 +2671,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: `Ui Viᵀ = 0` → `Di Viᵀ = 0` (the frame's Tucker store)
 - re-laid out: n expected unless a label grows; K10 in place
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 279
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -2162,6 +2683,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+- **gauge conditions** (`is_gauged`, `gauge_residual`; also: gauged). `Di Viᵀ = 0` for every `i` (code layout), and
 ~~~
 
 
@@ -2174,8 +2696,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 49
+- same-reason: R5: the SVD factor U (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2186,6 +2708,7 @@ right factor rebuilt from $\Apad^{\top}U = V\Sigma$ --- which realizes the contr
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+right factor rebuilt from $\Apad^{\top}U = V\Sigma$ --- which realizes the contract exactly,
 ~~~
 
 #### TEX-PSS-0065
@@ -2195,8 +2718,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 65–67
+- same-reason: R5: the pad counts P_r, P_c or the projector P_real; no frame store letter
 
 old text:
 
@@ -2209,6 +2732,9 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\[
+  \Apad\in\R^{N\times M},\qquad N = n + P_r,\quad M = m + P_c,
+\]
 ~~~
 
 #### TEX-PSS-0068
@@ -2218,8 +2744,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 68
+- same-reason: R5: the pad counts P_r, P_c or the projector P_real; no frame store letter
 
 old text:
 
@@ -2230,6 +2756,7 @@ where $P_r$ row positions and $P_c$ column positions --- at \emph{arbitrary, pos
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+where $P_r$ row positions and $P_c$ column positions --- at \emph{arbitrary, possibly interior}
 ~~~
 
 #### TEX-PSS-0086
@@ -2239,8 +2766,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 86–87
+- same-reason: R5: the SVD factor U (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2252,6 +2779,8 @@ pad rows. Restricted to the real rows --- which is what the masks do downstream 
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+arbitrary orthonormal basis of it, so the $\sigma\approx 0$ columns of $U$ generically place mass on
+pad rows. Restricted to the real rows --- which is what the masks do downstream --- $U$ is then
 ~~~
 
 #### TEX-PSS-0120
@@ -2261,8 +2790,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 120
+- same-reason: R5: U_0 is the cited BUG paper's basis, not a frame store
 
 old text:
 
@@ -2273,6 +2802,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\item The \textbf{rank-adaptive BUG integrator} \cite{CerutiKuschLubich2022} augments $(K(t_1),U_0)$
 ~~~
 
 #### TEX-PSS-0144
@@ -2282,8 +2812,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 144
+- same-reason: R5: the SVD factor U (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2294,6 +2824,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+(padded entries bitwise zero), a \emph{pad-safe SVD} returns $U\in\R^{N\times K}$,
 ~~~
 
 #### TEX-PSS-0147
@@ -2303,8 +2834,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 147
+- same-reason: R5: the SVD factor U (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2315,6 +2846,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\item $\Apad = U\,\diag(s)\,V^{\top}$ --- a genuine economy SVD of the padded matrix;
 ~~~
 
 #### TEX-PSS-0149
@@ -2324,8 +2856,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 149
+- same-reason: R5: the SVD factor U (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2336,6 +2868,7 @@ singular values, then real-supported null completions, with $U[:,{:}q]$ \textbf{
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+singular values, then real-supported null completions, with $U[:,{:}q]$ \textbf{bitwise} zero on
 ~~~
 
 #### TEX-PSS-0163
@@ -2345,8 +2878,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 163
+- same-reason: R5: the SVD factor U (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2357,6 +2890,7 @@ direction; the completion is gauge. Demanding instead that \emph{all} $M$ column
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+direction; the completion is gauge. Demanding instead that \emph{all} $M$ columns of $U$ avoid the
 ~~~
 
 #### TEX-PSS-0183
@@ -2366,8 +2900,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 183
+- same-reason: R5: QR's Q (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2378,6 +2912,7 @@ reflector is bitwise zero on the padded rows, hence so is every data-supported c
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+reflector is bitwise zero on the padded rows, hence so is every data-supported column of $Q$; and
 ~~~
 
 #### TEX-PSS-0185
@@ -2387,8 +2922,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 185
+- same-reason: R5: QR's Q (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2399,6 +2934,7 @@ reflectors are the identity and the surplus columns of $Q$ are \emph{exact} pad 
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+reflectors are the identity and the surplus columns of $Q$ are \emph{exact} pad coordinate
 ~~~
 
 #### TEX-PSS-0195
@@ -2408,8 +2944,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 195
+- same-reason: R5: QR's Q (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2420,6 +2956,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\code{larfg} produces $\tau = 0$, $H = I$, and $Q$'s surplus columns are
 ~~~
 
 #### TEX-PSS-0197
@@ -2429,8 +2966,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 197
+- same-reason: R5: QR's Q (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2441,6 +2978,7 @@ $t_j = \max_i |Q_{ij}|\,[i\text{ padded}] \in \{0,1\}$.
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$t_j = \max_i |Q_{ij}|\,[i\text{ padded}] \in \{0,1\}$.
 ~~~
 
 #### TEX-PSS-0205
@@ -2450,8 +2988,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 205–206
+- same-reason: R5: B = Q^T A_pad (the projected core) or the GSVD's B, not a T3 core; no frame store letter
 
 old text:
 
@@ -2463,6 +3001,8 @@ for a clean and a poisoned $Q$, so the contamination is invisible to everything 
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\emph{later} repair is possible: the projected core $B = Q^{\top}\Apad$ is bit-for-bit identical
+for a clean and a poisoned $Q$, so the contamination is invisible to everything downstream of the
 ~~~
 
 #### TEX-PSS-0221
@@ -2472,8 +3012,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 221
+- same-reason: R5: QR's Q (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2484,6 +3024,7 @@ un-permute $\to Q$; compute the surplus indicator $t$ (Lemma~\ref{lem:perm}).
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+un-permute $\to Q$; compute the surplus indicator $t$ (Lemma~\ref{lem:perm}).
 ~~~
 
 #### TEX-PSS-0223
@@ -2493,8 +3034,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 223
+- same-reason: R5: B = Q^T A_pad (the projected core) or the GSVD's B, not a T3 core; no frame store letter
 
 old text:
 
@@ -2505,6 +3046,7 @@ $[\,B \;\; c\,\diag(t)\,]$ with $B = Q^{\top}\Apad$ and $c = 4\norm{\Apad}_F$
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$[\,B \;\; c\,\diag(t)\,]$ with $B = Q^{\top}\Apad$ and $c = 4\norm{\Apad}_F$
 ~~~
 
 #### TEX-PSS-0226
@@ -2514,8 +3056,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 226
+- same-reason: R5: B = Q^T A_pad (the projected core) or the GSVD's B, not a T3 core; no frame store letter
 
 old text:
 
@@ -2526,6 +3068,7 @@ triplet (row $i$ of $B$ is bitwise zero); where $t_i=0$ it contributes a zero co
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+triplet (row $i$ of $B$ is bitwise zero); where $t_i=0$ it contributes a zero column, harmless
 ~~~
 
 #### TEX-PSS-0235
@@ -2535,8 +3078,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 235–236
+- same-reason: R5: the SVD factor U (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2548,6 +3091,8 @@ zero $s$ \emph{by the pin flag}, then beyond $q$. The first $q$ columns of $U$ a
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+the (exact-arithmetic-zero) surplus coordinates of the kept columns of $W_1$; set $U = QW_1$ and
+zero $s$ \emph{by the pin flag}, then beyond $q$. The first $q$ columns of $U$ are bitwise zero on
 ~~~
 
 #### TEX-PSS-0240
@@ -2557,8 +3102,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 240
+- same-reason: R5: the SVD factor U (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2569,6 +3114,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\item \textbf{Rebuild $V$ from $U$.} $W = \Apad^{\top}U$ equals $V\Sigma$ \emph{exactly}, with
 ~~~
 
 #### TEX-PSS-0243
@@ -2578,8 +3124,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 243
+- same-reason: R5: QR's R (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2590,6 +3136,7 @@ signs, recovered from $\mathrm{sign}(\diag R)$: the permuted QR of $W$ (padded c
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+signs, recovered from $\mathrm{sign}(\diag R)$: the permuted QR of $W$ (padded columns to the
 ~~~
 
 #### TEX-PSS-0274
@@ -2599,8 +3146,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 274
+- same-reason: R5: B = Q^T A_pad (the projected core) or the GSVD's B, not a T3 core; no frame store letter
 
 old text:
 
@@ -2611,6 +3158,7 @@ present or not. The pins occupy \emph{bitwise-zero rows} of $B$, so the augmente
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+present or not. The pins occupy \emph{bitwise-zero rows} of $B$, so the augmented core is bitwise
 ~~~
 
 #### TEX-PSS-0276
@@ -2620,8 +3168,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 276
+- same-reason: R5: B = Q^T A_pad (the projected core) or the GSVD's B, not a T3 core; no frame store letter
 
 old text:
 
@@ -2632,6 +3180,7 @@ effective backward error is $\varepsilon\norm{B}$, not $\varepsilon c$. The same
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+effective backward error is $\varepsilon\norm{B}$, not $\varepsilon c$. The same zero-preservation
 ~~~
 
 #### TEX-PSS-0322
@@ -2641,8 +3190,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 322
+- same-reason: R5: the SVD factor U (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2653,6 +3202,7 @@ comparisons must be gauge-invariant (norms, projectors $U^{\top}U$, dense tensor
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+comparisons must be gauge-invariant (norms, projectors $U^{\top}U$, dense tensors) or transport
 ~~~
 
 #### TEX-PSS-0350
@@ -2662,8 +3212,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 350
+- same-reason: R5: P_r (a pad count); "Method D" a design name; O(N^3) big-O
 
 old text:
 
@@ -2674,6 +3224,7 @@ with $P_r\sim N/2$ the QR costs $O(N^3)$ against $O(NM^2)$ unaugmented. Method~D
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+with $P_r\sim N/2$ the QR costs $O(N^3)$ against $O(NM^2)$ unaugmented. Method~D applies the same
 ~~~
 
 #### TEX-PSS-0354
@@ -2683,8 +3234,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 354–355
+- same-reason: R5: the pad counts P_r, P_c or the projector P_real; no frame store letter
 
 old text:
 
@@ -2696,6 +3247,8 @@ generalized SVD of the pair $(\!\Apad^{\top}, B)$ with $B^{\top}B = P_{\mathrm{r
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+generalized SVD of the pair $(\!\Apad^{\top}, B)$ with $B^{\top}B = P_{\mathrm{real}}$
+\cite{VanLoan1976,PaigeSaunders1981}. Because $P_{\mathrm{real}}\Apad = \Apad$ the pair
 ~~~
 
 #### TEX-PSS-0358
@@ -2705,8 +3258,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 358–359
+- same-reason: R5: the pad counts P_r, P_c or the projector P_real; no frame store letter
 
 old text:
 
@@ -2718,6 +3271,8 @@ $\Apad\Apad^{\top} + \varepsilon^2 P_{\mathrm{real}}$ --- the same commuting pai
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+augmented matrix $[\Apad \;\; \varepsilon B]$ has Gram
+$\Apad\Apad^{\top} + \varepsilon^2 P_{\mathrm{real}}$ --- the same commuting pair folded into one
 ~~~
 
 #### TEX-PSS-0362
@@ -2727,8 +3282,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 362
+- same-reason: R5: B = Q^T A_pad (the projected core) or the GSVD's B, not a T3 core; no frame store letter
 
 old text:
 
@@ -2739,6 +3294,7 @@ there is no threshold. A thin variant for suffix-padded sites ($B=$ the first $n
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+there is no threshold. A thin variant for suffix-padded sites ($B=$ the first $n$ masked
 ~~~
 
 #### TEX-PSS-0384
@@ -2748,8 +3304,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 384
+- same-reason: R5: B = Q^T A_pad (the projected core) or the GSVD's B, not a T3 core; no frame store letter
 
 old text:
 
@@ -2760,6 +3316,7 @@ second order (and not at all for the commuting $B$) --- values $\sigma\lesssim\e
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+second order (and not at all for the commuting $B$) --- values $\sigma\lesssim\eta$ are erased
 ~~~
 
 #### TEX-PSS-0424
@@ -2769,8 +3326,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 424
+- same-reason: R5: QR's Q (§1.5 item 2); no frame store letter
 
 old text:
 
@@ -2781,6 +3338,7 @@ permutation, $Q$'s null column lands on the zero \emph{real} row (allowed --- th
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+permutation, $Q$'s null column lands on the zero \emph{real} row (allowed --- the requirement is
 ~~~
 
 #### TEX-PSS-0426
@@ -2790,8 +3348,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 426
+- same-reason: R5: B = Q^T A_pad (the projected core) or the GSVD's B, not a T3 core; no frame store letter
 
 old text:
 
@@ -2802,6 +3360,7 @@ deterministically. But in \emph{both} cases the projected core $B = Q^{\top}\Apa
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+deterministically. But in \emph{both} cases the projected core $B = Q^{\top}\Apad$ is bit-for-bit
 ~~~
 
 #### TEX-PSS-0427
@@ -2811,8 +3370,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 427–429
+- same-reason: R5: B = Q^T A_pad (the projected core) or the GSVD's B, not a T3 core; no frame store letter
 
 old text:
 
@@ -2825,6 +3384,9 @@ B = \begin{pmatrix} 5 & 10 & 0\\ 0&0&0\\ 0&0&0\end{pmatrix}:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\[
+B = \begin{pmatrix} 5 & 10 & 0\\ 0&0&0\\ 0&0&0\end{pmatrix}:
+\]
 ~~~
 
 #### TEX-PSS-0430
@@ -2834,8 +3396,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: SVD / QR factors (U Σ Vᵀ, Q R) and the padding projector: §1.5 item 2, they stay; the note's only planned change is prose ("the down step" → "the TT up-orthogonalization", ×2, §6)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 430–431
+- same-reason: R5: B = Q^T A_pad (the projected core) or the GSVD's B, not a T3 core; no frame store letter
 
 old text:
 
@@ -2847,6 +3409,8 @@ distinguish a clean null column from a poisoned one. The contamination lives ent
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+a zero row of $B$ says only ``this column of $Q$ is orthogonal to $\col(\Apad)$'' --- it cannot
+distinguish a clean null column from a poisoned one. The contamination lives entirely in $Q$,
 ~~~
 
 
@@ -2859,7 +3423,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 96–97
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -2872,6 +3436,8 @@ as rows. Frames are nested: $U_{x\to t}$ lies in $H_x\otimes\bigotimes_{y\in\mat
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$x\to t$, the frame $F_{x\to t}$ is an orthonormal basis of the column space of the tensor unfolded with $x$'s side
+as rows. Frames are nested: $F_{x\to t}$ lies in $H_x\otimes\bigotimes_{y\in\mathrm{nb}(x)\setminus t}F_{y\to x}$,
 ~~~
 
 #### TEX-PFC-0102  (K16)
@@ -2882,7 +3448,7 @@ new text (R4/R5, verbatim the file at the new span):
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
 - K16 width lines: 108, 109, 110, 111
-- new span: (R4/R5)
+- new span: 107–121
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -2908,6 +3474,21 @@ point, not frame cores of an edge.}\label{tab:stores}
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llll@{}}
+\toprule
+directed edge & store & core & output slot \\
+\midrule
+$\ell_i\to c_i$ & \code{down[i]} & $D_i\in\R^{n_{D,i}\times N_i}$ & the Tucker index \\
+$c_i\to \ell_i$ & \code{up[i]} & $U_i\in\R^{r_{L,i}\times n_{U,i}\times r_{R,i+1}}$ & the middle index \\
+$c_i\to c_{i+1}$ & \code{left[i]}, $i\le d-2$ & $L_i\in\R^{r_{L,i}\times n_{D,i}\times r_{L,i+1}}$ & bond $i+1$ \\
+$c_i\to c_{i-1}$ & \code{right[i]}, $i\ge 1$ & $R_i\in\R^{r_{R,i}\times n_{D,i}\times r_{R,i+1}}$ & bond $i$ \\
+\bottomrule
+\end{tabular}
+\caption{Directed edges of a T3 and the frame stores. $L_{d-1}$ and $R_0$ are the \emph{carriers} of the base
+point, not frame cores of an edge.}\label{tab:stores}
+\end{table}
 ~~~
 
 #### TEX-PFC-0120
@@ -2917,8 +3498,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 125
+- same-reason: R5: the completion P_{x->t} and the P-block (§1.5 item 3)
 
 old text:
 
@@ -2929,6 +3510,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+(the \emph{A-block}, $\Abar_{x\to t}$, of width $r_e$) and an orthonormal \emph{completion} $P_{x\to t}$ of width
 ~~~
 
 #### TEX-PFC-0140
@@ -2938,8 +3520,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 145–146
+- same-reason: R5: the matrix case's SVD factor U (§1.5 item 2); O(eps^2) big-O
 
 old text:
 
@@ -2951,6 +3533,8 @@ $U+\eps(I-UU^\T)SV\Sigma^{-1}+O(\eps^2)$: the tangent part of $S$ \emph{tilts} $
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$p$ and then $c$). One trap remains. For $A=U\Sigma V^\T$, the leading frame of $A+\eps S$ is
+$U+\eps(I-UU^\T)SV\Sigma^{-1}+O(\eps^2)$: the tangent part of $S$ \emph{tilts} $A$'s frame, and that tilt is not a
 ~~~
 
 #### TEX-PFC-0152
@@ -2960,7 +3544,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 157–158
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -2973,6 +3557,8 @@ and the columns in the complement of $A$'s frame $U_{t\to x}$. Its completions d
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+space: at edge $x\to t$, the rows in $C'_{x\to t}\ominus F_{x\to t}$ with $C'$ built from the completed child frames,
+and the columns in the complement of $A$'s frame $F_{t\to x}$. Its completions depend on the root: each edge sees the
 ~~~
 
 #### TEX-PFC-0171
@@ -2982,7 +3568,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 176–177
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -2995,6 +3581,8 @@ the normal block of $S$ applied to $Q_e$ enters the step: information from outsi
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+edge, tensors whose far side lies in the \emph{far completion} $Q_e$ (the completion of $F_{t\to x}$). Through them
+the normal block of $S$ applied to $Q_e$ enters the step: information from outside the current completions.
 ~~~
 
 #### TEX-PFC-0174
@@ -3004,8 +3592,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 179–180
+- same-reason: R5: the matrix case: completions P, Q of the SVD's U, V, U'=[U P] (§1.5 items 2, 3)
 
 old text:
 
@@ -3017,6 +3605,8 @@ block $PP^\T N+(I-PP^\T)NQQ^\T$. The new $P$ is its top-$k$ left singular subspa
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\paragraph{The matrix case.} With $P,Q$ completing $U,V$, the projection of $S$ onto $T(F)=\{U'X+YV'^\T\}$ has normal
+block $PP^\T N+(I-PP^\T)NQQ^\T$. The new $P$ is its top-$k$ left singular subspace, and the new $Q$ the top-$k$ right
 ~~~
 
 #### TEX-PFC-0188
@@ -3026,8 +3616,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 193
+- same-reason: R5: the completions P_{a->b}, P_{b->a} (§1.5 item 3)
 
 old text:
 
@@ -3038,6 +3628,7 @@ lies in the near completion, provided the $k\times k$ matrix $P_{a\to b}^\T S P_
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+lies in the near completion, provided the $k\times k$ matrix $P_{a\to b}^\T S P_{b\to a}$ is invertible. In the
 ~~~
 
 #### TEX-PFC-0195
@@ -3047,8 +3638,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 200
+- same-reason: R5: the SVD's U, V with completions P, Q (§1.5 items 2, 3)
 
 old text:
 
@@ -3059,6 +3650,7 @@ Let $N=(I-UU^\T)S(I-VV^\T)$, and let $P\perp U$, $Q\perp V$ be completions of wi
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Let $N=(I-UU^\T)S(I-VV^\T)$, and let $P\perp U$, $Q\perp V$ be completions of width $k$. Then
 ~~~
 
 #### TEX-PFC-0196
@@ -3068,8 +3660,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 201–203
+- same-reason: R5: E(P,Q), the completions (§1.5 item 3)
 
 old text:
 
@@ -3082,6 +3674,9 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}\label{eq:energy}
+  E(P,Q)\;:=\;\|\Pi_{T(F)}S\|^2 \;=\; \|S\|^2-\bigl\|(I-PP^\T)\,N\,(I-QQ^\T)\bigr\|^2 .
+\end{equation}
 ~~~
 
 #### TEX-PFC-0199
@@ -3091,8 +3686,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 204–205
+- same-reason: R5: (P,Q), the completions (§1.5 item 3)
 
 old text:
 
@@ -3104,6 +3699,8 @@ and a saddle. Rotating $P$ alone (or $Q$ alone) out of its span never decreases 
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+If $\sigma_k>\sigma_{k+1}>0$, the fixed point $(P,Q)=$ the top-$k$ singular pair of $N$ is a stationary point of $E$
+and a saddle. Rotating $P$ alone (or $Q$ alone) out of its span never decreases $E$, and increases it at second order
 ~~~
 
 #### TEX-PFC-0206
@@ -3113,8 +3710,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 211–212
+- same-reason: R5: U'=[U P], V'=[V Q]: SVD factors and completions (§1.5 items 2, 3)
 
 old text:
 
@@ -3126,6 +3723,8 @@ $(I-U'U'^\T)S(I-V'V'^\T)=(I-PP^\T)N(I-QQ^\T)$ since $P\perp U$, $Q\perp V$; this
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\Pi_{T(F)}=I-(I-U'U'^\T)(\cdot)(I-V'V'^\T)$ with $U'=[U\;P]$, $V'=[V\;Q]$, and
+$(I-U'U'^\T)S(I-V'V'^\T)=(I-PP^\T)N(I-QQ^\T)$ since $P\perp U$, $Q\perp V$; this gives \eqref{eq:energy}. With $Q$
 ~~~
 
 #### TEX-PFC-0209
@@ -3135,8 +3734,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 214–217
+- same-reason: R5: the completion P, the SVD's [U P], O(h^3) big-O
 
 old text:
 
@@ -3150,6 +3749,10 @@ along some $u_j$, $j>k$ (a $w$ in the left null space of $N$ leaves $E$ unchange
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$E=\|S\|^2-\|M\|^2+\|P^\T M\|^2$. At $P=[u_1\cdots u_k]$, $P^\T M=0$, the minimum of $\|P^\T M\|^2\ge 0$: so $E$ is
+stationary in $P$ and does not decrease under any rotation of $P$ alone. A rotation of $u_k$ by $h$ toward a unit
+vector $w\perp[U\;P]$ raises $\|P^\T M\|^2$ by $h^2\|w^\T M\|^2+O(h^3)$, which is positive when $w$ has a component
+along some $u_j$, $j>k$ (a $w$ in the left null space of $N$ leaves $E$ unchanged). Symmetrically in $Q$. For the
 ~~~
 
 #### TEX-PFC-0216
@@ -3159,8 +3762,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 221–225
+- same-reason: R5: R(theta) is a residual function (plan §4 item 8); O(theta^4) big-O
 
 old text:
 
@@ -3175,6 +3778,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{align*}
+  R(\theta):=\bigl\|(I-PP^\T)N(I-QQ^\T)\bigr\|^2
+  &=\sum_{j>k+1}\sigma_j^2+\bigl(\sigma_{k+1}+(\sigma_k-\sigma_{k+1})\sin^2\theta\bigr)^2\\
+  &= R(0)+2\sigma_{k+1}(\sigma_k-\sigma_{k+1})\,\theta^2+O(\theta^4).
+\end{align*}
 ~~~
 
 #### TEX-PFC-0221
@@ -3184,8 +3792,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 226
+- same-reason: R5: R, the same residual function (plan §4 item 8)
 
 old text:
 
@@ -3196,6 +3804,7 @@ $R$ grows at second order, so $E$ falls, exactly when $\sigma_k>\sigma_{k+1}>0$;
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$R$ grows at second order, so $E$ falls, exactly when $\sigma_k>\sigma_{k+1}>0$; with $\sigma_{k+1}=0$ the decrease is
 ~~~
 
 #### TEX-PFC-0225
@@ -3205,8 +3814,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 230
+- same-reason: R5: the completions P, Q (§1.5 item 3)
 
 old text:
 
@@ -3217,6 +3826,7 @@ $E$ counts content of rank up to $2k$ (its maximum puts $P$ and $Q$ on \emph{dif
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$E$ counts content of rank up to $2k$ (its maximum puts $P$ and $Q$ on \emph{different} singular directions), so it
 ~~~
 
 #### TEX-PFC-0242
@@ -3226,8 +3836,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 247
+- same-reason: R5: the completion P (§1.5 item 3)
 
 old text:
 
@@ -3238,6 +3848,7 @@ $m=\|P^\T N\|^2/\|N\|^2$, maximized by the top-$k$ singular subspace, with every
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$m=\|P^\T N\|^2/\|N\|^2$, maximized by the top-$k$ singular subspace, with every other stationary point a saddle.
 ~~~
 
 #### TEX-PFC-0258
@@ -3247,8 +3858,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 263–264
+- same-reason: R5: L is an edge count, not the left store
 
 old text:
 
@@ -3260,6 +3871,8 @@ completions align with it, so its captured energy is a product of $L$ alignment 
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$k$ directions, and the excursions of $N$ compete for them. An excursion across $L$ edges is captured only if all $L$
+completions align with it, so its captured energy is a product of $L$ alignment factors, of order $2L$ in the
 ~~~
 
 #### TEX-PFC-0261
@@ -3269,8 +3882,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 266
+- same-reason: R5: order 2L, the same edge count
 
 old text:
 
@@ -3281,6 +3894,7 @@ gains only at order $2L$: that configuration is a strict local maximum, however 
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+gains only at order $2L$: that configuration is a strict local maximum, however large the ignored excursion. The
 ~~~
 
 #### TEX-PFC-0278
@@ -3290,8 +3904,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 283
+- same-reason: R5: the completions P, P^+ (§1.5 item 3)
 
 old text:
 
@@ -3302,6 +3916,7 @@ node terms on $a$'s side and on $b$'s side, $P$ the old completion and $P^+$ the
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+node terms on $a$'s side and on $b$'s side, $P$ the old completion and $P^+$ the new one:
 ~~~
 
 #### TEX-PFC-0280
@@ -3311,7 +3926,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 285–294
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3332,6 +3947,16 @@ $o_{a\to b}$ & $k^+\times k$ & $P^{+\T}_{a\to b}P_{a\to b}$ & stage 2, with $D$\
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{tabular}{@{}llll@{}}
+\toprule
+message & size & definition & built \\
+\midrule
+$\Phi_{a\to b}$ & $k\times R$ & $P_{a\to b}^\T Z_{\mathrm{far}}F'_{b\to a}$ & stage 1, far leaves inward\\
+$\Xi_{a\to b}$ & $k\times\cdot$ & $\Xi\Xi^\T=P_{a\to b}^\T Z_{\mathrm{far}}(I-F'_{b\to a}F'^\T_{b\to a})Z_{\mathrm{far}}^\T P_{a\to b}$ & stage 1, with $\Phi$\\
+$\Psi_{a\to b}$ & $R\times k$ & $F'^{+\T}_{a\to b}Z_{\mathrm{near}}P_{b\to a}$ & stage 2, message order\\
+$o_{a\to b}$ & $k^+\times k$ & $P^{+\T}_{a\to b}P_{a\to b}$ & stage 2, with $\Psi$\\
+\bottomrule
+\end{tabular}
 ~~~
 
 #### TEX-PFC-0292
@@ -3341,7 +3966,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 297
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3353,6 +3978,7 @@ square root of the rest (any factor; only $\Xi\Xi^\T$ enters). $D$ and $o$ carry
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+square root of the rest (any factor; only $\Xi\Xi^\T$ enters). $\Psi$ and $o$ carry the near side, already rotated into
 ~~~
 
 #### TEX-PFC-0298
@@ -3362,8 +3988,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 303–305
+- same-reason: R5: Phi_P (the completion part of Phi) and Theta; no store letter
 
 old text:
 
@@ -3376,6 +4002,9 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}\label{eq:edge}
+  Y=\bigl[\,g_{\mathrm{old}}\Phi_P+g_{\mathrm{new}}\;\big|\;g_{\mathrm{old}}\Xi\,\bigr]\,\Theta^\T ,
+\end{equation}
 ~~~
 
 #### TEX-PFC-0303
@@ -3385,8 +4014,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 308
+- same-reason: R5: the completion P^+ (§1.5 item 3)
 
 old text:
 
@@ -3397,6 +4026,7 @@ $\Abar$, and the edge's \emph{movement} is $\|g_{\mathrm{old}}-P^+P^{+\T}g_{\mat
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\Abar$, and the edge's \emph{movement} is $\|g_{\mathrm{old}}-P^+P^{+\T}g_{\mathrm{old}}\|$: zero exactly when the
 ~~~
 
 #### TEX-PFC-0306
@@ -3406,7 +4036,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 311–328
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3435,6 +4065,24 @@ movement.
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[t]
+\caption{One alignment step (ragged)}\label{alg:step}
+\begin{algorithmic}[1]
+\Require padded frame $F$; variations $(V,H)$ of $Z$ at $F$; old ranks; output ranks; \code{update}
+\State Stage 1 (old frames): the up store's messages ($c_i\to\ell_i$); left messages from the far end; right messages
+from the near end; the down store's messages ($\ell_i\to c_i$); each $(\Phi,\Xi)$.
+\Impl{\code{_up_message}, \code{_left_message_step}, \code{_right_message_step} (scan bodies), \code{_down_message};
+$\Xi$ by \code{_root}, a factor from the thin SVD, never a Gram matrix.}
+\State Stage 2 (message order): the down store's edges ($\ell_i\to c_i$; one per sharing group, the members' contents
+side by side); the left sweep $i=0..d-2$; the right sweep $i=d-1..1$; the up store's edges ($c_i\to\ell_i$). At each:
+new coordinates, $Y$ by \eqref{eq:edge}, $P^+$, $o$, $\Psi$, movement.
+\Impl{\code{_new_coordinates}, \code{_edge_content}, \code{_edge} $\to$ \code{linalg.pinned_leading_columns};
+\code{_down_edge}, \code{_left_edge_step}, \code{_right_edge_step}, \code{_up_edge}.}
+\State A store not in \code{update} is transported: $Y=g_{\mathrm{old}}$.
+\State Carriers: the old content, embedded. Return the frame and the largest movement.
+\Impl{\code{padded_frames.tv_align_padded_frame}; frontend one pass: \code{T3Tangent.align_padded}.}
+\end{algorithmic}
+\end{algorithm}
 ~~~
 
 #### TEX-PFC-0330
@@ -3444,8 +4092,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 335
+- same-reason: R5: the P-block (§1.5 item 3); (N_a, R_b) are sizes
 
 old text:
 
@@ -3456,6 +4104,7 @@ supercores in block layout ($[\text{A-block}\mid\text{P-block}]$ per slot, the s
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+supercores in block layout ($[\text{A-block}\mid\text{P-block}]$ per slot, the split $(N_a,R_b)$ static). The edge is
 ~~~
 
 #### TEX-PFC-0405
@@ -3465,8 +4114,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 411
+- same-reason: R5: the completion P^+ (§1.5 item 3)
 
 old text:
 
@@ -3477,6 +4126,7 @@ halves. Each updated store maximizes the captured energy $\|P^{+\T}Y\|^2$ of its
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+halves. Each updated store maximizes the captured energy $\|P^{+\T}Y\|^2$ of its own content $Y$ given the others;
 ~~~
 
 #### TEX-PFC-0451
@@ -3486,8 +4136,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §6/D-5: Table 1, the frame letters (U Tucker store → D, O → U), widths n_{U,i} → n_{D,i}, n_{D,i} → n_{U,i}; D products/messages → Ψ; U_{x→t}, U′ → F_{x→t}, F′; R(\theta) (:217–219) is a residual function and stays; the matrix-case proof's SVD U may stay
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 457
+- same-reason: R5: U_k is the thin SVD's left factor in pinned_leading_columns (§1.5 item 2)
 
 old text:
 
@@ -3498,6 +4148,7 @@ $[\Abar\mid U_k]$ then makes $P^+$ orthogonal to $\Abar$ to roundoff.
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$[\Abar\mid U_k]$ then makes $P^+$ orthogonal to $\Abar$ to roundoff.
 ~~~
 
 
@@ -3510,7 +4161,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 66–70
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3526,6 +4177,11 @@ G = \mathrm{TT}(G_1, \ldots, G_d),
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\[
+\T = \bigl[\bigl[\, G ;\; B_1, \ldots, B_d \,\bigr]\bigr],
+\qquad
+G = \mathrm{TT}(G_1, \ldots, G_d),
+\]
 ~~~
 
 #### TEX-STM-0071
@@ -3535,7 +4191,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 71
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3547,6 +4203,7 @@ where $U_i \in \R^{N_i \times n_i}$ are the Tucker factors,
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+where $B_i \in \R^{N_i \times n_i}$ are the Tucker factors,
 ~~~
 
 #### TEX-STM-0082
@@ -3556,7 +4213,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 82
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3568,6 +4225,7 @@ $U_i$ have orthonormal columns, and, when a statement refers to mode $i$, the
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$B_i$ have orthonormal columns, and, when a statement refers to mode $i$, the
 ~~~
 
 #### TEX-STM-0104
@@ -3577,7 +4235,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 114
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3589,6 +4247,7 @@ denoted $N_g$. A T3 is \emph{shared} (an SF-T3) if $U_{i} = U_{g}$ and
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+denoted $N_g$. A T3 is \emph{shared} (an SF-T3) if $B_{i} = B_{g}$ and
 ~~~
 
 #### TEX-STM-0118
@@ -3598,7 +4257,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 128–130
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3612,6 +4271,9 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}\label{eq:skeleton}
+\T_{(i)} = B_g\, W_i\, M_i,
+\end{equation}
 ~~~
 
 #### TEX-STM-0122
@@ -3621,7 +4283,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 132–136
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3637,6 +4299,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}\label{eq:stacked}
+\bigl[\,\T_{(i_1)} \,|\, \cdots \,|\, \T_{(i_k)}\,\bigr]
+= B_g \,\bigl[\, W_{i_1} \,|\, \cdots \,|\, W_{i_k} \,\bigr]\,
+\operatorname{blockdiag}\!\bigl(M_{i_1}, \ldots, M_{i_k}\bigr).
+\end{equation}
 ~~~
 
 #### TEX-STM-0147
@@ -3646,7 +4313,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 157
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3658,6 +4325,7 @@ factor $U_g$ is common by sharedness, \eqref{eq:stacked} follows by placing
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+factor $B_g$ is common by sharedness, \eqref{eq:stacked} follows by placing
 ~~~
 
 #### TEX-STM-0168
@@ -3667,7 +4335,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 178
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3679,6 +4347,7 @@ column space contained in $\operatorname{range}(U_g)$, hence so does the
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+column space contained in $\operatorname{range}(B_g)$, hence so does the
 ~~~
 
 #### TEX-STM-0170
@@ -3688,7 +4357,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 180–181
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3701,6 +4370,8 @@ space; projecting each mode ($U_g U_g^\top \T_{(i)} = \T_{(i)}$) yields an
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$(\leq)$: take $B_g$ to be an orthonormal basis of the concatenation's column
+space; projecting each mode ($B_g B_g^\top \T_{(i)} = \T_{(i)}$) yields an
 ~~~
 
 #### TEX-STM-0179
@@ -3710,7 +4381,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 189–212
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3745,6 +4416,30 @@ itself acts on an $n_g \times \sum_i r_{i-1} r_i$ matrix.
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[Grouped T3-SVD / SF-rounding; cf.~{\cite[Alg.~1]{MR2026}}]
+\label{alg:rounding}
+Input: shared T3 with orthonormal factors; target ranks. Output: shared T3
+with target ranks.
+\begin{enumerate}[label=\emph{(\arabic*)},itemsep=1pt,topsep=2pt]
+\item TT-round the cores to the target TT ranks (standard sweep; factors
+  untouched). In an interlaced implementation, steps (2)--(4) are woven into
+  the same sweep; the interlacing order changes truncated results but not the
+  bounds below.
+\item For each mode $i$, obtain $W_i$ in the $i$-orthogonal representation
+  (one orthogonalization sweep).
+\item Singleton modes: truncated SVD of $W_i$; rotate factor and core as
+  usual.
+\item Each group $g$: one truncated SVD of the concatenation
+  $[\,W_{i_1} | \cdots | W_{i_k}\,] \in \R^{n_g \times \sum_{i\in g}
+  r_{i-1} r_i}$, yielding leading left singular vectors $Y \in \R^{n_g \times
+  n_g'}$. Update $B_g \leftarrow B_g Y$ \emph{once} (assigned to every mode of
+  $g$) and apply $Y^\top$ to the Tucker leg of every core in $g$.
+\end{enumerate}
+By Lemma~\ref{lem:skeleton}, step (4) computes the optimal rank-$n_g'$
+truncation of the concatenation while touching the large dimension $N_g$ only
+in the single product $B_g Y$, at cost $O(N_g n_g^2)$ per group; the SVD
+itself acts on an $n_g \times \sum_i r_{i-1} r_i$ matrix.
+\end{algorithm}
 ~~~
 
 #### TEX-STM-0205
@@ -3754,8 +4449,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 215
+- same-reason: R5: P_sf is the shared rounding operator, not a frame core
 
 old text:
 
@@ -3766,6 +4461,7 @@ Let $P_{\mathrm{sf}}(\T)$ denote the output of
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Let $P_{\mathrm{sf}}(\T)$ denote the output of
 ~~~
 
 #### TEX-STM-0208
@@ -3775,8 +4471,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 218–227
+- same-reason: R5: P_sf, the shared rounding operator
 
 old text:
 
@@ -3796,6 +4492,16 @@ C(d) = \sqrt{d} + \sqrt{d}\sqrt{d-1} + \sqrt{d-1}.
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\[
+\bigl\| \T - P_{\mathrm{sf}}(\T) \bigr\|_{\HS}
+\;\leq\;
+C(d)\,
+\inf_{\substack{\boldsymbol{Y} \text{ shared},\\
+\mathrm{ranks}(\boldsymbol{Y}) \preceq (\boldsymbol{n},\boldsymbol{r})}}
+\bigl\| \T - \boldsymbol{Y} \bigr\|_{\HS},
+\qquad
+C(d) = \sqrt{d} + \sqrt{d}\sqrt{d-1} + \sqrt{d-1}.
+\]
 ~~~
 
 #### TEX-STM-0221
@@ -3805,8 +4511,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 231–232
+- same-reason: R5: P_sf, P_{SF-Tucker}, P_TT, the rounding stages
 
 old text:
 
@@ -3818,6 +4524,8 @@ P_{\mathrm{TT}}$ (either order; \cite[Rem.~1]{MR2026}). Each stage is
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Split $P_{\mathrm{sf}} = P_{\mathrm{SF\text{-}Tucker}} \circ
+P_{\mathrm{TT}}$ (either order; \cite[Rem.~1]{MR2026}). Each stage is
 ~~~
 
 #### TEX-STM-0272
@@ -3827,7 +4535,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 282–299
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3856,6 +4564,24 @@ For each group $g$:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[Shared projection of an unshared T3]\label{alg:init}
+Input: T3 with orthonormal but distinct factors $B_i$, $i \in g$.
+For each group $g$:
+\begin{enumerate}[label=\emph{(\arabic*)},itemsep=1pt,topsep=2pt]
+\item Stack factors and compute one tall QR:
+  $[\,B_{i_1} | \cdots | B_{i_k}\,] = Q R$, with
+  $Q \in \R^{N_g \times m}$, $m \leq \sum_{i\in g} n_i$.
+\item Express each block $K_i \coloneqq B_i W_i$ (never formed at size
+  $N_g$) in the $Q$ basis: $Q^\top K_i = R_{[i]} W_i$, where $R_{[i]}$ is the
+  corresponding column block of $R$. SVD the small stacked matrix
+  $[\,R_{[i_1]} W_{i_1} | \cdots | R_{[i_k]} W_{i_k}\,] \in
+  \R^{m \times \sum_i r_{i-1} r_i}$; retain leading left singular vectors
+  $Y$.
+\item Set $B_g \coloneqq Q Y$; project each mode by applying
+  $(B_g^\top B_i)$ to the Tucker leg of core $i$ and replacing the factor by
+  $B_g$. Follow with Algorithm~\ref{alg:rounding}.
+\end{enumerate}
+\end{algorithm}
 ~~~
 
 #### TEX-STM-0292
@@ -3865,7 +4591,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 302–303
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3878,6 +4604,8 @@ $\operatorname{range}(Q)$, so step (2) computes the exact dominant left
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+The column space of $[\,K_{i_1} | \cdots | K_{i_k}\,]$ lies in
+$\operatorname{range}(Q)$, so step (2) computes the exact dominant left
 ~~~
 
 #### TEX-STM-0306
@@ -3887,8 +4615,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 316
+- same-reason: R5: B_i = W_[i] diag(s) V^T is the factor itself (plan §4 item 8: stays)
 
 old text:
 
@@ -3899,6 +4627,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+($B_i = W_{[i]} \operatorname{diag}(s)\, V^\top$, valid for arbitrary --- not
 ~~~
 
 #### TEX-STM-0325
@@ -3908,7 +4637,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 335
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3920,6 +4649,7 @@ $i$ satisfies $U_i^\top \dot V_i = 0$, and gauge conditions make all cross
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$i$ satisfies $D_i^\top \dot V_i = 0$, and gauge conditions make all cross
 ~~~
 
 #### TEX-STM-0347
@@ -3929,7 +4659,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 357–358
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3942,6 +4672,8 @@ with $U_g^\top \dot U = 0$: in the ($S$-absorbed) frame coordinates,
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+a single \emph{gauged ambient direction} $\dot D \in \R^{N_g \times n_g}$
+with $D_g^\top \dot D = 0$: in the ($S$-absorbed) frame coordinates,
 ~~~
 
 #### TEX-STM-0349
@@ -3951,7 +4683,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 359–361
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3965,6 +4697,9 @@ C_i = \dot U\, S_i \quad \text{for a common gauged } \dot U, \qquad i \in g .
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}\label{eq:tied}
+C_i = \dot D\, S_i \quad \text{for a common gauged } \dot D, \qquad i \in g .
+\end{equation}
 ~~~
 
 #### TEX-STM-0358
@@ -3974,7 +4709,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 368
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -3986,6 +4721,7 @@ $O_g$ of $U_g$ ($\dot U = O_g B$, coordinates $C_i = B S_i$), suggesting a
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$O_g$ of $D_g$ ($\dot D = O_g Z$, coordinates $C_i = Z S_i$), suggesting a
 ~~~
 
 #### TEX-STM-0360
@@ -3995,7 +4731,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 370
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4007,6 +4743,7 @@ subspace depends only on $U_g$ (tied by hypothesis) and the $S_i$; no
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+subspace depends only on $D_g$ (tied by hypothesis) and the $S_i$; no
 ~~~
 
 #### TEX-STM-0363
@@ -4016,8 +4753,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 373
+- same-reason: R5: Q_i is a rotation (§1.5 item 2; sample batch 3 §13 row 10)
 
 old text:
 
@@ -4028,6 +4765,7 @@ $\Gamma_i = S_i S_i^\top$ (replacing $S_i$ by $S_i Q_i$ together with the
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\Gamma_i = S_i S_i^\top$ (replacing $S_i$ by $S_i Q_i$ together with the
 ~~~
 
 #### TEX-STM-0366  (K16)
@@ -4038,7 +4776,7 @@ new text (R4/R5, verbatim the file at the new span):
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
 - K16 width lines: 366, 367
-- new span: (R4/R5)
+- new span: 376–377
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4051,6 +4789,8 @@ $n_{D,i} = \min(n_g,\ r_{i-1} r_i)$ --- rectangular in general, so an
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+implementation $S_i \in \R^{n_g \times n_{U,i}}$ with
+$n_{U,i} = \min(n_g,\ r_{i-1} r_i)$ --- rectangular in general, so an
 ~~~
 
 #### TEX-STM-0377
@@ -4060,7 +4800,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 387–394
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4079,6 +4819,14 @@ C_i \leftarrow \dot U S_i .
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}\label{eq:gramsolve}
+\dot D \;=\; \Bigl(\sum_{i \in g} C_i S_i^\top\Bigr)
+        \Bigl(\sum_{i \in g} S_i S_i^\top\Bigr)^{-1}
+   \;=\; \Bigl(\sum_{i \in g} C_i S_i^\top\Bigr)
+        \Bigl(\sum_{i \in g} \Gamma_i\Bigr)^{-1},
+\qquad
+C_i \leftarrow \dot D S_i .
+\end{equation}
 ~~~
 
 #### TEX-STM-0385
@@ -4088,7 +4836,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 395
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4100,6 +4848,7 @@ TT variations and singleton modes are unaffected, and $\dot U$ is
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+TT variations and singleton modes are unaffected, and $\dot D$ is
 ~~~
 
 #### TEX-STM-0393
@@ -4109,7 +4858,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 403
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4121,6 +4870,7 @@ Minimize $\sum_{i\in g} \| C_i - \dot U S_i \|_F^2$ over $\dot U$; setting the
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Minimize $\sum_{i\in g} \| C_i - \dot D S_i \|_F^2$ over $\dot D$; setting the
 ~~~
 
 #### TEX-STM-0395
@@ -4130,7 +4880,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 405
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4142,6 +4892,7 @@ $\sum_i C_i S_i^\top = \dot U \sum_i S_i S_i^\top$, invertible whenever the
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\sum_i C_i S_i^\top = \dot D \sum_i S_i S_i^\top$, invertible whenever the
 ~~~
 
 #### TEX-STM-0397
@@ -4151,7 +4902,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 407–408
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4164,6 +4915,8 @@ Gram sum acts on the other side, so $U_g^\top \dot U = 0$.
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$D_g^\top \sum_i C_i S_i^\top = \sum_i (D_g^\top C_i) S_i^\top = 0$, and the
+Gram sum acts on the other side, so $D_g^\top \dot D = 0$.
 ~~~
 
 #### TEX-STM-0404  (K16)
@@ -4174,7 +4927,7 @@ new text (R4/R5, verbatim the file at the new span):
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
 - K16 width lines: 406
-- new span: (R4/R5)
+- new span: 414–420
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4192,6 +4945,13 @@ C_{i_k}^\top \end{bmatrix},
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\[
+M_g = \begin{bmatrix} S_{i_1}^\top \\ \vdots \\ S_{i_k}^\top \end{bmatrix}
+\in \R^{(\sum_{i\in g} n_{U,i}) \times n_g},
+\qquad
+C^{\mathrm{stack}} = \begin{bmatrix} C_{i_1}^\top \\ \vdots \\
+C_{i_k}^\top \end{bmatrix},
+\]
 ~~~
 
 #### TEX-STM-0412
@@ -4201,7 +4961,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 422–424
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4215,6 +4975,9 @@ $M_g \dot U^\top$), computed from one thin SVD of $M_g$ with a relative
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\dot D^\top = M_g^{+}\, C^{\mathrm{stack}}$ (then
+$C_i^\top \leftarrow S_i^\top \dot D^\top$, the corresponding row block of
+$M_g \dot D^\top$), computed from one thin SVD of $M_g$ with a relative
 ~~~
 
 #### TEX-STM-0442
@@ -4224,7 +4987,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 452
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4236,6 +4999,7 @@ the raw cores $((U_i)_i, (G_i)_i)$, the metric is Euclidean on the core
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+the raw cores $((B_i)_i, (G_i)_i)$, the metric is Euclidean on the core
 ~~~
 
 #### TEX-STM-0444
@@ -4245,7 +5009,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 454
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4257,6 +5021,7 @@ parameter set $\{\,U_i = U_j,\ i, j \in g,\ \forall g\,\}$ is a linear
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+parameter set $\{\,B_i = B_j,\ i, j \in g,\ \forall g\,\}$ is a linear
 ~~~
 
 #### TEX-STM-0446
@@ -4266,7 +5031,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 456
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4278,6 +5043,7 @@ $\{\dot U_i \text{ equal within each group}\}$ (TT-core perturbations
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\{\dot B_i \text{ equal within each group}\}$ (TT-core perturbations
 ~~~
 
 #### TEX-STM-0449
@@ -4287,7 +5053,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 459
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4299,6 +5065,7 @@ $\dot U_i \mapsto \tfrac{1}{k_g} \sum_{j \in g} \dot U_j$. The additive
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\dot B_i \mapsto \tfrac{1}{k_g} \sum_{j \in g} \dot B_j$. The additive
 ~~~
 
 #### TEX-STM-0472
@@ -4308,7 +5075,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 482
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4320,6 +5087,7 @@ factor is $[\,U_g \,|\, \dot U_g\,]$, identical across each group), and
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+factor is $[\,D_g \,|\, \dot D_g\,]$, identical across each group), and
 ~~~
 
 #### TEX-STM-0473
@@ -4329,8 +5097,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 483–485
+- same-reason: R5: R(T, xi) (plan §4 item 8: stays) and P_sf
 
 old text:
 
@@ -4343,6 +5111,9 @@ R(\T, \xi) \coloneqq P_{\mathrm{sf}}(\T + \xi)
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\[
+R(\T, \xi) \coloneqq P_{\mathrm{sf}}(\T + \xi)
+\]
 ~~~
 
 #### TEX-STM-0484
@@ -4352,7 +5123,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 494
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4364,6 +5135,7 @@ after the fact: per group, the doubled factor is $[\,U_g \,|\, \dot U\,]$
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+after the fact: per group, the doubled factor is $[\,D_g \,|\, \dot D\,]$
 ~~~
 
 #### TEX-STM-0489
@@ -4373,7 +5145,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 499
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4385,6 +5157,7 @@ per-mode factor blocks $[\,U_g \,|\, \dot U S_i\,]$ (the $S$-absorbed
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+per-mode factor blocks $[\,D_g \,|\, \dot D S_i\,]$ (the $S$-absorbed
 ~~~
 
 #### TEX-STM-0491  (K16)
@@ -4395,7 +5168,7 @@ new text (R4/R5, verbatim the file at the new span):
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
 - K16 width lines: 491
-- new span: (R4/R5)
+- new span: 501–502
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4408,6 +5181,8 @@ repairs this. $\dot U$ is recovered from tied coordinates by the
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+and, when the $n_{U,i}$ differ, even in shape, and no per-mode averaging
+repairs this. $\dot D$ is recovered from tied coordinates by the
 ~~~
 
 #### TEX-STM-0551
@@ -4417,7 +5192,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 561
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4429,6 +5204,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\item The Gram of the tied parameterization $Z \mapsto (ZS_i)_{i \in g}$ is
 ~~~
 
 #### TEX-STM-0553
@@ -4438,7 +5214,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 563
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4450,6 +5226,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+  $\|\xi\|_{\HS}^2 = \tr\bigl(Z (\sum_i \Gamma_i) Z^\top\bigr)$. Its
 ~~~
 
 #### TEX-STM-0566
@@ -4459,7 +5236,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the T3's own factors → B_i, B_g (the §2 point algorithms, the corewise section :440–450); in the tangent sections (:318–420, :469–495 with rem:embedding as one range) the frame's down store → D_i, D_g, \dot D; the block B_i := U_i W_i (:279–292) → K_i; :306's B_i (the factor) stays; the tied coordinate B (:358, 551–566) → Z; n_{D,i} → n_{U,i}; O_g (a complement basis) stays; R(\T,\xi) (:474) stays; Q_i at :363 stays (session ruling)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 576
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4471,6 +5248,7 @@ frame coordinates: $\sum_i \|BS_i\|_F^2 = \tr(B(\sum_i S_iS_i^\top)B^\top)$.
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+frame coordinates: $\sum_i \|ZS_i\|_F^2 = \tr(Z(\sum_i S_iS_i^\top)Z^\top)$.
 ~~~
 
 
@@ -4483,8 +5261,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 48
+- same-reason: R5: P is the derivative direction (§1.5 item 3)
 
 old text:
 
@@ -4495,6 +5273,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\emph{same} direction $\mathbf P$, repeated $t$ times --- and show they are computed by a single
 ~~~
 
 #### TEX-SPD-0066
@@ -4504,7 +5283,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 66–67
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4517,6 +5296,8 @@ A \emph{Tucker tensor train} is a pair of core families $\mathbb T = \big((\math
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+A \emph{Tucker tensor train} is a pair of core families $\mathbb T = \big((\mathbf B_i)_{i=1}^d,\,
+(\mathbf G_i)_{i=1}^d\big)$, where each \emph{Tucker factor} $\mathbf B_i \in \R^{n_i \times N_i}$
 ~~~
 
 #### TEX-SPD-0085
@@ -4526,7 +5307,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 85–98
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4551,6 +5332,20 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{align}
+  \boldsymbol\xi_i      &= \mathbf B_i \mathbf w_i \in \R^{n_i},
+  & &\text{(projected probe)} \label{eq:xi}\\
+  \boldsymbol\mu_0^\top  &= 1, &
+  \boldsymbol\mu_i^\top &= \boldsymbol\mu_{i-1}^\top\, \mathbf G_i(\boldsymbol\xi_i) \in \R^{r_i},
+  & &\text{(left pushthrough)} \label{eq:mu}\\
+  \boldsymbol\nu_d      &= 1, &
+  \boldsymbol\nu_i      &= \mathbf G_{i+1}(\boldsymbol\xi_{i+1})\, \boldsymbol\nu_{i+1} \in \R^{r_i},
+  & &\text{(right pushthrough)} \label{eq:nu}\\
+  \boldsymbol\eta_i     &= \boldsymbol\mu_{i-1}^\top\, \mathbf G_i\, \boldsymbol\nu_i \in \R^{n_i},
+  & &\text{(combine, mode $i$ free)} \label{eq:eta}\\
+  \mathbf z_i           &= \mathbf B_i^\top \boldsymbol\eta_i \in \R^{N_i}.
+  & &\text{(lift)} \label{eq:z}
+\end{align}
 ~~~
 
 #### TEX-SPD-0101
@@ -4560,7 +5355,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 101
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4572,6 +5367,7 @@ $\mathbf G_i$, leaving the middle index free. The single Tucker factor $\mathbf 
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\mathbf G_i$, leaving the middle index free. The single Tucker factor $\mathbf B_i$ is used twice:
 ~~~
 
 #### TEX-SPD-0105
@@ -4581,8 +5377,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 105
+- same-reason: R5: P is the derivative direction (§1.5 item 3)
 
 old text:
 
@@ -4593,6 +5389,7 @@ Fix a direction $\mathbf P = (\mathbf p_1, \dots, \mathbf p_d)$, $\mathbf p_i \i
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Fix a direction $\mathbf P = (\mathbf p_1, \dots, \mathbf p_d)$, $\mathbf p_i \in \R^{N_i}$. We seek
 ~~~
 
 #### TEX-SPD-0107
@@ -4602,8 +5399,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 107
+- same-reason: R5: P is the derivative direction (§1.5 item 3)
 
 old text:
 
@@ -4614,6 +5411,7 @@ times in the single repeated direction $\mathbf P$:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+times in the single repeated direction $\mathbf P$:
 ~~~
 
 #### TEX-SPD-0108
@@ -4623,7 +5421,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 108–113
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4640,6 +5438,12 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:goal}
+  \mathbf z_i^{(t)} \;:=\; \frac{\dd{^t}}{\dd s^t}\, \mathbf z_i(\mathbf W + s\mathbf P)\Big|_{s=0}
+  \;=\; \mathrm d^t \mathbf z_i(\mathbf W)\,\mathbf P^{t},
+  \qquad t = 0, 1, \dots, m.
+\end{equation}
 ~~~
 
 #### TEX-SPD-0121
@@ -4649,8 +5453,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 121
+- same-reason: R5: P is the derivative direction (§1.5 item 3)
 
 old text:
 
@@ -4661,6 +5465,7 @@ $\mathbf W + s\mathbf P$ and tracking its Taylor data.
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\mathbf W + s\mathbf P$ and tracking its Taylor data.
 ~~~
 
 #### TEX-SPD-0126
@@ -4670,8 +5475,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 126
+- same-reason: R5: P is the derivative direction (§1.5 item 3)
 
 old text:
 
@@ -4682,6 +5487,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+(along $\mathbf P$, at $\mathbf W$) is the tuple of symmetric derivatives
 ~~~
 
 #### TEX-SPD-0127
@@ -4691,8 +5497,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 127–131
+- same-reason: R5: P is the derivative direction (§1.5 item 3)
 
 old text:
 
@@ -4707,6 +5513,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\[
+  \jet{q} \;=\; \big(q^{(0)}, q^{(1)}, \dots, q^{(m)}\big),
+  \qquad
+  q^{(t)} := \frac{\dd{^t}}{\dd s^t}\, q(\mathbf W + s\mathbf P)\Big|_{s=0}.
+\]
 ~~~
 
 #### TEX-SPD-0144
@@ -4716,7 +5527,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 144–147
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4731,6 +5542,10 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\[
+  \jet{\boldsymbol\xi_i} = (\boldsymbol\xi_i,\ \delta\boldsymbol\xi_i,\ 0, \dots, 0),
+  \qquad \delta\boldsymbol\xi_i := \mathbf B_i \mathbf p_i.
+\]
 ~~~
 
 #### TEX-SPD-0152
@@ -4740,7 +5555,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 152
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4752,6 +5567,7 @@ $\boldsymbol\xi_i(s) = \mathbf U_i \mathbf w_i(s) = \mathbf U_i \mathbf w_i + s\
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\boldsymbol\xi_i(s) = \mathbf B_i \mathbf w_i(s) = \mathbf B_i \mathbf w_i + s\,\mathbf B_i \mathbf
 ~~~
 
 #### TEX-SPD-0158
@@ -4761,8 +5577,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 158–159
+- same-reason: R5: the italic B is a bilinear map (plan §4 item 8: differs by font, stays)
 
 old text:
 
@@ -4774,6 +5590,8 @@ smoothly on $s$. Then the jet of $s \mapsto B(a(s), b(s))$ is the binomial convo
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Let $B : \R^{A} \times \R^{B} \to \R^{C}$ be a fixed bilinear map, and let $a(s), b(s)$ depend
+smoothly on $s$. Then the jet of $s \mapsto B(a(s), b(s))$ is the binomial convolution of the jets of
 ~~~
 
 #### TEX-SPD-0161
@@ -4783,8 +5601,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 161–165
+- same-reason: R5: the italic B is a bilinear map (plan §4 item 8: differs by font, stays)
 
 old text:
 
@@ -4799,6 +5617,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:leibniz}
+  \big[B(a,b)\big]^{(t)} \;=\; \sum_{r=0}^{t} \binom{t}{r}\, B\!\big(a^{(r)},\, b^{(t-r)}\big),
+  \qquad t = 0, 1, \dots, m.
+\end{equation}
 ~~~
 
 #### TEX-SPD-0169
@@ -4808,8 +5631,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 169–170
+- same-reason: R5: the italic B is a bilinear map (plan §4 item 8: differs by font, stays)
 
 old text:
 
@@ -4821,6 +5644,8 @@ for the bilinear pairing $B$, so the general Leibniz rule for the $t$th derivati
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+By bilinearity, $\tfrac{\dd}{\dd s} B(a,b) = B(a',b) + B(a,b')$. This is the ordinary product rule
+for the bilinear pairing $B$, so the general Leibniz rule for the $t$th derivative of a product gives
 ~~~
 
 #### TEX-SPD-0195
@@ -4830,7 +5655,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 195
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4842,6 +5667,7 @@ U_i, \mathbf G_i$ are constants (independent of $s$), so the only $s$-dependence
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+B_i, \mathbf G_i$ are constants (independent of $s$), so the only $s$-dependence is carried by the
 ~~~
 
 #### TEX-SPD-0217
@@ -4851,8 +5677,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 217
+- same-reason: R5: the italic B is a bilinear map (plan §4 item 8: differs by font, stays)
 
 old text:
 
@@ -4863,6 +5689,7 @@ The recursion \eqref{eq:mu} reads $\boldsymbol\mu_i^\top = B(\boldsymbol\mu_{i-1
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+The recursion \eqref{eq:mu} reads $\boldsymbol\mu_i^\top = B(\boldsymbol\mu_{i-1},
 ~~~
 
 #### TEX-SPD-0241
@@ -4872,7 +5699,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 241–248
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4891,6 +5718,14 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{align}
+  \boldsymbol\eta_i^{(t)}
+    &= \sum_{r=0}^{t} \binom{t}{r}\,
+       \big(\boldsymbol\mu_{i-1}^{(r)}\big)^\top \mathbf G_i\, \boldsymbol\nu_i^{(t-r)},
+    \label{eq:deta}\\[2pt]
+  \mathbf z_i^{(t)} &= \mathbf B_i^\top \boldsymbol\eta_i^{(t)}.
+    \label{eq:dz}
+\end{align}
 ~~~
 
 #### TEX-SPD-0252
@@ -4900,8 +5735,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 252–253
+- same-reason: R5: the italic B is a bilinear map (plan §4 item 8: differs by font, stays)
 
 old text:
 
@@ -4913,6 +5748,8 @@ bilinear map $B(\mathbf u, \mathbf v) = \mathbf u^\top \mathbf G_i \mathbf v$ (m
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+The combine \eqref{eq:eta} is $\boldsymbol\eta_i = B(\boldsymbol\mu_{i-1}, \boldsymbol\nu_i)$ with the
+bilinear map $B(\mathbf u, \mathbf v) = \mathbf u^\top \mathbf G_i \mathbf v$ (mode $i$ free), so
 ~~~
 
 #### TEX-SPD-0256
@@ -4922,7 +5759,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 256–257
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4935,6 +5772,8 @@ componentwise: $\mathbf z_i^{(t)} = \mathbf U_i^\top \boldsymbol\eta_i^{(t)}$.
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+linear map $\boldsymbol\eta_i \mapsto \mathbf B_i^\top \boldsymbol\eta_i$, whose jet acts
+componentwise: $\mathbf z_i^{(t)} = \mathbf B_i^\top \boldsymbol\eta_i^{(t)}$.
 ~~~
 
 #### TEX-SPD-0276
@@ -4944,7 +5783,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 276–302
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -4982,6 +5821,33 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[h]
+\caption{Symmetric probe derivatives of a Tucker tensor train}
+\label{alg:sweep}
+\begin{algorithmic}[1]
+\Require T3 $\big((\mathbf B_i),(\mathbf G_i)\big)$; inputs $\mathbf W$; direction $\mathbf P$; order $m$
+\Ensure derivative jets $\jet{\mathbf z_i}$ for $i=1,\dots,d$
+\For{$i = 1,\dots,d$} \Comment{project, forming the order-one input jets}
+  \State $\boldsymbol\xi_i \gets \mathbf B_i \mathbf w_i$,\quad
+         $\delta\boldsymbol\xi_i \gets \mathbf B_i \mathbf p_i$
+\EndFor
+\State $\jet{\boldsymbol\mu_0} \gets (1,0,\dots,0)$
+\For{$i = 1,\dots,d$} \Comment{left sweep, Eq.~\eqref{eq:dmu}}
+  \State $\boldsymbol\mu_i^{(t)} \gets \boldsymbol\mu_{i-1}^{(t)}\mathbf G_i(\boldsymbol\xi_i)
+         + t\,\boldsymbol\mu_{i-1}^{(t-1)}\mathbf G_i(\delta\boldsymbol\xi_i)$ \textbf{ for } $t=0,\dots,m$
+\EndFor
+\State $\jet{\boldsymbol\nu_d} \gets (1,0,\dots,0)$
+\For{$i = d,\dots,1$} \Comment{right sweep, Eq.~\eqref{eq:dnu}}
+  \State $\boldsymbol\nu_{i-1}^{(t)} \gets \mathbf G_i(\boldsymbol\xi_i)\boldsymbol\nu_i^{(t)}
+         + t\,\mathbf G_i(\delta\boldsymbol\xi_i)\boldsymbol\nu_i^{(t-1)}$ \textbf{ for } $t=0,\dots,m$
+\EndFor
+\For{$i = 1,\dots,d$} \Comment{combine and lift, Eqs.~\eqref{eq:deta}--\eqref{eq:dz}}
+  \State $\boldsymbol\eta_i^{(t)} \gets \sum_{r=0}^{t}\binom{t}{r}
+         \big(\boldsymbol\mu_{i-1}^{(r)}\big)^\top \mathbf G_i\,\boldsymbol\nu_i^{(t-r)}$ \textbf{ for } $t=0,\dots,m$
+  \State $\mathbf z_i^{(t)} \gets \mathbf B_i^\top \boldsymbol\eta_i^{(t)}$ \textbf{ for } $t=0,\dots,m$
+\EndFor
+\end{algorithmic}
+\end{algorithm}
 ~~~
 
 #### TEX-SPD-0349
@@ -4991,8 +5857,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 349
+- same-reason: R5: P is the derivative direction (§1.5 item 3)
 
 old text:
 
@@ -5003,6 +5869,7 @@ $(\mathbf W, \mathbf P)$ pairs at once: each sample is a paired input/direction,
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$(\mathbf W, \mathbf P)$ pairs at once: each sample is a paired input/direction, so to sweep many
 ~~~
 
 #### TEX-SPD-0353
@@ -5012,8 +5879,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 353
+- same-reason: R5: P is the derivative direction (§1.5 item 3)
 
 old text:
 
@@ -5024,6 +5891,7 @@ Each action is multilinear in the off-mode inputs, so $\mathbf z_i(\mathbf W + s
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Each action is multilinear in the off-mode inputs, so $\mathbf z_i(\mathbf W + s\mathbf P)$ is a
 ~~~
 
 #### TEX-SPD-0373
@@ -5033,7 +5901,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 373–374
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5046,6 +5914,8 @@ right-TT cores) and a gauged variation $\delta\mathbb V = \big((\delta\mathbf U_
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$\big((\mathbf D_i),(\mathbf U_i),(\mathbf L_i),(\mathbf R_i)\big)$ (down-Tucker, up-, left-, and
+right-TT cores) and a gauged variation $\delta\mathbb V = \big((\mathbf V_i),
 ~~~
 
 #### TEX-SPD-0377
@@ -5055,7 +5925,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 377–383
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5073,6 +5943,13 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:rbase}
+  \boldsymbol\xi_i = \mathbf D_i \mathbf w_i, \quad
+  \boldsymbol\mu_i^\top = \boldsymbol\mu_{i-1}^\top \mathbf L_i(\boldsymbol\xi_i), \quad
+  \boldsymbol\nu_i = \mathbf R_{i+1}(\boldsymbol\xi_{i+1})\,\boldsymbol\nu_{i+1}, \quad
+  \boldsymbol\eta_i = \boldsymbol\mu_{i-1}^\top \mathbf U_i\, \boldsymbol\nu_i,
+\end{equation}
 ~~~
 
 #### TEX-SPD-0384
@@ -5082,7 +5959,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 384
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5094,6 +5971,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+(the plain pipeline \eqref{eq:xi}--\eqref{eq:z} with the frame cores $\mathbf L,\mathbf R,\mathbf U$
 ~~~
 
 #### TEX-SPD-0386
@@ -5103,7 +5981,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 386–399
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5128,6 +6006,20 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{align}
+  \delta\boldsymbol\xi_i &= \mathbf V_i \mathbf w_i, \label{eq:rdxi}\\
+  \boldsymbol\sigma_i^\top &= \boldsymbol\sigma_{i-1}^\top \mathbf R_i(\boldsymbol\xi_i)
+    + \boldsymbol\mu_{i-1}^\top \mathbf H_i(\boldsymbol\xi_i)
+    + \boldsymbol\mu_{i-1}^\top \mathbf U_i(\delta\boldsymbol\xi_i), \label{eq:rsigma}\\
+  \boldsymbol\tau_i &= \mathbf H_{i+1}(\boldsymbol\xi_{i+1})\boldsymbol\nu_{i+1}
+    + \mathbf U_{i+1}(\delta\boldsymbol\xi_{i+1})\boldsymbol\nu_{i+1}
+    + \mathbf L_{i+1}(\boldsymbol\xi_{i+1})\boldsymbol\tau_{i+1}, \label{eq:rtau}\\
+  \delta\boldsymbol\eta_i &= \boldsymbol\sigma_{i-1}^\top \mathbf R_i \boldsymbol\nu_i
+    + \boldsymbol\mu_{i-1}^\top \mathbf H_i \boldsymbol\nu_i
+    + \boldsymbol\mu_{i-1}^\top \mathbf L_i \boldsymbol\tau_i, \label{eq:rdeta}\\
+  \mathbf z_i &= \mathbf D_i^\top \delta\boldsymbol\eta_i + \mathbf V_i^\top \boldsymbol\eta_i,
+    \label{eq:rz}
+\end{align}
 ~~~
 
 #### TEX-SPD-0403
@@ -5137,8 +6029,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 408
+- same-reason: R5: P is the derivative direction (§1.5 item 3)
 
 old text:
 
@@ -5149,6 +6041,7 @@ Differentiating \eqref{eq:rbase}--\eqref{eq:rz} with respect to $\mathbf W$ alon
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Differentiating \eqref{eq:rbase}--\eqref{eq:rz} with respect to $\mathbf W$ along $\mathbf P$ uses
 ~~~
 
 #### TEX-SPD-0407
@@ -5158,7 +6051,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 412–413
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5171,6 +6064,8 @@ and $\jet{\delta\boldsymbol\xi_i} = (\delta\boldsymbol\xi_i, \delta\mathbf U_i\m
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+order-one input jets $\jet{\boldsymbol\xi_i} = (\boldsymbol\xi_i, \mathbf D_i\mathbf p_i, 0, \dots)$
+and $\jet{\delta\boldsymbol\xi_i} = (\delta\boldsymbol\xi_i, \mathbf V_i\mathbf p_i, 0, \dots)$,
 ~~~
 
 #### TEX-SPD-0410
@@ -5180,7 +6075,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 415–424
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5201,6 +6096,16 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{align}
+  \big(\boldsymbol\sigma_i^{(t)}\big)^\top
+  &= \big(\boldsymbol\sigma_{i-1}^{(t)}\big)^\top \mathbf R_i(\boldsymbol\xi_i)
+   + t \big(\boldsymbol\sigma_{i-1}^{(t-1)}\big)^\top \mathbf R_i(\mathbf D_i\mathbf p_i) \nonumber\\
+  &\;+ \big(\boldsymbol\mu_{i-1}^{(t)}\big)^\top \mathbf H_i(\boldsymbol\xi_i)
+     + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \mathbf H_i(\mathbf D_i\mathbf p_i) \nonumber\\
+  &\;+ \big(\boldsymbol\mu_{i-1}^{(t)}\big)^\top \mathbf U_i(\delta\boldsymbol\xi_i)
+     + t \big(\boldsymbol\mu_{i-1}^{(t-1)}\big)^\top \mathbf U_i(\mathbf V_i\mathbf p_i),
+  \label{eq:rdsigma}
+\end{align}
 ~~~
 
 #### TEX-SPD-0428
@@ -5210,7 +6115,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 433
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5222,6 +6127,7 @@ Section~\ref{sec:impl}, fed a frame core ($\mathbf P,\mathbf Q,\mathbf O$) or th
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Section~\ref{sec:impl}, fed a frame core ($\mathbf L,\mathbf R,\mathbf U$) or the variation core
 ~~~
 
 #### TEX-SPD-0438
@@ -5231,7 +6137,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 443
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5243,6 +6149,7 @@ the action-jet space, return the variation gradient $\big((\delta\widetilde{\mat
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+the action-jet space, return the variation gradient $\big((\widetilde{\mathbf V}_i),
 ~~~
 
 #### TEX-SPD-0445
@@ -5252,8 +6159,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 450–454
+- same-reason: R5: calligraphic L is the Lagrangian (not a store letter)
 
 old text:
 
@@ -5268,6 +6175,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:lagr}
+  \mathcal L = \big\langle \mathbf r,\ \mathbf z \big\rangle
+    + \big\langle \widehat\Xi,\ E(\Xi) \big\rangle,
+\end{equation}
 ~~~
 
 #### TEX-SPD-0452
@@ -5277,8 +6189,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 457
+- same-reason: R5: calligraphic L is the Lagrangian (not a store letter)
 
 old text:
 
@@ -5289,6 +6201,7 @@ T4S paper with one change: \emph{every contraction in $\mathcal L$ is replaced b
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+T4S paper with one change: \emph{every contraction in $\mathcal L$ is replaced by its $\texttt{trs}$
 ~~~
 
 #### TEX-SPD-0454
@@ -5298,8 +6211,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 459
+- same-reason: R5: calligraphic L is the Lagrangian (not a store letter)
 
 old text:
 
@@ -5310,6 +6223,7 @@ Section~\ref{sec:impl}. At a stationary point the constraints hold ($\partial_{\
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Section~\ref{sec:impl}. At a stationary point the constraints hold ($\partial_{\widehat\Xi}\mathcal L
 ~~~
 
 #### TEX-SPD-0456
@@ -5319,8 +6233,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 461
+- same-reason: R5: calligraphic L is the Lagrangian (not a store letter)
 
 old text:
 
@@ -5331,6 +6245,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+($\partial_\Xi\mathcal L = 0$), and
 ~~~
 
 #### TEX-SPD-0457
@@ -5340,7 +6255,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 462–466
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5356,6 +6271,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+  \label{eq:grad}
+  \big((\widetilde{\mathbf V}_i),(\widetilde{\mathbf H}_i)\big)
+  = \partial_{\delta\mathbb V}\, \mathcal L = \big(J^{(s)}\big)^\top(\mathbf r).
+\end{equation}
 ~~~
 
 #### TEX-SPD-0466
@@ -5365,8 +6285,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 471
+- same-reason: R5: calligraphic L is the Lagrangian (not a store letter)
 
 old text:
 
@@ -5377,6 +6297,7 @@ The multiplier equations $\partial_\Xi\mathcal L = 0$ are the adjoint sweeps. Di
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+The multiplier equations $\partial_\Xi\mathcal L = 0$ are the adjoint sweeps. Differentiating a forward
 ~~~
 
 #### TEX-SPD-0482
@@ -5386,7 +6307,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 487
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5398,6 +6319,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\eta}_i = \mathbf D_i \mathbf r_i$ is the order-diagonal lift.
 ~~~
 
 #### TEX-SPD-0485
@@ -5407,7 +6329,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 490
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5419,6 +6341,7 @@ The variation gradients $\partial_{\delta\mathbf G_i}\mathcal L$ and $\partial_{
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+The variation gradients $\partial_{\mathbf H_i}\mathcal L$ and $\partial_{\mathbf V_i}
 ~~~
 
 #### TEX-SPD-0500
@@ -5428,7 +6351,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 505
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5440,6 +6363,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+  \item the Tucker core $\mathbf V_i$ has one internal edge (the edge up to its TT core), so
 ~~~
 
 #### TEX-SPD-0502
@@ -5449,7 +6373,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 507–512
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5466,6 +6390,12 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+    \[
+      \widetilde{\mathbf V}_i
+      = \sum_t \boldsymbol\eta_i^{(t)} \otimes \mathbf r_i^{(t)}
+      + \sum_u \widehat{\delta\boldsymbol\xi}_i^{(u)} \otimes \mathbf w_i^{(u)},
+      \qquad \jet{\mathbf w_i} = (\mathbf w_i, \mathbf p_i, 0, \dots).
+    \]
 ~~~
 
 #### TEX-SPD-0540
@@ -5475,7 +6405,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 545
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5487,6 +6417,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\sigma}_i$, $\widetilde{\mathbf V}_i = \widehat{\delta\boldsymbol\xi}_i\otimes\mathbf w_i$ (about
 ~~~
 
 #### TEX-SPD-0542
@@ -5496,8 +6427,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 547–548
+- same-reason: R5: P is the derivative direction (§1.5 item 3)
 
 old text:
 
@@ -5509,6 +6440,8 @@ contract $\mathbf P$ at order one); its transpose scatters onto the indexed rows
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+e_{\mathrm{index}}$ in the base slot and a general direction $\mathbf P$ (fiber-slice the base projection,
+contract $\mathbf P$ at order one); its transpose scatters onto the indexed rows.
 ~~~
 
 #### TEX-SPD-0547
@@ -5518,8 +6451,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 552
+- same-reason: R5: P is the derivative direction (§1.5 item 3)
 
 old text:
 
@@ -5530,6 +6463,7 @@ the sample stack $W$ (the paired $(\mathbf X,\mathbf P)$ samples, on the inputs)
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+the sample stack $W$ (the paired $(\mathbf X,\mathbf P)$ samples, on the inputs), the tangent stack $K$
 ~~~
 
 #### TEX-SPD-0559
@@ -5539,7 +6473,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 564–565
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5551,6 +6485,8 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$(\mathbf B,\mathbf G,\mathbf G,\mathbf G)$ ($\mathbf B\to\mathbf D$, $\mathbf G\to\mathbf U,\mathbf L,\mathbf R$).
+The manifold transpose requires an orthogonal frame; the corewise one works for any $\mathbf B$, $\mathbf G$.
 ~~~
 
 #### TEX-SPD-0631
@@ -5560,7 +6496,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 637
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5572,6 +6508,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\widetilde{\mathbf V}_i$: order-summed outer products of the tilde edge variables with the base
 ~~~
 
 #### TEX-SPD-0633
@@ -5581,8 +6518,8 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: frame U/O/P/Q → D/U/L/R; D^t (:111) → \mathrm d^t (its P^t is the direction and stays); the T3's own \mathbf U_i → \mathbf B_i; the plain B of :158–169 (a bilinear map) stays; the corewise sentence :556–559 per §1.2a
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
-- same-reason: (R4/R5: required only when the new text equals the old)
+- new span: 639
+- same-reason: R5: (r_L, n, r_R): r_L, r_R unchanged (D-3), generic n (§1.5 item 5)
 
 old text:
 
@@ -5593,6 +6530,7 @@ $(\mathrm{r_L},\mathrm{n},\mathrm{r_R})$, so the intermediate is the largest in 
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$(\mathrm{r_L},\mathrm{n},\mathrm{r_R})$, so the intermediate is the largest in the chain --- and it is
 ~~~
 
 
@@ -5605,7 +6543,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 74–78
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5621,6 +6559,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+\T[x]=\sum_{n_0,\dots,n_{d-1}} \Big(\prod_{i=0}^{d-1} B_i[n_i,x_i]\Big)\,\C[n_0,\dots,n_{d-1}],
+\qquad \C=\TT(G),
+\label{eq:t3}
+\end{equation}
 ~~~
 
 #### TEX-TTHN-0078
@@ -5630,7 +6573,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 79
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5642,6 +6585,7 @@ with \emph{Tucker factors} (leaf frames) $U_i\in\R^{n_i\times N_i}$ and central 
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+with \emph{Tucker factors} (leaf frames) $B_i\in\R^{n_i\times N_i}$ and central TT
 ~~~
 
 #### TEX-TTHN-0080
@@ -5651,7 +6595,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 81–87
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5663,6 +6607,13 @@ Plain TT is the special case $n_i=N_i$, $U_i=I$.
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+Plain TT is the special case $n_i=N_i$, $B_i=I$.
+
+T4S writes $U$, $O$, $P$, $Q$ for our $D$, $U$, $L$, $R$; its $\delta U$ is our $V$
+(\texttt{tucker\_variations}), its $\delta G$ our $H$ (\texttt{tt\_variations}). It writes $U_i$ for the
+Tucker factors $B_i$, and HT papers write $U_t$ for the leaf frames and $B_t$ for the transfer tensors
+($T_t$ here, \S\ref{sec:ht}); this note wrote $\mathcal A$, $\mathcal B$, $\mathcal C$ (superscripts $A$, $B$, $C$)
+for $\X$, $\Y$, $\Z$.
 ~~~
 
 #### TEX-TTHN-0084
@@ -5672,7 +6623,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 91–94
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5687,6 +6638,10 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{align}
+(B^X\krrow B^Y)[(a,b),\,x] &= B^X[a,x]\,B^Y[b,x] && \text{(row-wise Khatri--Rao, ``COPY'')},\\
+(G^X\kron G^Y)[(\alpha,\alpha'),(a,b),(\beta,\beta')] &= G^X[\alpha,a,\beta]\,G^Y[\alpha',a',\beta'] && \text{(Kronecker)} .
+\end{align}
 ~~~
 
 #### TEX-TTHN-0092
@@ -5696,7 +6651,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 99–104
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5713,6 +6668,12 @@ G^C_i \;=\; G^A_i\kron G^B_i \in\R^{(r^A_i r^B_i)\times(n^A_i n^B_i)\times(r^A_{
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+W_i \;=\; B^X_i\krrow B^Y_i \in\R^{(n^X_i n^Y_i)\times N_i},
+\qquad
+G^Z_i \;=\; G^X_i\kron G^Y_i \in\R^{(r^X_i r^Y_i)\times(n^X_i n^Y_i)\times(r^X_{i+1}r^Y_{i+1})}.
+\label{eq:prod}
+\end{equation}
 ~~~
 
 #### TEX-TTHN-0099
@@ -5722,7 +6683,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 106
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5734,6 +6695,7 @@ $n^A_i n^B_i$ and TT bond $r^A_i r^B_i$. The point of every algorithm below is t
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+$n^X_i n^Y_i$ and TT bond $r^X_i r^Y_i$. The point of every algorithm below is to
 ~~~
 
 #### TEX-TTHN-0114
@@ -5743,7 +6705,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 121–137
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5771,6 +6733,23 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[t]
+\caption{\textsc{TTM} --- Hadamard product of two tensor trains (swap form)}
+\label{alg:ttm}
+\begin{algorithmic}[1]
+\Require TT cores $\{G^X_i\}$, $\{G^Y_i\}$; per-step tolerance / target bond $\rtil$
+\State $H \gets [\,G^X_0,\dots,G^X_{d-1},\ \textsc{reverse}(G^Y)\,]$ \Comment{length-$2d$ chain $=\X\kron\Y$; reversal makes mode $d{-}1$ adjacent}
+\State left-orthogonalize the $X$-half, right-orthogonalize the reversed-$Y$ half \Comment{mixed-canonical center at the seam}
+\For{$i=d-1$ \textbf{downto} $0$}
+  \State move the orthogonality center to the right end of the merged block
+  \For{each step bringing the mode-$i$ $Y$-core toward its $X$-partner}
+    \State \textsc{swap} the adjacent pair by a \emph{centered} truncated SVD \Comment{bond stays $O(\rtil)$}
+  \EndFor
+  \State \textsc{merge} the adjacent matching pair with the copy tensor $\delta$ (diagonal in $x_i$); single bonds in/out
+\EndFor
+\State \Return the length-$d$ chain $\{G^Z_i\}$
+\end{algorithmic}
+\end{algorithm}
 ~~~
 
 #### TEX-TTHN-0133
@@ -5780,7 +6759,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 140
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5792,6 +6771,7 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+``bubbled past'' by later $Y$-cores. Because every swap and merge is performed in
 ~~~
 
 #### TEX-TTHN-0149
@@ -5801,7 +6781,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 156
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5813,6 +6793,7 @@ is the pair $(n^A_i,n^B_i)$ carrying the Tucker factor $W_i=U^A_i\krrow U^B_i$ f
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+is the pair $(n^X_i,n^Y_i)$ carrying the Tucker factor $W_i=B^X_i\krrow B^Y_i$ from
 ~~~
 
 #### TEX-TTHN-0151
@@ -5822,7 +6803,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 158–160
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5836,6 +6817,9 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{equation}
+\rank(W_i)\le \min(n^X_i n^Y_i,\;N_i),\qquad\text{truncate to } \ntil_i,
+\end{equation}
 ~~~
 
 #### TEX-TTHN-0158
@@ -5845,7 +6829,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 165–185
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5877,6 +6861,27 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{algorithm}[t]
+\caption{\textsc{T3M-swap} --- Hadamard product of two Tucker tensor trains}
+\label{alg:t3m}
+\begin{algorithmic}[1]
+\Require T3s $(B^X,G^X)$, $(B^Y,G^Y)$; targets $\ntil,\rtil$ (and/or $\mathrm{rtol},\mathrm{atol}$); oversample $k\ge1$
+\State down-orthogonalize the Tucker factors of each input \Comment{HT: ``orthogonalize leaves toward the root''}
+\State $H \gets [\,G^X_0,\dots,G^X_{d-1},\ \textsc{reverse}(G^Y)\,]$ with each $G_i$ carrying $(B_i,\text{mode }i)$
+\State left-orthogonalize the $X$-half, right-orthogonalize the reversed-$Y$ half \Comment{center at the seam}
+\For{$i=d-1$ \textbf{downto} $0$}
+  \State move the center to the right end of the merged block
+  \For{each step bringing the mode-$i$ $Y$-core to its $X$-partner}
+    \State centered truncated-SVD \textsc{swap}, intermediate bond capped at $k\,\rtil$ (or tol $/k$) \Comment{memory only}
+  \EndFor
+  \State \textsc{merge}: $W_i\gets B^X_i\krrow B^Y_i$; centered weighted-SVD compress to $\le k\,\ntil$; Tucker factors/modes ride along
+\EndFor
+\If{$k>1$ \textbf{or} a non-uniform per-position bond cap was requested}
+  \State $\{(B^Z_i,G^Z_i)\}\gets$ \textsc{T3-SVD-round}$(\{(B^Z_i,G^Z_i)\};\ \ntil,\rtil,\mathrm{rtol},\mathrm{atol})$ \Comment{the decisive truncation}
+\EndIf
+\State \Return $\{(B^Z_i,G^Z_i)\}$
+\end{algorithmic}
+\end{algorithm}
 ~~~
 
 #### TEX-TTHN-0186
@@ -5886,7 +6891,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 193
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5898,6 +6903,7 @@ the Khatri--Rao compression $W_i\!=\!U^A_i\krrow U^B_i$ \textbf{couples} the two
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+the Khatri--Rao compression $W_i\!=\!B^X_i\krrow B^Y_i$ \textbf{couples} the two
 ~~~
 
 #### TEX-TTHN-0217
@@ -5907,7 +6913,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 224–225
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5920,6 +6926,8 @@ and transfer tensors $B_t\in\R^{n_{t_1}\times n_{t_2}\times n_t}$ at internal no
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+An HT tensor is a \emph{dimension tree} with leaf frames $B_i\in\R^{n_i\times N_i}$
+and transfer tensors $T_t\in\R^{n_{t_1}\times n_{t_2}\times n_t}$ at internal nodes
 ~~~
 
 #### TEX-TTHN-0222
@@ -5929,7 +6937,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 229–237
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5949,6 +6957,15 @@ Tucker tensor train (T3) & linear tree, \textbf{nontrivial} leaf frames\\
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\begin{tabular}{ll}
+\toprule
+format & HT realization\\
+\midrule
+Tensor train & linear (caterpillar) tree, \textbf{trivial} leaf frames ($B_i=I$)\\
+Tucker & star (one root transfer tensor, $d$ leaf frames)\\
+Tucker tensor train (T3) & linear tree, \textbf{nontrivial} leaf frames\\
+\bottomrule
+\end{tabular}
 ~~~
 
 #### TEX-TTHN-0237
@@ -5958,7 +6975,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: per §4.8: the Tucker factors ("leaf frames") U_i → B_i; operand labels A, B, C (superscripts) → X, Y, Z; the HT transfer tensors B_t (:217–240) → T_t; the macros \A, \B, \C → \X, \Y, \Z; \C keeps one meaning (eq:t3)
 - re-laid out: n/a: LaTeX source (no column alignment); reviewed by contraction sizes (§4A f)
 - new == old possible: possible: classify each letter by §4.8 / §3.4 at R5; record the reason if nothing changes
-- new span: (R4/R5)
+- new span: 244–248
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -5974,6 +6991,11 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+\[
+\text{leaf frames } \;W_i = B^X_i\krrow B^Y_i,
+\qquad
+\text{transfer tensors } \; T^Z_t = T^X_t\kron T^Y_t,
+\]
 ~~~
 
 
@@ -5986,7 +7008,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: U0–U2 the Tucker store (→ D, both rows); O0–O2 the TT-shaped store (→ U); H, V the variations; leading TABs kept (K10 on raw text; sample batch 3 edit 8)
 - re-laid out: n expected: labels keep their length (U0→D0, nU0→nD0, nO1→nU1); K10 in place
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 125–133
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -6006,6 +7028,15 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+	      1--H0--R1--R2--1   1--L0--H1--R2--1   1--L0--L1--H2--1
+	         |   |   |          |   |   |          |   |   |
+	v  =     D0  D1  D2    +    D0  D1  D2    +    D0  D1  D2
+	         |   |   |          |   |   |          |   |   |
+
+	      1--U0--R1--R2--1   1--L0--U1--R2--1   1--L0--L1--U2--1
+	         |   |   |          |   |   |          |   |   |
+	   +     V0  D1  D2    +    D0  V1  D2    +    D0  D1  V2
+	         |   |   |          |   |   |          |   |   |
 ~~~
 
 #### DOC-UG-0139
@@ -6013,9 +7044,9 @@ new text (R4/R5, verbatim the file at the new span):
 - file: `docs/user_guide.rst`; old span: 139–142; kind: shape listing; fenced: y
 - letters and widths: letters: L(d-1) L0 O(d-1) O0 R(d-1) R0 U(d-1) U0; store words: down down_tt_cores left_tt_cores right_tt_cores up_tucker_cores
 - roles: reordered to (down, up, left, right) with down-orthogonal / up-orthogonal; `:142`'s "down-orthogonal" on the TT-shaped core was backwards (sample batch 3 edit 8)
-- re-laid out: y: reordered and the names/adjectives grow (K10b)
+- re-laid out: y (R5: re-laid out, K10b; reordered to (down, up, left, right) and "orthogonal" -> "down-orthogonal", "down-orthogonal" -> "up-orthogonal" (§4.3's backwards adjective); the `=` column 22 and `(` column 24 kept; sample batch 3 edit 8)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 139–142
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -6030,6 +7061,10 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+  - down_tucker_cores = (D0,...,D(d-1)), down-orthogonal
+  - up_tt_cores       = (U0,...,U(d-1)), up-orthogonal
+  - left_tt_cores     = (L0,...,L(d-1)), left-orthogonal
+  - right_tt_cores    = (R0,...,R(d-1)), right-orthogonal
 ~~~
 
 #### DOC-UG-0215
@@ -6037,9 +7072,9 @@ new text (R4/R5, verbatim the file at the new span):
 - file: `docs/user_guide.rst`; old span: 215–218; kind: index equation; fenced: y
 - letters and widths: letters: U_i
 - roles: frame Tucker core `U_i` → `D_i`; variation core `dU_i` → `dD_i` (D-12) or `V_i`; shapes use the T3's n_i (stay)
-- re-laid out: n expected unless a label grows; K10 in place
+- re-laid out: y (R5: re-laid out, K10b; `U_i` -> `D_i` in place and the variation `dU_i` -> `V_i` (shape rule), one character shorter, padded so the `(T3Variations)` column stays)
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 215–218
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -6054,6 +7089,10 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+    frame Tucker core  D_i   (T3Frame)        C            (2,)      + (n_i, N_i)
+    variation core    V_i   (T3Variations)   K + C        (3, 2)    + (n_i, N_i)
+    probe vector      w_i   (ww)             W            (4,)      + (N_i,)
+    forward probe     z_i   (tangent.probe)  W + K + C     (4, 3, 2) + (N_i,)
 ~~~
 
 
@@ -6066,7 +7105,7 @@ new text (R4/R5, verbatim the file at the new span):
 - roles: the weight families and the legs they act on: `up` | H's Tucker (nU) leg → `down` | H's Tucker (nD) leg; `down` | V's complement (nD) leg → `up` | V's complement (nU) leg; rows in physical order (down, up, left, right)
 - re-laid out: n/a: a markdown table; K12 applies
 - new == old possible: no: it carries a changing letter, width or store word
-- new span: (R4/R5)
+- new span: 69–74
 - same-reason: (R4/R5: required only when the new text equals the old)
 
 old text:
@@ -6083,6 +7122,12 @@ old text:
 new text (R4/R5, verbatim the file at the new span):
 
 ~~~
+| family | weights | length |
+|---|---|---|
+| `down` | `H`'s Tucker (`nD`) leg | `d` |
+| `up` | `V`'s complement (`nU`) leg | `d` |
+| `left` | `H`'s left bond (`rL`) | `d` |
+| `right` | `H`'s right bond (`rR`) | `d` |
 ~~~
 
 
