@@ -68,7 +68,7 @@ diagrams/equations before/after (R4a, R4b handoff Appendix A); names renamed by 
 comprehension B/G, `udots`, utv `dG`; R4b's `dG`->`H`, `D`->`B`, `rsig_hat`); the generic n beyond item 12's list;
 wording fixes beyond letter swaps (`D V^T`, `D_i w_i`, "the lift", "Upward"), the TOL change, the gate-tool narrowings.
 PLAN TEXT (writer, one round): all R4a/R4b rows (RV1-RV15 + R4b's), the four -ward rows moved from R4b to R4a, item 12's
-extension, the TOL change, the tool narrowings. R5 BUILT 2026-11-13 (docs, diagrams, six notes + PDFs, glossary + work list, CHANGELOG/release notes), IN REVIEW:
+extension, the TOL change, the tool narrowings. R5 COMMITTED 2026-11-13 (6062f3d2, 43 files; review APPROVE; R6 acceptance STARTED, plan draft 28 being recorded). R5 was:
 every K gate clean at stage R5, K12 301/301, K16 21 width forms signed off by contraction sizes, six PDFs rebuilt and
 read by the reviewer. Rulings: the exact-Hessian note's frame CENTERS renamed `\bar H_i` (12 sites; the TT-variation
 letter H stands); the zipper chains written out so `\dot B_i` has one meaning; `pad_safe_svd.tex:307` `u_j` ->
