@@ -52,8 +52,16 @@ interim state that remains: fenced field comments beside renamed fields keep old
 (tier D/E rows) and the sampling kernels' prose/shift symbols still old; docs/diagrams/notes untouched (R4a, R4b, R5).
 PLAN TEXT TO-DO for the writer before/at R4a (reviewer's S1-S5): R4a's locator skips every LETTER-API row; §5.3 records
 the K3 and K14 carve-outs the R3 gate tool made; §5.2 adds `test_uniform_manifold`; R4b's K9 needs a clause for R3's
-new-meaning text; R5's release notes quote §1.3's message verbatim. **PAUSED AFTER R3 AT NICK'S REQUEST (tokens;
-resume tonight): next R4a — code prose outside the sampling kernels (tier D/E rows), the backwards adjectives, the
+new-meaning text; R5's release notes quote §1.3's message verbatim. R4a COMMITTED 2026-11-13 (e3085085; review APPROVE after one revision; 59 files; 47 §4A blocks rewritten whole and
+re-derived; 87 whitespace-only realignment hunks; rulings RV1-RV15 recorded in R4a_handoff/review: utv frame P/Q -> L/R,
+t3_linalg `[G, B, mode]`, the nine `(U, G)` -> `(B, G)`, comprehension B/G over variations -> V/H, `D V^T`, `udots` ->
+`ddots`, utv `dG` -> `H`, "Up-orthogonalize"). FOR THE R4 REVIEW STOP WITH NICK: S2 -- eight comprehension `B`/`G`
+locals on the DNT list (there only because R1 listed every B/G) were renamed V/H as variations under the shape rule.
+FOR R6's ALIGNMENT SWEEP: 21 one/two-column misalignments in touched lines predate the arc (in v2026.4.0) + 2 in R3's new
+test lines (`test_frame_variations_format.py:544-545`): whitespace-only fixes. PLAN TEXT (writer, with R4b's): the nine
+(B, G) rows; loop-variable images D/U/Di; `utv_corewise_retract`'s generic n; the four -ward rows done in R4a (drop
+from R4b's list); the gate-tool narrowings. NEXT: R4b (the sampling kernels' prose and the shift symbols), then the
+review stop with Nick after R4. Earlier: PAUSED AFTER R3 (tokens): next R4a — code prose outside the sampling kernels (tier D/E rows), the backwards adjectives, the
 corewise `(B, G, G, G)` sentences, the `-ward` travel words, and the REALIGNMENT of every touched block within reason
 (style reference `tucker_tensor_train.py`); then R4b, the review stop with Nick after R4, R5, R6.** — the
 letter API (`update` tuples, `_update_stores`, `_STORE_LETTERS`/`_COLOURS`, the dispatch rows, the unequal-store
