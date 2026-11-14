@@ -1,7 +1,8 @@
-# Opt-in phase timing for `newton_cg` — plan (draft 2, 2026-11-13)
+# Opt-in phase timing for `newton_cg` — plan (draft 3, 2026-11-13)
 
-> **Status: DRAFT 2** (writer, after critic r1 `dev/newton_timing_plan_review_r1.md`), for the critic, then Nick. Signature level (code in the house signature style; blocks
-> here compress today's arguments). T-1..T-7 settled (§8); §9 holds the one open question. Lines (working tree,
+> **Status: DRAFT 3** (critic r2 `dev/newton_timing_plan_review_r2.md`: APPROVE of draft 2; Nick's Q-1 recorded,
+> 2026-11-13). Signature level (code in the house signature style; blocks here compress today's arguments). T-1..T-7
+> settled (§8); §9's Q-1 RESOLVED: (a). Lines (working tree,
 > 2026-11-13): `backend/optimizers.py` `Problem.local_model` ~360, `padded_start` ~763, `_cone_reference` ~841,
 > `NewtonInfo` ~1148, `newton_cg` ~1313 (loop ~1536–1670); `geometry.py` members ~376 / ~818; `padded_frames.py` ~721;
 > `uniform_padded_frames.py` ~760–911. Store words are 2026.5.0's. Every agent first reads a handful of
@@ -10,6 +11,13 @@
 ## CHANGES
 
 *History only. Where a CHANGES line and a section differ, the section governs.*
+
+**Draft 3 (2026-11-13, session; critic r2: APPROVE, one optional NIT; Nick's Q-1).**
+
+| row | from | change | where |
+|---|---|---|---|
+| 3.1 | Nick Q-1 | RESOLVED (2026-11-13): (a), as written since draft 1. Exact mode's misfit transpose is reported in the `gradient` phase. No text change beyond §9 | §9 |
+| 3.2 | r2 NIT | Field order confirmed: `PhaseSeconds` declares `tracking` after `trial_objective`, its execution order, matching §2.1's table and §4's `time` line (applied in draft 2, row 2.1). No change | §3.1 |
 
 **Draft 2 (2026-11-13, writer; critic r1: no MAJOR, 4 MINOR, 4 NIT, all applied).**
 
@@ -367,13 +375,13 @@ Writer's calls in draft 1 (for the critic):
 
 ## 9. For the maintainer
 
-**Q-1. Where exact mode's misfit transpose is reported.** In Gauss-Newton mode `lm.gradient` runs the misfit transpose
-`Π 𝒥ᵀ r`, inside the `gradient` phase; in exact mode `Problem.local_model` runs it once, inside the model build, and
-`lm.gradient` only reads it.
+**Q-1. Where exact mode's misfit transpose is reported. RESOLVED (Nick, 2026-11-13): (a).** In Gauss-Newton mode
+`lm.gradient` runs the misfit transpose `Π 𝒥ᵀ r`, inside the `gradient` phase; in exact mode `Problem.local_model`
+runs it once, inside the model build, and `lm.gradient` only reads it.
 
-- **(a), recommended and written into this plan:** clock it as `gradient` in both modes (§2.5). `gradient` then means
-  the same work in both modes and `curvature` is `curvature_precompute` alone, so a GN-vs-exact comparison reads
-  directly: the modes differ by `curvature` (setup) and `cg` (per iteration).
+- **(a), recommended, written into this plan, and chosen:** clock it as `gradient` in both modes (§2.5). `gradient`
+  then means the same work in both modes and `curvature` is `curvature_precompute` alone, so a GN-vs-exact comparison
+  reads directly: the modes differ by `curvature` (setup) and `cg` (per iteration).
 - **(b):** report it inside `curvature` (code order, as draft 0 did): exact's `gradient` is then near zero and its
   `curvature` mixes the transpose with the curvature data.
 
