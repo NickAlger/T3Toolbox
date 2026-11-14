@@ -1,12 +1,13 @@
-# The store rename — plan (draft 28, writer, 2026-11-13)
+# The store rename — plan (draft 29, FINAL — arc complete, 2026-11-13)
 
-> **Status:** draft 28: Nick's rulings of 2026-11-11, critic rounds 1–25 (`dev/store_rename_plan_review_r{1,…,25}.md`),
+> **Status:** draft 29 (FINAL — arc complete): Nick's rulings of 2026-11-11, critic rounds 1–25
+> (`dev/store_rename_plan_review_r{1,…,25}.md`),
 > Nick's decisions on every open item, and his review of the sample edits (`dev/store_rename_sample_edits.md`; edits
 > 1–7 approved as written, 8–10 ruled on for draft 15) and the second batch (`dev/store_rename_sample_edits_2.md`; its
 > recommended forms approved, its §12 issues fixed in draft 17), Nick's two rulings of draft 18, and the third batch (`dev/store_rename_sample_edits_3.md`; its §12 issues
-> fixed in draft 20 with the session's rulings, its §13), R1's findings (draft 21), Nick's variation-letter rule (draft 22) the session's V1–V5 rows (draft 23) Nick's shape rule (draft 24), R2's record (draft 25), R3's record (draft 26), R4a's and R4b's record (draft 27) and R5's record (draft 28). **The critic agreed in round 26**
-> (`dev/store_rename_plan_review_r26.md`). Next: the
-> implementer/reviewer slices R1–R6 (§7).
+> fixed in draft 20 with the session's rulings, its §13), R1's findings (draft 21), Nick's variation-letter rule (draft 22) the session's V1–V5 rows (draft 23) Nick's shape rule (draft 24), R2's record (draft 25), R3's record (draft 26), R4a's and R4b's record (draft 27), R5's record (draft 28) and R6's record (draft 29). **The critic agreed in round 26**
+> (`dev/store_rename_plan_review_r26.md`). **The arc is complete:** the implementer/reviewer slices R1–R6 are
+> committed, R6 as `5ec8cbc5` (§7), and every acceptance item passes (§5.5). What remains before the tag is §11's.
 > **Breaking**; the first item of 2026.5.0. The glossary update and the 601-row docs-consistency pass
 > (`dev/glossary_naming_decisions.md`) run after it, on the renamed code.
 >
@@ -20,6 +21,21 @@
 
 *History only: the record of how the plan got here. The instructions are the numbered sections below; where a CHANGES
 line and a section differ, the section governs.*
+
+**Draft 29 (FINAL — the arc is complete. R6's record: `dev/store_rename_slices/R6_handoff.md`, `R6_review.md`
+(APPROVE; MINOR 1 fixed in Revision 1; N1–N4) and `R6_alignment_sweep.md`; R6 committed, 5ec8cbc5).**
+
+- §5.5 (new): the acceptance results as numbers (every gate clean, K12 301/301, K15 0 unlisted hunks over the arc
+  checked slice by slice, the battery bitwise in both environments, the suite 1,347 and the floor 1,346, the slow tier
+  66, 3,177 doctest examples unchanged, 14/14 examples, `sphinx -W` clean, the rendered-HTML grep's carve-outs); N3, a
+  tag-based K14/K15 run fails by construction and the slice chain is the gate.
+- §6: N2, `release_notes_2026.5.0.md` is re-cut from the CHANGELOG at the release commit.
+- §7: R6 is committed and the arc is complete; the alignment sweep's record (277 whitespace-only lines in 56 files,
+  J1–J9 and J3b, the bridge-scan fix, `r6_align_scan.py`); the T3Polynomial follow-up is done at R6 (two lines,
+  `e1078cb` there; N1), in the R6 row, the record and §2's "Downstream".
+- §10: the 2026.4.0 arc's two audit items (canonical bases and signs; a `functools.partial`-free uniform loop) join
+  R5's two.
+- §11 (new): what remains before the 2026.5.0 tag, outside this plan.
 
 **Draft 28 (R5's record: `dev/store_rename_slices/R5_handoff.md` §6's judgement calls, §7's questions Q1–Q9 with the
 session's dispositions, §8's tool changes and the K16 sign-offs of §2.2 and Appendix B, and `R5_review.md`; R5
@@ -963,7 +979,7 @@ Full tables: inv 1 §2 (frontend) and inv 2 §2 (backend). Counts from BR §1.3,
   `cone_*`, `alternate=` carry no store word); every HISTORICAL contraction string (inv 2 §6); every number (§5.1).
 - **Text only:** the reprs (`T3Frame(… down_ranks=…, up_ranks=…)`, `UT3Frame(… nD=…, nU=…)`) and store-naming messages.
 - **Downstream:** T3Polynomial has one positional unpack (`scripts/g01_g0_common.py:121`), which keeps working; its
-  locals are renamed after the release. `implicit_probing` does not import T3Toolbox, and the research repo makes no
+  locals were renamed at R6 (§7). `implicit_probing` does not import T3Toolbox, and the research repo makes no
   library call with these names (its prototypes keep the old words in their own locals).
 
 ## 3. Letters (Nick, 2026-11-11)
@@ -1612,6 +1628,43 @@ K9 is the only check that sees a bare word left in the old sense.
   `pad_safe_svd.pdf`. `symmetric_probe_derivatives.tex` and `ttm_t3m_ht_note.tex` have no PDF in the repo; R5
   compiles them too, for Nick's review only (not committed). All six go to Nick at R5's stop.
 
+### 5.5 Acceptance (R6's record, 2026-11-13)
+
+Every §5 item passes on the final tree, in the implementer's runs (`R6_handoff.md` §1) and again in the reviewer's own
+(`R6_review.md`, APPROVE). No fix outside the rows was made.
+
+- **The gates** (`store_rename_check.py --stage R6 --prev HEAD`): K0–K17 clean on the code, the docs and the notes,
+  K3-docs and K9-docs included. K10/K10b: 37 blocks in place, 23 re-laid out. K11: 94 fenced spans byte-identical to
+  the tag, 206 rewritten blocks handed to K12. **K12: 301 of 301.** K13: INFO only (2 generic, 160 unrecognised, as at
+  R5). K16: 21 forms, signed off at R5. K17 with its three shape checks: 223 NAME/array pairs.
+- **K15 over the arc: 0 unlisted hunks**, checked slice by slice. A direct `difflib` against the tag is not meaningful:
+  R2's 4,896 in-place renames merge with R3's and R4's hunks into 3,237 mixed hunks. So each commit was extracted with
+  `git archive` and gated against its predecessor with that slice's own listing: tag → R2 positional against
+  `R1_hit_table.tsv` (`--realized`, 0 positions outside it); R2 → R3 36 hunks, R3 → R4a 40, R4a → R4b 36, all listed;
+  R4b → R5 and R5 → R6 0. K14 passes at every step; the only DNT tokens added belong to listed new code (291 at R3, 24
+  at R4a, 26 at R4b).
+- **A tag-based K14/K15 run fails by construction** (review N3): `--prev v2026.4.0` reports 122 DNT tokens "lost",
+  3,237 mixed hunks and K15-cross 231, while its contract/einsum strings are identical. The slice chain is the gate; a
+  tag-based run is not a regression.
+- **The battery: bitwise in both environments**, 2,190 arrays and 856 texts, 0 errors. The floor environment runs
+  against its own tag reference (`b9-save` on a tag worktree; bitwise holds within one environment, §9). Its two
+  records are compared with the 3.11 Python, because `compare` imports `store_rename_apply.py`, which asserts 3.11;
+  both sets of arrays come from the floor environment.
+- **The suite:** 1,347 passed, 4 skipped (current env, `-n 3`); the floor env 1,346 passed, 5 skipped. The extra skip
+  is by design (`test_eager_jax_compiles_nothing_twice`: jax 0.4.30 cannot unregister a monitoring listener). **The
+  slow tier**, serial: 66 passed (13,173 subtests).
+- **Doctests:** the module doctests 241 passed and `getting_started.rst` 81/81, in both envs; every page passes in
+  both. **3,177 examples at the tag and in the tree, 0 expected outputs changed** (static, over every non-`dev/` file
+  changed since the tag).
+- **Examples: 14 of 14. `sphinx -W --keep-going`: clean.**
+- **The rendered HTML** (tags stripped, `_sources` and `_static` skipped), grepped for K1, K2, K3-docs, K4, K6,
+  "outer-orthogonal" and `Oᵢ`: every hit is a carve-out (§5.3). `glossary.html` has the 2026.4.0 alias groups and
+  N17's "outer-orthogonal"; the paper ↔ code maps are `batching_and_stacking.html` §8 and `entries_apply_probe.html`
+  §8 (`Oᵢ`); `release_notes.html` has the upgrade section and the past releases' CHANGELOG records (`[2026.4.0]`'s
+  `('UL', 'RO')`, `[2026.2.0]`'s "Tucker up-SVD"). There is no `nO`, and no hit in any API page.
+- The version is not bumped: `pyproject.toml`, `CITATION.cff` and the `__init__` fallback read 2026.4.0 until the
+  release commit (§11).
+
 ## 6. Documentation and release notes (R5)
 
 - **`docs/frame_variations.md` § "Four rank stores"** gets the convention paragraph, the picture and the T4S note,
@@ -1659,6 +1712,9 @@ K9 is the only check that sees a bare word left in the old sense.
   root sentence. The four T4S-notation notes are converted per §4.8, each with the T4S line. `pad_safe_svd.tex`: "the
   down step" → "the TT up-orthogonalization" (×2). Every PDF is rebuilt.
 - **After R6:** the 601-row docs-consistency pass, on the renamed text; K2–K9 are re-run after it.
+- **R6's record (review N2):** the root `release_notes_2026.5.0.md` equals the CHANGELOG `[2026.5.0]` section today,
+  as the 2026.4.0 precedent does. The rest of the 2026.5.0 bundle adds to that section, so the file is re-cut from the
+  CHANGELOG at the release commit.
 
 ## 7. Slices
 
@@ -1670,14 +1726,51 @@ K9 is the only check that sees a bare word left in the old sense.
 | **R4a** | Code prose outside the sampling kernels: every tier D and tier E row in `t3toolbox/`, `tests/` and `examples/` (§4.1–4.4, 4.7, 4.10, 4.11), the free-prose store words included; every §4A block in those files rewritten by hand, before/after and the relation derivations in the handoff | suite; doctests in both environments with outputs unchanged; `sphinx -W`; K0–K10b and K13–K15 clean on those files; the reviewer has read every block |
 | **R4b** | The sampling kernels' prose (`probing`, `sampling_derivatives`, `apply`, `entries`, `utv_sampling`, `ut3_sampling`, the jet twins and curvature tests): their tier D and E rows, the shift and derivative notation (§3.1–3.2), the reworded message directions (§3.3), their §4A blocks by hand | battery bitwise; suite; doctests with outputs unchanged; K0–K15 clean on the code tree; the reviewer has read every block. **Review stop**: Nick sees the before/after of every code-tree diagram and equation (R4a's and R4b's) |
 | **R5** | Docs (§6): pages, the six notes (§4.8) and their PDFs, the glossary and its work list, `CLAUDE.md`, CHANGELOG and release notes; every §4A block in the docs and notes by hand (diagrams, tables, tikz labels, equations), before/after in the handoff | `sphinx -W`; markdown doctests in both environments; K-checks clean on the docs and notes; PDFs rebuilt; K10/K10b on the docs' ascii blocks, K12 on the docs, and K16's LaTeX width forms signed off; every note compiled with `latexmk -pdf` (§5); every example runs (`examples/*.py`, as CI's examples job does). **Review stop**: Nick sees the before/after of every docs and notes block, and every note's compiled PDF (Nick, 2026-11-11) |
-| **R6** | Acceptance: §5 end to end in both environments, the slow tier, the battery also in the floor environment; the T3Polynomial follow-up prepared (`g01_g0_common.py:121`, its suite), committed only after the release; HANDOFF | — |
+| **R6** | Acceptance: §5 end to end in both environments, the slow tier, the battery also in the floor environment; the T3Polynomial follow-up (`g01_g0_common.py`'s `zero_base`, its suite), done at R6; HANDOFF | — |
 
-**Progress (draft 28).** R3 is committed (74683a39), R4a (e3085085) and R4b (f5ef5a8c) too; the code tree is done
-(K12: 54 of 54 code-tree blocks), and the R4 review stop with Nick passed (2026-11-13). R5 is committed (6062f3d2);
-R6 is in progress. R4a realigns every block the rename touched (§4 item 10), within reason (Nick, 2026-11-12,
+**Progress (draft 29): the arc is COMPLETE.** R3 is committed (74683a39), R4a (e3085085) and R4b (f5ef5a8c) too; the
+code tree is done (K12: 54 of 54 code-tree blocks), and the R4 review stop with Nick passed (2026-11-13). R5 is
+committed (6062f3d2), and R6 (5ec8cbc5; review APPROVE): every §5 item passes (§5.5). Nick's final review stop of the
+arc follows. R4a realigns every block the rename touched (§4 item 10), within reason (Nick, 2026-11-12,
 `dev/HANDOFF.md`'s top block): where aligning would make lines extremely long or cause other problems, a judgement call
 is allowed; the guiding principle is readability for humans; the style reference is `t3toolbox/tucker_tensor_train.py`,
 setting aside any misalignment from this arc.
+
+**The alignment sweep (R6's record, `dev/store_rename_slices/R6_alignment_sweep.md`).** R6 checked every aligned block
+of the 109 `.py`, `.md` and `.rst` files the arc touched.
+
+- **277 lines in 56 files, whitespace only:** `git diff -w` is empty, K15 finds 0 NAME hunks, and no expected doctest
+  output changed (37 doctest source lines moved a trailing comment). 42 of the lines were touched by the arc; 235 were
+  as at the tag. The fixes: 114 chain moves to a block's majority column, 38 re-pads to a line that sticks out by 1–2,
+  39 type-column slips (35 of them a `frame:` argument one or two columns off its block, a slip copied across the
+  backend signatures), 24 by hand, 62 bridged.
+- **What remains:** no comment or doctest column within two columns of its neighbour's, adjacent or bridged; 0 tag
+  alignments broken by the arc (3,334 adjacent pairs, and the bridged ones).
+- **The judgements**, against the style reference `t3toolbox/tucker_tensor_train.py`:
+  - **J1:** a NAME too long for its block's type column is left sticking out, written `name: type` with one space, as
+    `tucker_tensor_train.py` does (`sum_over_probes:`, `:3644`). 24 type pairs (`sum_over_probes`, `frame_sweep`,
+    `variations_data`, `NewtonInfo`'s `regularization`, …); re-padding a whole signature for one name is not worth it.
+    Its two consequences are the scan's only drift, deliberate: `NewtonInfo.misfit` and
+    `uniform_least_squares_problem`'s `sharing` join their blocks' columns.
+  - J2: comment stick-outs of 3 or more columns are left (455 pairs), as in the reference. J3, J3b: separate groups
+    are left (26 adjacent pairs, 19 bridged: return tuples against `]:`, arguments against return lines, doctest
+    sub-blocks, lines of different indents). J4: six unpadded assignments beside an aligned pair are left.
+  - J5: re-pads grow seven already-long lines by 1–2 characters, to at most 139. J6: `t3_svd.py:45` is reverted to
+    the tag. J7: `test_manifold.py:693–695` share the most compact column that fits (85). J8: slips of 3 or more
+    columns inside one statement group, fixed by hand. J9: the one `=` near-miss the rename created (`down  =`).
+- **The bridge-scan fix (review MINOR 1, Revision 1):** the first pass paired adjacent lines only, so a column split
+  by a comment-less line went unseen, as a near-miss and as drift. The reviewer's bridge scan (across one or two
+  comment-less lines) found 74 pairs; 62 lines moved, among them three tag alignments the arc had broken
+  (`fv_conversions.py:207`, `geometry.py:129`, `padded_frames.py:297`). The 19 pairs left are J3b.
+- **The tool:** `dev/store_rename_slices/r6_align_scan.py` (new, one-off, in `dev/` like the other gate tools) scans
+  three column features (a trailing comment, a signature's type column, a padded `=`) for drift against the tag and
+  for near-misses; `--bridge` lists the bridged pairs, report only.
+
+**The T3Polynomial follow-up: done at R6** (review N1: the plan said after the release, the HANDOFF after R6; the
+session chose R6). `scripts/g01_g0_common.py`'s `zero_base` changed in two lines, not one: the unpack
+`down, up, left, right = frame` and its return `tuple(down), tuple(up), …`. Renaming `:121` alone would hand back the
+stores swapped. The function is unchanged against both library versions; that repo's suite passed (69 passed, 33
+skipped), and the change is committed and pushed there as `e1078cb`.
 
 **The implementer's brief (Nick's words, 2026-11-11), read before every slice.**
 
@@ -1784,3 +1877,17 @@ battery comparison); the session inspects the diff, runs the suite, commits by n
   `curvature_internals.md:28–29`) collides with the frame-variations `H`, a collision that predates the rename;
   (2) the shared note's `\dot V_i`, `\dot W_i` (`shared_t3_math.tex:335, 339, 575`: the unabsorbed Tucker variations
   of ξ and η, `N_i × n_i`) are `D`-shaped by the shape rule but are not store letters.
+- **The 2026.4.0 arc's two audit items**, listed here so the record is whole
+  (`dev/aligned_padded_frame_impl_plan_2026-11-09.md`, D-42, D-49, D-47): (3) canonical bases and signs at the
+  representation level: at singular-value ties the layers' orthogonal representations choose different bases, and the
+  hint-free start depends on the representation, slot signs included; (4) a `functools.partial`-free uniform loop: the
+  whole-loop jit binds its statics with one `functools.partial`, accepted in that instance only (D-47).
+
+## 11. After the arc
+
+The rename is complete (R1–R6, §7) and accepted (§5.5). What remains before the 2026.5.0 tag is outside this plan: the
+opt-in Newton phase timing (`dev/newton_timing_plan_2026-11-10.md`), the GN-to-Newton switch
+(`dev/gn_newton_switch_plan_2026-11-13.md`), the glossary update and the 601-row docs-consistency pass
+(`dev/glossary_naming_decisions.md`, with K2–K9 re-run after it, §6), and the release commit (the version bump in
+`pyproject.toml`, `CITATION.cff` and the `__init__` fallback, the CHANGELOG date, and `release_notes_2026.5.0.md`
+re-cut from the CHANGELOG). Nick tags.
