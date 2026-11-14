@@ -36,7 +36,7 @@ only, DEFAULT countable; G-4: track every countable row -- NO `switch_track_ever
 measurement-gated default ("no need for more elaborate options at this time"; the cost is still reported in the
 benchmark slice, informational). TIMING Q-1: (a) -- the `gradient` phase carries exact mode's misfit transpose.
 TIMING FEATURE IN IMPLEMENTATION (plan draft 4): P1 COMMITTED (cbcdc1d6: the geometry side -- tree_block_until_ready, per-pass
-clocks in both alignment loops, the members' timing=False keyword; review APPROVE after one test-only round). P2 next (the
+clocks in both alignment loops, the members' timing=False keyword; review APPROVE after one test-only round). P2 COMMITTED (f8cbb442; review APPROVE after one test-side round; the frontend mirror test carries a SELF-EXPIRING exemption for `timing` that P3 MUST delete). P3 next (display `time` line, the frontend keyword + docstring, the overhead/compile figures measured on the laptop, docs §4.13 + CHANGELOG `### Added`, FINAL STOP with Nick). P2 was (the
 newton_cg side: PhaseSeconds/NewtonTiming, the timing keyword, _local_model_phases, the per-phase clocks + jax.monitoring
 compile accounting, stats['timing'], the **kwargs-member guard), then P3 (display, frontend, figures, docs) with the FINAL
 STOP with Nick. Slice records in dev/newton_timing_slices/. IMPLEMENTATION ORDER: timing first (it adds `PhaseSeconds.tracking`), then the switch, then the 601-row docs pass

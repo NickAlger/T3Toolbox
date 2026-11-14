@@ -1,6 +1,6 @@
-# Opt-in phase timing for `newton_cg` — plan (draft 4, 2026-11-14)
+# Opt-in phase timing for `newton_cg` — plan (draft 5, 2026-11-14)
 
-> **Status: DRAFT 4** (P1 IMPLEMENTED and reviewed, 2026-11-14; critic r2 `dev/newton_timing_plan_review_r2.md`: APPROVE of draft 2; Nick's Q-1 recorded,
+> **Status: DRAFT 5** (P1 and P2 IMPLEMENTED and reviewed, 2026-11-14; P3 next; critic r2 `dev/newton_timing_plan_review_r2.md`: APPROVE of draft 2; Nick's Q-1 recorded,
 > 2026-11-13). Signature level (code in the house signature style; blocks here compress today's arguments). T-1..T-7
 > settled (§8); §9's Q-1 RESOLVED: (a). Lines (working tree,
 > 2026-11-13): `backend/optimizers.py` `Problem.local_model` ~360, `padded_start` ~763, `_cone_reference` ~841,
@@ -11,6 +11,16 @@
 ## CHANGES
 
 *History only. Where a CHANGES line and a section differ, the section governs.*
+
+**Draft 5 (2026-11-14, session; P2 implemented + reviewed, APPROVE after one test-side round + one optional library line).**
+
+| row | from | change | where |
+|---|---|---|---|
+| 5.1 | P2 handoff/review | P2's readings, recorded: the clock's private interface is `_PhaseClock` with `close(t)` and `row(t, ...)` taking the end time (its window is bitwise `wall_time`), plus `_CompileSeconds`; the compile listener is registered just after `_prepare_jit_inputs` and always unregistered (try/finally; the body re-indented, `git diff -w` shows the real changes); `previous_callback` also carries the host work between the callback's return and the next lap; the first trust-region radius is a second `forms` lap; the backend docstrings for P2's pieces were written in P2 | §2.2–§2.4, §3 |
+| 5.2 | P2 review N4 | §2.5's literal "not overridden" check is realized as `_STOCK_LOCAL_MODEL`: the split build runs only when `type(problem).local_model is Problem.local_model` as recorded at import, read on the timed path only, so a subclass override AND a class-level patch are both honoured whole (reported in `frame`) | §2.5 |
+| 5.3 | session ruling | The backend `timing` keyword precedes the frontend's (P3) by one slice; the frontend mirror test carries a SELF-EXPIRING exemption that asserts the frontend does not yet accept `timing`, so P3 adding the keyword without deleting the line fails the suite. P3 MUST delete it (`P2_handoff.md` §6) | §5, §7 |
+| 5.4 | P2 review M1–M4 | Tests added beyond §5's rows after mutation testing: a lap reads the clock only after waiting on its outputs (every wait checked, incl. the line-search trial, the alignment, the override's frame lap); `accepted_retraction` pinned on a backtracked row; the listener's unregistration on success | §5 |
+| 5.5 | P2 handoff §4 | The review stop's example (the docstring problem, exact Hessian, padded start, cone reference, numpy) and its printed `stats['timing']` are the P3 docs' worked example | §6 |
 
 **Draft 4 (2026-11-14, session; P1 implemented + reviewed, APPROVE after one test-only round).**
 
