@@ -1,6 +1,6 @@
-# Gauss-Newton → exact-Hessian switch for `newton_cg` — plan (draft 4, 2026-11-14)
+# Gauss-Newton → exact-Hessian switch for `newton_cg` — plan (draft 5, 2026-11-14)
 
-> **Status: DRAFT 4: W1 IMPLEMENTED and reviewed (ca13b37c, 2026-11-14; CHANGES 4.x); W2 next.** Draft 3: Nick's §9 decisions applied (2026-11-13; CHANGES 3.x); every §9 item RESOLVED. Draft 2 was
+> **Status: DRAFT 5: W1 (ca13b37c) and W2 (c39b30bc) IMPLEMENTED and reviewed (2026-11-14; CHANGES 4.x, 5.x); W3 (the benchmark, a report) next, then W4 (docs; REVIEW STOP).** Draft 3: Nick's §9 decisions applied (2026-11-13; CHANGES 3.x); every §9 item RESOLVED. Draft 2 was
 > approved by the critic (review r2, `dev/gn_newton_switch_plan_review_r2.md`) after answering review r1
 > (`dev/gn_newton_switch_plan_review_r1.md`: no MAJOR, 9 MINOR, 12 NIT; CHANGES 2.x). Next: implementation, after the
 > timing feature lands (HANDOFF's order). Signature-level. Binding inputs: Nick's nine answers (`dev/HANDOFF.md`,
@@ -40,6 +40,10 @@
 | 4.2 | W1 handoff/review | Tests as realized: T4 by a forced hit, a scripted sample and CG stubs; T5 records the floor AND the gate's verdict (the plan's literal criterion alone is vacuous at float32, where `e_N ≥ e_GN`); T6 on `newton_cg`'s docstring problem; G-bit by the battery, not digests; beyond §5: one transpose and one companion per point, a capped CG step counting, the count resetting from 2 |
 | 4.3 | W1 handoff | The self-expiring frontend mirror exemption (`not_yet`) and the `hessian` regex in `TestFrontendExactNewton.test_options_with_no_effect_and_unbuilt_geometries_raise`: W2 MUST delete/update them |
 | 4.4 | W1 handoff/review | Printed run on the docstring example: ratios 0.013 and 0.003 on two clean steps, then the switch (`switched_at=2`); 6 Newton steps against GN-TR's 25. Compile budget confirmed: two CG programs per level, none recompiled on a repeat |
+| 5.1 | W2 handoff/review | The display as built: GN-phase switch rows end with `| sw <e_N/e_GN> ×<count>` (`—` when no tracking product ran), the switching row adds `⇒ exact` derived from `switch_fired` (G-3; a test pins it to the field, not the count), placed before `stop:`; exact-phase and non-switch rows byte-identical |
+| 5.2 | W2 handoff | The §2.1/T12 conflict resolved: the switch group follows `timing` as §2.1 says; the timing feature's assertion that `timing` is the LAST keyword was narrowed to "keyword-only, directly after `cone_seed`" (what it meant). §2.3's paragraph became a full frontend docstring section with an example |
+| 5.3 | W2 handoff/review | Message changes: the frontend `newton_cg` and `least_squares_problem` invalid-`hessian` messages list `'switch'`; a stray `switch_*` keyword without the mode is the house `ValueError` ("newton_cg: switch_tau set without hessian='switch'"), formerly an unknown-keyword `TypeError`. One `NewtonInfo` docstring clause outside W2's file list accepted |
+| 5.4 | W2 review | W4 to-do: the fitting doc §4.13's phase table still lists `tracking` as reserved and `curvature` as exact-only — stale since W1; W4 updates both |
 
 ## 0. What and why
 
