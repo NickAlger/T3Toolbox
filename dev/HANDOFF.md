@@ -39,7 +39,11 @@ TIMING FEATURE COMPLETE (plan draft 6): P1 cbcdc1d6, P2 f8cbb442, P3 b263a1dc co
 PENDING (list in dev/newton_timing_slices/P3_handoff.md §6; display sample docs/fitting_and_optimization.md lines ~734–775).
 GN-TO-NEWTON SWITCH IN IMPLEMENTATION (plan draft 4): W1 COMMITTED (ca13b37c, the backend; review APPROVE after two rounds;
 the frontend mirror test carries a SELF-EXPIRING exemption that W2 MUST delete, plus a regex to update). W2 COMMITTED (c39b30bc; review APPROVE after two rounds; display sample dev/gn_newton_switch_slices/W2_handoff.md lines
-75-172). W3 next (the 10x100
+75-172). W3 RUNNING on the laptop (started 2026-11-14 12:20 CST; log T3Polynomial/data/w03_switch_2026_11/run_log.txt; ~10 h for all
+arms; resumable). W5 RUNNING on a NEW Runpod Nick started 2026-11-14 (ssh root@195.26.233.82 -p 35910; agent `afc368a453f62eab4`:
+10x100 all arms both starts, then 20x1000, then GPU timing figures for the timing docs; results -> T3Polynomial
+data/w03_switch_2026_11/gpu/summary.md). W4 (docs) WRITTEN, verification deferred until the laptop benchmark ends
+(agent `aa91e01e2e108cf36` awaits "GO for verification"). W3 was next (the 10x100
 benchmark, run by the session in T3Polynomial; a report, not a stop), W4 (docs §4.14, CHANGELOG, and fix §4.13's stale tracking/curvature rows; REVIEW STOP), W5
 optional GPU. Slice records in dev/gn_newton_switch_slices/. Then the glossary/docs pass (add 'phase timing' + the timing stats key), then the release commit
 (version bump; CHANGELOG intro to headline all three; re-cut release_notes_2026.5.0.md) and Nick tags. History: P1 COMMITTED (cbcdc1d6: the geometry side -- tree_block_until_ready, per-pass
