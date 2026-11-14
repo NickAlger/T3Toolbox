@@ -37,8 +37,11 @@ measurement-gated default ("no need for more elaborate options at this time"; th
 benchmark slice, informational). TIMING Q-1: (a) -- the `gradient` phase carries exact mode's misfit transpose.
 TIMING FEATURE COMPLETE (plan draft 6): P1 cbcdc1d6, P2 f8cbb442, P3 b263a1dc committed 2026-11-14; FINAL STOP with Nick
 PENDING (list in dev/newton_timing_slices/P3_handoff.md §6; display sample docs/fitting_and_optimization.md lines ~734–775).
-NEXT: the GN-to-Newton switch (plan draft 3, dev/gn_newton_switch_plan_2026-11-13.md; its first slice records into
-PhaseSeconds.tracking), then the glossary/docs pass (add 'phase timing' + the timing stats key), then the release commit
+GN-TO-NEWTON SWITCH IN IMPLEMENTATION (plan draft 4): W1 COMMITTED (ca13b37c, the backend; review APPROVE after two rounds;
+the frontend mirror test carries a SELF-EXPIRING exemption that W2 MUST delete, plus a regex to update). W2 next (display
+segment, frontend keywords + early checks + forwarding, least_squares_problem sizing, docstrings), then W3 (the 10x100
+benchmark, run by the session in T3Polynomial; a report, not a stop), W4 (docs §4.14, CHANGELOG; REVIEW STOP), W5
+optional GPU. Slice records in dev/gn_newton_switch_slices/. Then the glossary/docs pass (add 'phase timing' + the timing stats key), then the release commit
 (version bump; CHANGELOG intro to headline all three; re-cut release_notes_2026.5.0.md) and Nick tags. History: P1 COMMITTED (cbcdc1d6: the geometry side -- tree_block_until_ready, per-pass
 clocks in both alignment loops, the members' timing=False keyword; review APPROVE after one test-only round). P2 COMMITTED (f8cbb442; review APPROVE after one test-side round; the frontend mirror test carries a SELF-EXPIRING exemption for `timing` that P3 MUST delete). P3 next (display `time` line, the frontend keyword + docstring, the overhead/compile figures measured on the laptop, docs §4.13 + CHANGELOG `### Added`, FINAL STOP with Nick). P2 was (the
 newton_cg side: PhaseSeconds/NewtonTiming, the timing keyword, _local_model_phases, the per-phase clocks + jax.monitoring

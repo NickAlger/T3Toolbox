@@ -1,6 +1,6 @@
-# Gauss-Newton → exact-Hessian switch for `newton_cg` — plan (draft 3, 2026-11-13)
+# Gauss-Newton → exact-Hessian switch for `newton_cg` — plan (draft 4, 2026-11-14)
 
-> **Status: DRAFT 3: Nick's §9 decisions applied (2026-11-13; CHANGES 3.x); every §9 item RESOLVED.** Draft 2 was
+> **Status: DRAFT 4: W1 IMPLEMENTED and reviewed (ca13b37c, 2026-11-14; CHANGES 4.x); W2 next.** Draft 3: Nick's §9 decisions applied (2026-11-13; CHANGES 3.x); every §9 item RESOLVED. Draft 2 was
 > approved by the critic (review r2, `dev/gn_newton_switch_plan_review_r2.md`) after answering review r1
 > (`dev/gn_newton_switch_plan_review_r1.md`: no MAJOR, 9 MINOR, 12 NIT; CHANGES 2.x). Next: implementation, after the
 > timing feature lands (HANDOFF's order). Signature-level. Binding inputs: Nick's nine answers (`dev/HANDOFF.md`,
@@ -36,6 +36,10 @@
 | 3.5 | Nick G-6 | `_switch_sample` and `_gauss_newton_view` private. No text change beyond §9 |
 | 3.6 | Nick G-7 | New `switch_track: Optional[str] = None` (None = `'countable'`; `'countable'` \| `'all'`, case-insensitive). Spelled as the `switch_*` group's other options (None = the default, so a value set outside switch mode raises) and validated as `step_control` is; raises with `switch_k=0`; checked in `_check_switch_options`, so on the frontend before `least_squares_problem`; reported as `stats['switch_track']`. `'all'` runs the product on every GN-phase step row and moves no count. §0, §1.1, §1.2, §1.5, §2.1–§2.3, §3.1–§3.3, T4, T7, T8, T11, §7 |
 | 3.7 | Nick | §9 lists every item RESOLVED (2026-11-13); the status header |
+| 4.1 | W1 handoff/review | W1's readings, recorded: `_require_exact_capable(..., hessian='exact')` so the message names the mode; two backend messages change (the invalid-`hessian` message lists `'switch'`; by the session's ruling the GN `curvature_damping` message reads "... only meaningful with hessian='exact' or 'switch'"); option types `numbers.Real` / `numbers.Integral` with bools refused; the new `NewtonInfo` fields follow `timing`, the new `stats` keys precede `stats['timing']`; the shared test helper `check_timing(..., switch=False)` (12/12 timing mutations caught identically before and after) |
+| 4.2 | W1 handoff/review | Tests as realized: T4 by a forced hit, a scripted sample and CG stubs; T5 records the floor AND the gate's verdict (the plan's literal criterion alone is vacuous at float32, where `e_N ≥ e_GN`); T6 on `newton_cg`'s docstring problem; G-bit by the battery, not digests; beyond §5: one transpose and one companion per point, a capped CG step counting, the count resetting from 2 |
+| 4.3 | W1 handoff | The self-expiring frontend mirror exemption (`not_yet`) and the `hessian` regex in `TestFrontendExactNewton.test_options_with_no_effect_and_unbuilt_geometries_raise`: W2 MUST delete/update them |
+| 4.4 | W1 handoff/review | Printed run on the docstring example: ratios 0.013 and 0.003 on two clean steps, then the switch (`switched_at=2`); 6 Newton steps against GN-TR's 25. Compile budget confirmed: two CG programs per level, none recompiled on a repeat |
 
 ## 0. What and why
 
