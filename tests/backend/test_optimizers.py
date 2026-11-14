@@ -8,12 +8,17 @@ and its floors, `TestTrustRegionNewton`). numpy-only (jit dispatch is covered se
 The Newton timing plan's T1-T5 on numpy (`TestNewtonTiming`): timing off is today's run; the records tile each row's
 window and the run; timing changes no number, and an overridden `Problem.local_model` keeps its own build; the
 record's shape; every phase carries its own work and waits on its own outputs; the compile listener's events. Its
-`check_timing` is shared with the padded start's and the jax rows (`test_padded_start.py`, `tests/test_dispatch.py`)."""
+`check_timing` is shared with the padded start's and the jax rows (`test_padded_start.py`, `tests/test_dispatch.py`).
+
+The Gauss-Newton-to-exact switch plan's T1-T4 and T6-T8 on numpy (`TestSwitchNewton`): switch_tau=0 is the Gauss-Newton
+run and switch_k=0 the exact run, bit for bit; the junction; what counts and what resets the count; where it fires; the
+options; the stats and row contract; the tracking phase of a timed run. T5 and T9 jit: `tests/test_dispatch.py`."""
 import collections
 import contextlib
 import dataclasses as dc
 import math
 import os
+import re
 import time
 import types
 import unittest
@@ -29,6 +34,10 @@ import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.optimizers as opt
 import t3toolbox.backend.sampling_derivatives as pd
 import t3toolbox.corewise as cw
+import t3toolbox.optimizers as topt
+import t3toolbox.shared_geometry as sgm
+import t3toolbox.uniform_manifold as ut3m
+import t3toolbox.uniform_tucker_tensor_train as ut3
 from t3toolbox.backend.common import is_jax_ndarray
 
 SHAPE, TUCKER, TT = (8, 8, 8), (3, 3, 3), (1, 3, 3, 1)
@@ -1367,11 +1376,12 @@ def untimed(run):
     return canonical((x, stats))
 
 
-def check_timing(test, stats, seen, compiled=False, override=False):
+def check_timing(test, stats, seen, compiled=False, override=False, switch=False):
     """T2 + T4 on one timed run: ``stats`` its stats, ``seen`` the NewtonInfo rows its callback received. The rows
     tile their windows (and the run); each phase is None exactly where it did not run; the one-offs sit on row 0;
     stats['timing'] is the rows' sums and records. ``compiled``: a compile listener ran (else every compile field is
-    None). ``override``: an overridden Problem.local_model, timed whole in frame."""
+    None). ``override``: an overridden Problem.local_model, timed whole in frame. ``switch``: a hessian='switch' run (its
+    builds are exact-mode; the tracked rows lap the tracking product)."""
     T = stats['timing']
     test.assertEqual(list(T), ['total', 'setup', 'alignment', 'alignment_passes', 'reference_passes', 'last_callback',
                                'phases', 'compile', 'cg_per_iteration', 'rows'])
@@ -1390,13 +1400,13 @@ def check_timing(test, stats, seen, compiled=False, override=False):
             reused = k > 0 and seen[k - 1].tr_accepted is False                    # a rejected trial's model
             test.assertEqual(ran['previous_callback'], k > 0)
             test.assertEqual(ran['reference'], k == 0)
-            test.assertFalse(ran['tracking'])
+            test.assertEqual(ran['tracking'], switch and info.switch_pKp is not None)   # the switch's tracked rows only
             test.assertTrue(ran['remainder'])
             test.assertEqual(ran['frame'], not reused)
             test.assertEqual(ran['gradient'], not reused)
             for name in ('sweep', 'companion', 'residual'):
                 test.assertEqual(ran[name], not reused and not override)
-            test.assertEqual(ran['curvature'], not reused and not override and info.hessian == 'exact')
+            test.assertEqual(ran['curvature'], not reused and not override and (info.hessian == 'exact' or switch))
             for name in _STEP_PHASES:
                 test.assertEqual(ran[name], not info.converged)
             if info.converged:
@@ -1756,6 +1766,515 @@ class TestNewtonTiming(unittest.TestCase):
         windows = sum(info.timing.window for info in seen)
         self.assertGreater(windows / len(seen), 0.05)
         self.assertLessEqual(stats['timing']['phases']['remainder'], 0.1 * windows)
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# The Gauss-Newton-to-exact switch, newton_cg(hessian='switch'): the switch plan's T1-T4, T6-T8 on numpy (T5 and T9,
+# which jit, are in tests/test_dispatch.py)
+# ----------------------------------------------------------------------------------------------------------------------
+_SWITCH_STATS = ('hessian', 'switch_track', 'switched_at')     # the run keys a switch run appends, in order
+
+
+def shared_part(run):
+    """(x, stats) of a run minus what the switch adds (its run keys, its rows' switch fields) and the rows' wall_time,
+    as a canonical tree: equal iff bitwise equal ("row-equal", the rows' part)."""
+    x, stats = run
+    stats = {k: v for k, v in stats.items() if k not in _SWITCH_STATS}
+    stats['history'] = [{k: v for k, v in row.items() if k not in opt._SWITCH_FIELDS + ('wall_time',)}
+                        for row in stats['history']]
+    return canonical((x, stats))
+
+
+def _doc_problem():
+    """``newton_cg``'s docstring problem: probe derivatives of order 1 on (5, 5, 5), a rank-3 target with 1 % noise, its
+    rank-2 fit warm-started by five Gauss-Newton steps. Returns (problem, x0)."""
+    np.random.seed(0)
+    shape, rng = (5, 5, 5), np.random.default_rng(0)
+    ww, pp = ([rng.standard_normal((40, n)) for n in shape] for _ in range(2))
+    kind = bfit.ProbeDerivativesKind(order=1)
+    target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1)).data
+    data = [z + 0.01 * rng.standard_normal(z.shape) for z in kind.point_forward(target, (ww, pp))]
+    problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
+    x0, _ = opt.newton_cg(problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data, max_newton=5)
+    return problem, x0
+
+
+def _switch_case(layer, geometry, seed=11, regularizer=None):
+    """(problem, x0) through the frontend's problem constructor: a probe-derivative fit (order 1, 5 % noise) of a rank-3
+    target at rank 2, from a random start. ``layer``: 'ragged' | 'uniform'; ``geometry``: 'manifold' | 'corewise' |
+    'shared' (the shared manifold, groups (0, 1, 1, 0))."""
+    sharing = (0, 1, 1, 0) if geometry == 'shared' else None
+    shape = (4, 5, 5, 4) if sharing else (5, 5, 5)
+    d = len(shape)
+    rng = np.random.default_rng(seed)
+    np.random.seed(seed)
+    truth = t3.TuckerTensorTrain.randn(shape, (3,) * d, (1,) + (3,) * (d - 1) + (1,))
+    x0 = t3.TuckerTensorTrain.randn(shape, (2,) * d, (1,) + (2,) * (d - 1) + (1,))
+    if sharing:
+        truth = truth.share(sharing, max_tucker_ranks=(3,) * d, max_tt_ranks=(1,) + (3,) * (d - 1) + (1,))
+        x0 = x0.share(sharing, max_tucker_ranks=(2,) * d, max_tt_ranks=(1,) + (2,) * (d - 1) + (1,))
+    ww, pp = ([rng.standard_normal((30, n)) for n in shape] for _ in range(2))
+    data = [z + 0.05 * np.linalg.norm(z) / math.sqrt(z.size) * rng.standard_normal(z.shape)
+            for z in truth.probe_derivatives(ww, pp, 1)]
+    manifold, corewise = (t3m.MANIFOLD, t3m.COREWISE) if layer == 'ragged' else (ut3m.UNIFORM_MANIFOLD,
+                                                                                   ut3m.UNIFORM_COREWISE)
+    G = {'manifold': manifold, 'corewise': corewise}[geometry] if sharing is None else sgm.shared(manifold, sharing)
+    if layer == 'uniform':
+        x0 = ut3.UniformTuckerTensorTrain.from_t3(x0)
+    setup = topt.least_squares_problem(G, 'probe_derivatives', (ww, pp), data, x0, order=1, chunk_size=None,
+                                       regularizer=regularizer)
+    return setup.problem, setup.x0_cores
+
+
+def _cg_stub_at(n, change):
+    """Patch ``_cg_solve`` so that its ``n``-th call (1-based) returns ``change(p, rhs)`` in place of CG's step."""
+    real, calls = opt._cg_solve, []
+
+    def stub(lm, rhs, tol, maxiter, use_jit, radius=math.inf):
+        calls.append(1)
+        out = real(lm, rhs, tol, maxiter, use_jit, radius)
+        return ((change(out[0], rhs),) + tuple(out[1:])) if len(calls) == n else out
+    return unittest.mock.patch.object(opt, '_cg_solve', stub)
+
+
+_ASCENT = lambda p, rhs: cw.corewise_scale(rhs, -1.0)          # p = +g: the slope is >= 0, so the -g fallback fires
+_OVERSHOOT = lambda p, rhs: cw.corewise_scale(p, 4.0)          # four Newton steps: Armijo backtracks
+
+
+class _NoTwoHoleKind(bfit.ProbeDerivativesKind):
+    """A kind that re-declares the marked ``corewise_hessian`` stub: it works with Gauss-Newton only."""
+    corewise_hessian = bfit.SamplingKind.corewise_hessian
+
+
+class TestSwitchNewton(unittest.TestCase):
+    """The switch plan's T1-T4 and T6-T8 on numpy: the threshold-disabled and forced-at-0 runs ARE the pure runs; the
+    junction; what counts and what resets; where it fires; the options; the stats and row contract (and the timing
+    record's tracking phase)."""
+
+    MATRIX = [(layer, geometry) for layer in ('ragged', 'uniform') for geometry in ('manifold', 'corewise', 'shared')]
+
+    def matrix(self):
+        """(name, problem, x0) over T1/T2's matrix, plus a regularized ragged manifold fit."""
+        for layer, geometry in self.MATRIX:
+            yield '%s %s' % (layer, geometry), *_switch_case(layer, geometry)
+        yield 'ragged manifold regularized', *_switch_case('ragged', 'manifold', regularizer=opt.IdentityRegularizer(0.3))
+
+    def test_threshold_disabled_is_gauss_newton(self):
+        """T1: ``switch_tau=0`` tracks and never switches, so the run IS the Gauss-Newton run with the same step control
+        and forcing power, bit for bit (x; every stats key and row field but the switch's and wall_time): CG, the step
+        and the rows see the Gauss-Newton view (today's operator, gauge and regularizer included) and the gradient is
+        the exact build's one transpose, Gauss-Newton's bit for bit."""
+        for name, problem, x0 in self.matrix():
+            for step_control in ('trust_region', 'line_search'):
+                with self.subTest(case=name, step_control=step_control):
+                    kw = dict(max_newton=8, step_control=step_control, cg_forcing_power=0.7)
+                    gn = opt.newton_cg(problem, x0, **kw)
+                    sw = opt.newton_cg(problem, x0, hessian='switch', switch_tau=0.0, **kw)
+                    self.assertEqual(shared_part(sw), shared_part(gn))
+                    stats, rows = sw[1], sw[1]['history']
+                    self.assertEqual(list(stats), list(gn[1]) + list(_SWITCH_STATS))
+                    self.assertEqual([stats[k] for k in _SWITCH_STATS], ['switch', 'countable', None])
+                    self.assertTrue(all(row['hessian'] == 'gauss_newton' for row in rows))
+                    self.assertTrue(all(row['switch_fired'] is False and row['switch_count'] == 0 for row in rows))
+                    self.assertTrue(any(row['switch_e_n'] is not None for row in rows))      # the tracking ran
+
+    def test_one_transpose_per_point(self):
+        """A Gauss-Newton-phase point costs ONE misfit transpose and ONE geometry companion, as in either pure mode: the
+        gradient is read from the exact build, not recomputed by the view, and the view shares the build's companion --
+        so a switch_tau=0 run makes exactly the Gauss-Newton run's transposes (CG's included) and companions (the shared
+        manifold's grouped frame data), on both step controls."""
+        spies = {'transpose': (bfit.ProbeDerivativesKind, 'transpose'),
+                 'companion': (bgeo.ManifoldGeometryOps, 'precompute')}
+        for geometry in ('manifold', 'shared'):
+            problem, x0 = _switch_case('ragged', geometry)
+            for step_control in ('trust_region', 'line_search'):
+                with self.subTest(geometry=geometry, step_control=step_control):
+                    counts = []
+                    for kw in (dict(), dict(hessian='switch', switch_tau=0.0)):
+                        with contextlib.ExitStack() as stack:
+                            calls = {name: stack.enter_context(unittest.mock.patch.object(
+                                owner, attr, autospec=True, side_effect=getattr(owner, attr)))
+                                for name, (owner, attr) in spies.items()}
+                            opt.newton_cg(problem, x0, max_newton=6, step_control=step_control, **kw)
+                        counts.append({name: spy.call_count for name, spy in calls.items()})
+                    self.assertEqual(counts[1], counts[0])
+                    self.assertGreater(counts[0]['companion'], 0)
+
+    def test_defaults(self):
+        """The documented defaults (switch_tau 0.25, switch_k 2, switch_cg_forcing_power 1.0, switch_track 'countable')
+        are the constants, and the defaulted run is the run with them spelled out, bitwise."""
+        self.assertEqual((opt._SWITCH_TAU, opt._SWITCH_K, opt._SWITCH_CG_FORCING_POWER, opt._SWITCH_TRACKS),
+                         (0.25, 2, 1.0, ('countable', 'all')))
+        problem, x0 = _pd_problem(0), _rank2_start()
+        default = opt.newton_cg(problem, x0, max_newton=12, hessian='switch')
+        spelled = opt.newton_cg(problem, x0, max_newton=12, hessian='switch', switch_tau=0.25, switch_k=2,
+                                switch_cg_forcing_power=1.0, switch_track='countable')
+        self.assertIsNotNone(default[1]['switched_at'])
+        self.assertEqual(untimed(default), untimed(spelled))
+
+    def test_forced_at_zero_is_exact(self):
+        """T2: ``switch_k=0`` is exact from iteration 0, with ``switch_cg_forcing_power`` the forcing power, so the run IS
+        the exact run with ``cg_forcing_power`` set to it, bit for bit; nothing is tracked."""
+        for name, problem, x0 in self.matrix():
+            for step_control in ('trust_region', 'line_search'):
+                with self.subTest(case=name, step_control=step_control):
+                    kw = dict(max_newton=8, step_control=step_control)
+                    ex = opt.newton_cg(problem, x0, hessian='exact', cg_forcing_power=0.8, **kw)
+                    sw = opt.newton_cg(problem, x0, hessian='switch', switch_k=0, switch_cg_forcing_power=0.8, **kw)
+                    self.assertEqual(shared_part(sw), shared_part(ex))
+                    stats, rows = sw[1], sw[1]['history']
+                    self.assertEqual([stats[k] for k in _SWITCH_STATS], ['switch', None, 0])
+                    for row in rows:
+                        self.assertEqual((row['hessian'], row['switch_fired']), ('exact', False))
+                        self.assertEqual([row[k] for k in opt._SWITCH_FIELDS[:4]], [None] * 4)
+
+    def test_the_junction(self):
+        """T3: a run that switches at row j is the Gauss-Newton trust-region run up to j (its radius carried into row j)
+        and, from j on, the exact run from x_j with tr_radius0 = row j's radius, the switch run's references and the
+        exact phase's forcing power, bitwise; on a problem where Δ_max never binds and no trust-region floor fires in
+        either run (asserted: Δ0, hence Δ_max and the floor, differ between the two)."""
+        problem, x0 = _pd_problem(0), _rank2_start()
+        seen = []
+        sw = opt.newton_cg(problem, x0, max_newton=30, hessian='switch', switch_cg_forcing_power=0.9,
+                           callback=seen.append)
+        rows, j = sw[1]['history'], sw[1]['switched_at']
+        self.assertGreaterEqual(j, 3)                                   # a Gauss-Newton phase with a reset and a count
+        self.assertTrue(any(row['switch_count'] == 0 for row in rows[:j - 2]))
+        drop = lambda row, *more: {k: v for k, v in row.items() if k not in opt._SWITCH_FIELDS + ('wall_time',) + more}
+        gn = opt.newton_cg(problem, x0, max_newton=j + 1, step_control='trust_region')[1]['history']
+        self.assertEqual(canonical([drop(r, 'stop_reason') for r in rows[:j]]),
+                         canonical([drop(r, 'stop_reason') for r in gn[:j]]))
+        self.assertEqual(rows[j]['tr_radius'], gn[j]['tr_radius'])     # the radius carries across the switch
+        ex = opt.newton_cg(problem, seen[j].x_cores, max_newton=30 - j, hessian='exact', cg_forcing_power=0.9,
+                           tr_radius0=rows[j]['tr_radius'], g0norm_newton=rows[j]['g0norm'],
+                           g0norm_cg=rows[j]['g0norm'])
+        numeric = lambda row: drop(row, 'iteration', 'g0_reference', 'cg_reference')
+        self.assertEqual(canonical([numeric(r) for r in rows[j:]]), canonical([numeric(r) for r in ex[1]['history']]))
+        self.assertEqual(canonical(sw[0]), canonical(ex[0]))
+        self.assertTrue(all(row['hessian'] == 'exact' for row in rows[j:]))
+        self.assertNotEqual(rows[0]['tr_radius'], rows[j]['tr_radius'])                     # the two Δ0 differ
+        for history, radius0 in ((rows, rows[0]['tr_radius']), (ex[1]['history'], rows[j]['tr_radius'])):
+            self.assertLess(max(r['tr_radius'] for r in history if r['tr_radius'] is not None), 0.5e4 * radius0)
+        self.assertEqual((sw[1]['stop_reason'], ex[1]['stop_reason']), ('gradient', 'gradient'))
+
+    @staticmethod
+    def forced_hits():
+        """``_switch_sample`` patched so that every tracked row is a hit (its errors as computed): the count then moves
+        on every countable row and resets on every other, whatever the errors."""
+        real = opt._switch_sample
+
+        def always(delta_f, predicted, curvature, floor, tau):
+            return real(delta_f, predicted, curvature, floor, tau)[:2] + (True, True)
+        return unittest.mock.patch.object(opt, '_switch_sample', always)
+
+    def reset_runs(self, **kw):
+        """T4's runs, each a {name: (stats, the row its condition is on)}: a rejected trust-region trial (an objective
+        offset the model does not see: three accepted steps, then rejections), an Armijo backtrack (CG's second step
+        quadrupled), the -g fallback under each step control (CG's second step an ascent), a forced 'accept' (Armijo
+        cannot be met) and a countable step that CG stopped on the trust-region boundary."""
+        base, x0 = _pd_problem(0), _rank2_start()
+        offset = _OffsetProblem(base.geom, base.kind, base.sample, base.data, None, 0.05 * float(base.objective(x0)))
+        run = lambda problem, **more: opt.newton_cg(problem, x0, hessian='switch', **more, **kw)[1]
+        with _cg_stub_at(2, _OVERSHOOT):
+            backtrack = run(base, max_newton=4, step_control='line_search')
+        with _cg_stub_at(2, _ASCENT):
+            fallback_tr = run(base, max_newton=4)
+        with _cg_stub_at(2, _ASCENT):
+            fallback_ls = run(base, max_newton=4, step_control='line_search')
+        runs = {'rejected trial': (run(offset, max_newton=6), 3), 'backtrack': (backtrack, 1),
+                'fallback, trust region': (fallback_tr, 1), 'fallback, line search': (fallback_ls, 1),
+                'forced accept': (run(base, max_newton=2, c_armijo=10.0, step_control='line_search',
+                                      on_line_search_failure='accept'), 0),
+                'boundary': (run(base, max_newton=3), 1)}
+        h = {name: stats['history'] for name, (stats, _) in runs.items()}
+        self.assertTrue(h['rejected trial'][2]['tr_accepted'] and h['rejected trial'][3]['tr_accepted'] is False)
+        self.assertTrue(h['backtrack'][1]['ls_steps'] > 0 and not h['backtrack'][1]['ls_failed'])
+        self.assertTrue(h['fallback, trust region'][1]['tr_accepted'])
+        self.assertTrue(h['forced accept'][0]['ls_failed'])
+        self.assertTrue(h['boundary'][1]['cg_boundary'] and h['boundary'][1]['tr_accepted'])
+        return runs
+
+    def test_what_counts_and_what_resets(self):
+        """T4, the counting: with every tracked row a hit, the count after a row is the count before plus one on a
+        countable row (a full model step: an accepted trust-region trial, an Armijo step at α = 1, not the -g fallback)
+        and 0 on every other -- a rejected trial, a backtrack, the fallback, a forced 'accept' -- while a countable step
+        that CG stopped on the trust-region boundary counts. The same under switch_track='all', which tracks every row
+        but counts only the countable ones."""
+        for track in ('countable', 'all'):
+            with self.forced_hits():
+                runs = self.reset_runs(switch_k=50, switch_track=track)
+            for name, (stats, at) in runs.items():
+                with self.subTest(track=track, case=name):
+                    rows = stats['history']
+                    count = 0
+                    for row in rows:
+                        if row['converged']:
+                            self.assertEqual(row['switch_count'], count)              # carried
+                            continue
+                        trust = row['step_control'] == 'trust_region'
+                        countable = (row['tr_accepted'] if trust else row['ls_steps'] == 0 and not row['ls_failed'])
+                        countable = countable and not (name.startswith('fallback') and row['iteration'] == at)
+                        count = count + 1 if countable else 0
+                        self.assertEqual(row['switch_count'], count, row['iteration'])
+                        self.assertEqual(row['switch_e_n'] is not None, countable or track == 'all')
+                    self.assertEqual(rows[at]['switch_count'], 2 if name == 'boundary' else 0)
+                    self.assertIsNone(stats['switched_at'])
+        for step_control, radius in (('trust_region', dict(tr_radius0=1e3)), ('line_search', dict())):
+            with self.subTest(case='capped CG', step_control=step_control):         # at its cap: counted like any step
+                with self.forced_hits():                                       # (the large radius: no boundary stop)
+                    _, stats = opt.newton_cg(_pd_problem(0), _rank2_start(), max_newton=6, hessian='switch',
+                                             switch_k=50, step_control=step_control, cg_maxiter=2, g0norm_cg=1e12,
+                                             **radius)
+                rows = stats['history']
+                for row in rows:
+                    self.assertEqual(row['cg_iters'], 2)
+                    self.assertFalse(row['cg_converged'] or row['cg_boundary'] or row['cg_truncated'])
+                self.assertEqual([row['switch_count'] for row in rows], list(range(1, 7)))
+
+    def test_a_miss_resets(self):
+        """T4, consecutiveness: with switch_k=3 and the nine tracked rows' samples scripted hit, hit, miss, hit, hit,
+        uninformative, hit, hit, hit (every row a countable trust-region step), the count is 1, 2, 0, 1, 2, 0, 1, 2, 3 and
+        the switch fires on the ninth row: a countable miss and a countable uninformative sample each reset a count of 2
+        to 0 (not merely lower it), and only switch_k consecutive hits switch."""
+        hit, miss, uninformative = (True, True), (True, False), (False, False)
+        script = iter([hit, hit, miss, hit, hit, uninformative, hit, hit, hit])
+        real = opt._switch_sample
+
+        def scripted(delta_f, predicted, curvature, floor, tau):
+            return real(delta_f, predicted, curvature, floor, tau)[:2] + next(script)
+        with unittest.mock.patch.object(opt, '_switch_sample', scripted):
+            _, stats = opt.newton_cg(_pd_problem(0), _rank2_start(), max_newton=11, hessian='switch', switch_k=3)
+        rows = stats['history']
+        self.assertTrue(all(row['tr_accepted'] and row['switch_e_n'] is not None for row in rows[:9]))
+        self.assertEqual([row['switch_count'] for row in rows[:9]], [1, 2, 0, 1, 2, 0, 1, 2, 3])
+        self.assertEqual([row['switch_fired'] for row in rows], [k == 8 for k in range(len(rows))])
+        self.assertEqual(stats['switched_at'], 9)
+
+    def test_reset_rows(self):
+        """T4 without mocks: each reset row has count 0 and switch_e_gn set, and by default no product (switch_pKp and
+        switch_e_n None). Under switch_track='all' the same rows carry the product with the count still 0, and the run
+        equals the default run: x bitwise, the rows row-equal, the counts, the firing and switched_at equal, e_GN on
+        every row and the product's fields on the countable rows equal."""
+        default, every = self.reset_runs(), self.reset_runs(switch_track='all')
+        for name, (stats, at) in default.items():
+            with self.subTest(case=name):
+                rows, all_rows = stats['history'], every[name][0]['history']
+                if name != 'boundary':
+                    row = rows[at]
+                    self.assertEqual(row['switch_count'], 0)
+                    self.assertIsInstance(row['switch_e_gn'], float)
+                    self.assertTrue(row['switch_pKp'] is None and row['switch_e_n'] is None)
+                    self.assertIsInstance(all_rows[at]['switch_pKp'], float)
+                    self.assertIsInstance(all_rows[at]['switch_e_n'], float)
+                    self.assertEqual(all_rows[at]['switch_count'], 0)
+                self.assertEqual(shared_part((None, stats)), shared_part((None, every[name][0])))
+                for row in all_rows:                                  # the two errors, from the row's own fields
+                    if row['converged']:
+                        continue
+                    a = row['alpha']
+                    pred = (row['slope'] + 0.5 * row['pHp'] if row['step_control'] == 'trust_region'
+                            else a * row['slope'] + 0.5 * a * a * row['pHp'])
+                    self.assertEqual(row['switch_e_gn'], abs(row['delta_f'] - pred))
+                    self.assertEqual(row['switch_e_n'], abs(row['delta_f'] - (pred + 0.5 * a * a * row['switch_pKp'])))
+                self.assertEqual(stats['switched_at'], every[name][0]['switched_at'])
+                for a, b in zip(rows, all_rows):
+                    self.assertEqual([a[k] for k in ('switch_count', 'switch_fired', 'switch_e_gn')],
+                                     [b[k] for k in ('switch_count', 'switch_fired', 'switch_e_gn')])
+                    if a['switch_e_n'] is not None:                                     # a countable row
+                        self.assertEqual((a['switch_pKp'], a['switch_e_n']), (b['switch_pKp'], b['switch_e_n']))
+        runs = []                                                       # x bitwise, on a run that also switches
+        for track in ('countable', 'all'):
+            with _cg_stub_at(2, _ASCENT):
+                runs.append(opt.newton_cg(_pd_problem(0), _rank2_start(), max_newton=12, hessian='switch',
+                                          switch_track=track))
+        self.assertIsNotNone(runs[0][1]['switched_at'])
+        self.assertEqual(runs[0][1]['switched_at'], runs[1][1]['switched_at'])
+        self.assertEqual(shared_part(runs[0]), shared_part(runs[1]))
+
+    def test_switch_sample(self):
+        """T4: _switch_sample over a hit, a miss (strict: e_n = τ·e_gn misses), the rounding gate (both errors at or
+        below the floor: uninformative; e_n at it with e_gn above: a hit; e_gn at it with e_n above: an informative
+        miss) and non-finite inputs (uninformative)."""
+        S = opt._switch_sample
+        # Δf = -1, m_GN = -0.75, m_N = -0.9375: e_gn = 0.25, e_n = 0.0625 (exact binary fractions)
+        self.assertEqual(S(-1.0, -0.75, -0.1875, 0.0, 0.5), (0.25, 0.0625, True, True))         # a hit
+        self.assertEqual(S(-1.0, -0.75, -0.1875, 0.0, 0.25), (0.25, 0.0625, True, False))       # e_n = τ·e_gn: a miss
+        self.assertEqual(S(-1.0, -0.75, 0.0, 0.0, 0.5), (0.25, 0.25, True, False))              # no curvature: a miss
+        self.assertEqual(S(-1.0, -0.75, -0.1875, 0.25, 0.5), (0.25, 0.0625, False, False))      # both at the floor
+        self.assertEqual(S(-1.0, -0.75, -0.1875, 0.1, 0.5), (0.25, 0.0625, True, True))         # e_n at it: a hit
+        self.assertEqual(S(-1.0, -0.9375, 0.1875, 0.1, 0.5), (0.0625, 0.25, True, False))       # e_gn at it: a miss
+        self.assertEqual(S(0.0, 0.0, 0.0, 0.0, 0.5), (0.0, 0.0, False, False))                  # 0 is never above
+        for args in ((math.nan, -0.75, -0.1875), (-1.0, math.nan, -0.1875), (-1.0, -0.75, math.inf),
+                     (-math.inf, -0.75, -0.1875)):
+            with self.subTest(args=args):
+                self.assertEqual(S(*args, 0.0, 0.5)[2:], (False, False))
+
+    def test_it_fires_where_it_should(self):
+        """T6, the docstring problem (a noisy rank-3 target, the rank-2 fit warm-started): it fires, after switch_k
+        countable rows with e_N < 0.25·e_GN, its rows Gauss-Newton before and exact from switched_at, in no more Newton
+        steps (rejected trials included) than Gauss-Newton with the trust region."""
+        problem, x0 = _doc_problem()
+        kw = dict(max_newton=40, g0_reference='warm_start')
+        _, gn = opt.newton_cg(problem, x0, step_control='trust_region', **kw)
+        _, sw = opt.newton_cg(problem, x0, hessian='switch', **kw)
+        rows, j = sw['history'], sw['switched_at']
+        self.assertIsNotNone(j)
+        for row in rows[j - 2:j]:
+            self.assertTrue(row['tr_accepted'])
+            self.assertLess(row['switch_e_n'], 0.25 * row['switch_e_gn'])
+        self.assertEqual([row['switch_count'] for row in rows[j - 2:j]], [1, 2])
+        self.assertEqual([row['switch_fired'] for row in rows], [k == j - 1 for k in range(len(rows))])
+        self.assertEqual([row['hessian'] for row in rows], ['gauss_newton'] * j + ['exact'] * (len(rows) - j))
+        self.assertLessEqual(sw['newton_steps'], gn['newton_steps'])
+
+    def test_it_never_fires_on_a_flat_set(self):
+        """T6: on the manifold at d = 1 the curvature term vanishes (the geometry has no curvature data there), so
+        e_N = e_GN on every tracked row: never a hit, never a switch."""
+        rng = np.random.default_rng(3)
+        np.random.seed(3)
+        kind = bfit.ProbeDerivativesKind(order=1)
+        ww, pp = [rng.standard_normal((20, 7))], [rng.standard_normal((20, 7))]
+        target = t3.TuckerTensorTrain.randn((7,), (3,), (1, 1)).data
+        data = [z + 0.05 * rng.standard_normal(z.shape) for z in kind.point_forward(target, (ww, pp))]
+        problem = opt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
+        x0 = t3.TuckerTensorTrain.randn((7,), (2,), (1, 1)).data
+        self.assertIsNone(problem.local_model(x0, hessian='exact').curvature.geometry_data)
+        for track in ('countable', 'all'):
+            with self.subTest(track=track):
+                _, stats = opt.newton_cg(problem, x0, max_newton=10, hessian='switch', switch_track=track)
+                tracked = [row for row in stats['history'] if row['switch_e_n'] is not None]
+                self.assertTrue(tracked)
+                self.assertTrue(all(row['switch_e_n'] == row['switch_e_gn'] for row in tracked))
+                self.assertIsNone(stats['switched_at'])
+
+    def test_options(self):
+        """T7 (backend): each rule raises before any work, its message checked: a switch_* option without
+        hessian='switch'; each option's type and range; an option the run would not read (switch_tau or switch_track
+        with switch_k=0, switch_k or switch_cg_forcing_power with switch_tau=0, so (0, 0) either way); the mode's
+        name; a kind without corewise_hessian (named for 'switch'). step_control=None resolves to the trust region,
+        'ALL' to 'all'; the line search, curvature_damping (it reaches every exact build) and numpy scalars are
+        accepted; a model has one Hessian, so Problem.local_model and a fitting factory reject 'switch'."""
+        problem, x0 = _pd_problem(0), _rank2_start()
+        bad = [(dict(switch_tau=0.5), "newton_cg: switch_tau set without hessian='switch'"),
+               (dict(hessian='exact', switch_track='all', switch_k=1),
+                "newton_cg: switch_k, switch_track set without hessian='switch'"),
+               (dict(switch_cg_forcing_power=1.0), "switch_cg_forcing_power set without hessian='switch'"),
+               (dict(hessian='switch', switch_tau=1.0), 'switch_tau must be a number in [0, 1); got 1.0'),
+               (dict(hessian='switch', switch_tau=-0.25), 'switch_tau must be a number in [0, 1)'),
+               (dict(hessian='switch', switch_tau=math.nan), 'switch_tau must be a number in [0, 1)'),
+               (dict(hessian='switch', switch_tau=False), 'switch_tau must be a number in [0, 1)'),
+               (dict(hessian='switch', switch_tau='0.25'), 'switch_tau must be a number in [0, 1)'),
+               (dict(hessian='switch', switch_k=-1), 'switch_k must be an int >= 0 (not a bool); got -1'),
+               (dict(hessian='switch', switch_k=True), 'switch_k must be an int >= 0'),
+               (dict(hessian='switch', switch_k=2.0), 'switch_k must be an int >= 0'),
+               (dict(hessian='switch', switch_track='every'),
+                "switch_track must be None, 'countable' or 'all' (case-insensitive); got 'every'"),
+               (dict(hessian='switch', switch_track=1), "switch_track must be None, 'countable' or 'all'"),
+               (dict(hessian='switch', switch_k=0, switch_tau=0.5), 'switch_tau set with switch_k=0'),
+               (dict(hessian='switch', switch_k=0, switch_track='all'), 'switch_track set with switch_k=0'),
+               (dict(hessian='switch', switch_k=0, switch_tau=0.0), 'switch_tau set with switch_k=0'),
+               (dict(hessian='switch', switch_tau=0.0, switch_k=3), 'switch_k set with switch_tau=0'),
+               (dict(hessian='switch', switch_tau=0.0, switch_cg_forcing_power=1.0),
+                'switch_cg_forcing_power set with switch_tau=0'),
+               (dict(hessian='swich'), "newton_cg: hessian must be 'gauss_newton', 'exact' or 'switch' "
+                                       "(case-insensitive); got 'swich'"),
+               (dict(hessian='switch', on_line_search_failure='accept'), "on_line_search_failure='accept' has no"),
+               (dict(curvature_damping=1e-3), "newton_cg: curvature_damping is only meaningful with hessian='exact' or "
+                                              "'switch'"),
+               (dict(hessian='switch', step_control='line_search', tr_radius0=1.0), 'tr_radius0 is only meaningful')]
+        no_two_hole = opt.least_squares_problem(problem.geom, _NoTwoHoleKind(order=1), problem.sample, problem.data)
+        cases = [(problem, kw, message) for kw, message in bad] + [
+            (no_two_hole, dict(hessian='switch'), "_NoTwoHoleKind does not implement corewise_hessian(), which "
+                                                  "hessian='switch' needs; it still works with hessian='gauss_newton'")]
+        for prob, kw, message in cases:
+            with self.subTest(**{k: repr(v) for k, v in kw.items()}):
+                with unittest.mock.patch.object(opt, '_prepare_jit_inputs', wraps=opt._prepare_jit_inputs) as work:
+                    with self.assertRaisesRegex(ValueError, re.escape(message)):
+                        opt.newton_cg(prob, x0, max_newton=1, **kw)
+                work.assert_not_called()
+        opt.newton_cg(no_two_hole, x0, max_newton=1)                                        # Gauss-Newton runs
+        _, stats = opt.newton_cg(problem, x0, max_newton=2, hessian='SWITCH', switch_track='ALL')
+        self.assertEqual((stats['history'][0]['step_control'], stats['switch_track']), ('trust_region', 'all'))
+        _, stats = opt.newton_cg(problem, x0, max_newton=2, hessian='switch', step_control='line_search',
+                                 switch_k=np.int64(3), switch_tau=np.float32(0.5))
+        self.assertEqual(stats['history'][0]['step_control'], 'line_search')
+        with unittest.mock.patch.object(bgeo.ManifoldGeometryOps, 'curvature_precompute', autospec=True,
+                                        side_effect=bgeo.ManifoldGeometryOps.curvature_precompute) as build:
+            opt.newton_cg(problem, x0, max_newton=9, hessian='switch', curvature_damping=1e-3)
+        self.assertGreater(build.call_count, 7)                                             # both phases' builds
+        self.assertTrue(all(call.args[4] == 1e-3 for call in build.call_args_list))
+        with self.assertRaisesRegex(ValueError, "Problem.local_model: hessian must be 'gauss_newton' or 'exact'"):
+            problem.local_model(x0, hessian='switch')
+        ww, pp = problem.sample
+        x = t3.TuckerTensorTrain(*x0)
+        r = [z - y for z, y in zip(x.probe_derivatives(ww, pp, 1), problem.data)]
+        with self.assertRaisesRegex(ValueError, "hessian must be 'gauss_newton' or 'exact'"):
+            fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww, pp, 1, r, hessian='switch')
+
+    def test_stats_and_rows(self):
+        """T8: switch mode appends the three stats keys; every row has the five switch fields after the others;
+        switch_fired is True on exactly the firing row, and switched_at is the first exact row (len(history) when it
+        fired on the last row); Gauss-Newton-phase rows carry the Gauss-Newton view as lm (no pKp, no lift
+        diagnostics), exact rows the exact model; the converged row's fields (the carried count in the Gauss-Newton
+        phase); a rejected Gauss-Newton-phase trial keeps x and hands the same view to the next row."""
+        problem, x0 = _pd_problem(0), _rank2_start()
+        seen = []
+        _, stats = opt.newton_cg(problem, x0, max_newton=30, hessian='switch', callback=seen.append)
+        rows, j = stats['history'], stats['switched_at']
+        self.assertEqual(list(stats), ['losses', 'newton_steps', 'newton_accepted', 'stop_reason', 'history']
+                         + list(_SWITCH_STATS))
+        self.assertTrue(all(tuple(row) == opt._NEWTON_SCALAR_FIELDS + opt._SWITCH_FIELDS for row in rows))
+        self.assertEqual([k for k, row in enumerate(rows) if row['switch_fired']], [j - 1])
+        for k, (row, info) in enumerate(zip(rows, seen)):
+            with self.subTest(row=k):
+                gn_phase = k < j
+                self.assertEqual(row['hessian'], 'gauss_newton' if gn_phase else 'exact')
+                self.assertEqual(info.lm.is_exact, not gn_phase)
+                if gn_phase:
+                    self.assertIsNone(row['pKp']); self.assertIsNone(row['lift_sigma_min'])
+                    self.assertIsInstance(row['switch_count'], int); self.assertIsInstance(row['switch_e_gn'], float)
+                elif not row['converged']:
+                    self.assertIsInstance(row['pKp'], float); self.assertGreater(row['lift_eps'], 0.0)
+                if not gn_phase:
+                    self.assertEqual([row[f] for f in opt._SWITCH_FIELDS], [None] * 4 + [False])
+        self.assertTrue(rows[-1]['converged'])
+        _, last = opt.newton_cg(problem, x0, max_newton=j, hessian='switch')                 # fires on its last row
+        self.assertEqual(last['switched_at'], len(last['history']))
+        self.assertIs(last['history'][-1]['switch_fired'], True)
+        _, late = opt.newton_cg(problem, x0, max_newton=60, hessian='switch', switch_k=50, gtol_rel=1e-3)
+        self.assertIsNone(late['switched_at'])
+        self.assertTrue(late['history'][-1]['converged'])
+        self.assertGreater(late['history'][-1]['switch_count'], 0)                           # the count carried
+        self.assertEqual(late['history'][-1]['switch_count'], late['history'][-2]['switch_count'])
+        self.assertEqual([late['history'][-1][f] for f in ('switch_pKp', 'switch_e_gn', 'switch_e_n', 'switch_fired')],
+                         [None, None, None, False])
+        base = problem
+        offset = _OffsetProblem(base.geom, base.kind, base.sample, base.data, None, 0.05 * float(base.objective(x0)))
+        seen = []
+        opt.newton_cg(offset, x0, max_newton=6, hessian='switch', callback=seen.append)
+        rejected = [k for k in range(len(seen) - 1) if seen[k].tr_accepted is False]
+        self.assertTrue(rejected)
+        for k in rejected:
+            self.assertIs(seen[k + 1].x_cores, seen[k].x_cores)
+            self.assertIs(seen[k + 1].lm, seen[k].lm)
+            self.assertFalse(seen[k].lm.is_exact)
+
+    def test_timing_records_the_tracking(self):
+        """With timing=True a switch run's rows tile their windows (check_timing), the Gauss-Newton phase's builds are
+        exact-mode (curvature lapped), the tracking product is lapped in tracking on exactly the tracked rows, under
+        either switch_track; and timing changes no number."""
+        problem, x0 = _pd_problem(0), _rank2_start()
+        for track in ('countable', 'all'):
+            with self.subTest(track=track):
+                seen = []
+                timed = opt.newton_cg(problem, x0, max_newton=10, hessian='switch', switch_track=track, timing=True,
+                                      callback=seen.append)
+                check_timing(self, timed[1], seen, switch=True)
+                self.assertTrue(any(info.hessian == 'exact' for info in seen))
+                self.assertTrue(any(info.timing.seconds.tracking is not None for info in seen))
+                self.assertGreater(timed[1]['timing']['phases']['tracking'], 0.0)
+                self.assertEqual(untimed(timed), untimed(opt.newton_cg(problem, x0, max_newton=10, hessian='switch',
+                                                                       switch_track=track)))
 
 
 if __name__ == "__main__":

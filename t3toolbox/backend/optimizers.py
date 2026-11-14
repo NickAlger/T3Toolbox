@@ -32,6 +32,7 @@ import dataclasses as dc
 import functools as ft
 import inspect
 import math
+import numbers
 import time
 import typing as typ
 import warnings
@@ -154,28 +155,32 @@ class Geometry(typ.Protocol):
 # --------------------------------------------------------------------------------------------------
 # The problem oracle
 # --------------------------------------------------------------------------------------------------
-_HESSIAN_MODES = ('gauss_newton', 'exact')
+_HESSIAN_MODES = ('gauss_newton', 'exact')                # a local model's modes
+_NEWTON_HESSIAN_MODES = _HESSIAN_MODES + ('switch',)       # newton_cg's: 'switch' is a solver mode, not a model's
 _EXACT_GEOMETRY_MEMBERS = ('curvature_precompute', 'lift', 'lift_transpose', 'tangential_curvature')
 
 
 def _check_hessian(
-        hessian:  str,          # 'gauss_newton' | 'exact' (case-insensitive)
-        who:      str,          # the caller, for the message
-) -> str:                       # the lower-cased mode
+        hessian:  str,                                     # one of `modes` (case-insensitive)
+        who:      str,                                     # the caller, for the message
+        modes:    typ.Tuple[str, ...] = _HESSIAN_MODES,    # the caller's allowed modes
+) -> str:                                                  # the lower-cased mode
     """Validate a ``hessian`` mode selector (structural: anything else raises, a ``bool`` included -- the
-    keyword is the solver's string mode everywhere, as in ``sampling_derivatives.estimate_chunk_size``)."""
-    if not isinstance(hessian, str) or hessian.lower() not in _HESSIAN_MODES:
-        raise ValueError("%s: hessian must be 'gauss_newton' or 'exact' (case-insensitive); got %r"
-                         % (who, hessian))
+    keyword is the solver's string mode everywhere, as in ``sampling_derivatives.estimate_chunk_size``). ``modes``
+    are the caller's: a local model's two by default, ``newton_cg``'s three (``_NEWTON_HESSIAN_MODES``)."""
+    if not isinstance(hessian, str) or hessian.lower() not in modes:
+        raise ValueError("%s: hessian must be %s or %r (case-insensitive); got %r"
+                         % (who, ', '.join(map(repr, modes[:-1])), modes[-1], hessian))
     return hessian.lower()
 
 
 def _require_exact_capable(
-        kind,       # the problem's SamplingKind
-        geom,       # the problem's Geometry
+        kind,                     # the problem's SamplingKind
+        geom,                     # the problem's Geometry
+        hessian:  str = 'exact',  # the mode that needs them, for the message: 'exact' | 'switch'
 ) -> None:
-    """The structural checks of ``hessian='exact'``, run before any work: the kind implements the sixth
-    operation ``corewise_hessian`` and the geometry has the four exact-mode members.
+    """The structural checks of ``hessian='exact'`` (and ``'switch'``), run before any work: the kind implements the
+    sixth operation ``corewise_hessian`` and the geometry has the four exact-mode members.
 
     "Implements" means the method the kind would run is not an unimplemented stub -- one carrying the stdlib
     :py:func:`abc.abstractmethod` marker, as the ``SamplingKind`` base method (or a stub a subclass re-declares) does.
@@ -183,13 +188,13 @@ def _require_exact_capable(
     marked stub it agrees exactly with ``type(kind).corewise_hessian is SamplingKind.corewise_hessian``."""
     method = getattr(type(kind), 'corewise_hessian', None)
     if method is None or getattr(method, '__isabstractmethod__', False):
-        raise ValueError("%s does not implement corewise_hessian(), which hessian='exact' needs; it still "
-                         "works with hessian='gauss_newton'" % type(kind).__name__)
+        raise ValueError("%s does not implement corewise_hessian(), which hessian=%r needs; it still "
+                         "works with hessian='gauss_newton'" % (type(kind).__name__, hessian))
     missing = [name for name in _EXACT_GEOMETRY_MEMBERS if not callable(getattr(geom, name, None))]
     if missing:
-        raise ValueError("%s does not implement %s, which hessian='exact' needs (the exact-mode geometry "
+        raise ValueError("%s does not implement %s, which hessian=%r needs (the exact-mode geometry "
                          "members: %s); it still works with hessian='gauss_newton'"
-                         % (type(geom).__name__, ', '.join(missing), ', '.join(_EXACT_GEOMETRY_MEMBERS)))
+                         % (type(geom).__name__, ', '.join(missing), hessian, ', '.join(_EXACT_GEOMETRY_MEMBERS)))
 
 
 @dc.dataclass(frozen=True, eq=False)   # eq=False -> identity hash/eq: array fields (a leaf container)
@@ -1251,16 +1256,19 @@ class PhaseSeconds:
       display shows up on the next row); ``None`` on row 0.
     * ``frame``, ``sweep``, ``companion``, ``residual``, ``curvature`` -- the local model's build: ``geom.frame`` (or
       the start frame's structure check), ``kind.precompute``, ``geom.precompute``, the residual, and in exact mode
-      ``geom.curvature_precompute``. ``None`` on a row that reuses the model (after a rejected trust-region trial);
-      ``curvature`` also in Gauss-Newton mode. A ``Problem`` subclass that overrides ``local_model`` is timed whole:
-      its build is ``frame``, and the other four are ``None``.
-    * ``gradient`` -- the misfit transpose ``Π 𝒥ᵀ r`` (in exact mode it runs inside the build and is counted here),
-      the misfit and regularization values, the gradient, ``‖g‖`` and the lift diagnostics; ``None`` as ``frame``.
+      ``geom.curvature_precompute`` (with ``hessian='switch'`` every build is exact-mode, the Gauss-Newton phase's
+      included). ``None`` on a row that reuses the model (after a rejected trust-region trial); ``curvature`` also in
+      Gauss-Newton mode. A ``Problem`` subclass that overrides ``local_model`` is timed whole: its build is ``frame``,
+      and the other four are ``None``.
+    * ``gradient`` -- the misfit transpose ``Π 𝒥ᵀ r`` (in exact mode, and with ``hessian='switch'``, it runs inside the
+      build and is counted here), the misfit and regularization values, the gradient, ``‖g‖`` and the lift
+      diagnostics; ``None`` as ``frame``.
     * ``reference`` -- resolving the reference ``‖g0‖`` (``g0_reference``; the ``'cone'`` loop included): row 0 only.
     * ``cg`` -- the CG solve (under ``use_jit``, one compiled call); ``forms`` -- the first trust-region radius, the
       slope, the descent fallback, ``pᵀHp`` and ``‖p‖``; ``trial_retraction`` / ``trial_objective`` -- every trial's
       retraction / objective. All four ``None`` on the converged row.
-    * ``tracking`` -- reserved for the tracking product of a Gauss-Newton-to-exact switch; ``None`` (no switch yet).
+    * ``tracking`` -- ``hessian='switch'``: the tracking product ``⟨p, Lᵀ K_N L p⟩`` of the point's exact build, on a
+      tracked Gauss-Newton-phase row (:py:class:`NewtonInfo`'s ``switch_pKp``); ``None`` on every other row.
     * ``remainder`` -- the window minus the phases above (the forcing term, ``‖x‖``, the trust region's data norm,
       Python bookkeeping); never ``None``, ``>= 0`` up to rounding."""
     previous_callback:  typ.Optional[float]      # the previous row's record, callback and history append; None on row 0
@@ -1275,7 +1283,7 @@ class PhaseSeconds:
     forms:              typ.Optional[float]
     trial_retraction:   typ.Optional[float]      # every trial's retraction
     trial_objective:    typ.Optional[float]      # every trial's objective
-    tracking:           typ.Optional[float]      # a switch's tracking product, after the trials; None (no switch yet)
+    tracking:           typ.Optional[float]      # hessian='switch': a tracked row's tracking product, after the trials
     remainder:          float                    # window minus the phases above (>= 0 up to rounding)
 
 
@@ -1481,9 +1489,9 @@ class NewtonInfo:
     **converged** line (no CG / line search ran). The scalar subset (all but ``x_cores`` / ``lm`` / ``timing``) is
     what lands in ``stats['history']``.
 
-    Five run-level strings (2026.3.0): ``newton_cg`` sets the first four on every row it emits, so a
-    history consumer can filter by them, and ``stop_reason`` on its last row. All default to ``None``, so a
-    hand-built row (a display test) needs none of them:
+    Five strings (2026.3.0): ``newton_cg`` sets the first four on every row it emits, so a history consumer can
+    filter by them, and ``stop_reason`` on its last row. All default to ``None``, so a hand-built row (a display
+    test) needs none of them:
 
     * ``g0_reference`` -- which **Newton-stop** reference ``g0norm`` is: ``'zero'`` (the gradient norm at
       the zero tensor of these ranks, at the canonical zero-point frame), ``'warm_start'`` (the initial
@@ -1492,7 +1500,8 @@ class NewtonInfo:
       equal to ``g0_reference`` (CG inherits the Newton reference).
     * ``step_control`` -- the step-acceptance mode: ``'line_search'`` (Armijo backtracking along the
       retraction) or ``'trust_region'`` (one trial at ``α = 1``, accepted on the ratio ``ρ``; Steihaug CG).
-    * ``hessian`` -- the local model's Hessian: ``'gauss_newton'`` or ``'exact'``.
+    * ``hessian`` -- the row's model: ``'gauss_newton'`` or ``'exact'`` (the model that solved the step; on the
+      converged row, the model built there). The run's mode on every row, except under ``hessian='switch'`` (below).
     * ``stop_reason`` -- set on the run's **last** row only (``None`` before it): ``'gradient'`` (the
       relative stop fired: the converged row), ``'max_newton'`` (the iteration cap), ``'line_search'``
       (Armijo exhausted under ``on_line_search_failure='stop'``), ``'objective_floor'`` (a rejected
@@ -1504,9 +1513,24 @@ class NewtonInfo:
     trust-region row has ``tr_radius`` (the radius this trial was bounded by) and ``tr_accepted`` set,
     ``ls_steps = ls_failed = None`` and ``alpha = 1.0``. A rejected trust-region row keeps ``x_cores``
     (the next row starts from the same point, with the same local model). ``pKp`` / ``lift_sigma_min`` /
-    ``lift_eps`` are set only with ``hessian='exact'`` (the last two only on a geometry whose curvature data
-    carries them, i.e. the manifold one at ``d > 1``). The CG outcome is exactly one of ``cg_converged``,
-    ``cg_boundary``, ``cg_truncated`` or (none of them) the iteration cap.
+    ``lift_eps`` are set only on a row whose ``hessian`` is ``'exact'`` (the last two only on a geometry whose
+    curvature data carries them, i.e. the manifold one at ``d > 1``). The CG outcome is exactly one of
+    ``cg_converged``, ``cg_boundary``, ``cg_truncated`` or (none of them) the iteration cap.
+
+    **The switch** (``newton_cg(hessian='switch')``). A row's ``hessian`` is ``'gauss_newton'`` in the Gauss-Newton
+    phase and ``'exact'`` from the switch on. On a Gauss-Newton-phase row ``lm`` is the Gauss-Newton view of the
+    point's exact-mode build (the model that solved the step, the same object across a rejected trial; its
+    ``gradient`` recomputes the misfit transpose), so ``pKp`` and the lift diagnostics are ``None`` there, as on a
+    Gauss-Newton run's rows. Five fields, ``None`` outside switch mode and history fields only in switch mode:
+
+    * ``switch_e_gn`` -- every Gauss-Newton-phase row with a step: ``|Δf − m_GN(s)|``, ``m_GN(s)`` the row's predicted
+      change (``α·slope + ½α²·pHp``; ``α = 1`` in the trust region).
+    * ``switch_pKp``, ``switch_e_n`` -- the *tracked* rows (the countable ones, or every Gauss-Newton-phase step row
+      under ``switch_track='all'``): the curvature term ``⟨p, Lᵀ K_N L p⟩`` of the exact build (not in ``pHp``) and
+      ``|Δf − m_N(s)|`` with ``m_N(s) = m_GN(s) + ½α²·switch_pKp``.
+    * ``switch_count`` -- every Gauss-Newton-phase row: the count of consecutive hits after this row (0: a reset); the
+      converged row's is the count carried to it.
+    * ``switch_fired`` -- every switch-mode row: ``True`` on the row whose count reached ``switch_k``, else ``False``.
 
     ``timing`` is a :py:class:`NewtonTiming` with ``newton_cg(timing=True)``, else ``None``; like ``x_cores`` and
     ``lm`` it is not a history field (``stats['timing']['rows']`` holds the records as dicts). The display prints it
@@ -1540,23 +1564,34 @@ class NewtonInfo:
     cg_reference: typ.Optional[str]   = None           # the CG-forcing reference: 'override' iff g0norm_cg, else = g0_reference
     step_control: typ.Optional[str]   = None           # 'line_search' | 'trust_region'
     stop_reason:  typ.Optional[str]   = None           # last row only: 'gradient' | 'max_newton' | 'line_search' | 'objective_floor' | 'trust_region_floor'
-    hessian:      typ.Optional[str]   = None           # 'gauss_newton' | 'exact'
+    hessian:      typ.Optional[str]   = None           # this row's model: 'gauss_newton' | 'exact'
     tr_radius:    typ.Optional[float] = None           # trust-region radius Δ this trial was bounded by (TR mode)
     tr_accepted:  typ.Optional[bool]  = None           # the trial was accepted (ρ > 0.1); False keeps x (TR mode)
     cg_boundary:  typ.Optional[bool]  = None           # CG stopped on the trust-region boundary ‖p‖ = Δ (Steihaug)
-    pKp:          typ.Optional[float] = None           # ⟨p, Lᵀ K_N L p⟩: the curvature term's part of pHp (exact mode)
-    lift_sigma_min: typ.Optional[float] = None         # the smallest lift singular value at this frame (exact mode)
-    lift_eps:     typ.Optional[float] = None           # the absolute lift damping ε at this frame (exact mode)
+    pKp:          typ.Optional[float] = None           # ⟨p, Lᵀ K_N L p⟩: the curvature term's part of pHp (exact rows)
+    lift_sigma_min: typ.Optional[float] = None         # the smallest lift singular value at this frame (exact rows)
+    lift_eps:     typ.Optional[float] = None           # the absolute lift damping ε at this frame (exact rows)
     timing:       typ.Optional[NewtonTiming] = None    # newton_cg(timing=True) only: this row's times; not a history field
+    switch_pKp:   typ.Optional[float] = None           # hessian='switch', tracked rows: ⟨p, Lᵀ K_N L p⟩ (not in pHp)
+    switch_e_gn:  typ.Optional[float] = None           # hessian='switch', GN-phase rows with a step: |Δf − m_GN(s)|
+    switch_e_n:   typ.Optional[float] = None           # hessian='switch', tracked rows: |Δf − m_N(s)|
+    switch_count: typ.Optional[int]   = None           # hessian='switch', GN-phase rows: the hit count after this row
+    switch_fired: typ.Optional[bool]  = None           # hessian='switch', every row: True on the row that switched
 
 
-_NEWTON_SCALAR_FIELDS = tuple(f.name for f in dc.fields(NewtonInfo) if f.name not in ('x_cores', 'lm', 'timing'))
+_SWITCH_FIELDS = ('switch_pKp', 'switch_e_gn', 'switch_e_n', 'switch_count', 'switch_fired')   # history: switch mode only
+_NEWTON_SCALAR_FIELDS = tuple(f.name for f in dc.fields(NewtonInfo)
+                              if f.name not in ('x_cores', 'lm', 'timing') + _SWITCH_FIELDS)
 
 
 def _newton_scalar_record(info: NewtonInfo) -> dict:
     """The scalar subset of a :py:class:`NewtonInfo` (drops ``x_cores`` / ``lm`` / ``timing``) -- one ``history``
-    row."""
-    return {k: getattr(info, k) for k in _NEWTON_SCALAR_FIELDS}
+    row. The five ``switch_*`` fields follow, in switch mode only (``switch_fired`` is a ``bool`` on every row of a
+    ``hessian='switch'`` run and ``None`` otherwise), so the rows of the other modes keep their keys."""
+    record = {k: getattr(info, k) for k in _NEWTON_SCALAR_FIELDS}
+    if info.switch_fired is not None:
+        record.update((k, getattr(info, k)) for k in _SWITCH_FIELDS)
+    return record
 
 
 # --------------------------------------------------------------------------------------------------
@@ -1581,9 +1616,9 @@ def _check_step_control(
 ) -> str:                                   # the lower-cased step control
     """Validate ``step_control``; ``None`` is the mode's default -- ``'line_search'`` with the Gauss-Newton
     Hessian (positive semidefinite: Armijo along the retraction suffices), ``'trust_region'`` with the
-    exact one (indefinite away from a minimizer: the region bounds the step)."""
+    exact one (indefinite away from a minimizer: the region bounds the step) and with ``'switch'``, which ends in it."""
     if step_control is None:
-        return 'trust_region' if hessian == 'exact' else 'line_search'
+        return 'trust_region' if hessian in ('exact', 'switch') else 'line_search'
     if not isinstance(step_control, str) or step_control.lower() not in _STEP_CONTROLS:
         raise ValueError("newton_cg: step_control must be None, 'line_search' or 'trust_region' "
                          "(case-insensitive); got %r" % (step_control,))
@@ -1611,6 +1646,18 @@ def _resolution_eps(
     float64 tree is judged at float32's resolution. ``float64``'s eps if there is no floating leaf."""
     eps = [float(np.finfo(dtype).eps) for dtype in _floating_dtypes(residual)]
     return max(eps) if eps else float(np.finfo(np.float64).eps)
+
+
+def _objective_resolution(
+        eps:        float,           # _resolution_eps(residual): the residual dtype's machine epsilon
+        data_norm:  float,           # ‖ω⊙y‖
+        misfit:     float,           # ½‖ω⊙r‖² at the point
+        f:          float,           # the objective at the point
+) -> float:                          # ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)
+    """The objective's floating-point resolution at a point: the cancellation error of ``f = ½‖S(x) − y‖²`` (+ ρ), the
+    scale below which a change of ``f`` cannot be measured. The trust region's ``objective_floor`` reads it (times
+    ``_TR_RESOLUTION_FACTOR``), and so does the switch's rounding gate (times ``_SWITCH_ROUNDING`` on top)."""
+    return eps * (data_norm * math.sqrt(2.0 * misfit) + abs(f))
 
 
 _TINY = float(np.finfo(np.float64).tiny)   # the smallest positive normal float (== sys.float_info.min)
@@ -1643,6 +1690,99 @@ def _lift_diagnostics(
     return (None if sigma_min is None else float(sigma_min)), (None if eps is None else float(eps))
 
 
+# --------------------------------------------------------------------------------------------------
+# Newton-CG: the Gauss-Newton-to-exact switch (hessian='switch'). Start with Gauss-Newton; after each tracked step
+# compare how well each model predicted the actual change, and switch to the exact Hessian for good once the exact
+# model was switch_tau times better on switch_k consecutive countable steps.
+# --------------------------------------------------------------------------------------------------
+_SWITCH_TAU = 0.25                      # switch_tau=None: e_N < this·e_GN is a hit
+_SWITCH_K = 2                           # switch_k=None: this many consecutive hits switch
+_SWITCH_CG_FORCING_POWER = 1.0          # switch_cg_forcing_power=None: the exact phase's (q-quadratic tail)
+_SWITCH_TRACKS = ('countable', 'all')   # switch_track's values; None = the first
+_SWITCH_ROUNDING = 100.0                # the rounding gate: floor = this·_TR_RESOLUTION_FACTOR·_objective_resolution
+
+
+def _check_switch_options(
+        hessian:                  str,                    # the validated mode (_check_hessian)
+        switch_tau:               typ.Optional[float],    # None = _SWITCH_TAU; a number in [0, 1)
+        switch_k:                 typ.Optional[int],      # None = _SWITCH_K; an int >= 0, not a bool
+        switch_cg_forcing_power:  typ.Optional[float],    # None = _SWITCH_CG_FORCING_POWER; unchecked, as cg_forcing_power
+        switch_track:             typ.Optional[str],      # None = 'countable'; 'countable' | 'all' (case-insensitive)
+) -> typ.Optional[typ.Tuple[
+    float,                                                # tau
+    int,                                                  # k
+    float,                                                # the forcing power from the switch on
+    typ.Optional[str],                                    # the tracked rows: 'countable' | 'all'; None iff k = 0
+]]:                                                       # None outside switch mode
+    """``newton_cg``'s ``switch_*`` options, checked (structural, before any work) and resolved to their values.
+
+    Each option set with ``hessian`` other than ``'switch'`` raises, as does one the run would not read: ``switch_tau``
+    or ``switch_track`` with ``switch_k=0`` (exact from iteration 0, nothing is tracked), ``switch_k`` or
+    ``switch_cg_forcing_power`` with ``switch_tau=0`` (the count never moves: the run tracks and never switches)."""
+    given = sorted(name for name, value in (('switch_tau', switch_tau), ('switch_k', switch_k),
+                                            ('switch_cg_forcing_power', switch_cg_forcing_power),
+                                            ('switch_track', switch_track)) if value is not None)
+    if hessian != 'switch':
+        if given:
+            raise ValueError("newton_cg: %s set without hessian='switch'" % ', '.join(given))
+        return None
+    if switch_tau is not None and (isinstance(switch_tau, bool) or not isinstance(switch_tau, numbers.Real)
+                                   or not 0.0 <= switch_tau < 1.0):
+        raise ValueError("newton_cg: switch_tau must be a number in [0, 1); got %r" % (switch_tau,))
+    if switch_k is not None and (isinstance(switch_k, bool) or not isinstance(switch_k, numbers.Integral)
+                                 or switch_k < 0):
+        raise ValueError("newton_cg: switch_k must be an int >= 0 (not a bool); got %r" % (switch_k,))
+    if switch_track is not None and (not isinstance(switch_track, str) or switch_track.lower() not in _SWITCH_TRACKS):
+        raise ValueError("newton_cg: switch_track must be None, 'countable' or 'all' (case-insensitive); got %r"
+                         % (switch_track,))
+    if switch_k == 0 and (switch_tau is not None or switch_track is not None):
+        raise ValueError("newton_cg: %s set with switch_k=0, which tracks nothing (the run is exact from iteration 0)"
+                         % ', '.join(name for name in given if name in ('switch_tau', 'switch_track')))
+    if switch_tau == 0 and (switch_k is not None or switch_cg_forcing_power is not None):
+        raise ValueError("newton_cg: %s set with switch_tau=0, which never switches (the run tracks only)"
+                         % ', '.join(name for name in given if name in ('switch_cg_forcing_power', 'switch_k')))
+    tau = _SWITCH_TAU if switch_tau is None else float(switch_tau)
+    k = _SWITCH_K if switch_k is None else int(switch_k)
+    power = _SWITCH_CG_FORCING_POWER if switch_cg_forcing_power is None else switch_cg_forcing_power
+    track = None if k == 0 else (_SWITCH_TRACKS[0] if switch_track is None else switch_track.lower())
+    return tau, k, power, track
+
+
+def _switch_sample(
+        delta_f:    float,           # f(trial) − f
+        predicted:  float,           # m_GN(s): α·slope + ½α²·pHp (line search), slope + ½·pHp (trust region)
+        curvature:  float,           # m_N(s) − m_GN(s) = ½α²·switch_pKp
+        floor:      float,           # the rounding floor, >= 0
+        tau:        float,           # switch_tau
+) -> typ.Tuple[
+    float,                           # e_gn = |Δf − m_GN(s)|
+    float,                           # e_n  = |Δf − m_N(s)|
+    bool,                            # informative: both finite, and not both <= floor
+    bool,                            # hit: informative and e_n < tau·e_gn
+]:
+    """One tracked step of the switch: how far each quadratic model's predicted change missed the actual one.
+
+    Near a minimizer with a nonzero residual, along a second-order retraction, ``e_gn = ½|⟨s, K_N s⟩| + O(‖s‖³)`` while
+    ``e_n = O(‖s‖³)``, so ``e_n / e_gn → 0``; in the noisy transient the ratio is about 1 or more. Below the objective's
+    resolution neither error can be measured: a sample whose two errors are both at or below ``floor`` is
+    uninformative, never a hit (so is a non-finite one). ``e_n`` at the floor with ``e_gn`` above it is a hit."""
+    e_gn = abs(delta_f - predicted)
+    e_n = abs(delta_f - (predicted + curvature))
+    informative = math.isfinite(e_gn) and math.isfinite(e_n) and max(e_gn, e_n) > floor
+    return e_gn, e_n, informative, informative and e_n < tau * e_gn
+
+
+def _gauss_newton_view(
+        local_model:  LocalModel,    # an exact-mode model (Problem.local_model(..., hessian='exact'))
+) -> LocalModel:                     # the same linearization in Gauss-Newton mode
+    """The Gauss-Newton model of an exact-mode model's linearization: ``curvature=None``, every other field shared
+    (frame, sweep, residual, companion, regularizer), so its ``hvp`` / ``quadratic`` / ``gn_quadratic`` /
+    ``retract`` are a Gauss-Newton model's bit for bit, gauge and regularizer included, and its pytree structure is a
+    Gauss-Newton model's (under ``use_jit`` CG reuses the Gauss-Newton program). Its ``gradient`` redoes the misfit
+    transpose; ``newton_cg`` reads the exact model's, which is the same expression."""
+    return dc.replace(local_model, curvature=None)
+
+
 def newton_cg(
         problem:                Problem,  # the fixed-rank least-squares problem
         x0:                     Tangent,  # initial cores (B, G)
@@ -1653,9 +1793,9 @@ def newton_cg(
         c_armijo:               float = 1e-4,  # Armijo constant (line search only)
         on_line_search_failure: str = 'stop',  # Armijo exhausted (40 halvings): 'stop' = reject the step and terminate; 'accept' = take the last trial and continue
 
-        hessian:                str   = 'gauss_newton',      # or 'exact' (case-insensitive): the local model's Hessian
-        curvature_damping:      typ.Optional[float] = None,  # exact only: the lift damping, relative to ‖X‖; None = the geometry's default
-        step_control:           typ.Optional[str]   = None,  # None = 'line_search' (GN) / 'trust_region' (exact); either works with either
+        hessian:                str   = 'gauss_newton',      # or 'exact' | 'switch' (case-insensitive): the Hessian; 'switch' = GN, then exact
+        curvature_damping:      typ.Optional[float] = None,  # exact / switch only: the lift damping, relative to ‖X‖; None = the geometry's default
+        step_control:           typ.Optional[str]   = None,  # None = 'line_search' (GN) / 'trust_region' (exact, switch); either works with either
         tr_radius0:             typ.Optional[float] = None,  # trust region only: Δ0 > 0; None = the GN Cauchy length ‖g‖³/⟨g, H_GN g⟩
 
         g0_reference:           typ.Optional[str]   = None,  # which ‖g0‖: None = the geometry's own ('zero' on manifolds, 'warm_start' on corewise); 'zero' | 'warm_start'
@@ -1685,6 +1825,11 @@ def newton_cg(
         cone_seed:                  typ.Optional[int]   = None, # None = ZERO_FRAME_SEED
 
         timing:                     bool = False,               # NewtonInfo.timing per row, stats['timing'] per run
+
+        switch_tau:                 typ.Optional[float] = None, # None = 0.25; in [0, 1); 0 = never switch (hessian='switch' only, else a structural error)
+        switch_k:                   typ.Optional[int]   = None, # None = 2; an int >= 0; 0 = exact from iteration 0
+        switch_cg_forcing_power:    typ.Optional[float] = None, # None = 1.0: the forcing power from the switch on
+        switch_track:               typ.Optional[str]   = None, # None = 'countable'; 'countable' | 'all': the rows that track
 ) -> typ.Tuple[Tangent, dict]:      # (x_cores, stats)
     """Inexact Riemannian Newton-CG -- the manifold workhorse. Each Newton step builds the local model once,
     solves ``H p = −g`` by (Steihaug) CG to an inexact forcing-term tolerance (the inner loop -- jit-able via
@@ -1701,14 +1846,40 @@ def newton_cg(
     ``corewise_hessian`` and a geometry with the four exact-mode members). Gauss-Newton converges linearly at
     a rate set by that missing term (``|1 − ρ|`` measures it); the exact Hessian gives the superlinear Newton
     tail -- q-quadratic with ``cg_forcing_power=1.0``, order about 1.5 at the default ``0.5``. It costs a
-    few times a Gauss-Newton Hessian-apply. ``curvature_damping`` (exact only; a value with Gauss-Newton
-    raises) is the lift's damping relative to ``‖X‖``, ``None`` for the geometry's own default.
+    few times a Gauss-Newton Hessian-apply. ``curvature_damping`` (exact and switch only; a value with Gauss-Newton
+    raises) is the lift's damping relative to ``‖X‖``, ``None`` for the geometry's own default. ``'switch'`` starts
+    with Gauss-Newton and switches to the exact Hessian within the run (below).
+
+    **Switching from Gauss-Newton to the exact Hessian** (``hessian='switch'``; it needs what ``'exact'`` needs, checked
+    at the call). Each point of the Gauss-Newton phase is linearized once in exact mode (one misfit transpose, as in
+    either pure mode, plus the geometry's curvature data); CG, the step control and the row use its Gauss-Newton view,
+    so the steps are a Gauss-Newton run's. After a step, ``e_GN = |Δf − m_GN(s)|`` (``m_GN(s)`` the row's predicted
+    change) and, on a *countable* row, ``e_N = |Δf − m_N(s)|`` with ``m_N(s) = m_GN(s) + ½α²⟨s, Π Lᵀ K_N L Π s⟩`` (one
+    curvature product). A countable row with ``e_N < switch_tau·e_GN`` (default ``0.25``) is a hit; ``switch_k``
+    (default ``2``) consecutive hits switch to the exact Hessian for good, from the next point on: **the exact model
+    must have predicted the objective at least four times better, on two clean steps in a row**. A row is countable
+    iff it took the full model step (an accepted trust-region trial; an Armijo step with ``α = 1``), so a rejected
+    trial, a backtrack, the ``−g`` fallback and a forced ``'accept'`` reset the count, as do a miss and a sample whose
+    two errors are both at the objective's rounding level, ``1000·ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)`` (the trust region's floor
+    times 100; under float32 only large early steps clear it -- prefer jax x64); a CG step stopped on the region's
+    boundary, or truncated, counts like any other. ``switch_track='all'`` runs the product on every Gauss-Newton step
+    row (reported, never counted: the switch fires at the same row). The default step control is the trust region,
+    whose radius carries across the switch; ``cg_forcing_power`` is the Gauss-Newton phase's forcing power and
+    ``switch_cg_forcing_power`` (default ``1.0``) the exact phase's. ``switch_tau=0`` tracks and never switches (the
+    run is the Gauss-Newton run with the same step control, bit for bit, plus the tracking); ``switch_k=0`` is exact
+    from iteration 0 (the exact run with ``cg_forcing_power=switch_cg_forcing_power``). Each call starts in
+    Gauss-Newton: nothing carries across calls, so a continuation level after a rank increase starts there too. It may
+    never fire, safely: the curvature term vanishes (the manifold at ``d = 1``), the residual is zero, or the retraction
+    is only first order at the point (near small singular values, a zero-padded start). Each row records the model that
+    solved it (``hessian``) and the ``switch_*`` fields (:py:class:`NewtonInfo`); ``stats`` gains three keys (below). A
+    ``switch_*`` option without ``hessian='switch'`` raises, as does one the run would not read (``switch_tau`` or
+    ``switch_track`` with ``switch_k=0``; ``switch_k`` or ``switch_cg_forcing_power`` with ``switch_tau=0``).
 
     **Step control** (``step_control``; the default follows the Hessian, and either combines with either):
 
     * ``'line_search'`` (the Gauss-Newton default): plain truncated CG, then Armijo backtracking along
       ``retract(α p)``.
-    * ``'trust_region'`` (the exact default -- the exact ``H`` is indefinite away from a minimizer):
+    * ``'trust_region'`` (the exact and switch default -- the exact ``H`` is indefinite away from a minimizer):
       Steihaug-Toint CG inside ``‖p‖ ≤ Δ`` (it steps to the boundary on nonpositive curvature or when it
       would leave the region), then **one** trial ``retract(p)``, accepted iff the ratio of the actual to the
       model's predicted change ``ρ = Δf / (gᵀp + ½ pᵀHp)`` exceeds ``0.1``. ``Δ ← ¼‖p‖`` when ``ρ < 0.25`` (or
@@ -1790,7 +1961,10 @@ def newton_cg(
     trust-region trials), ``stop_reason`` is ``'gradient'`` / ``'max_newton'`` / ``'line_search'`` /
     ``'objective_floor'`` / ``'trust_region_floor'`` (see :py:class:`NewtonInfo`), and ``history`` is one
     :py:func:`_newton_scalar_record` per iteration (``losses[k] == history[k]['objective']``). (The 2026.2.0
-    ``stats['newton']`` is removed; it is ``newton_steps``.) ``timing=True`` adds ``stats['timing']`` (below).
+    ``stats['newton']`` is removed; it is ``newton_steps``.) ``hessian='switch'`` adds ``stats['hessian'] = 'switch'``,
+    ``stats['switch_track']`` (``'countable'`` or ``'all'``; ``None`` with ``switch_k=0``) and ``stats['switched_at']``,
+    the index of the first row whose model is exact (``len(history)`` when the switch fired on the last row; ``0``
+    with ``switch_k=0``; ``None`` if it never fired). ``timing=True`` adds ``stats['timing']`` (below).
 
     **Timing** (``timing=True``; it changes no number). Each row's ``wall_time`` window is split by phase into
     :py:attr:`NewtonInfo.timing` (a :py:class:`NewtonTiming`; :py:class:`PhaseSeconds` lists the phases), with jax's
@@ -1842,10 +2016,14 @@ def newton_cg(
     olsf = str(on_line_search_failure).lower()
     if olsf not in ('stop', 'accept'):
         raise ValueError("on_line_search_failure must be 'stop' or 'accept'; got %r" % (on_line_search_failure,))
-    hessian = _check_hessian(hessian, 'newton_cg')
+    hessian = _check_hessian(hessian, 'newton_cg', _NEWTON_HESSIAN_MODES)
+    switch = _check_switch_options(hessian, switch_tau, switch_k, switch_cg_forcing_power, switch_track)
+    if switch is not None:                                              # the exact-mode members, at the call
+        _require_exact_capable(problem.kind, problem.geom, hessian)
     exact = hessian == 'exact'
-    if curvature_damping is not None and not exact:
-        raise ValueError("newton_cg: curvature_damping is only meaningful with hessian='exact'")
+    model_hessian = 'gauss_newton' if hessian == 'gauss_newton' else 'exact'   # 'switch' builds exact-mode models
+    if curvature_damping is not None and model_hessian != 'exact':
+        raise ValueError("newton_cg: curvature_damping is only meaningful with hessian='exact' or 'switch'")
     step_control = _check_step_control(step_control, hessian)
     trust_region = step_control == 'trust_region'
     if tr_radius0 is not None:
@@ -1887,9 +2065,15 @@ def newton_cg(
             extra.update(start_frame='padded', start_movements=_movement_record(movements))
         elif start_frame is not None:
             extra['start_frame'] = 'given'
-        model_options = dict(hessian='exact', curvature_damping=curvature_damping) if exact else {}
+        model_options = dict(hessian='exact', curvature_damping=curvature_damping) if model_hessian == 'exact' else {}
+        if switch is not None:
+            tau, k, switch_power, track = switch
+        switched = switch is not None and k == 0                        # switch mode: the exact phase (k = 0: from 0)
+        switched_at = 0 if switched else None
+        count = 0                                                       # switch mode: the consecutive hits so far
         x = x0
         lm = None                                                       # rebuilt only after an accepted step
+        lm_track = None                                                 # switch mode, GN phase: the exact build
         newton_ref = cg_ref = None                                      # resolved once, at iteration 0
         g0_ref_kind = cg_ref_kind = None
         radius = radius0 = radius_max = None                            # trust region: set at the first step
@@ -1907,17 +2091,20 @@ def newton_cg(
                 _lap(clock, 'previous_callback')
             if lm is None:                                              # a new point: linearize there
                 if clock is not None and type(problem).local_model is _STOCK_LOCAL_MODEL:    # the stock build, by part
-                    lm = _local_model_phases(problem, x, None, None, hessian, curvature_damping, start_frame, clock)
+                    lm = _local_model_phases(problem, x, None, None, model_hessian, curvature_damping, start_frame,
+                                             clock)
                 else:                                                   # an override's build is one lap, in frame
                     _mark(clock)
                     lm = problem.local_model(x, frame=start_frame, **model_options)
                     _lap(clock, 'frame', lm)
+                if switch is not None and not switched:                 # the GN phase: the exact build tracks, and
+                    lm_track, lm = lm, _gauss_newton_view(lm)           #   CG, the step and the row use its GN view
                 start_frame = None                                      # iteration 0 only
                 _mark(clock)
                 misfit = float(lm.misfit)
                 reg_val = float(lm.regularization) if lm.regularizer is not None else None  # None: no regularizer attached
                 f = misfit + (reg_val or 0.0)
-                g = lm.gradient
+                g = (lm if lm_track is None else lm_track).gradient     # GN view: the build's one transpose, read
                 gnorm = float(problem.geom.inner(g, g)) ** 0.5
                 lift_sigma_min, lift_eps = _lift_diagnostics(lm)
                 _lap(clock, 'gradient')
@@ -1945,23 +2132,27 @@ def newton_cg(
                 else:
                     cg_ref, cg_ref_kind = newton_ref, g0_ref_kind        # CG inherits the Newton reference
                 _lap(clock, 'reference')
+            row_hessian = hessian if switch is None else ('exact' if switched else 'gauss_newton')   # this row's model
             run_fields = dict(g0_reference=g0_ref_kind, cg_reference=cg_ref_kind, step_control=step_control,
-                              hessian=hessian, lift_sigma_min=lift_sigma_min, lift_eps=lift_eps)
+                              hessian=row_hessian, lift_sigma_min=lift_sigma_min, lift_eps=lift_eps)
             if gnorm <= gtol_rel * newton_ref:                           # converged -- final line, no step
                 stop_reason = 'gradient'
                 row_timing = None
                 if clock is not None:                                    # its window (it has no wall_time)
                     row_timing = clock.row(time.perf_counter(), None, None, **(one_offs if it == 0 else {}))
                     timings.append(row_timing)
+                switch_fields = {} if switch is None else dict(switch_count=None if switched else count,
+                                                               switch_fired=False)
                 info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=newton_ref, converged=True,
                                   x_cores=x, lm=lm, misfit=misfit, regularization=reg_val,
-                                  stop_reason=stop_reason, timing=row_timing, **run_fields)
+                                  stop_reason=stop_reason, timing=row_timing, **run_fields, **switch_fields)
                 if callback is not None:
                     callback(info)
                 history.append(_newton_scalar_record(info))
                 break
             newton_steps += 1
-            eta = min(0.5, (gnorm / cg_ref) ** cg_forcing_power)         # inexact-Newton (Eisenstat-Walker) forcing term
+            power = switch_power if switched else cg_forcing_power      # switch mode: the exact phase's power
+            eta = min(0.5, (gnorm / cg_ref) ** power)                    # inexact-Newton (Eisenstat-Walker) forcing term
             cg_tol = eta * gnorm
             neg_g = cw.corewise_scale(g, -1.0)
             if trust_region and radius is None:                          # the first step: the initial radius
@@ -1980,13 +2171,14 @@ def newton_cg(
             on_boundary = cg_boundary                                    # the step was limited by Δ
             _mark(clock)
             slope = float(problem.geom.inner(g, p))
-            if (not math.isfinite(slope)) or slope >= 0.0:               # ensure a descent direction
+            fallback = (not math.isfinite(slope)) or slope >= 0.0
+            if fallback:                                                 # ensure a descent direction
                 if trust_region:                                         #   ... inside the region
                     scale = min(1.0, radius / gnorm)
                     p, slope, on_boundary = cw.corewise_scale(g, -scale), -scale * gnorm * gnorm, scale < 1.0
                 else:
                     p, slope = neg_g, -gnorm * gnorm
-            if exact:                                                    # pᵀHp = GN part + curvature part (once each)
+            if exact or switched:                                        # pᵀHp = GN part + curvature part (once each)
                 pKp = lm.curvature_quadratic(p)
                 pHp = float(lm.gn_quadratic(p) + pKp)                    # == lm.quadratic(p)
                 pKp = float(pKp)
@@ -2037,11 +2229,33 @@ def newton_cg(
                 if not accepted:                                         # the floors: on a rejection ONLY
                     if data_norm is None:
                         data_norm = float(problem.kind.sumsq(problem.data, lm.n_w)) ** 0.5
-                    resolution = _resolution_eps(lm.residual) * (data_norm * math.sqrt(2.0 * misfit) + abs(f))
+                    resolution = _objective_resolution(_resolution_eps(lm.residual), data_norm, misfit, f)
                     if abs(predicted) <= _TR_RESOLUTION_FACTOR * resolution:
                         stop_reason, stop_now = 'objective_floor', True  # the model change is below f's resolution
                     elif radius < _TR_RADIUS_FLOOR_REL * radius0:
                         stop_reason, stop_now = 'trust_region_floor', True
+            if switch is None:                                           # switch mode: this row's switch_* fields
+                switch_fields = {}
+            elif switched:                                               # the exact phase tracks nothing
+                switch_fields = dict(switch_fired=False)
+            else:                                                        # the GN phase: track, count, maybe switch
+                countable = accepted and not fallback and (tr_accepted if trust_region
+                                                           else (ls_steps == 0 and not ls_failed))
+                e_gn, e_n, pKp_track, hit = abs(delta_f - predicted), None, None, False
+                if countable or track == 'all':                          # the tracked rows: one curvature product
+                    _mark(clock)
+                    pKp_track = float(lm_track.curvature_quadratic(p))
+                    _lap(clock, 'tracking')
+                    if data_norm is None:
+                        data_norm = float(problem.kind.sumsq(problem.data, lm.n_w)) ** 0.5
+                    floor = _SWITCH_ROUNDING * _TR_RESOLUTION_FACTOR * _objective_resolution(
+                        _resolution_eps(lm.residual), data_norm, misfit, f)
+                    e_gn, e_n, _, hit = _switch_sample(delta_f, predicted, 0.5 * alpha * alpha * pKp_track, floor, tau)
+                count = count + 1 if (countable and hit) else 0          # a non-countable row resets, whatever e_N
+                if count >= k:                                           # for good: the next point is built exact
+                    switched, switched_at = True, it + 1
+                switch_fields = dict(switch_pKp=pKp_track, switch_e_gn=e_gn, switch_e_n=e_n, switch_count=count,
+                                     switch_fired=switched)
             x_norm = float(cw.corewise_norm(x))                         # coordinate norm (ragged-exact; uniform: D6)
             step_rel = (alpha * p_norm / x_norm) if x_norm > 0 else float('nan')
             last_row = stop_now or it == max_newton - 1
@@ -2060,7 +2274,7 @@ def newton_cg(
                               delta_f=delta_f, rho=rho, step_rel=step_rel, wall_time=t_now - t_prev,
                               stop_reason=stop_reason if last_row else None, tr_radius=tr_radius,
                               tr_accepted=tr_accepted, cg_boundary=cg_boundary, pKp=pKp, timing=row_timing,
-                              **run_fields)
+                              **run_fields, **switch_fields)
             t_prev = t_now
             if callback is not None:
                 callback(info)
@@ -2069,7 +2283,9 @@ def newton_cg(
                 break
             if accepted:
                 newton_accepted += 1
-                x, lm = x_trial, None                                    # the next row linearizes at the new point
+                x, lm, lm_track = x_trial, None, None                    # the next row linearizes at the new point
+        if switch is not None:
+            extra.update(hessian='switch', switch_track=track, switched_at=switched_at)
         if clock is not None:                                            # the last row's callback ends here
             t_exit = time.perf_counter()
             extra['timing'] = _timing_stats(timings, history, one_offs, t_exit - t_entry, clock.close(t_exit))

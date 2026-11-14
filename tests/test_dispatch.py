@@ -2790,6 +2790,127 @@ class TestNewtonTiming(unittest.TestCase):
         self.assertGreater(record.alignment, 0.0)
         self.assertEqual(record.alignment_compile is not None, self.listening())
 
+
+@unittest.skipUnless(HAS_JAX, "jax not available")
+class TestSwitchNewton(unittest.TestCase):
+    """The Gauss-Newton-to-exact switch plan's jax rows (x64 on in this module): T5 (the rounding gate at float32, under
+    use_jit with x64 off) and T9 (jax in, jax out; the Gauss-Newton phase runs the Gauss-Newton CG program, so a
+    switch run adds at most one compiled CG program per structure, the exact one; eager jax equals jit)."""
+
+    def setUp(self):
+        self.addCleanup(_release_jax_programs)
+
+    @staticmethod
+    def cases():
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
+        import test_optimizers as optimizer_tests
+        return optimizer_tests
+
+    def test_rounding_gate_at_float32(self):
+        """T5: a noise-free fit at the true rank, run to its floor with use_jit=True and x64 off (float32). Every tracked
+        row's rounding floor is 1000·ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|) with float32's ε (recorded at the call), and the gate's
+        verdict (recorded) is uninformative exactly on the rows whose two errors are below it (a 1 % margin each side
+        absorbs the float64 ‖y‖ here against the run's float32); every countable row whose two errors are at or below
+        it has switch_count 0 (such rows exist: the run reaches its floor); if the switch fires, its last switch_k rows
+        are informative."""
+        SH = STRUCT[0]
+        rng = np.random.default_rng(7)
+        np.random.seed(7)
+        target = t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1))
+        ww, pp = ([rng.standard_normal((20, n)) for n in SH] for _ in range(2))
+        kind = bfit.ProbeDerivativesKind(order=1)
+        data = kind.point_forward(target.data, (ww, pp))
+        problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
+        start = t3.TuckerTensorTrain.randn(SH, (2, 2, 2), (1, 2, 2, 1)).data
+        floors, verdicts = [], []
+        real = bopt._switch_sample
+
+        def recording(delta_f, predicted, curvature, floor, tau):
+            floors.append(floor)
+            sample = real(delta_f, predicted, curvature, floor, tau)
+            verdicts.append(sample[2])
+            return sample
+        x64 = jax.config.read('jax_enable_x64')
+        jax.config.update('jax_enable_x64', False)
+        try:
+            with unittest.mock.patch.object(bopt, '_switch_sample', recording):
+                x, stats = bopt.newton_cg(problem, start, max_newton=30, gtol_rel=1e-12, hessian='switch',
+                                          use_jit=True)
+        finally:
+            jax.config.update('jax_enable_x64', x64)
+        self.assertEqual(np.asarray(x[0][0]).dtype, np.float32)
+        y = float(np.sqrt(sum(np.sum(np.asarray(z, dtype=float) ** 2) for z in data)))
+        eps = float(np.finfo(np.float32).eps)
+        tracked = [row for row in stats['history'] if row['switch_e_n'] is not None]
+        self.assertEqual(len(tracked), len(floors))
+        at_floor = 0
+        for row, floor, informative in zip(tracked, floors, verdicts):
+            expected = 1000.0 * eps * (y * np.sqrt(2.0 * row['misfit']) + abs(row['objective']))
+            self.assertAlmostEqual(floor, expected, delta=1e-4 * expected)
+            error = max(row['switch_e_gn'], row['switch_e_n'])
+            if error <= 0.99 * expected:
+                self.assertFalse(informative)
+            elif error > 1.01 * expected:
+                self.assertTrue(informative)
+            if error <= expected:
+                at_floor += 1
+                self.assertEqual(row['switch_count'], 0)
+        self.assertGreater(at_floor, 0)
+        self.assertIn(False, verdicts)
+        if stats['switched_at'] is not None:
+            for row in stats['history'][stats['switched_at'] - 2:stats['switched_at']]:
+                self.assertGreater(max(row['switch_e_gn'], row['switch_e_n']),
+                                   1000.0 * eps * (y * np.sqrt(2.0 * row['misfit']) + abs(row['objective'])))
+
+    def check_use_jit(self, layer, geometry):
+        """T9 at one structure: jax in, jax out; after a pure Gauss-Newton trust-region run there, a switch_tau=0 run
+        compiles no CG program (the Gauss-Newton view's structure is a Gauss-Newton model's), a firing run at most one
+        (the exact phase's), a second firing run none; and (ragged) the eager-jax run equals the jit run: the same
+        switch row, the objectives to 1e-9 relative."""
+        cg = bopt._jitted(bopt._cg_core, (4,))
+        if not hasattr(cg, '_cache_size'):
+            self.skipTest("this jax has no jit _cache_size()")
+        problem, x0 = self.cases()._switch_case(layer, geometry)
+        bopt.newton_cg(problem, x0, max_newton=3, step_control='trust_region', use_jit=True)
+        size = cg._cache_size()
+        x, stats = bopt.newton_cg(problem, x0, max_newton=3, hessian='switch', switch_tau=0.0, use_jit=True)
+        self.assertEqual(cg._cache_size(), size, 'the Gauss-Newton phase compiled another CG program')
+        self._leaves(x)
+        self.assertTrue(any(row['switch_e_n'] is not None for row in stats['history']))
+        x, stats = bopt.newton_cg(problem, x0, max_newton=16, hessian='switch', use_jit=True)
+        self._leaves(x)
+        self.assertIsNotNone(stats['switched_at'])
+        self.assertLessEqual(cg._cache_size() - size, 1, 'the switch compiled more than the exact CG program')
+        size = cg._cache_size()
+        again = bopt.newton_cg(problem, x0, max_newton=16, hessian='switch', use_jit=True)
+        self.assertEqual(cg._cache_size(), size, 'a second switch run compiled a CG program')
+        self.assertEqual(again[1]['switched_at'], stats['switched_at'])
+        if layer == 'ragged':
+            jx, jproblem = bopt._prepare_jit_inputs(True, x0, problem)
+            _, eager = bopt.newton_cg(jproblem, jx, max_newton=16, hessian='switch')
+            self.assertEqual(eager['switched_at'], stats['switched_at'])
+            self.assertEqual(len(eager['losses']), len(stats['losses']))
+            for a, b in zip(eager['losses'], stats['losses']):
+                self.assertAlmostEqual(a, b, delta=1e-9 * abs(b))
+
+    def test_use_jit_ragged(self):
+        """T9 on the ragged manifold, with the eager-jax comparison."""
+        self.check_use_jit('ragged', 'manifold')
+
+    def test_use_jit_uniform(self):
+        """T9 on the uniform manifold."""
+        self.check_use_jit('uniform', 'manifold')
+
+    def test_use_jit_shared_uniform(self):
+        """T9 on the shared uniform manifold."""
+        self.check_use_jit('uniform', 'shared')
+
+    def _leaves(self, tree):
+        leaves = [leaf for leaf in jax.tree_util.tree_leaves(tree) if hasattr(leaf, 'dtype') and leaf.dtype != bool]
+        self.assertTrue(leaves)
+        self.assertTrue(all(common.is_jax_ndarray(leaf) for leaf in leaves))
+
+
 @unittest.skipUnless(HAS_JAX, "jax not available")
 class TestAlignedPaddedFrameFrontend(unittest.TestCase):
     """The frontend twins of the aligned padded frame: jax in -> jax out (the uniform masks host numpy), eagerly and
