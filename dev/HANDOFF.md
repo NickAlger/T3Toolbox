@@ -29,7 +29,14 @@ decision / why). Agents may be re-spawned fresh per slice with the plan as the b
 
 **State (2026-11-13, night). THE STORE RENAME ARC IS COMPLETE: R1-R6 COMMITTED (R6 = 5ec8cbc5: acceptance clean, the alignment
 sweep 277 whitespace-only lines in 56 files; T3Polynomial's two-line follow-up committed and pushed in that repo).
-FINAL REVIEW STOP WITH NICK PENDING. The tag is NOT cut yet: 2026.5.0 bundles the timing feature (plan agreed) and the
+FINAL REVIEW STOP PASSED (Nick 2026-11-13: "R6 is good. Approved."). SWITCH PLAN DECISIONS (Nick 2026-11-13): G-1 ok
+(`cg_forcing_power` = the GN phase, new `switch_cg_forcing_power`, None = 1.0); G-2 yes (tau = 0 and k = 0 allowed); G-3 yes
+(`switch_fired` row field); G-6 ok (helpers private); G-7: a user option to track on ALL GN-phase rows or COUNTABLE rows
+only, DEFAULT countable; G-4: track every countable row -- NO `switch_track_every`, NO jit-the-product option, no
+measurement-gated default ("no need for more elaborate options at this time"; the cost is still reported in the
+benchmark slice, informational). TIMING Q-1: (a) -- the `gradient` phase carries exact mode's misfit transpose.
+IMPLEMENTATION ORDER: timing first (it adds `PhaseSeconds.tracking`), then the switch, then the 601-row docs pass
+(after the features so their docstrings/docs are not edited twice), then the release commit. The tag is NOT cut yet: 2026.5.0 bundles the timing feature (plan agreed) and the
 GN-to-Newton switch (plan agreed; Nick's G-1..G-4, G-6, G-7 and Q-1 pending), then the glossary/docs pass, then the
 release commit (version bump; RE-CUT release_notes_2026.5.0.md from the CHANGELOG at that commit) and Nick tags.
 Audit items from the arc: canonical bases/signs at the representation level; the code's own H for companion centers vs
