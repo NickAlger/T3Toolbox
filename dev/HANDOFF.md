@@ -27,7 +27,15 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
-**State (2026-11-13, evening). STORE RENAME: R1-R5 COMMITTED (a380d198, 5153a0be, 74683a39, e3085085, f5ef5a8c,
+**State (2026-11-13, night). THE STORE RENAME ARC IS COMPLETE: R1-R6 COMMITTED (R6 = 5ec8cbc5: acceptance clean, the alignment
+sweep 277 whitespace-only lines in 56 files; T3Polynomial's two-line follow-up committed and pushed in that repo).
+FINAL REVIEW STOP WITH NICK PENDING. The tag is NOT cut yet: 2026.5.0 bundles the timing feature (plan agreed) and the
+GN-to-Newton switch (plan agreed; Nick's G-1..G-4, G-6, G-7 and Q-1 pending), then the glossary/docs pass, then the
+release commit (version bump; RE-CUT release_notes_2026.5.0.md from the CHANGELOG at that commit) and Nick tags.
+Audit items from the arc: canonical bases/signs at the representation level; the code's own H for companion centers vs
+the frame-variations H; the shared note's D-shaped non-store symbols; a functools.partial-free uniform loop.
+
+**Earlier state (2026-11-13, evening). STORE RENAME: R1-R5 COMMITTED (a380d198, 5153a0be, 74683a39, e3085085, f5ef5a8c,
 6062f3d2); R6 (ACCEPTANCE) IS RUNNING (implementer `abe9ed948c3aa086a`: §5 end to end on both envs, the alignment sweep
 over every touched file incl. the 21+2 known pre-existing misalignments, the T3Polynomial one-liner
 `scripts/g01_g0_common.py:121` prepared not committed, `release_notes_2026.5.0.md` untracked). WHEN R6 REPORTS: spawn a
