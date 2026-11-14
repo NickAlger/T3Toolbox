@@ -35,7 +35,11 @@ FINAL REVIEW STOP PASSED (Nick 2026-11-13: "R6 is good. Approved."). SWITCH PLAN
 only, DEFAULT countable; G-4: track every countable row -- NO `switch_track_every`, NO jit-the-product option, no
 measurement-gated default ("no need for more elaborate options at this time"; the cost is still reported in the
 benchmark slice, informational). TIMING Q-1: (a) -- the `gradient` phase carries exact mode's misfit transpose.
-IMPLEMENTATION ORDER: timing first (it adds `PhaseSeconds.tracking`), then the switch, then the 601-row docs pass
+TIMING FEATURE IN IMPLEMENTATION (plan draft 4): P1 COMMITTED (cbcdc1d6: the geometry side -- tree_block_until_ready, per-pass
+clocks in both alignment loops, the members' timing=False keyword; review APPROVE after one test-only round). P2 next (the
+newton_cg side: PhaseSeconds/NewtonTiming, the timing keyword, _local_model_phases, the per-phase clocks + jax.monitoring
+compile accounting, stats['timing'], the **kwargs-member guard), then P3 (display, frontend, figures, docs) with the FINAL
+STOP with Nick. Slice records in dev/newton_timing_slices/. IMPLEMENTATION ORDER: timing first (it adds `PhaseSeconds.tracking`), then the switch, then the 601-row docs pass
 (after the features so their docstrings/docs are not edited twice), then the release commit. The tag is NOT cut yet: 2026.5.0 bundles the timing feature (plan agreed) and the
 GN-to-Newton switch (plan agreed; Nick's G-1..G-4, G-6, G-7 and Q-1 pending), then the glossary/docs pass, then the
 release commit (version bump; RE-CUT release_notes_2026.5.0.md from the CHANGELOG at that commit) and Nick tags.

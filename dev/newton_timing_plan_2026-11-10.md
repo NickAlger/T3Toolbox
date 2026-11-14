@@ -1,6 +1,6 @@
-# Opt-in phase timing for `newton_cg` — plan (draft 3, 2026-11-13)
+# Opt-in phase timing for `newton_cg` — plan (draft 4, 2026-11-14)
 
-> **Status: DRAFT 3** (critic r2 `dev/newton_timing_plan_review_r2.md`: APPROVE of draft 2; Nick's Q-1 recorded,
+> **Status: DRAFT 4** (P1 IMPLEMENTED and reviewed, 2026-11-14; critic r2 `dev/newton_timing_plan_review_r2.md`: APPROVE of draft 2; Nick's Q-1 recorded,
 > 2026-11-13). Signature level (code in the house signature style; blocks here compress today's arguments). T-1..T-7
 > settled (§8); §9's Q-1 RESOLVED: (a). Lines (working tree,
 > 2026-11-13): `backend/optimizers.py` `Problem.local_model` ~360, `padded_start` ~763, `_cone_reference` ~841,
@@ -11,6 +11,13 @@
 ## CHANGES
 
 *History only. Where a CHANGES line and a section differ, the section governs.*
+
+**Draft 4 (2026-11-14, session; P1 implemented + reviewed, APPROVE after one test-only round).**
+
+| row | from | change | where |
+|---|---|---|---|
+| 4.1 | P1 handoff/review | P1's readings of the plan, recorded: the private twins `_fv_aligned_padded_frame` / uniform keep the public defaults with `timing=False` appended; the ragged twin's early returns give `()` for the per-pass times; the members' return is annotated as a `Union` of the 2- and 3-tuple forms; the ragged `_aligning_pass` takes the same `clock` slot as the uniform pass statics; the uniform kernel raises `ValueError` on `clock` with `use_jit`. Three P1 tests were tightened after mutation testing (vacuous `_cache_size` check; the jax-absent row moved into `test_jax_absent.py`'s jax-hidden subprocess; the uniform end-of-pass sync now checked per movement) | §2.6, §5 |
+| 4.2 | P1 review | P3's docs list gains a `scan_body_principles.md` clause on the clock slot (a host-side static that must never reach a jitted body; the kernel's raise is the guard) | §6 |
 
 **Draft 3 (2026-11-13, session; critic r2: APPROVE, one optional NIT; Nick's Q-1).**
 
@@ -339,6 +346,8 @@ reading `stats['timing']`; and `verbose=True` showing the split.
   (`NewtonTiming`, `PhaseSeconds`); `stats['timing']`; the display's time lines and closing table; the members'
   `timing`; `common.tree_block_until_ready`. Add a line to `docs/release_notes.md` only if its 2026.5.0 section lists
   additions.
+
+- `docs/contributor/scan_body_principles.md`: one clause on the clock slot — a host-side static carried in the pass statics, read only by the eager kernel; it must never reach a jitted body, and the kernel's `ValueError` on `clock` with `use_jit` is the guard (P3; added at draft 4 from the P1 review).
 
 ## 7. Slices
 
