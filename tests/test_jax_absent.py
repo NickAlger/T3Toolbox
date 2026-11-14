@@ -7,7 +7,10 @@ T28 (2026.3.0, the exact Hessian): every class the exact mode adds registers its
 ``LiftFactors`` (``fv_lift_factors``), ``ManifoldCurvatureData`` (``curvature_precompute``), the backend
 ``CurvatureState`` and an exact ``fitting.LocalModel`` (``probe_derivatives_model(..., hessian='exact')``),
 whose ``hessian(p)`` is applied -- and ``newton_cg(hessian='exact', use_jit=True)`` runs to completion on numpy
-with the jax-absent warning."""
+with the jax-absent warning.
+
+The Newton timing plan's T6 (2026.5.0): the timers' synchronization helper ``common.tree_block_until_ready`` is a no-op
+without jax (it must not reach for ``jax``), on a mixed tree and on a point's cores."""
 import os
 import subprocess
 import sys
@@ -41,6 +44,10 @@ assert any('randn(use_jax=True)' in m for m in msgs), msgs
 assert any('to_jax' in m for m in msgs), msgs
 assert any('get_backend' in m for m in msgs), msgs
 assert any('use_jit=True' in m for m in msgs), msgs
+
+# the Newton timing plan's T6: the synchronization helper without jax (a missing guard raises a NameError)
+assert common.tree_block_until_ready((np.ones(2), 3, None, 'D')) is None
+assert common.tree_block_until_ready(x.data) is None
 
 # T28: the exact mode's classes, constructed without jax
 import t3toolbox.fitting as fitting

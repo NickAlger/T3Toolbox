@@ -33,7 +33,15 @@ T14, the seam (both layers unless stated):
   stack mixing zero and nonzero old points raises.
 
 (T14 (i), the uniform ``use_jit`` paths, is in ``tests/test_dispatch.py``, where x64 is on.) numpy-only.
+
+The Newton timing plan's T7 at the member level (``TestMemberTiming``): both members return two elements without
+``timing`` and three with ``timing=True``, the frame and movements bitwise those of ``timing=False``; one positive float
+per pass run, every kind of pass included; ``()`` when no pass runs; the start frame synchronized before pass 1, each
+pass ending synchronized, and nothing synchronized when off; the public loops and ``padded_start`` keep their
+signatures and return two; the uniform kernel refuses a clock under ``use_jit``. (Its jax and ``use_jit`` cases are in
+``tests/test_dispatch.py``.)
 """
+import inspect
 import itertools
 import os
 import sys
@@ -58,11 +66,15 @@ import t3toolbox.backend.fv_conversions as fvc
 import t3toolbox.backend.ufv_conversions as ufc
 import t3toolbox.backend.ranks as ranks
 import t3toolbox.backend.sharing as sharing_module
+import t3toolbox.backend.common as common
+import t3toolbox.backend.tv_operations as tvo
+import t3toolbox.backend.utv_operations as utvo
 import t3toolbox.corewise as cw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _padded_frame_oracles as oracles
 import _uniform_padded_frame_testing as testing
+import test_uniform_padded_frame as uniform_tests      # loop_case: both layers' loop level (a module: no re-collection)
 
 
 def random_minimal_structure(rng, d, sharing=None):
@@ -550,6 +562,135 @@ class TestSeamNumerics(unittest.TestCase):
                   np.stack([np.arange(2) < np.array(r[1])[:, None] for r in (olds['rank 0'], target)], axis=1)))
         with self.assertRaisesRegex(ValueError, 'mixes structurally zero and nonzero'):
             ugeom.aligned_padded_frame((ux0.data[0], ux0.data[1]), mixed, project, None, max_passes=0)
+
+
+# ------------------------------------------------------------------------------------------------------------------
+# The Newton timing plan's T7, member level: the members' timing keyword
+# ------------------------------------------------------------------------------------------------------------------
+def aligned_by_member(layer, x_old='old', **kw):
+    """The member's return for fit_case's level, called as padded_start calls it (the misfit gradient at x0 as the
+    hint), plus ``kw``. ``x_old``: 'old' (the case's old point) or None (the zero tensor)."""
+    setup, old, _, _ = fit_case(layer)
+    problem, x = setup.problem, setup.x0_cores
+    residual = cw.corewise_sub(problem.kind.point_forward(x, problem.sample), problem.data)
+    return problem.geom.aligned_padded_frame(x, old if x_old == 'old' else None, bopt._misfit_gradient_at,
+                                             (problem, residual), **kw)
+
+
+def frame_arrays(layer, frame):
+    """A frame's arrays in order (ragged: every core; uniform: the supercores, then the host masks)."""
+    if layer == 'ragged':
+        return [c for cores in frame for c in cores]
+    return list(frame[:4]) + list(frame[5])
+
+
+def passes_run(layer, movements):
+    """The passes a member's movements record (ragged: one per pass; uniform: the non-NaN slots, C = ())."""
+    return len(movements) if layer == 'ragged' else int(np.sum(~np.isnan(np.asarray(movements))))
+
+
+class TestMemberTiming(unittest.TestCase):
+    """The Newton timing plan's T7, at the member level (numpy)."""
+
+    # every kind of pass: oversampled, truncating, pairs and the odd remainder's final ('D', 'L') (tol 0, cap 6:
+    # 2 + 1 + one pair + 1); simultaneous passes; the defaults (an early stop may end the pairs); the zero tensor
+    CASES = {'two-colour, final pass': ('old', dict(tol=0.0, max_passes=6)),
+             'simultaneous':           ('old', dict(alternate=False, tol=0.0, max_passes=4)),
+             'defaults':               ('old', {}),
+             'the zero tensor':        (None, dict(max_passes=5))}
+
+    def test_two_elements_off_three_on(self):
+        """Off (the keyword absent, or False): (frame, movements). On: the same frame and movements bitwise, then one
+        positive float per pass run."""
+        for layer in LAYERS:
+            for name, (x_old, kw) in self.CASES.items():
+                with self.subTest(layer=layer, case=name):
+                    off = aligned_by_member(layer, x_old, **kw)
+                    off_explicit = aligned_by_member(layer, x_old, timing=False, **kw)
+                    on = aligned_by_member(layer, x_old, timing=True, **kw)
+                    self.assertEqual((len(off), len(off_explicit), len(on)), (2, 2, 3))
+                    for got in (off_explicit, on):
+                        self.assertTrue(all(np.array_equal(a, b) for a, b in zip(frame_arrays(layer, got[0]),
+                                                                                 frame_arrays(layer, off[0]))))
+                        np.testing.assert_array_equal(np.asarray(got[1], dtype=float), np.asarray(off[1], dtype=float))
+                    seconds = on[2]
+                    self.assertIsInstance(seconds, tuple)
+                    self.assertEqual(len(seconds), passes_run(layer, off[1]))
+                    self.assertGreater(len(seconds), 0)
+                    self.assertTrue(all(isinstance(t, float) and t > 0.0 for t in seconds))
+
+    def test_no_pass(self):
+        """No pass runs -- zero passes (members) or nothing to complete (the loops' private twins, the old frame at
+        the target) -- so the seconds are ()."""
+        for layer in LAYERS:
+            with self.subTest(layer=layer, case='max_passes=0'):
+                self.assertEqual(aligned_by_member(layer, max_passes=0, timing=True)[2], ())
+        _, old, uold, _, _, widths = uniform_tests.loop_case(SHAPE, OLD, OLD)
+        with self.subTest(layer='ragged', case='nothing to complete'):
+            self.assertEqual(padded_frames._fv_aligned_padded_frame(old, *OLD, None, None, timing=True)[2], ())
+        with self.subTest(layer='uniform', case='nothing to complete'):
+            self.assertEqual(uniform_padded_frames._ufv_aligned_padded_frame(uold, *OLD, None, None, widths,
+                                                                             timing=True)[2], ())
+
+    def test_the_start_frame_is_synchronized_first(self):
+        """With timing=True the first synchronization is the start frame's (the padded start the loop builds), and
+        each pass then ends with one, on its own output (its frame and movement): passes + 1 in all, pass k's
+        synchronized movement pass k's (ragged: the object itself; uniform: record slot k's value, the record being a
+        ``where`` copy). With timing off, none."""
+        recorded = {'ragged': (padded_frames, 'fv_padded_frame'),
+                    'uniform': (uniform_padded_frames, 'ufv_padded_frame')}
+        for layer in LAYERS:
+            module, start_name = recorded[layer]
+            starts = []
+            real_start = getattr(module, start_name)
+
+            def start(*args, **kwargs):
+                starts.append(real_start(*args, **kwargs))
+                return starts[-1]
+            for timing in (True, False):
+                with self.subTest(layer=layer, timing=timing):
+                    starts.clear()
+                    with unittest.mock.patch.object(module, start_name, side_effect=start), \
+                            unittest.mock.patch.object(module, 'tree_block_until_ready',
+                                                       wraps=common.tree_block_until_ready) as sync:
+                        out = aligned_by_member(layer, timing=timing, tol=0.0, max_passes=6)
+                    if not timing:
+                        sync.assert_not_called()
+                        continue
+                    self.assertEqual(len(starts), 1)
+                    trees = [c.args[0] for c in sync.call_args_list]
+                    self.assertEqual(len(trees), passes_run(layer, out[1]) + 1)
+                    if layer == 'ragged':
+                        self.assertIs(trees[0], starts[0])                              # the start frame itself
+                        self.assertTrue(all(t[1] is m for t, m in zip(trees[1:], out[1])))   # pass k's movement
+                    else:
+                        cores, _ = trees[0]                                             # (start cores, the record)
+                        self.assertTrue(all(a is b for a, b in zip(cores, starts[0][0][:4])))
+                        self.assertTrue(all(len(t) == 2 and len(t[0]) == 4 for t in trees[1:]))
+                        record = np.asarray(out[1])
+                        self.assertTrue(all(np.array_equal(np.asarray(t[1]), record[k])   # pass k's own movement
+                                            for k, t in enumerate(trees[1:])))
+
+    def test_public_loops_and_padded_start_are_unchanged(self):
+        """The public loops and padded_start keep their signatures (no timing keyword) and return two elements."""
+        for fn in (padded_frames.fv_aligned_padded_frame, uniform_padded_frames.ufv_aligned_padded_frame,
+                   bopt.padded_start):
+            self.assertNotIn('timing', inspect.signature(fn).parameters)
+        for layer in LAYERS:
+            with self.subTest(layer=layer):
+                setup, old, _, _ = fit_case(layer)
+                self.assertEqual(len(bopt.padded_start(setup.problem, setup.x0_cores, old, max_passes=3)), 2)
+        _, old, uold, hint, uhint, widths = uniform_tests.loop_case(SHAPE, OLD, TARGET)
+        self.assertEqual(len(padded_frames.fv_aligned_padded_frame(
+            old, *TARGET, hint.data, tvo.tv_project_t3_onto_tangent_space, max_passes=3)), 2)
+        self.assertEqual(len(uniform_padded_frames.ufv_aligned_padded_frame(
+            uold, *TARGET, uhint.data, utvo.utv_project_ut3_onto_tangent_space, widths, max_passes=3)), 2)
+
+    def test_the_kernel_refuses_a_clock_under_jit(self):
+        """A clock with use_jit=True would time the trace, not the passes: a ValueError, raised before anything runs
+        (so the placeholder arguments are never read)."""
+        with self.assertRaisesRegex(ValueError, 'eager only'):
+            uniform_padded_frames._ufv_aligned_loop_kernel(None, 0.05, None, None, None, True, clock=[])
 
 
 def dense_probe_gradient(ww, residual):

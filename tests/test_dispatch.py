@@ -2081,6 +2081,27 @@ class TestDispatch(unittest.TestCase):
         self._leaves_all_jax((F_n, mv_n))
         self.assertLessEqual(max(abs(float(a) - float(b)) for a, b in zip(mv_n, mv_np)), 1e-12)
 
+    def test_tree_block_until_ready_dispatch(self):
+        """The timers' synchronization helper waits (``jax.block_until_ready`` on the whole tree) exactly when a leaf is
+        a jax array -- a jax tree, a mixed tree (numpy arrays, Python scalars, None, a string beside a jax array), a
+        registered frontend dataclass of jax cores -- and does nothing otherwise (numpy, empty, None, numpy cores);
+        it returns None and leaves the tree as it was. (Without jax installed: ``tests/test_jax_absent.py``.)"""
+        waits = {'jax': (jnp.ones(3), (jnp.zeros((2, 2)),)),
+                 'mixed': (jnp.ones(3), np.ones(2), 3, None, 'D', (1.5, [np.zeros(1)])),
+                 'frontend frame (jax)': self.frame}
+        skips = {'numpy': (np.ones(2), (np.zeros(3), 3)), 'empty': (), 'None': None, 'numpy cores': self.x_np.data}
+        real = jax.block_until_ready
+        for name, tree in list(waits.items()) + list(skips.items()):
+            with self.subTest(tree=name), unittest.mock.patch.object(jax, 'block_until_ready', wraps=real) as wait:
+                before = jax.tree_util.tree_leaves(tree)
+                self.assertIsNone(common.tree_block_until_ready(tree))
+                if name in waits:
+                    wait.assert_called_once_with(tree)
+                else:
+                    wait.assert_not_called()
+                after = jax.tree_util.tree_leaves(tree)
+                self.assertTrue(len(after) == len(before) and all(a is b for a, b in zip(after, before)))
+
     # ---------------------------------------------------- the uniform padded frame
     def test_pad_safe_pinned_completion_dispatch(self):
         """The pad-safe completion: numpy in -> numpy out, jax in -> jax out, and it jits (masks closed over as host
@@ -2551,6 +2572,9 @@ class TestPaddedStartSeam(unittest.TestCase):
         return seam.fit_case(layer, shape=shape, old=((2, 2, 2), (1, 2, 2, 1)), target=((3, 3, 3), (1, 3, 3, 1)), M=M)
 
     def test_members_and_padded_start(self):
+        """numpy in -> numpy out, jax in -> jax out, the same movements; and (the Newton timing plan's T7, eager jax)
+        the member with timing=True on jax: its frame and movements those of the untimed call, bitwise, then one
+        positive float per pass."""
         import t3toolbox.backend.optimizers as bopt
         to_jax = lambda tree: jax.tree_util.tree_map(jnp.asarray, tree)
         for layer in ('ragged', 'uniform'):
@@ -2571,6 +2595,15 @@ class TestPaddedStartSeam(unittest.TestCase):
                         r0 = bopt.cw.corewise_sub(jproblem.kind.point_forward(jx, jproblem.sample), jproblem.data)
                         F, m = geom.aligned_padded_frame(jx, jold, bopt._misfit_gradient_at, (jproblem, r0),
                                                          max_passes=2, tol=0.0)
+                        timed = geom.aligned_padded_frame(jx, jold, bopt._misfit_gradient_at, (jproblem, r0),
+                                                          max_passes=2, tol=0.0, timing=True)
+                        for a, b in zip(jax.tree_util.tree_leaves(arrays(timed[0])) + [timed[1]],
+                                        jax.tree_util.tree_leaves(arrays(F)) + [m]):
+                            self.assertTrue(np.array_equal(np.asarray(a, dtype=float), np.asarray(b, dtype=float),
+                                                           equal_nan=True))
+                        self._leaves(arrays(timed[0]))
+                        self.assertEqual(len(timed[2]), len(bopt._movement_record(m)))
+                        self.assertTrue(all(isinstance(t, float) and t > 0.0 for t in timed[2]))
                     else:
                         F, m = bopt.padded_start(jproblem, jx, jold, max_passes=2, tol=0.0)
                     self._leaves(arrays(F))
@@ -2604,6 +2637,53 @@ class TestPaddedStartSeam(unittest.TestCase):
         self.assertTrue(common.is_jax_ndarray(F_j[0]))
         self.assertLessEqual(seam.frame_distance(seam.ragged_view('uniform', F_j), seam.ragged_view('uniform', F_e)),
                              1e-12)
+
+
+@unittest.skipUnless(HAS_JAX, "jax not available")
+class TestAlignmentTiming(unittest.TestCase):
+    """The Newton timing plan's T6 (timing adds no compiled program) and T7's use_jit cases, at the geometry members
+    (x64 on in this module). Its eager-jax case is in ``TestPaddedStartSeam.test_members_and_padded_start``."""
+
+    def setUp(self):
+        self.addCleanup(_release_jax_programs)
+
+    def test_timing_adds_no_program(self):
+        """use_jit=True, timing off then on at one structure: the ragged jitted step and the uniform whole-loop program
+        compile nothing more for the timed run (the jitted kernel never receives the clock), and the frame and
+        movements are equal. The caches are cleared first, so the untimed run's compiles prove the member uses that
+        very program. The uniform member's third element is None (the whole loop is one program); the ragged member's
+        is one positive float per pass (a host loop around the jitted step)."""
+        import t3toolbox.backend.optimizers as bopt
+        programs = {'ragged': padded_frames._jitted(padded_frames.tv_align_padded_frame, padded_frames._STEP_STATICS),
+                    'uniform': padded_frames._jitted(uniform_padded_frames._ufv_aligned_loop_kernel, (2, 3, 4, 5))}
+        if not all(hasattr(program, '_cache_size') for program in programs.values()):
+            self.skipTest("this jax has no jit _cache_size()")
+        for layer in ('ragged', 'uniform'):
+            with self.subTest(layer=layer):
+                setup, old, _, _ = TestPaddedStartSeam.case(layer)
+                problem, x = setup.problem, setup.x0_cores
+                jproblem = bopt._prepare_jit_inputs(True, x, problem)[1]
+                jx = jax.tree_util.tree_map(jnp.asarray, x)
+                r0 = bopt.cw.corewise_sub(jproblem.kind.point_forward(jx, jproblem.sample), jproblem.data)
+                call = lambda **kw: problem.geom.aligned_padded_frame(jx, old, bopt._misfit_gradient_at, (jproblem, r0),
+                                                                      use_jit=True, max_passes=2, tol=0.0, **kw)
+                program = programs[layer]
+                _release_jax_programs()                                   # every program's cache now empty
+                off = call()
+                size = program._cache_size()
+                self.assertGreater(size, 0, 'the untimed run did not use this program')
+                on = call(timing=True)
+                self.assertEqual(program._cache_size(), size, 'timing=True compiled another program')
+                arrays = (lambda F: F) if layer == 'ragged' else (lambda F: F[:4])
+                for a, b in zip(jax.tree_util.tree_leaves(arrays(on[0])) + [on[1]],
+                                jax.tree_util.tree_leaves(arrays(off[0])) + [off[1]]):
+                    self.assertTrue(np.array_equal(np.asarray(a, dtype=float), np.asarray(b, dtype=float),
+                                                   equal_nan=True))
+                if layer == 'uniform':
+                    self.assertIsNone(on[2])
+                else:
+                    self.assertEqual(len(on[2]), len(off[1]))
+                    self.assertTrue(all(isinstance(t, float) and t > 0.0 for t in on[2]))
 
 
 @unittest.skipUnless(HAS_JAX, "jax not available")

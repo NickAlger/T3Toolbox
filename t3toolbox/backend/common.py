@@ -54,6 +54,7 @@ __all__ = [
     'ExplicitEquality',
     'readonly_mask_copies',
     'tree_to_jax',
+    'tree_block_until_ready',
     'items_are_uniform',
     #
     'randn',
@@ -451,6 +452,17 @@ def tree_to_jax(T):
     if isinstance(T, typ.Sequence) and not isinstance(T, (str, bytes)):   # str = a leaf (review R2-8)
         return type(T)(tree_to_jax(t) for t in T)   # preserve list-vs-tuple
     return jnp.asarray(T) if jax_or_warn('tree_to_jax') else np.asarray(T)
+
+
+def tree_block_until_ready(
+        tree:  typ.Any,   # any pytree: jax / numpy arrays, Python scalars, None, registered dataclasses
+) -> None:
+    """Wait until every jax array in ``tree`` is computed: ``jax.block_until_ready(tree)`` when a leaf is a jax
+    array; otherwise nothing (numpy is synchronous). jax dispatches asynchronously, so a host clock read right after
+    a jax call measures the dispatch, not the work; a timer calls this at its boundaries. Eager only: a traced leaf
+    has nothing to wait for."""
+    if jax_available and any(is_jax_ndarray(leaf) for leaf in jax.tree_util.tree_leaves(tree)):
+        jax.block_until_ready(tree)
 
 
 def items_are_uniform(

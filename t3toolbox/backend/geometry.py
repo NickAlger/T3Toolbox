@@ -387,11 +387,18 @@ class ManifoldGeometryOps(ValueHashedFields):
             alternate:           bool  = ALIGN_ALTERNATE,
             seed:                int   = ZERO_FRAME_SEED,
             use_jit:             bool  = False,             # passed to the loop
-    ) -> typ.Tuple[
-        typ.Tuple,                 # the aligned frame of x0
-        typ.Tuple[NDArray, ...],   # movements, one per pass, each shape=C
+            timing:              bool  = False,             # True: a third element, the seconds per pass
+    ) -> typ.Union[
+        typ.Tuple[
+            typ.Tuple,                 # the aligned frame of x0
+            typ.Tuple[NDArray, ...],   # movements, one per pass, each shape=C
+        ],
+        typ.Tuple[typ.Tuple, typ.Tuple[NDArray, ...], typ.Tuple[float, ...]],   # timing=True: the two, then the seconds per pass
     ]:
-        """The aligned padded frame of ``x0`` from ``x_old``: :py:func:`~t3toolbox.backend.padded_frames.fv_aligned_padded_frame`."""
+        """The aligned padded frame of ``x0`` from ``x_old``: :py:func:`~t3toolbox.backend.padded_frames.fv_aligned_padded_frame`.
+
+        ``timing=True`` adds the seconds per pass (``()`` when no pass runs), each from a synchronized start to a
+        synchronized end; the frame and movements are those of ``timing=False``, bitwise."""
         tucker = tuple(int(B.shape[-2]) for B in x0[0])
         tt = (int(x0[1][0].shape[-3]),) + tuple(int(G.shape[-1]) for G in x0[1])
         point = x0 if x_old is None else x_old
@@ -402,10 +409,12 @@ class ManifoldGeometryOps(ValueHashedFields):
             old = padded_frames.fv_empty_frame(shape, self.stack_shape(point), use_jax=tree_contains_jax(point))
         else:
             old = self.frame(x_old)
-        return padded_frames.fv_aligned_padded_frame(
-            old, tucker, tt, hint, project, sharing=_sharing_labels(self.groups, len(tucker)),
-            oversampling=oversampling, oversampled_passes=oversampled_passes, max_passes=max_passes, tol=tol,
-            alternate=alternate, seed=seed, use_jit=use_jit)
+        options = dict(sharing=_sharing_labels(self.groups, len(tucker)), oversampling=oversampling,
+                       oversampled_passes=oversampled_passes, max_passes=max_passes, tol=tol, alternate=alternate,
+                       seed=seed, use_jit=use_jit)
+        if timing:
+            return padded_frames._fv_aligned_padded_frame(old, tucker, tt, hint, project, **options, timing=True)
+        return padded_frames.fv_aligned_padded_frame(old, tucker, tt, hint, project, **options)
 
     def require_frame_structure(
             self,
@@ -830,11 +839,19 @@ class UniformManifoldGeometryOps(ValueHashedFields):
             alternate:           bool  = ALIGN_ALTERNATE,
             seed:                int   = ZERO_FRAME_SEED,
             use_jit:             bool  = False,             # passed to the loop (the whole-loop jit)
-    ) -> typ.Tuple[
-        typ.Tuple,   # the aligned frame of x0 at the widths of self.var_masks, prefix masks
-        NDArray,     # movements, (max_passes,)+C, NaN after the last pass
+            timing:              bool  = False,             # True: a third element, the seconds per pass (None under use_jit)
+    ) -> typ.Union[
+        typ.Tuple[
+            typ.Tuple,   # the aligned frame of x0 at the widths of self.var_masks, prefix masks
+            NDArray,     # movements, (max_passes,)+C, NaN after the last pass
+        ],
+        typ.Tuple[typ.Tuple, NDArray, typ.Optional[typ.Tuple[float, ...]]],   # timing=True: the two, then the seconds per pass
     ]:
-        """The aligned padded frame of ``x0`` from ``x_old``: :py:func:`~t3toolbox.backend.uniform_padded_frames.ufv_aligned_padded_frame`."""
+        """The aligned padded frame of ``x0`` from ``x_old``: :py:func:`~t3toolbox.backend.uniform_padded_frames.ufv_aligned_padded_frame`.
+
+        ``timing=True`` adds the seconds per pass (``()`` when no pass runs), each from a synchronized start to a
+        synchronized end; under ``use_jit`` the whole loop is one program and the third element is ``None``. The frame
+        and movements are those of ``timing=False``, bitwise."""
         tucker, tt = (np.asarray(m).sum(axis=-1) for m in self.masks)
         C = self.stack_shape(x0)
         N = int(x0[0].shape[-1])
@@ -849,10 +866,13 @@ class UniformManifoldGeometryOps(ValueHashedFields):
             else:
                 old = ufv_conversions.ut3_orthogonal_representations(x_old)[0]
         widths = tuple(int(m.shape[-1]) for m in self.var_masks)
-        return uniform_padded_frames.ufv_aligned_padded_frame(
-            old, tucker, tt, hint, project, widths, sharing=_sharing_labels(self.groups, len(self.shape)),
-            oversampling=oversampling, oversampled_passes=oversampled_passes, max_passes=max_passes, tol=tol,
-            alternate=alternate, seed=seed, use_jit=use_jit)
+        options = dict(sharing=_sharing_labels(self.groups, len(self.shape)), oversampling=oversampling,
+                       oversampled_passes=oversampled_passes, max_passes=max_passes, tol=tol, alternate=alternate,
+                       seed=seed, use_jit=use_jit)
+        if timing:
+            return uniform_padded_frames._ufv_aligned_padded_frame(old, tucker, tt, hint, project, widths, **options,
+                                                                   timing=True)
+        return uniform_padded_frames.ufv_aligned_padded_frame(old, tucker, tt, hint, project, widths, **options)
 
     def require_frame_structure(
             self,

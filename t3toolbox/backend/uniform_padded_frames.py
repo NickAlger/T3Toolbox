@@ -20,6 +20,7 @@ twin of ``padded_frames.fv_aligned_padded_frame`` (the same schedule and pair st
 eagerly, or under ``use_jit`` as ONE ``jax.jit`` of the whole loop.
 """
 import functools as ft
+import time
 import typing as typ
 import numpy as np
 
@@ -758,17 +759,25 @@ def _record(
 
 
 def _aligning_pass(
-        statics:  typ.Tuple,                  # (project, hint, shape, masks, split, (tucker, tt) output ranks or (None, None), sharing, update)
+        statics:  typ.Tuple,                  # (project, hint, shape, masks, split, (tucker, tt) output ranks or (None, None), sharing, update, clock)
         cores:    typ.Tuple[NDArray, ...],    # (D, U, L, R) in block layout at `masks`
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],                  # the cores after the pass
     typ.Tuple[NDArray, NDArray, NDArray, NDArray],   # their masks (host)
     NDArray,                                  # the pass's movement, shape=C
 ]:
-    """One pass: project at the block-layout frame, then one step."""
-    project, hint, shape, masks, split, out_ranks, sharing, update = statics
+    """One pass: project at the block-layout frame, then one step. With a ``clock`` (a host list; eager only, the
+    kernel refuses one under ``use_jit``) the pass ends synchronized and appends its seconds; the kernel synchronizes
+    the start frame, so each interval is [synchronized start, synchronized end]. One write is not synchronized: the
+    movement record's (``_record``, one ``where`` between passes), which on jax may land in the next pass's interval.
+    Every pass of the loop runs here."""
+    project, hint, shape, masks, split, out_ranks, sharing, update, clock = statics
     frame = tuple(cores) + (shape, masks)
+    start = None if clock is None else time.perf_counter()
     F, movement = utv_align_padded_frame(frame, project(frame, hint), split, *out_ranks, sharing=sharing, update=update)
+    if clock is not None:
+        tree_block_until_ready((F[:4], movement))
+        clock.append(time.perf_counter() - start)
     return tuple(F[:4]), F[5], movement
 
 
@@ -873,6 +882,8 @@ def _ufv_aligned_loop_kernel(
         project:   typ.Callable,     # project(frame_data, hint) -> variations (module-level under jit)
         schedule:  typ.Tuple,   # (working ranks, target ranks, sharing, seed, n_over, max_passes, alternate, level_widths), hashable
         use_jit:   bool,        # True: inside jax.jit (lax loops); False: Python loops, eager
+
+        clock:     typ.Optional[list] = None,   # eager only: one float appended per pass, its seconds; with use_jit, a ValueError
 ) -> typ.Tuple[
     NDArray, NDArray, NDArray, NDArray,   # the aligned frame's supercores, compacted to level_widths
     NDArray,                              # movements, (max_passes,)+C, NaN after the last pass
@@ -882,7 +893,13 @@ def _ufv_aligned_loop_kernel(
     Its loop bodies are bound with ``functools.partial``; those partials reach a lax primitive only under
     ``use_jit=True``, inside the one memoized jit whose cache is keyed on ``skeleton``, ``project``, ``schedule`` and
     ``use_jit``; eagerly the loops are Python loops. This binding is accepted in this instance only and sets no
-    precedent for other loop bodies."""
+    precedent for other loop bodies. The bound statics carry one more slot, ``clock`` (the last): a host list each
+    pass appends its seconds to, for the geometry member's ``timing``. It is eager only. Under a trace an append would
+    record tracing time, once per trace, and the synchronization would meet tracers, so ``clock`` with
+    ``use_jit=True`` raises; the jitted call never passes it, so its program and cache key are the untimed ones."""
+    if clock is not None and use_jit:
+        raise ValueError('_ufv_aligned_loop_kernel: the per-pass clock is eager only (under use_jit=True it would time '
+                         'the trace, not the passes); pass clock=None')
     old_frame_data, hint = rebuild_static(dynamic, skeleton)
     working, target, sharing, seed, n_over, max_passes, alternate, level_widths = schedule
     working, target = tuple(tuple(np.asarray(r) for r in ranks_) for ranks_ in (working, target))
@@ -891,12 +908,14 @@ def _ufv_aligned_loop_kernel(
     shape, masks = frame[4], frame[5]
     C = tuple(frame[0].shape[1:-2])
     movements = xnp.full((max_passes,) + C, np.nan, dtype=frame[0].dtype)
+    if clock is not None:
+        tree_block_until_ready((frame[:4], movements))          # pass 1 starts synchronized
 
-    statics = (project, hint, shape, masks, split, (None, None), sharing, _STORE_LETTERS)
+    statics = (project, hint, shape, masks, split, (None, None), sharing, _STORE_LETTERS, clock)
     cores, movements = _fori(n_over, ft.partial(_oversampled_body, statics), (tuple(frame[:4]), movements), use_jit)
     cores, masks, movement = _aligning_pass(statics[:5] + (target,) + statics[6:], cores)   # the truncating pass
     movements = _record(movements, n_over, movement)
-    at = lambda update: (project, hint, shape, masks, split, (None, None), sharing, update)
+    at = lambda update: (project, hint, shape, masks, split, (None, None), sharing, update, clock)
     if alternate:
         state = (xnp.asarray(n_over + 1), cores, movements, xnp.asarray(False), tol, max_passes)
         state = xwhile(_pairs_cond, ft.partial(_pairs_body, (at(_COLOURS[0]), at(_COLOURS[1]))), state, use_jit)
@@ -929,6 +948,38 @@ def ufv_aligned_padded_frame(
     NDArray,      # movements, shape=(max_passes,)+C, NaN after the last pass (both modes)
 ]:
     """The aligned padded frame in block layout, compacted to ``level_widths``: the uniform twin of ``fv_aligned_padded_frame``."""
+    return _ufv_aligned_padded_frame(old_frame_data, tucker_ranks, tt_ranks, hint, project, level_widths,
+                                     sharing=sharing, oversampling=oversampling, oversampled_passes=oversampled_passes,
+                                     max_passes=max_passes, tol=tol, alternate=alternate, seed=seed, use_jit=use_jit,
+                                     timing=False)[:2]
+
+
+def _ufv_aligned_padded_frame(
+        old_frame_data:      UFrameData,                              # the arguments of ufv_aligned_padded_frame, then timing
+        tucker_ranks:        typ.Union[typ.Sequence[int], NDArray],
+        tt_ranks:            typ.Union[typ.Sequence[int], NDArray],
+        hint:                typ.Any,
+        project:             typ.Callable,
+        level_widths:        typ.Tuple[int, int, int, int],
+
+        sharing:             typ.Optional[typ.Sequence] = None,
+        oversampling:        int   = ALIGN_OVERSAMPLING,
+        oversampled_passes:  int   = ALIGN_OVERSAMPLED_PASSES,
+        max_passes:          int   = ALIGN_MAX_PASSES,
+        tol:                 float = ALIGN_TOL,
+        alternate:           bool  = ALIGN_ALTERNATE,
+        seed:                int   = ZERO_FRAME_SEED,
+        use_jit:             bool  = False,
+        timing:              bool  = False,                           # True: every pass clocked when eager
+) -> typ.Tuple[
+    UFrameData,                            # the aligned frame compacted to level_widths, prefix masks
+    NDArray,                               # movements, shape=(max_passes,)+C, NaN after the last pass
+    typ.Optional[typ.Tuple[float, ...]],   # timing=True: the seconds per pass (() when no pass runs; None under use_jit); else None
+]:
+    """:py:func:`ufv_aligned_padded_frame` with the seconds per pass (the geometry member's ``timing``). Eagerly, each
+    pass is clocked from a synchronized start to a synchronized end (the start frame is synchronized before pass 1);
+    under ``use_jit`` the whole loop is one program, so there is nothing per pass to read: ``None``, and the program is
+    the untimed one. ``timing=False`` adds no synchronization and no clock reading."""
     for name, value in (('max_passes', max_passes), ('oversampled_passes', oversampled_passes),
                         ('oversampling', oversampling)):
         if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < 0:
@@ -955,11 +1006,12 @@ def ufv_aligned_padded_frame(
         if np.any(s > W):
             raise ValueError('a target %s store (%d) exceeds its level width %d' % (name, int(s.max()), W))
     dtype = D0.dtype
+    no_pass = () if timing else None
     if max_passes == 0:                                         # the hint-free start at the target, compacted
         start, _ = ufv_padded_frame(old_frame_data, tucker, tt, sharing=sharing, seed=seed)
-        return ufv_compact_frame(start, level_widths), np.full((0,) + C, np.nan, dtype=dtype)
+        return ufv_compact_frame(start, level_widths), np.full((0,) + C, np.nan, dtype=dtype), no_pass
     if all(np.array_equal(s, o) for s, o in zip(target_stores, old)):   # nothing to complete
-        return ufv_compact_frame(old_frame_data, level_widths), np.full((max_passes,) + C, np.nan, dtype=dtype)
+        return ufv_compact_frame(old_frame_data, level_widths), np.full((max_passes,) + C, np.nan, dtype=dtype), no_pass
 
     working = ranks.oversampled_ranks(shape, tucker, tt, oversampling, sharing)
     working_stores = ranks.compute_orthogonal_representation_ranks(shape, *working)
@@ -969,9 +1021,10 @@ def ufv_aligned_padded_frame(
                 None if sharing is None else tuple(sharing), int(seed), int(n_over), int(max_passes), bool(alternate),
                 level_widths)
     dynamic, skeleton = partition_static((old_frame_data, hint))
+    clock = [] if timing and not jitted else None               # the whole-loop jit has no per-pass reading
     if jitted:
         out = _jitted(_ufv_aligned_loop_kernel, (2, 3, 4, 5))(dynamic, tol, skeleton, project, schedule, True)
     else:
-        out = _ufv_aligned_loop_kernel(dynamic, tol, skeleton, project, schedule, False)
+        out = _ufv_aligned_loop_kernel(dynamic, tol, skeleton, project, schedule, False, clock)
     level_masks = ufv_masking.ufv_make_frame_masks(*target_stores, *level_widths)
-    return tuple(out[:4]) + (shape, level_masks), out[4]
+    return tuple(out[:4]) + (shape, level_masks), out[4], None if clock is None else tuple(clock)

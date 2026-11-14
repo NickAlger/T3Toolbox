@@ -96,7 +96,10 @@ class Geometry(typ.Protocol):
     * ``aligned_padded_frame(x0, x_old, project, hint, oversampling, oversampled_passes, max_passes, tol,
       alternate, seed, use_jit)`` -- the padded frame of ``x0`` from ``x_old`` (``None``: the zero tensor) aligned
       with ``hint`` through ``project(frame, hint)``, and the movements; needed by ``padded_start``,
-      ``newton_cg(padded_from=)`` and ``g0_reference='cone'``.
+      ``newton_cg(padded_from=)`` and ``g0_reference='cone'``. One more keyword is optional, ``timing=False``: with
+      ``timing=True`` the member returns a third element, the seconds per pass (``None`` when it cannot read them,
+      as under the uniform whole-loop jit). The optimizers pass ``timing`` only to a member whose signature names it
+      (a ``**kwargs`` catch-all does not count), so a member without it keeps working.
 
     **The exact-mode members** -- needed **only** for ``hessian='exact'``.
     ``Problem.local_model(hessian='exact')`` checks that all four exist (a structural ``ValueError`` naming

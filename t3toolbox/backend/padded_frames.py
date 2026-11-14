@@ -16,6 +16,7 @@ The ``ALIGN_*`` constants are the loop's defaults, named once here. Everything r
 jit (``use_jit``): then the old frame goes to jax and the loop calls a memoized jitted step.
 """
 import functools as ft
+import time
 import typing as typ
 import numpy as np
 
@@ -703,12 +704,22 @@ def _aligning_pass(
         out_ranks:  typ.Tuple[typ.Optional[typ.Tuple[int, ...]], ...],   # (Tucker, TT) output ranks; (None, None) = the frame's own
         sharing:    typ.Optional[typ.Tuple],                  # len=d group labels (hashable: static under jit)
         update:     typ.Tuple[str, ...],                      # all four stores | ('D', 'L') | ('U', 'R')
+
+        clock:      typ.Optional[list] = None,                # timing only: the pass's seconds appended (host loop)
 ) -> typ.Tuple[
     FrameData,   # the frame after the pass
     NDArray,     # its movement, shape=C
 ]:
-    """One pass: project at the frame, then one step; the arguments positional, as the jitted step's statics are."""
-    return step(frame, project(frame, hint), *old_ranks, *out_ranks, sharing, update)
+    """One pass: project at the frame, then one step; the arguments positional, as the jitted step's statics are.
+    With a ``clock`` the pass ends synchronized (``tree_block_until_ready``) before its seconds are appended; the loop
+    synchronizes the start frame, so each interval is [synchronized start, synchronized end]. Without one, no
+    synchronization and no clock reading."""
+    start = None if clock is None else time.perf_counter()
+    frame, movement = step(frame, project(frame, hint), *old_ranks, *out_ranks, sharing, update)
+    if clock is not None:
+        tree_block_until_ready((frame, movement))
+        clock.append(time.perf_counter() - start)
+    return frame, movement
 
 
 def _peak(
@@ -738,6 +749,36 @@ def fv_aligned_padded_frame(
     typ.Tuple[NDArray, ...],   # movements, one per pass, each shape=C
 ]:
     """The aligned padded frame: the seeded start, then alignment passes against ``project(frame, hint)``."""
+    return _fv_aligned_padded_frame(old_frame, tucker_ranks, tt_ranks, hint, project, sharing=sharing,
+                                    oversampling=oversampling, oversampled_passes=oversampled_passes,
+                                    max_passes=max_passes, tol=tol, alternate=alternate, seed=seed, use_jit=use_jit,
+                                    timing=False)[:2]
+
+
+def _fv_aligned_padded_frame(
+        old_frame:           FrameData,                          # the arguments of fv_aligned_padded_frame, then timing
+        tucker_ranks:        typ.Sequence[int],
+        tt_ranks:            typ.Sequence[int],
+        hint:                typ.Any,
+        project:             typ.Callable,
+
+        sharing:             typ.Optional[typ.Sequence] = None,
+        oversampling:        int   = ALIGN_OVERSAMPLING,
+        oversampled_passes:  int   = ALIGN_OVERSAMPLED_PASSES,
+        max_passes:          int   = ALIGN_MAX_PASSES,
+        tol:                 float = ALIGN_TOL,
+        alternate:           bool  = ALIGN_ALTERNATE,
+        seed:                int   = ZERO_FRAME_SEED,
+        use_jit:             bool  = False,
+        timing:              bool  = False,                      # True: every pass clocked (a host loop in both modes)
+) -> typ.Tuple[
+    FrameData,                             # the aligned padded frame at the target ranks
+    typ.Tuple[NDArray, ...],               # movements, one per pass, each shape=C
+    typ.Optional[typ.Tuple[float, ...]],   # timing=True: the seconds per pass (() when no pass runs); else None
+]:
+    """:py:func:`fv_aligned_padded_frame` with the seconds per pass (the geometry member's ``timing``). Each pass is
+    clocked from a synchronized start to a synchronized end (the start frame is synchronized before pass 1), so its
+    seconds are its own work on jax too; ``timing=False`` adds no synchronization and no clock reading."""
     for name, value in (('max_passes', max_passes), ('oversampled_passes', oversampled_passes),
                         ('oversampling', oversampling)):
         if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < 0:
@@ -751,8 +792,9 @@ def fv_aligned_padded_frame(
     shape = tuple(int(D.shape[-1]) for D in old_frame[0])
     target_stores = _rank_stores(shape, tucker_ranks, tt_ranks, 'target')
     _require_contains(old_stores, target_stores)
+    no_pass = () if timing else None
     if max_passes == 0 or target_stores == old_stores:          # zero passes: the hint-free start at the target;
-        return fv_padded_frame(old_frame, tucker_ranks, tt_ranks, sharing, seed), ()   # or nothing to complete
+        return fv_padded_frame(old_frame, tucker_ranks, tt_ranks, sharing, seed), (), no_pass   # or nothing to complete
 
     working = ranks.oversampled_ranks(shape, tucker_ranks, tt_ranks, oversampling, sharing)
     n_over = 0 if _rank_stores(shape, *working, 'working') == target_stores else oversampled_passes
@@ -762,25 +804,28 @@ def fv_aligned_padded_frame(
     target = (tucker_ranks, tt_ranks)
     sharing = None if sharing is None else tuple(sharing)       # hashable: a static argument of the jitted step
     frame = fv_padded_frame(old_frame, *working, sharing, seed)
+    clock = [] if timing else None
+    if timing:
+        tree_block_until_ready(frame)                           # pass 1 starts synchronized
     movements = []
     for it in range(n_over + 1):                                # the oversampled passes, then the truncating pass
         out = (None, None) if it < n_over else target
-        frame, movement = _aligning_pass(step, frame, hint, project, old, out, sharing, _STORE_LETTERS)
+        frame, movement = _aligning_pass(step, frame, hint, project, old, out, sharing, _STORE_LETTERS, clock)
         movements.append(movement)
     if alternate:                                               # (('D', 'L'), ('U', 'R')) pairs while a whole pair
         stop = False                                            #   fits; the stop is tested after each pair (both
         while not stop and len(movements) + 2 <= max_passes:    #   below tol)
             for update in _COLOURS:
-                frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, update)
+                frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, update, clock)
                 movements.append(movement)
             stop = _peak(movements[-2:]) < tol
         if not stop and len(movements) < max_passes:            # an odd remainder: one final ('D', 'L') pass
-            frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, _COLOURS[0])
+            frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, _COLOURS[0], clock)
             movements.append(movement)
     else:                                                       # all-store passes, the stop tested after each (the
         stop = _peak(movements[-1:]) < tol                      #   truncating pass included)
         while not stop and len(movements) < max_passes:
-            frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, _STORE_LETTERS)
+            frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, _STORE_LETTERS, clock)
             movements.append(movement)
             stop = _peak([movement]) < tol
-    return frame, tuple(movements)
+    return frame, tuple(movements), None if clock is None else tuple(clock)
