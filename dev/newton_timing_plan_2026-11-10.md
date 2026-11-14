@@ -18,6 +18,7 @@
 |---|---|---|---|
 | 3.1 | Nick Q-1 | RESOLVED (2026-11-13): (a), as written since draft 1. Exact mode's misfit transpose is reported in the `gradient` phase. No text change beyond §9 | §9 |
 | 3.2 | r2 NIT | Field order confirmed: `PhaseSeconds` declares `tracking` after `trial_objective`, its execution order, matching §2.1's table and §4's `time` line (applied in draft 2, row 2.1). No change | §3.1 |
+| 3.3 | Nick G-7 (switch plan) | The tracking phase covers the rows the switch's `switch_track` option tracks (countable by default, every GN-phase row under `'all'`), not countable rows only (session) | §2.1, §2.7 |
 
 **Draft 2 (2026-11-13, writer; critic r1: no MAJOR, 4 MINOR, 4 NIT, all applied).**
 
@@ -82,7 +83,7 @@ The window is today's: from the previous row's `t_now` (before the loop on row 0
 | `forms` | the first trust-region step's `_initial_radius` (one Gauss-Newton quadratic), `slope`, the descent fallback, `pᵀHp` (exact: `gn_quadratic` + `curvature_quadratic`), `‖p‖` | the converged row |
 | `trial_retraction` | every trial's `lm.retract(...)`: the line search's trials, or the trust region's one | the converged row |
 | `trial_objective` | every trial's `problem.objective(...)` | the converged row |
-| `tracking` | the GN-to-Newton switch's tracking `curvature_quadratic` on a countable Gauss-Newton-phase row (§2.7); it runs after the trials | every row outside switch mode (always, until the switch lands) |
+| `tracking` | the GN-to-Newton switch's tracking `curvature_quadratic` on a tracked Gauss-Newton-phase row (§2.7; countable rows by default, every GN-phase row under `switch_track='all'`); it runs after the trials | every row outside switch mode (always, until the switch lands) |
 | `remainder` | `window` minus the phases above: the forcing term, `‖x‖`, the floors (`‖ω⊙y‖` once, at the first rejection), Python bookkeeping | never |
 
 Per row also `trials` (line search `ls_steps + 1`, or 40 when exhausted; trust region 1) and `accepted_retraction`
@@ -170,7 +171,7 @@ when off. The switch's five per-row fields (`_SWITCH_FIELDS`: `switch_pKp`, `swi
 
 - its Gauss-Newton-phase point's exact build is `curvature` (`curvature_precompute` alone), with the transpose in
   `gradient` (Q-1(a));
-- its tracking `curvature_quadratic` on a countable row is `PhaseSeconds.tracking`, so `forms` keeps its meaning. This
+- its tracking `curvature_quadratic` on a tracked row (countable by default, all GN-phase rows under `switch_track='all'`) is `PhaseSeconds.tracking`, so `forms` keeps its meaning. This
   plan adds the field (always `None` until the switch lands); the switch plan adds the lap;
 - the `_cg_core` compile when it fires is in the first exact row's `compile_seconds.cg`.
 
