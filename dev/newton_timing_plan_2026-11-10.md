@@ -1,6 +1,6 @@
-# Opt-in phase timing for `newton_cg` — plan (draft 5, 2026-11-14)
+# Opt-in phase timing for `newton_cg` — plan (draft 6, 2026-11-14; FEATURE COMPLETE)
 
-> **Status: DRAFT 5** (P1 and P2 IMPLEMENTED and reviewed, 2026-11-14; P3 next; critic r2 `dev/newton_timing_plan_review_r2.md`: APPROVE of draft 2; Nick's Q-1 recorded,
+> **Status: DRAFT 6 — FEATURE COMPLETE** (P1 cbcdc1d6, P2 f8cbb442, P3 b263a1dc committed 2026-11-14; FINAL STOP with Nick pending; critic r2 `dev/newton_timing_plan_review_r2.md`: APPROVE of draft 2; Nick's Q-1 recorded,
 > 2026-11-13). Signature level (code in the house signature style; blocks here compress today's arguments). T-1..T-7
 > settled (§8); §9's Q-1 RESOLVED: (a). Lines (working tree,
 > 2026-11-13): `backend/optimizers.py` `Problem.local_model` ~360, `padded_start` ~763, `_cone_reference` ~841,
@@ -11,6 +11,16 @@
 ## CHANGES
 
 *History only. Where a CHANGES line and a section differ, the section governs.*
+
+**Draft 6 (2026-11-14, session; P3 implemented + reviewed, APPROVE after two rounds; the feature is complete).**
+
+| row | from | change | where |
+|---|---|---|---|
+| 6.1 | P3 handoff/review | The display's choices, recorded: one `time` line per timed row between the header and the error table (`%.1e` cells; `model a [frame sweep comp resid curv]`, `grad`, `ref ×k`, `cg (per-it)`, `forms`, `trials ×k [retr obj]`, `cb`, `rest`; a cell is left out when its phase did not run); a closing per-phase table printed once at the end of the run (seconds, % of the summed window, compile, mean/row; a reused callback starts a new table at row 0); `compile 0` when a listener ran and saw nothing, `—` when none ran | §4 |
+| 6.2 | P3 handoff | The frontend `timing: bool = False` is keyword-only after `cone_seed`, forwarded only when True; a non-bool raises `TypeError` before setup (`np.bool_` accepted); the backend accepts any truthy value | §2.1, §4 |
+| 6.3 | P3 handoff §4 | §4.13's worked example is P2's review-stop run; the figures (laptop CPU, configs stated): `timing=True` within run-to-run noise of off (−4 % to +2 %; the numpy waits 0.1 %); cold `use_jit` on the example 36 s of which 31 s compile (alignment 15.8 s, CG 2.9 s); eager 71 s of which 54 s compile; re-runs compile nothing; GPU not measured (the docs say to measure there). Finding: under `use_jit` on small runs the eager phases around CG dominate (`forms` 42 %, CG 0.9 %) | §6 |
+| 6.4 | P3 review M1–M2, NITs | Tests beyond T8/T9 after mutation testing: a timed run with `print_fn=None`; the closing table on a zero-CG-iteration row; the docstrings' "bitwise every other stats field" claim now excepts `wall_time` | §5 |
+| 6.5 | P3 review | Glossary deferred to the bundle's glossary/docs pass (item C): a "phase timing" entry, and `timing` in the stats entry; the CHANGELOG intro (which still headlines only the rename) and the release-notes line are the release commit's | §6 |
 
 **Draft 5 (2026-11-14, session; P2 implemented + reviewed, APPROVE after one test-side round + one optional library line).**
 
