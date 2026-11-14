@@ -656,14 +656,14 @@ def _tangent_stack_split(
     extra tangent stack K outermost). So |C| comes from a frame core and |K| is the remainder.
     """
     n_frame = len(frame[0][0].shape) - 2       # |C|   (down core: stack + (nD, N))
-    n_full = len(variations[0][0].shape) - 2  # |K+C| (tucker variation: stack + (nU, N))
+    n_full = len(variations[0][0].shape) - 2   # |K+C| (tucker variation: stack + (nU, N))
     return n_full - n_frame, n_frame
 
 
 def _pair_frame_leaves(
         frame_tree,        # C-shaped tree of frame-data tuples,      n_frame levels deep
         variations_tree,   # C-shaped tree of variations-data tuples, n_frame levels deep
-        n_frame:     int,   # frame-stack depth |C|
+        n_frame:     int,  # frame-stack depth |C|
 ):  # -> C-shaped tree of (frame_data, variations_data) pairs
     """Pair a frame-data tree and a variations-data tree (same C-shaped outer structure, n_frame axes
     deep) leaf-by-leaf into one C-shaped tree of ``(frame_data, variations_data)`` pairs.
@@ -678,7 +678,7 @@ def _pair_frame_leaves(
 
 
 def _unpair_frame_leaves(
-        paired_tree,       # C-shaped tree of (frame_data, variations_data) pairs
+        paired_tree,        # C-shaped tree of (frame_data, variations_data) pairs
         n_frame:     int,   # frame-stack depth |C|
 ):  # -> (frame_tree, variations_tree), each C-shaped
     """Inverse of :py:func:`_pair_frame_leaves`: split a C-shaped tree of ``(frame_data,
@@ -804,10 +804,10 @@ def tv_gauge_residual(
     >>> import t3toolbox.backend.tv_operations as tvo
     >>> np.random.seed(0)
     >>> frame = t3m.MANIFOLD.frame(t3.TuckerTensorTrain.randn((5, 6, 7), (2, 3, 2), (1, 2, 2, 1)))
-    >>> a = t3m.MANIFOLD.randn(frame).variations.data                          # gauged to roundoff
+    >>> a = t3m.MANIFOLD.randn(frame).variations.data                            # gauged to roundoff
     >>> b = cw.corewise_add(a, cw.corewise_scale(t3m.MANIFOLD.randn(frame).variations.data, 1e-8))
-    >>> diff = cw.corewise_sub(a, b)                                            # norm ~1e-8 * ||a||
-    >>> print(float(tvo.tv_gauge_residual(frame.data, diff)) > 1e-9)          # self-relative: noise / tiny norm
+    >>> diff = cw.corewise_sub(a, b)                                             # norm ~1e-8 * ||a||
+    >>> print(float(tvo.tv_gauge_residual(frame.data, diff)) > 1e-9)             # self-relative: noise / tiny norm
     True
     >>> s = np.maximum(cw.corewise_stack_norm(a, 0), cw.corewise_stack_norm(b, 0))
     >>> print(float(tvo.tv_gauge_residual(frame.data, diff, scale=s)) < 1e-14)   # relative to the operands

@@ -351,7 +351,7 @@ class TestBackendOptimizers(unittest.TestCase):
         p2, i2, rs2, ok2, boundary2 = opt._cg_solve(_ToyModel([-1.0, -2.0, -3.0]), rhs, 1e-10, 50, False)
         self.assertFalse(bool(ok2))                                 # truncated on nonpositive curvature
         self.assertFalse(bool(boundary2))                           # ... with no trust region: not a boundary stop
-        self.assertGreater(float(rs2) ** 0.5, 1e-10)               # did NOT reach the tolerance
+        self.assertGreater(float(rs2) ** 0.5, 1e-10)                # did NOT reach the tolerance
 
     def test_newton_cg_diagnostics(self):
         """D1: newton_cg returns a per-iteration `history`, fires `callback(NewtonInfo)` each iteration
@@ -1064,7 +1064,7 @@ class TestTrustRegionNewton(unittest.TestCase):
         self.assertEqual(opt._resolution_eps(f64), e64)
         self.assertEqual(opt._resolution_eps(f32), e32)
         self.assertEqual(opt._resolution_eps([f64, (f64, f64)]), e64)
-        self.assertEqual(opt._resolution_eps([f64, (f32, f64)]), e32)                 # mixed: the coarser one
+        self.assertEqual(opt._resolution_eps([f64, (f32, f64)]), e32)                  # mixed: the coarser one
         self.assertEqual(opt._resolution_eps((np.zeros(2, np.int64), f64)), e64)       # integer leaves ignored
         self.assertEqual(opt._resolution_eps(()), e64)
 

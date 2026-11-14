@@ -108,14 +108,14 @@ def _expected_doubled_masks(frame):
     non-circular. Tucker = prefix-pair [down | up]; TT bond = [R-block | L-block] with honest boundaries
     (R0=0, Ri=right_rank_i; Ld=0, Li=left_rank_i)."""
     nD, nU, rL, rR = frame.nD, frame.nU, frame.rL, frame.rR
-    down_r, up_r = np.asarray(frame.down_ranks), np.asarray(frame.up_ranks)      # (d,)  +C
+    down_r, up_r = np.asarray(frame.down_ranks), np.asarray(frame.up_ranks)        # (d,)  +C
     left_r, right_r = np.asarray(frame.left_ranks), np.asarray(frame.right_ranks)  # (d+1,)+C
     tucker = np.concatenate([np.arange(nD) < down_r[..., None],
-                             np.arange(nU) < up_r[..., None]], axis=-1)          # (d,)+C+(nD+nU,)
-    q = right_r.copy(); q[0] = 0                                                 # R honest at the left boundary
-    p = left_r.copy();  p[-1] = 0                                                # L honest at the right boundary
+                             np.arange(nU) < up_r[..., None]], axis=-1)            # (d,)+C+(nD+nU,)
+    q = right_r.copy(); q[0] = 0                                                   # R honest at the left boundary
+    p = left_r.copy();  p[-1] = 0                                                  # L honest at the right boundary
     tt = np.concatenate([np.arange(rR) < q[..., None],
-                         np.arange(rL) < p[..., None]], axis=-1)                 # (d+1,)+C+(rR+rL,)  [R | L]
+                         np.arange(rL) < p[..., None]], axis=-1)                   # (d+1,)+C+(rR+rL,)  [R | L]
     return tucker, tt
 
 
@@ -611,7 +611,7 @@ class TestDoubledRankToDense(unittest.TestCase):
     def test_structures_and_stacks(self):
         structs = [((4, 5, 6), (2, 3, 2), (1, 2, 2, 1)),                    # d=3
                    ((4, 5), (2, 3), (1, 2, 1)),                             # d=2
-                   ((4, 5, 6, 7), (2, 3, 2, 3), (1, 2, 3, 2, 1))]          # d=4, rL != rR per bond
+                   ((4, 5, 6, 7), (2, 3, 2, 3), (1, 2, 3, 2, 1))]           # d=4, rL != rR per bond
         for s in structs:
             B, V = _uniform_frame(t3.TuckerTensorTrain.randn(*s))
             for shift in (False, True):
@@ -1220,7 +1220,7 @@ class TestUniformManifoldGeometry(unittest.TestCase):
                 x = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss)
                 x2 = t3.TuckerTensorTrain.randn(*_STRUCT, stack_shape=ss)
                 gv_r = self.RM.project(t3m.COREWISE.randn(self.RM.frame(x)))   # gauged ragged tangent, stack ss
-                v_u = ut3m.UT3Tangent.from_t3tangent(gv_r)                    # same data, uniform-padded
+                v_u = ut3m.UT3Tangent.from_t3tangent(gv_r)                     # same data, uniform-padded
                 b2u = self.M.frame(ut3.UniformTuckerTensorTrain.from_t3(x2))
                 tu = np.asarray(self.M.transport(v_u, b2u).to_dense())
                 tr = np.asarray(self.RM.transport(gv_r, self.RM.frame(x2)).to_dense())

@@ -551,9 +551,9 @@ class TestSharedFrameData(unittest.TestCase):
         for gi, ii in enumerate(group):
             H = np.asarray(sfd.centers[0][gi])
             S = np.einsum('...aub,...axb->...ux', H, np.asarray(UU[ii]))   # (nD'=4, nUi)
-            self.assertEqual(float(np.linalg.norm(S[..., 3:, :])), 0.0)   # new row exactly zero
+            self.assertEqual(float(np.linalg.norm(S[..., 3:, :])), 0.0)    # new row exactly zero
         ss = np.asarray(sfd.svd_s[0])
-        self.assertLessEqual(float(ss[-1]), 1e-14 * float(ss[0]))         # degenerate group level
+        self.assertLessEqual(float(ss[-1]), 1e-14 * float(ss[0]))          # degenerate group level
 
     def test_all_singleton_companion_is_empty(self):
         x = t3.TuckerTensorTrain.randn((4, 5), (2, 3), (1, 2, 1))

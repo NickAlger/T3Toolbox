@@ -286,13 +286,13 @@ def _haar_rows(
 
 
 def fv_zero_point_frame(
-        frame: typ.Tuple[
+        frame:   typ.Tuple[
             typ.Sequence[NDArray],  # down_tucker_cores. len=d, elm_shape=(nDi, Ni)
             typ.Sequence[NDArray],  # up_tt_cores.       len=d, elm_shape=(rLi, nUi, rR(i+1))
             typ.Sequence[NDArray],  # left_tt_cores.     len=d, elm_shape=(rLi, nDi, rL(i+1))
             typ.Sequence[NDArray],  # right_tt_cores.    len=d, elm_shape=(rRi, nDi, rR(i+1))
         ],
-        groups:  typ.Tuple[typ.Tuple[int, ...], ...] = (),  # sharing partition (canonical_groups); () = unshared
+        groups:  typ.Tuple[typ.Tuple[int, ...], ...] = (),   # sharing partition (canonical_groups); () = unshared
         seed:    int = ZERO_FRAME_SEED,                      # the Haar stream seed: a fixed convention
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # down:  seeded Haar rows, one draw per group.     len=d, elm_shape=(nDi, Ni)
@@ -629,7 +629,7 @@ def fv_lift_factors(
 
 
 def fv_absorb_weights(
-        variations: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (tucker_variations V, tt_variations H)
+        variations: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (tucker_variations V, tt_variations H)
         weights:    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
                               typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right), each len=d
 ) -> typ.Tuple[
@@ -657,7 +657,7 @@ def fv_absorb_weights(
 
 
 def fv_weights_consistent(
-        variations: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (V, H)
+        variations: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (V, H)
         weights:    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
                               typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right)
 ) -> bool:                                                                     # True iff shape-consistent
@@ -737,7 +737,7 @@ def t3weights_to_t3frameweights(
 
 
 def fv_weighted_norm(
-        variations: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (V, H)
+        variations: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (V, H)
         weights:    typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
                               typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right)
         n_stack:    int,                                                       # leading K+C stack axes kept
@@ -749,8 +749,8 @@ def fv_weighted_norm(
 
 
 def fv_weighted_inner(
-        variations_A: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (V, H) of A
-        variations_B: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (V, H) of B
+        variations_A: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (V, H) of A
+        variations_B: typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (V, H) of B
         weights:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
                                 typ.Sequence[NDArray], typ.Sequence[NDArray]],   # one metric (down, up, left, right)
         n_stack:      int,                                                       # leading K+C stack axes kept

@@ -51,7 +51,7 @@ UVariationsData = typ.Tuple[NDArray, NDArray, typ.Tuple[int, ...], typ.Tuple[NDA
 
 
 def _rank_array(
-        rank_spec:    typ.Union[typ.Sequence[int], NDArray],   # len=length, or HOST int (length,)+C
+        rank_spec:    typ.Union[typ.Sequence[int], NDArray],  # len=length, or HOST int (length,)+C
         length:       int,                                    # d or d+1
         stack_shape:  typ.Tuple[int, ...],                    # C
         name:         str,                                    # for the message
@@ -571,7 +571,7 @@ def _utv_align_kernel(
     Yg = xnp.moveaxis(Yg, 1, -2).reshape((G,) + C + (N, m * Y.shape[-1]))      # missing members zero
     P, _, _ = _u_edge_d(Abar[first], pinD, g_old[first], Yg, rowD, selD)       # (G,)+C+(N, Ka1)
     P = P[group_of]
-    Abar = Abar[first[group_of]]                                                 # the group's old block, every member
+    Abar = Abar[first[group_of]]                                               # the group's old block, every member
     oD = contractions.contract('dCia,dCib->dCab', P, g_old)
     out = g_old - contractions.contract('dCia,dCab->dCib', P, oD)
     moves = [xnp.sqrt(xnp.sum(out * out, axis=(-2, -1)))]
@@ -933,7 +933,7 @@ def ufv_aligned_padded_frame(
                         ('oversampling', oversampling)):
         if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < 0:
             raise ValueError('%s must be a non-negative int, got %r' % (name, value))
-    jitted = bool(use_jit) and jax_or_warn('use_jit=True')     # no jax: a warning, then eager on numpy
+    jitted = bool(use_jit) and jax_or_warn('use_jit=True')      # no jax: a warning, then eager on numpy
     if jitted:                                                  # asking for jit opts into jax: the old frame's
         old_frame_data = tuple(tree_to_jax(a) for a in old_frame_data[:4]) + tuple(old_frame_data[4:])   # supercores
     D0, _, _, _, shape, masks = old_frame_data

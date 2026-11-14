@@ -136,7 +136,7 @@ def _ragged_minimal(x0, sharing):
     minimal = t3.TuckerTensorTrain.get_minimal_ranks(x0.shape, x0.tucker_ranks, x0.tt_ranks, sharing=sharing)
     if (tuple(x0.tucker_ranks), tuple(x0.tt_ranks)) == (tuple(minimal[0]), tuple(minimal[1])):
         return x0
-    y, _, _ = x0.t3svd(sharing=sharing)                              # lossless, left-orthogonal
+    y, _, _ = x0.t3svd(sharing=sharing)                               # lossless, left-orthogonal
     return y.rank_adjustment_sweep('right_to_left', sharing=sharing)  # minimal (the t3svd output is left-orthogonal)
 
 
@@ -339,7 +339,7 @@ def gradient_descent(
         geometry,                       # ragged or uniform geometry singleton (must match x0's representation)
         kind:     str,                  # 'apply' / 'entries' / 'probe' (+ '_derivatives')
         sample:   typ.Any,              # ww / index, or (ww, pp) / (index, pp) for derivatives
-        data:     typ.Any,             # observed values to fit
+        data:     typ.Any,              # observed values to fit
         x0:       Point,                # initial point (any cores; the geometry orthogonalizes internally)
         order:    typ.Optional[int] = None,  # derivative kinds: highest order (required)
         weight:   typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) / ω[mode,order] (derivatives)
@@ -371,7 +371,7 @@ def mc_sgd(
         geometry,                       # ragged/uniform MANIFOLD (intended) / COREWISE (must match x0)
         kind:     str,                  # 'apply' / 'entries' / 'probe' (+ '_derivatives')
         sample:   typ.Any,              # ww / index, or (ww, pp) / (index, pp) for derivatives
-        data:     typ.Any,             # observed values to fit
+        data:     typ.Any,              # observed values to fit
         x0:       Point,                # initial point
         rng,                            # np.random.Generator -- passed to the draw each step
         batch:    int,                  # measurements per minibatch (default flat draw; ignored if draw given)
@@ -396,7 +396,7 @@ def adam(
         geometry,                       # ragged/uniform COREWISE (intended) / MANIFOLD (must match x0)
         kind:     str,                  # 'apply' / 'entries' / 'probe' (+ '_derivatives')
         sample:   typ.Any,              # ww / index, or (ww, pp) / (index, pp) for derivatives
-        data:     typ.Any,             # observed values to fit
+        data:     typ.Any,              # observed values to fit
         x0:       Point,                # initial point
         rng,                            # np.random.Generator -- passed to the draw each step
         batch:    int,                  # measurements per minibatch (default flat draw; ignored if draw given)
@@ -483,7 +483,7 @@ def _old_point_data(
         raise ValueError('newton_cg: padded_from is padded to N=%d, x0 to N=%d; repack it with '
                          'UniformTuckerTensorTrain.from_t3(padded_from.to_t3(), N=%d)' % (x_old.N, x0.N, x0.N))
     tucker, tt = np.asarray(x_old.tucker_ranks), np.asarray(x_old.tt_ranks)
-    if np.any(tucker == 0) or np.any(tt[1:-1] == 0):                    # the zero tensor: no reduction (it breaks
+    if np.any(tucker == 0) or np.any(tt[1:-1] == 0):                      # the zero tensor: no reduction (it breaks
         return x_old.data                                                 #   at rank 0); the members read it as zero
     arrays = x_old.supercores if uniform else x_old.data[0]
     if safety.checks_active(*arrays):

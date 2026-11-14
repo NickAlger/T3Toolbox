@@ -104,7 +104,7 @@ True
 >>> diff = H_fd - Hp
 >>> print(bool(tvo.tv_gauge_residual(model.frame.data, diff.variations.data) > 1e-9))   # vs its own tiny norm
 True
->>> print(bool(diff.gauge_residual < 1e-13))                                           # vs its operands'
+>>> print(bool(diff.gauge_residual < 1e-13))                                            # vs its operands'
 True
 
 ```

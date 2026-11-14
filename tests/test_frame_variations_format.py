@@ -304,7 +304,7 @@ class TestFrameVariationsFormat(unittest.TestCase):
                 self.assertEqual(int(np.prod(STRUCT[0])), obj.size)            # dense element count
                 self.assertEqual(sum(int(c.size) for fam in obj.data for c in fam), obj.data_size)
                 self.assertFalse(obj.contains_jax)
-                cp = obj.copy(); cp.data[0][0][...] = 7.0                       # copy is independent
+                cp = obj.copy(); cp.data[0][0][...] = 7.0                      # copy is independent
                 self.assertFalse(np.allclose(np.asarray(obj.data[0][0]), 7.0))
                 self.assertIn(type(obj).__name__, repr(obj))                   # concise repr (no array dump)
                 self.assertNotIn("array", repr(obj))
@@ -541,7 +541,7 @@ class TestFrameVariationsFormat(unittest.TestCase):
         edge; the up store is ``data[1]``, the TT-shaped cores above it, counted by their middle leg."""
         np.random.seed(0)
         F = bvf.T3Frame.from_t3(t3.TuckerTensorTrain.randn((5, 6, 7), (3, 6, 2), (1, 2, 5, 1)))
-        self.assertEqual([c.shape for c in F.data[0]], [(3, 5), (6, 6), (2, 7)])     # the Tucker factors
+        self.assertEqual([c.shape for c in F.data[0]], [(3, 5), (6, 6), (2, 7)])      # the Tucker factors
         self.assertEqual(F.down_ranks, tuple(c.shape[0] for c in F.data[0]))          # (3, 6, 2)
         self.assertEqual(F.up_ranks, tuple(c.shape[1] for c in F.data[1]))            # (2, 4, 2)
         self.assertNotEqual(F.down_ranks, F.up_ranks)

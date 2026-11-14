@@ -817,14 +817,14 @@ class TestLoopSchedule(unittest.TestCase):
 
     def test_the_stop_rule(self):
         lo, hi, nan = 0.01, 0.9, np.nan
-        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi]), 5)                  # the first pair
-        self.assertEqual(self.stop_after([hi, hi, lo, lo, hi, lo, lo, hi]), 7)          # not the truncating pass
+        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi]), 5)                   # the first pair
+        self.assertEqual(self.stop_after([hi, hi, lo, lo, hi, lo, lo, hi]), 7)           # not the truncating pass
         self.assertEqual(self.stop_after([hi, hi, hi, hi, lo, lo, hi, hi, hi, hi]), 10)  # not across pairs
-        self.assertEqual(self.stop_after([hi] * 10), 10)                                # 3 pairs and a final ('D', 'L')
-        self.assertEqual(self.stop_after([hi] * 9, max_passes=9), 9)                    # an even cap
-        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi], max_passes=6), 5)    # stopped: no final ('D', 'L')
-        self.assertEqual(self.stop_after([hi, hi, hi, lo, nan, lo, lo, hi]), 7)         # a NaN never stops
-        self.assertEqual(self.stop_after([hi, lo, lo, hi], alternate=False), 3)        # simultaneous
+        self.assertEqual(self.stop_after([hi] * 10), 10)                                 # 3 pairs and a final ('D', 'L')
+        self.assertEqual(self.stop_after([hi] * 9, max_passes=9), 9)                     # an even cap
+        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi], max_passes=6), 5)     # stopped: no final ('D', 'L')
+        self.assertEqual(self.stop_after([hi, hi, hi, lo, nan, lo, lo, hi]), 7)          # a NaN never stops
+        self.assertEqual(self.stop_after([hi, lo, lo, hi], alternate=False), 3)          # simultaneous
         self.assertEqual(self.stop_after([hi, hi, hi, nan, lo, hi], alternate=False), 5)
 
     def test_structural_errors(self):

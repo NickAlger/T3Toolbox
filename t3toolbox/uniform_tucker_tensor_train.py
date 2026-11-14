@@ -974,7 +974,7 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         (5, 6, 7) (2,)
         >>> print(np.reshape(x.tucker_ranks, (3, 2))[:, 0].tolist())   # uniform across the stack here
         [3, 4, 2]
-        >>> print(bool(np.any(x.tucker_supercore != 0.0)))            # random, not zeros
+        >>> print(bool(np.any(x.tucker_supercore != 0.0)))             # random, not zeros
         True
 
         Per-stack-element ranks (the variety): a full ``(d,)+stack`` array gives each stack element its
@@ -983,9 +983,9 @@ class UniformTuckerTensorTrain(common.ExplicitEquality):
         >>> tucker_ranks = np.array([[2, 4], [3, 5], [2, 3]])         # (d=3, stack=2)
         >>> tt_ranks = np.array([[1, 1], [2, 4], [2, 3], [1, 1]])     # (d+1=4, stack=2)
         >>> xv = ut3.UniformTuckerTensorTrain.randn((6, 7, 8), tucker_ranks, tt_ranks, stack_shape=(2,))
-        >>> print(np.asarray(xv.tucker_ranks).tolist())              # ranks genuinely differ per element
+        >>> print(np.asarray(xv.tucker_ranks).tolist())               # ranks genuinely differ per element
         [[2, 4], [3, 5], [2, 3]]
-        >>> print(xv.n, xv.r)                                        # one padded shape: n=max, r=max
+        >>> print(xv.n, xv.r)                                         # one padded shape: n=max, r=max
         5 4
         """
         return _from_data(ut3_constructors.ut3_corewise_randn(

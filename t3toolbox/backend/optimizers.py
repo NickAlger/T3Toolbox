@@ -225,7 +225,7 @@ class LocalModel:
     geom:     typ.Any        # a Geometry (backend.geometry.*GeometryOps); aux_data, so it must hash by VALUE
     kind:     typ.Any        # backend fitting.SamplingKind (forward / transpose / sumsq / w_axes)
     sample:   typ.Any        # ww (probe/apply) or index (entries)
-    frame:     typ.Tuple      # (D, U, L, R)
+    frame:    typ.Tuple      # (D, U, L, R)
     sweep:    typ.Tuple      # precomputed frame sweep (reused across gradient/jacobian/hvp)
     residual: typ.Any        # r = S(x) - data
     n_w:      int            # number of leading sample-stack axes
@@ -458,10 +458,10 @@ class Problem:
 
 
 def least_squares_problem(
-        geom:        typ.Any,       # a Geometry (backend.geometry.{Manifold,Corewise}GeometryOps, or uniform)
-        kind:        typ.Any,       # backend fitting.{APPLY,ENTRIES,PROBE} or a derivative kind
-        sample:      typ.Any,       # ww / index / (ww,pp) / (index,pp)
-        data:        typ.Any,       # observed values
+        geom:        typ.Any,         # a Geometry (backend.geometry.{Manifold,Corewise}GeometryOps, or uniform)
+        kind:        typ.Any,         # backend fitting.{APPLY,ENTRIES,PROBE} or a derivative kind
+        sample:      typ.Any,         # ww / index / (ww,pp) / (index,pp)
+        data:        typ.Any,         # observed values
         regularizer: typ.Any = None,  # optional backend.regularization.Regularizer (e.g. IdentityRegularizer(λ))
 ) -> Problem:
     """Assemble a least-squares ``Problem`` from a geometry, a sampling kind, the sample, and the observed
@@ -803,7 +803,7 @@ def padded_start(
     >>> x0 = x_old.resize(shape, (3, 4, 3), (1, 3, 3, 1))                 # zero-padded to the target ranks
     >>> setup = topt.least_squares_problem(t3m.MANIFOLD, 'probe', ww, data, x0)
     >>> frame, movements = bopt.padded_start(setup.problem, setup.x0_cores, x_old.data)
-    >>> F = bvf.T3Frame(*frame)                                          # rewrap
+    >>> F = bvf.T3Frame(*frame)                                           # rewrap
     >>> F.down_ranks, len(movements) <= 10
     ((3, 4, 3), True)
 
@@ -926,7 +926,7 @@ def gradient_descent(
         losses.append(f)
         g = lm.gradient
         gg = float(problem.geom.inner(g, g))                # ‖g‖²
-        if g0norm is None and ref_selector == 'cone':      # iteration 0: the cone reference (once)
+        if g0norm is None and ref_selector == 'cone':       # iteration 0: the cone reference (once)
             g0norm, extra['cone_movements'] = _cone_reference(problem, x0, cone_options, False, 'gradient_descent',
                                                               "g0_reference='warm_start'")
         if g0norm is None:                                  # iteration 0: resolve the reference (once)
@@ -960,11 +960,11 @@ def mc_sgd(
         batch:       int,        # measurements per minibatch (for the default flat draw; ignored if draw given)
         draw:        typ.Optional[typ.Callable] = None,  # custom draw(rng)->(sample_B,data_B); None = flat default
         max_iter:    int   = 3000,
-        check_every: int   = 25,   # iterations between full-batch loss checks (the absolute-iteration window)
-        smooth_tau:  float = 2.0,  # EMA timescale of the loss check, in checks
-        plateau_lag: int   = 4,    # stop when the smoothed loss rises over this many checks
+        check_every: int   = 25,     # iterations between full-batch loss checks (the absolute-iteration window)
+        smooth_tau:  float = 2.0,    # EMA timescale of the loss check, in checks
+        plateau_lag: int   = 4,      # stop when the smoothed loss rises over this many checks
         use_jit:     bool  = False,  # jit the per-step kernel (gradient + Cauchy step + retract) when jax
-) -> typ.Tuple[Tangent, dict]:     # (x_cores, stats)
+) -> typ.Tuple[Tangent, dict]:       # (x_cores, stats)
     """Manifold Cauchy SGD (T4S §5.3.2): minibatch + the tuning-free Cauchy step
     ``α = ‖g‖² / ‖𝒥g‖²`` -- no learning rate. Intended for the **manifold** geometry (its bounded
     retraction makes the raw Cauchy step stable; on the additive corewise chart use ``adam``). Stops on an
@@ -1187,7 +1187,7 @@ class NewtonInfo:
     converged:    bool             # gnorm <= gtol_rel*g0norm -- this is the final line (step fields None)
     x_cores:      typ.Any = None                       # the point BEFORE the step (for a val forward)
     lm:           typ.Any = None                       # the LocalModel at x (residual/sample/frame)
-    misfit:         typ.Optional[float] = None         # ½‖ω⊙r‖² data-misfit part of the objective
+    misfit:       typ.Optional[float] = None           # ½‖ω⊙r‖² data-misfit part of the objective
     regularization: typ.Optional[float] = None         # ρ(X) regularization part (None when no regularizer is attached)
     forcing_eta:  typ.Optional[float] = None           # inexact-Newton forcing term η
     cg_tol:       typ.Optional[float] = None           # CG stop tolerance = η·‖g‖

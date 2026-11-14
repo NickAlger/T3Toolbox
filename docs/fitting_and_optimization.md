@@ -413,12 +413,12 @@ on both layers.
 
 ```python
 >>> # probe_derivatives: down-weight the noisy high orders AND discount a coarse mode, independently:
->>> ww3, pp3 = [w[:20] for w in ww], [p[:20] for p in pp]                       # 20 probes is plenty here
+>>> ww3, pp3 = [w[:20] for w in ww], [p[:20] for p in pp]                      # 20 probes is plenty here
 >>> r = [zi - yi for zi, yi in zip(x.probe_derivatives(ww3, pp3, 3),           # RAW r = S(x) − y,
 ...                                A.probe_derivatives(ww3, pp3, 3))]          #   len=d, (order+1)+W+(Ni,)
 >>> mode_w, order_w = [1.0, 0.6, 0.3], [1.0, 0.5, 0.3, 0.2]                    # (d=3,) and (order+1=4,)
 >>> model = fitting.probe_derivatives_model(t3m.MANIFOLD, x, ww3, pp3, order=3, residual=r,
-...                                         weight=np.outer(mode_w, order_w))   # ω[mode,order], (3, 4)
+...                                         weight=np.outer(mode_w, order_w))  # ω[mode,order], (3, 4)
 >>> np.outer(mode_w, order_w).shape
 (3, 4)
 >>> # plain probe: a per-mode vector is 1-D (d,):
@@ -704,7 +704,7 @@ repo, maintainer-local):
   >>> st['history'][0]['g0_reference'], st['stop_reason']     # the default on the manifold
   ('zero', 'gradient')
   >>> _, st = topt.newton_cg(t3m.COREWISE, 'apply', ww, data, x0c, max_newton=2)
-  >>> st['history'][0]['g0_reference']                         # ... and on corewise
+  >>> st['history'][0]['g0_reference']                        # ... and on corewise
   'warm_start'
 
   ```

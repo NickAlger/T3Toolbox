@@ -73,7 +73,7 @@ def sumsq_over_samples(
 
 
 def sumsq_over_probes(
-        zz:     typ.Union[typ.Sequence[NDArray], NDArray],  # ragged len=d (elm W+C+(Ni,)) OR packed (d,)+W+C+(N,)
+        zz:     typ.Union[typ.Sequence[NDArray], NDArray],   # ragged len=d (elm W+C+(Ni,)) OR packed (d,)+W+C+(N,)
         n_w:    int,                                         # number of leading sample-stack (W) axes
 ) -> NDArray:                           # sum of squares over W and the free mode, summed over d, keep C
     '''The ``‖·‖²`` reduction for the vector-output ``probe`` kind: sum over the leading ``n_w`` sample
@@ -198,7 +198,7 @@ def _take_deriv_probe(sample, data, idx):
 
 
 def _weight_matrix(
-        weight:  typ.Optional[typ.Any],   # None, or array / (nested) sequence -- the raw ω input
+        weight:  typ.Optional[typ.Any],    # None, or array / (nested) sequence -- the raw ω input
         order:   int,                      # highest derivative order (0 for the plain kinds)
         bare:    str,                      # a 1-D input binds to -- 'order' (row) or 'mode' (column)
 ) -> typ.Optional[NDArray]:                # None, or the canonical 2-D ω[m,o], m in {1,d}, o in {1,order+1}

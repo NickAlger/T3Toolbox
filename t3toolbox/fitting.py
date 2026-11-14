@@ -86,7 +86,7 @@ import t3toolbox.safety as safety
 import t3toolbox.backend.fitting as fb
 import t3toolbox.backend.geometry as bgeo
 import t3toolbox.backend.optimizers as bopt         # exact mode: its checks, CurvatureState, the backend LocalModel
-import t3toolbox.backend.regularization as breg    # the backend geometry a Regularizer leans on (no cycle: backend never imports fitting)
+import t3toolbox.backend.regularization as breg     # the backend geometry a Regularizer leans on (no cycle: backend never imports fitting)
 import t3toolbox.backend.uniform_fitting as ufit
 from t3toolbox.backend.common import *
 
@@ -307,7 +307,7 @@ class LocalModel:
     sweep:    typ.Any              # = kind.precompute(frame.data, sample); a FIELD (jax leaf) so it is
                                    # carried across a jit boundary and reused, not recomputed per matvec
 
-    regularizer: typ.Any = None    # optional backend.regularization.Regularizer; ρ folded into obj/grad/hessian/quadratic/evaluate
+    regularizer:  typ.Any = None   # optional backend.regularization.Regularizer; ρ folded into obj/grad/hessian/quadratic/evaluate
     geometry_aux: typ.Any = None   # per-frame geometry companion (e.g. the SF-T3 SharedFrameData); a jax LEAF
     curvature:    typ.Any = None   # exact mode: the backend CurvatureState; a jax LEAF (None: Gauss-Newton)
 
@@ -403,7 +403,7 @@ class LocalModel:
     def jacobian(
             self,
             p,      # a trial tangent at this model's frame
-    ) -> NDArray:  # J p = 𝒥(Π p); apply/entries: shape W+C; probe: len=d, elm_shape=W+C+(Ni,)
+    ) -> NDArray:   # J p = 𝒥(Π p); apply/entries: shape W+C; probe: len=d, elm_shape=W+C+(Ni,)
         '''The linearized forward ``J p = 𝒥(Π p)`` (the Gauss-Newton Jacobian-vector product).
 
         ONE forward sweep -- no transpose ``𝒥ᵀ``, no gauge re-projection of the output, no tangent
@@ -417,7 +417,7 @@ class LocalModel:
     def gn_quadratic(
             self,
             p,      # a trial tangent at this model's frame
-    ) -> NDArray:  # pᵀ H p = ‖J p‖², shape C
+    ) -> NDArray:   # pᵀ H p = ‖J p‖², shape C
         '''The Gauss-Newton quadratic form ``pᵀ H p = ‖J p‖²`` -- ONE forward sweep, NOT a Hessian apply.
 
         The cheap denominator for Cauchy / line-search step lengths: ``alpha = g.corewise_inner(g) /
@@ -623,7 +623,7 @@ def _uniform_model(
                          "shared_geometry.SharedGeometry over one).")
     N = x.N
     frame = geometry.frame(x)                              # UT3Frame (a SharedGeometry checks tied factors)
-    geometry_aux = (geometry.precompute(frame)         # the once-per-model SF-T3 companion (or None)
+    geometry_aux = (geometry.precompute(frame)             # the once-per-model SF-T3 companion (or None)
                     if isinstance(geometry, sg.SharedGeometry) else None)
     packed_sample = ufit.pack_sample(kind_name, sample, N)
     packed_residual = ufit.pack_data(kind_name, residual, N)
@@ -935,7 +935,7 @@ def probe_derivatives_model(
     (False, True)
     >>> p = exact.gradient * (1.0 / float(t3m.MANIFOLD.norm(exact.gradient)))          # a unit tangent
     >>> f = lambda t: float(model_at(exact.retract(p * t)).objective_value)
-    >>> fd = (f(1e-3) - 2 * f(0.0) + f(-1e-3)) / 1e-6                                   # d²/dt² f(retract(t p))
+    >>> fd = (f(1e-3) - 2 * f(0.0) + f(-1e-3)) / 1e-6                                  # d²/dt² f(retract(t p))
     >>> bool(np.isclose(float(exact.quadratic(p)), fd, rtol=1e-4))
     True
     >>> bool(np.isclose(float(gn.quadratic(p)), fd, rtol=1e-2))

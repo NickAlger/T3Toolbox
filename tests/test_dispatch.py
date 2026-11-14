@@ -770,7 +770,7 @@ class TestDispatch(unittest.TestCase):
                       fitting.entries_model(geom, self.x, index, jnp.ones(2)),
                       fitting.probe_model(geom, self.x, self.ww, probe_r)]
             for model in models:
-                _ = model.gradient; _ = model.objective_value   # warm the caches -> concrete jax constants
+                _ = model.gradient; _ = model.objective_value     # warm the caches -> concrete jax constants
                 p = geom.randn(model.frame)                       # a tangent at the model's frame (jax)
                 self.assert_jit_jax(lambda pp: model.gn_hessian(pp), p)    # H p, returns a T3Tangent
                 self.assert_jit_jax(lambda pp: model.jacobian(pp), p)      # J p (forward), sample-space
@@ -1727,7 +1727,7 @@ class TestDispatch(unittest.TestCase):
         import t3toolbox.uniform_manifold as ut3m
         M, C = ut3m.UNIFORM_MANIFOLD, ut3m.UNIFORM_COREWISE
         ux_np = ut3.UniformTuckerTensorTrain.from_t3(self.x_np)
-        v = M.randn(M.frame(ux_np)).to_jax()                # gauged jax tangent (built on numpy then to_jax)
+        v = M.randn(M.frame(ux_np)).to_jax()                 # gauged jax tangent (built on numpy then to_jax)
         cv = C.randn(C.frame(ux_np)).to_jax()
         frame, g = M.frame(ux_np).to_jax(), self.uy          # an orthogonal jax frame + a jax UniformTTT grad
 
@@ -1767,8 +1767,8 @@ class TestDispatch(unittest.TestCase):
         import t3toolbox.uniform_manifold as ut3m
         frame = ut3m.UNIFORM_MANIFOLD.frame(ut3.UniformTuckerTensorTrain.from_t3(self.x_np))
         v = ut3m.UNIFORM_COREWISE.randn(frame, stack_shape=(2,)).to_jax()   # K = (2,)
-        ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])    # W = (2,)
-        idx = jnp.array([[1, 2], [2, 3], [3, 0]])                         # (d,) + W
+        ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])     # W = (2,)
+        idx = jnp.array([[1, 2], [2, 3], [3, 0]])                           # (d,) + W
         self.assert_jit_jax(lambda t, *w: t.probe(w), v, *ww)
         self.assert_jit_jax(lambda t, *w: t.apply(w), v, *ww)
         self.assert_jit_jax(lambda t, i: t.entries(i), v, idx)
@@ -1777,7 +1777,7 @@ class TestDispatch(unittest.TestCase):
         # the gauge masks stay host constants). The frame (jax frame, C=()) is closed over; residual traces.
         bj = v.frame
         rr = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])   # probe residual, W=(2,), K=C=()
-        cc = jnp.array(np.random.randn(2))                               # scalar residual, W=(2,)
+        cc = jnp.array(np.random.randn(2))                                # scalar residual, W=(2,)
         self.assert_jit_jax(
             lambda r0, r1, r2, *w: ut3m.UT3Tangent.probe_transpose((r0, r1, r2), w, bj, sum_over_probes=True).to_dense(),
             *rr, *ww)
@@ -1808,7 +1808,7 @@ class TestDispatch(unittest.TestCase):
         import t3toolbox.uniform_manifold as ut3m
         ww = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])    # W = (2,)
         pp = tuple(jnp.array(np.random.randn(2, N)) for N in STRUCT[0])
-        idx = jnp.array([[1, 2], [2, 3], [3, 0]])                         # (d,) + W
+        idx = jnp.array([[1, 2], [2, 3], [3, 0]])                          # (d,) + W
 
         xu = ut3.UniformTuckerTensorTrain.from_t3(self.x_np).to_jax()     # plain layer
         self.assert_jit_jax(lambda u, *w: u.probe_derivatives(w[:3], w[3:], 2), xu, *ww, *pp)
@@ -1854,7 +1854,7 @@ class TestDispatch(unittest.TestCase):
         ux = ut3.UniformTuckerTensorTrain.from_t3(xs)
         ru = ut3.UniformTuckerTensorTrain.stack(ux.unstack())          # plain UT3
         self._leaves_all_jax(ru); self.assert_concrete_masks(ru)
-        frame, var = ubv.ut3_orthogonal_representations(ux)             # bv frame + variations
+        frame, var = ubv.ut3_orthogonal_representations(ux)            # bv frame + variations
         for r in (ubv.UT3Frame.stack(frame.unstack()), ubv.UT3Variations.stack(var.unstack())):
             self._leaves_all_jax(r); self.assert_concrete_masks(r)
 
@@ -2041,7 +2041,7 @@ class TestDispatch(unittest.TestCase):
                           tt_ranks=out_ranks[1], sharing=sharing, update=update)
                 F_np, mv_np = padded_frames.tv_align_padded_frame(start, variations, **kw)
                 self.assertTrue(all(common.is_numpy_ndarray(c) for c in jax.tree_util.tree_leaves(F_np)))
-                self.assertIsInstance(mv_np, (np.ndarray, np.generic))         # C = (): numpy's scalar
+                self.assertIsInstance(mv_np, (np.ndarray, np.generic))          # C = (): numpy's scalar
                 F, mv = f(to_jax(start), to_jax(variations), **kw)              # (no eager row: jit is the strong
                                                                                 #  proof, and eager jax costs ~50 s)
                 self._leaves_all_jax((F, mv))
@@ -2088,7 +2088,7 @@ class TestDispatch(unittest.TestCase):
         exactly 0; a stack C = (2,) with a seed mask per element. A traced mask raises the actionable error."""
         self.addCleanup(_release_jax_programs)
         r = np.random.default_rng(7)
-        rm = np.array([True, False, True, True, True, False, True])       # 5 real rows of 7
+        rm = np.array([True, False, True, True, True, False, True])      # 5 real rows of 7
         pm = np.array([True, False, True])                               # 2 real pins of 3
         sm = np.array([[True, True, False], [False, True, True]])        # per element
         P = r.standard_normal((2, 7, 3))
@@ -2392,7 +2392,7 @@ class TestAlignedLoopJit(unittest.TestCase):
                     self.assertLessEqual(max(oracles.distances(oracles.dense_frames(F_j),
                                                                oracles.dense_frames(F)).values()), 1e-12)
                     self.assertLessEqual(max(abs(float(a) - float(b)) for a, b in zip(movements_j, movements)), 1e-10)
-        self.assertEqual((lengths['two-colour, p=5'], lengths['two-colour, p=0']), (12, 12))   # the final ('D', 'L')
+        self.assertEqual((lengths['two-colour, p=5'], lengths['two-colour, p=0']), (12, 12))    # the final ('D', 'L')
         self.assertEqual((lengths['two-colour, d=4'], lengths['simultaneous, p=5']), (9, 8))    # early stops
 
     def test_the_step_is_chosen_by_use_jit(self):

@@ -58,7 +58,7 @@ Let `X` be the dense order-`d` tensor represented by a `TuckerTensorTrain`.
 
 ### `entries(index) → scalar`
 ```
-index : int array, shape (d,) + W       # index[m] = the (stack W of) indices into mode m
+index : int array, shape (d,) + W        # index[m] = the (stack W of) indices into mode m
 result: X[index[0], …, index[d-1]]       # shape W + C
 ```
 The all-modes special case of `probe` with one-hot vectors, but computed by **slicing** Tucker-core

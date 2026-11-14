@@ -160,7 +160,7 @@ def utv_precompute_entries_frame_sweep(
 
 
 def utv_apply_jacobian_from_sweep(
-        variations_data,  # UT3Variations .data (the tangent direction); stack = K + C
+        variations_data,   # UT3Variations .data (the tangent direction); stack = K + C
         frame_sweep,       # = utv_precompute_apply_frame_sweep(...)
 ):  # -> scalar apply, shape=W+K+C
     """Forward all-modes apply of a uniform tangent reusing the frame sweep (the bare ``𝒥``): mask-once the
@@ -171,7 +171,7 @@ def utv_apply_jacobian_from_sweep(
 
 
 def utv_probe_jacobian_from_sweep(
-        variations_data,  # UT3Variations .data; stack = K + C
+        variations_data,   # UT3Variations .data; stack = K + C
         frame_sweep,       # = utv_precompute_probe_frame_sweep(...)
 ):  # -> PACKED probes, shape=(d,)+W+K+C+(N,)  (the inner-loop path is packed; no unpack)
     """Forward probe of a uniform tangent reusing the frame sweep (the bare ``𝒥``): mask-once the variation,
@@ -183,7 +183,7 @@ def utv_probe_jacobian_from_sweep(
 
 
 def utv_entries_jacobian_from_sweep(
-        variations_data,  # UT3Variations .data; stack = K + C
+        variations_data,   # UT3Variations .data; stack = K + C
         frame_sweep,       # = utv_precompute_entries_frame_sweep(...)
 ):  # -> scalar entries, shape=W+K+C
     """Forward all-modes entries of a uniform tangent reusing the frame sweep (the bare ``𝒥``): mask-once the
@@ -194,7 +194,7 @@ def utv_entries_jacobian_from_sweep(
 
 
 def utv_apply_transpose_from_sweep(
-        residual,     # apply residual, shape=W+K+C (a scalar per stack element)
+        residual,      # apply residual, shape=W+K+C (a scalar per stack element)
         frame_sweep,   # = utv_precompute_apply_frame_sweep(...)
         sum_over_probes=False,   # matches the ragged twin (review H2-4)
 ):  # -> bare variation supercore pair (V_tilde, H_tilde); stack K_new + C
@@ -206,7 +206,7 @@ def utv_apply_transpose_from_sweep(
 
 
 def utv_probe_transpose_from_sweep(
-        ztildes,      # probe residuals, len=d, ith elm_shape=W+K+C+(Ni,)
+        ztildes,       # probe residuals, len=d, ith elm_shape=W+K+C+(Ni,)
         frame_sweep,   # = utv_precompute_probe_frame_sweep(...)
         sum_over_probes=False,   # matches the ragged twin (review H2-4)
 ):  # -> bare variation supercore pair (V_tilde, H_tilde); stack K_new + C
@@ -218,7 +218,7 @@ def utv_probe_transpose_from_sweep(
 
 
 def utv_entries_transpose_from_sweep(
-        residual,     # entries residual, shape=W+K+C
+        residual,      # entries residual, shape=W+K+C
         frame_sweep,   # = utv_precompute_entries_frame_sweep(...)
         sum_over_probes=False,   # matches the ragged twin (review H2-4)
 ):  # -> bare variation supercore pair (V_tilde, H_tilde); stack K_new + C
@@ -288,7 +288,7 @@ def utv_precompute_entries_frame_sweep_jets(
 
 def utv_apply_jacobian_derivatives_from_sweep(
         variations_data,  # UT3Variations .data; stack = K + C
-        frame_sweep,       # = utv_precompute_apply_frame_sweep_jets(...)
+        frame_sweep,      # = utv_precompute_apply_frame_sweep_jets(...)
         order,            # highest derivative order
 ):  # -> scalar jets, shape=(order+1,)+W+K+C
     """Forward apply-derivatives of a uniform tangent reusing the jet sweep (the bare ``𝒥``): mask-once the
@@ -300,7 +300,7 @@ def utv_apply_jacobian_derivatives_from_sweep(
 
 def utv_probe_jacobian_derivatives_from_sweep(
         variations_data,  # UT3Variations .data; stack = K + C
-        frame_sweep,       # = utv_precompute_probe_frame_sweep_jets(...)
+        frame_sweep,      # = utv_precompute_probe_frame_sweep_jets(...)
         order,            # highest derivative order
 ):  # -> PACKED probe jets, shape=(d,)+(order+1,)+W+K+C+(N,)  (packed inner-loop path; no unpack)
     """Forward probe-derivatives of a uniform tangent reusing the jet sweep (the bare ``𝒥``): mask-once the
@@ -313,7 +313,7 @@ def utv_probe_jacobian_derivatives_from_sweep(
 
 def utv_entries_jacobian_derivatives_from_sweep(
         variations_data,  # UT3Variations .data; stack = K + C
-        frame_sweep,       # = utv_precompute_entries_frame_sweep_jets(...)
+        frame_sweep,      # = utv_precompute_entries_frame_sweep_jets(...)
         order,            # highest derivative order
 ):  # -> scalar jets, shape=(order+1,)+W+K+C
     """Forward entries-derivatives of a uniform tangent reusing the jet sweep (the bare ``𝒥``): mask-once the
@@ -325,7 +325,7 @@ def utv_entries_jacobian_derivatives_from_sweep(
 
 def utv_apply_transpose_derivatives_from_sweep(
         residual,     # apply residual jet (scalar), shape=(order+1,)+W+K+C
-        frame_sweep,   # = utv_precompute_apply_frame_sweep_jets(...)
+        frame_sweep,  # = utv_precompute_apply_frame_sweep_jets(...)
         order,        # highest derivative order
         sum_over_probes=False,   # matches the ragged twin (review H2-4)
 ):  # -> bare variation supercore pair (V_tilde, H_tilde); stack K_new + C
@@ -338,7 +338,7 @@ def utv_apply_transpose_derivatives_from_sweep(
 
 def utv_probe_transpose_derivatives_from_sweep(
         ztildes,      # probe residual jets, len=d, ith elm_shape=(order+1,)+W+K+C+(Ni,)
-        frame_sweep,   # = utv_precompute_probe_frame_sweep_jets(...)
+        frame_sweep,  # = utv_precompute_probe_frame_sweep_jets(...)
         order,        # highest derivative order
         sum_over_probes=False,   # matches the ragged twin (review H2-4)
         chunk_size=100,   # W-chunk size for the gradient assembly; None -> dense. docs/chunking.md
@@ -354,7 +354,7 @@ def utv_probe_transpose_derivatives_from_sweep(
 
 def utv_entries_transpose_derivatives_from_sweep(
         residual,     # entries residual jet (scalar), shape=(order+1,)+W+K+C
-        frame_sweep,   # = utv_precompute_entries_frame_sweep_jets(...)
+        frame_sweep,  # = utv_precompute_entries_frame_sweep_jets(...)
         order,        # highest derivative order
         sum_over_probes=False,   # matches the ragged twin (review H2-4)
 ):  # -> bare variation supercore pair (V_tilde, H_tilde); stack K_new + C

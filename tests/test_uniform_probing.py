@@ -374,7 +374,7 @@ class TestUT3TangentTranspose(unittest.TestCase):
                 v = _uniform_tangent(C, K)
                 zz = v.probe(ww)
                 r = [np.random.randn(*z.shape) for z in zz]
-                kept = ut3m.UT3Tangent.probe_transpose(r, ww, v.frame, sum_over_probes=False)   # stack W+K+C
+                kept = ut3m.UT3Tangent.probe_transpose(r, ww, v.frame, sum_over_probes=False)    # stack W+K+C
                 summ = ut3m.UT3Tangent.probe_transpose(r, ww, v.frame, sum_over_probes=True)     # stack K+C
                 for k, s in zip(kept.variations.supercores, summ.variations.supercores):
                     self.assertTrue(np.allclose(k.sum(axis=1), s, atol=1e-9))   # sum the W axis (axis 1)
@@ -791,7 +791,7 @@ class TestTransposeOutputHygiene(unittest.TestCase):
             self.assertEqual(o.shape, ind[j].shape)
             self.assertTrue(np.all(o[~ind[j]] == 0), 'padding not zero')                            # (c)
             self.assertEqual(o[ind[j]].tobytes(), b[ind[j]].tobytes(), 'real block not bitwise')    # (b)
-            self.assertTrue(np.array_equal(np.asarray(dirty[j]), o), 'garbage leaked')               # (d)
+            self.assertTrue(np.array_equal(np.asarray(dirty[j]), o), 'garbage leaked')              # (d)
             seen[name] = max(seen.get(name, 0.0), float(np.abs(b[~ind[j]]).max(initial=0.0)))
 
     def _assert_nonvacuous(self, seen):
@@ -935,7 +935,7 @@ class TestTransposeOutputHygiene(unittest.TestCase):
                             out = op(xu.data, sop)
                             lead = tuple(K) if sop else self._W + tuple(K)                # the output's extra stack
                             tk, tt = _bc_over_K(tk_C, lead), _bc_over_K(tt_C, lead)
-                            ind = _indicator(tk, tt[:-1], tk, tt[1:], xu.shape, xu.N)      # (a) the point's masks
+                            ind = _indicator(tk, tt[:-1], tk, tt[1:], xu.shape, xu.N)     # (a) the point's masks
                             self._assert_hygiene(out, seam(xu.data, sop), ind, op(dirty_data, sop), seen, name)
         self._assert_nonvacuous(seen)
 

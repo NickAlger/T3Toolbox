@@ -55,8 +55,8 @@ __all__ = [
 
 
 def _tangent_stack_split(
-        frame_data,       # (down, up, left, right, shape, masks), each supercore stack = C
-        variations_data,  # (tkv, ttv, shape, masks),             each supercore stack = K + C
+        frame_data,        # (down, up, left, right, shape, masks), each supercore stack = C
+        variations_data,   # (tkv, ttv, shape, masks),             each supercore stack = K + C
 ) -> typ.Tuple[int, int]:  # (|K|, |C|)
     """Recover the tangent / frame stack split (|K|, |C|) from a (frame, variations) ``.data`` pair.
 
@@ -65,7 +65,7 @@ def _tangent_stack_split(
     and ``|K|`` is the remainder.
     """
     n_frame = frame_data[0].ndim - 3       # |C|   (down supercore: (d,) + C + (nD, N))
-    n_full = variations_data[0].ndim - 3  # |K+C| (tucker variation: (d,) + K + C + (nU, N))
+    n_full = variations_data[0].ndim - 3   # |K+C| (tucker variation: (d,) + K + C + (nU, N))
     return n_full - n_frame, n_frame
 
 
@@ -258,7 +258,7 @@ def utv_to_ut3(
     nD = down_sc.shape[-2]; N = down_sc.shape[-1]; nU = up_sc.shape[-2]
     rL = left_sc.shape[-1]; rR = right_sc.shape[-1]
     frame_stack = down_sc.shape[1:-2]                 # C
-    ss = tkv.shape[1:-2]                           # K + C (the variation/output stack)
+    ss = tkv.shape[1:-2]                              # K + C (the variation/output stack)
     n_K = len(ss) - len(frame_stack)
 
     def bcast(sc):  # frame supercore (d,)+C+(core) -> (d,)+K+C+(core): insert |K| size-1 axes after d
@@ -273,9 +273,9 @@ def utv_to_ut3(
 
     # ---- TT supercore: first / mid / last cores, [R, L] bond order, padded to (rR+rL, nD+nU, rR+rL). ----
     def first_core():     # left bond is the boundary (the L-block); pad the R-block (rR rows) with zeros
-        Gtop = xnp.concatenate([ttv[:1], L[:1]], axis=-1)                       # (rL, nD, rR+rL)
+        Gtop = xnp.concatenate([ttv[:1], L[:1]], axis=-1)                      # (rL, nD, rR+rL)
         Gbot = xnp.concatenate([U[:1], Z(1, rL, nU, rL)], axis=-1)             # (rL, nU, rR+rL)
-        G = xnp.concatenate([Gtop, Gbot], axis=-2)                            # (rL, nD+nU, rR+rL)
+        G = xnp.concatenate([Gtop, Gbot], axis=-2)                             # (rL, nD+nU, rR+rL)
         return xnp.concatenate([Z(1, rR, nD + nU, rR + rL), G], axis=-3)       # (rR+rL, nD+nU, rR+rL)
 
     def mid_cores():      # the full block-bidiagonal core (ragged-middle), vectorized over [1:-1]
@@ -288,7 +288,7 @@ def utv_to_ut3(
             xnp.concatenate([Z(nd, rR, nU, rR), Z(nd, rR, nU, rL)], axis=-1),  # (rR, nU, rR+rL)
             xnp.concatenate([U[1:-1], Z(nd, rL, nU, rL)], axis=-1),            # [U, Z111] -> (rL, nU, rR+rL)
         ], axis=-3)                                                            # (rR+rL, nU, rR+rL)
-        return xnp.concatenate([Gtop, Gbot], axis=-2)                         # (rR+rL, nD+nU, rR+rL)
+        return xnp.concatenate([Gtop, Gbot], axis=-2)                          # (rR+rL, nD+nU, rR+rL)
 
     def last_core():      # right bond is the boundary (the R-block); pad the L-block (rL cols) with zeros
         H = ttv[-1:]
@@ -298,7 +298,7 @@ def utv_to_ut3(
             H = H + Lf_boundary
         Gtop = xnp.concatenate([R[-1:], H], axis=-3)                           # [R, H] -> (rR+rL, nD, rR)
         Gbot = xnp.concatenate([Z(1, rR, nU, rR), U[-1:]], axis=-3)            # (rR+rL, nU, rR)
-        G = xnp.concatenate([Gtop, Gbot], axis=-2)                            # (rR+rL, nD+nU, rR)
+        G = xnp.concatenate([Gtop, Gbot], axis=-2)                             # (rR+rL, nD+nU, rR)
         return xnp.concatenate([G, Z(1, rR + rL, nD + nU, rL)], axis=-1)       # (rR+rL, nD+nU, rR+rL)
 
     if d < 2:
@@ -481,10 +481,10 @@ def _utv_oblique_gauge_step(
 ) -> typ.Tuple[NDArray, typ.Tuple[NDArray, NDArray]]:  # (next carry, (projected core, corrected core))
     '''One core of the TT sweep of :py:func:`utv_oblique_gauge_projection`. Closure-free scan body --
     ``docs/contributor/scan_body_principles.md``.'''
-    xnp, _, _ = get_backend(True, tree_contains_jax((X_prev, core)))   # only xnp; it ignores the flag
+    xnp, _, _ = get_backend(True, tree_contains_jax((X_prev, core)))      # only xnp; it ignores the flag
     L, R, H_in = core                                                     # slices: L,R (stack C), H (stack K+C)
     H = H_in + xnp.einsum('...jk,...kbl->...jbl', X_prev, R)              # incoming correction X_prev @ R_ii
-    Xi = xnp.einsum('...iaj,...iak->...jk', L, H)                          # (L^L)^T H^L, stack+(rL, rR)
+    Xi = xnp.einsum('...iaj,...iak->...jk', L, H)                         # (L^L)^T H^L, stack+(rL, rR)
     proj = H - xnp.einsum('...iaj,...jk->...iak', L, Xi)
     return Xi, (proj, H)
 
@@ -566,7 +566,7 @@ def utv_gauge_residual(
         denominator = xnp.maximum(xnp.maximum(own_norm, scale), np.finfo(float).tiny)   # the operands' floor
 
     devs = xnp.concatenate([dev_tk, dev_tt[:-1]], axis=0)                      # d Tucker + (d-1) interior TT
-    return xnp.max(devs, axis=0) / denominator                                # max over checks, keep the stack; relative
+    return xnp.max(devs, axis=0) / denominator                                 # max over checks, keep the stack; relative
 
 
 def utv_project_ut3_onto_tangent_space(
@@ -740,7 +740,7 @@ def utv_corewise_lift_transpose(
     Bd, Gd = ut3_masking.ut3_apply_masks(core_variations)                          # mask on entry (own masks)
     shape = tuple(frame_data[4])
     V = contractions.contract('dCux,dKCun->dKCxn', lift_factors.tucker_pinvs, Bd)
-    V = _tie_group_slices(V, groups, [                                            # T^T, then the solve's adjoint
+    V = _tie_group_slices(V, groups, [                                             # T^T, then the solve's adjoint
         sharing_module._tied_filtered_solve_transpose(lift_factors.shared_data, gi, _group_sum(Bd, group),
                                                       lift_factors.tied_filters[gi])
         for gi, group in enumerate(groups)])

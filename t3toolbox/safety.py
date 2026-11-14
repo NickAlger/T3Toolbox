@@ -57,7 +57,7 @@ frames (a jit round-trip), unlike object identity:
 >>> b = (np.ones((2, 3)),)                                   # value-equal, different objects
 >>> print(a is b, safety.frames_equal(a, b))
 False True
->>> print(safety.frames_equal(a, (np.zeros((2, 3)),)))      # genuinely different
+>>> print(safety.frames_equal(a, (np.zeros((2, 3)),)))       # genuinely different
 False
 '''
 

@@ -115,8 +115,8 @@ def t3_entries_ambient_transpose(
 
 def tv_entries(
         index:      NDArray,                # int, shape=(d,)+W (index stack W)
-        variation:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],  # (var_tucker, var_tt)
-        frame:       typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
+        variation:  typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (var_tucker, var_tt)
+        frame:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
                               typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right)
 ) -> NDArray:                               # entries of the dense tangent at ``index``; shape = W + K + C
     '''Extract entries of the dense tangent at ``index`` (= apply with unit vectors, by slicing).
@@ -142,7 +142,7 @@ def tv_entries(
 def tv_entries_transpose(
         c:          NDArray,                # residual, shape = W + C
         index:      NDArray,                # int, shape=(d,)+W (the indices whose entries c weights)
-        frame:       typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
+        frame:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
                               typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right)
         sum_over_probes: bool = False,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (V_tildes, H_tildes)
@@ -162,7 +162,7 @@ def tv_entries_transpose(
 
 
 def tv_precompute_entries_frame_sweep(
-        frame:   typ.Tuple[
+        frame:  typ.Tuple[
             typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
             typ.Sequence[NDArray],          # up_tt_cores        U. len=d
             typ.Sequence[NDArray],          # left_tt_cores      L. len=d
@@ -197,7 +197,7 @@ def tv_entries_jacobian_from_sweep(
             typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rRi)
         ],
         index:      NDArray,                # int, shape=(d,)+W -- for the variation's fiber-sliced dxis
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R); uses R (right) and U (up)
@@ -219,7 +219,7 @@ def tv_entries_jacobian_from_sweep(
 def tv_entries_transpose_from_sweep(
         c:          NDArray,                # residual, shape = W + C (or W + K + C)
         index:      NDArray,                # int, shape=(d,)+W -- the indices c weights (-> one-hot vectors)
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R); uses D (one-hot), U, R

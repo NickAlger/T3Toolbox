@@ -507,7 +507,7 @@ def dense_tucker_svd(
     >>> import numpy as np
     >>> import t3toolbox.backend.t3_svd as t3_svd
     >>> i, j, k = np.ogrid[1:9, 1:9, 1:9]
-    >>> T = 1.0 / (i + j + k)                              # graded-spectrum tensor
+    >>> T = 1.0 / (i + j + k)                                      # graded-spectrum tensor
     >>> (bases_f, _), ss_full = t3_svd.dense_tucker_svd(T)         # full (untruncated) spectra
     >>> (bases, core), _ = t3_svd.dense_tucker_svd(T, rtol=1e-3)   # truncate at rtol
     >>> print(tuple(B.shape[0] for B in bases_f), '->', tuple(B.shape[0] for B in bases))
@@ -617,7 +617,7 @@ def dense_ttsvd(
     >>> import numpy as np
     >>> import t3toolbox.backend.t3_svd as t3_svd
     >>> i, j, k = np.ogrid[1:9, 1:9, 1:9]
-    >>> T = 1.0 / (i + j + k)                          # graded-spectrum tensor
+    >>> T = 1.0 / (i + j + k)                              # graded-spectrum tensor
     >>> cores_f, ss_full = t3_svd.dense_ttsvd(T)           # full (untruncated) spectra
     >>> cores, ss = t3_svd.dense_ttsvd(T, rtol=1e-3)       # truncate at rtol
     >>> full_ranks = tuple(G.shape[0] for G in cores_f) + (1,)
@@ -717,14 +717,14 @@ def dense_t3svd(
     >>> import numpy as np
     >>> import t3toolbox.backend.t3_svd as t3_svd
     >>> i, j, k = np.ogrid[1:9, 1:9, 1:9]
-    >>> T = 1.0 / (i + j + k)                          # graded-spectrum tensor
+    >>> T = 1.0 / (i + j + k)                                               # graded-spectrum tensor
     >>> (tk_f, tt_f), ss_tk_full, ss_tt_full = t3_svd.dense_t3svd(T)        # full spectra
     >>> (tk, tt), _, _ = t3_svd.dense_t3svd(T, rtol=1e-3)                   # truncate at rtol
     >>> tucker_ranks = tuple(B.shape[0] for B in tk)
     >>> tt_ranks = tuple(G.shape[0] for G in tt) + (1,)
-    >>> print(tuple(B.shape[0] for B in tk_f), '->', tucker_ranks)         # Tucker ranks drop
+    >>> print(tuple(B.shape[0] for B in tk_f), '->', tucker_ranks)          # Tucker ranks drop
     (8, 8, 8) -> (3, 3, 3)
-    >>> print(tuple(G.shape[0] for G in tt_f) + (1,), '->', tt_ranks)      # TT ranks drop
+    >>> print(tuple(G.shape[0] for G in tt_f) + (1,), '->', tt_ranks)       # TT ranks drop
     (1, 8, 8, 1) -> (1, 3, 3, 1)
     >>> GG_big = [np.einsum('io,aib->aob', B, G) for B, G in zip(tk, tt)]
     >>> T2 = np.einsum('aib,bjc,ckd->ijk', *GG_big)

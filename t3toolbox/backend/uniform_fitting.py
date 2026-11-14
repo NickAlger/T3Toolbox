@@ -472,7 +472,7 @@ def uniform_least_squares_problem(
         weight:    typ.Optional[typ.Any] = None,  # residual weight ω: per-mode (probe) or ω[mode,order] (derivatives)
         regularizer: typ.Any = None,          # optional backend.regularization.Regularizer (e.g. IdentityRegularizer(λ))
         chunk_size: typ.Optional[int] = 100,  # probe_derivatives only: W-chunk size for 𝒥ᵀ (docs/chunking.md)
-        sharing:    typ.Optional[typ.Sequence] = None,  # len=d, static; group labels (None = unshared)
+        sharing:   typ.Optional[typ.Sequence] = None,  # len=d, static; group labels (None = unshared)
 ) -> bopt.Problem:
     """Assemble a fully-packed uniform least-squares :py:class:`~t3toolbox.backend.optimizers.Problem`.
 

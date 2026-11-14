@@ -84,8 +84,8 @@ import t3toolbox.fitting as fitting
 # Problem configuration (tweak these)
 # --------------------------------------------------------------------------------------------------
 SHAPE        = (12, 12, 12, 12)      # the Hilbert tensor's shape (order d = len(SHAPE))
-N_TRAIN      = 3000                   # observed training entries (~14% -- a genuinely sparse sample)
-N_VAL        = 2000                   # held-out validation entries
+N_TRAIN      = 3000                  # observed training entries (~14% -- a genuinely sparse sample)
+N_VAL        = 2000                  # held-out validation entries
 NOISE_LEVEL  = 0.01                  # measurement noise, as a fraction of the entry RMS
 RANK_LEVELS  = (1, 2, 3, 4, 5, 6)    # rank schedule (each level fit independently; see the docstring)
 SEED         = 0
@@ -144,7 +144,7 @@ def corewise_lbfgs(X0, index, y, tucker_ranks, tt_ranks,
     def objective_and_grad(x_flat):
         X = t3.TuckerTensorTrain.from_vector(x_flat, SHAPE, tucker_ranks, tt_ranks)
         r = np.asarray(X.entries(index)) - y                      # residual, shape (n_obs,)
-        model = fitting.entries_model(t3m.COREWISE, X, index, r)   # corewise GN model at X
+        model = fitting.entries_model(t3m.COREWISE, X, index, r)  # corewise GN model at X
         f = float(model.objective_value)                          # 1/2 ||r||^2
         g_flat = np.asarray(model.gradient.to_vector(), dtype=float)   # corewise J^T r, point's layout
         return f, g_flat

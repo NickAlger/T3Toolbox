@@ -1097,7 +1097,7 @@ class UniformManifoldGeometry:
     >>> frame = ut3m.UNIFORM_MANIFOLD.frame(x)            # orthonormal frame at x
     >>> print(bool(frame.is_orthogonal().all()))
     True
-    >>> v = ut3m.UNIFORM_MANIFOLD.randn(frame)           # a standard Gaussian on T_xM (gauged)
+    >>> v = ut3m.UNIFORM_MANIFOLD.randn(frame)            # a standard Gaussian on T_xM (gauged)
     >>> print(bool(v.is_gauged().all()))
     True
     >>> y = ut3m.UNIFORM_MANIFOLD.retract(ut3m.UT3Tangent.zeros(frame))   # retract the zero tangent == the base point
@@ -1294,7 +1294,7 @@ class UniformCorewiseGeometry:
     >>> np.random.seed(0)
     >>> x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))
     >>> frame = ut3m.UNIFORM_COREWISE.frame(x)            # the (B, G, G, G) frame
-    >>> v = ut3m.UNIFORM_COREWISE.randn(frame)           # raw randn cores (no gauge)
+    >>> v = ut3m.UNIFORM_COREWISE.randn(frame)            # raw randn cores (no gauge)
     >>> print(bool(v.is_gauged().all()))
     False
     >>> y = ut3m.UNIFORM_COREWISE.retract(ut3m.UT3Tangent.zeros(frame))   # additive: cores += step (zero -> the point)

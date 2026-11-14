@@ -116,8 +116,8 @@ def _first_data_leaf(xx):  # drill to the first .data leaf without recursing int
 
 
 def ufv_unstack_axes(
-        data:         typ.Tuple,        # (*supercores, shape, masks): n_supercores arrays, int-tuple, 4-tuple of masks
-        n_supercores: int,              # 4 (frame) or 2 (variations)
+        data:         typ.Tuple,          # (*supercores, shape, masks): n_supercores arrays, int-tuple, 4-tuple of masks
+        n_supercores: int,                # 4 (frame) or 2 (variations)
         axes:         typ.Sequence[int],  # the array axes to peel into tree levels (a CONTIGUOUS run within the stack)
 ):  # -> nested tuple (shaped like the peeled axes) of bv .data leaves carrying the remaining stack
     """Unstack a bv ``.data`` tuple along the GIVEN array axes (a sub-run of the stack), leaving the rest.
@@ -233,7 +233,7 @@ def ufv_frame_reverse(data):  # UT3Frame .data -> reversed UT3Frame .data
         rev(right_sc),                              # old right -> new left
         rev(left_sc),                               # old left  -> new right
         tuple(shape[::-1]),
-        (dm[::-1], um[::-1], rm[::-1], lm[::-1]),    # down/up reverse; left/right masks swap + reverse
+        (dm[::-1], um[::-1], rm[::-1], lm[::-1]),   # down/up reverse; left/right masks swap + reverse
     )
 
 
@@ -456,7 +456,7 @@ def ufv_lift_factors(
 
     # the center factors (fv_center_factors, on the supercores): T_i = Z_(i+1), H_i = L_i T_i, S_i^T = <U_i, H_i>
     ZZ = tt_operations.tt_zipper_right_to_left(left_sc, right_sc)          # len=d+1, elm_shape=C+(rL, rR)
-    Z_sc = xnp.stack(ZZ[1:], axis=0)                                      # (d,)+C+(rL, rR); the last: boundary ones
+    Z_sc = xnp.stack(ZZ[1:], axis=0)                                       # (d,)+C+(rL, rR); the last: boundary ones
     centers = contractions.contract('dCaib,dCbc->dCaic', left_sc, Z_sc)
     tucker_factors_T = contractions.contract('dCaxb,dCaub->dCxu', up_sc, centers)   # (d,)+C+(nU, nD)
 
@@ -502,7 +502,7 @@ def _real_group_levels(
     and ``max(sum_i nU_i, nD)`` (the ragged tied solve's clip is ``dtype eps`` times it), read off the host masks."""
     down, up = frame_masks[0], frame_masks[1]
     rows = sum(np.sum(up[ii], axis=-1) for ii in group)                  # C: sum_i nU_i (real)
-    cols = np.sum(down[group[0]], axis=-1)                                    # C: the group's real nD
+    cols = np.sum(down[group[0]], axis=-1)                               # C: the group's real nD
     real = np.arange(k) < np.minimum(rows, cols)[..., None]
     return real, np.maximum(rows, cols)[..., None].astype(float)
 

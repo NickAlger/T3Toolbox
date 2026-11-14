@@ -190,7 +190,7 @@ def groups_to_labels(
 
 
 def _validate_group_tucker_ranks(
-        tucker_cores:   typ.Sequence[NDArray],              # len=d, elm_shape=stack_shape+(ni, Ni)
+        tucker_cores:   typ.Sequence[NDArray],                # len=d, elm_shape=stack_shape+(ni, Ni)
         groups:         typ.Tuple[typ.Tuple[int, ...], ...],  # static; from validate_sharing
 ) -> None:
     '''Structural check: tied factors need equal Tucker ranks within each group (always raises).'''
@@ -576,7 +576,7 @@ def fv_share_tucker_variations(
             typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nUi, Ni)
             typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nDi, rRi)
         ],
-        shared_data:    'SharedFrameData',  # the frame's companion (fv_shared_frame_data)
+        shared_data:    'SharedFrameData',    # the frame's companion (fv_shared_frame_data)
         rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # tucker_variations, tied within groups (exact row blocks of one solve)
@@ -710,7 +710,7 @@ def fv_tied_ambient_directions(
             typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nUi, Ni)
             typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nDi, rRi)
         ],
-        shared_data:    'SharedFrameData',  # the frame's companion (fv_shared_frame_data)
+        shared_data:    'SharedFrameData',    # the frame's companion (fv_shared_frame_data)
         rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
 ) -> typ.Tuple[NDArray, ...]:  # per NONTRIVIAL group: Ddot, elm_shape=(K+C)+(n_g, N)
     '''Recover each group's common gauged ambient direction ``Ddot`` from (tied) Tucker
@@ -1027,7 +1027,7 @@ def ufv_shared_frame_data(
 
 def ufv_share_tucker_variations(
         variations_data,   # UT3Variations .data: (tkv_sc, ttv_sc, shape, (4 masks)); stack = K + C
-        shared_data:    'SharedFrameData',  # the frame's UNIFORM companion (ufv_shared_frame_data)
+        shared_data:    'SharedFrameData',    # the frame's UNIFORM companion (ufv_shared_frame_data)
         rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
 ):  # -> tied variations .data (same masks; padded rows come back exactly zero)
     '''The uniform twin of :py:func:`fv_share_tucker_variations` (the manifold tied post-pass):

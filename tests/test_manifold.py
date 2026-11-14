@@ -690,9 +690,9 @@ class TestManifold(unittest.TestCase):
     def test_randn(self):
         frame, _ = bvf.t3_orthogonal_representations(
             t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1)))
-        self.assertTrue(t3m.MANIFOLD.randn(frame).is_gauged().all())                                   # gauged by default
-        self.assertFalse(t3m.COREWISE.randn(frame).is_gauged().all())    # ungauged on request
-        self.assertEqual(frame.stack_shape, t3m.MANIFOLD.randn(frame).stack_shape)                # construction validates fit
+        self.assertTrue(t3m.MANIFOLD.randn(frame).is_gauged().all())                # gauged by default
+        self.assertFalse(t3m.COREWISE.randn(frame).is_gauged().all())               # ungauged on request
+        self.assertEqual(frame.stack_shape, t3m.MANIFOLD.randn(frame).stack_shape)  # construction validates fit
 
     def test_to_t3(self):
         for T3_STRUCTURE in self.t3_structures:
@@ -1163,7 +1163,7 @@ class TestGaugeOperandScale(unittest.TestCase):
             with self.subTest(K=K, C=C, case='tiny ungauged difference'):
                 u = 1e-6 * t3m.COREWISE.randn(frame, stack_shape=K)      # a scaled leaf is still a leaf
                 self.assertIsNone(u._gauge_scale)
-                d = (a + u) - a                                         # ~u, measured against ||a||
+                d = (a + u) - a                                          # ~u, measured against ||a||
                 expected = tv_operations.tv_gauge_residual(frame.data, u.variations.data, scale=a.corewise_norm())
                 self.assertTrue(np.allclose(d.gauge_residual, expected, rtol=1e-4, atol=0.0))   # not blinded
                 self.assertFalse(bool(np.any(d.is_gauged())))
@@ -1185,11 +1185,11 @@ class TestGaugeOperandScale(unittest.TestCase):
             na, nb = np.asarray(a.corewise_norm()), np.asarray(b.corewise_norm())
             d = a - b
             with self.subTest(K=K, C=C):
-                self.assertIsNone(a._gauge_scale)                                   # leaves
+                self.assertIsNone(a._gauge_scale)                                     # leaves
                 self.assertEqual(np.shape(d._gauge_scale), K + C)
                 self.assertTrue(np.array_equal(d._gauge_scale, np.maximum(na, nb)))   # max(scale(a), scale(b))
                 self.assertTrue(np.array_equal((a + b)._gauge_scale, np.maximum(na, nb)))
-                for c in (-2.5, 3.0):                                            # |c| scale(a), both sides
+                for c in (-2.5, 3.0):                                                 # |c| scale(a), both sides
                     self.assertTrue(np.array_equal((c * d)._gauge_scale, abs(c) * d._gauge_scale))
                     self.assertTrue(np.array_equal((d * c)._gauge_scale, abs(c) * d._gauge_scale))
                 self.assertTrue(np.array_equal((-d)._gauge_scale, d._gauge_scale))

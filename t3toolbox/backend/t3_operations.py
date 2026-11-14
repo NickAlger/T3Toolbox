@@ -109,7 +109,7 @@ def t3_squash_tails(
 
 
 def t3_segment(
-        data: typ.Tuple[
+        data:  typ.Tuple[
             typ.Sequence[NDArray],  # tucker_cores. len=d
             typ.Sequence[NDArray],  # tt_cores.     len=d
         ],

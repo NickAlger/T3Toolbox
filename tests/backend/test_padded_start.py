@@ -203,7 +203,7 @@ class TestOversampledRanks(unittest.TestCase):
         ranks.oversampled_ranks(shape, tucker, tt, 1)                       # the good input
         with self.assertRaisesRegex(ValueError, 'share one stack'):
             ranks.oversampled_ranks(shape, tucker, tt[:, :1], 1)
-        with self.assertRaisesRegex(ValueError, 'share one stack'):        # a sequence beside a stacked array
+        with self.assertRaisesRegex(ValueError, 'share one stack'):         # a sequence beside a stacked array
             ranks.oversampled_ranks(shape, (2, 3, 2), tt, 1)
         with self.assertRaises(TypeError):                                  # integer arrays in
             ranks.oversampled_ranks(shape, tucker.astype(float), tt, 1)

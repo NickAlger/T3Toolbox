@@ -49,7 +49,7 @@ def ut3_orthogonality_residual(
     xnp, _, _ = get_backend(True, use_jax)
 
     tucker_sc, tt_sc = ut3_masking.ut3_apply_masks(data)  # guards: masks must be host (not traced)
-    tucker_mask, tt_mask = data[3]                             # HOST bool rank masks (constant operands below)
+    tucker_mask, tt_mask = data[3]                        # HOST bool rank masks (constant operands below)
     n, r = tucker_sc.shape[-2], tt_sc.shape[-1]
 
     Mt = xnp.einsum('...io,...jo->...ij', tucker_sc, tucker_sc)          # (d,)+stack+(n,n)
@@ -60,9 +60,9 @@ def ut3_orthogonality_residual(
         return resid
 
     interior = tt_mask[1:-1]                                              # interior bonds 1..d-1
-    if side == 'left':                                                   # modes 0..d-2, right bonds
+    if side == 'left':                                                    # modes 0..d-2, right bonds
         M = xnp.einsum('...aib,...aic->...bc', tt_sc[:-1], tt_sc[:-1])
-    elif side == 'right':                                               # modes 1..d-1, left bonds
+    elif side == 'right':                                                 # modes 1..d-1, left bonds
         M = xnp.einsum('...aib,...cib->...ac', tt_sc[1:], tt_sc[1:])
     else:
         raise ValueError("side must be 'left' or 'right'; got %r" % (side,))

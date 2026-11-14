@@ -126,7 +126,7 @@ def fv_base_point_tangent(
     computation, whose environment contractions all collapse since the projected T3 IS the frame's own
     cores. See ``docs/contributor/fitting_internals.md`` §Regularization.)"""
     down, _up, left, _right = frame
-    stack = down[0].shape[:-2]                                         # the frame stack C
+    stack = down[0].shape[:-2]                                       # the frame stack C
     tucker_var, tt_var = fv_operations.fv_variations_zeros(
         fv_operations.fv_variation_shapes(frame), stack, tree_contains_jax(frame))
     return (tucker_var, tt_var[:-1] + (left[-1],))                   # last TT variation = L_last
@@ -635,7 +635,7 @@ def _uniform_lift_sigma_min(
     sigma_min = None
     for s, q in spectra:
         real = np.arange(s.shape[-1]) < q[..., None]                                       # (slots,)+C+(k,)
-        s_min = xnp.min(xnp.min(xnp.where(real, s, xnp.inf), axis=-1), axis=0)            # over values, slots
+        s_min = xnp.min(xnp.min(xnp.where(real, s, xnp.inf), axis=-1), axis=0)             # over values, slots
         sigma_min = s_min if sigma_min is None else xnp.minimum(sigma_min, s_min)
     return sigma_min
 

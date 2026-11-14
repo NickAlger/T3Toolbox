@@ -238,7 +238,7 @@ def ut3_apply_corewise_derivatives_transpose(
         data:  UT3Data,
         order: int,                    # highest derivative order
         sum_over_probes: bool = False,
-) -> typ.Tuple[NDArray, NDArray]:     # (tucker-core grad supercore, tt-core grad supercore)
+) -> typ.Tuple[NDArray, NDArray]:      # (tucker-core grad supercore, tt-core grad supercore)
     """Corewise transpose of :py:func:`ut3_apply_derivatives`: gradient w.r.t. the frame supercores. ``ww``/``pp`` packed to N."""
     masked = ut3_masking.ut3_apply_masks(data)
     N = masked[0].shape[-1]

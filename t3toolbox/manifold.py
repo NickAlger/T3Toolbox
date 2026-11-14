@@ -518,7 +518,7 @@ class T3Tangent(common.ExplicitEquality):
         >>> print(v.is_gauged())
         True
         >>> W = bvf.T3FrameWeights.from_t3weights(t3.T3Weights.from_t3svd(x))   # a metric (the point's sigmas)
-        >>> vw = v.absorb_weights(W)                                      # weighted tangent, same frame
+        >>> vw = v.absorb_weights(W)                                     # weighted tangent, same frame
         >>> print(vw.is_gauged())                                        # weighting broke the gauge...
         False
         >>> print(t3m.MANIFOLD.project_oblique(vw).is_gauged())          # ...project_oblique re-gauges it
@@ -812,8 +812,8 @@ class T3Tangent(common.ExplicitEquality):
 
         ``sum_over_probes=True`` is exactly the probe-stack (``W``) sum of the ``False`` result:
 
-        >>> kept   = t3m.T3Tangent.probe_transpose(z, ww, frame)                        # W stays a stack
-        >>> summed = t3m.T3Tangent.probe_transpose(z, ww, frame, sum_over_probes=True)   # W summed
+        >>> kept   = t3m.T3Tangent.probe_transpose(z, ww, frame)                          # W stays a stack
+        >>> summed = t3m.T3Tangent.probe_transpose(z, ww, frame, sum_over_probes=True)    # W summed
         >>> V_sum  = tuple(np.sum(c, axis=0) for c in kept.variations.tucker_variations)  # sum the W axis
         >>> err = max(float(np.linalg.norm(a - b))
         ...           for a, b in zip(V_sum, summed.variations.tucker_variations))
@@ -1086,12 +1086,12 @@ class T3Tangent(common.ExplicitEquality):
 
     @staticmethod
     def probe_derivatives_transpose(
-            ztildes:            typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
-            ww:                 typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
-            pp:                 typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
+            ztildes:            typ.Sequence[NDArray],    # residual jets, len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
+            ww:                 typ.Sequence[NDArray],    # probe vectors X,        len=d, elm_shape=W+(Ni,)
+            pp:                 typ.Sequence[NDArray],    # perturbation vectors P, len=d, elm_shape=W+(Ni,)
             frame:              bvf.T3Frame,
-            order:              int,                    # highest derivative order
-            sum_over_probes:    bool = False,           # True: sum the sample stack W (Gauss-Newton J^T r)
+            order:              int,                      # highest derivative order
+            sum_over_probes:    bool = False,             # True: sum the sample stack W (Gauss-Newton J^T r)
             chunk_size:         typ.Optional[int] = 100,  # W-chunk size for the gradient assembly; None -> dense
     ) -> 'T3Tangent':
         """Transpose ``(J^(s))^T`` of :py:meth:`probe_derivatives`; returns a :py:class:`T3Tangent` at ``frame``.
@@ -1329,7 +1329,7 @@ class ManifoldGeometry:
     >>> frame = t3m.MANIFOLD.frame(x)            # orthonormal frame at x
     >>> print(frame.is_orthogonal())
     True
-    >>> v = t3m.MANIFOLD.randn(frame)           # a standard Gaussian on T_xM (gauged)
+    >>> v = t3m.MANIFOLD.randn(frame)            # a standard Gaussian on T_xM (gauged)
     >>> print(v.is_gauged())
     True
     >>> y = t3m.MANIFOLD.retract(t3m.T3Tangent.zeros(frame))   # retract the zero tangent == the base point
@@ -1563,10 +1563,10 @@ class CorewiseGeometry:
     >>> np.random.seed(0)
     >>> x = t3.TuckerTensorTrain.randn((10, 11, 12), (3, 4, 3), (1, 2, 2, 1))
     >>> frame = t3m.COREWISE.frame(x)            # the (B, G, G, G) frame
-    >>> v = t3m.COREWISE.randn(frame)           # raw randn cores (no gauge)
+    >>> v = t3m.COREWISE.randn(frame)            # raw randn cores (no gauge)
     >>> print(v.is_gauged())
     False
-    >>> y = t3m.COREWISE.retract(v)            # additive: cores += v (a multilinear curve on M)
+    >>> y = t3m.COREWISE.retract(v)              # additive: cores += v (a multilinear curve on M)
     >>> B, G = x.data
     >>> dB, dG = v.variations.tucker_variations, v.variations.tt_variations
     >>> ref = t3.TuckerTensorTrain(tuple(b + db for b, db in zip(B, dB)),

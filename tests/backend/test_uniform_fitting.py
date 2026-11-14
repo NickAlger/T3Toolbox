@@ -99,13 +99,13 @@ class TestUniformSamplingKind(unittest.TestCase):
         self.frame = ut3m.UNIFORM_MANIFOLD.frame(self.x)
         self.var = ubv.UT3Variations.randn_like(self.frame)
         self.frame_r = self.frame.to_t3frame()               # equivalent ragged frame
-        self.var_r = self.var.to_t3variations()            # equivalent ragged variation
+        self.var_r = self.var.to_t3variations()              # equivalent ragged variation
         self.vmask = ufv_masking.ufv_variation_masks(self.frame.data[5])
 
     def _sample(self, is_index, W=15):
         shape = _STRUCT[0]
         if is_index:
-            return np.stack([np.random.randint(0, n, size=W) for n in shape], axis=0)   # (d,)+W
+            return np.stack([np.random.randint(0, n, size=W) for n in shape], axis=0)    # (d,)+W
         return [np.random.randn(W, n) for n in shape]                                    # len=d, W+(Ni,)
 
     def test_forward_matches_ragged(self):
@@ -214,7 +214,7 @@ class TestUniformSamplingMirror(unittest.TestCase):
         ww_p = uops.pack_vectors(ww_r, self.N)
         out_r = self.x.probe(ww_r)
         out_p = self.x.probe(ww_p)
-        self.assertIsInstance(out_r, tuple)            # ragged in -> ragged out
+        self.assertIsInstance(out_r, tuple)             # ragged in -> ragged out
         self.assertNotIsInstance(out_p, (list, tuple))  # packed in -> packed out (one array)
         unpacked = uops.unpack_vectors(out_p, _STRUCT[0])
         self.assertTrue(all(np.allclose(np.asarray(a), np.asarray(b)) for a, b in zip(unpacked, out_r)))
@@ -457,8 +457,8 @@ class TestKindTransposeOutputHygiene(unittest.TestCase):
                             for j in range(2):
                                 o, b = np.asarray(out[j]), np.asarray(bare[j])
                                 self.assertEqual(o.shape, ind[j].shape)
-                                self.assertTrue(np.all(o[~ind[j]] == 0), 'padding not zero')              # (a)+(c)
-                                self.assertEqual(o[ind[j]].tobytes(), b[ind[j]].tobytes(), 'real block')  # (b)
+                                self.assertTrue(np.all(o[~ind[j]] == 0), 'padding not zero')               # (a)+(c)
+                                self.assertEqual(o[ind[j]].tobytes(), b[ind[j]].tobytes(), 'real block')   # (b)
                                 self.assertTrue(np.array_equal(np.asarray(dout[j]), o), 'garbage leaked')  # (d)
                                 seen[name] = max(seen.get(name, 0.0), float(np.abs(b[~ind[j]]).max(initial=0.0)))
         for name, worst in seen.items():
@@ -653,7 +653,7 @@ class TestUniformMinimalRank(unittest.TestCase):
         self.assertTrue(np.allclose(x0m.to_dense(), x0.to_dense()))   # lossless: the same tensor
 
     def test_uniform_minimal_noop_on_minimal(self):
-        x0 = self._x0((2, 2, 2), (1, 2, 2, 1))          # already minimal
+        x0 = self._x0((2, 2, 2), (1, 2, 2, 1))           # already minimal
         self.assertIs(uf.uniform_minimal(x0), x0)        # returned unchanged (no re-gauge)
 
     def test_optimizer_runs_after_minimal(self):

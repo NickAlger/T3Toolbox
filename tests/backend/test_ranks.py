@@ -138,7 +138,7 @@ class TestComputeContinuationRanks(unittest.TestCase):
         stopped = ranks.compute_continuation_ranks(shape, tucker_sv, tt_sv, tau=10.0)
         self.assertEqual(stopped, ((2, 2, 2), (1, 2, 2, 1)))           # unchanged -> stop
         grown = ranks.compute_continuation_ranks(shape, tucker_sv, tt_sv, tau=10.0, kappa_guard=1e16)
-        self.assertEqual(grown, ((3, 3, 3), (1, 3, 3, 1)))            # guard lifted -> fallback bumps all
+        self.assertEqual(grown, ((3, 3, 3), (1, 3, 3, 1)))             # guard lifted -> fallback bumps all
 
     def _sv(self, kappa, k):
         # k descending singular values with condition number sigma_1/sigma_k = kappa (k>=1 -> 1.0)

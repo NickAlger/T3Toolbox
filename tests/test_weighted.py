@@ -252,7 +252,7 @@ class TestT3FrameWeights(unittest.TestCase):
                                            - np.asarray(v.weighted_norm(W)) ** 2).max(), 1e-9)
                     w2 = t3m.COREWISE.randn(v.frame, stack_shape=K)  # another tangent at the SAME frame
                     a = np.asarray(v.weighted_inner(w2, W)); b = np.asarray(w2.weighted_inner(v, W))
-                    self.assertLess(np.abs(a - b).max(), 1e-9)      # symmetry
+                    self.assertLess(np.abs(a - b).max(), 1e-9)       # symmetry
 
     def test_reciprocal_identity(self):
         """up->V, down/left/right->H legs undo under reciprocal: absorb then reciprocal-absorb recovers v."""

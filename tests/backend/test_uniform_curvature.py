@@ -148,7 +148,7 @@ def _garbage(sc, masked, scale=1e3, seed=0):
     padded slot -- the indicator is computed by masking a ones array, so it is the slot's padding, not its value."""
     rng = np.random.default_rng(seed)
     out = np.array(sc, copy=True, order='K')         # keep the memory layout: a garbage-robust result is BITWISE
-    out += scale * (1.0 - masked) * rng.standard_normal(sc.shape)    # the clean one (a layout change could move
+    out += scale * (1.0 - masked) * rng.standard_normal(sc.shape)     # the clean one (a layout change could move
     return out                                                        # the BLAS rounding, not the values)
 
 
@@ -1781,7 +1781,7 @@ class TestUniformSharedTiedLift(unittest.TestCase):
         uf_ = np.asarray(ufo.ufv_tied_lift_factors(uframe, 0.0, sharing.ufv_shared_frame_data(uframe, groups))
                          .tied_filters[0])
         self.assertGreater(float(f[1]), 1e14)                                   # kept by the ragged clip
-        self.assertLess(abs(float(uf_[1]) / float(f[1]) - 1.0), 1e-2)          # ... and by the uniform one
+        self.assertLess(abs(float(uf_[1]) / float(f[1]) - 1.0), 1e-2)           # ... and by the uniform one
         self.assertTrue(np.all(uf_[2:] == 0.0))
 
     def test_a_companion_of_another_layout_is_a_structural_error(self):

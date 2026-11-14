@@ -33,8 +33,8 @@ values are the canonical weight:
 >>> x = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 2, 2), (1, 2, 2, 1))   # a minimal-rank point
 >>> W  = t3.T3Weights.from_t3svd(x)        # the singular values of x (unmodified)
 >>> Wp = W.reciprocal()                    # inverse-σ (Grasedyck–Kramer) weighting; also .sqrt()
->>> xw = t3.t3_absorb_weights(x, Wp)          # a plain TuckerTensorTrain: the fully-weighted network
->>> n  = t3.t3_weighted_norm(x, Wp)           # = xw.norm(); the inserted diagonal is squared by the norm
+>>> xw = t3.t3_absorb_weights(x, Wp)       # a plain TuckerTensorTrain: the fully-weighted network
+>>> n  = t3.t3_weighted_norm(x, Wp)        # = xw.norm(); the inserted diagonal is squared by the norm
 >>> print(bool(np.allclose(n, xw.norm())))
 True
 >>> print(xw.shape == x.shape, xw.ranks == x.ranks)   # absorb is shape- and rank-preserving
@@ -166,7 +166,7 @@ carries no `shape` — weights live only on internal edges.
 >>> ux = ut3.UniformTuckerTensorTrain.from_t3(x)
 >>> W  = ut3.UT3Weights.from_ut3svd(ux)          # or .from_t3weights(ragged_W, n=ux.n, r=ux.r)
 >>> gk = W.reciprocal()                          # inverse-σ; also .sqrt() / .concatenate() / .kronecker()
->>> n  = ut3.ut3_weighted_norm(ux, gk)               # + absorb_weights / weighted_inner
+>>> n  = ut3.ut3_weighted_norm(ux, gk)           # + absorb_weights / weighted_inner
 >>> print(W.is_consistent_with(ux))              # a weight declares the SAME edge masks as its train
 True
 >>> print(bool(np.allclose(n, t3.t3_weighted_norm(x, t3.T3Weights.from_t3svd(x).reciprocal()))))
@@ -200,7 +200,7 @@ directly with a `K`-stack of tangents there, broadcasting over `K` for free.
 >>> import t3toolbox.uniform_manifold as ut3m
 >>> xs  = t3.TuckerTensorTrain.randn((6, 7, 8), (2, 2, 2), (1, 2, 2, 1), stack_shape=(2,))
 >>> uxs = ut3.UniformTuckerTensorTrain.from_t3(xs)                   # C = 2 base points
->>> frame, _, sigma = ubvf.ut3svd_orthogonal_representations(uxs)   # the T3-SVD gauge, as in ragged
+>>> frame, _, sigma = ubvf.ut3svd_orthogonal_representations(uxs)    # the T3-SVD gauge, as in ragged
 >>> gk = ubvf.UT3FrameWeights.from_ut3weights(sigma).reciprocal()
 >>> tangent = ut3m.UNIFORM_MANIFOLD.randn(frame, stack_shape=(3,))   # K = 3 tangents at each base point
 >>> n  = tangent.weighted_norm(gk)     # + weighted_inner / absorb_weights; gk.stack_shape == frame.stack_shape

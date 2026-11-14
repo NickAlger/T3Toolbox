@@ -322,7 +322,7 @@ class TestValidAtResizedPoints(PaddedFrameAsserts):
         new_ranks = ((5, 5, 3), (1, 4, 3, 1))
         x_old, old, expected = padded_case((6, 6, 7), ((2, 2, 2), (1, 2, 2, 1)), new_ranks, sharing=(0, 0, 1))
         self.assertEqual([u.shape[0] for u in old[0][:2]], [4, 4])        # share() ties at the group rank 4
-        self.assertTrue(np.array_equal(old[0][0], old[0][1]))           # TIED: the caller's precondition
+        self.assertTrue(np.array_equal(old[0][0], old[0][1]))             # TIED: the caller's precondition
         padded = padded_frames.fv_padded_frame(old, *new_ranks, sharing=('a', 'a', 'b'))
         self.assertIs(padded[0][0], padded[0][1])
         self.assert_valid(padded, old, expected, x_old.to_dense())
@@ -1022,25 +1022,25 @@ class TestLoopSchedule(unittest.TestCase):
         the cap (pass 9) runs one final ('D', 'L') only when not stopped. Simultaneous: the first pass from the
         truncating one on below tol. Oversampled passes never stop. The stack maximum decides; the cap stops."""
         lo, hi = 0.01, 0.9
-        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi]), 5)                  # the first pair
-        self.assertEqual(self.stop_after([hi, hi, lo, lo, hi, lo, lo, hi]), 7)          # not the truncating pass
+        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi]), 5)                   # the first pair
+        self.assertEqual(self.stop_after([hi, hi, lo, lo, hi, lo, lo, hi]), 7)           # not the truncating pass
         self.assertEqual(self.stop_after([hi, hi, hi, hi, lo, lo, hi, hi, hi, hi]), 10)  # not across pairs (4-5)
-        self.assertEqual(self.stop_after([lo, lo, lo, lo, lo, hi]), 5)                  # not during oversampling
-        self.assertEqual(self.stop_after([hi, hi, hi, [lo, hi], lo, lo, lo, hi]), 7)    # the max over the stack
-        self.assertEqual(self.stop_after([hi] * 9 + [lo]), 10)                          # the cap: 3 pairs, a final ('D', 'L')
-        self.assertEqual(self.stop_after([hi] * 9, max_passes=9), 9)                    # an even cap: no final ('D', 'L')
-        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi], max_passes=6), 5)    # stopped: no final ('D', 'L')
-        self.assertEqual(self.stop_after([hi] * 6, max_passes=6), 6)                    # not stopped: the final ('D', 'L')
+        self.assertEqual(self.stop_after([lo, lo, lo, lo, lo, hi]), 5)                   # not during oversampling
+        self.assertEqual(self.stop_after([hi, hi, hi, [lo, hi], lo, lo, lo, hi]), 7)     # the max over the stack
+        self.assertEqual(self.stop_after([hi] * 9 + [lo]), 10)                           # the cap: 3 pairs, a final ('D', 'L')
+        self.assertEqual(self.stop_after([hi] * 9, max_passes=9), 9)                     # an even cap: no final ('D', 'L')
+        self.assertEqual(self.stop_after([hi, hi, hi, lo, lo, hi], max_passes=6), 5)     # stopped: no final ('D', 'L')
+        self.assertEqual(self.stop_after([hi] * 6, max_passes=6), 6)                     # not stopped: the final ('D', 'L')
         self.assertEqual(self.stop_after([hi] * 3, max_passes=3), 3)
-        self.assertEqual(self.stop_after([hi, lo, lo, hi], alternate=False), 3)        # simultaneous
+        self.assertEqual(self.stop_after([hi, lo, lo, hi], alternate=False), 3)          # simultaneous
         self.assertEqual(self.stop_after([lo, lo, hi, lo, hi], alternate=False), 4)
         self.assertEqual(self.stop_after([hi, hi, [lo, hi], lo, hi], alternate=False), 4)
-        nan = np.nan                                                                    # a NaN never stops,
-        self.assertEqual(self.stop_after([hi, hi, nan, lo, hi], alternate=False), 4)    #   in either place
+        nan = np.nan                                                                     # a NaN never stops,
+        self.assertEqual(self.stop_after([hi, hi, nan, lo, hi], alternate=False), 4)     #   in either place
         self.assertEqual(self.stop_after([hi, hi, hi, nan, lo, hi], alternate=False), 5)
-        self.assertEqual(self.stop_after([hi, hi, hi, nan, lo, lo, lo, hi]), 7)         #   of a pair
+        self.assertEqual(self.stop_after([hi, hi, hi, nan, lo, lo, lo, hi]), 7)          #   of a pair
         self.assertEqual(self.stop_after([hi, hi, hi, lo, nan, lo, lo, hi]), 7)
-        self.assertEqual(self.stop_after([hi, hi, hi, [lo, nan], lo, lo, lo, hi]), 7)   #   or of a stack
+        self.assertEqual(self.stop_after([hi, hi, hi, [lo, nan], lo, lo, lo, hi]), 7)    #   or of a stack
 
     def test_the_stopping_pass_types(self):
         """Recorded: a stop after the first pair leaves (oversampled x2, truncating, ('D', 'L'), ('U', 'R')) and no
@@ -1088,9 +1088,9 @@ class TestLoopSchedule(unittest.TestCase):
                 padded_frames.fv_aligned_padded_frame(self.old, *self.target, self.S, self.project, **kw)
         with self.assertRaisesRegex(ValueError, 'below the old frame'):
             padded_frames.fv_aligned_padded_frame(self.old, (2, 1, 2, 2), (1, 2, 2, 2, 1), self.S, self.project)
-        with self.assertRaisesRegex(ValueError, 'oversampling must be a non-negative int'):   # checked even when
+        with self.assertRaisesRegex(ValueError, 'oversampling must be a non-negative int'):      # checked even when
             padded_frames.fv_aligned_padded_frame(self.old, *self.target, self.S, self.project,  # zero passes do not
-                                                  oversampling=-1, max_passes=0)                # read it
+                                                  oversampling=-1, max_passes=0)                 # read it
         with self.assertRaisesRegex(ValueError, 'target boundary TT ranks'):
             padded_frames.fv_aligned_padded_frame(self.old, self.target[0], (2, 3, 3, 2, 1), self.S, self.project)
 

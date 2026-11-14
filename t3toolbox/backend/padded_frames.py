@@ -294,7 +294,7 @@ def fv_padded_frame(
     down = tuple(factors[first[i]] for i in range(d))                                   # one array per group
     up = tuple(_padded_core(up0[i], (rL[i], nU[i], rR[i + 1]), -2, 'up', i, seed) for i in range(d))
     left = (tuple(_padded_core(left0[i], (rL[i], nD[i], rL[i + 1]), -1, 'left', i, seed) for i in range(d - 1))
-            + (_embed(left0[d - 1], (rL[d - 1], nD[d - 1], rL[d])),))                 # the carrier: old content only
+            + (_embed(left0[d - 1], (rL[d - 1], nD[d - 1], rL[d])),))                   # the carrier: old content only
     right = ((_embed(right0[0], (rR[0], nD[0], rR[1])),)
              + tuple(_padded_core(right0[i], (rR[i], nD[i], rR[i + 1]), -3, 'right', i, seed) for i in range(1, d)))
     return down, up, left, right
@@ -712,7 +712,7 @@ def _aligning_pass(
 
 
 def _peak(
-        movements:  typ.Sequence[NDArray],   # each shape=C
+        movements:  typ.Sequence[NDArray],    # each shape=C
 ) -> float:                                   # the largest movement, over the passes and the stack
     """The stop test's quantity; a NaN propagates, so it never stops the loop."""
     return float(np.max([np.max(np.asarray(m)) for m in movements]))
@@ -743,7 +743,7 @@ def fv_aligned_padded_frame(
         if isinstance(value, bool) or not isinstance(value, (int, np.integer)) or value < 0:
             raise ValueError('%s must be a non-negative int, got %r' % (name, value))
     tucker_ranks, tt_ranks = tuple(int(n) for n in tucker_ranks), tuple(int(r) for r in tt_ranks)
-    jitted = bool(use_jit) and jax_or_warn('use_jit=True')     # no jax: a warning, then eager on numpy
+    jitted = bool(use_jit) and jax_or_warn('use_jit=True')      # no jax: a warning, then eager on numpy
     if jitted:                                                  # asking for jit opts into jax: the old frame is
         old_frame = tree_to_jax(old_frame)                      #   converted (the optimizers' auto-convert); the
     old_stores = _frame_stores(old_frame, 'old_frame')          #   hint is opaque and handed on as is
@@ -769,12 +769,12 @@ def fv_aligned_padded_frame(
         movements.append(movement)
     if alternate:                                               # (('D', 'L'), ('U', 'R')) pairs while a whole pair
         stop = False                                            #   fits; the stop is tested after each pair (both
-        while not stop and len(movements) + 2 <= max_passes:   #   below tol)
+        while not stop and len(movements) + 2 <= max_passes:    #   below tol)
             for update in _COLOURS:
                 frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, update)
                 movements.append(movement)
             stop = _peak(movements[-2:]) < tol
-        if not stop and len(movements) < max_passes:           # an odd remainder: one final ('D', 'L') pass
+        if not stop and len(movements) < max_passes:            # an odd remainder: one final ('D', 'L') pass
             frame, movement = _aligning_pass(step, frame, hint, project, old, target, sharing, _COLOURS[0])
             movements.append(movement)
     else:                                                       # all-store passes, the stop tested after each (the

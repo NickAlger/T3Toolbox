@@ -121,7 +121,7 @@ class TestChunkSizeEstimator(unittest.TestCase):
                 self.assertLessEqual(free / got, 1.05 * c)          # ... and no more
                 per_row = pd._assembly_per_row_bytes(ms, tr, tt, order, 1, np.dtype('float32'),
                                                      tuple(stack_shape))
-                self.assertLessEqual(got * per_row, target)          # still within the real budget
+                self.assertLessEqual(got * per_row, target)         # still within the real budget
 
     def test_frame_stack_leaves_the_default_untouched(self):
         # stack_shape=() must reproduce the pre-parameter answers exactly (every existing call site)
@@ -158,7 +158,7 @@ class TestChunkSizeEstimator(unittest.TestCase):
         self.assertEqual(plain, pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='Gauss_Newton'))
         cs = pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='exact')
         self.assertEqual(cs, pd.estimate_chunk_size(ms, tr, tt, order, W, hessian='EXACT'))   # case-insensitive
-        self.assertEqual(cs, max(1, min(W, int(floor_gn // gn), int(floor_th // th))))      # the smaller balance
+        self.assertEqual(cs, max(1, min(W, int(floor_gn // gn), int(floor_th // th))))        # the smaller balance
         self.assertLessEqual(cs, plain)
         self.assertLessEqual(cs * th, floor_th)
         self.assertLessEqual(cs * gn, floor_gn)
@@ -226,7 +226,7 @@ class TestBudgetHoldsInTheCompiledProgram(unittest.TestCase):
             for name, (make, args) in programs.items():
                 with self.subTest(hessian=hessian, program=name, chunk_size=cs):
                     self.assertGreater(cs, 4 * c0)                 # the budget binds (no clamp at |W|)
-                    slope = (temp(make(cs), args) - temp(make(c0), args)) / (cs - c0)   # bytes per probe in the chunk
+                    slope = (temp(make(cs), args) - temp(make(c0), args)) / (cs - c0)    # bytes per probe in the chunk
                     self.assertLessEqual(cs * slope, (1 + self.PACKING_RTOL) * target)   # the chunk's share fits
 
 
@@ -250,7 +250,7 @@ class TestFittingChunkSizeWiring(unittest.TestCase):
         xu = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(*self.STRUCT))
         xr = t3.TuckerTensorTrain.randn(*self.STRUCT)
         s = self._probes(300)
-        self.assertIsInstance(opt._resolve_chunk_size('auto', 'probe_derivatives', xu, s, 2), int)  # uniform -> int
+        self.assertIsInstance(opt._resolve_chunk_size('auto', 'probe_derivatives', xu, s, 2), int)   # uniform -> int
         self.assertIsNone(opt._resolve_chunk_size('auto', 'probe_derivatives', xr, s, 2))            # ragged -> None
         self.assertIsNone(opt._resolve_chunk_size('auto', 'apply_derivatives', xu, s, 2))            # non-probe -> None
         self.assertEqual(opt._resolve_chunk_size(7, 'probe_derivatives', xu, s, 2), 7)               # int passthrough

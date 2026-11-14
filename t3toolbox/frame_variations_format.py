@@ -1035,9 +1035,9 @@ class T3Variations(common.ExplicitEquality):
 
     @staticmethod
     def unit(
-            variation_shapes,                                       # (tucker_variation_shapes, tt_variation_shapes)
+            variation_shapes,                                         # (tucker_variation_shapes, tt_variation_shapes)
             index:          typ.Tuple[bool, int, typ.Sequence[int]],  # (use_tt_coordinate, i, within_index)
-            stack_shape:    typ.Tuple[int, ...] = (),               # full leading stack K + C
+            stack_shape:    typ.Tuple[int, ...] = (),                 # full leading stack K + C
             use_jax:        bool = False,
     ) -> 'T3Variations':
         """Canonical unit variation: zero except a single core entry set to 1.
@@ -1161,7 +1161,7 @@ class T3Variations(common.ExplicitEquality):
 
 
 def check_fv_pair(
-        frame:       T3Frame,        # stack_shape = C (frame/core stack)
+        frame:      T3Frame,        # stack_shape = C (frame/core stack)
         variations: T3Variations,   # stack_shape = K + C (frame stack is its inner/trailing part)
 ) -> None:
     """Check rank and shape consistency between T3Frame and T3Variations.
@@ -1411,7 +1411,7 @@ def t3_orthogonal_representations(
     >>> x = t3.TuckerTensorTrain.randn((14, 15, 16), (4, 5, 6), (3, 3, 2, 1), stack_shape=(2, 3))
     >>> frame, variations = bvf.t3_orthogonal_representations(x)
     >>> x_tt = bvf.fv_to_t3((True, 1), frame, variations)    # frame with TT-variation H1 in the chain
-    >>> print(np.allclose(x.to_dense(), x_tt.to_dense()))   # still represents the original tensor
+    >>> print(np.allclose(x.to_dense(), x_tt.to_dense()))    # still represents the original tensor
     True
     >>> x_tk = bvf.fv_to_t3((False, 1), frame, variations)   # frame with Tucker-variation V1
     >>> print(np.allclose(x.to_dense(), x_tk.to_dense()))

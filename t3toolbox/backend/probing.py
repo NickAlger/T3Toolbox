@@ -592,7 +592,7 @@ def tv_probe_jacobian_from_sweep(
             typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rR(i+1))
         ],
         ww:         typ.Sequence[NDArray],  # probe vectors, len=d, elm_shape=W+(Ni,) -- for the variation's dxis
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
@@ -635,7 +635,7 @@ def tv_probe(
                 NDArray,  # var_tt_supercore.
             ],
         ],
-        frame:       typ.Union[
+        frame:      typ.Union[
             typ.Tuple[
                 typ.Sequence[NDArray],  # down_tucker_cores. len=d. D_xo D_yo   = I_xy, D.shape = (nD, N)
                 typ.Sequence[NDArray],  # up_tt_cores.       len=d. U_ixj U_iyj = I_xy  U.shape = (rL, nU, rR)
@@ -775,7 +775,7 @@ def tv_probe(
 
 
 def tv_precompute_probe_frame_sweep(
-        frame:   typ.Tuple[
+        frame:  typ.Tuple[
             typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
             typ.Sequence[NDArray],          # up_tt_cores        U. len=d
             typ.Sequence[NDArray],          # left_tt_cores      L. len=d
@@ -810,9 +810,9 @@ def tv_precompute_probe_frame_sweep(
 
 
 def _sigma_hat_step(
-        carry: NDArray,                      # W+K+C+(rR(i+1),)
-        data:  typ.Tuple[NDArray, NDArray],  # (R, xi): C+(rRi,nDi,rR(i+1)) ; W+C+(nDi,)
-) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:   # (next carry, (carry,))
+        carry: NDArray,                       # W+K+C+(rR(i+1),)
+        data:  typ.Tuple[NDArray, NDArray],   # (R, xi): C+(rRi,nDi,rR(i+1)) ; W+C+(nDi,)
+) -> typ.Tuple[NDArray, typ.Tuple[NDArray]]:  # (next carry, (carry,))
     '''One edge of the adjoint reverse sweep of :py:func:`compute_sigma_hat`. Closure-free scan body
     -- ``docs/contributor/scan_body_principles.md``.'''
     R, xi = data
@@ -1173,7 +1173,7 @@ def assemble_tt_variations(
 def tv_probe_transpose_from_sweep(
         ztildes:    typ.Sequence[NDArray],  # probe residuals, len=d, elm_shape=W+K+C+(Ni,)
         ww:         typ.Sequence[NDArray],  # probe vectors,   len=d, elm_shape=W+(Ni,)
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
@@ -1210,7 +1210,7 @@ def tv_probe_transpose_from_sweep(
 def tv_probe_transpose(
         ztildes:        typ.Union[typ.Sequence[NDArray],    NDArray], # len=d, elm_shape=(...,Ni)
         ww:             typ.Union[typ.Sequence[NDArray],    NDArray], # input vectors, len=d, elm_shape=(...,Ni)
-        frame:           typ.Union[
+        frame:          typ.Union[
             typ.Tuple[
                 typ.Sequence[NDArray],  # down_tucker_cores. len=d. D_xo D_yo   = I_xy, D.shape = (nD, N)
                 typ.Sequence[NDArray],  # up_tt_cores.       len=d. U_ixj U_iyj = I_xy  U.shape = (rL, nU, rR)
@@ -1292,7 +1292,7 @@ def tv_probe_transpose(
     >>> z = (np.random.randn(10), np.random.randn(11), np.random.randn(12))
     >>> Jv  = t3p.tv_probe(ww, v.variations.data, probe_frame)
     >>> JTz = t3p.tv_probe_transpose(z, ww, probe_frame)   # (V_tildes, H_tildes)
-    >>> lhs = cw.corewise_dot(z, Jv)                  # <z, J v>
+    >>> lhs = cw.corewise_dot(z, Jv)                   # <z, J v>
     >>> rhs = cw.corewise_dot(JTz, v.variations.data)  # <J^T z, v>
     >>> print(bool(np.allclose(lhs, rhs)))
     True
@@ -1314,7 +1314,7 @@ def tv_probe_transpose(
     >>> z = (np.random.randn(2, 10), np.random.randn(2, 11), np.random.randn(2, 12))
     >>> Jv  = t3p.tv_probe(ww, v.variations.data, frame.data)        # W-stacked probes
     >>> JTz = t3p.tv_probe_transpose(z, ww, frame.data, sum_over_probes=True)
-    >>> lhs = cw.corewise_dot(z, Jv)                  # sum_W <z_W, (J v)_W>
+    >>> lhs = cw.corewise_dot(z, Jv)                   # sum_W <z_W, (J v)_W>
     >>> rhs = cw.corewise_dot(JTz, v.variations.data)  # <sum_W J^T z_W, v>
     >>> print(bool(np.allclose(lhs, rhs)))
     True
@@ -1506,7 +1506,7 @@ def _tau_tilde_tangent_step(
     _sigma_step(mu_dot, L, L, L_dot, deta~, deta~_dot, mu)``. Closure-free scan body --
     ``docs/contributor/scan_body_principles.md``.'''
     L, Ld, xi, xid, dt, dtd, mu, mud, tt = x
-    nxt = (_sigma_step(carry_dot, L, L, Ld, xi, xid, tt)      # K on the carry / the core / xi
+    nxt = (_sigma_step(carry_dot, L, L, Ld, xi, xid, tt)       # K on the carry / the core / xi
            + _sigma_step(mud, L, L, Ld, dt, dtd, mu))          # K on mu / the core / deta~
     return nxt, (carry_dot,)
 

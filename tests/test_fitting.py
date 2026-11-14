@@ -364,7 +364,7 @@ class TestBlockSumsq(unittest.TestCase):
         r_probe = [rng.standard_normal((NW, N)) for N in Ns]                    # plain probe: W+(Ni,)
         r_pd = [rng.standard_normal((order + 1, NW, N)) for N in Ns]            # probe-deriv: (order+1)+W+(Ni,)
         r_scal = rng.standard_normal((NW,))                                     # plain apply/entries: W
-        r_ad = rng.standard_normal((order + 1, NW))                            # apply/entries-deriv: (order+1)+W
+        r_ad = rng.standard_normal((order + 1, NW))                             # apply/entries-deriv: (order+1)+W
         # (kind, residual, expected (n_mode, n_order), oracle block[i,t])
         cases = [
             (fb.PROBE, r_probe, (d, 1), lambda i, t: np.sum(r_probe[i] ** 2)),
@@ -572,7 +572,7 @@ class TestUniformLayerLocalModel(unittest.TestCase):
         d = len(shape)
         omega = [1.0, 0.5, 0.3]                                         # per-order (order+1,)
         omega_mode = rng.uniform(0.3, 2.0, size=d)                      # per-mode (d,), for plain probe
-        wmat = rng.uniform(0.3, 2.0, size=(d, order + 1))              # full ω[mode,order], for probe-derivs
+        wmat = rng.uniform(0.3, 2.0, size=(d, order + 1))               # full ω[mode,order], for probe-derivs
         x = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn(shape, (2, 3, 2), (1, 2, 2, 1)))
         ww = [rng.standard_normal((NW, N)) for N in shape]
         pp = [rng.standard_normal((NW, N)) for N in shape]
@@ -672,7 +672,7 @@ class TestFactoryValidation(unittest.TestCase):
         x = t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1))
         ww = tuple(np.random.randn(7, n) for n in x.shape)
         r = x.apply(ww)
-        fitting.apply_model(t3m.MANIFOLD, x, ww, r)                                   # the good case
+        fitting.apply_model(t3m.MANIFOLD, x, ww, r)                                    # the good case
         with self.assertRaises(ValueError):
             fitting.apply_model(t3m.MANIFOLD, x, ww, r[:5])                            # residual shape
         with self.assertRaises(ValueError):
@@ -853,7 +853,7 @@ class TestExactLocalModel(unittest.TestCase):
         self.assertNotIn('hessian', names)
         self.assertNotIn('is_exact', names)
         self.assertNotIn('hessian', vars(ex))                                  # no instance attribute
-        self.assertTrue(callable(ex.hessian) and callable(gn.hessian))        # the method, in both modes
+        self.assertTrue(callable(ex.hessian) and callable(gn.hessian))         # the method, in both modes
         self.assertIsInstance(vars(fitting.LocalModel)['is_exact'], property)  # read-only, derived
         with self.assertRaises(AttributeError):
             ex.is_exact = False

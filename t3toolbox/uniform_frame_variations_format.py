@@ -410,7 +410,7 @@ class UT3Frame(common.ExplicitEquality):
 
     @staticmethod
     def random_orthogonal(
-            shape:        typ.Sequence[int],   # (N0,...,N(d-1))
+            shape:        typ.Sequence[int],    # (N0,...,N(d-1))
             tucker_ranks,                       # int | len-d seq | (d,)+stack array (the variety)
             tt_ranks,                           # int | len-(d+1) seq | (d+1,)+stack array
             stack_shape:  typ.Tuple[int, ...] = (),

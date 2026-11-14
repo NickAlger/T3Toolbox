@@ -385,8 +385,8 @@ def t3m_inplace_fused(
         # Tucker factor W = B_x ⊙ B_y; orthonormalize (full SVD, no truncation): W = Uw diag(sw) Vt.
         W = xnp.einsum('...nx,...mx->...nmx', Bxi, Byi).reshape(stack + (P, N))
         Uw, sw, Vt = linalg.truncated_svd(W)
-        Btilde_full = Vt                                   # row-orthonormal Tucker factor [k, N]
-        Mw = xnp.einsum('...pk,...k->...pk', Uw, sw)       # remainder [n^2, k] -> into the site
+        Btilde_full = Vt                                     # row-orthonormal Tucker factor [k, N]
+        Mw = xnp.einsum('...pk,...k->...pk', Uw, sw)         # remainder [n^2, k] -> into the site
         site = xnp.einsum('...tpc,...pk->...tkc', site, Mw)  # [t, k, r^2]
         k = site.shape[-2]
 

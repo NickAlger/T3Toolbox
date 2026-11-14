@@ -93,14 +93,14 @@ class TestUT3Frame(unittest.TestCase):
     def test_validate_rejects_bad_shape_tuple(self):
         B = self._frame()
         with self.assertRaises(ValueError):
-            ubv.UT3Frame(*B.data[:4], _SHAPE[:-1], B.masks)            # wrong length
+            ubv.UT3Frame(*B.data[:4], _SHAPE[:-1], B.masks)             # wrong length
         with self.assertRaises(ValueError):
             ubv.UT3Frame(*B.data[:4], (_N + 1,) + _SHAPE[1:], B.masks)  # exceeds padded N
 
     # ---- masking semantics: real region preserved, padding zeroed ----
     def test_apply_masks_zeros_padding(self):
         # all-ones down core -> after masking, exactly the (down_mask AND shape_mask) region survives
-        down = np.ones((_D, _ND, _N))
+        down  = np.ones((_D, _ND, _N))
         up    = np.random.randn(_D, _RL, _NU, _RR)
         left  = np.random.randn(_D, _RL, _ND, _RL)
         right = np.random.randn(_D, _RR, _ND, _RR)
@@ -236,7 +236,7 @@ class TestUT3Variations(unittest.TestCase):
         with self.assertRaises(ValueError):
             ubv.UT3Variations(V.tucker_variations[..., :-1], V.tt_variations, V.shape, V.masks)  # wrong N
         with self.assertRaises(ValueError):
-            ubv.UT3Variations(*V.data[:2], _SHAPE[:-1], V.masks)                                  # wrong shape len
+            ubv.UT3Variations(*V.data[:2], _SHAPE[:-1], V.masks)                                 # wrong shape len
 
     def test_apply_masks_zeros_padding(self):
         # ones tucker_variations -> after masking, exactly (variations_up AND shape_mask) survives.
@@ -249,7 +249,7 @@ class TestUT3Variations(unittest.TestCase):
         masked_tk = V.apply_masks().tucker_variations
         shape_mask = np.arange(_N) < np.array(_SHAPE)[:, None]                       # (d, N)
         expected = (_prefix_mask(_UP_R, _NU)[:, :, None] & shape_mask[:, None, :]).astype(float)
-        self.assertEqual(masked_tk.shape, (_D, _NU, _N))                              # not the old broken shape
+        self.assertEqual(masked_tk.shape, (_D, _NU, _N))                             # not the old broken shape
         self.assertTrue(np.array_equal(masked_tk, expected))
 
     def test_masks_value_hash_eq(self):
@@ -458,7 +458,7 @@ class TestCrossLayerConverters(unittest.TestCase):
         _, frame, _ = self._ragged_pair()
         UB = ubv.UT3Frame.from_t3frame(frame)              # ragged frame -> uniform
         UB.validate()
-        B2 = UB.to_t3frame()                              # unstacked -> back to ragged T3Frame
+        B2 = UB.to_t3frame()                               # unstacked -> back to ragged T3Frame
         self.assertLess(float(np.linalg.norm(B2.to_dense() - frame.to_dense())), 1e-10)
 
     def test_from_t3frame_roundtrip_stacked(self):
@@ -522,7 +522,7 @@ class TestBasePointAndDtype(unittest.TestCase):
         ub = frame.to_ut3()
         self.assertIsInstance(ub, ut3.UniformTuckerTensorTrain)
         self.assertTrue(np.allclose(ub.to_dense(), frame.to_dense()))   # to_dense == to_ut3().to_dense()
-        self.assertTrue(np.allclose(ub.to_dense(), x.to_dense()))      # and reconstructs x
+        self.assertTrue(np.allclose(ub.to_dense(), x.to_dense()))       # and reconstructs x
 
     def test_to_dense_stacked(self):
         x, _, frame, _ = self._frame(ss=(2,))
@@ -813,9 +813,9 @@ class TestSaveLoad(unittest.TestCase):
         obj2 = loader(fname)
         obj2.validate()
         for a, b in zip(obj2.supercores, obj.supercores):
-            self.assertEqual(float(np.max(np.abs(a - b))), 0.0)            # supercores exact
+            self.assertEqual(float(np.max(np.abs(a - b))), 0.0)             # supercores exact
         for a, b in zip(obj2.masks.data, obj.masks.data):
-            self.assertTrue(np.array_equal(a, b))                         # masks exact...
+            self.assertTrue(np.array_equal(a, b))                           # masks exact...
             self.assertTrue(isinstance(a, np.ndarray) and a.dtype == bool)  # ...and host bool
         self.assertEqual(obj2.shape, obj.shape)
         return fname
@@ -873,7 +873,7 @@ class TestUT3FrameCheckers(unittest.TestCase):
         self.assertTrue(np.array_equal(mixed.is_orthogonal(), np.array([True, False])))
 
     def test_minimal_rank_checkers_match_oracle(self):
-        for struct in [((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)),       # minimal
+        for struct in [((4, 5, 6), (2, 2, 2), (1, 2, 2, 1)),        # minimal
                        ((10, 11, 12), (4, 5, 4), (1, 2, 3, 1))]:    # non-minimal (tucker rank 4 > 1*3)
             with self.subTest(struct=struct):
                 frame = self._frame(struct, ss=(2,))
@@ -895,7 +895,7 @@ class TestUT3FrameCheckers(unittest.TestCase):
         self.assertTrue(frame.allclose(frame.orthogonalize()).all())   # same point, possibly different gauge
         other = ubv.ut3_orthogonal_representations(ut3.UniformTuckerTensorTrain.from_t3(
             t3.TuckerTensorTrain.randn((4, 5, 6), (2, 2, 2), (1, 2, 2, 1), stack_shape=(2,))))[0]
-        self.assertFalse(frame.allclose(other).all())                 # different base points
+        self.assertFalse(frame.allclose(other).all())                  # different base points
 
 
 

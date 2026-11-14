@@ -2518,7 +2518,7 @@ class TestRequiredSixthOperation(unittest.TestCase):
     def test_a_five_operation_kind_works_for_gauss_newton_and_is_rejected_for_exact(self):
         rng = np.random.default_rng(45)
         kind = _FiveOperationApplyKind()
-        self.assertIs(type(kind).corewise_hessian, bfit.SamplingKind.corewise_hessian)       # the identity form
+        self.assertIs(type(kind).corewise_hessian, bfit.SamplingKind.corewise_hessian)        # the identity form
         self.assertTrue(getattr(type(kind).corewise_hessian, '__isabstractmethod__', False))  # the marker form
         x, other = _unit_point(_MINIMAL), _unit_point(_MINIMAL)
         ww = [rng.standard_normal((30, N)) for N in _MINIMAL[0]]
@@ -2802,7 +2802,7 @@ class TestExactNewtonFromNonMinimalPoints(unittest.TestCase):
 # there, and the per-mode lift -- a minimum-norm solve per mode -- is not TIED: no direction of the shared
 # parametrization Phi(T theta_sh), and the wrong curvature (these structures discriminate the two).
 _SH_MINIMAL = (((5, 5, 6), (2, 2, 2), (1, 2, 2, 1)), (0, 0, 1))
-_SH_CEILING = (((6, 6, 4), (4, 4, 2), (1, 2, 2, 1)), (0, 0, 1))                # mode 0: up rank 2 < 4
+_SH_CEILING = (((6, 6, 4), (4, 4, 2), (1, 2, 2, 1)), (0, 0, 1))                 # mode 0: up rank 2 < 4
 _SH_TWO_GROUPS = (((5, 6, 5, 6), (3, 2, 3, 2), (1, 2, 3, 2, 1)), (0, 1, 0, 1))  # mode 0: up rank 2 < 3
 _SH_ONE_GROUP = (((5, 5, 5), (3, 3, 3), (1, 2, 2, 1)), (0, 0, 0))               # modes 0, 2: up rank 2 < 3
 _SH_STRUCTURES = {'minimal': _SH_MINIMAL, 'ceiling': _SH_CEILING, 'two_groups': _SH_TWO_GROUPS,

@@ -2140,7 +2140,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
             ((8, 9),            (4, 5),         (4, 5, 4)),
             ((8, 9, 10),        (4, 5, 6),      (4, 5, 4, 3)),
         ]
-        stack_shapes = [(), (2, 3)]            # C (frame/core stack, carried by the residual)
+        stack_shapes = [(), (2, 3)]              # C (frame/core stack, carried by the residual)
         probe_stack_shapes = [(), (5,), (2, 3)]  # W (apply-vector stack)
 
         for BASE in frame_structures:
@@ -2154,7 +2154,7 @@ class TestTuckerTensorTrain(unittest.TestCase):
                         ww = [np.random.randn(*(W + (N,))) for N in shape]
                         c = np.asarray(np.random.randn(*(W + C)))
                         fwd = np.asarray(x.apply(ww))                          # W + C
-                        xd = x.to_dense()                                     # C + N
+                        xd = x.to_dense()                                      # C + N
 
                         def ndot(ATd, lead):  # contract (lead + C + N) with xd (C + N) over N, x bcast over lead
                             xb = xd.reshape((1,) * lead + xd.shape)

@@ -204,7 +204,7 @@ def t3_orthogonal_representations(
             one_r = prefix_mask(np.ones((1,) + stack_u, dtype=int), r_u)
             ttm_sq = np.concatenate([one_r, ttm_u[1:-1], one_r], axis=0)
         shape_col = np.asarray(shape_u).reshape((d_u,) + (1,) * len(stack_u))
-        down_r = np.minimum(tkm_u.sum(axis=-1), shape_col)               # 1. Tucker down-orth
+        down_r = np.minimum(tkm_u.sum(axis=-1), shape_col)             # 1. Tucker down-orth
         bond_r = ttm_sq.sum(axis=-1)
         left_r = np.array(np.broadcast_to(bond_r, bond_r.shape), dtype=int)
         for i in range(d_u - 1):                                       # 2. left sweep, original bonds

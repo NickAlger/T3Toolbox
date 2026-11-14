@@ -188,7 +188,7 @@ def t3_probe_derivatives(
     '''
     tucker_cores, tt_cores = x
 
-    xis  = compute_xi(tucker_cores, ww)      # frame projected probes,   B_i x_i
+    xis  = compute_xi(tucker_cores, ww)       # frame projected probes,   B_i x_i
     dxis = compute_xi(tucker_cores, pp)       # projected perturbations, B_i p_i
 
     xi_jets = build_input_jets(xis, dxis)      # input jet on each mode: (xi, dxi) over order s
@@ -440,7 +440,7 @@ def _eta_jets_order_step(
     mu_r, w_r = xs
     xnp, _, _ = get_backend(True, tree_contains_jax((carry, xs)))      # only xnp
     MG_r = contractions.contract('WCa,Caib->WCib', w_r * mu_r, G)      # one order slice: peak W*r^2
-    eta = eta + contractions.contract('WCib,sWCb->sWCi', MG_r, nu_r)  # nu_r is indexed by the output order
+    eta = eta + contractions.contract('WCib,sWCb->sWCi', MG_r, nu_r)   # nu_r is indexed by the output order
     return (eta, _shift_down(nu_r, xnp), G), ()
 
 
@@ -557,7 +557,7 @@ def assemble_z_jets(
 
 
 def _apply_frame_sweep_jets_from_xi(
-        frame:    typ.Tuple[
+        frame:   typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                      # = T3Frame.data = (D, U, L, R)
@@ -576,7 +576,7 @@ def _apply_frame_sweep_jets_from_xi(
 
 
 def _probe_frame_sweep_jets_from_xi(
-        frame:    typ.Tuple[
+        frame:   typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                      # = T3Frame.data = (D, U, L, R)
@@ -599,7 +599,7 @@ def _probe_frame_sweep_jets_from_xi(
 
 
 def tv_precompute_apply_frame_sweep_jets(
-        frame:   typ.Tuple[
+        frame:  typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                      # = T3Frame.data = (D, U, L, R)
@@ -621,7 +621,7 @@ def tv_precompute_apply_frame_sweep_jets(
 
 
 def tv_precompute_entries_frame_sweep_jets(
-        frame:   typ.Tuple[
+        frame:  typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                      # = T3Frame.data = (D, U, L, R)
@@ -641,7 +641,7 @@ def tv_precompute_entries_frame_sweep_jets(
 
 
 def tv_precompute_probe_frame_sweep_jets(
-        frame:   typ.Tuple[
+        frame:  typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                      # = T3Frame.data = (D, U, L, R)
@@ -781,7 +781,7 @@ def compute_tau_jets(
 def _deta_jets_order_step(
         carry:  typ.Tuple[NDArray, ...],       # (deta, sh^r nu, sh^r tau, L, R, H); the cores ride unchanged
         xs:     typ.Tuple[NDArray, NDArray, NDArray],  # (mu^(r), sigma^(r), 1/r!): W+C+(rLi,) ; W+K+C+(rRi,) ; ()
-) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple]:   # (next carry, ())
+) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple]:    # (next carry, ())
     '''One input order ``r`` of the deta convolution ``sigma R nu + mu H nu + mu L tau``: the left factors'
     order-``r`` slices meet the carried ``sh^r nu`` / ``sh^r tau``, which are then shifted. The two terms
     sharing ``nu`` are summed before their fold. Closure-free scan body.'''
@@ -901,7 +901,7 @@ def tv_probe_jacobian_derivatives_from_sweep(
         ],                                  # = T3Variations.data
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
@@ -932,7 +932,7 @@ def tv_probe_derivatives(
             typ.Sequence[NDArray],          # var_tucker_cores V.  len=d, elm_shape=K+C+(nUi,Ni)
             typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rRi)
         ],                                  # = T3Variations.data
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
             typ.Sequence[NDArray],          # up_tt_cores        U. len=d
             typ.Sequence[NDArray],          # left_tt_cores      L. len=d
@@ -1078,7 +1078,7 @@ def tv_apply_jacobian_derivatives_from_sweep(
         ],                                  # = T3Variations.data
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
@@ -1106,7 +1106,7 @@ def tv_apply_derivatives(
             typ.Sequence[NDArray],          # var_tucker_cores V.  len=d, elm_shape=K+C+(nUi,Ni)
             typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rRi)
         ],                                  # = T3Variations.data
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
             typ.Sequence[NDArray],          # up_tt_cores        U. len=d
             typ.Sequence[NDArray],          # left_tt_cores      L. len=d
@@ -1162,7 +1162,7 @@ def tv_entries_jacobian_derivatives_from_sweep(
         ],                                  # = T3Variations.data
         index:      NDArray,                # int, shape=(d,)+W -- the grid points
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
@@ -1190,7 +1190,7 @@ def tv_entries_derivatives(
             typ.Sequence[NDArray],          # var_tucker_cores V.  len=d, elm_shape=K+C+(nUi,Ni)
             typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rRi)
         ],                                  # = T3Variations.data
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
             typ.Sequence[NDArray],          # up_tt_cores        U. len=d
             typ.Sequence[NDArray],          # left_tt_cores      L. len=d
@@ -1768,7 +1768,7 @@ def assemble_tt_variation_jets(
 
     use_jax = tree_contains_jax(ops)
     xnp, _, _ = get_backend(True, use_jax)
-    W = math.prod(xi_jets.shape[2:2 + n_probe])       # uniform supercore: (d, order, W..., ...)
+    W = math.prod(xi_jets.shape[2:2 + n_probe])        # uniform supercore: (d, order, W..., ...)
     if W <= chunk_size:
         return dense()
     ops, w_axes = _flatten_w(ops, w_axes, n_probe)     # -> one probe super-axis; n_probe == 1 holds
@@ -1872,7 +1872,7 @@ def _assembly_per_row_bytes(mode_shapes, tucker_ranks, tt_ranks, order, n_tangen
     cax = tuple(stack_shape)                         # C axis/axes -- frame-inner, so after K
     S = lambda *shape: jax.ShapeDtypeStruct(shape, jax.dtypes.canonicalize_dtype(dtype))   # x64 off: float32, silently
     W = 4 * _SLOPE_CHUNKS[1]
-    frame = (S(d, *cax, n, N), S(d, *cax, r, n, r), S(d, *cax, r, n, r), S(d, *cax, r, n, r))   # (D, U, L, R)
+    frame = (S(d, *cax, n, N), S(d, *cax, r, n, r), S(d, *cax, r, n, r), S(d, *cax, r, n, r))     # (D, U, L, R)
     args = (S(d, op, W, *kax, *cax, N), S(d, W, N), S(d, W, N), frame)                            # ztildes, ww, pp
     make = lambda cs: (lambda z, w, p, f: tv_probe_derivatives_transpose(
         z, w, p, f, order, sum_over_probes=True, chunk_size=cs))
@@ -1888,9 +1888,9 @@ def _two_hole_jet_floor_bytes(mode_shapes, tucker_ranks, tt_ranks, order, W, n_t
     r, n, N = max(tt_ranks), max(tucker_ranks), max(mode_shapes)
     nU = n                                          # up-core mode ~ the Tucker rank
     C = math.prod(tuple(stack_shape))               # frame stack: on the jets only
-    per_core_row = (C * (2 * n + op * (4 * r + n + N)                # xi ; mu, nu, sigma~, tau~ ; deta~ ; z~
+    per_core_row = (C * (2 * n + op * (4 * r + n + N)                  # xi ; mu, nu, sigma~, tau~ ; deta~ ; z~
                          + K * (2 * n + op * (4 * r + n + nU)          # their dots ; eta_dot
-                                + 2 * nU))                                   # dxi~_dot: its two read rows
+                                + 2 * nU))                             # dxi~_dot: its two read rows
                     + 2 * N)                                           # ww, pp -- probe vectors, W only
     return d * W * per_core_row * itemsize
 
@@ -2015,7 +2015,7 @@ def tv_probe_transpose_derivatives_from_sweep(
         ztildes:    typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
@@ -2054,7 +2054,7 @@ def tv_probe_derivatives_transpose(
         ztildes:    typ.Sequence[NDArray],  # residual jets, len=d, elm_shape=(order+1,)+W+K+C+(Ni,)
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
@@ -2249,7 +2249,7 @@ def tv_apply_transpose_derivatives_from_sweep(
         c:          NDArray,                # residual jet (scalar), shape=(order+1)+W+K+C
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
@@ -2277,7 +2277,7 @@ def tv_apply_derivatives_transpose(
         c:          NDArray,                # residual jet (scalar), shape=(order+1)+W+K+C
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
@@ -2309,7 +2309,7 @@ def tv_entries_transpose_derivatives_from_sweep(
         c:          NDArray,                # residual jet (scalar), shape=(order+1)+W+K+C
         index:      NDArray,                # int, shape=(d,)+W -- the grid points
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
@@ -2352,7 +2352,7 @@ def tv_entries_derivatives_transpose(
         c:          NDArray,                # residual jet (scalar), shape=(order+1)+W+K+C
         index:      NDArray,                # int, shape=(d,)+W -- the grid points
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray], typ.Sequence[NDArray],
             typ.Sequence[NDArray], typ.Sequence[NDArray],
         ],                                  # = T3Frame.data = (D, U, L, R)
@@ -2511,7 +2511,7 @@ def compute_deta_tilde_tangent_jets(
 def _adj_tangent_src_order_step(
         carry:  typ.Tuple[NDArray, ...],       # (src, (shᵀ)^r deta~, (shᵀ)^r deta~_dot, L, L_dot); cores ride unchanged
         xs:     typ.Tuple[NDArray, NDArray, NDArray],  # (edge^(r), edge_dot^(r), 1/r!): W+C+(rLi,) ; W+K+C+(rLi,) ; ()
-) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple]:   # (next carry, ())
+) -> typ.Tuple[typ.Tuple[NDArray, ...], typ.Tuple]:    # (next carry, ())
     '''One edge order ``r`` of the dotted adjoint source: the product rule of :py:func:`_adj_src_order_step`,
     ``src_dot^(s) += d(edge^(r) L) . [(shᵀ)^r deta~]^(s) + (edge^(r) L) . [(shᵀ)^r deta~_dot]^(s)`` with
     ``d(edge L) = edge_dot L + edge L_dot`` (live slice ``W*K*r^2``), then up-shift both carried jets.
@@ -2549,7 +2549,7 @@ def _adj_prop_tangent(
     nf = n_frame
 
     # prop^(s) = c^(s) . Lxi^(0) + (s+1) c^(s+1) . Lxi^(1), per factor pair
-    Lxi = contractions.contract('Caib,kWCi->kWCab', L, xi[:s_size])                         # (k, W, C, a, b)
+    Lxi = contractions.contract('Caib,kWCi->kWCab', L, xi[:s_size])                           # (k, W, C, a, b)
     dLxi = (contractions.contract('KCaib,kWCi->kWKCab', L_dot, xi[:s_size], len_C=nf)         # K on the core
             + contractions.contract('Caib,kWKCi->kWKCab', L, xi_dot[:s_size]))                # K on the input
     if s_size > 1:
@@ -2941,7 +2941,7 @@ def assemble_tt_tangent_variation_jets(
     if chunk_size is None or not is_ndarray(xi_jets):
         return dense()
     use_jax = tree_contains_jax(ops)
-    W = math.prod(xi_jets.shape[2:2 + n_probe])       # uniform supercore: (d, order, W..., ...)
+    W = math.prod(xi_jets.shape[2:2 + n_probe])        # uniform supercore: (d, order, W..., ...)
     if W <= chunk_size:
         return dense()
     ops, w_axes = _flatten_w(ops, w_axes, n_probe)     # -> one probe super-axis; n_probe == 1 holds
@@ -3152,7 +3152,7 @@ def compute_sigma_hat_tangent_jets(
     xnp, _, xscan = get_backend(is_uniform, use_jax)   # scan-style: xscan strips d
 
     reverse = tt_operations.tt_reverse                # polymorphic (the uniform reverse keeps the supercore)
-    rR_d = right_tt_cores[-1].shape[-1]              # the terminal bond the seed sits on
+    rR_d = right_tt_cores[-1].shape[-1]               # the terminal bond the seed sits on
     dtype = xnp.result_type(*(a[0] for a in (right_tt_cores, right_tt_cores_dot, xi_jets, xi_jets_dot, sigma_hats)))
     init = xnp.zeros((sigma_hats[0].shape[0],) + xi_jets_dot[0].shape[1:-1] + (rR_d,), dtype)   # W+K+C off xi_dot
     _, (rev_sigma_hats_dot,) = xscan(_sigma_hat_tangent_jets_step, init,

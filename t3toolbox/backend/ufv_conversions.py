@@ -65,7 +65,7 @@ def ut3_orthogonal_representations(
             typ.Tuple[NDArray, NDArray],      # (tucker_edge_mask, tt_edge_mask) -- the plain-UT3 rank masks
         ],
         already_left_orthogonal: bool = False,
-        squash_tails:                  bool = True,
+        squash_tails:            bool = True,
 ) -> typ.Tuple[
     typ.Tuple[                                # frame .data:
         NDArray, NDArray, NDArray, NDArray,   #   down_sc, up_sc, left_sc, right_sc
@@ -404,7 +404,7 @@ def ut3frameweights_to_t3frameweights(
             typ.Tuple[NDArray, NDArray, NDArray, NDArray],  # the four edge masks
         ],
 ) -> typ.Union[
-    typ.Tuple[typ.Tuple[NDArray, ...], ...],  # (down, up, left, right) ragged families, if unstacked
+    typ.Tuple[typ.Tuple[NDArray, ...], ...],   # (down, up, left, right) ragged families, if unstacked
     typ.Tuple,                                 # else a nested tree (shaped like C) of those
 ]:
     """Convert uniform frame-weight supercores + masks back to ragged ``T3FrameWeights`` families.

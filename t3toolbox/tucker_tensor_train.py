@@ -765,7 +765,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         False False
         """
         if not self.has_minimal_ranks:
-            return False                                # structural redundancy => numerical redundancy
+            return False                                 # structural redundancy => numerical redundancy
         if self.stack_shape:                             # per element: t3svd(rtol=) needs an unstacked train
             out = np.empty(self.stack_shape, dtype=bool)
             for idx in np.ndindex(*self.stack_shape):
@@ -959,7 +959,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> tt_cores = (randn(2,4,3), randn(3,5,2), randn(2,6,2))
         >>> x = t3.TuckerTensorTrain(tucker_cores, tt_cores)
         >>> x_dense = x.to_dense(squash_tails=False) # Convert TuckerTensorTrain to dense tensor
-        >>> print(x_dense.shape)                    # keeps the outer TT bonds r0=rd=2
+        >>> print(x_dense.shape)                     # keeps the outer TT bonds r0=rd=2
         (2, 14, 15, 16, 2)
         >>> ((B0,B1,B2), (G0,G1,G2)) = tucker_cores, tt_cores
         >>> x_dense2 = np.einsum('xi,yj,zk,axb,byc,czd->aijkd', B0, B1, B2, G0, G1, G2)
@@ -3642,7 +3642,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
             ztildes: Sequence[NDArray],  # probe residuals, len=d, elm_shape = W + C + (Ni,)
             ww:      Sequence[NDArray],  # probe vectors,   len=d, elm_shape = W + (Ni,)
             sum_over_probes: bool = False,
-    ) -> Sequence[NDArray]:             # canonical (CP) factors, len=d, elm_shape = stack + (R, Ni)
+    ) -> Sequence[NDArray]:              # canonical (CP) factors, len=d, elm_shape = stack + (R, Ni)
         """Ambient transpose of :py:meth:`probe`: back-project probe residuals into canonical (CP) factors.
 
         The probe counterpart of :py:meth:`apply_ambient_transpose` -- the literal adjoint of ``probe``
@@ -3717,7 +3717,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
             c:      NDArray,            # residual, shape = W + C
             ww:     Sequence[NDArray],  # apply vectors, len=d, elm_shape = W + (Ni,)
             sum_over_probes: bool = False,
-    ) -> Sequence[NDArray]:            # canonical (CP) factors, len=d, elm_shape = stack + (R, Ni)
+    ) -> Sequence[NDArray]:             # canonical (CP) factors, len=d, elm_shape = stack + (R, Ni)
         """Ambient transpose of :py:meth:`apply`: back-project ``c`` into canonical (CP) factors.
 
         This is **one of three** transposes of ``apply`` -- make sure it is the one you want (full
@@ -3778,7 +3778,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
             index:  NDArray,            # int, shape = (d,) + W
             shape:  Sequence[int],      # ambient dims (N0, ..., N(d-1))
             sum_over_probes: bool = False,
-    ) -> Sequence[NDArray]:            # canonical (CP) factors, len=d, elm_shape = stack + (R, Ni)
+    ) -> Sequence[NDArray]:             # canonical (CP) factors, len=d, elm_shape = stack + (R, Ni)
         """Ambient transpose of :py:meth:`entries`: scatter ``c`` at ``index`` into canonical (CP) factors.
 
         The ``entries`` counterpart of :py:meth:`apply_ambient_transpose` -- identical, with the apply
@@ -4231,7 +4231,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> x = t3.TuckerTensorTrain.t3svd_dense(1.0 / (i + j + k))[0]   # exact T3 of a smooth tensor
         >>> _, full_tucker_ss, full_tt_ss = x.t3svd()                    # original (untruncated) spectra
         >>> xt, _, _ = x.t3svd(rtol=1e-3)                                # truncate at rtol
-        >>> print(x.tt_ranks, '->', xt.tt_ranks)                        # rtol drops the small singular values
+        >>> print(x.tt_ranks, '->', xt.tt_ranks)                         # rtol drops the small singular values
         (1, 8, 8, 1) -> (1, 3, 3, 1)
         >>> # accuracy: ||x - xt|| <= sqrt(dropped singular-value energy at the chosen ranks) [Oseledets]
         >>> dropped_sq = (sum(float(np.sum(s[r:]**2)) for s, r in zip(full_tt_ss, xt.tt_ranks))
@@ -4476,7 +4476,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> import numpy as np
         >>> import t3toolbox.tucker_tensor_train as t3
         >>> i, j, k = np.ogrid[1:7, 1:7, 1:7]
-        >>> A = 1.0 / (i + 2 * j + 4 * k)                                   # smooth, anisotropic per mode
+        >>> A = 1.0 / (i + 2 * j + 4 * k)                                  # smooth, anisotropic per mode
         >>> X = t3.TuckerTensorTrain.t3svd_dense(A, max_tucker_ranks=2, max_tt_ranks=2)[0]
         >>> print(X.tucker_ranks, X.tt_ranks)                              # a rank-2 iterate
         (2, 2, 2) (1, 2, 2, 1)
@@ -4563,7 +4563,7 @@ class TuckerTensorTrain(common.ExplicitEquality):
         >>> x2, _, _ = x.t3svd(max_tt_ranks=2)        # basic T3-SVD: left-orthogonal, NOT minimal
         >>> print(x2.has_minimal_ranks, x2.tucker_ranks)
         False (3, 4, 2)
-        >>> x3 = x2.rank_adjustment_sweep('right_to_left')   # x2 is left-orthogonal -> R->L minimizes
+        >>> x3 = x2.rank_adjustment_sweep('right_to_left')    # x2 is left-orthogonal -> R->L minimizes
         >>> print(x3.has_minimal_ranks, x3.tucker_ranks)
         True (2, 4, 2)
         >>> print(np.allclose(x3.to_dense(), x2.to_dense()))  # same tensor, redundant rank removed

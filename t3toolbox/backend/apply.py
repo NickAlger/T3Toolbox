@@ -144,7 +144,7 @@ def tv_apply(
             typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nUi,Ni)
             typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rRi)
         ],
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
             typ.Sequence[NDArray],          # up_tt_cores        U. len=d
             typ.Sequence[NDArray],          # left_tt_cores      L. len=d
@@ -175,7 +175,7 @@ def tv_apply(
 def tv_apply_transpose(
         c:          NDArray,                # residual, shape = W + K + C (K optional; one per probe-set, per base point)
         ww:         typ.Sequence[NDArray],  # the apply vectors, len=d, elm_shape=W+(Ni,)
-        frame:       typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
+        frame:      typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray],
                               typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right)
         sum_over_probes: bool = False,
 ) -> typ.Tuple[typ.Sequence[NDArray], typ.Sequence[NDArray]]:  # (V_tildes, H_tildes) = T3Variations.data
@@ -196,7 +196,7 @@ def tv_apply_transpose(
 
 
 def tv_precompute_apply_frame_sweep(
-        frame:   typ.Tuple[
+        frame:  typ.Tuple[
             typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
             typ.Sequence[NDArray],          # up_tt_cores        U. len=d
             typ.Sequence[NDArray],          # left_tt_cores      L. len=d
@@ -236,7 +236,7 @@ def tv_apply_jacobian_from_sweep(
             typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rRi)
         ],
         ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,) -- for the variation's dxis
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray],          # down_tucker_cores  D. len=d  (unused; for a uniform call signature)
             typ.Sequence[NDArray],          # up_tt_cores        U. len=d
             typ.Sequence[NDArray],          # left_tt_cores      L. len=d  (unused)
@@ -267,7 +267,7 @@ def tv_apply_jacobian_from_sweep(
 def tv_apply_transpose_from_sweep(
         c:          NDArray,                # residual, shape = W + K + C (K optional)
         ww:         typ.Sequence[NDArray],  # apply vectors (one-hot e_index for entries), len=d, elm_shape=W+(Ni,)
-        frame:       typ.Tuple[
+        frame:      typ.Tuple[
             typ.Sequence[NDArray],          # down_tucker_cores  D. len=d  (unused; uniform call signature)
             typ.Sequence[NDArray],          # up_tt_cores        U. len=d
             typ.Sequence[NDArray],          # left_tt_cores      L. len=d  (unused)
