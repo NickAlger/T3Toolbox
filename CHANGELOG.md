@@ -97,6 +97,35 @@ bit-identical; names, letters and messages change. Upgrade notes: `docs/release_
   its δG our H (`tt_variations`). Docs and changelog entries before 2026.5.0 wrote `U` for the Tucker factor and `O`
   for the TT-shaped core.
 
+### Added
+
+- **Phase timing for `newton_cg`: `timing=True`** (keyword-only, after `cone_seed`; backend and frontend, which
+  forwards it only when set). Each history row's `wall_time` window is split into phases: the local model's build
+  (`frame`, `sweep`, `companion`, `residual`, `curvature`), `gradient`, row 0's `reference`, `cg`, `forms`, every
+  trial's `trial_retraction` and `trial_objective`, the previous row's callback and a `remainder`; on a jax run each
+  phase also carries jax's compile wait (from `jax.monitoring`; `None` on numpy and on jax 0.4.30, which cannot
+  unregister a listener). The run's one-offs are recorded too: the setup, `padded_from`'s alignment, the seconds per
+  pass of the alignment and of the `'cone'` reference, the last callback. It changes no number: `x` and every other
+  `stats` field are bitwise the untimed run's, the `wall_time` clock readings aside. With `timing=False` (the
+  default) nothing is read or synchronized and every output, the display included, is 2026.4.0's (clock readings
+  aside). User guide: `docs/fitting_and_optimization.md` §4.13.
+  - `NewtonInfo.timing`: a `NewtonTiming` per row (`window`, `seconds` and `compile_seconds` as `PhaseSeconds`,
+    `trials`, `accepted_retraction`; row 0 adds the one-offs), `None` when off; not a history field. Both records are
+    in `backend.optimizers`. (`PhaseSeconds.tracking` is reserved for a Gauss-Newton-to-exact switch.)
+  - `stats['timing']`, a plain dict: `total`, `setup`, `alignment`, `alignment_passes`, `reference_passes`,
+    `last_callback`, `phases`, `compile`, `cg_per_iteration`, `rows`; `total` is the sum of the setup, the alignment,
+    the rows' windows and the last callback.
+  - The display (`verbose=True`, `backend.optimizer_display.make_newton_display`): a `time` line under each timed
+    row's header and a closing table after the run's last row.
+  - The geometry members `aligned_padded_frame(..., timing=False)`, ragged and uniform: `timing=True` adds a third
+    element, the seconds per pass (`None` under the uniform whole-loop jit). The optimizers pass `timing` only to a
+    member whose signature names it, so a custom member without it keeps working.
+  - `backend.common.tree_block_until_ready(tree)`: wait for every jax array in a pytree (a no-op without one).
+  - **Cost.** Every phase waits for its results, which serializes a jax run. Measured on a laptop CPU (AMD Ryzen 7
+    3700U; numpy 2.4, jax 0.10.2 in x64), timing on against off differed by −4 % to +2 % on numpy, eager jax and
+    `use_jit`, ragged and uniform, at d = 3 and d = 6: within the run-to-run noise. A GPU overlaps more of the host's
+    work with the device's and can lose more.
+
 ## [2026.4.0] — 2026-11-10
 
 The headline is **the aligned padded frame**: after a zero-padded rank increase, `newton_cg` can start from a frame

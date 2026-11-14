@@ -18,6 +18,9 @@ Two layers, so the pure algorithm modules stay pure and the I/O is isolated:
   once, then per iteration computes the train (and optional validation) error matrices, prints via an
   injectable ``print_fn``, and records each iteration.
 
+A run with ``newton_cg(timing=True)`` adds a ``time`` line to each row's block (the row's window by phase) and a
+closing table after the run's last row; untimed rows print exactly as before.
+
 The relative-error table is ``‖r_ij‖ / ‖y_ij‖`` from the kind's UNWEIGHTED :py:meth:`block_sumsq` (D2) --
 the honest per-block recovery error, independent of any residual weight ``ω``. The **layout follows the
 kind's axes**: ``probe_derivatives`` (mode × order) -> mode rows,
@@ -193,6 +196,128 @@ def _format_header(info: "bopt.NewtonInfo", obj_unweighted: typ.Optional[float])
     return " | ".join(parts)
 
 
+# --------------------------------------------------------------------------------------------------
+# Timing: newton_cg(timing=True)'s NewtonInfo.timing, as a line per row and a closing table per run
+# --------------------------------------------------------------------------------------------------
+_PHASE_LABELS = {'previous_callback': 'cb', 'frame': 'frame', 'sweep': 'sweep', 'companion': 'comp',
+                 'residual': 'resid', 'curvature': 'curv', 'gradient': 'grad', 'reference': 'ref', 'cg': 'cg',
+                 'forms': 'forms', 'trial_retraction': 'retr', 'trial_objective': 'obj', 'tracking': 'track',
+                 'remainder': 'rest'}                      # PhaseSeconds field -> its label on the time line
+_MODEL_PHASES = ('frame', 'sweep', 'companion', 'residual', 'curvature')
+_COMPILE_SHOWN = 1e-6    # seconds: a compile wait below this is the remainder's rounding, not a compile
+
+
+def _seconds(value: float) -> str:
+    """A time in seconds as a fixed 7-character ``%.1e`` cell, like the error table's."""
+    return "%.1e" % value
+
+
+def _passes(passes: typ.Optional[typ.Tuple[float, ...]]) -> str:
+    """`` ×n`` for a tuple of n per-pass times; nothing when the passes were not timed."""
+    return "" if passes is None else " ×%d" % len(passes)
+
+
+def _format_timing(
+        info:  "bopt.NewtonInfo",   # a row with timing (newton_cg(timing=True))
+) -> str:                           # the row's time line
+    """The ``time`` line of a timed row: its window split by phase, in seconds -- the row's own work in run order, then
+    the previous row's callback and the remainder.
+
+    ``model`` is the local model's build, its parts in brackets (an overriding ``Problem.local_model`` is timed whole,
+    in ``frame``); ``grad`` the misfit transpose to the lift diagnostics; ``ref`` the reference ``‖g0‖`` (row 0; ``×n``
+    the ``'cone'`` loop's passes); ``cg`` the CG solve, with its seconds per CG iteration less its compile wait;
+    ``forms`` the step's scalars; ``trials`` the retractions and objectives tried (``×n`` trials; on a backtracked
+    row, ``accepted`` is the accepted trial's retraction); ``track`` the switch's tracking product; ``cb`` the previous
+    row's callback; ``rest`` the window's remainder. Row 0 adds the run's one-offs, outside every window: ``setup``
+    and ``align`` (``padded_from``'s alignment, ``×n`` its passes). ``compile`` lists jax's compile wait by phase (on
+    a jax run whose ``jax.monitoring`` can unregister a listener; ``0`` when nothing compiled). A phase that did not
+    run on this row is left out."""
+    timing = info.timing
+    seconds, compile_seconds = timing.seconds, timing.compile_seconds
+    parts = []
+    model = [(name, getattr(seconds, name)) for name in _MODEL_PHASES if getattr(seconds, name) is not None]
+    if model:
+        parts.append("model %s [%s]" % (_seconds(sum(s for _, s in model)),
+                                        " ".join("%s %s" % (_PHASE_LABELS[name], _seconds(s)) for name, s in model)))
+    if seconds.gradient is not None:
+        parts.append("grad %s" % _seconds(seconds.gradient))
+    if seconds.reference is not None:
+        parts.append("ref %s%s" % (_seconds(seconds.reference), _passes(timing.reference_passes)))
+    if seconds.cg is not None:
+        cg = "cg %s" % _seconds(seconds.cg)
+        if info.cg_iters:
+            compiling = compile_seconds.cg if compile_seconds is not None else 0.0
+            cg += " (%s/it)" % _seconds((seconds.cg - compiling) / info.cg_iters)
+        parts.append(cg)
+    if seconds.forms is not None:
+        parts.append("forms %s" % _seconds(seconds.forms))
+    if seconds.trial_retraction is not None:
+        trials = "trials %s ×%d [retr %s obj %s]" % (
+            _seconds(seconds.trial_retraction + seconds.trial_objective), timing.trials,
+            _seconds(seconds.trial_retraction), _seconds(seconds.trial_objective))
+        if timing.accepted_retraction is not None and timing.trials > 1:
+            trials += " (accepted %s)" % _seconds(timing.accepted_retraction)
+        parts.append(trials)
+    if seconds.tracking is not None:
+        parts.append("track %s" % _seconds(seconds.tracking))
+    if seconds.previous_callback is not None:
+        parts.append("cb %s" % _seconds(seconds.previous_callback))
+    parts.append("rest %s" % _seconds(seconds.remainder))
+    if timing.setup is not None:
+        parts.append("setup %s" % _seconds(timing.setup))
+    if timing.alignment is not None:
+        parts.append("align %s%s" % (_seconds(timing.alignment), _passes(timing.alignment_passes)))
+    if compile_seconds is not None:
+        waits = [(_PHASE_LABELS[name], getattr(compile_seconds, name)) for name in _PHASE_LABELS]
+        waits += [('setup', timing.setup_compile), ('align', timing.alignment_compile)]
+        shown = ["%s %s" % (label, _seconds(c)) for label, c in waits if c is not None and c > _COMPILE_SHOWN]
+        parts.append("compile %s" % (" ".join(shown) if shown else "0"))
+    return "  time  " + " | ".join(parts)
+
+
+def _format_timing_table(
+        rows:  typ.Sequence[typ.Tuple["bopt.NewtonTiming", typ.Optional[int]]],   # each timed row's (timing, cg_iters)
+) -> str:                                                                         # the run's closing table
+    """The closing table of a timed run: per phase, its seconds over the rows, its share of the summed windows, its
+    compile wait, and its mean over the rows it ran on; then the one-offs (``setup``, ``alignment``) and the pass
+    counts and CG's seconds per iteration (less its compile wait). Phases that ran on no row are left out. The last
+    row's callback is not in it (it is running): ``stats['timing']['last_callback']`` has it."""
+    timings = [timing for timing, _ in rows]
+    window = sum(timing.window for timing in timings)
+    listened = timings[0].compile_seconds is not None
+    labels, cells = [], []
+    for name in _PHASE_LABELS:
+        ran = [timing for timing in timings if getattr(timing.seconds, name) is not None]
+        if not ran:
+            continue
+        seconds = sum(getattr(timing.seconds, name) for timing in ran)
+        compiling = sum(getattr(timing.compile_seconds, name) for timing in ran) if listened else None
+        labels.append(name)
+        cells.append([_seconds(seconds), "%.1f" % (100.0 * seconds / window) if window > 0 else "—",
+                      _num(compiling, "%.1e"), _seconds(seconds / len(ran))])
+    first = timings[0]
+    for name, seconds, compiling in (('setup', first.setup, first.setup_compile),
+                                     ('alignment', first.alignment, first.alignment_compile)):
+        if seconds is not None:
+            labels.append(name)
+            cells.append([_seconds(seconds), "—", _num(compiling, "%.1e"), "—"])
+    lines = ["  timing  %d row%s, Σ window %s s (the last row's callback is not in it)"
+             % (len(rows), '' if len(rows) == 1 else 's', _seconds(window)),
+             _grid(["seconds", "% window", "compile", "mean/row"], labels, cells)]
+    notes = []
+    for name, passes in (('alignment', first.alignment_passes), ('reference', first.reference_passes)):
+        if passes is not None:
+            notes.append("%s %d passes" % (name, len(passes)))
+    iterations = sum(cg_iters or 0 for _, cg_iters in rows)
+    if iterations > 0:
+        cg = sum(timing.seconds.cg - (timing.compile_seconds.cg if listened else 0.0)
+                 for timing in timings if timing.seconds.cg is not None)
+        notes.append("cg %s s per CG iteration" % _seconds(cg / iterations))
+    if notes:
+        lines.append("    " + ", ".join(notes))
+    return "\n".join(lines)
+
+
 def format_newton_iter(
         info:           "bopt.NewtonInfo",       # the per-iteration diagnostics from newton_cg
         train_err:      NDArray,                  # (n_mode, n_order) training relative-error matrix
@@ -257,8 +382,34 @@ def format_newton_iter(
     >>> print(disp.format_newton_iter(info, np.array([[2.0e-3]])))
     iter  4 | obj 2.310e-03  ‖g‖ 7.20e-04 (1.4e-05·g₀) | CG 6/200 tol 1.9e-05 resid 3.3e-05 ∂ | TR Δ 3.10e-02 ✗ ‖Δx‖/‖x‖ 4.0e-02 | Δf +6.10e-05 ρ -0.52 | 0.12s | κ -2.0e-01 σ 4.2e-01 ε 1.3e-05
       rel err   2.0e-03
+
+    A row of a timed run (``newton_cg(timing=True)``, its ``NewtonInfo.timing``) adds a ``time`` line under the header:
+    the row's window by phase, in seconds (:py:class:`~t3toolbox.backend.optimizers.PhaseSeconds`). ``model`` is the
+    local model's build with its parts in brackets, ``cg`` also gives its seconds per CG iteration, ``trials`` the
+    retractions and objectives tried (``×1``), ``cb`` the previous row's callback and ``rest`` what no phase covers; a
+    phase that did not run on the row (here ``ref``, row 0's) is left out:
+
+    >>> seconds = bopt.PhaseSeconds(previous_callback=2.4e-4, frame=4.6e-4, sweep=9.1e-4, companion=3.4e-6,
+    ...                             residual=9.8e-4, curvature=1.1e-3, gradient=2.7e-3, reference=None, cg=7.3e-2,
+    ...                             forms=1.2e-2, trial_retraction=7.8e-4, trial_objective=1.0e-3, tracking=None,
+    ...                             remainder=1.6e-4)
+    >>> timing = bopt.NewtonTiming(window=9.3e-2, seconds=seconds, compile_seconds=None, trials=1,
+    ...                            accepted_retraction=7.8e-4)
+    >>> info = bopt.NewtonInfo(iteration=2, objective=4.62e2, gnorm=5.23e2, g0norm=5.6e4, converged=False,
+    ...                        cg_iters=5, cg_maxiter=200, cg_tol=4.8, cg_resid=2.5, cg_converged=True,
+    ...                        cg_truncated=False, cg_boundary=False, alpha=1.0, step_rel=1.3e-2, delta_f=-4.62e2,
+    ...                        rho=1.01, wall_time=9.3e-2, step_control='trust_region', hessian='exact',
+    ...                        tr_radius=6.92e1, tr_accepted=True, pHp=9.2e2, pKp=1.1e1, lift_sigma_min=1.0e1,
+    ...                        lift_eps=1.4e-4, timing=timing)
+    >>> print(disp.format_newton_iter(info, np.array([[1.2e-2]])))
+    iter  2 | obj 4.620e+02  ‖g‖ 5.23e+02 (9.3e-03·g₀) | CG 5/200 tol 4.8e+00 resid 2.5e+00 ✓ | TR Δ 6.92e+01 ✓ ‖Δx‖/‖x‖ 1.3e-02 | Δf -4.62e+02 ρ 1.01 | 0.09s | κ +1.2e-02 σ 1.0e+01 ε 1.4e-04
+      time  model 3.5e-03 [frame 4.6e-04 sweep 9.1e-04 comp 3.4e-06 resid 9.8e-04 curv 1.1e-03] | grad 2.7e-03 | cg 7.3e-02 (1.5e-02/it) | forms 1.2e-02 | trials 1.8e-03 ×1 [retr 7.8e-04 obj 1.0e-03] | cb 2.4e-04 | rest 1.6e-04
+      rel err   1.2e-02
     """
-    return _format_header(info, obj_unweighted) + "\n" + _format_table(train_err, val_err, fmt)
+    header = _format_header(info, obj_unweighted)
+    if getattr(info, 'timing', None) is not None:
+        header += "\n" + _format_timing(info)
+    return header + "\n" + _format_table(train_err, val_err, fmt)
 
 
 # --------------------------------------------------------------------------------------------------
@@ -282,7 +433,15 @@ def make_newton_display(
     the same point with the same local model, so it reuses that row's tables -- no second validation
     forward for an unchanged ``x``. (Reuse is keyed on that model object, so a callback shared by several
     runs, e.g. continuation levels, recomputes the next run's first row even after a run that ended on a
-    rejected trial.) Requires ``problem.kind.has_block_sumsq`` (all built-in kinds have it)."""
+    rejected trial.) Requires ``problem.kind.has_block_sumsq`` (all built-in kinds have it).
+
+    **Timed rows** (``newton_cg(timing=True)``) print their ``time`` line (:py:func:`format_newton_iter`), and after a
+    run's last row (converged, or a ``stop_reason`` set) the callback prints a closing table: per phase that ran, its
+    seconds over the rows, its share of the summed windows, its compile wait (``—`` without one) and its mean over the
+    rows it ran on; then the setup and the alignment, the pass counts, and CG's seconds per iteration less its compile
+    wait. The last row's own callback is not in it (it is still running; ``stats['timing']['last_callback']`` has it).
+    A callback reused across runs starts a new table at each run's row 0. The records are unchanged: ``timing`` is not
+    a history field."""
     kind = problem.kind
     if not kind.has_block_sumsq:
         raise ValueError("this sampling kind has no block_sumsq -- the relative-error table needs it "
@@ -299,6 +458,7 @@ def make_newton_display(
     val_data_bs = np.asarray(kind.block_sumsq(val_data, n_w_val), dtype=float) if have_val else None
     records: list = []
     previous = {'lm': None}              # the last row's model if it was a rejected TR trial, and its tables
+    timed: list = []                     # this run's (timing, cg_iters) per timed row, for the closing table
 
     def callback(info):
         if previous['lm'] is not None and info.lm is previous['lm']:   # a rejected trial keeps x and its model:
@@ -321,5 +481,11 @@ def make_newton_display(
             if val_err is not None:
                 rec['val_err'] = val_err
             records.append(rec)
+        if info.iteration == 0:                                    # a new run (a callback reused across levels)
+            timed.clear()
+        if getattr(info, 'timing', None) is not None:
+            timed.append((info.timing, info.cg_iters))
+            if print_fn is not None and (info.converged or getattr(info, 'stop_reason', None) is not None):
+                print_fn(_format_timing_table(timed))                  # the run's last row
 
     return callback, records

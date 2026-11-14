@@ -3,6 +3,7 @@
 The formatter is pure (returns a string), so alignment/layout are asserted on the string directly -- no
 stdout capture. Plus an end-to-end `make_newton_display` + `newton_cg` run recording the error matrices.
 The whole capability is backend-owned (a raw-.data user gets the identical display; the anti-drift rule)."""
+import dataclasses as dc
 import unittest
 
 import numpy as np
@@ -297,6 +298,217 @@ class TestMakeNewtonDisplay(unittest.TestCase):
         for builtin in (bfit.APPLY, bfit.ENTRIES, bfit.PROBE, bfit.probe_derivatives_kind(2)):
             self.assertTrue(builtin.has_block_sumsq, f'{builtin.name} implements block_sumsq')
 
+
+
+def _seconds(**kw):
+    """A PhaseSeconds of a Gauss-Newton line-search row after row 0 (model built, three trials); override via kwargs."""
+    base = dict(previous_callback=0.01, frame=0.05, sweep=0.06, companion=0.001, residual=0.01, curvature=None,
+                gradient=0.03, reference=None, cg=0.40, forms=0.02, trial_retraction=0.15, trial_objective=0.06,
+                tracking=None, remainder=0.01)
+    base.update(kw)
+    return bopt.PhaseSeconds(**base)
+
+
+def _timing(seconds=None, **kw):
+    """A NewtonTiming around ``_seconds()`` (three trials, the last accepted, no compile column)."""
+    base = dict(window=0.801, seconds=_seconds() if seconds is None else seconds, compile_seconds=None, trials=3,
+                accepted_retraction=0.07)
+    base.update(kw)
+    return bopt.NewtonTiming(**base)
+
+
+def _compile_like(seconds, **kw):
+    """A compile column for ``seconds`` where nothing compiled (0.0 where the phase ran, else None); override via
+    kwargs."""
+    zeros = {name: (None if value is None else 0.0) for name, value in dc.asdict(seconds).items()}
+    return bopt.PhaseSeconds(**{**zeros, **kw})
+
+
+def _zero_compile(**kw):
+    return _compile_like(_seconds(), **kw)
+
+
+class TestTimingDisplay(unittest.TestCase):
+    """T8: ``newton_cg(timing=True)``'s rows in the display -- the ``time`` line between a timed row's header and its
+    error table, and ``make_newton_display``'s closing table, once, after the run's last row. Untimed rows print as
+    before."""
+
+    def test_the_time_line_only_with_timing(self):
+        """A timed row's block is the untimed block with one line inserted after the header; an untimed row has
+        none."""
+        train = np.array([[1.9e-2, 1.3e-2], [1.0e+00, 5.2e-4]])
+        plain = bdisp.format_newton_iter(_info(), train)
+        timed = bdisp.format_newton_iter(_info(timing=_timing()), train)
+        self.assertNotIn('  time  ', plain)
+        lines = timed.split('\n')
+        self.assertTrue(lines[1].startswith('  time  model '), lines[1])
+        self.assertEqual('\n'.join(lines[:1] + lines[2:]), plain)
+
+    def test_the_time_line_cells(self):
+        """Each cell, by the record that sets it: a phase that did not run is left out; seconds as ``%.1e``."""
+        line = bdisp._format_timing(_info(timing=_timing()))
+        self.assertEqual(line, '  time  model 1.2e-01 [frame 5.0e-02 sweep 6.0e-02 comp 1.0e-03 resid 1.0e-02] | '
+                               'grad 3.0e-02 | cg 4.0e-01 (2.9e-02/it) | forms 2.0e-02 | '
+                               'trials 2.1e-01 ×3 [retr 1.5e-01 obj 6.0e-02] (accepted 7.0e-02) | cb 1.0e-02 | '
+                               'rest 1.0e-02')                           # cg per iteration: 0.40 / 14
+        cell = lambda **kw: bdisp._format_timing(_info(**{'timing': _timing(), **kw}))
+        one_trial = cell(timing=_timing(trials=1, accepted_retraction=0.15))
+        self.assertIn('| trials 2.1e-01 ×1 [retr 1.5e-01 obj 6.0e-02] | cb', one_trial)       # no 'accepted' share
+        rejected = cell(timing=_timing(trials=1, accepted_retraction=None))
+        self.assertNotIn('accepted', rejected)
+        exact = cell(timing=_timing(_seconds(curvature=0.2)))
+        self.assertIn('model 3.2e-01 [frame 5.0e-02 sweep 6.0e-02 comp 1.0e-03 resid 1.0e-02 curv 2.0e-01] |', exact)
+        tracked = cell(timing=_timing(_seconds(tracking=0.05)))
+        self.assertIn('(accepted 7.0e-02) | track 5.0e-02 | cb 1.0e-02 |', tracked)
+        reused = cell(timing=_timing(_seconds(frame=None, sweep=None, companion=None, residual=None, gradient=None)))
+        self.assertTrue(reused.startswith('  time  cg 4.0e-01'), reused)   # a row after a rejection: no build
+        converged = cell(converged=True, cg_iters=None,
+                         timing=_timing(_seconds(cg=None, forms=None, trial_retraction=None, trial_objective=None),
+                                        trials=None, accepted_retraction=None))
+        self.assertTrue(converged.endswith('| grad 3.0e-02 | cb 1.0e-02 | rest 1.0e-02'), converged)
+        self.assertNotIn('/it', cell(cg_iters=0))                        # no CG iteration: no per-iteration time
+
+    def test_row_zero_carries_the_one_offs(self):
+        """Row 0: the reference with the cone's pass count, then the setup and the alignment with its pass count,
+        after the window's cells; no callback cell (row 0 has no previous row)."""
+        row0 = _timing(_seconds(previous_callback=None, reference=0.11), setup=1.3e-4, alignment=0.08,
+                       alignment_passes=(0.02,) * 5, reference_passes=(0.01,) * 9)
+        line = bdisp._format_timing(_info(iteration=0, timing=row0))
+        self.assertIn('| grad 3.0e-02 | ref 1.1e-01 ×9 | cg ', line)
+        self.assertTrue(line.endswith('| rest 1.0e-02 | setup 1.3e-04 | align 8.0e-02 ×5'), line)
+        self.assertNotIn('| cb ', line)
+        untimed_passes = bdisp._format_timing(_info(iteration=0, timing=dc.replace(row0, alignment_passes=None,
+                                                                                   reference_passes=None)))
+        self.assertIn('| ref 1.1e-01 | cg ', untimed_passes)            # the member did not report its passes
+        self.assertTrue(untimed_passes.endswith('| align 8.0e-02'), untimed_passes)
+
+    def test_the_compile_cell(self):
+        """The compile wait by phase (above a microsecond) on a listened run, ``compile 0`` when nothing compiled,
+        no cell without a listener; CG's seconds per iteration exclude its compile wait."""
+        line = lambda timing: bdisp._format_timing(_info(timing=timing))
+        self.assertNotIn('compile', line(_timing()))                                     # numpy / no listener
+        self.assertTrue(line(_timing(compile_seconds=_zero_compile())).endswith('| rest 1.0e-02 | compile 0'))
+        self.assertTrue(line(_timing(compile_seconds=_zero_compile(remainder=1e-12)))   # rounding, not a compile
+                        .endswith('| compile 0'))
+        compiled = _timing(_seconds(cg=2.0), compile_seconds=_zero_compile(cg=1.5, frame=5e-5),
+                           setup_compile=0.0, alignment=4.0, alignment_compile=3.0)
+        text = line(compiled)
+        self.assertIn('| cg 2.0e+00 (3.6e-02/it) |', text)                             # (2.0 - 1.5) / 14
+        self.assertTrue(text.endswith('| compile frame 5.0e-05 cg 1.5e+00 align 3.0e+00'), text)   # 50 µs is shown
+
+    def test_the_closing_table(self):
+        """Per phase that ran: seconds over the rows, % of the summed windows, compile ('—' without a listener),
+        the mean over the rows it ran on; then the one-offs and the pass counts and CG's seconds per iteration."""
+        row0 = _timing(_seconds(previous_callback=None, reference=0.2), window=1.0, setup=1e-3, alignment=0.5,
+                       alignment_passes=(0.1,) * 5, reference_passes=(0.02,) * 9)
+        last = _timing(_seconds(cg=None, forms=None, trial_retraction=None, trial_objective=None), window=0.6,
+                       trials=None, accepted_retraction=None)
+        run = [(row0, 10), (_timing(window=0.4), 6), (last, None)]
+        table = bdisp._format_timing_table(run)
+        lines = table.split('\n')
+        self.assertEqual(lines[0], "  timing  3 rows, Σ window 2.0e+00 s (the last row's callback is not in it)")
+        self.assertEqual(lines[1].split(), ['seconds', '%', 'window', 'compile', 'mean/row'])
+        rows = {line.split()[0]: line.split()[1:] for line in lines[2:-1]}
+        self.assertEqual(list(rows), ['previous_callback', 'frame', 'sweep', 'companion', 'residual', 'gradient',
+                                      'reference', 'cg', 'forms', 'trial_retraction', 'trial_objective', 'remainder',
+                                      'setup', 'alignment'])             # no curvature, no tracking: they never ran
+        self.assertEqual(rows['cg'], ['8.0e-01', '40.0', '—', '4.0e-01'])   # two rows ran CG
+        self.assertEqual(rows['previous_callback'], ['2.0e-02', '1.0', '—', '1.0e-02'])
+        self.assertEqual(rows['reference'], ['2.0e-01', '10.0', '—', '2.0e-01'])
+        self.assertEqual(rows['alignment'], ['5.0e-01', '—', '—', '—'])
+        self.assertEqual(lines[-1], '    alignment 5 passes, reference 9 passes, cg 5.0e-02 s per CG iteration')
+        listened = [(dc.replace(timing, compile_seconds=_compile_like(timing.seconds)), n) for timing, n in run]
+        listened[0] = (dc.replace(row0, compile_seconds=_compile_like(row0.seconds, cg=0.3), setup_compile=2e-4,
+                                  alignment_compile=0.4), 10)               # CG and the one-offs compiled
+        lines = bdisp._format_timing_table(listened).split('\n')
+        rows = {line.split()[0]: line.split()[1:] for line in lines[2:-1]}
+        self.assertEqual(rows['cg'], ['8.0e-01', '40.0', '3.0e-01', '4.0e-01'])
+        self.assertEqual(rows['setup'], ['1.0e-03', '—', '2.0e-04', '—'])
+        self.assertEqual(rows['alignment'], ['5.0e-01', '—', '4.0e-01', '—'])
+        self.assertEqual(lines[-1], '    alignment 5 passes, reference 9 passes, cg 3.1e-02 s per CG iteration')
+
+    def _problem(self):
+        np.random.seed(0)
+        rng = np.random.default_rng(0)
+        shape = (6, 6, 6)
+        target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1)).data
+        ww, pp = ([rng.standard_normal((40, n)) for n in shape] for _ in range(2))
+        kind = bfit.ProbeDerivativesKind(order=1)
+        data = [z + 0.01 * rng.standard_normal(z.shape) for z in kind.point_forward(target, (ww, pp))]
+        problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
+        return problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data
+
+    def test_a_timed_run(self):
+        """End to end: every row's block has its time line after the header; the closing table is printed once, after
+        the last row, for that run's rows only (a callback reused across runs resets at row 0); and the untimed run
+        prints exactly the timed run's text without them (wall clocks masked). Three runs: one stopped by the cap, one
+        converged, one converged at row 0 (one row, no CG iteration: a one-row table without the CG note)."""
+        import re
+        problem, x0 = self._problem()
+        clock = re.compile(r'\| \d+\.\d\ds\b')                          # the header's wall-clock cell
+        for name, kw in (('capped', dict(max_newton=4)), ('converged', dict(max_newton=30, gtol_rel=1e-3)),
+                         ('converged at row 0', dict(max_newton=30, gtol_rel=10.0))):
+            with self.subTest(name):
+                timed, untimed = [], []
+                cb, _ = bdisp.make_newton_display(problem, print_fn=timed.append)
+                _, stats = bopt.newton_cg(problem, x0, timing=True, callback=cb, **kw)
+                cb_plain, _ = bdisp.make_newton_display(problem, print_fn=untimed.append)
+                bopt.newton_cg(problem, x0, callback=cb_plain, **kw)
+                rows = len(stats['history'])
+                self.assertEqual(len(timed), rows + 1)                       # a block per row, then the table
+                header = '  timing  1 row, ' if rows == 1 else '  timing  %d rows, ' % rows
+                self.assertTrue(timed[-1].startswith(header + 'Σ window '), timed[-1])
+                iterated = any(row['cg_iters'] for row in stats['history'])
+                self.assertEqual('per CG iteration' in timed[-1], iterated)
+                if name == 'converged at row 0':
+                    self.assertEqual((rows, iterated), (1, False))
+                    self.assertTrue(timed[-1].split('\n')[-1].lstrip().startswith('setup'), timed[-1])   # no note line
+                for block in timed[:-1]:
+                    lines = block.split('\n')
+                    self.assertTrue(lines[0].startswith('iter '))
+                    self.assertTrue(lines[1].startswith('  time  '))
+                    self.assertEqual(sum(line.startswith('  time  ') for line in lines), 1)
+                stripped = ['\n'.join(line for line in block.split('\n') if not line.startswith('  time  '))
+                            for block in timed[:-1]]
+                self.assertEqual([clock.sub('| T', b) for b in stripped], [clock.sub('| T', b) for b in untimed])
+                again = bopt.newton_cg(problem, x0, timing=True, callback=cb, max_newton=2)[1]   # the same callback
+                self.assertEqual(len(again['history']), 2)
+                self.assertTrue(timed[-1].startswith('  timing  2 rows, '), timed[-1])           # this run's rows only
+                self.assertEqual(sum(text.startswith('  timing  ') for text in timed), 2)
+
+    def test_the_last_row_closes_the_table(self):
+        """The table follows a converged row without a stop reason (a hand-replayed run), and only the last row."""
+        problem, x0 = self._problem()
+        infos = []
+        bopt.newton_cg(problem, x0, timing=True, max_newton=3, callback=infos.append)
+        printed = []
+        cb, _ = bdisp.make_newton_display(problem, print_fn=printed.append)
+        last = dc.replace(infos[-1], converged=True, stop_reason=None)
+        for info in infos[:-1] + [last]:
+            cb(info)
+        self.assertEqual([text.startswith('  timing  ') for text in printed], [False] * 3 + [True])
+        self.assertTrue(printed[-1].startswith('  timing  3 rows, '))
+
+    def test_a_silent_display_of_a_timed_run(self):
+        """A records-only display (``print_fn=None``) on a timed run prints nothing, raises nothing at the last row, and
+        records exactly what it records on the untimed run (wall clocks aside): ``timing`` is not a history field."""
+        problem, x0 = self._problem()
+        for name, kw in (('capped', dict(max_newton=4)), ('converged at row 0', dict(max_newton=30, gtol_rel=10.0))):
+            with self.subTest(name):
+                cb, timed = bdisp.make_newton_display(problem, print_fn=None)
+                bopt.newton_cg(problem, x0, timing=True, callback=cb, **kw)
+                cb_plain, untimed = bdisp.make_newton_display(problem, print_fn=None)
+                bopt.newton_cg(problem, x0, callback=cb_plain, **kw)
+                self.assertEqual(len(timed), len(untimed))
+                for a, b in zip(timed, untimed):
+                    self.assertEqual(list(a), list(b))                       # the same keys, in the same order
+                    for key in a:
+                        if key == 'wall_time':
+                            continue
+                        if isinstance(a[key], np.ndarray):
+                            self.assertTrue(np.array_equal(a[key], b[key], equal_nan=True), key)
+                        else:
+                            self.assertEqual(a[key], b[key], key)
 
 
 class TestValidationArgsGoTogether(unittest.TestCase):

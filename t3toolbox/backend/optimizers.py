@@ -102,7 +102,8 @@ class Geometry(typ.Protocol):
       ``newton_cg(padded_from=)`` and ``g0_reference='cone'``. One more keyword is optional, ``timing=False``: with
       ``timing=True`` the member returns a third element, the seconds per pass (``None`` when it cannot read them,
       as under the uniform whole-loop jit). The optimizers pass ``timing`` only to a member whose signature names it
-      (a ``**kwargs`` catch-all does not count), so a member without it keeps working.
+      (a ``**kwargs`` catch-all does not count), so a member without it keeps working: ``newton_cg(timing=True)``,
+      the only caller that asks, then reports ``alignment_passes`` and ``reference_passes`` as ``None``.
 
     **The exact-mode members** -- needed **only** for ``hessian='exact'``.
     ``Problem.local_model(hessian='exact')`` checks that all four exist (a structural ``ValueError`` naming
@@ -1508,7 +1509,8 @@ class NewtonInfo:
     ``cg_boundary``, ``cg_truncated`` or (none of them) the iteration cap.
 
     ``timing`` is a :py:class:`NewtonTiming` with ``newton_cg(timing=True)``, else ``None``; like ``x_cores`` and
-    ``lm`` it is not a history field (``stats['timing']['rows']`` holds the records as dicts)."""
+    ``lm`` it is not a history field (``stats['timing']['rows']`` holds the records as dicts). The display prints it
+    as the row's ``time`` line (:py:func:`~t3toolbox.backend.optimizer_display.format_newton_iter`)."""
     iteration:    int              # Newton iteration index (0-based)
     objective:    float            # total objective ½‖ω⊙r‖² + ρ(X) at x (= misfit + regularization; = lm.objective)
     gnorm:        float            # ‖g‖ (Riemannian gradient norm, geom.inner)
@@ -1803,7 +1805,10 @@ def newton_cg(
     next phase that waits for it. The compile listener is process-global: compiles in other threads, or in a timed
     run nested inside a callback, are counted too. A ``Problem`` subclass that overrides ``local_model`` is called as
     without timing, and its whole build is reported in ``frame``. The geometry member ``aligned_padded_frame`` is
-    asked for its seconds per pass only when its signature names ``timing`` (see :py:class:`Geometry`).
+    asked for its seconds per pass only when its signature names ``timing`` (see :py:class:`Geometry`). With
+    :py:func:`~t3toolbox.backend.optimizer_display.make_newton_display` as the callback, each row prints a ``time``
+    line and the run ends with a closing table. What each phase covers, what the synchronization costs and how the
+    compile column reads under ``use_jit`` and eager jax: the user guide, ``docs/fitting_and_optimization.md`` §4.13.
 
     Examples
     --------

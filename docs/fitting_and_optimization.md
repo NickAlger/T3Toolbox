@@ -112,8 +112,9 @@ True
   `val_sample`/`val_data` to add a validation column. The records are also returned in
   `stats['diagnostics']`. The table layout follows the kind's axes — plain probe has modes in columns,
   `probe_derivatives` has modes × orders. Worked demo (both layouts): `examples/fit_probe_display.py`.
-  An exact-Hessian run adds its trust-region and curvature columns (§4.12). Backend users get the identical display via `backend.optimizer_display.make_newton_display` +
-  `backend.optimizers.newton_cg(..., callback=...)`.
+  An exact-Hessian run adds its trust-region and curvature columns (§4.12), and `timing=True` a `time` line per row
+  and a closing table (§4.13). Backend users get the identical display via
+  `backend.optimizer_display.make_newton_display` + `backend.optimizers.newton_cg(..., callback=...)`.
 - **Kind** is a string: `'apply'` / `'entries'` / `'probe'`, or `'apply_derivatives'` /
   `'entries_derivatives'` / `'probe_derivatives'`.
 - **`sample`** is the measurement spec: `ww` (apply/probe — a `len=d` list of `W+(Nᵢ,)` vectors), `index`
@@ -638,6 +639,229 @@ neighbours) the set is flat in that slot's directions and the term has no compon
 every slot is maximal, so on the manifold geometries the exact model *is* Gauss-Newton (it skips the
 work), while the corewise `d = 1` exact Hessian is still the plain Hessian of `f ∘ Φ`. No special case
 is needed in between: the formula gives zero there by itself.
+
+### 4.13 Timing a Newton run
+
+`newton_cg(..., timing=True)` records where a run's time goes. Each history row's `wall_time` window is split into
+**phases**, with jax's compile wait beside each phase on a jax run, and the run's one-off costs are recorded beside
+them. It answers questions like: is CG the cost, or the model build? the retraction or the line search's extra trials?
+the alignment of a padded start? the compiler? It changes no number: `x` and every other `stats` field are bitwise
+those of the untimed run, the `wall_time` clock readings aside. It is off by default, and the frontend and the backend
+take the same keyword.
+
+A worked example, one level of a rank continuation: a noisy probe-derivative fit at rank 2, zero-padded to rank 3
+and restarted from the aligned frame (`padded_from`, [`aligned_padded_frame.md`](aligned_padded_frame.md)) with the
+`'cone'` reference and the exact Hessian:
+
+```python
+>>> np.random.seed(0)
+>>> rng = np.random.default_rng(0)
+>>> probes = tuple([rng.standard_normal((40, 5)) for _ in range(3)] for _ in range(2))   # (ww, pp), d = 3
+>>> truth = t3.TuckerTensorTrain.randn((5, 5, 5), (3, 3, 3), (1, 3, 3, 1))
+>>> noisy = [z + 0.01 * rng.standard_normal(z.shape) for z in truth.probe_derivatives(*probes, 1)]
+>>> x_old, _ = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', probes, noisy,
+...                           t3.TuckerTensorTrain.randn((5, 5, 5), (2, 2, 2), (1, 2, 2, 1)), order=1, max_newton=5)
+>>> x_new = x_old.resize((5, 5, 5), (3, 3, 3), (1, 3, 3, 1))              # the next level, zero-padded
+>>> level = dict(order=1, max_newton=40, hessian='exact', cg_forcing_power=1.0, padded_from=x_old,
+...              g0_reference='cone')
+>>> _, st = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', probes, noisy, x_new, timing=True, **level)
+>>> T = st['timing']
+>>> list(T)
+['total', 'setup', 'alignment', 'alignment_passes', 'reference_passes', 'last_callback', 'phases', 'compile', 'cg_per_iteration', 'rows']
+>>> rows = T['rows']                                           # one record per history row
+>>> len(rows) == len(st['history'])
+True
+>>> all(abs(sum(s for s in row['seconds'].values() if s is not None) - row['window']) < 1e-9 for row in rows)
+True
+>>> all(row['window'] == h['wall_time'] for row, h in zip(rows, st['history']) if h['wall_time'] is not None)
+True
+>>> abs(T['total'] - (T['setup'] + T['alignment'] + sum(row['window'] for row in rows) + T['last_callback'])) < 1e-6
+True
+>>> T['compile'] is None, len(T['alignment_passes']) == len(st['start_movements'])     # numpy: no compiler to time
+(True, True)
+>>> _, plain = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', probes, noisy, x_new, **level)
+>>> 'timing' in plain, plain['losses'] == st['losses']        # the same run, untimed
+(False, True)
+
+```
+
+The phases of one row tile its window (the second check above) and the windows, the setup, the alignment and the
+last callback tile the run (the fourth); the window is the same float as the row's `wall_time` (the third).
+
+**The phases** (`backend.optimizers.PhaseSeconds`, in run order; `None` when the phase did not run on that row):
+
+| phase | what it covers | `None` when |
+|---|---|---|
+| `previous_callback` | the previous row's record, its `callback` (a display) and its history append | row 0 |
+| `frame` | the orthonormal frame of the point (`geom.frame`), or the start frame's structure check | the row reuses the model (after a rejected trust-region trial) |
+| `sweep` | the sampling kind's sweep at the frame (`kind.precompute`) | as `frame` |
+| `companion` | the geometry's per-frame data (`geom.precompute`) | as `frame` |
+| `residual` | the residual `S(x) − y` | as `frame` |
+| `curvature` | the exact Hessian's curvature data (`geom.curvature_precompute`) | Gauss-Newton; as `frame` |
+| `gradient` | the misfit transpose `Π 𝒥ᵀ r` (in both modes; exact mode runs it inside the build), the objective's parts, the gradient, `‖g‖`, the lift diagnostics | as `frame` |
+| `reference` | the reference `‖g0‖` (`g0_reference`): one sweep and transpose for `'zero'`, the alignment loop for `'cone'` | every row but row 0 |
+| `cg` | the CG solve (under `use_jit`, one compiled call) | the converged row |
+| `forms` | the step's scalars: the first trust radius, the slope, the descent fallback, `pᵀHp`, `‖p‖` | the converged row |
+| `trial_retraction` | every trial's retraction (the line search may try several; the trust region tries one) | the converged row |
+| `trial_objective` | every trial's objective | the converged row |
+| `tracking` | reserved for a Gauss-Newton-to-exact switch | always, for now |
+| `remainder` | what no phase covers: the forcing term, `‖x‖`, the trust region's data norm, bookkeeping | never |
+
+A row's record (`NewtonInfo.timing`, a `NewtonTiming`; `stats['timing']['rows']` holds them as dicts) adds `window`,
+`compile_seconds` (the same phases, jax's compile wait), `trials` (the retractions tried) and `accepted_retraction`
+(the accepted trial's share of `trial_retraction`, `None` on a rejection). Row 0 also carries the run's **one-offs**,
+which no window contains: `setup` (from the call to the loop: validation, the jax conversion, the start frame's
+bookkeeping) and `alignment` (`padded_from`'s padded start) with their compile waits, and the seconds per pass of the
+alignment and of the `'cone'` reference's loop (`alignment_passes`, `reference_passes`; breakdowns of `alignment` and
+of row 0's `reference`).
+
+**`stats['timing']`** is a plain dict:
+
+| key | what |
+|---|---|
+| `total` | the call's entry to the loop's exit: `setup + (alignment or 0) + Σ window + last_callback` |
+| `setup`, `alignment`, `alignment_passes`, `reference_passes` | the one-offs, as row 0 carries them (`alignment` `None` without `padded_from`) |
+| `last_callback` | the last row's callback, which is in no window |
+| `phases` | each phase summed over the rows |
+| `compile` | the same for the compile wait, with `setup`, `alignment` and `last_callback`; `None` when not measured |
+| `cg_per_iteration` | CG's seconds less its compile wait, per CG iteration |
+| `rows` | every row's record, as a dict |
+
+**The display.** With `verbose=True` (or `make_newton_display` as the backend callback) each timed row prints a
+`time` line under its header, and the run ends with a closing table. The example's run on the maintainer's laptop
+(numpy; timings vary run to run, so this block is not checked):
+
+```
+iter  0 | obj 2.547e+05  ‖g‖ 1.26e+04 (2.2e-01·g₀) | CG 1/200 tol 2.8e+03 resid 4.9e+03 ∂ | TR Δ 3.46e+01 ✓ ‖Δx‖/‖x‖ 2.6e-01 | Δf -2.19e+05 ρ 1.00 | 0.17s | κ -1.2e-03 σ 0.0e+00 ε 1.3e-04
+  time  model 3.9e-03 [frame 7.9e-05 sweep 1.1e-03 comp 4.8e-06 resid 1.0e-03 curv 1.7e-03] | grad 2.8e-03 | ref 1.2e-01 ×9 | cg 2.1e-02 (2.1e-02/it) | forms 1.6e-02 | trials 1.9e-03 ×1 [retr 7.9e-04 obj 1.1e-03] | rest 1.9e-04 | setup 1.9e-04 | align 5.8e-02 ×5
+  rel err  rows=mode  cols=order
+           ord0     ord1
+    m0  3.7e-01  1.9e-01
+    m1  2.7e-01  2.8e-01
+    m2  2.8e-01  2.6e-01
+iter  1 | obj 3.617e+04  ‖g‖ 4.79e+03 (8.5e-02·g₀) | CG 3/200 tol 4.1e+02 resid 2.3e+02 ✓ | TR Δ 6.92e+01 ✓ ‖Δx‖/‖x‖ 1.2e-01 | Δf -3.57e+04 ρ 1.01 | 0.07s | κ +3.6e-03 σ 1.3e+01 ε 1.4e-04
+  time  model 3.6e-03 [frame 4.9e-04 sweep 9.9e-04 comp 3.3e-06 resid 1.0e-03 curv 1.1e-03] | grad 2.8e-03 | cg 4.5e-02 (1.5e-02/it) | forms 1.2e-02 | trials 1.9e-03 ×1 [retr 7.9e-04 obj 1.2e-03] | cb 2.9e-04 | rest 1.8e-04
+  rel err  rows=mode  cols=order
+           ord0     ord1
+    m0  1.1e-01  8.9e-02
+    m1  1.2e-01  1.1e-01
+    m2  1.1e-01  8.3e-02
+…
+iter  5 | obj 6.024e-02  ‖g‖ 2.65e-08 (4.7e-13·g₀) | converged (‖g‖ ≤ gtol·‖g₀‖)
+  time  model 3.6e-03 [frame 4.7e-04 sweep 9.5e-04 comp 2.9e-06 resid 1.0e-03 curv 1.1e-03] | grad 2.8e-03 | cb 2.6e-04 | rest 1.9e-05
+  rel err  rows=mode  cols=order
+           ord0     ord1
+    m0  1.6e-04  9.5e-05
+    m1  1.9e-04  1.2e-04
+    m2  1.8e-04  1.0e-04
+  timing  6 rows, Σ window 7.0e-01 s (the last row's callback is not in it)
+                       seconds  % window  compile  mean/row
+    previous_callback  1.6e-03       0.2        —   3.2e-04
+    frame              2.6e-03       0.4        —   4.3e-04
+    sweep              5.9e-03       0.8        —   9.8e-04
+    companion          2.1e-05       0.0        —   3.4e-06
+    residual           6.1e-03       0.9        —   1.0e-03
+    curvature          7.4e-03       1.1        —   1.2e-03
+    gradient           1.7e-02       2.4        —   2.8e-03
+    reference          1.2e-01      17.4        —   1.2e-01
+    cg                 4.7e-01      66.3        —   9.3e-02
+    forms              6.4e-02       9.1        —   1.3e-02
+    trial_retraction   3.9e-03       0.6        —   7.8e-04
+    trial_objective    5.5e-03       0.8        —   1.1e-03
+    remainder          8.8e-04       0.1        —   1.5e-04
+    setup              1.9e-04         —        —         —
+    alignment          5.8e-02         —        —         —
+    alignment 5 passes, reference 9 passes, cg 1.5e-02 s per CG iteration
+```
+
+`model` is the build with its parts in brackets, `grad` the gradient phase, `ref` the reference with the cone loop's
+pass count, `cg` its seconds and its seconds per CG iteration, `trials` the retractions and objectives with the trial
+count (on a backtracked row, `accepted` is the accepted trial's retraction), `cb` the previous row's callback, `rest`
+the remainder; row 0 adds `setup` and `align` with its pass count, and a jax run a `compile` cell (the phases that
+compiled, or `0`). In this run CG took two thirds of the rows' time and row 0's `'cone'` reference a sixth.
+
+**What it costs.** Every phase ends by waiting for its results (`common.tree_block_until_ready`), because jax
+dispatches asynchronously: without the wait, a phase's work would be charged to whichever later phase first needed
+its result. On numpy nothing is asynchronous and the waits are free. On jax they **serialize the run**: the host can
+no longer queue the next phase while the device works, so a timed jax run is slower than an untimed one, and its
+times describe the serialized run. Measured, timing on against off, in seconds per call (the median of 3 interleaved
+pairs after a warm-up, 7 on numpy; the maintainer's laptop: AMD Ryzen 7 3700U, 4 cores, 13 GB, CPU only; Python 3.11,
+numpy 2.4, jax 0.10.2 in x64):
+
+| case | layer | numpy | jax, `use_jit` | jax, eager |
+|---|---|---|---|---|
+| the example above (d = 3; 6 rows, 31 CG iterations) | ragged | 0.77 → 0.74 (−3.9 %) | 3.49 → 3.55 (+1.7 %) | 13.98 → 13.82 (−1.1 %) |
+| | uniform | 0.86 → 0.86 (−0.1 %) | 0.82 → 0.81 (−0.8 %) | 3.21 → 3.24 (+1.1 %) |
+| d = 6: shape `(8,)*6`, 200 probes, order 1, rank 3, the default Gauss-Newton from a random start (10 rows, 27 CG iterations) | ragged | 0.81 → 0.81 (+0.2 %) | 3.96 → 3.97 (+0.3 %) | 9.64 → 9.68 (+0.4 %) |
+| | uniform | 1.02 → 1.02 (+0.1 %) | 0.95 → 0.91 (−3.6 %) | 1.27 → 1.28 (+1.0 %) |
+
+Every difference is within the run-to-run spread (single runs of one numpy call varied by up to 15 %): on this CPU,
+timing costs nothing measurable. The waits themselves cost 0.1 % of a numpy run (71 waits of 10–13 µs in the
+example), and on a CPU, jax's dispatch of these small operations overlaps little with the host's work, so there is
+little to lose.
+
+A GPU overlaps far more of the host's work with the device's than a laptop CPU does, so it loses more to the waits:
+measure on the GPU before reading its split.
+
+**Jit or eager, as the compile column shows it.** On a cold run (empty program caches) the compile wait is most of the
+run, and where it sits tells jit from eager. The example above on jax (x64), `use_jit=True`, cold and then again at
+the same structure (rows 0 and 1 of the cold run, row 0 of the second):
+
+```
+  time  model 2.3e+00 [frame 2.1e-04 sweep 2.2e-02 comp 1.1e-05 resid 2.0e-02 curv 2.3e+00] | grad 6.0e-01 | ref 5.6e+00 ×9 | cg 3.1e+00 (8.4e-02/it) | forms 1.3e+00 | trials 2.8e+00 ×1 [retr 2.7e+00 obj 3.0e-02] | rest 5.5e-01 | setup 1.2e-01 | align 1.7e+01 ×5 | compile curv 2.1e+00 grad 5.1e-01 ref 4.4e+00 cg 3.0e+00 forms 9.4e-01 retr 2.6e+00 rest 5.2e-01 align 1.6e+01
+  time  model 1.1e+00 [frame 1.0e+00 sweep 2.1e-02 comp 7.3e-06 resid 2.0e-02 curv 1.3e-02] | grad 6.5e-02 | cg 2.8e-03 (9.2e-04/it) | forms 2.4e-01 | trials 2.9e-02 ×1 [retr 9.8e-03 obj 1.9e-02] | cb 1.0e-01 | rest 1.6e-03 | compile cb 9.9e-02 frame 9.6e-01
+
+  time  model 5.0e-02 [frame 1.3e-04 sweep 1.8e-02 comp 5.6e-06 resid 1.9e-02 curv 1.3e-02] | grad 6.3e-02 | ref 8.7e-01 ×9 | cg 1.8e-03 (1.8e-03/it) | forms 2.9e-01 | trials 3.3e-02 ×1 [retr 1.0e-02 obj 2.2e-02] | rest 1.8e-03 | setup 1.1e-03 | align 4.5e-01 ×5 | compile 0
+```
+
+- **`use_jit=True`**: CG is one program, compiled on its first call, so row 0's `cg` carries it (3.0 s here) and a
+  second run at the same structure compiles nothing (`compile 0` on every row). The phases around CG stay eager and
+  compile their operations the first time they run: mostly on row 0, but also later (above, row 1's first
+  `geom.frame`, since row 0 started from the aligned frame, and the display's first error table in `cb`). The ragged
+  alignment is a host loop around jitted steps, so its passes are timed (`×5`) and its compile is in `alignment`;
+  the uniform alignment is one whole-loop program, compiled inside `alignment` (9.0 s of 9.4 s in the example) with
+  `alignment_passes` `None`, and so is the `'cone'` loop inside row 0's `reference`.
+- **Eager jax** compiles every operation of a new structure on first use, spread over the phases that run them; a
+  rerun at the same structure compiles nothing, but every operation is dispatched one by one.
+
+The cold runs, in seconds (compile = the sum of the compile column, its four largest cells beside it, then `cg`'s
+when it is not among them), and the same call again at the same structure:
+
+| case | layer | backend | cold run | compile | the four largest compile cells; `cg` | rerun |
+|---|---|---|---|---|---|---|
+| the example | ragged | `use_jit` | 36 | 31 | `alignment` 15.8, `reference` 4.5, `cg` 2.9, `trial_retraction` 2.6 | 3.5 |
+| | uniform | `use_jit` | 39 | 36 | `alignment` 9.0, `reference` 8.0, `trial_retraction` 5.9, `frame` 4.2; `cg` 1.6 | 0.82 |
+| | ragged | eager | 71 | 54 | `alignment` 32.7, `reference` 13.2, `trial_retraction` 2.2, `curvature` 2.1; `cg` 1.7 | 14.0 |
+| | uniform | eager | 80 | 73 | `alignment` 34.9, `reference` 28.0, `curvature` 3.3, `trial_retraction` 2.1; `cg` 1.9 | 3.2 |
+| d = 6 | ragged | `use_jit` | 17 | 12 | `gradient` 3.8, `trial_retraction` 2.7, `cg` 2.1, `sweep` 1.4 | 4.0 |
+| | uniform | `use_jit` | 17 | 15 | `trial_retraction` 5.4, `frame` 5.4, `gradient` 1.4, `reference` 1.1; `cg` 0.8 | 0.95 |
+| | ragged | eager | 21 | 11 | `gradient` 3.7, `trial_retraction` 2.7, `frame` 1.4, `sweep` 1.4; `cg` 1.0 | 9.6 |
+| | uniform | eager | 18 | 16 | `frame` 5.5, `trial_retraction` 5.5, `gradient` 1.4, `reference` 1.2; `cg` 1.1 | 1.3 |
+
+The warm split is what the timing is for. In the ragged example, `use_jit` brought CG to 0.9 ms per iteration
+(numpy: 15 ms; eager jax: 300 ms), yet the run took 3.5 s against numpy's 0.74 s: the eager phases around CG cost
+more on jax than on numpy at this size, the exact `pᵀHp` in `forms` (42 % of the rows' time), the `'cone'` loop
+(28 %) and `gradient` (12 %). See also [Jit or eager](aligned_padded_frame.md#jit-or-eager) for the alignment's
+compiles and memory.
+
+**Caveats.**
+
+- The compile column is `None` on a numpy run, and on a jax whose `jax.monitoring` cannot unregister a listener (the
+  jax 0.4.30 floor): the listener is registered for the call and must be removed after it.
+- The listener is process-global: compiles in other threads, or in a timed run nested inside a callback, are counted
+  too.
+- A callback runs between two windows, so its time is the **next** row's `previous_callback` (the last row's is
+  `last_callback`): a heavy display shows up a row late.
+- Work dispatched without a wait is charged to the next phase that waits for it: `-g`, dispatched in the remainder,
+  finishes inside `cg` (tiny), and so does any jax work a callback starts without waiting.
+- A `Problem` subclass that overrides `local_model` is called as without timing; its whole build is reported in
+  `frame`, and `sweep` through `curvature` are `None`.
+- A custom geometry's `aligned_padded_frame` is asked for its seconds per pass only when its signature names `timing`;
+  otherwise `alignment_passes` and `reference_passes` are `None` (the alignment is still timed whole). Under the
+  uniform whole-loop jit they are `None` too ([`aligned_padded_frame.md`](aligned_padded_frame.md#jit-or-eager)).
+- The frontend's own setup (building the problem, reducing `x0` and `padded_from` to minimal ranks, building the
+  display) runs before the backend's clock starts: `stats['timing']` describes the backend call, the same for a
+  raw-`.data` user.
 
 ---
 

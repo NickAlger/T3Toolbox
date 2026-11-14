@@ -150,6 +150,15 @@ continuation that aligns at every level can therefore pass Linux's `vm.max_map_c
 levels and abort with `LLVM ERROR: Unable to allocate section memory!`. **With jax inputs, pass `use_jit=True`.** The
 loops do not warn. numpy inputs need nothing; they are fast and eager.
 
+**Timing the passes.** Both geometry members take `timing=False`; with `timing=True` they return a third element, the
+seconds of each pass, each from a synchronized start to a synchronized end (so on jax it is the pass's work, not its
+dispatch). `newton_cg(timing=True)` reports them as `alignment_passes` and `reference_passes`
+([Timing a Newton run](fitting_and_optimization.md#413-timing-a-newton-run)). Only a host loop can be clocked by
+pass: the ragged loop (eager, or around its jitted step) and the uniform loop when run eagerly. Under the uniform
+whole-loop jit the passes are one program, so the third element is `None` (`newton_cg` still times the alignment
+whole). The public loops (`fv_aligned_padded_frame`, `ufv_aligned_padded_frame`) and `padded_start` do not take
+`timing`.
+
 ## What the measurements showed
 
 **The shipped code on full rank-continuation ladders** (A100, exact Hessian, `gtol_rel=1e-3`, the Darcy ladder of

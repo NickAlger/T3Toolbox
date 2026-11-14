@@ -547,6 +547,8 @@ def newton_cg(
         cone_tol:                   typ.Optional[float] = None,   # None = 0.05
         cone_alternate:             typ.Optional[bool]  = None,   # None = True
         cone_seed:                  typ.Optional[int]   = None,   # None = ZERO_FRAME_SEED
+
+        timing:                     bool = False,                 # True: stats['timing'], the seconds by phase (changes no number)
 ) -> typ.Tuple[Point, dict]:
     """Inexact Riemannian Newton-CG with a line search or a trust region -- the manifold workhorse. Ragged or
     uniform ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
@@ -620,6 +622,56 @@ def newton_cg(
     >>> stats['start_frame'], len(stats['start_movements']) <= 10
     ('padded', True)
 
+    **Timing a run** (``timing=True``). Where does a Newton run's time go -- CG or the model build, the retraction or
+    the line search's extra trials, the alignment of a padded start, the compiler? ``timing=True`` splits each history
+    row's ``wall_time`` window into phases and adds ``stats['timing']``. It changes no number: ``x`` and every other
+    ``stats`` field are bitwise the untimed run's, the ``wall_time`` clock readings aside. A row's phases, in the
+    order the ``time`` line shows them (``None`` when one did not run on that row;
+    :py:class:`t3toolbox.backend.optimizers.PhaseSeconds`):
+
+    * ``frame``, ``sweep``, ``companion``, ``residual``, ``curvature`` -- the local model's build: the orthonormal frame
+      at the point, the sampling kind's sweep at it, the geometry's per-frame data, the residual, and with
+      ``hessian='exact'`` the curvature data. ``None`` on a row that reuses the model (after a rejected trust-region
+      trial).
+    * ``gradient`` -- the misfit transpose ``Π 𝒥ᵀ r`` (in both modes) and what reads it: the objective's parts, the
+      gradient and its norm.
+    * ``reference`` -- row 0 only: the reference ``‖g0‖`` of ``g0_reference``, the ``'cone'`` alignment included.
+    * ``cg`` -- the CG solve (under ``use_jit``, one compiled call). ``forms`` -- the step's scalars (the slope,
+      ``pᵀHp``, ``‖p‖``, the first trust radius).
+    * ``trial_retraction``, ``trial_objective`` -- every trial's retraction and objective (``trials`` counts them).
+    * ``previous_callback`` -- the previous row's ``callback`` (a display) and bookkeeping, so a heavy display shows
+      up a row late; ``remainder`` -- what no phase covers.
+
+    ``stats['timing']`` carries the run's ``total``, its one-offs (``setup``; ``alignment`` and ``alignment_passes``
+    with ``padded_from``; ``reference_passes`` with ``'cone'``; ``last_callback``), each phase summed over the rows
+    (``phases``), the compile wait likewise (``compile``), CG's seconds per iteration (``cg_per_iteration``) and every
+    row's record (``rows``). ``total`` is the setup, the alignment, the rows' windows and the last callback, end to
+    end. With ``verbose=True`` each row also prints a ``time`` line, and the run ends with a closing table; a custom
+    ``callback`` reads the row's record as ``NewtonInfo.timing``.
+
+    *What it costs.* Every phase ends by waiting for its results, because jax dispatches asynchronously: without the
+    wait, one phase's work would be charged to whichever later phase first needed it. On numpy the waits are free.
+    On jax they serialize the run (the host no longer queues the next phase while the device works), so a timed jax
+    run is slower, and its times describe the serialized run. On the maintainer's laptop CPU, timing on against off
+    differed by -4 % to +2 % on numpy, eager jax and ``use_jit``, ragged and uniform, at d = 3 and d = 6: within the
+    run-to-run noise. A GPU overlaps far more than a laptop CPU, so it can lose more: measure there before trusting
+    its split.
+
+    *The compile column.* On a jax run each phase also carries jax's compile wait (``compile_seconds``: tracing,
+    lowering and backend compilation, from ``jax.monitoring``). With ``use_jit=True`` CG is one program, compiled on
+    its first call (row 0's ``cg``), and a second run at the same structure compiles nothing; the eager phases around
+    CG compile their operations the first time they run, and the uniform alignment's whole-loop program is compiled
+    inside ``alignment``. Eager jax compiles every operation of a new structure on first use. On the laptop, the
+    example below run on jax (x64) took 36 s cold under ``use_jit``, 31 s of it compiling (16 s in the alignment,
+    2.9 s CG's program), and 3.5 s at the same structure again; eager, 71 s cold (54 s compiling) and 14 s again. The
+    column is ``None`` on numpy and on a jax whose ``jax.monitoring`` cannot unregister a listener (jax 0.4.30). The
+    listener is process-global: compiles in other threads, or in a timed run inside a callback, are counted too.
+
+    *What is not timed.* This function's own setup -- building the problem, reducing ``x0`` and ``padded_from`` to
+    minimal ranks, building the display -- runs before the backend's clock starts, so ``stats['timing']`` describes
+    the backend call, the same for a raw-``.data`` user. The phases, the costs and the display in full:
+    :doc:`/fitting_and_optimization` §4.13.
+
     For a large-``|W|`` uniform ``probe_derivatives`` fit, ``chunk_size='auto'`` (the default) sizes the
     ``𝒥ᵀ`` gradient assembly's memory automatically (via
     :py:func:`~t3toolbox.backend.sampling_derivatives.estimate_chunk_size`); pass an ``int`` / ``None`` to
@@ -674,6 +726,30 @@ def newton_cg(
     >>> gn['newton_steps'] > 2 * ex['newton_steps']
     True
 
+    **Timing a run.** The same problem one level up: the rank-2 fit ``x0`` zero-padded to rank 3, restarted from the
+    aligned frame (``padded_from``) with the ``'cone'`` reference. ``timing=True`` adds ``stats['timing']``; the
+    phases tile each row's window, and the run is the untimed run:
+
+    >>> x_new = x0.resize(shape, (3, 3, 3), (1, 3, 3, 1))                      # the next level, zero-padded
+    >>> level = dict(order=1, max_newton=40, hessian='exact', cg_forcing_power=1.0, padded_from=x0,
+    ...              g0_reference='cone')
+    >>> _, timed = optimizers.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data, x_new, timing=True,
+    ...                                 **level)
+    >>> T = timed['timing']
+    >>> rows = T['rows']                                                        # one record per history row
+    >>> len(rows) == len(timed['history'])
+    True
+    >>> all(abs(sum(s for s in row['seconds'].values() if s is not None) - row['window']) < 1e-9
+    ...     for row in rows)                                                     # the phases tile each window
+    True
+    >>> rows[0]['seconds']['reference'] is not None, rows[1]['seconds']['reference']     # row 0 only
+    (True, None)
+    >>> T['compile'] is None, len(T['alignment_passes']) == len(timed['start_movements'])   # numpy: no compiler
+    (True, True)
+    >>> _, plain = optimizers.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data, x_new, **level)
+    >>> 'timing' in plain, plain['losses'] == timed['losses']                   # the same run, untimed
+    (False, True)
+
     **Precision — jit runs in jax's default float32.** ``use_jit=True`` opts into jax world, whose default
     dtype is float32. Fit a small exact-rank tensor three ways; the giveaway throughout is the returned
     core's dtype. First set up the problem:
@@ -712,6 +788,8 @@ def newton_cg(
     ('float64', True)
     """
     bopt._check_hessian(hessian, 'newton_cg')            # structural, named for the caller, before the setup work
+    if not isinstance(timing, (bool, np.bool_)):
+        raise TypeError('newton_cg: timing must be a bool, got %r' % (timing,))
     setup = least_squares_problem(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size,
                                   hessian=hessian)
     records = None
@@ -730,13 +808,14 @@ def newton_cg(
         padded_max_passes=padded_max_passes, padded_tol=padded_tol, padded_alternate=padded_alternate,
         padded_seed=padded_seed, cone_oversampling=cone_oversampling, cone_oversampled_passes=cone_oversampled_passes,
         cone_max_passes=cone_max_passes, cone_tol=cone_tol, cone_alternate=cone_alternate, cone_seed=cone_seed))
+    timed = {'timing': True} if timing else {}           # forwarded only when set, like the seam's options
     x_cores, stats = bopt.newton_cg(setup.problem, setup.x0_cores,
                                     max_newton=max_newton, gtol_rel=gtol_rel, cg_maxiter=cg_maxiter,
                                     c_armijo=c_armijo, on_line_search_failure=on_line_search_failure,
                                     g0_reference=g0_reference, g0norm_newton=g0norm_newton, g0norm_cg=g0norm_cg,
                                     cg_forcing_power=cg_forcing_power, use_jit=use_jit, callback=callback,
                                     hessian=hessian, curvature_damping=curvature_damping,
-                                    step_control=step_control, tr_radius0=tr_radius0, **seam)
+                                    step_control=step_control, tr_radius0=tr_radius0, **seam, **timed)
     if records is not None:
         stats['diagnostics'] = records
     return setup.rewrap(x_cores), stats

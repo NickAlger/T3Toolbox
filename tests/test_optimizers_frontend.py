@@ -453,11 +453,8 @@ class TestLeastSquaresProblemAndKeywords(unittest.TestCase):
         front = inspect.signature(topt.newton_cg).parameters
         back = inspect.signature(bopt.newton_cg).parameters
         self.assertFalse(any(p.kind is inspect.Parameter.VAR_KEYWORD for p in front.values()))
-        not_yet = ('timing',)          # TEMPORARY: the timing plan's slice P3 adds the frontend keyword and removes this
-        for name in not_yet:           # self-expiring: red once the frontend has the keyword
-            self.assertNotIn(name, front, '%s is now a frontend keyword: delete not_yet (the timing plan, P3)' % name)
         for name, p in back.items():
-            if name in ('problem', 'x0') or name in not_yet:
+            if name in ('problem', 'x0'):
                 continue
             with self.subTest(name=name):
                 self.assertIn(name, front)
@@ -484,6 +481,64 @@ class TestLeastSquaresProblemAndKeywords(unittest.TestCase):
             topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0)
         self.assertEqual([c.kwargs['hessian'] for c in lsp.call_args_list],
                          ['Exact', 'gauss_newton'])                      # for the problem's 'auto' chunk
+
+    def test_newton_cg_forwards_timing_only_when_set(self):
+        """T9: ``timing`` is the last keyword, keyword-only (after ``cone_seed``, as on the backend); it reaches the
+        backend as ``timing=True`` only when set (unset, the backend call is 2026.4.0's, as for the other opt-in
+        keywords); a numpy bool is a bool."""
+        import inspect
+        from unittest import mock
+        import t3toolbox.backend.optimizers as bopt
+        front = inspect.signature(topt.newton_cg).parameters
+        self.assertEqual(list(front)[-2:], ['cone_seed', 'timing'])
+        self.assertIs(front['timing'].kind, inspect.Parameter.KEYWORD_ONLY)
+        for value, forwarded in ((True, True), (np.True_, True), (False, False), (np.False_, False), (None, None)):
+            if value is None:                                            # the default
+                kwargs = {}
+            else:
+                kwargs = dict(timing=value)
+            with self.subTest(timing=value):
+                with mock.patch.object(bopt, 'newton_cg', side_effect=lambda problem, x0, **kw: (x0, {})) as spy:
+                    topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, **kwargs)
+                if forwarded:
+                    self.assertIs(spy.call_args.kwargs['timing'], True)
+                else:
+                    self.assertNotIn('timing', spy.call_args.kwargs)
+
+    def test_newton_cg_timing_must_be_a_bool(self):
+        """T9: a ``timing`` that is not a bool is a ``TypeError`` at the call, before the problem is built (a truthy
+        string or 1 is not taken as True)."""
+        from unittest import mock
+        for value in ('yes', 1, 0, None, 1.0):
+            with self.subTest(timing=value):
+                with mock.patch.object(topt, 'least_squares_problem') as spy:
+                    with self.assertRaisesRegex(TypeError, 'timing must be a bool'):
+                        topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, timing=value)
+                spy.assert_not_called()
+
+    def test_newton_cg_timing_runs(self):
+        """T9: a timed frontend run, ragged and uniform, returns ``stats['timing']`` with one record per history row
+        and the same numbers as the untimed run; with ``verbose=True`` every row's block carries its ``time`` line and
+        the run ends with the closing table (printed once)."""
+        import contextlib
+        import io
+        ux0 = ut3.UniformTuckerTensorTrain.from_t3(self.x0)
+        for geometry, x0 in ((t3m.MANIFOLD, self.x0), (ut3m.UNIFORM_MANIFOLD, ux0)):
+            with self.subTest(layer=type(x0).__name__):
+                _, plain = topt.newton_cg(geometry, 'apply', self.ww, self.b, x0, max_newton=4)
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    _, timed = topt.newton_cg(geometry, 'apply', self.ww, self.b, x0, max_newton=4, timing=True,
+                                              verbose=True)
+                self.assertNotIn('timing', plain)
+                self.assertEqual(len(timed['timing']['rows']), len(timed['history']))
+                self.assertEqual(timed['losses'], plain['losses'])                # timing changes no number
+                self.assertTrue(_histories_equal(timed['history'], plain['history']))
+                self.assertEqual(len(timed['diagnostics']), len(timed['history']))   # the records are as before
+                text = out.getvalue()
+                self.assertEqual(text.count('\n  time  '), len(timed['history']))
+                self.assertEqual(text.count('  timing  %d rows' % len(timed['history'])), 1)
+                self.assertLess(text.rfind('iter '), text.find('  timing  '))     # the table follows the last row
 
 
 def _histories_equal(h1, h2, skip=('wall_time',)):

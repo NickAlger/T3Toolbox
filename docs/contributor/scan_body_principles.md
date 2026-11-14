@@ -135,7 +135,11 @@ A related pattern, not a precedent: the uniform aligned loop's whole-loop jit
 (`backend.uniform_padded_frames._ufv_aligned_loop_kernel`) binds its statics to its loop bodies with one
 `functools.partial` *inside* the single jit, where every binding is traced once per compile and no fresh object
 reaches a cache key. That binding is accepted in this instance only and sets no precedent for other loop bodies;
-new bodies follow principles 1–4.
+new bodies follow principles 1–4. Its bound statics carry one host-side slot, `clock` (2026.5.0, for the geometry
+member's `timing`): a list each pass appends its seconds to, read only by the eager kernel. It must never reach a
+jitted body (under a trace an append would record tracing time, once per trace, and the synchronization would meet
+tracers), and the kernel's `ValueError` on `clock` with `use_jit=True` is the guard; the jitted call never passes it,
+so its program and cache key are the untimed ones.
 
 A second, quieter hazard: a factory parameter whose value varies with the data is not *incorrect* —
 `lru_cache` will key on it happily — but it grows the cache and the compile count without bound, one
