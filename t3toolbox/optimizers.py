@@ -163,7 +163,8 @@ def _resolve_chunk_size(chunk_size, kind, x0, sample, order, batch=None, hessian
     ``𝒥ᵀ`` assembly, so every other kind (and the ragged path, which frees eagerly) resolves to ``None``
     -- a no-op. For minibatch optimizers the transpose sees ``batch`` probes, not the full ``|W|``.
     ``hessian`` is the solver's mode, passed straight to the estimator: with ``'exact'`` the same chunk also
-    drives the exact Hessian's two-hole assemblies, so it is sized for those too. See :doc:`/chunking`."""
+    drives the exact Hessian's two-hole assemblies, so it is sized for those too (:py:func:`least_squares_problem`
+    passes ``'exact'`` for ``'switch'``). See :doc:`/chunking`."""
     if chunk_size != 'auto':
         return chunk_size
     if kind != 'probe_derivatives' or not isinstance(x0, ut3.UniformTuckerTensorTrain):
@@ -211,7 +212,7 @@ def least_squares_problem(
         regularizer: typ.Any = None,                # optional, e.g. optimizers.IdentityRegularizer(λ)
         chunk_size:  typ.Any = 'auto',              # probe_derivatives 𝒥ᵀ memory chunk (docs/chunking.md)
         batch:       typ.Optional[int] = None,      # minibatch W (mc_sgd / adam), for chunk_size='auto'
-        hessian:     str = 'gauss_newton',          # the solve's mode, for chunk_size='auto': or 'exact'
+        hessian:     str = 'gauss_newton',          # the solve's mode, for chunk_size='auto': or 'exact' | 'switch'
 ) -> LeastSquaresSetup:  # .problem, .x0_cores, .rewrap
     """Build the backend least-squares problem from the frontend vocabulary -- the constructor the four
     optimizers use, public for scripts that drive the backend directly.
@@ -233,11 +234,12 @@ def least_squares_problem(
     ``rewrap`` carries the reduced point's ``shape`` + ``masks``. ``chunk_size`` and ``batch`` are as in
     the optimizers (:doc:`/chunking`).
 
-    ``hessian`` (``'gauss_newton'`` or ``'exact'``, case-insensitive) is the mode the problem will be
-    solved in. It does not fix the mode -- that is the local model's and the solver's own ``hessian``
+    ``hessian`` (``'gauss_newton'``, ``'exact'`` or ``'switch'``, case-insensitive) is the mode the problem
+    will be solved in. It does not fix the mode -- that is the local model's and the solver's own ``hessian``
     argument -- it sizes ``chunk_size='auto'``: the chunk is a field of the sampling kind, fixed here, and
     with the exact Hessian the same chunk also drives its two-hole assemblies, so it is sized for those
-    too. Pass the solver's value (:py:func:`newton_cg` does).
+    too. ``'switch'`` is sized as ``'exact'`` (its tracking products and its exact phase run the two-hole
+    assemblies). Pass the solver's value (:py:func:`newton_cg` does).
 
     Examples
     --------
@@ -298,7 +300,9 @@ def least_squares_problem(
     """
     kind = kind.lower()                                           # 'Probe', 'PROBE_DERIVATIVES', ... accepted
     _check_kind(kind, order)
-    hessian = bopt._check_hessian(hessian, 'least_squares_problem')   # structural, before any work
+    hessian = bopt._check_hessian(hessian, 'least_squares_problem', bopt._NEWTON_HESSIAN_MODES)   # before any work
+    if hessian == 'switch':                                       # its tracking products and its exact phase run the
+        hessian = 'exact'                                         #   two-hole assemblies: the chunk is sized as 'exact'
     if weight is not None and kind in ('apply', 'entries'):      # plain apply/entries: no axis to weight
         raise ValueError(f"the plain '{kind}' kind takes no residual weight (no mode or order axis); "
                          "per-mode weighting is defined for probe, per-order for the derivative kinds.")
@@ -526,9 +530,9 @@ def newton_cg(
         c_armijo:               float = 1e-4,  # Armijo sufficient-decrease constant (line search only)
         on_line_search_failure: str = 'stop',  # Armijo exhausted: 'stop' = reject the step and terminate; 'accept' = take the last trial
 
-        hessian:                str = 'gauss_newton',        # or 'exact' (case-insensitive): the local model's Hessian
-        curvature_damping:      typ.Optional[float] = None,  # exact only: lift damping, relative to ‖X‖; None = the default
-        step_control:           typ.Optional[str]   = None,  # None = 'line_search' (GN) / 'trust_region' (exact)
+        hessian:                str = 'gauss_newton',        # or 'exact' | 'switch' (GN, then exact); case-insensitive
+        curvature_damping:      typ.Optional[float] = None,  # exact, switch: lift damping, relative to ‖X‖; None = the default
+        step_control:           typ.Optional[str]   = None,  # None = 'line_search' (GN) / 'trust_region' (exact, switch)
         tr_radius0:             typ.Optional[float] = None,  # trust region only: Δ0 > 0; None = the GN Cauchy length
         *,
         start_frame:                typ.Optional[typ.Union['bvf.T3Frame', 'ubv.UT3Frame']] = None,   # a frame of x0 (after its reduction) for iteration 0
@@ -549,6 +553,11 @@ def newton_cg(
         cone_seed:                  typ.Optional[int]   = None,   # None = ZERO_FRAME_SEED
 
         timing:                     bool = False,                 # True: stats['timing'], the seconds by phase (changes no number)
+
+        switch_tau:                 typ.Optional[float] = None,   # None = 0.25; in [0, 1); 0 = never switch; 'switch' only
+        switch_k:                   typ.Optional[int]   = None,   # None = 2; an int >= 0; 0 = exact from iteration 0
+        switch_cg_forcing_power:    typ.Optional[float] = None,   # None = 1.0: the forcing power from the switch on
+        switch_track:               typ.Optional[str]   = None,   # None = 'countable'; or 'all': the rows that track
 ) -> typ.Tuple[Point, dict]:
     """Inexact Riemannian Newton-CG with a line search or a trust region -- the manifold workhorse. Ragged or
     uniform ``x0`` (see :py:func:`gradient_descent`). See :py:func:`t3toolbox.backend.optimizers.newton_cg`.
@@ -559,6 +568,8 @@ def newton_cg(
     at a few times the cost of a Gauss-Newton Hessian-apply. Its default step control is a trust region
     (``step_control='trust_region'``: Steihaug-Toint CG, one trial retraction per step, accepted on the
     model's predicted decrease), the Gauss-Newton one the Armijo line search; either combines with either.
+    ``'switch'`` starts with Gauss-Newton and switches to the exact Hessian inside the run, once the exact model
+    predicts the objective clearly better (below; its default step control is the trust region too).
     ``tr_radius0`` is the initial trust radius and ``curvature_damping`` the exact Hessian's lift damping
     (relative to ``‖X‖``; ``None`` = the geometry's default); each raises where it would have no effect. The
     exact Hessian is implemented for every sampling kind, on every geometry (``MANIFOLD`` / ``COREWISE``, their
@@ -577,7 +588,8 @@ def newton_cg(
     ``on_line_search_failure``, the references above, ``cg_forcing_power``, ``hessian``,
     ``curvature_damping``, ``step_control`` and ``tr_radius0`` -- are the backend's, with the backend's
     defaults, passed straight through. They are explicit keywords (there is no ``**kwargs`` pass-through),
-    so a misspelt option raises ``TypeError`` at the call, before the problem is built.
+    so a misspelt option raises ``TypeError`` at the call, before the problem is built. The ``switch_*`` options
+    (below) are the backend's too, checked at the call before the problem is built and forwarded only when set.
 
     ``verbose=True`` prints a per-iteration diagnostic block (objective / gradient, CG stats, line search,
     and the per-``(mode, order)`` relative-error table); pass ``val_sample`` / ``val_data`` to add a
@@ -622,6 +634,79 @@ def newton_cg(
     >>> stats['start_frame'], len(stats['start_movements']) <= 10
     ('padded', True)
 
+    **Switching from Gauss-Newton to the exact Hessian** (``hessian='switch'``). Gauss-Newton converges linearly on
+    a nonzero-residual fit, at a rate set by the curvature term it drops; the exact Hessian gives the superlinear tail
+    but costs a few Gauss-Newton Hessian-applies per apply and is indefinite far from a minimizer. ``'switch'`` makes
+    the choice inside one call: it starts with Gauss-Newton, measures after each step whether the exact model would
+    have predicted the actual change of the objective better, and switches to the exact Hessian for good once it
+    clearly would have. With ``s`` the step taken (``αp`` on the line search, ``p`` in the trust region), ``Δf`` the
+    objective's actual change, ``m_GN(s)`` the Gauss-Newton model's predicted change (``α·slope + ½α²·pHp`` in the
+    row's fields) and ``⟨s, K s⟩`` the curvature term (the exact Hessian's quadratic form minus Gauss-Newton's;
+    :py:func:`t3toolbox.backend.optimizers.newton_cg` has it in full)::
+
+        m_N(s) = m_GN(s) + ½⟨s, K s⟩                      the exact model's predicted change: one curvature product
+        e_GN   = |Δf − m_GN(s)|,   e_N = |Δf − m_N(s)|    how far each model missed
+        hit    : e_N < switch_tau · e_GN                  on a countable step (below)
+        switch : switch_k consecutive hits                for good, from the next point on
+
+    With the defaults (``switch_tau=0.25``, ``switch_k=2``): **the exact model must have predicted the objective at
+    least four times better than Gauss-Newton, on two clean steps in a row.** Near a minimizer ``e_GN`` is the
+    dropped curvature term, second order in the step, while ``e_N`` is third order, so ``e_N / e_GN`` falls toward 0;
+    in the transient far from it the ratio is about 1 or more, so a threshold well below 1, required twice running,
+    rarely fires early.
+
+    *What counts, what resets.* A step is countable iff the full model step was taken: an accepted trust-region
+    trial, or an Armijo step with ``α = 1``. Everything else resets the count to 0: a miss, a rejected trust-region
+    trial, a line-search backtrack, the ``−g`` fallback (CG's step was not a descent direction), a step forced by
+    ``on_line_search_failure='accept'``, and a step whose two errors are both at the objective's rounding level. A CG
+    step stopped on the trust region's boundary, truncated or at its iteration cap counts like any other (both models
+    are evaluated at the step actually taken). The rounding gate: ``Δf`` is a difference of two objective values, so
+    below ``1000·ε·(‖ω⊙y‖·‖ω⊙r‖ + |f|)`` (``ε`` the residual dtype's machine epsilon: the trust region's
+    ``objective_floor`` scale times 100) neither error can be measured. In jax's default float32 (``use_jit=True``
+    without x64) only large early steps clear it and the switch rarely fires: enable jax x64 with ``'switch'``.
+
+    *The options*, each with ``hessian='switch'`` only (elsewhere a structural error):
+
+    * ``switch_tau`` (``None`` = ``0.25``; in ``[0, 1)``) -- the hit threshold. ``0`` tracks and never switches: the
+      run is the Gauss-Newton run with the same step control, bit for bit, plus the tracking.
+    * ``switch_k`` (``None`` = ``2``; an int ``>= 0``) -- the consecutive hits that switch. ``0`` is exact from
+      iteration 0: the exact run with ``cg_forcing_power=switch_cg_forcing_power``.
+    * ``switch_cg_forcing_power`` (``None`` = ``1.0``) -- the CG forcing power from the switch on (``1.0`` gives the
+      exact Hessian's q-quadratic tail); ``cg_forcing_power`` (default ``0.5``) stays the Gauss-Newton phase's.
+    * ``switch_track`` (``None`` = ``'countable'``; or ``'all'``, case-insensitive) -- the steps the curvature
+      product runs on: the countable ones (any other step resets the count whatever ``e_N`` is), or every
+      Gauss-Newton-phase step, which reports ``e_N`` there too, at one product each, and switches at the same row.
+
+    An option the run would not read raises too: ``switch_tau`` or ``switch_track`` with ``switch_k=0`` (nothing is
+    tracked), ``switch_k`` or ``switch_cg_forcing_power`` with ``switch_tau=0`` (nothing switches). The default step
+    control is the trust region, whose radius carries across the switch; the line search works too.
+    ``curvature_damping`` applies to every exact build, the tracking ones included. Each call starts in Gauss-Newton
+    with a count of 0 -- nothing carries across calls, so each level of a rank continuation decides afresh (after a
+    rank increase the run may have left the basin). The switch may never fire, at no cost beyond the tracking: the
+    curvature term vanishes (the manifold at ``d = 1``), the residual is zero, or the retraction is only first order
+    at the point (near small singular values; at a zero-padded start).
+
+    *What it costs.* Each Gauss-Newton-phase point is linearized once, in exact mode: one misfit transpose, as in
+    either pure mode, plus the geometry's curvature data. CG, the step control and the row use its Gauss-Newton view,
+    so the steps are a Gauss-Newton run's; each tracked step adds one curvature product, about two or three
+    Gauss-Newton Hessian-applies. Under ``use_jit`` CG compiles at most two programs per call: the Gauss-Newton one
+    (which a Gauss-Newton run at the same structure has already compiled) and the exact one.
+
+    *What it reports.* Each history row's ``hessian`` is the model that solved its step (``'gauss_newton'`` before the
+    switch, ``'exact'`` from it on), and every row of a switch run carries five more fields
+    (:py:class:`t3toolbox.backend.optimizers.NewtonInfo`): ``switch_e_gn`` (each Gauss-Newton-phase step),
+    ``switch_pKp`` and ``switch_e_n`` (each tracked step: the curvature product ``⟨p, K p⟩`` and ``e_N``),
+    ``switch_count`` (the count after the row, in the Gauss-Newton phase) and ``switch_fired`` (``True`` on the row
+    whose count reached ``switch_k``). ``stats`` gains ``'hessian'`` (``'switch'``), ``'switch_track'`` (the resolved
+    value; ``None`` with ``switch_k=0``) and ``'switched_at'``, the index of the first row whose model is exact
+    (``len(history)`` when the switch fired on the last row; ``0`` with ``switch_k=0``; ``None`` if it never fired).
+    With ``verbose=True`` each Gauss-Newton-phase step row's header carries ``sw`` and the ratio ``e_N / e_GN``
+    (``—`` where no product ran), then ``×`` the count, the switching row adds ``⇒ exact`` (all before a last row's
+    stop reason), and the exact rows after it show their ``κ σ ε`` cells::
+
+        iter  1 | obj 2.537e+05 ... | Δf -2.03e+02 ρ 0.85 | 0.03s | sw 3.0e-03 ×2 ⇒ exact
+        iter  2 | obj 2.535e+05 ... | Δf -9.75e+01 ρ 1.00 | 0.05s | κ -3.5e-01 σ 5.8e+01 ε 1.3e-04
+
     **Timing a run** (``timing=True``). Where does a Newton run's time go -- CG or the model build, the retraction or
     the line search's extra trials, the alignment of a padded start, the compiler? ``timing=True`` splits each history
     row's ``wall_time`` window into phases and adds ``stats['timing']``. It changes no number: ``x`` and every other
@@ -631,14 +716,16 @@ def newton_cg(
 
     * ``frame``, ``sweep``, ``companion``, ``residual``, ``curvature`` -- the local model's build: the orthonormal frame
       at the point, the sampling kind's sweep at it, the geometry's per-frame data, the residual, and with
-      ``hessian='exact'`` the curvature data. ``None`` on a row that reuses the model (after a rejected trust-region
-      trial).
-    * ``gradient`` -- the misfit transpose ``Π 𝒥ᵀ r`` (in both modes) and what reads it: the objective's parts, the
+      ``hessian='exact'`` or ``'switch'`` the curvature data. ``None`` on a row that reuses the model (after a rejected
+      trust-region trial).
+    * ``gradient`` -- the misfit transpose ``Π 𝒥ᵀ r`` (in every mode) and what reads it: the objective's parts, the
       gradient and its norm.
     * ``reference`` -- row 0 only: the reference ``‖g0‖`` of ``g0_reference``, the ``'cone'`` alignment included.
     * ``cg`` -- the CG solve (under ``use_jit``, one compiled call). ``forms`` -- the step's scalars (the slope,
       ``pᵀHp``, ``‖p‖``, the first trust radius).
     * ``trial_retraction``, ``trial_objective`` -- every trial's retraction and objective (``trials`` counts them).
+    * ``tracking`` -- ``hessian='switch'``: a tracked Gauss-Newton-phase row's curvature product (``switch_pKp``);
+      ``None`` on every other row.
     * ``previous_callback`` -- the previous row's ``callback`` (a display) and bookkeeping, so a heavy display shows
       up a row late; ``remainder`` -- what no phase covers.
 
@@ -726,6 +813,22 @@ def newton_cg(
     >>> gn['newton_steps'] > 2 * ex['newton_steps']
     True
 
+    **Switching from Gauss-Newton to the exact Hessian.** The same problem with ``hessian='switch'``: Gauss-Newton
+    steps until the exact model has twice running predicted the objective four times better, then the exact Hessian,
+    in a fraction of Gauss-Newton's steps:
+
+    >>> _, sw = optimizers.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data, x0, hessian='switch', **opts)
+    >>> sw['hessian'], sw['switch_track'], sw['stop_reason'] in ('gradient', 'objective_floor')
+    ('switch', 'countable', True)
+    >>> j = sw['switched_at']                                   # the first row whose model is exact
+    >>> fired = sw['history'][j - 1]                            # the row that switched
+    >>> [row['hessian'] for row in sw['history'][j - 1:j + 1]], fired['switch_fired'], fired['switch_count']
+    (['gauss_newton', 'exact'], True, 2)
+    >>> fired['switch_e_n'] < 0.25 * fired['switch_e_gn']
+    True
+    >>> sw['newton_steps'] < gn['newton_steps'] / 2             # gn: Gauss-Newton with its line search
+    True
+
     **Timing a run.** The same problem one level up: the rank-2 fit ``x0`` zero-padded to rank 3, restarted from the
     aligned frame (``padded_from``) with the ``'cone'`` reference. ``timing=True`` adds ``stats['timing']``; the
     phases tile each row's window, and the run is the untimed run:
@@ -787,7 +890,8 @@ def newton_cg(
     >>> dtype_x64, ok_x64
     ('float64', True)
     """
-    bopt._check_hessian(hessian, 'newton_cg')            # structural, named for the caller, before the setup work
+    mode = bopt._check_hessian(hessian, 'newton_cg', bopt._NEWTON_HESSIAN_MODES)   # structural, before the setup work
+    bopt._check_switch_options(mode, switch_tau, switch_k, switch_cg_forcing_power, switch_track)   # likewise
     if not isinstance(timing, (bool, np.bool_)):
         raise TypeError('newton_cg: timing must be a bool, got %r' % (timing,))
     setup = least_squares_problem(geometry, kind, sample, data, x0, order, weight, regularizer, chunk_size=chunk_size,
@@ -809,13 +913,16 @@ def newton_cg(
         padded_seed=padded_seed, cone_oversampling=cone_oversampling, cone_oversampled_passes=cone_oversampled_passes,
         cone_max_passes=cone_max_passes, cone_tol=cone_tol, cone_alternate=cone_alternate, cone_seed=cone_seed))
     timed = {'timing': True} if timing else {}           # forwarded only when set, like the seam's options
+    switching = {name: value for name, value in (('switch_tau', switch_tau), ('switch_k', switch_k),
+                                                 ('switch_cg_forcing_power', switch_cg_forcing_power),
+                                                 ('switch_track', switch_track)) if value is not None}   # likewise
     x_cores, stats = bopt.newton_cg(setup.problem, setup.x0_cores,
                                     max_newton=max_newton, gtol_rel=gtol_rel, cg_maxiter=cg_maxiter,
                                     c_armijo=c_armijo, on_line_search_failure=on_line_search_failure,
                                     g0_reference=g0_reference, g0norm_newton=g0norm_newton, g0norm_cg=g0norm_cg,
                                     cg_forcing_power=cg_forcing_power, use_jit=use_jit, callback=callback,
                                     hessian=hessian, curvature_damping=curvature_damping,
-                                    step_control=step_control, tr_radius0=tr_radius0, **seam, **timed)
+                                    step_control=step_control, tr_radius0=tr_radius0, **seam, **timed, **switching)
     if records is not None:
         stats['diagnostics'] = records
     return setup.rewrap(x_cores), stats

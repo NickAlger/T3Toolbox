@@ -511,6 +511,124 @@ class TestTimingDisplay(unittest.TestCase):
                             self.assertEqual(a[key], b[key], key)
 
 
+class TestSwitchDisplay(unittest.TestCase):
+    """T10: ``newton_cg(hessian='switch')``'s rows in the display -- a Gauss-Newton-phase row's header ends with the
+    ``sw`` segment (the tracking ratio ``e_N / e_GN``, then the count), the switching row with ``⇒ exact``; exact-phase
+    rows show their ``κ σ ε`` cells; every row outside switch mode prints as before."""
+
+    # A Gauss-Newton line-search row's header, as every untimed non-switch row prints it (TestFormatter's _info()).
+    HEADER = ('iter  3 | obj 5.230e-04  ‖g‖ 1.44e-03 (2.1e-02·g₀) | CG 14/200 tol 3.0e-04 resid 8.7e-05 ✓ '
+              '| ls 2 α 2.50e-01 ‖Δx‖/‖x‖ 3.0e-02 | Δf -1.20e-04 ρ 0.98 | 0.31s')
+    GN_PHASE = dict(hessian='gauss_newton', switch_pKp=-3.1e-4, switch_e_gn=1.6e-4, switch_e_n=4.0e-5, switch_count=1,
+                    switch_fired=False)                          # a tracked hit, the first of two
+
+    def header(self, **kw):
+        return bdisp._format_header(_info(**kw), None)
+
+    def test_the_segment(self):
+        """The ratio in ``%.1e``, the count after the row, the mark only where ``switch_fired``; ``—`` where there is
+        no ratio (an untracked row, ``e_GN = 0``, a non-finite error)."""
+        self.assertEqual(self.header(**self.GN_PHASE), self.HEADER + ' | sw 2.5e-01 ×1')
+        fired = self.header(**dict(self.GN_PHASE, switch_e_n=1.1e-6, switch_count=2, switch_fired=True))
+        self.assertEqual(fired, self.HEADER + ' | sw 6.9e-03 ×2 ⇒ exact')
+        miss = self.header(**dict(self.GN_PHASE, switch_e_n=3.2e-4, switch_count=0))
+        self.assertEqual(miss, self.HEADER + ' | sw 2.0e+00 ×0')
+        unfired = self.header(**dict(self.GN_PHASE, switch_count=2))           # the mark reads switch_fired alone
+        self.assertEqual(unfired, self.HEADER + ' | sw 2.5e-01 ×2')
+        fired_at_one = self.header(**dict(self.GN_PHASE, switch_fired=True))  # (switch_k=1)
+        self.assertEqual(fired_at_one, self.HEADER + ' | sw 2.5e-01 ×1 ⇒ exact')
+        for name, fields in (('untracked', dict(switch_pKp=None, switch_e_n=None, switch_count=0)),
+                             ('e_GN = 0', dict(switch_e_gn=0.0, switch_e_n=0.0, switch_count=0)),
+                             ('e_GN inf', dict(switch_e_gn=float('inf'), switch_count=0)),
+                             ('e_GN nan', dict(switch_e_gn=float('nan'), switch_count=0)),
+                             ('e_N inf', dict(switch_e_n=float('inf'), switch_count=0)),
+                             ('e_N nan', dict(switch_e_n=float('nan'), switch_count=0))):
+            with self.subTest(name):
+                self.assertEqual(self.header(**dict(self.GN_PHASE, **fields)), self.HEADER + ' | sw — ×0')
+
+    def test_only_on_gauss_newton_phase_rows(self):
+        """No ``sw`` cells on an exact-phase row (``switch_fired`` False, no count: the ``κ σ ε`` cells as in exact
+        mode) or on a converged row (the short line); no ``κ`` on a Gauss-Newton-phase row, whose curvature product is
+        ``switch_pKp`` (not ``pKp``); the segment sits after the wall clock and before a last row's stop reason."""
+        tr = dict(step_control='trust_region', ls_steps=None, ls_failed=None, alpha=1.0, tr_radius=3.1e-2,
+                  tr_accepted=True)
+        exact = dict(tr, hessian='exact', pHp=8.0e-4, pKp=-2.0e-4, lift_sigma_min=4.2e-1, lift_eps=1.3e-5)
+        self.assertEqual(self.header(**exact, switch_fired=False), self.header(**exact))
+        self.assertTrue(self.header(**exact, switch_fired=False).endswith('| 0.31s | κ -2.0e-01 σ 4.2e-01 ε 1.3e-05'))
+        gn_phase = self.header(**tr, **self.GN_PHASE)
+        self.assertTrue(gn_phase.endswith('| TR Δ 3.10e-02 ✓ ‖Δx‖/‖x‖ 3.0e-02 | Δf -1.20e-04 ρ 0.98 | 0.31s '
+                                          '| sw 2.5e-01 ×1'), gn_phase)
+        self.assertNotIn('κ', gn_phase)
+        last = self.header(**dict(self.GN_PHASE, stop_reason='max_newton'))
+        self.assertTrue(last.endswith('| 0.31s | sw 2.5e-01 ×1 | stop: max_newton'), last)
+        converged = self.header(converged=True, cg_iters=None, g0_reference='zero', hessian='gauss_newton',
+                                switch_count=1, switch_fired=False, stop_reason='gradient')
+        self.assertEqual(converged, 'iter  3 | obj 5.230e-04  ‖g‖ 1.44e-03 (2.1e-02·g₀) '
+                                    '| converged (‖g‖ ≤ gtol·‖g₀‖, g₀ = zero tensor)')
+
+    def test_unchanged_outside_switch_mode(self):
+        """A row whose switch fields are all None prints byte for byte as before: the 2026.2.0 line-search texts, and
+        format_newton_iter's whole block for every kind of row."""
+        self.assertEqual(self.header(), self.HEADER)
+        for kw, expected in TestFormatter._LS_ROWS_2026_2:
+            with self.subTest(row=kw):
+                self.assertEqual(bdisp._format_header(_info(**kw), obj_unweighted=1.7e-4), expected)
+                self.assertNotIn(' sw ', expected)
+
+    def _problem(self):
+        """``newton_cg``'s docstring problem: probe derivatives of order 1, a noisy rank-3 target, the rank-2 fit
+        warm-started by five Gauss-Newton steps (W1's T6: the switch fires there)."""
+        np.random.seed(0)
+        shape, rng = (5, 5, 5), np.random.default_rng(0)
+        ww, pp = ([rng.standard_normal((40, n)) for n in shape] for _ in range(2))
+        kind = bfit.ProbeDerivativesKind(order=1)
+        target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1)).data
+        data = [z + 0.01 * rng.standard_normal(z.shape) for z in kind.point_forward(target, (ww, pp))]
+        problem = bopt.least_squares_problem(bgeo.ManifoldGeometryOps(), kind, (ww, pp), data)
+        x0, _ = bopt.newton_cg(problem, t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)).data, max_newton=5)
+        return problem, x0
+
+    def test_a_switch_run(self):
+        """End to end: each Gauss-Newton-phase step row's header ends with its own ratio and count (from the row's
+        fields), the switching row alone with the mark; the exact rows carry ``κ`` and no ``sw``. A ``switch_tau=0`` run
+        prints the Gauss-Newton trust-region run's text plus the segment (wall clocks masked): the segment is the only
+        change."""
+        import re
+        problem, x0 = self._problem()
+        printed, rows = [], []
+        display, _ = bdisp.make_newton_display(problem, print_fn=printed.append)
+
+        def callback(info):
+            rows.append(info)
+            display(info)
+        _, stats = bopt.newton_cg(problem, x0, max_newton=40, hessian='switch', callback=callback)
+        j = stats['switched_at']
+        self.assertIsNotNone(j)
+        headers = [block.split('\n')[0] for block in printed]
+        for info, header in zip(rows, headers):
+            with self.subTest(row=info.iteration):
+                if info.converged:
+                    self.assertNotIn(' sw ', header)
+                elif info.hessian == 'gauss_newton':
+                    ratio = '%.1e' % (info.switch_e_n / info.switch_e_gn)
+                    mark = ' ⇒ exact' if info.iteration == j - 1 else ''
+                    self.assertTrue(header.endswith(' | sw %s ×%d%s' % (ratio, info.switch_count, mark)), header)
+                else:
+                    self.assertNotIn(' sw ', header)
+                    self.assertIn(' | κ ', header)
+        self.assertEqual(sum('⇒ exact' in header for header in headers), 1)
+        clock = re.compile(r'\| \d+\.\d\ds\b')
+        segment = re.compile(r' \| sw [^|\n]*?(?= \||$)', re.MULTILINE)   # before a stop reason, or at the end
+        texts = []
+        for kw in (dict(hessian='switch', switch_tau=0.0), dict(step_control='trust_region')):
+            text = []
+            cb, _ = bdisp.make_newton_display(problem, print_fn=text.append)
+            bopt.newton_cg(problem, x0, max_newton=6, callback=cb, **kw)
+            texts.append('\n'.join(text))
+        self.assertEqual(texts[0].count(' | sw '), 6)                   # every row a Gauss-Newton-phase step row
+        self.assertEqual(clock.sub('| T', segment.sub('', texts[0])), clock.sub('| T', texts[1]))
+
+
 class TestValidationArgsGoTogether(unittest.TestCase):
     """Review 2026-08-22 (C9): val_data without val_sample used to fail deep inside the kind, and
     val_sample without val_data was silently ignored."""

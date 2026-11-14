@@ -19,7 +19,10 @@ Two layers, so the pure algorithm modules stay pure and the I/O is isolated:
   injectable ``print_fn``, and records each iteration.
 
 A run with ``newton_cg(timing=True)`` adds a ``time`` line to each row's block (the row's window by phase) and a
-closing table after the run's last row; untimed rows print exactly as before.
+closing table after the run's last row; untimed rows print exactly as before. In a ``newton_cg(hessian='switch')``
+run, each Gauss-Newton-phase step row's header carries an ``sw`` segment, before a last row's stop reason (the
+tracking ratio ``e_N / e_GN`` and the hit count, the switching row marked ``⇒ exact``); its exact-phase rows, its
+converged line and every row of the other modes print as before.
 
 The relative-error table is ``‖r_ij‖ / ‖y_ij‖`` from the kind's UNWEIGHTED :py:meth:`block_sumsq` (D2) --
 the honest per-block recovery error, independent of any residual weight ``ω``. The **layout follows the
@@ -164,6 +167,22 @@ def _curvature_segment(info: "bopt.NewtonInfo") -> typ.Optional[str]:
                                 _num(getattr(info, 'lift_eps', None), "%.1e"))
 
 
+def _switch_segment(info: "bopt.NewtonInfo") -> typ.Optional[str]:
+    """The switch cells of a Gauss-Newton-phase row of ``newton_cg(hessian='switch')`` (``None`` on a row without
+    ``switch_count``, which only those rows carry; the converged one carries it too, but its short line never reaches
+    the segments): ``sw``, the tracking ratio ``e_N / e_GN`` (``—`` on an untracked row, on a non-finite error or at
+    ``e_GN = 0``), then ``×`` the count of consecutive hits after the row (``×0``: a reset). The row whose count
+    reached ``switch_k`` (``switch_fired``) ends with ``⇒ exact``: the next row's model is exact."""
+    count = getattr(info, 'switch_count', None)
+    if count is None:
+        return None
+    e_gn, e_n = getattr(info, 'switch_e_gn', None), getattr(info, 'switch_e_n', None)
+    ratio = None
+    if e_gn is not None and e_n is not None and math.isfinite(float(e_gn)) and math.isfinite(float(e_n)):
+        ratio = float(e_n) / float(e_gn) if float(e_gn) != 0.0 else None
+    return "sw %s ×%d%s" % (_num(ratio, "%.1e"), count, " ⇒ exact" if getattr(info, 'switch_fired', None) else "")
+
+
 def _format_header(info: "bopt.NewtonInfo", obj_unweighted: typ.Optional[float]) -> str:
     """The one-line per-iteration scalar header (a shorter form on the converged final line). A run's last
     row names its ``stop_reason`` when that is not the gradient test (the converged line says so already)."""
@@ -190,6 +209,9 @@ def _format_header(info: "bopt.NewtonInfo", obj_unweighted: typ.Optional[float])
     curvature = _curvature_segment(info)
     if curvature is not None:
         parts.append(curvature)
+    switch = _switch_segment(info)
+    if switch is not None:
+        parts.append(switch)
     stop = getattr(info, 'stop_reason', None)
     if stop is not None and stop != 'gradient':
         parts.append("stop: %s" % stop)
@@ -383,6 +405,22 @@ def format_newton_iter(
     iter  4 | obj 2.310e-03  ‖g‖ 7.20e-04 (1.4e-05·g₀) | CG 6/200 tol 1.9e-05 resid 3.3e-05 ∂ | TR Δ 3.10e-02 ✗ ‖Δx‖/‖x‖ 4.0e-02 | Δf +6.10e-05 ρ -0.52 | 0.12s | κ -2.0e-01 σ 4.2e-01 ε 1.3e-05
       rel err   2.0e-03
 
+    A Gauss-Newton-phase row of ``hessian='switch'``: the ``sw`` segment gives the tracking ratio ``e_N / e_GN``, how
+    far the exact model's predicted change missed the actual one relative to Gauss-Newton's miss (``—`` on a row that
+    ran no tracking product), then ``×`` the count of consecutive hits (``e_N < switch_tau·e_GN`` on a countable step)
+    after this row. Here the count reaches ``switch_k = 2``, so the row ends with ``⇒ exact``: from the next row on
+    the model is the exact Hessian, and the rows show its ``κ σ ε`` cells instead:
+
+    >>> info = bopt.NewtonInfo(iteration=1, objective=2.537e5, gnorm=4.17e2, g0norm=9.84e2, converged=False,
+    ...                        cg_iters=1, cg_maxiter=200, cg_tol=2.1e2, cg_resid=1.2e2, cg_converged=True,
+    ...                        cg_truncated=False, cg_boundary=False, alpha=1.0, step_rel=8.7e-3, delta_f=-2.03e2,
+    ...                        rho=0.85, wall_time=0.03, step_control='trust_region', hessian='gauss_newton',
+    ...                        tr_radius=2.51, tr_accepted=True, pHp=4.1e2, switch_pKp=7.43e1, switch_e_gn=3.70e1,
+    ...                        switch_e_n=1.1e-1, switch_count=2, switch_fired=True)
+    >>> print(disp.format_newton_iter(info, np.array([[2.8e-1]])))
+    iter  1 | obj 2.537e+05  ‖g‖ 4.17e+02 (4.2e-01·g₀) | CG 1/200 tol 2.1e+02 resid 1.2e+02 ✓ | TR Δ 2.51e+00 ✓ ‖Δx‖/‖x‖ 8.7e-03 | Δf -2.03e+02 ρ 0.85 | 0.03s | sw 3.0e-03 ×2 ⇒ exact
+      rel err   2.8e-01
+
     A row of a timed run (``newton_cg(timing=True)``, its ``NewtonInfo.timing``) adds a ``time`` line under the header:
     the row's window by phase, in seconds (:py:class:`~t3toolbox.backend.optimizers.PhaseSeconds`). ``model`` is the
     local model's build with its parts in brackets, ``cg`` also gives its seconds per CG iteration, ``trials`` the
@@ -441,7 +479,11 @@ def make_newton_display(
     rows it ran on; then the setup and the alignment, the pass counts, and CG's seconds per iteration less its compile
     wait. The last row's own callback is not in it (it is still running; ``stats['timing']['last_callback']`` has it).
     A callback reused across runs starts a new table at each run's row 0. The records are unchanged: ``timing`` is not
-    a history field."""
+    a history field.
+
+    **Switch rows** (``newton_cg(hessian='switch')``): each Gauss-Newton-phase step row's header carries the ``sw``
+    segment, before a last row's stop reason (:py:func:`format_newton_iter`), and every record of such a run carries
+    the five ``switch_*`` history fields."""
     kind = problem.kind
     if not kind.has_block_sumsq:
         raise ValueError("this sampling kind has no block_sumsq -- the relative-error table needs it "

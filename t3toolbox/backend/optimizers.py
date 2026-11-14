@@ -1521,7 +1521,9 @@ class NewtonInfo:
     phase and ``'exact'`` from the switch on. On a Gauss-Newton-phase row ``lm`` is the Gauss-Newton view of the
     point's exact-mode build (the model that solved the step, the same object across a rejected trial; its
     ``gradient`` recomputes the misfit transpose), so ``pKp`` and the lift diagnostics are ``None`` there, as on a
-    Gauss-Newton run's rows. Five fields, ``None`` outside switch mode and history fields only in switch mode:
+    Gauss-Newton run's rows. Five fields, ``None`` outside switch mode and history fields only in switch mode (the
+    display prints them as a Gauss-Newton-phase row's ``sw`` segment:
+    :py:func:`~t3toolbox.backend.optimizer_display.format_newton_iter`):
 
     * ``switch_e_gn`` -- every Gauss-Newton-phase row with a step: ``|Δf − m_GN(s)|``, ``m_GN(s)`` the row's predicted
       change (``α·slope + ½α²·pHp``; ``α = 1`` in the trust region).

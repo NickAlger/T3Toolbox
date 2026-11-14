@@ -453,12 +453,8 @@ class TestLeastSquaresProblemAndKeywords(unittest.TestCase):
         front = inspect.signature(topt.newton_cg).parameters
         back = inspect.signature(bopt.newton_cg).parameters
         self.assertFalse(any(p.kind is inspect.Parameter.VAR_KEYWORD for p in front.values()))
-        not_yet = ('switch_tau', 'switch_k',                    # TEMPORARY: the switch plan's slice W2 adds these
-                   'switch_cg_forcing_power', 'switch_track')   # frontend keywords and removes not_yet
-        for name in not_yet:                                    # self-expiring: red once the frontend has one
-            self.assertNotIn(name, front, '%s is now a frontend keyword: delete not_yet (the switch plan, W2)' % name)
         for name, p in back.items():
-            if name in ('problem', 'x0') or name in not_yet:
+            if name in ('problem', 'x0'):
                 continue
             with self.subTest(name=name):
                 self.assertIn(name, front)
@@ -487,14 +483,15 @@ class TestLeastSquaresProblemAndKeywords(unittest.TestCase):
                          ['Exact', 'gauss_newton'])                      # for the problem's 'auto' chunk
 
     def test_newton_cg_forwards_timing_only_when_set(self):
-        """T9: ``timing`` is the last keyword, keyword-only (after ``cone_seed``, as on the backend); it reaches the
+        """T9: ``timing`` is keyword-only, right after ``cone_seed`` (as on the backend); it reaches the
         backend as ``timing=True`` only when set (unset, the backend call is 2026.4.0's, as for the other opt-in
         keywords); a numpy bool is a bool."""
         import inspect
         from unittest import mock
         import t3toolbox.backend.optimizers as bopt
         front = inspect.signature(topt.newton_cg).parameters
-        self.assertEqual(list(front)[-2:], ['cone_seed', 'timing'])
+        names = list(front)
+        self.assertEqual(names[names.index('timing') - 1], 'cone_seed')   # then the switch_* group, as on the backend
         self.assertIs(front['timing'].kind, inspect.Parameter.KEYWORD_ONLY)
         for value, forwarded in ((True, True), (np.True_, True), (False, False), (np.False_, False), (None, None)):
             if value is None:                                            # the default
@@ -733,7 +730,7 @@ class TestFrontendExactNewton(unittest.TestCase):
             call(t3m.MANIFOLD, restart, hessian='exact', step_control='dogleg')
         from unittest import mock
         with mock.patch.object(topt, 'least_squares_problem') as setup:
-            with self.assertRaisesRegex(ValueError, "newton_cg: hessian must be 'gauss_newton' or 'exact'"):
+            with self.assertRaisesRegex(ValueError, "newton_cg: hessian must be 'gauss_newton', 'exact' or 'switch'"):
                 call(t3m.MANIFOLD, restart, hessian='newton')
         setup.assert_not_called()
         tied = t3.TuckerTensorTrain(*bsharing.t3_tie_tucker_factors(restart.data, (0, 0, 1)))
@@ -942,6 +939,189 @@ class TestFrontendExactNewtonDerivativeKinds(unittest.TestCase):
             self.assertTrue(_histories_equal(uf_['history'], sb['history']))
             self.assertTrue(np.array_equal(xu.data[0], xb[0]) and np.array_equal(xu.data[1], xb[1]))
             self.assertEqual(uf_['history'][0]['hessian'], 'exact')
+
+
+def _switch_problem():
+    """``newton_cg``'s docstring problem through the frontend: probe derivatives of order 1 on (5, 5, 5), a rank-3
+    target with 1 % noise, the rank-2 fit warm-started by five Gauss-Newton steps (the switch fires there: the
+    backend's T6)."""
+    np.random.seed(0)
+    shape, rng = (5, 5, 5), np.random.default_rng(0)
+    ww, pp = ([rng.standard_normal((40, n)) for n in shape] for _ in range(2))
+    target = t3.TuckerTensorTrain.randn(shape, (3, 3, 3), (1, 3, 3, 1))
+    data = [z + 0.01 * rng.standard_normal(z.shape) for z in target.probe_derivatives(ww, pp, 1)]
+    x0, _ = topt.newton_cg(t3m.MANIFOLD, 'probe_derivatives', (ww, pp), data,
+                           t3.TuckerTensorTrain.randn(shape, (2, 2, 2), (1, 2, 2, 1)), order=1, max_newton=5)
+    return (ww, pp), data, x0
+
+
+class TestFrontendSwitchNewton(unittest.TestCase):
+    """The switch plan's T7 (frontend) and T11: ``optimizers.newton_cg(hessian='switch')`` -- the four ``switch_*``
+    keywords after ``timing`` as on the backend, each rule raising at the call before the problem is built, each
+    keyword forwarded as given and only when set, ``least_squares_problem`` sizing ``'switch'`` as ``'exact'``, and a
+    frontend switch run that is the backend run bit for bit, ragged and uniform, with the display's ``sw`` segment."""
+
+    NAMES = ('switch_tau', 'switch_k', 'switch_cg_forcing_power', 'switch_track')
+
+    def setUp(self):
+        np.random.seed(7)
+        x_true = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+        self.ww = tuple(np.random.randn(12, n) for n in x_true.shape)
+        self.b = x_true.apply(self.ww)
+        self.x0 = t3.TuckerTensorTrain.randn((4, 5, 3), (2, 2, 2), (1, 2, 2, 1))
+
+    def test_the_keywords(self):
+        """The four keywords close the signature after ``timing``, keyword-only, default ``None``, in the backend's
+        order."""
+        import inspect
+        import t3toolbox.backend.optimizers as bopt
+        front = inspect.signature(topt.newton_cg).parameters
+        back = inspect.signature(bopt.newton_cg).parameters
+        self.assertEqual(list(front)[-5:], ['timing', *self.NAMES])
+        self.assertEqual(list(back)[-5:], ['timing', *self.NAMES])
+        for name in self.NAMES:
+            with self.subTest(name=name):
+                self.assertIs(front[name].kind, inspect.Parameter.KEYWORD_ONLY)
+                self.assertIsNone(front[name].default)
+
+    def test_options_raise_before_setup(self):
+        """T7 (frontend): each rule raises with the backend's message before ``least_squares_problem`` is called -- a
+        ``switch_*`` option without ``hessian='switch'`` (the mode read case-insensitively), each option's type and
+        range, an option the run would not read, and an unknown mode, whose message now lists ``'switch'``."""
+        import re
+        from unittest import mock
+        bad = [(dict(switch_tau=0.5), "newton_cg: switch_tau set without hessian='switch'"),
+               (dict(hessian='Exact', switch_track='all', switch_k=1),
+                "newton_cg: switch_k, switch_track set without hessian='switch'"),
+               (dict(switch_cg_forcing_power=1.0), "newton_cg: switch_cg_forcing_power set without hessian='switch'"),
+               (dict(hessian='switch', switch_tau=1.0), 'newton_cg: switch_tau must be a number in [0, 1); got 1.0'),
+               (dict(hessian='Switch', switch_tau=-0.25), 'newton_cg: switch_tau must be a number in [0, 1)'),
+               (dict(hessian='switch', switch_tau=float('nan')), 'newton_cg: switch_tau must be a number in [0, 1)'),
+               (dict(hessian='switch', switch_tau=False), 'newton_cg: switch_tau must be a number in [0, 1)'),
+               (dict(hessian='switch', switch_k=-1), 'newton_cg: switch_k must be an int >= 0 (not a bool); got -1'),
+               (dict(hessian='switch', switch_k=True), 'newton_cg: switch_k must be an int >= 0 (not a bool)'),
+               (dict(hessian='switch', switch_k=2.0), 'newton_cg: switch_k must be an int >= 0 (not a bool)'),
+               (dict(hessian='switch', switch_track='every'),
+                "newton_cg: switch_track must be None, 'countable' or 'all' (case-insensitive); got 'every'"),
+               (dict(hessian='switch', switch_track=1), "newton_cg: switch_track must be None, 'countable' or 'all'"),
+               (dict(hessian='switch', switch_k=0, switch_tau=0.5),
+                'newton_cg: switch_tau set with switch_k=0, which tracks nothing (the run is exact from iteration 0)'),
+               (dict(hessian='switch', switch_k=0, switch_track='all'), 'newton_cg: switch_track set with switch_k=0'),
+               (dict(hessian='switch', switch_tau=0.0, switch_k=3),
+                'newton_cg: switch_k set with switch_tau=0, which never switches (the run tracks only)'),
+               (dict(hessian='switch', switch_tau=0.0, switch_cg_forcing_power=1.0),
+                'newton_cg: switch_cg_forcing_power set with switch_tau=0'),
+               (dict(hessian='swich'),
+                "newton_cg: hessian must be 'gauss_newton', 'exact' or 'switch' (case-insensitive); got 'swich'")]
+        for kw, message in bad:
+            with self.subTest(**{k: repr(v) for k, v in kw.items()}):
+                with mock.patch.object(topt, 'least_squares_problem') as setup:
+                    with self.assertRaisesRegex(ValueError, re.escape(message)):
+                        topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, **kw)
+                setup.assert_not_called()
+
+    def test_forwarded_as_given_and_only_when_set(self):
+        """T11: with ``hessian='Switch'`` and the four at non-default values, each reaches the backend as given (none
+        dropped, swapped or converted), beside the mode and the solver options; each alone is forwarded alone, a zero
+        included; unset, none is forwarded, in every mode."""
+        from unittest import mock
+        import t3toolbox.backend.optimizers as bopt
+        stub = lambda problem, x0, **kw: (x0, {})
+        opts = dict(hessian='Switch', switch_tau=0.125, switch_k=3, switch_cg_forcing_power=0.875, switch_track='All',
+                    step_control='line_search', cg_forcing_power=0.75)
+        with mock.patch.object(bopt, 'newton_cg', side_effect=stub) as spy:
+            topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, **opts)
+        self.assertEqual({k: spy.call_args.kwargs[k] for k in opts}, opts)
+        for name, value in (('switch_tau', np.float64(0.0)), ('switch_k', np.int64(0)),
+                            ('switch_cg_forcing_power', np.float32(0.875)), ('switch_track', 'all')):
+            with self.subTest(alone=name):
+                with mock.patch.object(bopt, 'newton_cg', side_effect=stub) as spy:
+                    topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, hessian='switch', **{name: value})
+                forwarded = {k: v for k, v in spy.call_args.kwargs.items() if k.startswith('switch_')}
+                self.assertEqual(forwarded, {name: value})
+                self.assertIs(type(forwarded[name]), type(value))
+        for mode in ('switch', 'exact', 'gauss_newton'):
+            with self.subTest(unset=mode):
+                with mock.patch.object(bopt, 'newton_cg', side_effect=stub) as spy:
+                    topt.newton_cg(t3m.MANIFOLD, 'apply', self.ww, self.b, self.x0, hessian=mode)
+                self.assertFalse([k for k in spy.call_args.kwargs if k.startswith('switch_')])
+                self.assertEqual(spy.call_args.kwargs['hessian'], mode)
+
+    def test_least_squares_problem_sizes_switch_as_exact(self):
+        """T11: ``least_squares_problem`` accepts the three solver modes (case-insensitive) and sizes ``'switch'``'s
+        ``chunk_size='auto'`` as ``'exact'`` (its tracking products and its exact phase run the two-hole assemblies),
+        on both layers and through ``newton_cg``; an unknown mode raises before any work, its message listing the
+        three."""
+        import inspect
+        import re
+        from unittest import mock
+        sample, data, x0 = _switch_problem()
+        ux = ut3.UniformTuckerTensorTrain.from_t3(x0)
+        mode_of = lambda c: inspect.signature(topt._resolve_chunk_size).bind(*c.args, **c.kwargs).arguments.get(
+            'hessian', 'gauss_newton')
+        with mock.patch.object(topt, '_resolve_chunk_size', wraps=topt._resolve_chunk_size) as resolve:
+            for geometry, x in ((ut3m.UNIFORM_MANIFOLD, ux), (t3m.MANIFOLD, x0)):
+                for hessian in ('switch', 'SWITCH', 'exact', 'gauss_newton'):
+                    topt.least_squares_problem(geometry, 'probe_derivatives', sample, data, x, order=1,
+                                               hessian=hessian, chunk_size=7)
+        self.assertEqual([mode_of(c) for c in resolve.call_args_list],
+                         ['exact', 'exact', 'exact', 'gauss_newton'] * 2)
+        with mock.patch.object(topt, '_resolve_chunk_size') as resolve:
+            with self.assertRaisesRegex(ValueError, re.escape("least_squares_problem: hessian must be 'gauss_newton', "
+                                                              "'exact' or 'switch' (case-insensitive); got 'newton'")):
+                topt.least_squares_problem(t3m.MANIFOLD, 'probe_derivatives', sample, data, x0, order=1,
+                                           hessian='newton')
+        resolve.assert_not_called()
+        if jax_available:                                        # the estimator, as the 'auto' resolution calls it
+            import t3toolbox.backend.sampling_derivatives as sd
+            with mock.patch.object(sd, 'estimate_chunk_size', side_effect=lambda *a, **k: 7) as estimate:
+                setup = topt.least_squares_problem(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', sample, data, ux,
+                                                   order=1, hessian='Switch')
+                _, stats = topt.newton_cg(ut3m.UNIFORM_MANIFOLD, 'probe_derivatives', sample, data, ux, order=1,
+                                          max_newton=1, hessian='switch')
+            self.assertEqual(setup.problem.kind.chunk_size, 7)
+            self.assertEqual([c.kwargs['hessian'] for c in estimate.call_args_list], ['exact', 'exact'])
+            self.assertEqual(stats['hessian'], 'switch')
+
+    def test_a_switch_run_is_the_backend_run(self):
+        """T11: a frontend switch run, ragged (the defaults) and uniform (``switch_track='ALL'``), is the backend run on
+        ``least_squares_problem``'s problem bit for bit -- the losses, every history field (the switch fields
+        included), the cores -- with the switch's ``stats`` keys (``step_control`` resolved to the trust region,
+        ``switch_track`` lower-cased); the switch fires, and ``verbose=True`` prints the ``sw`` segment on each
+        Gauss-Newton-phase row, the mark on one."""
+        import contextlib
+        import io
+        import t3toolbox.backend.optimizers as bopt
+        sample, data, x0 = _switch_problem()
+        for layer, geometry, x, kw, track in (
+                ('ragged', t3m.MANIFOLD, x0, {}, 'countable'),
+                ('uniform', ut3m.UNIFORM_MANIFOLD, ut3.UniformTuckerTensorTrain.from_t3(x0), dict(switch_track='ALL'),
+                 'all')):
+            with self.subTest(layer=layer):
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    xf, sf = topt.newton_cg(geometry, 'probe_derivatives', sample, data, x, order=1, max_newton=12,
+                                            hessian='switch', chunk_size=None, verbose=True, **kw)
+                setup = topt.least_squares_problem(geometry, 'probe_derivatives', sample, data, x, order=1,
+                                                   hessian='switch', chunk_size=None)
+                xb, sb = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=12, hessian='switch', **kw)
+                self.assertEqual(sf['losses'], sb['losses'])
+                self.assertTrue(_histories_equal(sf['history'], sb['history']))
+                self.assertIn('switch_fired', sf['history'][0])
+                xf_arrays = xf.data[0] + xf.data[1] if layer == 'ragged' else xf.data[:2]
+                xb_arrays = xb[0] + xb[1] if layer == 'ragged' else xb
+                self.assertTrue(all(np.array_equal(a, b) for a, b in zip(xf_arrays, xb_arrays)))
+                self.assertEqual(list(sf), list(sb) + ['diagnostics'])
+                self.assertEqual((sf['hessian'], sf['switch_track']), ('switch', track))
+                self.assertEqual(sf['history'][0]['step_control'], 'trust_region')
+                j = sf['switched_at']
+                self.assertIsNotNone(j)
+                self.assertEqual([row['hessian'] for row in sf['history'][j - 1:j + 1]], ['gauss_newton', 'exact'])
+                text = out.getvalue()
+                self.assertEqual(text.count(' | sw '), j)                  # the j Gauss-Newton-phase step rows
+                self.assertEqual(text.count(' ⇒ exact'), 1)
+                fired = [line for line in text.split('\n') if line.startswith('iter %2d |' % (j - 1))]
+                self.assertTrue(fired[0].endswith(' ⇒ exact'), fired)                # on the row that switched
 
 
 if __name__ == "__main__":
