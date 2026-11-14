@@ -3,9 +3,18 @@
 Correctness gold standard: the check-free backend oracle (`backend.optimizers`) must reproduce the
 frontend `fitting.LocalModel` exactly (it is the same math through the same backend functions).
 Plus: the optimizers descend; T14 (Steihaug-Toint CG, `TestSteihaugCG`) and T15 (newton_cg's trust-region loop
-and its floors, `TestTrustRegionNewton`). numpy-only (jit dispatch is covered separately in test_dispatch)."""
+and its floors, `TestTrustRegionNewton`). numpy-only (jit dispatch is covered separately in test_dispatch).
+
+The Newton timing plan's T1-T5 on numpy (`TestNewtonTiming`): timing off is today's run; the records tile each row's
+window and the run; timing changes no number, and an overridden `Problem.local_model` keeps its own build; the
+record's shape; every phase carries its own work and waits on its own outputs; the compile listener's events. Its
+`check_timing` is shared with the padded start's and the jax rows (`test_padded_start.py`, `tests/test_dispatch.py`)."""
+import collections
+import contextlib
 import dataclasses as dc
 import math
+import os
+import time
 import types
 import unittest
 import unittest.mock
@@ -1319,6 +1328,434 @@ class TestWeightCombinations(unittest.TestCase):
                 got = gradient_at(chunk_size)
                 self.assertLess(float(cw.corewise_norm(cw.corewise_sub(got, reference)))
                                 / float(cw.corewise_norm(reference)), 1e-12)
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# The Newton timing plan's T1-T5 (numpy)
+# ----------------------------------------------------------------------------------------------------------------------
+_HISTORY_FIELDS_2026_4 = (                       # _NEWTON_SCALAR_FIELDS before the timing feature (T1)
+    'iteration', 'objective', 'gnorm', 'g0norm', 'converged', 'misfit', 'regularization', 'forcing_eta', 'cg_tol',
+    'cg_iters', 'cg_maxiter', 'cg_resid', 'cg_converged', 'cg_truncated', 'ls_steps', 'ls_failed', 'alpha', 'slope',
+    'pHp', 'delta_f', 'rho', 'step_rel', 'wall_time', 'g0_reference', 'cg_reference', 'step_control', 'stop_reason',
+    'hessian', 'tr_radius', 'tr_accepted', 'cg_boundary', 'pKp', 'lift_sigma_min', 'lift_eps')
+_PHASES = tuple(f.name for f in dc.fields(opt.PhaseSeconds))
+_MODEL_PHASES = ('frame', 'sweep', 'companion', 'residual', 'curvature', 'gradient')
+_STEP_PHASES = ('cg', 'forms', 'trial_retraction', 'trial_objective')
+_ONE_OFFS = ('setup', 'setup_compile', 'alignment', 'alignment_compile', 'alignment_passes', 'reference_passes')
+
+
+def canonical(tree):
+    """A tree with every float as its bytes and every array as (dtype, shape, bytes): equality is bitwise (NaN
+    included), container types and dict key order kept."""
+    if isinstance(tree, dict):
+        return ('dict', tuple((k, canonical(v)) for k, v in tree.items()))
+    if isinstance(tree, (tuple, list)):
+        return (type(tree).__name__, tuple(canonical(t) for t in tree))
+    if isinstance(tree, float):
+        return ('float', np.float64(tree).tobytes())
+    if hasattr(tree, 'dtype'):
+        a = np.asarray(tree)
+        return ('array', str(a.dtype), a.shape, a.tobytes())
+    return tree
+
+
+def untimed(run):
+    """(x, stats) of a run, minus what timing adds or the clock decides: stats['timing'] and the history's wall_time."""
+    x, stats = run
+    stats = {k: v for k, v in stats.items() if k != 'timing'}
+    stats['history'] = [{k: v for k, v in row.items() if k != 'wall_time'} for row in stats['history']]
+    return canonical((x, stats))
+
+
+def check_timing(test, stats, seen, compiled=False, override=False):
+    """T2 + T4 on one timed run: ``stats`` its stats, ``seen`` the NewtonInfo rows its callback received. The rows
+    tile their windows (and the run); each phase is None exactly where it did not run; the one-offs sit on row 0;
+    stats['timing'] is the rows' sums and records. ``compiled``: a compile listener ran (else every compile field is
+    None). ``override``: an overridden Problem.local_model, timed whole in frame."""
+    T = stats['timing']
+    test.assertEqual(list(T), ['total', 'setup', 'alignment', 'alignment_passes', 'reference_passes', 'last_callback',
+                               'phases', 'compile', 'cg_per_iteration', 'rows'])
+    test.assertEqual(len(seen), len(stats['history']))
+    trust_region = bool(seen) and seen[0].step_control == 'trust_region'
+    for k, info in enumerate(seen):
+        record, seconds = info.timing, info.timing.seconds
+        ran = {name: getattr(seconds, name) is not None for name in _PHASES}
+        with test.subTest(row=k):
+            test.assertIsInstance(record, opt.NewtonTiming)
+            if info.wall_time is not None:
+                test.assertEqual(record.window, info.wall_time)                     # the same two readings
+            test.assertAlmostEqual(sum(getattr(seconds, n) for n in _PHASES if ran[n]), record.window, delta=1e-9)
+            test.assertGreaterEqual(seconds.remainder, -1e-6)
+            test.assertTrue(all(getattr(seconds, n) >= 0.0 for n in _PHASES if ran[n]))
+            reused = k > 0 and seen[k - 1].tr_accepted is False                    # a rejected trial's model
+            test.assertEqual(ran['previous_callback'], k > 0)
+            test.assertEqual(ran['reference'], k == 0)
+            test.assertFalse(ran['tracking'])
+            test.assertTrue(ran['remainder'])
+            test.assertEqual(ran['frame'], not reused)
+            test.assertEqual(ran['gradient'], not reused)
+            for name in ('sweep', 'companion', 'residual'):
+                test.assertEqual(ran[name], not reused and not override)
+            test.assertEqual(ran['curvature'], not reused and not override and info.hessian == 'exact')
+            for name in _STEP_PHASES:
+                test.assertEqual(ran[name], not info.converged)
+            if info.converged:
+                test.assertIsNone(info.wall_time)
+                test.assertIsInstance(record.window, float)
+                test.assertIsNone(record.trials)
+                test.assertIsNone(record.accepted_retraction)
+            else:
+                test.assertEqual(record.trials, 1 if trust_region else (40 if info.ls_failed else info.ls_steps + 1))
+                if info.tr_accepted is False or info.stop_reason == 'line_search':   # a rejected step
+                    test.assertIsNone(record.accepted_retraction)
+                else:
+                    test.assertGreater(record.accepted_retraction, 0.0)
+                    if record.trials > 1:                                            # one trial's share of several
+                        test.assertLess(record.accepted_retraction, seconds.trial_retraction)
+                    else:
+                        test.assertEqual(record.accepted_retraction, seconds.trial_retraction)
+            if compiled:
+                test.assertIsInstance(record.compile_seconds, opt.PhaseSeconds)
+                for name in _PHASES:
+                    test.assertEqual(getattr(record.compile_seconds, name) is not None, ran[name])
+                test.assertGreaterEqual(record.compile_seconds.remainder, -1e-9)
+            else:
+                test.assertIsNone(record.compile_seconds)
+            for name in _ONE_OFFS:
+                if k > 0:
+                    test.assertIsNone(getattr(record, name), name)
+            if k == 0:
+                test.assertGreaterEqual(record.setup, 0.0)
+                test.assertEqual(record.setup_compile is not None, compiled)
+                test.assertEqual(record.alignment is not None, 'start_movements' in stats and stats['start_frame'] == 'padded')
+                test.assertEqual(record.alignment_compile is not None, compiled and record.alignment is not None)
+                for name in _ONE_OFFS:
+                    test.assertEqual(T.get(name, getattr(record, name)), getattr(record, name))
+    test.assertEqual(T['rows'], [dc.asdict(info.timing) for info in seen])
+    test.assertEqual(T['phases'], {n: sum(getattr(i.timing.seconds, n) or 0.0 for i in seen) for n in _PHASES})
+    test.assertGreaterEqual(T['last_callback'], 0.0)
+    test.assertAlmostEqual(T['setup'] + (T['alignment'] or 0.0) + sum(i.timing.window for i in seen) + T['last_callback'],
+                           T['total'], delta=1e-6)
+    iterations = sum(info.cg_iters or 0 for info in seen)
+    if compiled:
+        test.assertEqual(set(T['compile']), set(_PHASES) | {'setup', 'alignment', 'last_callback'})
+        cg = sum(i.timing.seconds.cg - i.timing.compile_seconds.cg for i in seen if i.timing.seconds.cg is not None)
+    else:
+        test.assertIsNone(T['compile'])
+        cg = sum(i.timing.seconds.cg for i in seen if i.timing.seconds.cg is not None)
+    if iterations:
+        test.assertAlmostEqual(T['cg_per_iteration'], cg / iterations, delta=1e-12)
+    else:
+        test.assertIsNone(T['cg_per_iteration'])
+
+
+@dc.dataclass(frozen=True)
+class _ScaledModelProblem(opt.Problem):
+    """A Problem whose ``local_model`` is overridden (a supported pattern: subclassing ``Problem``): its model sees 0.9
+    of the residual, so its runs differ from the stock build's -- timing must call it, never the stock split."""
+
+    def local_model(self, x_cores, sample=None, data=None, hessian='gauss_newton', curvature_damping=None, frame=None):
+        lm = super().local_model(x_cores, sample, data, hessian, curvature_damping, frame)
+        return dc.replace(lm, residual=cw.corewise_scale(lm.residual, 0.9))
+
+
+class TestNewtonTiming(unittest.TestCase):
+    """The Newton timing plan's T1-T5 on numpy."""
+
+    CASES = {                                       # (problem kwargs, newton_cg kwargs)
+        'line search':             (dict(), dict(max_newton=5)),
+        'trust region, rejection': (dict(), dict(max_newton=8, hessian='exact', tr_radius0=1e3)),
+        'exact, line search':      (dict(), dict(max_newton=3, hessian='exact', step_control='line_search')),
+        'exhausted, accept':       (dict(), dict(max_newton=2, c_armijo=10.0, on_line_search_failure='accept')),
+        'exhausted, stop':         (dict(), dict(max_newton=3, c_armijo=10.0)),
+        'converged':               (dict(), dict(max_newton=20, gtol_rel=1e-3)),
+        'converged at row 0':      (dict(), dict(max_newton=3, gtol_rel=10.0)),
+        'warm start, overrides':   (dict(), dict(max_newton=3, g0_reference='warm_start', g0norm_cg=2.0)),
+    }
+
+    @staticmethod
+    def newton(problem, x0, **kw):
+        seen = []
+        out = opt.newton_cg(problem, x0, callback=seen.append, **kw)
+        return out, seen
+
+    def test_off_is_today(self):
+        """T1: no timing record on any row, no stats key, and the history fields are 2026.4.0's."""
+        self.assertEqual(opt._NEWTON_SCALAR_FIELDS, _HISTORY_FIELDS_2026_4)
+        problem, x0 = _pd_problem(0), _rank2_start()
+        for name, (_, kw) in self.CASES.items():
+            for timing in ({}, {'timing': False}):
+                with self.subTest(case=name, timing=timing):
+                    (_, stats), seen = self.newton(problem, x0, **kw, **timing)
+                    self.assertTrue(all(info.timing is None for info in seen))
+                    self.assertNotIn('timing', stats)
+                    self.assertTrue(all(tuple(row) == _HISTORY_FIELDS_2026_4 for row in stats['history']))
+
+    def test_the_records(self):
+        """T2 + T4 + T5's numpy row on every case: the identities, each phase None exactly where it did not run, the
+        one-offs on row 0, stats['timing'] the rows' sums and records, no compile column on numpy. The cases cover a
+        rejected trust-region trial (its next row reuses the model), the exact Hessian, an exhausted line search
+        (40 trials) under both policies, and a converged last row."""
+        problem, x0 = _pd_problem(0), _rank2_start()
+        covered = set()
+        for name, (_, kw) in self.CASES.items():
+            with self.subTest(case=name):
+                (_, stats), seen = self.newton(problem, x0, timing=True, **kw)
+                check_timing(self, stats, seen)
+                covered |= {'rejection' for i in seen if i.tr_accepted is False}
+                covered |= {'converged' for i in seen if i.converged}
+                covered |= {'40 trials' for i in seen if i.timing.trials == 40}
+                covered |= {'exact' for i in seen if i.timing.seconds.curvature is not None}
+        self.assertEqual(covered, {'rejection', 'converged', '40 trials', 'exact'})
+
+    def test_no_row(self):
+        """max_newton=0: no row, and the run is setup + last_callback."""
+        (_, stats), seen = self.newton(_pd_problem(0), _rank2_start(), max_newton=0, timing=True)
+        self.assertEqual(seen, [])
+        check_timing(self, stats, seen)
+        self.assertEqual(stats['timing']['rows'], [])
+        self.assertEqual(stats['timing']['phases'], dict.fromkeys(_PHASES, 0.0))
+
+    def test_timing_changes_no_number(self):
+        """T3: x and stats bitwise on vs off (stats['timing'] and wall_time aside); and an overriding Problem
+        subclass runs its own build under both (on == off, and different from the stock build), timed whole in
+        frame."""
+        problem, x0 = _pd_problem(0), _rank2_start()
+        for name, (_, kw) in self.CASES.items():
+            with self.subTest(case=name):
+                self.assertEqual(untimed(opt.newton_cg(problem, x0, timing=True, **kw)),
+                                 untimed(opt.newton_cg(problem, x0, **kw)))
+        scaled = _ScaledModelProblem(problem.geom, problem.kind, problem.sample, problem.data)
+        off = opt.newton_cg(scaled, x0, max_newton=4)
+        (on, seen) = self.newton(scaled, x0, max_newton=4, timing=True)
+        self.assertEqual(untimed(on), untimed(off))
+        self.assertNotEqual(untimed(off), untimed(opt.newton_cg(problem, x0, max_newton=4)))
+        check_timing(self, on[1], seen, override=True)
+
+    def test_each_phase_is_its_own_work(self):
+        """Every phase carries exactly its own work: the run's calls of the parts each phase names, and the clock's
+        marks, laps and closes, are recorded in order, and each call is attributed to the lap that ends after it (or
+        to the remainder, when a mark or a close comes first). Exact + trust region (a rejected trial, the zero
+        reference), Gauss-Newton + line search, and an overridden local_model. (Two library-wide helpers are traced
+        too, so the remainder's own work is pinned: ``‖x‖`` and ``-g`` before CG.)"""
+        geom_cls, kind_cls = bgeo.ManifoldGeometryOps, bfit.ProbeDerivativesKind
+        traced = {'geom.frame': (geom_cls, 'frame'), 'kind.precompute': (kind_cls, 'precompute'),
+                  'geom.precompute': (geom_cls, 'precompute'), 'kind.point_forward': (kind_cls, 'point_forward'),
+                  'geom.curvature_precompute': (geom_cls, 'curvature_precompute'),
+                  'kind.transpose': (kind_cls, 'transpose'), 'kind.corewise_hessian': (kind_cls, 'corewise_hessian'),
+                  'geom.retract': (geom_cls, 'retract'), '_lift_diagnostics': (opt, '_lift_diagnostics'),
+                  '_resolve_g0_reference': (opt, '_resolve_g0_reference'), '_cg_solve': (opt, '_cg_solve'),
+                  '_initial_radius': (opt, '_initial_radius'),
+                  'cw.corewise_scale': (cw, 'corewise_scale'), 'cw.corewise_norm': (cw, 'corewise_norm')}
+        def attribute(events):
+            phases, pending = {}, []
+            for event in events + [('close',)]:
+                if event[0] == 'call':
+                    pending.append(event[1])
+                    continue
+                phase = event[1] if event[0] == 'lap' else 'remainder'
+                for name in pending:
+                    phases.setdefault(name, set()).add(phase)
+                pending = []
+            return phases
+
+        def traced_run(problem, **kw):
+            events = []
+
+            def wrap(name, fn):
+                def wrapper(*args, **kwargs):
+                    events.append(('call', name))
+                    return fn(*args, **kwargs)
+                return wrapper
+
+            def wrap_clock(method, fn):
+                def wrapper(self, *args):
+                    events.append((method,) + tuple(a for a in args if isinstance(a, str)))
+                    return fn(self, *args)
+                return wrapper
+            with contextlib.ExitStack() as stack:
+                for name, (owner, attr) in traced.items():
+                    stack.enter_context(unittest.mock.patch.object(owner, attr, wrap(name, getattr(owner, attr))))
+                for method in ('mark', 'lap', 'close'):
+                    stack.enter_context(unittest.mock.patch.object(
+                        opt._PhaseClock, method, wrap_clock(method, getattr(opt._PhaseClock, method))))
+                seen = []
+                opt.newton_cg(problem, _rank2_start(), timing=True,
+                              callback=lambda info: (events.append(('call', 'callback')), seen.append(info)), **kw)
+            return attribute(events), seen
+
+        problem = _pd_problem(0)
+        common = {'geom.frame': {'frame'}, 'kind.precompute': {'sweep', 'reference'},
+                  'geom.precompute': {'companion', 'reference'},
+                  'kind.point_forward': {'residual', 'reference', 'trial_objective'},
+                  'kind.transpose': {'gradient', 'reference', 'cg'}, 'geom.retract': {'trial_retraction'},
+                  '_lift_diagnostics': {'gradient'}, '_resolve_g0_reference': {'reference'}, '_cg_solve': {'cg'},
+                  'callback': {'previous_callback', 'remainder'},
+                  'cw.corewise_norm': {'remainder'},                                  # ‖x‖
+                  'cw.corewise_scale': {'remainder', 'reference', 'cg', 'trial_retraction'}}   # -g; CG; α p
+        with self.subTest(case='exact, trust region'):
+            phases, seen = traced_run(problem, max_newton=4, hessian='exact')        # the default radius: forms
+            self.assertTrue(any(i.tr_accepted is False for i in seen) and any(i.tr_accepted for i in seen))
+            self.assertEqual(phases, dict(common, **{'geom.curvature_precompute': {'curvature'},
+                                                     'kind.corewise_hessian': {'cg', 'forms'},
+                                                     '_initial_radius': {'forms'},
+                                                     'cw.corewise_scale': {'remainder', 'reference', 'cg'}}))  # p, α = 1
+        with self.subTest(case='Gauss-Newton, line search'):
+            phases, _ = traced_run(problem, max_newton=3)
+            self.assertEqual(phases, common)
+        with self.subTest(case='an overridden local_model'):
+            scaled = _ScaledModelProblem(problem.geom, problem.kind, problem.sample, problem.data)
+            phases, _ = traced_run(scaled, max_newton=3)
+            self.assertEqual(phases, dict(common, **{'kind.precompute': {'frame', 'reference'},
+                                                     'geom.precompute': {'frame', 'reference'},
+                                                     'kind.point_forward': {'frame', 'reference', 'trial_objective'},
+                                                     'cw.corewise_scale': common['cw.corewise_scale'] | {'frame'}}))
+
+    WAIT = 0.03                                     # seconds: every mocked wait sleeps this long
+
+    def waited_run(self, problem, x0, **kw):
+        """A timed run whose every wait (``common.tree_block_until_ready``, mocked) sleeps ``WAIT`` and is recorded with
+        the lap it ends. Returns (stats, seen, stretches): ``stretches[0]`` the waits before the loop (the setup's,
+        phase None; the alignment's), ``stretches[k + 1]`` row k's, each a list of (phase, tree)."""
+        stretches, phase = [[]], [None]
+        lap, close = opt._PhaseClock.lap, opt._PhaseClock.close
+
+        def recording_lap(clock, name, outputs=None):
+            phase[0] = name
+            return lap(clock, name, outputs)
+
+        def recording_close(clock, t):
+            stretches.append([])
+            phase[0] = None
+            return close(clock, t)
+
+        def sleeping_wait(tree):
+            stretches[-1].append((phase[0], tree))
+            time.sleep(self.WAIT)
+        seen = []
+        with unittest.mock.patch.object(opt, 'tree_block_until_ready', side_effect=sleeping_wait), \
+                unittest.mock.patch.object(opt._PhaseClock, 'lap', recording_lap), \
+                unittest.mock.patch.object(opt._PhaseClock, 'close', recording_close):
+            _, stats = opt.newton_cg(problem, x0, timing=True, callback=seen.append, **kw)
+        self.assertEqual(stretches[len(seen) + 1:], [[], []])               # nothing waits after the last row
+        return stats, seen, stretches
+
+    def check_waits_inside_laps(self, seen, stretches):
+        """Each wait is inside its own lap: every phase lasts at least WAIT per wait it ended on its row, and no row's
+        remainder holds a wait. (A lap that reads the clock before it waits leaks its WAIT out of its phase.)"""
+        pre = stretches[0]
+        self.assertEqual(pre[0][0], None)                                   # the setup's wait comes first
+        self.assertGreaterEqual(seen[0].timing.setup, self.WAIT)
+        aligning = sum(name == 'alignment' for name, _ in pre)
+        if aligning:
+            self.assertGreaterEqual(seen[0].timing.alignment, aligning * self.WAIT)
+            self.assertLess(seen[0].timing.setup, 2 * self.WAIT)            # the alignment's wait is not in setup
+        for k, (info, waits) in enumerate(zip(seen, stretches[1:])):
+            with self.subTest(row=k):
+                for name, n in collections.Counter(name for name, _ in waits).items():
+                    self.assertGreaterEqual(getattr(info.timing.seconds, name), n * self.WAIT, name)
+                self.assertLess(info.timing.seconds.remainder, self.WAIT)
+
+    def test_each_phase_waits_on_its_outputs(self):
+        """With timing, every lap first waits on its own outputs (common.tree_block_until_ready), inside the lap: the
+        start point and problem once at entry; by identity, the model's frame, sweep, companion, residual, misfit
+        gradient and curvature data (an override's whole model); CG's five outputs, the step and each trial's point;
+        the alignment's frame and movements; the laps ending in a float wait on nothing. Exact + trust region (two
+        rows, the first a rejected trial, so the second reuses its model), Gauss-Newton + line search, a padded start
+        and an overridden local_model. Without timing nothing is waited on."""
+        problem, x0 = _pd_problem(0), _rank2_start()
+        with unittest.mock.patch.object(opt, 'tree_block_until_ready') as sync:
+            opt.newton_cg(problem, x0, max_newton=2, hessian='exact')
+        sync.assert_not_called()
+        with self.subTest(case='exact, trust region'):
+            _, seen, stretches = self.waited_run(problem, x0, max_newton=2, hessian='exact')
+            self.check_waits_inside_laps(seen, stretches)
+            self.assertIs(seen[0].tr_accepted, False)                       # so row 1 reuses row 0's model
+            lm = seen[0].lm
+            (setup_phase, setup), = stretches[0]
+            self.assertTrue(setup[0] is x0 and setup[1] is problem)
+            row0, row1 = ([tree for _, tree in waits] for waits in stretches[1:3])
+            self.assertEqual([name for name, _ in stretches[1]],
+                             ['frame', 'sweep', 'companion', 'residual', 'gradient', 'curvature', 'gradient',
+                              'reference', 'forms', 'cg', 'forms', 'trial_retraction', 'trial_objective'])
+            for got, want in zip(row0, (lm.frame, lm.sweep, lm.geom_aux, lm.residual, lm.curvature.misfit_gradient,
+                                        lm.curvature)):
+                self.assertIs(got, want)
+            gradient, reference, radius, cg, forms, retraction, objective = row0[6:]
+            self.assertEqual((gradient, reference, radius, objective), (None, None, None, None))
+            self.assertEqual((len(cg), len(forms), len(retraction), len(retraction[0])), (5, 2, 2, len(x0[0])))
+            self.assertEqual([name for name, _ in stretches[2]],
+                             ['previous_callback', 'cg', 'forms', 'trial_retraction', 'trial_objective'])
+            callback, cg, forms, retraction, objective = row1
+            self.assertEqual((callback, objective), (None, None))
+            self.assertEqual((len(cg), len(forms), len(retraction)), (5, 2, 2))
+        with self.subTest(case='Gauss-Newton, line search'):
+            _, seen, stretches = self.waited_run(problem, x0, max_newton=2)
+            self.check_waits_inside_laps(seen, stretches)
+            trials = [tree for name, tree in stretches[1] if name == 'trial_retraction']
+            self.assertEqual(len(trials), seen[0].timing.trials)
+            self.assertTrue(all(len(t) == 2 and len(t[0]) == len(x0[0]) for t in trials))
+            self.assertIs(seen[0].ls_failed, False)
+            self.assertIs(trials[-1], seen[1].x_cores)                      # the accepted trial is the next point
+        with self.subTest(case='a padded start'):
+            x_old = _rank2_start()
+            padded = t3.TuckerTensorTrain(*x_old).resize(_PD_SHAPE, (3, 3, 3), (1, 3, 3, 1)).data
+            stats, seen, stretches = self.waited_run(problem, padded, max_newton=1, padded_from=x_old,
+                                                     padded_max_passes=2)
+            self.check_waits_inside_laps(seen, stretches)
+            self.assertEqual([name for name, _ in stretches[0]], [None, 'alignment'])
+            frame, movements = stretches[0][1][1]
+            self.assertIs(frame, seen[0].lm.frame)                          # the start frame the model is built at
+            self.assertEqual(len(movements), len(stats['start_movements']))
+        with self.subTest(case='an overridden local_model'):
+            scaled = _ScaledModelProblem(problem.geom, problem.kind, problem.sample, problem.data)
+            _, seen, stretches = self.waited_run(scaled, x0, max_newton=2)
+            self.check_waits_inside_laps(seen, stretches)
+            self.assertEqual(stretches[1][0][0], 'frame')
+            self.assertIs(stretches[1][0][1], seen[0].lm)                   # the override's whole model
+
+    def test_a_patched_local_model_is_called_whole(self):
+        """The guard compares with the stock build captured at import, so a class-level patch of
+        Problem.local_model is honoured under timing too (called whole, its build in frame)."""
+        problem, x0 = _pd_problem(0), _rank2_start()
+        calls = []
+
+        def patched(self, *args, **kwargs):
+            calls.append(1)
+            return opt._STOCK_LOCAL_MODEL(self, *args, **kwargs)
+        with unittest.mock.patch.object(opt.Problem, 'local_model', patched):
+            seen = []
+            _, stats = opt.newton_cg(problem, x0, max_newton=2, timing=True, callback=seen.append)
+        self.assertEqual(len(calls), 2)
+        check_timing(self, stats, seen, override=True)
+
+    def test_the_compile_listener_counts_three_events(self):
+        """T5's listener: exactly jax's three compile events are summed (any other event, e.g. the persistent cache's
+        or a pjit-level one, is ignored), and extra event keywords are accepted."""
+        listener = opt._CompileSeconds()
+        for event in opt._CompileSeconds.EVENTS:
+            listener(event, 0.25)
+        listener('/jax/core/compile/backend_compile_duration', 0.5, fun_name='f')
+        for other in ('/jax/compilation_cache/cache_retrieval_time_sec', '/jax/core/compile/jaxpr_trace',
+                      '/jax/pjit/compile_duration', 'backend_compile_duration'):
+            listener(other, 100.0)
+        self.assertEqual(listener.total, 1.25)
+        self.assertEqual(set(opt._CompileSeconds.EVENTS), {'/jax/core/compile/jaxpr_trace_duration',
+                                                           '/jax/core/compile/jaxpr_to_mlir_module_duration',
+                                                           '/jax/core/compile/backend_compile_duration'})
+        self.assertIsNone(opt._CompileSeconds.register(_rank2_start()))     # a numpy run registers nothing
+
+    @unittest.skipUnless(os.environ.get('T3TOOLBOX_SLOW_TESTS'),
+                         'the remainder bound: set T3TOOLBOX_SLOW_TESTS=1 (required at release)')
+    def test_the_remainder_is_small(self):
+        """T2's slow row: on a problem whose rows take well above Python's per-row overhead, the unattributed
+        remainder is at most a tenth of the windows."""
+        problem = _pd_problem(0, W=600, order=2)
+        (_, stats), seen = self.newton(problem, _rank2_start(), max_newton=6, hessian='exact', timing=True)
+        check_timing(self, stats, seen)
+        windows = sum(info.timing.window for info in seen)
+        self.assertGreater(windows / len(seen), 0.05)
+        self.assertLessEqual(stats['timing']['phases']['remainder'], 0.1 * windows)
 
 
 if __name__ == "__main__":

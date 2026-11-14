@@ -2687,6 +2687,110 @@ class TestAlignmentTiming(unittest.TestCase):
 
 
 @unittest.skipUnless(HAS_JAX, "jax not available")
+class TestNewtonTiming(unittest.TestCase):
+    """The Newton timing plan's jax rows (x64 on in this module): T2 and T3 on eager jax and under use_jit (the records
+    tile the run; timing changes no number), T5 (the compile wait per phase where jax.monitoring can unregister a
+    listener, else None -- the floor's jax 0.4.30; the listener is unregistered when a callback raises) and T6
+    (timing adds no compiled program: CG's and the uniform whole-loop alignment's program caches are those of the
+    untimed run)."""
+
+    def setUp(self):
+        self.addCleanup(_release_jax_programs)
+
+    @staticmethod
+    def jax_case(layer):
+        """(problem, x0, old) on jax: TestPaddedStartSeam's level, moved to jax as use_jit would."""
+        setup, old, _, _ = TestPaddedStartSeam.case(layer)
+        x0, problem = bopt._prepare_jit_inputs(True, setup.x0_cores, setup.problem)
+        if layer == 'ragged':
+            old = jax.tree_util.tree_map(jnp.asarray, old)
+        else:                                                               # the supercores; host shape and masks
+            old = tuple(jnp.asarray(a) for a in old[:2]) + tuple(old[2:])
+        return problem, x0, old
+
+    @staticmethod
+    def listening():
+        import jax.monitoring as monitoring
+        return hasattr(monitoring, 'unregister_event_duration_listener')    # jax 0.4.30 (the CI floor) cannot
+
+    @staticmethod
+    def listeners():
+        import jax._src.monitoring as monitoring
+        return len(monitoring.get_event_duration_listeners())
+
+    def timed(self, problem, x0, **kw):
+        seen = []
+        out = bopt.newton_cg(problem, x0, timing=True, callback=seen.append, **kw)
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), 'backend'))
+        import test_optimizers as optimizer_tests
+        optimizer_tests.check_timing(self, out[1], seen, compiled=self.listening())
+        return out, seen, optimizer_tests.untimed
+
+    def test_eager_jax(self):
+        """Eager jax (ragged, line search): the records tile the run, timing changes no number, and the listener count
+        is back to its baseline after a timed run, and after one whose callback raises. (Eager padded_from and 'cone'
+        compile per operation, ~40 s more; their timed paths are covered on numpy and under use_jit.)"""
+        problem, x0, _ = self.jax_case('ragged')
+        before = self.listeners()
+        (x, stats), seen, untimed = self.timed(problem, x0, max_newton=2)
+        self.assertEqual(self.listeners(), before)
+        self.assertTrue(common.is_jax_ndarray(x[0][0]))
+        self.assertEqual(untimed((x, stats)), untimed(bopt.newton_cg(problem, x0, max_newton=2)))
+
+        def raising(info):
+            raise RuntimeError('a failing callback')
+        with self.assertRaisesRegex(RuntimeError, 'a failing callback'):
+            bopt.newton_cg(problem, x0, max_newton=1, timing=True, callback=raising)
+        self.assertEqual(self.listeners(), before)
+
+    def check_no_new_program(self, problem, x0, layer, **kw):
+        """T6 + T3 at one structure on empty program caches: an untimed run, then a timed one that compiles no new
+        program (CG's and the uniform whole-loop alignment's caches keep their sizes) and has no CG compile on any
+        row; the two runs bitwise equal (stats['timing'] and wall_time aside). Returns the timed run's rows."""
+        cg = bopt._jitted(bopt._cg_core, (4,))
+        loop = padded_frames._jitted(uniform_padded_frames._ufv_aligned_loop_kernel, (2, 3, 4, 5))
+        _release_jax_programs()
+        off = bopt.newton_cg(problem, x0, use_jit=True, **kw)
+        sizes = (cg._cache_size(), loop._cache_size())
+        self.assertGreater(sizes[0], 0, 'the untimed run did not use this CG program')
+        self.assertEqual(sizes[1] > 0, layer == 'uniform' and 'padded_from' in kw)
+        on, seen, untimed = self.timed(problem, x0, use_jit=True, **kw)
+        self.assertEqual((cg._cache_size(), loop._cache_size()), sizes, 'timing=True compiled another program')
+        if self.listening():
+            self.assertTrue(all(i.timing.compile_seconds.cg in (None, 0.0) for i in seen))
+        self.assertEqual(untimed(on), untimed(off))
+        return seen
+
+    def test_use_jit_ragged(self):
+        """use_jit, ragged: a timed run on empty program caches has CG's compile in row 0 (T5; None where the listener
+        is unavailable), and equals the untimed run; then T6 + T3 (check_no_new_program)."""
+        if not hasattr(bopt._jitted(bopt._cg_core, (4,)), '_cache_size'):
+            self.skipTest("this jax has no jit _cache_size()")
+        problem, x0, _ = self.jax_case('ragged')
+        _release_jax_programs()
+        first, seen, untimed = self.timed(problem, x0, max_newton=3, use_jit=True)
+        if self.listening():
+            self.assertGreater(seen[0].timing.compile_seconds.cg, 0.0)
+            self.assertGreater(first[1]['timing']['compile']['cg'], 0.0)
+        else:
+            self.assertIsNone(seen[0].timing.compile_seconds)
+            self.assertIsNone(first[1]['timing']['compile'])
+        self.check_no_new_program(problem, x0, 'ragged', max_newton=3)
+        self.assertEqual(untimed(first), untimed(bopt.newton_cg(problem, x0, max_newton=3, use_jit=True)))
+
+    def test_use_jit_uniform_padded(self):
+        """use_jit, uniform, padded_from: the whole-loop alignment is one program, so row 0's alignment_passes is None
+        while the alignment is timed whole; T6 + T3 (check_no_new_program), the loop's program cache included."""
+        if not hasattr(bopt._jitted(bopt._cg_core, (4,)), '_cache_size'):
+            self.skipTest("this jax has no jit _cache_size()")
+        problem, x0, old = self.jax_case('uniform')
+        seen = self.check_no_new_program(problem, x0, 'uniform', max_newton=3, padded_from=old)
+        record = seen[0].timing
+        self.assertIsNone(record.alignment_passes)
+        self.assertGreater(record.alignment, 0.0)
+        self.assertEqual(record.alignment_compile is not None, self.listening())
+
+@unittest.skipUnless(HAS_JAX, "jax not available")
 class TestAlignedPaddedFrameFrontend(unittest.TestCase):
     """The frontend twins of the aligned padded frame: jax in -> jax out (the uniform masks host numpy), eagerly and
     under use_jit, equal to the numpy twins' results (frames by the plan's frame measure; x64 on in this module)."""

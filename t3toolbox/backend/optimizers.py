@@ -30,6 +30,7 @@ Tangent vectors are raw ``(tucker_var, tt_var)`` tuples; vector arithmetic is th
 """
 import dataclasses as dc
 import functools as ft
+import inspect
 import math
 import time
 import typing as typ
@@ -48,6 +49,8 @@ __all__ = [
     'LocalModel',
     'CurvatureState',
     'NewtonInfo',
+    'NewtonTiming',
+    'PhaseSeconds',
     'Regularizer',
     'IdentityRegularizer',
     'least_squares_problem',
@@ -416,33 +419,7 @@ class Problem:
         >>> bool(abs(float(gn.quadratic(p)) - fd) < 1e-2 * abs(fd))
         False
         """
-        exact = _check_hessian(hessian, 'Problem.local_model') == 'exact'
-        if curvature_damping is not None and not exact:
-            raise ValueError("Problem.local_model: curvature_damping is only meaningful with hessian='exact'")
-        if exact:
-            _require_exact_capable(self.kind, self.geom)
-        sample, data = self._sample_and_data(sample, data, 'Problem.local_model')
-        if self.regularizer is not None:
-            require_unstacked_for_regularizer(self.geom.stack_shape(x_cores), 'Problem.local_model')
-        if frame is None:
-            frame = self.geom.frame(x_cores)
-        else:
-            require = getattr(self.geom, 'require_frame_structure', None)
-            if require is None:
-                raise ValueError('Problem.local_model: frame= needs a geometry with a require_frame_structure member; '
-                                 '%s has none' % type(self.geom).__name__)
-            require(x_cores, frame)
-        sweep = self.kind.precompute(frame, sample)
-        geom_aux = self.geom.precompute(frame)        # None when the geometry has no companion
-        residual = cw.corewise_sub(self.kind.point_forward(x_cores, sample), data)
-        curvature = None
-        if exact:                                     # the one misfit transpose (LocalModel.gradient reads it)
-            misfit_gradient = self.geom.project(frame, self.kind.transpose(residual, sample, frame, sweep),
-                                                aux=geom_aux)
-            curvature = CurvatureState(misfit_gradient, self.geom.curvature_precompute(
-                frame, misfit_gradient, geom_aux, curvature_damping))
-        return LocalModel(self.geom, self.kind, sample, frame, sweep, residual, self.kind.w_axes(sample),
-                          self.regularizer, geom_aux, curvature)
+        return _local_model_phases(self, x_cores, sample, data, hessian, curvature_damping, frame, None)
 
     def objective(self, x_cores: Tangent, sample=None, data=None):
         """``½‖S(x)-data‖²`` (+ ``ρ(x)`` if regularized) on the full data (``sample=None``) or an explicit
@@ -458,6 +435,59 @@ class Problem:
         if self.regularizer is not None:
             c = c + self.regularizer.value(self.geom, x_cores)
         return c
+
+
+_STOCK_LOCAL_MODEL = Problem.local_model   # newton_cg(timing=True) splits only this build; any other is called whole
+
+
+def _local_model_phases(
+        problem:            Problem,
+        x_cores:            Cores,                         # the point to linearize at
+        sample:             typ.Any,                       # an explicit minibatch sample (with data), or None
+        data:               typ.Any,                       # its observed data (with sample), or None
+        hessian:            str,                           # 'gauss_newton' | 'exact' (case-insensitive)
+        curvature_damping:  typ.Optional[float],           # exact only: the lift damping; None -> the geometry's
+        frame:              typ.Any,                       # a frame of x_cores, or None -> geom.frame(x_cores)
+        clock:              typ.Optional['_PhaseClock'],   # None: no synchronization, no clock reading
+) -> LocalModel:
+    """:py:meth:`Problem.local_model`'s body, its parts lapped on ``clock`` in run order: ``frame``, ``sweep``,
+    ``companion``, ``residual`` and, in exact mode, ``gradient`` (the model's one misfit transpose) then
+    ``curvature``. ``local_model`` calls it with ``clock=None``: the same operations in the same order, nothing else;
+    ``newton_cg(timing=True)`` calls it with its clock, unless ``local_model`` is overridden."""
+    exact = _check_hessian(hessian, 'Problem.local_model') == 'exact'
+    if curvature_damping is not None and not exact:
+        raise ValueError("Problem.local_model: curvature_damping is only meaningful with hessian='exact'")
+    if exact:
+        _require_exact_capable(problem.kind, problem.geom)
+    sample, data = problem._sample_and_data(sample, data, 'Problem.local_model')
+    if problem.regularizer is not None:
+        require_unstacked_for_regularizer(problem.geom.stack_shape(x_cores), 'Problem.local_model')
+    _mark(clock)
+    if frame is None:
+        frame = problem.geom.frame(x_cores)
+    else:
+        require = getattr(problem.geom, 'require_frame_structure', None)
+        if require is None:
+            raise ValueError('Problem.local_model: frame= needs a geometry with a require_frame_structure member; '
+                             '%s has none' % type(problem.geom).__name__)
+        require(x_cores, frame)
+    _lap(clock, 'frame', frame)
+    sweep = problem.kind.precompute(frame, sample)
+    _lap(clock, 'sweep', sweep)
+    geom_aux = problem.geom.precompute(frame)     # None when the geometry has no companion
+    _lap(clock, 'companion', geom_aux)
+    residual = cw.corewise_sub(problem.kind.point_forward(x_cores, sample), data)
+    _lap(clock, 'residual', residual)
+    curvature = None
+    if exact:                                     # the one misfit transpose (LocalModel.gradient reads it)
+        misfit_gradient = problem.geom.project(frame, problem.kind.transpose(residual, sample, frame, sweep),
+                                               aux=geom_aux)
+        _lap(clock, 'gradient', misfit_gradient)
+        curvature = CurvatureState(misfit_gradient, problem.geom.curvature_precompute(
+            frame, misfit_gradient, geom_aux, curvature_damping))
+        _lap(clock, 'curvature', curvature)
+    return LocalModel(problem.geom, problem.kind, sample, frame, sweep, residual, problem.kind.w_axes(sample),
+                      problem.regularizer, geom_aux, curvature)
 
 
 def least_squares_problem(
@@ -816,16 +846,68 @@ def padded_start(
     >>> bool(float(lm.objective) > 0)
     True
     """
-    member = getattr(problem.geom, 'aligned_padded_frame', None)
-    if member is None:
-        raise ValueError('padded_start: the geometry %s has no aligned_padded_frame member (a padded start needs a '
-                         'manifold geometry)' % type(problem.geom).__name__)
+    _alignment_member(problem.geom)                     # a geometry without the member raises before the options
     options = _alignment_options(dict(oversampling=oversampling, oversampled_passes=oversampled_passes,
                                       max_passes=max_passes, tol=tol, alternate=alternate, seed=seed),
                                  '', 'padded_start')
+    return _padded_start(problem, x0, x_old, options, use_jit, False)[:2]
+
+
+def _alignment_member(
+        geom:  typ.Any,      # the problem's geometry
+) -> typ.Callable:           # its aligned_padded_frame member
+    """The geometry's ``aligned_padded_frame`` member; a geometry without one raises (a padded start needs it)."""
+    member = getattr(geom, 'aligned_padded_frame', None)
+    if member is None:
+        raise ValueError('padded_start: the geometry %s has no aligned_padded_frame member (a padded start needs a '
+                         'manifold geometry)' % type(geom).__name__)
+    return member
+
+
+def _padded_start(
+        problem:  'Problem',
+        x0:       Cores,                     # as padded_start
+        x_old:    typ.Optional[typ.Any],     # as padded_start
+        options:  typ.Dict[str, typ.Any],    # the set alignment options (unprefixed, validated)
+        use_jit:  bool,
+        timing:   bool,                      # True: ask the member for its seconds per pass (_aligned_padded_frame)
+) -> typ.Tuple[
+    typ.Any,                                 # the aligned frame of x0
+    typ.Any,                                 # movements, as the member returns them
+    typ.Optional[typ.Tuple[float, ...]],     # the seconds per pass; None unless timing and the member reports them
+]:
+    """:py:func:`padded_start` after its option validation, with ``timing`` (``newton_cg(padded_from=)``'s call)."""
+    member = _alignment_member(problem.geom)
     point = x0 if x_old is not None else cw.corewise_zeros_like(x0)
     residual = cw.corewise_sub(problem.kind.point_forward(point, problem.sample), problem.data)
-    return member(x0, x_old, _misfit_gradient_at, (problem, residual), use_jit=use_jit, **options)
+    return _aligned_padded_frame(member, x0, x_old, (problem, residual), options, use_jit, timing)
+
+
+def _aligned_padded_frame(
+        member:   typ.Callable,              # a geometry's aligned_padded_frame
+        x0:       Cores,
+        x_old:    typ.Optional[typ.Any],
+        hint:     typ.Tuple,                 # (problem, residual): _misfit_gradient_at's hint
+        options:  typ.Dict[str, typ.Any],    # the set alignment options (unprefixed)
+        use_jit:  bool,
+        timing:   bool,
+) -> typ.Tuple[
+    typ.Any,                                 # the aligned frame of x0
+    typ.Any,                                 # movements, as the member returns them
+    typ.Optional[typ.Tuple[float, ...]],     # the member's seconds per pass, or None
+]:
+    """The optimizers' call of the member. With ``timing``, ``timing=True`` is passed only when the member's
+    signature names it: a ``**kwargs`` catch-all is no evidence (it may forward to a loop without the keyword), and a
+    diagnostic must not break a working run. Otherwise the call is the untimed one and the seconds are ``None``."""
+    if timing:
+        try:
+            parameter = inspect.signature(member).parameters.get('timing')
+        except (TypeError, ValueError):      # no signature to read
+            parameter = None
+        if parameter is not None and parameter.kind in (parameter.POSITIONAL_OR_KEYWORD, parameter.KEYWORD_ONLY):
+            return member(x0, x_old, _misfit_gradient_at, hint, use_jit=use_jit, timing=True, **options)
+    frame, movements = member(x0, x_old, _misfit_gradient_at, hint, use_jit=use_jit, **options)
+    return frame, movements, None
 
 
 def _cone_options(
@@ -848,22 +930,25 @@ def _cone_reference(
         use_jit:  bool,
         who:      str,
         hint:     str,                       # what to pass instead, for the vanishing-reference ValueError
+        timing:   bool,                      # True: ask the member for its seconds per pass (_aligned_padded_frame)
 ) -> typ.Tuple[
-    float,                     # ‖Π 𝒥ᵀ r(0)‖ at the aligned frame of the zero tensor
-    typ.Tuple[float, ...],     # the alignment's movements, one per pass
+    float,                                   # ‖Π 𝒥ᵀ r(0)‖ at the aligned frame of the zero tensor
+    typ.Tuple[float, ...],                   # the alignment's movements, one per pass
+    typ.Optional[typ.Tuple[float, ...]],     # the seconds per pass; None unless timing and the member reports them
 ]:
     """The 'cone' reference: the misfit gradient norm at the zero tensor, at the frame aligned with it."""
-    if getattr(problem.geom, 'aligned_padded_frame', None) is None:
+    member = getattr(problem.geom, 'aligned_padded_frame', None)
+    if member is None:
         raise ValueError("%s: g0_reference='cone' needs a geometry with an aligned_padded_frame member; %s has none "
                          "(pass %s)" % (who, type(problem.geom).__name__, hint))
     r0 = cw.corewise_sub(problem.kind.point_forward(cw.corewise_zeros_like(x0), problem.sample), problem.data)
-    frame, movements = problem.geom.aligned_padded_frame(x0, None, _misfit_gradient_at, (problem, r0), use_jit=use_jit,
-                                                         **options)            # padded_start's call, its residual reused
+    frame, movements, pass_seconds = _aligned_padded_frame(member, x0, None, (problem, r0), options, use_jit,
+                                                           timing)             # padded_start's call, its residual reused
     g = _misfit_gradient_at(frame, (problem, r0))
     value = float(problem.geom.with_frame(frame).inner(g, g)) ** 0.5
     if not value > 0.0:
         raise ValueError("%s: the cone reference is 0 at these ranks; pass %s" % (who, hint))
-    return value, _movement_record(movements)
+    return value, _movement_record(movements), pass_seconds
 
 
 def _movement_record(
@@ -930,8 +1015,8 @@ def gradient_descent(
         g = lm.gradient
         gg = float(problem.geom.inner(g, g))                # ‖g‖²
         if g0norm is None and ref_selector == 'cone':       # iteration 0: the cone reference (once)
-            g0norm, extra['cone_movements'] = _cone_reference(problem, x0, cone_options, False, 'gradient_descent',
-                                                              "g0_reference='warm_start'")
+            g0norm, extra['cone_movements'], _ = _cone_reference(problem, x0, cone_options, False,
+                                                                 'gradient_descent', "g0_reference='warm_start'", False)
         if g0norm is None:                                  # iteration 0: resolve the reference (once)
             ref, zero_ref = _resolve_g0_reference(problem, lm.frame, x0, ref_selector, True, 'gradient_descent',
                                                   "g0_reference='warm_start'")
@@ -1147,6 +1232,244 @@ def _cg_solve(local_model, rhs, tol, maxiter, use_jit, radius=math.inf):
     return _cg_core(local_model, rhs, tol, maxiter, False, radius)
 
 
+# --------------------------------------------------------------------------------------------------
+# Phase timing, newton_cg(timing=True): the records, the compile listener and the clock.
+#
+# Each history row's wall_time window is split into laps, each from a mark (or the previous lap's end) to a
+# synchronized end (common.tree_block_until_ready on the lap's outputs: jax dispatch is asynchronous); the rest of the
+# window is its remainder. The clock reads nothing and synchronizes nothing when timing is off: the loop passes
+# clock=None, and _mark / _lap return at once.
+# --------------------------------------------------------------------------------------------------
+@dc.dataclass(frozen=True)
+class PhaseSeconds:
+    """One ``newton_cg`` history row's window (:py:attr:`NewtonTiming.window`) split by phase, in seconds -- or, as
+    :py:attr:`NewtonTiming.compile_seconds`, jax's compile wait inside each phase. ``None``: the phase did not run on
+    this row. The fields are in run order; with ``remainder`` they tile the window.
+
+    * ``previous_callback`` -- the previous row's records, its ``callback`` and its history append (so a heavy
+      display shows up on the next row); ``None`` on row 0.
+    * ``frame``, ``sweep``, ``companion``, ``residual``, ``curvature`` -- the local model's build: ``geom.frame`` (or
+      the start frame's structure check), ``kind.precompute``, ``geom.precompute``, the residual, and in exact mode
+      ``geom.curvature_precompute``. ``None`` on a row that reuses the model (after a rejected trust-region trial);
+      ``curvature`` also in Gauss-Newton mode. A ``Problem`` subclass that overrides ``local_model`` is timed whole:
+      its build is ``frame``, and the other four are ``None``.
+    * ``gradient`` -- the misfit transpose ``Π 𝒥ᵀ r`` (in exact mode it runs inside the build and is counted here),
+      the misfit and regularization values, the gradient, ``‖g‖`` and the lift diagnostics; ``None`` as ``frame``.
+    * ``reference`` -- resolving the reference ``‖g0‖`` (``g0_reference``; the ``'cone'`` loop included): row 0 only.
+    * ``cg`` -- the CG solve (under ``use_jit``, one compiled call); ``forms`` -- the first trust-region radius, the
+      slope, the descent fallback, ``pᵀHp`` and ``‖p‖``; ``trial_retraction`` / ``trial_objective`` -- every trial's
+      retraction / objective. All four ``None`` on the converged row.
+    * ``tracking`` -- reserved for the tracking product of a Gauss-Newton-to-exact switch; ``None`` (no switch yet).
+    * ``remainder`` -- the window minus the phases above (the forcing term, ``‖x‖``, the trust region's data norm,
+      Python bookkeeping); never ``None``, ``>= 0`` up to rounding."""
+    previous_callback:  typ.Optional[float]      # the previous row's record, callback and history append; None on row 0
+    frame:              typ.Optional[float]      # frame .. gradient: None on a row that reuses the model; an override's whole build
+    sweep:              typ.Optional[float]
+    companion:          typ.Optional[float]
+    residual:           typ.Optional[float]
+    curvature:          typ.Optional[float]      # also None in Gauss-Newton mode
+    gradient:           typ.Optional[float]      # the misfit transpose (wherever it runs) .. the lift diagnostics
+    reference:          typ.Optional[float]      # row 0 only
+    cg:                 typ.Optional[float]      # cg .. trial_objective: None on the converged row
+    forms:              typ.Optional[float]
+    trial_retraction:   typ.Optional[float]      # every trial's retraction
+    trial_objective:    typ.Optional[float]      # every trial's objective
+    tracking:           typ.Optional[float]      # a switch's tracking product, after the trials; None (no switch yet)
+    remainder:          float                    # window minus the phases above (>= 0 up to rounding)
+
+
+@dc.dataclass(frozen=True)
+class NewtonTiming:
+    """:py:attr:`NewtonInfo.timing`: one history row's times, set by ``newton_cg(timing=True)`` (else ``None``).
+
+    ``window`` is the row's ``wall_time`` window, the same float on a step row; the converged row, which has no
+    ``wall_time``, gets one too. ``seconds`` splits it by phase (:py:class:`PhaseSeconds`); ``compile_seconds`` gives
+    jax's compile wait inside each phase (``None`` on a numpy run, and on a jax whose ``jax.monitoring`` cannot
+    unregister a listener). ``trials`` counts the retractions tried (``None`` on the converged row) and
+    ``accepted_retraction`` is the accepted trial's share of ``trial_retraction`` (``None`` when none was accepted).
+
+    Row 0 also carries the run's one-offs (``None`` on later rows): ``setup`` (the entry to the loop, the alignment
+    excluded), ``alignment`` (``padded_from``'s padded start) and their compile twins; ``alignment_passes`` and
+    ``reference_passes``, the seconds per pass of the alignment and of the ``'cone'`` reference's loop, breakdowns
+    of ``alignment`` and of ``seconds.reference`` (``None`` when the geometry member cannot report them, e.g. under
+    the uniform whole-loop jit)."""
+    window:               float                                  # this row's window (== wall_time on a step row)
+    seconds:              PhaseSeconds
+    compile_seconds:      typ.Optional[PhaseSeconds]             # jax's compile wait per phase; None off jax / without unregister
+    trials:               typ.Optional[int]                      # retraction trials; None on the converged row
+    accepted_retraction:  typ.Optional[float]                    # the accepted trial's share of trial_retraction; None if none accepted
+
+    setup:                typ.Optional[float]                 = None   # row 0 only, from here down
+    setup_compile:        typ.Optional[float]                 = None
+    alignment:            typ.Optional[float]                 = None   # padded_from only
+    alignment_compile:    typ.Optional[float]                 = None
+    alignment_passes:     typ.Optional[typ.Tuple[float, ...]] = None   # per pass; None under the uniform whole-loop jit
+    reference_passes:     typ.Optional[typ.Tuple[float, ...]] = None   # 'cone' only
+
+
+class _CompileSeconds:
+    """The run's ``jax.monitoring`` duration listener: the running total of jax's compile wait. A host-side mutable
+    accumulator, not a parameter-holding backend class (``parameters_not_closures.md`` does not apply): it never rides
+    as aux and never enters a trace.
+
+    It counts jax's three compile events, which do not nest (the trace event fires only at a clean trace state; a
+    persistent-cache retrieval sits inside the backend event). The listener is process-global: compiles in other
+    threads, or in a timed run nested inside a callback, are counted too."""
+    EVENTS = ('/jax/core/compile/jaxpr_trace_duration',
+              '/jax/core/compile/jaxpr_to_mlir_module_duration',
+              '/jax/core/compile/backend_compile_duration')
+
+    def __init__(self) -> None:
+        self.total = 0.0                                                # compile seconds so far
+
+    def __call__(self, event: str, duration: float, **kwargs) -> None:
+        if event in self.EVENTS:
+            self.total += duration
+
+    @classmethod
+    def register(
+            cls,
+            x0:  Cores,                           # the run's start point, after _prepare_jit_inputs
+    ) -> typ.Optional['_CompileSeconds']:         # registered, or None: a numpy run, or a jax that cannot unregister it
+        """A registered listener on a jax run whose ``jax.monitoring`` can unregister it (jax 0.4.30 cannot), else
+        ``None``. The caller unregisters it in a ``finally``."""
+        if not (jax_available and tree_contains_jax(x0)):
+            return None
+        import jax.monitoring as monitoring
+        if not hasattr(monitoring, 'unregister_event_duration_listener'):
+            return None
+        listener = cls()
+        monitoring.register_event_duration_secs_listener(listener)
+        return listener
+
+    def unregister(self) -> None:
+        import jax.monitoring as monitoring
+        monitoring.unregister_event_duration_listener(self)
+
+
+class _PhaseClock:
+    """The host clock of ``newton_cg(timing=True)``. A host-side mutable accumulator, like :py:class:`_CompileSeconds`.
+
+    A *stretch* runs from one :py:meth:`close` reading to the next: the setup before the loop, then each history row's
+    window, then the last row's callback. Its laps are disjoint sub-intervals, each from a :py:meth:`mark` (or the
+    previous lap's end) to a synchronized end, summed by phase; the rest of the stretch is its ``remainder``. With a
+    listener every lap also records the listener's change: the compile wait inside it."""
+
+    def __init__(
+            self,
+            listener:  typ.Optional[_CompileSeconds],   # None: no compile column
+            t:         float,                           # the run's first reading: the setup stretch starts here
+    ) -> None:
+        self.listener = listener
+        self._laps = {}                                 # phase -> (seconds, compile seconds) in this stretch
+        self._start = self._t = t                       # the stretch's start; the current lap's start
+        self._start_c = self._c = self._compile()
+
+    def _compile(self) -> float:
+        return self.listener.total if self.listener is not None else 0.0
+
+    def mark(self) -> None:
+        """Start a lap now; the time since the last lap's end is no phase's (it is the stretch's remainder)."""
+        self._t, self._c = time.perf_counter(), self._compile()
+
+    def lap(
+            self,
+            phase:    str,               # a PhaseSeconds field, or a one-off ('alignment')
+            outputs:  typ.Any = None,    # waited on first (a lap ending in float(...) needs none)
+    ) -> float:                          # this lap's seconds
+        """End the lap at a synchronized reading, add it (and its compile wait) to ``phase``, and start the next."""
+        tree_block_until_ready(outputs)
+        t, c = time.perf_counter(), self._compile()
+        lap, compile_lap = t - self._t, c - self._c
+        seconds, compile_seconds = self._laps.get(phase, (0.0, 0.0))
+        self._laps[phase] = (seconds + lap, compile_seconds + compile_lap)
+        self._t, self._c = t, c
+        return lap
+
+    def close(
+            self,
+            t:  float,                   # the stretch's end: the loop's own clock reading
+    ) -> typ.Tuple[
+        typ.Dict[str, float],                  # seconds by phase, plus 'remainder'
+        typ.Optional[typ.Dict[str, float]],    # the compile wait likewise; None without a listener
+    ]:
+        """End the stretch at ``t`` (the next one starts there) and return its laps and remainder."""
+        c = self._compile()
+        seconds = {phase: s for phase, (s, _) in self._laps.items()}
+        seconds['remainder'] = (t - self._start) - sum(seconds.values())
+        compile_seconds = None
+        if self.listener is not None:
+            compile_seconds = {phase: k for phase, (_, k) in self._laps.items()}
+            compile_seconds['remainder'] = (c - self._start_c) - sum(compile_seconds.values())
+        self._laps = {}
+        self._start = self._t = t
+        self._start_c = self._c = c
+        return seconds, compile_seconds
+
+    def row(
+            self,
+            t:                    float,                    # the row's t_now: its window ends here
+            trials:               typ.Optional[int],
+            accepted_retraction:  typ.Optional[float],
+            **one_offs,                                     # row 0: setup .. reference_passes (NewtonTiming's fields)
+    ) -> NewtonTiming:
+        """Close the row's window and return its record."""
+        window = t - self._start                            # the loop's own wall_time: the same two readings
+        seconds, compile_seconds = self.close(t)
+        return NewtonTiming(window, _phase_seconds(seconds),
+                            None if compile_seconds is None else _phase_seconds(compile_seconds),
+                            trials, accepted_retraction, **one_offs)
+
+
+def _phase_seconds(
+        laps:  typ.Dict[str, float],     # a closed window's laps by phase, plus 'remainder'
+) -> PhaseSeconds:                       # the phases that did not run are None
+    """A window's laps as a record (an unknown phase name is a ``TypeError``)."""
+    return PhaseSeconds(**{**dict.fromkeys(f.name for f in dc.fields(PhaseSeconds)), **laps})
+
+
+def _mark(clock: typ.Optional[_PhaseClock]) -> None:
+    """``clock.mark()``, or nothing without a clock."""
+    if clock is not None:
+        clock.mark()
+
+
+def _lap(
+        clock:    typ.Optional[_PhaseClock],
+        phase:    str,
+        outputs:  typ.Any = None,
+) -> typ.Optional[float]:                # the lap's seconds; None without a clock
+    """``clock.lap(phase, outputs)``, or nothing (no synchronization) without a clock."""
+    return None if clock is None else clock.lap(phase, outputs)
+
+
+def _timing_stats(
+        rows:      typ.Sequence[NewtonTiming],   # the history rows' records, in order
+        history:   typ.Sequence[dict],           # the history rows (their cg_iters)
+        one_offs:  typ.Dict[str, typ.Any],       # setup .. alignment_passes, reference_passes (as row 0 carries them)
+        total:     float,                        # the run's entry to the loop's exit
+
+        last:      typ.Tuple[typ.Dict[str, float], typ.Optional[typ.Dict[str, float]]],   # the last callback's stretch (close)
+) -> dict:                                       # stats['timing']
+    """``stats['timing']``: the run's totals, by phase over the rows and one-off, and the rows' records as dicts. The
+    pass tuples are breakdowns of ``alignment`` and of row 0's ``reference``, never added."""
+    names = [f.name for f in dc.fields(PhaseSeconds)]
+    total_of = lambda field: {name: sum(getattr(getattr(row, field), name) or 0.0 for row in rows) for name in names}
+    listened = last[1] is not None
+    compile_seconds = None
+    if listened:
+        compile_seconds = dict(total_of('compile_seconds'), setup=one_offs['setup_compile'],
+                               alignment=one_offs['alignment_compile'], last_callback=last[1]['remainder'])
+    iterations = sum(row['cg_iters'] or 0 for row in history)
+    cg = sum(row.seconds.cg - (row.compile_seconds.cg if listened else 0.0)
+             for row in rows if row.seconds.cg is not None)
+    return {'total': total, 'setup': one_offs['setup'], 'alignment': one_offs['alignment'],
+            'alignment_passes': one_offs['alignment_passes'], 'reference_passes': one_offs['reference_passes'],
+            'last_callback': last[0]['remainder'], 'phases': total_of('seconds'), 'compile': compile_seconds,
+            'cg_per_iteration': cg / iterations if iterations > 0 else None,
+            'rows': [dc.asdict(row) for row in rows]}
+
+
 @dc.dataclass(frozen=True)
 class NewtonInfo:
     """Per-iteration diagnostics passed to a ``newton_cg`` ``callback`` -- everything one Newton step
@@ -1154,8 +1477,8 @@ class NewtonInfo:
     report anything without the loop anticipating it. ``x_cores`` (the point *before* the step) and ``lm``
     (its :py:class:`LocalModel` -- residual / sample / frame) are carried so a callback can compute
     per-block errors or evaluate a validation forward. The step-related fields are ``None`` on the final
-    **converged** line (no CG / line search ran). The scalar subset (all but ``x_cores`` / ``lm``) is what
-    lands in ``stats['history']``.
+    **converged** line (no CG / line search ran). The scalar subset (all but ``x_cores`` / ``lm`` / ``timing``) is
+    what lands in ``stats['history']``.
 
     Five run-level strings (2026.3.0): ``newton_cg`` sets the first four on every row it emits, so a
     history consumer can filter by them, and ``stop_reason`` on its last row. All default to ``None``, so a
@@ -1182,7 +1505,10 @@ class NewtonInfo:
     (the next row starts from the same point, with the same local model). ``pKp`` / ``lift_sigma_min`` /
     ``lift_eps`` are set only with ``hessian='exact'`` (the last two only on a geometry whose curvature data
     carries them, i.e. the manifold one at ``d > 1``). The CG outcome is exactly one of ``cg_converged``,
-    ``cg_boundary``, ``cg_truncated`` or (none of them) the iteration cap."""
+    ``cg_boundary``, ``cg_truncated`` or (none of them) the iteration cap.
+
+    ``timing`` is a :py:class:`NewtonTiming` with ``newton_cg(timing=True)``, else ``None``; like ``x_cores`` and
+    ``lm`` it is not a history field (``stats['timing']['rows']`` holds the records as dicts)."""
     iteration:    int              # Newton iteration index (0-based)
     objective:    float            # total objective ½‖ω⊙r‖² + ρ(X) at x (= misfit + regularization; = lm.objective)
     gnorm:        float            # ‖g‖ (Riemannian gradient norm, geom.inner)
@@ -1219,13 +1545,15 @@ class NewtonInfo:
     pKp:          typ.Optional[float] = None           # ⟨p, Lᵀ K_N L p⟩: the curvature term's part of pHp (exact mode)
     lift_sigma_min: typ.Optional[float] = None         # the smallest lift singular value at this frame (exact mode)
     lift_eps:     typ.Optional[float] = None           # the absolute lift damping ε at this frame (exact mode)
+    timing:       typ.Optional[NewtonTiming] = None    # newton_cg(timing=True) only: this row's times; not a history field
 
 
-_NEWTON_SCALAR_FIELDS = tuple(f.name for f in dc.fields(NewtonInfo) if f.name not in ('x_cores', 'lm'))
+_NEWTON_SCALAR_FIELDS = tuple(f.name for f in dc.fields(NewtonInfo) if f.name not in ('x_cores', 'lm', 'timing'))
 
 
 def _newton_scalar_record(info: NewtonInfo) -> dict:
-    """The scalar subset of a :py:class:`NewtonInfo` (drops ``x_cores`` / ``lm``) -- one ``history`` row."""
+    """The scalar subset of a :py:class:`NewtonInfo` (drops ``x_cores`` / ``lm`` / ``timing``) -- one ``history``
+    row."""
     return {k: getattr(info, k) for k in _NEWTON_SCALAR_FIELDS}
 
 
@@ -1353,6 +1681,8 @@ def newton_cg(
         cone_tol:                   typ.Optional[float] = None, # None = 0.05
         cone_alternate:             typ.Optional[bool]  = None, # None = True
         cone_seed:                  typ.Optional[int]   = None, # None = ZERO_FRAME_SEED
+
+        timing:                     bool = False,               # NewtonInfo.timing per row, stats['timing'] per run
 ) -> typ.Tuple[Tangent, dict]:      # (x_cores, stats)
     """Inexact Riemannian Newton-CG -- the manifold workhorse. Each Newton step builds the local model once,
     solves ``H p = −g`` by (Steihaug) CG to an inexact forcing-term tolerance (the inner loop -- jit-able via
@@ -1458,7 +1788,22 @@ def newton_cg(
     trust-region trials), ``stop_reason`` is ``'gradient'`` / ``'max_newton'`` / ``'line_search'`` /
     ``'objective_floor'`` / ``'trust_region_floor'`` (see :py:class:`NewtonInfo`), and ``history`` is one
     :py:func:`_newton_scalar_record` per iteration (``losses[k] == history[k]['objective']``). (The 2026.2.0
-    ``stats['newton']`` is removed; it is ``newton_steps``.)
+    ``stats['newton']`` is removed; it is ``newton_steps``.) ``timing=True`` adds ``stats['timing']`` (below).
+
+    **Timing** (``timing=True``; it changes no number). Each row's ``wall_time`` window is split by phase into
+    :py:attr:`NewtonInfo.timing` (a :py:class:`NewtonTiming`; :py:class:`PhaseSeconds` lists the phases), with jax's
+    compile wait per phase on a jax run (``None`` on numpy, and on a jax whose ``jax.monitoring`` cannot unregister a
+    listener). ``stats['timing']`` is a plain dict: ``total``, ``setup``, ``alignment``, ``alignment_passes``,
+    ``reference_passes``, ``last_callback`` (the last row's callback, outside every window), ``phases`` (each phase
+    summed over the rows), ``compile`` (the same for the compile wait, with ``setup``, ``alignment`` and
+    ``last_callback``; ``None`` as above), ``cg_per_iteration`` (CG's seconds less its compile wait, per CG iteration)
+    and ``rows`` (each row's record as a dict). ``total == setup + (alignment or 0) + Σ window + last_callback``.
+    Every phase ends by waiting on its outputs (jax dispatch is asynchronous), so a timed jax run is serialized and
+    slower than an untimed one; work dispatched without waiting (a callback's, or ``-g`` before CG) is charged to the
+    next phase that waits for it. The compile listener is process-global: compiles in other threads, or in a timed
+    run nested inside a callback, are counted too. A ``Problem`` subclass that overrides ``local_model`` is called as
+    without timing, and its whole build is reported in ``frame``. The geometry member ``aligned_padded_frame`` is
+    asked for its seconds per pass only when its signature names ``timing`` (see :py:class:`Geometry`).
 
     Examples
     --------
@@ -1487,6 +1832,7 @@ def newton_cg(
     >>> gn['newton_steps'] > 2 * ex['newton_steps']     # Gauss-Newton is linear here; exact has the Newton tail
     True
     """
+    t_entry = time.perf_counter() if timing else None                   # timing: the run's first reading
     _require_unstacked(problem.geom, x0, 'newton_cg')
     olsf = str(on_line_search_failure).lower()
     if olsf not in ('stop', 'accept'):
@@ -1521,154 +1867,210 @@ def newton_cg(
                                       max_passes=cone_max_passes, tol=cone_tol, alternate=cone_alternate,
                                       seed=cone_seed), cone, 'newton_cg')
     x0, problem = _prepare_jit_inputs(use_jit, x0, problem)             # auto-convert to jax when jitting
-    extra = {}                                                          # stats keys of the new keywords only
-    if padded_from is not None:
-        start_frame, movements = padded_start(problem, x0, padded_from, use_jit=use_jit, **padded_options)
-        extra.update(start_frame='padded', start_movements=_movement_record(movements))
-    elif start_frame is not None:
-        extra['start_frame'] = 'given'
-    model_options = dict(hessian='exact', curvature_damping=curvature_damping) if exact else {}
-    x = x0
-    lm = None                                                           # rebuilt only after an accepted step
-    newton_ref = cg_ref = None                                          # resolved once, at iteration 0
-    g0_ref_kind = cg_ref_kind = None
-    radius = radius0 = radius_max = None                                # trust region: set at the first step
-    data_norm = None                                                    # ‖ω⊙y‖: once, at the first rejection
-    losses, newton_steps, newton_accepted, history = [], 0, 0, []
-    stop_reason = 'max_newton'
-    t_prev = time.perf_counter()
-    for it in range(max_newton):
-        if lm is None:                                                  # a new point: linearize there
-            lm = problem.local_model(x, frame=start_frame, **model_options)
-            start_frame = None                                          # iteration 0 only
-            misfit = float(lm.misfit)
-            reg_val = float(lm.regularization) if lm.regularizer is not None else None   # None: no regularizer attached
-            f = misfit + (reg_val or 0.0)
-            g = lm.gradient
-            gnorm = float(problem.geom.inner(g, g)) ** 0.5
-            lift_sigma_min, lift_eps = _lift_diagnostics(lm)
-        losses.append(f)
-        if newton_ref is None:                                           # iteration 0: resolve the references
-            if ref_selector == 'cone':
-                ref, zero_ref = 'cone', None                             # no zero reference: the cone's (below)
+    clock = None                                                        # timing: the phase clock
+    if timing:
+        tree_block_until_ready((x0, problem))
+        clock = _PhaseClock(_CompileSeconds.register(x0), t_entry)      # the compile listener, unregistered below
+    try:
+        extra = {}                                                      # stats keys of the new keywords only
+        one_offs = dict(alignment_passes=None, reference_passes=None)   # timing: row 0's run-level fields
+        if padded_from is not None:
+            _mark(clock)
+            start_frame, movements, one_offs['alignment_passes'] = _padded_start(problem, x0, padded_from,
+                                                                                 padded_options, use_jit, timing)
+            _lap(clock, 'alignment', (start_frame, movements))
+            extra.update(start_frame='padded', start_movements=_movement_record(movements))
+        elif start_frame is not None:
+            extra['start_frame'] = 'given'
+        model_options = dict(hessian='exact', curvature_damping=curvature_damping) if exact else {}
+        x = x0
+        lm = None                                                       # rebuilt only after an accepted step
+        newton_ref = cg_ref = None                                      # resolved once, at iteration 0
+        g0_ref_kind = cg_ref_kind = None
+        radius = radius0 = radius_max = None                            # trust region: set at the first step
+        data_norm = None                                                # ‖ω⊙y‖: once, at the first rejection
+        losses, newton_steps, newton_accepted, history, timings = [], 0, 0, [], []
+        stop_reason = 'max_newton'
+        t_prev = time.perf_counter()
+        if clock is not None:                                           # the setup ends here
+            seconds, compile_seconds = clock.close(t_prev)
+            one_offs.update(setup=seconds['remainder'], alignment=seconds.get('alignment'),
+                            setup_compile=None if compile_seconds is None else compile_seconds['remainder'],
+                            alignment_compile=None if compile_seconds is None else compile_seconds.get('alignment'))
+        for it in range(max_newton):
+            if it > 0:
+                _lap(clock, 'previous_callback')
+            if lm is None:                                              # a new point: linearize there
+                if clock is not None and type(problem).local_model is _STOCK_LOCAL_MODEL:    # the stock build, by part
+                    lm = _local_model_phases(problem, x, None, None, hessian, curvature_damping, start_frame, clock)
+                else:                                                   # an override's build is one lap, in frame
+                    _mark(clock)
+                    lm = problem.local_model(x, frame=start_frame, **model_options)
+                    _lap(clock, 'frame', lm)
+                start_frame = None                                      # iteration 0 only
+                _mark(clock)
+                misfit = float(lm.misfit)
+                reg_val = float(lm.regularization) if lm.regularizer is not None else None  # None: no regularizer attached
+                f = misfit + (reg_val or 0.0)
+                g = lm.gradient
+                gnorm = float(problem.geom.inner(g, g)) ** 0.5
+                lift_sigma_min, lift_eps = _lift_diagnostics(lm)
+                _lap(clock, 'gradient')
+            losses.append(f)
+            if newton_ref is None:                                       # iteration 0: resolve the references
+                _mark(clock)
+                if ref_selector == 'cone':
+                    ref, zero_ref = 'cone', None                         # no zero reference: the cone's (below)
+                else:
+                    ref, zero_ref = _resolve_g0_reference(problem, lm.frame, x0, ref_selector, g0norm_newton is None,
+                                                          'newton_cg', "g0_reference='warm_start' or g0norm_newton")
+                if g0norm_newton is not None:
+                    newton_ref, g0_ref_kind = g0norm_newton, 'override'
+                elif ref == 'zero':
+                    newton_ref, g0_ref_kind = zero_ref, 'zero'
+                elif ref == 'cone':
+                    newton_ref, extra['cone_movements'], one_offs['reference_passes'] = _cone_reference(
+                        problem, x0, cone_options, use_jit, 'newton_cg', "g0_reference='warm_start' or g0norm_newton",
+                        timing)
+                    g0_ref_kind = 'cone'
+                else:
+                    newton_ref, g0_ref_kind = (gnorm if gnorm > 0 else 1.0), 'warm_start'  # the initial ‖g‖
+                if g0norm_cg is not None:
+                    cg_ref, cg_ref_kind = g0norm_cg, 'override'
+                else:
+                    cg_ref, cg_ref_kind = newton_ref, g0_ref_kind        # CG inherits the Newton reference
+                _lap(clock, 'reference')
+            run_fields = dict(g0_reference=g0_ref_kind, cg_reference=cg_ref_kind, step_control=step_control,
+                              hessian=hessian, lift_sigma_min=lift_sigma_min, lift_eps=lift_eps)
+            if gnorm <= gtol_rel * newton_ref:                           # converged -- final line, no step
+                stop_reason = 'gradient'
+                row_timing = None
+                if clock is not None:                                    # its window (it has no wall_time)
+                    row_timing = clock.row(time.perf_counter(), None, None, **(one_offs if it == 0 else {}))
+                    timings.append(row_timing)
+                info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=newton_ref, converged=True,
+                                  x_cores=x, lm=lm, misfit=misfit, regularization=reg_val,
+                                  stop_reason=stop_reason, timing=row_timing, **run_fields)
+                if callback is not None:
+                    callback(info)
+                history.append(_newton_scalar_record(info))
+                break
+            newton_steps += 1
+            eta = min(0.5, (gnorm / cg_ref) ** cg_forcing_power)         # inexact-Newton (Eisenstat-Walker) forcing term
+            cg_tol = eta * gnorm
+            neg_g = cw.corewise_scale(g, -1.0)
+            if trust_region and radius is None:                          # the first step: the initial radius
+                _mark(clock)
+                radius0 = float(tr_radius0) if tr_radius0 is not None else _initial_radius(lm, g, gnorm)
+                radius, radius_max = radius0, _TR_RADIUS_MAX_REL * radius0
+                _lap(clock, 'forms')
+            tr_radius = radius if trust_region else None                 # the radius THIS trial is bounded by
+            _mark(clock)
+            p, cg_i, cg_rs, cg_ok, cg_hit = _cg_solve(lm, neg_g, cg_tol, cg_maxiter, use_jit,
+                                                      radius if trust_region else math.inf)
+            _lap(clock, 'cg', (p, cg_i, cg_rs, cg_ok, cg_hit))
+            cg_iters, cg_rs, cg_ok, cg_boundary = int(cg_i), float(cg_rs), bool(cg_ok), bool(cg_hit)
+            cg_converged = (cg_rs <= cg_tol * cg_tol) and not cg_boundary
+            cg_truncated = (not cg_converged) and (not cg_ok) and (not cg_boundary)
+            on_boundary = cg_boundary                                    # the step was limited by Δ
+            _mark(clock)
+            slope = float(problem.geom.inner(g, p))
+            if (not math.isfinite(slope)) or slope >= 0.0:               # ensure a descent direction
+                if trust_region:                                         #   ... inside the region
+                    scale = min(1.0, radius / gnorm)
+                    p, slope, on_boundary = cw.corewise_scale(g, -scale), -scale * gnorm * gnorm, scale < 1.0
+                else:
+                    p, slope = neg_g, -gnorm * gnorm
+            if exact:                                                    # pᵀHp = GN part + curvature part (once each)
+                pKp = lm.curvature_quadratic(p)
+                pHp = float(lm.gn_quadratic(p) + pKp)                    # == lm.quadratic(p)
+                pKp = float(pKp)
             else:
-                ref, zero_ref = _resolve_g0_reference(problem, lm.frame, x0, ref_selector, g0norm_newton is None,
-                                                      'newton_cg', "g0_reference='warm_start' or g0norm_newton")
-            if g0norm_newton is not None:
-                newton_ref, g0_ref_kind = g0norm_newton, 'override'
-            elif ref == 'zero':
-                newton_ref, g0_ref_kind = zero_ref, 'zero'
-            elif ref == 'cone':
-                newton_ref, extra['cone_movements'] = _cone_reference(
-                    problem, x0, cone_options, use_jit, 'newton_cg', "g0_reference='warm_start' or g0norm_newton")
-                g0_ref_kind = 'cone'
-            else:
-                newton_ref, g0_ref_kind = (gnorm if gnorm > 0 else 1.0), 'warm_start'   # the initial ‖g‖
-            if g0norm_cg is not None:
-                cg_ref, cg_ref_kind = g0norm_cg, 'override'
-            else:
-                cg_ref, cg_ref_kind = newton_ref, g0_ref_kind            # CG inherits the Newton reference
-        run_fields = dict(g0_reference=g0_ref_kind, cg_reference=cg_ref_kind, step_control=step_control,
-                          hessian=hessian, lift_sigma_min=lift_sigma_min, lift_eps=lift_eps)
-        if gnorm <= gtol_rel * newton_ref:                               # converged -- final line, no step
-            stop_reason = 'gradient'
-            info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=newton_ref, converged=True,
+                pHp, pKp = float(lm.quadratic(p)), None                  # pᵀHp = ‖𝒥p‖² (+ reg) (for ρ)
+            p_norm = float(problem.geom.inner(p, p)) ** 0.5
+            _lap(clock, 'forms', p)
+            stop_now = False
+            if not trust_region:                                         # ---- Armijo line search
+                alpha, ls_steps, f_new = 1.0, 40, f
+                x_trial = x
+                ls_failed = True
+                for bt in range(40):                                     # Armijo backtracking
+                    _mark(clock)
+                    x_trial = lm.retract(cw.corewise_scale(p, alpha))
+                    retraction = _lap(clock, 'trial_retraction', x_trial)
+                    f_new = float(problem.objective(x_trial))
+                    _lap(clock, 'trial_objective')
+                    if f_new <= f + c_armijo * alpha * slope:
+                        ls_steps, ls_failed = bt, False
+                        break
+                    if bt < 39:
+                        alpha *= 0.5    # halve BETWEEN trials only: alpha stays the last trial's step (review R7-7)
+                trials = bt + 1
+                delta_f = f_new - f
+                predicted = alpha * slope + 0.5 * alpha * alpha * pHp    # the model's change along αp
+                rho = (delta_f / predicted) if predicted != 0.0 else float('nan')
+                accepted = not (ls_failed and olsf == 'stop')            # 'stop' rejects: x unchanged (review R7-7)
+                if not accepted:
+                    stop_reason, stop_now = 'line_search', True
+                tr_accepted = None
+            else:                                                        # ---- trust region: one trial at α = 1
+                alpha, ls_steps, ls_failed = 1.0, None, None
+                _mark(clock)
+                x_trial = lm.retract(p)
+                retraction = _lap(clock, 'trial_retraction', x_trial)
+                f_new = float(problem.objective(x_trial))
+                _lap(clock, 'trial_objective')
+                trials = 1
+                delta_f = f_new - f
+                predicted = slope + 0.5 * pHp                            # the model's change along p (< 0 expected)
+                rho = (delta_f / predicted) if predicted < 0.0 else float('nan')
+                accepted = tr_accepted = math.isfinite(rho) and rho > _TR_ACCEPT
+                if (not math.isfinite(rho)) or rho < _TR_SHRINK_BELOW:
+                    radius = _TR_SHRINK * p_norm
+                elif rho > _TR_EXPAND_ABOVE and on_boundary:
+                    radius = min(_TR_EXPAND * radius, radius_max)
+                if not accepted:                                         # the floors: on a rejection ONLY
+                    if data_norm is None:
+                        data_norm = float(problem.kind.sumsq(problem.data, lm.n_w)) ** 0.5
+                    resolution = _resolution_eps(lm.residual) * (data_norm * math.sqrt(2.0 * misfit) + abs(f))
+                    if abs(predicted) <= _TR_RESOLUTION_FACTOR * resolution:
+                        stop_reason, stop_now = 'objective_floor', True  # the model change is below f's resolution
+                    elif radius < _TR_RADIUS_FLOOR_REL * radius0:
+                        stop_reason, stop_now = 'trust_region_floor', True
+            x_norm = float(cw.corewise_norm(x))                         # coordinate norm (ragged-exact; uniform: D6)
+            step_rel = (alpha * p_norm / x_norm) if x_norm > 0 else float('nan')
+            last_row = stop_now or it == max_newton - 1
+            t_now = time.perf_counter()
+            row_timing = None
+            if clock is not None:
+                row_timing = clock.row(t_now, trials, retraction if accepted else None,
+                                       **(one_offs if it == 0 else {}))
+                timings.append(row_timing)
+            info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=newton_ref, converged=False,
                               x_cores=x, lm=lm, misfit=misfit, regularization=reg_val,
-                              stop_reason=stop_reason, **run_fields)
+                              forcing_eta=eta, cg_tol=cg_tol, cg_iters=cg_iters,
+                              cg_maxiter=cg_maxiter,
+                              cg_resid=cg_rs ** 0.5, cg_converged=cg_converged, cg_truncated=cg_truncated,
+                              ls_steps=ls_steps, ls_failed=ls_failed, alpha=alpha, slope=slope, pHp=pHp,
+                              delta_f=delta_f, rho=rho, step_rel=step_rel, wall_time=t_now - t_prev,
+                              stop_reason=stop_reason if last_row else None, tr_radius=tr_radius,
+                              tr_accepted=tr_accepted, cg_boundary=cg_boundary, pKp=pKp, timing=row_timing,
+                              **run_fields)
+            t_prev = t_now
             if callback is not None:
                 callback(info)
             history.append(_newton_scalar_record(info))
-            break
-        newton_steps += 1
-        eta = min(0.5, (gnorm / cg_ref) ** cg_forcing_power)             # inexact-Newton (Eisenstat-Walker) forcing term
-        cg_tol = eta * gnorm
-        neg_g = cw.corewise_scale(g, -1.0)
-        if trust_region and radius is None:                              # the first step: the initial radius
-            radius0 = float(tr_radius0) if tr_radius0 is not None else _initial_radius(lm, g, gnorm)
-            radius, radius_max = radius0, _TR_RADIUS_MAX_REL * radius0
-        tr_radius = radius if trust_region else None                     # the radius THIS trial is bounded by
-        p, cg_i, cg_rs, cg_ok, cg_hit = _cg_solve(lm, neg_g, cg_tol, cg_maxiter, use_jit,
-                                                  radius if trust_region else math.inf)
-        cg_iters, cg_rs, cg_ok, cg_boundary = int(cg_i), float(cg_rs), bool(cg_ok), bool(cg_hit)
-        cg_converged = (cg_rs <= cg_tol * cg_tol) and not cg_boundary
-        cg_truncated = (not cg_converged) and (not cg_ok) and (not cg_boundary)
-        on_boundary = cg_boundary                                        # the step was limited by Δ
-        slope = float(problem.geom.inner(g, p))
-        if (not math.isfinite(slope)) or slope >= 0.0:                   # ensure a descent direction
-            if trust_region:                                             #   ... inside the region
-                scale = min(1.0, radius / gnorm)
-                p, slope, on_boundary = cw.corewise_scale(g, -scale), -scale * gnorm * gnorm, scale < 1.0
-            else:
-                p, slope = neg_g, -gnorm * gnorm
-        if exact:                                                        # pᵀHp = GN part + curvature part (once each)
-            pKp = lm.curvature_quadratic(p)
-            pHp = float(lm.gn_quadratic(p) + pKp)                        # == lm.quadratic(p)
-            pKp = float(pKp)
-        else:
-            pHp, pKp = float(lm.quadratic(p)), None                      # pᵀHp = ‖𝒥p‖² (+ reg) (for ρ)
-        p_norm = float(problem.geom.inner(p, p)) ** 0.5
-        stop_now = False
-        if not trust_region:                                             # ---- Armijo line search
-            alpha, ls_steps, f_new = 1.0, 40, f
-            x_trial = x
-            ls_failed = True
-            for bt in range(40):                                         # Armijo backtracking
-                x_trial = lm.retract(cw.corewise_scale(p, alpha))
-                f_new = float(problem.objective(x_trial))
-                if f_new <= f + c_armijo * alpha * slope:
-                    ls_steps, ls_failed = bt, False
-                    break
-                if bt < 39:
-                    alpha *= 0.5        # halve BETWEEN trials only: alpha stays the last trial's step (review R7-7)
-            delta_f = f_new - f
-            predicted = alpha * slope + 0.5 * alpha * alpha * pHp        # the model's change along αp
-            rho = (delta_f / predicted) if predicted != 0.0 else float('nan')
-            accepted = not (ls_failed and olsf == 'stop')                # 'stop' rejects: x unchanged (review R7-7)
-            if not accepted:
-                stop_reason, stop_now = 'line_search', True
-            tr_accepted = None
-        else:                                                            # ---- trust region: one trial at α = 1
-            alpha, ls_steps, ls_failed = 1.0, None, None
-            x_trial = lm.retract(p)
-            f_new = float(problem.objective(x_trial))
-            delta_f = f_new - f
-            predicted = slope + 0.5 * pHp                                # the model's change along p (< 0 expected)
-            rho = (delta_f / predicted) if predicted < 0.0 else float('nan')
-            accepted = tr_accepted = math.isfinite(rho) and rho > _TR_ACCEPT
-            if (not math.isfinite(rho)) or rho < _TR_SHRINK_BELOW:
-                radius = _TR_SHRINK * p_norm
-            elif rho > _TR_EXPAND_ABOVE and on_boundary:
-                radius = min(_TR_EXPAND * radius, radius_max)
-            if not accepted:                                             # the floors: on a rejection ONLY
-                if data_norm is None:
-                    data_norm = float(problem.kind.sumsq(problem.data, lm.n_w)) ** 0.5
-                resolution = _resolution_eps(lm.residual) * (data_norm * math.sqrt(2.0 * misfit) + abs(f))
-                if abs(predicted) <= _TR_RESOLUTION_FACTOR * resolution:
-                    stop_reason, stop_now = 'objective_floor', True      # the model change is below f's resolution
-                elif radius < _TR_RADIUS_FLOOR_REL * radius0:
-                    stop_reason, stop_now = 'trust_region_floor', True
-        x_norm = float(cw.corewise_norm(x))                             # coordinate norm (ragged-exact; uniform: D6)
-        step_rel = (alpha * p_norm / x_norm) if x_norm > 0 else float('nan')
-        last_row = stop_now or it == max_newton - 1
-        t_now = time.perf_counter()
-        info = NewtonInfo(iteration=it, objective=f, gnorm=gnorm, g0norm=newton_ref, converged=False,
-                          x_cores=x, lm=lm, misfit=misfit, regularization=reg_val,
-                          forcing_eta=eta, cg_tol=cg_tol, cg_iters=cg_iters,
-                          cg_maxiter=cg_maxiter,
-                          cg_resid=cg_rs ** 0.5, cg_converged=cg_converged, cg_truncated=cg_truncated,
-                          ls_steps=ls_steps, ls_failed=ls_failed, alpha=alpha, slope=slope, pHp=pHp,
-                          delta_f=delta_f, rho=rho, step_rel=step_rel, wall_time=t_now - t_prev,
-                          stop_reason=stop_reason if last_row else None, tr_radius=tr_radius,
-                          tr_accepted=tr_accepted, cg_boundary=cg_boundary, pKp=pKp, **run_fields)
-        t_prev = t_now
-        if callback is not None:
-            callback(info)
-        history.append(_newton_scalar_record(info))
-        if stop_now:
-            break
-        if accepted:
-            newton_accepted += 1
-            x, lm = x_trial, None                                        # the next row linearizes at the new point
+            if stop_now:
+                break
+            if accepted:
+                newton_accepted += 1
+                x, lm = x_trial, None                                    # the next row linearizes at the new point
+        if clock is not None:                                            # the last row's callback ends here
+            t_exit = time.perf_counter()
+            extra['timing'] = _timing_stats(timings, history, one_offs, t_exit - t_entry, clock.close(t_exit))
+    finally:
+        if clock is not None and clock.listener is not None:
+            clock.listener.unregister()
     return x, {'losses': losses, 'newton_steps': newton_steps, 'newton_accepted': newton_accepted,
                'stop_reason': stop_reason, 'history': history, **extra}
 

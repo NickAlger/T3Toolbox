@@ -453,8 +453,11 @@ class TestLeastSquaresProblemAndKeywords(unittest.TestCase):
         front = inspect.signature(topt.newton_cg).parameters
         back = inspect.signature(bopt.newton_cg).parameters
         self.assertFalse(any(p.kind is inspect.Parameter.VAR_KEYWORD for p in front.values()))
+        not_yet = ('timing',)          # TEMPORARY: the timing plan's slice P3 adds the frontend keyword and removes this
+        for name in not_yet:           # self-expiring: red once the frontend has the keyword
+            self.assertNotIn(name, front, '%s is now a frontend keyword: delete not_yet (the timing plan, P3)' % name)
         for name, p in back.items():
-            if name in ('problem', 'x0'):
+            if name in ('problem', 'x0') or name in not_yet:
                 continue
             with self.subTest(name=name):
                 self.assertIn(name, front)

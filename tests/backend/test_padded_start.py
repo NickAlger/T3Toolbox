@@ -40,7 +40,14 @@ per pass run, every kind of pass included; ``()`` when no pass runs; the start f
 pass ending synchronized, and nothing synchronized when off; the public loops and ``padded_start`` keep their
 signatures and return two; the uniform kernel refuses a clock under ``use_jit``. (Its jax and ``use_jit`` cases are in
 ``tests/test_dispatch.py``.)
+
+The Newton timing plan's T7 through ``newton_cg`` and its T2/T3 with ``padded_from`` and ``'cone'``
+(``TestNewtonTimingAtTheSeam``): row 0 carries the alignment's and the cone's seconds per pass, one per movement and
+inside their phase; the records tile the run; timing changes no number; a custom member without ``timing`` -- a fixed
+signature, a ``**kwargs`` catch-all forwarding to the public loop, or an unreadable signature -- runs as without timing,
+its passes ``None``.
 """
+import dataclasses as dc
 import inspect
 import itertools
 import os
@@ -75,6 +82,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import _padded_frame_oracles as oracles
 import _uniform_padded_frame_testing as testing
 import test_uniform_padded_frame as uniform_tests      # loop_case: both layers' loop level (a module: no re-collection)
+import test_optimizers as optimizer_tests              # check_timing, untimed (a module: no re-collection)
 
 
 def random_minimal_structure(rng, d, sharing=None):
@@ -691,6 +699,140 @@ class TestMemberTiming(unittest.TestCase):
         (so the placeholder arguments are never read)."""
         with self.assertRaisesRegex(ValueError, 'eager only'):
             uniform_padded_frames._ufv_aligned_loop_kernel(None, 0.05, None, None, None, True, clock=[])
+
+
+@dc.dataclass(frozen=True, eq=False)
+class _FixedSignatureMember(bgeo.ManifoldGeometryOps):
+    """A custom geometry written for 2026.4.0: its member has a fixed signature, without ``timing``."""
+
+    def aligned_padded_frame(self, x0, x_old, project, hint, oversampling=5, oversampled_passes=2, max_passes=10,
+                             tol=0.05, alternate=True, seed=bgeo.ZERO_FRAME_SEED, use_jit=False):
+        return super().aligned_padded_frame(x0, x_old, project, hint, oversampling, oversampled_passes, max_passes,
+                                            tol, alternate, seed, use_jit)
+
+
+@dc.dataclass(frozen=True, eq=False)
+class _KwargsMember(bgeo.ManifoldGeometryOps):
+    """A custom geometry whose member forwards a ``**kwargs`` catch-all to the public loop, which has no ``timing``:
+    passing ``timing=True`` to it would raise."""
+
+    def aligned_padded_frame(self, x0, x_old, project, hint, **kwargs):
+        tucker = tuple(int(B.shape[-2]) for B in x0[0])
+        tt = (int(x0[1][0].shape[-3]),) + tuple(int(G.shape[-1]) for G in x0[1])
+        if x_old is None:
+            old = padded_frames.fv_empty_frame(tuple(int(B.shape[-1]) for B in x0[0]))
+        else:
+            old = self.frame(x_old)
+        return padded_frames.fv_aligned_padded_frame(old, tucker, tt, hint, project, **kwargs)
+
+
+class _Unreadable:
+    """A callable member whose signature cannot be read (``inspect.signature`` raises ``TypeError``)."""
+    __signature__ = 'unreadable'
+
+    def __init__(self, member):
+        self.member = member
+
+    def __call__(self, *args, **kwargs):
+        return self.member(*args, **kwargs)
+
+
+@dc.dataclass(frozen=True, eq=False)
+class _UnreadableMember(bgeo.ManifoldGeometryOps):
+    """A custom geometry whose member's signature cannot be read: it counts as not naming ``timing``."""
+
+    @property
+    def aligned_padded_frame(self):
+        return _Unreadable(super().aligned_padded_frame)
+
+
+class TestNewtonTimingAtTheSeam(unittest.TestCase):
+    """The Newton timing plan's T7 through newton_cg, and T2/T3 with padded_from and 'cone' (numpy)."""
+
+    def test_row_zero_carries_the_passes(self):
+        """newton_cg(padded_from=, g0_reference='cone', timing=True), both layers: row 0's alignment_passes and
+        reference_passes have one positive float per movement and fit inside alignment and reference; stats['timing']
+        repeats them; the records tile the run; and the run is the untimed one, bitwise."""
+        for layer in LAYERS:
+            with self.subTest(layer=layer):
+                setup, old, _, _ = fit_case(layer)
+                kw = dict(max_newton=3, padded_from=old, g0_reference='cone', cone_tol=0.0, cone_max_passes=4)
+                seen = []
+                on = bopt.newton_cg(setup.problem, setup.x0_cores, timing=True, callback=seen.append, **kw)
+                stats, record = on[1], seen[0].timing
+                optimizer_tests.check_timing(self, stats, seen)
+                for passes, movements, phase in ((record.alignment_passes, stats['start_movements'], record.alignment),
+                                                 (record.reference_passes, stats['cone_movements'],
+                                                  record.seconds.reference)):
+                    self.assertIsInstance(passes, tuple)
+                    self.assertEqual(len(passes), len(movements))
+                    self.assertGreater(len(passes), 0)
+                    self.assertTrue(all(isinstance(t, float) and t > 0.0 for t in passes))
+                    self.assertLessEqual(sum(passes), phase)
+                self.assertEqual(len(record.reference_passes), 4)
+                self.assertEqual(stats['timing']['alignment_passes'], record.alignment_passes)
+                self.assertEqual(stats['timing']['reference_passes'], record.reference_passes)
+                self.assertEqual(optimizer_tests.untimed(on),
+                                 optimizer_tests.untimed(bopt.newton_cg(setup.problem, setup.x0_cores, **kw)))
+
+    def test_a_given_start_frame_and_the_zero_reference(self):
+        """start_frame (no alignment) and the 'zero' reference: no one-off but setup, no pass tuple."""
+        setup, old, _, _ = fit_case('ragged')
+        frame = bopt.padded_start(setup.problem, setup.x0_cores, old)[0]
+        seen = []
+        x, stats = bopt.newton_cg(setup.problem, setup.x0_cores, max_newton=2, start_frame=frame, timing=True,
+                                  callback=seen.append)
+        optimizer_tests.check_timing(self, stats, seen)
+        record = seen[0].timing
+        self.assertEqual((record.alignment, record.alignment_passes, record.reference_passes), (None, None, None))
+
+    def test_untimed_calls_ask_for_nothing(self):
+        """Only newton_cg(timing=True) asks the member for its seconds: padded_start, gradient_descent's cone and an
+        untimed newton_cg call it without the keyword, as 2026.4.0 did; a timed newton_cg passes timing=True to both
+        its calls (padded_from, 'cone')."""
+        setup, old, _, _ = fit_case('ragged')
+        problem, x = setup.problem, setup.x0_cores
+        real = bgeo.ManifoldGeometryOps.aligned_padded_frame
+        calls = []
+
+        def member(self, *args, timing=None, **kwargs):                 # names timing; None: not passed
+            calls.append(timing)
+            return real(self, *args, **kwargs) if timing is None else real(self, *args, timing=timing, **kwargs)
+        with unittest.mock.patch.object(bgeo.ManifoldGeometryOps, 'aligned_padded_frame', member):
+            for name, call in (('padded_start', lambda: bopt.padded_start(problem, x, old, max_passes=2)),
+                               ('gradient_descent', lambda: bopt.gradient_descent(problem, x, n_iter=1,
+                                                                                  g0_reference='cone')),
+                               ('newton_cg', lambda: bopt.newton_cg(problem, x, max_newton=1, padded_from=old,
+                                                                    g0_reference='cone')),
+                               ('newton_cg(timing=True)', lambda: bopt.newton_cg(problem, x, max_newton=1, timing=True,
+                                                                                 padded_from=old, g0_reference='cone'))):
+                with self.subTest(call=name):
+                    calls.clear()
+                    call()
+                    want = {'padded_start': [None], 'gradient_descent': [None], 'newton_cg': [None, None],
+                            'newton_cg(timing=True)': [True, True]}[name]
+                    self.assertEqual(calls, want)
+
+    def test_a_member_without_timing(self):
+        """A custom member without ``timing`` (a fixed signature; a ``**kwargs`` catch-all forwarding to the public
+        loop; a signature that cannot be read) is called as without timing: the timed run succeeds, equals the
+        untimed one and the stock member's run, and reports its passes None (the alignment is still timed whole)."""
+        setup, old, _, _ = fit_case('ragged')
+        kw = dict(max_newton=2, padded_from=old, g0_reference='cone')
+        stock = optimizer_tests.untimed(bopt.newton_cg(setup.problem, setup.x0_cores, **kw))
+        for member in (_FixedSignatureMember(), _KwargsMember(), _UnreadableMember()):
+            with self.subTest(member=type(member).__name__):
+                problem = dc.replace(setup.problem, geom=member)
+                seen = []
+                on = bopt.newton_cg(problem, setup.x0_cores, timing=True, callback=seen.append, **kw)
+                optimizer_tests.check_timing(self, on[1], seen)
+                record = seen[0].timing
+                self.assertIsNone(record.alignment_passes)
+                self.assertIsNone(record.reference_passes)
+                self.assertGreater(record.alignment, 0.0)
+                self.assertEqual(optimizer_tests.untimed(on), optimizer_tests.untimed(
+                    bopt.newton_cg(problem, setup.x0_cores, **kw)))
+                self.assertEqual(optimizer_tests.untimed(on), stock)
 
 
 def dense_probe_gradient(ww, residual):
