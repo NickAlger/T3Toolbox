@@ -42,9 +42,14 @@ the frontend mirror test carries a SELF-EXPIRING exemption that W2 MUST delete, 
 75-172). W3 LAPTOP DONE 2026-11-14 20:43 (Nick trimmed it to the decisive pair, library start: switch 219 Newton / 7,979 CG /
 13,068 s net vs exact 277 / 9,139 / 16,777 s; fired on every level within 5-10 steps; tracking 170 of 22,711 apply-equiv.;
 T3Polynomial data/w03_switch_2026_11/w03_summary.md, committed 90dbd17; the other arms come from the GPU). W3_handoff.md
-still to write once the GPU results land; W4's verification given GO 20:50. W5 RUNNING on a NEW Runpod Nick started 2026-11-14 (ssh root@195.26.233.82 -p 35910; agent `afc368a453f62eab4`:
-10x100 all arms both starts, then 20x1000, then GPU timing figures for the timing docs; results -> T3Polynomial
-data/w03_switch_2026_11/gpu/summary.md). W4 (docs) WRITTEN, verification deferred until the laptop benchmark ends
+still to write once the GPU results land; W4's verification given GO 20:50. W5 GPU DONE 2026-11-14 ~21:00 CST (A100-SXM4-80GB; 10x100 all five arms both starts, 20x1000 switch/exact both starts,
+GN-TR library partial levels 0-4; GPU timing figures for §4.13): T3Polynomial data/w03_switch_2026_11/gpu/summary.md,
+committed dbda0de; pod notes nicks_research_experiments ed9e55b. Headline: §6.2 bar MET at the library start (switch 223
+Newton vs exact 267 vs GN-TR 1,618), NOT at the aligned start (exact 231 vs switch 303); 20x1000 switch ~= exact; the
+tracking product is dispatch-bound on GPU (~80 ms, rank-independent) -> a jitted product is a FUTURE option only (G-4).
+Nick was told to stop the pod (the remaining 20x1000 GN-TR/tracking arms are optional and were left running). W3_handoff.md
+being written by agent `a3c10a75204cd1699` from both summaries, with the docs paragraph for §4.14's placeholder and §4.13's
+GPU sentences as text; the session fills them after W4's verification reports, then the W4 reviewer runs. W4 (docs) WRITTEN, verification deferred until the laptop benchmark ends
 (agent `aa91e01e2e108cf36` awaits "GO for verification"). W3 was next (the 10x100
 benchmark, run by the session in T3Polynomial; a report, not a stop), W4 (docs §4.14, CHANGELOG, and fix §4.13's stale tracking/curvature rows; REVIEW STOP), W5
 optional GPU. Slice records in dev/gn_newton_switch_slices/. Then the glossary/docs pass (add 'phase timing' + the timing stats key), then the release commit
