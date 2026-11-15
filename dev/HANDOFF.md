@@ -27,6 +27,19 @@ starts the next slice. Review stops for Nick after S3, S7, S10, S12 (report, con
 issues: the session decides and records them in **`dev/padded_frame_cone_judgment_calls_2026_11.md`** (issue /
 decision / why). Agents may be re-spawned fresh per slice with the plan as the brief if their context gets unwieldy.
 
+**NEXT ARC AFTER THE 2026.5.0 TAG (Nick, 2026-11-15): the "graded messages" refactor of the whole sampling layer** — design
+handoff in `dev/graded_messages_handoff/` (untracked; to be committed as `dev/graded_messages/` after the tag): read its
+README.md, then DESIGN_AFTER_REVIEW.md (§10 open items), then REVIEW_DECISIONS.md. Major, BREAKING, intentionally so: one
+backend function `sampling_variables`, `SamplePlan`/`SampleScan` hooks, bond-indexed edge variables on d+1 bonds, jets as
+Taylor coefficients with reversed residual jets — SETTLED 2026-11-15 as USER-VISIBLE (API_IMPACT case 2, the redundant layer
+removed), overriding the design doc's "no user-visible convention has to change". Nick's ruling: design from FIRST
+PRINCIPLES; never preserve existing behaviour as a crutch; today's behaviour is one candidate, never the default; go slow.
+Order: tag 2026.5.0 -> settle the open items one topic per exchange (§10.1 second looks, F17, §10.3) with an agent re-running
+the handoff's checks against the tag and three scouts reading the library's own records -> writer/critic in-depth plan (two
+stages; token map + gates reusing the rename machinery; exact-equality test cleanup as a pre-slice; a performance gate on
+the Darcy ladders before any hand kernel is deleted) -> sample-edit batches -> implementer/reviewer slices. Open with Nick:
+stage 1 (plan wiring, no kernel change) as its own release?
+
 **State (2026-11-13, night). THE STORE RENAME ARC IS COMPLETE: R1-R6 COMMITTED (R6 = 5ec8cbc5: acceptance clean, the alignment
 sweep 277 whitespace-only lines in 56 files; T3Polynomial's two-line follow-up committed and pushed in that repo).
 FINAL REVIEW STOP PASSED (Nick 2026-11-13: "R6 is good. Approved."). SWITCH PLAN DECISIONS (Nick 2026-11-13): G-1 ok
