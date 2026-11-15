@@ -10,7 +10,8 @@ the way it is, `docs/`. This file is where-we-are + what's next, nothing else.
 ## The next arc
 
 **NEXT ARC AFTER THE 2026.5.0 TAG (Nick, 2026-11-15): the "graded messages" refactor of the whole sampling layer** — design
-handoff in `dev/graded_messages_handoff/` (untracked; to be committed as `dev/graded_messages/` after the tag): read its
+handoff in `dev/graded_messages_handoff/` (untracked and to STAY untracked for now — Nick, 2026-11-15: he is still workshopping it with Claude online and will
+place an updated version there; do not commit or move it, and re-read it before relying on it): read its
 README.md, then DESIGN_AFTER_REVIEW.md (§10 open items), then REVIEW_DECISIONS.md. Major, BREAKING, intentionally so: one
 backend function `sampling_variables`, `SamplePlan`/`SampleScan` hooks, bond-indexed edge variables on d+1 bonds, jets as
 Taylor coefficients with reversed residual jets — SETTLED 2026-11-15 as USER-VISIBLE (API_IMPACT case 2, the redundant layer
