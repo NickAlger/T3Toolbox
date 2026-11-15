@@ -1,3 +1,10 @@
+> **SHIPPED in 2026.5.0 (tag `v2026.5.0`, 2026-11-15); archived at the release.** The durable record is
+> `docs/fitting_and_optimization.md` §4.14 (users), `docs/contributor/curvature_internals.md` (the Gauss-Newton
+> view), `docs/contributor/deferred_and_rejected.md` (I-36; what 2026.5.0 left out) and
+> `docs/contributor/verification_records.md` (the benchmark totals). The reviews, the source notes and the slice
+> records W1–W4 are in `dev/archive/gn_newton_switch_2026-11-15/`. Paths below are as they were while the plan was
+> live.
+
 # Gauss-Newton → exact-Hessian switch for `newton_cg` — plan (draft 6, 2026-11-14; FEATURE COMPLETE)
 
 > **Status: DRAFT 5: W1 (ca13b37c) and W2 (c39b30bc) IMPLEMENTED and reviewed (2026-11-14; CHANGES 4.x, 5.x); W3 (the benchmark, a report) next, then W4 (docs; REVIEW STOP).** Draft 3: Nick's §9 decisions applied (2026-11-13; CHANGES 3.x); every §9 item RESOLVED. Draft 2 was

@@ -3,11 +3,30 @@
 All notable changes to T3Toolbox are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/); versions are `YYYY.MINOR.PATCH`.
 
-## [2026.5.0] — unreleased
+## [2026.5.0] — 2026-11-15
 
-The headline is **the store rename** (breaking): the frame stores `up` and `down` swap names, so that a store is
-named for the side of its edge that its cores occupy, as `left` and `right` always were. Every number is
-bit-identical; names, letters and messages change. Upgrade notes: `docs/release_notes.md`, "Upgrading from 2026.4.0".
+Three headlines. **The store rename** (breaking): the frame stores `up` and `down` swap names, so that a store is
+named for the side of its edge that its cores occupy, as `left` and `right` always were. Some names keep their
+spelling and now mean the other store, so stale code need not raise. Every number is bit-identical; names, letters
+and messages change. Upgrade notes: `docs/release_notes.md`, "Upgrading from 2026.4.0". **Phase timing for
+`newton_cg`** (`timing=True`): each row's wall time split into phases (the local model's build, the gradient, CG,
+the trials, the callback, the rest), with jax's compile wait beside each, at a cost within the run-to-run noise
+(user guide: `docs/fitting_and_optimization.md` §4.13). **Starting with Gauss-Newton and switching to the exact
+Hessian** (`hessian='switch'`): `newton_cg` switches for good once the exact model has predicted the objective
+clearly better on consecutive steps (§4.14). Both additions are opt-in; no default changes.
+
+**Measured** (the switch; A100, the uniform layer under `use_jit` in x64, `gtol_rel=1e-3` on the default `'zero'`
+reference, at most 300 Newton steps a level, the Darcy rank-continuation ladder of the downstream T3Polynomial
+project, 2026-11-14). On 10 points × 100 directions (six levels to rank 24) from the library's own start frame, the
+switch took 223 Newton steps and 6,303 CG iterations in 177 s (net of compile and display), against 267 / 10,751 /
+275 s for `hessian='exact'` and 1,625 / 24,682 / 427 s for Gauss-Newton with the line search (the default), which
+stopped at the step cap on 4 of the 6 levels; in Gauss-Newton apply-equivalents at measured cost, 19,794 against
+33,309 and 24,682. It switched on every level after 5–8 Gauss-Newton steps, its tracking took 3 % of its time, and
+at the level the validation error selected its errors were no worse than Gauss-Newton's. The same pair on a laptop
+CPU agreed: 219 against 277 Newton steps, 13,068 against 16,777 s. **It is not a uniform win:** restarted from the
+aligned frame (`padded_from`), the exact Hessian took 231 Newton steps to the switch's 303, and at 20 points × 1000
+directions (eleven levels, inner TT rank to 50) the two were even at both starts (switch / exact 287 / 291 Newton
+from the library start, 308 / 288 from the aligned), with the same best test error.
 
 ### Changed — breaking
 
@@ -115,8 +134,8 @@ bit-identical; names, letters and messages change. Upgrade notes: `docs/release_
   unregister a listener). The run's one-offs are recorded too: the setup, `padded_from`'s alignment, the seconds per
   pass of the alignment and of the `'cone'` reference, the last callback. It changes no number: `x` and every other
   `stats` field are bitwise the untimed run's, the `wall_time` clock readings aside. With `timing=False` (the
-  default) nothing is read or synchronized and every output, the display included, is 2026.4.0's (clock readings
-  aside). User guide: `docs/fitting_and_optimization.md` §4.13.
+  default) nothing is read or synchronized and every output, the display included, is the untimed run's (clock
+  readings aside). User guide: `docs/fitting_and_optimization.md` §4.13.
   - `NewtonInfo.timing`: a `NewtonTiming` per row (`window`, `seconds` and `compile_seconds` as `PhaseSeconds`,
     `trials`, `accepted_retraction`; row 0 adds the one-offs), `None` when off; not a history field. Both records are
     in `backend.optimizers`. (`PhaseSeconds.tracking` times the `hessian='switch'` tracking product, below.)

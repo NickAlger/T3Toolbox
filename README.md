@@ -113,7 +113,9 @@ for the full tour with verified outputs.
   targets where Gauss-Newton is only linear. After a rank increase, `newton_cg(..., padded_from=x_old)`
   starts from a frame whose new directions are aligned with the misfit gradient (the aligned padded frame),
   and `g0_reference='cone'` measures the relative stop against the gradient norm at the zero tensor on
-  such a frame.
+  such a frame. `newton_cg(..., hessian='switch')` starts with Gauss-Newton and switches to the exact
+  Hessian once the exact model predicts the objective clearly better, and `timing=True` splits each
+  Newton row's wall time into phases.
 - **Shared Tucker factors (SF-T3)**: optimize over T3s whose Tucker factors are constrained equal
   within user-specified groups of modes — `shared(MANIFOLD, sharing)` wraps any geometry, and the
   grouped T3-SVD, rank bookkeeping and continuation follow.

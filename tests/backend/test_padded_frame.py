@@ -3,7 +3,8 @@
 # https://github.com/NickAlger/T3Toolbox
 """Tests for ``backend.padded_frames``: the empty frame, the seeded padded frame (the start), and one alignment step.
 
-The plan is ``dev/aligned_padded_frame_impl_plan_2026-11-09.md``; T1-T3 (the step) and T4, T6 (the loop) follow T5.
+The plan is ``dev/archive/aligned_padded_frame_impl_plan_2026-11-09_shipped.md``; T1-T3 (the step) and T4, T6 (the
+loop) follow T5.
 
 T5, the start, on the D-41 convention (Gaussian seeds in every store, slot-indexed). What is pinned here,
 platform-independently:

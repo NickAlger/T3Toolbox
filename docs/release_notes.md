@@ -82,6 +82,10 @@ and the derivative an upright `d`. Docs before 2026.5.0 wrote `U` for the Tucker
 core. T4S writes U, O, P, Q for our D, U, L, R; its δU is our V (`tucker_variations`), its δG our H
 (`tt_variations`).
 
+**Also new, and opt-in.** `newton_cg(timing=True)` splits each Newton row's wall time by phase
+([`fitting_and_optimization.md`](fitting_and_optimization.md) §4.13), and `newton_cg(hessian='switch')` starts with
+Gauss-Newton and switches to the exact Hessian (§4.14). Without them, every number a run returns is 2026.4.0's.
+
 ## Upgrading from 2026.3.0
 
 **Nothing breaks.** Every addition is opt-in, and no default changes: the Newton reference stays `'zero'`, and a

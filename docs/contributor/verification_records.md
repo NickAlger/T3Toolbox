@@ -191,3 +191,54 @@ gradient tolerance, and every alignment on the 10-pass cap (last movements 0.27�
 | 20 × 1000, aligned start, `'cone'` | 166 | 4,130 | 0.0449 |
 | 20 × 1000, hint-free start, `'cone'` | 191 | 4,719 | 0.0448 |
 | 20 × 1000, library start, zero-type reference (2026-11-01, another card) | 167 | 4,688 | 0.0450 |
+
+## The GN-to-Newton switch (2026.5.0)
+
+(Stated in `../fitting_and_optimization.md` §4.14; the Gauss-Newton view is in
+[`curvature_internals.md`](curvature_internals.md).) Full Darcy ladders through T3Polynomial (2026-11-14; an A100,
+the uniform layer under `use_jit` in x64, `gtol_rel=1e-3` on the `'zero'` reference, at most 300 Newton steps a
+level, each run in its own process). The library start is the ladder's default; the aligned start passes the
+previous level's point as `padded_from`. CG is Gauss-Newton + exact iterations. AE (apply-equivalents) adds the
+exact iterations and the tracking products to the Gauss-Newton ones, each weighted by its measured cost in
+Gauss-Newton applies; it leaves out the builds, trials and objectives, and compares runs within one table only. Net
+wall leaves out compile and the display. The benchmark's record (W3) is archived under `dev/archive/`. The
+automated guarantees are the switch tests in `tests/backend/test_optimizers.py`,
+`tests/test_optimizers_frontend.py`, `tests/backend/test_optimizer_display.py` and the dispatch tests.
+
+10 points × 100 directions, six levels to rank 24 (`tracking` is `switch_tau=0`: Gauss-Newton with the trust
+region, plus the tracking product on every countable step):
+
+| start | `newton_cg` | Newton | CG | AE | net s | levels at the cap | selected level: val_fsr / test p50 | best test p50 |
+|---|---|---|---|---|---|---|---|---|
+| library | `'switch'` | 223 | 206 + 6,097 | 19,794 | 177 | 0 | 4: 0.3697 / 0.0675 | 0.0632 |
+| library | `'exact'` | 267 | 10,751 | 33,309 | 275 | 0 | 4: 0.3722 / 0.0682 | 0.0631 |
+| library | Gauss-Newton, trust region | 1,618 | 27,023 | 27,023 | 436 | 4 | 4: 0.3720 / 0.0664 | 0.0601 |
+| library | Gauss-Newton, line search (the default) | 1,625 | 24,682 | 24,682 | 427 | 4 | 4: 0.3736 / 0.0689 | 0.0614 |
+| library | `tracking` | 1,510 | 24,521 | 53,769 | 575 | 4 | 4: 0.3744 / 0.0660 | 0.0630 |
+| aligned | `'switch'` | 303 | 173 + 10,995 | 35,203 | 294 | 0 | 4: 0.3722 / 0.0684 | 0.0610 |
+| aligned | `'exact'` | 231 | 9,237 | 28,471 | 230 | 0 | 5: 0.3688 / 0.0620 | 0.0620 |
+| aligned | Gauss-Newton, trust region | 1,723 | 27,356 | 27,356 | 454 | 4 | 4: 0.3743 / 0.0678 | 0.0624 |
+| aligned | Gauss-Newton, line search (the default) | 1,652 | 24,469 | 24,469 | 432 | 3 | 4: 0.3746 / 0.0671 | 0.0625 |
+| aligned | `tracking` | 1,666 | 23,786 | 55,806 | 609 | 4 | 5: 0.3748 / 0.0621 | 0.0621 |
+
+20 points × 1000 directions, eleven levels (Tucker to 23–24, inner TT rank to 50); no level at the cap:
+
+| start | `newton_cg` | Newton | CG | AE | net s | selected level: val_fsr / test p50 | best test p50 |
+|---|---|---|---|---|---|---|---|
+| library | `'switch'` | 287 | 378 + 9,928 | 32,309 | 3,851 | 7: 0.3842 / 0.0461 | 0.0449 |
+| library | `'exact'` | 291 | 10,511 | 33,413 | 4,011 | 8: 0.3841 / 0.0452 | 0.0450 |
+| aligned | `'switch'` | 308 | 287 + 11,094 | 36,028 | 4,486 | 8: 0.3841 / 0.0452 | 0.0450 |
+| aligned | `'exact'` | 288 | 11,006 | 34,938 | 4,262 | 8: 0.3842 / 0.0451 | 0.0449 |
+
+- The switch fired on every level of every switch run, after 4–10 Gauss-Newton rows; every Gauss-Newton-phase row
+  was countable. Its tracking (the curvature data and the product) took 0.44–3.3 % of its net wall on the GPU,
+  0.24 % on the laptop.
+- At 10 × 100 the Gauss-Newton runs stopped at the 300-step cap on 3–4 of 6 levels, so their counts are lower
+  bounds. The uncensored comparison is the switch against `'exact'`.
+- A Gauss-Newton trust-region ladder at 20 × 1000 (library start) ran only levels 0–4: 1,157 Newton / 9,729 CG,
+  against the switch's 138 / 2,458 and `'exact'`'s 140 / 2,759 over the same levels.
+- The decisive pair on a laptop CPU (library start, 10 × 100): the switch 219 Newton / 220 + 7,759 CG / 13,068 s
+  net against `'exact'`'s 277 / 9,139 / 16,777 s.
+- Each run was one GPU process, and the GPU rounds differently from process to process; a rank-deficient level
+  start amplifies that, so a second run would not reproduce these counts row for row. In one process from one
+  start, the Gauss-Newton trust-region run and `switch_tau=0` are bitwise equal.

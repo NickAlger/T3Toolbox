@@ -1,3 +1,8 @@
+> **SHIPPED in 2026.5.0 (tag `v2026.5.0`, 2026-11-15); archived at the release.** The durable record is
+> `docs/fitting_and_optimization.md` §4.13 (users) and `docs/contributor/scan_body_principles.md` (the clock slot).
+> The reviews and the slice records P1–P3 are in `dev/archive/newton_timing_2026-11-15/`. Paths below are as they
+> were while the plan was live.
+
 # Opt-in phase timing for `newton_cg` — plan (draft 6, 2026-11-14; FEATURE COMPLETE)
 
 > **Status: DRAFT 6 — FEATURE COMPLETE** (P1 cbcdc1d6, P2 f8cbb442, P3 b263a1dc committed 2026-11-14; FINAL STOP with Nick pending; critic r2 `dev/newton_timing_plan_review_r2.md`: APPROVE of draft 2; Nick's Q-1 recorded,

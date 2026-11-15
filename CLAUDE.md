@@ -407,15 +407,20 @@ project engineering practices below are shared.)*
 
 ## Current state
 
-**2026.3.0 is SHIPPED to PyPI (2026-10-29) — `pip install t3toolbox`** (2026.2.0 shipped 2026-08-25, 2026.1.0
-2026-08-20, 2026.0.0 2026-07-13; the checklist all four followed is `dev/archive/release_plan_2026-07-13.md`; live
-status and the post-release backlog: `dev/HANDOFF.md`). Its headline is the exact Riemannian Hessian for `newton_cg`
-(below). The arc's build record is archived: the implementation plan
-`dev/archive/riemannian_newton_curvature_impl_plan_2026-10-29_shipped.md` and the per-slice implementer / reviewer
-records in `dev/archive/curvature_impl_review_2026-10-29/` (the reorganization R was cancelled, 2026-10-29; its scope
-is archived beside them). "Tested" = *numerical correctness in numpy* (vs dense ground truth) **plus** *jax
+**2026.5.0 is RELEASED (2026-11-15) — `pip install t3toolbox`.** Its headlines: the BREAKING store rename (the
+frame stores `up` and `down` swap names so a store is named for the side its cores occupy; letters D/U/L/R; upgrade
+notes in `docs/release_notes.md` "Upgrading from 2026.4.0"), opt-in phase timing for `newton_cg` (`timing=True`,
+`docs/fitting_and_optimization.md` §4.13) and the Gauss-Newton-to-exact-Hessian switch (`hessian='switch'`, §4.14),
+plus the unified glossary (`docs/glossary.md`). 2026.4.0 (2026-11-10) shipped the aligned padded frame and the cone
+reference for rank continuation; 2026.3.0 (2026-10-29) the exact Riemannian Hessian; 2026.2.0 2026-08-25, 2026.1.0
+2026-08-20, 2026.0.0 2026-07-13. The release checklist every release followed is `dev/archive/release_plan_2026-07-13.md`;
+live status, the post-release backlog and the NEXT arc (the graded-messages refactor of the sampling layer) are in
+`dev/HANDOFF.md`. Each arc's build record is archived under `dev/archive/` (plan `_shipped` + a dated folder of the
+reviews and per-slice implementer / reviewer records: the store rename, phase timing, the switch and the aligned
+padded frame in `*_2026-11-15/` and `aligned_padded_frame_2026-11-10/`; the exact Hessian in
+`curvature_impl_review_2026-10-29/`). "Tested" = *numerical correctness in numpy* (vs dense ground truth) **plus** *jax
 dispatch* covered by `tests/test_dispatch.py` (jit each op; a stray `np.*` on a tracer raises) — not a
-duplicate numerical sweep. Full suite green (1,170 tests / 46,364 subtests, counted 2026-10-27; ~7 min with ``pytest -n auto`` on 4+ cores --
+duplicate numerical sweep. Full suite green (1,407 tests / 49,058 subtests, counted 2026-11-15; ~7 min with ``pytest -n auto`` on 4+ cores --
 tests are per-test seeded and order-independent, Phase D);
 docs at zero warnings with `-W` in CI; doctests CI-enforced on both numpy generations — **module
 doctests, `getting_started.rst`, AND every `docs/*.md` + `docs/contributor/*.md` page** (the one

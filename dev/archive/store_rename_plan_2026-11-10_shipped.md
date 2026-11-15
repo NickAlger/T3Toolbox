@@ -1,3 +1,9 @@
+> **SHIPPED in 2026.5.0 (tag `v2026.5.0`, 2026-11-15); archived at the release.** The durable record is the
+> CHANGELOG `[2026.5.0]` "Changed — breaking", `docs/release_notes.md` "Upgrading from 2026.4.0" (users),
+> `docs/frame_variations.md` § Four rank stores (the convention) and `docs/glossary.md`. The reviews, inventories,
+> tools and slice records R1–R6 are in `dev/archive/store_rename_2026-11-15/`. Paths below are as they were while
+> the plan was live.
+
 # The store rename — plan (draft 29, FINAL — arc complete, 2026-11-13)
 
 > **Status:** draft 29 (FINAL — arc complete): Nick's rulings of 2026-11-11, critic rounds 1–25
