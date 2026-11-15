@@ -7,6 +7,24 @@ switch W1–W4, the glossary/docs pass, the hand fixes, and the 2026.4.0 arc's s
 `handoff_2026-07-12_1.0_complete.md`, all in `dev/archive/`. What each release contains is the CHANGELOG; why it is
 the way it is, `docs/`. This file is where-we-are + what's next, nothing else.
 
+## Released: 2026.5.0 (tag v2026.5.0 on 4463231f, 2026-11-15; PyPI published the same day)
+
+The release commit is 52843bfc; 4463231f is a tests-only follow-up (CI's floor leg had been red since c1a42c24 with
+four failures nobody watched: an `np.bool_` subtest label xdist cannot serialize on numpy 1.x, and three tests whose
+trajectories depended on a TIE — see the backlog). The published package installs in a fresh venv and reports 2026.5.0.
+The GitHub Release body is `release_notes_2026.5.0.md` (untracked). Records: `dev/ci_floor_fix_2026-11-15.md`.
+
+**Backlog added at the release:**
+- **Trust-region radius tie (library question).** Under Gauss-Newton with `step_control='trust_region'` the DEFAULT
+  radius equals the length of CG's first step bitwise, so rounding (BLAS; eager vs jit) decides whether row 0 is a
+  boundary stop and whether the radius doubles; the whole trajectory follows. A default that cannot tie (e.g. 2x the
+  Cauchy step) would make row 0 platform-independent. A behaviour change: its own slice, Darcy benchmarks, CHANGELOG.
+- **CI discipline.** Check both CI legs after EVERY push; the local `tttt` env (numpy 1.22, single-process) does not
+  reproduce CI's floor leg (numpy 1.26, xdist). Pins for a CI-like local env are in `dev/ci_floor_fix_2026-11-15.md`.
+  Structural tests drive their events deterministically; subtest params are builtins.
+- **Disk hygiene.** Clear the session scratch after each slice (18 GB of review copies filled the 64 GB root on
+  2026-11-15); review agents delete their repo copies when done.
+
 ## The next arc
 
 **NEXT ARC AFTER THE 2026.5.0 TAG (Nick, 2026-11-15): the "graded messages" refactor of the whole sampling layer** — design
