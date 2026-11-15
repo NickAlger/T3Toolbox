@@ -897,7 +897,7 @@ def assemble_tangent_z_jets(
 def tv_probe_jacobian_derivatives_from_sweep(
         variation:  typ.Tuple[
             typ.Sequence[NDArray],          # var_tucker_cores V.  len=d, elm_shape=K+C+(nUi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rRi)
+            typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rR(i+1))
         ],                                  # = T3Variations.data
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
@@ -930,7 +930,7 @@ def tv_probe_derivatives(
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
         variation:  typ.Tuple[
             typ.Sequence[NDArray],          # var_tucker_cores V.  len=d, elm_shape=K+C+(nUi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rRi)
+            typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rR(i+1))
         ],                                  # = T3Variations.data
         frame:      typ.Tuple[
             typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
@@ -1074,7 +1074,7 @@ def _apply_derivatives_from_jets(
 def tv_apply_jacobian_derivatives_from_sweep(
         variation:  typ.Tuple[
             typ.Sequence[NDArray],          # var_tucker_cores V.  len=d, elm_shape=K+C+(nUi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rRi)
+            typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rR(i+1))
         ],                                  # = T3Variations.data
         ww:         typ.Sequence[NDArray],  # probe vectors X,        len=d, elm_shape=W+(Ni,)
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
@@ -1104,7 +1104,7 @@ def tv_apply_derivatives(
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
         variation:  typ.Tuple[
             typ.Sequence[NDArray],          # var_tucker_cores V.  len=d, elm_shape=K+C+(nUi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rRi)
+            typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rR(i+1))
         ],                                  # = T3Variations.data
         frame:      typ.Tuple[
             typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
@@ -1158,7 +1158,7 @@ def t3_entries_derivatives(
 def tv_entries_jacobian_derivatives_from_sweep(
         variation:  typ.Tuple[
             typ.Sequence[NDArray],          # var_tucker_cores V.  len=d, elm_shape=K+C+(nUi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rRi)
+            typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rR(i+1))
         ],                                  # = T3Variations.data
         index:      NDArray,                # int, shape=(d,)+W -- the grid points
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
@@ -1188,7 +1188,7 @@ def tv_entries_derivatives(
         pp:         typ.Sequence[NDArray],  # perturbation vectors P, len=d, elm_shape=W+(Ni,)
         variation:  typ.Tuple[
             typ.Sequence[NDArray],          # var_tucker_cores V.  len=d, elm_shape=K+C+(nUi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rRi)
+            typ.Sequence[NDArray],          # var_tt_cores     H.  len=d, elm_shape=K+C+(rLi,nDi,rR(i+1))
         ],                                  # = T3Variations.data
         frame:      typ.Tuple[
             typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
@@ -1607,7 +1607,7 @@ def _assemble_tt_variation_jets_dense(
         nu_jets:        typ.Sequence[NDArray],  # len=d, elm_shape=(order+1,)+W+C+(rR(i+1),)
         n_probe:        int,                    # number of sample-stack (W) axes
         sum_over_probes: bool,
-) -> typ.Tuple[NDArray, ...]:                   # H_tildes. len=d, elm_shape=[W+]K+C+(rLi,nDi,rRi)
+) -> typ.Tuple[NDArray, ...]:                   # H_tildes. len=d, elm_shape=[W+]K+C+(rLi,nDi,rR(i+1))
     '''Assemble TT-core variation gradients, unchunked (the per-chunk kernel of
     :py:func:`assemble_tt_variation_jets`): mapped over cores (``lax.map`` on the uniform path, so one core's
     intermediates are resident), the per-core body :py:func:`_tt_variation_jets_step`. The residual-derived
@@ -1739,7 +1739,7 @@ def assemble_tt_variation_jets(
         n_probe:        int,
         sum_over_probes: bool,
         chunk_size:     typ.Optional[int] = DEFAULT_CHUNK_SIZE,    # W-chunk size; None (or >= W) -> dense. See docs/chunking.md
-) -> NDArray:                                        # H_tildes supercore, [W+]K+C+(rLi,nDi,rRi)
+) -> NDArray:                                        # H_tildes supercore, [W+]K+C+(rLi,nDi,rR(i+1))
     '''Assemble the TT variation gradient (W-chunked; the per-chunk kernel is
     :py:func:`_assemble_tt_variation_jets_dense`: banded sigma~ / tau~ groups and an order scan for the deta~
     group, no binomial tensor).
@@ -2225,7 +2225,7 @@ def _apply_derivatives_transpose_from_jets(
         sum_over_probes:    bool,
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],    # V_tildes. len=d, elm_shape=[W+]K+C+(nUi,Ni)
-    typ.Tuple[NDArray, ...],    # H_tildes. len=d, elm_shape=[W+]K+C+(rLi,nDi,rRi)
+    typ.Tuple[NDArray, ...],    # H_tildes. len=d, elm_shape=[W+]K+C+(rLi,nDi,rR(i+1))
 ]:
     '''Shared tail of apply/tv_entries_derivatives_transpose (they differ only in how xi_jets /
     w_jets are formed). Runs the seeded sigma_hat sweep, the two-row dxi_hat combine, and the single-term

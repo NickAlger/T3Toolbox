@@ -500,7 +500,7 @@ def uniform_least_squares_problem(
     >>> ww = [np.random.randn(20, n) for n in (6, 6, 6)]
     >>> data = np.random.randn(20)
 
-    A **non-minimal** frame -- here TT bond rank 3 is unrealizable for a 2x2x2 central Tucker core (its TT
+    A **non-minimal** frame -- here TT bond rank 3 is unrealizable for a 2x2x2 central core (its TT
     bonds are at most 2) -- is rejected up front with a clear error:
 
     >>> x0 = ut3.UniformTuckerTensorTrain.from_t3(t3.TuckerTensorTrain.randn((6, 6, 6), (2, 2, 2), (1, 3, 3, 1)))

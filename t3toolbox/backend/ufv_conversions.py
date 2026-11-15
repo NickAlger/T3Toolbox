@@ -360,7 +360,7 @@ def t3frameweights_to_ut3frameweights(
             typ.Sequence[NDArray],  # down_weights,  len=d, elm_shape=C+(nDi,)
             typ.Sequence[NDArray],  # up_weights,    len=d, elm_shape=C+(nUi,)
             typ.Sequence[NDArray],  # left_weights,  len=d, elm_shape=C+(rLi,)
-            typ.Sequence[NDArray],  # right_weights, len=d, elm_shape=C+(rRi,)
+            typ.Sequence[NDArray],  # right_weights, len=d, elm_shape=C+(rR(i+1),)
         ],
         nD: int = None,             # padded down rank  (default max); pass to match the tangent's pad
         nU: int = None,             # padded up rank    (default max)

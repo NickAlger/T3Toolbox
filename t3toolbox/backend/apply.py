@@ -142,7 +142,7 @@ def tv_apply(
         ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,)
         variation:  typ.Tuple[
             typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nUi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rRi)
+            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rR(i+1))
         ],
         frame:      typ.Tuple[
             typ.Sequence[NDArray],          # down_tucker_cores  D. len=d
@@ -233,7 +233,7 @@ def tv_precompute_apply_frame_sweep(
 def tv_apply_jacobian_from_sweep(
         variation:  typ.Tuple[
             typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nUi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rRi)
+            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rR(i+1))
         ],
         ww:         typ.Sequence[NDArray],  # apply vectors, len=d, elm_shape=W+(Ni,) -- for the variation's dxis
         frame:      typ.Tuple[

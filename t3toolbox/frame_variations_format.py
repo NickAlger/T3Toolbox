@@ -71,12 +71,12 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
     The components of T3Frame are the "frame cores":
         - down_tucker_cores = (D0, ..., D(d-1)), elm_shape=(nDi, Ni)
         - up_tt_cores       = (U0, ..., U(d-1)), elm_shape=(rLi, nUi, rR(i+1))
-        - left_tt_cores     = (L0, ..., L(d-1)), elm_shape=(rLi, ni, rL(i+1))
-        - right_tt_cores    = (R0, ..., R(d-1)), elm_shape=(rRi, ni, rR(i+1))
+        - left_tt_cores     = (L0, ..., L(d-1)), elm_shape=(rLi, nDi, rL(i+1))
+        - right_tt_cores    = (R0, ..., R(d-1)), elm_shape=(rRi, nDi, rR(i+1))
 
     The components of T3Variations are the "variation cores":
         - tucker_variations = (V0, ..., V(d-1)), elm_shape=(nUi, Ni)
-        - tt_variations     = (H0, ..., H(d-1)), elm_shape=(rLi, nDi, rRi)
+        - tt_variations     = (H0, ..., H(d-1)), elm_shape=(rLi, nDi, rR(i+1))
 
     Note that L(d-1) and R0 (the carriers) are not used in these diagrams. (Why keep them, then?
     They hold the base point as one extra variation term so the frame remembers where it is
@@ -91,7 +91,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
                  |         |                    |
                  | nD0     | nD1                | nD(d-1)
                  |         |                    |
-                 D0        D1                   Dd
+                 D0        D1                   D(d-1)
                  |         |                    |
                  | N0      | N1                 | N(d-1)
                  |         |                    |
@@ -103,7 +103,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
                  |         |                    |
                  | nD0     | nU1                | nD(d-1)
                  |         |                    |
-                 D0       (V1)                   Dd
+                 D0       (V1)                  D(d-1)
                  |         |                    |
                  | N0      | N1                 | N(d-1)
                  |         |                    |
@@ -238,7 +238,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
         >>> tucker_holes, tt_holes = frame.variation_shapes   # (tucker hole shapes, tt hole shapes)
         >>> print(tucker_holes)   # one (nUi, Ni) per mode
         ((9, 14), (8, 15), (7, 16))
-        >>> print(tt_holes)       # one (rLi, nDi, rRi) per mode
+        >>> print(tt_holes)       # one (rLi, nDi, rR(i+1)) per mode
         ((1, 10, 4), (2, 11, 5), (3, 12, 1))
         '''
         tucker_variation_shapes = tuple([(nU, N) for nU, N in zip(self.up_ranks, self.shape)])
@@ -353,7 +353,7 @@ class T3Frame(common.ExplicitEquality):   # this was IDENTITY eq/hash, needed wh
 
         Checks (each stacked block; max absolute deviation from identity <= atol):
             - down_tucker D_i (all i):  ``einsum('...io,...jo->...ij', D, D) = I``
-            - up/outer U_i (all i):     ``einsum('...iaj,...ibj->...ab', U, U) = I``
+            - up U_i (all i):           ``einsum('...iaj,...ibj->...ab', U, U) = I``
             - left L_i (i = 0..d-2):    ``einsum('...iaj,...iak->...jk', L, L) = I``
             - right R_i (i = 1..d-1):   ``einsum('...iaj,...kaj->...ik', R, R) = I``
 
@@ -783,7 +783,7 @@ class T3Variations(common.ExplicitEquality):
 
     *Components*
         - tucker_variations    = (V0, ..., V(d-1)), elm_shape=stack_shape+(nUi, Ni)
-        - tt_variations        = (H0, ..., H(d-1)), elm_shape=stack_shape+(rLi, nDi, rRi)
+        - tt_variations        = (H0, ..., H(d-1)), elm_shape=stack_shape+(rLi, nDi, rR(i+1))
 
     The variations should fit in the "holes" of a T3Frame.
 
@@ -811,7 +811,7 @@ class T3Variations(common.ExplicitEquality):
     True
     """
     tucker_variations: typ.Tuple[NDArray,...]  # len=d, elm_shape=stack_shape+(nUi, Ni)
-    tt_variations:     typ.Tuple[NDArray,...]  # len=d, elm_shape=stack_shape+(rLi, nDi, rRi)
+    tt_variations:     typ.Tuple[NDArray,...]  # len=d, elm_shape=stack_shape+(rLi, nDi, rR(i+1))
 
     @ft.cached_property
     def d(self) -> int:
@@ -1454,7 +1454,7 @@ class T3FrameWeights(common.ExplicitEquality):
     down_weights:  typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nDi,)
     up_weights:    typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(nUi,)
     left_weights:  typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(rLi,)
-    right_weights: typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(rRi,)
+    right_weights: typ.Tuple[NDArray, ...]  # len=d, elm_shape=stack_shape+(rR(i+1),)
 
     @ft.cached_property
     def data(self) -> typ.Tuple[typ.Tuple[NDArray, ...], ...]:  # (down, up, left, right)

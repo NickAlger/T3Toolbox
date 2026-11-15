@@ -2612,7 +2612,7 @@ When the frame is **orthonormal** and the variations are **gauged** (`Dᵢ Vᵢ�
 
 - file: `docs/frame_variations.md`; old span: 80–85; kind: markdown table; fenced: y
 - letters and widths: letters: Lᵢ Oᵢ Rᵢ Uᵢ; store words: down up
-- roles: `Uᵢ` (up / Tucker) → `Dᵢ` (down / Tucker); `Oᵢ` (down / outer) → `Uᵢ` (up); L, R stay; the rank caps use the T3's nᵢ, rᵢ (stay)
+- roles: `Uᵢ` (up / Tucker) → `Dᵢ` (down / Tucker); `Oᵢ` (down / outer) → `Uᵢ` (up); L, R stay; the rank caps use the T3's nᵢ, rᵢ (stay); hand fix 2026-11-15 (glossary row L201): the up row's "unfolding" → "matricization" (the mode leg against both bonds is a Tucker–TT cut)
 - re-laid out: n/a: a markdown table; K12 applies
 - new == old possible: possible: record the reason at R4 if nothing changes
 - new span: 116–121
@@ -2635,7 +2635,7 @@ new text (R4/R5, verbatim the file at the new span):
 | core | orthonormality | the rank it caps |
 |---|---|---|
 | `Dᵢ` (down / Tucker) | rows orthonormal | `nᵢ ≤ Nᵢ` |
-| `Uᵢ` (up) | `nᵢ × (rᵢ·rᵢ₊₁)` unfolding, rows orthonormal | `nᵢ ≤ rᵢ·rᵢ₊₁` |
+| `Uᵢ` (up) | `nᵢ × (rᵢ·rᵢ₊₁)` matricization, rows orthonormal | `nᵢ ≤ rᵢ·rᵢ₊₁` |
 | `Lᵢ` (left) | `(rᵢ·nᵢ) × rᵢ₊₁`, columns orthonormal | `rᵢ₊₁ ≤ rᵢ·nᵢ` |
 | `Rᵢ` (right) | `rᵢ × (nᵢ·rᵢ₊₁)`, rows orthonormal | `rᵢ ≤ nᵢ·rᵢ₊₁` |
 ~~~
@@ -7776,7 +7776,7 @@ new text (R4/R5, verbatim the file at the new span):
 
 - file: `t3toolbox/frame_variations_format.py`; old span: 71–74; kind: shape listing; fenced: y
 - letters and widths: letters: D(d-1) D0 L(d-1) L0 R(d-1) R0 U(d-1) U0; widths: nDi nUi rL(i+1) rLi rR(i+1) rRi; store words: down_tt_cores left_tt_cores right_tt_cores up_tucker_cores
-- roles: up_tucker_cores (U, nUi) → down_tucker_cores (D, nDi); down_tt_cores (D, nDi) → up_tt_cores (U, nUi); left/right write a generic `ni` (D-8 makes their middle leg nD: the rewriter decides whether to keep `ni`); re-laid out
+- roles: up_tucker_cores (U, nUi) → down_tucker_cores (D, nDi); down_tt_cores (D, nDi) → up_tt_cores (U, nUi); left/right write a generic `ni` (D-8 makes their middle leg nD: the rewriter decides whether to keep `ni`); re-laid out; hand fix 2026-11-15 (glossary rows L873/L874): left/right `ni` → `nDi` (`T3Frame.validate` requires `D.shape[-2] == L.shape[-2] == R.shape[-2]`)
 - re-laid out: y (R4a: re-laid out, K10b)
 - new == old possible: no: it carries a changing letter, width or store word
 - new span: 72–75
@@ -7796,16 +7796,16 @@ new text (R4/R5, verbatim the file at the new span):
 ~~~
         - down_tucker_cores = (D0, ..., D(d-1)), elm_shape=(nDi, Ni)
         - up_tt_cores       = (U0, ..., U(d-1)), elm_shape=(rLi, nUi, rR(i+1))
-        - left_tt_cores     = (L0, ..., L(d-1)), elm_shape=(rLi, ni, rL(i+1))
-        - right_tt_cores    = (R0, ..., R(d-1)), elm_shape=(rRi, ni, rR(i+1))
+        - left_tt_cores     = (L0, ..., L(d-1)), elm_shape=(rLi, nDi, rL(i+1))
+        - right_tt_cores    = (R0, ..., R(d-1)), elm_shape=(rRi, nDi, rR(i+1))
 ~~~
 
 #### FVF-0077
 
 - file: `t3toolbox/frame_variations_format.py`; old span: 77–78; kind: shape listing; fenced: y
 - letters and widths: letters: H(d-1) H0 V(d-1) V0; widths: nDi nUi rLi rRi
-- roles: tucker_variations rows nDi → nUi; tt_variations middle leg nUi → nDi (D-8)
-- re-laid out: n (R4a: in place, K10)
+- roles: tucker_variations rows nDi → nUi; tt_variations middle leg nUi → nDi (D-8); hand fix 2026-11-15 (glossary row L875): the TT variation's right bond `rRi` → `rR(i+1)` (`variation_shapes` zips `right_ranks[1:]`)
+- re-laid out: y (R4a: in place, K10; hand fix 2026-11-15: `rRi` → `rR(i+1)` lengthens the line, so K10b)
 - new == old possible: no: it carries a changing letter, width or store word
 - new span: 78–79
 - same-reason: (R4/R5: required only when the new text equals the old)
@@ -7821,15 +7821,15 @@ new text (R4/R5, verbatim the file at the new span):
 
 ~~~
         - tucker_variations = (V0, ..., V(d-1)), elm_shape=(nUi, Ni)
-        - tt_variations     = (H0, ..., H(d-1)), elm_shape=(rLi, nDi, rRi)
+        - tt_variations     = (H0, ..., H(d-1)), elm_shape=(rLi, nDi, rR(i+1))
 ~~~
 
 #### FVF-0088
 
 - file: `t3toolbox/frame_variations_format.py`; old span: 88–96; kind: ascii diagram; fenced: y
 - letters and widths: letters: H1 L0 R(d-1) U0 U1 Ud; widths: nU(d-1) nU0 nU1 rL0 rL1 rR(d-1) rR2 rRd
-- roles: U0, U1, Ud the Tucker store (→ D0, D1, Dd; `Ud` is the known typo for U(d-1), glossary E17); vertical widths nU → nD; rL, rR, N, (H1) stay (sample edit 5)
-- re-laid out: n (R4a: in place, K10)
+- roles: U0, U1, Ud the Tucker store (→ D0, D1, Dd; `Ud` is the known typo for U(d-1), glossary E17); vertical widths nU → nD; rL, rR, N, (H1) stay (sample edit 5); hand fix 2026-11-15 (glossary row L877): `Dd` → `D(d-1)` at column 48, the line's last label (block re-derived whole)
+- re-laid out: y (R4a: in place, K10; hand fix 2026-11-15: `Dd` → `D(d-1)` lengthens the line, so K10b)
 - new == old possible: no: it carries a changing letter, width or store word
 - new span: 89–97
 - same-reason: (R4/R5: required only when the new text equals the old)
@@ -7856,7 +7856,7 @@ new text (R4/R5, verbatim the file at the new span):
                  |         |                    |
                  | nD0     | nD1                | nD(d-1)
                  |         |                    |
-                 D0        D1                   Dd
+                 D0        D1                   D(d-1)
                  |         |                    |
                  | N0      | N1                 | N(d-1)
                  |         |                    |
@@ -7866,8 +7866,8 @@ new text (R4/R5, verbatim the file at the new span):
 
 - file: `t3toolbox/frame_variations_format.py`; old span: 100–108; kind: ascii diagram; fenced: y
 - letters and widths: letters: D1 L0 R(d-1) U0 Ud V1; widths: nO1 nU(d-1) nU0 rL0 rL1 rR(d-1) rR2 rRd
-- roles: D1 the TT-shaped store (→ U1); nO1 → nU1; nU → nD; U0, Ud → D0, Dd; (V1) stays (sample edit 5)
-- re-laid out: n (R4a: in place, K10)
+- roles: D1 the TT-shaped store (→ U1); nO1 → nU1; nU → nD; U0, Ud → D0, Dd; (V1) stays (sample edit 5); hand fix 2026-11-15 (glossary row L879): `Dd` → `D(d-1)`, moved from column 49 to 48, its edge's column (block re-derived whole)
+- re-laid out: y (R4a: in place, K10; hand fix 2026-11-15: `Dd` → `D(d-1)` lengthens the line and moves one column left, so K10b)
 - new == old possible: no: it carries a changing letter, width or store word
 - new span: 101–109
 - same-reason: (R4/R5: required only when the new text equals the old)
@@ -7894,7 +7894,7 @@ new text (R4/R5, verbatim the file at the new span):
                  |         |                    |
                  | nD0     | nU1                | nD(d-1)
                  |         |                    |
-                 D0       (V1)                   Dd
+                 D0       (V1)                  D(d-1)
                  |         |                    |
                  | N0      | N1                 | N(d-1)
                  |         |                    |
@@ -8040,7 +8040,7 @@ new text (R4/R5, verbatim the file at the new span):
 
 - file: `t3toolbox/frame_variations_format.py`; old span: 354–357; kind: index equation; fenced: y
 - letters and widths: letters: D D_i L L_i R R_i U U_i; store words: down up_tucker
-- roles: "up_tucker U_i" → down_tucker D_i; "down/outer D_i" → up U_i; einsum subscripts byte-identical (§1.5 item 6), only the operand letters change
+- roles: "up_tucker U_i" → down_tucker D_i; "down/outer D_i" → up U_i; einsum subscripts byte-identical (§1.5 item 6), only the operand letters change; hand fix 2026-11-15 (glossary row L884): the retired alias "outer" dropped ("up/outer U_i" → "up U_i"), the ``einsum`` column stays at 40
 - re-laid out: y (R4a: re-laid out, K10b; re-laid out (the labels change length); the ``einsum`` column stays at 40. The old block's label-closing colons (35/36) coincide by chance and are not an alignment column (R4a's K10b narrowing))
 - new == old possible: no: it carries a changing letter, width or store word
 - new span: 355–358
@@ -8059,7 +8059,7 @@ new text (R4/R5, verbatim the file at the new span):
 
 ~~~
             - down_tucker D_i (all i):  ``einsum('...io,...jo->...ij', D, D) = I``
-            - up/outer U_i (all i):     ``einsum('...iaj,...ibj->...ab', U, U) = I``
+            - up U_i (all i):           ``einsum('...iaj,...ibj->...ab', U, U) = I``
             - left L_i (i = 0..d-2):    ``einsum('...iaj,...iak->...jk', L, L) = I``
             - right R_i (i = 1..d-1):   ``einsum('...iaj,...kaj->...ik', R, R) = I``
 ~~~
@@ -8068,8 +8068,8 @@ new text (R4/R5, verbatim the file at the new span):
 
 - file: `t3toolbox/frame_variations_format.py`; old span: 784–785; kind: shape listing; fenced: y
 - letters and widths: letters: H(d-1) H0 V(d-1) V0; widths: nDi nUi rLi rRi
-- roles: tucker_variations rows nDi → nUi; tt_variations middle leg nUi → nDi
-- re-laid out: n (R4a: in place, K10)
+- roles: tucker_variations rows nDi → nUi; tt_variations middle leg nUi → nDi; hand fix 2026-11-15 (glossary review R1-M4): the TT variation's right bond `rRi` → `rR(i+1)`, as FVF-0077
+- re-laid out: y (R4a: in place, K10; hand fix 2026-11-15: `rRi` → `rR(i+1)` lengthens the line, so K10b)
 - new == old possible: no: it carries a changing letter, width or store word
 - new span: 785–786
 - same-reason: (R4/R5: required only when the new text equals the old)
@@ -8085,7 +8085,7 @@ new text (R4/R5, verbatim the file at the new span):
 
 ~~~
         - tucker_variations    = (V0, ..., V(d-1)), elm_shape=stack_shape+(nUi, Ni)
-        - tt_variations        = (H0, ..., H(d-1)), elm_shape=stack_shape+(rLi, nDi, rRi)
+        - tt_variations        = (H0, ..., H(d-1)), elm_shape=stack_shape+(rLi, nDi, rR(i+1))
 ~~~
 
 #### FVF-0845

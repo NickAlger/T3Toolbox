@@ -116,7 +116,7 @@ more orthonormal rows than the space they live in:
 | core | orthonormality | the rank it caps |
 |---|---|---|
 | `Dᵢ` (down / Tucker) | rows orthonormal | `nᵢ ≤ Nᵢ` |
-| `Uᵢ` (up) | `nᵢ × (rᵢ·rᵢ₊₁)` unfolding, rows orthonormal | `nᵢ ≤ rᵢ·rᵢ₊₁` |
+| `Uᵢ` (up) | `nᵢ × (rᵢ·rᵢ₊₁)` matricization, rows orthonormal | `nᵢ ≤ rᵢ·rᵢ₊₁` |
 | `Lᵢ` (left) | `(rᵢ·nᵢ) × rᵢ₊₁`, columns orthonormal | `rᵢ₊₁ ≤ rᵢ·nᵢ` |
 | `Rᵢ` (right) | `rᵢ × (nᵢ·rᵢ₊₁)`, rows orthonormal | `rᵢ ≤ nᵢ·rᵢ₊₁` |
 

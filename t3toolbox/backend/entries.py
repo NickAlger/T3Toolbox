@@ -194,7 +194,7 @@ def tv_precompute_entries_frame_sweep(
 def tv_entries_jacobian_from_sweep(
         variation:  typ.Tuple[
             typ.Sequence[NDArray],          # var_tucker_cores. len=d, elm_shape=K+C+(nUi,Ni)
-            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rRi)
+            typ.Sequence[NDArray],          # var_tt_cores.     len=d, elm_shape=K+C+(rLi,nDi,rR(i+1))
         ],
         index:      NDArray,                # int, shape=(d,)+W -- for the variation's fiber-sliced dxis
         frame:      typ.Tuple[

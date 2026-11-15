@@ -574,7 +574,7 @@ def fv_shared_frame_data(
 def fv_share_tucker_variations(
         variations_data: typ.Tuple[
             typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nUi, Ni)
-            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nDi, rRi)
+            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nDi, rR(i+1))
         ],
         shared_data:    'SharedFrameData',    # the frame's companion (fv_shared_frame_data)
         rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
@@ -708,7 +708,7 @@ def _tied_filtered_solve_transpose(
 def fv_tied_ambient_directions(
         variations_data: typ.Tuple[
             typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(nUi, Ni)
-            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nDi, rRi)
+            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, nDi, rR(i+1))
         ],
         shared_data:    'SharedFrameData',    # the frame's companion (fv_shared_frame_data)
         rcond:          float = None,         # relative clip on the group spectrum; None -> dtype eps * max dim
@@ -811,7 +811,7 @@ def fv_tied_lift_factors(
 def fv_share_tucker_variations_corewise(
         variations_data: typ.Tuple[
             typ.Sequence[NDArray],  # tucker_variations. len=d, elm_shape=(K+C)+(ni, Ni)
-            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, ni, rRi)
+            typ.Sequence[NDArray],  # tt_variations.     len=d, elm_shape=(K+C)+(rLi, ni, rR(i+1))
         ],
         groups:         typ.Tuple[typ.Tuple[int, ...], ...],  # static; canonical (validate_sharing)
 ) -> typ.Tuple[

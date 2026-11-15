@@ -634,7 +634,7 @@ def fv_absorb_weights(
                               typ.Sequence[NDArray], typ.Sequence[NDArray]],   # (down, up, left, right), each len=d
 ) -> typ.Tuple[
     typ.Tuple[NDArray, ...],  # weighted tucker_variations, elm_shape=stack+(nUi, Ni)
-    typ.Tuple[NDArray, ...],  # weighted tt_variations,     elm_shape=stack+(rLi, nDi, rRi)
+    typ.Tuple[NDArray, ...],  # weighted tt_variations,     elm_shape=stack+(rLi, nDi, rR(i+1))
 ]:
     """Absorb the four-family metric weights into the VARIATION cores (the tangent metric on coordinates,
     i.e. on the variations): ``up`` -> V's ``nU`` leg; ``down``/``left``/``right`` -> H's
